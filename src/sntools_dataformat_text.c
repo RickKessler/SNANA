@@ -513,7 +513,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL:  " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %.2f",SNDATA.HOSTGAL_SB_FLUX[ifilt] ) ;
+      fprintf(fp," %.2f",SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }
@@ -525,7 +525,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL_ERR:    " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXERR[ifilt_obs] ) ;
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt_obs] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }

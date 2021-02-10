@@ -1421,7 +1421,7 @@ void wr_snfitsio_update_head(void) {
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = 
-      SNDATA.HOSTGAL_SB_FLUX[ifilt] ;
+      SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
 
@@ -2728,6 +2728,17 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH2", 
 				 &SNDATA.HOSTGAL_NMATCH[1],
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    sprintf(KEY,"%s_CONFUSION", PREFIX);
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_CONFUSION,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      sprintf(KEY,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_SB_FLUXCAL[ifilt],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
     
     NGAL = MXHOSTGAL;
     for ( igal=0; igal < NGAL; igal++ ) {
@@ -2788,19 +2799,16 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
 
+      /*
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
-	ifilt_obs = 1; // xxx FIX THIS
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
 	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_MAG[igal][ifilt],
-				     &SNFITSIO_READINDX_HEAD[j] ) ;
+				     &SNFITSIO_READINDX_HEAD[j] ) ;      
       }
+      */
 
     } // end igal 
-
-    sprintf(KEY,"%s_CONFUSION", PREFIX);
-    j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_CONFUSION,
-				 &SNFITSIO_READINDX_HEAD[j] ) ;
-
     //.xyz
 
   } // end LRD_HEAD
@@ -3067,14 +3075,15 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   snfitsio_errorCheck(c1err, istat); 
 
   // restore SNDATA_FILTER struct
+  set_FILTERSTRING(FILTERSTRING);
   SNDATA_FILTER.NDEF = strlen(SNDATA_FILTER.LIST);
   char cfilt[2];  int ifilt, ifilt_obs;
   for(ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     sprintf(cfilt, "%c", SNDATA_FILTER.LIST[ifilt] );
     ifilt_obs = INTFILTER(cfilt);
     SNDATA_FILTER.MAP[ifilt] = ifilt_obs ;
-    printf(" xxx %s: restore FILTER.MAP[%s,%d] = %d \n",
-	   fnam, cfilt, ifilt, ifilt_obs ); fflush(stdout);
+    //   printf(" xxx %s: restore FILTER.MAP[%s,%d] = %d \n",
+    //	   fnam, cfilt, ifilt, ifilt_obs ); fflush(stdout);
 	   
   }
 

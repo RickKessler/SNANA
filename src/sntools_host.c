@@ -5098,7 +5098,7 @@ void init_SNHOSTGAL(void) {
     SNHOSTGAL.GALFRAC[i]          = -9.0 ;     // global
     for ( ifilt = 0; ifilt < MXFILTINDX; ifilt++ ) { 
       SNHOSTGAL.GALMAG[ifilt][i]  = MAG_UNDEFINED ;
-      SNHOSTGAL.SB_FLUX[ifilt]    = 0.0 ; 
+      SNHOSTGAL.SB_FLUXCAL[ifilt] = 0.0 ; 
       SNHOSTGAL.SB_MAG[ifilt]     = MAG_UNDEFINED ;
     }
   }
@@ -6841,7 +6841,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   // compute local surface brightness mag with effective PSF = 0.6''
   // Note that the effective area is 4*PI*PSF^2.
 
-  double psfsig, arg, SB_MAG, SB_FLUX, AREA ;
+  double psfsig, arg, SB_MAG, SB_FLUXCAL, AREA ;
 
   psfsig  = INPUTS.HOSTLIB_SBRADIUS/2.0; 
   AREA    = 3.14159*(4.0*psfsig*psfsig) ; // effective noise-equiv area
@@ -6853,9 +6853,9 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     
     // convert mag to fluxcal
     arg     = -0.4*(SB_MAG - ZEROPOINT_FLUXCAL_DEFAULT) ;
-    SB_FLUX = pow(10.0,arg) ;
+    SB_FLUXCAL = pow(10.0,arg) ;
     
-    SNHOSTGAL.SB_FLUX[ifilt_obs] = SB_FLUX ;  
+    SNHOSTGAL.SB_FLUXCAL[ifilt_obs] = SB_FLUXCAL ;  
     SNHOSTGAL.SB_MAG[ifilt_obs]  = SB_MAG ;
   }
 

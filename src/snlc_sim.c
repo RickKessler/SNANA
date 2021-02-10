@@ -11412,7 +11412,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
       if ( ifilt > 20 ) { continue; } // avoid array-bound overflow
       cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
       sprintf(cptr,"SBFLUX_%c", FILTERSTRING[ifilt_obs] ) ;
-      SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.SB_FLUX[ifilt_obs];
+      SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.SB_FLUXCAL[ifilt_obs];
       NVAR_SIMGEN_DUMP++ ;
     }
 
@@ -20441,7 +20441,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Compute and global hostgal properties (i.e., epoch-independent)
   // and load SNDATA structure,
   //   SNDATA.SIM_GALFRAC[ifilt_obs]      => reference quantity
-  //   SNDATA.HOSTGAL_SB_FLUX[ifilt_obs]  => data-like quantity
+  //   SNDATA.HOSTGAL_SB_FLUXCAL[ifilt_obs]  => data-like quantity
   //   SNDATA.HOSTGAL_USEMASK
   //   SNDATA.HOSTGAL_MAG[ifilt_obs]   ==> data-like quanity
   // where SB = surface brightness.
@@ -20549,8 +20549,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       (float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;
   }
 
-  SNDATA.HOSTGAL_SB_FLUX[ifilt] = (float)SNHOSTGAL.SB_FLUX[ifilt_obs];
-  SNDATA.HOSTGAL_SB_MAG[ifilt]  = (float)SNHOSTGAL.SB_MAG[ifilt_obs];
+  SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] = (float)SNHOSTGAL.SB_FLUXCAL[ifilt_obs];
+  SNDATA.HOSTGAL_SB_MAG[ifilt]     = (float)SNHOSTGAL.SB_MAG[ifilt_obs];
 
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {

@@ -472,7 +472,7 @@ struct SNHOSTGAL {
 
   // aperture-mag info
   double SB_MAG[MXFILTINDX] ;  // surface brightness mag in 1 sq-arcsec
-  double SB_FLUX[MXFILTINDX] ;
+  double SB_FLUXCAL[MXFILTINDX] ;
 
   // xxx delete Jan 31 2020  double GALMAG_TOT[MXFILTINDX];  
   double GALMAG[MXFILTINDX][NMAGPSF_HOSTLIB+1] ; // mag per PSF bin

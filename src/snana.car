@@ -8063,8 +8063,6 @@ c ----------------------------------------
       DVAL   = INT(SIM_MODEL_INDEX)
       CALL SET_SNDATA_DBLE("SIM_MODEL_INDEX", DVAL )
 
-
-c .xyz
       RETURN
       END  ! end of PREP_REFORMAT_SNDATA
 
@@ -11638,6 +11636,7 @@ c     &     ONE, SUBSURVEY_NAME, DARRAY, OPT)
       IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
          CALL FETCH_SNDATA_WRAPPER("FILTERS", 
      &        ONE, SURVEY_FILTERS, DARRAY, OPT)
+         NFILTDEF_READ = INDEX(SURVEY_FILTERS,' ')
       ENDIF
 
       CALL FETCH_SNDATA_WRAPPER("DATATYPE", 
@@ -11755,8 +11754,9 @@ cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
       STRINGVAL = cSTRING(1:LEN_STR)
 
       if ( L_DUMP ) then
-         write(6,66) KEY(1:LEN_KEY), STRINGVAL(1:LEN_STR), DVAL(1)
- 66      format(' xxx FETCH_SNDATA: ', A,' = |', A, '|', 5x, G10.4 )
+         write(6,66) KEY(1:LEN_KEY), STRINGVAL(1:LEN_STR), 
+     &      DVAL(1), DVAL(2)
+ 66      format(' xxx FETCH_SNDATA: ', A,' = |', A, '|', 5x, 2G10.4 )
       endif
 
 
@@ -12056,7 +12056,7 @@ c Read header info and apply some quick selection cuts.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER OPT
+      INTEGER OPT, igal
       REAL*8  DARRAY(10)
       CHARACTER STRING*100
 
@@ -12105,9 +12105,7 @@ c fetch SNDATA values and load fortran globals
          SNLC_CCID      = SNLC_IAUC
          ISNLC_LENCCID  = ISNLC_LENIAUC
          call checkString_CCID(SNLC_CCID) ! abort if illegal char in name
-      ENDIF
-      
-cc       RDHEAD_REDSHIFT(OPT)     
+      ENDIF     
 
       CALL FETCH_SNDATA_WRAPPER("FAKE", 
      &     ONE, STRING, DARRAY, OPT)
@@ -12115,11 +12113,38 @@ cc       RDHEAD_REDSHIFT(OPT)
       if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
       if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
 
+      CALL FETCH_SNDATA_WRAPPER("RA",  ONE, STRING, DARRAY,  OPT)
+      SNLC8_RA = DARRAY(1)
 
-      CALL FETCH_SNDATA_WRAPPER("CCDNUM", 
-     &     ONE, STRING, DARRAY, OPT)
+      CALL FETCH_SNDATA_WRAPPER("DEC", ONE, STRING, DARRAY, OPT)
+      SNLC8_DEC = DARRAY(1)
+
+      CALL FETCH_SNDATA_WRAPPER("PIXSIZE", ONE, STRING, DARRAY, OPT)
+      SNLC_PIXSIZE = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("NXPIX", ONE, STRING, DARRAY, OPT)
+      SNLC_NXPIX = INT(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("NYPIX", ONE, STRING, DARRAY, OPT)
+      SNLC_NYPIX = INT(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("CCDNUM", ONE, STRING, DARRAY, OPT)
       ISNLC_CCDNUM(1) = INT(DARRAY(1))
 
+      CALL FETCH_SNDATA_WRAPPER("SNTYPE", ONE, STRING, DARRAY, OPT)
+      ISNLC_TYPE = INT(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("MWEBV", ONE, STRING, DARRAY, OPT)
+      SNLC_MWEBV = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
+      SNLC_MWEBV_ERR = SNGL(DARRAY(1))
+
+      CALL RDHEAD_REDSHIFT(OPT)
+
+      DO igal = 1, MXSNHOST
+         CALL RDHEAD_HOSTGAL(OPT,igal)
+      ENDDO
 c .xyz - - - - - 
       
       print*,' '
@@ -12127,7 +12152,244 @@ c .xyz - - - - -
       STOP   ! xxx REMOVE
 
       RETURN
-      END
+      END   ! end RDHEAD_DRIVER
+
+
+C ============================================
++DECK,RDHEAD_HOSTGAL.
+      SUBROUTINE RDHEAD_HOSTGAL(OPT,igal)
+
+C created Feb 9 2021 [refactored from PARSE_HOSTGAL]
+c Transfer HOSTGAL info from SNDATA struct (sndata.h)
+c to common block variable.s
+
+      IMPLICIT NONE
+
+      INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+      INTEGER   LENPRE, ifilt, ifilt_obs
+      CHARACTER PREFIX*20, STRING*40, KEY*60
+      REAL*8    DARRAY(MXFILT_OBS), SB
+
+C -------------- BEGIN ----------
+      
+      CALL SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
+
+C Start with items that only appear once;
+c i.e., do not depend on host-match.
+
+      IF ( IGAL == 1 ) THEN
+
+         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH", 
+     &        ONE, STRING, DARRAY, OPT)
+         SNHOST_NMATCH = INT(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH2", 
+     &        ONE, STRING, DARRAY, OPT)
+         SNHOST_NMATCH2 = INT(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
+     &        ONE, STRING, DARRAY, OPT)
+         SNHOST_CONFUSION = SNGL(DARRAY(1))
+         if(SNHOST_CONFUSION > -98.0) EXIST_SNHOST_CONFUSION = .TRUE.
+
+         DO ifilt = 1, NFILTDEF_READ
+            ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+            KEY = "HOSTGAL_SB_FLUXCAL_" // 
+     &             FILTDEF_STRING(ifilt_obs:ifilt_obs)
+            CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+            SB    = DARRAY(1)
+            if ( SB < 98.0 ) EXIST_SNHOST_SB = .TRUE.
+            SNHOST_SBFLUXCAL(ifilt) = SNGL(SB)
+         ENDDO
+
+      ENDIF  ! end IGAL=1
+
+c - - - - - - - - 
+
++SELF,IF=BLA.
+      KEY    = PREFIX(1:LENPRE)//'_OBJID'
+      RETSTR = ''
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         I8TMP = DINT(RET8(1))
+         SNHOST_OBJID(igal)  = I8TMP
+         DSNHOST_OBJID(igal) = RET8(1)
+      ENDIF  
+
+      KEY    = PREFIX(1:LENPRE)//'_PHOTOZ'
+      RETSTR = '+ERR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ''
+      IF ( LTMP ) THEN
+          EXIST_SNHOST_ZPHOT = .TRUE.
+          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
+             SNHOST_ZPHOT(igal)    = SNGL(RET8(1)) 
+          endif
+          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
+             SNHOST_ZPHOT_ERR(igal) = SNGL(RET8(2))
+          endif
+      ENDIF
+
+      KEY    = PREFIX(1:LENPRE)//'_SPECZ' 
+      RETSTR = '+ERR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ''
+      IF ( LTMP ) THEN
+          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
+            SNHOST_ZSPEC(igal)     = SNGL(RET8(1))
+          endif
+          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
+            SNHOST_ZSPEC_ERR(igal) = SNGL(RET8(2))
+          endif
+      ENDIF
+
+      KEY  = PREFIX(1:LENPRE)//'_RA'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN ;  SNHOST8_RA(igal) = RET8(1) ;  ENDIF
+
+      KEY  = PREFIX(1:LENPRE)//'_DEC'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN ;  SNHOST8_DEC(igal) = RET8(1) ;  ENDIF
+
+      KEY  = PREFIX(1:LENPRE)//'_SNSEP'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SNHOST_ANGSEP(igal) = SNGL(RET8(1))
+        EXIST_SNHOST_ANGSEP = .TRUE.
+      ENDIF
+
+      KEY  = PREFIX(1:LENPRE)//'_DDLR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SNHOST_DDLR(igal) = SNGL(RET8(1))
+        EXIST_SNHOST_DDLR = .TRUE.
+      ENDIF
+
+c - - - - - - - - - - - -  -
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;    
+      RETSTR = '+ERR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
+            SNHOST_LOGMASS(igal)     = SNGL(RET8(1))
+          endif
+          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
+             SNHOST_LOGMASS_ERR(igal) = SNGL(RET8(2))
+          endif
+          EXIST_SNHOST_LOGMASS = .TRUE.
+      ENDIF
+
+      KEY    = PREFIX(1:LENPRE)//'_sSFR' ;    
+      RETSTR = '+ERR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
+            SNHOST_sSFR(igal)     = SNGL(RET8(1))
+          endif
+          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
+             SNHOST_sSFR_ERR(igal) = SNGL(RET8(2))
+          endif
+          EXIST_SNHOST_sSFR = .TRUE.
+      ENDIF
+
+c - - - 
+
+      KEY    = PREFIX(1:LENPRE)//'_MAG'
+      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ' '
+      IF ( LTMP ) THEN
+        EXIST_SNHOST_MAGOBS = .TRUE.
+        DO ifilt = 1, NFILTDEF_READ
+           SNHOST_MAGOBS(ifilt,igal) = SNGL ( RET8(ifilt) )
+        ENDDO
+      ENDIF
++SELF.
+
+      RETURN
+      END    ! end RDHEAD_HOSTGAL
+
+C ===========================================
++DECK,RDHEAD_REDSHIFT.
+      SUBROUTINE RDHEAD_REDSHIFT(OPT)
+
+c Created Feb 2021 [refactored from PARSE_REDSHIFT]
+c Read/store redshift & vpec info
+c Note tat REDSHIFT_FINAL is used for LC fitting.
+
+      IMPLICIT NONE
+
+      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      CHARACTER STRING*40
+      REAL*8 DARRAY(10)
+      REAL   ZMAX
+
+C ----------- BEGIN ------------
+
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO", 
+     &       ONE, STRING, DARRAY, OPT)
+      SNLC_zHELIO = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+      SNLC_REDSHIFT = SNLC_zHELIO  ! used for LC fitting
+
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO_ERR", 
+     &       ONE, STRING, DARRAY, OPT)
+      SNLC_zHELIO_ERR = SNGL(DARRAY(1))
+      SNLC_REDSHIFT_ERR = SNLC_zHELIO_ERR
+
+c - - - - -
+
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL", 
+     &       ONE, STRING, DARRAY, OPT)
+      SNLC_zCMB = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL_ERR", 
+     &       ONE, STRING, DARRAY, OPT)
+      SNLC_zCMB_ERR = SNGL(DARRAY(1))
+
+c - - - - - - - - - - 
+c assign light curve redshift if not already assigned by Z_HELIO
+c i.e., light curve analysis should use Z_HELIO if it's defined;
+c otherwise use Z_CMB
+
+      IF ( SNLC_ZHELIO < 0.0 ) then
+         SNLC_REDSHIFT      = SNLC_zCMB
+         SNLC_REDSHIFT_ERR  = SNLC_zCMB_ERR
+      ENDIF
+
+c -------------------------
+c VPEC 
+
+      CALL FETCH_SNDATA_WRAPPER("VPEC", ONE, STRING, DARRAY, OPT)
+      SNLC_VPEC = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("VPEC_ERR", ONE, STRING, DARRAY, OPT)
+      SNLC_VPEC_ERR = SNGL(DARRAY(1))
+
+c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
+      if ( DOFIX_WRONG_SIGN_VPEC ) then
+         SNLC_VPEC = -1.0 * SNLC_VPEC
+      endif
+
+      IF (  abs(VPEC_ERR_OVERRIDE) > .001 ) THEN
+         SNLC_VPEC_ERR = VPEC_ERR_OVERRIDE  ! Jan 11 2018
+      ENDIF
+
+c redshift quality flag (real data only)
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_QUALITYFLAG", 
+     &    ONE, STRING, DARRAY, OPT)
+      ISNLC_zFLAG = INT(DARRAY(1))
+
+      RETURN
+      END    ! end RDHEAD_REDSHIFT
 
 C ===========================================
 +DECK,RDGLOB_FITS_LEGACY.
@@ -13760,7 +14022,7 @@ c after loading globals, return if this CID is not used
 
 c -------------------------------------------------------
 c read redshift info here to apply CUT ASAP
-      CALL PARSE_REDSHIFT ( isnlc, CWORDS(1), istat )
+      CALL PARSE_REDSHIFT_LEGACY ( isnlc, CWORDS(1), istat )
       if ( istat .LT. 0 )  RETURN
       
 c -----------------------------------------------------
@@ -13911,7 +14173,7 @@ c Jan 24 2018: check optional TEXT format with MWEBV +- MWEBV_ERR
 c ------------- HOST INFO ----------------------
 
       DO igal = 1, MXSNHOST
-         call PARSE_HOSTGAL(igal, isnlc, cwords )
+         call PARSE_HOSTGAL_LEGACY(igal, isnlc, cwords )
       ENDDO
 
 c -----------------------------
@@ -14008,8 +14270,8 @@ c check that filters are the SURVEY_FILTERS
       END   ! end of PARSE_HEAD
 
 C ============================
-+DECK,PARSE_HOSTGAL.
-      SUBROUTINE PARSE_HOSTGAL(IGAL, ISNLC, CWORDS)
++DECK,PARSE_HOSTGAL_LEGACY.
+      SUBROUTINE PARSE_HOSTGAL_LEGACY(IGAL, ISNLC, CWORDS)
 
       IMPLICIT NONE
 
@@ -15455,7 +15717,7 @@ c return FALSE if interp-option is set but not finished
 
 C ==============================================
 +DECK,PRS_REDSHIFT.
-      SUBROUTINE PARSE_REDSHIFT ( isnlc, cwords, istat )
+      SUBROUTINE PARSE_REDSHIFT_LEGACY(isnlc, cwords, istat)
 c
 c Parse redshift parameters.
 c cword(1) is the keyword; cword(2) is the value.

@@ -3868,26 +3868,143 @@ void fetch_SNDATA_HEAD(char *key, int NVAL,
   // For input *key, search event header info in SNDATA struct
   // and return stringVal or parVal.
 
+  int NFILT = SNDATA_FILTER.NDEF ;
+  int igal, NGAL, ifilt, ifilt_obs ;
+  char PREFIX[20], KEY_HOSTGAL[60], cfilt[2] ;
   char fnam[] = "fetch_SNDATA_HEAD" ;
 
   // ------------- BEGIN ------------
 
   sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
 
-  if ( strcmp(key,"SNID") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.CCID );  }
-
-  else if ( strcmp(key,"IAUC") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.IAUC_NAME );  }
-
-  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
+  if ( strcmp(key,"SUBSURVEY") == 0 ) 
     { sprintf(stringVal, "%s", SNDATA.SUBSURVEY_NAME );  }
 
+  else if ( strcmp(key,"SNID") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.CCID );  }
+  else if ( strcmp(key,"IAUC") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.IAUC_NAME );  }
   else if ( strcmp(key,"FAKE") == 0 ) 
     { parVal[0] = SNDATA.FAKE ;  }
 
+  else if ( strcmp(key,"MASK_FLUXCOR_SNANA") == 0 ) 
+    { parVal[0] = (double)SNDATA.MASK_FLUXCOR ;  }
+
+  else if ( strcmp(key,"RA") == 0 ) 
+    { parVal[0] = SNDATA.RA ;  }
+  else if ( strcmp(key,"DEC") == 0 ) 
+    { parVal[0] = SNDATA.DEC ;  }
+
+  else if ( strcmp(key,"PIXSIZE") == 0 ) 
+    { parVal[0] = (double)SNDATA.PIXSIZE ;  }
+  else if ( strcmp(key,"NXPIX") == 0 ) 
+    { parVal[0] = (double)SNDATA.NXPIX ;  }
+  else if ( strcmp(key,"NYPIX") == 0 ) 
+    { parVal[0] = (double)SNDATA.NYPIX ;  }
+
   else if ( strcmp(key,"CCDNUM") == 0 ) 
     { parVal[0] = (double)SNDATA.CCDNUM[1] ;  }
+
+  else if ( strcmp(key,"SNTYPE") == 0 ) 
+    { parVal[0] = (double)SNDATA.SNTYPE ;  }
+
+  else if ( strcmp(key,"NOBS") == 0 ) 
+    { parVal[0] = (double)SNDATA.NOBS ;  }
+
+  else if ( strcmp(key,"MWEBV") == 0 ) 
+    { parVal[0] = (double)SNDATA.MWEBV ;  }
+  else if ( strcmp(key,"MWEBV_ERR") == 0 ) 
+    { parVal[0] = (double)SNDATA.MWEBV_ERR ;  }
+
+  else if ( strcmp(key,"REDSHIFT_HELIO") == 0 ) 
+    { parVal[0] = (double)SNDATA.REDSHIFT_HELIO ;  }
+  else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 ) 
+    { parVal[0] = (double)SNDATA.REDSHIFT_HELIO_ERR ;  }
+
+  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 ) 
+    { parVal[0] = (double)SNDATA.REDSHIFT_FINAL;  }
+  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ) 
+    { parVal[0] = (double)SNDATA.REDSHIFT_FINAL_ERR;  }
+  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 ) 
+    { parVal[0] = (double)SNDATA.REDSHIFT_QUALITYFLAG ;  }
+  else if ( strcmp(key,"VPEC") == 0 ) 
+    { parVal[0] = (double)SNDATA.VPEC ; }
+  else if ( strcmp(key,"VPEC_ERR") == 0 ) 
+    { parVal[0] = (double)SNDATA.VPEC_ERR ; }
+
+  else if ( strncmp(key,"HOSTGAL",7) == 0 ) {
+
+    if ( strcmp(key,"HOSTGAL_NMATCH") == 0 ) 
+      { parVal[0] = (double)SNDATA.HOSTGAL_NMATCH[0] ; }    
+    else if ( strcmp(key,"HOSTGAL_NMATCH2") == 0 ) 
+      { parVal[0] = (double)SNDATA.HOSTGAL_NMATCH[1] ; }  
+    else if ( strcmp(key,"HOSTGAL_CONFUSION") == 0 ) 
+      { parVal[0] = (double)SNDATA.HOSTGAL_CONFUSION ; }  
+
+    if ( strstr(key,"SB_FLUXCAL") != NULL ) {
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_HOSTGAL,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs]); 
+	if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	  { parVal[0] = (double)SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ; }  
+      }
+    }
+
+    NGAL = MXHOSTGAL ;
+    for(igal=0; igal < NGAL; igal++ ) {
+      sprintf(PREFIX,"HOSTGAL");
+      if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d",igal+1); }
+
+      sprintf(KEY_HOSTGAL,"%s_OBJID", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_OBJID[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_PHOTOZ", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_PHOTOZ[igal] ; }       
+      sprintf(KEY_HOSTGAL,"%s_PHOTOZ_ERR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_SPECZ", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_SPECZ[igal] ; }       
+      sprintf(KEY_HOSTGAL,"%s_SPECZ_ERR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_SPECZ_ERR[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_RA", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_RA[igal] ; }       
+      sprintf(KEY_HOSTGAL,"%s_DEC", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_DEC[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_SNSEP", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_SNSEP[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_DDLR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_DDLR[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_LOGMASS", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_LOGMASS_OBS[igal] ; }   
+      sprintf(KEY_HOSTGAL,"%s_LOGMASS_ERR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_LOGMASS_ERR[igal] ; }       
+
+      sprintf(KEY_HOSTGAL,"%s_sSFR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_sSFR[igal] ; }       
+      sprintf(KEY_HOSTGAL,"%s_sSFR_ERR", PREFIX); 
+      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
+	{ parVal[0] = (double)SNDATA.HOSTGAL_sSFR_ERR[igal] ; }       
+
+    } // end igal
+
+  }  // end "HOSTGAL"
 
   else {
     // error message
@@ -4150,7 +4267,7 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"HOSTGAL_SB_FLUXCAL") == 0 ) {
     SNDATA.HOSTGAL_USEMASK |= 4 ;
     for(i=0; i < NVAL ; i++ ) 
-      {  SNDATA.HOSTGAL_SB_FLUX[i] = (float)parVal[i] ;  }
+      {  SNDATA.HOSTGAL_SB_FLUXCAL[i] = (float)parVal[i] ;  }
   }
   // - - - -
 
@@ -4990,12 +5107,12 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   //
   // modeArg[2] -> modeArg[4] (fix Mac issue)
   //
+  // Feb 2021: abort if open fails (e.g. file is write-protected)
 
   char fileName[MXPATHLEN], SNDATA_ROOT[MXPATHLEN] ;
   char modeArg[4];
   FILE *fp ;
-
-  //  char fnam[] = "openFile_PATH_SNDATA_SIM" ;
+  char fnam[] = "openFile_PATH_SNDATA_SIM" ;
 
   // ------------- BEGIN --------------
 
@@ -5005,6 +5122,13 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   sprintf(fileName, "%s/SIM/%s", SNDATA_ROOT, PATH_SNDATA_SIM_LIST );
   sprintf(modeArg, "%ct", mode[0] );
   fp = fopen(fileName,modeArg);
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open PATH_SNDATA_SIM file in %s mode:", mode);
+    sprintf(c2err,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
   //  printf("\n Open %s in %s-mode (%s)\n", fileName, mode, modeArg);
   return(fp) ;
 
@@ -8147,10 +8271,13 @@ int init_SNDATA(void) {
   SNDATA.REDSHIFT_FINAL        = NULLFLOAT ;
   SNDATA.REDSHIFT_FINAL_ERR    = NULLFLOAT ;
   SNDATA.VPEC = SNDATA.VPEC_ERR = 0.0 ;
+  SNDATA.REDSHIFT_QUALITYFLAG  = 0;
 
   // init HOSTGAL info
   SNDATA.HOSTGAL_NMATCH[0] = 0;
   SNDATA.HOSTGAL_NMATCH[1] = 0;
+  SNDATA.HOSTGAL_CONFUSION = -99.0;
+
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
     SNDATA.HOSTGAL_OBJID[igal]       = 0;
     SNDATA.HOSTGAL_PHOTOZ[igal]      = -9.0 ;
@@ -8235,8 +8362,8 @@ int init_SNDATA(void) {
     SNDATA.SIM_TEMPLATEMAG[ifilt]  = NULLFLOAT ;
     SNDATA.SIM_GALFRAC[ifilt]      = NULLFLOAT ;
     SNDATA.NPRESN[ifilt]                = NULLINT ;
-    SNDATA.HOSTGAL_SB_FLUX[ifilt]       = NULLFLOAT ;
-    SNDATA.HOSTGAL_SB_FLUXERR[ifilt]    = NULLFLOAT ;
+    SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]    = NULLFLOAT ;
+    SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt] = NULLFLOAT ;
     SNDATA.HOSTGAL_SB_MAG[ifilt]        = 99.0 ;
 
     for(igal=0; igal<MXHOSTGAL; igal++ ) {
@@ -8545,33 +8672,6 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
 
 }  // end of function PARSE_FILTLIST
 
-
-
-/* xxxxxxxx mark delete Jan 5 2018 xxxxxxxxxxx
-float snfluxmax ( float z ) {
-
-  // returns max possible SN flux for redsfhit =z .
-  // Used for idiot checks on flux.
-
-  double ztmp8,  magtmp8, fluxmax8 ;
-  double H0 = 65.0 / ( 1.0E6 * PC_km) ;
-  double W0 = -1.0 ;
-  double OM =  0.3 ;
-  double OE =  0.7;
-
-
-  ztmp8   = (double)z ;
-  //  magtmp8 = dLmag( H0, OM, OE, W0, ztmp8 ) - 19.4 ;
-  fluxmax8 = 1.0E12/powf((double)10.0,0.4*magtmp8);
-
-  fluxmax8 *= 2.0;  // Apr 16, 2008
-
-  //  printf("\n xxxx z=%f  => magtmp=%f  fluxmax=%f \n", ztmp8, magtmp8, fluxmax);
-
-  return  (float)fluxmax8 ;
-
-} // end  of snfluxmax
-xxxxxxxxxxxx */
 
 // ************************************************
 void checkArrayBound(int i, int MIN, int MAX, 
@@ -10949,22 +11049,22 @@ int rd_SNDATA ( void ) {
 
     // ----
     if ( strcmp(c_get,"HOSTGAL_SB_FLUX:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
+      fptr = &SNDATA.HOSTGAL_SB_FLUXCAL[MINFILT_DEF] ;
       readfloat ( fp, NFILT_DEF, fptr );
       SNDATA.HOSTGAL_USEMASK |= 4 ;
     }
     if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
+      fptr = &SNDATA.HOSTGAL_SB_FLUXCAL[MINFILT_DEF] ;
       readfloat ( fp, NFILT_DEF, fptr );
       SNDATA.HOSTGAL_USEMASK |= 4 ;
     }
     if ( strcmp(c_get,"HOSTGAL_SB_FLUXERR:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
+      fptr = &SNDATA.HOSTGAL_SB_FLUXCALERR[MINFILT_DEF] ;
       readfloat ( fp, NFILT_DEF, fptr );
       SNDATA.HOSTGAL_USEMASK |= 8 ;
     }
     if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL_ERR:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
+      fptr = &SNDATA.HOSTGAL_SB_FLUXCALERR[MINFILT_DEF] ;
       readfloat ( fp, NFILT_DEF, fptr );
       SNDATA.HOSTGAL_USEMASK |= 8 ;
     }
@@ -11625,7 +11725,7 @@ void wr_HOSTGAL(FILE *fp) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL:    " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUX[ifilt] ) ;
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }
@@ -11637,7 +11737,7 @@ void wr_HOSTGAL(FILE *fp) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL_ERR:    " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXERR[ifilt_obs] ) ;
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt_obs] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }

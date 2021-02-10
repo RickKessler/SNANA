@@ -256,8 +256,8 @@ struct SNDATA {
   int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
-  float   HOSTGAL_SB_FLUX[MXFILTINDX];     // surface bright (FLUXCAL/arcsec)
-  float   HOSTGAL_SB_FLUXERR[MXFILTINDX];  // error on above
+  float   HOSTGAL_SB_FLUXCAL[MXFILTINDX];   // surface bright (FLUXCAL/asec)
+  float   HOSTGAL_SB_FLUXCALERR[MXFILTINDX];  // error on above
   float   HOSTGAL_SB_MAG[MXFILTINDX];      // SB mag in 1 sq-arcsec
   float   HOSTGAL_MAG[MXHOSTGAL][MXFILTINDX];         // host mag
   float   HOSTGAL_MAGERR[MXHOSTGAL][MXFILTINDX];   

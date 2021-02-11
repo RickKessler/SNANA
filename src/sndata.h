@@ -144,6 +144,7 @@ struct SNDATA {
   // name of SURVEY and SUBSURVEY
   char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
   char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  int  SUBSURVEY_FLAG ;
 
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
@@ -175,6 +176,10 @@ struct SNDATA {
   int   NEPOCH;           // total NEPOCH including peak and unused filters
   int   NOBS ;            // total Num of observations (<= NEPOCH)
 
+  // list of observations to store; they pass select_MJD_SNDATA func
+  int   NOBS_STORE;
+  int   OBS_STORE_LIST[MXEPOCH];
+
   int   SUBSAMPLE_INDEX ; // if user-input NSUBSAMPLE_MARK > 0
 
   // Note that for non-SDSS surveys, NEPOCH_NEWMJD = NEPOCH and
@@ -203,6 +208,7 @@ struct SNDATA {
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
   char  FILTCHAR[MXEPOCH][2];     // char string for filter
+  char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 
   int   SEARCH_RUN[MXEPOCH] ;
   int   TEMPLATE_RUN[MXEPOCH] ;
@@ -226,6 +232,7 @@ struct SNDATA {
   char  IAUC_NAME[20];           // official name (SQL)
 
   char FIELDNAME[MXEPOCH][20] ;    // survey field (generalize SDSS STRIPE)
+  char FIELDNAME_1D[MXEPOCH*20] ;  // for fortran interface
 
   float FLUXCAL[MXEPOCH] ;         // calibrated flux for fitter
   float FLUXCAL_ERRTOT[MXEPOCH] ;  

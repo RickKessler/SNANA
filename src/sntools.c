@@ -3724,124 +3724,169 @@ double MAGLIMIT_calculator(double ZPT, double PSF, double SKYMAG, double SNR){
 } // end of SIMLIB_maglimit
 
 
-void fetch_SNDATA_GLOBAL(char *key, int NVAL, 
-			 char *stringVal, double *parVal ) {
+// =========================================================
+void copy_int(int copyFlag, double *DVAL0, int *IVAL1) {
+  if   ( copyFlag > 0)  { *IVAL1 = (int)(*DVAL0);  }  
+  else                  { *DVAL0 = (double)(*IVAL1);  }
+}
+
+void copy_lli(int copyFlag, double *DVAL0, long long *IVAL1) {
+  if   ( copyFlag > 0)  { *IVAL1 = (long long)(*DVAL0);  }  
+  else                  { *DVAL0 = (double)(*IVAL1);  }
+}
+
+void copy_flt(int copyFlag, double *DVAL0, float *FVAL1) {
+  if   ( copyFlag > 0)  { *FVAL1 = (float)(*DVAL0);  }  
+  else                  { *DVAL0 = (double)(*FVAL1);  }
+}
+
+void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) {
+  if   ( copyFlag > 0)  { *DVAL1 = (double)(*DVAL0);  }  
+  else                  { *DVAL0 = (double)(*DVAL1);  }
+}
+
+void copy_str(int copyFlag, char *STR0, char *STR1) {
+  if   ( copyFlag > 0)  { sprintf(STR1, "%s", STR0); }
+  else                  { sprintf(STR0, "%s", STR1); }
+}
+
+
+// ===================================================
+void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL, 
+			char *stringVal, double *parVal ) {
 
   // Created Feb 2021
-  // Based on input key, return global value in SNDATA struct.
+  //
+  // Copy *key value to or from SNDATA struct.
+  // Note that event has already been read, but is not stored
+  // in useful arrays.
+  //
   // GLOBAL refers to params that do not depend on event.
-  //  (part of data-read refactor)
   //
   // Inputs:
-  //   *key  : name of variable to read from SNDATA struct
-  //   NVAL  : number of values to read
+  //  copyFlag : 
+  //     +1 -> copy from string or parVal to SNDATA (prep  data write)
+  //     -1 -> copy from SNDATA to string or parVal (after read data)
+  //
+  //   *key  : name of variable to copy to/from SNDATA struct
+  //   NVAL  : number of values to copy
   // 
   // Output:
   //    *stringVal  : string value if *key points to string
   //    *parVal     : double value if *key points to double,float,int
   //
 
-  bool ISKEY_PRIVATE = ( strstr(key,"PRIVATE")    != NULL ) ;
+  bool ISKEY_PRIVATE = ( strstr (key,"PRIVATE")   != NULL ) ;
   bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
   bool ISKEY_SNEMO   = ( strncmp(key,"SNEMO",5)   == 0 ) ;
   bool ISKEY_SIMSED  = ( strncmp(key,"SIMSED",6)  == 0 ) ;
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
 
-  int ivar, NVAR;
-  char fnam[] = "fetch_SNDATA_GLOBAL" ;
+  int ivar, NVAR, ipar ;
+  char fnam[] = "copy_SNDATA_GLOBAL" ;
 
   // --------------- BEGIN --------------
 
-  sprintf(stringVal,"NOTSET");
-  parVal[0] = -999.0;
+  sprintf(stringVal,"NOTSET");    parVal[0] = -999.0;
 
   if ( strcmp(key,"SNANA_VERSION") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.SNANA_VERSION );  }
+    { copy_str(copyFlag, stringVal, SNDATA.SNANA_VERSION );  }
 
   else if ( strcmp(key,"SURVEY") == 0 ) 
-    {  sprintf(stringVal, "%s", SNDATA.SURVEY_NAME );  }
+    { copy_str(copyFlag, stringVal, SNDATA.SURVEY_NAME );  }
 
-  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
-    {  sprintf(stringVal, "%s", SNDATA.SUBSURVEY_NAME ) ;  }
+  else if ( strcmp(key,"SUBSURVEY_FLAG") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.SUBSURVEY_FLAG );  }
 
   else if ( strcmp(key,"FILTERS") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA_FILTER.LIST );  }
+    { copy_str(copyFlag, stringVal, SNDATA_FILTER.LIST );  }
 
   else if ( strcmp(key,"DATATYPE") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.DATATYPE );  }
+    { copy_str(copyFlag, stringVal, SNDATA.DATATYPE );  }
 
   else if ( strcmp(key,"PySEDMODEL") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.PySEDMODEL_NAME ) ; }
+    { copy_str(copyFlag, stringVal, SNDATA.PySEDMODEL_NAME );  }
 
   else if ( ISKEY_PRIVATE  ) {
     if ( strcmp(key,"NVAR_PRIVATE") == 0 ) 
-      { parVal[0] = (double)SNDATA.NVAR_PRIVATE ; }
+      { copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  }
     else {
       sscanf(&key[7], "%d", &ivar);  // PRIVATEnn
-      sprintf(stringVal, "%s", SNDATA.PRIVATE_KEYWORD[ivar] );
+      copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
     }
   }
   else if ( ISKEY_SIMSED  ) {
 
     if ( strcmp(key,"SIMSED_NPAR") == 0 ) 
-      { parVal[0] = (double)SNDATA.NPAR_SIMSED ; }
+      { copy_int(copyFlag, parVal, &SNDATA.NPAR_SIMSED );  }
     else {
       sscanf(&key[10], "%d", &ivar);  // 'SIMSED_PARnn'
-      sprintf(stringVal, "%s", SNDATA.SIMSED_KEYWORD[ivar] );
+      copy_str(copyFlag, stringVal, SNDATA.SIMSED_KEYWORD[ivar] ); 
     }
   }
 
   else if ( ISKEY_LCLIB  ) {
     if ( strcmp(key,"LCLIB_NPAR") == 0 ) 
-      { parVal[0] = (double)SNDATA.NPAR_LCLIB ; }
+      { copy_int(copyFlag, parVal, &SNDATA.NPAR_LCLIB );  }
     else {
       sscanf(&key[9], "%d", &ivar); // LCLIB_PARnn
-      sprintf(stringVal, "%s", SNDATA.LCLIB_KEYWORD[ivar] );
+      copy_str(copyFlag, stringVal, SNDATA.LCLIB_KEYWORD[ivar] ); 
     }
   }
 
   else if ( ISKEY_BYOSED  ) {
     if ( strcmp(key,"BYOSED_NPAR") == 0 ) 
-      { parVal[0] = (double)SNDATA.NPAR_PySEDMODEL ; }
+      { copy_int(copyFlag, parVal, &SNDATA.NPAR_PySEDMODEL );  }
     else {
       sscanf(&key[10], "%d", &ivar); // BYOSED_PARnn
-      sprintf(stringVal, "%s", SNDATA.PySEDMODEL_KEYWORD[ivar] );
+      copy_str(copyFlag, stringVal, SNDATA.PySEDMODEL_KEYWORD[ivar] ); 
     }
   }
 
   else if ( ISKEY_SNEMO  ) {
     if ( strcmp(key,"SNEMO_NPAR") == 0 ) 
-      { parVal[0] = (double)SNDATA.NPAR_PySEDMODEL ; }
+      { copy_int(copyFlag, parVal, &SNDATA.NPAR_PySEDMODEL );  }
     else {
       sscanf(&key[9], "%d", &ivar); // SNEMO_PARnn
-      sprintf(stringVal, "%s", SNDATA.PySEDMODEL_KEYWORD[ivar] );
+      copy_str(copyFlag, stringVal, SNDATA.PySEDMODEL_KEYWORD[ivar] ); 
     }
   }
 
-  else if ( ISKEY_SIM ) {
-    
+  else if ( ISKEY_SIM ) {   
+
     if ( strcmp(key,"SIMLIB_FILE") == 0 ) 
-      { sprintf(stringVal, "%s", SNDATA.SIMLIB_FILE );  }
+      { copy_str(copyFlag, stringVal, SNDATA.SIMLIB_FILE ); }
 
     else if ( strcmp(key,"SIMLIB_MSKOPT") == 0 ) 
-      { parVal[0] = (double)SNDATA.SIMLIB_MSKOPT ; }
+      { copy_int(copyFlag, parVal, &SNDATA.SIMLIB_MSKOPT ); }
 
     else if ( strcmp(key,"SIMOPT_MWCOLORLAW") == 0 ) 
-      { parVal[0] = (double)SNDATA.SIMOPT_MWCOLORLAW ; }
+      { copy_int(copyFlag, parVal, &SNDATA.SIMOPT_MWCOLORLAW ); }
 
     else if ( strcmp(key,"SIMOPT_MWEBV") == 0 ) 
-      { parVal[0] = (double)SNDATA.SIMOPT_MWEBV ; }
+      { copy_int(copyFlag, parVal, &SNDATA.SIMOPT_MWEBV ); }
 
     else if ( strcmp(key,"SIM_MWRV") == 0 ) 
-      { parVal[0] = (double)SNDATA.SIM_MWRV ; }
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_MWRV ); }
 
     else if ( strcmp(key,"SIM_VARNAME_SNRMON") == 0 ) 
-      { sprintf(stringVal, "%s", SNDATA.VARNAME_SNRMON) ; }
+      { copy_str(copyFlag, stringVal, SNDATA.VARNAME_SNRMON ); }
+
+    else if ( strcmp(key,"SIM_HOSTLIB_NPAR") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.NPAR_SIM_HOSTLIB ); }
+
+    else if ( strncmp(key,"SIM_HOSTLIB_PAR",15) == 0 ) {
+      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+	copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
+      }
+    }
+    else if ( strcmp(key,"SIM_SL_FLAG") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_SL_FLAG ); }
 
     else {
       // error message
-      sprintf(c1err,"Unknown SIM key = %s", key);
+      sprintf(c1err,"Unknown SIM key = %s (copyFlag=%d)", key, copyFlag);
       sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -3849,104 +3894,131 @@ void fetch_SNDATA_GLOBAL(char *key, int NVAL,
   }
   else {
     // error message
-    sprintf(c1err,"Unknown key = %s", key);
+    sprintf(c1err,"Unknown key = %s  (copyFlag=%d)", key, copyFlag);
     sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   return;
 
-} // end fetch_SNDATA_GLOBAL
+} // end copy_SNDATA_GLOBAL
 
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
 
-void fetch_SNDATA_HEAD(char *key, int NVAL, 
-			 char *stringVal, double *parVal ) {
+void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL, 
+		      char *stringVal, double *parVal ) {
 
   // Created Feb 2021:
-  // For input *key, search event header info in SNDATA struct
-  // and return stringVal or parVal.
+  //
+  // Copy *key value to or from SNDATA struct.
+  // Note that event has already been read, but is not stored
+  // in useful arrays.
+  //
+  // HEAD refers SN-dependent HEADER that updates for each event.
+  //   (i.e., depends on SN; does NOT depend on MJD)
+
+  // Inputs:
+  //  copyFlag : 
+  //     +1 -> copy from string or parVal to SNDATA (prep  data write)
+  //     -1 -> copy from SNDATA to string or parVal (after read data)
+  //
+  //   *key  : name of variable to copy to/from SNDATA struct
+  //   NVAL  : number of values to copy
+  // 
+  // Output:
+  //    *stringVal  : string value if *key points to string
+  //    *parVal     : double value if *key points to double,float,int
+  //
 
   int NFILT = SNDATA_FILTER.NDEF ;
-  int igal, NGAL, ifilt, ifilt_obs ;
-  char PREFIX[20], KEY_HOSTGAL[60], cfilt[2] ;
-  char fnam[] = "fetch_SNDATA_HEAD" ;
+  char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ;
+  int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
+  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar ;
+  double DVAL;
+  char PREFIX[40], KEY_TEST[60], cfilt[2] ;
+  char fnam[] = "copy_SNDATA_HEAD" ;
 
   // ------------- BEGIN ------------
 
   sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
 
   if ( strcmp(key,"SUBSURVEY") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.SUBSURVEY_NAME );  }
+    { copy_str(copyFlag, stringVal, SNDATA.SUBSURVEY_NAME ); }
 
-  else if ( strcmp(key,"SNID") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.CCID );  }
+  else if ( strcmp(key,"SNID") == 0 ) {
+     copy_str(copyFlag, stringVal, SNDATA.CCID ); 
+     SNDATA.NOBS_STORE = 0 ; // must call select_MJD_SNDATA to set this
+  }
+
   else if ( strcmp(key,"IAUC") == 0 ) 
-    { sprintf(stringVal, "%s", SNDATA.IAUC_NAME );  }
-  else if ( strcmp(key,"FAKE") == 0 ) 
-    { parVal[0] = SNDATA.FAKE ;  }
+    { copy_str(copyFlag, stringVal, SNDATA.IAUC_NAME ); }
 
-  else if ( strcmp(key,"MASK_FLUXCOR_SNANA") == 0 ) 
-    { parVal[0] = (double)SNDATA.MASK_FLUXCOR ;  }
+  else if ( strcmp(key,"FAKE") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.FAKE ); }
+
+  else if ( strcmp(key,"MASK_FLUXCOR_SNANA") == 0 )
+    { copy_int(copyFlag, parVal, &SNDATA.MASK_FLUXCOR ); } 
 
   else if ( strcmp(key,"RA") == 0 ) 
-    { parVal[0] = SNDATA.RA ;  }
+    { copy_dbl(copyFlag, parVal, &SNDATA.RA ); }
   else if ( strcmp(key,"DEC") == 0 ) 
-    { parVal[0] = SNDATA.DEC ;  }
+    { copy_dbl(copyFlag, parVal, &SNDATA.DEC ); }
 
   else if ( strcmp(key,"PIXSIZE") == 0 ) 
-    { parVal[0] = (double)SNDATA.PIXSIZE ;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.PIXSIZE ); }
   else if ( strcmp(key,"NXPIX") == 0 ) 
-    { parVal[0] = (double)SNDATA.NXPIX ;  }
-  else if ( strcmp(key,"NYPIX") == 0 ) 
-    { parVal[0] = (double)SNDATA.NYPIX ;  }
+    { copy_int(copyFlag, parVal, &SNDATA.NXPIX ); } 
+  else if ( strcmp(key,"NYPIX") == 0 )
+    { copy_int(copyFlag, parVal, &SNDATA.NYPIX ); } 
 
   else if ( strcmp(key,"CCDNUM") == 0 ) 
-    { parVal[0] = (double)SNDATA.CCDNUM[1] ;  }
+    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[1] ); } 
 
   else if ( strcmp(key,"SNTYPE") == 0 ) 
-    { parVal[0] = (double)SNDATA.SNTYPE ;  }
+    { copy_int(copyFlag, parVal, &SNDATA.SNTYPE ); } 
 
-  else if ( strcmp(key,"NOBS") == 0 ) 
-    { parVal[0] = (double)SNDATA.NOBS ;  }
+  else if ( strcmp(key,"NOBS") == 0 ) { 
+    copy_int(copyFlag, parVal, &SNDATA.NOBS ); 
+    SNDATA.NOBS_STORE = 0 ; // must call select_MJD_SNDATA to set this
+  } 
 
   else if ( strcmp(key,"MWEBV") == 0 ) 
-    { parVal[0] = (double)SNDATA.MWEBV ;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.MWEBV ); } 
   else if ( strcmp(key,"MWEBV_ERR") == 0 ) 
-    { parVal[0] = (double)SNDATA.MWEBV_ERR ;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.MWEBV_ERR ); } 
 
   else if ( strcmp(key,"REDSHIFT_HELIO") == 0 ) 
-    { parVal[0] = (double)SNDATA.REDSHIFT_HELIO ;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO ); } 
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 ) 
-    { parVal[0] = (double)SNDATA.REDSHIFT_HELIO_ERR ;  }
-
+    { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO_ERR ); } 
   else if ( strcmp(key,"REDSHIFT_FINAL") == 0 ) 
-    { parVal[0] = (double)SNDATA.REDSHIFT_FINAL;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL ); } 
   else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ) 
-    { parVal[0] = (double)SNDATA.REDSHIFT_FINAL_ERR;  }
+    { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL_ERR ); } 
   else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 ) 
-    { parVal[0] = (double)SNDATA.REDSHIFT_QUALITYFLAG ;  }
+    { copy_int(copyFlag, parVal, &SNDATA.REDSHIFT_QUALITYFLAG ); } 
+
   else if ( strcmp(key,"VPEC") == 0 ) 
-    { parVal[0] = (double)SNDATA.VPEC ; }
+    { copy_flt(copyFlag, parVal, &SNDATA.VPEC ); } 
   else if ( strcmp(key,"VPEC_ERR") == 0 ) 
-    { parVal[0] = (double)SNDATA.VPEC_ERR ; }
+    { copy_flt(copyFlag, parVal, &SNDATA.VPEC_ERR ); } 
 
   else if ( strncmp(key,"HOSTGAL",7) == 0 ) {
 
     if ( strcmp(key,"HOSTGAL_NMATCH") == 0 ) 
-      { parVal[0] = (double)SNDATA.HOSTGAL_NMATCH[0] ; }    
+      { copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NMATCH[0] ); } 
     else if ( strcmp(key,"HOSTGAL_NMATCH2") == 0 ) 
-      { parVal[0] = (double)SNDATA.HOSTGAL_NMATCH[1] ; }  
+      { copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NMATCH[1] ); } 
     else if ( strcmp(key,"HOSTGAL_CONFUSION") == 0 ) 
-      { parVal[0] = (double)SNDATA.HOSTGAL_CONFUSION ; }  
+      { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_CONFUSION ); } 
 
     if ( strstr(key,"SB_FLUXCAL") != NULL ) {
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-	sprintf(KEY_HOSTGAL,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs]); 
-	if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	  { parVal[0] = (double)SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ; }  
+	sprintf(KEY_TEST,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs]); 
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]); } 
       }
     }
 
@@ -3955,87 +4027,388 @@ void fetch_SNDATA_HEAD(char *key, int NVAL,
       sprintf(PREFIX,"HOSTGAL");
       if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d",igal+1); }
 
-      sprintf(KEY_HOSTGAL,"%s_OBJID", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_OBJID[igal] ; }       
+      sprintf(KEY_TEST,"%s_OBJID", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_lli(copyFlag, parVal, &SNDATA.HOSTGAL_OBJID[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_PHOTOZ", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_PHOTOZ[igal] ; }       
-      sprintf(KEY_HOSTGAL,"%s_PHOTOZ_ERR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ; }       
+      sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ[igal] ); } 
+      sprintf(KEY_TEST,"%s_PHOTOZ_ERR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_SPECZ", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_SPECZ[igal] ; }       
-      sprintf(KEY_HOSTGAL,"%s_SPECZ_ERR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_SPECZ_ERR[igal] ; }       
+      sprintf(KEY_TEST,"%s_SPECZ", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_SPECZ[igal] ); } 
+     
+      sprintf(KEY_TEST,"%s_SPECZ_ERR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_SPECZ_ERR[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_RA", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_RA[igal] ; }       
-      sprintf(KEY_HOSTGAL,"%s_DEC", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_DEC[igal] ; }       
+      sprintf(KEY_TEST,"%s_RA", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.HOSTGAL_RA[igal] ); } 
+      sprintf(KEY_TEST,"%s_DEC", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.HOSTGAL_DEC[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_SNSEP", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_SNSEP[igal] ; }       
+      sprintf(KEY_TEST,"%s_SNSEP", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_SNSEP[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_DDLR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_DDLR[igal] ; }       
+      sprintf(KEY_TEST,"%s_DDLR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_DDLR[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_LOGMASS", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_LOGMASS_OBS[igal] ; }   
-      sprintf(KEY_HOSTGAL,"%s_LOGMASS_ERR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_LOGMASS_ERR[igal] ; }       
+      sprintf(KEY_TEST,"%s_LOGMASS", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGMASS_OBS[igal] ); } 
+      sprintf(KEY_TEST,"%s_LOGMASS_ERR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGMASS_ERR[igal] ); } 
 
-      sprintf(KEY_HOSTGAL,"%s_sSFR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_sSFR[igal] ; }       
-      sprintf(KEY_HOSTGAL,"%s_sSFR_ERR", PREFIX); 
-      if ( strcmp(key,KEY_HOSTGAL) == 0 ) 
-	{ parVal[0] = (double)SNDATA.HOSTGAL_sSFR_ERR[igal] ; }       
+      sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR[igal] ); } 
+      sprintf(KEY_TEST,"%s_sSFR_ERR", PREFIX); 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR_ERR[igal] ); } 
+
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_TEST,"HOSTGAL_MAG_%c", FILTERSTRING[ifilt_obs]); 
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAG[igal][ifilt]); } 
+      }
 
     } // end igal
 
   }  // end "HOSTGAL"
 
+  else if ( strcmp(key,"PEAKMJD") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.SEARCH_PEAKMJD) ; }  
+
+  else if ( strcmp(key,"SEARCH_TYPE") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.SEARCH_TYPE) ; }  
+
+  else if ( strncmp(key,"PRIVATE",7) == 0 ) {
+    NVAR = SNDATA.NVAR_PRIVATE ;
+    for(ivar=1; ivar <= NVAR; ivar++ ) {
+      if ( strcmp(key,SNDATA.PRIVATE_KEYWORD[ivar]) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.PRIVATE_VALUE[ivar]) ; }  
+    }    
+  }
+
+  else if ( strncmp(key,"SIM",3) == 0 ) {
+    // ------ SIM ------- 
+
+    if ( strcmp(key,"SIM_MODEL_NAME") == 0 ) 
+      { copy_str(copyFlag, stringVal, SNDATA.SIM_MODEL_NAME ); }
+    else if ( strcmp(key,"SIM_TYPE_NAME") == 0 ) 
+      { copy_str(copyFlag, stringVal, SNDATA.SIM_TYPE_NAME ); }
+
+    else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX) ; }  
+
+    else if ( strcmp(key,"SIM_TYPE_INDEX") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_TYPE_INDEX) ; }  
+
+    else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_TEMPLATE_INDEX) ; }  
+
+    else if ( strcmp(key,"SIM_SUBSAMPLE_INDEX") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SUBSAMPLE_INDEX) ; }  
+
+    else if ( strcmp(key,"SIM_LIBID") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_LIBID) ; }  
+
+    else if ( strcmp(key,"SIM_NGEN_LIBID") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_NGEN_LIBID) ; }  
+
+    else if ( strcmp(key,"SIM_NOBS_UNDEFINED") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_NOBS_UNDEFINED) ; }  
+
+    else if ( strcmp(key,"SIM_SEARCHEFF_MASK") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_SEARCHEFF_MASK) ; }  
+
+    else if ( strcmp(key,"SIM_REDSHIFT_HELIO") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_HELIO) ; }  
+    else if ( strcmp(key,"SIM_REDSHIFT_CMB") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_CMB) ; }  
+    else if ( strcmp(key,"SIM_REDSHIFT_HOST") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_HOST) ; }  
+    else if ( strcmp(key,"SIM_REDSHIFT_FLAG") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_REDSHIFT_FLAG) ; }  
+    else if ( strcmp(key,"SIM_VPEC") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_VPEC) ; }  
+
+    else if ( strcmp(key,"SIM_HOSTLIB_GALID") == 0 ) 
+      { copy_lli(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_GALID) ; }  
+
+    else if ( strncmp(key,"SIM_HOSTLIB",11) == 0 ) {
+      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+	copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar]) ; 
+      }
+    }
+    else if ( strcmp(key,"SIM_DLMU") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_DLMU) ; }  
+
+    else if ( strcmp(key,"SIM_LENSDMU") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_LENSDMU) ; }  
+
+    else if ( strcmp(key,"SIM_RA") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_RA) ; }  
+
+    else if ( strcmp(key,"SIM_DEC") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_DEC) ; }  
+
+    else if ( strcmp(key,"SIM_MWEBV") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_MWEBV) ; }  
+
+    else if ( strcmp(key,"SIM_PEAKMJD") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_PEAKMJD) ; }  
+
+    else if ( strcmp(key,"SIM_MAGSMEAR_COH") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_MAGSMEAR_COH) ; }  
+
+    else if ( strcmp(key,"SIM_AV") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_AV) ; }  
+    else if ( strcmp(key,"SIM_RV") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_RV) ; }  
+
+    else if ( strncmp(key,"SIM_SALT2",9) == 0 ) {
+      if ( strcmp(key,"SIM_SALT2x0") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2x0) ; }  
+      else if ( strcmp(key,"SIM_SALT2x1") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2x1) ; }  
+      else if ( strcmp(key,"SIM_SALT2c") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2c) ; }  
+      else if ( strcmp(key,"SIM_SALT2mB") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2mB) ; }  
+      else if ( strcmp(key,"SIM_SALT2alpha") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2alpha) ; }  
+      else if ( strcmp(key,"SIM_SALT2beta") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2beta) ; }  
+      else if ( strcmp(key,"SIM_SALT2gammaDM") == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.SIM_SALT2gammaDM) ; }  
+    }
+    else if ( strcmp(key,"SIM_DELTA") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_DELTA) ; }  
+
+    else if ( strcmp(key,"SIM_STRETCH") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_STRETCH) ; }  
+
+    else if ( strncmp(key,"SIMSED",6) == 0 ) {
+      for(ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) { 
+	sprintf(KEY_TEST, "%s", SNDATA.SIMSED_KEYWORD[ipar]) ;
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.SIMSED_PARVAL[ipar]) ; } 
+      }
+    }
+    else if ( strncmp(key,"SIM_PEAKMAG",11) == 0 ) {
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_TEST, "SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs]);
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.SIM_PEAKMAG[ifilt]) ; }
+      }
+    }
+    else if ( strncmp(key,"SIM_TEMPLATEMAG",15) == 0 ) {
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];    
+	sprintf(KEY_TEST, "SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs]);
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.SIM_TEMPLATEMAG[ifilt]) ; }
+      }
+    }
+    else if ( strncmp(key,"SIM_EXPOSURE",12) == 0 ) {
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_TEST, "SIM_EXPOSURE_%c", FILTERSTRING[ifilt_obs]);
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.SIM_EXPOSURE_TIME[ifilt]) ; }
+      }
+    }
+    else if ( strncmp(key,"SIM_GALFRAC",11) == 0 ) {
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY_TEST, "SIM_GALFRAC_%c", FILTERSTRING[ifilt_obs]);
+	if ( strcmp(key,KEY_TEST) == 0 ) 
+	  { copy_flt(copyFlag, parVal, &SNDATA.SIM_GALFRAC[ifilt]) ; }
+      }
+    }
+
+    else if ( strncmp(key,"SIM_STRONGLENS",14) == 0 ) {
+      //.xyz  continue with SIM_STROGNLENS ...
+      sprintf(PREFIX, "SIM_STRONGLENS") ;
+
+      sprintf(KEY_TEST,"%s_ID", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_int(copyFlag, parVal, &SNDATA.SIM_SL_IDLENS); }
+
+      sprintf(KEY_TEST,"%s_z", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_zLENS); }
+
+      sprintf(KEY_TEST,"%s_TDELAY", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_TDELAY); }
+
+      sprintf(KEY_TEST,"%s_MAGSHIFT", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_MAGSHIFT); }
+
+      sprintf(KEY_TEST,"%s_NIMG", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_int(copyFlag, parVal, &SNDATA.SIM_SL_NIMG); }
+
+      sprintf(KEY_TEST,"%s_IMGNUM", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_int(copyFlag, parVal, &SNDATA.SIM_SL_IMGNUM); }
+
+    }
+    else {
+      sprintf(c1err,"Unknown SIM key = %s", key);
+      sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+    }
+
+  }
+
+  // other SIM params that don't start with SIM
+  else if ( strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) == 0 ) {
+    for(ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) { 
+      sprintf(KEY_TEST, "%s", SNDATA.PySEDMODEL_KEYWORD[ipar]) ;
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.PySEDMODEL_PARVAL[ipar]) ; } 
+    }
+  }
+
+  else if ( strncmp(key,"LCLIB_PAR",9) == 0 ) {
+    for(ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) { 
+      sprintf(KEY_TEST, "%s", SNDATA.LCLIB_KEYWORD[ipar]) ;
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.LCLIB_PARVAL[ipar]) ; } 
+    }
+  }
+  
   else {
     // error message
-    sprintf(c1err,"Unknown key = %s", key);
+    sprintf(c1err,"Unknown key = %s (copyFlag=%d)", key, copyFlag);
     sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
-  //.xyz
   return ;
-}  // end fetch_SNDATA_HEAD
+
+}  // end copy_SNDATA_HEAD
+
+// = = = = = = = = = = = = = = = = = = = = = = = = 
+int select_MJD_SNDATA(double *CUTWIN_MJD) {
+
+  // Created Feb 11 2021
+  // Use input CUTWIN_MJD to select a subset of observations
+  // for copy_SNDATA_OBS.  The sparse list OBS_STORE_LIST
+  // enables fast copy by only looping over elements to keep.
+  // Note that copy_SNDATA_OBS will abort if this function is not 
+  // called for each event.
+  //
+  // Function returns SNDATA.NOBS_STORE
+  //
+  // Example: for a 10-year survey, a typical MJD window contains
+  // 1 of the 10 seasons, and thus copy_SNDATA_OBS returns just 1 
+  // season of data instead of all 10 seasons.
+
+  int o, NOBS_STORE  = 0;
+  int NOBS = SNDATA.NOBS ;
+  double MJD;
+  char fnam[] = "select_MJD_SNDATA" ;
+  // ---------- BEGIN -------
+  SNDATA.NOBS_STORE = NOBS_STORE;
+  for(o=0; o < NOBS; o++ ) { 
+    MJD = SNDATA.MJD[o];
+    if ( MJD < CUTWIN_MJD[0] ) { continue; }
+    if ( MJD > CUTWIN_MJD[1] ) { continue; }
+    SNDATA.OBS_STORE_LIST[NOBS_STORE] = o;
+    NOBS_STORE++ ;
+  }
+  return(NOBS_STORE) ;
+} // end select_MJD_SNDATA
+
+int select_mjd_sndata__(double *MJD_WINDOW) 
+  {  return select_MJD_SNDATA(MJD_WINDOW); }
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
-void fetch_SNDATA_PHOT(char *key, int NVAL, 
+void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL, 
 		       char *stringVal, double *parVal ) {
 
   // Created Feb 2021:
-  // For input *key, search epoch/phot info in SNDATA struct
-  // and return stringVal or parVal.
+  // For input *key, copy observations to/from SNDATA struct.
+  // Note that select_MJD_SNDATA must be called first to 
+  // select MJD subset; if not, this function aborts.
 
-  char fnam[] = "fetch_SNDATA_PHOT" ;
+  int  NOBS       = SNDATA.NOBS ;
+  int  NOBS_STORE = SNDATA.NOBS_STORE ;
+  int  obs, OBS;
+  char fnam[] = "copy_SNDATA_OBS" ;
+
   // ------------- BEGIN ------------
 
   sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+  
+  if ( NOBS_STORE == 0 ) {
+    sprintf(c1err,"Must call select_MJD_SNDATA");
+    sprintf(c2err,"to select MJD windo for which obs to copy");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( strcmp(key,"MJD") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {  // sparse index
+      OBS = SNDATA.OBS_STORE_LIST[obs];     // index to full list
+      copy_dbl(copyFlag, &parVal[obs], &SNDATA.MJD[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"PHOTFLAG") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_int(copyFlag, &parVal[obs], &SNDATA.PHOTFLAG[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"PHOTPROB") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.PHOTPROB[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,"FLUXCAL") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.FLUXCAL[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"FLUXCALERR") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.FLUXCAL_ERRTOT[OBS]) ; 
+    }  
+  }
+  else {
+    // error message
+    sprintf(c1err,"Unknown key = %s (copyFlag=%d)", key, copyFlag);
+    sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  //.xyz
 
   return ;
 
-} // end fetch_SNDATA_PHOT
+} // end copy_SNDATA_OBS
 
 // ==========================================
-void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
+void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal ) {
 
   // Created May 2012
   // Load SNDATA structure so that snfitsio can be called by
@@ -4059,7 +4432,7 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   bool IS_STRING_LIST, IS_SIM_KEY;
   bool  LOAD_TEL, LOAD_FLT, LOAD_FIELD;
   char  ctmp[20] ;
-  char  fnam[] =  "set_SNDATA" ;
+  char  fnam[] =  "set_SNDATA_LEGACY" ;
 
   // ------------ BEGIN ------------
 
@@ -4447,24 +4820,26 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 
   return ;
 
-} // end of set_SNDATA
+} // end of set_SNDATA_LEGACY
 
 
 // mangled function for fortran
-void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) 
-{  set_SNDATA(key, *NVAL, stringVal, parVal); }
+void set_sndata_legacy__(char *key, int *NVAL, char *stringVal, 
+			 double *parVal ) 
+{  set_SNDATA_LEGACY(key, *NVAL, stringVal, parVal); }
 
-void fetch_sndata_global__(char *key, int *NVAL, 
-			   char *stringVal, double *parVal ) 
-{  fetch_SNDATA_GLOBAL(key, *NVAL, stringVal, parVal); }
 
-void fetch_sndata_head__(char *key, int *NVAL, 
-			   char *stringVal, double *parVal ) 
-{  fetch_SNDATA_HEAD(key, *NVAL, stringVal, parVal); }
+void copy_sndata_global__(int *copyFlag, char *key, int *NVAL, 
+			  char *stringVal, double *parVal ) 
+{ copy_SNDATA_GLOBAL(*copyFlag, key, *NVAL, stringVal, parVal); }
 
-void fetch_sndata_phot__(char *key, int *NVAL, 
-			   char *stringVal, double *parVal ) 
-{  fetch_SNDATA_PHOT(key, *NVAL, stringVal, parVal); }
+void copy_sndata_head__(int *copyFlag, char *key, int *NVAL, 
+			char *stringVal, double *parVal ) 
+{ copy_SNDATA_HEAD(*copyFlag, key, *NVAL, stringVal, parVal); }
+
+void copy_sndata_obs__(int *copyFlag, char *key, int *NVAL, 
+		       char *stringVal, double *parVal ) 
+{ copy_SNDATA_OBS(*copyFlag, key, *NVAL, stringVal, parVal); }
 
 
 // ************************************************************
@@ -8279,18 +8654,18 @@ int init_SNDATA(void) {
   SNDATA.HOSTGAL_CONFUSION = -99.0;
 
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
-    SNDATA.HOSTGAL_OBJID[igal]       = 0;
-    SNDATA.HOSTGAL_PHOTOZ[igal]      = -9.0 ;
-    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]  = -9.0 ;
-    SNDATA.HOSTGAL_SNSEP[igal]       = -9.0 ;
-    SNDATA.HOSTGAL_RA[igal]          = -999.0 ;
-    SNDATA.HOSTGAL_DEC[igal]         = -999.0 ;
-    SNDATA.HOSTGAL_DDLR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  = -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]         = -9.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -9.0 ;
+    SNDATA.HOSTGAL_OBJID[igal]        = 0;
+    SNDATA.HOSTGAL_PHOTOZ[igal]       = -9.0 ;
+    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]   = -9.0 ;
+    SNDATA.HOSTGAL_SNSEP[igal]        = -9.0 ;
+    SNDATA.HOSTGAL_RA[igal]           = -999.0 ;
+    SNDATA.HOSTGAL_DEC[igal]          = -999.0 ;
+    SNDATA.HOSTGAL_DDLR[igal]         =  -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9.0 ;
+    SNDATA.HOSTGAL_sSFR[igal]         = -99.0 ;
+    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -99.0 ;
   }
   SNDATA.HOSTGAL_USEMASK = 0 ;
 
@@ -8301,7 +8676,7 @@ int init_SNDATA(void) {
   
   // init sim parameters (used for simulation only)
   sprintf(SNDATA.SIM_MODEL_NAME, "NULL" );
-  sprintf(SNDATA.SIM_COMMENT, "NULL" );
+  sprintf(SNDATA.SIM_COMMENT,    "NULL" );
   SNDATA.SIM_MODEL_INDEX    = NULLINT ; // model class; e.g., SIMSED
   SNDATA.SIM_TEMPLATE_INDEX = NULLINT ; // specific template or SED
 
@@ -8351,10 +8726,12 @@ int init_SNDATA(void) {
   SNDATA.SIM_TRESTMAX = 0.0 ;
   SNDATA.SIMFLAG_COVMAT_SCATTER = 0 ;
 
-  SNDATA.NPAR_SIMSED = 0;
-  SNDATA.NPAR_LCLIB  = 0;
+  SNDATA.NVAR_PRIVATE = 0 ;  // for data only
 
-  SNDATA.NVAR_PRIVATE = 0 ;
+  SNDATA.NPAR_SIMSED = 0;    
+  SNDATA.NPAR_LCLIB  = 0;
+  SNDATA.NPAR_SIM_HOSTLIB = 0;
+  SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
     SNDATA_FILTER.MAP[ifilt] = 0;

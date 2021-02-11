@@ -470,7 +470,8 @@ c
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
      &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
-     &  ,REFAC_READ_DATA       ! temp: true of OPT_DEBUG=21
+     &  ,REFAC_READ_DATA       ! temp: true of OPT_DEBUG == 21
+     &  ,LEGACY_READ_DATA      ! temp: true of OPT_DEBUG != 21
 
       CHARACTER
      &    SNANA_VERSION*12
@@ -585,7 +586,7 @@ c global survey info
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT
-     &    ,EXIT_ERRCODE, REFAC_READ_DATA
+     &    ,EXIT_ERRCODE, REFAC_READ_DATA, LEGACY_READ_DATA
 
 c logical *1 stuff
 
@@ -3948,7 +3949,7 @@ c - - - - -
 
 c Feb 2021: temp refactor flag for reading FITS formatted data
       REFAC_READ_DATA = ( OPT_DEBUG == 21 )
-
+      LEGACY_READ_DATA = (.NOT. REFAC_READ_DATA)
 c ---------------------------
 c if ENV is in path, make substitution
       CALL ENVreplace(PRIVATE_DATA_PATH) 
@@ -7607,6 +7608,7 @@ c local var
      &   ,PREFIX*20
 
       REAL*8  DVAL, DARRAY(MXEPOCH)
+      EXTERNAL SET_SNDATA_LEGACY
 
 c --------------- BEGIN -------------------
 
@@ -7734,7 +7736,7 @@ c ------- host galaxy info  ------------
             ENDDO
             KEY       = PREFIX(1:LENPRE)//'_MAG' // char(0)
             LEN_KEY   = INDEX(KEY, ' ') - 1
-            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+            CALL set_sndata_legacy(KEY, NFILTDEF_READ,STRINGVAL,DARRAY, 
      &           LEN_KEY, LEN_STR) 
             
             DO ifilt = 1, NFILTDEF_READ
@@ -7742,7 +7744,7 @@ c ------- host galaxy info  ------------
             ENDDO
             KEY       = PREFIX(1:LENPRE)//'_MAGERR' // char(0)
             LEN_KEY   = INDEX(KEY, ' ') - 1
-            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+            CALL set_sndata_legacy(KEY, NFILTDEF_READ,STRINGVAL,DARRAY, 
      &           LEN_KEY, LEN_STR) 
          ENDIF
 
@@ -7756,7 +7758,7 @@ c add host-galaxy SB if defined
          ENDDO
          KEY       = 'HOSTGAL_SB_FLUXCAL' // char(0)
          LEN_KEY   = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+         CALL set_sndata_legacy(KEY, NFILTDEF_READ,STRINGVAL,DARRAY, 
      &        LEN_KEY, LEN_STR) 
       ENDIF
  
@@ -7775,7 +7777,7 @@ c ------- PRIVATE variables --------
       IF ( NVAR_PRIVATE > 0 ) THEN
         KEY      = 'PRIVATE_VALUE' // char(0)
         LEN_KEY  = INDEX(KEY, ' ') - 1
-        CALL set_sndata(KEY,NVAR_PRIVATE, STRINGVAL, PRIVATE_VALUE, 
+        CALL set_sndata_legacy(KEY,NVAR_PRIVATE,STRINGVAL,PRIVATE_VALUE, 
      &           LEN_KEY,LEN_STR ) 
       ENDIF
 
@@ -7791,7 +7793,7 @@ c --- MJD ---
       ENDDO
       KEY  = 'MJD' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- FLUXCAL ---
       DO iep = 1, NEP
@@ -7799,7 +7801,7 @@ c --- FLUXCAL ---
       ENDDO
       KEY  = 'FLUXCAL' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- FLUXCAL_ERR ---
       DO iep = 1, NEP
@@ -7807,7 +7809,7 @@ c --- FLUXCAL_ERR ---
       ENDDO
       KEY  = 'FLUXCAL_ERRTOT' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- MAG ---
       DO iep = 1, NEP
@@ -7815,8 +7817,7 @@ c --- MAG ---
       ENDDO
       KEY  = 'MAG' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- MAGERR ---
       DO iep = 1, NEP
@@ -7824,7 +7825,7 @@ c --- MAGERR ---
       ENDDO
       KEY  = 'MAGERR' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- PHOTFLAG ---
       DO iep = 1, NEP
@@ -7832,7 +7833,7 @@ c --- PHOTFLAG ---
       ENDDO
       KEY  = 'PHOTFLAG' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- PHOTPROB ---
       DO iep = 1, NEP
@@ -7840,7 +7841,7 @@ c --- PHOTPROB ---
       ENDDO
       KEY  = 'PHOTPROB' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- PSF_SIG1 ---
       DO iep = 1, NEP
@@ -7848,7 +7849,7 @@ c --- PSF_SIG1 ---
       ENDDO
       KEY  = 'PSF_SIG1' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- PSF_SIG2 ---
       DO iep = 1, NEP
@@ -7856,7 +7857,7 @@ c --- PSF_SIG2 ---
       ENDDO
       KEY  = 'PSF_SIG2' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- PSF_RATIO ---
       DO iep = 1, NEP
@@ -7864,7 +7865,7 @@ c --- PSF_RATIO ---
       ENDDO
       KEY  = 'PSF_RATIO' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- SKY_SIG ---
       DO iep = 1, NEP
@@ -7872,7 +7873,7 @@ c --- SKY_SIG ---
       ENDDO
       KEY      = 'SKY_SIG' // char(0)
       LEN_KEY  = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- SKY_SIG_T (template sky noise) ---
       DO iep = 1, NEP
@@ -7880,7 +7881,7 @@ c --- SKY_SIG_T (template sky noise) ---
       ENDDO
       KEY      = 'SKY_SIG_T' // char(0)
       LEN_KEY  = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- RDNOISE ---
       DO iep = 1, NEP
@@ -7888,7 +7889,7 @@ c --- RDNOISE ---
       ENDDO
       KEY  = 'RDNOISE' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- GAIN ---
       DO iep = 1, NEP
@@ -7896,7 +7897,7 @@ c --- GAIN ---
       ENDDO
       KEY  = 'GAIN' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- ZEROPT ---
       DO iep = 1, NEP
@@ -7904,7 +7905,7 @@ c --- ZEROPT ---
       ENDDO
       KEY  = 'ZEROPT' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- ZEROPT_ERR ---
       DO iep = 1, NEP
@@ -7912,7 +7913,7 @@ c --- ZEROPT_ERR ---
       ENDDO
       KEY  = 'ZEROPT_ERR' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c --- Pixel location
 
@@ -7922,14 +7923,16 @@ c --- Pixel location
          ENDDO
          KEY      = 'XPIX' // char(0)
          LEN_KEY  = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+         CALL set_sndata_legacy(KEY, NEP, STRINGVAL, DARRAY,
+     &        LEN_KEY,LEN_STR) 
          
          DO iep = 1, NEP
             DARRAY(iep) = SNLC_YPIX(iep)
          ENDDO
          KEY      = 'YPIX' // char(0)
          LEN_KEY  = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+         CALL set_sndata_legacy(KEY, NEP, STRINGVAL, DARRAY, 
+     &        LEN_KEY,LEN_STR) 
       ENDIF
 
 c -------------------
@@ -7949,7 +7952,7 @@ c ---- FILTER ----
          LEN_STR   = LEN_STR + 2
       ENDDO
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL,DARRAY,LEN_KEY,LEN_STR) 
 
 c ---- FIELD ----
       KEY       = 'FIELD' // char(0)
@@ -7965,7 +7968,7 @@ c ---- FIELD ----
       LEN_STR = LEN_STR - 1
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
 
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL,DARRAY,LEN_KEY, LEN_STR) 
 
 
 
@@ -7984,7 +7987,7 @@ c ---- TELESCOPE ----
       ENDDO
       LEN_STR = LEN_STR - 1
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY,LEN_KEY,LEN_STR) 
 +SELF.
 c xxxxxxxxxxxxxxxx end mark xxxxxxxxxxx
 
@@ -7999,7 +8002,8 @@ c   (e.g., for fakes overlaid onto real images)
          ENDDO
          KEY  = 'SIM_MAGOBS' // char(0)
          LEN_KEY   = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+         CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY,
+     &        LEN_KEY,LEN_STR) 
          
       ENDIF
 
@@ -8052,13 +8056,13 @@ c ----------------------------------------
       KEY       = 'SIM_MODEL_NAME' // char(0)
       LEN_STR   = INDEX(SIMNAME_MODEL,' ') - 1
       STRINGVAL = SIMNAME_MODEL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
       DARRAY(1) = -9.0
       KEY       = 'SIM_TYPE_NAME' // char(0)
       LEN_STR   = INDEX(SIMNAME_TYPE,' ') - 1
       STRINGVAL = SIMNAME_TYPE(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
       DVAL   = INT(SIM_MODEL_INDEX)
       CALL SET_SNDATA_DBLE("SIM_MODEL_INDEX", DVAL )
@@ -8200,6 +8204,9 @@ c local var
       CHARACTER cKEY*80, cSTRINGVAL*80
       INTEGER ONE, LEN_KEY, LEN_STR
       REAL*8  DVAL(10)
+
+      EXTERNAL SET_SNDATA_LEGACY
+
 C -------------- BEGIN -------------
       ONE = 1
 c add blank space at end in case there isn't one already there
@@ -8208,8 +8215,8 @@ c add blank space at end in case there isn't one already there
       cKEY       = KEY(1:LEN_KEY) // char(0)
       cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
       DVAL(1)    = -9.0
-      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DVAL, 
-     &                LEN_KEY, LEN_STR ) 
+      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DVAL, 
+     &     LEN_KEY, LEN_STR ) 
       RETURN
       END  ! end of SET_SNDATA_STRING
 
@@ -8226,6 +8233,8 @@ c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
       INTEGER IVAR, LEN_KEY, LEN_NAME
       CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
       REAL*8 DVAL(10)
+      EXTERNAL SET_SNDATA_LEGACY
+
 C --------------- BEGIN ---------------
 
       IF ( NVAR_PRIVATE .LE. 0 ) RETURN
@@ -8240,8 +8249,8 @@ C --------------- BEGIN ---------------
          cNAME    = NAME(1:LEN_NAME) // char(0)
          DVAL(1)  = -9.0
 
-         CALL set_sndata(cKEY, ONE, cNAME, DVAL, 
-     &                   LEN_KEY, LEN_NAME ) 
+         CALL set_sndata_legacy(cKEY, ONE, cNAME, DVAL, 
+     &        LEN_KEY, LEN_NAME ) 
       ENDDO
 
       RETURN
@@ -8259,6 +8268,7 @@ c local var
       CHARACTER cKEY*80, cSTRINGVAL*80
       INTEGER ONE, LEN_KEY, LEN_STR
       REAL*8  DARRAY(10)
+      EXTERNAL SET_SNDATA_LEGACY
 
 C -------------- BEGIN -------------
       ONE = 1
@@ -8269,8 +8279,8 @@ c add blank space at end in case there isn't one already there
       cSTRINGVAL = "NULL" // char(0)
       LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
       DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
-      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DARRAY, 
-     &                LEN_KEY, LEN_STR ) 
+      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DARRAY, 
+     &     LEN_KEY, LEN_STR ) 
 
       RETURN
       END
@@ -11622,8 +11632,7 @@ C ------------------ BEGIN -------------
      &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
       ISCORRECT_SIGN_VPEC = 
      &      correct_sign_vpec_data(SNANA_VERSION//char(0))
-      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
-
+cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", 
      &     ONE, SURVEY_NAME, DARRAY, OPT)
@@ -11631,7 +11640,6 @@ C ------------------ BEGIN -------------
 c  SUBSURVEY_FLAG ?? .xyz
 c      CALL FETCH_SNDATA_WRAPPER("SUBSURVEY", 
 c     &     ONE, SUBSURVEY_NAME, DARRAY, OPT)
-
       
       IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
          CALL FETCH_SNDATA_WRAPPER("FILTERS", 
@@ -11716,16 +11724,15 @@ c function args
       REAL*8    DVAL(*)       ! (O) double value(s) for key
       INTEGER   OPT           ! (I) options: 1-> dump
 c local args
-      INTEGER   LEN_KEY, LEN_STR
+      INTEGER   LEN_KEY, LEN_STR, LEN_WHAT, COPYFLAG
       LOGICAL   L_GLOBAL, L_HEAD, L_PHOT, L_DUMP
-      CHARACTER cKEY*60, cSTRING*400, c1err*80, c2err*80
-      EXTERNAL  FETCH_SNDATA_GLOBAL, FETCH_SNDATA_HEAD
-      EXTERNAL  FETCH_SNDATA_PHOT
+      CHARACTER cKEY*60, cSTRING*400, c1err*80, c2err*80, WHAT*8
+      EXTERNAL  COPY_SNDATA_GLOBAL, COPY_SNDATA_HEAD
+      EXTERNAL  COPY_SNDATA_OBS
 
 c ------------ BEGIN ----------
 
       L_GLOBAL = ( IAND(OPT,OPTMASK_SNDATA_GLOBAL) > 0 ) 
-
       L_HEAD   = ( IAND(OPT,OPTMASK_SNDATA_HEAD) > 0 ) 
       L_PHOT   = ( IAND(OPT,OPTMASK_SNDATA_PHOT) > 0 ) 
       L_DUMP   = ( IAND(OPT,OPTMASK_SNDATA_DUMP) > 0 ) 
@@ -11733,15 +11740,20 @@ c ------------ BEGIN ----------
       LEN_KEY = INDEX(KEY//' ',' ') - 1
       cKEY    = KEY(1:LEN_KEY) // char(0)
 
+      COPYFLAG = -1  ! flag to copy from SNDATA struct to cSTRING or DVAL
+
       IF ( L_GLOBAL ) THEN
-         CALL fetch_SNDATA_GLOBAL(cKEY, NARG, 
+         CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+         WHAT = "GLOBAL"
       ELSE IF ( L_HEAD ) THEN
-         CALL fetch_SNDATA_HEAD(cKEY, NARG, 
+         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+         WHAT = "HEAD"
       ELSE IF ( L_PHOT ) THEN
-         CALL fetch_SNDATA_PHOT(cKEY, NARG, 
+         CALL copy_SNDATA_OBS(copyFlag, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+         WHAT = "OBS"
       ELSE
          write(C1ERR, '("Invalid OPT=",I6)' ) OPT
          C2ERR = 'KEY = ' // KEY
@@ -11752,11 +11764,13 @@ cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
 
       LEN_STR = INDEX(cSTRING,char(0)) - 1
       STRINGVAL = cSTRING(1:LEN_STR)
+      LEN_WHAT  = INDEX(WHAT,' ')-1
 
       if ( L_DUMP ) then
-         write(6,66) KEY(1:LEN_KEY), STRINGVAL(1:LEN_STR), 
-     &      DVAL(1), DVAL(2)
- 66      format(' xxx FETCH_SNDATA: ', A,' = |', A, '|', 5x, 2G10.4 )
+         write(6,66) WHAT(1:LEN_WHAT), KEY(1:LEN_KEY), 
+     &        STRINGVAL(1:LEN_STR), DVAL(1)
+ 66      format(' xxx FETCH_SNDATA_',A,': ', 
+     &        A,' = |', A, '|', 5x, G10.4 )
       endif
 
 
@@ -12140,12 +12154,24 @@ c fetch SNDATA values and load fortran globals
       CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
       SNLC_MWEBV_ERR = SNGL(DARRAY(1))
 
+      CALL FETCH_SNDATA_WRAPPER("PEAKMJD", ONE, STRING, DARRAY, OPT)
+      SNLC_SEARCH_PEAKMJD = DARRAY(1)
+
+      CALL FETCH_SNDATA_WRAPPER("NOBS", ONE, STRING, DARRAY, OPT)
+      ISNLC_NEWMJD_FOUND = INT(DARRAY(1)) 
+
+c      CALL FETCH_SNDATA_WRAPPER("SEARCH_TYPE", ONE, STRING, DARRAY, OPT)
+c      SNLC_SEARCH_PEAKMJD = DARRAY(1)
+
       CALL RDHEAD_REDSHIFT(OPT)
 
       DO igal = 1, MXSNHOST
          CALL RDHEAD_HOSTGAL(OPT,igal)
       ENDDO
-c .xyz - - - - - 
+
+      CALL RDHEAD_PRIVATE(OPT)
+
+      IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)
       
       print*,' '
       print*,' xxx DEBUG STOP xxx '
@@ -12154,6 +12180,35 @@ c .xyz - - - - -
       RETURN
       END   ! end RDHEAD_DRIVER
 
+C ============================================
++DECK,RDHEAD_PRIVATE.
+      SUBROUTINE RDHEAD_PRIVATE(OPT)
+
+c Created Feb 2021 to read PRIVATE variables (pass from SNDATA struct)
+
+      IMPLICIT NONE
+
+      INTEGER OPT    ! OPT is arg for WRAPPER
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,PRIVCOM.
+
+      INTEGER ivar, NVAR
+      REAL*8 DARRAY(4)
+      CHARACTER STRING*12, KEY*60
+
+C ------------ BEGIN ---------
+
+      NVAR = NVAR_PRIVATE
+      DO ivar = 1, NVAR         
+         KEY  = PRIVATE_KEYWORD(IVAR)
+         CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+         PRIVATE_VALUE(IVAR) = DARRAY(1)
+      ENDDO
+
+      RETURN
+      END   ! end RDHEAD_PRIVATE
 
 C ============================================
 +DECK,RDHEAD_HOSTGAL.
@@ -12171,7 +12226,7 @@ c to common block variable.s
 +CDE,SNLCINP.
 +CDE,FILTCOM.
       INTEGER   LENPRE, ifilt, ifilt_obs
-      CHARACTER PREFIX*20, STRING*40, KEY*60
+      CHARACTER PREFIX*20, STRING*40, KEY*60, BAND*2
       REAL*8    DARRAY(MXFILT_OBS), SB
 
 C -------------- BEGIN ----------
@@ -12198,8 +12253,8 @@ c i.e., do not depend on host-match.
 
          DO ifilt = 1, NFILTDEF_READ
             ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-            KEY = "HOSTGAL_SB_FLUXCAL_" // 
-     &             FILTDEF_STRING(ifilt_obs:ifilt_obs)
+            band      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+            KEY = "HOSTGAL_SB_FLUXCAL_" // band
             CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
             SB    = DARRAY(1)
             if ( SB < 98.0 ) EXIST_SNHOST_SB = .TRUE.
@@ -12210,106 +12265,84 @@ c i.e., do not depend on host-match.
 
 c - - - - - - - - 
 
-+SELF,IF=BLA.
       KEY    = PREFIX(1:LENPRE)//'_OBJID'
-      RETSTR = ''
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         I8TMP = DINT(RET8(1))
-         SNHOST_OBJID(igal)  = I8TMP
-         DSNHOST_OBJID(igal) = RET8(1)
-      ENDIF  
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_OBJID(igal)  = DINT(DARRAY(1))
+      DSNHOST_OBJID(igal) = DARRAY(1)
 
+c - - - 
       KEY    = PREFIX(1:LENPRE)//'_PHOTOZ'
-      RETSTR = '+ERR'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ''
-      IF ( LTMP ) THEN
-          EXIST_SNHOST_ZPHOT = .TRUE.
-          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
-             SNHOST_ZPHOT(igal)    = SNGL(RET8(1)) 
-          endif
-          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
-             SNHOST_ZPHOT_ERR(igal) = SNGL(RET8(2))
-          endif
-      ENDIF
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_ZPHOT(igal)     = SNGL(DARRAY(1)) 
+
+      KEY    = PREFIX(1:LENPRE)//'_PHOTOZ_ERR'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
+
+      IF ( SNHOST_ZPHOT(igal) > 0.0 )  EXIST_SNHOST_ZPHOT = .TRUE.
+c - - - -
 
       KEY    = PREFIX(1:LENPRE)//'_SPECZ' 
-      RETSTR = '+ERR'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ''
-      IF ( LTMP ) THEN
-          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
-            SNHOST_ZSPEC(igal)     = SNGL(RET8(1))
-          endif
-          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
-            SNHOST_ZSPEC_ERR(igal) = SNGL(RET8(2))
-          endif
-      ENDIF
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_ZSPEC(igal)     = SNGL(DARRAY(1))
 
-      KEY  = PREFIX(1:LENPRE)//'_RA'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN ;  SNHOST8_RA(igal) = RET8(1) ;  ENDIF
-
-      KEY  = PREFIX(1:LENPRE)//'_DEC'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN ;  SNHOST8_DEC(igal) = RET8(1) ;  ENDIF
-
-      KEY  = PREFIX(1:LENPRE)//'_SNSEP'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SNHOST_ANGSEP(igal) = SNGL(RET8(1))
-        EXIST_SNHOST_ANGSEP = .TRUE.
-      ENDIF
-
-      KEY  = PREFIX(1:LENPRE)//'_DDLR'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SNHOST_DDLR(igal) = SNGL(RET8(1))
-        EXIST_SNHOST_DDLR = .TRUE.
-      ENDIF
-
-c - - - - - - - - - - - -  -
-
-      KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;    
-      RETSTR = '+ERR'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
-            SNHOST_LOGMASS(igal)     = SNGL(RET8(1))
-          endif
-          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
-             SNHOST_LOGMASS_ERR(igal) = SNGL(RET8(2))
-          endif
-          EXIST_SNHOST_LOGMASS = .TRUE.
-      ENDIF
-
-      KEY    = PREFIX(1:LENPRE)//'_sSFR' ;    
-      RETSTR = '+ERR'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-          if ( RET8(1) .NE. IGNORE_HEADVAL ) then
-            SNHOST_sSFR(igal)     = SNGL(RET8(1))
-          endif
-          if ( RET8(2) .NE. IGNORE_HEADVAL ) then
-             SNHOST_sSFR_ERR(igal) = SNGL(RET8(2))
-          endif
-          EXIST_SNHOST_sSFR = .TRUE.
-      ENDIF
+      KEY    = PREFIX(1:LENPRE)//'_SPECZ_ERR' 
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_ZSPEC_ERR(igal)     = SNGL(DARRAY(1))
 
 c - - - 
 
-      KEY    = PREFIX(1:LENPRE)//'_MAG'
-      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ' '
-      IF ( LTMP ) THEN
-        EXIST_SNHOST_MAGOBS = .TRUE.
-        DO ifilt = 1, NFILTDEF_READ
-           SNHOST_MAGOBS(ifilt,igal) = SNGL ( RET8(ifilt) )
-        ENDDO
-      ENDIF
-+SELF.
+      KEY  = PREFIX(1:LENPRE)//'_RA'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST8_RA(igal) = DARRAY(1) 
+
+      KEY  = PREFIX(1:LENPRE)//'_DEC'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST8_DEC(igal) = DARRAY(1) 
+
+      KEY  = PREFIX(1:LENPRE)//'_SNSEP'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_ANGSEP(igal) = SNGL(DARRAY(1))
+      IF ( SNHOST_ANGSEP(igal) > 0.0 ) EXIST_SNHOST_ANGSEP = .TRUE.
+
+      KEY  = PREFIX(1:LENPRE)//'_DDLR'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_DDLR(igal) = SNGL(DARRAY(1))
+      IF ( SNHOST_DDLR(igal) > 0.0 )  EXIST_SNHOST_DDLR = .TRUE.
+
+
+c - - - - - - - - - - - -  -
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGMASS(igal)   = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGMASS_ERR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
+
+      if ( SNHOST_LOGMASS(igal) > 0.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
+
+c - - - -
+
+      KEY    = PREFIX(1:LENPRE)//'_sSFR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_sSFR(igal)     = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_sSFR_ERR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_sSFR_ERR(igal)     = SNGL(DARRAY(1))
+ 
+      IF ( SNHOST_sSFR(igal) > -90.0 ) EXIST_SNHOST_sSFR = .TRUE.
+
+c - - - 
+      DO ifilt = 1, NFILTDEF_READ
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         band      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+         KEY       = PREFIX(1:LENPRE) // "_MAG_" // band
+         CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+         SNHOST_MAGOBS(ifilt,igal) = SNGL ( DARRAY(1) )
+      ENDDO
 
       RETURN
       END    ! end RDHEAD_HOSTGAL
@@ -12390,6 +12423,130 @@ c redshift quality flag (real data only)
 
       RETURN
       END    ! end RDHEAD_REDSHIFT
+
+
+C =============================
++DECK,RDHEAD_SIM_SNANA.
+      SUBROUTINE RDHEAD_SIM_SNANA(OPT)
+
+      IMPLICIT NONE
+
+      INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      CHARACTER STRING*100
+      REAL*8 DARRAY(10)
+
+C ----------- BEGIN ----------
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_NAME",  ! e.g., SALT2, BYOSED
+     &    ONE, STRING, DARRAY, OPT)
+      SIMNAME_MODEL = STRING
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_TYPE_NAME",  ! e.g., Ia, Ibc
+     &    ONE, STRING, DARRAY, OPT)
+      SIMNAME_TYPE = STRING
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  
+     &    ONE, STRING, DARRAY, OPT)
+      SIM_MODEL_INDEX = INT(DARRAY(1))
+
+      RETURN
+      END    ! end RDHEAD_SIM_SNANA
+
+
+C ===========================================
++DECK,RDOBS_DRIVER.
+      SUBROUTINE RDOBS_DRIVER(ISN)
+
+C Created Feb 11 2021
+C Read epoch-dependent information
+
+      IMPLICIT NONE
+      INTEGER  ISN    ! (I) sparse SN index
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FITSCOM.
+
+      REAL*8 MJD_SAFETEY
+      PARAMETER ( MJD_SAFETEY = 30.0 ) ! extra margin for MJD window
+
+      INTEGER OPT, NOBS_STORE, o
+      REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2)
+      REAL   z, z1, TOBS_MIN, TOBS_MAX
+      CHARACTER STRING*12
+
+      INTEGER  SELECT_MJD_SNDATA
+      EXTERNAL SELECT_MJD_SNDATA
+
+C ---------- BEGIN --------
+
+c read header for event and load SNDATA struct.
+      IF ( FORMAT_FITS ) THEN
+         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_PHOT,ISN)
+      ELSE IF ( FORMAT_TEXT ) THEN
+         ! read text 
+      ENDIF
+
+c set MJD window for copy SNDATA obs
+      MJD_WINDOW(1) = 0.0;   MJD_WINDOW(2) = 1.0E6  ! default
+
+c check to refine window around approx peakmjd
+      if ( SNLC_SEARCH_PEAKMJD > 40000.0 ) then
+         z = SNLC_REDSHIFT
+	 z1 = 1.0 + z ;   if ( z < 0.0 ) z1 = 2.0
+	 TOBS_MIN = CUTWIN_TREST(1)*z1
+	 TOBS_MAX = CUTWIN_TREST(2)*z1
+	 MJD_WINDOW(1) = SNLC_SEARCH_PEAKMJD - TOBS_MIN - MJD_SAFETEY
+	 MJD_WINDOW(2) = SNLC_SEARCH_PEAKMJD + TOBS_MAX + MJD_SAFETEY
+      endif
+
+      NOBS_STORE = SELECT_MJD_SNDATA(MJD_WINDOW)
+
+c - - - - - - - - - 
+c fetch SNDATA values and load fortran globals
+
+      OPT = OPTMASK_SNDATA_PHOT 
+     &    + OPTMASK_SNDATA_DUMP
+
+      DARRAY(1) = -999.0
+      STRING    = ''
+
+      CALL FETCH_SNDATA_WRAPPER("MJD",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE ; SNLC8_MJD(o) = DARRAY(o);  ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("FLT",  
+     &      NOBS_STORE, STRFITS, DARRAY, OPT)
+      CALL UNPACK_SNFITSIO_STR(NOBS_STORE,"FLT", STRFITS)
+
+      CALL FETCH_SNDATA_WRAPPER("FIELD",  
+     &      NOBS_STORE, STRFITS, DARRAY, OPT)
+      CALL UNPACK_SNFITSIO_STR(NOBS_STORE,"FIELD", STRFITS)
+
+      CALL FETCH_SNDATA_WRAPPER("FLUXCAL",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE ; SNLC_FLUXCAL(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("FLUXCALERR",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE ; SNLC_FLUXCAL_ERRTOT(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("PHOTFLAG",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE ; ISNLC_PHOTFLAG(o)=int(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("PHOTPROB",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE ; SNLC_PHOTPROB(o) = DARRAY(o);  ENDDO
+
+      RETURN
+      END
 
 C ===========================================
 +DECK,RDGLOB_FITS_LEGACY.
@@ -12615,16 +12772,17 @@ c turn off epoch selection-mask
 
       if ( ISTAT .LT. 0 ) RETURN
 
-      IF ( LSIM_SNANA ) THEN
-        CALL PARSE_SIM ( ISN, "SIM", ISTAT)
+      IF ( LSIM_SNANA .and. LEGACY_READ_DATA ) THEN
+        CALL PARSE_SIM_LEGACY ( ISN, "SIM", ISTAT)
         if ( ISTAT .LT. 0 ) RETURN
       ENDIF
-
-c read enough epoch info to make epoch-cuts and set read mask
-      CALL RDSNFITS_EPCUTS ( IVERS, IROW )
-
-c read all epoch info for this event from PHOT table
-      CALL RDSNFITS_PHOT ( IVERS, IROW )
+      
+      IF ( LEGACY_READ_DATA ) THEN
+         CALL RDSNFITS_EPCUTS( IVERS, IROW )   ! select epochs passing cuts
+         CALL RDSNFITS_PHOT  ( IVERS, IROW )   ! read all variables
+      ELSE
+         CALL RDOBS_DRIVER ( IROW )  ! refactored for FITS or TEXT
+      ENDIF
 
 c read optional spectra (Apr 2019)
       CALL RDSNFITS_SPEC ( IVERS )
@@ -13648,7 +13806,7 @@ c check that no new private variables are added
             CALL PARSE_PRIVATE_TEXT ( cwd(1) )
 
             if ( ISNLC_FAKE .EQ. 2 ) then
-               CALL PARSE_SIM ( isnlc, cwd, istat )
+               CALL PARSE_SIM_LEGACY ( isnlc, cwd, istat )
                if ( istat .LT. 0 .and. ALLOW_SKIP ) return
             endif
 
@@ -16032,7 +16190,6 @@ c in the parsing. If Trest fails cut, SNLC8_MJD will get over-written.
 c Use utility function to apply MJD/Trest cut,  but ignore 
 c cut on IDTEL and IDFIELD; these last two cuts are applied 
 c later if/when their values are read.
-cc xxxx mark delete  LTMP  = LCUTEPOCH_LEGACY(Z, PKMJD, SNGL(MJD8), 999,999)
           LTMP  = LCUTEPOCH(1, Z, PKMJD, EPMIN)
         
           if ( .NOT. LTMP ) then
@@ -16390,7 +16547,7 @@ c not just the first filter.
 
 C ==============================================
 +DECK,PARSE_SIM.
-      SUBROUTINE PARSE_SIM ( isnlc, cwords, istat )
+      SUBROUTINE PARSE_SIM_LEGACY ( isnlc, cwords, istat )
 c
 c parse SIM_xxx parameters if CWD starts with "SIM"
 c cword(1) is the keyword; cword(2) is the value,c
@@ -16749,7 +16906,7 @@ c - - - -
       IF ( LTMP ) SIM_SUBSAMPLE_INDEX = INT(RET8(1))
 
       RETURN
-      END     ! end of PARSE_SIM
+      END     ! end of PARSE_SIM_LEGACY
 
 C ==============================================
 +DECK,PARSE_PRIVATE.
@@ -25598,8 +25755,8 @@ c      print*,' xxx MJD=', MJD, '  PHOTFLAG=', PHOTFLAG
 
 c evaluate epoch cut in rest-frame
       IF ( LTMP ) THEN
-c       PKMJD not yet determined, so no TREST cut
-         LTrest = .TRUE.
+c       PKMJD estimate not yet determined, so no TREST cut
+         LTrest = .TRUE.  
       ELSE
 c  use PEAKMJD from data file, go ahead with TREST cut
          Trest = (MJD - PKMJD) / ZZ
@@ -25644,100 +25801,6 @@ c Sep 2020: apply SNR cut for non-detections - to reject crazy fluxes.
 
       RETURN
       END      ! LCUTEPOCH
-
-
-C =========================================
-+DECK,LCUTEPOCH_LEGACY.
-      LOGICAL FUNCTION LCUTEPOCH_LEGACY(Z,PKMJD,MJD,IFILT,IDFIELD)
-
-c ------------------------------------------- 
-c
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-c
-c Created Jun 18, 2011
-c Return TRUE if this epoch passes epoch-cuts.
-c The input are the epoch values rather than the SN ID.
-c
-c May 2012: ZZ=1 if z<0 to avoid ZZ=0
-c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
-c Mar 01 2020: 
-c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
-c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
-c ------------------------------------------
-
-      IMPLICIT NONE
-
-      REAL 
-     &   Z, PKMJD      ! (I) redshift and time of peak brightness
-     &  ,MJD           ! (I) MJD of epoch 
-
-      INTEGER IFILT       ! (I) sparse filter index
-      INTEGER IDFIELD     ! (I) FIELD ID
-
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-
-c local variables
-
-+CDE,SNPAR.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-
-      REAL TREST, ZZ
-      LOGICAL LTMP, LTREST, LMJD, LXMJD
-
-C --------------- BEGIN -----------
-
-      LCUTEPOCH_LEGACY = .FALSE.
-
-      IF ( Z .GT. 0.0 ) then
-         ZZ    = 1.0 + Z
-      ELSE
-         ZZ    = 1.0
-      ENDIF
-
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-
-      LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
-      IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
-
-c evaluate epoch cut in rest-frame
-      IF ( LTMP ) THEN
-c       PKMJD not yet determined, so no TREST cut
-         LTrest = .TRUE.
-      ELSE
-c  use PEAKMJD from data file, go ahead with TREST cut
-         Trest = (MJD - PKMJD) / ZZ
-         LTrest = ( Trest .GE. cutwin_Trest(1) .and. 
-     &              TRest .LE. cutwin_Trest(2) )
-      ENDIF
-
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-
-      LXMJD = ( MJD .GE. CUTWIN_MJD_EXCLUDE(1) .and.
-     &          MJD .LE. CUTWIN_MJD_EXCLUDE(2) )
-
-      LMJD = ( MJD .GE. cutwin_MJD(1) .and.
-     &         MJD .LE. cutwin_MJD(2) )
-
-      LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
-      IF ( .NOT. LTMP ) RETURN
-
-      if ( IFILT < 900 ) then
-        LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
-        IF ( .NOT. LTMP ) RETURN
-      endif
-
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-
-c check selected field.
-      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
-      IF ( .NOT. LTMP ) RETURN
-
-      LCUTEPOCH_LEGACY = .TRUE.
-c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
-
-      RETURN
-      END
 
 C ==================================================
 +DECK,LCUTVAR.

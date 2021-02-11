@@ -91,7 +91,7 @@ bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 
-int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
+// xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
 // xxx char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name

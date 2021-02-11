@@ -507,14 +507,25 @@ bool correct_sign_vpec_data(char *snana_version_data);
 bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) ;
+void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
 
-void fetch_SNDATA_GLOBAL(char *key,int NVAL,char *stringVal, double *parVal);
-void fetch_SNDATA_HEAD(char *key,int NVAL,char *stringVal, double *parVal);
-void fetch_SNDATA_PHOT(char *key,int NVAL,char *stringVal, double *parVal);
+void copy_SNDATA_GLOBAL(int copyFlag, char *key,
+			int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_HEAD(int copyFlag, char *key,
+		      int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_OBS(int copyFlag, char *key,
+		     int NVAL,char *stringVal, double *parVal);
+int select_MJD_SNDATA(double *CUTWIN_MJD);
+
+void copy_int(int copyFlag, double *DVAL0, int    *IVAL1) ;
+void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
+void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
+void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
+void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
+//void copy_void(int copyFlag, double *DVAL0, void   *VAL1) ;
 
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
@@ -852,11 +863,15 @@ int    get_1DINDEX(int ID, int NDIM, int *indx );
 void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) ;
+void set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
 
-void fetch_sndata_global__(char *key,int *NVAL,char *stringVal,double *parVal);
-void fetch_sndata_head__(char *key,int *NVAL,char *stringVal,double *parVal);
-void fetch_sndata_phot__(char *key,int *NVAL,char *stringVal,double *parVal);
+void copy_sndata_global__(int *copyFlag, char *key,
+			  int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_head__(int *copyFlag, char *key,
+			int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_obs__(int *copyFlag, char *key,
+		       int *NVAL,char *stringVal,double *parVal);
+int  select_mjd_sndata__(double *MJD_WINDOW);
 
 // ------ sorting --------
 

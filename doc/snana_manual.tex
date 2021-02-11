@@ -9868,7 +9868,8 @@ the \snfitter\ program.
 
 
 {\tt GENMODEL} specification is based on a directory path 
-(class=\SALTII,\SIMSED,\NONIA,\BYOSED) or a file (class=\NONIAGRID,\LCLIB).
+(class=\SALTII,\SIMSED,\NONIA,\BYOSED\footnote{https://byosed.readthedocs.io/en/latest}) 
+or a file (class=\NONIAGRID,\LCLIB).
 Examples are
 
 \begin{Verbatim}[frame=single]
@@ -12407,7 +12408,7 @@ format with one file per passband.
 
 
 % --------------------------------------
-  \subsubsection{Translating TEXT data-files into FITS Format}
+  \subsubsection{Translating TEXT data-files into FITS Format; and vice-versa}
   \label{sss:text2fits}
 % --------------------------------------
 
@@ -12429,7 +12430,6 @@ file with the following,
   snana.exe NOFILE  \
      VERSION_PHOTOMETRY     MYSURVEY_TEXT  \  
      VERSION_REFORMAT_FITS  MYSURVEY_FITS
-
 \end{Verbatim}
 %
 This translation should be used only for data
@@ -12443,6 +12443,22 @@ All of the output files are created in your current directory;
 to use the for analysis, copy them into 
 {\tt\$\sndataroot/lcmerge}~.
 
+\medskip
+While FITS formatted data is efficient for analysis,
+it is not so useful for visual inspection. 
+To enable visual inspection, TEXT-formatted
+data files can be extracted from FITS-formatted files
+(data or sim) as follows:
+\begin{verbatim}
+  snana.exe NOFILE  \
+     VERSION_PHOTOMETRY     MYSURVEY_FITS  \  
+     VERSION_REFORMAT_TEXT  MYSURVEY_TEXT  \
+     SNCID_LIST 8,1034,5944
+\end{verbatim}
+%
+where an explicit CID list or snana selection criteria can 
+be applied. To avoid file-count quota issues, 
+a max limit of 20 data files can be extracted.
 
 % --------------------------------------
   \clearpage
@@ -12456,23 +12472,19 @@ To re-write data files with these modifications,
 %
 \begin{Verbatim}[frame=single]
   &SNLCINP
-    VERSION_PHOTOMETRY = 'DES-SN3YR_DES'
-    MAGCOR_FILE        = '$DES_ROOT/lcmerge/DES3YR_DES_MAGCOR.DAT'
-    FLUXERRMODEL_FILE  = '$DES_ROOT/simlibs/DES3YR_FAKE_ERRORFUDGES.DAT'
-    OPT_REFORMAT_TEXT  = 1  ! re-write data files in TEXT format
-       or 
-    VERSION_REFORMAT_FITS = 'NEW_VERSION_NAME'  ! re-write in FITS format
+    VERSION_PHOTOMETRY = `DES-SN3YR_DES'
+    MAGCOR_FILE        = `$DES_ROOT/lcmerge/DES3YR_DES_MAGCOR.DAT'
+    FLUXERRMODEL_FILE  = `$DES_ROOT/simlibs/DES3YR_FAKE_ERRORFUDGES.DAT'
+    VERSION_REFORMAT_FITS = `NEW_VERSION_NAME'  ! re-write in FITS format
  &END
 \end{Verbatim}
 %
 In this example, {\tt MAGCOR\_FILE} and {\tt FLUXERRMODEL\_FILE} 
 are used to modify the fluxes and their uncertainties.
-{\tt OPT\_REFORMAT\_TEXT} re-writes the data files in text format
-with the modified fluxes so that future analyses need not worry about
+{\tt VERSION\_REFORMAT\_FITS} re-writes in FITS format with 
+modified fluxes so that future analyses need not worry about
 using the \snana\ flux-modify options. 
-{\tt VERSION\_REFORMAT\_FITS} re-writes in FITS format.
-This is particularly
-useful for data releases.
+This option is particularly useful for data releases.
 
 If the re-written data files include SNANA-computed flux/fluxErr fudges,
 a header variable in the data files is included,

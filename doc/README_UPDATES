@@ -19536,4 +19536,30 @@
   submit_train_SALT3.py
     + more development
 
+
+# ======================================================================= 
+         v11_02h (  ) 
+
+         ***** IMPORTANT(v11_02h) ***** 
+
+   + IGNORE file no longer required, and no longer part of sim output
+       (no action necessary)
+
+         ***** USEFUL(v11_02h) ***** 
+
+         ***** MISCELLANEOUS(v11_02h) ***** 
+
+  snlc_sim: 
+    + abort on ancient VERBOSE format (FORMAT_MASK=1)
+    + no longer write empty IGNORE file 
+    + rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
+    + begin refactoring text format with sntools_dataformat_text.c[h]
+       (goal is to extract TEXT files from FITS files)
+
+  snana.car
+    + IGNORE file now optional (not required)
+
+  SALT2mu.c
+    + fix declaration bug in check_vpec_sign function
+
 END: 

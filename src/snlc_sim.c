@@ -3009,6 +3009,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 int  parse_input_LCLIB(char **WORDS, int keySource ) {
 
   // Created July 2020
+  // Feb 11 2021: Fix address bug reading LCLIB_CUTWIN
+
   int NCUT, N=0;
   char fnam[] = "parse_input_LCLIB";
 
@@ -3018,8 +3020,8 @@ int  parse_input_LCLIB(char **WORDS, int keySource ) {
     // --- LCLIB cut windows to select library events  
     NCUT = LCLIB_CUTS.NCUTWIN ;
     N++ ; sscanf(WORDS[N], "%s",  LCLIB_CUTS.PARNAME[NCUT] );
-    N++ ; sscanf(WORDS[N], "%le", LCLIB_CUTS.CUTWIN[NCUT][0] );
-    N++ ; sscanf(WORDS[N], "%le", LCLIB_CUTS.CUTWIN[NCUT][1] );
+    N++ ; sscanf(WORDS[N], "%le", &LCLIB_CUTS.CUTWIN[NCUT][0] );
+    N++ ; sscanf(WORDS[N], "%le", &LCLIB_CUTS.CUTWIN[NCUT][1] );
     LCLIB_CUTS.NCUTWIN++ ;
   }
   else if ( keyMatchSim(1, "LCLIB_DEBUG_DAYSCALE",  WORDS[0],keySource) ) {

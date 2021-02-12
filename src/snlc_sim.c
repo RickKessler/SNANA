@@ -12199,7 +12199,8 @@ double gen_redshift_cmb ( void) {
   // --------------- BEGIN ------------
 
   if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return(zcmb); }
-  
+  if ( INDEX_GENMODEL == MODEL_LCLIB  ) { return(zmin); }
+
   // check for delta-function in redshift
   if ( zmin == zmax ) {
     zcmb = INPUTS.GENRANGE_REDSHIFT[0] ; 

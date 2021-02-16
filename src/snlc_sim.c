@@ -6983,6 +6983,8 @@ void init_simvar(void) {
 
   SPECTROGRAPH_USEFLAG = 0; // Jan 2021
 
+  init_SNDATA_GLOBAL() ;  // Feb 2021
+
   return ;
 
 } // end of init_simvar
@@ -26693,7 +26695,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // init SNDATA strucure
-  init_SNDATA() ; 
+  init_SNDATA_EVENT() ; 
 
   // load SNDATA structure
   snlc_to_SNDATA(0) ;

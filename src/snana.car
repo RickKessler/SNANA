@@ -54,7 +54,7 @@ c parameters used by snana code
      &  ,OPT_SNXT_CCM89, OPT_SNXT_SJPAR
      &  ,OPT_MWCOLORLAW_DEFAULT, OPT_MWEBV_DEFAULT
      &  ,OPT_KCORERR_SJ, OPT_KCORERR_SJ5, OPT_KCORERR_SMOOTH
-     &  ,OPTMASK_SNDATA_GLOBAL, OPTMASK_SNDATA_HEAD, OPTMASK_SNDATA_PHOT
+     &  ,OPTMASK_SNDATA_GLOBAL, OPTMASK_SNDATA_HEAD, OPTMASK_SNDATA_OBS
      &  ,OPTMASK_SNDATA_SPEC, OPTMASK_SNDATA_DUMP
      &  ,MXLINE_ARGS, MXKEY_ARGS, MXEPOCH_IGNORE
      &  ,NPAR_ANYLC, MXPAR_SIMSED, MXPAR_LCLIB
@@ -226,7 +226,7 @@ c
 c
      &  ,OPTMASK_SNDATA_GLOBAL =  1
      &  ,OPTMASK_SNDATA_HEAD   =  2
-     &  ,OPTMASK_SNDATA_PHOT   =  4
+     &  ,OPTMASK_SNDATA_OBS    =  4
      &  ,OPTMASK_SNDATA_SPEC   =  8
      &  ,OPTMASK_SNDATA_DUMP   = 32
 c
@@ -2285,7 +2285,7 @@ c e.g., FIELD, TELESCOPE ...
       PARAMETER (MXLEN_EPSTRING = 20000 ) 
 
       INTEGER  
-     &   RD_SNFITSIO_INIT
+     &   RD_SNFITSIO_PREP
      &  ,RD_SNFITSIO_STR  ! read string
      &  ,RD_SNFITSIO_INT  ! read int
      &  ,RD_SNFITSIO_SHT  ! read short int
@@ -2293,7 +2293,7 @@ c e.g., FIELD, TELESCOPE ...
      &  ,RD_SNFITSIO_DBL  ! read double
 
       EXTERNAL 
-     &   RD_SNFITSIO_INIT
+     &   RD_SNFITSIO_PREP
      &  ,RD_SNFITSIO_STR
      &  ,RD_SNFITSIO_INT
      &  ,RD_SNFITSIO_SHT
@@ -2935,6 +2935,7 @@ C =================================================
 +USE,P=*FITPKMJD,T=EXE.
 +USE,P=*SPLINE,T=EXE.
 
++USE,P=*LEGACYIO.
 
 C =============================================
 +PATCH,*SNMAIN.
@@ -3011,20 +3012,9 @@ c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
 c -----------------------------------------------
-c read header of 1st light curve to get global info
-c (SURVEY, FILTERS ..) needed for initialization
-      LFLAG_RDHEAD_ONLY = .TRUE.
-      IVERS = 1
+c prepare reading data; determine FITS or TEXT; read global info ...
+      CALL INIT_DATA_READ()
 
-      CALL GETINFO_PHOTOMETRY(IVERS)
-
-      IF ( FORMAT_FITS ) THEN
-         CALL RDVERSION_FITS ( IVERS, IERR )
-      ELSE
-         CALL RDVERSION_TEXT ( IVERS, IERR )
-      ENDIF
-      LFLAG_RDHEAD_ONLY = .FALSE.
-      N_SNFILE          = 0  ! reset 
 
 c continue with initialization that may depend on SURVEY and FILTERS.
 
@@ -3163,7 +3153,7 @@ c first get VERSION path and name of list file
          CALL GETINFO_PHOTOMETRY(ivers)
 
          CALL DMP_README(ivers,IERR)
-         CALL RDEPIGNORE(ivers,IERR)
+         CALL READ_EPIGNORE_FILE(ivers,IERR)
 
          IF ( FORMAT_FITS ) THEN
            CALL RDVERSION_FITS ( IVERS, IERR )
@@ -6649,7 +6639,9 @@ c ----------------- BEGIN -------------
       FNAM = 'SNANA_DRIVER' 
 
 c make sure required header elements are there
-      CALL HEADMASK_CHECK(SNLC_CCID)
+      IF ( LEGACY_READ_DATA ) THEN
+         CALL HEADMASK_CHECK_LEGACY(SNLC_CCID)
+      ENDIF
 
       if ( LSIM_SNANA ) THEN
          PS8 = DBLE(SIM_PRESCALE)
@@ -6696,13 +6688,12 @@ c check for SN-dependent filter response
       CALL FILTER_UPDATE_DRIVER()
 +SELF.
 
-
 c compute quantities, apply AB offsets, set cut-mask
       CALL SNRECON()       ! compute variables, apply AB offsets
-      CALL U3BAND()        ! special U-band test
-cc xxx mark delete 9/2020      CALL USRCUTS(IERR)   
-      CALL SET_CUTMASK()   ! set cutmask 
 
+      CALL U3BAND()        ! special U-band test
+
+      CALL SET_CUTMASK()   ! set cutmask 
 
 +SELF,IF=SNFIT.
 c check option to include IDEAL fit, after SNRECON (Aug 29 2017)
@@ -6721,7 +6712,7 @@ c check dump-option for SN that fail cuts.
          CALL MON_SNANA(IFLAG_ANA)       ! update ntuples for rejected SN
          RETURN  ! skip this SN
       ENDIF
- 
+
       IF ( STDOUT_UPDATE ) THEN
         write(6,42) isn
      &        , SNLC_CCID
@@ -8347,7 +8338,7 @@ c -----------------------------------------------
      &  ,ctmp*60
 
 c  functions
-      LOGICAL CHECK_EPOCH_IGNORE
+      LOGICAL CHECK_EPOCH_LEGACY
 
 C ------------ BEGIN -------------
 
@@ -8581,7 +8572,7 @@ c write observations.
 
           DO 302 EP = EPMIN, EPMAX
 
-            IF ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 302
+            IF ( CHECK_EPOCH_LEGACY(0,ep) ) GOTO 302
 
             IFILT_OBS     = ISNLC_IFILT_OBS(ep)
             IFILT_REPLACE = IMAP_REPLACE(IFILT_OBS)
@@ -9092,80 +9083,6 @@ c misc.
       END   ! end of INIT_SNVAR
 
 
-C =======================
-+DECK,HDMSKCHK.
-      SUBROUTINE HEADMASK_CHECK(CCID)
-
-c Created Aug 28, 2012
-c Check HEADMASK to make sure that all required header keys 
-c have been read. Abort on any missing key.
-c
-c Feb 2016: check option to abort on missing header info.
-
-      IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I) name of SN
-
-+CDE,SNPAR.
-+CDE,SNFILECOM.
-+CDE,SNCUTS.
-+CDE,CTRLCOM.
-+CDE,SNLCINP.
-
-c local var
-
-      INTEGER LKEY, LENTOT, ibit, OVP
-      LOGICAL  LTMP
-
-      CHARACTER 
-     &   HEADBIT_STRING(0:NBIT_HEADMASK)*12
-     &  ,CTMP*12
-     &  ,KEY_LIST*100
-
-C -------------- BEGIN ---------------
-
-      OVP = IAND(HEADMASK,HEADMASK_REQUIRED)
-      IF ( OVP .EQ. HEADMASK_REQUIRED ) RETURN
-
-c Feb 2016: check option to abort on missing header info
-      if ( .NOT. ABORT_ON_BADHEADER ) RETURN
-
-
-c if we get here, print missing key(s) and abort.
-
-
-c Start by filling string for each bit to simplify dump-logic
-
-      HEADBIT_STRING(HEADBIT_SNID)    = 'SNID'
-      HEADBIT_STRING(HEADBIT_IAUC)    = 'IAUC'
-      HEADBIT_STRING(HEADBIT_CIDSEL)  = 'CIDSEL'
-      HEADBIT_STRING(HEADBIT_SURVEY)  = 'SURVEY'
-      HEADBIT_STRING(HEADBIT_FILTERS) = 'FILTERS'
-      HEADBIT_STRING(HEADBIT_RA)      = 'RA'
-      HEADBIT_STRING(HEADBIT_DEC)     = 'DEC'
-      HEADBIT_STRING(HEADBIT_MWEBV)   = 'MWEBV'
-      HEADBIT_STRING(HEADBIT_Z)       = 'REDSHIFT'
-
-c get list of keys that are NOT set
-      LENTOT   = 1
-      KEY_LIST = ' '
-      DO ibit = 0, NBIT_HEADMASK-1
-         LTMP = BTEST(HEADMASK,ibit)
-         if ( .not. LTMP ) then
-            CTMP = HEADBIT_STRING(ibit)
-            LKEY = INDEX(CTMP,' ') - 1
-            KEY_LIST = KEY_LIST(1:LENTOT) // ' ' // CTMP(1:LKEY)
-            LENTOT   = LENTOT + LKEY + 1
-         endif
-      ENDDO  
-
-      write(C1ERR,61) HEADMASK, HEADMASK_REQUIRED, CCID
-61    format('Bad HEADMASK=',I4,' (required=',I4,')', 3x,  
-     &           'for SNID=', A )
-      C2ERR = 'Missing key(s): ' // KEY_LIST(1:LENTOT)
-      CALL MADABORT('HEADMASK_CHECK', C1ERR, C2ERR)
-
-      RETURN
-      END   ! HEADMASK_CHECK
 
 C ======================
 +DECK,NNRDINP.
@@ -11253,11 +11170,11 @@ C --------------- BEGIN --------------
       ENDIF
 
       RETURN
-      END
+      END    ! end ABORT_ON_CUTWIN_TREST
 
 C ================================================
 +DECK,RDEPIG.
-      SUBROUTINE RDEPIGNORE ( IVERS, IERR )
+      SUBROUTINE READ_EPIGNORE_FILE ( IVERS, IERR )
 c
 c Created May 6, 2008 by R.Kessler
 c Read list of epochs to ignore.
@@ -11313,7 +11230,7 @@ C ------------- BEGIN ----------
       VERSION  = VERSION_PHOTOMETRY(ivers) 
       LV       = index(VERSION,' ') - 1
 
-      CALL PRBANNER ( "RDEPIGNORE:" )
+      CALL PRBANNER ( "READ_EPIGNORE_FILE:" )
 
       if ( EPOCH_IGNORE_FILE(1:4) .EQ. 'NONE' ) GOTO 8000
       if ( EPOCH_IGNORE_FILE(1:4) .EQ. 'NULL' ) GOTO 8000
@@ -11380,7 +11297,7 @@ c Now start reading file
               write(c1err,661) N
 661           format('NEPOCH_IGNORE=',I4,' exceeds array bound.')
               c2err = 'Check file: ' // LOCAL_FILENAME(1:LL)
-              CALL MADABORT("RDEPIGNORE", c1err, c2err )
+              CALL MADABORT("READ_EPIGNORE", c1err, c2err )
            endif
 
            CALL get_PARSE_WORD_fortran(iwd+2,CWD_TMP,LL2)
@@ -11413,7 +11330,72 @@ C -------------------------------------------
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDEPIGNORE
+      END  ! end of READ_EPIGNORE_FILE
+
+C =============================
++DECK,PASS_EPIGNORE_FILE.
+      LOGICAL FUNCTION PASS_EPIGNORE_FILE(EP)
+
+c Created Feb 2021
+c Returns True if this epoch (EP) is NOT listed in the 
+c epoch IGNORE file associated with VERSION.IGNORE,
+c or with user input EPOCH_IGNORE_FILE.
+c Note that cuts are NOT applied here; this function simply
+c checks against an already existing list of epochs to ignore.
+c       
+
+      IMPLICIT NONE
+      
+      INTEGER EP ! (I) epoch index
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER  i, LL, ifilt_obs
+      LOGICAL  LFILT, IGNORE, LMJD, LCID
+      REAL*8    MJD8
+      CHARACTER CFILT*2, CCID*(MXCHAR_CCID)
+
+C --------------- BEGIN ----------
+
+      IGNORE = .FALSE.
+
+      DO 100 i = 1, NEPOCH_IGNORE
+
+        CCID = SNLC_CCID
+        LL   = ISNLC_LENCCID
+        LCID = EPOCH_IGNORE_CCID(i)(1:LL) .EQ. CCID(1:LL)
+        IF ( .NOT. LCID ) GOTO 100
+
+c leave big margin for MJD check (.002 days) in case IGNORE 
+c file has round-off errors for the MJD.
+        MJD8 = SNLC8_MJD(ep)
+        LMJD = ( ABS(EPOCH_IGNORE_MJD(i)-MJD8) < 0.002 )
+        IF ( .NOT. LMJD ) GOTO 100
+
+        ifilt_obs = ISNLC_IFILT_OBS(ep)
+        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+        LFILT     = EPOCH_IGNORE_FILT(i)(1:1) .EQ. CFILT(1:1)
+        IF ( .NOT. LFILT ) GOTO 100
+
+c if we get here, then give message to ignore epoch 
+c and skip down to over-write part.
+
+        IGNORE = .TRUE.
+
+        IF ( STDOUT_UPDATE) THEN
+          write(6,101) CCID, MJD8, cfilt
+        ENDIF
+101     format(T8,'IGNORE EPOCH FOR: CID=',A8, 
+     &         3x,'MJD=',F9.3, 3x,'FILT=',A )
+
+100   CONTINUE
+
+      PASS_EPIGNORE_FILE = (.NOT. IGNORE)
+
+      RETURN
+      END    ! PASS_EPIGNORE_FILE
 
 C ================================================
 +DECK,CHKFMT.
@@ -11423,8 +11405,6 @@ c Created Jun 15, 2011 by R.Kessler
 c Check if format is FITS or TEXT; 
 c set global logical FORMAT_FITS or FORMAT_TEXT
 c
-c Aug 8, 2011: pass PATH to RD_SNFITSIO_INIT so that it works
-c              with PRIVATE_DATA_PATH option
 c
       IMPLICIT NONE
 
@@ -11452,8 +11432,8 @@ c use first version on list since all versions must have same format
       PATH     = PRIVATE_DATA_PATH(1:LEN_PATH) // char(0)
 
       OPT      = 1  ! option to check format and return 
-      ISTAT    = RD_SNFITSIO_INIT(OPT, PATH, VERSION, 
-     &                              LEN_PATH, LEN_VERS)
+      ISTAT    = RD_SNFITSIO_PREP(OPT, PATH, VERSION, 
+     &     LEN_PATH, LEN_VERS)
 
       IF ( ISTAT .GT. 0 ) THEN
          FORMAT_FITS = .TRUE.
@@ -11527,7 +11507,7 @@ c  any selection on type, redshift, etc ...
       OPT = 0                          ! => full (default) init
       IF ( LFLAG_RDHEAD_ONLY ) OPT=2   ! Feb 7 2018
 
-      NROW  = RD_SNFITSIO_INIT(OPT, PATH, VERSION,
+      NROW  = RD_SNFITSIO_PREP(OPT, PATH, VERSION,
      &                         LEN_PATH, LEN_VERS )
 
       IF ( NROW > MXSNLC-1 ) THEN
@@ -11622,7 +11602,7 @@ C ------------------ BEGIN -------------
       
       IERR = 0
       OPT  = OPTMASK_SNDATA_GLOBAL
-     &     + OPTMASK_SNDATA_DUMP
+c     &     + OPTMASK_SNDATA_DUMP
 
       global_banner =
      &   "RDGLOBAL: FETCH GLOBAL SURVEY INFO from HEADER"
@@ -11712,10 +11692,12 @@ C =======================================
 c Created Feb 7 2021
 c Fortran wrapper to call C function fetch_SNDATA
 c Note that NARG must  be 1 for string; NARG can be >1 for DVALs
+c Return STRINGVAL or DVAL
 
       IMPLICIT NONE
 
 +CDE,SNPAR.
++CDE,FITSCOM.
 
 c function args
       CHARACTER KEY*(*)       ! (I) key name 
@@ -11725,8 +11707,9 @@ c function args
       INTEGER   OPT           ! (I) options: 1-> dump
 c local args
       INTEGER   LEN_KEY, LEN_STR, LEN_WHAT, COPYFLAG
-      LOGICAL   L_GLOBAL, L_HEAD, L_PHOT, L_DUMP
-      CHARACTER cKEY*60, cSTRING*400, c1err*80, c2err*80, WHAT*8
+      LOGICAL   L_GLOBAL, L_HEAD, L_OBS, L_DUMP
+      CHARACTER cSTRING*(MXLEN_EPSTRING)
+      CHARACTER cKEY*60, c1err*80, c2err*80, WHAT*8
       EXTERNAL  COPY_SNDATA_GLOBAL, COPY_SNDATA_HEAD
       EXTERNAL  COPY_SNDATA_OBS
 
@@ -11734,11 +11717,13 @@ c ------------ BEGIN ----------
 
       L_GLOBAL = ( IAND(OPT,OPTMASK_SNDATA_GLOBAL) > 0 ) 
       L_HEAD   = ( IAND(OPT,OPTMASK_SNDATA_HEAD) > 0 ) 
-      L_PHOT   = ( IAND(OPT,OPTMASK_SNDATA_PHOT) > 0 ) 
+      L_OBS    = ( IAND(OPT,OPTMASK_SNDATA_OBS ) > 0 ) 
       L_DUMP   = ( IAND(OPT,OPTMASK_SNDATA_DUMP) > 0 ) 
 
       LEN_KEY = INDEX(KEY//' ',' ') - 1
       cKEY    = KEY(1:LEN_KEY) // char(0)
+
+      STRINGVAL = '' ;  DVAL(1) = -9.0
 
       COPYFLAG = -1  ! flag to copy from SNDATA struct to cSTRING or DVAL
 
@@ -11750,7 +11735,7 @@ c ------------ BEGIN ----------
          CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
          WHAT = "HEAD"
-      ELSE IF ( L_PHOT ) THEN
+      ELSE IF ( L_OBS ) THEN
          CALL copy_SNDATA_OBS(copyFlag, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
          WHAT = "OBS"
@@ -11763,16 +11748,20 @@ cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
 
 
       LEN_STR = INDEX(cSTRING,char(0)) - 1
-      STRINGVAL = cSTRING(1:LEN_STR)
-      LEN_WHAT  = INDEX(WHAT,' ')-1
+      STRINGVAL = cSTRING(1:LEN_STR) 
+      LEN_WHAT  = INDEX(WHAT,' ') - 1
 
       if ( L_DUMP ) then
          write(6,66) WHAT(1:LEN_WHAT), KEY(1:LEN_KEY), 
      &        STRINGVAL(1:LEN_STR), DVAL(1)
  66      format(' xxx FETCH_SNDATA_',A,': ', 
      &        A,' = |', A, '|', 5x, G10.4 )
-      endif
 
+         if ( KEY(1:5) .EQ. 'XYZ' ) then
+            print*,'xxx FETCH_SNDATA_OBS: cSTRING = ', cSTRING
+         endif
+
+      endif
 
       RETURN
       END     ! end FETCH_SNDATA_WRAPPER.
@@ -12070,13 +12059,14 @@ c Read header info and apply some quick selection cuts.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER OPT, igal
+      INTEGER OPT, igal, CID
       REAL*8  DARRAY(10)
-      CHARACTER STRING*100
+      CHARACTER STRING*100, CCID*(MXCHAR_CCID)
+      LOGICAL   USECID
 
 c functions
       INTEGER  GET_IDSURVEY
-      EXTERNAL RD_SNFITSIO_EVENT
+      EXTERNAL RD_SNFITSIO_EVENT, RD_TEXT_EVENT
 
 C -------------- BEGIN ------------
 
@@ -12084,16 +12074,16 @@ C -------------- BEGIN ------------
 
 c read header for event and load SNDATA struct.
       IF ( FORMAT_FITS ) THEN
-         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_HEAD,ISN)
+         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_HEAD,ISN)  ! C func
       ELSE IF ( FORMAT_TEXT ) THEN
-         ! read text header??
+         CALL RD_TEXT_EVENT(OPTMASK_SNDATA_HEAD,ISN)  ! C func
       ENDIF
 
 c - - - - -
 c fetch SNDATA values and load fortran globals
 
       OPT = OPTMASK_SNDATA_HEAD 
-     &    + OPTMASK_SNDATA_DUMP
+c     &    + OPTMASK_SNDATA_DUMP
 
       DARRAY(1) = -999.0
       STRING    = ''
@@ -12120,6 +12110,16 @@ c fetch SNDATA values and load fortran globals
          ISNLC_LENCCID  = ISNLC_LENIAUC
          call checkString_CCID(SNLC_CCID) ! abort if illegal char in name
       ENDIF     
+
+c - - - - - - - - - - - - - - - - - - - - - - - - - -
+c Convert CCID to integer CID, and check if this CCID is selected.
+      CALL PARSE_CID( SNLC_CCID, SNLC_IAUC,    ! inputs
+     &                  CID, USECID)           ! returns args
+      SNLC_CID  = CID   ! load integer CID
+      if ( .NOT. USECID ) then 
+         ISTAT = ISTAT_SKIP;  RETURN
+      endif
+c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("FAKE", 
      &     ONE, STRING, DARRAY, OPT)
@@ -12171,11 +12171,12 @@ c      SNLC_SEARCH_PEAKMJD = DARRAY(1)
 
       CALL RDHEAD_PRIVATE(OPT)
 
-      IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)
-      
-      print*,' '
-      print*,' xxx DEBUG STOP xxx '
-      STOP   ! xxx REMOVE
+      IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)     
+
+
+c      print*,' '
+c      print*,' xxx DEBUG STOP xxx '
+c      STOP   ! xxx REMOVE
 
       RETURN
       END   ! end RDHEAD_DRIVER
@@ -12476,7 +12477,7 @@ c local var
       REAL*8 MJD_SAFETEY
       PARAMETER ( MJD_SAFETEY = 30.0 ) ! extra margin for MJD window
 
-      INTEGER OPT, NOBS_STORE, o
+      INTEGER OPT, NOBS_STORE, o, LENTMP
       REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2)
       REAL   z, z1, TOBS_MIN, TOBS_MAX
       CHARACTER STRING*12
@@ -12488,7 +12489,7 @@ C ---------- BEGIN --------
 
 c read header for event and load SNDATA struct.
       IF ( FORMAT_FITS ) THEN
-         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_PHOT,ISN)
+         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_OBS,ISN)
       ELSE IF ( FORMAT_TEXT ) THEN
          ! read text 
       ENDIF
@@ -12500,222 +12501,441 @@ c check to refine window around approx peakmjd
       if ( SNLC_SEARCH_PEAKMJD > 40000.0 ) then
          z = SNLC_REDSHIFT
 	 z1 = 1.0 + z ;   if ( z < 0.0 ) z1 = 2.0
-	 TOBS_MIN = CUTWIN_TREST(1)*z1
-	 TOBS_MAX = CUTWIN_TREST(2)*z1
-	 MJD_WINDOW(1) = SNLC_SEARCH_PEAKMJD - TOBS_MIN - MJD_SAFETEY
+	 TOBS_MIN = CUTWIN_TREST(1)*z1  ! note this is usually negative
+	 TOBS_MAX = CUTWIN_TREST(2)*z1  ! usually positive
+	 MJD_WINDOW(1) = SNLC_SEARCH_PEAKMJD + TOBS_MIN - MJD_SAFETEY
 	 MJD_WINDOW(2) = SNLC_SEARCH_PEAKMJD + TOBS_MAX + MJD_SAFETEY
       endif
 
-      NOBS_STORE = SELECT_MJD_SNDATA(MJD_WINDOW)
+      NOBS_STORE = SELECT_MJD_SNDATA(MJD_WINDOW)  ! C function
 
-c - - - - - - - - - 
+      ISNLC_NEWMJD_STORE = NOBS_STORE  ! store in global
+      ISNLC_NEPOCH_STORE = NOBS_STORE
+
+c - - - - - - - - - - - 
 c fetch SNDATA values and load fortran globals
 
-      OPT = OPTMASK_SNDATA_PHOT 
-     &    + OPTMASK_SNDATA_DUMP
+      OPT = OPTMASK_SNDATA_OBS
+c     &    + OPTMASK_SNDATA_DUMP
 
-      DARRAY(1) = -999.0
-      STRING    = ''
+      DARRAY(1) = -999.0 ;      STRING = ''
 
       CALL FETCH_SNDATA_WRAPPER("MJD",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE ; SNLC8_MJD(o) = DARRAY(o);  ENDDO
+      DO o=1,NOBS_STORE; SNLC8_MJD(o) = DARRAY(o);  ENDDO
 
       CALL FETCH_SNDATA_WRAPPER("FLT",  
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
-      CALL UNPACK_SNFITSIO_STR(NOBS_STORE,"FLT", STRFITS)
+      CALL UNPACK_SNFITSIO_STR(NOBS_STORE, "FLT", STRFITS)
 
       CALL FETCH_SNDATA_WRAPPER("FIELD",  
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
-      CALL UNPACK_SNFITSIO_STR(NOBS_STORE,"FIELD", STRFITS)
-
-      CALL FETCH_SNDATA_WRAPPER("FLUXCAL",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE ; SNLC_FLUXCAL(o)=SNGL(DARRAY(o)); ENDDO
-
-      CALL FETCH_SNDATA_WRAPPER("FLUXCALERR",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE ; SNLC_FLUXCAL_ERRTOT(o)=SNGL(DARRAY(o)); ENDDO
+      CALL UNPACK_SNFITSIO_STR(NOBS_STORE, "FIELD", STRFITS)
 
       CALL FETCH_SNDATA_WRAPPER("PHOTFLAG",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE ; ISNLC_PHOTFLAG(o)=int(DARRAY(o)); ENDDO
+      DO o=1,NOBS_STORE; ISNLC_PHOTFLAG(o)=int(DARRAY(o)); ENDDO
 
       CALL FETCH_SNDATA_WRAPPER("PHOTPROB",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE ; SNLC_PHOTPROB(o) = DARRAY(o);  ENDDO
+      DO o=1,NOBS_STORE; SNLC_PHOTPROB(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("FLUXCAL",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_FLUXCAL(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("FLUXCALERR",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_FLUXCAL_ERRTOT(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("PSF_SIG1",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_PSF_SIG1(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("PSF_SIG2",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_PSF_SIG2(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("PSF_RATIO",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_PSF_RATIO(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("SKY_SIG",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_SKYSIG(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("SKY_SIG_T",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_SKYSIG_T(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("ZEROPT",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_ZEROPT(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("ZEROPT_ERR",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_ZEROPT_ERR(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("GAIN",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SNLC_GAIN(o)=SNGL(DARRAY(o)); ENDDO
+
+      IF ( SNLC_NXPIX > 0 ) THEN
+         CALL FETCH_SNDATA_WRAPPER("XPIX",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SNLC_XPIX(o)=SNGL(DARRAY(o)); ENDDO
+
+         CALL FETCH_SNDATA_WRAPPER("YPIX",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SNLC_YPIX(o)=SNGL(DARRAY(o)); ENDDO
+      ENDIF
+
+c ----------------------------------------------
+c ----------- SIM QUANTITIES BELOW -------------
+c ----------------------------------------------
+
+      if ( .NOT. LSIM_SNANA ) GOTO 800
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_MAGOBS",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SIM_EPMAGOBS(o)=SNGL(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
+     &      NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
+
+
+      LENTMP = INDEX(SIMNAME_SNRMON,' ') - 1
+      IF ( LENTMP > 2 ) THEN
+         CALL FETCH_SNDATA_WRAPPER(SIMNAME_SNRMON,
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SIM_EPSNRMON(o)=SNGL(DARRAY(o)); ENDDO
+      ENDIF
+
+c ---------------------------------
+ 800  CONTINUE
+
+c compute a few misc variables related to input data;
+c these are essentially change of units.
+
+      DO o = 1, NOBS_STORE
+        CALL SET_EPVAR_MISC(o)   ! set SNLC_ZP (ADU or Npe) and PSF_FWHM
+
+        ISNLC_EPOCH_RANGE_NEWMJD(1,o) = o
+        ISNLC_EPOCH_RANGE_NEWMJD(2,o) = o
+      ENDDO
+
+c Since SET_PEAKMJD has not been called [yet], 
+c apply all epoch cuts EXCEPT for Trest.
+
+      CALL SELECT_EPOCH_DRIVER(1) ! 1 -> all obs/epoch cuts EXCEPT for Trest
+
+c      print*,' '
+c      print*,' xxx DEBUG STOP xxx '
+c      STOP   ! xxx REMOVE
 
       RETURN
-      END
+      END       ! end RDOBS_DRIVER
 
-C ===========================================
-+DECK,RDGLOB_FITS_LEGACY.
-      SUBROUTINE RDGLOBAL_FITS_LEGACY(IERR)
 
-c Jun 2011
-c 
-c Analog of RDSURVEY_TEXT:
-c Read global survey variables.
+C ================================================
++DECK,SELEP_DRIVER.
+      SUBROUTINE SELECT_EPOCH_DRIVER(OPT)
+
+c Created Feb 2021 (used by REFAC_READ_DATA)
 c
-c Dec 27 2015: SIMLIB -> SIMLIB_FILE and read SIMLIB_MSKOPT
-c Jun 16 2017: check for NSUBSAMPLE_MARK
-c Mar 18 2018: read SIM__VARNAME_SNRMON
-c Dec 26 2018: read SNFITSIO_CODE_IVERSION
-c Oct 26 2020: read SNANA_DATA_VERSION
-c -----------------------------------
+c OPT += 1 -> Apply all epoch cuts except for Trest 
+c                 (e..g, before calling SET_PEAKMJD
+c
+c OPT += 2 -> Apply only Trest cut (e.g, after SET_PEAKMJD)
+c
+c OPT  = 3 -> apply all obs/epoch cuts
 
       IMPLICIT NONE
-      INTEGER   IERR    ! (O) 0=> OK,  else error
 
-c local var
+      INTEGER OPT  ! (I)
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
-+CDE,FITSCOM.
-+CDE,SPECCOM.
++CDE,SNANAFIT.
++CDE,PKMJDCOM.
 
-      INTEGER ISTAT, LRET, FLAG
-      CHARACTER KEYNAME*80, KEYVAL*(MXFILT_ALL), DATATYPE*20
-      LOGICAL LRDFILT
+      REAL*8    MJD8, MJD8_LAST
+      INTEGER   NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
+      INTEGER   EPMIN, EPMAX, ep_orig, ep_new, IMJD
+      INTEGER   IFILT, IFILT_OBS
+      REAL      PEAKMJD, MJD, TOBS, TREST, z1, z
+      LOGICAL   APPLY_CUTS, APPLY_TREST
+      LOGICAL   PASS_CUTS, PASS_TREST, PASS
+      CHARACTER FNAM*20
 
-c C functions
-      LOGICAL   correct_sign_vpec_data
-      INTEGER   RD_SNFITSIO_GLOBAL
-      EXTERNAL  RD_SNFITSIO_GLOBAL, correct_sign_vpec_data
+c function
+cc      LOGICAL LCUTEPOCH_LEGACY, CHECK_EPOCH_LEGACY
+      LOGICAL PASS_EPOCH_CUTS, PASS_EPOCH_TREST
 
-C ------------- BEGIN ------------
+c ------------------- BEGIN -------------------
 
-      IERR = 0
+      FNAM = 'SELECT_EPOCH_DRIVER'
+      NMJD_STORE_NEW  = 0
+      NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
+      EP_NEW          = 0 
+      MJD8_LAST       = -9.0
 
-      global_banner =
-     &   "RDGLOBAL_FITS_LEGACY: FETCH GLOBAL SURVEY INFO from HEADER"
-      CALL PRBANNER(global_banner(1:60) )
+      APPLY_CUTS  = BTEST(OPT,0)
+      APPLY_TREST = BTEST(OPT,1)
 
-      KEYNAME   = "SURVEY" // char(0)
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 6, LRET )
-      LRET  = INDEX(KEYVAL,char(0)) - 1
-      SURVEY_NAME = KEYVAL(1:LRET)   
+      DO 101 NEWMJD = 1, ISNLC_NEWMJD_STORE
+         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
 
-c check for sub-survey flag (Feb 17 2017)
-      KEYNAME   = "SUBSURVEY_FLAG" // char(0)
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 14, LRET )
-      LRET  = INDEX(KEYVAL,char(0)) - 1
-      IF(LRET>0) THEN
-         READ( KEYVAL(1:LRET), * ) FLAG
-         IF ( FLAG > 0 ) SUBSURVEY_NAME = 'ENABLE' ! anything non-null
+         PASS_CUTS  = .TRUE.
+         PASS_TREST = .TRUE.
+
+         if ( APPLY_CUTS ) then
+            PASS_CUTS = PASS_EPOCH_CUTS(1,EPMIN)
+         endif
+
+         if ( APPLY_TREST ) then
+            PEAKMJD = SNLC_SEARCH_PEAKMJD
+            z       = SNLC_REDSHIFT
+            PASS_TREST = PASS_EPOCH_TREST(z,PEAKMJD,EPMIN)
+         endif
+
+         PASS = PASS_CUTS .and. PASS_TREST
+
+c xxxxxxxxxxxxxxxxxxxxxxxx
+c         IGNORE  = CHECK_EPOCH_LEGACY(1,epmin) .and.
+c     &        (.not. REFORMAT_SAVE_BADEPOCHS)
+c         LPASS  = LCUTEPOCH_LEGACY(0, z, PEAKMJD, EPMIN) 
+c     &        .and. (.not. IGNORE )
+c xxxxxxxxxxxxxxxxxxxxxxxx
+
+         if ( .NOT. PASS ) goto 101
+
+         NMJD_STORE_NEW = NMJD_STORE_NEW + 1
+         IMJD           = NMJD_STORE_NEW
+         ISNLC_NFILT_NEWMJD(IMJD) = ISNLC_NFILT_NEWMJD(NEWMJD)
+
+c overwrite EPOCH-dependent arrays to exclude rejected epochs
+
+        DO 102 EP_ORIG = EPMIN, EPMAX
+
+         EP_NEW = EP_NEW + 1
+
+         MJD8  = SNLC8_MJD(EP_ORIG)
+         if ( MJD8 > MJD8_LAST ) then
+            if ( EP_ORIG == EPMIN ) then
+              ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD) = EP_NEW
+            endif
+              ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD) = EP_NEW
+         endif
+         MJD8_LAST = MJD8          
+
+         if ( EP_NEW > EP_ORIG ) then
+            CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
+            print*,'    OPT = ', OPT
+            print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
+            print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
+            write(c1err,61) EP_NEW, EP_ORIG
+61          format('Invalid EP_NEW=',I4, ' > EP_ORIG=',I4)
+            c2err = 'Something is messed up.'
+            CALL MADABORT(FNAM, c1err, c2err)
+         endif
+
+         CALL MOVE_SNLC_ARRAYS(EP_NEW,EP_ORIG)
+
+102     CONTINUE
+101     CONTINUE
+
+      ISNLC_NEWMJD_STORE = NMJD_STORE_NEW
+
+      RETURN
+      END    ! end SELECT_EPOCH_DRIVER
+
+
+C ===========================================
++DECK,PASS_EP_CUTS.
+      LOGICAL FUNCTION PASS_EPOCH_CUTS(OPTMASK,EP)
+
+C Created Feb 2021
+C Return TRUE if epoch passes explicit epoch cuts such as 
+c PSF, PHOTFLAG, etc ..
+c   (no implicit cuts such as TREST)
+
+      IMPLICIT NONE
+
+c input args
+      INTEGER OPTMASK, EP  ! (I)
+
+c local args
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,SNANAFIT.
++CDE,PKMJDCOM.
+
+      INTEGER PHOTFLAG, OV, i, IFILT, IFILT_OBS, IDFIELD
+      LOGICAL BADPHOT, REJECT, LXMJD, LTMP, NO_DETECT
+      REAL    ZP, PSF, MJD, SNR
+c functions
+      LOGICAL PASS_EPIGNORE_FILE, SELECT_EARLYLC
+
+C ----------- BEGIN ------------
+
+      PASS_EPOCH_CUTS = .TRUE.  ! init return arg
+      REJECT          = .FALSE.
+
+      IFILT_OBS = ISNLC_IFILT_OBS(EP)
+      IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+      IDFIELD   = ISNLC_IDFIELD(EP)  
+      PHOTFLAG  = ISNLC_PHOTFLAG(ep)
+      ZP        = SNLC_ZEROPT_forCUT(ep) 
+      PSF       = SNLC_PSF_FWHM_ARCSEC(EP)
+      MJD       = SNLC8_MJD(ep)
+
+c Jul 2020: check option to write list of rejected epochs
++SELF,IF=SNANA.
+      CALL WRITE_EPOCH_IGNORE_EXEC(ep)
++SELF.
+
+      if ( .NOT. PASS_EPIGNORE_FILE(EP) ) then
+         PASS_EPOCH_CUTS = .FALSE.
+         return
+      endif
+
+c ----------------------------------------------
+c now check PHOTFLAG mask.
+
+c check OR-logic 
+c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set
+      OV   = IAND ( PHOTFLAG_MSKREJ(1), PHOTFLAG )
+      IF ( OV > 0 ) THEN
+         BADPHOT = .TRUE.  ;  REJECT  = .TRUE.
       ENDIF
 
-c check for code version used to write fits file.
-      KEYNAME   = "CODE_IVERSION" // char(0)
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 14, LRET )
-      LRET  = INDEX(KEYVAL,char(0)) - 1
-      IF(LRET>0) THEN
-         READ( KEYVAL(1:LRET), * ) SNFITSIO_CODE_IVERSION
+c Now check AND logic 
+c ==> reject epoch if all PHOTFLAG_MSKREJ(2:5) bits are set
+
+      do i = 2, 5
+        OV   = IAND ( PHOTFLAG_MSKREJ(i), PHOTFLAG )
+        IF ( OV > 0 .and. OV == PHOTFLAG_MSKREJ(i) ) THEN
+             BADPHOT = .TRUE. ; REJECT  = .TRUE.
+        ENDIF
+      enddo
+
+c ----------------------
+c Check EARLY-epoch select logic (Mar 2015)
+
+      IF ( .not. SELECT_EARLYLC(ep) ) REJECT = .TRUE.
+
+c -------------------------------------
+c July 11 2020
+c  Check cuts on PSF and ZP ... doesn't change analysis,
+c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
+
+      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
+
+      IF ( ZP < CUTWIN_ZP(1)   ) REJECT = .TRUE.
+      IF ( ZP > CUTWIN_ZP(2)   ) REJECT = .TRUE.
+
+      IF ( PSF < CUTWIN_PSF(1) ) REJECT = .TRUE.
+      IF ( PSF > CUTWIN_PSF(2) ) REJECT = .TRUE.
+
+c MJD cut 
+      LXMJD = ( MJD > CUTWIN_MJD_EXCLUDE(1) .and.
+     &          MJD < CUTWIN_MJD_EXCLUDE(2) )
+      IF ( LXMJD ) REJECT = .TRUE.
+
+      IF ( MJD < CUTWIN_MJD(1) ) REJECT = .TRUE.
+      IF ( MJD > CUTWIN_MJD(2) ) REJECT = .TRUE.
+
+c - - - - - - - - - - - - 
+c reject epochs for filter band that has SNRMIN > 99
+      if ( IFILT < 900 ) then
+        if ( CUTWIN_SNRMIN_FILT(1,IFILT) > 99.9999 ) REJECT = .TRUE.
+      endif
+
+c check selected field.
+      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
+      IF ( .NOT. LTMP ) REJECT = .TRUE.
+
+c Sep 2020: apply SNR cut for non-detections - to reject crazy fluxes.
+      IF ( PHOTFLAG_DETECT > 0 ) THEN
+         NO_DETECT = ( IAND(PHOTFLAG,PHOTFLAG_DETECT) == 0 )
+         SNR       = SNLC_FLUXCAL(EP) / SNLC_FLUXCAL_ERRTOT(EP)
+         if ( NO_DETECT ) then
+            if ( SNR < CUTWIN_SNR_NODETECT(1)  ) REJECT = .TRUE.
+            if ( SNR > CUTWIN_SNR_NODETECT(2)  ) REJECT = .TRUE.
+         endif
       ENDIF
 
-c Oct 26 2020: check for SNANA_VERSION in fits header
-      KEYNAME  = "SNANA_VERSION" // char(0)
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 20, LRET )
-      LRET  = INDEX(KEYVAL,char(0)) - 1
-      IF(LRET > 0) THEN
-         READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
-cc	 print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA
-         ISCORRECT_SIGN_VPEC = correct_sign_vpec_data(KEYVAL)
+c ----------------------------
+ 600  CONTINUE
+
+c set return-function value
+      PASS_EPOCH_CUTS = ( .not. REJECT)
+
+c check option to count BAD PHOTOMETRY epochs based on PHOTFLAG
+      IF ( BTEST(OPTMASK,0) ) THEN
+         NEPOCH_TOT = NEPOCH_TOT + 1
+         IF ( .NOT. REJECT)  NEPOCH_USE = NEPOCH_USE + 1
+         IF ( BADPHOT ) THEN
+            NEPOCH_BADPHOT     = NEPOCH_BADPHOT     + 1
+            NEPOCH_BADPHOT_SUM = NEPOCH_BADPHOT_SUM + 1
+         ENDIF
       ENDIF
 
-c --------------------------------------------------------
 
-      LRDFILT =  .NOT. FREEZE_SURVEY_FILTERS 
-      IF ( LRDFILT ) THEN
-        KEYNAME   = "FILTERS" // char(0)
-        ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 7, LRET )
-        LRET  = INDEX(KEYVAL,char(0)) - 1
-        SURVEY_FILTERS = KEYVAL(1:LRET)
+      RETURN
+      END     ! end PASS_EPOCH_CUTS
+
+C = = = = = = = = = = = = = = = = =
++DECK,PASS_EP_TREST.
+      LOGICAL FUNCTION PASS_EPOCH_TREST(z,PEAKMJD,EP)
+
+C Created Feb 2021
+C Return TRUE if epoch passes TREST cut
+     
+      IMPLICIT NONE
+
+c input args
+      REAL z, PEAKMJD  ! (I) redshift and peak MJD
+      INTEGER EP       ! (I) epoch index to check Trest cut
+
+c local args
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,SNANAFIT.
++CDE,PKMJDCOM.
+
+      REAL MJD, ZZ, Trest
+      LOGICAL VALID_PEAKMJD
+
+C ----------- BEGIN ------------
+
+      PASS_EPOCH_TREST = .TRUE.
+
+      VALID_PEAKMJD = ( PEAKMJD > 40000.  )  ! valid PEAKMJD
+
+c evaluate epoch cut in rest-frame
+      IF ( VALID_PEAKMJD ) THEN
+         ZZ = 1.0                       ! if no valid z
+         IF ( z > 0.0 ) ZZ  = 1.0 + z   ! valid z
+         MJD   = SNGL( SNLC8_MJD(EP) )
+         Trest = (MJD - PEAKMJD) / ZZ
+         PASS_EPOCH_TREST = 
+     &        ( Trest .GE. cutwin_Trest(1) .and. 
+     &          TRest .LE. cutwin_Trest(2) )
       ENDIF
 
-c -----------------------------------------
-c check for optional SPECFILE (Apr 2019)
-c We don't need the SPECFILE name yet; just need to set a logical flag.
-c 
-      KEYNAME   = "SPECFILE" // char(0) ;  KEYVAL=''
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 8, LRET )
-      IF ( KEYVAL(1:4) .NE. 'NONE' ) THEN
-         RDFLAG_SPECTRUM = .TRUE.
-      ENDIF
+      RETURN
+      END     ! end PASS_EPOCH_TREST
 
-c -----------------------------------------
-      KEYNAME   = "DATATYPE" // char(0)
-      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, DATATYPE, 8, LRET)
-      LSIM_SNANA = .FALSE. ; LSIM_MAGOBS = .FALSE.
 
-      IF ( DATATYPE(1:4) .EQ. 'DATA' ) THEN
-         ! do nothing
-      ELSE IF ( DATATYPE(1:9)  .EQ. 'SIM_SNANA' ) THEN
-         LSIM_SNANA = .TRUE.
-      ELSE IF ( DATATYPE(1:10) .EQ. 'SIMULATION' ) THEN  ! legacy
-         LSIM_SNANA = .TRUE.
-      ELSE IF ( DATATYPE(1:10) .EQ. 'SIM_MAGOBS' ) THEN
-         LSIM_MAGOBS = .TRUE.
-      ELSE
-        C1err = 'Unrecognized DATATYPE = ' // DATATYPE
-        C2err = 'Check DATATYPE key in FITS header.'
-        CALL MADABORT("RDGLOBAL_FITS_LEGACY", c1err, c2err )
-      ENDIF
-
-c check optional private variables
-      CALL RDPRIVATE_FITS_LEGACY()
-
-      IF ( LSIM_SNANA ) THEN
-
-c   SIMLIB_FILE & SIMLIB_MSKOPT are optional in order to 
-c   be back-compatible with older snana versions (Dec 27 2015)
-
-         KEYNAME   = "SIMLIB_FILE" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 11, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         IF (LRET>0) READ( KEYVAL(1:LRET), * ) SIMLIB_FILENAME
-
-         KEYNAME   = "SIMLIB_MSKOPT" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 13, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         IF(LRET>0)  READ( KEYVAL(1:LRET), * ) SIMLIB_MSKOPT
-
-         KEYNAME   = "SIMOPT_MWCOLORLAW" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 17, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         READ( KEYVAL(1:LRET), * ) SIMOPT_MWCOLORLAW
-
-         KEYNAME   = "SIM_MWRV" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 8, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         READ( KEYVAL(1:LRET), * ) SIM_MWRV
-
-         KEYNAME   = "SIMOPT_MWEBV" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 14, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         READ( KEYVAL(1:LRET), * ) SIMOPT_MWEBV
-
-         KEYNAME   = "SIM_NSUBSAMPLE_MARK" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 19, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         READ( KEYVAL(1:LRET), * ) SIM_NSUBSAMPLE_MARK
-
-         CALL RDFITSHEAD_SIMSED_LEGACY()    ! check for SIMSED model params
-         CALL RDFITSHEAD_PySEDMODEL_LEGACY('BYOSED') 
-         CALL RDFITSHEAD_PySEDMODEL_LEGACY('SNEMO') 
-         CALL RDFITSHEAD_LCLIB_LEGACY()     ! check for LCLIB model Feb 28 2018
-         CALL RDFITSHEAD_SIM_HOSTLIB_LEGACY()
-
-         KEYNAME   = "SIM_VARNAME_SNRMON" // char(0)
-         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 18, LRET )
-         LRET      = INDEX(KEYVAL,char(0)) - 1
-         if(LRET>5) SIMNAME_SNRMON = KEYVAL(1:LRET)
-
-      ENDIF
-
-      RETURN  
-      END    ! end RDGLOBAL_FITS_LEGACY
 
 C ==========================================
 +DECK,RDSNFITS.
@@ -12754,7 +12974,9 @@ C -------------- BEGIN --------------
 
 c turn off epoch selection-mask
       NRD = 0
-      CALL SET_RDMASK_SNFITSIO(NRD, EPOCH_RDMASK_SNFITSIO)  
+      if ( LEGACY_READ_DATA ) THEN
+         CALL SET_RDMASK_SNFITSIO(NRD, EPOCH_RDMASK_SNFITSIO)  
+      endif
 
       ISN                  = N_SNLC + 1  ! prepare for next SN
       ABSO_INDEX(isn)      = IROW
@@ -12765,18 +12987,19 @@ c turn off epoch selection-mask
       IPARFITS_HEAD = 0    ! Oct 3, 2011
 
       IF ( REFAC_READ_DATA  ) THEN 
-         CALL RDHEAD_DRIVER(ISN,ISTAT)   ! refactored, Feb 2021
+         CALL RDHEAD_DRIVER(IROW,ISTAT)   ! refactored, Feb 2021
       ELSE
          CALL PARSE_HEAD(ISN, "", ISTAT)  ! legacy call
       ENDIF
 
-      if ( ISTAT .LT. 0 ) RETURN
+      if ( ISTAT < 0 ) RETURN
 
       IF ( LSIM_SNANA .and. LEGACY_READ_DATA ) THEN
         CALL PARSE_SIM_LEGACY ( ISN, "SIM", ISTAT)
-        if ( ISTAT .LT. 0 ) RETURN
+        if ( ISTAT < 0 ) RETURN
       ENDIF
-      
+     
+
       IF ( LEGACY_READ_DATA ) THEN
          CALL RDSNFITS_EPCUTS( IVERS, IROW )   ! select epochs passing cuts
          CALL RDSNFITS_PHOT  ( IVERS, IROW )   ! read all variables
@@ -12812,6 +13035,7 @@ c filters are taken at the same epoch (i.e., SDSS).
          ISNLC_NEPOCH_FILT(ifilt) = 
      &   ISNLC_NEPOCH_FILT(ifilt) + 1
 200   CONTINUE ! EP
+
 
 c --------------------------------
       call PRINT_RDSN()  ! print one-line summary
@@ -12865,7 +13089,7 @@ c local variables
 
 c  functions
 +CDE,FITSCOM.
-      LOGICAL LCUTEPOCH, LCUTEPOCH_LEGACY, CHECK_EPOCH_IGNORE
+      LOGICAL LCUTEPOCH_LEGACY, CHECK_EPOCH_LEGACY
 
 C -------------- BEGIN --------------
 
@@ -12964,10 +13188,10 @@ c use above info to determine which epochs to keep/reject
         IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
         CALL SET_EPVAR_MISC(ep)   ! set SNLC_ZP (ADU or Npe) and PSF_FWHM
 
-        IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
+        IGNORE  = CHECK_EPOCH_LEGACY(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
 
-        LCUT  = LCUTEPOCH(0, Z, PKMJD, EP) .and. (.not. IGNORE )
+        LCUT  = LCUTEPOCH_LEGACY(0, Z, PKMJD, EP) .and.(.not.IGNORE )
 
         IF ( LCUT ) then
           EPOCH_RDMASK_SNFITSIO(ep) = 1
@@ -13191,7 +13415,6 @@ c Mar 18 2018: read optional SNRMON
      &         INDXFITS_PHOT(JPAR), 20 )
       ENDIF
 
-
       RETURN
       END     ! end of RDSNFITS_PHOT 
 
@@ -13274,6 +13497,7 @@ c   FLT       ISNLC_IFILT_OBS
 c   FIELD     ISNLC_IDFIELD & SNLC_FIELD
 c   TEL       ISNLC_IDTEL
 c
+c Feb 11 2021: fix computation of LENS (length of STRING)
 c -----------------------------
 
       IMPLICIT NONE
@@ -13322,16 +13546,19 @@ c determine variable type from KEYNAME
 
 c break up STRING into substrings 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      LENS   = INDEX(STRING,' ', BACK=.TRUE.)
+cc xxx mark delete  .xyz  LENS   = INDEX(STRING,' ', BACK=.TRUE.)
+      LENS   = INDEX(STRING//' ',' ' ) - 1  ! Feb 2021
+
+cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
       NWD    = STORE_PARSE_WORDS(MSKOPT, STRING(1:LENS)//char(0),LENS)
 
       IF  ( NWD .NE. NVAL ) THEN
-        LK = INDEX(KEYNAME,' ') - 2
+        LK = INDEX(KEYNAME,' ') -1   ! - 2
         CALL PRINT_PREABORT_BANNER("UNPACK_SNFITSIO_STR"//char(0),40)
         print*,'   NWD, NVAL = ', NWD, NVAL
         print*,'   SNLC_CCID = ', SNLC_CCID
         print*,'   KEYNAME   = ', KEYNAME(1:LK)
-        print*,'   STRING    = ', STRING
+        print*,'   STRING    = ', STRING(1:1000)
         call flush(6)
 
         write(c1err,61) NWD, NVAL
@@ -13421,8 +13648,46 @@ C ---------- BEGIN ----------
 
       RETURN
       END
+
 C ==========================================
-+DECK,GTINFOVER.
++DECK,INIT_DATA_READ.
+      SUBROUTINE INIT_DATA_READ()
+
+c Created Feb 2021
+c Initialization driver for reading data files.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER IVERS, IERR
+C ------------ BEGIN -----------
+
+c one-time init for both FITS and TEXT (since we don't know format yet)   
+      CALL RD_SNFITSIO_INIT()
+      CALL RD_TEXT_INIT()
+
+c set flag to read header of 1st light curve to get global info
+c (SURVEY, FILTERS ..) needed for initialization
+      LFLAG_RDHEAD_ONLY = .TRUE.
+      IVERS = 1
+
+      CALL GETINFO_PHOTOMETRY(IVERS)
+
+      IF ( FORMAT_FITS ) THEN
+         CALL RDVERSION_FITS ( IVERS, IERR )
+      ELSE         
+         CALL RDVERSION_TEXT ( IVERS, IERR )
+      ENDIF
+      LFLAG_RDHEAD_ONLY = .FALSE.
+      N_SNFILE          = 0  ! reset 
+
+      RETURN
+      END
+
+C ==========================================
++DECK,GETINFO_PHOT.
       SUBROUTINE GETINFO_PHOTOMETRY(ivers)
 
 c Shell to use getInfo_PHOTOMETRY_VERION() function to 
@@ -13454,13 +13719,12 @@ C ----------------- BEGIN --------------
       VERSION  = VERSION(1:LEN_VERS)  // char(0)
 
       L1   =  INDEX(PRIVATE_DATA_PATH,' ') - 1
-      PATH =  PRIVATE_DATA_PATH(1:L1) // char(0)    
+      PATH =  PRIVATE_DATA_PATH(1:L1) // char(0) 
 
       ISTAT = GETINFO_PHOTOMETRY_VERSION ( 
      &               VERSION,                        ! input
      &               PATH, LIST_FILE, README_FILE,   ! returned
      &               LEN_VERS, L1, L2, L3 )
-
 
       L1 = INDEX(PATH,char(0)) - 1
       IF ( L1 > MXCHAR_PATH ) then
@@ -13558,18 +13822,23 @@ c ------------------------
 c local args
 
       INTEGER 
-     &   ifile, LEN_VERS, ifile_1st
-     &  ,ISTAT, IJOB, NJOBTOT, N_SNFILE_VER
+     &   ifile, LEN_PATH, LEN_VERS, ifile_1st, NFILE
+     &  ,ISTAT, IJOB, NJOBTOT, N_SNFILE_VER, MSKOPT
 
-      CHARACTER*(MXCHAR_FILENAME) VERSION
+      CHARACTER*(MXCHAR_FILENAME) VERSION, cPATH, cVERSION
 
 c function
       LOGICAL LDONE_CIDLIST
 
+      INTEGER  RD_TEXT_PREP
+      EXTERNAL RD_TEXT_PREP
+
 C -------------- BEGIN -------------
 
+      ISNLC_VERSION  = IVERS
       VERSION = VERSION_PHOTOMETRY(ivers)
       LEN_VERS = INDEX(VERSION,' ') - 1
+      cVERSION = VERSION(1:LEN_VERS) // char(0)
 
       N_SNFILE_LAST = N_SNFILE
       ifile_1st = N_SNFILE_LAST+1  ! 1st file index in this version
@@ -13577,17 +13846,26 @@ C -------------- BEGIN -------------
 c read list of SN data files for this version ;
 c increments global N_SNFILE and sets SNDATA_PREFIX
 
-      CALL RDSNLIST ( VERSION, IERR )     
-        IF ( IERR .NE. 0 ) RETURN
-
-c get number of files for this version (Jul 1 2014)
-      N_SNFILE_VER = N_SNFILE - ifile_1st + 1
+      IF ( LEGACY_READ_DATA ) THEN
+        CALL RDSNLIST ( VERSION, IERR )     
+          IF ( IERR .NE. 0 ) RETURN
+        N_SNFILE_VER = N_SNFILE - ifile_1st + 1
+      ENDIF
 
 c read SURVEY_NAME and FILTERS from header in first file in list
 
-      IF ( LFLAG_RDHEAD_ONLY .or. IVERS .GT. 1 ) THEN
-        CALL RDSURVEY_TEXT(IERR)        
-        CALL INIT_SURVEY(IERR)
+      IF ( LFLAG_RDHEAD_ONLY .or. IVERS > 1 ) THEN
+         if ( REFAC_READ_DATA ) then
+            MSKOPT = 0 
+            LEN_PATH = INDEX(PRIVATE_DATA_PATH,' ') - 1
+            cPATH    = PRIVATE_DATA_PATH(1:LEN_PATH) // char(0)
+            N_SNFILE_VER = RD_TEXT_PREP(MSKOPT, cPATH, cVERSION, 
+     &           LEN_PATH+5, LEN_VERS+5)
+            CALL RDGLOBAL_DRIVER(IERR)
+         else
+            CALL RDSURVEY_TEXT(IERR)        
+         endif
+         CALL INIT_SURVEY(IERR)
       ENDIF
 
       IF ( LFLAG_RDHEAD_ONLY ) RETURN
@@ -13605,7 +13883,7 @@ c strip off info for SPLITTING jobs among multiple CPUs.
       IJOB    = JOBSPLIT(1) ! do IJOB of NJOBTOT
       IF ( NJOBTOT .GT. 1 ) THEN
         write(6,56) JOBSPLIT
- 56     format(T5,'Process SPLIT-JOB ',I2,' of ', I2 )
+ 56     format(T5,'Process SPLIT-JOB ',I3,' of ', I3 )
       ENDIF
 c ----
 
@@ -13614,7 +13892,11 @@ c ----
          IF ( N_SNLC_FITCUTS > MXLC_FIT ) GOTO 100
 
 c  open,read,parse this event
-         CALL PARSE_SNDATA_TEXT ( ivers, ifile, ISTAT )   
+         IF ( REFAC_READ_DATA ) THEN
+            CALL RDHEAD_DRIVER(ifile,ISTAT)
+         ELSE
+            CALL PARSE_SNDATA_TEXT ( ifile, ISTAT )  ! legacy
+         ENDIF
 
          IF ( ISTAT .EQ. 0 ) THEN
            CALL SNANA_DRIVER(N_SNLC)
@@ -13633,7 +13915,7 @@ c bail if all CIDs are processed
 
 C ==============================================
 +DECK,PARSE_SNDATA_TEXT.
-      SUBROUTINE PARSE_SNDATA_TEXT ( ivers, ifile, ISTAT )
+      SUBROUTINE PARSE_SNDATA_TEXT ( ifile, ISTAT )
 c
 c parse this one SN file in TEXT/ASCII format
 c (not for fits format).
@@ -13657,8 +13939,7 @@ c declare subroutine args
 
 
       INTEGER 
-     &    IVERS  ! (I) version index
-     &   ,IFILE  ! (I) file index to read
+     &    IFILE  ! (I) file index to read
      &   ,ISTAT  ! (O) 0=> OK, otherwise reject
 
 c local var
@@ -13735,7 +14016,6 @@ c  ****** PARSELOOP *******
       NZ     = 0  ! init number of redshift measures
 
       isnlc  = N_SNLC + 1   ! prepare to fill next SN
-      ISNLC_VERSION  = IVERS
 
       IF ( JOBSPLIT_EXTERNAL(2) > 1 ) THEN
         INDX = IPLOT_JOBSPLIT(IFILE)
@@ -16080,1010 +16360,6 @@ c ---
       END
 
 
-C ==============================================
-+DECK,PARSE_EPOCH_TEXT.
-      SUBROUTINE PARSE_EPOCH_TEXT ( cwords, istat )
-c
-c parse epoch parameters.
-c cword(1) is the keyword; 
-c
-c Apply selection cuts to MJD/TREST, FIELD and TELESCOPE;
-c return istat = -1 if any cut fails => reject this epoch
-c
-c
-c         HISTORY
-c 
-c Nov 29 2014: REAL MJD --> REAL*8 MJD8 
-c
-c Mar 20 2015: call CHECK_EPOCH_IGNORE 
-c
-c -------------------------------
-
-      IMPLICIT NONE
-
-c subroutine args.
-
-      CHARACTER cwords(*)*60    ! (I) words to parse
-      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-     
-c local var
-      character 
-     &   cwd*60, cwd_next*60, cfield*20, band_rest*2
-     &  ,ctel*20, ccid*(MXCHAR_CCID)
-
-      integer  
-     &   Newmjd, ITMPN(MXFILT_OBS)
-     &  ,IDTEL, IDFIELD, ITMP, EPMIN, EPMAX, ep
-     &  ,IFILT_OBS, IFILT, NFILT
-
-      REAL Z, PKMJD
-      LOGICAL LTMP, LTMP1, LTMP2, IGNORE
-
-      REAL*8  MJD8 
-
-c functions
-      INTEGER GET_IDTEL, GET_IDFIELD, FILTINDX
-      LOGICAL LCUTEPOCH, LCUTEPOCH_LEGACY, CHECK_EPOCH_IGNORE
-
-C ----------- BEGIN ---------
-
-      istat    = 0
-      cwd      = cwords(1)
-      cwd_next = cwords(2)
-      ccid     = SNLC_CCID
-
-      NEWMJD  = ISNLC_NEWMJD_STORE + 1
-      EPMIN   = ISNLC_NEPOCH_STORE + 1
-
-      ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD) = EPMIN
-
-      if ( cwd .EQ. 'TELESCOPE:' ) then
-          read(cwd_next,*) CTEL
-          IDTEL = GET_IDTEL( CTEL )
-          ISNLC_IDTEL(EPMIN) = IDTEL
-          LTMP = DOALL_SNTEL .or. IDTEL .GT. 0
-          if ( .NOT. LTMP ) then
-             istat = ISTAT_SKIP
-             return
-          endif          
-      endif
-
-c check field (allow legacy "STRIPE:" key for SDSS)
-
-      LTMP = cwd .EQ. 'STRIPE:' .or. cwd .EQ. 'FIELD:' 
-      if ( LTMP ) then
-          read(cwd_next,*) cfield
-          IDFIELD = GET_IDFIELD( CFIELD )
-          ISNLC_IDFIELD(EPMIN) = IDFIELD
-          SNLC_FIELD(EPMIN)    = cfield   ! July 16, 2013
-
-c check if this field is OK
-          LTMP = DOALL_SNFIELD .or. IDFIELD .GT. 0          
-          if ( .NOT. LTMP ) then
-             istat = ISTAT_SKIP
-             return
-          endif
-
-      endif  ! end of FIELD
-
-c for epoch, make Trest/MJD cut immediately to save memory storage
-
-      LTMP1 = FORMAT_VERBOSE .and. cwd .EQ. 'MJD:'
-      LTMP2 = FORMAT_TERSE   .and. cwd .EQ. 'OBS:'
-
-      if ( LTMP1 .or. LTMP2 ) then
-
-          read(cwd_next,*) MJD8
-
-          Z        = SNLC_REDSHIFT
-          PKMJD    = SNLC_SEARCH_PEAKMJD
-
-c always load MJD in case we need to flag an error somewhere
-c in the parsing. If Trest fails cut, SNLC8_MJD will get over-written.
-
-          SNLC8_MJD(EPMIN) = MJD8
-
-c Use utility function to apply MJD/Trest cut,  but ignore 
-c cut on IDTEL and IDFIELD; these last two cuts are applied 
-c later if/when their values are read.
-          LTMP  = LCUTEPOCH(1, Z, PKMJD, EPMIN)
-        
-          if ( .NOT. LTMP ) then
-            istat = ISTAT_SKIP
-            return
-          endif 
-      endif
-
-c ------------- parse FILTER-BAND info
-c               PASSBAND: filt-list must already be parsed.
-
-      NFILT = ISNLC_NFILT_NEWMJD(NEWMJD)
-      EPMAX = EPMIN + NFILT - 1
-
-c check for TERSE format
-
-      IF ( LTMP2 ) THEN 
-
-c read mandatory args
-        ITMP = 1 + ITERSE_FLUXCAL
-        read(cwords(ITMP),*) SNLC_FLUXCAL(EPMIN)
-
-        ITMP = 1 + ITERSE_FLUXCALERR
-        read(cwords(ITMP),*) SNLC_FLUXCAL_ERRTOT(EPMIN)  
-
-        ITMP = 1 + ITERSE_FIELD
-        cfield = cwords(ITMP)(1:MXCHAR_FIELDNAME)
-        ISNLC_IDFIELD(EPMIN) = GET_IDFIELD( CFIELD )
-        SNLC_FIELD(EPMIN)    = CFIELD  ! Jul 16, 2013
-
-c read optional PHOTFLAG if it's there 
-        if ( ITERSE_PHOTFLAG > 0 ) then
-           ITMP = 1 + ITERSE_PHOTFLAG
-           read(cwords(ITMP),*) ISNLC_PHOTFLAG(EPMIN)  
-        endif
-
-c read optional PHOTPROB if it's there  (Nov 24 2014)
-        if ( ITERSE_PHOTPROB > 0 ) then
-           ITMP = 1 + ITERSE_PHOTPROB
-           read(cwords(ITMP),*) SNLC_PHOTPROB(EPMIN)  
-        endif
-
-c read optional FLUX-ZPT if it's there (Nov 2, 2010).
-        if ( ITERSE_ZPFLUX > 0 ) then
-           ITMP = 1 + ITERSE_ZPFLUX
-           read(cwords(ITMP),*) SNLC_ZEROPT(EPMIN) 
-        endif
-
-c read optional FLUX-ZPERR if it's there (Jan 2020)
-        if ( ITERSE_ZPERR > 0 ) then
-           ITMP = 1 + ITERSE_ZPERR
-           read(cwords(ITMP),*) SNLC_ZEROPT_ERR(EPMIN) 
-        endif
- 
-c read optional PSF if it's there (July 2013)
-        if ( ITERSE_PSFSIG > 0 ) then
-           ITMP = 1 + ITERSE_PSFSIG
-           read(cwords(ITMP),*) SNLC_PSF_SIG1(EPMIN) 
-        endif
-
-c read optional SKYSIG if it's there (July 2013)
-        if ( ITERSE_SKYSIG > 0 ) then
-           ITMP = 1 + ITERSE_SKYSIG
-           read(cwords(ITMP),*) SNLC_SKYSIG(EPMIN) 
-        endif
-
-c read optional SKYSIG_T if it's there (Aug 7 2014)
-        if ( ITERSE_SKYSIG_T > 0 ) then
-           ITMP = 1 + ITERSE_SKYSIG_T
-           read(cwords(ITMP),*) SNLC_SKYSIG_T(EPMIN) 
-        endif
-
-c read optional XPIX & YPIX if it's there (Aug 2014)
-        if ( ITERSE_XPIX > 0 ) then
-           ITMP = 1 + ITERSE_XPIX
-           read(cwords(ITMP),*) SNLC_XPIX(EPMIN) 
-        endif
-        if ( ITERSE_YPIX > 0 ) then
-           ITMP = 1 + ITERSE_YPIX
-           read(cwords(ITMP),*) SNLC_YPIX(EPMIN) 
-        endif
-
-c read optional GAIN if it's there (Oct 2015)
-        if ( ITERSE_GAIN > 0 ) then
-           ITMP = 1 + ITERSE_GAIN
-           read(cwords(ITMP),*) SNLC_GAIN(EPMIN) 
-        endif
-
-c read optional CCDNUM if it's there (Oct 2017)
-        if ( ITERSE_CCDNUM > 0 ) then
-           ITMP = 1 + ITERSE_CCDNUM
-           read(cwords(ITMP),*) ISNLC_CCDNUM(EPMIN) 
-        endif
-
-c read optional MAG if it's there (Sep 2011)        
-        if ( ITERSE_MAGOBS > 0 ) then
-           ITMP = 1 + ITERSE_MAGOBS
-           read(cwords(ITMP),*) SNLC_MAG(EPMIN) 
-        endif
-
-c read optional SIM quantities if it's there (Jan 2014)
-        if ( ITERSE_SIM_EPMAGOBS > 0 ) then
-           ITMP = 1 + ITERSE_SIM_EPMAGOBS
-           read(cwords(ITMP),*) SIM_EPMAGOBS(EPMIN) 
-        endif
-
-        if ( ITERSE_SIM_EPFILTREST > 0 ) then
-           ITMP = 1 + ITERSE_SIM_EPFILTREST
-           read(cwords(ITMP),*) BAND_REST
-           SIM_EPFILTREST(EPMIN)  = FILTINDX(BAND_REST)
-        endif
-
-        if ( ITERSE_SIM_EPMAGREST > 0 ) then
-           ITMP = 1 + ITERSE_SIM_EPMAGREST
-           read(cwords(ITMP),*) SIM_EPMAGREST(EPMIN) 
-        endif
-
-c apply epoch cut.
-        Z         = SNLC_REDSHIFT
-        PKMJD     = SNLC_SEARCH_PEAKMJD
-        IDFIELD   = ISNLC_IDFIELD(EPMIN)  
-        IFILT_OBS = ISNLC_IFILT_OBS(EPMIN)
-        IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-
-        CALL SET_EPVAR_MISC(epmin)   ! set SNLC_ZP in ADU or Npe
-
-        IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
-     &            (.not. REFORMAT_SAVE_BADEPOCHS)
-
-        LTMP  = LCUTEPOCH(0,Z,PKMJD,EPMIN) .and. (.not. IGNORE )
-
-        if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
-        return
-      ENDIF
-
-      if ( cwd .EQ. 'PHOTOMETRYFLAG:' ) then
-         CALL RDNINT ( cwords(2), NFILT, ITMPN )            
-         do ep = EPMIN, EPMAX
-            itmp  = ITMPN(ep-EPMIN+1)
-            if ( Itmp .EQ. -9 ) ITMP = 0
-            ISNLC_PHOTFLAG(ep) = ITMP
-         enddo
-      endif
-
-      if ( cwd .EQ. 'GAIN:' ) then
-         CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
-      endif
-
-        if ( cwd .EQ. 'RDNOISE:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_RDNOISE(EPMIN) )
-        endif
-
-        if ( cwd .EQ. 'XPIXEL:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_XPIX(EPMIN) )
-        endif
-        if ( cwd .EQ. 'YPIXEL:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_YPIX(EPMIN) )
-        endif
-
-        if ( cwd .EQ. 'SKY_SIG:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG(EPMIN) )
-        endif
-        if ( cwd .EQ. 'TRUN_SKY_SIG:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG_T(EPMIN) )
-        endif
-
-        if ( cwd .EQ. 'PSF_SIG1:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_SIG1(EPMIN) )
-        endif
-        if ( cwd .EQ. 'PSF_SIG2:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_SIG2(EPMIN) )
-        endif
-        if ( cwd .EQ. 'PSF_RATIO:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_RATIO(EPMIN) )
-        endif
-
-        if ( cwd .EQ. 'ZEROPT:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT(EPMIN))
-        endif
-        if ( cwd .EQ. 'ZEROPT_ERR:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT_ERR(EPMIN))
-        endif
-
-        if ( cwd .EQ. 'FLUXCAL:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUXCAL(EPMIN))
-        endif
-        if ( cwd .EQ. 'FLUXCAL_ERRTOT:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,
-     &             SNLC_FLUXCAL_ERRTOT(EPMIN))
-        endif
-
-c read magnitues and asymmetric errors
-
-        if ( cwd .EQ. 'MAG:' ) then
-           CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG(EPMIN))
-        endif
-        if ( cwd .EQ. 'MAG_ERRPLUS:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG_ERRPLUS(EPMIN))
-        endif
-        if ( cwd .EQ. 'MAG_ERRMINUS:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG_ERRMINUS(EPMIN))
-        endif
-
-c check for SIM stuff.
-
-        if ( cwd .EQ. 'SIM_MAG:' ) then
-          CALL RDNFLOAT(cwords(2), NFILT, SIM_EPMAGOBS(EPMIN) )
-        endif
-
-      RETURN
-      END  ! end of PARSE_EPOCH_TEXT
-
-
-C ==============================================
-+DECK,PRS_BAND.
-      SUBROUTINE PARSE_PASSBAND(cwords, istat )
-
-c -------------------------
-c Aug 22, 2007: 
-c Check passband filters with keyword "BAND:" (old files)
-c or "PASSBAND:" (new files).  There is no end-of-passband marker,
-c so this logic is a bit fragile. A sequence might look like
-c
-c  PASSBAND:  g r i
-c  FLUX:  22. 23. 24.
-c
-c  Let's assume that single-character words are filters
-c  since no keyword is made of a single character.
-c  We just have to hope for no signle-char comments at the end.
-c  To be safe, ignore things like "#" and "%" and "!"
-c
-c Oct 24, 2009: modify to work for TERSE format. 
-c               See FORMAT_TERSE logical
-c
-c July 27, 2010: replace  parameter IWDFILT_TERSE with 
-c                variable ITERSE_FILTER
-c
-c -------------------
-
-      IMPLICIT  NONE
-
-c subroutine args.
-
-      CHARACTER cwords(*)*60    ! (I) words to parse
-      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-      
-c local var
-      character 
-     &   cwd*60
-     &  ,cfilt*12
-     &  ,ccid*(MXCHAR_CCID)
-
-      INTEGER LL, iwd, ifilt, ifilt_obs, NEWMJD, ep, EPMIN
-      INTEGER LWORD
-      LOGICAL LKEY
-
-c function
-      INTEGER FILTINDX_REPLACE
-
-c ---------- BEGIN --------
-
-      istat    = 0
-      cwd      = cwords(1)
-
-      IF ( FORMAT_VERBOSE ) THEN
-        LKEY = CWD .EQ. 'BAND:' .OR. CWD .EQ. 'PASSBAND:' 
-        IF ( .NOT. LKEY ) RETURN
-        iwd   = 2  ! start location of filter relative to KEY
-      ENDIF
-
-      IF ( FORMAT_TERSE ) THEN
-        LKEY = CWD .EQ. 'OBS:'
-        IF ( .NOT. LKEY ) RETURN
-        iwd   = 1 + ITERSE_FILTER  ! start location relative to OBS:
-      ENDIF
-
-      ccid    = SNLC_CCID
-      NEWMJD  = ISNLC_NEWMJD_STORE + 1
-      EPMIN   = ISNLC_NEPOCH_STORE + 1
-      LL      = 1
-
-
-c Dec 17 2020:
-c take last character of filter word to allow full filter names
-c in text format: e.g., Bessell-U is read here as U
-
-      LWORD = INDEX(cwords(iwd),' ') - 1
-      cfilt = cwords(iwd)(LWORD:LWORD)
-c xxx mark delete      cfilt = cwords(iwd)(1:2)
-      ep    = EPMIN - 1
-
-      DO 100 WHILE ( LL .EQ. 1 )
-
-c avoid common single-characters to denote comments
-         if ( cfilt(1:1) .EQ. '#' ) LL = 999
-         if ( cfilt(1:1) .EQ. '%' ) LL = 999
-         if ( cfilt(1:1) .EQ. '!' ) LL = 999
-         if ( cfilt(1:1) .EQ. '|' ) LL = 999 
-
-
-         if ( FORMAT_TERSE .and. iwd .GT. ITERSE_FILTER+1 ) LL = 999
-
-         if ( LL .EQ. 999 ) goto 100
-
-c         ifilt_obs = FILTINDX(cfilt)
-         ifilt_obs = FILTINDX_REPLACE(cfilt)
-         ep = ep + 1
-
-c         print*,' xxxx found ifilt_obs=',ifilt_obs,
-c     &      '  for ',cfilt,' and ep=',ep,' iwd=',iwd, ' LL=',LL
-
-c check epoch array bound.
-         if ( ep .GT. MXEPOCH ) then
-           write(c1err,660) ep, MXEPOCH
-660        format('Epoch index EP=',I4,' exceeds MXEPOCH=',i4 )
-           write(c2err,661) ccid, SNLC8_MJD(EPMIN) 
-661        format('Check SN ', A8,' at MJD=',F9.3 )
-           CALL MADABORT("PARSE_PASSBAND", c1err, c2err )
-         endif
-
-         ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD) = ep
-         ISNLC_IFILT_OBS(ep) = ifilt_obs  ! store filt index
-         ISNLC_NFILT_NEWMJD(NEWMJD) = 
-     &   ISNLC_NFILT_NEWMJD(NEWMJD) + 1
-         
-c make sure that MJD & IDTEL are defined for each filter-epoch;
-c not just the first filter.
-         SNLC8_MJD(ep)     = SNLC8_MJD(EPMIN) 
-         ISNLC_IDTEL(ep)   = ISNLC_IDTEL(EPMIN) 
-         ISNLC_IDFIELD(ep) = ISNLC_IDFIELD(EPMIN) 
-         SNLC_FIELD(ep)    = SNLC_FIELD(EPMIN)   ! July 16, 2013
-
-         IFILT = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-         if ( ifilt .LE. 0 .or. IFILT .GT. NFILTDEF_SURVEY ) THEN
-            write(c1err,60) ifilt_obs, cfilt, ifilt
-
-60          format('Undefined IFILT_OBS=',I3,' (',A4,'),  IFILT=',I2  )
-            write(c2err,61) ccid, NEWMJD, SNLC8_MJD(EPMIN)
-61          format('at CID=',A8,' , EPOCH=',I3,' , MJD=',F9.3 )
-              CALL MADABORT("PARSE_PASSBAND", c1err, c2err)
-         endif
-
-         iwd = iwd + 1
-         LL = INDEX( cwords(iwd), ' ' ) - 1
-         cfilt = cwords(iwd)(1:2)
-
-100   CONTINUE
-
-      RETURN
-      END
-
-C ==============================================
-+DECK,PARSE_SIM.
-      SUBROUTINE PARSE_SIM_LEGACY ( isnlc, cwords, istat )
-c
-c parse SIM_xxx parameters if CWD starts with "SIM"
-c cword(1) is the keyword; cword(2) is the value,c
-c or cword(2-6) are the five values for ugirz.
-c
-c
-c Apr 12 2017: check for SIM_LENSDMU
-c
-c Feb 28 2018: read LCLIB_PARVAL
-c Dec 10 2018: read BYOSED_PARVAL, and allow more than 'SIM' key to continue
-c Jun 18 2019: read SIM_SALT2gammaDM
-c
-c --------------
-
-      IMPLICIT NONE
-
-c subroutine args.
-
-      INTEGER   isnlc           ! (I) SN sparese index to load
-      CHARACTER cwords(*)*60    ! (I) words to parse
-      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      character   RETSTR*60, KEY*60
-
-      REAL*8 RET8(MXFILT_OBS)
-      INTEGER ifilt, IPAR, INDX, j
-      LOGICAL LTMP, LPARSE, LMATCH
-
-c functions
-      LOGICAL READ_HEADKEY
-
-C ----------- BEGIN ---------
-
-      istat    = 0
-
-      LPARSE = .FALSE.
-      if ( CWORDS(1)(1:3) .EQ. 'SIM'    ) LPARSE = .TRUE.
-      if ( CWORDS(1)(1:6) .EQ. 'BYOSED' ) LPARSE = .TRUE.
-      if ( CWORDS(1)(1:5) .EQ. 'SNEMO'  ) LPARSE = .TRUE.
-      if ( CWORDS(1)(1:6) .EQ. 'LCLIB'  ) LPARSE = .TRUE.
-
-      if ( .not. LPARSE ) RETURN
-
-c -----------------
-      RETSTR = 'STRING'
-      KEY    = 'SIM_MODEL_NAME'
-      LTMP   = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         SIMNAME_MODEL = RETSTR(1:32)
-      ENDIF
-
-      RETSTR = 'STRING'
-      KEY  = 'SIM_TYPE_NAME'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         SIMNAME_TYPE = RETSTR(1:12)
-      ENDIF
-
-      RETSTR = ''
-
-      KEY  = 'SIM_MODEL_INDEX'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_MODEL_INDEX = INT(RET8(1))
-
-      KEY  = 'SIM_TYPE_INDEX'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_GENTYPE = INT(RET8(1))
-
-c - - - - - - - - - 
-      KEY  = 'SIM_NON1a' ! legacy key name, 7.31 2018
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        INDX = INT(RET8(1))
-        SIM_TEMPLATE_INDEX = INDX
-        if ( .not.USESIM_SNIA .and. INDX .EQ. 0 ) ISTAT = -1
-        if ( .not.USESIM_SNCC .and. INDX .GT. 0 ) ISTAT = -1
-        if ( istat < 0 ) return
-      ENDIF
-
-      KEY  = 'SIM_TEMPLATE_INDEX'  ! new key name, 7.31.2018
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        INDX = INT(RET8(1))
-        SIM_TEMPLATE_INDEX = INDX
-        if ( .not.USESIM_SNIA .and. INDX .EQ. 0 ) ISTAT = -1
-        if ( .not.USESIM_SNCC .and. INDX .GT. 0 ) ISTAT = -1
-
-c check option to select specific SIM_TEMPLATE_INDEX (Dec 2018)
-        if ( NSIM_TEMPLATE_INDEX_LIST > 0 ) then
-           LMATCH = .FALSE.
-           do j=1, NSIM_TEMPLATE_INDEX_LIST
-              if(INDX == SIM_TEMPLATE_INDEX_LIST(j) ) LMATCH=.TRUE.
-           enddo
-           if ( .not. LMATCH ) ISTAT = -1
-        endif
-
-        if ( ISTAT < 0 ) return
-      ENDIF
-c - - - - - - - - - 
-
-      KEY  = 'SIM_SEARCHEFF_MASK'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SEARCHEFF_MASK = INT(RET8(1))
-
-      KEY  = 'SIM_LIBID'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_LIBID = INT(RET8(1))
-
-      KEY  = 'SIM_NGEN_LIBID'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_NGEN_LIBID = INT(RET8(1))
-
-      KEY  = 'SIM_NOBS_UNDEFINED'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_NOBS_UNDEFINED = INT(RET8(1))
-
-      KEY  = 'SIM_RA'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM8_RA = RET8(1)
-
-      KEY  = 'SIM_DECL'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM8_DECL = RET8(1)
-
-      KEY  = 'SIM_REDSHIFT'  ! allow legacy variable
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         SIM_REDSHIFT_CMB = SNGL(RET8(1))
-      ENDIF
-
-      KEY  = 'SIM_REDSHIFT_HELIO'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP )  SIM_REDSHIFT_HELIO = SNGL(RET8(1))
-
-      KEY  = 'SIM_REDSHIFT_CMB'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP )  SIM_REDSHIFT_CMB = SNGL(RET8(1))
-
-      KEY  = 'SIM_REDSHIFT_HOST'  ! Jan 2016
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP )  SIM_REDSHIFT_HOST = SNGL(RET8(1))
-
-      KEY  = 'SIM_REDSHIFT_FLAG'  ! Apr 2019
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP )  SIM_REDSHIFT_FLAG = INT(RET8(1))
-
-      KEY  = 'SIM_VPEC'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP )  SIM_VPEC = SNGL(RET8(1))
-
-      KEY  = 'SIM_DLMU'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_DLMAG = SNGL(RET8(1))
-      KEY  = 'SIM_DLMAG'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_DLMAG = SNGL(RET8(1))
-
-      KEY  = 'SIM_LENSDMU'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_LENSDMU = SNGL(RET8(1))
-
-      KEY  = 'SIM_MWEBV'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_MWEBV = SNGL(RET8(1)) 
-
-      KEY  = 'SIM_PEAKMJD'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_PEAKMJD = SNGL(RET8(1))
-      ENDIF
-
-      KEY  = 'SIM_HOSTLIB_GALID'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         SIM_HOSTLIB_GALID = INT( RET8(1) )
-        DSIM_HOSTLIB_GALID = RET8(1)
-      ENDIF
-
-      KEY  = 'SIM_TEMPLATEMAG'
-      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ' '
-      IF ( LTMP ) THEN
-        DO ifilt = 1, NFILTDEF_READ
-           SIM_TEMPLATEMAG(ifilt) = SNGL ( RET8(ifilt) )
-        ENDDO
-      ENDIF
-
-c ----------
-c model parameters
-
-      KEY  = 'SIM_SALT2x0'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SALT2x0 = SNGL(RET8(1))
-
-      KEY  = 'SIM_SALT2mB'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SALT2mB = SNGL(RET8(1))
-
-      KEY  = 'SIM_SALT2c'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_COLORPAR = SNGL(RET8(1))
-        SIMNAME_COLORPAR = 'SIM_c'
-cc xxx mark delete     SIMNAME_COLORPAR = 'SIM_SALT2c' ! Nov 2019
-        SIMNAME_COLORLAW = 'SIM_beta'
-      ENDIF
-
-      KEY  = 'SIM_SALT2alpha'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-         SIM_SHAPELAW     = SNGL(RET8(1))
-         SIMNAME_SHAPELAW = 'SIM_alpha'
-      ENDIF
-
-      KEY  = 'SIM_SALT2beta'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_COLORLAW = SNGL(RET8(1))
-
-      KEY  = 'SIM_AV'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_AV           =  SNGL(RET8(1))
-
-c store SIM_AV as the color param if NOT SALT2 model;
-c otherwise leave SIM_AV as separate from SALT2c.
-c Logic here may be a bit fragile.
-        if ( SIM_MODEL_INDEX .NE. MODEL_SALT2 ) then
-           SIM_COLORPAR     =  SIM_AV 
-           SIMNAME_COLORPAR = 'SIM_AV'  ! Jul 2016: SIMAV->SIM_AV 
-           SIMNAME_COLORLAW = 'SIM_RV'  ! Jul 2016: SIMRV->SIM_RV
-        endif
-
-      ENDIF
-
-      KEY  = 'SIM_RV'  ! host RV
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_RV       = SNGL(RET8(1))
-        if ( SIM_MODEL_INDEX .NE. MODEL_SALT2 ) then
-          SIM_COLORLAW = SIM_RV
-        endif
-      ENDIF
-
-
-      KEY  = 'SIM_MAGSMEAR_COH'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_MAGSMEAR_COH = SNGL(RET8(1))
-
-      KEY  = 'SIM_SALT2gammaDM'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SALT2gammaDM = SNGL(RET8(1))
-
-      KEY  = 'SIM_STRETCH'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIM_STRETCH'
-      ENDIF
-
-      KEY  = 'SIM_DELTA'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIM_DELTA'
-      ENDIF
-
-      KEY  = 'SIM_DM15'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIM_DM15'
-      ENDIF
-
-      KEY  = 'SIM_SALT2x1'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) THEN
-        SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIM_x1'
-cc xxx mark delete Dec 8 2019  SIMNAME_SHAPEPAR = 'SIM_SALT2x1'  ! Nov 2019
-      ENDIF
-
-c filter-dependent keys
-
-      KEY  = 'SIM_PEAKMAG'
-      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ' '
-      IF ( LTMP ) THEN
-        DO ifilt = 1, NFILTDEF_READ
-           SIM_PEAKMAG(ifilt) = SNGL ( RET8(ifilt) )
-        ENDDO
-      ENDIF
-
-c note that SIM_EXPOSURE_TIME is the same for
-c each SN, so there is no ISNLC index.
-
-      KEY  = 'SIM_EXPOSURE'
-      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      RETSTR = ' '
-      IF ( LTMP ) THEN
-        DO ifilt = 1, NFILTDEF_READ
-           SIM_EXPOSURE_TIME(ifilt) = SNGL ( RET8(ifilt) )
-        ENDDO
-      ENDIF
-
-
-c read SIMSED parameters 
-
-      DO 401 IPAR = 1, NPAR_SIMSED
-         KEY  = SIMSED_KEYWORD(IPAR)(1:60)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-         IF ( LTMP ) THEN
-           SIMSED_PARVAL(IPAR) = SNGL(RET8(1))
-         ENDIF
-401   CONTINUE  ! end IPAR
-
-c read  PySEDMODEL parameters (BYOSED,SNEMO ...)
-      DO 402 IPAR = 1, NPAR_PySEDMODEL
-         KEY  = PySEDMODEL_KEYWORD(IPAR)(1:60)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-         IF ( LTMP ) THEN
-            PySEDMODEL_PARVAL(IPAR) = SNGL(RET8(1))
-         ENDIF
-402   CONTINUE  ! end IPAR
-
-c read LCLIB parameters 
-
-      DO 410 IPAR = 1, NPAR_LCLIB
-         KEY  = LCLIB_KEYWORD(IPAR)(1:60)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-         IF ( LTMP ) THEN
-           LCLIB_PARVAL(IPAR) = SNGL(RET8(1))
-         ENDIF
-410   CONTINUE  ! end IPAR
-
-
-c read SIMSED parameters 
-
-      DO 420 IPAR = 1, NPAR_SIM_HOSTLIB
-         KEY  = SIM_HOSTLIB_KEYWORD(IPAR)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-         IF ( LTMP ) THEN
-           SIM_HOSTLIB_PARVAL(IPAR) = SNGL(RET8(1))
-         ENDIF
- 420  CONTINUE                  ! end IPAR
-
-c - - - - 
-      KEY  = 'SIM_SUBSAMPLE_INDEX'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SUBSAMPLE_INDEX = INT(RET8(1))
-
-      RETURN
-      END     ! end of PARSE_SIM_LEGACY
-
-C ==============================================
-+DECK,PARSE_PRIVATE.
-      SUBROUTINE PARSE_PRIVATE_TEXT(cword)
-
-c  Nov 24, 2012
-c  Check for private variable indicated by
-c     PRIVATE(varName):  <value>
-c
-c  On reading header, store list of private variable names
-c  in PRIVATE_KEYWORD and PRIVATE_VARANME. 
-c
-c input args.
-
-      IMPLICIT NONE
-      CHARACTER cword*(*)    ! (I) word to parse
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,PRIVCOM.
-
-      integer LEN_NAME, IVAR_PRIVATE, NMATCH
-
-c  function
-      INTEGER NMATCH_PRIVATE
-
-c ---------------- BEGIN ----------------
-
-      IF ( CWORD(1:8) .NE. 'PRIVATE(' ) RETURN
-      
-      LEN_NAME = INDEX(CWORD, ':') - 1
-      if ( LEN_NAME .LE. 0 ) RETURN  
-c -----------------
-
-
-      IF ( LFLAG_RDHEAD_ONLY ) THEN
-        NVAR_PRIVATE = NVAR_PRIVATE + 1
-        CALL PARSE_PRIVATE_KEYWORD( CWORD, NVAR_PRIVATE )
-      ELSE
-
-c here we check that no new private variables are added 
-c after the first file. Make sure to exclude the colon (:) 
-c from the keyname read from the text file.
-
-
-        NMATCH = NMATCH_PRIVATE(CWORD(1:LEN_NAME),IVAR_PRIVATE)
-        if ( NMATCH .EQ. 0 ) then
-           c1err = 'Unknown PRIVATE var = ' // CWORD(1:LEN_NAME)
-           c2err = 'for CID = ' // SNLC_CCID(1:ISNLC_LENCCID)
-           CALL MADABORT("PARSE_PASSBAND", c1err, c2err)
-        endif
-      ENDIF
-
-      RETURN
-      END
-
-C =======================
-+DECK,PRSPRVKEY.
-      SUBROUTINE PARSE_PRIVATE_KEYWORD(CWORD, IVAR_PRIVATE)
-
-c For input CWORD = 'PRIVATE($VARNAME)', strip out the $VARNAME
-c and load PRIVATE_VARNAME(IVAR_PRIVATE) = $VARNAME
-c
-c Jul 23 2015: check PRIVATE_REDSHIFT_CMB key
-c Jul 25 2020: remove obsolete PRIVATE_REDSHIFT_CMB
-
-      IMPLICIT NONE
-
-c input args
-      CHARACTER CWORD*60     ! (I) text string to parse
-      INTEGER IVAR_PRIVATE   ! (I) PRIVATE parameter index
-
-c local args
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,PRIVCOM.
-
-      INTEGER J1, J2, LK, IVAR, LEN_NAME, LENZ, NMATCH, icut
-      INTEGER NWD, LWD1, LWD2, LWD3, MSKOPT
-      CHARACTER VARNAME*60, STR*(MXCHAR_CUTNAME), CUTSTRING*30
-      CHARACTER CWD1*60, CWD2*60, CWD3*60
-
-      LOGICAL LCUTWIN
-      REAL*8 CUTWIN(2)
-
-c function
-      INTEGER NMATCH_PRIVATE
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-
-C --------------- BEGIN --------------
-
-c store keyword WITHOUT the ':' on the end.
-      LK = INDEX( CWORD , ':' ) - 1
-      IF ( LK .LT. 0 ) LK = INDEX(CWORD,' ' ) - 1
-      PRIVATE_KEYWORD(IVAR_PRIVATE) = CWORD(1:LK)
-
-c now extract the parameter name from inside the ().
-c For example, if KEYWORD = 'PRIVATE(BLA):'
-c then the VARNAME is 'BLA'.
-
-      J1 = INDEX( CWORD , '(' ) 
-      J2 = INDEX( CWORD , ')' ) 
-
-      IF ( J1 .EQ. 0 .or. J2 .EQ. 0 ) THEN
-         c1err = 'Invalid PRIVATE_KEYWORD = ' // CWORD(1:LK)
-         c2err = 'Expecting to find key-string  PRIVATE(PARNAME)'
-         CALL MADABORT("PARSE_PRIVATE_KEYWORD", c1err,c2err)
-      ENDIF
-
-
-      VARNAME = CWORD(j1+1:j2-1)
-      LEN_NAME = INDEX(VARNAME // ' ', ' ' ) - 1
-
-c load parameter name into global variable
-
-      PRIVATE_VARNAME(IVAR_PRIVATE) = VARNAME
-
-c ----------------------------------------------------
-c make sure that this NAME has not already been used
-
-      NMATCH = NMATCH_PRIVATE(VARNAME,IVAR)
-
-      IF ( NMATCH > 1 ) then
-         c1err = 'found duplicate PRIVATE variable: ' 
-     &                // VARNAME(1:LEN_NAME)
-         c2err = 'Check PRIVATE(XXX) keys'
-         CALL MADABORT("PARSE_PRIVATE_KEYWORD", c1err,c2err)
-      ENDIF
-
-c -------- check for cut on private var (Nov 4 2014) ---------
-      LCUTWIN = .FALSE.
-      CUTSTRING = ''
-      DO 400 icut = 1, MXCUT_PRIVATE
-
-         STR = PRIVATE_CUTWIN_STRING(icut)  ! 'VARNAME CUTMIN CUTMAX'
-         if ( STR .EQ. '' ) GOTO 400
- 
-c        skip if already found
-         CUTWIN(2) = PRIVATE_CUTWIN(2,IVAR_PRIVATE) 
-         if ( CUTWIN(2) < .99*CUTVAL_OPEN ) GOTO 400
-
-c break up string into pieces
-         MSKOPT = MSKOPT_PARSE_WORDS_STRING
-         NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0), 60)
-         call get_PARSE_WORD_fortran(1,CWD1,LWD1)
-
-         if ( VARNAME .EQ. CWD1 ) then
-            NCUT_PRIVATE = NCUT_PRIVATE + 1
-            LCUTWIN = .TRUE.
-
-            call get_PARSE_WORD_fortran(2,CWD2,LWD2)
-            call get_PARSE_WORD_fortran(3,CWD3,LWD3)
-
-            read(CWD2,*) CUTWIN(1)
-            read(CWD3,*) CUTWIN(2)
-
-            PRIVATE_CUTWIN(1,IVAR_PRIVATE) = CUTWIN(1)
-            PRIVATE_CUTWIN(2,IVAR_PRIVATE) = CUTWIN(2)
-
-            USE_PRIVATE_CUTWIN(icut) = 1 ! set logical flag
-
-            write(CUTSTRING,444) CUTWIN
- 444        format('CUT: ',G9.3,' to ', G9.3)
-         endif
- 400  CONTINUE
-
-c ----------------------------
-c print one-line summary
-
-      write(6,500) CWORD(1:LK), CUTSTRING
- 500  format(T4,'Found ',A, T50,A)
-      call flush(6)
-
-      RETURN
-      END
 
 C ===============================
 +DECK,NMAPRIV.
@@ -18061,9 +17337,6 @@ c
 c Erase bad mesaurements.
 c If all measurements (filters) are erased, then erase
 c this MJD.
-c
-c Mar 28, 2008: store epochs for which the SNR-threshold
-c               (user-namelist thresh_band) is less than 100
 c
 c May 9 2016: modify IGNORE logic
 c
@@ -20692,7 +19965,7 @@ c local var
      &  ,LFLUX, LERR, LTMP, USE4SNRMAX
 
 c function
-      REAL*8   DLMAG8_REF, DLMAG8_REF_LEGACY
+      REAL*8   DLMAG8_REF
       EXTERNAL SORTFLOAT, modify_MWEBV_SFD
       INTEGER  ISTAT_REQUIRE_EPOCHS
 
@@ -20773,9 +20046,11 @@ c determine redshift for Hubble diagram (Oct 2013)
 c get approx peakMJD    
       if ( OPT_SETPKMJD > 0 ) THEN
          CALL SET_PEAKMJD()
-         CALL SELECT_EPOCHS_CUTWIN_TREST()
+         IF ( LEGACY_READ_DATA ) CALL SELECT_EPOCH_LEGACY()
       endif
 +SELF.
+
+      if ( REFAC_READ_DATA ) CALL SELECT_EPOCH_DRIVER(2) ! apply Trest cuts
 
 c -----------------------------------------------
 c pick host photoZ
@@ -20798,16 +20073,6 @@ c Useful as initial value for fits.
       IF ( Z .GT. 1.0E-5 ) THEN
          z8 = dble(z)
          SNLC_DLMAG  = DLMAG8_REF(z8)
-
-c xxxxx mark delete xxxxxxxxxx
-c         MU_OLD = DLMAG8_REF_LEGACY(z8)
-c         MU_NEW = SNLC_DLMAG
-c         write(6,666) z, MU_OLD, MU_NEW
-c 666     format(' xxx z=',F6.4,'  DLMAG(old->new) = ',
-c     &      G12.7, ' -> ', G12.7 )
-c         call flush(6)
-c xxxxxxx
-
       ELSE
          SNLC_DLMAG  = -9.0  ! undefined
       ENDIF
@@ -22339,18 +21604,7 @@ c Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
       REAL*8   DLMAG_fortC    ! C function in sntools_cosmology.c
       EXTERNAL DLMAG_fortC
 
-      LOGICAL USE_LEGACY / .FALSE. /
-      REAL*8  DLMAG8_REF_LEGACY
-
 C ------- BEGIN -------
-
-c xxxxxxxxxxx mark delete xxxxxxxx
-      IF ( USE_LEGACY ) THEN
-        DLMAG8_REF = DLMAG8_REF_LEGACY(z8)
-        RETURN
-      ENDIF
-c xxxxxxxxxxxxxxx
-
 
       H0   = H0_REF(1)
       OM   = OMAT_REF(1)
@@ -22360,154 +21614,9 @@ c xxxxxxxxxxxxxxx
       zCMB = z8
       zHEL = z8
 
-c xxxxxx mark delete xxxxx      
-c      print*,' xxx DLMAG8_REF: z,  H0 = ', z8, H0
-c      print*,' xxx DLMAG8_REF: OM, OL = ', OM, OL
-c      print*,' xxx DLMAG8_REF: w0, wa = ', w0, wa
-c      call flush(6)
-c xxxxxxxxxxxx
-
       DLMAG8_REF = DLMAG_fortC(zCMB, zHEL, H0, OM, OL, w0, wa)
       RETURN
       END           ! end DLMAG8_REF
-
-
-
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-c xxxxxxxxx Oct 2020 mark delete legacy cosmology functions
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-C =============================================
-+DECK,DLMAG8_REF_LEGACY.
-      DOUBLE PRECISION FUNCTION DLMAG8_REF_LEGACY(Z8)
-      IMPLICIT NONE
-      REAL*8  Z8  ! (I) redshift
-+CDE,SNPAR.
-      REAL*8  DL
-      REAL*8  DLZ8_REF_LEGACY  ! function
-C ------------------- BEGIN -----------------
-      DL                  = DLZ8_REF_LEGACY(Z8)
-      DLMAG8_REF_LEGACY   = -5.0 * LOG10(10.0*PARSEC/DL)  
-      RETURN
-      END
-C ===========================================
-+DECK,DLZ8_REF_LEGACY.
-      DOUBLE PRECISION FUNCTION DLZ8_REF_LEGACY(Z8)
-c
-c Shell function to call DLZ8 with REFERENCE 
-c cosmological parameters.
-c These XXX_REF parameters are specified by the
-c user via SNLCINP namelist.
-c
-c -----------------------------------------
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-      REAL*8 Z8  ! (I) redshift
-c function
-      REAL*8 DLZ8_LEGACY
-C --------------- BEGIN ---------------
-      DLZ8_REF_LEGACY = DLZ8_LEGACY( H0_REF(1), Z8, 
-     &                   OMAT_REF(1), OLAM_REF(1), 
-     &                   ORAD_REF(1), W0_REF(1), DWDA_REF(1) )
-      RETURN
-      END
-C =======================
-+DECK,DLZ8_LEGACY.
-       DOUBLE PRECISION FUNCTION 
-     &        DLZ8_LEGACY( H0, Z0, OMAT, OLAM, ORAD, w, dWdz )
-c
-c Return luminosity-distance, D_L = 1+z integral-of-bla
-c Apr 23 2019: add ORAD argument
-
-      IMPLICIT NONE
-
-c define function args
-
-      REAL*8 
-     &    H0      ! Hubble constant today (km/s/Mpc)
-     &   ,Z0      ! redshift
-     &   ,OMAT    ! Omega-matter
-     &   ,OLAM    ! Omega-energy
-     &   ,ORAD    ! Omega_rad (4/2019)
-     &   ,W       ! P/rho
-     &   ,dWdz    ! dW/dz
-
-c local var
-
-      INTEGER NZBIN, iz
-      DOUBLE PRECISION 
-     &    SQHZ, Hz
-     &   ,Dzint   ! size of integration Z-bin
-     &   ,RZint
-     &   ,Ztmp, dz
-     &   ,ZCUBE, ZSQ, Z4th, ZW, Wexp
-     &   ,OTOT
-     &   ,KAPPA
-     &   ,SQRT_KAPPA
-     &   ,CLIGHT, PARSEC, H0_persec
-
-      PARAMETER ( 
-     &    CLIGHT  = 3.0E5        ! km/sec
-     &   ,PARSEC  = 3.085678E13  ! 1 parsec (km)
-     &      ) 
-      
-c ------------- begin ------------
-
-      DZint     = 0.001  ! size of z-integration bin
-      RZint     = 0.0
-      DLZ8_LEGACY     = 0.0
-
-      NZBIN = int( Z0 / DZint )
-      NZBIN = MAX(10,NZBIN)  ! make sure at least 10 bins
-      dZ    = Z0 / float(NZBIN)
-
-      OTOT  = OMAT + OLAM
-      KAPPA = 1.0 - OTOT   ! curvature
-      SQRT_KAPPA = SQRT( abs(KAPPA) )
-
-      DO iz   = 1, NZBIN
-        Ztmp  = dz * (float(iz) - 0.5 )
-        ZCUBE = (1.0 + Ztmp)**3
-        ZSQ   = (1.0 + Ztmp)**2
-        Z4th  = ZSQ*ZSQ
-
-        IF ( W .EQ. -1.0 .and. dWdz .EQ. 0.0 ) then
-           ZW = 1.0
-        ELSE
-          Wexp  = (1.0 + W - dWdz)*LOG(1.0+Ztmp) + dWdz*Ztmp          
-          ZW    = EXP(3*Wexp)
-        ENDIF
-
-        SQHZ  = OMAT*ZCUBE + OLAM*ZW + ORAD*Z4th + (1.0 - OTOT)*ZSQ
-
-        IF ( SQHZ .LE. 0.0 ) RETURN
-
-        HZ    = SQRT(SQHZ)           ! Hubble const. at Z
-
-        RZint = RZint + dz / HZ
-      END DO
-
-c take into account the curvature if OTOT .ne. 1:
-
-      IF ( KAPPA .LT. -0.0000001 ) THEN
-         RZint = sin( SQRT_KAPPA * RZint ) / SQRT_KAPPA
-      ELSE IF ( KAPPA .GT. 0.0000001 ) THEN
-         RZint = sinh( SQRT_KAPPA * RZint ) / SQRT_KAPPA
-      ENDIF
-
-c get luminosity-distance
-
-      H0_persec    = H0 / (1.0E6 * Parsec)
-      DLZ8_LEGACY  = (1+Z0) * (Clight/H0_persec) * RZint   ! lumi-dist
-
-      RETURN
-      END
-
-c xxxxxxxxxxxxxxxxxx end MARK xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-
-
 
 
 C =============================
@@ -22618,251 +21727,6 @@ C -------------- BEGIN --------------
 
       RETURN
       END  ! end CCDNUMSTAT
-
-C ==============================
-+DECK,CHCKHEADER.
-      SUBROUTINE CHECK_HEADER()
-
-c Created May 7, 2009 by R.Kessler
-c Abort if any header info is missing of invalid.
-c
-c Dec 23, 2010: make sure header-cuts have been applied
-c               (see APPLY_HEADER_CUTMASK)
-c
-c Jun 11, 2013: before ABORT, list each cut with message to
-c               see more clearly what cut is missing.
-c               Needed because ABORT message is too obscure.
-c
-c ----------------
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-c local var
-
-      LOGICAL LCUTS, LTMP
-      INTEGER CUTMASK_EXPECT, LL
-      INTEGER CUTBIT_LIST(20), NCUT, icut
-      CHARACTER msg*40, MSGCUT(20)*40
-
-C --------- BEGIN ---------
-
-      IF ( SNLC_CCID .EQ. '' ) THEN
-         C1ERR = 'no SNID in ' // SNDATA_FILE_CURRENT(1:60)
-         C2ERR = 'Check SNID: keyword'
-         CALL MADABORT("CHECK_HEADER", c1err, c2err)
-      ENDIF
-
-      IF ( .NOT. FOUND_SURVEY ) THEN
-         C1ERR = 'no SURVEY in ' // SNDATA_FILE_CURRENT(1:60)
-         C2ERR = 'Check SURVEY: keyword'
-         CALL MADABORT("CHECK_HEADER", c1err, c2err)
-      ENDIF
-
-c -------------------------------------------------
-c check that header cuts have been applied in case 
-c required header info is missing.
-     
-      NCUT = 0
-
-c -------------
-c Create list of required cut-bits, along with string-def in case of error.
-
-      NCUT = NCUT + 1 ;  
-      CUTBIT_LIST(NCUT) = CUTBIT_SNTYPE
-      MSGCUT(NCUT)      = 'SNTYPE'
-          
-      CUTMASK_EXPECT = 0
-      DO icut = 1, NCUT
-         CUTMASK_EXPECT = 
-     &       IBSET( CUTMASK_EXPECT , CUTBIT_LIST(icut)-1 )
-      ENDDO
-
-      LCUTS = APPLY_HEADER_CUTMASK .EQ. CUTMASK_EXPECT
-
-      IF ( .NOT. LCUTS ) THEN
-
-c print info for each required cut
-        DO icut = 1, NCUT
-           LTMP = BTEST( APPLY_HEADER_CUTMASK , CUTBIT_LIST(icut)-1 )
-           IF ( LTMP ) THEN
-              MSG = 'was Applied.'
-           ELSE
-              MSG = 'was NOT Applied ???'
-           ENDIF
-           LL = INDEX( MSGCUT(icut), ' ' ) - 1
-           write(6,610) CUTBIT_LIST(icut), MSGCUT(icut), MSG
- 610       format(T5,'Header CUTBIT ',I2, 2x, A20, A20 )
-        ENDDO
-
-        msg = 'something is wrong.'
-        C1ERR = 'Header cuts not all applied for CID=' // 
-     &           SNLC_CCID(1:ISNLC_LENCCID) // '; ' // msg
-        write(C2err,620) APPLY_HEADER_CUTMASK, CUTMASK_EXPECT
-620     format('APPLY_HEADER_CUTMASK=', I5, 4x,'Expected CUTMASK=',I5)
-        CALL MADABORT("CHECK_HEADER", c1err, c2err)
-      ENDIF
-
-      RETURN
-      END   ! end CHECK_HEADER
-
-C ==============================
-+DECK,CHECKEPIGNORE.
-      LOGICAL FUNCTION CHECK_EPOCH_IGNORE(OPTMASK,ep)
-c
-c Returns TRUE of this epoch is to be ignored for any of
-c the following reasons:
-c   + in the [VERSION].IGNORE file
-c   + fails PHOTFLAG bits
-c   + fails SELECT_EARLYLC
-c
-c OPTMASK=1 --> increment global counters
-c
-c ------------
-c Apr 23, 2008: check both the OR and AND logic 
-c
-c May 6, 2008: change name from CHECK_PHOTFLAG to 
-c              CHECK_EPOCH_IGNORE since it now includes
-c              user-masked epochs as well as PHOTFLAG cuts.
-c
-c Dec 6, 2009: for BAD photflag, set FLUX to -9E5 (instead of -9)
-c              so that it does not show up in light curve plots.
-c
-c Mar 2015: 
-c   + change to logical fun; returns TRUE --> ignore epoch
-c   + real MJD -> real*8 MJD8
-c
-c Dec 21 2017: add OPTMASK argument to increment global counters
-c   
-c Jul 11 2020: check ZP and PSF
-c Jul 23 2020: ignore ZP and PSF if RESTORE_DES3YR=T
-c
-c ---------------------
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER ep      ! (I) epoch index
-      INTEGER OPTMASK ! (I) options
-c local var
-
-      INTEGER MSKTMP, MSKOV, i, LL, ifilt_obs
-      LOGICAL IGNORE, LMJD, LCID, LFILT, BADPHOT
-      CHARACTER cflt*4, CCID*(MXCHAR_CCID)
-      REAL*8 MJD8, ZPADD_pe, PSF, ZP
-
-c function(s)
-      LOGICAL SELECT_EARLYLC
-
-C ------------ BEGIN -------------
-
-      IGNORE  = .FALSE.
-      BADPHOT = .FALSE.
-
-c Jul 2020: check option to write list of rejected epochs
-+SELF,IF=SNANA.
-           CALL WRITE_EPOCH_IGNORE_EXEC(ep)
-+SELF.
-
-c May 6, 2008: first check for epochs to ignore from IGNORE file.
-
-      DO 100 i = 1, NEPOCH_IGNORE
-
-        CCID = SNLC_CCID
-        LL   = ISNLC_LENCCID
-        LCID = EPOCH_IGNORE_CCID(i)(1:LL) .EQ. CCID(1:LL)
-        IF ( .NOT. LCID ) GOTO 100
-
-c leave big margin for MJD check (.002 days) in case IGNORE 
-c file has round-off errors for the MJD.
-        MJD8 = SNLC8_MJD(ep)
-        LMJD = ( ABS(EPOCH_IGNORE_MJD(i)-MJD8) < 0.002 )
-        IF ( .NOT. LMJD ) GOTO 100
-
-        ifilt_obs = ISNLC_IFILT_OBS(ep)
-        cflt      = filtdef_string(ifilt_obs:ifilt_obs)
-        LFILT     = EPOCH_IGNORE_FILT(i)(1:1) .EQ. CFLT(1:1)
-        IF ( .NOT. LFILT ) GOTO 100
-
-c if we get here, then give message to ignore epoch 
-c and skip down to over-write part.
-
-        IGNORE = .TRUE.
-
-        IF ( STDOUT_UPDATE) THEN
-          write(6,101) CCID, MJD8, cflt
-        ENDIF
-101     format(T8,'IGNORE EPOCH FOR: CID=',A8, 
-     &         3x,'MJD=',F9.3, 3x,'FILT=',A )
-        GOTO 600
-
-100   CONTINUE
-
-c ----------------------------------
-c now check PHOTFLAG mask.
-      MSKTMP  = ISNLC_PHOTFLAG(ep)
-
-c check OR-logic 
-c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set
-      MSKOV   = IAND ( PHOTFLAG_MSKREJ(1), MSKTMP )
-      IF ( MSKOV .NE. 0 ) THEN
-         BADPHOT = .TRUE.
-         IGNORE  = .TRUE.
-      ENDIF
-
-c Now check AND logic 
-c ==> reject epoch if all PHOTFLAG_MSKREJ(2:5) bits are set
-
-      do i = 2, 5
-        MSKOV   = IAND ( PHOTFLAG_MSKREJ(i), MSKTMP )
-        IF ( MSKOV .GT. 0 .and.  
-     &       MSKOV .EQ. PHOTFLAG_MSKREJ(i) ) THEN
-             BADPHOT = .TRUE.
-             IGNORE = .TRUE.
-        ENDIF
-      enddo
-
-c ----------------------
-c Check EARLY-epoch select logic (Mar 2015)
-
-      IF ( .not. SELECT_EARLYLC(ep) ) IGNORE = .TRUE.
-
-c -------------------------------------
-c July 11 2020
-c  Check cuts on PSF and ZP ... doesn't change analysis,
-c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
-
-      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
-
-      ZP = SNLC_ZEROPT_forCUT(ep) 
-      IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
-      IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
-
-      PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
-      IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
-      IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.
-
-600   CONTINUE
-
-c ------------------------------------------
-      IF ( BTEST(OPTMASK,0) ) THEN
-         NEPOCH_TOT = NEPOCH_TOT + 1
-        IF ( .NOT. IGNORE)  NEPOCH_USE = NEPOCH_USE + 1
-        IF ( BADPHOT ) THEN
-           NEPOCH_BADPHOT     = NEPOCH_BADPHOT     + 1
-           NEPOCH_BADPHOT_SUM = NEPOCH_BADPHOT_SUM + 1
-        ENDIF
-      ENDIF
-
-c -------------------------------------
-c set function value and return
-      CHECK_EPOCH_IGNORE = IGNORE ! Mar 2015
-
-      RETURN
-      END   ! end of  CHECK_EPOCH_IGNORE
 
 
 C ================================================
@@ -25683,124 +24547,8 @@ c find starting bin for grid interpolation
       FIRSTBIN_INTERP  = ibin_start
 
       RETURN
-      END
+      END     ! end FIRSTBIN_INTERP
 
-C =========================================
-+DECK,LCUTEPOCH.
-      LOGICAL FUNCTION LCUTEPOCH(OPT,Z,PKMJD,EP)
-
-c ------------------------------------------- 
-c Created Jun 18, 2011
-c Return TRUE if this epoch passes epoch-cuts.
-c The input are the epoch values rather than the SN ID.
-c
-c  OPT   = 0 -> apply all cuts
-c  OPT   = 1 -> apply only Trest cut
-c  z     = redshift
-c  PKMJD = peakMJD estimate
-c  EP    = epoch index
-c
-c May 2012: ZZ=1 if z<0 to avoid ZZ=0
-c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
-c Mar 01 2020: 
-c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
-c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
-c
-c Sep 9, 2020: refactor to accept EPOCH-index argument.
-c              
-c ------------------------------------------
-
-      IMPLICIT NONE
-
-      REAL  Z, PKMJD      ! (I) redshift and time of peak brightness
-      INTEGER OPT, EP     ! (I) options, and epoch index
-
-c local variables
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-c+CDE,SNPAR.
-c+CDE,SNCUTS.
-c+CDE,SNLCINP.
-
-      REAL    MJD,  TREST, ZZ, SNR
-      INTEGER IFILT, IFILT_OBS, IDFIELD, PHOTFLAG
-      LOGICAL LTMP, LTREST, LMJD, LXMJD, NO_DETECT
-
-C --------------- BEGIN -----------
-
-      LCUTEPOCH = .FALSE.
-      MJD       = SNGL( SNLC8_MJD(EP) )
-      IDFIELD   = ISNLC_IDFIELD(EP)  
-      PHOTFLAG  = ISNLC_PHOTFLAG(EP)
-      IFILT_OBS = ISNLC_IFILT_OBS(EP)
-      IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-
-c      print*,' xxx ----------------------------- '
-c      print*,' xxx LCUTEPOCH DUMP xxx '
-c      print*,' xxx z=', z, '   PKMJD=', PKMJD
-c      print*,' xxx EP=', EP, '  IFILT_OBS, IDFIELD=', IFILT_OBS, IDFIELD
-c      print*,' xxx MJD=', MJD, '  PHOTFLAG=', PHOTFLAG
-
-      IF ( Z .GT. 0.0 ) then
-         ZZ    = 1.0 + Z
-      ELSE
-         ZZ    = 1.0
-      ENDIF
-
-      LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
-      IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
-
-c evaluate epoch cut in rest-frame
-      IF ( LTMP ) THEN
-c       PKMJD estimate not yet determined, so no TREST cut
-         LTrest = .TRUE.  
-      ELSE
-c  use PEAKMJD from data file, go ahead with TREST cut
-         Trest = (MJD - PKMJD) / ZZ
-         LTrest = ( Trest .GE. cutwin_Trest(1) .and. 
-     &              TRest .LE. cutwin_Trest(2) )
-      ENDIF
-
-      LXMJD = ( MJD .GE. CUTWIN_MJD_EXCLUDE(1) .and.
-     &          MJD .LE. CUTWIN_MJD_EXCLUDE(2) )
-
-      LMJD = ( MJD .GE. cutwin_MJD(1) .and.
-     &         MJD .LE. cutwin_MJD(2) )
-
-      LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
-      IF ( .NOT. LTMP ) RETURN
-
-      if ( BTEST(OPT,0) ) GOTO 800
-
-c - - - - - - - - - - - - 
-
-      if ( IFILT < 900 ) then
-        LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
-        IF ( .NOT. LTMP ) RETURN
-      endif
-
-c check selected field.
-      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
-      IF ( .NOT. LTMP ) RETURN
-
-c Sep 2020: apply SNR cut for non-detections - to reject crazy fluxes.
-      IF ( PHOTFLAG_DETECT > 0 ) THEN
-         NO_DETECT = ( IAND(PHOTFLAG,PHOTFLAG_DETECT) == 0 )
-         SNR       = SNLC_FLUXCAL(EP) / SNLC_FLUXCAL_ERRTOT(EP)
-         if ( NO_DETECT ) then
-            if ( SNR < CUTWIN_SNR_NODETECT(1)  ) RETURN
-            if ( SNR > CUTWIN_SNR_NODETECT(2)  ) RETURN
-         endif
-      ENDIF
-
- 800  CONTINUE
-      LCUTEPOCH  = .TRUE.
-
-      RETURN
-      END      ! LCUTEPOCH
 
 C ==================================================
 +DECK,LCUTVAR.
@@ -38025,111 +36773,6 @@ C utility to fit for the peak-MJD.
 C ==============================
 
 
-C ================================================
-+DECK,SELECTEP_TREST.
-      SUBROUTINE SELECT_EPOCHS_CUTWIN_TREST()
-
-c Created Jun 23 2019
-c
-c Called if OPT_SETPKMJD>0 so that Trest cuts are applied here
-c to select smaller set of epochs. Note that if OPT_SETPKMJD>0,
-c TREST cuts CANNOT be applied in the read-stage.
-c This function greatly reduces loop sizes for fitting, and helps 
-c prevent array bound overflows if fit-epoch arrays are smaller 
-c than the total array storage.
-c
-c Mar 1 2020: also require SNRMIN cut to be < 100 -> reject bands.
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,SNANAFIT.
-+CDE,PKMJDCOM.
-
-      REAL*8  MJD8, MJD8_LAST
-      INTEGER NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
-      INTEGER EPMIN, EPMAX, ep_orig, ep_new, IMJD
-      INTEGER IFILT, IFILT_OBS
-      REAL MJD, TOBS, TREST, z1, z
-      LOGICAL LPASS, LTREST, LSNRMIN
-      CHARACTER FNAM*28
-
-c ------------------- BEGIN -------------------
-
-      FNAM = 'SELECT_EPOCHS_CUTWIN_TREST'
-      NMJD_STORE_NEW  = 0
-      NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
-      EP_NEW          = 0 
-      MJD8_LAST       = -9.0
-
-
-      z    = SNLC_REDSHIFT
-      if ( z > 0.0 ) then
-         z1 = 1.0  + z
-      else
-         z1 = 1.0  ! in case Z = -9 is undefined; Trest -> Tobs
-      endif
-
-      DO 101 NEWMJD = 1, ISNLC_NEWMJD_STORE
-         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-         MJD8  = SNLC8_MJD(EPMIN) 
-         MJD   = SNGL(MJD8)
-         TOBS  = MJD - SNLC_SEARCH_PEAKMJD
-         IFILT_OBS = ISNLC_IFILT_OBS(epmin)
-         IFILT     = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
-
-         TREST = TOBS/z1
-         LTREST = TREST >= CUTWIN_TREST(1) .and. 
-     &            TREST <= CUTWIN_TREST(2)
-         LSNRMIN = CUTWIN_SNRMIN_FILT(1,IFILT) < 1000.
-
-         LPASS = LTREST .and. LSNRMIN
-
-          IF ( LPASS ) THEN
-            NMJD_STORE_NEW = NMJD_STORE_NEW + 1
-            IMJD = NMJD_STORE_NEW
-            ISNLC_NFILT_NEWMJD(IMJD) = ISNLC_NFILT_NEWMJD(NEWMJD)
-          ENDIF
-
-          if ( .NOT. LPASS ) goto 101
-
-        DO 102 EP_ORIG = EPMIN, EPMAX
-
-         EP_NEW = EP_NEW + 1
-
-         MJD8  = SNLC8_MJD(EP_ORIG)
-         if ( MJD8 > MJD8_LAST ) then
-            if ( EP_ORIG == EPMIN ) then
-              ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD) = EP_NEW
-            endif
-              ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD) = EP_NEW
-         endif
-         MJD8_LAST = MJD8          
-
-         if ( EP_NEW > EP_ORIG ) then
-            CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
-            print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
-            print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
-            write(c1err,61) EP_NEW, EP_ORIG
-61          format('Invalid EP_NEW=',I4, ' > EP_ORIG=',I4)
-            c2err = 'Something is messed up.'
-            CALL MADABORT(FNAM, c1err, c2err)
-         endif
-
-         CALL MOVE_SNLC_ARRAYS(EP_NEW,EP_ORIG)
-
-102     CONTINUE
-101     CONTINUE
-
-      ISNLC_NEWMJD_STORE = NMJD_STORE_NEW
-
-      RETURN
-      END    ! end SELECT_EPOCHS_CUTWIN_TREST
-
 
 C ====================================
 +DECK,SET_PEAKMJD.
@@ -38967,9 +37610,6 @@ c local var
       REAL*8 MODEL_MAGERR
       PARAMETER ( MODEL_MAGERR = 0.05 )
 
-c function
-      LOGICAL CHECK_EPOCH_IGNORE
-
 C --------------- BEGIN -------------
 
       ISN         = INT ( XVAL(1) + 0.0001 )
@@ -38994,7 +37634,6 @@ C --------------- BEGIN -------------
 
         DO 201 EP = EPMIN, EPMAX
 
-cc xxx no longer needed  if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 201  ! May 2016
             if ( IFILT_OBS .NE. ISNLC_IFILT_OBS(ep) ) GOTO 201
 
             FLUX      = SNLC_FLUXCAL(ep)
@@ -42175,3 +40814,1734 @@ C --------------- BEGIN -------------
       RETURN
       END
 
+C =======================
+
++PATCH,*LEGACYIO.
+
+C =======================
+
+C =======================
++DECK,HDMSKCHK.
+      SUBROUTINE HEADMASK_CHECK_LEGACY(CCID)
+
+c Created Aug 28, 2012
+c Check HEADMASK to make sure that all required header keys 
+c have been read. Abort on any missing key.
+c
+c Feb 2016: check option to abort on missing header info.
+
+      IMPLICIT NONE
+      CHARACTER CCID*(*)  ! (I) name of SN
+
++CDE,SNPAR.
++CDE,SNFILECOM.
++CDE,SNCUTS.
++CDE,CTRLCOM.
++CDE,SNLCINP.
+
+c local var
+
+      INTEGER LKEY, LENTOT, ibit, OVP
+      LOGICAL  LTMP
+
+      CHARACTER 
+     &   HEADBIT_STRING(0:NBIT_HEADMASK)*12
+     &  ,CTMP*12
+     &  ,KEY_LIST*100
+
+C -------------- BEGIN ---------------
+
+      OVP = IAND(HEADMASK,HEADMASK_REQUIRED)
+      IF ( OVP .EQ. HEADMASK_REQUIRED ) RETURN
+
+c Feb 2016: check option to abort on missing header info
+      if ( .NOT. ABORT_ON_BADHEADER ) RETURN
+
+
+c if we get here, print missing key(s) and abort.
+
+
+c Start by filling string for each bit to simplify dump-logic
+
+      HEADBIT_STRING(HEADBIT_SNID)    = 'SNID'
+      HEADBIT_STRING(HEADBIT_IAUC)    = 'IAUC'
+      HEADBIT_STRING(HEADBIT_CIDSEL)  = 'CIDSEL'
+      HEADBIT_STRING(HEADBIT_SURVEY)  = 'SURVEY'
+      HEADBIT_STRING(HEADBIT_FILTERS) = 'FILTERS'
+      HEADBIT_STRING(HEADBIT_RA)      = 'RA'
+      HEADBIT_STRING(HEADBIT_DEC)     = 'DEC'
+      HEADBIT_STRING(HEADBIT_MWEBV)   = 'MWEBV'
+      HEADBIT_STRING(HEADBIT_Z)       = 'REDSHIFT'
+
+c get list of keys that are NOT set
+      LENTOT   = 1
+      KEY_LIST = ' '
+      DO ibit = 0, NBIT_HEADMASK-1
+         LTMP = BTEST(HEADMASK,ibit)
+         if ( .not. LTMP ) then
+            CTMP = HEADBIT_STRING(ibit)
+            LKEY = INDEX(CTMP,' ') - 1
+            KEY_LIST = KEY_LIST(1:LENTOT) // ' ' // CTMP(1:LKEY)
+            LENTOT   = LENTOT + LKEY + 1
+         endif
+      ENDDO  
+
+      write(C1ERR,61) HEADMASK, HEADMASK_REQUIRED, CCID
+61    format('Bad HEADMASK=',I4,' (required=',I4,')', 3x,  
+     &           'for SNID=', A )
+      C2ERR = 'Missing key(s): ' // KEY_LIST(1:LENTOT)
+      CALL MADABORT('HEADMASK_CHECK_LEGACY', C1ERR, C2ERR)
+
+      RETURN
+      END   ! HEADMASK_CHECK_LEGACY
+
+
+C ===========================================
++DECK,RDGLOB_FITS_LEGACY.
+      SUBROUTINE RDGLOBAL_FITS_LEGACY(IERR)
+
+c Jun 2011
+c 
+c Analog of RDSURVEY_TEXT:
+c Read global survey variables.
+c
+c Dec 27 2015: SIMLIB -> SIMLIB_FILE and read SIMLIB_MSKOPT
+c Jun 16 2017: check for NSUBSAMPLE_MARK
+c Mar 18 2018: read SIM__VARNAME_SNRMON
+c Dec 26 2018: read SNFITSIO_CODE_IVERSION
+c Oct 26 2020: read SNANA_DATA_VERSION
+c -----------------------------------
+
+      IMPLICIT NONE
+      INTEGER   IERR    ! (O) 0=> OK,  else error
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FITSCOM.
++CDE,SPECCOM.
+
+      INTEGER ISTAT, LRET, FLAG
+      CHARACTER KEYNAME*80, KEYVAL*(MXFILT_ALL), DATATYPE*20
+      LOGICAL LRDFILT
+
+c C functions
+      LOGICAL   correct_sign_vpec_data
+      INTEGER   RD_SNFITSIO_GLOBAL
+      EXTERNAL  RD_SNFITSIO_GLOBAL, correct_sign_vpec_data
+
+C ------------- BEGIN ------------
+
+      IERR = 0
+
+      global_banner =
+     &   "RDGLOBAL_FITS_LEGACY: FETCH GLOBAL SURVEY INFO from HEADER"
+      CALL PRBANNER(global_banner(1:60) )
+
+      KEYNAME   = "SURVEY" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 6, LRET )
+      LRET  = INDEX(KEYVAL,char(0)) - 1
+      SURVEY_NAME = KEYVAL(1:LRET)   
+
+c check for sub-survey flag (Feb 17 2017)
+      KEYNAME   = "SUBSURVEY_FLAG" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 14, LRET )
+      LRET  = INDEX(KEYVAL,char(0)) - 1
+      IF(LRET>0) THEN
+         READ( KEYVAL(1:LRET), * ) FLAG
+         IF ( FLAG > 0 ) SUBSURVEY_NAME = 'ENABLE' ! anything non-null
+      ENDIF
+
+c check for code version used to write fits file.
+      KEYNAME   = "CODE_IVERSION" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 14, LRET )
+      LRET  = INDEX(KEYVAL,char(0)) - 1
+      IF(LRET>0) THEN
+         READ( KEYVAL(1:LRET), * ) SNFITSIO_CODE_IVERSION
+      ENDIF
+
+c Oct 26 2020: check for SNANA_VERSION in fits header
+      KEYNAME  = "SNANA_VERSION" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 20, LRET )
+      LRET  = INDEX(KEYVAL,char(0)) - 1
+      IF(LRET > 0) THEN
+         READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
+cc	 print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA
+         ISCORRECT_SIGN_VPEC = correct_sign_vpec_data(KEYVAL)
+      ENDIF
+
+c --------------------------------------------------------
+
+      LRDFILT =  .NOT. FREEZE_SURVEY_FILTERS 
+      IF ( LRDFILT ) THEN
+        KEYNAME   = "FILTERS" // char(0)
+        ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 7, LRET )
+        LRET  = INDEX(KEYVAL,char(0)) - 1
+        SURVEY_FILTERS = KEYVAL(1:LRET)
+      ENDIF
+
+c -----------------------------------------
+c check for optional SPECFILE (Apr 2019)
+c We don't need the SPECFILE name yet; just need to set a logical flag.
+c 
+      KEYNAME   = "SPECFILE" // char(0) ;  KEYVAL=''
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 8, LRET )
+      IF ( KEYVAL(1:4) .NE. 'NONE' ) THEN
+         RDFLAG_SPECTRUM = .TRUE.
+      ENDIF
+
+c -----------------------------------------
+      KEYNAME   = "DATATYPE" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, DATATYPE, 8, LRET)
+      LSIM_SNANA = .FALSE. ; LSIM_MAGOBS = .FALSE.
+
+      IF ( DATATYPE(1:4) .EQ. 'DATA' ) THEN
+         ! do nothing
+      ELSE IF ( DATATYPE(1:9)  .EQ. 'SIM_SNANA' ) THEN
+         LSIM_SNANA = .TRUE.
+      ELSE IF ( DATATYPE(1:10) .EQ. 'SIMULATION' ) THEN  ! legacy
+         LSIM_SNANA = .TRUE.
+      ELSE IF ( DATATYPE(1:10) .EQ. 'SIM_MAGOBS' ) THEN
+         LSIM_MAGOBS = .TRUE.
+      ELSE
+        C1err = 'Unrecognized DATATYPE = ' // DATATYPE
+        C2err = 'Check DATATYPE key in FITS header.'
+        CALL MADABORT("RDGLOBAL_FITS_LEGACY", c1err, c2err )
+      ENDIF
+
+c check optional private variables
+      CALL RDPRIVATE_FITS_LEGACY()
+
+      IF ( LSIM_SNANA ) THEN
+
+c   SIMLIB_FILE & SIMLIB_MSKOPT are optional in order to 
+c   be back-compatible with older snana versions (Dec 27 2015)
+
+         KEYNAME   = "SIMLIB_FILE" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 11, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         IF (LRET>0) READ( KEYVAL(1:LRET), * ) SIMLIB_FILENAME
+
+         KEYNAME   = "SIMLIB_MSKOPT" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 13, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         IF(LRET>0)  READ( KEYVAL(1:LRET), * ) SIMLIB_MSKOPT
+
+         KEYNAME   = "SIMOPT_MWCOLORLAW" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 17, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         READ( KEYVAL(1:LRET), * ) SIMOPT_MWCOLORLAW
+
+         KEYNAME   = "SIM_MWRV" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 8, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         READ( KEYVAL(1:LRET), * ) SIM_MWRV
+
+         KEYNAME   = "SIMOPT_MWEBV" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 14, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         READ( KEYVAL(1:LRET), * ) SIMOPT_MWEBV
+
+         KEYNAME   = "SIM_NSUBSAMPLE_MARK" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 19, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         READ( KEYVAL(1:LRET), * ) SIM_NSUBSAMPLE_MARK
+
+         CALL RDFITSHEAD_SIMSED_LEGACY()    ! check for SIMSED model params
+         CALL RDFITSHEAD_PySEDMODEL_LEGACY('BYOSED') 
+         CALL RDFITSHEAD_PySEDMODEL_LEGACY('SNEMO') 
+         CALL RDFITSHEAD_LCLIB_LEGACY()     ! check for LCLIB model Feb 28 2018
+         CALL RDFITSHEAD_SIM_HOSTLIB_LEGACY()
+
+         KEYNAME   = "SIM_VARNAME_SNRMON" // char(0)
+         ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 18, LRET )
+         LRET      = INDEX(KEYVAL,char(0)) - 1
+         if(LRET>5) SIMNAME_SNRMON = KEYVAL(1:LRET)
+
+      ENDIF
+
+      RETURN  
+      END    ! end RDGLOBAL_FITS_LEGACY
+
+C ================================================
++DECK,SELEP_LEGACY.
+      SUBROUTINE SELECT_EPOCH_LEGACY()
+
+c Created Jun 23 2019
+c Refactored Feb 2021: apply all EPOCH cuts, but keep LEGACY
+c option to apply only Trest cuts.
+c
+c IFLAG = 1 -> Apply all cuts except for Trest 
+c                 (e..g, before calling SET_PEAKMJD
+c IFLAG = 2 -> Apply only Trest cut (e.g, after SET_PEAKMJD
+
+      IMPLICIT NONE
+
+      INTEGER IFLAG  ! (I)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,SNANAFIT.
++CDE,PKMJDCOM.
+
+      REAL*8    MJD8, MJD8_LAST
+      INTEGER   NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
+      INTEGER   EPMIN, EPMAX, ep_orig, ep_new, IMJD
+      INTEGER   IFILT, IFILT_OBS
+      REAL      PEAKMJD, MJD, TOBS, TREST, z1, z
+      LOGICAL   LPASS, IGNORE
+      LOGICAL   LTREST, LSNRMIN   ! LEGACY var
+      CHARACTER FNAM*12
+
+c function
+      LOGICAL LCUTEPOCH_LEGACY, CHECK_EPOCH_LEGACY
+
+c ------------------- BEGIN -------------------
+
+      FNAM = 'SELECT_EPOCH'
+      NMJD_STORE_NEW  = 0
+      NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
+      EP_NEW          = 0 
+      MJD8_LAST       = -9.0
+
+      PEAKMJD = SNLC_SEARCH_PEAKMJD
+      z    = SNLC_REDSHIFT
+      if ( z > 0.0 ) then
+         z1 = 1.0  + z
+      else
+         z1 = 1.0  ! in case Z = -9 is undefined; Trest -> Tobs
+      endif
+
+      DO 101 NEWMJD = 1, ISNLC_NEWMJD_STORE
+         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+
+         IF ( LEGACY_READ_DATA ) THEN
+            MJD8      = SNLC8_MJD(EPMIN) 
+            MJD       = SNGL(MJD8)
+            IFILT_OBS = ISNLC_IFILT_OBS(epmin)
+            IFILT     = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
+            TOBS      = MJD - PEAKMJD
+            TREST     = TOBS/z1
+            LTREST    = TREST >= CUTWIN_TREST(1) .and. 
+     &                  TREST <= CUTWIN_TREST(2)
+            LSNRMIN = CUTWIN_SNRMIN_FILT(1,IFILT) < 1000.            
+            LPASS = LTREST .and. LSNRMIN
+         ENDIF
+
+         IF ( REFAC_READ_DATA ) THEN
+            IGNORE  = CHECK_EPOCH_LEGACY(1,epmin) .and.
+     &                (.not. REFORMAT_SAVE_BADEPOCHS)
+            LPASS  = LCUTEPOCH_LEGACY(0, z, PEAKMJD, EPMIN) 
+     &             .and. (.not. IGNORE )
+         ENDIF
+
+         IF ( LPASS ) THEN
+            NMJD_STORE_NEW = NMJD_STORE_NEW + 1
+            IMJD = NMJD_STORE_NEW
+            ISNLC_NFILT_NEWMJD(IMJD) = ISNLC_NFILT_NEWMJD(NEWMJD)
+         ENDIF
+
+         if ( .NOT. LPASS ) goto 101
+
+        DO 102 EP_ORIG = EPMIN, EPMAX
+
+         EP_NEW = EP_NEW + 1
+
+         MJD8  = SNLC8_MJD(EP_ORIG)
+         if ( MJD8 > MJD8_LAST ) then
+            if ( EP_ORIG == EPMIN ) then
+              ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD) = EP_NEW
+            endif
+              ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD) = EP_NEW
+         endif
+         MJD8_LAST = MJD8          
+
+         if ( EP_NEW > EP_ORIG ) then
+            CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
+            print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
+            print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
+            write(c1err,61) EP_NEW, EP_ORIG
+61          format('Invalid EP_NEW=',I4, ' > EP_ORIG=',I4)
+            c2err = 'Something is messed up.'
+            CALL MADABORT(FNAM, c1err, c2err)
+         endif
+
+         CALL MOVE_SNLC_ARRAYS(EP_NEW,EP_ORIG)
+
+102     CONTINUE
+101     CONTINUE
+
+      ISNLC_NEWMJD_STORE = NMJD_STORE_NEW
+
+      RETURN
+      END    ! end SELECT_EPOCH_LEGACY
+
+C =========================================
++DECK,LCUTEPOCH_LEGACY.
+      LOGICAL FUNCTION LCUTEPOCH_LEGACY(OPT,Z,PKMJD,EP)
+
+c ------------------------------------------- 
+c Created Jun 18, 2011
+c Return TRUE if this epoch passes epoch-cuts.
+c The input are the epoch values rather than the SN ID.
+c
+c  OPT   = 0 -> apply all cuts
+c  OPT   = 1 -> apply only Trest cut
+c
+c  z     = redshift
+c  PKMJD = peakMJD estimate
+c  EP    = epoch index
+c
+c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
+c Mar 01 2020: 
+c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
+c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
+c
+c Sep 9, 2020: refactor to accept EPOCH-index argument.
+c Feb 13 2021: modify OPT bits to handle read-refactor
+c              
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+      REAL  Z, PKMJD      ! (I) redshift and time of peak brightness
+      INTEGER OPT, EP     ! (I) options, and epoch index
+
+c local variables
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+c+CDE,SNPAR.
+c+CDE,SNCUTS.
+c+CDE,SNLCINP.
+
+      REAL    MJD,  TREST, ZZ, SNR
+      INTEGER IFILT, IFILT_OBS, IDFIELD, PHOTFLAG
+      LOGICAL LTMP, LTREST, LMJD, LXMJD, NO_DETECT
+
+C --------------- BEGIN -----------
+           
+      LCUTEPOCH_LEGACY = .FALSE.
+
+      MJD       = SNGL( SNLC8_MJD(EP) )
+      IDFIELD   = ISNLC_IDFIELD(EP)  
+      PHOTFLAG  = ISNLC_PHOTFLAG(EP)
+      IFILT_OBS = ISNLC_IFILT_OBS(EP)
+      IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+
+c      print*,' xxx ----------------------------- '
+c      print*,' xxx LCUTEPOCH DUMP xxx '
+c      print*,' xxx z=', z, '   PKMJD=', PKMJD
+c      print*,' xxx EP=', EP, '  IFILT_OBS, IDFIELD=', IFILT_OBS, IDFIELD
+c      print*,' xxx MJD=', MJD, '  PHOTFLAG=', PHOTFLAG
+
+      IF ( Z .GT. 0.0 ) then
+         ZZ    = 1.0 + Z
+      ELSE
+         ZZ    = 1.0
+      ENDIF
+
+      if ( LEGACY_READ_DATA ) then
+         LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
+         IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
+      else
+         ! REFAC_READ
+         LTMP = ( PKMJD < 40000.  )
+      endif
+
+c evaluate epoch cut in rest-frame
+      IF ( LTMP ) THEN
+c       PKMJD estimate not yet determined, so no TREST cut
+         LTrest = .TRUE.  
+      ELSE
+c  use PEAKMJD from data file, go ahead with TREST cut
+         Trest = (MJD - PKMJD) / ZZ
+         LTrest = ( Trest .GE. cutwin_Trest(1) .and. 
+     &              TRest .LE. cutwin_Trest(2) )
+      ENDIF
+
+      LXMJD = ( MJD .GE. CUTWIN_MJD_EXCLUDE(1) .and.
+     &          MJD .LE. CUTWIN_MJD_EXCLUDE(2) )
+
+      LMJD = ( MJD .GE. cutwin_MJD(1) .and.
+     &         MJD .LE. cutwin_MJD(2) )
+
+      LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
+      IF ( .NOT. LTMP ) RETURN
+
+      if ( BTEST(OPT,0) ) GOTO 800
+
+c - - - - - - - - - - - - 
+c reject epochs for filter band that has SNRMIN > 99
+      if ( IFILT < 900 ) then
+        LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
+        IF ( .NOT. LTMP ) RETURN
+      endif
+
+c check selected field.
+      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
+      IF ( .NOT. LTMP ) RETURN
+
+c Sep 2020: apply SNR cut for non-detections - to reject crazy fluxes.
+      IF ( PHOTFLAG_DETECT > 0 ) THEN
+         NO_DETECT = ( IAND(PHOTFLAG,PHOTFLAG_DETECT) == 0 )
+         SNR       = SNLC_FLUXCAL(EP) / SNLC_FLUXCAL_ERRTOT(EP)
+         if ( NO_DETECT ) then
+            if ( SNR < CUTWIN_SNR_NODETECT(1)  ) RETURN
+            if ( SNR > CUTWIN_SNR_NODETECT(2)  ) RETURN
+         endif
+      ENDIF
+
+ 800  CONTINUE
+      LCUTEPOCH_LEGACY  = .TRUE.
+
+      RETURN
+      END      ! LCUTEPOCH_LEGACY
+
+C ==============================
++DECK,CHCKHEADER.
+      SUBROUTINE CHECK_HEADER()
+
+c Created May 7, 2009 by R.Kessler
+c Abort if any header info is missing of invalid.
+c
+c Dec 23, 2010: make sure header-cuts have been applied
+c               (see APPLY_HEADER_CUTMASK)
+c
+c Jun 11, 2013: before ABORT, list each cut with message to
+c               see more clearly what cut is missing.
+c               Needed because ABORT message is too obscure.
+c
+c ----------------
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+c local var
+
+      LOGICAL LCUTS, LTMP
+      INTEGER CUTMASK_EXPECT, LL
+      INTEGER CUTBIT_LIST(20), NCUT, icut
+      CHARACTER msg*40, MSGCUT(20)*40
+
+C --------- BEGIN ---------
+
+      IF ( SNLC_CCID .EQ. '' ) THEN
+         C1ERR = 'no SNID in ' // SNDATA_FILE_CURRENT(1:60)
+         C2ERR = 'Check SNID: keyword'
+         CALL MADABORT("CHECK_HEADER", c1err, c2err)
+      ENDIF
+
+      IF ( .NOT. FOUND_SURVEY ) THEN
+         C1ERR = 'no SURVEY in ' // SNDATA_FILE_CURRENT(1:60)
+         C2ERR = 'Check SURVEY: keyword'
+         CALL MADABORT("CHECK_HEADER", c1err, c2err)
+      ENDIF
+
+c -------------------------------------------------
+c check that header cuts have been applied in case 
+c required header info is missing.
+     
+      NCUT = 0
+
+c -------------
+c Create list of required cut-bits, along with string-def in case of error.
+
+      NCUT = NCUT + 1 ;  
+      CUTBIT_LIST(NCUT) = CUTBIT_SNTYPE
+      MSGCUT(NCUT)      = 'SNTYPE'
+          
+      CUTMASK_EXPECT = 0
+      DO icut = 1, NCUT
+         CUTMASK_EXPECT = 
+     &       IBSET( CUTMASK_EXPECT , CUTBIT_LIST(icut)-1 )
+      ENDDO
+
+      LCUTS = APPLY_HEADER_CUTMASK .EQ. CUTMASK_EXPECT
+
+      IF ( .NOT. LCUTS ) THEN
+
+c print info for each required cut
+        DO icut = 1, NCUT
+           LTMP = BTEST( APPLY_HEADER_CUTMASK , CUTBIT_LIST(icut)-1 )
+           IF ( LTMP ) THEN
+              MSG = 'was Applied.'
+           ELSE
+              MSG = 'was NOT Applied ???'
+           ENDIF
+           LL = INDEX( MSGCUT(icut), ' ' ) - 1
+           write(6,610) CUTBIT_LIST(icut), MSGCUT(icut), MSG
+ 610       format(T5,'Header CUTBIT ',I2, 2x, A20, A20 )
+        ENDDO
+
+        msg = 'something is wrong.'
+        C1ERR = 'Header cuts not all applied for CID=' // 
+     &           SNLC_CCID(1:ISNLC_LENCCID) // '; ' // msg
+        write(C2err,620) APPLY_HEADER_CUTMASK, CUTMASK_EXPECT
+620     format('APPLY_HEADER_CUTMASK=', I5, 4x,'Expected CUTMASK=',I5)
+        CALL MADABORT("CHECK_HEADER", c1err, c2err)
+      ENDIF
+
+      RETURN
+      END   ! end CHECK_HEADER
+
+C ==============================
++DECK,CHECKEPIGNORE.
+      LOGICAL FUNCTION CHECK_EPOCH_LEGACY(OPTMASK,ep)
+c
+c Returns TRUE if this epoch is to be ignored for any of
+c the following reasons:
+c   + in the [VERSION].IGNORE file
+c   + fails PHOTFLAG bits
+c   + fails SELECT_EARLYLC
+c
+c OPTMASK=1 --> increment global counters
+c
+c ------------
+c
+c Mar 2015: 
+c   + change to logical fun; returns TRUE --> ignore epoch
+c   + real MJD -> real*8 MJD8
+c
+c Dec 21 2017: add OPTMASK argument to increment global counters
+c   
+c Jul 11 2020: check ZP and PSF
+c Jul 23 2020: ignore ZP and PSF if RESTORE_DES3YR=T
+c
+c ---------------------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER ep      ! (I) epoch index
+      INTEGER OPTMASK ! (I) options
+c local var
+
+      INTEGER MSKTMP, MSKOV, i, LL, ifilt_obs
+      LOGICAL IGNORE, LMJD, LCID, LFILT, BADPHOT
+      CHARACTER cflt*4, CCID*(MXCHAR_CCID)
+      REAL*8 MJD8, ZPADD_pe, PSF, ZP
+
+c function(s)
+      LOGICAL SELECT_EARLYLC
+
+C ------------ BEGIN -------------
+
+      IGNORE  = .FALSE.
+      BADPHOT = .FALSE.
+
+c Jul 2020: check option to write list of rejected epochs
++SELF,IF=SNANA.
+           CALL WRITE_EPOCH_IGNORE_EXEC(ep)
++SELF.
+
+c May 6, 2008: first check for epochs to ignore from IGNORE file.
+
+      DO 100 i = 1, NEPOCH_IGNORE
+
+        CCID = SNLC_CCID
+        LL   = ISNLC_LENCCID
+        LCID = EPOCH_IGNORE_CCID(i)(1:LL) .EQ. CCID(1:LL)
+        IF ( .NOT. LCID ) GOTO 100
+
+c leave big margin for MJD check (.002 days) in case IGNORE 
+c file has round-off errors for the MJD.
+        MJD8 = SNLC8_MJD(ep)
+        LMJD = ( ABS(EPOCH_IGNORE_MJD(i)-MJD8) < 0.002 )
+        IF ( .NOT. LMJD ) GOTO 100
+
+        ifilt_obs = ISNLC_IFILT_OBS(ep)
+        cflt      = filtdef_string(ifilt_obs:ifilt_obs)
+        LFILT     = EPOCH_IGNORE_FILT(i)(1:1) .EQ. CFLT(1:1)
+        IF ( .NOT. LFILT ) GOTO 100
+
+c if we get here, then give message to ignore epoch 
+c and skip down to over-write part.
+
+        IGNORE = .TRUE.
+
+        IF ( STDOUT_UPDATE) THEN
+          write(6,101) CCID, MJD8, cflt
+        ENDIF
+101     format(T8,'IGNORE EPOCH FOR: CID=',A8, 
+     &         3x,'MJD=',F9.3, 3x,'FILT=',A )
+        GOTO 600
+
+100   CONTINUE
+
+c ----------------------------------
+c now check PHOTFLAG mask.
+      MSKTMP  = ISNLC_PHOTFLAG(ep)
+
+c check OR-logic 
+c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set
+      MSKOV   = IAND ( PHOTFLAG_MSKREJ(1), MSKTMP )
+      IF ( MSKOV .NE. 0 ) THEN
+         BADPHOT = .TRUE.
+         IGNORE  = .TRUE.
+      ENDIF
+
+c Now check AND logic 
+c ==> reject epoch if all PHOTFLAG_MSKREJ(2:5) bits are set
+
+      do i = 2, 5
+        MSKOV   = IAND ( PHOTFLAG_MSKREJ(i), MSKTMP )
+        IF ( MSKOV .GT. 0 .and.  
+     &       MSKOV .EQ. PHOTFLAG_MSKREJ(i) ) THEN
+             BADPHOT = .TRUE.
+             IGNORE = .TRUE.
+        ENDIF
+      enddo
+
+c ----------------------
+c Check EARLY-epoch select logic (Mar 2015)
+
+      IF ( .not. SELECT_EARLYLC(ep) ) IGNORE = .TRUE.
+
+c -------------------------------------
+c July 11 2020
+c  Check cuts on PSF and ZP ... doesn't change analysis,
+c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
+
+      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
+
+      ZP = SNLC_ZEROPT_forCUT(ep) 
+      IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
+      IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
+
+      PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
+      IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
+      IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.
+
+600   CONTINUE
+
+c ------------------------------------------
+      IF ( BTEST(OPTMASK,0) ) THEN
+         NEPOCH_TOT = NEPOCH_TOT + 1
+        IF ( .NOT. IGNORE)  NEPOCH_USE = NEPOCH_USE + 1
+        IF ( BADPHOT ) THEN
+           NEPOCH_BADPHOT     = NEPOCH_BADPHOT     + 1
+           NEPOCH_BADPHOT_SUM = NEPOCH_BADPHOT_SUM + 1
+        ENDIF
+      ENDIF
+
+c -------------------------------------
+c set function value and return
+      CHECK_EPOCH_LEGACY = IGNORE ! Mar 2015
+
+      RETURN
+      END   ! end of  CHECK_EPOCH_LEGACY
+
+C ==============================================
++DECK,PARSE_EPOCH_TEXT.
+      SUBROUTINE PARSE_EPOCH_TEXT ( cwords, istat )
+c
+c parse epoch parameters.
+c cword(1) is the keyword; 
+c
+c Apply selection cuts to MJD/TREST, FIELD and TELESCOPE;
+c return istat = -1 if any cut fails => reject this epoch
+c
+c
+c         HISTORY
+c 
+c Nov 29 2014: REAL MJD --> REAL*8 MJD8 
+c
+c Mar 20 2015: call CHECK_EPOCH_LEGACY
+c
+c -------------------------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      CHARACTER cwords(*)*60    ! (I) words to parse
+      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+     
+c local var
+      character 
+     &   cwd*60, cwd_next*60, cfield*20, band_rest*2
+     &  ,ctel*20, ccid*(MXCHAR_CCID)
+
+      integer  
+     &   Newmjd, ITMPN(MXFILT_OBS)
+     &  ,IDTEL, IDFIELD, ITMP, EPMIN, EPMAX, ep
+     &  ,IFILT_OBS, IFILT, NFILT
+
+      REAL Z, PKMJD
+      LOGICAL LTMP, LTMP1, LTMP2, IGNORE
+
+      REAL*8  MJD8 
+
+c functions
+      INTEGER GET_IDTEL, GET_IDFIELD, FILTINDX
+      LOGICAL LCUTEPOCH_LEGACY, CHECK_EPOCH_LEGACY
+
+C ----------- BEGIN ---------
+
+      istat    = 0
+      cwd      = cwords(1)
+      cwd_next = cwords(2)
+      ccid     = SNLC_CCID
+
+      NEWMJD  = ISNLC_NEWMJD_STORE + 1
+      EPMIN   = ISNLC_NEPOCH_STORE + 1
+
+      ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD) = EPMIN
+
+      if ( cwd .EQ. 'TELESCOPE:' ) then
+          read(cwd_next,*) CTEL
+          IDTEL = GET_IDTEL( CTEL )
+          ISNLC_IDTEL(EPMIN) = IDTEL
+          LTMP = DOALL_SNTEL .or. IDTEL .GT. 0
+          if ( .NOT. LTMP ) then
+             istat = ISTAT_SKIP
+             return
+          endif          
+      endif
+
+c check field (allow legacy "STRIPE:" key for SDSS)
+
+      LTMP = cwd .EQ. 'STRIPE:' .or. cwd .EQ. 'FIELD:' 
+      if ( LTMP ) then
+          read(cwd_next,*) cfield
+          IDFIELD = GET_IDFIELD( CFIELD )
+          ISNLC_IDFIELD(EPMIN) = IDFIELD
+          SNLC_FIELD(EPMIN)    = cfield   ! July 16, 2013
+
+c check if this field is OK
+          LTMP = DOALL_SNFIELD .or. IDFIELD .GT. 0          
+          if ( .NOT. LTMP ) then
+             istat = ISTAT_SKIP
+             return
+          endif
+
+      endif  ! end of FIELD
+
+c for epoch, make Trest/MJD cut immediately to save memory storage
+
+      LTMP1 = FORMAT_VERBOSE .and. cwd .EQ. 'MJD:'
+      LTMP2 = FORMAT_TERSE   .and. cwd .EQ. 'OBS:'
+
+      if ( LTMP1 .or. LTMP2 ) then
+
+          read(cwd_next,*) MJD8
+
+          Z        = SNLC_REDSHIFT
+          PKMJD    = SNLC_SEARCH_PEAKMJD
+
+c always load MJD in case we need to flag an error somewhere
+c in the parsing. If Trest fails cut, SNLC8_MJD will get over-written.
+
+          SNLC8_MJD(EPMIN) = MJD8
+
+c Use utility function to apply MJD/Trest cut,  but ignore 
+c cut on IDTEL and IDFIELD; these last two cuts are applied 
+c later if/when their values are read.
+          LTMP  = LCUTEPOCH_LEGACY(1, Z, PKMJD, EPMIN)
+        
+          if ( .NOT. LTMP ) then
+            istat = ISTAT_SKIP
+            return
+          endif 
+      endif
+
+c ------------- parse FILTER-BAND info
+c               PASSBAND: filt-list must already be parsed.
+
+      NFILT = ISNLC_NFILT_NEWMJD(NEWMJD)
+      EPMAX = EPMIN + NFILT - 1
+
+c check for TERSE format
+
+      IF ( LTMP2 ) THEN 
+
+c read mandatory args
+        ITMP = 1 + ITERSE_FLUXCAL
+        read(cwords(ITMP),*) SNLC_FLUXCAL(EPMIN)
+
+        ITMP = 1 + ITERSE_FLUXCALERR
+        read(cwords(ITMP),*) SNLC_FLUXCAL_ERRTOT(EPMIN)  
+
+        ITMP = 1 + ITERSE_FIELD
+        cfield = cwords(ITMP)(1:MXCHAR_FIELDNAME)
+        ISNLC_IDFIELD(EPMIN) = GET_IDFIELD( CFIELD )
+        SNLC_FIELD(EPMIN)    = CFIELD  ! Jul 16, 2013
+
+c read optional PHOTFLAG if it's there 
+        if ( ITERSE_PHOTFLAG > 0 ) then
+           ITMP = 1 + ITERSE_PHOTFLAG
+           read(cwords(ITMP),*) ISNLC_PHOTFLAG(EPMIN)  
+        endif
+
+c read optional PHOTPROB if it's there  (Nov 24 2014)
+        if ( ITERSE_PHOTPROB > 0 ) then
+           ITMP = 1 + ITERSE_PHOTPROB
+           read(cwords(ITMP),*) SNLC_PHOTPROB(EPMIN)  
+        endif
+
+c read optional FLUX-ZPT if it's there (Nov 2, 2010).
+        if ( ITERSE_ZPFLUX > 0 ) then
+           ITMP = 1 + ITERSE_ZPFLUX
+           read(cwords(ITMP),*) SNLC_ZEROPT(EPMIN) 
+        endif
+
+c read optional FLUX-ZPERR if it's there (Jan 2020)
+        if ( ITERSE_ZPERR > 0 ) then
+           ITMP = 1 + ITERSE_ZPERR
+           read(cwords(ITMP),*) SNLC_ZEROPT_ERR(EPMIN) 
+        endif
+ 
+c read optional PSF if it's there (July 2013)
+        if ( ITERSE_PSFSIG > 0 ) then
+           ITMP = 1 + ITERSE_PSFSIG
+           read(cwords(ITMP),*) SNLC_PSF_SIG1(EPMIN) 
+        endif
+
+c read optional SKYSIG if it's there (July 2013)
+        if ( ITERSE_SKYSIG > 0 ) then
+           ITMP = 1 + ITERSE_SKYSIG
+           read(cwords(ITMP),*) SNLC_SKYSIG(EPMIN) 
+        endif
+
+c read optional SKYSIG_T if it's there (Aug 7 2014)
+        if ( ITERSE_SKYSIG_T > 0 ) then
+           ITMP = 1 + ITERSE_SKYSIG_T
+           read(cwords(ITMP),*) SNLC_SKYSIG_T(EPMIN) 
+        endif
+
+c read optional XPIX & YPIX if it's there (Aug 2014)
+        if ( ITERSE_XPIX > 0 ) then
+           ITMP = 1 + ITERSE_XPIX
+           read(cwords(ITMP),*) SNLC_XPIX(EPMIN) 
+        endif
+        if ( ITERSE_YPIX > 0 ) then
+           ITMP = 1 + ITERSE_YPIX
+           read(cwords(ITMP),*) SNLC_YPIX(EPMIN) 
+        endif
+
+c read optional GAIN if it's there (Oct 2015)
+        if ( ITERSE_GAIN > 0 ) then
+           ITMP = 1 + ITERSE_GAIN
+           read(cwords(ITMP),*) SNLC_GAIN(EPMIN) 
+        endif
+
+c read optional CCDNUM if it's there (Oct 2017)
+        if ( ITERSE_CCDNUM > 0 ) then
+           ITMP = 1 + ITERSE_CCDNUM
+           read(cwords(ITMP),*) ISNLC_CCDNUM(EPMIN) 
+        endif
+
+c read optional MAG if it's there (Sep 2011)        
+        if ( ITERSE_MAGOBS > 0 ) then
+           ITMP = 1 + ITERSE_MAGOBS
+           read(cwords(ITMP),*) SNLC_MAG(EPMIN) 
+        endif
+
+c read optional SIM quantities if it's there (Jan 2014)
+        if ( ITERSE_SIM_EPMAGOBS > 0 ) then
+           ITMP = 1 + ITERSE_SIM_EPMAGOBS
+           read(cwords(ITMP),*) SIM_EPMAGOBS(EPMIN) 
+        endif
+
+        if ( ITERSE_SIM_EPFILTREST > 0 ) then
+           ITMP = 1 + ITERSE_SIM_EPFILTREST
+           read(cwords(ITMP),*) BAND_REST
+           SIM_EPFILTREST(EPMIN)  = FILTINDX(BAND_REST)
+        endif
+
+        if ( ITERSE_SIM_EPMAGREST > 0 ) then
+           ITMP = 1 + ITERSE_SIM_EPMAGREST
+           read(cwords(ITMP),*) SIM_EPMAGREST(EPMIN) 
+        endif
+
+c apply epoch cut.
+        Z         = SNLC_REDSHIFT
+        PKMJD     = SNLC_SEARCH_PEAKMJD
+        IDFIELD   = ISNLC_IDFIELD(EPMIN)  
+        IFILT_OBS = ISNLC_IFILT_OBS(EPMIN)
+        IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+
+        CALL SET_EPVAR_MISC(epmin)   ! set SNLC_ZP in ADU or Npe
+
+        IGNORE  = CHECK_EPOCH_LEGACY(1,EPMIN) .and. 
+     &            (.not. REFORMAT_SAVE_BADEPOCHS)
+
+        LTMP  = LCUTEPOCH_LEGACY(0,Z,PKMJD,EPMIN) .and.(.not.IGNORE )
+
+        if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
+        return
+      ENDIF
+
+      if ( cwd .EQ. 'PHOTOMETRYFLAG:' ) then
+         CALL RDNINT ( cwords(2), NFILT, ITMPN )            
+         do ep = EPMIN, EPMAX
+            itmp  = ITMPN(ep-EPMIN+1)
+            if ( Itmp .EQ. -9 ) ITMP = 0
+            ISNLC_PHOTFLAG(ep) = ITMP
+         enddo
+      endif
+
+      if ( cwd .EQ. 'GAIN:' ) then
+         CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
+      endif
+
+        if ( cwd .EQ. 'RDNOISE:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_RDNOISE(EPMIN) )
+        endif
+
+        if ( cwd .EQ. 'XPIXEL:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_XPIX(EPMIN) )
+        endif
+        if ( cwd .EQ. 'YPIXEL:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_YPIX(EPMIN) )
+        endif
+
+        if ( cwd .EQ. 'SKY_SIG:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG(EPMIN) )
+        endif
+        if ( cwd .EQ. 'TRUN_SKY_SIG:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG_T(EPMIN) )
+        endif
+
+        if ( cwd .EQ. 'PSF_SIG1:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_SIG1(EPMIN) )
+        endif
+        if ( cwd .EQ. 'PSF_SIG2:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_SIG2(EPMIN) )
+        endif
+        if ( cwd .EQ. 'PSF_RATIO:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_RATIO(EPMIN) )
+        endif
+
+        if ( cwd .EQ. 'ZEROPT:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT(EPMIN))
+        endif
+        if ( cwd .EQ. 'ZEROPT_ERR:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT_ERR(EPMIN))
+        endif
+
+        if ( cwd .EQ. 'FLUXCAL:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUXCAL(EPMIN))
+        endif
+        if ( cwd .EQ. 'FLUXCAL_ERRTOT:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,
+     &             SNLC_FLUXCAL_ERRTOT(EPMIN))
+        endif
+
+c read magnitues and asymmetric errors
+
+        if ( cwd .EQ. 'MAG:' ) then
+           CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG(EPMIN))
+        endif
+        if ( cwd .EQ. 'MAG_ERRPLUS:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG_ERRPLUS(EPMIN))
+        endif
+        if ( cwd .EQ. 'MAG_ERRMINUS:' ) then
+          CALL RDNFLOAT(cwords(2),NFILT,SNLC_MAG_ERRMINUS(EPMIN))
+        endif
+
+c check for SIM stuff.
+
+        if ( cwd .EQ. 'SIM_MAG:' ) then
+          CALL RDNFLOAT(cwords(2), NFILT, SIM_EPMAGOBS(EPMIN) )
+        endif
+
+      RETURN
+      END  ! end of PARSE_EPOCH_TEXT
+
+
+C ==============================================
++DECK,PRS_BAND.
+      SUBROUTINE PARSE_PASSBAND(cwords, istat )
+
+c -------------------------
+c Aug 22, 2007: 
+c Check passband filters with keyword "BAND:" (old files)
+c or "PASSBAND:" (new files).  There is no end-of-passband marker,
+c so this logic is a bit fragile. A sequence might look like
+c
+c  PASSBAND:  g r i
+c  FLUX:  22. 23. 24.
+c
+c  Let's assume that single-character words are filters
+c  since no keyword is made of a single character.
+c  We just have to hope for no signle-char comments at the end.
+c  To be safe, ignore things like "#" and "%" and "!"
+c
+c Oct 24, 2009: modify to work for TERSE format. 
+c               See FORMAT_TERSE logical
+c
+c July 27, 2010: replace  parameter IWDFILT_TERSE with 
+c                variable ITERSE_FILTER
+c
+c -------------------
+
+      IMPLICIT  NONE
+
+c subroutine args.
+
+      CHARACTER cwords(*)*60    ! (I) words to parse
+      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+      
+c local var
+      character 
+     &   cwd*60
+     &  ,cfilt*12
+     &  ,ccid*(MXCHAR_CCID)
+
+      INTEGER LL, iwd, ifilt, ifilt_obs, NEWMJD, ep, EPMIN
+      INTEGER LWORD
+      LOGICAL LKEY
+
+c function
+      INTEGER FILTINDX_REPLACE
+
+c ---------- BEGIN --------
+
+      istat    = 0
+      cwd      = cwords(1)
+
+      IF ( FORMAT_VERBOSE ) THEN
+        LKEY = CWD .EQ. 'BAND:' .OR. CWD .EQ. 'PASSBAND:' 
+        IF ( .NOT. LKEY ) RETURN
+        iwd   = 2  ! start location of filter relative to KEY
+      ENDIF
+
+      IF ( FORMAT_TERSE ) THEN
+        LKEY = CWD .EQ. 'OBS:'
+        IF ( .NOT. LKEY ) RETURN
+        iwd   = 1 + ITERSE_FILTER  ! start location relative to OBS:
+      ENDIF
+
+      ccid    = SNLC_CCID
+      NEWMJD  = ISNLC_NEWMJD_STORE + 1
+      EPMIN   = ISNLC_NEPOCH_STORE + 1
+      LL      = 1
+
+
+c Dec 17 2020:
+c take last character of filter word to allow full filter names
+c in text format: e.g., Bessell-U is read here as U
+
+      LWORD = INDEX(cwords(iwd),' ') - 1
+      cfilt = cwords(iwd)(LWORD:LWORD)
+c xxx mark delete      cfilt = cwords(iwd)(1:2)
+      ep    = EPMIN - 1
+
+      DO 100 WHILE ( LL .EQ. 1 )
+
+c avoid common single-characters to denote comments
+         if ( cfilt(1:1) .EQ. '#' ) LL = 999
+         if ( cfilt(1:1) .EQ. '%' ) LL = 999
+         if ( cfilt(1:1) .EQ. '!' ) LL = 999
+         if ( cfilt(1:1) .EQ. '|' ) LL = 999 
+
+
+         if ( FORMAT_TERSE .and. iwd .GT. ITERSE_FILTER+1 ) LL = 999
+
+         if ( LL .EQ. 999 ) goto 100
+
+c         ifilt_obs = FILTINDX(cfilt)
+         ifilt_obs = FILTINDX_REPLACE(cfilt)
+         ep = ep + 1
+
+c         print*,' xxxx found ifilt_obs=',ifilt_obs,
+c     &      '  for ',cfilt,' and ep=',ep,' iwd=',iwd, ' LL=',LL
+
+c check epoch array bound.
+         if ( ep .GT. MXEPOCH ) then
+           write(c1err,660) ep, MXEPOCH
+660        format('Epoch index EP=',I4,' exceeds MXEPOCH=',i4 )
+           write(c2err,661) ccid, SNLC8_MJD(EPMIN) 
+661        format('Check SN ', A8,' at MJD=',F9.3 )
+           CALL MADABORT("PARSE_PASSBAND", c1err, c2err )
+         endif
+
+         ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD) = ep
+         ISNLC_IFILT_OBS(ep) = ifilt_obs  ! store filt index
+         ISNLC_NFILT_NEWMJD(NEWMJD) = 
+     &   ISNLC_NFILT_NEWMJD(NEWMJD) + 1
+         
+c make sure that MJD & IDTEL are defined for each filter-epoch;
+c not just the first filter.
+         SNLC8_MJD(ep)     = SNLC8_MJD(EPMIN) 
+         ISNLC_IDTEL(ep)   = ISNLC_IDTEL(EPMIN) 
+         ISNLC_IDFIELD(ep) = ISNLC_IDFIELD(EPMIN) 
+         SNLC_FIELD(ep)    = SNLC_FIELD(EPMIN)   ! July 16, 2013
+
+         IFILT = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+         if ( ifilt .LE. 0 .or. IFILT .GT. NFILTDEF_SURVEY ) THEN
+            write(c1err,60) ifilt_obs, cfilt, ifilt
+
+60          format('Undefined IFILT_OBS=',I3,' (',A4,'),  IFILT=',I2  )
+            write(c2err,61) ccid, NEWMJD, SNLC8_MJD(EPMIN)
+61          format('at CID=',A8,' , EPOCH=',I3,' , MJD=',F9.3 )
+              CALL MADABORT("PARSE_PASSBAND", c1err, c2err)
+         endif
+
+         iwd = iwd + 1
+         LL = INDEX( cwords(iwd), ' ' ) - 1
+         cfilt = cwords(iwd)(1:2)
+
+100   CONTINUE
+
+      RETURN
+      END
+
+C ==============================================
++DECK,PARSE_SIM.
+      SUBROUTINE PARSE_SIM_LEGACY ( isnlc, cwords, istat )
+c
+c parse SIM_xxx parameters if CWD starts with "SIM"
+c cword(1) is the keyword; cword(2) is the value,c
+c or cword(2-6) are the five values for ugirz.
+c
+c
+c Apr 12 2017: check for SIM_LENSDMU
+c
+c Feb 28 2018: read LCLIB_PARVAL
+c Dec 10 2018: read BYOSED_PARVAL, and allow more than 'SIM' key to continue
+c Jun 18 2019: read SIM_SALT2gammaDM
+c
+c --------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      INTEGER   isnlc           ! (I) SN sparese index to load
+      CHARACTER cwords(*)*60    ! (I) words to parse
+      INTEGER   ISTAT           ! (O) 0=OK;   <0 => skip this ISNLC
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      character   RETSTR*60, KEY*60
+
+      REAL*8 RET8(MXFILT_OBS)
+      INTEGER ifilt, IPAR, INDX, j
+      LOGICAL LTMP, LPARSE, LMATCH
+
+c functions
+      LOGICAL READ_HEADKEY
+
+C ----------- BEGIN ---------
+
+      istat    = 0
+
+      LPARSE = .FALSE.
+      if ( CWORDS(1)(1:3) .EQ. 'SIM'    ) LPARSE = .TRUE.
+      if ( CWORDS(1)(1:6) .EQ. 'BYOSED' ) LPARSE = .TRUE.
+      if ( CWORDS(1)(1:5) .EQ. 'SNEMO'  ) LPARSE = .TRUE.
+      if ( CWORDS(1)(1:6) .EQ. 'LCLIB'  ) LPARSE = .TRUE.
+
+      if ( .not. LPARSE ) RETURN
+
+c -----------------
+      RETSTR = 'STRING'
+      KEY    = 'SIM_MODEL_NAME'
+      LTMP   = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         SIMNAME_MODEL = RETSTR(1:32)
+      ENDIF
+
+      RETSTR = 'STRING'
+      KEY  = 'SIM_TYPE_NAME'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         SIMNAME_TYPE = RETSTR(1:12)
+      ENDIF
+
+      RETSTR = ''
+
+      KEY  = 'SIM_MODEL_INDEX'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_MODEL_INDEX = INT(RET8(1))
+
+      KEY  = 'SIM_TYPE_INDEX'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_GENTYPE = INT(RET8(1))
+
+c - - - - - - - - - 
+      KEY  = 'SIM_NON1a' ! legacy key name, 7.31 2018
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        INDX = INT(RET8(1))
+        SIM_TEMPLATE_INDEX = INDX
+        if ( .not.USESIM_SNIA .and. INDX .EQ. 0 ) ISTAT = -1
+        if ( .not.USESIM_SNCC .and. INDX .GT. 0 ) ISTAT = -1
+        if ( istat < 0 ) return
+      ENDIF
+
+      KEY  = 'SIM_TEMPLATE_INDEX'  ! new key name, 7.31.2018
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        INDX = INT(RET8(1))
+        SIM_TEMPLATE_INDEX = INDX
+        if ( .not.USESIM_SNIA .and. INDX .EQ. 0 ) ISTAT = -1
+        if ( .not.USESIM_SNCC .and. INDX .GT. 0 ) ISTAT = -1
+
+c check option to select specific SIM_TEMPLATE_INDEX (Dec 2018)
+        if ( NSIM_TEMPLATE_INDEX_LIST > 0 ) then
+           LMATCH = .FALSE.
+           do j=1, NSIM_TEMPLATE_INDEX_LIST
+              if(INDX == SIM_TEMPLATE_INDEX_LIST(j) ) LMATCH=.TRUE.
+           enddo
+           if ( .not. LMATCH ) ISTAT = -1
+        endif
+
+        if ( ISTAT < 0 ) return
+      ENDIF
+c - - - - - - - - - 
+
+      KEY  = 'SIM_SEARCHEFF_MASK'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SEARCHEFF_MASK = INT(RET8(1))
+
+      KEY  = 'SIM_LIBID'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_LIBID = INT(RET8(1))
+
+      KEY  = 'SIM_NGEN_LIBID'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_NGEN_LIBID = INT(RET8(1))
+
+      KEY  = 'SIM_NOBS_UNDEFINED'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_NOBS_UNDEFINED = INT(RET8(1))
+
+      KEY  = 'SIM_RA'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM8_RA = RET8(1)
+
+      KEY  = 'SIM_DECL'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM8_DECL = RET8(1)
+
+      KEY  = 'SIM_REDSHIFT'  ! allow legacy variable
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         SIM_REDSHIFT_CMB = SNGL(RET8(1))
+      ENDIF
+
+      KEY  = 'SIM_REDSHIFT_HELIO'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP )  SIM_REDSHIFT_HELIO = SNGL(RET8(1))
+
+      KEY  = 'SIM_REDSHIFT_CMB'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP )  SIM_REDSHIFT_CMB = SNGL(RET8(1))
+
+      KEY  = 'SIM_REDSHIFT_HOST'  ! Jan 2016
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP )  SIM_REDSHIFT_HOST = SNGL(RET8(1))
+
+      KEY  = 'SIM_REDSHIFT_FLAG'  ! Apr 2019
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP )  SIM_REDSHIFT_FLAG = INT(RET8(1))
+
+      KEY  = 'SIM_VPEC'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP )  SIM_VPEC = SNGL(RET8(1))
+
+      KEY  = 'SIM_DLMU'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_DLMAG = SNGL(RET8(1))
+      KEY  = 'SIM_DLMAG'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_DLMAG = SNGL(RET8(1))
+
+      KEY  = 'SIM_LENSDMU'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_LENSDMU = SNGL(RET8(1))
+
+      KEY  = 'SIM_MWEBV'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_MWEBV = SNGL(RET8(1)) 
+
+      KEY  = 'SIM_PEAKMJD'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_PEAKMJD = SNGL(RET8(1))
+      ENDIF
+
+      KEY  = 'SIM_HOSTLIB_GALID'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         SIM_HOSTLIB_GALID = INT( RET8(1) )
+        DSIM_HOSTLIB_GALID = RET8(1)
+      ENDIF
+
+      KEY  = 'SIM_TEMPLATEMAG'
+      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ' '
+      IF ( LTMP ) THEN
+        DO ifilt = 1, NFILTDEF_READ
+           SIM_TEMPLATEMAG(ifilt) = SNGL ( RET8(ifilt) )
+        ENDDO
+      ENDIF
+
+c ----------
+c model parameters
+
+      KEY  = 'SIM_SALT2x0'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SALT2x0 = SNGL(RET8(1))
+
+      KEY  = 'SIM_SALT2mB'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SALT2mB = SNGL(RET8(1))
+
+      KEY  = 'SIM_SALT2c'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_COLORPAR = SNGL(RET8(1))
+        SIMNAME_COLORPAR = 'SIM_c'
+cc xxx mark delete     SIMNAME_COLORPAR = 'SIM_SALT2c' ! Nov 2019
+        SIMNAME_COLORLAW = 'SIM_beta'
+      ENDIF
+
+      KEY  = 'SIM_SALT2alpha'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+         SIM_SHAPELAW     = SNGL(RET8(1))
+         SIMNAME_SHAPELAW = 'SIM_alpha'
+      ENDIF
+
+      KEY  = 'SIM_SALT2beta'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_COLORLAW = SNGL(RET8(1))
+
+      KEY  = 'SIM_AV'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_AV           =  SNGL(RET8(1))
+
+c store SIM_AV as the color param if NOT SALT2 model;
+c otherwise leave SIM_AV as separate from SALT2c.
+c Logic here may be a bit fragile.
+        if ( SIM_MODEL_INDEX .NE. MODEL_SALT2 ) then
+           SIM_COLORPAR     =  SIM_AV 
+           SIMNAME_COLORPAR = 'SIM_AV'  ! Jul 2016: SIMAV->SIM_AV 
+           SIMNAME_COLORLAW = 'SIM_RV'  ! Jul 2016: SIMRV->SIM_RV
+        endif
+
+      ENDIF
+
+      KEY  = 'SIM_RV'  ! host RV
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_RV       = SNGL(RET8(1))
+        if ( SIM_MODEL_INDEX .NE. MODEL_SALT2 ) then
+          SIM_COLORLAW = SIM_RV
+        endif
+      ENDIF
+
+
+      KEY  = 'SIM_MAGSMEAR_COH'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_MAGSMEAR_COH = SNGL(RET8(1))
+
+      KEY  = 'SIM_SALT2gammaDM'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SALT2gammaDM = SNGL(RET8(1))
+
+      KEY  = 'SIM_STRETCH'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_SHAPEPAR     = SNGL(RET8(1))
+        SIMNAME_SHAPEPAR = 'SIM_STRETCH'
+      ENDIF
+
+      KEY  = 'SIM_DELTA'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_SHAPEPAR     = SNGL(RET8(1))
+        SIMNAME_SHAPEPAR = 'SIM_DELTA'
+      ENDIF
+
+      KEY  = 'SIM_DM15'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_SHAPEPAR     = SNGL(RET8(1))
+        SIMNAME_SHAPEPAR = 'SIM_DM15'
+      ENDIF
+
+      KEY  = 'SIM_SALT2x1'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) THEN
+        SIM_SHAPEPAR     = SNGL(RET8(1))
+        SIMNAME_SHAPEPAR = 'SIM_x1'
+cc xxx mark delete Dec 8 2019  SIMNAME_SHAPEPAR = 'SIM_SALT2x1'  ! Nov 2019
+      ENDIF
+
+c filter-dependent keys
+
+      KEY  = 'SIM_PEAKMAG'
+      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ' '
+      IF ( LTMP ) THEN
+        DO ifilt = 1, NFILTDEF_READ
+           SIM_PEAKMAG(ifilt) = SNGL ( RET8(ifilt) )
+        ENDDO
+      ENDIF
+
+c note that SIM_EXPOSURE_TIME is the same for
+c each SN, so there is no ISNLC index.
+
+      KEY  = 'SIM_EXPOSURE'
+      RETSTR = 'FILTER'  ! flag to read NFILTDEF_READ filters
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      RETSTR = ' '
+      IF ( LTMP ) THEN
+        DO ifilt = 1, NFILTDEF_READ
+           SIM_EXPOSURE_TIME(ifilt) = SNGL ( RET8(ifilt) )
+        ENDDO
+      ENDIF
+
+
+c read SIMSED parameters 
+
+      DO 401 IPAR = 1, NPAR_SIMSED
+         KEY  = SIMSED_KEYWORD(IPAR)(1:60)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+         IF ( LTMP ) THEN
+           SIMSED_PARVAL(IPAR) = SNGL(RET8(1))
+         ENDIF
+401   CONTINUE  ! end IPAR
+
+c read  PySEDMODEL parameters (BYOSED,SNEMO ...)
+      DO 402 IPAR = 1, NPAR_PySEDMODEL
+         KEY  = PySEDMODEL_KEYWORD(IPAR)(1:60)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+         IF ( LTMP ) THEN
+            PySEDMODEL_PARVAL(IPAR) = SNGL(RET8(1))
+         ENDIF
+402   CONTINUE  ! end IPAR
+
+c read LCLIB parameters 
+
+      DO 410 IPAR = 1, NPAR_LCLIB
+         KEY  = LCLIB_KEYWORD(IPAR)(1:60)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+         IF ( LTMP ) THEN
+           LCLIB_PARVAL(IPAR) = SNGL(RET8(1))
+         ENDIF
+410   CONTINUE  ! end IPAR
+
+
+c read SIMSED parameters 
+
+      DO 420 IPAR = 1, NPAR_SIM_HOSTLIB
+         KEY  = SIM_HOSTLIB_KEYWORD(IPAR)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+         IF ( LTMP ) THEN
+           SIM_HOSTLIB_PARVAL(IPAR) = SNGL(RET8(1))
+         ENDIF
+ 420  CONTINUE                  ! end IPAR
+
+c - - - - 
+      KEY  = 'SIM_SUBSAMPLE_INDEX'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SUBSAMPLE_INDEX = INT(RET8(1))
+
+      RETURN
+      END     ! end of PARSE_SIM_LEGACY
+
+C ==============================================
++DECK,PARSE_PRIVATE.
+      SUBROUTINE PARSE_PRIVATE_TEXT(cword)
+
+c  Nov 24, 2012
+c  Check for private variable indicated by
+c     PRIVATE(varName):  <value>
+c
+c  On reading header, store list of private variable names
+c  in PRIVATE_KEYWORD and PRIVATE_VARANME. 
+c
+c input args.
+
+      IMPLICIT NONE
+      CHARACTER cword*(*)    ! (I) word to parse
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,PRIVCOM.
+
+      integer LEN_NAME, IVAR_PRIVATE, NMATCH
+
+c  function
+      INTEGER NMATCH_PRIVATE
+
+c ---------------- BEGIN ----------------
+
+      IF ( CWORD(1:8) .NE. 'PRIVATE(' ) RETURN
+      
+      LEN_NAME = INDEX(CWORD, ':') - 1
+      if ( LEN_NAME .LE. 0 ) RETURN  
+c -----------------
+
+
+      IF ( LFLAG_RDHEAD_ONLY ) THEN
+        NVAR_PRIVATE = NVAR_PRIVATE + 1
+        CALL PARSE_PRIVATE_KEYWORD( CWORD, NVAR_PRIVATE )
+      ELSE
+
+c here we check that no new private variables are added 
+c after the first file. Make sure to exclude the colon (:) 
+c from the keyname read from the text file.
+
+
+        NMATCH = NMATCH_PRIVATE(CWORD(1:LEN_NAME),IVAR_PRIVATE)
+        if ( NMATCH .EQ. 0 ) then
+           c1err = 'Unknown PRIVATE var = ' // CWORD(1:LEN_NAME)
+           c2err = 'for CID = ' // SNLC_CCID(1:ISNLC_LENCCID)
+           CALL MADABORT("PARSE_PASSBAND", c1err, c2err)
+        endif
+      ENDIF
+
+      RETURN
+      END
+
+C =======================
++DECK,PRSPRVKEY.
+      SUBROUTINE PARSE_PRIVATE_KEYWORD(CWORD, IVAR_PRIVATE)
+
+c For input CWORD = 'PRIVATE($VARNAME)', strip out the $VARNAME
+c and load PRIVATE_VARNAME(IVAR_PRIVATE) = $VARNAME
+c
+c Jul 23 2015: check PRIVATE_REDSHIFT_CMB key
+c Jul 25 2020: remove obsolete PRIVATE_REDSHIFT_CMB
+
+      IMPLICIT NONE
+
+c input args
+      CHARACTER CWORD*60     ! (I) text string to parse
+      INTEGER IVAR_PRIVATE   ! (I) PRIVATE parameter index
+
+c local args
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,PRIVCOM.
+
+      INTEGER J1, J2, LK, IVAR, LEN_NAME, LENZ, NMATCH, icut
+      INTEGER NWD, LWD1, LWD2, LWD3, MSKOPT
+      CHARACTER VARNAME*60, STR*(MXCHAR_CUTNAME), CUTSTRING*30
+      CHARACTER CWD1*60, CWD2*60, CWD3*60
+
+      LOGICAL LCUTWIN
+      REAL*8 CUTWIN(2)
+
+c function
+      INTEGER NMATCH_PRIVATE
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C --------------- BEGIN --------------
+
+c store keyword WITHOUT the ':' on the end.
+      LK = INDEX( CWORD , ':' ) - 1
+      IF ( LK .LT. 0 ) LK = INDEX(CWORD,' ' ) - 1
+      PRIVATE_KEYWORD(IVAR_PRIVATE) = CWORD(1:LK)
+
+c now extract the parameter name from inside the ().
+c For example, if KEYWORD = 'PRIVATE(BLA):'
+c then the VARNAME is 'BLA'.
+
+      J1 = INDEX( CWORD , '(' ) 
+      J2 = INDEX( CWORD , ')' ) 
+
+      IF ( J1 .EQ. 0 .or. J2 .EQ. 0 ) THEN
+         c1err = 'Invalid PRIVATE_KEYWORD = ' // CWORD(1:LK)
+         c2err = 'Expecting to find key-string  PRIVATE(PARNAME)'
+         CALL MADABORT("PARSE_PRIVATE_KEYWORD", c1err,c2err)
+      ENDIF
+
+
+      VARNAME = CWORD(j1+1:j2-1)
+      LEN_NAME = INDEX(VARNAME // ' ', ' ' ) - 1
+
+c load parameter name into global variable
+
+      PRIVATE_VARNAME(IVAR_PRIVATE) = VARNAME
+
+c ----------------------------------------------------
+c make sure that this NAME has not already been used
+
+      NMATCH = NMATCH_PRIVATE(VARNAME,IVAR)
+
+      IF ( NMATCH > 1 ) then
+         c1err = 'found duplicate PRIVATE variable: ' 
+     &                // VARNAME(1:LEN_NAME)
+         c2err = 'Check PRIVATE(XXX) keys'
+         CALL MADABORT("PARSE_PRIVATE_KEYWORD", c1err,c2err)
+      ENDIF
+
+c -------- check for cut on private var (Nov 4 2014) ---------
+      LCUTWIN = .FALSE.
+      CUTSTRING = ''
+      DO 400 icut = 1, MXCUT_PRIVATE
+
+         STR = PRIVATE_CUTWIN_STRING(icut)  ! 'VARNAME CUTMIN CUTMAX'
+         if ( STR .EQ. '' ) GOTO 400
+ 
+c        skip if already found
+         CUTWIN(2) = PRIVATE_CUTWIN(2,IVAR_PRIVATE) 
+         if ( CUTWIN(2) < .99*CUTVAL_OPEN ) GOTO 400
+
+c break up string into pieces
+         MSKOPT = MSKOPT_PARSE_WORDS_STRING
+         NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0), 60)
+         call get_PARSE_WORD_fortran(1,CWD1,LWD1)
+
+         if ( VARNAME .EQ. CWD1 ) then
+            NCUT_PRIVATE = NCUT_PRIVATE + 1
+            LCUTWIN = .TRUE.
+
+            call get_PARSE_WORD_fortran(2,CWD2,LWD2)
+            call get_PARSE_WORD_fortran(3,CWD3,LWD3)
+
+            read(CWD2,*) CUTWIN(1)
+            read(CWD3,*) CUTWIN(2)
+
+            PRIVATE_CUTWIN(1,IVAR_PRIVATE) = CUTWIN(1)
+            PRIVATE_CUTWIN(2,IVAR_PRIVATE) = CUTWIN(2)
+
+            USE_PRIVATE_CUTWIN(icut) = 1 ! set logical flag
+
+            write(CUTSTRING,444) CUTWIN
+ 444        format('CUT: ',G9.3,' to ', G9.3)
+         endif
+ 400  CONTINUE
+
+c ----------------------------
+c print one-line summary
+
+      write(6,500) CWORD(1:LK), CUTSTRING
+ 500  format(T4,'Found ', A, T50,A)
+      call flush(6)
+
+      RETURN
+      END

@@ -1295,6 +1295,8 @@ void SNTABLE_CLOSE_TEXT(void) {
   // May 2020
   // can call this function after SNTABLE_NEVT
   // so that there is no need to read entire file.
+
+  fclose(PTRFILE_TEXT); // Feb 13 2021
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
   USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
 } 

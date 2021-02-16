@@ -371,8 +371,9 @@ struct {
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA    4  // parse blank space; ignore comma
-#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore after comment char
 #define MSKOPT_PARSE_WORDS_FIRSTLINE     16  // read only 1st line only
+#define LANGFLAG_PARSE_WORDS_C  0  // PARSE_WORDS language flag for C
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -537,7 +538,9 @@ int strcmp_ignoreCase(char *str1, char *str2) ;
 void clr_VERSION ( char *version, int prompt );  // remove old *version files
 int init_VERSION ( char *version);  // init VERSION_INFO struct 
 int init_SNPATH(void);
-int init_SNDATA(void) ;  // init SNDATA struct
+int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
+int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
+void set_SNDATA_FILTER(char *filter_list);
 
 void ld_null(float *ptr, float value);
 
@@ -563,6 +566,13 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 int  store_PARSE_WORDS(int OPT, char *FILENAME);
 void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
+void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
+void get_parse_word__(int *langFlag, int *iwd, char  *word );
+void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
 void init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void parse_GENPOLY(char *stringPoly, char *varName, 

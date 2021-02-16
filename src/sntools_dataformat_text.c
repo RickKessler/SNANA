@@ -16,11 +16,13 @@
 
 *************************************************/
 
-#include "sntools.h"
-#include "sntools_dataformat_text.h"
-#include "sntools_host.h" 
-#include "sntools_trigger.h" 
-#include "sntools_spectrograph.h"
+#include  "sntools.h"
+#include  "sntools_dataformat_text.h"
+#include  "sntools_host.h" 
+#include  "sntools_trigger.h" 
+#include  "sntools_spectrograph.h"
+
+
 
 
 void WR_DATAFILE_TEXT(char *OUTFILE) {
@@ -33,7 +35,6 @@ void WR_DATAFILE_TEXT(char *OUTFILE) {
   char fnam[] = "WR_DATAFILE_TEXT" ;
 
   // ----------- BEGIN ------------
-
 
   fp = fopen(OUTFILE, "wt");
   if ( !fp ) {
@@ -360,8 +361,6 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
   }
 
-
-  //.xyz
   // - - - - - 
   // filter-dependent quantities
   
@@ -719,8 +718,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   fprintf(fp,"NVAR_SPEC:  %d \n",    NVAR );
   fprintf(fp,"VARNAMES_SPEC: %s \n", VARLIST);
 
-  //.xyz
-
   for(imjd=0; imjd < NMJD; imjd++ ) {
     IDSPEC = imjd + 1 ;  // start at 1                                          
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
@@ -827,5 +824,676 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 } // end wr_dataformat_text_SNSPEC
 
 
+
+/*************************************************************
+
+   READ UTILITIES
+
+*************************************************************/
+
+void RD_TEXT_INIT(void) {
+  // Feb 2021: one-time init
+  TEXT_VERSION_INFO.NVERSION        = 0 ;
+  TEXT_VERSION_INFO.NFILE           = 0 ;
+  TEXT_VERSION_INFO.PHOT_VERSION[0] = 0 ;
+  TEXT_VERSION_INFO.DATA_PATH[0]    = 0 ;
+
+  init_SNDATA_GLOBAL();
+  init_SNDATA_EVENT();
+  return ;
+} // end RD_TEXT_INIT
+
+
+int RD_TEXT_PREP(int MSKOPT, char *PATH, char *VERSION) {
+
+  // Inputs
+  //   MSKOPT    ! 8-bit ->DUMP
+  //   PATH    : optional private data path to check
+  //   VERSION : name of data version = folder name
+
+  int  istat, NFILE = 0;
+  int  LDMP   = (MSKOPT & 8)> 0;
+  char fnam[] = "RD_TEXT_PREP" ;
+
+  // ------------- BEGIN ------------
+
+  if ( LDMP) {
+    printf(" xxx %s: PATH = '%s' \n", fnam, PATH);
+    printf(" xxx %s: VERS = '%s' \n", fnam, VERSION);
+  }
+
+  sprintf(TEXT_VERSION_INFO.DATA_PATH,   "%s", PATH );
+  sprintf(TEXT_VERSION_INFO.PHOT_VERSION,"%s", VERSION);
+
+  istat = 
+    getInfo_PHOTOMETRY_VERSION(TEXT_VERSION_INFO.PHOT_VERSION,
+			       TEXT_VERSION_INFO.DATA_PATH,
+			       TEXT_VERSION_INFO.LIST_FILE,
+			       TEXT_VERSION_INFO.README_FILE );
+
+  if ( istat == ERROR ) {
+    sprintf(c1err,"Cannot find VERSION_PHOTOMETRY = '%s'", VERSION);
+    sprintf(c2err,"Check $SNDTA_ROOT/lcmerge, PATH_SNDATA_SIM, "
+	    "PRIVATE_DATA_PATH");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // read & store list of data files 
+  NFILE = rd_text_list() ;
+  if ( NFILE < 0 ) { return -1 ; } // not TEXT format
+
+  // read/store global info from first file
+  rd_text_global();
+
+
+  return NFILE;
+
+} //end RD_TEXT_PREP
+
+
+// - - - - - 
+void rd_text_init__(void) { RD_TEXT_INIT(); }
+
+int rd_text_prep__(int *MSKOPT, char *PATH, char *VERSION)
+{ return RD_TEXT_PREP(*MSKOPT, PATH,VERSION); }
+
+
+// ===========================================
+int rd_text_list(void) {
+
+  // Created Feb 2021
+  // Read auxilary LIST file and count how many text files are specified.
+  // Return NFILE = -1 if FITS extension is detected.
+  // Open first file and read header to store global info 
+  //  e..g, SURVEY, FILTERS, ...
+
+  char *LIST_FILE = TEXT_VERSION_INFO.LIST_FILE ;
+  char *DATA_PATH = TEXT_VERSION_INFO.DATA_PATH ;
+  int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
+
+  int  langC  = LANGFLAG_PARSE_WORDS_C ;
+  int  iwd, NFILE = 0 ;
+  int  RETCODE_FITS = -1;
+  int  NFILE_LAST = NFILE ;
+
+  char firstFile[MXPATHLEN], FIRSTFILE[MXPATHLEN];
+  char fnam[] = "rd_text_list" ;
+
+  // ------------- BEGIN --------------
+
+  NFILE = store_PARSE_WORDS(MSKOPT, LIST_FILE);
+
+  // read first file
+  iwd=0;  get_PARSE_WORD(langC, iwd, firstFile);
+
+  sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
+  printf(" xxx %s: firstFile = \n\t '%s' \n\t '%s' \n", 
+	 fnam, firstFile, FIRSTFILE );
+
+  // return -1 if this has fits extension
+  if ( strstr(firstFile,".FITS") != NULL ) { return(RETCODE_FITS); }
+  if ( strstr(firstFile,".fits") != NULL ) { return(RETCODE_FITS); }
+
+  // not fits, so store list of text file names to read.
+  // Just store base file name in VERSION.LIST ...
+  // path is appended later when the data file is read.
+
+
+  bool DO_FREE = (TEXT_VERSION_INFO.NVERSION > 0 ) ;
+  if ( DO_FREE ) { rd_text_malloc_list(-1, NFILE_LAST); }
+  rd_text_malloc_list(+1, NFILE);
+
+  for(iwd=0; iwd < NFILE; iwd++ ) {
+    get_PARSE_WORD(langC, iwd, 
+		   TEXT_VERSION_INFO.DATA_FILE_LIST[iwd] );
+  }
+
+  TEXT_VERSION_INFO.NFILE = NFILE ; 
+  TEXT_VERSION_INFO.NVERSION++ ; 
+
+  return NFILE;
+
+} // end  rd_text_list
+
+
+// =============================================
+void rd_text_malloc_list(int OPT, int NFILE) {
+  
+  int i;
+  char fnam[] = "rd_text_malloc_list" ;
+  // ---------- BEGIN ----------
+  if ( OPT < 0 ) {
+    // free mem
+    for(i=0; i < NFILE; i++ )
+      { free(TEXT_VERSION_INFO.DATA_FILE_LIST[i]); }
+    free(TEXT_VERSION_INFO.DATA_FILE_LIST);
+    
+  }
+  else {
+    // malloc
+    int MEMC = 80 * sizeof(char);
+    TEXT_VERSION_INFO.DATA_FILE_LIST = (char**) malloc(sizeof(char*));
+    for(i=0; i < NFILE; i++ )
+      { TEXT_VERSION_INFO.DATA_FILE_LIST[i] =  (char*)malloc(MEMC); }    
+  }
+
+  return;
+} // end rd_text_malloc_list
+
+// =======================================
+void  rd_text_global(void) {
+
+  int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
+  char *firstFile  = TEXT_VERSION_INFO.DATA_FILE_LIST[0];
+  char *DATA_PATH  = TEXT_VERSION_INFO.DATA_PATH ;
+  char FIRSTFILE[MXPATHLEN] ;
+  int  langC  = LANGFLAG_PARSE_WORDS_C ;
+  int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR ;
+  bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM;
+  bool IS_PRIVATE, IS_SIMSED, IS_LCLIB, IS_BYOSED, IS_SNEMO ;
+  char word0[100], word1[100], word2[100];  
+  char fnam[] = "rd_text_global" ;
+
+  // ---------- BEGIN ----------
+
+  sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
+  NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE);
+  
+  for(iwd=0; iwd < NWD; iwd++ ) {
+    get_PARSE_WORD(langC, iwd, word0 );
+    
+    HAS_COLON    =  strstr(word0,COLON) != NULL  ;
+    HAS_PARENTH  =  strstr(word0,"("  ) != NULL  ;
+    IS_TMP       =  HAS_COLON && HAS_PARENTH ;
+    IS_PRIVATE   =  strstr(word0,"PRIVATE")  != NULL && IS_TMP ;
+    IS_SIMSED    =  strstr(word0,"SIMSED_")  != NULL && IS_TMP ;
+    IS_LCLIB     =  strstr(word0,"LCLIB_")   != NULL && IS_TMP ;
+    IS_BYOSED    =  strstr(word0,"BYOSED_PARAM")  != NULL && IS_TMP ;
+    IS_SNEMO     =  strstr(word0,"SNEMO_PARAM")   != NULL && IS_TMP ;
+
+    IS_SIM       =  strncmp(word0,"SIM",3)   == 0    && HAS_COLON ;
+
+    if( strcmp(word0,"SNANA_VERSION:") == 0 ) {
+      iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SNANA_VERSION );
+    }
+    else if ( strcmp(word0,"SURVEY:") == 0 ) {
+      iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME );
+      printf(" xxx %s: read SURVEY = %s \n", fnam, SNDATA.SURVEY_NAME );
+    }
+
+    // subsurvey ??
+
+    else if( strcmp(word0,"FILTERS:") == 0 ) {
+      iwd++; get_PARSE_WORD(langC, iwd, word1);
+      set_SNDATA_FILTER(word1);
+    }
+    else if ( strcmp(word0,"FAKE:") == 0 ) {
+      iwd++; get_PARSE_WORD_INT(langC, iwd, &ITMP );
+      SNDATA.FAKE = ITMP ;
+      if ( ITMP == FAKEFLAG_DATA ) 
+	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_DATA); } 
+      else if ( ITMP == FAKEFLAG_LCSIM ) 
+	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_SIM_SNANA); } 
+      else if ( ITMP == FAKEFLAG_FAKES ) 
+	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_SIM_MAGOBS); } 
+    }
+    else if ( IS_PRIVATE ) {
+      NVAR = SNDATA.NVAR_PRIVATE ;
+      sprintf(SNDATA.PRIVATE_KEYWORD[NVAR], "%s", word0);
+      NVAR++ ;    SNDATA.NVAR_PRIVATE = NVAR ;
+    }
+    else if ( IS_SIMSED ) {
+      NPAR = SNDATA.NPAR_SIMSED;
+      if ( strcmp(word0,"SIMSED_NPAR:") == 0 ) { continue; }  
+      sprintf(SNDATA.SIMSED_KEYWORD[NPAR], "%s", word0);
+      NPAR++ ;    SNDATA.NPAR_SIMSED = NPAR ;
+    }
+    else if ( IS_LCLIB ) {
+      NPAR = SNDATA.NPAR_LCLIB ;
+      if ( strcmp(word0,"LCLIB_NPAR:") == 0 ) { continue; }  
+      sprintf(SNDATA.LCLIB_KEYWORD[NPAR], "%s", word0);
+      NPAR++ ;    SNDATA.NPAR_LCLIB = NPAR ;
+    }
+    else if ( IS_BYOSED || IS_SNEMO ) {
+      NPAR = SNDATA.NPAR_PySEDMODEL ;
+      if ( strcmp(word0,"BYOSED_NPAR:") == 0 ) { continue; }  
+      if ( strcmp(word0,"SNEMO_NPAR:" ) == 0 ) { continue; }  
+      sprintf(SNDATA.PySEDMODEL_KEYWORD[NPAR], "%s", word0);
+      NPAR++ ;    SNDATA.NPAR_PySEDMODEL = NPAR ;
+      //      printf("  xxx %s:  '%s' \n", fnam, word0 );
+    } 
+
+    
+    else if ( IS_SIM ) {
+      if ( strcmp(word0,"SIMLIB_MSKOPT:") == 0 ) {
+	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SIMLIB_MSKOPT) ;
+      }
+      else if ( strcmp(word0,"SIMOPT_MWCOLORLAW:") == 0 ) {
+	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SIMOPT_MWCOLORLAW ) ;
+      }
+      else if ( strcmp(word0,"SIMOPT_MWEBV:") == 0 ) {
+	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SIMOPT_MWEBV ) ;
+      }
+
+      else if ( strcmp(word0,"SIM_MWRV:") == 0 ) {
+	iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_MWRV ) ;
+      }
+      else if ( strstr(word0,"SIM_STRONGLENS") != NULL ) {
+	SNDATA.SIM_SL_FLAG = 1 ;
+      }
+
+    } // end IS_SIM
+
+    else if ( strcmp(word0,"NOBS:") == 0 ) {
+      return ;
+    }    
+
+  } // end iwd loop
+  
+  return;
+
+} // end rd_text_global
+
+// ===========================================
+void RD_TEXT_EVENT(int OPTMASK, int ifile) {
+
+  // Created Feb 2021
+  // Read event for DATA_FILE_LIST[ifile]
+  // OPTMASK controls reading of hader, obs, spec.
+
+  bool LRD_HEAD   = (OPTMASK & OPTMASK_TEXT_HEAD)>0 ;
+  bool LRD_OBS    = (OPTMASK & OPTMASK_TEXT_OBS )>0 ;
+  bool LRD_SPEC   = (OPTMASK & OPTMASK_TEXT_SPEC)>0 ;
+  int  MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
+  int  NFILE_TOT  = TEXT_VERSION_INFO.NFILE ;
+  char *DATA_PATH = TEXT_VERSION_INFO.DATA_PATH ;
+  char *fileName  = TEXT_VERSION_INFO.DATA_FILE_LIST[ifile];
+  
+  char FILENAME[MXPATHLEN]; 
+  int  NWD, iwd; 
+  bool LRD_NEXT = false;
+  char fnam[] = "RD_TEXT_EVENT";
+
+  // ------------ BEGIN ----------
+
+  if ( ifile < 0 || ifile >= NFILE_TOT ) {
+    sprintf(c1err,"Invalid ifile=%d", ifile);
+    sprintf(c2err,"Valid ifile is 0 to %d", NFILE_TOT-1);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if ( LRD_HEAD ) {
+    sprintf(FILENAME, "%s/%s", DATA_PATH, fileName);
+    NWD = store_PARSE_WORDS(MSKOPT,FILENAME);
+
+    //  printf(" xxx %s: read HEAD for %s  (NWD=%d)\n", fnam, fileName, NWD);
+    TEXT_FILE_INFO.IPTR_READ = 0 ;
+    TEXT_FILE_INFO.NWD_TOT   = NWD ;
+
+    iwd = 0;  LRD_NEXT = true ;
+    while ( LRD_NEXT == true && iwd < NWD ) {
+      LRD_NEXT = parse_TEXT_HEAD(&iwd);
+      TEXT_FILE_INFO.IPTR_READ = iwd;
+      iwd++ ;  
+    }
+  } // end LRD_HEAD
+
+
+  debugexit(fnam); // xxx REMOVE
+
+  // - - - - - - - 
+  if ( LRD_OBS ) {
+
+    iwd = TEXT_FILE_INFO.IPTR_READ;
+    LRD_NEXT = true ;
+    while ( LRD_NEXT == true && iwd < NWD ) {
+      LRD_NEXT = parse_TEXT_OBS(&iwd);
+      TEXT_FILE_INFO.IPTR_READ = iwd;
+      iwd++ ;  
+    }
+
+  } // end LRD_OBS
+
+  return;
+
+} // end RD_TEXT_EVENT
+
+void rd_text_event__(int *OPTMASK, int *ifile)
+{ RD_TEXT_EVENT(*OPTMASK,*ifile); }
+
+
+bool parse_TEXT_HEAD(int *iwd_file) {
+
+  // Created Feb 15 2021
+  //
+  // Data file has already been read and each word is stored.
+  // Here, examine word(*iwd_file) for standard key.
+  // If standard key, read argument (next word after key)
+  // and load SNDATA struct.
+  // Also increment and return *iwd_file.
+  //
+  // Function returns true to keep reading;
+  // returns false when end of header is reached by 
+  // finding NOBS key.
+
+  int  NFILT     = SNDATA_FILTER.NDEF;
+  int  langC     = LANGFLAG_PARSE_WORDS_C ;
+  int  iwd       = *iwd_file ;
+  int  igal, ivar, NVAR, ipar, NPAR, ifilt ;
+  double DVAL;
+  char word0[100], PREFIX[40], KEY_TEST[80];
+
+  // ------------ BEGIN -----------
+
+  get_PARSE_WORD(langC, iwd, word0);
+
+  if ( strcmp(word0,"NOBS:") == 0 ) { return false; }
+  if ( strcmp(word0,"NVAR:") == 0 ) { return false; }
+
+  // parse keys for data or sim
+  if ( strcmp(word0,"SNID:") == 0 ) {
+    iwd++ ; get_PARSE_WORD(langC, iwd, SNDATA.CCID);
+  }
+  else if ( strcmp(word0,"IAUC:") == 0 ) {
+    iwd++ ; get_PARSE_WORD(langC, iwd, SNDATA.IAUC_NAME);
+  }
+  else if ( strcmp(word0,"FAKE:") == 0 ) {
+    iwd++ ; get_PARSE_WORD_INT(langC, iwd, &SNDATA.FAKE);
+  }
+  else if ( strcmp(word0,"MASK_FLUXCOR_SNANA:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.MASK_FLUXCOR );
+  }
+
+  else if ( strcmp(word0,"RA:") == 0 ) {
+    iwd++; get_PARSE_WORD_DBL(langC, iwd, &SNDATA.RA );
+  }
+  else if ( strcmp(word0,"DEC:") == 0 ) {
+    iwd++; get_PARSE_WORD_DBL(langC, iwd, &SNDATA.DEC );
+  }
+  else if ( strcmp(word0,"PIXSIZE:") == 0 ) {
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.PIXSIZE );
+  }
+  else if ( strcmp(word0,"NXPIX:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NXPIX );
+  }
+  else if ( strcmp(word0,"NYPIX:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX );
+  }
+  else if ( strcmp(word0,"CCDNUM:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[1] );
+  }
+  else if ( strcmp(word0,"SNTYPE:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );
+  }
+
+  else if ( strstr(word0,"MWEBV") != NULL ) {
+    parse_plusminus_TEXT(word0, "MWEBV", &iwd, 
+			 &SNDATA.MWEBV, &SNDATA.MWEBV_ERR );
+    //	printf(" xxx %s: MWEBV = %f +- %f \n",
+    //     fnam, SNDATA.MWEBV, SNDATA.MWEBV_ERR );
+  }
+  
+  else if ( strstr(word0,"REDSHIFT_HELIO") != NULL ) {
+    parse_plusminus_TEXT(word0, "REDSHIFT_HELIO", &iwd, 
+			 &SNDATA.REDSHIFT_HELIO, 
+			 &SNDATA.REDSHIFT_HELIO_ERR );
+  }
+  else if ( strstr(word0,"REDSHIFT_FINAL") != NULL ) {
+    parse_plusminus_TEXT(word0, "REDSHIFT_FINAL", &iwd, 
+			 &SNDATA.REDSHIFT_FINAL, 
+			 &SNDATA.REDSHIFT_FINAL_ERR );
+  }
+  
+  else if ( strstr(word0,"VPEC") != NULL ) {
+    parse_plusminus_TEXT(word0, "VPEC", &iwd, 
+			 &SNDATA.VPEC, &SNDATA.VPEC_ERR );
+    //	printf(" xxx %s: VPEC = %f +- %f \n",
+    //     fnam, SNDATA.VPEC, SNDATA.VPEC_ERR );
+  }
+
+  else if ( strncmp(word0,"HOSTGAL",7) == 0 ) {
+    
+    if ( strcmp(word0,"HOSTGAL_NMATCH:") == 0 ) {
+      iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_NMATCH[0] );
+    }
+    else if ( strcmp(word0,"HOSTGAL_NMATCH2:") == 0 ) {
+      iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_NMATCH[1] );
+    } 
+    else if ( strcmp(word0,"HOSTGAL_CONFUSION:") == 0 ) {
+      iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.HOSTGAL_CONFUSION );
+    }
+    
+    else if ( strcmp(word0,"HOSTGAL_SB_FLUXCAL") == 0 ) {
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	iwd++; get_PARSE_WORD_FLT(langC, iwd, 
+				  &SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]); 
+      } 
+    } // end HOSTGAL_SB_FLUXCAL
+    
+    for(igal=0; igal < MXHOSTGAL; igal++ ) {
+      sprintf(PREFIX,"HOSTGAL");
+      if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d",igal+1); }
+      
+      sprintf(KEY_TEST,"%s_OBJID:", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_DBL(langC,iwd, &DVAL);
+	SNDATA.HOSTGAL_OBJID[igal] = (long long) DVAL ;
+      }
+
+      sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
+			     &SNDATA.HOSTGAL_PHOTOZ[igal], 
+			     &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] );
+      }
+      sprintf(KEY_TEST,"%s_SPECZ", PREFIX); 
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
+			     &SNDATA.HOSTGAL_SPECZ[igal], 
+			     &SNDATA.HOSTGAL_SPECZ_ERR[igal] );
+      }
+
+      sprintf(KEY_TEST,"%s_RA:", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_DBL(langC,iwd, &SNDATA.HOSTGAL_RA[igal]); 
+      }
+      sprintf(KEY_TEST,"%s_DEC:", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_DBL(langC,iwd, &SNDATA.HOSTGAL_DEC[igal]); 
+      }
+
+      sprintf(KEY_TEST,"%s_SNSEP:", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.HOSTGAL_SNSEP[igal]); 
+      }
+      sprintf(KEY_TEST,"%s_DDLR", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.HOSTGAL_DDLR[igal]); 
+      }
+
+      sprintf(KEY_TEST,"%s_LOGMASS", PREFIX); 
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
+			     &SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
+			     &SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
+      }
+      sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
+			     &SNDATA.HOSTGAL_sSFR[igal], 
+			     &SNDATA.HOSTGAL_sSFR_ERR[igal] );
+      }
+
+      sprintf(KEY_TEST,"%s_MAG", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	  iwd++ ; get_PARSE_WORD_FLT(langC, iwd, 
+				     &SNDATA.HOSTGAL_MAG[igal][ifilt]); 
+	}
+      }  
+      
+    } // end igal      
+
+  } // end HOSTGAL
+      
+  else if ( strcmp(word0,"PEAKMJD:") == 0 ) {
+    iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.SEARCH_PEAKMJD);
+  }
+  else if ( strcmp(word0,"SEARCH_TYPE:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.SEARCH_TYPE );
+  }
+  
+  else if ( strncmp(word0,"PRIVATE",7) == 0 ) {
+    NVAR = SNDATA.NVAR_PRIVATE ;
+    for(ivar=1; ivar <= NVAR; ivar++ ) {
+      if ( strcmp(word0,SNDATA.PRIVATE_KEYWORD[ivar]) == 0 ) {
+	iwd++; get_PARSE_WORD_DBL(langC,iwd,&SNDATA.PRIVATE_VALUE[ivar]);
+      }  
+    }    
+  }
+
+  // ---------------------
+
+  if ( SNDATA.FAKE == FAKEFLAG_LCSIM ) { 
+
+
+  } // end SIM_SNANA
+
+  //.xyz continue  ...
+
+  *iwd_file = iwd ;
+
+  return true;
+
+} // end parse_TEXT_HEAD
+
+
+bool parse_TEXT_OBS(int *iwd_file) {
+
+  // Created Feb 15 2021
+  //
+  // Data file has already been read and each word is stored.
+  // Here, examine word(*iwd_file) for standard key.
+  // If standard key, read argument (next word after key)
+  // and load SNDATA struct.
+  // Also increment and return *iwd_file.
+  //
+  // Function returns true to keep reading;
+  // returns false when end of header is reached by 
+  // finding NOBS key.
+
+  int  langC     = LANGFLAG_PARSE_WORDS_C ;
+  int  iwd       = *iwd_file ;
+  double DVAL;
+  char word0[100], PREFIX[40], KEY_TEST[80];
+  char fnam[] = "parse_TEXT_OBS";
+
+  // ------------ BEGIN -----------
+
+  get_PARSE_WORD(langC, iwd, word0);
+
+  /*
+  if ( strcmp(word0,"MJD:") == 0 ) {
+    iwd++ ; get_PARSE_WORD(langC, iwd, SNDATA.MJD[ep] );
+  }
+  */
+
+} // end parse_TEXT_OBS
+
+/* xxx mark delete xxxx
+// ========================================================
+void check_plusminus_TEXT(int *iwd_file, float *PTR_ERR) {
+
+  // Created Feb 15 2021
+  // After reading "KEY: <val>" from file, check for
+  //   KEY: <val> +- <err>
+  //
+  // if next_word = word[*iwd_file+1] is '+-' or '+_' , 
+  // then read another word, increment *iwd_file, and fill PTR_ERR.
+  // If next_word is not '+-', then set *iwd_file back to original value.
+
+  int iwd = *iwd_file;
+  char next_word[60];   
+  int  langC  =  LANGFLAG_PARSE_WORDS_C ;
+  char fnam[] = "check_plusminus_TEXT" ;
+
+  // ------------ BEGIN --------
+
+  iwd++; get_PARSE_WORD(langC, iwd, next_word );
+  if ( strcmp(next_word,"+-") == 0 || strcmp(next_word,"+_") == 0 ) 
+    { iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR ); }
+  else 
+    { iwd--; }
+
+  *iwd_file = iwd;
+
+  return;
+
+} // end check_plusminus_TEXT
+xxxxxxxxxx end mark xxxxxxx */
+
+
+// ========================================================
+void parse_plusminus_TEXT(char *word, char *key, int *iwd_file, 
+			  float *PTR_VAL, float *PTR_ERR) {
+
+  // Created Feb 15 2021
+  //
+  // Parse text file keys of the form
+  //   [key]: <value> +- <error>
+  //      or
+  //   [key]:     <value> 
+  //   [key_ERR]: <error>
+  //
+  // Inputs:
+  //   *word   : current word in text file
+  //   *key    : desired key name without colon; e.g., 'MWEBV'
+  //   *iwd_file : current iwd index while reading text file
+  //
+  // Outputs:
+  //   *iwd_file : final iwd index reading file
+  //   *PTR_VAL  : float value associated with key
+  //   *PTR_ERR  : float value for error
+  //
+  // Beware that input *iwd_file is modified here.
+
+  int iwd = *iwd_file;
+  char next_word[60], KEY[60], KEY_ERR[60];
+  int  langC  =  LANGFLAG_PARSE_WORDS_C ;
+  int  lenkey = strlen(key);
+  char fnam[] = "parse_plusminus_TEXT" ;
+
+  // ------------ BEGIN --------
+
+  if ( strstr(word,key) == NULL ) { return; }
+
+  // construct key names with colons
+  sprintf(KEY,     "%s:",     key);
+  sprintf(KEY_ERR, "%s_ERR:", key);
+
+  if ( strcmp(word,KEY) == 0 ) { 
+
+    // read value after KEY
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_VAL );
+
+    // check +- format
+    iwd++; get_PARSE_WORD(langC, iwd, next_word );
+    if ( strcmp(next_word,"+-") == 0 || strcmp(next_word,"+_") == 0 ) 
+      { iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR ); }
+    else 
+      { iwd--; }
+  }
+
+  // check explicit error key of the form [KEY]_ERR: 
+  if ( strcmp(word,KEY_ERR) == 0 ) { 
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR );
+  }
+
+  // update iwd pointer in text file
+  *iwd_file = iwd;
+
+  return;
+
+} // end parse_plusminus_TEXT
 
 

@@ -1804,23 +1804,45 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
     sprintf(c2err,"Check '%s' ", PARSE_WORDS.FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
   
+  sprintf(word, "%s", PARSE_WORDS.WDLIST[iwd] );
+  if ( langFlag==0 ) 
+    { trim_blank_spaces(word); }  // remove <CR>
+  else
+    { strcat(word," "); }     // extra space for fortran
+
+  /* xxx mark delete Feb 15 2021 xxxx
   // leave extra blank space so that fortran can find length
   sprintf(word, "%s ", PARSE_WORDS.WDLIST[iwd] );
-
   if ( langFlag==0 ) { trim_blank_spaces(word); }  // remove <CR>
-
-
-  /*
-  printf(" xxx %s return word[%2d] = '%s' \n", 
-	 fnam, iwd, word ); 
-  */
+  xxxx */
   
 } // end get_PARSE_WORD
 
+void get_PARSE_WORD_INT(int langFlag, int iwd, int *i_val) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+  sscanf(word, "%d", i_val);
+}
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+  sscanf(word, "%f", f_val);
+}
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val) {
+  char word[100];   get_PARSE_WORD(langFlag, iwd, word);
+  sscanf(word, "%le", d_val);
+}
+
 void get_parse_word__(int *langFlag, int *iwd, char *word) 
 { get_PARSE_WORD(*langFlag, *iwd, word); }
+
+void get_parse_word_int__(int *langFlag, int *iwd, int *i_val) 
+{ get_PARSE_WORD_INT(*langFlag, *iwd, i_val); }
+
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val) 
+{ get_PARSE_WORD_FLT(*langFlag, *iwd, f_val); }
+
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val) 
+{ get_PARSE_WORD_DBL(*langFlag, *iwd, d_val); }
 
 
 // ******************************************
@@ -4320,19 +4342,28 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
   // 1 of the 10 seasons, and thus copy_SNDATA_OBS returns just 1 
   // season of data instead of all 10 seasons.
 
-  int o, NOBS_STORE  = 0;
-  int NOBS = SNDATA.NOBS ;
+  int  o, NOBS_STORE  = 0;
+  int  NOBS = SNDATA.NOBS ;
+  bool LDMP = false ;
   double MJD;
   char fnam[] = "select_MJD_SNDATA" ;
   // ---------- BEGIN -------
-  SNDATA.NOBS_STORE = NOBS_STORE;
-  for(o=0; o < NOBS; o++ ) { 
+
+  for(o=1; o <= NOBS; o++ ) {  // note fortran-like index
     MJD = SNDATA.MJD[o];
     if ( MJD < CUTWIN_MJD[0] ) { continue; }
     if ( MJD > CUTWIN_MJD[1] ) { continue; }
-    SNDATA.OBS_STORE_LIST[NOBS_STORE] = o;
+    SNDATA.OBS_STORE_LIST[NOBS_STORE] = o ;
     NOBS_STORE++ ;
   }
+
+  if ( LDMP ) {
+    printf(" xxx %s: CUTWIN_MJD = %.1f to %.1f  NOBS_STORE=%d\n", 
+	   fnam, CUTWIN_MJD[0], CUTWIN_MJD[1], NOBS_STORE);
+  }
+
+
+  SNDATA.NOBS_STORE = NOBS_STORE ;
   return(NOBS_STORE) ;
 } // end select_MJD_SNDATA
 
@@ -4347,10 +4378,20 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
   // For input *key, copy observations to/from SNDATA struct.
   // Note that select_MJD_SNDATA must be called first to 
   // select MJD subset; if not, this function aborts.
+  //
+  // Inputs:
+  //  copyFlag : 
+  //     +1 -> copy from string or parVal to SNDATA (prep  data write)
+  //     -1 -> copy from SNDATA to string or parVal (after read data)
+  //
+  //   *key  : name of variable to copy to/from SNDATA struct
+  //   NVAL  : number of values to copy
+  // 
 
   int  NOBS       = SNDATA.NOBS ;
   int  NOBS_STORE = SNDATA.NOBS_STORE ;
-  int  obs, OBS;
+  int  obs, OBS, NSPLIT ;
+  char **str2d ;
   char fnam[] = "copy_SNDATA_OBS" ;
 
   // ------------- BEGIN ------------
@@ -4359,7 +4400,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
   
   if ( NOBS_STORE == 0 ) {
     sprintf(c1err,"Must call select_MJD_SNDATA");
-    sprintf(c2err,"to select MJD windo for which obs to copy");
+    sprintf(c2err,"to select MJD window for which obs to copy");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -4368,6 +4409,38 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       OBS = SNDATA.OBS_STORE_LIST[obs];     // index to full list
       copy_dbl(copyFlag, &parVal[obs], &SNDATA.MJD[OBS]) ; 
     }  
+  } 
+  else if ( strcmp(key,"FLT") == 0 ) {
+
+    if ( copyFlag > 0 ) {
+      sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
+      sprintf(c2err,"Needs a code fix here");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    parse_commaSepList("SNDATA_FILTCHAR", SNDATA.FILTCHAR_1D, MXEPOCH, 2,
+		       &NSPLIT, &str2d );
+    stringVal[0] = 0 ;
+    for(obs=0; obs < NOBS_STORE; obs++ ) { 
+      OBS = SNDATA.OBS_STORE_LIST[obs]-1; // back to C index    
+      catVarList_with_comma(stringVal, str2d[OBS] );
+    }
+    
+  }
+  else if ( strcmp(key,"FIELD") == 0 ) {
+    if ( copyFlag > 0 ) {
+      sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
+      sprintf(c2err,"Needs a code fix here");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    parse_commaSepList("SNDATA_FIELDNAME", SNDATA.FIELDNAME_1D, 
+		       MXEPOCH, 20, &NSPLIT, &str2d );
+
+    stringVal[0] = 0 ;
+    for(obs=0; obs < NOBS_STORE; obs++ ) { 
+      OBS = SNDATA.OBS_STORE_LIST[obs]-1;    
+      catVarList_with_comma(stringVal, str2d[OBS] );
+    }
   }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
@@ -4394,14 +4467,93 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_flt(copyFlag, &parVal[obs], &SNDATA.FLUXCAL_ERRTOT[OBS]) ; 
     }  
   }
+
+  else if ( strcmp(key,"PSF_SIG1") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.PSF_SIG1[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"PSF_SIG2") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.PSF_SIG2[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"PSF_RATIO") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.PSF_RATIO[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"SKY_SIG") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SKY_SIG[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"SKY_SIG_T") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SKY_SIG_T[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"ZEROPT") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.ZEROPT[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"ZEROPT_ERR") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.ZEROPT_ERR[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"GAIN") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.GAIN[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"XPIX") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.XPIX[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"YPIX") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.YPIX[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"SIM_MAGOBS") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_MAG[OBS]) ; 
+    }  
+  }
+  else if ( strcmp(key,"SIM_FLUXCAL_HOSTERR") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[OBS]) ; 
+    }  
+  }
+
+  else if ( strcmp(key,SNDATA.VARNAME_SNRMON) == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.SIMEPOCH_SNRMON[OBS]) ; 
+    }  
+  }
+
   else {
     // error message
     sprintf(c1err,"Unknown key = %s (copyFlag=%d)", key, copyFlag);
     sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
-  //.xyz
 
   return ;
 
@@ -5321,6 +5473,10 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   // ---------- BEGIN -----------
 
+  /*
+  printf(" xxx %s: check VER='%s' in PATH='%s' \n",
+	 fnam, VERSION, DATADIR );
+  */
   // init outputs to NULLSTRING value
 
   sprintf(LISTFILE,   "%s", NULLSTRING );
@@ -5338,7 +5494,9 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   // define list of directories to check for data
   idir=0;
 
-  if ( strlen(DATADIR) > 0 ) { 
+  // xxx mark delete Feb 2021  if ( strlen(DATADIR) > 0 ) { 
+
+  if ( !IGNOREFILE(DATADIR) ) { 
     // private user dir
     sprintf(tmpDir[idir], "%s" ,          DATADIR ); 
     sprintf(tmpFile[idir],"%s/%s.LIST",   tmpDir[idir], VERSION  );
@@ -8597,14 +8755,44 @@ int  init_SNPATH(void) {
 }   // end of init_SNPATH
 
 
+// ================================
+int init_SNDATA_GLOBAL(void) {
+
+  char fnam[] = "init_SNDATA_GLOBAL" ;
+
+  // ---------------- BEGIN -------------
+
+  SNDATA.SURVEY_NAME[0]    =  0 ;
+  SNDATA.MASK_FLUXCOR      =  0 ;
+  SNDATA.VARNAME_SNRMON[0] =  0 ;
+  SNDATA.DATATYPE[0]       =  0 ;
+  SNDATA_FILTER.LIST[0]    =  0 ;
+
+  SNDATA.NVAR_PRIVATE      = 0 ;  // for data only
+  SNDATA.NPAR_SIMSED       = 0 ;    
+  SNDATA.NPAR_LCLIB        = 0 ;
+  SNDATA.NPAR_PySEDMODEL   = 0 ;
+  SNDATA.NPAR_SIM_HOSTLIB  = 0 ;
+  
+  SNDATA.SIMOPT_MWCOLORLAW = NULLINT ;
+  SNDATA.SIMOPT_MWEBV      = NULLINT ;
+
+  SNDATA.SIM_SL_FLAG    = 0 ;
+  SNDATA.SIMLIB_FILE[0] = 0 ;
+  SNDATA.SIMLIB_MSKOPT  = 0 ;
+
+  return(SUCCESS);
+
+} // end init_SNDATA_GLOBAL
+
 // *******************************************
-int init_SNDATA(void) {
+int init_SNDATA_EVENT(void) {
 
   // initialize SNDATA.xxxx elements
   // Note that only one SN index is initialized per call.
   //
   int i_epoch, ifilt, i, igal ;
-  char fnam[] = "init_SNDATA" ;
+  char fnam[] = "init_SNDATA_EVENT" ;
   // --------- BEGIN -----------------
 
   /*
@@ -8684,9 +8872,7 @@ int init_SNDATA(void) {
   SNDATA.SIM_SEARCHEFF_MASK = 0 ;
   SNDATA.SIM_LIBID      = -9 ;
   SNDATA.SIM_NGEN_LIBID =  0 ;
-  SNDATA.SIM_SL_FLAG    = 0 ;
-  SNDATA.SIMLIB_FILE[0] = 0 ;
-  SNDATA.SIMLIB_MSKOPT  = 0 ;
+
 
   SNDATA.SIM_REDSHIFT_HELIO = NULLFLOAT ;
   SNDATA.SIM_REDSHIFT_CMB   = NULLFLOAT ;
@@ -8707,8 +8893,7 @@ int init_SNDATA(void) {
 
   SNDATA.SIM_MWRV    = NULLFLOAT ;
   SNDATA.SIM_MWEBV   = NULLFLOAT ;
-  SNDATA.SIMOPT_MWCOLORLAW = NULLINT ;
-  SNDATA.SIMOPT_MWEBV      = NULLINT ;
+
 
   SNDATA.SIM_SALT2alpha = NULLFLOAT ;
   SNDATA.SIM_SALT2beta  = NULLFLOAT ;
@@ -8726,11 +8911,6 @@ int init_SNDATA(void) {
   SNDATA.SIM_TRESTMAX = 0.0 ;
   SNDATA.SIMFLAG_COVMAT_SCATTER = 0 ;
 
-  SNDATA.NVAR_PRIVATE = 0 ;  // for data only
-
-  SNDATA.NPAR_SIMSED = 0;    
-  SNDATA.NPAR_LCLIB  = 0;
-  SNDATA.NPAR_SIM_HOSTLIB = 0;
   SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
@@ -8757,7 +8937,7 @@ int init_SNDATA(void) {
   SNDATA.CCDNUM[1]   = -9 ;
 
   SNDATA.SUBSAMPLE_INDEX = -9 ;
-  SNDATA.MASK_FLUXCOR    =  0 ;
+
 
   //  -------------------------------------------
   // epoch info
@@ -8795,7 +8975,6 @@ int init_SNDATA(void) {
     SNDATA.PSF_SIG2[i_epoch]     = NULLFLOAT ;
     SNDATA.PSF_RATIO[i_epoch]    = NULLFLOAT ;
 
-      
     SNDATA.FLUXCAL[i_epoch]         = NULLFLOAT ;
     SNDATA.FLUXCAL_ERRTOT[i_epoch]  = NULLFLOAT ;
 
@@ -8813,18 +8992,38 @@ int init_SNDATA(void) {
     SNDATA.PHOTFLAG[i_epoch]       = 0   ;
     SNDATA.PHOTPROB[i_epoch]       = 0.0 ;
 
-    sprintf(SNDATA.SIMEPOCH_WARPCOLNAM[i_epoch],"NULL");
-    sprintf(SNDATA.SIMEPOCH_KCORNAM[i_epoch],"NULL");
-    SNDATA.SIMEPOCH_MAGSMEAR[i_epoch] = 0.0 ;
+    SNDATA.SIMEPOCH_MAG[i_epoch] = 99.0 ;
+
+    SNDATA.SIMEPOCH_WARPCOLNAM[i_epoch][0] = 0 ;
+    SNDATA.SIMEPOCH_KCORNAM[i_epoch][0]    = 0 ;
+    SNDATA.SIMEPOCH_MAGSMEAR[i_epoch]      = 0.0 ;
 
   }  //  end i_epoch init loop
 
   return SUCCESS ;
 
-}   // end of init_SNDATA
+}   // end of init_SNDATA_EVENT
 
+// =====================================
+void set_SNDATA_FILTER(char *filter_list) {
+  // Created Feb 15 2021
+  // Restore SNDATA_FILTER struct using input *filter_list (e..g, 'ugriz')
+  // This function should be called after reading FILTERS arg
+  // from data file.
+  int NFILT = strlen(filter_list);
+  int ifilt, ifilt_obs;
+  char cfilt[2];
 
-
+  set_FILTERSTRING(FILTERSTRING);
+  SNDATA_FILTER.NDEF = NFILT;
+  sprintf(SNDATA_FILTER.LIST, "%s", filter_list);
+  for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+    sprintf(cfilt, "%c", filter_list[ifilt] );
+    ifilt_obs = INTFILTER(cfilt);
+    SNDATA_FILTER.MAP[ifilt] = ifilt_obs; 
+  }
+  return ;
+} // end set_SNDATA_FILTER
 
 // ******************************************************
 int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {

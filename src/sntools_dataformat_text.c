@@ -24,7 +24,6 @@
 
 
 
-
 void WR_DATAFILE_TEXT(char *OUTFILE) {
 
   // Createed Feb 2021
@@ -983,6 +982,10 @@ void rd_text_malloc_list(int OPT, int NFILE) {
 // =======================================
 void  rd_text_global(void) {
 
+  // Created Feb 2021
+  // Open first text file and read info that is global;
+  // skip SN-dependent info. Stop reading at first "OBS:" key.
+
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   char *firstFile  = TEXT_VERSION_INFO.DATA_FILE_LIST[0];
   char *DATA_PATH  = TEXT_VERSION_INFO.DATA_PATH ;
@@ -1084,7 +1087,19 @@ void  rd_text_global(void) {
 
     } // end IS_SIM
 
+    // - - - - - - OBS info - - - - -
     else if ( strcmp(word0,"NOBS:") == 0 ) {
+      iwd++ ; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NOBS );
+    }
+    else if ( strcmp(word0,"NVAR:") == 0 ) {
+      iwd++ ; get_PARSE_WORD_INT(langC, iwd, &TEXT_FILE_INFO.NVAROBS );
+    }
+    else if ( strcmp(word0,"VARLIST:") == 0 ) {
+      rd_text_varlist(&iwd);
+
+    }
+
+    else if ( strcmp(word0,"OBS:") == 0 ) {
       return ;
     }    
 
@@ -1094,7 +1109,98 @@ void  rd_text_global(void) {
 
 } // end rd_text_global
 
-// ===========================================
+// ==============================================
+void rd_text_varlist(int *iwd_file) {
+
+  // Created Feb 2021
+  // read OBS-varlist elements to prepare for reading OBS later.
+
+
+  int  iwd    = *iwd_file;
+  int  langC  = LANGFLAG_PARSE_WORDS_C ;
+  int  NVAR, ivar ;
+  char *varName ;
+  char fnam[] = "read_text_varList" ;
+
+  // ---------- BEGIN -------
+
+  IVAROBS_TEXT.MJD = IVAROBS_TEXT.BAND = IVAROBS_TEXT.FIELD = -9 ;
+  IVAROBS_TEXT.FLUXCAL = IVAROBS_TEXT.FLUXCALERR = -9 ;
+  IVAROBS_TEXT.ZPFLUX = IVAROBS_TEXT.PSF = -9;
+  IVAROBS_TEXT.SKYSIG = IVAROBS_TEXT.SKYSIG_T = -9;
+  IVAROBS_TEXT.GAIN = IVAROBS_TEXT.PHOTFLAG = IVAROBS_TEXT.PHOTPROB = -9 ;
+  IVAROBS_TEXT.SIM_MAGOBS -9 ;
+
+  NVAR = TEXT_FILE_INFO.NVAROBS ;
+  if ( NVAR < 5 || NVAR >= MXVAROBS_TEXT ) {
+    sprintf(c1err,"Invalid NVAR=%d (MXVAR_OBS_TEXT=%d)", 
+	    NVAR, MXVAROBS_TEXT ) ;
+    sprintf(c2err,"Check NVAR and VARLIST keys");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    varName = TEXT_FILE_INFO.VARNAME_LIST[ivar];
+    iwd++ ; get_PARSE_WORD(langC, iwd, varName);
+    printf(" xxx %s: varName[%2d] = %s \n", fnam, ivar, varName);
+
+    if ( strcmp(varName,"MJD") == 0 ) 
+      { IVAROBS_TEXT.MJD = ivar; }
+
+    else if ( strcmp(varName,"BAND") == 0 ) 
+      { IVAROBS_TEXT.BAND = ivar; }
+    else if ( strcmp(varName,"FLT") == 0 ) 
+      { IVAROBS_TEXT.BAND = ivar; }
+
+    else if ( strcmp(varName,"FIELD") == 0 ) 
+      { IVAROBS_TEXT.FIELD = ivar; }
+    else if ( strcmp(varName,"FLUXCAL") == 0 )  
+      { IVAROBS_TEXT.FLUXCAL = ivar; }
+    else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
+      { IVAROBS_TEXT.FLUXCALERR = ivar; }
+    else if ( strcmp(varName,"PSF") == 0 ) 
+      { IVAROBS_TEXT.PSF = ivar; }   
+    else if ( strcmp(varName,"ZPFLUX") == 0 ) 
+      { IVAROBS_TEXT.ZPFLUX = ivar; }  
+    else if ( strcmp(varName,"SKYSIG") == 0 ) 
+      { IVAROBS_TEXT.SKYSIG = ivar; }  
+    else if ( strcmp(varName,"SKYSIG_T") == 0 ) 
+      { IVAROBS_TEXT.SKYSIG_T = ivar; }
+    else if ( strcmp(varName,"GAIN") == 0 ) 
+      { IVAROBS_TEXT.GAIN = ivar; }  
+    else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
+      { IVAROBS_TEXT.PHOTFLAG = ivar; }  
+    else if ( strcmp(varName,"PHOTPROB") == 0 ) 
+      { IVAROBS_TEXT.PHOTPROB = ivar; }  
+
+    else {
+      sprintf(c1err,"Invalid varName = %s (ivar=%d)", varName, ivar );
+      sprintf(c2err,"Check VARLIST args.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  } // end ivar
+
+
+  // - - - - - - - - - - - - - - - 
+  // check that required columns are defined
+  int IVAR_MIN  = 0;
+  int IVAR_MAX  = MXVAROBS_TEXT-1 ;
+  int NVAL=1;
+  checkval_I("IVAROBS_MJD", NVAL, &IVAROBS_TEXT.MJD, 
+	     IVAR_MIN, IVAR_MAX);
+  checkval_I("IVAROBS_BAND", NVAL, &IVAROBS_TEXT.BAND, 
+	     IVAR_MIN, IVAR_MAX);
+  checkval_I("IVAROBS_FLUXCAL", NVAL, &IVAROBS_TEXT.FLUXCAL, 
+	     IVAR_MIN, IVAR_MAX);
+  checkval_I("IVAROBS_FLUXCALERR", NVAL, &IVAROBS_TEXT.FLUXCALERR, 
+	     IVAR_MIN, IVAR_MAX);
+
+  *iwd_file = iwd;
+
+  return;
+} // end read_text_varList
+
+// ==============================================
 void RD_TEXT_EVENT(int OPTMASK, int ifile) {
 
   // Created Feb 2021
@@ -1129,6 +1235,8 @@ void RD_TEXT_EVENT(int OPTMASK, int ifile) {
     //  printf(" xxx %s: read HEAD for %s  (NWD=%d)\n", fnam, fileName, NWD);
     TEXT_FILE_INFO.IPTR_READ = 0 ;
     TEXT_FILE_INFO.NWD_TOT   = NWD ;
+    TEXT_FILE_INFO.NVAROBS   = 0 ;
+    TEXT_FILE_INFO.NOBS_READ = 0 ;
 
     iwd = 0;  LRD_NEXT = true ;
     while ( LRD_NEXT == true && iwd < NWD ) {
@@ -1187,9 +1295,10 @@ bool parse_TEXT_HEAD(int *iwd_file) {
 
   get_PARSE_WORD(langC, iwd, word0);
 
-  if ( strcmp(word0,"NOBS:") == 0 ) { return false; }
-  if ( strcmp(word0,"NVAR:") == 0 ) { return false; }
+  // bail when reaching first obs
+  if ( strcmp(word0,"OBS:") == 0 ) { return false; }
 
+  // - - - - - - -
   // parse keys for data or sim
   if ( strcmp(word0,"SNID:") == 0 ) {
     iwd++ ; get_PARSE_WORD(langC, iwd, SNDATA.CCID);
@@ -1363,7 +1472,7 @@ bool parse_TEXT_HEAD(int *iwd_file) {
 
   *iwd_file = iwd ;
 
-  return true;
+  return true ;
 
 } // end parse_TEXT_HEAD
 
@@ -1384,53 +1493,52 @@ bool parse_TEXT_OBS(int *iwd_file) {
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
-  double DVAL;
-  char word0[100], PREFIX[40], KEY_TEST[80];
+  int  ep, ivar, NVAR = TEXT_FILE_INFO.NVAROBS ;
+  char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
   char fnam[] = "parse_TEXT_OBS";
 
   // ------------ BEGIN -----------
+ 
+  get_PARSE_WORD(langC, iwd, word0) ;
+ 
+  if ( strstr(word0,"END")       != NULL ) { return false; }
+  if ( strcmp(word0,"NSPECTRA:") == 0    ) { return false; }
 
-  get_PARSE_WORD(langC, iwd, word0);
+  if ( strcmp(word0,"OBS:") == 0 ) {
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      iwd++ ;
+      get_PARSE_WORD(langC, iwd, TEXT_FILE_INFO.STRING_LIST[ivar] );
+    }
 
-  /*
-  if ( strcmp(word0,"MJD:") == 0 ) {
-    iwd++ ; get_PARSE_WORD(langC, iwd, SNDATA.MJD[ep] );
-  }
-  */
+    TEXT_FILE_INFO.NOBS_READ++ ;
+    ep = TEXT_FILE_INFO.NOBS_READ ; // ep starts at 1 for SNDATA struct
 
-} // end parse_TEXT_OBS
+    str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.MJD] ;
+    sscanf(str, "%le", &SNDATA.MJD[ep] );
 
-/* xxx mark delete xxxx
-// ========================================================
-void check_plusminus_TEXT(int *iwd_file, float *PTR_ERR) {
+    str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.BAND] ;
+    sprintf(SNDATA.FILTCHAR[ep], "%s", str);
 
-  // Created Feb 15 2021
-  // After reading "KEY: <val>" from file, check for
-  //   KEY: <val> +- <err>
-  //
-  // if next_word = word[*iwd_file+1] is '+-' or '+_' , 
-  // then read another word, increment *iwd_file, and fill PTR_ERR.
-  // If next_word is not '+-', then set *iwd_file back to original value.
+    str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FLUXCAL] ;
+    sscanf(str, "%f", &SNDATA.FLUXCAL[ep] );
 
-  int iwd = *iwd_file;
-  char next_word[60];   
-  int  langC  =  LANGFLAG_PARSE_WORDS_C ;
-  char fnam[] = "check_plusminus_TEXT" ;
+    str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FLUXCALERR] ;
+    sscanf(str, "%f", &SNDATA.FLUXCAL_ERRTOT[ep] );
 
-  // ------------ BEGIN --------
+    if ( IVAROBS_TEXT.FIELD >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FIELD] ;
+      sprintf(SNDATA.FIELDNAME[ep], "%s", str);
+    }
 
-  iwd++; get_PARSE_WORD(langC, iwd, next_word );
-  if ( strcmp(next_word,"+-") == 0 || strcmp(next_word,"+_") == 0 ) 
-    { iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR ); }
-  else 
-    { iwd--; }
+    // .xyz
+  }     // end OBS key
 
+  
   *iwd_file = iwd;
 
-  return;
+  return true ;
 
-} // end check_plusminus_TEXT
-xxxxxxxxxx end mark xxxxxxx */
+} // end parse_TEXT_OBS
 
 
 // ========================================================

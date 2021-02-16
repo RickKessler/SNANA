@@ -12227,6 +12227,7 @@ double gen_redshift_helio(void) {
   // Function returns z_helio, and also stores GENLC.VPEC
   //
   // Jan 27 2021: fix to use exact zpec formula instead of approximation.
+  // Feb 15 2021: if VEL_CMBAPEX==0, continue instead of returning zCMB
 
   double zCMB = GENLC.REDSHIFT_CMB ;
   double RA   = GENLC.RA;
@@ -12238,7 +12239,7 @@ double gen_redshift_helio(void) {
   // ----------- BEGIN ------------
 
   // check (v10_31) legacy option to keep zhelio = zcmb
-  if ( INPUTS.VEL_CMBAPEX == 0.0 ) { return zCMB ; }
+  // xxx mark del Feb 2021  if ( INPUTS.VEL_CMBAPEX == 0.0 ) { return zCMB ; }
 
   zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, "eq", -1);
 

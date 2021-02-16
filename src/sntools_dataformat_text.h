@@ -5,6 +5,14 @@
 
 #define MSKOPT_PARSE_TEXT_FILE  MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT
 
+#define MXVAROBS_TEXT 20
+struct {
+  int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR ;
+  int ZPFLUX, PSF, SKYSIG, SKYSIG_T, SKYSIG_GAIN ;
+  int GAIN, PHOTFLAG, PHOTPROB, SIM_MAGOBS ;
+} IVAROBS_TEXT ;
+
+
 struct {
   int  NVERSION ;
   char DATA_PATH[MXPATHLEN];   
@@ -17,9 +25,15 @@ struct {
 
 } TEXT_VERSION_INFO ;
 
+
 struct {
-  int IPTR_READ;  // pointer to current word in file
+  int IPTR_READ ;  // pointer to current word in file
   int NWD_TOT ;   // total number of words in file
+  int NVAROBS ;   // number of variables following each OBS key
+  char VARNAME_LIST[MXVAROBS_TEXT][32] ;
+  char STRING_LIST[MXVAROBS_TEXT][20] ;
+
+  int NOBS_READ ;
 } TEXT_FILE_INFO ;
 
 
@@ -41,6 +55,7 @@ int rd_text_prep__(int *MSKOPT, char *PATH, char *VERSION);
 int  rd_text_list(void);
 void rd_text_malloc_list(int OPT, int NFILE) ;
 void rd_text_global(void);
+void rd_text_varlist(int *iwd_file);
 
 void RD_TEXT_EVENT(int OPTMASK, int ifile);
 void rd_text_event__(int *OPTMASK, int *ifile);

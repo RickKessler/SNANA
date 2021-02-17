@@ -1,6 +1,7 @@
 // sntools.c
 
 #include "sntools.h"
+#include "sntools_spectrograph.h" // Feb 2021
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1611,12 +1612,11 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
   bool FIRSTLINE       = ( (OPT & MSKOPT_PARSE_WORDS_FIRSTLINE) > 0 );
   int LENF = strlen(FILENAME);
-
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
-  
+  int LDMP =  0 ;  
   // ------------- BEGIN --------------------
 
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
@@ -1627,10 +1627,10 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   if ( LENF > 0 && strcmp(PARSE_WORDS.FILENAME,FILENAME)==0 ) 
     { return(PARSE_WORDS.NWD); }
 
-  /*
-  printf(" xxx %s: OPT=%2d  BUFSIZE=%d    FILENAME='%s'\n", 
-	 fnam, OPT, PARSE_WORDS.BUFSIZE, FILENAME ); fflush(stdout);
-  */
+  if ( LDMP ) {
+    printf(" xxx %s: OPT=%2d  BUFSIZE=%d    FILENAME='%s'\n", 
+	   fnam, OPT, PARSE_WORDS.BUFSIZE, FILENAME ); fflush(stdout);
+  }
 
   if ( OPT < 0 ) {
     PARSE_WORDS.BUFSIZE = PARSE_WORDS.NWD = 0 ;
@@ -4002,7 +4002,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
   else if ( strcmp(key,"NOBS") == 0 ) { 
     copy_int(copyFlag, parVal, &SNDATA.NOBS ); 
-    SNDATA.NOBS_STORE = 0 ; // must call select_MJD_SNDATA to set this
+    SNDATA.NOBS_STORE = -1 ; // must call select_MJD_SNDATA to set this
   } 
 
   else if ( strcmp(key,"MWEBV") == 0 ) 
@@ -4398,9 +4398,9 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
   sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
   
-  if ( NOBS_STORE == 0 ) {
-    sprintf(c1err,"Must call select_MJD_SNDATA");
-    sprintf(c2err,"to select MJD window for which obs to copy");
+  if ( NOBS_STORE < 0 ) {
+    sprintf(c1err,"Must call select_MJD_SNDATA to set MJD window");
+    sprintf(c2err,"for which obs to copy (CID=%s)", SNDATA.CCID );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -8781,6 +8781,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.SIMLIB_FILE[0] = 0 ;
   SNDATA.SIMLIB_MSKOPT  = 0 ;
 
+  SNDATA.APPLYFLAG_MWEBV = 0 ;
+
   return(SUCCESS);
 
 } // end init_SNDATA_GLOBAL
@@ -8800,7 +8802,6 @@ int init_SNDATA_EVENT(void) {
 	 fnam, SNDATA.SIM_RA ); fflush(stdout);
   */
 
-  //  SNDATA_FILTER.NDEF = 0;
 
   sprintf(FLUXUNIT, "ADU");
 
@@ -8819,6 +8820,8 @@ int init_SNDATA_EVENT(void) {
   SNDATA.WRFLAG_PHOTPROB  = false ;
   SNDATA.SNTYPE = -999;
 
+  SNDATA.FILTCHAR_1D[0] = 0 ;
+  SNDATA.FIELDNAME_1D[0] = 0 ;
   SNDATA.NEPOCH = 0;
   SNDATA.NEWMJD = 0;
   SNDATA.MJD_TRIGGER = 1.0E6 ;

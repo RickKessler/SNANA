@@ -1148,8 +1148,9 @@ struct GENLC {
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
   bool OBSFLAG_TEMPLATE[MXEPSIM]; // extra epochs that are templates
 
-  int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
-  int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
+  int IEPOCH_PEAK[MXFILTINDX] ; // artificial peak epoch vs.ifilt_obs
+  int IEPOCH_SNRMAX_GLOBAL;       // global epoch with SNRMAX (Jun 2018)
+  int IEPOCH_SNRMAX[MXFILTINDX] ; // idem vs. ifilt_obs
   int IEPOCH_TEMPLATE[MXFILTINDX]; // identifies template epochs
 
   float COVAR[MXFILT_COVAR][MXEPCOV][MXFILT_COVAR][MXEPCOV] ;  // cov matrix
@@ -1999,7 +2000,6 @@ extern void  get_primary__(char *primary, int *NLAM,
 //   genmag_xxx functions
 // -----------------------------
 
-int gen_smearFlux ( int epoch, int VBOSE );
 int gen_smearMag  ( int epoch, int VBOSE );
 int npe_above_saturation ( int epoch, double flux_pe);
 

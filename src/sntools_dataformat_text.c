@@ -23,15 +23,14 @@
 #include  "sntools_spectrograph.h"
 
 
-
-void WR_DATAFILE_TEXT(char *OUTFILE) {
+void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
 
   // Createed Feb 2021
   // Driver function to write single data file for single event.
   //
 
   FILE *fp ;
-  char fnam[] = "WR_DATAFILE_TEXT" ;
+  char fnam[] = "WR_SNTEXTIO_DATAFILE" ;
 
   // ----------- BEGIN ------------
 
@@ -52,9 +51,10 @@ void WR_DATAFILE_TEXT(char *OUTFILE) {
 
   return ;
 
-} // end WR_DATAFILE_TEXT
+} // end WR_SNTEXTIO_DATAFILE
 
-void wr_datafile_text__(char *OUTFILE)  { WR_DATAFILE_TEXT(OUTFILE); }
+void wr_sntextio_datafile__(char *OUTFILE)  
+{ WR_SNTEXTIO_DATAFILE(OUTFILE); }
 
 // =====================================================
 void  wr_dataformat_text_HEADER(FILE *fp) {
@@ -747,8 +747,8 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
             GENSPEC.LAMOBS_SNR_LIST[imjd][0],
             GENSPEC.LAMOBS_SNR_LIST[imjd][1] );
 
-    fprintf(fp,"SPECTRUM_NLAM:     %d (of %d)         "
-            "# Number of valid wave bins\n",
+    fprintf(fp,"SPECTRUM_NLAM:       %4d  %4d         "
+            "# Number of wave bins: VALID  TOTAL\n",
             NBLAM_VALID, NBLAM_TOT );
 
     /* ??
@@ -830,7 +830,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
 *************************************************************/
 
-void RD_TEXT_INIT(void) {
+void RD_SNTEXTIO_INIT(void) {
   // Feb 2021: one-time init
   TEXT_VERSION_INFO.NVERSION        = 0 ;
   TEXT_VERSION_INFO.NFILE           = 0 ;
@@ -840,21 +840,28 @@ void RD_TEXT_INIT(void) {
   init_SNDATA_GLOBAL();
   init_SNDATA_EVENT();
   return ;
-} // end RD_TEXT_INIT
+} // end RD_SNTEXTIO_INIT
 
 
-int RD_TEXT_PREP(int MSKOPT, char *PATH, char *VERSION) {
+int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
+  // Read LIST of files and global info from first data file.
+  //
   // Inputs
-  //   MSKOPT    ! 8-bit ->DUMP
+  //   MSKOPT  
+  //     += 8  -> DUMP
   //   PATH    : optional private data path to check
   //   VERSION : name of data version = folder name
 
   int  istat, NFILE = 0;
   int  LDMP   = (MSKOPT & 8)> 0;
-  char fnam[] = "RD_TEXT_PREP" ;
+  char fnam[] = "RD_SNTEXTIO_PREP" ;
 
   // ------------- BEGIN ------------
+
+  sprintf(BANNER,"%s: Prepare reading text format for %s",
+	  fnam, VERSION);
+  print_banner(BANNER);
 
   if ( LDMP) {
     printf(" xxx %s: PATH = '%s' \n", fnam, PATH);
@@ -878,27 +885,26 @@ int RD_TEXT_PREP(int MSKOPT, char *PATH, char *VERSION) {
   }
 
   // read & store list of data files 
-  NFILE = rd_text_list() ;
+  NFILE = rd_sntextio_list() ;
   if ( NFILE < 0 ) { return -1 ; } // not TEXT format
 
   // read/store global info from first file
-  rd_text_global();
-
+  rd_sntextio_global();
 
   return NFILE;
 
-} //end RD_TEXT_PREP
+} //end RD_SNTEXTIO_PREP
 
 
 // - - - - - 
-void rd_text_init__(void) { RD_TEXT_INIT(); }
+void rd_sntextio_init__(void) { RD_SNTEXTIO_INIT(); }
 
-int rd_text_prep__(int *MSKOPT, char *PATH, char *VERSION)
-{ return RD_TEXT_PREP(*MSKOPT, PATH,VERSION); }
+int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION)
+{ return RD_SNTEXTIO_PREP(*MSKOPT, PATH,VERSION); }
 
 
 // ===========================================
-int rd_text_list(void) {
+int rd_sntextio_list(void) {
 
   // Created Feb 2021
   // Read auxilary LIST file and count how many text files are specified.
@@ -916,7 +922,7 @@ int rd_text_list(void) {
   int  NFILE_LAST = NFILE ;
 
   char firstFile[MXPATHLEN], FIRSTFILE[MXPATHLEN];
-  char fnam[] = "rd_text_list" ;
+  char fnam[] = "rd_sntextio_list" ;
 
   // ------------- BEGIN --------------
 
@@ -926,8 +932,9 @@ int rd_text_list(void) {
   iwd=0;  get_PARSE_WORD(langC, iwd, firstFile);
 
   sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
-  printf(" xxx %s: firstFile = \n\t '%s' \n\t '%s' \n", 
-	 fnam, firstFile, FIRSTFILE );
+
+  //  printf(" xxx %s: firstFile = \n\t '%s' \n\t '%s' \n", 
+  //	 fnam, firstFile, FIRSTFILE );
 
   // return -1 if this has fits extension
   if ( strstr(firstFile,".FITS") != NULL ) { return(RETCODE_FITS); }
@@ -939,8 +946,8 @@ int rd_text_list(void) {
 
 
   bool DO_FREE = (TEXT_VERSION_INFO.NVERSION > 0 ) ;
-  if ( DO_FREE ) { rd_text_malloc_list(-1, NFILE_LAST); }
-  rd_text_malloc_list(+1, NFILE);
+  if ( DO_FREE ) { rd_sntextio_malloc_list(-1, NFILE_LAST); }
+  rd_sntextio_malloc_list(+1, NFILE);
 
   for(iwd=0; iwd < NFILE; iwd++ ) {
     get_PARSE_WORD(langC, iwd, 
@@ -952,14 +959,14 @@ int rd_text_list(void) {
 
   return NFILE;
 
-} // end  rd_text_list
+} // end  rd_sntextio_list
 
 
 // =============================================
-void rd_text_malloc_list(int OPT, int NFILE) {
+void rd_sntextio_malloc_list(int OPT, int NFILE) {
   
   int i;
-  char fnam[] = "rd_text_malloc_list" ;
+  char fnam[] = "rd_sntextio_malloc_list" ;
   // ---------- BEGIN ----------
   if ( OPT < 0 ) {
     // free mem
@@ -977,10 +984,10 @@ void rd_text_malloc_list(int OPT, int NFILE) {
   }
 
   return;
-} // end rd_text_malloc_list
+} // end rd_sntextio_malloc_list
 
 // =======================================
-void  rd_text_global(void) {
+void  rd_sntextio_global(void) {
 
   // Created Feb 2021
   // Open first text file and read info that is global;
@@ -994,14 +1001,18 @@ void  rd_text_global(void) {
   int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR ;
   bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM;
   bool IS_PRIVATE, IS_SIMSED, IS_LCLIB, IS_BYOSED, IS_SNEMO ;
-  char word0[100], word1[100], word2[100];  
-  char fnam[] = "rd_text_global" ;
-
+  char word0[100], word1[100], word2[100];    
+  char fnam[] = "rd_sntextio_global" ;
+  int  LDMP = 0 ;
   // ---------- BEGIN ----------
 
   sprintf(FIRSTFILE, "%s/%s", DATA_PATH, firstFile);	 
   NWD = store_PARSE_WORDS(MSKOPT,FIRSTFILE);
   
+  if ( LDMP ) {
+    printf(" xxx %s: store %d words from \n\t %s\n", fnam, NWD, FIRSTFILE);
+  }
+
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(langC, iwd, word0 );
     
@@ -1021,7 +1032,6 @@ void  rd_text_global(void) {
     }
     else if ( strcmp(word0,"SURVEY:") == 0 ) {
       iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME );
-      printf(" xxx %s: read SURVEY = %s \n", fnam, SNDATA.SURVEY_NAME );
     }
 
     // subsurvey ??
@@ -1041,27 +1051,30 @@ void  rd_text_global(void) {
 	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_SIM_MAGOBS); } 
     }
     else if ( IS_PRIVATE ) {
+      SNDATA.NVAR_PRIVATE++ ; // note fortran-like index
       NVAR = SNDATA.NVAR_PRIVATE ;
-      sprintf(SNDATA.PRIVATE_KEYWORD[NVAR], "%s", word0);
-      NVAR++ ;    SNDATA.NVAR_PRIVATE = NVAR ;
+      copy_keyword_nocolon(word0,SNDATA.PRIVATE_KEYWORD[NVAR]);
     }
     else if ( IS_SIMSED ) {
       NPAR = SNDATA.NPAR_SIMSED;
       if ( strcmp(word0,"SIMSED_NPAR:") == 0 ) { continue; }  
-      sprintf(SNDATA.SIMSED_KEYWORD[NPAR], "%s", word0);
+      copy_keyword_nocolon(word0,SNDATA.SIMSED_KEYWORD[NPAR]);
+      //      sprintf(SNDATA.SIMSED_KEYWORD[NPAR], "%s", word0);
       NPAR++ ;    SNDATA.NPAR_SIMSED = NPAR ;
     }
     else if ( IS_LCLIB ) {
       NPAR = SNDATA.NPAR_LCLIB ;
       if ( strcmp(word0,"LCLIB_NPAR:") == 0 ) { continue; }  
-      sprintf(SNDATA.LCLIB_KEYWORD[NPAR], "%s", word0);
+      copy_keyword_nocolon(word0,SNDATA.LCLIB_KEYWORD[NPAR]);
+      //      sprintf(SNDATA.LCLIB_KEYWORD[NPAR], "%s", word0);
       NPAR++ ;    SNDATA.NPAR_LCLIB = NPAR ;
     }
     else if ( IS_BYOSED || IS_SNEMO ) {
       NPAR = SNDATA.NPAR_PySEDMODEL ;
       if ( strcmp(word0,"BYOSED_NPAR:") == 0 ) { continue; }  
       if ( strcmp(word0,"SNEMO_NPAR:" ) == 0 ) { continue; }  
-      sprintf(SNDATA.PySEDMODEL_KEYWORD[NPAR], "%s", word0);
+      copy_keyword_nocolon(word0,SNDATA.PySEDMODEL_KEYWORD[NPAR]);
+      //      sprintf(SNDATA.PySEDMODEL_KEYWORD[NPAR], "%s", word0);
       NPAR++ ;    SNDATA.NPAR_PySEDMODEL = NPAR ;
       //      printf("  xxx %s:  '%s' \n", fnam, word0 );
     } 
@@ -1088,29 +1101,37 @@ void  rd_text_global(void) {
     } // end IS_SIM
 
     // - - - - - - OBS info - - - - -
-    else if ( strcmp(word0,"NOBS:") == 0 ) {
-      iwd++ ; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NOBS );
-    }
     else if ( strcmp(word0,"NVAR:") == 0 ) {
       iwd++ ; get_PARSE_WORD_INT(langC, iwd, &TEXT_FILE_INFO.NVAROBS );
     }
     else if ( strcmp(word0,"VARLIST:") == 0 ) {
-      rd_text_varlist(&iwd);
-
+      rd_sntextio_varlist_obs(&iwd);
     }
 
     else if ( strcmp(word0,"OBS:") == 0 ) {
-      return ;
+      return ;  // done reading global info; bye bye
     }    
 
   } // end iwd loop
   
   return;
 
-} // end rd_text_global
+} // end rd_sntextio_global
+
+// =============================
+void copy_keyword_nocolon(char *key_in, char *key_out) {
+
+  int lenkey = strlen(key_in);
+
+  sprintf(key_out, "%s", key_in);
+  if ( strstr(key_in,COLON) != NULL ) 
+    { key_out[lenkey-1] = 0 ; }
+
+  return;
+} // end copy_keyword_nocolon
 
 // ==============================================
-void rd_text_varlist(int *iwd_file) {
+void rd_sntextio_varlist_obs(int *iwd_file) {
 
   // Created Feb 2021
   // read OBS-varlist elements to prepare for reading OBS later.
@@ -1120,29 +1141,32 @@ void rd_text_varlist(int *iwd_file) {
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
   int  NVAR, ivar ;
   char *varName ;
-  char fnam[] = "read_text_varList" ;
+  char fnam[] = "rd_sntextio_varList_obs" ;
 
   // ---------- BEGIN -------
 
   IVAROBS_TEXT.MJD = IVAROBS_TEXT.BAND = IVAROBS_TEXT.FIELD = -9 ;
   IVAROBS_TEXT.FLUXCAL = IVAROBS_TEXT.FLUXCALERR = -9 ;
-  IVAROBS_TEXT.ZPFLUX = IVAROBS_TEXT.PSF = -9;
+  IVAROBS_TEXT.ZPFLUX = IVAROBS_TEXT.ZPERR = IVAROBS_TEXT.PSF = -9;
   IVAROBS_TEXT.SKYSIG = IVAROBS_TEXT.SKYSIG_T = -9;
   IVAROBS_TEXT.GAIN = IVAROBS_TEXT.PHOTFLAG = IVAROBS_TEXT.PHOTPROB = -9 ;
-  IVAROBS_TEXT.SIM_MAGOBS -9 ;
+  IVAROBS_TEXT.XPIX = IVAROBS_TEXT.YPIX = IVAROBS_TEXT.CCDNUM = -9;
+  IVAROBS_TEXT.SIMEPOCH_MAG -9 ;
 
   NVAR = TEXT_FILE_INFO.NVAROBS ;
   if ( NVAR < 5 || NVAR >= MXVAROBS_TEXT ) {
-    sprintf(c1err,"Invalid NVAR=%d (MXVAR_OBS_TEXT=%d)", 
+    sprintf(c1err,"Invalid NVAR=%d (MXVAROBS_TEXT=%d)", 
 	    NVAR, MXVAROBS_TEXT ) ;
     sprintf(c2err,"Check NVAR and VARLIST keys");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  // printf(" xxx %s: read %d VARLIST names\n", fnam, TEXT_FILE_INFO.NVAROBS );
+
   for(ivar=0; ivar < NVAR; ivar++ ) {
-    varName = TEXT_FILE_INFO.VARNAME_LIST[ivar];
+    varName = TEXT_FILE_INFO.VARNAME_OBS_LIST[ivar];
     iwd++ ; get_PARSE_WORD(langC, iwd, varName);
-    printf(" xxx %s: varName[%2d] = %s \n", fnam, ivar, varName);
+    // printf(" xxx %s: varName[%2d] = %s \n", fnam, ivar, varName);
 
     if ( strcmp(varName,"MJD") == 0 ) 
       { IVAROBS_TEXT.MJD = ivar; }
@@ -1158,23 +1182,43 @@ void rd_text_varlist(int *iwd_file) {
       { IVAROBS_TEXT.FLUXCAL = ivar; }
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
       { IVAROBS_TEXT.FLUXCALERR = ivar; }
+
+    else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
+      { IVAROBS_TEXT.PHOTFLAG = ivar; }  
+    else if ( strcmp(varName,"PHOTPROB") == 0 ) 
+      { IVAROBS_TEXT.PHOTPROB = ivar; }  
+
+
     else if ( strcmp(varName,"PSF") == 0 ) 
       { IVAROBS_TEXT.PSF = ivar; }   
-    else if ( strcmp(varName,"ZPFLUX") == 0 ) 
+
+    else if ( strcmp(varName,"ZPFLUX") == 0 ||
+	      strcmp(varName,"ZPT")    == 0 ||
+	      strcmp(varName,"Zpt")    == 0 ) 
       { IVAROBS_TEXT.ZPFLUX = ivar; }  
+
+    else if ( strcmp(varName,"ZPERR") == 0 ) 
+      { IVAROBS_TEXT.ZPERR = ivar; }  
     else if ( strcmp(varName,"SKYSIG") == 0 ) 
       { IVAROBS_TEXT.SKYSIG = ivar; }  
     else if ( strcmp(varName,"SKYSIG_T") == 0 ) 
       { IVAROBS_TEXT.SKYSIG_T = ivar; }
     else if ( strcmp(varName,"GAIN") == 0 ) 
       { IVAROBS_TEXT.GAIN = ivar; }  
-    else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
-      { IVAROBS_TEXT.PHOTFLAG = ivar; }  
-    else if ( strcmp(varName,"PHOTPROB") == 0 ) 
-      { IVAROBS_TEXT.PHOTPROB = ivar; }  
+
+    else if ( strcmp(varName,"XPIX") == 0 ) 
+      { IVAROBS_TEXT.XPIX = ivar; }  
+    else if ( strcmp(varName,"YPIX") == 0 ) 
+      { IVAROBS_TEXT.YPIX = ivar; }  
+    else if ( strcmp(varName,"CCDNUM") == 0 ) 
+      { IVAROBS_TEXT.CCDNUM = ivar; }  
+
+    else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
+      { IVAROBS_TEXT.SIMEPOCH_MAG = ivar; }  
 
     else {
-      sprintf(c1err,"Invalid varName = %s (ivar=%d)", varName, ivar );
+      sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 
+	      varName, ivar, NVAR );
       sprintf(c2err,"Check VARLIST args.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
@@ -1198,18 +1242,104 @@ void rd_text_varlist(int *iwd_file) {
   *iwd_file = iwd;
 
   return;
-} // end read_text_varList
+} // end rd_sntextio_varList_obs
+
 
 // ==============================================
-void RD_TEXT_EVENT(int OPTMASK, int ifile) {
+void rd_sntextio_varlist_spec(int *iwd_file) {
+
+  // Created Feb 2021
+  // read SPEC-varlist elements to prepare for reading OBS later.
+
+
+  int  iwd    = *iwd_file;
+  int  langC  = LANGFLAG_PARSE_WORDS_C ;
+  int  NVAR, ivar ;
+  char *varName ;
+  char fnam[] = "rd_sntextio_varlist_spec" ;
+
+  // ---------- BEGIN -------
+
+  IVARSPEC_TEXT.LAMMIN = IVARSPEC_TEXT.LAMMAX = IVARSPEC_TEXT.LAMAVG = -9;
+  IVARSPEC_TEXT.LAMMIN = IVARSPEC_TEXT.FLAMERR = -9;
+  IVARSPEC_TEXT.SIM_GENFLAM = IVARSPEC_TEXT.SIM_GENMAG = -9;
+
+
+  NVAR = TEXT_FILE_INFO.NVARSPEC ;
+  if ( NVAR < 3 || NVAR >= MXVAROBS_TEXT ) {
+    sprintf(c1err,"Invalid NVAR=%d (MXVARSPEC_TEXT=%d)", 
+	    NVAR, MXVAROBS_TEXT ) ;
+    sprintf(c2err,"Check NVAR_SPEC and VARNAMES_SPEC keys");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // printf(" xxx %s: read %d VARLIST names\n", fnam, TEXT_FILE_INFO.NVAROBS );
+
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    varName = TEXT_FILE_INFO.VARNAME_SPEC_LIST[ivar];
+    iwd++ ; get_PARSE_WORD(langC, iwd, varName);
+    // printf(" xxx %s: varName[%2d] = %s \n", fnam, ivar, varName);
+
+    if ( strcmp(varName,"LAMAVG") == 0 ) 
+      { IVARSPEC_TEXT.LAMAVG = ivar; }
+
+    else if ( strcmp(varName,"LAMMIN") == 0 ) 
+      { IVARSPEC_TEXT.LAMMIN = ivar; }
+
+    else if ( strcmp(varName,"LAMMAX") == 0 ) 
+      { IVARSPEC_TEXT.LAMMAX = ivar; }
+
+    else if ( strcmp(varName,"FLAM") == 0 ) 
+      { IVARSPEC_TEXT.FLAM = ivar; }
+
+    else if ( strcmp(varName,"FLAMERR") == 0 ) 
+      { IVARSPEC_TEXT.FLAMERR = ivar; }
+
+    else if ( strcmp(varName,"SIM_GENFLAM") == 0 ) 
+      { IVARSPEC_TEXT.SIM_GENFLAM = ivar; }
+
+    else if ( strcmp(varName,"SIM_GENMAG") == 0 ) 
+      { IVARSPEC_TEXT.SIM_GENMAG = ivar; }
+
+    else {
+      sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 
+	      varName, ivar, NVAR );
+      sprintf(c2err,"Check VARLIST_SPEC args.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  } // end ivar
+
+
+  // - - - - - - - - - - - - - - - 
+  // check that required columns are defined
+  int IVAR_MIN  = 0;
+  int IVAR_MAX  = MXVAROBS_TEXT-1 ;
+  int NVAL=1;
+  checkval_I("IVAROBS_FLAM", NVAL, &IVAROBS_TEXT.MJD, 
+	     IVAR_MIN, IVAR_MAX);
+  checkval_I("IVAROBS_FLAMERR", NVAL, &IVAROBS_TEXT.BAND, 
+	     IVAR_MIN, IVAR_MAX);
+
+  *iwd_file = iwd;
+
+  return;
+} // end rd_sntextio_varlist_spec
+
+// ==============================================
+void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
   // Created Feb 2021
   // Read event for DATA_FILE_LIST[ifile]
-  // OPTMASK controls reading of hader, obs, spec.
+  // OPTMASK controls reading of header, obs, spec,
+  // so that header cuts can be applied before read OBS.
+  // Beware that input ifile_inp runs from 1 to NFILE;
+  // so define file = ifile_inp-1 to use as C index
 
-  bool LRD_HEAD   = (OPTMASK & OPTMASK_TEXT_HEAD)>0 ;
-  bool LRD_OBS    = (OPTMASK & OPTMASK_TEXT_OBS )>0 ;
-  bool LRD_SPEC   = (OPTMASK & OPTMASK_TEXT_SPEC)>0 ;
+
+  int  ifile      = ifile_inp - 1; // convert to C index starting at 0
+  bool LRD_HEAD   = (OPTMASK & OPTMASK_TEXT_HEAD) > 0 ;
+  bool LRD_OBS    = (OPTMASK & OPTMASK_TEXT_OBS ) > 0 ;
+  bool LRD_SPEC   = (OPTMASK & OPTMASK_TEXT_SPEC) > 0 ;
   int  MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NFILE_TOT  = TEXT_VERSION_INFO.NFILE ;
   char *DATA_PATH = TEXT_VERSION_INFO.DATA_PATH ;
@@ -1218,7 +1348,7 @@ void RD_TEXT_EVENT(int OPTMASK, int ifile) {
   char FILENAME[MXPATHLEN]; 
   int  NWD, iwd; 
   bool LRD_NEXT = false;
-  char fnam[] = "RD_TEXT_EVENT";
+  char fnam[] = "RD_SNTEXTIO_EVENT";
 
   // ------------ BEGIN ----------
 
@@ -1231,46 +1361,78 @@ void RD_TEXT_EVENT(int OPTMASK, int ifile) {
   if ( LRD_HEAD ) {
     sprintf(FILENAME, "%s/%s", DATA_PATH, fileName);
     NWD = store_PARSE_WORDS(MSKOPT,FILENAME);
+    TEXT_FILE_INFO.NWD_TOT = NWD;
 
     //  printf(" xxx %s: read HEAD for %s  (NWD=%d)\n", fnam, fileName, NWD);
-    TEXT_FILE_INFO.IPTR_READ = 0 ;
     TEXT_FILE_INFO.NWD_TOT   = NWD ;
-    TEXT_FILE_INFO.NVAROBS   = 0 ;
+    TEXT_FILE_INFO.IPTR_READ = 0 ;
     TEXT_FILE_INFO.NOBS_READ = 0 ;
+    init_SNDATA_EVENT();
 
     iwd = 0;  LRD_NEXT = true ;
-    while ( LRD_NEXT == true && iwd < NWD ) {
-      LRD_NEXT = parse_TEXT_HEAD(&iwd);
+    while ( LRD_NEXT && iwd < NWD ) {
+      LRD_NEXT = parse_SNTEXTIO_HEAD(&iwd);
       TEXT_FILE_INFO.IPTR_READ = iwd;
       iwd++ ;  
     }
   } // end LRD_HEAD
 
 
-  debugexit(fnam); // xxx REMOVE
-
   // - - - - - - - 
   if ( LRD_OBS ) {
 
-    iwd = TEXT_FILE_INFO.IPTR_READ;
+    NWD = TEXT_FILE_INFO.NWD_TOT ;   // restore from LRD_HEAD
+    iwd = TEXT_FILE_INFO.IPTR_READ;  // restore from LRD_HEAD
+
+    /*
+    printf(" xxx %s: read obs for %s (iwd=%d of %d)\n", 
+    fnam, SNDATA.CCID, iwd, NWD); */
     LRD_NEXT = true ;
-    while ( LRD_NEXT == true && iwd < NWD ) {
-      LRD_NEXT = parse_TEXT_OBS(&iwd);
+    while ( LRD_NEXT && iwd < NWD ) {
+      LRD_NEXT = parse_SNTEXTIO_OBS(&iwd);
       TEXT_FILE_INFO.IPTR_READ = iwd;
       iwd++ ;  
     }
 
+    int NOBS_READ   =  TEXT_FILE_INFO.NOBS_READ ;
+    int NOBS_EXPECT =  SNDATA.NOBS; 
+    if ( NOBS_READ != NOBS_EXPECT ) {
+      sprintf(c1err,"Read %d OBS rows for CID=%s", 
+	      NOBS_READ, SNDATA.CCID );
+      sprintf(c2err,"but expected %d rows from NOBS key.", NOBS_EXPECT);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+    }
+
   } // end LRD_OBS
+
+  // - - - -
+  if ( LRD_SPEC ) {
+
+    NWD = TEXT_FILE_INFO.NWD_TOT ;   // restore from LRD_OBS
+    iwd = TEXT_FILE_INFO.IPTR_READ;  // restore from LRD_OBS
+
+    /*
+    printf(" xxx %s: read obs for %s (iwd=%d of %d)\n", 
+    fnam, SNDATA.CCID, iwd, NWD); */
+    LRD_NEXT = true ;
+    while ( LRD_NEXT && iwd < NWD ) {
+      LRD_NEXT = parse_SNTEXTIO_SPEC(&iwd);
+      TEXT_FILE_INFO.IPTR_READ = iwd;
+      iwd++ ;  
+    }
+  }     // end LRD_SPEC
+
+  //  debugexit(fnam); // xxx REMOVE
 
   return;
 
-} // end RD_TEXT_EVENT
+} // end RD_SNTEXTIO_EVENT
 
-void rd_text_event__(int *OPTMASK, int *ifile)
-{ RD_TEXT_EVENT(*OPTMASK,*ifile); }
+void rd_sntextio_event__(int *OPTMASK, int *ifile)
+{ RD_SNTEXTIO_EVENT(*OPTMASK,*ifile); }
 
 
-bool parse_TEXT_HEAD(int *iwd_file) {
+bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   // Created Feb 15 2021
   //
@@ -1289,7 +1451,9 @@ bool parse_TEXT_HEAD(int *iwd_file) {
   int  iwd       = *iwd_file ;
   int  igal, ivar, NVAR, ipar, NPAR, ifilt ;
   double DVAL;
+  bool IS_PRIVATE ;
   char word0[100], PREFIX[40], KEY_TEST[80];
+  char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
   // ------------ BEGIN -----------
 
@@ -1297,6 +1461,10 @@ bool parse_TEXT_HEAD(int *iwd_file) {
 
   // bail when reaching first obs
   if ( strcmp(word0,"OBS:") == 0 ) { return false; }
+
+  IS_PRIVATE =  
+    strncmp(word0,"PRIVATE",7) == 0  &&  strstr(word0,COLON) != NULL ;
+
 
   // - - - - - - -
   // parse keys for data or sim
@@ -1316,7 +1484,7 @@ bool parse_TEXT_HEAD(int *iwd_file) {
   else if ( strcmp(word0,"RA:") == 0 ) {
     iwd++; get_PARSE_WORD_DBL(langC, iwd, &SNDATA.RA );
   }
-  else if ( strcmp(word0,"DEC:") == 0 ) {
+  else if ( strcmp(word0,"DEC:") == 0 || strcmp(word0,"DECL:") == 0 ) {
     iwd++; get_PARSE_WORD_DBL(langC, iwd, &SNDATA.DEC );
   }
   else if ( strcmp(word0,"PIXSIZE:") == 0 ) {
@@ -1331,15 +1499,15 @@ bool parse_TEXT_HEAD(int *iwd_file) {
   else if ( strcmp(word0,"CCDNUM:") == 0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[1] );
   }
-  else if ( strcmp(word0,"SNTYPE:") == 0 ) {
+  else if ( strcmp(word0,"TYPE:")==0 || strcmp(word0,"SNTYPE:")==0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );
   }
 
   else if ( strstr(word0,"MWEBV") != NULL ) {
     parse_plusminus_TEXT(word0, "MWEBV", &iwd, 
 			 &SNDATA.MWEBV, &SNDATA.MWEBV_ERR );
-    //	printf(" xxx %s: MWEBV = %f +- %f \n",
-    //     fnam, SNDATA.MWEBV, SNDATA.MWEBV_ERR );
+    //    printf(" xxx %s: MWEBV = %f +- %f (CID=%s) \n",
+    //	   fnam, SNDATA.MWEBV, SNDATA.MWEBV_ERR, SNDATA.CCID );
   }
   
   else if ( strstr(word0,"REDSHIFT_HELIO") != NULL ) {
@@ -1446,38 +1614,45 @@ bool parse_TEXT_HEAD(int *iwd_file) {
   } // end HOSTGAL
       
   else if ( strcmp(word0,"PEAKMJD:") == 0 ) {
-    iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.SEARCH_PEAKMJD);
+    iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.SEARCH_PEAKMJD);    
   }
   else if ( strcmp(word0,"SEARCH_TYPE:") == 0 ) {
     iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.SEARCH_TYPE );
   }
   
-  else if ( strncmp(word0,"PRIVATE",7) == 0 ) {
+  else if ( IS_PRIVATE ) {
+    char key_with_colon[100];
     NVAR = SNDATA.NVAR_PRIVATE ;
     for(ivar=1; ivar <= NVAR; ivar++ ) {
-      if ( strcmp(word0,SNDATA.PRIVATE_KEYWORD[ivar]) == 0 ) {
+      sprintf(key_with_colon,"%s:", SNDATA.PRIVATE_KEYWORD[ivar]) ;
+      if ( strcmp(word0,key_with_colon) == 0 ) {
 	iwd++; get_PARSE_WORD_DBL(langC,iwd,&SNDATA.PRIVATE_VALUE[ivar]);
       }  
     }    
+  }
+
+  else if ( strcmp(word0,"NOBS:") == 0 ) {
+    iwd++ ; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NOBS );
   }
 
   // ---------------------
 
   if ( SNDATA.FAKE == FAKEFLAG_LCSIM ) { 
 
+    // .xyz FINISH THIS ...
 
   } // end SIM_SNANA
 
-  //.xyz continue  ...
 
   *iwd_file = iwd ;
 
   return true ;
 
-} // end parse_TEXT_HEAD
+} // end parse_SNTEXTIO_HEAD
 
 
-bool parse_TEXT_OBS(int *iwd_file) {
+// =====================================
+bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   // Created Feb 15 2021
   //
@@ -1494,15 +1669,18 @@ bool parse_TEXT_OBS(int *iwd_file) {
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
   int  ep, ivar, NVAR = TEXT_FILE_INFO.NVAROBS ;
+  bool DONE_OBS = false ;
   char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
-  char fnam[] = "parse_TEXT_OBS";
+  char fnam[] = "parse_SNTEXTIO_OBS";
 
   // ------------ BEGIN -----------
  
   get_PARSE_WORD(langC, iwd, word0) ;
- 
-  if ( strstr(word0,"END")       != NULL ) { return false; }
-  if ( strcmp(word0,"NSPECTRA:") == 0    ) { return false; }
+
+  if ( strstr(word0,"END")       != NULL ) { DONE_OBS = true; }
+  if ( strcmp(word0,"NSPECTRA:") == 0    ) { DONE_OBS = true; }
+  if ( DONE_OBS ) { *iwd_file--; return false; }
+
 
   if ( strcmp(word0,"OBS:") == 0 ) {
     for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -1515,31 +1693,123 @@ bool parse_TEXT_OBS(int *iwd_file) {
 
     str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
+    //printf(" xxx %s: load MJD[%3d] = %f \n", fnam, ep, SNDATA.MJD[ep] );
 
     str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.BAND] ;
     sprintf(SNDATA.FILTCHAR[ep], "%s", str);
+    catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
+
+    str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FIELD] ;
+    sprintf(SNDATA.FIELDNAME[ep], "%s", str);
+    catVarList_with_comma(SNDATA.FIELDNAME_1D,str);
 
     str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FLUXCAL] ;
     sscanf(str, "%f", &SNDATA.FLUXCAL[ep] );
 
     str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FLUXCALERR] ;
     sscanf(str, "%f", &SNDATA.FLUXCAL_ERRTOT[ep] );
-
-    if ( IVAROBS_TEXT.FIELD >= 0 ) {
-      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.FIELD] ;
-      sprintf(SNDATA.FIELDNAME[ep], "%s", str);
+    
+    if ( IVAROBS_TEXT.PHOTFLAG >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.PHOTFLAG] ;
+      sscanf(str, "%d", &SNDATA.PHOTFLAG[ep] );
+    }
+    if ( IVAROBS_TEXT.PHOTPROB >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.PHOTPROB] ;
+      sscanf(str, "%f", &SNDATA.PHOTPROB[ep] ) ;
     }
 
-    // .xyz
+    if ( IVAROBS_TEXT.ZPFLUX >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.ZPFLUX] ;
+      sscanf(str, "%f", &SNDATA.ZEROPT[ep] );
+    }
+    if ( IVAROBS_TEXT.ZPERR >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.ZPERR] ;
+      sscanf(str, "%f", &SNDATA.ZEROPT_ERR[ep] );
+    }
+
+    if ( IVAROBS_TEXT.PSF >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.PSF] ;
+      sscanf(str, "%f", &SNDATA.PSF_SIG1[ep]);
+    }
+
+    if ( IVAROBS_TEXT.SKYSIG >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.SKYSIG] ;
+      sscanf(str, "%f", &SNDATA.SKY_SIG[ep] );
+    }
+    if ( IVAROBS_TEXT.SKYSIG_T >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.SKYSIG_T] ;
+      sscanf(str, "%f", &SNDATA.SKY_SIG_T[ep] );
+    }
+
+    if ( IVAROBS_TEXT.GAIN >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.GAIN] ;
+      sscanf(str, "%f", &SNDATA.GAIN[ep] );
+    }
+
+    if ( IVAROBS_TEXT.XPIX >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.XPIX] ;
+      sscanf(str, "%f", &SNDATA.XPIX[ep] );
+    }
+    if ( IVAROBS_TEXT.YPIX >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.YPIX] ;
+      sscanf(str, "%f", &SNDATA.YPIX[ep] );
+    }
+
+    if ( IVAROBS_TEXT.CCDNUM >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.CCDNUM] ;
+      sscanf(str, "%d", &SNDATA.CCDNUM[ep] );
+    }
+
+    // - - -
+    if ( IVAROBS_TEXT.SIMEPOCH_MAG >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVAROBS_TEXT.SIMEPOCH_MAG] ;
+      sscanf(str, "%f", &SNDATA.SIMEPOCH_MAG[ep] );
+    }
+
   }     // end OBS key
 
-  
+  // - - - - -
+
   *iwd_file = iwd;
 
   return true ;
 
-} // end parse_TEXT_OBS
+} // end parse_SNTEXTIO_OBS
 
+
+// =====================================
+bool parse_SNTEXTIO_SPEC(int *iwd_file) {
+
+  // Created Feb 17 2021
+  // Look for SPECTRUM keys, and load GENSPEC struct.
+
+  int  iwd     = *iwd_file ;
+  int  langC   = LANGFLAG_PARSE_WORDS_C ;
+  char word0[100];
+  char fnam[]  = "parse_SNTEXTIO_SPEC" ;
+
+  // ------------ BEGIN -------------
+
+  get_PARSE_WORD(langC, iwd, word0) ;
+
+  if ( strcmp(word0,"NSPECTRA:") == 0 ) {
+      iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &GENSPEC.NMJD_TOT );
+  }
+
+  else if ( strcmp(word0,"NVAR_SPEC:") == 0 ) {
+    iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &TEXT_FILE_INFO.NVARSPEC );
+  }
+
+  else if ( strcmp(word0,"VARNAMES_SPEC:") == 0 || 
+	    strcmp(word0,"VARLIST_SPEC:" ) == 0  ) {
+    rd_sntextio_varlist_spec(&iwd);
+  }
+
+
+  *iwd_file = iwd;
+  return true ;
+
+} // end parse_SNTEXTIO_SPEC
 
 // ========================================================
 void parse_plusminus_TEXT(char *word, char *key, int *iwd_file, 

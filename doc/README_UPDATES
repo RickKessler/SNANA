@@ -19538,28 +19538,55 @@
 
 
 # ======================================================================= 
-         v11_02h (  ) 
+         v11_02h (Feb 18, 2021) 
 
          ***** IMPORTANT(v11_02h) ***** 
 
    + IGNORE file no longer required, and no longer part of sim output
        (no action necessary)
 
+   + Fixed subtle bug for CUTWIN_PSF and CUTWIN_ZPNPE.
+     Bug introduced back in July 2021, v10_77h. See details below.
+
          ***** USEFUL(v11_02h) ***** 
 
          ***** MISCELLANEOUS(v11_02h) ***** 
+
+                       CUT-BUG FIX
+   Back in v10_77h (Jul 20, 2020) an epoch-cut bug was introduced with a
+   minor refactor needed to implement OUT_EPOCH_IGNORE_FILE that writes 
+   a list of rejected epochs (for SNN/Pippin). For FITS-formatted data, 
+   there was an index bug for CUTWIN_PSF and CUTWIN_ZPNPE because of an 
+   internal unit change on ZP and PSF read from data files. TEXT data 
+   format was not affected. The bug impact was to reject a few extra epochs 
+   that should be kept; LC fit mB shifts were few millimag. The bug went
+   undetected because these cuts were not part of the standard set of 
+   SNANA test jobs (see $SNANA_TESTS) ... but now it is. I finally caught 
+   the bug as part of a major I/O refactor (not yet released) because the 
+   refactored code works correctly.
 
   snlc_sim: 
     + abort on ancient VERBOSE format (FORMAT_MASK=1)
     + no longer write empty IGNORE file 
     + rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
     + begin refactoring text format with sntools_dataformat_text.c[h]
-       (goal is to extract TEXT files from FITS files)
+      Goal is to extract TEXT files from FITS files, make TEXT and
+      FITS treatment more parallel, and simplify maintenance.
+    + fix bug reading LCLIB_CUTWIN
 
   snana.car
     + IGNORE file now optional (not required)
+    + move leagcy I/O functions into *LEGACIO patch. These functios are
+      still default unless OPT_DEBUG==21 -> test refactored I/O routines.
 
   SALT2mu.c
-    + fix declaration bug in check_vpec_sign function
+    + fix array declaration bug in check_vpec_sign function
+
+  sntools_output_text.c :
+    + actually do the fclose in  SNTABLE_CLOSE_TEXT()
+
+  create_covariance.py :
+    + add lots of command line options to override contents of input
+      file. Tricky option is -m to select one and only one MUOPT.
 
 END: 

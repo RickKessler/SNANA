@@ -894,12 +894,12 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        cmd_cat = (f"SALT2mu.exe  " \
-                   f"cat_only  "    \
-                   f"datafile={cat_list}  " \
-                   f"append_varname_missing='PROB*'  " \
-                   f"catfile_out={cat_file_out}  " \
-                   f" > {cat_file_log}"   )
+        cmd_cat = f"SALT2mu.exe  " \
+                  f"cat_only  "    \
+                  f"datafile={cat_list}  " \
+                  f"append_varname_missing='PROB*'  " \
+                  f"catfile_out={cat_file_out}  " \
+                  f" &> {cat_file_log}"
 
         #print(f" xxx command to cat fitres files, \n {cmd_cat} \n")
         os.system(cmd_cat)

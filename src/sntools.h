@@ -542,6 +542,9 @@ int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
 int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
 void set_SNDATA_FILTER(char *filter_list);
 
+void init_GENSPEC_GLOBAL(void) ;
+void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
+
 void ld_null(float *ptr, float value);
 
 int rd_SNDATA(void);

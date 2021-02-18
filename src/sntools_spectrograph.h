@@ -77,6 +77,8 @@ struct {
   int    INV_TAKE_SPECTRUM[MXSPEC]  ; // inverse of above
 
   // everything below gets malloc'ed by NBIN_SPECTRO
+  double *LAMMIN_LIST[MXSPEC], *LAMMAX_LIST[MXSPEC]; // used for reading only
+  double *LAMAVG_LIST[MXSPEC] ; // used for reading only
 
   // true flux vs [NMJD][ILAM], and smeared flux
   double *GENMAG_LIST[MXSPEC] ;

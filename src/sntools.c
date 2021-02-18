@@ -1596,7 +1596,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // OPT +=  1 --> parse file FILE
   // OPT +=  2 --> FILENAME is a string to parse, parse by space or comma
   // OPT +=  4 --> ignore comma in parsing string: space-sep only
-  //                 
+  // OPT +=  8 --> ignore after comment char
+  //                
   // Function returns number of stored words separated by either
   // space or comma.
   //
@@ -1628,6 +1629,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     { return(PARSE_WORDS.NWD); }
 
   if ( LDMP ) {
+    printf(" xxx %s: -----------------------------------------------\n",
+	   fnam );
     printf(" xxx %s: OPT=%2d  BUFSIZE=%d    FILENAME='%s'\n", 
 	   fnam, OPT, PARSE_WORDS.BUFSIZE, FILENAME ); fflush(stdout);
   }
@@ -1735,6 +1738,11 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   else
     { PARSE_WORDS.FILENAME[0] = 0 ; }
 
+
+  if ( LDMP ) {
+    printf(" xxx %s: NWD_STORE = %d \n", fnam, NWD);
+    fflush(stdout);
+  }
 
   return(NWD);;
 
@@ -4361,7 +4369,6 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
     printf(" xxx %s: CUTWIN_MJD = %.1f to %.1f  NOBS_STORE=%d\n", 
 	   fnam, CUTWIN_MJD[0], CUTWIN_MJD[1], NOBS_STORE);
   }
-
 
   SNDATA.NOBS_STORE = NOBS_STORE ;
   return(NOBS_STORE) ;
@@ -9006,6 +9013,39 @@ int init_SNDATA_EVENT(void) {
   return SUCCESS ;
 
 }   // end of init_SNDATA_EVENT
+
+// =================================================
+void init_GENSPEC_GLOBAL(void) {
+  int ispec;
+  GENSPEC.NMJD_TOT = 0;  
+  for(ispec=0; ispec < MXSPECTRA; ispec++ )
+    { GENSPEC.NBLAM_VALID[ispec] = 0 ; } 
+  return;
+} // end init_GENSPEC_GLOBAL
+
+void init_GENSPEC_EVENT(int ispec, int NBLAM) {
+  if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
+    free(GENSPEC.LAMMIN_LIST[ispec])  ;
+    free(GENSPEC.LAMMAX_LIST[ispec])  ;
+    free(GENSPEC.LAMAVG_LIST[ispec])  ;
+    free(GENSPEC.FLAM_LIST[ispec])    ;
+    free(GENSPEC.FLAMERR_LIST[ispec]) ;
+    free(GENSPEC.GENFLAM_LIST[ispec]) ;
+    free(GENSPEC.GENMAG_LIST[ispec])  ;
+  }
+  
+  GENSPEC.NBLAM_VALID[ispec] = NBLAM;
+  int MEMD = NBLAM * sizeof(double) ;
+  GENSPEC.LAMMIN_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.LAMMAX_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.LAMAVG_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.FLAM_LIST[ispec]    = (double*) malloc(MEMD);
+  GENSPEC.FLAMERR_LIST[ispec] = (double*) malloc(MEMD);
+  GENSPEC.GENFLAM_LIST[ispec] = (double*) malloc(MEMD);
+  GENSPEC.GENMAG_LIST[ispec]  = (double*) malloc(MEMD);
+  
+} // end init_GENSPEC_EVENT
+
 
 // =====================================
 void set_SNDATA_FILTER(char *filter_list) {

@@ -839,10 +839,15 @@ void RD_SNTEXTIO_INIT(void) {
 
   init_SNDATA_GLOBAL();
   init_SNDATA_EVENT();
+  init_GENSPEC_GLOBAL();
+
   return ;
 } // end RD_SNTEXTIO_INIT
 
 
+
+
+// =================================================
 int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
   // Read LIST of files and global info from first data file.
@@ -1141,7 +1146,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
   int  NVAR, ivar ;
   char *varName ;
-  char fnam[] = "rd_sntextio_varList_obs" ;
+  char fnam[] = "rd_sntextio_varlist_obs" ;
 
   // ---------- BEGIN -------
 
@@ -1199,10 +1204,11 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
     else if ( strcmp(varName,"ZPERR") == 0 ) 
       { IVAROBS_TEXT.ZPERR = ivar; }  
-    else if ( strcmp(varName,"SKYSIG") == 0 ) 
+    else if ( strcmp(varName,"SKY_SIG") == 0 || strcmp(varName,"SKYSIG")==0 ) 
       { IVAROBS_TEXT.SKYSIG = ivar; }  
-    else if ( strcmp(varName,"SKYSIG_T") == 0 ) 
+    else if (strcmp(varName,"SKY_SIG_T") == 0 ||strcmp(varName,"SKYSIG_T")==0) 
       { IVAROBS_TEXT.SKYSIG_T = ivar; }
+
     else if ( strcmp(varName,"GAIN") == 0 ) 
       { IVAROBS_TEXT.GAIN = ivar; }  
 
@@ -1364,9 +1370,10 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     TEXT_FILE_INFO.NWD_TOT = NWD;
 
     //  printf(" xxx %s: read HEAD for %s  (NWD=%d)\n", fnam, fileName, NWD);
-    TEXT_FILE_INFO.NWD_TOT   = NWD ;
-    TEXT_FILE_INFO.IPTR_READ = 0 ;
-    TEXT_FILE_INFO.NOBS_READ = 0 ;
+    TEXT_FILE_INFO.NWD_TOT    = NWD ;
+    TEXT_FILE_INFO.IPTR_READ  = 0 ;
+    TEXT_FILE_INFO.NOBS_READ  = 0 ;
+    TEXT_FILE_INFO.NSPEC_READ = 0 ;
     init_SNDATA_EVENT();
 
     iwd = 0;  LRD_NEXT = true ;
@@ -1504,26 +1511,26 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
 
   else if ( strstr(word0,"MWEBV") != NULL ) {
-    parse_plusminus_TEXT(word0, "MWEBV", &iwd, 
-			 &SNDATA.MWEBV, &SNDATA.MWEBV_ERR );
+    parse_plusminus_sntextio(word0, "MWEBV", &iwd, 
+			     &SNDATA.MWEBV, &SNDATA.MWEBV_ERR );
     //    printf(" xxx %s: MWEBV = %f +- %f (CID=%s) \n",
     //	   fnam, SNDATA.MWEBV, SNDATA.MWEBV_ERR, SNDATA.CCID );
   }
   
   else if ( strstr(word0,"REDSHIFT_HELIO") != NULL ) {
-    parse_plusminus_TEXT(word0, "REDSHIFT_HELIO", &iwd, 
-			 &SNDATA.REDSHIFT_HELIO, 
-			 &SNDATA.REDSHIFT_HELIO_ERR );
+    parse_plusminus_sntextio(word0, "REDSHIFT_HELIO", &iwd, 
+			     &SNDATA.REDSHIFT_HELIO, 
+			     &SNDATA.REDSHIFT_HELIO_ERR );
   }
   else if ( strstr(word0,"REDSHIFT_FINAL") != NULL ) {
-    parse_plusminus_TEXT(word0, "REDSHIFT_FINAL", &iwd, 
-			 &SNDATA.REDSHIFT_FINAL, 
-			 &SNDATA.REDSHIFT_FINAL_ERR );
+    parse_plusminus_sntextio(word0, "REDSHIFT_FINAL", &iwd, 
+			     &SNDATA.REDSHIFT_FINAL, 
+			     &SNDATA.REDSHIFT_FINAL_ERR );
   }
   
   else if ( strstr(word0,"VPEC") != NULL ) {
-    parse_plusminus_TEXT(word0, "VPEC", &iwd, 
-			 &SNDATA.VPEC, &SNDATA.VPEC_ERR );
+    parse_plusminus_sntextio(word0, "VPEC", &iwd, 
+			     &SNDATA.VPEC, &SNDATA.VPEC_ERR );
     //	printf(" xxx %s: VPEC = %f +- %f \n",
     //     fnam, SNDATA.VPEC, SNDATA.VPEC_ERR );
   }
@@ -1559,14 +1566,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
       sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
-	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
-			     &SNDATA.HOSTGAL_PHOTOZ[igal], 
-			     &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] );
+	parse_plusminus_sntextio(word0, KEY_TEST, &iwd, 
+				 &SNDATA.HOSTGAL_PHOTOZ[igal], 
+				 &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] );
       }
       sprintf(KEY_TEST,"%s_SPECZ", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
-	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
-			     &SNDATA.HOSTGAL_SPECZ[igal], 
+	parse_plusminus_sntextio(word0, KEY_TEST, &iwd, 
+				 &SNDATA.HOSTGAL_SPECZ[igal], 
 			     &SNDATA.HOSTGAL_SPECZ_ERR[igal] );
       }
 
@@ -1590,15 +1597,15 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
       sprintf(KEY_TEST,"%s_LOGMASS", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
-	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
-			     &SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
-			     &SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
+	parse_plusminus_sntextio(word0, KEY_TEST, &iwd, 
+				 &SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
+				 &SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
       }
       sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
-	parse_plusminus_TEXT(word0, KEY_TEST, &iwd, 
-			     &SNDATA.HOSTGAL_sSFR[igal], 
-			     &SNDATA.HOSTGAL_sSFR_ERR[igal] );
+	parse_plusminus_sntextio(word0, KEY_TEST, &iwd, 
+				 &SNDATA.HOSTGAL_sSFR[igal], 
+				 &SNDATA.HOSTGAL_sSFR_ERR[igal] );
       }
 
       sprintf(KEY_TEST,"%s_MAG", PREFIX); 
@@ -1649,6 +1656,69 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   return true ;
 
 } // end parse_SNTEXTIO_HEAD
+
+// ========================================================
+void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
+			      float *PTR_VAL, float *PTR_ERR) {
+
+  // Created Feb 15 2021
+  //
+  // Parse text file keys of the form
+  //   [key]: <value> +- <error>
+  //      or
+  //   [key]:     <value> 
+  //   [key_ERR]: <error>
+  //
+  // Inputs:
+  //   *word   : current word in text file
+  //   *key    : desired key name without colon; e.g., 'MWEBV'
+  //   *iwd_file : current iwd index while reading text file
+  //
+  // Outputs:
+  //   *iwd_file : final iwd index reading file
+  //   *PTR_VAL  : float value associated with key
+  //   *PTR_ERR  : float value for error
+  //
+  // Beware that input *iwd_file is modified here.
+
+  int iwd = *iwd_file;
+  char next_word[60], KEY[60], KEY_ERR[60];
+  int  langC  =  LANGFLAG_PARSE_WORDS_C ;
+  int  lenkey = strlen(key);
+  char fnam[] = "parse_plusminus_sntextio" ;
+
+  // ------------ BEGIN --------
+
+  if ( strstr(word,key) == NULL ) { return; }
+
+  // construct key names with colons
+  sprintf(KEY,     "%s:",     key);
+  sprintf(KEY_ERR, "%s_ERR:", key);
+
+  if ( strcmp(word,KEY) == 0 ) { 
+
+    // read value after KEY
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_VAL );
+
+    // check +- format
+    iwd++; get_PARSE_WORD(langC, iwd, next_word );
+    if ( strcmp(next_word,"+-") == 0 || strcmp(next_word,"+_") == 0 ) 
+      { iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR ); }
+    else 
+      { iwd--; }
+  }
+
+  // check explicit error key of the form [KEY]_ERR: 
+  if ( strcmp(word,KEY_ERR) == 0 ) { 
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR );
+  }
+
+  // update iwd pointer in text file
+  *iwd_file = iwd;
+
+  return;
+
+} // end parse_plusminus_sntextio
 
 
 // =====================================
@@ -1785,7 +1855,10 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;
-  char word0[100];
+  int  ID, ivar, NBLAM, ilam ; 
+  int  ISPEC   = TEXT_FILE_INFO.NSPEC_READ-1 ;
+  double MJD ;
+  char word0[100], *str ;
   char fnam[]  = "parse_SNTEXTIO_SPEC" ;
 
   // ------------ BEGIN -------------
@@ -1797,12 +1870,77 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   }
 
   else if ( strcmp(word0,"NVAR_SPEC:") == 0 ) {
-    iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &TEXT_FILE_INFO.NVARSPEC );
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &TEXT_FILE_INFO.NVARSPEC );
   }
 
   else if ( strcmp(word0,"VARNAMES_SPEC:") == 0 || 
 	    strcmp(word0,"VARLIST_SPEC:" ) == 0  ) {
     rd_sntextio_varlist_spec(&iwd);
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_ID:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &ID );
+    TEXT_FILE_INFO.NSPEC_READ++ ;
+    TEXT_FILE_INFO.NLAM_READ = 0 ;
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_MJD:") == 0 ) {
+    iwd++ ;  get_PARSE_WORD_DBL(langC, iwd, &MJD );
+    GENSPEC.MJD_LIST[ISPEC] = MJD ;
+    if ( MJD > 0.0 ) 
+      { GENSPEC.IS_HOST[ISPEC] = 0 ; } // is SN spectrum
+    else
+      { GENSPEC.IS_HOST[ISPEC] = 1 ; }  // is HOST spectrum
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_TEXPOSE:") == 0 ) {
+    iwd++; get_PARSE_WORD_DBL(langC, iwd, &GENSPEC.TEXPOSE_LIST[ISPEC] );
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_SNR_COMPUTE:") == 0 ) {
+    iwd++; get_PARSE_WORD_FLT(langC, iwd, &GENSPEC.SNR_COMPUTE_LIST[ISPEC] );
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_LAMOBS_SNR:") == 0 ) {
+    iwd++; get_PARSE_WORD_DBL(langC, iwd, &GENSPEC.LAMOBS_SNR_LIST[ISPEC][0]);
+    iwd++; get_PARSE_WORD_DBL(langC, iwd, &GENSPEC.LAMOBS_SNR_LIST[ISPEC][1]);
+  }
+
+  else if ( strcmp(word0,"SPECTRUM_NLAM:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &NBLAM );
+    init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam
+    GENSPEC.NBLAM_VALID[ISPEC] = NBLAM ;
+  }
+
+  else if ( strcmp(word0,"SPEC:") == 0 ) {
+    for ( ivar=0; ivar < TEXT_FILE_INFO.NVARSPEC ; ivar++ ) {
+      iwd++; get_PARSE_WORD(langC, iwd, TEXT_FILE_INFO.STRING_LIST[ivar] );
+    }
+
+    ilam = TEXT_FILE_INFO.NLAM_READ ; // ilam starts at 0
+    TEXT_FILE_INFO.NLAM_READ++ ;
+
+    str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.LAMMIN] ;
+    sscanf(str, "%le", &GENSPEC.LAMMIN_LIST[ISPEC][ilam]) ;
+
+    str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.LAMMAX] ;
+    sscanf(str, "%le", &GENSPEC.LAMMAX_LIST[ISPEC][ilam]) ;
+
+    str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.FLAM] ;
+    sscanf(str, "%le", &GENSPEC.FLAM_LIST[ISPEC][ilam]) ;
+
+    str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.FLAMERR] ;
+    sscanf(str, "%le", &GENSPEC.FLAMERR_LIST[ISPEC][ilam]) ;
+
+    if ( IVARSPEC_TEXT.SIM_GENFLAM >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.SIM_GENFLAM] ;
+      sscanf(str, "%le", &GENSPEC.GENFLAM_LIST[ISPEC][ilam]) ;
+    }
+    if ( IVARSPEC_TEXT.SIM_GENMAG >= 0 ) {
+      str = TEXT_FILE_INFO.STRING_LIST[IVARSPEC_TEXT.SIM_GENMAG] ;
+      sscanf(str, "%le", &GENSPEC.GENMAG_LIST[ISPEC][ilam]) ;
+    }
+    //
   }
 
 
@@ -1811,67 +1949,18 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
 } // end parse_SNTEXTIO_SPEC
 
+
+/* xxxxx
 // ========================================================
-void parse_plusminus_TEXT(char *word, char *key, int *iwd_file, 
-			  float *PTR_VAL, float *PTR_ERR) {
-
-  // Created Feb 15 2021
-  //
-  // Parse text file keys of the form
-  //   [key]: <value> +- <error>
-  //      or
-  //   [key]:     <value> 
-  //   [key_ERR]: <error>
-  //
-  // Inputs:
-  //   *word   : current word in text file
-  //   *key    : desired key name without colon; e.g., 'MWEBV'
-  //   *iwd_file : current iwd index while reading text file
-  //
-  // Outputs:
-  //   *iwd_file : final iwd index reading file
-  //   *PTR_VAL  : float value associated with key
-  //   *PTR_ERR  : float value for error
-  //
-  // Beware that input *iwd_file is modified here.
-
-  int iwd = *iwd_file;
-  char next_word[60], KEY[60], KEY_ERR[60];
-  int  langC  =  LANGFLAG_PARSE_WORDS_C ;
-  int  lenkey = strlen(key);
-  char fnam[] = "parse_plusminus_TEXT" ;
-
-  // ------------ BEGIN --------
-
-  if ( strstr(word,key) == NULL ) { return; }
-
-  // construct key names with colons
-  sprintf(KEY,     "%s:",     key);
-  sprintf(KEY_ERR, "%s_ERR:", key);
-
-  if ( strcmp(word,KEY) == 0 ) { 
-
-    // read value after KEY
-    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_VAL );
-
-    // check +- format
-    iwd++; get_PARSE_WORD(langC, iwd, next_word );
-    if ( strcmp(next_word,"+-") == 0 || strcmp(next_word,"+_") == 0 ) 
-      { iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR ); }
-    else 
-      { iwd--; }
-  }
-
-  // check explicit error key of the form [KEY]_ERR: 
-  if ( strcmp(word,KEY_ERR) == 0 ) { 
-    iwd++; get_PARSE_WORD_FLT(langC, iwd, PTR_ERR );
-  }
-
-  // update iwd pointer in text file
-  *iwd_file = iwd;
-
+void rd_sntextio_malloc_spec(int ispec, int NBLAM) {
+  // Malloc GENSPEC arrays with NBLAM wavelength bins.
+  // If previous NBLAM > 0, free memory before malloc.
+  int NBLAM_LAST = GENSPEC.NBLAM_VALID[ispec];
+  // ---------- BEGIN --------
+  // free memory if already used
+  if ( NBLAM > 0 ) {  }
+  //.xyz
   return;
-
-} // end parse_plusminus_TEXT
-
+} // end  malloc_sntextio_spec
+xxxxxxxx */
 

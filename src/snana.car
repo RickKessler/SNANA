@@ -3154,7 +3154,6 @@ c ------------------------------
             CALL PROCESS_DATA_VERSION(IVERS)
          ENDIF
 
-
          IF ( LEGACY_READ_DATA ) then
             CALL GETINFO_PHOTOMETRY(ivers)
             CALL DUMP_README(ivers)
@@ -3361,13 +3360,36 @@ c LOOP OVER EVENTS
         IF ( N_SNLC_FITCUTS > MXLC_FIT ) GOTO 100 
 
         CALL INIT_SNLC()
-        CALL RDHEAD_DRIVER(isn,istat) 
+
+c read header for event and load SNDATA struct.
+c Note that ISN is a fortran index starting at 1
+        IF ( FORMAT_FITS ) THEN
+           CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_HEAD,ISN) ! C func
+        ELSE IF ( FORMAT_TEXT ) THEN
+           CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_HEAD,ISN) ! C func
+        ENDIF
+
+c transfer from C struct to glopbal fortran variables
+        CALL RDHEAD_DRIVER(istat) 
 
         if ( ISTAT < 0 ) GOTO 100    ! failed cut on header var/CID
  
-         CALL RDOBS_DRIVER (isn)  
+c Read observations for event and load SNDATA C-struct.
+c Read optional SPECTRA and load GENSPEC C-struct.
+c All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
+        IF ( FORMAT_FITS ) THEN
+           CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_OBS,ISN)
+c             CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_SPEC,ISN)
+        ELSE IF ( FORMAT_TEXT ) THEN
+           CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_OBS, ISN) 
+           CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_SPEC,ISN) 
+        ENDIF
 
-         CALL RDSPEC_DRIVER (isn)  
+c transfer variables from C struct to fortran global variables
+
+        CALL RDOBS_DRIVER()  
+
+        CALL RDSPEC_DRIVER()  
 
 cc  ?? read spectra ??
 c ---------------------------------------------------------------
@@ -4038,14 +4060,13 @@ c ----------------------------------------------
 
 C ===========================================
 +DECK,RDHEAD_DRIVER.
-      SUBROUTINE RDHEAD_DRIVER(ISN,ISTAT)
+      SUBROUTINE RDHEAD_DRIVER(ISTAT)
 
 c Created Feb 2021 [refactored from PARSE_HEAD]
 c Read header info and apply some quick selection cuts.
 
       IMPLICIT NONE
 
-      INTEGER ISN    ! (I) sparse SN index
       INTEGER ISTAT  ! (O) < 0 -> reject event
 
 +CDE,SNDATCOM.
@@ -4064,14 +4085,6 @@ C -------------- BEGIN ------------
 
       ISTAT = 0
       FNAM  = 'RDHEAD_DRIVER'
-
-c read header for event and load SNDATA struct.
-c Note that ISN is a fortran index starting at 1
-      IF ( FORMAT_FITS ) THEN
-         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_HEAD,ISN)  ! C func
-      ELSE IF ( FORMAT_TEXT ) THEN
-         CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_HEAD,ISN)  ! C func
-      ENDIF
 
 c - - - - -
 c fetch SNDATA values and load fortran globals
@@ -4453,14 +4466,14 @@ C ----------- BEGIN ----------
 
 C ===========================================
 +DECK,RDOBS_DRIVER.
-      SUBROUTINE RDOBS_DRIVER(ISN)
+      SUBROUTINE RDOBS_DRIVER()
 
 C Created Feb 11 2021
 C Read event (FITS or TEXT format) and transfer epoch-dependent 
 c information from SNDATA C-struct to fortran variables.
 
       IMPLICIT NONE
-      INTEGER  ISN    ! (I) sparse SN index
+cc      INTEGER  ISN    ! (I) sparse SN index
 
 c local var
 
@@ -4470,7 +4483,7 @@ c local var
 +CDE,FILTCOM.
 
       REAL*8 MJD_SAFETEY
-      PARAMETER ( MJD_SAFETEY = 10.0 ) ! extra margin for MJD window
+      PARAMETER ( MJD_SAFETEY = 30.0 ) ! extra margin for MJD window
 
       INTEGER OPT, NOBS_STORE, o, LENTMP, IFILT, IFILT_OBS
       REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2)
@@ -4484,20 +4497,14 @@ C ---------- BEGIN --------
 
       FNAM = 'RDOBS_DRIVER'
 
-c read observations for event and load SNDATA C-struct.
-      IF ( FORMAT_FITS ) THEN
-         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_OBS,ISN)
-      ELSE IF ( FORMAT_TEXT ) THEN
-         CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_OBS,ISN) 
-      ENDIF
-
 c set MJD window for copy SNDATA obs
       MJD_WINDOW(1) = 0.0;   MJD_WINDOW(2) = 1.0E6  ! default
 
 c check to refine window around approx peakmjd
       if ( SNLC_SEARCH_PEAKMJD > 40000.0 ) then
-         z = SNLC_REDSHIFT
-	 z1 = 1.0 + z ;   if ( z < 0.0 ) z1 = 2.0
+         z  = SNLC_REDSHIFT
+	 z1 = 1.0 + z ;   
+         if ( z < 0.0 ) z1 = 1.0 + CUTWIN_REDSHIFT(2)
 	 TOBS_MIN = CUTWIN_TREST(1)*z1  ! note this is usually negative
 	 TOBS_MAX = CUTWIN_TREST(2)*z1  ! usually positive
 	 MJD_WINDOW(1) = SNLC_SEARCH_PEAKMJD + TOBS_MIN - MJD_SAFETEY
@@ -4645,14 +4652,15 @@ c      STOP   ! xxx REMOVE
 
 C ===========================================
 +DECK,RDSPEC_DRIVER.
-      SUBROUTINE RDSPEC_DRIVER(ISN)
+      SUBROUTINE RDSPEC_DRIVER()
 
+c
 C Created Feb 17 2021
 C Read spectra (FITS or TEXT format) and transfer 
 c information from GENSPEC C-struct to fortran variables.
 
       IMPLICIT NONE
-      INTEGER  ISN    ! (I) sparse SN index
+cc      INTEGER  ISN    ! (I) sparse SN index
 
 c local var
 
@@ -4661,14 +4669,7 @@ c local var
 
 C ------------ BEGIN ----------
 
-c read spectra for event and load GENSPEC C-struct
-c (see sntools_spectrograph.h)
 
-      IF ( FORMAT_FITS ) THEN
-ccc         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_OBS,ISN)
-      ELSE IF ( FORMAT_TEXT ) THEN
-         CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_SPEC,ISN) 
-      ENDIF
 
       RETURN
       END     ! end RDSPEC_DRIVER
@@ -13348,7 +13349,7 @@ c determine STDOUT_UPDATE logical to dump info
 
       CALL FLUSH(6)
       RETURN
-      END
+      END      ! end PRINT_RDSN
 
 C =================================
 +DECK,SET_HOSTGAL_PREFIX.
@@ -13382,7 +13383,7 @@ c   + SNLC_ZEROPT_forCUT(ep) based on cut in ADU or Npe
 c   + SNLC_PSF_FWHM_ARCSEC(ep)
 
       IMPLICIT NONE
-      INTEGER ep  ! (I) epoch index
+      INTEGER ep      ! (I) epoch index
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -13391,22 +13392,27 @@ c   + SNLC_PSF_FWHM_ARCSEC(ep)
 c -------------- BEGIN ------------
 
       SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
+      
       if ( cutwin_zpNPE(1) > 0. ) then
          GAIN     = SNLC_GAIN(ep)
 
          if ( GAIN < 0.01 ) then
-            write(c1err,661) 
-     &         GAIN, SNLC_CCID(1:ISNLC_LENCCID), SNLC8_MJD(ep)
- 661        format('Invalid GAIN = ',F6.2,
-     &            ' for CID=', A, 2x, 'MJD=',F10.4 )
-            c2err = 'Cannot prep ZP(Npe) cut without GAIN.'
-            CALL MADABORT('SET_EPVAR_MISC', c1err, c2err)
+            GAIN = 0.001  ! -> results in very low ZP that should fail cut
+
+c ------------
+c            write(c1err,661) 
+c     &         GAIN, SNLC_CCID(1:ISNLC_LENCCID), SNLC8_MJD(ep)
+c 661        format('Invalid GAIN = ',F6.2,
+c     &            ' for CID=', A, 2x, 'MJD=',F10.4 )
+c            c2err = 'Cannot prep ZP(Npe) cut without GAIN.'
+c            CALL MADABORT('SET_EPVAR_MISC', c1err, c2err)
+c ------------
          endif
 
          ZPADD_pe = 2.5*log10(GAIN)
          SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) + ZPADD_pe
-      endif
 
+      endif
 
       SNLC_PSF_FWHM_ARCSEC(ep) = 
      &   SNLC_PSF_SIG1(ep) * (SNLC_PIXSIZE * 2.355)
@@ -15567,6 +15573,8 @@ c
 c
 c Jun 25 2019: include SIM_XXX arrays
 c Nov 12 2019: check LSIM_MAGOBS to set SIM_EPMAGOBS(ep)
+c Feb 17 2021: 
+c   for I/O refactor, include SNLC_ZEROPT_forCUTS and SNLC_PSF_FWHM
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -15596,6 +15604,9 @@ C ------------- BEGIN ------------
       SNLC_GAIN(ep1)           = SNLC_GAIN(ep2)
       SNLC_XPIX(ep1)           = SNLC_XPIX(ep2)
       SNLC_YPIX(ep1)           = SNLC_YPIX(ep2)
+
+      SNLC_ZEROPT_forCUT(ep1)   = SNLC_ZEROPT_forCUT(ep2)
+      SNLC_PSF_FWHM_ARCSEC(ep1) = SNLC_PSF_FWHM_ARCSEC(ep2)
 
 c beware that CCDNUM is read from header, and also from 
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
@@ -18062,6 +18073,7 @@ c ------ compute MJDMIN/MJDMAX here before calling SET_PKMJD ------
       DO NEWMJD = 1, ISNLC_NEWMJD_STORE
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+
         DO EP = EPMIN, EPMAX
           SNLC8_FLUXCAL(EP)        = DBLE(SNLC_FLUXCAL(ep))
           SNLC8_FLUXCAL_ERRTOT(EP) = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
@@ -18093,7 +18105,7 @@ c determine redshift for Hubble diagram (Oct 2013)
       CALL REDSHIFT_HD()
 
 +SELF,IF=SNANA,SNFIT.
-c get approx peakMJD    
+c get approx peakMJD
       if ( OPT_SETPKMJD > 0 ) THEN
          CALL SET_PEAKMJD()
          IF ( LEGACY_READ_DATA ) CALL SELECT_EPOCH_LEGACY()
@@ -18253,6 +18265,10 @@ c This correction is done AFTER Xsig = S/N is calculated
      &       SNLC_FLUXCAL(ep) * Scale
              SNLC_FLUXCAL_ERRTOT(ep) =
      &       SNLC_FLUXCAL_ERRTOT(ep) * Scale
+           endif
+
+           if ( LEGACY_READ_DATA ) then
+              CALL SET_EPVAR_MISC(ep) ! restored Feb 2021
            endif
 
 c Mar 2018: store time since last obs: all bands, and same band
@@ -21760,6 +21776,7 @@ c set cut-bit if cut is satisfied
 c if all cuts are satisfied for this epoch, then set MJDMASK
 
         CUTMASK8_MJD(imjd) = CUTMASK8_TMP
+
 
         if ( CUTMASK8_TMP .EQ. CUTMASK8_MJD_ALL ) then
            MJDMASK(imjd) = 1
@@ -39349,9 +39366,7 @@ C -------------- BEGIN --------------
 
 c turn off epoch selection-mask
       NRD = 0
-      if ( LEGACY_READ_DATA ) THEN
-         CALL SET_RDMASK_SNFITSIO(NRD, EPOCH_RDMASK_SNFITSIO)  
-      endif
+      CALL SET_RDMASK_SNFITSIO(NRD, EPOCH_RDMASK_SNFITSIO)  
 
       ISN                  = N_SNLC + 1  ! prepare for next SN
       ABSO_INDEX(isn)      = IROW
@@ -39361,26 +39376,17 @@ c turn off epoch selection-mask
 
       IPARFITS_HEAD = 0    ! Oct 3, 2011
 
-      IF ( REFAC_READ_DATA  ) THEN 
-         CALL RDHEAD_DRIVER(IROW,ISTAT)   ! refactored, Feb 2021
-      ELSE
-         CALL PARSE_HEAD(ISN, "", ISTAT)  ! legacy call
-      ENDIF
+      CALL PARSE_HEAD(ISN, "", ISTAT) ! legacy call
 
       if ( ISTAT < 0 ) RETURN
 
-      IF ( LSIM_SNANA .and. LEGACY_READ_DATA ) THEN
+      IF ( LSIM_SNANA  ) THEN
         CALL PARSE_SIM_LEGACY ( ISN, "SIM", ISTAT)
         if ( ISTAT < 0 ) RETURN
       ENDIF
      
-
-      IF ( LEGACY_READ_DATA ) THEN
-         CALL RDSNFITS_EPCUTS( IVERS, IROW )   ! select epochs passing cuts
-         CALL RDSNFITS_PHOT  ( IVERS, IROW )   ! read all variables
-      ELSE
-         CALL RDOBS_DRIVER ( IROW )  ! refactored for FITS or TEXT
-      ENDIF
+      CALL RDSNFITS_EPCUTS( IVERS, IROW ) ! select epochs passing cuts
+      CALL RDSNFITS_PHOT  ( IVERS, IROW ) ! read all variables
 
 c read optional spectra (Apr 2019)
       CALL RDSNFITS_SPEC ( IVERS )
@@ -39419,6 +39425,32 @@ c --------------------------------
       RETURN
       END   ! end of RDSNFITS
 
+
+C ==========================================
++DECK,DUMP_ZEROPT.
+      SUBROUTINE DUMP_ZEROPT(ep,label)
+
+      IMPLICIT NONE
+      INTEGER ep
+      CHARACTER LABEL*(*)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      REAL*8 MJD, TOL
+C --------- BEGIN --------
+      MJD = SNLC8_MJD(ep) - 56500.0
+      TOL = 0.001
+      if ( dabs(MJD - 51.267) < TOL ) then
+         write(6,60) label, ep, MJD, 
+     &       SNLC_ZEROPT(ep), SNLC_ZEROPT_forCUT(ep)
+ 60      format(' xxx ', A, 2x,'ep=',i3, 2x, 'MJD=',F10.4, 2x, 
+     &        'ZP(ADU,pe)=',F6.3,',', F6.3 )
+      endif
+
+      RETURN
+      END
+
 C ==========================================
 +DECK,RDSNFITS_EPCUTS.
       SUBROUTINE RDSNFITS_EPCUTS ( IVERS, IROW )
@@ -39426,7 +39458,7 @@ C ==========================================
 c Created Jun 16, 2011 by R.Kessler
 c
 c Read enough epoch info to make epoch-selection and check
-c for epochs to ignore.  Set the read-mask. 
+c for epochs to ignore.  Set the rea ask. 
 c
 c  IVERS  specifies the version.
 c  IROW   specifies the absolute row-location in the fits file.
@@ -39559,8 +39591,9 @@ c use above info to determine which epochs to keep/reject
       DO 99 ep = 1, NOBS
         MJD         = SNGL( SNLC8_MJD(ep) )
         IDFIELD     = ISNLC_IDFIELD(ep)
-        IFILT_OBS   = ISNLC_IFILT_OBS(ep)        
+        IFILT_OBS   = ISNLC_IFILT_OBS(ep)
         IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+
         CALL SET_EPVAR_MISC(ep)   ! set SNLC_ZP (ADU or Npe) and PSF_FWHM
 
         IGNORE  = CHECK_EPOCH_LEGACY(1,ep) .and.
@@ -41056,7 +41089,7 @@ c function
 
 c ------------------- BEGIN -------------------
 
-      FNAM = 'SELECT_EPOCH'
+      FNAM = 'SELECT_EPOCH_LEGACY'
       NMJD_STORE_NEW  = 0
       NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
       EP_NEW          = 0 
@@ -41074,25 +41107,16 @@ c ------------------- BEGIN -------------------
          EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
          EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
 
-         IF ( LEGACY_READ_DATA ) THEN
-            MJD8      = SNLC8_MJD(EPMIN) 
-            MJD       = SNGL(MJD8)
-            IFILT_OBS = ISNLC_IFILT_OBS(epmin)
-            IFILT     = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
-            TOBS      = MJD - PEAKMJD
-            TREST     = TOBS/z1
-            LTREST    = TREST >= CUTWIN_TREST(1) .and. 
+         MJD8      = SNLC8_MJD(EPMIN) 
+         MJD       = SNGL(MJD8)
+         IFILT_OBS = ISNLC_IFILT_OBS(epmin)
+         IFILT     = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
+         TOBS      = MJD - PEAKMJD
+         TREST     = TOBS/z1
+         LTREST    = TREST >= CUTWIN_TREST(1) .and. 
      &                  TREST <= CUTWIN_TREST(2)
-            LSNRMIN = CUTWIN_SNRMIN_FILT(1,IFILT) < 1000.            
-            LPASS = LTREST .and. LSNRMIN
-         ENDIF
-
-         IF ( REFAC_READ_DATA ) THEN
-            IGNORE  = CHECK_EPOCH_LEGACY(1,epmin) .and.
-     &                (.not. REFORMAT_SAVE_BADEPOCHS)
-            LPASS  = LCUTEPOCH_LEGACY(0, z, PEAKMJD, EPMIN) 
-     &             .and. (.not. IGNORE )
-         ENDIF
+         LSNRMIN = CUTWIN_SNRMIN_FILT(1,IFILT) < 1000.            
+         LPASS = LTREST .and. LSNRMIN
 
          IF ( LPASS ) THEN
             NMJD_STORE_NEW = NMJD_STORE_NEW + 1
@@ -41201,14 +41225,10 @@ c      print*,' xxx MJD=', MJD, '  PHOTFLAG=', PHOTFLAG
       ELSE
          ZZ    = 1.0
       ENDIF
+      
+      LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
+      IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
 
-      if ( LEGACY_READ_DATA ) then
-         LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
-         IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
-      else
-         ! REFAC_READ
-         LTMP = ( PKMJD < 40000.  )
-      endif
 
 c evaluate epoch cut in rest-frame
       IF ( LTMP ) THEN

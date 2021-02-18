@@ -42,6 +42,7 @@ struct {
   char STRING_LIST[MXVAROBS_TEXT][20] ;   // string values per OBS row
 
   int NOBS_READ ;
+  int NSPEC_READ ;
   int NLAM_READ ;
 
 } TEXT_FILE_INFO ;
@@ -63,10 +64,12 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION);
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION);
 
 int  rd_sntextio_list(void);
-void rd_sntextio_malloc_list(int OPT, int NFILE) ;
 void rd_sntextio_global(void);
 void rd_sntextio_varlist_obs(int *iwd_file);
 void rd_sntextio_varlist_spec(int *iwd_file);
+
+void rd_sntextio_malloc_list(int OPT, int NFILE) ;
+void rd_sntextio_malloc_spec(int ISPEC, int NBLAM);
 
 void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile);
 void rd_sntextio_event__(int *OPTMASK, int *ifile);
@@ -74,9 +77,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd);
 bool parse_SNTEXTIO_OBS(int *iwd);
 bool parse_SNTEXTIO_SPEC(int *iwd);
 
-void check_plusminus_TEXT(int *iwd_file, float *PTR_ERR);
-void parse_plusminus_TEXT(char *word, char *key, int *iwd_file, 
-			  float *PTR_VAL, float *PTR_ERR) ;
+// xxxvoid check_plusminus_TEXT(int *iwd_file, float *PTR_ERR);
+void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
+			      float *PTR_VAL, float *PTR_ERR) ;
 
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
 

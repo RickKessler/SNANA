@@ -3748,34 +3748,35 @@ and similarly for {\tt DEC}; one of the latter two is recommended
 to avoid potential conflict with the RA,DEC of the SN in one of the
 output tables.
 
-The galaxy shape is described by an arbitrary sum
-of Sersic profiles.  
-The galaxy size is defined by {\tt VARNAMES} 
+The galaxy shape is described by an arbitrary sum of Sersic profiles
+using the following {\tt VARNAMES}:
 \begin{verbatim}
-     a0_Sersic - a9_Sersic
-     b0_Sersic - b9_Sersic  ;
+     a0_Sersic - a9_Sersic   # half-light radius, major axis
+     b0_Sersic - b9_Sersic   # half-light radius, minor axis
+     n0_Sersic - n9_Sersic   # Sersic index; 0.5, 1, 4 -> Gauss, exp, deVauc
+     w0_Sersic - w9_Sersic   # weights (if 2 or more profiles per galaxy)
 \end{verbatim}
 %
-these are major- and minor-axis half-light sizes (arcseconds) 
+The a and b are major- and minor-axis half-light sizes (arcseconds) 
 for up to 10 Sersic components.
 There are two options for defining the the Sersic index 
-{\tt n0\_Sersic - n9\_Sersic}. First, the Sersic index
-can be included as one of the {\tt VARNAMES} as
-done with {\tt n0\_Sersic} in Fig.~\ref{fig:hostlib}.
-This option allows a different Sersic index for each host galaxy.
-The second option is to define a fixed Sersic index
-after the {\tt VARNAMES} list as done with
-{\tt n0\_Sersic} in Fig.~\ref{fig:hostlib};
-this same value is used for each host galaxy.
+{\tt n0\_Sersic - n9\_Sersic}: 
+1) include in {\tt VARNAMES} list 
+(e.g., see {\tt n0\_Sersic} in Fig.~\ref{fig:hostlib})
+to allow a different Sersic index for each host galaxy, and 
+2) define a fixed Sersic index for all host galaxies using 
+a key after the {\tt VARNAMES} list as shown in Fig.~\ref{fig:hostlib}.
 Commonly used Sersic indices are $n=0.5, 1, 4$ 
 for Gaussian, exponential and  deVaucouleurs,
 respectively. 
+If there are more than two Sersic profiles per galaxy, 
+weights ({\tt w0\_Sersic}-{w9\_Sersic}) are needed.
 
 %Finally, the weight ``{\tt w0\_Sersic}'' give the flux-ratio
 %between this component and the total flux. The weight 
 %{\tt w4\_Sersic} need not be given since $w_4 = 1 - w_0$.  
+
 Finally, ``{\tt a\_rot}'' 
-% text from Ravi:
 is the rotation angle (in degrees) of the major axis  w.r.t. 
 the +RA coordinate.  If North is up and East is to the right, 
 {\tt a\_rot} is measured clockwise, from the East toward the South.
@@ -11441,11 +11442,11 @@ be defined to select the following subsets,
 A few other miscellaneous table options are
 %
 \begin{verbatim}
+  SNTABLE_LIST = 'SPECPLOT'              # plot spectra
   SNTABLE_LIST = 'SNANA+EPOCHS'          # include epoch info in SNANA table
   SNTABLE_LIST = 'SNANA+SIM_MAGOBS'      # idem, but only MJD,IFILT,SIM_MAGOBS
   SNTABLE_LIST = 'SNANA FITRES NOSIMVAR' # suppress SIM_xxx variables.
   SNTABLE_LIST = 'SNANA FITRES MODELSPEC'# SALT2 model spectrum for each epoch
-  SNTABLE_LIST = 'SNANA FITRES SPECTRA'  # legacy key: same as MODELSPEC
   SNTABLE_LIST = 'SNANA(PS:10) FITRES'   # pre-scale SNANA table by 10
   SNTABLE_LIST = 'FITRES NOZPHOT'        # suppress ZPHOT variables
   SNTABLE_LIST = 'SNANA(text:host)'      # include HOSTGAL info in text tables
@@ -11453,8 +11454,10 @@ A few other miscellaneous table options are
 \end{verbatim}
 %
 \begin{itemize}
-\item
-{\tt SNANA+EPOCHS} and {\tt MODELSPEC} options work with 
+  \item {\tt SPECPLOT} plots spectra (real or simulated); works with
+     all formats. Note that \snana\ has no spectral-analysis tools.
+%
+\item {\tt SNANA+EPOCHS} and {\tt MODELSPEC} options work with 
 {\tt HBOOK} and {\tt ROOT} format, but not with {\tt TEXT} format. 
 %
 \item {\tt SNANA+SIM\_MAGOBS} is a compressed table to contain

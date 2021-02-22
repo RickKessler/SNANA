@@ -266,9 +266,12 @@ int RD_SNFITSIO_SHT(int isn, char *parName, short int *parList, int *ipar);
 int RD_SNFITSIO_FLT(int isn, char *parName, float  *parList, int *ipar);
 int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar);
 void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
-void RD_SNFITSIO_SPECDATA(int irow, double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR);
+void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
+			  double *FLAM, double *FLAMERR, double *GENFLAM);
+
+void RD_SNFITSIO_SPECDATA_LEGACY(int irow, double *METADATA, int *NLAMBIN,
+				 double *LAMMIN, double *LAMMAX, 
+				 double *FLAM, double *FLAMERR);
 
 void  check_required_headkeys(void) ;
 int   formIndex_snfitsio(char *form) ;
@@ -297,10 +300,9 @@ int rd_snfitsio_dbl__(int *isn,  char *parName, double *parLIST, int *iptr) ;
 
 void set_rdmask_snfitsio__(int *N, int *mask) ;
 void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX );
-void rd_snfitsio_specdata(int *irow, double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR);
-
+void rd_snfitsio_specdata_legacy__(int *irow, double *METADATA, int *NLAMBIN,
+				   double *LAMMIN, double *LAMMAX, 
+				   double *FLAM, double *FLAMERR);
 // mangled write funs
 
 void wr_snfitsio_update__(void) ;

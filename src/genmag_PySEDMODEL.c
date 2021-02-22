@@ -26,6 +26,8 @@
   Jul 12 2019 RK - store inputs in INPUTS_BYOSED struct, and add 
                    internal DUMPFLAG_HOSTPAR in genmag_BYOSED().
   Sep 11 2020 RK - major refactor for BYOSED -> PySEDMODEL
+  Feb 20 2021 RK - fix bug in genmag_PySEDMODEL that was preventing
+                   BYOSED params from being returned.
 
  *****************************************/
 
@@ -295,6 +297,8 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //   MAGOBS_list   : list of true mags
   //   MAGERR_list   : list of mag errors (place-holder, in case)
   //
+  // Feb 20 2021 RK 
+  //   + fix bug that was preventing call to fetchParVal_PySEDMODEL()
 
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
@@ -310,6 +314,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
   int    NEWEVT_FLAG = 0 ;
+  int    NEWEVT_FLAG_TMP ;
   int    DUMPFLAG_HOSTPAR = 0 ; 
 
   int    NLAM, o, ipar ;
@@ -328,6 +333,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   // check of this is a new event, or same event
   // with different epoch
+  Event_PySEDMODEL.EXTERNAL_ID = EXTERNAL_ID ;
   if ( EXTERNAL_ID != Event_PySEDMODEL.LAST_EXTERNAL_ID )
     { NEWEVT_FLAG=1; }
 
@@ -373,9 +379,12 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   for(o=0; o < NOBS; o++ ) {
     Tobs  = TOBS_list[o];
     Trest = Tobs/z1;
-    if (o > 0)
-      { NEWEVT_FLAG=0; }
-    fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
+    if (o == 0 ) 
+      { NEWEVT_FLAG_TMP = NEWEVT_FLAG; }
+    else
+      { NEWEVT_FLAG_TMP = 0; }
+    
+    fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest, 
 			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED, 
 			pyFORMAT_STRING_HOSTPAR);  
     Event_PySEDMODEL.NLAM = NLAM ;
@@ -399,6 +408,10 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   // for NEW EVENT, store SED parameters so that sim can 
   // write them to data files
   // hack
+  printf(" 1. xxx %s: hello. ID=%d  ID_LAST=%d, NEWEVT=%d\n", 
+	 fnam, EXTERNAL_ID,   Event_PySEDMODEL.LAST_EXTERNAL_ID,
+	 NEWEVT_FLAG );
+
   if ( NEWEVT_FLAG ) { 
     fetchParVal_PySEDMODEL(Event_PySEDMODEL.PARVAL); 
   }
@@ -492,7 +505,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   double val;
   char **parNameList, pyfun_tmp[60] ;
   int NPAR, ipar;
-  //  char fnam[] = "fetchParVal_PySEDMODEL" ;
+  char fnam[] = "fetchParVal_PySEDMODEL" ;
 
   // ------------- BEGIN ------------------
 
@@ -520,7 +533,8 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   
 #ifndef USE_PYTHON
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    val = 100.0 + (double)ipar ; parVal[ipar] = val;
+    val = (double)Event_PySEDMODEL.EXTERNAL_ID + 0.1*(double)ipar ; 
+    parVal[ipar] = val;
   }
 #endif
 

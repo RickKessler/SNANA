@@ -207,7 +207,7 @@ void wr_snfitsio_init_head(void) {
 
   char parName[80] ;
   char TBLname[40] ;
-  //  char fnam[] = "wr_snfitsio_init_head" ;
+  char fnam[] = "wr_snfitsio_init_head" ;
 
   // ------------- BEGIN --------------
 
@@ -761,7 +761,11 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "1I", "LAMINDEX",    itype   ) ; 
   wr_snfitsio_addCol( "1E", "FLAM",        itype   ) ;  
   wr_snfitsio_addCol( "1E", "FLAMERR",     itype   ) ;  
-  wr_snfitsio_addCol( "1I", "SIM_MAG",     itype   ) ; 
+
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    wr_snfitsio_addCol( "1E", "SIM_FLAM",    itype   ) ;  // Feb 2021
+    //    wr_snfitsio_addCol( "1I", "SIM_MAG",     itype   ) ; 
+  }
   if ( GENSPEC.USE_WARP ) 
     { wr_snfitsio_addCol( "1I", "SIM_WARP",  itype   ) ; }
   
@@ -1171,7 +1175,7 @@ void wr_snfitsio_update_head(void) {
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80];
-  //  char fnam[] = "wr_snfitsio_update_head" ;
+  char fnam[] = "wr_snfitsio_update_head" ;
   
   // ------------- BEGIN -------------
 
@@ -2012,6 +2016,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Aug 2016:
   // Update SPEC.FITS file with spectra.
   // Mar 2019: write optional SIM_WARP column as 1000*WARP
+  // Feb 2021: write GENFLAM for sim
 
   int  NBLAM_TOT = GENSPEC.NBLAM_TOT ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
@@ -2114,14 +2119,22 @@ void  wr_snfitsio_update_spec(int imjd)  {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAM ;
     wr_snfitsio_fillTable ( ptrColnum, "FLAM", itype );  
-
+   
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAMERR ;
     wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
 
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = (int)(GENMAG*100.0 + 0.5) ;
-    wr_snfitsio_fillTable ( ptrColnum, "SIM_MAG", itype );  
+    if ( SNFITSIO_SIMFLAG_SNANA ) {
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = GENFLAM ;
+      wr_snfitsio_fillTable ( ptrColnum, "SIM_FLAM", itype );  
+
+      /*
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1I = (int)(GENMAG*100.0 + 0.5) ;
+      wr_snfitsio_fillTable ( ptrColnum, "SIM_MAG", itype );  
+      */
+    }
 
     if ( GENSPEC.USE_WARP ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2308,6 +2321,9 @@ void RD_SNFITSIO_INIT(void) {
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
+  init_SNDATA_GLOBAL();
+  init_GENSPEC_GLOBAL();
+
 } // end RD_SNFITSIO_INIT
 
 // =========================================
@@ -2449,13 +2465,15 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   // Feb 17, 2017: add SUBSURVEY_FLAG
   // Dec 26, 2018: check for CODE_IVERSION
   // Oct 26, 2020: check for SNANA_VERSION in FITS header
-  // Feb 20, 2021: check for SIM_SL_FLAG (strong lens)
+  // Feb 10, 2021: check for SIM_SL_FLAG (strong lens)
+  //
 
   int ipar, ivar ;
   char key[60], tmpString[60];
   char fnam[] = "RD_SNFITSIO_GLOBAL" ;
 
   // --------------- BEGIN ----------------
+
 
   sprintf(tmpString,"NULL");
 
@@ -2655,7 +2673,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
     
     j++ ;  NRD = RD_SNFITSIO_STR(isn, "IAUC", SNDATA.IAUC_NAME, 
-				 &SNFITSIO_READINDX_HEAD[j] ) ;
+				 &SNFITSIO_READINDX_HEAD[j] ) ; 
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3082,9 +3100,34 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
   // - - - - - - - - - - -
 
-  if ( LRD_SPEC ) {
-    j = 0;
+  if ( LRD_SPEC &&  SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
+    // load GENSPEC struct in sntools_spectrograph.h (Feb 19 2021)
+    int irow, ROWMIN, ROWMAX, NBLAM, ispec=0;
 
+    RD_SNFITSIO_SPECROWS(SNDATA.CCID, &ROWMIN, &ROWMAX) ;
+    GENSPEC.NMJD_TOT = 0 ;
+
+    for(irow = ROWMIN; irow <= ROWMAX; irow++ ) {
+
+      NBLAM = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
+      init_GENSPEC_EVENT(ispec,NBLAM);   // malloc GENSPEC
+
+      GENSPEC.NMJD_TOT++ ; 
+      GENSPEC.NBLAM_VALID[ispec]   = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
+      GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
+      GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
+      GENSPEC.ID_LIST[ispec]       = ispec+1 ;  // ID starts at 1
+
+      RD_SNFITSIO_SPECDATA(irow  
+			   ,GENSPEC.LAMMIN_LIST[ispec] 
+			   ,GENSPEC.LAMMAX_LIST[ispec] 
+			   ,GENSPEC.FLAM_LIST[ispec] 
+			   ,GENSPEC.FLAMERR_LIST[ispec] 
+			   ,GENSPEC.GENFLAM_LIST[ispec]   ) ;
+      ispec++ ;
+
+
+    } // end irow loop over rows
 
   } // end LRD_SPEC
 
@@ -4135,17 +4178,17 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Open and SPECTROGRAPH file and read first two tables
   // to prepare for reading arbitrary spectrum from 3rd table.
 
-  int istat, itype, hdutype, icol, anynul,MEMD ;
+  int istat, itype, hdutype, icol, anynul, MEMD, ilam ;
   int nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
   char *ptrFile, keyName[40], comment[200] ;
-  //  char fnam[] = "rd_snfitsio_spec" ;
+  char fnam[] = "rd_snfitsio_spec" ;
 
   // ------------ BEGIN -------------
 
   if ( !SNFITSIO_SIMFLAG_SPECTROGRAPH ) { return; }
-
+  
   istat = 0;
   itype   = ITYPE_SNFITSIO_SPEC ;
   ptrFile = snfitsFile_plusPath[ifile][itype];
@@ -4177,7 +4220,7 @@ void  rd_snfitsio_specFile( int ifile ) {
     MEMD = NROW * sizeof(double);
     RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST = (double*) malloc(MEMD);
     RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST = (double*) malloc(MEMD);   
-
+  
     icol=2;
     fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		      RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST, 
@@ -4185,7 +4228,8 @@ void  rd_snfitsio_specFile( int ifile ) {
     icol=3;
     fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
 		      RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST,
-		      &anynul, &istat );        
+		      &anynul, &istat );    
+    
   } // end ifile=1
 
 
@@ -4284,7 +4328,87 @@ void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX)  {
 }
 
 // =========================================================
-void RD_SNFITSIO_SPECDATA(int irow,  double *METADATA, int *NLAMBIN,
+void RD_SNFITSIO_SPECDATA(int irow, 
+			  double *LAMMIN, double *LAMMAX, 
+			  double *FLAM, double *FLAMERR, double *SIM_FLAM) {
+
+  // Read spectral data for input 'irow'.
+  // Returns:
+  //  LAMMIN,LAMMAX =  array of min/max wave in each bin
+  //  FLAM,FLAMERR  = flux and error in each wave bin
+  //
+  // For sim, also return true GENFLAM
+
+  fitsfile *fp = fp_snfitsFile[ITYPE_SNFITSIO_SPEC] ;  
+  int NLAM     = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
+  int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
+  int PTRMAX   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX[irow];
+  int itype    = ITYPE_SNFITSIO_SPEC;
+
+  int *LAMINDEX, MEMI, istat=0, icol, anynul, ilam, ILAM ; 
+  long NROW      = PTRMAX - PTRMIN + 1;
+  long FIRSTROW  = PTRMIN ;
+  long FIRSTELEM = 1 ;
+
+  int  LDMP = 0 ;
+  char fnam[] = "RD_SNFITSIO_SPECDATA";
+
+  // --------------- BEGIN --------------
+
+  // allocate LAMINDEX array
+  MEMI     = NLAM * sizeof(int);
+  LAMINDEX = (int*) malloc(MEMI);
+
+  if ( LDMP ) {
+    printf(" 0. xxx %s ---------------------------- \n", fnam);
+    printf(" 1. xxx %s ROW=%d \n", fnam, irow );
+  }
+
+  icol=1 ;  
+  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
+		    LAMINDEX, &anynul, &istat ); 
+  sprintf(c1err,"Read LAMINDEX for spectra", snfitsType[itype] ) ;
+  snfitsio_errorCheck(c1err, istat);
+
+  if(LDMP) { printf(" 2. xxx %s  NLAM=%d \n", fnam, NLAM ); }
+
+  // transfer LAMINDEX to LAMMIN & LAMMAX
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    ILAM         = LAMINDEX[ilam];
+    LAMMIN[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST[ILAM] ;
+    LAMMAX[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST[ILAM] ;
+
+    if ( LDMP ) {
+      if ( ilam < 5 ) {
+	printf("\t xxx ilam=%d  ILAM=%d  LAMIN/MAX=%f/%f\n", 
+	       ilam, ILAM, LAMMIN[ilam], LAMMAX[ilam] );
+      }
+    } // end LDMP
+  }
+
+
+  icol=2 ;  istat=0;
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		    FLAM, &anynul, &istat ); 
+
+  icol=3 ;  istat=0;
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		    FLAMERR, &anynul, &istat ); 
+
+  icol=4 ;  istat=0;
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+		    SIM_FLAM, &anynul, &istat ); 
+
+  // printf(" 4. xxx %s\n", fnam);
+
+  free(LAMINDEX);
+  return ;
+
+} // end RD_SNFITSIO_SPECFLUX
+
+
+// =========================================================
+void RD_SNFITSIO_SPECDATA_LEGACY(int irow,  double *METADATA, int *NLAMBIN,
 			  double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR) {
 
@@ -4306,7 +4430,7 @@ void RD_SNFITSIO_SPECDATA(int irow,  double *METADATA, int *NLAMBIN,
   long FIRSTROW  = PTRMIN ;
   long FIRSTELEM = 1 ;
 
-  char fnam[] = "RD_SNFITSIO_SPECDATA";
+  char fnam[] = "RD_SNFITSIO_SPECDATA_LEGACY";
 
   // --------------- BEGIN --------------
 
@@ -4341,12 +4465,13 @@ void RD_SNFITSIO_SPECDATA(int irow,  double *METADATA, int *NLAMBIN,
   free(LAMINDEX);
   return ;
 
-} // end RD_SNFITSIO_SPECFLUX
+} // end RD_SNFITSIO_SPECDATA_LEGACY
 
-void rd_snfitsio_specdata__(int *irow, double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR) {
-  RD_SNFITSIO_SPECDATA(*irow,METADATA,NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
+void rd_snfitsio_specdata_legacy__(int *irow, double *METADATA, int *NLAMBIN,
+				   double *LAMMIN, double *LAMMAX, 
+				   double *FLAM, double *FLAMERR) {
+  RD_SNFITSIO_SPECDATA_LEGACY(*irow,METADATA,
+			      NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
   return;
 }
 

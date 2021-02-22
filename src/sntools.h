@@ -60,7 +60,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_02h"         
+#define  SNANA_VERSION_CURRENT  "v11_02i"          
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -521,6 +521,8 @@ void copy_SNDATA_OBS(int copyFlag, char *key,
 		     int NVAL,char *stringVal, double *parVal);
 int select_MJD_SNDATA(double *CUTWIN_MJD);
 
+void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal); 
+
 void copy_int(int copyFlag, double *DVAL0, int    *IVAL1) ;
 void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
 void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
@@ -885,6 +887,9 @@ void copy_sndata_head__(int *copyFlag, char *key,
 void copy_sndata_obs__(int *copyFlag, char *key,
 		       int *NVAL,char *stringVal,double *parVal);
 int  select_mjd_sndata__(double *MJD_WINDOW);
+
+void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
+
 
 // ------ sorting --------
 

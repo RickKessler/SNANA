@@ -3,6 +3,17 @@
 #define OPTMASK_TEXT_OBS  4
 #define OPTMASK_TEXT_SPEC 8
 
+// define indices for required header keys to trap common
+// mistakes in creating text data files
+#define HEAD_REQUIRE_SURVEY     0
+#define HEAD_REQUIRE_SNID       1
+#define HEAD_REQUIRE_FILTERS    2
+#define HEAD_REQUIRE_z          3
+#define HEAD_REQUIRE_RA         4
+#define HEAD_REQUIRE_DEC        5
+#define HEAD_REQUIRE_FAKE       6
+#define NHEAD_REQUIRE         7
+
 #define MSKOPT_PARSE_TEXT_FILE  MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT
 
 #define MXVAROBS_TEXT 20
@@ -11,12 +22,12 @@ struct {
   int ZPFLUX, ZPERR, PSF, SKYSIG, SKYSIG_T, SKYSIG_GAIN ;
   int GAIN, PHOTFLAG, PHOTPROB, XPIX, YPIX, CCDNUM; 
   int SIMEPOCH_MAG ; // EPFILTREST, EPMAGREST??
-} IVAROBS_TEXT ;
+} IVAROBS_SNTEXTIO ;
 
 struct {
   int LAMMIN, LAMMAX, LAMAVG, FLAM, FLAMERR;
   int SIM_GENFLAM, SIM_GENMAG ;
-} IVARSPEC_TEXT ;
+} IVARSPEC_SNTEXTIO ;
 
 struct {
   int  NVERSION ;
@@ -28,7 +39,7 @@ struct {
   int  NFILE;
   char **DATA_FILE_LIST ;
 
-} TEXT_VERSION_INFO ;
+} SNTEXTIO_VERSION_INFO ;
 
 
 struct {
@@ -45,7 +56,11 @@ struct {
   int NSPEC_READ ;
   int NLAM_READ ;
 
-} TEXT_FILE_INFO ;
+  bool HEAD_EXIST_REQUIRE[NHEAD_REQUIRE];
+  char HEAD_KEYNAME_REQUIRE[NHEAD_REQUIRE][20];
+  int  NVAR_PRIVATE_READ; // sanity check on NVAR_PRIVATE from first file
+
+} SNTEXTIO_FILE_INFO ;
 
 
 void WR_SNTEXTIO_DATAFILE(char *OUTFILE);
@@ -77,9 +92,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd);
 bool parse_SNTEXTIO_OBS(int *iwd);
 bool parse_SNTEXTIO_SPEC(int *iwd);
 
-// xxxvoid check_plusminus_TEXT(int *iwd_file, float *PTR_ERR);
 void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
 			      float *PTR_VAL, float *PTR_ERR) ;
 
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
+void check_head_sntextio(int OPT);
 

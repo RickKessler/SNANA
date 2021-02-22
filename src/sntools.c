@@ -3962,8 +3962,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   //
 
   int NFILT = SNDATA_FILTER.NDEF ;
-  char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ;
+  char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ; // BYOSED or SNEMO
   int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
+  int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
   int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar ;
   double DVAL;
   char PREFIX[40], KEY_TEST[60], cfilt[2] ;
@@ -4229,6 +4230,9 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_STRETCH") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_STRETCH) ; }  
 
+    else if ( strcmp(key,"SIM_DM15") == 0 ) 
+      { copy_flt(copyFlag, parVal, &SNDATA.SIM_DM15) ; }  
+
     else if ( strncmp(key,"SIMSED",6) == 0 ) {
       for(ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) { 
 	sprintf(KEY_TEST, "%s", SNDATA.SIMSED_KEYWORD[ipar]) ;
@@ -4306,16 +4310,16 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
   }
 
-  // other SIM params that don't start with SIM
-  else if ( strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) == 0 ) {
+  // other SIM keys that don't start with SIM
+  else if ( ncmp_PySEDMODEL==0 && len_PySEDMODEL > 2) {
     for(ipar=0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) { 
       sprintf(KEY_TEST, "%s", SNDATA.PySEDMODEL_KEYWORD[ipar]) ;
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.PySEDMODEL_PARVAL[ipar]) ; } 
+	{ copy_flt(copyFlag, parVal, &SNDATA.PySEDMODEL_PARVAL[ipar]) ;  } 
     }
   }
 
-  else if ( strncmp(key,"LCLIB_PAR",9) == 0 ) {
+  else if ( strncmp(key,"LCLIB_PARAM",11) == 0 ) {
     for(ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) { 
       sprintf(KEY_TEST, "%s", SNDATA.LCLIB_KEYWORD[ipar]) ;
       if ( strcmp(key,KEY_TEST) == 0 ) 
@@ -4562,431 +4566,82 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  if  ( NVAL != NOBS_STORE ) {
+    sprintf(c1err,"Copied %d values (NOBS_STORE)", NOBS_STORE);
+    sprintf(c2err,"but expected NVAL=%d", NVAL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
   return ;
 
 } // end copy_SNDATA_OBS
 
+
 // ==========================================
-void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal ) {
+void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 
-  // Created May 2012
-  // Load SNDATA structure so that snfitsio can be called by
-  // fortran (snana.exe) to write data in fits format.
-  //
-  // Key is the variable name  such as REDSHIFT of SNID.
-  // *stringVal is set if the variable is a string;
-  // *parVal is set for double, float or int, but note that
-  // *parVal is always passed as double.
-  // NVAL is the number of values passed.
-  //
-  //
-  // Oct 02, 2015: localString[2000] -> *localString + malloc to avoid
-  //                array bound problems. See new logical USE_stringVal.
-  //
-  // Feb 17 2017: add SUBSURVEY
-  // Mar 29 2017: allow FLT or BAND
-  // Feb 07 2021: load FAKE
+  // Created Feb 18 2021
+  // Return contents of GENSPEC structure; 
+  // intended as fortran interface to read spectra from data.
 
-  int i, ifilt_obs, NVAR; 
-  bool IS_STRING_LIST, IS_SIM_KEY;
-  bool  LOAD_TEL, LOAD_FLT, LOAD_FIELD;
-  char  ctmp[20] ;
-  char  fnam[] =  "set_SNDATA_LEGACY" ;
+  int  NBLAM, ilam ;
+  char fnam[] = "copy_GENSPEC" ;
 
-  // ------------ BEGIN ------------
+  // ------------ BEGIN ----------
 
-  /* xxx
-  printf(" xxx %s: %s=%s/%f   (FAKE=%d   DEC=%f)\n", 
-	 fnam, key, stringVal, parVal[0],
-	 SNDATA.FAKE, SNDATA.DEC ); fflush(stdout); 
-  xxxxx */
+  parVal[0] = -999.0;  // init outpuit
+  if ( ispec >= 0 ) { NBLAM = GENSPEC.NBLAM_VALID[ispec]; }
 
-  // check if using stringVal as list
-  LOAD_TEL   = (strcmp(key,"TELESCOPE") == 0) ;
-  LOAD_FLT   = (strcmp(key,"FLT") == 0)  || (strcmp(key,"BAND")  == 0)  ;
-  LOAD_FIELD = (strcmp(key,"FIELD")  == 0)  ;
-  IS_STRING_LIST = ( LOAD_FLT || LOAD_FIELD || LOAD_TEL ) ;
+  if ( strcmp(key,"NSPECTRA") == 0 ) 
+    { copy_int(copyFlag, parVal, &GENSPEC.NMJD_TOT );  }
 
-  IS_SIM_KEY = strstr(key,"SIM") != NULL  ;
-  
-  // ----------------------------------------
-  // global header info
-  if ( strcmp(key,"SURVEY") == 0 ) 
-    {  sprintf(SNDATA.SURVEY_NAME, "%s", stringVal);  }
+  // ispec-dependent info
 
-  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
-    {  sprintf(SNDATA.SUBSURVEY_NAME, "%s", stringVal);  }
+  else if ( strcmp(key,"ID") == 0 ) 
+    { copy_int(copyFlag, parVal, &GENSPEC.ID_LIST[ispec] );  }
 
-  else if ( strcmp(key,"FILTERS") == 0 ) {  
-    sprintf(SNDATA_FILTER.LIST, "%s", stringVal);  
-    set_FILTERSTRING(FILTERSTRING);
-    SNDATA_FILTER.NDEF = 
-      PARSE_FILTLIST(SNDATA_FILTER.LIST, SNDATA_FILTER.MAP );
-    
+  else if ( strcmp(key,"MJD") == 0 ) 
+    { copy_dbl(copyFlag, parVal, &GENSPEC.MJD_LIST[ispec] );  }
+
+  else if ( strcmp(key,"NBLAM") == 0 ) 
+    { copy_int(copyFlag, parVal, &GENSPEC.NBLAM_VALID[ispec] );  }
+
+  else if ( strcmp(key,"TEXPOSE") == 0 ) 
+    { copy_dbl(copyFlag, parVal, &GENSPEC.TEXPOSE_LIST[ispec] );  }
+
+  // lam-dependent arrays
+
+  else if ( strcmp(key,"LAMMIN") == 0 ) {
+    for(ilam=0; ilam  < NBLAM; ilam++ ) 
+      { copy_dbl(copyFlag, &parVal[ilam], &GENSPEC.LAMMIN_LIST[ispec][ilam] ); }
   }
-  else if ( strcmp(key,"SNANA_DIR") == 0 ) 
-    {  sprintf(PATH_SNANA_DIR, "%s", stringVal);  }
+  else if ( strcmp(key,"LAMMAX") == 0 ) {
+    for(ilam=0; ilam  < NBLAM; ilam++ ) 
+      { copy_dbl(copyFlag, &parVal[ilam], &GENSPEC.LAMMAX_LIST[ispec][ilam] ); }
+  }
+  else if ( strcmp(key,"FLAM") == 0 ) {
+    for(ilam=0; ilam  < NBLAM; ilam++ ) 
+      { copy_dbl(copyFlag, &parVal[ilam], &GENSPEC.FLAM_LIST[ispec][ilam] ); }
+  }
+  else if ( strcmp(key,"FLAMERR") == 0 ) {
+    for(ilam=0; ilam  < NBLAM; ilam++ ) 
+      { copy_dbl(copyFlag, &parVal[ilam], &GENSPEC.FLAMERR_LIST[ispec][ilam]); }
 
-  else if ( strcmp(key,"PRIVATE_KEYWORD") == 0 )  { 
-    SNDATA.NVAR_PRIVATE++ ;
-    NVAR = SNDATA.NVAR_PRIVATE ;
-    if ( NVAR >= MXVAR_PRIVATE ) {
-      sprintf(c1err,"NVAR_PRIVATE exceeds bound of MXVAR_PRIVATE=%d",
-	      MXVAR_PRIVATE);
-      sprintf(c2err,"See MXVAR_PRIVATE in sndata.h");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    sprintf(SNDATA.PRIVATE_KEYWORD[NVAR],"%s", stringVal );
+  }
+  else if ( strcmp(key,"SIM_FLAM") == 0 ) {
+    for(ilam=0; ilam  < NBLAM; ilam++ ) 
+      { copy_dbl(copyFlag, &parVal[ilam], &GENSPEC.GENFLAM_LIST[ispec][ilam]); }
+
   }
 
-  else if ( strcmp(key,"PRIVATE_VALUE") == 0 )  { 
-    for(i=1; i <= NVAL ; i++ ) 
-      {  SNDATA.PRIVATE_VALUE[i] = parVal[i-1] ; }
-  }
+  return;
 
-  // header info for each data file
-  else if ( strcmp(key,"SNID") == 0 ) 
-    {  sprintf(SNDATA.CCID, "%s", stringVal);  }
-  else if ( strcmp(key,"IAUC") == 0 ) 
-    {  sprintf(SNDATA.IAUC_NAME, "%s", stringVal);  }
-  
-  else if ( strcmp(key,"RA") == 0 )
-    {  SNDATA.RA = parVal[0] ;  }
-  else if ( strcmp(key,"DEC") == 0 )
-    {  SNDATA.DEC = parVal[0] ;  }
-  else if ( strcmp(key,"DECL") == 0 )
-    {  SNDATA.DEC = parVal[0] ;  }
-
-  else if ( strcmp(key,"SNTYPE") == 0 )
-    {  SNDATA.SNTYPE = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"NEPOCH") == 0 ) {  
-    SNDATA.NEPOCH = (int)parVal[0] ;  
-    SNDATA.NOBS   = (int)parVal[0] ;  
-  }
-
-  else if ( strcmp(key,"SEARCH_TYPE") == 0 )  // SDSS only
-    {  SNDATA.SEARCH_TYPE = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"PEAKMJD") == 0 )
-    {  SNDATA.SEARCH_PEAKMJD = parVal[0] ;  }
-
-  else if ( strcmp(key,"PIXSIZE") == 0 )
-    {  SNDATA.PIXSIZE = parVal[0] ;  }
-
-  else if ( strcmp(key,"CCDNUM") == 0 )
-    {  SNDATA.CCDNUM[0] = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"FAKE") == 0 )
-    {  SNDATA.FAKE = (int)parVal[0] ; }
-
-  else if ( strcmp(key,"NXPIX") == 0 )
-    {  SNDATA.NXPIX = (int)parVal[0] ; }
-
-  else if ( strcmp(key,"NYPIX") == 0 )
-    {  SNDATA.NYPIX = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"MASK_FLUXCOR_SNANA") == 0 )
-    {  SNDATA.MASK_FLUXCOR = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 )
-    {  SNDATA.REDSHIFT_FINAL = parVal[0] ;  }
-  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 )
-    {  SNDATA.REDSHIFT_FINAL_ERR = parVal[0] ;  }
-
-  else if ( strcmp(key,"REDSHIFT_HELIO") == 0 )
-    {  SNDATA.REDSHIFT_HELIO = parVal[0] ;  }
-  else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 )
-    {  SNDATA.REDSHIFT_HELIO_ERR = parVal[0] ;  }
-
-  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 )
-    {  SNDATA.REDSHIFT_QUALITYFLAG = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"VPEC") == 0 )
-    {  SNDATA.VPEC = parVal[0] ;  }
-  else if ( strcmp(key,"VPEC_ERR") == 0 )
-    {  SNDATA.VPEC_ERR = parVal[0] ;  }
+}  // end copy_GENSPEC
 
 
-  // - - -  host - - - 
 
-  else if ( strcmp(key,"HOSTGAL_NMATCH") == 0 )
-    {  SNDATA.HOSTGAL_NMATCH[0] = (int)parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_NMATCH2") == 0 )
-    {  SNDATA.HOSTGAL_NMATCH[1] = (int)parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_OBJID") == 0 )
-    {  SNDATA.HOSTGAL_OBJID[0] = (long long)parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_OBJID") == 0 )
-    {  SNDATA.HOSTGAL_OBJID[1] = (long long)parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_PHOTOZ") == 0 )
-    {  SNDATA.HOSTGAL_PHOTOZ[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_PHOTOZ_ERR") == 0 )
-    {  SNDATA.HOSTGAL_PHOTOZ_ERR[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_PHOTOZ") == 0 )
-    {  SNDATA.HOSTGAL_PHOTOZ[1] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_PHOTOZ_ERR") == 0 )
-    {  SNDATA.HOSTGAL_PHOTOZ_ERR[1] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_SPECZ") == 0 )
-    {  SNDATA.HOSTGAL_SPECZ[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_SPECZ_ERR") == 0 )
-    {  SNDATA.HOSTGAL_SPECZ_ERR[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_SPECZ") == 0 )
-    {  SNDATA.HOSTGAL_SPECZ[1] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_SPECZ_ERR") == 0 )
-    {  SNDATA.HOSTGAL_SPECZ_ERR[1] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_RA") == 0 )
-    {  SNDATA.HOSTGAL_RA[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_RA") == 0 )
-    {  SNDATA.HOSTGAL_RA[1] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_DEC") == 0 )
-    {  SNDATA.HOSTGAL_DEC[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_DEC") == 0 )
-    {  SNDATA.HOSTGAL_DEC[1] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_SNSEP") == 0 )
-    {  SNDATA.HOSTGAL_SNSEP[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_SNSEP") == 0 )
-    {  SNDATA.HOSTGAL_SNSEP[1] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_DDLR") == 0 )
-    {  SNDATA.HOSTGAL_DDLR[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_DDLR") == 0 )
-    {  SNDATA.HOSTGAL_DDLR[1] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS_OBS[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_LOGMASS_ERR") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS_ERR[0] = parVal[0] ;  }
-
-  else if ( strcmp(key,"HOSTGAL2_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS_OBS[1] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_LOGMASS_ERR") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS_ERR[1] = parVal[0] ;  }
-
-
-  else if ( strcmp(key,"HOSTGAL_sSFR") == 0 )
-    {  SNDATA.HOSTGAL_sSFR[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL_sSFR_ERR") == 0 )
-    {  SNDATA.HOSTGAL_sSFR_ERR[0] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_sSFR") == 0 )
-    {  SNDATA.HOSTGAL_sSFR[1] = parVal[0] ;  }
-  else if ( strcmp(key,"HOSTGAL2_sSFR_ERR") == 0 )
-    {  SNDATA.HOSTGAL_sSFR_ERR[1] = parVal[0] ;  }
-
-  // - - -  filter-dependent HOST properties - - - - 
-  else if ( strcmp(key,"HOSTGAL_MAG") == 0 ) {
-    SNDATA.HOSTGAL_USEMASK |= 1 ;
-    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAG[0][i]=(float)parVal[i];}
-  }
-  else if ( strcmp(key,"HOSTGAL2_MAG") == 0 ) {
-    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAG[1][i]=(float)parVal[i];}
-  }
-  else if ( strcmp(key,"HOSTGAL_MAGERR") == 0 ) {
-    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAGERR[0][i]=(float)parVal[i];}
-  }
-  else if ( strcmp(key,"HOSTGAL2_MAGERR") == 0 ) {
-    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAGERR[1][i]=(float)parVal[i];}
-  }
-
-  // match-independent host properties 
-  else if ( strcmp(key,"HOSTGAL_CONFUSION") == 0 )
-    { SNDATA.HOSTGAL_CONFUSION = (float)parVal[0] ; }
-
-  else if ( strcmp(key,"HOSTGAL_SB_FLUXCAL") == 0 ) {
-    SNDATA.HOSTGAL_USEMASK |= 4 ;
-    for(i=0; i < NVAL ; i++ ) 
-      {  SNDATA.HOSTGAL_SB_FLUXCAL[i] = (float)parVal[i] ;  }
-  }
-  // - - - -
-
-  else if ( strcmp(key,"MWEBV") == 0 )
-    {  SNDATA.MWEBV = parVal[0] ;  }
-  else if ( strcmp(key,"MWEBV_ERR") == 0 )
-    {  SNDATA.MWEBV_ERR = parVal[0] ;  }
-
-  // - - - -  EPOCH-DEPENDENT variables - - - - 
-
-  else if ( strcmp(key,"MJD") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { 
-      SNDATA.MJD[i] = parVal[i-1] ; 
-      SNDATA.OBSFLAG_WRITE[i] = true ;
-    }
-  }
-  else if ( strcmp(key,"FLUXCAL") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.FLUXCAL[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"FLUXCALERR")     == 0 ||
-	    strcmp(key,"FLUXCAL_ERRTOT") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.FLUXCAL_ERRTOT[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"MAG") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.MAG[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"MAGERR") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { 
-      SNDATA.MAG_ERRPLUS[i]  = parVal[i-1] ; 
-      SNDATA.MAG_ERRMINUS[i] = parVal[i-1] ; 
-    }
-  }
-
-  else if ( strcmp(key,"PHOTFLAG") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.PHOTFLAG[i] = (int)parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"PHOTPROB") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.PHOTPROB[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"PSF_SIG1") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_SIG1[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"PSF_SIG2") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_SIG2[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"PSF_RATIO") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_RATIO[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"SKY_SIG") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"SKY_SIG_T") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { 
-      SNDATA.SKY_SIG_T[i] = parVal[i-1] ; 
-      if ( SNDATA.SKY_SIG_T[i] > 0.0 ) { SNDATA.WRFLAG_SKYSIG_T = true; }
-    }
-  }
-
-  else if ( strcmp(key,"RDNOISE") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.READNOISE[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"GAIN") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.GAIN[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"ZEROPT") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.ZEROPT[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"ZEROPT_ERR") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.ZEROPT_ERR[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"XPIX") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.XPIX[i] = parVal[i-1] ; }
-  }
-  else if ( strcmp(key,"YPIX") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.YPIX[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"SIM_MAGOBS") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.SIMEPOCH_MAG[i] = parVal[i-1] ; }
-  }
-
-  else if ( strcmp(key,"SIM_FLUXCAL_HOSTERR") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) 
-      { SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[i] = parVal[i-1] ; }
-  }
-
-  else if ( IS_STRING_LIST ) {
-
-    int NFILT;
-    char **arrayList;
-    parse_commaSepList("STRINGVAL", stringVal, NVAL+10, 40,
-		       &NFILT, &arrayList ); // <== returned
-
-    if ( NFILT != NVAL  ) {
-      print_preAbort_banner(fnam);
-      printf(" xxx STRINGVAL = '%s' \n", stringVal);
-      sprintf(c1err,"STRINGVAL has %d elements", NFILT);
-      sprintf(c2err,"but expected NVAL=%d", NVAL);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    for (i=1; i <= NVAL; i++ ) {
-
-      int i0 = i-1;
-      sprintf(ctmp, "%s", arrayList[i0] );
-
-      if ( LOAD_TEL ) {
-	sprintf(SNDATA.TELESCOPE[i], "%s", ctmp );	
-      }
-      else if ( LOAD_FLT ) {
-	// ifilt_obs = INTFILTER(ctmp);
-	sprintf(SNDATA.FILTCHAR[i], "%s", ctmp);
-      }
-      else if ( LOAD_FIELD ) {
-	sprintf(SNDATA.FIELDNAME[i], "%s", ctmp );
-      }
-      else {
-	sprintf(c1err,"USE_stringVal=TRUE for key='%s'", key);
-	sprintf(c2err,"but cannot find array to load");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-
-    } // end i loop over epochs
-    
-  }
-  else if ( IS_SIM_KEY ) {
-
-    if ( strcmp(key,"SIM_MODEL_NAME") == 0 )
-      {  sprintf(SNDATA.SIM_MODEL_NAME,"%s", stringVal); }
-    else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 )
-      {  SNDATA.SIM_MODEL_INDEX = (int)parVal[0] ;  }
-
-    else if ( strcmp(key,"SIM_REDSHIFT_HELIO") == 0 )
-      {  SNDATA.SIM_REDSHIFT_HELIO = parVal[0] ;  }
-    else if ( strcmp(key,"SIM_REDSHIFT_CMB") == 0 )
-      {  SNDATA.SIM_REDSHIFT_CMB = parVal[0] ;  }
-    else if ( strcmp(key,"SIM_REDSHIFT_FLAG") == 0 )
-      {  SNDATA.SIM_REDSHIFT_FLAG = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIM_VPEC") == 0 )
-      {  SNDATA.SIM_VPEC = parVal[0] ;  }
-    else if ( strcmp(key,"SIM_DLMAG") == 0 )
-      {  SNDATA.SIM_DLMU = parVal[0] ;  }
-    else if ( strcmp(key,"SIM_PEAKMJD") == 0 )
-      {  SNDATA.SIM_PEAKMJD = parVal[0] ;  }
-
-    else if ( strcmp(key,"SIM_MWEBV") == 0 )
-      {  SNDATA.SIM_MWEBV = parVal[0] ;  }
-    else if ( strcmp(key,"SIM_MWRV") == 0 )
-      {  SNDATA.SIM_MWRV = parVal[0] ;  }    
-    else if ( strcmp(key,"SIMOPT_MWCOLORLAW") == 0 )
-      {  SNDATA.SIMOPT_MWCOLORLAW = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIMOPT_MWEBV") == 0 )
-      {  SNDATA.SIMOPT_MWEBV = (int)parVal[0] ;  }
-    
-    else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 )
-      {  SNDATA.SIM_TEMPLATE_INDEX = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIM_LIBID") == 0 )
-      {  SNDATA.SIM_LIBID = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIM_NGEN_LIBID") == 0 )
-      {  SNDATA.SIM_NGEN_LIBID = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIMLIB_MSKOPT") == 0 )
-      {  SNDATA.SIMLIB_MSKOPT = (int)parVal[0] ;  }
-    else if ( strcmp(key,"SIM_SEARCHEFF_MASK") == 0 )
-      {  SNDATA.SIM_SEARCHEFF_MASK = (int)parVal[0] ;  }
-  }
-  else {
-    sprintf(c1err,"Unknown key = '%s' ", key);
-    sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  return ;
-
-} // end of set_SNDATA_LEGACY
-
-
-// mangled function for fortran
-void set_sndata_legacy__(char *key, int *NVAL, char *stringVal, 
-			 double *parVal ) 
-{  set_SNDATA_LEGACY(key, *NVAL, stringVal, parVal); }
-
+// - - - - - - - 
+// mangled fortran functions
 
 void copy_sndata_global__(int *copyFlag, char *key, int *NVAL, 
 			  char *stringVal, double *parVal ) 
@@ -4999,6 +4654,9 @@ void copy_sndata_head__(int *copyFlag, char *key, int *NVAL,
 void copy_sndata_obs__(int *copyFlag, char *key, int *NVAL, 
 		       char *stringVal, double *parVal ) 
 { copy_SNDATA_OBS(*copyFlag, key, *NVAL, stringVal, parVal); }
+
+void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) 
+{ copy_GENSPEC(*copyFlag, key, *ispec, parVal); }
 
 
 // ************************************************************
@@ -8765,6 +8423,7 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
+  int ifilt;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGIN -------------
@@ -8773,7 +8432,12 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.MASK_FLUXCOR      =  0 ;
   SNDATA.VARNAME_SNRMON[0] =  0 ;
   SNDATA.DATATYPE[0]       =  0 ;
+
+  SNDATA_FILTER.NDEF       =  0 ;
   SNDATA_FILTER.LIST[0]    =  0 ;
+  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+    SNDATA_FILTER.MAP[ifilt] = 0;
+  }
 
   SNDATA.NVAR_PRIVATE      = 0 ;  // for data only
   SNDATA.NPAR_SIMSED       = 0 ;    
@@ -8924,7 +8588,6 @@ int init_SNDATA_EVENT(void) {
   SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
-    SNDATA_FILTER.MAP[ifilt] = 0;
     SNDATA.SIM_PEAKMAG[ifilt]      = NULLFLOAT ;
     SNDATA.SIM_TEMPLATEMAG[ifilt]  = NULLFLOAT ;
     SNDATA.SIM_GALFRAC[ifilt]      = NULLFLOAT ;
@@ -9017,13 +8680,18 @@ int init_SNDATA_EVENT(void) {
 // =================================================
 void init_GENSPEC_GLOBAL(void) {
   int ispec;
-  GENSPEC.NMJD_TOT = 0;  
-  for(ispec=0; ispec < MXSPECTRA; ispec++ )
-    { GENSPEC.NBLAM_VALID[ispec] = 0 ; } 
+  GENSPEC.NMJD_TOT = 0 ;
+  for(ispec=0; ispec < MXSPECTRA; ispec++ )  { GENSPEC.NBLAM_VALID[ispec]=0;} 
   return;
 } // end init_GENSPEC_GLOBAL
 
 void init_GENSPEC_EVENT(int ispec, int NBLAM) {
+
+  char fnam[] = "init_GENSPEC_EVENT";
+
+  //  printf(" xxx %s: ispec=%d NB=%d  last NB=%d\n",
+  //	 fnam, ispec, NBLAM, GENSPEC.NBLAM_VALID[ispec]  );
+
   if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
     free(GENSPEC.LAMMIN_LIST[ispec])  ;
     free(GENSPEC.LAMMAX_LIST[ispec])  ;
@@ -9033,7 +8701,7 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
     free(GENSPEC.GENFLAM_LIST[ispec]) ;
     free(GENSPEC.GENMAG_LIST[ispec])  ;
   }
-  
+
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
   int MEMD = NBLAM * sizeof(double) ;
   GENSPEC.LAMMIN_LIST[ispec]  = (double*) malloc(MEMD);
@@ -10733,9 +10401,430 @@ void debugexit(char *string) {
 
 
 // ==========================================================
-//   LEGACY WRITE FUNCTIONS (Feb 2021); HOPE TO DELETE SOON
+//   *LEGACY WRITE FUNCTIONS (Feb 2021); HOPE TO DELETE SOON
 // ===========================================================
 //.xyz
+
+
+// ==========================================
+void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal ) {
+
+  // Created May 2012
+  // Load SNDATA structure so that snfitsio can be called by
+  // fortran (snana.exe) to write data in fits format.
+  //
+  // Key is the variable name  such as REDSHIFT of SNID.
+  // *stringVal is set if the variable is a string;
+  // *parVal is set for double, float or int, but note that
+  // *parVal is always passed as double.
+  // NVAL is the number of values passed.
+  //
+  //
+  // Oct 02, 2015: localString[2000] -> *localString + malloc to avoid
+  //                array bound problems. See new logical USE_stringVal.
+  //
+  // Feb 17 2017: add SUBSURVEY
+  // Mar 29 2017: allow FLT or BAND
+  // Feb 07 2021: load FAKE
+
+  int i, ifilt_obs, NVAR; 
+  bool IS_STRING_LIST, IS_SIM_KEY;
+  bool  LOAD_TEL, LOAD_FLT, LOAD_FIELD;
+  char  ctmp[20] ;
+  char  fnam[] =  "set_SNDATA_LEGACY" ;
+
+  // ------------ BEGIN ------------
+
+  /* xxx
+  printf(" xxx %s: %s=%s/%f   (FAKE=%d   DEC=%f)\n", 
+	 fnam, key, stringVal, parVal[0],
+	 SNDATA.FAKE, SNDATA.DEC ); fflush(stdout); 
+  xxxxx */
+
+  // check if using stringVal as list
+  LOAD_TEL   = (strcmp(key,"TELESCOPE") == 0) ;
+  LOAD_FLT   = (strcmp(key,"FLT") == 0)  || (strcmp(key,"BAND")  == 0)  ;
+  LOAD_FIELD = (strcmp(key,"FIELD")  == 0)  ;
+  IS_STRING_LIST = ( LOAD_FLT || LOAD_FIELD || LOAD_TEL ) ;
+
+  IS_SIM_KEY = strstr(key,"SIM") != NULL  ;
+  
+  // ----------------------------------------
+  // global header info
+  if ( strcmp(key,"SURVEY") == 0 ) 
+    {  sprintf(SNDATA.SURVEY_NAME, "%s", stringVal);  }
+
+  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
+    {  sprintf(SNDATA.SUBSURVEY_NAME, "%s", stringVal);  }
+
+  else if ( strcmp(key,"FILTERS") == 0 ) {  
+    sprintf(SNDATA_FILTER.LIST, "%s", stringVal);  
+    set_FILTERSTRING(FILTERSTRING);
+    SNDATA_FILTER.NDEF = 
+      PARSE_FILTLIST(SNDATA_FILTER.LIST, SNDATA_FILTER.MAP );
+    
+  }
+  else if ( strcmp(key,"SNANA_DIR") == 0 ) 
+    {  sprintf(PATH_SNANA_DIR, "%s", stringVal);  }
+
+  else if ( strcmp(key,"PRIVATE_KEYWORD") == 0 )  { 
+    SNDATA.NVAR_PRIVATE++ ;
+    NVAR = SNDATA.NVAR_PRIVATE ;
+    if ( NVAR >= MXVAR_PRIVATE ) {
+      sprintf(c1err,"NVAR_PRIVATE exceeds bound of MXVAR_PRIVATE=%d",
+	      MXVAR_PRIVATE);
+      sprintf(c2err,"See MXVAR_PRIVATE in sndata.h");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    sprintf(SNDATA.PRIVATE_KEYWORD[NVAR],"%s", stringVal );
+  }
+
+  else if ( strcmp(key,"PRIVATE_VALUE") == 0 )  { 
+    for(i=1; i <= NVAL ; i++ ) 
+      {  SNDATA.PRIVATE_VALUE[i] = parVal[i-1] ; }
+  }
+
+  // header info for each data file
+  else if ( strcmp(key,"SNID") == 0 ) 
+    {  sprintf(SNDATA.CCID, "%s", stringVal);  }
+  else if ( strcmp(key,"IAUC") == 0 ) 
+    {  sprintf(SNDATA.IAUC_NAME, "%s", stringVal);  }
+  
+  else if ( strcmp(key,"RA") == 0 )
+    {  SNDATA.RA = parVal[0] ;  }
+  else if ( strcmp(key,"DEC") == 0 )
+    {  SNDATA.DEC = parVal[0] ;  }
+  else if ( strcmp(key,"DECL") == 0 )
+    {  SNDATA.DEC = parVal[0] ;  }
+
+  else if ( strcmp(key,"SNTYPE") == 0 )
+    {  SNDATA.SNTYPE = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"NEPOCH") == 0 ) {  
+    SNDATA.NEPOCH = (int)parVal[0] ;  
+    SNDATA.NOBS   = (int)parVal[0] ;  
+  }
+
+  else if ( strcmp(key,"SEARCH_TYPE") == 0 )  // SDSS only
+    {  SNDATA.SEARCH_TYPE = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"PEAKMJD") == 0 )
+    {  SNDATA.SEARCH_PEAKMJD = parVal[0] ;  }
+
+  else if ( strcmp(key,"PIXSIZE") == 0 )
+    {  SNDATA.PIXSIZE = parVal[0] ;  }
+
+  else if ( strcmp(key,"CCDNUM") == 0 )
+    {  SNDATA.CCDNUM[0] = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"FAKE") == 0 )
+    {  SNDATA.FAKE = (int)parVal[0] ; }
+
+  else if ( strcmp(key,"NXPIX") == 0 )
+    {  SNDATA.NXPIX = (int)parVal[0] ; }
+
+  else if ( strcmp(key,"NYPIX") == 0 )
+    {  SNDATA.NYPIX = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"MASK_FLUXCOR_SNANA") == 0 )
+    {  SNDATA.MASK_FLUXCOR = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 )
+    {  SNDATA.REDSHIFT_FINAL = parVal[0] ;  }
+  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 )
+    {  SNDATA.REDSHIFT_FINAL_ERR = parVal[0] ;  }
+
+  else if ( strcmp(key,"REDSHIFT_HELIO") == 0 )
+    {  SNDATA.REDSHIFT_HELIO = parVal[0] ;  }
+  else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 )
+    {  SNDATA.REDSHIFT_HELIO_ERR = parVal[0] ;  }
+
+  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 )
+    {  SNDATA.REDSHIFT_QUALITYFLAG = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"VPEC") == 0 )
+    {  SNDATA.VPEC = parVal[0] ;  }
+  else if ( strcmp(key,"VPEC_ERR") == 0 )
+    {  SNDATA.VPEC_ERR = parVal[0] ;  }
+
+
+  // - - -  host - - - 
+
+  else if ( strcmp(key,"HOSTGAL_NMATCH") == 0 )
+    {  SNDATA.HOSTGAL_NMATCH[0] = (int)parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_NMATCH2") == 0 )
+    {  SNDATA.HOSTGAL_NMATCH[1] = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_OBJID") == 0 )
+    {  SNDATA.HOSTGAL_OBJID[0] = (long long)parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_OBJID") == 0 )
+    {  SNDATA.HOSTGAL_OBJID[1] = (long long)parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_PHOTOZ") == 0 )
+    {  SNDATA.HOSTGAL_PHOTOZ[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_PHOTOZ_ERR") == 0 )
+    {  SNDATA.HOSTGAL_PHOTOZ_ERR[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_PHOTOZ") == 0 )
+    {  SNDATA.HOSTGAL_PHOTOZ[1] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_PHOTOZ_ERR") == 0 )
+    {  SNDATA.HOSTGAL_PHOTOZ_ERR[1] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_SPECZ") == 0 )
+    {  SNDATA.HOSTGAL_SPECZ[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_SPECZ_ERR") == 0 )
+    {  SNDATA.HOSTGAL_SPECZ_ERR[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_SPECZ") == 0 )
+    {  SNDATA.HOSTGAL_SPECZ[1] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_SPECZ_ERR") == 0 )
+    {  SNDATA.HOSTGAL_SPECZ_ERR[1] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_RA") == 0 )
+    {  SNDATA.HOSTGAL_RA[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_RA") == 0 )
+    {  SNDATA.HOSTGAL_RA[1] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_DEC") == 0 )
+    {  SNDATA.HOSTGAL_DEC[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_DEC") == 0 )
+    {  SNDATA.HOSTGAL_DEC[1] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_SNSEP") == 0 )
+    {  SNDATA.HOSTGAL_SNSEP[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_SNSEP") == 0 )
+    {  SNDATA.HOSTGAL_SNSEP[1] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_DDLR") == 0 )
+    {  SNDATA.HOSTGAL_DDLR[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_DDLR") == 0 )
+    {  SNDATA.HOSTGAL_DDLR[1] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL_LOGMASS") == 0 )
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_LOGMASS_ERR") == 0 )
+    {  SNDATA.HOSTGAL_LOGMASS_ERR[0] = parVal[0] ;  }
+
+  else if ( strcmp(key,"HOSTGAL2_LOGMASS") == 0 )
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[1] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_LOGMASS_ERR") == 0 )
+    {  SNDATA.HOSTGAL_LOGMASS_ERR[1] = parVal[0] ;  }
+
+
+  else if ( strcmp(key,"HOSTGAL_sSFR") == 0 )
+    {  SNDATA.HOSTGAL_sSFR[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL_sSFR_ERR") == 0 )
+    {  SNDATA.HOSTGAL_sSFR_ERR[0] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_sSFR") == 0 )
+    {  SNDATA.HOSTGAL_sSFR[1] = parVal[0] ;  }
+  else if ( strcmp(key,"HOSTGAL2_sSFR_ERR") == 0 )
+    {  SNDATA.HOSTGAL_sSFR_ERR[1] = parVal[0] ;  }
+
+  // - - -  filter-dependent HOST properties - - - - 
+  else if ( strcmp(key,"HOSTGAL_MAG") == 0 ) {
+    SNDATA.HOSTGAL_USEMASK |= 1 ;
+    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAG[0][i]=(float)parVal[i];}
+  }
+  else if ( strcmp(key,"HOSTGAL2_MAG") == 0 ) {
+    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAG[1][i]=(float)parVal[i];}
+  }
+  else if ( strcmp(key,"HOSTGAL_MAGERR") == 0 ) {
+    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAGERR[0][i]=(float)parVal[i];}
+  }
+  else if ( strcmp(key,"HOSTGAL2_MAGERR") == 0 ) {
+    for(i=0; i<NVAL; i++) { SNDATA.HOSTGAL_MAGERR[1][i]=(float)parVal[i];}
+  }
+
+  // match-independent host properties 
+  else if ( strcmp(key,"HOSTGAL_CONFUSION") == 0 )
+    { SNDATA.HOSTGAL_CONFUSION = (float)parVal[0] ; }
+
+  else if ( strcmp(key,"HOSTGAL_SB_FLUXCAL") == 0 ) {
+    SNDATA.HOSTGAL_USEMASK |= 4 ;
+    for(i=0; i < NVAL ; i++ ) 
+      {  SNDATA.HOSTGAL_SB_FLUXCAL[i] = (float)parVal[i] ;  }
+  }
+  // - - - -
+
+  else if ( strcmp(key,"MWEBV") == 0 )
+    {  SNDATA.MWEBV = parVal[0] ;  }
+  else if ( strcmp(key,"MWEBV_ERR") == 0 )
+    {  SNDATA.MWEBV_ERR = parVal[0] ;  }
+
+  // - - - -  EPOCH-DEPENDENT variables - - - - 
+
+  else if ( strcmp(key,"MJD") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { 
+      SNDATA.MJD[i] = parVal[i-1] ; 
+      SNDATA.OBSFLAG_WRITE[i] = true ;
+    }
+  }
+  else if ( strcmp(key,"FLUXCAL") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.FLUXCAL[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"FLUXCALERR")     == 0 ||
+	    strcmp(key,"FLUXCAL_ERRTOT") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.FLUXCAL_ERRTOT[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"MAG") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.MAG[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"MAGERR") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { 
+      SNDATA.MAG_ERRPLUS[i]  = parVal[i-1] ; 
+      SNDATA.MAG_ERRMINUS[i] = parVal[i-1] ; 
+    }
+  }
+
+  else if ( strcmp(key,"PHOTFLAG") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.PHOTFLAG[i] = (int)parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"PHOTPROB") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.PHOTPROB[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"PSF_SIG1") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_SIG1[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"PSF_SIG2") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_SIG2[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"PSF_RATIO") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.PSF_RATIO[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"SKY_SIG") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"SKY_SIG_T") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { 
+      SNDATA.SKY_SIG_T[i] = parVal[i-1] ; 
+      if ( SNDATA.SKY_SIG_T[i] > 0.0 ) { SNDATA.WRFLAG_SKYSIG_T = true; }
+    }
+  }
+
+  else if ( strcmp(key,"RDNOISE") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.READNOISE[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"GAIN") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.GAIN[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"ZEROPT") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.ZEROPT[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"ZEROPT_ERR") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.ZEROPT_ERR[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"XPIX") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.XPIX[i] = parVal[i-1] ; }
+  }
+  else if ( strcmp(key,"YPIX") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.YPIX[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"SIM_MAGOBS") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) { SNDATA.SIMEPOCH_MAG[i] = parVal[i-1] ; }
+  }
+
+  else if ( strcmp(key,"SIM_FLUXCAL_HOSTERR") == 0 ) {
+    for(i=1; i <= NVAL ; i++ ) 
+      { SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[i] = parVal[i-1] ; }
+  }
+
+  else if ( IS_STRING_LIST ) {
+
+    int NFILT;
+    char **arrayList;
+    parse_commaSepList("STRINGVAL", stringVal, NVAL+10, 40,
+		       &NFILT, &arrayList ); // <== returned
+
+    if ( NFILT != NVAL  ) {
+      print_preAbort_banner(fnam);
+      printf(" xxx STRINGVAL = '%s' \n", stringVal);
+      sprintf(c1err,"STRINGVAL has %d elements", NFILT);
+      sprintf(c2err,"but expected NVAL=%d", NVAL);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    for (i=1; i <= NVAL; i++ ) {
+
+      int i0 = i-1;
+      sprintf(ctmp, "%s", arrayList[i0] );
+
+      if ( LOAD_TEL ) {
+	sprintf(SNDATA.TELESCOPE[i], "%s", ctmp );	
+      }
+      else if ( LOAD_FLT ) {
+	// ifilt_obs = INTFILTER(ctmp);
+	sprintf(SNDATA.FILTCHAR[i], "%s", ctmp);
+      }
+      else if ( LOAD_FIELD ) {
+	sprintf(SNDATA.FIELDNAME[i], "%s", ctmp );
+      }
+      else {
+	sprintf(c1err,"USE_stringVal=TRUE for key='%s'", key);
+	sprintf(c2err,"but cannot find array to load");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+    } // end i loop over epochs
+    
+  }
+  else if ( IS_SIM_KEY ) {
+
+    if ( strcmp(key,"SIM_MODEL_NAME") == 0 )
+      {  sprintf(SNDATA.SIM_MODEL_NAME,"%s", stringVal); }
+    else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 )
+      {  SNDATA.SIM_MODEL_INDEX = (int)parVal[0] ;  }
+
+    else if ( strcmp(key,"SIM_REDSHIFT_HELIO") == 0 )
+      {  SNDATA.SIM_REDSHIFT_HELIO = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_REDSHIFT_CMB") == 0 )
+      {  SNDATA.SIM_REDSHIFT_CMB = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_REDSHIFT_FLAG") == 0 )
+      {  SNDATA.SIM_REDSHIFT_FLAG = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_VPEC") == 0 )
+      {  SNDATA.SIM_VPEC = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_DLMAG") == 0 )
+      {  SNDATA.SIM_DLMU = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_PEAKMJD") == 0 )
+      {  SNDATA.SIM_PEAKMJD = parVal[0] ;  }
+
+    else if ( strcmp(key,"SIM_MWEBV") == 0 )
+      {  SNDATA.SIM_MWEBV = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_MWRV") == 0 )
+      {  SNDATA.SIM_MWRV = parVal[0] ;  }    
+    else if ( strcmp(key,"SIMOPT_MWCOLORLAW") == 0 )
+      {  SNDATA.SIMOPT_MWCOLORLAW = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIMOPT_MWEBV") == 0 )
+      {  SNDATA.SIMOPT_MWEBV = (int)parVal[0] ;  }
+    
+    else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 )
+      {  SNDATA.SIM_TEMPLATE_INDEX = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_LIBID") == 0 )
+      {  SNDATA.SIM_LIBID = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_NGEN_LIBID") == 0 )
+      {  SNDATA.SIM_NGEN_LIBID = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIMLIB_MSKOPT") == 0 )
+      {  SNDATA.SIMLIB_MSKOPT = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_SEARCHEFF_MASK") == 0 )
+      {  SNDATA.SIM_SEARCHEFF_MASK = (int)parVal[0] ;  }
+  }
+  else {
+    sprintf(c1err,"Unknown key = '%s' ", key);
+    sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return ;
+
+} // end of set_SNDATA_LEGACY
+
+// mangled function for fortran
+void set_sndata_legacy__(char *key, int *NVAL, char *stringVal, 
+			 double *parVal ) 
+{  set_SNDATA_LEGACY(key, *NVAL, stringVal, parVal); }
 
 
 // ********************************************

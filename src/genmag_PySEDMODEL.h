@@ -33,7 +33,7 @@ struct {
 struct {
   int NLAM;           // number of bins in SED
   double *LAM, *SED;  // SED
-  int LAST_EXTERNAL_ID ;
+  int EXTERNAL_ID, LAST_EXTERNAL_ID ;
 
   int    NPAR ;
   char   **PARNAME;    // par names set during init stage

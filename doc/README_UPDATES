@@ -19599,4 +19599,7 @@
 
          ***** MISCELLANEOUS(v11_02i) ***** 
 
+   genmag_PySEDMODEL.c
+     + fix bug that was preventing BYOSED params from being returned.
+
 END: 

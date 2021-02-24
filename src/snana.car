@@ -3262,13 +3262,10 @@ c   + read spectra, TEXT
 c   + cut on PRIVATEVAR, read FITS
 c   + cut on PRIVATEVAR, read TEXT -> FAILS on LEGACY TEXT
 c   + check processing mulitple versions
-c   - subsurvey
-c
-c TODO-REFORMAT:
-c   + TEXT -> FITS
-c   + FITS -> TEXT
-c
-c TODO-SIM:
+c   + read spectra from lowz-training (i.e., real data )
+c   + subsurvey for LOWZ (text and fits)
+c   + reformat LOWZ TEXT -> FITS and vice versa
+c   + subsurvey for sim (text & fits)
 c   + check that sim params propagate for SIMSED, LCLIB, BYOSED, 
 c
 c ------
@@ -3610,7 +3607,7 @@ c local var
 
       REAL*8    DARRAY(MXEPOCH)
       INTEGER   OPT
-      CHARACTER KEY*60, STRING*40, DATATYPE*12
+      CHARACTER KEY*60, STRING*100, DATATYPE*12
 
       LOGICAL   correct_sign_vpec_data
       EXTERNAL  correct_sign_vpec_data
@@ -3629,13 +3626,9 @@ c     &     + OPTMASK_SNDATA_DUMP
      &      correct_sign_vpec_data(SNANA_VERSION//char(0))
 cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
 
-      CALL FETCH_SNDATA_WRAPPER("SURVEY", 
-     &     ONE, SURVEY_NAME, DARRAY, OPT)
+      CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
+     &        SURVEY_NAME, DARRAY, OPT)
 
-c  SUBSURVEY_FLAG ?? .xyz
-c      CALL FETCH_SNDATA_WRAPPER("SUBSURVEY", 
-c     &     ONE, SUBSURVEY_NAME, DARRAY, OPT)
-      
       IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
          CALL FETCH_SNDATA_WRAPPER("FILTERS", 
      &        ONE, SURVEY_FILTERS, DARRAY, OPT)
@@ -5884,7 +5877,8 @@ c count entries in lists
       NCID_LIST = i - 1
 
       i = 1 ; 
-      DO WHILE ( SNCCID_LIST(i) .NE. ' ' ) 
+      DO WHILE(SNCCID_LIST(i)      .NE. ' ' .and. 
+     &         SNCCID_LIST(i)(1:4) .NE. 'NONE') 
           CALL NMLCHECK_SNCCID("SNCCID_LIST",SNCCID_LIST(i))
           SNCCID_LIST_ALL(i) = SNCCID_LIST(i)
           i = i + 1
@@ -7155,8 +7149,10 @@ c - - - -
 
          else if ( MATCH_NMLKEY('SNCCID_LIST',
      &             1, iArg, ARGLIST) ) then 
-           CALL PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
-           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+           if ( ARGLIST(1) .NE. 'NONE' ) then
+              CALL PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
+              CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+           endif
 
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
      &             1, iArg, ARGLIST) ) then 
@@ -9570,7 +9566,7 @@ C ---------- BEGIN ----------
       if ( .NOT. REFORMAT ) RETURN
 
       IF ( REFORMAT_SNANA ) THEN 
-         CALL PREP_REFORMAT_SNDATA()
+c xxx mark delete         CALL PREP_REFORMAT_SNDATA()
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
       ENDIF
 
@@ -9730,100 +9726,6 @@ c ---- update IGNORE file with comment on total number of IGNORE epochs
 
       RETURN
       END    ! END_REFORMAT
-
-C ===============================
-+DECK,SETSNSTR.
-      SUBROUTINE SET_SNDATA_STRING(KEY,STRINGVAL)
-
-      IMPLICIT NONE
-      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
-      CHARACTER STRINGVAL*(*)   ! (I) string value
-
-c local var
-      CHARACTER cKEY*80, cSTRINGVAL*80
-      INTEGER ONE, LEN_KEY, LEN_STR
-      REAL*8  DVAL(10)
-
-      EXTERNAL SET_SNDATA_LEGACY
-
-C -------------- BEGIN -------------
-      ONE = 1
-c add blank space at end in case there isn't one already there
-      LEN_KEY    = INDEX(KEY       // ' ', ' ') - 1
-      LEN_STR    = INDEX(STRINGVAL // ' ', ' ') - 1     
-      cKEY       = KEY(1:LEN_KEY) // char(0)
-      cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      DVAL(1)    = -9.0
-      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DVAL, 
-     &     LEN_KEY, LEN_STR ) 
-      RETURN
-      END  ! end of SET_SNDATA_STRING
-
-C ==========================================
-+DECK,SETSNPRIV.
-      SUBROUTINE SET_SNDATA_PRIVATE()
-c
-c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
-
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,PRIVCOM.
-
-      INTEGER IVAR, LEN_KEY, LEN_NAME
-      CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
-      REAL*8 DVAL(10)
-      EXTERNAL SET_SNDATA_LEGACY
-
-C --------------- BEGIN ---------------
-
-      IF ( NVAR_PRIVATE .LE. 0 ) RETURN
-
-      KEY       = 'PRIVATE_KEYWORD'
-      LEN_KEY   = INDEX(KEY // ' ', ' ') - 1      
-      cKEY      = KEY(1:LEN_KEY) // char(0)
-
-      DO IVAR = 1, NVAR_PRIVATE
-         NAME = PRIVATE_KEYWORD(IVAR)
-         LEN_NAME = INDEX(NAME  // ' ', ' ') - 1  
-         cNAME    = NAME(1:LEN_NAME) // char(0)
-         DVAL(1)  = -9.0
-
-         CALL set_sndata_legacy(cKEY, ONE, cNAME, DVAL, 
-     &        LEN_KEY, LEN_NAME ) 
-      ENDDO
-
-      RETURN
-      END
-
-C =======================================
-+DECK,SETSNDBL.
-      SUBROUTINE SET_SNDATA_DBLE(KEY,DVAL)
-
-      IMPLICIT NONE
-      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
-      REAL*8    DVAL            ! (I) double precision value to load
-
-c local var
-      CHARACTER cKEY*80, cSTRINGVAL*80
-      INTEGER ONE, LEN_KEY, LEN_STR
-      REAL*8  DARRAY(10)
-      EXTERNAL SET_SNDATA_LEGACY
-
-C -------------- BEGIN -------------
-      ONE = 1
-c add blank space at end in case there isn't one already there
-      LEN_KEY   = INDEX(KEY       // ' ', ' ') - 1
-      cKEY       = KEY(1:LEN_KEY) // char(0)
-
-      cSTRINGVAL = "NULL" // char(0)
-      LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
-      DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
-      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DARRAY, 
-     &     LEN_KEY, LEN_STR ) 
-
-      RETURN
-      END
-
 
 
 C =========================================
@@ -11889,7 +11791,7 @@ C ------------------- BEGIN --------------
 
       LNAM  = INDEX ( SURVEY_NAME,    ' ' ) - 1
       L2    = 0
-
+      
       IF ( FREEZE_SURVEY_FILTERS ) THEN
 c        leave SURVEY_FILTERS and NFILTDEF_XXX alone
       ELSE
@@ -11982,10 +11884,10 @@ c  IDFIELD
          CALL get_PARSE_WORD_fortran(iwd+0, cwd,       LWD0 )
          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next,  LWD1 )
          CALL get_PARSE_WORD_fortran(iwd+2, cwd_next2, LWD2 )
-         CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
+cc         CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
          if ( cwd .EQ. ' ' ) goto 110
 
-         if ( cwd .EQ. 'SURVEY:' ) then
+         if ( cwd(1:7) .EQ. 'SURVEY:' ) then
             L1 = index(cwd_next,' ') - 1
             SURVEY_TMP  = cwd_next(1:L1)
             read(cwd_next2,*) IDTMP
@@ -14189,82 +14091,6 @@ c if this CID has already been used (found), abort.
       RETURN
       END  ! end of PARSE_CID
 
-C ========================================
-+DECK,PARSE_SURVEY_NAME.
-      SUBROUTINE PARSE_SURVEY_NAME(INPUT_STRING,
-     &     SURVEY, SUBSURVEY,ID)
-
-c Created jan 26 2017
-c Examples:
-c
-c   input              output         output 
-c INPUT_STRING         SURVEY       SUBSURVEY
-c - - - - - - - - - - - - - - - - - - - - - - - - 
-c     SDSS             SDSS           SDSS
-c     SNLS             SNLS           SNLS
-c   LOWZ_ALL(CFA3)     LOWZ_ALL       CFA3
-c - - - - - - - - - - - - - - - - - - - - - - - - 
-c
-c The purpose here is that for combined samples,
-c integer ID is assigned to the SUBSURVEY.
-c
-c -----------------
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.  
-
-c subroutine args
-      CHARACTER
-     &   INPUT_STRING*(*)      ! (I)
-     &  ,SURVEY*(*)            ! (O)
-     &  ,SUBSURVEY*(*)         ! (O)
-
-      INTEGER ID               ! (O) IDSURVEY
-
-c local args
-      INTEGER j1, j2, LENSTR
-      CHARACTER  C1ERR*80, C2ERR*80
-
-c function
-      INTEGER GET_IDSURVEY 
-
-c -------------- BEGIN -------------
-
-      LENSTR = INDEX(INPUT_STRING, ' ' ) - 1
-      j1 = INDEX(INPUT_STRING, '(' )
-      j2 = INDEX(INPUT_STRING, ')' )
-      
-      if ( j1 .LE. 0 ) then
-         SURVEY    = INPUT_STRING
-         SUBSURVEY = INPUT_STRING
-      else
-         SURVEY    = INPUT_STRING(1:J1-1)    ! string before ()
-         SUBSURVEY = INPUT_STRING(j1+1:J2-1) ! stuff inside ()
-      endif
-c ---------------------------------
-c get integer ID of survey
-
-      IF ( NSURVEY_LIST == 0 ) return  ! SURVEY LIST not read yet
-
-      ID = GET_IDSURVEY(SUBSURVEY)
-
-c -----------------------------------
-c abort of IDSURVEY not found.
- 
-      IF ( ID < 0 ) THEN
-         write(c1err,61) INPUT_STRING(1:LENSTR)
-61       format('Could not find IDSURVEY for ', A )
-
-         j1 = index(SURVEY,   ' ') - 1
-         j2 = index(SUBSURVEY,' ') - 1
-         write(c2err,62) SURVEY(1:j1), SUBSURVEY(1:j2)
-62       format('SURVEY=',A, 4x, 'SUBSURVEY=', A)
-
-         call MADABORT('PARSE_SURVEY_NAME', c1err, c2err)
-      ENDIF
-
-      RETURN
-      END     ! end PARSE_SURVEY_NAME
 
 C ============================================
 +DECK,GET_IDSURVEY.
@@ -19556,7 +19382,7 @@ c        print*,' xxx SEDCMD = ', SEDCMD
 
 505      FORMAT('sed -i ', "'s/", A, '/',A, "/g1'", 2x, A)
 
-c is SUBSURVEY_LIST is not blank, use system 'sed' command
+c if SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
          IF ( SUBSURVEY_NAME_LIST .NE. '' ) THEN
             LEN1   = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
@@ -38364,6 +38190,180 @@ C =======================
 
 C =======================
 
+
+C ==========================================
++DECK,SETSNPRIV.
+      SUBROUTINE SET_SNDATA_PRIVATE()
+c
+c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
+
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,PRIVCOM.
+
+      INTEGER IVAR, LEN_KEY, LEN_NAME
+      CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
+      REAL*8 DVAL(10)
+      EXTERNAL SET_SNDATA_LEGACY
+
+C --------------- BEGIN ---------------
+
+      IF ( NVAR_PRIVATE .LE. 0 ) RETURN
+
+      KEY       = 'PRIVATE_KEYWORD'
+      LEN_KEY   = INDEX(KEY // ' ', ' ') - 1      
+      cKEY      = KEY(1:LEN_KEY) // char(0)
+
+      DO IVAR = 1, NVAR_PRIVATE
+         NAME = PRIVATE_KEYWORD(IVAR)
+         LEN_NAME = INDEX(NAME  // ' ', ' ') - 1  
+         cNAME    = NAME(1:LEN_NAME) // char(0)
+         DVAL(1)  = -9.0
+
+         CALL set_sndata_legacy(cKEY, ONE, cNAME, DVAL, 
+     &        LEN_KEY, LEN_NAME ) 
+      ENDDO
+
+      RETURN
+      END
+
+C =======================================
++DECK,SETSNDBL.
+      SUBROUTINE SET_SNDATA_DBLE(KEY,DVAL)
+
+      IMPLICIT NONE
+      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
+      REAL*8    DVAL            ! (I) double precision value to load
+
+c local var
+      CHARACTER cKEY*80, cSTRINGVAL*80
+      INTEGER ONE, LEN_KEY, LEN_STR
+      REAL*8  DARRAY(10)
+      EXTERNAL SET_SNDATA_LEGACY
+
+C -------------- BEGIN -------------
+      ONE = 1
+c add blank space at end in case there isn't one already there
+      LEN_KEY   = INDEX(KEY       // ' ', ' ') - 1
+      cKEY       = KEY(1:LEN_KEY) // char(0)
+
+      cSTRINGVAL = "NULL" // char(0)
+      LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
+      DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
+      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DARRAY, 
+     &     LEN_KEY, LEN_STR ) 
+
+      RETURN
+      END
+
+
+
+
+C ===============================
++DECK,SETSNSTR.
+      SUBROUTINE SET_SNDATA_STRING(KEY,STRINGVAL)
+
+      IMPLICIT NONE
+      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
+      CHARACTER STRINGVAL*(*)   ! (I) string value
+
+c local var
+      CHARACTER cKEY*80, cSTRINGVAL*80
+      INTEGER ONE, LEN_KEY, LEN_STR
+      REAL*8  DVAL(10)
+
+      EXTERNAL SET_SNDATA_LEGACY
+
+C -------------- BEGIN -------------
+      ONE = 1
+c add blank space at end in case there isn't one already there
+      LEN_KEY    = INDEX(KEY       // ' ', ' ') - 1
+      LEN_STR    = INDEX(STRINGVAL // ' ', ' ') - 1     
+      cKEY       = KEY(1:LEN_KEY) // char(0)
+      cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
+      DVAL(1)    = -9.0
+      CALL set_sndata_legacy(cKEY, ONE, cSTRINGVAL, DVAL, 
+     &     LEN_KEY, LEN_STR ) 
+      RETURN
+      END  ! end of SET_SNDATA_STRING
+
+
+C ========================================
++DECK,PARSE_SURVEY_NAME.
+      SUBROUTINE PARSE_SURVEY_NAME(INPUT_STRING,
+     &     SURVEY, SUBSURVEY,ID)
+
+c Created jan 26 2017
+c Examples:
+c
+c   input              output         output 
+c INPUT_STRING         SURVEY       SUBSURVEY
+c - - - - - - - - - - - - - - - - - - - - - - - - 
+c     SDSS             SDSS           SDSS
+c     SNLS             SNLS           SNLS
+c   LOWZ_ALL(CFA3)     LOWZ_ALL       CFA3
+c - - - - - - - - - - - - - - - - - - - - - - - - 
+c
+c The purpose here is that for combined samples,
+c integer ID is assigned to the SUBSURVEY.
+c
+c -----------------
+
++CDE,SNPAR.
++CDE,CTRLCOM.  
+
+c subroutine args
+      CHARACTER
+     &   INPUT_STRING*(*)      ! (I)
+     &  ,SURVEY*(*)            ! (O)
+     &  ,SUBSURVEY*(*)         ! (O)
+
+      INTEGER ID               ! (O) IDSURVEY
+
+c local args
+      INTEGER j1, j2, LENSTR
+      CHARACTER  C1ERR*80, C2ERR*80
+
+c function
+      INTEGER GET_IDSURVEY 
+
+c -------------- BEGIN -------------
+
+      LENSTR = INDEX(INPUT_STRING, ' ' ) - 1
+      j1 = INDEX(INPUT_STRING, '(' )
+      j2 = INDEX(INPUT_STRING, ')' )
+      
+      if ( j1 .LE. 0 ) then
+         SURVEY    = INPUT_STRING
+         SUBSURVEY = INPUT_STRING
+      else
+         SURVEY    = INPUT_STRING(1:J1-1)    ! string before ()
+         SUBSURVEY = INPUT_STRING(j1+1:J2-1) ! stuff inside ()
+      endif
+c ---------------------------------
+c get integer ID of survey
+
+      IF ( NSURVEY_LIST == 0 ) return  ! SURVEY LIST not read yet
+
+      ID = GET_IDSURVEY(SUBSURVEY)
+
+c -----------------------------------
+c abort of IDSURVEY not found.
+ 
+      IF ( ID < 0 ) THEN
+         write(c1err,61) INPUT_STRING(1:LENSTR)
+61       format('Could not find IDSURVEY for ', A )
+
+         j1 = index(SURVEY,   ' ') - 1
+         j2 = index(SUBSURVEY,' ') - 1
+         write(c2err,62) SURVEY(1:j1), SUBSURVEY(1:j2)
+62       format('SURVEY=',A, 4x, 'SUBSURVEY=', A)
+
+         call MADABORT('PARSE_SURVEY_NAME', c1err, c2err)
+      ENDIF
+
+      RETURN
+      END     ! end PARSE_SURVEY_NAME
 
 C ==========================================
 +DECK,PREP_REFORMAT_GLOBAL.

@@ -152,7 +152,7 @@ void INIT_HOSTLIB(void) {
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
 
   // check for spectral templates to determin host spectrum
-  read_specbasis_HOSTLIB();
+  read_specTable_HOSTLIB();
 
   // set inital values for HOSTLIB structure
   initvar_HOSTLIB();
@@ -167,7 +167,7 @@ void INIT_HOSTLIB(void) {
   read_head_HOSTLIB(fp_hostlib);
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
-  match_specbasis_HOSTVAR();
+  match_specTable_HOSTVAR();
 
   // read GAL: keys
   read_gal_HOSTLIB(fp_hostlib);
@@ -480,6 +480,8 @@ void init_OPTIONAL_HOSTVAR(void) {
 // ==========================================
 void init_REQUIRED_HOSTVAR(void) {
 
+  // Feb 23 2021: check for SPECDATA
+
   int NVAR,  LOAD, i ;
   char *cptr, *varName ;
   //  char fnam[] = "init_REQUIRED_HOSTVAR" ;
@@ -502,6 +504,13 @@ void init_REQUIRED_HOSTVAR(void) {
     varName = HOSTSPEC.VARNAME_SPECBASIS[i];
     cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
     sprintf(cptr, "%s%s", PREFIX_SPECBASIS_HOSTLIB, varName );
+    LOAD = load_VARNAME_STORE(cptr) ;
+  }
+
+  // check for IDSPECDATA (Feb 2021)
+  if ( HOSTSPEC.ITABLE == ITABLE_SPECDATA ) {
+    cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
+    sprintf(cptr, "%s", VARNAME_SPECDATA_HOSTLIB ); // IDSPECDATA
     LOAD = load_VARNAME_STORE(cptr) ;
   }
 
@@ -1281,7 +1290,7 @@ int getBin_SNVAR_HOSTLIB_WGTMAP(void) {
 } // end getBin_SNVAR_HOSTLIB_WGTMAP
 
 // ====================================
-void  read_specbasis_HOSTLIB(void) {
+void  read_specTable_HOSTLIB(void) {
 
   // Created Jun 28 2019 by R.Kessler
   // Read supplemental file of spectral templates, used later
@@ -1291,28 +1300,47 @@ void  read_specbasis_HOSTLIB(void) {
   // this specTemplate file and the VARNAMES in the HOSTLIB.
   //
   // May 22 2020: abort if VARNAMES key not found
+  // Feb 12 2021: adapt to also work for SPECDATA 
 
   FILE *fp;
   int  NBIN_WAVE, NBIN_READ, IFILETYPE;
-  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM, gzipFlag ;
+  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM, gzipFlag, ifile ;
   int  NVAR_WAVE  = 0 ;
   int  OPT_VARDEF = 0 ;
-  int  LEN_PREFIX = strlen(PREFIX_SPECBASIS);
-  char *ptrFile, *varName, c_get[60], fileName_full[MXPATHLEN] ;  
-  char TBLNAME[] = "SPECBASIS";
-  char fnam[] = "read_specbasis_HOSTLIB";
+  int  LEN_PREFIX;
+  char *ptrFile_list[2], *ptrFile ;
+  char *varName, varName_tmp[40], VARNAME_PREFIX[20];
+  char c_get[60], fileName_full[MXPATHLEN] ;  
+  char TABLENAME_LIST[2][12] = { "BASIS", "DATA" } ;
+  char PREFIX_LIST[2][12]    = { PREFIX_SPECBASIS, PREFIX_SPECDATA } ;
+  char TBLNAME[20];
+  char fnam[] = "read_specTable_HOSTLIB";
   
   // --------------- BEGIN -----------------
 
-  HOSTSPEC.NSPECBASIS  = 0 ;
-  HOSTSPEC.NBIN_WAVE   = 0 ;
+  HOSTSPEC.ITABLE       = -9 ; // BASIS or DATA
+  HOSTSPEC.TABLENAME[0] = 0 ;
+  HOSTSPEC.NSPECBASIS   = 0 ;
+  HOSTSPEC.NBIN_WAVE    = 0 ;
   HOSTSPEC.FLAM_SCALE        = 1.0 ;
   HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
 
-  ptrFile = INPUTS.HOSTLIB_SPECBASIS_FILE ;
-  if ( IGNOREFILE(ptrFile) )  { return ; }
+  ptrFile_list[ITABLE_SPECBASIS] = INPUTS.HOSTLIB_SPECBASIS_FILE ;
+  ptrFile_list[ITABLE_SPECDATA]  = INPUTS.HOSTLIB_SPECDATA_FILE ;
+  for(ifile = 0; ifile < 2; ifile++ ) {
+    if ( !IGNOREFILE(ptrFile_list[ifile]) ) {
+      HOSTSPEC.ITABLE = ifile;
+      sprintf(HOSTSPEC.TABLENAME, "%s", TABLENAME_LIST[ifile] );
+      sprintf(VARNAME_PREFIX,"%s", PREFIX_LIST[ifile]);
+      LEN_PREFIX = strlen(VARNAME_PREFIX);
+      ptrFile = ptrFile_list[ifile];
+      sprintf(TBLNAME,"%s", HOSTSPEC.TABLENAME);
+    }
+  }
 
-  printf("\n\t Read SPEC-TEMPLATEs from supplemental file:\n" );
+  if ( HOSTSPEC.ITABLE < 0 ) { return; } // nothing to do here
+
+  printf("\n\t Read SPEC-%s from supplemental file:\n", HOSTSPEC.TABLENAME );
   fflush(stdout);
 
   // - - - - - - - - - - - - - -
@@ -1326,11 +1354,8 @@ void  read_specbasis_HOSTLIB(void) {
 			 PATH_USER_INPUT, ptrFile, fnam);
   }
 
-
   bool FOUND_VARNAMES = false ;
   while( !FOUND_VARNAMES  && (fscanf(fp, "%s", c_get)) != EOF) {
-
-    // xxx mark delete    fscanf(fp, "%s", c_get);
     if ( strcmp(c_get,"VARNAMES:") == 0 ) { FOUND_VARNAMES=true ; }
 
     if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
@@ -1344,12 +1369,12 @@ void  read_specbasis_HOSTLIB(void) {
 
   if ( !FOUND_VARNAMES ) {
     sprintf(c1err,"Could not find VARNAMES in header of");
-    sprintf(c2err,"HOSTLIB_SPECBASIS_FILE");
+    sprintf(c2err,"HOSTLIB_SPEC%s_FILE", TBLNAME );
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
   }
 
   // - - - - - - - - - - - - - -
-  // now read with standard routines
+  // now read spec-table with standard routines
   TABLEFILE_INIT();
   NBIN_WAVE   = SNTABLE_NEVT(ptrFile,TBLNAME);
   IFILETYPE   = TABLEFILE_OPEN(ptrFile,"read");
@@ -1365,7 +1390,7 @@ void  read_specbasis_HOSTLIB(void) {
 
   // example VARNAMES list to make sure that there is a wavelength column,
   // and count how many template[nn] colummns
-  ICOL_WAVE = -9;  NT=0;
+  ICOL_WAVE = -9;  NT=0 ;
   for(ivar=0; ivar < NVAR; ivar++ ) {
     varName = READTABLE_POINTERS.VARNAME[ivar];
     if ( strstr(varName,"wave") != NULL ) { ICOL_WAVE = ivar; }
@@ -1386,11 +1411,14 @@ void  read_specbasis_HOSTLIB(void) {
     }  
 
    
-    if ( strstr(varName,PREFIX_SPECBASIS) != NULL ) {
+    sprintf(varName_tmp,"%s", varName);
+    varName_tmp[LEN_PREFIX] = 0;
+
+    if ( strcmp_ignoreCase(varName_tmp,VARNAME_PREFIX) == 0 ) {
       if ( NT < MXSPECBASIS_HOSTLIB ) {
 	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
 
-	HOSTSPEC.ICOL_SPECBASIS[NT] = ivar;
+	HOSTSPEC.ICOL_SPECTABLE[NT] = ivar;
 	HOSTSPEC.NUM_SPECBASIS[NT]  = NUM; // store template NUM
 	sprintf(HOSTSPEC.VARNAME_SPECBASIS[NT],"%s", varName);
 
@@ -1400,8 +1428,7 @@ void  read_specbasis_HOSTLIB(void) {
       }
       NT++ ; // always increment number of templates, NT
     }
-   
-
+  
   } // end ivar loop
 
 
@@ -1422,8 +1449,8 @@ void  read_specbasis_HOSTLIB(void) {
   }
 
   if ( NT >= MXSPECBASIS_HOSTLIB ) {
-    sprintf(c1err,"NSPECBASIS=%d exceeds bound of %d", 
-	    NT, MXSPECBASIS_HOSTLIB ) ;
+    sprintf(c1err,"NSPEC%s=%d exceeds bound of %d", 
+	    TBLNAME, NT, MXSPECBASIS_HOSTLIB ) ;
     sprintf(c2err,"Remove templates or increase MXSPECBASIS_HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
@@ -1477,33 +1504,45 @@ void  read_specbasis_HOSTLIB(void) {
   NBIN_WAVE = NBIN_KEEP;
   HOSTSPEC.NBIN_WAVE  = NBIN_WAVE;
 
-  printf("\t Found %d spectral basis vectors and %d wavelength bins\n",
-	 NT, NBIN_WAVE);
+  printf("\t Found %d spectral %s vectors and %d wavelength bins\n",
+	 NT, HOSTSPEC.TABLENAME, NBIN_WAVE);
   fflush(stdout);
 
   return;
 
-} // end read_specbasis_HOSTLIB
+} // end read_specTable_HOSTLIB
 
 // ============================================
-void match_specbasis_HOSTVAR(void) {
+void match_specTable_HOSTVAR(void) {
 
   // Created June 2019
   // Match specTemplate names to names in HOSTLIB (HOSTVAR).
-  // The specTemplate file has column names template00, template01, etc ...
+  // The specTemplate file has column names specbasis00, specbasis01, etc ...
   // The HOSTLIB VARNAMES must have corresponding list of
-  // coeff_template00, coeff_template01, etc ...
+  // coeff_specbasis00, coeff_specbasis01, etc ...
   //
+  // Output is to load global HOSTSPEC.IVAR_HOSTLIB[i]
+  //
+  // Feb 23 2021: adapt for SPECDATA
 
+  int  ITABLE        = HOSTSPEC.ITABLE ;
   int  NSPECBASIS    = HOSTSPEC.NSPECBASIS ;
-  int  ivar_HOSTLIB, i, NERR=0;
+  int  ivar_HOSTLIB, i, imin, imax, NERR=0;
   int  LDMP = 0 ;
   char *VARNAME_SPECBASIS, VARNAME_HOSTLIB[40];
-  char fnam[] = "match_specbasis_HOSTVAR";
+  char fnam[] = "match_specTable_HOSTVAR";
 
   // ----------------- BEGIN -----------------
 
   if ( NSPECBASIS == 0 ) { return ; }
+
+  if ( ITABLE == ITABLE_SPECDATA ) { 
+    HOSTSPEC.IVAR_HOSTLIB[0] = IVAR_HOSTLIB(VARNAME_SPECDATA_HOSTLIB,0);
+    return ;
+  }
+  
+  // - - - -
+
 
   for(i=0; i < NSPECBASIS; i++ ) {
     VARNAME_SPECBASIS = HOSTSPEC.VARNAME_SPECBASIS[i];
@@ -1527,14 +1566,15 @@ void match_specbasis_HOSTVAR(void) {
 
 
   if ( NERR > 0 ) {
-    sprintf(c1err,"%d specTemplates have no coeff_template in HOSTLIB:", NERR );
+    sprintf(c1err,"%d specTemplates have no coeff_template in HOSTLIB:", 
+	    NERR );
     sprintf(c2err,"Check specTemplate file and HOSTLIB VARNAMES");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
   }
 
   return ;
 
-} // end match_specbasis_HOSTVAR
+} // end match_specTable_HOSTVAR
 
 // =========================================
 void checkVarName_specTemplate(char *varName) {
@@ -1548,13 +1588,14 @@ void checkVarName_specTemplate(char *varName) {
 
   // --------------- BEGIN ------------
 
+  if ( HOSTSPEC.ITABLE == ITABLE_SPECDATA ) { return; }
   if ( HOSTSPEC.NSPECBASIS <= 0 ) { return; }
 
   if (strstr(varName,PREFIX_SPECBASIS)         == NULL ) { return ; }
   if (strstr(varName,PREFIX_SPECBASIS_HOSTLIB) == NULL ) { return ; }
 
   // now we have varName of the form coeff_template[nn]
-  icol = ICOL_SPECBASIS(varName,0); // fetch column in specTemplate file
+  icol = ICOL_SPECTABLE(varName,0); // fetch column in specTemplate file
   
   if ( icol < 0 ) {
     sprintf(c1err,"Found unused '%s' in HOSTLIB", varName );
@@ -1581,6 +1622,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
   int  NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
   int  NBLAM_BASIS     = HOSTSPEC.NBIN_WAVE; 
+  bool IS_SPECBASIS    = HOSTSPEC.ITABLE == ITABLE_SPECBASIS ;
+  bool IS_SPECDATA     = HOSTSPEC.ITABLE == ITABLE_SPECDATA ;
   int  IGAL            = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
   double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1) ;
@@ -1589,6 +1632,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   long long GALID;
   int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, ivar ;
   int  ilam_near, NLAMSUM, LDMP=0;
+  int  ISPEC_MIN, ISPEC_MAX;
   double FLAM_TMP, FLAM_SUM, COEFF, FLUX_TMP, MWXT_FRAC, LAMOBS;
   double LAMOBS_BIN, LAMOBS_MIN, LAMOBS_MAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX ;
@@ -1616,17 +1660,39 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 	   fnam, GALID, IGAL, ZCHECK );
   }
 
-  // first construct total rest-frame spectrum using specbasis binning
+  if ( IS_SPECBASIS ) {
+    // check all basis vectors
+    ISPEC_MIN = 0;  ISPEC_MAX = HOSTSPEC.NSPECBASIS;
+  }
+  else {
+    // pick out the one spectrum in IDSPECDATA column of HOSTLIB
+    ISPEC_MIN = 0;  ISPEC_MAX = 1;
+  }
 
+
+  // first construct total rest-frame spectrum using specbasis binning
   for(ilam_basis=0; ilam_basis < NBLAM_BASIS; ilam_basis++ ) {
     FLAM_SUM = 0.0 ;
     LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
-    for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
+    for(i=ISPEC_MIN; i < ISPEC_MAX; i++ ) {
       ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
       COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
-      FLAM_TMP     = HOSTSPEC.FLAM_BASIS[i][ilam_basis] ;
-      FLAM_SUM    += ( COEFF * FLAM_TMP );
 
+      /* xxxx .xyz
+      if ( ilam_basis < 10 ) {
+	printf(" xxx %s: ilam=%2d ivar_HOSTLIB=%d  COEFF=%f\n",
+	       fnam, ilam, ivar_HOSTLIB, COEFF );
+      } 
+      xxxx */
+
+      if ( IS_SPECBASIS ) { 
+	FLAM_TMP     = HOSTSPEC.FLAM_BASIS[i][ilam_basis] ;
+	FLAM_SUM    += ( COEFF * FLAM_TMP );
+      }
+      else {
+	int IDSPEC = (int)COEFF ;
+	FLAM_SUM   = HOSTSPEC.FLAM_BASIS[IDSPEC][ilam_basis] ; 
+      }
       if ( DUMPFLAG && ilam_basis == 0 && COEFF > 0.0 ) {
 	printf(" xxx COEFF(%2d) = %le  (ivar_HOSTLIB=%d)\n", 
 	       i, COEFF, ivar_HOSTLIB );
@@ -2765,7 +2831,7 @@ void sortz_HOSTLIB(void) {
   double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   double VPEC, VSUM, VSUMSQ ;
   char *ptr_UNSORT ;
-  //  char fnam[] = "sortz_HOSTLIB" ;
+  char fnam[] = "sortz_HOSTLIB" ;
 
   // ------------- BEGIN -------------
 
@@ -2875,6 +2941,20 @@ void sortz_HOSTLIB(void) {
       if ( VPEC > HOSTLIB.VPEC_MAX ) { HOSTLIB.VPEC_MAX = VPEC; }
       if ( VPEC < HOSTLIB.VPEC_MIN ) { HOSTLIB.VPEC_MIN = VPEC; }
       VSUM += VPEC;  VSUMSQ += (VPEC*VPEC);
+
+      // Feb 24 2021: abort on ZTRUE+VPEC too small
+      double zcheck     = ZTRUE + (VPEC/LIGHT_km);
+      double ZTRUE_MIN  = INPUTS.GENRANGE_REDSHIFT[0] ;
+      if ( zcheck < ZMIN_HOSTLIB && ZTRUE >= ZTRUE_MIN ) {
+	print_preAbort_banner(fnam);
+	printf("\t ZTRUE(HOSTLIB) = %f \n", ZTRUE);
+	printf("\t VPEC(HOSTLIB)  = %f \n", VPEC);
+	printf("\t ZMIN_HOSTLIB   = %f \n", ZMIN_HOSTLIB);
+	sprintf(c1err,"ZTRUE + VPEC/c = %f  < %f", zcheck, ZMIN_HOSTLIB);
+	sprintf(c2err,"Fix HOSTLIB VPEC or increase GENRANGE_REDSHIFT[0] > %f",
+		INPUTS.GENRANGE_REDSHIFT[0]);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
     }
 
   } // end of igal loop
@@ -4649,7 +4729,7 @@ bool ISCHAR_HOSTLIB(int IVAR) {
 } // end ISCHAR_HOSTLIB
 
 // ========================================
-int ICOL_SPECBASIS(char *varname, int ABORTFLAG) {
+int ICOL_SPECTABLE(char *varname, int ABORTFLAG) {
 
 
   // June 2019
@@ -4661,7 +4741,7 @@ int ICOL_SPECBASIS(char *varname, int ABORTFLAG) {
 
   int icol, NCOL, ICMP ;
   char VARNAME_TMP[2][60];
-  char fnam[] = "ICOL_SPECBASIS";
+  char fnam[] = "ICOL_SPECTABLE";
 
   // ---------- BEGIN ----------
 
@@ -4694,7 +4774,7 @@ int ICOL_SPECBASIS(char *varname, int ABORTFLAG) {
     return(-9) ; 
   }
 
-} // end of ICOL_SPECBASIS
+} // end of ICOL_SPECTABLE
 
 // =========================================
 void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
@@ -4749,7 +4829,8 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   if ( USE == 0 ) { return ; }
 
   if ( ZGEN_HELIO < HOSTLIB.ZMIN || ZGEN_HELIO > HOSTLIB.ZMAX ) {
-    double zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,"eq",+1);
+    double zCMB;
+    zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,"eq",+1);
     sprintf(c1err,"Invalid ZGEN(Helio,CMB)=%f,%f ", ZGEN_HELIO, zCMB );
     sprintf(c2err,"HOSTLIB z-range is %6.4f to %6.4f",
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
@@ -4848,13 +4929,11 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------- BEGIN ------------
 
-  
   IGAL_SELECT = -9 ; 
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
-  
-  
+    
   // find start zbin 
   LOGZGEN = log10(ZGEN);
 
@@ -6564,7 +6643,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
   // un-do zPEC to get zHEL without vPEC
-  // xxx mark delete zHEL = GENLC.REDSHIFT_HELIO - zPEC_GAUSIG ;  //.xyz
 
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
@@ -6572,9 +6650,8 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // check for transferring redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    // mark delete : bug   zHEL = ZTRUE - zPEC_GAUSIG;
     zHEL = ZTRUE ;
-    if ( INPUTS.VEL_CMBAPEX > 0.0 ) {
+    if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
       zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
     }
     else {
@@ -6592,7 +6669,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   if ( DO_SN2GAL_RADEC && !DO_SN2GAL_Z ) {
     zCMB = GENLC.REDSHIFT_CMB  ; // preserve this
-    if ( INPUTS.VEL_CMBAPEX > 0.0 ) 
+    if ( INPUTS.VEL_CMBAPEX > 1.0 ) 
       { zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); }   
     else 
       { zHEL = zCMB; }

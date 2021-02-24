@@ -4428,6 +4428,9 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       sprintf(c2err,"Needs a code fix here");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+
+    // FILTCHAR_1D includes every observation; here we pick out subset
+    // subset of FILTCHAR_1D that are on STORE_LIST
     parse_commaSepList("SNDATA_FILTCHAR", SNDATA.FILTCHAR_1D, MXEPOCH, 2,
 		       &NSPLIT, &str2d );
     stringVal[0] = 0 ;
@@ -4435,7 +4438,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       OBS = SNDATA.OBS_STORE_LIST[obs]-1; // back to C index    
       catVarList_with_comma(stringVal, str2d[OBS] );
     }
-    
+
   }
   else if ( strcmp(key,"FIELD") == 0 ) {
     if ( copyFlag > 0 ) {
@@ -4446,12 +4449,12 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
     parse_commaSepList("SNDATA_FIELDNAME", SNDATA.FIELDNAME_1D, 
 		       MXEPOCH, 20, &NSPLIT, &str2d );
-
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]-1;    
       catVarList_with_comma(stringVal, str2d[OBS] );
     }
+
   }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
@@ -4593,7 +4596,7 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
   if ( ispec >= 0 ) { NBLAM = GENSPEC.NBLAM_VALID[ispec]; }
 
   if ( strcmp(key,"NSPECTRA") == 0 ) 
-    { copy_int(copyFlag, parVal, &GENSPEC.NMJD_TOT );  }
+    { copy_int(copyFlag, parVal, &GENSPEC.NMJD_PROC );  }
 
   // ispec-dependent info
 
@@ -8489,7 +8492,7 @@ int init_SNDATA_EVENT(void) {
   SNDATA.MWEBV  = NULLFLOAT ;
   SNDATA.WRFLAG_BLINDTEST = false ; 
   SNDATA.WRFLAG_PHOTPROB  = false ;
-  SNDATA.SNTYPE = -999;
+  SNDATA.SNTYPE = 0 ;
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
   SNDATA.FIELDNAME_1D[0] = 0 ;
@@ -8680,7 +8683,7 @@ int init_SNDATA_EVENT(void) {
 // =================================================
 void init_GENSPEC_GLOBAL(void) {
   int ispec;
-  GENSPEC.NMJD_TOT = 0 ;
+  GENSPEC.NMJD_PROC = 0 ;
   for(ispec=0; ispec < MXSPECTRA; ispec++ )  { GENSPEC.NBLAM_VALID[ispec]=0;} 
   return;
 } // end init_GENSPEC_GLOBAL
@@ -8692,6 +8695,8 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   //  printf(" xxx %s: ispec=%d NB=%d  last NB=%d\n",
   //	 fnam, ispec, NBLAM, GENSPEC.NBLAM_VALID[ispec]  );
 
+  if  ( ispec < 0 ) { init_GENSPEC_GLOBAL(); return; }
+  
   if ( GENSPEC.NBLAM_VALID[ispec] > 0 ) {
     free(GENSPEC.LAMMIN_LIST[ispec])  ;
     free(GENSPEC.LAMMAX_LIST[ispec])  ;

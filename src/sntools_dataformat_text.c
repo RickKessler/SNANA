@@ -68,11 +68,22 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
     "BLIND-TEST simulation"
   } ;
 
+  char SURVEY_ARG[100];
   char fnam[] = "wr_dataformat_text_HEADER" ;
 
   // ------------ BEGIN -----------
 
-  fprintf(fp,"SURVEY:   %s\n", SNDATA.SURVEY_NAME);
+  // write either "SURVEY: SURVEY" or "SURVEY: SURVEY(SUBSAMPLE)"
+  int LENS = strlen(SNDATA.SUBSURVEY_NAME);
+  int OVP  = strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME);
+  if ( LENS > 0 && OVP!=0 ) 
+    { sprintf(SURVEY_ARG, "%s(%s)", 
+	      SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME ); }
+  else
+    { sprintf(SURVEY_ARG, "%s", SNDATA.SURVEY_NAME); }
+  fprintf(fp,"SURVEY:   %s\n", SURVEY_ARG);
+
+
   fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
   fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
   // fprintf(fp,"SNTYPE:   %d\n", SNDATA.SEARCH_TYPE);
@@ -596,7 +607,6 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   fprintf(fp,"NVAR: %d \n", NVAR );
   fprintf(fp,"VARLIST: %s\n", VARLIST);
 
-
   for ( ep = 1; ep <= SNDATA.NEPOCH; ep++ ) {
 
     if ( !SNDATA.OBSFLAG_WRITE[ep] )  { continue ; }
@@ -689,7 +699,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
-  int  NMJD       = GENSPEC.NMJD_TOT ;
+  // xxx mark delete Feb 24 2021 int  NMJD       = GENSPEC.NMJD_TOT ;
+  int  NMJD       = GENSPEC.NMJD_PROC ;  // Feb 24 2021
   int  NBLAM_TOT  = GENSPEC.NBLAM_TOT ;
   
   int  NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
@@ -1015,7 +1026,7 @@ void  rd_sntextio_global(void) {
   char FIRSTFILE[MXPATHLEN] ;
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
   int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR ;
-  bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM;
+  bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM, FOUND_FAKEKEY=false ;
   bool IS_PRIVATE, IS_SIMSED, IS_LCLIB, IS_BYOSED, IS_SNEMO ;
   char word0[100], word1[100], word2[100];    
   char fnam[] = "rd_sntextio_global" ;
@@ -1048,9 +1059,10 @@ void  rd_sntextio_global(void) {
     }
     else if ( strcmp(word0,"SURVEY:") == 0 ) {
       iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME );
-    }
 
-    // subsurvey ??
+      // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
+      extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
+    }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {
       iwd++; get_PARSE_WORD(langC, iwd, word1);
@@ -1059,6 +1071,7 @@ void  rd_sntextio_global(void) {
     else if ( strcmp(word0,"FAKE:") == 0 ) {
       iwd++; get_PARSE_WORD_INT(langC, iwd, &ITMP );
       SNDATA.FAKE = ITMP ;
+      FOUND_FAKEKEY = true ;
       if ( ITMP == FAKEFLAG_DATA ) 
 	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_DATA); } 
       else if ( ITMP == FAKEFLAG_LCSIM ) 
@@ -1125,6 +1138,12 @@ void  rd_sntextio_global(void) {
     }
 
     else if ( strcmp(word0,"OBS:") == 0 ) {
+
+      if ( !FOUND_FAKEKEY) {
+	printf("\n     WARNING: no FAKE key -> assume real data\n\n");
+	SNDATA.FAKE = FAKEFLAG_DATA;
+	sprintf(SNDATA.DATATYPE, "%s", DATATYPE_DATA); 
+      }
       return ;  // done reading global info; bye bye
     }    
 
@@ -1196,6 +1215,11 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.FLUXCAL = ivar; }
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
       { IVAROBS_SNTEXTIO.FLUXCALERR = ivar; }
+
+    else if ( strcmp(varName,"MAG") == 0 )    // ignore obsolete MAG col
+      {  ; }
+    else if ( strcmp(varName,"MAGERR") == 0 ) 
+      { ; }
 
     else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
       { IVAROBS_SNTEXTIO.PHOTFLAG = ivar; }  
@@ -1283,13 +1307,13 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
 
   NVAR = SNTEXTIO_FILE_INFO.NVARSPEC ;
   if ( NVAR < 3 || NVAR >= MXVAROBS_TEXT ) {
-    sprintf(c1err,"Invalid NVAR=%d (MXVARSPEC_TEXT=%d)", 
-	    NVAR, MXVAROBS_TEXT ) ;
+    sprintf(c1err,"Invalid NVAR=%d (MXVARSPEC_TEXT=%d) for CID=%s", 
+	    NVAR, MXVAROBS_TEXT, SNDATA.CCID ) ;
     sprintf(c2err,"Check NVAR_SPEC and VARNAMES_SPEC keys");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // printf(" xxx %s: read %d VARLIST names\n", fnam, SNTEXTIO_FILE_INFO.NVAROBS );
+
 
   for(ivar=0; ivar < NVAR; ivar++ ) {
     varName = SNTEXTIO_FILE_INFO.VARNAME_SPEC_LIST[ivar];
@@ -1317,10 +1341,13 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
     else if ( strcmp(varName,"SIM_GENMAG") == 0 ) 
       { IVARSPEC_SNTEXTIO.SIM_GENMAG = ivar; }
 
+    else if ( strcmp(varName,"DQ") == 0 ) {
+      // do nothing ??
+    }
     else {
       sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 
 	      varName, ivar, NVAR );
-      sprintf(c2err,"Check VARLIST_SPEC args.");
+      sprintf(c2err,"Check VARLIST_SPEC args for CID=%s", SNDATA.CCID);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
   } // end ivar
@@ -1384,6 +1411,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     SNTEXTIO_FILE_INFO.NSPEC_READ = 0 ;
     SNTEXTIO_FILE_INFO.NVAR_PRIVATE_READ = 0 ;
     init_SNDATA_EVENT();
+    init_GENSPEC_EVENT(-1,-1);
     check_head_sntextio(1);
 
     iwd = 0;  LRD_NEXT = true ;
@@ -1432,7 +1460,6 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
     NWD = SNTEXTIO_FILE_INFO.NWD_TOT ;   // restore from LRD_OBS
     iwd = SNTEXTIO_FILE_INFO.IPTR_READ;  // restore from LRD_OBS
-
     /*
     printf(" xxx %s: read obs for %s (iwd=%d of %d)\n", 
     fnam, SNDATA.CCID, iwd, NWD); */
@@ -1464,9 +1491,10 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   // and load SNDATA struct.
   // Also increment and return *iwd_file.
   //
+  // Abort if SURVEY and FILTERS arg changes w.r.t. first data file.
+  //
   // Function returns true to keep reading;
-  // returns false when end of header is reached by 
-  // finding NOBS key.
+  // returns false when end of header is reached by finding NOBS key.
 
   int  NFILT     = SNDATA_FILTER.NDEF;
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
@@ -1476,9 +1504,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   int  iwd       = *iwd_file ;
   int  igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs ;
-  double DVAL;
+  double DVAL; 
   bool IS_PRIVATE ;
-  char word0[100], PREFIX[40], KEY_TEST[80];
+  char word0[100], PREFIX[40], KEY_TEST[80], ARG_TMP[80];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
   // ------------ BEGIN -----------g
@@ -1500,11 +1528,27 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_SNID] = true ;
   }
   else if ( strcmp(word0,"SURVEY:") == 0 ) {
-    // already parse in global; here just check key in each file
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_SURVEY] = true ;
+
+    // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
+    iwd++ ; get_PARSE_WORD(langC, iwd, ARG_TMP);
+    extractStringOpt(ARG_TMP, SNDATA.SUBSURVEY_NAME); 
+    if ( strcmp(ARG_TMP,SNDATA.SURVEY_NAME) != 0 ) {
+      sprintf(c1err,"Invalid 'SURVEY: %s' for CID=%s", ARG_TMP, SNDATA.CCID);
+      sprintf(c2err,"Expected 'SURVEY: %s' from first data file",
+	      SNDATA.SURVEY_NAME);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
   }
   else if ( strcmp(word0,"FILTERS:") == 0 ) {
-    // already parse in global; here just check key in each file
+    // already parsed in global; check here that FILTERS arg doesn't change
+    iwd++; get_PARSE_WORD(langC, iwd, ARG_TMP);
+    if ( strcmp(ARG_TMP,SNDATA_FILTER.LIST) != 0 ) {
+      sprintf(c1err,"Invalid 'FILTERS: %s' for CID=%s", ARG_TMP, SNDATA.CCID);
+      sprintf(c2err,"Expected 'FILTERS: %s' from first data file",
+	      SNDATA_FILTER.LIST);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    }
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_FILTERS] = true ;
   }
   else if ( strcmp(word0,"IAUC:") == 0 ) {
@@ -1653,7 +1697,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   } // end HOSTGAL
       
-  else if ( strcmp(word0,"PEAKMJD:") == 0 ) {
+  else if ( strcmp(word0,"PEAKMJD:") == 0 || 
+	    strcmp(word0,"SEARCH_PEAKMJD:") == 0 ) {
     iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.SEARCH_PEAKMJD);    
   }
   else if ( strcmp(word0,"SEARCH_TYPE:") == 0 ) {
@@ -1674,6 +1719,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   else if ( strcmp(word0,"NOBS:") == 0 ) {
     iwd++ ; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NOBS );
+    SNDATA.NEPOCH = SNDATA.NOBS; // goofy logic here
   }
 
   // ---------------------
@@ -1984,6 +2030,7 @@ void check_head_sntextio(int OPT) {
   // OPT = 2 -> do the check
 
   int i;
+  bool HEAD_EXIST ;
   char *CCID = SNDATA.CCID ;
   char *KEY;
   char fnam[] = "check_head_sntextio" ;
@@ -2020,6 +2067,15 @@ void check_head_sntextio(int OPT) {
 
   } 
   else {
+    // if FAKE key not found, assume real data and give warning
+    i = HEAD_REQUIRE_FAKE ;
+    HEAD_EXIST = SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[i];
+    if ( !HEAD_EXIST ) {
+      SNDATA.FAKE = FAKEFLAG_DATA;
+      sprintf(SNDATA.DATATYPE, "%s", DATATYPE_DATA); 
+      SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[i] = true ;       
+    }
+    
     // abort if any sanity check fails
     int NERR = 0 ;  bool HEAD_EXIST;
     for(i=0; i < NHEAD_REQUIRE; i++ ) {
@@ -2071,6 +2127,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
   int  ep, ivar, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
   char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
+  char STRING[40];
   char fnam[] = "parse_SNTEXTIO_OBS";
 
   // ------------ BEGIN -----------
@@ -2084,8 +2141,15 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   if ( strcmp(word0,"OBS:") == 0 ) {
     for(ivar=0; ivar < NVAR; ivar++ ) {
-      iwd++ ;
-      get_PARSE_WORD(langC, iwd, SNTEXTIO_FILE_INFO.STRING_LIST[ivar] );
+      iwd++ ;   get_PARSE_WORD(langC, iwd, STRING);
+      if ( strcmp(STRING,"OBS:") == 0 ) {
+	sprintf(c1err,"Found OBS key at ivar=%d of %d (last MJD=%.3f)",
+		ivar, NVAR, SNDATA.MJD[ep]);
+	sprintf(c2err,"Data file for SNID=%s is messed up.", SNDATA.CCID);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+      }
+      sprintf(SNTEXTIO_FILE_INFO.STRING_LIST[ivar],"%s", STRING);
+      
     }
 
     SNTEXTIO_FILE_INFO.NOBS_READ++ ;
@@ -2093,7 +2157,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
-    //printf(" xxx %s: load MJD[%3d] = %f \n", fnam, ep, SNDATA.MJD[ep] );
+    SNDATA.OBSFLAG_WRITE[ep] = true ; 
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     sprintf(SNDATA.FILTCHAR[ep], "%s", str);
@@ -2196,7 +2260,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   get_PARSE_WORD(langC, iwd, word0) ;
 
   if ( strcmp(word0,"NSPECTRA:") == 0 ) {
-      iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &GENSPEC.NMJD_TOT );
+      iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &GENSPEC.NMJD_PROC );
   }
 
   else if ( strcmp(word0,"NVAR_SPEC:") == 0 ) {

@@ -5,7 +5,8 @@
 # Extract table value(s) for cid(s) and print to screen.
 # Intended for visual debugging.
 #
-
+# Feb 24 2021: print table with sorted(cid_list) to avoid random ordering.
+#
 import os, sys, argparse
 import pandas as pd
 
@@ -93,7 +94,7 @@ def print_info(df, cid_list, nrow):
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
-    print(df.loc[cid_list, var_list].__repr__())
+    print(df.loc[sorted(cid_list), var_list].__repr__())
     # end print_info
 
 # =============================================

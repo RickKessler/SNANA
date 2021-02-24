@@ -998,6 +998,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,   "NONE" );  // optional wgtmap
   sprintf(INPUTS.HOSTLIB_ZPHOTEFF_FILE, "NONE" );  // optional zphot-eff
   sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
+  sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
 
   INPUTS.HOSTLIB_USE    = 0;
@@ -2918,6 +2919,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_SPECBASIS_FILE", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ) ; 
   }
+  else if ( keyMatchSim(1, "HOSTLIB_SPECDATA_FILE", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECDATA_FILE ) ; 
+  }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT );
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
@@ -3810,8 +3814,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // Works with SPECTROGRAPH to specify spectra w.r.t peakMJD,
   // instead of at aboslute MJD (simlib) values.
   //
-  // Read from file pointer if *fp != NULL; else sscanf(WORDS ...
-  // Allows reading TAKE_SPECTRUM keys from SIMLIB header using fp_SIMLIB.
+  // Read from file pointer if *fp != NULL; e.g., from SIMLIB header.
+  // Else sscanf(WORDS ...
   //
   // *string1 = TREST([Tmin]:[Tmax])  or
   //            TOBS([Tmin]:[Tmax])   or
@@ -3823,6 +3827,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //
   // If WARP_SPECTRUM_STRING is not blank, parse this option
   // to apply mis-calibration vs. wavelength using polyFun of wavelength.
+  //
+  // Function returns number or words read.
   //
   // Note that colon denotes a range, while comma separates a list.
   //
@@ -3836,6 +3842,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //   + if reading SIMLIB header, skip epochs outside GENRANGE_TREST
   //
   // Jul 30 2020: fix ABORT logic for TAKE_SPECTRUM keys.
+  // Feb 24 2021; fix TREST cut to work with GENLC.REDSHIFT or header z.
 
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
@@ -3955,10 +3962,15 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
 
   // - - - - - - - - - - - - -  -
-  // if reading SIMLIB header, skip epochs outside GENRANGE_TREST
-  if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA && INPUTS.USE_SIMLIB_REDSHIFT) {
+  // if reading SIMLIB header, apply Trest cut to 
+  // skip epochs outside GENRANGE_TREST
+  if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA ) {
     double z, Tmin, Tmax, Trest=9999.;  int OPT_FRAME;
-    z    = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ;
+
+    if ( INPUTS.USE_SIMLIB_REDSHIFT ) 
+      { z = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ; }
+    else 
+      { z  = GENLC.REDSHIFT_CMB; }
     Tmin = INPUTS.GENRANGE_TREST[0] ;
     Tmax = INPUTS.GENRANGE_TREST[1] ;
     OPT_FRAME = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH ;
@@ -4691,6 +4703,7 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.HOSTLIB_WGTMAP_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_ZPHOTEFF_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_SPECBASIS_FILE,fnam,1);
+  ENVreplace(INPUTS.HOSTLIB_SPECDATA_FILE,fnam,1);
   ENVreplace(INPUTS.FLUXERRMODEL_FILE,fnam,1 );
   ENVreplace(INPUTS.HOSTNOISE_FILE,fnam,1 );
   ENVreplace(INPUTS.WRONGHOST_FILE,fnam,1 );
@@ -7810,6 +7823,7 @@ void GENSPEC_DRIVER(void) {
   // Sep  1 2016: add flat spectra for FIXRAN model.
   // Oct 16 2016: apply Gaussian LAMRES smearing
   // Jan 14 2021: abort if NMJD>0 but there is no SPECTROGRAPH instrument.
+  // Feb 24 2021: increment NMJD_PROC only if NBLAM_VALID > 0
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
   double MJD_LAST, MJD_DIF ;
@@ -7830,14 +7844,11 @@ void GENSPEC_DRIVER(void) {
     sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  /* xxx mark delete
-  if ( INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC == 0 ) { return ; }
-  xxxx */
+
 
   // Jan 2018: allow some LIBIDs to NOT have a spectrograph key
   if ( NPEREVT_TAKE_SPECTRUM == 0 && SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH == 0 ) 
     { return ; }
-
 
   GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
 
@@ -7853,7 +7864,7 @@ void GENSPEC_DRIVER(void) {
   }
 
   // - - - - - - - - - - - - - - - - 
-  int imjd_order[MXSPEC];
+  int    imjd_order[MXSPEC];
   double SNR, LAMMIN=100.0, LAMMAX=25000. ; 
 
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
@@ -7867,7 +7878,6 @@ void GENSPEC_DRIVER(void) {
       LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
       LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
     }
-
     
     GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
 
@@ -7890,12 +7900,13 @@ void GENSPEC_DRIVER(void) {
     // Feb 2 2017: convert flux to FLAM (dF/dlam)
     GENSPEC_FLAM(imjd) ;
 
-    GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
-    NGENSPEC_TOT++ ;      // total NSpec over all Light curve
+    if ( GENSPEC.NBLAM_VALID[imjd] > 0 ) {
+      GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
+      NGENSPEC_TOT++ ;      // total NSpec over all Light curve
+    }
 
   } // end imjd
   
-
 
   return ;
 
@@ -8666,7 +8677,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   // convert sum(ERRSQ) -> ERR in each lambda bin and
   // count number of wavelength bins with flux;
   double ERRSQ, SUM_FLUX, SUM_ERRSQ, SUM_ERR ;
-  SUM_FLUX = SUM_ERRSQ = 0.0 ;
+  SUM_FLUX = SUM_ERRSQ = SNR_SPEC = 0.0 ;
 
   for(ilam=ILAM_MIN; ilam <=ILAM_MAX ; ilam++ ) {
     ERRSQ = GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam] ;
@@ -8679,9 +8690,10 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     SUM_ERRSQ   += ERRSQ ;
   }
 
-  SUM_ERR  = sqrt(SUM_ERRSQ);
-  SNR_SPEC = SUM_FLUX / SUM_ERR ;
-
+  if ( SUM_ERRSQ > 0.0 ) {
+    SUM_ERR  = sqrt(SUM_ERRSQ);
+    SNR_SPEC = SUM_FLUX / SUM_ERR ;
+  }
 
   /*
   printf("\t xxx %s: SNR = %le / %le = %le \n", 
@@ -12241,9 +12253,11 @@ double gen_redshift_helio(void) {
   // ----------- BEGIN ------------
 
   // check (v10_31) legacy option to keep zhelio = zcmb
-  // xxx mark del Feb 2021  if ( INPUTS.VEL_CMBAPEX == 0.0 ) { return zCMB ; }
 
-  zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, "eq", -1);
+  if ( INPUTS.VEL_CMBAPEX < 1.0 ) 
+    { zhelio = zCMB ; }  
+  else 
+    { zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, "eq", -1); }
 
   // apply v_pec
   if ( USE_HOSTLIB_VPEC ) {
@@ -12393,9 +12407,13 @@ void gen_zsmear(double zerr) {
 
  ZSMEAR:
   if ( NZRAN >= MXZRAN ) {
+    print_preAbort_banner(fnam);
+    printf("\t z[cmb,hel] = %f , %f \n", 
+	   GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO );
+    printf("\t VEL_CMBAPEX = %.2f \n", INPUTS.VEL_CMBAPEX); 
+    printf("\t VPEC = %.1f  (GALID=%lld) \n", GENLC.VPEC, SNHOSTGAL.GALID );
     sprintf(c1err,"Could not generate random Z after %d tries", NZRAN);
-    sprintf(c2err,"Each Z < ZGEN_MIN = %f  z[cmb,hel]=%f,%f)", 
-	    ZGEN_MIN, GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO );
+    sprintf(c2err,"Each Z < ZGEN_MIN = %f ", ZGEN_MIN );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -12425,9 +12443,9 @@ void gen_zsmear(double zerr) {
   RA     = GENLC.RA ;  
   DEC    = GENLC.DEC ;
 
-  if ( INPUTS.VEL_CMBAPEX == 0.0 ) 
+  if ( INPUTS.VEL_CMBAPEX < 1.0 ) 
     { GENLC.REDSHIFT_CMB_SMEAR = zhelio ; } // legacy option, ZCMB = ZHELIO
-  else
+  else 
     { GENLC.REDSHIFT_CMB_SMEAR = 
 	zhelio_zcmb_translator(zhelio,RA,DEC, "eq", +1); 
     }
@@ -14822,6 +14840,12 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 
     MJD_REF =  GENSPEC_PICKMJD( 0, i, z, &TOBS, &TREST) ; // for MJD sorting
 
+    /* xxx
+    if ( SIMLIB_HEADER.LIBID == 22 ) {
+      printf(" xxx %s: i=%d of %d  TOBS=%.1f \n", fnam, i, NSPEC, TOBS);
+    }
+    xxxx */
+
     // make sure that TREST is within valid range
     if ( !IS_HOST ) {
       float *ptrTcut = INPUTS.GENRANGE_TREST ;
@@ -16015,7 +16039,7 @@ void store_GENSPEC(double *VAL_STORE) {
 
   double TOBS, TREST ;
   int OPT_TEXPOSE, imjd ;
-  //  char fnam[] = "store_GENSPEC" ;
+  char fnam[] = "store_GENSPEC" ;
 
   // -------------- BEGIN ---------------
 
@@ -18939,8 +18963,14 @@ void  setz_unconfirmed(void) {
     if ( !GENLC.CORRECT_HOSTMATCH  ) {
       GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_WRONGHOST ; 
       GENLC.REDSHIFT_HELIO_SMEAR = SNHOSTGAL.ZSPEC ;  
-      GENLC.REDSHIFT_CMB_SMEAR =  
-	zhelio_zcmb_translator(SNHOSTGAL.ZSPEC, RA,DEC,eq, +1);
+
+      if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
+	GENLC.REDSHIFT_CMB_SMEAR =  
+	  zhelio_zcmb_translator(SNHOSTGAL.ZSPEC, RA,DEC,eq, +1);
+      }
+      else {
+	GENLC.REDSHIFT_CMB_SMEAR = SNHOSTGAL.ZSPEC ;
+      }
 
       if ( LDMP ) {
 	printf(" xxx zcmb = %.3f(SN) -> %.3f(WRONGHOST) \n", 
@@ -25015,6 +25045,8 @@ void readme_doc_mapFileList(int *iline) {
 		     INPUTS.HOSTLIB_ZPHOTEFF_FILE);
   readme_doc_mapFile(&i, "HOSTLIB_SPECBASIS_FILE:", 
 		     INPUTS.HOSTLIB_SPECBASIS_FILE);
+  readme_doc_mapFile(&i, "HOSTLIB_SPECDATA_FILE:", 
+		     INPUTS.WRONGHOST_FILE);
   readme_doc_mapFile(&i, "WRONGHOST_FILE:", 
 		     INPUTS.WRONGHOST_FILE);
   readme_doc_mapFile(&i, "FLUXERRMODEL_FILE:",
@@ -26407,7 +26439,6 @@ void append_SNSPEC_TEXT(void) {
 	  "FLAM  FLAMERR   SIM_GENFLAM SIM_GENMAG  %s\n\n",
 	  NVAR, varList_lam, varList_warp );
 
-  // .xyz
   for(imjd=0; imjd < NMJD; imjd++ ) {
     IDSPEC = imjd + 1 ;  // start at 1
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
@@ -26536,6 +26567,7 @@ void DASHBOARD_DRIVER(void) {
   printf("HOSTLIB_WGTMAP_FILE:    %s\n", INPUTS.HOSTLIB_WGTMAP_FILE);
   printf("HOSTLIB_ZPHOTEFF_FILE:  %s\n", INPUTS.HOSTLIB_ZPHOTEFF_FILE);
   printf("HOSTLIB_SPECBASIS_FILE: %s\n", INPUTS.HOSTLIB_SPECBASIS_FILE);
+  printf("HOSTLIB_SPECDATA_FILE:  %s\n", INPUTS.HOSTLIB_SPECDATA_FILE);
   printf("WRONGHOST_FILE:         %s\n", INPUTS.WRONGHOST_FILE);
   printf("FLUXERRMODEL_FILE:      %s\n", INPUTS.FLUXERRMODEL_FILE);
   printf("NONLINEARITY_FILE:      %s\n", INPUTS.NONLINEARITY_FILE );

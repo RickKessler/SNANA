@@ -81,6 +81,7 @@
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
+#define ZMIN_HOSTLIB       pow(10.0,MINLOGZ_HOSTLIB)
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
@@ -510,14 +511,23 @@ struct SNTABLEVAR_DEF {
 // Jun 27 2019; define structed used to determine host spectrum
 #define MXSPECBASIS_HOSTLIB 20  // max number of spectral templates
 #define MXBIN_SPECBASIS  20000  // max number of wave bins
-#define PREFIX_SPECBASIS "specbasis"    // e.g., specbasis00, specbasis01, ...
-#define PREFIX_SPECBASIS_HOSTLIB "coeff_"      // extra prefix for HOSTLIB
+#define PREFIX_SPECBASIS "SPECBASIS"    // e.g., specbasis00, specbasis01, ...
+#define PREFIX_SPECBASIS_HOSTLIB "COEFF_"      // extra prefix for HOSTLIB
+
+#define PREFIX_SPECDATA "SPECDATA"    // e.g., specdata00, specdata01, ...
+#define VARNAME_SPECDATA_HOSTLIB "IDSPECDATA"   // extra prefix for HOSTLIB
+
+#define ITABLE_SPECBASIS 0
+#define ITABLE_SPECDATA  1
 
 struct {
-  int  NSPECBASIS ; 
+  int  ITABLE ;         // either SPECBASIS or SPECDATA (Feb 23 2021)
+  char TABLENAME[12] ;   // "BASIS" or "DATA"
+
+  int  NSPECBASIS ; // 
   int  NBIN_WAVE;  // number of wavelength bins
   int  ICOL_WAVE;  // table column with wavelength
-  int  ICOL_SPECBASIS[MXSPECBASIS_HOSTLIB]; // colum for each template
+  int  ICOL_SPECTABLE[MXSPECBASIS_HOSTLIB]; // colum for each template
   int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
   char VARNAME_SPECBASIS[MXSPECBASIS_HOSTLIB][28];
 
@@ -653,10 +663,10 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
 
 // SPECBASIS functions
-void   read_specbasis_HOSTLIB(void);
-void   match_specbasis_HOSTVAR(void);
+void   read_specTable_HOSTLIB(void);
+void   match_specTable_HOSTVAR(void);
 void   checkVarName_specbasis(char *varName);
-int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
+int    ICOL_SPECTABLE(char *varname, int ABORTFLAG) ;
 void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
 

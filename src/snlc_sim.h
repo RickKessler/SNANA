@@ -448,6 +448,7 @@ struct INPUTS {
   char HOSTLIB_WGTMAP_FILE[MXPATHLEN];  // optional wgtmap override
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
+  char HOSTLIB_SPECDATA_FILE[MXPATHLEN]; // spec data for host spec
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9

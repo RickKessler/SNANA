@@ -1118,7 +1118,6 @@ void WR_SNFITSIO_UPDATE(void) {
   // that is created iternally; it is used in the readback
   // to ensure that the epoch-pointers are OK.
 
-
   // start by filling end-of-event marker
   ep                        = SNDATA.NEPOCH+1; // artificial epoch for EOE
   SNDATA.OBSFLAG_WRITE[ep]  = true ;
@@ -1151,6 +1150,9 @@ void WR_SNFITSIO_UPDATE(void) {
 
 
   // Aug 2016: check for optional spectra
+  // Beware that NMJD_TOT is total number of requested spectra,
+  // while NMJD_PROC is how many spectra exist
+  // (e.g., Trest outside sim-model range can't create spectra)
   int imjd;
   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) 
@@ -2025,6 +2027,9 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // ----------- BEGIN ------------
 
+  // Feb 24 2021 Bail if no spectrum (e.g, sim outside Trest range)
+  if ( NBLAM_WR == 0 ) { return ; } 
+
   // calculate obs-pointer for photometry fits file.
   PTRSPEC_MIN = WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW+1 ;
   PTRSPEC_MAX = PTRSPEC_MIN - 1 + NBLAM_WR ;
@@ -2708,6 +2713,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "NOBS", &SNDATA.NOBS,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    SNDATA.NEPOCH = SNDATA.NOBS; // goofy; need to clean up
 
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MWEBV", &SNDATA.MWEBV,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3031,7 +3037,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // - - - - - - - -
 
   if ( LRD_PHOT ) {
-    int ep0 = 1 ;
+    int ep, ep0 = 1 ;
     int NSPLIT ;
     j=0;
 
@@ -3041,7 +3047,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     // note that FLT returns comma-separated list in 1D string
     j++; NRD = RD_SNFITSIO_STR(isn, "FLT", SNDATA.FILTCHAR_1D, 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
-    
+
+    // store arrays need to re-write in text format
+    for(ep=0; ep<=NRD; ep++) { 
+      //      sprintf(&SNDATA.FILTCHAR[ep],"%c", SNDATA.FILTCHAR_1D[2*ep] );
+      SNDATA.OBSFLAG_WRITE[ep] = true ; 
+    }
     // note that FIELD returns comma-separated list in 1D string
     j++; NRD = RD_SNFITSIO_STR(isn, "FIELD", SNDATA.FIELDNAME_1D, 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
@@ -3105,14 +3116,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     int irow, ROWMIN, ROWMAX, NBLAM, ispec=0;
 
     RD_SNFITSIO_SPECROWS(SNDATA.CCID, &ROWMIN, &ROWMAX) ;
-    GENSPEC.NMJD_TOT = 0 ;
+    GENSPEC.NMJD_PROC = 0 ;
 
     for(irow = ROWMIN; irow <= ROWMAX; irow++ ) {
 
       NBLAM = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
       init_GENSPEC_EVENT(ispec,NBLAM);   // malloc GENSPEC
 
-      GENSPEC.NMJD_TOT++ ; 
+      GENSPEC.NMJD_PROC++ ; 
       GENSPEC.NBLAM_VALID[ispec]   = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
       GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
       GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
@@ -4815,10 +4826,21 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
     if ( iform == IFORM_A ) { 
       sprintf(C_VAL,"%s", RD_SNFITSIO_TABLEVAL_A[itype][ipar][J] ); 
+      catVarList_with_comma(parString,C_VAL); // flat string, comma-sep
+
+      // clumsy load of epoch-dependent strings here for speed;
+      // avoids additional epoch loops later. Note ep starts at 1.
+      if ( strcmp(parName,"FLT") == 0 ) 
+	{ sprintf(SNDATA.FILTCHAR[NSTORE+1],"%s",  C_VAL); }
+      if ( strcmp(parName,"FIELD") == 0 ) 
+	{ sprintf(SNDATA.FIELDNAME[NSTORE+1],"%s", C_VAL); }
+
+      /* xxx mark delete 
       NSTR++ ;
       if ( NSTR > 1 && strlen(C_VAL)>0 ) { strcat(parString,COMMA); }
       strcat(parString,C_VAL);
       // mark original: strcat(parString, C_VAL);  strcat(parString," "); 
+      xxxx */ 
     }
     else if ( iform == IFORM_1J ) { 
       J_VAL = RD_SNFITSIO_TABLEVAL_1J[itype][ipar][J]; 

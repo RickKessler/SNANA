@@ -19613,4 +19613,7 @@
    snlc_sim.c
      + fix a few bugs to allow VEL_CMBAPEX=0 (and zHEL = zCMB)
 
+   create_covariance.py
+     + bug fix by Dillon
+
 END: 

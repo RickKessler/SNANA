@@ -13321,6 +13321,8 @@ void prepare_CCprior(void) {
   //
   // Jun 20 2018: abort on 1D biasCor.
   // Sep 28 2020: check option to use "same" file(s) as for biasCor
+  // Feb 25 2021: for H11, set NPASS_CUTMASK_POINTER so that writing
+  //              YAML file later doesn't crash.
 
   int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
   int  NSAMPLE      = NSAMPLE_BIASCOR ;
@@ -13345,6 +13347,8 @@ void prepare_CCprior(void) {
   if ( USE_CCPRIOR_H11 ) { 
     sprintf(BANNER,"%s: use CC mu-vs-z prior from Hlozek 2011", fnam);
     fprint_banner(FP_STDOUT,BANNER);    
+    NPASS_CUTMASK_POINTER[EVENT_TYPE] = &INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
+    INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS = 0;
     return ;
   }
 

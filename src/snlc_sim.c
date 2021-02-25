@@ -24444,7 +24444,7 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"\t H0 = %6.2f km/s per MPc \n", INPUTS.H0 );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Omega_{M,L} = %5.2f, %5.2f   w0,wa = %5.2f,%5.3f  \n",
+  sprintf(cptr,"\t Omega_{M,L} = %6.3f, %6.3f   w0,wa = %5.2f,%5.3f  \n",
 	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
 	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 

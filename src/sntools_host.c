@@ -134,7 +134,7 @@ void INIT_HOSTLIB(void) {
 
   int USE ;
   FILE *fp_hostlib ;
-  //  char fnam[] = "INIT_HOSTLIB" ;
+  char fnam[] = "INIT_HOSTLIB" ;
 
   // ---------------- BEGIN -------------
 
@@ -1304,12 +1304,12 @@ void  read_specTable_HOSTLIB(void) {
 
   FILE *fp;
   int  NBIN_WAVE, NBIN_READ, IFILETYPE;
-  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM, gzipFlag, ifile ;
+  int  NVAR, ivar, ICOL_WAVE, MEMD, NUM, gzipFlag, ifile ;
   int  NVAR_WAVE  = 0 ;
   int  OPT_VARDEF = 0 ;
-  int  LEN_PREFIX;
+  int  LEN_PREFIX,  *NSPEC ;
   char *ptrFile_list[2], *ptrFile ;
-  char *varName, varName_tmp[40], VARNAME_PREFIX[20];
+  char *varName, varName_tmp[100], VARNAME_PREFIX[20];
   char c_get[60], fileName_full[MXPATHLEN] ;  
   char TABLENAME_LIST[2][12] = { "BASIS", "DATA" } ;
   char PREFIX_LIST[2][12]    = { PREFIX_SPECBASIS, PREFIX_SPECDATA } ;
@@ -1321,6 +1321,7 @@ void  read_specTable_HOSTLIB(void) {
   HOSTSPEC.ITABLE       = -9 ; // BASIS or DATA
   HOSTSPEC.TABLENAME[0] = 0 ;
   HOSTSPEC.NSPECBASIS   = 0 ;
+  HOSTSPEC.NSPECDATA    = 0 ;
   HOSTSPEC.NBIN_WAVE    = 0 ;
   HOSTSPEC.FLAM_SCALE        = 1.0 ;
   HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
@@ -1350,9 +1351,15 @@ void  read_specTable_HOSTLIB(void) {
 			  PATH_USER_INPUT, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
   if ( !fp ) {
-      abort_openTextFile("HOSTLIB_SPECBASIS_FILE", 
-			 PATH_USER_INPUT, ptrFile, fnam);
+    sprintf(varName_tmp,"HOSTLIB_SPEC%_FILE", HOSTSPEC.TABLENAME );
+    abort_openTextFile(varName_tmp, PATH_USER_INPUT, ptrFile, fnam);
   }
+
+  if ( HOSTSPEC.ITABLE == ITABLE_SPECBASIS )
+    { NSPEC = &HOSTSPEC.NSPECBASIS ; }
+  else
+    { NSPEC = &HOSTSPEC.NSPECDATA ; }
+
 
   bool FOUND_VARNAMES = false ;
   while( !FOUND_VARNAMES  && (fscanf(fp, "%s", c_get)) != EOF) {
@@ -1388,9 +1395,9 @@ void  read_specTable_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
   }
 
-  // example VARNAMES list to make sure that there is a wavelength column,
+  // examine VARNAMES list to make sure that there is a wavelength column,
   // and count how many template[nn] colummns
-  ICOL_WAVE = -9;  NT=0 ;
+  ICOL_WAVE = -9;  *NSPEC=0 ;
   for(ivar=0; ivar < NVAR; ivar++ ) {
     varName = READTABLE_POINTERS.VARNAME[ivar];
     if ( strstr(varName,"wave") != NULL ) { ICOL_WAVE = ivar; }
@@ -1410,23 +1417,23 @@ void  read_specTable_HOSTLIB(void) {
       }
     }  
 
-   
     sprintf(varName_tmp,"%s", varName);
     varName_tmp[LEN_PREFIX] = 0;
 
     if ( strcmp_ignoreCase(varName_tmp,VARNAME_PREFIX) == 0 ) {
-      if ( NT < MXSPECBASIS_HOSTLIB ) {
+      int N = *NSPEC;
+      if ( N < MXSPECBASIS_HOSTLIB ) {
 	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
 
-	HOSTSPEC.ICOL_SPECTABLE[NT] = ivar;
-	HOSTSPEC.NUM_SPECBASIS[NT]  = NUM; // store template NUM
-	sprintf(HOSTSPEC.VARNAME_SPECBASIS[NT],"%s", varName);
+	HOSTSPEC.ICOL_SPECTABLE[N] = ivar;
+	HOSTSPEC.NUM_SPECBASIS[N]  = NUM; // store template NUM
+	sprintf(HOSTSPEC.VARNAME_SPECBASIS[N],"%s", varName);
 
-	HOSTSPEC.FLAM_BASIS[NT] = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM_BASIS[NT],
+	HOSTSPEC.FLAM_BASIS[N] = (double*) malloc(MEMD);
+	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM_BASIS[N],
 				NBIN_WAVE, OPT_VARDEF);
       }
-      NT++ ; // always increment number of templates, NT
+      (*NSPEC)++ ; // always increment number of templates or data 
     }
   
   } // end ivar loop
@@ -1448,19 +1455,17 @@ void  read_specTable_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 
-  if ( NT >= MXSPECBASIS_HOSTLIB ) {
+  if ( *NSPEC >= MXSPECBASIS_HOSTLIB ) {
     sprintf(c1err,"NSPEC%s=%d exceeds bound of %d", 
-	    TBLNAME, NT, MXSPECBASIS_HOSTLIB ) ;
+	    TBLNAME, *NSPEC, MXSPECBASIS_HOSTLIB ) ;
     sprintf(c2err,"Remove templates or increase MXSPECBASIS_HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 	
   HOSTSPEC.ICOL_WAVE = ICOL_WAVE ;
-  HOSTSPEC.NSPECBASIS = NT;
 
   // read the entire table, and close it.
   NBIN_READ = SNTABLE_READ_EXEC();
-
 
   // Loop over wave bins and
   // + determine WAVE_BINSIZE for each wave bin
@@ -1505,7 +1510,7 @@ void  read_specTable_HOSTLIB(void) {
   HOSTSPEC.NBIN_WAVE  = NBIN_WAVE;
 
   printf("\t Found %d spectral %s vectors and %d wavelength bins\n",
-	 NT, HOSTSPEC.TABLENAME, NBIN_WAVE);
+	 *NSPEC, HOSTSPEC.TABLENAME, NBIN_WAVE);
   fflush(stdout);
 
   return;
@@ -1534,15 +1539,14 @@ void match_specTable_HOSTVAR(void) {
 
   // ----------------- BEGIN -----------------
 
-  if ( NSPECBASIS == 0 ) { return ; }
-
   if ( ITABLE == ITABLE_SPECDATA ) { 
     HOSTSPEC.IVAR_HOSTLIB[0] = IVAR_HOSTLIB(VARNAME_SPECDATA_HOSTLIB,0);
     return ;
   }
   
-  // - - - -
+  if ( NSPECBASIS == 0 ) { return ; }
 
+  // - - - -
 
   for(i=0; i < NSPECBASIS; i++ ) {
     VARNAME_SPECBASIS = HOSTSPEC.VARNAME_SPECBASIS[i];
@@ -1624,15 +1628,17 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   int  NBLAM_BASIS     = HOSTSPEC.NBIN_WAVE; 
   bool IS_SPECBASIS    = HOSTSPEC.ITABLE == ITABLE_SPECBASIS ;
   bool IS_SPECDATA     = HOSTSPEC.ITABLE == ITABLE_SPECDATA ;
-  int  IGAL            = SNHOSTGAL.IGAL ;
+  double FLAM_SCALE_POWZ1 = HOSTSPEC.FLAM_SCALE_POWZ1 ;
+
+  int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
-  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1) ;
+  double znorm     = pow(z1,FLAM_SCALE_POWZ1) ;
   double hc8       = (double)hc;
 
   long long GALID;
   int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, ivar ;
   int  ilam_near, NLAMSUM, LDMP=0;
-  int  ISPEC_MIN, ISPEC_MAX;
+  int  ISPEC_MIN, ISPEC_MAX, IDSPEC;
   double FLAM_TMP, FLAM_SUM, COEFF, FLUX_TMP, MWXT_FRAC, LAMOBS;
   double LAMOBS_BIN, LAMOBS_MIN, LAMOBS_MAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX ;
@@ -1642,9 +1648,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
   // ------------------ BEGIN --------------
 
-  if ( HOSTSPEC.NSPECBASIS <= 0 ) {
-    sprintf(c1err,"Cannot generate host spectrum without spec basis.");
-    sprintf(c2err,"Check HOSTLIB_SPECBASIS_FILE key in sim-input.");
+  if ( HOSTSPEC.ITABLE < 0 ) {
+    sprintf(c1err,"Cannot generate host spectrum without spec basis or data.");
+    sprintf(c2err,"Check HOSTLIB_SPECBASIS[DATA]_FILE key in sim-input.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -1667,30 +1673,30 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   else {
     // pick out the one spectrum in IDSPECDATA column of HOSTLIB
     ISPEC_MIN = 0;  ISPEC_MAX = 1;
+    ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[0];
+    COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
+    IDSPEC       = (int)COEFF ;
+    if  ( IDSPEC < 0 || IDSPEC > HOSTSPEC.NSPECDATA ) {
+      sprintf(c1err,"Invalid IDSPEC = %d (ivar_HOSTLIB=%d)", 
+	      IDSPEC, ivar_HOSTLIB );
+      sprintf(c2err,"Valid IDSPEC range is 0 to %d", HOSTSPEC.NSPECDATA-1);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
   }
 
-
-  // first construct total rest-frame spectrum using specbasis binning
+  // construct total rest-frame spectrum using specbasis/specdata binning
   for(ilam_basis=0; ilam_basis < NBLAM_BASIS; ilam_basis++ ) {
-    FLAM_SUM = 0.0 ;
-    LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
+    FLAM_SUM     = 0.0 ;
+    LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis]; // basis or data
     for(i=ISPEC_MIN; i < ISPEC_MAX; i++ ) {
-      ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
-      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
-
-      /* xxxx .xyz
-      if ( ilam_basis < 10 ) {
-	printf(" xxx %s: ilam=%2d ivar_HOSTLIB=%d  COEFF=%f\n",
-	       fnam, ilam, ivar_HOSTLIB, COEFF );
-      } 
-      xxxx */
 
       if ( IS_SPECBASIS ) { 
+	ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
+	COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
 	FLAM_TMP     = HOSTSPEC.FLAM_BASIS[i][ilam_basis] ;
 	FLAM_SUM    += ( COEFF * FLAM_TMP );
       }
       else {
-	int IDSPEC = (int)COEFF ;
 	FLAM_SUM   = HOSTSPEC.FLAM_BASIS[IDSPEC][ilam_basis] ; 
       }
       if ( DUMPFLAG && ilam_basis == 0 && COEFF > 0.0 ) {
@@ -1728,6 +1734,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     LAMREST_MIN = LAMOBS_MIN/z1 ;
     LAMREST_MAX = LAMOBS_MAX/z1 ;
+
+    // allow rest-frame spectra to be truncated
+    if ( LAMREST_MIN < HOSTSPEC.WAVE_MIN[0] ) { continue; } // Feb 25 2021
 
     if ( MWXT_FRAC < 1.0E-9 || MWXT_FRAC > 1.000001 ) {
       sprintf(c1err,"Invalid MWXT_FRAC = %f for LAMOBS=%.1f", 
@@ -1773,7 +1782,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     } // end while loop over rest-frame wavelength
     
-    // if NLAMSUM==0, then no basis lambins overlap SPECTROGRAPH;
+    // if NLAMSUM==0, then no basis/data lambins overlap SPECTROGRAPH;
     // in thise case, average over nearest basis bins
     if ( NLAMSUM == 0 ) {
       double FLAM0 = HOSTSPEC.FLAM_EVT[ilam_near];
@@ -1783,7 +1792,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
       LAMBIN_CHECK = LAMOBS_BIN/z1 ;
     }
 
-    // check that sum over basis wave bins = SPECTROGRAPH bin size.
+    // check that sum over basis/data wave bins = SPECTROGRAPH bin size.
     // Basis wave is rest frame and SPECTROGRAPH bin is obs frame;
     // hence z1 factor needed to compare.
 
@@ -1794,6 +1803,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
       printf("   SPECTROGRAPH LAM(Rest): %.3f to %.3f \n",
 	     LAMREST_MIN, LAMREST_MAX);
       printf("   NLAMSUM = %d \n", NLAMSUM);
+
       sprintf(c1err,"Failed LAMBIN_CHECK=%.3f, but expected %.3f",
 	      LAMBIN_CHECK, LAMOBS_BIN/z1);
       sprintf(c2err,"zhel=%.4f, MWXT_FRAC=%.3f", zhel, MWXT_FRAC );

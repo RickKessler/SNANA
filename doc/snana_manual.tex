@@ -3848,6 +3848,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
+   HOSTLIB_SPECDATA_FILE:  xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
@@ -4071,7 +4072,7 @@ the galaxy, and compute the galaxy noise.
 
 
 % ------------------------------------
-\clearpage
+%\clearpage
 \subsubsection{\hostlib\ Weight Map (WGTMAP)}
 \label{sss:hostlib_wgtmap}
 % ------------------------------------
@@ -4149,15 +4150,25 @@ and with several inputs as follows:
 \begin{itemize}
   \item {\tt HOSTLIB\_SPECBASIS\_FILE} points to a file with spectral basis
          such as PCA. The header keys must include {\tt wavelength}, 
-         {\tt specbasis01}, {\tt specbasis02}, etc ...
+         {\tt specbasis02}, {\tt specbasis01}, etc ...
          Optional keys before the header are:
           \vspace{-0.5cm}
      \begin{verbatim}
          FLAM_SCALE: 1.55E-30    # global flux norm.
          FLAM_SCALE_POWZ1: -2    # z-norm: (1+z)^-2
      \end{verbatim}  \vspace{-1.0cm}
+%
+  \item {\tt HOSTLIB\_SPECDATA\_FILE} points to a file with spectral data.
+         The header keys must include {\tt wavelength}, 
+         {\tt specdata00}, {\tt specdata01}, etc ..., where each 
+         vertical column is a spectrum.
+         Optional keys before the header are the same as for {\tt SPECBASIS}.
+%
   \item {\tt HOSTLIB\_FILE} that includes columns 
           {\tt coeff\_specbasis01}, {\tt coeff\_specbasis02}, etc..
+          or for specdata there is a single {\tt IDSPECDATA} column
+          to pick a specific {\tt specdata} column from the
+          {\tt SPECDATA\_FILE}.
   \item {\tt TAKE\_SPECTRUM} key with {\tt HOST} argument as shown in 
            \S\ref{sss:SPEC_EPOCH}.
 \end{itemize}

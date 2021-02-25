@@ -521,10 +521,12 @@ struct SNTABLEVAR_DEF {
 #define ITABLE_SPECDATA  1
 
 struct {
-  int  ITABLE ;         // either SPECBASIS or SPECDATA (Feb 23 2021)
+  int  ITABLE ;       // either SPECBASIS or SPECDATA (Feb 23 2021)
   char TABLENAME[12] ;   // "BASIS" or "DATA"
 
-  int  NSPECBASIS ; // 
+  int  NSPECBASIS ; 
+  int  NSPECDATA  ; 
+
   int  NBIN_WAVE;  // number of wavelength bins
   int  ICOL_WAVE;  // table column with wavelength
   int  ICOL_SPECTABLE[MXSPECBASIS_HOSTLIB]; // colum for each template

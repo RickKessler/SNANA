@@ -19597,6 +19597,9 @@
 
          ***** USEFUL(v11_02i) ***** 
 
+   sim has new HOSTLIB_SPECDATA_FILE feature to pick real host spectra
+   rather than using eazy/PCA coefficients.
+
          ***** MISCELLANEOUS(v11_02i) ***** 
 
    genmag_PySEDMODEL.c
@@ -19607,7 +19610,9 @@
    sntools_host.c[h]:
      + new option HOSTLIB_SPECDATA_FILE: <file> to read real
        rest-frame spectra instead of basis templates.
-       Corresponind HOSTLIB column is IDSPECDATA.
+       Corresponing HOSTLIB column is IDSPECDATA.
+       See manual update in Sec 4.21.3 Generating Host Spectra.
+
      + abort if ZTRUE + VPEC/c < ZMIN_HOSTLIB
 
    snlc_sim.c

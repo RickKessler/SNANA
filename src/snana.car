@@ -4211,9 +4211,12 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("MWEBV", ONE, STRING, DARRAY, OPT)
       SNLC_MWEBV = SNGL(DARRAY(1))
+      SNLC_MWEBV_ERR = SNLC_MWEBV * sngl(XTMW_FRACERR)  ! default error
 
       CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
-      SNLC_MWEBV_ERR = SNGL(DARRAY(1))
+      IF ( DARRAY(1) .GE. 0.001 ) THEN
+         SNLC_MWEBV_ERR = SNGL(DARRAY(1))  ! override default error
+      ENDIF
 
       CALL FETCH_SNDATA_WRAPPER("PEAKMJD", ONE, STRING, DARRAY, OPT)
       SNLC_SEARCH_PEAKMJD = DARRAY(1)
@@ -5644,7 +5647,7 @@ c default is to reject nothing (accept everything)
       MJDWIN_SETPKMJD   = 60.0  ! only for FLUXMAX2 option (Fmax-clump)
       SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
-      OPT_DEBUG           = 0
+      OPT_DEBUG           =  0
       LDMP_SNFAIL         = .FALSE.
       LDMP_SNANA_VERSION  = .FALSE.
       LSIM_SEARCH_SPEC    = .FALSE.

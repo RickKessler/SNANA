@@ -1216,10 +1216,10 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
       { IVAROBS_SNTEXTIO.FLUXCALERR = ivar; }
 
-    else if ( strcmp(varName,"MAG") == 0 )    // ignore obsolete MAG col
-      {  ; }
-    else if ( strcmp(varName,"MAGERR") == 0 ) 
-      { ; }
+    // check obsolete keys left in very old data files
+    else if ( strcmp(varName,"MAG")    == 0 )  { ; }  
+    else if ( strcmp(varName,"MAGERR") == 0 )  { ; }
+    else if ( strcmp(varName,"SNR")    == 0 )  { ; } // in SNLS3year_MEGACAM
 
     else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
       { IVAROBS_SNTEXTIO.PHOTFLAG = ivar; }  

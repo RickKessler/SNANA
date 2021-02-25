@@ -14481,6 +14481,7 @@ void print_eventStats(int event_type) {
   // a single cut ... and to to it efficiently.
   //
   // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
+  // Feb 25 2021: abort on missing biasCor only if it is required.
 
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
   int  NSN_TOT, *CUTMASK_PTR ;
@@ -14548,6 +14549,7 @@ void print_eventStats(int event_type) {
     int  NSAMPLE = NSAMPLE_BIASCOR ;
     int idsample, OPT_PHOTOZ, NSN ;      char *NAME;
     for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
+      if ( SAMPLE_BIASCOR[idsample].DOFLAG_BIASCOR==0 ) { continue ; } 
       NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
       OPT_PHOTOZ = SAMPLE_BIASCOR[idsample].OPT_PHOTOZ ;
       NAME       = SAMPLE_BIASCOR[idsample].NAME ;

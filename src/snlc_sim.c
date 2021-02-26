@@ -14203,6 +14203,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //     SPECTROGRAPH_USEFLAG is set.
   //
   // Feb 05 2021: fix to handle mutliple FIELDs
+  // Feb 25 2021: c_get[80] -> c_get[200] to allow for long comment strings
   //
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
@@ -14211,7 +14212,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   bool  FOUND_SPECTROGRAPH ;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
-  char c_get[80], ctmp[80], *BAND, cline[200] ;
+  char c_get[200], ctmp[80], *BAND, cline[200] ;
   char *FIELD = SIMLIB_HEADER.FIELD;
   char *TEL   = SIMLIB_HEADER.TELESCOPE ;
   char fnam[] = "SIMLIB_readNextCadence_TEXT" ;

@@ -6648,7 +6648,7 @@ light curve fit-parameters:
 
 
 % ----------
-\clearpage
+%\clearpage
    \subsubsection{ {\minuit} Covariances}
    \label{sss:minuit_cov}
 % ----------
@@ -6704,10 +6704,65 @@ A newer option ({\tt OPT\_COVAR\_LCFIT=2}) preserves the
 reduced correlations ($\rho_{ij}$) from the {\minuit}-computed COV,
 and uses the errors and $\rho_{ij}$ to determine COV.
 
-% ------------------------------------
-   \clearpage
-   \newcommand{\toApprox}{\tilde{t_0}}
+% --------------------------------------
+\subsubsection{Tricks to Avoid Pathological Fits}
+\label{sss:lcfit_tricks}
+% ------------------------
 
+As samples have grown as large as $\sim 10^7$ for bias-corrections,
+extremely robust light curve fitting methods are needed to avoid
+rare pathological fits or code crashes. Here is a list of 
+{\tt \&FITINP} tricks that have been developed over the years
+(and might be useful with other fitting codes):
+\begin{itemize}
+   \item {\bf\tt PRIOR\_MJDSIG = 10.0} : \\
+      Apply Gaussian prior using pre-fit estimate of {\tt PEAKMJD},
+      where estimate is from data file, or one {\tt OPT\_SETPKMJD}
+      options (Fig.~\ref{fig:SETPKMJD}).
+%
+   \item {\bf\tt PRIOR\_SHAPE\_RANGE = -4.0, +4.0} : \\
+      Apply flat prior on shape parameter (e.g., $-4<x_1<4$),
+      with half-Gaussian roll-off at edges to preserve continuity
+      in the derivative (beware that discontinuous derivatives
+      can wreak havoc with {\minuit}).
+%
+   \item {\bf\tt PRIOR\_SHAPE\_SIGMA = 0.1} : \\
+      Width of half-Gaussian roll-off for {\tt PRIOR\_SHAPE\_RANGE}.
+%
+  \item {\bf\tt PRIOR\_COLOR\_RANGE} and {\bf\tt PRIOR\_COLOR\_SIGMA} \\
+     Analogs of {\tt PRIOR\_SHAPE\_XXX} above.
+%
+  \item {\bf\tt TREST\_REJECT = -15.0, 45.0} : \\
+     Apply rest-frame phase cut. There is under-the-hood logic to ensure
+     that \obss\ do not migrate in/out as {\tt PEAKMJD} varies with
+     each fit-iteration.
+%
+   \item {\bf\tt DELCHI2\_REJECT = 16.0} : \\
+      on 2nd fit-iteration, reject \obss\ that contribute $\chi^2 > 16$ 
+      (e.g., for preliminary/search photometry that has rare pathologies).
+%      
+  \item {\bf\tt FUDGEALL\_ITER1\_MAXFRAC = 0.05} : \\
+    For very high-SNR events (e.g., low redshift) the initial $\chi^2$
+    can be very large, and sometimes {\minuit} is not able to converge.
+    To avoid extremely large initial $\chi^2$, this {\tt FUDGEALL} 
+    parameter adds flux-uncertainty on the first fit-iteration only; 
+    the extra uncertainty here is 5\% of the maximum flux.
+    A more complete set of {\tt FUDGE} parameters to downweight/exclude
+    epochs is in \S\ref{subsec:fitexclude}.
+%
+  \item {\bf\tt OPT\_COVAR\_LCFIT = 1 (2)} : \\
+     See \S\ref{sss:minuit_cov} for fixing covariances among
+     SALT2-fitted parameters.
+% 
+   \item {\bf\tt USE\_MINOS = T} : \\
+     Default fit errors use {\tt MIGRAD} ({\tt USE\_MINOS=F}).
+     Enabling {\tt MINOS} gives better error estimates,
+     but also increases the CPU time by a factor of few.     
+\end{itemize}
+
+% ------------------------------------
+%   \clearpage
+   \newcommand{\toApprox}{\tilde{t_0}}
    \subsection{Initial Parameter Estimates}
    \label{subsec:fitpar_init}
 % ------------------------------------

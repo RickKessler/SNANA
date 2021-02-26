@@ -19595,6 +19595,9 @@
 
          ***** IMPORTANT(v11_02i) ***** 
 
+   simlib_coadd: DOCUMENTATION yaml block is now required ! 
+                 Legacy COMMENT: keys result in abort.
+
          ***** USEFUL(v11_02i) ***** 
 
    sim has new HOSTLIB_SPECDATA_FILE feature to pick real host spectra
@@ -19617,8 +19620,20 @@
 
    snlc_sim.c
      + fix a few bugs to allow VEL_CMBAPEX=0 (and zHEL = zCMB)
-
+     + fix bug reading SIMLIB to allow for very long comment strings
+        (e.g., file names)
+       
    create_covariance.py
      + bug fix by Dillon
+
+   SALT2mu.c
+     + fix bug to avoid abort when IDSAMPLE_SELECT feature is used (Brodie)
+     + for H11 prior, set NPASS_CUTMASK_POINTER to avoid crash when
+        writig YAML file (Maria)
+
+   simlib_coadd.c:
+     + append DOCUMENTATION block
+     + abort if no DOCUMENTATION block
+     + abort on legacy COMMENT keys
 
 END: 

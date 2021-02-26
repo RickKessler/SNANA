@@ -4801,7 +4801,7 @@ c     &    + OPTMASK_SNDATA_DUMP
       CALL FETCH_SNDATA_WRAPPER("FIELD",  
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
       CALL UNPACK_SNFITSIO_STR(NOBS_STORE, "FIELD", STRFITS)
-
+      
       CALL FETCH_SNDATA_WRAPPER("PHOTFLAG",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; ISNLC_PHOTFLAG(o)=int(DARRAY(o)); ENDDO
@@ -11887,7 +11887,7 @@ c  IDFIELD
          CALL get_PARSE_WORD_fortran(iwd+0, cwd,       LWD0 )
          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next,  LWD1 )
          CALL get_PARSE_WORD_fortran(iwd+2, cwd_next2, LWD2 )
-cc         CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
+         CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
          if ( cwd .EQ. ' ' ) goto 110
 
          if ( cwd(1:7) .EQ. 'SURVEY:' ) then
@@ -18956,7 +18956,7 @@ c SNLC_FIELDS = E2,E1 gets constructed as SNLC_FIELD_forC = 'E1+E2'
       ENDIF
 
       RETURN
-      END
+      END   ! end COUNTFIELDS
 
 
 C ========================================

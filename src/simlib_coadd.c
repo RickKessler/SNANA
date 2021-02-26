@@ -133,6 +133,12 @@
    + print summary info including min/max NOBS and min/max MJD
    + misc code cleanup.
 
+ Feb 25 2021:
+   + refactor to require DOCANA keys, and append keys inside this
+     YAML block
+   + abort if there is no DOCANA block
+   + abort on legacy COMMENT: keys
+
 ***************************************/
 
 #include <stdio.h>
@@ -231,6 +237,8 @@ struct SIMLIB_INPUT {
   // info is: MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
   float INFO_MJD[MXMJD][NPAR_MJD];
 
+  bool REFAC_DOCANA ;
+
 } SIMLIB_INPUT ;
 
 
@@ -291,6 +299,8 @@ int main(int argc, char **argv) {
   // --------------- BEGIN --------
 
   parse_args(argc, argv );
+
+  SIMLIB_INPUT.REFAC_DOCANA = true ; // Feb 25 2021
 
   if ( LTRACE > 0 ) dmp_trace_main("01");
 
@@ -474,91 +484,71 @@ void  parse_args(int argc, char **argv) {
     if ( strcmp(argv[i],"SNLS") == 0 ) 
       { INPUTS.OPT_SNLS = 1;  }
 
-    /* xxx mark delete Jun 29 2018 xxxxxxx
-    if ( strcmp(argv[i],"ASTIER06") == 0 ) {
-      INPUTS.OPT_SNLS = 1;  
-      INPUTS.LIBID_MAX   = -1 ;  INPUTS.LIBID_MIN   = -1;
-      LOAD_LIBID_ASTIER06(); 
-    }
-    xxxxxxxx */
   }
 
   N=0;
   sprintf(BUFFER,"COMMENT:");
 
   // first comment is exact user-command
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"# - - - - - - - - - - - - - - - - - - - - - - - - \n");
+  //xxx  N++;  ptrhead = HEADER_ADD[N];
+  ///xxx sprintf(ptrhead,"# - - - - - - - - - - - - - - - - - - - - - - - - \n");
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s This coadd SIMLIB was created with command \n", BUFFER );
+  ptrhead = HEADER_ADD[N]; N++ ;
+  sprintf(ptrhead,"This coadd SIMLIB was created with command");
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s   '", BUFFER  );
+  ptrhead = HEADER_ADD[N]; N++;
+  sprintf(ptrhead,"   '"  );
   for ( i = 0; i < argc; i++ )  sprintf(ptrhead,"%s %s", ptrhead, argv[i] ); 
-  sprintf(ptrhead,"%s ' \n", ptrhead ); 
+  sprintf(ptrhead,"%s ' ", ptrhead ); 
 
   // now parse what's happening
 
-  /* xxxx mark delete Jun 29 2018 xxxxxxxxx
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s Process input  SIMLIB file : %s \n", 
-	  BUFFER, SIMLIB_INPUT.FILE );
-  // ptrhead,"%s
+  //  ptrhead = HEADER_ADD[N]; N++ ;
+  //  sprintf(ptrhead," Select  MJD   between %9.2f and %9.2f " );
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s Create  ouptut SIMLIB file : %s \n", 
-	  BUFFER, SIMLIB_OUTPUT.FILE );
-  xxxxxxxx */
+  ptrhead = HEADER_ADD[N]; N++ ;
+  sprintf(ptrhead,"%s and the following co-add cuts/options:" );
 
-  //  N++;  ptrhead = HEADER_ADD[N];
-  //  sprintf(ptrhead,"%s Select  MJD   between %9.2f and %9.2f \n", 
+  ptrhead = HEADER_ADD[N]; N++ ;
+  sprintf(ptrhead,"   + Select LIBID between %d and %d", 
+    INPUTS.LIBID_MIN, INPUTS.LIBID_MAX );
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s and the following co-add cuts/options: \n", BUFFER );
+ ptrhead = HEADER_ADD[N]; N++ ;
+ sprintf(ptrhead,"   + Reject LIBID with < %d exposures", 
+    INPUTS.MINOBS_ACCEPT);
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s   + Select LIBID between %d and %d \n", 
-	  BUFFER, INPUTS.LIBID_MIN, INPUTS.LIBID_MAX );
+ ptrhead = HEADER_ADD[N]; N++ ;
+ sprintf(ptrhead,"   + Combine consecutive exposures within %4.3f days", 
+    INPUTS.MAXTDIF_COMBINE);
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s   + Reject LIBID with < %d exposures \n", 
-	  BUFFER, INPUTS.MINOBS_ACCEPT);
-
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s   + Combine consecutive exposures within %4.3f days\n", 
-	  BUFFER, INPUTS.MAXTDIF_COMBINE);
-
-  if ( INPUTS.OPT_SNLS == 1 ) {
-    N++;  ptrhead = HEADER_ADD[N];
-    sprintf(ptrhead,"%s USE SNLS OPTION => ADD VEGA OFFSETS TO ZPTs \n",
-	    BUFFER );
-    INPUTS.OPT_AVG = 1;
-    INPUTS.OPT_SUM = 0;
-  }
+ if ( INPUTS.OPT_SNLS == 1 ) {
+   ptrhead = HEADER_ADD[N]; N++ ;
+   sprintf(ptrhead," USE SNLS OPTION => ADD VEGA OFFSETS TO ZPTs " );
+   INPUTS.OPT_AVG = 1;
+   INPUTS.OPT_SUM = 0;
+ }
 
   if ( INPUTS.OPT_MWEBV > 0 ) {
-    N++;  ptrhead = HEADER_ADD[N];
-    sprintf(ptrhead,"%s   + Get MWEBV from Schlagel dust maps "
-	    "(reject MWEBV > %3.1f). \n", BUFFER, MWEBV_MAX );
+    ptrhead = HEADER_ADD[N]; N++ ;
+    sprintf(ptrhead,"   + Get MWEBV from Schlagel dust maps "
+	    "(reject MWEBV > %3.1f). \n", MWEBV_MAX );
   }
 
-  N++;  ptrhead = HEADER_ADD[N];
-  sprintf(ptrhead,"%s   + Multiple exposures are '%s' \n", BUFFER, copt);
+  ptrhead = HEADER_ADD[N]; N++ ;
+  sprintf(ptrhead,"   + Multiple exposures are '%s' ", copt);
 
   if ( N >= MXLINE_HEADER ) {
     sprintf(c1err,"%d HEADER_ADD lines exceeds array bound of %d.", 
 	   N, MXLINE_HEADER );
     sprintf(c2err,"See MXLINE_HEADER in *.h files");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    //  xxxx    MADABORT();
   }
 
   NLINE_HEADER_ADD = N;
 
   // dump compact-header info to stdout (screen)
-  for ( i=1; i <=N ; i++ ) 
-    { printf("%s", HEADER_ADD[i] ); }
+  for ( i=0; i < N ; i++ ) 
+    { printf("HEADER_ADD: %s\n", HEADER_ADD[i] ); }
 
   return ;
 
@@ -574,27 +564,26 @@ void SIMLIB_open_read(void) {
   // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
   char fnam[20] = "SIMLIB_open_read" ;
-  char cline[80], c_get[80], c_tmp[80], clast[80], fullName[MXPATHLEN] ;
-  char *ptrtok;
+  char cline[80], c_get[80], c_tmp[80], clast[80], key[80];
+  char fullName[MXPATHLEN] ;
 
-  int READHEAD, i, gzipFlag;
-
+  bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
+  int READHEAD, i, gzipFlag, iwd, NWD, add ;
+  int langC = 0;
   // ---------------- BEGIN --------------
 
   printf("\n SIMLIB_open_read(): \n ");
 
+  ENVreplace(SIMLIB_INPUT.FILE, fnam, 1);
+
   int OPTMASK=1; // 1=verbose
   fp_simlib_input = snana_openTextFile (OPTMASK, "", SIMLIB_INPUT.FILE,
 					fullName,  &gzipFlag ); 
- 
-  // xxx if((fp_simlib_input = fopen(SIMLIB_INPUT.FILE, "rt")) == NULL ) { 
-    if ( !fp_simlib_input ) {
+  if ( !fp_simlib_input ) {
     sprintf(c1err,"cannot open input simlib file: ");
     sprintf(c2err," '%s' ", SIMLIB_INPUT.FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    // xxxx    MADABORT();
   }
-
 
   printf("\t Opened %s \n", SIMLIB_INPUT.FILE );
   fflush(stdout);
@@ -607,22 +596,55 @@ void SIMLIB_open_read(void) {
   while( READHEAD > 0 ) {
 
     fgets(cline, 80, fp_simlib_input) ;
-    printf(" Found header line: %s", cline );
-    fflush(stdout);
+    printf(" Found header line: %s", cline );     fflush(stdout);
 
-    NLINE_HEADER++ ;
     sprintf( HEADER[NLINE_HEADER], "%s", cline );
+    NLINE_HEADER++ ;
+
+    if ( strlen(cline) < 2 ) { continue; }
+
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+    iwd=0; get_PARSE_WORD(langC, iwd, key); 
+
+    if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) ==0 )  
+      { FOUND_DOCANA=true; }
+
+    // when we find DOCUMENTATION_END key, insert a few things above END key
+    if ( strcmp(key,KEYNAME2_DOCANA_REQUIRED) == 0 )  {
+      NLINE_HEADER-- ;
+      sprintf(HEADER[NLINE_HEADER], "    SIMLIB_COADD:\n" );
+      NLINE_HEADER++; 
+      for (add = 0; add < NLINE_HEADER_ADD; add++ ) {
+	sprintf(HEADER[NLINE_HEADER], "    - %s\n", HEADER_ADD[add] );
+	NLINE_HEADER++; 
+      }
+      sprintf(HEADER[NLINE_HEADER], "%s", KEYNAME2_DOCANA_REQUIRED) ;
+      NLINE_HEADER++; 
+    }
+    
+    if ( strcmp(key,"COMMENT:") == 0 )  { 
+      FOUND_COMMENT = true ; 
+      if ( SIMLIB_INPUT.REFAC_DOCANA ) {
+	sprintf(c1err,"COMMENT: keys no longer allowed." ) ;
+	sprintf(c2err,"Add %s YAML block before SURVEY key.",
+		KEYNAME_DOCANA_REQUIRED );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }      
+    }
+
 
     // look for header end with "BEGIN" or "#"
-    ptrtok = strtok(cline," ") ; // split string
 
     // remove pre-existing NLIBID key because a new NLIBID key
     // is added at the end.
-    if ( strcmp( ptrtok,"NLIBID:") == 0 )
+    if ( strcmp(key,"NLIBID:") == 0 )
       { NLINE_HEADER--; continue ; }
 
 
-    if ( strcmp( ptrtok,"BEGIN")   == 0 ) {
+    if ( strcmp(key,"BEGIN") == 0 ) { READHEAD = 0 ; } // Feb 2021
+
+    /* xxx mark delete xxxx
+    if ( strcmp(key,"BEGIN")   == 0 ) {
       READHEAD = 0;
       char SAVELINE[100];
       sprintf(SAVELINE, "%s", HEADER[NLINE_HEADER] );
@@ -634,27 +656,56 @@ void SIMLIB_open_read(void) {
       NLINE_HEADER++ ;
       sprintf( HEADER[NLINE_HEADER], "%s", SAVELINE );
     }
+    xxxx */
 
-    if ( strcmp( ptrtok,"LIBID:")  == 0 ) READHEAD = 0;
+    if ( strcmp(key,"LIBID:")  == 0 ) { READHEAD = 0; }
 
 
     // look for FILTERS keyword
 
+    while ( !FOUND_FILTERS && iwd < NWD-1 ) {
+      iwd++ ; get_PARSE_WORD(langC, iwd, key);
+      if (strcmp(key,"FILTERS:") == 0 ) {
+	iwd++ ; get_PARSE_WORD(langC, iwd, SIMLIB_FILTERS );
+	printf(" Found SIMLIB_FILTERS: %s \n", SIMLIB_FILTERS );
+	fflush(stdout);
+	FOUND_FILTERS = true;
+      }
+    }
+
+    /* xxxxxxx mark delete Feb 25 2021 xxxxxxx
     sprintf(clast,"XXX");
     while ( ptrtok != NULL  ) {
 
       if ( strcmp(clast,"FILTERS:") == 0 ) {
 	sprintf(SIMLIB_FILTERS, "%s", ptrtok );
-	printf(" Found SIMLIB_FILTERS: %s \n",SIMLIB_FILTERS );
+	printf(" Found SIMLIB_FILTERS: %s \n", SIMLIB_FILTERS );
 	fflush(stdout);
       }
       sprintf(clast,"%s", ptrtok);
       ptrtok = strtok(NULL, " ");	
     }
+    xxxxxxx */
 
   } // end of while 
 
 
+  // -----------------
+  if ( SIMLIB_INPUT.REFAC_DOCANA && !FOUND_DOCANA ) {
+    sprintf(c1err,"Missing required %s block.", 
+	    KEYNAME_DOCANA_REQUIRED) ;
+    sprintf(c2err,"Add %s YAML block before SURVEY key.",
+	    KEYNAME_DOCANA_REQUIRED) ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+  }
+
+  if ( !FOUND_FILTERS ) {
+    sprintf(c1err,"Missing required FILTERS: key.");
+    sprintf(c2err,"Check global header at top of file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+  }
 
   // open output file manually instead of using
   // simlib_open_write() since we just have 80-char lines
@@ -670,7 +721,7 @@ void SIMLIB_open_read(void) {
 
   printf("\t Opened %s \n", SIMLIB_OUTPUT.FILE );
 
-  for ( i=1; i <= NLINE_HEADER; i++ ) {
+  for ( i=0; i < NLINE_HEADER; i++ ) {
     fprintf(fp_simlib_output, "%s", HEADER[i] );
   }
 
@@ -688,13 +739,14 @@ void SIMLIB_read(int *RDSTAT) {
 
   /* Copied/modified from snlc_sim.c    
     Read next LIBID in simlib. Fill SIMLIB structure.
+    Note that fp_simlib_input has already been opened
   */
 
   char  c_get[80], c_tmp[80],cfilt[4], STRING_IDEXPT[20] ;
   int   IDEXPT, NEXPOSE;
 
   int i, NMJD, NMJD_READ, NMJD_ACCEPT, LIBID ;
-  int OPTLINE, NOBS, ENDLIB, OKLIBID    ;
+  int OPTLINE, NOBS, ENDLIB, OKLIBID, iwd, NWD    ;
 
   double MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[3], ZPT[2] ;
   double MAG, RA, DECL, XMW[20], MWEBV    ;

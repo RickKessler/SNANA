@@ -19591,12 +19591,12 @@
 
 
 # ======================================================================= 
-         v11_02i (  ) 
+         v11_02i (Feb 28 2021) 
 
          ***** IMPORTANT(v11_02i) ***** 
 
    simlib_coadd: DOCUMENTATION yaml block is now required ! 
-                 Legacy COMMENT: keys result in abort.
+              Legacy "COMMENT:" keys in SIMLIB header result in abort.
 
    All analysis codes check data README file; if !REQUIRE_DOCANA, warning
    is printed; else abort. This check also prevents losing sim-data README 
@@ -19626,7 +19626,10 @@
      + fix a few bugs to allow VEL_CMBAPEX=0 (and zHEL = zCMB)
      + fix bug reading SIMLIB to allow for very long comment strings
         (e.g., file names)
-       
+     + new option TAKE_SPECTRUM_HOSTSNFRAC to force host/SN ratio for
+       integrate spectra. However, this assumes variable host if there
+       are multiple SN spectra per event (see manual).
+   
    create_covariance.py
      + bug fix by Dillon
 

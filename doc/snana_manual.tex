@@ -6734,7 +6734,9 @@ rare pathological fits or code crashes. Here is a list of
    \item {\bf\tt PRIOR\_MJDSIG = 10.0} : \\
       Apply Gaussian prior using pre-fit estimate of {\tt PEAKMJD},
       where estimate is from data file, or one {\tt OPT\_SETPKMJD}
-      options (Fig.~\ref{fig:SETPKMJD}).
+      options (Fig.~\ref{fig:SETPKMJD}). 
+      {\tt OPT\_SETPKMJD=16} is recommended because i) there is no
+      fitting, and ii) it is insensitive to catastrophic outlier fluxes.
 %
    \item {\bf\tt PRIOR\_SHAPE\_RANGE = -4.0, +4.0} : \\
       Apply flat prior on shape parameter (e.g., $-4<x_1<4$),

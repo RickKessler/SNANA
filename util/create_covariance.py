@@ -797,7 +797,12 @@ def get_lcfit_info(submit_info):
 def remove_nans(data):
     base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
     base      = data[base_name]
-    mask = ~(base.drop('FIELD', axis=1).isnull().any(axis=1))
+    try:
+        base = base.drop('FIELD', axis=1)
+    except:
+        #FIELD not in df
+        pass
+    mask = ~(base.isnull().any(axis=1))
     for name, df in data.items():
         data[name] = df.loc[mask, :]
     return data, base.loc[mask, :]

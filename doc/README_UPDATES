@@ -19602,6 +19602,9 @@
    is printed; else abort. This check also prevents losing sim-data README 
    files on scratch disks with automatic purging.
 
+   I/O refactor finished, but not yet default. Test refactor with 
+   snlc_fit.exe <inputFile> OPT_DEBUG 21
+
          ***** USEFUL(v11_02i) ***** 
 
    sim has new HOSTLIB_SPECDATA_FILE feature to pick real host spectra
@@ -19611,8 +19614,6 @@
 
    genmag_PySEDMODEL.c
      + fix bug that was preventing BYOSED params from being returned.
-
-   Lots of I/O refactoring/cleanup.
 
    sntools_host.c[h]:
      + new option HOSTLIB_SPECDATA_FILE: <file> to read real

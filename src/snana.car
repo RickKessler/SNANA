@@ -3489,15 +3489,18 @@ C ----------------- BEGIN --------------
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
-c - - - - - - - 
+c xxxxxxxx mark delete Feb 26 2021 xxxxxxxx
 c check option to check DOCANA (Aug 26 2020)
 c Avoid checking sim README with this temporary hack since LSIM_SNANA
 c is not set yet. Remove LSIM_TEMP hack when proper DOCANA key is
 c propagated to sim README
-      LSIM_TEMP = ( INDEX(SNDATA_PATH,'SIM') > 0 )
-      IF ( .NOT.LSIM_TEMP .and. REQUIRE_DOCANA > 0 ) THEN
-         CALL CHECK_FILE_DOCANA(README_FILE, MXCHAR_FILENAME)
-      ENDIF 
+c      LSIM_TEMP = ( INDEX(SNDATA_PATH,'SIM') > 0 )
+c      IF ( .NOT.LSIM_TEMP .and. REQUIRE_DOCANA > 0 ) THEN
+c         CALL CHECK_FILE_DOCANA(README_FILE, MXCHAR_FILENAME)
+c      ENDIF 
+c xxxxxxxxxxxxxx end mark xxxxxxxxx
+
+      CALL CHECK_FILE_DOCANA(REQUIRE_DOCANA,README_FILE,MXCHAR_FILENAME)
 
 c - - - - - - - -       
 c construct prefix = path/[version]
@@ -8177,10 +8180,10 @@ c --------
 
       CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME), FNAM*12
       INTEGER i, LENFILE, LENCID, NWD, FLAG_DOCANA
-      LOGICAL FOUND_DOCANA_END
+      LOGICAL FOUND_DOCANA_END, LREQUIRE_DOCANA
 
       INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
-      EXTERNAL STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS, REACT_MISSING_DOCANA
 C ------------- BEGIN ---------
 
       IF ( SNCID_IGNORE_FILE .EQ. ' ' ) RETURN
@@ -8199,9 +8202,12 @@ C ------------- BEGIN ---------
 
          CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
 
-         IF ( REQUIRE_DOCANA > 0 .and. .NOT. FOUND_DOCANA_END) THEN
+         IF ( .NOT. FOUND_DOCANA_END) THEN
             FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
-            if(FLAG_DOCANA<0) CALL ABORT_MISSING_DOCANA(cFILE,LENFILE)
+            if ( FLAG_DOCANA < 0 ) then
+              LREQUIRE_DOCANA = (REQUIRE_DOCANA > 0 )
+              CALL REACT_MISSING_DOCANA(LREQUIRE_DOCANA,cFILE,LENFILE)
+            endif
             IF ( FLAG_DOCANA==FLAG_DOCANA_END ) FOUND_DOCANA_END=.TRUE.
             goto 200
          ENDIF
@@ -16867,9 +16873,7 @@ C ------------- BEGIN -----------
       cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
 
 c - - - - - -  -
-      IF ( REQUIRE_DOCANA > 0 ) THEN  ! Aug 27 2020
-        CALL CHECK_FILE_DOCANA(cFILE,LEN1)  ! C function
-      ENDIF
+      CALL CHECK_FILE_DOCANA(REQUIRE_DOCANA, cFILE,LEN1)  ! C function
 c - - - - - -  -
 
       OPTMASK_SNTABLE = 

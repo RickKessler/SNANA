@@ -811,12 +811,13 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
-void check_openFile_docana(FILE *fp, char *fileName); // check file already open
-void check_file_docana(char *fileName);           // open file and check
-void abort_missing_docana(char *fileName);
-void abort_missing_docana__(char *fileName);
+bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open
+void check_file_docana(int optmask, char *fileName);   // open file and check
+void check_file_docana__(int *optmask, char *fileName);
+
+void react_missing_docana(bool FOUND_DOCANA, char *fileName);
+void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
-void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

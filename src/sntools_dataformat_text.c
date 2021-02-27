@@ -1341,9 +1341,9 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
     else if ( strcmp(varName,"SIM_GENMAG") == 0 ) 
       { IVARSPEC_SNTEXTIO.SIM_GENMAG = ivar; }
 
-    else if ( strcmp(varName,"DQ") == 0 ) {
-      // do nothing ??
-    }
+    else if ( strcmp(varName,"DQ")       == 0 ) { ; } // do nothing
+    else if ( strcmp(varName,"SPECFLAG") == 0 ) { ; } // do nothing
+
     else {
       sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 
 	      varName, ivar, NVAR );

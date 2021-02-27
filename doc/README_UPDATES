@@ -19598,6 +19598,10 @@
    simlib_coadd: DOCUMENTATION yaml block is now required ! 
                  Legacy COMMENT: keys result in abort.
 
+   All analysis codes check data README file; if !REQUIRE_DOCANA, warning
+   is printed; else abort. This check also prevents losing sim-data README 
+   files on scratch disks with automatic purging.
+
          ***** USEFUL(v11_02i) ***** 
 
    sim has new HOSTLIB_SPECDATA_FILE feature to pick real host spectra

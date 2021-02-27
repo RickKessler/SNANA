@@ -7251,7 +7251,7 @@ void  init_GENLC(void) {
 
     GENLC.OBSFLAG_WRITE[epoch] = false ;
 
-    sprintf(GENLC.FIELDNAME[epoch], "NULL" );
+    sprintf(GENLC.FIELDNAME[epoch],"%s", FIELDNAME_NULL );
 
     GENLC.MJD[epoch]          = NULLFLOAT ;
     GENLC.epoch_obs[epoch]   = NULLFLOAT ;
@@ -16119,7 +16119,7 @@ void init_SIMLIB_HEADER(void) {
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2x1, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2c,  (double)999. ) ;  
 
-  sprintf(SIMLIB_HEADER.FIELD,"NULL");
+  sprintf(SIMLIB_HEADER.FIELD,"%s", FIELDNAME_NULL );
   SIMLIB_HEADER.NFIELD_OVP = 0 ;
   SIMLIB_HEADER.SUBSURVEY_NAME[0] = 0 ;
   // doesn't work  sprintf(SIMLIB_HEADER.SUBSURVEY_NAME, "NULL" );

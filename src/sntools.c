@@ -1606,6 +1606,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Jul 20 2020: new option to ignore comment char and anything after
   // Jul 31 2020: add abort trap on too-long string length
   // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
+  // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
@@ -1613,7 +1614,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
   bool FIRSTLINE       = ( (OPT & MSKOPT_PARSE_WORDS_FIRSTLINE) > 0 );
   int LENF = strlen(FILENAME);
-  int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
+  int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd, nline ;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
@@ -1683,8 +1684,9 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-    NWD = PARSE_WORDS.NWD = 0 ;
+    NWD = PARSE_WORDS.NWD = nline = 0 ;
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
+      nline++ ;
       malloc_PARSE_WORDS();
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
       if ( PARSE_WORDS.NWD < MXWORDFILE_PARSE_WORDS ) 
@@ -1702,7 +1704,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	NWD = NWD_TMP; // reset NWD to ignore comments
       }
       PARSE_WORDS.NWD += NWD;
-      if ( FIRSTLINE ) { break; }
+      if ( FIRSTLINE && nline > 5 ) { break; }
     } // end while
     NWD = PARSE_WORDS.NWD ;
 
@@ -9701,7 +9703,6 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
-
     fp = open_TEXTgz(FILENAME, "rt", &gzipFlag);
   }
 
@@ -9768,7 +9769,6 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   if ( fp != NULL ) {       
     if ( VBOSE )  { printf("\t Opened : %s \n", fullName ); }
     goto DONE ;
-    // xxx return fp;
   } 
 
   // if we get here, try paths in PATH_LIST
@@ -9797,52 +9797,79 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
  DONE:
 
-  if ( REQUIRE_DOCANA ) {  check_openFile_docana(fp,fullName); }
+  if  ( fp != NULL ) { 
+    bool FOUND_DOCANA ;
+    FOUND_DOCANA = check_openFile_docana(REQUIRE_DOCANA,fp,fullName); 
+
+    // if we didn't find DOCANA key (and didn't abort), then need to
+    // rewind in case that first alread-read key is needed later.
+    // Note that rewind doesn't work for gzip files (?)
+    if ( !FOUND_DOCANA && *gzipFlag == 0 ) 
+      { snana_rewind(fp, fullName, *gzipFlag); }
+  }
 
   // return pointer regardless of status
-  return fp;
+  return fp ;
 
 }  // end of snana_openTextFile
 
 
 // *************************************
-void check_openFile_docana(FILE *fp, char *fileName) {
+bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // Created Aug 26 2020
   // For already open file (fp), abort if first word in file is not 
   // a DOCANA key.
   // A separate abort function is available to both C and fortran.
+  //
+  // Return FOUND_DOCANA logical
 
   char key[60];
+  bool FOUND_DOCANA ;
   char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
   fscanf(fp, "%s", key);
-  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
-    { abort_missing_docana(fileName); }
-  
-  return;
+
+  FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
+  if ( !FOUND_DOCANA ) {
+    react_missing_docana(REQUIRE_DOCANA,fileName); 
+
+    // if we haven't aborted, rewind in case first word in file
+    // is needed for parsing
+    
+  }
+  return FOUND_DOCANA ;
+
 } // end check_openFile_docana
 
 // *************************************
-void check_file_docana(char *fileName) {
+void check_file_docana(int optmask, char *fileName) {
   // Created Aug 26 2020
   // Open and read first line if fileName; abort if no DOCANA key.
   // A separate abort function is available to both C and fortran.
+  //
+  // Input 
+  //    optmask & 1 -> abort of no DOCANA; else give warning.
 
-  int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
-  int  langFlag=0, iwd0=0, NWD;
+  int MSKOPT   = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
+  bool REQUIRE = ( (optmask & 1) > 0 ) ;
+  bool FOUND_DOCANA = false ;
+  int  langFlag=0, iwd, NWD;
   char key[60];
   char fnam[] = "check_file_docana";
   // ------------- BEGIN --------
 
   NWD = store_PARSE_WORDS(MSKOPT, fileName);
-  get_PARSE_WORD(langFlag, iwd0, key);
 
-  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
-    { abort_missing_docana(fileName); }
-  
+  for(iwd=0; iwd < NWD; iwd++ ) {
+    get_PARSE_WORD(langFlag, iwd, key);
+    if ( strcmp(key,KEYNAME_DOCANA_REQUIRED)==0 ) 
+      { FOUND_DOCANA = true; }
+  }
+
+  if ( !FOUND_DOCANA )  { react_missing_docana(REQUIRE,fileName); }
+
   return;
 } // end check_file_docana
-
 
 void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
   sprintf(c1err,"Could not read arg[%d] = '%s'", iArg, word);
@@ -9850,26 +9877,39 @@ void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
   errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
 } // end abort_bad_input
 
-void abort_missing_docana(char *fileName) {
-  char fnam[] = "abort_missing_docana" ;
+void react_missing_docana(bool REQUIRE_DOCANA, char *fileName) {
+  // Calling function has already determined that DOCANA is missing;
+  // here, either abort or give warning based on REQUIRE_DOCANA.
+  // 
+  bool GIVE_WARNING = !REQUIRE_DOCANA ;
+  char fnam[] = "react_missing_docana" ;
 
-  print_preAbort_banner(fnam);
+  if ( REQUIRE_DOCANA ) { print_preAbort_banner(fnam); }
+
+  // always print this stuff on missing DOCANA
   printf("\n");
+
+  if ( GIVE_WARNING ) 
+    { printf("\t ***** DOCANA WARNING ******* \n"); }
   printf("  Missing required '%s'  key in \n", KEYNAME_DOCANA_REQUIRED);
   printf("    %s \n", fileName);
   printf("  See DOCANA examples with linux command: \n");
   printf("    grep -R DOCUMENTATION_END $SNDATA_ROOT \n") ;
   printf("  File must begin with 'DOCUMENTATION:' key\n");
-  
-  sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
-  sprintf(c2err,"%s", fileName );
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
-}
+  printf("\n");
 
-void abort_missing_docana__(char *fileName) 
-{ abort_missing_docana(fileName); }
-void check_file_docana__(char *fileName) 
-{ check_file_docana(fileName); }
+  if( REQUIRE_DOCANA ) {
+    sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
+    sprintf(c2err,"%s", fileName );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+  }
+
+}   // end react_missing_docana
+
+void react_missing_docana__(bool *REQUIRE_DOCANA, char *fileName) 
+{ react_missing_docana(*REQUIRE_DOCANA,fileName); }
+void check_file_docana__(int *optmask, char *fileName) 
+{ check_file_docana(*optmask, fileName); }
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

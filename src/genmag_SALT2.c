@@ -1153,7 +1153,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
-  if ( REQUIRE_DOCANA ) { check_file_docana(infoFile); }
+  check_file_docana((int)REQUIRE_DOCANA, infoFile);
 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
     print_preAbort_banner(fnam);

@@ -92,17 +92,7 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
        argument of sim-input APPLY_SEARCHEFF_OPT (only for error checking)
 
 
-   June 18, 2008: 
-      fix dumb bug to read MAG-files in addition to SNR-files.
-      Define PATH_EFF to avoid multiple definitions of this path.
-
-  Feb 20, 2009: init IREAD=0 at top, and define NREAD.
-
-  July 3, 2011
-    - complete re-organization to upgrade SPECEFF simulation.
-    - call new functions init_SEARCHEFF_[FILTER,LOGIC,SPEC]
-             
-  Jan 31, 2013: remove logic related to INPUTS.HUMAN_SEARCHEFF_OPT 
+        HISTORY
    
   Mar 06 2018: 
     + new input argument APPLYMASK_SEARCHEFF
@@ -1310,9 +1300,14 @@ FILE *open_zHOST_FILE(int OPT) {
   ptrFile_final = INPUTS_SEARCHEFF.zHOST_FILE ;      // includes full path
   
   if( IGNOREFILE(ptrFile_user) ) {
-    // NULL or NONE, etc ...
-    sprintf(localFile, "%s",  ptrFile_user); 
-    IREQUIRE = 0 ;
+    // NULL or NONE, etc ... -> EFF=1
+    if ( LPRINT )   { 
+      printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
+	     "-> Eff=1.0 \n"); 
+    }
+    return(fp);
+    // xxx    sprintf(localFile, "%s",  ptrFile_user); 
+    // xxx    IREQUIRE = 0 ;
   }
   else if ( strcmp(ptrFile_user,"ZERO") == 0 ) {
     // no file to read, but set all EFF_zHOST=0  (Jun 2018)
@@ -1337,6 +1332,8 @@ FILE *open_zHOST_FILE(int OPT) {
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
     }
+
+    /* xxxxx mark delete Feb 26 2021 xxxxx
     else  { 
       if ( LPRINT )   { 
 	printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
@@ -1345,6 +1342,8 @@ FILE *open_zHOST_FILE(int OPT) {
       fflush(stdout);
       return(fp) ; 
     }
+    xxxxxxxxx end mark xxxxxxx */
+
   }
 
   // --------------------------------------------

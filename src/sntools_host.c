@@ -1030,7 +1030,7 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
   int NVAR   = 0 ;
   int MXCHAR = MXPATHLEN;
-  int NWD, ivar, gzipFlag ;
+  int NWD, ivar, gzipFlag, NTMP=0 ;
   FILE *fp ;
   bool IS_SNVAR;
   char FILENAME_FULL[MXPATHLEN], *WGTMAP_FILE, LINE[MXPATHLEN];
@@ -1069,13 +1069,15 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   bool STOP_READ = false;
   while( !STOP_READ ) { 
 
-    // xxx mark delete fscanf(fp, "%s", c_get); 
-
     if ( fscanf(fp, "%s", c_get) == EOF ) {
       sprintf(c1err,"Reached EOF before finding WGTMAP or GAL key.");
       sprintf(c2err,"Check format for HOSTLIB_FILE.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
+
+    NTMP++;
+    //    if ( NTMP < 200 ) 
+    //{  printf(" xxx %s: c_get(%3d)='%s' \n", fnam, NTMP, c_get);  }
 
     // avoid reading the entire HOSTLIB file if there is no WGTMAP
     if ( strcmp(c_get,KEY_STOP) == 0 ) { STOP_READ = true; }

@@ -1271,8 +1271,9 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
 
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
-  INPUTS.TAKE_SPECTRUM_DUMPCID  = -9 ;
-  INPUTS.TAKE_SPECTRUM_HOSTFRAC =  0.0 ;
+  INPUTS.TAKE_SPECTRUM_DUMPCID    = -9 ;
+  INPUTS.TAKE_SPECTRUM_HOSTFRAC   =  0.0 ;
+  INPUTS.TAKE_SPECTRUM_HOSTSNFRAC =  0.0 ;
   INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE =  1.0 ;
 
   INPUTS.WARP_SPECTRUM_STRING[0] = 0 ;
@@ -2180,6 +2181,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTSNFRAC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
@@ -8112,6 +8116,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
+
   }
 
   // init arrays
@@ -8272,21 +8277,25 @@ void GENSPEC_TRUE(int imjd) {
 // *****************************************
 void GENSPEC_HOST_CONTAMINATION(int imjd) {
 
-  // Created July11 2019
+  // Created July 11 2019
   // Check option to add host contamination
-  int    IS_HOST  = GENSPEC.IS_HOST[imjd];
-  double HOSTFRAC = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
-  int    IMJD_HOST = 0;
-  int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
+  // Feb 26 2021: check for HOST/SN fraction: HOSTSNFRAC
 
-  int ilam;
-  double FLAM_SN, FLAM_HOST, FLAM_TOT, arg, MAGSHIFT ;
+  int    IS_HOST    = GENSPEC.IS_HOST[imjd];
+  double HOSTFRAC   = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
+  double HOSTSNFRAC = (double)INPUTS.TAKE_SPECTRUM_HOSTSNFRAC;
+  int    IMJD_HOST  = 0 ;
+  int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
+
+  int ilam, NOPT=0 ;
+  double FLAM_SN, FLAM_HOST, FLAM_TOT, arg, MAGSHIFT, SCALE_FLAM_HOST ;
+  double FSUM_SN, FSUM_HOST, LAMMIN, LAMMAX, LAMBIN ;
   char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
 
   // ------------- BEGIN --------------
 
   if ( IS_HOST )           { return; }
-  if ( HOSTFRAC < 1.0E-8 ) { return; }
+  if ( HOSTFRAC < 1.0E-8 && HOSTSNFRAC < 1.0E-8 ) { return; }
 
   // check that imjd=0 is indeed a host spectrum to add
   IS_HOST = GENSPEC.IS_HOST[IMJD_HOST];
@@ -8296,17 +8305,45 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+  if ( HOSTFRAC > .001 ) {
+    SCALE_FLAM_HOST = HOSTFRAC ; 
+    NOPT++ ;
+  }
+
+  if ( HOSTSNFRAC > 0.001 ) {
+    FSUM_SN = FSUM_HOST = 0.0 ;
+    for(ilam=0; ilam < NBLAM; ilam++ ) {
+      FLAM_SN    = GENSPEC.GENFLUX_LIST[imjd][ilam];
+      FLAM_HOST  = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
+      LAMMIN     = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ; 
+      LAMMAX     = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;    
+      LAMBIN     = LAMMAX - LAMMIN ;
+      FSUM_SN   += (FLAM_SN*LAMBIN);
+      FSUM_HOST += (FLAM_HOST*LAMBIN);
+    }
+    // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_SN)
+    SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_SN / FSUM_HOST ;
+    NOPT++ ;
+  }
+
+  if ( NOPT > 1 ) {
+    sprintf(c1err,"Cannot use both HOSTFRAC and HOSTSNFRAC.");
+    sprintf(c1err,"Pick one (and see manual).");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // - - - - - -
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
-    FLAM_TOT  = FLAM_SN + (FLAM_HOST*HOSTFRAC);
+    FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST);
     
     GENSPEC.GENFLUX_LIST[imjd][ilam] = FLAM_TOT ;
 
     arg      =  FLAM_TOT/FLAM_SN ;
     MAGSHIFT = -2.5*log10(arg);
     GENSPEC.GENMAG_LIST[imjd][ilam] += MAGSHIFT ;
-  }
+  } // end ilam
 
   return;
 

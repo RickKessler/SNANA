@@ -4810,7 +4810,7 @@ from {\tt SPECTRO\_FLUX} table using pointers in the
 {\tt SPECTRO\_HEADER} table.
 
 % ------------------------------------
-\clearpage
+%\clearpage
 \subsubsection{Spectral Time-Windows Relative to Peak Brightness }
 \label{sss:SPEC_EPOCH}
 % ------------------------------------
@@ -4850,13 +4850,6 @@ Finally, the {\tt HOST} argument results in a host spectrum
 based on {\tt HOSTLIB\_FILE} and {\tt HOSTLIB\_SPECBASIS\_FILE}.
 HOST spectra have {\tt MJD = -9} in the data files.
 
-The template exposure time is defined in the \simlib\ file
-with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
-
-\medskip
-\noindent Rather than pre-defining exposure times, the exposure
-time can be computed from a requested SNR value:
-%
 \begin{Verbatim}[frame=single]
 # 1) rest-frame epoch, rest-frame SNR def
 TAKE_SPECTRUM:  TREST(-12:-10) SNR_ZPOLY(20,-5)  SNR_LAMREST(5000:6000)
@@ -4872,11 +4865,19 @@ TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
 
 #4) host spectrum 
 TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
-TAKE_SPECTRUM_HOSTFRAC:  0.1  # add 10\% of FLAM(host) to each SN spectrum
+TAKE_SPECTRUM_HOSTFRAC:   0.1  # add 10\% of FLAM(host) to each SN spectrum
+TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SN) = 0.1
 
 TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
 \end{Verbatim}
 %
+
+The template exposure time is defined in the \simlib\ file
+with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
+
+\medskip
+\noindent Rather than pre-defining exposure times, the exposure
+time can be computed from a requested SNR value.
 The {\tt TREST} and {\tt TOBS} arguments are the same as in 
 the previous example.
 {\tt SNR\_ZPOLY} specifies the requested SNR as a 
@@ -4896,6 +4897,21 @@ information is automatically added to the {\tt SIMGEN\_DUMP}
 file (\S\ref{sss:simgen_dump}).
 This allows checking $\Texpose$ vs. redshift, or vs
 any other quantity allowed in the one-row-per-SN summary.
+
+\medskip
+\newcommand{\dFlamHost}{dF_{\rm host}/d\lam}
+\newcommand{\dFlamSN}{dF_{\rm SN}/d\lam}
+There are two methods to introduce host contamination in SN spectra.
+The first method, {\tt TAKE\_SPECTRUM\_HOSTFRAC}, adds a specific fraction
+of host spectrum to the SN spectrum; this option depends on correct
+normalization of host spectrum. 
+The 2nd method ({\tt TAKE\_SPECTRUM\_HOSTSNFRAC}) does not depend
+on correct host normalization because it scales $\dFlamHost$ such that
+\begin{equation}
+   {\rm\tt HOSTSNFRAC} = 
+     \frac{  \int d\lam [\dFlamHost] } { \int d\lam [\dFlamSN ] }~.
+\end{equation}
+% .xyz
 
 \medskip
 There are two methods to define the template exposure time.
@@ -4953,7 +4969,7 @@ The warping is applied only to the measured $\Flam$
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
 
 % ------------------------------------
-\clearpage
+%\clearpage
 \subsubsection{{\SPEC} Options}
 \label{sss:SPEC_OPTMASK}
 % ------------------------------------
@@ -5044,7 +5060,7 @@ each spectrum should be defined as a separate SED file.
 
 
 % ------------------------------------
-\clearpage
+%\clearpage
 \subsection{Simulating Rise-Time Variations}
 \label{subsec:simRiseTime}
 % ------------------------------------

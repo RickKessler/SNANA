@@ -583,6 +583,7 @@ struct INPUTS {
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   int                       TAKE_SPECTRUM_DUMPCID;
   float                     TAKE_SPECTRUM_HOSTFRAC;
+  float                     TAKE_SPECTRUM_HOSTSNFRAC;
 
   char                      WARP_SPECTRUM_STRING[200];
   int                       NWARP_TAKE_SPECTRUM ; // set internally

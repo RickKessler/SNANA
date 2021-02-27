@@ -84,6 +84,7 @@ struct {
   double *GENSNR_LIST[MXSPEC] ;
   double *GENFLUX_LIST[MXSPEC] ;    // true flux with no noise or lam-smear
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
+  // xx  double  GENFLUX_SUM[MXSPEC];    // flux sum; used for contam calc.
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise

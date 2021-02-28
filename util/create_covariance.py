@@ -209,6 +209,7 @@ def load_hubble_diagram(path, args, config):
             df.loc[calib_mask, VARNAME_MUERR] = \
                 np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
                 df.loc[calib_mask, "MUERR_VPEC"] ** 2)
+        df['CIDstr'] = df['CID'].astype(str)
         df = df.set_index(["IDSURVEY", "CID"])
     elif VARNAME_z in df.columns:
         # should not be needed here for M0DIF, but what the heck
@@ -450,7 +451,25 @@ def get_cov_from_diff(df1, df2, scale):
     return cov, (coef, mean_abs_deviation, max_abs_deviation)
 
 
-def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales):
+def get_cov_from_covfile(data, covfile, scale):
+    covindf = pd.read_csv(covfile)
+    covindf['CID1'] = covindf['CID1'].astype(str)
+    covindf['CID2'] = covindf['CID2'].astype(str)
+    covindf = covindf.set_index(["CID1", "CID2"])
+    covout = np.zeros((len(data),len(data)))
+    for i,cid1,ra1,dec1 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
+        nmissing = 0
+        for j,cid2,ra2,dec2 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
+            try:
+                covout[i,j] = covindf.loc[(cid1,cid2), "MU_COV"]
+            except KeyError:
+                nmissing+=1
+        if nmissing > 100:
+            logging.info(f'{i} {cid1} RA {ra1} DEC {dec1} \t MISSING FROM COVFILE')
+        
+    return covout, (0, 0, 0)
+
+def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result, slopes = {}, []
 
@@ -485,6 +504,14 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales):
             df_compare = m0difs[get_name_from_fitopt_muopt(0, 0)]
             cov, summary = get_cov_from_diff(df, df_compare, fitopt_scale)
 
+        result[f"{fitopt_label}|{muopt_label}"] = cov
+        slopes.append([name, fitopt_label, muopt_label, *summary])
+
+    #now loop over extracov_labels
+    for key,value in extracovdict.items():
+        cov, summary = get_cov_from_covfile(df, os.path.expandvars(value), muopt_scales[key])
+        fitopt_label = 'DEFAULT'
+        muopt_label = key
         result[f"{fitopt_label}|{muopt_label}"] = cov
         slopes.append([name, fitopt_label, muopt_label, *summary])
 
@@ -800,7 +827,7 @@ def remove_nans(data):
     try:
         base = base.drop('FIELD', axis=1)
     except:
-        #FIELD not in df
+        #FIELD not in df  
         pass
     mask = ~(base.isnull().any(axis=1))
     for name, df in data.items():
@@ -814,7 +841,8 @@ def create_covariance(config, args):
     version   = config["VERSION"]
     data_dir  = input_dir / version
     sys_file  = Path(config["SYSFILE"])
-
+    extra_covs = config.get("EXTRA_COVS",[])
+    
     # Read in all the needed data
     submit_info = read_yaml(input_dir / "SUBMIT.INFO")
     sys_scale = read_yaml(sys_file)
@@ -824,6 +852,13 @@ def create_covariance(config, args):
     muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
                     submit_info.get("MUOPT_OUT_LIST", [])}
 
+    #tack on extra covs as muopts
+    extracovdict = {}
+    for extra in extra_covs:
+        muopt_labels[len(muopt_labels)+1] = extra.split()[0]
+        extracovdict[extra.split()[0]] = extra.split()[2]
+
+
     # Feb 15 2021 RK - check option to selet only one of the muopt
     if args.muopt >= 0 :
         tmp_label    = muopt_labels[args.muopt]
@@ -831,24 +866,23 @@ def create_covariance(config, args):
         muopt_labels = { args.muopt : "DEFAULT" }     
     
     muopt_scales = config["MUOPT_SCALES"]
+    for extra in extra_covs:
+        muopt_scales[extra.split()[0]] = extra.split()[1]
 
     # Load in all the hubble diagrams
     logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
-
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
-
     # Now that we have the data, figure out how each much each FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
-                                               muopt_labels, muopt_scales)
-
+                                               muopt_labels, muopt_scales, extracovdict)
     # find contributions which match to construct covs for each COVOPT
     logging.info(f"Compute covariance for COVOPTS")
     covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  # Adds covopt to compute everything
     covariances = [get_cov_from_covopt(c, contributions, base, 
                                        config.get("CALIBRATORS")) for c in covopts]
-
+    
     write_cosmomc_output(config, covariances, base)
     write_summary_output(config, covariances, base)
     write_debug_output(config, covariances, base, summary)

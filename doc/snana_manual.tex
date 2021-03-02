@@ -6824,6 +6824,11 @@ rare pathological fits or code crashes. Here is a list of
      Default fit errors use {\tt MIGRAD} ({\tt USE\_MINOS=F}).
      Enabling {\tt MINOS} gives better error estimates,
      but also increases the CPU time by a factor of few.     
+%
+   \item {\bf Avoid Negative Variance in $\chi^2$ Function:} \\
+     Since variance $V = V_0 + V_1 x_1^2 + (2 x_1 V_{01})$,
+     large-negative $x_1$ can result in $V<0$; hence the 
+     minimizer function needs protection requiring $V>0$.
 \end{itemize}
 
 % ------------------------------------

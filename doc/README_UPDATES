@@ -19660,5 +19660,11 @@
 
     simlib_coadd.c
       + adapt to work for NEA column replacing 3 PSF columns.  
+ 
+    submit_batch_jobs
+     + finally finish merge tasks for train_SALT3
+
+    snlc_sim.c
+     + fix parsing-refac bug for reading WARP_SPECTRUM arg.
 
 END: 

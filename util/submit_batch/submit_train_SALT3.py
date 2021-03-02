@@ -25,6 +25,15 @@ TRAINOPT_STRING = "TRAINOPT"
 # Default output dirs are SALT3.MODEL000, SALT3.MODEL001, ...
 MODEL_SUFFIX_DEFAULT = "MODEL"
 
+# Define columns in MERGE.LOG. Column 0 is always the STATE.                   
+COLNUM_TRAIN_MERGE_TRAINOPT    = 1
+COLNUM_TRAIN_MERGE_NLC         = 2
+COLNUM_TRAIN_MERGE_NSPEC       = 3
+COLNUM_TRAIN_MERGE_CPU         = 4
+
+# name of misc dir to store plots, etc ..
+MISC_DIR_NAME = "misc"
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -135,6 +144,7 @@ class train_SALT3(Program):
         trainopt_num_list = self.config_prep['trainopt_num_list']
         model_suffix      = MODEL_SUFFIX_DEFAULT  
         outdir_model_list  = []
+        outdir_model_list_base  = []
 
         for trainopt_num in trainopt_num_list:
             nnn           = trainopt_num[-3:]
@@ -142,9 +152,11 @@ class train_SALT3(Program):
             outdir_model  = f"{output_dir}/{sdir_model}"
             print(f"\t Create {sdir_model}")
             outdir_model_list.append(outdir_model)
+            outdir_model_list_base.append(sdir_model)
             os.mkdir(outdir_model)
 
         self.config_prep['outdir_model_list']  =  outdir_model_list
+        self.config_prep['outdir_model_list_base'] = outdir_model_list_base
         # end train_prep_paths
 
     def train_prep_copy_files(self):
@@ -267,6 +279,7 @@ class train_SALT3(Program):
         arg_list     = self.config_prep['trainopt_arg_list'] 
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
+        outdir_model_list_base = self.config_prep['outdir_model_list_base']
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
@@ -280,6 +293,147 @@ class train_SALT3(Program):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
-        
-       
-        # .xyz
+
+        f.write("MODELDIR_LIST:\n")
+        for model_dir in outdir_model_list_base :
+            f.write(f"  - {model_dir}\n")
+        f.write("\n")
+        # end append_info_file
+
+    def merge_config_prep(self,output_dir):
+        pass
+
+    def merge_update_state(self, MERGE_INFO_CONTENTS):
+
+        # read MERGE.LOG, check LOG & DONE files.
+        # Return update row list MERGE tables.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+
+        COLNUM_STATE     = COLNUM_MERGE_STATE
+        COLNUM_TRAINOPT  = COLNUM_TRAIN_MERGE_TRAINOPT  
+        COLNUM_NLC       = COLNUM_TRAIN_MERGE_NLC
+        COLNUM_NSPEC     = COLNUM_TRAIN_MERGE_NSPEC
+        COLNUM_CPU       = COLNUM_TRAIN_MERGE_CPU
+
+        # init outputs of function
+        n_state_change     = 0
+        row_list_merge_new = []
+        row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
+
+        # keynames_for_job_stats returns 3 keynames : 
+        #   {base}, {base}_sum, {base}_list
+        key_nlc, key_nlc_sum, key_nlc_list = \
+                self.keynames_for_job_stats('NUM_SNE')
+        key_nspec, key_nspec_sum, key_nspec_list = \
+                 self.keynames_for_job_stats('NUM_SPECTRA')
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                self.keynames_for_job_stats('CPU_MINUTES')
+        key_list = [ key_nlc, key_nspec, key_cpu ] 
+
+        nrow_check = 0
+        for row in row_list_merge :
+            row_list_merge_new.append(row) # default output is same as input
+            nrow_check += 1
+            irow        = nrow_check - 1 # row index
+            trainopt    = row[COLNUM_TRAINOPT] # e.g., TRAINOPT001
+            search_wildcard = (f"{trainopt}*")
+
+            # strip off row info
+            STATE       = row[COLNUM_STATE]
+
+            # check if DONE or FAIL ; i.e., if Finished
+            Finished = (STATE == SUBMIT_STATE_DONE) or \
+                       (STATE == SUBMIT_STATE_FAIL)
+
+            if not Finished :
+                NEW_STATE = STATE
+
+                # get list of LOG, DONE, and YAML files 
+                log_list, done_list, yaml_list = \
+                    util.get_file_lists_wildcard(script_dir,search_wildcard)
+
+                # careful to sum only the files that are NOT None
+                NLOG   = sum(x is not None for x in log_list)  
+                NDONE  = sum(x is not None for x in done_list)  
+                NYAML  = sum(x is not None for x in yaml_list)  
+
+                if NLOG > 0:
+                    NEW_STATE = SUBMIT_STATE_RUN
+                if NDONE == n_job_split :
+                    NEW_STATE = SUBMIT_STATE_DONE
+
+                job_stats = self.get_job_stats(script_dir, 
+                                               log_list, yaml_list, key_list)
+
+                row[COLNUM_STATE]     = NEW_STATE
+                row[COLNUM_NLC]       = job_stats[key_nlc_sum]
+                row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
+                row[COLNUM_CPU]       = job_stats[key_cpu_sum]
+
+                row_list_merge_new[irow] = row  # update new row
+                n_state_change += 1             
+
+        # first return arg (row_split) is null since there is 
+        # no need for a SPLIT table
+        return [], row_list_merge_new, n_state_change
+        # end merge_update_state
+
+    def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+
+        # cleanup for 'irow' training job.
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        modeldir_list    = submit_info_yaml['MODELDIR_LIST']
+
+        row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
+        trainopt = row[COLNUM_TRAIN_MERGE_TRAINOPT]
+        modeldir = modeldir_list[irow] 
+        dir_name = f"{output_dir}/{modeldir_list[irow]}"
+        print(f" Cleanup {dir_name}")
+
+        misc_dir = f"{dir_name}/{MISC_DIR_NAME}"
+        if not os.path.exists(misc_dir):            
+            os.mkdir(misc_dir)
+            mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
+                        "salt3train_snparams.txt"
+            cmd = f"cd {dir_name} ; mv {mv_string} {MISC_DIR_NAME}/"
+            os.system(cmd)
+
+        # tar and gzip misc sub dir
+        cmd_tar = f"cd {dir_name} ; " \
+                  f"tar -cf {MISC_DIR_NAME}.tar {MISC_DIR_NAME} ; " \
+                  f"gzip {MISC_DIR_NAME}.tar ; " \
+                  f"rm -r {MISC_DIR_NAME} "
+        os.system(cmd_tar)
+
+        # gzip dat files
+        cmd_gzip = f"cd {dir_name} ; gzip *.dat "
+        os.system(cmd_gzip)
+
+        # end  merge_job_wrapup
+
+
+    def get_misc_merge_info(self):
+        # return misc info lines to write into MERGE.LOG file.
+        # Each info line must be of the form
+        #  KEYNAME:  VALUE
+
+        return []
+        # end get_misc_merge_info
+
+    def merge_cleanup_final(self):
+        # every snlc_fit job succeeded, so here we simply compress output.
+  
+        pass
+        # end merge_cleanup_final
+
+    def get_merge_COLNUM_CPU(self):
+        return COLNUM_TRAIN_MERGE_CPU
+
+# =========== .xyz
+
+

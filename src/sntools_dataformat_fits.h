@@ -1,7 +1,6 @@
 /*************************************************
   May 2011, R.Kessler
 
-
   Parameters and declarations for snfitsio.c .
 
     HISTORY

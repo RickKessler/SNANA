@@ -122,8 +122,11 @@ int WRFLAG_FITS      ;
 int WRFLAG_FILTERS   ; // Aug 2016
 int WRFLAG_COMPACT   ; // Jan 2018
 
-#define SIMLIB_PSF_PIXSIG      "PIXEL_SIGMA"        // default
-#define SIMLIB_PSF_ASECFWHM    "ARCSEC_FWHM"        // option
+#define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
+#define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option
+#define SIMLIB_PSF_NEA_PIXEL     "NEA_PIXEL"          // option
+#define SIMLIB_PSF_NEA_ARCSECSQ  "NEA_ARCSECSQ"       // option
+
 #define SIMLIB_SKYSIG_SQPIX    "ADU_PER_SQPIXEL"    // default
 #define SIMLIB_SKYSIG_SQASEC   "ADU_PER_SQARCSEC"   // option
 
@@ -1294,6 +1297,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char FILTERS[MXFILTINDX];  // global list of all filters 
   char TELESCOPE[60];
   char PSF_UNIT[40] ;
+  bool NEA_PSF_UNIT;
   char SKYSIG_UNIT[40];
   char USERNAME[40];
   int  NLIBID, NLIBID_VALID ;
@@ -1391,6 +1395,7 @@ typedef struct  {
   double  PSFSIG1[MXOBS_SIMLIB];
   double  PSFSIG2[MXOBS_SIMLIB];
   double  PSFRATIO[MXOBS_SIMLIB];
+  double  NEA[MXOBS_SIMLIB];
   double  ZPTADU[MXOBS_SIMLIB];    // ZPT in ADU for entire exposure
   double  ZPTERR[MXOBS_SIMLIB];    // ZPT error
   double  MAG[MXOBS_SIMLIB];       // optional mag
@@ -1399,7 +1404,7 @@ typedef struct  {
   char    *PTR_FIELDNAME[MXOBS_SIMLIB];
   char    FIELDNAME[MXOBS_SIMLIB][MXCHAR_FIELDNAME];
   char    TELESCOPE[MXOBS_SIMLIB][40];
-  int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 2018
+  int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 201
 
   double  TEMPLATE_SKYSIG[MXOBS_SIMLIB] ;
   double  TEMPLATE_READNOISE[MXOBS_SIMLIB] ;

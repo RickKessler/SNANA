@@ -10220,7 +10220,7 @@ c set error on MilkyWay Galactic extinction
 
          R4EP_ALL(ep,JEP_LAMREST)     = LAMREST
          R4EP_ALL(ep,JEP_PSF)         = SNLC_PSF_SIG1(ep)
-         R4EP_ALL(ep,JEP_NEA)         = SNLC_AREA_NOISE(ep) 
+         R4EP_ALL(ep,JEP_NEA)         = SNLC_PSF_NEA(ep) 
          R4EP_ALL(ep,JEP_SKYSIG)      = SNLC_SKYSIG(ep)
          R4EP_ALL(ep,JEP_SKYSIG_T)    = SNLC_SKYSIG_T(ep)
          R4EP_ALL(ep,JEP_ZP)          = SNLC_ZEROPT(ep)

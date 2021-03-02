@@ -4502,6 +4502,13 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_flt(copyFlag, &parVal[obs], &SNDATA.PSF_RATIO[OBS]) ; 
     }  
   }
+  else if ( strcmp(key,"PSF_NEA") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_flt(copyFlag, &parVal[obs], &SNDATA.PSF_NEA[OBS]) ; 
+    }  
+  }
+
   else if ( strcmp(key,"SKY_SIG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  
@@ -8652,6 +8659,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.PSF_SIG1[i_epoch]     = NULLFLOAT ;
     SNDATA.PSF_SIG2[i_epoch]     = NULLFLOAT ;
     SNDATA.PSF_RATIO[i_epoch]    = NULLFLOAT ;
+    SNDATA.PSF_NEA[i_epoch]      = NULLFLOAT ;
 
     SNDATA.FLUXCAL[i_epoch]         = NULLFLOAT ;
     SNDATA.FLUXCAL_ERRTOT[i_epoch]  = NULLFLOAT ;

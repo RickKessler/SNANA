@@ -7341,6 +7341,7 @@ void  init_GENLC(void) {
     SIMLIB_OBS_GEN.PSFSIG1[i]    = -99. ;
     SIMLIB_OBS_GEN.PSFSIG2[i]    = -99. ;
     SIMLIB_OBS_GEN.PSFRATIO[i]   = -99. ;
+    SIMLIB_OBS_GEN.NEA[i]        = -99. ; // Feb 2021
     SIMLIB_OBS_GEN.ZPTADU[i]     = -99. ;
     SIMLIB_OBS_GEN.ZPTERR[i]     = -99. ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[i] = 0 ;
@@ -8626,10 +8627,11 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     SIMLIB_OBS_GEN.SKYSIG[ISTORE]   = SKYSIG ; 
     SIMLIB_OBS_GEN.CCDGAIN[ISTORE]  = 1.0 ;      // unity GAIN 
     SIMLIB_OBS_GEN.PSFSIG1[ISTORE]  = PSFSIG ;   // sigma1
+    SIMLIB_OBS_GEN.NEA[ISTORE]      = NoiseEquivAperture(PSFSIG, 0.0, 0.0);
    
     // set optional template noise for passbands made from spectrograph
     if ( TEXPOSE_T > 0.001 ) {
-      SIMLIB_TEMPLATE.USEFLAG |= 2;
+      SIMLIB_TEMPLATE.USEFLAG |= 2 ;
       SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[ISTORE]    = SKYSIG_T ; 
       SIMLIB_OBS_GEN.TEMPLATE_ZPT[ISTORE]       = ZPT ;	
     }
@@ -13323,7 +13325,8 @@ void SIMLIB_initGlobalHeader(void) {
   sprintf(SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT, "%s", 
 	  SIMLIB_SKYSIG_SQPIX );
   sprintf(SIMLIB_GLOBAL_HEADER.PSF_UNIT,    "%s", 
-	  SIMLIB_PSF_PIXSIG );
+	  SIMLIB_PSF_PIXEL_SIGMA );  // default
+  SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT = false;
 
   SIMLIB_FLUXERR_COR.USE     = 0 ;
   SIMLIB_TEMPLATE.USEFLAG    = 0 ;
@@ -13586,8 +13589,12 @@ void SIMLIB_prepGlobalHeader(void) {
 
   char *unit ;
   unit = SIMLIB_GLOBAL_HEADER.PSF_UNIT ;
-  if ( strcmp(unit,SIMLIB_PSF_PIXSIG) == 0  ) {  }
-  else if ( strcmp(unit,SIMLIB_PSF_ASECFWHM ) == 0 ) {  }
+  if ( strcmp(unit,SIMLIB_PSF_PIXEL_SIGMA) == 0  ) {  }
+  else if ( strcmp(unit,SIMLIB_PSF_ARCSEC_FWHM ) == 0 ) {  }
+  else if ( strcmp(unit,SIMLIB_PSF_NEA_PIXEL  )  == 0 ) 
+    { SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT = true; }
+  else if ( strcmp(unit,SIMLIB_PSF_NEA_ARCSECSQ ) == 0 ) 
+    { SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT = true; }
   else {
     sprintf(c1err,"Invalid 'PSF_UNIT: %s' in header of ", unit);
     sprintf(c2err,"%s", INPUTS.SIMLIB_FILE );
@@ -14434,16 +14441,28 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE]   );
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE]  );
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  );
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE] );
+
+      if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) 
+	{ readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.NEA[ISTORE] ); }
+      else {
+	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE]  );
+	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  );
+	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE] );
+
+	// if NEA is read here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
+	// this trap will hopefully abort.
+	checkval_D("PSF1(readNextCadence)", 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 
+		   0.0, 30.0 ) ;
+      }
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
+      checkval_D("ZPT(readNextCadence)", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 
+		 5.0, 50.0 ) ;
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MAG[ISTORE]      );
 
+
       if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
-	{ SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF; 
-	}
+	{ SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
 
       // check MAG column for SIMLIB model (Nov 2019)
       MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
@@ -14810,6 +14829,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       SIMLIB_OBS_RAW.PSFSIG1[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.PSFSIG2[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.PSFRATIO[ISTORE]   = -9.0 ;
+      SIMLIB_OBS_RAW.NEA[ISTORE]        = -9.0 ;
       SIMLIB_OBS_RAW.ZPTADU[ISTORE]     = -9.0 ;
       SIMLIB_OBS_RAW.ZPTERR[ISTORE]     = -9.0 ;
       SIMLIB_OBS_RAW.MAG[ISTORE]        = 99.0 ;
@@ -14977,11 +14997,12 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Jan 23 2020: check for FUDGE_ZPTERR
   // Feb 22 2020: fetch SCALE_SKYSIG_T for template noise scale.
   // Dec 08 2020: increase max PSF limit fro 9.9 to 20 (for LSST)
+  // Feb 28 2021: check PSF_UNIT for NEA 
 
   int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int ISTORE,  OPTLINE, OBSRAW ;
-  double PIXSIZE, PSF_ORIG, FUDGE_ZPTERR ;
+  double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3] ;
   char *UNIT, *BAND ;
   char fnam[] = "SIMLIB_prepCadence" ;
 
@@ -15024,20 +15045,39 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       // 2. sanity checks to catch crazy [nan] values. Second arg is NVAL=1
       checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0) ;
       checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0,  5.0 ) ;
-      checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
-      checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0 ) ;
-      checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0 ) ;
+      if ( !SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) {
+	checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+	checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0 ) ;
+	checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0 ) ;
+      }
       checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0,  1.0E5);
 
       PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[ISTORE] ; 
 
       // 3a. unit check for optional units of PSF and SKYSIG
       UNIT = SIMLIB_GLOBAL_HEADER.PSF_UNIT ;
-      if ( strcmp(UNIT,SIMLIB_PSF_ASECFWHM ) == 0 ) {
-	PSF_ORIG = SIMLIB_OBS_RAW.PSFSIG1[ISTORE] ;
+      if ( strcmp(UNIT,SIMLIB_PSF_ARCSEC_FWHM ) == 0 ) {
 	// convert FWHM(arcsec) back to Sigma(pixels)
 	SIMLIB_OBS_RAW.PSFSIG1[ISTORE] /= (PIXSIZE * FWHM_SIGMA_RATIO);
 	SIMLIB_OBS_RAW.PSFSIG2[ISTORE] /= (PIXSIZE * FWHM_SIGMA_RATIO);
+      }
+      else if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) {
+	// convert NEA back to Sigma(pixels)
+	NEA = SIMLIB_OBS_RAW.NEA[ISTORE];
+	if ( strcmp(UNIT,SIMLIB_PSF_NEA_ARCSECSQ ) == 0 )
+	  { NEA /= (PIXSIZE * PIXSIZE);  SIMLIB_OBS_RAW.NEA[ISTORE]=NEA; } 
+	SIMLIB_OBS_RAW.PSFSIG1[ISTORE]  = sqrt(NEA/(2.0*TWOPI)) ;
+	SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  = 0.0;
+	SIMLIB_OBS_RAW.PSFRATIO[ISTORE] = 0.0;
+      }
+
+      // if PSF is NOT already NEA, compute NEA (Feb 2021)
+      if ( !SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) {
+	PSF[0] = SIMLIB_OBS_RAW.PSFSIG1[ISTORE];
+	PSF[1] = SIMLIB_OBS_RAW.PSFSIG2[ISTORE];
+	PSF[2] = SIMLIB_OBS_RAW.PSFRATIO[ISTORE];
+	NEA    = NoiseEquivAperture(PSF[0], PSF[1], PSF[2] );
+	SIMLIB_OBS_RAW.NEA[ISTORE] = NEA ; // pixels
       }
       
       // 3b. check for optional units of SKYSIG
@@ -15063,7 +15103,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // - - - - - - -
   int isort, ifilt, IFILT_OBS, NEXPOSE, KEEP, NEP, NEP_NEWMJD ;
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
-  double MJD, CCDGAIN, RDNOISE, SKYSIG, PSF[3], ZPT[2], MAG ;
+  double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
   double SHIFT_ZPT, SCALE_SKYSIG, SCALE_SKYSIG_T, SCALE_RDNOISE, SCALE_PSF ;
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
@@ -15095,6 +15135,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     PSF[0]     = SIMLIB_OBS_RAW.PSFSIG1[OBSRAW] ;
     PSF[1]     = SIMLIB_OBS_RAW.PSFSIG2[OBSRAW] ;
     PSF[2]     = SIMLIB_OBS_RAW.PSFRATIO[OBSRAW] ;
+    NEA        = SIMLIB_OBS_RAW.NEA[OBSRAW] ;
     ZPT[0]     = SIMLIB_OBS_RAW.ZPTADU[OBSRAW] ;
     ZPT[1]     = SIMLIB_OBS_RAW.ZPTERR[OBSRAW] ;
     PIXSIZE    = SIMLIB_OBS_RAW.PIXSIZE[OBSRAW];
@@ -15183,7 +15224,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.SKYSIG[NEP]      = SKYSIG * SCALE_SKYSIG ;
     SIMLIB_OBS_GEN.PSFSIG1[NEP]     = PSF[0] * SCALE_PSF ;
     SIMLIB_OBS_GEN.PSFSIG2[NEP]     = PSF[1] * SCALE_PSF ;
-    SIMLIB_OBS_GEN.PSFRATIO[NEP]    = PSF[2] ;  // ratio                      
+    SIMLIB_OBS_GEN.PSFRATIO[NEP]    = PSF[2] ;    // ratio         
+    SIMLIB_OBS_GEN.NEA[NEP]         = NEA * (SCALE_PSF*SCALE_PSF); // Feb 2021
     SIMLIB_OBS_GEN.ZPTADU[NEP]      = ZPT[0] + SHIFT_ZPT ;
     SIMLIB_OBS_GEN.ZPTERR[NEP]      = ZPT[1] ;
     SIMLIB_OBS_GEN.MAG[NEP]         = MAG ;
@@ -15389,6 +15431,7 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
   SIMLIB_OBS_RAW.PSFSIG1[ISTORE]    = PSFSIG ;   // sigma1
   SIMLIB_OBS_RAW.PSFSIG2[ISTORE]    = 0.0 ;  // sigma2
   SIMLIB_OBS_RAW.PSFRATIO[ISTORE]   = 0.0 ;  // ratio of two Gaussians
+  SIMLIB_OBS_RAW.NEA[ISTORE]        = NoiseEquivAperture(PSFSIG, 0.0, 0.0);
   SIMLIB_OBS_RAW.ZPTADU[ISTORE]     = ZPT ;  // TEXPOSE zero point (pe)
   SIMLIB_OBS_RAW.ZPTERR[ISTORE]     = 0.0 ;  // no error; included in SKYSIG
   SIMLIB_OBS_RAW.MAG[ISTORE]        = 99.0; 
@@ -19194,7 +19237,7 @@ void snlc_to_SNDATA(int FLAG) {
   //
   // Dec 10 2018: load BYOSED info
   // Jul 20 2019: load strong lens info into SNDATA.SIM_SL_XXX
-  // 
+  // Feb 28 2021: load NEA
   // ---------------------------------------
 
   int PHOTFLAG_DETECT  = INPUTS_SEARCHEFF.PHOTFLAG_DETECT;
@@ -19235,6 +19278,8 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_NOBS_UNDEFINED   = GENLC.NOBS_UNDEFINED;
 
   SNDATA.MJD_TRIGGER          = GENLC.MJD_TRIGGER ;
+
+  SNDATA.NEA_PSF_UNIT         = SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT;
 
   // Jul 18,2011: write INPUTS GENFILTERS only
   // advantage: does not exceed Kcor bound of there are more than
@@ -19619,6 +19664,10 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.PSF_SIG1[epoch]  = SIMLIB_OBS_GEN.PSFSIG1[epoch] ;
     SNDATA.PSF_SIG2[epoch]  = SIMLIB_OBS_GEN.PSFSIG2[epoch] ;
     SNDATA.PSF_RATIO[epoch] = SIMLIB_OBS_GEN.PSFRATIO[epoch] ;
+
+    if ( SNDATA.NEA_PSF_UNIT ) {
+      SNDATA.PSF_NEA[epoch] = SIMLIB_OBS_GEN.NEA[epoch] ; // Feb 2021
+    }
 
     // Feb 23, 2012: store search-run zpt instead of template run  zpt
     SNDATA.ZEROPT[epoch]      = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
@@ -21285,6 +21334,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   double  psfsig1    = SIMLIB_OBS_GEN.PSFSIG1[epoch] ; // pixels
   double  psfsig2    = SIMLIB_OBS_GEN.PSFSIG2[epoch] ;
   double  psfratio   = SIMLIB_OBS_GEN.PSFRATIO[epoch] ;
+  double  nea        = SIMLIB_OBS_GEN.NEA[epoch] ;
   double  zpt        = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
   double  zpterr     = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
   double  template_skysig     = SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[epoch] ; 
@@ -21299,7 +21349,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   double ZPTDIF_ADU, NADU_over_FLUXCAL, Npe_over_FLUXCAL, NADU_over_Npe ;
   double sqsig_noZ, sqsig_true, sqsig_data, sqsig_mon, flux_T, arg;
   double fluxsn_adu, fluxsn_pe, fluxmon_pe=0.0 ;
-  double area_bg, psfsig_arcsec, psfFWHM_arcsec;
+  double area_bg, psfsig_arcsec ;
   double sqerr_ccd_pe, skysig_tmp_pe, sqerr_sky_pe, sqerr_zp_pe;
   double fluxgal_pe, galmag=0.0 ;
   double template_sqerr_sky_pe, template_sqerr_ccd_pe, template_sqerr_pe;
@@ -21351,9 +21401,9 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   }
 
   // get effective aperture  area (pixels)
-  area_bg       = NoiseEquivAperture(psfsig1, psfsig2, psfratio );
+  // xxx mark delete  area_bg = NoiseEquivAperture(psfsig1, psfsig2, psfratio );
+  area_bg       = nea; // Feb 28 2021
   psfsig_arcsec = pixsize * sqrt(area_bg/(2.0*TWOPI))  ; 
-  psfFWHM_arcsec = 2.3548 * psfsig_arcsec ;
 
   // get total sky noise for search run; includes sky & CCD noise
   skysig_tmp_pe = skysig * ccdgain ;  // convert ADU -> pe per pixel

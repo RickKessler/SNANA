@@ -582,7 +582,12 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   NVAR++ ;  strcat(VARLIST,"GAIN ");
   NVAR++ ;  strcat(VARLIST,"ZPT ");
-  NVAR++ ;  strcat(VARLIST,"PSF ");
+
+  if ( SNDATA.NEA_PSF_UNIT ) 
+    { NVAR++ ;  strcat(VARLIST,"NEA "); }
+  else
+    { NVAR++ ;  strcat(VARLIST,"PSF "); }
+
   NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
   if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
 
@@ -644,7 +649,12 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%6.3f ",  SNDATA.ZEROPT[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%5.2f ",  SNDATA.PSF_SIG1[ep] ); 
+    // write PSF in units of pixels
+    if ( SNDATA.NEA_PSF_UNIT ) 
+      { sprintf(cval, "%6.2f ",  SNDATA.PSF_NEA[ep] ); }  // Feb 28 2021
+    else
+      { sprintf(cval, "%5.2f ",  SNDATA.PSF_SIG1[ep] ); } 
+
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     sprintf(cval, "%.3le ",  SNDATA.SKY_SIG[ep] ); 
@@ -1179,7 +1189,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
   IVAROBS_SNTEXTIO.MJD = IVAROBS_SNTEXTIO.BAND = IVAROBS_SNTEXTIO.FIELD = -9 ;
   IVAROBS_SNTEXTIO.FLUXCAL = IVAROBS_SNTEXTIO.FLUXCALERR = -9 ;
-  IVAROBS_SNTEXTIO.ZPFLUX = IVAROBS_SNTEXTIO.ZPERR = IVAROBS_SNTEXTIO.PSF = -9;
+  IVAROBS_SNTEXTIO.ZPFLUX = IVAROBS_SNTEXTIO.ZPERR = -9;
+  IVAROBS_SNTEXTIO.PSF = IVAROBS_SNTEXTIO.NEA = -9;
   IVAROBS_SNTEXTIO.SKYSIG = IVAROBS_SNTEXTIO.SKYSIG_T = -9;
   IVAROBS_SNTEXTIO.GAIN = -9;
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
@@ -1229,6 +1240,9 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
     else if ( strcmp(varName,"PSF") == 0 ) 
       { IVAROBS_SNTEXTIO.PSF = ivar; }   
+
+    else if ( strcmp(varName,"NEA") == 0 )  
+      { IVAROBS_SNTEXTIO.NEA = ivar; }   
 
     else if ( strcmp(varName,"ZPFLUX") == 0 ||
 	      strcmp(varName,"ZPT")    == 0 ||
@@ -2191,9 +2205,15 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
       sscanf(str, "%f", &SNDATA.ZEROPT_ERR[ep] );
     }
 
+    // read PSF-sigma ...
     if ( IVAROBS_SNTEXTIO.PSF >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF] ;
       sscanf(str, "%f", &SNDATA.PSF_SIG1[ep]);
+    }
+    // or read Noise Equiv Area
+    if ( IVAROBS_SNTEXTIO.NEA >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.NEA] ;
+      sscanf(str, "%f", &SNDATA.PSF_NEA[ep]);
     }
 
     if ( IVAROBS_SNTEXTIO.SKYSIG >= 0 ) {

@@ -446,7 +446,7 @@ c
       LOGICAL 
      &   DO_FIT
      &  ,DO_FLUXERRCALC    ! T => compute error from PSF,SKY & ZPT  
-     &  ,LSIM_SNANA    ! simulated with SNANA
+     &  ,LSIM_SNANA        ! simulated with SNANA
      &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
      &  ,ISJOB_PSNID
@@ -460,6 +460,7 @@ c
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
      &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
+     &  ,UNIT_PSF_NEA          ! T => read NEA from data; else it's PSF
      &  ,REFAC_READ_DATA       ! temp: true of OPT_DEBUG == 21
      &  ,LEGACY_READ_DATA      ! temp: true of OPT_DEBUG != 21
 
@@ -546,7 +547,7 @@ c global survey info
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
-     &    ,N_SNLC_PLOT, MADE_LCPLOT
+     &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA
      &    ,EXIT_ERRCODE, REFAC_READ_DATA, LEGACY_READ_DATA
 
 c logical *1 stuff
@@ -856,7 +857,7 @@ c
      &  ,SNLC_PSF_SIG2(MXEPOCH)
      &  ,SNLC_PSF_RATIO(MXEPOCH)
      &  ,SNLC_PSF_FWHM_ARCSEC(MXEPOCH) 
-     &  ,SNLC_AREA_NOISE(MXEPOCH)  ! Noise-equivalent area (pixels)
+     &  ,SNLC_PSF_NEA(MXEPOCH)     ! Noise-equivalent area (pixels)
      &  ,SNLC_FLUX_NSIG(MXEPOCH)   ! significance
      &  ,SNLC_FLUXCAL_OFF(MXFILT_OBS)    ! add SN light from template
      &  ,SNLC_FLUXCAL_ERRCALC(MXEPOCH)   ! calc a-la simulation
@@ -927,7 +928,7 @@ c
      &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
-     &    ,SNLC_AREA_NOISE, SNLC_PSF_FWHM_ARCSEC
+     &    ,SNLC_PSF_NEA, SNLC_PSF_FWHM_ARCSEC
 c
      &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
@@ -4821,17 +4822,29 @@ c     &    + OPTMASK_SNDATA_DUMP
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SNLC_FLUXCAL_ERRTOT(o)=SNGL(DARRAY(o)); ENDDO
 
-      CALL FETCH_SNDATA_WRAPPER("PSF_SIG1",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; SNLC_PSF_SIG1(o)=SNGL(DARRAY(o)); ENDDO
+c - - - - 
+      UNIT_PSF_NEA = .FALSE.
+      CALL FETCH_SNDATA_WRAPPER("PSF_NEA",  
+     &     NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE
+         SNLC_PSF_NEA(o)=SNGL(DARRAY(o))
+         if ( SNLC_PSF_NEA(o) > 0.0 ) UNIT_PSF_NEA = .true.
+      ENDDO
 
-      CALL FETCH_SNDATA_WRAPPER("PSF_SIG2",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; SNLC_PSF_SIG2(o)=SNGL(DARRAY(o)); ENDDO
+      IF ( .NOT. UNIT_PSF_NEA ) THEN
+         CALL FETCH_SNDATA_WRAPPER("PSF_SIG1",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SNLC_PSF_SIG1(o)=SNGL(DARRAY(o)); ENDDO
 
-      CALL FETCH_SNDATA_WRAPPER("PSF_RATIO",  
-     &      NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; SNLC_PSF_RATIO(o)=SNGL(DARRAY(o)); ENDDO
+         CALL FETCH_SNDATA_WRAPPER("PSF_SIG2",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SNLC_PSF_SIG2(o)=SNGL(DARRAY(o)); ENDDO
+
+         CALL FETCH_SNDATA_WRAPPER("PSF_RATIO",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+         DO o=1,NOBS_STORE; SNLC_PSF_RATIO(o)=SNGL(DARRAY(o)); ENDDO
+      ENDIF
+c - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("SKY_SIG",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
@@ -13159,7 +13172,11 @@ c   + SNLC_PSF_FWHM_ARCSEC(ep)
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      REAL  ZPADD_pe, GAIN
+      REAL   ZPADD_pe, GAIN
+      REAL*8 PSFSIG1, PSFSIG2, PSFRAT, NEA
+
+      EXTERNAL NoiseEquivAperture
+      REAL*8   NoiseEquivAperture
 
 c -------------- BEGIN ------------
 
@@ -13170,20 +13187,26 @@ c -------------- BEGIN ------------
 
          if ( GAIN < 0.01 ) then
             GAIN = 0.001  ! -> results in very low ZP that should fail cut
-
-c ------------
-c            write(c1err,661) 
-c     &         GAIN, SNLC_CCID(1:ISNLC_LENCCID), SNLC8_MJD(ep)
-c 661        format('Invalid GAIN = ',F6.2,
-c     &            ' for CID=', A, 2x, 'MJD=',F10.4 )
-c            c2err = 'Cannot prep ZP(Npe) cut without GAIN.'
-c            CALL MADABORT('SET_EPVAR_MISC', c1err, c2err)
-c ------------
          endif
 
          ZPADD_pe = 2.5*log10(GAIN)
          SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) + ZPADD_pe
+      endif
 
+c if PSF unit is NEA, convert back to effected PSF-sigma;
+c otherwise compute and store NEA
+      IF ( UNIT_PSF_NEA ) then
+         NEA     = DBLE(SNLC_PSF_NEA(ep))
+         PSFSIG1 = SQRT(NEA/(4.0*PI))
+         SNLC_PSF_SIG1(ep)  = PSFSIG1
+         SNLC_PSF_SIG2(ep)  = 0.0
+         SNLC_PSF_RATIO(ep) = 0.0
+      else
+         PSFSIG1 = DBLE(SNLC_PSF_SIG1(ep))
+         PSFSIG2 = DBLE(SNLC_PSF_SIG2(ep))
+         PSFRAT  = DBLE(SNLC_PSF_RATIO(ep))
+         NEA     = NoiseEquivAperture(PSFSIG1,PSFSIG2,PSFRAT)
+         SNLC_PSF_NEA(ep) = SNGL(NEA)
       endif
 
       SNLC_PSF_FWHM_ARCSEC(ep) = 
@@ -15084,6 +15107,7 @@ c Jun 25 2019: include SIM_XXX arrays
 c Nov 12 2019: check LSIM_MAGOBS to set SIM_EPMAGOBS(ep)
 c Feb 17 2021: 
 c   for I/O refactor, include SNLC_ZEROPT_forCUTS and SNLC_PSF_FWHM
+c Mar 01 2021: include SNLC_PSF_NEA
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -15105,6 +15129,7 @@ C ------------- BEGIN ------------
       SNLC_PSF_SIG1(ep1)       = SNLC_PSF_SIG1(ep2)
       SNLC_PSF_SIG2(ep1)       = SNLC_PSF_SIG2(ep2)
       SNLC_PSF_RATIO(ep1)      = SNLC_PSF_RATIO(ep2)
+      SNLC_PSF_NEA(ep1)        = SNLC_PSF_NEA(ep2)
       SNLC_SKYSIG(ep1)         = SNLC_SKYSIG(ep2)
       SNLC_SKYSIG_T(ep1)       = SNLC_SKYSIG_T(ep2)
       SNLC_RDNOISE(ep1)        = SNLC_RDNOISE(ep2)
@@ -15339,7 +15364,7 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         SNLC_PSF_SIG1(iep)   = 0.0
         SNLC_PSF_SIG2(iep)   = 0.0
         SNLC_PSF_RATIO(iep)  = 0.0
-        SNLC_AREA_NOISE(iep) = 0.0
+        SNLC_PSF_NEA(iep)    = 0.0
         SNLC_GAIN(iep)       = 0.0
         SNLC_RDNOISE(iep)    = 0.0
 
@@ -18550,7 +18575,7 @@ c local var
      &  ,ERR_ORIG, SCALE, FUDGE, SNR, SNR_PROTECT, LOGSNR
      &  ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP
      &  ,RDNOISE_pe, FLUXCAL, FLUXCAL_BUG, FLUXADU
-     &  ,AREA, PSFSIG1, PSFSIG2, PSFRATIO  
+     &  ,AREA, NEA, PSFSIG1, PSFSIG2, PSFRATIO  
      &  ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)
      &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20)
      &  ,SQTMP, Fscale, Fpe_source, Fpe_sky, GENMAG
@@ -18606,6 +18631,7 @@ c get C function arguments
       PSFSIG1    = DBLE( SNLC_PSF_SIG1(EP) )  ! Gauss sigma, pixel
       PSFSIG2    = DBLE( SNLC_PSF_SIG2(EP) )  ! idem, 2nd component
       PSFRATIO   = DBLE( SNLC_PSF_RATIO(EP) )
+      NEA        = DBLE( SNLC_PSF_NEA(EP) )
       GAIN       = DBLE( SNLC_GAIN(ep) )
       SKYSIG     = DBLE( SNLC_SKYSIG(ep) )          ! sigma, ADU/pixel
       RDNOISE_pe = DBLE(SNLC_RDNOISE(ep) )  ! e-/pix
@@ -18693,7 +18719,11 @@ c bail if nothing to do
  62         format('CID=',A10,' for MJD=', F9.3,'-', A)
             CALL MADABORT(FNAM, c1err, c2err )
          endif
-         AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio)  
+         if ( LEGACY_READ_DATA ) then
+            AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio)  
+         else
+            AREA  = NEA
+         endif
       ENDIF
 
 
@@ -18742,12 +18772,12 @@ c check GET_NONLIN option in sntools_nonlinearity.c
         endif
 
       ! sum noise over pixels in effective background area
-        AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio) !pixels       
+cc xx mark delete AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio) !pixels
         FLUXADU = FLUXCAL * 10.0**(0.4*ZPDIF)
 
         Fpe_source = FLUXADU * GAIN
         IF ( Fpe_source < 0.0 ) Fpe_source = 0.01 ! must be positive
-        Fpe_sky    = AREA * (SKYSIG*GAIN)**2   ! xxx NOT TESTED
+        Fpe_sky    = NEA * (SKYSIG*GAIN)**2 
         GENMAG     = DBLE( SNLC_MAG(ep) )
 
         Fscale = get_nonlin(cfilt(1:1)//char(0),
@@ -20248,8 +20278,12 @@ c get signal error, but avoid problems with large negative fluxes
       endif
       
 c get effective area for sky-bkg = 1/[integral PSF^2], pixelsize^2
-      AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio)  
-      SNLC_AREA_NOISE(iepoch) = AREA
+      IF ( REFAC_READ_DATA ) THEN
+         AREA    = SNLC_PSF_NEA(iepoch)  ! Mar 1 2021
+      ELSE        
+         AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio)  
+         SNLC_PSF_NEA(iepoch) = AREA
+      ENDIF
 
 c multiply skyerr^2 (per pixel) by effective area.
 c Include optional read noise 
@@ -38710,6 +38744,7 @@ c --- PSF_SIG1 ---
       KEY  = 'PSF_SIG1' // char(0)
       LEN_KEY   = INDEX(KEY, ' ') - 1
       CALL set_sndata_legacy(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      UNIT_PSF_NEA  = .FALSE.
 
 c --- PSF_SIG2 ---
       DO iep = 1, NEP
@@ -39893,6 +39928,8 @@ c July 2020: read ZP and PSF too
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PSF_SIG1,
      &     INDXFITS_EPCUTS(JPAR), 8, LRET)
 
+      UNIT_PSF_NEA  = .FALSE.
+
       KEYNAME  = "GAIN" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_GAIN,
@@ -40046,6 +40083,7 @@ c optional quantities (no call to CHECK_FITSABORT)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PSF_SIG1(1), 
      &         INDXFITS_PHOT(JPAR), 8 )
+      UNIT_PSF_NEA  = .FALSE.
 
       KEYNAME  = "PSF_SIG2" // char(0)
       JPAR = JPAR + 1
@@ -42111,6 +42149,7 @@ c read optional PSF if it's there (July 2013)
         if ( ITERSE_PSFSIG > 0 ) then
            ITMP = 1 + ITERSE_PSFSIG
            read(cwords(ITMP),*) SNLC_PSF_SIG1(EPMIN) 
+           UNIT_PSF_NEA  = .FALSE.
         endif
 
 c read optional SKYSIG if it's there (July 2013)

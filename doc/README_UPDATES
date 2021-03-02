@@ -19644,4 +19644,21 @@
      + abort if no DOCUMENTATION block
      + abort on legacy COMMENT keys
 
+
+# ======================================================================= 
+         v11_02j (  ) 
+
+         ***** IMPORTANT(v11_02j) ***** 
+
+         ***** USEFUL(v11_02j) ***** 
+
+         ***** MISCELLANEOUS(v11_02j) ***** 
+
+    NEA vs. PSF:
+    + add option to provide NEA in SIMLIB, instead of PSF1,PSF2,PSRRATIO. 
+      Also write NEA to data files instead of PSF params. (see manual).
+
+    simlib_coadd.c
+      + adapt to work for NEA column replacing 3 PSF columns.  
+
 END: 

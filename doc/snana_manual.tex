@@ -969,6 +969,7 @@ keys:
 # Optional keys:
   SKYSIG_UNIT: ADU_PER_SQARCSEC # change SKYSIG unit from default per-pixel
   PSF_UNIT:    ARCSEC_FWHM      # change PSF unit from default pixels
+  PSF_UNIT:    NEA_PIXEL        # give Noise-Equiv-Area instead of PSF1,PSF2,PSFRATIO
   NPE_PIXEL_SATURATE: <VAL>     # pixel-flux Saturation, photo-electrons
   PHOTFLAG_SATURATE:  <MASK>    # saturation mask in output PHOTFLAG column
   NLIBID:             <VAL>     # Number of obs-sequence (LIBIDs) in file
@@ -1037,9 +1038,11 @@ along with references to terms in Eq.~\ref{eq:noiseModel},
         See \S\ref{subsec:noise_calc} for noise calculation.
 	You can optionally enter the skysig values per arcsec$^2$ 
 	by specifying the simlib global header key 
+        \vspace{-0.4cm}
 	\begin{verbatim} 
            SKYSIG_UNIT: ADU_PER_SQARCSEC 
 	\end{verbatim} 
+        \vspace{-0.4cm}
 	The simulated README file includes the {\tt SKYSIG\_UNIT}
 	value.
 %
@@ -1052,15 +1055,21 @@ along with references to terms in Eq.~\ref{eq:noiseModel},
 	 is in pixels, not arcsec. You can optionally give the PSF 
 	 values in the more astronomy-friendly units of arcsec-FWHM 
 	 by specifying the simlib header key
+        \vspace{-0.4cm}
 	\begin{verbatim} 
            PSF_UNIT:  ARCSEC_FWHM
 	\end{verbatim} 
+        \vspace{-0.4cm}
 	The simulated README file includes the {\tt PSF\_UNIT} value.
 	These PSF values are used to determine a noise-equivalent
 	area ($A$ in Eq.~\ref{eq:noiseModel} and Eq.~\ref{eq:NEA_formula}). 
 	If you have computed $A$ from the measured PSF, 
 	then you can simply define 
 	${\rm PSF1} = \sqrt{A/4\pi}$ and set {\bf PSF2}={\bf RATIO}=0.
+%
+  \item {\bf NEA:} Rather than providing 3 PSF parameters, the noise-equiv-area
+       (NEA) can be provided using header key {\tt PSF\_UNIT: NEA\_PIXEL}
+       (see Fig.~\ref{fig:simlib_nea}).
 %
   \item {\bf ZPTAVG:} Zero point relating the source magnitude ($m$) 
     to the CCD flux measured in ADU: 
@@ -1090,17 +1099,19 @@ and per season.
 \begin{figure} [ht] 
 \begin{center}
 \begin{Verbatim}[frame=single]
-
-SURVEY: SDSS     FILTERS: gri 
-USER: rkessler     HOST: sdssdp47.fnal.gov 
-COMMENT: 'Extract random RA,DECL,MJD from MYSQL: year=2005'  
+DOCUMENTATION:
+    PURPOSE:  SDSS 1st-year cadence for SNANA simulation
+    [provide doc in YAML format]
+DOCUMENATION_END:
+# ========================
+SURVEY: SDSS     
+FILTERS: gri 
 BEGIN LIBGEN  Tue Apr 17 13:32:33 2007
  
 # -------------------------------------------- 
 LIBID: 1 
 RA: 26.430172    DECL: 0.844033   NOBS: 42    MWEBV: 0.026   PIXSIZE: 0.400 
 FIELD: 82N
-
 #                           CCD  CCD         PSF1 PSF2 PSF2/1                    
 #     MJD      IDEXPT  FLT GAIN NOISE SKYSIG (pixels)  RATIO  ZPTAVG ZPTSIG
 S: 53616.383  556600405 g  4.05  4.25  4.04  1.85 3.61 0.247  28.36  0.020 
@@ -1119,6 +1130,43 @@ etc ...
   the SDSS-II survey.
  }
 \label{fig:simlib}
+\end{figure}
+
+
+\begin{figure} [ht] 
+\begin{center}
+\begin{Verbatim}[frame=single]
+DOCUMENTATION:
+    PURPOSE:  SDSS 1st-year cadence for SNANA simulation
+    [provide doc in YAML format]
+DOCUMENATION_END:
+# ========================
+SURVEY: SDSS     
+FILTERS: gri 
+PSF_UNIT: NEA_PIXEL  # <== describe PSF with noise-equiv-area (NEA) in pixels
+BEGIN LIBGEN  Tue Apr 17 13:32:33 2007
+ 
+# -------------------------------------------- 
+LIBID: 1 
+RA: 26.430172    DECL: 0.844033   NOBS: 42    MWEBV: 0.026   PIXSIZE: 0.400 
+FIELD: 82N
+#                           CCD  CCD        
+#     MJD      IDEXPT  FLT GAIN NOISE SKYSIG  NEA    ZPTAVG ZPTSIG
+S: 53616.383  556600405 g  4.05  4.25  4.04  80.38   28.36  0.020 
+S: 53616.383  556600405 r  4.72  4.25  5.28  61.64   28.17  0.022 
+S: 53616.383  556600405 i  4.64 12.99  6.95  57.23   27.84  0.017 
+FIELD: 82S
+S: 53622.395  558200552 g  4.03  5.45  4.09  48.43  28.45  0.018 
+S: 53622.395  558200552 r  4.89  4.65  5.00  41.15  28.15  0.028 
+S: 53622.395  558200552 i  4.76 10.71  6.43  46.53  27.85  0.029 
+etc ...
+\end{Verbatim}
+\end{center}
+\caption{
+  Same as Fig.~\ref{fig:simlib}, but using NEA column instead of
+  three PSF params.
+ }
+\label{fig:simlib_nea}
 \end{figure}
 
 

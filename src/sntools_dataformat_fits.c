@@ -575,12 +575,19 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1E" , "FLUXCAL"     , itype ) ;  
   wr_snfitsio_addCol( "1E" , "FLUXCALERR"  , itype ) ;
-  
-  wr_snfitsio_addCol( "1E" , "PSF_SIG1"   , itype ) ;  // REQUIRED
-  if( WRFULL ) {
-    wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; // OPTIONAL
-    wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ; // OPTIONAL
+
+  if ( SNDATA.NEA_PSF_UNIT ) {
+    // Noise Equiv Area, pixels
+    wr_snfitsio_addCol( "1E" , "PSF_NEA"   , itype ) ;  // Feb 28 2021
   }
+  else {
+    // traditional PSF params
+    wr_snfitsio_addCol( "1E" , "PSF_SIG1"   , itype ) ; 
+    wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; 
+    wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ;   
+  }
+
+
   wr_snfitsio_addCol( "1E" , "SKY_SIG"    , itype ) ; 
 
   if( WRFULL ) {
@@ -1925,12 +1932,17 @@ void wr_snfitsio_update_phot(int ep) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL_ERRTOT[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "FLUXCALERR", itype );
 
-  // PSF (SIG1, SIG2 and ratio). Unit is Gauss-sigma, pixels
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_SIG1[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "PSF_SIG1", itype );
-
-  if ( WRFULL ) {
+  if ( SNDATA.NEA_PSF_UNIT ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_NEA[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "PSF_NEA", itype );
+  }
+  else {
+    // PSF (SIG1, SIG2 and ratio). Unit is Gauss-sigma, pixels
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_SIG1[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "PSF_SIG1", itype );
+    
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_SIG2[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "PSF_SIG2", itype );
@@ -3073,6 +3085,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
     j++; NRD = RD_SNFITSIO_FLT(isn, "PSF_RATIO", &SNDATA.PSF_RATIO[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    j++; NRD = RD_SNFITSIO_FLT(isn, "PSF_NEA", &SNDATA.PSF_NEA[ep0], 
+			       &SNFITSIO_READINDX_PHOT[j] ) ;
+
     j++; NRD = RD_SNFITSIO_FLT(isn, "SKY_SIG", &SNDATA.SKY_SIG[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
     j++; NRD = RD_SNFITSIO_FLT(isn, "SKY_SIG_T", &SNDATA.SKY_SIG_T[ep0], 

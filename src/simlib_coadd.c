@@ -139,6 +139,8 @@
    + abort if there is no DOCANA block
    + abort on legacy COMMENT: keys
 
+ Mar 01 2021: adapt to work for NEA column replacing 3 PSF columns.
+
 ***************************************/
 
 #include <stdio.h>
@@ -175,8 +177,6 @@
 #define IPAR_ZPT0     7
 #define IPAR_MAG      9
 
-
-
 // global variables.
 
 char msgerr[100];
@@ -187,6 +187,7 @@ FILE *fp_simlib_output;
 
 int  NLINE_HEADER ;        // number of header lines
 int  NLINE_HEADER_ADD ;    // number of comment-header lines to add
+bool PSF_NEA_UNIT;
 
 char HEADER[MXLINE_HEADER][MXCHAR_LINE];
 char HEADER_ADD[MXLINE_HEADER][MXCHAR_LINE];
@@ -568,15 +569,16 @@ void SIMLIB_open_read(void) {
   char fullName[MXPATHLEN] ;
 
   bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
-  int READHEAD, i, gzipFlag, iwd, NWD, add ;
-  int langC = 0;
+  int  READHEAD, i, gzipFlag, iwd, NWD, add ;
+  int  langC = 0;
   // ---------------- BEGIN --------------
 
   printf("\n SIMLIB_open_read(): \n ");
 
   ENVreplace(SIMLIB_INPUT.FILE, fnam, 1);
 
-  int OPTMASK=1; // 1=verbose
+  int OPTMASK = 1;  // 1=verbose
+
   fp_simlib_input = snana_openTextFile (OPTMASK, "", SIMLIB_INPUT.FILE,
 					fullName,  &gzipFlag ); 
   if ( !fp_simlib_input ) {
@@ -585,6 +587,8 @@ void SIMLIB_open_read(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  rewind(fp_simlib_input);
+
   printf("\t Opened %s \n", SIMLIB_INPUT.FILE );
   fflush(stdout);
 
@@ -592,6 +596,7 @@ void SIMLIB_open_read(void) {
 
   NLINE_HEADER = 0;
   READHEAD   = 1;
+  PSF_NEA_UNIT = false;
 
   while( READHEAD > 0 ) {
 
@@ -606,8 +611,8 @@ void SIMLIB_open_read(void) {
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
     iwd=0; get_PARSE_WORD(langC, iwd, key); 
 
-    if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) ==0 )  
-      { FOUND_DOCANA=true; }
+    if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 )  
+      { FOUND_DOCANA = true; }
 
     // when we find DOCUMENTATION_END key, insert a few things above END key
     if ( strcmp(key,KEYNAME2_DOCANA_REQUIRED) == 0 )  {
@@ -640,23 +645,12 @@ void SIMLIB_open_read(void) {
     if ( strcmp(key,"NLIBID:") == 0 )
       { NLINE_HEADER--; continue ; }
 
-
-    if ( strcmp(key,"BEGIN") == 0 ) { READHEAD = 0 ; } // Feb 2021
-
-    /* xxx mark delete xxxx
-    if ( strcmp(key,"BEGIN")   == 0 ) {
-      READHEAD = 0;
-      char SAVELINE[100];
-      sprintf(SAVELINE, "%s", HEADER[NLINE_HEADER] );
-      NLINE_HEADER-- ;
-      for ( i=1; i <= NLINE_HEADER_ADD; i++ ) {
-	NLINE_HEADER++ ;
-	sprintf( HEADER[NLINE_HEADER], "%s", HEADER_ADD[i] );
-      }
-      NLINE_HEADER++ ;
-      sprintf( HEADER[NLINE_HEADER], "%s", SAVELINE );
+    if ( strcmp(key,"PSF_UNIT:") == 0 ) {
+      iwd++ ; get_PARSE_WORD(langC, iwd, c_tmp ); 
+      if ( strcmp(c_tmp,"NEA_PIXEL") == 0 ) { PSF_NEA_UNIT = true; }
     }
-    xxxx */
+
+    if ( strcmp(key,"BEGIN")   == 0 ) { READHEAD = 0 ; } // Feb 2021
 
     if ( strcmp(key,"LIBID:")  == 0 ) { READHEAD = 0; }
 
@@ -672,20 +666,6 @@ void SIMLIB_open_read(void) {
 	FOUND_FILTERS = true;
       }
     }
-
-    /* xxxxxxx mark delete Feb 25 2021 xxxxxxx
-    sprintf(clast,"XXX");
-    while ( ptrtok != NULL  ) {
-
-      if ( strcmp(clast,"FILTERS:") == 0 ) {
-	sprintf(SIMLIB_FILTERS, "%s", ptrtok );
-	printf(" Found SIMLIB_FILTERS: %s \n", SIMLIB_FILTERS );
-	fflush(stdout);
-      }
-      sprintf(clast,"%s", ptrtok);
-      ptrtok = strtok(NULL, " ");	
-    }
-    xxxxxxx */
 
   } // end of while 
 
@@ -748,7 +728,7 @@ void SIMLIB_read(int *RDSTAT) {
   int i, NMJD, NMJD_READ, NMJD_ACCEPT, LIBID ;
   int OPTLINE, NOBS, ENDLIB, OKLIBID, iwd, NWD    ;
 
-  double MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[3], ZPT[2] ;
+  double MJD, CCDGAIN, CCDNOISE, SKYSIG, NEA, PSF[3], ZPT[2] ;
   double MAG, RA, DECL, XMW[20], MWEBV    ;
 
   char  fnam[20] = "SIMLIB_read"  ;
@@ -834,7 +814,12 @@ void SIMLIB_read(int *RDSTAT) {
       readdouble ( fp_simlib_input, 1, &CCDGAIN  );
       readdouble ( fp_simlib_input, 1, &CCDNOISE );
       readdouble ( fp_simlib_input, 1, &SKYSIG );
-      readdouble ( fp_simlib_input, 3, PSF );
+
+      if ( PSF_NEA_UNIT ) 
+	{ readdouble ( fp_simlib_input, 1, &NEA ); }
+      else 
+	{ readdouble ( fp_simlib_input, 3, PSF ); }
+
       readdouble ( fp_simlib_input, 2, ZPT );
 
       if ( OPTLINE == 1 ) {
@@ -868,9 +853,19 @@ void SIMLIB_read(int *RDSTAT) {
       SIMLIB_INPUT.INFO_MJD[NMJD][1]    = CCDGAIN ;
       SIMLIB_INPUT.INFO_MJD[NMJD][2]    = CCDNOISE ;
       SIMLIB_INPUT.INFO_MJD[NMJD][3]    = SKYSIG   ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][4]    = PSF[0] ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][5]    = PSF[1] ;
-      SIMLIB_INPUT.INFO_MJD[NMJD][6]    = PSF[2] ;
+
+      if ( PSF_NEA_UNIT ) {
+	SIMLIB_INPUT.INFO_MJD[NMJD][4]    = NEA ;
+	SIMLIB_INPUT.INFO_MJD[NMJD][5]    = -999.0 ;
+	SIMLIB_INPUT.INFO_MJD[NMJD][6]    = -999.0 ;
+
+      }
+      else {
+	SIMLIB_INPUT.INFO_MJD[NMJD][4]    = PSF[0] ;
+	SIMLIB_INPUT.INFO_MJD[NMJD][5]    = PSF[1] ;
+	SIMLIB_INPUT.INFO_MJD[NMJD][6]    = PSF[2] ;
+      }
+
       SIMLIB_INPUT.INFO_MJD[NMJD][7]    = ZPT[0] ;
       SIMLIB_INPUT.INFO_MJD[NMJD][8]    = ZPT[1] ;
       SIMLIB_INPUT.INFO_MJD[NMJD][9]    = MAG ;
@@ -1017,11 +1012,6 @@ void SIMLIB_coadd(void) {
     // for filter, copy element from 1st exposure to OUTPUT measurement,
     obs = OBSMIN[i] ;
 
-    /* xxx mark delete Jan 7 2021 xxxxxxx
-    sprintf(SIMLIB_OUTPUT.STRING_IDEXPT[i], "%s",
-    SIMLIB_INPUT.STRING_IDEXPT[obs]);
-    xxxxxxxx */
-
     cfilt = SIMLIB_INPUT.FILTNAME[obs] ;
     sprintf(SIMLIB_OUTPUT.FILTNAME[i], "%s", cfilt);
 
@@ -1066,12 +1056,17 @@ void SIMLIB_coadd(void) {
       XIN = *(PTR_INFO_INPUT + IPAR_SKYSIG) ;
       *(PTR_INFO_OUTPUT + IPAR_SKYSIG) += (XIN * XIN) ;
 
+      // - - - -
       XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 0) ;
       *(PTR_INFO_OUTPUT + IPAR_PSF0+0) += XIN ;
+
       XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 1) ;
       *(PTR_INFO_OUTPUT + IPAR_PSF0+1) += XIN ;
+
       XIN = *(PTR_INFO_INPUT + IPAR_PSF0 + 2) ;
       *(PTR_INFO_OUTPUT + IPAR_PSF0+2) += XIN ;
+
+      // - - - -
 
       XIN = *(PTR_INFO_INPUT + IPAR_ZPT0 + 0) ;
       ARG = 0.4 * (XIN - 25.0) ;

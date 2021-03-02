@@ -257,6 +257,8 @@ struct SNDATA {
   float PSF_SIG1[MXEPOCH] ;       // PSF sigma of inner gaussian
   float PSF_SIG2[MXEPOCH] ;       // PSF isgma of outer
   float PSF_RATIO[MXEPOCH] ;    // PSF
+  float PSF_NEA[MXEPOCH];        // write NEA if > 0 (Feb 28 2021)
+  bool  NEA_PSF_UNIT; 
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
 

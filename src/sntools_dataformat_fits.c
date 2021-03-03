@@ -4276,6 +4276,13 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
   printf("   Read %ld SPECTRUM-HEADER rows.\n", NROW);  fflush(stdout);
   RDSPEC_SNFITSIO_HEADER.NROW = NROW ;
+
+  // if spectrograph table exists but there are no sim spectra,
+  // then turn of SPECTROGRAPH flag and bail -> no further attemp
+  // to read spectra.
+  if ( NROW == 0 ) 
+    { SNFITSIO_SIMFLAG_SPECTROGRAPH = false ; return; }
+
   rd_snfitsio_mallocSpec(+1);
 
 

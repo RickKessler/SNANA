@@ -6017,7 +6017,8 @@ c - - - - -
       IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT
 
 c Feb 2021: temp refactor flag for reading FITS formatted data
-      REFAC_READ_DATA = ( OPT_DEBUG == 21 )
+c Mar 2 2021: turn on REFAC 
+      REFAC_READ_DATA  = .TRUE.   ! ( OPT_DEBUG == 21 )
       LEGACY_READ_DATA = (.NOT. REFAC_READ_DATA)
 c ---------------------------
 c if ENV is in path, make substitution

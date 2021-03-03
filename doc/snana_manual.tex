@@ -4914,7 +4914,7 @@ TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
 #4) host spectrum 
 TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
 TAKE_SPECTRUM_HOSTFRAC:   0.1  # add 10\% of FLAM(host) to each SN spectrum
-TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SN) = 0.1
+TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SNPEAK) = 0.1
 
 TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
 \end{Verbatim}
@@ -4947,18 +4947,23 @@ This allows checking $\Texpose$ vs. redshift, or vs
 any other quantity allowed in the one-row-per-SN summary.
 
 \medskip
+\newcommand{\scaleFlamHost}{S_{\rm host}}
 \newcommand{\dFlamHost}{dF_{\rm host}/d\lam}
-\newcommand{\dFlamSN}{dF_{\rm SN}/d\lam}
+\newcommand{\dFlamPeak}{dF_{\rm peak}/d\lam}
 There are two methods to introduce host contamination in SN spectra.
 The first method, {\tt TAKE\_SPECTRUM\_HOSTFRAC}, adds a specific fraction
 of host spectrum to the SN spectrum; this option depends on correct
 normalization of host spectrum. 
-The 2nd method ({\tt TAKE\_SPECTRUM\_HOSTSNFRAC}) does not depend
-on correct host normalization because it scales $\dFlamHost$ such that
+The 2nd method ({\tt TAKE\_SPECTRUM\_HOSTSNFRAC}) scales the host 
+normalization relative to the SN at peak brightness;
+the correct host normalization is not necessary because 
+$\dFlamHost$ is scaled by $\scaleFlamHost$ such that
 \begin{equation}
-   {\rm\tt HOSTSNFRAC} = 
-     \frac{  \int d\lam [\dFlamHost] } { \int d\lam [\dFlamSN ] }~.
+   {\rm\tt HOSTSNFRAC} =      
+    \frac{\scaleFlamHost\int d\lam [\dFlamHost]}{ \int d\lam [\dFlamPeak ]}~,
 \end{equation}
+%
+where $\dFlamPeak$ is the SN spectrum at peak brightness.
 % .xyz
 
 \medskip

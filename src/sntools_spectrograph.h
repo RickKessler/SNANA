@@ -11,6 +11,7 @@
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise
 #define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
+#define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
@@ -84,7 +85,8 @@ struct {
   double *GENSNR_LIST[MXSPEC] ;
   double *GENFLUX_LIST[MXSPEC] ;    // true flux with no noise or lam-smear
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
-  // xx  double  GENFLUX_SUM[MXSPEC];    // flux sum; used for contam calc.
+  double *GENFLUX_PEAK ; // GENFLUX at PEAKMJD; needed for HOSTSNFRAC option
+  double *GENMAG_PEAK ;  
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise

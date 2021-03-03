@@ -7802,6 +7802,11 @@ void  init_genSpec(void) {
     GENSPEC.FLAMWARP_LIST[ispec]         = (double*) malloc(MEMD) ;
   } 
 
+  if ( INPUTS.TAKE_SPECTRUM_HOSTSNFRAC > 0.000001 ) {   // Mar 2 2021
+    GENSPEC.GENFLUX_PEAK          = (double*) malloc(MEMD) ;
+    GENSPEC.GENMAG_PEAK           = (double*) malloc(MEMD) ;
+  }
+
   // check if any spectrum has a warp
   if ( INPUTS.NWARP_TAKE_SPECTRUM > 0 ) 
     {  GENSPEC.USE_WARP = 1 ; }
@@ -7869,6 +7874,10 @@ void GENSPEC_DRIVER(void) {
   }
 
   // - - - - - - - - - - - - - - - - 
+
+  if ( INPUTS.TAKE_SPECTRUM_HOSTSNFRAC > 1.0E-8 ) 
+    { GENSPEC_TRUE(ISPEC_PEAK); }
+
   int    imjd_order[MXSPEC];
   double SNR, LAMMIN=100.0, LAMMAX=25000. ; 
 
@@ -8117,7 +8126,6 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
-
   }
 
   // init arrays
@@ -8165,26 +8173,38 @@ void GENSPEC_TRUE(int imjd) {
   //
   // Dec 04 2018: call genSpec_BYOSED
   // Jun 28 2019: call genSpec_HOST if IS_HOST is true
+  // Mar 02 2021: generate PEAK spectrum if imjd == ISPEC_PEAK
 
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
-  int  IS_HOST    = GENSPEC.IS_HOST[imjd];
-  double TOBS     = GENSPEC.TOBS_LIST[imjd];
-  //  double TREST    = GENSPEC.TREST_LIST[imjd];
-
-  double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
-  int ilam ;
+  double TOBS, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
+  double *ptrGENFLUX, *ptrGENMAG ;
+  int IS_HOST, ilam ;
   int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
 
+  if ( imjd == ISPEC_PEAK ) {
+    TOBS       = 0.0 ;  
+    IS_HOST    = 0 ;
+    ptrGENFLUX = GENSPEC.GENFLUX_PEAK ;
+    ptrGENMAG  = GENSPEC.GENMAG_PEAK ;
+  }
+  else {
+    TOBS       = GENSPEC.TOBS_LIST[imjd] ;
+    IS_HOST    = GENSPEC.IS_HOST[imjd] ;
+    ptrGENFLUX = GENSPEC.GENFLUX_LIST[imjd] ;
+    ptrGENMAG  = GENSPEC.GENMAG_LIST[imjd] ;
+  }
+
+  // - - - - - - - - - - - 
 
   if ( IS_HOST ) {    
     genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
 		    GENLC.MWEBV,                  // (I) Galactic extinction
 		    DUMPFLAG,                     // (I)
-		    GENSPEC.GENFLUX_LIST[imjd],   // (O) true fluxGen per bin 
-		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
+		    ptrGENFLUX,       // (O) true fluxGen per bin 
+		    ptrGENMAG );      // (O) magGen per bin
     return;
   }
 
@@ -8195,8 +8215,8 @@ void GENSPEC_TRUE(int imjd) {
 		  GENLC.MWEBV,             // Galactic
 		  GENLC.RV, GENLC.AV,      // host
 		  GENLC.REDSHIFT_HELIO, TOBS,
-		  GENSPEC.GENFLUX_LIST[imjd], // (O) fluxGen per bin 
-		  GENSPEC.GENMAG_LIST[imjd]   // (O) magGen per bin
+		  ptrGENFLUX,                 // (O) fluxGen per bin 
+		  ptrGENMAG                   // (O) magGen per bin
 		  );
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
@@ -8206,8 +8226,8 @@ void GENSPEC_TRUE(int imjd) {
       ARG     = -0.4*(GENMAG-ZP);
       FLUXGEN = pow(TEN,ARG);
       
-      GENSPEC.GENMAG_LIST[imjd][ilam]  = GENMAG ;
-      GENSPEC.GENFLUX_LIST[imjd][ilam] = FLUXGEN ;
+      ptrGENMAG[ilam]  = GENMAG ;
+      ptrGENFLUX[ilam] = FLUXGEN ;
     }
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    
@@ -8220,8 +8240,8 @@ void GENSPEC_TRUE(int imjd) {
 		     GENLC.REDSHIFT_HELIO,            // (I) redshift
 		     GENLC.DLMU,                      // (I) dist mod
 		     TOBS, MAGOFF,                    // (I) Tobs, magoff 
-		     GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
-		     GENSPEC.GENMAG_LIST[imjd]     // (O) magGen per bin
+		     ptrGENFLUX,           // (O) fluxGen per bin 
+		     ptrGENMAG             // (O) magGen per bin
 		     ); 
 
   }
@@ -8246,19 +8266,18 @@ void GENSPEC_TRUE(int imjd) {
 		     GENLC.REDSHIFT_HELIO,            // (I) redshift
 		     GENLC.DLMU,
 		     TOBS, MAGOFF,                   // (I) Tobs, magoff 
-		     GENSPEC.GENFLUX_LIST[imjd],     // (O) fluxGen per bin 
-		     GENSPEC.GENMAG_LIST[imjd]       // (O) magGen per bin
+		     ptrGENFLUX,         // (O) fluxGen per bin 
+		     ptrGENMAG           // (O) magGen per bin
 		     ); 
   }
   else if ( IS_PySEDMODEL ) {
-    
     
     genSpec_PySEDMODEL(TOBS, 
 		       GENLC.REDSHIFT_HELIO,            // (I) helio redshift
 		       GENLC.DLMU,                      // (I) dist. mod.
 		       GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
-		       GENSPEC.GENFLUX_LIST[imjd],      // (O) fluxGen per bin 
-		       GENSPEC.GENMAG_LIST[imjd]        // (O) magGen per bin
+		       ptrGENFLUX,      // (O) fluxGen per bin 
+		       ptrGENMAG        // (O) magGen per bin
 		       );		
    
   }
@@ -8289,8 +8308,9 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
 
   int ilam, NOPT=0 ;
-  double FLAM_SN, FLAM_HOST, FLAM_TOT, arg, MAGSHIFT, SCALE_FLAM_HOST ;
-  double FSUM_SN, FSUM_HOST, LAMMIN, LAMMAX, LAMBIN ;
+  double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
+  double arg, MAGSHIFT, SCALE_FLAM_HOST ;
+  double FSUM_PEAK, FSUM_HOST, LAMMIN, LAMMAX, LAMBIN ;
   char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
 
   // ------------- BEGIN --------------
@@ -8312,18 +8332,18 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   }
 
   if ( HOSTSNFRAC > 0.001 ) {
-    FSUM_SN = FSUM_HOST = 0.0 ;
+    FSUM_PEAK = FSUM_HOST = 0.0 ;
     for(ilam=0; ilam < NBLAM; ilam++ ) {
-      FLAM_SN    = GENSPEC.GENFLUX_LIST[imjd][ilam];
-      FLAM_HOST  = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
-      LAMMIN     = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ; 
-      LAMMAX     = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;    
-      LAMBIN     = LAMMAX - LAMMIN ;
-      FSUM_SN   += (FLAM_SN*LAMBIN);
-      FSUM_HOST += (FLAM_HOST*LAMBIN);
+      FLAM_PEAK   = GENSPEC.GENFLUX_PEAK[ilam];
+      FLAM_HOST   = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
+      LAMMIN      = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ; 
+      LAMMAX      = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;    
+      LAMBIN      = LAMMAX - LAMMIN ;
+      FSUM_PEAK  += (FLAM_PEAK*LAMBIN);
+      FSUM_HOST  += (FLAM_HOST*LAMBIN);
     }
-    // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_SN)
-    SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_SN / FSUM_HOST ;
+    // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_PEAK)
+    SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ;
     NOPT++ ;
   }
 

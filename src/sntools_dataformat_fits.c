@@ -2958,8 +2958,13 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2x0", &SNDATA.SIM_SALT2x0 ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2alpha", &SNDATA.SIM_SALT2alpha ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2beta", &SNDATA.SIM_SALT2beta ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2gammaDM", 
 				 &SNDATA.SIM_SALT2gammaDM ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;

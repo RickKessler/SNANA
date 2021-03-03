@@ -498,7 +498,9 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
 
                 fit_time = fit_time[
                     np.where(
-                        np.logical_and(fit_time >= minx, fit_time <= maxx)
+                        np.logical_and(np.logical_and(fit_time >= minx, fit_time <= maxx),
+									   np.logical_and(fit_time >= fits["trange"][all_bands[j]][0],
+													  fit_time <= fits["trange"][all_bands[j]][1]))
                         )[0]
                 ]
                 ax[i].plot(
@@ -549,7 +551,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                         else:
                             bits.append(aval)
                     annotation = "".join(bits)
-                    ax[i].annotate(annotation, xy=(0.02, 0.55),
+                    ax[i].annotate(annotation, xy=(0.015, 0.72),
                                    xycoords='axes fraction', fontsize=6)
                 fit_print = True
 
@@ -567,7 +569,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
             else:
                 maxFlux = np.max(temp_sn["flux"])
 
-            ax[i].set_ylim((-0.1 * np.max(temp_sn["flux"]), 1.1 * maxFlux))
+            ax[i].set_ylim((-0.1 * np.max(temp_sn["flux"]), 1.2 * maxFlux))
             if not noGrid:
                 ax[i].grid()
             j += 1

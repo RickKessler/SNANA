@@ -1618,6 +1618,12 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 			     &SNDATA.REDSHIFT_FINAL_ERR );
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_z] = true ;
   }
+  else if ( strstr(word0,"REDSHIFT_CMB") != NULL ) {
+    parse_plusminus_sntextio(word0, "REDSHIFT_CMB", &iwd, 
+			     &SNDATA.REDSHIFT_FINAL, 
+			     &SNDATA.REDSHIFT_FINAL_ERR );
+    SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_z] = true ;
+  }
   
   else if ( strstr(word0,"VPEC") != NULL ) {
     parse_plusminus_sntextio(word0, "VPEC", &iwd, 

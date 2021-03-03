@@ -14,6 +14,10 @@
 #    + enable rebinning in c,x1,logmass space
 #    + more clear table headers
 #
+# Feb 15 2021 RK
+#    + new command line args to replace contents of input file.
+#      The tricky one is -m --muopt to select only one MUOPT.
+#
 # ===============================================
 
 import argparse
@@ -50,6 +54,10 @@ VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
+
+m_REF = 0  # MUOPT reference number for cov
+f_REF = 0  # FITOPT reference number for cov
+
 # ============================
 def setup_logging():
 
@@ -77,6 +85,22 @@ def get_args():
     msg = "name of the yml config file to run"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
+    msg = "override INPUT_DIR" 
+    parser.add_argument("-i", "--input_dir", help=msg, nargs='?',
+                        type=str, default=None)
+    
+    msg = "override OUTDIR" 
+    parser.add_argument("-o", "--outdir", help=msg, nargs='?', type=str, default=None)
+
+    msg = "override COSMOMC_METHOD" 
+    parser.add_argument("--method", help=msg, nargs='?', type=str, default=None)
+    
+    msg = "override data VERSION"
+    parser.add_argument("-v", "--version", help=msg, nargs='?', type=str, default=None)
+    
+    msg = "use only this muopt number"
+    parser.add_argument("-m", "--muopt", help=msg, nargs='?', type=int, default=-1 ) 
+    
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
@@ -185,6 +209,7 @@ def load_hubble_diagram(path, args, config):
             df.loc[calib_mask, VARNAME_MUERR] = \
                 np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
                 df.loc[calib_mask, "MUERR_VPEC"] ** 2)
+        df['CIDstr'] = df['CID'].astype(str)
         df = df.set_index(["IDSURVEY", "CID"])
     elif VARNAME_z in df.columns:
         # should not be needed here for M0DIF, but what the heck
@@ -218,6 +243,11 @@ def get_hubble_diagrams(folder, args, config):
         is_M0DIF    = f".{SUFFIX_M0DIF}"  in infile
         is_FITRES   = f".{SUFFIX_FITRES}" in infile and "MUOPT" in infile
 
+        # Feb 15 2021 RK - check option to select only one of the MUOPT
+        if args.muopt >= 0 :
+            muopt_num = f"MUOPT{args.muopt:03d}"
+            is_M0DIF  = is_M0DIF and muopt_num in infile
+            
         do_load = False
         if is_binned   and is_M0DIF  : do_load = True 
         if is_unbinned and is_FITRES : do_load = True
@@ -402,7 +432,6 @@ def get_fitopt_scales(lcfit_info, sys_scales):
         result[d] = (label, scale)
     return result
 
-
 def get_cov_from_diff(df1, df2, scale):
     """ Returns both the covariance contribution and summary stats (slope and mean abs diff) """
     assert df1[VARNAME_MU].size == df2[VARNAME_MU].size, "Oh no, looks like you have a different number of bins/supernova for your systematic and this is not good."
@@ -422,7 +451,25 @@ def get_cov_from_diff(df1, df2, scale):
     return cov, (coef, mean_abs_deviation, max_abs_deviation)
 
 
-def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales):
+def get_cov_from_covfile(data, covfile, scale):
+    covindf = pd.read_csv(covfile)
+    covindf['CID1'] = covindf['CID1'].astype(str)
+    covindf['CID2'] = covindf['CID2'].astype(str)
+    covindf = covindf.set_index(["CID1", "CID2"])
+    covout = np.zeros((len(data),len(data)))
+    for i,cid1,ra1,dec1 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
+        nmissing = 0
+        for j,cid2,ra2,dec2 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
+            try:
+                covout[i,j] = covindf.loc[(cid1,cid2), "MU_COV"]
+            except KeyError:
+                nmissing+=1
+        if nmissing > 100:
+            logging.info(f'{i} {cid1} RA {ra1} DEC {dec1} \t MISSING FROM COVFILE')
+        
+    return covout, (0, 0, 0)
+
+def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result, slopes = {}, []
 
@@ -443,19 +490,28 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales):
                       f"MUOPT {m} has scale {muopt_scale}")
 
         # Depending on f and m, compute the contribution to the covariance matrix
-        if f == 0 and m == 0:
-            # This is the base file, so don't return anything. CosmoMC will add the diag terms itself.
+        if f == f_REF and m == m_REF :
+            # This is the base file, so don't return anything.
+            # CosmoMC will add the diag terms itself.
             cov = np.zeros((df[VARNAME_MU].size, df[VARNAME_MU].size))
             summary = 0, 0, 0
-        elif m > 0:
+        elif m != m_REF :
             # This is a muopt, to compare it against the MUOPT000 for the same FITOPT
             df_compare = m0difs[get_name_from_fitopt_muopt(f, 0)]
-            cov, summary = get_cov_from_diff(df, df_compare, fitopt_scale * muopt_scale)
+            cov,summary = get_cov_from_diff(df, df_compare, fitopt_scale*muopt_scale)
         else:
             # This is a fitopt with MUOPT000, compare to base file
             df_compare = m0difs[get_name_from_fitopt_muopt(0, 0)]
             cov, summary = get_cov_from_diff(df, df_compare, fitopt_scale)
 
+        result[f"{fitopt_label}|{muopt_label}"] = cov
+        slopes.append([name, fitopt_label, muopt_label, *summary])
+
+    #now loop over extracov_labels
+    for key,value in extracovdict.items():
+        cov, summary = get_cov_from_covfile(df, os.path.expandvars(value), muopt_scales[key])
+        fitopt_label = 'DEFAULT'
+        muopt_label = key
         result[f"{fitopt_label}|{muopt_label}"] = cov
         slopes.append([name, fitopt_label, muopt_label, *summary])
 
@@ -484,10 +540,13 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     # We have to parse this. Eventually can make this structured and 
     # move away from legacy, but dont want to make too many people 
     # change how they are doing things in one go
-    label, fitopt_filter, muopt_filter = re.findall(r"\[(.*)\] \[(.*),(.*)\]", covopt)[0]
+    label, fitopt_filter, muopt_filter = \
+        re.findall(r"\[(.*)\] \[(.*),(.*)\]", covopt)[0]
+        
     fitopt_filter = fitopt_filter.strip()
-    muopt_filter = muopt_filter.strip()
-    logging.debug(f"Computing cov for COVOPT {label} with FITOPT filter '{fitopt_filter}' and MUOPT filter '{muopt_filter}'")
+    muopt_filter  = muopt_filter.strip()
+    logging.debug(f"Computing COV({label}) with FITOPT filter " \
+                  f"'{fitopt_filter}' and MUOPT filter '{muopt_filter}'")
 
     final_cov = None
 
@@ -496,7 +555,9 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     for key, cov in contributions.items():
         fitopt_label, muopt_label = key.split("|")
-        if apply_filter(fitopt_label, fitopt_filter) and apply_filter(muopt_label, muopt_filter):
+
+        if apply_filter(fitopt_label, fitopt_filter) and \
+           apply_filter(muopt_label, muopt_filter):
             if final_cov is None:
                 final_cov = cov.copy()
             else:
@@ -509,7 +570,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                 else:
                     final_cov += cov
 
-    assert final_cov is not None, f"No systematics matched COVOPT {label} with FITOPT filter '{fitopt_filter}' and MUOPT filter '{muopt_filter}'!"
+    assert final_cov is not None, f"No systematics matched COVOPT {label} with " \
+        f"FITOPT filter '{fitopt_filter}' and MUOPT filter '{muopt_filter}'!"
 
     # Validate that the final_cov is invertible
     try:
@@ -545,7 +607,7 @@ def write_dataset(path, data_file, cov_file, template_path):
 
 def write_data_jla(path, base, cosmomc_format=True):
 
-    logging.info(f" Write Hubble diagram for cosmomc-jla method")
+    logging.info(f"Write Hubble diagram for cosmomc-jla method")
     if not cosmomc_format:
         base[[VARNAME_z, VARNAME_MU, VARNAME_MUERR]].to_csv(path, sep=" ", index=True, float_format="%.5f")
         return
@@ -653,7 +715,7 @@ def write_cosmomc_output(config, covs, base):
     # Create covariance matrices and datasets
     for i, (label, cov) in enumerate(covs):
         dataset_file = out / f"dataset_{i}.txt"
-        covsyst_file = out / f"{prefix_covsys}_{i}.txt"  # RK 
+        covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
 
         write_covariance(covsyst_file, cov)
         write_dataset(dataset_file, data_file, covsyst_file, dataset_template)
@@ -760,8 +822,13 @@ def get_lcfit_info(submit_info):
 
 
 def remove_nans(data):
-    base_name = get_name_from_fitopt_muopt(0, 0)
-    base = data[base_name]
+    base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
+    base      = data[base_name]
+    try:
+        base = base.drop('FIELD', axis=1)
+    except:
+        #FIELD not in df  
+        pass
     mask = ~(base.isnull().any(axis=1))
     for name, df in data.items():
         data[name] = df.loc[mask, :]
@@ -771,32 +838,51 @@ def remove_nans(data):
 def create_covariance(config, args):
     # Define all our pathing to be super obvious about where it all is
     input_dir = Path(config["INPUT_DIR"])
-    data_dir = input_dir / config["VERSION"]
-    sys_file = Path(config["SYSFILE"])
-
+    version   = config["VERSION"]
+    data_dir  = input_dir / version
+    sys_file  = Path(config["SYSFILE"])
+    extra_covs = config.get("EXTRA_COVS",[])
+    
     # Read in all the needed data
     submit_info = read_yaml(input_dir / "SUBMIT.INFO")
     sys_scale = read_yaml(sys_file)
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
-    # Also need to get the FITOPT labels from the original LCFIT directory
-    muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in submit_info.get("MUOPT_OUT_LIST", [])}
+
+    # Also need to get the MUOPT labels from the original LCFIT directory
+    muopt_labels = {int(x.replace("MUOPT", "")): l for x, l, _ in  \
+                    submit_info.get("MUOPT_OUT_LIST", [])}
+
+    #tack on extra covs as muopts
+    extracovdict = {}
+    for extra in extra_covs:
+        muopt_labels[len(muopt_labels)+1] = extra.split()[0]
+        extracovdict[extra.split()[0]] = extra.split()[2]
+
+
+    # Feb 15 2021 RK - check option to selet only one of the muopt
+    if args.muopt >= 0 :
+        tmp_label    = muopt_labels[args.muopt]
+        #muopt_labels = { args.muopt : tmp_label }
+        muopt_labels = { args.muopt : "DEFAULT" }     
+    
     muopt_scales = config["MUOPT_SCALES"]
+    for extra in extra_covs:
+        muopt_scales[extra.split()[0]] = extra.split()[1]
 
     # Load in all the hubble diagrams
+    logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
-
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
-
     # Now that we have the data, figure out how each much each FITOPT/MUOPT pair contributes to cov
-    contributions, summary = get_contributions(data, fitopt_scales, muopt_labels, muopt_scales)
-
-    # For each COVOPT, we want to find the contributions which match to construct covs for each COVOPT
-    logging.info("Computing covariance for COVOPTS")
+    contributions, summary = get_contributions(data, fitopt_scales,
+                                               muopt_labels, muopt_scales, extracovdict)
+    # find contributions which match to construct covs for each COVOPT
+    logging.info(f"Compute covariance for COVOPTS")
     covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  # Adds covopt to compute everything
     covariances = [get_cov_from_covopt(c, contributions, base, 
                                        config.get("CALIBRATORS")) for c in covopts]
-
+    
     write_cosmomc_output(config, covariances, base)
     write_summary_output(config, covariances, base)
     write_debug_output(config, covariances, base, summary)
@@ -818,10 +904,33 @@ def prep_config(config,args):
     config['nbin_x1'] = args.nbin_x1
     config['nbin_c']  = args.nbin_c
 
+    # check override args (RK, Feb 15 2021)
+
+    if args.method is not None :
+        config["COSMOMC_METHOD"] = args.method
+        logging.info(f"OPTION: override COSMOMC_METHOD with {args.method}")
+        
+    if args.input_dir is not None :
+        config["INPUT_DIR"] = args.input_dir
+        logging.info(f"OPTION: override INPUT_DIR with {args.input_dir}")
+
+    if args.outdir is not None :
+        config["OUTDIR"] = args.outdir
+        logging.info(f"OPTION: override OUTDIR with {args.outdir}")        
+
+    if args.version is not None:
+        config["VERSION"] = args.version
+        logging.info(f"OPTION: override VERSION with {args.version}")
+
+    if args.muopt >= 0 :
+        global m_REF ; m_REF = args.muopt  # RK, Feb 2021
+        logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
+        
 # ===================================================
 if __name__ == "__main__":
     try:
         setup_logging()
+        logging.info("# ========== BEGIN create_covariance ===============")
         args   = get_args()
         config = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...

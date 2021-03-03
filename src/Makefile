@@ -140,6 +140,7 @@
 #   Difference matters for gcc version 10
 #        
 # Oct 15 2020: add sntools_cosmology
+# Feb 05 2021: rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
 #
 # ---------------------------------------------------------------------
 
@@ -383,7 +384,8 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_nonlinearity.o  	\
 	$(OBJ)/sntools_fluxErrModels.o	  \
 	$(OBJ)/sntools_fluxErrModels_legacy.o	\
-	$(OBJ)/sntools_fitsio.o	 \
+	$(OBJ)/sntools_dataformat_fits.o	\
+	$(OBJ)/sntools_dataformat_text.o	\
 	$(OBJ)/sntools_gridread.o \
 	$(OBJ)/sntools_kcor.o \
 	$(OBJ)/sntools_nearnbr.o \
@@ -675,10 +677,10 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO)  $(IGSL) $(SRC)/kcor.c )
 
-$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_fitsio.o $(OBJ)/sntools_cosmology.o
+$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcor.o $(OBJ)/sntools.o  $(OBJ)/MWgaldust.o \
-	$(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_fitsio.o \
+	$(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  $(LGSL) $(LCERN)
 	(cd $(OBJ); rm kcor.o )
@@ -700,7 +702,8 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 	$(LIB)/libsnana.a  	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ)/sntools_kcor.o 	\
-	$(OBJ)/sntools_fitsio.o \
+	$(OBJ)/sntools_dataformat_fits.o \
+	$(OBJ)/sntools_dataformat_text.o \
 	$(LCFITSIO)  $(LGSL) 	\
 	$(LCERN)  -lm
 	(cd $(OBJ); rm kcordump.o)
@@ -831,12 +834,17 @@ $(OBJ)/sntools_cosmology.o : $(SRC)/sntools_cosmology.c $(SRC)/sntools_cosmology
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_cosmology.c )
 
 # -------------------------------------------------
-# compile sntools_fitsio (.o only)
+# compile sntools_dataformat_fits[text]
 
-$(OBJ)/sntools_fitsio.o : $(SRC)/sntools_fitsio.c $(SRC)/sntools_fitsio.h $(SRC)/sndata.h
+$(OBJ)/sntools_dataformat_fits.o : $(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_fits.h $(SRC)/sndata.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_fitsio.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_dataformat_fits.c )
 
+$(OBJ)/sntools_dataformat_text.o : $(SRC)/sntools_dataformat_text.c $(SRC)/sntools_dataformat_text.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_dataformat_text.c )
+
+# ---------
 $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
@@ -1018,8 +1026,9 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c $(SRC)/sntools_gridgen.c \
-	$(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c $(SRC)/sntools_genPDF.c \
-	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.c \
+	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \
+	$(SRC)/sntools_host.c  \
+	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \
 	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
@@ -1098,7 +1107,8 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
 	$(OBJ)/sntools_cosmology.o  \
-	$(OBJ)/sntools_fitsio.o  \
+	$(OBJ)/sntools_dataformat_fits.o  \
+	$(OBJ)/sntools_dataformat_text.o  \
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
 	$(OBJ)/genmag_SALT2.o   \

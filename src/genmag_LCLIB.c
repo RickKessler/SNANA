@@ -7,7 +7,7 @@
   a given MJD.
 
   These functions are used when user select LCLIB model
-  with Sim-input 
+  with Sim-input  
 
     GENMODEL:  LCLIB  <lcLibFile>  <stringTemplateEpochs>
 
@@ -1168,11 +1168,12 @@ int keep_PARVAL_LCLIB(void) {
 	if ( dval < DMIN ) { KEEP = 0 ; }
 	if ( dval > DMAX ) { KEEP = 0 ; }
 
-	/* xxx
+	/*
 	if ( KEEP == 0 ) {
-	  printf(" xxx REJECT EVENT_ID=%d for %s = %f \n",
-		 LCLIB_EVENT.ID, PARNAME, dval);
-		 } */
+	  printf(" xxx REJECT EVENT_ID=%8d for %s = %f  (range=%.1f to %.1f)\n",
+		 LCLIB_EVENT.ID, PARNAME, dval, DMIN, DMAX);
+	} 
+	*/
 
       }
     }

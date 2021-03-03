@@ -824,7 +824,7 @@ class LightCurveFit(Program):
         prefix        = (f"{version}_{fitopt_num}_{split_num}")
         done_file     = (f"{prefix}.DONE")
         log_file      = (f"{prefix}.LOG")
-        yaml_file     = (f"{prefix}.YAML")
+        yaml_file     = (f"{prefix}.YAML") 
         arg_list      = []
         JOB_INFO      = {}
 

@@ -105,7 +105,7 @@
 #include "genmag_SALT2.h"
 #include "sntools_genSmear.h"
 #include "MWgaldust.h"
-#include "sntools_fitsio.h"
+#include "sntools_dataformat_fits.h"
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>

@@ -1153,7 +1153,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
-  if ( REQUIRE_DOCANA ) { check_file_docana(infoFile); }
+  check_file_docana((int)REQUIRE_DOCANA, infoFile);
 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
     print_preAbort_banner(fnam);
@@ -3480,6 +3480,8 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   // convert generated fluxes into mags
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     GENFLUX_LIST[ilam] *= FSCALE_ZP ;  // Mar 29 2019
+
+    // xxx debug GENFLUX_LIST[ilam] = GENFLUX_LIST[0]; // xxx REMOVE THIS
 
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;

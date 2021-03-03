@@ -22,6 +22,10 @@
  Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100) 
 
  Nov 05 2020: MXEPSIM_PERFILT -> 1000 (was 500) for ZTF sims.
+ Feb 05 2021: 
+   + remove definition of MXFIELD_OVP_SIMLIB
+   + replace MXFIELD_OVP_SIMLIB with MXFIELD_OVP from sndata.h
+
 
 ********************************************/
 
@@ -49,15 +53,14 @@ time_t t_start, t_end, t_end_init ;
 #define  MXOBS_SIMLIB  5000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
-#define  MXFIELD_OVP_SIMLIB  10        // max number of overlapping fields
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10 
 #define  MXSEASON_SIMLIB  20      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
 #define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
 #define  SIMLIB_ID_REWIND -7   // rewind flag
-
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
 #define  ISOURCE_PEAKMJD_SIMLIB 2 // PEAKMJD is read from SIMLIB header
+#define  FIELDNAME_NULL     "NULL" 
 
 #define  OPTLINE_SIMLIB_S             1   // is a SIMLIB line with 'S:'
 #define  OPTLINE_SIMLIB_T             2   // obsolete
@@ -119,8 +122,11 @@ int WRFLAG_FITS      ;
 int WRFLAG_FILTERS   ; // Aug 2016
 int WRFLAG_COMPACT   ; // Jan 2018
 
-#define SIMLIB_PSF_PIXSIG      "PIXEL_SIGMA"        // default
-#define SIMLIB_PSF_ASECFWHM    "ARCSEC_FWHM"        // option
+#define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
+#define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option
+#define SIMLIB_PSF_NEA_PIXEL     "NEA_PIXEL"          // option
+#define SIMLIB_PSF_NEA_ARCSECSQ  "NEA_ARCSECSQ"       // option
+
 #define SIMLIB_SKYSIG_SQPIX    "ADU_PER_SQPIXEL"    // default
 #define SIMLIB_SKYSIG_SQASEC   "ADU_PER_SQARCSEC"   // option
 
@@ -375,6 +381,8 @@ struct INPUTS {
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
 
+  int  OPT_DEVEL_WRITE_TEXT;  // refactor to write text format
+
   bool DASHBOARD_DUMPFLAG ;
   bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
 
@@ -393,14 +401,13 @@ struct INPUTS {
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
-  int OPT_DEVEL_SIMSED_GRIDONLY ;
-
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
   int  SIMLIB_GZIPFLAG ;            // gzip flag (needed to rewind)
 
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
+  STRING_DICT_DEF DICT_FIELDLIST_PRESCALE; // optional prescale per FIELD
 
   int  SIMLIB_IDSTART;      // start at this LIBID (default=1)
   int  SIMLIB_MAXRANSTART;  // start at random LIBID among this many
@@ -443,6 +450,7 @@ struct INPUTS {
   char HOSTLIB_WGTMAP_FILE[MXPATHLEN];  // optional wgtmap override
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
+  char HOSTLIB_SPECDATA_FILE[MXPATHLEN]; // spec data for host spec
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
@@ -578,6 +586,7 @@ struct INPUTS {
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   int                       TAKE_SPECTRUM_DUMPCID;
   float                     TAKE_SPECTRUM_HOSTFRAC;
+  float                     TAKE_SPECTRUM_HOSTSNFRAC;
 
   char                      WARP_SPECTRUM_STRING[200];
   int                       NWARP_TAKE_SPECTRUM ; // set internally
@@ -857,10 +866,7 @@ struct INPUTS {
 } INPUTS ;
 
 
-
-
 // define GENLC structure
-
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
@@ -1017,7 +1023,6 @@ struct GENLC {
   int   NOBS_SNR ;      // NOBS passing SNR cut
   int   NOBS ;          // real obs only
   int   NOBS_FILTER[MXFILTINDX]; // NOBS per band
-  int   NOBS_REMOVE ;     // Nobs removed (for special options)
   int   NOBS_UNDEFINED;   // suppresed NOBS because model is undefined
   int   NOBS_SATURATE[2]; // 0=unsatured, 1=saturated
   int   NOBS_SATURATE_FILTER[2][MXFILTINDX]; // idem, filter-dependent
@@ -1082,7 +1087,7 @@ struct GENLC {
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch
   double RANGauss_NOISE_FUDGE[MXEPSIM];   //  fudged search noise, per epoch
   double RANGauss_NOISE_ZP[MXEPSIM];       // ZP noise, per epoch (Feb 2018)
-  double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP_SIMLIB][MXFILTINDX];  // template noise per filter and field-overlap
+  double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP][MXFILTINDX];  // template noise per filter and field-overlap
 
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
@@ -1147,8 +1152,9 @@ struct GENLC {
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
   bool OBSFLAG_TEMPLATE[MXEPSIM]; // extra epochs that are templates
 
-  int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
-  int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
+  int IEPOCH_PEAK[MXFILTINDX] ; // artificial peak epoch vs.ifilt_obs
+  int IEPOCH_SNRMAX_GLOBAL;       // global epoch with SNRMAX (Jun 2018)
+  int IEPOCH_SNRMAX[MXFILTINDX] ; // idem vs. ifilt_obs
   int IEPOCH_TEMPLATE[MXFILTINDX]; // identifies template epochs
 
   float COVAR[MXFILT_COVAR][MXEPCOV][MXFILT_COVAR][MXEPCOV] ;  // cov matrix
@@ -1291,6 +1297,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char FILTERS[MXFILTINDX];  // global list of all filters 
   char TELESCOPE[60];
   char PSF_UNIT[40] ;
+  bool NEA_PSF_UNIT;
   char SKYSIG_UNIT[40];
   char USERNAME[40];
   int  NLIBID, NLIBID_VALID ;
@@ -1332,7 +1339,9 @@ struct SIMLIB_HEADER {
   long long GALID; 
 
   // these header keys can be changed anywhere in the simlib entry
-  char FIELD[60], TELESCOPE[60] ; // July 2016
+  char TELESCOPE[60] ; // July 2016
+  char FIELD[60], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  int  NFIELD_OVP ;
 
   // optional GENRANGES to re-generate
   int    REGEN_FLAG ;
@@ -1386,6 +1395,7 @@ typedef struct  {
   double  PSFSIG1[MXOBS_SIMLIB];
   double  PSFSIG2[MXOBS_SIMLIB];
   double  PSFRATIO[MXOBS_SIMLIB];
+  double  NEA[MXOBS_SIMLIB];
   double  ZPTADU[MXOBS_SIMLIB];    // ZPT in ADU for entire exposure
   double  ZPTERR[MXOBS_SIMLIB];    // ZPT error
   double  MAG[MXOBS_SIMLIB];       // optional mag
@@ -1394,7 +1404,7 @@ typedef struct  {
   char    *PTR_FIELDNAME[MXOBS_SIMLIB];
   char    FIELDNAME[MXOBS_SIMLIB][MXCHAR_FIELDNAME];
   char    TELESCOPE[MXOBS_SIMLIB][40];
-  int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 2018
+  int     APPEND_PHOTFLAG[MXOBS_SIMLIB];  // Jan 201
 
   double  TEMPLATE_SKYSIG[MXOBS_SIMLIB] ;
   double  TEMPLATE_READNOISE[MXOBS_SIMLIB] ;
@@ -1434,11 +1444,11 @@ struct SIMLIB_TEMPLATE {
 
   int    USEFLAG ;      // logical to use correlated template noise
   int    NFIELD_OVP ;   // number of overlapping fields; resets each SIMLIB
-  char   FIELDNAME[MXFIELD_OVP_SIMLIB][MXCHAR_FIELDNAME];
+  char   FIELDNAME[MXFIELD_OVP][MXCHAR_FIELDNAME];
 
-  double SKYSIG[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
-  double READNOISE[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
-  double ZPT[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
+  double SKYSIG[MXFIELD_OVP][MXFILTINDX] ;
+  double READNOISE[MXFIELD_OVP][MXFILTINDX] ;
+  double ZPT[MXFIELD_OVP][MXFILTINDX] ;
 
   double TEXPOSE_SPECTROGRAPH ;    // for SPECTROGRAPH
 
@@ -1673,9 +1683,11 @@ int    parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource );
 int    parse_input_GENMODEL(char **WORDS, int keySource );
 int    parse_input_NON1ASED(char **WORDS, int keySource );
 void   parse_GENMAG_SMEAR_MODELNAME(void);
-int    parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
-				   float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
+int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
+				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
+void   parse_input_FIELDLIST(void);
+
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT, 
 			   RATEPAR_DEF *RATEPAR );
 int    parse_input_ZVARIATION(char **WORDS, int keySource);
@@ -1994,7 +2006,6 @@ extern void  get_primary__(char *primary, int *NLAM,
 //   genmag_xxx functions
 // -----------------------------
 
-int gen_smearFlux ( int epoch, int VBOSE );
 int gen_smearMag  ( int epoch, int VBOSE );
 int npe_above_saturation ( int epoch, double flux_pe);
 

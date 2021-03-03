@@ -19489,11 +19489,16 @@
        Almost works, but subtle bug still there.
 
 # ======================================================================= 
-         v11_02g (Jan 25 2021) 
+         v11_02g (Feb 5, 2021) 
 
          ***** IMPORTANT(v11_02g) ***** 
 
+   sim: finally fix to use exact VPEC formula instead of additive approx.
+   bbc: fix duplicate flagging bugs in SALT2mu.exe
+
          ***** USEFUL(v11_02g) ***** 
+
+   sim: add option to prescale by FIELD (useful for BIASCOR sim)
 
          ***** MISCELLANEOUS(v11_02g) ***** 
 
@@ -19517,6 +19522,9 @@
       default for a long time
     + refactor gen_MWEBV() -> MWEBV = gen_MWEBV(RA,DEC) so that
       it can be called by genmag_LCLIB.
+    + add preScale options for SIMLIB_FIELDLIST; see manual.
+    + fix FIELD entry for overlaps ; e.g., X1+X3
+    + fix searcheff_zHOST functions to work with overlap fields.
 
   genmag_LCLIB.c
     + new OPTMASK += 8 to use RA,DEC from LCLIB.
@@ -19524,5 +19532,142 @@
   submit_prog_sim.py: 
     + add PATH_USER_INPUT arg for rate calc. Allows using input files
       in submit-dir without specifying full path.
-     
+
+  submit_train_SALT3.py
+    + more development
+
+
+# ======================================================================= 
+         v11_02h (Feb 18, 2021) 
+
+         ***** IMPORTANT(v11_02h) ***** 
+
+   + IGNORE file no longer required, and no longer part of sim output
+       (no action necessary)
+
+   + Fixed subtle bug for CUTWIN_PSF and CUTWIN_ZPNPE.
+     Bug introduced back in July 2021, v10_77h. See details below.
+
+         ***** USEFUL(v11_02h) ***** 
+
+         ***** MISCELLANEOUS(v11_02h) ***** 
+
+                       CUT-BUG FIX
+   Back in v10_77h (Jul 20, 2020) an epoch-cut bug was introduced with a
+   minor refactor needed to implement OUT_EPOCH_IGNORE_FILE that writes 
+   a list of rejected epochs (for SNN/Pippin). For FITS-formatted data, 
+   there was an index bug for CUTWIN_PSF and CUTWIN_ZPNPE because of an 
+   internal unit change on ZP and PSF read from data files. TEXT data 
+   format was not affected. The bug impact was to reject a few extra epochs 
+   that should be kept; LC fit mB shifts were few millimag. The bug went
+   undetected because these cuts were not part of the standard set of 
+   SNANA test jobs (see $SNANA_TESTS) ... but now it is. I finally caught 
+   the bug as part of a major I/O refactor (not yet released) because the 
+   refactored code works correctly.
+
+  snlc_sim: 
+    + abort on ancient VERBOSE format (FORMAT_MASK=1)
+    + no longer write empty IGNORE file 
+    + rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
+    + begin refactoring text format with sntools_dataformat_text.c[h]
+      Goal is to extract TEXT files from FITS files, make TEXT and
+      FITS treatment more parallel, and simplify maintenance.
+    + fix bug reading LCLIB_CUTWIN
+
+  snana.car
+    + IGNORE file now optional (not required)
+    + move leagcy I/O functions into *LEGACIO patch. These functios are
+      still default unless OPT_DEBUG==21 -> test refactored I/O routines.
+
+  SALT2mu.c
+    + fix array declaration bug in check_vpec_sign function
+
+  sntools_output_text.c :
+    + actually do the fclose in  SNTABLE_CLOSE_TEXT()
+
+  create_covariance.py :
+    + add lots of command line options to override contents of input
+      file. Tricky option is -m to select one and only one MUOPT.
+
+
+# ======================================================================= 
+         v11_02i (Feb 28 2021) 
+
+         ***** IMPORTANT(v11_02i) ***** 
+
+   simlib_coadd: DOCUMENTATION yaml block is now required ! 
+              Legacy "COMMENT:" keys in SIMLIB header result in abort.
+
+   All analysis codes check data README file; if !REQUIRE_DOCANA, warning
+   is printed; else abort. This check also prevents losing sim-data README 
+   files on scratch disks with automatic purging.
+
+   I/O refactor finished, but not yet default. Test refactor with 
+   snlc_fit.exe <inputFile> OPT_DEBUG 21
+
+         ***** USEFUL(v11_02i) ***** 
+
+   sim has new HOSTLIB_SPECDATA_FILE feature to pick real host spectra
+   rather than using eazy/PCA coefficients.
+
+         ***** MISCELLANEOUS(v11_02i) ***** 
+
+   genmag_PySEDMODEL.c
+     + fix bug that was preventing BYOSED params from being returned.
+
+   sntools_host.c[h]:
+     + new option HOSTLIB_SPECDATA_FILE: <file> to read real
+       rest-frame spectra instead of basis templates.
+       Corresponing HOSTLIB column is IDSPECDATA.
+       See manual update in Sec 4.21.3 Generating Host Spectra.
+
+     + abort if ZTRUE + VPEC/c < ZMIN_HOSTLIB
+
+   snlc_sim.c
+     + fix a few bugs to allow VEL_CMBAPEX=0 (and zHEL = zCMB)
+     + fix bug reading SIMLIB to allow for very long comment strings
+        (e.g., file names)
+     + new option TAKE_SPECTRUM_HOSTSNFRAC to force host/SN ratio for
+       integrate spectra. However, this assumes variable host if there
+       are multiple SN spectra per event (see manual).
+   
+   create_covariance.py
+     + bug fix by Dillon
+
+   SALT2mu.c
+     + fix bug to avoid abort when IDSAMPLE_SELECT feature is used (Brodie)
+     + for H11 prior, set NPASS_CUTMASK_POINTER to avoid crash when
+        writig YAML file (Maria)
+
+   simlib_coadd.c:
+     + append DOCUMENTATION block
+     + abort if no DOCUMENTATION block
+     + abort on legacy COMMENT keys
+
+
+# ======================================================================= 
+         v11_02j (  ) 
+
+         ***** IMPORTANT(v11_02j) ***** 
+
+     Release I/O refactor Tuesday Mar 2 2021, 6pm central.
+     Hopefully nobody will noticed.
+
+         ***** USEFUL(v11_02j) ***** 
+
+         ***** MISCELLANEOUS(v11_02j) ***** 
+
+    NEA vs. PSF:
+    + add option to provide NEA in SIMLIB, instead of PSF1,PSF2,PSRRATIO. 
+      Also write NEA to data files instead of PSF params. (see manual).
+
+    simlib_coadd.c
+      + adapt to work for NEA column replacing 3 PSF columns.  
+ 
+    submit_batch_jobs
+     + finally finish merge tasks for train_SALT3
+
+    snlc_sim.c
+     + fix parsing-refac bug for reading WARP_SPECTRUM arg.
+
 END: 

@@ -131,6 +131,8 @@ def read_SNANA_INFO(LOGDIR):
     for line in lineList:          
         line  = line.rstrip()  # remove trailing space and linefeed
         words = line.split()
+        if len(words) == 0 : continue
+
         if words[0] == "SNANA_VERSION:" :
             SNANA_VERSION = words[1]
         elif words[0] == "SNANA_DIR:" :

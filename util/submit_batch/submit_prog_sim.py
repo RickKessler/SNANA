@@ -1897,7 +1897,7 @@ class Simulation(Program):
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
 
         # defin aux files for combined version
-        ignore_file   = (f"{target_dir}/{genversion_combine}.IGNORE")
+        # xxx mark ignore_file = (f"{target_dir}/{genversion_combine}.IGNORE")
         dump_file     = (f"{target_dir}/{genversion_combine}.DUMP")
         readme_file   = (f"{target_dir}/{genversion_combine}.README")
         list_file     = (f"{target_dir}/{genversion_combine}.LIST")
@@ -1906,9 +1906,9 @@ class Simulation(Program):
         # with aux files.
         if os.path.exists(target_dir) == False :
             os.mkdir(target_dir)
+
             # create blank IGNORE file
-            with open (ignore_file,"w") as f :
-                pass
+            # xxx mark delete with open (ignore_file,"w") as f :   pass
 
             # create blank README file
             with open (readme_file,"w") as f :

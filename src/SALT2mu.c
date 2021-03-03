@@ -3355,6 +3355,8 @@ void check_vpec_sign(void) {
   //
   // Misc task: if zhel < 0 (does not exist), set zhel = zcmb
   // to allow processing very old FITRES files.
+  //
+  // Feb 10 2021: fix nasty delcaration bug: rms[0] -> rms[2]
 
   double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
@@ -3362,7 +3364,7 @@ void check_vpec_sign(void) {
   int    NSN_ALL         = INFO_DATA.TABLEVAR.NSN_ALL ;
 
   int isn, i, cutmask, NSN_SUM=0;
-  double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[0], sgn_flip ;
+  double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
   double zHD, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl ;
   char fnam[] = "check_vpec_sign" ;
@@ -13319,6 +13321,8 @@ void prepare_CCprior(void) {
   //
   // Jun 20 2018: abort on 1D biasCor.
   // Sep 28 2020: check option to use "same" file(s) as for biasCor
+  // Feb 25 2021: for H11, set NPASS_CUTMASK_POINTER so that writing
+  //              YAML file later doesn't crash.
 
   int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
   int  NSAMPLE      = NSAMPLE_BIASCOR ;
@@ -13343,6 +13347,8 @@ void prepare_CCprior(void) {
   if ( USE_CCPRIOR_H11 ) { 
     sprintf(BANNER,"%s: use CC mu-vs-z prior from Hlozek 2011", fnam);
     fprint_banner(FP_STDOUT,BANNER);    
+    NPASS_CUTMASK_POINTER[EVENT_TYPE] = &INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
+    INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS = 0;
     return ;
   }
 
@@ -14479,6 +14485,7 @@ void print_eventStats(int event_type) {
   // a single cut ... and to to it efficiently.
   //
   // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
+  // Feb 25 2021: abort on missing biasCor only if it is required.
 
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
   int  NSN_TOT, *CUTMASK_PTR ;
@@ -14546,6 +14553,7 @@ void print_eventStats(int event_type) {
     int  NSAMPLE = NSAMPLE_BIASCOR ;
     int idsample, OPT_PHOTOZ, NSN ;      char *NAME;
     for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
+      if ( SAMPLE_BIASCOR[idsample].DOFLAG_BIASCOR==0 ) { continue ; } 
       NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
       OPT_PHOTOZ = SAMPLE_BIASCOR[idsample].OPT_PHOTOZ ;
       NAME       = SAMPLE_BIASCOR[idsample].NAME ;

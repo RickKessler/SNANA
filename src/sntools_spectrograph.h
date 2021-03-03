@@ -11,6 +11,7 @@
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise
 #define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
+#define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
@@ -78,11 +79,14 @@ struct {
 
   // everything below gets malloc'ed by NBIN_SPECTRO
 
+
   // true flux vs [NMJD][ILAM], and smeared flux
   double *GENMAG_LIST[MXSPEC] ;
   double *GENSNR_LIST[MXSPEC] ;
   double *GENFLUX_LIST[MXSPEC] ;    // true flux with no noise or lam-smear
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
+  double *GENFLUX_PEAK ; // GENFLUX at PEAKMJD; needed for HOSTSNFRAC option
+  double *GENMAG_PEAK ;  
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise
@@ -94,6 +98,11 @@ struct {
   double  *FLAMERR_LIST[MXSPEC];  // error on above
   double  *FLAMWARP_LIST[MXSPEC]; // warp applied to FLAM
   int      USE_WARP;
+
+  // items below are used for read utils (not used for sim)
+  int     ID_LIST[MXSPEC] ;
+  double *LAMMIN_LIST[MXSPEC], *LAMMAX_LIST[MXSPEC], *LAMAVG_LIST[MXSPEC] ; 
+
 
   // define array of Gaussian randoms for noise
   double *RANGauss_NOISE_TEMPLATE[MXLAMSMEAR_SPECTROGRAPH] ; 

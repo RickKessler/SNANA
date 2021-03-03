@@ -42,7 +42,8 @@ class Program:
         self.config_yaml   = config_yaml
         self.config_prep   = config_prep
         self.config        = None
-
+        msgerr      = []
+            
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
@@ -50,13 +51,22 @@ class Program:
         if config_yaml['args'].merge_flag :  # bail for merge process
             return
 
+        # check conda env (Feb 2021)
+        ENV = 'CONDA_DEFAULT_ENV'
+        if ENV in CONFIG :
+            ENV_value_expect = CONFIG[ENV]
+            ENV_value        = os.getenv(ENV)
+            if ( ENV_value != ENV_value_expect ) :
+                msgerr.append(f"Expected  ${ENV} = {ENV_value_expect} ; ")
+                msgerr.append(f"but found ${ENV} = {ENV_value} ")
+                util.log_assert(False,msgerr)
+
         # - - - - -
         program = config_prep['program']
         logging.info(f" Program name: {program}")
 
         if program == PROGRAM_NAME_UNKNOWN :
             input_file  = self.config_yaml['args'].input_file 
-            msgerr      = []
             msgerr.append(f"Unknown program name.")
             msgerr.append(f"Must define program with JOBNAME key")
             msgerr.append(f"in {input_file}")

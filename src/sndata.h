@@ -39,7 +39,8 @@
 
 #define MXEPOCH  2000     // max number of epochs per SN
 #define MXEPCOV  112     // max epochs to store in covariance matrix
-#define MXFIELD   900    // max number of fields
+
+#define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX 100   // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
@@ -68,6 +69,11 @@
 #define FAKEFLAG_FAKES   1   //                  = 1 for survey fakes
 #define FAKEFLAG_LCSIM   2   //                  = 2 for lcsim
 #define FAKEFLAG_LCSIM_BLINDTEST 3  // blind-test sim
+
+// strings for DATATYPE key in FITS header (Feb 2021)
+#define DATATYPE_DATA        "DATA"       // real data
+#define DATATYPE_SIM_SNANA   "SIM_SNANA"  // SNANA sim
+#define DATATYPE_SIM_MAGOBS  "SIM_MAGOBS" // e.g., fakes
 
 #define RV_MWDUST 3.1               // RV for MilkyWay
 
@@ -131,10 +137,28 @@ struct VERSION
 
 struct SNDATA {
 
+  // global stuff
+  char SNANA_VERSION[20] ; // Feb 2021
+  char DATATYPE[20];       // e.g., DATA, SIM_SNANA ...
+
   // name of SURVEY and SUBSURVEY
   char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
   char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  int  SUBSURVEY_FLAG ;
 
+  bool  WRFLAG_BLINDTEST ;  
+  bool  WRFLAG_PHOTPROB ;
+  bool  WRFLAG_SKYSIG_T ;
+  int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
+  int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
+  char  VARNAME_SNRMON[40];
+
+  int   SIMLIB_MSKOPT ;                // mask of options (Dec 2015)
+  char  SIMLIB_FILE[MXPATHLEN];        // name of simlib file
+
+  char  SPEC_FILE[MXPATHLEN];
+
+  // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];
 
   char snfile_output[MXPATHLEN];   // name of data file (no path)
@@ -151,10 +175,12 @@ struct SNDATA {
   int   FAKE ;            // 1=FAKE, 0=DATA
   int   NEPOCH;           // total NEPOCH including peak and unused filters
   int   NOBS ;            // total Num of observations (<= NEPOCH)
-  int   WRFLAG_BLINDTEST ; 
-  
+
+  // list of observations to store; they pass select_MJD_SNDATA func
+  int   NOBS_STORE;
+  int   OBS_STORE_LIST[MXEPOCH];
+
   int   SUBSAMPLE_INDEX ; // if user-input NSUBSAMPLE_MARK > 0
-  int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
 
   // Note that for non-SDSS surveys, NEPOCH_NEWMJD = NEPOCH and
   // EPOCH_NEWMJD is just an incremental integer list from 1:NEPOCH.
@@ -171,7 +197,6 @@ struct SNDATA {
   int   CCDNUM[MXEPOCH] ;
 
   bool   OBSFLAG_WRITE[MXEPOCH];
-  // xxx mark dele int USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
   double MJD[MXEPOCH];            // MJD for each epoch
 
   char  MAGTYPE[20];   // LOG10 or ASINH
@@ -183,6 +208,7 @@ struct SNDATA {
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
   char  FILTCHAR[MXEPOCH][2];     // char string for filter
+  char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 
   int   SEARCH_RUN[MXEPOCH] ;
   int   TEMPLATE_RUN[MXEPOCH] ;
@@ -206,6 +232,7 @@ struct SNDATA {
   char  IAUC_NAME[20];           // official name (SQL)
 
   char FIELDNAME[MXEPOCH][20] ;    // survey field (generalize SDSS STRIPE)
+  char FIELDNAME_1D[MXEPOCH*20] ;  // for fortran interface
 
   float FLUXCAL[MXEPOCH] ;         // calibrated flux for fitter
   float FLUXCAL_ERRTOT[MXEPOCH] ;  
@@ -221,7 +248,7 @@ struct SNDATA {
   float GALSUB_ERR[MXEPOCH] ;     // gal-subtraction error
   int   NPRESN[MXFILTINDX] ;      // number of pre-SN epochs
 
-  int   OPT_ZEROPT_SIG;                  // determines trun or srun zptsig
+  int   OPT_ZEROPT_SIG;          // determines trun or srun zptsig
   int    PHOTFLAG[MXEPOCH] ;     // photometry flags (0 => OK)
   float  PHOTPROB[MXEPOCH];      // fit-prob or FoM per epoch
  
@@ -230,15 +257,16 @@ struct SNDATA {
   float PSF_SIG1[MXEPOCH] ;       // PSF sigma of inner gaussian
   float PSF_SIG2[MXEPOCH] ;       // PSF isgma of outer
   float PSF_RATIO[MXEPOCH] ;    // PSF
+  float PSF_NEA[MXEPOCH];        // write NEA if > 0 (Feb 28 2021)
+  bool  NEA_PSF_UNIT; 
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
-  int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
 
   int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
-  float   HOSTGAL_SB_FLUX[MXFILTINDX];     // surface bright (FLUXCAL/arcsec)
-  float   HOSTGAL_SB_FLUXERR[MXFILTINDX];  // error on above
+  float   HOSTGAL_SB_FLUXCAL[MXFILTINDX];   // surface bright (FLUXCAL/asec)
+  float   HOSTGAL_SB_FLUXCALERR[MXFILTINDX];  // error on above
   float   HOSTGAL_SB_MAG[MXFILTINDX];      // SB mag in 1 sq-arcsec
   float   HOSTGAL_MAG[MXHOSTGAL][MXFILTINDX];         // host mag
   float   HOSTGAL_MAGERR[MXHOSTGAL][MXFILTINDX];   
@@ -317,13 +345,10 @@ struct SNDATA {
   float SIM_PEAKMAG[MXFILTINDX] ;    //  peak mag in each filter
   float SIM_TEMPLATEMAG[MXFILTINDX];  //  for LCLIB model only
   float SIM_EXPOSURE_TIME[MXFILTINDX] ;   // relative exposure time
-  
-  int   SIMLIB_MSKOPT ;                // mask of options (Dec 2015)
-  char  SIMLIB_FILE[MXPATHLEN];        // name of simlib file
-      
+        
   // - - - - - HOSTLIB properties - - - -
   char  HOSTLIB_FILE[MXPATHLEN];       // name of hostlib file (Feb 2014)
-  int   SIM_HOSTLIB_MSKOPT ;      // non-zero => simulate HOSTLIB
+  int   SIM_HOSTLIB_MSKOPT ;          // non-zero => simulate HOSTLIB
   int   NPAR_SIM_HOSTLIB;             // number of host params
   char  SIM_HOSTLIB_KEYWORD[100][60]; // keyword for ascii
   char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store

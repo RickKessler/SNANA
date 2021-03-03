@@ -41,6 +41,8 @@
   Nov 12 2020:
     + Adding glob utility
 
+  Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
+
 ********************************************************/
 
 
@@ -58,7 +60,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_02g"        
+#define  SNANA_VERSION_CURRENT  "v11_02j"           
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -250,6 +252,22 @@ int OFFSET_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 int NPT_PERDIM_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 
 
+// Feb 2021; define structure to enable python-like dictionary
+typedef struct STRING_DICT_DEF {
+  char NAME[60] ;       // name of dictionary
+  int  N_ITEM;          // number of items to store
+  int  MAX_ITEM;        // max number of items 
+  char **STRING_LIST ;  // list of string-item names
+  double *VALUE_LIST ;  // double value for each string
+  
+  // if string is same as LAST_STRING, return LAST_VALUE;
+  // this avoids looping thru lists of string-matching.
+  char   LAST_STRING[60] ;
+  double LAST_VALUE ;
+
+} STRING_DICT_DEF ;
+
+
 typedef struct GRIDMAP {
   int     ID;        // 
   int     NDIM;     // Number of dimensions
@@ -353,8 +371,9 @@ struct {
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA    4  // parse blank space; ignore comma
-#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore after comment char
 #define MSKOPT_PARSE_WORDS_FIRSTLINE     16  // read only 1st line only
+#define LANGFLAG_PARSE_WORDS_C  0  // PARSE_WORDS language flag for C
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -489,10 +508,27 @@ bool correct_sign_vpec_data(char *snana_version_data);
 bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) ;
+void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
+
+void copy_SNDATA_GLOBAL(int copyFlag, char *key,
+			int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_HEAD(int copyFlag, char *key,
+		      int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_OBS(int copyFlag, char *key,
+		     int NVAL,char *stringVal, double *parVal);
+int select_MJD_SNDATA(double *CUTWIN_MJD);
+
+void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal); 
+
+void copy_int(int copyFlag, double *DVAL0, int    *IVAL1) ;
+void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
+void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
+void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
+void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
+//void copy_void(int copyFlag, double *DVAL0, void   *VAL1) ;
 
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
@@ -504,7 +540,12 @@ int strcmp_ignoreCase(char *str1, char *str2) ;
 void clr_VERSION ( char *version, int prompt );  // remove old *version files
 int init_VERSION ( char *version);  // init VERSION_INFO struct 
 int init_SNPATH(void);
-int init_SNDATA ( void ) ;  // init SNDATA struct
+int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
+int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
+void set_SNDATA_FILTER(char *filter_list);
+
+void init_GENSPEC_GLOBAL(void) ;
+void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
 
 void ld_null(float *ptr, float value);
 
@@ -530,6 +571,13 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 int  store_PARSE_WORDS(int OPT, char *FILENAME);
 void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
+void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
+void get_parse_word__(int *langFlag, int *iwd, char  *word );
+void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
 void init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void parse_GENPOLY(char *stringPoly, char *varName, 
@@ -553,22 +601,18 @@ double asinhinv(double mag, int ifilt);
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 
+// xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
 int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
-
 void  wr_HOSTGAL(FILE *fp);
-
 void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ; 
-
 int  wr_filtband_int   ( FILE *fp, char *keyword, 
 			 int NINT, int *iptr, char *comment, int opt );
 int  wr_filtband_float ( FILE *fp, char *keyword, 
 			 int NFLOAT, float *fptr, char *comment, int idec );
-
 int  header_merge(FILE *fp, char *auxheader_file);
-
-int sort_epochs_bymjd(void);
-
+int  sort_epochs_bymjd(void);
 int   WRSTAT ( int wrflag, float value ) ;
+// xxxxxxxxxxxxxxxxxxxxx
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -767,48 +811,20 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
-void check_openFile_docana(FILE *fp, char *fileName); // check file already open
-void check_file_docana(char *fileName);           // open file and check
-void abort_missing_docana(char *fileName);
-void abort_missing_docana__(char *fileName);
+bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open
+void check_file_docana(int optmask, char *fileName);   // open file and check
+void check_file_docana__(int *optmask, char *fileName);
+
+void react_missing_docana(bool FOUND_DOCANA, char *fileName);
+void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
-void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
-// cosmology functions
-
-/* xxx mark delete Oct 2020 xxxxx
-double SFR_integral( double H0, double OM, double OL, double W, double Z );
-double SFRfun(double H0, double z) ;
-double SFRfun_MD14(double z, double *params);
-
-double dVdz_integral ( double H0, double OM, double OL, double W, 
-		       double Zmax, int wgtopt ) ;
-
-double dvdz_integral__ ( double *H0, double *OM, double *OL, double *W, 
-			 double *Zmax, int *wgtopt ) ;
-
-double dVdz ( double H0, double OM, double OL, double W, double Z ) ;
-double Hzinv_integral ( double H0, double OM, double OL, double W, 
-			double Zmin, double Zmax ) ;
-
-double Hainv_integral ( double H0, double OM, double OL, double W, 
-			double amin, double amax ) ;
-
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) ;
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) ;
-
-double zcmb_dLmag_invert(double H0, double OM, double OL, double W, double MU);
-
-double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
-			       char *coordSys, int OPT ) ;
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
-				 char *coordSys, int *OPT ) ;
-
-xxxxx end mark xxxxxxxxxx*/
+void  init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM);
+void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val);
+double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT);
 
 // SLALIB functions translated by D. Cinabro
 void slaEqgal ( double dr, double dd, double *dl, double *db );
@@ -863,7 +879,18 @@ int    get_1DINDEX(int ID, int NDIM, int *indx );
 void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) ;
+void set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
+
+void copy_sndata_global__(int *copyFlag, char *key,
+			  int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_head__(int *copyFlag, char *key,
+			int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_obs__(int *copyFlag, char *key,
+		       int *NVAL,char *stringVal,double *parVal);
+int  select_mjd_sndata__(double *MJD_WINDOW);
+
+void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
+
 
 // ------ sorting --------
 

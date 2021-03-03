@@ -291,9 +291,20 @@ void simlib_add_header(
 
   // make table header to that file is self-documented.
 
+  bool NEA_PSF_UNIT = ( INFO[6] < -900.0 );  // PSF[1]
+
   fprintf(FPLIB, "\n");
-  fprintf(FPLIB,"#                           CCD  CCD         PSF1 PSF2 PSF2/1                    \n");
-  fprintf(FPLIB,"#     MJD      IDEXPT  FLT GAIN NOISE SKYSIG (pixels)  RATIO  ZPTAVG ZPTERR  MAG \n");
+  if ( NEA_PSF_UNIT ) {
+    fprintf(FPLIB,"#                           CCD  CCD         "
+	    "PSF1 PSF2 PSF2/1                    \n");
+    fprintf(FPLIB,"#     MJD      IDEXPT  FLT GAIN NOISE SKYSIG "
+	    "(pixels)  RATIO  ZPTAVG ZPTERR  MAG \n");
+  }
+  else {
+    fprintf(FPLIB,"#                           CCD  CCD   \n" );
+    fprintf(FPLIB,"#     MJD      IDEXPT  FLT GAIN NOISE SKYSIG "
+	    "  NEA     ZPTAVG ZPTERR  MAG \n");
+  }
 
 
 
@@ -364,7 +375,7 @@ void simlib_add_mjd(
   *****/
 
 
-  char key[2];
+  char key[2], string_psf[80] ;
   char fnam[20] = " simlib_add_mjd" ;
   int istat;
   int ISNEWMJD, ISNEWID ;
@@ -417,13 +428,22 @@ void simlib_add_mjd(
   }
 
 
+  if ( PSF[1] < -900.0 ) 
+    { sprintf(string_psf,"%6.3f ", PSF[0]); } // write NEA
+  else
+    { sprintf(string_psf,"%4.2f %4.2f %5.3f ", 
+	      PSF[0], PSF[1], PSF[2] ); 
+    } // write PSF params
+
   fprintf(FPLIB,"%s: "
 	  "%9.4f %10.10s %s %5.2f %5.2f %6.2f "
-	  "%4.2f %4.2f %5.3f "
+	  "%s "
+	  // "%4.2f %4.2f %5.3f "
 	  "%6.2f %6.3f"
 	  , key
 	  , MJD, STRINGID, FILTNAME, CCDGAIN, CCDNOISE, SKYSIG
-	  , PSF[0], PSF[1], PSF[2]
+	  //	  , PSF[0], PSF[1], PSF[2]
+	  , string_psf
 	  , ZPT[0], ZPT[1]
 	  );
 
@@ -444,9 +464,10 @@ void simlib_add_mjd(
     istat = CHECK_SIMLIB_VAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
     istat = CHECK_SIMLIB_VAL("CCDNOISE",    CCDNOISE,0.0, 100. );
     istat = CHECK_SIMLIB_VAL("SKYSIG",      SKYSIG,  0.0,2000. );
-    istat = CHECK_SIMLIB_VAL("PSF(inner)",  PSF[0], 0.0, 50. );
-    istat = CHECK_SIMLIB_VAL("PSF(outer)",  PSF[1], 0.0, 50. );
-    istat = CHECK_SIMLIB_VAL("PSF-ratio",   PSF[2], 0.0, 10. );
+
+    istat = CHECK_SIMLIB_VAL("PSF(inner)",  PSF[0], 0.0, 550. );
+    //    istat = CHECK_SIMLIB_VAL("PSF(outer)",  PSF[1], 0.0, 50. );
+    //    istat = CHECK_SIMLIB_VAL("PSF-ratio",   PSF[2], 0.0, 10. );
     
     istat = CHECK_SIMLIB_VAL("ZeroPoint",       ZPT[0], 10.0, 40. );
     istat = CHECK_SIMLIB_VAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );

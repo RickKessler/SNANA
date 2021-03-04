@@ -264,7 +264,7 @@ int RD_SNFITSIO_INT(int isn, char *parName, int    *parList, int *ipar);
 int RD_SNFITSIO_SHT(int isn, char *parName, short int *parList, int *ipar);
 int RD_SNFITSIO_FLT(int isn, char *parName, float  *parList, int *ipar);
 int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar);
-void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
+int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);
 

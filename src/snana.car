@@ -11118,17 +11118,24 @@ c check if this is a fitres-formatted file with VARNAMES key
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
          if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
  10   CONTINUE
+
       if ( FOUND_VARNAMES ) THEN
          print*,'   Detected VARNAMES key --> KEY format'
          CALL RDFILE_SNCID_TABLE  ! read FITRES-formatted table
       else 
-         CALL RDFILE_SNCID_NOFMT  ! unformatted file with only CID names
+         CALL RDFILE_SNCID_NOFMT(NWD)  ! unformatted file with only CID names
       endif
 
 c --------------------------
       write(6,30) NCCID_LIST
  30   format(T8,'Stored ',I5,' CIDs to process' )
       CALL FLUSH(6)
+
+      IF( NCCID_LIST == 0 ) THEN
+         c1err = 'Found zero CIDs to store from file'
+         c2err = SNCID_LIST_FILE
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
 
       RETURN
       END    ! end RDFILE_SNCID
@@ -11212,19 +11219,23 @@ cc         print*,' xxx load ', isn, CCID(1:LEN)
 
 C =======================================
 +DECK,RDFILE_SNCID_NOFMT.
-      SUBROUTINE RDFILE_SNCID_NOFMT
+      SUBROUTINE RDFILE_SNCID_NOFMT(NWD)
 
 c Jan 2021
 c Read optional list of CIDs from unformatted text file.
 c &SNLCINP namelist variable SNCID_LIST_FILE.
+c Input NWD = total number of words in file.
 c
 c ---------------------
 
       IMPLICIT NONE
+
+      INTEGER NWD   !(I) number of words to read from STORE PARSE words
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      INTEGER   IWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
       CHARACTER 
      &   FNAM*20
      &  ,CCID*(MXCHAR_CCID)
@@ -11244,7 +11255,7 @@ C -------------------- BEGIN ----------------------
       CALL PRBANNER(FNAM)
 
 c define list of forbidden characters in CID name.
-      BADCHARS  = '%!#:$.  '
+      BADCHARS  = ',%!#:$.  '
       N_BADCHAR = INDEX(BADCHARS,' ') - 1
       N_BADNAME = 0
  

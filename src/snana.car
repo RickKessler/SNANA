@@ -18892,21 +18892,9 @@ C =================================
 c
 c Jun 8, 2009 R.Kessler
 c
-c Fill ISNLC_NFIELD with number of 
-c different fields used by this SN.
-c NFIELD = 1 for isolated field, but can be
-c > 1 for overlapping fields.
+c Fill ISNLC_NFIELD with number of different fields used by this SN.
+c NFIELD = 1 for isolated field, but can be > 1 for overlapping fields.
 c
-c
-c Jul 16, 2013:
-c   Fill SNLC_FIELDS_OVPLIST(NFIELD_OVP) 
-c   Error check that NFIELD <= MXFIELD_OVP
-c   Change logic to use local IDF_OVLIST array
-c
-c Aug 5, 2013: use FIELD-string instead of IDF integer so that
-c              it works even if user does not specify fields.
-c
-c Jan 6 2014: if FIELD string is blank, set it to NULL
 c
 c --------------------
 
@@ -18920,36 +18908,46 @@ c --------------------
      &  ,IDF, IDF_OVPLIST(MXFIELD_OVP)
      &  ,NFIELD, LENTMP, LENTOT, L2
 
-      CHARACTER FIELDTMP*(MXCHAR_FIELDNAME)
+      CHARACTER FIELDTMP*(MXCHAR_FIELDNAME), FNAM*12
       LOGICAL USE, FIRST
 
 C ------------- BEGIN ----------
 
       NEP    = ISNLC_NEPOCH_STORE
       NFIELD = 0
+      FNAM   = 'COUNTFIELDS'
 
       DO 101 ep = 1, NEP
           IDF   = ISNLC_IDFIELD(ep)
 
           USE = .FALSE.
-          DO 102 i = 1, NFIELD
+          DO 102 i = 1, MIN(NFIELD,MXFIELD_OVP)
             if ( SNLC_FIELD(ep).EQ.SNLC_FIELD_OVPLIST(i) ) USE=.TRUE.
  102      CONTINUE          
 
           if ( .NOT. USE ) THEN
              NFIELD = NFIELD + 1
-             SNLC_FIELD_OVPLIST(NFIELD) = SNLC_FIELD(ep)
-             IDF_OVPLIST(NFIELD) = IDF             
+             IF ( NFIELD .LE. MXFIELD_OVP ) then
+                SNLC_FIELD_OVPLIST(NFIELD) = SNLC_FIELD(ep)
+                IDF_OVPLIST(NFIELD) = IDF
+             ENDIF
           endif  ! end of USE
 101   CONTINUE  ! ep loop
 
 
-      IF ( NFIELD > MXFIELD_OVP ) THEN
+      IF ( NFIELD > MXFIELD_OVP ) THEN  ! .xyz
+         CALL PRINT_PREABORT_BANNER(FNAM(1:11)//char(0),20)
+
+         DO  i = 1, MIN(NFIELD,MXFIELD_OVP)
+            write(6,60) i, SNLC_FIELD_OVPLIST(i)
+60          format(T5,'FIELD_OVPLIST(',I2,') = ', A)
+         ENDDO
+
          write(c1err,61) NFIELD
          write(c2err,62) MXFIELD_OVP
  61      format('NFIELD_OVP = ', I3,' exceeds bound of')
  62      format('MXFIELD_OVP = ', I3 )
-         CALL MADABORT("COUNTFIELDS", c1err, c2err )
+         CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
 
       ISNLC_NFIELD_OVP = NFIELD

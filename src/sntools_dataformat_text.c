@@ -2175,6 +2175,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     SNTEXTIO_FILE_INFO.NOBS_READ++ ;
     ep = SNTEXTIO_FILE_INFO.NOBS_READ ; // ep starts at 1 for SNDATA struct
 
+    // require MJD in first column
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
     SNDATA.OBSFLAG_WRITE[ep] = true ; 

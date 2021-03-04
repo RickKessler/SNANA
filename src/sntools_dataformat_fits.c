@@ -4373,9 +4373,9 @@ void RD_SNFITSIO_SPECDATA(int irow,
   // For sim, also return true GENFLAM
 
   char fnam[] = "RD_SNFITSIO_SPECDATA";
-  if ( irow < 0 || irow > MXSPECTRA ) {
+  if ( irow < 0 ) {
     sprintf(c1err,"Invalid irow = %d", irow);
-    sprintf(c2err,"Valid irow must be 0 to %d", MXSPECTRA-1);
+    sprintf(c2err,"Valid irow must be > 0 ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   fitsfile *fp = fp_snfitsFile[ITYPE_SNFITSIO_SPEC] ;  

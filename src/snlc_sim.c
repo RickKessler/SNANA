@@ -7837,6 +7837,8 @@ void GENSPEC_DRIVER(void) {
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
   double MJD_LAST, MJD_DIF ;
+  double SNR_LAMMIN, SNR_LAMMAX;
+
   int    i, imjd ;
   char fnam[] = "GENSPEC_DRIVER" ;
 
@@ -7887,10 +7889,12 @@ void GENSPEC_DRIVER(void) {
 
     imjd = imjd_order[i];
 
-    if ( INPUTS.USE_SIMLIB_SPECTRA ) {
+    SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
+    SNR_LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
+    if ( INPUTS.USE_SIMLIB_SPECTRA && SNR_LAMMIN > 0.1 ) {
       // clip spectra wavelength range to match that for SNR range.
-      LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
-      LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
+      LAMMIN = SNR_LAMMIN ;
+      LAMMAX = SNR_LAMMAX ;
     }
     
     GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
@@ -8307,10 +8311,10 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int    IMJD_HOST  = 0 ;
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
 
-  int ilam, NOPT=0 ;
+  int ilam, ilam2, NOPT=0 ;
   double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
   double arg, MAGSHIFT, SCALE_FLAM_HOST ;
-  double FSUM_PEAK, FSUM_HOST, LAMMIN, LAMMAX, LAMBIN ;
+  double FSUM_PEAK, FSUM_HOST, LAMAVG, LAMMIN, LAMMAX, LAMBIN ;
   char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
 
   // ------------- BEGIN --------------
@@ -8336,12 +8340,37 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     for(ilam=0; ilam < NBLAM; ilam++ ) {
       FLAM_PEAK   = GENSPEC.GENFLUX_PEAK[ilam];
       FLAM_HOST   = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
+
+      if ( isnan(FLAM_HOST) ) {
+        print_preAbort_banner(fnam);
+        for(ilam2=ilam-2; ilam2 <= ilam+2; ilam2++ ) {
+          if ( ilam2 >= 0 && ilam2 < NBLAM ) {
+	    LAMAVG      = INPUTS_SPECTRO.LAMAVG_LIST[ilam2] ;
+            printf("\t FLAM_HOST[%4d] = %le  at LAM=%.1f\n",
+                   ilam2, GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam2], LAMAVG );
+          }
+        }
+        LAMAVG      = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+        sprintf(c1err,"FLAM_HOST=NaN at LAM=%.1f A (ilam=%d), IDSPEC=%d",
+                LAMAVG, ilam, HOSTSPEC.IDSPECDATA );
+        sprintf(c2err,"Check SPECDATA.");
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+      }
+
       LAMMIN      = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ; 
       LAMMAX      = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;    
       LAMBIN      = LAMMAX - LAMMIN ;
       FSUM_PEAK  += (FLAM_PEAK*LAMBIN);
       FSUM_HOST  += (FLAM_HOST*LAMBIN);
     }
+
+    if ( FSUM_HOST < 1.0E-40 || isnan(FSUM_HOST) ) {
+      sprintf(c1err,"Cannot implement HOSTSNFRAC=%f because",
+              HOSTSNFRAC );
+      sprintf(c2err,"FSUM_HOST = %le \n", FSUM_HOST );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+
     // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_PEAK)
     SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ;
     NOPT++ ;
@@ -25888,7 +25917,7 @@ void update_accept_counters(void) {
 
   // increment number of generated SN that are written
   NGENLC_WRITE++ ;
-  NGENSPEC_WRITE += GENSPEC.NMJD_TOT ; // Jan 14 2021
+  NGENSPEC_WRITE += GENSPEC.NMJD_PROC ; // Jan 14 2021
   
   // increment stats based on typing method
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_SPEC )    

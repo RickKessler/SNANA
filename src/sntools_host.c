@@ -1321,10 +1321,11 @@ void  read_specTable_HOSTLIB(void) {
   // --------------- BEGIN -----------------
 
   HOSTSPEC.ITABLE       = -9 ; // BASIS or DATA
-  HOSTSPEC.TABLENAME[0] = 0 ;
-  HOSTSPEC.NSPECBASIS   = 0 ;
-  HOSTSPEC.NSPECDATA    = 0 ;
-  HOSTSPEC.NBIN_WAVE    = 0 ;
+  HOSTSPEC.TABLENAME[0] =  0 ;
+  HOSTSPEC.NSPECBASIS   =  0 ;
+  HOSTSPEC.NSPECDATA    =  0 ;
+  HOSTSPEC.IDSPECDATA   = -9 ;
+  HOSTSPEC.NBIN_WAVE    =  0 ;
   HOSTSPEC.FLAM_SCALE        = 1.0 ;
   HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
 
@@ -1678,6 +1679,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[0];
     COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
     IDSPEC       = (int)COEFF ;
+    HOSTSPEC.IDSPECDATA = IDSPEC ;
     if  ( IDSPEC < 0 || IDSPEC > HOSTSPEC.NSPECDATA ) {
       sprintf(c1err,"Invalid IDSPEC = %d (ivar_HOSTLIB=%d)", 
 	      IDSPEC, ivar_HOSTLIB );
@@ -1718,6 +1720,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   // Here we to convert to SPECTROGRAPH bins in GENFLUX_LIST.
   // "ilam" is the index for SPECTROGRAPH, while ilam_basis is for specbasis.
 
+  double LAMMIN_SPEC = HOSTSPEC.WAVE_MIN[0];
+  double LAMMAX_SPEC = HOSTSPEC.WAVE_MIN[NBLAM_BASIS-1] ;
+
   for(ilam=0; ilam < NBLAM_SPECTRO; ilam++ ) { 
     if ( MWEBV > 1.0E-9 ) 
       { MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[0][ilam] ; }
@@ -1738,7 +1743,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     LAMREST_MAX = LAMOBS_MAX/z1 ;
 
     // allow rest-frame spectra to be truncated
-    if ( LAMREST_MIN < HOSTSPEC.WAVE_MIN[0] ) { continue; } // Feb 25 2021
+    if ( LAMREST_MIN < LAMMIN_SPEC ) { continue; } // Feb 25 2021
+    if ( LAMREST_MAX > LAMMAX_SPEC ) { continue; }
 
     if ( MWXT_FRAC < 1.0E-9 || MWXT_FRAC > 1.000001 ) {
       sprintf(c1err,"Invalid MWXT_FRAC = %f for LAMOBS=%.1f", 

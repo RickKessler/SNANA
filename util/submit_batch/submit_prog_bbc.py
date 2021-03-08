@@ -37,7 +37,7 @@
 # Dec 02 2020: add SUFFIX_COV to list of files to move
 # Dec 17 2020: update get_matrix_FITOPTxMUOPT to process multiple FITOPTxMUOPT
 # Jan 12 2021: write BBC_ACCEPT_SUMMARY for CIDs in all FITOPT*.FITRES files.
-#
+# Mar 08 2021: if INPDIR+: None, use argument of datafile=
 # - - - - - - - - - -
 
 
@@ -50,6 +50,8 @@ import pandas as pd
 
 from submit_params    import *
 from submit_prog_base import Program
+
+USE_INPDIR = True
 
 PREFIX_SALT2mu           = "SALT2mu"
 
@@ -191,8 +193,8 @@ class BBC(Program):
             self.log_assert(False,msgerr)
 
         CONFIG_INPDIR = CONFIG[key]
-        is_list       = isinstance(CONFIG_INPDIR, list)
         n_inpdir      = len(CONFIG_INPDIR)
+
         inpdir_list         = [ ]
         survey_list         = [ ]    # for each inpdir
         inpdir_list_orig    = [ ]  # before expandvar
@@ -206,6 +208,12 @@ class BBC(Program):
         config_inpdir_list, config_label_list = \
                     self.get_inpdir_list(CONFIG_INPDIR)
 
+        if config_inpdir_list is None:
+            global USE_INPDIR ; USE_INPDIR = False
+            self.bbc_prep_noINPDIR()
+            return
+
+        # - - - - - 
         for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
             path_expand        = os.path.expandvars(path_orig)
@@ -284,12 +292,28 @@ class BBC(Program):
         self.config_prep['survey_list']       = survey_list
         self.config_prep['label_inpdir_list'] = config_label_list
         self.config_prep['version_list2d']    = version_list2d    # vs. idir,iver
-        self.config_prep['n_version_list']    = n_version_list
+        self.config_prep['n_version_list']      = n_version_list
         self.config_prep['n_fitopt_inplist']    = n_fitopt_list
         self.config_prep['fitopt_table_list2d'] = fitopt_table_list2d
         # xxxself.config_prep['fitopt_num_inplist']     = fitopt_num_list
 
+        return;
+
         # end bbc_prep_version_list
+
+    def bbc_prep_noINPDIR(self):
+
+        logging.info(f"\n\t *** WARNING: INPDIR ignore --> " \
+                     f"use datafile argument *** ")
+        n_inpdir = 1
+        self.config_prep['n_inpdir']            = n_inpdir
+        self.config_prep['inpdir_list']         = None
+        self.config_prep['survey_list']         = [ 'UNKNOWN' ]
+        self.config_prep['version_list2d']      = [] * n_inpdir
+        self.config_prep['fitopt_table_list2d'] = [] * n_inpdir
+        self.config_prep['fitopt_num_outlist_map'] = []
+        return;
+
 
     def get_inpdir_list(self,CONFIG_INPDIR):
 
@@ -308,6 +332,11 @@ class BBC(Program):
         is_list     = isinstance(CONFIG_INPDIR, list)
         n_inpdir    = len(CONFIG_INPDIR)
 
+        # Mar 8 2021: check option to ignore INPDIR+ and use datafile= arg
+        if CONFIG_INPDIR == 'None' or CONFIG_INPDIR == 'Ignore' :
+            return None, None
+            
+        # - - - -
         if is_list :
             inpdir_list = CONFIG_INPDIR
             label_list  = [ None ] * n_inpdir
@@ -329,6 +358,11 @@ class BBC(Program):
         # are in same order in each INPDIR because some INPDIRs may
         # have extra test versions that are not relevant.
         # Beware, nasty logic !
+
+        if not USE_INPDIR : 
+            self.config_prep['n_version_out']      = 1
+            self.config_prep['version_out_list']   = [ 'datafile_arg' ]
+            return 
 
         CONFIG           = self.config_yaml['CONFIG']
         n_inpdir         = self.config_prep['n_inpdir']
@@ -527,6 +561,11 @@ class BBC(Program):
         #  2) use FITOPT_MAP (likely created by Pippin)
         #
 
+        if not USE_INPDIR : 
+            self.config_prep['n_fitopt']            = 1
+            self.config_prep['fitopt_num_outlist']  = [ 'FITOPT000' ]
+            return 
+
         IS_FITOPT_MAP = BLOCKNAME_FITOPT_MAP in self.config_yaml
         n_inpdir            = self.config_prep['n_inpdir']
         n_fitopt_inplist    = self.config_prep['n_fitopt_inplist']  
@@ -534,7 +573,7 @@ class BBC(Program):
         survey_inplist      = self.config_prep['survey_list'] 
 
         fitopt_num_outlist     = []
-        fitopt_num_outlist_map = [] #  [] * n_inpdir ]
+        fitopt_num_outlist_map = []
         msgerr = []
 
         if IS_FITOPT_MAP :
@@ -807,7 +846,7 @@ class BBC(Program):
         # For NSPLITRAN, split outdir into outdir per splitran.
 
         output_dir       = self.config_prep['output_dir']  
-        version_out_list =  self.config_prep['version_out_list']
+        version_out_list = self.config_prep['version_out_list']
         n_splitran       = self.config_prep['n_splitran']
         USE_SPLITRAN     = n_splitran > 1
 
@@ -828,6 +867,8 @@ class BBC(Program):
         # FITRES file includes multiple surveys
         # For NSPLITRAN, copy only to first split-dir to avoid
         # duplicate copies of input FITRES files.
+
+        if not USE_INPDIR: return
 
         output_dir         = self.config_prep['output_dir']  
         n_inpdir           = self.config_prep['n_inpdir']  
@@ -1076,9 +1117,6 @@ class BBC(Program):
         self.config_prep['n_done_tot']  = n_job_tot
         self.config_prep['use_wfit']    = use_wfit
 
-        # open CMD file for this icpu  
-        # xxx mark delete f = open(COMMAND_FILE, 'a')
-
         n_job_local = 0
 
         for iver,ifit,imu,isplitran in \
@@ -1170,8 +1208,9 @@ class BBC(Program):
 
         # get data file from ../version, or for splitran,
         # get data file from first splitran directory
-        version_datafile = version + self.suffix_splitran(n_splitran,1)
-        arg_list.append(f"  datafile=../{version_datafile}/{input_ff}")
+        if USE_INPDIR:
+            version_datafile = version + self.suffix_splitran(n_splitran,1)
+            arg_list.append(f"  datafile=../{version_datafile}/{input_ff}")
 
         arg_list.append(f"  write_yaml=1")
 
@@ -1277,9 +1316,10 @@ class BBC(Program):
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
         f.write(f"{KEY_FITOPTxMUOPT}:   {FITOPTxMUOPT} \n")
 
-        f.write("\n")
-        f.write("INPDIR_LIST:\n")
-        for inpdir in inpdir_list:  f.write(f"  - {inpdir}\n")
+        if USE_INPDIR :
+            f.write("\n")
+            f.write("INPDIR_LIST:\n")
+            for inpdir in inpdir_list:  f.write(f"  - {inpdir}\n")
 
         f.write("\n")
         f.write("SURVEY_LIST:\n")
@@ -1328,6 +1368,12 @@ class BBC(Program):
         f.write("\n")
         f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
                 f"'user_label'   'user_args'\n")
+
+        if not USE_INPDIR : 
+            item_list = [ 'GLOBAL', 'FITOPT000', None, None ]
+            f.write(f"  - {item_list}\n")
+            return
+
         ifit_out = 0
         for fitopt_num_out in fitopt_num_list:            
 

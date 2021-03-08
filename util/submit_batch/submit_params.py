@@ -397,6 +397,9 @@ HELP_CONFIG_BBC = f"""
   - dirSurvey3  # LCFIT OUTDIR for Survey3
     etc ...
 
+       or
+  INPDIR+: None  # flag to ignore INPDIR+; instead, use datafile= argument
+
   OUTDIR:   [outdir]   # all output goes here
 
   # if there are multiple versions per INPDIR, method is to "IGNORE"

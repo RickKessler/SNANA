@@ -26684,7 +26684,9 @@ void DASHBOARD_DRIVER(void) {
 
   print_banner(fnam);
 
-  printf("GENMODEL:        %s \n", INPUTS.GENMODEL);
+
+  ENVrestore(INPUTS.GENMODEL,fileName_orig);
+  printf("GENMODEL:        %s \n", fileName_orig);
 
   // ------- SIMLIB -------
 
@@ -26705,16 +26707,28 @@ void DASHBOARD_DRIVER(void) {
 	   HOSTLIB.NGAL_READ, HOSTLIB.ZMIN, HOSTLIB.ZMAX );
   }
 
-  printf("HOSTLIB_WGTMAP_FILE:    %s\n", INPUTS.HOSTLIB_WGTMAP_FILE);
-  printf("HOSTLIB_ZPHOTEFF_FILE:  %s\n", INPUTS.HOSTLIB_ZPHOTEFF_FILE);
+  ENVrestore(INPUTS.HOSTLIB_WGTMAP_FILE,fileName_orig);
+  printf("HOSTLIB_WGTMAP_FILE:    %s\n", fileName_orig);
+
+  ENVrestore(INPUTS.HOSTLIB_ZPHOTEFF_FILE,fileName_orig);
+  printf("HOSTLIB_ZPHOTEFF_FILE:  %s\n", fileName_orig);
+
   printf("HOSTLIB_SPECBASIS_FILE: %s\n", INPUTS.HOSTLIB_SPECBASIS_FILE);
   printf("HOSTLIB_SPECDATA_FILE:  %s\n", INPUTS.HOSTLIB_SPECDATA_FILE);
   printf("WRONGHOST_FILE:         %s\n", INPUTS.WRONGHOST_FILE);
   printf("FLUXERRMODEL_FILE:      %s\n", INPUTS.FLUXERRMODEL_FILE);
-  printf("NONLINEARITY_FILE:      %s\n", INPUTS.NONLINEARITY_FILE );
-  printf("ZVARIATION_FILE:        %s\n", INPUT_ZVARIATION_FILE );
-  printf("WEAKLENS_PROBMAP_FILE:  %s\n", INPUTS.WEAKLENS_PROBMAP_FILE);
-  printf("STRONGLENS_FILE:        %s\n", INPUTS.STRONGLENS_FILE);
+
+  ENVrestore(INPUTS.NONLINEARITY_FILE,fileName_orig);
+  printf("NONLINEARITY_FILE:      %s\n", fileName_orig );
+
+  ENVrestore(INPUT_ZVARIATION_FILE,fileName_orig);
+  printf("ZVARIATION_FILE:        %s\n", fileName_orig );
+
+  ENVrestore(INPUTS.WEAKLENS_PROBMAP_FILE,fileName_orig);
+  printf("WEAKLENS_PROBMAP_FILE:  %s\n", fileName_orig);
+
+  ENVrestore(INPUTS.STRONGLENS_FILE,fileName_orig);
+  printf("STRONGLENS_FILE:        %s\n", fileName_orig);
 
   ENVrestore(INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE,fileName_orig);
   printf("SEARCHEFF_PIPELINE_LOGIC_FILE: %s\n", fileName_orig );

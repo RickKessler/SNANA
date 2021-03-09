@@ -587,7 +587,6 @@ void get_user_input(void) {
   // check for command line overrides
   // --------------------------------------------
 
-
   sim_input_override(); 
 
   // check that all command-line args were used
@@ -1421,6 +1420,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
+  }
+
+  else if ( keyMatchSim(1, "DASHBOARD", WORDS[0], keySource) ) {
+    INPUTS.DASHBOARD_DUMPFLAG = true ; // restore, Mar 9 2021
+    N++ ; // no argument, but increment word count to avoid command-line abort
   }
 
   else if ( keyMatchSim(1, "OPT_DEVEL_WRITE_TEXT", WORDS[0], keySource) ) {
@@ -4621,7 +4625,7 @@ void sim_input_override(void) {
 	   fnam, iwd, iwd+NWD_READ, NWD_READ );
     */
 
-    // set USE flag to mark valud command-line inputs
+    // set USE flag to mark valid command-line inputs
     if ( NWD_READ > 0 ) {
       for(iwd_use = iwd; iwd_use < (iwd+NWD_READ+1); iwd_use++ )  { 
 	USE_ARGV_LIST[iwd_use] = 1; 

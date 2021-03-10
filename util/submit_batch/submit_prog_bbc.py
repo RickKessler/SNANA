@@ -184,6 +184,12 @@ class BBC(Program):
         input_file      = self.config_yaml['args'].input_file 
         IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
+        
+        key = 'STRING_VERSION_IGNORE'
+        if key in CONFIG :
+            string_version_ignore = CONFIG[key].split()
+        else :
+            string_version_ignore = []
 
         # - - - -
         key = 'INPDIR+'
@@ -251,8 +257,10 @@ class BBC(Program):
             version_list = []
             for row in row_list :
                 version = row[COLNUM_FIT_MERGE_VERSION] 
-                if version not in version_list :
-                    version_list.append(version)
+                ignore  = any(s in version for s in string_version_ignore)
+                if ignore: continue
+                if version in version_list : continue
+                version_list.append(version)
 
             survey = MERGE_INFO['SURVEY']
             survey_list.append(survey)
@@ -380,12 +388,6 @@ class BBC(Program):
         else:
             stringmatch_ignore = [ 'IGNORE' ]
 
-        key = 'STRING_VERSION_IGNORE'
-        if key in CONFIG :
-            string_version_ignore = CONFIG[key].split()
-        else :
-            string_version_ignore = []
-
         # - - - - 
         if stringmatch_ignore[0] == 'IGNORE' :
             self.bbc_prep_1version_match()
@@ -409,10 +411,6 @@ class BBC(Program):
             version_orig_list = []
             for iver in range(0,n_version) :
                 version_orig = version_list2d[idir][iver]
-
-                # check explicit string(s) in version to ignore
-                ignore = any(s in version_orig for s in string_version_ignore)
-                if ignore: continue
 
                 version_out  = version_orig
                 for str_ignore in stringmatch_ignore :
@@ -509,6 +507,15 @@ class BBC(Program):
                             [SUBDIR_OUTPUT_ONE_VERSION]
             return
 
+        # Mar 10 2021: check case with only one INPDIR (with multiple versions)
+        if n_inpdir == 1 :        
+            logging.info(f"  Auto-match success: only one INPDIR")
+            self.config_prep['n_version_out']            = n_version_list[0]
+            self.config_prep['version_orig_sort_list2d'] = version_list2d
+            self.config_prep['version_out_sort_list2d']  = version_list2d
+            self.config_prep['version_out_list']         = version_list2d[0]
+            return
+            
         # - - - - - - - - 
         # Tricky case: there are multiple verions, so check for RANSEED_CHANGE 
         # sim that has suffix index per version. 

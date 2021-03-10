@@ -1,8 +1,8 @@
-/***********************************************************************
-  Build Your Own SED (BYOSED) -- Written by J. Pierel
-  Paper - https://ui.adsabs.harvard.edu/abs/2020arXiv201207811P/abstract
-  Docs - https://byosed.readthedocs.io/en/latest/
-  Made Public Jan 2021
+#  ***********************************************************************
+#  Build Your Own SED (BYOSED) -- Written by J. Pierel
+#  Paper - https://ui.adsabs.harvard.edu/abs/2020arXiv201207811P/abstract
+#  Docs - https://byosed.readthedocs.io/en/latest/
+#  Made Public Jan 2021
   
 
 

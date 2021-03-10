@@ -4880,16 +4880,21 @@ c ----------------------------------------------
 c ----------- SIM QUANTITIES BELOW -------------
 c ----------------------------------------------
 
-      if ( .NOT. LSIM_SNANA ) GOTO 800
+      if ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) ) GOTO 800
+
+c read SIM_MAGOBS for SNANA sim or FAKES ...
 
       CALL FETCH_SNDATA_WRAPPER("SIM_MAGOBS",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SIM_EPMAGOBS(o)=SNGL(DARRAY(o)); ENDDO
 
+c the rest is for SNANA sim only ...
+
+      if ( .NOT. LSIM_SNANA ) GOTO 800
+
       CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
-
 
       LENTMP = INDEX(SIMNAME_SNRMON,' ') - 1
       IF ( LENTMP > 2 ) THEN
@@ -11118,17 +11123,24 @@ c check if this is a fitres-formatted file with VARNAMES key
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
          if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
  10   CONTINUE
+
       if ( FOUND_VARNAMES ) THEN
          print*,'   Detected VARNAMES key --> KEY format'
          CALL RDFILE_SNCID_TABLE  ! read FITRES-formatted table
       else 
-         CALL RDFILE_SNCID_NOFMT  ! unformatted file with only CID names
+         CALL RDFILE_SNCID_NOFMT(NWD)  ! unformatted file with only CID names
       endif
 
 c --------------------------
       write(6,30) NCCID_LIST
  30   format(T8,'Stored ',I5,' CIDs to process' )
       CALL FLUSH(6)
+
+      IF( NCCID_LIST == 0 ) THEN
+         c1err = 'Found zero CIDs to store from file'
+         c2err = SNCID_LIST_FILE
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
 
       RETURN
       END    ! end RDFILE_SNCID
@@ -11212,19 +11224,23 @@ cc         print*,' xxx load ', isn, CCID(1:LEN)
 
 C =======================================
 +DECK,RDFILE_SNCID_NOFMT.
-      SUBROUTINE RDFILE_SNCID_NOFMT
+      SUBROUTINE RDFILE_SNCID_NOFMT(NWD)
 
 c Jan 2021
 c Read optional list of CIDs from unformatted text file.
 c &SNLCINP namelist variable SNCID_LIST_FILE.
+c Input NWD = total number of words in file.
 c
 c ---------------------
 
       IMPLICIT NONE
+
+      INTEGER NWD   !(I) number of words to read from STORE PARSE words
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      INTEGER   IWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
       CHARACTER 
      &   FNAM*20
      &  ,CCID*(MXCHAR_CCID)
@@ -11244,7 +11260,7 @@ C -------------------- BEGIN ----------------------
       CALL PRBANNER(FNAM)
 
 c define list of forbidden characters in CID name.
-      BADCHARS  = '%!#:$.  '
+      BADCHARS  = ',%!#:$.  '
       N_BADCHAR = INDEX(BADCHARS,' ') - 1
       N_BADNAME = 0
  
@@ -18892,21 +18908,9 @@ C =================================
 c
 c Jun 8, 2009 R.Kessler
 c
-c Fill ISNLC_NFIELD with number of 
-c different fields used by this SN.
-c NFIELD = 1 for isolated field, but can be
-c > 1 for overlapping fields.
+c Fill ISNLC_NFIELD with number of different fields used by this SN.
+c NFIELD = 1 for isolated field, but can be > 1 for overlapping fields.
 c
-c
-c Jul 16, 2013:
-c   Fill SNLC_FIELDS_OVPLIST(NFIELD_OVP) 
-c   Error check that NFIELD <= MXFIELD_OVP
-c   Change logic to use local IDF_OVLIST array
-c
-c Aug 5, 2013: use FIELD-string instead of IDF integer so that
-c              it works even if user does not specify fields.
-c
-c Jan 6 2014: if FIELD string is blank, set it to NULL
 c
 c --------------------
 
@@ -18920,36 +18924,46 @@ c --------------------
      &  ,IDF, IDF_OVPLIST(MXFIELD_OVP)
      &  ,NFIELD, LENTMP, LENTOT, L2
 
-      CHARACTER FIELDTMP*(MXCHAR_FIELDNAME)
+      CHARACTER FIELDTMP*(MXCHAR_FIELDNAME), FNAM*12
       LOGICAL USE, FIRST
 
 C ------------- BEGIN ----------
 
       NEP    = ISNLC_NEPOCH_STORE
       NFIELD = 0
+      FNAM   = 'COUNTFIELDS'
 
       DO 101 ep = 1, NEP
           IDF   = ISNLC_IDFIELD(ep)
 
           USE = .FALSE.
-          DO 102 i = 1, NFIELD
+          DO 102 i = 1, MIN(NFIELD,MXFIELD_OVP)
             if ( SNLC_FIELD(ep).EQ.SNLC_FIELD_OVPLIST(i) ) USE=.TRUE.
  102      CONTINUE          
 
           if ( .NOT. USE ) THEN
              NFIELD = NFIELD + 1
-             SNLC_FIELD_OVPLIST(NFIELD) = SNLC_FIELD(ep)
-             IDF_OVPLIST(NFIELD) = IDF             
+             IF ( NFIELD .LE. MXFIELD_OVP ) then
+                SNLC_FIELD_OVPLIST(NFIELD) = SNLC_FIELD(ep)
+                IDF_OVPLIST(NFIELD) = IDF
+             ENDIF
           endif  ! end of USE
 101   CONTINUE  ! ep loop
 
 
-      IF ( NFIELD > MXFIELD_OVP ) THEN
+      IF ( NFIELD > MXFIELD_OVP ) THEN  ! .xyz
+         CALL PRINT_PREABORT_BANNER(FNAM(1:11)//char(0),20)
+
+         DO  i = 1, MIN(NFIELD,MXFIELD_OVP)
+            write(6,60) i, SNLC_FIELD_OVPLIST(i)
+60          format(T5,'FIELD_OVPLIST(',I2,') = ', A)
+         ENDDO
+
          write(c1err,61) NFIELD
          write(c2err,62) MXFIELD_OVP
  61      format('NFIELD_OVP = ', I3,' exceeds bound of')
  62      format('MXFIELD_OVP = ', I3 )
-         CALL MADABORT("COUNTFIELDS", c1err, c2err )
+         CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
 
       ISNLC_NFIELD_OVP = NFIELD

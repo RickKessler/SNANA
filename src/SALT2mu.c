@@ -15959,7 +15959,7 @@ void parse_chi2max(char *item) {
   //  to all other events (e.g., SDSS, low-z that are not CSP, etc...).
   //
   // Jan 2021: check for FITWGT0 option (not a survey name)
-  //
+  // Mar 4 2021: few bug fixes
 
   int  IFLAG_GLOBAL = 4;
   int  IFLAG_SURVEY = 8;
@@ -15970,6 +15970,8 @@ void parse_chi2max(char *item) {
   char string[80], stringOpt[80], **survey_list, *survey ;  
   char fnam[] = "parse_chi2max" ;
   bool SET_FITWGT0, NO_STRINGOPT;
+  bool SURVEY_CUTS = ( (INPUTS.iflag_chi2max & IFLAG_SURVEY ) > 0 );
+  bool GLOBAL_CUTS = ( (INPUTS.iflag_chi2max & IFLAG_GLOBAL ) > 0 );
   int  LDMP = 0 ;
 
   // -------------- BEGIN -------------
@@ -15988,37 +15990,39 @@ void parse_chi2max(char *item) {
   NO_STRINGOPT = ( strlen(stringOpt) == 0 ) ;
   SET_FITWGT0  = ( strcmp(stringOpt,STRING_FITWGT0) == 0 );
 
+  if ( SET_FITWGT0 ) 
+    { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_FITWGT0 ; }
+  else
+    { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_APPLY ; }
+
   // check trivial case with no argument -> global cut
   if ( NO_STRINGOPT || SET_FITWGT0 ) {
     INPUTS.iflag_chi2max |= IFLAG_GLOBAL ; 
-    if ( SET_FITWGT0 ) 
-      { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_FITWGT0 ; }
-    else
-      { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_APPLY ; }
-
     INPUTS.chi2max = chi2max ;
-
-    if ( (INPUTS.iflag_chi2max & IFLAG_SURVEY) > 0 ) { 
+    if ( SURVEY_CUTS  ) { 
       sprintf(c1err,"Cannot define chi2max after chi2max(SURVEYLIST)");
       sprintf(c2err,"Remove chi2max or define it BEFORE chi2max(SURVEY)");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-  
     return ;
   }
 
   // - - - - -
 
-
-  if ( (INPUTS.iflag_chi2max & IFLAG_SURVEY ) == 0 ) {
+  // allocate SURVEY-dependent chi2max and init all surveys to 
+  // global INPUTS.chi2max value
+  if ( !SURVEY_CUTS ) {
     INPUTS.iflag_chi2max |= IFLAG_SURVEY ;
     int MEMD = MXIDSURVEY * sizeof(double) ;
     INPUTS.chi2max_list = (double*)malloc(MEMD);
     for(i=0; i < MXIDSURVEY; i++ ) 
       { INPUTS.chi2max_list[i] = INPUTS.chi2max; }
+
+    // remove global cut flag if we get here (Mar 4 2021)
+    if ( GLOBAL_CUTS ) { INPUTS.iflag_chi2max -= IFLAG_GLOBAL; }
   }
 
-  // parse comma-sep list of survey names
+  // parse comma-sep list of survey names;
   parse_commaSepList("SURVEYLIST(chi2max)", stringOpt, 
 		     MXIDSURVEY, MXCHAR_SAMPLE, &n_survey, &survey_list);
 

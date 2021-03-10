@@ -525,7 +525,7 @@ struct {
   char TABLENAME[12] ;   // "BASIS" or "DATA"
 
   int  NSPECBASIS ; 
-  int  NSPECDATA  ; 
+  int  NSPECDATA, IDSPECDATA  ; 
 
   int  NBIN_WAVE;  // number of wavelength bins
   int  ICOL_WAVE;  // table column with wavelength

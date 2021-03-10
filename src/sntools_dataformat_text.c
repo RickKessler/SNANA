@@ -1190,7 +1190,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   IVAROBS_SNTEXTIO.MJD = IVAROBS_SNTEXTIO.BAND = IVAROBS_SNTEXTIO.FIELD = -9 ;
   IVAROBS_SNTEXTIO.FLUXCAL = IVAROBS_SNTEXTIO.FLUXCALERR = -9 ;
   IVAROBS_SNTEXTIO.ZPFLUX = IVAROBS_SNTEXTIO.ZPERR = -9;
-  IVAROBS_SNTEXTIO.PSF = IVAROBS_SNTEXTIO.NEA = -9;
+  IVAROBS_SNTEXTIO.PSF_SIG = IVAROBS_SNTEXTIO.NEA = -9;
+  IVAROBS_SNTEXTIO.PSF_FWHM = -9;
   IVAROBS_SNTEXTIO.SKYSIG = IVAROBS_SNTEXTIO.SKYSIG_T = -9;
   IVAROBS_SNTEXTIO.GAIN = -9;
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
@@ -1239,7 +1240,10 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
 
     else if ( strcmp(varName,"PSF") == 0 ) 
-      { IVAROBS_SNTEXTIO.PSF = ivar; }   
+      { IVAROBS_SNTEXTIO.PSF_SIG = ivar; }    // sigma, pixels
+
+    else if ( strcmp(varName,"FWHM") == 0 ) 
+      { IVAROBS_SNTEXTIO.PSF_FWHM = ivar; }    // arcSec
 
     else if ( strcmp(varName,"NEA") == 0 )  
       { IVAROBS_SNTEXTIO.NEA = ivar; }   
@@ -2146,8 +2150,9 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
   int  iwd       = *iwd_file ;
   int  ep, ivar, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
+  float PSF_FWHM;
   char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
-  char STRING[40];
+  char STRING[40];  
   char fnam[] = "parse_SNTEXTIO_OBS";
 
   // ------------ BEGIN -----------
@@ -2175,6 +2180,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     SNTEXTIO_FILE_INFO.NOBS_READ++ ;
     ep = SNTEXTIO_FILE_INFO.NOBS_READ ; // ep starts at 1 for SNDATA struct
 
+    // require MJD in first column
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
     SNDATA.OBSFLAG_WRITE[ep] = true ; 
@@ -2211,10 +2217,17 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
       sscanf(str, "%f", &SNDATA.ZEROPT_ERR[ep] );
     }
 
-    // read PSF-sigma ...
-    if ( IVAROBS_SNTEXTIO.PSF >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF] ;
+    // read PSF-sigma(pixels) ...
+    if ( IVAROBS_SNTEXTIO.PSF_SIG >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_SIG] ;
       sscanf(str, "%f", &SNDATA.PSF_SIG1[ep]);
+    }
+    // or read PSF-FWHM(arcsec) ...
+    if ( IVAROBS_SNTEXTIO.PSF_FWHM >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_FWHM] ;
+      sscanf(str, "%f", &PSF_FWHM) ;
+      // FWHM(asec)->sigma(pix)
+      SNDATA.PSF_SIG1[ep] = PSF_FWHM / (2.355*SNDATA.PIXSIZE); 
     }
     // or read Noise Equiv Area
     if ( IVAROBS_SNTEXTIO.NEA >= 0 ) {

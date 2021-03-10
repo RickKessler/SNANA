@@ -1871,13 +1871,6 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   sprintf(BANNER,"fits_write_col for %s-param: %s", 
 	  snfitsType[itype], parName );
 
-  /* xxxxxxxx mark delete .xyz xxxxxxxxxx
-  if ( strcmp(ptrForm,"1E") == 0 ) {
-    sprintf(BANNER,"fits_write_col for %s-param: %s = %f", 
-	    snfitsType[itype], parName, WR_SNFITSIO_TABLEVAL[itype].value_1E);
-  }
-  xxxxxxxxx end mark xxxxxxxxxxxx */
-
   snfitsio_errorCheck(BANNER, istat);
 
   return ;
@@ -2958,8 +2951,13 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2x0", &SNDATA.SIM_SALT2x0 ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2alpha", &SNDATA.SIM_SALT2alpha ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2beta", &SNDATA.SIM_SALT2beta ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_SALT2gammaDM", 
 				 &SNDATA.SIM_SALT2gammaDM ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3045,7 +3043,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
   } // end LRD_HEAD
 
-  // .xyz
   // - - - - - - - -
 
   if ( LRD_PHOT ) {
@@ -3129,10 +3126,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
   if ( LRD_SPEC &&  SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
     // load GENSPEC struct in sntools_spectrograph.h (Feb 19 2021)
-    int irow, ROWMIN, ROWMAX, NBLAM, ispec=0;
+    int NSPEC, irow, ROWMIN, ROWMAX, NBLAM, ispec=0;
 
-    RD_SNFITSIO_SPECROWS(SNDATA.CCID, &ROWMIN, &ROWMAX) ;
+    NSPEC = RD_SNFITSIO_SPECROWS(SNDATA.CCID, &ROWMIN, &ROWMAX) ;
     GENSPEC.NMJD_PROC = 0 ;
+    if ( NSPEC <= 0 ) { return(SUCCESS); }
 
     for(irow = ROWMIN; irow <= ROWMAX; irow++ ) {
 
@@ -3152,8 +3150,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			   ,GENSPEC.FLAMERR_LIST[ispec] 
 			   ,GENSPEC.GENFLAM_LIST[ispec]   ) ;
       ispec++ ;
-
-
     } // end irow loop over rows
 
   } // end LRD_SPEC
@@ -4320,7 +4316,7 @@ void  rd_snfitsio_specFile( int ifile ) {
 
 
 // ====================================
-void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  { 
+int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  { 
 
   // Apr 2019
   // read spectra-HEADER table rows for this SNID, 
@@ -4331,11 +4327,12 @@ void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  {
   // Outputs
   //   *ROWMIN, *ROWMAX : min and max rows for spectra
   //
+  // Function returns number of spectra for this SNID (Mar 4 2021)
   
   int NROW = RDSPEC_SNFITSIO_HEADER.NROW; 
-  int irow;
+  int irow, NSPEC = 0 ;
   char *SNID_TMP;
-  //  char fnam[] = "RD_SNFITSIO_NSPECTRUM" ;
+  //  char fnam[] = "RD_SNFITSIO_SPECROWS" ;
 
   // ------------ BEGIN -------------
 
@@ -4344,17 +4341,19 @@ void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  {
   for(irow=0; irow < NROW; irow++ ) {
     SNID_TMP = RDSPEC_SNFITSIO_HEADER.SNID[irow];
     if ( strcmp(SNID_TMP,SNID) == 0 ) {
+      NSPEC++ ;
       if ( *ROWMIN < 0 ) { *ROWMIN = irow; }
       *ROWMAX = irow;
     }
   }
 
+  
   //  printf(" xxx %s: SNID=%s  ROW-range = %d to %d \n",
   //	 fnam, SNID, *ROWMIN, *ROWMAX );
   
-  return ;
+  return(NSPEC) ;
   
-} // end RD_SNFITSIO_NSPECTRUM
+} // end RD_SNFITSIO_SPECROWS
 
 void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX)  { 
   RD_SNFITSIO_SPECROWS(SNID,ROWMIN,ROWMAX);
@@ -4373,6 +4372,12 @@ void RD_SNFITSIO_SPECDATA(int irow,
   //
   // For sim, also return true GENFLAM
 
+  char fnam[] = "RD_SNFITSIO_SPECDATA";
+  if ( irow < 0 ) {
+    sprintf(c1err,"Invalid irow = %d", irow);
+    sprintf(c2err,"Valid irow must be > 0 ");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
   fitsfile *fp = fp_snfitsFile[ITYPE_SNFITSIO_SPEC] ;  
   int NLAM     = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
   int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
@@ -4385,7 +4390,6 @@ void RD_SNFITSIO_SPECDATA(int irow,
   long FIRSTELEM = 1 ;
 
   int  LDMP = 0 ;
-  char fnam[] = "RD_SNFITSIO_SPECDATA";
 
   // --------------- BEGIN --------------
 

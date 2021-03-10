@@ -4880,16 +4880,21 @@ c ----------------------------------------------
 c ----------- SIM QUANTITIES BELOW -------------
 c ----------------------------------------------
 
-      if ( .NOT. LSIM_SNANA ) GOTO 800
+      if ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) ) GOTO 800
+
+c read SIM_MAGOBS for SNANA sim or FAKES ...
 
       CALL FETCH_SNDATA_WRAPPER("SIM_MAGOBS",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SIM_EPMAGOBS(o)=SNGL(DARRAY(o)); ENDDO
 
+c the rest is for SNANA sim only ...
+
+      if ( .NOT. LSIM_SNANA ) GOTO 800
+
       CALL FETCH_SNDATA_WRAPPER("SIM_FLUXCAL_HOSTERR",  
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SIM_EPFLUXCAL_HOSTERR(o)=SNGL(DARRAY(o)); ENDDO
-
 
       LENTMP = INDEX(SIMNAME_SNRMON,' ') - 1
       IF ( LENTMP > 2 ) THEN

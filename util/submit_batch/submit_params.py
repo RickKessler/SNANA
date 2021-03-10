@@ -409,6 +409,8 @@ HELP_CONFIG_BBC = f"""
   # there is no need for this string-match key.
   STRINGMATCH_IGNORE:   _DES  _LOWZ 
     
+  STRING_VERSION_IGNORE:  ABC DEF  # ignore versions with these strings
+
   # BBC variations (for each VERSION and each FITOPT). Note that the
   # NOREJECT label excludes this MUOPT from defining reject.list.
   MUOPT: 

@@ -374,10 +374,17 @@ class BBC(Program):
         
         # if STRINGMATCH is not defined, then there must be
         # 1 and only one version in each inpdir ... if not, abort.
+        key    = 'STRINGMATCH_IGNORE'
         if key in CONFIG :
             stringmatch_ignore = CONFIG[key].split()
         else:
             stringmatch_ignore = [ 'IGNORE' ]
+
+        key = 'STRING_VERSION_IGNORE'
+        if key in CONFIG :
+            string_version_ignore = CONFIG[key].split()
+        else :
+            string_version_ignore = []
 
         # - - - - 
         if stringmatch_ignore[0] == 'IGNORE' :
@@ -402,6 +409,11 @@ class BBC(Program):
             version_orig_list = []
             for iver in range(0,n_version) :
                 version_orig = version_list2d[idir][iver]
+
+                # check explicit string(s) in version to ignore
+                ignore = any(s in version_orig for s in string_version_ignore)
+                if ignore: continue
+
                 version_out  = version_orig
                 for str_ignore in stringmatch_ignore :
                     version_out = version_out.replace(str_ignore,"")

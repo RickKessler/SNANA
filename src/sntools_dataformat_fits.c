@@ -2742,6 +2742,17 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNDATA.REDSHIFT_FINAL_ERR, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    // Mar 11 2021: if no REDSHIFT_FINAL, then check for REDSHIFT_CMB column
+    if ( NRD == 0 ) {
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_CMB",     
+				   &SNDATA.REDSHIFT_FINAL,
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_CMB_ERR",
+				   &SNDATA.REDSHIFT_FINAL_ERR,
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+
     if ( SNFITSIO_DATAFLAG ) {
       j++ ;  NRD = RD_SNFITSIO_INT(isn, "REDSHIFT_QUALITYFLAG", 
 				   &SNDATA.REDSHIFT_QUALITYFLAG, 

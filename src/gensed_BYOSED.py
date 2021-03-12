@@ -80,7 +80,7 @@ class gensed_BYOSED:
 
 				self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
 
-				phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
+				phase,wave,flux = np.loadtxt(_append_path(self.PATH_VERSION,self.options.sed_file),unpack=True)
 
 
 				fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
@@ -172,7 +172,7 @@ class gensed_BYOSED:
 					else:
 						scale_factor=warp_data['SN_FUNCTION_SCALE']
 					try:
-						sn_param_names,sn_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))),scale_factor)
+						sn_param_names,sn_function=_read_ND_grids(_append_path(self.PATH_VERSION,str(warp_data['SN_FUNCTION'])),scale_factor)
 					except RuntimeError:
 						raise RuntimeError("Do not recognize format of function for %s SN Function"%warp)
 					if warp.upper() in sn_param_names and 'PARAM' not in distribution.keys():
@@ -198,7 +198,7 @@ class gensed_BYOSED:
 					else:
 						raise RuntimeError("Did not supply scale distribution information for HOST effect %s."%warp)
 					try:
-						host_param_names,host_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['HOST_FUNCTION']))))
+						host_param_names,host_function=_read_ND_grids(_append_path(self.PATH_VERSION,str(warp_data['HOST_FUNCTION'])))
 					except RuntimeError:
 						raise RuntimeError("Do not recognize format of function for %s HOST Function"%warp)
 
@@ -395,8 +395,7 @@ class gensed_BYOSED:
 						return([k.upper() for k in list(config['FLAGS'].keys()) if config['FLAGS'][k]=='True'])
 				else:
 						return([x for x in config.sections() if x not in ['MAIN','FLAGS']])
-
-
+					
 
 class skewed_normal(rv_continuous):
 		"Skewed Normal Distribution"
@@ -547,8 +546,18 @@ def _skewed_normal(name,dist_dat,dist_type):
 										 p=dist._pdf(sample,dist_dat[dist_type+'_DIST_PEAK'],dist_dat[dist_type+'_DIST_SIGMA'][0],dist_dat[dist_type+'_DIST_SIGMA'][1])))
 		
 
+def _append_path(path,file):
+	if file.strip().startswith('/'):
+		respath = file
+	elif file.strip().startswith('$'):
+		respath = os.path.expandvars(file)
+	else:
+		respath = os.path.join(path,path)
+	return respath
+		
 def _param_from_dist(dist_file,path):
-	dist=np.loadtxt(os.path.join(path,dist_file))
+# 	dist=np.loadtxt(os.path.join(path,dist_file))
+	dist=np.loadtxt(_append_path(path,dist_file))
 	a=np.min(dist)-abs(np.min(dist))
 	b=np.max(dist)+abs(np.max(dist))
 	sample=np.linspace(a,b,int(1e4))
@@ -557,7 +566,8 @@ def _param_from_dist(dist_file,path):
 
 def _get_zdepend(dist_file,path,typ):
 	fv=0 if typ=='add' else 1
-	z,factor=np.loadtxt(os.path.join(path,dist_file),unpack=True)
+# 	z,factor=np.loadtxt(os.path.join(path,dist_file),unpack=True)
+	z,factor=np.loadtxt(_append_path(path,dist_file),unpack=True)
 	return(interp1d(z,factor,fill_value=fv,bounds_error=False))
 
 

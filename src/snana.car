@@ -3215,12 +3215,17 @@ c Called once during global init stage.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER IVERS, IERR
+      INTEGER IVERS, IERR, INIT_NUM
 C ------------ BEGIN -----------
 
 c one-time init for both FITS and TEXT (since we don't know format yet)   
-      CALL RD_SNFITSIO_INIT()
-      CALL RD_SNTEXTIO_INIT()
+      INIT_NUM = 0
+
+      INIT_NUM = INIT_NUM+1
+      CALL RD_SNFITSIO_INIT(INIT_NUM)
+
+      INIT_NUM = INIT_NUM+1
+      CALL RD_SNTEXTIO_INIT(INIT_NUM)
 
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization

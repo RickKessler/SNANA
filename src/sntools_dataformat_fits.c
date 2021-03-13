@@ -2323,16 +2323,21 @@ void snfitsio_errorCheck(char *comment, int status) {
 //
 // ###########################################
 
-void RD_SNFITSIO_INIT(void) {
+void RD_SNFITSIO_INIT(int init_num) {
 
   // Created Feb 2021; one-time init
+  // init_num = 1 --> first init --> init everything  
+  // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
+
   NFILE_SNFITSIO           = 0 ;
   NSNLC_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
-  init_SNDATA_GLOBAL();
-  init_GENSPEC_GLOBAL();
+  if ( init_num == 1 ) {
+    init_SNDATA_GLOBAL();
+    init_GENSPEC_GLOBAL();
+  }
 
 } // end RD_SNFITSIO_INIT
 
@@ -2450,7 +2455,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 } // end of RD_SNFITSIO_PREP
 
 
-void rd_snfitsio_init__(void) { RD_SNFITSIO_INIT(); }
+void rd_snfitsio_init__(int *init_num) { RD_SNFITSIO_INIT(*init_num); }
 
 int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 { return RD_SNFITSIO_PREP(*MSKOPT,PATH,version); }

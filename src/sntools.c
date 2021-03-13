@@ -4433,12 +4433,21 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
+
+    /* xxx mark delete 3/12/2021
     parse_commaSepList("SNDATA_FILTCHAR", SNDATA.FILTCHAR_1D, MXEPOCH, 2,
 		       &NSPLIT, &str2d );
+    xxxxxx */
+
+    // split item string        
+    splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
+		&NSPLIT, SNDATA.FILTCHAR );            // outputs 
+
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]-1; // back to C index    
-      catVarList_with_comma(stringVal, str2d[OBS] );
+      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
+      catVarList_with_comma(stringVal, SNDATA.FILTCHAR[OBS] );
     }
 
   }
@@ -4449,12 +4458,18 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    /* xxx mark delete  3.12.2021
     parse_commaSepList("SNDATA_FIELDNAME", SNDATA.FIELDNAME_1D, 
-		       MXEPOCH, 20, &NSPLIT, &str2d );
+    MXEPOCH, 20, &NSPLIT, &str2d ); */
+
+    splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
+		&NSPLIT, SNDATA.FIELDNAME );            // outputs 
+
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
-      OBS = SNDATA.OBS_STORE_LIST[obs]-1;    
-      catVarList_with_comma(stringVal, str2d[OBS] );
+      OBS = SNDATA.OBS_STORE_LIST[obs]-1 ;    
+      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
+      catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }
 
   }
@@ -8435,10 +8450,12 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt;
+  int ifilt, ep ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGIN -------------
+
+  printf("  %s: \n", fnam); fflush(stdout);
 
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
@@ -8465,6 +8482,12 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.SIMLIB_MSKOPT  = 0 ;
 
   SNDATA.APPLYFLAG_MWEBV = 0 ;
+
+  
+  for(ep=0; ep < MXEPOCH; ep++ ) {
+   SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
+   SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
+  }
 
   return(SUCCESS);
 

@@ -856,17 +856,24 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
 *************************************************************/
 
-void RD_SNTEXTIO_INIT(void) {
+void RD_SNTEXTIO_INIT(int init_num) {
+
   // Feb 2021: one-time init
+  // init_num = 1 --> first init --> init everything
+  // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
+  //        so avoid re-mallocing strings.
+
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
 
-  init_SNDATA_GLOBAL();
-  init_SNDATA_EVENT();
-  init_GENSPEC_GLOBAL();
+  if ( init_num == 1 ) {
+    init_SNDATA_GLOBAL();
+    init_SNDATA_EVENT();
+    init_GENSPEC_GLOBAL();
+  }
 
   return ;
 } // end RD_SNTEXTIO_INIT
@@ -934,7 +941,7 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
 
 // - - - - - 
-void rd_sntextio_init__(void) { RD_SNTEXTIO_INIT(); }
+void rd_sntextio_init__(int *init_num) { RD_SNTEXTIO_INIT(*init_num); }
 
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION)
 { return RD_SNTEXTIO_PREP(*MSKOPT, PATH,VERSION); }

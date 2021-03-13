@@ -73,8 +73,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp ) ;
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;
 
-void RD_SNTEXTIO_INIT(void); // one-time init
-void rd_sntextio_init__(void);
+void RD_SNTEXTIO_INIT(int init_num); // one-time init
+void rd_sntextio_init__(int *init_num);
 
 int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION);
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION);

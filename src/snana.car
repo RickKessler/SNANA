@@ -9599,11 +9599,15 @@ C ---------- BEGIN ----------
       if ( .NOT. REFORMAT ) RETURN
 
       IF ( REFORMAT_SNANA ) THEN 
-c xxx mark delete         CALL PREP_REFORMAT_SNDATA()
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
       ENDIF
 
       IF ( OPT_REFORMAT_FITS > 0 )  THEN
+
+c  allow updating PEAKMJD for TEXT -> FITS; 
+c  beware that PEAKMJD may not be in TEXT files. .xyz
+          CALL copy_SNDATA_PEAKMJD()
+
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
 
@@ -9636,7 +9640,39 @@ c check Julien's original SALT2 format (not SNANA format)
       RETURN
       END     ! end EXEC_REFORMAT
 
+C =====================================
++DECK,copy_PEAKMJD_SNDATA.
+      SUBROUTINE copy_SNDATA_PEAKMJD()
 
+c Created Mar 14 2021
+c If OPT_SETPKMJD > 0, copy PEAKMJD to SNDATA.PEAKMJD -->
+c allows writing computed PEAKMJD to reformatted output.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
+      REAL*8 DVAL
+      CHARACTER cKEY*20, cSTRING
+C -------------- BEGIN ----------
+
+      IF ( OPT_SETPKMJD .LE. 0 ) RETURN
+
+      NARG     =  1
+      COPYFLAG = +1
+      cKEY     = "PEAKMJD" // char(0)
+      cSTRING  = "DUMMY" // char(0)
+      LEN_KEY  = 7
+      LEN_STR  = 6
+      DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
+
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      RETURN
+      END
 
 C =========================================
 +DECK,WR_REFORMAT_IGNORE.

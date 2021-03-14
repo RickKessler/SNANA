@@ -1395,7 +1395,6 @@ void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) {
 	    VARNAME, IVAR_TOT, ICAST);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
     return ;
-
   }
 
   int nptr;
@@ -1998,6 +1997,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
     if ( strcmp(varName,"CIDint")== 0 ) { continue ; } 
     if ( strcmp(varName,"CCID" ) == 0 ) { continue ; } // avoid duplicate CCID
     if ( strcmp(varName,"ROW"  ) == 0 ) { continue ; } // May 1 2017
+    if ( strcmp(varName,"SNID" ) == 0 ) { continue ; } // Mar 13 2021
 
     if ( IVAR_READTABLE_POINTER(varName) < 0 ) { continue ; }
 
@@ -2041,7 +2041,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init each variable with auto-generated memory
   // Tack on CID since user will fetch values based on CID.
-  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C");
+  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C");
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
 
@@ -2098,11 +2098,6 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // read table and store values.
   NROW = SNTABLE_READ_EXEC();
   SNTABLE_AUTOSTORE[NF].NROW = NROW ;
-
-  /* xxx mark delete May 2 2019
-  printf("    Close AUTOSTORE file \n" ) ; fflush(stdout);
-  TABLEFILE_CLOSE(fileName) ; // Jan 11, 2017
-  xxxxxxxx */
 
   // ------------------------------------------
   // store string length for each CCID for faster lookup
@@ -2184,7 +2179,6 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
     
   }
   else if ( OPT == ICAST_D ) {
-    //    printf(" xxx %s malloc-D NROW=%d IVAR=%d\n", fnam, NROW, IVAR );
     SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR] = (double*)malloc(NROW*MEMD); 
 
   }

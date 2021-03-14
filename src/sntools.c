@@ -8499,6 +8499,9 @@ int init_SNDATA_EVENT(void) {
   // initialize SNDATA.xxxx elements
   // Note that only one SN index is initialized per call.
   //
+  // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
+  //              not in data files.
+  //
   int i_epoch, ifilt, i, igal ;
   char fnam[] = "init_SNDATA_EVENT" ;
   // --------- BEGIN -----------------
@@ -8695,8 +8698,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.GALSUB_ERR[i_epoch]    = NULLFLOAT ;
 
     SNDATA.ZEROPT[i_epoch]         = NULLFLOAT ;
-    SNDATA.ZEROPT_ERR[i_epoch]     = NULLFLOAT ;
-    SNDATA.ZEROPT_SIG[i_epoch]     = NULLFLOAT ;
+    SNDATA.ZEROPT_ERR[i_epoch]     = 0.0; 
+    SNDATA.ZEROPT_SIG[i_epoch]     = 0.0; 
 
     SNDATA.PHOTFLAG[i_epoch]       = 0   ;
     SNDATA.PHOTPROB[i_epoch]       = 0.0 ;

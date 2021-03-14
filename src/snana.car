@@ -22848,6 +22848,8 @@ c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
 c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c Feb 20 2020: write MWEBV to TEXT table.
 c May 14 2020: add zFLAG
+c Mar 14 2021: always include PKMJDINI in TEXT output
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -23148,8 +23150,8 @@ c     &     LENBLOCK_L, 20 )
       ENDIF
 
 c - - - - -  initial PEAKMJD  - -  - 
-      ITEXT = 0                       ! default is no TEXT output ...
-      IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
+      ITEXT = 1                       ! default is no TEXT output ...
+cc xxx mark delete IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )

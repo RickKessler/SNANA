@@ -3820,7 +3820,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
 
   // --------------- BEGIN --------------
 
-  sprintf(stringVal,"NOTSET");    parVal[0] = -999.0;
+  if(copyFlag<0) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
 
   if ( strcmp(key,"SNANA_VERSION") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.SNANA_VERSION );  }
@@ -3974,7 +3974,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
   // ------------- BEGIN ------------
 
-  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+  if ( copyFlag < 0 ) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
 
   if ( strcmp(key,"SUBSURVEY") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.SUBSURVEY_NAME ); }
@@ -4409,7 +4409,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
   // ------------- BEGIN ------------
 
-  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+  if(copyFlag<0) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
   
   if ( NOBS_STORE < 0 ) {
     sprintf(c1err,"Must call select_MJD_SNDATA to set MJD window");
@@ -4616,7 +4616,8 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 
   // ------------ BEGIN ----------
 
-  parVal[0] = -999.0;  // init outpuit
+  if ( copyFlag<0 ) {  parVal[0] = -999.0; }  // init outpuit
+
   if ( ispec >= 0 ) { NBLAM = GENSPEC.NBLAM_VALID[ispec]; }
 
   if ( strcmp(key,"NSPECTRA") == 0 ) 

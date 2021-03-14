@@ -9606,7 +9606,7 @@ C ---------- BEGIN ----------
 
 c  allow updating PEAKMJD for TEXT -> FITS; 
 c  beware that PEAKMJD may not be in TEXT files. .xyz
-          CALL copy_SNDATA_PEAKMJD()
+         CALL copy_SNDATA_PEAKMJD()
 
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
@@ -9656,6 +9656,8 @@ c allows writing computed PEAKMJD to reformatted output.
       INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
       REAL*8 DVAL
       CHARACTER cKEY*20, cSTRING
+      EXTERNAL COPY_SNDATA_HEAD
+
 C -------------- BEGIN ----------
 
       IF ( OPT_SETPKMJD .LE. 0 ) RETURN

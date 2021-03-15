@@ -631,7 +631,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     if ( WRFLAG_CCDNUM ) {
-      sprintf(cval,"%s ", SNDATA.CCDNUM[ep]);
+      sprintf(cval,"%3d ", SNDATA.CCDNUM[ep]);
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
 

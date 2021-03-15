@@ -564,6 +564,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
+  bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
+
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
   char VARLIST[200], cvar[40], cval[40], LINE_EPOCH[200] ;
@@ -575,6 +577,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   NVAR++ ;  strcat(VARLIST,"MJD ");  
   NVAR++ ;  strcat(VARLIST,"FLT ");
   NVAR++ ;  strcat(VARLIST,"FIELD ");
+
+  if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
+
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
   NVAR++ ;  strcat(VARLIST,"FLUXCALERR ");
 
@@ -626,8 +631,13 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%s ",  SNDATA.FILTCHAR[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%s ",  SNDATA.FIELDNAME[ep] ); 
+    sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+
+    if ( WRFLAG_CCDNUM ) {
+      sprintf(cval,"%s ", SNDATA.CCDNUM[ep]);
+      NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+    }
 
     sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);

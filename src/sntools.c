@@ -4006,7 +4006,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX ); } 
 
   else if ( strcmp(key,"CCDNUM") == 0 ) 
-    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[1] ); } 
+    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[0] ); } 
 
   else if ( strcmp(key,"SNTYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SNTYPE ); } 

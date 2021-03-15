@@ -1616,7 +1616,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX );
   }
   else if ( strcmp(word0,"CCDNUM:") == 0 ) {
-    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[1] );
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[0] );
   }
   else if ( strcmp(word0,"TYPE:")==0 || strcmp(word0,"SNTYPE:")==0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );

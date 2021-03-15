@@ -86,13 +86,13 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
   fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
-  // fprintf(fp,"SNTYPE:   %d\n", SNDATA.SEARCH_TYPE);
   fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
   fprintf(fp,"RA:       %.6f  # deg\n", SNDATA.RA);
   fprintf(fp,"DEC:      %.6f  # deg\n", SNDATA.DEC);
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
   fprintf(fp,"PIXSIZE:  %.4f  # arcsec \n", SNDATA.PIXSIZE);
-  fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0] );
+
+  // xxx mark Mar 15 2021 fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0]);
 
   int FAKE = SNDATA.FAKE ;
   if ( FAKE < 0 ) {
@@ -575,10 +575,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  
-  NVAR++ ;  strcat(VARLIST,"FLT ");
-  NVAR++ ;  strcat(VARLIST,"FIELD ");
-
+  NVAR++ ;  strcat(VARLIST,"BAND ");
   if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
+  NVAR++ ;  strcat(VARLIST,"FIELD ");
 
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
   NVAR++ ;  strcat(VARLIST,"FLUXCALERR ");
@@ -631,13 +630,13 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%s ",  SNDATA.FILTCHAR[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
-    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-
     if ( WRFLAG_CCDNUM ) {
       sprintf(cval,"%s ", SNDATA.CCDNUM[ep]);
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
+
+    sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
+    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
@@ -1234,13 +1233,15 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     if ( strcmp(varName,"MJD") == 0 ) 
       { IVAROBS_SNTEXTIO.MJD = ivar; }
 
-    else if ( strcmp(varName,"BAND") == 0 ) 
+    else if ( strcmp(varName,"BAND") == 0 || strcmp(varName,"FLT")==0 ) 
       { IVAROBS_SNTEXTIO.BAND = ivar; }
-    else if ( strcmp(varName,"FLT") == 0 ) 
-      { IVAROBS_SNTEXTIO.BAND = ivar; }
+
+    else if ( strcmp(varName,"CCDNUM") == 0 ) 
+      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 
       { IVAROBS_SNTEXTIO.FIELD = ivar; }
+
     else if ( strcmp(varName,"FLUXCAL") == 0 )  
       { IVAROBS_SNTEXTIO.FLUXCAL = ivar; }
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
@@ -1285,8 +1286,6 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.XPIX = ivar; }  
     else if ( strcmp(varName,"YPIX") == 0 ) 
       { IVAROBS_SNTEXTIO.YPIX = ivar; }  
-    else if ( strcmp(varName,"CCDNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  

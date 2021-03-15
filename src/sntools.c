@@ -4006,7 +4006,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX ); } 
 
   else if ( strcmp(key,"CCDNUM") == 0 ) 
-    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[0] ); } 
+    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[0] ); } // should be obsolete
 
   else if ( strcmp(key,"SNTYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SNTYPE ); } 
@@ -4426,7 +4426,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_dbl(copyFlag, &parVal[obs], &SNDATA.MJD[OBS]) ; 
     }  
   } 
-  else if ( strcmp(key,"FLT") == 0 ) {
+  else if ( strcmp(key,"FLT") == 0 || strcmp(key,"BAND") == 0 ) {
 
     if ( copyFlag > 0 ) {
       sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
@@ -4437,12 +4437,6 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
 
-    /* xxx mark delete 3/12/2021
-    parse_commaSepList("SNDATA_FILTCHAR", SNDATA.FILTCHAR_1D, MXEPOCH, 2,
-		       &NSPLIT, &str2d );
-    xxxxxx */
-
-    // split item string        
     splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
 		&NSPLIT, SNDATA.FILTCHAR );            // outputs 
 
@@ -4475,6 +4469,12 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }
 
+  }
+  else if ( strcmp(key,"CCDNUM") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_int(copyFlag, &parVal[obs], &SNDATA.CCDNUM[OBS]) ; 
+    }  
   }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
@@ -8648,8 +8648,6 @@ int init_SNDATA_EVENT(void) {
   SNDATA.PIXSIZE     = NULLFLOAT ;
   SNDATA.NXPIX       = -9 ;  
   SNDATA.NYPIX       = -9 ;  
-  SNDATA.CCDNUM[0]   = -9 ;
-  SNDATA.CCDNUM[1]   = -9 ;
 
   SNDATA.SUBSAMPLE_INDEX = -9 ;
 
@@ -8664,6 +8662,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
 
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
+
+    SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
 
     // xxx mark delete     SNDATA.IDCCD[i_epoch]        = NULLINT ;
     sprintf ( SNDATA.FIELDNAME[i_epoch], "NULL" );

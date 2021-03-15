@@ -86,13 +86,13 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
   fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
-  // fprintf(fp,"SNTYPE:   %d\n", SNDATA.SEARCH_TYPE);
   fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
   fprintf(fp,"RA:       %.6f  # deg\n", SNDATA.RA);
   fprintf(fp,"DEC:      %.6f  # deg\n", SNDATA.DEC);
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
   fprintf(fp,"PIXSIZE:  %.4f  # arcsec \n", SNDATA.PIXSIZE);
-  fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0] );
+
+  // xxx mark Mar 15 2021 fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0]);
 
   int FAKE = SNDATA.FAKE ;
   if ( FAKE < 0 ) {
@@ -138,8 +138,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   // - - - - - - - - -  -
   // SIM_ info
-  if ( SNDATA.WRFLAG_BLINDTEST      ) { return; } // skip for BLIND test
-  if ( SNDATA.FAKE == FAKEFLAG_DATA ) { return; } // skip for real data
+  if ( SNDATA.WRFLAG_BLINDTEST       ) { return; } // skip for BLIND test
+  if ( SNDATA.FAKE == FAKEFLAG_DATA  ) { return; } // skip for real data
+  if ( SNDATA.FAKE == FAKEFLAG_FAKES ) { return; } // skip for fakes
 
   wr_dataformat_text_SIMPAR(fp);
 
@@ -563,6 +564,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
+  bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
+
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
   char VARLIST[200], cvar[40], cval[40], LINE_EPOCH[200] ;
@@ -572,8 +575,10 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  
-  NVAR++ ;  strcat(VARLIST,"FLT ");
+  NVAR++ ;  strcat(VARLIST,"BAND ");
+  if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
   NVAR++ ;  strcat(VARLIST,"FIELD ");
+
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
   NVAR++ ;  strcat(VARLIST,"FLUXCALERR ");
 
@@ -625,7 +630,12 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%s ",  SNDATA.FILTCHAR[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%s ",  SNDATA.FIELDNAME[ep] ); 
+    if ( WRFLAG_CCDNUM ) {
+      sprintf(cval,"%3d ", SNDATA.CCDNUM[ep]);
+      NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+    }
+
+    sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL[ep] ); 
@@ -856,17 +866,24 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
 *************************************************************/
 
-void RD_SNTEXTIO_INIT(void) {
+void RD_SNTEXTIO_INIT(int init_num) {
+
   // Feb 2021: one-time init
+  // init_num = 1 --> first init --> init everything
+  // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
+  //        so avoid re-mallocing strings.
+
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
 
-  init_SNDATA_GLOBAL();
-  init_SNDATA_EVENT();
-  init_GENSPEC_GLOBAL();
+  if ( init_num == 1 ) {
+    init_SNDATA_GLOBAL();
+    init_SNDATA_EVENT();
+    init_GENSPEC_GLOBAL();
+  }
 
   return ;
 } // end RD_SNTEXTIO_INIT
@@ -934,7 +951,7 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
 
 // - - - - - 
-void rd_sntextio_init__(void) { RD_SNTEXTIO_INIT(); }
+void rd_sntextio_init__(int *init_num) { RD_SNTEXTIO_INIT(*init_num); }
 
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION)
 { return RD_SNTEXTIO_PREP(*MSKOPT, PATH,VERSION); }
@@ -1216,13 +1233,15 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     if ( strcmp(varName,"MJD") == 0 ) 
       { IVAROBS_SNTEXTIO.MJD = ivar; }
 
-    else if ( strcmp(varName,"BAND") == 0 ) 
+    else if ( strcmp(varName,"BAND") == 0 || strcmp(varName,"FLT")==0 ) 
       { IVAROBS_SNTEXTIO.BAND = ivar; }
-    else if ( strcmp(varName,"FLT") == 0 ) 
-      { IVAROBS_SNTEXTIO.BAND = ivar; }
+
+    else if ( strcmp(varName,"CCDNUM") == 0 ) 
+      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 
       { IVAROBS_SNTEXTIO.FIELD = ivar; }
+
     else if ( strcmp(varName,"FLUXCAL") == 0 )  
       { IVAROBS_SNTEXTIO.FLUXCAL = ivar; }
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
@@ -1267,8 +1286,6 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.XPIX = ivar; }  
     else if ( strcmp(varName,"YPIX") == 0 ) 
       { IVAROBS_SNTEXTIO.YPIX = ivar; }  
-    else if ( strcmp(varName,"CCDNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  
@@ -1598,7 +1615,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX );
   }
   else if ( strcmp(word0,"CCDNUM:") == 0 ) {
-    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[1] );
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[0] );
   }
   else if ( strcmp(word0,"TYPE:")==0 || strcmp(word0,"SNTYPE:")==0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );

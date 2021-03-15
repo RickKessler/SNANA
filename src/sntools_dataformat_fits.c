@@ -231,7 +231,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E" , "PIXSIZE", itype ) ;
   wr_snfitsio_addCol( "1I" , "NXPIX",   itype ) ;
   wr_snfitsio_addCol( "1I" , "NYPIX",   itype ) ;
-  wr_snfitsio_addCol( "1I" , "CCDNUM",  itype ) ;
+  // xxx mark delete Mar 15 2021  wr_snfitsio_addCol("1I","CCDNUM",itype);
   wr_snfitsio_addCol( "1J" , "SNTYPE" , itype ) ; 
 
   wr_snfitsio_addCol( "1J" , "NOBS"       , itype ) ; 
@@ -567,7 +567,10 @@ void wr_snfitsio_init_phot(void) {
   sprintf(TBLname, "%s", "Photometry" );
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
-  wr_snfitsio_addCol( "2A",  "FLT"         , itype ) ; 
+  wr_snfitsio_addCol( "2A",  "BAND"        , itype ) ; 
+  // xxx mark 2/15/2021  wr_snfitsio_addCol( "2A",  "FLT"  , itype ) ; 
+
+  wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
   wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
 
   wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
@@ -586,7 +589,6 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; 
     wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ;   
   }
-
 
   wr_snfitsio_addCol( "1E" , "SKY_SIG"    , itype ) ; 
 
@@ -1249,10 +1251,12 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.NYPIX ;
   wr_snfitsio_fillTable ( ptrColnum, "NYPIX", itype );
 
+  /* xxx mark delete Mar 15 2021 ... now it's only in PHOT table
   // CCDNUM (May 24 2017)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.CCDNUM[0] ;
   wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
+  xxxxxxx */
 
   // SNTYPE
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1900,7 +1904,12 @@ void wr_snfitsio_update_phot(int ep) {
   // FILTER
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FILTCHAR[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "FLT", itype );
+  wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
+
+  // CCDNUM (Mar 2021)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
+  wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
   
   // FIELD
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2323,16 +2332,21 @@ void snfitsio_errorCheck(char *comment, int status) {
 //
 // ###########################################
 
-void RD_SNFITSIO_INIT(void) {
+void RD_SNFITSIO_INIT(int init_num) {
 
   // Created Feb 2021; one-time init
+  // init_num = 1 --> first init --> init everything  
+  // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
+
   NFILE_SNFITSIO           = 0 ;
   NSNLC_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
-  init_SNDATA_GLOBAL();
-  init_GENSPEC_GLOBAL();
+  if ( init_num == 1 ) {
+    init_SNDATA_GLOBAL();
+    init_GENSPEC_GLOBAL();
+  }
 
 } // end RD_SNFITSIO_INIT
 
@@ -2450,7 +2464,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 } // end of RD_SNFITSIO_PREP
 
 
-void rd_snfitsio_init__(void) { RD_SNFITSIO_INIT(); }
+void rd_snfitsio_init__(int *init_num) { RD_SNFITSIO_INIT(*init_num); }
 
 int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 { return RD_SNFITSIO_PREP(*MSKOPT,PATH,version); }
@@ -2710,8 +2724,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "NYPIX", &SNDATA.NYPIX,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
-    j++ ;  NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[1], 
+    /* xxx mark delete Mar 15 2021 ... read only from PHOT table
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[0], 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    xxx */
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "SNTYPE", &SNDATA.SNTYPE,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3065,14 +3081,20 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
 
     // note that FLT returns comma-separated list in 1D string
+    // Allow either FLT or BAND column name
     j++; NRD = RD_SNFITSIO_STR(isn, "FLT", SNDATA.FILTCHAR_1D, 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
+    if ( NRD == 0 ) {
+      j++; NRD = RD_SNFITSIO_STR(isn, "BAND", SNDATA.FILTCHAR_1D, 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+    }
 
     // store arrays need to re-write in text format
-    for(ep=0; ep<=NRD; ep++) { 
-      //      sprintf(&SNDATA.FILTCHAR[ep],"%c", SNDATA.FILTCHAR_1D[2*ep] );
-      SNDATA.OBSFLAG_WRITE[ep] = true ; 
-    }
+    for(ep=0; ep<=NRD; ep++) { SNDATA.OBSFLAG_WRITE[ep] = true ; }
+
+    j++; NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
     // note that FIELD returns comma-separated list in 1D string
     j++; NRD = RD_SNFITSIO_STR(isn, "FIELD", SNDATA.FIELDNAME_1D, 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
@@ -4765,7 +4787,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   else {
 
     // search list of all param-names
-    for ( itype=0; itype <= 1; itype++ ) {
+    for ( itype=0; itype <= 1; itype++ ) { // check HEAD and PHOT 
       icol = IPAR_SNFITSIO(0, parName, itype) ;
       if ( icol > 0 ) { 
 	*iptr = icol + itype*MXPAR_SNFITSIO ;

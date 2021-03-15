@@ -233,7 +233,7 @@ int  IPAR_SNFITSIO(int OPT, char *parName, int itype );
 int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
 
 // Now the readback routines
-void  RD_SNFITSIO_INIT(void);
+void  RD_SNFITSIO_INIT(int init_num);
 int   RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version);
 int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
 int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
@@ -279,7 +279,7 @@ void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 
 // ------- mangled RD functions for snana/fortran -----------
 
-void rd_snfitsio_init__(void);
+void rd_snfitsio_init__(int *init_num);
 int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version) ;
 int  rd_snfitsio_global__(char *parName, char *parString) ;
 int  rd_snfitsio_event__(int *OPT, int *isn);

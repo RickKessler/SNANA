@@ -3820,7 +3820,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
 
   // --------------- BEGIN --------------
 
-  sprintf(stringVal,"NOTSET");    parVal[0] = -999.0;
+  if(copyFlag<0) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
 
   if ( strcmp(key,"SNANA_VERSION") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.SNANA_VERSION );  }
@@ -3974,7 +3974,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
   // ------------- BEGIN ------------
 
-  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+  if ( copyFlag < 0 ) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
 
   if ( strcmp(key,"SUBSURVEY") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.SUBSURVEY_NAME ); }
@@ -4006,7 +4006,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX ); } 
 
   else if ( strcmp(key,"CCDNUM") == 0 ) 
-    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[1] ); } 
+    { copy_int(copyFlag, parVal, &SNDATA.CCDNUM[0] ); } // should be obsolete
 
   else if ( strcmp(key,"SNTYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SNTYPE ); } 
@@ -4025,9 +4025,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO ); } 
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO_ERR ); } 
-  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 ) 
+
+  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 || 
+	    strcmp(key,"REDSHIFT_CMB"  ) == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL ); } 
-  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ) 
+  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ||
+	    strcmp(key,"REDSHIFT_CMB_ERR"  ) == 0 )  
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL_ERR ); } 
   else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.REDSHIFT_QUALITYFLAG ); } 
@@ -4409,7 +4412,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
   // ------------- BEGIN ------------
 
-  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+  if(copyFlag<0) { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
   
   if ( NOBS_STORE < 0 ) {
     sprintf(c1err,"Must call select_MJD_SNDATA to set MJD window");
@@ -4423,7 +4426,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_dbl(copyFlag, &parVal[obs], &SNDATA.MJD[OBS]) ; 
     }  
   } 
-  else if ( strcmp(key,"FLT") == 0 ) {
+  else if ( strcmp(key,"FLT") == 0 || strcmp(key,"BAND") == 0 ) {
 
     if ( copyFlag > 0 ) {
       sprintf(c1err,"key = %s doesn't work with copyFlag=%d", key, copyFlag);
@@ -4433,12 +4436,15 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
     // FILTCHAR_1D includes every observation; here we pick out subset
     // subset of FILTCHAR_1D that are on STORE_LIST
-    parse_commaSepList("SNDATA_FILTCHAR", SNDATA.FILTCHAR_1D, MXEPOCH, 2,
-		       &NSPLIT, &str2d );
+
+    splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
+		&NSPLIT, SNDATA.FILTCHAR );            // outputs 
+
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]-1; // back to C index    
-      catVarList_with_comma(stringVal, str2d[OBS] );
+      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
+      catVarList_with_comma(stringVal, SNDATA.FILTCHAR[OBS] );
     }
 
   }
@@ -4449,14 +4455,26 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    /* xxx mark delete  3.12.2021
     parse_commaSepList("SNDATA_FIELDNAME", SNDATA.FIELDNAME_1D, 
-		       MXEPOCH, 20, &NSPLIT, &str2d );
+    MXEPOCH, 20, &NSPLIT, &str2d ); */
+
+    splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
+		&NSPLIT, SNDATA.FIELDNAME );            // outputs 
+
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
-      OBS = SNDATA.OBS_STORE_LIST[obs]-1;    
-      catVarList_with_comma(stringVal, str2d[OBS] );
+      OBS = SNDATA.OBS_STORE_LIST[obs]-1 ;    
+      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
+      catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }
 
+  }
+  else if ( strcmp(key,"CCDNUM") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_int(copyFlag, &parVal[obs], &SNDATA.CCDNUM[OBS]) ; 
+    }  
   }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
@@ -4601,7 +4619,8 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 
   // ------------ BEGIN ----------
 
-  parVal[0] = -999.0;  // init outpuit
+  if ( copyFlag<0 ) {  parVal[0] = -999.0; }  // init outpuit
+
   if ( ispec >= 0 ) { NBLAM = GENSPEC.NBLAM_VALID[ispec]; }
 
   if ( strcmp(key,"NSPECTRA") == 0 ) 
@@ -8435,10 +8454,12 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt;
+  int ifilt, ep ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGIN -------------
+
+  printf("  %s: \n", fnam); fflush(stdout);
 
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
@@ -8466,6 +8487,12 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.APPLYFLAG_MWEBV = 0 ;
 
+  
+  for(ep=0; ep < MXEPOCH; ep++ ) {
+   SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
+   SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
+  }
+
   return(SUCCESS);
 
 } // end init_SNDATA_GLOBAL
@@ -8475,6 +8502,9 @@ int init_SNDATA_EVENT(void) {
 
   // initialize SNDATA.xxxx elements
   // Note that only one SN index is initialized per call.
+  //
+  // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
+  //              not in data files.
   //
   int i_epoch, ifilt, i, igal ;
   char fnam[] = "init_SNDATA_EVENT" ;
@@ -8618,8 +8648,6 @@ int init_SNDATA_EVENT(void) {
   SNDATA.PIXSIZE     = NULLFLOAT ;
   SNDATA.NXPIX       = -9 ;  
   SNDATA.NYPIX       = -9 ;  
-  SNDATA.CCDNUM[0]   = -9 ;
-  SNDATA.CCDNUM[1]   = -9 ;
 
   SNDATA.SUBSAMPLE_INDEX = -9 ;
 
@@ -8634,6 +8662,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
 
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
+
+    SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
 
     // xxx mark delete     SNDATA.IDCCD[i_epoch]        = NULLINT ;
     sprintf ( SNDATA.FIELDNAME[i_epoch], "NULL" );
@@ -8672,8 +8702,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.GALSUB_ERR[i_epoch]    = NULLFLOAT ;
 
     SNDATA.ZEROPT[i_epoch]         = NULLFLOAT ;
-    SNDATA.ZEROPT_ERR[i_epoch]     = NULLFLOAT ;
-    SNDATA.ZEROPT_SIG[i_epoch]     = NULLFLOAT ;
+    SNDATA.ZEROPT_ERR[i_epoch]     = 0.0; 
+    SNDATA.ZEROPT_SIG[i_epoch]     = 0.0; 
 
     SNDATA.PHOTFLAG[i_epoch]       = 0   ;
     SNDATA.PHOTPROB[i_epoch]       = 0.0 ;

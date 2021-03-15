@@ -370,7 +370,7 @@ extern"C" {
   void  print_preAbort_banner(char *fnam);
   void  trim_blank_spaces(char *string) ;
   int   strcmp_ignoreCase(char *str1, char *str2) ;
-
+  void  debugexit(char *string);
   void catVarList_with_comma(char *varList, char *addVarName);
 
   void  checkval_I(char *varname,int nval,int   *iptr, int imin, int imax );
@@ -418,6 +418,7 @@ extern"C" {
 			     char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
   void SNTABLE_SUMMARY_OUTLIERS(void);
+  bool ISTABLEVAR_IFILT(char *VARNAME);
 
   int  SNTABLE_NEVT  (char *FILENAME, char *TABLENAME); 
   int  sntable_nevt__(char *FILENAME, char *TABLENAME);
@@ -455,7 +456,8 @@ extern"C" {
 
   int  IVAR_READTABLE_POINTER(char *varName) ;
   void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) ;
-  void load_DUMPLINE(char *LINE, double DVAL) ;
+  void load_DUMPLINE(int OPT, char *LINE, double DVAL) ;
+  void load_DUMPLINE_STR(char *LINE, char *STRING) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
   int  ICAST_for_textVar(char *varName) ;

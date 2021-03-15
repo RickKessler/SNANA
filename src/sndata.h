@@ -207,7 +207,7 @@ struct SNDATA {
   int  IDTEL[MXEPOCH];             // integer telescope id
 
   int   FILTINDX[MXEPOCH];        // integer filter indx
-  char  FILTCHAR[MXEPOCH][2];     // char string for filter
+  char *FILTCHAR[MXEPOCH];     // char string for filter
   char  FILTCHAR_1D[MXEPOCH*2];   // for fortran interface
 
   int   SEARCH_RUN[MXEPOCH] ;
@@ -231,8 +231,8 @@ struct SNDATA {
 
   char  IAUC_NAME[20];           // official name (SQL)
 
-  char FIELDNAME[MXEPOCH][20] ;    // survey field (generalize SDSS STRIPE)
-  char FIELDNAME_1D[MXEPOCH*20] ;  // for fortran interface
+  char *FIELDNAME[MXEPOCH] ;    // survey field (generalize SDSS STRIPE)
+  char  FIELDNAME_1D[MXEPOCH*20] ;  // for fortran interface
 
   float FLUXCAL[MXEPOCH] ;         // calibrated flux for fitter
   float FLUXCAL_ERRTOT[MXEPOCH] ;  

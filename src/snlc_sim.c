@@ -6539,6 +6539,7 @@ void init_DNDZ_Rate(void) {
     + rename function init_DNDZ_Rate (was VT_redshift)
 
   July 25 2019: abort if there is no rate model from DNDZ key.
+  Mar  12 2021: abort of NGENTOT_LC > MXCID_SIM
 
   *****/
 
@@ -6552,14 +6553,6 @@ void init_DNDZ_Rate(void) {
   char fnam[] = "init_DNDZ_Rate" ;
 
   // ----------- BEGIN ------------
-
-  /* xxxx mark delete xxxxxxx
-  H0 = INPUTS.H0 ;
-  OM = INPUTS.OMEGA_MATTER ;
-  OL = INPUTS.OMEGA_LAMBDA ;
-  W0 = INPUTS.W0_LAMBDA  ;
-  xxxxx end mark xxxx*/
-
 
   Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
   Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
@@ -6699,8 +6692,8 @@ void init_DNDZ_Rate(void) {
 		  (strcmp(NAME,RATEMODELNAME_TDE) ==0) ) ;
 
   // re-wgt flags
-  IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0 ) ;
-  IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER >= 0 );
+  IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0    ) ;
+  IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
 
   // ----------------------------
 
@@ -6837,7 +6830,14 @@ void init_DNDZ_Rate(void) {
   // Oct 26 2015: check season option 
   if ( INPUTS.NGEN_SEASON > 0.0 ) {
     double SCALE = INPUTS.NGEN_SCALE ;
-    INPUTS.NGENTOT_LC = (int)(INPUTS.NGEN_SEASON * TOTsum * SCALE);
+    double XTOT  = (double)INPUTS.NGEN_SEASON * TOTsum * SCALE;
+    if ( XTOT > (double)MXCID_SIM ) {
+      sprintf(c1err,"NGENTOT_LC = %lld is too large", (long long)XTOT);
+      sprintf(c2err,"MXCID_SIM  = %lld", MXCID_SIM);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    INPUTS.NGENTOT_LC = (int)(XTOT);
     INPUTS.NGEN_LC    = 0 ;
     INPUTS.NGEN       = INPUTS.NGENTOT_LC ;
     i++; sprintf(LINE_RATE_INFO[i],
@@ -12974,6 +12974,8 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     Feb 06, 2014: new ZPOLY model
     Aug 12, 2016: refactor to pass RATEPAR struct
     Dec     2016: add Strolger 2015 CC rate
+    Mar 12  2021: fix bug for INDEX_RATEMODEL_ZPOLY 
+
   ***/
 
   double sfr, sfrint, h, H0, OM, OL, w0, wa, z1, rate ;
@@ -13089,7 +13091,8 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     rate = A * pow(z1,B);
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_ZPOLY ) {
-    rate = polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
+    rate = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
+    // xxx mark delete   rate = polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
   }
   else {
     sprintf(c1err,"Invalid model: '%s'", cptr);
@@ -17617,6 +17620,12 @@ void init_CIDRAN(void) {
     (INPUTS.NGEN_LC + INPUTS.NGENTOT_LC) ;
 
   NSTORE     = INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ; // for this sim-job
+
+  if ( NSTORE == 0 ) {
+    sprintf(c1err,"NGEN_LC = NGENTOT_LC = 0 ?? ");
+    sprintf(c2err,"Cannot initialize CIDRAN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   sprintf(BANNER,"init_CIDRAN: initialize %d RANDOM CIDs (CIDOFF=%d)",
 	  NSTORE_ALL, INPUTS.CIDOFF );
@@ -26108,7 +26117,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     { CID = GENLC.CIDRAN ; }
 
   if ( CID > MXCID_SIM  ) {
-    sprintf(c1err,"CID=%d exceeds MXCID_SIM=%d", GENLC.CID, MXCID_SIM );
+    sprintf(c1err,"CID=%d exceeds MXCID_SIM=%d", CID, MXCID_SIM );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
 

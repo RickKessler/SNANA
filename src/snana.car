@@ -3215,12 +3215,17 @@ c Called once during global init stage.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER IVERS, IERR
+      INTEGER IVERS, IERR, INIT_NUM
 C ------------ BEGIN -----------
 
 c one-time init for both FITS and TEXT (since we don't know format yet)   
-      CALL RD_SNFITSIO_INIT()
-      CALL RD_SNTEXTIO_INIT()
+      INIT_NUM = 0
+
+      INIT_NUM = INIT_NUM+1
+      CALL RD_SNFITSIO_INIT(INIT_NUM)
+
+      INIT_NUM = INIT_NUM+1
+      CALL RD_SNTEXTIO_INIT(INIT_NUM)
 
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization
@@ -4204,8 +4209,10 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       CALL FETCH_SNDATA_WRAPPER("NYPIX", ONE, STRING, DARRAY, OPT)
       SNLC_NYPIX = INT(DARRAY(1))
 
-      CALL FETCH_SNDATA_WRAPPER("CCDNUM", ONE, STRING, DARRAY, OPT)
-      ISNLC_CCDNUM(1) = INT(DARRAY(1))
+c xxxxxxx mark delete Mar 15 2021 : read only from PHOT table xxxxx
+c      CALL FETCH_SNDATA_WRAPPER("CCDNUM", ONE, STRING, DARRAY, OPT)
+c      ISNLC_CCDNUM(1) = INT(DARRAY(1))
+c xxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("SNTYPE", ONE, STRING, DARRAY, OPT)
       ISNLC_TYPE = INT(DARRAY(1))
@@ -4798,9 +4805,14 @@ c     &    + OPTMASK_SNDATA_DUMP
      &      NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; SNLC8_MJD(o) = DARRAY(o);  ENDDO
 
-      CALL FETCH_SNDATA_WRAPPER("FLT",  
+      CALL FETCH_SNDATA_WRAPPER("BAND",  
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
       CALL UNPACK_SNFITSIO_STR(NOBS_STORE, "FLT", STRFITS)
+
+      CALL FETCH_SNDATA_WRAPPER("CCDNUM",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; ISNLC_CCDNUM(o)=int(DARRAY(o)); ENDDO
+
 
       CALL FETCH_SNDATA_WRAPPER("FIELD",  
      &      NOBS_STORE, STRFITS, DARRAY, OPT)
@@ -9594,11 +9606,14 @@ C ---------- BEGIN ----------
       if ( .NOT. REFORMAT ) RETURN
 
       IF ( REFORMAT_SNANA ) THEN 
-c xxx mark delete         CALL PREP_REFORMAT_SNDATA()
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
       ENDIF
 
       IF ( OPT_REFORMAT_FITS > 0 )  THEN
+
+c  allow updating a few variables for FITS format
+         CALL copy_SNDATA_MISC()
+
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
 
@@ -9631,7 +9646,95 @@ c check Julien's original SALT2 format (not SNANA format)
       RETURN
       END     ! end EXEC_REFORMAT
 
+C =====================================
++DECK,copy_SNDATA_MISC.
+      SUBROUTINE copy_SNDATA_MISC()
 
+c Created Mar 14 2021
+c Update the following SNDATA struct variables for FITS format:
+c   + PEAKMJD                ( if OPT_SETPKMJD > 0)
+c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
+c   + REDSHIFT_CMB[_ERR]
+c   + REDSHIFT_HELIO[_ERR]
+c   + VPEC[_ERR]
+c
+c -------------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
+      REAL*8 DVAL
+      CHARACTER cKEY*20, cSTRING
+      EXTERNAL COPY_SNDATA_HEAD
+
+C -------------- BEGIN ----------
+
+      NARG     =  1
+      COPYFLAG = +1
+      LEN_KEY  = 20
+      LEN_STR  = 20
+      cSTRING  = "DUMMY" // char(0)
+
+      IF ( OPT_SETPKMJD > 0 ) THEN
+        cKEY     = "PEAKMJD" // char(0)
+        DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+      IF ( OPT_MWEBV > 0 ) THEN
+        cKEY     = "MWEBV" // char(0)
+        DVAL     = DBLE(SNLC_MWEBV)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+        cKEY     = "MWEBV_ERR" // char(0)
+        DVAL     = DBLE(SNLC_MWEBV_ERR)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+c always update redshift and vpec info in case of header-override
+c or other calculated update.
+
+c zCMB
+      cKEY     = "REDSHIFT_CMB" // char(0)
+      DVAL     = DBLE(SNLC_zCMB)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "REDSHIFT_CMB_ERR" // char(0)
+      DVAL     = DBLE(SNLC_zCMB_ERR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c zHELIO
+      cKEY     = "REDSHIFT_HELIO" // char(0)
+      DVAL     = DBLE(SNLC_zHELIO)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
+      DVAL     = DBLE(SNLC_zHELIO_ERR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c VPEC
+      cKEY     = "VPEC" // char(0)
+      DVAL     = DBLE(SNLC_VPEC)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "VPEC_ERR" // char(0)
+      DVAL     = DBLE(SNLC_VPEC_ERR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      RETURN
+      END
 
 C =========================================
 +DECK,WR_REFORMAT_IGNORE.
@@ -22843,6 +22946,8 @@ c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
 c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c Feb 20 2020: write MWEBV to TEXT table.
 c May 14 2020: add zFLAG
+c Mar 14 2021: always include PKMJDINI in TEXT output
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -23143,8 +23248,8 @@ c     &     LENBLOCK_L, 20 )
       ENDIF
 
 c - - - - -  initial PEAKMJD  - -  - 
-      ITEXT = 0                       ! default is no TEXT output ...
-      IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
+      ITEXT = 1                       ! default is no TEXT output ...
+cc xxx mark delete IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )

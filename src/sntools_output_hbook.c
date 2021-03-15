@@ -836,18 +836,13 @@ void outlier_dump_fromHbook(int irow) {
   IVAR_IFILT  = OUTLIER_INFO.IVAR[INDX_OUTLIER_IFILT];
   IVAR_CHI2   = OUTLIER_INFO.IVAR[INDX_OUTLIER_CHI2];
 
-  if ( LDMP ) {
-    printf(" xxx %s: irow=%d  IVAR_NPT = %d\n", 
-	   fnam, irow, IVAR_NPT); fflush(stdout);
-  }
-
-
   ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_NPT][ICAST_I];
   NPT  = HBOOK_CWNT_READROW.VAL_I[ivarcast][0]; 
-  // xxx mark delete  NPT = HBOOK_CWNT_READROW.VAL_I[IVAR_NPT][0]; 
 
   if ( LDMP ) 
-    {  printf(" xxx %s: NPT = %d \n", fnam, NPT); fflush(stdout); }
+    {  printf(" xxx %s: irow=%3d  IVAR_NPT=%3d of %3d\n", 
+	      fnam, irow, IVAR_NPT, NPT ); fflush(stdout); 
+    }
 
   // loop over each fitted epoch and check if it's an outlier
   for(ep=0; ep < NPT; ep++ ) {
@@ -857,7 +852,7 @@ void outlier_dump_fromHbook(int irow) {
 
     ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_IFILT][ICAST_I];
     IFILT = HBOOK_CWNT_READROW.VAL_I[ivarcast][ep];
-
+    
     OUTLIER_INFO.NEP_TOT[0]++ ;      // total summed over filters
     OUTLIER_INFO.NEP_TOT[IFILT]++ ; // total for this band only
     
@@ -920,11 +915,13 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
   // Feb 24 2019:  check SEPKEY
 
   //  char fnam[] =  "sntable_pushRowOut_hbook" ;
-  int NVAR_TOT  = HBOOK_CWNT_INFO.NVAR ; 
+
+  // xxxx mark delete   int NVAR_TOT  = HBOOK_CWNT_INFO.NVAR ; 
+
   int NVAR_DUMP = READTABLE_POINTERS.NVAR_READ ;
 
-  int IVAR, ICAST_READ, LDUMP, LREAD, ivarcast, ADDSEPKEY ;
-  int NVAR_WR=0;
+  int IVAR_DUMP, IVAR_TOT, ICAST_READ, LDUMP, LREAD, ivarcast, ADDSEPKEY ;
+  int OPT, NVAR_WR=0;
 
   int    VAL_I ;
   double VAL_D ;
@@ -932,8 +929,9 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
   char  *ptrC  ;
 
   char   *SEPKEY = READTABLE_POINTERS.SEPKEY_DUMP ;
-  char   LINE[MXCHAR_VARLIST];
+  char   LINE[MXCHAR_VARLIST], *VARNAME, band[2] ;
   char   BLANK[] = " " ;
+  char   fnam[] = "pushRowOut" ;
 
   // ------------ BEGIN ---------
   
@@ -943,41 +941,47 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
   sprintf(LINE,"%s ", READTABLE_POINTERS.LINEKEY_DUMP); 
   ADDSEPKEY = (strlen(SEPKEY) > 0 ) ;
 
-  for ( IVAR = 0; IVAR < NVAR_TOT; IVAR++ ) {
+  for ( IVAR_DUMP = 0; IVAR_DUMP < NVAR_DUMP; IVAR_DUMP++ ) {
 
-    ICAST_READ = HBOOK_CWNT_READROW.ICAST[IVAR] ;
+    IVAR_TOT   = READTABLE_POINTERS.PTRINDEX[IVAR_DUMP] ;
+    VARNAME    = READTABLE_POINTERS.VARNAME[IVAR_TOT] ;
+    ICAST_READ = HBOOK_CWNT_READROW.ICAST[IVAR_DUMP] ;
     VAL_D      = -9999. ;
 
+    OPT=0;  if ( ISTABLEVAR_IFILT(VARNAME) ) { OPT=1; }
+
+    // .xyz 
     if ( ICAST_READ == ICAST_I ) { 
-      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR][ICAST_I];
+      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_DUMP][ICAST_I];
       VAL_I  = HBOOK_CWNT_READROW.VAL_I[ivarcast][IFIT] ;
       VAL_D   = (double)VAL_I ; 
-      if ( LDUMP )  { load_DUMPLINE(LINE, VAL_D); }
-      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR,VAL_D,BLANK); }
+
+      if ( LDUMP )  { load_DUMPLINE(OPT, LINE, VAL_D); }
+      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR_TOT,VAL_D,BLANK); }
     }
     
     else if ( ICAST_READ == ICAST_F )  { 
-      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR][ICAST_F];
+      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_DUMP][ICAST_F];
       VAL_F = HBOOK_CWNT_READROW.VAL_F[ivarcast][IFIT]  ;
       VAL_D = (double)VAL_F ;   
-      if ( LDUMP )  { load_DUMPLINE(LINE, VAL_D); }
-      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR,VAL_D,BLANK); }
+      if ( LDUMP )  { load_DUMPLINE(OPT,LINE, VAL_D); }
+      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR_TOT,VAL_D,BLANK); }
     }
     
     else if ( ICAST_READ == ICAST_D )  { 
-      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR][ICAST_D];
+      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_DUMP][ICAST_D];
       VAL_D = HBOOK_CWNT_READROW.VAL_D[ivarcast][IFIT] ;
-      if ( LDUMP )  { load_DUMPLINE(LINE, VAL_D); }
-      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR,VAL_D,BLANK); }
+      if ( LDUMP )  { load_DUMPLINE(OPT, LINE, VAL_D); }
+      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR_TOT,VAL_D,BLANK); }
     }
     
     else if ( ICAST_READ == ICAST_C ) {
-      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR][ICAST_C];
+      ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_DUMP][ICAST_C];
       ptrC   =  HBOOK_CWNT_READROW.VAL_C[ivarcast][IFIT]; 
-      // printf(" xxx write IFIT=%d  ptrC='%s' \n", IFIT, ptrC);
       trim_blank_spaces(ptrC);  
-      sprintf(LINE,"%s %s", LINE, ptrC );
-      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR,VAL_D,ptrC); }
+      load_DUMPLINE_STR(LINE,ptrC);
+      // xxx mark delete    sprintf(LINE,"%s %s", LINE, ptrC );
+      if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR_TOT,VAL_D,ptrC); }
     }
 
     /*
@@ -991,7 +995,6 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
       NVAR_WR++ ;
       if ( NVAR_WR < NVAR_DUMP ) { strcat(LINE,SEPKEY); }
     }
-
 
   } // end of IVAR
 

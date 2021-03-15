@@ -109,6 +109,9 @@
 
  Aug 08 2020: new NEVT option to print number of events
 
+ Mar 14 2021: for outlier output table, write string BAND before IFILTOBS.
+              See OPT arg to load_DUMPLINE in sntools_output_hbook[root].c
+
 ********************************************/
 
 #include <stdio.h>
@@ -216,7 +219,6 @@ int main(int argc, char **argv) {
   else if ( INPUTS.OUTLIER_NSIGMA[0] >= 0.0 ) {
     // dump fit-outliers for each epoch to ascii/fitres file
     // Must set SNTABLE_LIST = 'FITRES+RESIDUALS'
-
     NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, IVAR_NPT, 
 				  INPUTS.OUTLIER_NSIGMA, FP_OUTFILE,
 				  LINEKEY_DUMP, SEPKEY_DUMP );
@@ -458,7 +460,7 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "MJD" );   
   NVAR++ ;
 
-  // including BAND results in core dump; don't know why ??
+  // including BAND results in core dump; don't know why ??  .xyz
   //  sprintf(INPUTS.VARNAMES[NVAR],"%s", "BAND" );   
   //  NVAR++ ;
 
@@ -574,6 +576,10 @@ void  open_fitresFile(void) {
       else if ( strcmp(INPUTS.TABLE_ID,"SIMLIB") == 0 ) 
 	{ ptrVar = VARNAME_ROW ; }  // use ROW for 1st SIMLIB column 
     }
+
+    // Mar 14 2021: insert band string before IFILTOBS
+    if ( ISTABLEVAR_IFILT(ptrVar) )
+      { fprintf(FP_OUTFILE,"%s%s", "BAND", SEP );  }
 
     if ( i == INPUTS.NVAR-1 ) { sprintf(SEP," ") ; }
     fprintf(FP_OUTFILE,"%s%s", ptrVar, SEP ); 

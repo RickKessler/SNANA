@@ -4890,7 +4890,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
       // clumsy load of epoch-dependent strings here for speed;
       // avoids additional epoch loops later. Note ep starts at 1.
-      if ( strcmp(parName,"FLT") == 0 ) 
+      if ( strcmp(parName,"FLT") == 0 || strcmp(parName,"BAND")==0 ) 
 	{ sprintf(SNDATA.FILTCHAR[NSTORE+1],"%s",  C_VAL); }
       if ( strcmp(parName,"FIELD") == 0 ) 
 	{ sprintf(SNDATA.FIELDNAME[NSTORE+1],"%s", C_VAL); }

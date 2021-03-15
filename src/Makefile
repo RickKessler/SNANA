@@ -797,7 +797,6 @@ $(BIN)/nearnbr_apply.exe :  \
 $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h 
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools.o
 
 # -------------------------------------------------
 # compile sntools_genSmear (.o only)
@@ -805,7 +804,6 @@ $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h
 $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools_genSmear.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_genSmear.o
 
 # -------------------------------------------------
 # Apr 26 2016: non-linearity package
@@ -813,7 +811,6 @@ $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h 
 $(OBJ)/sntools_nonlinearity.o : $(SRC)/sntools_nonlinearity.c $(SRC)/sntools_nonlinearity.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_nonlinearity.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nonlinearity.o
 
 # -------------------------------------------------
 # Oct 2015: fluxErr model
@@ -848,8 +845,6 @@ $(OBJ)/sntools_dataformat_text.o : $(SRC)/sntools_dataformat_text.c $(SRC)/sntoo
 $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
-
 
 $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
@@ -858,7 +853,6 @@ $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)
 $(OBJ)/sntools_gridread.o : $(SRC)/sntools_gridread.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridread.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_gridread.o
 
 # -------------------------------------------------
 # compile sntools_host (.o only)
@@ -923,12 +917,10 @@ $(OBJ)/sntools_spectrograph.o : $(SRC)/sntools_spectrograph.c  $(SRC)/sntools_sp
 $(OBJ)/sntools_nearnbr.o : $(SRC)/sntools_nearnbr.c $(SRC)/sntools_nearnbr.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(SRC)/sntools_nearnbr.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nearnbr.o
 
 $(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/kdtree.o
 
 # -------------------------------------------------
 # compile sntools_output (.o only)

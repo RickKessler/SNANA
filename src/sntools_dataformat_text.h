@@ -8,7 +8,7 @@
 #define HEAD_REQUIRE_SURVEY     0
 #define HEAD_REQUIRE_SNID       1
 #define HEAD_REQUIRE_FILTERS    2
-#define HEAD_REQUIRE_z          3
+#define HEAD_REQUIRE_z          3  // zHELIO or zCMB
 #define HEAD_REQUIRE_RA         4
 #define HEAD_REQUIRE_DEC        5
 #define HEAD_REQUIRE_FAKE       6

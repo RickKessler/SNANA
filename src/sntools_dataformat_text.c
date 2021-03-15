@@ -1632,6 +1632,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     parse_plusminus_sntextio(word0, "REDSHIFT_HELIO", &iwd, 
 			     &SNDATA.REDSHIFT_HELIO, 
 			     &SNDATA.REDSHIFT_HELIO_ERR );
+    SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_z] = true ;
   }
   else if ( strstr(word0,"REDSHIFT_FINAL") != NULL ) {
     parse_plusminus_sntextio(word0, "REDSHIFT_FINAL", &iwd, 

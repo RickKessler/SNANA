@@ -3660,6 +3660,12 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
         CALL MADABORT("RDGLOBAL", c1err, c2err )
       ENDIF
 
+      CALL FETCH_SNDATA_WRAPPER("NXPIX", ONE, STRING, DARRAY, OPT)
+      SNLC_NXPIX = int(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("NYPIX", ONE, STRING, DARRAY, OPT)
+      SNLC_NYPIX = int(DARRAY(1))
+
       CALL RDGLOBAL_PRIVATE(OPT)
 
       IF ( LSIM_SNANA ) THEN
@@ -4485,6 +4491,19 @@ c - - - - -
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL_ERR", 
      &       ONE, STRING, DARRAY, OPT)
       SNLC_zCMB_ERR = SNGL(DARRAY(1))
+
+
+c if no REDSHIFT_FINAL, try alternative REDSHIFT_CMB
+c (beware that VPEC correction should NOT be included here)
+      IF ( SNLC_zCMB < 0.0 ) THEN
+         CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB",
+     &         ONE, STRING, DARRAY, OPT)
+         SNLC_zCMB = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+
+      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB_ERR",
+     &         ONE, STRING, DARRAY, OPT)
+         SNLC_zCMB_ERR = SNGL(DARRAY(1))
+      ENDIF
 
 c - - - - - - - - - - 
 c assign light curve redshift if not already assigned by Z_HELIO
@@ -18090,13 +18109,17 @@ C =============================
 
 C Creatd Feb 25 2018
 c If SNLC_ZHELIO < 0, transform from zCMB.
-c Otherwise, do nothing.
+c Otherwise, check zHEL <-> zCMB transformation.
+c If zCMB < 0 for TEXT format, compute zCMB from zHEL.
 c
 c  Jun 8 2020
 c   + fix awful bug with sign of OPT sent to translator.
 c      was translating zHELIO -> CMB instead of zCMB -> zHELIO
 c   + if SNLC_HELIO[CMB] are both given in data file, make
 c     crosscheck here using zTOL_HELIO2CMB test on dz/z
+c 
+c Mar 15 2021: if zCMB < 0 for text format, use computed value.
+c
 c ---------
 
       IMPLICIT NONE
@@ -18114,7 +18137,7 @@ C ------------- BEGIN ------------
 
       FNAM = 'SET_ZHELIO'
 
-      IF ( SNLC_ZCMB  < 0 ) RETURN
+cc xxx mark delete Mar 15 2021      IF ( SNLC_ZCMB  < 0 ) RETURN
 
 c now we have undefined zCMB
 
@@ -18124,15 +18147,26 @@ c don't apply test on VERY low redshifts to avoid silly round-off
 c or truncation errors. This is a hack to protect DES DIFFIMG that 
 c has redshifts written as %.4f. Next dataFile update will have %.6 
 c precisions and then can apply test all the way down to z ~ 1E-4
+c .xyz allow sloppy TEXT
 
       IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4
          OPT    = +1  ! --> convert ZHEL to ZCMB
          ZHEL8 = DBLE(SNLC_ZHELIO)
          ZCMB8 = 
      &      zhelio_zcmb_translator(ZHEL8,SNLC8_RA,SNLC8_DEC,EQ,OPT, 4)
+
+c For TEXT format only, set zCMB if not provided (Mar 15 2021);
+c allows quick/sloppy makeDataFiles with real data.
+	 IF ( SNLC_zCMB < 0.0 .and. FORMAT_TEXT ) THEN
+  	   SNLC_zCMB     = SNGL(ZCMB8)
+	   SNLC_zCMB_ERR = SNLC_ZHELIO_ERR
+           print*,' xxx set zCMB=', SNLC_ZCMB, SNLC_CCID(1:12)
+         ENDIF
+
          zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
          DZ8     = abs(1.0 - zRATIO8)
-         if ( DZ8 > zTOL_HELIO2CMB ) then
+
+         if ( SNLC_zCMB > 0.0 .and. DZ8 > zTOL_HELIO2CMB ) then
             CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),12)
             print*,' zHEL(dataFile) = ', SNLC_ZHELIO
             print*,' zCMB(dataFile) = ', SNLC_ZCMB
@@ -18144,6 +18178,7 @@ c precisions and then can apply test all the way down to z ~ 1E-4
             C2ERR='REDSHIFT_CMB in data file for CID=' // SNLC_CCID
             CALL MADABORT(FNAM,C1ERR,C2ERR)
          endif
+
       ELSE if ( SNLC_ZHELIO < 0.0 ) THEN
          OPT    = -1 ! --> convert CMB -> zHEL
 cc         OPT    = +1 ! --> BUG

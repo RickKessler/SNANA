@@ -3840,6 +3840,11 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"PySEDMODEL") == 0 ) 
     { copy_str(copyFlag, stringVal, SNDATA.PySEDMODEL_NAME );  }
 
+  else if ( strcmp(key,"NXPIX") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.NXPIX );  }
+  else if ( strcmp(key,"NYPIX") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.NYPIX );  }
+
   else if ( ISKEY_PRIVATE  ) {
     if ( strcmp(key,"NVAR_PRIVATE") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  }

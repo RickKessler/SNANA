@@ -3095,10 +3095,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
 
-    printf(" xxx %s: CCDNUM = %d, %d, %d ... \n", 
-	   fnam, 
-	   SNDATA.CCDNUM[ep0], SNDATA.CCDNUM[ep0+1], SNDATA.CCDNUM[ep0+2]);
-
     // note that FIELD returns comma-separated list in 1D string
     j++; NRD = RD_SNFITSIO_STR(isn, "FIELD", SNDATA.FIELDNAME_1D, 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;

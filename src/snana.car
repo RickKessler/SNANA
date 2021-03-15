@@ -9604,9 +9604,8 @@ C ---------- BEGIN ----------
 
       IF ( OPT_REFORMAT_FITS > 0 )  THEN
 
-c  allow updating PEAKMJD for TEXT -> FITS; 
-c  beware that PEAKMJD may not be in TEXT files. .xyz
-         CALL copy_SNDATA_PEAKMJD()
+c  allow updating a few variables for FITS format
+         CALL copy_SNDATA_MISC()
 
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
@@ -9641,12 +9640,18 @@ c check Julien's original SALT2 format (not SNANA format)
       END     ! end EXEC_REFORMAT
 
 C =====================================
-+DECK,copy_PEAKMJD_SNDATA.
-      SUBROUTINE copy_SNDATA_PEAKMJD()
++DECK,copy_SNDATA_MISC.
+      SUBROUTINE copy_SNDATA_MISC()
 
 c Created Mar 14 2021
-c If OPT_SETPKMJD > 0, copy PEAKMJD to SNDATA.PEAKMJD -->
-c allows writing computed PEAKMJD to reformatted output.
+c Update the following SNDATA struct variables for FITS format:
+c   + PEAKMJD                ( if OPT_SETPKMJD > 0)
+c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
+c   + REDSHIFT_CMB[_ERR]
+c   + REDSHIFT_HELIO[_ERR]
+c   + VPEC[_ERR]
+c
+c -------------
 
       IMPLICIT NONE
 
@@ -9660,16 +9665,64 @@ c allows writing computed PEAKMJD to reformatted output.
 
 C -------------- BEGIN ----------
 
-      IF ( OPT_SETPKMJD .LE. 0 ) RETURN
-
       NARG     =  1
       COPYFLAG = +1
-      cKEY     = "PEAKMJD" // char(0)
+      LEN_KEY  = 20
+      LEN_STR  = 20
       cSTRING  = "DUMMY" // char(0)
-      LEN_KEY  = 7
-      LEN_STR  = 6
-      DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
 
+      IF ( OPT_SETPKMJD > 0 ) THEN
+        cKEY     = "PEAKMJD" // char(0)
+        DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+      IF ( OPT_MWEBV > 0 ) THEN
+        cKEY     = "MWEBV" // char(0)
+        DVAL     = DBLE(SNLC_MWEBV)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+        cKEY     = "MWEBV_ERR" // char(0)
+        DVAL     = DBLE(SNLC_MWEBV_ERR)
+        CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+c always update redshift and vpec info in case of header-override
+c or other calculated update.
+
+c zCMB
+      cKEY     = "REDSHIFT_CMB" // char(0)
+      DVAL     = DBLE(SNLC_zCMB)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "REDSHIFT_CMB_ERR" // char(0)
+      DVAL     = DBLE(SNLC_zCMB_ERR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c zHELIO
+      cKEY     = "REDSHIFT_HELIO" // char(0)
+      DVAL     = DBLE(SNLC_zHELIO)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
+      DVAL     = DBLE(SNLC_zHELIO_ERR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c VPEC
+      cKEY     = "VPEC" // char(0)
+      DVAL     = DBLE(SNLC_VPEC)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+      cKEY     = "VPEC_ERR" // char(0)
+      DVAL     = DBLE(SNLC_VPEC_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 

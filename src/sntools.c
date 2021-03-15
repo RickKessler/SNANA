@@ -4025,9 +4025,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO ); } 
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_HELIO_ERR ); } 
-  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 ) 
+
+  else if ( strcmp(key,"REDSHIFT_FINAL") == 0 || 
+	    strcmp(key,"REDSHIFT_CMB"  ) == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL ); } 
-  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ) 
+  else if ( strcmp(key,"REDSHIFT_FINAL_ERR") == 0 ||
+	    strcmp(key,"REDSHIFT_CMB_ERR"  ) == 0 )  
     { copy_flt(copyFlag, parVal, &SNDATA.REDSHIFT_FINAL_ERR ); } 
   else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.REDSHIFT_QUALITYFLAG ); } 

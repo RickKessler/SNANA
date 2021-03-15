@@ -138,8 +138,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   // - - - - - - - - -  -
   // SIM_ info
-  if ( SNDATA.WRFLAG_BLINDTEST      ) { return; } // skip for BLIND test
-  if ( SNDATA.FAKE == FAKEFLAG_DATA ) { return; } // skip for real data
+  if ( SNDATA.WRFLAG_BLINDTEST       ) { return; } // skip for BLIND test
+  if ( SNDATA.FAKE == FAKEFLAG_DATA  ) { return; } // skip for real data
+  if ( SNDATA.FAKE == FAKEFLAG_FAKES ) { return; } // skip for fakes
 
   wr_dataformat_text_SIMPAR(fp);
 

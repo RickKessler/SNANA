@@ -552,7 +552,7 @@ def _append_path(path,file):
 	elif file.strip().startswith('$'):
 		respath = os.path.expandvars(file)
 	else:
-		respath = os.path.join(path,path)
+		respath = os.path.join(path,file)
 	return respath
 		
 def _param_from_dist(dist_file,path):

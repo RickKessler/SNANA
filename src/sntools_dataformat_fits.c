@@ -569,6 +569,7 @@ void wr_snfitsio_init_phot(void) {
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
   wr_snfitsio_addCol( "2A",  "FLT"         , itype ) ; 
   wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
+  wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
 
   wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
   wr_snfitsio_addCol( "1E",  "PHOTPROB"    , itype ) ; 
@@ -586,7 +587,6 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; 
     wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ;   
   }
-
 
   wr_snfitsio_addCol( "1E" , "SKY_SIG"    , itype ) ; 
 
@@ -1906,6 +1906,11 @@ void wr_snfitsio_update_phot(int ep) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FIELDNAME[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "FIELD", itype );
+
+  // CCDNUM (Mar 2021)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
+  wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
 
   // PHOTFLAG & PHOTPROB
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

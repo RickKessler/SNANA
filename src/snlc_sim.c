@@ -12714,13 +12714,6 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   if ( zmin == zmax ) { return(zmin); }
 
-  /* xxxx mark delete xxxx
-  H0   = INPUTS.H0 / ( 1.0E6 * PC_km) ;
-  OM   = INPUTS.OMEGA_MATTER ;
-  OL   = INPUTS.OMEGA_LAMBDA ;
-  W0   = INPUTS.W0_LAMBDA ;   
-  xxxxxx end mark xxxx*/
-
   ISFLAT = ( strcmp(RATEPAR->NAME,"FLAT" ) == 0 ) ;
   ISPOLY = ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) ;
 
@@ -12752,7 +12745,8 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       z = zmin + dz * (double)(iz-1) ;
 
       if ( ISPOLY ) {
-	wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
+	// xxx mark  wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
+	w = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
       }
       else {
 	w = dVdz (z, &INPUTS.HzFUN_INFO);

@@ -419,8 +419,10 @@ void setFlags_ISMODEL_SALT2(char *version) {
   //
   // So check 5 characters before the dot. 
   //
+  // Mar 16 2021: abort on null version
 
   int  index_dot, set=0 ;
+  int  LENSALT2 = strlen("SALT2");
   char *dot, version_near_dot[60];
   char fnam[] = "setFlags_ISMODEL_SALT2" ;
 
@@ -429,9 +431,15 @@ void setFlags_ISMODEL_SALT2(char *version) {
   ISMODEL_SALT2 = false;
   ISMODEL_SALT3 = false;
   
+  if ( strlen(version) < LENSALT2+1 ) {
+    sprintf(c1err,"Invalid version = '%s' (name too short)", version);
+    sprintf(c2err,"version must contain SALT2.[bla] or SALT2.[bla]");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
   dot       = strchr(version, '.');
   index_dot = (int)(dot - version);
-  sprintf(version_near_dot, "%s", &version[index_dot-5] );
+  sprintf(version_near_dot, "%s", &version[index_dot-LENSALT2] );
 
   if ( strstr(version_near_dot,"SALT2") != NULL ) 
     { set=1; ISMODEL_SALT2 = true;  printf("\t ISMODEL = SALT2\n"); } 

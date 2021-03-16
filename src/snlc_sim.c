@@ -3796,7 +3796,7 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   inString    = (char*) malloc(MEMC);
   ptrSplit[0] = (char*) malloc(MEMC);
   ptrSplit[1] = (char*) malloc(MEMC);
-
+  
 
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
 
@@ -3807,7 +3807,8 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   sprintf(INPUTS.GENMAG_SMEAR_MODELARG,  "%s", ptrSplit[1] );
   ENVreplace(INPUTS.GENMAG_SMEAR_MODELARG,fnam,1);
 
-  free(inString); free(ptrSplit[0]) ;  free(ptrSplit[1]) ;
+  free(inString); 
+  free(ptrSplit[0]) ;  free(ptrSplit[1]) ;
 
   return ;
 
@@ -7484,6 +7485,12 @@ void init_modelSmear(void) {
     else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
       sprintf(MODELPATH_SALT2,"%s", INPUTS.GENMAG_SMEAR_MODELARG); //BYOSED
       SIGCOH = 0.10; // hard-wired, Oct 31 2019 
+
+      if ( USE_SALT2smear && strlen(MODELPATH_SALT2) == 0 ) { 
+	sprintf(c1err,"For BYOSED model, missing SALT2PATH argument in ");
+	sprintf(c2err,"GENMAG_SMEAR_MODELNAME: G10:[SALT2PATH]");  
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      } 
     }
 
     /*

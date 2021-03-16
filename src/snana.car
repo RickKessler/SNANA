@@ -1061,6 +1061,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_EPMAGREST(MXEPOCH)     ! true rest-frame mag
      &  ,SIM_EPFLUXCAL_HOSTERR(MXEPOCH) ! true error from host noise
      &  ,SIM_EPCHI2FLUX(MXEPOCH)    ! data-sim chi2 per epoch
+     &  ,SIM_EPPULL(MXEPOCH)        ! pull per epoch (F-Ftrue)/sig)
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
      &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
@@ -1129,7 +1130,7 @@ c
      &  ,SIM_SEARCHEFF_MASK, SIM_LIBID, SIM_NGEN_LIBID
      &  ,SIM_NOBS_UNDEFINED, SIM_NSUBSAMPLE_MARK, SIM_SUBSAMPLE_INDEX
      &  ,SIM_PEAKMAG, SIM_EPMAGOBS, SIM_EPFLUXCAL, NEP_SIM_MAGOBS
-     &  ,SIM_EPSNRMON, SIM_EPCHI2FLUX, SIM_EPFLUXCAL_HOSTERR
+     &  ,SIM_EPSNRMON, SIM_EPCHI2FLUX, SIM_EPPULL, SIM_EPFLUXCAL_HOSTERR
      &  ,SIMNAME_SHAPEPAR,  SIMNAME_SHAPELAW
      &  ,SIMNAME_COLORPAR,  SIMNAME_COLORLAW, SIMNAME_SNRMON
      &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT
@@ -1563,6 +1564,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
+     &  ,CUTBIT_SIMPULL          ! cut on (F-F_true)/sigma_F
      &  ,CUTBIT_TREST_TRUEFLUX2  ! for sim or fakes, require valid flux
      &  ,CUTBIT_NFILT_SNRMAX
      &  ,CUTBIT_NFILT_SNRMAX2
@@ -1606,7 +1608,6 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_REQEP          = 30  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 31  ! all private-var cuts
      &  ,CUTBIT_SIMVAR         = 32  ! 
-cc xxx     &  ,CUTBIT_USRCUTS        = 33  ! PASS_USRCUTS=T
      &  ,CUTBIT_OFFSET_SBFLUX  = 33  ! Mar 2012
      &  ,CUTBIT_OFFSET_SNRMAX  = 33 + MXFILT_SNRMAX
      &  ,CUTBIT_MJD_MARKER     = CUTBIT_OFFSET_SNRMAX + MXFILT_SNRMAX
@@ -1622,8 +1623,9 @@ c MJD-dependent cuts below
      &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
      &  ,CUTBIT_TREST_TRUEFLUX2= CUTBIT_MJD_MARKER + 8
      &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 9
+     &  ,CUTBIT_SIMPULL      = CUTBIT_MJD_MARKER + 10 ! Mar 2021
 c
-     &  ,CUTBIT_OFFSET       = CUTBIT_ERRTEST
+     &  ,CUTBIT_OFFSET       = CUTBIT_SIMPULL
      &  ,NCUTBIT             = CUTBIT_OFFSET 
      &      )
 
@@ -1737,6 +1739,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_ZPERR(2)         ! ZPERR cut
      &  ,cutwin_photprob(2)
      &  ,cutwin_errtest(2)       ! cut on ERRCALC/ERRTRUE
+     &  ,cutwin_simpull(2)       ! cut on (F-Ftrue)/sigmaF (mar 2021)
      &  ,cutwin_Trest_trueflux(2) ! Trest range requiring valid true flux
      &  ,cutwin_Trest_trueflux2(2) ! cut on logical flag
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
@@ -1883,6 +1886,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_zperr),     cutwin_zperr  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
+     &   ,( cutwin_var(1,cutbit_simpull),   cutwin_simpull   )
      &   ,( cutwin_var(1,cutbit_trest_trueflux2),cutwin_trest_trueflux2)
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax2),cutwin_nfilt_snrmax2 )
@@ -2191,7 +2195,7 @@ c
      &   ,cutwin_peakmjd,  cutwin_mjd
 c
      &   ,cutwin_psf, cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
-     &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest
+     &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest, cutwin_simpull
      &   ,cutwin_trest_trueflux, cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
@@ -2597,7 +2601,6 @@ c
      &  ,FITERR_MINUS(MXFITPAR,MXITER)
      &  ,FITERR_RATIO(MXFITPAR,MXITER)  ! abs(EPLUS/Eminus)
 c
-cc xxx obsolete  &  ,FITCOR(MXFITPAR,MXFITPAR) 
      &  ,FITCHI2_MIN   ! min chi2 after minimization
      &  ,FITCHI2_QUIT  ! quit FCN calc if chi2 exceeds this value
      &  ,SIMCHI2_CHEAT ! chi2 using exact sim values
@@ -7498,6 +7501,11 @@ c - - - -
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_ERRTEST(1)
           READ(ARGLIST(2),*) CUTWIN_ERRTEST(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_SIMPULL',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_SIMPULL(1)
+          READ(ARGLIST(2),*) CUTWIN_SIMPULL(2)
 
         else if ( MATCH_NMLKEY('CUTWIN_TREST_TRUEFLUX',
      &            2, iArg, ARGLIST) ) then
@@ -15289,6 +15297,7 @@ c PHOT section of TEXT format ... but not read from PHOT-FITS file
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
         SIM_EPFLUXCAL(EP1)         = SIM_EPFLUXCAL(EP2)
         SIM_EPCHI2FLUX(EP1)        = SIM_EPCHI2FLUX(EP2)
+        SIM_EPPULL(EP1)            = SIM_EPPULL(EP2)
       ENDIF
 
       IF ( LSIM_SNANA ) THEN
@@ -15841,6 +15850,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
       cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_ERRTEST)      = 'ERR(CALC)/ERR(TRUE):'
+      cutvar_name(CUTBIT_SIMPULL)      = '(F-Ftrue)/sigF:'
       cutvar_name(CUTBIT_TREST_TRUEFLUX2) = 'Trest_TRUEFLUX:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
@@ -17908,9 +17918,11 @@ c convert sim-mag to SIM_FLUXCA
 
              TMP  = (TRUEFLUX - FLUXCAL)/ FLUXCAL_ERR
              SIM_EPCHI2FLUX(ep) = TMP * TMP  ! Nov 30 2020
+	     SIM_EPPULL(ep)     = TMP        ! Mar 16 2021
           ELSE
              SIM_EPFLUXCAL(ep)  = -9.0
              SIM_EPCHI2FLUX(ep) = -9.0
+	     SIM_EPPULL(ep)     = -9.0 
           ENDIF
  
 +SELF,IF=SNANA,SNFIT.
@@ -18147,7 +18159,6 @@ c don't apply test on VERY low redshifts to avoid silly round-off
 c or truncation errors. This is a hack to protect DES DIFFIMG that 
 c has redshifts written as %.4f. Next dataFile update will have %.6 
 c precisions and then can apply test all the way down to z ~ 1E-4
-c .xyz allow sloppy TEXT
 
       IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4
          OPT    = +1  ! --> convert ZHEL to ZCMB
@@ -19089,7 +19100,7 @@ C ------------- BEGIN ----------
 101   CONTINUE  ! ep loop
 
 
-      IF ( NFIELD > MXFIELD_OVP ) THEN  ! .xyz
+      IF ( NFIELD > MXFIELD_OVP ) THEN 
          CALL PRINT_PREABORT_BANNER(FNAM(1:11)//char(0),20)
 
          DO  i = 1, MIN(NFIELD,MXFIELD_OVP)
@@ -21274,6 +21285,7 @@ c Dec 18 2017: set cut for PSF
 c Feb 27 2018: set cut for ZP in Npe; see CUTWIN_ZP
 c Feb 06 2020: add cut for Trest_trueflux
 c Feb 20 2020: make sure PHOTPROB cut passes if PHOTPROB < 0
+c Mar 16 2021: load SIM_EPPULL to enable cut on PULL
 c -----------------------------
 
       IMPLICIT NONE
@@ -21352,6 +21364,9 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
 
          SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  =   ! Nov 2019
      &       SNLC_FLUXCAL_ERRTEST(EPMIN)
+
+         SNEP_CUTVAR(CUTBIT_SIMPULL,imjd)  =   ! Mar 2021
+     &       SIM_EPPULL(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)

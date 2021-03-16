@@ -142,12 +142,12 @@
 # Oct 15 2020: add sntools_cosmology
 # Feb 05 2021: rename sntools_fitsio.c[h] -> sntools_dataformat_fits.c[h]
 #
+# Mar 16 2021: 
+#   + remove obsolete install feature
+#   + finall add debug flag;  make debug
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
-
-INSTALL_DIR = $(SNANA_INSTALL_DIR)/src
-INSTALL_FILES = *.c  *.cc  *.car  *.cra  *.F  *.h  *.py PUBLIC.LIST Makefile
 
 BITNESS = $(shell uname -p)
 OSNAME  = $(shell uname -s)
@@ -456,12 +456,8 @@ CLEAN_FILES =  $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
 all: set_Cpreproc_flags makeDirs $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
-
-install :
-	@ $(if $(SNANA_INSTALL_DIR),,$(error error: You have not specified a destination directory))
-	@ rm -rf $(INSTALL_DIR)
-	@ mkdir  $(INSTALL_DIR)
-	cp -p $(INSTALL_FILES) $(INSTALL_DIR)/
+debug:	EXTRA_FLAGS = -g -fbounds-check  
+debug:  all
 
 clean:
 	rm -f $(CLEAN_FILES) $(OBJ)/*.o

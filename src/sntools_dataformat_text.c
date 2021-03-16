@@ -1106,6 +1106,12 @@ void  rd_sntextio_global(void) {
       else if ( ITMP == FAKEFLAG_FAKES ) 
 	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_SIM_MAGOBS); } 
     }
+
+    else if ( strcmp(word0,"NXPIX:") == 0 ) 
+      {	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NXPIX ) ; }
+    else if ( strcmp(word0,"NYPIX:") == 0 ) 
+      {	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX ) ; }
+
     else if ( IS_PRIVATE ) {
       SNDATA.NVAR_PRIVATE++ ; // note fortran-like index
       NVAR = SNDATA.NVAR_PRIVATE ;

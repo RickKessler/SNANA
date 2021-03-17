@@ -74,6 +74,9 @@ def get_args():
     msg = "dump each observation, for FLUXERR map"
     parser.add_argument("-O", "--OBS", help=msg, action="store_true")
 
+    msg = "Verbose mode"
+    parser.add_argument("-V", "--VERBOSE", help=msg, action="store_true")
+
     args = parser.parse_args()
 
     return args
@@ -113,7 +116,6 @@ def get_file_format(input_table_file):
         sys.exit(f"\n ERROR: unknown format for " \
                  f"input_table_file = {input_table_file}\n")
 
-    print(f"  File format is {Format}")
     return Format
     # end get_file_format
 
@@ -246,15 +248,20 @@ def append_fitres(input_args,config):
 
 if __name__ == "__main__":
     
-    print(f"\n# =============== BEGIN =============== \n")
     input_args   = get_args()
     config       = Namespace()
+
+    if input_args.VERBOSE :
+        print(f"\n# =============== BEGIN =============== \n")
 
     # insert CCID as first variable
     config.varlist = insert_ccid_varlist(input_args)
 
     # check file format: root, hbook, ...
     config.Format = get_file_format(input_args.input_table_file)
+
+    if input_args.VERBOSE :
+        print(f"  File format is {config.Format}")
 
     # make sure table name is appropriate for file format
     config.table_name = check_table_name(input_args.table_name,config.Format)
@@ -266,7 +273,9 @@ if __name__ == "__main__":
 
     #print(f"\n xxx input_args = {input_args}")
     #print(f"\n xxx config     = {config}" )
-    print(f"\n command = \n {config.command}" )
+
+    if input_args.VERBOSE :
+        print(f"\n command = \n    {config.command}\n" )
 
     os.system(config.command)
 

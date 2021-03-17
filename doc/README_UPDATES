@@ -19653,6 +19653,12 @@
      Release I/O refactor Tuesday Mar 2 2021, 6pm central.
      Hopefully nobody will noticed.
 
+     Include CCDNUM (short int) in PHOT table; no longer in header.
+
+     if zCMB < 0 in text format data, compute it from ZHEL.
+     
+     Finally removed obsolete perl submit-batch scripts
+
          ***** USEFUL(v11_02j) ***** 
 
          ***** MISCELLANEOUS(v11_02j) ***** 
@@ -19666,8 +19672,42 @@
  
     submit_batch_jobs
      + finally finish merge tasks for train_SALT3
+     + submit_prog_fit uses new python script sntable_dump.py
+         (no longer uses perl script sntable_dump.pl)
 
     snlc_sim.c
      + fix parsing-refac bug for reading WARP_SPECTRUM arg.
+     + fix DASHBOARD
+     + fix ZPOLY rate model 
+     + for BYOSED, abort if G10 scatter model has no SALT2PATH
+
+    snana.car
+      + fix abort trap in COUNTFIELDS; write all field names
+        in abort message.
+      + write recomputed PEAKMJD to reformatted data file
+      + new CUTWIN_SIMPULL for &SNLCINP
+
+    submit_batch_jobs:
+      + new option "INPDIR+: None" uses datafile= argument.
+      + new STRING_VERSION_IGNORE option for BBC
+
+    sntools_dataformat_text.c
+      + allow reading FWHM column for PSF.
+
+    sntools_dataformat_fits.c
+      + if there is no REDSHIFT_FINAL key, check for REDSHIFT_CMB.
+
+    sntools.c:
+      + fix memory leak in copy_SNDATA_OBS()
+
+    Makefile: add debug flag,  "make debug"
+
+    Create sntable_dump.py (to eventually replace sntable_dump.pl)
+
+  TODO: add simlib option to specify band-CCD as e.g., g-42,
+        to simulate CCD illum.
+
+  BEWARE: fudged fluxes and errors are NOT included if
+          data files are reformatted
 
 END: 

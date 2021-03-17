@@ -11775,12 +11775,12 @@ extract table information into text format.
 
 The script usage is explained at the top of
 {\tt \&SNANA\_DIR/util/sntable\_dump.pl},
-and here we illustrate its three basic features:
+and here we illustrate its basic features:
 \begin{enumerate}
   \item Print list of {\tt SNTABLE} variables: 
        \begin{verbatim}
-          sntable_dump.pl  myjob.hbook  7100
-          sntable_dump.pl  myjob.hbook  7788
+          sntable_dump.pl  myjob.hbook  SNANA
+          sntable_dump.pl  myjob.hbook  FITRES
           sntable_dump.pl  myjob.root   SNANA
           sntable_dump.pl  myjob.root   FITRES
        \end{verbatim}
@@ -11788,31 +11788,27 @@ and here we illustrate its three basic features:
   \item For an arbitrary set of table variables, 
         extract SN values  into a fitres-formatted text file:
        \begin{verbatim}
-       sntable_dump.pl  myjob.hbook  7100 --v RA DECL SNRMAX_r
-       sntable_dump.pl  myjob.hbook  7788 --v m0obs_g m0obs_r
-         (and same for hbook/7100/7788 -> root/SNANA/FITRES)
+       sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r
+       sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r
        \end{verbatim}
 %
   \item Append an existing text file with variables from a {\tt SNTABLE}:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7100 --v RA DECL SNRMAX_r --a MYJOB.FITRES
- sntable_dump.pl  myjob.hbook  7788 --v m0obs_g m0obs_r  --a MYJOB.FITRES
-           (and same for hbook/7100/7788 -> root/SNANA/FITRES)
+ sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r -a MYJOB.FITRES
+ sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r  -a MYJOB.FITRES
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-fitFLux  outliers:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7788   --outlier  3  99
  sntable_dump.pl  myjob.root   FITRES --outlier  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier  3  99 --v FITPROB SNRMAX3
+ sntable_dump.pl  myjob.root   FITRES --outlier  3  99 -v FITPROB SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-simFLux  outliers (sim only):
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7788   --outlier_sim  3  99
  sntable_dump.pl  myjob.root   FITRES --outlier_sim  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 --v FITPROB SNRMAX3
+ sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 -v FITPROB SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
@@ -11834,8 +11830,8 @@ The appended variables are extracted from the {\tt SNTABLE}
 (2nd argument of {\sndump}).
 
 To see pre-explosion epochs with the outlier option, 
-optn the low-side of  {\tt \&FITINP} namelist variable
-{\tt FITWIN\_TREST}, such as -100, +45.
+open the low-side of  {\tt \&FITINP} namelist variable
+{\tt FITWIN\_TREST}, such as ``{\tt FITWIN\_TREST: -100, +45}''
 
 % --------------------------------------
   \subsubsection{Extract Value from Fitres File: {\tt get\_fitresValue.pl}}
@@ -12481,55 +12477,6 @@ at the epoch with the maximum $S/N$.
   \label{subsec:MiscTools_fit}
 % --------------------------------------
 
-% ----------
-  \subsubsection{Analyzing Residuals from Lightcurve Fits}
-  \label{sss:resids_error}
-
-There are two utilities to analyze residual from a lightcurve fit:
-
-\begin{Verbatim}[frame=single]
-   mkfitplots.pl --h <hisFile>  RESIDS
-   dump_lcfitOutliers.pl <hisFile>  <Nsigma>
-\end{Verbatim}
-%
-The first command generates plots of the normalized residuals,
-$\Delta F/\sigma$ where $\Delta F = F_{\rm data} - F_{\rm  model}$,
-and also plots $\Delta F/\sigma$ vs. $\log_{10}({\rm SNR})$.
-Separate plots are made for each observer-frame passband.
-The second command dumps out a text-file of outlier \obss\
-for which the data lie more than {\tt Nsigma}$\sigma$ from the
-best-fit model. The format of the outlier text-file is such that
-entries can be pasted directly into the IGNORE file for those
-\obss\ that should be ignored in the analysis.
-
-
-% --------------------------------------
-  \subsubsection{Extracting Light Curves into ASCII Formatted Files}
-  \label{sss:LCextract}
-% --------------------------------------
-
-For both the {\tt snana.exe} and {\tt snlc\_fit.exe} programs,
-the fluxes and best-fit model can be dumped into an
-ASCII text file with the {\&SNLCINP} namelist option
-\begin{verbatim}
-  LDMP_SNFLUX = T
-\end{verbatim}
-This option creates a  master file ``{\tt \$SURVEY.LIST}'' 
-and a {\tt FLUXFILE} for each filter for each SNID.
-The master file contains the name of each SNID, 
-its redshift and a list of {\tt FLUXFILE}s.
-The format of the {\tt FLUXFILE} is
-\begin{verbatim}
-   Tobs  FLUXCAL FLUXCAL_ERR  DATAFLAG   CFILT   CHI2
-\end{verbatim}
-%
-where {\tt Tobs} is the time relative to the epoch of peak brightness,
-{\tt FLUXCAL} and  {\tt FLUXCAL\_ERR} are the calibrated
-flux and error, {\tt DATAFLAG} is described below,
-{\tt CFILT} is a one-character filter string, 
-and {\tt CHI2} is the the data-model $\chi^2$ from the fit (0 if no fit).
-{\tt DATAFLAG} is $+1$ for data, $-1$ for data rejected by the fit,
-and $0$ for the best fit (smooth) model.
 
 % --------------------------------------
 %  \clearpage
@@ -12574,13 +12521,17 @@ file with the following,
   &SNLCINP
      VERSION_PHOTOMETRY    = 'MYSURVEY_TEXT'
      VERSION_REFORMAT_FITS = 'MYSURVEY_FITS'
+     OPT_SETPKMJD = 20   ! useful if there is no PEAKMJD estimate
+     OPT_MWEBV    = 2    ! useful if there is no MWEBV in text files
    &END
 
   or use NOFILE option with no input NML file:
 
   snana.exe NOFILE  \
      VERSION_PHOTOMETRY     MYSURVEY_TEXT  \  
-     VERSION_REFORMAT_FITS  MYSURVEY_FITS
+     VERSION_REFORMAT_FITS  MYSURVEY_FITS  \
+     OPT_SETPKMJD 20                       \ 
+     OPT_MWEBV    2
 \end{Verbatim}
 %
 This translation should be used only for data
@@ -12590,9 +12541,15 @@ the auxiliary files are also created:
 {\tt MYSURVEY.LIST}, 
 {\tt MYSURVEY.IGNORE}, 
 {\tt MYSURVEY.README}.
-All of the output files are created in your current directory;
-to use the for analysis, copy them into 
-{\tt\$\sndataroot/lcmerge}~.
+The output files are created under a newly created folder 
+({\tt /MYSURVEY\_FITS}) in your current directory.
+
+If there is no PEAKMJD estimate in the TEXT formatted files,
+{\tt OPT\_SETPKMJD>0} provides a PEAKMJD estimate for the FITS files.
+Similarly, {\tt OPT\_MWEBV>0} modifies {\tt MWEBV} and {\tt MWEBV\_ERR}
+for the FITS output. Finally, updated redshifts and $\vpec$
+are included in FITS output; e.g., from header override, etc ...
+Beware that content of TEXT and FITS may differ in these header variables.
 
 \medskip
 While FITS formatted data is efficient for analysis,
@@ -12613,7 +12570,7 @@ a max limit of 20 data files can be extracted.
 
 % --------------------------------------
   \clearpage
-  \subsubsection{Re-write Data FIles with Flux Fudges}
+  \subsubsection{Re-write Data Files with Flux Fudges}
   \label{sss:text2text}
 % --------------------------------------
 
@@ -12897,6 +12854,20 @@ epoch with {\tt SNR>5}, and another \obs\ is required within
 25 days after the last epoch with {\tt SNR>5}. The pre- and post
 \obs\ ensure that an above-threshold epoch would have been seen,
 and was not hidden by a dormant survey.
+
+% --------------------------------------
+%  \clearpage
+  \subsubsection{Rejecting Outlier Fluxes for Fakes and SIM}
+  \label{sss:reject_outliers}
+% --------------------------------------
+
+If fakes overlaid on images have catastrophic outliers,
+outlier epochs can be rejected with
+\begin{verbatim}
+   &SNLCINP
+      CUTWIN_SIMPULL -3.0, +3.0  ! reject >3 sigma outliers
+\end{verbatim}
+
 
 % --------------------------------------
 %  \clearpage

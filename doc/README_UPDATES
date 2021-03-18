@@ -19685,7 +19685,8 @@
       + fix abort trap in COUNTFIELDS; write all field names
         in abort message.
       + write recomputed PEAKMJD to reformatted data file
-      + new CUTWIN_SIMPULL for &SNLCINP
+      + new CUTWIN_SIMPULL for &SNLCINP (to reject flux outliers)
+      + new OUTLIER table; see SNTABLE_LIST options in manual
 
     submit_batch_jobs:
       + new option "INPDIR+: None" uses datafile= argument.

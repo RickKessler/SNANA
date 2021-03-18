@@ -4784,9 +4784,14 @@ double PROB_Chi2Ndof(double chi2, int Ndof ) {
   // Return probability that chi2 > chi2 with Ndof
   // Note that this function should replaces CERNLIB's PROB function.
   //
+  // For ideal Gaussian noise and correct uncertainties, FITPROB
+  // distribution should be a flat between 0 and 1.
+  // FITPROB pile-up near 1 suggests that errors are too large;
+  // FITPROB pile-up near 0 suggests contamination, or errors too small.
+  //
   // Feb 3, 2012: protect againsta Ndof < 1 -> returns P=0
   //
-
+  
   double N, chi2red, P;
   N = (double)Ndof/2.0 ;
   chi2red = chi2/2.0 ;

@@ -30,8 +30,16 @@ FORMAT_HBOOK = "HBOOK"
 # HBOOK takes table number while root takes tree name.
 # Can specify SNANA or FITRES table name for any format,
 # and the HBOOK map internally translates to integer ID
-TABLE_NAME_MAP_HBOOK = { 'SNANA' : '7100',    'FITRES': '7788'   }
-TABLE_NAME_MAP_ROOT  = { '7100'  : 'SNANA',   '7788'  : 'FITRES' }
+TABLE_NAME_MAP_HBOOK = { 
+    'SNANA'   : '7100',    
+    'FITRES'  : '7788',
+    'OUTLIER' : '7800'
+}
+TABLE_NAME_MAP_ROOT  = { 
+    '7100'  : 'SNANA',   
+    '7788'  : 'FITRES',
+    '7800'  : 'OUTLIER'
+}
 
 OUTFILE_PREFIX = "sntable_dump"
 OUTFILE_SUFFIX = "fitres"
@@ -47,6 +55,9 @@ def get_args():
 
     msg = "name of table (e.g., SNANA, FITRES, SPEC ...)"
     parser.add_argument("table_name", help=msg, nargs="?", default=None)
+
+    msg = "List possible table names"
+    parser.add_argument("-l", "--list_tables", help=msg, action="store_true")
 
     msg = "comma-sep list of variables to extract"
     parser.add_argument("-v", "--varlist", help=msg, nargs='?', 
@@ -82,6 +93,16 @@ def get_args():
     return args
     # end get_args
 
+def list_tables():
+
+    print(" Possible table names (2nd arg for this script)")
+    print(" from &SNLCINP input SNTABLE_LIST, and used by")
+    print(" snana.exe, snlc_fit.exe, psnid.exe programs:")
+    for table in TABLE_NAME_MAP_HBOOK:
+        print(f"\t{table}")
+
+    sys.exit("\nBye Bye.\n")
+    # end list_tables
 
 def insert_ccid_varlist(args):
 
@@ -253,6 +274,8 @@ if __name__ == "__main__":
 
     if input_args.VERBOSE :
         print(f"\n# =============== BEGIN =============== \n")
+
+    if input_args.list_tables: list_tables()
 
     # insert CCID as first variable
     config.varlist = insert_ccid_varlist(input_args)

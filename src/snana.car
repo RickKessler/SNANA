@@ -49,10 +49,11 @@ c parameters used by snana code
      &  ,OPT_FILTOBS, OPT_FILTREST
      &  ,ISTAT_READAGAIN, ISTAT_SKIP
      &  ,IDTABLE_MCMC, NFIT_VERBOSE
-     &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_SNLCPAK, ITABLE_SPECPAK
+     &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_OUTLIER
+     &  ,ITABLE_SNLCPAK, ITABLE_SPECPAK
      &  ,ITABLE_MODELSPEC, ITABLE_MARZ, MXTABLE
-     &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_MODELSPEC
-     &  ,IDTABLE_CIDPTR, IDTABLE_MARZ
+     &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_OUTLIER
+     &  ,IDTABLE_MODELSPEC, IDTABLE_CIDPTR, IDTABLE_MARZ
      &  ,OPT_PARSTORE_TEXTTABLE
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
@@ -240,13 +241,15 @@ c
      &  ,ISTAT_READAGAIN      = 7 
      &  ,ISTAT_SKIP           = -1
 c
-     &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_SNLCPAK=3
-     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5, ITABLE_MARZ=6
+     &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3
+     &  ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5
+     &  ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7
      &  ,MXTABLE = 10
      &  ,IDTABLE_SNANA     = 7100  ! anaysis variables, every event
      &  ,IDTABLE_FITRES    = 7788  ! SNANA table + fit results, passing cuts
+     &  ,IDTABLE_OUTLIER   = 7800  ! outlier fluxes (Mar 2021)
      &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
-     &  ,IDTABLE_MARZ      = 8100  ! MARZ tables
+     &  ,IDTABLE_MARZ      = 8100  ! MARZ table for spectra
      &  ,IDTABLE_CIDPTR    = 1600  
      &  ,IDTABLE_MCMC      = 7711  ! obsolete ?
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
@@ -449,7 +452,9 @@ c
      &  ,LSIM_SNANA        ! simulated with SNANA
      &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
+     &  ,ISJOB_SNFIT          ! =T for snlc_fit or psnid
      &  ,ISJOB_PSNID
+     &  ,ISJOB_SIM    ! either SNANA sim or fakes (LSIM_SNANA or LSIM_MAGOBS)
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
@@ -528,7 +533,8 @@ c global survey info
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
      &    ,SURVEY_FILTERS
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
-     &    ,ISJOB_SNANA, ISJOB_PSNID, ISJOB_BATCH, ZEROPOINT_FLUXCAL
+     &    ,ISJOB_SNANA, ISJOB_SNFIT, ISJOB_PSNID, ISJOB_SIM, ISJOB_BATCH
+     &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
      &    ,DO_FIT, DO_FLUXERRCALC, NVAR_NEARNBR 
@@ -572,8 +578,9 @@ c SNTABLE control variables (May 2014)
      &   OPT_TABLE(MXTABLE)       ! option(s) for each table
      &  ,CUTMASK_SNANA_TABLE      ! select CUTFLAG_SNANA for SNANA table
 
-      REAL*8
+      REAL
      &   PRESCALE_TABLE(MXTABLE)  ! table pre-scale (to reduce size)
+     &  ,NSIGCUT_OUTLIER_TABLE    ! e.g., SNTABLE_LIST='OUTLIER(nsig:3.5)'
 
       CHARACTER 
      &   TEXTFORMAT_TABLE(MXTABLE)*8
@@ -598,9 +605,7 @@ c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
      &    ,FILTLIST_REMAP_TABLE
      &    ,NTABLEVAR_USER, TABLEVARNAME_USER
-     &    ,TABLEVALUE_USER
-
-      COMMON / SNTABLECOM8 / PRESCALE_TABLE 
+     &    ,TABLEVALUE_USER, PRESCALE_TABLE, NSIGCUT_OUTLIER_TABLE
 
 c May 6, 2008: define lists for epochs to ignore
  
@@ -620,6 +625,43 @@ c May 6, 2008: define lists for epochs to ignore
 
       REAL*8  DUPLICATE_MJDLIST(200)
       COMMON / DUPMJDCOM / DUPLICATE_MJDLIST
+
++KEEP,OUTLIERCOM.
+
+      INTEGER MXFILT_OUTLIER
+      PARAMETER ( MXFILT_OUTLIER = 100) ! avoid includig FILTCOM
+
+      CHARACTER OUTLIER_TABLE_NAME*12
+
+      REAL*8 OUTLIER_MJD
+      REAL*4 
+     &   OUTLIER_FLUXCAL_DATA, OUTLIER_FLUXCAL_ERR_DATA
+     &  ,OUTLIER_FLUXCAL_ERR_CALC
+     &  ,OUTLIER_FLUXCAL_TRUE
+     &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
+     &  ,OUTLIER_FLUXCAL_ERRTOT_FIT  ! data + fit errors in quadrature
+     &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
+     &  ,OUTLIER_NSIG
+
+      INTEGER   
+     &    NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
+     &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
+     &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
+
+      CHARACTER OUTLIER_BAND*4
+
+      COMMON / OUTLIERCOM8 / OUTLIER_MJD 
+      COMMON / OUTLIERCOM4 / 
+     &   NEP_OUTLIER_CHECK, NEP_OUTLIER_FOUND, OUTLIER_TABLE_NAME
+     &  ,OUTLIER_FLUXCAL_DATA, OUTLIER_FLUXCAL_ERR_DATA
+     &  ,OUTLIER_FLUXCAL_ERR_CALC
+     &  ,OUTLIER_FLUXCAL_TRUE
+     &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
+     &  ,OUTLIER_FLUXCAL_ERRTOT_FIT
+     &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
+     &  ,OUTLIER_NSIG
+     &  ,OUTLIER_IFILTOBS, OUTLIER_BAND
+     &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
 +KEEP,CTRL_LEGACY.
 
@@ -865,6 +907,9 @@ c
      &  ,SNLC_FLUXCAL(MXEPOCH)
      &  ,SNLC_FLUXCAL_ERRTOT(MXEPOCH)
      &  ,SNLC_FLUXCAL_ERRTEST(MXEPOCH)   ! ERRCALC/ERRTRUE (Nov 2019
+     &  ,SNLC_FLUXCAL_FIT(MXEPOCH)       ! used for outlier table
+     &  ,SNLC_FLUXCAL_ERR_FIT(MXEPOCH)   ! idem
+     &  ,SNLC_FLUXCAL_ERRTOT_FIT(MXEPOCH)   ! sqrt[cov(data)+cov(fit)]
      &  ,SNLC_MAG(MXEPOCH)
      &  ,SNLC_MAG_ERRPLUS(MXEPOCH)
      &  ,SNLC_MAG_ERRMINUS(MXEPOCH)
@@ -934,6 +979,7 @@ c
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
      &    ,SNLC_FLUXCAL_HOSTERRCALC
      &    ,SNLC_FLUXCAL, SNLC_FLUXCAL_ERRTOT
+     &    ,SNLC_FLUXCAL_FIT,SNLC_FLUXCAL_ERR_FIT,SNLC_FLUXCAL_ERRTOT_FIT
      &    ,SNLC_MAG, SNLC_MAG_ERRPLUS, SNLC_MAG_ERRMINUS
      &    ,SNLC_ZEROPT, SNLC_ZEROPT_ERR, SNLC_ZEROPT_forCUT
      &    ,SNLC_SKYFLUXCAL, SNLC_DLMAG
@@ -1826,7 +1872,6 @@ c
       LOGICAL 
      &   USE_MWCOR          ! (I) T=> correct data flux for MW extinc;
                             !     F=> leave data, correct fit model for MW.
-
       REAL 
      &   REDSHIFT_FINAL_SHIFT    ! artificial shift
      &  ,FLUXERRCALC_ZPTERR 
@@ -3082,9 +3127,11 @@ c init output file; set OPTFIT based on program.
       CALL MNDUMMY()   ! just to require minuit library.
 +SELF,IF=SNFIT.
       NFIT_PER_SN = 1  ! only 1 fit per SN
+      ISJOB_SNFIT = .TRUE.
       CALL MNDUMMY()   ! just to require minuit library.
 +SELF,IF=PSNID.
       NFIT_PER_SN = PSNID_GET_NFIT()
+      ISJOB_SNFIT = .TRUE.
       ISJOB_PSNID = .TRUE.
       IF ( OPT_SETPKMJD == 0 ) THEN  ! if default, then ...
         OPT_SETPKMJD = -1  ! DON'T estimate PKMJD before psnid (4/22/2014)
@@ -4202,6 +4249,7 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       ISNLC_FAKE = INT(DARRAY(1))
       if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
       if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
+      ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
 
       CALL FETCH_SNDATA_WRAPPER("RA",  ONE, STRING, DARRAY,  OPT)
       SNLC8_RA = DARRAY(1)
@@ -4914,7 +4962,7 @@ c ----------------------------------------------
 c ----------- SIM QUANTITIES BELOW -------------
 c ----------------------------------------------
 
-      if ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) ) GOTO 800
+      if ( .NOT. ISJOB_SIM ) GOTO 800
 
 c read SIM_MAGOBS for SNANA sim or FAKES ...
 
@@ -6291,7 +6339,7 @@ c set strings needed for the SNLCPAK_INIT functio
 
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 ) THEN
          SIMFLAG = 0
-         IF ( LSIM_SNANA .or. LSIM_MAGOBS ) SIMFLAG=1
+         IF ( ISJOB_SIM ) SIMFLAG=1
          CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,
      &        FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,
      &        LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
@@ -6444,7 +6492,7 @@ c
 c May 23 2019: add text:host    option ; see WRTABLEFILE_HOST_TEXT
 c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
 c Jul 13 2020: no default SNTABLEs if writing rejected epochs
-c
+c Mar 17 2021: begin OUTLIER table
 c -------------------
       IMPLICIT NONE
 
@@ -6453,7 +6501,7 @@ c -------------------
 
       INTEGER   
      &   itab, iwd, LENS, LENTB, LENOPT, LEN1,LEN2, NOPT, iopt, 
-     &   PS, NWD, i, MSKOPT
+     &   PS, NWD, i, MSKOPT, j_colon
 
       CHARACTER USERSTRING*60, locase_STRING*60, TBNAME*60
       CHARACTER COPT_LIST(10)*20, COPT*40, FNAM*22, C_ARG*100
@@ -6488,6 +6536,7 @@ c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
 
       TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'none'
       TEXTFORMAT_TABLE(ITABLE_FITRES)    = 'key'
+      TEXTFORMAT_TABLE(ITABLE_OUTLIER)   = 'key'
       TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'none'
       TEXTFORMAT_TABLE(ITABLE_SPECPAK)   = 'none' ! Apr 2019
       TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none' 
@@ -6576,6 +6625,11 @@ c check table-names
                OPT_TABLE(ITAB) = 2     ! include epoch fit resids
             endif
 
+         else if ( TBname(1:7) .EQ. 'outlier' ) then 
+            ITAB = ITABLE_OUTLIER
+            OPT_TABLE(ITAB) = 1
+            NSIGCUT_OUTLIER_TABLE = 3.0   ! default outlier def is 3sigma
+
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
             OPT_TABLE(ITAB) = 1
@@ -6608,6 +6662,7 @@ c check for options inside ()
             COPT     = COPT_LIST(iopt)
             LENOPT   = index(COPT,' ') - 1
             USEOPT   = .FALSE.
+            j_colon  = INDEX(copt,':')
 
             MATCH= ( copt(1:5) .EQ. 'text:' )
             if ( MATCH ) then
@@ -6643,10 +6698,16 @@ c check for options inside ()
             MATCH = ( copt(1:2) .EQ. 'ps' ) 
             if ( MATCH ) then
                read(copt(4:LENOPT),*) PS
-               PRESCALE_TABLE(itab) = DBLE(PS)
+               PRESCALE_TABLE(itab) = PS
                USEOPT           = .TRUE.
             endif
           
+	    MATCH = copt(1:4) .EQ. 'nsig'
+            IF ( MATCH ) THEN
+               read(copt(6:LENOPT),*) NSIGCUT_OUTLIER_TABLE
+               USEOPT = .TRUE.
+            ENDIF
+
             if ( .NOT. USEOPT ) then
                LENTB = index(TBNAME,' ') - 1
                C1ERR = 'Invalid option: ' // COPT(1:LENOPT)
@@ -8360,17 +8421,6 @@ c If no SN pass cuts, list cut(s) that always fail.
 c
 c Get <z> and RMS from hid 11
 c
-c Mar 15, 2010: Fix bug at 'write(6,66)' : add CUTBIT_CID
-c
-c Oct 21, 2010: if CID cut always fails, print only that message;
-c               suppress spurious messages about other cut failures.
-c
-c Jul 20, 2012: print WARNING message if NACCEPT_TYPE = 0
-c
-c Jan 3, 2013: call PRINT_NPASSCUTS to see how many SN pass vs. cut.
-c
-c Aug 18, 2013: remove check on redshift cut.
-c
 c Apr 26, 2017: I6 -> I7 in format 48.
 
       IMPLICIT NONE
@@ -8520,6 +8570,10 @@ c print DUPLICATE-MJD WARNING
  617     format(T20,I4,' Duplicate MJDs are unique', /)
       ENDIF
       
+      IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
+         CALL PRINT_OUTLIER_SUMMARY()  ! Mar 2021
+      ENDIF
+
       RETURN
       END   ! end PRINT_SNSTATS
 
@@ -8977,7 +9031,6 @@ c Beware that SNANA table gets filled after FITRES table.
 
       CALL MAKE_SIMLIB_FILE(2)   ! update SIMLIB Feb 2016
 
-
 +SELF,IF=TESTFUNS.
       CALL TEST_GET_SNFITSIO_INFO()
 +SELF.
@@ -9126,7 +9179,6 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
 
 c - - - - - - 
       CALL PRINT_SNSTATS()
-
 
       IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
          CALL write_epoch_list_summary()
@@ -10399,6 +10451,7 @@ c get SNANA version from C function
       FORMAT_FITS    = .FALSE.
 
       ISJOB_SNANA = .FALSE.
+      ISJOB_SNFIT = .FALSE.
       ISJOB_PSNID = .FALSE.
       ISJOB_BATCH = .FALSE.
 
@@ -10562,7 +10615,7 @@ c - - - - -
 
       LSIM_SNANA   = .FALSE.  ! snana sim  
       LSIM_MAGOBS  = .FALSE.  
-    
+      ISJOB_SIM    = .FALSE.
 
       NACCEPT_Z    = 0
       NACCEPT_ZERR = 0
@@ -15293,7 +15346,7 @@ c beware that CCDNUM is read from header, and also from
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
       ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
 
-      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+      IF ( ISJOB_SIM ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
         SIM_EPFLUXCAL(EP1)         = SIM_EPFLUXCAL(EP2)
         SIM_EPCHI2FLUX(EP1)        = SIM_EPCHI2FLUX(EP2)
@@ -15664,9 +15717,6 @@ C -------------- BEGIN -------------------
       CUTMASK8_MJD_ALL   = 0  ! init common block var
 
       DO 100 ibit = 1, NCUTBIT
-
-c xxx ??  if ( .NOT. LSIM_SNANA .and. ibit .EQ. CUTBIT_SEARCH ) goto 100
-
          if ( ibit .LE. CUTBIT_MJD_MARKER ) then
            CUTMASK8_SN_ALL = IBSET ( CUTMASK8_SN_ALL, ibit-1 )
          else
@@ -17903,7 +17953,7 @@ c Jan 3 2018: skip saturated mags
           endif
 
 c convert sim-mag to SIM_FLUXCA
-          IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+          IF ( ISJOB_SIM ) THEN
              ZP        = ZEROPOINT_FLUXCAL_DEFAULT
              SIM_MAG   = SIM_EPMAGOBS(ep)
              if ( SIM_MAG < 90.0 ) then
@@ -18329,7 +18379,7 @@ c Parse &SNLCINP input SIMVAR_CUTWIN_STRING
       EXTERNAL STORE_PARSE_WORDS
 
 C --------- BEGIN ---------
-      IF ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )  RETURN
+      IF ( .NOT. ISJOB_SIM )  RETURN
       IF ( SIMVAR_CUTWIN_STRING .EQ. '' ) RETURN
 
       FNAM = 'PARSE_SIMVAR_CUTS'
@@ -19489,7 +19539,7 @@ C ------------------ BEGIN ------------------
       IF( SIMLIB_OUTFILE .EQ. '' ) RETURN
 
       FNAM = 'MAKE_SIMLIB_FILE'
-      IS_REAL_DATA = ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )
+      IS_REAL_DATA = ( .NOT. ISJOB_SIM )
 
 c check option to write ALL SIM_MAGOBS, even for SIM_MAGOBS=99 where
 c no fake or sim event was generated and there is zero flux.
@@ -19526,8 +19576,7 @@ c -------------------------------------------
         
         OPEN(   UNIT   = LUNOUT
      &        , FILE   = SIMLIB_OUTFILE
-     &        , STATUS = 'UNKNOWN'
-     &           )
+     &        , STATUS = 'UNKNOWN'         )
 
         WRITE(LUNOUT,11) 
      &       'Created from snana.exe using SIMLIB_OUTFILE option.'
@@ -20710,9 +20759,11 @@ c ------------------------------------------------------
       IF ( MADE_LCPLOT )  N_SNLC_PLOT = N_SNLC_PLOT + 1 
 c ------------------------------------------------------
 
-
       IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
          CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
+      ENDIF
+      IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
+         CALL TABLE_OUTLIER(IDTABLE_OUTLIER,IFLAG)   
       ENDIF
       
       LTMP = ( IFLAG .EQ. IFLAG_INI .or. MADE_LCPLOT )  
@@ -21381,7 +21432,7 @@ c Requiring valid true flux is a little tricky.
 c Motivation is for fake light curves on images where a few epochs 
 c didn't get overlaid for unknown reasons.
          SNEP_CUTVAR(CUTBIT_TREST_TRUEFLUX2,imjd) = 1.0
-         IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+         IF ( ISJOB_SIM ) THEN
             Trest   = SNLC_TREST(EPMIN)
             TRUEMAG = SIM_EPMAGOBS(EPMIN)
             LCUT1   = (TREST > CUTWIN_TREST_TRUEFLUX(1) .and.
@@ -22642,7 +22693,7 @@ c store data-FITFUN chi2
       ENDIF
 
 c check for sim fluxes (Jan 2020)
-      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+      IF ( ISJOB_SIM ) THEN
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
      &     VSIMFLUX, VFLUX_ERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
@@ -22863,19 +22914,455 @@ C =======================
 
 C call utilities to call table-interface C-functions
 
+C ===========================================
++DECK,TABLE_OUTLIER.
+      SUBROUTINE TABLE_OUTLIER(IDTABLE,IFLAG)
+C
+C Created Mar 17 2021
+C Create and fill table for OUTLIER fluxes w.r.t, SIM truth or LC model fit.
+C Goal is to replace outlier option in sntable_dump so that making 
+C OUTLIER table is a 1-step process (snana.exe) instead of 2 steps
+C (snana.exe + sntable_dump.py)
+C
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+c+CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+      INTEGER IDTABLE  ! (I) table ID
+      INTEGER IFLAG    ! (I) see IFLAG_XXX params
+
+c local var
+
+      INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP
+      INTEGER   IFILTOBS
+      LOGICAL   DOFILL_TABLE
+      REAL      NSIG, FLUXCAL_FIT, FLUXCAL_ERR_FIT
+      CHARACTER NAME_forC*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
+
+      REAL  NSIG_OUTLIER_FIT  ! function 
+      EXTERNAL  SNTABLE_CREATE, SNTABLE_FILL
+C ---------------- BEGIN -----------------    
+ 
+      FNAM = 'TABLE_OUTLIER'
+
+c for snana job, must be sim from either SNANA or FAKE
+      IF ( ISJOB_SNANA .and. (.NOT. ISJOB_SIM)  ) THEN
+         c1err = 'Cannot make OUTLIER table for ' // 
+     &           'real data using snana.exe.'
+         c2err = 'Process SIM or FAKES; or run LC fit on real data'
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
+
+c FIT outliers work on real data or sim, so error check not needed.
+
+       
+      IF ( IFLAG .EQ. IFLAG_INI ) THEN
+
+         OUTLIER_TABLE_NAME  = 'OUTLIER' 
+         LENNAME   = INDEX(OUTLIER_TABLE_NAME, ' ') - 1
+	 NAME_forC = OUTLIER_TABLE_NAME(1:LENNAME) // char(0)
+
+         TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_OUTLIER)
+         LENFMT   = INDEX(TEXTFMT, ' ') - 1
+         TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+
+         CALL SNTABLE_CREATE(IDTABLE, NAME_forC, TEXTFMT_forC, 
+     &          LENNAME,LENFMT)  ! C fun
+
+         CALL INIT_TABLE_OUTLIERVAR(IDTABLE, 'OUTLIER')
+
+         DO ifiltobs = 1, MXFILT_ALL
+            NEP_OUTLIER_CHECK(ifiltobs) = 0  ! total epochs checked per band
+            NEP_OUTLIER_FOUND(ifiltobs) = 0  ! Noutlier per band
+         ENDDO
+
+         RETURN
+      ENDIF
+
+
+c --------------------------
+c fill table.
+
+      if ( ISJOB_SNANA ) then
+         DOFILL_TABLE = BTEST(CUTFLAG_SNANA,0)
+      else
+         DOFILL_TABLE = BTEST(CUTFLAG_SNANA,1)
+      endif
+
+      IF ( .NOT. DOFILL_TABLE ) RETURN
+
+c   terminate strings for C table-functions (snana.car routine)
+      CALL TABLE_STRING_TERMINATION(+1)
+
+      DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE 
+        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+        DO 201 EP = EPMIN, EPMAX
+           IFILTOBS   = ISNLC_IFILT_OBS(ep)
+           if ( ISNLC_SNRECON_USE(ep) == 0 ) goto 201
+
+           if ( ISJOB_SNANA ) then
+              NSIG   = abs(SIM_EPPULL(ep))
+           else
++SELF,IF=SNFIT.
+              NSIG = NSIG_OUTLIER_FIT(ep)
++SELF.
+           endif
+
+           if ( NSIG < -0.01 ) goto 201
+
+           NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
+           if ( NSIG >= NSIGCUT_OUTLIER_TABLE ) then
+              CALL LOAD_OUTLIER_VAR(ep)
+              CALL SNTABLE_FILL(IDTABLE) ! generic C function
+              NEP_OUTLIER_FOUND(ifiltobs) = 
+     &        NEP_OUTLIER_FOUND(ifiltobs) + 1
+           endif
+ 201    CONTINUE
+ 200  CONTINUE
+
+      CALL TABLE_STRING_TERMINATION(-1) ! remove termination
+
+      RETURN
+      END    ! end TABLE_OUTLIER
+
+C =============================
++DECK,INITBOUTVAR.
+      SUBROUTINE INIT_TABLE_OUTLIERVAR(ID, BLOCK)
+
+      IMPLICIT NONE
+      INTEGER   ID          ! (I) table ID
+      CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
+c +CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+      INTEGER 
+     &   IFILT, IFILT_OBS, ITEXT
+     &  ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
+
+      LOGICAL LTMP, ADDCOL_SETPKMJD
+      CHARACTER varlist*100, CTMP*60, CBLOCK*40
+      CHARACTER FNAM*20, VARNAME*40, CFILT*2
+      EXTERNAL  SNTABLE_ADDCOL
+
+c ------------ BEGIN ----------
+
+      FNAM = 'INIT_TABLE_SNANAVAR'
+
+      write(6,10) BLOCK, ID
+ 10   format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5 )
+      call flush(6)
+
+      LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
+      CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
+      LENLIST      = LEN(VARLIST)
+
+c  for CCID, use special variable SNLC_CCID_forC that has char(0)
+c  termination so that parsing CCID with C code is easier.
+
+      VARLIST = 'CCID:C*20' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'MJD:D' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'BAND:C*4' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_BAND, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'IFILTOBS:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'CCDNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'PHOTFLAG:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PHOTFLAG, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'FLUXCAL_DATA:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_DATA, 
+     &           VARLIST, 1, LENBLOCK, 20 )
+
+      VARLIST = 'FLUXCAL_ERR_DATA:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_DATA, 
+     &        VARLIST, 1, LENBLOCK, 20 )
+
+      VARLIST = 'FLUXCAL_ERR_CALC:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK,OUTLIER_FLUXCAL_ERR_CALC,
+     &            VARLIST, 1, LENBLOCK, 20 )
+
+      if ( ISJOB_SNANA ) then
+         ! outlier w.r.t. true sim/fake flux (SIM_MAGOBS column in data file)
+         VARLIST = 'FLUXCAL_TRUE:F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_TRUE, 
+     &        VARLIST, 1, LENBLOCK, 20 )
+      else
+         ! outlier w.r.t. LC fit
+         VARLIST = 'FLUXCAL_FIT:F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_FIT, 
+     &        VARLIST, 1, LENBLOCK, 20 )
+
+         VARLIST = 'FLUXCAL_ERR_FIT:F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_FIT, 
+     &         VARLIST, 1, LENBLOCK, 20 )
+
+         VARLIST = 'FLUXCAL_ERRTOT_FIT:F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERRTOT_FIT, 
+     &         VARLIST, 1, LENBLOCK, 20 )
+      endif
+
+      VARLIST = 'NSIG:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'ZP:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'PSF:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PSF, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'SKYSIG:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      RETURN
+      END   ! end INIT_TABLE_OUTLIERVAR
+
+C =============================
++DECK,LOAD_OUTLIER_VAR.
+      SUBROUTINE LOAD_OUTLIER_VAR(ep)
+
+c Created Mar 17 2021
+c Load OUTLIER_XXX variables for epoch 'ep'.
+c
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+      INTEGER  ep  ! (I) epoch index to load
+
+      INTEGER IFILT_OBS
+      CHARACTER BAND*4
+
+c ---------- BEGIN ---------
+
+      IFILT_OBS   = ISNLC_IFILT_OBS(ep)
+      BAND        = filtdef_string(ifilt_obs:ifilt_obs)
+
+      OUTLIER_MJD          = SNLC8_MJD(ep)
+      OUTLIER_IFILTOBS     = IFILT_OBS
+      OUTLIER_BAND         = BAND
+      OUTLIER_CCDNUM       = ISNLC_CCDNUM(ep)
+      OUTLIER_PHOTFLAG     = ISNLC_PHOTFLAG(ep)
+      OUTLIER_FLUXCAL_DATA      = SNLC_FLUXCAL(ep)
+      OUTLIER_FLUXCAL_ERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
+      OUTLIER_FLUXCAL_ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
+      OUTLIER_NSIG         = abs(SIM_EPPULL(ep))
+      OUTLIER_ZP           = SNLC_ZEROPT(ep)
+      OUTLIER_PSF          = SNLC_PSF_SIG1(ep)
+      OUTLIER_SKYSIG       = SNLC_SKYSIG(ep)
+
+      IF ( ISJOB_SNANA ) THEN
+         ! true flux from SIM_MAGOBS 
+         OUTLIER_FLUXCAL_TRUE      = SIM_EPFLUXCAL(ep)
+      ELSE
+         ! get model fit flux
+         OUTLIER_FLUXCAL_FIT        = SNLC_FLUXCAL_FIT(ep)
+         OUTLIER_FLUXCAL_ERR_FIT    = SNLC_FLUXCAL_ERR_FIT(ep)
+         OUTLIER_FLUXCAL_ERRTOT_FIT = SNLC_FLUXCAL_ERRTOT_FIT(ep)
+      ENDIF
+
+      IF ( USE_TABLEFILE_ROOT ) THEN
+         OUTLIER_BAND = OUTLIER_BAND(1:1) // char(0)
+      ENDIF
+
+      RETURN
+      END   ! end LOAD_OUTLIER_VAR(ep)
+
+      
+C ===========================================
++DECK,NSIG_OUTLIER_FIT,IF=SNFIT.
+      REAL FUNCTION NSIG_OUTLIER_FIT(ep)
+
+c Created Mar 17 2021
+c Function returns Nsig = | FLUXCAL_DATA / ERRTOT |
+c where ERRTOT^2 = FLUXCAL_ERR_DATA^2 + FLUXCAL_ERR_FIT^2 
+c Initial use is for OUTLIER table.
+c
+      IMPLICIT NONE
+      INTEGER  ep  ! (I) epoch index
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
+c +CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+      REAL  FLUXCAL_FIT, FLUXCAL_ERR_FIT
+      REAL  FLUXCAL_DATA, FLUXCAL_ERR_DATA, SQERR, ERRTOT, NSIG
+  
+C --------- BEGIN ---------
+
+      NSIG = 0.0
+
+      CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT)
+
+      FLUXCAL_DATA     = SNLC_FLUXCAL(ep)
+      FLUXCAL_ERR_DATA = SNLC_FLUXCAL_ERRTOT(ep)
+
+      IF ( FLUXCAL_ERR_FIT > 0.00001 ) THEN
+         SQERR = (FLUXCAL_ERR_FIT  * FLUXCAL_ERR_FIT) + 
+     &           (FLUXCAL_ERR_DATA * FLUXCAL_ERR_DATA)
+
+         ERRTOT = SQRT(SQERR)
+         NSIG   = abs(FLUXCAL_DATA-FLUXCAL_FIT) / ERRTOT
+      ELSE
+         ERRTOT = FLUXCAL_ERR_DATA
+         NSIG   = -9.0  ! epoch not used
+      ENDIF
+
+c      print*,' xxx ep, DIF/ERR = ', 
+c     &    ep, (FLUXCAL_DATA-FLUXCAL_FIT), '/', ERRTOT, NSIG
+
+c load fit flux info to global so that it can be used elsewhere     
+      SNLC_FLUXCAL_FIT(ep)        = FLUXCAL_FIT
+      SNLC_FLUXCAL_ERR_FIT(ep)    = FLUXCAL_ERR_FIT
+      SNLC_FLUXCAL_ERRTOT_FIT(ep) = ERRTOT
+
+c set function value
+      NSIG_OUTLIER_FIT = NSIG
+
+      RETURN
+      END     ! end NSIG_OUTLIER_FIT(ep)
+     
+C ==================================
++DECK,PR_OUTLIER_SUMMARY.
+      SUBROUTINE PRINT_OUTLIER_SUMMARY()
+
+c Created Mar 17 2021
+c print OUTLIER fraction per band to stdout.
+c If TEXTFILE_PREFIX is set, prepend top of file with summary
+c using clumsy method of writing a separate header file and
+c then using system cat command.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
++CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+c +CDE,SNPAR.
+c +CDE,CTRLCOM.
+c +CDE,SNLCINP.
+
+      INTEGER IFILT, IFILTOBS, NFILTDEF, N0, N1, LEN_WHAT
+      INTEGER LEN1, LEN2, LEN3, LEN_HEAD
+      REAL FRAC
+      CHARACTER cfilt*2, TEXT_WHAT*40, CMD_CAT*200, CMD_MOVE*200
+      CHARACTER TEXTFILE*200, TMP_HEADER_FILE*200, LINE*60, LINE2*60
+      LOGICAL   PREPEND_TEXTFILE
+
+C ---------- BEGIN -----------
+
+      PREPEND_TEXTFILE = ( TEXTFILE_PREFIX .NE. ' ' )
+      IF ( PREPEND_TEXTFILE ) THEN
+c construct name of TEXT file to prepend outlier summary.
+c Beware that TEXTFILE is fragile.
+         LEN1 = INDEX(TEXTFILE_PREFIX,   ' ' ) - 1
+         LEN2 = INDEX(OUTLIER_TABLE_NAME,' ' ) - 1
+         TEXTFILE = TEXTFILE_PREFIX(1:LEN1) // '.' // 
+     &       OUTLIER_TABLE_NAME(1:LEN2) // '.TEXT'
+         LEN3 = INDEX(TEXTFILE,' ') - 1
+         TMP_HEADER_FILE = 
+     &       'TMP_HEAD_' // TEXTFILE_PREFIX(1:LEN1) // '.TEXT'
+         LEN_HEAD = INDEX(TMP_HEADER_FILE,' ') - 1
+         OPEN(UNIT=LUNTMP, FILE=TMP_HEADER_FILE, STATUS='UNKNOWN')
+      ENDIF
+
+c - - - - - - - 
+
+      IF ( ISJOB_SNANA ) THEN
+         TEXT_WHAT  = '|F_data-F_true(SIM)|/Sigma_F'
+      ELSE
+         TEXT_WHAT  = '|F_data-F_fit|/Sigma_F'
+      ENDIF
+      LEN_WHAT = INDEX(TEXT_WHAT,' ') - 1
+
+      LINE = '    FLUX-OUTLIER SUMMARY per BAND for '
+      write(LINE2,10) TEXT_WHAT(1:LEN_WHAT), NSIGCUT_OUTLIER_TABLE
+ 10   format(T5, A, ' > ', F5.2, ' : ' )
+
+      print*, LINE
+      print*, LINE2
+
+      if (PREPEND_TEXTFILE) then
+         WRITE(LUNTMP,70) '=========================================='
+         WRITE(LUNTMP,70) LINE
+         WRITE(LUNTMP,70) LINE2
+      endif
+
+ 70   format('# ', A)
+c - - - - - - 
+
+      DO ifilt  = 1, NFILTDEF_SURVEY
+         ifiltobs  = IFILTDEF_MAP_SURVEY(ifilt)
+         cfilt     = filtdef_string(ifiltobs:ifiltobs)
+
+         N0 = NEP_OUTLIER_CHECK(ifiltobs)
+         N1 = NEP_OUTLIER_FOUND(ifiltobs)
+         if ( N0 > 0 ) then
+            FRAC = FLOAT(N1) / FLOAT(N0)
+         else
+            FRAC = 0.0
+         endif
+
+         write(LINE,20) cfilt, FRAC, N1, N0
+ 20      format(T8,A1, '-Outlier frac = ', F8.5, 3x,
+     &      '(', I6, '/', I6, ')'  )
+
+         print*, LINE
+         if (PREPEND_TEXTFILE) WRITE(LUNTMP,70) LINE
+
+      ENDDO
+
+      if(PREPEND_TEXTFILE) then
+         WRITE(LUNTMP,70) ' '
+         CLOSE(UNIT = LUNTMP)
+c finally, use cat to glue header comments and table.
+         CMD_CAT = 'cat ' // TEXTFILE(1:LEN3) //
+     &         ' >> ' // TMP_HEADER_FILE 
+         CMD_MOVE = 'mv ' // TMP_HEADER_FILE(1:LEN_HEAD) //  ' ' //
+     &           TEXTFILE(1:LEN3)
+         CALL SYSTEM(CMD_CAT // ' ; ' // CMD_MOVE)
+      endif
+
+      CALL FLUSH(6)
+
+      RETURN
+      END   ! end PRINT_OUTLIER_SUMMARY
 
 C ===========================================
 +DECK,TABLE_SNANA.
       SUBROUTINE TABLE_SNANA(IDTABLE,IFLAG)
-c
-c Created Feb, 2013 by R.Kessler
-c Driver for SNANA table in user-selected format(s).
-c
-c Jan 7 2014:  CALL TABLE_STRING_TERMINATION()
-c Sep 6, 2014: replace hard-wired 'KEY' format with 
-c              TEXTFORMAT_TABLE(ITABLE_SNANA)
-c
-c Mar 2, 2015:  call  INIT_TABLE_SNOBSVAR
 c
 c Apr 26 2017: check PRESCALE_TABLE
 c ------------------------------
@@ -22957,7 +23444,7 @@ c check option to store MODEL-MAG on epoch grid (Feb 2019)
            CALL LOAD_TABLE_SIM_MAGOBS()
         ENDIF
 
-        PS  = PRESCALE_TABLE(ITABLE_SNANA)
+        PS  = DBLE(PRESCALE_TABLE(ITABLE_SNANA))
         LPS = REJECT_PRESCALE(NCALL_SNANA_DRIVER,PS)
         IF ( .not. LPS ) THEN
           CALL SNTABLE_FILL(IDTABLE)  ! generic C function
@@ -23009,7 +23496,7 @@ c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
-+CDE,FILTCOM.g
++CDE,FILTCOM.
 +CDE,SNLCINP.
 +CDE,USRTAGCM.
 +CDE,PRIVCOM.
@@ -23019,10 +23506,10 @@ c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, ITEXT
-     &  ,LENBLOCK, LENBLOCK_L, LENLIST, LENNAME, LENV, ipar, ivar
+     &  ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
 
       LOGICAL LTMP, ADDCOL_SETPKMJD
-      CHARACTER varlist*1000, CTMP*60, CBLOCK*40, CBLOCK_L*40
+      CHARACTER varlist*1000, CTMP*60, CBLOCK*40
       CHARACTER FNAM*20, VARNAME*40, CFILT*2
       EXTERNAL  SNTABLE_ADDCOL
 
@@ -23035,9 +23522,7 @@ C ---------------- BEGIN ------------
       call flush(6)
 
       LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
-      LENBLOCK_L  = LENBLOCK+2
       CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
-      CBLOCK_L     = BLOCK(1:LENBLOCK) // "_L" // char(0)
       LENLIST      = LEN(VARLIST)
 
 c check filter list for filter-dependent columns (Feb 2017)
@@ -23690,7 +24175,7 @@ c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - - - - - - 
 
-      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+      IF ( ISJOB_SIM ) THEN
 c xxx mark          VARNAME = 'SIM_FLUXCAL(NOBS):F' // char(0) 
          VARNAME = 'FLUXCAL_SIM(NOBS):F' // char(0)   ! match FITRES+RESIDS
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL,
@@ -36280,8 +36765,6 @@ c do stuff on last iteration
 
 444   CONTINUE   ! end loop over IPAR
 
-
-
 c ----------------------
 c 9/29/2007: get error matrix
 
@@ -40323,7 +40806,7 @@ c read legacy SIM_MAG key
 c ---------------------------------
 c read sim quanitities
 
-      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+      IF ( ISJOB_SIM ) THEN
         KEYNAME  = "SIM_MAGOBS" // char(0)
         JPAR = JPAR + 1
         NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SIM_EPMAGOBS(1), 

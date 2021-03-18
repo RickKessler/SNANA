@@ -521,14 +521,13 @@ void SNTABLE_LIST_HBOOK(char *file) {
 
   s[1] =  STRING_IDTABLE_SNANA[IFILETYPE_HBOOK] ;
   s[2] =  STRING_IDTABLE_FITRES[IFILETYPE_HBOOK] ;
+  s[3] =  STRING_IDTABLE_OUTLIER[IFILETYPE_HBOOK] ; // Mar 2021
 
   sprintf(MSGERR1, "Cannot list ntuples.");
-  sprintf(MSGERR2, "Try %s or %s", s[1], s[2] );
+  sprintf(MSGERR2, "Try %s or %s or %s", s[1], s[2], s[3] );
   errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
 
-  //  sprintf(MSGERR2, "Try %s or %s", 
-  // IDTABLE_SNANA_HBOOK, IDTABLE_FITRES_HBOOK );
-
+  return ;
 
 } // end of SNTABLE_LIST_HBOOK
 
@@ -822,7 +821,7 @@ void outlier_dump_fromHbook(int irow) {
   // Nov 30 2020: fix nasty bug setting NPTFIT
 
   float CHI2, CHI2MIN, CHI2MAX; ;
-  int IVAR_NPT, IVAR_IFILT, IVAR_CHI2, IFILT ;
+  int IVAR_NPT, IVAR_IFILT, IVAR_CHI2, IVAR_CUTFLAG, IFILT ;
   int NPT, ep, ivar, ivarcast ;
   int LDMP = (irow == -888 ) ;
   char fnam[] = "outlier_dump_fromHbook" ;

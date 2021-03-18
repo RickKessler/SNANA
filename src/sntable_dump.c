@@ -476,6 +476,10 @@ void  set_outlier_varnames(void) {
     NVAR++ ;
   }
 
+  /* xxxxxxxxxx
+  if ( INPUTS.IS_SNANA )
+    { sprintf(INPUTS.VARNAMES[NVAR],"%s", VARNAME_CUTFLAG_SNANA ); NVAR++ ; }
+  xxxxxx */
 
   if ( INPUTS.IS_SNANA ) 
     { sprintf(INPUTS.VARNAMES[NVAR],"%s", "NOBS" );  }    

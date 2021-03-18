@@ -6349,6 +6349,27 @@ c with EXTRACT_MODELNAME, then set it here to default path.
       RETURN
       END   ! end FITMODEL_INI
 
+C ========================
++DECK,GET_FITFLUX.
+      SUBROUTINE GET_FITFLUX(ep, FIT_FLUXCAL, FIT_FLUXCAL_ERR)
+
+c Created Mar 17 2021
+c Interface for snana to fetch fitted FLUXCAL and error;
+c e.g., for OUTLIER table.
+
+      IMPLICIT NONE
+      INTEGER EP                         ! (I) epoch index
+      REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and erro
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.    public snana.car
++CDE,SNFITCOM.    local fitter info
+C  -------------- BEGIN ------------
+      FIT_FLUXCAL       = R4EP_ALL(ep,JEP_MODELFLUX)
+      FIT_FLUXCAL_ERR   = R4EP_ALL(ep,JEP_MODELFLUX_ERR)
+      RETURN
+      END     ! end GET_FITFLUX
+
 C ========================================================
 +DECK,GET_FLUX_FITFUN.
       DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN 

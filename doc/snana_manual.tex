@@ -11455,21 +11455,24 @@ to extract information from a {\ROOT} or {\HBOOK} file
 and convert into text format.
 The available output tables are
 \begin{itemize}
-  \item SNANA (ID=7100): general variables for all SN before fitting
-  \item FITRES (ID=7788): fit results for SN passing fit requirements.
+  \item {\tt SNANA} (ID=7100): general variables for all SN before fitting
+  \item {\tt FITRES} (ID=7788): fit results for SN passing fit requirements.
       Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
+  \item {\tt OUTLIER} (ID=7800): 
+      flux-outliers w.r.t. sim-truth for {\tt snana.exe} job;
+      w.r.t.  fit model for {\tt snlc\_fit.exe} job.
+      Default is $>3\sigma$.
+  \item {\tt SNLCPAK}: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %
-The SNANA and FITRES tables are intended to be accessed by
-users for continued analysis; the table name is assigned
-to a ``tree'' in \ROOT, while the the integer ID is assigned 
-to an `` ntuple'' in \HBOOK. 
-The SNLCPAK table is for internal plotting scripts, and is not
+The {\tt SNANA,FITRES,OUTLIER} tables are intended for continued 
+analysis after the \snana\ code finishes; 
+the table name is assigned to a ``tree'' in \ROOT, 
+while the the integer ID is assigned to an ``ntuple'' in \HBOOK. 
+The {\tt SNLCPAK} table is for internal plotting scripts, and is not
 intended for general use.
 The user-selection of format(s) and table(s) is described below.
-
 
 \bigskip\centerline{\bf\large COMPILATION FLAGS}
 \medskip
@@ -11487,19 +11490,19 @@ with \HBOOK\ or \ROOT.
 The output table format is defined by the user in the
 {\tt \&SNLCINP} namelist,
 \begin{Verbatim}[frame=single]
-   HFILE_OUT       = 'myout.hbook'
-   ROOTFILE_OUT    = 'myout.root'
-   TEXTFILE_PREFIX = 'myout'
+   HFILE_OUT       = `myout.hbook'
+   ROOTFILE_OUT    = `myout.root'
+   TEXTFILE_PREFIX = `myout'
 \end{Verbatim}
 %
 Multiple output formats can be specified, including all 3 as 
 shown above. For the {\ROOT} and {\HBOOK} formats, 
-and all tables are written to the \ROOT\ and \HBOOK\ file.
+all tables are written to each \ROOT\ and \HBOOK\ file.
 For the TEXT format, however, each table is written
 to a separate file and thus a file {\em prefix} is specified
 rather than a file-name. The corresponding output-file names 
 are ``{\tt myout.[tableName].TEXT}'' where the tableNames are
-{\tt SNANA}, {\tt FITRES} and 
+{\tt SNANA}, {\tt FITRES}, {\tt OUTLIER}, and 
 {\tt LCPLOT}.\footnote{{\tt LCPLOT} corresponds to the {\tt SNLCPAK} table.}
 
 
@@ -11507,12 +11510,12 @@ are ``{\tt myout.[tableName].TEXT}'' where the tableNames are
 \medskip
 
 The tables are selected by {\tt \&SNLCINP} namelist string
-{\tt SNTABLE\_LIST} with default value
+{\tt SNTABLE\_LIST},
 \begin{verbatim}
-    SNTABLE_LIST = 'SNANA  FITRES  LCPLOT'
+    SNTABLE_LIST = `FITRES'                       ! default
+    SNTABLE_LIST = `SNANA FITRES OUTLIER LCPLOT'  ! select'em all
 \end{verbatim}
 %
-which selects all three tables by default.
 To protect memory and output file size for large jobs,
 the number of light curve plots ({\tt LCPLOT})
 is limited by {\tt \&SNLCINP} namelist variable
@@ -11520,14 +11523,13 @@ is limited by {\tt \&SNLCINP} namelist variable
 more plotted light curves.
 
 If a \ROOT\ file is specified via {\tt \&SNLCINP} namelist
-variable {\tt ROOTFILE\_OUT}, then all three tables are
-created under the \ROOT\ structure. Similarly, all three
-tables are created under the \HBOOK\ structure if
-{\tt HFILE\_OUT} is defined. For TEXT format with 
-{\tt TEXTFILE\_PREFIX}, the defaut is different in 
-that only the ascii-FITRES table is produced for 
-backward-compatibility.
-To generate text output for the other tables requires
+variable {\tt ROOTFILE\_OUT}, then all {\tt SNTABLE\_LIST} arguments 
+are created under the \ROOT\ structure. Similarly, 
+all tables are created under the \HBOOK\ structure if
+{\tt HFILE\_OUT} is defined. 
+For TEXT format with {\tt TEXTFILE\_PREFIX}, only the {\tt FITRES}
+table is created by default; 
+to generate text output for other tables requires
 additional specifications such as
 %
 \begin{verbatim}
@@ -11593,6 +11595,7 @@ A few other miscellaneous table options are
   SNTABLE_LIST = 'FITRES NOZPHOT'        # suppress ZPHOT variables
   SNTABLE_LIST = 'SNANA(text:host)'      # include HOSTGAL info in text tables
   SNTABLE_LIST = 'SNANA(text:key,text:host)' # same, with format spec
+  SNTABLE_LIST = 'OUTLIER(nsig:4)'       # table with >4sig outlers (default is 3sig)
 \end{verbatim}
 %
 \begin{itemize}

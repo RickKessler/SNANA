@@ -152,7 +152,8 @@ void TABLEFILE_INIT(void) {
 	sprintf(STRING_TABLEFILE_TYPE[t], "%s", U) ;
 	sprintf(STRING_IDTABLE_SNANA[t],  "%s", U) ;
 	sprintf(STRING_IDTABLE_FITRES[t], "%s", U) ;
-      }
+	sprintf(STRING_IDTABLE_OUTLIER[t], "%s", U) ;
+      } 
 
       NAME_TABLEFILE[o][t][0] = 0 ;
       USE_TABLEFILE[o][t] = 0 ;
@@ -179,6 +180,10 @@ void TABLEFILE_INIT(void) {
   s = STRING_IDTABLE_FITRES[IFILETYPE_HBOOK] ; sprintf(s,"7788"  );
   s = STRING_IDTABLE_FITRES[IFILETYPE_ROOT]  ; sprintf(s,"FITRES");
   s = STRING_IDTABLE_FITRES[IFILETYPE_TEXT]  ; sprintf(s,"FITRES");
+
+  s = STRING_IDTABLE_OUTLIER[IFILETYPE_HBOOK] ; sprintf(s,"7800"  );
+  s = STRING_IDTABLE_OUTLIER[IFILETYPE_ROOT]  ; sprintf(s,"OUTLIER");
+  s = STRING_IDTABLE_OUTLIER[IFILETYPE_TEXT]  ; sprintf(s,"OUTLIER");
 
   // useful string for cast manipulations
   sprintf(CCAST_TABLEVAR," CISF---D-------L--" );

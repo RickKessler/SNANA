@@ -13,6 +13,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{fancyvrb}
 \usepackage{color}
+\usepackage{enumitem}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -11457,10 +11458,11 @@ The available output tables are
 \begin{itemize}
   \item {\tt SNANA} (ID=7100): general variables for all SN before fitting
   \item {\tt FITRES} (ID=7788): fit results for SN passing fit requirements.
-      Fit residuals for each epoch can be optionally included.
+      Fit residuals for each epoch can be optionally included with
+      {\tt FITRES+RESIDUALS}~.
   \item {\tt OUTLIER} (ID=7800): 
       flux-outliers w.r.t. sim-truth for {\tt snana.exe} job;
-      w.r.t.  fit model for {\tt snlc\_fit.exe} job.
+      w.r.t. fit model for {\tt snlc\_fit.exe} job.
       Default is $>3\sigma$.
   \item {\tt SNLCPAK}: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
@@ -11539,7 +11541,8 @@ additional specifications such as
 \end{verbatim}
 %
 where the available text formats are 
-\begin{itemize}
+\begin{itemize}[noitemsep]
+%  \setlength\itemsep{1em}
   \item  key : key before each row, plus keyed header.
   \item  csv : comma-separated with header.
   \item  col : space-separated columns with no header.
@@ -11638,6 +11641,24 @@ to distinguish spec-z and photo-z events.
 For spec-z fits (i.e., NOT photo-z),  
 {\tt NOZPHOT} adds {\tt OPT\_PHOTOZ} to the {\tt FITRES} table,
 but does not remove anything.
+%
+\item The {\tt OUTLIER} table is useful to identify and characterize
+flux outliers from non-Gaussian tails. The recommended method is using
+the {\tt snana.exe} program on samples where the true flux is known
+(i.e., data files which have a {\tt SIM\_MAGOBS} column), 
+such as fakes overlaid on image, or {\SNANA}-simulated light curves. 
+Running {\tt snana.exe} with the {\tt OUTLIER} table option will 
+abort on real data because there is no true flux to compare.
+For real data (and sims), the {\tt OUTLIER} table works with the
+lightcurve fitting program {\tt snlc\_fit.exe} by comparing fluxes to 
+the best-fit model flux. This LC-fit option requires a high-confidence 
+SNIa sample (e.g., spec-confirmed),
+otherwise some outliers may be artifacts of non-SNIa contamination.
+An outlier-fraction summary (per band) is printed to stdout,
+and also to the top of TEXT formatted output.
+Finally, note that {\tt snana.exe} is $\sim 10^2$ faster than {\tt snlc\_fit},
+and thus the former can typically run interactively while the latter
+should run in batch mode.
 \end{itemize}
 
 % --------------------------------------

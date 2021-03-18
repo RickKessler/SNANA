@@ -644,15 +644,16 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_NSIG
 
       INTEGER   
-     &    NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
+     &    OUTLIER_ROWNUM
+     &   ,NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
      &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
      &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
       CHARACTER OUTLIER_BAND*4
 
       COMMON / OUTLIERCOM8 / OUTLIER_MJD 
-      COMMON / OUTLIERCOM4 / 
-     &   NEP_OUTLIER_CHECK, NEP_OUTLIER_FOUND, OUTLIER_TABLE_NAME
+      COMMON / OUTLIERCOM4 / OUTLIER_ROWNUM
+     &  ,NEP_OUTLIER_CHECK, NEP_OUTLIER_FOUND, OUTLIER_TABLE_NAME
      &  ,OUTLIER_FLUXCAL_DATA, OUTLIER_FLUXCAL_ERR_DATA
      &  ,OUTLIER_FLUXCAL_ERR_CALC
      &  ,OUTLIER_FLUXCAL_TRUE
@@ -22975,6 +22976,7 @@ c FIT outliers work on real data or sim, so error check not needed.
 
          CALL INIT_TABLE_OUTLIERVAR(IDTABLE, 'OUTLIER')
 
+         OUTLIER_ROWNUM = 0
          DO ifiltobs = 1, MXFILT_ALL
             NEP_OUTLIER_CHECK(ifiltobs) = 0  ! total epochs checked per band
             NEP_OUTLIER_FOUND(ifiltobs) = 0  ! Noutlier per band
@@ -23017,6 +23019,7 @@ c   terminate strings for C table-functions (snana.car routine)
 
            NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
            if ( NSIG >= NSIGCUT_OUTLIER_TABLE ) then
+              OUTLIER_ROWNUM = OUTLIER_ROWNUM + 1
               CALL LOAD_OUTLIER_VAR(ep)
               CALL SNTABLE_FILL(IDTABLE) ! generic C function
               NEP_OUTLIER_FOUND(ifiltobs) = 
@@ -23071,6 +23074,12 @@ c  termination so that parsing CCID with C code is easier.
 
       VARLIST = 'CCID:C*20' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+c ROWNUM is easy identifier for CID-MJD-BAND-CCDNUM;
+c e.g., pass ROWNUM to script that fetches stamps.
+      VARLIST = 'ROWNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ROWNUM, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MJD:D' // char(0)

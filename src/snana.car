@@ -9880,8 +9880,14 @@ c make README file and write basic info.
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
 
       LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-      WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY)
-20    FORMAT('Convert ', A,' TEXT files into FITS format for ')
+
+      if ( OPT_REFORMAT_FITS > 0 ) then
+         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'TEXT', 'FITS'
+      else
+         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'FITS', 'TEXT'
+      endif
+20    FORMAT('Convert ', A, 2x, A,' files into ',A,' format for ')
+
       WRITE(LUNTMP,500) txt
 
       DO i = 1, N_VERSION

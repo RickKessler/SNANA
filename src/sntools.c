@@ -4443,11 +4443,11 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     // subset of FILTCHAR_1D that are on STORE_LIST
 
     splitString(SNDATA.FILTCHAR_1D, COMMA, MXEPOCH,    // inputs    
-		&NSPLIT, SNDATA.FILTCHAR );            // outputs 
+		&NSPLIT, &SNDATA.FILTCHAR[1] );            // outputs 
 
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
-      OBS = SNDATA.OBS_STORE_LIST[obs]-1; // back to C index    
+      OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
       // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
       catVarList_with_comma(stringVal, SNDATA.FILTCHAR[OBS] );
     }
@@ -4465,11 +4465,11 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     MXEPOCH, 20, &NSPLIT, &str2d ); */
 
     splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
-		&NSPLIT, SNDATA.FIELDNAME );            // outputs 
+		&NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
 
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
-      OBS = SNDATA.OBS_STORE_LIST[obs]-1 ;    
+      OBS = SNDATA.OBS_STORE_LIST[obs] ;    
       // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
       catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }

@@ -4839,6 +4839,12 @@ void prep_user_input(void) {
   USE_SMEAR_MODELNAME = !IGNOREFILE(PTR_SMEAR_MODELNAME);
   ISCOH_SMEAR         = ( strstr(PTR_SMEAR_MODELNAME,"COH") != NULL );
 
+  if ( INPUTS.SIMLIB_DUMP > 0 ) {
+    // set params to read entire SIMLIB once; then quit. (Mar 2021)
+    INPUTS.SIMLIB_MSKOPT |= SIMLIB_MSKOPT_QUIT_NOREWIND;
+    INPUTS.NGENTOT_LC = 10000; INPUTS.NGEN_LC=0;
+  }
+
   // - - - - - -  - - - 
 
   if ( INDEX_GENMODEL  == MODEL_STRETCH ) {

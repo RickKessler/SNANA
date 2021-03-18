@@ -473,7 +473,7 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
   xxxxx */
 
   if ( strstr(VARNAME,"MJD") != NULL ) {
-    sprintf(VALSTRING, "%.3f", VAL); // some kind of MJD
+    sprintf(VALSTRING, "%.4f", VAL); // some kind of MJD
   }
 
   else if ( strstr(VARNAME,"RA") != NULL && ABSVAL<400 ) {

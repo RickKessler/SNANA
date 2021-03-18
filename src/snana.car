@@ -23311,8 +23311,10 @@ c - - - - - - -
       write(LINE2,10) TEXT_WHAT(1:LEN_WHAT), NSIGCUT_OUTLIER_TABLE
  10   format(T5, A, ' > ', F5.2, ' : ' )
 
+      print*, ' '
       print*, LINE
       print*, LINE2
+      call flush(6)
 
       if (PREPEND_TEXTFILE) then
          WRITE(LUNTMP,70) '=========================================='

@@ -1271,7 +1271,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.PSF_FWHM = ivar; }    // arcSec
 
     else if ( strcmp(varName,"NEA") == 0 )  
-      { IVAROBS_SNTEXTIO.NEA = ivar; }   
+      { IVAROBS_SNTEXTIO.NEA = ivar; SNDATA.NEA_PSF_UNIT=true; }   
 
     else if ( strcmp(varName,"ZPFLUX") == 0 ||
 	      strcmp(varName,"ZPT")    == 0 ||

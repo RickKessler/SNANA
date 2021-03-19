@@ -6543,6 +6543,9 @@ c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
       TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none' 
       TEXTFORMAT_TABLE(ITABLE_MARZ)      = 'none' 
 
+c for SNANA job, enable SNANA table in text format by default.
+      if ( ISJOB_SNANA ) TEXTFORMAT_TABLE(ITABLE_SNANA) = 'key' ! Mar 2021
+
       CUTMASK_SNANA_TABLE = 63  ! default is to add everything in snana table
 
 c -------------------------

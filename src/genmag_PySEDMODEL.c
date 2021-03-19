@@ -29,6 +29,9 @@
   Feb 20 2021 RK - fix bug in genmag_PySEDMODEL that was preventing
                    BYOSED params from being returned.
 
+  Mar 19 2021 RK - pass "RANSEED <ISEED>" via ARGLIST to 
+            init_genmag_PySEDMODEL.
+
  *****************************************/
 
 #include  <stdio.h> 
@@ -93,11 +96,15 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   //  
   //  ARGLIST      : string of options passed ONLY from the command-line,
   //                   snlc_sim.exe <myInput> GENMODEL_ARGLIST 'bla bla'
+  //                 First ARGLIST element is hard-coded to be 
+  //                 "RANSEED <ISEED>" from sim-input file.
   //
   // NAMES_HOSTPAR : comma-separate list of names of host parameters.
   //                 Includes RV, AV, variables used in WGTMAP, and
   //                 HOSTLIB_STOREPAR list from sim-input file. 
   //                 Duplicates are automatically removed.
+  //
+  // Mar 19 2021: always pass "RANSEED <ISEED>" via ARGLIST
   //
 
 #ifdef USE_PYTHON

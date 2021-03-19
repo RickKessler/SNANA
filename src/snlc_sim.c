@@ -17779,14 +17779,6 @@ void init_CIDRAN(void) {
 	 NSTORE_ALL, NSTORE); fflush(stdout);
   printf("\t Called random() function %d times.\n", NCALL_random );
 
-  /* xxxxxxxxxx mark delete Jan 4 2021 xxxxxxxxxxx
-  // re-init randoms with new SEED that is different for each batch job
-  // (WARNING: this code snippet is not really in the right place)
- NEW_RANSEED:
-  NEWSEED = INPUTS.ISEED + INPUTS.CIDOFF ;
-  srandom(NEWSEED);
-  xxxxxxxxxxx end mark xxxxxxx */
-
   return ;
 
 } // end of init_CIDRAN
@@ -20375,7 +20367,7 @@ void init_genmodel(void) {
   char *GENMODEL        = INPUTS.GENMODEL;
   char *GENMODEL_EXTRAP = INPUTS.GENMODEL_EXTRAP_LATETIME ;
   char  covFile[] = ""  ;
-  char *ARGLIST ;
+  char *ARGLIST_PySEDMODEL ;
   int istat, OPTMASK,  ifilt, ifilt_obs, ifilt_rest ;
   float scale_covar_flt ;
   char fnam[] = "init_genmodel" ;
@@ -20499,16 +20491,19 @@ void init_genmodel(void) {
   else if ( IS_PySEDMODEL ) {
 
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
-    ARGLIST  = INPUTS.GENMODEL_ARGLIST;
+
+    ARGLIST_PySEDMODEL = (char*)malloc(400*sizeof(char) );
+    sprintf(ARGLIST_PySEDMODEL,"RANSEED %d  %s",
+	    INPUTS.ISEED, INPUTS.GENMODEL_ARGLIST );
+
     int NPAR; char NAMES_HOSTPAR[200];  double VAL_HOSTPAR=0.0 ;
     NPAR = fetch_HOSTPAR_GENMODEL(1, NAMES_HOSTPAR, &VAL_HOSTPAR);
 
     // init generic part of any SEDMODEL (filter & primary ref)
     init_genSEDMODEL();
 
-    // init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
     init_genmag_PySEDMODEL(INPUTS.GENMODEL, INPUTS.MODELPATH, 
-			   OPTMASK, ARGLIST, NAMES_HOSTPAR);
+			   OPTMASK, ARGLIST_PySEDMODEL, NAMES_HOSTPAR);
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {

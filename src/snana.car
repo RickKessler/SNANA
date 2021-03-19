@@ -8951,9 +8951,9 @@ c do the fit
           CALL FITPAR_PREP ( iter, IERR )  ! init fit params
           if ( IERR .NE. 0 ) then
             ERRFLAG_FIT = IERR
-            write(6,40) ITER, SNLC_CCID
+            write(6,40) ITER, SNLC_CCID(1:ISNLC_LENCCID)
 40          format(T5,'FITPAR_PREP PROBLEM => SKIP FIT-ITER=', 
-     &              I2,'  for  CID=',A8 )
+     &              I2,'  for  CID=',A )
             GOTO 410          ! bad init => skip fit-iteration
           endif
 

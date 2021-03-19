@@ -6280,6 +6280,8 @@ c Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
 c
 c May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
 c
+c Mar 19 2021: use IGNOREFILE to check usage; e.g., allows
+c                ROOTFILE_OUT NONE
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -6307,7 +6309,8 @@ c ------------------------------------------------------
      &  ,COMMENT_forC*72
 
 c function
-      INTEGER TABLEFILE_OPEN
+      INTEGER  IGNOREFILE, TABLEFILE_OPEN
+      EXTERNAL IGNOREFILE, TABLEFILE_OPEN
       
 C --------------- BEGIN -------------
 
@@ -6363,11 +6366,12 @@ c -------------------------------------------
       USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
 
 c MARZ (host spectra only)
-      IF ( MARZFILE_OUT .NE. '' ) THEN
+
+      LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
+      CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
+      IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
          COPT          = "new" // char(0)
       	 CALL ENVreplace(MARZFILE_OUT)
-         LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
-         CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
          IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
 
          USE_TABLEFILE_MARZ = .TRUE. 
@@ -6381,12 +6385,12 @@ c MARZ (host spectra only)
       ENDIF
 
 
-      IF ( HFILE_OUT .NE. ' ' ) THEN
+      LENFILE   = INDEX(HFILE_OUT,' ') - 1
+      CFILE     = HFILE_OUT(1:LENFILE) // char(0)
+      IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
          COPT          = "new hbook" // char(0)
          USE_TABLEFILE_HBOOK = .TRUE.
          USE_TABLEFILE       = .TRUE.
-         LENFILE   = INDEX(HFILE_OUT,' ') - 1
-         CFILE     = HFILE_OUT(1:LENFILE) // char(0)
          IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
 
          IF ( IFILETYPE < 0 ) THEN
@@ -6396,12 +6400,13 @@ c MARZ (host spectra only)
          ENDIF
       ENDIF
 
-      IF ( ROOTFILE_OUT .NE. ' ' ) THEN
+
+      LENFILE   = INDEX(ROOTFILE_OUT,' ') - 1
+      CFILE     = ROOTFILE_OUT(1:LENFILE) // char(0)
+      IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
          COPT          = "new root" // char(0)
          USE_TABLEFILE_ROOT = .TRUE. 
          USE_TABLEFILE      = .TRUE.
-         LENFILE   = INDEX(ROOTFILE_OUT,' ') - 1
-         CFILE     = ROOTFILE_OUT(1:LENFILE) // char(0)
          IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
 
          IF ( IFILETYPE < 0 ) THEN
@@ -6412,13 +6417,13 @@ c MARZ (host spectra only)
       ENDIF
 
 
-      IF ( TEXTFILE_PREFIX .NE. ' ' ) THEN
+      LENFILE   = INDEX(TEXTFILE_PREFIX,' ') - 1
+      CFILE     = TEXTFILE_PREFIX(1:LENFILE) // char(0)
+      IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
          CALL ENVreplace(TEXTFILE_PREFIX)
          COPT          = "new text" // char(0)
          USE_TABLEFILE_TEXT = .TRUE. 
          USE_TABLEFILE      = .TRUE.
-         LENFILE   = INDEX(TEXTFILE_PREFIX,' ') - 1
-         CFILE     = TEXTFILE_PREFIX(1:LENFILE) // char(0)
          IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
 
          IF ( IFILETYPE < 0 ) THEN

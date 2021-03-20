@@ -2702,6 +2702,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    // Mar 2021: allow user mistake of forgetting to set FAKE=1 for fakes 
+    if ( SNDATA.FAKE == FAKEFLAG_DATA && SNFITSIO_SIMFLAG_MAGOBS )
+      { SNDATA.FAKE = FAKEFLAG_FAKES; }
+
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
       j++ ;  NRD = RD_SNFITSIO_INT(isn, "MASK_FLUXCOR_SNANA", 
 				   &SNDATA.MASK_FLUXCOR, 
@@ -3418,17 +3422,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // restore SNDATA_FILTER struct
   set_SNDATA_FILTER(filter_list);  // Feb 15 2021
-
-  /* xxxxxxxxx mark delete Feb 15 2021 xxxxxxxxx
-  set_FILTERSTRING(FILTERSTRING);
-  SNDATA_FILTER.NDEF = strlen(SNDATA_FILTER.LIST);
-  char cfilt[2];  int ifilt, ifilt_obs;
-  for(ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    sprintf(cfilt, "%c", SNDATA_FILTER.LIST[ifilt] );
-    ifilt_obs = INTFILTER(cfilt);
-    SNDATA_FILTER.MAP[ifilt] = ifilt_obs ;	   
-  }
-  xxxxxxxxxxxxx end mark xxxxxxxxx */
 
 
   // read data type

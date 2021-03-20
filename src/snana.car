@@ -644,7 +644,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_NSIG
 
       INTEGER   
-     &    OUTLIER_ROWNUM
+     &    NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
      &   ,NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
      &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
      &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
@@ -652,7 +652,7 @@ c May 6, 2008: define lists for epochs to ignore
       CHARACTER OUTLIER_BAND*4
 
       COMMON / OUTLIERCOM8 / OUTLIER_MJD 
-      COMMON / OUTLIERCOM4 / OUTLIER_ROWNUM
+      COMMON / OUTLIERCOM4 / NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
      &  ,NEP_OUTLIER_CHECK, NEP_OUTLIER_FOUND, OUTLIER_TABLE_NAME
      &  ,OUTLIER_FLUXCAL_DATA, OUTLIER_FLUXCAL_ERR_DATA
      &  ,OUTLIER_FLUXCAL_ERR_CALC
@@ -3711,6 +3711,8 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
         CALL MADABORT("RDGLOBAL", c1err, c2err )
       ENDIF
 
+      ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
+
       CALL FETCH_SNDATA_WRAPPER("NXPIX", ONE, STRING, DARRAY, OPT)
       SNLC_NXPIX = int(DARRAY(1))
 
@@ -4248,9 +4250,12 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       CALL FETCH_SNDATA_WRAPPER("FAKE", 
      &     ONE, STRING, DARRAY, OPT)
       ISNLC_FAKE = INT(DARRAY(1))
-      if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
-      if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
-      ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
+
+c xxxxxxxx mark delete Mar 20, 2021 xxxxxxxx
+c      if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
+c      if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
+c      ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
+c xxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("RA",  ONE, STRING, DARRAY,  OPT)
       SNLC8_RA = DARRAY(1)
@@ -8735,6 +8740,7 @@ c Oct 12 2020: check OPT_YAML
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
++CDE,FILTCOM.
 
       INTEGER LEN, JDIFF
       REAL    T_CPU
@@ -8771,6 +8777,8 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
       T_CPU = float(JDIFF)/60. 
 
       write(LUNDAT,19) 'SURVEY:          ', SURVEY_NAME
+      write(LUNDAT,19) 'FILTERS:         ', 
+     &       SURVEY_FILTERS(1:NFILTDEF_SURVEY)
       write(LUNDAT,20) 'IDSURVEY:        ', IDSURVEY
       write(LUNDAT,20) 'NEVT_TOT:        ', N_SNLC_PROC
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
@@ -20777,11 +20785,13 @@ c ------------------------------------------------------
       IF ( MADE_LCPLOT )  N_SNLC_PLOT = N_SNLC_PLOT + 1 
 c ------------------------------------------------------
 
-      IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
-         CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
-      ENDIF
+c fill OUTLIER table first so that SNANA table can include summary info
       IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
          CALL TABLE_OUTLIER(IDTABLE_OUTLIER,IFLAG)   
+      ENDIF
+
+      IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
+         CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
       ENDIF
       
       LTMP = ( IFLAG .EQ. IFLAG_INI .or. MADE_LCPLOT )  
@@ -22993,7 +23003,7 @@ c FIT outliers work on real data or sim, so error check not needed.
 
          CALL INIT_TABLE_OUTLIERVAR(IDTABLE, 'OUTLIER')
 
-         OUTLIER_ROWNUM = 0
+         NEP_OUTLIER_TOT = 0
          DO ifiltobs = 1, MXFILT_ALL
             NEP_OUTLIER_CHECK(ifiltobs) = 0  ! total epochs checked per band
             NEP_OUTLIER_FOUND(ifiltobs) = 0  ! Noutlier per band
@@ -23012,6 +23022,7 @@ c fill table.
          DOFILL_TABLE = BTEST(CUTFLAG_SNANA,1)
       endif
 
+      NEP_OUTLIER_PEREVT = 0 
       IF ( .NOT. DOFILL_TABLE ) RETURN
 
 c   terminate strings for C table-functions (snana.car routine)
@@ -23036,7 +23047,8 @@ c   terminate strings for C table-functions (snana.car routine)
 
            NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
            if ( NSIG >= NSIGCUT_OUTLIER_TABLE ) then
-              OUTLIER_ROWNUM = OUTLIER_ROWNUM + 1
+              NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
+              NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
               CALL LOAD_OUTLIER_VAR(ep)
               CALL SNTABLE_FILL(IDTABLE) ! generic C function
               NEP_OUTLIER_FOUND(ifiltobs) = 
@@ -23096,7 +23108,7 @@ c  termination so that parsing CCID with C code is easier.
 c ROWNUM is easy identifier for CID-MJD-BAND-CCDNUM;
 c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ROWNUM, VARLIST,1,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MJD:D' // char(0)
@@ -23393,6 +23405,7 @@ C ===========================================
       SUBROUTINE TABLE_SNANA(IDTABLE,IFLAG)
 c
 c Apr 26 2017: check PRESCALE_TABLE
+c
 c ------------------------------
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -23512,7 +23525,7 @@ c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c Feb 20 2020: write MWEBV to TEXT table.
 c May 14 2020: add zFLAG
 c Mar 14 2021: always include PKMJDINI in TEXT output
-c
+c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -23531,6 +23544,7 @@ c local var
 +CDE,NNCOM.
 +CDE,PKMJDCOM.
 +CDE,REQEPCOM.
++CDE,OUTLIERCOM.
 
       INTEGER 
      &   IFILT, IFILT_OBS, ITEXT
@@ -23661,6 +23675,13 @@ c Nov 2020: write to TEXT file
      &        LENBLOCK, 20 )
          VARLIST = 'TLIVE_DETECT:F' // char(0)
          CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TLIVE_DETECT, VARLIST,1,
+     &        LENBLOCK, 20 )
+      ENDIF
+
+
+      IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
+         VARLIST = 'NEPOCH_OUTLIER:I' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_PEREVT,VARLIST,1,
      &        LENBLOCK, 20 )
       ENDIF
 c - - - - -  redshift - - - - - 

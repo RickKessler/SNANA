@@ -2150,7 +2150,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SEARCHEFF_SPEC_SCALE SEARCHEFF_SPECEFF_SCALE",
 			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_SPECEFF_SCALE );
+    N++;  sscanf(WORDS[N], "%le", INPUTS_SEARCHEFF.USER_SPECEFF_SCALE );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_zHOST_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );

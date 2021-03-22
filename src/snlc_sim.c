@@ -22274,13 +22274,20 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
 
 
   // determine NEGATIVE crazy flux 
-  crazyFlux_neg = -xt*1.0E9;
+  // xxx mark delete  crazyFlux_neg = -xt*1.0E9;
+  crazyFlux_neg = -crazyFlux ; // Mar 20 2021
 
   // - - - - - - - - - - - - - 
   if ( flux > crazyFlux || flux < crazyFlux_neg ) {
     print_preAbort_banner(fnam);
     dumpEpoch_fluxNoise_apply(fnam, ep, FLUXNOISE);
-    sprintf(c1err, "flux=%le exceeds CRAZYFLUX=%le", flux, crazyFlux);
+    if ( flux > 0.0 ) {
+      sprintf(c1err, "flux=%le exceeds CRAZYFLUX=%le", flux, crazyFlux); 
+    }
+    else {
+      sprintf(c1err, "flux=%le is below CRAZYFLUX=%le", flux, crazyFlux_neg); 
+    }
+
     sprintf(c2err, "See dumpEpoch details");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }

@@ -3466,6 +3466,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   //
   // Mar 29 2019: apply MAG_OFFSET to GENFLUX_LIST
   //
+  // Mar 23 2021: call fill_TABLE_MWXT_SEDMODEL
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3475,9 +3476,11 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   double Trest, Finteg, Finteg_errPar;
   double FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
   double hc8 = (double)hc ;
-  //  char fnam[] = "genSpec_SALT2" ;
+  char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
+
+  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
 
   z1 = 1.0 + z;
 

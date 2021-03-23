@@ -1626,6 +1626,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   // Issues:
   //  - fraction of galaxy in fiber or slit ? Or does ETC include this ?
   //
+  // Call fill_TABLE_MWXT_SEDMODEL
 
   int  NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
   int  NBLAM_BASIS     = HOSTSPEC.NBIN_WAVE; 
@@ -1650,6 +1651,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   char fnam[] = "genSpec_HOSTLIB" ;
 
   // ------------------ BEGIN --------------
+
+  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, MWEBV);
 
   if ( HOSTSPEC.ITABLE < 0 ) {
     sprintf(c1err,"Cannot generate host spectrum without spec basis or data.");

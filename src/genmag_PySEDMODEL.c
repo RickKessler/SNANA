@@ -415,9 +415,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   // for NEW EVENT, store SED parameters so that sim can 
   // write them to data files
   // hack
-  printf(" 1. xxx %s: hello. ID=%d  ID_LAST=%d, NEWEVT=%d\n", 
-	 fnam, EXTERNAL_ID,   Event_PySEDMODEL.LAST_EXTERNAL_ID,
-	 NEWEVT_FLAG );
 
   if ( NEWEVT_FLAG ) { 
     fetchParVal_PySEDMODEL(Event_PySEDMODEL.PARVAL); 

@@ -3509,8 +3509,7 @@ void init_GALMAG_HOSTLIB(void) {
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.80/2.35; 
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 1.30/2.35;
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 2.10/2.35;
-  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 5.00/2.35;
-
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = PSFMAX_SNANA/2.35 ;
 
   if ( NR != NMAGPSF_HOSTLIB ) {
     sprintf(c1err,"%d defined PSF values", NR );
@@ -3667,7 +3666,7 @@ void init_Gauss2d_Overlap(void) {
 } // end of init_Gauss2d_Overlap
 
 // ======================================
-double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ) {
+double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
  
   //
   // Return interpolated GALMAG for this 
@@ -3677,19 +3676,27 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ) {
   //
   // Inputs:
   //  ifilt_obs = absolute obs-filter index
-  //  PSF       = sigma(PSF) in arcsec
+  //  PSFSIG    = sigma(PSF) in arcsec
+  //
+  // Mar 23 2021: if PSF is outside range of map, bring PSF withing
+  //    range instead of abort.
 
   int NPSF ;
-  double GALMAG, PSFmin, PSFmax ;
+  double GALMAG, PSFSIGmin, PSFSIGmax, PSFSIG_local ;
   double *PTRGRID_GALMAG, *PTRGRID_PSF ;
   char fnam[] = "interp_GALMAG_HOSTLIB" ;
 
   // ------------- BEGIN -------------
   
   NPSF = NMAGPSF_HOSTLIB ;
-  PSFmin = HOSTLIB.Aperture_PSFSIG[1] ;
-  PSFmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;
+  PSFSIGmin = HOSTLIB.Aperture_PSFSIG[1] ;
+  PSFSIGmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;
 
+  PSFSIG_local = PSFSIG;
+  if ( PSFSIG < PSFSIGmin ) { PSFSIG_local = PSFSIGmin + 0.0001; }
+  if ( PSFSIG > PSFSIGmax ) { PSFSIG_local = PSFSIGmax - 0.0001; }
+
+  /* xxxxxxxxxx mark delete Marc 23 2021 xxxxxxxxxxxxx
   if ( PSF < PSFmin ||  PSF > PSFmax ) {
     char cfilt[2];
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
@@ -3699,15 +3706,15 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ) {
 	    GENLC.SIMLIB_ID) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
+  xxxxxxxxxxxxxx end mark xxxxxxxxx */
 
   // note that the zero'th element is total aperture,
   // so ignore it for interpolatio.
   PTRGRID_PSF     = &HOSTLIB.Aperture_PSFSIG[1] ;
   PTRGRID_GALMAG  = &SNHOSTGAL.GALMAG[ifilt_obs][1] ;
 
-  GALMAG = interp_1DFUN (1,PSF,NPSF, PTRGRID_PSF, PTRGRID_GALMAG, "GALMAG");
-
+  GALMAG = interp_1DFUN (1, PSFSIG_local,
+			 NPSF, PTRGRID_PSF, PTRGRID_GALMAG, "GALMAG");
 
   return(GALMAG) ;
 

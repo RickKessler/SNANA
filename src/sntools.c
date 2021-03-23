@@ -668,6 +668,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //  + Replace equal wieght per point with log10(SNR) to fix 
   //    problems near season boundary
   //
+  // Mar 23 2021: bail if NOBS < 3
+  //
 
   int  OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }

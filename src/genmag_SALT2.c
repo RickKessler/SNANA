@@ -74,6 +74,8 @@
 
  Dec 28 2020: use function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2[3]
 
+ Mar 23 2021: use get_LAMTRANS_SEDMODEL util to getch LAM and TRANS
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -2595,6 +2597,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   so that it works properly with repeat function.
   //
   // Oct 2020: replace Fratio with general Finteg_errPar
+  // Mar 23 2021: use get_LAMTRANS_SEDMODEL() to avoid overwriting
+  //              FILTER_SEDMODEL with spectrograph info
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2609,8 +2613,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,MWXT_FRAC, HOSTXT_FRAC, CCOR, CCOR_LAM0, CCOR_LAM1, CDIF, CNEAR
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
-    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL]
+    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3
     ,hc8 = (double)hc ;
@@ -2680,10 +2683,13 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Should be used only for simulation (not for fitting mode)
   ISTAT_GENSMEAR = istat_genSmear();  
   if ( ISTAT_GENSMEAR  ) {
+    lam = (double*) malloc(NLAMFILT*sizeof(double) );
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
-      LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+
+      get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+      // xxx mark delete  LAMOBS    = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
 
       // protect undefined red end for low-z (July 2016)
@@ -2694,6 +2700,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     }
 
     get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    free(lam);
   }
 
 
@@ -2702,7 +2709,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
-    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
+    // fetch LAM and TRANS with utility to account for spectrograph
+    get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+    // xxx mark delete    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
 
     if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
       { continue ; } // Jul 2013 - skip zeros for leakage
@@ -2715,7 +2724,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     else 
       { HOSTXT_FRAC = 1.0 ; } // standard SALT2 model has no host extinction
 
-    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+    // xxx    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
 
@@ -3550,12 +3559,16 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   
   Finteg_check = 0.0 ;  z1=1.0+z ;
   for(ilam=0; ilam < NBLAM; ilam++ ) {
-    LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
+    
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS);
+    // xxx mark delete  LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
+    // xxx mark delete  TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];
 
     // check Finteg; FLUXLIST already includes LAMSTEP
-    TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+
     LAMREST = LAMOBS/z1 ;
     Finteg_check += ( TRANS * LAMREST * FLUXLIST[ilam] ); 
   }

@@ -1713,6 +1713,22 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
 }  // end  of IFILTSTAT_SEDMODEL
 
 
+void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS) {
+
+  // Created Mar 23 2021
+  // For input ifilt and ilam, return LAM and TRANS.
+  // Use different array for SPECTROGRAPH to hold more wave bins.
+
+  if ( ifilt == JFILT_SPECTROGRAPH ) {
+    *LAM   = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
+    *TRANS = 1.0 ;
+  }
+  else {
+    *LAM   = FILTER_SEDMODEL[ifilt].lam[ilam];
+    *TRANS = FILTER_SEDMODEL[ifilt].transSN[ilam];
+  }
+
+}// end get_LAMTRANS_SEDMODEL
 
 // ==============================================
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax) {
@@ -2925,6 +2941,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // Nov 10 2016: fix sorting bug after sortDouble call
   // Jul 12 2019: 
   //  + store FILTER_SEDMODEL[IFILT].lammin/lammax (for BYOSED)
+  //
 
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -2937,6 +2954,15 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   sprintf(BANNER, "%s : prep %s spectra for %s (NBLAM=%d)",
           fnam, MODEL_NAME, INPUTS_SPECTRO.INSTRUMENT_NAME, NBLAM );
   print_banner(BANNER);
+
+  /* xxx mark delete 
+  if (NBLAM > MXBIN_LAMFILT_SEDMODEL ) {
+    sprintf(c1err,"NBLAM=%d exceeds MXBIN_LAMFILT_SEDMODEL=%d",
+	    NBLAM, MXBIN_LAMFILT_SEDMODEL);
+    sprintf(c2err,"Cannot store in FILTER_SEDMODEL struct");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  xxxxxx end mark */
 
   SPECTROGRAPH_SEDMODEL.NBLAM_TOT   = NBLAM ;
   SPECTROGRAPH_SEDMODEL.LAMMIN_LIST = (double*) malloc(MEMD) ;
@@ -2957,9 +2983,11 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
       = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
 
+    /* xxxxx mark delete to avoid overwriting arrays  Mar 23 2021 
     // load artficial filter 
     FILTER_SEDMODEL[IFILT].lam[ilam]        = LAVG ;
     FILTER_SEDMODEL[IFILT].transSN[ilam]    = 1.0 ;
+    xxxxxxxx end mark xxxxxxxxx  */
   }
 
 

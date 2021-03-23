@@ -330,6 +330,8 @@ double get_magerr_SEDMODEL(int ISED, int ifilt_obs,
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );
 
+void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
+
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);

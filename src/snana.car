@@ -641,7 +641,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
      &  ,OUTLIER_FLUXCAL_ERRTOT_FIT  ! data + fit errors in quadrature
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
-     &  ,OUTLIER_NSIG
+     &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
 
       INTEGER   
      &    NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
@@ -660,7 +660,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
      &  ,OUTLIER_FLUXCAL_ERRTOT_FIT
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
-     &  ,OUTLIER_NSIG
+     &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
      &  ,OUTLIER_IFILTOBS, OUTLIER_BAND
      &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
@@ -18370,13 +18370,15 @@ C ===============================
 C Created Feb 17 2018
 C Compute surface-brightness mag SNLC_SBMAG(ep) from SB flux.
 C 
+c Mar 23 2021: SBFLUXMIN -> 1.0 (was 0.1)
+
       IMPLICIT NONE
       INTEGER ifilt  ! (I) sparse filter index
 +CDE,SNDATCOM.
       REAL SBFLUX, SBMAG, SBFLUXMIN      
 C --------- BEGIN ------------
       SBFLUX = SNHOST_SBFLUXCAL(ifilt)
-      SBFLUXMIN = 0.1
+      SBFLUXMIN = 1.0
 
       IF ( SBFLUX > SBFLUXMIN ) THEN
          SBMAG = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(SBFLUX)
@@ -23167,6 +23169,15 @@ c e.g., pass ROWNUM to script that fetches stamps.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
+      VARLIST = 'LOGSNR:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_LOGSNR, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'SBMAG:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SBMAG, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+c - - - -
       VARLIST = 'ZP:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
      &                   LENBLOCK, 20 )
@@ -23196,12 +23207,14 @@ c
 
       INTEGER  ep  ! (I) epoch index to load
 
-      INTEGER IFILT_OBS
+      INTEGER IFILT_OBS, IFILT
       CHARACTER BAND*4
+      REAL SNR
 
 c ---------- BEGIN ---------
 
       IFILT_OBS   = ISNLC_IFILT_OBS(ep)
+      IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
       BAND        = filtdef_string(ifilt_obs:ifilt_obs)
 
       OUTLIER_MJD          = SNLC8_MJD(ep)
@@ -23216,6 +23229,11 @@ c ---------- BEGIN ---------
       OUTLIER_ZP           = SNLC_ZEROPT(ep)
       OUTLIER_PSF          = SNLC_PSF_SIG1(ep)
       OUTLIER_SKYSIG       = SNLC_SKYSIG(ep)
+
+      SNR  = OUTLIER_FLUXCAL_DATA/OUTLIER_FLUXCAL_ERR_DATA
+      OUTLIER_LOGSNR       = LOG10(max(0.1,SNR))
+
+      OUTLIER_SBMAG        = SNHOST_SBMAG(ifilt)
 
       IF ( ISJOB_SNANA ) THEN
          ! true flux from SIM_MAGOBS 
@@ -23254,12 +23272,12 @@ c +CDE,FILTCOM.
 
       REAL  FLUXCAL_FIT, FLUXCAL_ERR_FIT
       REAL  FLUXCAL_DATA, FLUXCAL_ERR_DATA, SQERR, ERRTOT, NSIG
-  
+      LOGICAL REJECT
 C --------- BEGIN ---------
 
       NSIG = 0.0
 
-      CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT)
+      CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT,REJECT)
 
       FLUXCAL_DATA     = SNLC_FLUXCAL(ep)
       FLUXCAL_ERR_DATA = SNLC_FLUXCAL_ERRTOT(ep)

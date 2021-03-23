@@ -671,6 +671,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
   int  OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
+  if ( NOBS    <  3 ) { return ; }
 
   double MJDWIN_USER     = INPUTS_OBS_atFLUXMAX.MJDWIN ;
   double SNRCUT_USER     = INPUTS_OBS_atFLUXMAX.SNRCUT ;

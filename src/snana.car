@@ -4481,7 +4481,8 @@ C ===========================================
 
 c Created Feb 2021
 c Check keys KEY_PREFIX_[band] and return float FARRAY(ifilt).
-c     
+c Mar 23 2021: fix bug using LENPRE
+
       IMPLICIT NONE
 
       CHARACTER KEY_PREFIX*(*)  ! (I) check keys KEY_PREFIX_[band]
@@ -4492,18 +4493,24 @@ c
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-      INTEGER   IFILT, IFILT_OBS
+      INTEGER   IFILT, IFILT_OBS, LENPRE
       CHARACTER STRING*10, BAND*2, KEY*60
       REAL*8    DARRAY(4)
 
 C --------------- BEGIN ---------     
 
+      LENPRE = INDEX(KEY_PREFIX//' ',' ') - 1
+
       DO ifilt     = 1, NFILTDEF_READ
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
          band      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-         KEY       = KEY_PREFIX // '_' // band
+         KEY       = KEY_PREFIX(1:LENPRE) // '_' // band
          CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
          FARRAY(ifilt) = SNGL(DARRAY(1))
+
+	 write(6,66) KEY, FARRAY(ifilt)     ! xxx
+66       format(' xxx ', A20,' = ', F12.5 ) ! xxx
+
       ENDDO
       RETURN
       END   ! end RDHEAD_FILTERLOOP

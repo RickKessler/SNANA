@@ -19722,4 +19722,18 @@
   BEWARE: fudged fluxes and errors are NOT included if
           data files are reformatted
 
+
+# ======================================================================= 
+         v11_02k (  ) 
+
+         ***** IMPORTANT(v11_02k) ***** 
+
+         ***** USEFUL(v11_02k) ***** 
+
+         ***** MISCELLANEOUS(v11_02k) ***** 
+
+    snana.car
+      + fix bug reading filter-dependent header items like
+        galmag and HOSTGAL_SB_FLUXCAL.
+
 END: 

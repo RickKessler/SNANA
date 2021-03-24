@@ -580,7 +580,6 @@ c SNTABLE control variables (May 2014)
 
       REAL
      &   PRESCALE_TABLE(MXTABLE)  ! table pre-scale (to reduce size)
-     &  ,NSIGCUT_OUTLIER_TABLE    ! e.g., SNTABLE_LIST='OUTLIER(nsig:3.5)'
 
       CHARACTER 
      &   TEXTFORMAT_TABLE(MXTABLE)*8
@@ -605,7 +604,7 @@ c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
      &    ,FILTLIST_REMAP_TABLE
      &    ,NTABLEVAR_USER, TABLEVARNAME_USER
-     &    ,TABLEVALUE_USER, PRESCALE_TABLE, NSIGCUT_OUTLIER_TABLE
+     &    ,TABLEVALUE_USER, PRESCALE_TABLE
 
 c May 6, 2008: define lists for epochs to ignore
  
@@ -633,6 +632,10 @@ c May 6, 2008: define lists for epochs to ignore
 
       CHARACTER OUTLIER_TABLE_NAME*12
 
+      REAL
+     &   NSIGCUT_OUTLIER    ! e.g., SNTABLE_LIST='OUTLIER(nsig:3.5)'
+     &  ,FTRUECUT_OUTLIER   ! e.g., SNTABLE_LIST='OUTLIER(Ftrue:0.0)'
+
       REAL*8 OUTLIER_MJD
       REAL*4 
      &   OUTLIER_FLUXCAL_DATA, OUTLIER_FLUXCAL_ERR_DATA
@@ -650,6 +653,9 @@ c May 6, 2008: define lists for epochs to ignore
      &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
       CHARACTER OUTLIER_BAND*4
+
+      COMMON / OUTLIERCUTS /
+     &   NSIGCUT_OUTLIER, FTRUECUT_OUTLIER
 
       COMMON / OUTLIERCOM8 / OUTLIER_MJD 
       COMMON / OUTLIERCOM4 / NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
@@ -4508,8 +4514,8 @@ C --------------- BEGIN ---------
          CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
          FARRAY(ifilt) = SNGL(DARRAY(1))
 
-	 write(6,66) KEY, FARRAY(ifilt)     ! xxx
-66       format(' xxx ', A20,' = ', F12.5 ) ! xxx
+c	 write(6,66) KEY, FARRAY(ifilt)     ! xxx
+c66       format(' xxx ', A20,' = ', F12.5 ) ! xxx
 
       ENDDO
       RETURN
@@ -6516,6 +6522,7 @@ c -------------------
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,OUTLIERCOM.
 
       INTEGER   
      &   itab, iwd, LENS, LENTB, LENOPT, LEN1,LEN2, NOPT, iopt, 
@@ -6652,7 +6659,8 @@ c check table-names
          else if ( TBname(1:7) .EQ. 'outlier' ) then 
             ITAB = ITABLE_OUTLIER
             OPT_TABLE(ITAB) = 1
-            NSIGCUT_OUTLIER_TABLE = 3.0   ! default outlier def is 3sigma
+            NSIGCUT_OUTLIER   = 3.0   ! default outlier def is 3sigma
+            FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
 
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
@@ -6719,16 +6727,21 @@ c check for options inside ()
                USEOPT           = .TRUE.
             endif
 
-            MATCH = ( copt(1:2) .EQ. 'ps' ) 
+            MATCH = ( copt(1:3) .EQ. 'ps:' ) 
             if ( MATCH ) then
                read(copt(4:LENOPT),*) PS
                PRESCALE_TABLE(itab) = PS
                USEOPT           = .TRUE.
             endif
           
-	    MATCH = copt(1:4) .EQ. 'nsig'
+	    MATCH = copt(1:5) .EQ. 'nsig:'
             IF ( MATCH ) THEN
-               read(copt(6:LENOPT),*) NSIGCUT_OUTLIER_TABLE
+               read(copt(6:LENOPT),*) NSIGCUT_OUTLIER
+               USEOPT = .TRUE.
+            ENDIF
+	    MATCH = copt(1:6) .EQ. 'ftrue:'
+            IF ( MATCH ) THEN
+               read(copt(7:LENOPT),*) FTRUECUT_OUTLIER
                USEOPT = .TRUE.
             ENDIF
 
@@ -22976,8 +22989,8 @@ c local var
 
       INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP
       INTEGER   IFILTOBS
-      LOGICAL   DOFILL_TABLE
-      REAL      NSIG, FLUXCAL_FIT, FLUXCAL_ERR_FIT
+      LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE
+      REAL      NSIG, FTRUE, FLUXCAL_FIT, FLUXCAL_ERR_FIT
       CHARACTER NAME_forC*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
 
       REAL  NSIG_OUTLIER_FIT  ! function 
@@ -23046,16 +23059,22 @@ c   terminate strings for C table-functions (snana.car routine)
 
            if ( ISJOB_SNANA ) then
               NSIG   = abs(SIM_EPPULL(ep))
+              FTRUE  = SIM_EPFLUXCAL(ep)
            else
 +SELF,IF=SNFIT.
-              NSIG = NSIG_OUTLIER_FIT(ep)
+              NSIG   = NSIG_OUTLIER_FIT(ep)
+              FTRUE  = 1000.0  ! something guaranteed to pass cut
 +SELF.
            endif
 
-           if ( NSIG < -0.01 ) goto 201
+           if ( NSIG  < -0.01            ) goto 201
+	   if ( FTRUE < FTRUECUT_OUTLIER ) goto 201 ! Mar 24 2021
 
+           LCUT_NSIG  = ( NSIG  >= NSIGCUT_OUTLIER  ) 
+           LCUT_FTRUE = ( FTRUE >= FTRUECUT_OUTLIER )
+ 
            NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
-           if ( NSIG >= NSIGCUT_OUTLIER_TABLE ) then
+           if ( LCUT_NSIG .and. LCUT_FTRUE ) then
               NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
               NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
               CALL LOAD_OUTLIER_VAR(ep)
@@ -23371,7 +23390,7 @@ c - - - - - - -
       LEN_WHAT = INDEX(TEXT_WHAT,' ') - 1
 
       LINE = '    FLUX-OUTLIER SUMMARY per BAND for '
-      write(LINE2,10) TEXT_WHAT(1:LEN_WHAT), NSIGCUT_OUTLIER_TABLE
+      write(LINE2,10) TEXT_WHAT(1:LEN_WHAT), NSIGCUT_OUTLIER
  10   format(T5, A, ' > ', F5.2, ' : ' )
 
       print*, ' '

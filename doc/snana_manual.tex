@@ -11463,7 +11463,8 @@ The available output tables are
   \item {\tt OUTLIER} (ID=7800): 
       flux-outliers w.r.t. sim-truth for {\tt snana.exe} job;
       w.r.t. fit model for {\tt snlc\_fit.exe} job.
-      Default is $>3\sigma$.
+      Default is $>3\sigma$; for {\tt snana.exe}, 
+      default requires non-zero true flux.
   \item {\tt SNLCPAK}: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
@@ -11599,6 +11600,7 @@ A few other miscellaneous table options are
   SNTABLE_LIST = 'SNANA(text:host)'      # include HOSTGAL info in text tables
   SNTABLE_LIST = 'SNANA(text:key,text:host)' # same, with format spec
   SNTABLE_LIST = 'OUTLIER(nsig:4)'       # table with >4sig outlers (default is 3sig)
+  SNTABLE_LIST = 'OUTLIER(nsig:4,ftrue:0.0)'   # include obs with Ftrue=0
 \end{verbatim}
 %
 \begin{itemize}

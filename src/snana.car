@@ -4359,7 +4359,10 @@ C ============================================
 C created Feb 9 2021 [refactored from PARSE_HOSTGAL]
 c Transfer HOSTGAL info from SNDATA struct (sndata.h)
 c to common block variable.s
-
+c
+c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
+c
+c
       IMPLICIT NONE
 
       INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index

@@ -10276,13 +10276,15 @@ to disable these keys,
 \begin{verbatim} 
   # fit-input file
    &FITINP
-      ENABLE_SALT2_MAGSHIFT  = F  ! disable MAGSHIFT 
-      ENABLE_SALT2_WAVESHIFT = F  ! disable WAVESHIFT
+      ENABLE_MAGSHIFT_SALT2  = F  ! disable MAGSHIFT 
+      ENABLE_WAVESHIFT_SALT2 = F  ! disable WAVESHIFT
+      ALLOW_NEGFLUX_SALT2    = F  ! if Flam<0; Flam=0 (test only)
 
   # sim-input file
      GENMODEL_OPTMSK:  4  ! disable MAGSHIFT 
      GENMODEL_OPTMSK:  8  ! disable WAVESHIFT 
      GENMODEL_OPTMSK: 12  ! disable both
+     GENMODEL_OPTMSK: 16  ! if Flam<0; Flam=0 (test only)
 \end{verbatim}
 
 % ------------------------

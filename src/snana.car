@@ -4397,7 +4397,7 @@ c i.e., do not depend on host-match.
          CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
          DO ifilt = 1, NFILTDEF_READ
             SB = SNHOST_SBFLUXCAL(ifilt)
-            if ( SB < 98.0 ) EXIST_SNHOST_SB = .TRUE.
+            if ( SB > -998.0 ) EXIST_SNHOST_SB = .TRUE.
          ENDDO
 
       ENDIF  ! end IGAL=1

@@ -8647,8 +8647,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIM_TEMPLATEMAG[ifilt]  = NULLFLOAT ;
     SNDATA.SIM_GALFRAC[ifilt]      = NULLFLOAT ;
     SNDATA.NPRESN[ifilt]                = NULLINT ;
-    SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]    = NULLFLOAT ;
-    SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt] = NULLFLOAT ;
+    SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]    = -999.0 ;
+    SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt] = -999.0 ;
     SNDATA.HOSTGAL_SB_MAG[ifilt]        = 99.0 ;
 
     for(igal=0; igal<MXHOSTGAL; igal++ ) {

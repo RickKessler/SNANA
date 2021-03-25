@@ -224,7 +224,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // extrac OPTMASK options
 
-  ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -234,6 +233,15 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     sprintf(c1err,"No filters defined ?!?!?!? " );
     sprintf(c2err,"Need to call init_filter_SEDMODEL");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_SALT2_ABORT_LAMRANGE ) ; 
+
+  ALLOW_NEGFLUX_SALT2 = true;      // default
+  if ( OPTMASK & OPTMASK_SALT2_NONEGFLUX ) {
+    // Mar 24 2021: if "GENMODEL_MSKOPT: 16"
+    ALLOW_NEGFLUX_SALT2 = false ;    
+    printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
   }
 
   // summarize filter info
@@ -2599,6 +2607,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Oct 2020: replace Fratio with general Finteg_errPar
   // Mar 23 2021: use get_LAMTRANS_SEDMODEL() to avoid overwriting
   //              FILTER_SEDMODEL with spectrograph info
+  //
+  // Mar 24 2021: 
+  //   + check ALLOW_NEGFLUX_SALT2 to allow or avoid negative spectral flux.
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2615,7 +2626,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
-    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3
+    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
+    ,Flam_filter[2], Flam_err[2], Flam_spec[2]
     ,hc8 = (double)hc ;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2843,14 +2855,36 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	  }
 
 	  LAMRATIO            = LAMSPEC_STEP/LAMFILT_STEP ; // binSize ratio
-          Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
+	  Flam_spec[ised]     = (Fbin_forSpec * LAMRATIO );
+	  // xxx mark  Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
 
 	} // end OPT_SPEC
 
+	Flam_filter[ised]     = Fbin_forFlux ;
+	Flam_err[ised]        = (Fbin_forFlux/MWXT_FRAC) ;  
+
+	/* xxxx mark Dele Mar 25 2021 xxx
 	Finteg_filter[ised]  +=  Fbin_forFlux ;
 	Finteg_forErr[ised]  += (Fbin_forFlux/MWXT_FRAC) ;	
+	xxxxxxxxx */
 
       } // ised
+
+
+      // check option to force negative flux to zero
+      if ( !ALLOW_NEGFLUX_SALT2 ) {
+	Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
+	if ( Fcheck < 0.0 ) { 
+	  Flam_filter[0] = Flam_filter[1] = 0.0 ;
+	  Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
+	}
+      }
+
+      for(ised=0; ised <2; ised++ ) {
+	Finteg_filter[ised]  +=  Flam_filter[ised];
+	Finteg_forErr[ised]  +=  Flam_err[ised];
+	if(OPT_SPEC) { Finteg_spec[ised] +=  Flam_spec[ised]; }
+      }
 
     } // end LAMSED loop 
 

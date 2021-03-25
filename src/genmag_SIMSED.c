@@ -557,17 +557,16 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   // This allows creating one binary table with a wide z-range,
   // and using the same table for smaller z-ranges.
   //
-  // Apr 2011: read & verify name of kcor file 
+  // Mar 24 2021: improve error messaging with CTAG.
   //
 
-  int
-    NERR, idim, LZSAME, LZBAD, LZOK, IZSIZE_RD, IZSIZE_ACTUAL
-    ,NBINTMP[NDIM_SEDMODEL_FLUXTABLE+1]     
-    ;
+  int NERR, idim, IZSIZE_RD, IZSIZE_ACTUAL;
+  bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK ;
+  int NBINTMP[NDIM_SEDMODEL_FLUXTABLE+1]  ;
 
   struct REDSHIFT_SEDMODEL_TYPE  ZTMP ;
 
-  char kcorFile_tmp[MXPATHLEN] ;
+  char kcorFile_tmp[MXPATHLEN], CTAG[20] ;
   char fnam[] = "read_SIMSED_TABBINARY" ;
 
   // ------------ BEGIN ----------
@@ -605,25 +604,38 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
 	     REDSHIFT_SEDMODEL.ZMAX  == ZTMP.ZMAX &&
 	     REDSHIFT_SEDMODEL.NZBIN == ZTMP.NZBIN );
 
-  LZBAD  = ( REDSHIFT_SEDMODEL.ZMIN  > ZTMP.ZMIN ||
+  LZMIN_OK  = ( REDSHIFT_SEDMODEL.ZMIN  <= ZTMP.ZMIN ) ;
+  LZMAX_OK  = ( REDSHIFT_SEDMODEL.ZMAX  >= ZTMP.ZMAX ) ;
+  LNZBIN_OK = ( REDSHIFT_SEDMODEL.NZBIN >= ZTMP.NZBIN ) ; 
+  LZOK      = ( LZMIN_OK && LZMAX_OK && LNZBIN_OK ) ;
+  LZBAD     = !LZOK ;
+
+  /* xxx mark delete Mar 24 2021 xxxx
+  LZBAD  = ( 
 	     REDSHIFT_SEDMODEL.ZMAX  < ZTMP.ZMAX ||
 	     REDSHIFT_SEDMODEL.NZBIN < ZTMP.NZBIN );
 
   LZOK   = ( REDSHIFT_SEDMODEL.ZMIN  <= ZTMP.ZMIN &&
 	     REDSHIFT_SEDMODEL.ZMAX  >= ZTMP.ZMAX &&
 	     REDSHIFT_SEDMODEL.NZBIN >= ZTMP.NZBIN );
+  xxxx */
 
   if ( LZBAD ) {
     NERR++ ;
-    printf(" WARNING: NZBIN(request,table) = %d , %d \n", 
-	   ZTMP.NZBIN,  REDSHIFT_SEDMODEL.NZBIN );
-    printf(" WARNING: ZMIN(request,table) = %6.4f , %6.4f \n", 
-	   ZTMP.ZMIN,  REDSHIFT_SEDMODEL.ZMIN );
-    printf(" WARNING: ZMAX(request,table) = %6.4f , %6.4f \n", 
-	   ZTMP.ZMAX,  REDSHIFT_SEDMODEL.ZMAX );
+    sprintf(CTAG,"INFO ");  if ( !LNZBIN_OK ) { sprintf(CTAG,"ERROR"); }
+    printf(" %s: NZBIN(request,table) = %d , %d \n", 
+	   CTAG, ZTMP.NZBIN,  REDSHIFT_SEDMODEL.NZBIN );
 
-    sprintf(c1err,"Redshift range does not match binary table range.");
-    sprintf(c2err,"May need to re-make binary table");
+    sprintf(CTAG,"INFO ");  if ( !LZMIN_OK ) { sprintf(CTAG,"ERROR"); }
+    printf(" %s: ZMIN(request,table) = %6.4f , %6.4f \n", 
+	   CTAG, ZTMP.ZMIN,  REDSHIFT_SEDMODEL.ZMIN );
+
+    sprintf(CTAG,"INFO ");  if ( !LZMAX_OK ) { sprintf(CTAG,"ERROR"); }
+    printf(" %s: ZMAX(request,table) = %6.4f , %6.4f \n", 
+	   CTAG, ZTMP.ZMAX,  REDSHIFT_SEDMODEL.ZMAX );
+
+    sprintf(c1err,"GENRANGE_REDSHIFT is not compatible with binary table.");
+    sprintf(c2err,"Restrict GENRANGE_REDSHIFT or re-make binary table.");
  
     fflush(stdout);
   }
@@ -638,18 +650,22 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
 				SEDMODEL.NSURFACE );
   }
 
+
   // check that NBIN matches for each dimension
-  for ( idim=1; idim <= NDIM_SEDMODEL_FLUXTABLE; idim++ ) {
-    if  ( NBINTMP[idim] != NBIN_SEDMODEL_FLUXTABLE[idim] ) {
-      printf(" WARNING: NBIN(%s)=%d from binary table, but request is %d \n"
-	     , VARNAME_SEDMODEL_FLUXTABLE[idim]
-	     , NBINTMP[idim]
-	     , NBIN_SEDMODEL_FLUXTABLE[idim] );
-      NERR++ ;
-      sprintf(c1err,"Binary table mis-match => " ) ;
-      sprintf(c2err,"Try deleting %s", binFile );
-    }
-  }  // idim
+  if ( !LZBAD ) {
+    for ( idim=1; idim <= NDIM_SEDMODEL_FLUXTABLE; idim++ ) {
+      if  ( NBINTMP[idim] != NBIN_SEDMODEL_FLUXTABLE[idim] ) {
+	printf(" ERROR: NBIN(%s)=%d from binary table, but request is %d \n"
+	       , VARNAME_SEDMODEL_FLUXTABLE[idim]
+	       , NBINTMP[idim]
+	       , NBIN_SEDMODEL_FLUXTABLE[idim] );
+	NERR++ ;
+	sprintf(c1err,"Binary table mis-match => " ) ;
+	sprintf(c2err,"Try deleting %s", binFile );
+      }
+    }  // idim
+  }
+
   if ( NERR > 0 ) errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
 
 

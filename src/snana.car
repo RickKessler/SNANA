@@ -652,7 +652,7 @@ c May 6, 2008: define lists for epochs to ignore
      &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
      &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
-      CHARACTER OUTLIER_BAND*4
+      CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*20
 
       COMMON / OUTLIERCUTS /
      &   NSIGCUT_OUTLIER, FTRUECUT_OUTLIER
@@ -667,7 +667,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_FLUXCAL_ERRTOT_FIT
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
-     &  ,OUTLIER_IFILTOBS, OUTLIER_BAND
+     &  ,OUTLIER_IFILTOBS, OUTLIER_BAND, OUTLIER_FIELD
      &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
 +KEEP,CTRL_LEGACY.
@@ -17790,7 +17790,7 @@ c local var
      &  ,ORDER, INDEX_SORT(MXFILT_OBS)  ! SORT args
 
       REAL
-     &   Fluxcal, Fluxcal_err, TRUEFLUX
+     &   Fluxcal, Fluxcal_err, TRUEFLUX, ERRTEST
      &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB, TMP
      &  ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR
      &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
@@ -17799,7 +17799,8 @@ c local var
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
       REAL*8  MU_OLD, MU_NEW, z8
       LOGICAL 
-     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD, LPSF, LZPERR, LPP
+     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD
+     &  ,LPSF, LZPERR, LPP, LERRTEST
      &  ,LSNRMAX(MXFILT_ALL)
      &  ,LSNRMAX2(MXFILT_ALL)
      &  ,LFLUX, LERR, LTMP, USE4SNRMAX
@@ -18079,8 +18080,6 @@ c check MJD-exclude window to reject epochs (but keep LC)
      &            MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
             
 c Feb 2020: check PSF and ZPERR cuts here
-c           PSF cut is FWHM, arcsec. ZPERR cut in mag.
-c Mar 2 2020: fix awful PSF units bug
           PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
           LPSF = PSF .GE. CUTWIN_PSF(1) .and. PSF.LE.CUTWIN_PSF(2)
 
@@ -18090,6 +18089,10 @@ c Mar 2 2020: fix awful PSF units bug
         
           PHOTPROB = SNLC_PHOTPROB(ep)
           LPP  = (PHOTPROB > CUTWIN_PHOTPROB(1) .OR. PHOTPROB<-0.001)
+
+	  ERRTEST = SNLC_FLUXCAL_ERRTEST(ep)
+	  LERRTEST = ERRTEST .GE. CUTWIN_ERRTEST(1) .and. ! Mar 2021
+     &               ERRTEST .LE. CUTWIN_ERRTEST(2)
 
           LSIG = Xnsig .GE. cutwin_snrmin_filt(1,ifilt)
      &     .and. Tobs  .GE. cutwin_Tobs(1)  
@@ -18101,6 +18104,7 @@ c Mar 2 2020: fix awful PSF units bug
      &     .and. .not. LXMJD     ! Feb 2012
      &     .and. LLAM            ! rest-frame lambda OK (7/08/08)
      &     .and. LPSF .and. LZPERR .and. LPP    ! Feb 2020
+     &     .and. LERRTEST                       ! Mar 2021
      &     .and. fluxcal_err >  0.0    ! flux err is > 0  
 
           IF ( .NOT. LSIG ) GOTO 201 ! Nov 30, 2011
@@ -23139,6 +23143,10 @@ c e.g., pass ROWNUM to script that fetches stamps.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
 
+      VARLIST = 'FIELD:C*12' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
       VARLIST = 'MJD:D' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
      &                   LENBLOCK, 20 )
@@ -23246,6 +23254,7 @@ c ---------- BEGIN ---------
       OUTLIER_MJD          = SNLC8_MJD(ep)
       OUTLIER_IFILTOBS     = IFILT_OBS
       OUTLIER_BAND         = BAND
+      OUTLIER_FIELD        = SNLC_FIELD(ep)
       OUTLIER_CCDNUM       = ISNLC_CCDNUM(ep)
       OUTLIER_PHOTFLAG     = ISNLC_PHOTFLAG(ep)
       OUTLIER_FLUXCAL_DATA      = SNLC_FLUXCAL(ep)

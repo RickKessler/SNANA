@@ -1517,7 +1517,10 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // Created July 26 2020
   // Init stuff to count bad values in error maps.
   // Goal is to quickly catch retraining pathologies.
-
+  //
+  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
+  //
+  // --------------- BEGIN ------------
   SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
   SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
@@ -1545,7 +1548,8 @@ void  init_BADVAL_SALT2errmap(int imap) {
   }
   else if ( imap == INDEX_ERRMAP_COLORDISP ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+    // xxx mark delete Mar 25 2021 SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
   }
 
   // - - - - - - - - 

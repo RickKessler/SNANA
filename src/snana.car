@@ -12934,6 +12934,9 @@ C Created Feb 2021
 C Return TRUE if epoch passes explicit epoch cuts such as 
 c PSF, PHOTFLAG, etc ..
 c   (no implicit cuts such as TREST)
+c
+c Mar 25 2021: init BADPHOT=F (bug fix)
+c -----------------
 
       IMPLICIT NONE
 
@@ -12979,6 +12982,8 @@ c Jul 2020: check option to write list of rejected epochs
 
 c ----------------------------------------------
 c now check PHOTFLAG mask.
+
+      BADPHOT = .FALSE.  
 
 c check OR-logic 
 c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set

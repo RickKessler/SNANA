@@ -5715,12 +5715,13 @@ void prep_dustFlags(void) {
   // or if only one of AV or RV profile is set.
 
   int  DO_WV07=0, DO_GRID=0, DO_RV=0, DO_AV=0 ;
+  bool LOGPARAM;
   char fnam[] = "prep_dustFlags" ;
 
   // ------------ BEGIN --------------
 
   if ( INPUTS.GENGAUSS_RV.USE        ) { DO_RV  = 1; }
-  if ( IDMAP_GENPDF(PARNAME_RV) >= 0 ) { DO_RV += 2; }
+  if ( IDMAP_GENPDF(PARNAME_RV,&LOGPARAM) >= 0 ) { DO_RV += 2; }
 
   // check for WV07 option
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) 
@@ -5747,8 +5748,8 @@ void prep_dustFlags(void) {
   if ( INPUTS.GENPROFILE_AV.USE       ) { DO_AV = 1; }
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) { DO_AV = 1; }
   if ( DO_WV07  || DO_GRID            ) { DO_AV = 1; }
-  if ( IDMAP_GENPDF(PARNAME_AV) >= 0  ) { DO_AV +=2; }
-  if ( IDMAP_GENPDF(PARNAME_EBV)>= 0  ) { DO_AV +=4; }
+  if ( IDMAP_GENPDF(PARNAME_AV, &LOGPARAM ) >= 0 ) { DO_AV +=2; }
+  if ( IDMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
   INPUTS.DO_AV = DO_AV ; // store global for gen_modelPar_dust()
 
   // make sure that AV and RV are each defined once and only once.

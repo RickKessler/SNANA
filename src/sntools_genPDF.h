@@ -45,7 +45,7 @@ void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, int dumpFlag);
 
-int IDMAP_GENPDF(char *parName);
+int IDMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);
 
 // END

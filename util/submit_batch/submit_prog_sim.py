@@ -1775,8 +1775,8 @@ class Simulation(Program):
                                                    TMP_LOG_LIST, TMP_YAML_LIST,
                                                    KEY_YAML_LIST)
 
-                    print(f"\n xxx KEY_YAML_LIST = {KEY_YAML_LIST} ")
-                    print(f" xxx job_stats = \n {job_stats} \n")
+                    #print(f"\n xxx KEY_YAML_LIST = {KEY_YAML_LIST} ")
+                    #print(f" xxx job_stats = \n {job_stats} \n")
 
                     # check for failures
                     nfail = job_stats['nfail']

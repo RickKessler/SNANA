@@ -377,6 +377,9 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
     #  done_list = [ F1.DONE, None,   F3.DONE, None ]
     #  yaml_list = [ None,    None,   F3.YAML, None ]
     #
+    # Mar 25 2021: find last dot (with .rindex) instead of first dot
+    #              to allow for dot in version name.
+    #
 
     # search .LOG first to define list.
     search_log = (f"{search_wildcard}.LOG")
@@ -386,7 +389,8 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
 
     # for each log file, check for DONE and .YAML                          
     for log_file in log_list :
-        jdot      = log_file.index(".")
+        # xxx mark delete jdot      = log_file.index(".")
+        jdot      = log_file.rindex(".")
         prefix    = log_file[0:jdot]
         done_file = (f"{prefix}.DONE")
         DONE_FILE = (f"{search_dir}/{done_file}")

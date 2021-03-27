@@ -5887,6 +5887,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   //
   // Apr 12 2019: abort if 10 or more rows read without valid key
   // Jun 12 2020: pass MAPNAME as input arg.
+  // Mar 27 2021: fix MSKOPT to allow comments with commas
 
   int   READ_NEXTLINE = 1 ;
   int   NROW_READ     = 0 ;
@@ -5900,6 +5901,11 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
   int  NBADBIN = 0 ;
   int  NLINE   = 0 ;
+  int  MSKOPT =
+    MSKOPT_PARSE_WORDS_STRING        + 
+    MSKOPT_PARSE_WORDS_IGNORECOMMENT +  // ignore comments on valid rows
+    MSKOPT_PARSE_WORDS_IGNORECOMMA ;    // allow commas in comments
+
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
@@ -5930,7 +5936,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
     fgets(LINE,200,fp);  NLINE++ ;
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+    NWD = store_PARSE_WORDS(MSKOPT,LINE);
 
     // abort if we read too many lines without finding any valid row keys
     if ( NLINE > 20 && NROW_READ==0 ) {

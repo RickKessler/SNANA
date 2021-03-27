@@ -1398,6 +1398,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //
 
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
+  double TMPVAL[2];
   FILE *fpNull = NULL ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
@@ -1765,6 +1766,34 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_GENGAUSS("SALT2x1", WORDS, keySource,
 			      &INPUTS.GENGAUSS_SALT2x1 );  
   } 
+
+  else if ( strstr(WORDS[0],"BIASCOR_SALT2ALPHA_GRID") != NULL ) {
+    // load asymGauss params for BBC alpha grid
+    N++;  sscanf(WORDS[N], "%le", &TMPVAL[0] ) ;
+    N++;  sscanf(WORDS[N], "%le", &TMPVAL[1] ) ;
+    INPUTS.GENGAUSS_SALT2ALPHA.USE      = true ;
+    INPUTS.GENGAUSS_SALT2ALPHA.PEAK     = 0.5*(TMPVAL[0]+TMPVAL[1]);
+    INPUTS.GENGAUSS_SALT2ALPHA.RANGE[0] = TMPVAL[0];
+    INPUTS.GENGAUSS_SALT2ALPHA.RANGE[1] = TMPVAL[1];
+    INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[0] = 1.0E8 ;
+    INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[1] = 1.0E8 ;
+    INPUTS.GENGAUSS_SALT2ALPHA.NGRID    = 2 ;
+    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);
+  }
+  else if ( strstr(WORDS[0],"BIASCOR_SALT2BETA_GRID") != NULL ) {
+    // load asymGauss params for BBC beta grid 
+    N++;  sscanf(WORDS[N], "%le", &TMPVAL[0] ) ;
+    N++;  sscanf(WORDS[N], "%le", &TMPVAL[1] ) ;
+    INPUTS.GENGAUSS_SALT2BETA.USE      = true ;
+    INPUTS.GENGAUSS_SALT2BETA.PEAK     = 0.5*(TMPVAL[0]+TMPVAL[1]);
+    INPUTS.GENGAUSS_SALT2BETA.RANGE[0] = TMPVAL[0];
+    INPUTS.GENGAUSS_SALT2BETA.RANGE[1] = TMPVAL[1];
+    INPUTS.GENGAUSS_SALT2BETA.SIGMA[0] = 1.0E8 ;
+    INPUTS.GENGAUSS_SALT2BETA.SIGMA[1] = 1.0E8 ;
+    INPUTS.GENGAUSS_SALT2BETA.NGRID     = 2 ;
+    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);
+  }
+
   else if ( strstr(WORDS[0],"SALT2ALPHA") != NULL ) {
     N += parse_input_GENGAUSS("SALT2ALPHA", WORDS, keySource,
 			      &INPUTS.GENGAUSS_SALT2ALPHA );  

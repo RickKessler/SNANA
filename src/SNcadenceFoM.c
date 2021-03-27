@@ -65,8 +65,8 @@
 #define DEFAULT_cadence_MJDGAP_IGNORE   100.
 
 
-char MSGERR1[80];
-char MSGERR2[80];
+//char MSGERR1[80];
+//char MSGERR2[80];
 
 double cadence_randMJD (double MJDMIN, double MJDMAX);
 

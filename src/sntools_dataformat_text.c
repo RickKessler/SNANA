@@ -1045,6 +1045,7 @@ void  rd_sntextio_global(void) {
   // Created Feb 2021
   // Open first text file and read info that is global;
   // skip SN-dependent info. Stop reading at first "OBS:" key.
+  //
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1089,6 +1090,12 @@ void  rd_sntextio_global(void) {
 
       // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
       extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
+
+      /* xxxxxxx
+      if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) 
+	{ sprintf(SNDATA.SUBSURVEY_NAME,"%s", SNDATA.SURVEY_NAME); }
+      xxxx */
+
     }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {

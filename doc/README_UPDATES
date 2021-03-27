@@ -19744,4 +19744,10 @@
     snlc_sim.c
       + new option "GENMODEL_MSKOPT: 16" to force neg Flam to Flam=0/
 
+    sntools_genPDF.c: 
+      + allow LOG[parName] in GENPDF maps.
+
+    submit_batch/submit_util.py
+      + make fix to allow dot in GENVERSION name (use .rindex instead of .index)
+
 END: 

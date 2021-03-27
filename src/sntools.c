@@ -8698,10 +8698,10 @@ int init_SNDATA_EVENT(void) {
     SNDATA.EDGEDIST[i_epoch]     = NULLFLOAT ;
 
     SNDATA.SKY_SIG[i_epoch]      = NULLFLOAT ;
-    SNDATA.SKY_SIG_T[i_epoch]    = NULLFLOAT ;
+    SNDATA.SKY_SIG_T[i_epoch]    = 0.0       ; // Mar 26 2021
     SNDATA.PSF_SIG1[i_epoch]     = NULLFLOAT ;
-    SNDATA.PSF_SIG2[i_epoch]     = NULLFLOAT ;
-    SNDATA.PSF_RATIO[i_epoch]    = NULLFLOAT ;
+    SNDATA.PSF_SIG2[i_epoch]     = 0.0 ;
+    SNDATA.PSF_RATIO[i_epoch]    = 0.0 ;
     SNDATA.PSF_NEA[i_epoch]      = NULLFLOAT ;
 
     SNDATA.FLUXCAL[i_epoch]         = NULLFLOAT ;

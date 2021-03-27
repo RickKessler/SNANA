@@ -19903,6 +19903,8 @@ c Created Feb 2020
 c If there is SKYSIG_T (template) info, set arrays
 c    SIMLIB_TEMPLATE_ZPT[SKYSIG](ifilt)
 c Search all epochs and extract typical epoch for each band.
+c
+c Mar 26 2021: require SKYSIG_T > 0
 
       IMPLICIT NONE
 
@@ -19914,7 +19916,7 @@ c local variables
 +CDE,SIMLIBCOM.
 
       INTEGER ep, EPMIN, EPMAX, NEWMJD, IFILT, IFILT_OBS
-      LOGICAL IS_SET(MXFILT_ALL)
+      LOGICAL IS_SET(MXFILT_ALL), LZPT, LSKY
       REAL ZPT, SKYSIG
 
 C ------------- BEGIN -------------
@@ -19938,7 +19940,9 @@ c find first epoch for each band
            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
            ZPT       = SNLC_ZEROPT(ep)
            SKYSIG    = SNLC_SKYSIG_T(ep)
-           if ( .not.IS_SET(ifilt) .and. ZPT > 10.0 ) then
+           LZPT      = (ZPT > 10.0)
+           LSKY      = SKYSIG > 0.001
+           if ( .not.IS_SET(ifilt) .and. LZPT .and. LSKY) then
              IS_SET(ifilt)                 = .TRUE.
              FOUND_TEMPLATE_INFO           = .TRUE.
              SIMLIB_TEMPLATE_ZPT(ifilt)    = ZPT

@@ -19568,7 +19568,9 @@ c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
 c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
 c Oct 05, 2020: add ZP requirement to compute metadata; see FOUND_METADATA
 c Jan 19, 2021: add pad space between MJD and IDEXPT
-c Mar 26, 2021: suppress GALID since it wrote 12345 (garbage) for DC2
+c Mar 26, 2021: 
+c   + suppress GALID since it wrote 12345 (garbage) for DC2
+c   + skip LIBID of PEAKMJD < 1000
 c
 c --------------------------
 
@@ -19710,6 +19712,7 @@ c to insert its comma-separate list at top of SIMLIB file.
 C ------------- OPT_FLAG=2 below -------------------------
 
       IF ( ISNLC_NEWMJD_STORE < 4 ) RETURN
+      IF ( SNLC_SEARCH_PEAKMJD < 1000.0 ) RETURN ! Mar 26 2021
 
       DO IFILT_OBS = 1, MXFILT_OBS
          LASTEP(IFILT_OBS) = -9

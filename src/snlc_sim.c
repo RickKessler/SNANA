@@ -14701,7 +14701,8 @@ int keep_SIMLIB_HEADER(void) {
   // are in the header.
   if ( ISMODEL_SIMLIB ) {
     if ( pkmjd_min < 1000.0 ) {
-      sprintf(c1err,"Missing 'PEAKMJD:' key in SIMLIB header.");
+      sprintf(c1err,"Missing 'PEAKMJD:' key in SIMLIB header (ID=%d)",
+	      SIMLIB_HEADER.LIBID); 
       sprintf(c2err,"PEAKMJD key is required for SIMLIB model.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
     }

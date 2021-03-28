@@ -6131,7 +6131,10 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
     } 
 
     RANGE = VALMAX - VALMIN ;
-    NBIN = (int)( (RANGE+0.001*VALBIN) / VALBIN ) + 1;
+    if ( RANGE > 1.0E-9 ) 
+      { NBIN = (int)( (RANGE+0.001*VALBIN) / VALBIN ) + 1; }
+    else
+      { NBIN = 1; }
 
     // load output struct
     gridmap->ID           = ID ;
@@ -6278,11 +6281,21 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   NFUN = gridmap->NFUN ;
   OPT_EXTRAP = gridmap->OPT_EXTRAP ;
 
+  // Mar 27 2021: check trivial case with NDIM=1 and 1 bin
+  if ( NFUN==1 && NVAR == 1 && gridmap->NBIN[0]==1 ) {
+    ifun = igrid=0;
+    igrid_tmp    = get_1DINDEX( ID, NVAR, &igrid);
+    igrid_1D     = gridmap->INVMAP[igrid_tmp] ;
+    interpFun[0] = gridmap->FUNVAL[ifun][igrid_1D];
+    return(SUCCESS);
+  }
+
   for  ( ifun=0; ifun < NFUN; ifun++ )   {  
-    *(interpFun + ifun) = 0.0 ; 
+    interpFun[ifun] = 0.0 ; 
     WGT_SUM[ifun] = 0.0 ;
   }
   CORNER_WGTSUM = 0.0 ;
+
 
   if ( LDMP ) 
     { printf(" xxxxx ------------- START DUMP ----------------- \n"); }
@@ -6317,20 +6330,6 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
 	
     } // end outside_bound
 
- 
-    /*
-    if ( TMPVAL < TMPMIN  || TMPVAL > TMPMAX ) {
-      printf(" %s ERROR: TMPVAL=%le not between %le and %le \n",
-	     fnam, TMPVAL, TMPMIN, TMPMAX);
-      fflush(stdout);
-      return(ERROR);
-    } 
-    */
-
-    /* xxxx mark delete  Oct 15 2020 xxxxxxxxx
-    if ( TMPVAL < TMPMIN ) { return(ERROR) ; }
-    if ( TMPVAL > TMPMAX ) { return(ERROR) ; }
-    xxxx */
 
     TMPDIF  = TMPVAL - TMPMIN ;
     if ( TMPBIN == 0.0 )

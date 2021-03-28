@@ -19730,12 +19730,17 @@
 
          ***** USEFUL(v11_02k) ***** 
 
+   snlc_sim: 
+     + simpler way to specify alpha,beta grid; see manual Sec 9.3.1
+     + allow LOG[parName] in GENPDF maps; e.g. LOGEBV or LOGAV
+
          ***** MISCELLANEOUS(v11_02k) ***** 
 
     snana.car
       + fix bug reading filter-dependent header items like
         galmag and HOSTGAL_SB_FLUXCAL.
       + fix bug setting EXIST_SNHOST_SB (test is on SBFLUXCAL, not SBMAG)
+      + suppress GALID in OUT_SIMLIB since it wrote 12345 garbage for DC2
 
     genmag_SEDtools.c
       + new util get_LAMTRANS_SEDMODEL(ifilt,ifilt,*LAM,*TRANS)
@@ -19743,11 +19748,14 @@
 
     snlc_sim.c
       + new option "GENMODEL_MSKOPT: 16" to force neg Flam to Flam=0/
+      + new options BIASCOR_SALT2ALPHA[BETA]_GRID to replace entering
+        PEAK, RANGE and SIGMA, NGRID (see manual sec 9.3.1)
 
     sntools_genPDF.c: 
       + allow LOG[parName] in GENPDF maps.
 
     submit_batch/submit_util.py
-      + make fix to allow dot in GENVERSION name (use .rindex instead of .index)
-
+      + fix to allow dot in GENVERSION name (use .rindex instead of .index)
+      + add BBC_SUMMARY_FITPAR.YAML output for human readability.
+ 
 END: 

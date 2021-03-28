@@ -77,6 +77,7 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
 
+FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
 ROW_KEY               = "ROW:"
@@ -1602,7 +1603,6 @@ class BBC(Program):
         return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
-
         
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
@@ -1670,6 +1670,9 @@ class BBC(Program):
         use_wfit         = submit_info_yaml['USE_WFIT']
         script_subdir    = SUBDIR_SCRIPTS_BBC
 
+        logging.info(f"  BBC cleanup: create {FITPAR_SUMMARY_FILE}") 
+        self.make_fitpar_summary()
+        
         if use_wfit :
             logging.info(f"  BBC cleanup: create {WFIT_SUMMARY_FILE}")
             self.make_wfit_summary()
@@ -1824,6 +1827,85 @@ class BBC(Program):
         return fitres_list
 
         # end get_fflist_reject_summary
+
+    def make_fitpar_summary(self):
+
+        # Mar 28 2021: 
+        # write summary info for each version/fitopt/muopt.
+        # Output is YAML, but designed mainly for human readability.
+        # When this function was written, there were no codes expected
+        # to read this; only for human eyes.
+
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        n_splitran       = submit_info_yaml['NSPLITRAN']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
+        MUOPT_LIST       = submit_info_yaml['MUOPT_OUT_LIST']
+
+        if n_splitran > 1 : return
+
+        # read the whole MERGE.LOG file to figure out where things are
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_INFO_CONTENTS,comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        # - - - 
+        SUMMARYF_FILE     = (f"{output_dir}/{FITPAR_SUMMARY_FILE}")
+        f = open(SUMMARYF_FILE,"wt") 
+
+
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
+            fitopt_num = row[COLNUM_BBC_MERGE_FITOPT]  # e.g., FITOPT002
+            muopt_num  = row[COLNUM_BBC_MERGE_MUOPT]   # e.g., MUOPT003
+            
+            # get indices for summary file
+            ifit = int(f"{fitopt_num[6:]}")
+            imu  = int(f"{muopt_num[5:]}")
+            
+            # figure out name of BBC-YAML file and read it .xyz
+            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+            YAML_FILE  = (f"{script_dir}/{version}_{prefix_final}.YAML")
+            #print(f"  YAML_FILE = {YAML_FILE}")
+            bbc_yaml   = util.extract_yaml(YAML_FILE, None, None )
+            BBCFIT_RESULTS = bbc_yaml['BBCFIT_RESULTS']
+
+            NEVT_DATA            = bbc_yaml['NEVT_DATA']
+            NEVT_BIASCOR         = bbc_yaml['NEVT_BIASCOR']
+            NEVT_CCPRIOR         = bbc_yaml['NEVT_CCPRIOR']
+            NEVT_REJECT_BIASCOR  = bbc_yaml['NEVT_REJECT_BIASCOR']
+            frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
+
+            new_version = ifit == 0 and imu == 0
+            if new_version: 
+                f.write(f"\n# ==================================== \n")
+                f.write(f"{version}: \n")
+
+            f.write(f" \n")
+            f.write(f"- {fitopt_num}_{muopt_num}: \n")
+            f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+            f.write(f"    NEVT(DATA,BIASCOR,CCPRIOR):  " \
+                    f" {NEVT_DATA} {NEVT_BIASCOR} {NEVT_CCPRIOR} \n")
+            f.write(f"    REJECT_FRAC_BIASCOR:  {frac_reject:.3f} " \
+                    f" # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+
+            for result in BBCFIT_RESULTS:
+                #print(f" xxx result = {result}  key = {result.keys()} ")
+                for key in result:
+                    val = str(result[key].split()[0])
+                    err = str(result[key].split()[1])
+                    KEY = f"{key}:"
+                    f.write(f"    {KEY:<12}  {val:>8} +_ {err:<8} \n")
+
+            #f.write(f" \n")
+            #f.write(f" \n")
+        f.close()
+
+        #sys.exit("\n xxx DEBUG STOP in make_fitpar_summary\n")
+
+        # end make_fitpar_summary
 
     def make_wfit_summary(self):
         

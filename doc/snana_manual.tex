@@ -10219,6 +10219,11 @@ the bias-correction at each fitting step. The sim-input
 keys are as follows:
 %
 \begin{verbatim}
+   BIASCOR_SALT2ALPHA_GRID:  0.10  0.20 
+   BIASCOR_SALT2BETA_GRID:   2.50  3.50
+   BIASCOR_SALT2GAMMA_GRID:  0.0   0.10
+
+   # or ... below is legacy method requiring 4 keys per variable
    GENPEAK_SALT2ALPHA:   0.14   
    GENSIGMA_SALT2ALPHA:  1E8   1E8
    GENRANGE_SALT2ALPHA:  0.10  0.20
@@ -10228,15 +10233,11 @@ keys are as follows:
    GENSIGMA_SALT2BETA:  1E8  1E8 
    GENRANGE_SALT2BETA:  2.5  3.5
    GENGRID_SALT2BETA:   2       # <== only 2 allowed for BBC
-
-   BIASCOR_SALT2GAMMA_GRID:  0  0.10
 \end{verbatim}
 %
-The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
-and {\tt GENRANGE\_SALT2xxx} define the two grid points.
-The large {\tt GENSIGMA\_SALT2xxx} values specify flat
-distributions that result in two $\delta$-functions per parameter.
-
+{\tt BIASCOR\_SALT2ALPHA\_GRID} and {\tt BIASCOR\_SALT2BETA\_GRID}
+specify $2\times 2$ grid for BBC interpolation.
+%
 If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
 BBC could only fit a step function with a $\hostmass$-split 
 at exactly the same value used in the biasCor sample.

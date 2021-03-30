@@ -664,7 +664,7 @@ def write_covariance(path, cov):
         for c in cov.flatten():
 
             if cosmomc_method == COSMOMC_METHOD_JLA :
-                f.write(f"{c:.8f}\n")
+                f.write(f"{c:.14f}\n")
             else:
                 # for bbc method write human-readable cov:
                 # comment line for each new row, and off-diag elements

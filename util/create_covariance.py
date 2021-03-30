@@ -452,7 +452,7 @@ def get_cov_from_diff(df1, df2, scale):
 
 
 def get_cov_from_covfile(data, covfile, scale):
-    covindf = pd.read_csv(covfile)
+    covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
     covindf['CID1'] = covindf['CID1'].astype(str)
     covindf['CID2'] = covindf['CID2'].astype(str)
     covindf = covindf.set_index(["CID1", "CID2"])

@@ -22,7 +22,7 @@ c parameters used by snana code
      &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
      &  ,MXZBIN_KCOR, MXTBIN_KCOR, MXAVBIN_KCOR, MXCBIN_AVWARP
      &  ,MNTYPE, MXTYPE, MXLISTNML, MXCCID_LIST, MXIGNORE_LIST
-     &  ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE
+     &  ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE, MXBIT_PHOTFLAG
      &  ,HOFF_NOCUTS, HOFF_CUTS, HOFF_SIM
      &  ,LUNHIS, LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
      &  ,LUNCID, LUNOUT
@@ -132,6 +132,7 @@ c
      &  ,MXVAR_PRIVATE = 40       ! max number of private variables
      &  ,MXCUT_PRIVATE = 10        ! max number of cuts on private var
      &  ,MXVAR_TERSE   = 30       ! max number of text-data  columms
+     &  ,MXBIT_PHOTFLAG = 30      ! max number of PHOTFLAG bits
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
      &  ,MXFILT_OBS  = 62    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
@@ -674,8 +675,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
 c efficiency for PHOTFLAG bits
-      INTEGER MXBIT_PHOTFLAG
-      PARAMETER ( MXBIT_PHOTFLAG = 30)
+
       INTEGER
      &   NEP_OUTLIER_VS_PHOTBIT(2,MXBIT_PHOTFLAG)    ! 1=TOT, 2=bit set
      &  ,NEP_ALL_VS_PHOTBIT(2,MXBIT_PHOTFLAG)        ! 1=TOT, 2=bit set
@@ -1733,6 +1733,7 @@ c define namelist cuts
      &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
      &  ,PHOTFLAG_MSKREJ(5)        ! (I) PHOTFLAG mask-bits to reject
      &                             !     1,2 => logical OR,AND
+     &  ,PHOTFLAG_BITLIST_REJECT(MXBIT_PHOTFLAG)  ! Mar 31, 2021
      &  ,IDTEL_LIST(MXLISTNML)     ! computed from SNTEL_LIST
      &  ,IDFIELD_LIST(MXLISTNML)   ! 
      &  ,NIDTEL_LIST               ! size of list
@@ -1914,7 +1915,7 @@ c
      &   ,NSNTYPE_LIST, NCCDNUM_LIST, NSIM_TEMPLATE_INDEX_LIST
      &   ,NSNTYPE_IGNORE, NFILT_SNRMAX, IFILT_SNRMAX
      &   ,NFILT_HOST_SBFLUX, IFILT_HOST_SBFLUX
-     &   ,PHOTFLAG_MSKREJ, USE_MWCOR
+     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT, USE_MWCOR
      &   ,MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_PRIMARY_FILT
      &   ,MAGOBS_SHIFT_ZP, MAGOBS_SHIFT_ZP_FILT, FLUXSCALE_ZP_FILT
      &   ,MAGOBS_SHIFT_ZP_USER
@@ -2247,7 +2248,7 @@ c
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
-     &   ,PHOTFLAG_MSKREJ, cutwin_cid
+     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT, cutwin_cid
      &   ,cutwin_redshift, cutwin_redshift_err
      &   ,cutwin_ra, cutwin_dec
      &   ,cutwin_hostsep,   cutwin_Nepoch
@@ -5560,7 +5561,7 @@ c ---------------
 
 c local ars
 
-      integer i, ifilt, LL, ipar, NZPCUT
+      integer i, ifilt, LL, ipar, NZPCUT, bit
       character nmlfile_default*40, FNAM*8
 
 c function
@@ -5728,6 +5729,10 @@ c default is to reject nothing (accept everything)
       PHOTFLAG_MSKREJ(3) = 0
       PHOTFLAG_MSKREJ(4) = 0
       PHOTFLAG_MSKREJ(5) = 0
+
+      do i = 1, MXBIT_PHOTFLAG
+         PHOTFLAG_BITLIST_REJECT(i) = -9 ! beware that 0 is valid bit
+      enddo
 
       SNCID_IGNORE(1)    = 0 
 
@@ -5916,7 +5921,6 @@ c read the nml
 400   CONTINUE
 
 c check for namelist over-rides from command line.
-
      
       CALL SNLCINP_OVERRIDE()  ! refact with MATCH_NMLKEY (Enable 8.19.2020)
 
@@ -5933,6 +5937,14 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(1) = 4.9
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
+
+c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
+      i = 1
+      DO WHILE ( PHOTFLAG_BITLIST_REJECT(i) .GE. 0 ) 
+         bit = PHOTFLAG_BITLIST_REJECT(i) 
+         PHOTFLAG_MSKREJ(1) = IBSET(PHOTFLAG_MSKREJ(1),BIT)
+         i = i + 1
+      END DO
 
 
 +SELF,IF=SNANA.
@@ -7199,6 +7211,12 @@ c LSNIGNORE
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) PHOTFLAG_MSKREJ(1)
            READ(ARGLIST(2),*) PHOTFLAG_MSKREJ(2)
+
+         else if ( MATCH_NMLKEY('PHOTFLAG_BITLIST_REJECT',
+     &             1, iArg, ARGLIST) ) then 
+           if ( ARGLIST(1) .NE. 'NONE' ) then
+              CALL PARSE_COMMASEP_LIST('PHOTFLAG_BITLIST',ARGLIST(1))
+           endif
 
          else if ( MATCH_NMLKEY('PHOTFLAG_DETECT',
      &             1, iArg, ARGLIST) ) then 
@@ -14660,6 +14678,7 @@ c
 
       INTEGER  MSKOPT, NWD, iwd, LL
       INTEGER  STORE_PARSE_WORDS
+      CHARACTER WDTMP*60
       EXTERNAL STORE_PARSE_WORDS
 
 C --------------- BEGIN ------------
@@ -14673,9 +14692,14 @@ C --------------- BEGIN ------------
          if ( KEY .EQ. 'SNCCID_LIST' ) then
             CALL get_PARSE_WORD_fortran(iwd,
      &                   SNCCID_LIST(iwd), LL)
+
          else if ( KEY .EQ. 'VERSION_PHOTOMETRY' ) then
             CALL get_PARSE_WORD_fortran(iwd,
      &                   VERSION_PHOTOMETRY(iwd), LL)
+
+         else if ( KEY .EQ. 'PHOTFLAG_BITLIST' ) then
+            CALL get_PARSE_WORD_fortran(iwd, WDTMP, LL)
+	    read(WDTMP,*) PHOTFLAG_BITLIST_REJECT(iwd)	    
          endif
 
 c        LL = INDEX(SNCCID_LIST(iwd),' ') - 1
@@ -23137,6 +23161,8 @@ C ======================================
 
 c ------------ BEGIN -----------
 
+      if ( NSIGCUT_OUTLIER < 1.0 ) RETURN
+
       IF ( EP > 0 )  THEN
          IFILTOBS   = ISNLC_IFILT_OBS(ep)
          PHOTFLAG   = ISNLC_PHOTFLAG(ep)
@@ -23189,9 +23215,9 @@ c ------------ BEGIN -----------
          write(6,10) NSIGCUT_OUTLIER
 
  10      format('  PHOTFLAG BIT PERFORMANCE for REJECTING ',
-     &             F5.1, ' sigma OUTLIERS:' )
+     &             F5.1, ' sigma OUTLIERS:', / )
 
-         print*,'  BIT   EFF(OUTLIER)     EFF(BULK)   FoM'
+         print*,'  BIT   EFF(OUTLIER)   1-EFF(BULK)   FoM'
          print*,'  ----------------------------------------- '
          do bit = 1, MXBIT_PHOTFLAG
             XNALL(1)     = float(NEP_ALL_VS_PHOTBIT(1,BIT))

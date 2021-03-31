@@ -643,6 +643,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_FLUXCAL_TRUE
      &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
      &  ,OUTLIER_FLUXCAL_ERRTOT_FIT  ! data + fit errors in quadrature
+     &  ,OUTLIER_AREAFRAC
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
 
@@ -651,6 +652,7 @@ c May 6, 2008: define lists for epochs to ignore
      &   ,NEP_OUTLIER_CHECK(MXFILT_OUTLIER)  ! total epochs checked per band
      &   ,NEP_OUTLIER_FOUND(MXFILT_OUTLIER)  ! Noutlier per band
      &   ,OUTLIER_IFILTOBS, OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
+     &   ,OUTLIER_IXPIX, OUTLIER_IYPIX
 
       CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*20
 
@@ -665,10 +667,21 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_FLUXCAL_TRUE
      &  ,OUTLIER_FLUXCAL_FIT, OUTLIER_FLUXCAL_ERR_FIT
      &  ,OUTLIER_FLUXCAL_ERRTOT_FIT
+     &  ,OUTLIER_IXPIX, OUTLIER_IYPIX, OUTLIER_AREAFRAC
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
      &  ,OUTLIER_IFILTOBS, OUTLIER_BAND, OUTLIER_FIELD
      &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
+
+c efficiency for PHOTFLAG bits
+      INTEGER MXBIT_PHOTFLAG
+      PARAMETER ( MXBIT_PHOTFLAG = 30)
+      INTEGER
+     &   NEP_OUTLIER_VS_PHOTBIT(2,MXBIT_PHOTFLAG)    ! 1=TOT, 2=bit set
+     &  ,NEP_ALL_VS_PHOTBIT(2,MXBIT_PHOTFLAG)        ! 1=TOT, 2=bit set
+      
+      COMMON /OUTLIER_PHOTPROB /
+     &  NEP_OUTLIER_VS_PHOTBIT, NEP_ALL_VS_PHOTBIT
 
 +KEEP,CTRL_LEGACY.
 
@@ -4257,12 +4270,6 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
      &     ONE, STRING, DARRAY, OPT)
       ISNLC_FAKE = INT(DARRAY(1))
 
-c xxxxxxxx mark delete Mar 20, 2021 xxxxxxxx
-c      if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
-c      if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
-c      ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
-c xxxxxxxxxxxxxxx
-
       CALL FETCH_SNDATA_WRAPPER("RA",  ONE, STRING, DARRAY,  OPT)
       SNLC8_RA = DARRAY(1)
 
@@ -4277,6 +4284,7 @@ c xxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("NYPIX", ONE, STRING, DARRAY, OPT)
       SNLC_NYPIX = INT(DARRAY(1))
+
 
 c xxxxxxx mark delete Mar 15 2021 : read only from PHOT table xxxxx
 c      CALL FETCH_SNDATA_WRAPPER("CCDNUM", ONE, STRING, DARRAY, OPT)
@@ -15599,7 +15607,7 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
 
       DO iep = 1, NEP_RESET
 
-        SNLC_FIELD(iep)         = 'NULL'
+        SNLC_FIELD(iep) = 'VOID'   ! avoid pandas issues with NULL
 
         ISNLC_NFILT_NEWMJD(iep)          =  0
         ISNLC_EPOCH_RANGE_NEWMJD(1,iep)  =  -9
@@ -23009,7 +23017,7 @@ c+CDE,FILTCOM.
 
 c local var
 
-      INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP
+      INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP, BIT
       INTEGER   IFILTOBS
       LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE
       REAL      NSIG, FTRUE, FLUXCAL_FIT, FLUXCAL_ERR_FIT
@@ -23047,11 +23055,7 @@ c FIT outliers work on real data or sim, so error check not needed.
 
          CALL INIT_TABLE_OUTLIERVAR(IDTABLE, 'OUTLIER')
 
-         NEP_OUTLIER_TOT = 0
-         DO ifiltobs = 1, MXFILT_ALL
-            NEP_OUTLIER_CHECK(ifiltobs) = 0  ! total epochs checked per band
-            NEP_OUTLIER_FOUND(ifiltobs) = 0  ! Noutlier per band
-         ENDDO
+         CALL COUNT_OUTLIERS(0,0)
 
          RETURN
       ENDIF
@@ -23095,14 +23099,14 @@ c   terminate strings for C table-functions (snana.car routine)
            LCUT_NSIG  = ( NSIG  >= NSIGCUT_OUTLIER  ) 
            LCUT_FTRUE = ( FTRUE >= FTRUECUT_OUTLIER )
  
-           NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
+           CALL COUNT_OUTLIERS(1,ep)
+
            if ( LCUT_NSIG .and. LCUT_FTRUE ) then
               NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
               NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
               CALL LOAD_OUTLIER_VAR(ep)
               CALL SNTABLE_FILL(IDTABLE) ! generic C function
-              NEP_OUTLIER_FOUND(ifiltobs) = 
-     &        NEP_OUTLIER_FOUND(ifiltobs) + 1
+              CALL COUNT_OUTLIERS(2,ep)
            endif
  201    CONTINUE
  200  CONTINUE
@@ -23111,6 +23115,107 @@ c   terminate strings for C table-functions (snana.car routine)
 
       RETURN
       END    ! end TABLE_OUTLIER
+
+
+C ======================================
++DECK,COUNT_OUTLIERS.
+      SUBROUTINE COUNT_OUTLIERS(OPT,EP)
+
+      IMPLICIT NONE
+      INTEGER OPT  ! 0=init, 1=count all, 2=count outliers, 3=print summary
+      INTEGER EP   ! epoch index
+
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,OUTLIERCOM.
+
+      INTEGER IFILTOBS, BIT, PHOTFLAG
+      REAL    XNALL(2), XNOUTLIER(2), XNBULK(2)
+      REAL    EFF_OUTLIER, EFF_ERR, EFF_BULK, FOM, XX, XXX
+      LOGICAL ISBITSET
+
+c ------------ BEGIN -----------
+
+      IF ( EP > 0 )  THEN
+         IFILTOBS   = ISNLC_IFILT_OBS(ep)
+         PHOTFLAG   = ISNLC_PHOTFLAG(ep)
+      ENDIF
+      
+      IF ( OPT == 0 ) THEN
+         ! one-time init
+         NEP_OUTLIER_TOT = 0
+         DO ifiltobs = 1, MXFILT_ALL
+            NEP_OUTLIER_CHECK(ifiltobs) = 0  ! total epochs checked per band
+            NEP_OUTLIER_FOUND(ifiltobs) = 0  ! Noutlier per band
+         ENDDO
+
+         DO BIT = 1, MXBIT_PHOTFLAG
+            NEP_OUTLIER_VS_PHOTBIT(1,BIT) = 0
+            NEP_OUTLIER_VS_PHOTBIT(2,BIT) = 0
+            NEP_ALL_VS_PHOTBIT(1,BIT) = 0
+            NEP_ALL_VS_PHOTBIT(2,BIT) = 0
+         ENDDO
+
+      ELSE IF ( OPT == 1 ) THEN
+         ! passes cuts, but before checking if it's an outlier
+         NEP_OUTLIER_CHECK(ifiltobs) = NEP_OUTLIER_CHECK(ifiltobs) + 1
+
+         do bit = 1, MXBIT_PHOTFLAG
+            ISBITSET = BTEST(PHOTFLAG,bit-1)
+            NEP_ALL_VS_PHOTBIT(1,BIT) = NEP_ALL_VS_PHOTBIT(1,BIT) + 1
+            if ( ISBITSET ) then
+               NEP_ALL_VS_PHOTBIT(2,BIT) = NEP_ALL_VS_PHOTBIT(2,BIT) + 1
+            endif
+         ENDDO
+
+      ELSE IF ( OPT == 2 ) THEN
+         ! it's an OUTLIER
+         NEP_OUTLIER_FOUND(ifiltobs) = NEP_OUTLIER_FOUND(ifiltobs) + 1
+
+         do bit = 1, MXBIT_PHOTFLAG
+            ISBITSET = BTEST(PHOTFLAG,bit-1)
+            NEP_OUTLIER_VS_PHOTBIT(1,BIT) = 
+     &      NEP_OUTLIER_VS_PHOTBIT(1,BIT) + 1
+            if ( ISBITSET ) then
+               NEP_OUTLIER_VS_PHOTBIT(2,BIT) = 
+     &         NEP_OUTLIER_VS_PHOTBIT(2,BIT) + 1
+            endif
+         enddo
+
+      ELSE IF ( OPT == 3 ) THEN
+         ! print summary
+         print*,' '
+         write(6,10) NSIGCUT_OUTLIER
+
+ 10      format('  PHOTFLAG BIT PERFORMANCE for REJECTING ',
+     &             F5.1, ' sigma OUTLIERS:' )
+
+         print*,'  BIT   EFF(OUTLIER)     EFF(BULK)   FoM'
+         print*,'  ----------------------------------------- '
+         do bit = 1, MXBIT_PHOTFLAG
+            XNALL(1)     = float(NEP_ALL_VS_PHOTBIT(1,BIT))
+            XNALL(2)     = float(NEP_ALL_VS_PHOTBIT(2,BIT))
+            XNOUTLIER(1) = float(NEP_OUTLIER_VS_PHOTBIT(1,BIT))
+            XNOUTLIER(2) = float(NEP_OUTLIER_VS_PHOTBIT(2,BIT))
+            XNBULK(1)    = XNALL(1) - XNOUTLIER(1) ! not outliers
+            XNBULK(2)    = XNALL(2) - XNOUTLIER(2) ! not outliers
+            if ( XNALL(2) > 0.0 .and. XNOUTLIER(1) > 0.0 ) then
+               EFF_OUTLIER = XNOUTLIER(2) / XNOUTLIER(1)
+               XX      = XNOUTLIER(2) * (XNOUTLIER(1) - XNOUTLIER(2))
+               XXX     = XNOUTLIER(1) * XNOUTLIER(1) * XNOUTLIER(1)
+               EFF_ERR     = sqrt(XX/XXX)
+               EFF_BULK    = 1.0 - XNBULK(2) / XNBULK(1)
+               FOM         = EFF_OUTLIER * EFF_BULK
+               write(6,30) bit-1, EFF_OUTLIER, EFF_ERR, EFF_BULK, FoM
+ 30            format(T5,I2, 2x, F6.3,' +_', F6.3, 3x, F6.3, 3x, F6.3 ) 
+            endif
+         enddo
+         call flush(6)
+      ENDIF
+
+      RETURN
+      END  ! end COUNT_OUTLIERS
 
 C =============================
 +DECK,INITBOUTVAR.
@@ -23179,6 +23284,17 @@ c e.g., pass ROWNUM to script that fetches stamps.
 
       VARLIST = 'CCDNUM:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+c---
+      VARLIST = 'IXPIX:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IXPIX, VARLIST,1,
+     &                   LENBLOCK, 20 )
+      VARLIST = 'IYPIX:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IYPIX, VARLIST,1,
+     &                   LENBLOCK, 20 )
+      VARLIST = 'AREAFRAC:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_AREAFRAC, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'PHOTFLAG:I' // char(0)
@@ -23288,6 +23404,10 @@ c ---------- BEGIN ---------
 
       OUTLIER_SBMAG        = SNHOST_SBMAG(ifilt)
 
+      OUTLIER_IXPIX     = INT(SNLC_XPIX(ep))
+      OUTLIER_IYPIX     = INT(SNLC_YPIX(ep))
+      OUTLIER_AREAFRAC  = SNLC_AREAFRAC(ep)
+
       IF ( ISJOB_SNANA ) THEN
          ! true flux from SIM_MAGOBS 
          OUTLIER_FLUXCAL_TRUE      = SIM_EPFLUXCAL(ep)
@@ -23391,6 +23511,8 @@ c +CDE,SNLCINP.
       LOGICAL   PREPEND_TEXTFILE
 
 C ---------- BEGIN -----------
+
+      call count_outliers(3,0)
 
       PREPEND_TEXTFILE = ( TEXTFILE_PREFIX .NE. ' ' )
       IF ( PREPEND_TEXTFILE ) THEN
@@ -24242,25 +24364,20 @@ c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS_SAMEFILT,
 c     &      VARNAME, 0, LENB,LENV)
 c xxxxxxxxxxxxxxxxx
 
-
-c xxx mark      VARNAME = 'FLUXCAL(NOBS):F' // char(0)  
       VARNAME = 'FLUXCAL_DATA(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL,
      &      VARNAME, 0, LENB,LENV)
 
-c xxx mark      VARNAME = 'FLUXCAL_ERR(NOBS):F' // char(0)  
       VARNAME = 'FLUXCAL_DATA_ERR(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRTOT,
      &      VARNAME, 0, LENB,LENV)
 
 c -- observing conditions
 
-cc xxx      VARNAME = 'ZEROPT(NOBS):F' // char(0)  
       VARNAME = 'ZP(NOBS):F' // char(0)    ! match FITRES+RESID table
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT,
      &      VARNAME, 0, LENB,LENV)
 
-c xxxx      VARNAME = 'ZEROPT_ERR(NOBS):F' // char(0)  
       VARNAME = 'ZP_ERR(NOBS):F' // char(0)    ! match FITRES+RESIDS table
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT_ERR,
      &      VARNAME, 0, LENB,LENV)
@@ -24291,7 +24408,6 @@ c      VARNAME = 'FLUXCAL_HOSTERRCALC(NOBS):F' // char(0)
 c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_HOSTERRCALC,
 c     &      VARNAME, 0, LENB,LENV)
 c xxxxxxxxxxxxxxx
-
 
 c - - - - - - - - - - - - - - - - 
 

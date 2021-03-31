@@ -8683,8 +8683,9 @@ int init_SNDATA_EVENT(void) {
 
     SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
 
-    // xxx mark delete     SNDATA.IDCCD[i_epoch]        = NULLINT ;
-    sprintf ( SNDATA.FIELDNAME[i_epoch], "NULL" );
+    // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 
+    //  gets confused with NULL
+    sprintf ( SNDATA.FIELDNAME[i_epoch], "VOID" );
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
     sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );

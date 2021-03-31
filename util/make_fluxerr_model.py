@@ -116,7 +116,7 @@ def get_args():
 
     args = parser.parse_args()
 
-    if args.makemap : args.start_stage = ISTAGE_MAKEMA
+    if args.makemap : args.start_stage = ISTAGE_MAKEMAP
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -771,7 +771,7 @@ def  modify_tables(df_fake, df_sim, config):
         df_fake.apply(lambda row: apply_id_1d(row,map_bin_dict), axis=1)
 
     df_sim[COLNAME_BIN1D] = \
-        df_fake.apply(lambda row: apply_id_1d(row,map_bin_dict), axis=1)
+        df_sim.apply(lambda row: apply_id_1d(row,map_bin_dict), axis=1)
 
     return df_fake, df_sim
 
@@ -810,16 +810,30 @@ def compute_errscale_cor(pull_fake, pull_sim, ratio_fake):
     #  Eq 14 for SIM (intended for sim)
     #     scale = RMS[(F-Ftrue)/ERRCALC]_fake / RMS[(F-Ftrue)/ERRCALC]_sim
 
-
     n_fake = len(pull_fake)
     n_sim  = len(pull_sim)
     if n_fake > 5 and n_sim > 5 :
+
+        # shift pulls so that median/avg is zero
+        avg_pull_fake  = np.median(pull_fake)
+        avg_pull_sim   = np.median(pull_sim)
+        pull_fake      = pull_fake - avg_pull_fake
+        pull_sim       = pull_sim  - avg_pull_sim
+
+        # for RMS, compute 1.48*median|pull| to reduce sensitivity to outliers
         rms_pull_fake  = 1.48 * np.median(np.absolute(pull_fake))
         rms_pull_sim   = 1.48 * np.median(np.absolute(pull_sim))
-        #avg_ratio      = np.average(ratio_fake)
-        avg_ratio      = np.median(ratio_fake)
-        cor_fake       = rms_pull_fake / avg_ratio
-        cor_sim        = rms_pull_fake / rms_pull_sim
+
+        avg_ratio      = np.median(ratio_fake)  # ERR_DATA/ERR_CALC
+
+        # finally, the map corrections
+        cor_fake       = rms_pull_fake / avg_ratio     # correct fake & data
+        cor_sim        = rms_pull_fake / rms_pull_sim  # correct sims
+        
+        #print(f"\t xxx cor_sim = {rms_pull_fake:.3f} / {rms_pull_sim:.3f}" \
+        #      f" = {cor_fake:.3f}  " \
+        #      f" (avgPull={avg_pull_fake:.3f},{avg_pull_sim:0.3f}) " )
+
     else:
         cor_fake = 1.0 ; cor_sim = 1.0
 

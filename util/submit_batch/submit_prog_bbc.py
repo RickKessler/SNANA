@@ -1853,7 +1853,7 @@ class BBC(Program):
         # - - - 
         SUMMARYF_FILE     = (f"{output_dir}/{FITPAR_SUMMARY_FILE}")
         f = open(SUMMARYF_FILE,"wt") 
-
+        version_last = "BLEH"
 
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
@@ -1877,8 +1877,10 @@ class BBC(Program):
             NEVT_REJECT_BIASCOR  = bbc_yaml['NEVT_REJECT_BIASCOR']
             frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
 
-            new_version = ifit == 0 and imu == 0
-            if new_version: 
+            is_new_version  = version != version_last
+            version_last = version
+
+            if is_new_version: 
                 f.write(f"\n# ==================================== \n")
                 f.write(f"{version}: \n")
 

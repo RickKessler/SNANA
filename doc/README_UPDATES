@@ -19734,6 +19734,10 @@
      + simpler way to specify alpha,beta grid; see manual Sec 9.3.1
      + allow LOG[parName] in GENPDF maps; e.g. LOGEBV or LOGAV
 
+   SALT2mu/BBC now includes human-readable BBC_SUMMARY_FITPAR.YAML
+
+   New "make_fluxerr_model.py" to create FLUXERRMODEL_FILE maps.
+
          ***** MISCELLANEOUS(v11_02k) ***** 
 
     snana.car
@@ -19741,6 +19745,9 @@
         galmag and HOSTGAL_SB_FLUXCAL.
       + fix bug setting EXIST_SNHOST_SB (test is on SBFLUXCAL, not SBMAG)
       + suppress GALID in OUT_SIMLIB since it wrote 12345 garbage for DC2
+      + change default FIELD name to VOID instead of NULL since pandas
+         has problems reading NULL as a string.
+      + for OUTLIER table, compute and print outlier effic vs. PHOTFLAG bit.
 
     genmag_SEDtools.c
       + new util get_LAMTRANS_SEDMODEL(ifilt,ifilt,*LAM,*TRANS)
@@ -19757,5 +19764,5 @@
     submit_batch/submit_util.py
       + fix to allow dot in GENVERSION name (use .rindex instead of .index)
       + add BBC_SUMMARY_FITPAR.YAML output for human readability.
- 
+
 END: 

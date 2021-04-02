@@ -45,6 +45,8 @@ class gensed_BYOSED:
 			try:
 				self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
+				if not PATH_VERSION.endswith('/') and os.path.isdir(PATH_VERSION):
+					PATH_VERSION = PATH_VERSION.rstrip()+'/'
 				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
 				self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]

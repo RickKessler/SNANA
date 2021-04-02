@@ -3176,8 +3176,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       NBLAM = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
       init_GENSPEC_EVENT(ispec,NBLAM);   // malloc GENSPEC
 
-      GENSPEC.NMJD_PROC++ ; 
-      GENSPEC.NBLAM_VALID[ispec]   = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
+      GENSPEC.NMJD_PROC++ ;  GENSPEC.NMJD_TOT = GENSPEC.NMJD_PROC;
+      GENSPEC.NBLAM_TOT            = NBLAM ;  
+      GENSPEC.NBLAM_VALID[ispec]   = NBLAM ;
       GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
       GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
       GENSPEC.ID_LIST[ispec]       = ispec+1 ;  // ID starts at 1
@@ -4471,75 +4472,6 @@ void RD_SNFITSIO_SPECDATA(int irow,
   return ;
 
 } // end RD_SNFITSIO_SPECFLUX
-
-
-// =========================================================
-void RD_SNFITSIO_SPECDATA_LEGACY(int irow,  double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR) {
-
-  // Read spectral data for input 'irow'.
-  // Returns:
-  //  METADATA[0]   = MJD
-  //  METADATA[1]   = TEXPOSE (seconds)
-  //  LAMMIN,LAMMAX =  array of min/max wave in each bin
-  //  FLAM,FLAMERR  = flux and error in each wave bin
-  //
-
-  fitsfile *fp = fp_snfitsFile[ITYPE_SNFITSIO_SPEC] ;  
-  int NLAM     = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
-  int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
-  int PTRMAX   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX[irow];
-  
-  int *LAMINDEX, MEMI, istat, icol, anynul, ilam, ILAM ; 
-  long NROW      = PTRMAX - PTRMIN + 1;
-  long FIRSTROW  = PTRMIN ;
-  long FIRSTELEM = 1 ;
-
-  char fnam[] = "RD_SNFITSIO_SPECDATA_LEGACY";
-
-  // --------------- BEGIN --------------
-
-  // load scalar outputs
-  METADATA[0] = RDSPEC_SNFITSIO_HEADER.MJD[irow];
-  METADATA[1] = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];
-  *NLAMBIN    = NLAM ;
-
-  // allocate LAMINDEX array
-  MEMI     = NLAM * sizeof(int);
-  LAMINDEX = (int*) malloc(MEMI);
-
-  icol=1 ;  
-  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
-		    LAMINDEX, &anynul, &istat ); 
-
-  // transfer LAMINDEX to LAMMIN & LAMMAX
-  for(ilam=0; ilam < NLAM; ilam++ ) {
-    ILAM         = LAMINDEX[ilam];
-    LAMMIN[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST[ILAM] ;
-    LAMMAX[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST[ILAM] ;
-  }
-
-  icol=2 ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAM, &anynul, &istat ); 
-
-  icol=3 ;  
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
-		    FLAMERR, &anynul, &istat ); 
-
-  free(LAMINDEX);
-  return ;
-
-} // end RD_SNFITSIO_SPECDATA_LEGACY
-
-void rd_snfitsio_specdata_legacy__(int *irow, double *METADATA, int *NLAMBIN,
-				   double *LAMMIN, double *LAMMAX, 
-				   double *FLAM, double *FLAMERR) {
-  RD_SNFITSIO_SPECDATA_LEGACY(*irow,METADATA,
-			      NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
-  return;
-}
 
 
 // =========================================

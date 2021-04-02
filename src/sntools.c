@@ -8743,7 +8743,11 @@ int init_SNDATA_EVENT(void) {
 void init_GENSPEC_GLOBAL(void) {
   int ispec;
   GENSPEC.NMJD_PROC = 0 ;
-  for(ispec=0; ispec < MXSPECTRA; ispec++ )  { GENSPEC.NBLAM_VALID[ispec]=0;} 
+  GENSPEC.USE_WARP  = 0 ;
+  for(ispec=0; ispec < MXSPECTRA; ispec++ )  { 
+    GENSPEC.NBLAM_VALID[ispec] = 0;
+    GENSPEC.SKIP[ispec]        = false;
+  } 
   return;
 } // end init_GENSPEC_GLOBAL
 
@@ -8762,19 +8766,21 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
     free(GENSPEC.LAMAVG_LIST[ispec])  ;
     free(GENSPEC.FLAM_LIST[ispec])    ;
     free(GENSPEC.FLAMERR_LIST[ispec]) ;
+    free(GENSPEC.FLAMWARP_LIST[ispec]) ; // Apr 2 2021
     free(GENSPEC.GENFLAM_LIST[ispec]) ;
     free(GENSPEC.GENMAG_LIST[ispec])  ;
   }
 
   GENSPEC.NBLAM_VALID[ispec] = NBLAM;
   int MEMD = NBLAM * sizeof(double) ;
-  GENSPEC.LAMMIN_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.LAMMAX_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.LAMAVG_LIST[ispec]  = (double*) malloc(MEMD);
-  GENSPEC.FLAM_LIST[ispec]    = (double*) malloc(MEMD);
-  GENSPEC.FLAMERR_LIST[ispec] = (double*) malloc(MEMD);
-  GENSPEC.GENFLAM_LIST[ispec] = (double*) malloc(MEMD);
-  GENSPEC.GENMAG_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.LAMMIN_LIST[ispec]   = (double*) malloc(MEMD);
+  GENSPEC.LAMMAX_LIST[ispec]   = (double*) malloc(MEMD);
+  GENSPEC.LAMAVG_LIST[ispec]   = (double*) malloc(MEMD);
+  GENSPEC.FLAM_LIST[ispec]     = (double*) malloc(MEMD);
+  GENSPEC.FLAMERR_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.FLAMWARP_LIST[ispec] = (double*) malloc(MEMD);
+  GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
+  GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);
   
 } // end init_GENSPEC_EVENT
 

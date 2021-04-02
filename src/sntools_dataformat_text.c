@@ -718,6 +718,11 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 // =====================================================
 void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
+  // Write spectra in TEXT format.
+  
+  // Apr 02 2021: fix to work after reading spectra from FITS format
+  //   (e..g, from sims)
+
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
@@ -754,9 +759,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   fprintf(fp,"VARNAMES_SPEC: %s \n", VARLIST);
 
   for(imjd=0; imjd < NMJD_TOT; imjd++ ) {
-
     if ( GENSPEC.SKIP[imjd] ) { continue ; }
-
 
     IDSPEC = imjd + 1 ;  // start at 1                                          
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
@@ -766,7 +769,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
     fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", 
 	    GENSPEC.MJD_LIST[imjd]);
-
     if ( IS_HOST )
       { fprintf(fp, "# HOST \n"); }
     else
@@ -801,41 +803,39 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     NVAR_EXPECT = NVAR ;
 
     for(ilam=0; ilam < NBLAM_TOT; ilam++ ) {
-      GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
-      GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
+
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
       FLAMERR    = GENSPEC.FLAMERR_LIST[imjd][ilam];
-      WARP       = GENSPEC.FLAMWARP_LIST[imjd][ilam];
 
       if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values            
+      L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
+      L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
+      LCEN    = 0.5*(L0+L1);
+
+      /* xxxxxxxxx mark delete Apr 2 2021 xxxxxxxxxxx
       L0      = INPUTS_SPECTRO.LAMMIN_LIST[ilam];
       L1      = INPUTS_SPECTRO.LAMMAX_LIST[ilam];
       LCEN    = INPUTS_SPECTRO.LAMAVG_LIST[ilam];
+      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
 
       NVAR = 0; sprintf(tmpLine,"SPEC: ");
-
-      sprintf(cval, "%8.2f ", L0);
-      NVAR++ ; strcat(tmpLine,cval);
-      sprintf(cval, "%8.2f ", L1);  
-      NVAR++ ; strcat(tmpLine,cval);
-
-      sprintf(cval, "%10.3le ", FLAM);  
-      NVAR++ ; strcat(tmpLine,cval);
-      sprintf(cval, "%10.3le ", FLAMERR);  
-      NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%8.2f ",   L0);       NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%8.2f ",   L1);       NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%10.3le ", FLAM);     NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%10.3le ", FLAMERR);  NVAR++ ; strcat(tmpLine,cval);
 
       if ( WRFLAG_SIM ) {
-	sprintf(cval, "%10.3le ", GENFLAM);  
-	NVAR++ ; strcat(tmpLine,cval);
+	GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
+	GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
 
-	sprintf(cval, "%.2f ", GENMAG);  
-	NVAR++ ; strcat(tmpLine,cval);
+	sprintf(cval, "%10.3le ", GENFLAM);  NVAR++ ; strcat(tmpLine,cval);
+	sprintf(cval, "%.2f ",    GENMAG);   NVAR++ ; strcat(tmpLine,cval);
 
 	if ( GENSPEC.USE_WARP ) {
+	  WARP  = GENSPEC.FLAMWARP_LIST[imjd][ilam];
 	  sprintf(cval,"%6.3f ", WARP );
 	  NVAR++ ; strcat(tmpLine,cval);
-	}
-	  
+	}	  
       } // end WRFLAG_SIM
 
       fprintf(fp,"%s \n", tmpLine);

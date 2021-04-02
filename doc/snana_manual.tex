@@ -6488,6 +6488,7 @@ which will mark 20 sub-samples with an integer index.
 This index is automatically included in the output tables
 for all tables formats.
 
+
 % ------------------------------------
   \clearpage
    \subsection{Applying Systematic Errors (RANSYSTPAR) }
@@ -12417,7 +12418,10 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
 # 1. options to adjust exposure time (affects both SN flux and sky noise)
   EXPOSURE_TIME: 20            # increase all exposure times by 20
   EXPOSURE_TIME_FILTER: g 20   # increase g exposure by 20
-  FUDGESHIFT_ZPT:  -3.0        # reduce ZPT by 3 mags
+
+  FUDGESHIFT_ZPT:  0.03           # add 0.03 to ZPT in all bands
+  FUDGESHIFT_ZPT_FILTER: g  0.03  # add 0.03 to g-band ZPT only
+  FUDGESHIFT_ZPT_FILTER: gz 0.03  # add 0.03 to g and z-band ZPT
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
   FUDGESCALE_PSF: 2            # increase PSF

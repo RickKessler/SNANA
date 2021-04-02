@@ -719,8 +719,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
-  // xxx mark delete Feb 24 2021 int  NMJD       = GENSPEC.NMJD_TOT ;
-  int  NMJD       = GENSPEC.NMJD_PROC ;  // Feb 24 2021
+  int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
+  int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
   int  NBLAM_TOT  = GENSPEC.NBLAM_TOT ;
   
   int  NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
@@ -732,7 +732,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   // ------------ BEGIN -----------
 
-  if ( NMJD == 0 ) { return; }
+  if ( NMJD_PROC == 0 ) { return; }
 
   VARLIST[0] = NVAR = 0 ;
 
@@ -749,16 +749,18 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   // write header info                                                          
   fprintf(fp,"\n# ============================================= \n");
-  fprintf(fp,"NSPECTRA:   %d \n\n",  NMJD);
+  fprintf(fp,"NSPECTRA:   %d \n\n",  NMJD_PROC );
   fprintf(fp,"NVAR_SPEC:  %d \n",    NVAR );
   fprintf(fp,"VARNAMES_SPEC: %s \n", VARLIST);
 
-  for(imjd=0; imjd < NMJD; imjd++ ) {
+  for(imjd=0; imjd < NMJD_TOT; imjd++ ) {
+
+    if ( GENSPEC.SKIP[imjd] ) { continue ; }
+
+
     IDSPEC = imjd + 1 ;  // start at 1                                          
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
     IS_HOST     = GENSPEC.IS_HOST[imjd];
-
-    if ( NBLAM_VALID == 0 ) { return; } // suppress legacy bug (Aug 23 2017)
 
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ;
 

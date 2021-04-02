@@ -304,15 +304,16 @@ typedef struct {
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ; 
 typedef struct {
-  float EPOCH_RANGE[2];    // Trest or TOBS range
+  float   EPOCH_RANGE[2];    // Trest or TOBS range, or MJD range
+  float   MJD_STEP;          // MJD step if using MJD(MJDMIN:MJDMAX,STEP)
+  char    FIELD[80];         // restrict spectra to particular field(s)
 
   GENPOLY_DEF GENLAMPOLY_WARP ;   // calibration warp as poly fun of wavelength
   GENPOLY_DEF GENZPOLY_TEXPOSE ;  // TEXPOSE =poly fun of z
   GENPOLY_DEF GENZPOLY_SNR ;      // SNR = poly fun of z
-  float SNR_LAMRANGE[2];   // lam-range to define SNR
-  char  EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
-
-  int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS
+  float   SNR_LAMRANGE[2];   // lam-range to define SNR
+  char    EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
+  int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS or MJD  
   int   OPT_FRAME_LAMBDA ; // for SNR opt below, LAMREST or LAMOBS
 
   // OPT_TEXPOSE = 1(TEXPOSE), or 2(SNR)
@@ -434,6 +435,8 @@ struct INPUTS {
   int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
+
+  // ??  float SIMLIB_RADIUS_SHIFT_RANGE; // ??
 
   // ---- end simlib inputs -----
 
@@ -753,10 +756,12 @@ struct INPUTS {
   float FUDGESCALE_FLUXERR2 ;  // global fudge on measured error only
   float FUDGESCALE_FLUXERR_FILTER[MXFILTINDX];  // true & measured errors
   float FUDGESCALE_FLUXERR2_FILTER[MXFILTINDX]; // measured error only
+
   float FUDGE_MAGERR ;      ;  // global mag error fudge added to all errors
   float FUDGE_MAGERR_FILTER[MXFILTINDX]; // idem for each band
   float FUDGE_ZPTERR ;         // global fudge for ZPTERR in SIMLIB file
   float FUDGE_ZPTERR_FILTER[MXFILTINDX] ; 
+
   int   FUDGEOPT_FLUXERR;      // option passed to model of flux-err fudge
 
   int GENPERFECT;   // 1 => perfect lightcurves with x1000 photostats
@@ -1468,7 +1473,7 @@ int GENFRAME_OPT;        // one of below, based on model option
 #define GENFRAME_REST 1  // => generate in rest frame; then boost
 #define GENFRAME_OBS  2  // => generate directly in obs frame
 #define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
-
+#define GENFRAME_MJD  4  // => used by TAKE_SPECTRUM for MJD option
 
 int INDEX_GENMODEL         ;  // index for model
 int INDEX_GENMODEL_TWEAK   ;  // index for model tweak

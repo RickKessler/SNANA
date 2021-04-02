@@ -63,6 +63,7 @@ struct {
   int    NBLAM_TOT;            // total number of wavelength bins
   int    NBLAM_VALID[MXSPEC] ; // number of valid wavelength bins per epoch
   int    IS_HOST[MXSPEC];
+  bool   SKIP[MXSPEC];        // outside Trest range of model
 
   double MJDREF_LIST[MXSPEC]; // same for each event
   double MJD_LIST[MXSPEC], TOBS_LIST[MXSPEC], TREST_LIST[MXSPEC];

@@ -19748,6 +19748,8 @@
       + change default FIELD name to VOID instead of NULL since pandas
          has problems reading NULL as a string.
       + for OUTLIER table, compute and print outlier effic vs. PHOTFLAG bit.
+      + new SNLCINP input PHOTFLAG_BITLIST_REJECT to enter comma-sep
+         list of bits (LSB=0) and internally compute PHOTFLAG_MSKREJ.
 
     genmag_SEDtools.c
       + new util get_LAMTRANS_SEDMODEL(ifilt,ifilt,*LAM,*TRANS)
@@ -19757,6 +19759,9 @@
       + new option "GENMODEL_MSKOPT: 16" to force neg Flam to Flam=0/
       + new options BIASCOR_SALT2ALPHA[BETA]_GRID to replace entering
         PEAK, RANGE and SIGMA, NGRID (see manual sec 9.3.1)
+      + new feature TAKE_SPECTRUM MJD([min]:[max]) ...
+      + add GENSPEC.SKIP[imjd] and fix to properly skip requested spectra
+         that are outside TREST model range.
 
     sntools_genPDF.c: 
       + allow LOG[parName] in GENPDF maps.

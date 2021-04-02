@@ -2041,8 +2041,10 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // ----------- BEGIN ------------
 
-  // Feb 24 2021 Bail if no spectrum (e.g, sim outside Trest range)
-  if ( NBLAM_WR == 0 ) { return ; } 
+  // Bail if no spectrum (e.g, sim outside Trest range)
+  if ( GENSPEC.SKIP[imjd] ) { return; }
+
+  // xxx  if ( NBLAM_WR == 0 ) { return ; } 
 
   // calculate obs-pointer for photometry fits file.
   PTRSPEC_MIN = WR_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_SPECTMP].NROW+1 ;

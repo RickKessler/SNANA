@@ -1913,6 +1913,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSNXT );
   }
   // - - - - -
+
   else if ( keyMatchSim(1, "GENMAG_OFF_ZP  GENMAG_OFF_ZP", 
 			WORDS[0],keySource) ) {
     NFILTDEF = INPUTS.NFILTDEF_OBS ;
@@ -1924,6 +1925,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     for(j=0; j < NFILTDEF; j++ ) 
       { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_ZP[j] ); }
   }
+
+
   else if ( keyMatchSim(1, "GENMAG_OFF_GLOBAL", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_GLOBAL );
   }
@@ -1931,8 +1934,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_NON1A );
   }
 
-  else if ( keyMatchSim(1, "GENMAG_OFF_ZP  GENMAG_OFF_ZP", 
-			WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "GENMAG_OFF_MODEL", WORDS[0],keySource) ) {
     NFILTDEF = INPUTS.NFILTDEF_OBS ;
     if ( NFILTDEF == 0 ) {
       sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
@@ -3881,6 +3883,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //
   // Jul 30 2020: fix ABORT logic for TAKE_SPECTRUM keys.
   // Feb 24 2021; fix TREST cut to work with GENLC.REDSHIFT or header z.
+  // Apr 01 2021: parse MJD and FIELD
 
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
@@ -3890,12 +3893,12 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   char *WARP_SPECTRUM_STRING    =  INPUTS.WARP_SPECTRUM_STRING;
   int  N=0;  // track number of WORDS read
   
-  float *ptrRange, *ptrLam ;
+  float *ptrRange, *ptrLam, *ptrStep ;
   char string1[80], string2[80], string3[80]; 
   char *ptrSplit[4], strValues[4][20], *ptrFrame ;
   int  NSPLIT, i ;
+  bool IS_REST=false, IS_OBS=false, IS_MJD=false;
   bool IS_HOST = false;
-  char colon[] = ":"; 
   char stringTmp[80], stringOpt[200];
   char fnam[] = "parse_input_TAKE_SPECTRUM" ;
 
@@ -3923,6 +3926,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH  = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = 0 ;
   INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE      = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].FIELD[0]  = 0 ;
 
   // before reading TAKE_SPECTRUM options from file, 
   // parse optional WARP_SPECTRUM_STRING that was previously read.
@@ -3951,11 +3955,21 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   if ( strcmp(stringTmp,"TREST") == 0 ) {
     INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_REST ;
     sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"REST");
+    IS_REST = true ;
   }
+
   else if ( strcmp(stringTmp,"TOBS") == 0 ) {
     INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_OBS ;
     sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"OBS");
+    IS_OBS = true ;
   }
+
+  else if ( strcmp(stringTmp,"MJD") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
+    sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
+    IS_MJD = true ;
+  }
+
   else if ( strcmp(stringTmp,"HOST") == 0 ) {
     INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_HOST ;
     sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"HOST");
@@ -3976,6 +3990,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // get epoch range from colon-seperated values in stringOpt
   ptrRange = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE ;
   ptrFrame = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME ;
+  // xxx  ptrStep  = &INPUTS.TAKE_SPECTRUM[NTAKE].MJD_STEP ; // Apr 2021
 
   if ( IS_HOST ) {
     ptrRange[0] = ptrRange[1] = 9999.0 ;  
@@ -3983,7 +3998,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   else {
     for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
 
-    splitString(stringOpt, colon, 4,      // inputs               
+    splitString(stringOpt, COLON, 4,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
     if ( NSPLIT < 1 || NSPLIT > 2 ) {
@@ -3993,9 +4008,9 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }   
 
-    // load TREST_RANGE or TOBS_RANGE
-    sscanf( strValues[0] ,        "%f", &ptrRange[0] ); 
-    sscanf( strValues[NSPLIT-1] , "%f", &ptrRange[1] ); 
+    // load TREST_RANGE or TOBS_RANGE or MJD_RANGE
+    sscanf( strValues[0] ,    "%f", &ptrRange[0] ); 
+    sscanf( strValues[1] ,    "%f", &ptrRange[1] ); 
   }
 
 
@@ -4069,7 +4084,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     sprintf(stringTmp, "%s", string3);
     extractStringOpt(stringTmp,stringOpt); // return stringOpt
 
-    splitString(stringOpt, colon, 5,      // inputs               
+    splitString(stringOpt, COLON, 5,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
     if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ||
@@ -4094,6 +4109,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     ptrLam = INPUTS.TAKE_SPECTRUM[NTAKE].SNR_LAMRANGE ;
     sscanf( strValues[0] , "%f", &ptrLam[0] );  // load LAMRANGE
     sscanf( strValues[1] , "%f", &ptrLam[1] ); 
+
   }  
 
   // - - - - - -
@@ -4791,7 +4807,7 @@ void prep_user_input(void) {
   }
 
   if ( INDEX_GENMODEL <= 0 ) {
-    sprintf(c1err,"%s is not a valid genmag-model", INPUTS.MODELNAME);
+    sprintf(c1err,"'%s' is not a valid genmag-model", INPUTS.MODELNAME);
     sprintf(c2err,"Check GENMODEL keyword in input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -7936,6 +7952,8 @@ void GENSPEC_DRIVER(void) {
 
     imjd = imjd_order[i];
 
+    if ( GENSPEC.SKIP[imjd] ) { continue; } // April 2021
+
     SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
     SNR_LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
     if ( INPUTS.USE_SIMLIB_SPECTRA && SNR_LAMMIN > 0.1 ) {
@@ -7968,6 +7986,9 @@ void GENSPEC_DRIVER(void) {
     if ( GENSPEC.NBLAM_VALID[imjd] > 0 ) {
       GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
       NGENSPEC_TOT++ ;      // total NSpec over all Light curve
+    }
+    else {
+      GENSPEC.SKIP[imjd] = true; // 4.2021
     }
 
   } // end imjd
@@ -8042,14 +8063,13 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
   int  ILIST_RAN = ILIST_RANDOM_SPECTROGRAPH ;
   double z1     = 1.0 + z ;
   double EPOCH_RANGE[2], EPOCH, MJD, Tobs, Trest ;
-  //  char fnam[] = "GENSPEC_PICKMJD" ;
+  char fnam[] = "GENSPEC_PICKMJD" ;
 
   // ------------ BEGIN ------------
 
   if ( OPT_FRAME == GENFRAME_HOST ) 
     {  *TOBS = *TREST = 9999.0;  MJD = -9.0 ; return(MJD); }
   
-
   EPOCH_RANGE[0]  = INPUTS.TAKE_SPECTRUM[INDX].EPOCH_RANGE[0] ;
   EPOCH_RANGE[1]  = INPUTS.TAKE_SPECTRUM[INDX].EPOCH_RANGE[1] ;
 
@@ -8062,7 +8082,7 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
   z1 = 1.0 + z ; 
   if ( OPT_FRAME == GENFRAME_OBS ) 
     { Tobs = EPOCH ;    Trest = EPOCH/z1; }
-  else
+  else if ( OPT_FRAME == GENFRAME_REST ) 
     { Tobs = EPOCH*z1 ; Trest = EPOCH ; }
 
   /*
@@ -8074,9 +8094,25 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
 
 
   // load output arguments
-  MJD = GENLC.PEAKMJD + Tobs;
-  *TOBS  = Tobs ;
-  *TREST = Trest ;
+
+  if ( OPT_FRAME == GENFRAME_MJD ) {
+    // pick pre-defined MJD regardless of SN phase
+    MJD    = EPOCH; 
+    *TOBS  = MJD - GENLC.PEAKMJD ;
+    *TREST = *TOBS / z1 ;
+
+  }
+  else {
+    // pick MJD based on SN phase
+    MJD    = GENLC.PEAKMJD + Tobs;
+    *TOBS  = Tobs ;
+    *TREST = Trest ;
+  }
+
+  /*
+  printf(" xxx %s: CID=%d  INDX=%d  MJD=%.3f \n", 
+	 fnam, GENLC.CID, INDX, MJD); 
+  */
 
   return(MJD) ;
 
@@ -14960,16 +14996,16 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // Mar 02 2019: remove LEGACY flag, and fix bug setting VAL_STORE 
   //              when NFILT==0.
   // Jun 28 2019: update to work with HOST spectrum
+  // Apr 01 2021: set GENSPEC.SKIP
 
-  int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST ;
+  int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  // all spectroscopic filters
+  float *ptrTcut = INPUTS.GENRANGE_TREST ;
   double EPOCH[2], MJD_REF;
   double z, TOBS, TREST ;
   double TEXPOSE=0.0, VAL_STORE[8] ;
   char fnam[] = "SIMLIB_TAKE_SPECTRUM" ;
-
-
   // -------------- BEGIN -------------
 
   if ( NSPEC == 0 ) { return ; }
@@ -14991,6 +15027,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
     EPOCH[1] = INPUTS.TAKE_SPECTRUM[i].EPOCH_RANGE[1] ;
 
     MJD_REF =  GENSPEC_PICKMJD( 0, i, z, &TOBS, &TREST) ; // for MJD sorting
+    GENSPEC.SKIP[i] = false;
+
+    IS_TREST = ( TREST > ptrTcut[0] && TREST < ptrTcut[1] );
 
     /* xxx
     if ( SIMLIB_HEADER.LIBID == 22 ) {
@@ -14998,16 +15037,16 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
     }
     xxxx */
 
+    /* xxx mark delete xxxx
     // make sure that TREST is within valid range
-    if ( !IS_HOST ) {
-      float *ptrTcut = INPUTS.GENRANGE_TREST ;
-      if ( TREST <= ptrTcut[0] ||	 TREST >= ptrTcut[1]  ) {
+    if ( !IS_HOST && !IS_TREST ) {
 	sprintf(c1err,"Invalid TREST=%.2f in TAKE_SPECTRUM key.",TREST);
 	sprintf(c2err,"User set 'GENRANGE_TREST:  %.2f  %.2f' ", 
 		ptrTcut[0], ptrTcut[1] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
-      }
+     
     }
+    xxxxxxx end mark xxxx */
 
     // Now get exposure time
     OPT  = INPUTS.TAKE_SPECTRUM[i].OPT_TEXPOSE ;
@@ -15030,6 +15069,11 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 	   i, MJD, TEXPOSE, EPOCH_RAN, z ); fflush(stdout);
     */
 
+    if ( !IS_HOST && !IS_TREST )
+      { GENSPEC.SKIP[i] = true ; TEXPOSE = 0.0; }
+
+    //    printf(" xxx %s: SKIP[%d] = %d  MJD_REF=%.3f \n", 
+    //	   fnam, i, GENSPEC.SKIP[i], MJD_REF );
 
     if ( NFILT==0 ) {  // no synthetic filters; just spectra
       VAL_STORE[0] = MJD_REF   ; // same MJD_REF each event for MJD-sorting
@@ -15038,6 +15082,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
       store_GENSPEC(VAL_STORE) ; 
     }
 
+    // check synthetic filters
     for(ifilt=0; ifilt < NFILT; ifilt++ ) {  
 
       SIMLIB_OBS_RAW.OPTLINE[OBSRAW]  = OPTLINE_SIMLIB_SPECTROGRAPH ; 
@@ -16501,15 +16546,6 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char **NULLWORDS;
-
-    /* xxx abort trap is in GENSPEC_DRIVER xxx
-    if ( !SPECTROGRAPH_USEFLAG ) {
-      sprintf(c1err,"Cannot process TAKE_SPECTRUM keys in SIMLIB");
-      sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    }
-    xxx */
-
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }
 

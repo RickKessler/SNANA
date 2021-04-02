@@ -15589,7 +15589,7 @@ c --------
          SNLC_SNRMAX_SORT(ifilt)     = -9.
          SNLC_FLUXCAL_OFF(ifilt)     = 0.0 
 
-         SNLC_FIELDLIST = 'UNKNOWN'
+         SNLC_FIELDLIST = 'VOID'
 
          DO ipar = 1, NPAR_ANYLC
            SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar) = -99.0
@@ -19292,7 +19292,7 @@ c SNLC_FIELDS = E2,E1 gets constructed as SNLC_FIELD_forC = 'E1+E2'
  300  CONTINUE
 
       IF ( LENTOT .EQ. 0  ) THEN
-         SNLC_FIELDLIST = 'NULL'
+         SNLC_FIELDLIST = 'VOID'
       ENDIF
 
       RETURN

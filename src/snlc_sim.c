@@ -7852,6 +7852,8 @@ void  init_genSpec(void) {
   int ispec, MXLAM = NBLAM ;
   int MEMD = MXLAM * sizeof(double);
   for(ispec=0; ispec < MXSPEC; ispec++ ) {
+    GENSPEC.LAMMIN_LIST[ispec]           = (double*) malloc(MEMD) ;
+    GENSPEC.LAMMAX_LIST[ispec]           = (double*) malloc(MEMD) ;
     GENSPEC.GENMAG_LIST[ispec]           = (double*) malloc(MEMD) ;
     GENSPEC.GENSNR_LIST[ispec]           = (double*) malloc(MEMD) ;
     GENSPEC.GENFLUX_LIST[ispec]          = (double*) malloc(MEMD) ;
@@ -9111,6 +9113,8 @@ void  GENSPEC_FLAM(int imjd) {
       fflush(stdout);
     }
 
+    GENSPEC.LAMMIN_LIST[imjd][ilam]   = LAMMIN ;  // Apr 2 2021
+    GENSPEC.LAMMAX_LIST[imjd][ilam]   = LAMMAX ;
     GENSPEC.FLAM_LIST[imjd][ilam]     = FLAM * WARP ;
     GENSPEC.FLAMERR_LIST[imjd][ilam]  = FLAMERR ;
     GENSPEC.GENFLAM_LIST[imjd][ilam]  = GENFLUX/LAMBIN ;

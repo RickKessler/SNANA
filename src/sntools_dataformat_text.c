@@ -2368,7 +2368,7 @@ double get_dbl_sntextio_obs(int IVAROBS, int ep) {
 bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   // Created Feb 17 2021
-  // Look for SPECTRUM keys, and load GENSPEC struct.
+  // Look for SPECTRUM keys, and load GENSPEC struct (part of reading)
 
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;

@@ -1221,6 +1221,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
   IVAROBS_SNTEXTIO.MJD = IVAROBS_SNTEXTIO.BAND = IVAROBS_SNTEXTIO.FIELD = -9 ;
   IVAROBS_SNTEXTIO.FLUXCAL = IVAROBS_SNTEXTIO.FLUXCALERR = -9 ;
+  IVAROBS_SNTEXTIO.MAG = IVAROBS_SNTEXTIO.MAGERR = -9 ;
   IVAROBS_SNTEXTIO.ZPFLUX = IVAROBS_SNTEXTIO.ZPERR = -9;
   IVAROBS_SNTEXTIO.PSF_SIG = IVAROBS_SNTEXTIO.NEA = -9;
   IVAROBS_SNTEXTIO.PSF_FWHM = -9;
@@ -1263,8 +1264,10 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.FLUXCALERR = ivar; }
 
     // check obsolete keys left in very old data files
-    else if ( strcmp(varName,"MAG")    == 0 )  { ; }  
-    else if ( strcmp(varName,"MAGERR") == 0 )  { ; }
+    else if ( strcmp(varName,"MAG")    == 0 )  
+      { IVAROBS_SNTEXTIO.MAG = ivar ; }  
+    else if ( strcmp(varName,"MAGERR") == 0 )  
+      { IVAROBS_SNTEXTIO.MAGERR = ivar ; }
     else if ( strcmp(varName,"SNR")    == 0 )  { ; } // in SNLS3year_MEGACAM
 
     else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
@@ -1458,6 +1461,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     SNTEXTIO_FILE_INFO.NWD_TOT    = NWD ;
     SNTEXTIO_FILE_INFO.IPTR_READ  = 0 ;
     SNTEXTIO_FILE_INFO.NOBS_READ  = 0 ;
+    SNTEXTIO_FILE_INFO.NOBS_NaN   = 0 ;
     SNTEXTIO_FILE_INFO.NSPEC_READ = 0 ;
     SNTEXTIO_FILE_INFO.NVAR_PRIVATE_READ = 0 ;
     init_SNDATA_EVENT();
@@ -1495,12 +1499,19 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     }
 
     int NOBS_READ   =  SNTEXTIO_FILE_INFO.NOBS_READ ;
+    int NOBS_NaN    =  SNTEXTIO_FILE_INFO.NOBS_NaN ;
     int NOBS_EXPECT =  SNDATA.NOBS; 
     if ( NOBS_READ != NOBS_EXPECT ) {
       sprintf(c1err,"Read %d OBS rows for CID=%s", 
 	      NOBS_READ, SNDATA.CCID );
       sprintf(c2err,"but expected %d rows from NOBS key.", NOBS_EXPECT);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+    }
+
+    if ( NOBS_NaN > 0 ) {
+      sprintf(c1err,"Found %d NaN errors for CID=%s", NOBS_NaN, SNDATA.CCID);
+      sprintf(c2err,"Fix your TEXT formatted data files");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
     }
 
   } // end LRD_OBS
@@ -2178,12 +2189,15 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
   // Function returns true to keep reading;
   // returns false when end of header is reached by 
   // finding NOBS key.
+  //
+  // Apr 2 2021: use get_dbl_sntextio_obs to check for NaN
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
   int  ep, ivar, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
-  float PSF_FWHM;
+  float PSF_FWHM ;
+  double dval;
   char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
   char STRING[40];  
   char fnam[] = "parse_SNTEXTIO_OBS";
@@ -2216,22 +2230,28 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     // require MJD in first column
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
-    SNDATA.OBSFLAG_WRITE[ep] = true ; 
+    SNDATA.OBSFLAG_WRITE[ep] = true ;
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     sprintf(SNDATA.FILTCHAR[ep], "%s", str);
     catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;
+    if ( strcmp(str,"NULL") == 0 ) { sprintf(str,FIELD_NONAME); }
     sprintf(SNDATA.FIELDNAME[ep], "%s", str);
     catVarList_with_comma(SNDATA.FIELDNAME_1D,str);
 
-    str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FLUXCAL] ;
-    sscanf(str, "%f", &SNDATA.FLUXCAL[ep] );
+    dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.FLUXCAL, ep);
+    SNDATA.FLUXCAL[ep] = (float)dval;
 
-    str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FLUXCALERR] ;
-    sscanf(str, "%f", &SNDATA.FLUXCAL_ERRTOT[ep] );
-    
+    dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.FLUXCALERR, ep);
+    SNDATA.FLUXCAL_ERRTOT[ep] = (float)dval;
+
+    if ( IVAROBS_SNTEXTIO.MAG >= 0 ) {
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.MAG, ep);
+      SNDATA.MAG[ep] = (float)dval ;
+    }
+
     if ( IVAROBS_SNTEXTIO.PHOTFLAG >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PHOTFLAG] ;
       sscanf(str, "%d", &SNDATA.PHOTFLAG[ep] );
@@ -2242,53 +2262,53 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     }
 
     if ( IVAROBS_SNTEXTIO.ZPFLUX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.ZPFLUX] ;
-      sscanf(str, "%f", &SNDATA.ZEROPT[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.ZPFLUX, ep);
+      SNDATA.ZEROPT[ep] = (float)dval ;
     }
     if ( IVAROBS_SNTEXTIO.ZPERR >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.ZPERR] ;
-      sscanf(str, "%f", &SNDATA.ZEROPT_ERR[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.ZPERR, ep);
+      SNDATA.ZEROPT_ERR[ep] = (float)dval;
     }
 
     // read PSF-sigma(pixels) ...
     if ( IVAROBS_SNTEXTIO.PSF_SIG >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_SIG] ;
-      sscanf(str, "%f", &SNDATA.PSF_SIG1[ep]);
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.PSF_SIG, ep);
+      SNDATA.PSF_SIG1[ep] = (float)dval;
     }
     // or read PSF-FWHM(arcsec) ...
     if ( IVAROBS_SNTEXTIO.PSF_FWHM >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_FWHM] ;
-      sscanf(str, "%f", &PSF_FWHM) ;
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.PSF_FWHM, ep);
+      PSF_FWHM = (float)dval;
       // FWHM(asec)->sigma(pix)
       SNDATA.PSF_SIG1[ep] = PSF_FWHM / (2.355*SNDATA.PIXSIZE); 
     }
     // or read Noise Equiv Area
     if ( IVAROBS_SNTEXTIO.NEA >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.NEA] ;
-      sscanf(str, "%f", &SNDATA.PSF_NEA[ep]);
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.NEA, ep);
+      SNDATA.PSF_NEA[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.SKYSIG >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SKYSIG] ;
-      sscanf(str, "%f", &SNDATA.SKY_SIG[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.SKYSIG, ep);
+      SNDATA.SKY_SIG[ep] = (float)dval;
     }
     if ( IVAROBS_SNTEXTIO.SKYSIG_T >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SKYSIG_T] ;
-      sscanf(str, "%f", &SNDATA.SKY_SIG_T[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.SKYSIG_T, ep);
+      SNDATA.SKY_SIG_T[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.GAIN >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.GAIN] ;
-      sscanf(str, "%f", &SNDATA.GAIN[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.GAIN, ep);
+      SNDATA.GAIN[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.XPIX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.XPIX] ;
-      sscanf(str, "%f", &SNDATA.XPIX[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.XPIX, ep);
+      SNDATA.XPIX[ep] = (float)dval;
     }
     if ( IVAROBS_SNTEXTIO.YPIX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.YPIX] ;
-      sscanf(str, "%f", &SNDATA.YPIX[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.YPIX, ep);
+      SNDATA.YPIX[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.CCDNUM >= 0 ) {
@@ -2312,6 +2332,37 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
 } // end parse_SNTEXTIO_OBS
 
+
+// =====================================================
+double get_dbl_sntextio_obs(int IVAROBS, int ep) {
+
+  // Created Apr 2 2021
+  // Parse string for IVAROBS column and return double *value.
+  // 
+  // Inputs:
+  //   IVAROBS = column index to translate string to double
+  //   ep      = epoch index (for error message only)
+  //  
+  //  Outputs:
+  //    Function return double precision value
+  //
+  // If value is NaN, increment global NaN counter.
+  //
+
+  char *str     = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS] ;
+  char *varName = SNTEXTIO_FILE_INFO.VARNAME_OBS_LIST[IVAROBS] ;
+  double dval;
+
+  sscanf(str, "%le", &dval );
+  if ( isnan(dval) ) { 
+    printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
+	   varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
+    SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+  }
+
+  return (dval);
+
+} // end get_dbl_sntextio_obs
 
 // =====================================
 bool parse_SNTEXTIO_SPEC(int *iwd_file) {

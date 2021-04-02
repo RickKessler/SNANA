@@ -18,7 +18,7 @@
 
 #define MXVAROBS_TEXT 20
 struct {
-  int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR ;
+  int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR, MAG, MAGERR ;
   int ZPFLUX, ZPERR, PSF_FWHM, PSF_SIG, NEA;
   int SKYSIG, SKYSIG_T, SKYSIG_GAIN ;
   int GAIN, PHOTFLAG, PHOTPROB, XPIX, YPIX, CCDNUM; 
@@ -53,7 +53,7 @@ struct {
   char VARNAME_SPEC_LIST[MXVAROBS_TEXT][32] ;  // SPEC-column names
   char STRING_LIST[MXVAROBS_TEXT][20] ;   // string values per OBS row
 
-  int NOBS_READ ;
+  int NOBS_READ, NOBS_NaN ;
   int NSPEC_READ ;
   int NLAM_READ ;
 
@@ -98,4 +98,6 @@ void parse_plusminus_sntextio(char *word, char *key, int *iwd_file,
 
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
 void check_head_sntextio(int OPT);
+
+double get_dbl_sntextio_obs(int IVAROBS, int ep);
 

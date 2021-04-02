@@ -8685,7 +8685,7 @@ int init_SNDATA_EVENT(void) {
 
     // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 
     //  gets confused with NULL
-    sprintf ( SNDATA.FIELDNAME[i_epoch], "VOID" );
+    sprintf ( SNDATA.FIELDNAME[i_epoch], FIELD_NONAME );
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
     sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );

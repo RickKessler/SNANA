@@ -105,19 +105,19 @@
 
 #define REJECT_FLAG    -1  
 #define ACCEPT_FLAG    +1
-#define ERROR     -1  // use these as return args for int functions
-#define SUCCESS   +1
-#define NULLINT    -9 
-#define NULLFLOAT  -9.0 
-#define NULLDOUBLE (double)-9.0 
-#define NULLSTRING "NULL"
-#define NODOUBLE      (double)1.7777E14
-#define NOFLOAT       (float)1.7777E14
-#define NOINT         555444333
+#define ERROR          -1  // use these as return args for int functions
+#define SUCCESS        +1
+#define NULLINT        -9 
+#define NULLFLOAT      -9.0 
+#define NULLDOUBLE     (double)-9.0 
+#define NULLSTRING     "NULL"
+#define NODOUBLE       (double)1.7777E14
+#define NOFLOAT        (float)1.7777E14
+#define NOINT          555444333
 #define BLANK_STRING   ""
 #define NOTSET_STRING  "NOTSET" // init str pointers to avoid compile error
-
 #define NULLTYPE    0   // SN type with no TYPE in data base.
+#define FIELD_NONAME  "VOID"  // avoid using 'NULL' to avoid python problem.
 
 #define INDEX_NOTSATURATE 0
 #define INDEX_SATURATE    1

@@ -3539,8 +3539,6 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     GENFLUX_LIST[ilam] *= FSCALE_ZP ;  // Mar 29 2019
 
-    // xxx debug GENFLUX_LIST[ilam] = GENFLUX_LIST[0]; // xxx REMOVE THIS
-
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;

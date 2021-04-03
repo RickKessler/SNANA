@@ -726,9 +726,8 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
-  int  NBLAM_TOT  = GENSPEC.NBLAM_TOT ;
   
-  int  NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
+  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
   int  imjd, ilam ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP ;
 
@@ -762,6 +761,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     if ( GENSPEC.SKIP[imjd] ) { continue ; }
 
     IDSPEC = imjd + 1 ;  // start at 1                                          
+    NBLAM_TOT   = GENSPEC.NBLAM_TOT[imjd] ;
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
     IS_HOST     = GENSPEC.IS_HOST[imjd];
 

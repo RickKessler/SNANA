@@ -715,6 +715,9 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   // Dec 8 2020: replace local magSmear[] with global GENSMEAR.MAGSMEAR_LIST
   //               (to work properly with G10 and C11 models)
   //
+  // Apr 02 2021: 
+  //   + bug fix : multiply spectral flux by x0 (broadband fluxes were OK)
+  //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -748,7 +751,6 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
   *Finteg  = 0.0 ; // init output flux for filter
   Fspec[0] = 0.0 ;
-
 
   // first make sure that SED wavelength range covers filter
   if ( !DO_SPECTROGRAPH ) {
@@ -850,7 +852,8 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
     } // end loop over LAMSED
 
     // store spectrum
-    if ( OPT_SPEC ) { Fspec[ilamobs] = (Finteg_spec * MODELNORM_Fspec) ; }
+    if ( OPT_SPEC ) 
+      { Fspec[ilamobs] = (Finteg_spec * x0 * MODELNORM_Fspec) ; }
 
   } // end ilamobs
   

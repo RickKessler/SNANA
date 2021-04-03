@@ -7935,7 +7935,7 @@ void GENSPEC_DRIVER(void) {
   if ( NPEREVT_TAKE_SPECTRUM == 0 && SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH == 0 ) 
     { return ; }
 
-  GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
+  // xxx mark delete  GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
 
   MJD_LAST = MJD_DIF = -9.0 ;
 
@@ -8212,6 +8212,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
   // ------------ BEGIN ----------
 
   GENSPEC.NBLAM_VALID[imjd]   =  0 ;
+  GENSPEC.NBLAM_TOT[imjd]     = INPUTS_SPECTRO.NBIN_LAM ;
 
   if ( OPT == 1 ) {
     GENSPEC.MJD_LIST[imjd]      = -9.0 ;
@@ -8406,7 +8407,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
 
   int ilam, ilam2, NOPT=0 ;
   double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
-  double arg, MAGSHIFT, SCALE_FLAM_HOST ;
+  double arg, MAGSHIFT, SCALE_FLAM_HOST=1.0 ;
   double FSUM_PEAK, FSUM_HOST, LAMAVG, LAMMIN, LAMMAX, LAMBIN ;
   char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
 

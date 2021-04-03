@@ -2034,7 +2034,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
   // Mar 2019: write optional SIM_WARP column as 1000*WARP
   // Feb 2021: write GENFLAM for sim
 
-  int  NBLAM_TOT = GENSPEC.NBLAM_TOT ;
+  int  NBLAM_TOT = GENSPEC.NBLAM_TOT[imjd] ;
   int  NBLAM_WR  = GENSPEC.NBLAM_VALID[imjd] ;
   int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX   ;
   //  char fnam[] = "wr_snfitsio_update_spec" ;
@@ -3177,7 +3177,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       init_GENSPEC_EVENT(ispec,NBLAM);   // malloc GENSPEC
 
       GENSPEC.NMJD_PROC++ ;  GENSPEC.NMJD_TOT = GENSPEC.NMJD_PROC;
-      GENSPEC.NBLAM_TOT            = NBLAM ;  
+      GENSPEC.NBLAM_TOT[ispec]     = NBLAM ;  
       GENSPEC.NBLAM_VALID[ispec]   = NBLAM ;
       GENSPEC.MJD_LIST[ispec]      = RDSPEC_SNFITSIO_HEADER.MJD[irow];
       GENSPEC.TEXPOSE_LIST[ispec]  = RDSPEC_SNFITSIO_HEADER.TEXPOSE[irow];

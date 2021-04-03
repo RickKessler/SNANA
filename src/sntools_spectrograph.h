@@ -59,7 +59,7 @@ double  VALUES_SPECBIN[MXVALUES_SPECBIN];
 
 struct {
   int    NMJD_TOT, NMJD_PROC ;
-  int    NBLAM_TOT; // [MXSPEC];    // total number of wavelength bins
+  int    NBLAM_TOT[MXSPEC];    // total number of wavelength bins
   int    NBLAM_VALID[MXSPEC] ; // number of valid wavelength bins per epoch
   int    IS_HOST[MXSPEC];
   bool   SKIP[MXSPEC];        // outside Trest range of model

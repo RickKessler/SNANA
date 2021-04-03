@@ -509,7 +509,7 @@ bool correct_sign_vpec_data(char *snana_version_data);
 bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
+// xxxvoid set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
@@ -602,7 +602,7 @@ double asinhinv(double mag, int ifilt);
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 
-// xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
+/* xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
 int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
 void  wr_HOSTGAL(FILE *fp);
 void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ; 
@@ -613,7 +613,7 @@ int  wr_filtband_float ( FILE *fp, char *keyword,
 int  header_merge(FILE *fp, char *auxheader_file);
 int  sort_epochs_bymjd(void);
 int   WRSTAT ( int wrflag, float value ) ;
-// xxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxx */
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -880,7 +880,8 @@ int    get_1DINDEX(int ID, int NDIM, int *indx );
 void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-void set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
+
+// xxxvoid set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
 
 void copy_sndata_global__(int *copyFlag, char *key,
 			  int *NVAL, char *stringVal,double *parVal);

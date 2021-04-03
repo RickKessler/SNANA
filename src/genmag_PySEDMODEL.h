@@ -66,7 +66,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,
 			   double zHEL, double x0,
 			   double RV, double AV,
 			   int NLAM, double *LAM, double *SED,
-			   double *Finteg, double *Fspec );
+			   double *Finteg, double *Fspec, int *FLAG_Finteg );
 
 // return spectrum for spectrograph
 void genSpec_PySEDMODEL(double Tobs, double z, double MU, double MWEBV,

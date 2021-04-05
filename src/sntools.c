@@ -2036,6 +2036,28 @@ void parse_GENPOLY(char *stringPoly, char *varName,
 
 } // end parse_GENPOLY
 
+void copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT) {
+
+  // Created April 5 2021
+  // For input GENPOLY_IN, copy it to GENPOLY_OUT.
+
+  int ORDER = GENPOLY_IN->ORDER ;
+  int o;
+  // ------- BEGIN ---------
+
+  sprintf(GENPOLY_OUT->STRING,  "%s", GENPOLY_IN->STRING);
+  sprintf(GENPOLY_OUT->VARNAME, "%s", GENPOLY_IN->VARNAME);
+  GENPOLY_OUT->ORDER = GENPOLY_IN->ORDER ;
+
+  for(o=0; o <= ORDER; o++ ) {
+    GENPOLY_OUT->COEFF_RANGE[o][0] = GENPOLY_IN->COEFF_RANGE[o][0];
+    GENPOLY_OUT->COEFF_RANGE[o][1] = GENPOLY_IN->COEFF_RANGE[o][1];
+  }
+
+  return;
+} // end copy_GENPOLY
+
+
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // Mar 2019

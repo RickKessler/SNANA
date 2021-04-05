@@ -3990,36 +3990,36 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // get epoch range from colon-seperated values in stringOpt
   ptrRange = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE ;
   ptrFrame = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME ;
-  // xxx  ptrStep  = &INPUTS.TAKE_SPECTRUM[NTAKE].MJD_STEP ; // Apr 2021
+
 
   if ( IS_HOST ) {
     ptrRange[0] = ptrRange[1] = 9999.0 ;  
   }
   else {
-    for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
+    // SN spectrum
+
+    for(i=0; i < 4; i++ ) 
+      { ptrSplit[i] = strValues[i];    ptrRange[i] = -9.0 ; }
 
     splitString(stringOpt, COLON, 4,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
-    if ( NSPLIT < 1 || NSPLIT > 2 ) {
+    if ( NSPLIT < 1 || NSPLIT > 3 ) {
       sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
-	      NSPLIT, string1);
-      sprintf(c2err, "but expected 1 or 2 values.");
+	      NSPLIT, string1); 
+      sprintf(c2err, "but expected 1 or 2 or 3 values.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }   
 
     // load TREST_RANGE or TOBS_RANGE or MJD_RANGE
-    sscanf( strValues[0] ,    "%f", &ptrRange[0] ); 
+    for(i=0; i < NSPLIT; i++ ) 
+      { sscanf( strValues[i] ,  "%f", &ptrRange[i] );  }
 
-    if ( NSPLIT == 2 ) {
-      // read 2nd element of range; e.g., from TOBS(12.2:13.4)
-      sscanf( strValues[1] ,  "%f", &ptrRange[1] );  
-    }
-    else {
-      // only one time; set range to delta func; e..g, TOBS(12.4)
-      ptrRange[1] = ptrRange[0]; 
-    }
-  }
+    // if only one time given, set range to delta function.
+    if ( NSPLIT == 1 ) { ptrRange[1] = ptrRange[0];  }
+
+
+  } // end SN spectrum
 
 
   // - - - - - - - - - - - - -  -
@@ -4133,9 +4133,12 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     fflush(stdout);
   }
 
- DONE:
-  NPEREVT_TAKE_SPECTRUM++ ;
+  if ( IS_MJD && ptrRange[2] > 0.01 )  
+    { expand_TAKE_SPECTRUM_MJD(ptrRange) ; }
+  else
+    { NPEREVT_TAKE_SPECTRUM++ ; }
 
+  // - - - - 
   if ( NPEREVT_TAKE_SPECTRUM >= MXPEREVT_TAKE_SPECTRUM ) {
     sprintf(c1err, "%d TAKE_SPECTRUM keys exceeds bound", 
 	    NPEREVT_TAKE_SPECTRUM );
@@ -4146,6 +4149,81 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   return(N);
 
 } // end parse_input_TAKE_SPECTRUM
+
+
+// ***********************************************
+void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
+
+  // Created Apr 5 2021
+  // Called for e.g.,
+  //   TAKE_SPECTRUM: MJD(55000:55100:10)
+  //
+  // to internally expand INPUTS_TAKE_SPECTRUM struct to include
+  // all 11 MJD: 55000, 55010, 55020, ... 55100.
+  // Note that OPT_TEXPOSE must be 1 (TEXPOSE_ZPOLY).
+ 
+  int   NTAKE_ORIG  = NPEREVT_TAKE_SPECTRUM;
+  int   NTAKE       = NPEREVT_TAKE_SPECTRUM;
+  int   OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE;
+  float MJD, MJD_STEP, MJD_MIN, MJD_MAX ;
+
+  GENPOLY_DEF GENPOLY_WARP  ;
+  GENPOLY_DEF GENPOLY_TEXPOSE ;
+  GENPOLY_DEF GENPOLY_SNR     ;
+
+  char fnam[] = "expand_TAKE_SPECTRUM_MJD";
+
+  // ------- BEGIN -------
+
+  MJD_MIN  = MJD_RANGE[0];  MJD_MAX=MJD_RANGE[1];
+  MJD_STEP = MJD_RANGE[2];
+
+  if ( OPT_TEXPOSE != 1 ) {
+    sprintf(c1err,"Invalid OPT_TEXPOSE = %d", OPT_TEXPOSE);	    
+    sprintf(c2err,"Must use TEXPOSE_ZPOLY after "
+	    "TAKE_SPECTRUM: MJD(min:max:step)");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // store copies of polynom functions
+  copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP,  &GENPOLY_WARP);
+  copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE, &GENPOLY_TEXPOSE);
+  copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR,     &GENPOLY_SNR);
+
+  //  NTAKE--; // subtract 1 since it will be added again here
+  for (MJD=MJD_MIN; MJD <= MJD_MAX; MJD += MJD_STEP ) {
+
+    if ( NTAKE < MXPEREVT_TAKE_SPECTRUM ) {
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE    = OPT_TEXPOSE ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0] = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
+      sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
+
+      copy_GENPOLY(&GENPOLY_WARP, 
+		   &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP );
+      copy_GENPOLY(&GENPOLY_TEXPOSE, 
+		   &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE);
+      copy_GENPOLY(&GENPOLY_SNR, 
+		   &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR );
+    }
+
+    NTAKE++ ;
+  }
+
+  if ( NTAKE >= MXPEREVT_TAKE_SPECTRUM ) {
+    sprintf(c1err, "%d TAKE_SPECTRUM keys exceeds bound of %d", 
+	    NTAKE, MXPEREVT_TAKE_SPECTRUM );
+    sprintf(c2err,"Check MXPEREVT_TAKE_SPECTRUM in snlc_sim.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+  NPEREVT_TAKE_SPECTRUM = NTAKE ;
+  return;
+
+} // end expand_TAKE_SPECTRUM_MJD
+
 
 
 // *****************************************

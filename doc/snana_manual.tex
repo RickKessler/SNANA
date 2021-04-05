@@ -4875,7 +4875,7 @@ TAKE_SPECTRUM:  TREST(10:12)   TEXPOSE_ZPOLY(1500:2500,500)
 TAKE_SPECTRUM:  HOST           TEXPOSE_ZPOLY(1200) 
 
 TAKE_SPECTRUM:  MJD(59400:59407)    TEXPOSE_ZPOLY(1200)   # random within week
-TAKE_SPECTRUM:  MJD(59400:59600,20) TEXPOSE_ZPOLY(1200)   # spectrum every 20 days
+TAKE_SPECTRUM:  MJD(59400:59600:20) TEXPOSE_ZPOLY(1200)   # spectrum every 20 days
 \end{Verbatim}
 %
 Each {\tt TREST} argument defines a 2-day rest-frame window from 
@@ -4883,7 +4883,8 @@ which to randomly select a \spec\ MJD.
 The {\tt TOBS} argument defines a 2-week observer-frame window 
 from which to randomly select a \spec\ MJD.
 The {\tt MJD} argument defines either 
-i) a pre-defined calendar window, or ii) a pre-defined calendar sequence.
+i) a pre-defined calendar window, or ii) a pre-defined calendar sequence;
+e.g,, {\tt MJD(59400:59600:20)} defines 11 spectra, one every 20 days.
 The {\tt TEXPOSE\_ZPOLY} key defines the exposure time (seconds) 
 as a polynomial function of redshift. 
 The {\tt TREST} exposure times are 

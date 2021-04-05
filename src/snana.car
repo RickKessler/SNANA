@@ -1034,9 +1034,9 @@ c  Not intended for analysis.
       INTEGER MXVAR_SPECTRUM, MXSPECTRUM, MXLAM_SPECTRUM     
 
       PARAMETER (
-     &   MXVAR_SPECTRUM = 10   ! max number of variables after SPEC: key
+     &   MXVAR_SPECTRUM = 10     ! max number of variables after SPEC: key
      &  ,MXSPECTRUM     = 40    ! max number of spectra to read per event
-     &  ,MXLAM_SPECTRUM = 20000 ! max number of wave bins per spectrum
+     &  ,MXLAM_SPECTRUM = 20000  ! max number of wave bins per spectrum
      &        )
 
       LOGICAL RDFLAG_SPECTRUM

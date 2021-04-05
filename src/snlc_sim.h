@@ -304,8 +304,7 @@ typedef struct {
 #define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ; 
 typedef struct {
-  float   EPOCH_RANGE[2];    // Trest or TOBS range, or MJD range
-  float   MJD_STEP;          // MJD step if using MJD(MJDMIN:MJDMAX,STEP)
+  float   EPOCH_RANGE[4];    // Trest or TOBS range, or MJD range
   char    FIELD[80];         // restrict spectra to particular field(s)
 
   GENPOLY_DEF GENLAMPOLY_WARP ;   // calibration warp as poly fun of wavelength
@@ -1709,6 +1708,7 @@ int    parse_input_LCLIB(char **WORDS, int keySource );
 int    parse_input_CUTWIN(char **WORDS, int keySource );
 int    parse_input_GRIDGEN(char **WORDS, int keySource);
 int    parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp );
+void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 void   parse_input_OBSOLETE(char **WORDS, int keySource );
 bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );

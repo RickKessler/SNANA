@@ -580,10 +580,12 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
-void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *stringPoly, char *varName, 
-		   GENPOLY_DEF *GENPOLY, char *callFun );
+void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
+void   parse_GENPOLY(char *stringPoly, char *varName, 
+		     GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
+void   copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT);
+
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);

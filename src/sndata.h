@@ -34,6 +34,7 @@
 
   Jan 31 2019: MXTYPE -> 1000 (was 200)
   Aug 13 2019: MXPATHLEN -> 300 (was 200)
+  Apr 05 2021: MXSPECTRA -> 200 (was 40)
 
 *****************************************************/
 
@@ -44,7 +45,7 @@
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX 100   // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
-#define MXSPECTRA   40   // max number of spectra in data files
+#define MXSPECTRA  200   // max number of spectra in data files
 
 #define MXDOCLINE 1000    // max number of lines in README.DOC file
 #define MXTYPE    1000    // max TYPE id in data base

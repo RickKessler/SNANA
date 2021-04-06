@@ -2721,6 +2721,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DEC", &SNDATA.DEC, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    //Apr 6 2021: check legacy DECL name ...
+    if ( NRD == 0 ) {
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DECL", &SNDATA.DEC, 
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "PIXSIZE", &SNDATA.PIXSIZE,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 

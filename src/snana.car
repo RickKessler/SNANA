@@ -1010,6 +1010,7 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)
      &   ,ADDCOL_SNRMAX(MXFILT_ALL)
      &   ,ADDCOL_XTMW(MXFILT_ALL)
+     &   ,ADDCOL_PROB_TRUEFLUX(MXFILT_ALL)
 
       INTEGER
      &    ADDCOL_NDOF_FITPKMJD(MXFILT_ALL)
@@ -1018,7 +1019,7 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ADDCOL_FILTERS
      &  ,ADDCOL_SNHOST_MAGOBS, ADDCOL_SNHOST_SBFLUXCAL 
      &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
-     &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
+     &  ,ADDCOL_SNRMAX, ADDCOL_XTMW, ADDCOL_PROB_TRUEFLUX
 
 
 c - - - -- MULTI-SEASON STUFF - - - -
@@ -1035,7 +1036,7 @@ c  Not intended for analysis.
 
       PARAMETER (
      &   MXVAR_SPECTRUM = 10     ! max number of variables after SPEC: key
-     &  ,MXSPECTRUM     = 40    ! max number of spectra to read per event
+     &  ,MXSPECTRUM     = 200   ! max number of spectra to read per event
      &  ,MXLAM_SPECTRUM = 20000  ! max number of wave bins per spectrum
      &        )
 
@@ -1053,11 +1054,12 @@ c  Not intended for analysis.
      &    MJD_SPECTRUM(MXSPECTRUM) 
      &   ,TOBS_SPECTRUM(MXSPECTRUM)
      &   ,TEXPOSE_SPECTRUM(MXSPECTRUM)
-     &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
-     &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
-     &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM) 
-     &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
-     &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
+c
+     &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM)
+     &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM)
+     &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM)
+     &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM)
+     &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM)
 
       COMMON/SPECCOM4/ RDFLAG_SPECTRUM
      &   ,NVAR_SPECTRUM, NSPECTRUM, ID_SPECTRUM, NLAMBIN_SPECTRUM
@@ -1537,6 +1539,19 @@ c from WFIRST sims
       DATA SKYMAG_SPACE_LIST / 
      &        23.5,    23.0,     22.3,   22.5,
      &        22.7,    22.6,     22.6,   22.7, 22.6  /
+
++KEEP,TRUECHI2COM.
+
+c for fakes and sim, compute sum[F-Ftrue]^2/sigma^2 per band
+
+      REAL    
+     &   CHI2_TRUEFLUX(MXFILT_ALL)
+     &  ,PROB_TRUEFLUX(MXFILT_ALL)
+
+      INTEGER NDOF_TRUEFLUX(MXFILT_ALL)
+
+      COMMON /  TRUECHI2COM / 
+     &   NDOF_TRUEFLUX, CHI2_TRUEFLUX, PROB_TRUEFLUX
 
 +KEEP,OVRIDECOM.
 
@@ -2069,7 +2084,7 @@ c
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
-     &  ,READ_SPECTRA        ! flag to read spectra
+     &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
 
 c LC plot info
 
@@ -2149,7 +2164,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , READ_SPECTRA
+     &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2196,7 +2211,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , READ_SPECTRA
+     &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2254,9 +2269,9 @@ c
 
 
 c ---------- end of SNLCINP ---------
-
 +KEEP,NNCOM.
 
+c    *** LEGACY ***
 c Created Apr 2013 for Nearest Neighbor method.
 c Define namelist inputs so that main snana job can
 c check NN option and call init routines in sntools_nearnbr.c .
@@ -2804,8 +2819,6 @@ c     common block for ntuple stuff
      &     ,MCMCTUPVALS, NCALL_MCMCTUP  
  
 c ----------------------------
-
-
 +KEEP,XTCOM.
 c
 c Created Nov 16, 2006
@@ -3400,7 +3413,7 @@ c transfer variables from C struct to fortran global variables
 
         CALL RDOBS_DRIVER()  
 
-        CALL RDSPEC_DRIVER()  
+        CALL RDSPEC_DRIVER(0)  
 
 c ---------------------------------------------------------------
 
@@ -4983,23 +4996,28 @@ c apply all epoch cuts EXCEPT for Trest.
 
 C ===========================================
 +DECK,RDSPEC_DRIVER.
-      SUBROUTINE RDSPEC_DRIVER()
+      SUBROUTINE RDSPEC_DRIVER(ISPEC)
 
 c
 C Created Feb 17 2021
 C Read spectra (FITS or TEXT format) and transfer 
-c information from GENSPEC C-struct to fortran variables.
+C information from GENSPEC C-struct to fortran variables.
+C
+C ISPEC = 0 -> read header info
+C ISPEC > 0 -> read wave-dependent arrays for ISPEC
 
       IMPLICIT NONE
+
+      INTEGER ISPEC  ! (I)
 
 c local var
 
 +CDE,SNDATCOM.
 +CDE,SPECCOM.
 
-      INTEGER OPT, ISPEC, NBLAM
-      REAL*8  DVAL(10)
-      CHARACTER FNAM*14
+      INTEGER    OPT, NBLAM, I
+      REAL*8     DVAL(10)
+      CHARACTER  FNAM*14
 
 C ------------ BEGIN ----------
 
@@ -5007,54 +5025,64 @@ C ------------ BEGIN ----------
       OPT = 0
 c     &    + OPTMASK_SNDATA_DUMP
 
-      CALL FETCH_GENSPEC_WRAPPER("NSPECTRA", -9, DVAL, OPT)
-      NSPECTRUM = INT(DVAL(1))
-      IF ( NSPECTRUM .LE. 0 ) RETURN
+      IF ( ISPEC == 0 ) THEN
+         CALL FETCH_GENSPEC_WRAPPER("NSPECTRA", -9, DVAL, OPT)
+         NSPECTRUM = INT(DVAL(1))
 
-      IF ( NSPECTRUM > MXSPECTRUM .or. NSPECTRUM < 0 ) THEN
-         write(c1err, '(A,I3)' ) 'Invalid NSPECTRUM = ', NSPECTRUM
-         write(c2err, '(A,I3)' ) 'MXSPECTRUM = ', MXSPECTRUM
-         CALL MADABORT(FNAM, c1err,c2err)
-      ENDIF
+         IF ( NSPECTRUM .LE. 0 ) RETURN
 
-      DO 100 ISPEC = 1, NSPECTRUM
-         CALL FETCH_GENSPEC_WRAPPER("NBLAM", ISPEC, DVAL, OPT)
-         NLAMBIN_SPECTRUM(ISPEC) = INT(DVAL(1))
-         NBLAM = NLAMBIN_SPECTRUM(ISPEC)
-
-         if ( NBLAM > MXLAM_SPECTRUM .or. NBLAM < 0 ) then
-            write(c1err, '(A,I3)' ) 'Invalid NLAMBIN = ', NBLAM
-            write(c2err, '(A,I3)' ) 'MXLAM_SPECTRUM = ', MXLAM_SPECTRUM
+         IF ( NSPECTRUM > MXSPECTRUM .or. NSPECTRUM < 0 ) THEN
+            write(c1err, '(A,I3)' ) 'Invalid NSPECTRUM = ', NSPECTRUM
+            write(c2err, '(A,I3)' ) 'MXSPECTRUM = ', MXSPECTRUM
             CALL MADABORT(FNAM, c1err,c2err)
-         endif
-
-         CALL FETCH_GENSPEC_WRAPPER("ID", ISPEC, DVAL, OPT)
-         ID_SPECTRUM(ISPEC)    = INT(DVAL(1))
-
-         CALL FETCH_GENSPEC_WRAPPER("MJD", ISPEC, DVAL, OPT)
-         MJD_SPECTRUM(ISPEC)    = DVAL(1)
-         TOBS_SPECTRUM(ISPEC)   = DVAL(1) - SNLC_SEARCH_PEAKMJD 
-
-         CALL FETCH_GENSPEC_WRAPPER("TEXPOSE", ISPEC, 
-     &              TEXPOSE_SPECTRUM(ISPEC), OPT)
-         
-         ! wave-dependent arrays
-         CALL FETCH_GENSPEC_WRAPPER("LAMMIN", ISPEC, 
-     &              LAMMIN_SPECTRUM(1,ISPEC), OPT)
-         CALL FETCH_GENSPEC_WRAPPER("LAMMAX", ISPEC, 
-     &              LAMMAX_SPECTRUM(1,ISPEC), OPT)
-
-         CALL FETCH_GENSPEC_WRAPPER("FLAM", ISPEC, 
-     &              FLAM_SPECTRUM(1,ISPEC), OPT)
-         CALL FETCH_GENSPEC_WRAPPER("FLAMERR", ISPEC, 
-     &              FLAMERR_SPECTRUM(1,ISPEC), OPT)
-
-         IF (  LSIM_SNANA ) THEN
-            CALL FETCH_GENSPEC_WRAPPER("SIM_FLAM", ISPEC, 
-     &                 SIM_FLAM_SPECTRUM(1,ISPEC), OPT)
          ENDIF
 
- 100  CONTINUE
+         
+c load up all the spec-header info now; the big LAM-dependent
+c arrays are loaded later with ISPEC > 0.
+        
+         DO I = 1, NSPECTRUM 
+            CALL FETCH_GENSPEC_WRAPPER("NBLAM", I, DVAL, OPT)
+            NLAMBIN_SPECTRUM(I) = INT(DVAL(1))
+            NBLAM = NLAMBIN_SPECTRUM(I)
+
+            if ( NBLAM > MXLAM_SPECTRUM .or. NBLAM < 0 ) then
+               write(c1err,'(A,I3)') 'Invalid NLAMBIN = ', NBLAM
+               write(c2err,'(A,I3)') 'MXLAM_SPECTRUM=',MXLAM_SPECTRUM
+               CALL MADABORT(FNAM, c1err,c2err)
+            endif
+
+            CALL FETCH_GENSPEC_WRAPPER("ID", I, DVAL, OPT)
+            ID_SPECTRUM(I)    = INT(DVAL(1))
+
+            CALL FETCH_GENSPEC_WRAPPER("MJD", I, DVAL, OPT)
+            MJD_SPECTRUM(I)    = DVAL(1)
+            TOBS_SPECTRUM(I)   = DVAL(1) - SNLC_SEARCH_PEAKMJD 
+
+            CALL FETCH_GENSPEC_WRAPPER("TEXPOSE", I, 
+     &           TEXPOSE_SPECTRUM(I), OPT)
+         ENDDO
+
+         RETURN
+      ENDIF
+         
+c - - - - - - -  -
+c retreive SPECTRUM for ISPEC.
+c wave-dependent arrays
+      CALL FETCH_GENSPEC_WRAPPER("LAMMIN", ISPEC, 
+     &     LAMMIN_SPECTRUM, OPT)
+      CALL FETCH_GENSPEC_WRAPPER("LAMMAX", ISPEC, 
+     &     LAMMAX_SPECTRUM, OPT)
+      
+      CALL FETCH_GENSPEC_WRAPPER("FLAM", ISPEC, 
+     &     FLAM_SPECTRUM, OPT)
+      CALL FETCH_GENSPEC_WRAPPER("FLAMERR", ISPEC, 
+     &     FLAMERR_SPECTRUM, OPT)
+      
+      IF (  LSIM_SNANA ) THEN
+         CALL FETCH_GENSPEC_WRAPPER("SIM_FLAM", ISPEC, 
+     &        SIM_FLAM_SPECTRUM, OPT)
+      ENDIF
 
 c      print*,' '
 c      print*,' xxx DEBUG STOP xxx '
@@ -5726,22 +5754,22 @@ c default is to reject nothing (accept everything)
       LSIM_SEARCH_SPEC    = .FALSE.
       LSIM_SEARCH_ZHOST   = .FALSE.
 
-      USESIM_SNIA   = .TRUE. 
-      USESIM_SNCC   = .TRUE.
-      USESIM_TRUEFLUX = .FALSE.
+      USESIM_SNIA      = .TRUE. 
+      USESIM_SNCC      = .TRUE.
+      USESIM_TRUEFLUX  = .FALSE.
 
+      LPROB_TRUEFLUX     = .FALSE.  
       RESTORE_DES3YR     = .FALSE.
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
-      REQUIRE_DOCANA     =  0      ! use integer to match sim usage
-      READ_SPECTRA       = .TRUE.
+      REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      USE_SNHOST_ZPHOT = .FALSE.
-      USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
+      USE_SNHOST_ZPHOT   = .FALSE.
+      USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
 
 c by default do NOT check for multiseason activity (Oct 2014)
       MULTISEASON_TGAP               = 1.0E9 
       MULTISEASON_NREJECT_OUTLIER    = 0
-      MULTISEASON_CHI2RED_ACTIVE     =  5.0
+      MULTISEASON_CHI2RED_ACTIVE     = 5.0
 
       PHOTFLAG_DETECT   = 0 
       PHOTFLAG_TRIGGER  = 0
@@ -6848,9 +6876,78 @@ c         print*,' xxx WIDTH: ', ifilt, ifilt_obs, WIDTH
       RETURN
       END
 
-C ========================================
+C =============================================
++DECK,PROB_TRUEFLUX_CALC.
+      SUBROUTINE PROB_TRUEFLUX_CALC(ep)
+
+c Created Apr 6 2021
+c For fakes or SIM, compute chi2 = \Sum[F-Ftrue]/sigma_F^2 per band.
+c Compute PROB(chi2,NDOF) for each band.
+c
+c  ep = 0  -> init sums to zero
+c  ep > 0  -> increment chi2
+c  ep = -1 -> compute prob(chi2,Ndof)
+c --------------
+
+      INTEGER EP  ! (I) 
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,TRUECHI2COM.
+
+      INTEGER IFILT_OBS, IFILT, NDOF
+      REAL CHI2
+      REAL*8 CHI8, PROB8
+
+      REAL*8 PROB_CHI2NDOF
+      EXTERNAL PROB_CHI2NDOF
+C ------------- BEGIN -------------
+
+      IF ( .NOT. LPROB_TRUEFLUX ) RETURN
+      IF ( .NOT. ISJOB_SIM      ) RETURN ! fakes or SNANA sim
+
+      IF ( ep == 0 ) THEN        
+         DO IFILT = 1, NFILTDEF_SURVEY
+            NDOF_TRUEFLUX(ifilt) =   -1
+            CHI2_TRUEFLUX(ifilt) =  0.0
+            PROB_TRUEFLUX(ifilt) = -9.0
+         ENDDO
+         RETURN
+      ENDIF
+
+c - - - - -
+      IF ( EP > 0 ) THEN
+         IF ( SIM_EPFLUXCAL(ep) > 0.1 ) THEN
+         ! increment chi2
+            IFILT_OBS = ISNLC_IFILT_OBS(ep)
+            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+            CHI2      = SIM_EPCHI2FLUX(ep) 
+            CHI2_TRUEFLUX(ifilt) = CHI2_TRUEFLUX(ifilt) + CHI2
+            NDOF_TRUEFLUX(ifilt) = NDOF_TRUEFLUX(ifilt) + 1
+         ENDIF
+      ELSE
+         ! compute FITPROB per band
+         DO ifilt    = 1, NFILTDEF_SURVEY
+            CHI8     = DBLE( CHI2_TRUEFLUX(ifilt) )
+            NDOF     = NDOF_TRUEFLUX(ifilt)
+            if ( NDOF > 5 ) then
+               PROB8    = PROB_CHI2NDOF(CHI8,NDOF)            
+               PROB_TRUEFLUX(ifilt) = SNGL(PROB8)
+            endif
+        ENDDO
+      ENDIF
+
+      RETURN
+      END        ! end PROB_TRUEFLUX_CALC
+
+
+C =============================================
 +DECK,PARSE_SNTABLE_LIST.
       SUBROUTINE PARSE_SNTABLE_LIST(USERSTRING, TABLENAME, NOPT, COPT)
+
+c parse USERSTRING from SNTABLE_LIST;
+c rdturn name of table and string of options.
 
       IMPLICIT NONE
 
@@ -6983,11 +7080,6 @@ c ------------- BEGIN -------------
          if ( MATCH_NMLKEY('VERSION_PHOTOMETRY',1,iArg,ARGLIST) ) then
             CALL PARSE_COMMASEP_LIST('VERSION_PHOTOMETRY',
      &                                 ARGLIST(1))
-
-c xxxxx mark delete Feb 16 2021 xxxxx
-cc            NVERLOC = NVERLOC + 1
-cc            VERSION_PHOTOMETRY(NVERLOC) = ARGLIST(1)(1:MXCHAR_VERSION)
-cc xxxxxxxxx
 
          else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
      &                1, iArg, ARGLIST) ) then
@@ -7193,6 +7285,10 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) OPT_DEBUG
 
+         else if ( MATCH_NMLKEY('LPROB_TRUEFLUX',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LPROB_TRUEFLUX
+
          else if ( MATCH_NMLKEY('LDMP_SNFAIL',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) LDMP_SNFAIL
@@ -7223,10 +7319,6 @@ c - - - - -
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
-
-         else if ( MATCH_NMLKEY('READ_SPECTRA',
-     &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) READ_SPECTRA
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -17368,7 +17460,6 @@ c function
 
 C ------------------ BEGIN -----------------
 
-
 c check to increment SUBSURVEY_LIST
  
       IF ( IDSURVEY .ne. IDSUBSURVEY ) THEN
@@ -17491,6 +17582,9 @@ c Useful as initial value for fits.
 c fill ISNLC_NFIELD with number of fields; 
       CALL COUNTFIELDS()
 
+c init computation of PROB_TRUEFLUX
+      CALL PROB_TRUEFLUX_CALC(0)
+
 c = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 c = = = = = = = = START LOOP OVER EPOCHS = = = = = = = = 
 c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -17571,6 +17665,7 @@ c convert sim-mag to SIM_FLUXCA
              TMP  = (TRUEFLUX - FLUXCAL)/ FLUXCAL_ERR
              SIM_EPCHI2FLUX(ep) = TMP * TMP  ! Nov 30 2020
 	     SIM_EPPULL(ep)     = TMP        ! Mar 16 2021
+             CALL PROB_TRUEFLUX_CALC(ep)
           ELSE
              SIM_EPFLUXCAL(ep)  = -9.0
              SIM_EPCHI2FLUX(ep) = -9.0
@@ -17757,6 +17852,9 @@ c evalute cuts on PRIVATE & SIMVAR variables
 c check option to estimate LC width
       CALL GET_SIM_LCWIDTH(1)
 
+c check option to compute PROB_TRUEFLUX_CALC per band
+      CALL PROB_TRUEFLUX_CALC(-1)
+
 c May 2017: load ADDCOL arrays
       CALL TABLE_ADDCOL_LOAD()
 
@@ -17801,8 +17899,6 @@ C ------------- BEGIN ------------
 
       FNAM = 'SET_ZHELIO'
 
-cc xxx mark delete Mar 15 2021      IF ( SNLC_ZCMB  < 0 ) RETURN
-
 c now we have undefined zCMB
 
       EQ     = 'eq' // char(0)
@@ -17823,7 +17919,6 @@ c allows quick/sloppy makeDataFiles with real data.
 	 IF ( SNLC_zCMB < 0.0 .and. FORMAT_TEXT ) THEN
   	   SNLC_zCMB     = SNGL(ZCMB8)
 	   SNLC_zCMB_ERR = SNLC_ZHELIO_ERR
-           print*,' xxx set zCMB=', SNLC_ZCMB, SNLC_CCID(1:12)
          ENDIF
 
          zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
@@ -19834,25 +19929,29 @@ c --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
 
       EXTERNAL ARRAYSTAT    
 C ----------- BEGIN --------
- 
+
+
       DO 222 ispec = 1, NSPECTRUM
+
+         CALL RDSPEC_DRIVER(ispec)  ! apr 5 2021
+
          MJD       = MJD_SPECTRUM(ispec)
          TOBS      = TOBS_SPECTRUM(ispec)
          NLAMBIN   = NLAMBIN_SPECTRUM(ispec)
-         LAMMIN    = LAMMIN_SPECTRUM(1,ispec)
-         LAMMAX    = LAMMAX_SPECTRUM(NLAMBIN,ispec)
+         LAMMIN    = LAMMIN_SPECTRUM(1)
+         LAMMAX    = LAMMAX_SPECTRUM(NLAMBIN)
 
          FLUXSUM = 0.0 ; SQERRSUM = 0.0 
        
-         CALL ARRAYSTAT(NLAMBIN, FLAMERR_SPECTRUM(1,ispec), 
+         CALL ARRAYSTAT(NLAMBIN, FLAMERR_SPECTRUM, 
      &                  FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN)
 
          NBIN_REJECT = 0 
          DO ilam = 1, NLAMBIN
-             FLAM    = FLAM_SPECTRUM(ilam,ispec)
-             FLAMERR = FLAMERR_SPECTRUM(ilam,ispec)
-             LAMMIN_BIN = LAMMIN_SPECTRUM(ilam,ispec)
-             LAMMAX_BIN = LAMMAX_SPECTRUM(ilam,ispec) 
+             FLAM    = FLAM_SPECTRUM(ilam)
+             FLAMERR = FLAMERR_SPECTRUM(ilam)
+             LAMMIN_BIN = LAMMIN_SPECTRUM(ilam)
+             LAMMAX_BIN = LAMMAX_SPECTRUM(ilam) 
 
              RATIO = FLAMERR/FLAMERR_MEDIAN
              if ( RATIO > TOL_FLUXERR_MEDIAN_RATIO ) then 
@@ -20167,8 +20266,6 @@ c check for DUMP
       cfilt    = filtdef_string(ifilt_obs:ifilt_obs) 
       MJD8     = SNLC8_MJD(iepoch)
       DUMPFLAG = CHECK_SNANA_DUMP_forC(FNAM,SNLC_CCID,CFILT,MJD8)
- 
-cc    IF ( SIM_LIBID .EQ. 121 .and. ifilt_obs.EQ.5 ) DUMPFLAG=2 ! XXX REMOVE
 
       if ( DUMPFLAG > 0 ) then
 
@@ -22436,6 +22533,8 @@ c check if we should make the plot
 c load each spectrum into SPECPAK C-function util
 
       DO 100 ispec = 1, NSPECTRUM
+         CALL RDSPEC_DRIVER(ispec)  ! Apr 5 2021
+
          CALL SPECPAK_DATA(
      &         CCID_forC
      &       , ID_SPECTRUM(ispec)
@@ -22443,10 +22542,10 @@ c load each spectrum into SPECPAK C-function util
      &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
-     &       , LAMMIN_SPECTRUM(1,ispec) ! array of LAMMIN in each bin
-     &       , LAMMAX_SPECTRUM(1,ispec) ! array of LAMMAX in each bin
-     &       , FLAM_SPECTRUM(1,ispec)
-     &       , FLAMERR_SPECTRUM(1,ispec)
+     &       , LAMMIN_SPECTRUM ! array of LAMMIN in each bin
+     &       , LAMMAX_SPECTRUM ! array of LAMMAX in each bin
+     &       , FLAM_SPECTRUM
+     &       , FLAMERR_SPECTRUM
      &       , LENCCID )
  100     CONTINUE
 
@@ -23592,21 +23691,21 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
 c ----------------------------
 c  PKMJD per filter
 
-       DO 222 ifilt  = 1, NFILTDEF_SURVEY
-          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+         DO 222 ifilt  = 1, NFILTDEF_SURVEY
+            ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+            cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
 
-          IF( IFILTOBS_REPLACE(IFILT_OBS) .NE. IFILT_OBS) GOTO 222
+            IF( IFILTOBS_REPLACE(IFILT_OBS) .NE. IFILT_OBS) GOTO 222
 
-          VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
-     &        VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
+            VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
+            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
+     &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
+            
+            VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
+            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
+     &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
 
-          VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
-     &        VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
-
-222    CONTINUE
+ 222     CONTINUE
 
 c --------------------------
 c      fit chi2 per filter
@@ -23622,7 +23721,16 @@ c      fit NDOF per filter
           CALL SNTABLE_ADDCOL(ID, CBLOCK, NDOF_FITPKMJD,
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
-      ENDIF  ! end of SAVEPAR if-block
+      ENDIF  ! end of SETPKMJD if-block
+
+c - - - - - -
+      IF ( LPROB_TRUEFLUX .and. ISJOB_SIM ) THEN
+        CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
+     &         VARLIST, LENLIST )
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX,
+     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+
+      ENDIF
 
 c - - - - -  min and max MJD (Aug 5 2013)
       VARLIST = 'MJDMIN:D,MJDMAX:D' // char(0)
@@ -23884,15 +23992,6 @@ C --------------- BEGIN -------------
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC8_MJD,
      &      VARNAME, 0, LENB,LENV)
 
-c xxxxxxx mark delete Nov 30 2020 xxxxxxxxxxxx
-c      VARNAME = 'DTOBSLAST(NOBS):F' // char(0)  
-c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS,
-c     &      VARNAME, 0, LENB,LENV)
-c      VARNAME = 'DTOBSLAST_SAMEFILT(NOBS):F' // char(0)  
-c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS_SAMEFILT,
-c     &      VARNAME, 0, LENB,LENV)
-c xxxxxxxxxxxxxxxxx
-
       VARNAME = 'FLUXCAL_DATA(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL,
      &      VARNAME, 0, LENB,LENV)
@@ -23941,7 +24040,6 @@ c xxxxxxxxxxxxxxx
 c - - - - - - - - - - - - - - - - 
 
       IF ( ISJOB_SIM ) THEN
-c xxx mark          VARNAME = 'SIM_FLUXCAL(NOBS):F' // char(0) 
          VARNAME = 'FLUXCAL_SIM(NOBS):F' // char(0)   ! match FITRES+RESIDS
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL,
      &        VARNAME, 0, LENB,LENV)
@@ -24555,6 +24653,7 @@ c &SNLCINP namelist input SNTABLE_FILTER_REMAP is set.
 +CDE,FILTCOM.
 +CDE,PKMJDCOM.
 c+CDE,SNHOSTCOM.
++CDE,TRUECHI2COM.
 
       INTEGER ifilt, NFILT, IFILTOBS, IFILTOBS_REMAP, IFILT_REMAP
       INTEGER LEN
@@ -24584,9 +24683,10 @@ C ------------- BEGIN --------------
            ADDCOL_SNRMAX(IFILT_REMAP)     = -9.0
            ADDCOL_XTMW(IFILT_REMAP)       = -9.0
            ADDCOL_FLUXCALMAX(IFILT_REMAP) = -9.0
+           ADDCOL_PROB_TRUEFLUX(IFILT_REMAP)      = -9.0
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2)    = -9.0 
-           ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP) = -9.0
+           ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP)   = -9.0
       ENDDO
 
       DO 100 ifilt = 1, NFILT
@@ -24594,9 +24694,10 @@ C ------------- BEGIN --------------
          CFILTOBS = filtdef_string(ifiltobs:ifiltobs)
 
          IF ( DO_NOMINAL ) then
-           ADDCOL_SNRMAX(ifilt)     = SNLC_SNRMAX_FILT(ifilt)
-           ADDCOL_XTMW(ifilt)       = SNLC_MWXT_FLUXFRAC(ifilt)
-           ADDCOL_FLUXCALMAX(ifilt) = SNLC_FLUXCALMAX(ifilt)
+           ADDCOL_SNRMAX(ifilt)           = SNLC_SNRMAX_FILT(ifilt)
+           ADDCOL_XTMW(ifilt)             = SNLC_MWXT_FLUXFRAC(ifilt)
+           ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX(ifilt)
+           ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
            ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
            ADDCOL_SNHOST_MAGOBS(ifilt,1)  = SNHOST_MAGOBS(ifilt,1) 
            ADDCOL_SNHOST_MAGOBS(ifilt,2)  = SNHOST_MAGOBS(ifilt,2) 
@@ -24628,6 +24729,7 @@ c check that each band is mapped.
            ADDCOL_SNRMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
 
            ADDCOL_XTMW(IFILT_REMAP) = SNLC_MWXT_FLUXFRAC(ifilt)
+           ADDCOL_PROB_TRUEFLUX(IFILT_REMAP) = PROB_TRUEFLUX(ifilt)
 
            VAL_OLD = ADDCOL_FLUXCALMAX(IFILT_REMAP)
            VAL_NEW = SNLC_FLUXCALMAX(ifilt)
@@ -24766,6 +24868,8 @@ c fill table.
 
          CCID_forC = CCID_forC(1:LENCCID) // char(0)
 
+         CALL RDSPEC_DRIVER(ISPEC)  ! Apr 5 2021
+
          CALL SPECPAK_DATA(
      &         CCID_forC
      &       , ID_SPECTRUM(ispec)
@@ -24773,10 +24877,10 @@ c fill table.
      &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
-     &       , LAMMIN_SPECTRUM(1,ispec)
-     &       , LAMMAX_SPECTRUM(1,ispec)
-     &       , FLAM_SPECTRUM(1,ispec)
-     &       , FLAMERR_SPECTRUM(1,ispec)
+     &       , LAMMIN_SPECTRUM
+     &       , LAMMAX_SPECTRUM
+     &       , FLAM_SPECTRUM
+     &       , FLAMERR_SPECTRUM
      &       , LENCCID )
 
           CALL SPECPAK_FILL(CCID_forC, LENCCID)

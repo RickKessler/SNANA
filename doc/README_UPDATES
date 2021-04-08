@@ -19809,4 +19809,16 @@
        [previously it returned mag=99 and flux=0, which could fool
         analysis codes]
 
+    snana.car:
+      + refactor reading spectra to read only 1 spectrum at a time to 
+        save memory.  RDSPEC_DRIVER(ISPEC) reads ISPEC spectrum from 
+        SNDATA struct. MXSPECTRUM -> 200 (was 40)
+      + new &SNLCINP  LPROB_TRUEFLUX=T to compute PROB_TRUEFLUX_[band]
+        and store in SNANA table. Used to determine anomalous flux cov.
+      + for reading fits format, check legacy DECL key if DEC does
+        not exist (bug fix from IO refactor)
+
+   sntable_dump.py[c]
+     + better abort trap when append fails.
+
 END: 

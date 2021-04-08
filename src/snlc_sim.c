@@ -1396,6 +1396,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // Function returns number of words read after the WOREDS[0] key.
   // i.e., WORDS[0] is not included in the return count.
   //
+  // Apr 6 2021: parse FLUXERRMODEL_REDCOV that was left out of refactor
 
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
@@ -1456,10 +1457,22 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
   }
+
+  else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
+    // .xyz
+    char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
+    N++; sscanf(WORDS[N], "%s", ctmp);
+    strcat(STR_REDCOV,WORDS[0] );   // store key name 
+    strcat(STR_REDCOV," ");         // blank space 
+    strcat(STR_REDCOV,ctmp );   // store argument
+    strcat(STR_REDCOV," ");         // blank space  
+    if ( IGNOREFILE(ctmp) ) { sprintf(STR_REDCOV,"NONE"); }
+
+  }
+
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
   }
-  // ??? FLUXERRMODEL_REDCOV ???
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
   }

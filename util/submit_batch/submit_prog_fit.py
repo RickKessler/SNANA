@@ -15,6 +15,7 @@
 #  was switched to fitopt,iver.
 #
 # Mar 17 2021: replace sntable_dump.pl with sntable_dump.py (perl->python)
+# Apr 07 2021: better error message when appending TEXT table fails.
 #
 # - - - - - - - - - -
 
@@ -1388,9 +1389,16 @@ class LightCurveFit(Program):
 
         cddir = (f"cd {script_dir}")
         cmd_append = (f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
+                      f"--VERBOSE " \
                       f"-v '{varlist_append}' " \
                       f"-a {text_table_file} > {append_log_file} 2>/dev/null")
-        os.system(f"{cddir} ; {cmd_append} ")
+        istat = os.system(f"{cddir} ; {cmd_append} ")
+
+        if istat != 0 :
+            msgerr.append(f"Failed to apppend variables")
+            msgerr.append(f"{varlist_append}")
+            msgerr.append(f"See {append_log_file}")
+            self.log_assert(False,msgerr) 
 
         # replace FITRES file with append file, 
         # and remove sntable* junk files

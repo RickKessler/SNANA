@@ -1014,12 +1014,14 @@ c pointer for calls to SNTABLE_ADDCOL.
 
       INTEGER
      &    ADDCOL_NDOF_FITPKMJD(MXFILT_ALL)
-
+     &   ,ADDCOL_NDOF_TRUEFLUX(MXFILT_ALL)
+ 
       COMMON / ADDCOL_FILTERCOM /
      &   ADDCOL_FILTERS
      &  ,ADDCOL_SNHOST_MAGOBS, ADDCOL_SNHOST_SBFLUXCAL 
      &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
-     &  ,ADDCOL_SNRMAX, ADDCOL_XTMW, ADDCOL_PROB_TRUEFLUX
+     &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
+     &  ,ADDCOL_PROB_TRUEFLUX, ADDCOL_NDOF_TRUEFLUX
 
 
 c - - - -- MULTI-SEASON STUFF - - - -
@@ -3271,6 +3273,70 @@ c (SURVEY, FILTERS ..) needed for initialization
       RETURN
       END    ! end INIT_READ_DATA
  
+C ==============================================
++DECK,PREP_VERSION_SUBFOLDER.
+      SUBROUTINE PREP_VERSION_SUBFOLDER()
+
+c Created Apr 7 2021
+c If VERSION_PHOTOMETTRY includes a sub-folder, e.g.,
+c     'JLA2014/JLA2014_CSP'
+c then reset VERSION_PHOTOMTRY = 'JLA2014_CSP' and update
+c PRIVATE_DATA_PATH to be 
+c      SNDATA_ROOT/JLA2014          ! if input path is ''
+c      [PRIVATE_DATA_PATH]/JLA2014  ! if input path is not ''
+c
+c Constraints
+c   - multiple versions must be under same folder
+c   - more than one slash in VERSION_PHOTOMETRY -> abort
+c   - $ in VERSION_PHOTOMETRY -> abort (no ENVs)
+c  
+c -------------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER iver, jslash, LENV, LENP
+      CHARACTER 
+     &   VERSION_ORIG*(MXCHAR_VERSION)
+     &  ,VERSION*(MXCHAR_VERSION)
+     &  ,FOLDER*(MXCHAR_VERSION)
+     &  ,PATH*(MXCHAR_PATH)
+
+C ------------- BEGIN ------------
+
+      DO iver = 1, N_VERSION
+         VERSION_ORIG = VERSION_PHOTOMETRY(iver)
+         jslash  = INDEX(VERSION_ORIG,'/')
+         LENV    = INDEX(VERSION_ORIG,' ') - 1
+	 IF ( jslash > 0 ) THEN
+            folder  = VERSION_ORIG(1:jslash-1)
+	    VERSION = VERSION_ORIG(jslash+1:LENV)
+	    VERSION_PHOTOMETRY(iver) = VERSION
+	    IF ( PRIVATE_DATA_PATH == ' ' ) THEN
+               LENP = INDEX(SNDATA_ROOT,' ') - 1
+               PRIVATE_DATA_PATH = SNDATA_ROOT(1:LENP) 
+     &              // '/lcmerge/' // folder 
+	    ELSE
+               LENP = INDEX(PRIVATE_DATA_PATH,' ') - 1
+               PRIVATE_DATA_PATH = PRIVATE_DATA_PATH(1:LENP) 
+     &              // '/' // folder
+	    ENDIF
+
+c xxxxxxxxx
+c            print*,' xxx -------------------------------------- '
+c            print*,' xxx VERSION_ORIG = ', VERSION_ORIG(1:40)
+c            print*,' xxx --> VERSION  = ', VERSION(1:40)
+c            print*,' xxx --> PATH = ', PRIVATE_DATA_PATH(1:80)
+c xxxxxxxxx
+
+         ENDIF
+      ENDDO
+
+      RETURN
+      END  ! end PREP_VERSION_SUBFOLDER
+
 C ==========================================
 +DECK,EXEC_READ_DATA.
       SUBROUTINE EXEC_READ_DATA(IVERS,OPTMASK)
@@ -6931,7 +6997,7 @@ c - - - - -
          DO ifilt    = 1, NFILTDEF_SURVEY
             CHI8     = DBLE( CHI2_TRUEFLUX(ifilt) )
             NDOF     = NDOF_TRUEFLUX(ifilt)
-            if ( NDOF > 5 ) then
+            if ( NDOF > 2 ) then
                PROB8    = PROB_CHI2NDOF(CHI8,NDOF)            
                PROB_TRUEFLUX(ifilt) = SNGL(PROB8)
             endif
@@ -12827,6 +12893,9 @@ c
 C ------------ BEGIN -----------
 
       IERR = 0
+
+c check for subfolder; e.g., VERSION_PHOTOMETRY = 'JLA2014/JLA2014_CSP'
+      CALL PREP_VERSION_SUBFOLDER()
 
 c use first version on list since all versions must have same format
       IVERS    =  1  
@@ -23725,9 +23794,15 @@ c      fit NDOF per filter
 
 c - - - - - -
       IF ( LPROB_TRUEFLUX .and. ISJOB_SIM ) THEN
+
         CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX,
+     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+
+        CALL TABLE_VARLIST_FILTERS('NDOF_TRUEFLUX','I', ADDCOL_FILTERS,
+     &         VARLIST, LENLIST )
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX,
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
       ENDIF
@@ -24684,6 +24759,7 @@ C ------------- BEGIN --------------
            ADDCOL_XTMW(IFILT_REMAP)       = -9.0
            ADDCOL_FLUXCALMAX(IFILT_REMAP) = -9.0
            ADDCOL_PROB_TRUEFLUX(IFILT_REMAP)      = -9.0
+           ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP)      =  0
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2)    = -9.0 
            ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP)   = -9.0
@@ -24698,6 +24774,7 @@ C ------------- BEGIN --------------
            ADDCOL_XTMW(ifilt)             = SNLC_MWXT_FLUXFRAC(ifilt)
            ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX(ifilt)
            ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
+           ADDCOL_NDOF_TRUEFLUX(ifilt)    = NDOF_TRUEFLUX(ifilt)
            ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
            ADDCOL_SNHOST_MAGOBS(ifilt,1)  = SNHOST_MAGOBS(ifilt,1) 
            ADDCOL_SNHOST_MAGOBS(ifilt,2)  = SNHOST_MAGOBS(ifilt,2) 
@@ -24730,6 +24807,7 @@ c check that each band is mapped.
 
            ADDCOL_XTMW(IFILT_REMAP) = SNLC_MWXT_FLUXFRAC(ifilt)
            ADDCOL_PROB_TRUEFLUX(IFILT_REMAP) = PROB_TRUEFLUX(ifilt)
+           ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP) = NDOF_TRUEFLUX(ifilt)
 
            VAL_OLD = ADDCOL_FLUXCALMAX(IFILT_REMAP)
            VAL_NEW = SNLC_FLUXCALMAX(ifilt)

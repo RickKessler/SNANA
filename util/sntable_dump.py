@@ -17,6 +17,11 @@
 # This python script is just a shell that calls underyling C program
 # sntable_dump.exe .
 #
+# Apr 7 2021
+#   + add flush statements
+#   + exit if Cprogram aborts
+#   + return error code for submit_batch_jobs
+#
 # ===================
 
 import os, sys, argparse, yaml
@@ -273,7 +278,10 @@ if __name__ == "__main__":
     config       = Namespace()
 
     if input_args.VERBOSE :
-        print(f"\n# =============== BEGIN =============== \n")
+        print(f"\n# =============== BEGIN =============== ")
+        command = ' '.join(sys.argv)
+        print(f" Full python command: \n{command} \n")
+        sys.stdout.flush()
 
     if input_args.list_tables: list_tables()
 
@@ -285,6 +293,7 @@ if __name__ == "__main__":
 
     if input_args.VERBOSE :
         print(f"  File format is {config.Format}")
+        sys.stdout.flush()
 
     # make sure table name is appropriate for file format
     config.table_name = check_table_name(input_args.table_name,config.Format)
@@ -294,15 +303,17 @@ if __name__ == "__main__":
     # construct command for C code
     config.command = make_command_sntable_dump(input_args,config)
 
-    #print(f"\n xxx input_args = {input_args}")
-    #print(f"\n xxx config     = {config}" )
-
     if input_args.VERBOSE :
-        print(f"\n command = \n    {config.command}\n" )
+        print(f"\n C-program command = \n    {config.command}\n" )
+        sys.stdout.flush()
 
-    os.system(config.command)
+    istat = os.system(config.command)
+
+    if istat != 0 : sys.exit(istat)
 
     # check option to combine_fitres files
     if input_args.append_file : append_fitres(input_args,config)
+
+    sys.exit(0)
 
     # === END ===

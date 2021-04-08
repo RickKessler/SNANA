@@ -202,7 +202,7 @@ def load_hubble_diagram(path, args, config):
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {path}"
             assert "MUERR_VPEC" in df.columns, msgerr
-            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2)
+            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df['biasScale_muCOV']*df["MUERR_VPEC"] ** 2)
             logging.debug("Subtracted MUERR_VPEC from MUERR")
         elif config.get("CALIBRATORS"):
             calib_mask = df["CID"].isin(config.get("CALIBRATORS"))

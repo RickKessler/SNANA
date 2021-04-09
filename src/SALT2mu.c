@@ -4175,6 +4175,8 @@ void *MNCHI2FUN(void *thread) {
   // The data loop starts at id_thread, and skips in steps of
   // nthread. For default nthread=1 (no thread), it is a normal 
   // loop over all events from 0 to NSN_DATA-1 
+  //
+  // Apr 8 2021: subtract muerr_vpec from muerr_raw
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4199,7 +4201,8 @@ void *MNCHI2FUN(void *thread) {
   double sqsigCC=0.001, sigCC_chi2penalty=0.0;
   double covmat_tot[NLCPAR][NLCPAR], covmat_fit[NLCPAR][NLCPAR] ;
   double gammaDM, M0, dl, mumodel ;
-  double muerr_raw, muerrsq_raw, muerrsq_tmp, muerr_update, muerrsq_update ; 
+  double muerr_raw, muerrsq_raw, muerr_vpec, muerrsq_vpec;
+  double muerrsq_tmp, muerr_update, muerrsq_update ; 
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
   int    cutmask, idsample, SIM_NONIA_INDEX, IS_SIM ; 
@@ -4544,9 +4547,14 @@ void *MNCHI2FUN(void *thread) {
 
       muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,
 				optmask_muerrsq );
-      muerr_raw   = sqrt(muerrsq_raw);
-      INFO_DATA.muerr_raw[n] = muerr_raw;   
-      INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
+
+      // compute diagnostic muerr_raw(from LC fit, no vpec, no sigint)
+      // and muerr_vpec (from vpec only). Neither include COVscale.
+      muerr_vpec      = fcn_muerrz(1, z, zmuerr); 
+      muerrsq_vpec    = muerr_vpec * muerr_vpec;
+      muerr_raw       = sqrt(muerrsq_raw - muerrsq_vpec);
+      INFO_DATA.muerr_raw[n]  = muerr_raw ;
+      INFO_DATA.muerr_vpec[n] = muerr_vpec ;
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
@@ -18786,10 +18794,19 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"CUTMASK");      NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MU");           NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUMODEL");      NVAR_APPEND++ ;  
+
+  // distance error from BBC
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");        NVAR_APPEND++ ;  
+
+  // see ??
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ;  
+
+  // contribution from LC fit only (no sigInt, no VPEC, no scale)
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");    NVAR_APPEND++ ;  
+
+  // contribution from VPEC only, no scale
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_VPEC");   NVAR_APPEND++ ;  
+
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");        NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");       NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");        NVAR_APPEND++ ;  
@@ -19210,7 +19227,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
   muerr         = INFO_DATA.muerr[n];
   muerr_renorm  = INFO_DATA.muerr_renorm[n];
-  muerr_raw     = INFO_DATA.muerr_raw[n] ;
+  muerr_raw     = INFO_DATA.muerr_raw[n] ; // from LC fit only
   muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
   mures         = INFO_DATA.mures[n] ;
   pull          = INFO_DATA.mupull[n] ;

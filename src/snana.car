@@ -5496,7 +5496,7 @@ c snana.exe GETINFO <VERSION_PHOTOMETRY>
       ENDIF
 
       RETURN
-      END   ! end PARSE_SNANA_ARGS
+      END      ! end PARSE_SNANA_ARGS
 
 
 C ==================================
@@ -5561,12 +5561,14 @@ c - - - - - - - - - - - -
          write(6,20) 'FORMAT:', 'FITS'
       endif
 
+c      LEN = INDEX(SURVEY_NAME,' ') - 1
+c      write(6,20) 'SURVEY:', SURVEY_NAME(1:LEN)
 
       CALL FLUSH(6)
       CALL EXIT(0)
 
       RETURN
-      END
+      END      ! end DUMP_INFO_VERSION_PHOTOMETRY
 
 C ==================================
 +DECK,RDSNNML.
@@ -9827,7 +9829,7 @@ c  + write new TEXT file for TEXT output
 
       LOGICAL    NOT_TOO_MANY
       CHARACTER  CCID*(MXCHAR_CCID), TEXTFILE*100, TEXTFILE_FULL*100
-      INTEGER    LEN_VER, LEN_TXT
+      INTEGER    LEN_VER, LEN_TXT, LEN_S
       EXTERNAL   WR_SNTEXTIO_DATAFILE
       
 C ---------- BEGIN ----------
@@ -9851,8 +9853,10 @@ c  allow updating a few variables for FITS format
 c        prepare name of text file         
          CCID    = SNLC_CCID(1:ISNLC_LENCCID) 
          LEN_VER = INDEX(REFORMAT_VERSION,' ') - 1
+	 LEN_S   = INDEX(SURVEY_NAME,' ') - 1
          textFile = 
-     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
+cc xxx     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
+     &       SURVEY_NAME(1:LEN_S) // '_' //
      &       SNLC_CCID(1:ISNLC_LENCCID) // '.DAT'
          LEN_TXT = INDEX(textfile,' ') - 1
          TEXTFILE_FULL = REFORMAT_VERSION(1:LEN_VER) // '/'  //
@@ -12419,6 +12423,11 @@ c ---------------------------------
 c check for FILTER_REPLACE option
 
       CALL INIT_FILTER_REPLACE()
+
+c Apr 2021: check option to use survey name for TEXTFILE_PREFIX 
+      if ( TEXTFILE_PREFIX(1:6) == 'SURVEY' ) then
+          TEXTFILE_PREFIX = SURVEY_NAME
+      endif
 
       RETURN
       END      ! end of INIT_SURVEY

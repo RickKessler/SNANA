@@ -23710,6 +23710,10 @@ c always write LOGMASS and SFR
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
++SELF,IF=BUGGY.
+c Apr 2021: EXIST_SNHOST_ANGSEP is sometimes T/F on first event,
+c           so merging ROOT/HBOOK files can fail.
+c
 c Feb 2019: a few things for existing ANGSEP
       IF ( EXIST_SNHOST_ANGSEP ) THEN 
 
@@ -23729,6 +23733,7 @@ c     &     LENBLOCK_L, 20 )
          CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR(2), VARLIST,0,
      &       LENBLOCK, 20 )
       ENDIF
++SELF.
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 1                       ! default is no TEXT output ...

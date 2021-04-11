@@ -276,7 +276,14 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
       // get min/max VALUE range for random selection;
       // function here returns VAL_RANGE
-      get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
+
+      if ( IS_LOGPARAM ) {
+	VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+	VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+      }
+      else {
+	get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
+      }
 
       // - - - - - -
       LDMP = 0; // (NCALL_GENPDF < 5 );
@@ -394,7 +401,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   //  VAL_RANGE[1] = max(val_inputs[0]) for which PROB > 0
   //
   // Inputs:
-  //   IDMAP  : integr ID of GRIDMAP
+  //   IDMAP  : integer ID of GRIDMAP
   //   val_inputs : includes HOSTLIB and PROB elements 1 to NDIM
   //                 val_inputs[0] is varied to see where PROB>0.
   //
@@ -405,7 +412,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   //   + add and subtract 1*BINSIZE to range.
   //   + check OPTMASK for SLOW option using full range.
   //
-  // xxx mark delete  bool   CHECK_PROB0 = true;
+
   int    NBIN_CHECKPROB0 = 10 ;
   double XNBIN = (double)NBIN_CHECKPROB0;
   
@@ -418,7 +425,6 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
 
   if ( OPTMASK_GENPDF & OPTMASK_GENPDF_SLOW ) { return; }
-  // xxx mark delete  if ( !CHECK_PROB0 ) { return; }
 
   VAL_RANGE_PROB[0] = 9.0E12;  VAL_RANGE_PROB[1] = -9.0E12 ;
   VAL_BINSIZE = (VAL_RANGE[1] - VAL_RANGE[0]) / XNBIN; 

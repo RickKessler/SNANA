@@ -145,7 +145,6 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9 ; // init for below
       }
 
-
       // check options to rejet or ignore map(s)
       ptrVar = GENPDF[NMAP].VARNAMES[0] ;
       IGNORE_MAP = false;
@@ -184,8 +183,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // - - - - - - - -
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
-  int ivar_hostlib ;
-  int ABORTFLAG = 0 ;
+  bool IS_LOGPARAM;
+  int  ivar_hostlib, imap_tmp ;
+  int  ABORTFLAG = 0 ;
   char *VARNAME;
   for(imap=0; imap < NMAP; imap++ ) {
 
@@ -200,6 +200,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	sprintf(c2err,"Check HOSTLIB and check GENPDF_FILE");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
+ 
+      //   imap_tmp= IDMAP_GENPDF(VARNAME, &IS_LOGPARAM);
+
       printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
 	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );
       GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
@@ -469,7 +472,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   return;
 } // end get_VAL_RANGE_genPDF
 
-// ========================================
+// ==========================================================
 int IDMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
 
   // return IDMAP for this input parName.

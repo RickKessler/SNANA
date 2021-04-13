@@ -6653,7 +6653,10 @@ c for TEXT format, exclude HOSTGAL info by default
 
 c --------------------------------------
 c bail of there is nothing to do.
-      DO_SNTABLE = SNTABLE_LIST .NE. ' '
+      DO_SNTABLE = .TRUE.
+      IF ( SNTABLE_LIST      .EQ. ' '    ) DO_SNTABLE = .FALSE.
+      IF ( SNTABLE_LIST(1:4) .EQ. 'NONE' ) DO_SNTABLE = .FALSE.
+
       IF ( .NOT. DO_SNTABLE    ) RETURN   
 
 c ---------------------------------------

@@ -8598,9 +8598,12 @@ int init_SNDATA_EVENT(void) {
   SNDATA.HOSTGAL_CONFUSION = -99.0;
 
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
-    SNDATA.HOSTGAL_OBJID[igal]        = 0;
+    SNDATA.HOSTGAL_OBJID[igal]        =  0 ;
+    SNDATA.HOSTGAL_SPECZ[igal]        = -9.0 ;
+    SNDATA.HOSTGAL_SPECZ_ERR[igal]    = -9.0 ;
     SNDATA.HOSTGAL_PHOTOZ[igal]       = -9.0 ;
     SNDATA.HOSTGAL_PHOTOZ_ERR[igal]   = -9.0 ;
+
     SNDATA.HOSTGAL_SNSEP[igal]        = -9.0 ;
     SNDATA.HOSTGAL_RA[igal]           = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]          = -999.0 ;

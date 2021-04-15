@@ -499,8 +499,8 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                 fit_time = fit_time[
                     np.where(
                         np.logical_and(np.logical_and(fit_time >= minx, fit_time <= maxx),
-									   np.logical_and(fit_time >= fits["trange"][all_bands[j]][0],
-													  fit_time <= fits["trange"][all_bands[j]][1]))
+                                       np.logical_and(fit_time >= fits["trange"][all_bands[j]][0],
+                                                      fit_time <= fits["trange"][all_bands[j]][1]))
                         )[0]
                 ]
                 ax[i].plot(
@@ -608,7 +608,7 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
     else:
         private_path = ""
     genversion += private_path
-
+    
     if nml is not None:
         if cid_list is not None:
             cmd = (
@@ -650,19 +650,30 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
                 + rand
                 + ".LOG"
             )
+    elif cid_list is None:
+        cmd = (
+            "snana.exe NOFILE VERSION_PHOTOMETRY "
+            + genversion
+            + " MXEVT_PROCESS 5 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)'"
+            + " TEXTFILE_PREFIX 'OUT_TEMP_"
+            + rand
+            + "' > OUT_TEMP_"
+            + rand
+            + ".LOG"
+        )
     else:
         cmd = (
             "snana.exe NOFILE VERSION_PHOTOMETRY "
             + genversion
             + " SNCCID_LIST "
             + cid_list
-            + " CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"
+            + " CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PRE\
+FIX 'OUT_TEMP_"
             + rand
-            + "' > OUT_TEMP_"
-            + rand
+                + "' > OUT_TEMP_"
+                + rand
             + ".LOG"
         )
-
     os.system(cmd)
     with open("OUT_TEMP_" + rand + ".LOG", "rb+") as f:
         content = f.read()
@@ -678,7 +689,7 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
         sys.exit()
 
     if cid_list is None:
-        with open("OUT_TEMP_" + rand + ".FITRES.TEXT", "rb") as f:
+        with open("OUT_TEMP_" + rand + ".LCLIST.TEXT", "rb") as f:
             all_dat = f.readlines()
         all_cids = []
         for line in all_dat:

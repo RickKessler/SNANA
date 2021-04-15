@@ -1545,12 +1545,13 @@ c from WFIRST sims
 +KEEP,TRUECHI2COM.
 
 c for fakes and sim, compute sum[F-Ftrue]^2/sigma^2 per band
+c The zeroth element is all bands together.
 
       REAL    
-     &   CHI2_TRUEFLUX(MXFILT_ALL)
-     &  ,PROB_TRUEFLUX(MXFILT_ALL)
+     &   CHI2_TRUEFLUX(0:MXFILT_ALL)
+     &  ,PROB_TRUEFLUX(0:MXFILT_ALL)
 
-      INTEGER NDOF_TRUEFLUX(MXFILT_ALL)
+      INTEGER NDOF_TRUEFLUX(0:MXFILT_ALL)
 
       COMMON /  TRUECHI2COM / 
      &   NDOF_TRUEFLUX, CHI2_TRUEFLUX, PROB_TRUEFLUX
@@ -6979,7 +6980,7 @@ C ------------- BEGIN -------------
       IF ( .NOT. ISJOB_SIM      ) RETURN ! fakes or SNANA sim
 
       IF ( ep == 0 ) THEN        
-         DO IFILT = 1, NFILTDEF_SURVEY
+         DO IFILT = 0, NFILTDEF_SURVEY
             NDOF_TRUEFLUX(ifilt) =   -1
             CHI2_TRUEFLUX(ifilt) =  0.0
             PROB_TRUEFLUX(ifilt) = -9.0
@@ -6996,6 +6997,9 @@ c - - - - -
             CHI2      = SIM_EPCHI2FLUX(ep) 
             CHI2_TRUEFLUX(ifilt) = CHI2_TRUEFLUX(ifilt) + CHI2
             NDOF_TRUEFLUX(ifilt) = NDOF_TRUEFLUX(ifilt) + 1
+
+            CHI2_TRUEFLUX(0) = CHI2_TRUEFLUX(0) + CHI2
+            NDOF_TRUEFLUX(0) = NDOF_TRUEFLUX(0) + 1
          ENDIF
       ELSE
          ! compute FITPROB per band
@@ -7006,6 +7010,15 @@ c - - - - -
                PROB8    = PROB_CHI2NDOF(CHI8,NDOF)            
                PROB_TRUEFLUX(ifilt) = SNGL(PROB8)
             endif
+
+c global with all filters
+            CHI8     = DBLE( CHI2_TRUEFLUX(0) )
+            NDOF     = NDOF_TRUEFLUX(0)
+            if ( NDOF > 2 ) then
+               PROB8    = PROB_CHI2NDOF(CHI8,NDOF)            
+               PROB_TRUEFLUX(0) = SNGL(PROB8)
+            endif
+
         ENDDO
       ENDIF
 
@@ -23447,6 +23460,7 @@ c local var
 +CDE,PKMJDCOM.
 +CDE,REQEPCOM.
 +CDE,OUTLIERCOM.
++CDE,TRUECHI2COM.
 
       INTEGER 
      &   IFILT, IFILT_OBS, ITEXT
@@ -23812,6 +23826,12 @@ c      fit NDOF per filter
 c - - - - - -
       IF ( LPROB_TRUEFLUX .and. ISJOB_SIM ) THEN
 
+c global PROB_TRUEFLUX for all bands combined
+        VARNAME   = 'PROB_TRUEFLUX:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, PROB_TRUEFLUX(0),
+     &        VARNAME(1:20), 1, LENBLOCK, 20)
+
+c ... and for each individual band
         CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX,

@@ -21792,6 +21792,8 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   // Mar 12 2020:
   //  Fix bug applying INPUTS.FUDGESCALE_FLUXERR_FILTER(2) because
   //  it was using undefined SQSCALE.
+  //
+  // Apr 14 2021: abort of SQSIG_F<0 (happens if err scale < 1)
 
   int    ifilt_obs  = GENLC.IFILT_OBS[epoch] ;
   char   *FIELD     = GENLC.FIELDNAME[epoch];
@@ -21824,7 +21826,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   int    OVP, itype ;
   double SCALE, SQSCALE, magerr_tmp, fluxErr_tmp ;
   double SQSIG_TRUE[NTYPE_FLUXNOISE];
-  double SQSIG_DATA, SQSIG_TMP, SNR_MON, SQSIG_SCALED ;
+  double SQSIG_DATA, SQSIG_TMP, SNR_MON, SQSIG_SCALED, SQSIG_F ;
   char   BAND[2];
   char   fnam[] = "gen_fluxNoise_fudge_diag" ;
 
@@ -21897,7 +21899,19 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     // don't modify true SQSIG(S); instead, add extra error to FUDGE term.
     SQSIG_TMP    = SQSIG_TRUE[TYPE_FLUXNOISE_S] ; 
     SQSIG_SCALED = SQSCALE * SQSIG_TMP ;
-    SQSIG_TRUE[TYPE_FLUXNOISE_F] = SQSIG_SCALED - SQSIG_TMP;
+    SQSIG_F      = SQSIG_SCALED - SQSIG_TMP;
+    SQSIG_TRUE[TYPE_FLUXNOISE_F] = SQSIG_F;
+
+    if ( SQSIG_F < 0.0 ) {
+      print_preAbort_banner(fnam);
+      printf("  MJD  = %le \n", MJD);
+      printf("  BAND = %s \n", BAND);
+      printf("  PSFSIG1=%.3f  SBmag=%.3f\n", PSFSIG1, SBmag );
+
+      sprintf(c1err,"Invalid SQSIG_FUDGE = %f < 0", SQSIG_F);
+      sprintf(c2err,"fluxErrScale probably < 1");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
 
     SQSIG_TRUE[TYPE_FLUXNOISE_T] *= SQSCALE ; // scale template noise
 

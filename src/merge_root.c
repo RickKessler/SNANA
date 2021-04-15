@@ -84,6 +84,7 @@ int main(int argc, char **argv) {
 
 #ifdef USE_ROOT
   MERGE_ROOT(NF,inF,outF); 
+  fflush(stdout);
 #endif
 
   return(0);

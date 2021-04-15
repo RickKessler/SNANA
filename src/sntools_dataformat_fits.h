@@ -29,7 +29,7 @@
 
   July 25 2017: MXFILE_SNFITSIO -> 100 (was 50) 
   Mar  23 2019: MXFILE_SNFITSIO -> 300 (was 100) 
-
+  Apr  12 2021: MXFILE_SNFITSIO -> 500 (was 300)
 **************************************************/
 
 // ==================================
@@ -46,7 +46,7 @@
 #define OPTMASK_SNFITSIO_PHOT    4
 #define OPTMASK_SNFITSIO_SPEC    8
 
-#define MXFILE_SNFITSIO     300  // max number of fits-files to read
+#define MXFILE_SNFITSIO     500  // max number of fits-files to read
 #define MXPAR_SNFITSIO      400  // max number of header variables
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
@@ -233,7 +233,7 @@ int  IPAR_SNFITSIO(int OPT, char *parName, int itype );
 int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
 
 // Now the readback routines
-void  RD_SNFITSIO_INIT(void);
+void  RD_SNFITSIO_INIT(int init_num);
 int   RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version);
 int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
 int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
@@ -279,7 +279,7 @@ void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 
 // ------- mangled RD functions for snana/fortran -----------
 
-void rd_snfitsio_init__(void);
+void rd_snfitsio_init__(int *init_num);
 int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version) ;
 int  rd_snfitsio_global__(char *parName, char *parString) ;
 int  rd_snfitsio_event__(int *OPT, int *isn);

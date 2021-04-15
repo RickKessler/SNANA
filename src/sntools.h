@@ -60,7 +60,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_02j"           
+#define  SNANA_VERSION_CURRENT  "v11_02l"             
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -87,7 +87,8 @@
 #define TWOPI     6.28318530718
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
-#define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
+#define ZMAX_SNANA   4.0        // max snana redshift, Dec 26 2016
+#define PSFMAX_SNANA 5.0        // max allowed PSF, FWHM, arcsec (Mar 2021) 
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings
 #define PERCENT    "%"              // idem for %-sep strings
@@ -104,19 +105,19 @@
 
 #define REJECT_FLAG    -1  
 #define ACCEPT_FLAG    +1
-#define ERROR     -1  // use these as return args for int functions
-#define SUCCESS   +1
-#define NULLINT    -9 
-#define NULLFLOAT  -9.0 
-#define NULLDOUBLE (double)-9.0 
-#define NULLSTRING "NULL"
-#define NODOUBLE      (double)1.7777E14
-#define NOFLOAT       (float)1.7777E14
-#define NOINT         555444333
+#define ERROR          -1  // use these as return args for int functions
+#define SUCCESS        +1
+#define NULLINT        -9 
+#define NULLFLOAT      -9.0 
+#define NULLDOUBLE     (double)-9.0 
+#define NULLSTRING     "NULL"
+#define NODOUBLE       (double)1.7777E14
+#define NOFLOAT        (float)1.7777E14
+#define NOINT          555444333
 #define BLANK_STRING   ""
 #define NOTSET_STRING  "NOTSET" // init str pointers to avoid compile error
-
 #define NULLTYPE    0   // SN type with no TYPE in data base.
+#define FIELD_NONAME  "VOID"  // avoid using 'NULL' to avoid python problem.
 
 #define INDEX_NOTSATURATE 0
 #define INDEX_SATURATE    1
@@ -508,7 +509,7 @@ bool correct_sign_vpec_data(char *snana_version_data);
 bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-void set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
+// xxxvoid set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
@@ -579,10 +580,12 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
-void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *stringPoly, char *varName, 
-		   GENPOLY_DEF *GENPOLY, char *callFun );
+void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
+void   parse_GENPOLY(char *stringPoly, char *varName, 
+		     GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
+void   copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT);
+
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);
@@ -601,7 +604,7 @@ double asinhinv(double mag, int ifilt);
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 
-// xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
+/* xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
 int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
 void  wr_HOSTGAL(FILE *fp);
 void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ; 
@@ -612,7 +615,7 @@ int  wr_filtband_float ( FILE *fp, char *keyword,
 int  header_merge(FILE *fp, char *auxheader_file);
 int  sort_epochs_bymjd(void);
 int   WRSTAT ( int wrflag, float value ) ;
-// xxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxx */
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -879,7 +882,8 @@ int    get_1DINDEX(int ID, int NDIM, int *indx );
 void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-void set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
+
+// xxxvoid set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
 
 void copy_sndata_global__(int *copyFlag, char *key,
 			  int *NVAL, char *stringVal,double *parVal);

@@ -86,13 +86,13 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"SNID:     %s\n", SNDATA.CCID);
   fprintf(fp,"IAUC:     %s\n", SNDATA.IAUC_NAME);
-  // fprintf(fp,"SNTYPE:   %d\n", SNDATA.SEARCH_TYPE);
   fprintf(fp,"SNTYPE:   %d\n", SNDATA.SNTYPE);
   fprintf(fp,"RA:       %.6f  # deg\n", SNDATA.RA);
   fprintf(fp,"DEC:      %.6f  # deg\n", SNDATA.DEC);
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
   fprintf(fp,"PIXSIZE:  %.4f  # arcsec \n", SNDATA.PIXSIZE);
-  fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0] );
+
+  // xxx mark Mar 15 2021 fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0]);
 
   int FAKE = SNDATA.FAKE ;
   if ( FAKE < 0 ) {
@@ -138,8 +138,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   // - - - - - - - - -  -
   // SIM_ info
-  if ( SNDATA.WRFLAG_BLINDTEST      ) { return; } // skip for BLIND test
-  if ( SNDATA.FAKE == FAKEFLAG_DATA ) { return; } // skip for real data
+  if ( SNDATA.WRFLAG_BLINDTEST       ) { return; } // skip for BLIND test
+  if ( SNDATA.FAKE == FAKEFLAG_DATA  ) { return; } // skip for real data
+  if ( SNDATA.FAKE == FAKEFLAG_FAKES ) { return; } // skip for fakes
 
   wr_dataformat_text_SIMPAR(fp);
 
@@ -563,6 +564,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
+  bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
+
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
   char VARLIST[200], cvar[40], cval[40], LINE_EPOCH[200] ;
@@ -572,8 +575,10 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  
-  NVAR++ ;  strcat(VARLIST,"FLT ");
+  NVAR++ ;  strcat(VARLIST,"BAND ");
+  if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
   NVAR++ ;  strcat(VARLIST,"FIELD ");
+
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
   NVAR++ ;  strcat(VARLIST,"FLUXCALERR ");
 
@@ -625,7 +630,12 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%s ",  SNDATA.FILTCHAR[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%s ",  SNDATA.FIELDNAME[ep] ); 
+    if ( WRFLAG_CCDNUM ) {
+      sprintf(cval,"%3d ", SNDATA.CCDNUM[ep]);
+      NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+    }
+
+    sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL[ep] ); 
@@ -708,12 +718,16 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 // =====================================================
 void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
-  bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
-  // xxx mark delete Feb 24 2021 int  NMJD       = GENSPEC.NMJD_TOT ;
-  int  NMJD       = GENSPEC.NMJD_PROC ;  // Feb 24 2021
-  int  NBLAM_TOT  = GENSPEC.NBLAM_TOT ;
+  // Write spectra in TEXT format.
   
-  int  NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
+  // Apr 02 2021: fix to work after reading spectra from FITS format
+  //   (e..g, from sims)
+
+  bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
+  int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
+  int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
+  
+  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
   int  imjd, ilam ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP ;
 
@@ -722,7 +736,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   // ------------ BEGIN -----------
 
-  if ( NMJD == 0 ) { return; }
+  if ( NMJD_PROC == 0 ) { return; }
 
   VARLIST[0] = NVAR = 0 ;
 
@@ -739,22 +753,22 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
   // write header info                                                          
   fprintf(fp,"\n# ============================================= \n");
-  fprintf(fp,"NSPECTRA:   %d \n\n",  NMJD);
+  fprintf(fp,"NSPECTRA:   %d \n\n",  NMJD_PROC );
   fprintf(fp,"NVAR_SPEC:  %d \n",    NVAR );
   fprintf(fp,"VARNAMES_SPEC: %s \n", VARLIST);
 
-  for(imjd=0; imjd < NMJD; imjd++ ) {
+  for(imjd=0; imjd < NMJD_TOT; imjd++ ) {
+    if ( GENSPEC.SKIP[imjd] ) { continue ; }
+
     IDSPEC = imjd + 1 ;  // start at 1                                          
+    NBLAM_TOT   = GENSPEC.NBLAM_TOT[imjd] ;
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
     IS_HOST     = GENSPEC.IS_HOST[imjd];
-
-    if ( NBLAM_VALID == 0 ) { return; } // suppress legacy bug (Aug 23 2017)
 
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ;
 
     fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", 
 	    GENSPEC.MJD_LIST[imjd]);
-
     if ( IS_HOST )
       { fprintf(fp, "# HOST \n"); }
     else
@@ -789,41 +803,39 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     NVAR_EXPECT = NVAR ;
 
     for(ilam=0; ilam < NBLAM_TOT; ilam++ ) {
-      GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
-      GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
+
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
       FLAMERR    = GENSPEC.FLAMERR_LIST[imjd][ilam];
-      WARP       = GENSPEC.FLAMWARP_LIST[imjd][ilam];
 
       if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values            
+      L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
+      L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
+      LCEN    = 0.5*(L0+L1);
+
+      /* xxxxxxxxx mark delete Apr 2 2021 xxxxxxxxxxx
       L0      = INPUTS_SPECTRO.LAMMIN_LIST[ilam];
       L1      = INPUTS_SPECTRO.LAMMAX_LIST[ilam];
       LCEN    = INPUTS_SPECTRO.LAMAVG_LIST[ilam];
+      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
 
       NVAR = 0; sprintf(tmpLine,"SPEC: ");
-
-      sprintf(cval, "%8.2f ", L0);
-      NVAR++ ; strcat(tmpLine,cval);
-      sprintf(cval, "%8.2f ", L1);  
-      NVAR++ ; strcat(tmpLine,cval);
-
-      sprintf(cval, "%10.3le ", FLAM);  
-      NVAR++ ; strcat(tmpLine,cval);
-      sprintf(cval, "%10.3le ", FLAMERR);  
-      NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%8.2f ",   L0);       NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%8.2f ",   L1);       NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%10.3le ", FLAM);     NVAR++ ; strcat(tmpLine,cval);
+      sprintf(cval, "%10.3le ", FLAMERR);  NVAR++ ; strcat(tmpLine,cval);
 
       if ( WRFLAG_SIM ) {
-	sprintf(cval, "%10.3le ", GENFLAM);  
-	NVAR++ ; strcat(tmpLine,cval);
+	GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
+	GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
 
-	sprintf(cval, "%.2f ", GENMAG);  
-	NVAR++ ; strcat(tmpLine,cval);
+	sprintf(cval, "%10.3le ", GENFLAM);  NVAR++ ; strcat(tmpLine,cval);
+	sprintf(cval, "%.2f ",    GENMAG);   NVAR++ ; strcat(tmpLine,cval);
 
 	if ( GENSPEC.USE_WARP ) {
+	  WARP  = GENSPEC.FLAMWARP_LIST[imjd][ilam];
 	  sprintf(cval,"%6.3f ", WARP );
 	  NVAR++ ; strcat(tmpLine,cval);
-	}
-	  
+	}	  
       } // end WRFLAG_SIM
 
       fprintf(fp,"%s \n", tmpLine);
@@ -856,17 +868,24 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
 *************************************************************/
 
-void RD_SNTEXTIO_INIT(void) {
+void RD_SNTEXTIO_INIT(int init_num) {
+
   // Feb 2021: one-time init
+  // init_num = 1 --> first init --> init everything
+  // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
+  //        so avoid re-mallocing strings.
+
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
   SNTEXTIO_VERSION_INFO.PHOT_VERSION[0] = 0 ;
   SNTEXTIO_VERSION_INFO.DATA_PATH[0]    = 0 ;
   check_head_sntextio(0);
 
-  init_SNDATA_GLOBAL();
-  init_SNDATA_EVENT();
-  init_GENSPEC_GLOBAL();
+  if ( init_num == 1 ) {
+    init_SNDATA_GLOBAL();
+    init_SNDATA_EVENT();
+    init_GENSPEC_GLOBAL();
+  }
 
   return ;
 } // end RD_SNTEXTIO_INIT
@@ -934,7 +953,7 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
 
 // - - - - - 
-void rd_sntextio_init__(void) { RD_SNTEXTIO_INIT(); }
+void rd_sntextio_init__(int *init_num) { RD_SNTEXTIO_INIT(*init_num); }
 
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION)
 { return RD_SNTEXTIO_PREP(*MSKOPT, PATH,VERSION); }
@@ -1028,6 +1047,7 @@ void  rd_sntextio_global(void) {
   // Created Feb 2021
   // Open first text file and read info that is global;
   // skip SN-dependent info. Stop reading at first "OBS:" key.
+  //
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1072,6 +1092,12 @@ void  rd_sntextio_global(void) {
 
       // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
       extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
+
+      /* xxxxxxx
+      if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) 
+	{ sprintf(SNDATA.SUBSURVEY_NAME,"%s", SNDATA.SURVEY_NAME); }
+      xxxx */
+
     }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {
@@ -1089,6 +1115,12 @@ void  rd_sntextio_global(void) {
       else if ( ITMP == FAKEFLAG_FAKES ) 
 	{ sprintf(SNDATA.DATATYPE, "%s", DATATYPE_SIM_MAGOBS); } 
     }
+
+    else if ( strcmp(word0,"NXPIX:") == 0 ) 
+      {	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NXPIX ) ; }
+    else if ( strcmp(word0,"NYPIX:") == 0 ) 
+      {	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX ) ; }
+
     else if ( IS_PRIVATE ) {
       SNDATA.NVAR_PRIVATE++ ; // note fortran-like index
       NVAR = SNDATA.NVAR_PRIVATE ;
@@ -1189,6 +1221,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
   IVAROBS_SNTEXTIO.MJD = IVAROBS_SNTEXTIO.BAND = IVAROBS_SNTEXTIO.FIELD = -9 ;
   IVAROBS_SNTEXTIO.FLUXCAL = IVAROBS_SNTEXTIO.FLUXCALERR = -9 ;
+  IVAROBS_SNTEXTIO.MAG = IVAROBS_SNTEXTIO.MAGERR = -9 ;
   IVAROBS_SNTEXTIO.ZPFLUX = IVAROBS_SNTEXTIO.ZPERR = -9;
   IVAROBS_SNTEXTIO.PSF_SIG = IVAROBS_SNTEXTIO.NEA = -9;
   IVAROBS_SNTEXTIO.PSF_FWHM = -9;
@@ -1216,21 +1249,25 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     if ( strcmp(varName,"MJD") == 0 ) 
       { IVAROBS_SNTEXTIO.MJD = ivar; }
 
-    else if ( strcmp(varName,"BAND") == 0 ) 
+    else if ( strcmp(varName,"BAND") == 0 || strcmp(varName,"FLT")==0 ) 
       { IVAROBS_SNTEXTIO.BAND = ivar; }
-    else if ( strcmp(varName,"FLT") == 0 ) 
-      { IVAROBS_SNTEXTIO.BAND = ivar; }
+
+    else if ( strcmp(varName,"CCDNUM") == 0 ) 
+      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 
       { IVAROBS_SNTEXTIO.FIELD = ivar; }
+
     else if ( strcmp(varName,"FLUXCAL") == 0 )  
       { IVAROBS_SNTEXTIO.FLUXCAL = ivar; }
     else if ( strcmp(varName,"FLUXCALERR") == 0 ) 
       { IVAROBS_SNTEXTIO.FLUXCALERR = ivar; }
 
     // check obsolete keys left in very old data files
-    else if ( strcmp(varName,"MAG")    == 0 )  { ; }  
-    else if ( strcmp(varName,"MAGERR") == 0 )  { ; }
+    else if ( strcmp(varName,"MAG")    == 0 )  
+      { IVAROBS_SNTEXTIO.MAG = ivar ; }  
+    else if ( strcmp(varName,"MAGERR") == 0 )  
+      { IVAROBS_SNTEXTIO.MAGERR = ivar ; }
     else if ( strcmp(varName,"SNR")    == 0 )  { ; } // in SNLS3year_MEGACAM
 
     else if ( strcmp(varName,"PHOTFLAG") == 0 ) 
@@ -1246,7 +1283,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.PSF_FWHM = ivar; }    // arcSec
 
     else if ( strcmp(varName,"NEA") == 0 )  
-      { IVAROBS_SNTEXTIO.NEA = ivar; }   
+      { IVAROBS_SNTEXTIO.NEA = ivar; SNDATA.NEA_PSF_UNIT=true; }   
 
     else if ( strcmp(varName,"ZPFLUX") == 0 ||
 	      strcmp(varName,"ZPT")    == 0 ||
@@ -1267,8 +1304,6 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.XPIX = ivar; }  
     else if ( strcmp(varName,"YPIX") == 0 ) 
       { IVAROBS_SNTEXTIO.YPIX = ivar; }  
-    else if ( strcmp(varName,"CCDNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  
@@ -1426,6 +1461,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     SNTEXTIO_FILE_INFO.NWD_TOT    = NWD ;
     SNTEXTIO_FILE_INFO.IPTR_READ  = 0 ;
     SNTEXTIO_FILE_INFO.NOBS_READ  = 0 ;
+    SNTEXTIO_FILE_INFO.NOBS_NaN   = 0 ;
     SNTEXTIO_FILE_INFO.NSPEC_READ = 0 ;
     SNTEXTIO_FILE_INFO.NVAR_PRIVATE_READ = 0 ;
     init_SNDATA_EVENT();
@@ -1463,12 +1499,19 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     }
 
     int NOBS_READ   =  SNTEXTIO_FILE_INFO.NOBS_READ ;
+    int NOBS_NaN    =  SNTEXTIO_FILE_INFO.NOBS_NaN ;
     int NOBS_EXPECT =  SNDATA.NOBS; 
     if ( NOBS_READ != NOBS_EXPECT ) {
       sprintf(c1err,"Read %d OBS rows for CID=%s", 
 	      NOBS_READ, SNDATA.CCID );
       sprintf(c2err,"but expected %d rows from NOBS key.", NOBS_EXPECT);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+    }
+
+    if ( NOBS_NaN > 0 ) {
+      sprintf(c1err,"Found %d NaN errors for CID=%s", NOBS_NaN, SNDATA.CCID);
+      sprintf(c2err,"Fix your TEXT formatted data files");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
     }
 
   } // end LRD_OBS
@@ -1598,7 +1641,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.NYPIX );
   }
   else if ( strcmp(word0,"CCDNUM:") == 0 ) {
-    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[1] );
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[0] );
   }
   else if ( strcmp(word0,"TYPE:")==0 || strcmp(word0,"SNTYPE:")==0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );
@@ -1615,6 +1658,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     parse_plusminus_sntextio(word0, "REDSHIFT_HELIO", &iwd, 
 			     &SNDATA.REDSHIFT_HELIO, 
 			     &SNDATA.REDSHIFT_HELIO_ERR );
+    SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_z] = true ;
   }
   else if ( strstr(word0,"REDSHIFT_FINAL") != NULL ) {
     parse_plusminus_sntextio(word0, "REDSHIFT_FINAL", &iwd, 
@@ -2145,12 +2189,15 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
   // Function returns true to keep reading;
   // returns false when end of header is reached by 
   // finding NOBS key.
+  //
+  // Apr 2 2021: use get_dbl_sntextio_obs to check for NaN
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
   int  ep, ivar, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
-  float PSF_FWHM;
+  float PSF_FWHM ;
+  double dval;
   char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
   char STRING[40];  
   char fnam[] = "parse_SNTEXTIO_OBS";
@@ -2183,22 +2230,28 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     // require MJD in first column
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.MJD] ;
     sscanf(str, "%le", &SNDATA.MJD[ep] );
-    SNDATA.OBSFLAG_WRITE[ep] = true ; 
+    SNDATA.OBSFLAG_WRITE[ep] = true ;
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     sprintf(SNDATA.FILTCHAR[ep], "%s", str);
     catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;
+    if ( strcmp(str,"NULL") == 0 ) { sprintf(str,FIELD_NONAME); }
     sprintf(SNDATA.FIELDNAME[ep], "%s", str);
     catVarList_with_comma(SNDATA.FIELDNAME_1D,str);
 
-    str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FLUXCAL] ;
-    sscanf(str, "%f", &SNDATA.FLUXCAL[ep] );
+    dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.FLUXCAL, ep);
+    SNDATA.FLUXCAL[ep] = (float)dval;
 
-    str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FLUXCALERR] ;
-    sscanf(str, "%f", &SNDATA.FLUXCAL_ERRTOT[ep] );
-    
+    dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.FLUXCALERR, ep);
+    SNDATA.FLUXCAL_ERRTOT[ep] = (float)dval;
+
+    if ( IVAROBS_SNTEXTIO.MAG >= 0 ) {
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.MAG, ep);
+      SNDATA.MAG[ep] = (float)dval ;
+    }
+
     if ( IVAROBS_SNTEXTIO.PHOTFLAG >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PHOTFLAG] ;
       sscanf(str, "%d", &SNDATA.PHOTFLAG[ep] );
@@ -2209,53 +2262,53 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     }
 
     if ( IVAROBS_SNTEXTIO.ZPFLUX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.ZPFLUX] ;
-      sscanf(str, "%f", &SNDATA.ZEROPT[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.ZPFLUX, ep);
+      SNDATA.ZEROPT[ep] = (float)dval ;
     }
     if ( IVAROBS_SNTEXTIO.ZPERR >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.ZPERR] ;
-      sscanf(str, "%f", &SNDATA.ZEROPT_ERR[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.ZPERR, ep);
+      SNDATA.ZEROPT_ERR[ep] = (float)dval;
     }
 
     // read PSF-sigma(pixels) ...
     if ( IVAROBS_SNTEXTIO.PSF_SIG >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_SIG] ;
-      sscanf(str, "%f", &SNDATA.PSF_SIG1[ep]);
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.PSF_SIG, ep);
+      SNDATA.PSF_SIG1[ep] = (float)dval;
     }
     // or read PSF-FWHM(arcsec) ...
     if ( IVAROBS_SNTEXTIO.PSF_FWHM >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.PSF_FWHM] ;
-      sscanf(str, "%f", &PSF_FWHM) ;
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.PSF_FWHM, ep);
+      PSF_FWHM = (float)dval;
       // FWHM(asec)->sigma(pix)
       SNDATA.PSF_SIG1[ep] = PSF_FWHM / (2.355*SNDATA.PIXSIZE); 
     }
     // or read Noise Equiv Area
     if ( IVAROBS_SNTEXTIO.NEA >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.NEA] ;
-      sscanf(str, "%f", &SNDATA.PSF_NEA[ep]);
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.NEA, ep);
+      SNDATA.PSF_NEA[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.SKYSIG >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SKYSIG] ;
-      sscanf(str, "%f", &SNDATA.SKY_SIG[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.SKYSIG, ep);
+      SNDATA.SKY_SIG[ep] = (float)dval;
     }
     if ( IVAROBS_SNTEXTIO.SKYSIG_T >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.SKYSIG_T] ;
-      sscanf(str, "%f", &SNDATA.SKY_SIG_T[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.SKYSIG_T, ep);
+      SNDATA.SKY_SIG_T[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.GAIN >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.GAIN] ;
-      sscanf(str, "%f", &SNDATA.GAIN[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.GAIN, ep);
+      SNDATA.GAIN[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.XPIX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.XPIX] ;
-      sscanf(str, "%f", &SNDATA.XPIX[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.XPIX, ep);
+      SNDATA.XPIX[ep] = (float)dval;
     }
     if ( IVAROBS_SNTEXTIO.YPIX >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.YPIX] ;
-      sscanf(str, "%f", &SNDATA.YPIX[ep] );
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.YPIX, ep);
+      SNDATA.YPIX[ep] = (float)dval;
     }
 
     if ( IVAROBS_SNTEXTIO.CCDNUM >= 0 ) {
@@ -2280,11 +2333,42 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 } // end parse_SNTEXTIO_OBS
 
 
+// =====================================================
+double get_dbl_sntextio_obs(int IVAROBS, int ep) {
+
+  // Created Apr 2 2021
+  // Parse string for IVAROBS column and return double *value.
+  // 
+  // Inputs:
+  //   IVAROBS = column index to translate string to double
+  //   ep      = epoch index (for error message only)
+  //  
+  //  Outputs:
+  //    Function return double precision value
+  //
+  // If value is NaN, increment global NaN counter.
+  //
+
+  char *str     = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS] ;
+  char *varName = SNTEXTIO_FILE_INFO.VARNAME_OBS_LIST[IVAROBS] ;
+  double dval;
+
+  sscanf(str, "%le", &dval );
+  if ( isnan(dval) ) { 
+    printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
+	   varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
+    SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+  }
+
+  return (dval);
+
+} // end get_dbl_sntextio_obs
+
 // =====================================
 bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   // Created Feb 17 2021
-  // Look for SPECTRUM keys, and load GENSPEC struct.
+  // Look for SPECTRUM keys, and load GENSPEC struct (part of reading)
 
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;

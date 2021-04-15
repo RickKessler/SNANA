@@ -8,7 +8,7 @@
 #define HEAD_REQUIRE_SURVEY     0
 #define HEAD_REQUIRE_SNID       1
 #define HEAD_REQUIRE_FILTERS    2
-#define HEAD_REQUIRE_z          3
+#define HEAD_REQUIRE_z          3  // zHELIO or zCMB
 #define HEAD_REQUIRE_RA         4
 #define HEAD_REQUIRE_DEC        5
 #define HEAD_REQUIRE_FAKE       6
@@ -18,7 +18,7 @@
 
 #define MXVAROBS_TEXT 20
 struct {
-  int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR ;
+  int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR, MAG, MAGERR ;
   int ZPFLUX, ZPERR, PSF_FWHM, PSF_SIG, NEA;
   int SKYSIG, SKYSIG_T, SKYSIG_GAIN ;
   int GAIN, PHOTFLAG, PHOTPROB, XPIX, YPIX, CCDNUM; 
@@ -53,7 +53,7 @@ struct {
   char VARNAME_SPEC_LIST[MXVAROBS_TEXT][32] ;  // SPEC-column names
   char STRING_LIST[MXVAROBS_TEXT][20] ;   // string values per OBS row
 
-  int NOBS_READ ;
+  int NOBS_READ, NOBS_NaN ;
   int NSPEC_READ ;
   int NLAM_READ ;
 
@@ -73,8 +73,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp ) ;
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;
 
-void RD_SNTEXTIO_INIT(void); // one-time init
-void rd_sntextio_init__(void);
+void RD_SNTEXTIO_INIT(int init_num); // one-time init
+void rd_sntextio_init__(int *init_num);
 
 int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION);
 int rd_sntextio_prep__(int *MSKOPT, char *PATH, char *VERSION);
@@ -98,4 +98,6 @@ void parse_plusminus_sntextio(char *word, char *key, int *iwd_file,
 
 void copy_keyword_nocolon(char *key_in, char *key_out) ;
 void check_head_sntextio(int OPT);
+
+double get_dbl_sntextio_obs(int IVAROBS, int ep);
 

@@ -74,6 +74,8 @@
 
  Dec 28 2020: use function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2[3]
 
+ Mar 23 2021: use get_LAMTRANS_SEDMODEL util to getch LAM and TRANS
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -222,7 +224,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // extrac OPTMASK options
 
-  ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -232,6 +233,15 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     sprintf(c1err,"No filters defined ?!?!?!? " );
     sprintf(c2err,"Need to call init_filter_SEDMODEL");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_SALT2_ABORT_LAMRANGE ) ; 
+
+  ALLOW_NEGFLUX_SALT2 = true;      // default
+  if ( OPTMASK & OPTMASK_SALT2_NONEGFLUX ) {
+    // Mar 24 2021: if "GENMODEL_MSKOPT: 16"
+    ALLOW_NEGFLUX_SALT2 = false ;    
+    printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
   }
 
   // summarize filter info
@@ -419,8 +429,10 @@ void setFlags_ISMODEL_SALT2(char *version) {
   //
   // So check 5 characters before the dot. 
   //
+  // Mar 16 2021: abort on null version
 
   int  index_dot, set=0 ;
+  int  LENSALT2 = strlen("SALT2");
   char *dot, version_near_dot[60];
   char fnam[] = "setFlags_ISMODEL_SALT2" ;
 
@@ -429,9 +441,15 @@ void setFlags_ISMODEL_SALT2(char *version) {
   ISMODEL_SALT2 = false;
   ISMODEL_SALT3 = false;
   
+  if ( strlen(version) < LENSALT2+1 ) {
+    sprintf(c1err,"Invalid version = '%s' (name too short)", version);
+    sprintf(c2err,"version must contain SALT2.[bla] or SALT2.[bla]");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
   dot       = strchr(version, '.');
   index_dot = (int)(dot - version);
-  sprintf(version_near_dot, "%s", &version[index_dot-5] );
+  sprintf(version_near_dot, "%s", &version[index_dot-LENSALT2] );
 
   if ( strstr(version_near_dot,"SALT2") != NULL ) 
     { set=1; ISMODEL_SALT2 = true;  printf("\t ISMODEL = SALT2\n"); } 
@@ -1499,7 +1517,10 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // Created July 26 2020
   // Init stuff to count bad values in error maps.
   // Goal is to quickly catch retraining pathologies.
-
+  //
+  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
+  //
+  // --------------- BEGIN ------------
   SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
   SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
@@ -1527,7 +1548,8 @@ void  init_BADVAL_SALT2errmap(int imap) {
   }
   else if ( imap == INDEX_ERRMAP_COLORDISP ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+    // xxx mark delete Mar 25 2021 SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
   }
 
   // - - - - - - - - 
@@ -2587,6 +2609,11 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   so that it works properly with repeat function.
   //
   // Oct 2020: replace Fratio with general Finteg_errPar
+  // Mar 23 2021: use get_LAMTRANS_SEDMODEL() to avoid overwriting
+  //              FILTER_SEDMODEL with spectrograph info
+  //
+  // Mar 24 2021: 
+  //   + check ALLOW_NEGFLUX_SALT2 to allow or avoid negative spectral flux.
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2601,10 +2628,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,MWXT_FRAC, HOSTXT_FRAC, CCOR, CCOR_LAM0, CCOR_LAM1, CDIF, CNEAR
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
-    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL]
+    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
-    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3
+    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
+    ,Flam_filter[2], Flam_err[2], Flam_spec[2]
     ,hc8 = (double)hc ;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2672,10 +2699,13 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Should be used only for simulation (not for fitting mode)
   ISTAT_GENSMEAR = istat_genSmear();  
   if ( ISTAT_GENSMEAR  ) {
+    lam = (double*) malloc(NLAMFILT*sizeof(double) );
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
-      LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+
+      get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+      // xxx mark delete  LAMOBS    = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
 
       // protect undefined red end for low-z (July 2016)
@@ -2686,6 +2716,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     }
 
     get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    free(lam);
   }
 
 
@@ -2694,7 +2725,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
-    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
+    // fetch LAM and TRANS with utility to account for spectrograph
+    get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+    // xxx mark delete    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
 
     if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
       { continue ; } // Jul 2013 - skip zeros for leakage
@@ -2707,7 +2740,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     else 
       { HOSTXT_FRAC = 1.0 ; } // standard SALT2 model has no host extinction
 
-    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+    // xxx    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
 
@@ -2826,14 +2859,36 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	  }
 
 	  LAMRATIO            = LAMSPEC_STEP/LAMFILT_STEP ; // binSize ratio
-          Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
+	  Flam_spec[ised]     = (Fbin_forSpec * LAMRATIO );
+	  // xxx mark  Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
 
 	} // end OPT_SPEC
 
+	Flam_filter[ised]     = Fbin_forFlux ;
+	Flam_err[ised]        = (Fbin_forFlux/MWXT_FRAC) ;  
+
+	/* xxxx mark Dele Mar 25 2021 xxx
 	Finteg_filter[ised]  +=  Fbin_forFlux ;
 	Finteg_forErr[ised]  += (Fbin_forFlux/MWXT_FRAC) ;	
+	xxxxxxxxx */
 
       } // ised
+
+
+      // check option to force negative flux to zero
+      if ( !ALLOW_NEGFLUX_SALT2 ) {
+	Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
+	if ( Fcheck < 0.0 ) { 
+	  Flam_filter[0] = Flam_filter[1] = 0.0 ;
+	  Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
+	}
+      }
+
+      for(ised=0; ised <2; ised++ ) {
+	Finteg_filter[ised]  +=  Flam_filter[ised];
+	Finteg_forErr[ised]  +=  Flam_err[ised];
+	if(OPT_SPEC) { Finteg_spec[ised] +=  Flam_spec[ised]; }
+      }
 
     } // end LAMSED loop 
 
@@ -3449,6 +3504,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   //
   // Mar 29 2019: apply MAG_OFFSET to GENFLUX_LIST
   //
+  // Mar 23 2021: call fill_TABLE_MWXT_SEDMODEL
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3458,9 +3514,11 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   double Trest, Finteg, Finteg_errPar;
   double FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
   double hc8 = (double)hc ;
-  //  char fnam[] = "genSpec_SALT2" ;
+  char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
+
+  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
 
   z1 = 1.0 + z;
 
@@ -3480,8 +3538,6 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   // convert generated fluxes into mags
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     GENFLUX_LIST[ilam] *= FSCALE_ZP ;  // Mar 29 2019
-
-    // xxx debug GENFLUX_LIST[ilam] = GENFLUX_LIST[0]; // xxx REMOVE THIS
 
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
@@ -3542,12 +3598,16 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   
   Finteg_check = 0.0 ;  z1=1.0+z ;
   for(ilam=0; ilam < NBLAM; ilam++ ) {
-    LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
+    
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS);
+    // xxx mark delete  LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
+    // xxx mark delete  TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];
 
     // check Finteg; FLUXLIST already includes LAMSTEP
-    TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+
     LAMREST = LAMOBS/z1 ;
     Finteg_check += ( TRANS * LAMREST * FLUXLIST[ilam] ); 
   }

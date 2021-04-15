@@ -1864,7 +1864,6 @@ int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
 void check_duplicate_SNID(void);
-void check_duplicate_SNID_legacy(void);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
@@ -2395,7 +2394,6 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // check for duplicate SNIDs and take action based on iflag_duplicate
   check_duplicate_SNID();
-  // mark delete xxx check_duplicate_SNID_legacy();
 
   // misc redshift checks
   check_redshifts();
@@ -3645,174 +3643,6 @@ void check_duplicate_SNID(void) {
 } // end of check_duplicate_SNID
 
 
-// ******************************************
-void check_duplicate_SNID_legacy(void) {
-
-  // Sep 2016:
-  // Use sorted redshift and its error to flag duplicates.
-  // CHeck iflag_duplictes for what to do:
-  // 0 -> nothing
-  // 1 -> abort
-  // 2 -> merge fitparams and cov into one LC
-  //
-
-  int  iflag   = INPUTS.iflag_duplicate;
-  int  MXSTORE = MXSTORE_DUPLICATE ;
-  int  isn, nsn, MEMD, MEMI, unsort, *unsortList, ORDER_SORT   ;
-  bool IS_SIM, LDMP ;
-  double *zList ;
-  char fnam[] = "check_duplicate_SNID" ;
-
-  // ----------- BEGIN -----------
-
-  sprintf(BANNER,"Begin %s", fnam);
-  fprint_banner(FP_STDOUT,BANNER);
-
-  IS_SIM  = INFO_DATA.TABLEVAR.IS_SIM ;
-  nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
-
-  // Jun 11 2020: for sims, don't bother tracking duplicates
-  if ( IS_SIM ) { return; }
-  // xxx mark delete  if ( IS_SIM && iflag == IFLAG_DUPLICATE_IGNORE) { return; }
-
-  MEMD = (nsn+1) * sizeof(double)  ;
-  MEMI = (nsn+1) * sizeof(int)     ;
-  zList      = (double *)malloc(MEMD); // allocate redshift list
-  unsortList = (int    *)malloc(MEMI); // allocate sorted list
-
-  for(isn=0; isn<nsn; isn++)  
-    { zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; }
-  
-
-  ORDER_SORT = + 1 ; // increasing order
-  sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
-
-  bool SAME, SAME_z, SAME_T0, SAME_SNID, LAST_DUPL=false ;
-  int   NTMP, idup, unsort_last ;
-  double z, zerr, z_last, zerr_last, t0, t0_last, dt0 ;
-  double T0DIF_LIST[MXSTORE_DUPLICATE];
-  char *snid, *snid_last ;
-  int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
-  int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
-  int  NDUPL_SET ; // number of duplicate sets
-  int  NDUPL_TOT ; // includes those beyone storage capacity
-
-  unsort_last = -9 ;
-  z_last = zerr_last = t0_last = -9.0 ;
-  snid_last = fnam;       // anything to avoid compile warning
-
-  NDUPL_SET = NDUPL_TOT = 0 ;
-  for(idup=0; idup < MXSTORE; idup++ ) 
-    {  NDUPL_LIST[idup] = 0 ; T0DIF_LIST[idup] = 9999.0; }
-
-  for ( isn=0; isn < nsn; isn++ ) {
-    unsort  = unsortList[isn];
-    z      = INFO_DATA.TABLEVAR.zhd[unsort];
-    zerr   = INFO_DATA.TABLEVAR.zhderr[unsort];
-    t0     = INFO_DATA.TABLEVAR.peakmjd[unsort];
-    snid   = INFO_DATA.TABLEVAR.name[unsort];    
-
-    if ( isn==0 ) { goto SET_LAST; }
-
-    SAME_z     = ( z == z_last && zerr == zerr_last );
-    SAME_T0    = ( fabs(t0-t0_last) < 10.0 ) ;
-    SAME_SNID  = ( strcmp(snid,snid_last) == 0 );
-    SAME       = ( SAME_z && SAME_SNID ) ; //  && SAME_T0 );
-
-    if ( SAME && !LAST_DUPL ) { NDUPL_TOT++ ; }
-
-    /* xxx
-    LDMP = ( fabs(z-0.00714)<2.0E-5 && fabs(zerr-0.00084)<2.E-5 ); // xxxx
-    if ( LDMP ) {
-      printf(" xxx %s: %8s z=%.6f PKMJD=%.3f \n",
-	     fnam, snid, z, t0 ); fflush(stdout);
-    }
-    xxxx */
-
-    if ( SAME && NDUPL_SET < MXSTORE ) {
-      if ( !LAST_DUPL ) { 
-	NDUPL_SET++ ; 
-	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort_last ;
-	NDUPL_LIST[NDUPL_SET-1]++ ;
-	T0DIF_LIST[NDUPL_SET-1] = t0 - t0_last ;
-      }
-      NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
-     
-      NDUPL_LIST[NDUPL_SET-1]++ ;
-      LAST_DUPL = true ;
-    }
-    else {
-      LAST_DUPL = false ;
-    }
-
-  SET_LAST:
-    unsort_last = unsort ;
-    z_last      = z;   
-    zerr_last   = zerr;   
-    t0_last     = t0 ;
-    snid_last   = INFO_DATA.TABLEVAR.name[unsort]; 
-
-  } // end loop over isn
-
-  // - - - - -
-  if ( NDUPL_SET == 0 ) 
-    { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
-  
-  fprintf(FP_STDOUT, "   Found %d sets of duplicates: \n", NDUPL_SET);
-
-  for(idup=0; idup < NDUPL_SET ; idup++ ) {
-
-    unsort = UNSORT_DUPL[idup][0] ; // first duplicate has SNID and z
-    NTMP   = NDUPL_LIST[idup] ;
-    dt0    = T0DIF_LIST[idup];
-    snid   = INFO_DATA.TABLEVAR.name[unsort]; 
-    z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f "
-	    "  dt0=%5.1f\n", 
-	    idup, NTMP, snid, z, dt0 );	   
-  }
-
-  fflush(FP_STDOUT);
-
-  if ( NDUPL_SET >= MXSTORE ) {
-    sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
-	    NDUPL_TOT, MXSTORE );
-    sprintf(c2err,"Check duplicates");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
- 
-  fprintf(FP_STDOUT, "  iflag_duplicate = %d --> ", iflag);
-  if ( iflag == IFLAG_DUPLICATE_IGNORE ) {
-    fprintf(FP_STDOUT, " do nothing.\n");
-  }
-  else if ( iflag == IFLAG_DUPLICATE_ABORT ) {
-    sprintf(c1err,"Duplicates not allowed.");
-    sprintf(c2err,"Check input FITRES file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  else if ( iflag == IFLAG_DUPLICATE_AVG ) {
-    fprintf(FP_STDOUT, " merge duplicates.\n");
-    for(idup=0; idup < NDUPL_SET ; idup++ ) 
-      { merge_duplicates(NDUPL_LIST[idup], UNSORT_DUPL[idup] ); }
-  }
-  else {
-    sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
-    sprintf(c2err,"grep IFLAG_DUPLICATE  SALT2mu.c");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-
- DONE:
-  free(zList);  free(unsortList);
-
-  return;
-
-} // end of check_duplicate_SNID_legacy
-
-
 void merge_duplicates(int NDUPL, int *isnList) {
 
   // First entry in duplicate list has its SALT2 parameters
@@ -4175,6 +4005,8 @@ void *MNCHI2FUN(void *thread) {
   // The data loop starts at id_thread, and skips in steps of
   // nthread. For default nthread=1 (no thread), it is a normal 
   // loop over all events from 0 to NSN_DATA-1 
+  //
+  // Apr 8 2021: subtract muerr_vpec from muerr_raw
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4199,7 +4031,8 @@ void *MNCHI2FUN(void *thread) {
   double sqsigCC=0.001, sigCC_chi2penalty=0.0;
   double covmat_tot[NLCPAR][NLCPAR], covmat_fit[NLCPAR][NLCPAR] ;
   double gammaDM, M0, dl, mumodel ;
-  double muerr_raw, muerrsq_raw, muerrsq_tmp, muerr_update, muerrsq_update ; 
+  double muerr_raw, muerrsq_raw, muerr_vpec, muerrsq_vpec;
+  double muerrsq_tmp, muerr_update, muerrsq_update ; 
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
   int    cutmask, idsample, SIM_NONIA_INDEX, IS_SIM ; 
@@ -4544,9 +4377,14 @@ void *MNCHI2FUN(void *thread) {
 
       muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,
 				optmask_muerrsq );
-      muerr_raw   = sqrt(muerrsq_raw);
-      INFO_DATA.muerr_raw[n] = muerr_raw;   
-      INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
+
+      // compute diagnostic muerr_raw(from LC fit, no vpec, no sigint)
+      // and muerr_vpec (from vpec only). Neither include COVscale.
+      muerr_vpec      = fcn_muerrz(1, z, zmuerr); 
+      muerrsq_vpec    = muerr_vpec * muerr_vpec;
+      muerr_raw       = sqrt(muerrsq_raw - muerrsq_vpec);
+      INFO_DATA.muerr_raw[n]  = muerr_raw ;
+      INFO_DATA.muerr_vpec[n] = muerr_vpec ;
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
@@ -5009,7 +4847,8 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   bool   flag_dump    = (optmask & 1) > 0 ;
   bool   flag_fitwgt0 = (optmask & 2) > 0 ;
 
-  double muerrsq, sqtmp, dmuz, dmuLens, VEC[NLCPAR], COVMU[NLCPAR][NLCPAR];
+  double muerrsq, sqtmp, muerr_z, muerrsq_z, dmuLens;
+  double VEC[NLCPAR], COVMU[NLCPAR][NLCPAR];
   int    i,j ;
   char VECNAME[3][8] = { "ONE  ", "ALPHA", "-BETA" } ;
   
@@ -5050,12 +4889,13 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   if( flag_dump ) { printf(" xxx mucov  = %le from COV \n", muerrsq);  }
   
   // add peculiar velocity error
-  dmuz     = fcn_muerrz(1, z, zerr );
-  muerrsq += (dmuz*dmuz) ;
+  muerr_z     = fcn_muerrz(1, z, zerr );
+  muerrsq_z   = muerr_z*muerr_z;
+  muerrsq    += muerrsq_z ;
 
   if( flag_dump ) {
     printf(" xxx mucov  = %le with dmu(z,vpec)=%le \n",
-			muerrsq, dmuz);   fflush(stdout);
+			muerrsq, muerr_z);   fflush(stdout);
   }
     
   // add lensing error (Sep 9 2016)
@@ -5071,7 +4911,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   }
 
     
-  if (muerrsq  <= 0.0 )  {
+  if ( muerrsq < muerrsq_z )  {
     print_preAbort_banner(fnam);
 
     printf("   COV(SALT2) = \n" );
@@ -5088,10 +4928,12 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
       printf("\n");
     }
 
-    printf("   dmuz    = %f (zerr=%f)\n", dmuz, zerr);
-    printf("   dmuLens = %f \n", dmuLens);
-    printf("   alpha  = %f  beta=%f \n", alpha, beta);
-    sprintf(c1err,"non-positive muerrsq = %le", muerrsq);	
+    printf("   muerr_z  = %f (zerr=%f)\n", muerr_z, zerr);
+    printf("   muerrsq(noVpec) = %le \n", muerrsq - muerrsq_z);
+    printf("   dmuLens  = %f \n", dmuLens);
+    printf("   alpha = %f  beta=%f \n", alpha, beta);
+    sprintf(c1err,"muerrsq = %le is less than muerrsq_z = %le", 
+	    muerrsq, muerrsq_z );	
     sprintf(c2err,"for SN = %s ", name);   
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -18786,10 +18628,19 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"CUTMASK");      NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MU");           NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUMODEL");      NVAR_APPEND++ ;  
+
+  // distance error from BBC
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");        NVAR_APPEND++ ;  
+
+  // see ??
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ;  
+
+  // contribution from LC fit only (no sigInt, no VPEC, no scale)
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");    NVAR_APPEND++ ;  
+
+  // contribution from VPEC only, no scale
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_VPEC");   NVAR_APPEND++ ;  
+
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");        NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");       NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");        NVAR_APPEND++ ;  
@@ -19210,7 +19061,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
   muerr         = INFO_DATA.muerr[n];
   muerr_renorm  = INFO_DATA.muerr_renorm[n];
-  muerr_raw     = INFO_DATA.muerr_raw[n] ;
+  muerr_raw     = INFO_DATA.muerr_raw[n] ; // from LC fit only
   muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
   mures         = INFO_DATA.mures[n] ;
   pull          = INFO_DATA.mupull[n] ;

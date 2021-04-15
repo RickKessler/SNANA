@@ -19646,28 +19646,179 @@
 
 
 # ======================================================================= 
-         v11_02j (  ) 
+         v11_02j (Mar 19 2021) 
 
          ***** IMPORTANT(v11_02j) ***** 
 
      Release I/O refactor Tuesday Mar 2 2021, 6pm central.
      Hopefully nobody will noticed.
 
-         ***** USEFUL(v11_02j) ***** 
+     Include CCDNUM (short int) in PHOT table; no longer in header.
 
-         ***** MISCELLANEOUS(v11_02j) ***** 
+     if zCMB < 0 in text format data, compute it from ZHEL.
+     
+     Finally removed obsolete perl submit-batch scripts
+
+         ***** USEFUL(v11_02j) ***** 
 
     NEA vs. PSF:
     + add option to provide NEA in SIMLIB, instead of PSF1,PSF2,PSRRATIO. 
       Also write NEA to data files instead of PSF params. (see manual).
+
+
+         ***** MISCELLANEOUS(v11_02j) ***** 
 
     simlib_coadd.c
       + adapt to work for NEA column replacing 3 PSF columns.  
  
     submit_batch_jobs
      + finally finish merge tasks for train_SALT3
+     + submit_prog_fit uses new python script sntable_dump.py
+         (no longer uses perl script sntable_dump.pl)
 
     snlc_sim.c
      + fix parsing-refac bug for reading WARP_SPECTRUM arg.
+     + fix DASHBOARD
+     + fix ZPOLY rate model 
+     + for BYOSED, abort if G10 scatter model has no SALT2PATH
+     + for SIMLIB_DUMP option, automatically read entire SIMLIB
+         regardless of NGENTOT
+
+    snana.car
+      + fix abort trap in COUNTFIELDS; write all field names
+        in abort message.
+      + write recomputed PEAKMJD to reformatted data file
+      + new CUTWIN_SIMPULL for &SNLCINP (to reject flux outliers)
+      + new OUTLIER table; see SNTABLE_LIST options in manual
+      + for snana job, SNANA text table created with default key format.
+      + allow disabling output files with NONE; e.g.,
+           ROOTFILE_OUT NONE  HFILE_OUT NONE
+
+    submit_batch_jobs:
+      + new option "INPDIR+: None" uses datafile= argument.
+      + new STRING_VERSION_IGNORE option for BBC
+
+    sntools_dataformat_text.c
+      + allow reading FWHM column for PSF.
+
+    sntools_dataformat_fits.c
+      + if there is no REDSHIFT_FINAL key, check for REDSHIFT_CMB.
+
+    sntools.c:
+      + fix memory leak in copy_SNDATA_OBS()
+
+    genmag_PySEDMODEL.c :
+      + pass "RANSEED <ISEED>" via *ARGLIST
+
+    Makefile: add debug flag,  "make debug"
+
+    Create sntable_dump.py (to eventually replace sntable_dump.pl)
+
+  TODO: 
+    + add simlib option to specify band-CCD as e.g., g-42,
+        to simulate CCD illum.
+    + with REFORMAT_FITS option, update DOCUMENTATION block.
+
+  BEWARE: fudged fluxes and errors are NOT included if
+          data files are reformatted
+
+
+# ======================================================================= 
+         v11_02k (Apr 02 2021) 
+
+         ***** IMPORTANT(v11_02k) ***** 
+
+   SALT2mu/BBC now includes human-readable BBC_SUMMARY_FITPAR.YAML
+
+   New "make_fluxerr_model.py" to create FLUXERRMODEL_FILE maps.
+
+   if FIELD has no name, call it 'VOID' instead of 'NULL' so that
+    pandas does not mis-intepret.
+
+         ***** USEFUL(v11_02k) ***** 
+
+   snlc_sim: 
+     + simpler way to specify alpha,beta grid; see manual Sec 9.3.1
+     + allow LOG[parName] in GENPDF maps; e.g. LOGEBV or LOGAV
+
+         ***** MISCELLANEOUS(v11_02k) ***** 
+
+    snana.car
+      + fix bug reading filter-dependent header items like
+        galmag and HOSTGAL_SB_FLUXCAL.
+      + fix bug setting EXIST_SNHOST_SB (test is on SBFLUXCAL, not SBMAG)
+      + suppress GALID in OUT_SIMLIB since it wrote 12345 garbage for DC2
+      + change default FIELD name to VOID instead of NULL since pandas
+         has problems reading NULL as a string.
+      + for OUTLIER table, compute and print outlier effic vs. PHOTFLAG bit.
+      + new SNLCINP input PHOTFLAG_BITLIST_REJECT to enter comma-sep
+         list of bits (LSB=0) and internally compute PHOTFLAG_MSKREJ.
+     
+   sntools_dataformat_text.c[h]
+      + check for NaN when read text format; abort on NaN.
+
+    genmag_SEDtools.c
+      + new util get_LAMTRANS_SEDMODEL(ifilt,ifilt,*LAM,*TRANS)
+        to return LAM and TRANS for filter or spectrograph.
+
+    snlc_sim.c
+      + new option "GENMODEL_MSKOPT: 16" to force neg Flam to Flam=0
+      + new options BIASCOR_SALT2ALPHA[BETA]_GRID to replace entering
+        PEAK, RANGE and SIGMA, NGRID (see manual sec 9.3.1)
+      + new feature TAKE_SPECTRUM MJD([min]:[max]) ...
+      + add GENSPEC.SKIP[imjd] and fix to properly skip requested spectra
+         that are outside TREST model range.
+
+    sntools_genPDF.c: 
+      + allow LOG[parName] in GENPDF maps.
+
+    submit_batch/submit_util.py
+      + fix to allow dot in GENVERSION name (use .rindex instead of .index)
+      + add BBC_SUMMARY_FITPAR.YAML output for human readability.
+
+
+# ======================================================================= 
+         v11_02l (  ) 
+
+         ***** IMPORTANT(v11_02l) ***** 
+
+   + remove all legacy I/O code.
+   + lots of fixes to properly read back spectra and extract TEXT from FITS.
+
+         ***** USEFUL(v11_02l) ***** 
+
+         ***** MISCELLANEOUS(v11_02l) ***** 
+
+   snlc_sim.c[h]
+     + enable TAKE_SPECTRUM: MJD(min:max:step) to generate spectra for
+       a sequence of MJDs; see manual.  
+
+   sndata.h:
+      + MXSPECTRA -> 200 (was 40); BEWARE that MXSPEC in snana.car has 
+        NOT been changed due to absurd memory consumption ... need to fix.
+
+   sntools_dataformat*.c
+     + fix writing spectra in text format to work after reading FITS
+       format from sim.
+
+   genamg_PySEDMODEL.c
+     + fix aweful bug in stored spectrum; was missing x0 factor
+         (distance modulus dimming)
+     + if model does not cover filter wave range, return mag=666 so that
+       undefined flux is suppressed from data file.
+       [previously it returned mag=99 and flux=0, which could fool
+        analysis codes]
+
+    snana.car:
+      + refactor reading spectra to read only 1 spectrum at a time to 
+        save memory.  RDSPEC_DRIVER(ISPEC) reads ISPEC spectrum from 
+        SNDATA struct. MXSPECTRUM -> 200 (was 40)
+      + new &SNLCINP  LPROB_TRUEFLUX=T to compute PROB_TRUEFLUX_[band]
+        and store in SNANA table. Used to determine anomalous flux cov.
+      + for reading fits format, check legacy DECL key if DEC does
+        not exist (bug fix from IO refactor)
+
+   sntable_dump.py[c]
+     + better abort trap when append fails.
 
 END: 

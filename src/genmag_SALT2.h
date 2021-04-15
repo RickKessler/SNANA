@@ -33,11 +33,13 @@
 #define OPTMASK_SALT2_REQUIRE_DOCANA OPENMASK_REQUIRE_DOCANA  // =2
 #define OPTMASK_SALT2_DISABLE_MAGSHIFT    4  // disable MAGSHIFT keys
 #define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
+#define OPTMASK_SALT2_NONEGFLUX          16  // flux<0 -> 0 (as in DC2)
 #define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
 
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
 bool ISMODEL_SALT2, ISMODEL_SALT3 ;
+bool ALLOW_NEGFLUX_SALT2;
 
 /**********************************************
   Init Information

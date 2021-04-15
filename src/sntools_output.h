@@ -78,6 +78,7 @@ char STRING_TABLEFILE_OPENFLAG[MXOPENFLAG][12] ;
 
 char STRING_IDTABLE_SNANA[MXTABLEFILETYPE][12] ;
 char STRING_IDTABLE_FITRES[MXTABLEFILETYPE][12] ;
+char STRING_IDTABLE_OUTLIER[MXTABLEFILETYPE][12] ; // Mar 2021
 
 int  CALLED_TABLEFILE_INIT ;  // flag to ensure call to TABLEFILE_INIT
 
@@ -303,6 +304,7 @@ struct SPECPAK_OUTPUT {
 #define  OUTLIER_VARNAME_NOBS      "NOBS"
 #define  OUTLIER_VARNAME_IFILT     "IFILTOBS"  
 #define  OUTLIER_VARNAME_CHI2      "CHI2FLUX" 
+#define  VARNAME_CUTFLAG_SNANA     "CUTFLAG_SNANA" 
 
 // read-flags
 #define OPT_SNTABLE_READ_forARRAY      1   // read to fill array in memory
@@ -352,7 +354,7 @@ struct LASTREAD_AUTOSTORE  {
 } LASTREAD_AUTOSTORE ;
 
 // generic strings for errmsg 
-char MSGERR1[80], MSGERR2[80] ;
+char MSGERR1[200], MSGERR2[200] ;
 char SNANA_VERSION[20] ;
 
 // -------------------------------------------------
@@ -370,7 +372,7 @@ extern"C" {
   void  print_preAbort_banner(char *fnam);
   void  trim_blank_spaces(char *string) ;
   int   strcmp_ignoreCase(char *str1, char *str2) ;
-
+  void  debugexit(char *string);
   void catVarList_with_comma(char *varList, char *addVarName);
 
   void  checkval_I(char *varname,int nval,int   *iptr, int imin, int imax );
@@ -418,6 +420,7 @@ extern"C" {
 			     char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
   void SNTABLE_SUMMARY_OUTLIERS(void);
+  bool ISTABLEVAR_IFILT(char *VARNAME);
 
   int  SNTABLE_NEVT  (char *FILENAME, char *TABLENAME); 
   int  sntable_nevt__(char *FILENAME, char *TABLENAME);
@@ -455,7 +458,8 @@ extern"C" {
 
   int  IVAR_READTABLE_POINTER(char *varName) ;
   void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) ;
-  void load_DUMPLINE(char *LINE, double DVAL) ;
+  void load_DUMPLINE(int OPT, char *LINE, double DVAL) ;
+  void load_DUMPLINE_STR(char *LINE, char *STRING) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
   int  ICAST_for_textVar(char *varName) ;

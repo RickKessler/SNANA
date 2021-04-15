@@ -38,7 +38,7 @@
     sntable_dump.exe <tableFile>  <tableName>  NEVT
         (print number of events in table)
 
-    sntable_dump.exe <tableFile>  <tableName>  -outlier 3 4
+    sntable_dump.exe <tableFile>  <tableName>  -outlier_fit 3 4
     sntable_dump.exe <tableFile>  <tableName>  -outlier_sim 3 4
        (print 3-4 sigma outliers: '-outlier' for fit-data,
           '--outlier_sim' for data-sim outliers)
@@ -109,6 +109,9 @@
 
  Aug 08 2020: new NEVT option to print number of events
 
+ Mar 14 2021: for outlier output table, write string BAND before IFILTOBS.
+              See OPT arg to load_DUMPLINE in sntools_output_hbook[root].c
+
 ********************************************/
 
 #include <stdio.h>
@@ -159,6 +162,7 @@ void  open_fitresFile(void);
 void  set_outlier_varnames(void); 
 void  write_IGNORE_FILE(void) ;
 void  write_headerInfo(FILE *FP) ;
+bool  keyMatch_dash(char *arg, char *key_base);
 
 FILE *FP_OUTFILE ;
 char LINEKEY_DUMP[40];  // 'SN:' or  ''
@@ -216,7 +220,6 @@ int main(int argc, char **argv) {
   else if ( INPUTS.OUTLIER_NSIGMA[0] >= 0.0 ) {
     // dump fit-outliers for each epoch to ascii/fitres file
     // Must set SNTABLE_LIST = 'FITRES+RESIDUALS'
-
     NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, IVAR_NPT, 
 				  INPUTS.OUTLIER_NSIGMA, FP_OUTFILE,
 				  LINEKEY_DUMP, SEPKEY_DUMP );
@@ -319,7 +322,9 @@ void parse_args(int NARG, char **argv) {
       INPUTS.SNTABLE_NEVT = true ;  // Aug 2020
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
+    // xxx mark    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
+    if ( keyMatch_dash(argv[i],"outlier") || 
+	 keyMatch_dash(argv[i],"outlier_fit") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX" );
@@ -327,7 +332,8 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.COMMENT_FLUXREF,          "fitFlux" );
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
+    // xxx mark if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
+    if ( keyMatch_dash(argv[i],"outlier_sim") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX_SIM" );
@@ -389,9 +395,34 @@ void parse_args(int NARG, char **argv) {
 
 
   fflush(stdout);
+  return ;
 
 } // end of parse_args
 
+
+// ==================================
+bool keyMatch_dash(char *arg, char *key_base) {
+
+  // Created march 2021
+  // for input *arg, check if it matches
+  //    key_base
+  //   -key_base
+  //  --key_base
+
+  int i;
+  char key[60];
+  char dash_list[3][4] = { "", "-", "--" };
+
+  // ---------- BEGIN -----------
+
+  for(i=0; i < 3; i++ ) {
+    sprintf(key, "%s%s", dash_list[i], key_base);
+    if ( strcmp_ignoreCase(arg,key) == 0 ) { return true; }
+  }
+
+  return false;
+
+} // end keyMatch
 
 
 // ==================================
@@ -445,6 +476,10 @@ void  set_outlier_varnames(void) {
     NVAR++ ;
   }
 
+  /* xxxxxxxxxx
+  if ( INPUTS.IS_SNANA )
+    { sprintf(INPUTS.VARNAMES[NVAR],"%s", VARNAME_CUTFLAG_SNANA ); NVAR++ ; }
+  xxxxxx */
 
   if ( INPUTS.IS_SNANA ) 
     { sprintf(INPUTS.VARNAMES[NVAR],"%s", "NOBS" );  }    
@@ -458,7 +493,7 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "MJD" );   
   NVAR++ ;
 
-  // including BAND results in core dump; don't know why ??
+  // including BAND results in core dump; don't know why ??  .xyz
   //  sprintf(INPUTS.VARNAMES[NVAR],"%s", "BAND" );   
   //  NVAR++ ;
 
@@ -574,6 +609,10 @@ void  open_fitresFile(void) {
       else if ( strcmp(INPUTS.TABLE_ID,"SIMLIB") == 0 ) 
 	{ ptrVar = VARNAME_ROW ; }  // use ROW for 1st SIMLIB column 
     }
+
+    // Mar 14 2021: insert band string before IFILTOBS
+    if ( ISTABLEVAR_IFILT(ptrVar) )
+      { fprintf(FP_OUTFILE,"%s%s", "BAND", SEP );  }
 
     if ( i == INPUTS.NVAR-1 ) { sprintf(SEP," ") ; }
     fprintf(FP_OUTFILE,"%s%s", ptrVar, SEP ); 

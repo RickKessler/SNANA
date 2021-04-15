@@ -29,6 +29,13 @@
   Feb 20 2021 RK - fix bug in genmag_PySEDMODEL that was preventing
                    BYOSED params from being returned.
 
+  Mar 19 2021 RK - pass "RANSEED <ISEED>" via ARGLIST to 
+            init_genmag_PySEDMODEL.
+
+  Apr 04 2021: if SED wavelength range does NOT cover a band, return
+               mag = 666 (instead of 99) to instruct sim NOT to write this
+               invalid flux to data file. 
+
  *****************************************/
 
 #include  <stdio.h> 
@@ -93,11 +100,15 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   //  
   //  ARGLIST      : string of options passed ONLY from the command-line,
   //                   snlc_sim.exe <myInput> GENMODEL_ARGLIST 'bla bla'
+  //                 First ARGLIST element is hard-coded to be 
+  //                 "RANSEED <ISEED>" from sim-input file.
   //
   // NAMES_HOSTPAR : comma-separate list of names of host parameters.
   //                 Includes RV, AV, variables used in WGTMAP, and
   //                 HOSTLIB_STOREPAR list from sim-input file. 
   //                 Duplicates are automatically removed.
+  //
+  // Mar 19 2021: always pass "RANSEED <ISEED>" via ARGLIST
   //
 
 #ifdef USE_PYTHON
@@ -305,7 +316,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
-  double FLUXSUM_MIN = 1.0E-30 ;
   double z1    = 1.0 + zHEL ;
   double *LAM  = Event_PySEDMODEL.LAM;
   double *SED  = Event_PySEDMODEL.SED ;
@@ -316,6 +326,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   int    NEWEVT_FLAG = 0 ;
   int    NEWEVT_FLAG_TMP ;
   int    DUMPFLAG_HOSTPAR = 0 ; 
+  int    FLAG_Finteg;
 
   int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
@@ -393,13 +404,22 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
     // FLUXSUM_OBS is returned (ignore FspecDUM)
     INTEG_zSED_PySEDMODEL(0, IFILT_OBS, Tobs, zHEL, x0,RV_host,AV_host, 
 			  NLAM, LAM, SED, 
-			  &FLUXSUM_OBS, FspecDUM ); // <= returned 
+			  &FLUXSUM_OBS, FspecDUM, &FLAG_Finteg ); //<=returned
 
     // convert calibrated flux into true magnitude
+    if ( FLAG_Finteg == 0 ) 
+      { magobs = ZP - 2.5*log10(FLUXSUM_OBS); }
+    else if ( FLAG_Finteg == (int)MAG_ZEROFLUX ) 
+      { magobs = MAG_ZEROFLUX ; }
+    else if ( FLAG_Finteg == (int)MAG_UNDEFINED ) 
+      { magobs = MAG_UNDEFINED ; }
+
+    /* xxx mark delete Apr 4 2021 xxxxxx
     if ( FLUXSUM_OBS > FLUXSUM_MIN ) 
       { magobs = ZP - 2.5*log10(FLUXSUM_OBS); }
     else
       { magobs = MAG_ZEROFLUX ; }
+    xxxxxxxx end mark xxxxxxxxx*/
 
     MAGOBS_list[o] = magobs;  // load output array
     MAGERR_list[o] = 0.01;    // not used
@@ -408,9 +428,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   // for NEW EVENT, store SED parameters so that sim can 
   // write them to data files
   // hack
-  printf(" 1. xxx %s: hello. ID=%d  ID_LAST=%d, NEWEVT=%d\n", 
-	 fnam, EXTERNAL_ID,   Event_PySEDMODEL.LAST_EXTERNAL_ID,
-	 NEWEVT_FLAG );
 
   if ( NEWEVT_FLAG ) { 
     fetchParVal_PySEDMODEL(Event_PySEDMODEL.PARVAL); 
@@ -681,7 +698,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 			   double zHEL, double x0, 
 			   double RV_host, double AV_host,
 			   int NLAM, double *LAM, double *SED,
-			   double *Finteg, double *Fspec ) {
+			   double *Finteg, double *Fspec, int *FLAG_Finteg) {
 
   // Created Dec 2018 by R.K.
   // Return integrated obs-frame flux in filter passband 
@@ -702,6 +719,10 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   // Outputs
   //   *Finteg     Integrated flux 
   //   *Fspec      obs-frame spectrum (if OPT_SPEC==1)
+  //   *FLAG_Finteg 
+  //        0 -> normal result; no issues
+  //       99 -> zero flux
+  //      666 -> undefined because model does not cover band wavelength
   //
   // !!! Dec 12 2018: Finteg is tested against SALT2 filter-fluxes, 
   //     but Fspec is not tested.
@@ -711,6 +732,10 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   // Dec 8 2020: replace local magSmear[] with global GENSMEAR.MAGSMEAR_LIST
   //               (to work properly with G10 and C11 models)
   //
+  // Apr 02 2021: 
+  //   + bug fix : multiply spectral flux by x0 (broadband fluxes were OK)
+  //   + add FLAG_Finteg output arg.
+  // 
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -726,6 +751,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   double hc8            = (double)hc ;
   double MODELNORM_Finteg  = lamstep_filt / hc8 ;
   double MODELNORM_Fspec   = lamstep_filt ;
+  double FLUXSUM_MIN       = 1.0E-30 ;
 
   int    ilamobs, ilamsed, ISTAT_SMEAR ;
   double TRANS, MWXT_FRAC, HOSTXT_FRAC;
@@ -744,12 +770,14 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
   *Finteg  = 0.0 ; // init output flux for filter
   Fspec[0] = 0.0 ;
+  *FLAG_Finteg = 0 ; 
 
-
-  // first make sure that SED wavelength range covers filter
+  // first make sure that model SED wavelength range covers filter
   if ( !DO_SPECTROGRAPH ) {
-    if ( minlam_filt < minlam_SED*z1 ) { return; }
-    if ( maxlam_filt > maxlam_SED*z1 ) { return; }
+    bool MODEL_COVERS_FILTER = 
+      ( minlam_filt >= minlam_SED*z1 && maxlam_filt <= maxlam_SED*z1 );
+    if ( !MODEL_COVERS_FILTER )
+      { *FLAG_Finteg = (int)MAG_UNDEFINED;  return ; }   
   }
 
 
@@ -846,7 +874,8 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
     } // end loop over LAMSED
 
     // store spectrum
-    if ( OPT_SPEC ) { Fspec[ilamobs] = (Finteg_spec * MODELNORM_Fspec) ; }
+    if ( OPT_SPEC ) 
+      { Fspec[ilamobs] = (Finteg_spec * x0 * MODELNORM_Fspec) ; }
 
   } // end ilamobs
   
@@ -854,6 +883,8 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   // - - - - - - - 
   // store integrated flux in passband 
   *Finteg = (Finteg_filter * x0 * MODELNORM_Finteg);
+
+  if ( *Finteg < FLUXSUM_MIN ) { *FLAG_Finteg = (int)MAG_ZEROFLUX; }
 
   return;
 
@@ -875,7 +906,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   double z1    = 1.0 + zHEL ;
   double x0    = pow(TEN,-0.4*MU);
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  int ilam ;
+  int ilam, FLAG_ignore ;
   double Finteg_ignore, FTMP, MAG, ZP, LAM ;
   //  char fnam[] = "genSpec_PySEDMODEL" ;
 
@@ -889,8 +920,8 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
 			Event_PySEDMODEL.NLAM,
 			Event_PySEDMODEL.LAM, 
 			Event_PySEDMODEL.SED, 
-			&Finteg_ignore, GENFLUX_LIST ); // <= returned 
-
+			&Finteg_ignore, GENFLUX_LIST, // <= returned 
+			&FLAG_ignore );
 
   // convert generated fluxes into mags
   for(ilam=0; ilam < NBLAM; ilam++ ) { 

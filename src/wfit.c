@@ -226,6 +226,8 @@
 
  Sep 21 2020: few fixes for YAML output.
  Oct 17 2020: pass HzFUN typedef to refactored Hainv_integral function.
+ 
+ Mar 27 2021: new -om_sim option to change OM for -cmb_sim.
 
 *****************************************************************************/
 
@@ -309,9 +311,10 @@ int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 
   /* WMAP + LSS, from SDSS, Tegmark et al, astro-ph/0310723  */
-// xxx mark del double omm_prior     = 0.3;      /* omega_matter prior */
-double omm_prior     = OMEGA_MATTER_DEFAULT;    /* omega_matter prior */
-double omm_prior_sig = 0.04;  /* 1 sigma uncertainty on prior: 10% */
+
+double OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
+double omm_prior        = OMEGA_MATTER_DEFAULT ;      // OM prior
+double omm_prior_sig    = 0.04;  /* 1 sigma uncertainty on prior: 10% */
 
 // Apr 2016: reference cosmology to fit  MUDIF = mu- mu(ref), 
 // only if MUDIF column is present in the input file
@@ -389,6 +392,7 @@ int main(int argc,char *argv[]){
     "   -bao_sim\t\tuse BAO constraints with simulated cosmology and E06 formalism",
     "   -cmb\t\tuse CMB constraints from 5-year WMAP (2008)",
     "   -cmb_sim\t\tuse CMB constraints with simulated cosmology and WMAP formalism",
+    "   -om_sim\t\t Omega_M for cmb_sim (default from sntools.h)"
     "   -minchi2\t\t get w and OM from minchi2 instead of marginalizing",
     "   -marg\t\t get w and OM from marginalizing",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
@@ -585,9 +589,14 @@ int main(int argc,char *argv[]){
 	z_bao = atof(argv[++iarg]); a1 = 1./(1. + z_bao);
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	usecmb=1;
+
       } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
         usecmb=2;
-
+	omm_prior     = OMEGA_MATTER_SIM ;
+	omm_prior_sig = 0.5;  // turn off omm prior
+      } else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
+	OMEGA_MATTER_SIM = atof(argv[++iarg]); 
+	omm_prior     = OMEGA_MATTER_SIM ;
       } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
 	usemarg=0;
       } else if (strcasecmp(argv[iarg]+1,"marg")==0) { 
@@ -883,22 +892,22 @@ int main(int argc,char *argv[]){
       if (usebao == 2) {
         printf("Fit with BAO prior in sim cosmology: "
 	       "OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f \n" ,
-               OMEGA_MATTER_DEFAULT, w0_DEFAULT, abest, sigma_a);
+               OMEGA_MATTER_SIM, w0_DEFAULT, abest, sigma_a);
       } 
     } else {
-      printf("Fitting data with Omega_m prior: %5.3f +/- %5.3f\n",
+      printf("Fit data with Omega_m prior: %5.3f +/- %5.3f\n",
 	      omm_prior,omm_prior_sig);
     }
 
     if (usecmb) {
       if ( usecmb == 1 ) {
-	printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
+	printf("Fit data with CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
 	        Rcmb_best, sigma_Rcmb);
       }
       if ( usecmb == 2 ) {
-        printf("Fit with CMB (WMAP) prior in sim cosmology: "
+        printf("Fit data with CMB (WMAP) prior in sim cosmology: "
 	       "OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f  \n" ,
-               OMEGA_MATTER_DEFAULT, w0_DEFAULT, Rcmb_best, sigma_Rcmb);
+               OMEGA_MATTER_SIM, w0_DEFAULT, Rcmb_best, sigma_Rcmb);
       } 
       //debugexit('hello');
     }
@@ -2011,7 +2020,7 @@ void set_priors(void) {
   //  char fnam[]="set_priors";
 
   double rz, tmp1, tmp2;
-  double OM = OMEGA_MATTER_DEFAULT ;
+  double OM = OMEGA_MATTER_SIM ;
   double OE = 1 - OM ;
   double w = w0_DEFAULT ;
   Cosparam cparloc;

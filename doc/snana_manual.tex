@@ -13,6 +13,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{fancyvrb}
 \usepackage{color}
+\usepackage{enumitem}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -4872,12 +4873,18 @@ TAKE_SPECTRUM:  TOBS(-7:7)     TEXPOSE_ZPOLY(600,200,-3)
 TAKE_SPECTRUM:  TREST(0:2)     TEXPOSE_ZPOLY(1000) 
 TAKE_SPECTRUM:  TREST(10:12)   TEXPOSE_ZPOLY(1500:2500,500)
 TAKE_SPECTRUM:  HOST           TEXPOSE_ZPOLY(1200) 
+
+TAKE_SPECTRUM:  MJD(59400:59407)    TEXPOSE_ZPOLY(1200)   # random within week
+TAKE_SPECTRUM:  MJD(59400:59600:20) TEXPOSE_ZPOLY(1200)   # spectrum every 20 days
 \end{Verbatim}
 %
 Each {\tt TREST} argument defines a 2-day rest-frame window from 
 which to randomly select a \spec\ MJD.
 The {\tt TOBS} argument defines a 2-week observer-frame window 
 from which to randomly select a \spec\ MJD.
+The {\tt MJD} argument defines either 
+i) a pre-defined calendar window, or ii) a pre-defined calendar sequence;
+e.g,, {\tt MJD(59400:59600:20)} defines 11 spectra, one every 20 days.
 The {\tt TEXPOSE\_ZPOLY} key defines the exposure time (seconds) 
 as a polynomial function of redshift. 
 The {\tt TREST} exposure times are 
@@ -4885,6 +4892,7 @@ $2000+500z$~sec (10-12 days before peak),
 $600+200z-3z^2$~sec ($7$ days before peak),
 $1000$~sec (near-peak),
 $[1500:2500]+500z$~sec (10-12 days after peak).
+
 The values in parentheses can be float or integer: 
 e.g., {\tt TREST(-2.5:2.5)}. Beware that no blank
 spaces are allowed inside the (). The colon separates
@@ -4898,30 +4906,9 @@ Finally, the {\tt HOST} argument results in a host spectrum
 based on {\tt HOSTLIB\_FILE} and {\tt HOSTLIB\_SPECBASIS\_FILE}.
 HOST spectra have {\tt MJD = -9} in the data files.
 
-\begin{Verbatim}[frame=single]
-# 1) rest-frame epoch, rest-frame SNR def
-TAKE_SPECTRUM:  TREST(-12:-10) SNR_ZPOLY(20,-5)  SNR_LAMREST(5000:6000)
-TAKE_SPECTRUM:  TREST(0:2)     SNR_ZPOLY(20)     SNR_LAMREST(5000:6000)
-TAKE_SPECTRUM:  TREST(10:12)   SNR_ZPOLY(20,-2)  SNR_LAMREST(5000:6000)
-
-# 2) obs-frame window, rest-frame SNR def
-TAKE_SPECTRUM:  TOBS(-7:7)      SNR_ZPOLY(20)    SNR_LAMREST(5000:6000)
-
-# 3) rest-frame epoch, obs-frame SNR def
-TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(8000:10000)
-TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
-
-#4) host spectrum 
-TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
-TAKE_SPECTRUM_HOSTFRAC:   0.1  # add 10\% of FLAM(host) to each SN spectrum
-TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SNPEAK) = 0.1
-
-TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
-\end{Verbatim}
-%
 
 The template exposure time is defined in the \simlib\ file
-with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
+with the key \\ {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
 
 \medskip
 \noindent Rather than pre-defining exposure times, the exposure
@@ -4945,6 +4932,29 @@ information is automatically added to the {\tt SIMGEN\_DUMP}
 file (\S\ref{sss:simgen_dump}).
 This allows checking $\Texpose$ vs. redshift, or vs
 any other quantity allowed in the one-row-per-SN summary.
+
+\clearpage
+\begin{Verbatim}[frame=single]
+# 1) rest-frame epoch, rest-frame SNR def
+TAKE_SPECTRUM:  TREST(-12:-10) SNR_ZPOLY(20,-5)  SNR_LAMREST(5000:6000)
+TAKE_SPECTRUM:  TREST(0:2)     SNR_ZPOLY(20)     SNR_LAMREST(5000:6000)
+TAKE_SPECTRUM:  TREST(10:12)   SNR_ZPOLY(20,-2)  SNR_LAMREST(5000:6000)
+
+# 2) obs-frame window, rest-frame SNR def
+TAKE_SPECTRUM:  TOBS(-7:7)      SNR_ZPOLY(20)    SNR_LAMREST(5000:6000)
+
+# 3) rest-frame epoch, obs-frame SNR def
+TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(8000:10000)
+TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
+
+#4) host spectrum 
+TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
+TAKE_SPECTRUM_HOSTFRAC:   0.1  # add 10\% of FLAM(host) to each SN spectrum
+TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SNPEAK) = 0.1
+
+TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
+\end{Verbatim}
+
 
 \medskip
 \newcommand{\scaleFlamHost}{S_{\rm host}}
@@ -6486,6 +6496,7 @@ sim-input
 which will mark 20 sub-samples with an integer index.
 This index is automatically included in the output tables
 for all tables formats.
+
 
 % ------------------------------------
   \clearpage
@@ -10218,6 +10229,11 @@ the bias-correction at each fitting step. The sim-input
 keys are as follows:
 %
 \begin{verbatim}
+   BIASCOR_SALT2ALPHA_GRID:  0.10  0.20 
+   BIASCOR_SALT2BETA_GRID:   2.50  3.50
+   BIASCOR_SALT2GAMMA_GRID:  0.0   0.10
+
+   # or ... below is legacy method requiring 4 keys per variable
    GENPEAK_SALT2ALPHA:   0.14   
    GENSIGMA_SALT2ALPHA:  1E8   1E8
    GENRANGE_SALT2ALPHA:  0.10  0.20
@@ -10227,15 +10243,11 @@ keys are as follows:
    GENSIGMA_SALT2BETA:  1E8  1E8 
    GENRANGE_SALT2BETA:  2.5  3.5
    GENGRID_SALT2BETA:   2       # <== only 2 allowed for BBC
-
-   BIASCOR_SALT2GAMMA_GRID:  0  0.10
 \end{verbatim}
 %
-The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
-and {\tt GENRANGE\_SALT2xxx} define the two grid points.
-The large {\tt GENSIGMA\_SALT2xxx} values specify flat
-distributions that result in two $\delta$-functions per parameter.
-
+{\tt BIASCOR\_SALT2ALPHA\_GRID} and {\tt BIASCOR\_SALT2BETA\_GRID}
+specify $2\times 2$ grid for BBC interpolation.
+%
 If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
 BBC could only fit a step function with a $\hostmass$-split 
 at exactly the same value used in the biasCor sample.
@@ -10275,13 +10287,15 @@ to disable these keys,
 \begin{verbatim} 
   # fit-input file
    &FITINP
-      ENABLE_SALT2_MAGSHIFT  = F  ! disable MAGSHIFT 
-      ENABLE_SALT2_WAVESHIFT = F  ! disable WAVESHIFT
+      ENABLE_MAGSHIFT_SALT2  = F  ! disable MAGSHIFT 
+      ENABLE_WAVESHIFT_SALT2 = F  ! disable WAVESHIFT
+      ALLOW_NEGFLUX_SALT2    = F  ! if Flam<0; Flam=0 (test only)
 
   # sim-input file
      GENMODEL_OPTMSK:  4  ! disable MAGSHIFT 
      GENMODEL_OPTMSK:  8  ! disable WAVESHIFT 
      GENMODEL_OPTMSK: 12  ! disable both
+     GENMODEL_OPTMSK: 16  ! if Flam<0; Flam=0 (test only)
 \end{verbatim}
 
 % ------------------------
@@ -11455,21 +11469,26 @@ to extract information from a {\ROOT} or {\HBOOK} file
 and convert into text format.
 The available output tables are
 \begin{itemize}
-  \item SNANA (ID=7100): general variables for all SN before fitting
-  \item FITRES (ID=7788): fit results for SN passing fit requirements.
-      Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
+  \item {\tt SNANA} (ID=7100): general variables for all SN before fitting
+  \item {\tt FITRES} (ID=7788): fit results for SN passing fit requirements.
+      Fit residuals for each epoch can be optionally included with
+      {\tt FITRES+RESIDUALS}~.
+  \item {\tt OUTLIER} (ID=7800): 
+      flux-outliers w.r.t. sim-truth for {\tt snana.exe} job;
+      w.r.t. fit model for {\tt snlc\_fit.exe} job.
+      Default is $>3\sigma$; for {\tt snana.exe}, 
+      default requires non-zero true flux.
+  \item {\tt SNLCPAK}: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %
-The SNANA and FITRES tables are intended to be accessed by
-users for continued analysis; the table name is assigned
-to a ``tree'' in \ROOT, while the the integer ID is assigned 
-to an `` ntuple'' in \HBOOK. 
-The SNLCPAK table is for internal plotting scripts, and is not
+The {\tt SNANA,FITRES,OUTLIER} tables are intended for continued 
+analysis after the \snana\ code finishes; 
+the table name is assigned to a ``tree'' in \ROOT, 
+while the the integer ID is assigned to an ``ntuple'' in \HBOOK. 
+The {\tt SNLCPAK} table is for internal plotting scripts, and is not
 intended for general use.
 The user-selection of format(s) and table(s) is described below.
-
 
 \bigskip\centerline{\bf\large COMPILATION FLAGS}
 \medskip
@@ -11487,19 +11506,19 @@ with \HBOOK\ or \ROOT.
 The output table format is defined by the user in the
 {\tt \&SNLCINP} namelist,
 \begin{Verbatim}[frame=single]
-   HFILE_OUT       = 'myout.hbook'
-   ROOTFILE_OUT    = 'myout.root'
-   TEXTFILE_PREFIX = 'myout'
+   HFILE_OUT       = `myout.hbook'
+   ROOTFILE_OUT    = `myout.root'
+   TEXTFILE_PREFIX = `myout'
 \end{Verbatim}
 %
 Multiple output formats can be specified, including all 3 as 
 shown above. For the {\ROOT} and {\HBOOK} formats, 
-and all tables are written to the \ROOT\ and \HBOOK\ file.
+all tables are written to each \ROOT\ and \HBOOK\ file.
 For the TEXT format, however, each table is written
 to a separate file and thus a file {\em prefix} is specified
 rather than a file-name. The corresponding output-file names 
 are ``{\tt myout.[tableName].TEXT}'' where the tableNames are
-{\tt SNANA}, {\tt FITRES} and 
+{\tt SNANA}, {\tt FITRES}, {\tt OUTLIER}, and 
 {\tt LCPLOT}.\footnote{{\tt LCPLOT} corresponds to the {\tt SNLCPAK} table.}
 
 
@@ -11507,12 +11526,12 @@ are ``{\tt myout.[tableName].TEXT}'' where the tableNames are
 \medskip
 
 The tables are selected by {\tt \&SNLCINP} namelist string
-{\tt SNTABLE\_LIST} with default value
+{\tt SNTABLE\_LIST},
 \begin{verbatim}
-    SNTABLE_LIST = 'SNANA  FITRES  LCPLOT'
+    SNTABLE_LIST = `FITRES'                       ! default
+    SNTABLE_LIST = `SNANA FITRES OUTLIER LCPLOT'  ! select'em all
 \end{verbatim}
 %
-which selects all three tables by default.
 To protect memory and output file size for large jobs,
 the number of light curve plots ({\tt LCPLOT})
 is limited by {\tt \&SNLCINP} namelist variable
@@ -11520,14 +11539,13 @@ is limited by {\tt \&SNLCINP} namelist variable
 more plotted light curves.
 
 If a \ROOT\ file is specified via {\tt \&SNLCINP} namelist
-variable {\tt ROOTFILE\_OUT}, then all three tables are
-created under the \ROOT\ structure. Similarly, all three
-tables are created under the \HBOOK\ structure if
-{\tt HFILE\_OUT} is defined. For TEXT format with 
-{\tt TEXTFILE\_PREFIX}, the defaut is different in 
-that only the ascii-FITRES table is produced for 
-backward-compatibility.
-To generate text output for the other tables requires
+variable {\tt ROOTFILE\_OUT}, then all {\tt SNTABLE\_LIST} arguments 
+are created under the \ROOT\ structure. Similarly, 
+all tables are created under the \HBOOK\ structure if
+{\tt HFILE\_OUT} is defined. 
+For TEXT format with {\tt TEXTFILE\_PREFIX}, only the {\tt FITRES}
+table is created by default; 
+to generate text output for other tables requires
 additional specifications such as
 %
 \begin{verbatim}
@@ -11537,7 +11555,8 @@ additional specifications such as
 \end{verbatim}
 %
 where the available text formats are 
-\begin{itemize}
+\begin{itemize}[noitemsep]
+%  \setlength\itemsep{1em}
   \item  key : key before each row, plus keyed header.
   \item  csv : comma-separated with header.
   \item  col : space-separated columns with no header.
@@ -11593,6 +11612,8 @@ A few other miscellaneous table options are
   SNTABLE_LIST = 'FITRES NOZPHOT'        # suppress ZPHOT variables
   SNTABLE_LIST = 'SNANA(text:host)'      # include HOSTGAL info in text tables
   SNTABLE_LIST = 'SNANA(text:key,text:host)' # same, with format spec
+  SNTABLE_LIST = 'OUTLIER(nsig:4)'       # table with >4sig outlers (default is 3sig)
+  SNTABLE_LIST = 'OUTLIER(nsig:4,ftrue:0.0)'   # include obs with Ftrue=0
 \end{verbatim}
 %
 \begin{itemize}
@@ -11635,6 +11656,24 @@ to distinguish spec-z and photo-z events.
 For spec-z fits (i.e., NOT photo-z),  
 {\tt NOZPHOT} adds {\tt OPT\_PHOTOZ} to the {\tt FITRES} table,
 but does not remove anything.
+%
+\item The {\tt OUTLIER} table is useful to identify and characterize
+flux outliers from non-Gaussian tails. The recommended method is using
+the {\tt snana.exe} program on samples where the true flux is known
+(i.e., data files which have a {\tt SIM\_MAGOBS} column), 
+such as fakes overlaid on image, or {\SNANA}-simulated light curves. 
+Running {\tt snana.exe} with the {\tt OUTLIER} table option will 
+abort on real data because there is no true flux to compare.
+For real data (and sims), the {\tt OUTLIER} table works with the
+lightcurve fitting program {\tt snlc\_fit.exe} by comparing fluxes to 
+the best-fit model flux. This LC-fit option requires a high-confidence 
+SNIa sample (e.g., spec-confirmed),
+otherwise some outliers may be artifacts of non-SNIa contamination.
+An outlier-fraction summary (per band) is printed to stdout,
+and also to the top of TEXT formatted output.
+Finally, note that {\tt snana.exe} is $\sim 10^2$ faster than {\tt snlc\_fit},
+and thus the former can typically run interactively while the latter
+should run in batch mode.
 \end{itemize}
 
 % --------------------------------------
@@ -11775,12 +11814,12 @@ extract table information into text format.
 
 The script usage is explained at the top of
 {\tt \&SNANA\_DIR/util/sntable\_dump.pl},
-and here we illustrate its three basic features:
+and here we illustrate its basic features:
 \begin{enumerate}
   \item Print list of {\tt SNTABLE} variables: 
        \begin{verbatim}
-          sntable_dump.pl  myjob.hbook  7100
-          sntable_dump.pl  myjob.hbook  7788
+          sntable_dump.pl  myjob.hbook  SNANA
+          sntable_dump.pl  myjob.hbook  FITRES
           sntable_dump.pl  myjob.root   SNANA
           sntable_dump.pl  myjob.root   FITRES
        \end{verbatim}
@@ -11788,31 +11827,27 @@ and here we illustrate its three basic features:
   \item For an arbitrary set of table variables, 
         extract SN values  into a fitres-formatted text file:
        \begin{verbatim}
-       sntable_dump.pl  myjob.hbook  7100 --v RA DECL SNRMAX_r
-       sntable_dump.pl  myjob.hbook  7788 --v m0obs_g m0obs_r
-         (and same for hbook/7100/7788 -> root/SNANA/FITRES)
+       sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r
+       sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r
        \end{verbatim}
 %
   \item Append an existing text file with variables from a {\tt SNTABLE}:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7100 --v RA DECL SNRMAX_r --a MYJOB.FITRES
- sntable_dump.pl  myjob.hbook  7788 --v m0obs_g m0obs_r  --a MYJOB.FITRES
-           (and same for hbook/7100/7788 -> root/SNANA/FITRES)
+ sntable_dump.pl  myjob.hbook  SNANA  -v RA DECL SNRMAX_r -a MYJOB.FITRES
+ sntable_dump.pl  myjob.hbook  FITRES -v m0obs_g m0obs_r  -a MYJOB.FITRES
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-fitFLux  outliers:
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7788   --outlier  3  99
  sntable_dump.pl  myjob.root   FITRES --outlier  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier  3  99 --v FITPROB SNRMAX3
+ sntable_dump.pl  myjob.root   FITRES --outlier  3  99 -v FITPROB SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
   \item Dump epoch-list of dataFlux-simFLux  outliers (sim only):
        \begin{verbatim}
- sntable_dump.pl  myjob.hbook  7788   --outlier_sim  3  99
  sntable_dump.pl  myjob.root   FITRES --outlier_sim  3  99
- sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 --v FITPROB SNRMAX3
+ sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 -v FITPROB SNRMAX3
        (print epochs to ascii file with 3 < Nsigma < 99)
        \end{verbatim}
 %
@@ -11834,8 +11869,8 @@ The appended variables are extracted from the {\tt SNTABLE}
 (2nd argument of {\sndump}).
 
 To see pre-explosion epochs with the outlier option, 
-optn the low-side of  {\tt \&FITINP} namelist variable
-{\tt FITWIN\_TREST}, such as -100, +45.
+open the low-side of  {\tt \&FITINP} namelist variable
+{\tt FITWIN\_TREST}, such as ``{\tt FITWIN\_TREST: -100, +45}''
 
 % --------------------------------------
   \subsubsection{Extract Value from Fitres File: {\tt get\_fitresValue.pl}}
@@ -12392,7 +12427,10 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
 # 1. options to adjust exposure time (affects both SN flux and sky noise)
   EXPOSURE_TIME: 20            # increase all exposure times by 20
   EXPOSURE_TIME_FILTER: g 20   # increase g exposure by 20
-  FUDGESHIFT_ZPT:  -3.0        # reduce ZPT by 3 mags
+
+  FUDGESHIFT_ZPT:  0.03           # add 0.03 to ZPT in all bands
+  FUDGESHIFT_ZPT_FILTER: g  0.03  # add 0.03 to g-band ZPT only
+  FUDGESHIFT_ZPT_FILTER: gz 0.03  # add 0.03 to g and z-band ZPT
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
   FUDGESCALE_PSF: 2            # increase PSF
@@ -12481,55 +12519,6 @@ at the epoch with the maximum $S/N$.
   \label{subsec:MiscTools_fit}
 % --------------------------------------
 
-% ----------
-  \subsubsection{Analyzing Residuals from Lightcurve Fits}
-  \label{sss:resids_error}
-
-There are two utilities to analyze residual from a lightcurve fit:
-
-\begin{Verbatim}[frame=single]
-   mkfitplots.pl --h <hisFile>  RESIDS
-   dump_lcfitOutliers.pl <hisFile>  <Nsigma>
-\end{Verbatim}
-%
-The first command generates plots of the normalized residuals,
-$\Delta F/\sigma$ where $\Delta F = F_{\rm data} - F_{\rm  model}$,
-and also plots $\Delta F/\sigma$ vs. $\log_{10}({\rm SNR})$.
-Separate plots are made for each observer-frame passband.
-The second command dumps out a text-file of outlier \obss\
-for which the data lie more than {\tt Nsigma}$\sigma$ from the
-best-fit model. The format of the outlier text-file is such that
-entries can be pasted directly into the IGNORE file for those
-\obss\ that should be ignored in the analysis.
-
-
-% --------------------------------------
-  \subsubsection{Extracting Light Curves into ASCII Formatted Files}
-  \label{sss:LCextract}
-% --------------------------------------
-
-For both the {\tt snana.exe} and {\tt snlc\_fit.exe} programs,
-the fluxes and best-fit model can be dumped into an
-ASCII text file with the {\&SNLCINP} namelist option
-\begin{verbatim}
-  LDMP_SNFLUX = T
-\end{verbatim}
-This option creates a  master file ``{\tt \$SURVEY.LIST}'' 
-and a {\tt FLUXFILE} for each filter for each SNID.
-The master file contains the name of each SNID, 
-its redshift and a list of {\tt FLUXFILE}s.
-The format of the {\tt FLUXFILE} is
-\begin{verbatim}
-   Tobs  FLUXCAL FLUXCAL_ERR  DATAFLAG   CFILT   CHI2
-\end{verbatim}
-%
-where {\tt Tobs} is the time relative to the epoch of peak brightness,
-{\tt FLUXCAL} and  {\tt FLUXCAL\_ERR} are the calibrated
-flux and error, {\tt DATAFLAG} is described below,
-{\tt CFILT} is a one-character filter string, 
-and {\tt CHI2} is the the data-model $\chi^2$ from the fit (0 if no fit).
-{\tt DATAFLAG} is $+1$ for data, $-1$ for data rejected by the fit,
-and $0$ for the best fit (smooth) model.
 
 % --------------------------------------
 %  \clearpage
@@ -12574,13 +12563,17 @@ file with the following,
   &SNLCINP
      VERSION_PHOTOMETRY    = 'MYSURVEY_TEXT'
      VERSION_REFORMAT_FITS = 'MYSURVEY_FITS'
+     OPT_SETPKMJD = 20   ! useful if there is no PEAKMJD estimate
+     OPT_MWEBV    = 2    ! useful if there is no MWEBV in text files
    &END
 
   or use NOFILE option with no input NML file:
 
   snana.exe NOFILE  \
      VERSION_PHOTOMETRY     MYSURVEY_TEXT  \  
-     VERSION_REFORMAT_FITS  MYSURVEY_FITS
+     VERSION_REFORMAT_FITS  MYSURVEY_FITS  \
+     OPT_SETPKMJD 20                       \ 
+     OPT_MWEBV    2
 \end{Verbatim}
 %
 This translation should be used only for data
@@ -12590,9 +12583,15 @@ the auxiliary files are also created:
 {\tt MYSURVEY.LIST}, 
 {\tt MYSURVEY.IGNORE}, 
 {\tt MYSURVEY.README}.
-All of the output files are created in your current directory;
-to use the for analysis, copy them into 
-{\tt\$\sndataroot/lcmerge}~.
+The output files are created under a newly created folder 
+({\tt /MYSURVEY\_FITS}) in your current directory.
+
+If there is no PEAKMJD estimate in the TEXT formatted files,
+{\tt OPT\_SETPKMJD>0} provides a PEAKMJD estimate for the FITS files.
+Similarly, {\tt OPT\_MWEBV>0} modifies {\tt MWEBV} and {\tt MWEBV\_ERR}
+for the FITS output. Finally, updated redshifts and $\vpec$
+are included in FITS output; e.g., from header override, etc ...
+Beware that content of TEXT and FITS may differ in these header variables.
 
 \medskip
 While FITS formatted data is efficient for analysis,
@@ -12613,7 +12612,7 @@ a max limit of 20 data files can be extracted.
 
 % --------------------------------------
   \clearpage
-  \subsubsection{Re-write Data FIles with Flux Fudges}
+  \subsubsection{Re-write Data Files with Flux Fudges}
   \label{sss:text2text}
 % --------------------------------------
 
@@ -12897,6 +12896,20 @@ epoch with {\tt SNR>5}, and another \obs\ is required within
 25 days after the last epoch with {\tt SNR>5}. The pre- and post
 \obs\ ensure that an above-threshold epoch would have been seen,
 and was not hidden by a dormant survey.
+
+% --------------------------------------
+%  \clearpage
+  \subsubsection{Rejecting Outlier Fluxes for Fakes and SIM}
+  \label{sss:reject_outliers}
+% --------------------------------------
+
+If fakes overlaid on images have catastrophic outliers,
+outlier epochs can be rejected with
+\begin{verbatim}
+   &SNLCINP
+      CUTWIN_SIMPULL -3.0, +3.0  ! reject >3 sigma outliers
+\end{verbatim}
+
 
 % --------------------------------------
 %  \clearpage

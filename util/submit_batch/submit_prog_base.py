@@ -1277,6 +1277,8 @@ class Program:
         # nevt <=0 means job failed, so call faulure_update
         # function that will update FAILURES.LOG
         # This function returns true if failure is identified.
+        #
+        # Mar 26 2021: create=True always. isplit<4 missing too much.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
@@ -1285,8 +1287,9 @@ class Program:
         fail_no_output   = (nevt <  0)  # no output
         fail_zero_evt    = (nevt == 0)  # zero events 
         found_fail       = (fail_no_output or fail_zero_evt)
-        create           = (isplit <= MXSPLIT_FAIL_REPEAT )
-        
+        # xxx mark create           = (isplit <= MXSPLIT_FAIL_REPEAT )
+        create           = True   # Mar 26 2021
+
         if found_fail :
             cleanup_flag   = 0 # STOP all cleanup activities
             self.failure_update(log_file, create, fail_zero_evt )

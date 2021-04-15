@@ -14,6 +14,9 @@
 #  that all of the FITOPT000 are processed first, the iver,fitopt loop
 #  was switched to fitopt,iver.
 #
+# Mar 17 2021: replace sntable_dump.pl with sntable_dump.py (perl->python)
+# Apr 07 2021: better error message when appending TEXT table fails.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -71,7 +74,8 @@ KEY_APPEND_TABLE_TEXTFILE = "APPEND_TABLE_TEXTFILE"
 PREFIX_TEMP_SNANA = "TEMP_SNANA"
 
 # define script to dump number of events in table (for hbook & root)
-SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"  # ?? convert to python ??
+#SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"
+SCRIPT_SNTABLE_DUMP    = "sntable_dump.py"   # Mar 17 2021
 
 # define program to merge text-fitres files
 PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
@@ -1385,9 +1389,16 @@ class LightCurveFit(Program):
 
         cddir = (f"cd {script_dir}")
         cmd_append = (f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
-                      f"-v {varlist_append} " \
+                      f"--VERBOSE " \
+                      f"-v '{varlist_append}' " \
                       f"-a {text_table_file} > {append_log_file} 2>/dev/null")
-        os.system(f"{cddir} ; {cmd_append} ")
+        istat = os.system(f"{cddir} ; {cmd_append} ")
+
+        if istat != 0 :
+            msgerr.append(f"Failed to apppend variables")
+            msgerr.append(f"{varlist_append}")
+            msgerr.append(f"See {append_log_file}")
+            self.log_assert(False,msgerr) 
 
         # replace FITRES file with append file, 
         # and remove sntable* junk files
@@ -1537,7 +1548,10 @@ class LightCurveFit(Program):
         # Script prints "NEVT:  <nevt>", so parse the 2nd element.
 
         script   = SCRIPT_SNTABLE_DUMP
-        cmd_nevt = (f"{script} {table_file} FITRES NEVT " \
+        arg_NEVT = "--NEVT"
+        if '.pl' in script:  arg_NEVT = "NEVT" # legacy perl arg
+        
+        cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
                     f" | grep 'NEVT:' ")
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)

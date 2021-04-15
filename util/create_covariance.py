@@ -202,7 +202,7 @@ def load_hubble_diagram(path, args, config):
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {path}"
             assert "MUERR_VPEC" in df.columns, msgerr
-            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2)
+            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df['biasScale_muCOV']*df["MUERR_VPEC"] ** 2)
             logging.debug("Subtracted MUERR_VPEC from MUERR")
         elif config.get("CALIBRATORS"):
             calib_mask = df["CID"].isin(config.get("CALIBRATORS"))
@@ -452,7 +452,7 @@ def get_cov_from_diff(df1, df2, scale):
 
 
 def get_cov_from_covfile(data, covfile, scale):
-    covindf = pd.read_csv(covfile)
+    covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
     covindf['CID1'] = covindf['CID1'].astype(str)
     covindf['CID2'] = covindf['CID2'].astype(str)
     covindf = covindf.set_index(["CID1", "CID2"])
@@ -664,7 +664,7 @@ def write_covariance(path, cov):
         for c in cov.flatten():
 
             if cosmomc_method == COSMOMC_METHOD_JLA :
-                f.write(f"{c:.8f}\n")
+                f.write(f"{c:.14f}\n")
             else:
                 # for bbc method write human-readable cov:
                 # comment line for each new row, and off-diag elements

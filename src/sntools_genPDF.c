@@ -17,6 +17,7 @@
 
   Oct 23 2020: use get_VAL_RANGE_genPDF() 
   Dec 23 2020: improve algorithmn in get_VAL_RANGE_genPDF
+  Mar 26 2021: allow LOGparName in GENPDF maps; e.g., LOGEBV, LOGAV.
 
  ****************************************************/
 
@@ -144,7 +145,6 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9 ; // init for below
       }
 
-
       // check options to rejet or ignore map(s)
       ptrVar = GENPDF[NMAP].VARNAMES[0] ;
       IGNORE_MAP = false;
@@ -183,8 +183,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // - - - - - - - -
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
-  int ivar_hostlib ;
-  int ABORTFLAG = 0 ;
+  bool IS_LOGPARAM;
+  int  ivar_hostlib, imap_tmp ;
+  int  ABORTFLAG = 0 ;
   char *VARNAME;
   for(imap=0; imap < NMAP; imap++ ) {
 
@@ -199,6 +200,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	sprintf(c2err,"Check HOSTLIB and check GENPDF_FILE");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
+ 
+      //   imap_tmp= IDMAP_GENPDF(VARNAME, &IS_LOGPARAM);
+
       printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
 	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );
       GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
@@ -247,7 +251,8 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   int    IVAR_HOSTLIB, IGAL = SNHOSTGAL.IGAL;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
   double VAL_RANGE[2], FUNMAX, prob_ratio ;
-  int    LDMP = 0 ;  
+  int    LDMP = 0 ;
+  bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
   char   *MAPNAME ;
   char fnam[] = "get_random_genPDF";
   
@@ -255,7 +260,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
   // check for map in GENPDF_FILE argument of sim-input file
   if ( NMAP_GENPDF > 0 ) {
-    IDMAP = IDMAP_GENPDF(parName);
+    IDMAP = IDMAP_GENPDF(parName, &IS_LOGPARAM);
     if ( IDMAP >= 0 ) {
       N_EVAL++ ; NCALL_GENPDF++ ;
       MAPNAME       = GENPDF[IDMAP].MAPNAME ;
@@ -274,7 +279,14 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
       // get min/max VALUE range for random selection;
       // function here returns VAL_RANGE
-      get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
+
+      if ( IS_LOGPARAM ) {
+	VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+	VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+      }
+      else {
+	get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
+      }
 
       // - - - - - -
       LDMP = 0; // (NCALL_GENPDF < 5 );
@@ -372,6 +384,8 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   if ( LDMP ) 
     { printf(" xxx %s: return %s = %f \n", fnam, parName, r); }
 
+  if ( IS_LOGPARAM ) { r = pow(TEN,r); }
+
   return(r);
 
 } // end get_random_genPDF
@@ -390,7 +404,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   //  VAL_RANGE[1] = max(val_inputs[0]) for which PROB > 0
   //
   // Inputs:
-  //   IDMAP  : integr ID of GRIDMAP
+  //   IDMAP  : integer ID of GRIDMAP
   //   val_inputs : includes HOSTLIB and PROB elements 1 to NDIM
   //                 val_inputs[0] is varied to see where PROB>0.
   //
@@ -401,7 +415,7 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   //   + add and subtract 1*BINSIZE to range.
   //   + check OPTMASK for SLOW option using full range.
   //
-  // xxx mark delete  bool   CHECK_PROB0 = true;
+
   int    NBIN_CHECKPROB0 = 10 ;
   double XNBIN = (double)NBIN_CHECKPROB0;
   
@@ -414,7 +428,6 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
 
   if ( OPTMASK_GENPDF & OPTMASK_GENPDF_SLOW ) { return; }
-  // xxx mark delete  if ( !CHECK_PROB0 ) { return; }
 
   VAL_RANGE_PROB[0] = 9.0E12;  VAL_RANGE_PROB[1] = -9.0E12 ;
   VAL_BINSIZE = (VAL_RANGE[1] - VAL_RANGE[0]) / XNBIN; 
@@ -459,17 +472,26 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   return;
 } // end get_VAL_RANGE_genPDF
 
-// ========================================
-int IDMAP_GENPDF(char *parName) {
+// ==========================================================
+int IDMAP_GENPDF(char *parName, bool *FOUND_LOGPARAM) {
 
   // return IDMAP for this input parName.
   // Match against first varName in each map.
+  // Mar 26 2021: of LOGparName exists, return LOGPARAM=True.
 
   int ID=-9, imap;
-  char *tmpName;
+  char *tmpName, LOGparName[60];
+
+  *FOUND_LOGPARAM = false; 
+  sprintf(LOGparName,"LOG%s", parName);  // Mar 26 2021
   for(imap=0; imap < NMAP_GENPDF; imap++ ) {
     tmpName = GENPDF[imap].VARNAMES[0];
-    if ( strcmp(tmpName,parName)==0 ) { return(imap); }
+
+    if ( strcmp(tmpName,parName)==0 ) 
+      { return(imap); }
+
+    if ( strcmp(tmpName,LOGparName)==0 ) 
+      { *FOUND_LOGPARAM=true; return(imap); }
   }
 
   return(ID);

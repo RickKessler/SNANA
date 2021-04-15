@@ -1,7 +1,6 @@
 
 // Created July 2016 by R.Kessler
 
-// xxx mark delete #define MXSPEC    50   // max Nspec per event   
 #define MXSPEC                 MXSPECTRA  // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
 #define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
@@ -60,9 +59,10 @@ double  VALUES_SPECBIN[MXVALUES_SPECBIN];
 
 struct {
   int    NMJD_TOT, NMJD_PROC ;
-  int    NBLAM_TOT;            // total number of wavelength bins
+  int    NBLAM_TOT[MXSPEC];    // total number of wavelength bins
   int    NBLAM_VALID[MXSPEC] ; // number of valid wavelength bins per epoch
   int    IS_HOST[MXSPEC];
+  bool   SKIP[MXSPEC];        // outside Trest range of model
 
   double MJDREF_LIST[MXSPEC]; // same for each event
   double MJD_LIST[MXSPEC], TOBS_LIST[MXSPEC], TREST_LIST[MXSPEC];

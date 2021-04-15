@@ -9,12 +9,6 @@
 #  + create tables with every observation
 #  + make fluxError maps
 #
-#
-# TODO
-#  - FIELD dependence
-#  + apply cuts on NSIG ?
-#  + include FILTER dependence
-#
 # ========================
 
 import os, sys, argparse, glob, yaml, math
@@ -34,7 +28,10 @@ STRING_FIELDS = "FIELDS"
 
 FLUXERRMODEL_FILENAME_FAKE = f"FLUXERRMODEL_{STRING_FAKE}.DAT"
 FLUXERRMODEL_FILENAME_SIM  = f"FLUXERRMODEL_{STRING_SIM}.DAT"
+MAP_NAME = "FLUXERR_SCALE"
  
+FORCE_ERRCORR1 = True  # force Error corr>=1 to avoid sim nan
+
 USERNAME      = os.environ['USER']
 USERNAME4     = os.environ['USER'][0:4]
 HOSTNAME      = os.uname()[1].split('.')[0]
@@ -46,16 +43,46 @@ COLNAME_IFIELD   = "IFIELD"
 
 IFILTOBS_MAX = 80
 
-ISTAGE_MAKEMAP = 4
+ISTAGE_MAKEMAP = 5
 
+# list of reduced flux correlations to try in sim 
+REDCOV_LIST = [ 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 ]
+
+NMLKEY_DATA_PATH   = 'PRIVATE_DATA_PATH'
+NMLKEY_VERSION     = 'VERSION_PHOTOMETRY'
+NMLKEY_KCOR_FILE   = 'KCOR_FILE'
+NMLKEY_SNTABLE     = 'SNTABLE_LIST'
+NMLKEY_SIMLIB_FILE = 'SIMLIB_OUTFILE'
+NMLKEY_OPT_SIMLIB  = 'OPT_SIMLIB_OUT'
+NMLKEY_LPROB_TRUEFLUX    = 'LPROB_TRUEFLUX'
+NMLKEY_MODEL_FILE        = 'FLUXERRMODEL_FILE'
+NMLKEY_SIM_MODEL_FILE    = 'SIM_FLUXERRMODEL_FILE' # for redcov_test
+NMLKEY_TEXTFILE_PREFIX   = 'TEXTFILE_PREFIX'
+NMLKEY_HFILE_OUT         = 'HFILE_OUT'
+
+NMLKEY_LIST = [NMLKEY_DATA_PATH, NMLKEY_VERSION, NMLKEY_KCOR_FILE, 
+               NMLKEY_SNTABLE, NMLKEY_TEXTFILE_PREFIX, NMLKEY_HFILE_OUT,
+               NMLKEY_SIMLIB_FILE, NMLKEY_OPT_SIMLIB, NMLKEY_LPROB_TRUEFLUX,
+               NMLKEY_MODEL_FILE, NMLKEY_SIM_MODEL_FILE ]
+
+KEY_ALLBANDS        = "ALL"
+VARNAME_PROB_PREFIX = "PROB_TRUEFLUX"  # varname in SNANA table
+
+TABLE_SUFFIX_SNANA   = "SNANA.TEXT"
+TABLE_SUFFIX_OUTLIER = "OUTLIER.TEXT"
+
+REDCOV_SUMMARY_FILE = "REDCOV.SUMMARY"
+
+# - - - - - - - - - - - - - 
 HELP_CONFIG = """
 # keys for input config file
 
 OUTDIR: [OUTDIR]   # name of output directory
 
-VERSION_FAKES:  [full path to data folder with fakes that include true mag]
-HOSTLIB_FILE:   [full path to HOSTLIB]
-KCOR_FILE:      [full path to KCOR/calib file]
+VERSION_FAKES:    [full path to data folder with fakes that include true mag]
+HOSTLIB_FILE:     [full path to HOSTLIB]
+KCOR_FILE:        [full path to KCOR/calib file]
+PATH_SNDATA_SIM:  [optional path for sim data output]
 
 OPT_SIMLIB:  2  # 1=all epochs, 2=only epochs with Ftrue>0
 
@@ -108,11 +135,19 @@ def get_args():
     parser.add_argument("-s", "--start_stage", help=msg, nargs='?', 
                         type=int, default=1)
 
-    msg = f"Jump to make map stage {ISTAGE_MAKEMAP} (previous stages already run)"
+    msg = f"Jump to make map stage {ISTAGE_MAKEMAP} " \
+          f"(previous stages already run)" 
     parser.add_argument("-m", "--makemap", help=msg, action="store_true")
 
-    msg = "verify maps"
+    msg = "verify on fakes using map; output scales should be 1"
     parser.add_argument("--verify", help=msg, action="store_true")
+
+    msg = "reduced cov for sim test using  FLUXERRMODEL_SIM map "
+    parser.add_argument("--redcov_test", help=msg, nargs='?', 
+                        type=float, default=-9.0 )
+
+    msg = "include HBOOK file for each output table"
+    parser.add_argument("--hbook", help=msg, action="store_true")
 
     args = parser.parse_args()
 
@@ -143,6 +178,8 @@ def read_input(input_file):
     # parse VERSION_FAKES into path and version for &SNLCINP inputs
     VERSION_FAKES     = input_yaml['VERSION_FAKES']
     PRIVATE_DATA_PATH = os.path.dirname(VERSION_FAKES)
+    if len(PRIVATE_DATA_PATH) < 2: PRIVATE_DATA_PATH = None
+
     VERSION           = os.path.basename(VERSION_FAKES)
     input_yaml['VERSION']           = VERSION
     input_yaml['PRIVATE_DATA_PATH'] = PRIVATE_DATA_PATH
@@ -165,8 +202,9 @@ def read_input(input_file):
     return input_yaml
     # end read_input
 
-def prep_outdir(config):
+def prep_outdir(ISTAGE,config):
 
+    prefix     = stage_prefix(ISTAGE)
     input_yaml = config.input_yaml
     input_file = config.args.input_file
     args       = config.args
@@ -176,6 +214,7 @@ def prep_outdir(config):
         sys.exit(f"\n ERROR: missing required OUTDIR key in {input_file}\n")
 
     OUTDIR = input_yaml[key]
+
     if args.verify : 
         OUTDIR_ORIG = OUTDIR
         OUTDIR     += "_VERIFY"
@@ -194,10 +233,12 @@ def prep_outdir(config):
 
     
     if do_mkdir:  
-        print(f" Create OUTDIR  /{OUTDIR}")
+        print(f"{prefix}: Create OUTDIR  /{OUTDIR}")
         os.mkdir(OUTDIR)
     else:
-        print(f" Skip creating existing OUTDIR  /{OUTDIR}")
+        print(f"{prefix}: Skip creating existing OUTDIR  /{OUTDIR}")
+
+    sys.stdout.flush()
 
     # end prep_outdir
 
@@ -211,11 +252,16 @@ def get_survey_info(config):
     yaml_file         = f"{TEXTFILE_PREFIX}.YAML"
     log_file          = f"{TEXTFILE_PREFIX}.LOG"
 
+    if PRIVATE_DATA_PATH is None :
+        arg_path = ""
+    else:
+        arg_path = f"PRIVATE_DATA_PATH {PRIVATE_DATA_PATH} "
+
     print(f" Extract SURVEY-FILTER info from {VERSION} :")
 
     cmd = f"{JOBNAME_SNANA} NOFILE " \
           f"VERSION_PHOTOMETRY {VERSION} " \
-          f"PRIVATE_DATA_PATH {PRIVATE_DATA_PATH} " \
+          f"{arg_path} " \
           f"TEXTFILE_PREFIX {TEXTFILE_PREFIX} " \
           f"MXEVT_PROCESS 0 OPT_YAML 1 > {log_file} "
 
@@ -239,6 +285,70 @@ def stage_prefix(ISTAGE):
     prefix = f"STAGE{ISTAGE:02d}"
     return prefix
 
+def create_simdata(ISTAGE,config):
+
+    # use files in nominal OUTDIR to create a sim data set that
+    # uses FLUXERRMODEL_FILE(SIM) and user-input redcov.
+    # Also overwrite YAML inputs as if this sim data version
+    # was input instead of the fakes. Goal here is to test
+    # if the minimum chi2red in output corresponds to true redcov.
+
+    OUTDIR_ORIG   = config.input_yaml['OUTDIR']
+    VERSION_ORIG  = os.path.basename(config.input_yaml['VERSION_FAKES'])
+    redcov        = config.args.redcov_test
+    Jrho          = int(100*redcov)
+
+    if not os.path.exists(OUTDIR_ORIG) :
+        msgerr = "\n"
+        msgerr += f"ERROR: /{OUTDIR_ORIG} does not exist. \n"
+        msgerr += f"Process real fakes before SIMTEST with --redcov_test .\n"
+        sys.exit(msgerr)
+
+    # overwrite selected user inputs    
+    OUTDIR        = f"{OUTDIR_ORIG}_REDCOV{Jrho:03d}"
+    VERSION       = f"SIMTEST_{VERSION_ORIG}"
+    config.input_yaml['OUTDIR']            = OUTDIR
+    config.input_yaml['VERSION_FAKES']     = VERSION
+    config.input_yaml['VERSION']           = VERSION
+    config.input_yaml['PRIVATE_DATA_PATH'] = None
+
+    prefix        = stage_prefix(ISTAGE)
+
+    print(f"{prefix}: create sim data to replace fakes")
+    if config.args.start_stage > 1 :
+        print(f"\t Already done --> SKIP")
+        return
+    
+    # find simgen-input file in OUTDIR_ORIG; easier than re-creating it
+    wildcard    = f"*simgen*input"
+    input_files = glob.glob1(OUTDIR_ORIG,wildcard)
+    n_file      = len(input_files)
+
+    if n_file != 1 :
+        msgerr = "\n"
+        msgerr += f"ERROR: Found {n_file} files searching for\n"
+        msgerr += f"   {wildcard}\n"
+        msgerr += f" Expecting 1 and only 1 file.\n"
+        msgerr += f" Files found are:\n"
+        msgerr += f"   {input_files} \n"
+        sys.exit(msgerr)
+
+    simarg_redcov = prep_simarg_redcov(config,redcov)
+    log_file = "out_create_simtest.log"
+
+    cmd  = f"cd {OUTDIR_ORIG}; {JOBNAME_SIM} {input_files[0]} "
+    cmd += f"GENVERSION {VERSION} "
+    cmd += f"FLUXERRMODEL_FILE {FLUXERRMODEL_FILENAME_SIM} "
+    cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov} "
+    cmd += f"FLUXERRMAP_IGNORE_DATAERR {MAP_NAME} "
+    cmd += f" > {log_file} "
+
+    #print(f"\n xxx run \n{cmd}\n")
+    os.system(cmd)
+
+    # .xyz
+    # end create_simdata
+
 def create_fake_simlib(ISTAGE,config):
 
     # Run snana.exe job on fakes with option to create SIMLIB
@@ -260,76 +370,124 @@ def create_fake_simlib(ISTAGE,config):
     VERSION           = config.input_yaml['VERSION']
     PRIVATE_DATA_PATH = config.input_yaml['PRIVATE_DATA_PATH']
     OPT_SIMLIB        = config.input_yaml['OPT_SIMLIB']
+    
+    nmlarg_dict = init_nmlargs()
+    nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
+    nmlarg_dict[NMLKEY_VERSION]     =  VERSION
+    nmlarg_dict[NMLKEY_KCOR_FILE]   =  KCOR_FILE
+    nmlarg_dict[NMLKEY_SNTABLE]     =  ' '
+    nmlarg_dict[NMLKEY_SIMLIB_FILE] = SIMLIB_OUTFILE
+    nmlarg_dict[NMLKEY_OPT_SIMLIB]  = OPT_SIMLIB
 
-
-    nml_lines  = []
     nml_prefix = f"{prefix}_make_simlib"
-
-    # create lines for nml file
-    nml_lines.append(f"   PRIVATE_DATA_PATH  = '{PRIVATE_DATA_PATH}' ")
-    nml_lines.append(f"   VERSION_PHOTOMETRY = '{VERSION}' ") 
-    nml_lines.append(f"   KCOR_FILE          = '{KCOR_FILE}' ")
-    nml_lines.append(f"   SNTABLE_LIST   = '' ")
-    nml_lines.append(f"   SIMLIB_OUTFILE = '{SIMLIB_OUTFILE}' ")
-    nml_lines.append(f"   OPT_SIMLIB_OUT = {OPT_SIMLIB} ")
-    nml_lines.append(f"")
-
-    if 'EXTRA_SNLCINP_ARGS' in config.input_yaml:
-        for arg in config.input_yaml['EXTRA_SNLCINP_ARGS']:
-            nml_lines.append(f"   {arg}")
-        
+    nml_file, NML_FILE = create_nml_file(config, nmlarg_dict, nml_prefix)
+            
     # - - - - - - 
-    run_snana_job(config, nml_prefix, nml_lines)
+    run_snana_job(config, nml_file, "")
     sys.stdout.flush()
 
     # end create_fake_simlib
 
-def run_snana_job(config, nml_prefix, nml_lines):
+def init_nmlargs():
+    nmlarg_dict = {}
+    for nmlkey in NMLKEY_LIST:  nmlarg_dict[nmlkey] = None
+    return nmlarg_dict
+    # end init_nmlargs
 
-    args       = config.args
+def create_nml_file(config, nmlarg_dict, nml_prefix):
+
+    input_args = config.args
     input_yaml = config.input_yaml
+
     OUTDIR   = input_yaml['OUTDIR']
-    log_file = f"{nml_prefix}.log"
+    nml_lines_auto = []
+    nml_lines_user = []
+
+    # Create input name list file for snana.exe
+    for nmlkey in NMLKEY_LIST:
+        arg  = nmlarg_dict[nmlkey]
+        if arg is not None:
+            if isinstance(arg,str) :  arg = f"'{arg}'"
+            nml_lines_auto.append(f"   {nmlkey:<20} = {arg} ")
+
+    # - - - -
+    if 'EXTRA_SNLCINP_ARGS' in config.input_yaml:
+        for arg in config.input_yaml['EXTRA_SNLCINP_ARGS']:
+            nml_lines_user.append(f"   {arg}")
+
+    # - - - --  -
+    # write nml_lines to nml file.
+
     nml_file = f"{nml_prefix}.nml"
     NML_FILE = f"{OUTDIR}/{nml_file}"
+    n_lines  = len(nml_lines_auto) + len(nml_lines_user)
+
+    print(f"\t Create {nml_file} with {n_lines} keys.")
 
     with open(NML_FILE,"wt") as f:
         f.write(f" &SNLCINP\n")
-        
-        if args.verify:
+
+        f.write(f"\n ! auto-generated input\n")
+        for line in nml_lines_auto: f.write(f"{line}\n")
+
+        if input_args.verify:
             OUTDIR_ORIG = input_yaml['OUTDIR_ORIG']
             orig_file   = f"../{OUTDIR_ORIG}/{FLUXERRMODEL_FILENAME_FAKE}"
             f.write(f"   FLUXERRMODEL_FILE = '{orig_file}' \n")
 
-        for line in nml_lines:
-            f.write(f"{line}\n")
+        f.write(f"\n ! user-generated input\n")
+        for line in nml_lines_user: f.write(f"{line}\n")
         f.write(f" &END\n") 
+    
+    return nml_file, NML_FILE
+
+    # end create_nml_file
+
+def run_snana_job(config, nml_file, args_command_line):
+
+    args       = config.args
+    input_yaml = config.input_yaml
+    OUTDIR     = input_yaml['OUTDIR']
+
+    # use prefix to construct name of log file
+    prefix   = nml_file.split(".")[0]
+    log_file = f"{prefix}.log"
 
     print(f"\t Run {JOBNAME_SNANA} on {nml_file} ")
     sys.stdout.flush()
 
     # run it ...
-    cmd = f"cd {OUTDIR}; {JOBNAME_SNANA} {nml_file} > {log_file} "
-    os.system(cmd)
+    cmd  = f"cd {OUTDIR}; {JOBNAME_SNANA} {nml_file} "
+    cmd += f"{args_command_line} "
+    cmd += f" > {log_file} "
 
+    #sys.exit(f"\n xxx cmd(snana) = \n{cmd}")
+    os.system(cmd)
 
     # end run_snana_job
 
-def simgen(ISTAGE,config):
+
+def simgen_nocorr(ISTAGE,config):
 
     args           = config.args
     OUTDIR         = config.input_yaml['OUTDIR']
     filters        = config.filters
     SIMLIB_FILE    = config.SIMLIB_FILE
     KCOR_FILE      = config.input_yaml['KCOR_FILE']
+    
+    # init optional keys
+    HOSTLIB_FILE    = "NONE"
+    HOSTLIB_MSKOPT  = 0
+    PATH_SNDATA_SIM = None 
 
+    # check optional keys
     if 'HOSTLIB_FILE' in config.input_yaml :
         HOSTLIB_FILE   = config.input_yaml['HOSTLIB_FILE']
-        HOSTLIB_MSKOPT = 258
-    else:
-        HOSTLIB_FILE   = "NONE"
-        HOSTLIB_MSKOPT = 0
+        HOSTLIB_MSKOPT = 258  # 2=Poisson noise, 256=verbose
 
+    if 'PATH_SNDATA_SIM' in config.input_yaml :
+        PATH_SNDATA_SIM = config.input_yaml['PATH_SNDATA_SIM']
+    
     prefix         = stage_prefix(ISTAGE)
     sim_input_file = f"{prefix}_simgen_fakes.input"
     sim_log_file   = f"{prefix}_simgen_fakes.log"
@@ -338,6 +496,7 @@ def simgen(ISTAGE,config):
     SIM_LOG_FILE   = f"{OUTDIR}/{sim_log_file}"
     GENVERSION     = f"{prefix}_simgen_fakes_{USERNAME4}"
     config.SIM_GENVERSION = GENVERSION
+    config.sim_input_file = sim_input_file
 
     ranseed = 12345 
     sim_input_lines = []
@@ -347,12 +506,14 @@ def simgen(ISTAGE,config):
         print(f"\t Already done --> SKIP")
         return
 
-
     if args.verify :
         OUTDIR_ORIG = config.input_yaml['OUTDIR_ORIG']
         orig_file   = f"../{OUTDIR_ORIG}/{FLUXERRMODEL_FILENAME_SIM}"
         sim_input_lines.append(f"FLUXERRMODEL_FILE:  {orig_file}")
         sim_input_lines.append(f" ")
+
+    if PATH_SNDATA_SIM is not None :
+        sim_input_lines.append(f"PATH_SNDATA_SIM:        {PATH_SNDATA_SIM}")
 
     sim_input_lines.append(f"GENVERSION:        {GENVERSION}")
     sim_input_lines.append(f"SIMLIB_FILE:       {SIMLIB_FILE}")
@@ -393,7 +554,7 @@ def simgen(ISTAGE,config):
     if 'FATAL' in f.read():
         sys.exit(f"\n FATAL ERROR: check {SIM_LOG_FILE} \n")
 
-    # end simgen
+    # end simgen_nocorr
 
 def make_outlier_table(ISTAGE,config,what):
 
@@ -405,7 +566,7 @@ def make_outlier_table(ISTAGE,config,what):
     prefix = stage_prefix(ISTAGE)
     
     nml_prefix   = f"{prefix}_fluxTable_{what}"
-    table_file   = f"{nml_prefix}.OUTLIER.TEXT"
+    table_file   = f"{nml_prefix}.{TABLE_SUFFIX_OUTLIER}"
 
     print(f"{prefix}: make {TABLE_NAME} table for {what}")
     sys.stdout.flush()
@@ -413,32 +574,28 @@ def make_outlier_table(ISTAGE,config,what):
         print(f"\t Already done --> SKIP")
         return table_file
 
-    KCOR_FILE         = config.input_yaml['KCOR_FILE']
+    input_yaml        = config.input_yaml
+    KCOR_FILE         = input_yaml['KCOR_FILE']
+    PRIVATE_DATA_PATH = input_yaml['PRIVATE_DATA_PATH']
 
     if what == STRING_FAKE :
-        VERSION           = config.input_yaml['VERSION']
-        PRIVATE_DATA_PATH = config.input_yaml['PRIVATE_DATA_PATH']
+        VERSION  = input_yaml['VERSION']
     else:
         # for SIM
         VERSION = config.SIM_GENVERSION
-        PRIVATE_DATA_PATH = ''
+        
 
-    nml_lines       = []
+    # - - - -
+    nmlarg_dict = init_nmlargs()
+    nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
+    nmlarg_dict[NMLKEY_VERSION]     =  VERSION
+    nmlarg_dict[NMLKEY_KCOR_FILE]   =  KCOR_FILE
+    nmlarg_dict[NMLKEY_SNTABLE]     =  'SNANA OUTLIER(nsig:0.0)'
+    nmlarg_dict[NMLKEY_TEXTFILE_PREFIX] = nml_prefix
 
-    # create lines for nml file
-    nml_lines.append(f"   PRIVATE_DATA_PATH  = '{PRIVATE_DATA_PATH}' ")
-    nml_lines.append(f"   VERSION_PHOTOMETRY = '{VERSION}' ") 
-    nml_lines.append(f"   KCOR_FILE          = '{KCOR_FILE}' ")
-    nml_lines.append(f"   SNTABLE_LIST       = 'SNANA OUTLIER(nsig:0.0)' ")
-    nml_lines.append(f"   TEXTFILE_PREFIX    = '{nml_prefix}' ")
-    nml_lines.append(f"")
-
-    if 'EXTRA_SNLCINP_ARGS' in config.input_yaml:
-        for arg in config.input_yaml['EXTRA_SNLCINP_ARGS']:
-            nml_lines.append(f"   {arg}")            
-
+    nml_file, NML_FILE = create_nml_file(config, nmlarg_dict, nml_prefix)
     # - - - - - - 
-    run_snana_job(config, nml_prefix, nml_lines)
+    run_snana_job(config, nml_file, "")
 
     
     # compress large TEXT tables
@@ -448,7 +605,7 @@ def make_outlier_table(ISTAGE,config,what):
 
     return table_file 
 
-    #y end make_outlier_table
+    # end make_outlier_table
 
 def parse_map_bins(config):
 
@@ -562,7 +719,7 @@ def parse_map_bins(config):
         'id_nd'         : id_nd,
         'indexing_array': indexing_array,
         'ivar_field'    : ivar_field,
-        'ivar_filter'   : ivar_filter   # flag to make filter-dependent maps        
+        'ivar_filter'   : ivar_filter   # flag to make filter-dependent maps
     }
 
     config.map_bin_dict = map_bin_dict
@@ -588,6 +745,9 @@ def make_fluxerr_model_map(ISTAGE,config):
 
     print(f"{prefix}: create FLUXERRMODEL maps. ")
     sys.stdout.flush()
+    if ISTAGE < config.args.start_stage :
+        print(f"\t Already done --> SKIP")
+        return
 
     flux_table_fake = f"{OUTDIR}/{config.flux_table_fake}"
     flux_table_sim  = f"{OUTDIR}/{config.flux_table_sim}"
@@ -598,7 +758,8 @@ def make_fluxerr_model_map(ISTAGE,config):
     df_fake = store_flux_table(flux_table_fake, map_bin_dict)
     df_sim  = store_flux_table(flux_table_sim,  map_bin_dict)
 
-    # load list of unique ifiltobs & band into map_bin_dict.ifiltobs_set, band_set
+    # load list of unique ifiltobs & band into 
+    # map_bin_dict.ifiltobs_set, band_set
     get_filter_list(df_fake, map_bin_dict)
 
     # add index columns, force bounds, apply cuts ...
@@ -829,13 +990,18 @@ def compute_errscale_cor(pull_fake, pull_sim, ratio_fake):
         # finally, the map corrections
         cor_fake       = rms_pull_fake / avg_ratio     # correct fake & data
         cor_sim        = rms_pull_fake / rms_pull_sim  # correct sims
-        
+
+        if FORCE_ERRCORR1 :
+            if cor_fake < 1.0 : cor_fake = 1.0
+            if cor_sim  < 1.0 : cor_sim  = 1.0
+
         #print(f"\t xxx cor_sim = {rms_pull_fake:.3f} / {rms_pull_sim:.3f}" \
         #      f" = {cor_fake:.3f}  " \
         #      f" (avgPull={avg_pull_fake:.3f},{avg_pull_sim:0.3f}) " )
 
     else:
         cor_fake = 1.0 ; cor_sim = 1.0
+
 
     return n_fake, n_sim, cor_fake, cor_sim
 
@@ -921,9 +1087,8 @@ def write_map_header(f, ifield, ifiltobs, config):
     else:
         band_arg = band_map[ifiltobs]
 
-    map_name = "FLUXERR_SCALE"
     f.write("\n")
-    f.write(f"MAPNAME: {map_name} \n")
+    f.write(f"MAPNAME: {MAP_NAME} \n")
     if ifield >= 0 : f.write(f"FIELD: {field_arg} \n")
     f.write(f"BAND: {band_arg} \n")
     f.write(f"VARNAMES: {varlist}   ERRSCALE\n")
@@ -978,9 +1143,7 @@ def write_map_row(f, config, BIN1D, cor, n_fake, n_sim ):
 
 def store_flux_table(flux_table, map_bin_dict):
 
-
     df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
-
     nrow = len(df)
     print(f"    Read/store {flux_table} with {nrow} rows.")
 
@@ -1058,7 +1221,6 @@ def apply_id_1d(row, map_bin_dict):
 
     for varname, nbin in zip(varname_list, nbin_list) : 
         ivarname = f"i_{varname}" 
-        # xxx ib       = getbin_varname(row[ivarname], nbin)
         ib       = row[ivarname]
         ib_list.append(ib)
 
@@ -1083,12 +1245,271 @@ def apply_id_1d(row, map_bin_dict):
     return id_1d
     # end apply_id_1d
 
-def getbin_varname(ibin_raw, nbin):
-    # xxx obsolete xxxx
-    ibin = ibin_raw
-    if ibin < 0: ibin = 0
-    if ibin >= nbin : ibin = nbin-1
-    return ibin
+
+def create_nml_redcov(ISTAGE,config):
+
+    # create nml file to analyze for reduced cov with SNANA table.
+    # Default is DC2 data; use command line override for sims.
+
+    prefix = stage_prefix(ISTAGE)
+
+    nml_prefix = f"{prefix}_redcov"
+    print(f"{prefix}: create NML file for analyzing redcov. ")
+    sys.stdout.flush()
+    if ISTAGE < config.args.start_stage :
+        print(f"\t Already done --> SKIP")
+        return f"{nml_prefix}.nml"
+
+    KCOR_FILE         = config.input_yaml['KCOR_FILE']
+    VERSION           = config.input_yaml['VERSION']
+    PRIVATE_DATA_PATH = config.input_yaml['PRIVATE_DATA_PATH']
+    map_file          = FLUXERRMODEL_FILENAME_FAKE
+
+    nmlarg_dict = init_nmlargs()
+    nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
+    nmlarg_dict[NMLKEY_VERSION]     =  VERSION
+    nmlarg_dict[NMLKEY_KCOR_FILE]   =  KCOR_FILE
+    nmlarg_dict[NMLKEY_SNTABLE]     =  'SNANA'
+    nmlarg_dict[NMLKEY_TEXTFILE_PREFIX]   = nml_prefix
+    nmlarg_dict[NMLKEY_LPROB_TRUEFLUX]    = True
+
+    if config.args.redcov_test < 0.0 :
+        nmlarg_dict[NMLKEY_MODEL_FILE]  = map_file
+
+    nml_file, NML_FILE = create_nml_file(config, nmlarg_dict, nml_prefix)
+ 
+    args_cmd_line = ""
+
+    # for redcov test using sims, use special key to force sim to
+    # use flux-error map just like real data
+    if config.args.redcov_test > -0.001 :
+        args_cmd_line += f"{NMLKEY_SIM_MODEL_FILE} {map_file} "
+
+    if config.args.hbook :
+        args_cmd_line += f"{NMLKEY_HFILE_OUT} {nml_prefix}.HBOOK "
+
+    # run it for data; analyze sims with overrides in next stage
+    run_snana_job(config, nml_file, args_cmd_line )
+
+    return nml_file
+
+    # end create_nml_redcov
+
+def redcov_simgen_plus_snana(ISTAGE,config,rho):
+
+    # + simulate with reduced cov "rho" using sim-input file from STAGE02.
+    # + Run SNANA job using nml file created in previous stage
+
+    prefix       = stage_prefix(ISTAGE)
+    Jrho         = int(100*rho)  # used for file names
+    GENVERSION   = f"{prefix}_DC2fakes_REDCOV{Jrho:03d}"
+
+    print(f"{prefix}: generate and process sim with rho = {rho}")
+    sys.stdout.flush()
+    if ISTAGE < config.args.start_stage :
+        print(f"\t Already done --> SKIP")
+        return GENVERSION
+
+    sim_input_file = config.sim_input_file
+    nml_file       = config.nml_file_redcov    
+    OUTDIR         = config.input_yaml['OUTDIR']
+
+    # construct special sim arg for reduced cov;
+    simarg_redcov = prep_simarg_redcov(config,rho)
+
+    log_file_sim   = f"{GENVERSION}_SIM.LOG"
+    log_file_snana = f"{GENVERSION}_SNANA.LOG"
+  
+    # - - - - - - - 
+    # create and run sim command
+    cmd  = f"cd {OUTDIR}; {JOBNAME_SIM} {sim_input_file} "
+    cmd += f"GENVERSION {GENVERSION} "
+    cmd += f"FLUXERRMODEL_FILE {FLUXERRMODEL_FILENAME_SIM} "
+    if rho > 0.0 :  cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
+    cmd += f" > {log_file_sim}"
+
+    print(f"\t Generage {GENVERSION}")
+    sys.stdout.flush()
+
+    #sys.exit(f"\n xxx cmd=\n{cmd}")
+    os.system(cmd)
+
+    # - - - - - -
+    # create and run snana command:
+    cmd  = f"cd {OUTDIR}; {JOBNAME_SNANA} {nml_file} "
+    cmd += f"VERSION_PHOTOMETRY {GENVERSION} "
+    cmd += f"TEXTFILE_PREFIX {GENVERSION} "
+
+    # xxxx mark delete xxxx
+    #if config.args.redcov_test > -0.01 :
+    #    cmd += f"{NMLKEY_SIM_MODEL_FILE} NONE "
+
+    if config.args.hbook :
+        cmd += f"{NMLKEY_HFILE_OUT} {GENVERSION}.HBOOK "
+
+    cmd += f" > {log_file_snana}"
+    print(f"\t Run {JOBNAME_SNANA} on {GENVERSION} to produce SNANA table")
+    os.system(cmd)
+
+    return GENVERSION
+
+    # end redcov_simgen_plus_snana
+
+def prep_simarg_redcov(config,rho):
+
+    # construct sim argument for REDCOV key
+    # e.g, filters= gri and rho = 0.4
+    # simarg_redcov = g:0.4,r:0.4,i:0.4
+
+    rho_arg = rho
+    if rho == 1.0 : rho_arg = 0.99
+
+    filters        = config.filters
+    filter_list    = list(filters)
+
+    simarg_redcov_list = []
+    for band in filter_list: 
+        simarg_redcov_list.append(f"{band}:{rho_arg}")
+
+    simarg_redcov = ','.join(simarg_redcov_list)
+
+    return simarg_redcov
+    # end prep_simarg_redcov
+
+def redcov_analyze(ISTAGE,config, rho, prefix_sim, f_summary ):
+    
+    # + Analyze SNANA tables (data & sim) and compute FoM
+    # + Update summary table using passed pointer f_summary
+
+    prefix       = stage_prefix(ISTAGE)
+    print(f"{prefix}: Compute FoM per band for rho = {rho}")
+    sys.stdout.flush()
+    if ISTAGE < config.args.start_stage :
+        print(f"\t Already done --> SKIP")
+        return
+    
+    OUTDIR           = config.input_yaml['OUTDIR']
+    nml_file         = config.nml_file_redcov
+    filters          = config.filters
+    filter_list      = list(filters)
+    filter_list.append(KEY_ALLBANDS)
+
+    prefix_data      = nml_file.split('.')[0]
+    table_file_data  = f"{prefix_data}.{TABLE_SUFFIX_SNANA}"
+    table_file_sim   = f"{prefix_sim}.{TABLE_SUFFIX_SNANA}"
+    print(f"\t Compare data to {prefix_sim}")
+
+    # fom_list is FoM per band
+    chi2red_list = compute_chi2red(config, table_file_data, table_file_sim )
+
+    # update summay file
+    chi2red_sum = 0.0
+    for band,chi2red in zip(filter_list,chi2red_list):
+
+        if band == KEY_ALLBANDS: 
+            comment = '# include ALL bands for chi2red'
+        else:
+            chi2red_sum += chi2red
+            comment  = ''
+
+        f_summary.write(f"  - {band:<3} {rho:4.2f}  {chi2red:7.2f}" \
+                        f"   {comment}\n")
+
+    # - - - - 
+    f_summary.write(f"  - SUM {rho:4.2f}  {chi2red_sum:7.2f} " \
+                    f"  # sum of chi2red over bands\n\n")
+
+    # end redcov_analyze
+
+def compute_chi2red(config, table_file_data, table_file_sim):
+
+    # compute chi2red(data/sim) for each band;
+    # return chi2red_list vs. band.
+
+    OUTDIR         = config.input_yaml['OUTDIR']
+    filters        = config.filters
+    filter_list    = list(filters)
+    filter_list.append(KEY_ALLBANDS)
+    chi2red_list   = []
+
+    TABLE_FILE_DATA = f"{OUTDIR}/{table_file_data}"
+    TABLE_FILE_SIM  = f"{OUTDIR}/{table_file_sim}"
+    df_data = pd.read_csv(TABLE_FILE_DATA, comment="#", delim_whitespace=True)
+    df_sim  = pd.read_csv(TABLE_FILE_SIM,  comment="#", delim_whitespace=True)
+
+    nrow_data = len(df_data)
+    nrow_sim  = len(df_sim)
+
+    prob_min  = 0.10
+    prob_max  = 1.00
+    nbin_prob = 9   # number of histogram bins
+    prob_bins = np.linspace(prob_min, prob_max, nbin_prob+1)
+
+    print(f"\t nrow(data,sim) = {nrow_data} , {nrow_sim} ")
+    dump_flag = False
+    if dump_flag : print(" xxx ----------------------------------- ")
+
+    
+    for band in filter_list:
+
+        if band == KEY_ALLBANDS :
+            varname_prob     = f"{VARNAME_PROB_PREFIX}"
+        else:
+            varname_prob     = f"{VARNAME_PROB_PREFIX}_{band}"
+
+        # make sure all PROB values are < 1.00
+        df_data[varname_prob] = \
+            df_data[varname_prob].where(df_data[varname_prob] < 1.0, 0.9999)
+        df_sim[varname_prob] = \
+            df_sim[varname_prob].where(df_sim[varname_prob] < 1.0, 0.9999)
+
+        prob_data        = df_data[varname_prob]
+        prob_sim         = df_sim[varname_prob]
+        prob_data_binned = np.digitize(prob_data, prob_bins)
+        prob_sim_binned  = np.digitize(prob_sim,  prob_bins)
+
+        # bin data and sim; exclude underflow bin 0
+        bin_data       = np.bincount(prob_data_binned)[1:]
+        bin_sim_raw    = np.bincount(prob_sim_binned)[1:]
+        sim_scale      = np.sum(bin_data)/np.sum(bin_sim_raw)
+
+        if dump_flag:
+            print(f" xxx {band}: bin_data = {bin_data}")
+            print(f" xxx {band}: bin_sim  = {bin_sim_raw} x {sim_scale:.3f}")
+            sys.stdout.flush()
+
+        # compute chi2 (there must be a better way; this is awful ?!?!?)
+
+        bin_sim_norm   = sim_scale * bin_sim_raw
+        bin_sim_norm2  = sim_scale * sim_scale * bin_sim_raw
+        bin_dif        = np.subtract(bin_data,bin_sim_norm)
+        bin_variance   = np.add(bin_data,bin_sim_norm2)
+        bin_chi2       = np.divide(bin_dif*bin_dif,bin_variance)
+        chi2           = np.sum(bin_chi2)
+        chi2red        = chi2 / float(nbin_prob-1)
+
+        if dump_flag :
+            print(f" xxx chi2red = {chi2:.2f}/{nbin_prob} = {chi2red:.2f}" )
+            sys.stdout.flush()
+
+        chi2red_list.append(chi2red)
+
+    return chi2red_list
+
+    # end compute_chi2red
+
+def create_redcov_summary_file(ISTAGE,config):
+    OUTDIR       = config.input_yaml['OUTDIR']
+    summary_file = f"{OUTDIR}/{REDCOV_SUMMARY_FILE}"
+
+    prefix       = stage_prefix(ISTAGE)
+    print(f"{prefix}: Open {REDCOV_SUMMARY_FILE}")
+
+    f_summary    = open(summary_file,"wt")
+    f_summary.write("# Data/sim chi2red vs. Reduced Flux Correlation \n\n")
+    f_summary.write("REDCOV:   # band  rho  chi2red(data/sim)\n")
+    return f_summary
+    # end create_redcov_summary_file
 
 # =====================================
 #
@@ -1110,23 +1531,29 @@ if __name__ == "__main__":
 
     config.input_yaml = read_input(config.args.input_file)
 
-    prep_outdir(config)
-
     # run snana job to extract name of SURVEY from fake data
     config.survey, config.filters = get_survey_info(config)
-
-    sys.stdout.flush()
 
     ISTAGE = 0
     print()
 
+    # check option to replace fake data with sim data that includes
+    # fluxerr mape and user-input redcov.
+    if config.args.redcov_test >= 0.0 :
+        create_simdata(ISTAGE,config)
+
+    # - - - - - - - - - - - 
+    ISTAGE += 1
+    prep_outdir(ISTAGE,config)
+
+    # - - - - - -
     # create simlib from fakes
     ISTAGE += 1
     create_fake_simlib(ISTAGE,config)
 
     # simulate fakes with snana
     ISTAGE += 1
-    simgen(ISTAGE,config)
+    simgen_nocorr(ISTAGE,config)
 
     # run snana on fakes and sim; create OUTLIER table with nsig>=0
     # to catch all flux observations
@@ -1134,9 +1561,31 @@ if __name__ == "__main__":
     config.flux_table_fake = make_outlier_table(ISTAGE,config,STRING_FAKE)
     config.flux_table_sim  = make_outlier_table(ISTAGE,config,STRING_SIM)
 
+    # create fluxerrmodel map files
     ISTAGE += 1
     parse_map_bins(config)
     make_fluxerr_model_map(ISTAGE,config)
 
+    if config.args.verify:   sys.exit(0)
+
+    # - - - - - - - -
+    print("")
+    # stages below examine correlations in excess scatter
+    # by comparing data to sims with different RHO
+
+    ISTAGE += 1
+    config.nml_file_redcov = create_nml_redcov(ISTAGE,config)
+
+    ISTAGE += 1
+    prefix_sim_list = []
+    for rho in REDCOV_LIST:
+        prefix_sim = redcov_simgen_plus_snana(ISTAGE,config,rho)
+        prefix_sim_list.append(prefix_sim)
+
+    ISTAGE += 1
+    f_summary = create_redcov_summary_file(ISTAGE,config)
+    for rho,prefix_sim in zip(REDCOV_LIST,prefix_sim_list):
+        redcov_analyze(ISTAGE,config, rho, prefix_sim, f_summary)
+        
 # === END ===
 

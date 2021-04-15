@@ -19787,11 +19787,15 @@
 
          ***** USEFUL(v11_02l) ***** 
 
+   + new script quick_commands.py to translate data format, create SIMLIB from data,
+     and other quic/miscellaneous tasks.
+
          ***** MISCELLANEOUS(v11_02l) ***** 
 
    snlc_sim.c[h]
      + enable TAKE_SPECTRUM: MJD(min:max:step) to generate spectra for
        a sequence of MJDs; see manual.  
+     + abort if any error scale is < 1 to avoid sqrt(negative number)
 
    sndata.h:
       + MXSPECTRA -> 200 (was 40); BEWARE that MXSPEC in snana.car has 
@@ -19820,5 +19824,14 @@
 
    sntable_dump.py[c]
      + better abort trap when append fails.
+ 
+   SALT2mu.c: 
+     + update diagnostic MUERR_RAW output to NOT include vpec.
+     + abort if SQMUERR_RAW < 0 ... happens for duplicates
+
+   sntools_dataformat_fits.h: MXFILE_SNFITSIO -> 500 (was 300)
+
+   sntools.c:
+     + init HOSTGAL_SPECZ[ERR] to -9 to fix bug in reformatting.
 
 END: 

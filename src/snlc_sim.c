@@ -1459,7 +1459,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
-    // .xyz
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
@@ -3730,8 +3729,10 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // Created Jul 21 2020 [refactor]
   // Read/parse SIMGEN_DUMP[ALL] info
+  //
+  // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
 
-  int  ivar, NVAR, N=0;
+  int  ivar, NVAR, N=0 ;
   bool LRD = false ;
   char *varName ;
   char fnam[] = "parse_input_SIMGEN_DUMP";
@@ -3747,8 +3748,16 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   }
   else if ( keyMatchSim(1, "SIMGEN_DUMPALL", WORDS[0], keySource) ) {
     LRD = true ;
-    INPUTS.IFLAG_SIMGEN_DUMPALL=1 ;
+    INPUTS.IFLAG_SIMGEN_DUMPALL = 1 ;
+
+    // Apr 16 2021: check option to switch from DUMP to DUMPALL
+    if ( strcmp(WORDS[1],"SWITCH") == 0 ) {
+      INPUTS.IFLAG_SIMGEN_DUMPALL = 1 ;
+      return(N+1) ; 
+    }
   }
+
+  // - - - - - - - 
 
   if ( LRD ) {      
     N++ ; sscanf(WORDS[N] , "%d", &NVAR);
@@ -4762,6 +4771,7 @@ void sim_input_override(void) {
   int IWD_START = 2,  iwd, NWD_READ, iwd_use ;
   char fnam[] = "sim_input_override" ;
   // --------- BEGIN ----------
+
   for(iwd = IWD_START; iwd < NARGV_LIST; iwd++ ) {
     NWD_READ = parse_input_key_driver(&ARGV_LIST[iwd],KEYSOURCE_ARG);
 

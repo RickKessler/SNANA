@@ -16,7 +16,7 @@
 #
 # Mar 17 2021: replace sntable_dump.pl with sntable_dump.py (perl->python)
 # Apr 07 2021: better error message when appending TEXT table fails.
-#
+# Apr 17 2021: write PRIVATE_DATA_PATH to SUBMIT.INFO 
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -275,9 +275,11 @@ class LightCurveFit(Program):
         path_check_list.append(path_sim_default)
 
         key = 'private_data_path'
+        self.config_prep[key] = None
         if key in snlcinp :
             path = os.path.expandvars(snlcinp[key])
             skip_path = False 
+            self.config_prep[key] = path
             if path == path_data_default: skip_path=True # allow user mistake
             if not skip_path : path_check_list.append(path) 
 
@@ -288,7 +290,7 @@ class LightCurveFit(Program):
                 
         #print(f" xxx path_check_list = {path_check_list} ")
 
-        self.config_prep['path_check_list'] = path_check_list
+        self.config_prep['path_check_list']   = path_check_list
         # end fit_prep_path_list
 
     def fit_prep_VERSION(self):        
@@ -972,6 +974,7 @@ class LightCurveFit(Program):
         link_FITOPT000_list = self.config_prep['link_FITOPT000_list']
         use_table_format  = self.config_prep['use_table_format']
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        private_data_path = self.config_prep['private_data_path']
 
         f.write(f"\n# Fit info\n")
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
@@ -980,6 +983,7 @@ class LightCurveFit(Program):
         f.write(f"TABLE_FORMATS:       {TABLE_SUFFIX_LIST} \n")
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
+        f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]
         for key in key_misc_list :

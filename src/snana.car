@@ -418,6 +418,7 @@ c
 
       LOGICAL 
      &   DO_FIT
+     &  ,DO_GETINFO        ! T=>GETINFO flag to print and quit
      &  ,DO_FLUXERRCALC    ! T => compute error from PSF,SKY & ZPT  
      &  ,LSIM_SNANA        ! simulated with SNANA
      &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
@@ -507,7 +508,7 @@ c global survey info
      &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
-     &    ,DO_FIT, DO_FLUXERRCALC, NVAR_NEARNBR 
+     &    ,DO_FIT, DO_GETINFO, DO_FLUXERRCALC, NVAR_NEARNBR 
      &    ,NSTORE_MAGCOR, NUSE_MAGCOR, SIGN_MAGCOR, FORCEMASK_FLUXCOR
      &    ,LSIM_SNANA, LSIM_MAGOBS
      &    ,ISTAGE_SNANA
@@ -3917,11 +3918,6 @@ c ----------------------------------------------
         PRIVATE_KEYWORD(ivar) = KEYWORD    ! load common block
         CALL PARSE_PRIVATE_KEYWORD(KEYWORD,ivar)
 
-        if ( ISNLC_VERSION ==  1 ) then
-           LENKEY = INDEX(KEYWORD,' ') - 1
-           print*,'  Found ', KEYWORD(1:LENKEY)
-        endif
-
 100   CONTINUE
 
       CALL FLUSH(6)
@@ -5271,12 +5267,14 @@ c break up string into pieces
 c ----------------------------
 c print one-line summary
 
-      write(6,500) CWORD(1:LK), CUTSTRING
- 500  format(T4,'Found ', A, T50,A)
-      call flush(6)
+      IF ( .NOT. DO_GETINFO ) THEN
+        write(6,500) CWORD(1:LK), CUTSTRING
+ 500    format(T4,'Found ', A, T50,A)
+        call flush(6)
+      ENDIF
 
       RETURN
-      END
+      END  ! end  PARSE_PRIVATE_KEYWORD
 
 C ===============================
 +DECK,NMAPRIV.
@@ -5436,8 +5434,8 @@ c    snana.exe --snana_version
       ENDIF
 
 c snana.exe GETINFO <VERSION_PHOTOMETRY>
+      DO_GETINFO = .FALSE.
       IF ( ARG1 .EQ. 'GETINFO' ) THEN
-cc xxx mark delete         VERSION_PHOTOMETRY(1) = ARG2(1:MXCHAR_VERSION)
          CALL DUMP_INFO_VERSION_PHOTOMETRY(ARG2)
       ENDIF
 
@@ -5491,6 +5489,10 @@ c local var
       INTEGER IERR, LEN, JSLASH
 C -------------- BEGIN ------------   
 
+      DO_GETINFO = .TRUE.
+
+      print*,' xxx set DO_GETINFO = T '
+
 c if VERSION_ARG has full path, split it into PRIVATE_DATA_PATH and 
 c VERSION_PHOTOMETRY
 
@@ -5513,6 +5515,9 @@ c      CALL GETINFO_PHOTOMETRY(1)
 c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - -
+      print*,' '
+      print*,' '
+
       VERSION = VERSION_PHOTOMETRY(1)
       LEN     = INDEX(VERSION,' ')-1
       write(6,20) 'VERSION:', VERSION(1:LEN), ''
@@ -12368,6 +12373,7 @@ c print some info to stdout
         CALL MADABORT(FNAM, c1err, c2err )
       endif
 
+      if ( DO_GETINFO ) return ! Apr 2021
 
       write(6,201) SURVEY_NAME(1:LNAM), IDSURVEY
 201   format(T5,'Found SURVEY  = ',A, 3x, '(IDSURVEY=',I3,')' )
@@ -12377,7 +12383,6 @@ c print some info to stdout
 
       write(6,204) NSN_VERS
 204   format(T5,'Found ',I7,' SN Candidates to Process.')
-
 
       print*,' '
       call flush(6)

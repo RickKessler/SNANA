@@ -390,10 +390,7 @@ c Sep 9, 2010: Pulled out of SNDATACOM
 cc +CDE,PARSECOM.
 +CDE,SNSIMCOM.
 
-
-
 +KEEP,CTRLCOM.
-cc xxx mark delete Apr 2 2021 +CDE,CTRL_LEGACY.
 
 c control variables and counters.
 
@@ -445,6 +442,7 @@ c
      &    SNANA_VERSION*12
      &   ,SNANA_VERSION_DATA*12   ! SNANA version used create FITS data
      &   ,REFORMAT_VERSION*(MXCHAR_VERSION)
+     &   ,DATATYPE*12  ! e..g, 'DATA', 'FAKE', 'SNANA_SIM'
 
 c global survey info
       CHARACTER
@@ -499,7 +497,7 @@ c global survey info
 
 
       COMMON / CTRLCOM / 
-     &     SNANA_VERSION, SNANA_VERSION_DATA, REFORMAT_VERSION
+     &     SNANA_VERSION, SNANA_VERSION_DATA, REFORMAT_VERSION, DATATYPE
      &    ,SURVEY_NAME, SURVEY_NAME_LIST
      &    ,SUBSURVEY_NAME, SUBSURVEY_NAME_LIST
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
@@ -653,44 +651,6 @@ c efficiency for PHOTFLAG bits
       
       COMMON /OUTLIER_PHOTPROB /
      &  NEP_OUTLIER_VS_PHOTBIT, NEP_ALL_VS_PHOTBIT
-
-+KEEP,CTRL_LEGACY.
-
-      LOGICAL   FORMAT_VERBOSE, FORMAT_TERSE
-      CHARACTER VARLIST_TERSE(MXLISTNML)*(MXCHAR_CCID) ! TERSE variable names
-      INTEGER   
-     &   NVAR_TERSE          ! Number variables for terse format
-     &  ,ITERSE_MJD          ! index of MJD in TERSE variable list
-     &  ,ITERSE_FILTER       ! idem for filter
-     &  ,ITERSE_FIELD   
-     &  ,ITERSE_FLUXCAL
-     &  ,ITERSE_FLUXCALERR
-     &  ,ITERSE_PHOTFLAG
-     &  ,ITERSE_PHOTPROB
-     &  ,ITERSE_ZPFLUX     ! mag <-> native flux zeropoint
-     &  ,ITERSE_ZPERR      ! error on ZPFLUX, Jan 2020
-     &  ,ITERSE_PSFSIG     ! added July 18, 2013
-     &  ,ITERSE_SKYSIG     ! idem
-     &  ,ITERSE_SKYSIG_T   ! added Aug 7 2014
-     &  ,ITERSE_XPIX       ! added Aug 7 2014
-     &  ,ITERSE_YPIX       ! added Aug 7 2014
-     &  ,ITERSE_GAIN       ! added Oct 2015 to compute FLUXCAL_ERRCALC
-     &  ,ITERSE_MAGOBS
-     &  ,ITERSE_CCDNUM     ! added Oct 16 2017
-     &  ,ITERSE_SIM_EPFILTREST  
-     &  ,ITERSE_SIM_EPMAGOBS
-     &  ,ITERSE_SIM_EPMAGREST
-
-      COMMON / CTRL_LEGACY / FORMAT_VERBOSE, FORMAT_TERSE
-     &    ,NVAR_TERSE, VARLIST_TERSE
-     &    ,ITERSE_MJD, ITERSE_FILTER, ITERSE_FIELD   
-     &    ,ITERSE_FLUXCAL, ITERSE_FLUXCALERR
-     &    ,ITERSE_PHOTFLAG, ITERSE_PHOTPROB
-     &    ,ITERSE_ZPFLUX, ITERSE_ZPERR, ITERSE_PSFSIG
-     &    ,ITERSE_SKYSIG, ITERSE_SKYSIG_T
-     &    ,ITERSE_MAGOBS, ITERSE_XPIX, ITERSE_YPIX, ITERSE_GAIN
-     &    ,ITERSE_CCDNUM, ITERSE_SIM_EPFILTREST
-     &    ,ITERSE_SIM_EPMAGOBS, ITERSE_SIM_EPMAGREST
 
 +KEEP,USRTAGCM.
 
@@ -3025,9 +2985,7 @@ C ------------------- BEGIN -------------------
       ISTAGE_SNANA = 0
 
 c init some variables
-
-      CALL INIT_SNVAR ( IERR )
-        IF ( IERR .NE. 0 ) GOTO 666 
+      CALL INIT_SNVAR()
 
       CALL WARN_OLDINPUTS("init"//char(0), 0);
 
@@ -3041,8 +2999,7 @@ c check for dump flags (call to C code)
       CALL INIT_SNANA_DUMP(DUMP_STRING//char(0) )
 
 c check if format is FITS or ASCII (set logicals  FORMAT_FITS[TEXT])
-      CALL CHECK_FORMAT(IERR)
-         IF ( IERR .NE. 0 ) GOTO 666 
+      CALL CHECK_FORMAT()
 
 c ------------------------------------------------
 c            Misc. inits for options
@@ -3347,18 +3304,6 @@ c Driver to read & analyze data for input version.
 c Use logicals FORMAT_FITS and FORMAT_TEXT for format-specific 
 c function calls.
 c This subroutine replaces legacy RDVERSION_FITS & RDVERSION_TEXT
-c
-c TODO-DATA:
-c   + read spectra, FITS
-c   + read spectra, TEXT
-c   + cut on PRIVATEVAR, read FITS
-c   + cut on PRIVATEVAR, read TEXT -> FAILS on LEGACY TEXT
-c   + check processing mulitple versions
-c   + read spectra from lowz-training (i.e., real data )
-c   + subsurvey for LOWZ (text and fits)
-c   + reformat LOWZ TEXT -> FITS and vice versa
-c   + subsurvey for sim (text & fits)
-c   + check that sim params propagate for SIMSED, LCLIB, BYOSED, 
 c
 c ------
 
@@ -3702,7 +3647,7 @@ c local var
 
       REAL*8    DARRAY(MXEPOCH)
       INTEGER   OPT
-      CHARACTER KEY*60, STRING*100, DATATYPE*12
+      CHARACTER KEY*60, STRING*100
 
       LOGICAL   correct_sign_vpec_data
       EXTERNAL  correct_sign_vpec_data
@@ -3735,11 +3680,11 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
 
       ! set global logical based on DATATYPE
       IF ( DATATYPE(1:4) .EQ. 'DATA' ) THEN
-         ! do nothing
+         ! do nothing         
       ELSE IF ( DATATYPE(1:9)  .EQ. 'SIM_SNANA' ) THEN
-         LSIM_SNANA = .TRUE.
+         LSIM_SNANA = .TRUE.   ! SNANA sim
       ELSE IF ( DATATYPE(1:10) .EQ. 'SIM_MAGOBS' ) THEN
-         LSIM_MAGOBS = .TRUE.
+         LSIM_MAGOBS = .TRUE.  ! e..g, fakes overlaid on images
       ELSE
         C1err = 'Unrecognized DATATYPE = ' // DATATYPE
         C2err = 'Check DATATYPE key in FITS header.'
@@ -5492,8 +5437,8 @@ c    snana.exe --snana_version
 
 c snana.exe GETINFO <VERSION_PHOTOMETRY>
       IF ( ARG1 .EQ. 'GETINFO' ) THEN
-         VERSION_PHOTOMETRY(1) = ARG2(1:MXCHAR_VERSION)
-         CALL DUMP_INFO_VERSION_PHOTOMETRY()
+cc xxx mark delete         VERSION_PHOTOMETRY(1) = ARG2(1:MXCHAR_VERSION)
+         CALL DUMP_INFO_VERSION_PHOTOMETRY(ARG2)
       ENDIF
 
       RETURN
@@ -5526,44 +5471,81 @@ c Dump SNANA version and SNANA_DIR, then quit.
 
 C ======================================
 +DECK,DUMP_INFO_VER_PHOT.
-      SUBROUTINE DUMP_INFO_VERSION_PHOTOMETRY()
+      SUBROUTINE DUMP_INFO_VERSION_PHOTOMETRY(VERSION_ARG)
 
 c Created Aug 29 2019
 c dump path and format for VERSION_PHOTOMETRY; then quit.
 c
+c Apr 2021: pass VERSION_ARG and dump more info
+c
+
       IMPLICIT NONE
+      CHARACTER VERSION_ARG*(*)  ! VERSION or PATH/VERSION
+
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
++CDE,FILTCOM.
 
 c local var
-      CHARACTER VERSION*(MXCHAR_FILENAME) 
-      INTEGER IERR, LEN
+      CHARACTER VERSION*(MXCHAR_FILENAME), COMMENT*40
+      INTEGER IERR, LEN, JSLASH
 C -------------- BEGIN ------------   
 
-      CALL CHECK_FORMAT(IERR)
-      CALL GETINFO_PHOTOMETRY(1)
+c if VERSION_ARG has full path, split it into PRIVATE_DATA_PATH and 
+c VERSION_PHOTOMETRY
+
+      LEN     = INDEX(VERSION_ARG,' ') -1
+      JSLASH  = INDEX(VERSION_ARG, '/', BACK = .True. )
+      IF ( JSLASH > 1 ) THEN
+         VERSION_PHOTOMETRY(1) = VERSION_ARG(JSLASH+1:LEN)
+         PRIVATE_DATA_PATH     = VERSION_ARG(1:JSLASH-1)
+      ELSE
+         VERSION_PHOTOMETRY(1) = VERSION_ARG(1:LEN)
+      ENDIF
+
+      CALL INIT_SNVAR()
+      CALL CHECK_FORMAT()
+      CALL INIT_READ_DATA()
+
+c xxxxxxx mark delete Apr 17 2021 xxxxxxxx
+c      CALL CHECK_FORMAT()
+c      CALL GETINFO_PHOTOMETRY(1)
+c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - -
       VERSION = VERSION_PHOTOMETRY(1)
       LEN     = INDEX(VERSION,' ')-1
-      write(6,20) 'VERSION:', VERSION(1:LEN)
+      write(6,20) 'VERSION:', VERSION(1:LEN), ''
 
       LEN = INDEX(SNDATA_PATH,' ') - 1
-      write(6,20) 'SNDATA_PATH:', SNDATA_PATH(1:LEN)
+      write(6,20) 'SNDATA_PATH:', SNDATA_PATH(1:LEN), ' '
 
       LEN = INDEX(SNLIST_FILE,' ') - 1
-      write(6,20) 'LIST_FILE:', SNLIST_FILE(1:LEN)
+      write(6,20) 'LIST_FILE:', SNLIST_FILE(1:LEN), ' '
 
- 20   format(A, 2x, A)
+ 20   format(A, 2x, A,  3x, A)
+ 21   format(A, 2x, I8, 3x, A)
 c - - - - - - - - - - - -
       if ( FORMAT_TEXT ) then
-         write(6,20) 'FORMAT:', 'TEXT'
+         write(6,20) 'FORMAT: ', 'TEXT', 
+     &         '# one TEXT file per SN'
       else
-         write(6,20) 'FORMAT:', 'FITS'
+         write(6,20) 'FORMAT: ', 'FITS', 
+     &         '# FITS-HEADER and FITS-PHOT file'
       endif
 
-c      LEN = INDEX(SURVEY_NAME,' ') - 1
-c      write(6,20) 'SURVEY:', SURVEY_NAME(1:LEN)
+      LEN = INDEX(SURVEY_NAME,' ') - 1
+      write(6,20) 'SURVEY: ', SURVEY_NAME(1:LEN), ' ' 
+
+      write(6,20) 'FILTERS:', SURVEY_FILTERS(1:NFILTDEF_SURVEY), ' '
+
+      write(6,21) 'NEVENT: ',  N_SNLC_READ(1), ' '
+
+      COMMENT = ''
+      IF ( DATATYPE == 'SIM_MAGOBS' ) THEN
+         COMMENT='# Fakes overlaid on images'
+      ENDIF
+      write(6,20) 'DATATYPE: ',  DATATYPE, COMMENT
 
       CALL FLUSH(6)
       CALL EXIT(0)
@@ -10540,7 +10522,7 @@ C ------------------ BEGIN --------------
 
 C ================================================
 +DECK,INIT_SNVAR.
-      SUBROUTINE INIT_SNVAR(IERR)
+      SUBROUTINE INIT_SNVAR()
 c
 c Init some SN variables.
 c Called once at beginning of program.
@@ -10561,7 +10543,6 @@ c Jan 16 2019: init EXIT_ERRCODE
 c ---------------------------------------------------
  
       IMPLICIT NONE
-      INTEGER   IERR         ! (O) 0=> OK,  else error
 
 
 c include everything except the memory hogging SNLCCOM
@@ -10610,7 +10591,6 @@ c get SNANA version from C function
       LL_SNANA = index(SNANA_VERSION, char(0) ) - 1
       SNANA_VERSION(LL_SNANA+1:LL_SNANA+3) = '   '
 
-      IERR = 0
       IDSURVEY = -9 ;  IDSUBSURVEY=-9
       NCALL_SNANA_DRIVER  = 0 
  
@@ -12395,11 +12375,9 @@ c print some info to stdout
       write(6,202) SURVEY_FILTERS(1:L2), NFILTDEF_SURVEY
 202   format(T5,'Found FILTERS = ',A, 3x, '(NFILTDEF=',I3,')' )
 
-cc xx      if ( FORMAT_FITS ) then
-cc xx       write(6,204) N_SNFILE
-        write(6,204) NSN_VERS
-204     format(T5,'Found ',I7,' SN Candidates to Process.')
-cc xx     endif
+      write(6,204) NSN_VERS
+204   format(T5,'Found ',I7,' SN Candidates to Process.')
+
 
       print*,' '
       call flush(6)
@@ -12896,7 +12874,7 @@ c and skip down to over-write part.
 
 C ================================================
 +DECK,CHKFMT.
-      SUBROUTINE CHECK_FORMAT(IERR)
+      SUBROUTINE CHECK_FORMAT()
 
 c Created Jun 15, 2011 by R.Kessler
 c Check if format is FITS or TEXT; 
@@ -12904,8 +12882,6 @@ c set global logical FORMAT_FITS or FORMAT_TEXT
 c
 c
       IMPLICIT NONE
-
-      INTEGER IERR ! (O) 0 => OK
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -12916,8 +12892,6 @@ c
       CHARACTER  VERSION*(MXCHAR_VERSION), PATH*(MXCHAR_PATH)
 
 C ------------ BEGIN -----------
-
-      IERR = 0
 
 c check for subfolder; e.g., VERSION_PHOTOMETRY = 'JLA2014/JLA2014_CSP'
       CALL PREP_VERSION_SUBFOLDER()

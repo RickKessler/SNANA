@@ -7351,9 +7351,6 @@ void  init_GENLC(void) {
   GENLC.AV      = NULLFLOAT ;
   GENLC.RV      = NULLFLOAT ;
 
-  GENLC.TRESTMIN   = NULLFLOAT ;
-  GENLC.TRESTMAX   = NULLFLOAT ;
-
   GENLC.SNRMAX_GLOBAL           = -9.0 ;
   GENLC.IEPOCH_SNRMAX_GLOBAL    = -9 ;
   GENLC.IEPOCH_NEARPEAK         = -9 ;
@@ -16161,16 +16158,31 @@ void store_SIMLIB_SEASONS(void) {
   // DTSEASON_PEAK > 0 if in season; negative if out of season.
   // This variable is useful for selecting NEVT_TOTAL for efficiencies.
 
+  int j;
   double DT, MJD_MIN, MJD_MAX, DT_MIN=999999.9;
+  double DT_TEST[2], z1 = 1.0 + GENLC.REDSHIFT_CMB ;
+
+  //  printf(" xxx %s: ------- LIBID=%d ---------- \n", 
+  //	 fnam, SIMLIB_HEADER.LIBID);
+
   for(ISEASON=0; ISEASON < SIMLIB_HEADER.NSEASON; ISEASON++ ) {
     MJD_MIN = SIMLIB_HEADER.MJDRANGE_SEASON[ISEASON][0];
     MJD_MAX = SIMLIB_HEADER.MJDRANGE_SEASON[ISEASON][1];
-    DT = GENLC.PEAKMJD - MJD_MIN ;
-    if ( fabs(DT) < fabs(DT_MIN) )   { DT_MIN =  DT ; }
+    DT_TEST[0] = GENLC.PEAKMJD - MJD_MIN ;
+    DT_TEST[1] = MJD_MAX - GENLC.PEAKMJD ;
+    
+    for ( j=0; j < 2; j++ ) {
+      DT = DT_TEST[j];
+      if ( fabs(DT) < fabs(DT_MIN) )  { 
+	DT_MIN =  DT ; 
+	GENLC.TRESTMIN = (MJD_MIN - GENLC.PEAKMJD)/z1;
+	GENLC.TRESTMAX = (MJD_MAX - GENLC.PEAKMJD)/z1;
+	//	printf(" xxx %s: z1=%.3f TRESTMIN/MAX = %.2f / %.2f \n",
+	//     fnam, z1, GENLC.TRESTMIN, GENLC.TRESTMAX );
+      }
+    }
 
-    DT = MJD_MAX - GENLC.PEAKMJD ;
-    if ( fabs(DT) < fabs(DT_MIN) )   { DT_MIN = DT ; }    
-  }
+  } // end ISEASON
   GENLC.DTSEASON_PEAK =  DT_MIN ;
 
   // ------------ check dump option ---------------
@@ -18559,6 +18571,9 @@ int gen_cutwin(void) {
       { SNRMAX_FILT[icut][ifilt_obs] = -9.0 ; }
   }
   GENLC.TIME_ABOVE_SNRMIN = 0.0 ;
+
+  GENLC.TRESTMIN = +99999.0 ;
+  GENLC.TRESTMAX = -99999.0 ;
 
   // get lamrest for each observer filter
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {

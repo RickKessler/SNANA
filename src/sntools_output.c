@@ -3416,7 +3416,7 @@ int ISFILE_TEXT(char *fileName) {
   // May 04 2020: return false for fits or FITS file extension.
   // Jan 22 2021: check HOSTLIB extension
 
-#define NSUFFIX_TEXT 14
+#define NSUFFIX_TEXT 16
   int   isuf ;
   char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][10] = 
     { 
@@ -3424,9 +3424,10 @@ int ISFILE_TEXT(char *fileName) {
       ".txt" ,    ".TXT",
       ".fitres",  ".FITRES",
       ".dat",     ".DAT",
-      ".out",     ".OUT",     // added Feb 7 2017
-      ".table",   ".TABLE",   // idem
-      ".hostlib", ".HOSTLIB"  // added Jan 22 2021
+      ".out",     ".OUT",      // added Feb 7 2017
+      ".table",   ".TABLE",    // idem
+      ".hostlib", ".HOSTLIB",  // added Jan 22 2021
+      ".dump",    ".DUMP"      // added Apr 16 2021
     } ;
 
   char fnam[] = "ISFILE_TEXT" ;

@@ -903,8 +903,9 @@ struct GENLC {
   double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
-  int    ISOURCE_PEAKMJD;       // either RANDOM or read from SIMLIB
-  double MJD_EXPLODE ;            // explosion time for NON1A or SIMSED
+  int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
+  double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
+  double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
 
   double REDSHIFT_RAN[MXZRAN];    // store randoms for redshift smear
   double REDSHIFT_CMB_SMEAR ;     // smeared [measured] CMB redshift
@@ -1356,8 +1357,8 @@ struct SIMLIB_HEADER {
   double CUTWIN_REDSHIFT[2] ;  
 
   // season stuff computed from sorted MJDs (Apr 2017)
-  int NSEASON ;  
-  int USE_SEASON[MXSEASON_SIMLIB]; // logical flag for each used season
+  int    NSEASON ;  
+  int    USE_SEASON[MXSEASON_SIMLIB]; // logical flag for each used season
   double MJDRANGE_SEASON[MXSEASON_SIMLIB][2];
   double TLEN_SEASON[MXSEASON_SIMLIB] ;
   double MJDRANGE_SURVEY[2];
@@ -1416,7 +1417,6 @@ typedef struct  {
 
   int ISTORE_RAW[MXOBS_SIMLIB] ;
   int ISEASON[MXOBS_SIMLIB] ;  // bracketed by 90+ day gaps
-
 
   // spectrograph info from SIMLIB or TAKE_SPECTRUM key
   int    OBSLIST_SPECTROGRAPH[MXOBS_SPECTROGRAPH];   // sparse list of SPECTROGRAPH obs

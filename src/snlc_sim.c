@@ -7482,6 +7482,7 @@ void  init_GENLC(void) {
 
   GENLC.CID       = NULLINT ;
   GENLC.PEAKMJD   = NULLFLOAT ;
+  GENLC.DTSEASON_PEAK   = 9999999.9 ;
   GENLC.MJD_EXPLODE = NULLFLOAT ;
   GENLC.ISOURCE_PEAKMJD = -9 ;
   GENLC.SDSS_SIM  = 0 ;
@@ -11734,6 +11735,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"PEAKMJD") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"DTSEASON_PEAK") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DTSEASON_PEAK ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -16150,6 +16156,22 @@ void store_SIMLIB_SEASONS(void) {
   // Aug 2018: check for minimum  Season length requirement 
   remove_short_SIMLIB_SEASON();
 
+
+  // check time in season |MJD_season_edge - PEAKMJD|
+  // DTSEASON_PEAK > 0 if in season; negative if out of season.
+  // This variable is useful for selecting NEVT_TOTAL for efficiencies.
+
+  double DT, MJD_MIN, MJD_MAX, DT_MIN=999999.9;
+  for(ISEASON=0; ISEASON < SIMLIB_HEADER.NSEASON; ISEASON++ ) {
+    MJD_MIN = SIMLIB_HEADER.MJDRANGE_SEASON[ISEASON][0];
+    MJD_MAX = SIMLIB_HEADER.MJDRANGE_SEASON[ISEASON][1];
+    DT = GENLC.PEAKMJD - MJD_MIN ;
+    if ( fabs(DT) < fabs(DT_MIN) )   { DT_MIN =  DT ; }
+
+    DT = MJD_MAX - GENLC.PEAKMJD ;
+    if ( fabs(DT) < fabs(DT_MIN) )   { DT_MIN = DT ; }    
+  }
+  GENLC.DTSEASON_PEAK =  DT_MIN ;
 
   // ------------ check dump option ---------------
   int LDMP = 0 ;

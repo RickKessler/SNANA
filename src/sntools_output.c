@@ -3416,13 +3416,14 @@ int ISFILE_TEXT(char *fileName) {
   // May 04 2020: return false for fits or FITS file extension.
   // Jan 22 2021: check HOSTLIB extension
 
-#define NSUFFIX_TEXT 16
+#define NSUFFIX_TEXT 18
   int   isuf ;
   char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][10] = 
     { 
       ".text" ,   ".TEXT",
       ".txt" ,    ".TXT",
       ".fitres",  ".FITRES",
+      ".snana",   ".SNANA",    // added Apr 17 2021 (for merged SNANA table)
       ".dat",     ".DAT",
       ".out",     ".OUT",      // added Feb 7 2017
       ".table",   ".TABLE",    // idem

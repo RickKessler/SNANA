@@ -19778,7 +19778,7 @@
 
 
 # ======================================================================= 
-         v11_02l (  ) 
+         v11_02l (Apr 19, 2021) 
 
          ***** IMPORTANT(v11_02l) ***** 
 
@@ -19801,8 +19801,7 @@
      + new simgen dump variable DTSEASON_PEAK
 
    sndata.h:
-      + MXSPECTRA -> 200 (was 40); BEWARE that MXSPEC in snana.car has 
-        NOT been changed due to absurd memory consumption ... need to fix.
+      + MXSPECTRA -> 200 (was 40)
 
    sntools_dataformat*.c
      + fix writing spectra in text format to work after reading FITS
@@ -19832,6 +19831,8 @@
    SALT2mu.c: 
      + update diagnostic MUERR_RAW output to NOT include vpec.
      + abort if SQMUERR_RAW < 0 ... happens for duplicates
+       [previous abort was SQMUERR_RAW + SQMUERR_VPEC < 0,
+        so SQMUERR_VPEC prevented abort]
 
    sntools_dataformat_fits.h: MXFILE_SNFITSIO -> 500 (was 300)
 

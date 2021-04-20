@@ -6623,6 +6623,70 @@ see \S\ref{sss:lcplot}.
 
 
 % ------------------------------------
+   \subsection{Finding Data Folders }
+   \label{subsec:data_folders}
+% ------------------------------------
+
+For \snana\ analysis codes 
+({\tt snlc\_fit.exe}, {\tt snana.exe}, {\tt psnid.exe}),
+data folders are specified with 
+\begin{verbatim}
+  &SNLCINP
+     VERSION_PHOTOMETRY = 'folder_name'
+          or
+     VERSION_PHOTOMETRY = 'folder_name1,folder_name2,folder_name3'
+         or 
+     VERSION_PHOTOMETRY = 'folder/subfolder'
+\end{verbatim}
+%
+Multiple folders are useful, for example, when data from a
+survey are separated into seasons. However, folders from 
+different surveys can be analyzed together.
+The \snana\ codes automatically search for data folders in
+%
+\begin{verbatim}                                                               
+  # real data
+    $SNDATA_ROOT/lcmerge             # public data release
+    $SNDATA_ROOT/lcmerge/PREFIX      # public compilation
+    argument of PRIVATE_DATA_PATH    # optional/proprietary data location
+
+  # sims
+    $SNDATA_ROOT/SIM               # default sim output
+    paths in $SNDATA_ROOT/SIM/PATH_SNDATA_SIM.LIST  # alternate sim output
+\end{verbatim}
+%
+{\tt \$SNDATA\_ROOT/lcmerge} is the default location for public data releases.
+Compilations consisting of many folders can be under a main folder;
+e.g., {\tt \$SNDATA\_ROOT/lcmerge/JLA2014} contains 6 sub-folders
+correspondig to the 6 data samples in this compilation. More generally,
+for any {\tt VERSION\_PHOTOMETRY} input of the form ``{\tt PREFIX\_SUFFIX},''
+the snana codes search under {\tt lcmerge/} and {\tt lcmerge/PREFIX}.
+Note that the following {\tt \&SNLCINP} inputs are equivalent,
+\begin{verbatim}
+   VERSION_PHOTOMETRY = 'JLA2014_CSP'          ! auto-search under JLA2014
+   VERSION_PHOTOMETRY = 'JLA2014/JLA2014_CSP'  ! explicit reference
+\end{verbatim}
+%
+Since proprietary data are not under {\tt SNDATA\_ROOT/lcmerge},
+{\tt \&SNLCINP} key {\tt PRIVATE\_DATA\_PATH} specifies an arbitrary
+location (see \S\ref{subsec:private_data}). 
+
+The default simulation output is under {\tt \$SNDATA\_ROOT/SIM}.
+However, disk quotas may require alternate sim output locations.
+The file 
+\begin{verbatim} 
+   $SNDATA_ROOT/SIM/PATH_SNDATA_SIM.LIST
+\end{verbatim}
+lists alternate sim-output directories, and the \snana\ codes search
+each directory in this file.
+Alternate directories are typically in scratch locations
+with higher (short-term) quotas. {\tt PATH\_SNDATA\_SIM.LIST}
+should list only a few directories, such as per survey, or major projects.
+Do not use this file to list a directory for each user.
+Using environment variables is recommended to work on multiple
+platforms.
+
+% ------------------------------------
    \subsection{Discussion of Lightcurve Fits}
    \label{subsec:fit_discuss}
 % ------------------------------------
@@ -8984,7 +9048,7 @@ ROOT file with
   SNTABLE_LIST = 'MODELSPEC'
 \end{verbatim}
 and see \S\ref{subsec:anavar} for details.
-% .xyz
+% 
 
 % ------------------------------------------------
 \subsection{Peculiar Velocity Corrections }

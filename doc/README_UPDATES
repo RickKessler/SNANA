@@ -19839,4 +19839,17 @@
    sntools.c:
      + init HOSTGAL_SPECZ[ERR] to -9 to fix bug in reformatting.
 
+
+# ======================================================================= 
+         v11_02m (  ) 
+
+         ***** IMPORTANT(v11_02m) ***** 
+
+    Auto-check for sub-folders under lcmerge; if VERSION = PREFIX_SUFFIX,
+    check for both lcmerge/PREFIX_SUFFIX and lcmerge/PREFIX/PREFIX_SUFFIX
+
+         ***** USEFUL(v11_02m) ***** 
+
+         ***** MISCELLANEOUS(v11_02m) ***** 
+
 END: 

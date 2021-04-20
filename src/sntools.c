@@ -4309,7 +4309,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     }
 
     else if ( strncmp(key,"SIM_STRONGLENS",14) == 0 ) {
-      //.xyz  continue with SIM_STROGNLENS ...
+      // continue with SIM_STROGNLENS ...
       sprintf(PREFIX, "SIM_STRONGLENS") ;
 
       sprintf(KEY_TEST,"%s_ID", PREFIX);
@@ -5188,16 +5188,22 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   //
   // Sep 12 2019: 
   //  + abort if DATADIR corresponds to $SNDATA_ROOT/SIM or any SIM path
+  // 
+  // Apr 20 2021
+  //  To auto-find sub-folders under $SNDATA_ROOT/lmerge,
+  //  if VERSION = PREFIX_SUFFIX, also check lcmerge/PREFIX/PREFIX_SUFFIX
+  //
 
   char 
     SNDATA_ENV[20] = "SNDATA_ROOT"
     ,SNDATA_ROOT[MXPATHLEN]
     ,tmpDir[MXPATH_SNDATA_SIM][MXPATHLEN]
     ,tmpFile[MXPATH_SNDATA_SIM][MXPATHLEN]
+    ,prefix[MXPATHLEN]
     ,fnam[] = "getInfo_PHOTOMETRY_VERSION"
     ;
 
-  int idir, ifound, NFOUND, NDIR_CHECK;
+  int idir, ifound, NFOUND, NDIR_CHECK, j_ ;
   int idirFOUND[MXPATH_SNDATA_SIM];
   int LDMP = 0;
   FILE *fp ;
@@ -5225,8 +5231,6 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   // define list of directories to check for data
   idir=0;
 
-  // xxx mark delete Feb 2021  if ( strlen(DATADIR) > 0 ) { 
-
   if ( !IGNOREFILE(DATADIR) ) { 
     // private user dir
     sprintf(tmpDir[idir], "%s" ,          DATADIR ); 
@@ -5240,14 +5244,32 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   }
   else {
 
+    
     // default locations under SNDATA_ROOT
+    /* xxxxxxxx mark delete Apr 20 2021 xxxxxxxx
     sprintf(tmpDir[idir], "%s/lcmerge" ,  SNDATA_ROOT );
     sprintf(tmpFile[idir],"%s/%s.LIST",   tmpDir[idir], VERSION  );    
     idir++ ;
+    xxxxxxxxxxxx */
 
     sprintf(tmpDir[idir], "%s/lcmerge/%s",  SNDATA_ROOT, VERSION);
     sprintf(tmpFile[idir],"%s/%s.LIST",     tmpDir[idir], VERSION  );
     idir++ ;
+
+    j_ = index_charString("_", VERSION);
+    if ( j_ > 1 ) {
+      strncpy(prefix,VERSION,j_);   prefix[j_] = '\0' ;
+
+      /* 
+      printf(" xxx j_ = %d  prefix = '%s' for VERSION = %s \n",
+      j_, prefix, VERSION); */
+
+      sprintf(tmpDir[idir], "%s/lcmerge/%s/%s",  
+	      SNDATA_ROOT, prefix, VERSION);
+      sprintf(tmpFile[idir],"%s/%s.LIST",  tmpDir[idir], VERSION  );
+      idir++ ;
+    }
+    
   }
 
   // - - - - - - - - - - - - - - - - - - - - - 

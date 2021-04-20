@@ -6632,16 +6632,16 @@ For \snana\ analysis codes
 data folders are specified with 
 \begin{verbatim}
   &SNLCINP
-     VERSION_PHOTOMETRY = 'folder_name'
+     VERSION_PHOTOMETRY = `folder_name'
           or
-     VERSION_PHOTOMETRY = 'folder_name1,folder_name2,folder_name3'
+     VERSION_PHOTOMETRY = `folder1,folder2,folder3'
          or 
-     VERSION_PHOTOMETRY = 'folder/subfolder'
+     VERSION_PHOTOMETRY = `folder/subfolder'
 \end{verbatim}
 %
 Multiple folders are useful, for example, when data from a
 survey are separated into seasons. However, folders from 
-different surveys can be analyzed together.
+different surveys {\it cannot} be analyzed together.
 The \snana\ codes automatically search for data folders in
 %
 \begin{verbatim}                                                               

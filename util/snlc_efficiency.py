@@ -247,7 +247,7 @@ def eff_compute(config,df):
     eff_lcfit_err = [ -9 ] * nzbin
 
     nall_unbinned = df[zVARNAME_DENOM]
-    nall_digi     = np.digitize(nall_unbinned, zbins)
+    nall_digi     = np.digitize(nall_unbinned, zbins, right=True)
     nall_binned   = np.bincount(nall_digi)[1:]
     nzbin_eff     = len(nall_binned)
     zcen          = ((zbins[1:] + zbins[:-1])/2)[0:nzbin_eff]
@@ -380,7 +380,7 @@ def read_combined_table(table_file_string, stringid, clean):
     combined_file = f"{prefix}.TEXT"
     cmd = f"{JOBNAME_COMBINE} {table_file_string} T " \
           f"--varnames {VARLIST_DENOM},{VARLIST_NUMER} " \
-          f"--outprefix {prefix} > {log_file} "
+          f"--outprefix {prefix} > {log_file}  2>/dev/null "
     os.system(cmd)
 
     # read combined table into pandas data frame

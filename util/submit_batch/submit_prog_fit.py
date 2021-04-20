@@ -277,9 +277,9 @@ class LightCurveFit(Program):
         key = 'private_data_path'
         self.config_prep[key] = None
         if key in snlcinp :
+            self.config_prep[key] = snlcinp[key] # store before expanding ENV
             path = os.path.expandvars(snlcinp[key])
             skip_path = False 
-            self.config_prep[key] = path
             if path == path_data_default: skip_path=True # allow user mistake
             if not skip_path : path_check_list.append(path) 
 

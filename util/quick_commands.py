@@ -196,7 +196,7 @@ def arg_cidlist(cidlist):
 def get_info_photometry(args):
 
     command  = f"{snana_program} GETINFO {args.version}"
-    exec_command(command,args,5)
+    exec_command(command,args,9)
 
     # end get_info_photometry
 

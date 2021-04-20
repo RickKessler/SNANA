@@ -19787,8 +19787,10 @@
 
          ***** USEFUL(v11_02l) ***** 
 
-   + new script quick_commands.py to translate data format, create SIMLIB from data,
-     and other quic/miscellaneous tasks.
+   + new script quick_commands.py to translate data format, 
+     create SIMLIB from data, and other quic/miscellaneous tasks.
+
+   + new snlc_efficiency.py script to compute eff vs. z
 
          ***** MISCELLANEOUS(v11_02l) ***** 
 
@@ -19796,6 +19798,7 @@
      + enable TAKE_SPECTRUM: MJD(min:max:step) to generate spectra for
        a sequence of MJDs; see manual.  
      + abort if any error scale is < 1 to avoid sqrt(negative number)
+     + new simgen dump variable DTSEASON_PEAK
 
    sndata.h:
       + MXSPECTRA -> 200 (was 40); BEWARE that MXSPEC in snana.car has 
@@ -19821,6 +19824,7 @@
         and store in SNANA table. Used to determine anomalous flux cov.
       + for reading fits format, check legacy DECL key if DEC does
         not exist (bug fix from IO refactor)
+      + write more information with GETINFO command.
 
    sntable_dump.py[c]
      + better abort trap when append fails.

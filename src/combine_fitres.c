@@ -454,6 +454,7 @@ void  PARSE_ARGV(int argc, char **argv) {
 
     if ( strcmp_ignoreCase(argv[i],"t") == 0 ) { 
       CREATEFILE_HBOOK = 0 ; 
+      CREATEFILE_ROOT  = 0 ; 
       if ( strcmp(argv[i],"T")==0) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
     }

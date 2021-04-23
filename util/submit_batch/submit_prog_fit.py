@@ -17,6 +17,8 @@
 # Mar 17 2021: replace sntable_dump.pl with sntable_dump.py (perl->python)
 # Apr 07 2021: better error message when appending TEXT table fails.
 # Apr 17 2021: write PRIVATE_DATA_PATH to SUBMIT.INFO 
+# Apr 25 2021: pass command to nevt_table_check and print command on failure.
+#              
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1328,7 +1330,8 @@ class LightCurveFit(Program):
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
-            os.system(f"{cddir}; {cmd_cat} ; {cmd_awk}")
+            cmd_all = f"{cmd_cat} ; {cmd_awk}"
+            os.system(f"{cddir} ; {cmd_all}")
 
         OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
         self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
@@ -1341,7 +1344,8 @@ class LightCurveFit(Program):
         if table_name == SUFFIX_FITRES :
             OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
             nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
-            self.nevt_table_check(nevt_expect, nevt_find, out_table_file)
+            self.nevt_table_check(nevt_expect, nevt_find, out_table_file,
+                                  cmd_all)
             self.config_prep['merge_table_file_list'][itable] = out_table_file
 
             # check options to append FITRES file
@@ -1399,8 +1403,8 @@ class LightCurveFit(Program):
         istat = os.system(f"{cddir} ; {cmd_append} ")
 
         if istat != 0 :
-            msgerr.append(f"Failed to apppend variables")
-            msgerr.append(f"{varlist_append}")
+            msgerr.append(f"Failed to apppend variables with command")
+            msgerr.append(f"   {cmd_append}")
             msgerr.append(f"See {append_log_file}")
             self.log_assert(False,msgerr) 
 
@@ -1422,7 +1426,8 @@ class LightCurveFit(Program):
         # finally, make sure that the number of rows still matches nevt_expect
         OUT_TABLE_FILE = (f"{script_dir}/{text_table_file}")
         nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
-        self.nevt_table_check(nevt_expect, nevt_find, text_table_file)
+        self.nevt_table_check(nevt_expect, nevt_find, text_table_file,
+                              cmd_append )
                   
         # end append_table_varlist
 
@@ -1448,20 +1453,21 @@ class LightCurveFit(Program):
         out_file  = "TEMP_" + orig_file
         log_file  = "TEMP_COMBINE.LOG"
 
-        cddir = (f"cd {script_dir}")
-        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} " \
-                 f"-outfile_text {out_file} " \
-                 f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
-                 f">& {log_file} " )
-        cmd2  = (f"mv {out_file} {orig_file}")
-        cmd3  = (f"rm {log_file}")
-        cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
-        os.system(cmd)
+        cddir = f"cd {script_dir}"
+        cmd1  = f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} "\
+                f"-outfile_text {out_file} " \
+                f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
+                f">& {log_file} " 
+        cmd2  = f"mv {out_file} {orig_file}"
+        cmd3  = f"rm {log_file}"
+        cmd   = f"{cmd1} ; {cmd2} ; {cmd3}"
+        # xxx cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
+        os.system(f"{cddir} ; {cmd}" )
 
         # finally, make sure that the number of rows still matches nevt_expect
         ORIG_FILE = (f"{script_dir}/{orig_file}")
         nevt_find = util.nrow_table_TEXT(ORIG_FILE,"SN:")
-        self.nevt_table_check(nevt_expect, nevt_find, orig_file)
+        self.nevt_table_check(nevt_expect, nevt_find, orig_file, cmd)
 
         #sys.exit('\n xxx DEBUG DIE xxxx ')
 
@@ -1499,10 +1505,10 @@ class LightCurveFit(Program):
             f_list += (f" XXX_FORCE_CORRUPT.{suffix}")
 
         cmd_merge       = (f"{program_merge} {f_list} {out_table_file} ")
-        cmd             = (f"{cddir} ; {cmd_merge} > {log_table_file}  ")
+        cmd             = (f"{cmd_merge} > {log_table_file}  ")
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
-            os.system(cmd)
+            os.system(f"{cddir}; {cmd}" )
 
         OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
         self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
@@ -1537,7 +1543,7 @@ class LightCurveFit(Program):
             logging.warning(msg)
 
         # abort if nevt_find != nevt_expect
-        self.nevt_table_check(nevt_expect, nevt_find, out_table_file)
+        self.nevt_table_check(nevt_expect, nevt_find, out_table_file, cmd)
 
         # store merge table file for append_table_text()
         merge_table_file_list =  self.config_prep['merge_table_file_list']
@@ -1596,13 +1602,15 @@ class LightCurveFit(Program):
 
         # end move_merge_table_files
 
-    def nevt_table_check(self, nevt_expect, nevt_find, out_file):
+    def nevt_table_check(self, nevt_expect, nevt_find, out_file, cmd):
         # abort if nevt_expect != nevt_find
+        # Apr 25 2021: pass command {cmd} and print it on error.
         if nevt_expect != nevt_find :
             msgerr = []
             msgerr.append(f"Found {nevt_find} events in merged {out_file}")
-            msgerr.append(f"but expected {nevt_expect} from summing YAML files.")
-            msgerr.append(f"Table merge has a problem.")
+            msgerr.append(f"but expected {nevt_expect} from summing YAML files.")            
+            msgerr.append(f"Table merge has a problem. Check command")
+            msgerr.append(f"  {cmd}")
             self.log_assert(False,msgerr)
     # end nevt_table_check
 

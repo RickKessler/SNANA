@@ -1098,6 +1098,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "SIM_SL_FLAG", &SNDATA.SIM_SL_FLAG,
 		  "Strong lens flag", &istat );  
 
+  // Apr 24 2021: write mask of biasCor features
+  fits_update_key(fp, TINT, "SIM_BIASCOR_MASK", &SNDATA.SIM_BIASCOR_MASK,
+		  "biasCor mask", &istat );  
+
   return ;
 
 } // end of wr_snfitsio_create
@@ -2584,6 +2588,9 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   else if ( strcmp(parName,"SIM_SL_FLAG") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIM_SL_FLAG); 
   }
+  else if ( strcmp(parName,"SIM_BIASCOR_MASK") == 0 ) {
+    sprintf(tmpString,"%d", SNDATA.SIM_BIASCOR_MASK ); 
+  }
   else if ( strcmp(parName,"NPRIVATE") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.NVAR_PRIVATE );
   }
@@ -3679,6 +3686,11 @@ void rd_snfitsio_simkeys(void) {
   istat = 0 ;
   sprintf(keyname,"SIM_SL_FLAG");
   fits_read_key(fp, TINT, keyname, &SNDATA.SIM_SL_FLAG, comment, &istat );
+
+  // check  SIM_BIASCOR_MASK (Apr 2021)
+  istat = 0 ;
+  sprintf(keyname,"SIM_BIASCOR_MASK");
+  fits_read_key(fp, TINT, keyname, &SNDATA.SIM_BIASCOR_MASK, comment, &istat );
 
   return ;
 

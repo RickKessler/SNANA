@@ -107,6 +107,8 @@ def get_args():
     parser.add_argument("--force_crash_prep", help=msg, action="store_true")
     msg = (f"DEBUG MODE: force crash in merge ")
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: force abort in merge ")
+    parser.add_argument("--force_abort_merge", help=msg, action="store_true")
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process"
@@ -161,9 +163,16 @@ def which_program_class(config):
     return program_class
 
 def set_merge_flag(config):
-    merge_flag = config['args'].merge  or \
-                 config['args'].MERGE_LAST  or \
-                 config['args'].merge_reset
+    args = config['args']
+    merge_flag = args.merge  or \
+                 args.MERGE_LAST  or \
+                 args.merge_reset
+
+    set_cpunum0 = args.merge_reset or args.MERGE_LAST
+    cpunum      = args.cpunum
+    if cpunum is None and set_cpunum0 :  
+        args.cpunum = [ 0 ]
+
     return merge_flag
 
 def check_input_file_name(args):
@@ -307,6 +316,9 @@ def print_submit_messages(config_yaml):
 
     if config_yaml['args'].force_crash_merge :
         print(f" REMEMBER: there is a forced crash in MERGE process.")
+
+    if config_yaml['args'].force_abort_merge :
+        print(f" REMEMBER: there is a forced abort in MERGE process.")
 
     # end print_submit_messages
 

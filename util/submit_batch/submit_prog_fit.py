@@ -526,9 +526,6 @@ class LightCurveFit(Program):
         self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
         self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
 
-        # sys.exit(f"\n\t xxxxx DEBUG DIE  ... xxxx ")
-        # xxx mark delete Jan 2021 self.write_legacy_FITOPT_README()
-
         # end fit_prep_FITOPT
 
 
@@ -1362,6 +1359,8 @@ class LightCurveFit(Program):
         # and append TEXT-FITRES file.
         # See CONFIG key APPEND_TABLE_VARLIST
         #
+
+        CONFIG                = self.config_yaml['CONFIG']
         submit_info_yaml      = self.config_prep['submit_info_yaml']
         merge_table_file_list = self.config_prep['merge_table_file_list']
         script_dir            = submit_info_yaml['SCRIPT_DIR']
@@ -1369,11 +1368,18 @@ class LightCurveFit(Program):
         version_fitopt        = version_fitopt_dict['version_fitopt']
         nevt_expect           = version_fitopt_dict['nevt_expect']
         
+        # use CONFIG from input file (rather than SUBMIT.INFO) in case
+        # user fixes APPEND_TABLE_VARLIST after jobs ran.
         key  = KEY_APPEND_TABLE_VARLIST
-        if key in submit_info_yaml :
-            varlist_append = submit_info_yaml[key]
+        if key in CONFIG:
+             varlist_append = CONFIG[key]
         else:
             return
+
+        #if key in submit_info_yaml :
+        #    varlist_append = submit_info_yaml[key]
+        #else:
+        #    return
 
         msgerr = []
 
@@ -1567,6 +1573,7 @@ class LightCurveFit(Program):
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')
             nevt_find   = int(result_line.split()[1])
+            # nevt_find = 0 # xxx REMOVE
             return nevt_find
         except :
             return -9
@@ -1692,6 +1699,7 @@ class LightCurveFit(Program):
         # end merge_cleanup_final
 
     def merge_reset(self,output_dir):
+
         # remove all merge products to allow re-doing the merge with -m option.
         # Renders output_dir as if --nomerge option had been given with
         # original submit command.
@@ -1701,7 +1709,9 @@ class LightCurveFit(Program):
         #  + unpack SPLIT_JOBS_LCFIT
         #  + remove merged table files: [VERSION]/FITOPT* files
         #  + remove all-done file
-        
+        #
+        # Apr 23 2021: check that file/subdir exists before removing it.
+
         submit_info_yaml = self.config_prep['submit_info_yaml']
         version_list     = submit_info_yaml['VERSION_LIST']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1721,29 +1731,46 @@ class LightCurveFit(Program):
         # loop over each version and clean out FITOPT* files 
         logging.info(f"  {fnam}: remove FITOPT* from version subdirs")
         for version in version_list :
-            v_dir = (f"{output_dir}/{version}")
-            cmd_rm = (f"cd {v_dir} ; rm FITOPT* 2>/dev/null")
+            v_dir  = (f"{output_dir}/{version}")
+            cmd_rm = (f"rm {v_dir}/FITOPT* 2>/dev/null")
             os.system(cmd_rm)
-
 
         # if script_dir is tarred & gzipped, unpack it
         logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_FIT}")
         util.compress_subdir(-1, script_dir)
 
         # untar and unzip file inside SUBDIR_SCRIPTS_FIT
-        cmd_unzip = (f"cd {script_dir}; cat BACKUP*.tar.gz | tar xzf - -i ; " \
-                     f"rm BACKUP*.gz")
-        os.system(cmd_unzip)
+        backup_list = glob.glob1(script_dir, "BACKUP*")
+        if len(backup_list) > 0 :
+            cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
+            cmd_all   = f"cd {script_dir}; {cmd_unzip} ; rm BACKUP*.gz ; "\
+                        f"cd {CWD}"
+            os.system(cmd_all)
 
         # remove lingering temp files in SPLIT_JOBS_LCFIT.
         # Also remove MERGE.LOG_{Nsec} backups, and DONE file
-        logging.info(f"  {fnam}: remove misc junk files from {SUBDIR_SCRIPTS_FIT}")
-        cmd_rm1 = (f"cd {script_dir} ; rm {PREFIX_MERGE}* sntable* 2>/dev/null")
-        cmd_rm2 = (f"cd {output_dir} ; rm {MERGE_LOG_FILE}_*  *.DONE 2>/dev/null")
-        os.system(cmd_rm1)
-        os.system(cmd_rm2)
-        #print(f" cmd_rm1 = {cmd_rm1}")
-        #print(f" cmd_rm2 = {cmd_rm2}")
+
+        # define list of wildcards to remove under script_dir and output_dir
+        wildcard_script_dir = [ f"{PREFIX_MERGE}*", "sntable*" ]
+        wildcard_output_dir = [ f"{MERGE_LOG_FILE}_*", "*.DONE", "BUSY*" ]
+
+        logging.info(f"  {fnam}: remove misc junk files from " \
+                     f"{SUBDIR_SCRIPTS_FIT}")
+        for wildcard in wildcard_script_dir :
+            if len(wildcard) < 2: continue  # avoid accidental rm *
+            if len(glob.glob1(script_dir,wildcard)) > 0 :
+                   cmd_rm = f"rm {script_dir}/{wildcard}"
+                   print(f"\t Remove {wildcard} ")
+                   os.system(cmd_rm)
+
+        output_base = os.path.basename(output_dir)
+        logging.info(f"  {fnam}: remove misc junk files from {output_base}")
+        for wildcard in wildcard_output_dir :
+            if len(wildcard) < 2: continue  # avoid accidental rm *
+            if len(glob.glob1(output_dir,wildcard)) > 0 :
+                cmd_rm = f"rm {output_dir}/{wildcard}"
+                print(f"\t Remove {wildcard}  ")
+                os.system(cmd_rm)
 
         # end merge_reset
 

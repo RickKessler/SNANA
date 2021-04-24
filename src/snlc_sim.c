@@ -1790,7 +1790,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[0] = 1.0E8 ;
     INPUTS.GENGAUSS_SALT2ALPHA.SIGMA[1] = 1.0E8 ;
     INPUTS.GENGAUSS_SALT2ALPHA.NGRID    = 2 ;
-    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);
+    prepIndex_GENGAUSS(WORDS[0], &INPUTS.GENGAUSS_SALT2BETA);    
   }
   else if ( strstr(WORDS[0],"BIASCOR_SALT2BETA_GRID") != NULL ) {
     // load asymGauss params for BBC beta grid 
@@ -19646,6 +19646,12 @@ void snlc_to_SNDATA(int FLAG) {
 
   hostgal_to_SNDATA(FLAG,0);  // for header init only.
 
+  if ( INPUTS.GENGAUSS_SALT2ALPHA.NGRID > 1 ) 
+    { SNDATA.SIM_BIASCOR_MASK += 1; }
+  if ( INPUTS.GENGAUSS_SALT2BETA.NGRID > 1 ) 
+    { SNDATA.SIM_BIASCOR_MASK += 2; }
+
+  // .xyz
 
   // #####################################
 

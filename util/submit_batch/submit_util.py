@@ -267,6 +267,7 @@ def merge_table_reset(merge_file, table_name, colnum_state, colnum_zero_list):
         'header_line' : comment_lines[0],
         'row_list'    : row_reset_list   
     }
+
     f = open(merge_file, 'w') 
     write_merge_file(f, INFO_MERGE, [] ) 
     f.close()
@@ -348,13 +349,14 @@ def compress_subdir(flag,dir_name):
         cmd_gzip   = (f"gzip {tar_file}")
         cmd_rmdir  = (f"rm -rf {subdir_name}")
         cmd_all    = (f"{cddir} ; {cmd_tar}; {cmd_gzip} ; {cmd_rmdir}")
-    else:  # uncompress
-        cmd_unpack = (f"tar -xzf {targz_file}")
-        cmd_rmgz   = (f"rm {targz_file}")
-        cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
-
-    #logging.info(f" xxxx {cmd_all}")
-    os.system(cmd_all)
+        os.system(cmd_all)
+    else:  # uncompress if tar file exists
+        exist_tar = os.path.exists(f"{topdir_name}/{targz_file}")
+        if exist_tar :
+            cmd_unpack = (f"tar -xzf {targz_file}")
+            cmd_rmgz   = (f"rm {targz_file}")
+            cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
+            os.system(cmd_all)
 
     # end compress_subdir
 
@@ -686,7 +688,7 @@ def write_job_info(f,JOB_INFO,icpu):
         all_done_file = JOB_INFO['all_done_file']  # exists only on failure
         kill_on_fail  = JOB_INFO['kill_on_fail']
         f.write(f"if [ -f {all_done_file} ] ; then \n")
-        msg_echo = (f"Found pre-mature {DEFAULT_DONE_FILE} -> something FAILED.")
+        msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
         if kill_on_fail :
             msg_echo = (f"Kill all remaining jobs.")
@@ -809,7 +811,9 @@ def get_survey_info(yaml_path):
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
-def kill_jobs(config_prep):
+def kill_jobs_obsolete(config_prep):
+
+    # xxxxx MARK OBSOLETE xxxxx
 
     # kill jobs and exit 
     submit_mode = config_prep['submit_mode']
@@ -828,7 +832,8 @@ def kill_jobs(config_prep):
 
     msg = (f"\n Done killing {submit_mode} jobs.")
     sys.exit(msg)
-    return
+    return  # xxxxxx MARK OBSOLETE xxxxxxxxx
+
 
 # ---------------------------------------------------
 # MESSAGING

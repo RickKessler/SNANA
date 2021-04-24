@@ -8549,6 +8549,7 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.APPLYFLAG_MWEBV = 0 ;
 
+  SNDATA.SIM_BIASCOR_MASK = 0 ;
   
   for(ep=0; ep < MXEPOCH; ep++ ) {
    SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );

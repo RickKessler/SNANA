@@ -16,6 +16,9 @@
 #   write_command_file return n_job_cpu; if n_job_cpu==0, sleep 10 sec
 #   so that npid check doesn't fail.
 #
+# Apr 23 2021: fix --merge_reset and -M to hopefully allow interactive 
+#              merge recover (-H FIT for instructions)
+#
 # ============================================
 
 #import argparse
@@ -190,11 +193,6 @@ class Program:
         # ?? if 'BATCH_MAXJOB' in CONFIG :
         # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
 
-            #if isinstance(memory,int) :
-            #    msgerr.append(f"Missing memory units")
-            #    msgerr.append(f"Try  BATCH_MEM: {memory}Mb")
-            #    self.log_assert(False, msgerr)
-
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 
@@ -218,6 +216,7 @@ class Program:
         batch_command = self.config_prep['batch_command'] 
         IS_SSH        = submit_mode == SUBMIT_MODE_SSH
         IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
+
 
         if IS_SSH :
             self.kill_ssh_jobs()
@@ -553,6 +552,7 @@ class Program:
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
         done_stamp_list  = self.config_prep['done_stamp_list']
+        submit_mode      = self.config_prep['submit_mode']
         Nsec             = seconds_since_midnight
         time_now         = datetime.datetime.now()
 
@@ -575,7 +575,8 @@ class Program:
         comment = "submit time; Nsec since midnight"
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
-
+        f.write(f"SUBMIT_MODE:       {submit_mode} \n")
+        
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
         f.write(f"CLEANUP_FLAG:     {cleanup_flag} \n")
@@ -601,8 +602,10 @@ class Program:
 
         force_crash_prep  = self.config_yaml['args'].force_crash_prep
         force_crash_merge = self.config_yaml['args'].force_crash_merge
+        force_abort_merge = self.config_yaml['args'].force_abort_merge
         f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
         f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
+        f.write(f"FORCE_ABORT_MERGE:   {force_abort_merge}\n")
   
         # append program-specific information
         f.write("\n")
@@ -818,10 +821,7 @@ class Program:
 
         # check option to reset merge process 
         if self.config_yaml['args'].merge_reset :
-            logging.info(f"# {fnam}: Execute merge_reset debug utility")
-            self.merge_reset(output_dir)
-            sys.exit("\n Done with merge_reset. " \
-                     f"Try merge again with -m option.")
+            self.merge_reset_driver()
 
         # make sure DONE_STAMP is stored in both config_prep and info_yaml
         # in case a prep function is called again during merge process.
@@ -858,11 +858,9 @@ class Program:
         # check for changes in state for SPLIT and MERGE tables.
         # function returns updated set of SPLIT and MERGE table rows.
         row_list_split, row_list_merge, n_change = \
-                   self.merge_update_state(MERGE_INFO_CONTENTS)
+            self.merge_update_state(MERGE_INFO_CONTENTS)
         
-        # check option to force crash (to test higher level pipelines)
-        if submit_info_yaml['FORCE_CRASH_MERGE'] and cpunum == 0 :
-            printf(" xxx force merge crash with C-like printf xxx \n")
+        if not MERGE_LAST:  self.force_merge_failure(submit_info_yaml)
 
         use_split = len(row_list_split) > 0
         use_merge = len(row_list_merge) > 0
@@ -955,6 +953,55 @@ class Program:
         
         # end merge_driver
 
+    def merge_reset_driver(self):
+
+        # Created Apr 24 2021
+
+        # parse batch info to enable kill_jobs
+        self.parse_batch_info(self.config_yaml,self.config_prep)
+
+        output_dir    = self.config_prep['output_dir']
+        submit_mode   = self.config_prep['submit_mode'] 
+
+        IS_SSH        = submit_mode == SUBMIT_MODE_SSH
+        IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
+
+        logging.info(f"# merge_rest: Execute merge_reset debug utility")
+
+        # kill lingering jobs to avoid waiting monitor task to
+        # mess things up.
+        if IS_SSH :
+            self.kill_ssh_jobs()
+
+        elif IS_BATCH and batch_command == 'sbatch' :
+            self.kill_sbatch_jobs()
+
+        # call class-specific merge_reset function
+        self.merge_reset(output_dir)
+        sys.exit(f"\n Done with merge_reset. " \
+                 f"Try merge again with -M option.")
+
+        # end merge_reset_driver
+
+    def force_merge_failure(self,submit_info_yaml):
+
+        # Apr 23 2021
+        # check user option to force crash or force abort in merge process.
+
+        # check option to force crash (to test higher level pipelines)
+        if submit_info_yaml['FORCE_CRASH_MERGE']  :
+            print(f" xxx force merge crash with C-like printf xxx \n")
+            printf(" xxx force merge crash with C-like printf xxx \n")
+
+        # check option to force abort (to test higher level pipelines)
+        if submit_info_yaml['FORCE_ABORT_MERGE']  :
+            msgerr = []
+            msgerr.append(f" Force ABORT in merge process;")
+            msgerr.append(f" see --force_abort_merge argument")
+            util.log_assert(False,msgerr)
+
+        # end force_merge_failure
+
     def merge_last_wait(self):
 
         # called after last science job (jobid = n_job_tot), but beware 
@@ -1046,7 +1093,7 @@ class Program:
                            f"{busy_list[0]} --> exit merge process.")
                     sys.exit(msg)  
 
-        elif len(BUSY_FILE) > 10 :  # avoid disaster with rm
+        elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
             logging.info(f"# merge_driver: \t Remove {busy_file} for {t_msg}")
             cmd_rm = (f"rm {BUSY_FILE}")
             os.system(cmd_rm)
@@ -1055,8 +1102,8 @@ class Program:
 
     def get_busy_list(self):
         # return numbrer of busy files,  and sorted list of busy files.
-        output_dir     = self.config_prep['output_dir']
-        busy_wildcard  = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
+        output_dir      = self.config_prep['output_dir']
+        busy_wildcard   = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
         busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
         n_busy     = len(busy_list)
         return n_busy, busy_list
@@ -1667,6 +1714,7 @@ class Program:
         # same as log_assert in util, except here it also
         # + writes FAIL to done_stamp_file
         # + appends msgerr to MERGE.LOG
+        # + remove BUSY file
 
         if condition is False :
             output_dir      = self.config_prep['output_dir']
@@ -1682,7 +1730,8 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
+            # xxxself.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
             util.log_assert(condition, msgerr)        
-
+            
 # ======= END OF FILE =========
 

@@ -382,6 +382,16 @@ HELP_CONFIG_FIT = f"""
   &FITINP
      ! input for snlc_fit.exe
   &END
+
+# If the merge process fails for silly reason (e.g, insufficiency memory,
+# mis-typed variable name in APPEND_TABLE_VARLIST), or you want to add
+# more variables to APPEND_TABLE_VARLIST, the merge process can be
+# repeated interactively without re-doing the LC fits:
+   0. visually check that MERGE.LOG is yaml compliant
+   1. submit_batch_jobs.sh  <inputFile>  --merge_reset
+   2. submit_batch_jobs.sh <inputFile> -M
+      (be patient, and beware that merge repeat may be buggy)
+
 """
 
 HELP_CONFIG_BBC = f"""

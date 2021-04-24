@@ -1093,6 +1093,7 @@ c
      &  ,NPAR_SIM_HOSTLIB
      &  ,SIM_EPFILTREST(MXEPOCH)
      &  ,SIMLIB_MSKOPT        ! SIMLIB option mask (Dec 2015)
+     &  ,SIM_BIASCOR_MASK     ! non-zero -> it's a biasCor sim
      &  ,NEP_SIM_MODELGRID
      &  ,NEP_SIM_MAGOBS          ! number of sim epochs with MAGOBS < 99
 
@@ -1133,7 +1134,7 @@ c
      &  ,SIM_EPSNRMON, SIM_EPCHI2FLUX, SIM_EPPULL, SIM_EPFLUXCAL_HOSTERR
      &  ,SIMNAME_SHAPEPAR,  SIMNAME_SHAPELAW
      &  ,SIMNAME_COLORPAR,  SIMNAME_COLORLAW, SIMNAME_SNRMON
-     &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT
+     &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT, SIM_BIASCOR_MASK
      &  ,SIMOPT_MWCOLORLAW, SIMOPT_MWEBV
      &  ,SIM_EPFILTREST, SIM_EPMAGREST,  SIM_MAGSMEAR_COH
      &  ,SIM_SALT2gammaDM
@@ -3635,6 +3636,8 @@ c Created Feb 2021
 c Refactor to use SNDATA struct; same for FITS and TEXT format.
 c Transfer global variables from SNDATA struct to fortran: 
 c SURVEY, FILTERS, etc ...
+c
+c Apr 24 2021: read SIM_BIASCOR_MASK
 
       IMPLICIT NONE
 
@@ -3724,6 +3727,10 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
 
          CALL FETCH_SNDATA_WRAPPER("SIM_VARNAME_SNRMON",
      &        ONE, SIMNAME_SNRMON, DARRAY, OPT)
+
+         CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK", 
+     &        ONE, STRING, DARRAY, OPT)
+         SIM_BIASCOR_MASK = int(DARRAY(1))
 
          CALL RDGLOBAL_SIMSED(OPT)
 

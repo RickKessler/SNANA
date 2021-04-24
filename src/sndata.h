@@ -425,6 +425,11 @@ struct SNDATA {
   char    PRIVATE_KEYWORD[MXVAR_PRIVATE][60];
   double  PRIVATE_VALUE[MXVAR_PRIVATE] ;
 
+  // biasCor mask that is internally set by sim; 
+  // designed to inform analysis codes
+  // +1=alphaGrid, +2=betaGrid ...
+  int  SIM_BIASCOR_MASK; 
+
 } SNDATA ;
 
 

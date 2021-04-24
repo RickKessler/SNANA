@@ -973,7 +973,7 @@ class Program:
         if IS_SSH :
             self.kill_ssh_jobs()
 
-        elif IS_BATCH and batch_command == 'sbatch' :
+        elif IS_BATCH : 
             self.kill_sbatch_jobs()
 
         # call class-specific merge_reset function

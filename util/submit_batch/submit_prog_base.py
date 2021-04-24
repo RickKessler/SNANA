@@ -1730,7 +1730,7 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
-            # xxxself.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
+            self.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
             util.log_assert(condition, msgerr)        
             
 # ======= END OF FILE =========

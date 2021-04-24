@@ -390,7 +390,8 @@ if __name__ == "__main__":
             logging.exception(e, exc_info=True)
             cpunum   = config_yaml['args'].cpunum[0]
             cpu_file = (f"CPU{cpunum:04d}*.LOG")
-            msg      = [e, f"Check {cpu_file} for merge crash" ]
+            print(f"{e}")
+            msg      = [f"Check {cpu_file} for merge crash" ]
             program.log_assert(False, msg )
             
     # - - - - - - 

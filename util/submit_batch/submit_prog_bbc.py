@@ -38,6 +38,8 @@
 # Dec 17 2020: update get_matrix_FITOPTxMUOPT to process multiple FITOPTxMUOPT
 # Jan 12 2021: write BBC_ACCEPT_SUMMARY for CIDs in all FITOPT*.FITRES files.
 # Mar 08 2021: if INPDIR+: None, use argument of datafile=
+# Apr 23 2021: abort if any version dir does not exist.
+#
 # - - - - - - - - - -
 
 
@@ -256,12 +258,24 @@ class BBC(Program):
             MERGE_INFO,comment_lines = util.read_merge_file(MERGE_LOG_PATHFILE)
             row_list = MERGE_INFO[TABLE_MERGE]
             version_list = []
+            msgerr       = [] ; nverr=0
             for row in row_list :
                 version = row[COLNUM_FIT_MERGE_VERSION] 
+
+                # check that verson dir exists 
+                path_version = f"{path_expand}/{version}"
+                if not os.path.exists(path_version):
+                    msgerr.append(f" ERROR: found {version} in MERGE.LOG, ")
+                    msgerr.append(f"\t but cannot find {path_version}")
+                    nverr += 1
+
                 ignore  = any(s in version for s in string_version_ignore)
                 if ignore: continue
                 if version in version_list : continue
                 version_list.append(version)
+
+            if nverr > 0:
+                self.log_assert(False,msgerr)                
 
             survey = MERGE_INFO['SURVEY']
             survey_list.append(survey)

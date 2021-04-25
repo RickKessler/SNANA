@@ -19855,6 +19855,7 @@
    snlc_sim.c
      + write SIM_BIASCOR_MASK to header;
         +1=> alpha grid, +2=> beta grid. Need something for BS20.
+     + allow comma-sep list for SIMGEN_DUMP ; see manual.
 
    submit_batch:
      + print full command when append-varlist fails.

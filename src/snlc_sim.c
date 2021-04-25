@@ -3732,8 +3732,8 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   //
   // Apr 16 2021: check SIMGEN_DUMPALL SWITCH 
 
-  int  ivar, NVAR, N=0 ;
-  bool LRD = false ;
+  int  ivar, NVAR=0, N=0 ;
+  bool LRD = false, LRD_COMMA_SEP=false, LRD_SPACE_SEP=false ;
   char *varName ;
   char fnam[] = "parse_input_SIMGEN_DUMP";
 
@@ -3759,19 +3759,64 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // - - - - - - - 
 
-  if ( LRD ) {      
+  if ( !LRD ) { return(N); }
+
+  // check of comma sep or space-sep format.
+  if ( strstr(WORDS[N+1],COMMA) != NULL ) 
+    { LRD_COMMA_SEP = true;  }
+  else 
+    { LRD_SPACE_SEP = true; }
+
+
+  // - - - - -
+  if ( LRD_SPACE_SEP ) {         
+    // original space-separate list of variables after NVAR integer
+    // e.g., SIMGEN_DUMP: 4 CID ZCMB RA DEC
     N++ ; sscanf(WORDS[N] , "%d", &NVAR);
-    INPUTS.NVAR_SIMGEN_DUMP = NVAR ;
 
     if(NVAR <=0 ) { INPUTS.IFLAG_SIMGEN_DUMPALL=0; }
 
     for(ivar=0; ivar < NVAR; ivar++ ) {
       varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;
       N++ ; sscanf(WORDS[N], "%s", varName );
-      checkAlternateVarNames_HOSTLIB(varName);
     }
-  } // end LRD
+  } // end LRD_SPACE_SEP
 
+  if ( LRD_COMMA_SEP ) {
+    // Apr 2021: optional comma-sep list that doesn't need NVAR
+    // e.g., SIMGEN_DUMP: CID,ZCMB,RA,DEC
+
+    char *ptrSplit[MXSIMGEN_DUMP];
+    int MXCHARWD = MXCHARWORD_PARSE_WORDS;
+    int MXVAR    = MXSIMGEN_DUMP ;
+      
+    N++ ;
+
+    for(ivar=0; ivar < MXVAR; ivar++ ) 
+      { ptrSplit[ivar] = INPUTS.VARNAME_SIMGEN_DUMP[ivar]; }
+
+    splitString(WORDS[N], COMMA, MXVAR, &NVAR, ptrSplit);
+
+    /* xxx mark delete 
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      printf(" xxx %s: varname[%2d] = '%s' \n",
+	     fnam, ivar, INPUTS.VARNAME_SIMGEN_DUMP[ivar] );
+	     } xxxxxxx */
+    //.xyz
+  } // end LRD_COMMA_SEP
+
+
+  // - - - - -
+
+  printf(" xxx %s: load NVAR = %d \n", fnam, NVAR);
+
+  INPUTS.NVAR_SIMGEN_DUMP = NVAR; // load global
+
+  // check for alternate varnames
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;      
+    checkAlternateVarNames_HOSTLIB(varName);
+  }
 
   return(N);
 
@@ -11109,7 +11154,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   /***
    Created Feb 20, 2009 by R.Kessler
-   Major re-write 5/09/2009
 
    Write SIMGEN variables to column-formated text file
    (same format as fitter "FITRES" file).
@@ -11136,6 +11180,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   Dec 01 2017: add hash (#) in front of all comments.
 
   May 14 2019: free(SIMFILE_AUX->OUTLINE)
+
+  Apr 25 2021: fix bug by exiting after PREP_SIMGEN_DUMP(0).
 
   ****/
 
@@ -11170,7 +11216,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     print_banner(BANNER );
     
     if ( INPUTS.NVAR_SIMGEN_DUMP == 0 ) 
-      { PREP_SIMGEN_DUMP(0); }    // list variables, then quit.
+      { PREP_SIMGEN_DUMP(0); debugexit(fnam); }  // list variables, then quit.
     else
       { PREP_SIMGEN_DUMP(1); }    // prepare valid list
 
@@ -19651,7 +19697,6 @@ void snlc_to_SNDATA(int FLAG) {
   if ( INPUTS.GENGAUSS_SALT2BETA.NGRID > 1 ) 
     { SNDATA.SIM_BIASCOR_MASK += 2; }
 
-  // .xyz
 
   // #####################################
 

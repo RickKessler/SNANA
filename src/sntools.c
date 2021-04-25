@@ -3832,6 +3832,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   //    *stringVal  : string value if *key points to string
   //    *parVal     : double value if *key points to double,float,int
   //
+  // Apr 24 2021: add SIM_BIASCOR_MASK
 
   bool ISKEY_PRIVATE = ( strstr (key,"PRIVATE")   != NULL ) ;
   bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
@@ -3945,6 +3946,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
     }
     else if ( strcmp(key,"SIM_SL_FLAG") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_SL_FLAG ); }
+
+    else if ( strcmp(key,"SIM_BIASCOR_MASK") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_BIASCOR_MASK ); }
 
     else {
       // error message

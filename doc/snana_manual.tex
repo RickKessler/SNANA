@@ -6106,41 +6106,42 @@ dump-files, set the {\tt SIMLIB\_DUMP} argument to 3.
 
 
 % ------------------------------------
-   \subsubsection{Cadence Figure of Merit Utility }
-   \label{sssec:cadence_FoM}
+%   \subsubsection{Cadence Figure of Merit Utility }
+%   \label{sssec:cadence_FoM}
 % ------------------------------------
 
-A figure of merit for the cadence can be determined in
-two ways. First, you can extract the function 
-``{\tt SNcadenceFoM}''  from {\tt sntools.c} and pass the
-arguments from your own wrapper function.
-The second method is to simply analyze any {\tt SIMLIB}
-using the {\tt SIMLIB\_DUMP} option (\S~\ref{sssec:simlib_dump}).
-The FoM is appended to each entry in the output 
-{\tt [simlib].DUMP} file. The FoM for each simlib entry
-is a function of the MJD and the $5\sigma$ limiting magnitude 
-for each observation.
+%A figure of merit for the cadence can be determined in two ways. 
+%First, you can extract the function  ``{\tt SNcadenceFoM}''  from 
+%{\tt sntools.c} and pass the arguments from your own wrapper function.
+%The second method is to simply analyze any {\tt SIMLIB} using the 
+%{\tt SIMLIB\_DUMP} option (\S~\ref{sssec:simlib_dump}). The FoM is 
+%appended to each entry in the output {\tt [simlib].DUMP} file. 
+%The FoM for each simlib entry is a function of the MJD and the $5\sigma$ 
+%limiting magnitude  for each observation.
 
 
 % ------------------------------------
-   \subsubsection{{\tt SIMGEN\_DUMP} File }
+   \subsubsection{{\tt Creating SIMGEN\_DUMP} File }
    \label{sss:simgen_dump}
 % ------------------------------------
 
 To quickly analyze generated distributions,
-there is an option to dump generated quantities to
-a column-formatted text file.
+there is an option to write generated quantities to
+a table file in TEXT format.
 For example, to check the generated redshift
 and \SALTII\ parameters,
 add the following to your sim-input file:
 %
-\begin{verbatim}
+\begin{verbatim} 
  # dump same SN that are written to data files
-   SIMGEN_DUMP: 5  CID  ZCMB  S2x0 S2x1 S2c
+   SIMGEN_DUMP: 5  CID  ZCMB  SALT2x0 SALT2x1 SALT2c
       or
  # dump all SN, even those rejected by trigger and cuts
-   SIMGEN_DUMPALL: 5  CID  ZCMB  S2x0 S2x1 S2c
-
+   SIMGEN_DUMPALL: 6  CID ZCMB SALT2x0 SALT2x1 SALT2c SIM_SEARCHEFF_MASK
+     or
+ # no need to specify NVAR with comma sep list 
+ # SIMGEN_DUMP: CID,ZCMB,SALT2x0,SALT2x1,SALT2c
+ 
  # optional pre-scale (e.g., to limit output from DUMPALL)
    SIMGEN_DUMP_PRESCALE: 10  
          or
@@ -6148,31 +6149,33 @@ add the following to your sim-input file:
 \end{verbatim}
 %
 {\tt SIMGEN\_DUMP[ALL]} produces an auxiliary file {\tt [VERSION].DUMP}
-in the same directory as the SNDATA files.
-The self-documented dump-file looks like:
+in the same directory as the data files.
+The dump-file looks like:
 %
 \begin{Verbatim}[frame=single]
-NVAR: 4 
-VARNAMES:  ZCMB S2x0 S2x1 S2c
+VARNAMES:  CID ZCMB SALT2x0 SALT2x1 SALT2c
 SN:  50001  1.3820e-01 3.8970e-04 1.0906e+00 -1.5431e-01
 SN:  50002  3.1260e-01 1.0278e-04 1.8671e-01 -3.9044e-01
 SN:  50003  2.4248e-01 1.9417e-04 8.8190e-01 -3.8711e-01
 SN:  50004  2.5666e-01 8.3385e-05 -6.7122e-01 -1.5304e-01
 \end{Verbatim}
 %
-A full list of allowed {\tt SIMGEN\_DUMP} variable names
-can be printed to the screen by specifying zero variables as follows:
+To list all valid {\tt SIMGEN\_DUMP} variable names to stdout, 
+either specify zero variables or 
+intentionally list an invalid variable name,
 %
 \begin{verbatim}
    snlc_sim.exe mysim.input SIMGEN_DUMP 0
+   snlc_sim.exe mysim.input SIMGEN_DUMP CID,BAD
 \end{verbatim}
 %
 After printing the valid variable names, the program quits.
 
-To switch from {\tt SIMGEN\_DUMP} (in the input file) 
-to {\tt SIMGEN\_DUMPALL} via command line arg,
+To switch  from {\tt SIMGEN\_DUMP} (in the input file) 
+to {\tt SIMGEN\_DUMPALL} via command line arg, use the 
+``{\tt SWITCH}'' option,
 \begin{verbatim}
-   snlc_sim.exe mysim.input SIMGEN_DUMPALL SWITCH
+   snlc_sim.exe  mysim.input  SIMGEN_DUMPALL SWITCH
 \end{verbatim}
 
 % ------------------------------------

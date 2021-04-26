@@ -6539,13 +6539,6 @@ c This input string controls which tables are produced
 c (SNANA, FITRES, SNLCPAK) and what text formats if 
 c TEXTFILE_PREFIX is given. 
 c
-c Sep 08 2014: lots of updates
-c Jul 12 2016: turn off tables if any reformat option is set.
-c Jul 17 2016: 
-c   + check for NOSIMVAR option (e..g, for blind tests)
-c   + fix bug to ensure WRTABLEFILE_IAUC is initialized to F
-c
-c Feb 19 2017: check SNTABLE_FILTER_REMAP
 c
 c Apr 26 2017: check pre-scale option: e.g.  'SNANA(ps:100)'
 c Mar 19 2018: check nozphot option
@@ -6561,6 +6554,8 @@ c May 23 2019: add text:host    option ; see WRTABLEFILE_HOST_TEXT
 c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
 c Jul 13 2020: no default SNTABLEs if writing rejected epochs
 c Mar 17 2021: begin OUTLIER table
+c Apr 25 2021: OUTLIER table is automatically disabled for large BIASCOR sim
+c
 c -------------------
       IMPLICIT NONE
 
@@ -6703,12 +6698,14 @@ c check table-names
                OPT_TABLE(ITAB) = 2     ! include epoch fit resids
             endif
 
-         else if ( TBname(1:7) .EQ. 'outlier' ) then 
-            ITAB = ITABLE_OUTLIER
-            OPT_TABLE(ITAB) = 1
-            NSIGCUT_OUTLIER   = 3.0   ! default outlier def is 3sigma
-            FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
-
+         else if ( TBname(1:7) .EQ. 'outlier' ) then
+c           OUTLIER table is automatically disabled for large BIASCOR sim
+     	    if ( SIM_BIASCOR_MASK == 0 ) then 
+              ITAB = ITABLE_OUTLIER
+              OPT_TABLE(ITAB) = 1
+              NSIGCUT_OUTLIER   = 3.0   ! default outlier def is 3sigma
+              FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
+            endif
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
             OPT_TABLE(ITAB) = 1

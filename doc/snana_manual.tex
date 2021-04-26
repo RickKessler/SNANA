@@ -1483,6 +1483,39 @@ in particular, the tables {\tt SNANA+EPOCHS} and {\tt FITRES+RESIDUALS}.
 
 % ----------------------------------------------------------
 %   \clearpage
+ \subsection{Simulating Coordinates and Random Shifts}
+ \label{subsec:simCoords}
+% ----------------------------------------------------------
+
+The RA and DEC coordinates are read from each {\tt SIMLIB} entry  
+(\S\ref{subsec:simlib}), which has the advantage of exactly correlating
+\obs\ properties (ZP,PSF,SKY,MWEBV) with each coordinate.
+The host galaxy coordinate option
+(see {\tt MSKOPT+=8} in \S\ref{sss:hostlib_options})
+enables generating SN light curves to overlay on real images.
+An artifact of these strategies is that coordinates are repeated
+for large samples that read through the {\tt SIMLIB} (or {\tt HOSTLIB})
+mulitple times. This artifact can be problematic, for example,
+when using/testing codes that spatially match \obss.
+
+To significantly reduce spatial overlaps, there is an option to shift
+the coordinates to a random location in a circle centered on the originally
+chosen coordinate,
+\begin{verbatim}
+   MXRADIUS_RANDOM_SHIFT: 0.01  # circle radius, degrees
+\end{verbatim}  
+The assumption is that shifts are $\ll~1$~deg, and thus
+{\tt MWEBV} and CMB-redshift are {\it not} updated. 
+The RA,DEC shifts are not stored in the data files, but the shifts
+can be monitored via the {\tt SIMGEN\_DUMP} utility
+(\S\ref{sss:simgen_dump}), e.g.,
+\begin{verbatim}
+ SIMGEN_DUMP: CID,ZCMB,DLMAG,RA,DEC,shift_RA,shift_DEC,shift_RADIUS,shift_PHI
+\end{verbatim}  
+
+
+% ----------------------------------------------------------
+%   \clearpage
  \subsection{Simulating Fields}
  \label{subsec:simFields}
 % ----------------------------------------------------------

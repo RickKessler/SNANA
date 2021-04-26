@@ -693,6 +693,7 @@ void set_user_defaults(void) {
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
   INPUTS.GENRANGE_DEC[0]  = -360.0  ;
   INPUTS.GENRANGE_DEC[1]  = +360.0  ;
+  INPUTS.MXRADIUS_RANDOM_SHIFT = 0.0 ;
 
   INPUTS.SOLID_ANGLE =  0.0  ;
   INPUTS.SNTYPE_Ia_SPEC   =  1 ; // default Ia type 
@@ -1672,6 +1673,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%f", &INPUTS.GENRANGE_DEC[1] );
   }
+
+  else if ( keyMatchSim(1,"MXRADIUS_RANDOM_SHIFT", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.MXRADIUS_RANDOM_SHIFT );
+  }
+
   else if ( strstr(WORDS[0],"SOLID_ANGLE") != NULL ) {
     N += parse_input_SOLID_ANGLE(WORDS,keySource);
   }
@@ -3807,8 +3813,6 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
 
   // - - - - -
-
-  printf(" xxx %s: load NVAR = %d \n", fnam, NVAR);
 
   INPUTS.NVAR_SIMGEN_DUMP = NVAR; // load global
 
@@ -7531,6 +7535,9 @@ void  init_GENLC(void) {
   GENLC.RA        = -999. ;
   GENLC.DEC       = -999. ;
 
+  GENLC.random_shift_RA = GENLC.random_shift_DEC = 0.0 ;
+  GENLC.random_shift_RADIUS = GENLC.random_shift_PHI = 0.0 ;
+
   GENLC.REDSHIFT_CMB          = NULLFLOAT ;
   GENLC.REDSHIFT_HELIO        = NULLFLOAT ;  
   GENLC.REDSHIFT_CMB_SMEAR    = NULLFLOAT ;
@@ -9592,12 +9599,14 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
-
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENMAG_OFF_GLOBAL");
 
+    // option to randomly shift coords to avoid spatial overlap 
+    gen_random_coord_shift();
 
+    // option to magnify SN and generate multiple LCs
     gen_event_stronglens(ilc,2);
 
   } 
@@ -9754,6 +9763,90 @@ void override_modelPar_from_SNHOST(void) {
 
 } // end override_modelPar_from_HOSTLIB
 
+
+// *******************************************
+void gen_random_coord_shift(void) {
+
+  // Created Apr 26 2021
+  // Check option to randomly shift RA,DEC within a circle of MXRADIUS
+  // of original coordinate. Make sure to shift SN and all host galaxy 
+  // candidates. Units in degrees.
+  // Initial motivation is to avoid spatial duplicates for
+  // testing alert brokers in LSST.
+  //
+  // BEWARE: MXRADIUS is assumed to be very small (<<1 deg)
+  //   and thus MWEBV and zCMB(zHEL) are NOT updated !!!
+  //
+
+  double MXRADIUS = (double)INPUTS.MXRADIUS_RANDOM_SHIFT;
+  if ( MXRADIUS < 1.0E-12 ) { return ; }
+
+  double RAD       = RADIAN ;
+  double ran_r, ran_phi, r, phi, ANGSEP ;
+  double shift_RA=0.0, shift_DEC=0.0;
+  double RA = GENLC.RA, DEC=GENLC.DEC;
+  double COSDEC = cos(DEC*RAD);
+  int    m;
+  bool CHECK_ANGSEP = true;
+  int  LDMP = 0 ;
+  char fnam[] = "gen_random_coord_shift" ;
+
+  // -------------- BEGIN ------------
+
+  // pick random radius and randam azimuth angle
+  ran_r   = FlatRan1(1);   // random 0-1
+  ran_phi = FlatRan1(1); 
+
+  phi = TWOPI    * ran_phi ;
+  r   = MXRADIUS * sqrt(ran_r);
+
+  shift_RA    = r * cos(phi) / COSDEC ;
+  shift_DEC   = r * sin(phi) ;
+
+  // load globals for SIMGEN_DUMP file
+  GENLC.random_shift_RA     = shift_RA;
+  GENLC.random_shift_DEC    = shift_DEC;
+  GENLC.random_shift_RADIUS = r   ;
+  GENLC.random_shift_PHI    = phi ;
+
+  // - - - - -
+  // apply shifts
+
+  // start with SN ...
+  GENLC.RA  += shift_RA;  
+  GENLC.DEC += shift_DEC;
+ 
+  // now the host(s)
+  for(m=0; m < SNHOSTGAL.NNBR; m++ ) {
+    SNHOSTGAL_DDLR_SORT[m].RA  += shift_RA ;
+    SNHOSTGAL_DDLR_SORT[m].DEC += shift_DEC ;
+  }
+
+  // .xyz
+  if ( CHECK_ANGSEP ) {
+    ANGSEP = angSep(GENLC.RA,GENLC.DEC,  RA,DEC, (double)1.0 ) ;
+    double ratio = ANGSEP/r;
+    double dif_arcsec = 3600.0*(ANGSEP-r);
+    if ( fabs(ratio-1.0) > 1.0E-3 ) {
+      print_preAbort_banner(fnam);
+      printf(" CID = %d \n", GENLC.CID);
+      printf(" Original RA,DEC = %.3f, %.3f deg \n", RA, DEC);
+      printf(" random phi    = %f radians\n", phi);
+      printf(" random radius = %f degrees \n", r);
+      printf(" shift(RA,DEC) = %f, %f \n", shift_RA, shift_DEC);
+      printf(" actual ANGSEP = %f \n", ANGSEP);
+      printf(" ANGSEP(actual)/ANGSEP(expect) = %le \n", ratio);
+      printf(" ANGSEP(actual)-ANGSEP(expect) = %le arcSec\n", dif_arcsec);
+
+      sprintf(c1err,"Problem with random coord shift.");
+      sprintf(c2err,"See preAbort info above.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+  }
+
+  return;
+
+} // end gen_random_coord_shift
 
 // *******************************************
 void gen_event_stronglens(int ilc, int istage) {
@@ -11557,6 +11650,29 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
     sprintf(cptr, "%s", DECSTRINGS[i]);
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DEC ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
+
+  // random coord shift (Apr 2021)
+  if ( INPUTS.MXRADIUS_RANDOM_SHIFT > 1.0E-12 ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"shift_RA"); 
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.random_shift_RA ;
+    NVAR_SIMGEN_DUMP++ ;
+
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"shift_DEC"); 
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.random_shift_DEC ;
+    NVAR_SIMGEN_DUMP++ ;
+
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"shift_RADIUS"); 
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.random_shift_RADIUS ;
+    NVAR_SIMGEN_DUMP++ ;
+
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"shift_PHI"); 
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.random_shift_PHI ;
     NVAR_SIMGEN_DUMP++ ;
   }
 

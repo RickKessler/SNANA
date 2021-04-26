@@ -435,8 +435,6 @@ struct INPUTS {
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
-  // ??  float SIMLIB_RADIUS_SHIFT_RANGE; // ??
-
   // ---- end simlib inputs -----
 
   int  CIDOFF ;             // user CID offset
@@ -444,8 +442,8 @@ struct INPUTS {
   int  CIDRAN_MAX ;         // max CID (used for random CID only)
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
 
-  int  JOBID;       // command-line only, for batch mode and to compute SIMLIB_IDSTART
-  int  NJOBTOT;     // idem, for submit_batch_jobs.py or sim_SNmix
+  int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
+  int  NJOBTOT;     // idem, for submit_batch_jobs.py 
 
   int  HOSTLIB_USE ;            // 1=> used; 0 => not used (internal)
   char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
@@ -538,9 +536,10 @@ struct INPUTS {
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
 
-  float GENRANGE_RA[2];     // RA range (deg) to generate
-  float GENRANGE_DEC[2];   // idem for DEC
-  float  SOLID_ANGLE;        // non-zero => overwrite default calc.
+  float GENRANGE_RA[2];        // RA range (deg) to generate
+  float GENRANGE_DEC[2];       // idem for DEC
+  float SOLID_ANGLE;           // non-zero => overwrite default calc.
+  float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
 
   double GENRANGE_REDSHIFT[2];  // generated zCMB range
   double GENSIGMA_REDSHIFT;     // smear reported redshift
@@ -892,6 +891,8 @@ struct GENLC {
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
   double RA, DEC ;          // generated position
+  double random_shift_RA, random_shift_DEC;     // random coord shift
+  double random_shift_RADIUS, random_shift_PHI;
   double GLON, GLAT;        // for LCLIB-galactic models
   double REDSHIFT_HELIO ;   // true Helio redshift of SN
   double REDSHIFT_CMB   ;   // true CMB   redshift of SN
@@ -1738,6 +1739,7 @@ void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
 void   gen_event_stronglens(int ilc, int istage);
+void   gen_random_coord_shift(void);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);  
 void   gen_modelPar_SALT2(int OPT_FRAME); 

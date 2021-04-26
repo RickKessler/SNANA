@@ -6287,7 +6287,6 @@ void GEN_SNHOST_NBR(int IGAL) {
   
   SNHOSTGAL.NNBR = NNBR_STORE ;
 
-
   if ( LDMP ) {
     int  IVAR_RA     = HOSTLIB.IVAR_RA ;
     int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;

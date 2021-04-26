@@ -15276,6 +15276,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   //              when NFILT==0.
   // Jun 28 2019: update to work with HOST spectrum
   // Apr 01 2021: set GENSPEC.SKIP
+  // Apr 26 2021: abort if final NOBS > MXOBS_SIMLIB
 
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
@@ -15364,21 +15365,23 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
     // check synthetic filters
     for(ifilt=0; ifilt < NFILT; ifilt++ ) {  
 
-      SIMLIB_OBS_RAW.OPTLINE[OBSRAW]  = OPTLINE_SIMLIB_SPECTROGRAPH ; 
-      SIMLIB_OBS_RAW.MJD[OBSRAW]      = MJD_REF ;
-      SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[OBSRAW]  = TEXPOSE ;
-      SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[OBSRAW]    = ifilt;
-      SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[OBSRAW]    = i ;
-      SIMLIB_OBS_RAW.PIXSIZE[OBSRAW] = SIMLIB_HEADER.PIXSIZE ;
+      if ( OBSRAW < MXOBS_SIMLIB ) {
+	SIMLIB_OBS_RAW.OPTLINE[OBSRAW]  = OPTLINE_SIMLIB_SPECTROGRAPH ; 
+	SIMLIB_OBS_RAW.MJD[OBSRAW]      = MJD_REF ;
+	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[OBSRAW]  = TEXPOSE ;
+	SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[OBSRAW]    = ifilt;
+	SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[OBSRAW]    = i ;
+	SIMLIB_OBS_RAW.PIXSIZE[OBSRAW] = SIMLIB_HEADER.PIXSIZE ;
 
-      // For field, give survey name (since we don;t know)
-      // TO DO: determine FIELD based on MJD range
-      sprintf(SIMLIB_OBS_RAW.FIELDNAME[OBSRAW],"%s", 
-	      SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
-      
-      sprintf(SIMLIB_OBS_RAW.TELESCOPE[OBSRAW], "%s", 
-	      INPUTS_SPECTRO.INSTRUMENT_NAME );
-      
+	// For field, give survey name (since we don;t know)
+	// TO DO: determine FIELD based on MJD range
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[OBSRAW],"%s", 
+		SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
+	
+	sprintf(SIMLIB_OBS_RAW.TELESCOPE[OBSRAW], "%s", 
+		INPUTS_SPECTRO.INSTRUMENT_NAME );
+      }
+
       OBSRAW++ ;   NOBS_ADD++ ;	
 
     } // end ifilt
@@ -15389,6 +15392,12 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   SIMLIB_OBS_RAW.NOBS += NOBS_ADD ;
   SIMLIB_HEADER.NOBS  += NOBS_ADD ;
 
+  if ( SIMLIB_HEADER.NOBS >= MXOBS_SIMLIB ) {
+    sprintf(c1err,"NOBS=%d exceeds MXOBS_SIMLIB=%d",
+	    SIMLIB_HEADER.NOBS, MXOBS_SIMLIB);
+    sprintf(c2err,"Check number of synthetic bands from SPECTROGRAPH");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
 
   return;
 
@@ -15569,6 +15578,17 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     RDNOISE_T  = SIMLIB_OBS_RAW.TEMPLATE_READNOISE[OBSRAW] ;
     SKYSIG_T   = SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[OBSRAW] ;
     ZPT_T      = SIMLIB_OBS_RAW.TEMPLATE_ZPT[OBSRAW] ;
+
+    // idiot check on MJD might catch invalid SIMLIB entries
+    if ( MJD < 10000.0 || MJD > 2.0E5 ) {
+      sprintf(c1err,"Invalid MJD[%d]=%f for LIBID=%d", 
+	      OBSRAW, MJD, SIMLIB_HEADER.LIBID);
+
+      int last = OBSRAW-1 ;
+      sprintf(c2err,"Previous MJD / band = %f / %s", 
+	      SIMLIB_OBS_RAW.MJD[last], SIMLIB_OBS_RAW.BAND[last] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
 
     // Jan 2020: check for ZPTERR fudge from FUDGE_ZPTERR key
     FUDGE_ZPTERR = INPUTS.FUDGE_ZPTERR_FILTER[IFILT_OBS];

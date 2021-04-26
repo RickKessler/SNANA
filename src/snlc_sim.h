@@ -50,7 +50,7 @@ time_t t_start, t_end, t_end_init ;
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
-#define  MXOBS_SIMLIB  5000    // max number of observ. per simlib
+#define  MXOBS_SIMLIB  10000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10 

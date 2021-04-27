@@ -326,7 +326,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     } else {      
       // read from text file
-      read_SIMSED_flux(tmpFile, sedcomment) ;
+      read_SIMSED_flux(tmpFile, sedcomment) 
 
       // check day-shift for MJD_EXPLODE or PEAKMAG
       int OPTMASK_EXPLODE = INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE ;

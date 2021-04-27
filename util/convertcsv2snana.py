@@ -5,6 +5,8 @@
 # without modification; otherwise add ROW column for 
 # SNANA-KEY format
 #
+# Apr 27 2021: replace '' with VOID (works only with first '')
+#
 
 import os, sys, argparse, csv
 
@@ -60,6 +62,10 @@ def read_csv_file(csv_file):
             else:
                 row_list.append(row)
             nrow += 1
+
+            if '' in row:
+                j = row.index('')
+                row[j] = 'VOID'
 
     #print(f" xxx varname_list = {varname_list}")
     #print(f" xxx row_list = {row_list}")

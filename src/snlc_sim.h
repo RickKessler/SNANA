@@ -26,6 +26,7 @@
    + remove definition of MXFIELD_OVP_SIMLIB
    + replace MXFIELD_OVP_SIMLIB with MXFIELD_OVP from sndata.h
 
+ Apr 27 2021: MXSIMGEN_DUMP -> 600 (was 400)
 
 ********************************************/
 
@@ -44,7 +45,7 @@ time_t t_start, t_end, t_end_init ;
 #define  MXNON1A_TYPE 1000     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys    
 #define  MXCHAR_FIELDNAME 20
-#define  MXSIMGEN_DUMP 400    // max number of variables to dump
+#define  MXSIMGEN_DUMP 600    // max number of variables to dump
 #define  TABLEID_DUMP  7100   // for SNTABLE functions
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params

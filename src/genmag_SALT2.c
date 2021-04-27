@@ -843,6 +843,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   // May 2011: check array bound
   // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
   // Jul 23 2020: for SALT3, remove _relative from file names
+  // Apr 27 2021: skip reading ERRSCAL map for SALT3
 
   int imap, NDAY, NLAM, NBTOT;
   double DUMMY[20];
@@ -883,6 +884,8 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
     init_BADVAL_SALT2errmap(imap);
      
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
+
+    if ( ISMODEL_SALT3 && imap==INDEX_ERRMAP_SCAL ) { continue; }
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
     sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
@@ -3005,7 +3008,7 @@ double SALT2mBcalc(double x0) {
 // ***********************************************
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
-  /***
+  /***********************************************
    Apr 14, 2009: 
    return error values from each of the NERRMAP maps.
    Trest         :  (I) rest-frame epoch (days,  T=0 at peak)
@@ -3023,7 +3026,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     + protect iday_min and ilam_min from being negative. Negative indices
       can occur because ERRMAPs don't always cover SED range.
            
-  ***/
+  Apr 27 2021:
+     for SALT3, ignore error-scale map and hard wired scale=1
+
+  *****************************************************/
 
   int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
   int NLAM, NDAY, IND, IERR ;
@@ -3038,6 +3044,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
   for ( imap=0; imap < NERRMAP; imap++ ) {
 
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+
+    // 4.2021: there is no error-scale map for SALT3, so hard wired scale=1
+    if ( ISMODEL_SALT3 && imap == INDEX_ERRMAP_SCAL )
+      { ERRMAP[imap] = 1.0 ; continue ; }
 
     LMIN  = SALT2_ERRMAP[imap].LAMMIN ;
     LSTEP = SALT2_ERRMAP[imap].LAMSTEP ;
@@ -3059,7 +3069,6 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     if ( ilam_min >= NLAM-1 ) { ilam_min = NLAM - 2 ; }
     if ( ilam_min <  0      ) { ilam_min = 0;         }
     ilam_max = ilam_min + 1;
-
     
     // Aug 27, 2009: 
     // interpolate Trest at LAM-MIN
@@ -3108,7 +3117,6 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
       */
 
     }  // SPLINE option
-
 
     ERRMAP[imap] = val ;
     

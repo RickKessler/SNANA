@@ -76,6 +76,9 @@
 
  Mar 23 2021: use get_LAMTRANS_SEDMODEL util to getch LAM and TRANS
 
+ Apr 27 2021: minor refactor so that default SALT3 models are checked
+              in $SNDATA_ROOT/models/SALT3 (not under SALT2)
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -207,6 +210,8 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Nov 23 2020: pass and store *SURVEY; used to match
               MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
 
+ Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -253,6 +258,10 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   extract_MODELNAME(MODEL_VERSION,             // input
 		    SALT2_MODELPATH, version); // returned
+
+  // parse version string to check if SALT2 or SALT3
+  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT3 and ISMODEL_SALT3
+  sprintf(SALT2_PREFIX_FILENAME,"salt%d", IMODEL_SALT);
   
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
     sprintf( SALT2_MODELPATH, "%s/%s", 
@@ -263,21 +272,17 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   else {
     // default location under $SNDATA_ROOT
+    sprintf( SALT2_MODELPATH, "%s/models/SALT%d/%s",  
+	     getenv("SNDATA_ROOT"), IMODEL_SALT, version );
+
+    /* xxxxxxxxxxxxxxxxxx mark delete Apr 27 2021 xxxxxxx
     sprintf( SALT2_MODELPATH, "%s/models/SALT2/%s", 
 	     getenv("SNDATA_ROOT"), version );
+    xxxxxxxxx */
+
   }
   
-
-  // parse version string to check if SALT2 or SALT3
-  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT3 and ISMODEL_SALT3
-
-  // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-
-  if ( ISMODEL_SALT2 ) 
-    { sprintf(SALT2_PREFIX_FILENAME,"salt2"); } // default
-  else
-    { sprintf(SALT2_PREFIX_FILENAME,"salt3"); }
-
+  // xxx mark delete (move to above) setFlags_ISMODEL_SALT2(version); 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -430,6 +435,7 @@ void setFlags_ISMODEL_SALT2(char *version) {
   // So check 5 characters before the dot. 
   //
   // Mar 16 2021: abort on null version
+  // Apr 27 2021: set IMODEL_SALT = 2 or 3
 
   int  index_dot, set=0 ;
   int  LENSALT2 = strlen("SALT2");
@@ -440,7 +446,8 @@ void setFlags_ISMODEL_SALT2(char *version) {
 
   ISMODEL_SALT2 = false;
   ISMODEL_SALT3 = false;
-  
+  IMODEL_SALT   = -9 ;
+
   if ( strlen(version) < LENSALT2+1 ) {
     sprintf(c1err,"Invalid version = '%s' (name too short)", version);
     sprintf(c2err,"version must contain SALT2.[bla] or SALT2.[bla]");
@@ -452,9 +459,9 @@ void setFlags_ISMODEL_SALT2(char *version) {
   sprintf(version_near_dot, "%s", &version[index_dot-LENSALT2] );
 
   if ( strstr(version_near_dot,"SALT2") != NULL ) 
-    { set=1; ISMODEL_SALT2 = true;  printf("\t ISMODEL = SALT2\n"); } 
+    { set=1; ISMODEL_SALT2 = true;  IMODEL_SALT = 2 ; } 
   if ( strstr(version_near_dot,"SALT3") != NULL ) 
-    { set=1; ISMODEL_SALT3 = true; printf("\t ISMODEL = SALT3\n"); }
+    { set=1; ISMODEL_SALT3 = true;  IMODEL_SALT = 3 ; } 
 
   if ( !set ) {
     printf("\n\t index_dot = %d \n", index_dot);
@@ -462,6 +469,8 @@ void setFlags_ISMODEL_SALT2(char *version) {
     sprintf(c2err,"Check GENNODEL: %s (%s)", version, version_near_dot);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
+  printf("\t ISMODEL = SALT%d\n", IMODEL_SALT);
 
   fflush(stdout);
 

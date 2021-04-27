@@ -19856,6 +19856,12 @@
      + write SIM_BIASCOR_MASK to header;
         +1=> alpha grid, +2=> beta grid. Need something for BS20.
      + allow comma-sep list for SIMGEN_DUMP ; see manual.
+     + new input MXRADIUS_RANDOM_SHIFT for random coords (see manual)
+     + MXOBS_SIMLIB -> 10000 (was 5k) to handle more synthetic bands
+
+   genmag_SALT2.c
+     + minor refact so that SALT3.K21 checks under $SNDATA_ROOT/models/SALT3
+       (instead of under /SALT2)
 
    submit_batch:
      + print full command when append-varlist fails.

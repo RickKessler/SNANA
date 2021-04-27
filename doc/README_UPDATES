@@ -19867,4 +19867,7 @@
      + print full command when append-varlist fails.
      + fixes to --merge_reset and -M
 
+   snana.car
+     + new veto option for private variables; see manual
+
 END: 

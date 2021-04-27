@@ -1184,7 +1184,7 @@ c   VALUE   = 44.4
      &    PRIVATE_VALUE(MXVAR_PRIVATE)    ! value for each var
      &   ,PRIVATE_CUTWIN(2,MXVAR_PRIVATE) ! cut-window on each var
 
-      INTEGER USE_PRIVATE_CUTWIN(MXCUT_PRIVATE)  ! logical
+      INTEGER USE_PRIVATE_CUTWIN(MXVAR_PRIVATE)  ! 1=cutwin, -1=veto
 
       COMMON / PRIVATE_VARCOM  / 
      &     NVAR_PRIVATE, PRIVATE_VARNAME, PRIVATE_KEYWORD
@@ -5168,7 +5168,8 @@ c and load PRIVATE_VARNAME(IVAR_PRIVATE) = $VARNAME
 c
 c Jul 23 2015: check PRIVATE_REDSHIFT_CMB key
 c Jul 25 2020: remove obsolete PRIVATE_REDSHIFT_CMB
-
+c Apr 27 2021: check veto option with VARNAME != VALUE
+c
       IMPLICIT NONE
 
 c input args
@@ -5235,6 +5236,10 @@ c make sure that this NAME has not already been used
       ENDIF
 
 c -------- check for cut on private var (Nov 4 2014) ---------
+c Allow two syntaxes:
+c  VARNAME CUTMIN CUTMAX    or
+c  VARNAME != VETO_VALUE
+
       LCUTWIN = .FALSE.
       CUTSTRING = ''
       DO 400 icut = 1, MXCUT_PRIVATE
@@ -5258,16 +5263,23 @@ c break up string into pieces
             call get_PARSE_WORD_fortran(2,CWD2,LWD2)
             call get_PARSE_WORD_fortran(3,CWD3,LWD3)
 
-            read(CWD2,*) CUTWIN(1)
-            read(CWD3,*) CUTWIN(2)
+            if ( CWD2(1:2) .EQ. '!=' ) then
+               read(CWD3,*) CUTWIN(1)
+               CUTWIN(2) = CUTWIN(1)
+               USE_PRIVATE_CUTWIN(IVAR_PRIVATE) = -1 ! veto flag
+               write(CUTSTRING,446) CUTWIN(1)
+            else
+               read(CWD2,*) CUTWIN(1)
+               read(CWD3,*) CUTWIN(2)
+               USE_PRIVATE_CUTWIN(IVAR_PRIVATE) = 1 ! normal cutwin
+               write(CUTSTRING,444) CUTWIN
+            endif
 
             PRIVATE_CUTWIN(1,IVAR_PRIVATE) = CUTWIN(1)
             PRIVATE_CUTWIN(2,IVAR_PRIVATE) = CUTWIN(2)
 
-            USE_PRIVATE_CUTWIN(icut) = 1 ! set logical flag
-
-            write(CUTSTRING,444) CUTWIN
  444        format('CUT: ',G9.3,' to ', G9.3)
+ 446        format('VETO: ', G9.3)
          endif
  400  CONTINUE
 
@@ -18283,7 +18295,12 @@ c Evaluate optional cuts on private variables.
 c PASS_PRIVCUTS has been initialized to TRUE; set this 
 c flag to FALSE if any private variable cut-window fails.
 c The private cuts are defined by &SNLCINP variable 
+
 c PRIVATE_CUTWIN_STRING = 'VARNAME  CUTMIN  CUTMAX'
+c   or
+c PRIVATE_CUTWIN_STRING = 'VARNAME  != VETO_VALUE'
+c
+c Apr 27 2021: refactor to allow veto option
 c
       IMPLICIT NONE
 
@@ -18291,26 +18308,32 @@ c
 +CDE,SNLCINP.
 +CDE,PRIVCOM.
 
-      INTEGER ivar
-      REAL*8 VAL
+      INTEGER ivar, APPLY_CUTFLAG
+      REAL*8 VAL, CUTMIN, CUTMAX
 C -------------- BEGIN ------------
 
       IF ( NCUT_PRIVATE .EQ. 0 ) RETURN
 
-      DO ivar = 1, NVAR_PRIVATE
-         VAL = PRIVATE_VALUE(ivar)
-      
-         IF ( VAL < PRIVATE_CUTWIN(1,IVAR) ) THEN
-             PASS_PRIVCUTS = .FALSE.
-             RETURN
+      DO 100 ivar = 1, NVAR_PRIVATE
+         APPLY_CUTFLAG = USE_PRIVATE_CUTWIN(ivar)
+         if ( APPLY_CUTFLAG == 0 ) goto 100
+
+         ! strip off info stored from init stage
+         VAL    = PRIVATE_VALUE(ivar)
+         CUTMIN = PRIVATE_CUTWIN(1,IVAR)
+         CUTMAX = PRIVATE_CUTWIN(2,IVAR) 
+
+         IF ( APPLY_CUTFLAG < 0 ) then
+            ! veto cut (Apr 2021)
+            if ( VAL == CUTMIN ) PASS_PRIVCUTS = .FALSE.
+         ELSE
+            ! regular CUT-window
+            if(VAL<CUTMIN .or. VAL>CUTMAX ) PASS_PRIVCUTS = .FALSE.
          ENDIF
 
-         IF ( VAL > PRIVATE_CUTWIN(2,IVAR) ) THEN
-             PASS_PRIVCUTS = .FALSE.
-             RETURN
-         ENDIF
+         if ( .not. PASS_PRIVCUTS ) RETURN
 
-      END DO 
+ 100  CONTINUE
 
       RETURN
       END    ! end of EVAL_PRIVATEVAR_CUTS()

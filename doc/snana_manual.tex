@@ -9449,28 +9449,13 @@ private variable example above, cuts are defined using the
 {\tt \&SNLCINP} namelist string 
 %
 \begin{verbatim}
-   PRIVATE_CUTWIN_STRING = 'HOST_PROPERTY 20.4  100.   PHOTOFLAG 1 600'
+   PRIVATE_CUTWIN_STRING = `HOST_PROPERTY 20.4  100.',  'PHOTOFLAG 1 600'
+     or
+   PRIVATE_CUTWIN_STRING = `AGN_SCAN  !=  2'   ! veto cut
 \end{verbatim}
 %
-The current max string size is 100 characters.
-
-% --------------------------------------
-\subsubsection{Using a Private Redshift in the Analysis}
-\label{sss:private_redshift}
-% --------------------------------------
-
-A private redshift value can be used in the analysis and 
-light curve fitting. As an example, consider fake SN 
-overlaid onto an image, processed by a photometry pipeline, 
-and private variable `{\tt FAKE\_z}' is defined in the 
-associated data files. This redshift can be used in the
-analysis with {\tt \&SNLCINP} namelist string
-%
-\begin{verbatim}
-   PRIVATE_REDSHIFT_CMB = 'FAKE_z'
-\end{verbatim}
-%
-The associated heliocentric redshift is computed internally.
+where the first example requires values withing the specified ranges,
+and the second example shows how to reject (veto) based on a value.
 
 
 % ##########################################

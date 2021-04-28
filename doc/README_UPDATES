@@ -19870,4 +19870,10 @@
    snana.car
      + new veto option for private variables; see manual
 
+   convertcsv2snana.py :
+     + fix to replace '' with VOID (to avoid blank column in FITRES file)
+
+   sntools_dataformat_fits.c
+     + fix bug reading SIM_VPEC (fallout from earlier IO refactor)
+
 END: 

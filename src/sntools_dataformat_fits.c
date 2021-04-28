@@ -2682,6 +2682,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // OPT &  4 -> read photometry/epochs
   // OPT &  8 -> read spec
   // OPT = 14 -> read all
+  //
+  // Apr 27 2021: fix bug reading SIM_VPEC (was reading VPEC instead)
 
   bool LRD_HEAD = ( OPT & OPTMASK_SNFITSIO_HEAD );
   bool LRD_PHOT = ( OPT & OPTMASK_SNFITSIO_PHOT );
@@ -2954,7 +2956,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_INT(isn, "SIM_REDSHIFT_FLAG", 
 			       &SNDATA.SIM_REDSHIFT_FLAG,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
-    j++; NRD = RD_SNFITSIO_FLT(isn, "VPEC", &SNDATA.SIM_VPEC,
+    j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_VPEC", &SNDATA.SIM_VPEC,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_DBL(isn, "SIM_HOSTLIB_GALID", &D_OBJID,

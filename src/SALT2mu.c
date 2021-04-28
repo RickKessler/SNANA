@@ -2622,7 +2622,7 @@ void exec_mnparm(void) {
   //
   // Oct 22 2019: beware that mnparm_ prints blinded params.
 
-  int i, iz, iMN, iMN_tmp, len, ierflag, icondn, ISFLOAT ;
+  int i, iz, iMN, iMN_tmp, len, ierflag=0, icondn, ISFLOAT ;
   int nzbin = INPUTS.nzbin ;
   double M0min, M0max;
   const int null=0;
@@ -2630,7 +2630,6 @@ void exec_mnparm(void) {
   //  char fnam[] = "exec_mnparm" ;
 
   // -------------- BEGIN --------------
-
 
   //Setup cosmology parameters for Minuit
   for (i=0; i<MXCOSPAR; i++ )    {
@@ -5308,6 +5307,13 @@ void set_defaults(void) {
 
   // Default parameters 
 
+  // set IPAR_XXX params to access FITRESULTS.
+  IPAR_ALPHA0=1, IPAR_BETA0=2;
+  IPAR_GAMMA0=5; IPAR_GAMMA1=6;  IPAR_LOGMASS_CEN=7; IPAR_LOGMASS_TAU=8;
+  IPAR_scalePCC=13, IPAR_COVINT_PARAM=14 ;
+  IPAR_OL=9; IPAR_Ok=10; IPAR_w0=11;  IPAR_wa=12;
+  IPAR_H11=17; NPAR_H11_TOT=6; NPAR_H11_USER=0;
+
   double a0 = FITPARBOUND_ALPHA[0];
   double a1 = FITPARBOUND_ALPHA[1];
   double b0 = FITPARBOUND_BETA[0];
@@ -5332,13 +5338,6 @@ void set_defaults(void) {
   set_fitPar( 14,  0.1,  0.01,  0.02, 0.50,  0 ); // sigint
   set_fitPar( 15,  0.0,  0.02, -0.50, 0.50,  0 ); // dAlpha/dlogMhost
   set_fitPar( 16,  0.0,  0.10, -3.00, 3.00,  0 ); // dBeta/dlogMhost
-
-  // set IPAR_XXX params to access FITRESULTS.
-  IPAR_ALPHA0=1, IPAR_BETA0=2;
-  IPAR_GAMMA0=5; IPAR_GAMMA1=6;  IPAR_LOGMASS_CEN=7; IPAR_LOGMASS_TAU=8;
-  IPAR_scalePCC=13, IPAR_COVINT_PARAM=14 ;
-  IPAR_OL=9; IPAR_Ok=10; IPAR_w0=11;  IPAR_wa=12;
-  IPAR_H11=17; NPAR_H11_TOT=6; NPAR_H11_USER=0;
 
   // H11 params for CC prior (April 15 2016)
   //         ipar  val   step   bnd1  bnd2 float
@@ -5436,7 +5435,6 @@ void set_fitPar(int ipar, double val, double step,
   INPUTS.blind_cosinePar[ipar][0] = 0.0 ;
   INPUTS.blind_cosinePar[ipar][1] = 0.0 ;
   sprintf(INPUTS.blindString[ipar], "UNDEFINED");
-
 }
 
 
@@ -14823,9 +14821,10 @@ void parse_parFile(char *parFile ) {
   // Apr 16, 2016 RK - read 400 chars instead of 120 to handle long
   //                   file names after a "FITOPT:" key.
   //
+  // Apr 27 2021: remove SKIP on colon to allow colon in comment field
 
   FILE *fdef;
-  bool SKIP, YAML, EXCEPTION;
+  bool YAML;  
   char *sptr ;
   char fnam[] = "parse_parFile" ;
 
@@ -14885,6 +14884,7 @@ void parse_parFile(char *parFile ) {
     if ( strstr(sptr,"CONFIG_END") != NULL ) { YAML = false ; }
     if ( YAML ) { continue; }
 
+    /* xxxxxxxx mark delete Apr 27 2021 xxxxxxxxx
     // skip keys with colon that are used by a master 
     // SALT2mu_fit.pl script (RK Apr 2013)
     // Aug 24 2016: make exception for key containing group_biasCor
@@ -14893,6 +14893,8 @@ void parse_parFile(char *parFile ) {
     SKIP      = ( strstr(sptr,":")             != NULL );
     EXCEPTION = ( strstr(sptr,"group_biascor") != NULL );
     if ( SKIP && !EXCEPTION ) { continue ; }
+    xxxxxxxxx end mark xxxxxxxxxxx */
+
     ppar(sptr); // pass entire line
   }
 

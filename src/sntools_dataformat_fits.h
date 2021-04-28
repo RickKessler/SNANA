@@ -30,6 +30,8 @@
   July 25 2017: MXFILE_SNFITSIO -> 100 (was 50) 
   Mar  23 2019: MXFILE_SNFITSIO -> 300 (was 100) 
   Apr  12 2021: MXFILE_SNFITSIO -> 500 (was 300)
+  Apr  28 2021: MXPAR_SNFITSIO -> 600 (was 400)
+
 **************************************************/
 
 // ==================================
@@ -47,7 +49,7 @@
 #define OPTMASK_SNFITSIO_SPEC    8
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
-#define MXPAR_SNFITSIO      400  // max number of header variables
+#define MXPAR_SNFITSIO      600  // max number of header variables
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 

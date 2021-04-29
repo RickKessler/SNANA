@@ -3473,6 +3473,7 @@ void init_GALMAG_HOSTLIB(void) {
     magkey_HOSTLIB(ifilt_obs,cvar); // returns cvar
 
     IVAR = IVAR_HOSTLIB(cvar,0) ;
+
     if ( IVAR > 0 ) {
       NMAGOBS++ ;
       HOSTLIB.IVAR_MAGOBS[ifilt_obs] = IVAR ;
@@ -3688,6 +3689,15 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
 
   // ------------- BEGIN -------------
   
+  // do NOT allow synthetic spectrograph bands
+  if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
+    char cfilt[2];  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
+    sprintf(c1err,"Remove synthetic spectrograph filter %s from HOSTLIB.",
+	    cfilt);
+    sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  } 
+
   NPSF = NMAGPSF_HOSTLIB ;
   PSFSIGmin = HOSTLIB.Aperture_PSFSIG[1] ;
   PSFSIGmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;

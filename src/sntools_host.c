@@ -6935,6 +6935,13 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 	MAGOBS = 99.0 ; // allow missing filter in HOSTLIB 
       }
 
+      if ( isnan(MAGOBS) ) {
+	char cfilt[2];   sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+	sprintf(c1err,"MAGOBS(%s)=NaN for IGAL=%d", cfilt, IGAL);
+	sprintf(c2err,"Check GALID = %lld", SNHOSTGAL.GALID);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
       SNHOSTGAL.GALMAG[ifilt_obs][i] = MAGOBS + dm ;
     }
   } // end i lopop over PSF bins

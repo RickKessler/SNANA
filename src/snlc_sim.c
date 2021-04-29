@@ -15277,6 +15277,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // Jun 28 2019: update to work with HOST spectrum
   // Apr 01 2021: set GENSPEC.SKIP
   // Apr 26 2021: abort if final NOBS > MXOBS_SIMLIB
+  // Apr 28 2021: TEXPOSE = -1 if outside TREST range
 
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
@@ -15350,7 +15351,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
     */
 
     if ( !IS_HOST && !IS_TREST )
-      { GENSPEC.SKIP[i] = true ; TEXPOSE = 0.0; }
+      { GENSPEC.SKIP[i] = true ; TEXPOSE = -1.0 ; }
 
     //    printf(" xxx %s: SKIP[%d] = %d  MJD_REF=%.3f \n", 
     //	   fnam, i, GENSPEC.SKIP[i], MJD_REF );
@@ -15847,12 +15848,17 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
     fflush(stdout);
   }
 
-  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 ) 
-    { ifilt_obs=0 ; goto  STORE_SIMLIB_RAW ; }
+  // bail if no synthetic filters.
+  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 )
+    { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = 0;  return ; }
+  // xxx mark delete    { ifilt_obs=0 ; goto  STORE_SIMLIB_RAW ; }
 
   ifilt_obs = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
   sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] ) ;
 
+  // negative TEXPOSE is for outside TREST range of SN model
+  if ( TEXPOSE_S < 0.0 ) 
+    { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs;  return ; }
 
   /* xxxxxxxxx mark delete xxxxxxxx
   printf(" xxx %s: ISTORE=%d  MJD=%.3f   ifilt=%d  ifilt_obs=%d \n",

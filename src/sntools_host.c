@@ -3457,7 +3457,7 @@ void init_HOSTLIB_ZPHOTEFF(void) {
 // =======================================
 void init_GALMAG_HOSTLIB(void) {
 
-  int NR, j, jth, ifilt, ifilt_obs, IVAR, NMAGOBS ;
+  int NR, j, jth, ifilt, ifilt_obs, IVAR, NMAGOBS, MATCH_FLAG ;
   char cvar[12], cfilt[2];
   char fnam[] = "init_GALMAG_HOSTLIB" ;
   double Rmax, TH, THbin ; 
@@ -3466,13 +3466,15 @@ void init_GALMAG_HOSTLIB(void) {
 
   // always check for gal mags. Store IVAR for each observer-mag
   NMAGOBS = 0 ;
+  MATCH_FLAG = 2; // case-sensitive varname match (Apr 29 2021)
+
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
 
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
     magkey_HOSTLIB(ifilt_obs,cvar); // returns cvar
 
-    IVAR = IVAR_HOSTLIB(cvar,0) ;
+    IVAR = IVAR_HOSTLIB(cvar,MATCH_FLAG) ;
 
     if ( IVAR > 0 ) {
       NMAGOBS++ ;
@@ -3689,6 +3691,7 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
 
   // ------------- BEGIN -------------
   
+  /* xxx mark delete xxxx
   // do NOT allow synthetic spectrograph bands
   if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
     char cfilt[2];  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
@@ -3697,6 +3700,7 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
     sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   } 
+  xxxxxxx end mark xxxxxx */
 
   NPSF = NMAGPSF_HOSTLIB ;
   PSFSIGmin = HOSTLIB.Aperture_PSFSIG[1] ;
@@ -4718,27 +4722,33 @@ long long get_GALID_HOSTLIB(int igal) {
 
 
 // ========================================
-int IVAR_HOSTLIB(char *varname, int ABORTFLAG) {
+int IVAR_HOSTLIB(char *varname, int FLAG) {
 
   // Mar 14, 2011
   // For input variable name return 'IVAR' index
   // to be used  the array HOSTLIB.VALUE_ZSORTED[ivar].
   // 
-  // ABORTFLAG = 1  : abort if key not found
-  // ABORTFLAG = 0  : return -9 if key nor found
+  // FLAG += 1  : abort if key not found; else return -9
+  // FLAG += 2  : case sensitive compar (default is case insensitive)
   //
   // Feb 2014: use case-insenstive string check.
-
+  // Apr 2021: FLAG +=2 for case-sensitive compare; e.g., b_obs != B_obs
+  //
   int ivar, NVAR, ICMP ;
+  bool ABORTFLAG = ( FLAG & 1 ) ;
+  bool CASE      = ( FLAG & 2 ) ; 
   char fnam[] = "IVAR_HOSTLIB" ;
 
   // ---------- BEGIN ----------
-
+  
+  
   NVAR = HOSTLIB.NVAR_STORE ; 
   for ( ivar = 0; ivar < NVAR; ivar++ ) {
 
-    //    ICMP = strcmp(varname,HOSTLIB.VARNAME_STORE[ivar]) ;
-    ICMP = strcmp_ignoreCase(varname,HOSTLIB.VARNAME_STORE[ivar]) ;
+    if ( CASE ) 
+      {  ICMP = strcmp(varname,HOSTLIB.VARNAME_STORE[ivar]) ; }
+    else
+      { ICMP = strcmp_ignoreCase(varname,HOSTLIB.VARNAME_STORE[ivar]) ; }
     
     if ( ICMP == 0 ) { return(ivar); }
   }
@@ -6794,7 +6804,8 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ;
 
   float lamavg4, lamrms4, lammin4, lammax4  ;
-  int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame    ;
+  int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame  ;
+  char cfilt[2];
   char fnam[] = "GEN_SNHOST_GALMAG" ;
 
   // ------------ BEGIN -------------
@@ -6936,6 +6947,14 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+      sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+
+      if ( IVAR >=0 && GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
+	sprintf(c1err,"Remove synthetic spectrograph filter %s from HOSTLIB.",
+		cfilt);
+	sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
 
       if ( IVAR >= 0 ) {
 	MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 
@@ -6946,7 +6965,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
       }
 
       if ( isnan(MAGOBS) ) {
-	char cfilt[2];   sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
 	sprintf(c1err,"MAGOBS(%s)=NaN for IGAL=%d", cfilt, IGAL);
 	sprintf(c2err,"Check GALID = %lld", SNHOSTGAL.GALID);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

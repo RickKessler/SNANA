@@ -14857,7 +14857,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  );
 	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE] );
 
-	// if NEA is read here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
+	// if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
 	// this trap will hopefully abort.
 	checkval_D("PSF1(readNextCadence)", 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 
 		   0.0, 30.0 ) ;

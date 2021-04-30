@@ -105,6 +105,8 @@
    + convert GENRANGE_REDSHIFT to zHEL min/max, then compare to HOSTLIB range.
    + count NSTAR for z < ZMAX_STAR; give warning if NSTAR>0
 
+ Apr 30 2021: abort on NaN; abort if synthetic band is in HOSTLIB.
+
 =========================================================== */
 
 #include <stdio.h>
@@ -251,6 +253,7 @@ void initvar_HOSTLIB(void) {
   HOSTLIB.NVAR_SNPAR   = 0 ;
   HOSTLIB.VARSTRING_SNPAR[0] = 0 ;
 
+  HOSTLIB.NERR_NAN = 0 ;
   HOSTLIB.NSTAR = 0;
 
   for ( ivar=0; ivar < MXVAR_HOSTLIB; ivar++ )  { 
@@ -2264,6 +2267,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Nov 11 2019: check NBR_LIST
   // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
   // Jan 22 2021: print WARNING if HOSTLIB.NSTAR > 0
+  // Apr 30 2021: abort on NaN.
 
   bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT) ;
   int  IVAR_ZPHOT    = HOSTLIB.IVAR_ZPHOT ; // ivar_STORE
@@ -2408,7 +2412,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   fflush(stdout);
 
-  // check warning for stars
+  // check warning for stars (i.e, z ~ 0)
   if ( HOSTLIB.NSTAR > 0 ) {
     printf("\n\t *** WARNING: %d entries might be stars (z<%.4f) **** \n\n",
 	   HOSTLIB.NSTAR, ZMAX_STAR);
@@ -2438,6 +2442,15 @@ void read_gal_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
+       
+  // abort on NAN
+  int NERR_NAN = HOSTLIB.NERR_NAN ;
+  if ( NERR_NAN > 0 ) {
+    sprintf(c1err,"%d HOSTLIB values are NaN", NERR_NAN );
+    sprintf(c2err,"Must fix/remove these NaN values.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
   return ;
 
 } // end of read_gal_HOSTLIB
@@ -2574,6 +2587,14 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 
     else {
       sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
+      if ( isnan(VALUES[ival]) )  {
+	HOSTLIB.NERR_NAN++ ;
+	if ( HOSTLIB.NERR_NAN < 20 ) {
+	  char *varname = HOSTLIB.VARNAME_ALL[ival] ;
+	  printf("\t ERROR: HOSTLIB %s = NaN \n", varname );
+	}
+      }
+
     }
 
   } // end ival loop

@@ -140,11 +140,12 @@ struct HOSTLIB_DEF {
 
   int  NGAL_READ  ; // total number of galaxies read
   int  NGAL_STORE ; // number of GAL entries read and stored
-
+  
   int  NVAR_REQUIRED ;
   int  NVAR_OPTIONAL ;
   int  NVAR_ALL    ; // total no, variables in HOSTLIB
   int  NVAR_STORE  ; // NVAR wgtmap + required + optional
+  int  NERR_NAN;     // number of NaN read (Apr 2021)
 
   char VARNAME_REQUIRED[MXVAR_HOSTLIB][40];
   char VARNAME_OPTIONAL[MXVAR_HOSTLIB][40];

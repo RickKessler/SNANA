@@ -7844,7 +7844,8 @@ void prepare_IDSAMPLE_biasCor(void) {
       { sprintf(zGROUP,"-zSPEC"); }
     else
       { sprintf(zGROUP,"-zPHOT"); }
-    if ( FOUNDKEY_OPT_PHOTOZ == 0 ) { zGROUP[0] = 0 ; }
+
+    if ( !FOUNDKEY_OPT_PHOTOZ ) { zGROUP[0] = 0 ; }
 
     DUMPFLAG = 0 ;
     IDSAMPLE = get_IDSAMPLE(IDSURVEY, OPT_PHOTOZ, 
@@ -9278,16 +9279,8 @@ void  prepare_biasCor_zinterp(void) {
     SNRMAX    = (double)INFO_BIASCOR.TABLEVAR.snrmax[ievt];
 
     mu_true   = (double)INFO_BIASCOR.TABLEVAR.SIM_MUz[ievt];  // at zHD
-
-    /* xxxxxxxxxx mark delete Jul 2 2020 xxxxxx
-    if ( DO_BIASCOR_MU ) // get SIM_MU at measured z
-      { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_mu][ievt];}
-    else
-      { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt]; } // at true z
-    xxxxxxxxxx end mark xxxxxxxx */
-
-    mu_fit  = mB_fit + alpha*x1_fit - beta*c_fit - M0_DEFAULT ;
-    mu_sim  = mB_sim + alpha*x1_sim - beta*c_sim - M0_DEFAULT ;
+    mu_fit    = mB_fit + alpha*x1_fit - beta*c_fit - M0_DEFAULT ;
+    mu_sim    = mB_sim + alpha*x1_sim - beta*c_sim - M0_DEFAULT ;
 
     muerrLens = ( z * INPUTS.lensing_zpar ) ;
 

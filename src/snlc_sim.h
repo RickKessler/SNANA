@@ -1477,6 +1477,7 @@ int GENFRAME_OPT;        // one of below, based on model option
 #define GENFRAME_MJD  4  // => used by TAKE_SPECTRUM for MJD option
 
 int INDEX_GENMODEL         ;  // index for model
+int SUBINDEX_GENMODEL      ;  // sub-index; e.g, separate SALT2, SALT3
 int INDEX_GENMODEL_TWEAK   ;  // index for model tweak
 int LGEN_SNIA              ;  // =1  => generating a IA model
 bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)

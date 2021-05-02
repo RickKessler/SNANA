@@ -3638,6 +3638,17 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   extract_MODELNAME(GENMODEL,                   // input path/model
 		    INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
 
+  /* xxxxxxxx mark delete xxxxxxx
+  // check for SALT2, SALT3, SALT4 ...
+  for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+    NAME0  = GENMODEL_NAME[MODEL_SALT2][jnam];
+    printf(" xxx %s: jnam=%d NAME0='%s'  (GENMODLE=%s)\n", 
+	   fnam, jnam, NAME0, GENMODEL);
+    if ( strcmp(GENMODEL,NAME0) == 0 ) {
+    }
+  }
+  xxxxxxxxxx */
+
   // check for NONIA 
   INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
   if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
@@ -4943,6 +4954,7 @@ void prep_user_input(void) {
   ENVreplace(INPUT_ZVARIATION_FILE,fnam,1);
 
   INDEX_GENMODEL = 0 ;
+  SUBINDEX_GENMODEL = 0 ; // May 2 2021
 
   sprintf(GENLC.SHAPEPAR_NAME,    "NULL");
   sprintf(GENLC.SHAPEPAR_GENNAME, "NULL");
@@ -4959,8 +4971,12 @@ void prep_user_input(void) {
       if ( strcmp(PTR_GENMODEL,"NULL") == 0 ) { continue ; }
 
       lentmp = strlen(PTR_GENMODEL);
-      if ( strncmp(INPUTS.MODELNAME,PTR_GENMODEL,lentmp) == 0 ) 
-	{ INDEX_GENMODEL = indx ; }
+      if ( strncmp(INPUTS.MODELNAME,PTR_GENMODEL,lentmp) == 0 ) { 
+	INDEX_GENMODEL = indx ; 
+
+	// for SALT; check subindex for SALT2,SALT3,SALT4 ...
+	if ( INDEX_GENMODEL == MODEL_SALT2 ) { SUBINDEX_GENMODEL=j; }
+      }
     }
   }
 
@@ -4981,7 +4997,7 @@ void prep_user_input(void) {
 
   // finally, set MODELPATH, except for NON1A
   if ( strlen(INPUTS.MODELPATH) == 0  && INPUTS.NON1A_MODELFLAG < 0 ) {
-    PTR_GENMODEL = GENMODEL_NAME[INDEX_GENMODEL][0] ; // generic model name
+    PTR_GENMODEL = GENMODEL_NAME[INDEX_GENMODEL][SUBINDEX_GENMODEL] ; 
     sprintf(INPUTS.MODELPATH,"%s/models/%s/%s", 
 	    PATH_SNDATA_ROOT, PTR_GENMODEL, INPUTS.MODELNAME );
   }

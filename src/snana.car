@@ -617,6 +617,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_AREAFRAC
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
+     &  ,OUTLIER_z, OUTLIER_TREST  ! for LC FIT only
 
       INTEGER   
      &    NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
@@ -641,6 +642,7 @@ c May 6, 2008: define lists for epochs to ignore
      &  ,OUTLIER_IXPIX, OUTLIER_IYPIX, OUTLIER_AREAFRAC
      &  ,OUTLIER_ZP, OUTLIER_NEA, OUTLIER_PSF, OUTLIER_SKYSIG
      &  ,OUTLIER_NSIG, OUTLIER_LOGSNR, OUTLIER_SBMAG
+     &  ,OUTLIER_z, OUTLIER_TREST 
      &  ,OUTLIER_IFILTOBS, OUTLIER_BAND, OUTLIER_FIELD
      &  ,OUTLIER_CCDNUM, OUTLIER_PHOTFLAG
 
@@ -23086,6 +23088,17 @@ c - - - -
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
++SELF,IF=SNFIT.
+      VARLIST = 'z:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_z, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'TREST:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_TREST, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+
++SELF.
       RETURN
       END   ! end INIT_TABLE_OUTLIERVAR
 
@@ -23135,6 +23148,9 @@ c ---------- BEGIN ---------
       OUTLIER_IXPIX     = INT(SNLC_XPIX(ep))
       OUTLIER_IYPIX     = INT(SNLC_YPIX(ep))
       OUTLIER_AREAFRAC  = SNLC_AREAFRAC(ep)
+
+      OUTLIER_z         = SNLC_REDSHIFT
+      OUTLIER_TREST     = SNLC_TREST(ep)
 
       IF ( ISJOB_SNANA ) THEN
          ! true flux from SIM_MAGOBS 
@@ -23540,7 +23556,7 @@ c CUTFLAG_SNANA is a mask as follows:
 c 0    -> failed SNANA cuts
 c bit0 -> passed SNANA cuts
 c bit1 -> passed FIT cuts (i.e, valid fit + re-applied snana cuts)
-
+      
       VARLIST = 'CUTFLAG_SNANA:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
      &                   LENBLOCK, 20)
@@ -23550,8 +23566,12 @@ c ERRFLAG_FIT = -9 -> no fit, just SNANA job
 c ERRFLAG_FIT =  0 -> no fitting errors.
 c ERRFLAG_FIT >  0 -> fit failed, see ERRFLAG codes in fitting program.
 
+      ITEXT = 0
++SELF,IF=SNFIT.
+      ITEXT=1
++SELF.
       VARLIST = 'ERRFLAG_FIT:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ERRFLAG_FIT, VARLIST,0,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, ERRFLAG_FIT, VARLIST,ITEXT,
      &                   LENBLOCK, 20 )
 
 c --------------------------------------------

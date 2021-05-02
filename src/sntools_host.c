@@ -7783,9 +7783,9 @@ void addComment_HOSTLIB_APPEND(char *COMMENT,
 // ===================================
 void rewrite_HOSTLIB_plusMags(void) {
   
-  // If +HOSTMAGS option is given on command-line, this function
-  // is called to compute synthetic mags and re-write the HOSTLIB
-  // with [band]_obs columns. 
+  // If +HOSTMAGS option is given on command-line, this function is
+  // called to compute synthetic mag for each band in GENFILTERS key,
+  // and re-write the HOSTLIB with extra [band]_obs columns. 
   // Beware that 'igal' is a redshift-sorted index for the other 
   // HOSTLIB functions, but here we use the original HOSTLIB order.
   // 

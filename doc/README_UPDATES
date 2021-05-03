@@ -19858,6 +19858,13 @@
      + allow comma-sep list for SIMGEN_DUMP ; see manual.
      + new input MXRADIUS_RANDOM_SHIFT for random coords (see manual)
      + MXOBS_SIMLIB -> 10000 (was 5k) to handle more synthetic bands
+     + several fixes to revive synthetic filters from SPECTROGRAPH
+     + abort on NaN in HOSTLIB
+
+   sntools_host.c
+     + add abort trap if magobs is NaN 
+         (need to add NaN check for all columns)
+     + abort if any synthetic band is defined in HOSTLIB
 
    genmag_SALT2.c
      + minor refact so that SALT3.K21 checks under $SNDATA_ROOT/models/SALT3
@@ -19875,5 +19882,9 @@
 
    sntools_dataformat_fits.c
      + fix bug reading SIM_VPEC (fallout from earlier IO refactor)
+
+   SALT2mu.c
+     + fix old bug to allow colons in comments after inputs.
+     + new input zspec_maxerr_idsample 
 
 END: 

@@ -85,6 +85,10 @@ surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data
         then each biasCor group  is automatically split into 
         [GROUPNAME]-zSPEC and [GROUPNAME]-zPHOT groups. 
         OPT_PHOTOZ is from &SNCLINP input SNTABLE_LIST='FITRES NOZPHOT'
+zspec_errmax_idsample=0.002  ! default=0
+   ! IS_SPECZ = OPT_PHOTOZ==0 || zerr < zspec_errmax_idsample
+   ! Thus if all events have OPT_PHOTOZ=2, user input
+   ! zspec_errmax_idsample defined zSpec IDSAMPLE
 
 idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
@@ -910,6 +914,8 @@ Default output files (can change names with "prefix" argument)
    + fix few issues related to header_override
    + MXSTORE_DUPLICATE -> 200 (was 20)
 
+ May 02 2021: new input zspec_maxerr_idsample
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1170,6 +1176,7 @@ typedef struct {
   float  *zhderr, *zcmberr, *zhelerr, *vpecerr, *zmuerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
+  bool   *IS_PHOTOZ;
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
 
   // SIM_xxx read from table file
@@ -1292,7 +1299,8 @@ typedef struct {
   // string-option for each sample (user-defined binning)
   char STRINGOPT[MXCHAR_SAMPLE];
 
-  int  OPT_PHOTOZ ;
+  // xxx mark delete May 2 2021  int  OPT_PHOTOZ ;
+  bool IS_PHOTOZ ;
 
   // Full name of each sample. e.g, 'SDSS(82N)'
   char NAME[MXCHAR_SAMPLE];  // full name of sample
@@ -1530,6 +1538,8 @@ struct INPUTS {
 
   char surveyList_noBiasCor[200]; // list of surveys fit, but skip biasCor
   char idsample_select[40];       // e.g., '0+3'
+
+  double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
 
   int interp_biascor_logmass;
   // ----------
@@ -1839,7 +1849,6 @@ int FOUNDKEY_SNTYPE = 0 ;  // T -> found sntype key in fitres file
 int FOUNDKEY_SIM    = 0 ;  // T -> is simulation (formerly 'simok')
 int FOUNDKEY_SIMx0  = 0 ;  // T -> is SALT2 (formerly 'simx0')
 int FOUNDKEY_SIM_NONIA_INDEX = 0 ;
-int FOUNDKEY_OPT_PHOTOZ = 0 ;
 
 int NVAR_APPEND ;  // NVAR appended from SALTmu
 char VARNAMES_APPEND[MAXPAR*10][MXCHAR_VARNAME] ;
@@ -1933,7 +1942,7 @@ void  set_FIELDGROUP_biasCor(void);
 void  set_SURVEYGROUP_biasCor(void);
 void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE);
 
-int    get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ, 
+int    get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ, 
 		    char *FIELDGROUP, char *SURVEYGROUP, int DUMPFLAG );
 void   sort_IDSAMPLE_biasCor(void) ;
 void   copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) ;
@@ -2073,14 +2082,6 @@ void  write_NWARN(FILE *fp, int FLAG) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_cutmask(void);
-
-
-/* xxxxxxxxxx Mark delete Dec 2020 xxxxxxxxx 
-void  SPLITRAN_SUMMARY(void); 
-void  SPLITRAN_write_fitpar_legacy(char *fileName);
-void  SPLITRAN_read_fitpar(int isplit);
-int   SPLITRAN_read_wfit(int isplit);
-xxxxxxxxxxx */
 
 void  CPU_SUMMARY(void);
 
@@ -5172,6 +5173,7 @@ void set_defaults(void) {
 
   sprintf(INPUTS.surveyList_noBiasCor, "NONE" );
   INPUTS.idsample_select[0] = 0 ;
+  INPUTS.zspec_errmax_idsample = 0.0 ;
 
   INPUTS.interp_biascor_logmass=1; // default is to do biasCor interp
 
@@ -6211,6 +6213,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->IDSAMPLE      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->SNTYPE        = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->OPT_PHOTOZ    = (short int *) malloc(MEMS); MEMTOT+=MEMS;
+    TABLEVAR->IS_PHOTOZ     = (bool      *) malloc(MEMB); MEMTOT+=MEMB;
     TABLEVAR->IZBIN         = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->CUTMASK       = (int *) malloc(MEMI); MEMTOT+=MEMI;
 
@@ -6281,6 +6284,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->IDSAMPLE);
     free(TABLEVAR->SNTYPE);
     free(TABLEVAR->OPT_PHOTOZ);
+    free(TABLEVAR->IS_PHOTOZ);
     free(TABLEVAR->IZBIN);
     free(TABLEVAR->CUTMASK);
 
@@ -6663,6 +6667,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IDSAMPLE[irow]   = -9 ;
     TABLEVAR->CUTMASK[irow]    =  0 ;
     TABLEVAR->OPT_PHOTOZ[irow] =  0 ;
+    TABLEVAR->IS_PHOTOZ[irow]  =  false ;
     TABLEVAR->SNTYPE[irow]     = -9 ;
 
     TABLEVAR->vpec[irow]       =  0.0 ;
@@ -6990,6 +6995,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double covmat8_fit[NLCPAR][NLCPAR], covmat8_int[NLCPAR][NLCPAR];
   double covmat8_tot[NLCPAR][NLCPAR], covtmp8 ;
   int   OPTMASK_COV, ISTAT_COV, i, i2, IDSAMPLE;
+  bool  IS_SPECZ, IS_PHOTOZ;
   char  *field, SURVEYGROUP[100], FIELDGROUP[100], STRINGOPT[40];
   char NONE[] = "NONE";
   char fnam[] =  "compute_more_TABLEVAR";
@@ -7165,7 +7171,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
-  
+  IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhderr < INPUTS.zspec_errmax_idsample);
+  IS_PHOTOZ = !IS_SPECZ ;
+  TABLEVAR->IS_PHOTOZ[ISN] = IS_PHOTOZ;
+
   // - - - - - - - - - - - - - - - - - - - - - - 
   // IDSAMPLE is not ready for data yet,
   // but get it for BIASCOR and/or CCPRIOR
@@ -7181,7 +7190,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 			FIELDGROUP, STRINGOPT);  // (O)
       match_surveyGroup(name, IDSURVEY, 
 			SURVEYGROUP, STRINGOPT); // (O)
-      IDSAMPLE = get_IDSAMPLE(IDSURVEY,OPT_PHOTOZ,FIELDGROUP,SURVEYGROUP,0) ;
+      IDSAMPLE = get_IDSAMPLE(IDSURVEY,IS_PHOTOZ,FIELDGROUP,SURVEYGROUP,0) ;
     }
     else {
       IDSAMPLE = 0 ;   FIELDGROUP[0] = 0 ;
@@ -7715,9 +7724,12 @@ void prepare_IDSAMPLE_biasCor(void) {
   //
 
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+  int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
+
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
-  double z;
+  bool IS_SPECZ, IS_PHOTOZ ;
+  double z, zerr;
   char FIELD_TMP[MXCHAR_CCID],  FIELDGROUP[100],  *FIELDDEF=NULL;
   char SURVEYGROUP[100], SURVEYDEF[MXCHAR_CCID], zGROUP[20];
   char *NAME_SN,  *NAME_SAMPLE, STRINGOPT[40]  ;
@@ -7751,7 +7763,8 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[i].NAME_SURVEYGROUP[0] = 0 ;
     SAMPLE_BIASCOR[i].NAME_FIELDGROUP[0]  = 0 ;
     SAMPLE_BIASCOR[i].STRINGOPT[0]        = 0 ;
-    SAMPLE_BIASCOR[i].OPT_PHOTOZ          = 0 ; // zSPEC is default
+    // xxx    SAMPLE_BIASCOR[i].OPT_PHOTOZ          = 0 ; // zSPEC is default
+    SAMPLE_BIASCOR[i].IS_PHOTOZ           = false ; // zSPEC is default
     SAMPLE_BIASCOR[i].NAME[0]             = 0 ;
     SAMPLE_BIASCOR[i].IDSURVEY            = -9 ;
   } // end i loop 
@@ -7774,7 +7787,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     sprintf(SAMPLE_BIASCOR[IDSAMPLE].NAME_FIELDGROUP,  "NONE" );
     sprintf(SAMPLE_BIASCOR[IDSAMPLE].NAME_SURVEYGROUP, "ALL"  );
     sprintf(SAMPLE_BIASCOR[IDSAMPLE].NAME,        "ALL" );
-    SAMPLE_BIASCOR[IDSAMPLE].OPT_PHOTOZ   = 0 ; // zSPEC is default
+    SAMPLE_BIASCOR[IDSAMPLE].IS_PHOTOZ   = false ; // zSPEC is default
 
     // set redshift info (Apr 4 2017)
     SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA = INPUTS.zmin ;
@@ -7802,15 +7815,16 @@ void prepare_IDSAMPLE_biasCor(void) {
   sprintf(FIELD_TMP, "NONE"); 
   sprintf(FIELDGROUP,"NONE");  
 
-
   for(isn=0; isn < NSN_DATA; isn++ ) {
 
     CUTMASK    = INFO_DATA.TABLEVAR.CUTMASK[isn];
     IDSURVEY   = INFO_DATA.TABLEVAR.IDSURVEY[isn];
     OPT_PHOTOZ = INFO_DATA.TABLEVAR.OPT_PHOTOZ[isn];
     NAME_SN    = INFO_DATA.TABLEVAR.name[isn];
-    if(USE_FIELDGROUP) { FIELDDEF = INFO_DATA.TABLEVAR.field[isn]; }
+    zerr       = INFO_DATA.TABLEVAR.zhderr[isn];
     z          = INFO_DATA.TABLEVAR.zhd[isn];
+
+    if(USE_FIELDGROUP) { FIELDDEF = INFO_DATA.TABLEVAR.field[isn]; }
 
     if ( CUTMASK ) { continue ; }
 
@@ -7840,15 +7854,19 @@ void prepare_IDSAMPLE_biasCor(void) {
 			SURVEYGROUP, STRINGOPT ); // (O)
     }	
 
-    if ( OPT_PHOTOZ == 0 ) 
+    IS_SPECZ = ( OPT_PHOTOZ == 0 || zerr < INPUTS.zspec_errmax_idsample );
+    IS_PHOTOZ = !IS_SPECZ ;
+
+    if ( IS_SPECZ ) 
       { sprintf(zGROUP,"-zSPEC"); }
     else
       { sprintf(zGROUP,"-zPHOT"); }
 
-    if ( !FOUNDKEY_OPT_PHOTOZ ) { zGROUP[0] = 0 ; }
+    if ( IVAR_OPT_PHOTOZ < 0 ) { zGROUP[0] = 0 ; }
+    // xxx mark    if ( !FOUNDKEY_OPT_PHOTOZ ) { zGROUP[0] = 0 ; }
 
     DUMPFLAG = 0 ;
-    IDSAMPLE = get_IDSAMPLE(IDSURVEY, OPT_PHOTOZ, 
+    IDSAMPLE = get_IDSAMPLE(IDSURVEY, IS_PHOTOZ, 
 			    FIELDGROUP, SURVEYGROUP, DUMPFLAG);
 
     if ( IDSAMPLE < 0 ) {
@@ -7857,7 +7875,8 @@ void prepare_IDSAMPLE_biasCor(void) {
       sprintf(SAMPLE_BIASCOR[N].NAME_FIELDGROUP,  "%s", FIELDGROUP  );
       sprintf(SAMPLE_BIASCOR[N].NAME_SURVEYGROUP, "%s", SURVEYGROUP ); 
       sprintf(SAMPLE_BIASCOR[N].STRINGOPT,        "%s", STRINGOPT   ); 
-      SAMPLE_BIASCOR[N].OPT_PHOTOZ = OPT_PHOTOZ ;
+      // xxx mark      SAMPLE_BIASCOR[N].OPT_PHOTOZ = OPT_PHOTOZ ;
+      SAMPLE_BIASCOR[N].IS_PHOTOZ = IS_PHOTOZ ;
       SAMPLE_BIASCOR[N].IDSURVEY = IDSURVEY ; // Jun 2020
 
       NAME_SAMPLE = SAMPLE_BIASCOR[N].NAME ;
@@ -7885,7 +7904,7 @@ void prepare_IDSAMPLE_biasCor(void) {
    
     // execute mapindex function again to get final IDSAMPLE
     DUMPFLAG = NIDSURVEY[IDSURVEY] < 0 ; // for debug only
-    IDSAMPLE = get_IDSAMPLE(IDSURVEY, OPT_PHOTOZ,
+    IDSAMPLE = get_IDSAMPLE(IDSURVEY, IS_PHOTOZ,
 			    FIELDGROUP, SURVEYGROUP, DUMPFLAG );
 
     if ( IDSAMPLE < 0 ) {
@@ -8455,7 +8474,8 @@ void copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) {
   sprintf(S2->NAME_SURVEYGROUP, "%s", S1->NAME_SURVEYGROUP ) ;
   sprintf(S2->STRINGOPT,        "%s", S1->STRINGOPT ) ;
   sprintf(S2->NAME,             "%s", S1->NAME ) ;
-  S2->OPT_PHOTOZ = S1->OPT_PHOTOZ ;
+// xxx  S2->OPT_PHOTOZ = S1->OPT_PHOTOZ ;
+  S2->IS_PHOTOZ = S1->IS_PHOTOZ ;
 
 
   S2->NSN[EVENT_TYPE_DATA]    = S1->NSN[EVENT_TYPE_DATA] ;
@@ -8685,7 +8705,7 @@ void match_surveyGroup(char *SNID, int IDSURVEY,
 } // end match_surveyGroup
 
 
-int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ, 
+int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ, 
 		 char *FIELDGROUP, char *SURVEYGROUP,
 		 int DUMPFLAG ) {
 
@@ -8702,7 +8722,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
   int  MATCH_FIELDGROUP, MATCH_SURVEYGROUP, MATCH_PHOTOZ, MATCH_OR, i ;
   int  CHECK_FIELDGROUP  = ( IGNOREFILE(FIELDGROUP)  == 0 ) ;
   int  CHECK_SURVEYGROUP = ( IGNOREFILE(SURVEYGROUP) == 0 ) ;
-  int  OPT_PHOTOZ_TMP ;
+  bool  IS_PHOTOZ_TMP ;
   char *FIELDGROUP_TMP, *SURVEYGROUP_TMP ;
   char *SURVEYDEF = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] ;
   char fnam[] = "get_IDSAMPLE" ;
@@ -8737,7 +8757,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
 
     FIELDGROUP_TMP    = SAMPLE_BIASCOR[i].NAME_FIELDGROUP ;
     SURVEYGROUP_TMP   = SAMPLE_BIASCOR[i].NAME_SURVEYGROUP ;
-    OPT_PHOTOZ_TMP    = SAMPLE_BIASCOR[i].OPT_PHOTOZ ;
+    IS_PHOTOZ_TMP     = SAMPLE_BIASCOR[i].IS_PHOTOZ ;
 
     // check matches
     MATCH_FIELDGROUP  = 0;
@@ -8748,7 +8768,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
     else if ( CHECK_SURVEYGROUP )
       { MATCH_SURVEYGROUP = (strcmp(SURVEYGROUP_TMP,SURVEYGROUP) == 0); }
    
-    MATCH_PHOTOZ = (OPT_PHOTOZ_TMP == OPT_PHOTOZ ) ;
+    MATCH_PHOTOZ = (IS_PHOTOZ_TMP == IS_PHOTOZ ) ;
 
 
     // abort if both match
@@ -14384,17 +14404,18 @@ void print_eventStats(int event_type) {
   int NMISSING = 0 ;
   if ( event_type == EVENT_TYPE_BIASCOR ) {
     int  NSAMPLE = NSAMPLE_BIASCOR ;
-    int idsample, OPT_PHOTOZ, NSN ;      char *NAME;
+    int idsample, NSN ;      char *NAME;
+    bool IS_PHOTOZ ;
     for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
       if ( SAMPLE_BIASCOR[idsample].DOFLAG_BIASCOR==0 ) { continue ; } 
       NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
-      OPT_PHOTOZ = SAMPLE_BIASCOR[idsample].OPT_PHOTOZ ;
+      IS_PHOTOZ  = SAMPLE_BIASCOR[idsample].IS_PHOTOZ ;
       NAME       = SAMPLE_BIASCOR[idsample].NAME ;
       if ( NSN == 0 ) {
 	NMISSING++ ;
 	printf(" WARNING: No BIASCOR events for %s [IDSAMPLE=%d]\n", 
 	       NAME, idsample);
-	printf("\t OPT_PHOTOZ(data) = %d for %s \n", OPT_PHOTOZ, NAME );
+	printf("\t IS_PHOTOZ(data) = %d for %s \n", IS_PHOTOZ, NAME );
 	fflush(stdout);
       }
     }
@@ -15287,7 +15308,10 @@ int ppar(char* item) {
     { parse_FIELDLIST(&item[10]); return(1); } 
 
   if ( uniqueOverlap(item,"idsample_select=") ) 
-    {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
+    { sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
+
+  if ( uniqueOverlap(item,"zspec_errmax_idsample=") ) 
+    { sscanf(&item[22], "%le", &INPUTS.zspec_errmax_idsample );  return(1); } 
 
   if ( uniqueOverlap(item,"cid_select_file=") )  {  
     parse_commaSepList("CID_SELECT_FILE", &item[16], 6, MXCHAR_FILENAME, 

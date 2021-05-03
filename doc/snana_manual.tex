@@ -4267,17 +4267,18 @@ the z-norm term.
 \label{sss:hostlib_synmag}
 % ------------------------------------
 
-Using {\tt HOSTLIB\_SPECBASIS\_FILE},
-synthetic galaxy mags are computed with the command-line option
+Using {\tt HOSTLIB\_SPECBASIS\_FILE}, synthetic galaxy mag is 
+computed for each band in ``{\tt GENFILTERS:}'' key
+using the command-line option
 \begin{verbatim}
      snlc_sim.exe <iputFile> +HOSTMAGS
 \end{verbatim}
-A new \hostlib\ file is created with the {\tt [band]\_obs} columns appended,
+A new \hostlib\ file is created with {\tt [band]\_obs} columns appended,
 and then the simulation stops execution.
 Note that {\tt +HOSTMAGS} is not read from the sim-input file, 
 and thus can be specified only as a command-line argument.
-This new \hostlib\ can be used to generate with galaxy mags to 
-compute additional Poisson noise and to model analmolous 
+This new \hostlib\ can be used to generate with galaxy mags,
+compute additional Poisson noise, and model analmolous 
 flux-scatter as a function of local surface brightness.
 
 % ------------------------------------
@@ -9449,12 +9450,12 @@ private variable example above, cuts are defined using the
 {\tt \&SNLCINP} namelist string 
 %
 \begin{verbatim}
-   PRIVATE_CUTWIN_STRING = `HOST_PROPERTY 20.4  100.',  'PHOTOFLAG 1 600'
+   PRIVATE_CUTWIN_STRING = 'HOST_PROPERTY 20.4  100.',  'PHOTOFLAG 1 600'
      or
-   PRIVATE_CUTWIN_STRING = `AGN_SCAN  !=  2'   ! veto cut
+   PRIVATE_CUTWIN_STRING = 'AGN_SCAN  !=  2'   ! veto cut
 \end{verbatim}
 %
-where the first example requires values withing the specified ranges,
+where the first example requires values within the specified ranges,
 and the second example shows how to reject (veto) based on a value.
 
 

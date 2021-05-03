@@ -15448,7 +15448,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   int ISTORE,  OPTLINE, OBSRAW ;
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], TREST ;
   double z1       = 1.0 + GENLC.REDSHIFT_CMB ;
-  char *UNIT, *BAND ;
+  bool IS_SPECTRO, BAD_MJD;
+  char *UNIT, *BAND ;  
   char fnam[] = "SIMLIB_prepCadence" ;
 
   // --------------- BEGIN ----------------
@@ -15566,7 +15567,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     if ( OPTLINE < 0 ) { continue; }
 
-    if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH ) {
+    IS_SPECTRO = (OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH );
+    if ( IS_SPECTRO ) {
       ifilt = SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[OBSRAW]; //sparse synth index
       DUMMY_STORE[0] = DUMMY_STORE[1] = -9.0 ;
       store_SIMLIB_SPECTROGRAPH(ifilt, DUMMY_STORE, OBSRAW) ;
@@ -15597,7 +15599,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     ZPT_T      = SIMLIB_OBS_RAW.TEMPLATE_ZPT[OBSRAW] ;
 
     // idiot check on MJD might catch invalid SIMLIB entries
-    if ( MJD < 10000.0 || MJD > 2.0E5 ) {
+    BAD_MJD = ( MJD < 10000.0 || MJD > 2.0E5 );
+    if ( BAD_MJD && !IS_SPECTRO ) {
       sprintf(c1err,"Invalid MJD[%d]=%f for LIBID=%d", 
 	      OBSRAW, MJD, SIMLIB_HEADER.LIBID);
 

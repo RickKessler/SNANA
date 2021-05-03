@@ -11997,9 +11997,11 @@ all tables will have IAUC written into the CID column.
    \label{sss:marz}
 % ------------------------------------
 
-Simulated host spectra can be examined with the {\tt Marz}
-utility\footnote{\url{http://samreay.github.io/Marz}}
-by specifying {\tt Marz} format for the {\tt snana.exe} program,
+After simulating host spectra, the spectra can be translated 
+for analysis with the {\tt Marz} 
+utility\footnote{\url{http://samreay.github.io/Marz} 
+    (works with Chrome \& Firefox, not with Safari)}
+by specifying {\tt Marz} output format for the {\tt snana.exe} program,
 %
 \begin{verbatim}
     &SNLCINP
@@ -12012,7 +12014,8 @@ by specifying {\tt Marz} format for the {\tt snana.exe} program,
 The argument of {\tt MARZFILE\_OUT} must include ''{\tt marz}'' in the
 file name. Only the first spectrum per event (assumed to be HOST) 
 is stored. SN spectra are not stored because {\tt Marz} works only
-with host spectra.
+with host spectra. 
+
 
 % --------------------------------------
 %  \clearpage

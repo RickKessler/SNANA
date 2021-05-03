@@ -24948,6 +24948,8 @@ c
 c Created May 2020 by R.Kessler
 c Driver for MARZ table with host-galaxy spectra.
 c
+c May 3 2021: include GALID as part of NAME
+c
 c ------------------------------
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -24965,9 +24967,11 @@ c ------------------------------
 c local var
 
       LOGICAL   DO_FILL
-      INTEGER   LENNAME, LENFMT, ISPEC, LENCCID
+      INTEGER   LENNAME, LENFMT, ISPEC, LENCCID, LENz, LENGALID
       CHARACTER FNAM*12, NAME*40, TEXTFMT*20, TEXTFMT_forC*20
-      CHARACTER CCID_forC*32
+      CHARACTER CCID_forC*32, cGALID*20, cz*20
+      REAL      z
+      INTEGER*8 GALID
       EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
 
 C -------------------- BEGIN -----------------
@@ -24999,9 +25003,27 @@ c fill table.
          LENCCID   = ISNLC_LENCCID
          CCID_forC = SNLC_CCID(1:LENCCID)
          if ( LSIM_SNANA ) then
-            write(CCID_forC,40) SNLC_CCID(1:LENCCID), SIM_REDSHIFT_HELIO
-40          format(A, '[z=', F5.3, ']' )
-            LENCCID = LENCCID + 9
+            z      = SIM_REDSHIFT_HELIO
+            GALID  = SIM_HOSTLIB_GALID
+            cGALID ='GALID=None'
+
+            write(cz,41) z
+ 41         format('z=',F5.3)
+cc xxx mark            SIM_HOSTLIB_GALID = 9876 ! xzxx
+            if ( SIM_HOSTLIB_GALID > 0 ) then
+               write(cGALID,44) SIM_HOSTLIB_GALID
+ 44            format('GALID=', I9.9 )
+            endif
+
+            LENz     = INDEX(cz,' ') - 1
+            LENGALID = INDEX(cGALID,' ') - 1
+ 
+            write(CCID_forC,40) SNLC_CCID(1:LENCCID), 
+     &          cz(1:LENz), cGALID(1:LENGALID)
+40          format(A, '[', A, ',', A, ']' )
+            LENCCID = LENCCID + LENz + LENGALID + 3
+
+
          endif
 
          write(6,10) CCID_forC(1:LENCCID)

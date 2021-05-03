@@ -1,0 +1,235 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{SNANA Basics}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Dr. Evil-ABORT-Face}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Data Files}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Citations}{section.2}% 5
+\BOOKMARK [1][-]{section.3}{The Calibration + K-Correction file}{}% 6
+\BOOKMARK [2][-]{subsection.3.1}{Changing the Mean Filter Wavelength}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.2}{Defining a SPECTROGRAPH }{section.3}% 8
+\BOOKMARK [1][-]{section.4}{The SNANA Simulation: snlc\137sim.exe}{}% 9
+\BOOKMARK [2][-]{subsection.4.1}{Overview of Model Magnitudes and Noise Calculation }{section.4}% 10
+\BOOKMARK [2][-]{subsection.4.2}{Getting Started Quickly }{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.3}{Search Hierarchy for Supplemental Input Files}{section.4}% 12
+\BOOKMARK [2][-]{subsection.4.4}{Cosmological Parameters}{section.4}% 13
+\BOOKMARK [2][-]{subsection.4.5}{Synchronizing Random Numbers}{section.4}% 14
+\BOOKMARK [2][-]{subsection.4.6}{Simulated TYPE}{section.4}% 15
+\BOOKMARK [2][-]{subsection.4.7}{The `SIMLIB' Cadence Library File }{section.4}% 16
+\BOOKMARK [3][-]{subsubsection.4.7.1}{SIMLIB Options in the Sim-Input File}{subsection.4.7}% 17
+\BOOKMARK [3][-]{subsubsection.4.7.2}{SIMLIB SPECTROGRAPH }{subsection.4.7}% 18
+\BOOKMARK [3][-]{subsubsection.4.7.3}{SIMLIB Options for each LIBID}{subsection.4.7}% 19
+\BOOKMARK [3][-]{subsubsection.4.7.4}{Saturation Option}{subsection.4.7}% 20
+\BOOKMARK [3][-]{subsubsection.4.7.5}{APPEND Option}{subsection.4.7}% 21
+\BOOKMARK [3][-]{subsubsection.4.7.6}{SNR Monitor}{subsection.4.7}% 22
+\BOOKMARK [2][-]{subsection.4.8}{Simulating Coordinates and Random Shifts}{section.4}% 23
+\BOOKMARK [2][-]{subsection.4.9}{Simulating Fields}{section.4}% 24
+\BOOKMARK [3][-]{subsubsection.4.9.1}{Overlapping Fields}{subsection.4.9}% 25
+\BOOKMARK [3][-]{subsubsection.4.9.2}{Field Subset and Field Prescales}{subsection.4.9}% 26
+\BOOKMARK [2][-]{subsection.4.10}{Correlated Template Noise}{section.4}% 27
+\BOOKMARK [2][-]{subsection.4.11}{Simulating Multiple Instruments}{section.4}% 28
+\BOOKMARK [2][-]{subsection.4.12}{Simulating Multiple Seasons}{section.4}% 29
+\BOOKMARK [2][-]{subsection.4.13}{Simulating a Filter as a Sum of Components}{section.4}% 30
+\BOOKMARK [2][-]{subsection.4.14}{Noise Corrections: "705ESSNR and "705E0 }{section.4}% 31
+\BOOKMARK [3][-]{subsubsection.4.14.1}{ FLUXERRMODEL Tables }{subsection.4.14}% 32
+\BOOKMARK [3][-]{subsubsection.4.14.2}{Modeling Flux Correlations }{subsection.4.14}% 33
+\BOOKMARK [3][-]{subsubsection.4.14.3}{ Suggested Strategy for Determining FLUXERRMODEL Tables }{subsection.4.14}% 34
+\BOOKMARK [3][-]{subsubsection.4.14.4}{Extracting Information for FLUXERRMODEL }{subsection.4.14}% 35
+\BOOKMARK [3][-]{subsubsection.4.14.5}{ Legacy Noise Corrections }{subsection.4.14}% 36
+\BOOKMARK [2][-]{subsection.4.15}{Example Noise Calculation}{section.4}% 37
+\BOOKMARK [2][-]{subsection.4.16}{K-corrections }{section.4}% 38
+\BOOKMARK [2][-]{subsection.4.17}{Intrinsic Brightness Variations}{section.4}% 39
+\BOOKMARK [3][-]{subsubsection.4.17.1}{Supernova Brightness Variations}{subsection.4.17}% 40
+\BOOKMARK [3][-]{subsubsection.4.17.2}{Weak Gravitational Lensing}{subsection.4.17}% 41
+\BOOKMARK [3][-]{subsubsection.4.17.3}{Strong Gravitational Lensing}{subsection.4.17}% 42
+\BOOKMARK [2][-]{subsection.4.18}{Search Efficiency }{section.4}% 43
+\BOOKMARK [3][-]{subsubsection.4.18.1}{Software-Pipeline Efficiency }{subsection.4.18}% 44
+\BOOKMARK [3][-]{subsubsection.4.18.2}{Spectroscopic-Confirmation Efficiency }{subsection.4.18}% 45
+\BOOKMARK [3][-]{subsubsection.4.18.3}{Unconfirmed Efficiency for Host-Galaxy Redshift }{subsection.4.18}% 46
+\BOOKMARK [3][-]{subsubsection.4.18.4}{Simulating and Fitting Mix of zspec and zphot From Host Galaxy}{subsection.4.18}% 47
+\BOOKMARK [3][-]{subsubsection.4.18.5}{Determining spec}{subsection.4.18}% 48
+\BOOKMARK [3][-]{subsubsection.4.18.6}{Time Above Detection and Number of Detections}{subsection.4.18}% 49
+\BOOKMARK [2][-]{subsection.4.19}{Selection Cuts }{section.4}% 50
+\BOOKMARK [2][-]{subsection.4.20}{Varying the Exposure Time/Aperture/Efficiency}{section.4}% 51
+\BOOKMARK [2][-]{subsection.4.21}{Simulating Galactic Extinction}{section.4}% 52
+\BOOKMARK [3][-]{subsubsection.4.21.1}{Some Details on Galactic Extinction Computations}{subsection.4.21}% 53
+\BOOKMARK [3][-]{subsubsection.4.21.2}{Correcting FLUXCAL for Galactic Extinction}{subsection.4.21}% 54
+\BOOKMARK [2][-]{subsection.4.22}{Simulating the Host Galaxy}{section.4}% 55
+\BOOKMARK [3][-]{subsubsection.4.22.1}{hostlib Options}{subsection.4.22}% 56
+\BOOKMARK [3][-]{subsubsection.4.22.2}{hostlib Weight Map \(WGTMAP\)}{subsection.4.22}% 57
+\BOOKMARK [3][-]{subsubsection.4.22.3}{Generating Host Spectra}{subsection.4.22}% 58
+\BOOKMARK [3][-]{subsubsection.4.22.4}{Synthetic Host Magnitudes \(+HOSTMAGS\)}{subsection.4.22}% 59
+\BOOKMARK [3][-]{subsubsection.4.22.5}{Generate List of Host Neighbors \(+HOSTNBR\)}{subsection.4.22}% 60
+\BOOKMARK [3][-]{subsubsection.4.22.6}{Treatment of LOGMASS }{subsection.4.22}% 61
+\BOOKMARK [3][-]{subsubsection.4.22.7}{Notes on CPU Resources}{subsection.4.22}% 62
+\BOOKMARK [3][-]{subsubsection.4.22.8}{Ensuring Host PhotoZ in Fitting Program}{subsection.4.22}% 63
+\BOOKMARK [3][-]{subsubsection.4.22.9}{Miscellaneous}{subsection.4.22}% 64
+\BOOKMARK [3][-]{subsubsection.4.22.10}{Anomalous Flux-Scatter on Bright Galaxies}{subsection.4.22}% 65
+\BOOKMARK [2][-]{subsection.4.23}{Simulating Mis-Matched Host Galaxy}{section.4}% 66
+\BOOKMARK [2][-]{subsection.4.24}{Simulating Rate vs. Redshift: Volumetric and per Season}{section.4}% 67
+\BOOKMARK [2][-]{subsection.4.25}{Simulating Rate vs. Galactic Coordinates}{section.4}% 68
+\BOOKMARK [2][-]{subsection.4.26}{Simulating a SPECTROGRAPH }{section.4}% 69
+\BOOKMARK [3][-]{subsubsection.4.26.1}{Spectral Time-Windows Relative to Peak Brightness }{subsection.4.26}% 70
+\BOOKMARK [3][-]{subsubsection.4.26.2}{Calibration Warp vs. Wavelength}{subsection.4.26}% 71
+\BOOKMARK [3][-]{subsubsection.4.26.3}{SPECTROGRAPH Options}{subsection.4.26}% 72
+\BOOKMARK [3][-]{subsubsection.4.26.4}{Simulating a Single High-S/N Spectrum}{subsection.4.26}% 73
+\BOOKMARK [2][-]{subsection.4.27}{Simulating Rise-Time Variations}{section.4}% 74
+\BOOKMARK [2][-]{subsection.4.28}{Altering Input SEDs}{section.4}% 75
+\BOOKMARK [3][-]{subsubsection.4.28.1}{Simulating PEAKMJD or Time of Explosion}{subsection.4.28}% 76
+\BOOKMARK [3][-]{subsubsection.4.28.2}{Extrapolating UV Flux}{subsection.4.28}% 77
+\BOOKMARK [2][-]{subsection.4.29}{NGEN keys}{section.4}% 78
+\BOOKMARK [2][-]{subsection.4.30}{``Perfect'' Simulations}{section.4}% 79
+\BOOKMARK [2][-]{subsection.4.31}{Generating Redshift \(zhel, zcmb\) and Distance }{section.4}% 80
+\BOOKMARK [3][-]{subsubsection.4.31.1}{Generating Peculiar Velocity}{subsection.4.31}% 81
+\BOOKMARK [2][-]{subsection.4.32}{Population Parameters: Stretch, Color, Dust}{section.4}% 82
+\BOOKMARK [2][-]{subsection.4.33}{Redshift-Dependent Parameters}{section.4}% 83
+\BOOKMARK [2][-]{subsection.4.34}{Estimating PEAKMJD}{section.4}% 84
+\BOOKMARK [2][-]{subsection.4.35}{Generating Efficiency Maps}{section.4}% 85
+\BOOKMARK [2][-]{subsection.4.36}{Light Curve Output Formats}{section.4}% 86
+\BOOKMARK [3][-]{subsubsection.4.36.1}{FITS Format}{subsection.4.36}% 87
+\BOOKMARK [3][-]{subsubsection.4.36.2}{TEXT Light Curve Output }{subsection.4.36}% 88
+\BOOKMARK [3][-]{subsubsection.4.36.3}{Suppress SIM\137XXX Info}{subsection.4.36}% 89
+\BOOKMARK [3][-]{subsubsection.4.36.4}{Random CID}{subsection.4.36}% 90
+\BOOKMARK [3][-]{subsubsection.4.36.5}{PHOTFLAG Mask}{subsection.4.36}% 91
+\BOOKMARK [3][-]{subsubsection.4.36.6}{Source of Each Redshift}{subsection.4.36}% 92
+\BOOKMARK [2][-]{subsection.4.37}{Simulation Dump Options}{section.4}% 93
+\BOOKMARK [3][-]{subsubsection.4.37.1}{SIMLIB\137DUMP Utility }{subsection.4.37}% 94
+\BOOKMARK [3][-]{subsubsection.4.37.2}{Creating SIMGEN\137DUMP File }{subsection.4.37}% 95
+\BOOKMARK [3][-]{subsubsection.4.37.3}{ Model Dump }{subsection.4.37}% 96
+\BOOKMARK [2][-]{subsection.4.38}{Including a Second Sim-Input File}{section.4}% 97
+\BOOKMARK [2][-]{subsection.4.39}{Multi-dimensional GRID Option}{section.4}% 98
+\BOOKMARK [2][-]{subsection.4.40}{TGRIDSTEP: Linear Interpolation of Model Flux}{section.4}% 99
+\BOOKMARK [2][-]{subsection.4.41}{Marking Sub-Samples}{section.4}% 100
+\BOOKMARK [2][-]{subsection.4.42}{Applying Systematic Errors \(RANSYSTPAR\) }{section.4}% 101
+\BOOKMARK [1][-]{section.5}{The SNANA Fitter: snlc\137fit.exe }{}% 102
+\BOOKMARK [2][-]{subsection.5.1}{Getting Started Quickly }{section.5}% 103
+\BOOKMARK [2][-]{subsection.5.2}{Finding Data Folders }{section.5}% 104
+\BOOKMARK [2][-]{subsection.5.3}{Discussion of Lightcurve Fits}{section.5}% 105
+\BOOKMARK [2][-]{subsection.5.4}{Methods of Fit-Parameter Estimation}{section.5}% 106
+\BOOKMARK [3][-]{subsubsection.5.4.1}{ minuit Covariances}{subsection.5.4}% 107
+\BOOKMARK [3][-]{subsubsection.5.4.2}{Tricks to Avoid Pathological Fits}{subsection.5.4}% 108
+\BOOKMARK [2][-]{subsection.5.5}{Initial Parameter Estimates}{section.5}% 109
+\BOOKMARK [3][-]{subsubsection.5.5.1}{Rough Estimate of Peak-MJD \("707Et0\) }{subsection.5.5}% 110
+\BOOKMARK [3][-]{subsubsection.5.5.2}{Refined Estimate of Peak-MJD and Amplitude Parameter}{subsection.5.5}% 111
+\BOOKMARK [2][-]{subsection.5.6}{Galactic Reddening}{section.5}% 112
+\BOOKMARK [2][-]{subsection.5.7}{Selecting Filters}{section.5}% 113
+\BOOKMARK [2][-]{subsection.5.8}{Fitting Priors}{section.5}% 114
+\BOOKMARK [2][-]{subsection.5.9}{Selecting an Efficiency Map for a Fitting Prior}{section.5}% 115
+\BOOKMARK [2][-]{subsection.5.10}{Plot Utilities}{section.5}% 116
+\BOOKMARK [3][-]{subsubsection.5.10.1}{Viewing Lightcurve Fits }{subsection.5.10}% 117
+\BOOKMARK [3][-]{subsubsection.5.10.2}{ovdatamc.py : Plot Utility for Data/MC Overlays}{subsection.5.10}% 118
+\BOOKMARK [2][-]{subsection.5.11}{Tracking SN versus Cuts}{section.5}% 119
+\BOOKMARK [2][-]{subsection.5.12}{PhotoZ Fits}{section.5}% 120
+\BOOKMARK [3][-]{subsubsection.5.12.1}{Redshift-Dependent Selection in PhotoZ Fits}{subsection.5.12}% 121
+\BOOKMARK [3][-]{subsubsection.5.12.2}{Initial Parameter Estimate}{subsection.5.12}% 122
+\BOOKMARK [3][-]{subsubsection.5.12.3}{Smooth Model Error Transition Across Filter Boundaries}{subsection.5.12}% 123
+\BOOKMARK [3][-]{subsubsection.5.12.4}{Don't Fool Yourself when PhotoZ-Fitting Simulations}{subsection.5.12}% 124
+\BOOKMARK [3][-]{subsubsection.5.12.5}{Including the log\(\) Term in the 2 }{subsection.5.12}% 125
+\BOOKMARK [3][-]{subsubsection.5.12.6}{Avoiding Filter Drop-outs at High PhotoZ}{subsection.5.12}% 126
+\BOOKMARK [3][-]{subsubsection.5.12.7}{4-Parameter Fit Using Host Galaxy Photo-z }{subsection.5.12}% 127
+\BOOKMARK [2][-]{subsection.5.13}{Excluding/Downweighting Filters and Epoch Ranges}{section.5}% 128
+\BOOKMARK [2][-]{subsection.5.14}{Rest-Frame Wavelength Range}{section.5}% 129
+\BOOKMARK [2][-]{subsection.5.15}{Better peak Flux Estimate}{section.5}% 130
+\BOOKMARK [2][-]{subsection.5.16}{Landolt \040Bessell Color Transformations}{section.5}% 131
+\BOOKMARK [2][-]{subsection.5.17}{Interpolating Fluxes and Magnitudes}{section.5}% 132
+\BOOKMARK [2][-]{subsection.5.18}{Fitting Rest-Frame Peak-Magnitudes and Colors}{section.5}% 133
+\BOOKMARK [2][-]{subsection.5.19}{Peak-Mag Crosschecks: FITMAGDIF}{section.5}% 134
+\BOOKMARK [2][-]{subsection.5.20}{Selecting SNID\(s\), Field\(s\), and Telescope\(s\) }{section.5}% 135
+\BOOKMARK [3][-]{subsubsection.5.20.1}{Selecting/Ignoring SNID}{subsection.5.20}% 136
+\BOOKMARK [3][-]{subsubsection.5.20.2}{Selecting SNID List with Command Line Override}{subsection.5.20}% 137
+\BOOKMARK [3][-]{subsubsection.5.20.3}{Selecting Fields and Overlapping Fields}{subsection.5.20}% 138
+\BOOKMARK [3][-]{subsubsection.5.20.4}{Selecting MJD Ranges}{subsection.5.20}% 139
+\BOOKMARK [3][-]{subsubsection.5.20.5}{Quickly Analyzing a few SNe from a Large Sample}{subsection.5.20}% 140
+\BOOKMARK [2][-]{subsection.5.21}{Mag-Shifts in Zero Points and Primary Reference Star }{section.5}% 141
+\BOOKMARK [2][-]{subsection.5.22}{Fudging the FLUXCAL Offsets and Uncertainties}{section.5}% 142
+\BOOKMARK [2][-]{subsection.5.23}{Updating the Filter Transmission for each SN}{section.5}% 143
+\BOOKMARK [2][-]{subsection.5.24}{Shifting the Mean Filter Transmission Wavelength}{section.5}% 144
+\BOOKMARK [2][-]{subsection.5.25}{Monitoring Fit-Jobs with ``grep'' }{section.5}% 145
+\BOOKMARK [2][-]{subsection.5.26}{User SN Tags }{section.5}% 146
+\BOOKMARK [2][-]{subsection.5.27}{Over-Riding Information in Data Files}{section.5}% 147
+\BOOKMARK [3][-]{subsubsection.5.27.1}{Over-Riding Header Information}{subsection.5.27}% 148
+\BOOKMARK [3][-]{subsubsection.5.27.2}{Epoch-Dependent Mag Corrections}{subsection.5.27}% 149
+\BOOKMARK [2][-]{subsection.5.28}{Peculiar Velocity Corrections }{section.5}% 150
+\BOOKMARK [2][-]{subsection.5.29}{SIMCHI2\137CHEAT }{section.5}% 151
+\BOOKMARK [2][-]{subsection.5.30}{Cuts on true SIM\137XXX Parameters}{section.5}% 152
+\BOOKMARK [2][-]{subsection.5.31}{IDEAL Fits with True Flux \(Sim only\) }{section.5}% 153
+\BOOKMARK [1][-]{section.6}{Private Options}{}% 154
+\BOOKMARK [2][-]{subsection.6.1}{Creating Your Private Code }{section.6}% 155
+\BOOKMARK [2][-]{subsection.6.2}{Private Sim Path: PATH\137SNDATA\137SIM }{section.6}% 156
+\BOOKMARK [2][-]{subsection.6.3}{Private Data Path for Analysis: PRIVATE\137DATA\137PATH }{section.6}% 157
+\BOOKMARK [2][-]{subsection.6.4}{Private Model-Path: \044SNANA\137MODELPATH }{section.6}% 158
+\BOOKMARK [2][-]{subsection.6.5}{Private Variables in Data Files}{section.6}% 159
+\BOOKMARK [3][-]{subsubsection.6.5.1}{CUTWIN-selection on Private Variables}{subsection.6.5}% 160
+\BOOKMARK [1][-]{section.7}{Adding a New Survey }{}% 161
+\BOOKMARK [2][-]{subsection.7.1}{Filter Names and Rules for K-corrections}{section.7}% 162
+\BOOKMARK [2][-]{subsection.7.2}{Combining Surveys}{section.7}% 163
+\BOOKMARK [1][-]{section.8}{Photometric Classification }{}% 164
+\BOOKMARK [2][-]{subsection.8.1}{psnid.exe}{section.8}% 165
+\BOOKMARK [3][-]{subsubsection.8.1.1}{Preparing Photometric Templates for psnid.exe}{subsection.8.1}% 166
+\BOOKMARK [3][-]{subsubsection.8.1.2}{Redshift Priors for psnid.exe}{subsection.8.1}% 167
+\BOOKMARK [3][-]{subsubsection.8.1.3}{Rate Priors for psnid.exe}{subsection.8.1}% 168
+\BOOKMARK [2][-]{subsection.8.2}{Nearest Neighbor Method}{section.8}% 169
+\BOOKMARK [1][-]{section.9}{Light Curve Models}{}% 170
+\BOOKMARK [2][-]{subsection.9.1}{Host Galaxy Extinction}{section.9}% 171
+\BOOKMARK [2][-]{subsection.9.2}{MLCS2k2}{section.9}% 172
+\BOOKMARK [2][-]{subsection.9.3}{salt-ii \(J. Guy et al., A\046A 466, 11, 2007\) }{section.9}% 173
+\BOOKMARK [3][-]{subsubsection.9.3.1}{Simulating ,, Grid for SALT2mu/BBC }{subsection.9.3}% 174
+\BOOKMARK [3][-]{subsubsection.9.3.2}{Propagating Calibration Systematics from SALT2 Training}{subsection.9.3}% 175
+\BOOKMARK [2][-]{subsection.9.4}{SNooPy}{section.9}% 176
+\BOOKMARK [2][-]{subsection.9.5}{SIMSED}{section.9}% 177
+\BOOKMARK [2][-]{subsection.9.6}{NONIASED}{section.9}% 178
+\BOOKMARK [3][-]{subsubsection.9.6.1}{Peculiar SNIa}{subsection.9.6}% 179
+\BOOKMARK [2][-]{subsection.9.7}{NON1AGRID}{section.9}% 180
+\BOOKMARK [2][-]{subsection.9.8}{FIXMAG and RANMAG}{section.9}% 181
+\BOOKMARK [2][-]{subsection.9.9}{SIMLIB: Read True Mags from SIMLIB File}{section.9}% 182
+\BOOKMARK [2][-]{subsection.9.10}{LCLIB: Galactic Transients}{section.9}% 183
+\BOOKMARK [3][-]{subsubsection.9.10.1}{Overview}{subsection.9.10}% 184
+\BOOKMARK [3][-]{subsubsection.9.10.2}{Defining the Library}{subsection.9.10}% 185
+\BOOKMARK [3][-]{subsubsection.9.10.3}{ Implementation }{subsection.9.10}% 186
+\BOOKMARK [3][-]{subsubsection.9.10.4}{GENMODEL\137MSKOPT Options}{subsection.9.10}% 187
+\BOOKMARK [1][-]{section.10}{Computing Distance Moduli from BBC Method: SALT2mu.exe }{}% 188
+\BOOKMARK [2][-]{subsection.10.1}{Catenating FITRES Files from Multiple Samples}{section.10}% 189
+\BOOKMARK [2][-]{subsection.10.2}{Blinding BBC Output from SALT2mu.exe }{section.10}% 190
+\BOOKMARK [1][-]{section.11}{Cosmology Fitters}{}% 191
+\BOOKMARK [2][-]{subsection.11.1}{Interpreting Redshift Variables in SNANA Tables}{section.11}% 192
+\BOOKMARK [2][-]{subsection.11.2}{Peculiar Velocity Covariances}{section.11}% 193
+\BOOKMARK [1][-]{section.12}{Miscellaneous Tools and Features}{}% 194
+\BOOKMARK [2][-]{subsection.12.1}{Analysis-Output: Files, Tables, Variables }{section.12}% 195
+\BOOKMARK [3][-]{subsubsection.12.1.1}{Combining Ascii ``Fitres'' Files: combine\137fitres.exe}{subsection.12.1}% 196
+\BOOKMARK [3][-]{subsubsection.12.1.2}{SNTABLE Dump Utility: sntable\137dump.pl }{subsection.12.1}% 197
+\BOOKMARK [3][-]{subsubsection.12.1.3}{Extract Value from Fitres File: get\137fitresValue.pl}{subsection.12.1}% 198
+\BOOKMARK [3][-]{subsubsection.12.1.4}{Working with IAUC names}{subsection.12.1}% 199
+\BOOKMARK [3][-]{subsubsection.12.1.5}{MARZ Format for Spectra}{subsection.12.1}% 200
+\BOOKMARK [2][-]{subsection.12.2}{General Misc. Tools}{section.12}% 201
+\BOOKMARK [3][-]{subsubsection.12.2.1}{Batch Submit Script: submit\137batch\137jobs.sh}{subsection.12.2}% 202
+\BOOKMARK [3][-]{subsubsection.12.2.2}{List Valid Input Keys}{subsection.12.2}% 203
+\BOOKMARK [3][-]{subsubsection.12.2.3}{Command-line Overrides}{subsection.12.2}% 204
+\BOOKMARK [3][-]{subsubsection.12.2.4}{Bug-Catcher: the SNANA\137tester Script }{subsection.12.2}% 205
+\BOOKMARK [3][-]{subsubsection.12.2.5}{Write List of Rejected Epochs}{subsection.12.2}% 206
+\BOOKMARK [3][-]{subsubsection.12.2.6}{Restoring Bugs}{subsection.12.2}% 207
+\BOOKMARK [3][-]{subsubsection.12.2.7}{Crosscheck zhelzcmb in Data Files}{subsection.12.2}% 208
+\BOOKMARK [3][-]{subsubsection.12.2.8}{K-correction Dump Utility: kcordump.exe}{subsection.12.2}% 209
+\BOOKMARK [2][-]{subsection.12.3}{Misc. Simulation Tools}{section.12}% 210
+\BOOKMARK [3][-]{subsubsection.12.3.1}{DASHBOARD Utility}{subsection.12.3}% 211
+\BOOKMARK [3][-]{subsubsection.12.3.2}{Co-Adding SIMLIB Observations on Same Night: simlib\137coadd.exe }{subsection.12.3}% 212
+\BOOKMARK [3][-]{subsubsection.12.3.3}{Creating a SIMLIB from Data}{subsection.12.3}% 213
+\BOOKMARK [3][-]{subsubsection.12.3.4}{Fudging Simulated Errors and Signal-to-Noise Ratio \(S/N\) }{subsection.12.3}% 214
+\BOOKMARK [2][-]{subsection.12.4}{Misc. Fitting Tools}{section.12}% 215
+\BOOKMARK [3][-]{subsubsection.12.4.1}{Translating SNDATA files into SALT-II Format}{subsection.12.4}% 216
+\BOOKMARK [3][-]{subsubsection.12.4.2}{Translating TEXT data-files into FITS Format; and vice-versa}{subsection.12.4}% 217
+\BOOKMARK [3][-]{subsubsection.12.4.3}{Re-write Data Files with Flux Fudges}{subsection.12.4}% 218
+\BOOKMARK [3][-]{subsubsection.12.4.4}{Fudging Fitting Errors}{subsection.12.4}% 219
+\BOOKMARK [3][-]{subsubsection.12.4.5}{1/Vmax Method: Post-Fit Calculations}{subsection.12.4}% 220
+\BOOKMARK [3][-]{subsubsection.12.4.6}{FILTER\137REPLACE}{subsection.12.4}% 221
+\BOOKMARK [3][-]{subsubsection.12.4.7}{SNTABLE\137FILTER\137REMAP}{subsection.12.4}% 222
+\BOOKMARK [3][-]{subsubsection.12.4.8}{Selecting Early Epochs}{subsection.12.4}% 223
+\BOOKMARK [3][-]{subsubsection.12.4.9}{Selecting Epoch Ranges for Fast Transients \(REQUIRE\137EPOCHS\137STRING\) }{subsection.12.4}% 224
+\BOOKMARK [3][-]{subsubsection.12.4.10}{Rejecting Outlier Fluxes for Fakes and SIM}{subsection.12.4}% 225
+\BOOKMARK [3][-]{subsubsection.12.4.11}{Miscellaneous \046SNLCINP Options}{subsection.12.4}% 226
+\BOOKMARK [2][-]{subsection.12.5}{Misc. SIMSED Utilities}{section.12}% 227
+\BOOKMARK [3][-]{subsubsection.12.5.1}{SIMSED Spectrum Extraction: SIMSED\137extractSpec.exe }{subsection.12.5}% 228
+\BOOKMARK [3][-]{subsubsection.12.5.2}{SIMSED Fudge Afterburner: SIMSED\137fudge.exe }{subsection.12.5}% 229
+\BOOKMARK [3][-]{subsubsection.12.5.3}{SIMSED Preparation for SNANA: SIMSED\137prep.exe }{subsection.12.5}% 230
+\BOOKMARK [2][-]{subsection.12.6}{ Reading gzip'ed Input Files }{section.12}% 231
+\BOOKMARK [2][-]{subsection.12.7}{ Program Return Codes }{section.12}% 232
+\BOOKMARK [1][-]{section.13}{SNANA Updates}{}% 233
+\BOOKMARK [1][-]{section.14}{Reporting Problems}{}% 234
+\BOOKMARK [1][-]{section.14}{References}{}% 235

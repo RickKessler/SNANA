@@ -19558,7 +19558,7 @@ void  setz_unconfirmed(void) {
       GENLC.REDSHIFT_SMEAR_ERR   = -9.0 ;
     } 
     else {
-      // use zPHOT  here if it is defined
+      // use host zPHOT  here if it is defined
       GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_HOSTPHOT ; 
       GENLC.REDSHIFT_HELIO_SMEAR = ZPHOT ;
       GENLC.REDSHIFT_SMEAR_ERR   = ZPHOT_ERR ;

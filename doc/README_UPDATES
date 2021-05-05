@@ -19860,6 +19860,7 @@
      + MXOBS_SIMLIB -> 10000 (was 5k) to handle more synthetic bands
      + several fixes to revive synthetic filters from SPECTROGRAPH
      + abort on NaN in HOSTLIB
+     + restore parsing +HOSTMAGS and +HOSTNBR (got lost in v10_78 refactor)
 
    sntools_host.c
      + add abort trap if magobs is NaN 

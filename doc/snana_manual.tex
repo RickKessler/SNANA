@@ -4266,7 +4266,7 @@ the z-norm term.
 
 % ------------------------------------
 \clearpage
-\subsubsection{Synthetic Host Magnitudes ({\tt +HOSTMAGS})}
+\subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}
 \label{sss:hostlib_synmag}
 % ------------------------------------
 
@@ -4285,7 +4285,7 @@ compute additional Poisson noise, and model analmolous
 flux-scatter as a function of local surface brightness.
 
 % ------------------------------------
-\subsubsection{Generate List of Host Neighbors ({\tt +HOSTNBR})}
+\subsubsection{Generate List of \hostlib\ Neighbors ({\tt +HOSTNBR})}
 \label{sss:hostlib_NBR}
 % ------------------------------------
 
@@ -4296,9 +4296,9 @@ For a \hostlib\ that includes sky coordinates, a supplemental
 column with a comma-separated list of neighbors can be created with
 %
 \begin{verbatim}
-   snlc_sim.exe <iputFile> +HOSTNBR
+   snlc_sim.exe <inputFile> +HOSTNBR
            or
-   snlc_sim.exe <iputFile> +HOSTNBR   SEPNBR_MAX 10.0  NNBR_WRITE_MAX 10
+   snlc_sim.exe <inputFile> +HOSTNBR   SEPNBR_MAX 10.0  NNBR_WRITE_MAX 10
 \end{verbatim}
 %
 The optional arguments are 
@@ -4338,6 +4338,23 @@ tables (\S\ref{subsec:anavar}) using
 \begin{verbatim}
        SNTABLE_LIST = 'SNANA(text:host) FITRES(text:host)'
 \end{verbatim}
+
+% ------------------------------------
+\subsubsection{Append Arbitray Columns to {\tt HOSTLIB} ({\tt +HOSTAPPEND})}
+\label{sss:hostlib_append}
+% ------------------------------------
+
+Contents from a supplemental \hostlib\ file can be appended to a
+primary \hostlib\ with
+\begin{verbatim}
+   snlc_sim.exe <inputFile>  +HOSTAPPEND  <hostlib_append_file>
+\end{verbatim} 
+The supplemental {\tt hostlib\_append\_file} must include a
+{\tt VARNAMES} key that begins with {\tt GALID}, and the
+{\tt GALID} values should match those in the primary \hostlib.
+Each row should begin with ``{\tt GAL:}'' key. 
+The sim program ends after writing a new \hostlib,
+and warnings are printed for the number of missing GALIDs.
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }

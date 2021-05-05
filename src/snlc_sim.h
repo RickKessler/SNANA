@@ -446,8 +446,10 @@ struct INPUTS {
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
   int  NJOBTOT;     // idem, for submit_batch_jobs.py 
 
-  int  HOSTLIB_USE ;            // 1=> used; 0 => not used (internal)
+  int  HOSTLIB_USE ;            // 1=> used; 0 => not used, 2=>rewrite HOSTLIB
+  char HOSTLIB_PLUS_COMMAND[60];        //e.g., +HOSTMAGS, +HOSTNBR, +HOSTAPPEND
   char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
+  char HOSTLIB_APPEND_FILE[MXPATHLEN];  // argument of +APPEND
   char HOSTLIB_WGTMAP_FILE[MXPATHLEN];  // optional wgtmap override
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
@@ -1944,6 +1946,7 @@ void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
+void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );

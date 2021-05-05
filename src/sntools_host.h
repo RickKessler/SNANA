@@ -48,8 +48,10 @@
 #define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info during init
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 #define HOSTLIB_MSKOPT_DUMPROW    2048 // DUMP 1 row per host for parsing
-#define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
-#define HOSTLIB_MSKOPT_PLUSNBR 16384  // append list of neighbors to HOSTLIB
+
+#define HOSTLIB_MSKOPT_APPEND     4096  // append columns from file
+#define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & write host mags from host spectra
+#define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
@@ -684,6 +686,8 @@ void   rewrite_HOSTLIB_plusNbr(void) ;
 void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
 void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+
+void   rewrite_HOSTLIB_plusAppend(char *append_file);
 
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 

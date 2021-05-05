@@ -201,12 +201,8 @@ int main(int argc, char **argv) {
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
 
-  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
-    { rewrite_HOSTLIB_plusMags(); }
-
-
-  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
-    { rewrite_HOSTLIB_plusNbr(); }
+  // check options to rewrite hostlib and quit
+  rewrite_HOSTLIB_DRIVER();
 
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
@@ -1000,6 +996,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
   sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
+  INPUTS.HOSTLIB_PLUS_COMMAND[0]  = 0 ;
 
   INPUTS.HOSTLIB_USE    = 0;
   INPUTS.HOSTLIB_MSKOPT = 0;
@@ -1032,14 +1029,6 @@ void set_user_defaults(void) {
   init_GENPOLY(&INPUTS.HOSTLIB_GENPOLY_DZTOL);
   parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
   
-  /* xxx mark delete 
-  else {
-    INPUTS.HOSTLIB_DZTOL[0] = 0.002 ; 
-    INPUTS.HOSTLIB_DZTOL[1] = 0.040 ; 
-    INPUTS.HOSTLIB_DZTOL[2] = 0.0   ; 
-  }
-  xxxx */
-
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
   INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
@@ -1401,6 +1390,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
+  bool ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   FILE *fpNull = NULL ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
@@ -1408,6 +1398,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // ------------- BEGIN -----------
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
+
+  ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
+		   strstr(WORDS[0],"+HOST") != NULL );
+  ISKEY_SIMLIB  = (strstr(WORDS[0],"SIMLIB_") != NULL );
+
+  ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
+		   strstr(WORDS[0],"DNDB") != NULL  ) ;
 
   if ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
        keyMatchSim(2, "INPUT_INCLUDE_FILE", WORDS[0], keySource) ) {
@@ -1448,7 +1445,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     INPUTS.RESTORE_WRONG_VPEC = ( ITMP > 0 );
   }
-  else if ( strstr(WORDS[0],"HOSTLIB_") != NULL ) {
+  else if ( ISKEY_HOSTLIB ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
   }
   // - - - - -
@@ -1502,7 +1499,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.NONLINEARITY_FILE );
   }
   // - - - - -
-  else if ( strstr(WORDS[0],"SIMLIB_") != NULL ) {
+  else if ( ISKEY_SIMLIB ) {
     N += parse_input_SIMLIB(WORDS, keySource);
   }
   // - - - - 
@@ -1657,8 +1654,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RANLIST_START_GENSMEAR );
   }
   // - - - - DNDZ stuff - - - - 
-  else if ( strstr(WORDS[0],"DNDZ") != NULL || 
-	    strstr(WORDS[0],"DNDB") != NULL  ) {   
+  else if ( ISKEY_RATE ) {
     N += parse_input_RATEPAR(WORDS, keySource, "NOMINAL",
 			     &INPUTS.RATEPAR);
     N += parse_input_RATEPAR(WORDS, keySource, "PEC1A",  
@@ -2953,6 +2949,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // parse keys starting with HOSTLIB
   // Oct 16 2020: check IGNOREFILE(HOSTLIB_FILE)
   // Dec 02 2020: fix bug setting MSKOPT to allow command-line override.
+  // May 04 2021: restore +HOSTMAGS and +HOSTNBR 
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -2982,8 +2979,31 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT );
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    // xxx mark delete  INPUTS.HOSTLIB_MSKOPT |= ITMP;
   }
+
+  //.xyz
+  else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+    N++ ;
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
+  }
+  else if ( keyMatchSim( 1, "+HOSTNBR", WORDS[0], keySource ) ) {
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
+    N++ ;
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
+  }
+  else if ( keyMatchSim( 1, "+HOSTAPPEND", WORDS[0], keySource ) ) {
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ;
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_APPEND_FILE );
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    INPUTS.HOSTLIB_USE = 2; // set rewrite flag
+    sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
+  }
+
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
     for(j=0; j < 4; j++ )  {
@@ -8064,6 +8084,25 @@ void  init_genSpec(void) {
 
 } // end init_genSpec
 
+
+// *****************************************************
+void rewrite_HOSTLIB_DRIVER(void) {
+
+  char fnam[] = "rewrite_HOSTLIB_DRIVER" ;
+
+  // ------------- BEGIN -------------
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
+    { rewrite_HOSTLIB_plusMags(); }
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
+    { rewrite_HOSTLIB_plusNbr(); }
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_APPEND )>0 ) 
+    { rewrite_HOSTLIB_plusAppend(INPUTS.HOSTLIB_APPEND_FILE); }
+
+} // end rewrite_HOSTLIB_DRIVER
+
 // *****************************************************
 void GENSPEC_DRIVER(void) {
 
@@ -9556,6 +9595,7 @@ void gen_event_driver(int ilc) {
     SIMLIB_READ_DRIVER();
 
     GENLC.CID   = GENLC.CIDOFF + ilc ; 
+
     if ( GENLC.NEPOCH < NEPMIN ) { return ; }
 
     GENLC.REDSHIFT_HELIO = gen_redshift_helio(); // needs RA,DEC from SIMLIB
@@ -10346,6 +10386,7 @@ void gen_filtmap(int ilc) {
       continue ;
     }
 
+
     // check if this filter is valid for SALT2/SIMSED model in observer-frame.
     if ( INDEX_GENMODEL == MODEL_SALT2  || 
 	 INDEX_GENMODEL == MODEL_SIMSED	||
@@ -10397,7 +10438,7 @@ void gen_filtmap(int ilc) {
     // if DOFILT logical is still set, then update the
     // valid redshift range for this obs-filter.
 
-    if ( GENLC.DOFILT[ifilt_obs] == 1 ) {
+    if ( GENLC.DOFILT[ifilt_obs]  ) {
       ztmp = ZVALID_FILTER[0][ifilt_obs] ;
       if ( z  < ztmp ) { ZVALID_FILTER[0][ifilt_obs] = z; }
 
@@ -10406,6 +10447,7 @@ void gen_filtmap(int ilc) {
 
       ALLSKIP = 0;  // at least one simulated epoch
     }
+
 
   }  // ifilt/ifilt_obs loop
 
@@ -10423,8 +10465,6 @@ void gen_filtmap(int ilc) {
 
     NGEN_ALLSKIP++ ; // checked in simEnd().
   }
-
-
 
 
   // Dec 22 2019: if any filter was excluded, set ISOBS[ep]=0
@@ -22990,7 +23030,7 @@ void set_GENFLUX_FLAGS(int epoch) {
   int  ifilt_obs, indx;
   bool IS_ERRPOS, IS_UNDEFINED, IS_SATURATE ;
   double obsmag, genmag, fluxerr;
-  //  char fnam[] = "set_GENFLUX_FLAGS" ;
+  char fnam[] = "set_GENFLUX_FLAGS" ;
 
   // ---------- BEGIN -------------
 
@@ -23002,7 +23042,8 @@ void set_GENFLUX_FLAGS(int epoch) {
   IS_ERRPOS    = (fluxerr > 0 );
   IS_UNDEFINED = (genmag == MAG_UNDEFINED) ; // model undefined
   IS_SATURATE  = (obsmag == MAG_SATURATE ) ;    
-  
+
+
   if ( IS_UNDEFINED ) 
     { GENLC.NOBS_UNDEFINED++ ; } // model is undefined 
   
@@ -26552,8 +26593,6 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //  + call wr_SIMGEN_DUMP after snlc_to_SNDATA to allow for
   //    things like PEAKMJD_SMEAR
 
-  int  LEGACY_WRITE_TEXT = !INPUTS.OPT_DEVEL_WRITE_TEXT;
-
   int  CID    ;
   char fnam[] = "update_simFiles";
 
@@ -26600,22 +26639,8 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // below are the text-output options
 
-  /* xxxxxxxxxxxxx mark delete Apr 2 2021 xxxx
-  if ( LEGACY_WRITE_TEXT ) {
-    int NEWMJD ;
-    NEWMJD = SNDATA.NEWMJD ; // save NEWMJD value
-    SNDATA.NEWMJD = 0; 
-    // alawys write header, and write NEWMJD epochs if verbose format 
-    wr_SNDATA ( INPUTS.WRITE_MASK, 0 );
-    SNDATA.NEWMJD = NEWMJD ;   // restore NEWMJD
-
-    append_SNPHOT_TEXT() ; 
-    append_SNSPEC_TEXT() ;   // July 2016
-  }
-  xxxxxxxxxxx end mark xxxxxxxxx */
-
   // update LIST file
-  fprintf(SIMFILE_AUX->FP_LIST,"%s\n", SNDATA.snfile_output);
+  fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
 
   return ;
 

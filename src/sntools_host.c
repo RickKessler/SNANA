@@ -850,6 +850,18 @@ void open_HOSTLIB(FILE **fp) {
 		       PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE, fnam);
   }
 
+  // May 2021
+  // if re-writing hostlib, input host lib cannot be gzipped.
+  // Reading gzipped file once is fine, but for rewrite need to 'rewind'
+  // by closing and re-opening, which isn't robust. The rewind is needed
+  // to capture first GAL key that is normally skipped after reading header.
+  bool DO_REWRITE = ( INPUTS.HOSTLIB_USE==2 );
+  if ( DO_REWRITE && HOSTLIB.GZIPFLAG ) {
+    sprintf(c1err,"Cannot rewrite a gzipped HOSTLIB;");
+    sprintf(c2err,"Unzip HOSTLIB for %s ", INPUTS.HOSTLIB_PLUS_COMMAND);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
   sprintf(HOSTLIB.FILENAME , "%s", libname_full );
   printf("\t Reading %s \n", libname_full );
   fflush(stdout);
@@ -1865,6 +1877,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // May 23 2020: 
   //   + read option VPEC_ERR
   //   + add error checking based on MSKOPT
+  //
 
   int MXCHAR    = MXCHAR_LINE_HOSTLIB ;
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
@@ -1891,8 +1904,8 @@ void read_head_HOSTLIB(FILE *fp) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // stop reading when first GAL: key is reached.
-    if ( strcmp(c_get,"GAL:") == 0 )  { 
-      // for later: snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
+    if ( strcmp(c_get,"GAL:") == 0 )  {
+      // not working snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
       fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
       goto VARCHECK ; 
     }
@@ -2464,6 +2477,10 @@ int passCuts_HOSTLIB(double *xval ) {
 
   // ---------- BEGIN ---------
 
+  // bail for any option to rewrite HOSTLIB with appended columns
+  if ( INPUTS.HOSTLIB_USE == 2 ) { return(1); }
+
+  /* xxxxx mark delete May 4 2021 xxxxxxx
   // if computing host mags, do not apply cuts
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { return(1); }
@@ -2471,6 +2488,11 @@ int passCuts_HOSTLIB(double *xval ) {
   // ditto for HOST neighbors
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
     { return(1); }
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_APPEND)>0 ) 
+    { return(1); }
+    xxxxxxxxxxx end mark xxxxxxxxx  */
+
 
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 
@@ -7632,11 +7654,12 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // generic utility to rewrite HOSTLIB using information
-  // Passed here vias HOSTLIB_APPEND.
+  // Passed here via *HOSTLIB_APPEND.
   // 
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
+  int  gzipFlag;
   char *VARNAMES     = HOSTLIB_APPEND->VARNAMES_APPEND ;
 
   FILE *FP_ORIG, *FP_NEW;
@@ -7646,15 +7669,18 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // -------------- BEGIN --------------
 
-  // create name of new hostlib file
+  // create local string with name of HOSTLIB
   sprintf(HLIB_TMP,"%s%s", HLIB_ORIG, SUFFIX ); 
 
   // remove path from HLIB_NEW to ensure that new file is created
   // locally and not in somebody else's directory.
   extract_MODELNAME(HLIB_TMP, DUMPATH, HLIB_NEW);
-
-  FP_ORIG = fopen(HLIB_ORIG,"rt");
+  
+  // xxx mark  FP_ORIG = fopen(HLIB_ORIG,"rt");
+  FP_ORIG = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, "", 
+			       HLIB_ORIG, HLIB_TMP, &gzipFlag);
   FP_NEW  = fopen(HLIB_NEW, "wt");
+
   if ( !FP_ORIG ) {
     sprintf(c1err,"Could not open original HOSTLIB_FILE");
     sprintf(c2err,"'%s' ", HLIB_ORIG);
@@ -7675,7 +7701,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   fprintf(FP_NEW,"# \n");
   fprintf(FP_NEW,"# Below are original HOSTLIB comments and table\n");
-  fprintf(FP_NEW,"# with NBR_LIST column appended.\n");
+  fprintf(FP_NEW,"# with %s column(s) appended.\n", VARNAMES);
   fprintf(FP_NEW,"# - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   fprintf(FP_NEW,"# \n");
 
@@ -7683,7 +7709,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // read each original line
 
   long long GALID, GALID_orig ;
-  int   igal_unsort, igal_zsort, ivar, NWD_LINE;
+  int   igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
   char *LINE, *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
 
   LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
@@ -7704,12 +7730,14 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
       else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
 
+	NLINE_GAL++ ;
+
 	// make sure GALID matches
-	ivar       = HOSTLIB.IVAR_GALID;
-	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+	ivar       = HOSTLIB.IVAR_GALID ;
+	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort] ;
 	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
 
-	get_PARSE_WORD(0, 1, NEXTWORD); // read GALID
+	get_PARSE_WORD(0, 1, NEXTWORD);    // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
 	if ( GALID != GALID_orig ) {
 	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
@@ -7718,7 +7746,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
 
-	sprintf(LINE_APPEND, HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
+	sprintf(LINE_APPEND,"%s",HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
 
 	/* xxx
 	for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
@@ -7737,6 +7765,8 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
 
   fclose(FP_ORIG); fclose(FP_NEW);
+  printf("  Wrote %d GAL rows\n", NLINE_GAL);
+  fflush(stdout);
 
   return ;
 
@@ -8118,7 +8148,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // write out monitor info
   monitor_HOSTLIB_plusNbr(1,&HOSTLIB_APPEND);
 
-  // exectute re-write
+  // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
 
   exit(0);
@@ -8343,3 +8373,91 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   return ;
 
 } // end monitor_HOSTLIB_plusNbr
+
+// **************************************************
+void rewrite_HOSTLIB_plusAppend(char *append_file) {
+
+  // May 4 2021
+  // Read columns in *append_file, and append to original HOSTLIB.
+  // 
+
+  int NGAL        = HOSTLIB.NGAL_STORE;
+  HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
+  int  NROW, NVAR_APPEND, ivar ;
+  int  optMask       = 1 ;
+  int  NMISSING      = 0;
+  char tableName[]   = "HOSTLIB" ;
+  char KEY_ALLVAR[]  = "ALL" ;
+  char *varName, varList[100], *LINE_APPEND ;
+  char fnam[]      = "rewrite_HOSTLIB_plusAppend" ;
+
+  // ------------- BEGIN -------------
+
+  print_banner(fnam);
+
+  // read append file
+  NROW = SNTABLE_AUTOSTORE_INIT(append_file, tableName, KEY_ALLVAR, optMask);
+  NVAR_APPEND = READTABLE_POINTERS.NVAR_TOT; 
+
+  malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
+  LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
+
+  varList[0] = 0;
+  for( ivar = 1 ; ivar < NVAR_APPEND; ivar++ ) {
+    varName = READTABLE_POINTERS.VARNAME[ivar];
+    strcat(varList,varName);
+    strcat(varList," ");
+  }
+
+
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "%s", varList);
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+APPEND");
+
+  // .xyz
+  
+  int  igal_unsort, igal_zsort, istat_read;
+  long long GALID;
+  char cGALID[40], cVAL[40];
+  double dVAL ;
+
+
+  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
+    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+    ivar  = HOSTLIB.IVAR_GALID;
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
+    sprintf(cGALID,"%lld", GALID);
+    
+    LINE_APPEND[0] = 0;
+    for( ivar = 1 ; ivar < NVAR_APPEND; ivar++ ) {
+      varName = READTABLE_POINTERS.VARNAME[ivar];
+      SNTABLE_AUTOSTORE_READ(cGALID, varName, &istat_read, &dVAL, cVAL); 
+      if ( istat_read == 0 ) {
+	sprintf(cVAL, "%.5f ", dVAL);
+      }
+      else {
+	dVAL = -9.0 ;  if ( ivar==1 ) { NMISSING++ ; }
+	sprintf(cVAL, "-9.0 ");
+      }
+      strcat(LINE_APPEND,cVAL);
+    }
+
+    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
+
+  } // end igal
+
+
+  // execute re-write
+  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+ 
+  if ( NMISSING > 0 ) {
+    printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
+	   NMISSING, varList ); 
+    fflush(stdout);
+  }
+
+  exit(0);
+
+  return ;
+
+} // end rewrite_HOSTLIB_plusAppend
+

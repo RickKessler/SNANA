@@ -19861,6 +19861,7 @@
      + several fixes to revive synthetic filters from SPECTROGRAPH
      + abort on NaN in HOSTLIB
      + restore parsing +HOSTMAGS and +HOSTNBR (got lost in v10_78 refactor)
+     + new command-line option +HOSTAPPEND (see manual)
 
    sntools_host.c
      + add abort trap if magobs is NaN 

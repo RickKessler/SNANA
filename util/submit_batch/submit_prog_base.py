@@ -1295,12 +1295,12 @@ class Program:
                 cpu_sum += cpu  # units are minutes, not seconds
 
             cpu_sum *= 60.0/t_unit
-            # xxx mark delete  cpu_avg  = cpu_sum / n_core
             cpu_avg  = cpu_sum / n_core_with_jobs
             eff_cpu  = cpu_avg / t_wall
 
             msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
-            msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
+            msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   " \
+                            f"# CPU/core/T_wall")
 
         return msg_time
 

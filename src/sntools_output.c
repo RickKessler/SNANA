@@ -2013,6 +2013,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
     if ( strcmp(varName,"CCID" ) == 0 ) { continue ; } // avoid duplicate CCID
     if ( strcmp(varName,"ROW"  ) == 0 ) { continue ; } // May 1 2017
     if ( strcmp(varName,"SNID" ) == 0 ) { continue ; } // Mar 13 2021
+    if ( strcmp(varName,"GALID") == 0 ) { continue ; } // May 2021
 
     if ( IVAR_READTABLE_POINTER(varName) < 0 ) { continue ; }
 
@@ -2056,7 +2057,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init each variable with auto-generated memory
   // Tack on CID since user will fetch values based on CID.
-  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C");
+  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C  GALID:C");
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
 

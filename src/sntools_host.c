@@ -1645,9 +1645,10 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   //
   // May 6 2021: check ABMAG_FORCE
 
-  int  NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
-  double ABMAG_FORCE   = INPUTS.HOSTLIB_ABMAG_FORCE;
-  double ABMAG_SCALE   = 1.0/pow(10.0, 0.4*ABMAG_FORCE);
+  int  NBLAM_SPECTRO    = INPUTS_SPECTRO.NBIN_LAM;
+  double ABMAG_FORCE    = INPUTS.HOSTLIB_ABMAG_FORCE;
+  double ABMAG_SCALE    = 1.0/pow(10.0, 0.4*ABMAG_FORCE);
+  bool   DO_ABMAG_FORCE = ( ABMAG_FORCE > -8.0 );
 
   int  NBLAM_BASIS     = HOSTSPEC.NBIN_WAVE; 
   bool IS_SPECBASIS    = HOSTSPEC.ITABLE == ITABLE_SPECBASIS ;
@@ -1655,6 +1656,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   double FLAM_SCALE_POWZ1 = HOSTSPEC.FLAM_SCALE_POWZ1 ;
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
+  if ( DO_ABMAG_FORCE ) { z1 = 1.0 ; }
   double znorm     = pow(z1,FLAM_SCALE_POWZ1) ;
   double hc8       = (double)hc;
 
@@ -1735,9 +1737,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     HOSTSPEC.FLAM_EVT[ilam_basis] = (FLAM_SUM * HOSTSPEC.FLAM_SCALE * znorm);
 
     // May 2021: check force ABMAG (constant, NOT z-dependent)
-    if ( ABMAG_FORCE > 0.0 ) {
+    if ( DO_ABMAG_FORCE ) {
       FLAM_SUM = 3.631E-20 * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
-      HOSTSPEC.FLAM_EVT[ilam_basis] = FLAM_SUM * ABMAG_SCALE / z1 ;
+      HOSTSPEC.FLAM_EVT[ilam_basis] = FLAM_SUM * ABMAG_SCALE ;
     }
 
   } // end ilam_basis
@@ -2628,7 +2630,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
       sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
 
       // check option to force override for gal mags (May 2021)
-      if ( ABMAG_FORCE > 0.01 ) {	
+      if ( ABMAG_FORCE > -8.0 ) {	
 	int lenvar = strlen(varName);
 	int lensuf = strlen(HOSTLIB_MAGOBS_SUFFIX);
 	bool MATCHMAG = ( strstr(varName,HOSTLIB_MAGOBS_SUFFIX) != NULL );

@@ -1031,7 +1031,7 @@ void set_user_defaults(void) {
   
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
-  INPUTS.HOSTLIB_ABMAG_FORCE   =  0.0 ;
+  INPUTS.HOSTLIB_ABMAG_FORCE   = -9.0 ;
   INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
   INPUTS.HOSTLIB_FIXRAN_PHI    = -9;
   INPUTS.HOSTLIB_FIXSERSIC[0]  =  0.0   ; // a

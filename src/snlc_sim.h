@@ -480,6 +480,7 @@ struct INPUTS {
 
   // debug options
   int    HOSTLIB_GALID_FORCE ;    // force this GALID 
+  double HOSTLIB_ABMAG_FORCE ;    // for ABmag on galmag and gal spec
   double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi 
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot

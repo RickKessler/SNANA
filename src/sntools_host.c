@@ -1642,13 +1642,17 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   //  - fraction of galaxy in fiber or slit ? Or does ETC include this ?
   //
   // Call fill_TABLE_MWXT_SEDMODEL
+  //
+  // May 6 2021: check ABMAG_FORCE
 
   int  NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
+  double ABMAG_FORCE   = INPUTS.HOSTLIB_ABMAG_FORCE;
+  double ABMAG_SCALE   = 1.0/pow(10.0, 0.4*ABMAG_FORCE);
+
   int  NBLAM_BASIS     = HOSTSPEC.NBIN_WAVE; 
   bool IS_SPECBASIS    = HOSTSPEC.ITABLE == ITABLE_SPECBASIS ;
   bool IS_SPECDATA     = HOSTSPEC.ITABLE == ITABLE_SPECDATA ;
   double FLAM_SCALE_POWZ1 = HOSTSPEC.FLAM_SCALE_POWZ1 ;
-
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
   double znorm     = pow(z1,FLAM_SCALE_POWZ1) ;
@@ -1730,6 +1734,12 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     // global scale for physical units
     HOSTSPEC.FLAM_EVT[ilam_basis] = (FLAM_SUM * HOSTSPEC.FLAM_SCALE * znorm);
 
+    // May 2021: check force ABMAG (constant, NOT z-dependent)
+    if ( ABMAG_FORCE > 0.0 ) {
+      FLAM_SUM = 3.631E-20 * LIGHT_A / (LAM_BASIS*LAM_BASIS) ;
+      HOSTSPEC.FLAM_EVT[ilam_basis] = FLAM_SUM * ABMAG_SCALE / z1 ;
+    }
+
   } // end ilam_basis
 
 
@@ -1792,7 +1802,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
       if( LAMMIN_TMP > LAMREST_MAX ) { continue ; }
 
       // compute flux contained in this SPECTROGRAPH bin;
-      // i.e. exclude flux that leaks out of thie SPECTROGRAPh bin.
+      // i.e. exclude flux that leaks out of this SPECTROGRAPh bin.
       if ( LAMMIN_TMP < LAMREST_MIN ) { LAMMIN_TMP = LAMREST_MIN; }
       if ( LAMMAX_TMP > LAMREST_MAX ) { LAMMAX_TMP = LAMREST_MAX; }
 
@@ -2525,20 +2535,25 @@ int passCuts_HOSTLIB(double *xval ) {
 void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, 
 			 char *FIELD, char *NBR_LIST ) {
 
-  // Created 9/16.2015
+  // Created 9/16/2015
   // If there is no FIELD key, then read NVAL double from fp.
   // If there is a FIELD key, then read doubles and string separately.
   //
   // Dec 29 2017: use fgets for faster read.
   // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
   // Nov 11 2019: check for NBR_LIST (string), analogous to FIELD check
+  // May 06 2021: 
+  //   + count NaN values (NERR_NAN)
+  //   + check user override of GALMAG (ABMAG_FORCE)
+  //
 
-  int MXCHAR = MXCHAR_LINE_HOSTLIB;
+  int MXCHAR         = MXCHAR_LINE_HOSTLIB;
+  double ABMAG_FORCE = INPUTS.HOSTLIB_ABMAG_FORCE;
   int MXWD = NVAL;
   int ival_FIELD, ival_NBR_LIST, ival, NWD=0, len, NCHAR ;
   char WDLIST[MXVAR_HOSTLIB][40], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
-  char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos ;
+  char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos, *varName ;
   char fnam[] = "read_galRow_HOSTLIB" ;
   // ---------------- BEGIN -----------------
 
@@ -2573,7 +2588,6 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-
   sprintf(FIELD,"NULL"); ival_FIELD = -9;
   if ( HOSTLIB.IVAR_FIELD > 0 ) 
     { ival_FIELD = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_FIELD] ;  }
@@ -2585,6 +2599,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 
   for(ival=0; ival < NVAL; ival++ ) {
     VALUES[ival] = -9.0 ; 
+    varName      = HOSTLIB.VARNAME_ALL[ival] ;
+
     if ( ival == ival_FIELD )  { 
       sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
       if ( len > MXCHAR_FIELDNAME ) {
@@ -2608,13 +2624,23 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
     }
 
     else {
+      // float or int (non-string) value
       sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
+
+      // check option to force override for gal mags (May 2021)
+      if ( ABMAG_FORCE > 0.01 ) {	
+	int lenvar = strlen(varName);
+	int lensuf = strlen(HOSTLIB_MAGOBS_SUFFIX);
+	bool MATCHMAG = ( strstr(varName,HOSTLIB_MAGOBS_SUFFIX) != NULL );
+	if ( MATCHMAG && lenvar == lensuf+1 ) 
+	  { VALUES[ival] = ABMAG_FORCE ; }
+      }
+
+      // check for NaN (NaN abort is after reading entire HOSTLIB)
       if ( isnan(VALUES[ival]) )  {
 	HOSTLIB.NERR_NAN++ ;
-	if ( HOSTLIB.NERR_NAN < 20 ) {
-	  char *varname = HOSTLIB.VARNAME_ALL[ival] ;
-	  printf("\t ERROR: HOSTLIB %s = NaN \n", varname );
-	}
+	if ( HOSTLIB.NERR_NAN < 20 ) 
+	  { printf("\t ERROR: HOSTLIB %s = NaN \n", varName );	}
       }
 
     }

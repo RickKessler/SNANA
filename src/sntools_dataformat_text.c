@@ -729,7 +729,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   
   int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
   int  imjd, ilam ;
-  double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP ;
+  double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
 
   char VARLIST[200], tmpLine[200], cval[40] ;
   char fnam[] = "wr_dataformat_text_SNSPEC" ;
@@ -749,6 +749,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     NVAR++ ; strcat(VARLIST,"SIM_GENFLAM ");
     NVAR++ ; strcat(VARLIST,"SIM_GENMAG ");
     if ( GENSPEC.USE_WARP )  { NVAR++;  strcat(VARLIST,"SIM_WARP "); }
+    NVAR++ ; strcat(VARLIST,"SNR ");  // only for TEXT format, May 2021
   }
 
   // write header info                                                          
@@ -807,16 +808,10 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
       FLAMERR    = GENSPEC.FLAMERR_LIST[imjd][ilam];
 
-      if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values            
+      if ( FLAMERR <= 0.0 ) { continue ; } // skip unphysical values   
       L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
       L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
       LCEN    = 0.5*(L0+L1);
-
-      /* xxxxxxxxx mark delete Apr 2 2021 xxxxxxxxxxx
-      L0      = INPUTS_SPECTRO.LAMMIN_LIST[ilam];
-      L1      = INPUTS_SPECTRO.LAMMAX_LIST[ilam];
-      LCEN    = INPUTS_SPECTRO.LAMAVG_LIST[ilam];
-      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
 
       NVAR = 0; sprintf(tmpLine,"SPEC: ");
       sprintf(cval, "%8.2f ",   L0);       NVAR++ ; strcat(tmpLine,cval);
@@ -835,7 +830,12 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 	  WARP  = GENSPEC.FLAMWARP_LIST[imjd][ilam];
 	  sprintf(cval,"%6.3f ", WARP );
 	  NVAR++ ; strcat(tmpLine,cval);
-	}	  
+	}  
+
+	// write SNR only for sim in TEXT format
+	SNR        = FLAM/FLAMERR ;
+	sprintf(cval, " %.2f ", SNR);   NVAR++ ; strcat(tmpLine,cval);
+
       } // end WRFLAG_SIM
 
       fprintf(fp,"%s \n", tmpLine);

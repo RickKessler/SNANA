@@ -19841,7 +19841,7 @@
 
 
 # ======================================================================= 
-         v11_02m (  ) 
+         v11_02m (May 10 2021) 
 
          ***** IMPORTANT(v11_02m) ***** 
 
@@ -19849,6 +19849,8 @@
     check for both lcmerge/PREFIX_SUFFIX and lcmerge/PREFIX/PREFIX_SUFFIX
 
          ***** USEFUL(v11_02m) ***** 
+
+   sim: +HOSTAPPEND option 
 
          ***** MISCELLANEOUS(v11_02m) ***** 
  

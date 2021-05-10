@@ -381,8 +381,7 @@ struct INPUTS {
 
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
-
-  int  OPT_DEVEL_WRITE_TEXT;  // refactor to write text format
+  int USE_SPECTROGRAPH_REFACTOR ; // handle LSF at bin edges
 
   bool DASHBOARD_DUMPFLAG ;
   bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
@@ -744,7 +743,6 @@ struct INPUTS {
   int   EXPOSURE_TIME_MSKOPT ;   // bits 1,2,3 => scale ZPT, SKYSIG,READNOISE
 
   char KCOR_FILE[MXPATHLEN];        // name of kcor Lookup file
-
 
   // define fudges on seeing conditions
   float FORCEVAL_PSF ;         // force PSF value if > 0

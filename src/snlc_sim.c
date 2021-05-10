@@ -614,7 +614,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_WRITE_TEXT = 1 ;
+  INPUTS.USE_SPECTROGRAPH_REFACTOR = 0;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1428,15 +1428,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; // no argument, but increment word count to avoid command-line abort
   }
 
-  else if ( keyMatchSim(1, "OPT_DEVEL_WRITE_TEXT", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_WRITE_TEXT ) ; 
-  }
-
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
+
+    if ( INPUTS.DEBUG_FLAG == 10 ) { INPUTS.USE_SPECTROGRAPH_REFACTOR = 1; }
+
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -9104,8 +9103,8 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   // over nearby lambda bins.  In each lambda bin, use
   // GenFluxErr to add Poisson noise.
   // Inputs
-  //  + imjd = sparse MJD index for spectra
-  //  + ilam = wavelength index
+  //  + imjd         = sparse MJD index for spectra
+  //  + ilam         = wavelength index
   //  + GenFlux      = flux
   //  + GenFluxErr   = total flux error, including template noise
   //  + GenFluxErr_T = template noise contribution
@@ -9137,6 +9136,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   char fnam[] = "GENSPEC_LAMSMEAR" ;
 
   // ----------- BEGIN ---------------
+
   NBLAM    = INPUTS_SPECTRO.NBIN_LAM ;
 
   LAMAVG   = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
@@ -9153,15 +9153,26 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   ilam_tmp = ilam;  if ( ilam == NBLAM-1 ) { ilam_tmp = NBLAM-2; }
   LAMBIN   = INPUTS_SPECTRO.LAMBIN_LIST[ilam_tmp] ;
 
-  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN) ;  
+  // xxx mark delete May 10 2021  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN)  ;  
+  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN + 0.5) ;  
   SUM_GINT = 0.0 ; 
   NRAN     = 0 ;
+
+  /*
+  if( ilam > NBLAM-6 && imjd==0 ) {
+    printf(" xxx %s: ilam=%d LAMAVG=%7.1f  NBIN2=%d \n",
+	   fnam, ilam, LAMAVG, NBIN2);
+  }
+  //xxxxxxx */
 
   // loop over neighbor bins to smear flux over lambda bins
   for(ilam2=ilam-NBIN2; ilam2 <= ilam+NBIN2; ilam2++ ) {
     if ( ilam2 <  0     ) { continue ; }
     if ( ilam2 >= NBLAM ) { continue ; }
     
+    // don't bother loading extended lambda bins for lam-res
+    if ( INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam2] ) { continue; }    
+
     GINT = 1.0 ;
     if ( LAMSIGMA > 0.0 ) {
       LAMSIG0 = (INPUTS_SPECTRO.LAMMIN_LIST[ilam2]-LAMAVG)/LAMSIGMA ;
@@ -9196,7 +9207,6 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
 	GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = RANGauss_NOISE_TEMPLATE;
       }
 
-
       if ( NSTREAM ==  2 ) 
 	{ GRAN_S = unix_GaussRan(ISTREAM_RAN); }
       else
@@ -9214,11 +9224,11 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
     }
 
     
-    LDMP = (ilam < -5);
+    LDMP = (ilam > NBLAM-6 && imjd == -10 );
     if ( LDMP ) {
       printf(" xxx ilam=%3d(%d)  imjd=%d  noise(S,T) = %10.3le , %10.3le\n",
 	     ilam, ilam2, imjd, tmp_RanFlux_S, tmp_RanFlux_T );
-      printf(" xxx \t (%f, %f) \n", GenFluxErr, GenFluxErr_T  );
+      //      printf(" xxx \t (%f, %f) \n", GenFluxErr, GenFluxErr_T  );
     }
     
     // add noise to true flux
@@ -9226,6 +9236,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
     OBSFLUXERR = tmp_GenFluxErr ; // naive obs-error is true error
 
     // increment sum of obsFlux and sum of error-squared.
+
     GENSPEC.OBSFLUX_LIST[imjd][ilam2]      += OBSFLUX ;  
     GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam2] += (OBSFLUXERR*OBSFLUXERR) ;
     GENSPEC.GENFLUX_LAMSMEAR_LIST[imjd][ilam2] += tmp_GenFlux ;
@@ -21446,7 +21457,12 @@ void init_kcor_legacy(char *kcorFile) {
   }
 
   // check for optional SPECTROGRPH info
-  read_spectrograph_fits(kcorFile) ;   
+  read_spectrograph_fits(kcorFile) ;
+  dump_INPUTS_SPECTRO(4,"");
+
+  if ( INPUTS.USE_SPECTROGRAPH_REFACTOR ) 
+    {  extend_spectrograph_lambins();   }
+
   if ( SPECTROGRAPH_USEFLAG ) {
     printf("   Found %d synthetic spectrograph filters (%s) \n",
 	   GENLC.NFILTDEF_SPECTROGRAPH, GENLC.FILTERLIST_SPECTROGRAPH );
@@ -26637,9 +26653,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     return ;
   }
 
-
-  if ( INPUTS.OPT_DEVEL_WRITE_TEXT ) 
-    {  WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT); }
+  WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
 
   // below are the text-output options
 

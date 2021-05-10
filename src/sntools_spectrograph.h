@@ -4,6 +4,7 @@
 #define MXSPEC                 MXSPECTRA  // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
 #define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
+#define MXLAM_SPECTROGRAPH_EXTEND 20 // max number of extra bins for resolution
 #define MXLAMSMEAR_SPECTROGRAPH 40  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
@@ -37,6 +38,7 @@ struct {
   double *LAMBIN_LIST, *LAMSIGMA_LIST ; // binSize & resolution vs. lambda
   double TEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH] ;    // per expTime bin
   double **SNR0, **SNR1  ;  // per spectro bin & expTime
+  bool   *ISLAM_EXTEND_LIST; // True -> extended lam bin for lam-resulution
 
   int FORMAT_MASK ;  // 1=>LAMCEN only, 2=LAMMIN and LAMMAX
 
@@ -117,6 +119,9 @@ void init_spectrograph(char *inFile, char *stringOpt ) ;
 void parse_spectrograph_options(char *stringOpt) ;
 void read_spectrograph_text(char *inFile) ;
 void read_spectrograph_fits(char *inFile) ;
+void extend_spectrograph_lambins(void);
+void copy_INPUTS_SPECTRO(int ilam0, int ilam1);
+void dump_INPUTS_SPECTRO(int nbin_dump, char *comment);
 int  read_TEXPOSE_LIST(FILE *fp); 
 int  read_SPECBIN_spectrograph(FILE *fp);
 void reset_VALUES_SPECBIN(void) ;

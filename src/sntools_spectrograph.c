@@ -39,15 +39,6 @@
 
 *********************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-*/
-
 #include "fitsio.h"
 #include "sntools.h"
 #include "sntools_spectrograph.h"
@@ -562,10 +553,16 @@ void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) {
 
   // OPT = +1 --> malloc
   // OPT = -1 --> free
-  
-  int  MEML0 = NBIN_LAM     * sizeof(double);
-  int  MEML1 = NBIN_LAM     * sizeof(double*);
-  int  MEMT  = NBIN_TEXPOSE * sizeof(double);
+  //
+  // May 2021; allocate MXLAM_EXTEND more in wavelength
+
+  int  MXLAM_EXTEND = MXLAM_SPECTROGRAPH_EXTEND;
+
+  int  NBIN_LAM_LOCAL  = NBIN_LAM + MXLAM_EXTEND;
+  int  MEML0 = NBIN_LAM_LOCAL     * sizeof(double);
+  int  MEML1 = NBIN_LAM_LOCAL     * sizeof(double*);
+  int  MEMT  = NBIN_TEXPOSE       * sizeof(double);
+  int  MEMB  = NBIN_LAM_LOCAL     * sizeof(bool);
   int  ilam;
   //  char fnam[] = "malloc_spectrograph" ;
 
@@ -583,7 +580,9 @@ void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) {
     INPUTS_SPECTRO.ZP        = (double**) malloc(MEML1);
     INPUTS_SPECTRO.SQSIGSKY  = (double**) malloc(MEML1);
 
-    for(ilam=0; ilam < NBIN_LAM; ilam++ ) {
+    INPUTS_SPECTRO.ISLAM_EXTEND_LIST = (bool*) malloc(MEMB);
+
+    for(ilam=0; ilam < NBIN_LAM_LOCAL; ilam++ ) {
       INPUTS_SPECTRO.SNR0[ilam]      = (double*) malloc(MEMT);
       INPUTS_SPECTRO.SNR1[ilam]      = (double*) malloc(MEMT);
       INPUTS_SPECTRO.ZP[ilam]        = (double*) malloc(MEMT);
@@ -606,7 +605,7 @@ void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) {
     free(INPUTS_SPECTRO.SNR1);
     free(INPUTS_SPECTRO.ZP);
     free(INPUTS_SPECTRO.SQSIGSKY);
-    for(ilam=0; ilam < NBIN_LAM; ilam++ ) {
+    for(ilam=0; ilam < NBIN_LAM_LOCAL; ilam++ ) {
       free( INPUTS_SPECTRO.SNR0[ilam]  );
       free( INPUTS_SPECTRO.SNR1[ilam]  );
       free( INPUTS_SPECTRO.ZP[ilam] );
@@ -1015,7 +1014,6 @@ void read_spectrograph_fits(char *inFile) {
 
   // compute LAMAVG & LAMBIN
   double LBIN, LASTBIN=0.0 ;
-  // xxxx mark delete  INPUTS_SPECTRO.FORMAT_MASK = 1; // default: write LAMCEN
   INPUTS_SPECTRO.FORMAT_MASK = 2; // default: write LAMMIN & LAMMAX
   for(l=0; l <NBL; l++ ) {
     L0 = INPUTS_SPECTRO.LAMMIN_LIST[l] ;
@@ -1024,8 +1022,12 @@ void read_spectrograph_fits(char *inFile) {
     INPUTS_SPECTRO.LAMAVG_LIST[l] = ( L0 + L1 ) / 2.0 ;
     INPUTS_SPECTRO.LAMBIN_LIST[l] = LBIN;
 
+    INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] = false ;
+
+    /* xxxx mark delete May 8 2021 xxxxx
     if ( l > 0 && fabs(LASTBIN-LBIN)>0.001 ) 
       { INPUTS_SPECTRO.FORMAT_MASK = 2; } // write LAMMIN & LAMMAX
+    xxxxxxx end mark xxxxxxx */
 
     LASTBIN=LBIN; 
   }
@@ -1039,8 +1041,9 @@ void read_spectrograph_fits(char *inFile) {
   // They are stored in fits file as float, but array is double,
   // so use ZP_f and SQ_f as intermediate array.
 
-  float *ZP_f = (float*)malloc( NBL * sizeof(float) ) ;
-  float *SQ_f = (float*)malloc( NBL * sizeof(float) ) ;
+  int NBL_MALLOC = NBL + MXLAM_SPECTROGRAPH_EXTEND ;
+  float *ZP_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
+  float *SQ_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
   for(t=0; t < NBT; t++ ) {
     icol++ ;
     fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
@@ -1055,21 +1058,8 @@ void read_spectrograph_fits(char *inFile) {
     snfitsio_errorCheck(c1err, istat);
 
     for(l=0; l <NBL; l++ ) {
-
       INPUTS_SPECTRO.ZP[l][t]       = (double)ZP_f[l] ;
-      INPUTS_SPECTRO.SQSIGSKY[l][t] = (double)SQ_f[l] ;
-      
-      /*
-      L0 = INPUTS_SPECTRO.LAMMIN_LIST[l] ;
-      L1 = INPUTS_SPECTRO.LAMMAX_LIST[l] ;
-      Texpose = INPUTS_SPECTRO.TEXPOSE_LIST[t] ;
-      if ( fabs(L0-4210.) < 20.0 ) {
-	printf(" xxx %.1f-%.1f  Texpose=%4d  ZP=%.3f SQSIG=%.3f \n",
-	       L0, L1, (int)Texpose, ZP_f[l], SQ_f[l] );
-	fflush(stdout);
-      }
-      */
-
+      INPUTS_SPECTRO.SQSIGSKY[l][t] = (double)SQ_f[l] ;      
     } // end l loop over lambda
   } // end t loop over Texpose
 
@@ -1147,6 +1137,189 @@ void read_spectrograph_fits(char *inFile) {
 
 } // end read_spectrograph_fits
 
+
+// ====================================================
+void extend_spectrograph_lambins(void) {
+
+  // May 2021
+  // extend spectrograph wavelength bins blue and red
+  // to handle line smearing. The extra bins are used only
+  // to smear flux into the nominal bins; the extra bins
+  // are never recorded in the output spectra
+
+  int    MXLAM_EXTEND = MXLAM_SPECTROGRAPH_EXTEND ;
+  int    NLAM_ORIG    = INPUTS_SPECTRO.NBIN_LAM;
+  int t, NBT          = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
+  double NSIG_EXTEND  = 2.5 ;
+
+  double *LAMMIN_LIST = INPUTS_SPECTRO.LAMMIN_LIST ;
+  double *LAMMAX_LIST = INPUTS_SPECTRO.LAMMAX_LIST ;
+  double *LAMAVG_LIST = INPUTS_SPECTRO.LAMAVG_LIST ;
+  double *LAMBIN_LIST = INPUTS_SPECTRO.LAMBIN_LIST ;
+  double *LAMSIG_LIST = INPUTS_SPECTRO.LAMSIGMA_LIST ;
+  double **ZP_LIST    = INPUTS_SPECTRO.ZP ;
+  double **SQSIG_LIST = INPUTS_SPECTRO.SQSIGSKY ;
+  //  double **SNR0_LIST  = INPUTS_SPECTRO.SNR0 ;
+  //  double **SNR1_LIST  = INPUTS_SPECTRO.SNR1 ;
+
+  int    firstlast, ilam, NLAM_TMP ;
+  int    NLAM_EXTEND[2], NLAM_EXTEND_TOT=0 ; 
+  double LAMSIG, LAMMIN, LAMMAX, LAMBIN ;
+  bool   ISLAM_EXTEND ;
+  char TEXT_FIRSTLAST[2][8] = { "FIRST", "LAST" } ;
+  char TEXT_COLOR[2][8]     = { "BLUE",  "RED " } ;
+  char fnam[] = "extend_spectrograph_lambins" ;
+
+  // ---------- BEGIN ----------
+
+
+  for ( firstlast=0; firstlast <2; firstlast++ ) {
+    
+    if ( firstlast == 0 ) {
+      ilam = 0 ;
+    }
+    else {
+      ilam = NLAM_ORIG-2; // avoid last bin in case it's too small
+    }
+
+    LAMMIN = LAMMIN_LIST[ilam];
+    LAMMAX = LAMMAX_LIST[ilam];
+    LAMBIN = LAMMAX - LAMMIN ;
+    LAMSIG = LAMSIG_LIST[ilam];
+    NLAM_TMP = (int)((LAMSIG*NSIG_EXTEND)/LAMBIN); 
+    NLAM_TMP++ ;
+
+    NLAM_EXTEND_TOT += NLAM_TMP;
+    NLAM_EXTEND[firstlast] = NLAM_TMP ;
+
+    printf("\t Extend SPECTROGRAPH %s-edge by %d bins for wave-resolution\n",
+	   TEXT_COLOR[firstlast], NLAM_TMP );
+  }
+  
+  int NLAM_NEW = NLAM_ORIG + NLAM_EXTEND_TOT ;
+  printf("\t Extend NBLAM = %d -> %d \n", NLAM_ORIG, NLAM_NEW);
+
+  if ( NLAM_EXTEND_TOT >= MXLAM_EXTEND ) {
+    sprintf(c1err,"NLAM_EXTEND = %d exceeds MXLAM_SPECTROGRAPH_EXTEND=%d",
+	    NLAM_EXTEND_TOT, MXLAM_EXTEND);
+    sprintf(c2err,"Check lam-resolution, or inrease bound") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  
+  // re-write arrays in reverse order so that arrays can be
+  // over-written without creating a copy
+  int ilam_copy, ilam_new ;
+  int NLAM_BLUE = NLAM_EXTEND[0];  // number of extended blue bins
+  int ILAM_MARK[3] = { 0, NLAM_BLUE, NLAM_ORIG+NLAM_BLUE } ;
+  double xtmp;
+
+  //  printf(" xxx %s: NLAM = %d -> %d\n", fnam, NLAM_ORIG, NLAM_NEW);
+
+  for ( ilam_new=NLAM_NEW-1; ilam_new >=0; ilam_new-- ) {
+
+    ISLAM_EXTEND = false;
+
+    if ( ilam_new >= ILAM_MARK[2] ) {
+      // extended lambda bins on RED side
+      ISLAM_EXTEND = true ;
+      ilam_copy = NLAM_ORIG - 2;
+      xtmp   = (double)(ilam_new - ILAM_MARK[2] + 1);
+      LAMBIN = LAMBIN_LIST[ilam_copy];
+      LAMMIN = LAMMIN_LIST[NLAM_ORIG-1] + xtmp*LAMBIN ;
+      LAMMAX = LAMMIN + LAMBIN ;
+    }
+    else if ( ilam_new >= ILAM_MARK[1] ) {
+      // original lambda bins
+      ilam_copy = ilam_new - NLAM_BLUE ;
+      LAMMIN = LAMMIN_LIST[ilam_copy];
+      LAMMAX = LAMMAX_LIST[ilam_copy];
+    }
+    else {
+      // extended lambda bins on BLUE side
+      ISLAM_EXTEND = true ;
+      ilam_copy = NLAM_BLUE;
+      xtmp   = (double)(NLAM_BLUE-ilam_new);
+      LAMBIN = LAMBIN_LIST[ilam_copy];
+      LAMMIN = LAMMIN_LIST[ilam_copy] - xtmp*LAMBIN ;
+      LAMMAX = LAMMIN + LAMBIN ;
+
+      //   printf(" xxx %s: ilam_new/cp=%d/%d  xtmp=%.1f LAMMIN=%.1f \n",
+      //   fnam, ilam_new, ilam_copy, xtmp, LAMMIN);
+    }
+
+    LAMMIN_LIST[ilam_new] = LAMMIN ;
+    LAMMAX_LIST[ilam_new] = LAMMAX ;
+    LAMAVG_LIST[ilam_new] = (LAMMIN + LAMMAX)/2.0;
+
+    LAMSIG_LIST[ilam_new]  =  LAMSIG_LIST[ilam_copy];
+    LAMBIN_LIST[ilam_new]  =  LAMBIN_LIST[ilam_copy];
+
+    INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam_new] = ISLAM_EXTEND;
+
+    for ( t=0; t < NBT; t++ ) {
+      ZP_LIST[ilam_new][t]    = ZP_LIST[ilam_copy][t];
+      SQSIG_LIST[ilam_new][t] = SQSIG_LIST[ilam_copy][t];
+    }
+
+
+  } // end ilam
+
+  // - - - -
+  INPUTS_SPECTRO.NBIN_LAM = NLAM_NEW ;
+
+  dump_INPUTS_SPECTRO(4,"+extended wave bins");
+
+  //  debugexit(fnam); // xxx REMOVE  .xyz
+
+  return ;
+
+} // end extend_spectrograph_lambins
+
+
+// ====================================================
+void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
+
+  // Created May 2021
+  // dump spectrograph table for first and last "nbin_dump" lambda bins.
+
+  int l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
+  int t, NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
+  double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY, SNR0, SNR1;
+  bool   ISLAM_EXTEND ;
+
+  // ---------- BEGIN -----------
+
+  t=0;
+  printf("\n DUMP SPECTROGRAPH TABLE: %s\n", comment);
+  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d] SIGSKY[%d] "
+	 "Extended\n", t, t);
+
+  for(l=0; l < NBL; l++ ) {
+    if ( l >= nbin_dump && l < NBL-nbin_dump ) { continue; }
+
+    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[l];
+    LAMBIN = INPUTS_SPECTRO.LAMBIN_LIST[l];
+    LAMSIG = INPUTS_SPECTRO.LAMSIGMA_LIST[l];
+    ISLAM_EXTEND = INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] ;
+
+    ZP     = INPUTS_SPECTRO.ZP[l][t] ;
+    VARSKY = INPUTS_SPECTRO.SQSIGSKY[l][t] ;
+
+    if ( VARSKY > 0.0 ) { SIGSKY = sqrt(VARSKY); }
+    else                { SIGSKY = VARSKY; }
+
+    printf(" %6d  %9.2f  %6.2f  %4.1f  " 
+	   "%6.1f   %7.2f    %d\n",
+	   l, LAMAVG, LAMBIN, LAMSIG, 
+	   ZP, SIGSKY, ISLAM_EXTEND );
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end dump_INPUTS_SPECTRO
 
 // ====================================================
 double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,

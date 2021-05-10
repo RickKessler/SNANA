@@ -19862,6 +19862,9 @@
      + abort on NaN in HOSTLIB
      + restore parsing +HOSTMAGS and +HOSTNBR (got lost in v10_78 refactor)
      + new command-line option +HOSTAPPEND (see manual)
+     + new option HOSTLIB_ABMAG_FORCE (applies to galmag and host spectrum)
+     + write SNR for sim spectra in TEXT format (help with testing)
+     + add internal edge bins for spectrograph to account for wave resolution.
 
    sntools_host.c
      + add abort trap if magobs is NaN 

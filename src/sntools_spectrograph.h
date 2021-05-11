@@ -68,6 +68,7 @@ struct {
 
   double MJDREF_LIST[MXSPEC]; // same for each event
   double MJD_LIST[MXSPEC], TOBS_LIST[MXSPEC], TREST_LIST[MXSPEC];
+  int    IMJD_NEARPEAK;   // imjd for SN spectrum closest to peak
 
   int    OPT_TEXPOSE_LIST[MXSPEC] ; // =1(user-fixe), =2(compute from SNR)
   double TEXPOSE_LIST[MXSPEC];

@@ -614,7 +614,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.USE_SPECTROGRAPH_REFACTOR = 0;
+  INPUTS.USE_SPECTROGRAPH_REFACTOR = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1434,7 +1434,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
 
-    if ( INPUTS.DEBUG_FLAG == 10 ) { INPUTS.USE_SPECTROGRAPH_REFACTOR = 1; }
+    if ( INPUTS.DEBUG_FLAG == -10 ) { INPUTS.USE_SPECTROGRAPH_REFACTOR = 0; }
 
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
@@ -3982,6 +3982,9 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // Jul 30 2020: fix ABORT logic for TAKE_SPECTRUM keys.
   // Feb 24 2021; fix TREST cut to work with GENLC.REDSHIFT or header z.
   // Apr 01 2021: parse MJD and FIELD
+  // May 11 2021: abort if SNR_ZPOLY is used with HOST
+  //      [because SNR calc works only with SN]
+  //
 
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
@@ -4160,10 +4163,15 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   sprintf(stringTmp, "%s", string2);
   extractStringOpt(stringTmp,stringOpt); // return stringOpt
-  if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ||
-       strcmp(stringTmp,"SNR")       == 0    ) {
+  if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 || strcmp(stringTmp,"SNR") == 0 ) {
     INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE = 2;
     parse_GENPOLY(stringOpt, "SNR", GENZPOLY_SNR, fnam);
+
+    if ( IS_HOST ) {
+      sprintf(c1err,"Cannot use SNR_ZPOLY with HOST spectrum.");
+      sprintf(c2err,"Only TEXPOSE_ZPOLY allowed for HOST");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
   }
   else if ( strcmp(stringTmp,"TEXPOSE_ZPOLY") == 0 ) {
     INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE = 1;
@@ -8038,6 +8046,8 @@ void  init_genSpec(void) {
       { INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] *= SCALE_LAMSIGMA ; }
   }
 
+  GENSPEC.TEXPOSE_TEMPLATE = 0.0 ; // May 2021
+
   // - - - - - - - - - - - - - - - - - - - -
   // malloc arrays vs. lambda 
   int ispec, MXLAM = NBLAM ;
@@ -8074,6 +8084,8 @@ void  init_genSpec(void) {
 
   if ( REFAC ) {
     GENSPEC.RANGauss_NOISE_TEMPLATE = (double*) malloc(MEMD) ;
+    for(ilam=0; ilam < MXLAMSMEAR_SPECTROGRAPH; ilam++ ) 
+      { GENSPEC.RANGauss_NOISE_TEMPLATE[ilam] = 0.0 ; }
   }
   else {
     // allocate arrays for Gaussian template noise
@@ -8361,6 +8373,8 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
 
   // -------------- BEGIN -------------
 
+  GENSPEC.IMJD_NEARPEAK = -9;
+
   if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH > 0 ) {
 
     // SPECTROGRPAH keys in SIMLIB file
@@ -8394,6 +8408,7 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
 
     // set nearest-peak as first SN spectrum.
     imjd_order[nhost] = imjd_nearPeak ;  ntmp=nhost ;
+    GENSPEC.IMJD_NEARPEAK = imjd_nearPeak ;
 
     // store remaining spectra
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
@@ -8403,6 +8418,7 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
     }
 
   } // end if block
+
 
   return ;
 
@@ -8733,6 +8749,10 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     (double)INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ; 
   GENPOLY_DEF *GENZPOLY_SNR = 
     &INPUTS.TAKE_SPECTRUM[INDX].GENZPOLY_SNR;
+
+  bool IS_NEARPEAK   = ( imjd == GENSPEC.IMJD_NEARPEAK ); // SN near peak
+  bool IS_HOST       = GENSPEC.IS_HOST[imjd];             // host
+
   double z           = GENLC.REDSHIFT_CMB ;  
   double z1          = 1.0 + z ;
   double TOBS        = MJD - GENLC.PEAKMJD ;
@@ -8860,7 +8880,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     last_TEXPOSE = TEXPOSE ;
 
     if ( FLAG_TEXPOSE == 0 ) {
-      if ( GENSPEC.NMJD_PROC == 0 ) {
+      // xxx  mark delete May 11 2021 if ( GENSPEC.NMJD_PROC == 0 ) {
+      if ( IS_NEARPEAK ) {
 	// first epoch is always closest to peak
 	argSNR  = (SNR_REQUEST - SNR0)/(SNR1 - SNR0);
 	TEXPOSE = T0 + TDIF_LAST * (argSNR*argSNR) ;
@@ -8881,18 +8902,18 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     }
 
     // avoid slipping outside defined range
-    if ( TEXPOSE <= TEXPOSE_MIN ) { TEXPOSE = TEXPOSE_MIN; }
-    if ( TEXPOSE >= TEXPOSE_MAX ) { TEXPOSE = TEXPOSE_MAX; }
+    if ( TEXPOSE <= TEXPOSE_MIN ) { TEXPOSE = TEXPOSE_MIN ; }
+    if ( TEXPOSE >= TEXPOSE_MAX ) { TEXPOSE = TEXPOSE_MAX ; }
     
     // for GENSPEC_SMEAR, check option to set global template 
     // exposure time by scaling T_expose for epoch nearest peak.
-    if ( GENSPEC.NMJD_PROC == 0 && SCALE > 0.01 )  { 
+    if ( IS_NEARPEAK && SCALE > 0.01 )  { 
       TEXPOSE_T = TEXPOSE * SCALE ; 
       if ( TEXPOSE_T <= TEXPOSE_MIN ) { TEXPOSE_T = TEXPOSE_MIN; }
       if ( TEXPOSE_T >= TEXPOSE_MAX ) { TEXPOSE_T = TEXPOSE_MAX; }
       GENSPEC.TEXPOSE_TEMPLATE = TEXPOSE_T ;
     }
-
+    
     // set global used in GENSPEC_SMEAR
     GENSPEC.TEXPOSE_LIST[imjd] = TEXPOSE ;     
     GENSPEC_OBSFLUX_INIT(imjd,ILAM_MIN,ILAM_MAX);
@@ -9028,6 +9049,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
+  bool IS_HOST       = GENSPEC.IS_HOST[imjd];
   char   fnam[] = "GENSPEC_SMEAR" ;
 
   int LEGACY = !INPUTS.USE_SPECTROGRAPH_REFACTOR ;
@@ -9104,7 +9126,9 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     // compute random flucution of spectrograph flux
     // be careful with correlated template noise in each spectrum
     GAURAN_T = &GENSPEC.RANGauss_NOISE_TEMPLATE[ilam];
-    OBSFLUX_SMEAR = GENSPEC_OBSFLUX_RANSMEAR(OBSFLUXERR,ERRFRAC_T, GAURAN_T);
+    OBSFLUX_SMEAR = 
+      GENSPEC_OBSFLUX_RANSMEAR(imjd, OBSFLUXERR,ERRFRAC_T, GAURAN_T);
+					     
 
     // obdate observed flux and store it
     OBSFLUX += OBSFLUX_SMEAR ;
@@ -9242,7 +9266,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux ) {
 } // end GENSPEC_LAMSMEAR
 
 // *************************************************
-double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T, 
+double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T, 
 				double *GAURAN_T) {
 
   // Created May 10 2021
@@ -9251,6 +9275,9 @@ double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T,
   //   + OBSFLUXERR = uncertainty 
   //   + ERRFRAC_T  = fraction of error from template -> correlated
   //
+  // For correlated template noise, *GAURAN_T is set on first
+  // MJD nearest peak; then re-used for other SN spectra.
+  // If ERRFRAC_T = 0, *GAURAN_T is set to zero.
 
   int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
   int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
@@ -9261,9 +9288,10 @@ double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T,
   int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
   int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; // mark obsolete, Jun 4 2020
 
+  int IMJD_NEARPEAK = GENSPEC.IMJD_NEARPEAK ;
+
   double RanFlux_S, RanFlux_T, GRAN_S, GRAN_T ;
   double FluxErr_S, FluxErr_T;
-  double RANGauss_NOISE_TEMPLATE ;
 
   double OBSFLUX_RANSMEAR = 0.0 ;
   char fnam[] = "GENSPEC_OBSFLUX_RANSMEAR";
@@ -9278,17 +9306,16 @@ double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T,
     FluxErr_T = ERRFRAC_T * OBSFLUXERR;
     FluxErr_S = sqrt(OBSFLUXERR*OBSFLUXERR - FluxErr_T*FluxErr_T);
 
-    GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
-
-    if ( GENSPEC.NMJD_PROC==0 &&  FluxErr_T > 0.0 ) { 
-      if ( NSTREAM == 2 ) 
-	{ RANGauss_NOISE_TEMPLATE = unix_GaussRan(ISTREAM_RAN); }
-      else
-	{ RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN); }
-
-      *GAURAN_T = RANGauss_NOISE_TEMPLATE;
+    if ( ERRFRAC_T < 1.0E-7 ) {
+      *GAURAN_T = 0.0; 
     }
-    GRAN_T = *GAURAN_T ;
+    else if ( imjd == IMJD_NEARPEAK &&  FluxErr_T > 0.0 ) { 
+      if ( NSTREAM == 2 ) 
+	{ *GAURAN_T = unix_GaussRan(ISTREAM_RAN); }
+      else
+	{ *GAURAN_T = GaussRan(ILIST_RAN); }
+    }
+    GRAN_T    = *GAURAN_T ;
 
     if ( NSTREAM ==  2 ) 
       { GRAN_S = unix_GaussRan(ISTREAM_RAN); }
@@ -21782,12 +21809,14 @@ void init_kcor_legacy(char *kcorFile) {
 
   // check for optional SPECTROGRPH info
   read_spectrograph_fits(kcorFile) ;
-  dump_INPUTS_SPECTRO(4,"");
-
-  if ( INPUTS.USE_SPECTROGRAPH_REFACTOR ) 
-    {  extend_spectrograph_lambins();   }
 
   if ( SPECTROGRAPH_USEFLAG ) {
+
+    dump_INPUTS_SPECTRO(4,"");
+
+    if ( INPUTS.USE_SPECTROGRAPH_REFACTOR ) 
+      {  extend_spectrograph_lambins();   }
+
     printf("   Found %d synthetic spectrograph filters (%s) \n",
 	   GENLC.NFILTDEF_SPECTROGRAPH, GENLC.FILTERLIST_SPECTROGRAPH );
     fflush(stdout);

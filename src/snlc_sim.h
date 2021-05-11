@@ -1822,7 +1822,7 @@ void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
 double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX );
-double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T, 
+double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T, 
 				double *GAURAN_T) ;
 void   GENSPEC_FLAM(int imjd);
 void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux );

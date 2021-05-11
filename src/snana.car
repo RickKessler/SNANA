@@ -4335,7 +4335,7 @@ c Transfer HOSTGAL info from SNDATA struct (sndata.h)
 c to common block variable.s
 c
 c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
-c
+c May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
 c
       IMPLICIT NONE
 
@@ -4346,7 +4346,7 @@ c
 +CDE,FILTCOM.
       INTEGER   LENPRE, ifilt, ifilt_obs
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60, BAND*2
-      REAL*8    DARRAY(MXFILT_OBS), SB
+      REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 C -------------- BEGIN ----------
       
@@ -4375,6 +4375,13 @@ c i.e., do not depend on host-match.
          DO ifilt = 1, NFILTDEF_READ
             SB = SNHOST_SBFLUXCAL(ifilt)
             if ( SB > -998.0 ) EXIST_SNHOST_SB = .TRUE.
+         ENDDO
+
+         KEY_PREFIX = "HOSTGAL_MAG"
+         CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_MAGOBS, OPT)
+         DO ifilt = 1, NFILTDEF_READ
+            MAG   = SNHOST_MAGOBS(ifilt,1)
+            if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE.  ! .xyz
          ENDDO
 
       ENDIF  ! end IGAL=1

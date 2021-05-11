@@ -4147,7 +4147,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-	sprintf(KEY_TEST,"HOSTGAL_MAG_%c", FILTERSTRING[ifilt_obs]); 
+	sprintf(KEY_TEST,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs]); 
 	if ( strcmp(key,KEY_TEST) == 0 ) 
 	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAG[igal][ifilt]); } 
       }

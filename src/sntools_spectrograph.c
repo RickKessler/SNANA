@@ -1006,6 +1006,9 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err,"read LAMMAX_LIST column" );
   snfitsio_errorCheck(c1err, istat);
 
+  printf("   Wavelength range: %.2f to %.2f A \n",
+	 INPUTS_SPECTRO.LAMMIN_LIST[0], INPUTS_SPECTRO.LAMMAX_LIST[NBL-1]);
+
   icol = 3 ;
   fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D, 
 		    INPUTS_SPECTRO.LAMSIGMA_LIST, &anynul, &istat );
@@ -1024,6 +1027,7 @@ void read_spectrograph_fits(char *inFile) {
 
     INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] = false ;
 
+    // xxx    INPUTS_SPECTRO.LAMSIGMA_LIST[l] = 12.0 ; // xxx REMOVE
     /* xxxx mark delete May 8 2021 xxxxx
     if ( l > 0 && fabs(LASTBIN-LBIN)>0.001 ) 
       { INPUTS_SPECTRO.FORMAT_MASK = 2; } // write LAMMIN & LAMMAX

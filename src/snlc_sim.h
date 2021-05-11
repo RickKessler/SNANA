@@ -1820,10 +1820,16 @@ void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  // generate true MAGs and FLUXes
 void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
+double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX );
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX );
+double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T, 
+				double *GAURAN_T) ;
 void   GENSPEC_FLAM(int imjd);
-void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux, 
-			double GenFluxErr, double GenFluxErr_T );
+void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux );
+
+void   GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux, 
+			       double GenFluxErr, double GenFluxErr_T );
+
 void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z, 
 		       double *TOBS, double *TREST );

@@ -2981,7 +2981,6 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
   }
 
-  //.xyz
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
     N++ ;
@@ -3837,12 +3836,6 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
     splitString(WORDS[N], COMMA, MXVAR, &NVAR, ptrSplit);
 
-    /* xxx mark delete 
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      printf(" xxx %s: varname[%2d] = '%s' \n",
-	     fnam, ivar, INPUTS.VARNAME_SIMGEN_DUMP[ivar] );
-	     } xxxxxxx */
-    //.xyz
   } // end LRD_COMMA_SEP
 
 
@@ -8077,11 +8070,17 @@ void  init_genSpec(void) {
     {  GENSPEC.USE_WARP = 0 ; }
 
 
-  // allocate arrays for Gaussian template noise
-  for(ilam=0; ilam < MXLAMSMEAR_SPECTROGRAPH; ilam++ ) {
-    GENSPEC.RANGauss_NOISE_TEMPLATE[ilam] = (double*) malloc(MEMD) ;
-  }
+  int REFAC = INPUTS.USE_SPECTROGRAPH_REFACTOR ;
 
+  if ( REFAC ) {
+    GENSPEC.RANGauss_NOISE_TEMPLATE = (double*) malloc(MEMD) ;
+  }
+  else {
+    // allocate arrays for Gaussian template noise
+    for(ilam=0; ilam < MXLAMSMEAR_SPECTROGRAPH; ilam++ ) {
+      GENSPEC.RANGauss_NOISE_LEGACY[ilam] = (double*) malloc(MEMD) ;
+    }
+  }
 
   return ;
 
@@ -8170,6 +8169,9 @@ void GENSPEC_DRIVER(void) {
   for(i=0; i < NMJD; i++ ) {
 
     imjd = imjd_order[i];
+
+    //    printf(" xxx %s: i=%d imjd=%d  MJD=%.2f \n",
+    //	   fnam, i, imjd, GENSPEC.MJD_LIST[imjd] ); fflush(stdout);
 
     if ( GENSPEC.SKIP[imjd] ) { continue; } // April 2021
 
@@ -8401,7 +8403,6 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
     }
 
   } // end if block
-
 
   return ;
 
@@ -9008,6 +9009,323 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   // apply noise to flux and smear over wavelength bins.
   // Return SNR over input wavelength range.
   //
+  // Mar  6 2020: skip bin if SNR_true = 0
+  // May 10 2021: 
+  //  Major refactor to use SNR from measured wave bins, not true wave bin.
+  //  Fix bug from v10_78 where GRAN_T no longer followed correlated option.
+
+  int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
+  int    MEMD  = NBLAM * sizeof(double);
+
+  int    ilam, ILAM_MIN=99999, ILAM_MAX=-9, NBLAM_USE=0 ;
+  double GENFLUX, GENFLUXERR, GENFLUXERR_T, GENMAG, LAMAVG ;
+  double *SNR_TRUE_LIST,   SNR_TRUE, *ERRFRAC_T_LIST, ERRFRAC_T ; 
+
+  double  TEXPOSE_S  = GENSPEC.TEXPOSE_LIST[imjd] ;
+  double  TEXPOSE_T  = GENSPEC.TEXPOSE_TEMPLATE ;
+  double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
+  double  SNR_SPEC ;
+
+  int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
+  bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
+  char   fnam[] = "GENSPEC_SMEAR" ;
+
+  int LEGACY = !INPUTS.USE_SPECTROGRAPH_REFACTOR ;
+
+  // ------------- BEGIN -------------
+
+  if ( LEGACY ) {
+    // run legacy function where SNR from true wave bin is used.
+    SNR_SPEC = GENSPEC_SMEAR_LEGACY(imjd, LAMMIN, LAMMAX );
+    return(SNR_SPEC);
+  }
+
+  // - - - - - -
+
+  SNR_TRUE_LIST   = (double*) malloc( MEMD ) ;
+  ERRFRAC_T_LIST  = (double*) malloc( MEMD ) ;
+ 
+  for(ilam=0; ilam < NBLAM; ilam++ ) {
+
+    SNR_TRUE_LIST[ilam] = -9.0 ;
+
+    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+    if ( LAMAVG < LAMMIN ) { continue; }
+    if ( LAMAVG > LAMMAX ) { continue; }
+
+    if ( ILAM_MIN > 99990 ) { ILAM_MIN=ilam; }
+    ILAM_MAX = ilam;
+
+    GENFLUX = GENSPEC.GENFLUX_LIST[imjd][ilam] ;
+    GENMAG  = GENSPEC.GENMAG_LIST[imjd][ilam] ;
+
+    // skip unphysical fluxes
+    if ( GENFLUX <= 0.0  ) { continue ; }
+    if ( GENMAG  > 600.0 ) { continue ; } // Mar 2019
+
+    // get true SNR in this lambda bin
+    SNR_TRUE =
+      getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, ALLOW_TEXTRAP, GENMAG,
+			  &ERRFRAC_T);  // template frac of error
+
+    SNR_TRUE_LIST[ilam]  = SNR_TRUE ;
+    ERRFRAC_T_LIST[ilam] = ERRFRAC_T ;
+
+    // apply lambda smear to distribute GENFLUX over lambda bins 
+    GENSPEC_LAMSMEAR(imjd, ilam, GENFLUX );
+
+    NBLAM_USE++ ;
+
+  } // end ilam  
+
+  if ( NBLAM_USE == 0 ) { goto DONE ; }
+
+  // - - - - - - - - - - - - - - 
+  // after smearing flux in neighbor bins, loop again over wavelegth
+  // and apply Poisson noise.
+
+  double OBSFLUX, OBSFLUX_SMEAR, OBSFLUXERR, OBSFLUXERR_T, *GAURAN_T;
+  double ERRSQ, SUM_FLUX, SUM_ERRSQ, SUM_ERR ;
+  SUM_FLUX = SUM_ERRSQ = SNR_SPEC = 0.0 ;
+
+  for(ilam = ILAM_MIN; ilam <= ILAM_MAX ; ilam++ ) {
+
+    SNR_TRUE  = SNR_TRUE_LIST[ilam];
+    ERRFRAC_T = ERRFRAC_T_LIST[ilam];
+
+    if ( SNR_TRUE < 1.0E-18 ) { continue; } 
+    if ( SCALE_SNR != 1.00 ) { SNR_TRUE *= SCALE_SNR ;  }
+
+    OBSFLUX       = GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
+    OBSFLUXERR    = OBSFLUX / SNR_TRUE ;
+
+    if ( OBSFLUXERR < 1.0E-50 ) { continue; }
+
+    // compute random flucution of spectrograph flux
+    // be careful with correlated template noise in each spectrum
+    GAURAN_T = &GENSPEC.RANGauss_NOISE_TEMPLATE[ilam];
+    OBSFLUX_SMEAR = GENSPEC_OBSFLUX_RANSMEAR(OBSFLUXERR,ERRFRAC_T, GAURAN_T);
+
+    // obdate observed flux and store it
+    OBSFLUX += OBSFLUX_SMEAR ;
+
+    // store results
+    ERRSQ                                 = OBSFLUXERR * OBSFLUXERR ;
+    GENSPEC.OBSFLUX_LIST[imjd][ilam]      = OBSFLUX ;
+    GENSPEC.OBSFLUXERR_LIST[imjd][ilam]   = OBSFLUXERR ;
+    GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam] = ERRSQ ;
+
+    GENSPEC.NBLAM_VALID[imjd]++ ; 
+    SUM_FLUX    += GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
+    SUM_ERRSQ   += ERRSQ ;
+  } // end ilam loop
+
+  if ( SUM_ERRSQ > 0.0 ) {
+    SUM_ERR  = sqrt(SUM_ERRSQ);
+    SNR_SPEC = SUM_FLUX / SUM_ERR ;
+  }
+
+  /*
+  printf("\t xxx %s: SNR = %le / %le = %le \n", 
+	 fnam, SUM_FLUX, sqrt(SUM_ERRSQ), SNR_SPEC); fflush(stdout);
+  */
+
+ DONE:
+  free(SNR_TRUE_LIST);
+  free(ERRFRAC_T_LIST);
+
+  return(SNR_SPEC) ;
+
+} // end GENSPEC_SMEAR
+
+// *********************************************
+void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux ) {
+
+  // Use Gaussian lambda-resolution to smear flux(imjd,ilam)
+  // over nearby lambda bins. Do NOT apply Poisson noise here.
+  //
+  // Inputs
+  //  + imjd         = sparse MJD index for spectra
+  //  + ilam         = wavelength index
+  //  + GenFlux      = flux
+  //
+  //
+  // Store smeared/observed flux in  arrays
+  //   + GENSPEC.OBSFLUX_LIST 
+  //
+  // May 10 2021:
+  //  + refactor/simplify to NOT apply Poisson noise. Noise is added
+  //    later so that SNR properties are from smeared wave bin,
+  //    and not from true wave bin.
+  //
+
+  int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+  int noNOISE    = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
+
+  double NSIGLAM, LAMAVG, LAMSIGMA, LAMBIN, LAMSIG0, LAMSIG1;
+  double GINT, tmp_GenFlux ;
+  int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN, LDMP=0 ;
+  char fnam[] = "GENSPEC_LAMSMEAR" ;
+
+  // ----------- BEGIN ---------------
+
+  NBLAM    = INPUTS_SPECTRO.NBIN_LAM ;
+
+  LAMAVG   = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+  LAMSIGMA = INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] ;
+  NSIGLAM  = INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA ;
+
+  if ( noNOISE > 0  ) { LAMSIGMA = 0.0 ; }
+
+  // for LAMBIN, avoid edge bin which can be artificially small
+  // leading to excessively large NBIN2.
+  ilam_tmp = ilam;  if ( ilam == NBLAM-1 ) { ilam_tmp = NBLAM-2; }
+  LAMBIN   = INPUTS_SPECTRO.LAMBIN_LIST[ilam_tmp] ;
+
+  // xxx mark delete May 10 2021  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN)  ;  
+  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN + 0.5) ;  
+  NRAN     = 0 ;
+
+  /*
+  if( ilam > NBLAM-6 && imjd==0 ) {
+    printf(" xxx %s: ilam=%d LAMAVG=%7.1f  NBIN2=%d \n",
+	   fnam, ilam, LAMAVG, NBIN2);
+  }
+  //xxxxxxx */
+
+  // loop over neighbor bins to smear flux over lambda bins
+  for(ilam2=ilam-NBIN2; ilam2 <= ilam+NBIN2; ilam2++ ) {
+    if ( ilam2 <  0     ) { continue ; }
+    if ( ilam2 >= NBLAM ) { continue ; }
+    
+    // don't bother loading extended lambda bins for lam-res
+    if ( INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam2] ) { continue; }    
+
+    GINT = 1.0 ;
+    if ( LAMSIGMA > 0.0 ) {
+      LAMSIG0 = (INPUTS_SPECTRO.LAMMIN_LIST[ilam2]-LAMAVG)/LAMSIGMA ;
+      LAMSIG1 = (INPUTS_SPECTRO.LAMMAX_LIST[ilam2]-LAMAVG)/LAMSIGMA ;
+      GINT = GaussIntegral(LAMSIG0,LAMSIG1); 
+    }
+    else if ( ilam != ilam2 ) // LAMSIGMA=0; dump all flux in same bin
+      { GINT = 0.0 ; }
+
+    // true flux in this lambda bin
+    tmp_GenFlux      = ( GINT*GenFlux ) ;
+
+    // increment sum of obsFlux 
+    // OBSFLUX_LIST is modified later to include Poisson noise;
+    // GENFLUX_LAMSMEAR_LIST is not modified.
+    GENSPEC.OBSFLUX_LIST[imjd][ilam2]          += tmp_GenFlux ;  
+    GENSPEC.GENFLUX_LAMSMEAR_LIST[imjd][ilam2] += tmp_GenFlux ;
+
+    NRAN++ ;
+
+  } // end ilam2
+    
+  // - - - - - -
+  if ( NRAN >= MXLAMSMEAR_SPECTROGRAPH ) {
+    print_preAbort_banner(fnam);    
+    printf("\t NSIGLAM  = %f \n", NSIGLAM);
+    printf("\t LAMSIGMA = %f \n", LAMSIGMA );
+    printf("\t LAMBIN   = %f \n", LAMBIN);
+    printf("\t NBIN2    = %d \n", NBIN2 );
+    sprintf(c1err,"NLAMSMEAR = %d exceeds bound of %d",
+	    NRAN, MXLAMSMEAR_SPECTROGRAPH );
+    sprintf(c2err,"ilam=%d LAMAVG=%.2f", ilam, LAMAVG );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+  return ;
+
+} // end GENSPEC_LAMSMEAR
+
+// *************************************************
+double GENSPEC_OBSFLUX_RANSMEAR(double OBSFLUXERR, double ERRFRAC_T, 
+				double *GAURAN_T) {
+
+  // Created May 10 2021
+  // Compute and return random fluctuation for spectrograph flux.
+  // Inputs:
+  //   + OBSFLUXERR = uncertainty 
+  //   + ERRFRAC_T  = fraction of error from template -> correlated
+  //
+
+  int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+  int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
+  int noTNOISE   = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
+  int noNOISE    = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
+
+  int NSTREAM      = GENRAN_INFO.NSTREAM ;
+  int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
+  int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; // mark obsolete, Jun 4 2020
+
+  double RanFlux_S, RanFlux_T, GRAN_S, GRAN_T ;
+  double FluxErr_S, FluxErr_T;
+  double RANGauss_NOISE_TEMPLATE ;
+
+  double OBSFLUX_RANSMEAR = 0.0 ;
+  char fnam[] = "GENSPEC_OBSFLUX_RANSMEAR";
+
+  // ---------- BEGIN ----------
+
+  if ( noNOISE ) {
+    RanFlux_S = RanFlux_T = 0.0 ; 
+  }
+  else {
+
+    FluxErr_T = ERRFRAC_T * OBSFLUXERR;
+    FluxErr_S = sqrt(OBSFLUXERR*OBSFLUXERR - FluxErr_T*FluxErr_T);
+
+    GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
+
+    if ( GENSPEC.NMJD_PROC==0 &&  FluxErr_T > 0.0 ) { 
+      if ( NSTREAM == 2 ) 
+	{ RANGauss_NOISE_TEMPLATE = unix_GaussRan(ISTREAM_RAN); }
+      else
+	{ RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN); }
+
+      *GAURAN_T = RANGauss_NOISE_TEMPLATE;
+    }
+    GRAN_T = *GAURAN_T ;
+
+    if ( NSTREAM ==  2 ) 
+      { GRAN_S = unix_GaussRan(ISTREAM_RAN); }
+    else
+      { GRAN_S = GaussRan(ILIST_RAN); }
+
+    // random noise from search 
+    RanFlux_S = FluxErr_S * GRAN_S ;
+    if ( onlyTNOISE ) { RanFlux_S = 0.0 ; }
+    
+    // correlated random noise from template
+    RanFlux_T = FluxErr_T * GRAN_T ;
+    if ( noTNOISE ) { RanFlux_T = 0.0 ; }
+    
+    /* xxxxxxxx
+    printf(" xxx ERRFRAC_T=%f   GRAN_T=%f RanFlux_T = %f \n", 
+	   ERRFRAC_T, GRAN_T, RanFlux_T);
+    debugexit(fnam); 
+    xxxxxx */
+  }
+
+  // - - - - - -
+  // add fluctuation from search (S) and correlated template (T)
+  OBSFLUX_RANSMEAR = RanFlux_S + RanFlux_T ; 
+
+  // .xyz
+
+  return OBSFLUX_RANSMEAR  ;
+
+} // end GENSPEC_OBSFLUX_RANSMEAR
+
+// *************************************************
+double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX ) {
+  
+  // apply noise to flux and smear over wavelength bins.
+  // Return SNR over input wavelength range.
+  //
   // Mat 6 2020: skip bin if SNR_true = 0
 
   int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
@@ -9022,10 +9340,11 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
-  //  char   fnam[] = "GENSPEC_SMEAR" ;
+  //  char   fnam[] = "GENSPEC_SMEAR_LEGACY" ;
 
   // ------------- BEGIN -------------
 
+  // ****** MARK OBSOLETE *******
 
   for(ilam=0; ilam < NBLAM; ilam++ ) {
 
@@ -9048,6 +9367,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 				   GENMAG, 
 				   &ERRFRAC_T);  // template frac of error
 
+    // ****** MARK OBSOLETE *******
+
     if ( SNR_true < 1.0E-18 ) { continue; } // May 2020
 
     if ( SCALE_SNR != 1.00 ) { SNR_true *= SCALE_SNR ;  }
@@ -9056,13 +9377,15 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENFLUXERR_T  = GENFLUXERR * ERRFRAC_T;  // template contribution
 
     // apply lambda smear to distribute GENFLUX over lambda bins 
-    GENSPEC_LAMSMEAR(imjd, ilam, GENFLUX, GENFLUXERR, GENFLUXERR_T );
+    GENSPEC_LAMSMEAR_LEGACY(imjd, ilam, GENFLUX, GENFLUXERR, GENFLUXERR_T );
 
     NBLAM_USE++ ;
 
   } // end ilam  
 
   if ( NBLAM_USE == 0 ) { return(0.0); }
+
+  // ****** MARK OBSOLETE *******
 
   // - - - - - - - - - - - - - - 
   // convert sum(ERRSQ) -> ERR in each lambda bin and
@@ -9081,6 +9404,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     SUM_ERRSQ   += ERRSQ ;
   }
 
+  // ****** MARK OBSOLETE *******
+
   if ( SUM_ERRSQ > 0.0 ) {
     SUM_ERR  = sqrt(SUM_ERRSQ);
     SNR_SPEC = SUM_FLUX / SUM_ERR ;
@@ -9093,11 +9418,11 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   return(SNR_SPEC) ;
 
-} // end GENSPEC_SMEAR
+} // end GENSPEC_SMEAR_LEGACY
 
 // *********************************************
-void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux, 
-		       double GenFluxErr, double GenFluxErr_T ) {
+void  GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux, 
+			      double GenFluxErr, double GenFluxErr_T ) {
 
   // Use Gaussian lambea-resolution to smear flux(imjd,ilam)
   // over nearby lambda bins.  In each lambda bin, use
@@ -9133,7 +9458,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   double tmp_RanFlux_S, tmp_RanFlux_T, RANGauss_NOISE_TEMPLATE;
   double GenFluxErr_S, OBSFLUX, OBSFLUXERR ;
   int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN, LDMP=0 ;
-  char fnam[] = "GENSPEC_LAMSMEAR" ;
+  char fnam[] = "GENSPEC_LAMSMEAR_LEGACY" ;
 
   // ----------- BEGIN ---------------
 
@@ -9204,7 +9529,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       }
 
       if ( NRAN < MXLAMSMEAR_SPECTROGRAPH ) {
-	GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = RANGauss_NOISE_TEMPLATE;
+	GENSPEC.RANGauss_NOISE_LEGACY[NRAN][ilam] = RANGauss_NOISE_TEMPLATE;
       }
 
       if ( NSTREAM ==  2 ) 
@@ -9261,7 +9586,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
 
   return ;
 
-} // end GENSPEC_LAMSMEAR
+} // end GENSPEC_LAMSMEAR_LEGACY
 
 // *************************************************
 void GENSPEC_FUDGES(int imjd) {
@@ -9893,7 +10218,6 @@ void gen_random_coord_shift(void) {
     SNHOSTGAL_DDLR_SORT[m].DEC += shift_DEC ;
   }
 
-  // .xyz
   if ( CHECK_ANGSEP ) {
     ANGSEP = angSep(GENLC.RA,GENLC.DEC,  RA,DEC, (double)1.0 ) ;
     double ratio = ANGSEP/r;

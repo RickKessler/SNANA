@@ -93,6 +93,7 @@ struct {
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise
   double  *OBSFLUXERR_LIST[MXSPEC] ;  // measured error
+  //xx  double  *ERRFRAC_TEMPLATE_LIST[MXSPEC];         // sigma_Template/sigma
   double  *OBSFLUXERRSQ_LIST[MXSPEC]; // square of error
 
   double  *GENFLAM_LIST[MXSPEC] ; // true dF/dlam
@@ -107,7 +108,8 @@ struct {
 
 
   // define array of Gaussian randoms for noise
-  double *RANGauss_NOISE_TEMPLATE[MXLAMSMEAR_SPECTROGRAPH] ; 
+  double *RANGauss_NOISE_LEGACY[MXLAMSMEAR_SPECTROGRAPH] ;  // mark delete
+  double *RANGauss_NOISE_TEMPLATE ; 
 
 } GENSPEC ;
 

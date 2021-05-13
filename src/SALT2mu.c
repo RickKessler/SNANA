@@ -915,6 +915,7 @@ Default output files (can change names with "prefix" argument)
    + MXSTORE_DUPLICATE -> 200 (was 20)
 
  May 02 2021: new input zspec_maxerr_idsample
+ May 12 2021: move read_data_override call before set_CUTMASK call.
 
  ******************************************************/
 
@@ -1936,6 +1937,7 @@ void  SNTABLE_READPREP_TABLEVAR(int ifile, int ISTART, int LEN,
 				TABLEVAR_DEF *TABLEVAR);
 void  SNTABLE_CLOSE_TEXT(void) ;
 void  compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
+void  compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR );
 void  compute_more_INFO_DATA(void);
 void  prepare_IDSAMPLE_biasCor(void); 
 void  set_FIELDGROUP_biasCor(void);
@@ -2387,7 +2389,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // --------------------------------------
   //Read input data from SALT2 fit
   read_data(); 
-  read_data_override();  // Nov 2020: e..g, replace VPEC, HOST_LOGMASS, etc ...
+  // xxx mark  read_data_override();  // Nov 2020: e..g, replace VPEC, HOST_LOGMASS, etc ...
   compute_more_INFO_DATA();  
 
   if( INPUTS.cat_only ) 
@@ -5444,6 +5446,8 @@ void set_fitPar(int ipar, double val, double step,
 void read_data(void) {
 
   // Created Jun 4 2019: Refactored data-read.
+  // 
+  // May 12 2021: call read_data_override here before set_CUTMASK is called.
 
   int  NFILE = INPUTS.nfile_data;
   //  int  EVENT_TYPE = EVENT_TYPE_DATA;
@@ -5500,11 +5504,27 @@ void read_data(void) {
 
   store_output_varnames(); // May 2020
 
-  int NPASS=0;
+  /* xxx mark delete May 12 2021 xxxxxx
   for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
     compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
     if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
+    } xxxxxx */
+
+  // compute more table variables
+  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
+    compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
   }
+
+  // Nov 2020: e.g., replace VPEC, HOST_LOGMASS, etc ..
+  read_data_override(); 
+
+  // apply cuts after data override
+  int NPASS=0;
+  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
+    compute_CUTMASK(isn, &INFO_DATA.TABLEVAR ); 
+    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
+  }
+
   if ( NPASS == 0 ) {
     sprintf(c1err,"All DATA events fail cuts");
     sprintf(c2err,"Check cut-windows in SALT2mu input file.");
@@ -5630,7 +5650,8 @@ void read_data_override(void) {
   // zHD and zHDERR, respectively. Similarly, for zHEL
   // override, update zCMB and zHD.
   //
-
+  // May 12 2021: for HOST_LOGMASS, also set CUTVAL for applying cuts.
+  
   char VARNAME_VPEC[]     = "VPEC";
   char VARNAME_VPECERR[]  = "VPEC_ERR";
   char VARNAME_zHD[]      = "zHD";
@@ -5638,13 +5659,15 @@ void read_data_override(void) {
   char VARNAME_zHEL[]     = "zHEL";
   char VARNAME_zHELERR[]  = "zHELERR";
   char VARNAME_zCMB[]     = "zCMB";
+  char VARNAME_LOGMASS[]  = "HOST_LOGMASS" ;
 
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
   int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
-  int IVAR_OVER_zCMB = -9;
+  int IVAR_OVER_zCMB = -9, IVAR_OVER_LOGMASS = -9 ;
   int NSN_CHANGE[MXVAR_OVERRIDE];
-  int nfile_over = INPUTS.nfile_data_override;
+  int nfile_over   = INPUTS.nfile_data_override;
+  int IVAR_GAMMA   = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
   int ifile_data, ifile_over, NROW;
   int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
   char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
@@ -5704,12 +5727,23 @@ void read_data_override(void) {
       if ( strcmp(varName,VARNAME_zCMB) == 0     ) 
 	{ IVAR_OVER_zCMB = NVAR_OVER ; }
 
+      if ( strcmp(varName,VARNAME_LOGMASS) == 0     ) 
+	{ IVAR_OVER_LOGMASS = NVAR_OVER ; }
+
       NVAR_OVER++ ;
     }
   }
 
   // - - - - - - - -
   // check for conflicts
+
+  if ( NVAR_OVER == 0 ) {
+    sprintf(c1err,"Found zero override variables.");
+    sprintf(c2err,"Check VARNAMES in datafile_override");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  
+
   if ( IVAR_OVER_zHD >= 0 && IVAR_OVER_zHEL >= 0 ) {
     sprintf(c1err,"Cannot override both zHD and zHEL; pick one");
     sprintf(c2err,"and SALT2mu auto-computes override of the other.");
@@ -5788,7 +5822,6 @@ void read_data_override(void) {
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpec ;  }   
     else if ( strcmp(varName,"VPEC_ERR") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr ;  }  
-
     else if ( strcmp(varName,"HOST_LOGMASS") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.logmass ;  }
 
@@ -5869,6 +5902,18 @@ void read_data_override(void) {
 	  NSN_CHANGE[IVAR_OVER_zHD]++ ; 
 	  override_zhd = true ;
 	}
+	else if ( ivar_over == IVAR_OVER_LOGMASS && IVAR_GAMMA >= 0 ) {
+	  double logmass = dval;
+	  INFO_DATA.TABLEVAR.CUTVAL[IVAR_GAMMA][isn] = logmass ;
+	}
+
+	/* xxx mark delete (already loaded below)
+	else if ( ivar_over == IVAR_OVER_LOGMASS ) {
+	  double logmass = dval;
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_LOGMASS][isn] = logmass ;
+	  NSN_CHANGE[IVAR_OVER_LOGMASS]++ ; 
+	}
+	xxxx */
 
 	// apply override AFTER checking zhd[err] overrides
 	INFO_DATA.PTRVAL_OVERRIDE[ivar_over][isn] = dval;
@@ -6925,7 +6970,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   // Created Jun 2019
-  // After reading table and loadig TABLEVAR arrays, 
+  // After reading table and loading TABLEVAR arrays, 
   // this function defines 'more' TABLEVAR quantities;
   //  * mB, mBerr
   //  * mumodel
@@ -6934,7 +6979,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   //  * set_CUTMASK
   //
   // Inputs:
-  //   EVENT_TYPE : points to DATA, BIASCOR, or CCPRIOR
   //   ISN        : SN index for TABLEVAR arrays
   //   TABLEVAR   : structure of arrays
   //
@@ -7275,10 +7319,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     TABLEVAR->fitpar_ideal[INDEX_mB][ISN] = (float)mB_ideal;
   }
 
+  /* xxxxxxxx mark delete May 12 2021 xxxxxxxx
   // - - - - 
   // finally, set cutmask in TABLEVAR
   set_CUTMASK(ISN, TABLEVAR);
-
 
   // on last event, set NPASS ... but beware for data because additional
   // DATA cuts are applied later. print_eventStat determines final NPASS.
@@ -7286,11 +7330,35 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   int NREJ   = *NREJECT_CUTMASK_POINTER[EVENT_TYPE];  
   int *NPASS = NPASS_CUTMASK_POINTER[EVENT_TYPE];
   if ( ISN == NALL-1 ) {     *NPASS = NALL-NREJ ;   }
-  
+  xxxxxxxxxxx end mark xxxxxxxxxx */
 
   return ;
 
 } // end compute_more_TABLEVAR
+
+// ***********************************************
+void compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR ) {
+
+  // Created May 12 2021
+  // Call set_CUTMASK and set some counters.
+  // Was part of compute_more_TABLEVAR, but seperated here
+  // so that read_data_override can take effect before cuts.
+
+  int EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
+  if ( INPUTS.cat_only ) { return; }
+
+  set_CUTMASK(ISN, TABLEVAR);
+
+  // on last event, set NPASS ... but beware for data because additional
+  // DATA cuts are applied later. print_eventStat determines final NPASS.
+  int NALL   = *NALL_CUTMASK_POINTER[EVENT_TYPE];  
+  int NREJ   = *NREJECT_CUTMASK_POINTER[EVENT_TYPE];  
+  int *NPASS = NPASS_CUTMASK_POINTER[EVENT_TYPE];
+  if ( ISN == NALL-1 ) {     *NPASS = NALL-NREJ ;   }
+
+  return;
+
+} // end compute_CUTMASK
 
 // ==================================================
 void compute_more_INFO_DATA(void) {
@@ -8970,8 +9038,11 @@ void prepare_biasCor(void) {
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
 
-  for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ ) 
-    { compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); }
+  for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ )  { 
+    compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); 
+    compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR ); 
+  }
+
   if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
   
 
@@ -13291,6 +13362,7 @@ void  read_simFile_CCprior(void) {
 
   for(isn=0; isn < INFO_CCPRIOR.TABLEVAR.NSN_ALL; isn++ )  { 
     compute_more_TABLEVAR(isn, &INFO_CCPRIOR.TABLEVAR ); 
+    compute_CUTMASK(isn, &INFO_CCPRIOR.TABLEVAR ); 
   }
 
 

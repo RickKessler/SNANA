@@ -3017,7 +3017,8 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //                a+b+c+d --> peakMag from any abcd band.
   //
   // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
-
+  // May 13 2021: allow HOSTMAG or HOST_MAG
+  //
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
   int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
 
@@ -3127,7 +3128,7 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     return ;
   }
 
-  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"HOSTMAG");
+  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"HOSTMAG HOST_MAG");
   if ( ifilt_obs >=0 ) {
     SEARCHEFF_SPEC[imap].IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_HOSTMAG ;
@@ -3163,17 +3164,34 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   // Example:  VARNAME = HOSTMAG_r and PREFIX = HOSTMAG
   //           --> returns IFILTOBS=3
   //
-   
-  int  LENV, IFILTOBS = -9;
-  char cfilt[2];
+  // May 13 2021:
+  //   Allow multiple prefix names separated by space; e.g., 
+  //    PREFIX = "HOSTMAG HOST_MAG"
+  //
+
+#define MXPREFIX 4
+  int  NPREFIX=0;
+  int  i, LENV, IFILTOBS = -9;
+  char cfilt[2], PREFIX_LIST[MXPREFIX][80], *ptr_PREFIX;
+  char *ptrList[MXPREFIX];
+  char sepKey[] = " ";
   //  char fnam[] = "IFILTOBS_SPECEFF_VAR" ;
 
   // -------------- BEGIN ---------------
 
-  if ( strstr(VARNAME,PREFIX) != NULL ) {
-    LENV      = strlen(VARNAME);
-    sprintf(cfilt,"%c", VARNAME[LENV-1] );
-    IFILTOBS  = INTFILTER(cfilt);
+  for(i=0; i < MXPREFIX; i++ ) { ptrList[i] = PREFIX_LIST[i]; }
+
+  // check how many space-separated PREFIX names to check
+  splitString2(PREFIX, sepKey, MXPREFIX,
+	       &NPREFIX, ptrList ); // <== returned
+
+  for ( i=0; i < NPREFIX; i++ ) {
+    ptr_PREFIX = PREFIX_LIST[i];
+    if ( strstr(VARNAME,ptr_PREFIX) != NULL ) {
+      LENV      = strlen(VARNAME);
+      sprintf(cfilt,"%c", VARNAME[LENV-1] );
+      IFILTOBS  = INTFILTER(cfilt);
+    }
   }
 
   return(IFILTOBS);

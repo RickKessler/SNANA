@@ -5936,6 +5936,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   // Apr 12 2019: abort if 10 or more rows read without valid key
   // Jun 12 2020: pass MAPNAME as input arg.
   // Mar 27 2021: fix MSKOPT to allow comments with commas
+  // May 13 2021: require grid uniformity at 1E-6 instead of E-3
 
   int   READ_NEXTLINE = 1 ;
   int   NROW_READ     = 0 ;
@@ -6035,7 +6036,8 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 	DIF = TMPVAL[ivar] - TMPVAL_LAST[ivar];
 	if ( DIF > 0.0  && ivar < NDIM && TMPVAL_LAST[ivar]!=DUMVAL ) { 
 	  DDIF  = DIF - DIFVAL_LAST[ivar] ;
-	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; 
+	  // xxx mark delete	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; 
+	  LDIF1 = ( fabs(DDIF/DIF) > 1.0E-6 ) ; 
 	  LDIF2 = ( DIFVAL_LAST[ivar] > 0.0 ) ;
 	  if ( LDIF1 && LDIF2 ) {
 	    NBADBIN++ ;

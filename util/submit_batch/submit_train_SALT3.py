@@ -34,6 +34,14 @@ COLNUM_TRAIN_MERGE_CPU         = 4
 # name of misc dir to store plots, etc ..
 MISC_DIR_NAME = "misc"
 
+# config keys for calibration shifts (same as for train_SALT2)
+KEY_MAGSHIFT       = "MAGSHIFT"
+KEY_WAVESHIFT      = "WAVESHIFT"
+KEY_LAMSHIFT       = "LAMSHIFT"
+KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
+KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
+PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -76,6 +84,8 @@ class train_SALT3(Program):
         # copy input file
         self.train_prep_copy_files()
 
+        sys.stdout.flush()
+
         # end submit_prepare_driver
 
     def train_prep_input_files(self):
@@ -96,6 +106,11 @@ class train_SALT3(Program):
             else:
                 input_file = CONFIG[key]
                 input_file_list.append(input_file)
+                if not os.path.exists(input_file):
+                    msgerr.append(f"Input file {input_file}")
+                    msgerr.append(f"does not exist.")
+                    msgerr.append(f"Check '{key}' arg in {input_master_file}")
+                    util.log_assert(False,msgerr) # just abort, no done stamp
                 
         self.config_prep['input_file_list'] = input_file_list
 
@@ -113,7 +128,7 @@ class train_SALT3(Program):
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
                                               TRAINOPT_STRING, 
-                                              None )
+                                              KEY_SHIFTLIST_FILE )
 
         n_trainopt          = trainopt_dict['n_jobopt']
         trainopt_arg_list   = trainopt_dict['jobopt_arg_list']
@@ -126,15 +141,92 @@ class train_SALT3(Program):
         logging.info(f" Store {n_trainopt-1} TRAIN-SALT3 options " \
                      f"from {TRAINOPT_STRING} keys")
 
+        # for MAGSHIFT and./or WAVESHIFT, create calibration file
+        # in script_dir. The returned calib_shift_file has each
+        # calib arg unpacked so that each row has only 1 shift.
+        arg_replace = []
+        for num,arg in zip(trainopt_num_list,trainopt_arg_list):
+            arg_replace.append(self.make_calib_shift_file(num,arg))
+            
         self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = trainopt_arg_list
+        self.config_prep['trainopt_arg_list']   = arg_replace # trainopt_arg_list
         self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
         self.config_prep['trainopt_num_list']   = trainopt_num_list
         self.config_prep['trainopt_label_list'] = trainopt_label_list
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
+        
         self.config_prep['use_arg_file']        = use_arg_file
 
+        print('')
+
         # end train_prep_trainopt_list
+
+    def make_calib_shift_file(self,num,arg):
+
+        # if arg contains MAGSHIFT or WAVESHIFT key, write them out
+        # calib-shift file.
+        # Example:
+        #  num = TRAINOPT003
+        #  arg = WAVESHIFT CfA3  r,i 10,8     MAGSHIFT CfA3 U .01
+        #
+        # ==> write the following  to CALIB_SHIFT_TRAINOPT003.DAT:
+        #
+        # WAVESHIFT CfA3  r 10
+        # WAVESHIFT CfA3  i  8
+        # MAGSHFIT  cfA3  U 0.01
+        #
+        # and function return arg_replace = 
+        #    "calibrationshiftsfile = CALIB_SHIFT_TRAINOPT003.DAT"
+        #
+        # Make sure that arg_replace retains non-calib optoins
+        # to allow mixing calib and non-calib arguments.
+
+        script_dir      = self.config_prep['script_dir']
+
+        # first check if any calib shift key is in this arg
+        found_calshift = False
+        for key in KEY_CALIBSHIFT_LIST :
+            if key in arg: found_calshift = True
+        if not found_calshift : return arg
+
+        # if we get here, there is at least one valid calib-shift key,
+        # so unpack arg and write calib-shift file for SALTshaker.
+
+        calib_shift_file = f"{PREFIX_CALIB_SHIFT}_{num}.DAT"
+        CALIB_SHIFT_FILE = f"{script_dir}/{calib_shift_file}"
+        f = open(CALIB_SHIFT_FILE,"wt")
+
+        print(f"\t Create {calib_shift_file}")
+        arg_list = arg.split()
+        arg_replace = "" 
+        n_arg       = len(arg_list)
+        use_list    = [ False ] * n_arg
+
+        for iarg in range(0,n_arg):            
+            item = arg_list[iarg]
+            if item not in KEY_CALIBSHIFT_LIST :  continue 
+            key       = arg_list[iarg+0]
+            survey    = arg_list[iarg+1]
+            band_list = arg_list[iarg+2].split(',')
+            val_list  = arg_list[iarg+3].split(',')
+            use_list[iarg:iarg+4] = [True] * 4
+
+            for band,val in zip(band_list,val_list):
+                f.write(f"{key} {survey} {band} {val} \n")
+                
+        f.close()
+
+        # - - - - 
+        # store un-used arguments in arg_replace
+        for item,use in zip(arg_list,use_list):
+            if not use : arg_replace += f"{item} " 
+
+        # tack on calibshift file
+        arg_replace += f"--calibrationshiftsfile {calib_shift_file} "
+
+        return arg_replace
+
+        # end make_calshift_file
 
     def train_prep_paths(self):
 
@@ -142,10 +234,12 @@ class train_SALT3(Program):
 
         output_dir        = self.config_prep['output_dir']
         trainopt_num_list = self.config_prep['trainopt_num_list']
+        n_trainopt        = self.config_prep['n_trainopt']
         model_suffix      = MODEL_SUFFIX_DEFAULT  
         outdir_model_list  = []
         outdir_model_list_base  = []
 
+        print(f" Create {n_trainopt} output model directories:")
         for trainopt_num in trainopt_num_list:
             nnn           = trainopt_num[-3:]
             sdir_model    = f"SALT3.{model_suffix}{nnn}"
@@ -155,6 +249,7 @@ class train_SALT3(Program):
             outdir_model_list_base.append(sdir_model)
             os.mkdir(outdir_model)
 
+        sys.stdout.flush()
         self.config_prep['outdir_model_list']  =  outdir_model_list
         self.config_prep['outdir_model_list_base'] = outdir_model_list_base
         # end train_prep_paths

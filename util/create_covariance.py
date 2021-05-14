@@ -540,9 +540,19 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     # We have to parse this. Eventually can make this structured and 
     # move away from legacy, but dont want to make too many people 
     # change how they are doing things in one go
-    label, fitopt_filter, muopt_filter = \
-        re.findall(r"\[(.*)\] \[(.*),(.*)\]", covopt)[0]
-        
+
+    # xxxx mark delete May 14 2021 (RK) xxxxxxxx
+    #label, fitopt_filter, muopt_filter = \
+    #    re.findall(r"\[(.*)\] \[(.*),(.*)\]", covopt)[0]
+    # xxxxxxxx end mark xxxxxxxxx
+
+    # split covopt into two terms so that extra pad spaces 
+    # doesn't break findall command (RK May 14 2021)  
+    tmp0 = covopt.split()[0]
+    tmp1 = covopt.split()[1]
+    label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
+    fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
+
     fitopt_filter = fitopt_filter.strip()
     muopt_filter  = muopt_filter.strip()
     logging.debug(f"Computing COV({label}) with FITOPT filter " \

@@ -300,7 +300,7 @@ def get_common_set_of_sne(datadict):
         
         n_sn = combined.shape[0]
         n_file += 1
-        logging.debug(f"Common set from {label} has {n_sn} elements")
+        logging.info(f"Common set from {label} has {n_sn} elements")
         assert combined.shape[0], "\t No common SNe ?!?!?"
 
     n_sn = combined.shape[0]

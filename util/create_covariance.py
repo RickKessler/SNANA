@@ -207,11 +207,11 @@ def load_hubble_diagram(path, args, config):
             assert "MUERR_VPEC" in df.columns, msgerr
             df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df['biasScale_muCOV']*df["MUERR_VPEC"] ** 2)
             logging.debug("Subtracted MUERR_VPEC from MUERR")
-        elif config.get("CALIBRATORS"):
-            calib_mask = df["CID"].isin(config.get("CALIBRATORS"))
-            df.loc[calib_mask, VARNAME_MUERR] = \
-                np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
-                df.loc[calib_mask, "MUERR_VPEC"] ** 2)
+        #elif config.get("CALIBRATORS"):
+        #    calib_mask = df["CID"].isin(config.get("CALIBRATORS"))
+        #    df.loc[calib_mask, VARNAME_MUERR] = \
+        #        np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
+        #        df.loc[calib_mask, "MUERR_VPEC"] ** 2)
         df['CIDstr'] = df['CID'].astype(str)
         df = df.set_index(["IDSURVEY", "CID"])
     elif VARNAME_z in df.columns:
@@ -298,12 +298,15 @@ def get_common_set_of_sne(datadict):
     for label, df in datadict.items():
         if combined is None:
             combined = df.index
+            missing = None
         else:
+            missing = combined.difference(df.index)
             combined = combined.intersection(df.index)
         
         n_sn = combined.shape[0]
         n_file += 1
-        logging.debug(f"Common set from {label} has {n_sn} elements")
+        logging.info(f"Common set from {label} has {n_sn} elements")
+        logging.info(f"\n{missing}")
         assert combined.shape[0], "\t No common SNe ?!?!?"
 
     n_sn = combined.shape[0]

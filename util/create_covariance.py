@@ -18,6 +18,9 @@
 #    + new command line args to replace contents of input file.
 #      The tricky one is -m --muopt to select only one MUOPT.
 #
+# May 14 2021 RK -
+#   + fix bug in get_cov_from_covopt to allow pad spaces between [] terms.
+#
 # ===============================================
 
 import argparse

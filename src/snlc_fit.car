@@ -2214,6 +2214,9 @@ c   DELCHI2_REJECT are set. Fixes long-standing bug.
 c
 c Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
 c              correct CUTFLAG_SNANA shows up in FITRES table.
+c
+c May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -2237,7 +2240,7 @@ c local var
      &  ,OPT, hid, i, IERR_MARG
 
       LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
-      LOGICAL LMAXFRAC, LCHI2REJ
+      LOGICAL LMAXFRAC, LCHI2REJ, CRAZY
       REAL FRACERRDIF
       character sdir*20, chis*40, ccid*(MXCHAR_CCID)
 
@@ -2318,9 +2321,14 @@ c check optional IDEAL fit with FLUX=TRUEFLUX (Aug 2017)
 
 
 c -------------------------------------------------
-c check for crazy errors, unless the plotchi2-debugger is on
+c check for crazy errors, unless:
+c   + plotchi2-debugger is on, or
+c   + OPT_SNCID_LIST is set
 
-      IF ( CRAZYFITERR(isn,iter) .and. .not. LPLOTCHI2 ) THEN
+      CRAZY = CRAZYFITERR(isn,iter) .and. 
+     &    (.not. LPLOTCHI2 .and. OPT_SNCID_LIST==0)
+
+      IF ( CRAZY ) THEN
         write(6,222) CCID(1:LCID)
 222     format(T15,'CRAZY ERROR for CID=', A,' ==> SKIP ' )
         ERRFLAG = ERRFLAG_FIT_CRAZYERR
@@ -2506,7 +2514,7 @@ c checking crazy error
          RETURN
       endif
 
-c check for NaN on every fit iteratio
+c check for NaN on every fit iteration
       LNAN = .FALSE.
       if ( ISNAN(ERR_COLOR) ) LNAN = .TRUE.
       if ( ISNAN(ERR_SHAPE) ) LNAN = .TRUE.
@@ -4450,7 +4458,7 @@ cc xxx mark delete Oct 2020   if ( LDMPFCN_LOC .and. FIRSTFILT ) then
               print*,' '
               print*,' -------------------------------------- '
               write(6,602) SNLC_CCID,  ITER, IFLAG
-602           format(T5,'PREPARE TO DUMP FCNSNLC for SN ', A8, 
+602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
      &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
 
 c print  fit-pars to see crazy values.
@@ -6882,9 +6890,9 @@ c set defgaults to no rejected epochs at 2nd iteration
 
 c hard-wire a few very loose cuts on SALT2-fitted errors
 c to reject crazy fits
-        FITWIN_COV_OFFDIAG(1)   = -8.0
-        FITWIN_COV_OFFDIAG(2)   = +8.0
-        FITWIN_MB_ERR(2)        = +1.0 
+      FITWIN_COV_OFFDIAG(1)   = -8.0
+      FITWIN_COV_OFFDIAG(2)   = +8.0
+      FITWIN_MB_ERR(2)        = +1.0 
 
       SNMAGRMS_for_PHOTOZ = 0.12
 
@@ -8011,8 +8019,15 @@ c continue below on 1st iteration only.
       PEAKMJD         =  SNLC_SEARCH_PEAKMJD    ! approx peak MJD
       INIVAL(IPAR)    =  PEAKMJD - MJDOFF
       INISTP(IPAR)    =  INISTP_PEAKMJD         ! initial step size, days
+
+
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
+
+      IF ( OPT_DEBUG == 30 ) THEN
+         INIBND(1,IPAR)  =  INIVAL(IPAR) - 30.0
+         INIBND(2,IPAR)  =  INIVAL(IPAR) + 30.0
+      ENDIF
       FITVAL(IPAR,0)  =  INIVAL(IPAR) 
 
       ipar            =  IPAR_DLMAG
@@ -8024,7 +8039,6 @@ c continue below on 1st iteration only.
       if ( USESIM_REDSHIFT ) THEN
          SNLC_REDSHIFT = SIM_REDSHIFT_HELIO
          SNLC_ZHELIO   = SIM_REDSHIFT_HELIO
-c xxx mark bug         SNLC_ZCMB     = SIM_REDSHIFT_HELIO
          SNLC_ZCMB     = SIM_REDSHIFT_CMB   ! Dec 15 2020
       endif
 
@@ -8260,7 +8274,7 @@ c now check if want to fix a parameter with the simulated value.
       ENDIF  ! end LSIM_SNANA
 
 c set FITVAL on 1st interation since this array
-c are used in the ADJUST & FITINI_XXXX routines.
+c is used in the ADJUST & FITINI_XXXX routines.
 c (exception for option that fixes parameters)
 
         do ipar = 1, IPAR_MAX
@@ -15808,13 +15822,17 @@ c selected by snana, not just the ones in FILTLIST_FIT.
 c Use EPCUT_SNRMIN to reject extra filters.
 
          LAMTMP = LAMREST(itry)
-         IF ( OPT_DEBUG == 1000 ) then
-            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
-         else
+
+c xxxxxxxxxx Mark delete May 18 2021 xxxxxxxxxx 
+c         IF ( OPT_DEBUG == 1000 ) then
+c            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
+c         else
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 c new default, Mar 28 2020
-            NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
-     &             IFILTOBS_BRACKET) ! <== returned
-         endif
+          NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
+     &            IFILTOBS_BRACKET) ! <== returned
+
          IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
          IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
 
@@ -19627,7 +19645,7 @@ c hard-wire  a few things
       CHARACTER chis*80
 
       INTEGER 
-     &   hid, NBx, NBf, NHB(2), ipar, ix, LL
+     &   hid, NBx, NBf, NHB(2), ipar, ix, LL, LF
      &  ,ifilt, ifilt_obs, NFUSE
      &  ,IPAR_LOOP1, IPAR_LOOP2
      &  ,NDIM1, NDIM2
@@ -19703,8 +19721,9 @@ C ------------------- BEGIN ---------------------
 c book chi2 vs. par - par(at min) vs. filter
  
         LL = INDEX(PARNAME_STORE(ipar),' ' ) - 1
+        LF = INDEX(FILTLIST_FIT_USE,   ' ' ) - 1
         chis = 'FUN-chi2  vs.  [D]' // PARNAME_STORE(ipar)(1:LL) // 
-     &    ' and filters ' // FILTLIST_FIT_USE // char(0)
+     &    ' and filters ' // FILTLIST_FIT_USE(1:LF) // char(0)
 
         hid      = HOFF + ipar
         NHB(1)   = NBX  ; NHB(2)   = NBF

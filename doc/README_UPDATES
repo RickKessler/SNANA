@@ -19895,4 +19895,39 @@
      + fix old bug to allow colons in comments after inputs.
      + new input zspec_maxerr_idsample 
 
+
+# ======================================================================= 
+         v11_02n (  ) 
+
+         ***** IMPORTANT(v11_02n) ***** 
+
+         ***** USEFUL(v11_02n) ***** 
+
+         ***** MISCELLANEOUS(v11_02n) ***** 
+
+    snlc_sim.c 
+      + finish refactor to fix wave smearing in edge bins of spectrograph.
+        Refactor is now default; go back to legacy code with
+            snlc_sim.exe myInputFile DEBUG_FLAG -10
+        Noticed that correlated template noise (for SNR_ZPOLY) in spectra 
+        was broken; made some attempt to fix, but not well tested.
+      + in speceff file, allow HOSTMAG_[band] or HOST_MAG_[band]
+
+    snana.car
+      + restore HOST_MAG_[band] to output tables; was lost during IO refac.
+      + check IGNORE file for PHOTFLAG_MSKREJ and PHOTFLAG_BITLIST_REJECT.
+        This allows data release to include PHOTFLAGs so user need not
+        specify these flags in their &SNLCINP.
+
+    sntools.c
+      + read_GRIDMAP bin uniformity requirement at 1E-6 instead of E-3.
+
+    SALT2mu.c
+      + fix bug with HOST_LOGMASS override. read_data_override is
+        moved to before cuts are applied instead of after.
+
+    submit_batch:
+      + for fit mode, fix bug setting OPT_SNCID_LIST to get same
+        events for all systematics.
+
 END: 

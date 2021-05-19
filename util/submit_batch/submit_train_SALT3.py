@@ -18,7 +18,8 @@ CONFIG_KEYLIST_INPUT_FILE = [ 'INPUT_TRAIN_FILE', 'INPUT_MODEL_FILE' ]
 # define input file keys passed to trainsalt code
 CODE_KEYLIST_INPUT_FILE   = [ '--configfile', '--trainingconfig' ]
 
-TRAINOPT_STRING = "TRAINOPT"
+TRAINOPT_STRING        = "TRAINOPT"
+TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
 
 # Define suffix for output model used by LC fitters: 
 #    SALT2.[MODEL_SUFFIX][nnn]
@@ -41,6 +42,8 @@ KEY_LAMSHIFT       = "LAMSHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
 PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"
+
+KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -119,11 +122,17 @@ class train_SALT3(Program):
     def train_prep_trainopt_list(self):
 
         CONFIG   = self.config_yaml['CONFIG']
+
+        trainopt_global = ""  # apply to each TRAINOPT
+        trainopt_rows   = []  # TRAINOT-specified commands
+
+        # start with global settings
+        key = TRAINOPT_GLOBAL_STRING
+        if key in CONFIG:  trainopt_global = CONFIG[key]
+
+        # next, TRAINOPT per job
         key      = TRAINOPT_STRING
-        if key in CONFIG :
-            trainopt_rows = CONFIG[key]
-        else:
-            trainopt_rows = []
+        if key in CONFIG :  trainopt_rows = CONFIG[key]
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
@@ -144,17 +153,19 @@ class train_SALT3(Program):
         # for MAGSHIFT and./or WAVESHIFT, create calibration file
         # in script_dir. The returned calib_shift_file has each
         # calib arg unpacked so that each row has only 1 shift.
+        # arg_replace = arg, but calibration shifts are replaced
+        # with command to read calib-shift file.
         arg_replace = []
         for num,arg in zip(trainopt_num_list,trainopt_arg_list):
             arg_replace.append(self.make_calib_shift_file(num,arg))
             
         self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = arg_replace # trainopt_arg_list
+        self.config_prep['trainopt_arg_list']   = arg_replace
         self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
         self.config_prep['trainopt_num_list']   = trainopt_num_list
         self.config_prep['trainopt_label_list'] = trainopt_label_list
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
-        
+        self.config_prep['trainopt_global']     = trainopt_global
         self.config_prep['use_arg_file']        = use_arg_file
 
         print('')
@@ -222,7 +233,7 @@ class train_SALT3(Program):
             if not use : arg_replace += f"{item} " 
 
         # tack on calibshift file
-        arg_replace += f"--calibrationshiftsfile {calib_shift_file} "
+        arg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
 
         return arg_replace
 
@@ -306,6 +317,7 @@ class train_SALT3(Program):
         output_dir        = self.config_prep['output_dir']
         trainopt_num      = self.config_prep['trainopt_num_list'][itrain]
         trainopt_arg      = self.config_prep['trainopt_arg_list'][itrain]
+        trainopt_global   = self.config_prep['trainopt_global']
         outdir_model      = self.config_prep['outdir_model_list'][itrain]
 
         prefix            = trainopt_num
@@ -323,6 +335,7 @@ class train_SALT3(Program):
         arg_list.append(f"--outputdir {outdir_model}")
         arg_list.append(f"--yamloutputfile {yaml_file}")
         arg_list.append(f"{trainopt_arg}")
+        if len(trainopt_global) > 0 : arg_list.append(trainopt_global)
 
         JOB_INFO = {}
         JOB_INFO['program']       = f"{program}"

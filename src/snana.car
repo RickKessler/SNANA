@@ -5772,7 +5772,7 @@ c set default telescope & field to ALL
 c set photometry-flag bits to reject;
 c default is to reject nothing (accept everything)
 
-      PHOTFLAG_MSKREJ(1) = 0
+      PHOTFLAG_MSKREJ(1) = -1  ! negative -> not set
       PHOTFLAG_MSKREJ(2) = 0
       PHOTFLAG_MSKREJ(3) = 0
       PHOTFLAG_MSKREJ(4) = 0
@@ -5986,12 +5986,15 @@ c bits 1 & 2 are set.
       ENDIF
 
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
-      i = 1
-      DO WHILE ( PHOTFLAG_BITLIST_REJECT(i) .GE. 0 ) 
-         bit = PHOTFLAG_BITLIST_REJECT(i) 
-         PHOTFLAG_MSKREJ(1) = IBSET(PHOTFLAG_MSKREJ(1),BIT)
-         i = i + 1
-      END DO
+      IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN
+         PHOTFLAG_MSKREJ(1) = 0
+         i = 1
+         DO WHILE ( PHOTFLAG_BITLIST_REJECT(i) .GE. 0 ) 
+            bit = PHOTFLAG_BITLIST_REJECT(i) 
+            PHOTFLAG_MSKREJ(1) = IBSET(PHOTFLAG_MSKREJ(1),BIT)
+            i = i + 1
+         END DO
+      ENDIF
 
 
 +SELF,IF=SNANA.
@@ -12699,9 +12702,26 @@ c  etc ...
 c
 c  where <FILTER> is 'g' or 'r' or 'i' etc ...
 c
+c  and/or
+c 
+c PHOTFLAG_MSKREJ:  <mask>  ! apply to PHOTFLAG
+c    or
+c PHOTFLAG_BITLIST_REJECT: 2,3,4  ! convert bits to mask
+c
+c PRIORITY for setting PHOTFLAG_MSKREJ
+c   + user input via &SNLCINP -> top priority
+c   + [VERSION].IGNORE file   -> next priority
+c
+c Strategy is that PHOTFLAG_MSKREJ is initialized to -1 before
+c reading &SNLCINP ... which is before calling this function.
+c If PHOTFLAG_MSKREJ >=0 here, then it picked up a value from &SNLCINP
+c and it is NOT allowed to be modified here.
+c If PHOTFLAG_MSKREJ < 0 here, then it can be updated by contents
+c    of [VERSION].IGNORE file.
 c
 c Aug 27 2020: for externally supplied .IGNORE  file, make DOCANA check.
 c Feb 06 2021: IGNORE file is now optional ! No longer required !
+c May 13 2021: check for PHOTFLAG_MSKREJ in IGNORE file
 c
 c ----------------------------------
       IMPLICIT NONE
@@ -12713,9 +12733,9 @@ c ----------------------------------
 
 c local var
 
-      INTEGER LL, LL1, LL2, LL3, LV, LF
+      INTEGER LL, LL1, LL2, LL3, LV, LF, BIT
       INTEGER iwd, NWD, N, LUN, NREAD_IGNORE
-      LOGICAL LEXIST
+      LOGICAL LEXIST, FOUND_EPIGNORE, NOTSET
       REAL*8 MJD8
       CHARACTER 
      &   LOCAL_FILENAME*(MXCHAR_FILENAME)
@@ -12725,6 +12745,7 @@ c local var
      &  ,cwd_tmp*(MXCHAR_FILEWORD)
      &  ,ccid*(MXCHAR_CCID)
      &  ,ccid_last*(MXCHAR_CCID)
+     &  ,STRING_BITLIST*60
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -12735,6 +12756,9 @@ C ------------- BEGIN ----------
 
       VERSION  = VERSION_PHOTOMETRY(ivers) 
       LV       = index(VERSION,' ') - 1
+
+      FOUND_EPIGNORE = .FALSE.
+      STRING_BITLIST = ''
 
       CALL PRBANNER ( "READ_EPIGNORE_FILE:" )
 
@@ -12752,7 +12776,7 @@ c       bail if default file does not exist (Feb 2021)
         if ( .NOT. LEXIST ) THEN
            print*,'    Default IGNORE file does not exist -> skip read.'
            call flush(6)
-           RETURN
+           GOTO 8000
         endif 
       ELSE
         LOCAL_FILENAME = EPOCH_IGNORE_FILE
@@ -12760,7 +12784,7 @@ c       bail if default file does not exist (Feb 2021)
 
 c for multiple versions, don't bother re-reading  the same
 c IGNORE file
-      IF ( IVERS .GT. 1 ) then
+      IF ( IVERS > 1 ) then
         LF  = INDEX(LOCAL_FILENAME,' ') - 1
         IF ( LOCAL_FILENAME(1:LF) .EQ. 
      &       EPOCH_IGNORE_LASTFILE(1:LF) ) THEN
@@ -12773,7 +12797,6 @@ c Now start reading file
 
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
-
 
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
       
@@ -12818,21 +12841,74 @@ c Now start reading file
            LL = INDEX(CCID,' ' ) - 1
            IF ( LL .LE. 0 ) LL = MXCHAR_CCID
 
-           write(6,55) N, CCID(1:LL), MJD8, cflt
+c           write(6,55) N, CCID(1:LL), MJD8, cflt
 55         format(T4,I3,': Add ignore-epoch to list for CID=',A, 
      &         3x,'MJD=',F9.3, 2x,'FILT=',A)
+         endif
+
+	 IF ( OPT_DEBUG == -10 ) GOTO 200 ! implement legacy code
+
+c May 2021: check for PHOTFLAGs to reject epochsa
+         NOTSET = (PHOTFLAG_MSKREJ(1) < 0)
+         if ( cwd .EQ. 'PHOTFLAG_MSKREJ:' .and. NOTSET ) then
+            CALL get_PARSE_WORD_fortran(iwd+1,cwd_tmp,LL1)
+            read(cwd_tmp,*) PHOTFLAG_MSKREJ(1)
+         endif
+
+         if ( cwd .EQ. 'PHOTFLAG_BITLIST_REJECT:' ) then
+            CALL get_PARSE_WORD_fortran(iwd+1,STRING_BITLIST,LL1)
          endif
 
 200   ENDDO
 
       EPOCH_IGNORE_LASTFILE = LOCAL_FILENAME
       call FLUSH(6)
-      print*,' '
-      RETURN
+
+c xxxxx mark delete May 13 2021 
+c      print*,' '
+c      RETURN
+c xxxxxxxxxxxxx
 
 C -------------------------------------------
 8000  CONTINUE
-      print*,'  No epochs will be ignored => use all epochs. '
+
+c parse BITLIST after reading IGNORE file to avoid parse_WORD conflicts
+      NOTSET = (PHOTFLAG_MSKREJ(1) < 0)
+      IF ( STRING_BITLIST .NE. ' ' .and. NOTSET ) THEN
+         PHOTFLAG_MSKREJ(1) = 0 
+         LL = INDEX(STRING_BITLIST,' ') - 1
+         NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
+     &            STRING_BITLIST(1:LL)//char(0),LL)
+         do iwd = 1, NWD
+            CALL get_PARSE_WORD_fortran(iwd,cwd_tmp,LL1)
+            read(cwd_tmp,*) BIT
+            PHOTFLAG_BITLIST_REJECT(iwd) = BIT
+            PHOTFLAG_MSKREJ(1) = IBSET(PHOTFLAG_MSKREJ(1),BIT)
+         enddo
+      ENDIF
+
+c if PHOTFLAG_MSKREJ is still negative, then it has not been set;
+c in this case, set it to zero so that it doesn't reject anything.
+      IF ( PHOTFLAG_MSKREJ(1) < 0 ) PHOTFLAG_MSKREJ(1) = 0 
+
+      if ( NEPOCH_IGNORE > 0 ) then
+         FOUND_EPIGNORE = .TRUE.
+         write(6,801) NEPOCH_IGNORE
+ 801     format(T5,'EPOCH_IGNORE: Found ', I5,' epochs to IGNORE')
+      endif
+
+      if ( PHOTFLAG_MSKREJ(1) > 0 ) then
+         write(6,802) PHOTFLAG_MSKREJ(1) 
+         FOUND_EPIGNORE = .TRUE.
+ 802     format(T5,'EPOCH_IGNORE: ignore epochs with PHOTFLAG & ', I8 )
+      endif
+
+      if ( .NOT. FOUND_EPIGNORE ) then
+         print*,'   EPOCH_IGNORE: ' // 
+     &          'No epochs are ignored => use all epochs. '
+      endif
+      print*,' '
+
       CALL FLUSH(6)
 
       RETURN

@@ -478,7 +478,8 @@ check for bad SNR inputs are described below.
 Each $\lam$-bin ({\tt SPECBIN} key) includes 
 $\lam_{\rm min}$ and $\lam_{\rm max}$ (\AA)
 to avoid confusion with non-uniform $\lam$ bins. 
-The {\tt LAMRES} column specifies the wavelength resolution in \AA.
+The {\tt LAMRES} column specifies the wavelength resolution
+as Gaussian $\sigma$ in \AA.
 Since there are three $\Texpose$ values in the example above
 (see {\tt TEXPOSE\_LIST} key),
 three SNR pairs are given, where each SNR pair corresponds
@@ -12899,6 +12900,70 @@ used in the light curve fit.
 
 % --------------------------------------
   \clearpage
+  \subsubsection{Selecting SNe}
+  \label{sss:select_SN}
+% --------------------------------------
+
+The \snana\ analysis programs 
+({\tt snana.exe}, {\tt snlc\_fit.exe}, {\tt psnid.exe})
+include a common set of cuts via the {\tt \&SNLCINP} namelist.
+Unfortunately these cut parameters are documented only within
+the code, e.g.,
+\begin{verbatim}                                                               
+   grep cutvar_name $SNANA_DIR/src/snana.car | grep CUTBIT
+\end{verbatim}
+and for each {\tt CUTBIT\_XXX} there is an associated 
+{\tt CUTWIN\_XXX} for {\tt \&SNLCINP} or command line override.
+There are other non-{\tt CUTWIN} inputs to select based on CID or TYPE,
+\begin{verbatim}
+   SNCID_LIST    = 4,88,105          ! explicit list of integer CIDs
+   SNCCID_LIST   = 'Joe,Henry,Sam'   ! same for char string names
+   SNTYPE_LIST   = 1,18              ! select ITYPE = 1 or 18
+   MXEVT_PROCESS = 10                ! process first 10 events
+\end{verbatim}
+
+
+% --------------------------------------
+  \subsubsection{Selecting Observations}
+  \label{sss:select_obs}
+% --------------------------------------
+
+By default, all \obss\ are selected.
+A subset of \obss\ is selected with explicit {\tt CUTWIN\_XXX} inputs,
+and/or rejected via {\tt PHOTFLAG} bits,
+\begin{verbatim} 
+   &SNLCINP
+     CUTWIN_PSF   = 0.5,  2.75  ! FWHM, arcsec
+     CUTWIN_ZPNPE = 30.5, 100.  ! cut on ZP in Npe
+
+     PHOTFLAG_MSKREJ = 1016     ! reject if PHOTFLAG & 1016
+         or
+     PHOTFLAG_BITLIST_REJECT = 3,4,5,6,7,8,9  ! same as above (LSB=0)
+\end{verbatim}
+%
+If the {\tt PHOTFLAG\_MSKREJ} value is not stable 
+(e.g., near start of analysis), the value can be included
+in the data {\tt [VERSION].IGNORE} file as
+%
+\begin{verbatim}
+# -------------
+PHOTFLAG_MSKREJ: 1016    # reject if PHOTFLAG & 1016
+    or
+PHOTFLAG_BITLIST_REJECT: 3,4,5,6,7,8,9  # LSB=0
+
+# and optional list of specific epochs to ignore
+#         SNID    MJD      band
+IGNORE:   1032  53668.387   g 
+IGNORE:   1286  53773.291   r
+IGNORE:   1785  53792.898   i
+# -------------
+\end{verbatim}
+%
+If {\tt PHOTFLAG\_MSKREJ} is defined in the {\tt \&SNLCINP} name-list
+or the command line, this value overrides the value in {\tt [VERSION].IGNORE}.
+
+% --------------------------------------
+%  \clearpage
   \subsubsection{Selecting Early Epochs}
   \label{sss:early}
 % --------------------------------------

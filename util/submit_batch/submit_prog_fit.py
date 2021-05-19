@@ -19,7 +19,11 @@
 # Apr 17 2021: write PRIVATE_DATA_PATH to SUBMIT.INFO 
 # Apr 25 2021: pass command to nevt_table_check and print command on failure.
 # May 13 2021: fix bug setting NOREJECT and OPT_SNCID_LIST option
-# May 19 2021: if OPT_SNCID_LIST>0, write NEVT_COMMON  to MERGE.LOG
+#
+# May 19 2021: if OPT_SNCID_LIST>0 then
+#     + set n_job_split = n_core to quickly process FITOPT000
+#     + write NEVT_COMMON  to MERGE.LOG
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -95,6 +99,9 @@ FITOPT_STRING = "FITOPT"
 # and to exclude from using CID list from FITOPT000
 FITOPT_STRING_NOREJECT = "NOREJECT" 
 
+# key to use FITOPT000 sample for all other FITOPTs; for CONFIG and snlc_fit
+KEY_OPT_SNCID_LIST  = 'OPT_SNCID_LIST'
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -166,12 +173,13 @@ class LightCurveFit(Program):
         # is part of FITOPT label, ignore OPT_SNCID_LIST.
 
         CONFIG   = self.config_yaml['CONFIG']
-        KEY_OPT  = 'OPT_SNCID_LIST'   # key for CONFIG and snlc_fit
-        KEY_FILE = 'SNCID_LIST_FILE'  # key for snlc_fit
-        opt_sncid_list = 0
+        opt_sncid_list = self.config_prep['opt_sncid_list']  
+
+        KEY_OPT  = KEY_OPT_SNCID_LIST   # key for CONFIG and snlc_fit
+        KEY_FILE = 'SNCID_LIST_FILE'    # key for snlc_fit
         argdict_same_sncid = {}
 
-        if KEY_OPT in CONFIG :  opt_sncid_list = CONFIG[KEY_OPT]
+        # xxx mark if KEY_OPT in CONFIG :  opt_sncid_list = CONFIG[KEY_OPT]
 
         if opt_sncid_list > 0 :         
             # make list of reference FITOPT000.FITRES file for each 
@@ -194,7 +202,7 @@ class LightCurveFit(Program):
         #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
 
         # load the goodies
-        self.config_prep['opt_sncid_list']     = opt_sncid_list
+        # xxx mark self.config_prep['opt_sncid_list']     = opt_sncid_list
         self.config_prep['argdict_same_sncid'] = argdict_same_sncid
 
         # end fit_prep_same_scnid
@@ -501,6 +509,12 @@ class LightCurveFit(Program):
             # default: read FITOPT info
             KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
             fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
+
+        # check for OPT_SNCID_LIST ... just store it here for later
+        if KEY_OPT_SNCID_LIST in CONFIG :  
+            opt_sncid_list = CONFIG[KEY_OPT_SNCID_LIST]
+        else:
+            opt_sncid_list = 0
         
         # - - - - - -
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
@@ -527,6 +541,7 @@ class LightCurveFit(Program):
         self.config_prep['fitopt_label_list']   = fitopt_label_list
         self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
         self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
+        self.config_prep['opt_sncid_list']      = opt_sncid_list
 
         # end fit_prep_FITOPT
 
@@ -609,13 +624,25 @@ class LightCurveFit(Program):
         version_list     = self.config_prep['version_list']
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         n_core           = self.config_prep['n_core']
+        opt_sncid_list   = self.config_prep['opt_sncid_list']
         do_dump = True
 
         # first figure out how many split jobs
         n_fitopt_tmp = n_fitopt_tot - n_fitopt_link # number of FITOPTs to process
         n_job_tmp    = n_version * n_fitopt_tmp  # N_job if no splitting
         n_job_split  = int(n_core/n_job_tmp)
+
+        # - - - - - - -
+        # check special cases to alter n_job_split
+
+        # require at least 1 job
         if n_job_split == 0 : n_job_split = 1
+
+        # if waiting for FITOPT000, distribute over all cores to avoid
+        # long wait for FITOPT000. But no more than 100 splits
+        if opt_sncid_list > 0 :
+            n_job_split = n_core
+            if n_job_split > 100: n_job_split = 100
 
         # note that n_job_tot does NOT include symbolic links
         n_job_tot = n_job_split * n_job_tmp

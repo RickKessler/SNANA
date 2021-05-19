@@ -811,29 +811,6 @@ def get_survey_info(yaml_path):
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
-def kill_jobs_obsolete(config_prep):
-
-    # xxxxx MARK OBSOLETE xxxxx
-
-    # kill jobs and exit 
-    submit_mode = config_prep['submit_mode']
-    n_core      = config_prep['n_core']
-
-    if ( submit_mode == SUBMIT_MODE_SSH ) :
-        # BEWARE: need to check for unique SSH nodes ???
-        nodelist = config_prep['nodelist']
-        for node in nodelist.split() :
-            cmd_kill = ("ssh -x %s 'kill -KILL -1' " % node )
-            print('\t %s ' % cmd_kill )
-            #            os.system(cmd_kill)
-
-    elif (submit_mode == SUBMIT_MODE_BATCH ):
-        pass
-
-    msg = (f"\n Done killing {submit_mode} jobs.")
-    sys.exit(msg)
-    return  # xxxxxx MARK OBSOLETE xxxxxxxxx
-
 
 # ---------------------------------------------------
 # MESSAGING

@@ -1709,7 +1709,7 @@ c define namelist cuts
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
 
-      REAL PKMJDINI_LIST_ALL(MXCCID_LIST) ! used if BTEST(OPT_SNCID_LIST,0)
+      REAL PKMJDINI_LIST_ALL(MXCCID_LIST) ! used if BTEST(OPT_SNCID_LIST,1)
 
       REAL
      &   snlc_cutvar(NCUTBIT_SNLC)

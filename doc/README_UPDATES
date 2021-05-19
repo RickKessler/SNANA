@@ -19929,5 +19929,7 @@
     submit_batch:
       + for fit mode, fix bug setting OPT_SNCID_LIST to get same
         events for all systematics.
+      + for fit mode and OPT_SNCID_LIST > 0, write NEVT_COMMON
+        to MERGE.LOG
 
 END: 

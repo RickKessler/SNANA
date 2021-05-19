@@ -19,7 +19,7 @@
 # Apr 17 2021: write PRIVATE_DATA_PATH to SUBMIT.INFO 
 # Apr 25 2021: pass command to nevt_table_check and print command on failure.
 # May 13 2021: fix bug setting NOREJECT and OPT_SNCID_LIST option
-
+# May 19 2021: if OPT_SNCID_LIST>0, write NEVT_COMMON  to MERGE.LOG
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -27,6 +27,7 @@ import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
 import submit_util as util
+import pandas as pd
 
 from   submit_params import *
 from   submit_prog_base import Program
@@ -630,11 +631,6 @@ class LightCurveFit(Program):
         iver_list=[] ;  iopt_list=[];   isplit_list=[]
         size_sparse_list = 0
 
-        # xxx mark delete Jan 8 2021 xxxxxxxxx
-        # xxx for iver in range(0,n_version):
-        # xxx   for iopt in range(0,n_fitopt_tot):
-        # xxxxxxxxxxxxxxxxxxx
-
         # Loop over iopt (fitopt) first to ensure that all FITOPT000
         # are processed first ... matters when using OPT_SNCID_LIST.
         for iopt in range(0,n_fitopt_tot):
@@ -981,6 +977,7 @@ class LightCurveFit(Program):
         use_table_format  = self.config_prep['use_table_format']
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         private_data_path = self.config_prep['private_data_path']
+        opt_sncid_list    = self.config_prep['opt_sncid_list']
 
         f.write(f"\n# Fit info\n")
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
@@ -990,6 +987,8 @@ class LightCurveFit(Program):
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
         f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
+        f.write(f"OPT_SNCID_LIST:      {opt_sncid_list}   " \
+                "# >0 -> FITOPT>0 uses events from FITOPT000\n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]
         for key in key_misc_list :
@@ -1825,14 +1824,50 @@ class LightCurveFit(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
+        opt_sncid_list   = submit_info_yaml['OPT_SNCID_LIST']
+
         survey,idsurvey  = util.get_survey_info(script_dir)
 
         info_lines  = []
         info_lines.append(f"SURVEY:         {survey}")
         info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        # May 19 2021: count number of common events for option to 
+        # use FITOPT000 events in all FITOPTs
+        if opt_sncid_list > 0 :
+            version = submit_info_yaml['VERSION_LIST'][0]
+            nevt_common = self.get_nevt_common(version)
+            info_lines.append(f"NEVT_COMMON:    {nevt_common}     " \
+                              f"# among all FITOPTs in {version}")
+
         return info_lines
         # end get_misc_merge_info    
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_FIT_MERGE_CPU
+
+    def get_nevt_common(self,version):
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_LIST']
+        
+        fitres_dir = f"{output_dir}/{version}"
+        combined   = None
+
+        for row in FITOPT_LIST:
+            fitres_file = f"{row[0]}.{SUFFIX_FITRES}"
+            FITRES_FILE = f"{fitres_dir}/{fitres_file}"
+            #print(f" xxx process {FITRES_FILE}")
+            df = pd.read_csv(FITRES_FILE, delim_whitespace=True, comment="#")
+            if combined is None:
+                combined = df.index
+            else:
+                combined = combined.intersection(df.index)
+
+        nevt_common = combined.shape[0]
+        
+        #sys.exit('\n xxx DEBUG DIE xxxx ')
+        return nevt_common
+        # end get_nevt_common
+
 

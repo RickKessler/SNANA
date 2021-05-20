@@ -333,7 +333,7 @@ int rd_input(void) {
 
   INPUTS.AV_OPTION     = 2;
 
-  //  INPUTS.LEAKAGE_CUT = 1.0E-4 ; // Mar 27 2017: NOT IMPLEMENTED
+  INPUTS.LEAKAGE_CUT = 0.0 ; // May 20 2021
 
   INPUTS.IRD_ZPOFF = 1; // read ZPOFF.DAT file by default
 
@@ -473,12 +473,10 @@ int rd_input(void) {
     if ( strcmp(c_get,"SN_MAGOFF:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.SN_MAGOFF );
     }  
-
-    /* xxxx
+   
     if ( strcmp(c_get,"LEAKAGE_CUT:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.LEAKAGE_CUT );
     }  
-    xxxxx */
 
     if ( strcmp(c_get,"DUPLICATE_LAMSHIFT_GLOBAL:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.LAMSHIFT_GLOBAL );
@@ -800,7 +798,8 @@ int rd_input(void) {
     char *inFile = INPUTS.inFile_spectrograph ;
     FILE *fp ;
 
-    fp = snana_openTextFile(1,INPUTS.FILTPATH, inFile,
+    int OPENMASK = OPENMASK_VERBOSE;
+    fp = snana_openTextFile(OPENMASK, INPUTS.FILTPATH, inFile,
 			    SPECTRO_FILENAME, &gzipFlag );
 
     if ( !fp ) {
@@ -861,6 +860,10 @@ int rd_input(void) {
   printf("\t User SN Trest range from %6.0f to %6.0f days \n",
 	 SNSED.TREST_MIN, SNSED.TREST_MAX );
 
+  if ( INPUTS.LEAKAGE_CUT > 1.0E-12 ) {
+    printf("\t Reject out-of-band (OOB) leakage with "
+	   "Trans/TransMax < %9.2le\n", INPUTS.LEAKAGE_CUT );
+  }
 
   // ==================================================
   // ==================================================
@@ -2181,6 +2184,7 @@ int rd_filter ( int ifilt ) {
    - Open filter transmission file corresponding to "ifilt"
    - Read filter response from FILE.
    - File must have two columns: wavelen (A) and transmission
+   - binning can be non-uniform
    - Load FILTER structure.
 
    - compute LAMAVG (Feb 15, 2006)
@@ -2236,7 +2240,8 @@ int rd_filter ( int ifilt ) {
    }
    else {
      // read 2-column ascii file
-     fp = snana_openTextFile(1,PATH_SNDATA_FILTER, ptr_file, 
+     int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+     fp = snana_openTextFile(OPENMASK,PATH_SNDATA_FILTER, ptr_file, 
 			     FILTFILE_FULLNAME, &gzipFlag );
    
      // if we get here, abort because file cannot be found.
@@ -2270,6 +2275,12 @@ int rd_filter ( int ifilt ) {
      NBIN = FILTER[ifilt].NBIN_LAMBDA ;
    }
 
+   // May 20 2021: check option to remove OOB
+   if ( INPUTS.LEAKAGE_CUT > 1.0E-12 ) {
+     cutOOBTrans_filter(ifilt);
+     NBIN = FILTER[ifilt].NBIN_LAMBDA ;
+   }
+
    tsum = 0.0;
    wtsum = 0.0;
    dlam_last = 0.0 ;
@@ -2282,10 +2293,6 @@ int rd_filter ( int ifilt ) {
 
    // - - - -
    for ( ilam = 1; ilam <= NBIN; ilam++ ) {
-
-     /* xxx mark delete May 7 2020 xxxxxxx
-       FILTER[ifilt].LAMBDA[ilam] += INPUTS.FILTER_LAMSHIFT[ifilt] ; 
-     xxxxxxxxxxx */
 
      lambda = FILTER[ifilt].LAMBDA[ilam];
      trans  = FILTER[ifilt].TRANS[ilam] ;
@@ -2348,7 +2355,7 @@ int rd_filter ( int ifilt ) {
 }  // end of rd_filter function
 
 
-// *************************************
+ // *************************************
 void addOOBTrans_filter(int ifilt) {
 
   // Feb 2019
@@ -2384,8 +2391,6 @@ void addOOBTrans_filter(int ifilt) {
     LAM_ORIG[ilam]   = lam;
     TRANS_ORIG[ilam] = trans ;
   }
-
-  OOB_TRANS = OOB_RATIO * TransMax ;
 
   // get lam binsize on blue edge
   LAMBIN_BLUE = FILTER[ifilt].LAMBDA[2] - FILTER[ifilt].LAMBDA[1] ;
@@ -2469,6 +2474,92 @@ void addOOBTrans_filter(int ifilt) {
   return;
 
 } // end addOOBTrans_filter
+
+
+// *************************************
+void cutOOBTrans_filter(int ifilt) {
+
+  // May 2021
+  // Remove OOB usage input LEAKAGE_CUT << 1.
+  // LEAKAGE_CUT is applied to trans/Transmax.
+  //
+  // It's a bit tricky because the wave-range is reduced
+  // and uniformity must be preserved.
+
+  double LEAKAGE_CUT   = INPUTS.LEAKAGE_CUT ;
+  char  *NAME          = FILTER[ifilt].name; 
+  int    NBIN_LAM_ORIG = FILTER[ifilt].NBIN_LAMBDA ;
+  double MINLAM_ORIG   = FILTER[ifilt].LAMBDA[1] ;
+  double MAXLAM_ORIG   = FILTER[ifilt].LAMBDA[NBIN_LAM_ORIG] ;
+  double LAM_ORIG[MXLAM_FILT], TRANS_ORIG[MXLAM_FILT];
+
+  double TransMax = 0.0 ;
+  double trans, lam, OOB_TRANS, xlam;
+  double MINLAM_NEW, MAXLAM_NEW ;
+  int    NBIN_LAM_NEW, ilam, ilam_new, ilam_orig, NBINCUT_BLUE, NBINCUT_RED ;
+  bool   LCUT, FOUND_TRANSMAX=false;
+  char fnam[] = "cutOOBTrans_filter" ;
+  int LDMP = 0 ; 
+
+  // ----------- BEGIN ------------
+
+  if ( LEAKAGE_CUT == 0.0 ) { return; }
+
+  // first find max trans
+  for(ilam=1; ilam <= NBIN_LAM_ORIG; ilam++ ) {
+    lam   = FILTER[ifilt].LAMBDA[ilam];
+    trans = FILTER[ifilt].TRANS[ilam];
+    if ( trans > TransMax ) { TransMax = trans; }
+    LAM_ORIG[ilam]   = lam;
+    TRANS_ORIG[ilam] = trans ;
+  }
+
+  ilam_new=0;
+
+  NBINCUT_BLUE = NBINCUT_RED = 0 ;
+  MINLAM_NEW   = 9.0E9; MAXLAM_NEW = 0.0 ;
+
+  for(ilam_orig=1; ilam_orig <= NBIN_LAM_ORIG; ilam_orig++ ) {
+
+    trans = TRANS_ORIG[ilam_orig] / TransMax ;
+    lam   = LAM_ORIG[ilam_orig] ;
+
+    // xxx    if ( trans > 0.999 ) { FOUND_TRANSMAX = true ; }
+    LCUT = ( trans < LEAKAGE_CUT );
+    if ( LCUT ) { continue; }
+
+    ilam_new++ ;
+    FILTER[ifilt].LAMBDA[ilam_new] = lam ;
+    FILTER[ifilt].TRANS[ilam_new]  = trans ;
+
+    if ( lam < MINLAM_NEW ) { MINLAM_NEW = lam; }
+    if ( lam > MAXLAM_NEW ) { MAXLAM_NEW = lam; }
+
+  } // end ilam loop
+
+  NBIN_LAM_NEW = ilam_new;
+  FILTER[ifilt].NBIN_LAMBDA = NBIN_LAM_NEW ;
+
+  printf("  Remove %s OOB leakage: WAVE-RANGE = [%.1f,%.1f] -> [%.1f,%.1f]\n",
+	 NAME, MINLAM_ORIG, MAXLAM_ORIG, MINLAM_NEW, MAXLAM_NEW);
+
+  /* xxxx
+  // write out filter trans file for crosschecks
+  char filterFile[MXPATHLEN];
+  FILE *fp ;
+  sprintf(filterFile, "TMP_%s-OOB.dat", NAME);  
+  fp = fopen(filterFile, "wt") ;
+  printf("\t Write trans-file: %s \n", filterFile);
+  for(ilam=1; ilam <= NBIN_LAM_NEW; ilam++ ) {
+    fprintf(fp,"%9.2f  %.4le\n", 
+	    FILTER[ifilt].LAMBDA[ilam], FILTER[ifilt].TRANS[ilam] ) ;
+  }
+  fclose(fp);
+  xxxxxx */
+  
+  return;
+
+} // end cutOOBTrans_filter
 
 
 // ****************************************************
@@ -2823,7 +2914,9 @@ int rd_primary ( int INDX, char *subdir ) {
 	  refName, INDX );
  
    sprintf(SNPATH, "%s/%s", PATH_SNDATA_ROOT, subdir );
-   fp = snana_openTextFile (0,SNPATH, sedFile, fullName, &gzipFlag );
+
+   int OPENMASK = OPENMASK_IGNORE_DOCANA ;
+   fp = snana_openTextFile (OPENMASK,SNPATH, sedFile, fullName, &gzipFlag );
 
    if ( fp == NULL ) {
      sprintf(c1err,"%s", "Could not open file");

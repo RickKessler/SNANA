@@ -68,6 +68,7 @@
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile
 #define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
+#define OPENMASK_IGNORE_DOCANA  4  // see snana_openTextFile
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 

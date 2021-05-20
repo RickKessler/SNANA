@@ -9848,6 +9848,8 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
      + OPTMASK :
          += 1 -> verbose mode
          += 2 -> abort if DOCUMENTATION is not first string in file
+         += 4 -> don't check for DOCUMENTATION
+
      + PATH_LIST   : optional space-separated list of paths to check
      + fileName    : name of file to option
    Outputs
@@ -9861,6 +9863,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
    Mar 20 2019: padd vboseFlag to print comment to stdout
    Feb 01 2020: SNPATH -> PATH_LIST (space separated)
    Aug 26 2020: change vboseflag to more generic OPTMASK
+   May 20 2021: OPTMASK +=4 -> don't check for DOCANA
 
   ----------------------------------------------- */
 
@@ -9869,7 +9872,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
   bool VBOSE          = ( (OPTMASK & OPENMASK_VERBOSE)        > 0 ) ;
   bool REQUIRE_DOCANA = ( (OPTMASK & OPENMASK_REQUIRE_DOCANA) > 0 ) ;
-
+  bool IGNORE_DOCANA  = ( (OPTMASK & OPENMASK_IGNORE_DOCANA)  > 0 ) ;
   int ipath, NPATH ;
   bool IS_OPEN = false ;
   char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
@@ -9914,7 +9917,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
  DONE:
 
-  if  ( fp != NULL ) { 
+  if  ( fp != NULL  && !IGNORE_DOCANA ) { 
     bool FOUND_DOCANA ;
     FOUND_DOCANA = check_openFile_docana(REQUIRE_DOCANA,fp,fullName); 
 

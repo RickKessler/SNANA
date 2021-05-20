@@ -91,14 +91,6 @@
 
 **********************************/
 
-/*
-#include <stdio.h> 
-#include <string.h>
-#include <stdlib.h>   // includes exit(),atof()
-#include <unistd.h>
-#include <math.h>     // log10, pow, ceil, floor
-*/
-
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"

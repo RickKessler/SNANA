@@ -404,6 +404,7 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) ;
 void  parse_MAGSYSTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
 void  parse_OOB(char *bandList, double *LAMRANGE, double RATIO);
 void  addOOBTrans_filter(int ifilt);
+void  cutOOBTrans_filter(int ifilt);
 
 void  rd_ZPOFF(char *sdir, char *zpoff_file_override);  
 int   rd_snsed(void);           // read SN template spectra from file 

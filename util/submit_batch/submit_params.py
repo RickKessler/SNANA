@@ -527,6 +527,52 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
 """
 
 
+HELP_CONFIG_TRAIN_SALT3 = f"""
+    ***** HELP/MENU for TRAIN_SALT3 YAML Input *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  # Must specify name of training code (because it's outside SNANA)
+  JOBNAME: [train_script_name]
+
+  CONDA_DEFAULT_ENV:  saltshaker  # abort if $CONDA_DEFAULT_ENV != saltshaker
+
+  # top-level config input files
+  INPUT_TRAIN_FILE:   train.conf  # top-level training inputs
+  INPUT_MODEL_FILE:   model.conf  # model options
+
+  # global command-line options for all TRAINOPTs below
+  TRAINOPT_GLOBAL: <list of options>
+     e.g.,
+  TRAINOPT_GLOBAL: --resume_from_outputdir $SNTRAIN_ROOT/SALT3/SALT3.K21
+
+
+  # TRAINOPT args specify calibration systematics per band or group of bands.
+  # An independent training is done for each TRAINOPT argument.
+  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
+  # keys; <CR> are stripped so that contents can be distributed among 
+  # multiple lines for human readability. The explicit MAGSHIFT and
+  # WAVESHIFT keys are intended for linear perturbations to measure
+  # derivatives for systematics; the SHIFTLIST_FILE feature is intended
+  # for a random calibration offset in every band.
+  # PATH_INPUT_CALIB key specifies a different calibration directory.
+
+  TRAINOPT:
+  - MAGSHIFT  SDSS  g 0.01
+  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
+  - LAMSHIFT  CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
+  - SHIFTLIST_FILE  shifts_01.dat
+  - SHIFTLIST_FILE  shifts_02.dat
+  - SHIFTLIST_FILE  shifts_03.dat
+
+  OUTDIR:   [outdir]   # all output goes here
+
+ # The TRAINOPT-calibration shifts in the training are propagated to 
+ # SNANA's light curve fitting via MAGSHIFT and LAMSHIFT keys written
+ # to the SALT3.INFO file in each SALT3.MODELnnn directory. 
+
+"""
+
+
 HELP_MERGE = f"""
           MERGE LOGIC
 
@@ -678,6 +724,7 @@ HELP_MENU = {
     'FIT'         : HELP_CONFIG_FIT,
     'BBC'         : HELP_CONFIG_BBC,
     'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
+    'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,
     'TRANSLATE'   : HELP_TRANSLATE,
     'MERGE'       : HELP_MERGE,
     'AIZ'         : HELP_AIZ     # ABORT_IF_ZERO

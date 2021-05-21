@@ -1,9 +1,7 @@
 # Jan 23 2021
-# SALT3 training using saltshaker code from arxiv:xxxx
+# SALT3 training using saltshaker code from 
+#    https://arxiv.org/abs/2104.07795
 # 
-# TODO:
-#  + check that $CONDA_DEFAULT_ENV = salt3 before launching
-#  + tack on --yamloutputfile YAMLOUTPUTFILE
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -44,6 +42,8 @@ KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
 PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"
 
 KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
+
+KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -155,18 +155,22 @@ class train_SALT3(Program):
         # calib arg unpacked so that each row has only 1 shift.
         # arg_replace = arg, but calibration shifts are replaced
         # with command to read calib-shift file.
-        arg_replace = []
+        arg_replace_list = []
+        calib_shift_list = []
         for num,arg in zip(trainopt_num_list,trainopt_arg_list):
-            arg_replace.append(self.make_calib_shift_file(num,arg))
-            
+            arg_replace, calib_shift = self.make_calib_shift_file(num,arg)
+            arg_replace_list.append(arg_replace)
+            calib_shift_list.append(calib_shift)  # list of lists
+
         self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = arg_replace
+        self.config_prep['trainopt_arg_list']   = arg_replace_list
         self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
         self.config_prep['trainopt_num_list']   = trainopt_num_list
         self.config_prep['trainopt_label_list'] = trainopt_label_list
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
         self.config_prep['trainopt_global']     = trainopt_global
         self.config_prep['use_arg_file']        = use_arg_file
+        self.config_prep['calib_shift_list']    = calib_shift_list
 
         print('')
 
@@ -186,8 +190,9 @@ class train_SALT3(Program):
         # WAVESHIFT CfA3  i  8
         # MAGSHFIT  cfA3  U 0.01
         #
-        # and function return arg_replace = 
+        # and function returns arg_replace = 
         #    "calibrationshiftsfile = CALIB_SHIFT_TRAINOPT003.DAT"
+        # and also returns calib_shift for SUBMIT.INFO file
         #
         # Make sure that arg_replace retains non-calib optoins
         # to allow mixing calib and non-calib arguments.
@@ -198,7 +203,7 @@ class train_SALT3(Program):
         found_calshift = False
         for key in KEY_CALIBSHIFT_LIST :
             if key in arg: found_calshift = True
-        if not found_calshift : return arg
+        if not found_calshift : return arg, []
 
         # if we get here, there is at least one valid calib-shift key,
         # so unpack arg and write calib-shift file for SALTshaker.
@@ -212,6 +217,7 @@ class train_SALT3(Program):
         arg_replace = "" 
         n_arg       = len(arg_list)
         use_list    = [ False ] * n_arg
+        calib_shift_list = []
 
         for iarg in range(0,n_arg):            
             item = arg_list[iarg]
@@ -223,8 +229,10 @@ class train_SALT3(Program):
             use_list[iarg:iarg+4] = [True] * 4
 
             for band,val in zip(band_list,val_list):
-                f.write(f"{key} {survey} {band} {val} \n")
-                
+                line = f"{key} {survey} {band} {val}"
+                f.write(f"{line}\n")
+                calib_shift_list.append(line)
+
         f.close()
 
         # - - - - 
@@ -235,7 +243,7 @@ class train_SALT3(Program):
         # tack on calibshift file
         arg_replace += f"{KEY_SALTshaker_CALIBSHIFT_FILE} {calib_shift_file} "
 
-        return arg_replace
+        return arg_replace, calib_shift_list
 
         # end make_calshift_file
 
@@ -387,6 +395,7 @@ class train_SALT3(Program):
         arg_list     = self.config_prep['trainopt_arg_list'] 
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
+        calib_shift_list = self.config_prep['calib_shift_list']
         outdir_model_list_base = self.config_prep['outdir_model_list_base']
 
         f.write(f"# train_SALT2 info \n")
@@ -406,6 +415,17 @@ class train_SALT3(Program):
         for model_dir in outdir_model_list_base :
             f.write(f"  - {model_dir}\n")
         f.write("\n")
+
+        # write keys for SALT2.INFO to be read by SNANA code 
+        # each row is
+        #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
+        f.write(f"{KEY_SNANA_SALT3_INFO}: \n")
+        for num, item_list in zip(num_list,calib_shift_list) :
+            for item in item_list:
+                row = [ num ] + item.split()
+                f.write(f"  - {row} \n")
+        f.write("\n")
+
         # end append_info_file
 
     def merge_config_prep(self,output_dir):
@@ -493,37 +513,78 @@ class train_SALT3(Program):
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
         # cleanup for 'irow' training job.
+
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         modeldir_list    = submit_info_yaml['MODELDIR_LIST']
 
         row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         trainopt = row[COLNUM_TRAIN_MERGE_TRAINOPT]
-        modeldir = modeldir_list[irow] 
-        dir_name = f"{output_dir}/{modeldir_list[irow]}"
-        print(f" Cleanup {dir_name}")
+        model_dir = f"{output_dir}/{modeldir_list[irow]}"
+        misc_dir  = f"{model_dir}/{MISC_DIR_NAME}"
+        print(f" Cleanup {model_dir}")
 
-        misc_dir = f"{dir_name}/{MISC_DIR_NAME}"
-        if not os.path.exists(misc_dir):            
+        # - - - - - -
+        # check if SALTshaker already cleaned up
+        tar_file = f"{MISC_DIR_NAME}.tar"
+        tmp_list = glob.glob1(misc_dir,f"{tar_file}*")
+        done_misc = len(tmp_list) > 0
+
+        if not done_misc :
             os.mkdir(misc_dir)
             mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
                         "salt3train_snparams.txt"
-            cmd = f"cd {dir_name} ; mv {mv_string} {MISC_DIR_NAME}/"
+            cmd = f"cd {model_dir} ; mv {mv_string} {MISC_DIR_NAME}/"
             os.system(cmd)
 
-        # tar and gzip misc sub dir
-        cmd_tar = f"cd {dir_name} ; " \
-                  f"tar -cf {MISC_DIR_NAME}.tar {MISC_DIR_NAME} ; " \
-                  f"gzip {MISC_DIR_NAME}.tar ; " \
-                  f"rm -r {MISC_DIR_NAME} "
-        os.system(cmd_tar)
+            # tar and gzip misc sub dir
+            cmd_tar = f"cd {model_dir} ; " \
+                    f"tar -cf {tar_file} {MISC_DIR_NAME} ; " \
+                    f"gzip  {tar_file} ; " \
+                    f"rm -r {MISC_DIR_NAME} "
+            os.system(cmd_tar)
 
         # gzip dat files
-        cmd_gzip = f"cd {dir_name} ; gzip *.dat "
+        cmd_gzip = f"cd {model_dir} ; gzip *.dat "
         os.system(cmd_gzip)
+        
+        # append SALT3.INFO file with calib_shift info
+        self.append_SALT3_INFO_FILE(trainopt,model_dir)
 
         # end  merge_job_wrapup
 
+    def append_SALT3_INFO_FILE(self,trainopt,model_dir):
+
+        # append SALT2.INFO file with calib info;
+        # used by SNANA light curve fitting code to use same shift
+        # as in the training.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+
+        if trainopt == f"{TRAINOPT_STRING}000" : return
+
+        # read SNANA_SALT3_INFO from SUBMIT.INFO; this includes
+        # info for all trainopts.
+        SNANA_INFO         = submit_info_yaml[KEY_SNANA_SALT3_INFO]
+
+        SALT3_INFO_FILE = f"{model_dir}/SALT3.INFO"
+        print(f"\t Append calib info to {SALT3_INFO_FILE}")
+
+
+        f = open(SALT3_INFO_FILE,"at")
+        f.write(f"\n\n# Calibration shifts used in SALTshaker Training\n")
+
+        for row in SNANA_INFO:
+            if row[0] == trainopt: 
+                key    = row[1]
+                survey = row[2]
+                band   = row[3]
+                shift  = row[4]
+                f.write(f"{key}: {survey} {band} {shift} \n")
+        f.close()
+
+        # .xyz
+        # end append_SALT2_INFO_FILE
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file.
@@ -536,7 +597,19 @@ class train_SALT3(Program):
     def merge_cleanup_final(self):
         # every snlc_fit job succeeded, so here we simply compress output.
   
-        pass
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+
+        wildcard_list = [ 'TRAINOPT', 'CPU', 'CALIB_SHIFT', 'SKIPME' ]
+        # .xyz
+        for w in wildcard_list :
+            wstar = f"{w}*"
+            tmp_list = glob.glob1(script_dir,wstar)
+            if len(tmp_list) == 0 : continue
+            print(f"\t Compress {wstar}")
+            util.compress_files(+1, script_dir, wstar, w, "" )
+
         # end merge_cleanup_final
 
     def get_merge_COLNUM_CPU(self):

@@ -1865,7 +1865,7 @@ class LightCurveFit(Program):
             version = submit_info_yaml['VERSION_LIST'][0]
             nevt_common = self.get_nevt_common(version)
             info_lines.append(f"NEVT_COMMON:    {nevt_common}     " \
-                              f"# among all FITOPTs in {version}")
+                              f"# among FITOPTs in {version}")
 
         return info_lines
         # end get_misc_merge_info    
@@ -1882,8 +1882,12 @@ class LightCurveFit(Program):
         combined   = None
 
         for row in FITOPT_LIST:
-            fitres_file = f"{row[0]}.{SUFFIX_FITRES}"
+            num   = row[0]  # e.g., FITOPT001
+            label = row[1]  
+            fitres_file = f"{num}.{SUFFIX_FITRES}"
             FITRES_FILE = f"{fitres_dir}/{fitres_file}"
+            NOREJECT    = FITOPT_STRING_NOREJECT in label
+            if NOREJECT : continue
             #print(f" xxx process {FITRES_FILE}")
             df = pd.read_csv(FITRES_FILE, delim_whitespace=True, comment="#")
             if combined is None:

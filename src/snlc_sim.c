@@ -4082,6 +4082,11 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 	   &INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE);
     return(N) ;
   }
+  else if ( strcmp(stringTmp,"NONE") == 0 ) {
+    // turn off all spectra with command line arg: "TAKE_SPECTRUM NONE"
+    INPUTS.NHOST_TAKE_SPECTRUM = 0;
+    return(N) ;
+  }
   else {
     sprintf(c1err, "Cannot parse '%s' after TAKE_SPECTRUM key.",string1);
     sprintf(c2err, "Expecting TREST or TOBS string" );

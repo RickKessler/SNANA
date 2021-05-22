@@ -28,8 +28,6 @@ COLNUM_TRAIN_MERGE_NLC         = 2
 COLNUM_TRAIN_MERGE_NSPEC       = 3
 COLNUM_TRAIN_MERGE_CPU         = 4
 
-# name of misc dir to store plots, etc ..
-MISC_DIR_NAME = "misc"
 
 # config keys for calibration shifts (same as for train_SALT2)
 KEY_MAGSHIFT       = "MAGSHIFT"
@@ -378,6 +376,8 @@ class train_SALT3(Program):
         trainopt_arg      = self.config_prep['trainopt_arg_list'][itrain]
         trainopt_global   = self.config_prep['trainopt_global']
         outdir_model      = self.config_prep['outdir_model_list'][itrain]
+        do_fast           = self.config_yaml['args'].fast
+        do_global         = len(trainopt_global) > 0
 
         prefix            = trainopt_num
         arg_list          = [ ]
@@ -397,7 +397,8 @@ class train_SALT3(Program):
         arg_list.append(f"--outputdir {outdir_model}")
         arg_list.append(f"--yamloutputfile {yaml_file}")
         arg_list.append(f"{trainopt_arg}")
-        if len(trainopt_global) > 0 : arg_list.append(trainopt_global)
+        if do_global : arg_list.append(trainopt_global)
+        if do_fast   : arg_list.append("--fast")
 
         JOB_INFO = {}
         JOB_INFO['program']       = f"{program}"
@@ -575,12 +576,12 @@ class train_SALT3(Program):
         row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         trainopt = row[COLNUM_TRAIN_MERGE_TRAINOPT]
         model_dir = f"{output_dir}/{modeldir_list[irow]}"
-        misc_dir  = f"{model_dir}/{MISC_DIR_NAME}"
+        misc_dir  = f"{model_dir}/{SUBDIR_MISC}"
         print(f" Cleanup {model_dir}")
 
         # - - - - - -
         # check if SALTshaker already cleaned up
-        tar_file = f"{MISC_DIR_NAME}.tar"
+        tar_file = f"{SUBDIR_MISC}.tar"
         tmp_list = glob.glob1(misc_dir,f"{tar_file}*")
         done_misc = len(tmp_list) > 0
 
@@ -588,14 +589,14 @@ class train_SALT3(Program):
             os.mkdir(misc_dir)
             mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
                         "salt3train_snparams.txt"
-            cmd = f"cd {model_dir} ; mv {mv_string} {MISC_DIR_NAME}/"
+            cmd = f"cd {model_dir} ; mv {mv_string} {SUBDIR_MISC}/"
             os.system(cmd)
 
             # tar and gzip misc sub dir
             cmd_tar = f"cd {model_dir} ; " \
-                    f"tar -cf {tar_file} {MISC_DIR_NAME} ; " \
+                    f"tar -cf {tar_file} {SUBDIR_MISC} ; " \
                     f"gzip  {tar_file} ; " \
-                    f"rm -r {MISC_DIR_NAME} "
+                    f"rm -r {SUBDIR_MISC} "
             os.system(cmd_tar)
 
         # gzip dat files
@@ -655,8 +656,7 @@ class train_SALT3(Program):
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        wildcard_list = [ 'TRAINOPT', 'CPU', 'CALIB_SHIFT', 'SKIPME' ]
-        # .xyz
+        wildcard_list = [ 'TRAINOPT', 'CPU', 'CALIB_SHIFT' ]
         for w in wildcard_list :
             wstar = f"{w}*"
             tmp_list = glob.glob1(script_dir,wstar)
@@ -664,11 +664,16 @@ class train_SALT3(Program):
             print(f"\t Compress {wstar}")
             util.compress_files(+1, script_dir, wstar, w, "" )
 
+        # - - - -
+        # tar up entire script dir
+        util.compress_subdir(+1, script_dir)
+
         # end merge_cleanup_final
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_TRAIN_MERGE_CPU
 
-# =========== .xyz
+# =========== END: =======
+
 
 

@@ -346,9 +346,12 @@ def purge_old_submit_output():
     util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
 
     # SALT2 training
-    util.find_and_remove(f"{SUBDIR_SCRIPTS_TRAIN}")
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_TRAIN}*")
     util.find_and_remove(f"{SUBDIR_CALIB_TRAIN}")
     util.find_and_remove(f"{SUBDIR_OUTPUT_TRAIN}")
+
+    # SALT3 training
+    util.find_and_remove(f"{SUBDIR_MISC}*")
 
     # end purge_old_submit_output
 

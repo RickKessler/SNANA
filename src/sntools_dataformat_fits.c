@@ -42,6 +42,8 @@
   Oct 2020: read SNANA_VERSION from header and convert to float
        (enable analysis options based on snana_version in fits header)
 
+  May 2021: read/write HOSTGAL_FLAG
+
 **************************************************/
 
 #include "fitsio.h"
@@ -255,6 +257,7 @@ void wr_snfitsio_init_head(void) {
   // ---------- HOST ----------
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH" ,     itype ); 
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH2" ,    itype ); 
+  wr_snfitsio_addCol( "1I", "HOSTGAL_FLAG" ,       itype ); 
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID" ,      itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ" ,     itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ_ERR" , itype );
@@ -1338,6 +1341,11 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH2", PREFIX);
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[1] ;
+  wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
+
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  sprintf(parName,"%s_FLAG", PREFIX);
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_FLAG ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   for(igal=0; igal < NHOSTGAL; igal++ ) {
@@ -2810,6 +2818,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH2", 
 				 &SNDATA.HOSTGAL_NMATCH[1],
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_FLAG", 
+				 &SNDATA.HOSTGAL_FLAG,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "HOSTGAL_CONFUSION", 

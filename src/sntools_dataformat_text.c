@@ -14,6 +14,8 @@
   Analogous to sntools_dataformat_fits.c[h], here we use
   the SNDATA structure to pass the data.
 
+  May 2021: read/write HOSTGAL_FLAG
+
 *************************************************/
 
 #include  "sntools.h"
@@ -446,6 +448,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
   fprintf(fp, "%s_NMATCH2:     %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
+  fprintf(fp, "%s_FLAG:        %d  \n",  
+	  PREFIX, SNDATA.HOSTGAL_FLAG );
 
   for(igal=0; igal < NGAL; igal++ ) {
 
@@ -1687,6 +1691,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     else if ( strcmp(word0,"HOSTGAL_NMATCH2:") == 0 ) {
       iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_NMATCH[1] );
+    } 
+    else if ( strcmp(word0,"HOSTGAL_FLAG:") == 0 ) {
+      iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_FLAG );
     } 
     else if ( strcmp(word0,"HOSTGAL_CONFUSION:") == 0 ) {
       iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.HOSTGAL_CONFUSION );

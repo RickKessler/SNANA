@@ -1382,10 +1382,8 @@ c
 +KEEP,SNHOSTCOM.
 
 c Host galaxy parameters.
-c Dec 17, 2012 - add SNHOST_MAGOBS
 
-
-c logical flags for CWNT
+c logical flags for output tables
       LOGICAL 
      &   EXIST_SNHOST_ANGSEP
      &  ,EXIST_SNHOST_DDLR
@@ -1421,6 +1419,7 @@ c quantites which do not depend on which host
       INTEGER*4 
      &    SNHOST_NMATCH   ! number of host matches, e.g., d_DLR<4
      &   ,SNHOST_NMATCH2  ! number of host matches, e.g., d_DLR<7
+     &   ,SNHOST_FLAG     ! May 21 2021: indicate problems with host
 
       REAL
      &   SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)
@@ -1431,7 +1430,7 @@ c quantites which do not depend on which host
      &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_sSFR
      &  ,EXIST_SNHOST_MAGOBS, EXIST_SNHOST_SB
 c
-     &  ,SNHOST_NMATCH, SNHOST_NMATCH2
+     &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
      &  ,SNHOST_ANGSEP, SNHOST_DDLR, SNHOST_CONFUSION
      &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR 
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
@@ -4336,7 +4335,8 @@ c to common block variable.s
 c
 c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
 c May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
-c
+c May 21 2021: read HOSTGAL_FLAG
+
       IMPLICIT NONE
 
       INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
@@ -4364,6 +4364,10 @@ c i.e., do not depend on host-match.
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH2", 
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_FLAG", 
+     &        ONE, STRING, DARRAY, OPT)
+         SNHOST_FLAG = INT(DARRAY(1))
 
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
      &        ONE, STRING, DARRAY, OPT)
@@ -15354,6 +15358,7 @@ c init a few SNHOST arrays
 
       SNHOST_NMATCH            =  0
       SNHOST_CONFUSION         = -9.0
+      SNHOST_FLAG              = 0 
       do igal = 1, MXSNHOST 
          SNHOST_OBJID(igal)       = -9
         DSNHOST_OBJID(igal)       = -9.0

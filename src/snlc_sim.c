@@ -4085,6 +4085,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   else if ( strcmp(stringTmp,"NONE") == 0 ) {
     // turn off all spectra with command line arg: "TAKE_SPECTRUM NONE"
     INPUTS.NHOST_TAKE_SPECTRUM = 0;
+    NPEREVT_TAKE_SPECTRUM = 0 ;
+    SPECTROGRAPH_USEFLAG  = 0 ;
     return(N) ;
   }
   else {

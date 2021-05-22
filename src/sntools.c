@@ -4080,6 +4080,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       { copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NMATCH[0] ); } 
     else if ( strcmp(key,"HOSTGAL_NMATCH2") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NMATCH[1] ); } 
+    else if ( strcmp(key,"HOSTGAL_FLAG") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_FLAG ); } 
     else if ( strcmp(key,"HOSTGAL_CONFUSION") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_CONFUSION ); } 
 
@@ -8624,6 +8626,7 @@ int init_SNDATA_EVENT(void) {
   // init HOSTGAL info
   SNDATA.HOSTGAL_NMATCH[0] = 0;
   SNDATA.HOSTGAL_NMATCH[1] = 0;
+  SNDATA.HOSTGAL_FLAG      = 0;
   SNDATA.HOSTGAL_CONFUSION = -99.0;
 
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  

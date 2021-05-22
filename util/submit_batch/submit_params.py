@@ -537,8 +537,7 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
   CONDA_DEFAULT_ENV:  saltshaker  # abort if $CONDA_DEFAULT_ENV != saltshaker
 
   # top-level config input files
-  INPUT_TRAIN_FILE:   train.conf  # top-level training inputs
-  INPUT_MODEL_FILE:   model.conf  # model options
+  SALT3_CONFIG_FILE:  <fileName>  # top-level input for SALTshaker code
 
   # global command-line options for all TRAINOPTs below
   TRAINOPT_GLOBAL: <list of options>

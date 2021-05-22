@@ -2,19 +2,17 @@
 # SALT3 training using saltshaker code from 
 #    https://arxiv.org/abs/2104.07795
 # 
+#
 
-import  os, sys, shutil, yaml, glob
+import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *
 from    submit_prog_base import Program
 
-# define yaml keys for input files
-CONFIG_KEYLIST_INPUT_FILE = [ 'INPUT_TRAIN_FILE', 'INPUT_MODEL_FILE' ]
-
-# define input file keys passed to trainsalt code
-CODE_KEYLIST_INPUT_FILE   = [ '--configfile', '--trainingconfig' ]
+# define key for main trainsalt config file
+KEY_CONFIG_FILE = 'SALT3_CONFIG_FILE'
 
 TRAINOPT_STRING        = "TRAINOPT"
 TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
@@ -39,11 +37,20 @@ KEY_WAVESHIFT      = "WAVESHIFT"
 KEY_LAMSHIFT       = "LAMSHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
-PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"
 
+# define prefix for files with calib shifts.
+PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
+
+# define command-line override key to specify file with calibration shifts
 KEY_SALTshaker_CALIBSHIFT_FILE = "--calibrationshiftfile"
 
+# define key for SALT3.INFO read by SNANA codes.
 KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
+
+# create list of config keys whose argument is a file that
+# gets copied to script_dir
+SECTION_FILE_COPY  = 'iodata'
+KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -75,17 +82,22 @@ class train_SALT3(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
+        # scoop up and store TRAINOPT list from user CONFIG.
+        # This is before prepping input files in case TRAINOPT
+        # have additional input files.
+        self.train_prep_trainopt_list()
+
         # get input config files
         self.train_prep_input_files()
 
+        # copy input files to script_dir
+        self.train_prep_copy_files()
+
         # scoop up TRAINOPT list from user CONFIG
-        self.train_prep_trainopt_list()
+        # xxxx  self.train_prep_trainopt_list()
 
         # foreach training, prepare output paths 
         self.train_prep_paths()
-
-        # copy input file
-        self.train_prep_copy_files()
 
         sys.stdout.flush()
 
@@ -101,20 +113,51 @@ class train_SALT3(Program):
         input_file_list = []  # init input files for trainsalt
         msgerr = []
 
-        for key in CONFIG_KEYLIST_INPUT_FILE:
-            if key not in CONFIG:
-                msgerr.append(f"Missing required yaml key '{key}' ")
-                msgerr.append(f"in {input_master_file} ")
-                self.log_assert(False,msgerr)
-            else:
-                input_file = CONFIG[key]
+        if KEY_CONFIG_FILE not in CONFIG:
+            msgerr.append(f"Missig required key {KEY_CONFIG_FILE} ")
+            self.log_assert(False,msgerr)
+
+        config_file = CONFIG[KEY_CONFIG_FILE]
+        input_file_list.append(config_file)
+
+        print(f"\n Check other input files inside main config file: " \
+              f"{config_file}")
+
+        # parse config_file to get other potential input files
+        config = configparser.ConfigParser(inline_comment_prefixes='#')
+        config.read(config_file)
+
+        for key in KEY_LIST_FILE_COPY :
+            if key in config[SECTION_FILE_COPY]:
+                input_file = config[SECTION_FILE_COPY][key]
                 input_file_list.append(input_file)
-                if not os.path.exists(input_file):
-                    msgerr.append(f"Input file {input_file}")
-                    msgerr.append(f"does not exist.")
-                    msgerr.append(f"Check '{key}' arg in {input_master_file}")
-                    util.log_assert(False,msgerr) # just abort, no done stamp
+
+        for input_file in input_file_list:
+            if not os.path.exists(input_file):
+                msgerr.append(f"Input file {input_file}")
+                msgerr.append(f"does not exist.")
+                msgerr.append(f"Check '{key}' arg in {input_master_file}")
+                util.log_assert(False,msgerr) # just abort, no done stamp
                 
+        # - - - - - 
+        # check for additional input files in the TRAINOPT
+        
+        trainopt_global   = self.config_prep['trainopt_global']
+        trainopt_arg_list = self.config_prep['trainopt_arg_list']
+        trainopt_all      = trainopt_arg_list + [ trainopt_global ]
+
+        for item in trainopt_all:
+            item_list = item.split()
+            for key in KEY_LIST_FILE_COPY :
+                key_override = f"--{key}"
+                if key_override in item_list:
+                    j = item_list.index(key_override)                    
+                    input_file = item_list[j+1]
+                    input_file_list.append(input_file)
+
+        #sys.exit(f"\n xxx trainopt_all = \n{trainopt_all}")
+        
+        # store list of all input files
         self.config_prep['input_file_list'] = input_file_list
 
         # end train_prep_input_files
@@ -275,12 +318,19 @@ class train_SALT3(Program):
 
     def train_prep_copy_files(self):
 
+        # copy input files to script_dir, but only those which don't
+        # have full path ... to avoid clobbering same input tile names
+        # in different directories
+
         input_file_list = self.config_prep['input_file_list']
         script_dir      = self.config_prep['script_dir']
 
         for input_file in input_file_list:
-            os.system(f"cp {input_file} {script_dir}/")
+            if '/' not in input_file:
+                print(f"\t Copy input file: {input_file}")
+                os.system(f"cp {input_file} {script_dir}/")
 
+        print('')
         # end train_prep_copy_files
 
     def write_command_file(self, icpu, f):
@@ -319,6 +369,7 @@ class train_SALT3(Program):
         CONFIG            = self.config_yaml['CONFIG']
         program           = self.config_prep['program']
         input_file_list   = self.config_prep['input_file_list']
+        config_file       = self.config_prep['input_file_list'][0]
         script_dir        = self.config_prep['script_dir']
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
 
@@ -337,9 +388,12 @@ class train_SALT3(Program):
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
 
-        for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
-            arg_list.append(f"{key} {input_file}")
+        # xxxx mark delete 
+        #for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
+        #    arg_list.append(f"{key} {input_file}")
+        # xxxx
 
+        arg_list.append(f"--configfile {config_file}")
         arg_list.append(f"--outputdir {outdir_model}")
         arg_list.append(f"--yamloutputfile {yaml_file}")
         arg_list.append(f"{trainopt_arg}")

@@ -151,7 +151,7 @@ def which_program_class(config):
         program_class = BBC          # Beams with Bias Corr (KS17)
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
-    elif "INPUT_TRAIN_FILE" in CONFIG :
+    elif "SALT3_CONFIG_FILE" in CONFIG :
         program_class = train_SALT3  # saltshaker from D'Arcy & David
     else :
         sys.exit("\nERROR: Could not determine program_class")

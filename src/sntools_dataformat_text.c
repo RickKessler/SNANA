@@ -448,8 +448,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
   fprintf(fp, "%s_NMATCH2:     %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
-  fprintf(fp, "%s_FLAG:        %d  \n",  
-	  PREFIX, SNDATA.HOSTGAL_FLAG );
 
   for(igal=0; igal < NGAL; igal++ ) {
 
@@ -457,6 +455,9 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     fprintf(fp, "%s_OBJID:       %lld  \n",  
 	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
+
+    fprintf(fp, "%s_FLAG:        %d  \n",  
+	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );
 
     fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
 	    SNDATA.HOSTGAL_PHOTOZ[igal], 
@@ -1692,9 +1693,6 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     else if ( strcmp(word0,"HOSTGAL_NMATCH2:") == 0 ) {
       iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_NMATCH[1] );
     } 
-    else if ( strcmp(word0,"HOSTGAL_FLAG:") == 0 ) {
-      iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_FLAG );
-    } 
     else if ( strcmp(word0,"HOSTGAL_CONFUSION:") == 0 ) {
       iwd++; get_PARSE_WORD_FLT(langC,iwd, &SNDATA.HOSTGAL_CONFUSION );
     }
@@ -1714,6 +1712,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       if ( strcmp(word0,KEY_TEST) == 0 ) {
 	iwd++; get_PARSE_WORD_DBL(langC,iwd, &DVAL);
 	SNDATA.HOSTGAL_OBJID[igal] = (long long) DVAL ;
+      }
+
+      sprintf(KEY_TEST,"%s_FLAG:", PREFIX); 
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+	iwd++; get_PARSE_WORD_INT(langC,iwd, &SNDATA.HOSTGAL_FLAG[igal]);
       }
 
       sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 

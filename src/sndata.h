@@ -265,7 +265,7 @@ struct SNDATA {
 
   int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
-  int     HOSTGAL_FLAG;       // indicate problems (May 2021)
+  int     HOSTGAL_FLAG[MXHOSTGAL];    // indicate problems (May 2021)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
   float   HOSTGAL_SB_FLUXCAL[MXFILTINDX];   // surface bright (FLUXCAL/asec)
   float   HOSTGAL_SB_FLUXCALERR[MXFILTINDX];  // error on above

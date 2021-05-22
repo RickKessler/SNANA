@@ -1419,7 +1419,7 @@ c quantites which do not depend on which host
       INTEGER*4 
      &    SNHOST_NMATCH   ! number of host matches, e.g., d_DLR<4
      &   ,SNHOST_NMATCH2  ! number of host matches, e.g., d_DLR<7
-     &   ,SNHOST_FLAG     ! May 21 2021: indicate problems with host
+     &   ,SNHOST_FLAG(MXSNHOST)  ! May 21 2021: indicate problems with host
 
       REAL
      &   SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)
@@ -4365,10 +4365,6 @@ c i.e., do not depend on host-match.
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
 
-         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_FLAG", 
-     &        ONE, STRING, DARRAY, OPT)
-         SNHOST_FLAG = INT(DARRAY(1))
-
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_CONFUSION = SNGL(DARRAY(1))
@@ -4396,6 +4392,10 @@ c - - - - - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_OBJID(igal)  = DINT(DARRAY(1))
       DSNHOST_OBJID(igal) = DARRAY(1)
+
+      KEY    = PREFIX(1:LENPRE)//'_FLAG'
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_FLAG(igal)  = INT(DARRAY(1))
 
 c - - - 
       KEY    = PREFIX(1:LENPRE)//'_PHOTOZ'
@@ -15358,8 +15358,8 @@ c init a few SNHOST arrays
 
       SNHOST_NMATCH            =  0
       SNHOST_CONFUSION         = -9.0
-      SNHOST_FLAG              = 0 
       do igal = 1, MXSNHOST 
+         SNHOST_FLAG(igal)        = 0
          SNHOST_OBJID(igal)       = -9
         DSNHOST_OBJID(igal)       = -9.0
          SNHOST8_RA(igal)         = -999.0

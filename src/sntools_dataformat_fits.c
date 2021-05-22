@@ -257,8 +257,9 @@ void wr_snfitsio_init_head(void) {
   // ---------- HOST ----------
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH" ,     itype ); 
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH2" ,    itype ); 
-  wr_snfitsio_addCol( "1I", "HOSTGAL_FLAG" ,       itype ); 
+
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID" ,      itype ); 
+  wr_snfitsio_addCol( "1I", "HOSTGAL_FLAG" ,       itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ" ,     itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ_ERR" , itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_SPECZ" ,      itype );
@@ -297,6 +298,7 @@ void wr_snfitsio_init_head(void) {
 
   if ( SNFITSIO_SIMFLAG_NBR_LIST ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
+    wr_snfitsio_addCol( "1I", "HOSTGAL2_FLAG" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ" ,     itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ_ERR" , itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SPECZ" ,      itype );
@@ -1343,11 +1345,6 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[1] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  sprintf(parName,"%s_FLAG", PREFIX);
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_FLAG ;
-  wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
-
   for(igal=0; igal < NHOSTGAL; igal++ ) {
 
     if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); } 
@@ -1355,6 +1352,11 @@ void wr_snfitsio_update_head(void) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID", PREFIX);
     WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_FLAG", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_FLAG[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
     // HOST photoz and its error
@@ -2820,10 +2822,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNDATA.HOSTGAL_NMATCH[1],
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
-    j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_FLAG", 
-				 &SNDATA.HOSTGAL_FLAG,
-				 &SNFITSIO_READINDX_HEAD[j] ) ;
-
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "HOSTGAL_CONFUSION", 
 				 &SNDATA.HOSTGAL_CONFUSION,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -2845,6 +2843,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
       SNDATA.HOSTGAL_OBJID[igal] = (long long)D_OBJID;
 
+      sprintf(KEY,"%s_FLAG", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_INT(isn, KEY, &SNDATA.HOSTGAL_FLAG[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
        
       sprintf(KEY,"%s_PHOTOZ", PREFIX);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_PHOTOZ[igal],

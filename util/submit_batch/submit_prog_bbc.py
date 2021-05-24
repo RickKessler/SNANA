@@ -1291,7 +1291,6 @@ class BBC(Program):
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
-        fitopt_table = self.config_prep['fitopt_table_list2d'][0] # 0=idir
         
         # construct row mimicking MERGE.LOG
         
@@ -1342,16 +1341,22 @@ class BBC(Program):
 
         # - - - - - -
         # check option to use FITOPT000 events for all syst.
-        label     = fitopt_table[ifit][COLNUM_FITOPT_LABEL]
-        skip_sync = FITOPT_STRING_NOREJECT in label
 
-        if DEVEL_SYNC_EVT and sync_evt and not skip_sync: 
+        if DEVEL_SYNC_EVT and sync_evt : 
+
+            fitopt_table = self.config_prep['fitopt_table_list2d'][0] # 0=idir
+            label     = fitopt_table[ifit][COLNUM_FITOPT_LABEL]
+            skip_sync = FITOPT_STRING_NOREJECT in label
+
             wait_file   = None
             select_file = None
 
             # check logic for each iterations. .xyz
 
-            if iter1 and ifit > 0 :
+            if skip_sync : 
+                pass
+
+            elif iter1 and ifit > 0 :
                 # process events from FITOPT000_MUOPT000
                 row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
@@ -1359,7 +1364,7 @@ class BBC(Program):
                 wait_file   = f"{ff_file}.gz"
                 select_file = ff_file
 
-            if iter2 :
+            elif iter2 :
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"

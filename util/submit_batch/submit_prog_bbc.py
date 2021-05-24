@@ -366,6 +366,7 @@ class BBC(Program):
         self.config_prep['version_list2d']      = [] * n_inpdir
         self.config_prep['fitopt_table_list2d'] = [] * n_inpdir
         self.config_prep['fitopt_num_outlist_map'] = []
+        self.config_prep['sync_evt_list']          = [ 0 ]
         return;
 
 

@@ -21,6 +21,7 @@
 # Dec 17 2020: purge now works on train_SALT2 outputs
 # Jan 22 2021: garbage above CONFIG is ignored.
 # Jan 23 2021: begin adding train_SALT3
+# May 24 2021: call submit_iter2()
 #
 # - - - - - - - - - -
 
@@ -59,6 +60,10 @@ def get_args():
     # change number of cores
     msg = "number of cores"
     parser.add_argument('--ncore', nargs='+', help=msg, type=int )
+
+    msg = "override OUTDIR in config file"
+    parser.add_argument('--outdir', help=msg, type=str, default=None )
+    #parser.add_argument('--outdir', nargs='+', help=msg, type=str )
 
     # reduce processing
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
@@ -103,6 +108,9 @@ def get_args():
     msg = (f"DEBUG MODE: debug creation of batch files ")
     parser.add_argument("--debug_batch", help=msg, action="store_true")
 
+    msg = (f"DEBUG MODE: developer flag to avoid conflicts. ")
+    parser.add_argument("--devel_flag", help=msg, type=int, default=0 )
+
     msg = (f"DEBUG MODE: force crash in batch-prep ")
     parser.add_argument("--force_crash_prep", help=msg, action="store_true")
     msg = (f"DEBUG MODE: force crash in merge ")
@@ -123,6 +131,9 @@ def get_args():
 
     msg = "INTERNAL: cpu number for BUSY-merge file-name"
     parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
+
+    msg = "INTERNAL:  2nd iteration"
+    parser.add_argument("--iter2", help=msg, action="store_true")
 
     args = parser.parse_args()
 
@@ -383,12 +394,11 @@ if __name__ == "__main__":
 
     # set logical merge flag before running program_class
     config_yaml['args'].merge_flag   = set_merge_flag(config_yaml)
-    # xxx mark delete config_yaml['args'].legacy_input = False
 
     logging.debug(config_yaml)  # ???
 
     # - - - - - -
-    # determine which program class (sim, fit, bbc)
+    # determine which program class (sim, fit, bbc, train ...)
     program_class = which_program_class(config_yaml)
 
     # run the class
@@ -443,16 +453,21 @@ if __name__ == "__main__":
 
     # - - - - - -
     if args.nosubmit :
-        print_nosubmit_messages(config_yaml);   exit(0)
-    else :
-        program.launch_jobs() # submit via batch or ssh
+        print_nosubmit_messages(config_yaml);
+        program.submit_iter2()
+        exit(0)
+    
+    # - - - - - - - - -
+    program.launch_jobs() # submit via batch or ssh
 
-    # - - - - - - -
-    # Print any warnings or errors that we captured at the end to make
-    # sure they aren't missed
+    # Print warnings and errors to make sure they aren't missed
     store.print_warnings()
     store.print_errors()    
     print_submit_messages(config_yaml) # final stuff for user to REMEMBER
-    exit(0)                            # bye bye.
+
+    # check for iterative submit (e.g., sync events in BBC)
+    program.submit_iter2()
+
+    exit(0)    # bye bye.
 
 # === END ===

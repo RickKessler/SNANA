@@ -19,6 +19,8 @@
 # Apr 23 2021: fix --merge_reset and -M to hopefully allow interactive 
 #              merge recover (-H FIT for instructions)
 #
+# May 24 2021: new function submit_iter2()
+#
 # ============================================
 
 #import argparse
@@ -50,6 +52,10 @@ class Program:
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
+
+        # default is 1 submit, so iter is None
+        # (bbc might change this to 1 and 2) 
+        config_prep['submit_iter'] = None  # May 24 2021
 
         if config_yaml['args'].merge_flag :  # bail for merge process
             return
@@ -315,6 +321,7 @@ class Program:
         submit_mode = self.config_prep['submit_mode']
         node_list   = self.config_prep['node_list']
         program     = self.config_prep['program']
+        submit_iter = self.config_prep['submit_iter']
 
         # for each cpu, store name of script and batch file
         command_file_list = []  # command file name, no path
@@ -328,18 +335,25 @@ class Program:
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
         # create batch_file using BATCH_TEMPLATE
-        
+
         logging.info(f"  Create command files:")
 
         for icpu in range(0,n_core) :
             node          = node_list[icpu]
-            cpu_name      = (f"CPU{icpu:04d}")
-            job_name      = (f"{input_file}-{cpu_name}") 
-            prefix        = (f"CPU{icpu:04d}_JOBLIST_{node}")
-            command_file  = (f"{prefix}.CMD")
-            log_file      = (f"{prefix}.LOG")
-            COMMAND_FILE  = (f"{script_dir}/{command_file}")
+            cpu_name      = f"CPU{icpu:04d}"
+            prefix        = f"CPU{icpu:04d}_JOBLIST_{node}"
+            command_file  = f"{prefix}.CMD"
+            log_file      = f"{prefix}.LOG"
+            COMMAND_FILE  = f"{script_dir}/{command_file}"
             logging.info(f"\t Create {command_file}")
+
+            if submit_iter is None:
+                # normal task is single submit, so ignore iter in job name
+                job_name      = f"{input_file}-{cpu_name}"
+            else:
+                # job name depends on submit_iter
+                ii        = f"iter{submit_iter}"
+                job_name  = f"{input_file}_{ii}-{cpu_name}"
 
             # compute small (0.1s) delay per core to avoid first jobs
             # finishing before all are submitted, then failing
@@ -491,9 +505,13 @@ class Program:
         #  -M -> wait for all DONE files to appear, then merge it all.
         #  -t <Nsec>   time stamp to verify merge and submit jobs
         #  --cpunum <cpunum>  in case specific CPU needs to be identified    
-
+        #
+        #  May 24 2021: check outdir override from command line
         input_file     = self.config_yaml['args'].input_file
         no_merge       = self.config_yaml['args'].nomerge
+        output_dir_override = self.config_yaml['args'].outdir 
+        devel_flag          = self.config_yaml['args'].devel_flag
+
         n_core         = self.config_prep['n_core']
         n_job_tot      = self.config_prep['n_job_tot']
         Nsec           = seconds_since_midnight
@@ -521,6 +539,15 @@ class Program:
         if last_merge :  m_arg = "-M" 
 
         arg_list = (f"{m_arg} -t {Nsec} --cpunum {icpu}")
+
+        # check for outdir override (May 24 2021)
+        if output_dir_override is not None:
+            arg_list += f"  --outdir {output_dir_override}"
+
+        # check for devel flag
+        if devel_flag != 0 :
+            arg_list += f" --devel_flag {devel_flag}"
+
         JOB_INFO['merge_input_file']  = input_file
         JOB_INFO['merge_arg_list']    = arg_list
         
@@ -621,9 +648,13 @@ class Program:
         # to make sure full path is included. Then create output_dir.
         # if output_dir already exists, clobber it.
 
-        kill_flag = self.config_yaml['args'].kill
-        output_dir_temp,script_subdir = self.set_output_dir_name()
-        
+        kill_flag       = self.config_yaml['args'].kill
+
+        output_dir_temp,script_subdir = self.set_output_dir_name()  
+
+        # check command line option to override outdir (May 2021)
+        output_dir_temp = self.override_output_dir_name(output_dir_temp)
+
         if '/' not in output_dir_temp :
             output_dir = (f"{CWD}/{output_dir_temp}")
         else:
@@ -641,7 +672,7 @@ class Program:
 
         # fetch & store done stamp file(s)
         CONFIG          = self.config_yaml['CONFIG']
-        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DONE
+        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DON
         done_stamp_file,Found = util.parse_done_stamp(output_dir,CONFIG)
         if Found : done_stamp_list.append(done_stamp_file)  # check for another
         self.config_prep['done_stamp_list'] = done_stamp_list
@@ -651,8 +682,7 @@ class Program:
         # - - - - - - - - - 
 
         logging.info(f" Create output dir:\n   {output_dir}")
-        if  os.path.exists(output_dir) :
-            shutil.rmtree(output_dir)
+        if  os.path.exists(output_dir) : shutil.rmtree(output_dir)
         os.mkdir(output_dir)
 
         # next create subdir for scripts, unless subDir is ./
@@ -661,6 +691,16 @@ class Program:
             
         # end create_output_dir
 
+    def override_output_dir_name(self,output_dir):
+    
+        output_dir_override = self.config_yaml['args'].outdir
+
+        if output_dir_override is None: 
+            return output_dir
+        else:        
+            return output_dir_override
+
+        # end override_output_dir_name
 
     def create_merge_file(self):
         output_dir      = self.config_prep['output_dir'] 
@@ -728,6 +768,36 @@ class Program:
                 #print(f" xxx {node} ret = {ret}")
 
         # end launch_jobs
+        
+    def submit_iter2(self):
+
+        # if this is the first of two submit jobs, then launch 
+        # 2nd (iter) submit. Note that typical submit has only
+        # one iteration in which submit_iter = None and this
+        # function does nothing. Action here is only when submit_iter==1.
+
+        submit_iter = self.config_prep['submit_iter']
+        if submit_iter != 1 : return
+
+        line = "# ============================================="
+        print(f"")
+        print(f"{line}")
+        print(f"{line}")
+        print(f"{line}")
+
+        for t in range(3,0,-1):
+            print(f"\t Will auto-submit 2nd iteration in {t} seconds ...")
+            time.sleep(1)
+
+        arg_list   = sys.argv 
+        arg_list.append('--iter2')
+        arg_string = " ".join(arg_list) 
+        print(f"\n submit_iter2 with \n  {arg_string}\n")
+
+        ret  = subprocess.call( arg_list )
+
+        # .xyz
+        # end launch_jobs_iter2
 
     def fetch_slurm_pid_list(self):
 
@@ -810,6 +880,7 @@ class Program:
 
         # need to re-compute output_dir to find submit info file
         output_dir,script_subdir = self.set_output_dir_name()
+        output_dir               = self.override_output_dir_name(output_dir)
         self.config_prep['output_dir']  = output_dir
 
         # read SUBMIT.INFO passed from original submit job... 

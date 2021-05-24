@@ -40,8 +40,10 @@ nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
 nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
 
-cid_select_file=<file with CID 'accept-only' list  (FITRES or unkeyed list format)>
-cid_reject_file=<file with CID reject list (FITRES or unkeyed format)>
+cid_select_file=<file with CID 'accept-only' list  
+      (FITRES or unkeyed list format)>
+cid_reject_file=<file with CID reject list 
+      (FITRES or unkeyed format)>
 
 uzsim=1                  ! cheat and use true zCMB for redshift
 
@@ -186,6 +188,8 @@ CUTWIN varname_pIa  0.9 1.0   ! substitute argument of varname_pIa, and
 
 CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut
 
+CUTWIN NONE  ! command-line override to disable all cuts;
+             ! e.g., useful with cid_select_file
 
 #select field(s) for data and biasCor with
 fieldlist=X1,X2   # X1 and X2
@@ -916,6 +920,7 @@ Default output files (can change names with "prefix" argument)
 
  May 02 2021: new input zspec_maxerr_idsample
  May 12 2021: move read_data_override call before set_CUTMASK call.
+ May 24 2021: disable cuts with "CUTWIN NONE"
 
  ******************************************************/
 
@@ -1590,6 +1595,7 @@ struct INPUTS {
   bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
   bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor
   bool   LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
+  bool   LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
 
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
@@ -5372,6 +5378,7 @@ void set_defaults(void) {
   sprintf(INPUTS.varname_gamma,"HOST_LOGMASS");
   INPUTS.USE_GAMMA0  = 0 ;
 
+  INPUTS.LCUTWIN_DISABLE = false;
   init_CUTMASK();
 
 #ifdef USE_SUBPROCESS
@@ -7318,19 +7325,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     mB_ideal = -2.5*log10f(x0_ideal); 
     TABLEVAR->fitpar_ideal[INDEX_mB][ISN] = (float)mB_ideal;
   }
-
-  /* xxxxxxxx mark delete May 12 2021 xxxxxxxx
-  // - - - - 
-  // finally, set cutmask in TABLEVAR
-  set_CUTMASK(ISN, TABLEVAR);
-
-  // on last event, set NPASS ... but beware for data because additional
-  // DATA cuts are applied later. print_eventStat determines final NPASS.
-  int NALL   = *NALL_CUTMASK_POINTER[EVENT_TYPE];  
-  int NREJ   = *NREJECT_CUTMASK_POINTER[EVENT_TYPE];  
-  int *NPASS = NPASS_CUTMASK_POINTER[EVENT_TYPE];
-  if ( ISN == NALL-1 ) {     *NPASS = NALL-NREJ ;   }
-  xxxxxxxxxxx end mark xxxxxxxxxx */
 
   return ;
 
@@ -14518,11 +14512,13 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //
   // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
   //
-  int event_type = TABLEVAR->EVENT_TYPE;
-  int IS_DATA    = ( event_type == EVENT_TYPE_DATA );
-  int IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
-  int IS_CCPRIOR = ( event_type == EVENT_TYPE_CCPRIOR );
+  int  event_type = TABLEVAR->EVENT_TYPE;
+  bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
+  bool IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
+  bool IS_CCPRIOR = ( event_type == EVENT_TYPE_CCPRIOR );
   int NFIELD = INPUTS.NFIELD ;
+
+  bool  LCUTWIN_DISABLE   = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
 
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
@@ -14593,6 +14589,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // -----------------------------------------
   // apply legacy cuts 
   // These cuts are redundant with above LCUTWIN to allow older inputs.
+  // (might have to always apply z-cut, even if DISABLE flag is set??)
 
   if ( (z < INPUTS.zmin) || ( z > INPUTS.zmax)) 
     { setbit_CUTMASK(isn, CUTBIT_z, TABLEVAR);  }
@@ -14613,7 +14610,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     setbit_CUTMASK(isn, CUTBIT_BADERR, TABLEVAR);
     if ( IS_DATA ) {
       fprintf(FP_STDOUT, " %s WARNING: "
-	     "one or more x0,x1,c errors <=0 (SNID=%s)\n", fnam, name );
+	      "one or more x0,x1,c errors <=0 (SNID=%s)\n", fnam, name );
     }
   }
 
@@ -14717,12 +14714,28 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
   //
 
   int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE ;
+  bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int  *CUTMASK     = &TABLEVAR->CUTMASK[isn];
   int  CUTMASK_SET  = CUTMASK_LIST[bitnum] ;
+  bool LCUTWIN_DISABLE  = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
+  bool APPLY ;
   //  char fnam[] = "setbit_CUTMASK" ;
 
   // ------------- BEGIN -------------
 
+  if ( LCUTWIN_DISABLE ) {
+    // if cuts are disabled for data, only allow cuts on
+    // CID (read from list), biasCor, and few others
+    APPLY = 
+      (bitnum == CUTBIT_CID     ) || 
+      (bitnum == CUTBIT_BIASCOR ) ||
+      (bitnum == CUTBIT_z       ) ||
+      (bitnum == CUTBIT_BADCOV  ) 
+      ;
+    if ( !APPLY ) { return; }
+  }
+
+  // - - - - -
   if ( ( *CUTMASK & CUTMASK_SET) == 0 ) {
 
     if ( *CUTMASK == 0 ) { TABLEVAR->NSN_REJECT++ ;  }
@@ -14758,12 +14771,13 @@ int selectCID_data(char *cid){
 
   for (i = 0; i < ncidList; i++) {
     tmpCID = INPUTS.cidList_data[i];
-    MATCH = (strcmp(cid,tmpCID)==0) ;
+    MATCH  = (strcmp(cid,tmpCID)==0) ;
     if ( MATCH ) {
       if ( acceptFlag > 0 )  { return ACCEPT; }
       else     	             { return REJECT; }
     }
   } // end i loop over cids
+
 
   // - - - - - - 
   // if there are no cid matches to file:
@@ -16241,7 +16255,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
   INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
 
-  INPUTS.NCUTWIN++ ;
+  // xxxx mark xxx INPUTS.NCUTWIN++ ;
 
   // - - - - - -  -
   // strip each line_CUTWIN item into item_list, and check for missing items
@@ -16249,6 +16263,16 @@ void parse_CUTWIN(char *line_CUTWIN) {
   ptrtok = strtok(line_local," ");
   for ( i=0; i < 4 ; i++ ) {
     sprintf(item_list[i], "%s", ptrtok);
+
+    //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
+    // check disable option with "CUTWIN NONE" .xyz
+    if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
+      INPUTS.LCUTWIN_DISABLE = true ; 
+      printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); 
+      fflush(stdout); 
+      return;
+    }
+
     ptrtok = strtok(NULL, " ");
     // Oct 8 2020: check for missing CUTWIN element
     if ( i < 3 && ptrtok == NULL ) {
@@ -16257,6 +16281,8 @@ void parse_CUTWIN(char *line_CUTWIN) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
   }
+
+  INPUTS.NCUTWIN++ ;
 
   // - - - - - 
   for ( i=0; i < NITEM ; i++ ) {
@@ -16337,6 +16363,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
 	 ,cMUERR
 	  ) ;
 
+  return ;
 } // end of parse_CUTWIN
 
 
@@ -16439,13 +16466,15 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   //
   // Oct 28 2020: new ISVAR_PROB logic
   // Jan 21 2021: minor refac using DOFLAG_CUTWIN_XXX params
-  
+  // May 22 2021: check L_DISABLE
+
   bool  L_VALID_VAR   = ( ivar >= 0 );
   bool  L_NOVAR       = !L_VALID_VAR ;
   bool  L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
   bool  L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
   bool  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
   bool  L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
+  bool  L_DISABLE     = INPUTS.LCUTWIN_DISABLE ;
   char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   DOFLAG ;
@@ -16456,13 +16485,14 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   if ( L_DATAONLY    && !isData ) { return(DOFLAG_CUTWIN_IGNORE); }
   if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_CUTWIN_IGNORE); }
 
+  // xxx mark  if ( L_DISABLE     && isData  ) { return(DOFLAG_CUTWIN_IGNORE); }
+
   // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
   //    and starts with PROB. This assumes that idsurvey_list_probcc0
   //    sets pIa=1 ... if not, all these events will be rejected. 
   //    This logic is not needed for data because the data-catenate 
   //    process ensures existing PROB columns.
   if ( !isData && ivar < 0 && ISVAR_PROB ) { return(DOFLAG_CUTWIN_APPLY); }
-
 
   if ( L_NOVAR && L_ABORTFLAG ) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 

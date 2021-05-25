@@ -5004,7 +5004,7 @@ TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(8000:10000)
 TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
 
 #4) host spectrum 
-TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
+TAKE_SPECTRUM:  HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
 TAKE_SPECTRUM_HOSTFRAC:   0.1  # add 10\% of FLAM(host) to each SN spectrum
 TAKE_SPECTRUM_HOSTSNFRAC: 0.1  # scale FLAM(HOST) so Sum(HOST)/Sum(SNPEAK) = 0.1
 
@@ -5038,6 +5038,7 @@ First is to defined a fixed exposure time in the \simlib\ file
 with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
 The second option is defined in the example above with
 %
+\vspace{-0.4cm}
 \begin{verbatim}
       TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
 \end{verbatim}
@@ -5050,6 +5051,14 @@ exposure time varies with each epoch to acquire the specified
 SNR, the template exposure time is the same for all epochs.
 This key overrides the {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH} 
 key in the \simlib\ file.
+
+\medskip
+To turn off all spectra without commenting or removing all of the 
+{\tt TAKE\_SPECTRUM} keys, 
+\vspace{-0.4cm}
+\begin{verbatim}
+    snlc_sim.exe <inputFile>  TAKE_SPECTRUM NONE
+\end{verbatim}
 
 \medskip
 WARNING: can use either the {\tt TAKE\_SPECTRUM} keys in sim-input file,
@@ -5086,6 +5095,28 @@ defined with more comma-separated terms.
 The warping is applied only to the measured $\Flam$ 
 ({\tt FLAM} column in output); 
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
+
+% ------------------------------------
+\subsubsection{Field-Dependent PreScale for SN Spectra}
+\label{sss:SPEC_PRESCALE}
+% ------------------------------------
+
+Since SN spectra are typically limited to a subset of events,
+field-dependent pre-scales for SN spectra can be specified as follows:
+%
+\begin{verbatim}
+# SN spectra for half of SHALLOW events
+   TAKE_SPECTRUM_PRESCALE: SHALLOW/2  
+
+# SN spectra for 1/4.2 of shallow and 1/2.05 of deep
+   TAKE_SPECTRUM_PRESCALE: SHALLOW/4.2+DEEP/2.05
+\end{verbatim}
+The prescale is applied per event, not per spectrum.
+Thus if 6 SN spectra are defined per events, the pre-scale
+results in each event either having 6 SN spectra, or none.
+While there is no host spectrum prescale,
+there is a zHOST efficiency file
+(\S\ref{sss:eff_zHOST}).
 
 % ------------------------------------
 %\clearpage

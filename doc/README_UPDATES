@@ -19901,7 +19901,13 @@
 
          ***** IMPORTANT(v11_02n) ***** 
 
+   + sim: fix wave smearing for spectrograph 
+
          ***** USEFUL(v11_02n) ***** 
+
+   + add HOSTGAL_FLAG to data structure
+   + snana.car: read & apply PHOTFLAG_MSKREJ in IGNORE file (or in &SNLCINP)
+   + kcor.c: add LEAKAGE_CUT key to remove out-of-band trans.
 
          ***** MISCELLANEOUS(v11_02n) ***** 
 
@@ -19912,12 +19918,14 @@
         Noticed that correlated template noise (for SNR_ZPOLY) in spectra 
         was broken; made some attempt to fix, but not well tested.
       + in speceff file, allow HOSTMAG_[band] or HOST_MAG_[band]
+      + new key TAKE_SPECTRUM_PRESCALE (see manual)
 
     snana.car
       + restore HOST_MAG_[band] to output tables; was lost during IO refac.
       + check IGNORE file for PHOTFLAG_MSKREJ and PHOTFLAG_BITLIST_REJECT.
         This allows data release to include PHOTFLAGs so user need not
         specify these flags in their &SNLCINP.
+      + add HOSTGAL_FLAG to data structure
 
     sntools.c
       + read_GRIDMAP bin uniformity requirement at 1E-6 instead of E-3.
@@ -19931,5 +19939,18 @@
         events for all systematics.
       + for fit mode and OPT_SNCID_LIST > 0, write NEVT_COMMON
         to MERGE.LOG
+
+    kcor.c[h]: add new input key LEAKAGE_CUT: <value> to reject
+         trans/TransMax < LEAKAGE_CUT.
+
+    util/submit_batch: 
+     + finally get submit_train_SALT3.py working.
+       SNANA calib info is written to SALT3.INFO file,
+         but BEWARE that it's  NOT yet tested with snlc_fit.exe.
+
+     + if BBC detects LCFIT option to use same events for systematics,
+       it runs 2 iterations to sync events in BBC as well.
+       New feature runs with "--devel_flag 20" until Pippin is ready
+       to drop its BBC iteration.
 
 END: 

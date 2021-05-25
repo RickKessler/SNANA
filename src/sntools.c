@@ -90,6 +90,29 @@ void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val) {
   return;
 } // end load_string_dict
 
+void  dump_string_dict(STRING_DICT_DEF *DICT) {
+
+  int   N_ITEM      = DICT->N_ITEM ;
+  char *NAME        = DICT->NAME ;
+  char *STRING_ORIG = DICT->STRING_LIST[N_ITEM] ;
+  int  i;
+  char fnam[]   = "dump_string_dict" ;
+
+  //-------- BEGIN ---------
+  
+  sprintf(BANNER,"%s: dump %s Dictionary", fnam, NAME);
+  print_banner(BANNER);
+  printf("\t Original Parsed string: %s \n", STRING_ORIG);
+  fflush(stdout);
+
+  for (i=0; i < N_ITEM; i++ ) {
+    printf("\t %s: %f \n", DICT->STRING_LIST[i], DICT->VALUE_LIST[i]); 
+  }
+
+  fflush(stdout);
+
+} // end dump_string_dict
+
 double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
 
   // Inputs
@@ -155,6 +178,61 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
   return(VAL);
 
 } // end get_string_dict
+
+
+void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
+
+  // parse input STRING and return dictionary *DICT.
+  // E.g., STRING = RALPH/4.3+SARAH/2.2+PEGGY/9.9
+  // --> return pyhton-like dictionary of names and pre-scales;
+  //       RALPH: 4.3
+  //       SARAH: 2.2
+  //       PEGGY: 9.9
+  // Both plus and comma are valid separators.
+
+  int  MAXITEM = DICT->MAX_ITEM;
+  int    i, NLIST, MEMC = 40*sizeof(char);
+  char **ptr_ITEMLIST;
+  char sepKey[] = "+" ; // default FIELD separator
+  char fnam[] = "parse_string_prescales" ;
+
+  // -------------- BEGIN -------------
+
+  // although '+' is default separator, allow commas.
+  if ( strstr(STRING,COMMA) != NULL ) 
+    { sprintf(sepKey, "%s", COMMA); }
+
+  // allocate memory for each item in FIELDLIST
+  ptr_ITEMLIST = (char**)malloc( MAXITEM*sizeof(char*));
+  for(i=0; i < MAXITEM; i++ )
+    { ptr_ITEMLIST[i] = (char*)malloc(MEMC); }
+
+  splitString(STRING, sepKey, MAXITEM,         // inputs               
+	      &NLIST, ptr_ITEMLIST );         // outputs             
+
+  // load dictionary
+  int jslash;
+  char *tmp, *tmp_ITEM, ITEM[40];
+  double dval ;
+  for(i=0; i < NLIST; i++ ) {
+    tmp_ITEM = ptr_ITEMLIST[i] ; // may include slash
+    dval = 1.0;  // default preScale
+    sprintf(ITEM, "%s", tmp_ITEM); // 
+    if ( strchr(tmp_ITEM,'/') != NULL ) {
+      tmp    = strchr(tmp_ITEM, '/');
+      jslash = (int)(tmp - tmp_ITEM);
+      sscanf( &tmp_ITEM[jslash+1] , "%le", &dval );
+      strncmp(ITEM, tmp_ITEM, jslash-1);
+      ITEM[jslash] = '\0' ;
+    }
+
+    load_string_dict(DICT, ITEM, dval );
+		     
+  }
+
+  return;
+
+} // end parse_string_prescales 
 
 // =================================================
 int glob_file_list(char *wildcard, char ***file_list) {

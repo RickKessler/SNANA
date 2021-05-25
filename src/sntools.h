@@ -829,6 +829,8 @@ void ENVrestore(char *fileName_noENV, char *fileName_orig);
 void  init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM);
 void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val);
 double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT);
+void  dump_string_dict(STRING_DICT_DEF *DICT);
+void  parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT);
 
 // SLALIB functions translated by D. Cinabro
 void slaEqgal ( double dr, double dd, double *dl, double *db );

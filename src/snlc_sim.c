@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   istat = 0;
   init_snvar__(&istat); 
 
-  // init sim-variables
+  // one-time init of sim-variables
   init_simvar();
 
   //  test_igm(); // xxxx
@@ -2215,7 +2215,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "EFFERR_STOPGEN",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.EFFERR_STOPGEN );
   }
-  // - - -  specrrograph - - - -
+  // - - -  specrtrograph - - - -
   else if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
   }
@@ -2233,6 +2233,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTSNFRAC",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_PRESCALE",  WORDS[0],keySource) ) {
+    char FIELDLIST[60];
+    STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
+    N++;  sscanf(WORDS[N], "%s", FIELDLIST);
+    parse_string_prescales(FIELDLIST, DICT);
+    dump_string_dict(DICT); // xxx remove
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
@@ -2879,7 +2886,11 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_FIELDLIST",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FIELDLIST );
-    parse_input_FIELDLIST();           // check for preScales; Feb 2021
+    // xxx mark delete    parse_input_FIELDLIST();  // check for preScales;
+
+    char *FIELDLIST       = INPUTS.SIMLIB_FIELDLIST;
+    STRING_DICT_DEF *DICT = &INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE ;
+    parse_string_prescales(FIELDLIST, DICT); // store pre-scales in *DICT
     INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; // count skipped fields in NGENTOT
   }
   else if ( keyMatchSim(1, "SIMLIB_IDSTART",  WORDS[0],keySource) ) {
@@ -3287,9 +3298,13 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
 // ==============================================================
 void parse_input_FIELDLIST(void) {
 
+  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
+  //
   // Created Feb 5 2021
   // Check pre-scale options for INPUTS.SIMLIB_FIELDLIST,
-  // and load INPUTS.DICT_FIELDLIST_PRESCALE
+  // and load INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE
+  // Origial motivation is to generate more balanced biasCor
+  // samples.
   //
   // Parse SIMLIB_FIELDLIST of the form; e.g,
   //   SHALLOW/3+DEEP 
@@ -3297,28 +3312,32 @@ void parse_input_FIELDLIST(void) {
   //   SHALLOW+MEDIUM/5+DEEP/5
   //      -> process all SHALLOW, and 1/5 of MEDIUM and DEEP
   //
-  int  MAXLIST = 20;
-  char sepKey[] = "+" ; // default FIELD separator
-  char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
-
-  int  ifield, NLIST, MEMC = 40*sizeof(char);
-  char **ptr_FIELDLIST;
+  int   MAXLIST         = 20 ;
+  char *FIELDLIST       = INPUTS.SIMLIB_FIELDLIST ;
+  STRING_DICT_DEF *DICT = &INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE ;
   char NAME[]  = "SIMLIB_FIELDLIST_PRESCALES" ;
-  char fnam[] = "parse_input_FIELDLIST" ;
-
+  char fnam[]  = "parse_input_FIELDLIST" ;
   // ---------- BEGIN ------------
 
-  init_string_dict(&INPUTS.DICT_FIELDLIST_PRESCALE, NAME, MAXLIST);
+
+  init_string_dict(DICT, NAME, MAXLIST);
+  parse_string_prescales(FIELDLIST, DICT);
+  return ;
+
+  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
+
+  /* xxxxxx mark delete May 24 2021 xxxxxxx
+  char sepKey[] = "+" ; // default FIELD separator
+  int  ifield, NLIST, MEMC = 40*sizeof(char);
+  char **ptr_FIELDLIST;
 
   // although '+' is default separator, allow commas.
   if ( strstr(FIELDLIST,COMMA) != NULL ) 
     { sprintf(sepKey, "%s", COMMA); }
-
   // allocate memory for each item in FIELDLIST
   ptr_FIELDLIST = (char**)malloc( MAXLIST*sizeof(char*));
   for(ifield=0; ifield < MAXLIST; ifield++ )
     { ptr_FIELDLIST[ifield] = (char*)malloc(MEMC); }
-
   splitString(FIELDLIST, sepKey, MAXLIST,      // inputs               
 	      &NLIST, ptr_FIELDLIST );         // outputs             
   
@@ -3337,16 +3356,14 @@ void parse_input_FIELDLIST(void) {
       strncmp(FIELD, tmpFIELD, jslash-1);
       FIELD[jslash] = '\0' ;
     }
-
-    dval = (double)iPS ;
-    load_string_dict(&INPUTS.DICT_FIELDLIST_PRESCALE,
-		     FIELD, dval );
+    dval = (double)iPS ;  load_string_dict(DICT, FIELD, dval );
   }
-  //   debugexit(fnam); // xxx REMOVE
+  xxxxxxxxxx end mark xxxxxxx */
 
-  return ;
+  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
 
 } // end parse_input_FIELDLIST
+
 
 // ==============================================================
 int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
@@ -7264,6 +7281,12 @@ void init_simvar(void) {
 
   init_SNDATA_GLOBAL() ;  // Feb 2021
 
+  // init dictionary of pre-scales vs. field for SIMLIB and TAKE_SPECTRUM
+  init_string_dict(&INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE,
+		   "SIMLIB_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
+  init_string_dict(&INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE, 
+		   "SPECTRUM_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
+
   return ;
 
 } // end of init_simvar
@@ -8134,11 +8157,13 @@ void GENSPEC_DRIVER(void) {
   // Oct 16 2016: apply Gaussian LAMRES smearing
   // Jan 14 2021: abort if NMJD>0 but there is no SPECTROGRAPH instrument.
   // Feb 24 2021: increment NMJD_PROC only if NBLAM_VALID > 0
+  // May 24 2021: check prescale for SN spectra
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
-  double MJD_LAST, MJD_DIF ;
+  bool   PRESCALE_REJECT_SN = false;
+  double MJD; 
   double SNR_LAMMIN, SNR_LAMMAX;
-
+  
   int    i, imjd ;
   char fnam[] = "GENSPEC_DRIVER" ;
 
@@ -8162,10 +8187,6 @@ void GENSPEC_DRIVER(void) {
   if ( NPEREVT_TAKE_SPECTRUM == 0 && SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH == 0 ) 
     { return ; }
 
-  // xxx mark delete  GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
-
-  MJD_LAST = MJD_DIF = -9.0 ;
-
   if ( NPEREVT_TAKE_SPECTRUM > 0 && NPEREVT_TAKE_SPECTRUM != NMJD ) {
     print_preAbort_banner(fnam);
     printf("  NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM );
@@ -8185,14 +8206,22 @@ void GENSPEC_DRIVER(void) {
 
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
 
+  // check if SN are rejected by TAKE_SPECTRUM_PRESCALE
+  PRESCALE_REJECT_SN = GENSPEC_PRESCALE_REJECT_SN();
+
+  // - - - - -
   for(i=0; i < NMJD; i++ ) {
 
     imjd = imjd_order[i];
+    MJD  = GENSPEC.MJD_LIST[imjd] ;
 
     //    printf(" xxx %s: i=%d imjd=%d  MJD=%.2f \n",
     //	   fnam, i, imjd, GENSPEC.MJD_LIST[imjd] ); fflush(stdout);
 
     if ( GENSPEC.SKIP[imjd] ) { continue; } // April 2021
+
+    if ( MJD > 0.0  &&  PRESCALE_REJECT_SN )   // May 24 2021
+      { GENSPEC.SKIP[imjd] = true;   continue; }
 
     SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
     SNR_LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
@@ -8238,6 +8267,50 @@ void GENSPEC_DRIVER(void) {
 
 } // end GENSPEC_DRIVER
 
+// *********************************************
+bool GENSPEC_PRESCALE_REJECT_SN(void) {
+
+  // Created May 24 2021
+  // Return True to reject SN spectra for this event.
+  // Rejection is based on FIELD-dependent pre-scale defined
+  // in sim-input key TAKE_SPECTRUM_PRESCALE
+  //
+  // If there are overlapping fields, check each field and evaluate
+  // independent ACCEPT for each field. Final REJECT = !ACCEPT.
+
+  bool REJECT = false, ACCEPT=false ;
+  STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
+  int  OPT_DICT = 1;   // 0=exact match, 1=partial string match
+
+  int  ifield, NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
+  
+  double preScale, r1 ;
+  char *field ; 
+  char fnam[] = "GENSPEC_PRESCALE_REJECT_SN" ;
+      
+  // ------------- BEGIN ------------ .xyz
+
+  // if no dictionary, then nothing is rejected
+  if ( DICT->N_ITEM == 0 ) { return REJECT; }
+
+  // fetch prescale for this field
+  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) {
+    field    = SIMLIB_HEADER.FIELDLIST_OVP[ifield] ;
+    r1       = FlatRan1(1);
+    preScale = get_string_dict(OPT_DICT, field, DICT);
+    if ( preScale < 0.0 ) {
+      ACCEPT = true;  // take spectrum if no prescale defined
+    }
+    else {
+      if ( r1 < 1.0/preScale ) { ACCEPT = true ; } 
+    }
+  } // end ifield
+
+  REJECT = !ACCEPT ;
+
+  return REJECT;
+
+} // end GENSPEC_PRESCALE_REJECT_SN
 
 // *************************************************
 void  GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE) {
@@ -15779,6 +15852,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 	   i, MJD, TEXPOSE, EPOCH_RAN, z ); fflush(stdout);
     */
 
+    // skip SN spectra outside Trest range of model
     if ( !IS_HOST && !IS_TREST )
       { GENSPEC.SKIP[i] = true ; TEXPOSE = -1.0 ; }
 
@@ -17648,7 +17722,7 @@ int SKIP_SIMLIB_FIELD(char *field) {
 
   // fetch prescale for this field
   preScale = get_string_dict(OPT_DICT, field, 
-			     &INPUTS.DICT_FIELDLIST_PRESCALE);
+			     &INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE);
   iPS = (int)preScale ;
 
   //  printf(" xxx %s: field=%s -> PS = %d \n", fnam, field, iPS);
@@ -17670,13 +17744,6 @@ int SKIP_SIMLIB_FIELD(char *field) {
     { return 0; }  // keep field
   else
     { return 1 ; }  // reject due to prescale
-
-  /* xxx mark delete Feb 5 2021
-  if ( strstr(FIELDLIST,field) == NULL ) 
-    { return 1; }
-  else 
-    { return 0; }
-  xxxxxx */
 
 } // end of SKIP_SIMLIB_FIELD
 
@@ -19765,18 +19832,6 @@ void  LOAD_SEARCHEFF_DATA(void) {
 	  { SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] = FlatRan1(1); }	
       }
     } // end NMAP_PHOTPROB
-
-
-    /* xxxxxxxx mark delete Feb 17 2020 xxxxxxxxxxx
-    oldRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] ;
-    if ( oldRan < -998.0 && INPUTS_SEARCHEFF.NMAP_PHOTPROB >0 )  { 
-      if ( INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB == 0 ) 
-	{ tmpRan = FlatRan1(1); } // flat randoms [0,1] for uncorrelated
-      else
-	{ tmpRan = GaussRan(1); } // need Gauss-randoms for correlation
-      SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] = tmpRan ;
-    }
-    xxxxxxxxxxxx end mark xxxxxxxxx */
 
   } // end ep loop over epochs
 

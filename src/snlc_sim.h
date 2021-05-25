@@ -407,7 +407,9 @@ struct INPUTS {
 
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
-  STRING_DICT_DEF DICT_FIELDLIST_PRESCALE; // optional prescale per FIELD
+  //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //
+  STRING_DICT_DEF DICT_SIMLIB_FIELDLIST_PRESCALE;   // SIMLIB ps per FIELD
+  STRING_DICT_DEF DICT_SPECTRUM_FIELDLIST_PRESCALE; // spectrum ps per FIELD
 
   int  SIMLIB_IDSTART;      // start at this LIBID (default=1)
   int  SIMLIB_MAXRANSTART;  // start at random LIBID among this many
@@ -1815,6 +1817,7 @@ void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra
+bool   GENSPEC_PRESCALE_REJECT_SN(void) ;
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  // generate true MAGs and FLUXes

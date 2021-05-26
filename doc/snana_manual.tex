@@ -9020,7 +9020,9 @@ data files without re-making the data files. This feature
 can be useful, for example, for systematics or optimization studies
 The header information includes host properties, peculiar
 velocities, redshifts, and Galactic extintion, all of which
-can be easily modified for a particular study.
+can be easily modified for a particular study. To see a complete
+list of options, search for 
+{\tt VARLIST\_ALL\_HEADER\_OVERRIDE} in {\tt snana.car}.
 
 The input key for the analysis programs is
 \begin{verbatim}
@@ -9030,20 +9032,39 @@ The input key for the analysis programs is
      HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
 
 more myUpdates.dat
-VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
-SN:  1346137    78.4 150.0   10.87  0.21
-SN:  1346387   -63.0 150.0    9.44  0.33
+VARNAMES: CID  REDSHIFT_HELIO  REDSHIFT_HELIO_ERR MWEBV
+SN:  1346137      0.246  0.001    0.021
+SN:  1346387      0.533  0.0011   0.038
 etc ...
 \end{verbatim}
 %
-In the first example, four header values are updated:
-peculiar velocity correction, log of host mass,
-and the error for each. For SNe missing from the
-update file, the original values in the data file
-header are used. This feature does {\tt NOT} work
+%VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
+%SN:  1346137    78.4 150.0   10.87  0.21
+%SN:  1346387   -63.0 150.0    9.44  0.33
+
+In the first example, three header values are updated:
+helio redshift, the uncertainty, and Galactic extintion.
+For SNe missing from the update file, the original values in the 
+data file header are used. This feature does {\tt NOT} work
 on epoch-dependent quantities.
 The second example illustrates a comma-separated list of table files;
-the variables in each file must be unique. (except for CID)
+beware that the variables in each file must be unique (except for CID).
+
+The header-override list includes variables that are used later in 
+BBC or cosmology fitting, but not used in light curve fitting;
+e.g., host-galaxy properties and peculiar velocity. To avoid 
+losing time re-running identical light curve fits for such variable changes,
+it can be more efficient to make substitutions at the 
+BBC/{\tt SALT2mu.exe} stage using input 
+\vspace{-0.4cm}
+\begin{verbatim}
+    datafile_override=over1.dat,over2.dat,etc
+\end{verbatim}
+Any variable in the input table (see {\tt datafile} arg) can be
+included in an override table.
+For {\tt VPEC} ({\tt VPEC\_ERR}) changes, the Hubble diagram 
+redshift ({\tt zHD}, {\tt zHDERR}) is re-computed by subtracting
+the original $\vpec$ and adding the override value.
 
 % ------------
 \clearpage

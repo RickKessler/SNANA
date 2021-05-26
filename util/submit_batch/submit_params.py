@@ -479,6 +479,20 @@ HELP_CONFIG_BBC = f"""
     FITOPT006: FITOPT000 FITOPT000 FITOPT002  # change only PS1
     FITOPT007: FITOPT000 FITOPT000 FITOPT003  # change only PS1
 
+ #      SAME-EVENT LOGIC for SYSTEMATICS
+ # Since the BBC class reads info from the LCFIT stage, it checks for
+ # OPT_SNCID_LIST>0, which is a flag to analyze common events from 
+ # FITOPT000. In this case, submit_batch automatically applies similar 
+ # logic to BBC by submiting two iterations:
+ #   iter1: analyze list of events passing cuts in FITOPT000
+ #            (BiasCor rejects might still be different per FITOPT)
+ #   iter2: analyze common subset found in all FITOPTs
+ #            (accounts for biasCor rejects)
+ # This process results in two sets of OUTDIRs: [OUTDIR]_ITER1 and [OUTDIR],
+ # where the latter is for the 2nd (final) iteration. Also beware that 
+ # 2 x NCORE jobs are launched; the 2nd set of jobs waits until the ALL.DONE 
+ # file appears from 1st set.
+ 
 #END_YAML
 
 """

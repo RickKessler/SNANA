@@ -17404,7 +17404,7 @@ void prep_input_probcc0(void) {
 
       NUSE=NUSE_IDSURVEY[id];
       if( NUSE > 1 ) {
-	printf("\t\t ERROR: IDSURVEY=%d used %d times\n", id, NUSE);
+	fprintf(FP_STDOUT,"\t\t ERROR: IDSURVEY=%d used %d times\n", id, NUSE);
 	NERR++ ;
       }
 
@@ -19366,6 +19366,8 @@ void muerr_renorm(void) {
   // As a diagnostic crosscheck:
   // For each z-bin, use unbinned values to compute weighted 
   // M0DIF-mean and M0DIF-error; flag discrepancies > 0.001 mag.
+  //
+  // May 25 2021: write to FP_STDOUT
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
   int MEMD       = NSN_DATA * sizeof(double);
@@ -19379,9 +19381,10 @@ void muerr_renorm(void) {
 
   // --------- BEGIN -----------
 
-  printf("\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n",
+  fprintf(FP_STDOUT,
+	  "\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n",
 	 fnam );
-  fflush(stdout);
+  fflush(FP_STDOUT);
 
   INFO_DATA.muerr_renorm = (double*) malloc(MEMD);
 
@@ -19443,28 +19446,27 @@ void muerr_renorm(void) {
     sprintf(star_mures," ");
     if ( fabs(dif) > tol_warn ) { NERR++; sprintf(star_mures,"*"); }
 
-    printf("\t iz=%2d  <z>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
+    fprintf(FP_STDOUT,
+	     "\t iz=%2d  <z>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
 	   iz, INPUTS.BININFO_z.avg[iz], 1.0/ratio, dif, star_mures );
-    fflush(stdout);
+    fflush(FP_STDOUT);
 
     /* xxx
     printf("     %2d  %6.4f   %7.4f/%7.4f%s  \n",
 	   iz, INPUTS.BININFO_z.avg[iz],
 	   FITRESULT.M0DIF[iz], M0DIF_check[iz], star_avg );
     */
-
-    fflush(stdout);	   
   }
 
 
   if ( NERR > 0 ) {
-    printf(" WARNING: %d of %d z bins fail M0DIF check with tol=%f \n",
+    fprintf(FP_STDOUT,
+	    " WARNING: %d of %d z bins fail M0DIF check with tol=%f \n",
 	   NERR, INPUTS.nzbin, tol_warn );
+    fflush(FP_STDOUT);
   }
 
 
-  
-  fflush(stdout);
 
   return ;
 

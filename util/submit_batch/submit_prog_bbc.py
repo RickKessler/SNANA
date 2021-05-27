@@ -301,8 +301,13 @@ class BBC(Program):
             # read LC FITOPT table from FIT job's submit info file
             fit_info_yaml  = util.extract_yaml(INFO_PATHFILE, None, None)
             fitopt_table   = fit_info_yaml['FITOPT_LIST']
+
             KEY_LCFIT_SYNC = "OPT_SNCID_LIST"
-            sync_evt       = fit_info_yaml[KEY_LCFIT_SYNC]
+            if KEY_LCFIT_SYNC in fit_info_yaml:
+                sync_evt = fit_info_yaml[KEY_LCFIT_SYNC]
+            else:
+                sync_evt = 0  # back-compatible if key isn't there
+
             n_fitopt       = len(fitopt_table)
 
             # udpates lists vs. idir

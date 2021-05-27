@@ -776,6 +776,11 @@ class BBC(Program):
             if n_inpdir > 1 :
                 if n_arg_define == n_inpdir or ifit_out == 0 :
                     survey_store = 'GLOBAL'
+                else:
+                    pass # leave survey_store as is
+            else:
+                # no need for GLOBAL if only one survey
+                survey_store = survey
 
             ifit_out += 1
 

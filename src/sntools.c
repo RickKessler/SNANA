@@ -6186,6 +6186,61 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
 } // end read_GRIDMAP
 
+
+// ==============================================================
+void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE) {
+
+  // Created May 26 2021
+  // OPT > 0 -> malloc
+  // OPT < 0 -> free
+
+  int ifun;
+  int I4  = sizeof(int) ;
+  int I8  = sizeof(double) ;
+  int I8p = sizeof(double*) ;
+  char string[12];
+  char fnam[] = "malloc_GRIDMAP";
+
+  // ---------------- BEGIN ----------- 
+
+  if ( OPT > 0 ) {
+    sprintf(string,"allocate");
+    gridmap->NBIN      = (int     *)malloc(I4*NDIM+I4);
+    gridmap->VALMIN    = (double  *)malloc(I8*NDIM+I8);
+    gridmap->VALMAX    = (double  *)malloc(I8*NDIM+I8);
+    gridmap->VALBIN    = (double  *)malloc(I8*NDIM+I8);
+    gridmap->RANGE     = (double  *)malloc(I8*NDIM+I8);
+    gridmap->FUNMIN    = (double  *)malloc(I8*NFUN);
+    gridmap->FUNMAX    = (double  *)malloc(I8*NFUN);
+    gridmap->INVMAP    = (int     *)malloc(I4*MAPSIZE+I4);
+
+    gridmap->FUNVAL    = (double **)malloc(I8p*NFUN);
+    for(ifun=0; ifun < NFUN; ifun++ ) 
+      {  gridmap->FUNVAL[ifun] = (double *)malloc(I8*MAPSIZE);  }
+  }
+  else {
+    sprintf(string,"free GRIDMAP %d ", gridmap->ID );
+
+    free(gridmap->NBIN);
+    free(gridmap->VALMIN);
+    free(gridmap->VALMAX);
+    free(gridmap->VALBIN);
+    free(gridmap->RANGE);
+    free(gridmap->FUNMIN);
+    free(gridmap->FUNMAX);
+    free(gridmap->INVMAP);
+
+    for(ifun=0; ifun < NFUN; ifun++ ) { free(gridmap->FUNVAL[ifun]); }
+    free(gridmap->FUNVAL);
+  }
+
+  printf("\t %s: %s\n", fnam, string);
+  fflush(stdout);
+
+  return ;
+
+} // end malloc_GRIDMAP
+
 // ==============================================================
 void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, 
 			 int NDIM, int NFUN, int OPT_EXTRAP,
@@ -6219,17 +6274,20 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   //
   // Mar 13 2018:
   //   + fix bug malloc-ing FUNVAL : I8p -> I8p * NFUN
+  //
+  // May 26 2021: call malloc_GRIDMAP
 
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
   double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF ;
   double FUNVAL, RANGE_CHECK, RATIO;
   char fnam[] = "init_interp_GRIDMAP" ;
 
-  int I4  = sizeof(int);
-  int I8  = sizeof(double);
-  int I8p = sizeof(double*);
+
   // --------- BEGIN ------------
   
+  malloc_GRIDMAP(+1, gridmap, NFUN, NDIM, MAPSIZE) ;
+
+  /* xxxxxxx mark delete May 26 2021 xxxxxxxxx
   gridmap->NBIN      = (int     *)malloc(I4*NDIM+I4);
   gridmap->VALMIN    = (double  *)malloc(I8*NDIM+I8);
   gridmap->VALMAX    = (double  *)malloc(I8*NDIM+I8);
@@ -6241,7 +6299,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   gridmap->INVMAP    = (int     *)malloc(I4*MAPSIZE+I4);
   for(ifun=0; ifun < NFUN; ifun++ ) 
     {  gridmap->FUNVAL[ifun] = (double *)malloc(I8*MAPSIZE);  }
-
+  xxxxxxxxxx end mark xxxxxxxxxx */
 
   VALBIN = 0.0 ;
   for ( idim=0; idim < NDIM; idim++ ) {
@@ -6357,6 +6415,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 
   } // end loop over MAPSIZE
   
+  return ;
 
 } // end of init_interp_GRIDMAP
 

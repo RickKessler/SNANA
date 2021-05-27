@@ -23,9 +23,10 @@ int      OPTMASK_GENPDF ;
 struct {
   char     MAPNAME[40];
   char     *VARNAMES[MXVAR_GENPDF];
+  int      NVAR;              // May 26 2021
   GRIDMAP  GRIDMAP ;
   int      IVAR_HOSTLIB[MXVAR_GENPDF];
-
+  
   // track stats on number of iterations to find value
   int N_CALL ;
   int N_ITER_SUM,  N_ITER_MAX ;
@@ -44,6 +45,7 @@ void   init_genPDF(int OPTMASK, FILE *fp, char *fileName, char *ignore);
 void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, int dumpFlag);
+void   free_memory_genPDF(void); // release memory of all genPDF maps
 
 int IDMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);

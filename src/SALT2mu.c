@@ -1985,7 +1985,6 @@ void   setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 void   setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 			    MUZMAP_DEF *MUZMAP );
 
-void print_debug_malloc(int opt, char *fnam);
 void print_contam_CCprior(FILE *fp);
 void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO);
 void setup_contam_CCprior(char *which, CONTAM_INFO_DEF *CONTAM_INFO) ;
@@ -2081,6 +2080,7 @@ int   ISBLIND_FIXPAR(int ipar);
 void  printmsg_fitStart(FILE *fp); 
 void  printmsg_repeatFit(char *msg) ;
 void  print_eventStats(int event_type);
+void  print_debug_malloc(int opt, char *fnam) ;
 
 void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
@@ -2531,6 +2531,12 @@ void SALT2mu_DRIVER_EXEC(void) {
 
     fflush(FP_STDOUT);  
   }   // End of fitflag_sigmb  loop
+
+  // - - - - -
+  // May 26 2021: free genPDF maps
+#ifdef USE_SUBPROCESS
+  if ( SUBPROCESS.USE && NMAP_GENPDF>0 ) { free_memory_genPDF(); }
+#endif
 
   t_end_fit = time(NULL);
 
@@ -3878,6 +3884,21 @@ int prepNextFit(void) {
 } // end of prepNextFit
 
 
+// **************************         
+void print_debug_malloc(int opt, char *fnam) {
+  int debug_malloc = INPUTS.debug_malloc ;
+  char what[12];
+  if ( debug_malloc ) {
+    if ( opt > 0 )
+      { sprintf(what,"alloc"); }
+    else
+      { sprintf(what,"free"); }
+
+    printf(" DEBUG_MALLOC-%s for %s\n", what, fnam);
+    fflush(stdout);
+  }
+}  // end print_debug_malloc  
+
 // ******************************************
 void printmsg_repeatFit(char *msg) {
   fprintf(FP_STDOUT, "\n");
@@ -5147,12 +5168,12 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
 // ******************************************
 void set_defaults(void) {
 
-  int isurvey, order, ipar ;
+  int isurvey, order, ipar, N ;
 
   // ---------------- BEGIN -----------------
   
   set_EXIT_ERRCODE(EXIT_ERRCODE_SALT2mu);
-
+  N = store_PARSE_WORDS(-1,""); // May 26 2021                                               
   sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
 
   INPUTS.cat_only   = false ;
@@ -5548,22 +5569,6 @@ void read_data(void) {
 
 } // end read_data 
 
-
-// **************************
-void print_debug_malloc(int opt, char *fnam) {
-  int debug_malloc = INPUTS.debug_malloc ;
-  char what[12];
-  if ( debug_malloc ) {
-    if ( opt > 0 ) 
-      { sprintf(what,"alloc"); }
-    else
-      { sprintf(what,"free"); }
-
-    fprintf(FP_STDOUT," DEBUG_MALLOC-%s for %s\n", what, fnam);
-    fflush(FP_STDOUT);
-  }
-
-}  // end print_debug_malloc
 
 // ****************************************
 void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
@@ -17867,8 +17872,6 @@ void recalc_dataCov(void) {
 
   // - - - - - - - - - - 
   for (n=0; n< NSN_DATA; ++n)  {
-
-
     idsample = INFO_DATA.TABLEVAR.IDSAMPLE[n];
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n];
     z        = INFO_DATA.TABLEVAR.zhd[n];

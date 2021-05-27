@@ -731,6 +731,7 @@ int getinfo_photometry_version__(char *VERSION,  char *DATADIR,
 
 int file_timeDif(char *file1, char *file2);
 
+void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE);
 void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
 			 int OPT_EXTRAP, 
 			 double **GRIDMAP_INPUT, double **GRIDFUN_INPUT,

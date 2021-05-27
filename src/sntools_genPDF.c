@@ -18,6 +18,7 @@
   Oct 23 2020: use get_VAL_RANGE_genPDF() 
   Dec 23 2020: improve algorithmn in get_VAL_RANGE_genPDF
   Mar 26 2021: allow LOGparName in GENPDF maps; e.g., LOGEBV, LOGAV.
+  May 26 2021: new function free_memory_genPDF() to free GRIDMAP memory.
 
  ****************************************************/
 
@@ -139,6 +140,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     if ( strcmp(c_get,"VARNAMES:") == 0 ) {
       fgets(LINE,100,fp); // scoop up variable names
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      GENPDF[NMAP].NVAR = NVAR;
       for(ivar=0; ivar < NVAR; ivar++ )	{ 
 	get_PARSE_WORD(0,ivar,varName); 
 	assign_VARNAME_GENPDF(NMAP,ivar,varName);
@@ -215,6 +217,30 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
 } // end init_genPDF
 
+// =======================================
+void free_memory_genPDF(void) {
+
+  // Created May 26 2021
+  // Use malloc_GRIDMAP utility to free memory of all genPDF maps.
+  // E.g., useful for using SALT2mu as iterative SUBPROCESS
+
+  int  ivar, NVAR, NDIM, imap, NMAP = NMAP_GENPDF; 
+  int  NFUN = 1;
+  int  MAPSIZE = MXROW_GENPDF ;
+  char fnam[] = "free_memory_genPDF" ;
+
+  // --------- BEGIN --------
+
+  for ( imap=0; imap < NMAP; imap++ )  {
+    NDIM = GENPDF[imap].GRIDMAP.NDIM ;
+    NVAR = GENPDF[imap].NVAR;
+
+    malloc_GRIDMAP(-1, &GENPDF[imap].GRIDMAP, NFUN, NDIM, MAPSIZE);
+    for(ivar=0; ivar<NVAR; ivar++ )  { free(GENPDF[imap].VARNAMES[ivar]); }
+  }
+
+  return;
+} // end free_memory_genPDF
 
 // =======================================
 void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {

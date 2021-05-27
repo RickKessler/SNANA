@@ -67,7 +67,6 @@
 // ******************************************
 int main(int argc, char **argv) {
 
-
   int ilc, istat, i  ;
 
   // define local structures
@@ -7197,12 +7196,13 @@ void init_simvar(void) {
   // One-time init of sim-variables; mostly counters.
   // Nov 24, 2017: init GENLC.MWEBV[_ERR] here instead of in init_GENLC().
 
-  int ifilt, type ;
+  int ifilt, type, N ;
   float xmb ;
   char fnam[] = "init_simvar";
 
   // ----------- BEGIN -----------
  
+  N = store_PARSE_WORDS(-1,""); // May 26 2021
   set_GENMODEL_NAME();
 
   init_GaussIntegral();

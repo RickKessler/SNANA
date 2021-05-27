@@ -19446,7 +19446,6 @@ void  M0dif_calc(void) {
 // *********************************************
 void muerr_renorm(void) {
 
-
   // Created Dec  2020
   //
   // Compute *muerr_renorm for each event such that
@@ -19474,6 +19473,10 @@ void muerr_renorm(void) {
   char fnam[] = "muerr_renorm" ;
 
   // --------- BEGIN -----------
+
+#ifdef USE_SUBPROCESS
+  if ( SUBPROCESS.USE ) { return; }
+#endif
 
   fprintf(FP_STDOUT,
 	  "\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n",

@@ -1721,6 +1721,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     PARSE_WORDS.BUFSIZE = PARSE_WORDS.NWD = 0 ;
     PARSE_WORDS.FILENAME[0] = 0 ;
     NWD = 0 ;
+    return(NWD);
   }
   else if ( DO_STRING ) {
     // FILENAME is a string to parse

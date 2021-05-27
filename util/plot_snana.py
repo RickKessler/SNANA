@@ -906,8 +906,8 @@ def main():
         default=None,
     )
     parser.add_argument(
-        "--plotFull",
-        help="LC: plots full model range if fitting (default data range)",
+        "--plotDataRange",
+        help="LC: plots data range only (default full fit range when present)",
         action="store_true",
         dest="plot_all2",
         default=False,
@@ -1035,7 +1035,7 @@ def main():
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit()
-    options.plot_all = options.plot_all or options.plot_all2
+    options.plot_all = options.plot_all or not options.plot_all2
     
     if not options.existing:
         if options.version is None:
@@ -1095,7 +1095,7 @@ def main():
         options.CID = options.CID.split(",")
         if options.filt_list is not None:
             options.filt_list = options.filt_list.split(",")
-        filename = options.version + ".pdf"
+        filename = 'lcplot_' + options.version + ".pdf"
         num = 0
         if os.path.exists(filename):
             filename = os.path.splitext(filename)[0] + "_" + str(num) + ".pdf"
@@ -1173,7 +1173,7 @@ def main():
     else:
         print("Creating distributions from FITRES file...")
         filename = (
-            options.version + ".pdf"
+            'lcplot_'+options.version + ".pdf"
             if options.version is not None
             else os.path.splitext(options.fitres_filename)[0] + ".pdf"
         )

@@ -40,6 +40,8 @@
 # Mar 08 2021: if INPDIR+: None, use argument of datafile=
 # Apr 23 2021: abort if any version dir does not exist.
 # May 24 2021: check option to use events from FITOPT000
+# May 27 2021: new def make_FITOPT_OUT_LIST 
+#                 (append_fitopt_info_file is obsolete)
 #
 # - - - - - - - - - -
 
@@ -224,7 +226,7 @@ class BBC(Program):
         inpdir_list_orig    = [ ]  # before expandvar
         version_list2d      = [ ] * n_inpdir  # vs. inpdir, iver
         fitopt_table_list2d = [ ] * n_inpdir
-        fitopt_num_list     = [ ]
+        # xxx fitopt_num_list     = [ ]
         n_fitopt_list       = [ ]
         n_version_list      = [ ]
         sync_evt_list       = [ ] 
@@ -706,9 +708,86 @@ class BBC(Program):
         self.config_prep['fitopt_num_outlist']     = fitopt_num_outlist
         self.config_prep['fitopt_num_outlist_map'] = fitopt_num_outlist_map
 
-        #sys.exit("\n XXX DEBUG DIE XXX \n")
+        # - - - - - - - - - - - - - 
+        # prepare FITOPT_OUT_LIST table for SUBMIT.INFO file
+        self.make_FITOPT_OUT_LIST()
 
         # end bbc_prep_fitopt_outlist(self)
+
+    def make_FITOPT_OUT_LIST(self):
+
+        # Created May 27 2021
+        # Construct output FITOPT_OUT_LIST for SUBMIT.INFO file.
+        # Each table row contains:
+        #    'FITOPTNUM'  'SURVEY'  'user_label'   'user_args'
+        #
+
+        n_fitopt        = self.config_prep['n_fitopt']      
+        n_inpdir        = self.config_prep['n_inpdir'] 
+        survey_list     = self.config_prep['survey_list'] 
+        fitopt_num_list = self.config_prep['fitopt_num_outlist']    
+        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map']
+        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #idir,ifit
+
+        dump_flag      = False
+        FITOPT_OUT_LIST = []
+
+        if not USE_INPDIR : 
+            item_list = [ 'GLOBAL', 'FITOPT000', None, None ]
+            FITOPT_OUT_LIST.append(item_list)
+            self.config_prep['FITOPT_OUT_LIST'] = FITOPT_OUT_LIST
+            return
+
+        ifit_out = 0
+        for fitopt_num_out in fitopt_num_list:            
+
+            if dump_flag :
+                print(" xxx ---------------------------------------- ")
+            # check if this FITOPT is global, or specific to one survey
+            fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
+
+            n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
+            survey_store = 'ERROR' ;  label_store = None; arg_store = None 
+            for idir in range(0,n_inpdir):          
+                survey         = survey_list[idir]   
+                fitopt_num_inp = fitopt_num_inplist[idir]
+                ifit_inp       = int(fitopt_num_inp[6:])
+                row    = fitopt_table_list2d[idir][ifit_inp]
+                num    = row[COLNUM_FITOPT_NUM]  # e.g., FITOPT003
+                label  = row[COLNUM_FITOPT_LABEL]
+                arg    = row[COLNUM_FITOPT_ARG]
+                if arg == '' : # only for FITOPT000
+                    n_arg_none  += 1
+                elif arg == 'FITOPT000' : # sym link back to FITOPT000
+                    n_arg_FITOPT000 += 1  
+                else :                    # genuine LC fit arg list
+                    survey_store = survey
+                    arg_store    = arg
+                    label_store  = label
+                    n_arg_define += 1
+
+                if dump_flag :
+                    print(f" xxx {fitopt_num_out}: idir={idir} num={num} " \
+                          f"label={label} arg='{arg}'")
+
+            # - - - - - - - - - - - - - - - - - - - - - 
+            # if all args are valid, set survey_store to GLOBAL
+            if n_arg_define == n_inpdir or ifit_out == 0 :
+                survey_store = 'GLOBAL'
+
+            ifit_out += 1
+
+            # construct and write yaml-compliant info list
+            item_list = []
+            item_list.append(fitopt_num_out)
+            item_list.append(survey_store)
+            item_list.append(label_store)
+            item_list.append(arg_store)
+            FITOPT_OUT_LIST.append(item_list)
+
+        self.config_prep['FITOPT_OUT_LIST'] = FITOPT_OUT_LIST
+        return
+        # end make_FITOPT_OUT_LIST
 
     def bbc_prep_index_lists(self):
         # construct sparse 1D lists to loop over version and FITOPT
@@ -1087,35 +1166,6 @@ class BBC(Program):
 
         # end bbc_prep_muopt_list
 
-    def bbc_prep_muopt_OBSOLETE(self):
-        
-        CONFIG           = self.config_yaml['CONFIG']
-        input_file       = self.config_yaml['args'].input_file 
-        n_muopt          = 1
-        muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
-        muopt_num_list   = [ 'MUOPT000' ] 
-        muopt_label_list = [ None ]
-
-        # **** OBSOLETE *****
-        key = 'MUOPT'
-        if key in CONFIG  :
-            for muopt_raw in CONFIG[key] : # might include label
-                num = (f"MUOPT{n_muopt:03d}")
-                label, muopt = util.separate_label_from_arg(muopt_raw)
-                muopt_arg_list.append(muopt)
-                muopt_num_list.append(num)
-                muopt_label_list.append(label)
-                n_muopt += 1
-                
-        # **** OBSOLETE *****
-        logging.info(f" Store {n_muopt-1} BBC options from MUOPT keys")
-
-        self.config_prep['n_muopt']          = n_muopt
-        self.config_prep['muopt_arg_list']   = muopt_arg_list
-        self.config_prep['muopt_num_list']   = muopt_num_list
-        self.config_prep['muopt_label_list'] = muopt_label_list
-
-        # end bbc_prep_muopt_OBSOLETE
 
     def bbc_prep_splitran(self) :
 
@@ -1291,7 +1341,8 @@ class BBC(Program):
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
-        
+        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
+
         # construct row mimicking MERGE.LOG
         
         row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
@@ -1344,15 +1395,13 @@ class BBC(Program):
 
         if DEVEL_SYNC_EVT and sync_evt : 
 
-            fitopt_table = self.config_prep['fitopt_table_list2d'][0] # 0=idir
-            label     = fitopt_table[ifit][COLNUM_FITOPT_LABEL]
-            skip_sync = FITOPT_STRING_NOREJECT in label
-
+            # xxx mark delete label  = fitopt_table[ifit][COLNUM_FITOPT_LABEL]
+            label       = FITOPT_OUT_LIST[ifit][COLNUM_FITOPT_LABEL]
+            skip_sync   = FITOPT_STRING_NOREJECT in label
             wait_file   = None
             select_file = None
 
-            # check logic for each iterations. .xyz
-
+            # check logic for each iterations. 
             if skip_sync : 
                 pass
 
@@ -1442,6 +1491,7 @@ class BBC(Program):
         use_wfit          = self.config_prep['use_wfit']
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
 
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
@@ -1481,8 +1531,16 @@ class BBC(Program):
         for v in vout_list :   f.write(f"  - {v}\n")
 
         # writing output FITOPTs is tricky, so use special function
-        self.append_fitopt_info_file(f)
+        # xxx mark delete self.append_fitopt_info_file(f)
 
+        # - - - - - -
+        f.write("\n")
+        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
+                f"'user_label'   'user_args'\n")
+        for row in FITOPT_OUT_LIST: 
+            f.write(f"  - {row}\n")
+
+        # - - - - -
         f.write("\n")
         f.write("MUOPT_OUT_LIST:  " \
                 "# 'MUOPTNUM'  'user_label'  'user_args'\n")
@@ -1496,6 +1554,8 @@ class BBC(Program):
 
     def append_fitopt_info_file(self,f):
 
+        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
+        #
         # write list of output FITOPTS to filt pointer f, and include
         #   FIOPTmmm  SURVEY  LABEL ARG
         #
@@ -1516,6 +1576,8 @@ class BBC(Program):
         survey_list     = self.config_prep['survey_list']
         dump_flag = False  # local dump flag
 
+        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
+
         f.write("\n")
         f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
                 f"'user_label'   'user_args'\n")
@@ -1533,10 +1595,12 @@ class BBC(Program):
             # check if this FITOPT is global, or specific to one survey
             fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
 
+            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
+
             n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
             survey_store = 'ERROR' ;  label_store = None; arg_store = None 
             for idir in range(0,n_inpdir):          
-                survey = survey_list[idir]   
+                survey         = survey_list[idir]   
                 fitopt_num_inp = fitopt_num_inplist[idir]
                 ifit_inp       = int(fitopt_num_inp[6:])
                 row    = fitopt_table_list2d[idir][ifit_inp]
@@ -1564,6 +1628,8 @@ class BBC(Program):
 
             ifit_out += 1
 
+            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
+
             # construct and write yaml-compliant info list
             item_list = []
             item_list.append(fitopt_num_out)
@@ -1572,6 +1638,7 @@ class BBC(Program):
             item_list.append(arg_store)
             f.write(f"  - {item_list}\n")
 
+            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
         # end append_fitopt_info_file
 
     def create_merge_table(self,f):

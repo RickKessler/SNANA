@@ -758,6 +758,7 @@ class BBC(Program):
                 arg    = row[COLNUM_FITOPT_ARG]
                 if arg == '' : # only for FITOPT000
                     n_arg_none  += 1
+                    survey_store = survey
                 elif arg == 'FITOPT000' : # sym link back to FITOPT000
                     n_arg_FITOPT000 += 1  
                 else :                    # genuine LC fit arg list
@@ -772,8 +773,9 @@ class BBC(Program):
 
             # - - - - - - - - - - - - - - - - - - - - - 
             # if all args are valid, set survey_store to GLOBAL
-            if n_arg_define == n_inpdir or ifit_out == 0 :
-                survey_store = 'GLOBAL'
+            if n_inpdir > 1 :
+                if n_arg_define == n_inpdir or ifit_out == 0 :
+                    survey_store = 'GLOBAL'
 
             ifit_out += 1
 

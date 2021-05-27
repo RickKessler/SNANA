@@ -21153,7 +21153,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 
   } // end IBIN1D
   
-  fprintf(FP_OUT,"NEVT_SUM: %d  # diagnostic\n", NEVT_SUM);
+  fprintf(FP_OUT,"# NEVT_SUM: %d    # diagnostic\n", NEVT_SUM);
   fflush(FP_OUT);
  
   return ;

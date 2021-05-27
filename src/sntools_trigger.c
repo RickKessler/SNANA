@@ -2646,11 +2646,12 @@ double interp_SEARCHEFF_zHOST(void) {
   //
   // July 2020: check PEAKMJD too
   // Oct 15 2020: clarify error message on interp failure.
+  // May 27 2021: refactor to take logical OR of multiple maps
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
-  double EFF = 0.0, PEAKMJD, *PEAKMJD_RANGE ;
+  double EFF = 0.0, Pnoz=1.0, EFF_TMP, PEAKMJD, *PEAKMJD_RANGE ;
   char *field_map, *field_data, *varName ;  
   bool MATCH_FIELD, MATCH_PEAKMJD ;
 
@@ -2667,34 +2668,40 @@ double interp_SEARCHEFF_zHOST(void) {
     field_data = SEARCHEFF_DATA.FIELDNAME ;
     MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
 
-    /* xxx mark delete Feb 2021 xxxxxxx
-    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
-    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
-    xxxxxxxxxx */
-
     PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
     PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
     if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
       { MATCH_PEAKMJD = true; }
 
-    if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP = imap;  NMATCH++ ; }
-  }
-  if ( NMATCH != 1 ) {
+    if ( MATCH_FIELD && MATCH_PEAKMJD ) {
+      // load VARDATA from HOSTLIB
+      NMATCH++ ;
+      NVAR = SEARCHEFF_zHOST[imap].GRIDMAP.NDIM ;
+      IGAL = SNHOSTGAL.IGAL ;
+      for(ivar=0; ivar < NVAR; ivar++ ) {
+	ivar_HOSTLIB  = SEARCHEFF_zHOST[imap].IVAR_HOSTLIB[ivar] ;
+	VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+      }
+      
+      istat = interp_GRIDMAP(&SEARCHEFF_zHOST[imap].GRIDMAP, VARDATA, 
+			     &EFF_TMP );        // <== returned  
+
+      Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
+    }
+
+    // xxx mark if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP=imap; NMATCH++;}
+
+  } // end imap loop
+
+  // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
+  EFF = 1.0 - Pnoz ;
+
+  // .xyz
+  if ( NMATCH == 0 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
-
-  // load VARDATA from HOSTLIB
-  NVAR = SEARCHEFF_zHOST[IMAP].GRIDMAP.NDIM ;
-  IGAL = SNHOSTGAL.IGAL ;
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    ivar_HOSTLIB  = SEARCHEFF_zHOST[IMAP].IVAR_HOSTLIB[ivar] ;
-    VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-  }
-
-  istat = interp_GRIDMAP(&SEARCHEFF_zHOST[IMAP].GRIDMAP, VARDATA, 
-			 &EFF );  // <== returned  
 
 
   if ( LDMP || istat != SUCCESS ) {

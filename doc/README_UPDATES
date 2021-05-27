@@ -19907,6 +19907,8 @@
 
    + add HOSTGAL_FLAG to data structure
    + snana.car: read & apply PHOTFLAG_MSKREJ in IGNORE file (or in &SNLCINP)
+   + submit_batch(BBC) auto-detects FITOPT000 event-sync in LCFIT,
+     and does same thing for BBC 
    + kcor.c: add LEAKAGE_CUT key to remove out-of-band trans.
 
          ***** MISCELLANEOUS(v11_02n) ***** 
@@ -19919,6 +19921,7 @@
         was broken; made some attempt to fix, but not well tested.
       + in speceff file, allow HOSTMAG_[band] or HOST_MAG_[band]
       + new key TAKE_SPECTRUM_PRESCALE (see manual)
+      + refactor SEARCHEFF_zHOST to take logical OR of multiple maps.
 
     snana.car
       + restore HOST_MAG_[band] to output tables; was lost during IO refac.
@@ -19933,6 +19936,8 @@
     SALT2mu.c
       + fix bug with HOST_LOGMASS override. read_data_override is
         moved to before cuts are applied instead of after.
+      + new debug_malloc=1 input to print each malloc/free;
+         to help catch memory leaks.
 
     submit_batch:
       + for fit mode, fix bug setting OPT_SNCID_LIST to get same

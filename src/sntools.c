@@ -198,6 +198,8 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
 
   // -------------- BEGIN -------------
 
+  sprintf(DICT->STRING,"%s", STRING);
+
   // although '+' is default separator, allow commas.
   if ( strstr(STRING,COMMA) != NULL ) 
     { sprintf(sepKey, "%s", COMMA); }

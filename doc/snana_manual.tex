@@ -4916,6 +4916,37 @@ from {\tt SPECTRO\_FLUX} table using pointers in the
 
 % ------------------------------------
 %\clearpage
+\subsubsection{Spectral MJD-Windows or Sequences }
+\label{sss:SPEC_MJD}
+% ------------------------------------
+
+Spectra can be generated within MJD windows or with a cadence:
+%
+\begin{Verbatim}[frame=single]
+TAKE_SPECTRUM:  MJD(59400:59407)    TEXPOSE_ZPOLY(1200)   # random within week
+TAKE_SPECTRUM:  MJD(59400:59600:20) TEXPOSE_ZPOLY(1200)   # every 20 days
+
+# define different exposure time in each field
+TAKE_SPECTRUM(SHALLOW):  MJD(59400:59407)  TEXPOSE_ZPOLY(800) 
+TAKE_SPECTRUM(DEEP):     MJD(59400:59407)  TEXPOSE_ZPOLY(1600) 
+\end{Verbatim}
+%
+The {\tt MJD} argument defines either 
+i) a pre-defined calendar window from which to select a random MJD, 
+or 
+ii) a pre-defined calendar sequence;
+e.g,, {\tt MJD(59400:59600:20)} defines 11 spectra, one every 20 days.
+The {\tt TEXPOSE\_ZPOLY} key defines a 1200~sec exposure time;
+see \S\ref{sss:SPEC_EPOCH} for more details.
+
+The latter two keus define field-dependent exposure times for
+{\tt SHALLOW} and {\tt DEEP} fields. Beware that an invalid
+field name (e.g., typing mistake) results in no spectra without 
+any warnings.
+
+
+% ------------------------------------
+%\clearpage
 \subsubsection{Spectral Time-Windows Relative to Peak Brightness }
 \label{sss:SPEC_EPOCH}
 % ------------------------------------
@@ -4930,17 +4961,15 @@ TAKE_SPECTRUM:  TREST(0:2)     TEXPOSE_ZPOLY(1000)
 TAKE_SPECTRUM:  TREST(10:12)   TEXPOSE_ZPOLY(1500:2500,500)
 TAKE_SPECTRUM:  HOST           TEXPOSE_ZPOLY(1200) 
 
-TAKE_SPECTRUM:  MJD(59400:59407)    TEXPOSE_ZPOLY(1200)   # random within week
-TAKE_SPECTRUM:  MJD(59400:59600:20) TEXPOSE_ZPOLY(1200)   # spectrum every 20 days
+# field-dependent exposure time
+TAKE_SPECTRUM(SHAL):  TREST(0:2)     TEXPOSE_ZPOLY(1000) 
+TAKE_SPECTRUM(DEEP):  TREST(0:2)     TEXPOSE_ZPOLY(2000) 
 \end{Verbatim}
 %
 Each {\tt TREST} argument defines a 2-day rest-frame window from 
 which to randomly select a \spec\ MJD.
 The {\tt TOBS} argument defines a 2-week observer-frame window 
 from which to randomly select a \spec\ MJD.
-The {\tt MJD} argument defines either 
-i) a pre-defined calendar window, or ii) a pre-defined calendar sequence;
-e.g,, {\tt MJD(59400:59600:20)} defines 11 spectra, one every 20 days.
 The {\tt TEXPOSE\_ZPOLY} key defines the exposure time (seconds) 
 as a polynomial function of redshift. 
 The {\tt TREST} exposure times are 
@@ -4989,7 +5018,7 @@ file (\S\ref{sss:simgen_dump}).
 This allows checking $\Texpose$ vs. redshift, or vs
 any other quantity allowed in the one-row-per-SN summary.
 
-\clearpage
+%\clearpage
 \begin{Verbatim}[frame=single]
 # 1) rest-frame epoch, rest-frame SNR def
 TAKE_SPECTRUM:  TREST(-12:-10) SNR_ZPOLY(20,-5)  SNR_LAMREST(5000:6000)

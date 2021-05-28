@@ -321,8 +321,6 @@ typedef struct {
 
 } TAKE_SPECTRUM_DEF;
 
-
-
 #define NTYPE_FLUXNOISE      6
 #define TYPE_FLUXNOISE_S     0  // from search image -> feeds pipe effic.
 #define TYPE_FLUXNOISE_SZ    1  // Search plus zero point
@@ -1818,6 +1816,7 @@ void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra
 bool   GENSPEC_PRESCALE_REJECT_SN(void) ;
+bool   DO_GENSPEC(int imjd);
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  // generate true MAGs and FLUXes

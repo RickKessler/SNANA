@@ -256,6 +256,7 @@ int NPT_PERDIM_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 
 // Feb 2021; define structure to enable python-like dictionary
 typedef struct STRING_DICT_DEF {
+  char STRING[100];     // original string to parse
   char NAME[60] ;       // name of dictionary
   int  N_ITEM;          // number of items to store
   int  MAX_ITEM;        // max number of items 

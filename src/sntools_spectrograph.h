@@ -82,7 +82,6 @@ struct {
 
   // everything below gets malloc'ed by NBIN_SPECTRO
 
-
   // true flux vs [NMJD][ILAM], and smeared flux
   double *GENMAG_LIST[MXSPEC] ;
   double *GENSNR_LIST[MXSPEC] ;
@@ -94,7 +93,6 @@ struct {
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise
   double  *OBSFLUXERR_LIST[MXSPEC] ;  // measured error
-  //xx  double  *ERRFRAC_TEMPLATE_LIST[MXSPEC];         // sigma_Template/sigma
   double  *OBSFLUXERRSQ_LIST[MXSPEC]; // square of error
 
   double  *GENFLAM_LIST[MXSPEC] ; // true dF/dlam
@@ -107,6 +105,7 @@ struct {
   int     ID_LIST[MXSPEC] ;
   double *LAMMIN_LIST[MXSPEC], *LAMMAX_LIST[MXSPEC], *LAMAVG_LIST[MXSPEC] ; 
 
+  double FLATRAN_LIST[100]; // 0-1 randoms, e.g., for pre-scales
 
   // define array of Gaussian randoms for noise
   double *RANGauss_NOISE_LEGACY[MXLAMSMEAR_SPECTROGRAPH] ;  // mark delete

@@ -2224,10 +2224,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
   }
-  else if (keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
-    N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
-  }
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
+  // - - - - TAKE_SPECTRUM - - - - -
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTSNFRAC",  WORDS[0],keySource) ) {
@@ -2238,11 +2236,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
     N++;  sscanf(WORDS[N], "%s", FIELDLIST);
     parse_string_prescales(FIELDLIST, DICT);
-    dump_string_dict(DICT); // xxx remove
+    //    dump_string_dict(DICT); // xxx remove
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
   }
+  //elseif(keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
+  // check after other TAKE_SPECTRUM_XXX keys
+  else if ( strstr(WORDS[0],"TAKE_SPECTRUM") ) {  
+    N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
+  }
+
 #ifdef SNGRIDGEN
   else if ( strstr(WORDS[0],"GRID") != NULL ) {
     N += parse_input_GRIDGEN(WORDS,keySource);
@@ -3971,11 +3975,14 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // Read from file pointer if *fp != NULL; e.g., from SIMLIB header.
   // Else sscanf(WORDS ...
   //
-  // *string1 = TREST([Tmin]:[Tmax])  or
+  // WORDS[0] = TAKE_SPECTRUM   or
+  //            TAKE_SPECTRUM(FIELDNAME)
+  //
+  // WORDS[1] = TREST([Tmin]:[Tmax])  or
   //            TOBS([Tmin]:[Tmax])   or
   //            HOST
   //
-  // *string2 = SNR_ZPOLY([a0],[a1],[a2],,,,)  or
+  // WORDS[2] = SNR_ZPOLY([a0],[a1],[a2],,,,)  or
   //            TEXPOSE_ZPOLY([a0],[a1],[a2],,,,) 
   //       = a0 + a1*z + a2*z^2 + ...
   //
@@ -4001,6 +4008,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // May 11 2021: abort if SNR_ZPOLY is used with HOST
   //      [because SNR calc works only with SN]
   //
+  // May 27 2021: check for FIELD arg in WORDS(0)
 
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
@@ -4011,7 +4019,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   int  N=0;  // track number of WORDS read
   
   float *ptrRange, *ptrLam, *ptrStep ;
-  char string1[80], string2[80], string3[80]; 
+  char string0[80], string1[80], string2[80], string3[80]; 
   char *ptrSplit[4], strValues[4][20], *ptrFrame ;
   int  NSPLIT, i ;
   bool IS_REST=false, IS_OBS=false, IS_MJD=false;
@@ -4059,6 +4067,13 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     INPUTS.NWARP_TAKE_SPECTRUM++ ;
   }
   
+
+  // check for FIELD arg in (); e.g., TAKE_SPECTRUM(X1)
+  sprintf(string0, "%s", WORDS[0]);
+  char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
+  extractStringOpt(string0,FIELD); // return FIELD
+  
+
   // ----------------------------------------------
   // read 1st arg and parse as either TREST or TOBS
 
@@ -8160,7 +8175,6 @@ void GENSPEC_DRIVER(void) {
   // May 24 2021: check prescale for SN spectra
 
   int    NMJD = GENSPEC.NMJD_TOT  ;
-  bool   PRESCALE_REJECT_SN = false;
   double MJD; 
   double SNR_LAMMIN, SNR_LAMMAX;
   
@@ -8201,13 +8215,14 @@ void GENSPEC_DRIVER(void) {
   if ( INPUTS.TAKE_SPECTRUM_HOSTSNFRAC > 1.0E-8 ) 
     { GENSPEC_TRUE(ISPEC_PEAK); }
 
-  int    imjd_order[MXSPEC];
+  int    NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
+  int    ifield, imjd_order[MXSPEC];
   double SNR, LAMMIN=100.0, LAMMAX=25000. ; 
 
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
 
-  // check if SN are rejected by TAKE_SPECTRUM_PRESCALE
-  PRESCALE_REJECT_SN = GENSPEC_PRESCALE_REJECT_SN();
+  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) 
+    { GENSPEC.FLATRAN_LIST[ifield]  = FlatRan1(1); } // for optional prescale
 
   // - - - - -
   for(i=0; i < NMJD; i++ ) {
@@ -8218,10 +8233,13 @@ void GENSPEC_DRIVER(void) {
     //    printf(" xxx %s: i=%d imjd=%d  MJD=%.2f \n",
     //	   fnam, i, imjd, GENSPEC.MJD_LIST[imjd] ); fflush(stdout);
 
-    if ( GENSPEC.SKIP[imjd] ) { continue; } // April 2021
+    if ( !DO_GENSPEC(imjd) ) { continue; }
 
-    if ( MJD > 0.0  &&  PRESCALE_REJECT_SN )   // May 24 2021
-      { GENSPEC.SKIP[imjd] = true;   continue; }
+    /* xxxxxxx mark  delete xxxxx
+    if ( GENSPEC.SKIP[imjd] ) { continue; } // outside Trest range
+        if ( MJD > 0.0  &&  PRESCALE_REJECT_SN )   // May 24 2021
+        { GENSPEC.SKIP[imjd] = true;   continue; }
+    xxxxxxxxxx end mark xxxxxxx */
 
     SNR_LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
     SNR_LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
@@ -8267,13 +8285,84 @@ void GENSPEC_DRIVER(void) {
 
 } // end GENSPEC_DRIVER
 
+
+// *********************************************
+bool DO_GENSPEC(int imjd) {
+
+  // Created May 27 2021
+  // Return True to process spectrum for this imjd.
+
+  STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
+  bool   DO             = false ;
+  double MJD            = GENSPEC.MJD_LIST[imjd] ;
+
+  char  *FIELD_REQUIRE  = INPUTS.TAKE_SPECTRUM[imjd].FIELD ;
+  bool   CHECK_FIELD    = ( strlen(FIELD_REQUIRE) > 0 );
+  bool   CHECK_PS       = ( DICT->N_ITEM > 0 ) ;
+  int    NFIELD_OVP     = SIMLIB_HEADER.NFIELD_OVP ; 
+
+  bool MATCH_FIELD, ACCEPT_FIELD, ACCEPT_PS ;
+  int  OPT_DICT = 1 ;   // 0=exact match, 1=partial string match
+  int  ifield ;
+  double preScale, r1 ;
+  char *field_tmp ; 
+  char fnam[] = "DO_GENSPEC" ;
+
+  // ------------ BEGIN ---------------
+
+  // skip if outside Trest range
+  if ( GENSPEC.SKIP[imjd] ) { return(false); } 
+
+  // if there are no fields, skip FIELD-logic
+  if ( NFIELD_OVP == 0 )   { return(true); }
+
+  // - - - - - - - - - -
+  // check each field for SELECT and PRESCALE(PS)
+  // Beware the invalid FIELD in user input is not trapped
+  // since we don't know a-priori which fields are in the SIMLIB.
+
+  ACCEPT_PS = ACCEPT_FIELD = false;
+
+  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) {
+    field_tmp    = SIMLIB_HEADER.FIELDLIST_OVP[ifield] ;
+
+    // check field-dependent spectrum (host and SN)
+    if ( CHECK_FIELD ) {
+      MATCH_FIELD  = ( strcmp(field_tmp,FIELD_REQUIRE) == 0 );
+      if ( MATCH_FIELD)  { ACCEPT_FIELD = true ; }   
+    }
+    else {
+      ACCEPT_FIELD = true; 
+    }
+
+    // check field-dependent pre-scales (SN only; MJD>0)
+    if ( CHECK_PS && MJD > 0.0 ) {
+      r1       = GENSPEC.FLATRAN_LIST[ifield] ;
+      preScale = get_string_dict(OPT_DICT, field_tmp, DICT);
+      if ( preScale < 0.0    ) { preScale  = 1.0  ; }
+      if ( r1 < 1.0/preScale ) { ACCEPT_PS = true ; } 
+    }
+    else {
+      ACCEPT_PS = true ;
+    }
+
+  } // end ifield
+
+  // - - - - - - - - 
+
+  DO = (ACCEPT_FIELD && ACCEPT_PS) ;
+  return DO;
+
+} // end DO_GENSPEC
+
 // *********************************************
 bool GENSPEC_PRESCALE_REJECT_SN(void) {
 
   // Created May 24 2021
   // Return True to reject SN spectra for this event.
   // Rejection is based on FIELD-dependent pre-scale defined
-  // in sim-input key TAKE_SPECTRUM_PRESCALE
+  // in sim-input key TAKE_SPECTRUM_PRESCALE ...
+  // or by FIELD requirement in TAKE_SPECTRUM(FIELD)
   //
   // If there are overlapping fields, check each field and evaluate
   // independent ACCEPT for each field. Final REJECT = !ACCEPT.
@@ -8288,7 +8377,7 @@ bool GENSPEC_PRESCALE_REJECT_SN(void) {
   char *field ; 
   char fnam[] = "GENSPEC_PRESCALE_REJECT_SN" ;
       
-  // ------------- BEGIN ------------ .xyz
+  // ------------- BEGIN ------------
 
   // if no dictionary, then nothing is rejected
   if ( DICT->N_ITEM == 0 ) { return REJECT; }
@@ -8296,7 +8385,9 @@ bool GENSPEC_PRESCALE_REJECT_SN(void) {
   // fetch prescale for this field
   for(ifield=0; ifield < NFIELD_OVP; ifield++ ) {
     field    = SIMLIB_HEADER.FIELDLIST_OVP[ifield] ;
-    r1       = FlatRan1(1);
+
+    r1       = GENSPEC.FLATRAN_LIST[ifield] ;
+
     preScale = get_string_dict(OPT_DICT, field, DICT);
     if ( preScale < 0.0 ) {
       ACCEPT = true;  // take spectrum if no prescale defined
@@ -9421,7 +9512,6 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
   // add fluctuation from search (S) and correlated template (T)
   OBSFLUX_RANSMEAR = RanFlux_S + RanFlux_T ; 
 
-  // .xyz
 
   return OBSFLUX_RANSMEAR  ;
 
@@ -25791,7 +25881,6 @@ void readme_doc(int iflag_readme) {
   // NON1ASED
   if ( INPUTS.NON1ASED.NINDEX > 0 ) { readme_doc_NON1ASED(&i); }
 
-
   // end marker
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -25938,6 +26027,7 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
   int i, j , OPT_FRAME_EPOCH, OPT_TEXPOSE, IS_HOST ;
   float *ptrEP, *ptrLAM ;
   char *cptr, Tname[20], name2[20], zpolyString[100], warpString[100] ;
+  char *ptrFIELD, fieldString[60] ;
   GENPOLY_DEF *GENZPOLY_SNR, *GENZPOLY_TEXPOSE, *GENLAMPOLY_WARP; 
 
   // ------- BEGIN -------
@@ -25954,6 +26044,7 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
 
     ptrEP    = INPUTS.TAKE_SPECTRUM[j].EPOCH_RANGE; 
     ptrLAM   = INPUTS.TAKE_SPECTRUM[j].SNR_LAMRANGE ;
+    ptrFIELD = INPUTS.TAKE_SPECTRUM[j].FIELD ;
 
     GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[j].GENZPOLY_SNR ;
     GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[j].GENZPOLY_TEXPOSE ;
@@ -25983,19 +26074,32 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
     if ( GENLAMPOLY_WARP->ORDER > 0 ) 
       { sprintf(warpString,"WARP:%s", GENLAMPOLY_WARP->STRING ); }
 
+    if ( strlen(ptrFIELD) > 0 ) 
+      { sprintf(fieldString,"FIELD=%s", ptrFIELD); }
+    else
+      { fieldString[0] = 0 ; }
+
+    // - - - - 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     if ( IS_HOST ) {
-      sprintf(cptr,"    %s                      %s-zPOLY:%s  %s\n",
-	      Tname, name2, zpolyString, warpString );
+      sprintf(cptr,"    %s                      %s-zPOLY:%s  %s  %s\n",
+	      Tname, name2, zpolyString, warpString, fieldString );
     }
     else {
       sprintf(cptr,"    %s = %5.1f to %5.1f  "
-	      "  %s-zPOLY:%s  %s\n",
+	      "  %s-zPOLY:%s  %s  %s\n",
 	      Tname, ptrEP[0], ptrEP[1],
-	      name2, zpolyString, warpString );
+	      name2, zpolyString, warpString, fieldString );
     }
 
   } // end j loop over spectra
+
+  // print optional prescale string
+  STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
+  if ( DICT->N_ITEM > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"    SPECTRUM_PRESCALE: %s\n", DICT->STRING);
+  }
 
   *iline = i;
   return ;

@@ -19922,6 +19922,7 @@
       + in speceff file, allow HOSTMAG_[band] or HOST_MAG_[band]
       + new key TAKE_SPECTRUM_PRESCALE (see manual)
       + refactor SEARCHEFF_zHOST to take logical OR of multiple maps.
+      + optional FIELD in TAKE_SPECTRUM(FIELD) input ; see manual
 
     snana.car
       + restore HOST_MAG_[band] to output tables; was lost during IO refac.

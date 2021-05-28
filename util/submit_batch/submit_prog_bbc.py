@@ -644,6 +644,7 @@ class BBC(Program):
         if not USE_INPDIR : 
             self.config_prep['n_fitopt']            = 1
             self.config_prep['fitopt_num_outlist']  = [ 'FITOPT000' ]
+            self.config_prep['FITOPT_OUT_LIST']     = [ ]
             return 
 
         IS_FITOPT_MAP = BLOCKNAME_FITOPT_MAP in self.config_yaml
@@ -1359,7 +1360,6 @@ class BBC(Program):
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
-        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
 
         # construct row mimicking MERGE.LOG
         
@@ -1412,8 +1412,7 @@ class BBC(Program):
         # check option to use FITOPT000 events for all syst.
 
         if DEVEL_SYNC_EVT and sync_evt : 
-
-            # xxx mark delete label  = fitopt_table[ifit][COLNUM_FITOPT_LABEL]
+            FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
             label       = FITOPT_OUT_LIST[ifit][COLNUM_FITOPT_LABEL]
             skip_sync   = FITOPT_STRING_NOREJECT in label
             wait_file   = None
@@ -1510,7 +1509,6 @@ class BBC(Program):
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
-
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
 

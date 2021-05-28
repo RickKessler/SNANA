@@ -100,7 +100,8 @@ FITOPT_STRING = "FITOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" 
 
 # key to use FITOPT000 sample for all other FITOPTs; for CONFIG and snlc_fit
-KEY_OPT_SNCID_LIST  = 'OPT_SNCID_LIST'
+#                        pippin/submit key       snlc_fit key name
+KEY_OPT_SNCID_LIST  = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -175,11 +176,9 @@ class LightCurveFit(Program):
         CONFIG   = self.config_yaml['CONFIG']
         opt_sncid_list = self.config_prep['opt_sncid_list']  
 
-        KEY_OPT  = KEY_OPT_SNCID_LIST   # key for CONFIG and snlc_fit
-        KEY_FILE = 'SNCID_LIST_FILE'    # key for snlc_fit
+        KEY_OPT  = KEY_OPT_SNCID_LIST[1]   # key for snlc_fit
+        KEY_FILE = 'SNCID_LIST_FILE'       # key for snlc_fit
         argdict_same_sncid = {}
-
-        # xxx mark if KEY_OPT in CONFIG :  opt_sncid_list = CONFIG[KEY_OPT]
 
         if opt_sncid_list > 0 :         
             # make list of reference FITOPT000.FITRES file for each 
@@ -511,11 +510,11 @@ class LightCurveFit(Program):
             fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
 
         # check for OPT_SNCID_LIST ... just store it here for later
-        if KEY_OPT_SNCID_LIST in CONFIG :  
-            opt_sncid_list = CONFIG[KEY_OPT_SNCID_LIST]
-        else:
-            opt_sncid_list = 0
-        
+        # Check multiple key-options
+        opt_sncid_list = 0
+        for key in KEY_OPT_SNCID_LIST:
+            if key in CONFIG :  opt_sncid_list = CONFIG[key]
+            
         # - - - - - -
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
 
@@ -1014,7 +1013,7 @@ class LightCurveFit(Program):
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
         f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
-        f.write(f"OPT_SNCID_LIST:      {opt_sncid_list}   " \
+        f.write(f"{KEY_OPT_SNCID_LIST[0]}:   {opt_sncid_list}   " \
                 "# >0 -> FITOPT>0 uses events from FITOPT000\n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]

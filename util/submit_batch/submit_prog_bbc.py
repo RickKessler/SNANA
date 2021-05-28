@@ -94,6 +94,11 @@ KEY_ROW               = "ROW:"
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
+#  Allow either of two keys
+#                        pippin/submit key       key for snlc_fit
+KEYLIST_SYNC_EVT     = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+### mark KEY_OPT_SNCID_LIST   = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+
 MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
@@ -302,12 +307,14 @@ class BBC(Program):
             fit_info_yaml  = util.extract_yaml(INFO_PATHFILE, None, None)
             fitopt_table   = fit_info_yaml['FITOPT_LIST']
 
-            KEY_LCFIT_SYNC = "OPT_SNCID_LIST"
-            if KEY_LCFIT_SYNC in fit_info_yaml:
-                sync_evt = fit_info_yaml[KEY_LCFIT_SYNC]
-            else:
-                sync_evt = 0  # back-compatible if key isn't there
+            sync_evt       = 0  # back-compatible if key isn't there
+            KEY_SYNC_EVT = ""
+            for key in KEYLIST_SYNC_EVT :  # check both key name options
+                if key in fit_info_yaml:
+                    sync_evt       = fit_info_yaml[key]
+                    KEY_SYNC_EVT = key
 
+            # - - - 
             n_fitopt       = len(fitopt_table)
 
             # udpates lists vs. idir
@@ -340,10 +347,10 @@ class BBC(Program):
         SAME = len(set(sync_evt_list)) == 1
         if not SAME and DEVEL_SYNC_EVT :
             msgerr = []
-            msgerr.append(f"Mis-match for {KEY_LCFIT_SYNC} flag; ")
+            msgerr.append(f"Mis-match for {KEY_SYNC_EVT} flag; ")
             for path,sync in zip(inpdir_list_orig,sync_evt_list) :
-                msgerr.append(f" {KEY_LCFIT_SYNC}={sync} for {path}")
-            msgerr.append(f"All {KEY_LCFIT_SYNC} must be the same.")
+                msgerr.append(f" {KEY_SYNC_EVT}={sync} for {path}")
+            msgerr.append(f"All {KEY_SYNC_EVT} must be the same.")
             self.log_assert(False,msgerr)
 
         # - - - - - - - - - -

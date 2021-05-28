@@ -10500,7 +10500,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	     z, a, b, gDM);
       printf("\t ia,ib.ig = %d, %d, %d \n", ia, ib, ig);
 
-      sprintf(c1err,"Invalid muErrsq=%f for ievt=%d", muErrsq, ievt);
+      sprintf(c1err,"Invalid muErrsq=%f for ievt=%d (SNID=%s)", 
+	      muErrsq, ievt, name );
       sprintf(c2err,"Something is messed up.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
     }
@@ -14590,6 +14591,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //   event_type -> data, biasCor or CCprior
   //
   // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
+  // May 28 2021: fix COV cut bug; cut on cov(mB,X) instead of cov(x0,X)
   //
   int  event_type = TABLEVAR->EVENT_TYPE;
   bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
@@ -14606,7 +14608,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   bool BADERR=false, BADCOV=false ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
-  double COV_x0x1, COV_x0c, COV_x1c,  mBerr ;
+  double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
   char   *name ;
   char fnam[]=  "set_CUTMASK";
 
@@ -14633,9 +14635,15 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   x1err     =  (double)TABLEVAR->fitpar_err[INDEX_x1][isn] ;
   cerr      =  (double)TABLEVAR->fitpar_err[INDEX_c ][isn] ;
     
+  COV_mBx1  = (double)TABLEVAR->covmat_fit[isn][INDEX_mB][INDEX_x1];     
+  COV_mBc   = (double)TABLEVAR->covmat_fit[isn][INDEX_mB][INDEX_c];
+  COV_x1c   = (double)TABLEVAR->covmat_fit[isn][INDEX_x1][INDEX_c];
+
+  /* xxxxxx mark delete May 28 2021 xxxxxx
   COV_x0x1  = (double)TABLEVAR->COV_x0x1[isn];
   COV_x0c   = (double)TABLEVAR->COV_x0c[isn];
   COV_x1c   = (double)TABLEVAR->COV_x1c[isn];
+  xxxxxxxx end mark xxxxxxxxx */
 
   SIM_NONIA_INDEX = (int)TABLEVAR->SIM_NONIA_INDEX[isn] ;
 
@@ -14695,10 +14703,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   
   // May 2016  flag crazy COV and mBerr 
-
-  if ( fabs(COV_x0x1) > 8.0 ) { BADCOV = true ; } // COV_x0x1
-  if ( fabs(COV_x0c ) > 8.0 ) { BADCOV = true ; } // COV_x0c
-  if ( fabs(COV_x1c ) > 8.0 ) { BADCOV = true ; } // COV_x1c  
+  if ( fabs(COV_mBx1) > 8.0 ) { BADCOV = true ; } 
+  if ( fabs(COV_mBc ) > 8.0 ) { BADCOV = true ; } 
+  if ( fabs(COV_x1c ) > 8.0 ) { BADCOV = true ; } 
   if ( mBerr > 1.0  )         { BADCOV = true ; }
   
   if ( BADCOV ) {

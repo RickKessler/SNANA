@@ -7948,7 +7948,7 @@ void rewrite_HOSTLIB_plusMags(void) {
   // set HOSTLIB_APPEND struct, then rewrite hostlib.
 
   int L  ;
-  char VARNAMES_HOSTMAGS[200], varname_mag[40], *cfilt, msg[80];
+  char VARNAMES_HOSTMAGS[5*MXFILTINDX], varname_mag[40], *cfilt, msg[80];
   // create additional varnames of mags to append to VARNAMES list
   VARNAMES_HOSTMAGS[0] = 0;
   for(ifilt=1; ifilt <= NFILT; ifilt++ ) {

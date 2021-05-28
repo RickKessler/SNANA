@@ -550,10 +550,10 @@ struct {
 
 
 typedef struct {
-  char VARNAMES_APPEND[100];
+  char VARNAMES_APPEND[MXFILTINDX*5]; // allow "obs_X " per band
 
   int  NLINE_COMMENT ;
-  char *COMMENT[50];
+  char *COMMENT[MXFILTINDX];
   char FILENAME_SUFFIX[40];
   int  NLINE_APPEND;
   char **LINE_APPEND ;

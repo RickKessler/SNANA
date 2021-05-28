@@ -1850,7 +1850,11 @@ class LightCurveFit(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
-        opt_sncid_list   = submit_info_yaml['OPT_SNCID_LIST']
+
+        opt_sncid_list = 0 
+        for key in KEY_OPT_SNCID_LIST :
+            if key in submit_info_yaml :
+                opt_sncid_list = submit_info_yaml[key]
 
         survey,idsurvey  = util.get_survey_info(script_dir)
 

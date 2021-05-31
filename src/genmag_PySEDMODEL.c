@@ -788,6 +788,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
   if ( ISTAT_SMEAR ) {
     double cdum=0.0, x1dum=0.0 ;
+    double parList[4] = { Trest, x1dum, cdum, -9.0 } ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
@@ -798,7 +799,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
     printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
 	   fnam,  Trest, ifilt_obs); fflush(stdout);
     */
-    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST);
+    get_genSmear(parList, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST);
   }
 
   // - - - - - -

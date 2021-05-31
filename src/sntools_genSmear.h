@@ -57,8 +57,7 @@ void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
-void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
-		  double *magSmear) ;
+void get_genSmear(double *parList, int NLam, double *Lam, double *magSmear) ;
 
 int  repeat_genSmear(double Trest, int NLam, double *Lam);
 void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);

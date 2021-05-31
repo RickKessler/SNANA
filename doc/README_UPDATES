@@ -19939,6 +19939,7 @@
         moved to before cuts are applied instead of after.
       + new debug_malloc=1 input to print each malloc/free;
          to help catch memory leaks.
+      + fix bug cutting on crazy COV; cut on COV(mB,X) instead of COV(x0,X)
 
     submit_batch:
       + for fit mode, fix bug setting OPT_SNCID_LIST to get same
@@ -19956,7 +19957,8 @@
 
      + if BBC detects LCFIT option to use same events for systematics,
        it runs 2 iterations to sync events in BBC as well.
-       New feature runs with "--devel_flag 20" until Pippin is ready
-       to drop its BBC iteration.
+       Revert to legacy with "--devel_flag -20". Later need to remove
+       DEVEL_SYNC_EVT flag in submit_prog_bbc.py.
+
 
 END: 

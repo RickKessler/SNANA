@@ -2646,7 +2646,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
-    ,Flam_filter[2], Flam_err[2], Flam_spec[2]
+    ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList[10]
     ,hc8 = (double)hc ;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2717,6 +2717,12 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     lam = (double*) malloc(NLAMFILT*sizeof(double) );
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
+
+    parList[0] = Trest;
+    parList[1] = x1;
+    parList[2] = c;
+    parList[3] = -9.0 ; // logmass
+
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
       get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
@@ -2730,7 +2736,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       NLAMTMP++ ;
     }
 
-    get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    get_genSmear(parList, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
     free(lam);
   }
 

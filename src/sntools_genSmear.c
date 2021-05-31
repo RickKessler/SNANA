@@ -314,7 +314,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
 
 
 // ********************************
-void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam, 
+void get_genSmear(double *parList, int NLam, double *Lam, 
 		  double *magSmear) {
 
   // April 2012
@@ -322,10 +322,13 @@ void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
   // and return magSmear at each *Lam.
   //
   // Inputs:
-  //   Trest  : MJD-MJD_peak)/(1+z)
-  //   NLam   : number of wave bins
-  //  *Lam    : array of rest-frame wavelenths
-  //   c, x1  : SALT2 color and stretch
+  //     parList[0] : Trest = MJD-MJD_peak)/(1+z)
+  //     parList[1] : SALT2 x1
+  //     parList[2] : SALT2 c
+  //     parList[3] : host logMass
+  //
+  //     NLam   : number of wave bins
+  //    *Lam    : array of rest-frame wavelenths
   //
   // Output
   //   magSmear : magSmear at each *Lam bin.
@@ -335,6 +338,12 @@ void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
   // Oct 21 2019: add CID argument
   // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
   // Feb 17 2020: add c & x1 input args
+  // May 31 2021: refactor to pass parList that includes logMass
+
+  double Trest   = parList[0];
+  double x1      = parList[1];
+  double c       = parList[2];
+  double logMass = parList[3];
 
   int ilam, repeat ;
   char fnam[] = "get_genSmear" ;

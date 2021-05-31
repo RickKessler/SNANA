@@ -7915,6 +7915,7 @@ void dump_modelSmearSigma(void) {
   int NLAM, NRANGEN, igen, ilam ;
   double LAMMIN, LAMMAX, LAMBIN, LAMARRAY[100], LAM, TREST;
   double **MAGSMEAR, MAGARRAY[100], AVG, RMS, MEDIAN ;
+  double parList[10];
   char fnam[] = "dump_modelSmearSigma" ;
 
   // --------------- BEGIN --------------
@@ -7942,11 +7943,15 @@ void dump_modelSmearSigma(void) {
     { MAGSMEAR[ilam] = (double*) malloc( NRANGEN * sizeof(double) ); }
 
 
+  parList[0] = TREST ;
+  parList[1] = GENLC.SHAPEPAR ;
+  parList[2] = GENLC.SALT2c ;
+  parList[3] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE ;
+
   for(igen=0; igen < NRANGEN; igen++ ) {
     fill_RANLISTs();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
-    get_genSmear(TREST, GENLC.SALT2c, GENLC.SHAPEPAR, 
-		 NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
+    get_genSmear(parList, NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
 
     for(ilam=0; ilam < NLAM; ilam++ ) 
       { MAGSMEAR[ilam][igen] = MAGARRAY[ilam]  ; }
@@ -24280,7 +24285,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     ran_COH, ran_FILT
     ,magSmear=0.0, magSmear_model, magSmear_tmp
     ,smearsig=0.0, smearsig_fix, smearsig_model
-    ,Tep, Tpeak, Trest, lamrest, Z1
+    ,Tep, Tpeak, Trest, lamrest, Z1, parList[10]
     ;
 
   float lamavg4, lamrms4, lammin4, lammax4 ;
@@ -24394,8 +24399,11 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 		    &lamavg4, &lamrms4, &lammin4, &lammax4 );
       lamrest = (double)lamavg4 / ( 1.0 + z );   
       
-      get_genSmear(Trest, GENLC.SALT2c, GENLC.SALT2x1, 
-		   ONE,  &lamrest, &magSmear_model);
+      parList[0] = Trest;
+      parList[1] = GENLC.SALT2x1;
+      parList[2] = GENLC.SALT2c ;
+      parList[3] = SNHOSTGAL_DDLR_SORT[0].LOGMASS_TRUE ;
+      get_genSmear(parList, ONE,  &lamrest, &magSmear_model);
       magSmear = magSmear_model ;
     }
    

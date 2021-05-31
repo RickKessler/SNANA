@@ -896,8 +896,6 @@ void RD_SNTEXTIO_INIT(int init_num) {
 } // end RD_SNTEXTIO_INIT
 
 
-
-
 // =================================================
 int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
@@ -1312,6 +1310,10 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  
+
+    else if ( strcmp(varName,"NITE") == 0 ) {
+      // do nothing; allow legacy DES column for DESGW group
+    }
 
     else {
       sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 

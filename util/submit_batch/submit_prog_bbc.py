@@ -105,7 +105,7 @@ FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 OUTDIR_ITER1_SUFFIX    = "_ITER1"
 
 # internal development flags
-DEVEL_SYNC_EVT = False
+DEVEL_SYNC_EVT = True
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -133,7 +133,11 @@ class BBC(Program):
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-        global DEVEL_SYNC_EVT ; DEVEL_SYNC_EVT = (devel_flag==20)
+
+        # xxxx should remove this soon ... May 30 2021
+        global DEVEL_SYNC_EVT ; 
+        if devel_flag == -20 :  DEVEL_SYNC_EVT = False
+        # xxxxxxxxxxxx
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -2100,8 +2104,13 @@ class BBC(Program):
 
             f.write(f" \n")
             f.write(f"- {fitopt_num}_{muopt_num}: \n")
-            f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
-            f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+
+            # check list sizes to accomodate noINPDIR option
+            if len(FITOPT_LIST) > 0 :
+                f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            if len(MUOPT_LIST) > 0 :
+                f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+
             f.write(f"    NEVT(DATA,BIASCOR,CCPRIOR):  " \
                     f" {NEVT_DATA} {NEVT_BIASCOR} {NEVT_CCPRIOR} \n")
             f.write(f"    REJECT_FRAC_BIASCOR:  {frac_reject:.3f} " \

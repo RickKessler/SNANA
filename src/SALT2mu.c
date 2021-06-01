@@ -15223,6 +15223,7 @@ int ppar(char* item) {
   if (  !strncmp(item,"SUBPROCESS_OUTPUT_TABLE=",24) ) {
     int N = SUBPROCESS.N_OUTPUT_TABLE ;
     sscanf(&item[24], "%s", SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
+    s = SUBPROCESS.INPUT_OUTPUT_TABLE[N]; remove_quote(s);
     //printf(" xxx %s: N_OUTPUT_TABLE = %d  VARDEF = '%s' \n", 
     //	   fnam, N, SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
     SUBPROCESS.N_OUTPUT_TABLE++ ;

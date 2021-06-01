@@ -19897,7 +19897,7 @@
 
 
 # ======================================================================= 
-         v11_02n (  ) 
+         v11_02n (May 31 2021) 
 
          ***** IMPORTANT(v11_02n) ***** 
 
@@ -19923,6 +19923,12 @@
       + new key TAKE_SPECTRUM_PRESCALE (see manual)
       + refactor SEARCHEFF_zHOST to take logical OR of multiple maps.
       + optional FIELD in TAKE_SPECTRUM(FIELD) input ; see manual
+
+    genmag_SALT2.c[h]
+      + refactor inputs to genmag_SALT2 function to pass parList_SN
+        and parList_HOST ... to enable passing logMass to get_genSmear
+        function that is inside genmag_SALT2, and eventually to
+         get_genSmear_SCALE.
 
     snana.car
       + restore HOST_MAG_[band] to output tables; was lost during IO refac.

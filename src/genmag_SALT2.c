@@ -23,51 +23,6 @@
              HISTORY
             ~~~~~~~~~~~
 
- Mar 13, 2012: use optional magSmear function;
-                see MAGSMEAR.FUNPAR_FLAG.
-
-          
- Jan 27, 2013: minor fix in genmag_SALT2 to avoid aborting when
-               Trest = 50.0000 exactly.
-
- Feb 13, 2013: new function set_RVMW_SALT2(RV) to override default RV=3.1.
-
- May 11, 2013: fix  magerrFudge_SALT2 to add fudged mag-errors in quadrature
-               instead of replacing magerr_model.
-
- May 15, 2013: remove obsolete code under SALT2_CFIT_FLAG.
-
- May 18, 2013: new function checkLamRange_SALT2().
-
- Jul 3 2013:  fix aweful bug in gencovar_SALT2;
-              was double-counting kcor term on diagonals.
-
- Jul 9, 2013: in SALT2magerr, when vartot<0 set it to .01^2 as JG does
-
- Jul 12, 2013: in SALT2magerr, replace magerr_model with exact calculation
-               instead of approximation.
-
- Jul 25, 2013: inside integration loop (INTEG_zSED_SALT2),
-               add continue statement when TRANS=0 ... to speed integration
-               for leakage filters that have lots of bins with TRANS=0.
-
- Aug 23 2013: move checkLamRange_SEDMODEL to genmag_SEDMODEL.c
-
- Sep 18, 2013: remove function set_rvmw_SALT2() and use generic call to
-               init_MWXT_SEDMODEL() to init OPT_MWCOLORLAW and RVMW.
-
- May 5 2014:  Add Fratio output argument to INTEG_zSED_SALT2( ... )
-              to easily allow computing ratio with/without 
-              Galactic extinction in the integrals.
-   
- July 15 2016: add RV_host & AV_host arguments to genmag_SALT2,
-               to allow for simulating Mandel's BayeSN model.
-           
- July 30 2016: in fill_SALT2_TABLE_SED(), check for uniform bins.
-               Now catches missing LAM=8490 bin in SALT2.Guy10_UV2IR.
-
- Aug 31 2016: in genSpec_SALT2(), return of Trest is outside epoch
-              range of SALT2 ; cannot extrapolate spectra.
 
  Oct 2020: minor refactor for INTGEG_zSED_SALT2 and SALT2magerr;  
            needed to handle SALT3 or SALT2.
@@ -79,11 +34,15 @@
  Apr 27 2021: minor refactor so that default SALT3 models are checked
               in $SNDATA_ROOT/models/SALT3 (not under SALT2)
 
+ May 31 2021: refactor to receive parList_SN and parList_HOST so that
+              logMass can be included and passed to get_genSmear.
+
 *************************************/
 
 #include "sntools.h"           // community tools
 #include "sntools_genSmear.h"
 #include "sntools_spectrograph.h"
+#include "sntools_devel.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h" 
 #include "MWgaldust.h"
@@ -100,13 +59,12 @@ int init_genmag_salt2__(char *model_version, char *model_extrap,
 
 
 void genmag_salt2__(int *OPTMASK, int *ifilt, 
-		    double *x0, double *x1, double *x1_forErr, double *c, 
-		    double *mwebv, double *RV_host, double *AV_host,
+		    double *parList_SN, double *parList_HOST, double *mwebv,
 		    double *z, double *z_forErr, int *nobs, double *Tobs_list, 
 		    double *magobs_list, double *magerr_list ) {
 
-  genmag_SALT2(*OPTMASK, *ifilt, *x0, *x1, *x1_forErr, *c, *mwebv, 
-	       *RV_host, *AV_host, *z, *z_forErr, *nobs, Tobs_list, 
+  genmag_SALT2(*OPTMASK, *ifilt, parList_SN, parList_HOST, *mwebv,
+	       *z, *z_forErr, *nobs, Tobs_list, 
 	       magobs_list, magerr_list );
 }
 
@@ -131,17 +89,14 @@ int gencovar_salt2__ (
                   ,int *ifilt_obs      // (I) list of 'matsize' filter indices
                   ,double *epobs       // (I) list of 'matsize' rest days
 		  ,double *z            // (I) redshift
-		  ,double *x0
-		  ,double *x1
-		  ,double *c
+		  ,double *parList_SN 
+		  ,double *parList_HOST
 		  ,double *mwebv
-		  ,double *RV_host
-		  ,double *AV_host
                   ,double *covar       // (O) covariance matrix
                   ) {
   int istat ;
-  istat = gencovar_SALT2 ( *MATSIZE, ifilt_obs, epobs, *z, *x0, *x1, *c,
-			   *mwebv, *RV_host, *AV_host, covar ) ;
+  istat = gencovar_SALT2 ( *MATSIZE, ifilt_obs, epobs, *z, parList_SN,
+			   parList_HOST, *mwebv, covar ) ;
   return istat;
 }
 
@@ -2150,17 +2105,13 @@ double SALT2colorCor(double lam_rest, double c ) {
 void genmag_SALT2(
 		  int OPTMASK     // (I) bit-mask of options (LSB=0)
 		  ,int ifilt_obs  // (I) absolute filter index
-		  ,double x0      // (I) SALT2 x0 parameter
-		  ,double x1      // (I) SALT2 x1-stretch parameter
-		  ,double x1_forErr // (I) x1 used for error calc.
-		  ,double c       // (I) SALT2 color parameter 
+		  ,double *parList_SN   // x0, x1, x1_forErr, c
+		  ,double *parList_HOST // RV, AV, logMass
 		  ,double mwebv   // (I) Galactic extinction: E(B-V)
-		  ,double RV_host // (I) for Mandel SALT2+XThost model
-		  ,double AV_host // (I) for Mandel SALT2+XThost model
 		  ,double z       // (I) Supernova redshift
 		  ,double z_forErr// (I) z used for error calc (Mar 2018)
-		  ,int Nobs       // (I) number of epochs
-		  ,double *Tobs_list   // (I) list of obs times (since mB max) 
+		  ,int    Nobs         // (I) number of epochs
+		  ,double *Tobs_list   // (I) list of Tobs (w.r.t peakMJD) 
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
@@ -2194,7 +2145,18 @@ void genmag_SALT2(
  
  Jun 25 2018: check mag-extrap option for late times
 
+ May 31 2021: refactor to receive parList_SN[HOST]
+
   ***/
+
+  double x0        = parList_SN[0];
+  double x1        = parList_SN[1];
+  double c         = parList_SN[2];
+  double x1_forErr = parList_SN[3];
+
+  double RV_host      = parList_HOST[0];
+  double AV_host      = parList_HOST[1];
+  double logMass_host = parList_HOST[2];
 
   double 
     meanlam_obs,  meanlam_rest, ZP, z1
@@ -2274,7 +2236,7 @@ void genmag_SALT2(
 
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
-    INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, x0,x1,c, RV_host, AV_host,
+    INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, parList_SN, parList_HOST,
 		     &Finteg, &Finteg_errPar, FspecDum); // returned
     flux_interp = Finteg ;
 
@@ -2294,7 +2256,7 @@ void genmag_SALT2(
       Trest_tmp  = Trest_edge - nday_slope ;
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
-      INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, x0,x1,c, RV_host,AV_host,
+      INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, parList_SN, parList_HOST,
 		       &Finteg, &Finteg_errPar, FspecDum); // return
       flux_tmp = Finteg;
       
@@ -2562,8 +2524,7 @@ double magerrFudge_SALT2(double magerr_model,
 
 // **********************************************
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
-		      double x0, double x1, double c,
-		      double RV_host, double AV_host,
+		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec ) {
 
@@ -2629,6 +2590,18 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //
   // Mar 24 2021: 
   //   + check ALLOW_NEGFLUX_SALT2 to allow or avoid negative spectral flux.
+  //
+  // May 31 2021: refactor to pass parList_SN and parList_HOST
+
+
+  // strip of SN and HOST params
+  double x0   = parList_SN[0];
+  double x1   = parList_SN[1];
+  double c    = parList_SN[2];
+  
+  double RV_host   = parList_HOST[0];
+  double AV_host   = parList_HOST[1];
+  double m_host    = parList_HOST[2];
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2646,7 +2619,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
-    ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList[10]
+    ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList_genSmear[10]
     ,hc8 = (double)hc ;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2718,10 +2691,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
 
-    parList[0] = Trest;
-    parList[1] = x1;
-    parList[2] = c;
-    parList[3] = -9.0 ; // logmass
+    parList_genSmear[0] = Trest;
+    parList_genSmear[1] = x1;
+    parList_genSmear[2] = c;
+    parList_genSmear[3] = m_host ; 
 
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
@@ -2736,7 +2709,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       NLAMTMP++ ;
     }
 
-    get_genSmear(parList, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    get_genSmear(parList_genSmear, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
     free(lam);
   }
 
@@ -3136,9 +3109,8 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
 // *******************************************************
 int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList, 
-		   double z, double x0, double x1, double c, double mwebv,
-		   double RV_host, double AV_host,
-		   double *covar ) {
+		   double z, double *parList_SN, double *parList_HOST,
+		   double mwebv, double *covar ) {
 
   // Jun 2, 2011 R.Kessler
   // return *covar matrix that depends on ifilt_obs and redshift. 
@@ -3160,6 +3132,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   int  icovar, irow, icol, ifilt_obs, ifilt_row, ifilt_col, ifilt ;
   int ISDIAG, LDMP ;
 
+  double x1    = parList_SN[1] ;
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
@@ -3239,8 +3212,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	Trest = Trest_tmp ;
 	Tobs  = Trest * z1 ;
 
-	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, x0, x1, c,      // input
-			 RV_host, AV_host,                   // input
+	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, parList_SN, parList_HOST, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
 	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, 
@@ -3502,9 +3474,9 @@ void test_SALT2colorlaw1(void) {
 
 
 // ==========================
-void genSpec_SALT2(double x0, double x1, double c, double mwebv,
-                   double RV_host, double AV_host,  double z,
-                   double Tobs, double *GENFLUX_LIST, double *GENMAG_LIST ) {
+void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
+                   double z, double Tobs, 
+		   double *GENFLUX_LIST, double *GENMAG_LIST ) {
 
   // July 2016
   // For input SALT2 params, return *GENFLUX_LIST and *GENMAG_LIST.
@@ -3556,7 +3528,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   if ( Trest > SALT2_TABLE.DAYMAX-0.1 ) { return ; }
 	
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
-		   x0, x1, c,	RV_host, AV_host,
+		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
 
   FSCALE_ZP = pow(TEN,-0.4*MAG_OFFSET);
@@ -3601,7 +3573,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   int MEMD   = NBLAM * sizeof(double);
   int ilam ;
   double LAMOBS, LAMREST, z1, Finteg, Finteg_errPar, Finteg_check, TRANS ;
-  double RV_host=-9.0, AV_host=0.0 ;
+  double RV_host=-9.0, AV_host=0.0, m_host = -9.0  ;
 
   double Tobs  = (double)Tobs_f ;
   double z     = (double)z_f ;
@@ -3611,6 +3583,9 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   double *FLUXLIST = (double*) malloc ( MEMD );
   double Trest = Tobs/(1.0 + z) ;
 
+  double parList_SN[3]   = { x0, x1, c };
+  double parList_HOST[3] = { RV_host, AV_host, m_host } ;
+
   //   char fnam[] = "getSpec_band_SALT2" ;
 
   // ------------- BEGIN ---------------
@@ -3619,7 +3594,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   if ( Trest >= SALT2_TABLE.DAYMAX ) { return(0); }
 
   INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs,         // (I)
-		   x0, x1, c, RV_host, AV_host,   // (I)
+		   parList_SN, parList_HOST,      // (I)
 		   &Finteg, &Finteg_errPar, FLUXLIST ) ; // (O)
   
   Finteg_check = 0.0 ;  z1=1.0+z ;

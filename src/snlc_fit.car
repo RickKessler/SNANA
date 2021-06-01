@@ -5269,8 +5269,8 @@ c     &  ,FILTINDX
      &  ,GALextinct    ! returns approx MW extinction
      &  ,KCORFUN8
      &  ,DLMAG8_REF
-     &  ,SALT2x0calc
-     &  ,SALT2xx1, SALT2zz
+     &  ,SALT2x0calc, SALT2xx1, SALT2zz
+     &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
 c ------------- BEGIN ------------
 
@@ -5545,15 +5545,22 @@ c translate fit-params into SALT2 language
 c loop over all needed obs-filters;
 c multiple filters are needed for Landolot color transf.
 
+          RVDUM = 0.0 ; AVDUM=0.0  ! cannot fit for Mandel's extinc params
+          PARLIST_SN(1) = SALT2x0
+          PARLIST_SN(2) = SALT2x1
+          PARLIST_SN(3) = SALT2c
+          PARLIST_SN(4) = xx1
+	  PARLIST_HOST(1) = RVDUM
+          PARLIST_HOST(2) = AVDUM
+	  PARLIST_HOST(3) = -9.0   ! logMass
+
           DO ifilt2 = 1, NFTMP
              ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)
              mag_obs_tmp(ifilt2_obs) = 0.0
              LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
-             RVDUM = 0.0 ; AVDUM=0.0  ! cannot fit for Mandel's extinc params
-             if ( LTMP ) then              
+             if ( LTMP ) then              	       
                CALL genmag_salt2( MSKSALT2, ifilt2_obs
-     &          , SALT2x0, SALT2x1, xx1, SALT2c
-     &          , MWEBV_MODEL, RVDUM, AVDUM
+     &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN,ZZ, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt2_obs)       ! return arg
      &          , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg 
@@ -9641,15 +9648,8 @@ c MSKOPT: bit 1 => print  info to stdout
 c ITER = 1, 2, ... = fit iteration.
 c
 c
-c
-c Jan 25, 2014: update with new R4EP_ALL and I4EP_ALL arrays
-c
-c Feb 23 2015: call COVFUDGE_DATA.
-c              Rename RHOFUDGE() -> RHOFUDGE_MODEL().
-c
-c July 2016:  pass x0, RV & AV arg to gencovar_SALT2()
-c
 c Feb 2020: add OPT_COVAR_MWXT==2 option to include only DIAG part.
+c May 2021: pass param lists to gencovar_SALT2
 c 
 c ----------------------------------------------------------
 
@@ -9682,6 +9682,7 @@ c local var
      &  ,SQMAGERR, SQFLUXERR, FF
      &  ,R1, R2, F1, F2, ERR1, ERR2, FUDGE_SQERR, ERRSCALE
      &  ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP
+     &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
       LOGICAL 
      &  LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV
@@ -9695,7 +9696,7 @@ c functions
      &  ,gencovar_SALT2
      
       LOGICAL FIRST_ITERATION
-      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA, RVDUM, AVDUM
+      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA
 
       EXTERNAL INVERTMATRIX
 
@@ -9856,14 +9857,17 @@ c This is the model-covariance only.
 
            Z        = REDSHIFT_FIT
            MWEBV    = SNLC_MWEBV
-           RVDUM = 0.0;  AVDUM=0.0;  ! cannot fit for these values
+	   PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
+	   PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
+	   PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
+	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
+	   PARLIST_HOST(2) = 0.0  ! cannot fit AV
+	   PARLIST_HOST(3) = -9.0 ! cannot fit logMass
+
            ISTAT = gencovar_SALT2(NFITDATA, IFILT_COV, TOBS, Z
-     &             ,FITPAR(IPAR_x0   )     ! (I) x0-amplitude
-     &             ,FITPAR(IPAR_SHAPE)     ! (I) x1/stretch
-     &             ,FITPAR(IPAR_COLOR)     ! (I) color
-     &             ,MWEBV                  ! (I) MW extinction
-     &             ,RVDUM,AVDUM            ! (I) host params (July 2016)
-     &             ,COVMAT1 )      ! <== returned array, MAGERR^2
+     &             ,PARLIST_SN, PARLIST_HOST  ! (I)
+     &             ,MWEBV                     ! (I) MW extinction
+     &             ,COVMAT1 )         ! <== returned array, MAGERR^2
 
         ELSE
           C1ERR = 'No covariance model for FITMODEL=' 
@@ -16375,7 +16379,7 @@ c local args
      &  ,x0, x1, xx1, c, MWEBV, PKMJD
      &  ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR
      &  ,KCOR, MAGOBS, MAGREST, FLUX_REST, ARG
-     &  ,RV, AV
+     &  ,RV, AV,  PARLIST_SN(10), PARLIST_HOST(10)
 
       LOGICAL LDMP 
 C ----------------- BEGIN -----------------
@@ -16415,6 +16419,15 @@ C Note that the rest-frame filter is defined as an obs-filter.
       PKMJD    = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
       RV=0.0 ;   AV=0.0
 
+      PARLIST_SN(1) = x0
+      PARLIST_SN(2) = x1
+      PARLIST_SN(3) = xx1
+      PARLIST_SN(4) = c
+
+      PARLIST_HOST(1) = RV
+      PARLIST_HOST(2) = AV
+      PARLIST_HOST(3) = -9.0 ! logmass
+
       DO 101 IMJD      = 1, ISNLC_NEWMJD_STORE
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD)
@@ -16430,14 +16443,14 @@ c start with obs-frame
          Trest   = TOBS/z1
 
          ZSN     = REDSHIFT_FIT
-         CALL genmag_salt2( MSKSALT2, IFILTOBS, 
-     &        x0, x1,x1, c, MWEBV,RV,AV, ZSN,ZSN,  NEP, Tobs,
+         CALL genmag_salt2( MSKSALT2, IFILTOBS,
+     &        PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN,  NEP, Tobs,
      &        MAGOBS_MODEL, MAGERR )     ! return arg
 
 c now the rest-frame
          ZSN     = 1.0E-6
          CALL genmag_salt2( MSKSALT2, IFILTREST, 
-     &        x0, x1,x1, c, MWEBV, RV,AV, ZSN,ZSN, NEP, Trest,
+     &        PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN, NEP, Trest,
      &        MAGREST_MODEL, MAGERR )     ! return arg
 
          KCOR    = MAGREST_MODEL - MAGOBS_MODEL

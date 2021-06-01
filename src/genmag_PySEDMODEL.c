@@ -46,6 +46,7 @@
 #include  "sntools.h"           // SNANA community tools
 #include  "sntools_genSmear.h"
 #include  "sntools_spectrograph.h"
+#include  "sntools_devel.h"
 #include  "MWgaldust.h"
 #include  "genmag_SEDtools.h"
 #include  "genmag_SIMSED.h"

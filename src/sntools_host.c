@@ -6525,9 +6525,11 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].DDLR  = -9.0 ;  
     SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
+    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
   }
 
-  
+  SNHOSTGAL.IMATCH_TRUE = -9 ;   // May 31 2021
+
 } // end reset_SNHOSTGAL_DDLR_SORT
 
 // =======================================================
@@ -6652,8 +6654,11 @@ void SORT_SNHOST_byDDLR(void) {
 
     // load logical for true host
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
-    if ( unsort == 0 ) // first element of unsorted array is true host
-      { SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; }
+    if ( unsort == 0 ) { // first element of unsorted array is true host
+       SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; 
+       SNHOSTGAL.IMATCH_TRUE = i;
+       if ( LDMP ) { printf("\t xxx %s: IMATCH_TRUE = %d \n", fnam, i); }
+    }
 
     // load global struct
     SNHOSTGAL_DDLR_SORT[i].DDLR  = DDLR ;
@@ -6716,6 +6721,8 @@ void SORT_SNHOST_byDDLR(void) {
 	     fnam, i, unsort, DDLR, SNSEP ); 
       printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
+      printf("\t xxx %s: LOGMASS = %f \n",
+	     fnam, SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE );
       fflush(stdout);      
     }
   }

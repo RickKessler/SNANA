@@ -439,6 +439,7 @@ struct SNHOSTGAL {
   int   IGAL_SELECT_RANGE[2] ; // range to select random IGAL
 
   long long GALID ;   // Galaxy ID from library
+  int  IMATCH_TRUE ; // true index for SNHOSTGAL_DDLR_SORT
 
   // redshift info
   double ZGEN  ;     // saved ZSN passed to driver
@@ -484,9 +485,6 @@ struct SNHOSTGAL {
   double GALFRAC_SBRADIUS[NMAGPSF_HOSTLIB+1]; // gal light-frac in SB radius
   double WGTMAP_SNMAGSHIFT ;        // SN mag shift from wgtmap
   double WGTMAP_WGT ;               // selection weight
-
-  // log10 of Mgal/Msolar
-  // xxx mark delete   double LOGMASS, LOGMASS_ERR ;  
 
   // parameters used to interpolate selection WGT
   double WGTMAP_VALUES[MXVAR_HOSTLIB]; 

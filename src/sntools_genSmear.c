@@ -96,6 +96,7 @@
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
 #include "sntools_genSmear.h"
+#include "sntools_devel.h"
 #include "MWgaldust.h"
 #include "sntools_dataformat_fits.h"
 
@@ -190,6 +191,13 @@ void init_genSmear_SCALE(char *SCALE_STRING) {
   if ( strlen(SCALE_STRING) == 0 ) { return ; }
 
   GENSMEAR_SCALE.USE = 1;
+
+  // xxxxxxxxx DEVEL OPTION, May 31 2021
+  if ( strcmp(SCALE_STRING,"DEVEL") == 0 ) {
+    sprintf(GENSMEAR_SCALE.VARNAME,"DEVEL");
+    init_genSmear_devel(); return;
+  }
+  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
   // split string to get variable name and polynom string
   cptr[0] = VARNAME;
@@ -322,11 +330,7 @@ void get_genSmear(double *parList, int NLam, double *Lam,
   // and return magSmear at each *Lam.
   //
   // Inputs:
-  //     parList[0] : Trest = MJD-MJD_peak)/(1+z)
-  //     parList[1] : SALT2 x1
-  //     parList[2] : SALT2 c
-  //     parList[3] : host logMass
-  //
+  //     parList[0:3] : Trest, x1, c, logMass
   //     NLam   : number of wave bins
   //    *Lam    : array of rest-frame wavelenths
   //
@@ -406,8 +410,8 @@ void get_genSmear(double *parList, int NLam, double *Lam,
 
   // Mar 2020: check option to scale the smearing vs. c & x1
   if ( GENSMEAR_SCALE.USE ) {    
-    double SCALE = get_genSmear_SCALE(c,x1);
-    //    printf(" xxx %s  c=%.3f  SCALE=%.3f \n", fnam, c, SCALE);
+    // xxxx mark delete double SCALE = get_genSmear_SCALE(c,x1);
+    double SCALE = get_genSmear_SCALE(parList);
     for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
 
@@ -707,10 +711,15 @@ void SETSNPAR_genSmear(double shape, double color, double redshift) {
 
 
 // ************************************
-double get_genSmear_SCALE(double c, double x1) {
+double get_genSmear_SCALE(double *parList) {
 
   // Created Mar 22 2020 by R.Kessler
-  // Return magSmear scale based on color and stretch.
+  // Return magSmear scale based on inpout parList:
+  //   parList[0:3] = Trest, x1, c, logMass
+
+  double x1 = parList[1];
+  double c  = parList[2];
+  double m  = parList[3];
 
   double SCALE  = 1.0 ;
   double VAL;
@@ -720,6 +729,13 @@ double get_genSmear_SCALE(double c, double x1) {
   // -------------- BEGIN ------------
 
   if ( !GENSMEAR_SCALE.USE ) { return(SCALE); }
+
+  // xxxxxxxx DEVEL option, May 31 2021 xxxxxx
+  if ( strcmp(varName,"DEVEL") == 0 ) {
+    SCALE = get_genSmear_devel(parList);
+    return(SCALE);
+  }
+  // xxxxxxxxxxxxxxxxx
 
   if ( strcmp(varName,"c") == 0 ) 
     { VAL = c; }

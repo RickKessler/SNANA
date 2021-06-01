@@ -407,6 +407,7 @@ OBJ_SNFIT	 = 		\
 	$(OBJ)/snlc_fit.o	\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_genSmear.o \
+	$(OBJ)/sntools_devel.o    \
 	$(OBJ_GENMAG_FIT)
 
 OBJ_PSNID	=  		\
@@ -419,12 +420,12 @@ OBJ_PSNID	=  		\
 OBJ_SIM	 = 	\
 	$(OBJ)/snlc_sim.o	\
 	$(OBJ_SNTOOLS_SNANA)	\
-	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_host.o   \
 	$(OBJ)/sntools_weaklens.o  \
 	$(OBJ)/sntools_stronglens.o  \
 	$(OBJ)/sntools_wronghost.o   \
 	$(OBJ)/sntools_genSmear.o  \
+	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_trigger.o  \
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
@@ -796,7 +797,6 @@ $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h
 
 # -------------------------------------------------
 # compile sntools_genSmear (.o only)
-
 $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools_genSmear.c )
@@ -1017,7 +1017,8 @@ $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \
 	$(SRC)/sntools_host.c  \
 	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \
-	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
+	$(SRC)/sntools_genSmear.c $(SRC)/sntools_devel.c \
+	$(SRC)/SNcadenceFoM.c  \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
@@ -1101,6 +1102,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/genmag_SIMSED.o   \
 	$(OBJ)/genmag_SALT2.o   \
 	$(OBJ)/sntools_genSmear.o \
+	$(OBJ)/sntools_devel.o \
 	$(OBJ)/MWgaldust.o \
 	$(LIB)/libsnana.a  \
 	-lm $(LCFITSIO) $(LGSL) $(LCERN)

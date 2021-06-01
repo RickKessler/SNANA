@@ -65,7 +65,8 @@ void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
 void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
 void update_genSmear_COVLAM_debug(double *magSmear);
 
-double get_genSmear_SCALE(double c, double x1);
+// xxx mark delete double get_genSmear_SCALE(double c, double x1);
+double get_genSmear_SCALE(double *parList);
 
 void  get_genSmear_USRFUN(double Trest, int NLam, double *Lam, 
 			  double *magSmear ) ;

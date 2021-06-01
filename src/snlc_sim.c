@@ -3880,11 +3880,11 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
   // Examine argument of GENMAG_SMEAR_SCALE.
   //
   // Argument is either a global scale or a polynominal function:   
-  //                                                                            
+  //                                 
   // For these example user inputs                              
   //  GENMAG_SMEAR_SCALE: 1.3            ! global scale         
-  //  GENMAG_SMEAR_SCALE(SALT2c) 0.9,0.3 ! scale = 0.9 + 0.3*c    
-  //                                                                            
+  //  GENMAG_SMEAR_SCALE(SALT2c) 0.9,0.3 ! scale = 0.9 + 0.3*c 
+  // 
   // This function loads INPUTS.GENMAG_SMEAR_SCALE with              
   //     'NOVAR  1.3'
   //     'SALT2c 0.9,0.3'
@@ -3900,6 +3900,13 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
   // ----------- BEGIN ------------
 
   sprintf(KEYTMP, "%s", KEYNAME);
+
+  // xxxxxxxx DEVEL OPTION xxxxxxxxxx
+  if ( strcmp(STRVAL,"DEVEL") == 0 ) {
+    sprintf(INPUTS.GENMAG_SMEAR_SCALE,"DEVEL");
+    N++ ;    return(N);
+  }
+  // xxxxxxxxxx
 
   // extract optional varname from () of key name
   extractStringOpt(KEYTMP,VARNAME); // return VARNAME 
@@ -7912,8 +7919,9 @@ void dump_modelSmearSigma(void) {
   // Nov 23 2013
   // determine magSmear sigma in wavelength bins, and print to screen.
 
+  int m = SNHOSTGAL.IMATCH_TRUE;
   int NLAM, NRANGEN, igen, ilam ;
-  double LAMMIN, LAMMAX, LAMBIN, LAMARRAY[100], LAM, TREST;
+  double LAMMIN, LAMMAX, LAMBIN, LAMARRAY[100], LAM, TREST, LOGMASS;
   double **MAGSMEAR, MAGARRAY[100], AVG, RMS, MEDIAN ;
   double parList[10];
   char fnam[] = "dump_modelSmearSigma" ;
@@ -7927,7 +7935,7 @@ void dump_modelSmearSigma(void) {
   LAMMAX = GENLC.RESTLAM_MODEL[1] + 3000.0 ;
   LAMBIN = 500.0 ;
 
-  TREST = 0.0 ; 
+  TREST = 0.0 ;  LOGMASS = -9.0 ;
   GENLC.SALT2c = GENLC.AV = GENLC.SHAPEPAR = 0.0 ;
 
   NLAM = 0 ;
@@ -7946,7 +7954,9 @@ void dump_modelSmearSigma(void) {
   parList[0] = TREST ;
   parList[1] = GENLC.SHAPEPAR ;
   parList[2] = GENLC.SALT2c ;
-  parList[3] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE ;
+  if ( m >= 0 ) { LOGMASS = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE ; }
+  parList[3] = LOGMASS ;
+    
 
   for(igen=0; igen < NRANGEN; igen++ ) {
     fill_RANLISTs();      // init list of random numbers 
@@ -8678,6 +8688,16 @@ void GENSPEC_TRUE(int imjd) {
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   double TOBS, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   double *ptrGENFLUX, *ptrGENMAG ;
+
+  double x0 = GENLC.SALT2x0 ;
+  double x1 = GENLC.SALT2x1 ;
+  double c  = GENLC.SALT2c ;
+  double RV = GENLC.RV;
+  double AV = GENLC.AV ;
+  double  logMass  = -9.0 ;
+
+  double parList_SN[4]   = { x0, x1, c, x1 } ;
+  double parList_HOST[3] = { RV, AV, logMass } ;
   int IS_HOST, ilam ;
   int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
@@ -8711,9 +8731,8 @@ void GENSPEC_TRUE(int imjd) {
   // below is a SN spectrum, so check which model.
 
   if ( INDEX_GENMODEL == MODEL_SALT2 )  {
-    genSpec_SALT2(GENLC.SALT2x0, GENLC.SALT2x1, GENLC.SALT2c, 
-		  GENLC.MWEBV,             // Galactic
-		  GENLC.RV, GENLC.AV,      // host
+    genSpec_SALT2(parList_SN, parList_HOST,
+		  GENLC.MWEBV,             // Galactic		 
 		  GENLC.REDSHIFT_HELIO, TOBS,
 		  ptrGENFLUX,                 // (O) fluxGen per bin 
 		  ptrGENMAG                   // (O) magGen per bin
@@ -8736,7 +8755,7 @@ void GENSPEC_TRUE(int imjd) {
       GENLC.GENMAG_OFF_GLOBAL + GENLC.MAGSMEAR_COH[0] + GENLC.MAGSMEAR_COH[1];
 
     getSpec_SEDMODEL(ISED_NON1A,
-		     GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
+		     GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)   
 		     GENLC.REDSHIFT_HELIO,            // (I) redshift
 		     GENLC.DLMU,                      // (I) dist mod
 		     TOBS, MAGOFF,                    // (I) Tobs, magoff 
@@ -8762,10 +8781,10 @@ void GENSPEC_TRUE(int imjd) {
 
     MAGOFF = GENLC.GENMAG_OFF_GLOBAL ;
     getSpec_SEDMODEL(ISED_SEDMODEL,
-		     GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		
-		     GENLC.REDSHIFT_HELIO,            // (I) redshift
+		     GENLC.MWEBV, GENLC.RV, GENLC.AV,  // (I)  
+		     GENLC.REDSHIFT_HELIO,        // (I) redshift
 		     GENLC.DLMU,
-		     TOBS, MAGOFF,                   // (I) Tobs, magoff 
+		     TOBS, MAGOFF,                // (I) Tobs, magoff 
 		     ptrGENFLUX,         // (O) fluxGen per bin 
 		     ptrGENMAG           // (O) magGen per bin
 		     ); 
@@ -23888,21 +23907,24 @@ void genmodel(
 	   ifilt_obs,GENLC.SALT2x0, GENLC.SALT2x1, GENLC.SALT2c );
     */
     // apply scatter matrix
-    double S2x0, S2x1, S2c, S2mB, tmp ;
+    double S2x0, S2x1, S2c, S2mB, tmp, logMass=-9.0 ;
     S2mB = GENLC.SALT2mB + GENLC.COVMAT_SCATTER[0] ;
     S2x1 = GENLC.SALT2x1 + GENLC.COVMAT_SCATTER[1] ;
     S2c  = GENLC.SALT2c  + GENLC.COVMAT_SCATTER[2] ;
     tmp  = -0.4 * GENLC.COVMAT_SCATTER[0] ;
     S2x0 = GENLC.SALT2x0 * pow(10.0,tmp);
+    int m = SNHOSTGAL.IMATCH_TRUE;
+    if ( m >= 0 ) { logMass = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE; }
 
+    double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
+    double parList_HOST[3] = { RV, AV, logMass } ;
+ 
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options
 		  ,ifilt_obs      // (I) obs filter index 
-		  ,S2x0           // (I) x0 term
-		  ,S2x1,S2x1      // (I) x1 and x1 used for error calc.
-		  ,S2c            // (I) SN color: E(B-V)
+		  ,parList_SN     // (I) SN params: x0, x1, x1forERR, c
+		  ,parList_HOST   // (I) host params: RV, AV, logMass
 		  ,mwebv          // (I) Galactic E(B-V)
-		  ,RV, AV         // (I) host extinc params (July 2016)
 		  ,z,z            // (I) redshift, and z used for error
 		  ,NEPFILT        // (I) number of epochs
 		  ,ptr_epoch         // (I) obs-frame time (days)

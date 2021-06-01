@@ -215,6 +215,12 @@ struct SALT2_TABLE {
 int  init_genmag_SALT2(char *model_version, char *model_extrap_latetime, 
 		       int OPTMASK );
 
+void genmag_SALT2(int OPTMASK, int ifilt, 
+		  double *parList_SN, double *parList_HOST, double mwebv,
+		  double z, double z_forErr, int nobs, double *Tobs_list, 
+		  double *magobs_list, double *magerr_list );
+
+/* xxxxxx mark delete 
 void genmag_SALT2(int OPTMASK, int ifilt, double x0, 
 		  double x1, double x1_forErr,
 		  double c, double mwebv, 
@@ -222,6 +228,7 @@ void genmag_SALT2(int OPTMASK, int ifilt, double x0,
 		  double z, double z_forErr,
 		  int nobs, double *Tobs_list, 
 		  double *magobs_list, double *magerr_list );
+xxxxxx*/
 
 void init_extrap_latetime_SALT2(void);
 double genmag_extrap_latetime_SALT2(double mag_daymin, double day, double lam);
@@ -276,28 +283,48 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
+		      double *parList_SN, double *parList_HOST,
+		      double *Finteg, double *Finteg_errPar, 
+		      double *Fspec );
+
+/* xxxxxxx mark delte xxxxxxxx
+void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
 		      double x0, double x1, double c,
 		      double RV_host, double AV_host,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec );
+xxxxxxxxx */
 
+
+int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
+		   double z, double *parList_SN, double *parList_HOST, 
+		   double mwebv, double *covar );
+
+/* xxxxxxx
 int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
 		   double z, double x0, double x1, double c, double mwebv, 
 		   double RV_host, double AV_host, double *covar );
-
+		  xxxxxxxxx */
 
 // ----------------------------------------------------
 // ---------- SPECTROGRAPH FUNCTIONS ------------------
 // ----------------------------------------------------
 
 // function to generate spectrum for SPECTROGRAPH option in simulation.
+void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
+		   double z, double Tobs, 
+		   double *GENFLUX_LIST,     // (O)
+		   double *GENMAG_LIST 	);   // (O)
+
+/* xxxx mark delete May 31 2021 xxxxxxx
 void genSpec_SALT2(double x0, double x1, double c, double mwebv,
 		   double RV_host, double AV_host,  double z, double Tobs, 
 		   double *GENFLUX_LIST,     // (O)
 		   double *GENMAG_LIST 	);   // (O)
+xxxxxxx */
 
 // function called by analysis program to return spectrum over band.
-// Note tha tall I/O is float instead of double.
+// Note that all I/O is float instead of double.
 int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
 		       float x0, float x1, float c, float mwebv,
 		       float *LAMLIST, float *FLUXLIST);

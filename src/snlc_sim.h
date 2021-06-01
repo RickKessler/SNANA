@@ -2059,9 +2059,8 @@ int init_genmag_stretch (
 int init_genmag_SALT2(char *model_version, char *model_extrap_latetime, 
 		      int OPTMASK);
 
-void genmag_SALT2(int OPTMASK, int ifilt, double x0, 
-		  double x1, double x1_forErr, 
-		  double c, double mwebv, double RV_host, double AV_host,
+void genmag_SALT2(int OPTMASK, int ifilt, 
+		  double *parList_SN, double *parList_HOST, double mwebv,
 		  double z, double z_forErr, int nobs, double *Tobs, 
 		  double *magobs_list, double *magerr_list );
 

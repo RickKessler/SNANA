@@ -192,13 +192,6 @@ void init_genSmear_SCALE(char *SCALE_STRING) {
 
   GENSMEAR_SCALE.USE = 1;
 
-  // xxxxxxxxx DEVEL OPTION, May 31 2021
-  if ( strcmp(SCALE_STRING,"DEVEL") == 0 ) {
-    sprintf(GENSMEAR_SCALE.VARNAME,"DEVEL");
-    init_genSmear_devel(); return;
-  }
-  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
   // split string to get variable name and polynom string
   cptr[0] = VARNAME;
   cptr[1] = cPOLY;
@@ -208,14 +201,23 @@ void init_genSmear_SCALE(char *SCALE_STRING) {
   // xxx  printf(" xxx VARNAME='%s'  cPOLY = '%s' \n", VARNAME, cPOLY);
 
   parse_GENPOLY(cPOLY, VARNAME, &GENSMEAR_SCALE.POLY, fnam);
+    sprintf(GENSMEAR_SCALE.VARNAME, "%s", VARNAME);
+
   if ( GENSMEAR_SCALE.POLY.ORDER == 0 ) {
     GENSMEAR_SCALE.GLOBAL = GENSMEAR_SCALE.POLY.COEFF_RANGE[0][0];
     printf("\t Global GENMAG_SMEAR_SCALE: %.3f \n", GENSMEAR_SCALE.GLOBAL);
   }
   else {
     printf("\t GENMAG_SMEAR_SCALE: poly(%s) = %s \n", VARNAME, cPOLY);
-    sprintf(GENSMEAR_SCALE.VARNAME, "%s", VARNAME);
   }
+
+  // xxxxxxxxx DEVEL OPTION, May 31 2021
+  if ( strcmp(VARNAME,"DEVEL") == 0 ) { 
+    int opt_devel = (int)GENSMEAR_SCALE.GLOBAL ;
+    init_genSmear_devel(opt_devel); 
+    return;  
+  }
+  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
   return;
 

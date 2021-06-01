@@ -19897,7 +19897,7 @@
 
 
 # ======================================================================= 
-         v11_02n (May 31 2021) 
+         v11_02n (Jun 01 2021) 
 
          ***** IMPORTANT(v11_02n) ***** 
 
@@ -19905,10 +19905,11 @@
 
          ***** USEFUL(v11_02n) ***** 
 
+   + BBC class for submit_batch_jobs auto-detects SAME-EVENT flag from 
+      LCFIT and does the same for BBC; get help with "-H BBC" args.
+   + submit_batch_jobs works with SALT3 training (saltshaker)
    + add HOSTGAL_FLAG to data structure
    + snana.car: read & apply PHOTFLAG_MSKREJ in IGNORE file (or in &SNLCINP)
-   + submit_batch(BBC) auto-detects FITOPT000 event-sync in LCFIT,
-     and does same thing for BBC 
    + kcor.c: add LEAKAGE_CUT key to remove out-of-band trans.
 
          ***** MISCELLANEOUS(v11_02n) ***** 

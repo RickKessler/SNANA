@@ -3901,13 +3901,6 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
 
   sprintf(KEYTMP, "%s", KEYNAME);
 
-  // xxxxxxxx DEVEL OPTION xxxxxxxxxx
-  if ( strcmp(STRVAL,"DEVEL") == 0 ) {
-    sprintf(INPUTS.GENMAG_SMEAR_SCALE,"DEVEL");
-    N++ ;    return(N);
-  }
-  // xxxxxxxxxx
-
   // extract optional varname from () of key name
   extractStringOpt(KEYTMP,VARNAME); // return VARNAME 
 

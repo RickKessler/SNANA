@@ -20617,13 +20617,13 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
 
   // Sep 17 2020
   // prep output tables.
-
+  // Jun 1 2021: split variables by % or * because % wreaks havoc with python.
 
   // strup string from user input; e.g, 'x1(10,-4:4)%c(6,-0.3:0.3)'
   char *TABLE_STRING = SUBPROCESS.INPUT_OUTPUT_TABLE[itable]; 
   int  MXVAR         = MXVAR_TABLE_SUBPROCESS ;
   int  NVAR, ivar ;
-  char *ptrVarDef[MXVAR]; 
+  char *ptrVarDef[MXVAR], DELIM[2]; 
   char BININFO_STRING[40];
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP" ;
 
@@ -20633,11 +20633,15 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
 
   SUBPROCESS.OUTPUT_TABLE[itable].NVAR = 0 ;
 
-  // first split by % to get each variable/dimension
+  // first split by "%" or "*" to get each variable/dimension
   for(ivar=0; ivar < MXVAR; ivar++ ) 
     { ptrVarDef[ivar] = (char*) malloc( 60*sizeof(char) ); }
   
-  splitString(TABLE_STRING, PERCENT, MXVAR,       // inputs
+  if ( strstr(TABLE_STRING,PERCENT) != NULL ) 
+    { sprintf(DELIM,"%s", PERCENT); }
+  else
+    { sprintf(DELIM,"%s", STAR); }
+  splitString(TABLE_STRING, DELIM, MXVAR,       // inputs
 	      &NVAR, ptrVarDef );               // outputs
 
   // - - - - 

@@ -342,10 +342,10 @@ HELP_CONFIG_FIT = f"""
 
   # Option to use events from FITOPT000 in all FITOPTs ...
   # except those with NOREJECT in label.
-  OPT_SNCID_LIST: 1
+  OPT_SNCID_LIST: 1         # original SNANA key 
      or
-  OPT_SNCID_LIST: 3  # same, but also use PKMJDINI from FITOPT000
-  
+  FLAG_USE_SAME_EVENTS: 1   # alternate key used by Pippin
+
   # optional append variables from root/hbook into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
   # To see full list of varables to append,
@@ -479,20 +479,24 @@ HELP_CONFIG_BBC = f"""
     FITOPT006: FITOPT000 FITOPT000 FITOPT002  # change only PS1
     FITOPT007: FITOPT000 FITOPT000 FITOPT003  # change only PS1
 
- #      SAME-EVENT LOGIC for SYSTEMATICS
- # Since the BBC class reads info from the LCFIT stage, it checks for
- # OPT_SNCID_LIST>0, which is a flag to analyze common events from 
- # FITOPT000. In this case, submit_batch automatically applies similar 
- # logic to BBC by submiting two iterations:
+ #       SAME-EVENT LOGIC for SYSTEMATICS
+ # The BBC class reads SUBMIT.INFO from the LCFIT output and checks for
+ #       OPT_SNCID_LIST > 0   or   FLAG_USE_SAME_EVENTS > 0
+ # which is a flag to analyze common events from FITOPT000. In this case, 
+ # submit_batch automatically applies similar logic to BBC by submiting 
+ # two sequential iterations:
  #   iter1: analyze list of events passing cuts in FITOPT000
  #            (BiasCor rejects might still be different per FITOPT)
  #   iter2: analyze common subset found in all FITOPTs
  #            (accounts for biasCor rejects)
  # This process results in two sets of OUTDIRs: [OUTDIR]_ITER1 and [OUTDIR],
- # where the latter is for the 2nd (final) iteration. Also beware that 
- # 2 x NCORE jobs are launched; the 2nd set of jobs waits until the ALL.DONE 
- # file appears from 1st set.
- 
+ # where the latter is for the 2nd (final) iteration. Beware that 2 x NCORE 
+ # jobs are launched; the 2nd set of jobs waits until the ALL.DONE file 
+ # appears from 1st set. FITOPT labels with NOREJECT (e.g., NOREJECT_TEST)
+ # are analyzed with cuts and not used for same-event logic. To use this
+ # feature with Pippin, put "FLAG_USE_SAME_EVENTS: 1" in the FITOPT.yml
+ # file (same file where systematic variations are defined).
+
 #END_YAML
 
 """

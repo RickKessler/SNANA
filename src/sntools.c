@@ -1804,7 +1804,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   if ( NWD >= MXWORDFILE_PARSE_WORDS ) {
     sprintf(c1err,"NWD=%d exceeds bound, MXWORDFILE_PARSE_WORDS=%d",
 	    NWD, MXWORDFILE_PARSE_WORDS );
-    sprintf(c2err,"Check '%s' ", PARSE_WORDS.FILENAME);
+    sprintf(c2err,"Check '%s' ", FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -10400,7 +10400,6 @@ void errmsg(
           ) 
 /*************************************
    Created Jan 30, 2004  by R.S. Kessler.
-     [copied from ktrig.c]
 
    ABSTRACT:
       Print error message(s), and count no. of errors.
@@ -10411,9 +10410,7 @@ void errmsg(
 *************************************/
 {
   char c_severe[40];  // char string for serverity 
-
         /* ------- begin function execution ------- */
-
    switch ( isev )
      {
         case SEV_INFO  : sprintf(c_severe,"INFO");     break;
@@ -10421,20 +10418,14 @@ void errmsg(
         case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
         case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
      }
-
    if ( isev == SEV_FATAL ) {  madend(0); }
-
    // print severity and name of function
    printf(" %s called by %s\n", c_severe, fnam);
-
    // print each message
    if( strlen(msg1) > 0 ) { printf("   %s\n", msg1 ); }
    if( strlen(msg2) > 0 ) { printf("   %s\n", msg2 ); }
-
    printf("\n");   fflush(stdout);
-
    if( isev == SEV_FATAL ) { exit(EXIT_ERRCODE); }
-   
    return ;
 
 }   /* end of function "errmsg" */
@@ -10443,6 +10434,43 @@ void errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 )
 {  errmsg(*isev, *iprompt, fnam, msg1, msg2); }
 
 
+// ************************************************
+void errlog(
+	    FILE *fp      // FP or stdout
+	    ,int isev     // (I) severity flag
+	    ,char *fnam   // (I) name of function calling errmsg
+	    ,char *msg1   // (I) message to print 
+	    ,char *msg2   // (I) 2nd msg to print
+          ) 
+/*************************************
+   Created Jun 2021
+
+   Same ass errmsg, except:
+    + here fp is an argument to enable sending message to log file
+    + remove obolete iprompt argument.
+
+*************************************/
+{
+  char c_severe[40];  // char string for serverity 
+  // ------- begin function execution ------- 
+   switch ( isev )
+     {
+        case SEV_INFO  : sprintf(c_severe,"INFO");     break;
+        case SEV_WARN  : sprintf(c_severe,"WARNING");  break;
+        case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
+        case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
+     }
+   if ( isev == SEV_FATAL ) {  madend(0); }
+   // print severity and name of function
+   fprintf(fp, " %s called by %s\n", c_severe, fnam);
+   // print each message
+   if( strlen(msg1) > 0 ) { fprintf(fp,"   %s\n", msg1 ); }
+   if( strlen(msg2) > 0 ) { fprintf(fp,"   %s\n", msg2 ); }
+   fprintf(fp,"\n");   fflush(stdout);
+   if( isev == SEV_FATAL ) { exit(EXIT_ERRCODE); }
+   return ;
+
+}   // end of function "errlog"
 
 // ************************************************
 void madend(int flag) {

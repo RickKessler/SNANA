@@ -42,6 +42,7 @@
     + Adding glob utility
 
   Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
+  Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
 
 ********************************************************/
 
@@ -367,7 +368,7 @@ struct {
 #define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line
-#define MXWORDFILE_PARSE_WORDS 1000000   // max words to parse in a file
+#define MXWORDFILE_PARSE_WORDS 2000000   // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED
@@ -639,7 +640,7 @@ void  tabs_ABORT(int NTAB, char *fileName, char *callFun);
 void  missingKey_ABORT(char *key, char *file, char *callFun) ;
 void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
 
-void  errfp  ( FILE *fp, int  isev, char *fnam, char *msg1, char *msg2 );
+void  errlog ( FILE *fp, int  isev, char *fnam, char *msg1, char *msg2 );
 void  errmsg ( int  isev, int iprompt, char *fnam, char *msg1, char *msg2 );
 void  errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 );
 

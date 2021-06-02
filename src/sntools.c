@@ -10418,7 +10418,7 @@ void errmsg(
         case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
         case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
      }
-   if ( isev == SEV_FATAL ) {  madend(0); }
+   if ( isev == SEV_FATAL ) {  madend(stdout,0); }
    // print severity and name of function
    printf(" %s called by %s\n", c_severe, fnam);
    // print each message
@@ -10460,7 +10460,7 @@ void errlog(
         case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
         case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
      }
-   if ( isev == SEV_FATAL ) {  madend(0); }
+   if ( isev == SEV_FATAL ) {  madend(fp,0); }
    // print severity and name of function
    fprintf(fp, " %s called by %s\n", c_severe, fnam);
    // print each message
@@ -10473,22 +10473,22 @@ void errlog(
 }   // end of function "errlog"
 
 // ************************************************
-void madend(int flag) {
+void madend(FILE *fp, int flag) {
 
    char cmsg[40] = { "ABORT program on Fatal Error." };
 
    //   printf("\n");   printf("\n");
-   printf("\n   `|```````|`    ");
-   printf("\n   <| o\\ /o |>    ");
-   printf("\n    | ' ; ' |     ");
-   printf("\n    |  ___  |     %s ", cmsg);
-   printf("\n    | |' '| |     ");
-   printf("\n    | `---' |     ");
-   printf("\n    \\_______/    ");
-   printf("\n");
+   fprintf(fp, "\n   `|```````|`    ");
+   fprintf(fp, "\n   <| o\\ /o |>    ");
+   fprintf(fp, "\n    | ' ; ' |     ");
+   fprintf(fp, "\n    |  ___  |     %s ", cmsg);
+   fprintf(fp, "\n    | |' '| |     ");
+   fprintf(fp, "\n    | `---' |     ");
+   fprintf(fp, "\n    \\_______/    ");
+   fprintf(fp, "\n");
 
-   printf("\n");   
-   fflush(stdout);
+   fprintf(fp,"\n");   
+   fflush(fp);
 
    if ( flag == 1 ) { exit(EXIT_ERRCODE); }
 

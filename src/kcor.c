@@ -251,22 +251,22 @@ int main(int argc, char **argv) {
   read_SURVEYDEF();
 
   // read user input file for directions
-  if ( rd_input() != SUCCESS ) { madend(1) ; }
+  if ( rd_input() != SUCCESS ) { madend(stdout,1) ; }
 
   // read SN spectra and filter responses
-  if ( kcor_ini() != SUCCESS ) { madend(1) ;  }
+  if ( kcor_ini() != SUCCESS ) { madend(stdout,1) ;  }
 
   // allocate memory for multi-dimensional arrays.
-  if ( malloc_ini() != SUCCESS ) { madend(1) ; }
+  if ( malloc_ini() != SUCCESS ) { madend(stdout,1) ; }
 
   // determine SN color mag vs. day for each filter 
-  if ( snmag() != SUCCESS ) { madend(1) ; }
+  if ( snmag() != SUCCESS ) { madend(stdout,1) ; }
 
   //  do K-cor grid vs. redshifts, and days 
-  if ( kcor_grid() != SUCCESS ) { madend(1) ;  }
+  if ( kcor_grid() != SUCCESS ) { madend(stdout,1) ;  }
 
   // write output 
-  if ( kcor_out() != SUCCESS ) { madend(1) ; }
+  if ( kcor_out() != SUCCESS ) { madend(stdout,1) ; }
 
   // end it all 
   

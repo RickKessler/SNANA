@@ -645,7 +645,7 @@ void  errmsg ( int  isev, int iprompt, char *fnam, char *msg1, char *msg2 );
 void  errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 );
 
 void  prompt(char *msg) ;
-void  madend(int flag);           // indicates bad end of program
+void  madend(FILE *fp, int flag);   // indicates bad end of program
 void  happyend(void) ;    // happy end of program
 void  parse_err ( char *infile, int NEWMJD, char *keyword );
 void  print_preAbort_banner(char *fnam);

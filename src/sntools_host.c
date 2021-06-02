@@ -696,16 +696,26 @@ void  init_OUTVAR_HOSTLIB(void) {
   //
   // Feb 01 2020: 
   //  + call checkAlternateVarNames so that LOGMASS -> LOGMASS_TRUE.
+  // Jun 02 2021: abort if strlen(HOSTLIB_STOREPAR_LIST) is too long
 
   int   NVAR_STOREPAR, NVAR_OUT, NVAR_REQ, LOAD, ivar, ivar2, ISDUPL ;
   char  VARLIST_ALL[MXPATHLEN], VARLIST_LOAD[MXPATHLEN];
   char  varName[60], *varName2;
-  int   LDMP = 0 ;
+  int   LENLIST, LDMP = 0 ;
   char  fnam[] = "init_OUTVAR_HOSTLIB"     ;
 
   // ---------------- BEGIN ----------------
 
   HOSTLIB_OUTVAR_EXTRA.NOUT = NVAR_OUT = 0 ;
+
+  // check that STOREPAR_LIST doesn't overwrite array bound
+  LENLIST = strlen(INPUTS.HOSTLIB_STOREPAR_LIST);
+  if ( LENLIST > MXPATHLEN - 2 ) {
+    sprintf(c1err, "len(HOSTLIB_STOREPAR) = %d exceeds bound of %d",
+	   LENLIST, MXPATHLEN) ;
+    sprintf(c2err, "Remove some variables from HOSTLIB_STOREPAR");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   // note that VARLIST_ALL may contain duplicates
   // VARLIST_LOAD contains only unique variables, and is for print only

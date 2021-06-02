@@ -410,8 +410,9 @@ void init_commandLine_simargs(int argc, char **argv) {
   // Jul 21 2020
   //   + malloc ARGV_LIST
   //   + abort of NARGV_LIST >= MXARGV
+  // Jun 02 2021: use strlen(argv[i]) to malloc ARGV
 
-  int i;
+  int i, LENARG;
   char *inFile = INPUTS.INPUT_FILE_LIST[0] ;
   char fnam[] = "init_commandLine_simargs";
 
@@ -431,7 +432,9 @@ void init_commandLine_simargs(int argc, char **argv) {
     }
 
     for ( i = 0; i < NARGV_LIST ; i++ ) {
-      ARGV_LIST[i] = (char*) malloc( MXPATHLEN*sizeof(char) );
+      LENARG = strlen(argv[i]) + 10;
+	// xxx mark ARGV_LIST[i]=(char*) malloc( MXPATHLEN*sizeof(char) );
+      ARGV_LIST[i] = (char*) malloc( LENARG*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
       printf("%s ", argv[i]);

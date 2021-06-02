@@ -922,6 +922,8 @@ Default output files (can change names with "prefix" argument)
  May 12 2021: move read_data_override call before set_CUTMASK call.
  May 24 2021: disable cuts with "CUTWIN NONE"
  May 25 2021: new debug_malloc=1 input
+ Jun 02 2021: replace all errmsg with new errlog that includes
+               FP_STDOUT argument.
 
  ******************************************************/
 
@@ -2367,7 +2369,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   if (argc < 2) {
     sprintf(c1err,"Must give param-input file as arguent");
     sprintf(c2err,"to SALT2mu program. See manual.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   fprintf(FP_STDOUT, "\n\t Start program %s \n\n", argv[0]) ;
@@ -2813,7 +2815,7 @@ void setup_BININFO_redshift(void) {
     if ( LEN > MXPATHLEN - 10 ) {
       sprintf(c1err,"len(zbinuser) = %d is too long", LEN );
       sprintf(c2err,"Reduce size or increase array bound.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     setup_BININFO_userz(); 
   }
@@ -2827,7 +2829,7 @@ void setup_BININFO_redshift(void) {
   else {
     sprintf(c1err,"Found no BBC z-bin option.");
     sprintf(c2err,"Check nzbin, nlogzbin, and zbinuser keys");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   
   return ;
@@ -2859,7 +2861,7 @@ void setup_BININFO_userz(void) {
   if ( Nsplit <= 1 || Nsplit >= MXz ) {
     sprintf(c1err,"Invalid Nsplit=%d for", Nsplit);
     sprintf(c2err,"zbinuser=%s\n", INPUTS.zbinuser);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   INPUTS.BININFO_z.nbin  = nzbin ;
@@ -3103,7 +3105,7 @@ void setup_zbins_fit(void) {
   if ( NZFLOAT <= 0 )     {
     sprintf(c1err,"no z bin with at least %d SN", INPUTS.min_per_zbin);
     sprintf(c2err,"Check input fitres file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -3446,7 +3448,7 @@ void check_vpec_sign(void) {
   if ( rms[1] < rms[0] ) {
     sprintf(c1err,"RMS(MURES) is smaller with vpec sign-flip.");
     sprintf(c2err,"See RMS(MURES) values above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   //  debugexit(fnam);
@@ -3627,7 +3629,7 @@ void check_duplicate_SNID(void) {
     sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
 	    NDUPL_TOT, MXSTORE );
     sprintf(c2err,"Check duplicates");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
  
@@ -3638,7 +3640,7 @@ void check_duplicate_SNID(void) {
   else if ( iflag == IFLAG_DUPLICATE_ABORT ) {
     sprintf(c1err,"Duplicates not allowed.");
     sprintf(c2err,"Check input FITRES file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   else if ( iflag == IFLAG_DUPLICATE_AVG ) {
     fprintf(FP_STDOUT, " merge duplicates.\n");
@@ -3648,7 +3650,7 @@ void check_duplicate_SNID(void) {
   else {
     sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
     sprintf(c2err,"grep IFLAG_DUPLICATE  SALT2mu.c");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -3982,7 +3984,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     if ( NERR > 0 ) {
       sprintf(c1err,"%d thread return code errors", NERR);
       sprintf(c2err,"NCALL_FCN=%d", FITRESULT.NCALL_FCN );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
     }  
   } // end ntrhread>1
 #endif
@@ -4563,7 +4565,7 @@ double fcn_M0(int n, double *M0LIST) {
     if ( NSN_BIASCOR <= 0 ) {
       sprintf(c1err,"Cannot implement option uM0=%d", INPUTS.uM0 );
       sprintf(c2err,"without simFile_bias");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
     }
     
     NBINz   = INPUTS.BININFO_z.nbin ;
@@ -4586,7 +4588,7 @@ double fcn_M0(int n, double *M0LIST) {
       iz1 = -9 ;
       sprintf(c1err,"Could not determine iz1" );
       sprintf(c2err,"iz0=%d zbin0=%f  NBINz=%d", iz0, zbin0, NBINz);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
     }
 
     // if interp z-bin does not float M0, then just return
@@ -4616,7 +4618,7 @@ double fcn_M0(int n, double *M0LIST) {
   else {
     sprintf(c1err,"Invalid uM0=%d", INPUTS.uM0 );
     sprintf(c2err,"data index n=%d", n);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
   return(M0);
@@ -4796,7 +4798,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 
     sprintf(c1err,"Invalid SUMWGT=%f  (called from %s)", SUMWGT, callFun);
     sprintf(c2err,"IA=%d  IB=%d  IG=%d", IA, IB, IG);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
   // divide WGT by SUMWGT so that \Sum WGT = 1
@@ -4844,7 +4846,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   if ( NEGWGT ) {
     sprintf(c1err,"Invalid Negative weight (called from %s)", callFun);
     sprintf(c2err,"See dump above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
   return ;
@@ -4968,7 +4970,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
     sprintf(c1err,"muerrsq = %le is less than muerrsq_z = %le", 
 	    muerrsq, muerrsq_z );	
     sprintf(c2err,"for SN = %s ", name);   
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   return(muerrsq) ;
@@ -5144,7 +5146,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
     sprintf(c1err,"Cannot subtract zpecerr from zerr for SNID=%s", name );
     sprintf(c2err,"zerr=%f > (1+z)*zpecerr = (%f)*%f", 
 	    zerr, 1+z, zpecerr_orig);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
   sqarg    = (sqzerr1 - sqzerr2 + sqzerr3 );
@@ -5156,7 +5158,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
     printf("   zpecerr_user = %f \n", zpecerr_user);
     sprintf(c1err,"sqrt(negative number); Cannot adjust zHDERR for CID=%s", name);
     sprintf(c2err,"Check pre-abort dump above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   zerr_new = sqrt(sqarg );
 
@@ -5561,7 +5563,7 @@ void read_data(void) {
   if ( NPASS == 0 ) {
     sprintf(c1err,"All DATA events fail cuts");
     sprintf(c2err,"Check cut-windows in SALT2mu input file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
 
@@ -5776,32 +5778,32 @@ void read_data_override(void) {
   if ( NVAR_OVER == 0 ) {
     sprintf(c1err,"Found zero override variables.");
     sprintf(c2err,"Check VARNAMES in datafile_override");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   
 
   if ( IVAR_OVER_zHD >= 0 && IVAR_OVER_zHEL >= 0 ) {
     sprintf(c1err,"Cannot override both zHD and zHEL; pick one");
     sprintf(c2err,"and SALT2mu auto-computes override of the other.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( IVAR_OVER_zHD >= 0 && IVAR_OVER_VPEC >= 0 ) {
     sprintf(c1err,"Cannot override both zHD and VPEC; pick one");
     sprintf(c2err,"and SALT2mu auto-computes override of the other.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( IVAR_OVER_zCMB >= 0 ) {
     sprintf(c1err,"Cannot override zCMB.");
     sprintf(c2err,"Try overrid for zHEL or zHD");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( IVAR_OVER_zHELERR >= 0 ) {
     sprintf(c1err,"Sorry, zHELERR override not implemented yet.");
     sprintf(c2err,"Please post Github issue if this is important.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // - - - - - - 
@@ -5832,7 +5834,7 @@ void read_data_override(void) {
   if ( NVAR_OVER >= MXVAR_OVERRIDE )  {
     sprintf(c1err,"NVAR_OVERRIDE=%d exceeds bound.", NVAR_OVER);
     sprintf(c2err,"Check MXVAR_OVERRIDE=%d parameter", MXVAR_OVERRIDE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   /*
@@ -5879,7 +5881,7 @@ void read_data_override(void) {
     else {
       sprintf(c1err,"Unable to implement override for %s", varName);
       sprintf(c2err,"Might need to update function %s", fnam );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }  // end ivar_over loop
 
@@ -6817,7 +6819,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     if ( ivar < 0 ) {
       sprintf(c1err,"Required FIELD column missing");
       sprintf(c2err,"Check CUTFIELD or fieldGroup_biascor keys");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
     }
   }
 
@@ -7132,7 +7134,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     sprintf(c1err,"Invalid IDSURVEY=%d (unsigned short) for %s SNID=%s", 
 	    IDSURVEY, STRTYPE, name );
     sprintf(c2err,"Check $SNDATA_ROOT/SURVEY.DEF" );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -7211,7 +7213,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( zhd < 0 && strlen(INPUTS.varname_z)==0 ) { 
     sprintf(c1err,"Invalid %s redshift = %f ", STRTYPE, zhd );
     sprintf(c2err,"for ISN=%d, SNID='%s' ", ISN, name );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
   // - - - - - - - 
@@ -7261,7 +7263,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
       if ( !IS_SIM ) {
 	sprintf(c1err,"Cannot force_pIa=perfect for real data.");
 	sprintf(c2err,"This option works only for sim data.") ;
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
       }
       if ( SIM_NONIA_INDEX == 0 )
 	{ TABLEVAR->pIa[ISN] = 1.0; } // it's a true SNIa
@@ -7550,7 +7552,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
       sprintf(c1err,"Missing column varname_pIa='%s' .",  varname_pIa);
       sprintf(c2err,"Try adding %s to check type_list_probcc0",
 	      survey_missing_list) ;
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
     }
 
     
@@ -7951,7 +7953,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
       sprintf(c1err,"Invalid IDSURVEY=%d for SNID=%s", IDSURVEY, NAME_SN);
       sprintf(c2err,"Check $SNDATA_ROOT/SURVEY.DEF" );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     // strip off stuff into local var
@@ -8018,7 +8020,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 	dump_SAMPLE_INFO(EVENT_TYPE_DATA);
 	sprintf(c1err,"NSAMPLE_BIASCOR=%d exceeds bound.", N);
 	sprintf(c2err,"Check IDSURVEY and FIELDGROUP ");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
       }
     }
    
@@ -8036,7 +8038,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 	      IDSAMPLE, NAME_SN, isn );
       sprintf(c2err,"SURVEY=%s(%d)  FIELD=%s", 
 	      SURVEYDEF, IDSURVEY, FIELDDEF );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDSAMPLE ; 
@@ -8159,8 +8161,8 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
     if ( NSPLIT_TMP != 2 ) {
       sprintf(c1err,"Invalid NSPLIT_TMP=%d for '%s' (expect 2)", 
 	      NSPLIT_TMP, ptr_binString[isplit] );
-      sprintf(c2err,"check surveygroup_biascor key in input file." );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;   
+      sprintf(c2err,"check surveygroup_biascor key in input file." ); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     sscanf(ptr_binVar[1],"%le", &value); // strip off value
 
@@ -8175,7 +8177,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
       sprintf(c1err,"Invalid varName '%s' in '%s' ", 
 	      ptr_binVar[0], STRINGOPT );
       sprintf(c2err,"check surveygroup_biascor key in input file." );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;   
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     
     if ( LDMP ) 
@@ -8317,7 +8319,7 @@ void  set_SURVEYGROUP_biasCor(void) {
 	sprintf(c1err,"Undefined SURVEY = '%s'", ptrTmp[i2] );
 	sprintf(c2err,"check SURVEYGROUP = '%s' ", 
 		INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[i] );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
       }
 
       // May 29 2020: abort if there is no data in this requested sample
@@ -8325,7 +8327,7 @@ void  set_SURVEYGROUP_biasCor(void) {
       if ( NEVT == 0 && INPUTS.surveyGroup_biasCor_abortFlag ) {
         sprintf(c1err,"No data for requested SURVEY = %s(%d)", ptrTmp[i2],ID);
         sprintf(c2err,"Check input key surveygroup_biascor");
-        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+        errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
       }
 
   
@@ -8384,7 +8386,7 @@ void  set_SURVEYGROUP_biasCor(void) {
     sprintf(c1err,"NSURVEYGRPOUP=%d exceeds bound of MXNUM_SAMPLE=%d",
 	    NGRP, MXNUM_SAMPLE );
     sprintf(c2err,"check samples." );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   print_debug_malloc(-1,fnam);
@@ -8443,7 +8445,7 @@ void sort_IDSAMPLE_biasCor(void) {
       if ( !ISGRP0 && ISGRP2 && SMATCH ) {
 	sprintf(c1err,"Found %s events NOT in FIELDGROUP", s0);
         sprintf(c2err,"Define all fields in fieldgroup_biascor key.");
-        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+        errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
 
       }
 
@@ -8561,7 +8563,7 @@ void sort_IDSAMPLE_biasCor(void) {
 	      ID, SAMPLE_BIASCOR_TEMP[ID].NAME, NCOPY[ID] );
       sprintf(c2err,"but should be copied once (NSAMPLE=%d, NSORT=%d)",
 	      NSAMPLE, NSORT );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
@@ -8681,13 +8683,13 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
   if ( NZERR > 0 ) {
     sprintf(c1err,"zMAX < zMIN for %d IDSAMPLEs", NZERR);
     sprintf(c2err,"See IDSAMPLE dump above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( ABORT_ON_NEVTZERO && NSAMPLE_ZERO ) {
     sprintf(c1err,"%d of %d SAMPLES have zero events.", NSAMPLE_ZERO,N);
     sprintf(c2err,"Check %s sample.", STRTYPE );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
   }
 
   fflush(FP_STDOUT);
@@ -8769,7 +8771,7 @@ void match_fieldGroup(char *SNID, char *FIELD,
     }
     sprintf(c1err,"Invalid NMATCH_TOT=%d for CID=%s",   NMATCH_TOT, SNID );
     sprintf(c2err,"FIELD='%s' and FIELDGROUP list", FIELD);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   return ;
@@ -8824,7 +8826,7 @@ void match_surveyGroup(char *SNID, int IDSURVEY,
     sprintf(c1err,"Invalid NMATCH_TOT=%d for CID=%s",   NMATCH_TOT, SNID );
     sprintf(c2err,"IDSURVEY=%d(%s)", 
 	    IDSURVEY, SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   return ;
@@ -8868,7 +8870,7 @@ int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
     printf("  Input SURVEYGROUP = %s \n", SURVEYGROUP );
     sprintf(c1err,"Invalid check on FIELDGROUP & SURVEYGROUP");
     sprintf(c2err,"Check surveygroup_biascor and fieldgroup_biascor keys");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   xxxx */
 
@@ -8908,7 +8910,7 @@ int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
       printf("  Matches SURVEYGROUP[%d] = %s \n",  i, SURVEYGROUP_TMP );
       sprintf(c1err,"Invalid match to both FIELD & SURVEY group");
       sprintf(c2err,"Check surveygroup_biascor and fieldgroup_biascor keys");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     if ( DUMPFLAG ) { 
@@ -9047,14 +9049,14 @@ void prepare_biasCor(void) {
     else {
       sprintf(c1err,"Invalid opt_biascor=%d", OPTMASK );
       sprintf(c2err,"grep MASK_BIASCOR  SALT2mu.c | grep define ");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
   if ( DOCOR_1D && DOCOR_5D ) {
     sprintf(c1err,"Cannot do 1D and 5D biasCor.");
     sprintf(c2err,"opt_biascor logic is messed up.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   
   fprintf(FP_STDOUT, "\n\t Use simulaton to interpolate %s biasCor\n", 
@@ -9246,7 +9248,7 @@ void prepare_biasCor(void) {
   if ( NSKIP_TOT == NUSE_TOT ) {
     sprintf(c1err,"Could not compute biasCor");
     sprintf(c2err,"Something is messed up.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // check option for JLA-like correction
@@ -9439,7 +9441,7 @@ void  prepare_biasCor_zinterp(void) {
     if ( iz >= MXz ) {
       sprintf(c1err,"iz=%d exceeds bound for z=%.4f", iz, z);
       sprintf(c2err,"Check MAXBIN_z in SALT2mu.c");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     // get approx error using only diagonal covariance
@@ -9486,7 +9488,7 @@ void  prepare_biasCor_zinterp(void) {
     print_eventStats(EVENT_TYPE_BIASCOR);
     sprintf(c1err,"NCUTS=%d is too few.", NCUTS );
     sprintf(c2err,"Something is wrong.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // --------------------------------
@@ -9686,7 +9688,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
 	    NCELL, MAXBIN_BIASCOR_1D ) ;
     sprintf(c2err,"NBIN(a,b,g,  z,m,x1,c) = %d,%d,%d   %d,%d,%d,%d",
 	    NBINa, NBINb, NBINg, NBINz, NBINm, NBINx1, NBINc);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   CELLINFO_BIASCOR[IDSAMPLE].NCELL = NCELL ;
@@ -9863,7 +9865,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 	sprintf(c1err,"NJ1DNBR=%d exceeds bound of %d",
 		NJ1DNBR, MXJ1DNBR);
 	sprintf(c2err,"J1D=%d", J1D);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
       }
       NgetList++ ;
     }
@@ -9875,7 +9877,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       if ( J1D_nbr < 0 || J1D_nbr >= NCELL ) {
 	sprintf(c1err,"Invalid J1D_nbr=%d for inbr=%d", J1D_nbr, inbr);
 	sprintf(c2err,"J1D=%d", J1D);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
       }
       sumsq_nbr += sumsq[J1D_nbr] ;
       sum_nbr   += sum[J1D_nbr] ;
@@ -9912,7 +9914,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
       sprintf(c1err,"No BiasCor events passed for %s", 
 	      SAMPLE_BIASCOR[IDSAMPLE].NAME );
       sprintf(c2err,"Check BiasCor file" );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
     }
 
     fflush(FP_STDOUT);
@@ -10503,7 +10505,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       sprintf(c1err,"Invalid muErrsq=%f for ievt=%d (SNID=%s)", 
 	      muErrsq, ievt, name );
       sprintf(c2err,"Something is messed up.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
     }
 
     muErr   = sqrt(muErrsq) ;    
@@ -10844,7 +10846,7 @@ void get_COVINT_biasCor(int IDSAMPLE, double z,
     sprintf(c1err, "Invalid argument(s)");
     sprintf(c2err, "IDSAMPLE=%d  z=%.4f  a=%.4f  b=%.4f  g=%.3f", 
 	    IDSAMPLE, z, alpha, beta, gammadm );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   zero_COV(COVINT);
@@ -11363,13 +11365,13 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
       sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
 	      i, muErrsq, NAME );
       sprintf(c2err,"muDif=%le ", muDif);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
     }
 
     if ( isnan(muErrsq) || isnan(muDif) ) {
       sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", NAME, i);
       sprintf(c2err,"muErrsq=%le, muDif=%le ", muErrsq, muDif);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
     }
 
 
@@ -11394,7 +11396,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
       sprintf(c1err,"NUSE[ia,ib,ig=%d,%d,%d] = %d exceeds malloc size",
 	      ia, ib, ig, NUSE[ia][ib][ig] );
       sprintf(c2err,"NROW_malloc = %d", NROW_malloc);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
     }
     // xxxxxxxxxx
 
@@ -11420,7 +11422,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 		  ia, ib, ig, NUSE[ia][ib][ig] );
 	  sprintf(c2err,"Check biasCor events with SNR> %.1f",
 		  INPUTS.snrmin_sigint_biasCor ) ;
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
 	}
 	
 	tmp1   = SUMDIF[ia][ib][ig]/XN ;
@@ -11437,7 +11439,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 		  INPUTS.snrmin_sigint_biasCor );
 	  sprintf(c2err,"<muErr>=%f   RMS(mures)=%f   ia,ib,ig = %d,%d,%d", 
 		  muErr, RMS, ia, ib, ig );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
 	}
 
 	sigInt = sqrt(SQRMS - muErrsq) ;  // approx sigInt
@@ -11470,7 +11472,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	      sprintf(c1err,"crazy pull = %f  ia,ib,ig=%d,%d,%d",
 		      pull, ia, ib, ig );
 	      sprintf(c2err,"i=%d  muDif=%f muErrsq = %f", i, muDif, muErrsq);
-	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	    }
 	    sumdif   += pull ;
 	    sumdifsq += (pull*pull);
@@ -11612,7 +11614,7 @@ void  makeSparseList_biasCor(void) {
     if ( isp < 0 || isp > NROW ) {
       sprintf(c1err,"Invalid isp=%d (must be 0 to %d)", isp, NROW);
       sprintf(c2err,"Something is messed up.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     SAMPLE_BIASCOR[idsample].IROW_CUTS[isp] = irow;
     SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS++ ;
@@ -11827,7 +11829,7 @@ void calc_zM0_data(void) {
     if ( muerr < 1.0E-8 ) {
       sprintf(c1err,"muerr(%s) = %f  (i=%d) \n", name, muerr, i);
       sprintf(c2err,"z = %.3f +- %0.3f ", z, zerr);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     iz         = IBINFUN(z,  &INPUTS.BININFO_z, 0, "" );
@@ -11917,7 +11919,7 @@ double zmu_solve(double mu, double *cosPar) {
     if ( NITER > 500 ) {
       sprintf(c1err,"Could not solve for z after NITER=%d", NITER);
       sprintf(c2err,"mu=%f  dmu=%f  ztmp=%f", mu, dmu, z);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   } // end dz
 
@@ -12375,7 +12377,7 @@ int get_fitParBias(char *cid,
 	    sprintf(c1err,"Invalid j1d=%d ", j1d);
 	    sprintf(c2err,"ia=%d ib=%d ig=%d iz=%d im=%d ix1=%d ic=%d (cid=%s)",
 		    ia, ib, ig, iz, im, ix1, ic, cid);
-	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	  }
 	
 	  // require something in a cell to use the bias estimate
@@ -12529,7 +12531,7 @@ int get_fitParBias(char *cid,
     sprintf(c2err,"a=%.3f b=%.2f gDM=%.3f  "
 	    "z=%.4f  m=%.2f mB=%.4f x1=%.4f c=%.4f", 
 	    a, b, gDM, z, m, mB, x1, c ) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }      
   
   // update bias for each fit param (ipar=mB,x1,c)
@@ -12656,7 +12658,7 @@ int get_muCOVscale(char *cid,
 	  sprintf(c1err,"Invalid j1d=%d ", j1d);
 	  sprintf(c2err,"ia=%d ib=%d iz=%d ic=%d",
 		  ia, ib, iz, ic);
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
 
       // get distance between current data value and bin-center
@@ -12841,8 +12843,8 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     */
   }
   else {
-    sprintf(c1err,"Invalid ipar_LCFIT=%d", ipar_LCFIT );
-    errmsg(SEV_FATAL, 0, fnam, c1err, "" );    
+    sprintf(c1err,"Invalid ipar_LCFIT=%d", ipar_LCFIT );    
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, ""); 
   }
 
 
@@ -12853,7 +12855,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     sprintf(c1err,"%s VAL_MAX=%f  <=  VAL_MIN=%f", 
 	    NAME, VAL_MAX, VAL_MIN);
     sprintf(c2err,"VAL_BIN = %f \n", VAL_BIN);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // -----------------------------
@@ -12884,7 +12886,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     sprintf(c1err,"nbin = %d exceeds MAXBIN=%d or MXpar=%d", 
 	    nbin, MAXBIN, MXpar );
     sprintf(c2err,"Check %s binning.", NAME);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);       
   }
 
   fflush(FP_STDOUT);
@@ -12948,7 +12950,8 @@ void  get_BININFO_biasCor_abg(char *varName,
   }
   else {
     sprintf(c1err,"Invalid varName = '%s' ", varName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, "Must be SIMalpha or SIMbeta");  
+    sprintf(c2err,"Must be SIMalpha or SIMbeta");  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);    
   }
   
 
@@ -13001,7 +13004,7 @@ void  get_BININFO_biasCor_abg(char *varName,
     sprintf(c1err,"%d %s values exceeds bound of %d",
 	    NVAL, varName, NBMAX);
     sprintf(c2err,"Check biasCor sample.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
 
@@ -13021,7 +13024,7 @@ void  get_BININFO_biasCor_abg(char *varName,
   else {
     sprintf(c1err,"Invalid NVAL=%d for %s", NVAL, varName);
     sprintf(c2err,"val(1st,2nd) = %f, %f", val1st, val2nd);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
   /* xxxx
@@ -13098,7 +13101,7 @@ void check_abg_minmax_biasCor(char *varName, double *valmin_list,
 
     sprintf(c1err,"%d min/max errors in alpha,beta,gamma grid",	NERR);
     sprintf(c2err,"Check min & max vs. IDSAMPLE above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
   return ;
@@ -13175,7 +13178,7 @@ void get_muBias(char *NAME,
 	  sprintf(c1err,"Undefined WGTabg=%le for CID=%s", WGTabg, NAME);
 	  sprintf(c2err,"ia,ib,ig=%d,%d,%d  a,b,g=%.3f,%.2f,%.3f  z=%.3f",
 		  ia, ib, ig, alpha, beta, gammadm, z );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
 	}
       
 	for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX ; ipar++ ) {
@@ -13186,7 +13189,7 @@ void get_muBias(char *NAME,
 		    BIASCOR_NAME_LCFIT[ipar], VAL, ERR, NAME);
 	    sprintf(c2err,"ia,ib,ig=%d,%d,%d  a,b,g=%.3f,%.2f,%.3f",
 		    ia, ib, ig, alpha, beta, gammadm );
-	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+	    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
 	  }
 	  
 	  WGTpar = WGTabg ;
@@ -13229,7 +13232,7 @@ void get_muBias(char *NAME,
     }    
     sprintf(c1err,"isnan(SQERR) for CID = %s", NAME);
     sprintf(c2err,"z=%.3f", z );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
   
   muBiasErr_local = sqrt(SQERR);
@@ -13247,7 +13250,7 @@ void get_muBias(char *NAME,
     }
     sprintf(c1err,"Crazy muBias=%f for CID = %s",  muBias_local, NAME);
     sprintf(c2err,"z=%.3f  mB=%.3f  x1=%.3f  c=%.4f", z, mB, x1, c );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
   *muBias     = muBias_local ;
@@ -13338,7 +13341,7 @@ void prepare_CCprior(void) {
   if ( NDIM_BIASCOR == 1 ) {
     sprintf(c1err,"Cannot use 1D biasCor with CC likelihood.");
     sprintf(c2err,"Either remove CC term, or use 5D biasCor.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
 
 
@@ -13977,7 +13980,7 @@ void  setup_contam_CCprior(char *which, CONTAM_INFO_DEF *CONTAM_INFO) {
   else {
     sprintf(c1err,"Invalid which = '%s'", which);
     sprintf(c2err,"Valid which options: MURES and REDSHIFT");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
   }
   
   for(i=0; i < nb; i++  ) {
@@ -14440,8 +14443,8 @@ int IBINFUN(double VAL, BININFO_DEF *BIN, int OPT, char *MSG_ABORT ) {
   if ( OPT == 1 ) {
     sprintf(c1err,"Cannot find IBIN for %s=%f "
 	    "(range: %.3f to %.3f)", 
-	    BIN->varName, VAL, BIN->lo[0], BIN->hi[BIN->nbin-1] );
-    errmsg(SEV_FATAL, 0, fnam, c1err, MSG_ABORT);  
+	    BIN->varName, VAL, BIN->lo[0], BIN->hi[BIN->nbin-1] );  
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, MSG_ABORT);   
   }
   
   // xxxx  if ( VAL > BIN-hi[nbin-1] ) { IBIN = 999999 ; }
@@ -14538,7 +14541,7 @@ void print_eventStats(int event_type) {
   if ( *NSN_PASS == 0 ) {
     sprintf(c1err,"All %s events fail cuts.", STRTYPE);
     sprintf(c2err,"Check NCUT vs. cut listed above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   fprintf(FP_STDOUT, "#%s\n\n", dashLine);
@@ -14570,7 +14573,7 @@ void print_eventStats(int event_type) {
       sprintf(c1err,"%d missing biasCor samples; see WARNINGS above.", 
 	      NMISSING);
       sprintf(c2err,"Check data and biasCor samples for mis-match.") ; 
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
     }
   }
 
@@ -14972,7 +14975,7 @@ int outside_biasCor_grid(int isn) {
   if ( idsample < 0 ) {
     sprintf(c1err,"Invalid idsample = %d ", idsample);
     sprintf(c2err,"isn=%d (SNID=%s)", isn, name);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // make sure values are within grid
@@ -15044,8 +15047,8 @@ void parse_parFile(char *parFile ) {
   fdef = fopen(parFile,"rt");
   if (!fdef) {
     sprintf(c1err,"could not open SALT2mu parameter-input file:");
-    sprintf(c1err," %s ", parFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    sprintf(c2err," %s ", parFile);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -15138,7 +15141,7 @@ void override_parFile(int argc, char **argv) {
     if ( found == 0 ) {
       sprintf(c1err,"Invalid command-line override:");
       sprintf(c2err,"%s", item);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
   } // end i loop 
@@ -15509,7 +15512,7 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"host_logmass_split="))  {
     sprintf(c1err,"Input host_logmass_split is obsolete !");
     sprintf(c2err,"Use p7 and u7 instead.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -15818,7 +15821,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 	   strstr(cid,"=")   != NULL )   {
 	sprintf(c1err,"Invalid cid string = '%s'",cid);
 	sprintf(c2err,"Check cid_select_file %s",fileName);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
       }
     } // end LOAD_CID
 
@@ -15831,7 +15834,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
     sprintf(c1err,"NCID_LOAD=%d but  NCID_EXPECT = %d", 
 	    NCID_LOAD, NCID_EXPECT );
     sprintf(c2err,"Something is really messed up.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
 
@@ -15895,7 +15898,7 @@ void prep_input_nmax(char *item) {
       if ( ID < 0  ){
 	sprintf(c1err,"Invalid survey = '%s'", survey) ;
 	sprintf(c2err,"Check nmax string in the input file");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
       }
       INPUTS.nmax[ID] = nmax;
     }
@@ -16046,7 +16049,7 @@ void parse_chi2max(char *item) {
     if ( SURVEY_CUTS  ) { 
       sprintf(c1err,"Cannot define chi2max after chi2max(SURVEYLIST)");
       sprintf(c2err,"Remove chi2max or define it BEFORE chi2max(SURVEY)");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     return ;
   }
@@ -16077,7 +16080,7 @@ void parse_chi2max(char *item) {
       sprintf(c1err,"Cannot mix %s option with SURVEY", STRING_FITWGT0);
       sprintf(c2err,"Either remove %s or remove survey names", 
 	      STRING_FITWGT0 );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     idsurvey = get_IDSURVEY(survey);
     INPUTS.chi2max_list[idsurvey] = chi2max ; 
@@ -16111,7 +16114,7 @@ void parse_blindpar(char *item) {
   else {
     sprintf(c1err,"Invalid input '%s'", item);
     sprintf(c2err,"Check valid blindpar keys");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   splitString(item_local, COMMA, MXARG,    // inputs
@@ -16169,7 +16172,7 @@ void parse_prescale_biascor (char *item) {
   if ( PS0 < 0 || PS0 >= PS1 ) {
     sprintf(c1err,"Invalid prescale_biascor=%d,%d", PS0, PS1);
     sprintf(c2err,"Check SALT2mu input file");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 } // end of parse_prescale_biascor
@@ -16197,7 +16200,7 @@ void parse_IDSAMPLE_SELECT(char *item) {
   if ( strstr(itemLocal,",") != NULL ) {
     sprintf(c1err,"Illegal comma delimeter in idsample_select key");
     sprintf(c2err,"Try plus (+) delimeter instead.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   splitString(itemLocal, PLUS, MXNUM_SAMPLE,      // inputs
@@ -16266,7 +16269,7 @@ void parse_sigint_fix(char *item) {
     if ( Nsigint != NSAMPLE ) {
       sprintf(c1err,"Nsiginit=%d != N_IDSAMPLE=%d", Nsigint, NSAMPLE);
       sprintf(c2err,"sigint_fix=%s must include each IDSAMPLE",	 item) ;
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
     for(idsample=0; idsample < Nsigint; idsample++ ) {
@@ -16376,7 +16379,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
     if ( i < 3 && ptrtok == NULL ) {
       sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
       sprintf(c2err,"for line_CUTWIN = '%s' ", line_CUTWIN);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
     }
   }
 
@@ -16420,7 +16423,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
 	else {
 	  sprintf(c1err,"Invalid CUTWIN option: '%s'", cutwinOpt);
 	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
 
       } // end opt loop
@@ -16596,7 +16599,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 
 	    VARNAME, ivar, icut, isData );
     sprintf(c2err,"Check CUTWIN keys in input file" ); 
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( L_VALID_VAR ) { 
@@ -16872,7 +16875,7 @@ void SPLITRAN_SUMMARY(void) {
   if ( !fp )  {
     sprintf(c1err,"Could not open SPLITRAN summary file:");
     sprintf(c2err,"%s", OUTFILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   fprintf(FP_STDOUT, "\n SPLITRAN SUMMARY is in %s \n", OUTFILE);
@@ -17001,7 +17004,7 @@ void parse_ZPOLY_COVMAT(char *item) {
   else {
     sprintf(c1err,"Could not parse '%s' (key=%s)", KEY, key );
     sprintf(c2err,"Check ZPOLY keys in SALT2mu input file");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   // load polynomial parameters
@@ -17145,7 +17148,7 @@ void prep_input_driver(void) {
     printf("\t zbinuser='%s' \n",  INPUTS.zbinuser);
     sprintf(c1err,"%d inputs specify number of redshift bins.", NTMP);
     sprintf(c2err,"Only one of these must be specified.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( INPUTS.nlogzbin > 0 ) { INPUTS.nzbin = INPUTS.nlogzbin ; }
@@ -17155,7 +17158,7 @@ void prep_input_driver(void) {
     sprintf(c1err,"NFITPAR=%d (%d z bins + %d params)",
 	    NFITPAR, INPUTS.nzbin, MXCOSPAR );
     sprintf(c2err,"But MAXPAR_MINUIT = %d", MAXPAR_MINUIT );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   NSIMCC = NSIMDATA = 0 ;
@@ -17183,7 +17186,7 @@ void prep_input_driver(void) {
     sprintf(c1err,"nzbin=%d exceeds bound of MAXBIN_z=%d", 
 	    INPUTS.nzbin, MXz);
     sprintf(c2err,"Check 'bins=' key in input file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
   if (INPUTS.Nsntype <= 0 ) 
@@ -17258,7 +17261,7 @@ void prep_input_driver(void) {
     sprintf(c1err,"opt_biascor=%d but simfile_biascor is not defined .",
 	    INPUTS.opt_biasCor);
     sprintf(c2err,"Provide simfile_biascor, or set opt_biascor=0");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   
 
@@ -17268,7 +17271,7 @@ void prep_input_driver(void) {
     if ( strlen(varname_pIa) > 0 ) {
       sprintf(c1err,"Illegal varname_pIa=%s without CC prior.", varname_pIa);
       sprintf(c2err,"Must set simfile_ccprior with varname_pIa");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
     }
     INPUTS.ipar[IPAR_scalePCC] = 0 ; // do NOT float scalePCC   
   }
@@ -17348,7 +17351,7 @@ void prep_input_driver(void) {
     sprintf(c1err, "Invalid z range zmin=%f zmax=%f",
 	    INPUTS.zmin,INPUTS.zmax);
     sprintf(c2err,"Check inputs zmin and zmax");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
   // prepare stuff related to gamma = HR step
@@ -17360,7 +17363,7 @@ void prep_input_driver(void) {
     if ( TAU < 0.001 ) {
       sprintf(c1err,"Invalid LOGMASS_TAU = %.4f for gammma0 fit", TAU);  
       sprintf(c2err,"logmasss_tau(p8) should be at least .01");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
@@ -17400,7 +17403,7 @@ void prep_input_driver(void) {
       sprintf(c1err, "nthread=%d exceeds bound of MXTHREAD=%d", 
 	      nthread, MXTHREAD );
       sprintf(c2err, "Either reduce nthread or increase MXTHREAD");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
@@ -17523,7 +17526,7 @@ void prep_input_probcc0(void) {
     sprintf(c1err,"Found %d errors above.", NERR );
     sprintf(c2err,"check inputs "
 	    "type_list_probcc0 and idsurvey_list_probcc0");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   //  debugexit(fnam);
@@ -17758,7 +17761,7 @@ void  printmsg_fitStart(FILE *fp) {
   if ( INPUTS.NSPLITRAN > MXSPLITRAN ) {
     sprintf(c1err,"NSPLITRAN = %d exceeds bound.", INPUTS.NSPLITRAN);
     sprintf(c2err,"Check MXSPLITRAN = %d", MXSPLITRAN);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
 
@@ -17975,7 +17978,7 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
 	    PARNAME, parval_next, NFIT_ITER);
     sprintf(c2err,"redchi2=%.2f, parval[orig,step]=%.3f,%.3f ", 
 	    redchi2, parval_orig, parval_step);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   return(parval_next);
@@ -18018,7 +18021,7 @@ void conflict_check() {
     }
     sprintf(c1err,"Found %d input conflicts (see above).", NERR );
     sprintf(c2err,"Check inputs.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( !INPUTS.cat_only ) {
@@ -18027,7 +18030,7 @@ void conflict_check() {
     if ( zmin < 0.0 || zmax > 9.0 ) {
       sprintf(c1err,"Input file must specify zmin and zmax");
       sprintf(c2err," ");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
@@ -18158,7 +18161,7 @@ void write_yaml_info(char *fileName) {
   if ( !fp )  {
     sprintf(c1err,"Could not open YAML summary file:");
     sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   for(event_type=1; event_type < MXEVENT_TYPE; event_type++ ) {
@@ -18253,7 +18256,7 @@ void  write_M0_fitres(char *fileName) {
   if ( !fp )  {
     sprintf(c1err,"Could not open M0-outFile");
     sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   fprintf(FP_STDOUT, "\n Write MUDIF vs. redshift to %s\n" , fileName); 
@@ -18361,7 +18364,7 @@ void  write_M0_csv(char *fileName) {
   if ( !fp )  {
     sprintf(c1err,"Could not open M0-outFile");
     sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   fprintf(FP_STDOUT, "\n Write input HD for CosmoMC to %s\n" , fileName); 
@@ -18422,7 +18425,7 @@ void write_M0_cov(char *fileName) {
   if ( !fp )  {
     sprintf(c1err,"Could not open cov-outFile");
     sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   fprintf(FP_STDOUT, "\n Write COV_stat matrix to %s\n" , fileName); 
@@ -18521,7 +18524,7 @@ void write_fitres_driver(char* fileName) {
       sprintf(c1err,"Could not open output fitres file");
       sprintf(c2err,"'%s' ", fileName );
     }
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   if ( INPUTS.cat_only ) {
@@ -19234,7 +19237,7 @@ void get_CCIDindx(char *CCID, int *indx) {
     if( n > NSN_DATA ) {
       sprintf(c1err,"Cannot find SALT2mu index for CCID='%s'", CCID);
       sprintf(c2err,"after checking all %d SN", NSN_DATA);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
@@ -19348,7 +19351,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
     sprintf(c1err,"Expected to write NVAR_APPEND=%d SALT2mu variables",
 	    NVAR_APPEND);
     sprintf(c2err,"but wrote only %d variables.", NWR);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
   return ;
@@ -20161,7 +20164,7 @@ void  SUBPROCESS_INIT(void) {
     if ( !SUBPROCESS.FP_INP ) {
       sprintf(c1err,"Could not open input GENPDF file to read:" );
       sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     else {
       printf("%s  Opened input  file (GENPDF map): %s\n", 
@@ -20175,7 +20178,7 @@ void  SUBPROCESS_INIT(void) {
   if ( !SUBPROCESS.FP_OUT ) {
     sprintf(c1err,"Could not open output file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.OUTFILE) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
     printf("%s  Opened output file   (fit info): %s\n", 
@@ -20188,7 +20191,7 @@ void  SUBPROCESS_INIT(void) {
   if ( !FP_STDOUT ) {
     sprintf(c1err,"Could not open STDOUT file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.STDOUT_FILE) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
     printf("%s  Opened STDOUT file (standard out): %s\n", 
@@ -20265,7 +20268,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( ISDATA_REAL ) {
     sprintf(c1err,"Woah! Cannot process real data here.");
     sprintf(c2err,"Only SIM data allowed here.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   print_debug_malloc(+1,fnam);
@@ -20436,7 +20439,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     sprintf(c1err,"Could not find required '%s' key in", 
 	    KEYNAME_SUBPROCESS_ITERATION_BEGIN);
     sprintf(c2err,"file %s", INPFILE );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   if ( ITER_EXPECT != ITER_FOUND ) {
@@ -20444,7 +20447,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	    ITER_FOUND, INPFILE);
     sprintf(c2err,"But expected ITERATION=%d passed via std input", 
 	    ITER_EXPECT);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   printf("%s Read PDF map(s) for ITERATION=%d\n", 
@@ -20468,7 +20471,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	sprintf(c1err,"Could not find IVAR_TABLE for GENPDF var = '%s'", 
 		varName_GENPDF);
 	sprintf(c2err,"Check command-line arg SUBPROCESS_VARNAMES_GENPDF");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
       }
 
       /*
@@ -20706,7 +20709,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   if ( nbin >= MXz ) {
     sprintf(c1err,"NBIN(%s) = %d exceeds bound of %d", VARNAME, nbin, MXz) ;
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args") ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   // split xmin:xmax by colon
@@ -20762,7 +20765,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   else {
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
@@ -21044,7 +21047,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void) {
     if ( ic < 0 || ic >= NBIN_c ) {
       sprintf(c1err,"Invalid ic = %d for c=%f", ic, xval );
       sprintf(c2err,"Check CCID = '%s'", CCID);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     
     SUBPROCESS.NEVT_c[ic]++ ;

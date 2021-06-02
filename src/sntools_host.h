@@ -32,6 +32,7 @@
 
  Apr 7 2020: MXWGT_HOSTLIB -> 50,000 (was 5,000)
  May 23 2020: add VPEC & VPEC_ERR (optional)
+ Jun 02 2021: MXWGT_HOSTLIB -> 500,000 for GHOST (was 50k)
 
 ==================================================== */
 
@@ -58,7 +59,7 @@
 #define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXWGT_HOSTLIB     50000  // max number of WGT: keys
+#define MXWGT_HOSTLIB     500000  // max number of WGT: keys
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file

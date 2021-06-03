@@ -10348,7 +10348,7 @@ void check_arg_len(char *keyName, char *arg, int MXLEN) {
   char fnam[] = "check_arg_len";
   int LEN = strlen(arg);
   if ( LEN >= MXLEN ) {
-    sprintf(c1err,"len(%s) = %d exceeds bound of %d", LEN, MXLEN);
+    sprintf(c1err,"len(%s) = %d exceeds bound of %d", keyName, LEN, MXLEN);
     sprintf(c2err,"Shorten arg, or increase array bound.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }

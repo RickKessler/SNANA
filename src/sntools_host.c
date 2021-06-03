@@ -7825,6 +7825,7 @@ void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // malloc and init
   int i;
+  int MEMC = MXCHAR_LINE_APPEND * sizeof(char*) ;
   //  char fnam[] = "malloc_HOSTLIB_APPEND" ;
 
   // ---------------- BEGIN ---------------
@@ -7833,7 +7834,7 @@ void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   HOSTLIB_APPEND->LINE_APPEND = (char**) malloc( NGAL*sizeof(char*) );
 
   for(i=0; i < NGAL; i++ ) {
-    HOSTLIB_APPEND->LINE_APPEND[i] = (char*) malloc( 100*sizeof(char*) );
+    HOSTLIB_APPEND->LINE_APPEND[i] = (char*) malloc(MEMC);
     sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
   }
 
@@ -7873,13 +7874,13 @@ void rewrite_HOSTLIB_plusMags(void) {
   int NBIN_LAM = INPUTS_SPECTRO.NBIN_LAM ;
   int MEMD     = sizeof(double) * NBIN_LAM ;
 
-  int igal_unsort, igal_zsort, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
+  int igal_unsort, igal_zsort, ifilt, ifilt_obs, ivar, DUMPFLAG=0, LENLINE ;
   long long GALID ;
   double ZTRUE, MWEBV=0.0, mag, *GENFLUX_LIST, *GENMAG_LIST;
   float  *MAG_STORE ;
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
-  char cval[20], LINE_APPEND[100] ;
+  char cval[20], LINE_APPEND[MXCHAR_LINE_APPEND] ;
   char fnam[] = "rewrite_HOSTLIB_plusMags" ;
 
   // internal debug
@@ -7940,7 +7941,16 @@ void rewrite_HOSTLIB_plusMags(void) {
       MAG_STORE[ifilt] = mag;
       sprintf(cval, " %6.3f", MAG_STORE[ifilt] );
       strcat(LINE_APPEND,cval);
-    }
+
+      LENLINE = strlen(LINE_APPEND) ;
+      if ( LENLINE > MXCHAR_LINE_APPEND ) {
+	sprintf(c1err,"strlen(LINE_APPEND)=%d exceeds bound (NFILT=%d)", 
+		LENLINE, NFILT);
+	sprintf(c2err,"MXCHAR_LINE_APPEND = %d", MXCHAR_LINE_APPEND);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    } // end ifilt
+
     sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
 
     if ( (igal_unsort % 10000) == 0 ) {

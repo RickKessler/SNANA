@@ -57,6 +57,7 @@
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
 #define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
+#define MXCHAR_LINE_APPEND  300  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXWGT_HOSTLIB     500000  // max number of WGT: keys

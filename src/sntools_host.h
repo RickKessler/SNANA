@@ -32,7 +32,10 @@
 
  Apr 7 2020: MXWGT_HOSTLIB -> 50,000 (was 5,000)
  May 23 2020: add VPEC & VPEC_ERR (optional)
- Jun 02 2021: MXWGT_HOSTLIB -> 500,000 for GHOST (was 50k)
+ Jun 02 2021: 
+   + MXWGT_HOSTLIB -> 500,000 for GHOST (was 50k)
+   + MXCHAR_LINE_HOSTLIB -> 800 (was 600)
+   + define MXCHAR_LINE_APPEND
 
 ==================================================== */
 
@@ -56,8 +59,8 @@
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
-#define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
-#define MXCHAR_LINE_APPEND  300  // max number of appended chars per line
+#define MXCHAR_LINE_HOSTLIB 800  // max number of chars per HOSTLIB line
+#define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXWGT_HOSTLIB     500000  // max number of WGT: keys

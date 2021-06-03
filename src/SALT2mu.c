@@ -1914,6 +1914,7 @@ int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
+void parse_cidFile_data_LEGACY(int OPT, char *item); 
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
@@ -2458,7 +2459,6 @@ void SALT2mu_DRIVER_EXEC(void) {
   //  char fnam[] = "SALT2mu_DRIVER_EXEC" ;
 
   // -------------- BEGIN ---------------
-
   t_start_fit = time(NULL);
 
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
@@ -6495,7 +6495,6 @@ float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC,
   float f_MEMTOT;
   char fnam[] = "malloc_FITPARBIAS_ALPHABETA" ;
   // ----------- BEGIN ----------
-
   print_debug_malloc(opt,fnam);
 
   if ( opt > 0 ) {
@@ -8654,7 +8653,6 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
 
   // -------- BEGIN ----------
   
- 
   fprintf(FP_STDOUT,"  SAMPLE_INFO DUMP for %s: \n", STRTYPE )    ;
 
   if ( IS_BIASCOR ) { ABORT_ON_NEVTZERO=1; }
@@ -14215,7 +14213,6 @@ void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
   //  char fnam[] = "load_FITPARBIAS_CCprior" ;
 
   // -------- BEGIN ------------
-
   NBINa   = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb   = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   NBINg   = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
@@ -15735,13 +15732,165 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // Checks if fileName is keyed-FITRES format, or just a list
   // of CIDs without any keys.
   //
+  // Jun 2 2021: refactor to read with fgets instead of store_PARSE_WORDS
+  //             to avoid exceeding word-limit count.
+
+  int  ncidList_data = INPUTS.ncidList_data  ;
+  char *cid, tmpLine[MXCHAR_LINE], tmpWord[60],  key[60];
+  int iwd, NWD, isn, NCID_EXPECT, NCID_LOAD, NCID_TOT, MEMC, MEMC2, MSKOPT ;
+  int LDMP = 0 ;
+  FILE *fp;
+  bool FORMAT_FITRES, LOAD_CID, IS_ROWKEY ;
+  char fnam[] = "parse_cidFile_data";
+
+  // ------ BEGIN --------------
+
+  if ( IGNOREFILE(fileName) ) { return; }
+
+  ENVreplace(fileName,fnam,1);
+
+  // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
+  NCID_EXPECT = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
+
+  if ( NCID_EXPECT > 0 ) { 
+    // FITRES format
+    FORMAT_FITRES = true ;
+    //  printf(" xxx %s: NCID=%d for FITRES_FORMAT \n", fnam, NCID_EXPECT);
+  }
+  else {
+    // not FITRES format ; read list of CIDs
+    MSKOPT  = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
+    NCID_EXPECT   = store_PARSE_WORDS(MSKOPT,fileName); 
+    FORMAT_FITRES = false ;
+  }
+
+  // - - - - -
+  // malloc/realloc global cidList_data array
+  print_debug_malloc(+1,fnam);
+  NCID_TOT = (ncidList_data + NCID_EXPECT);
+  MEMC     = NCID_TOT * sizeof(char*);
+  MEMC2    = MXCHAR_CCID * sizeof(char);
+  if ( ncidList_data == 0 ) 
+    { INPUTS.cidList_data =  (char**)malloc(MEMC);  }
+  else 
+    { INPUTS.cidList_data =  (char**)realloc(INPUTS.cidList_data,MEMC);  }
+
+  // malloc memory for each CID strings
+  for(isn = ncidList_data; isn < NCID_TOT; isn++ ) { 
+    INPUTS.cidList_data[isn]    = (char*)malloc(MEMC2); 
+    INPUTS.cidList_data[isn][0] = 0;
+  }
+
+  // - - - - - - - - - - - - - - - - - - -
+  isn = ncidList_data  ;
+  NCID_LOAD = iwd = 0;
+  MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
+
+  // - - - - - - - - - - - 
+  fp = fopen(fileName,"rt");
+
+  while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
+
+    // parse words on this line
+    NWD = store_PARSE_WORDS(MSKOPT,tmpLine); 
+    if ( NWD == 0 ) { continue ; }
+
+    iwd = 0;  get_PARSE_WORD(0, iwd, key);
+    IS_ROWKEY = validRowKey_TEXT(key) ;
+
+    if ( key[0] == '#' ) { continue ; }
+
+    // loop over words on this line
+    for ( iwd = 0; iwd < NWD; iwd++ ) {
+      LOAD_CID = false;
+      get_PARSE_WORD(0, iwd, tmpWord);
+
+      if ( LDMP ) {
+	printf(" xxx -------------------------------------------- \n");
+	printf(" xxx %s: NWD=%d (NCID_EXPECT=%d)  \n",
+	       fnam, NWD, NCID_EXPECT ); fflush(stdout);
+      }
+      
+      if ( FORMAT_FITRES ) {
+	if ( IS_ROWKEY && iwd == 1 ) {
+	  cid = INPUTS.cidList_data[isn];
+	  sprintf(cid, "%s", tmpWord);
+	  LOAD_CID = true;
+	}
+      }
+      else {
+	// every word is a CID, so just load it without checking keys	
+	cid = INPUTS.cidList_data[isn];
+	sprintf(cid, "%s", tmpWord);
+	LOAD_CID = true;
+      }
+
+      if ( LOAD_CID ) {
+	if (LDMP) { printf(" xxx %s: select cid = %s (isn=%d, tmpWord=%s)\n", 
+			   fnam, cid, isn, tmpWord ); }
+	isn++ ; NCID_LOAD++ ;
+	if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
+	     strstr(cid,"=")   != NULL )   {
+	  sprintf(c1err,"Invalid cid string = '%s'",cid);
+	  sprintf(c2err,"Check cid_select_file %s",fileName);
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+	}
+      } // end LOAD_CID
+
+    } // end iwd loop for line
+  } // end tmpLine loop
+
+  fclose(fp);
+
+  // - - - - - - -
+
+  if ( NCID_EXPECT != NCID_LOAD ) {
+    sprintf(c1err,"NCID_LOAD=%d but  NCID_EXPECT = %d", 
+	    NCID_LOAD, NCID_EXPECT );
+    sprintf(c2err,"Something is really messed up.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+
+  INPUTS.ncidList_data += NCID_EXPECT;
+ 
+
+
+  if ( OPT > 0 ) {
+    printf("  %s: Accept only %d CIDs in %s\n", 
+	   fnam, NCID_EXPECT, fileName);
+  }
+  else {
+    printf("  %s: Reject %d  CIDs in %s\n", 
+	   fnam, NCID_EXPECT, fileName);
+  }
+  fflush(stdout);
+
+  return ;
+
+} // END of parse_cidFile_data()
+
+
+// **************************************************     
+void parse_cidFile_data_LEGACY(int OPT, char *fileName) {
+
+  // Created Sep 23 2020 
+  // Read inpt fileName for list of CIDs to accept or reject 
+  // based on
+  //
+  //    OPT > 0 -> list to accept
+  //    OPT < 0 -> list to reject
+  //
+  // Checks if fileName is keyed-FITRES format, or just a list
+  // of CIDs without any keys.
+  //
 
   int  ncidList_data = INPUTS.ncidList_data  ;
   char *cid, tmpWord[60] ;
   int iwd, isn, NCID_EXPECT, NCID_LOAD, NCID_TOT, NWD, MEMC, MEMC2, MSKOPT ;
   int LDMP = 0 ;
   bool FORMAT_FITRES, LOAD_CID ;
-  char fnam[] = "parse_cidFile_data";
+  char fnam[] = "parse_cidFile_data_LEGACY";
 
   // ------ BEGIN --------------
 
@@ -15854,7 +16003,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   return ;
 
-} // END of parse_cidFile_data()
+} // END of parse_cidFile_data_LEGACY()
 
 
 // **************************************************

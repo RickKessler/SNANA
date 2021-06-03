@@ -475,7 +475,7 @@ struct INPUTS {
 
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
-  char   HOSTLIB_STOREPAR_LIST[MXPATHLEN]; // (I) comma-sep list 
+  char   HOSTLIB_STOREPAR_LIST[2*MXPATHLEN]; // (I) comma-sep list
 
   // debug options
   int    HOSTLIB_GALID_FORCE ;    // force this GALID 

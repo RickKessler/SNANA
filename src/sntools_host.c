@@ -708,9 +708,12 @@ void  init_OUTVAR_HOSTLIB(void) {
 
   HOSTLIB_OUTVAR_EXTRA.NOUT = NVAR_OUT = 0 ;
 
-  // check that STOREPAR_LIST doesn't overwrite array bound
+  // check that STOREPAR_LIST doesn't overwrite array bound.
+  // HOSTLIB_STOREPAR_LIST is allocated with 2*MXPATHLEN,  but here we
+  // abort if len > MXPATHLEN ... the extra x2 memory padding avoids
+  // unrelated memory overwrite errors so that we see the correct error.
   LENLIST = strlen(INPUTS.HOSTLIB_STOREPAR_LIST);
-  if ( LENLIST > MXPATHLEN - 2 ) {
+  if ( LENLIST > MXPATHLEN  ) {
     sprintf(c1err, "len(HOSTLIB_STOREPAR) = %d exceeds bound of %d",
 	   LENLIST, MXPATHLEN) ;
     sprintf(c2err, "Remove some variables from HOSTLIB_STOREPAR");

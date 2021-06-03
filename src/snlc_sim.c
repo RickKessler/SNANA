@@ -1390,6 +1390,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // i.e., WORDS[0] is not included in the return count.
   //
   // Apr 6 2021: parse FLUXERRMODEL_REDCOV that was left out of refactor
+  // Jun 02 2021: add calls to check_arg_len
 
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
@@ -1459,6 +1460,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], 200);
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
@@ -1567,14 +1569,16 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   // - - - - 
   else if ( keyMatchSim(1, "GENVERSION",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], 200);
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENVERSION );
     sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION);
   }
   else if ( keyMatchSim(1, "GENPREFIX",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], 200);
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPREFIX );
   }
   else if ( keyMatchSim(0, "CLEARPROMPT",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.CLEARPROMPT );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CLEARPROMPT );
   }
   else if ( keyMatchSim(0, "REQUIRE_DOCANA",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.REQUIRE_DOCANA );
@@ -1611,12 +1615,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   // - - - - - PATHs  - - - -
   else if ( keyMatchSim(1, "PATH_USER_INPUT",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", PATH_USER_INPUT );
   }
   else if ( keyMatchSim(1, "PATH_SNDATA_SIM",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS.PATH_SNDATA_SIM );
   }
   if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
     return(N);
   }
@@ -2000,10 +2007,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   // - - - - strong and weak lens - - - - 
   else if ( keyMatchSim(1, "STRONGLENS_FILE",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", &INPUTS.STRONGLENS_FILE );
   }
   else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
 			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", &INPUTS.WEAKLENS_PROBMAP_FILE );
   }
   else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
@@ -2085,6 +2094,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%d", &INPUTS.EXPOSURE_TIME_MSKOPT );
   }
   else if ( keyMatchSim(1, "KCOR_FILE", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++ ; sscanf(WORDS[N], "%s", INPUTS.KCOR_FILE );
   }
   else if ( keyMatchSim(1, "OMEGA_MATTER", WORDS[0],keySource) ) {
@@ -2185,14 +2195,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_LOGIC_FILE", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_FILE SEARCHEFF_PIPELINE_EFF_FILE",  
 			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_SPEC_FILE  SEARCHEFF_SPECEFF_FILE", 
 			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_SPEC_FILE );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_SPEC_SCALE SEARCHEFF_SPECEFF_SCALE",
@@ -2200,6 +2213,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.USER_SPECEFF_SCALE );
   }
   else if ( keyMatchSim(1, "SEARCHEFF_zHOST_FILE", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );
   }
   else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
@@ -2888,9 +2902,11 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   // ---------------- BEGIN ------------
 
   if ( keyMatchSim(1, "SIMLIB_FILE",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FILE );
   }
   else if ( keyMatchSim(1, "SIMLIB_FIELDLIST",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], 200 );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FIELDLIST );
     // xxx mark delete    parse_input_FIELDLIST();  // check for preScales;
 
@@ -2967,6 +2983,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Oct 16 2020: check IGNOREFILE(HOSTLIB_FILE)
   // Dec 02 2020: fix bug setting MSKOPT to allow command-line override.
   // May 04 2021: restore +HOSTMAGS and +HOSTNBR 
+  // Jun 02 2021: add calls to check_arg_len
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -2974,6 +2991,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // ------------ BEGIN ------------
 
   if ( keyMatchSim(1, "HOSTLIB_FILE", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FILE ) ; 
     if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) 
       { INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;  }
@@ -2981,16 +2999,20 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
       { setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); INPUTS.HOSTLIB_USE = 1; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_WGTMAP_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_ZPHOTEFF_FILE", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ) ; 
   }
 
   else if ( keyMatchSim(1, "HOSTLIB_SPECBASIS_FILE", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_SPECDATA_FILE", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECDATA_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
@@ -3047,7 +3069,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_STOREVAR  HOSTLIB_STOREPAR",
 			WORDS[0],keySource) ) {
-     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_STOREPAR_LIST ) ; 
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_STOREPAR_LIST ) ; 
   }  
   else if ( keyMatchSim(1, "HOSTLIB_MAXREAD",WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MAXREAD ) ;

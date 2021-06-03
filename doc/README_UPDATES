@@ -19968,4 +19968,35 @@
        DEVEL_SYNC_EVT flag in submit_prog_bbc.py.
 
 
+
+# ======================================================================= 
+         v11_02o (  ) 
+
+         ***** IMPORTANT(v11_02o) ***** 
+
+         ***** USEFUL(v11_02o) ***** 
+
+         ***** MISCELLANEOUS(v11_02o) ***** 
+
+   SALT2mu.c
+     + apply forgotten remove_quotes(s) to one of the SUBPROCESS inputs
+     + for subprocess output table allow % or * because % wreaks havoc
+       with python.
+     + refactor parse_cidFile_data() to avoid using store_PARSE_WORDS
+        on large files.
+
+   sntools.c
+     + new utilitiy errlog(FP, SEV, fnam, c1err, c2err)
+         (has FP input argument to allow writing to log file)
+
+   sntools.h
+     + MXWORDFILE_PARSE_WORDS -> 2M (was 1 million) so that cid_select_file
+       in SALT2mu can read large files.
+
+   sntools_host.h
+     + MXWGT_HOSTLIB -> 500,000 (was 50k) for large WGTMAPs in PLASTICCv2.
+
+   SALT2mu.c
+     + replace all errmsg calls with errlog call.
+  
 END: 

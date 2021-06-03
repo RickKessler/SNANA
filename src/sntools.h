@@ -593,6 +593,7 @@ void   copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT);
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);
+void check_arg_len(char *keyName, char *arg, int MXLEN) ;
 
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);

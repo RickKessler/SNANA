@@ -7761,7 +7761,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   char *LINE, *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
 
   LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
-  LINE_APPEND  = (char*) malloc ( sizeof(char) * 100 );
+  LINE_APPEND  = (char*) malloc ( sizeof(char) * MXCHAR_LINE_APPEND );
   FIRSTWORD    = (char*) malloc ( sizeof(char) * 100 );
   NEXTWORD     = (char*) malloc ( sizeof(char) * 100 );
 
@@ -8458,7 +8458,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   NVAR_APPEND = READTABLE_POINTERS.NVAR_TOT; 
 
   malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
-  LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
+  LINE_APPEND = (char*) malloc (MXCHAR_LINE_APPEND * sizeof(char) ) ;
 
   varList[0] = 0;
   for( ivar = 1 ; ivar < NVAR_APPEND; ivar++ ) {

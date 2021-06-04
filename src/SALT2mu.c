@@ -15787,7 +15787,8 @@ void parse_cidFile_data(int OPT, char *fileName) {
   MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
 
   // - - - - - - - - - - - 
-  fp = fopen(fileName,"rt");
+  int GZIPFLAG;
+  fp  = open_TEXTgz(fileName, "rt", &GZIPFLAG);
 
   while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
 

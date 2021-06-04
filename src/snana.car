@@ -1844,7 +1844,7 @@ c
      &   USE_MWCOR          ! (I) T=> correct data flux for MW extinc;
                             !     F=> leave data, correct fit model for MW.
       REAL 
-     &   REDSHIFT_FINAL_SHIFT    ! artificial shift
+     &   REDSHIFT_FINAL_SHIFT     ! artificial shift
      &  ,FLUXERRCALC_ZPTERR 
 
       COMMON / SNCUTCOM / CUTMASK8_SN, CUTMASK8_MJD

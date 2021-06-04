@@ -28,7 +28,9 @@
 
  Apr 27 2021: MXSIMGEN_DUMP -> 600 (was 400)
 
- Jun 02 2021: MXEPSIM_PERFILT -> 2000 (was 1000) for 0.1 day cadence
+ Jun 02 2021: 
+    + MXEPSIM_PERFILT -> 2000 (was 1000) for 0.1 day cadence
+    + MXOBS_SIMLIB -> 15,000 (was 10k) for Roman synthetic bands
 
 ********************************************/
 
@@ -53,7 +55,7 @@ time_t t_start, t_end, t_end_init ;
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 
 #define  MXREAD_SIMLIB 100000  // max number of SIMLIB observations/entries
-#define  MXOBS_SIMLIB  10000    // max number of observ. per simlib
+#define  MXOBS_SIMLIB  15000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10 

@@ -7925,6 +7925,7 @@ c
 c Aug 29 2017: check DOFIT_IDEAL
 c
 c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
+c Jun 04 2021: if USESIM_REDSHIFT, set z errors to 1.0E-4
 c
 c ----------------------------------------
 
@@ -8047,6 +8048,11 @@ c continue below on 1st iteration only.
          SNLC_REDSHIFT = SIM_REDSHIFT_HELIO
          SNLC_ZHELIO   = SIM_REDSHIFT_HELIO
          SNLC_ZCMB     = SIM_REDSHIFT_CMB   ! Dec 15 2020
+
+c  Jun 2021: set tiny z errors too
+         SNLC_REDSHIFT_ERR = 1.0E-4
+         SNLC_ZHELIO_ERR   = 1.0E-4
+         SNLC_ZCMB_ERR     = 1.0E-4
       endif
 
       ipar            =  IPAR_zPHOT

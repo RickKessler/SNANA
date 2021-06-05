@@ -3775,17 +3775,6 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
 
   // ------------- BEGIN -------------
   
-  /* xxx mark delete xxxx
-  // do NOT allow synthetic spectrograph bands
-  if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
-    char cfilt[2];  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
-    sprintf(c1err,"Remove synthetic spectrograph filter %s from HOSTLIB.",
-	    cfilt);
-    sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  } 
-  xxxxxxx end mark xxxxxx */
-
   NPSF = NMAGPSF_HOSTLIB ;
   PSFSIGmin = HOSTLIB.Aperture_PSFSIG[1] ;
   PSFSIGmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;
@@ -3793,18 +3782,6 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
   PSFSIG_local = PSFSIG;
   if ( PSFSIG < PSFSIGmin ) { PSFSIG_local = PSFSIGmin + 0.0001; }
   if ( PSFSIG > PSFSIGmax ) { PSFSIG_local = PSFSIGmax - 0.0001; }
-
-  /* xxxxxxxxxx mark delete Marc 23 2021 xxxxxxxxxxxxx
-  if ( PSF < PSFmin ||  PSF > PSFmax ) {
-    char cfilt[2];
-    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-    sprintf(c1err,"%s-PSFSIG=%f asec outside valid range (%5.2f - %5.2f)",
-	    cfilt, PSF, PSFmin, PSFmax );
-    sprintf(c2err, "Cannot extrapolate GALMAG. SIMLIB_ID=%d", 
-	    GENLC.SIMLIB_ID) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  xxxxxxxxxxxxxx end mark xxxxxxxxx */
 
   // note that the zero'th element is total aperture,
   // so ignore it for interpolatio.
@@ -7040,12 +7017,14 @@ void GEN_SNHOST_GALMAG(int IGAL) {
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
       sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
 
+      /* xxx mark delete June 3 2021 xxxxxxxxx
       if ( IVAR >=0 && GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
 	sprintf(c1err,"Remove synthetic spectrograph filter %s from HOSTLIB.",
 		cfilt);
 	sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
+      xxxxxxxxxx end mark xxxxxxxx */
 
       if ( IVAR >= 0 ) {
 	MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 

@@ -5502,8 +5502,7 @@ and measurement noise.
 Finally, rather than simulating a $z$-bias with {\tt GENBIAS\_REDSHIFT},
 a $z$-bias can be added in the analysis/fitting program 
 (data or sim) with 
-{\tt \&SNLCINP} parameter 
-{\tt REDSHIFT\_FINAL\_SHIFT = 0.0001}.
+{\tt \&SNLCINP} parameters shown in \S~\ref{subsec:zshift}.
 
 \medskip
 The simulated luminosity distance is computed as 
@@ -7667,8 +7666,7 @@ A few other photoZ-related issues are:
 	so that the initial redshift estimate is poor.
 %
 \item	To test the photoZ sensitivity to the initial redshift estimate,
-	you can arbitrarily shift the redshifts using \&SNLCINP namelist
-	parameter  {\tt REDSHIFT\_FINAL\_SHIFT}.
+        see \S~\ref{subsec:zshift}.
 \end{itemize}
 
 
@@ -8933,6 +8931,29 @@ WARNING: currently this filter-update feature works
 only for the SALT2 model;
 perhaps a future \snana\ version will work for 
 rest-frame models that use K-corrections.
+
+
+% ------------------------------------
+%   \clearpage
+   \subsection{Redshift Shifts}
+   \label{subsec:zshift}
+% ------------------------------------
+
+The following {\tt \&SNLCINP} inputs apply systematic shifts to redshifts:
+%
+\begin{verbatim}
+   REDSHIFT_FINAL_SHIFT = 0.0001  ! 1. global shift to all redshifts
+   HOSTGAL_SPECZ_SHIFT  = 0.0002  ! 2. apply only to host specz
+   HOSTGAL_PHOTOZ_SHIFT = 0.003   ! 3. apply only to host photoz
+\end{verbatim}
+%
+The first option is applied globally to all redshifts, regardless
+of how they are measured.
+For a mix of host-galaxy spectroscopic and photometric redshifts,
+options 2 and 3 apply to the respective z-shift method.
+For spec-confirmed SNe that have no host-galaxy information,
+only the 1st option applies.
+All z-shifts are applied before light curve fitting.
 
 
 % ------------------------------------

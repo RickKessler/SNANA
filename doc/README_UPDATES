@@ -19985,6 +19985,9 @@
      + refactor parse_cidFile_data() to avoid using store_PARSE_WORDS
         on large files.
 
+   sndata.h:
+      + MXEPOCH -> 4000 (was 2000)
+
    sntools.c
      + new utilitiy errlog(FP, SEV, fnam, c1err, c2err)
          (has FP input argument to allow writing to log file)
@@ -19995,8 +19998,15 @@
 
    sntools_host.h
      + MXWGT_HOSTLIB -> 500,000 (was 50k) for large WGTMAPs in PLASTICCv2.
+     + define MXCHAR_LINE_APPEND 300 (replace hard-wired alloc of 100)
+   
+   snlc_sim.c[h]
+     + MXEPSIM_PERFILT -> 2000 (was 1000)
 
    SALT2mu.c
      + replace all errmsg calls with errlog call.
   
+   snana.car:
+     + new &SNLCINP inputs HOSTGAL_PHOTOZ_SHIFT and HOSTGAL_SPECZ_SHIFT
+
 END: 

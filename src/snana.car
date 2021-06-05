@@ -434,6 +434,7 @@ c
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
+     &  ,DOzSHIFT              ! T => apply a zSHIFT systematic
      &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
      &  ,UNIT_PSF_NEA          ! T => read NEA from data; else it's PSF
@@ -522,6 +523,7 @@ c global survey info
      &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SAVE_BADEPOCHS
      &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
+     &    ,DOzSHIFT
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT, UNIT_PSF_NEA
@@ -1845,6 +1847,8 @@ c
                             !     F=> leave data, correct fit model for MW.
       REAL 
      &   REDSHIFT_FINAL_SHIFT     ! artificial shift
+     &  ,HOSTGAL_PHOTOZ_SHIFT     ! apply only when zFINAL = HOST_ZPHOT
+     &  ,HOSTGAL_SPECZ_SHIFT      ! apply only when zFINAL = HOST_ZPHOT
      &  ,FLUXERRCALC_ZPTERR 
 
       COMMON / SNCUTCOM / CUTMASK8_SN, CUTMASK8_MJD
@@ -1883,6 +1887,7 @@ c
      &   ,FUDGE_MAG_COVERR, FUDGE_MAG_COVERR_FILT
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
+     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
 
@@ -2028,6 +2033,7 @@ c
      &  ,LTEST_U3BAND       ! (I) T => require exactly 3 bands that include U
      &  ,USE_LINE_ARGS(MXLINE_ARGS)
      &  ,USE_SNHOST_ZPHOT    ! (I) T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
+     &  ,USE_HOSTGAL_PHOTOZ  ! (I) idem, but matches keyName in data files
 c
      &  ,ABORT_ON_NOEPOCHS   ! T=> abort if there are no epochs to fit
      &  ,ABORT_ON_BADAVWARP  ! T=> abort if AVwarp cannot be determined
@@ -2128,7 +2134,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
+     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
+     &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2175,7 +2182,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
-     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
+     &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
+     &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2230,6 +2238,7 @@ c
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV  
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
+     &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE, CUTWIN_NMJD_INCLUDE
 
@@ -4406,7 +4415,7 @@ c - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
-      IF ( SNHOST_ZPHOT(igal) > 0.0 )  EXIST_SNHOST_ZPHOT = .TRUE.
+      IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
 c - - - -
 
       KEY    = PREFIX(1:LENPRE)//'_SPECZ' 
@@ -4516,7 +4525,9 @@ C ===========================================
 c Created Feb 2021 [refactored from PARSE_REDSHIFT]
 c Read/store redshift & vpec info
 c Note tat REDSHIFT_FINAL is used for LC fitting.
-
+c
+c Jun 5 2021: no longer apply REDSHIFT_FINAL_SHIFT here; see SET_zSHIFT().
+c
       IMPLICIT NONE
 
       INTEGER OPT    ! (I) argument for FETCH_SNDATA_WRAPPER
@@ -4532,7 +4543,7 @@ C ----------- BEGIN ------------
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO", 
      &       ONE, STRING, DARRAY, OPT)
-      SNLC_zHELIO = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+      SNLC_zHELIO = SNGL(DARRAY(1))   ! xxx  + REDSHIFT_FINAL_SHIFT
       SNLC_REDSHIFT = SNLC_zHELIO  ! used for LC fitting
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO_ERR", 
@@ -4544,7 +4555,7 @@ c - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL", 
      &       ONE, STRING, DARRAY, OPT)
-      SNLC_zCMB = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+      SNLC_zCMB = SNGL(DARRAY(1))  ! xxxx + REDSHIFT_FINAL_SHIFT
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL_ERR", 
      &       ONE, STRING, DARRAY, OPT)
@@ -4556,7 +4567,7 @@ c (beware that VPEC correction should NOT be included here)
       IF ( SNLC_zCMB < 0.0 ) THEN
          CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB",
      &         ONE, STRING, DARRAY, OPT)
-         SNLC_zCMB = SNGL(DARRAY(1))  + REDSHIFT_FINAL_SHIFT
+         SNLC_zCMB = SNGL(DARRAY(1)) ! xxx + REDSHIFT_FINAL_SHIFT
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB_ERR",
      &         ONE, STRING, DARRAY, OPT)
@@ -5819,6 +5830,8 @@ c default is to reject nothing (accept everything)
       OPT_MWEBV      = -9   ! idem
       RV_MWCOLORLAW  = -9.0 ! idem
 
+      HOSTGAL_PHOTOZ_SHIFT = 0.0 
+      HOSTGAL_SPECZ_SHIFT  = 0.0 
       REDSHIFT_FINAL_SHIFT = 0.0
       FLUXERRCALC_ZPTERR  = -9.9
 
@@ -5852,6 +5865,7 @@ c default is to reject nothing (accept everything)
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
+      USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
       USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
 
@@ -7408,6 +7422,10 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USE_SNHOST_ZPHOT
 
+         else if ( MATCH_NMLKEY('USE_HOSTGAL_PHOTOZ',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USE_HOSTGAL_PHOTOZ
+
          else if ( MATCH_NMLKEY('USESIM_TRUEFLUX',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USESIM_TRUEFLUX
@@ -7873,6 +7891,15 @@ c - - - - - - -
         else if ( MATCH_NMLKEY('REDSHIFT_FINAL_SHIFT',
      &            1, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) REDSHIFT_FINAL_SHIFT
+
+        else if ( MATCH_NMLKEY('HOSTGAL_SPECZ_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) HOSTGAL_SPECZ_SHIFT
+
+        else if ( MATCH_NMLKEY('HOSTGAL_PHOTOZ_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) HOSTGAL_PHOTOZ_SHIFT
+
 
         else if ( MATCH_NMLKEY('VPEC_ERR_OVERRIDE',
      &            1, iArg, ARGLIST) ) then
@@ -8465,6 +8492,12 @@ c Jan 12 2021: check option to fix sign VPEC for older data
       endif
 
          CALL FLUSH(6)
+
+c set flag for systematic zshift (Jun 2021)
+      DOzSHIFT = 
+     &    ( REDSHIFT_FINAL_SHIFT > 0.0 ) .or.
+     &    ( HOSTGAL_SPECZ_SHIFT  > 0.0 ) .or.
+     &    ( HOSTGAL_PHOTOZ_SHIFT > 0.0 )
 
       RETURN
       END  ! end PROCSNNML
@@ -17655,12 +17688,11 @@ c check to increment SUBSURVEY_LIST
         ENDIF
       ENDIF
 
-c - - - - - -
-c Check option to use host photo-z as redshift.
-      IF ( USE_SNHOST_ZPHOT ) CALL SET_SNHOST_ZPHOT()
+      
 
-c if ZHELIO < 0, convert zCMB -> zHELIO
-      CALL SET_ZHELIO()
+c - - - - - - - - -
+c prepare redshifts; e.g. use photo-z, apply systematic shifts, etc ...
+      CALL SET_REDSHIFTS()
 
 c - - - - -
       Z    = SNLC_REDSHIFT
@@ -18046,6 +18078,37 @@ c May 2017: load ADDCOL arrays
       END   ! end of SNRECON
 
 C =============================
++DECK,SET_REDSHIFTS.
+      SUBROUTINE SET_REDSHIFTS()
+c
+c Created Jun 2021
+c Called near beginning of SNRECON, this is a driver routine
+c to finalize redshifts:
+c  + option to use host photo-z
+c  + fix for missing zHELIO (on very old surveys)
+c  + systematic shifts
+c  + etc ...
+
+      IMPLICIT NONE
+
+c +CDE,SNDATCOM.
+c +CDE,SNLCINP.
+
+C -------------- BEGIN ----------
+
+c Check option to use host photo-z as redshift.
+      CALL SET_SNHOST_ZPHOT()
+
+c if ZHELIO < 0, convert zCMB -> zHELIO
+      CALL SET_ZHELIO()
+
+c check for systematic shifts
+      CALL SET_zSHIFT()
+
+      RETURN
+      END
+
+C =============================
 +DECK,SET_ZHELIO.
       SUBROUTINE SET_ZHELIO()
 
@@ -18131,14 +18194,14 @@ cc         OPT    = +1 ! --> BUG
       ENDIF
 
       RETURN
-      END
+      END   ! end SET_ZHELIO
 
 C =============================================
 +DECK,SET_SNHOST_ZPHOT.
       SUBROUTINE SET_SNHOST_ZPHOT
   
-c Called if USE_SNHOST_ZPHOT=T.
-c Sets redshift variables to host zphot.
+c if USE_SNHOST_ZPHOT=T then set redshift variables to host zphot.
+c This ignores accurate specz to enable using photo-z.
 
       IMPLICIT NONE
 
@@ -18152,9 +18215,11 @@ c Sets redshift variables to host zphot.
       REAL*8 zhelio_zcmb_translator ! function
 C -------------- BEGIN ----------------
 
+      IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN
+
       if ( .not. EXIST_SNHOST_ZPHOT ) then
-          C1ERR = 'Cannot USE_SNHOST_ZPHOT for CID='//SNLC_CCID
-          C2ERR = 'Check data files, or set USE_SNHOST_ZPHOT=F'
+          C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
+          C2ERR = 'Check data files, or set USE_HOSTGAL_PHOTOZ=F'
           CALL MADABORT("SNRECON", c1err, c2err )
       endif        
 
@@ -18173,7 +18238,61 @@ C -------------- BEGIN ----------------
       SNLC_REDSHIFT_ERR   = SNHOST_ZPHOT_ERR(1)
 
       RETURN
-      END
+      END     ! end SET_SNHOST_ZPHOT
+
+C =============================================
++DECK,SET_zSHIFT.
+      SUBROUTINE SET_zSHIFT
+  
+c Created Jun 5 2021
+c Apply systematic z-shifts passed from &SNLCINP
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      LOGICAL LSHIFT_FINAL, LSHIFT_HOST_PHOTOZ, LSHIFT_HOST_SPECZ
+      INTEGER OPT
+      REAL    zshift
+
+      REAL*8 zhelio_zcmb_translator ! function
+C -------------- BEGIN ----------------
+
+c bail if none of the zSHIFT options are used
+      if ( .not. DOzSHIFT ) RETURN
+
+      LSHIFT_FINAL       = ( REDSHIFT_FINAL_SHIFT > 0.0 )
+      LSHIFT_HOST_SPECZ  = ( HOSTGAL_SPECZ_SHIFT  > 0.0 )
+      LSHIFT_HOST_PHOTOZ = ( HOSTGAL_PHOTOZ_SHIFT > 0.0 )
+
+      zshift = -9.0
+      IF ( LSHIFT_FINAL ) THEN
+         zshift  = REDSHIFT_FINAL_SHIFT 
+      ENDIF
+
+      IF ( LSHIFT_HOST_SPECZ ) THEN
+         if ( SNHOST_ZSPEC(1) == SNLC_REDSHIFT ) then
+            zshift = HOSTGAL_SPECZ_SHIFT + REDSHIFT_FINAL_SHIFT
+            SNHOST_ZSPEC = SNHOST_ZSPEC + zshift
+         endif
+      ENDIF
+
+      IF ( LSHIFT_HOST_PHOTOZ ) THEN
+         if ( SNHOST_ZPHOT(1) == SNLC_REDSHIFT ) then
+            zshift = HOSTGAL_PHOTOZ_SHIFT + REDSHIFT_FINAL_SHIFT
+            SNHOST_ZPHOT = SNHOST_zPHOT + zshift
+         endif
+      ENDIF
+
+      IF ( zshift > 0.0 ) THEN
+         if ( SNLC_REDSHIFT > 0.) SNLC_REDSHIFT = SNLC_REDSHIFT+ zshift
+         if ( SNLC_ZHELIO   > 0.) SNLC_ZHELIO   = SNLC_ZHELIO  + zshift
+         if ( SNLC_ZCMB     > 0.) SNLC_ZCMB     = SNLC_ZCMB    + zshift
+      ENDIF
+
+      RETURN
+      END     ! end SET_zSHIFT
 
 C ===============================
 +DECK,SET_MAG.

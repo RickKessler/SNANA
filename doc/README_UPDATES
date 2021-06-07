@@ -19976,6 +19976,10 @@
 
          ***** USEFUL(v11_02o) ***** 
 
+    + new sim input 
+         GENPOP_ASYMGAUSS: <genpop_file>  <model>
+       and popular models in $SNDATA_ROOT/models/SALT2/POPULATIONS.DAT
+
          ***** MISCELLANEOUS(v11_02o) ***** 
 
    SALT2mu.c
@@ -20002,6 +20006,7 @@
    
    snlc_sim.c[h]
      + MXEPSIM_PERFILT -> 2000 (was 1000)
+     + new sim input GENPOP_ASYMGAUSS
 
    SALT2mu.c
      + replace all errmsg calls with errlog call.

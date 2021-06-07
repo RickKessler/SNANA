@@ -766,6 +766,8 @@ void set_user_defaults(void) {
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_EBV_HOST, (double)-9.0 );
 
   // init SALT2 gen ranges
+  INPUTS.GENPOP_ASYMGAUSS_FILE[0] = INPUTS.GENPOP_ASYMGAUSS_MODEL[0] = 0 ;
+
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2c, zero );
   INPUTS.GENGAUSS_SALT2c.PEAK     = -9.0 ;
   INPUTS.GENGAUSS_SALT2c.SIGMA[0] =  1.0 ;
@@ -1778,9 +1780,16 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			      &INPUTS.GENGAUSS_STRETCH );  
   } 
   else if ( keyMatchSim(1, "STRETCH_TEMPLATE_FILE",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.STRETCH_TEMPLATE_FILE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.STRETCH_TEMPLATE_FILE );
   }
   // - - - - SALT2 population params - - - - - -
+
+  else if ( keyMatchSim(1, "GENPOP_ASYMGAUSS",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPOP_ASYMGAUSS_FILE);
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPOP_ASYMGAUSS_MODEL);
+    parse_input_GENPOP_ASYMGAUSS();
+  }
+
   else if ( strstr(WORDS[0],"SALT2c") != NULL ) {
     N += parse_input_GENGAUSS("SALT2c", WORDS, keySource,
 			      &INPUTS.GENGAUSS_SALT2c );  
@@ -3324,75 +3333,6 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
 }  // end parse_input_GRIDGEN
 #endif
 
-// ==============================================================
-void parse_input_FIELDLIST(void) {
-
-  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
-  //
-  // Created Feb 5 2021
-  // Check pre-scale options for INPUTS.SIMLIB_FIELDLIST,
-  // and load INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE
-  // Origial motivation is to generate more balanced biasCor
-  // samples.
-  //
-  // Parse SIMLIB_FIELDLIST of the form; e.g,
-  //   SHALLOW/3+DEEP 
-  //       -> process 1/3 of SHALLOW and all DEEP
-  //   SHALLOW+MEDIUM/5+DEEP/5
-  //      -> process all SHALLOW, and 1/5 of MEDIUM and DEEP
-  //
-  int   MAXLIST         = 20 ;
-  char *FIELDLIST       = INPUTS.SIMLIB_FIELDLIST ;
-  STRING_DICT_DEF *DICT = &INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE ;
-  char NAME[]  = "SIMLIB_FIELDLIST_PRESCALES" ;
-  char fnam[]  = "parse_input_FIELDLIST" ;
-  // ---------- BEGIN ------------
-
-
-  init_string_dict(DICT, NAME, MAXLIST);
-  parse_string_prescales(FIELDLIST, DICT);
-  return ;
-
-  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
-
-  /* xxxxxx mark delete May 24 2021 xxxxxxx
-  char sepKey[] = "+" ; // default FIELD separator
-  int  ifield, NLIST, MEMC = 40*sizeof(char);
-  char **ptr_FIELDLIST;
-
-  // although '+' is default separator, allow commas.
-  if ( strstr(FIELDLIST,COMMA) != NULL ) 
-    { sprintf(sepKey, "%s", COMMA); }
-  // allocate memory for each item in FIELDLIST
-  ptr_FIELDLIST = (char**)malloc( MAXLIST*sizeof(char*));
-  for(ifield=0; ifield < MAXLIST; ifield++ )
-    { ptr_FIELDLIST[ifield] = (char*)malloc(MEMC); }
-  splitString(FIELDLIST, sepKey, MAXLIST,      // inputs               
-	      &NLIST, ptr_FIELDLIST );         // outputs             
-  
-  // load dictionary
-  int jslash, iPS;
-  char *tmp, *tmpFIELD, FIELD[40];
-  double dval ;
-  for(ifield=0; ifield < NLIST; ifield++ ) {
-    tmpFIELD = ptr_FIELDLIST[ifield] ; // may include slash
-    iPS = 1;  // default preScale
-    sprintf(FIELD, "%s", tmpFIELD); // default FIELD
-    if ( strchr(tmpFIELD,'/') != NULL ) {
-      tmp    = strchr(tmpFIELD, '/');
-      jslash = (int)(tmp - tmpFIELD);
-      sscanf( &tmpFIELD[jslash+1] , "%d", &iPS );
-      strncmp(FIELD, tmpFIELD, jslash-1);
-      FIELD[jslash] = '\0' ;
-    }
-    dval = (double)iPS ;  load_string_dict(DICT, FIELD, dval );
-  }
-  xxxxxxxxxx end mark xxxxxxx */
-
-  //  xxxxxxxxx MARK OBSOLETE MAY 24 2021 xxxxxxxxxxx
-
-} // end parse_input_FIELDLIST
-
 
 // ==============================================================
 int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
@@ -4717,6 +4657,109 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
   return;
 
 } // end parse_input_OBSOLETE
+
+// **************************************************
+void  parse_input_GENPOP_ASYMGAUSS(void) {
+
+  // Created Jun 2021
+  // parse separate file with asym-Gauss keys for SALT2 color and stretch.
+  // If model is G10_HIZ, then search for
+  //
+  // MODEL_NAME: G10_HIZ
+  // GENPEAK_SALT2x1: xxx
+  // GENSIGMA_SALT2x1: xxx xxx
+  // GENRANGE_SALT2x1: xxx xxx
+  // [and repeat for SALT2c]
+  // MODEL_END:
+
+  FILE *fp;
+  char *ptrFile  = INPUTS.GENPOP_ASYMGAUSS_FILE ;
+  char *ptrModel = INPUTS.GENPOP_ASYMGAUSS_MODEL ;
+  int   MSKOPT_PARSE = MSKOPT_PARSE_WORDS_FILE ;
+  int   keySource    = KEYSOURCE_FILE ;
+  char  KEY_MODEL_NAME[] = "MODEL_NAME:" ;
+  char  KEY_MODEL_END[]  = "MODEL_END:" ;
+  bool  FOUND_MODEL = false, FOUND_END=false;
+  bool  FOUND_c=false, FOUND_x1=false;
+  bool  ISKEY_MODEL, ISKEY_END;
+
+  int   iwd, NWD_TOT, NRD=0 ;
+  char **WORDS, KEY_TMP[MXPATHLEN], MODEL_TMP[40] ;
+  char fnam[] = "parse_input_GENPOP_ASYMGAUSS";
+
+  // ----------- BEGIN ------------
+  
+  ENVreplace(ptrFile, fnam, 1);
+
+  printf("  Read GENPOP_ASYMGAUSS model '%s' from \n     %s\n",
+	 ptrModel, ptrFile); fflush(stdout);
+
+  NWD_TOT = store_PARSE_WORDS(MSKOPT_PARSE, ptrFile);
+
+  // transfer store_PARSSE_WORDS to local list to avoid
+  // conflict with other parsing functions that use store_PARSE_WORDS
+  WORDS = (char**) malloc( NWD_TOT * sizeof(char*) );
+  for ( iwd=0; iwd < NWD_TOT; iwd++ ) {
+    WORDS[iwd]    = (char*) malloc( 100*sizeof(char) ); 
+    get_PARSE_WORD(0, iwd, WORDS[iwd] );
+  }
+
+  // - - - - - -
+  for(iwd=0; iwd < NWD_TOT; iwd++ ) {
+    
+    sprintf(KEY_TMP, "%s", WORDS[iwd]);
+
+    //    printf(" xxx read KEY_TMP[%d] = '%s' \n", iwd, KEY_TMP);
+    ISKEY_MODEL = ( strcmp(KEY_TMP,KEY_MODEL_NAME) == 0 ) ;
+    ISKEY_END   = ( strcmp(KEY_TMP,KEY_MODEL_END)  == 0 ) ;
+
+    if  ( ISKEY_MODEL ) {
+      if (  strcmp(ptrModel,WORDS[iwd+1])==0 )  { FOUND_MODEL = true; }
+    }
+
+    if ( !FOUND_MODEL ) { continue; }
+    // .xyz
+
+    if ( ISKEY_END ) { FOUND_END = true; break; }
+
+    // parse sim-input keys within model block
+    //    printf(" xxx read iwd=%d of %d(%d): '%s' \n", 
+    //	   iwd, NWD_TOT, PARSE_WORDS.NWD, KEY_TMP);  
+
+    if ( strstr(WORDS[iwd],"SALT") == NULL ) { continue; }
+
+    NRD = parse_input_GENGAUSS("SALT2c", &WORDS[iwd], keySource,
+				&INPUTS.GENGAUSS_SALT2c );  
+    if ( NRD > 0 ) { FOUND_c = true; }
+
+    NRD = parse_input_GENGAUSS("SALT2x1", &WORDS[iwd], keySource,
+				&INPUTS.GENGAUSS_SALT2x1 );  
+    if ( NRD > 0 ) { FOUND_x1 = true; }
+
+  }
+
+  // - - -- 
+  bool FOUND_ALL = FOUND_MODEL && FOUND_END && FOUND_c && FOUND_x1;
+  if ( !FOUND_ALL ) {
+    print_preAbort_banner(fnam);
+    printf("  FOUND_MODEL = %d for '%s' \n", FOUND_MODEL, ptrModel);
+    printf("  FOUND_END   = %d \n", FOUND_END);
+    printf("  FOUND_[x1,c] = %d, %d \n", FOUND_x1, FOUND_c);
+
+    sprintf(c1err,"Missed reading something in GENPOP file");
+    sprintf(c2err,"Check FOUND_XXX logicals above");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // free local memory for file contents
+  for ( iwd=0; iwd < NWD_TOT; iwd++ ) { free(WORDS[iwd]); }
+  free(WORDS);
+
+  //  debugexit(fnam);
+
+  return ;
+
+} // end parse_input_GENPOP_ASYMGAUSS
 
 // **************************************************
 int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,

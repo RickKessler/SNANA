@@ -619,6 +619,8 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
   GENPOLY_DEF SALT2BETA_cPOLY;
   double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
+  char   GENPOP_ASYMGAUSS_FILE[MXPATHLEN];   // file with population params
+  char   GENPOP_ASYMGAUSS_MODEL[40];         // e.g., G10_HIZ, G10_LOWZ, etc .
 
   float  GENALPHA_SALT2 ; // legacy variable: same as GENMEAN_SALT2ALPHA
   float  GENBETA_SALT2 ;  // legacy variable: same as GENMEAN_SALT2BETA
@@ -1684,6 +1686,7 @@ int    read_input_file(char *inFile);          // parse this inFile
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
 
+void   parse_input_GENPOP_ASYMGAUSS(void);
 int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
 			    GENGAUSS_ASYM_DEF *genGauss );
 void   parse_input_GENZPHOT_OUTLIER(char *string);

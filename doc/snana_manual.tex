@@ -10383,10 +10383,24 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
 %
 and special grid keys for BBC are described in 
 \S\ref{sec:SALT2mu}.
-Note that host-galaxy extinction parameters (for AV,RV) 
+Note that host-galaxy extinction parameters (AV,RV) 
 are optional from \S\ref{subsec:host_extinct}.
 
-\medskip
+\bigskip
+To avoid transcription errors, {\tt x1} and {\tt c} populations can be
+selected from a list of asymmetric-Gaussian models as follows,
+\begin{Verbatim}[frame=single]
+   GENPOP_ASYMGAUSS: $SNDATA_ROOT/models/SALT2/POPULATIONS.DAT SK16_G10_HIZ
+\end{Verbatim}
+%
+and {\tt SK16\_G10\_HIZ} can be replace with other models in this file.
+For testing, a private {\tt POPULATIONS.DAT} file can be used.
+For population models that depend on other variables (e.g., host mass),
+or cannot be described by an asymmetric Gaussian, 
+use the more general {\tt GENPDF\_FILE} option
+(\S~\ref{subsec:genPDF}).
+
+\clearpage
 \noindent
 \&{\tt FITINP} namelist variables  for {\tt snlc\_fit.exe} :
 \begin{Verbatim}[frame=single]

@@ -1904,12 +1904,6 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
     { trim_blank_spaces(word); }  // remove <CR>
   else
     { strcat(word," "); }     // extra space for fortran
-
-  /* xxx mark delete Feb 15 2021 xxxx
-  // leave extra blank space so that fortran can find length
-  sprintf(word, "%s ", PARSE_WORDS.WDLIST[iwd] );
-  if ( langFlag==0 ) { trim_blank_spaces(word); }  // remove <CR>
-  xxxx */
   
 } // end get_PARSE_WORD
 

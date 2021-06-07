@@ -7664,6 +7664,7 @@ void  init_GENLC(void) {
   // init GENSPEC stuff
   if ( INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC ) {
     GENSPEC.NMJD_TOT = 0 ;
+    GENSPEC.IMJD_HOST = -9 ;
     for(imjd=0; imjd < MXSPEC; imjd++ )  { GENSPEC_INIT(1,imjd); }
   }
 
@@ -8331,7 +8332,7 @@ void GENSPEC_DRIVER(void) {
     // compute true GENMAG and FLUXGEN in each lambda bin
     GENSPEC_TRUE(imjd); 
 
-    // July 2019: option to add host contamination
+    // July 2019: option to add host contamination to SN spectrum
     GENSPEC_HOST_CONTAMINATION(imjd);
 
     // apply optional fudges for test or debug
@@ -8698,7 +8699,9 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
     GENSPEC.SNR_REQUEST_LIST[imjd] = -9.0 ;
     GENSPEC.SNR_COMPUTE_LIST[imjd] = -99.0 ;
+    GENSPEC.IS_HOST[imjd]          = false;
   }
+
 
   // init arrays
   for(ilam=0; ilam < NBLAM; ilam++ ) {
@@ -8881,14 +8884,17 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   // Created July 11 2019
   // Check option to add host contamination
   // Feb 26 2021: check for HOST/SN fraction: HOSTSNFRAC
+  // Jun 07 2021: fix IMJD_HOST
 
   int    IS_HOST    = GENSPEC.IS_HOST[imjd];
   double HOSTFRAC   = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
   double HOSTSNFRAC = (double)INPUTS.TAKE_SPECTRUM_HOSTSNFRAC;
-  int    IMJD_HOST  = 0 ;
+  int    IMJD_HOST  = GENSPEC.IMJD_HOST ;
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
+  bool   ALLOW_HOST_ZEROFLUX = true; // for host
 
   int ilam, ilam2, NOPT=0 ;
+  bool   IS_HOST_ZEROFLUX = false;
   double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
   double arg, MAGSHIFT, SCALE_FLAM_HOST=1.0 ;
   double FSUM_PEAK, FSUM_HOST, LAMAVG, LAMMIN, LAMMAX, LAMBIN ;
@@ -8941,7 +8947,14 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
       FSUM_HOST  += (FLAM_HOST*LAMBIN);
     }
 
-    if ( FSUM_HOST < 1.0E-40 || isnan(FSUM_HOST) ) {
+    IS_HOST_ZEROFLUX = FSUM_HOST < 1.0E-40 ;
+    if ( IS_HOST_ZEROFLUX && !ALLOW_HOST_ZEROFLUX ) {
+      print_preAbort_banner(fnam);
+      double MJD = GENSPEC.MJD_LIST[imjd];
+      printf("   imjd=%d  IMJD_HOST=%d \n", imjd, IMJD_HOST);
+      printf("   zCMB = %.3f \n", GENLC.REDSHIFT_CMB);
+      printf("   MJD  = %.3f, TOBS=%.2f\n", MJD, MJD-GENLC.PEAKMJD);
+      printf("   GALID = %lld \n", SNHOSTGAL.GALID );
       sprintf(c1err,"Cannot implement HOSTSNFRAC=%f because",
               HOSTSNFRAC );
       sprintf(c2err,"FSUM_HOST = %le \n", FSUM_HOST );
@@ -8949,7 +8962,9 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     }
 
     // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_PEAK)
-    SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ;
+    if ( !IS_HOST_ZEROFLUX ) 
+      { SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ; }
+
     NOPT++ ;
   }
 
@@ -17318,7 +17333,7 @@ void store_GENSPEC(double *VAL_STORE) {
   if ( MJD > 0.0 ) 
     { GENSPEC.IS_HOST[imjd] = 0; }  // SN spectrum
   else
-    { GENSPEC.IS_HOST[imjd] = 1; }  // HOST spectrum
+    { GENSPEC.IS_HOST[imjd] = 1; GENSPEC.IMJD_HOST=imjd; }  // HOST spectrum
 
   GENSPEC.NMJD_TOT++ ;
 

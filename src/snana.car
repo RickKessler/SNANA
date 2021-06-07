@@ -4837,6 +4837,8 @@ C ===========================================
 C Created Feb 11 2021
 C Read event (FITS or TEXT format) and transfer epoch-dependent 
 c information from SNDATA C-struct to fortran variables.
+c
+c Jun 7 2021: abort on undefined filter
 
       IMPLICIT NONE
 cc      INTEGER  ISN    ! (I) sparse SN index
@@ -4852,9 +4854,9 @@ c local var
       PARAMETER ( MJD_SAFETEY = 10.0 ) ! extra margin for MJD window
 
       INTEGER OPT, NOBS_STORE, o, LENTMP, IFILT, IFILT_OBS
-      REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2)
+      REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2), MJD
       REAL   z, z1, TOBS_MIN, TOBS_MAX
-      CHARACTER STRING*12, FNAM*14
+      CHARACTER STRING*12, FNAM*14, CFILT*2
 
       INTEGER  SELECT_MJD_SNDATA
       EXTERNAL SELECT_MJD_SNDATA
@@ -5018,6 +5020,17 @@ c these are essentially change of units.
 
         IFILT_OBS = ISNLC_IFILT_OBS(o)
         IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+
+        IF ( IFILT < 0 ) THEN
+           MJD = SNLC8_MJD(o)
+           cfilt  = filtdef_string(ifilt_obs:ifilt_obs)
+           write(c1err,61) IFILT_OBS, CFILT, SNLC_CCID(1:ISNLC_LENCCID)
+61         format('Invalid IFILT_OBS=',I3, '(',A1,') for CID=',A)
+	   write(c2err,62) MJD
+62         format('Check FILTERS key and MJD=', F9.3)
+           CALL MADABORT(FNAM, c1err,c2err)
+	ENDIF
+
         ISNLC_NEPOCH_FILT(ifilt) = 
      &       ISNLC_NEPOCH_FILT(ifilt) + 1
 

@@ -5416,6 +5416,7 @@ void set_defaults(void) {
 
 #ifdef USE_SUBPROCESS
   SUBPROCESS.USE         = false ;
+  SUBPROCESS.ITER        = -9;
   SUBPROCESS.INPUT_ISEED = 12345;
   SUBPROCESS.STDOUT_CLOBBER = 1; // default is to clobber each stdout
 #endif
@@ -18296,6 +18297,7 @@ void write_yaml_info(char *fileName) {
   // Write summary info to YAML file; to be used by batch-sumit script.
   // Write value and error for every entry; if no error, write error=0.
   // 
+  // Jun 7 2021: write subprocess iteration
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -18342,6 +18344,11 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
+
+  if ( SUBPROCESS.ITER >= 0 ) {
+    sprintf(KEY,"SUBPROCESS_ITERATION:");
+    fprintf(fp,"%-22.22s %d\n", KEY, SUBPROCESS.ITER);
+  }
 
   fprintf(fp,"\n") ;
 

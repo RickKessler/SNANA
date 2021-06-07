@@ -18228,6 +18228,11 @@ void outFile_driver(void) {
       SUBPROCESS_OUTPUT_WRITE();
     }
 
+    if ( INPUTS.write_yaml ) {
+      sprintf(tmpFile,"%s.YAML", prefix );
+      write_yaml_info(tmpFile);
+    }
+
     return ;
   }
 #endif
@@ -18251,15 +18256,6 @@ void outFile_driver(void) {
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0_fitres(tmpFile2);      // write M0 vs. redshift
     write_M0_cov(tmpFile3);         // write cov_stat matrix for CosmoMC
-
-    /* xxxxxxx mark delete Dec 10 2020 xxxxxxxxxx
-    // for single JOBID_SPLITRAN, write fitpar file so that they
-    // can be scooped up later to make summary.
-    if ( JOBID >=1 && JOBID <= NSPLITRAN )  { 
-      sprintf(tmpFile3,"%s.fitpar", prefix );  
-      SPLITRAN_write_fitpar_legacy(tmpFile3); 
-    }
-    xxxxxxxxxxxx end mark xxxxxxxxx */
 
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
@@ -20548,9 +20544,6 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
   SUBPROCESS.ITER = ITER_EXPECT; 
-
-  sprintf(BANNER,"Begin SALT2mu ITERATION=%d", ITER_EXPECT );
-  fprint_banner(FP_STDOUT,BANNER);
 
   prep_input_repeat();
 

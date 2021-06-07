@@ -10721,6 +10721,16 @@ void readchar(FILE *fp, char *clist)
 }  // end of function "readchar"
 
 
+// ******************************************************
+void print_full_command(FILE *fp, int argc, char** argv) {
+
+  int i;
+  fprintf(fp,"\n Full command: ");
+  for ( i=0; i < argc; i++ ) {
+    fprintf(fp,"%s ", argv[i] );
+  }
+  fprintf(fp,"\n\n"); fflush(fp);
+}
 
 // ************************************************
 void print_banner (const char *banner ) {

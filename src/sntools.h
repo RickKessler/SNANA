@@ -512,6 +512,7 @@ float get_snana_version_float__(char *snana_version);
 bool correct_sign_vpec_data(char *snana_version_data);
 bool correct_sign_vpec_data__(char *snana_version_data);
 
+void print_full_command(FILE *fp, int argc, char** argv);
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
 // xxxvoid set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
 void set_FILTERSTRING(char *FILTERSTRING) ;

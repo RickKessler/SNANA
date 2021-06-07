@@ -924,6 +924,9 @@ Default output files (can change names with "prefix" argument)
  May 25 2021: new debug_malloc=1 input
  Jun 02 2021: replace all errmsg with new errlog that includes
                FP_STDOUT argument.
+ Jun 07 2021:
+    + write full command
+    + new arg SUBPROCESS_STDOUT_CLOBBER=0 to turn off default clobber
 
  ******************************************************/
 
@@ -2282,7 +2285,8 @@ struct {
   char **INPUT_OUTPUT_TABLE ; 
   int    N_OUTPUT_TABLE ;
   int    INPUT_ISEED;         // random seed
-  
+  bool   STDOUT_CLOBBER; // default=T ==> rewind FP_STDOUT each iter
+
   // variables below are computed/extracted from INPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
@@ -2375,6 +2379,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   fprintf(FP_STDOUT, "\n\t Start program %s \n\n", argv[0]) ;
   fflush(FP_STDOUT);
+  print_full_command(FP_STDOUT,argc,argv);
 
   // read SURVEY.DEF file and store each survey name vs. IDSURVEY
   read_SURVEYDEF(); 
@@ -5412,6 +5417,7 @@ void set_defaults(void) {
 #ifdef USE_SUBPROCESS
   SUBPROCESS.USE         = false ;
   SUBPROCESS.INPUT_ISEED = 12345;
+  SUBPROCESS.STDOUT_CLOBBER = 1; // default is to clobber each stdout
 #endif
 
   return ;
@@ -15220,6 +15226,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"SUBPROCESS_ISEED=") ) {
     sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); return(1);
   }
+  if ( uniqueOverlap(item,"SUBPROCESS_STDOUT_CLOBBER=") ) {
+    sscanf(&item[26], "%d", &SUBPROCESS.STDOUT_CLOBBER ); return(1);
+  }
   if (  !strncmp(item,"SUBPROCESS_OUTPUT_TABLE=",24) ) {
     int N = SUBPROCESS.N_OUTPUT_TABLE ;
     sscanf(&item[24], "%s", SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
@@ -16516,7 +16525,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
     sprintf(item_list[i], "%s", ptrtok);
 
     //    printf(" xxx %s: i=%d item='%s' \n", fnam, i, item_list[i]);
-    // check disable option with "CUTWIN NONE" .xyz
+    // check disable option with "CUTWIN NONE" 
     if ( i==1 && strcmp(item_list[i],"NONE") == 0 )  {  
       INPUTS.LCUTWIN_DISABLE = true ; 
       printf("\n\t DISABLE CUTS EXCEPT CIDLIST,BIASCOR,z,BADCOV\n"); 
@@ -20533,12 +20542,15 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
   SUBPROCESS.ITER = ITER_EXPECT; 
 
+  sprintf(BANNER,"Begin SALT2mu ITERATION=%d", ITER_EXPECT );
+  fprint_banner(FP_STDOUT,BANNER);
+
   prep_input_repeat();
 
   // rewind all SUBPROCESS files
   rewind(SUBPROCESS.FP_INP);   
   rewind(SUBPROCESS.FP_OUT);   
-  rewind(FP_STDOUT);
+  if ( SUBPROCESS.STDOUT_CLOBBER ) { rewind(FP_STDOUT); }
 
   // - - - - - -
   

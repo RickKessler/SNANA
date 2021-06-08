@@ -928,6 +928,7 @@ Default output files (can change names with "prefix" argument)
     + write full command
     + new arg SUBPROCESS_STDOUT_CLOBBER=0 to turn off default clobber
     + fix major subprocess bug; reset cut bits for REWGT and PRESCALE
+    + debug_flag=68 --> muCOVscale is NOT applied to vpec part of MUERR
 
  ******************************************************/
 
@@ -1012,6 +1013,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define USEMASK_BIASCOR_COVFIT 1
 #define USEMASK_BIASCOR_COVINT 2
 #define USEMASK_BIASCOR_COVTOT 3
+#define USEMASK_BIASCOR_ZMUERR 4 // include zMUERR(VPECERR) 
 
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
@@ -1677,6 +1679,11 @@ struct INPUTS {
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int debug_flag;    // for internal testing/refactoring
+
+  bool REFAC_MUCOVSCALE ; // internally set if debug_flag==68
+  bool LEGACY_MUCOVSCALE; // internally set if debug_flag=-68
+  bool LEGACY_NEVT_REJ;
+
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int nthread ; // number of threads (default = 0 -> no threads)
 
@@ -4181,7 +4188,6 @@ void *MNCHI2FUN(void *thread) {
     idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n] ;
     z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
     logmass  = (double)INFO_DATA.TABLEVAR.logmass[n];
-    //    zerr     = (double)INFO_DATA.TABLEVAR.zhderr[n] ;
     zmuerr   = (double)INFO_DATA.TABLEVAR.zmuerr[n] ; // for muerr calc
     mb       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][n] ;
     x1       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][n] ;
@@ -4306,8 +4312,20 @@ void *MNCHI2FUN(void *thread) {
     muBiasErr = 0.0 ; 
                    
     // apply bias corrections
-    muerrsq  *= muCOVscale ;  // error scale 
+    if ( INPUTS.LEGACY_MUCOVSCALE ) {
+      // legacy model scales entire muerr, including vpec
+      muerrsq  *= muCOVscale ;  // error scale  .xyz
+    }
+    else {
+      // June 8 2021: refac/test to NOT scale vpec part of distance error
+      muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
+      muerrsq_vpec  = muerr_vpec * muerr_vpec ;
+      muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerr_vpec ;
+    }
+
+    // xxx mark delete juj 2021  
     muerrsq  += ( muBiasErr*muBiasErr); 
+
     muerr     = sqrt(muerrsq);	
     // ------------------------
 
@@ -4886,7 +4904,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   // alpha,beta : SALT2 standardization parmas for stretch & color
   // gamma      : SALT2 standard param for logmass (NOT USED)
   // COV        : fit cov matrix + intrinsic cov matrix
-  // z,zerr     : redshift & its error (zpecerr or zerrtot)
+  // z,zerr     : redshift & vpec error
   // 
   // optmask += 1 -> dump flag
   // optmask += 2 -> return MUERR_FITWGT0^2
@@ -4943,9 +4961,14 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   if( flag_dump ) { printf(" xxx mucov  = %le from COV \n", muerrsq);  }
   
   // add peculiar velocity error
-  muerr_z     = fcn_muerrz(1, z, zerr );
-  muerrsq_z   = muerr_z*muerr_z;
-  muerrsq    += muerrsq_z ;
+  if ( zerr > 0.0 ) {
+    muerr_z     = fcn_muerrz(1, z, zerr );
+    muerrsq_z   = muerr_z*muerr_z;
+    muerrsq    += muerrsq_z ;
+  }
+  else {
+    muerr_z = muerrsq_z = 0.0 ;
+  }
 
   if( flag_dump ) {
     printf(" xxx mucov  = %le with dmu(z,vpec)=%le \n",
@@ -7422,7 +7445,7 @@ void compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   set_CUTMASK(ISN, TABLEVAR);
 
-  if ( INPUTS.debug_flag == -11 ) {
+  if ( INPUTS.LEGACY_NEVT_REJ ) {
     // on last event, set NPASS ... but beware for data because additional
     // DATA cuts are applied later. print_eventStat determines final NPASS.
     int NALL   = *NALL_CUTMASK_POINTER[EVENT_TYPE];  
@@ -10056,13 +10079,14 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   //
   // Aug 22 2019: include logmass dependence
 
+  int  USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR;
   int  istat_cov, J1D, idsample ;
   double WGT, muerrsq ;
   char fnam[] = "WGT_biasCor" ;
   
   // --------------- BEGIN -------------------
 
-  muerrsq  = muerrsq_biasCor(ievt, USEMASK_BIASCOR_COVTOT, &istat_cov) ; 
+  muerrsq  = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
   WGT      = 1.0/muerrsq ;
 
   if ( opt == 1 ) { return(WGT); }
@@ -10323,7 +10347,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Created May 12, 2016
   // Make map of sigma_mu bias as a function of (z,x1,c,a,b).
   //
-  // To get better stats, the bias is just a function of z
+  // To get better stats, the bias is just a function of z & c,
   // but the 5D binning is still used so that the
   // on-the-fly lookup is done the same way as other bias
   // corrections.
@@ -10343,7 +10367,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   int DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, ic, i1d, NCELL, isp ; 
-  int    ievt, istat_cov, istat_bias, N, J1D, ipar ;
+  int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
   double muErr, muErrsq, muDif, muDifsq, pull, tmp1, tmp2  ;
   double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR+1] ;
   double a, b, gDM, z, m, c ;
@@ -10495,7 +10519,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     BIASCORLIST.beta        = b ;
     BIASCORLIST.gammadm     = gDM ;
     BIASCORLIST.idsample    = IDSAMPLE ;
-    
 
     istat_bias = 
       get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
@@ -10515,8 +10538,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif  -=  muBias ;  
     muDifsq =  muDif*muDif ;
 
-    // compute error with intrinsic scatter
-    muErrsq = muerrsq_biasCor(ievt, USEMASK_BIASCOR_COVTOT, &istat_cov) ; 
+    // computee error with intrinsic scatter 
+    USEMASK = USEMASK_BIASCOR_COVTOT;
+    if ( INPUTS.LEGACY_MUCOVSCALE ) { USEMASK += USEMASK_BIASCOR_ZMUERR; }
+    muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
       print_preAbort_banner(fnam);
@@ -10772,17 +10797,21 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   //   ievt   = event number for biasCor sample
   //   maskCov & 1 ==> include SALT2-fitted COV 
   //   maskCov & 2 ==> include intrinsic COV
+  //   maskCov & 4 ==> include zMUERR from VPECERR  (Jun 8 2021)
   //
   // Output:
   //   istat_cov is returned non-zero if the cov matrix was tweaked.
   //   Function returns square of error on distance modulus.
   //
+  //  Jun 8 2021: check USEMASK_BIASCOR_ZMUERR option
+  //
 
-  int DOCOVFIT     = ( (maskCov & USEMASK_BIASCOR_COVFIT)>0 ) ;
-  int DOCOVINT     = ( (maskCov & USEMASK_BIASCOR_COVINT)>0 ) ;
+  bool DOCOVFIT     = ( (maskCov & USEMASK_BIASCOR_COVFIT)>0 ) ;
+  bool DOCOVINT     = ( (maskCov & USEMASK_BIASCOR_COVINT)>0 ) ;
+  bool DOZMUERR     = ( (maskCov & USEMASK_BIASCOR_ZMUERR)>0 ) ;
 
   int IDSAMPLE, OPTMASK;
-  double zhd, zmuerr, a, b, gDM;
+  double zhd, zmuerr=0.0, a, b, gDM;
   double COVTOT[NLCPAR][NLCPAR] ;
   double COVINT[NLCPAR][NLCPAR] ;
   double COVTMP, muErrsq ;
@@ -10794,8 +10823,6 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
 
   IDSAMPLE = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[ievt] ;
   zhd      = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
-  //  zhderr   = (double)INFO_BIASCOR.TABLEVAR.zhderr[ievt] ;
-  zmuerr   = (double)INFO_BIASCOR.TABLEVAR.zmuerr[ievt] ;
   a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
   b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
   gDM      = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
@@ -10826,6 +10853,9 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   update_covMatrix( name, OPTMASK, NLCPAR, COVTOT, EIGMIN_COV, istat_cov ); 
   
   // compute error on distance, including covariances
+  if ( DOZMUERR )  
+    { zmuerr = (double)INFO_BIASCOR.TABLEVAR.zmuerr[ievt] ; }
+
   muErrsq = fcn_muerrsq(name, a, b, gDM, COVTOT, zhd, zmuerr, 0 );
 
   return(muErrsq);
@@ -11261,7 +11291,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   double muErrsq, muErr, muDif, muOff, SNRMAX, sigInt, tmp1, tmp2 ;
   double SUMDIF[MXa][MXb][MXg],SUMDIFSQ[MXa][MXb][MXg],SUMERRSQ[MXa][MXb][MXg];
   int    NUSE[MXa][MXb][MXg];
-  int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, *ptr_CUTMASK ;
+  int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, *ptr_CUTMASK, USEMASK ;
   short int *ptr_IDSAMPLE;
 
   double  *MUDIF[MXa][MXb][MXg];
@@ -11381,7 +11411,8 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     muDif  = muresid_biasCor(i); 
 
     // compute error with no intrinsic scatter (just use data COVFIT)
-    muErrsq = muerrsq_biasCor(i, USEMASK_BIASCOR_COVFIT, &istat_cov) ;
+    USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR;
+    muErrsq = muerrsq_biasCor(i, USEMASK, &istat_cov) ;
 
     if ( muErrsq < 0.0 ) {
       sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
@@ -12033,7 +12064,6 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	  fflush(stdout);
 	}
 	
-	// xxx mark	if ( istat_bias < 0 ) { return 0 ; }
 	if ( istat_bias < 0 ) { ISTAT = 0 ; }
 
 	istat_bias = 
@@ -14292,13 +14322,12 @@ double prob_CCprior_H11(int n, double dmu,
   double arg, sqsigCC, sigCC, sigintCC, CCpoly, dmuCC ;
   double alpha, beta, gamma, muerrsq_raw, covmat_fit[NLCPAR][NLCPAR] ;
   int i,i2;
-  //  char fnam[] = "prob_CCprior_H11" ;
+  char fnam[] = "prob_CCprior_H11" ;
 
   // ----------- BEGIN ------------
 
   name    = INFO_DATA.TABLEVAR.name[n];
   z       = INFO_DATA.TABLEVAR.zhd[n];
-  //  zerr    = INFO_DATA.TABLEVAR.zhderr[n];
   zmuerr  = INFO_DATA.TABLEVAR.zmuerr[n];
   for(i=0; i < NLCPAR; i++ ) {
     for(i2=0; i2 < NLCPAR; i2++ )
@@ -14521,7 +14550,7 @@ void print_eventStats(int event_type) {
 
   // ---------- BEGIN ------------
 
-  if ( INPUTS.debug_flag == -11 )
+  if ( INPUTS.LEGACY_NEVT_REJ )
     { print_eventStats_legacy(event_type); return; }
 
   CUTMASK_PTR  =  CUTMASK_POINTER[event_type];
@@ -15801,8 +15830,10 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_sigz=")) 
     { sscanf(&item[13],"%d", &INPUTS.restore_sigz); return(1); }
 
-  if ( uniqueOverlap(item,"debug_flag=")) 
-    { sscanf(&item[11],"%d", &INPUTS.debug_flag); return(1); }
+  if ( uniqueOverlap(item,"debug_flag=")) { 
+    sscanf(&item[11],"%d", &INPUTS.debug_flag); 
+    return(1); 
+  }
 
   if ( uniqueOverlap(item,"debug_malloc=")) 
     { sscanf(&item[13],"%d", &INPUTS.debug_malloc); return(1); }
@@ -17578,6 +17609,24 @@ void prep_input_driver(void) {
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
+
+
+  // -----------------------------------
+  // check debug_flag and set internal LEGACY/REFAC options.
+  // These options are intended to be temporary to allow switching
+  // back and forth between LEGACY/REFAC codes.
+  // General convention: 
+  //   debug_flag > 0 -> test unreleased refactor
+  //   debug_flag < 0 -> switch back to legacy code 
+  INPUTS.REFAC_MUCOVSCALE  = ( INPUTS.debug_flag == 68 ) ;  // Jun 8 2021
+  INPUTS.LEGACY_MUCOVSCALE = !INPUTS.REFAC_MUCOVSCALE ;     // Jun 8 2021
+  INPUTS.LEGACY_NEVT_REJ   = ( INPUTS.debug_flag == -11 ) ; // Jun 8 2021
+
+  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE = %d[%d] \n",
+	  INPUTS.LEGACY_MUCOVSCALE, INPUTS.REFAC_MUCOVSCALE );
+  fprintf(FP_STDOUT,"  LEGACY_NEVT_REJ = %d \n",
+	  INPUTS.LEGACY_NEVT_REJ );
+  fflush(FP_STDOUT);
 
   return ;
 
@@ -20773,7 +20822,6 @@ void SUBPROCESS_SIM_PRESCALE(void) {
 	  fnam, PS, NEVT_SIM) ;
   fflush(FP_STDOUT);
 
-  //.xyz
   for(isn=0; isn < NSN_TOT; isn++) {
     RANFLAT = SUBPROCESS.RANFLAT_PRESCALE[isn];
     if ( RANFLAT > PSinv ) 

@@ -4320,7 +4320,7 @@ void *MNCHI2FUN(void *thread) {
       // June 8 2021: refac/test to NOT scale vpec part of distance error
       muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
       muerrsq_vpec  = muerr_vpec * muerr_vpec ;
-      muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerr_vpec ;
+      muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
     }
 
     // xxx mark delete juj 2021  
@@ -17619,6 +17619,7 @@ void prep_input_driver(void) {
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
   INPUTS.REFAC_MUCOVSCALE  = ( INPUTS.debug_flag == 68 ) ;  // Jun 8 2021
+  // xxx  INPUTS.REFAC_MUCOVSCALE  = true; // xxx remove
   INPUTS.LEGACY_MUCOVSCALE = !INPUTS.REFAC_MUCOVSCALE ;     // Jun 8 2021
   INPUTS.LEGACY_NEVT_REJ   = ( INPUTS.debug_flag == -11 ) ; // Jun 8 2021
 

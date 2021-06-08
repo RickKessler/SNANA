@@ -16904,6 +16904,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   DOFLAG ;
+  char  DATATYPE[12]; // DATA or BIASCOR
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
   // ------------- BEGIN -------------
@@ -16921,8 +16922,11 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   if ( !isData && ivar < 0 && ISVAR_PROB ) { return(DOFLAG_CUTWIN_APPLY); }
 
   if ( L_NOVAR && L_ABORTFLAG ) {
-    sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 
-	    VARNAME, ivar, icut, isData );
+    if ( isData ) { sprintf(DATATYPE,"DATA"); }
+    else          { sprintf(DATATYPE,"BIASCOR"); }
+
+    sprintf(c1err,"Invalid CUTWIN on '%s' for %s (ivar=%d, icut=%d)", 
+	    VARNAME, DATATYPE, ivar, icut );
     sprintf(c2err,"Check CUTWIN keys in input file" ); 
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }

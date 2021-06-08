@@ -118,7 +118,7 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
      &  ,MXSNLC        = 5000000    ! max number of SNe (fits format)
-     &  ,MXCCID_LIST   = 25000      ! max size of SNCCID_LIST_ALL 
+     &  ,MXCCID_LIST   = 75000      ! max size of SNCCID_LIST_ALL 
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates

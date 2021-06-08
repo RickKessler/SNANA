@@ -927,6 +927,7 @@ Default output files (can change names with "prefix" argument)
  Jun 07 2021:
     + write full command
     + new arg SUBPROCESS_STDOUT_CLOBBER=0 to turn off default clobber
+    + fix major subprocess bug; reset cut bits for REWGT and PRESCALE
 
  ******************************************************/
 
@@ -2086,6 +2087,7 @@ int   ISBLIND_FIXPAR(int ipar);
 void  printmsg_fitStart(FILE *fp); 
 void  printmsg_repeatFit(char *msg) ;
 void  print_eventStats(int event_type);
+void  print_eventStats_legacy(int event_type);
 void  print_debug_malloc(int opt, char *fnam) ;
 
 void  outFile_driver(void);
@@ -2226,6 +2228,7 @@ void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
 void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
 				  TABLEVAR_DEF *TABLEVAR); 
 void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
+void SUBPROCESS_SIM_PRESCALE(void);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(void);
@@ -2284,9 +2287,10 @@ struct {
   char  *INPUT_CID_REWGT_DUMP ;
   char **INPUT_OUTPUT_TABLE ; 
   int    N_OUTPUT_TABLE ;
+  int    NEVT_SIM_PRESCALE ;   // tune sim prescale to fit this many
   int    INPUT_ISEED;         // random seed
-  bool   STDOUT_CLOBBER; // default=T ==> rewind FP_STDOUT each iter
-
+  int    STDOUT_CLOBBER; // default=T ==> rewind FP_STDOUT each iter
+  
   // variables below are computed/extracted from INPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
@@ -2302,10 +2306,11 @@ struct {
   float *TABLEVAR[MXVAR_GENPDF]; // use float to save memory
   
   // store random number for each event.
-  float *RANFLAT;
+  float *RANFLAT_REWGT ;
+  float *RANFLAT_PRESCALE ;
 
   // variables filled during each subprocess iteration
-  int  ITER;
+  int  ITER ;
   bool *KEEP_AFTER_REWGT;
 
   // define info for each SALT2mu-output table.
@@ -2329,12 +2334,17 @@ struct {
 
 int main(int argc,char* argv[ ]) {
 
-  int FLAG;
+  int FLAG, N_EXEC=0;
+  char fnam[] = "main";
   // ------------------ BEGIN MAIN -----------------
 
   SALT2mu_DRIVER_INIT(argc,argv);
   
  DRIVER_EXEC:
+  N_EXEC++ ;
+
+  //  fprintf(FP_STDOUT," 1. xxx %s: N_EXEC = %d \n", 
+  //	  fnam, N_EXEC); fflush(FP_STDOUT);
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
@@ -2343,6 +2353,7 @@ int main(int argc,char* argv[ ]) {
   SALT2mu_DRIVER_EXEC();
 
   FLAG = SALT2mu_DRIVER_SUMMARY();
+
   if ( FLAG == FLAG_EXEC_REPEAT ) { goto DRIVER_EXEC; } // e.g., NSPLITRAN
 
   fprintf(FP_STDOUT, "\n Done. \n"); fflush(FP_STDOUT);
@@ -2461,7 +2472,7 @@ void SALT2mu_DRIVER_EXEC(void) {
   int icondn, len, npari, nparx, istat, ndof ;
   double chi2min, fedm, errdef ;
   char text[100], mcom[50];
-  //  char fnam[] = "SALT2mu_DRIVER_EXEC" ;
+  char fnam[] = "SALT2mu_DRIVER_EXEC" ;
 
   // -------------- BEGIN ---------------
   t_start_fit = time(NULL);
@@ -2472,7 +2483,7 @@ void SALT2mu_DRIVER_EXEC(void) {
     { NJOB_SPLITRAN++ ; }  // keep going to do them all
 
 #ifdef USE_SUBPROCESS
-  if ( SUBPROCESS.USE ) { NJOB_SPLITRAN=1; } // 7/24/2020
+  if ( SUBPROCESS.USE ) { NJOB_SPLITRAN=1; }
 #endif
 
   DOFIT_FLAG = FITFLAG_CHI2 ; 
@@ -2501,6 +2512,10 @@ void SALT2mu_DRIVER_EXEC(void) {
   applyCut_chi2max();
 
   FITRESULT.NFIT_ITER = 0 ;
+
+#ifdef USE_SUBPROCESS
+  if ( SUBPROCESS.USE ) { SUBPROCESS_SIM_PRESCALE(); } // Jun 2021
+#endif
 
   // print stats for data after ALL cuts are applied
   print_eventStats(EVENT_TYPE_DATA);
@@ -2566,13 +2581,14 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     "Good fit; errors valid"
   };
 
-  //  char fnam[] = "SALT2mu_DRIVER_SUMMARY" ;
+  char fnam[] = "SALT2mu_DRIVER_SUMMARY" ;
 
   // ------------ BEGIN ----------
 
   fprintf(FP_STDOUT, "\n**********Fit summary**************\n");
 
-  fprintf(FP_STDOUT, "MNFIT status=%i (%s)\n", MNSTAT, COMMENT_MNSTAT[MNSTAT] );
+  fprintf(FP_STDOUT, "MNFIT status=%i (%s)\n", 
+	  MNSTAT, COMMENT_MNSTAT[MNSTAT] );
 
   double redChi2 = FITRESULT.CHI2SUM_MIN/(double)FITRESULT.NDOF ;
   fprintf(FP_STDOUT, "-2lnL/dof = %.2f/%i = %6.3f (%i SN) \n",
@@ -2618,8 +2634,6 @@ int SALT2mu_DRIVER_SUMMARY(void) {
  
   }
 #endif
-
-  // xxx mark delete Dec 2020  SPLITRAN_SUMMARY();
 
   CPU_SUMMARY();
 
@@ -3280,7 +3294,7 @@ void applyCut_chi2max(void) {
 
   // Created Jul 19 2019
   // Call FCN (fit function) to evaluate chi2 with
-  // initial params, then applhy chi2-outlier cut to data.
+  // initial params, then apply chi2-outlier cut to data.
   // Note that this is BEAMS chi2 when there is CC contam,
   // and thus this is NOT the same as cutting on HR resids.
   //
@@ -5418,7 +5432,8 @@ void set_defaults(void) {
   SUBPROCESS.USE         = false ;
   SUBPROCESS.ITER        = -9;
   SUBPROCESS.INPUT_ISEED = 12345;
-  SUBPROCESS.STDOUT_CLOBBER = 1; // default is to clobber each stdout
+  SUBPROCESS.STDOUT_CLOBBER  = 1; // default is to clobber each stdout
+  SUBPROCESS.NEVT_SIM_PRESCALE     = -9; 
 #endif
 
   return ;
@@ -7407,12 +7422,14 @@ void compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   set_CUTMASK(ISN, TABLEVAR);
 
-  // on last event, set NPASS ... but beware for data because additional
-  // DATA cuts are applied later. print_eventStat determines final NPASS.
-  int NALL   = *NALL_CUTMASK_POINTER[EVENT_TYPE];  
-  int NREJ   = *NREJECT_CUTMASK_POINTER[EVENT_TYPE];  
-  int *NPASS = NPASS_CUTMASK_POINTER[EVENT_TYPE];
-  if ( ISN == NALL-1 ) {     *NPASS = NALL-NREJ ;   }
+  if ( INPUTS.debug_flag == -11 ) {
+    // on last event, set NPASS ... but beware for data because additional
+    // DATA cuts are applied later. print_eventStat determines final NPASS.
+    int NALL   = *NALL_CUTMASK_POINTER[EVENT_TYPE];  
+    int NREJ   = *NREJECT_CUTMASK_POINTER[EVENT_TYPE];  
+    int *NPASS = NPASS_CUTMASK_POINTER[EVENT_TYPE];
+    if ( ISN == NALL-1 ) {     *NPASS = NALL-NREJ ;   }
+  }
 
   return;
 
@@ -14492,12 +14509,125 @@ void print_eventStats(int event_type) {
   //
   // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
   // Feb 25 2021: abort on missing biasCor only if it is required.
+  // Jun 08 2021: refactor to compute NSN_PASS and NSN_REJ here ...
+  //              needed for SUBPROCESS iterations.
+  //
+
+  int  NSN_TOT      = *NALL_CUTMASK_POINTER[event_type];
+  char *STRTYPE     = STRING_EVENT_TYPE[event_type];
+  int  NSN_REJ=0, NSN_PASS=0, *NBIT, bit, isn, cutmask, NCUT=0 ;
+  int  *CUTMASK_PTR, NCUT_SOLO[MXCUTBIT];
+  char fnam[] = "print_eventStats" ;
+
+  // ---------- BEGIN ------------
+
+  if ( INPUTS.debug_flag == -11 )
+    { print_eventStats_legacy(event_type); return; }
+
+  CUTMASK_PTR  =  CUTMASK_POINTER[event_type];
+  NBIT         =  &NSTORE_CUTBIT[event_type][0];
+
+  // loop over all events and for each cutbit, count how many
+  // events were cut by ONLY this one cut (i.e.. passed all other cuts)
+  for(bit=0; bit < MXCUTBIT; bit++ ) { NCUT_SOLO[bit]=0; }
+
+  for(isn=0; isn < NSN_TOT; isn++ ) {
+    cutmask = CUTMASK_PTR[isn];
+    if ( cutmask ==0 ) { NSN_PASS++ ; continue; }
+    // check if one and only 1 bit is set
+    if ( (cutmask & (cutmask-1) ) == 0 ) {
+      for(bit=0; bit < MXCUTBIT; bit++ ) {
+	if ( cutmask & CUTMASK_LIST[bit] ) 
+	  { NCUT_SOLO[bit]++; bit=MXCUTBIT+1; }
+      }
+    }
+  }
+
+  // ----------------------------
+  NSN_REJ = NSN_TOT - NSN_PASS;
+  *NREJECT_CUTMASK_POINTER[event_type] = NSN_REJ;
+  *NPASS_CUTMASK_POINTER[event_type]   = NSN_PASS ;
+
+
+  fprintf(FP_STDOUT, 
+	  "\n#%s\n", dashLine);
+  fprintf(FP_STDOUT, 
+	  " %s STAT SUMMARY: %d(TOTAL) = %d(ACCEPT) + %d(REJECT) \n",
+	 STRTYPE, NSN_TOT, NSN_PASS, NSN_REJ);
+
+  for(bit=0; bit < MXCUTBIT; bit++ ) {
+    NCUT = NBIT[bit] ;
+    if ( NCUT > 0 ) {
+      fprintf(FP_STDOUT, " %s NCUT[2**%2.2d=%5d] = "
+	      "%6d(ALL) %6d(onlyCut)   [%s] \n",
+	      STRTYPE, bit, CUTMASK_LIST[bit], 
+	      NCUT, NCUT_SOLO[bit], CUTSTRING_LIST[bit] );
+    }
+  }
+
+  if ( NSN_PASS == 0 ) {
+    sprintf(c1err,"All %s events fail cuts.", STRTYPE);
+    sprintf(c2err,"Check NCUT vs. cut listed above.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  fprintf(FP_STDOUT, "#%s\n\n", dashLine);
+  fflush(FP_STDOUT);
+
+
+  // July 1 2020:
+  // Abort if BIASCOR sample is missing for any IDSAMPLE.
+  int NMISSING = 0 ;
+  if ( event_type == EVENT_TYPE_BIASCOR ) {
+    int  NSAMPLE = NSAMPLE_BIASCOR ;
+    int idsample, NSN ;      char *NAME;
+    bool IS_PHOTOZ ;
+    for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
+      if ( SAMPLE_BIASCOR[idsample].DOFLAG_BIASCOR==0 ) { continue ; } 
+      NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
+      IS_PHOTOZ  = SAMPLE_BIASCOR[idsample].IS_PHOTOZ ;
+      NAME       = SAMPLE_BIASCOR[idsample].NAME ;
+      if ( NSN == 0 ) {
+	NMISSING++ ;
+	printf(" WARNING: No BIASCOR events for %s [IDSAMPLE=%d]\n", 
+	       NAME, idsample);
+	printf("\t IS_PHOTOZ(data) = %d for %s \n", IS_PHOTOZ, NAME );
+	fflush(stdout);
+      }
+    }
+
+    if ( NMISSING > 0 ) {
+      sprintf(c1err,"%d missing biasCor samples; see WARNINGS above.", 
+	      NMISSING);
+      sprintf(c2err,"Check data and biasCor samples for mis-match.") ; 
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
+    }
+  }
+
+  return ;
+
+} // end  print_eventStats
+
+
+// =========================================
+void print_eventStats_legacy(int event_type) {
+
+  // Created Jun 1 2019
+  // for input "event_type" (DATA,BIASCOR, or CCPRIOR),
+  // Print number of events: total, pass, reject.
+  // Note that NPASS is computed and stored here/
+  // 
+  // Tricky part is counting how many events are rejected by
+  // a single cut ... and to to it efficiently.
+  //
+  // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
+  // Feb 25 2021: abort on missing biasCor only if it is required.
 
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
   int  NSN_TOT, *CUTMASK_PTR ;
   int  NSN_REJ, *NSN_PASS, *NBIT, bit, isn, cutmask, NCUT ;
   int  NCUT_SOLO[MXCUTBIT];
-  char fnam[] = "print_eventStats" ;
+  char fnam[] = "print_eventStats_legacy" ;
 
   // ---------- BEGIN ------------
 
@@ -14528,6 +14658,7 @@ void print_eventStats(int event_type) {
 
   fprintf(FP_STDOUT, 
 	  "\n#%s\n", dashLine);
+  fprintf(FP_STDOUT,"\t LEGACY %s\n", fnam);
   fprintf(FP_STDOUT, 
 	  " %s STAT SUMMARY: %d(TOTAL) = %d(ACCEPT) + %d(REJECT) \n",
 	 STRTYPE, NSN_TOT, *NSN_PASS, NSN_REJ);
@@ -14583,7 +14714,7 @@ void print_eventStats(int event_type) {
 
   return ;
 
-} // end  print_eventStats
+} // end  print_eventStats_legacy
 
 
 // ==================================================
@@ -14833,7 +14964,7 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
     if ( *CUTMASK == 0 ) { TABLEVAR->NSN_REJECT++ ;  }
 
-    *CUTMASK |= CUTMASK_LIST[bitnum];
+    *CUTMASK |= CUTMASK_LIST[bitnum] ;
     TABLEVAR->NSN_CUTBIT[bitnum]++ ;
     NSTORE_CUTBIT[EVENT_TYPE][bitnum]++ ;
   }
@@ -14903,14 +15034,14 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   // return accept for real data
   if ( FOUNDKEY_SIM == 0 ) { return(REJECT); }
 
-  // increment NSIMDATA counter.
+  // Increment NSIMDATA counter.
   // Note that prescale_simData can be non-integer
   NSIMDATA++ ;
   XN    = (float)NSIMDATA ;
   XNPS  = (float)INPUTS.prescale_simData ;
   if ( fmodf( XN, XNPS ) != 0 )  { REJECT = 1 ; }
 
-  // increment NSIMCC counter
+  // increment separate NSIMCC counter
   if ( SIM_NONIA_INDEX > 0 ) {
     NSIMCC++ ;
     XN    = (float)NSIMCC ;
@@ -15228,7 +15359,10 @@ int ppar(char* item) {
     sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); return(1);
   }
   if ( uniqueOverlap(item,"SUBPROCESS_STDOUT_CLOBBER=") ) {
-    sscanf(&item[26], "%d", &SUBPROCESS.STDOUT_CLOBBER ); return(1);
+    sscanf(&item[26], "%d", &SUBPROCESS.STDOUT_CLOBBER );  return(1);
+  }
+  if ( uniqueOverlap(item,"SUBPROCESS_NEVT_SIM_PRESCALE=") ) {
+    sscanf(&item[29], "%d", &SUBPROCESS.NEVT_SIM_PRESCALE ); return(1);
   }
   if (  !strncmp(item,"SUBPROCESS_OUTPUT_TABLE=",24) ) {
     int N = SUBPROCESS.N_OUTPUT_TABLE ;
@@ -16832,7 +16966,7 @@ void prep_input_repeat(void) {
   //   + SUBPROCESS called from python fitter
   //
 
-  //  char fnam[] = "prep_input_repeat" ;
+  char fnam[] = "prep_input_repeat" ;
 
   // ------------ BEGIN -----------
 
@@ -16848,6 +16982,29 @@ void prep_input_repeat(void) {
   }
 
   recalc_dataCov(); 
+
+  // - - - - - - -
+
+#ifdef USE_SUBPROCESS
+  if ( SUBPROCESS.USE ) {
+    //printf("   Reset a few CUTBITS \n" );
+    int isn, CUTMASK ;
+    int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
+    for (isn=0; isn < NSN_DATA; isn++)  {
+
+      CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[isn];
+      
+      // reset... cut bits that get re-applied in SUBPROCESS
+      CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_SPLITRAN] ) ;
+      //      CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_MINBIN]   ) ;
+      if ( SUBPROCESS.NEVT_SIM_PRESCALE > 0 )
+	{ CUTMASK -= (CUTMASK & CUTMASK_LIST[CUTBIT_SIMPS] ); }
+      
+      INFO_DATA.TABLEVAR.CUTMASK[isn] = CUTMASK ;
+      
+    } // end isn
+  }
+#endif
 
   return;
 
@@ -16919,151 +17076,6 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
     { return 0; }
 
 } // end of SPLITRAN_ACCEPT
-
-
-/* xxxxxxxxxx mark delete Dec 2020 xxxxxxxxxxxx
-
-// **************************************************
-void SPLITRAN_SUMMARY(void) {
-
-  // Created July 10, 2012 by R.Kessler
-  // if SPLIT-RAN option is used, compute MEAN and RMS
-  // for each parameter, and also compare with avgerage
-  // fit-error.
-  //
-  // Dec 2 2016: compute & print rms of sample size
-
-  
-  int ipar, isplit, NSPLIT, NPAR, NERR_VALID, JOBID_SPLIT ; 
-  int FOUND_wfit = 1;
-  double 
-    VAL, ERR, XN, XNTMP, NSNAVG, NSNRMS
-    ,SUMVAL1[MAXPAR], SUMERR1[MAXPAR]
-    ,SUMVAL2[MAXPAR], SUMERR2[MAXPAR]
-    ,AVG_VAL[MAXPAR], RMS_VAL[MAXPAR]
-    ,AVG_ERR[MAXPAR], RMS_ERR[MAXPAR]
-    ,SUMN, SQSUMN
-    ;
-  
-  char PARNAME[MXCHAR_VARNAME];
-  char fnam[] = "SPLITRAN_SUMMARY" ;
-
-  // -------------- BEGIN -------------
-
-  NSPLIT       = INPUTS.NSPLITRAN ;
-  JOBID_SPLIT  = INPUTS.JOBID_SPLITRAN;
-  NPAR         = FITINP.NFITPAR_ALL ;
-
-  if ( NSPLIT <= 1 ) { return ; }
-
-  // check for individual JOBID instead of entire set.
-  if ( JOBID_SPLIT > 0 ) {
-    if ( JOBID_SPLIT > NSPLIT ) {
-      store_PARSE_WORDS(-1,"");
-      for(isplit=1; isplit<=NSPLIT; isplit++ )
-	{ SPLITRAN_read_fitpar(isplit); }
-
-      // check for optional wfit results too (Jun 11 2020)
-      // Note separate isplit loop to make sure that all jobs
-      // have finished. If any wfit file is missing, STOP trying.
-      for(isplit=1; isplit<=NSPLIT; isplit++ ) {
-	if ( FOUND_wfit ) 
-	  { FOUND_wfit = SPLITRAN_read_wfit(isplit);  }
-      }
-
-    }
-    else
-      { return; }
-  }
-
-
-
-  // get average sample size & RMS
-  SUMN = SQSUMN = 0.0 ;
-  for ( isplit=1; isplit <= NSPLIT; isplit++ ) {
-    XNTMP = (double)FITRESULT.NSNFIT_SPLITRAN[isplit] ;
-    SUMN   += XNTMP ;
-    SQSUMN += (XNTMP*XNTMP) ;
-  } 
-  XN     = (double)NSPLIT ;
-  NSNAVG = SUMN/XN ;
-  NSNRMS = RMSfromSUMS(NSPLIT, SUMN, SQSUMN) ;
-
-  for ( ipar=1; ipar <= NPAR ; ipar++ ) {
-    SUMVAL1[ipar] = 0.0 ;
-    SUMERR1[ipar] = 0.0 ;
-    SUMVAL2[ipar] = 0.0 ;
-    SUMERR2[ipar] = 0.0 ;
-
-    AVG_VAL[ipar] =  RMS_ERR[ipar] = 0.0 ;
-    AVG_ERR[ipar] = -9.0 ;
-
-    NERR_VALID = 0 ;
-    
-    for ( isplit=1; isplit <= NSPLIT; isplit++ ) {
-      VAL = FITRESULT.PARVAL[isplit][ipar] ;
-      ERR = FITRESULT.PARERR[isplit][ipar] ;
-      if ( ERR > 0.0 ) {
-	NERR_VALID++ ; 
-	SUMVAL1[ipar] += VAL;
-	SUMERR1[ipar] += ERR;
-	SUMVAL2[ipar] += (VAL*VAL) ;
-	SUMERR2[ipar] += (ERR*ERR) ;
-      }
-    }
-
-    if ( NERR_VALID == 0 ) { continue ; }
-    XN = (double)NERR_VALID ;
-    
-    AVG_VAL[ipar] = SUMVAL1[ipar]/XN ;
-    AVG_ERR[ipar] = SUMERR1[ipar]/XN ;
-    RMS_VAL[ipar] = RMSfromSUMS(NERR_VALID, SUMVAL1[ipar], SUMVAL2[ipar] );
-    RMS_ERR[ipar] = RMSfromSUMS(NERR_VALID, SUMERR1[ipar], SUMERR2[ipar] );
-
-  }  // end of ipar loop
-
-
-  // ---- print results -----
-  sleep(2);
-  fflush(FP_STDOUT);
-
-  // write summary to outFile. 
-  char OUTFILE[MXPATHLEN] ;
-  FILE *fp;
-  sprintf(OUTFILE,"SALT2mu_SPLITRAN_SUMMARY.DAT" );
-  fp = fopen(OUTFILE,"wt");
-  if ( !fp )  {
-    sprintf(c1err,"Could not open SPLITRAN summary file:");
-    sprintf(c2err,"%s", OUTFILE);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-  fprintf(FP_STDOUT, "\n SPLITRAN SUMMARY is in %s \n", OUTFILE);
-
-  fprintf(fp, "# SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
-	  INPUTS.NSPLITRAN, (int)NSNAVG, (int)NSNRMS );
-  fprintf(fp," \n");
-  fprintf(fp,"NSPLITRAN: %d \n", INPUTS.NSPLITRAN);
-  fprintf(fp,"VARNAMES: ROW PARNAME AVG_VAL AVG_ERR RMS_VAL RMS_ERR \n" );
-
-  for ( ipar=1; ipar <= NPAR ; ipar++ ) {
-    if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
-    sprintf(PARNAME, "%s", FITRESULT.PARNAME[ipar]);
-    trim_blank_spaces(PARNAME);
-    fprintf(fp, "ROW: %2d  %-15s  %8.3f  %8.3f  %8.3f %8.3f \n"
-	   ,ipar
-	   ,PARNAME
-	   ,AVG_VAL[ipar]
-	   ,AVG_ERR[ipar]
-	   ,RMS_VAL[ipar]
-	   ,RMS_ERR[ipar]
-	   );
-  }
-  fclose(fp);
-
-}  // end of SPLITRAN_SUMMARY
-
-xxxxxxxxxxxxxxx end mark xxxxxxxxxxxxx */
 
 
 // ======================================
@@ -20499,7 +20511,7 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL ;
   int MEMF = NSN * sizeof(float) ;
   int isn ;
-  double r;
+  double r1, r2;
   char fnam[] = "SUBPROCESS_INIT_RANFLAT" ;
 
   // ------------ BEGIN -------------
@@ -20509,12 +20521,18 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   init_random_seed(SUBPROCESS.INPUT_ISEED,1);
 
   print_debug_malloc(+1,fnam);
-  SUBPROCESS.RANFLAT = (float*) malloc ( MEMF );
+  SUBPROCESS.RANFLAT_REWGT    = (float*) malloc ( MEMF );
+  SUBPROCESS.RANFLAT_PRESCALE = (float*) malloc ( MEMF );
+
   for(isn=0; isn < NSN; isn++ ) {
-    r = unix_random(1);
-    SUBPROCESS.RANFLAT[isn] = (float)r; 
+    r1 = unix_random(1);
+    r2 = unix_random(1);
+
+    SUBPROCESS.RANFLAT_REWGT[isn] = (float)r1; 
+    SUBPROCESS.RANFLAT_PRESCALE[isn] = (float)r2; 
     if ( isn < 4 )   { 
-      printf("%s\t RANFLAT[%d] = %8.5f \n", KEYNAME_SUBPROCESS_STDOUT,isn,r); 
+      printf("%s\t RANFLAT[%d] = %8.5f %8.5f\n", 
+	     KEYNAME_SUBPROCESS_STDOUT,isn, r1, r2); 
     }
   }
 
@@ -20530,7 +20548,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   // For sim, prepare for next iteration.
 
   int  ITER_EXPECT = -9 ;
-  //  char fnam[] = "SUBPROCESS_PREP_NEXTITER";
+  char fnam[] = "SUBPROCESS_PREP_NEXTITER";
 
   // --------- BEGIN -------------
 
@@ -20543,7 +20561,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
   scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
-  SUBPROCESS.ITER = ITER_EXPECT; 
+  SUBPROCESS.ITER = ITER_EXPECT ; 
 
   prep_input_repeat();
 
@@ -20575,7 +20593,6 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   int  OPTMASK  = OPTMASK_GENPDF_EXTERNAL_FP ;
   int  ITER     = SUBPROCESS.ITER ;
   FILE *FP_INP  = SUBPROCESS.FP_INP ;
-  //  FILE *FP_OUT  = SUBPROCESS.FP_OUT ;
   char *INPFILE = SUBPROCESS.INPFILE ;
 
   bool FOUND_ITER_BEGIN = false;
@@ -20697,8 +20714,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     } // end GENPDF map loop
 
     // apply random number against PROB_TOT to keep or reject this event.
-    RANFLAT = (double)SUBPROCESS.RANFLAT[isn];
-
+    RANFLAT = (double)SUBPROCESS.RANFLAT_REWGT[isn];
 
     if ( PROB_TOT >= RANFLAT ) { KEEP = true; NKEEP_REWGT++ ; } 
     if ( LDMP ) {
@@ -20723,6 +20739,50 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
 } // end SUBPROCESS_SIM_REWGT
 
+
+// ================================
+void SUBPROCESS_SIM_PRESCALE(void) {
+
+  // Created Jun 7 2021
+  // if SUBPROCESS.NEVT_SIM_PRESCALE > 0, figure out pre-scale
+  // to get this NEVT, and apply it. This allows control code
+  // to determine the sim subset size for BBC fit.
+  
+  bool IS_SIM     = INFO_DATA.TABLEVAR.IS_SIM ;
+  int  NEVT_SIM   = SUBPROCESS.NEVT_SIM_PRESCALE ;
+  int  NSN_TOT    = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  isn;
+  int  LDMP = 1;
+  double RANFLAT ;
+  char fnam[] = "SUBPROCESS_SIM_PRESCALE" ;
+
+  // ---------- BEGIN -----------
+
+  if ( !IS_SIM || NEVT_SIM < 10 ) { return; }
+
+  print_eventStats(EVENT_TYPE_DATA);
+
+  int  NSN_PASS   = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
+  if ( NEVT_SIM > NSN_PASS ) { return; }
+
+  // compute prescale (nearest integer) to get close to NEVT_SIM
+  float PS = (float)NSN_PASS / (float)NEVT_SIM ;
+  float PSinv = 1.0/PS;
+
+  fprintf(FP_STDOUT,"%s: force prescale=%.1f to get NEVT_SIM ~ %d \n",
+	  fnam, PS, NEVT_SIM) ;
+  fflush(FP_STDOUT);
+
+  //.xyz
+  for(isn=0; isn < NSN_TOT; isn++) {
+    RANFLAT = SUBPROCESS.RANFLAT_PRESCALE[isn];
+    if ( RANFLAT > PSinv ) 
+      { setbit_CUTMASK(isn, CUTBIT_SIMPS, &INFO_DATA.TABLEVAR ); }
+  }
+
+  return;
+
+} // end SUBPROCESS_SIM_PRESCALE
 
 // =======================================
 int SUBPROCESS_IVAR_TABLE(char *varName) {

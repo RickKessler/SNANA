@@ -19974,6 +19974,8 @@
 
          ***** IMPORTANT(v11_02o) ***** 
 
+    + fix nasty SUBPROCESS bug in SALT2mu; REWGT cut was not reset.
+
          ***** USEFUL(v11_02o) ***** 
 
     + new sim input 
@@ -20007,6 +20009,8 @@
    snlc_sim.c[h]
      + MXEPSIM_PERFILT -> 2000 (was 1000)
      + new sim input GENPOP_ASYMGAUSS
+     + fix bug setting IMJD_HOST for contamination
+     + allow zero-flux host for host-contamination option.
 
    SALT2mu.c
      + replace all errmsg calls with errlog call.

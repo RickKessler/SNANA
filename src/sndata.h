@@ -36,11 +36,11 @@
   Aug 13 2019: MXPATHLEN -> 300 (was 200)
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
   May 27 2021: MXSPECTRA -> 300 (was 200)
-  Jun 04 2021: MXEPOCH -> 4000 (was 2000)
+  Jun 04 2021: MXEPOCH -> 5000 (was 2000)
 
 *****************************************************/
 
-#define MXEPOCH  4000     // max number of epochs per SN
+#define MXEPOCH  5000     // max number of epochs per SN
 #define MXEPCOV  112     // max epochs to store in covariance matrix
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)

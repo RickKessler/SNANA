@@ -19976,6 +19976,18 @@
 
     + fix nasty SUBPROCESS bug in SALT2mu; REWGT cut was not reset.
 
+    + CID matching updated to use hash table for
+            SNCID_LIST_FILE  in   &SNLCINP (snana.exe, snlc_fit.exe)
+            cid_select_file  for  SALT2mu.exe
+       => much faster and no limit on number of CIDs. Example from Maria
+          with 2 million sim events and selecting from SNCID_LIST_FILE 
+          with 40k events passing 4MOST selection:
+          Previous brute-force CID loop takes 116 minutes (0.2 sec/evt)
+          just to read the data (no LC fitting), which is almost the same 
+          time to run LC fitting. Using hash table, reading takes 5 minutes, 
+          or x23 faster.
+          See C-functions  match_cidlist_init[exec] in sntools.c[h].
+
          ***** USEFUL(v11_02o) ***** 
 
     + new sim input 
@@ -19997,6 +20009,8 @@
    sntools.c
      + new utilitiy errlog(FP, SEV, fnam, c1err, c2err)
          (has FP input argument to allow writing to log file)
+     + new utility match_cidlist_init[exec] to perform CID list matching
+       with hash table; 
 
    sntools.h
      + MXWORDFILE_PARSE_WORDS -> 2M (was 1 million) so that cid_select_file
@@ -20005,7 +20019,7 @@
    sntools_host.h
      + MXWGT_HOSTLIB -> 500,000 (was 50k) for large WGTMAPs in PLASTICCv2.
      + define MXCHAR_LINE_APPEND 300 (replace hard-wired alloc of 100)
-   
+      
    snlc_sim.c[h]
      + MXEPSIM_PERFILT -> 2000 (was 1000)
      + new sim input GENPOP_ASYMGAUSS
@@ -20014,8 +20028,13 @@
 
    SALT2mu.c
      + replace all errmsg calls with errlog call.
-  
+     + debug_flag=68 -> muCOVscale is NOT applied to vpec part of MUERR
+     + use hash table for cid_select_file and cid_reject_file
+
    snana.car:
      + new &SNLCINP inputs HOSTGAL_PHOTOZ_SHIFT and HOSTGAL_SPECZ_SHIFT
+     + MXCCID_LIST -> 75,000 (was 25k); needed for TiDES study.
+     + SNCID_LIST_FILE uses new match_cidlist utility in sntools.c;
+        based on hash table, it's much faster and has no max limits.
 
 END: 

@@ -5883,7 +5883,7 @@ c default is to reject nothing (accept everything)
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      REFAC_SNCID_LIST   = .FALSE.
+      REFAC_SNCID_LIST   = .TRUE.
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.

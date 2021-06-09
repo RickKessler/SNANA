@@ -1903,6 +1903,9 @@ void read_head_HOSTLIB(FILE *fp) {
   //   + read option VPEC_ERR
   //   + add error checking based on MSKOPT
   //
+  // Jun 09 2021: no more case-insensitive match to avoid, e..g, confusing
+  //              a_obs and A_obs
+  //
 
   int MXCHAR    = MXCHAR_LINE_HOSTLIB ;
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
@@ -1977,7 +1980,8 @@ void read_head_HOSTLIB(FILE *fp) {
 	// check for optional variables to add to the store list
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
 	  cptr = HOSTLIB.VARNAME_OPTIONAL[i];
-	  if( strcmp_ignoreCase(c_var,cptr) == 0 ) {
+	  // xxx mark	  if( strcmp_ignoreCase(c_var,cptr) == 0 ) {
+	  if( strcmp(c_var,cptr) == 0 ) {
 	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
 	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
 	    if ( HOSTLIB.IS_SNPAR_OPTIONAL[i] )  
@@ -2063,7 +2067,8 @@ void read_head_HOSTLIB(FILE *fp) {
     // Feb 2014 -> case insensitive check
     MATCH = 0;
     for( ivar=0; ivar < HOSTLIB.NVAR_ALL; ivar++ ) {
-      if ( strcmp_ignoreCase(c_var,HOSTLIB.VARNAME_ALL[ivar]) == 0 ) { 
+      // xxxx if ( strcmp_ignoreCase(c_var,HOSTLIB.VARNAME_ALL[ivar])==0){ 
+      if ( strcmp(c_var,HOSTLIB.VARNAME_ALL[ivar]) == 0 ) { 
 	MATCH = 1 ; 
 	HOSTLIB.IVAR_ALL[IVAR_STORE] = ivar ;
 	goto DONEMATCH ; 

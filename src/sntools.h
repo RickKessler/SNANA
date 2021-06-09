@@ -457,6 +457,8 @@ struct {
 
 } WRITE_EPOCH_LIST ;
 
+
+
 // ##############################################################
 //
 //     functions
@@ -681,6 +683,8 @@ int   keyMatch(char *string, char *key, char *keySuffix_optional);
 void  dumpUniqueKey(char *key) ;
 
 int   ivar_matchList(char *varName, int NVAR, char **varList);
+int   match_cid_hash(char *cid, int ilist, int isn);
+int   match_cid_hash__(char *cid, int *ilist, int *isn);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );

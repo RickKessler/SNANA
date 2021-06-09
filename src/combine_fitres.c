@@ -129,6 +129,9 @@
 
  Jan 4 2021: add print_stats() for NEVT, NEVT_MISSING, NEVT_COMMON
 
+ Jun 08 2021: switch to using match_cid_hash  utility in sntools.c
+                (matchflag=5).
+   
 ******************************/
 
 #include <stdio.h>
@@ -157,7 +160,7 @@ void  init_misc(void);
 void  INIT_TABLEVAR(void);
 void  ADD_FITRES(int ifile);
 int   match_CID_orig(int ifile, int isn2);
-int   match_CID_hash(int ifile, int isn2);
+int   match_CID_hash_local(int ifile, int isn2);
 void  ADD_FITRES_VARLIST(int ifile, int isn, int isn2);
 
 int   NMATCH_VARNAME(char *ctag , int ntlist ) ;
@@ -213,8 +216,9 @@ int NWRITE_SNTABLE ;
 #define  TABLEID_COMBINE   TABLEID_FITRES
 #define  TABLENAME_COMBINE TABLENAME_FITRES
 
-#define MATCHFLAG_ORIG     1 // original slow CID-matching
-#define MATCHFLAG_HASH     3 // use hash table recommended by Sam
+#define MATCHFLAG_ORIG       1 // original slow CID-matching
+#define MATCHFLAG_HASH_LOCAL 3 // use hash table recommended by Sam
+#define MATCHFLAG_HASH_UTIL  5 // generical utility in sntools (Jun 2021)
 
 // inputs
 struct INPUTS {
@@ -326,8 +330,11 @@ int main(int argc, char **argv) {
     ADD_FITRES(ifile);
   }
 
-  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH ) 
-    { match_CID_hash(-1,0); } // remove hash table
+  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) 
+    { match_CID_hash_local(-1,0); } // remove hash table
+
+  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) 
+    { match_cid_hash("", -1,0); } // remove hash table
 
   // ---------------
 
@@ -379,7 +386,10 @@ void  PARSE_ARGV(int argc, char **argv) {
 
   INPUTS.NFFILE       = 0;
   INPUTS.MXROW_READ   = 1000000000 ;
-  INPUTS.MATCHFLAG    = MATCHFLAG_HASH ; // MATCHFLAG_ORIG;
+
+  // xxx mark  INPUTS.MATCHFLAG    = MATCHFLAG_HASH_LOCAL ; // 2019
+  INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
+
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
   INPUTS.CUTWIN_zHD[0] = -9.0 ;  
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
@@ -473,8 +483,11 @@ void  PARSE_ARGV(int argc, char **argv) {
   if ( INPUTS.MATCHFLAG == MATCHFLAG_ORIG ) {
     printf("   CID-match method: brute force loop over each file.\n");
   }
-  else {
-    printf("   CID-match method: hash table.\n");
+  else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
+    printf("   CID-match method: hash table with local util.\n");
+  }
+  else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
+    printf("   CID-match method: hash table with sntools util.\n");
   }
 
   if ( INPUTS.NFFILE <= 0 ) {
@@ -578,7 +591,7 @@ void ADD_FITRES(int ifile) {
 
   char 
     *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME]
-    ,*ptr_CTAG
+    ,*ptr_CTAG, ccid[60]
     ,fnam[] = "ADD_FITRES"
     ;
 
@@ -741,8 +754,13 @@ void ADD_FITRES(int ifile) {
 
   for(isn2=0; isn2 < NLIST2_FITRES; isn2++ ) {
     
-    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH ) 
-      { isn = match_CID_hash(ifile,isn2);  } // isn is for ifile=0
+    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
+      isn = match_CID_hash_local(ifile,isn2);   // isn is for ifile=0
+    }
+    else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
+      sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2]);
+      isn = match_cid_hash(ccid,ifile,isn2);   // isn is for ifile=0
+    }
     else 
       { isn = match_CID_orig(ifile,isn2);  }
 
@@ -812,7 +830,7 @@ int match_CID_orig(int ifile, int isn2) {
 } // end if match_CID_orig
 
 // =====================================
-int match_CID_hash(int ifile, int isn2) {
+int match_CID_hash_local(int ifile, int isn2) {
 
   // Created Oct 7 2019
   // Use hash table to speed matching.
@@ -825,7 +843,7 @@ int match_CID_hash(int ifile, int isn2) {
   int   isn;
   char  ccid[MXSTRLEN_CID];
   struct hash_table *s, *tmp;
-  //  char fnam[] = "match_CID_hash" ;
+  //  char fnam[] = "match_CID_hash_local" ;
 
   // ----------- BEGIN ------------
 
@@ -866,7 +884,7 @@ int match_CID_hash(int ifile, int isn2) {
 
   return(-9);
 
-} // end if match_CID_hash
+} // end if match_CID_hash_local
 
 
 // =============================

@@ -18,6 +18,7 @@
 #include "eispack.h"
 #include "eispack.c"
 
+
 /*********************************************************
 **********************************************************
 
@@ -27,10 +28,65 @@
 **********************************************************
 **********************************************************/
 
+#include "uthash.h"
+// Jun 2021: define stuff for hash table; used to match CID lists.
+struct hash_table_def {
+  int id;                /* key */
+  char name[10];
+  UT_hash_handle hh;    /* makes this structure hashable */
+} ;
+struct hash_table_def *hash_table_users = NULL; 
+
+int match_cid_hash(char *ccid, int ilist, int isn) {
+
+  // Created Jun 2021
+  // Use hash table to speed cid matching.             
+  // Inputs:           
+  //   ilist = 0 for original list, 1,2,3 for additional lists to match
+  //   isn   = current SN index                 
+  //                                                      
+  // Function returns isn index for ilist=0
+  // If there is no match, return -9.
+
+  int isn0 = -9;
+  struct hash_table_def *s, *tmp;
+  char fnam[] = "match_cid_hash" ;
+
+  // ---------------- BEGIN ---------------
+
+  if ( ilist < 0 ) {
+    /* free the hash table contents */
+    HASH_ITER(hh, hash_table_users, s, tmp) {
+      HASH_DEL(hash_table_users, s);
+      free(s);
+    }
+    return(-1);
+  }
+
+  if ( ilist == 0 ) {
+    // create hash table        
+    s     = malloc(sizeof(struct hash_table_def));
+    s->id = isn;
+    strcpy(s->name, ccid);
+    HASH_ADD_STR( hash_table_users, name, s );
+    return(isn) ;
+  }
+  
+  // if we get here, match input ccid to ilist=0               
+  HASH_FIND_STR( hash_table_users, ccid, s);
+  if ( s ) {  isn0 = s->id; }
+  
+  return isn0;
+
+} // end match_cid_hash
+
+int match_cid_hash__(char *cid, int *ilist, int *isn) {
+  int isn0 = match_cid_hash(cid, *ilist, *isn);
+  return(isn0);
+}
 
 // =================================================
 // Feb 2021: functions to mimic python dictionary; func(string) = val
-
 void init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM) {
 
   int i;

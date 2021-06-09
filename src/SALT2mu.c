@@ -929,6 +929,7 @@ Default output files (can change names with "prefix" argument)
     + new arg SUBPROCESS_STDOUT_CLOBBER=0 to turn off default clobber
     + fix major subprocess bug; reset cut bits for REWGT and PRESCALE
     + debug_flag=68 --> muCOVscale is NOT applied to vpec part of MUERR
+    + use hash table for cid_select_file & cid_reject_file.
 
  ******************************************************/
 
@@ -1680,6 +1681,8 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int debug_flag;    // for internal testing/refactoring
 
+  bool REFAC_CID_SELECT;  // internally set if debug_flag==78
+  bool LEGACY_CID_SELECT; //
   bool REFAC_MUCOVSCALE ; // internally set if debug_flag==68
   bool LEGACY_MUCOVSCALE; // internally set if debug_flag=-68
   bool LEGACY_NEVT_REJ;
@@ -1940,6 +1943,7 @@ void  prep_input_probcc0(void);
 void  prep_input_load_COSPAR(void);
 void  prep_input_varname_missing(void);
 void  prep_input_repeat(void); 
+void  prep_debug_flag(void);
 
 int   force_probcc0(int itype, int idsurvey);
 void  prep_cosmodl_lookup(void);
@@ -4314,7 +4318,7 @@ void *MNCHI2FUN(void *thread) {
     // apply bias corrections
     if ( INPUTS.LEGACY_MUCOVSCALE ) {
       // legacy model scales entire muerr, including vpec
-      muerrsq  *= muCOVscale ;  // error scale  .xyz
+      muerrsq  *= muCOVscale ;  // error scale 
     }
     else {
       // June 8 2021: refac/test to NOT scale vpec part of distance error
@@ -15010,34 +15014,45 @@ int selectCID_data(char *cid){
   // for file= data. determines if cid is in cidlist_data
   //
   // Sep 2020 RK - Refactor to accept or reject based on user input.
+  // Juj 2021 RK - use hash table instead of brute-force matching.
 
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
-  int ACCEPT = 1, REJECT = 0, i ;
+  int ACCEPT = 1, REJECT = 0, i, isn0 ;
   bool MATCH ;
   char *tmpCID;
-  //  char fnam[] = "selectCID_data";
+  char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
 
   if ( ncidList == 0 ) { return ACCEPT ; }
 
-  for (i = 0; i < ncidList; i++) {
-    tmpCID = INPUTS.cidList_data[i];
-    MATCH  = (strcmp(cid,tmpCID)==0) ;
-    if ( MATCH ) {
-      if ( acceptFlag > 0 )  { return ACCEPT; }
-      else     	             { return REJECT; }
-    }
-  } // end i loop over cids
+  if ( INPUTS.REFAC_CID_SELECT )  {
+    int ilist=1;
+    isn0 = match_cid_hash(cid, ilist, -1);
+    MATCH = (isn0 >= 0 ) ;
+  }
+  else {
+    // LEGACY brute-force CID matching
+    for (i = 0; i < ncidList; i++) {
+      tmpCID = INPUTS.cidList_data[i];
+      MATCH  = (strcmp(cid,tmpCID)==0) ;
+      if ( MATCH ) { break; }
+    } // end i loop over cids
+  } // end LEGACY
 
-
-  // - - - - - - 
-  // if there are no cid matches to file:
-  //   REJECT if mode is to accept only CIDs in file
-  //   ACCEPT if mode is to reject only CIDs in file
-  if ( acceptFlag > 0 ) { return REJECT ; }
-  else                  { return ACCEPT ; }
+  // - - - -
+  if ( MATCH ) {
+    if ( acceptFlag > 0 )  { return ACCEPT; }
+    else     	           { return REJECT; }
+  }
+  else {
+    // if there are no cid matches to file:
+    //   REJECT if mode is to accept only CIDs in file
+    //   ACCEPT if mode is to reject only CIDs in file
+    if ( acceptFlag > 0 ) { return REJECT ; }
+    else                  { return ACCEPT ; }
+  }
 
 } // END selectCID_data
 
@@ -15909,9 +15924,11 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //
   // Jun 2 2021: refactor to read with fgets instead of store_PARSE_WORDS
   //             to avoid exceeding word-limit count.
+  //
+  // Jun 8 2021: switch to using hash table -> much faster.
 
   int  ncidList_data = INPUTS.ncidList_data  ;
-  char *cid, tmpLine[MXCHAR_LINE], tmpWord[60],  key[60];
+  char cid[MXCHAR_CCID], tmpLine[MXCHAR_LINE], tmpWord[60],  key[60];
   int iwd, NWD, isn, NCID_EXPECT, NCID_LOAD, NCID_TOT, MEMC, MEMC2, MSKOPT ;
   int LDMP = 0 ;
   FILE *fp;
@@ -15941,20 +15958,25 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // - - - - -
   // malloc/realloc global cidList_data array
-  print_debug_malloc(+1,fnam);
-  NCID_TOT = (ncidList_data + NCID_EXPECT);
-  MEMC     = NCID_TOT * sizeof(char*);
-  MEMC2    = MXCHAR_CCID * sizeof(char);
-  if ( ncidList_data == 0 ) 
-    { INPUTS.cidList_data =  (char**)malloc(MEMC);  }
-  else 
-    { INPUTS.cidList_data =  (char**)realloc(INPUTS.cidList_data,MEMC);  }
+  if ( INPUTS.LEGACY_CID_SELECT ) {
+    print_debug_malloc(+1,fnam);
+    NCID_TOT = (ncidList_data + NCID_EXPECT);
+    MEMC     = NCID_TOT * sizeof(char*);
+    MEMC2    = MXCHAR_CCID * sizeof(char);
+    if ( ncidList_data == 0 ) 
+      { INPUTS.cidList_data =  (char**)malloc(MEMC);  }
+    else 
+      { INPUTS.cidList_data =  (char**)realloc(INPUTS.cidList_data,MEMC);  }
+    
+    // malloc memory for each CID strings
+    for(isn = ncidList_data; isn < NCID_TOT; isn++ ) { 
+      INPUTS.cidList_data[isn]    = (char*)malloc(MEMC2); 
+      INPUTS.cidList_data[isn][0] = 0;
+    }
+  } // end LEGACY if block
 
-  // malloc memory for each CID strings
-  for(isn = ncidList_data; isn < NCID_TOT; isn++ ) { 
-    INPUTS.cidList_data[isn]    = (char*)malloc(MEMC2); 
-    INPUTS.cidList_data[isn][0] = 0;
-  }
+
+  if ( INPUTS.REFAC_CID_SELECT )  { match_cid_hash("",-1,0); }
 
   // - - - - - - - - - - - - - - - - - - -
   isn = ncidList_data  ;
@@ -15989,25 +16011,31 @@ void parse_cidFile_data(int OPT, char *fileName) {
       
       if ( FORMAT_FITRES ) {
 	if ( IS_ROWKEY && iwd == 1 ) {
-	  cid = INPUTS.cidList_data[isn];
+	  // xxx mark	  cid = INPUTS.cidList_data[isn];
 	  sprintf(cid, "%s", tmpWord);
 	  LOAD_CID = true;
 	}
       }
       else {
 	// every word is a CID, so just load it without checking keys	
-	cid = INPUTS.cidList_data[isn];
+	// xxxx mark	cid = INPUTS.cidList_data[isn];
 	sprintf(cid, "%s", tmpWord);
 	LOAD_CID = true;
       }
 
       if ( LOAD_CID ) {
+	
+	if ( INPUTS.LEGACY_CID_SELECT )
+	  { sprintf(INPUTS.cidList_data[isn],"%s", cid); }
+	else
+	  { match_cid_hash(cid, 0, isn); } // 0 = ilist num
+
 	if (LDMP) { printf(" xxx %s: select cid = %s (isn=%d, tmpWord=%s)\n", 
 			   fnam, cid, isn, tmpWord ); }
 	isn++ ; NCID_LOAD++ ;
 	if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
 	     strstr(cid,"=")   != NULL )   {
-	  sprintf(c1err,"Invalid cid string = '%s'",cid);
+	  sprintf(c1err,"Invalid cid string = '%s'", cid);
 	  sprintf(c2err,"Check cid_select_file %s",fileName);
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
 	}
@@ -17313,6 +17341,8 @@ void prep_input_driver(void) {
 
   // ------------ BEGIN -----------
 
+  prep_debug_flag();
+
   if ( INPUTS.cat_only ) { prep_input_varname_missing(); return; }
 
   USE_CCPRIOR      = INFO_CCPRIOR.USE; 
@@ -17615,6 +17645,13 @@ void prep_input_driver(void) {
   }
 
 
+  return ;
+
+} // end of prep_input_driver
+
+// =========================
+void prep_debug_flag(void) {
+
   // -----------------------------------
   // check debug_flag and set internal LEGACY/REFAC options.
   // These options are intended to be temporary to allow switching
@@ -17623,19 +17660,25 @@ void prep_input_driver(void) {
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
   INPUTS.REFAC_MUCOVSCALE  = ( INPUTS.debug_flag == 68 ) ;  // Jun 8 2021
-  // xxx  INPUTS.REFAC_MUCOVSCALE  = true; // xxx remove
   INPUTS.LEGACY_MUCOVSCALE = !INPUTS.REFAC_MUCOVSCALE ;     // Jun 8 2021
+
   INPUTS.LEGACY_NEVT_REJ   = ( INPUTS.debug_flag == -11 ) ; // Jun 8 2021
+
+  INPUTS.LEGACY_CID_SELECT = ( INPUTS.debug_flag == -78 );
+  INPUTS.REFAC_CID_SELECT  = !INPUTS.LEGACY_CID_SELECT ;
 
   fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE = %d[%d] \n",
 	  INPUTS.LEGACY_MUCOVSCALE, INPUTS.REFAC_MUCOVSCALE );
+
+  fprintf(FP_STDOUT,"  LEGACY[REFAC]_CID_SELECT = %d[%d] \n",
+	  INPUTS.LEGACY_CID_SELECT, INPUTS.REFAC_CID_SELECT );
+
   fprintf(FP_STDOUT,"  LEGACY_NEVT_REJ = %d \n",
 	  INPUTS.LEGACY_NEVT_REJ );
   fflush(FP_STDOUT);
 
-  return ;
 
-} // end of prep_input_driver
+}  // end prep_debug_flag
 
 // =====================================
 void prep_input_load_COSPAR(void) {

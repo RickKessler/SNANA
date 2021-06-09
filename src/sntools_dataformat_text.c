@@ -1402,6 +1402,7 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
       { IVARSPEC_SNTEXTIO.SIM_GENMAG = ivar; }
 
     else if ( strcmp(varName,"DQ")       == 0 ) { ; } // do nothing
+    else if ( strcmp(varName,"SNR")      == 0 ) { ; } // do nothing
     else if ( strcmp(varName,"SPECFLAG") == 0 ) { ; } // do nothing
 
     else {

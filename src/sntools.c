@@ -28,6 +28,151 @@
 **********************************************************
 **********************************************************/
 
+int match_cidlist_init(char *fileName) {
+
+  // Created June 2021
+  //
+  // if fileName == "", init hash table and return.
+  //
+  // If fileName has a dot, read CID list from file;
+  // else read comma or space sep list of CIDs from string.
+  // File can be FITRES format with VARNAMES key, or a plain list.
+  // Use hash table for fast access.
+  // After calling this function, do matching with
+  //   match = match_cidlist_exec(cid);
+  //
+  // Function returns number of stored CIDs.
+  //
+
+  bool IS_FILE = ( strstr(fileName,DOT) != NULL );
+  bool FORMAT_TABLE = false ;
+  int  NCID, NWD, iwd, MSKOPT = -9 ;
+  int  langC = LANGFLAG_PARSE_WORDS_C ;
+  int  ILIST = 0, LDMP=0 ;
+  char CID[40];
+  char fnam[] = "match_cidlist_init";
+
+  // ------------- BEGIN ------------
+
+  if ( LDMP ) {
+    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    fflush(stdout);
+  }
+
+  // init hash table
+  if ( strlen(fileName) == 0 ) 
+    { match_cid_hash("",-1,0); return 0; }
+
+  ENVreplace(fileName,fnam,1);
+
+  if ( IS_FILE ) { 
+    FORMAT_TABLE = key_in_file(fileName, "VARNAMES:", 1000);
+  }
+  else {
+    MSKOPT  = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
+    NCID    = store_PARSE_WORDS(MSKOPT,fileName);
+    for(iwd = 0; iwd < NCID; iwd++ ) {
+      get_PARSE_WORD(langC, iwd, CID);
+      match_cid_hash(CID, ILIST, iwd);
+    }
+    return NCID ;
+  }
+
+  // - - - - - - - -
+  // if we get here, read file with appropriate format
+
+  int  GZIPFLAG,  MXCHAR_LINE = 400;
+  bool IS_ROWKEY, LOAD_CID ;
+  char tmpLine[MXCHAR_LINE], key[60], tmpWord[60] ;
+  FILE *fp;
+  NCID = 0;
+  MSKOPT  = MSKOPT_PARSE_WORDS_STRING ;
+
+  fp  = open_TEXTgz(fileName, "rt", &GZIPFLAG);
+
+  while ( fgets(tmpLine,MXCHAR_LINE,fp) ) {
+
+    // parse words on this line  
+    NWD = store_PARSE_WORDS(MSKOPT,tmpLine);
+    if ( NWD == 0 ) { continue ; }
+
+    iwd = 0;  get_PARSE_WORD(0, iwd, key);
+    IS_ROWKEY = 
+      ( strcmp(key,"SN:" ) == 0 ) ||
+      ( strcmp(key,"ROW:") == 0 ) ||
+      ( strcmp(key,"GAL:") == 0 ) ||
+      ( strcmp(key,"OBS:") == 0 ) ;
+
+
+    if ( key[0] == '#' ) { continue ; }
+
+    // loop over words on this line     
+    for ( iwd = 0; iwd < NWD; iwd++ ) {
+      LOAD_CID = false;
+      get_PARSE_WORD(langC, iwd, tmpWord);
+
+      if ( FORMAT_TABLE ) {
+        if ( IS_ROWKEY && iwd == 1 ) {
+          sprintf(CID, "%s", tmpWord);
+          LOAD_CID = true;
+        }
+      }
+      else {
+        // every word is a CID, so just load it without checking keys
+        sprintf(CID, "%s", tmpWord);
+        LOAD_CID = true;
+      }
+
+      if ( LOAD_CID ) {
+	// xxxx	printf(" xxx %s: load CID=%s  NCID=%d \n", fnam, CID, NCID);
+	match_cid_hash(CID, ILIST, NCID);
+	NCID++ ;
+        if ( strstr(CID,COMMA) != NULL || strstr(CID,COLON) != NULL ||
+             strstr(CID,"=")   != NULL )   {
+          sprintf(c1err,"Invalid cid string = '%s'", CID);
+          sprintf(c2err,"Check cid_select_file %s",fileName);
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+        }
+ 
+      } // end LOAD_CID 
+
+    } // end iwd loop over line
+    
+  } // end while
+
+  fclose(fp);
+
+  if ( LDMP ) {
+    printf(" xxx %s: IS_FILE=%d  NCID=%d \n", fnam, IS_FILE, NCID);
+    fflush(stdout);
+  }
+
+  return NCID ;
+
+} // end match_cidlist_init
+
+
+bool match_cidlist_exec(char *cid) {
+  // Created June 2021
+  // Return true if input cid is on ILIST=0 that was
+  // read in match_cidlist_init().
+  bool match = false;
+  int  isn0, ILIST = 1;
+  char fnam[] = "match_cidlist_exec";
+  // ------------- BEGIN --------------
+  isn0  = match_cid_hash(cid, ILIST, -1);
+  match = (isn0 >= 0 ) ;
+  // printf(" xxx %s: cid=%s -> isn0 = %d \n", fnam, cid, isn0 );
+  return match ;
+} // end match_cidlist_exec
+
+
+int match_cidlist_init__(char *fileName) 
+{ return match_cidlist_init(fileName); }
+bool match_cidlist_exec__(char *cid) 
+{ return match_cidlist_exec(cid); }
+
+// ******************************************
 #include "uthash.h"
 // Jun 2021: define stuff for hash table; used to match CID lists.
 struct hash_table_def {
@@ -8721,7 +8866,7 @@ int init_SNDATA_GLOBAL(void) {
 
   // ---------------- BEGIN -------------
 
-  printf("  %s: \n", fnam); fflush(stdout);
+  printf("\n  %s: \n", fnam); fflush(stdout);
 
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
@@ -10127,6 +10272,33 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   return fp ;
 
 }  // end of snana_openTextFile
+
+// ******************************************************
+bool key_in_file(char *fileName, char *key, int nwd_check) {
+
+  // Created Jun 2021
+  // Return true of *key exists in *fileName, 
+  // and it is among fist nwd_check words.
+
+  int gzipFlag, nwd_read=0;
+  bool found_key = false ;
+  char c_get[MXPATHLEN];
+  FILE *fp;
+  // ------------- BEGIN -----------
+
+  fp  = open_TEXTgz(fileName, "rt", &gzipFlag);
+
+  while( fscanf(fp,"%s", c_get )!= EOF ) {
+    if ( strcmp(c_get,key) == 0 ) { found_key=true; break; }
+    nwd_read++ ;
+    if ( nwd_read > nwd_check ) { break; }
+  }
+
+  fclose(fp);
+  return found_key ;
+
+  //.xyz
+} // end key_in_file
 
 
 // *************************************

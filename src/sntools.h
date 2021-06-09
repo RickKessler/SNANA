@@ -96,6 +96,7 @@
 #define PERCENT    "%"              // idem for %-sep strings
 #define PLUS       "+"
 #define STAR       "*"
+#define DOT        "."
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
@@ -587,6 +588,11 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
+int  match_cidlist_init(char *fileName);
+int  match_cidlist_init__(char *fileName);
+bool match_cidlist_exec(char *cid);
+bool match_cidlist_exec__(char *cid);
+
 void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void   parse_GENPOLY(char *stringPoly, char *varName, 
 		     GENPOLY_DEF *GENPOLY, char *callFun );
@@ -830,6 +836,8 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
 bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open
 void check_file_docana(int optmask, char *fileName);   // open file and check
 void check_file_docana__(int *optmask, char *fileName);
+
+bool key_in_file(char *file, char *key, int nwd_check);
 
 void react_missing_docana(bool FOUND_DOCANA, char *fileName);
 void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);

@@ -2079,7 +2079,7 @@ int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
-int selectCID_data(char *cid); //djb
+int selectCID_data(char *cid); 
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -15014,7 +15014,7 @@ int selectCID_data(char *cid){
   // for file= data. determines if cid is in cidlist_data
   //
   // Sep 2020 RK - Refactor to accept or reject based on user input.
-  // Juj 2021 RK - use hash table instead of brute-force matching.
+  // Juj 2021 RK - use match_cidlist_exec util based on hash table.
 
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
@@ -15028,9 +15028,13 @@ int selectCID_data(char *cid){
   if ( ncidList == 0 ) { return ACCEPT ; }
 
   if ( INPUTS.REFAC_CID_SELECT )  {
+    MATCH = match_cidlist_exec(cid);
+
+    /* xxxxxxxxx mark delete 
     int ilist=1;
     isn0 = match_cid_hash(cid, ilist, -1);
     MATCH = (isn0 >= 0 ) ;
+    xxxxxxx */
   }
   else {
     // LEGACY brute-force CID matching
@@ -15918,6 +15922,40 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //
   //    OPT > 0 -> list to accept
   //    OPT < 0 -> list to reject
+
+  int  ncidList_data = INPUTS.ncidList_data  ;
+  int  ncid ;
+  char fnam[] = "parse_cidFile_data" ;
+
+  // ------------- BEGIN ------------
+
+  ncid = match_cidlist_init(fileName);
+
+  INPUTS.ncidList_data += ncid ;
+ 
+  if ( OPT > 0 ) {
+    printf("  %s: Accept only %d CIDs in %s\n", 
+	   fnam, ncid, fileName);
+  }
+  else {
+    printf("  %s: Reject %d  CIDs in %s\n", 
+	   fnam, ncid, fileName);
+  }
+  fflush(stdout);
+
+  return ;
+
+} // end parse_cidFile_data
+
+// **************************************************     
+void parse_cidFile_data_LEGACY(int OPT, char *fileName) {
+
+  // Created Sep 23 2020 
+  // Read inpt fileName for list of CIDs to accept or reject 
+  // based on
+  //
+  //    OPT > 0 -> list to accept
+  //    OPT < 0 -> list to reject
   //
   // Checks if fileName is keyed-FITRES format, or just a list
   // of CIDs without any keys.
@@ -15933,7 +15971,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   int LDMP = 0 ;
   FILE *fp;
   bool FORMAT_FITRES, LOAD_CID, IS_ROWKEY ;
-  char fnam[] = "parse_cidFile_data";
+  char fnam[] = "parse_cidFile_data_LEGACY";
 
   // ------ BEGIN --------------
 
@@ -16059,7 +16097,6 @@ void parse_cidFile_data(int OPT, char *fileName) {
   INPUTS.ncidList_data += NCID_EXPECT;
  
 
-
   if ( OPT > 0 ) {
     printf("  %s: Accept only %d CIDs in %s\n", 
 	   fnam, NCID_EXPECT, fileName);
@@ -16072,142 +16109,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   return ;
 
-} // END of parse_cidFile_data()
-
-
-// **************************************************     
-void parse_cidFile_data_LEGACY(int OPT, char *fileName) {
-
-  // Created Sep 23 2020 
-  // Read inpt fileName for list of CIDs to accept or reject 
-  // based on
-  //
-  //    OPT > 0 -> list to accept
-  //    OPT < 0 -> list to reject
-  //
-  // Checks if fileName is keyed-FITRES format, or just a list
-  // of CIDs without any keys.
-  //
-
-  int  ncidList_data = INPUTS.ncidList_data  ;
-  char *cid, tmpWord[60] ;
-  int iwd, isn, NCID_EXPECT, NCID_LOAD, NCID_TOT, NWD, MEMC, MEMC2, MSKOPT ;
-  int LDMP = 0 ;
-  bool FORMAT_FITRES, LOAD_CID ;
-  char fnam[] = "parse_cidFile_data_LEGACY";
-
-  // ------ BEGIN --------------
-
-  if ( IGNOREFILE(fileName) ) { return; }
-
-  ENVreplace(fileName,fnam,1);
-
-  // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
-  NCID_EXPECT = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
-
-  // scoop up all words in file, regardless of format.
-  MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
-  NWD  = store_PARSE_WORDS(MSKOPT,fileName); 
-
-  if ( NCID_EXPECT > 0 ) { 
-    // FITRES format
-    FORMAT_FITRES = true ;
-  }
-  else {
-    // not FITRES format ; read list of CIDs
-    NCID_EXPECT = NWD ;
-    FORMAT_FITRES = false ;
-  }
-
-  // - - - - -
-  // malloc/realloc global cidList_data array
-  print_debug_malloc(+1,fnam);
-  NCID_TOT = (ncidList_data + NCID_EXPECT);
-  MEMC     = NCID_TOT * sizeof(char*);
-  MEMC2    = MXCHAR_CCID * sizeof(char);
-  if ( ncidList_data == 0 ) 
-    { INPUTS.cidList_data =  (char**)malloc(MEMC);  }
-  else 
-    { INPUTS.cidList_data =  (char**)realloc(INPUTS.cidList_data,MEMC);  }
-
-  // malloc memory for each CID strings
-  for(isn = ncidList_data; isn < NCID_TOT; isn++ ) { 
-    INPUTS.cidList_data[isn]    = (char*)malloc(MEMC2); 
-    INPUTS.cidList_data[isn][0] = 0;
-  }
-
-  // - - - - - - - - - - - - 
-  isn = ncidList_data  ;
-  NCID_LOAD = 0;
-
-  // check every word in file, regardless of format
-  for ( iwd=0; iwd < NWD; iwd++ ) { 
-
-    get_PARSE_WORD(0,iwd,tmpWord);
-    LOAD_CID = false;
-
-    if ( LDMP ) {
-      printf(" xxx -------------------------------------------- \n");
-      printf(" xxx %s: iwd=%d of %d (NCID=%d) tmpWord='%s' \n",
-	     fnam, iwd, NWD, NCID_EXPECT, tmpWord); fflush(stdout);
-    }
-
-    if ( FORMAT_FITRES ) {
-      if ( validRowKey_TEXT(tmpWord) ) { 
-	cid = INPUTS.cidList_data[isn];
-	get_PARSE_WORD(0,iwd+1,cid); 
-	LOAD_CID = true;
-      }
-    }
-    else {
-      // every word is a CID, so just load it without checking keys
-      cid = INPUTS.cidList_data[isn];
-      sprintf(cid, "%s", tmpWord);
-      LOAD_CID = true;
-    }
-
-    if ( LOAD_CID ) {
-      isn++ ;  NCID_LOAD++ ;
-      if (LDMP) { printf (" xxx %s: select cid = %s \n", fnam, cid ); }
-      
-      if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
-	   strstr(cid,"=")   != NULL )   {
-	sprintf(c1err,"Invalid cid string = '%s'",cid);
-	sprintf(c2err,"Check cid_select_file %s",fileName);
-	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-      }
-    } // end LOAD_CID
-
-  } // end iwd loop
-
-
-  // - - - - - - -
-
-  if ( NCID_EXPECT != NCID_LOAD ) {
-    sprintf(c1err,"NCID_LOAD=%d but  NCID_EXPECT = %d", 
-	    NCID_LOAD, NCID_EXPECT );
-    sprintf(c2err,"Something is really messed up.");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-  }
-
-
-  INPUTS.ncidList_data += NCID_EXPECT;
- 
-
-
-  if ( OPT > 0 ) {
-    printf("  %s: Accept only %d CIDs in %s\n", 
-	   fnam, NCID_EXPECT, fileName);
-  }
-  else {
-    printf("  %s: Reject %d  CIDs in %s\n", 
-	   fnam, NCID_EXPECT, fileName);
-  }
-  fflush(stdout);
-
-  return ;
-
-} // END of parse_cidFile_data_LEGACY()
+} // END of parse_cidFile_data_LEGACY
 
 
 // **************************************************
@@ -17619,6 +17521,7 @@ void prep_input_driver(void) {
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
+    match_cidlist_init("");    // init hash table
     for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
       { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
     printf("\n"); fflush(stdout);

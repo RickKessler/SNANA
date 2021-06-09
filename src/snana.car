@@ -2054,9 +2054,10 @@ c
      &  ,USESIM_SNIA         ! default True -> process simulated SNIa
      &  ,USESIM_SNCC         ! default True -> process simulated SNCC
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
+     &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
-     &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
+     &  ,REFAC_SNCID_LIST    ! use hash table (Jun 9 2021)
 
 c LC plot info
 
@@ -2137,7 +2138,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , LPROB_TRUEFLUX
+     &    , LPROB_TRUEFLUX, REFAC_SNCID_LIST
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2185,7 +2186,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , LPROB_TRUEFLUX
+     &    , LPROB_TRUEFLUX, REFAC_SNCID_LIST
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3017,8 +3018,12 @@ c ------------------------------------------------
 c            Misc. inits for options
 
 c check option to read list of CIDs from text file (Nov 2013)
-      CALL RDFILE_SNCID()
-     
+      if ( REFAC_SNCID_LIST ) then
+         CALL INIT_SNCID_LISTS() ! Jun 2021
+      else
+         CALL RDFILE_SNCID()     ! legacy init using brute force
+      endif
+
 c check for SN,MJD list from file ... used for interpolation
       CALL RDFILE_SNMJDLIST()
 
@@ -5878,6 +5883,8 @@ c default is to reject nothing (accept everything)
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
+      REFAC_SNCID_LIST   = .FALSE.
+
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
       USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
@@ -6098,46 +6105,49 @@ c then use survey name by default
       endif
 
 c -----------------------------
+c xxxxxxx mark delete Jun 9 2021 xxxxxxx
 c count entries in lists
-      i = 1 ; NCID_LIST=0
-      DO WHILE ( SNCID_LIST(i) .GE. 1 ) 
-          i = i + 1
-      END DO
-      NCID_LIST = i - 1
+      if ( .not. REFAC_SNCID_LIST ) then
+         i = 1 ; NCID_LIST=0
+         DO WHILE ( SNCID_LIST(i) .GE. 1 ) 
+            i = i + 1
+         END DO
+         NCID_LIST = i - 1
 
-      i = 1 ; 
-      DO WHILE(SNCCID_LIST(i)      .NE. ' ' .and. 
-     &         SNCCID_LIST(i)(1:4) .NE. 'NONE') 
-          CALL NMLCHECK_SNCCID("SNCCID_LIST",SNCCID_LIST(i))
-          SNCCID_LIST_ALL(i) = SNCCID_LIST(i)
-          i = i + 1
-      END DO
-      NCCID_LIST = i - 1
+         i = 1 ; 
+         DO WHILE(SNCCID_LIST(i)      .NE. ' ' .and. 
+     &        SNCCID_LIST(i)(1:4) .NE. 'NONE') 
+            CALL NMLCHECK_SNCCID("SNCCID_LIST",SNCCID_LIST(i))
+            SNCCID_LIST_ALL(i) = SNCCID_LIST(i)
+            i = i + 1
+         END DO
+         NCCID_LIST = i - 1
 
-      if ( NCID_LIST>0 .or. NCCID_LIST>0 .or. 
-     &     SNCID_LIST_FILE .NE. ' ') then
-         CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
-      endif
+         if ( NCID_LIST>0 .or. NCCID_LIST>0 .or. 
+     &        SNCID_LIST_FILE .NE. ' ') then
+            CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
+         endif
 
 c - - - - - - - 
 
-      i = 1 ; NCID_IGNORE=0
-      DO WHILE ( SNCID_IGNORE(i) .GE. 1 ) 
-          i = i + 1
-      END DO
-      NCID_IGNORE = i - 1
+         i = 1 ; NCID_IGNORE=0
+         DO WHILE ( SNCID_IGNORE(i) .GE. 1 ) 
+            i = i + 1
+         END DO
+         NCID_IGNORE = i - 1
+         
+         i = 1
+         DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' ) 
+            CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
+            i = i + 1
+            SNCCID_IGNORE_ALL(i) = SNCCID_IGNORE(i)
+         END DO
+         NCCID_IGNORE = i - 1
+         CALL  RDSNIGNORE       ! read IGNORE-list from user file
+         NCCID_PLOT = PARSE_NML_STRINGLIST(SNCCID_PLOT,MXCHAR_CCID)
+      endif  ! end of NOT-REFAC
 
-      i = 1
-      DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' ) 
-          CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
-          i = i + 1
-          SNCCID_IGNORE_ALL(i) = SNCCID_IGNORE(i)
-      END DO
-      NCCID_IGNORE = i - 1
-      CALL  RDSNIGNORE          ! read IGNORE-list from user file
-
-
-      NCCID_PLOT = PARSE_NML_STRINGLIST(SNCCID_PLOT,MXCHAR_CCID)
+c xxxxxxxxxx end mark xxxxxxxxxxxxxxxx
 
 
 c ------------------------
@@ -7454,6 +7464,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
+
+         else if ( MATCH_NMLKEY('REFAC_SNCID_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) REFAC_SNCID_LIST
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -11464,10 +11478,139 @@ C -------------- BEGIN -------------
       RETURN
       END     ! SNANA_NEARNBR_APPLY_END
 
+
+C =======================================
++DECK,INIT_SNCID_LISTS.
+      SUBROUTINE INIT_SNCID_LISTS()
+
+c Created Jun 9 2021
+c Check CID lists from:
+c   + integer list in NML (use and ignore)
+c   + char list in NML    (use and ignore)
+c   + list in separate file
+c
+c For string lists that can be very long (from list file),
+c use match_cidlist_init[exec] utility in sntools.c[h];
+c this match utility uses hash table for faster access.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE
+      CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
+      CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
+      LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
+
+      INTEGER  IGNOREFILE, MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
+      EXTERNAL IGNOREFILE, MATCH_CIDLIST_INIT
+
+C ----------- BEGIN ------------     
+
+      LENF    = INDEX(SNCID_LIST_FILE,' ') - 1
+      cFILE   = SNCID_LIST_FILE(1:LENF) // char(0)
+      IS_FILE = ( IGNOREFILE(cFILE,LENF) == 0 )
+
+      NCID_LIST = 0; NCCID_LIST = 0; NCCID_FILE = 0
+
+c check input methods to specify list of CID strings
+      IS_CCID_LIST =
+     &   ( SNCCID_LIST(1) .NE. ' ' )  .or.  ! char strings in NML
+     &   ( IS_FILE )                        ! separate file list
+
+      IS_CIDINT_LIST = SNCID_LIST(1) > 0
+
+c - - - - - - -
+      
+      FNAM    = 'INIT_SNCID_LISTS'
+      CALL PRBANNER(FNAM)
+
+      IF ( IS_CIDINT_LIST .or. IS_CCID_LIST ) THEN
+         CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
+      ENDIF
+
+c      print*,' xxx IS_CID/FILE/INT = ', 
+c     &    IS_CCID_LIST, IS_FILE, IS_CIDINT_LIST
+
+c - - - - - - - 
+c check integer lists the old way
+      IF ( IS_CIDINT_LIST ) THEN
+         i = 1
+         DO WHILE ( SNCID_LIST(i) .GE. 1 ) 
+            i = i + 1
+         END DO
+         NCID_LIST = i - 1
+         write(6,21) NCID_LIST
+ 21      format(T5,'Store ',I6,' integer CIDs from SNCID_LIST')
+      ENDIF
+
+      IF ( IS_CCID_LIST ) THEN
+         NCCID_TMP = MATCH_CIDLIST_INIT(""//char(0) )
+         
+c  check SNCCID_LIST in &SNLCINP ... 
+         i = 1; CCID = SNCCID_LIST(i) 
+         DO WHILE( CCID .NE. ' ' )
+            CALL NMLCHECK_SNCCID("SNCCID_LIST",CCID)
+            LENC = INDEX(CCID,' ') - 1
+            cCCID = CCID(1:LENC) // char(0)
+            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,LENC)
+            i = i + 1 ; CCID = SNCCID_LIST(i)
+         END DO
+         NCCID_LIST = i - 1
+
+c check CIDs from separate file (table format, or unformatted)
+         IF ( IS_FILE ) THEN
+            NCCID_FILE   = MATCH_CIDLIST_INIT(cFILE,LENF)
+         ENDIF
+
+         write(6,31) NCCID_LIST, 'SNCCID_LIST'
+         write(6,31) NCCID_FILE, 'SNCID_LIST_FILE'
+ 31      format(T5,'Store ',I6,  ' string  CIDs from ', A)
+
+      ENDIF   ! end IS_CCID_LIST
+
+      CALL FLUSH(6)
+
+c - - - - - -
+c Check ignore lists, and use brute-force matching since
+c these lists should be small.
+
+      i = 1 ; NCID_IGNORE=0
+      DO WHILE ( SNCID_IGNORE(i) .GE. 1 ) 
+         i = i + 1
+      END DO
+      NCID_IGNORE = i - 1
+         
+      i = 1
+      DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' ) 
+         CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
+         i = i + 1
+         SNCCID_IGNORE_ALL(i) = SNCCID_IGNORE(i)
+      END DO
+      NCCID_IGNORE = i - 1
+
+c - - - - 
+      CALL  RDSNIGNORE          ! read IGNORE-list from user file
+      NCCID_PLOT = PARSE_NML_STRINGLIST(SNCCID_PLOT,MXCHAR_CCID)
+
+      if ( NCID_IGNORE > 0 .or. NCCID_IGNORE>0 ) then
+         write(6,61) NCID_IGNORE,  'SNCID_IGNORE'
+         write(6,61) NCCID_IGNORE, 'SNCCID_IGNORE'
+ 61      format(T5,'IGNORE ',I4,  ' CIDs from ', A)
+      endif
+
+c      print*,' xxx DEBUG STOP xxx'
+c      STOP ! xxxx
+
+      CALL FLUSH(6)
+
+      
+      RETURN
+      END   ! end INIT_SNCID_LISTS
+
 C =======================================
 +DECK,RDFILE_SNCID.
-      SUBROUTINE RDFILE_SNCID
-
+      SUBROUTINE RDFILE_SNCID()
 
 c Refactored Jan 2021
 c Read optional list of CIDs from text file given by
@@ -11694,9 +11837,7 @@ c below is for unformatted (or free-formatted) list of CIDs
          if ( CCID_TMP .EQ. ',' .and. LEN .EQ. 1 ) GOTO 100  ! skip commas
 
 c strip off comma before or after CCID
-         if ( CCID_TMP(1:1) .EQ. ',' ) CCID = CCID_TMP(2:LEN)
-
-c strip off comma before or after CCID
+         if ( CCID_TMP(1:1)     .EQ. ',' ) CCID = CCID_TMP(2:LEN)
          if ( CCID_TMP(LEN:LEN) .EQ. ',' ) CCID = CCID_TMP(1:LEN-1)
 
 c check for invalid characters in SN name
@@ -12896,9 +13037,7 @@ c           write(6,55) N, CCID(1:LL), MJD8, cflt
      &         3x,'MJD=',F9.3, 2x,'FILT=',A)
          endif
 
-	 IF ( OPT_DEBUG == -10 ) GOTO 200 ! implement legacy code
-
-c May 2021: check for PHOTFLAGs to reject epochsa
+c May 2021: check for PHOTFLAGs to reject epochs
          NOTSET = (PHOTFLAG_MSKREJ(1) < 0)
          if ( cwd .EQ. 'PHOTFLAG_MSKREJ:' .and. NOTSET ) then
             CALL get_PARSE_WORD_fortran(iwd+1,cwd_tmp,LL1)
@@ -21785,11 +21924,14 @@ c input function args
 +CDE,INTERPCM.
 +CDE,SNLCCOM.
    
-      INTEGER i, LEN, LENCCID
+      INTEGER i, LEN, LENCCID, LENIAUC
       REAL XCID     
       CHARACTER CCIDTMP*(MXCHAR_CCID)
+      LOGICAL MATCH
 
-      LOGICAL  STRINGMATCH   ! function
+c functions
+      LOGICAL   MATCH_CIDLIST_EXEC, STRINGMATCH
+      EXTERNAL  MATCH_CIDLIST_EXEC
 c ------------------ BEGIN ---------------
 
       LCIDSELECT = .FALSE.
@@ -21805,7 +21947,6 @@ c first check IGNORE Lists
 30    CONTINUE
 
       DO 40 i = 1, NCCID_IGNORE
-      ! xxxx bug LEN   = INDEX(SNCCID_IGNORE(i),' ') - 1
         LEN   = INDEX(SNCCID_IGNORE_ALL(i),' ') - 1
         IF ( LEN .NE. LENCCID ) GOTO 40
         if ( CCID(1:LEN) .EQ. SNCCID_IGNORE_ALL(i)(1:LEN)) GOTO 800
@@ -21821,9 +21962,7 @@ c Check integer window
         GOTO 800
       ENDIF
 
-c check user lists (integer and character)
-c of individual CIDs to process
-
+c Since  integer list is small, use brute-force looping.
       i = 1
       DO 130 WHILE ( SNCID_LIST(i) .GE. 1 ) 
          if ( CID .EQ. SNCID_LIST(i) ) then
@@ -21833,28 +21972,46 @@ c of individual CIDs to process
          i = i + 1
 130   CONTINUE
 
-      DO 140 i = 1, NCCID_LIST
-        CCIDTMP = SNCCID_LIST_ALL(i)
-        IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
-          LCIDSELECT = .TRUE.
-	  ! Jan 4 2021: check option to use PKMJD from CCID file
-	  if ( BTEST(OPT_SNCID_LIST,1) ) then
-              SNLC_SNANAFIT_PEAKMJD = PKMJDINI_LIST_ALL(i)
-              SNLC_SEARCH_PEAKMJD   = PKMJDINI_LIST_ALL(i)
-          endif
-          GOTO 800
-        ENDIF
+c use hash table to check list of CID strings since this list
+c can be quite large.
+      IF ( REFAC_SNCID_LIST ) THEN
+         CCIDTMP = CCID(1:LENCCID) // char(0)
+         MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
+         if ( .NOT. MATCH ) then  ! try IAUC name
+            LENIAUC = INDEX(IAUC,' ') - 1
+            CCIDTMP = IAUC(1:LENIAUC) // char(0)
+            MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
+            if ( MATCH ) CCID = IAUC ! write IAUC to output table            
+         endif
+         LCIDSELECT = MATCH
+         if ( MATCH ) GOTO 800
+      ELSE
+         ! xxxxxxxxxx mark delete Jun 9 2021 xxxxxx
+         ! LEGACY matching with brute force looping
 
-c Dec 2015: also check match with IAUC name
-        IF ( STRINGMATCH(CCIDTMP,IAUC) ) THEN
-          CCID       =  IAUC  ! so that IAUC is written to output
-          LCIDSELECT = .TRUE.
-          GOTO 800
-        ENDIF
+         DO 140 i = 1, NCCID_LIST
+            CCIDTMP = SNCCID_LIST_ALL(i)
+            IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
+               LCIDSELECT = .TRUE.
+! Jan 4 2021: check option to use PKMJD from CCID file
+               if ( BTEST(OPT_SNCID_LIST,1) ) then
+                  SNLC_SNANAFIT_PEAKMJD = PKMJDINI_LIST_ALL(i)
+                  SNLC_SEARCH_PEAKMJD   = PKMJDINI_LIST_ALL(i)
+               endif
+               GOTO 800
+            ENDIF
+            
+c     Dec 2015: also check match with IAUC name
+            IF ( STRINGMATCH(CCIDTMP,IAUC) ) THEN
+               CCID       =  IAUC ! so that IAUC is written to output
+               LCIDSELECT = .TRUE.
+               GOTO 800
+            ENDIF
+ 140     CONTINUE
+         ! xxxxxxx end mark xxxxxxx
+      ENDIF  ! end LEGACY block
 
-140   CONTINUE
-
-
+c - - - - - 
 c finally, check list of CIDs on the MJD-interpolation list;
 c see &SNLCINP namelist input SNMJD_LIST_FILE 
 

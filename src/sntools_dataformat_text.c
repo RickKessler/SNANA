@@ -15,6 +15,8 @@
   the SNDATA structure to pass the data.
 
   May 2021: read/write HOSTGAL_FLAG
+  Juj 10 2021: new function allow_but_ignore_sntextio() to allow
+               obsolete or private columns.
 
 *************************************************/
 
@@ -1278,7 +1280,6 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"PHOTPROB") == 0 ) 
       { IVAROBS_SNTEXTIO.PHOTPROB = ivar; }  
 
-
     else if ( strcmp(varName,"PSF") == 0 ) 
       { IVAROBS_SNTEXTIO.PSF_SIG = ivar; }    // sigma, pixels
 
@@ -1313,6 +1314,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
     else if ( allow_but_ignore_sntextio(OPTMASK_TEXT_OBS,varName) ) {
       // do nothing; 
+      // printf(" xxx %s: do nothing for varName = %s \n", fnam, varName);
     }
 
     else {
@@ -1361,11 +1363,12 @@ bool allow_but_ignore_sntextio(int opt, char *varName) {
   char VARLIST_IGNORE_SPEC[NVAR_IGNORE_SPEC][20] = 
     { "SNR", "DQ", "SPECFLAG" } ;
 
+  int ivar, NVAR;
+  char *tmpVar;
   char fnam[] = "allow_but_ignore_sntextio" ; 
 
   // ------- BEGIN ------
-  int ivar, NVAR;
-  char *tmpVar;
+
 
   if ( opt == OPTMASK_TEXT_OBS ) 
     { NVAR = NVAR_IGNORE_OBS; }
@@ -1385,6 +1388,9 @@ bool allow_but_ignore_sntextio(int opt, char *varName) {
     else
       { tmpVar = VARLIST_IGNORE_SPEC[ivar]; }
 	
+    //    printf(" xxx %s: compare tmpVar='%s' against '%s' \n",
+    //	   fnam, tmpVar, varName);
+
     if ( strcmp(varName,tmpVar) == 0 ) { return true; }
   }
   return false;

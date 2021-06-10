@@ -1903,8 +1903,8 @@ void read_head_HOSTLIB(FILE *fp) {
   //   + read option VPEC_ERR
   //   + add error checking based on MSKOPT
   //
-  // Jun 09 2021: no more case-insensitive match to avoid, e..g, confusing
-  //              a_obs and A_obs
+  // Jun 09 2021: use match_varname_HOSTLIB to apply logic for
+  //              case-sensitive matching.
   //
 
   int MXCHAR    = MXCHAR_LINE_HOSTLIB ;
@@ -1981,7 +1981,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
 	  cptr = HOSTLIB.VARNAME_OPTIONAL[i];
 	  // xxx mark	  if( strcmp_ignoreCase(c_var,cptr) == 0 ) {
-	  if( strcmp(c_var,cptr) == 0 ) {
+	  if( match_varname_HOSTLIB(c_var,cptr)  ) {
 	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
 	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
 	    if ( HOSTLIB.IS_SNPAR_OPTIONAL[i] )  
@@ -2068,7 +2068,7 @@ void read_head_HOSTLIB(FILE *fp) {
     MATCH = 0;
     for( ivar=0; ivar < HOSTLIB.NVAR_ALL; ivar++ ) {
       // xxxx if ( strcmp_ignoreCase(c_var,HOSTLIB.VARNAME_ALL[ivar])==0){ 
-      if ( strcmp(c_var,HOSTLIB.VARNAME_ALL[ivar]) == 0 ) { 
+      if ( match_varname_HOSTLIB(c_var,HOSTLIB.VARNAME_ALL[ivar]) ) { 
 	MATCH = 1 ; 
 	HOSTLIB.IVAR_ALL[IVAR_STORE] = ivar ;
 	goto DONEMATCH ; 
@@ -2194,6 +2194,28 @@ void read_head_HOSTLIB(FILE *fp) {
 
 } // end of read_head_HOSTLIB
 
+// ==============================
+bool match_varname_HOSTLIB(char *varName0, char *varName1) {
+
+  // Created Jun 10 2021
+  // Perform case-insensitive match ... unless _obs is part of
+  // varname. For host mag, we do NOT want to match a_obs to A_obs.
+
+  bool match ;
+  char fnam[] = "match_varname_HOSTLIB" ;
+
+  // ------------ BEGIN -------------
+
+  if ( strstr(varName0,"_obs") != NULL ) 
+    // case-sensitive match for mag obs
+    { match = ( strcmp(varName0,varName1) == 0 ) ; }
+  else
+    // case-insensitive match for all other variables
+    { match = ( strcmp_ignoreCase(varName0,varName1) == 0 ) ; }
+
+  return match;
+
+} // end match_varname_HOSTLIB
 
 // ==========================
 bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {

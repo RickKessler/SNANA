@@ -616,6 +616,7 @@ int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
+bool   match_varname_HOSTLIB(char *varName0, char *varName1);
 void   checkAlternateVarNames_HOSTLIB(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 

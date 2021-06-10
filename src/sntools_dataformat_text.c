@@ -1311,8 +1311,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"SIM_MAGOBS") == 0 ) 
       { IVAROBS_SNTEXTIO.SIMEPOCH_MAG = ivar; }  
 
-    else if ( strcmp(varName,"NITE") == 0 ) {
-      // do nothing; allow legacy DES column for DESGW group
+    else if ( allow_but_ignore_sntextio(OPTMASK_TEXT_OBS,varName) ) {
+      // do nothing; 
     }
 
     else {
@@ -1343,6 +1343,52 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   return;
 } // end rd_sntextio_varList_obs
 
+// =============================================
+bool allow_but_ignore_sntextio(int opt, char *varName) {
+
+  // Created Jun 2021
+  // Return TRUE if varName is allowed in a table column,
+  // but is ignored by SNANA. 
+  // Input opt indicates OBS table or SPEC table.
+  // Note that list of allowed-but-ignored varnames is hard-wired
+  // here in data statements.
+
+#define NVAR_IGNORE_OBS 3  
+  char VARLIST_IGNORE_OBS[NVAR_IGNORE_OBS][20] = 
+    { "NITE", "EXPNUM", "OBJID" } ;
+
+#define NVAR_IGNORE_SPEC 3  
+  char VARLIST_IGNORE_SPEC[NVAR_IGNORE_SPEC][20] = 
+    { "SNR", "DQ", "SPECFLAG" } ;
+
+  char fnam[] = "allow_but_ignore_sntextio" ; 
+
+  // ------- BEGIN ------
+  int ivar, NVAR;
+  char *tmpVar;
+
+  if ( opt == OPTMASK_TEXT_OBS ) 
+    { NVAR = NVAR_IGNORE_OBS; }
+  else if ( opt == OPTMASK_TEXT_SPEC ) 
+    { NVAR = NVAR_IGNORE_SPEC; }
+  else {
+    sprintf(c1err,"Invalid opt=%d for varName=%s", opt, varName);
+    sprintf(c2err,"grep OPTMASK_TEXT sntools_dataformat_text.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // - - - - - -
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    if ( opt == OPTMASK_TEXT_OBS ) 
+      { tmpVar = VARLIST_IGNORE_OBS[ivar]; }
+    else
+      { tmpVar = VARLIST_IGNORE_SPEC[ivar]; }
+	
+    if ( strcmp(varName,tmpVar) == 0 ) { return true; }
+  }
+  return false;
+} // end allow_but_ignore_sntextio
 
 // ==============================================
 void rd_sntextio_varlist_spec(int *iwd_file) {
@@ -1401,9 +1447,14 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
     else if ( strcmp(varName,"SIM_GENMAG") == 0 ) 
       { IVARSPEC_SNTEXTIO.SIM_GENMAG = ivar; }
 
+    else if ( allow_but_ignore_sntextio(OPTMASK_TEXT_SPEC,varName) ) 
+      { ; } // do nothing
+
+    /* xxx
     else if ( strcmp(varName,"DQ")       == 0 ) { ; } // do nothing
     else if ( strcmp(varName,"SNR")      == 0 ) { ; } // do nothing
     else if ( strcmp(varName,"SPECFLAG") == 0 ) { ; } // do nothing
+    xxx */
 
     else {
       sprintf(c1err,"Invalid varName = %s (ivar=%d of %d)", 

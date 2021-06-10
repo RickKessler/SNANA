@@ -16,6 +16,7 @@
 
 #define MSKOPT_PARSE_TEXT_FILE  MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT
 
+
 #define MXVAROBS_TEXT 20
 struct {
   int MJD, BAND, FIELD, FLUXCAL, FLUXCALERR, MAG, MAGERR ;
@@ -100,4 +101,5 @@ void copy_keyword_nocolon(char *key_in, char *key_out) ;
 void check_head_sntextio(int OPT);
 
 double get_dbl_sntextio_obs(int IVAROBS, int ep);
+bool allow_but_ignore_sntextio(int opt, char *varName);
 

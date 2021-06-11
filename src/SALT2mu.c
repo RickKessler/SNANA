@@ -1678,17 +1678,31 @@ struct INPUTS {
 
   char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID
 
+  int nthread ; // number of threads (default = 0 -> no threads)
+
+
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int debug_flag;    // for internal testing/refactoring
 
+  // set internal LEGACY and REFAC flags for development
+
+  // use hash table for CID matching
   bool REFAC_CID_SELECT;  // internally set if debug_flag==78
   bool LEGACY_CID_SELECT; //
-  bool REFAC_MUCOVSCALE ; // internally set if debug_flag==68
-  bool LEGACY_MUCOVSCALE; // internally set if debug_flag=-68
-  bool LEGACY_NEVT_REJ;
+
+  // mucovscale applied to MUERR without VPEC
+  bool REFAC_MUCOVSCALE_noVPEC ; // internally set if debug_flag==68
+  bool LEGACY_MUCOVSCALE_noVPEC; // internally set if debug_flag=-68
+  
+  // if logmass dimension; include mass-dependence for muCOVscale
+  bool REFAC_MUCOVSCALE_MASS;   // if debug_flag==611
+  bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
+
+  // count NEVT_REJ in print_eventStats instead of in set_CUTMASK
+  bool LEGACY_NEVT_REJ; // debug_flag=-11
 
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
-  int nthread ; // number of threads (default = 0 -> no threads)
+
 
 } INPUTS ;
 
@@ -4316,7 +4330,7 @@ void *MNCHI2FUN(void *thread) {
     muBiasErr = 0.0 ; 
                    
     // apply bias corrections
-    if ( INPUTS.LEGACY_MUCOVSCALE ) {
+    if ( INPUTS.LEGACY_MUCOVSCALE_noVPEC ) {
       // legacy model scales entire muerr, including vpec
       muerrsq  *= muCOVscale ;  // error scale 
     }
@@ -4327,8 +4341,8 @@ void *MNCHI2FUN(void *thread) {
       muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
     }
 
-    // xxx mark delete juj 2021  
-    muerrsq  += ( muBiasErr*muBiasErr); 
+    // xxx mark delete jun 2021  
+    // xxxx    muerrsq  += ( muBiasErr*muBiasErr); 
 
     muerr     = sqrt(muerrsq);	
     // ------------------------
@@ -9213,7 +9227,6 @@ void prepare_biasCor(void) {
     for(INDX = ILCPAR_MIN; INDX <= ILCPAR_MAX ; INDX++ ) 
       { makeMap_fitPar_biasCor(IDSAMPLE,INDX); }
 
-
     fprintf(FP_STDOUT,"\n");  fflush(FP_STDOUT);   
 
     // make map of sigma_mu bias
@@ -9745,20 +9758,20 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   NDIM = 5;
   if ( NBINg > 1 ) { NDIM++ ; }
   if ( NBINm > 1 ) { NDIM++ ; }
-  // xxx mark del  if  ( NBINg <= 1 ) { NDIM=5; } else { NDIM=7; }
 
   fprintf(FP_STDOUT,"  %s : malloc for %d  %dD-cells for biasCor \n", 
 	 fnam, NCELL, NDIM );
   fflush(FP_STDOUT);
 
   // malloc other CELLINFO arrays
-  int MEMD0   = NCELL   * sizeof(double);
-  int MEMI0   = NCELL   * sizeof(int);
+  int MEMD0   = NCELL  * sizeof(double);
+  int MEMI0   = NCELL  * sizeof(int);
 
   print_debug_malloc(+1,fnam);
   CELLINFO_BIASCOR[IDSAMPLE].NperCell = (int   *) malloc(MEMI0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_z    = (double*) malloc(MEMD0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_m    = (double*) malloc(MEMD0);
+
   for(ipar=0; ipar < NLCPAR; ipar++ ) 
     {  CELLINFO_BIASCOR[IDSAMPLE].AVG_LCFIT[ipar] = (double*)malloc(MEMD0);}
 
@@ -10366,11 +10379,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
-  int    NBINa, NBINb, NBINg, NBINz, NBINc ;
-  double cmin,  cmax, cbin, c_lo, c_hi;
+  int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
+  double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
+  double mmin,  mmax, mbin, m_lo, m_hi, m_avg ;
 
   int DUMPFLAG = 0 ;
-  int    ia, ib, ig, iz, ic, i1d, NCELL, isp ; 
+  int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
   double muErr, muErrsq, muDif, muDifsq, pull, tmp1, tmp2  ;
   double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR+1] ;
@@ -10406,13 +10420,23 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	       &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z);
   NBINz = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.nbin ;
 
-
   // setup color bins that are coarser than those for muBias.
   // Note that other bins (a,b,z) are same for muCOVscale and muBias.
   // Beware hard-wired values here.
   NBINc=3; cmin=-0.3; cmax=+0.3; cbin=0.2; 
 
-  NCELL    = NBINa * NBINb * NBINg * NBINz * NBINc ;
+  // Jun 11 2021: include logmass bins.
+  NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
+  if ( NBINm == 1 || INPUTS.LEGACY_MUCOVSCALE_MASS ) 
+    { NBINm = 1; mmin=-15.0; mmax=15.0; mbin=30.0 ; } // legacy behavior
+  else  { 
+    // start with 2 logmass bins for devel; later decide on either
+    // biasCor logmass bins, or hard-wired bins such as for color
+    NBINm = 2; mmin=5.0; mmax=15.0; mbin=5.0 ;  // refactor
+  }
+
+  // - - - - 
+  NCELL    = NBINa * NBINb * NBINg * NBINz * NBINc * NBINm ;
   CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL = NCELL ;
 
   // ---------------------------------------------
@@ -10422,23 +10446,37 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int MEMI     = NCELL   * sizeof(int);
     
   print_debug_malloc(+1,fnam);
+
+  // allocate redshift bins
   CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell =  (int    *) malloc(MEMI);
   CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z    =  (double *) malloc(MEMD);
+  CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m    =  (double *) malloc(MEMD);
   CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c] = (double *) malloc(MEMD);
 
-  // but color bins are different ...
-  // this is redundant for each IDSAMPLE ???
+  // set color bins; and note that color bins are different ...
   CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin    = NBINc ;
   CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].binSize = cbin ;
   for(ic=0; ic < NBINc; ic++ ) {
-    c_lo = cmin + cbin * (double)ic ;
-    c_hi = c_lo + cbin ;    
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].lo[ic]  = c_lo ; ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].hi[ic]  = c_hi ; ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].avg[ic] 
-      = 0.5*(c_lo+c_hi) ;
+    c_lo  = cmin + cbin * (double)ic ;
+    c_hi  = c_lo + cbin ;
+    c_avg = 0.5*(c_lo + c_hi) ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].lo[ic]  = c_lo ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].hi[ic]  = c_hi ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].avg[ic] = c_avg ;
   }
 
+
+  // June 11 2021: set logmass bins
+  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.nbin    = NBINm ;
+  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.binSize = mbin ;
+  for(im=0; im < NBINm; im++ ) {
+    m_lo  = mmin + mbin * (double)im ;
+    m_hi  = m_lo + mbin ;
+    m_avg = 0.5*(m_lo + m_hi) ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.lo[ic]  = m_lo ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.hi[ic]  = m_hi ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.avg[ic] = m_avg ;
+  }
 
   // malloc local 1D arrays to track local sums.
   print_debug_malloc(+1,fnam);
@@ -10452,23 +10490,27 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   SUM_SQPULL   = (double*) malloc(MEMD);
   ig = 0 ;
 
+
   int N1D=0;
   for(ia=0; ia< NBINa; ia++ ) {
     for(ib=0; ib< NBINb; ib++ ) {  
       for(ig=0; ig< NBINg; ig++ ) {  
 	MUCOVSCALE[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
 	for(iz=0; iz < NBINz; iz++ ) {
-	  for(ic=0; ic < NBINc; ic++ ) {
-	    SUM_MUERR[N1D] = SUM_SQMUERR[N1D] = 0.0 ;
-	    SUM_MUDIF[N1D] = SUM_SQMUDIF[N1D] = 0.0 ;	
-	    SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
-	    ptr_MUCOVSCALE[N1D] = 1.0 ;
-	    CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[N1D]  = 0 ;
-	    CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[N1D]     = 0.0 ;
-	    CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
-	    CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][0][0][ic]=N1D;
-	    N1D++ ;
-	  }	  
+	  for(im=0; im < NBINm; im++ ) {
+	    for(ic=0; ic < NBINc; ic++ ) {
+	      SUM_MUERR[N1D] = SUM_SQMUERR[N1D] = 0.0 ;
+	      SUM_MUDIF[N1D] = SUM_SQMUDIF[N1D] = 0.0 ;	
+	      SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
+	      ptr_MUCOVSCALE[N1D] = 1.0 ;
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[N1D]  = 0 ;
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[N1D]     = 0.0 ;
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[N1D]     = 0.0 ;
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic]=N1D;
+	      N1D++ ;
+	    }	  
+	  }
 	}
       }
     }
@@ -10497,6 +10539,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     b    = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt];
     gDM  = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt];
     c    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt];
+
     ia   = (int)INFO_BIASCOR.IA[ievt];
     ib   = (int)INFO_BIASCOR.IB[ievt];
     ig   = (int)INFO_BIASCOR.IG[ievt];
@@ -10507,9 +10550,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       }
     BIASCORLIST.FITPAR[INDEX_mu] = 0.0; // mu slot not used
 
-    // allow color (c) to be outside map
+    // allow color (c) and logmass to be outside map
     iz = IBINFUN(z, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z, 
 		 1, fnam );
+
+    im = IBINFUN(z, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m, 
+		 2, fnam );
 
     ic = IBINFUN(c, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c], 
 		 2, fnam );
@@ -10544,7 +10590,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // computee error with intrinsic scatter 
     USEMASK = USEMASK_BIASCOR_COVTOT;
-    if ( INPUTS.LEGACY_MUCOVSCALE ) { USEMASK += USEMASK_BIASCOR_ZMUERR; }
+    if ( INPUTS.LEGACY_MUCOVSCALE_noVPEC ) 
+      { USEMASK += USEMASK_BIASCOR_ZMUERR; }
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
@@ -10563,7 +10610,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     pull    = (muDif/muErr) ;
 
     // get 1d index
-    i1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][0][0][ic] ;
+    i1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
     SUM_PULL[i1d]    += pull ;
     SUM_SQPULL[i1d]  += (pull*pull) ;
@@ -10575,6 +10622,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // increment sums to get average in each cell   
     CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d]++ ;
     CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[i1d]              += z ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[i1d]              += m ;
     CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][i1d] += c ;
 
   } // end ievt
@@ -10594,6 +10642,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     if ( N < 5 ) { continue ; }
 
     CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[i1d]              /= XN ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[i1d]              /= XN ;
     CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][i1d] /= XN ;
 
     tmp1= SUM_MUDIF[i1d]/XN ;    tmp2= SUM_SQMUDIF[i1d]/XN ;
@@ -10640,14 +10689,16 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	    zhi = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.hi[iz];
 	    printf("  %d,%d,%d  %.2f-%.2f : ",  ia,ib,ig, zlo, zhi );
 	    
-	    for(ic=0; ic<NBINc; ic++ ) {  
-	      i1d=CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][0][0][ic];
-	      N     = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d] ;
-	      muCOVscale = (double)ptr_MUCOVSCALE[i1d] ;
-	      RMS        = sqrt ( SQMURMS[i1d] );       
-	      printf("%6.3f/%5.3f/%5d  ", RMS, sqrt(muCOVscale), N );	  
-	    } // ic
-	    
+	    for(im=0; im < NBINm; im++ ) {	
+
+	      for(ic=0; ic<NBINc; ic++ ) {  
+		i1d=CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic];
+		N     = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d] ;
+		muCOVscale = (double)ptr_MUCOVSCALE[i1d] ;
+		RMS        = sqrt ( SQMURMS[i1d] );       
+		printf("%6.3f/%5.3f/%5d  ", RMS, sqrt(muCOVscale), N );	  
+	      } // ic
+	    } // im
 	    printf("\n");     fflush(stdout);
 	  } // iz
 	  printf("\n");     fflush(stdout);
@@ -12643,12 +12694,14 @@ int get_muCOVscale(char *cid,
   //
   //   Function returns 1 on success; 0 on failure
   //
+  // Jun 11 2021: include logmass dependence.
 
-  int ia, ib, ig, iz, ic, IZ, IC, j1d ;
+  int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d ;
 
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
   double z  = BIASCORLIST->z ;
+  double m  = BIASCORLIST->logmass ;
   double c  = BIASCORLIST->FITPAR[INDEX_c];
   double a  = BIASCORLIST->alpha ;
   double b  = BIASCORLIST->beta ;
@@ -12657,17 +12710,20 @@ int get_muCOVscale(char *cid,
 
   // get bin info into local variables
   int  NBINz   = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.nbin ;
+  int  NBINm   = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.nbin ;
   int  NBINc   = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin ;
-  
+
   double BINSIZE_z  
     = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.binSize ;
+  double BINSIZE_m
+    = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.binSize ;
   double BINSIZE_c  
     = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].binSize ;
   
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM ;
   float *ptr_MUCOVSCALE ;
 
-  double dif, Dz, Dc, WGT, SUM_WGT, SUM_muCOVscale, muCOVscale_biascor ;
+  double dif, Dz, Dm, Dc, WGT, SUM_WGT, SUM_muCOVscale, muCOVscale_biascor ;
   double muCOVscale_local  ;
   char fnam[] = "get_muCOVscale" ;
 
@@ -12688,56 +12744,64 @@ int get_muCOVscale(char *cid,
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return(1); }
 
   // get indices
-  ia    = IBINFUN(a,  BININFO_SIM_ALPHA,   0, "" );
-  ib    = IBINFUN(b,  BININFO_SIM_BETA,    0, "" );
-  ig    = IBINFUN(g,  BININFO_SIM_GAMMADM, 0, "" );
-  IZ    = IBINFUN(z,  &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z,  0, "" );
+  ia  = IBINFUN(a,  BININFO_SIM_ALPHA,   0, "" );
+  ib  = IBINFUN(b,  BININFO_SIM_BETA,    0, "" );
+  ig  = IBINFUN(g,  BININFO_SIM_GAMMADM, 0, "" );
+  IZ  = IBINFUN(z,  &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z,  0, "" );
 
-  // for color bin, use OPT=2 to allow values outside BININFO 
+  // for color & logmass bin, use OPT=2 to allow values outside BININFO 
   // range to be pulled into edge bin.
-  IC = IBINFUN(c,&CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c],2,""); 
+  IM  = IBINFUN(m,&CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m,             2,"");
+  IC  = IBINFUN(c,&CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c],2,""); 
   
   SUM_WGT = SUM_muCOVscale = 0.0 ;
 
   for(iz = IZ-1; iz <= IZ+1; iz++ ) {
-
     if ( iz < 0 )      { continue ; }
     if ( iz >= NBINz ) { continue ; }
+
+    for(im = IM-1; im <= IM+1; im++ ) {
+      if ( im < 0 )      { continue ; }
+      if ( im >= NBINm ) { continue ; }
           
-    for(ic = IC-1; ic <= IC+1; ic++ ) {
-      if ( ic < 0      ) { continue ; } 
-      if ( ic >= NBINc ) { continue ; }  
+      for(ic = IC-1; ic <= IC+1; ic++ ) {
+	if ( ic < 0      ) { continue ; } 
+	if ( ic >= NBINc ) { continue ; }  
 
-      j1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][0][0][ic] ;
+	j1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
-      if ( j1d >= CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL || j1d < 0 ) {
+	if ( j1d >= CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL || j1d < 0 ) {
 	  sprintf(c1err,"Invalid j1d=%d ", j1d);
-	  sprintf(c2err,"ia=%d ib=%d iz=%d ic=%d",
-		  ia, ib, iz, ic);
+	  sprintf(c2err,"ia=%d ib=%d iz=%d im=%d ic=%d",
+		  ia, ib, iz, im, ic);
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
 
-      // get distance between current data value and bin-center
-  
-      dif = z - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[j1d];
-      Dz  = fabs(dif/BINSIZE_z) ;
-	      
-      dif = c - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][j1d];
-      Dc  = fabs(dif/BINSIZE_c);
+	// get distance between current data value and bin-center  
+	dif = z - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[j1d];
+	Dz  = fabs(dif/BINSIZE_z) ;
 
-      // only keep closest bins to interpolate
-      if ( Dz  > 0.99 ) { continue ; }
-      if ( Dc  > 0.99 ) { continue ; }
+	dif = m - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[j1d];
+	Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021
 	
-      WGT        = (1.0 - Dz) * (1.0 - Dc);
-      SUM_WGT   += WGT ;
-
-      muCOVscale_biascor = (double)ptr_MUCOVSCALE[j1d];
-      SUM_muCOVscale += ( WGT * muCOVscale_biascor );
-    } // ic
-   } // iz
+	dif = c - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][j1d];
+	Dc  = fabs(dif/BINSIZE_c);
+	
+	// only keep closest bins to interpolate
+	if ( Dz  > 0.99 ) { continue ; }
+	if ( Dc  > 0.99 ) { continue ; }
+	if ( Dm  > 0.99 ) { continue ; }
+	
+	WGT        = (1.0 - Dz) * (1.0 - Dm) * (1.0 - Dc) ;
+	SUM_WGT   += WGT ;
+	
+	muCOVscale_biascor = (double)ptr_MUCOVSCALE[j1d];
+	SUM_muCOVscale += ( WGT * muCOVscale_biascor );
+      } // ic
+    }  // im
+  } // iz
   
-  
+  // - - - - -
   if( SUM_WGT > 0.01 ) {
     muCOVscale_local = SUM_muCOVscale / SUM_WGT ;
   }
@@ -17562,16 +17626,21 @@ void prep_debug_flag(void) {
   // General convention: 
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
-  INPUTS.REFAC_MUCOVSCALE  = ( INPUTS.debug_flag == 68 ) ;  // Jun 8 2021
-  INPUTS.LEGACY_MUCOVSCALE = !INPUTS.REFAC_MUCOVSCALE ;     // Jun 8 2021
+
+
+  INPUTS.REFAC_MUCOVSCALE_noVPEC  = ( INPUTS.debug_flag == 68 ) ;
+  INPUTS.LEGACY_MUCOVSCALE_noVPEC = !INPUTS.REFAC_MUCOVSCALE_noVPEC ; 
+
+  INPUTS.REFAC_MUCOVSCALE_MASS  = ( INPUTS.debug_flag == 611 ) ;
+  INPUTS.LEGACY_MUCOVSCALE_MASS = !INPUTS.REFAC_MUCOVSCALE_MASS ; 
 
   INPUTS.LEGACY_NEVT_REJ   = ( INPUTS.debug_flag == -11 ) ; // Jun 8 2021
 
   INPUTS.LEGACY_CID_SELECT = ( INPUTS.debug_flag == -78 );
   INPUTS.REFAC_CID_SELECT  = !INPUTS.LEGACY_CID_SELECT ;
 
-  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE = %d[%d] \n",
-	  INPUTS.LEGACY_MUCOVSCALE, INPUTS.REFAC_MUCOVSCALE );
+  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_noVPEC = %d[%d] \n",
+	  INPUTS.LEGACY_MUCOVSCALE_noVPEC, INPUTS.REFAC_MUCOVSCALE_noVPEC );
 
   fprintf(FP_STDOUT,"  LEGACY[REFAC]_CID_SELECT = %d[%d] \n",
 	  INPUTS.LEGACY_CID_SELECT, INPUTS.REFAC_CID_SELECT );

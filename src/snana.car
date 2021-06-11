@@ -18300,7 +18300,7 @@ c now we have undefined zCMB
 
 c don't apply test on VERY low redshifts to avoid silly round-off
 c or truncation errors. This is a hack to protect DES DIFFIMG that 
-c has redshifts written as %.4f. Next dataFile update will have %.6 
+c has redshifts written as %.4f. Next dataFile update will have %.6f
 c precisions and then can apply test all the way down to z ~ 1E-4
 
       IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4

@@ -19970,7 +19970,7 @@
 
 
 # ======================================================================= 
-         v11_02o (  ) 
+         v11_02o (Jun 11 2021) 
 
          ***** IMPORTANT(v11_02o) ***** 
 
@@ -19998,10 +19998,10 @@
 
    SALT2mu.c
      + apply forgotten remove_quotes(s) to one of the SUBPROCESS inputs
-     + for subprocess output table allow % or * because % wreaks havoc
+     + for subprocess output table, allow % or * because % wreaks havoc
        with python.
-     + refactor parse_cidFile_data() to avoid using store_PARSE_WORDS
-        on large files.
+     + refactor parse_cidFile_data() to use match_cidlist util 
+       with hash table.
 
    sndata.h:
       + MXEPOCH -> 4000 (was 2000)
@@ -20019,6 +20019,9 @@
    sntools_host.h
      + MXWGT_HOSTLIB -> 500,000 (was 50k) for large WGTMAPs in PLASTICCv2.
      + define MXCHAR_LINE_APPEND 300 (replace hard-wired alloc of 100)
+     + for "_obs" variables, apply case-sensitive match to avoid confusing
+       a_obs and A_obs, etc ... Other HOSTLIB variables still have 
+       case-insensitive match
       
    snlc_sim.c[h]
      + MXEPSIM_PERFILT -> 2000 (was 1000)
@@ -20026,10 +20029,13 @@
      + fix bug setting IMJD_HOST for contamination
      + allow zero-flux host for host-contamination option.
 
+
    SALT2mu.c
      + replace all errmsg calls with errlog call.
      + debug_flag=68 -> muCOVscale is NOT applied to vpec part of MUERR
      + use hash table for cid_select_file and cid_reject_file
+     + begin refactor to include logmass dependence on muCOVscale
+          (develop with debug_flag=611)
 
    snana.car:
      + new &SNLCINP inputs HOSTGAL_PHOTOZ_SHIFT and HOSTGAL_SPECZ_SHIFT

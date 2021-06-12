@@ -51,12 +51,17 @@ def exec_salt2mu(INPUTS):
     inpfile_list   = INPUTS.inpfile_list
     outfile_cat    = INPUTS.outfile_cat
     append_varname = INPUTS.append_varname_missing
- 
-    arg_list = ("datafile=%s catfile_out=%s append_varname_missing=%s"
-                % (inpfile_list,outfile_cat,append_varname) )
+    arg_cat        = "cat_only"
 
-    command = ("SALT2mu.exe cat_only %s" % arg_list )
-    print(" Execute command = '%s' " % command)
+    arg_list = f"{arg_cat} " \
+               f"datafile={inpfile_list} "   \
+               f"catfile_out={outfile_cat} " \
+               f"append_varname_missing={append_varname} "
+
+#                % (arg_cat, inpfile_list, outfile_cat, append_varname) )
+
+    command = f"SALT2mu.exe {arg_list}"
+    print(f" Execute command = '{command}' ")
     os.system(command)
 
 # ===================================
@@ -69,6 +74,5 @@ if __name__ == "__main__":
 
 # execute SALT2mu.exe program to do the catenate
     exec_salt2mu(INPUTS)
-
 
 

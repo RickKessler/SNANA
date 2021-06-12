@@ -354,8 +354,15 @@ Default output files (can change names with "prefix" argument)
   SALT2mu.fitres
   SALT2mu.aux
 
+utility to catenate FITRES files with different columns:
+If PROB is in a subset of files, can force keeping PROB column
+with append_varname_missing,
+  SALT2mu.exe cat_only \
+              datafile=<commaSepList> \
+              append_varname_missing='PROB*' \  # keep PROB columuns
+              catfile_out={cat_file_out} 
 
-==HISTORY
+==============HISTORY========================
 
   8 April 2009 Original version
   
@@ -18526,7 +18533,7 @@ void write_fitres_driver(char* fileName) {
   double VAL, ERR, PULL ;
   FILE  *fout, *finp;
 
-  int n, ivar, indx, NCUT, icut, cutmask, NWR, ISFLOAT, iz, GZIPFLAG ;
+  int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
   int idsample, NSN_DATA, ifile ;
   char  line[MXCHAR_LINE], tmpName[60];
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
@@ -18708,8 +18715,7 @@ void write_fitres_driver(char* fileName) {
   int NZwrite = 4; // include this many zM0 bins in COV dump
   printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite);
 
-  indx = 0;
-  NWR  = 0;
+  indx = NWR  = NLINE = 0;
   fflush(fout);
 
   // print contamination tables if CC prior is used
@@ -18735,8 +18741,8 @@ void write_fitres_driver(char* fileName) {
 
     while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
-      if ( line[0] == ' '   ) { continue ; }
-      if ( strlen(line) < 3 ) { continue ; }
+      if ( line[0] == ' '    ) { continue ; }
+      if ( strlen(line) < 3  ) { continue ; }
       if ( commentchar(line) ) { continue; }
 
       store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
@@ -18745,8 +18751,12 @@ void write_fitres_driver(char* fileName) {
       get_PARSE_WORD(0, IWD_KEY, KEY);
       if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
 
-      // check cutmask for writing events
-      if ( !INPUTS.cat_only ) {
+      if ( INPUTS.cat_only ) {
+	// check prescale
+	NLINE++ ;
+      }
+      else {
+	// check cutmask for writing events
 	get_PARSE_WORD(0, IWD_CCID, CCID);
 	get_CCIDindx(CCID, &indx) ;      
 	cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 

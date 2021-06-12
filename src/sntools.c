@@ -5826,7 +5826,7 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
     { val=array[i] ; sum += val; sqsum += (val*val); }
 
   avg = sum/XN ; 
-  rms = RMSfromSUMS(N, sum, sqsum);
+  rms = STD_from_SUMS(N, sum, sqsum);
 
   /* xxxxxxxxxxx mark delete Jun 2 2020 xxxxxxx
   for ( i=0; i < N ; i++ ) {
@@ -5855,22 +5855,22 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN) 
 { arrayStat(*N, array, AVG, RMS, MEDIAN); }
 
-  // ========================================================
-double RMSfromSUMS(int N, double SUM, double SQSUM) {
+// ========================================================
+double STD_from_SUMS(int N, double SUM, double SQSUM) {
 
   // Created Aug 2017
-  // Compute RMS from sums
+  // Compute standard deviation (STD) from sums.
 
-  double RMS = 0.0 ;
+  double STD = 0.0 ;
   double XN  = (double)N;
-  if ( N == 0 ) { return(RMS); }
+  if ( N == 0 ) { return(STD); }
 
   double ARG = SQSUM/XN - pow((SUM/XN),2.0) ;
-  if ( ARG > 0.0 ) { RMS = sqrt(ARG); }
+  if ( ARG > 0.0 ) { STD = sqrt(ARG); }
 
-  return(RMS);
+  return(STD);
 
-} // end RMSfromSUMS
+} // end STD_from_SUMS
 
 // =============================================
 void remove_quote(char *string) {
@@ -7591,7 +7591,7 @@ void sumstat_RANLISTs(int FLAG) {
       SUMSQ = GENRAN_INFO.NWRAP_SUMSQ[ilist] ;
       NCALL = GENRAN_INFO.NCALL_fill_RANSTATs ;
       GENRAN_INFO.NWRAP_AVG[ilist] = SUM/(double)NCALL ; 
-      GENRAN_INFO.NWRAP_RMS[ilist] = RMSfromSUMS(NCALL, SUM, SUMSQ);
+      GENRAN_INFO.NWRAP_RMS[ilist] = STD_from_SUMS(NCALL, SUM, SUMSQ);
     }
   }
 

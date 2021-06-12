@@ -535,7 +535,7 @@ void update_genSmear_COVLAM_debug(double *magSmear) {
       SUM      = GENSMEAR.SUMSMEAR_CHECK[i];
       SQSUM    = GENSMEAR.SQSUMSMEAR_CHECK[i];
       MEAN[i]  = SUM/XN;
-      RMS[i]   = RMSfromSUMS(N, SUM, SQSUM);
+      RMS[i]   = STD_from_SUMS(N, SUM, SQSUM);
     }
 
     COV_01 = 
@@ -3922,7 +3922,7 @@ void  check_genSmear_phaseCor(void) {
 
     sumCHECK    = GENSMEAR_PHASECOR.sumCHECK ;    // sum(m0)
     SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[0] ; // sum(m0^2)
-    RMS = RMSfromSUMS(NSUM, sumCHECK, SUMCHECK);
+    RMS = STD_from_SUMS(NSUM, sumCHECK, SUMCHECK);
 
     for(icheck = 0; icheck < GENSMEAR_PHASECOR.NCHECK; icheck++ ) {
       DT  = DT_CHECK[icheck];       ARG = DT/EXPTAU;

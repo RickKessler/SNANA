@@ -20043,4 +20043,24 @@
      + SNCID_LIST_FILE uses new match_cidlist utility in sntools.c;
         based on hash table, it's much faster and has no max limits.
 
+
+# ======================================================================= 
+         v11_02p (  ) 
+
+         ***** IMPORTANT(v11_02p) ***** 
+
+         ***** USEFUL(v11_02p) ***** 
+
+         ***** MISCELLANEOUS(v11_02p) ***** 
+
+    SALT2mu.c
+      + clean out some LEGACY codes from previous tag
+  
+    snana.car
+      + clean out some LEGACY codes from previous tag
+         (remove stuff related to MXCCID_LIST)
+
+    snlc_sim
+      + new option in WGTMAP; see OPT_EXTRAP_WGTMAP in manual.
+
 END: 

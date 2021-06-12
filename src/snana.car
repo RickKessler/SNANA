@@ -21,7 +21,7 @@ c parameters used by snana code
      &  ,MXIDTEL, MXIDFIELD, MXFIELD_OVP, MXSEASON, MXSNHOST
      &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
      &  ,MXZBIN_KCOR, MXTBIN_KCOR, MXAVBIN_KCOR, MXCBIN_AVWARP
-     &  ,MNTYPE, MXTYPE, MXLISTNML, MXCCID_LIST, MXIGNORE_LIST
+     &  ,MNTYPE, MXTYPE, MXLISTNML, MXIGNORE_LIST
      &  ,MXVAR_PRIVATE, MXCUT_PRIVATE, MXVAR_TERSE, MXBIT_PHOTFLAG
      &  ,HOFF_NOCUTS, HOFF_CUTS, HOFF_SIM
      &  ,LUNHIS, LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
@@ -118,7 +118,6 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
      &  ,MXSNLC        = 5000000    ! max number of SNe (fits format)
-     &  ,MXCCID_LIST   = 75000      ! max size of SNCCID_LIST_ALL 
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
@@ -1705,12 +1704,9 @@ c define namelist cuts
      &    SNTEL_LIST(MXLISTNML)*20    ! (I) list of telescopes (or ALL)
      &   ,SNFIELD_LIST(MXLISTNML)*60  ! (I) list of fields to use (or 'ALL')
      &   ,SNCCID_LIST(MXLISTNML)*(MXCHAR_CCID)   ! (I) list of CIDs to process
-     &   ,SNCCID_LIST_ALL(MXCCID_LIST)*(MXCHAR_CCID) ! combined list to process
      &   ,SNCCID_IGNORE(MXLISTNML)*(MXCHAR_CCID) ! (I) list of CIDs to ignore
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
-
-      REAL PKMJDINI_LIST_ALL(MXCCID_LIST) ! used if BTEST(OPT_SNCID_LIST,1)
 
       REAL
      &   snlc_cutvar(NCUTBIT_SNLC)
@@ -1859,8 +1855,7 @@ c
      &   ,PASS_PRIVCUTS, PASS_SIMCUTS
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
-     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
-     &   ,PKMJDINI_LIST_ALL
+     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
      &   ,MXEVT_PROCESS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
@@ -2057,7 +2052,6 @@ c
      &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
-     &  ,REFAC_SNCID_LIST    ! use hash table (Jun 9 2021)
 
 c LC plot info
 
@@ -2138,7 +2132,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , LPROB_TRUEFLUX, REFAC_SNCID_LIST
+     &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2186,7 +2180,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
-     &    , LPROB_TRUEFLUX, REFAC_SNCID_LIST
+     &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3017,12 +3011,8 @@ c check if format is FITS or ASCII (set logicals  FORMAT_FITS[TEXT])
 c ------------------------------------------------
 c            Misc. inits for options
 
-c check option to read list of CIDs from text file (Nov 2013)
-      if ( REFAC_SNCID_LIST ) then
-         CALL INIT_SNCID_LISTS() ! Jun 2021
-      else
-         CALL RDFILE_SNCID()     ! legacy init using brute force
-      endif
+c check for CID list from &SNLCINP and/or separate file	  
+      CALL INIT_SNCID_LISTS() ! Jun 2021
 
 c check for SN,MJD list from file ... used for interpolation
       CALL RDFILE_SNMJDLIST()
@@ -5883,8 +5873,6 @@ c default is to reject nothing (accept everything)
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      REFAC_SNCID_LIST   = .TRUE.
-
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
       USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
@@ -6103,52 +6091,6 @@ c then use survey name by default
           write(c1err,678) 'SNTYPE_IGNORE',NSNTYPE_IGNORE,MXLISTNML
           CALL  MADABORT(FNAM, C1ERR, ' ') 
       endif
-
-c -----------------------------
-c xxxxxxx mark delete Jun 9 2021 xxxxxxx
-c count entries in lists
-      if ( .not. REFAC_SNCID_LIST ) then
-         i = 1 ; NCID_LIST=0
-         DO WHILE ( SNCID_LIST(i) .GE. 1 ) 
-            i = i + 1
-         END DO
-         NCID_LIST = i - 1
-
-         i = 1 ; 
-         DO WHILE(SNCCID_LIST(i)      .NE. ' ' .and. 
-     &        SNCCID_LIST(i)(1:4) .NE. 'NONE') 
-            CALL NMLCHECK_SNCCID("SNCCID_LIST",SNCCID_LIST(i))
-            SNCCID_LIST_ALL(i) = SNCCID_LIST(i)
-            i = i + 1
-         END DO
-         NCCID_LIST = i - 1
-
-         if ( NCID_LIST>0 .or. NCCID_LIST>0 .or. 
-     &        SNCID_LIST_FILE .NE. ' ') then
-            CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
-         endif
-
-c - - - - - - - 
-
-         i = 1 ; NCID_IGNORE=0
-         DO WHILE ( SNCID_IGNORE(i) .GE. 1 ) 
-            i = i + 1
-         END DO
-         NCID_IGNORE = i - 1
-         
-         i = 1
-         DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' ) 
-            CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
-            i = i + 1
-            SNCCID_IGNORE_ALL(i) = SNCCID_IGNORE(i)
-         END DO
-         NCCID_IGNORE = i - 1
-         CALL  RDSNIGNORE       ! read IGNORE-list from user file
-         NCCID_PLOT = PARSE_NML_STRINGLIST(SNCCID_PLOT,MXCHAR_CCID)
-      endif  ! end of NOT-REFAC
-
-c xxxxxxxxxx end mark xxxxxxxxxxxxxxxx
-
 
 c ------------------------
 c count number of photometry versions
@@ -7465,9 +7407,6 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
 
-         else if ( MATCH_NMLKEY('REFAC_SNCID_LIST',
-     &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) REFAC_SNCID_LIST
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -11608,273 +11547,6 @@ c      STOP ! xxxx
       RETURN
       END   ! end INIT_SNCID_LISTS
 
-C =======================================
-+DECK,RDFILE_SNCID.
-      SUBROUTINE RDFILE_SNCID()
-
-c Refactored Jan 2021
-c Read optional list of CIDs from text file given by
-c &SNLCINP namelist variable SNCID_LIST_FILE.
-c
-c Two format options are allowed.
-c First is free-format with CIDs separated by 
-c  * blank space
-c  * <CR>
-c  * comma 
-c     
-c Second option is the 'fitres' format with
-c 'VARNAMES:'  and  'SN:' keys.
-c Thus the fitres-output from a fitting program or from
-c sntable_dump can be used as a CID-list input to any 
-c snana program. The non-CID variables are ignored.
-c
-c May 1 2019: remove NVAR-dependence and only require VARNAMES
-c             to FITRES file format. Also fix bug reading CID
-c             from iwd+1 element, not iwd element.
-c
-c Aug 27 2019: CUTWIN_CID -> 0,0
-c
-c ---------------------
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER   IWD, NWD, LEN
-      CHARACTER 
-     &   FNAM*14
-     &  ,CTMP*60
-     &  ,NAME_forC*200
-
-      LOGICAL  FOUND_VARNAMES
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-C -------------------- BEGIN ----------------------
- 
-      IF ( SNCID_LIST_FILE .EQ. ' '    )  RETURN
-      IF ( SNCID_LIST_FILE .EQ. 'NONE' )  RETURN
-      IF ( SNCID_LIST_FILE .EQ. 'NULL' )  RETURN
-
-      CALL ENVreplace(SNCID_LIST_FILE)  ! May 2018
-
-      FNAM = 'RDFILE_SNCID'
-      CALL PRBANNER(FNAM)
-
-      CUTWIN_CID(1) = 0 
-      CUTWIN_CID(2) = 0
-
-      LEN = INDEX(SNCID_LIST_FILE,' ') - 1
-      print*,'   Read list of CIDs from '
-      print*,'   ', SNCID_LIST_FILE(1:LEN)
-      CALL FLUSH(6)
-
-c start loop over words in file.
-      NAME_forC = SNCID_LIST_FILE(1:LEN) // char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
-
-c ---------------------------------------------
-c check if this is a fitres-formatted file with VARNAMES key
-
-      FOUND_VARNAMES = .FALSE.
-
-      DO 10 iwd = 1, NWD
-         CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
-         if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
- 10   CONTINUE
-
-      if ( FOUND_VARNAMES ) THEN
-         print*,'   Detected VARNAMES key --> KEY format'
-         CALL RDFILE_SNCID_TABLE  ! read FITRES-formatted table
-      else 
-         CALL RDFILE_SNCID_NOFMT(NWD)  ! unformatted file with only CID names
-      endif
-
-c --------------------------
-      write(6,30) NCCID_LIST
- 30   format(T8,'Stored ',I5,' CIDs to process' )
-      CALL FLUSH(6)
-
-      IF( NCCID_LIST == 0 ) THEN
-         c1err = 'Found zero CIDs to store from file'
-         c2err = SNCID_LIST_FILE
-         CALL MADABORT(FNAM, c1err, c2err)
-      ENDIF
-
-      RETURN
-      END    ! end RDFILE_SNCID
-
-C =======================================
-+DECK,RDFILE_SNCID_TABLE.
-      SUBROUTINE RDFILE_SNCID_TABLE
-
-c Read CID list from table-formatted file.
-c Check OPT_SNCID_LIST for option to read and store PKMJDINI
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER   isn, LEN, OPTMASK, EXIST_PKMJDINI, ISTAT
-      REAL*8    DVAL
-      CHARACTER cFILE*(MXCHAR_FILENAME), cTABLE*20
-      CHARACTER cVARNAME*40, cVARLIST*40
-      CHARACTER CCID*(MXCHAR_CCID), FNAM*20, cDUM*20
-      LOGICAL   REQUIRE_PKMJDINI
-
-c functions
-      INTEGER  
-     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-
-      EXTERNAL 
-     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-     &   ,FETCH_AUTOSTORE_CCID
-
-c ----------- BEGIN ----------
-
-      FNAM     = 'RDFILE_SNCID_TABLE'
-
-      LEN      = INDEX(SNCID_LIST_FILE,' ') - 1
-      cFILE    = SNCID_LIST_FILE(1:LEN) // char(0)
-      cTABLE   = 'SNCID_LIST' // char(0)
-      cVARLIST = 'PKMJDINI' // char(0)
-      OPTMASK  = 0
-      NCCID_LIST = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &     OPTMASK,  LEN, 20, 40 )
-
-      if ( NCCID_LIST > MXCCID_LIST ) then
-         write(c1err,661) NCCID_LIST, MXCCID_LIST
- 661     format(I6,' table rows exceeds bound of MXCCID_LIST=',I6)
-         c2err = 'Reduce table size, or increase MXCCID_LIST'
-         CALL MADABORT(FNAM, c1err, c2err)
-      endif
-
-      cVARNAME = 'PKMJDINI' // char(0)
-      EXIST_PKMJDINI   = EXIST_VARNAME_AUTOSTORE(cVARNAME,20)
-      REQUIRE_PKMJDINI = BTEST(OPT_SNCID_LIST,1) 
-
-c      print*,' xxx PKMJDINI(REQ,EXIST) = ',
-c     &       REQUIRE_PKMJDINI, EXIST_PKMJDINI, ' for ', cVARNAME
-
-      IF ( REQUIRE_PKMJDINI .and. EXIST_PKMJDINI==0 ) THEN
-         c1err = 'Required PKMJDINI does not exist.'
-         c2err = 'Check ' // SNCID_LIST_FILE
-         CALL MADABORT(FNAM, c1err, c2err)
-      ENDIF
-
-
-c store each CCID and PKMJD
-
-      DO 100 isn = 1, NCCID_LIST
-         CALL FETCH_AUTOSTORE_CCID(0,isn-1,CCID)
-         LEN = INDEX(CCID,char(0)) - 1
-cc         print*,' xxx load ', isn, CCID(1:LEN)
-         SNCCID_LIST_ALL(isn) = CCID(1:LEN)
-         if ( REQUIRE_PKMJDINI ) then
-            CALL SNTABLE_AUTOSTORE_READ(CCID, cVARNAME, ISTAT,
-     &          DVAL, cDUM, MXCHAR_CCID, 20, 20)
-            PKMJDINI_LIST_ALL(isn) = DVAL
-         endif
-
- 100  CONTINUE
-
-      RETURN
-      END
-
-C =======================================
-+DECK,RDFILE_SNCID_NOFMT.
-      SUBROUTINE RDFILE_SNCID_NOFMT(NWD)
-
-c Jan 2021
-c Read optional list of CIDs from unformatted text file.
-c &SNLCINP namelist variable SNCID_LIST_FILE.
-c Input NWD = total number of words in file.
-c
-c ---------------------
-
-      IMPLICIT NONE
-
-      INTEGER NWD   !(I) number of words to read from STORE PARSE words
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER   IWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
-      CHARACTER 
-     &   FNAM*20
-     &  ,CCID*(MXCHAR_CCID)
-     &  ,CCID_TMP*(MXCHAR_CCID+2)
-     &  ,CTMP*60
-     &  ,BADCHARS*12, C1
-     &  ,NAME_forC*200
-
-      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-C -------------------- BEGIN ----------------------
- 
-
-      FNAM = 'RDFILE_SNCID_NOFMT'
-      CALL PRBANNER(FNAM)
-
-c define list of forbidden characters in CID name.
-      BADCHARS  = ',%!#:$.  '
-      N_BADCHAR = INDEX(BADCHARS,' ') - 1
-      N_BADNAME = 0
- 
-c -----------------------------
-      DO 100 iwd = 1, NWD
-
-         CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
-        
-c below is for unformatted (or free-formatted) list of CIDs
-
-         CCID_TMP = CTMP(1:MXCHAR_CCID)
-         CCID     = CTMP(1:MXCHAR_CCID)
-         LEN      = INDEX(CCID_TMP,' ') - 1
-
-         if ( CCID_TMP .EQ. ',' .and. LEN .EQ. 1 ) GOTO 100  ! skip commas
-
-c strip off comma before or after CCID
-         if ( CCID_TMP(1:1)     .EQ. ',' ) CCID = CCID_TMP(2:LEN)
-         if ( CCID_TMP(LEN:LEN) .EQ. ',' ) CCID = CCID_TMP(1:LEN-1)
-
-c check for invalid characters in SN name
-         ISBAD = .FALSE.
-         DO 40 j = 1, N_BADCHAR
-            C1 = BADCHARS(j:j)
-            if ( C1 .EQ. ' ' ) GOTO 40
-            IF ( INDEX(CCID,C1) > 0 )  ISBAD = .TRUE.
- 40      CONTINUE
-         IF ( ISBAD ) THEN
-            N_BADNAME = N_BADNAME + 1
-            write(6,44) CCID
- 44         format(T8,'WARNING: Invalid CID name: ',A) ; call flush(6);
-         ENDIF
-
-c - - - - - - - - - - -  - - 
- 99      CONTINUE
-
-         NCCID_LIST = NCCID_LIST + 1
-         CALL CHKARRBOUND(NCCID_LIST, ONE, MXCCID_LIST, "NCCID_LIST",
-     &          "Check above CID-list file", FNAM)
-         SNCCID_LIST_ALL(NCCID_LIST) = CCID
-
- 100  CONTINUE  ! iwd
-
-c -------------------
-c abort if any CID names have invalid characters
-
-      IF ( N_BADNAME > 0 ) THEN         
-         write(c1err,661) N_BADNAME
- 661     format(I4,' CIDs have invalid name.' )
-         c2err = 'Check above WARNINGS and SNCID_LIST_FILE'
-         CALL  MADABORT(FNAM, C1ERR, C2ERR)
-      ENDIF
-
-      RETURN
-      END    ! end RDFILE_SNCID_NOFMT
 
 C =======================================
 +DECK,RD_SNMJDLIST.
@@ -21974,43 +21646,16 @@ c Since  integer list is small, use brute-force looping.
 
 c use hash table to check list of CID strings since this list
 c can be quite large.
-      IF ( REFAC_SNCID_LIST ) THEN
-         CCIDTMP = CCID(1:LENCCID) // char(0)
-         MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
-         if ( .NOT. MATCH ) then  ! try IAUC name
-            LENIAUC = INDEX(IAUC,' ') - 1
-            CCIDTMP = IAUC(1:LENIAUC) // char(0)
-            MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
-            if ( MATCH ) CCID = IAUC ! write IAUC to output table            
-         endif
-         LCIDSELECT = MATCH
-         if ( MATCH ) GOTO 800
-      ELSE
-         ! xxxxxxxxxx mark delete Jun 9 2021 xxxxxx
-         ! LEGACY matching with brute force looping
-
-         DO 140 i = 1, NCCID_LIST
-            CCIDTMP = SNCCID_LIST_ALL(i)
-            IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
-               LCIDSELECT = .TRUE.
-! Jan 4 2021: check option to use PKMJD from CCID file
-               if ( BTEST(OPT_SNCID_LIST,1) ) then
-                  SNLC_SNANAFIT_PEAKMJD = PKMJDINI_LIST_ALL(i)
-                  SNLC_SEARCH_PEAKMJD   = PKMJDINI_LIST_ALL(i)
-               endif
-               GOTO 800
-            ENDIF
-            
-c     Dec 2015: also check match with IAUC name
-            IF ( STRINGMATCH(CCIDTMP,IAUC) ) THEN
-               CCID       =  IAUC ! so that IAUC is written to output
-               LCIDSELECT = .TRUE.
-               GOTO 800
-            ENDIF
- 140     CONTINUE
-         ! xxxxxxx end mark xxxxxxx
-      ENDIF  ! end LEGACY block
-
+      CCIDTMP = CCID(1:LENCCID) // char(0)
+      MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
+      if ( .NOT. MATCH ) then   ! try IAUC name
+         LENIAUC = INDEX(IAUC,' ') - 1
+         CCIDTMP = IAUC(1:LENIAUC) // char(0)
+         MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
+         if ( MATCH ) CCID = IAUC ! write IAUC to output table            
+      endif
+      LCIDSELECT = MATCH
+      if ( MATCH ) GOTO 800
 c - - - - - 
 c finally, check list of CIDs on the MJD-interpolation list;
 c see &SNLCINP namelist input SNMJD_LIST_FILE 

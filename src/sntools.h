@@ -61,7 +61,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_02o"                
+#define  SNANA_VERSION_CURRENT  "v11_02p"                 
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -795,7 +795,7 @@ double polyEval(int N, double *coef, double x);
 
 void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
-double RMSfromSUMS(int N, double SUM, double SQSUM);
+double STD_from_SUMS(int N, double SUM, double SQSUM);
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
 

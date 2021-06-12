@@ -323,6 +323,7 @@ void initvar_HOSTLIB(void) {
   HOSTLIB_WGTMAP.N_SNVAR      = 0 ;
   HOSTLIB_WGTMAP.NBTOT_SNVAR  = 1 ; // at least 1 dummy bin of no WGTMAP
   HOSTLIB_WGTMAP.ibin_SNVAR   = -9 ; 
+  HOSTLIB_WGTMAP.OPT_EXTRAP   =  0 ;
   for ( ivar=0; ivar < MXVAR_WGTMAP_HOSTLIB; ivar++ ) {  
     sprintf(HOSTLIB_WGTMAP.VARNAME[ivar], "%s", NULLSTRING );
     HOSTLIB_WGTMAP.NB1D_SNVAR[ivar] = 0 ;
@@ -963,10 +964,12 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
 
   IVAR_STORE = HOSTLIB.NVAR_STORE ;
 
+  if ( strcmp(string,"OPT_EXTRAP_WGTMAP:") == 0 ) 
+    { HOSTLIB_WGTMAP.OPT_EXTRAP = 1;  } // Jun 11 2021
+
   FOUND_VARNAMES = ( strcmp(string,"VARNAMES_WGTMAP:") ==0 );
   if ( !FOUND_VARNAMES) { return ; }
-
-    
+ 
   fgets(LINE,100,fp);
   NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
   NDIM = NVAR_WGTMAP-2; NFUN=2;
@@ -1008,14 +1011,12 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   } // end of ivar loop
   
   // read WGT keys and load GRIDMAP struct.
-  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 0, 
+  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
+	       HOSTLIB_WGTMAP.OPT_EXTRAP,
 	       MXWGT_HOSTLIB, fnam,
 	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
   
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
-
-  if ( INPUTS.DEBUG_FLAG == 111 ) 
-    { HOSTLIB_WGTMAP.WGTMAX = 1.0 ; } // xxx REMOVE AFTER DEBUG
 
   // update global counter
   HOSTLIB.NVAR_STORE = IVAR_STORE ;
@@ -3100,7 +3101,7 @@ void sortz_HOSTLIB(void) {
   // VPEC stuff
   if ( DO_VPEC  ) {
     HOSTLIB.VPEC_AVG = VSUM/d_NGAL;   
-    HOSTLIB.VPEC_RMS = RMSfromSUMS(NGAL, VSUM, VSUMSQ);
+    HOSTLIB.VPEC_RMS = STD_from_SUMS(NGAL, VSUM, VSUMSQ);
   }
 
   // free memory for the pointers and the unsorted array.
@@ -3396,9 +3397,8 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // exact WGT values specified by the WGTMAP_CHECK keys.
 
   runCheck_HOSTLIB_WGTMAP();
-
-  //  debugexit(fnam); // xxxxxxxxx
-
+  
+  return ;
 
 } // end of init_HOSTLIB_WGTMAP
 

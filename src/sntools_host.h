@@ -385,7 +385,6 @@ struct HOSTLIB_WGTMAP_DEF {
   //double *WGT ;         // wgt for each hostlib entry
   short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
 
-
   //  double **WGT_SNVAR ;                // vs. [igal][ibin_SN]
   double **WGTSUM_SNVAR;              // idem
   short int **I2SNMAGSHIFT_SNVAR ;   // idem
@@ -399,6 +398,8 @@ struct HOSTLIB_WGTMAP_DEF {
   double    CHECKLIST_SNMAG[MXCHECK_WGTMAP] ;
 
   struct  GRIDMAP  GRIDMAP ;       // all WGTMAP vars
+
+  int OPT_EXTRAP; // 1 ==> pull out-of-range values to edge of grid
 
 } HOSTLIB_WGTMAP ;
 

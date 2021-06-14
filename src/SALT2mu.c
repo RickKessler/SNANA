@@ -1524,6 +1524,7 @@ struct INPUTS {
   char **dataFile_override ; // e.g, change all VPEC, VPEC_ERR
   
   bool   cat_only;    // cat fitres files and do nothing else
+  int    cat_prescale; // scale to reduce file size for debugging
   char   cat_file_out[MXCHAR_FILENAME] ;
 
   int    write_yaml;  // used by submit_batch_jobs.py
@@ -1928,6 +1929,8 @@ void fcn(int* npar, double grad[], double* fval,
 
 void parse_parFile(char *parFile );
 void override_parFile(int argc, char **argv);
+
+void parse_cat_only(char *string_cat_only); 
 
 void parse_simfile_CCprior(char *item);
 void parse_ZPOLY_COVMAT(char *item);
@@ -5238,6 +5241,7 @@ void set_defaults(void) {
   sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
 
   INPUTS.cat_only   = false ;
+  INPUTS.cat_prescale = 1;
   INPUTS.cat_file_out[0] = 0 ;
   INPUTS.write_yaml = 0 ;
   INPUTS.write_csv  = 0 ;
@@ -15238,8 +15242,13 @@ void parse_parFile(char *parFile ) {
   // ------------------ BEGIN --------------
 
   // check for special mode to cat data files and do NOTHING else.
-  if ( strcmp(parFile,"cat_only") == 0 ) 
-    { INPUTS.cat_only = true; return ;  }
+  // xxx mark delete xxx if ( strcmp(parFile,"cat_only") == 0 ) 
+  // xxx mark delete xxx { INPUTS.cat_only = true; return ;  }
+
+  if ( strstr(parFile,"cat_only") != NULL ) 
+    { parse_cat_only(parFile); return; }
+
+
 
 #ifdef USE_SUBPROCESS
   if ( strcmp(parFile,"SUBPROCESS_HELP") == 0 )  { SUBPROCESS_HELP(); }
@@ -15899,6 +15908,41 @@ int ppar(char* item) {
   
 } // end ppar
 
+// **************************************************
+void parse_cat_only(char *string_cat_only) {
+  
+  char fnam[]="parse_cat_only";
+
+  // check for cat_only or cat_only/5 (where 5 = prescale)
+  int LDMP=0;
+  int OPT=0;
+  
+
+  INPUTS.cat_only = true ;
+
+  // for exact cat_only match, bail
+
+  if ( strcmp(string_cat_only,"cat_only") == 0 ) { return; }
+
+  // check for prescale; e.g., cat_only/4.
+  // Try python-like dictionary function parse_string_prescales
+
+  STRING_DICT_DEF DICT_PRESCALE ;
+  init_string_dict(&DICT_PRESCALE, "cat_only", 2);
+ 
+  parse_string_prescales(string_cat_only, &DICT_PRESCALE);
+
+  double ps = get_string_dict(OPT, "cat_only", &DICT_PRESCALE);
+
+  INPUTS.cat_prescale = (int)ps;
+
+  if ( LDMP ) {
+    //printf("xxx %s: ps=%d",fnam,(int)ps);
+    // print ps
+    debugexit(fnam);
+  }
+
+} // end parse_cat_only
 
 // **************************************************
 void parse_simfile_CCprior(char *item) {
@@ -18754,6 +18798,8 @@ void write_fitres_driver(char* fileName) {
       if ( INPUTS.cat_only ) {
 	// check prescale
 	NLINE++ ;
+	//xxx mark delete printf("xxx %s: NLINE=%d prescale=%d logic=%d\n",fnam,NLINE,INPUTS.cat_prescale,NLINE % INPUTS.cat_prescale == 0);
+	if ( NLINE % INPUTS.cat_prescale != 0 ) { continue ; } // dillon June14,2021
       }
       else {
 	// check cutmask for writing events
@@ -19195,6 +19241,11 @@ void write_cat_info(FILE *fout) {
 	  INPUTS.append_varname_missing);
   fprintf(fout,"# Dropped columns: %s \n", 
 	  OUTPUT_VARNAMES.DROPLIST );
+
+  if (INPUTS.cat_prescale > 1) {
+    fprintf(fout,"# PRESCALE = %d\n",
+	    INPUTS.cat_prescale);
+  }
 
   fprintf(fout,"#\n");
   fflush(fout);

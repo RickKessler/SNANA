@@ -33,6 +33,15 @@ def parse_args():
     parser.add_option('-a',help=msg,action='store',type='string',
                       dest='append_varname_missing',default='PROB*')
 
+    msg = 'optional integer prescale'
+    parser.add_option('-p',help=msg,action='store',type='int',
+                      dest='prescale',default=1)
+
+    msg = 'DEBUG ONLY: jobname'
+    parser.add_option('-j',help=msg,action='store',type='string',
+                      dest='jobname',default='SALT2mu.exe')
+
+
     (INPUTS,ARGS)=parser.parse_args()
 
 # abort on missing arguments
@@ -52,6 +61,9 @@ def exec_salt2mu(INPUTS):
     outfile_cat    = INPUTS.outfile_cat
     append_varname = INPUTS.append_varname_missing
     arg_cat        = "cat_only"
+    jobname        = INPUTS.jobname
+
+    if INPUTS.prescale > 1: arg_cat += f"/{INPUTS.prescale}"
 
     arg_list = f"{arg_cat} " \
                f"datafile={inpfile_list} "   \
@@ -60,7 +72,7 @@ def exec_salt2mu(INPUTS):
 
 #                % (arg_cat, inpfile_list, outfile_cat, append_varname) )
 
-    command = f"SALT2mu.exe {arg_list}"
+    command = f"{jobname} {arg_list}"
     print(f" Execute command = '{command}' ")
     os.system(command)
 

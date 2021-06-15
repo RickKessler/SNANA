@@ -234,6 +234,7 @@ int match_cid_hash__(char *cid, int *ilist, int *isn) {
 // Feb 2021: functions to mimic python dictionary; func(string) = val
 void init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM) {
 
+  // init dictionary with a few things.
   int i;
 
   sprintf(DICT->NAME, "%s", NAME);
@@ -256,6 +257,7 @@ void init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM) {
 
 void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val) {
 
+  // Load string and value for a dictionary element.
   char *NAME    = DICT->NAME ;
   int  MAX_ITEM = DICT->MAX_ITEM;
   int  N_ITEM   = DICT->N_ITEM ;
@@ -265,6 +267,12 @@ void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val) {
 
   //-------- BEGIN ---------
   
+  if ( MAX_ITEM <=0 || MAX_ITEM > 1000 ) {
+    sprintf(c1err,"Invalid MAX_ITEM = %d \n", MAX_ITEM);
+    sprintf(c2err,"Probably forgot to call init_string_dict");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
   sprintf(DICT->STRING_LIST[N_ITEM], "%s", string );
   DICT->VALUE_LIST[N_ITEM] = val ;
 

@@ -20055,12 +20055,17 @@
 
     SALT2mu.c
       + clean out some LEGACY codes from previous tag
-  
+      + new feautre cat_only/5 to prescale output
+
     snana.car
       + clean out some LEGACY codes from previous tag
          (remove stuff related to MXCCID_LIST)
 
     snlc_sim
       + new option in WGTMAP; see OPT_EXTRAP_WGTMAP in manual.
+
+    SNANA_code_tester.py
+      + refactor and add --snana_dir arg to that anyone can
+        test their private development version of snana.
 
 END: 

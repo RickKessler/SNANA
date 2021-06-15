@@ -664,7 +664,7 @@ def copy_input_files(INPUTS, PREFIX, *TESTINPUT):
     else:
         # sed with substitution of XXX -> REF or TEST
         CMD_COPY = f"sed -e \'s/XXX/{REFTEST}/g\'  {INFILE_ORIG} " \
-                      f" > {INFILE_COPY}" 
+                   f" > {INFILE_COPY}" 
     os.system(CMD_COPY)
 
     # make sure INFILE_COPY is created; if not, abort
@@ -924,10 +924,12 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
     # Jun 2021: check user snana_dir
     snana_dir = os.path.expandvars(INPUTS.snana_dir)
-    if len(snana_dir) > 2 :
-        path_list = f"${snana_dir}/bin:${snana_dir}/util:$PATH"
+    if snana_dir != SNANA_DIR :
+        path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
         SNANA_SETUP_forSed = f"export SNANA_DIR={snana_dir} ; " \
                              f"export PATH={path_list}"
+        SNANA_SETUP_forSed  = SNANA_SETUP_forSed.replace('/','\/')
+        #print(f" xxx SNANA_SETUP_forSed = {SNANA_SETUP_forSed}")
 
     for cpunum in range(0,NCPU) :
         batch_runfile = f"RUNJOBS_CPU{cpunum:03d}.BATCH"
@@ -935,7 +937,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         BATCH_RUNFILE = f"{LOGDIR}/{batch_runfile}"
 
         cmd_job  = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
-                   f"-logdir {LOGDIR}"
+                   f"--logdir {LOGDIR}"
         cmd_job  = cmd_job.replace('/','\/')
 
         # on first job, run snana.exe to leave version info
@@ -957,7 +959,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         cmd_sed += f"-e 's/REPLACE_WALLTIME/{WALLTIME_MAX}/g' "
         cmd_sed += f"-e 's/REPLACE_JOB/{SNANA_SETUP_forSed} ; {cmd_job}/g' " 
         cmd_sed += f" {BATCH_TEMPLATE_FILE} > {BATCH_RUNFILE}"
-#        print(' xxx sed = %s ' % cmd_sed)
+        #print(f" xxx sed = {cmd_sed} ")
         os.system(cmd_sed)
 
 

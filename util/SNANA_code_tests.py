@@ -909,7 +909,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     # launch batch jobs
     SCRIPTNAME     = INPUTS.SCRIPTNAME
     REFTEST        = INPUTS.REFTEST
-    reftest        = INPUTS.refest   # --ref or --test
+    reftest        = INPUTS.reftest   # --ref or --test
     SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
     BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
     NCPU           = LIST_FILE_INFO["NCPU"]

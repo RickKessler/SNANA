@@ -938,6 +938,10 @@ with append_varname_missing,
     + debug_flag=68 --> muCOVscale is NOT applied to vpec part of MUERR
     + use hash table for cid_select_file & cid_reject_file.
 
+ Jun 15 2021:
+    + release change of NOT applying MUCOVSCALE to vpec part of MUERR.
+      debug_flag=-68 to go back.
+
  ******************************************************/
 
 #include "sntools.h" 

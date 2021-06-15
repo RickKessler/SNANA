@@ -20049,6 +20049,10 @@
 
          ***** IMPORTANT(v11_02p) ***** 
 
+    + SALT2mu: release change of NOT applying MUCOVSCALE to vpec part 
+      of MUERR. Note that SALT2mu results change very slightly.
+      debug_flag=-68 to go back.                             
+
          ***** USEFUL(v11_02p) ***** 
 
          ***** MISCELLANEOUS(v11_02p) ***** 

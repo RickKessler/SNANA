@@ -60,14 +60,14 @@ def parse_args():
     msg = "Build reference"
     parser.add_argument("--ref", help=msg, action="store_true")
 
-    msg = "test against reference (nominal usage)"
+    msg = "test against reference (default with no args)"
     parser.add_argument("--test", help=msg, action="store_true")
 
-    msg = "list file"
+    msg = f"private list of tests (replaces {LIST_TESTS_FILE_DEFAULT}"
     parser.add_argument("-l", "--list_file", help=msg, type=str, 
                         default=LIST_TESTS_FILE_DEFAULT)
 
-    msg = "private snana directory (different from default SNANA install)"
+    msg = f"private snana directory (replaces {SNANA_DIR}"
     parser.add_argument("-s", "--snana_dir", help=msg, type=str, default=None)
 
     msg = "INTERNAL ARG: CPU number"
@@ -76,8 +76,8 @@ def parse_args():
     msg = "INTERNAL ARG: log dir"
     parser.add_argument("--logdir", help=msg, type=str,  default=None)
 
-    msg = "compare"
-    parser.add_argument("--compare", help=msg, action="store_true")
+    msg = "only compare TEST vs. REF (do not submit jobs)"
+    parser.add_argument("--compare_only", help=msg, action="store_true")
 
     msg = "stop this script"
     parser.add_argument("--stop", help=msg, action="store_true")
@@ -119,7 +119,7 @@ def parse_args():
     if args.list_file is not None:
         print(f"   list_file     =  {args.list_file} " )
 
-    if args.compare is True:
+    if args.compare_only is True:
         print("\n !!! DEBUG MODE: COMPARE TEST vs. REF only !!! ")
 
     return args
@@ -813,7 +813,7 @@ def runTasks_driver(INPUTS):
 def make_logdir(INPUTS):
 
     DOREF          = INPUTS.ref
-    DOCOMPARE_ONLY = INPUTS.compare
+    DOCOMPARE_ONLY = INPUTS.compare_only
     REFTEST        = INPUTS.REFTEST
     DEBUG_FLAG     = INPUTS.debug
 
@@ -983,7 +983,7 @@ def submitTasks_driver(INPUTS, LIST_FILE_INFO):
     print('\n Prepare to Submit tasks ')
 
     SCRIPTNAME     = INPUTS.SCRIPTNAME
-    DOCOMPARE_ONLY = INPUTS.compare
+    DOCOMPARE_ONLY = INPUTS.compare_only
     REFTEST        = INPUTS.REFTEST
     SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
     BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]

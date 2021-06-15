@@ -1707,8 +1707,6 @@ struct INPUTS {
   bool REFAC_MUCOVSCALE_MASS;   // if debug_flag==611
   bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
 
-
-
 } INPUTS ;
 
 
@@ -10471,9 +10469,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     m_lo  = mmin + mbin * (double)im ;
     m_hi  = m_lo + mbin ;
     m_avg = 0.5*(m_lo + m_hi) ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.lo[ic]  = m_lo ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.hi[ic]  = m_hi ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.avg[ic] = m_avg ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.lo[im]  = m_lo ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.hi[im]  = m_hi ;
+    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.avg[im] = m_avg ;
   }
 
   // malloc local 1D arrays to track local sums.

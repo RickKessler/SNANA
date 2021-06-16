@@ -2301,6 +2301,7 @@ typedef struct {
   // Each array is malloced with NBINTOT storage
   int    *NEVT;   
   double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
+  double *MURES_SQSUM_WGT, *MURES_SUM_WGT, *SUM_WGT; // Brodie June 14 2021
 
 } SUBPROCESS_TABLE_DEF ;
 
@@ -20959,6 +20960,9 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
     SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT        = (int   *)malloc(MEMI);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM = (double*)malloc(MEMD);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM_WGT   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT   = (double*)malloc(MEMD);
 
     INDEX_BININFO[ivar] = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar];
     for(i=0; i < NBINTOT; i++ )  { INDEX_BININFO[ivar][i] = -9 ; }
@@ -20991,12 +20995,12 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 
 
 // ====================================
-void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
-
+void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) { 
+  //Brodie Jun 14 2021 Added WGT columns 
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int ivar;
   char VARNAMES[200], varName[40] ;
-  char VARNAMES_FIX[] = "NEVT MURES_SUM MURES_SQSUM" ;
+  char VARNAMES_FIX[] = "NEVT MURES_SUM MURES_SQSUM SUM_WGT MURES_SUM_WGT MURES_SQSUM_WGT" ;
   BININFO_DEF *BININFO;
 
   // ----------- BEGIN ---------
@@ -21100,6 +21104,9 @@ void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
     SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[ibin1d] = 0;
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[ibin1d]  = 0.0 ;
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[ibin1d]    = 0.0 ;
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[ibin1d]    = 0.0 ;
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[ibin1d]    = 0.0 ;
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM_WGT[ibin1d]    = 0.0 ;
   }
   return;
 } // end  SUBPROCESS_OUTPUT_TABLE_RESET
@@ -21113,6 +21120,8 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   int  NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int  NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
   double   mures    = INFO_DATA.mures[ISN] ;
+  double muerr      = INFO_DATA.muerr[ISN] ;
+  double WGT        = 1.0/(muerr*muerr);
 
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
   int   IBIN1D, IVAR, OPT_BININFO=2;
@@ -21144,7 +21153,10 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D]++ ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D]    += mures ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D]  += (mures*mures) ;
-
+  //Now the weighted sums Brodiedebug
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D]+= WGT ;
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D]    += (mures*WGT) ;
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM_WGT[IBIN1D]  += (mures*mures) ; //? Do we need this?
   return;
 
 } // end SUBPROCESS_OUTPUT_TABLE_LOAD
@@ -21277,8 +21289,8 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
   char *VARNAMES     = SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER ;
 
   int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
-  double MURES_SUM, MURES_SQSUM;
-  char cLINE[200], cVAL[100];
+  double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT, MURES_SQSUM_WGT;
+  char cLINE[200], cVAL0[100], cVAL1[100];
   char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
 
   // ----------- BEGIN ------------
@@ -21294,18 +21306,24 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
     MURES_SUM   = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D];
     MURES_SQSUM = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D];
     NEVT        = SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D];
+
+    MURES_SUM_WGT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D];
+    MURES_SQSUM_WGT = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM_WGT[IBIN1D];
+    SUM_WGT        = SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D];   
     NEVT_SUM   += NEVT; // diagnostic
 
     for(ivar=0; ivar < NVAR; ivar++ ) {
       // get 1D bin for this variable
       ibin1d = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar][IBIN1D];
-      sprintf(cVAL,"%3d ", ibin1d);
-      strcat(cLINE,cVAL);
+      sprintf(cVAL0,"%3d ", ibin1d);
+      strcat(cLINE,cVAL0);
     } // end ivar
 
 
-    sprintf(cVAL," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
-    strcat(cLINE,cVAL);
+    sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
+    sprintf(cVAL1," %12.4le  %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT, MURES_SQSUM_WGT);
+    strcat(cLINE,cVAL0);
+    strcat(cLINE,cVAL1);
 
     fprintf(FP_OUT,"ROW: %4.4d %s\n", IBIN1D, cLINE);
 

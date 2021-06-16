@@ -942,6 +942,8 @@ with append_varname_missing,
     + release change of NOT applying MUCOVSCALE to vpec part of MUERR.
       debug_flag=-68 to go back.
 
+ Jun 16 2021: RK - remove LEGACY table functions for SUBPROCESS
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -2268,9 +2270,10 @@ void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
 void SUBPROCESS_OUTPUT_WRITE(void); 
 void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
 
-void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void);
-void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void);
-void SUBPROCESS_OUTPUT_WRITE_LEGACY(void);
+//void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void);
+//void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void);
+//void SUBPROCESS_OUTPUT_WRITE_LEGACY(void);
+
 void SUBPROCESS_EXIT(void);
 
 void SUBPROCESS_STORE_BININFO(int itable, int ivar, char *string);
@@ -6791,6 +6794,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  Jul 06 2020: check SUBPROCESS GENPDF-variables
   //  Dec 11 2020: read zhel and zhelerr
   //  Jan 28 2021: read peakmjd for duplicate check (data only)
+  //  Jun 16 2021: read explicit logmass rather than thru CUTWIN
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6858,6 +6862,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->zcmberr[irow]    = -9.0 ;
     TABLEVAR->zhel[irow]       = -9.0 ;
     TABLEVAR->zhelerr[irow]    = -9.0 ;
+    TABLEVAR->logmass[irow]    = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
     TABLEVAR->warnCov[irow]    =  false ;
 
@@ -6983,6 +6988,15 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART],
 				   LEN, VBOSE );
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
+  }
+
+  // Jun 16 2021:  read logmass to avoid tricky logic of only reading
+  //               logmass when it's needed.
+  char *varname_gamma = INPUTS.varname_gamma ;
+  if ( strlen(varname_gamma) > 0 ) {
+    sprintf(vartmp,"%s:F", varname_gamma);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->logmass[ISTART],
+                                   LEN, VBOSE );
   }
 
   if ( IS_DATA ) { // Jan 28 2021
@@ -7267,13 +7281,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
   }
 
+  /* xxxxx mark delete Jun 16 2021 xxxxxxxx
   // Aug 22 2019: logmass
   if ( INPUTS.USE_GAMMA0 && IVAR_GAMMA >= 0 )
     { logmass = (double)TABLEVAR->CUTVAL[IVAR_GAMMA][ISN]; }
   else
     { logmass = INPUTS.parval[IPAR_LOGMASS_CEN]; } // avoid failing cut
-
   TABLEVAR->logmass[ISN] = logmass;
+  xxxxxxxxxx end mark xxxxxxxx */
 
 
   // - - - - - - - - - - - - - 
@@ -18145,15 +18160,8 @@ void outFile_driver(void) {
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
- 
-    if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
-      SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY();
-      SUBPROCESS_OUTPUT_WRITE_LEGACY();
-    }
-    else {
-      SUBPROCESS_OUTPUT_LOAD();
-      SUBPROCESS_OUTPUT_WRITE();
-    }
+    SUBPROCESS_OUTPUT_LOAD();
+    SUBPROCESS_OUTPUT_WRITE();
 
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
@@ -20309,15 +20317,10 @@ void  SUBPROCESS_INIT(void) {
 
   printf("\n");
 
-  // prep output tables
-  if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
-    SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY();
-  }
-  else {
-    for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
-      { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
+  for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
+    { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
     // debugexit(fnam);
-  }
+  
 
   // prep flat random for each event
   SUBPROCESS_INIT_RANFLAT();
@@ -20375,6 +20378,8 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(c2err,"Only SIM data allowed here.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
+
+  fprintf(FP_STDOUT, "%s: \n", fnam); fflush(FP_STDOUT);
 
   print_debug_malloc(+1,fnam);
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
@@ -20909,11 +20914,15 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
   else if ( strcmp(VARNAME,"c") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_c];   }
+
   else if ( strcmp(VARNAME,"zhd") == 0     || 
 	    strcmp(VARNAME,"zHD") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.zhd ; }
-  else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ) 
+
+  else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ||
+	    strcmp(VARNAME,"LOGMASS") == 0   ) 
     { PTRVAL = INFO_DATA.TABLEVAR.logmass;  }
+
   else {
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
@@ -21026,49 +21035,6 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
   return ;
 } // SUBPROCESS_TABLE_HEADER
 
-// ==============================================
-void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void) {
-
-  // July 3 2020
-  // prep arrays used to load output.
-  // Start with trivial function of color.
-
-  int    ic, NBIN_c = 20 ;
-  double RANGE_c[2] = { -0.4, 0.6} ;
-  double c, cbin ;
-  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY" ;
-
-  // - - - - -
-  cbin = (RANGE_c[1]-RANGE_c[0])/ (double)NBIN_c ;
-  SUBPROCESS.NBIN_c     = NBIN_c ;
-  SUBPROCESS.RANGE_c[0] = RANGE_c[0] ;
-  SUBPROCESS.RANGE_c[1] = RANGE_c[1] ;
-  SUBPROCESS.BIN_c      = cbin ;
-  
-  sprintf(SUBPROCESS.LINE_VARNAMES, 
-	  "VARNAMES: IDPDF ic  c  NEVT  MURES_SUM MURES_SQSUM" );
-
-  print_debug_malloc(+1,fnam);
-  int MEMC = NBIN_c * sizeof(int) ;
-  int MEMD = NBIN_c * sizeof(double) ;
-  SUBPROCESS.NEVT_c      = (int*) malloc( MEMC );
-  SUBPROCESS.SIM_c       = (double*) malloc( MEMD );
-  SUBPROCESS.MURES_SUM   = (double*) malloc( MEMD );
-  SUBPROCESS.MURES_SQSUM = (double*) malloc( MEMD );
-
-  double xc;
-  for(ic=0; ic < NBIN_c; ic++ ) {
-    xc = (double)ic + 0.5 ;
-    c = RANGE_c[0] + cbin*xc; 
-    SUBPROCESS.SIM_c[ic]  = c;
-  }
-
-  printf("%s  prep %d output c bins, %.3f to %.3f \n",
-	 KEYNAME_SUBPROCESS_STDOUT, NBIN_c, RANGE_c[0], RANGE_c[1] );
-
-  return ;
-
-} // end SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY
 
 // ===========================================
 void SUBPROCESS_OUTPUT_LOAD(void) {
@@ -21166,58 +21132,6 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
 } // end SUBPROCESS_OUTPUT_TABLE_LOAD
 
-// ===========================================
-void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void) {
-
-  // called after each fit, load output struct.
-  int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int NBIN_c        = SUBPROCESS.NBIN_c ;
-  double cmin       = SUBPROCESS.RANGE_c[0] ;
-  //  double cmax       = SUBPROCESS.RANGE_c[1] ;
-  double cbin       = SUBPROCESS.BIN_c ;
-
-  int i, cutmask, ic, isn ;
-  double xval, mures ;
-  char *CCID;
-  //  BININFO_DEF *BININFO ;
-
-  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY";
-
-  // ---------- BEGIN ----------
-
-  for(i=0; i < NBIN_c; i++ ) {
-    SUBPROCESS.NEVT_c[i]      = 0 ;
-    SUBPROCESS.MURES_SUM[i]   = 0.0 ;
-    SUBPROCESS.MURES_SQSUM[i] = 0.0 ;
-  }
-
-  // loop over data
-  for(isn=0; isn < NSN_DATA; isn++ ) {
-
-    CCID    = INFO_DATA.TABLEVAR.name[isn]; 
-    cutmask = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
-    mures    = INFO_DATA.mures[isn] ;
-
-    if ( !keep_cutmask(cutmask)  ) { continue; }
-    ic = -9;
-
-    xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn];
-    ic    = (int)( (xval - cmin) / cbin );
-    
-    if ( ic < 0 || ic >= NBIN_c ) {
-      sprintf(c1err,"Invalid ic = %d for c=%f", ic, xval );
-      sprintf(c2err,"Check CCID = '%s'", CCID);
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-    }
-    
-    SUBPROCESS.NEVT_c[ic]++ ;
-    SUBPROCESS.MURES_SUM[ic]   +=  mures;
-    SUBPROCESS.MURES_SQSUM[ic] +=  (mures*mures);
-  } // end isn 
-
-  return ;
-
-} // end  SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY
 
 // ===========================================
 void SUBPROCESS_OUTPUT_WRITE(void) {
@@ -21340,80 +21254,6 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
   return ;
 
 } //  end SUBPROCESS_OUTPUT_TABLE_WRITE
-
-// ===========================================
-void SUBPROCESS_OUTPUT_WRITE_LEGACY(void) {
-
-  // write SALT2mu output
-
-  FILE *FP_OUT = SUBPROCESS.FP_OUT ;
-  int  ITER    = SUBPROCESS.ITER ;
-  int  NBIN_c  = SUBPROCESS.NBIN_c ;
-
-  char NAME[40], tmpName[40];
-  int  ic, NEVT, n, ISFLOAT, ISM0 ;
-  double SUM, SQSUM, VAL, ERR, SIM_c ;
-  
-  //  char fnam[] = "SUBPROCESS_OUTPUT_WRITE" ;
-
-  // ----------- BEGIN -------------
-
-  printf("%s write SALT2mu output\n",  KEYNAME_SUBPROCESS_STDOUT );
-  fflush(stdout);
-
-  fprintf(FP_OUT,"# ITERATION: %d\n#\n", ITER);
-  fflush(FP_OUT);
-
-  // CPU summary  (July 29 2020)
-  double t_min = (t_end_fit-t_start_fit)/60.0;
-  double t_per_event = (t_end_fit-t_start_fit)/(double)FITRESULT.NSNFIT;
-  fprintf(FP_OUT, "# CPU:           %.2f minutes  \n", t_min );
-  fprintf(FP_OUT, "# CPU_PER_EVENT: %.1f msec/event  \n", t_per_event*1000.);
-  //  fprintf(FP_OUT, "#\n");
-  fflush(FP_OUT);
-
-
-  fprintf(FP_OUT,"# NSNFIT: %d \n", FITRESULT.NSNFIT);
-  fflush(FP_OUT);
-
-  // always write fitted nuisance params 
-  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
-
-    ISFLOAT = FITINP.ISFLOAT[n] ;
-    ISM0    = (n >= MXCOSPAR) ; // it's z-binned M0
-
-    if ( ISFLOAT && !ISM0 ) {
-      VAL = FITRESULT.PARVAL[1][n] ;
-      ERR = FITRESULT.PARERR[1][n] ;
-      sprintf(tmpName,"%s", FITRESULT.PARNAME[n]);
-      fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f +- %8.5f \n",
-	      tmpName, VAL, ERR );
-    }
-  } // end loop over SALT2mu fit params
-
-  // - - - - - - 
-
-  fprintf(FP_OUT, "#\n%s\n", SUBPROCESS.LINE_VARNAMES);
-  fflush(FP_OUT);
-
-  for(ic=0; ic < NBIN_c ; ic++ ) {
-    
-    NEVT   = SUBPROCESS.NEVT_c[ic] ;
-    SUM    = SUBPROCESS.MURES_SUM[ic];
-    SQSUM  = SUBPROCESS.MURES_SQSUM[ic];
-    SIM_c  = SUBPROCESS.SIM_c[ic];
-
-    //  VARNAMES: IDPDF ic SIM_c NEVT MURES SUM MURES_SQSUM \n" );
-    sprintf(NAME,"ITER%d-%2.2d", ITER, ic);
-    fprintf(FP_OUT, "ROW: %s %2d %6.3f   %4d %14.6le %14.6le \n", 
-	    NAME, ic, SIM_c,  NEVT, SUM, SQSUM); 
-    fflush(FP_OUT);
-  }
-
-
-  return ;
-
-} // end SUBPROCESS_OUTPUT_WRITE_LEGACY
 
 
 // ===============================

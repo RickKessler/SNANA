@@ -20329,7 +20329,7 @@ void  SUBPROCESS_INIT(void) {
   // malloc logicals to keep/reject based on random re-wgt
   SUBPROCESS.KEEP_AFTER_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
-  SUBPROCESS_STORE_EBV();
+  if ( !ISDATA_REAL ) { SUBPROCESS_STORE_EBV(); } 
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
   fflush(stdout);

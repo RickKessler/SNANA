@@ -2263,16 +2263,13 @@ void SUBPROCESS_SIM_PRESCALE(void);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(void);
+void SUBPROCESS_STORE_EBV(void);
 void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
 void SUBPROCESS_OUTPUT_LOAD(void);
 void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
 void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
 void SUBPROCESS_OUTPUT_WRITE(void); 
 void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
-
-//void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void);
-//void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void);
-//void SUBPROCESS_OUTPUT_WRITE_LEGACY(void);
 
 void SUBPROCESS_EXIT(void);
 
@@ -2288,6 +2285,10 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 #define KEYNAME_SUBPROCESS_ITERATION_END   "ITERATION_END:"
 #define MXTABLE_SUBPROCESS        6  // max number of output tables
 #define MXVAR_TABLE_SUBPROCESS    3  // max number of dimensions per table
+
+#define VARNAME_SIM_AV   "SIM_AV"
+#define VARNAME_SIM_RV   "SIM_RV"
+#define VARNAME_SIM_EBV  "SIM_EBV"
 
 typedef struct {
 
@@ -2333,6 +2334,7 @@ struct {
   int   NVAR_GENPDF;
   int   IVAR_TABLE_GENPDF[MXMAP_GENPDF][MXVAR_GENPDF]; // map GENPDF <-> TABLE
 
+  int  IVAR_EBV;  // flags EBV = AV/RV [since SIM_EBV is not in FITRES file]
   bool *DUMPFLAG_REWGT;
 
   // store fitres columns used in GENPDF maps
@@ -20321,12 +20323,13 @@ void  SUBPROCESS_INIT(void) {
     { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
     // debugexit(fnam);
   
-
   // prep flat random for each event
   SUBPROCESS_INIT_RANFLAT();
 
   // malloc logicals to keep/reject based on random re-wgt
   SUBPROCESS.KEEP_AFTER_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
+
+  SUBPROCESS_STORE_EBV();
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
   fflush(stdout);
@@ -20370,7 +20373,8 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   if ( EVENT_TYPE != EVENT_TYPE_DATA ) { return; }
 
-  SUBPROCESS.NVAR_GENPDF = 0;
+  SUBPROCESS.NVAR_GENPDF =  0;
+  SUBPROCESS.IVAR_EBV    = -9;
   if ( strlen(VARNAMES_STRING) == 0 ) { return; }
 
   if ( ISDATA_REAL ) {
@@ -20385,9 +20389,25 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
     { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
 
-  
   splitString(VARNAMES_STRING, COMMA, MXVAR_GENPDF,    // inputs
 	      &NVAR_ALL, ptrVarAll );              // outputs
+
+  // - - - -- 
+  // if SIM_EBV is on list, add AV and RV. Don't worry about
+  //  duplicates since duplidates are checked below.
+  int ivar_ebv_tmp    = -9 ;
+  SUBPROCESS.IVAR_EBV = -9 ;
+  for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
+    varName = ptrVarAll[ivar] ; 
+    if ( strcmp(varName,VARNAME_SIM_EBV) == 0 ) {
+      ivar_ebv_tmp = ivar;
+    }
+  }
+  if ( ivar_ebv_tmp >= 0 ) {
+    sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_AV); NVAR_ALL++ ;
+    sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_RV); NVAR_ALL++ ;
+  }
+  
 
   // Store each FITRES column used by GENPDF maps.
   // Don't bother checking if already read for SALT2mu, but avoid
@@ -20399,6 +20419,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   NVAR_GENPDF = VARLIST_READ[0] = 0 ;
   for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
     varName = ptrVarAll[ivar] ;
+
     sprintf(varCast, "%s:F", varName);
     // xx IVAR_TABLE=IVAR_READTABLE_POINTER(varName); // check if already read?
     
@@ -20412,17 +20433,19 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     if ( SKIP ) { continue; }
 
     // malloc on IFILE==0
-    if ( IFILE == 0 ) { 
+    if ( IFILE == 0 ) {
       SUBPROCESS.TABLEVAR[NVAR_GENPDF] = (float*)malloc(MEMF); 
       sprintf(SUBPROCESS.VARNAMES_GENPDF[NVAR_GENPDF],"%s", varName);
       catVarList_with_comma(VARLIST_READ,varName);
     }
     
+    if ( ivar_ebv_tmp == ivar )   
+      { SUBPROCESS.IVAR_EBV = NVAR_GENPDF;  NVAR_GENPDF++; continue; }
+
     IVAR_TABLE = 
       SNTABLE_READPREP_VARDEF(varCast, 
 			      &SUBPROCESS.TABLEVAR[NVAR_GENPDF][ISTART],
 			      LEN, VBOSE );   
-
     NVAR_GENPDF++ ;
   }
 
@@ -20475,6 +20498,52 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   return ;
 
 } // end  SUBPROCESS_INIT_RANFLAT
+
+
+// ========================================
+void SUBPROCESS_STORE_EBV(void) {
+
+  // Jun 2021
+  // if SIM_EBV is requested in SUBPROCESS_VARNAMES_GENPDF,
+  // compute EBV array as if it were in the FITRES file.
+
+  int NVAR_GENPDF = SUBPROCESS.NVAR_GENPDF ;
+  int IVAR_EBV    = SUBPROCESS.IVAR_EBV ;
+  int NSN         = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int isn ;
+  char  *varName ;
+  float AV, RV;
+  char fnam[] = "SUBPROCESS_STORE_EBV" ;
+
+  // ---------- BEGIN -----------
+
+  if ( IVAR_EBV < 0 ) { return; }
+
+  printf("%s: compute EBV columm\n", KEYNAME_SUBPROCESS_STDOUT);
+
+  // find AV & RV
+  int ivar, ivar_av=-9, ivar_rv=-9;
+  for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
+    varName = SUBPROCESS.VARNAMES_GENPDF[ivar] ;
+    if ( strcmp(varName,VARNAME_SIM_AV) == 0 ) { ivar_av = ivar; }
+    if ( strcmp(varName,VARNAME_SIM_RV) == 0 ) { ivar_rv = ivar; }
+  }
+
+  if ( ivar_av < 0 || ivar_rv < 0 ) {
+    sprintf(c1err,"Invalid ivar_[av,rv] = %d, %d", ivar_av, ivar_rv);
+    sprintf(c2err,"Cannot compute EBV column");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  for(isn=0; isn < NSN; isn++ ) {
+    AV = SUBPROCESS.TABLEVAR[ivar_av][isn] ;
+    RV = SUBPROCESS.TABLEVAR[ivar_rv][isn] ;
+    SUBPROCESS.TABLEVAR[IVAR_EBV][isn] = AV/RV;
+  }
+
+  return ;
+
+} // end SUBPROCESS_STORE_EBV
 
 // ========================================
 void SUBPROCESS_PREP_NEXTITER(void) {
@@ -20633,7 +20702,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
       for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
 	IVAR_TABLE = SUBPROCESS.IVAR_TABLE_GENPDF[imap][ivar] ;
-	XVAL       = SUBPROCESS.TABLEVAR[IVAR_TABLE][isn];
+	XVAL       = SUBPROCESS.TABLEVAR[IVAR_TABLE][isn] ;
 	XVAL_for_GENPDF[ivar] = XVAL ;
       } // end ivar loop
 
@@ -20728,8 +20797,9 @@ int SUBPROCESS_IVAR_TABLE(char *varName) {
     varTmp = SUBPROCESS.VARNAMES_GENPDF[ivar];
     if ( strcmp(varName,varTmp)==0 ) { IVAR_TABLE = ivar; }
   }
+
   return(IVAR_TABLE);
-}
+} // end SUBPROCESS_IVAR_TABLE
 
 // =======================================
 void SUBPROCESS_INIT_DUMP(void) {
@@ -20792,7 +20862,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
 
   print_debug_malloc(+1,fnam);
 
-  SUBPROCESS.OUTPUT_TABLE[itable].NVAR = 0 ;
+  SUBPROCESS.OUTPUT_TABLE[itable].NVAR     = 0 ;
 
   // first split by "%" or "*" to get each variable/dimension
   for(ivar=0; ivar < MXVAR; ivar++ ) 

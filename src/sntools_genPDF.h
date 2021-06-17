@@ -6,7 +6,7 @@
  *******************************/
 
 #define MXMAP_GENPDF    8  // max number of maps per file
-#define MXVAR_GENPDF    6  // max varnames per mape
+#define MXVAR_GENPDF   10  // max varnames per mape
 #define MXROW_GENPDF 15000   // max number of rows per map
 #define MXITER_GENPDF  1000   // max number of iterations for genPDF
 #define PROBMAX_REJECT_GENPDF 1.0E-3  // ignore range where P > this value

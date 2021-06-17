@@ -96,6 +96,9 @@ idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
 interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
 
+select_trueIa=1          ! select only true SNIa, disable CC prior
+force_realdata=1         ! treat sim like real data
+
 ndump_nobiascor=20       ! dump for first 20 data events with no biasCor
 dumpflag_nobiascor=20;   ! idem; legacy input variable
 
@@ -942,7 +945,9 @@ with append_varname_missing,
     + release change of NOT applying MUCOVSCALE to vpec part of MUERR.
       debug_flag=-68 to go back.
 
- Jun 16 2021: RK - remove LEGACY table functions for SUBPROCESS
+ Jun 16 2021: 
+    + remove LEGACY table functions for SUBPROCESS
+    + new input args force_realdata and select_trueIa
 
  ******************************************************/
 
@@ -1568,7 +1573,8 @@ struct INPUTS {
 
   char surveyList_noBiasCor[200]; // list of surveys fit, but skip biasCor
   char idsample_select[40];       // e.g., '0+3'
-
+  int    select_trueIa;      // T -> select only true SNIa, disable CC prior
+  int    force_realdata ;    // T -> treat SIM like real data
   double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
 
   int interp_biascor_logmass;
@@ -1957,6 +1963,7 @@ void parse_blindpar(char *item) ;
 void parse_chi2max(char *item);
 
 void  prep_input_driver(void);
+void  prep_input_trueIa(void);
 void  prep_input_nmax(char *item);
 void  prep_input_gamma(void) ;
 void  prep_input_probcc0(void);
@@ -5281,6 +5288,8 @@ void set_defaults(void) {
   INPUTS.idsample_select[0] = 0 ;
   INPUTS.zspec_errmax_idsample = 0.0 ;
 
+  INPUTS.select_trueIa  = 0;
+  INPUTS.force_realdata = 0 ;
   INPUTS.interp_biascor_logmass=1; // default is to do biasCor interp
 
   // default is to blind cosmo params for data
@@ -5612,12 +5621,6 @@ void read_data(void) {
   apply_blindpar();
 
   store_output_varnames(); // May 2020
-
-  /* xxx mark delete May 12 2021 xxxxxx
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
-    compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
-    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
-    } xxxxxx */
 
   // compute more table variables
   for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
@@ -7032,6 +7035,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_NONIA_INDEX[ISTART], 
 				 LEN, VBOSE );
+  if ( IS_DATA && INPUTS.force_realdata ) { ivar = -9; } // Jun 17 2021
+
   FOUNDKEY_SIM=0;
 
   if ( ivar >=0 ) 
@@ -7040,13 +7045,15 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     { TABLEVAR->IS_DATA = true;   return ; }
 
 
+  // --------------------------------------
   // here and below is for simulated data 
+  // ---------------------------------------
 
   // note that IS_DATA refers to datafile= argument, and can be
   // real data or simulated data. ISDATA_REAL is false for sim data.
   if ( IS_DATA ) { 
     ISDATA_REAL = 0 ;   // not real data -> sim data
-    // if the 64 blind-sim bit isn't set by user, set blindFlag=0
+    // if the 64 blind-sim bit isn't set by xuser, set blindFlag=0
     if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
   }
   
@@ -7362,7 +7369,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   } // end IS_DATA
 
-
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
@@ -7412,8 +7418,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   }  // end not-DATA
 
-
-
   if ( IS_DATA && ISN < -10 ) {
     double zmuerr = TABLEVAR->zmuerr[ISN] ;
     double dmuz  = fcn_muerrz(1, zhd, zmuerr );
@@ -7434,7 +7438,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     SIM_MUz = SIM_MU + dmu ;
     TABLEVAR->SIM_MUz[ISN] = (float)SIM_MUz ;
   }
-
+ 
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
     // Prepare option to bias-correct MU instead of correcting mB,x1,c 
@@ -15740,6 +15744,12 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"idsample_select=") ) 
     { sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
 
+  if ( uniqueOverlap(item,"select_trueIa=") ) 
+    { sscanf(&item[14], "%d", &INPUTS.select_trueIa );  return(1); } 
+
+  if ( uniqueOverlap(item,"force_realdata=") ) 
+    { sscanf(&item[15], "%d", &INPUTS.force_realdata );  return(1); } 
+
   if ( uniqueOverlap(item,"zspec_errmax_idsample=") ) 
     { sscanf(&item[22], "%le", &INPUTS.zspec_errmax_idsample );  return(1); } 
 
@@ -17181,6 +17191,9 @@ void prep_input_driver(void) {
 
   if ( INPUTS.cat_only ) { prep_input_varname_missing(); return; }
 
+  // check option to select only true SNIA and ignore CC prior
+  if ( INPUTS.select_trueIa ) { prep_input_trueIa(); }
+
   USE_CCPRIOR      = INFO_CCPRIOR.USE; 
   USE_CCPRIOR_H11  = INFO_CCPRIOR.USEH11; 
 
@@ -17485,6 +17498,35 @@ void prep_input_driver(void) {
   return ;
 
 } // end of prep_input_driver
+
+// =========================
+void  prep_input_trueIa(void) {
+  // Created Jun 17 2021
+  // Disable true CC and CC prior; fit only SNIa 
+
+  int  NFILE = INPUTS.nfile_data;
+  int  ifile;
+  char fnam[] = "prep_input_trueIa" ;
+  // ---------- BEGIN -------------
+
+  sprintf(BANNER,"%s: select only true SNIa; PROBcc -> 0", fnam);
+  fprint_banner(FP_STDOUT,BANNER);
+
+  INPUTS.prescale_simCC = 999999.;
+  INPUTS.nfile_CCprior  = 0 ;
+  INFO_CCPRIOR.USE = INFO_CCPRIOR.USEH11 = 0;
+
+  INPUTS_PROBCC_ZERO.USE       = false ;
+  INPUTS_PROBCC_ZERO.ntype     = 0 ;
+  INPUTS_PROBCC_ZERO.nidsurvey = 0 ;  
+
+  INPUTS.varname_pIa[0]        = 0;
+  for(ifile=0; ifile < NFILE; ifile++ ) 
+    { INFO_DATA.TABLEVAR.IVAR_pIa[ifile] = -9;  }
+
+  return;
+
+} // end prep_input_trueIa
 
 // =========================
 void prep_debug_flag(void) {

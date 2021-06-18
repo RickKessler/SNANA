@@ -2292,6 +2292,7 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 #define KEYNAME_SUBPROCESS_ITERATION_END   "ITERATION_END:"
 #define MXTABLE_SUBPROCESS        6  // max number of output tables
 #define MXVAR_TABLE_SUBPROCESS    3  // max number of dimensions per table
+#define SUBPROCESS_OPTMASK_WRFITRES 1 // write fitres file each iteration
 
 #define VARNAME_SIM_AV   "SIM_AV"
 #define VARNAME_SIM_RV   "SIM_RV"
@@ -2327,11 +2328,12 @@ struct {
   char  *INPUT_VARNAMES_GENPDF_STRING;
   char  *INPUT_CID_REWGT_DUMP ;
   char **INPUT_OUTPUT_TABLE ; 
+  int    INPUT_OPTMASK;    // e.g., write fitres file for debug
   int    N_OUTPUT_TABLE ;
   int    NEVT_SIM_PRESCALE ;   // tune sim prescale to fit this many
   int    INPUT_ISEED;         // random seed
   int    STDOUT_CLOBBER; // default=T ==> rewind FP_STDOUT each iter
-  
+
   // variables below are computed/extracted from INPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
@@ -15489,6 +15491,9 @@ int ppar(char* item) {
     SUBPROCESS.N_OUTPUT_TABLE++ ;
     return(1) ;
   }
+  if ( uniqueOverlap(item,"SUBPROCESS_OPTMASK=") ) {
+    sscanf(&item[19], "%d", &SUBPROCESS.INPUT_OPTMASK ); return(1);
+  }
 
 #endif
 
@@ -18210,6 +18215,13 @@ void outFile_driver(void) {
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
       write_yaml_info(tmpFile);
+    }
+
+    int OPTMASK   = SUBPROCESS.INPUT_OPTMASK ;
+    bool WRFITRES = ( (OPTMASK & SUBPROCESS_OPTMASK_WRFITRES) > 0 );
+    if ( WRFITRES ) {
+      sprintf(tmpFile,"%s.FITRES", prefix );
+      write_fitres_driver(tmpFile);  // write result for each SN
     }
 
     return ;

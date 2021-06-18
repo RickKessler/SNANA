@@ -229,6 +229,7 @@ writing information in a specific format, etc.
 
 
 % ####################################
+\clearpage
    \section{\snana\ Basics}
    \label{sec:basics}
 % ####################################
@@ -242,45 +243,53 @@ that the two main \env\ variables are defined:
 \end{verbatim}
 %
 The \env\ variable \$\snanadir\ points to the software that
-is accessible to everyone, but write-protected. 
-The \snana\ developers use a cvs repository to share code, 
-and an updated version is ``cut'' (i.e, released) on occasion 
-to provide a stable software version for collaborators.  
-\snana\ is re-released as often as necessary (\S~\ref{sec:snana_updates}),
-as bugs are fixed and improvements are made.
-The main source codes for simulations and fitting are
+should be accessible to a group of users.
+The \snana\ developers use 
+githib\footnote{\url{https://github.com/RickKessler/SNANA}}
+to share and distribute code, and occasional tags are released.
+\snana\ codes are updated often with bug fixes and improvements;
+each {\tt github} update follows a successfull regression test checking
+more than 100 \snana\ jobs.
+The main science codes are:
 \begin{verbatim}
-  > $SNANA_DIR/src/snlc_sim.c
-  > $SNANA_DIR/src/snlc_fit.car
-  > $SNANA_DIR/src/psnid.car
+  > $SNANA_DIR/src/snlc_sim.c     # simulation
+  > $SNANA_DIR/src/snlc_fit.car   # light curve fitting
+  > $SNANA_DIR/src/psnid.car      # psnid classifier
+  > $SNANA_DIR/src/SALT2mu.car    # implement BBC to create hubble diagram
+
+  > $SNANA_DIR/util/create_covariance.py # create stat+syst cov matrix
+  > $SNANA_DIR/util/submit_batch.sh      # submit batch jobs
 \end{verbatim}
 %
-
-The \env\ variable \$\sndataroot\ points to the group area,
-and contains general information from surveys which have 
-released data. In addition to public data, \$\sndataroot\
-contains information needed as input to the \snana\ codes:
+The \env\ variable \$\sndataroot\ points to a directory that
+contains publicly released information from survey teams,
+and is downloadable from 
+zenodo.\footnote{\url{https://zenodo.org/record/4728252}}
+\$\sndataroot\ includes 
+public data, 
 filter transmissions,
 CalSpec SEDs, 
 SN models,
+cadence libraries (SIMLIB),
+host libraries (HOSTLIB),
 Milky Way extinction map, etc.
-Everyone has write privilege under \$\sndataroot, so please be careful.
 
+
+A 200+ page manual is part of github 
+(\$\snanadir/{\tt doc/snana\_manual.pdf}).
+For beginners, however, it is recommended to get help
+from an expert.
 
 % -------------------------------------------
 \subsection{Dr. Evil-ABORT-Face}
 \label{abort}
 % -------------------------------------------
 
-The \snana\ simulation and fitter programs have intensive
-error checking throughout the execution. If anything looks
-fishy, the program will abort with a message looking like
+The \snana\ programs include intensive error checking throughout 
+the execution. If anything looks fishy, 
+the program aborts with an easy-to-identify message looking like
 %
 \begin{Verbatim}[frame=single]
- FATAL[get_user_input]: Cannot open input file : 
-                  'sim_BLABLA.input' 
-
-
 
    `|```````|`    
    <| o\ /o |>    
@@ -289,12 +298,16 @@ fishy, the program will abort with a message looking like
     | |' '| |     
     | `---' |     
     \_______/ 
-   
+
+ FATAL ERROR ABORT called by RDSNNML
+   Could not open namelist file:
+   dummy.nml   
 \end{Verbatim}
 %
 While some of these aborts may at first seem frustrating,
 they are crucial for catching bugs as early as possible
 so that you don't waste months (years) doing something silly.
+
 
 % -------------------------------------------
 \subsection{Data Files}
@@ -314,9 +327,6 @@ light curves. For fast reading, the HEAD file includes pointers
 to the PHOT table, so do not catenate FITS files without updating
 these pointers.
 
-
-
-
 % -------------------------------------------
 \subsection{Citations}
 \label{subsec:cite}
@@ -324,7 +334,7 @@ these pointers.
 
 While an \snana\ citation is always appreciated
 (\cite{SNANA09}), please make sure to reference 
-any underlying work that is used by \snana.
+underlying work that is used by \snana.
 Referencing the appropriate light curve model 
 (\S\ref{sec:intro}) is the most obvious example.
 However, there may be other features to reference such as 
@@ -335,6 +345,20 @@ etc ...
 If you read a published article and suspect \snana\ usage 
 with a missing reference, please contact the lead author
 and one of the \snana\ authors.
+
+% -------------------------------------------
+\subsection{Community Code Contributions}
+\label{subsec:code_contributor}
+% -------------------------------------------
+
+Before making code modifications, it is good practice to 
+inform the primary \snana\ developers.
+Before submitting a pull request, remember to perform
+a regression test using {\tt SNANA\_code\_tests.py}.
+For commonly used codes, minimize development time 
+to avoid possible conflicts from other changes.
+If significant development time is needed, use multiple
+``git pull/git push'' cycles to minimize conflicts.
 
 
 % ##########################################

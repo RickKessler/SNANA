@@ -1393,6 +1393,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //
   // Apr 6 2021: parse FLUXERRMODEL_REDCOV that was left out of refactor
   // Jun 02 2021: add calls to check_arg_len
+  // Jun 17 2021: for hostlib, check "NBR" keys too.
 
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
@@ -1406,7 +1407,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
   ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
-		   strstr(WORDS[0],"+HOST") != NULL );
+		   strstr(WORDS[0],"NBR"     ) != NULL );
+
   ISKEY_SIMLIB  = (strstr(WORDS[0],"SIMLIB_") != NULL );
 
   ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
@@ -2993,6 +2995,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Dec 02 2020: fix bug setting MSKOPT to allow command-line override.
   // May 04 2021: restore +HOSTMAGS and +HOSTNBR 
   // Jun 02 2021: add calls to check_arg_len
+  // Jun 17 2021: restore SEPNBR_MAX & NNBR_WRITE_MAX
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -3036,6 +3039,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
+
   else if ( keyMatchSim( 1, "+HOSTNBR", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
     N++ ;
@@ -3043,6 +3047,13 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
+  else if ( keyMatchSim( 1, "SEPNBR_MAX", WORDS[0], keySource ) ) {
+    N++; sscanf(WORDS[N], "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX );
+  }
+  else if ( keyMatchSim( 1, "NNBR_WRITE_MAX", WORDS[0], keySource ) ) {
+    N++; sscanf(WORDS[N], "%d", &HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX );
+  }
+
   else if ( keyMatchSim( 1, "+HOSTAPPEND", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ;
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_APPEND_FILE );

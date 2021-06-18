@@ -20060,6 +20060,8 @@
     SALT2mu.c
       + clean out some LEGACY codes from previous tag
       + new feautre cat_only/5 to prescale output
+      + fix bug reading logmass in SUBPROCESS
+      + new inputs force_realdata and select_trueIa
 
     snana.car
       + clean out some LEGACY codes from previous tag
@@ -20067,6 +20069,8 @@
 
     snlc_sim
       + new option in WGTMAP; see OPT_EXTRAP_WGTMAP in manual.
+      + restore inputs SEPNBR_MAX & NNBR_WRITE_MAX
+           (lost in July 2020 refactor)
 
     SNANA_code_tester.py
       + refactor and add --snana_dir arg to that anyone can

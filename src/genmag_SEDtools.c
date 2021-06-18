@@ -3083,6 +3083,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
   // Return zeropoint for spectrograph bin
   // bounded by input LAMMIN & LAMMIN.
   //
+  // Jun 18 2021: abort of primary lam range does not cover spectrograph range.
 
   double ZP, lam0, lamCen, lamStep, fluxSum, flux, magPrimary ;
   double hc8     = (double)hc ;
@@ -3105,6 +3106,24 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
     fflush(stdout);
   }
   
+  // Jun 18 2021: check that primary spectrum is defined over wave range  
+  int NLAM = PRIMARY_SEDMODEL.NLAM;
+  double LAMMIN_PRIM = PRIMARY_SEDMODEL.lam[0];
+  double LAMMAX_PRIM = PRIMARY_SEDMODEL.lam[NLAM-1];
+  if ( LAMMIN < LAMMIN_PRIM || LAMMAX > LAMMAX_PRIM ) {
+    print_preAbort_banner(fnam);
+    printf("\t Spectrograph bin wave range: %.1f to %.1f \n",
+           LAMMIN, LAMMAX);
+    printf("\t Primary wave range: %.1f to %.1f \n",
+           LAMMIN_PRIM, LAMMAX_PRIM);
+    sprintf(c1err,"Primary SED wave range does not cover spectrograph.");
+    sprintf(c2err,"Check KCOR-input, and allow for extended spectro bins.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+
+  // - - - - - - -
+
   for(lam0=LAMMIN; lam0 < LAMMAX; lam0 += LAMSTEP ) {
 
     // get lambda bin size; beware near edge

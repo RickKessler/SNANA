@@ -3034,7 +3034,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
-    N++ ;
+    // xxx mark delete Ju 17 2021    N++ ;
+    N += FLAG_NWD_ZERO; // flag that key has no argument 
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
@@ -3042,7 +3043,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim( 1, "+HOSTNBR", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
-    N++ ;
+    // xxx mark delete   N++ ;
+    N += FLAG_NWD_ZERO; // flag that key has no argument
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
@@ -4983,10 +4985,14 @@ void sim_input_override(void) {
     */
 
     // set USE flag to mark valid command-line inputs
-    if ( NWD_READ > 0 ) {
+    if ( NWD_READ > 0 && NWD_READ < FLAG_NWD_ZERO ) {
       for(iwd_use = iwd; iwd_use < (iwd+NWD_READ+1); iwd_use++ )  { 
 	USE_ARGV_LIST[iwd_use] = 1; 
       }
+    }
+    else if ( NWD_READ == FLAG_NWD_ZERO ) {
+      USE_ARGV_LIST[iwd] = 1;  // Jun 17 2021
+      continue ;
     }
 
     iwd += NWD_READ ;

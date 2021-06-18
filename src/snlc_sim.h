@@ -65,7 +65,6 @@ time_t t_start, t_end, t_end_init ;
 #define  SIMLIB_ID_REWIND -7   // rewind flag
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
 #define  ISOURCE_PEAKMJD_SIMLIB 2 // PEAKMJD is read from SIMLIB header
-// xxx mark delete Apr 2021  #define  FIELDNAME_NULL     "NULL" 
 
 #define  OPTLINE_SIMLIB_S             1   // is a SIMLIB line with 'S:'
 #define  OPTLINE_SIMLIB_T             2   // obsolete
@@ -109,6 +108,7 @@ time_t t_start, t_end, t_end_init ;
 
 #define KEYSOURCE_FILE 1
 #define KEYSOURCE_ARG  2
+#define FLAG_NWD_ZERO 100 // flag that override word is a key with no arg 
 
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter
 #define IFLAG_GENSMEAR_LAM  2 // intrinsic smear vs. wavelength

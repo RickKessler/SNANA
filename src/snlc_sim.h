@@ -62,6 +62,7 @@ time_t t_start, t_end, t_end_init ;
 #define  MXSEASON_SIMLIB  20      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
 #define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
+#define  GENRANGE_TREST_PAD  0.1   // Trest padding for GENRANGE_TREST
 #define  SIMLIB_ID_REWIND -7   // rewind flag
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
 #define  ISOURCE_PEAKMJD_SIMLIB 2 // PEAKMJD is read from SIMLIB header

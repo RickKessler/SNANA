@@ -14190,27 +14190,9 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
 
   if ( strcmp(RATEPAR->NAME,"COSBPOLY") == 0 ) {
     b_val = cos(b*RADIAN);
-
-    /* xxx mark delete 9.30.2020 xxxx
-    COSBPOW[0] = 1.0 ;
-    for(i=0;  i <= MXPOLY_GALRATE; i++ ) {
-      if( i > 0 ) { COSBPOW[i] = COSBPOW[i-1] * cosb ; }
-      Rate += ( COSBPOW[i] * RATEPAR->MODEL_PARLIST[1][i] ) ;
-    }
-    xxxxxx */
-
   }
   else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
     b_val     = fabs(b);
-
-    /* xxxxxxx 9.30.2020 mark delete xxxxx
-    BPOW[0] = 1.0 ;    
-    for(i=0;  i <= MXPOLY_GALRATE; i++ ) {
-      if( i > 0 ) { BPOW[i] = BPOW[i-1] * b_val ; }
-      Rtest += ( BPOW[i] * RATEPAR->MODEL_PARLIST[1][i] ) ;
-    }
-     xxxxxxxx end mark xxxxx*/
-
   }
 
   else {
@@ -15995,7 +15977,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  // all spectroscopic filters
-  float *ptrTcut = INPUTS.GENRANGE_TREST ;
+
+  float Trest_min = INPUTS.GENRANGE_TREST[0] - GENRANGE_TREST_PAD ;
+  float Trest_max = INPUTS.GENRANGE_TREST[1] + GENRANGE_TREST_PAD ;
   double EPOCH[2], MJD_REF;
   double z, TOBS, TREST ;
   double TEXPOSE=0.0, VAL_STORE[8] ;
@@ -16023,7 +16007,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
     MJD_REF =  GENSPEC_PICKMJD( 0, i, z, &TOBS, &TREST) ; // for MJD sorting
     GENSPEC.SKIP[i] = false;
 
-    IS_TREST = ( TREST > ptrTcut[0] && TREST < ptrTcut[1] );
+    IS_TREST = ( TREST > Trest_min && TREST < Trest_max );
 
     /* xxx
     if ( SIMLIB_HEADER.LIBID == 22 ) {
@@ -16893,9 +16877,9 @@ void set_SIMLIB_MJDrange(int sameFlag, double *MJDrange) {
   double PEAKMJD = GENLC.PEAKMJD ;
   double z       = GENLC.REDSHIFT_CMB ;
   double z1      = 1. + z ;
-  double Tpad = 0.1 ;
-  double Tmin = PEAKMJD + (z1* INPUTS.GENRANGE_TREST[0] ) - Tpad ;
-  double Tmax = PEAKMJD + (z1* INPUTS.GENRANGE_TREST[1] ) + Tpad ;
+  double Tpad = GENRANGE_TREST_PAD ;
+  double Tmin = PEAKMJD + z1 * (INPUTS.GENRANGE_TREST[0] - Tpad) ;
+  double Tmax = PEAKMJD + z1 * (INPUTS.GENRANGE_TREST[1] + Tpad) ;
   double TMPmin, TMPmax;
   int    ISEASON; 
   char fnam[] = "set_SIMLIB_MJDrange" ;

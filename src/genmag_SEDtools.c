@@ -618,6 +618,11 @@ void malloc_SEDFLUX_SEDMODEL(SEDMODEL_FLUX_DEF *SEDMODEL_FLUX,
   SEDMODEL_FLUX->FLUX    = (double*) malloc ( MEMD * NBIN_SED );
   SEDMODEL_FLUX->FLUXERR = (double*) malloc ( MEMD * NBIN_SED );
 
+  int i;
+  for(i=0; i < MXBIN_SED_SEDMODEL; i++ ) {
+    SEDMODEL_FLUX->FLUX[i] = 0.0 ;
+    SEDMODEL_FLUX->FLUXERR[i] = 0.0 ;
+  }
   return ;
 
 } // end malloc_SEDFLUX_SEDMODEL

@@ -1,18 +1,12 @@
 # Created Oct 31 2020
-#
-# Remaining issues:
-#   + protect against multiple changes to same filter or MagSys
-#   - how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
-#   - can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
-#       NEVT:           348
-#       ABORT_IF_ZERO:  348
-#       CPU_MINUTES:    137.3
-#       ANYTHING_ELSE:  ??
-#   - how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
-#   - fast option ?
 # 
 # Nov 28 2020: 
 #   + check for multiple filter-trans files; e.g., SNLS radial dependence.
+#
+# Jun 20 2021:
+#   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'
+#   to record extra surveys in SALT2.INFO file.
+#
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -25,10 +19,6 @@ TRAINOPT_STRING  = "TRAINOPT"
 SALTPATH_STRING  = "SALTPATH"  # env name of calib path for snpca
 SALTPATH_FILES   = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 FILTERWHEEL_FILE = "FilterWheel"
-
-# define subdirs to contain outputs of snpca that are not used by LC fitters
-# xxx SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
-# xxx SUBDIR_TRAIN    = "OUTPUT_TRAIN"
 
 # define subdirs under SUBDIR_CALIB ($SALTPATH)
 SUBDIR_MAGSYS   = "MagSys"
@@ -77,6 +67,8 @@ MAGERR_FLOOR:   0.005            # model-error floor
 MAGERR_LAMOBS:  0.0  2000  4000  # magerr minlam maxlam
 MAGERR_LAMREST: 0.1   100   200  # magerr minlam maxlam
 """
+
+KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 COLNUM_TRAIN_MERGE_TRAINOPT    = 1
@@ -186,101 +178,7 @@ class train_SALT2(Program):
         self.config_prep['use_shift_file']      = use_shift_file
 
         # end train_prep_trainopt_list
-
-    def train_prep_trainopt_OBSOLETE(self):
-        CONFIG              = self.config_yaml['CONFIG']
-        input_file          = self.config_yaml['args'].input_file 
-        n_trainopt          = 1
-        trainopt_ARG_list   = [ '' ] # original user arg
-        trainopt_arg_list   = [ '' ] # expanded args used by script
-        trainopt_num_list   = [ f"{TRAINOPT_STRING}000" ] 
-        trainopt_label_list = [ None ]
-        trainopt_shift_file = [ None ]   
-        use_shift_file      = False
-
-        # **** OBSOLETE *****
-        key = TRAINOPT_STRING
-        if key in CONFIG  :
-            for trainopt_raw in CONFIG[key] : # might include label
-                num = (f"{TRAINOPT_STRING}{n_trainopt:03d}")
-                label, ARG = util.separate_label_from_arg(trainopt_raw)
-                arg, shift_file  = self.train_prep_expand_arg(ARG)
-                if shift_file is not None: use_shift_file = True
-                trainopt_arg_list.append(arg)
-                trainopt_ARG_list.append(ARG)
-                trainopt_num_list.append(num)
-                trainopt_label_list.append(label)
-                trainopt_shift_file.append(shift_file)
-                n_trainopt += 1
-            
-        # **** OBSOLETE *****
-        logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
-                     f"from {TRAINOPT_STRING} keys")
-
-        #sys.exit(f"\n xxx DEBUG DIE xxxx")
-
-        # **** OBSOLETE *****
-        self.config_prep['n_trainopt']          = n_trainopt
-        self.config_prep['trainopt_arg_list']   = trainopt_arg_list
-        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
-        self.config_prep['trainopt_num_list']   = trainopt_num_list
-        self.config_prep['trainopt_label_list'] = trainopt_label_list
-        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
-        self.config_prep['use_shift_file']      = use_shift_file
-
-        # end train_prep_trainopt_OBSOLETE
     
-    # xxxxxxxxxx mark delete Jan 24 2021
-    def train_prep_expand_arg(self,ARG):
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        # if ARG starts with KEY_SHIFTLIST_FILE, the return arg
-        # equal to contents of file; otherwise return arg = ARG.
-        # Motivation is that user can build long list of random
-        # calib variations and store each set of variations in 
-        # a separate file.
-        # BEWARE that SHIFTLIST_FILE is NOT a yaml file ... the contents
-        # must be valid TRAINOPT arguments. Abort on any colons in case
-        # user accidentally goes yaml.
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        arg = ARG
-        KEY = KEY_SHIFTLIST_FILE
-        shift_file = None 
-        word_list = ""
-        arg_list = ARG.split()
-        if arg_list[0] == KEY :
-            shift_file = arg_list[1]
-            with open(shift_file,"rt") as f:
-                for line in f:
-                    if util.is_comment_line(line) : continue
-                    # xxx mark if line[0] == '#' : continue 
-                    word_list += line.replace("\n"," ")
-            arg = word_list
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-
-        # - - - - -
-        #print(f" xxx ---------------------------------------- ")
-        #print(f" xxx ARG = {ARG}")
-        #print(f" xxx arg = {arg}")
-        # - - - -
-        if ':' in arg :
-            msgerr = []
-            msgerr.append(f"Found invalid colon(s) in {KEY}")
-            msgerr.append(f"   {shift_file} .")
-            msgerr.append(f"Beware that {KEY} is NOT a yaml file; ")
-            msgerr.append(f"{KEY} contents must be valid TRAINOPT args. ")
-            util.log_assert(False,msgerr)
-
-        # ******* OBSOLETE mark delete Jan 24 2021 *******
-        return arg, shift_file
-        # end train_prep_expand_arg
-        # xxxxxxxxxxx
-
-
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
         path          = ""
@@ -375,7 +273,7 @@ class train_SALT2(Program):
                 
         # - - - - - 
         for item in SALTPATH_FILES :
-            cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
+            cmd_rsync = f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}"
             os.system(cmd_rsync)
 
         if arg == '' or replace_path_calib : return []
@@ -390,6 +288,7 @@ class train_SALT2(Program):
                 survey      = arg_sublist[1]
                 band_list   = arg_sublist[2].split(",")
                 shift_list  = arg_sublist[3].split(",")
+
                 if key == KEY_MAGSHIFT :
                     magsys_file,Instr_list = \
                         self.get_magsys_file(outdir_calib, survey)
@@ -405,11 +304,12 @@ class train_SALT2(Program):
                     calib_updates += info 
                     
                 elif key == KEY_WAVESHIFT :
-                    n_update = 0
+                    n_update    = 0
                     for band,shift in zip(band_list,shift_list):
                         shift = float(shift)
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)
+
                         for filt_file, Instr in zip(filter_file_list,Instr_list):
                             filter_dict = {
                                 'filter_file' :  filt_file,
@@ -573,7 +473,7 @@ class train_SALT2(Program):
         Instr_outlist       = []
         filter_file_outlist = []
 
-        # .xyz
+        
         if survey in survey_yaml :
             subdir_list = survey_yaml[survey]['Instrument_subdir']
             Instr_list  = survey_yaml[survey]['Instrument']
@@ -686,14 +586,21 @@ class train_SALT2(Program):
         use_shift_file    = self.config_prep['use_shift_file']
         n_update = len(update_calib_info)
         nerr = 0 ; nwarn = 0; msgerr=[] 
-        txt_error = (f"ERROR: DUPLICATE CALIB-SHIFT in same TRAINOPT:")
-        txt_warn  = (f"WARNING: DUPLICATE CALIB-SHIFT in different TRAINOPTs:")
+        txt_error = f"ERROR: DUPLICATE CALIB-SHIFT in same TRAINOPT:"
+        txt_warn  = f"WARNING: DUPLICATE CALIB-SHIFT in different TRAINOPTs:"
 
         for i in range(0,n_update):
-            for j in range(i+1,n_update):
-                if i == j : continue
+            for j in range(i,n_update):
+
                 update_i = update_calib_info[i]
                 update_j = update_calib_info[j]
+
+                #survey_snana_i, band_snana_i = self.get_SNANA_INFO(update_i)
+                #survey_snana_j, band_snana_j = self.get_SNANA_INFO(update_j)
+                #print(f" xxx i={i},j={j} survey_snana = " \
+                #      f"{survey_snana_i} {survey_snana_j}")
+
+                if i == j : continue
 
                 TRAINOPT_i = update_i[ICOL_INFO_TRAINOPT]
                 TRAINOPT_j = update_j[ICOL_INFO_TRAINOPT]
@@ -869,6 +776,7 @@ class train_SALT2(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
+        CONFIG       = self.config_yaml['CONFIG']
         n_trainopt   = self.config_prep['n_trainopt'] 
         num_list     = self.config_prep['trainopt_num_list']
         arg_list     = self.config_prep['trainopt_arg_list'] 
@@ -883,6 +791,14 @@ class train_SALT2(Program):
                 f"# -> create SALT2.{model_suffix}nnn/ \n")
 
         f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
+
+        f.write(f"\n")
+
+        for key in KEYS_SURVEY_LIST_SAME:
+            if key in CONFIG :
+                f.write(f"{key}:  {CONFIG[key]} \n")
+            else:
+                f.write(f"{key}:  [ ] \n")
 
         f.write(f"\n")
         f.write(f"TRAINOPT_OUT_LIST:  " \
@@ -915,7 +831,7 @@ class train_SALT2(Program):
             trainopt  = item_full[ICOL_INFO_TRAINOPT]
             key_snana = item_full[ICOL_INFO_KEY]
             shift     = item_full[ICOL_INFO_SHIFT]
-            arg_snana = (f"{survey_snana} {band_snana} {shift}")
+            arg_snana = f"{survey_snana} {band_snana} {shift}"
             item      = [ trainopt, key_snana, arg_snana ]
 
             n_item += 1
@@ -1116,16 +1032,14 @@ class train_SALT2(Program):
         # (snlc_sim.exe & snlc_fit.exe)
 
         model_dir    = self.get_path_trainopt("MODEL",trainopt)
-        info_file    = (f"{model_dir}/{SALT2_INFO_FILE}")
+        info_file    = f"{model_dir}/{SALT2_INFO_FILE}"
 
         color_law_dict = self.get_color_law(model_dir)
         min_lambda   = color_law_dict['min_lambda']
         max_lambda   = color_law_dict['max_lambda']
-        range_lambda = (f"{min_lambda} {max_lambda}")
+        range_lambda = f"{min_lambda} {max_lambda}"
         npar         = color_law_dict['npar']
         par_list     = " ".join(color_law_dict['par_list'])
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
 
         logging.info(f"    Create {SALT2_INFO_FILE}")
         with open(info_file,"wt") as f:
@@ -1141,17 +1055,48 @@ class train_SALT2(Program):
 
             f.write(f"{SALT2_INFO_INCLUDE}\n")
 
-            if 'SNANA_SALT2_INFO' in submit_info_yaml :
-                SNANA_SALT2_INFO = submit_info_yaml['SNANA_SALT2_INFO']
-                f.write(f"# {trainopt} \n")
-                for item in SNANA_SALT2_INFO :
-                    if trainopt == item[0] :
-                        key   = item[1]
-                        arg   = item[2]
-                        f.write(f"{key}: {arg} \n")
+            self.append_SALT2_INFO_TRAINOPT(f,trainopt)  
+
+        #if trainopt == "TRAINOPT003" :
+        #    sys.exit(f"\n xxx DEBUG STOP at merge_create_SALT2_INFO_file\n")
 
         # #end merge_create_SALT2_INFO_file
         
+    def append_SALT2_INFO_TRAINOPT(self,f,trainopt):
+
+        # Created Jun 2021
+        # write MAGSHIFT and WAVESHIFT keys for SNANA to use.
+
+        submit_info_yaml       = self.config_prep['submit_info_yaml']
+
+        if 'SNANA_SALT2_INFO' not in submit_info_yaml : return
+
+        SNANA_SALT2_INFO       = submit_info_yaml['SNANA_SALT2_INFO']
+        SURVEY_LIST_SAMEMAGSYS = submit_info_yaml['SURVEY_LIST_SAMEMAGSYS']
+        SURVEY_LIST_SAMEFILTER = submit_info_yaml['SURVEY_LIST_SAMEFILTER']
+
+        f.write(f"# {trainopt} \n")
+        for item in SNANA_SALT2_INFO :
+            if trainopt == item[0] :
+                key      = item[1]
+                arg_list = item[2].split()
+                survey   = arg_list[0]      # extract survey for check below
+                arg      = " ".join(arg_list[1:])  # band value
+                f.write(f"{key}: {survey:<10} {arg} \n")
+
+                # write other surveys with same magsys
+                if key == KEY_MAGSHIFT:
+                    s_list  = SURVEY_LIST_SAMEMAGSYS
+                else:
+                    s_list  = SURVEY_LIST_SAMEFILTER
+
+                if survey in s_list :
+                    for s in filter(lambda s: s not in [survey], s_list):
+                        comment = f"same {key} as {survey}"
+                        f.write(f"{key}: {s:<10} {arg}    # {comment}\n")
+
+        # end append_SALT2_INFO_TRAINOPT
+
     def get_color_law(self,model_dir):
         file_name = (f"{model_dir}/{COLORLAW_FILE}")
         color_law_dict = {}

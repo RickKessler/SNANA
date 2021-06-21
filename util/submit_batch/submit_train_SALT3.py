@@ -638,7 +638,6 @@ class train_SALT3(Program):
                 f.write(f"{key}: {survey} {band} {shift} \n")
         f.close()
 
-        # .xyz
         # end append_SALT2_INFO_FILE
 
     def get_misc_merge_info(self):

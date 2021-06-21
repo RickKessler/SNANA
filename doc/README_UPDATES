@@ -20062,6 +20062,9 @@
       + new feautre cat_only/5 to prescale output
       + fix bug reading logmass in SUBPROCESS
       + new inputs force_realdata and select_trueIa
+      + new input arg SUBPROCESS_OPTMASK 1 -> write fitres file each iter
+      + for SUBPROCESS, supress writing muerr_renorm since it is not
+          malloced or filled.
 
     snana.car
       + clean out some LEGACY codes from previous tag
@@ -20071,6 +20074,9 @@
       + new option in WGTMAP; see OPT_EXTRAP_WGTMAP in manual.
       + restore inputs SEPNBR_MAX & NNBR_WRITE_MAX
            (lost in July 2020 refactor)
+      + fix bug (from May 27) reading TAKE_SPECTRUM keys from SIMLIB header.
+      + define GENRANGE_TOBS_PAD = 0.1 to apply consistent MJD-select padding
+
 
     SNANA_code_tester.py
       + refactor and add --snana_dir arg to that anyone can

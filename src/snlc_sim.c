@@ -15978,8 +15978,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  // all spectroscopic filters
 
-  float Trest_min = INPUTS.GENRANGE_TREST[0] - GENRANGE_TREST_PAD ;
-  float Trest_max = INPUTS.GENRANGE_TREST[1] + GENRANGE_TREST_PAD ;
+  float Trest_min, Trest_max, Trest_pad ;
   double EPOCH[2], MJD_REF;
   double z, TOBS, TREST ;
   double TEXPOSE=0.0, VAL_STORE[8] ;
@@ -15997,6 +15996,11 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   OBSRAW = SIMLIB_OBS_RAW.NOBS ;  NOBS_ADD=0;
  
   z = GENLC.REDSHIFT_CMB ;
+
+  Trest_pad = GENRANGE_TOBS_PAD/(1.0+z) ;
+  Trest_min = INPUTS.GENRANGE_TREST[0] - Trest_pad;
+  Trest_max = INPUTS.GENRANGE_TREST[1] + Trest_pad ;
+
   for(i=0; i < NSPEC; i++ ) {  
 
     OPT_FRAME = INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_EPOCH ;
@@ -16877,9 +16881,9 @@ void set_SIMLIB_MJDrange(int sameFlag, double *MJDrange) {
   double PEAKMJD = GENLC.PEAKMJD ;
   double z       = GENLC.REDSHIFT_CMB ;
   double z1      = 1. + z ;
-  double Tpad = GENRANGE_TREST_PAD ;
-  double Tmin = PEAKMJD + z1 * (INPUTS.GENRANGE_TREST[0] - Tpad) ;
-  double Tmax = PEAKMJD + z1 * (INPUTS.GENRANGE_TREST[1] + Tpad) ;
+  double Tpad = GENRANGE_TOBS_PAD ;
+  double Tmin = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[0]) - Tpad ;
+  double Tmax = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[1]) + Tpad ;
   double TMPmin, TMPmax;
   int    ISEASON; 
   char fnam[] = "set_SIMLIB_MJDrange" ;

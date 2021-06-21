@@ -19017,7 +19017,8 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");        NVAR_APPEND++ ;  
 
   // see ??
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ;  
+  if ( !SUBPROCESS.USE )
+    { sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ; }
 
   // contribution from LC fit only (no sigInt, no VPEC, no scale)
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");    NVAR_APPEND++ ;  
@@ -19449,7 +19450,6 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   mumodel    = INFO_DATA.mumodel[n];
   mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
   muerr         = INFO_DATA.muerr[n];
-  muerr_renorm  = INFO_DATA.muerr_renorm[n];
   muerr_raw     = INFO_DATA.muerr_raw[n] ; // from LC fit only
   muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
   mures         = INFO_DATA.mures[n] ;
@@ -19479,7 +19479,13 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   sprintf(word, "%7.4f ", mu     );       NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", mumodel);       NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", muerr  );       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
+
+  if ( !SUBPROCESS.USE ) {
+    // Jun 21 2021: beware that muerr_renorm is not malloced or filled
+    //     for SUBPROCESS   
+    muerr_renorm  = INFO_DATA.muerr_renorm[n];
+    sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
+  }
   sprintf(word, "%7.4f ", muerr_raw );    NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", muerr_vpec );   NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", mures  );       NWR++ ; strcat(line,word);

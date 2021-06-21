@@ -3988,7 +3988,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   //      [because SNR calc works only with SN]
   //
   // May 27 2021: check for FIELD arg in WORDS(0)
-
+  // Jun 21 2021: FIELD check only for keySource == KEYSOURCE_ARG
+  
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
@@ -4047,11 +4048,13 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   }
   
 
+  // for input file & command line arg, 
   // check for FIELD arg in (); e.g., TAKE_SPECTRUM(X1)
-  sprintf(string0, "%s", WORDS[0]);
-  char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
-  extractStringOpt(string0,FIELD); // return FIELD
-  
+  if ( keySource == KEYSOURCE_ARG ) {
+    sprintf(string0, "%s", WORDS[0]);
+    char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
+    extractStringOpt(string0,FIELD); // return FIELD
+  }
 
   // ----------------------------------------------
   // read 1st arg and parse as either TREST or TOBS

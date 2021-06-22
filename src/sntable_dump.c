@@ -132,13 +132,13 @@ char msgerr1[80], msgerr2[80];
 #define MXVAR_DUMP 40 
 
 struct INPUTS {
-  char TABLE_FILE[200];
+  char TABLE_FILE[MXPATHLEN];
   char TABLE_ID[60];
   bool IS_SNANA, IS_FITRES;
   char VARNAMES[MXVAR_DUMP][60] ;
   char VARLIST[MXVAR_DUMP*60];     // space-separate list
-  char OUTFILE_FITRES[200] ;
-  char OUTFILE_IGNORE[200] ;   // if --format IGNORE
+  char OUTFILE_FITRES[MXPATHLEN] ;
+  char OUTFILE_IGNORE[MXPATHLEN] ;   // if --format IGNORE
   char FORMAT_OUTFILE[40];   
   int  ISFORMAT_CSV ;
 

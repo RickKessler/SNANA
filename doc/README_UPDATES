@@ -20082,4 +20082,7 @@
       + refactor and add --snana_dir arg to that anyone can
         test their private development version of snana.
 
+   sntable_dump.c: 
+     + increase file name string-length allocations
+
 END: 

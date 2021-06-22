@@ -12681,10 +12681,12 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
 # 1. options to adjust exposure time (affects both SN flux and sky noise)
   EXPOSURE_TIME: 20            # increase all exposure times by 20
   EXPOSURE_TIME_FILTER: g 20   # increase g exposure by 20
+  EXPOSURE_TIME_FILTER: g,r 20,30   # band-dependent increase
 
   FUDGESHIFT_ZPT:  0.03           # add 0.03 to ZPT in all bands
   FUDGESHIFT_ZPT_FILTER: g  0.03  # add 0.03 to g-band ZPT only
   FUDGESHIFT_ZPT_FILTER: gz 0.03  # add 0.03 to g and z-band ZPT
+  FUDGESHIFT_ZPT_FILTER: g,r,i,z  0.03,-0.02,0.01,0.04  # band-depdendent ZPT
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
   FUDGESCALE_PSF: 2            # increase PSF
@@ -12699,16 +12701,23 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGE_SNRMAX:  r=25      # adjust exposure time for r-band
 
 # 5. add magErr to all epochs
-  FUDGE_MAGERR: 0.03             # add .03 magErr to all epochs and bands
-  FUDGE_MAGERR_FILTER: g   .01   # add .01 magErr to g-band 
-  FUDGE_MAGERR_FILTER: riz .02   # add .02 magErr to riz bands
+  FUDGE_MAGERR: 0.03               # add .03 magErr to all epochs and bands
+  FUDGE_MAGERR_FILTER: g     .01   # add .01 magErr to g-band 
+  FUDGE_MAGERR_FILTER: riz   .02   # add .02 magErr to riz bands
+  FUDGE_MAGERR_FILTER: r,i,z .01,0.02,0.03   # band-dependent
 
 # 6. add ZPTERR to all epochs
   FUDGE_ZPTERR: 0.03             # add .03 ZPTERR to all epochs and bands
   FUDGE_ZPTERR_FILTER: g   .01   # add .01 ZPTERR to g-band 
   FUDGE_ZPTERR_FILTER: riz .02   # add .02 ZPTERR to riz bands
+
+# 7. shift filter wavelength 
+  FUDGESHIFT_LAM: 10.0                              # add 10 A to all bands
+  FUDGESHIFT_LAM_FILTER: gr       7.2               # add 7.2A to g+r bands
+  FUDGESHIFT_LAM_FILTER: g,r,i,z  2.2,-3.3,4.4,1.1  # band-dependent
 \end{Verbatim}
 %
+
 There are six classes of error-fudging:
 (1) adjust exposure time to change both the SN flux and sky-noise,
 (2) increase the sky-noise while leaving the SN flux unchanged, 
@@ -12728,7 +12737,6 @@ the true fluxes, the 2-bit includes {\tt ZPTERR} in the reported
 flux-\uncs, and ``{\tt SMEARFLAG\_ZEROPT: 3}'' does both.
 
 
-\clearpage
 {\tt FUDGE2\_SNRMAX} is useful for setting a nearly fixed 
 error at all epochs, in contrast to a fixed $S/N$, or mag-error.
 For both options to fix the nearest-peak $S/N$ ratio, 
@@ -12764,6 +12772,10 @@ in the second iteration as follows:
 %
 where $\FSNMAX$ is the SN flux (photoelectrons)
 at the epoch with the maximum $S/N$.
+
+\medskip
+Finally, {\tt FUDGESHIFT\_ZPT} and {\tt FUDGESHIFT\_LAM}
+can be used for systematic calibation shifts.
 
 % xxxxx end of misc. sim tools
 

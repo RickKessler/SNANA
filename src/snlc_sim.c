@@ -557,11 +557,12 @@ void get_user_input(void) {
 
   set_user_defaults();
 
-  // ------------------------------------------------
-  // check option to read 2nd input-include file
+ 
+  /* xxxxxxxxxx mark delete Ju 23 2021 xxxxxxxxx
+  // check option to read 2nd input-include file.
   // First check command-line args here for override of 2nd input-include...
   // This check is needed because the override list is read below after
-  // the 2nd input file is alread read.
+  // the 2nd input file is already read.
   for ( i = 2; i < NARGV_LIST ; i++ ) {   
     FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE",COLON)  );
     FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE",COLON)  );
@@ -570,7 +571,11 @@ void get_user_input(void) {
       INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
     }
   } 
+  xxxxxxxx end mark xxxxxxxx */
 
+  // force reading MXINPUT_FILE_SIM input files because
+  // the primary input file may have an INCLUDE file that
+  // is added to INPUTS.INPUT_FILE_LIST.
   for(ifile=0; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
     if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
        read_input_file(INPUTS.INPUT_FILE_LIST[ifile] ); 
@@ -582,6 +587,15 @@ void get_user_input(void) {
   // --------------------------------------------
 
   sim_input_override(); 
+
+  // June 23 2021
+  // if an INCLUDE file is passed via override, read it here.
+  // This INCLUDE file does not replace/override previous INCLUDE files
+  // that have already been read above; rather its contents override 
+  // contents of previous INCLUDE files.
+  int N = INPUTS.NREAD_INPUT_FILE;
+  char *INPUT_OVERRIDE = INPUTS.INPUT_FILE_LIST[N];
+  if ( !IGNOREFILE(INPUT_OVERRIDE) ) { read_input_file(INPUT_OVERRIDE); }
 
   // check that all command-line args were used
   check_argv(); 
@@ -1385,13 +1399,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // possible keys. Input keySource indicates if key is
   // file or command-line.
   //
-  // Function returns number of words read after the WOREDS[0] key.
+  // Function returns number of words read after the WORDS[0] key.
   // i.e., WORDS[0] is not included in the return count.
   //
   // Apr 6 2021: parse FLUXERRMODEL_REDCOV that was left out of refactor
   // Jun 02 2021: add calls to check_arg_len
   // Jun 17 2021: for hostlib, check "NBR" keys too.
 
+  bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;

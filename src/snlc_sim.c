@@ -2930,7 +2930,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
       ifilt_obs = ifilt_list[ifilt] ;
       VALUE_FILTERLIST[ifilt_obs] = val_list[ifilt];
     }      
-    return(NFILT);
+    return(2);
   }
 
   return(0);

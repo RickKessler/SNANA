@@ -37,6 +37,7 @@
  Dec 27 2018: if LCLIB_DEBUG.ZERO_TEMPLATE_FLUX>0, then zero template flux
 
  Feb 03 2021: if OPTMASK & 8, switch RA,DEC coords to those of LCLIB.
+ Jun 23 2021: skip comment lines in reading LCLIB
 
 *************************************************/
 
@@ -210,15 +211,16 @@ void open_LCLIB(char *lcLibFile) {
 void read_GLOBAL_HEADER_LCLIB(void) {
 
   // Jun 2 2018: call parse_PARNAMES_LCLIB
+  // Jun 23 2021: refactor to skip comment lines
 
   int NRD_ABORT = 1000 ; // abort after this many words and no FIRST_EVT
   int NRD       = 0 ;
   int FIRST_EVT = 0 ;
-  int ipar, NPAR, NFILT; 
+  int ipar, NPAR, NFILT, iwd, NWD; 
+  int MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   FILE *fp = LCLIB_INFO.FP;
-  char c_get[60], tmpString[60], comment[60] ;
+  char wd0[80], wd1[80], wd2[80], LINE[200], tmpString[60], comment[60] ;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
-
 
   // -------------- BEGIN ---------------
 
@@ -246,68 +248,104 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   // maybe later read this in from LCLIB header
   LCLIB_INFO.ZPHOTZ1ERR = 0.05 ; // error on Zphot/(1+z)
 
-  while ( FIRST_EVT == 0 ) { 
-    NRD++ ;
+  while ( !FIRST_EVT ) { 
+
     if ( NRD > NRD_ABORT ) {
       sprintf(c1err,"Could not find first event after %d words",NRD);
       sprintf(c2err,"Check global header in LCLIB file." );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
 
-    fscanf(fp, "%s", c_get) ;
+    fgets(LINE, 200, fp ) ;    
+    if ( commentchar(LINE) ) { continue; }
 
-    if ( strcmp(c_get,"NEVENT:") == 0 ) { 
-      readint(fp, 1, &LCLIB_INFO.NEVENT ); 
-    }
+    NWD = store_PARSE_WORDS(MSKOPT,LINE);
+    if ( NWD < 2 ) { continue; }
+    // xxx mark delete    fscanf(fp, "%s", c_get) ;
 
-    if ( strcmp(c_get,"SURVEY:") == 0 ) 
-      { readchar(fp, LCLIB_INFO.SURVEY );  }
+    NRD += NWD;
 
-    if ( strcmp(c_get,"FILTERS:") == 0 ) { 
-      readchar(fp, LCLIB_INFO.FILTERS );  
-      LCLIB_INFO.NFILTERS = strlen(LCLIB_INFO.FILTERS);
-    }
+    for ( iwd=0; iwd < NWD; iwd++ ) {
 
-    if ( strcmp(c_get,"RECUR_CLASS:") == 0 ) 
-      { readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  } 
+      get_PARSE_WORD(0, iwd,   wd0);
+      get_PARSE_WORD(0, iwd+1, wd1);
 
-    if ( strcmp(c_get,"RECUR_TYPE:") == 0 )  // allow obsolete key
-      { readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  } 
+      if ( strcmp(wd0,"NEVENT:") == 0 ) { 
+	sscanf(wd1, "%d", &LCLIB_INFO.NEVENT ); iwd++ ;
+	// xxx	readint(fp, 1, &LCLIB_INFO.NEVENT ); 
+      }
 
-    if ( strcmp(c_get,"MODEL:") == 0 )  { 
-      readchar(fp, LCLIB_INFO.NAME_MODEL );  
-      if ( strcmp(LCLIB_INFO.NAME_MODEL,MODEL_RANMAG_LCLIB) == 0 ) 
-	{ LCLIB_INFO.DEBUGFLAG_RANMAG = 1;  }
-      continue ;
-    }
+      if ( strcmp(wd0,"SURVEY:") == 0 ) {
+	sscanf(wd1, "%s", LCLIB_INFO.SURVEY ); iwd++ ;
+	// xxx readchar(fp, LCLIB_INFO.SURVEY );  
+      }
 
-    if ( strcmp(c_get,"MODEL_PARNAMES:")   == 0  ||
-	 strcmp(c_get,"MODEL_PARAMETERS:") == 0 )  { 
-      readchar(fp, tmpString );  
-      parse_PARNAMES_LCLIB(tmpString);
-    }
+      if ( strcmp(wd0,"FILTERS:") == 0 ) { 
+	sscanf(wd1, "%s", LCLIB_INFO.FILTERS ); iwd++ ;
+	// xxxx	readchar(fp, LCLIB_INFO.FILTERS );  
+	LCLIB_INFO.NFILTERS = strlen(LCLIB_INFO.FILTERS);
+      }
 
-    // read redshift range to pass back to snlc_sim for initializing
-    // HOSTLIB.
-    if ( strcmp(c_get,"REDSHIFT_RANGE:") == 0 ) 
-      { readdouble(fp, 2, LCLIB_INFO.REDSHIFT_RANGE );  } 
+      if ( strcmp(wd0,"RECUR_CLASS:") == 0 )  { 
+	sscanf(wd1, "%s", LCLIB_INFO.STRING_RECUR_CLASS ); iwd++ ;
+	// xxxx      readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  
+      } 
 
-    if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
-      // check DEBUG mag ranges
-      if ( strcmp(c_get,"GENRANGE_RANMAG:") == 0 )  
-	{  readdouble(fp, 2, LCLIB_INFO.GENRANGE_RANMAG );  }      
-      else if ( strcmp(c_get,"GENRANGE_DIFMAG:") == 0 )  
-	{  readdouble(fp, 2, LCLIB_INFO.GENRANGE_DIFMAG );  }
-      else if ( fscanf(fp, "%s", c_get) == EOF )
-	{ FIRST_EVT = 1; }
-    }
+      if ( strcmp(wd0,"RECUR_TYPE:") == 0 ) { // allow obsolete key
+	sscanf(wd1, "%s", LCLIB_INFO.STRING_RECUR_CLASS );  iwd++ ;
+	//  xxx readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  
+      } 
+     
 
-    if ( strcmp(c_get,"START_EVENT:") == 0 ) { 
-      snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
-      FIRST_EVT = 1 ; 
-    }    
+      if ( strcmp(wd0,"MODEL:") == 0 )  { 
+	sscanf(wd1, "%s", LCLIB_INFO.NAME_MODEL ); iwd++ ;
+	// xxxreadchar(fp, LCLIB_INFO.NAME_MODEL );  
+	if ( strcmp(LCLIB_INFO.NAME_MODEL,MODEL_RANMAG_LCLIB) == 0 ) 
+	  { LCLIB_INFO.DEBUGFLAG_RANMAG = 1;  }
+	continue ;
+      }
 
-  } // end while
+      if ( strcmp(wd0,"MODEL_PARNAMES:")   == 0  ||
+	   strcmp(wd0,"MODEL_PARAMETERS:") == 0 )  { 
+	sscanf(wd1, "%s", tmpString ); iwd++ ;
+	// xxxx      readchar(fp, tmpString );  
+	parse_PARNAMES_LCLIB(tmpString);
+      }
+
+      // read redshift range to pass back to snlc_sim for initializing
+      // HOSTLIB.
+      if ( strcmp(wd0,"REDSHIFT_RANGE:") == 0 ) { 
+	get_PARSE_WORD(0, iwd+2, wd2);
+	sscanf(wd1, "%le", LCLIB_INFO.REDSHIFT_RANGE[0] ); iwd++ ;
+	sscanf(wd2, "%le", LCLIB_INFO.REDSHIFT_RANGE[1] ); iwd++ ;
+	// xxxx      readdouble(fp, 2, LCLIB_INFO.REDSHIFT_RANGE );  
+      } 
+
+      if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
+	get_PARSE_WORD(0, iwd+2, wd2);
+	
+	// check DEBUG mag ranges
+	if ( strcmp(wd0,"GENRANGE_RANMAG:") == 0 )  {  
+	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_RANMAG[0] ); iwd++ ;
+	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_RANMAG[1] ); iwd++ ;
+	  // xxx	readdouble(fp, 2, LCLIB_INFO.GENRANGE_RANMAG );  
+	}      
+	else if ( strcmp(wd0,"GENRANGE_DIFMAG:") == 0 )  {
+	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_DIFMAG[0] ); iwd++ ;
+	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_DIFMAG[1] ); iwd++ ;
+	  // xxx	readdouble(fp, 2, LCLIB_INFO.GENRANGE_DIFMAG ); 
+	}
+	// xxx      else if ( fscanf(fp, "%s", c_get) == EOF )
+	//xxxx      { FIRST_EVT = 1; }
+      }     
+
+      if ( strcmp(wd0,"START_EVENT:") == 0 ) { 
+	snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
+	FIRST_EVT = 1 ;  iwd++ ;
+      }         
+
+    } // end iwd loop over words in LINE
+  } // end while over FIRST_EVT
 
 
   // tack on extra model params: EVENT_ID and template mags
@@ -569,6 +607,7 @@ void set_randomStart_LCLIB(void) {
 
   while ( ievt < IEVT_START ) {
     fgets(LINE, 40, LCLIB_INFO.FP ) ;
+    if ( commentchar(LINE) ) { continue; }
     if ( strstr(LINE,KEY_SEARCH) != NULL )  { ievt++ ; }
   }
   printf("arrived.\n");  fflush(stdout);
@@ -836,6 +875,9 @@ void readNext_LCLIB(double *RA, double *DEC) {
       //      printf(" xxx %s: REWIND \n", fnam); fflush(stdout);
       // xxx mark delete   rewind(fp); 
     }
+
+    if ( strlen(LINE) == 0 ) { continue; }
+    if ( commentchar(LINE) ) { continue; } // Jun 23 2021
 
     // don't parse LINE if we know this event has been rejected
     // and we have not read all of the expected ROWs.

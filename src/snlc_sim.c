@@ -110,10 +110,6 @@ int main(int argc, char **argv) {
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
-  /* xxxxxxxx mark delete Jan 14 2021 xxxxxxxx
-  prep_RANSYSTPAR() ; // moved BEFORE init_RateModel (Oct 16 2020)
-  xxxxxxxxxxxxx */
-
   // init based on GENSOURCE
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
@@ -863,7 +859,7 @@ void set_user_defaults(void) {
 
     INPUTS.TMPOFF_ZP[ifilt]        =  0.0 ;
     INPUTS.TMPOFF_MODEL[ifilt]     =  0.0 ;
-    INPUTS.TMPOFF_LAMSHIFT[ifilt]  = 0.0 ;
+    INPUTS.TMPOFF_LAMFILT[ifilt]   =  0.0 ;
 
     INPUTS.IFILT_SMEAR[ifilt]= 0;
     INPUTS.GENMAG_SMEAR_FILTER[ifilt] = 0.0 ;
@@ -1079,6 +1075,7 @@ void set_user_defaults(void) {
     INPUTS.FUDGE_MAGERR_FILTER[ifilt]        = 0.0; 
     INPUTS.FUDGE_ZPTERR_FILTER[ifilt]        = 0.0; 
     INPUTS.FUDGESHIFT_ZPT_FILTER[ifilt]      = 0.0 ;
+    INPUTS.FUDGESHIFT_LAM_FILTER[ifilt]      = 0.0 ;
     INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt]  = 1.0 ;
     INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt] = 1.0 ;
   }
@@ -2189,6 +2186,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 				     &INPUTS.FUDGESHIFT_ZPT, 
 				     INPUTS.FUDGESHIFT_ZPT_FILTER);
   }
+  else if ( strstr(WORDS[0], "FUDGESHIFT_LAM") != NULL ) {   
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGESHIFT_LAM",
+				     &INPUTS.FUDGESHIFT_LAM, 
+				     INPUTS.FUDGESHIFT_LAM_FILTER);
+  }
   else if ( strstr(WORDS[0], "MJD_TEMPLATE") != NULL ) {      
     N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "MJD_TEMPLATE",
 				     &INPUTS.MJD_TEMPLATE, 
@@ -2863,15 +2865,23 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
   //        or
   //    INPUTS_STRING_FILTER:  <filterStringList>  <values>
   //
+  // Examples:
+  //  +  FUDGESHIFT_LAM_FILTER: gr 10
+  //      --> g & r bands have 10 A shift
+  //  +  FUDGESHIFT_LAM_FILTER: g,r,i,z  -6.4,3.2,6.9,0.4
+  //      --> g,r,i,z bands each have respective shifts
+  // 
   // Note that outputs are float, not double.
   // Functions returns number of filled values.
   //
-
-  float ftmp;
-  char cfilt[MXFILTINDX], KEY[80] ;
+  // Jun 22 2021: allow comma-sep list to specify multiple bands
+  //              with one key
+  //
+  float ftmp, val_list[MXFILTINDX];
+  char cfilt[MXFILTINDX], cval[200], **cval_list, KEY[80] ;
   int  MAXKEY = 10;
-  int  NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
-  //  char fnam[] = "parse_input_KEY_PLUS_FILTER" ;
+  int  NFILT, NVAL, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
+  char fnam[] = "parse_input_KEY_PLUS_FILTER" ;
 
   // ----------- BEGIN -----------
 
@@ -2887,14 +2897,40 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 
   sprintf(KEY,"%s_FILTER", KEYCHECK);
   if ( keyMatchSim(MAXKEY, KEY, WORDS[0], keySource) ) {
-      sscanf(WORDS[1] , "%s", cfilt );
-      sscanf(WORDS[2] , "%f", &ftmp );
-      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_obs
-      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
-	ifilt_obs = ifilt_list[ifilt] ;
-	VALUE_FILTERLIST[ifilt_obs] = ftmp;
-      }      
-      return(NTMP);
+
+    sscanf(WORDS[1] , "%s", cfilt ); // e.g., griz or g,r,i,z
+    sscanf(WORDS[2] , "%s", cval  ); // value or comma-sep list of values
+
+    NFILT = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_list
+
+    if ( strstr(cfilt,COMMA) != NULL ) {
+      // parse comman sep list of float values
+      parse_commaSepList(fnam, cval, MXFILTINDX, 20, 
+			 &NVAL, &cval_list); // <== returned
+      if ( NVAL != NFILT ) {
+	sprintf(c1err,"NFILT=%d does not match NVAL=%d",
+		NFILT, NVAL);
+	sprintf(c2err,"Check input %s %s %s", KEY, cfilt, cval);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+      } 
+      for(ifilt=0; ifilt < NFILT; ifilt++) {
+	sscanf(cval_list[ifilt], "%f", &val_list[ifilt] );
+	free(cval_list[ifilt]);
+      }
+      free(cval_list);
+    }
+    else {
+      // parse single float val for all filters
+      sscanf(cval , "%f", &ftmp );
+      for(ifilt=0; ifilt<NFILT; ifilt++) { val_list[ifilt] = ftmp; }
+    }
+
+    // load output values 
+    for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
+      ifilt_obs = ifilt_list[ifilt] ;
+      VALUE_FILTERLIST[ifilt_obs] = val_list[ifilt];
+    }      
+    return(NFILT);
   }
 
   return(0);
@@ -5521,6 +5557,10 @@ void prep_user_input(void) {
     // set global logical if any band uses MJD_TEMPLATE (Sep 2017)
     if ( INPUTS.MJD_TEMPLATE_FILTER[ifilt] > 1.0 ) 
       { INPUTS.USE_MJD_TEMPLATE = 1 ; }
+
+    // Jun 2021: set lamshift per filter, sparse indices
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;  
+    INPUTS.TMPOFF_LAMFILT[ifilt] = INPUTS.FUDGESHIFT_LAM_FILTER[ifilt_obs];
   }
 	 
 
@@ -6425,7 +6465,8 @@ void  prep_RANSYSTPAR(void) {
     tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt];
     if ( tmpSigma != 0 ) {
       NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
-      INPUTS.TMPOFF_LAMSHIFT[ifilt] = tmp;
+      INPUTS.FUDGESHIFT_LAM_FILTER[ifilt_obs] = tmp ;
+      INPUTS.TMPOFF_LAMFILT[ifilt]            = tmp ;
       printf("\t LAMSHIFT(%s) = %6.2f A  (SIG=%.1f A)\n", 
 	     cfilt, tmp, tmpSigma );
     }
@@ -21972,7 +22013,7 @@ void init_kcor_legacy(char *kcorFile) {
   set_survey__( GENLC.SURVEY_NAME  
 		,&GENLC.NFILTDEF_OBS
 		,GENLC.IFILTMAP_OBS
-		,INPUTS.TMPOFF_LAMSHIFT
+		,INPUTS.TMPOFF_LAMFILT
 		,strlen(GENLC.SURVEY_NAME)   
 		);
 

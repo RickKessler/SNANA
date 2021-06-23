@@ -112,6 +112,9 @@
  Mar 14 2021: for outlier output table, write string BAND before IFILTOBS.
               See OPT arg to load_DUMPLINE in sntools_output_hbook[root].c
 
+ Jun 22 2021: replace 200 -> MXPATHLEN for input file names.
+                [fixes failure found by Dillon]
+
 ********************************************/
 
 #include <stdio.h>

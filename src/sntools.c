@@ -4777,10 +4777,6 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    /* xxx mark delete  3.12.2021
-    parse_commaSepList("SNDATA_FIELDNAME", SNDATA.FIELDNAME_1D, 
-    MXEPOCH, 20, &NSPLIT, &str2d ); */
-
     splitString(SNDATA.FIELDNAME_1D, COMMA, MXEPOCH,    // inputs    
 		&NSPLIT, &SNDATA.FIELDNAME[1] );            // outputs 
 
@@ -9382,18 +9378,47 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
   // parse input string 'filtlist_string' and return integer-array
   // "filtlist_array" of absolute filter indices.
   // Function arg is the number of filters.
+  // 
+  // Note that filters can be comma-separated:
+  //  e.g.,   ugri and u,g,r,i return same integer list.
+  //
+  // Jun 22 2021: allow comma sep list ; refactor to use INTFILTER func.
+  //
 
+  int  LENLIST = strlen(FILTERSTRING);
   char fnam[] = "PARSE_FILTLIST";
 
-  int LENLIST, NF_USER ;
+  int NF_USER ;
   int ifilt_user, ifilt_list, ifilt_match;
-  char cfilt_user[2], cfilt_list[2];
+  char cfilt_user[2], cfilt_tmp[2], **cfilt_list ;
+  char filtlist_local[MXFILTINDX];
 
   //------------- BEGIN ----------
 
+  filtlist_local[0] = 0 ;
 
-  LENLIST = strlen(FILTERSTRING);
-  NF_USER = strlen(filtlist_string);
+  if ( strstr(filtlist_string,COMMA) != NULL )  {
+    // e.g., g,r,i,z
+    parse_commaSepList(fnam, filtlist_string, MXFILTINDX, 10,
+		       &NF_USER, &cfilt_list); // <== returned
+    for(ifilt_user=0; ifilt_user<NF_USER; ifilt_user++ ) {
+      if ( strlen(cfilt_list[ifilt_user]) > 1 ) {
+	sprintf(c1err,"Invalid band = '%s' in comma-sep list '%s' ", 
+		cfilt_list[ifilt_user], filtlist_string );
+	sprintf(c2err,"Must use single char band between commas.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      strcat(filtlist_local,cfilt_list[ifilt_user]); 
+      free(cfilt_list[ifilt_user]);
+    }
+    free(cfilt_list);
+  }
+  else {
+    // e.g., griz
+    NF_USER = strlen(filtlist_string);
+    sprintf(filtlist_local,"%s", filtlist_string);
+  }
+  // - - - - 
 
   if ( NF_USER >= LENLIST ) {
     sprintf(c1err,"%d filters is too many (> %d)", NF_USER, LENLIST);
@@ -9405,18 +9430,19 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
   // that they are all defined in FILTERSTRING.
 
   for ( ifilt_user = 0 ; ifilt_user < NF_USER; ifilt_user++ ) {
+    sprintf(cfilt_user, "%c", filtlist_local[ifilt_user] ) ;
+    ifilt_match = INTFILTER(cfilt_user);
 
-    sprintf(cfilt_user, "%c", *(filtlist_string+ifilt_user) ) ;
-
+    /* xxxx mark delete Jun 22 2021 xxxxxx
     ifilt_match = -9 ;
-
     for ( ifilt_list = 0 ; ifilt_list < LENLIST; ifilt_list++ ) {
-      sprintf(cfilt_list, "%c", FILTERSTRING[ifilt_list] ) ;
-      if ( strcmp(cfilt_user,cfilt_list) == 0 && ifilt_match < 0 ) {
+      sprintf(cfilt_tmp, "%c", FILTERSTRING[ifilt_list] ) ;
+      if ( strcmp(cfilt_user,cfilt_tmp) == 0 && ifilt_match < 0 ) {
 	ifilt_match = ifilt_list;
-	*(filtlist_array+ifilt_user) = ifilt_match ;
+	filtlist_array[ifilt_user] = ifilt_match ;
       }
     }
+    xxxxxxxx end mark xxxxxxxx */
 
     if ( ifilt_match < 0 ) {
       sprintf(c1err,"User-defined filter '%s' is not defined.", cfilt_user);
@@ -9424,8 +9450,8 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-  }
-
+    filtlist_array[ifilt_user] = ifilt_match ;
+  } // end ifilt_user
 
   return NF_USER ;
 

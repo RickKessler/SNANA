@@ -685,7 +685,7 @@ struct INPUTS {
 
   float TMPOFF_ZP[MXFILTINDX];         // vs. sparse ifilt
   float TMPOFF_MODEL[MXFILTINDX];  
-  float TMPOFF_LAMSHIFT[MXFILTINDX];   //  vs. sparse ifilt
+  float TMPOFF_LAMFILT[MXFILTINDX];    // vs. sparse index
 
   // use float for MJD_TEMPLATE to use convenient parsing utility.
   // Precision doesn't matter for this.
@@ -759,6 +759,8 @@ struct INPUTS {
   float FUDGESCALE_NOISE_TEMPLATE; // scale template noise
   float FUDGESHIFT_ZPT ;    ;  // shift zero point
   float FUDGESHIFT_ZPT_FILTER[MXFILTINDX]; // ZP shift per filter
+  float FUDGESHIFT_LAM;
+  float FUDGESHIFT_LAM_FILTER[MXFILTINDX];    // lam shift per filter
   float FUDGESCALE_FLUXERR  ;  // global fudge on true error
   float FUDGESCALE_FLUXERR2 ;  // global fudge on measured error only
   float FUDGESCALE_FLUXERR_FILTER[MXFILTINDX];  // true & measured errors

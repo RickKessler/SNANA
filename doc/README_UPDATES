@@ -20055,6 +20055,9 @@
 
          ***** USEFUL(v11_02p) ***** 
 
+    + submit_batch(LCFIT) now accepts list of INCLUDE files that
+        map into RANSEED_CHANGE
+
          ***** MISCELLANEOUS(v11_02p) ***** 
 
     SALT2mu.c

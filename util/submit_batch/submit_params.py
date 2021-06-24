@@ -259,6 +259,10 @@ HELP_CONFIG_SIM =  f"""
   - SIMGEN_SNII-NMF.INPUT
   - etc ...            # can add more NONIa models
 
+  # for RANSEED_CHANGE, optional list of input-include files where each
+  # include files has systematic shifts for one sim.
+  INPUT_INCLUDE_FILE: <$PATH/myList>
+
 # NOTES:
 #   If no NGEN_UNIT, use NGENTOT_LC from sim-input or from GENOPT
 #   Valid SNIa  input file keys: SIMGEN_INFILE_[SNIa,SN1a,Ia,1a]

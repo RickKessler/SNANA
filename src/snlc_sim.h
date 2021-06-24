@@ -389,7 +389,7 @@ struct INPUTS {
   bool DASHBOARD_DUMPFLAG ;
   bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
 
-  // input file list includes nominal, plus up to 2 INCLUDE files
+  // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 

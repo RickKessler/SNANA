@@ -11254,6 +11254,21 @@ events; rather it reduces the {\tt LCLIB} size by excluding
 \begin{figure}    
 \begin{center}
 \begin{verbatim}
+DOCUMENTATION:
+  PURPOSE: model XXX galactic transient
+  REF: 
+  - AUTHOR:  A. Author et al 2020 (few word summary/reminder) 
+    ADS:     https://ui.adsabs.harvard.edu/abs/XXX
+  USAGE_KEY: GENMODEL 
+  USAGE_CODE: snlc_fit.exe  
+  NOTES:
+  - e.g., created from another code
+  - e.g., model limitations
+  PARAMS:
+  - PAR1 is bla bla
+  - PAR2 is bla bla
+DOCUMENTATION_END:
+
 # global header info
 SURVEY:  LSST
 FILTERS:  ugrizY
@@ -11262,12 +11277,6 @@ MODEL_PARNAMES:   PAR1,PAR2,PAR3    # comma-separated strings, no spaces
 NEVENT:   <NEVENT>
 RECUR_CLASS:  RECUR-NONPERIODIC  (or RECUR-PERIODIC or NON-RECUR)
 
-COMMENT:  Created Sep 2017 by xyz, See arXiv:abcde 
-COMMENT:  PAR1 is bla
-COMMENT:  PAR2 is bla-bla
-COMMENT:  PAR3 is bla-bla-bla
-
-# info for 1st event
 START_EVENT:  <ID1>             # internal integer ID
 NROW:  <NROW>     RA: <RA>      DEC: <DEC>
 PARVAL:   <VAL1>,<VAL2>,<VAL3>        # comma-separated or space-separated 
@@ -11276,23 +11285,14 @@ T:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 T:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
 S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>   <mag_u %.3f>  <mag_g> . . . . <mag_Y>
+etc ...
 END_EVENT:  <ID1>
 
+# ... continue next event
 
-# info for 2nd event
-START_EVENT:  <ID2>   # internal integer ID
-NROW:  <NROW>     RA: <RA>      DEC: <DEC>
-PARVAL:   <VAL1>,<VAL2>,<VAL3>        # comma-separated or space-separated 
-ANGLEMATCH:    10.0          # optional (deg) to match with cadence library
-T:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-T:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-S:  <DAY %7.4f>    <mag_u %.3f>  <mag_g> . . . . <mag_Y>
-END_EVENT:  <ID2>
-
-etc É
+# Multiple key options
+#   NOBS: and NROW: 
+#   MODEL_PARNAMES: and MODEL_PARAMETERS:
 \end{verbatim}
 \end{center}
 \caption{ TEXT-library format for {\tt LCLIB} model type. }

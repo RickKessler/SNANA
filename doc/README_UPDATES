@@ -20076,7 +20076,9 @@
            (lost in July 2020 refactor)
       + fix bug (from May 27) reading TAKE_SPECTRUM keys from SIMLIB header.
       + define GENRANGE_TOBS_PAD = 0.1 to apply consistent MJD-select padding
-
+      + finally fix INCLUDE_FILE logic so that INPUT_INCLUDE_FILE passed
+        via command line is read after INCLUDE file(s) embedded in the 
+        original input file. 
 
     SNANA_code_tester.py
       + refactor and add --snana_dir arg to that anyone can
@@ -20084,5 +20086,8 @@
 
    sntable_dump.c: 
      + increase file name string-length allocations
+  
+   genmag_LCLIB.c
+     + skip comment lines reading LCLIB
 
 END: 

@@ -37,6 +37,8 @@
 #include "sntools_genPDF.h"
 #include "sntools_host.h"
 
+//#include "sntools_genGauss_asym.h"
+
 #endif
 
 // =====================================================
@@ -73,15 +75,23 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //     PROB is a 3D function of SALT2c, redshift and LOGMASS
   //     [note that REDSHIFT can be used instead of ZTRUE]
   //
+  //  HISTORY:
+  //     Dillon June 24th including alpha beta asym gauss
   // -----------
 
   FILE *fp;
-  int gzipFlag, NMAP=0, NVAR=0, ivar, imap=-9, IDMAP=0, NDIM, NFUN ;
+  int gzipFlag, NMAP=0, NVAR=0, NITEM=0, NWORD=0, ivar, imap=-9, IDMAP=0, NDIM, NFUN, i ;
   bool IGNORE_MAP ;
   char c_get[60], fileName_full[MXPATHLEN], LINE[100], varName[60];
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
   char fnam[]     = "init_genPDF";
+
+  GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
+  GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
+  char **ptr_ITEMLIST;
+  int KEYSOURCE=1; //parse file for gengauss (not command line)
+  
 
   // ------------- BEGIN -------------
 
@@ -91,6 +101,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   if ( IGNOREFILE(fileName) ) { return; }
 
   print_banner(fnam);
+
+  init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
+  init_GENGAUSS_ASYM(&gengauss_SALT2BETA, 0.0 );
 
 #ifndef USE_SUBPROCESS
   if ( HOSTLIB_WGTMAP.N_SNVAR > 0 ) {
@@ -137,6 +150,27 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   }
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
+    // check for asymmetric gaussian here .xyz
+    if ( strstr(c_get,"SALT2") != NULL ) { //SALT2 is in c_get list of words
+      fgets(LINE,100,fp);
+      sprintf(LINE,"%s %s",c_get,LINE);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+
+      ptr_ITEMLIST = (char**)malloc( 100*sizeof(char*));
+      for(i=0; i < 100; i++ )
+	{ ptr_ITEMLIST[i] = (char*)malloc(40*sizeof(char)); }
+
+      splitString(LINE, " ", 100,     // inputs             
+		  &NITEM, ptr_ITEMLIST );     // outputs
+
+      NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, // KEYSOURCE=1 means passing in a file 
+				   &gengauss_SALT2BETA);
+
+      NWORD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, // KEYSOURCE=1 means passing in a file
+				   &gengauss_SALT2ALPHA);      
+
+    }
+
     if ( strcmp(c_get,"VARNAMES:") == 0 ) {
       fgets(LINE,100,fp); // scoop up variable names
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
@@ -178,6 +212,10 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       NMAP++ ;
     }
   }
+
+  dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
+  dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
+  debugexit(fnam); // xxx remove me!
 
   NMAP_GENPDF = NMAP ;
 

@@ -44,4 +44,9 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss );
 void  init_skewNormal(int seed); // one-time init
 double skewNormalRan(int seed, double loc, double scale, double skew) ;
 
+
+void checkVal_GENGAUSS(char *varName, double *val, char *fromFun );
+int  parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
+                            GENGAUSS_ASYM_DEF *genGauss );
+
 // == END ==

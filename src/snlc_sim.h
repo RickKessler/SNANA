@@ -107,8 +107,8 @@ time_t t_start, t_end, t_end_init ;
 #define WRMASK_COMPACT  64   // suppress non-essential PHOT output
 #define WRMASK_FILTERS  256  // write filterTrans files (Aug 2016)
 
-#define KEYSOURCE_FILE 1
-#define KEYSOURCE_ARG  2
+// xxx #define KEYSOURCE_FILE 1
+// xxx #define KEYSOURCE_ARG  2
 #define FLAG_NWD_ZERO 100 // flag that override word is a key with no arg 
 
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter
@@ -1687,11 +1687,11 @@ void   set_GENMODEL_NAME(void);
 
 int    read_input_file(char *inFile);          // parse this inFile
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
-bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
+// bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource); // xxx dillon mark delete
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
-int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
-			    GENGAUSS_ASYM_DEF *genGauss );
+// xxx int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource, // xxx dillon mark delete
+// xxx			    GENGAUSS_ASYM_DEF *genGauss );
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
 int    parse_input_RANSYSTPAR(char **WORDS, int keySource );

@@ -145,6 +145,8 @@
 # Mar 16 2021: 
 #   + remove obsolete install feature
 #   + finall add debug flag;  make debug
+#
+# Jun 24 2021: include sntools_genGauss_asym dependence for SALT2mu
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh

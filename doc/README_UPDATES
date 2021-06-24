@@ -20090,4 +20090,8 @@
    genmag_LCLIB.c
      + skip comment lines reading LCLIB
 
+   sntools_genGauss_asym.c[h]:
+     + move a few utils from snlc_sim.c[h] to here so that
+       SALT2mu can use it.
+
 END: 

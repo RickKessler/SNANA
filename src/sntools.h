@@ -152,6 +152,9 @@
 #define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
 
 
+#define KEYSOURCE_FILE 1 // moved from snlc_sim.h on June 24th 2021
+#define KEYSOURCE_ARG  2
+
 // keep this in sync with the fortran FILTDEF_STRING
 // Oct 22 2015: add 27 special chars to hack an IFU
 #define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx &"
@@ -686,6 +689,7 @@ bool  NstringMatch(int MAX, char *string, char *key);
 bool  uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key, char *keySuffix_optional);
+bool  keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
 void  dumpUniqueKey(char *key) ;
 
 int   ivar_matchList(char *varName, int NVAR, char **varList);

@@ -2,6 +2,8 @@
 //   sntools_genGauss_asym.h
 //
 //  Jun 12 2020: remove obsolete/unused skewnormal code
+//  Jun 24 2021: dillon added parse_input_gengauss,checkVal_GENGAUSS
+//               from snlc_sim.c to use in SALT2mu subprocess
 // =============================
 
 #include <stdio.h>
@@ -350,3 +352,112 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 } // end dump_GENGAUSS_ASYM
 
 
+int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
+                         GENGAUSS_ASYM_DEF *genGauss ) {
+
+  // July 2020 [refactor]                                                                                                                                      
+  //                                                                                                                                                           
+  // Utility to read GENGAUSS struct from WORDS array.                                                                                                         
+  // WORDS[0] is compared against [VARNAME]_XXX where                                                                                                          
+  // XXX is GENSIGMA, GENPEAK, etc ...                                                                                                                         
+
+  int  N = 0 ;
+  char KEYNAME[80];
+  char fnam[] = "parse_input_GENGAUSS" ;
+
+  // ----------------- BEGIN ----------------                                                                                                                  
+
+  // first make sure that VARNAME is contained in WORDS[0]                                                                                                     
+  if ( strstr(WORDS[0],VARNAME) == NULL ) { return(N); }
+
+  sprintf(KEYNAME, "GENPEAK_%s GENMEAN_%s",  VARNAME, VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAK );
+  }
+
+  sprintf(KEYNAME, "GENSIGMA_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[1] );
+    checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA, fnam );
+  }
+  sprintf(KEYNAME, "GENSKEW_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[1] );
+  }
+
+  sprintf(KEYNAME, "GENRANGE_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[1] );
+    checkVal_GENGAUSS(KEYNAME, genGauss->RANGE, fnam );
+  }
+
+  sprintf(KEYNAME, "GENGRID_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &genGauss->NGRID );
+  }
+  // 2nd peak ...                                                                                                                                              
+
+  sprintf(KEYNAME, "GENPROB2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PROB2 );
+  }
+
+  sprintf(KEYNAME, "GENPEAK2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAK2 );
+  }
+
+  sprintf(KEYNAME, "GENSIGMA2_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[1] );
+    checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA2, fnam );
+  }
+
+  // - - - - - -                                                                                                                                               
+  if ( N > 0 ) { prepIndex_GENGAUSS(VARNAME, genGauss); }
+
+  return(N);
+
+} // end of parse_input_GENGAUSS                                                                                                                               
+
+//*****************************************************
+void checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) {
+
+  // Mar 16 2014  
+  // abort if any GENGAUSS values are invalid,   
+  // such as negative GENSIGMA  
+
+  double lo, hi ;
+  char fnam[] = "checkVal_GENGAUSS" ;
+
+  // ------------- BEGIN ----------      
+
+  if ( strstr(varName,"RANGE") != NULL ) {
+    lo  = val[0] ;    hi  = val[1] ;
+    if ( hi < lo  ) {
+      sprintf(c1err, "Invalid %s range pass from %s", varName, fromFun);
+      sprintf(c2err, "Specified  %s  range is %f to %f\n",
+              varName, lo, hi);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+
+  if ( strstr(varName,"SIGMA") != NULL ) {
+    lo  = val[0] ;    hi  = val[1] ;
+    if ( lo < 0.0 || hi < 0.0  ) {
+      sprintf(c1err, "Invalid %s = %.3f, %.3f passed from %s",
+              varName, lo, hi, fromFun);
+      sprintf(c2err, "%s must be both positive in sim-input file.",
+              varName);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+  return ;
+
+}  // end of checkVal_GENGAUSS              

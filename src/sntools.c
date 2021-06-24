@@ -1276,6 +1276,48 @@ int keyMatch(char *string,char *key, char *keySuffix_optional ) {
 
 } // end keyMatch
 
+// ==============================================
+bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
+
+  // Jul 20 2020                                     
+  // special key-match for sim-inputs based on keySource:                             
+  //  FILE -> match with colon, and only MXKEY keys allowed                    
+  //  ARG  -> match with or without colon, no limit to repeat keys 
+  //                         
+  // if KEY has multiple space separated values, test them all.                          
+  // E.g., KEY = "GENSMEAR GEN_SMEAR" is equivalent to two                        
+  // calls with KEY = GENSMEAR, and again with KEY = GEN_SMEAR                                                 
+
+  bool IS_FILE = (keySource == KEYSOURCE_FILE);
+  bool IS_ARG  = (keySource == KEYSOURCE_ARG );
+  bool match = false ;
+  int  MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int  NKEY, ikey;
+  char KEY_PLUS_COLON[MXPATHLEN], tmpKey[60];
+  char fnam[] = "keyMatchSim";
+
+  // ------------ BEGIN --------------                                          
+
+  NKEY = store_PARSE_WORDS(MSKOPT,KEY);
+  for(ikey=0; ikey < NKEY; ikey++ ) {
+    get_PARSE_WORD(0, ikey, tmpKey);
+    if ( IS_FILE ) {
+      // read from file; key must have colon               
+      sprintf(KEY_PLUS_COLON, "%s%s", tmpKey, COLON);
+      if ( NstringMatch( MXKEY, KEY_PLUS_COLON, WORD ) )
+        { return(true); }
+    }
+    else {
+      // read from command line arg, colon is optional              
+      if ( keyMatch(WORD, tmpKey, COLON ) )  // COLON is optional suffix
+        { return(true); }
+    }
+  }
+
+  return(match);
+} // end keyMatchSim                                                                                       
+
+
 bool NstringMatch(int MAX, char *string, char *key) {
 
   // Created July 18 2020

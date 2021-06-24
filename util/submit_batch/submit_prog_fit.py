@@ -1562,7 +1562,9 @@ class LightCurveFit(Program):
         # extract number of events in final HBOOK/ROOT file
         NTRY_MAX = 2; ntry=0; nevt_find = -9
         while nevt_find < 0 and ntry < NTRY_MAX :
+            print(f"xxxxxxxx {OUT_TABLE_FILE}",'Size?',os.path.getsize(f"{OUT_TABLE_FILE}"))            
             nevt_find = self.nrow_table_CERN(f"{OUT_TABLE_FILE}")
+            print('xxxxxxx','nevt_find',nevt_find)
             ntry += 1
 
         if nevt_find < 0 :
@@ -1601,6 +1603,7 @@ class LightCurveFit(Program):
         
         cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
                     f" | grep 'NEVT:' ")
+        print('xxxx','cmd_nevt',cmd_nevt)
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')

@@ -64,6 +64,8 @@ MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
+KEY_INPUT_INCLUDE_FILE ='INPUT_INCLUDE_FILE' # Optional key
+
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
@@ -448,6 +450,7 @@ class Simulation(Program):
                     ranseed_list = [ranseed] * n_job_split
                 else:
                     # change seed each core 
+                    self.prep_input_file_include(n_job_split) # Check for optional input systematics
                     for job in range(0,n_job_split):
                         ranseed_tmp = ranseed + 10000*job + job*job + 13
                         ranseed_list.append(ranseed_tmp)
@@ -476,6 +479,58 @@ class Simulation(Program):
 
         # end sim_prep_RANSEED
 
+    def prep_input_file_include(self, n_job_split):
+       
+        CONFIG        = self.config_yaml['CONFIG']
+        key           = KEY_INPUT_INCLUDE_FILE
+        msgerr        = []
+        self.config_prep['include_list'] = []
+        self.config_prep['n_include_files'] = 0
+        
+        if key not in CONFIG:
+            return 
+        include_list_file = os.path.expandvars(CONFIG[key]) # File containing list of include files
+
+        if not os.path.isfile(include_list_file):
+            msgerr.append(f"include_list_file = {include_list_file}")
+            msgerr.append(f"{include_list_file} does not exist!")
+            self.log_assert(False, msgerr)
+        
+        with open(include_list_file, "rt") as f:
+            open_file = f.read()
+        if open_file == "":
+            msgerr.append(f"Contents of {include_list_file} = '{open_file}'")
+            msgerr.append(f"is empty!")
+            self.log_assert(False, msgerr)
+
+        include_list = [f for f in open_file.split("\n") if f != ""] # Assumed each line is ONLY a file name.
+        n_include_list = len(include_list)
+        print(f"Found {n_include_list} include files from {include_list_file}")
+
+        if n_include_list < n_job_split:
+            msgerr.append(f"n_job_split = {n_job_split}, n_include_list = {n_include_list}")
+            msgerr.append(f"n_include_list must be >= n_job_split")
+            self.log_assert(False, msgerr)
+
+        # Get the full path to each file
+        parent_path = os.path.dirname(include_list_file)
+        full_path_include_list = []
+        for filename in include_list:
+            if '/' in filename:
+                full_filename = filename
+            else:
+                full_filename = os.path.join(parent_path, filename)
+            if not os.path.isfile(full_filename):
+                msgerr.append(f"full_filename = {full_filename}, derived from '{filename}'")
+                msgerr.append(f"does not exist!")
+                msgerr.append(f"Check contents of {include_list_file}")
+                self.log_assert(False, msgerr)
+            full_path_include_list.append(full_filename)
+
+        self.config_prep['include_list'] = full_path_include_list
+        self.config_prep['n_include_files'] = n_include_list
+
+        # end prep_input_file_include
 
     def sim_prep_NGENTOT_LC(self):
 
@@ -1414,6 +1469,9 @@ class Simulation(Program):
         genopt_list2d     = self.config_prep['genopt_list2d']
         ngentot_list2d    = self.config_prep['ngentot_list2d']
         ranseed_list      = self.config_prep['ranseed_list']
+        ranseed_key       = self.config_prep['ranseed_key']
+        IS_CHANGE         = 'CHANGE' in ranseed_key
+        n_include_files   = self.config_prep.get('n_include_files', 0)
         genopt_global     = self.config_prep['genopt_global']
         user_path_sndata  = self.config_prep['user_path_sndata_sim']
         path_sndata       = self.config_prep['path_sndata_sim']
@@ -1461,6 +1519,7 @@ class Simulation(Program):
         arg_list.append(f"    NGENTOT_LC    {ngentot}    NGEN_LC 0")
         arg_list.append(f"    RANSEED {ranseed}")
         arg_list.append(f"    FORMAT_MASK {format_mask}")
+        
 
         if reset_cidoff > 0 :
             cidoff = cidoff_list3d[iver][ifile][isplit]
@@ -1479,7 +1538,8 @@ class Simulation(Program):
 
         if user_path_sndata :                 
             arg_list.append(f"    PATH_SNDATA_SIM {path_sndata}")
-
+        
+        
         # suppress this if PATH_USER_INPUT already defined by user ??
         key = 'PATH_USER_INPUT'
         if key not in INFILE_KEYS[iver][ifile] :
@@ -1487,6 +1547,10 @@ class Simulation(Program):
 
         arg_list.append(f"{genopt}")         # user args by version
         arg_list.append(f"{genopt_global}")     # user global args
+        if IS_CHANGE and n_include_files > 0:
+            input_include_file = self.config_prep['include_list'][isplit]
+            arg_list.append(f"INPUT_INCLUDE_FILE {input_include_file}")
+
 
         JOB_INFO['input_file']    = infile
         JOB_INFO['log_file']      = log_file

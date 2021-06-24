@@ -15326,17 +15326,6 @@ void parse_parFile(char *parFile ) {
     if ( strstr(sptr,"CONFIG_END") != NULL ) { YAML = false ; }
     if ( YAML ) { continue; }
 
-    /* xxxxxxxx mark delete Apr 27 2021 xxxxxxxxx
-    // skip keys with colon that are used by a master 
-    // SALT2mu_fit.pl script (RK Apr 2013)
-    // Aug 24 2016: make exception for key containing group_biasCor
-    //    to allow colon-delimeter in input string
-    // NOTE: should re-facto to check list of keys allowing colon
-    SKIP      = ( strstr(sptr,":")             != NULL );
-    EXCEPTION = ( strstr(sptr,"group_biascor") != NULL );
-    if ( SKIP && !EXCEPTION ) { continue ; }
-    xxxxxxxxx end mark xxxxxxxxxxx */
-
     ppar(sptr); // pass entire line
   }
 

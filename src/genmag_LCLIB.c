@@ -267,8 +267,9 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
     for ( iwd=0; iwd < NWD; iwd++ ) {
 
-      get_PARSE_WORD(0, iwd,   wd0);
-      get_PARSE_WORD(0, iwd+1, wd1);
+      wd0[0] = wd1[0] = 0;
+      get_PARSE_WORD(0, iwd,  wd0);
+      if ( iwd < NWD-1 ) { get_PARSE_WORD(0, iwd+1, wd1); }
 
       if ( strcmp(wd0,"NEVENT:") == 0 ) { 
 	sscanf(wd1, "%d", &LCLIB_INFO.NEVENT ); iwd++ ;

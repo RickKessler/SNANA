@@ -6496,22 +6496,17 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   // This struct contains all the binning info for each dimension.
   //
   // Arguments
-  // (I) ID        reference id
+  // (I) ID        reference id:  grep IDGRIDMAP_ sntools.h | grep define
   // (I) MAPNAME   human-readable name for error message
   // (I) MAPSIZE   total number of bins in gridmap
   // (I) NDIM      number of dimensions = number of variables
   // (I) NFUN      Number of functions on same GRID
   // (I) OPT_EXTRAP  1=>extrap, 0=>return error, -1=>ABORT
-  // (I) **GRIDMAP_INPUT[idim][i=0 to MAPSIZE-1] 
+  // (I) **GRIDMAP_INPUT[idim][i=0 to MAPSIZE-1] = grid vals; e.g., abscissa 
   // (I) **GRIDFUN_INPUT[ifun][i=0 to MAPSIZE-1] = function values
   // (O) *gridmap  structure to return 
   //         (to be passed later to interp_GRIDMAP)
   //
-  // Jun 15 2016: 
-  //  + add char MAPNAME argument for error messages.
-  //  + print better message for non-uniform binning.
-  //  + note that binning check only works for 1D map ... fix later.
-  // 
   // Feb 12 2018: 
   //   + malloc gridmap here, instead of externally
   //   + refactor so that all local indices are 0 to N-1 (not 1-N)
@@ -6519,31 +6514,17 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   // Mar 13 2018:
   //   + fix bug malloc-ing FUNVAL : I8p -> I8p * NFUN
   //
-  // May 26 2021: call malloc_GRIDMAP
+  // May 26 2021: move malloc calls into malloc_GRIDMAP()
+  //
 
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
   double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF ;
   double FUNVAL, RANGE_CHECK, RATIO;
   char fnam[] = "init_interp_GRIDMAP" ;
 
-
   // --------- BEGIN ------------
   
   malloc_GRIDMAP(+1, gridmap, NFUN, NDIM, MAPSIZE) ;
-
-  /* xxxxxxx mark delete May 26 2021 xxxxxxxxx
-  gridmap->NBIN      = (int     *)malloc(I4*NDIM+I4);
-  gridmap->VALMIN    = (double  *)malloc(I8*NDIM+I8);
-  gridmap->VALMAX    = (double  *)malloc(I8*NDIM+I8);
-  gridmap->VALBIN    = (double  *)malloc(I8*NDIM+I8);
-  gridmap->RANGE     = (double  *)malloc(I8*NDIM+I8);
-  gridmap->FUNVAL    = (double **)malloc(I8p*NFUN);
-  gridmap->FUNMIN    = (double  *)malloc(I8*NFUN);
-  gridmap->FUNMAX    = (double  *)malloc(I8*NFUN);
-  gridmap->INVMAP    = (int     *)malloc(I4*MAPSIZE+I4);
-  for(ifun=0; ifun < NFUN; ifun++ ) 
-    {  gridmap->FUNVAL[ifun] = (double *)malloc(I8*MAPSIZE);  }
-  xxxxxxxxxx end mark xxxxxxxxxx */
 
   VALBIN = 0.0 ;
   for ( idim=0; idim < NDIM; idim++ ) {

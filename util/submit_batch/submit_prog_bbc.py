@@ -2456,6 +2456,16 @@ class BBC(Program):
                 cmd_all   = (f"{cdv} ; {cmd_move}")
                 os.system(cmd_all)
 
+            # DILLON June 24th 2021: REPEAT FOR wfit YAML      
+            if len(glob.glob1(vout_dir,"wfit*")) > 0:
+                wfit_list = sorted(glob.glob1(vout_dir,"wfit*"))
+                for wff in wfit_list: # wfit filenames in OUTPUT directory               
+                    wf = wff[len(PREFIX_wfit)+1:] # shortened temporary version 
+                    wf_move   = (f"{script_dir}/wfit_{vout}_{wf}") # for SCRIPTS directory 
+                    cmd_move  = (f"mv {wff} {wf_move}")
+                    cmd_all   = (f"{cdv} ; {cmd_move}")
+                    os.system(cmd_all)
+
         # end merge_reset
 
     def bbc_prefix(self, program, row):

@@ -176,18 +176,6 @@ void open_LCLIB(char *lcLibFile) {
 
   // ------------ BEGIN ---------------
 
-  /* xxxx mark delete 9.30.2020 xxxxxx
-  if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
-    sprintf( MODELPATH, "%s", 
-	     getenv(PRIVATE_MODELPATH_NAME) );    
-  }
-  else {
-    // default location under $SNDATA_ROOT
-    sprintf( MODELPATH, "%s/models/LCLIB", getenv("SNDATA_ROOT") );
-  }
-  xxxxxxxxxx end mark xxxxxxx */
-
-
   sprintf( MODELPATH_LIST, "%s %s/models/LCLIB", 
 	   PATH_USER_INPUT, PATH_SNDATA_ROOT);
 
@@ -216,8 +204,9 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   int NRD_ABORT = 1000 ; // abort after this many words and no FIRST_EVT
   int NRD       = 0 ;
   int FIRST_EVT = 0 ;
-  int ipar, NPAR, NFILT, iwd, NWD; 
+  int ipar, NPAR, NFILT, iwd, NWD, NLINE=0; 
   int MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  bool IS_DOCANA = false, IS_COMMENT=false;
   FILE *fp = LCLIB_INFO.FP;
   char wd0[80], wd1[80], wd2[80], LINE[200], tmpString[60], comment[60] ;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
@@ -248,6 +237,11 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   // maybe later read this in from LCLIB header
   LCLIB_INFO.ZPHOTZ1ERR = 0.05 ; // error on Zphot/(1+z)
 
+  // rewind to identify and skip documentation block
+  snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
+
+  // - - - - - - - - - - 
+
   while ( !FIRST_EVT ) { 
 
     if ( NRD > NRD_ABORT ) {
@@ -256,15 +250,25 @@ void read_GLOBAL_HEADER_LCLIB(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
 
-    fgets(LINE, 200, fp ) ;    
+    fgets(LINE, 200, fp ) ;  NLINE++ ;
+
     if ( commentchar(LINE) ) { continue; }
 
     NWD = store_PARSE_WORDS(MSKOPT,LINE);
-    if ( NWD < 2 ) { continue; }
-    // xxx mark delete    fscanf(fp, "%s", c_get) ;
+    if ( NWD == 0 ) { continue; }
 
     NRD += NWD;
 
+    // check first word in line
+    iwd=0;  get_PARSE_WORD(0, iwd,  wd0);
+
+    // skip parsing DOCANA and obsolete comment lines
+    IS_COMMENT = ( strcmp(wd0,"COMMENT:") == 0 );
+    if ( strcmp(wd0,KEYNAME_DOCANA_REQUIRED)  == 0 ) { IS_DOCANA=true;  }
+    if ( strcmp(wd0,KEYNAME2_DOCANA_REQUIRED) == 0 ) { IS_DOCANA=false; }
+    if ( IS_DOCANA || IS_COMMENT ) { continue; }
+
+    // - - - - - 
     for ( iwd=0; iwd < NWD; iwd++ ) {
 
       wd0[0] = wd1[0] = 0;
@@ -273,34 +277,27 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
       if ( strcmp(wd0,"NEVENT:") == 0 ) { 
 	sscanf(wd1, "%d", &LCLIB_INFO.NEVENT ); iwd++ ;
-	// xxx	readint(fp, 1, &LCLIB_INFO.NEVENT ); 
       }
 
       if ( strcmp(wd0,"SURVEY:") == 0 ) {
 	sscanf(wd1, "%s", LCLIB_INFO.SURVEY ); iwd++ ;
-	// xxx readchar(fp, LCLIB_INFO.SURVEY );  
       }
 
       if ( strcmp(wd0,"FILTERS:") == 0 ) { 
 	sscanf(wd1, "%s", LCLIB_INFO.FILTERS ); iwd++ ;
-	// xxxx	readchar(fp, LCLIB_INFO.FILTERS );  
 	LCLIB_INFO.NFILTERS = strlen(LCLIB_INFO.FILTERS);
       }
 
       if ( strcmp(wd0,"RECUR_CLASS:") == 0 )  { 
 	sscanf(wd1, "%s", LCLIB_INFO.STRING_RECUR_CLASS ); iwd++ ;
-	// xxxx      readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  
       } 
 
       if ( strcmp(wd0,"RECUR_TYPE:") == 0 ) { // allow obsolete key
 	sscanf(wd1, "%s", LCLIB_INFO.STRING_RECUR_CLASS );  iwd++ ;
-	//  xxx readchar(fp, LCLIB_INFO.STRING_RECUR_CLASS );  
       } 
      
-
       if ( strcmp(wd0,"MODEL:") == 0 )  { 
 	sscanf(wd1, "%s", LCLIB_INFO.NAME_MODEL ); iwd++ ;
-	// xxxreadchar(fp, LCLIB_INFO.NAME_MODEL );  
 	if ( strcmp(LCLIB_INFO.NAME_MODEL,MODEL_RANMAG_LCLIB) == 0 ) 
 	  { LCLIB_INFO.DEBUGFLAG_RANMAG = 1;  }
 	continue ;
@@ -309,7 +306,6 @@ void read_GLOBAL_HEADER_LCLIB(void) {
       if ( strcmp(wd0,"MODEL_PARNAMES:")   == 0  ||
 	   strcmp(wd0,"MODEL_PARAMETERS:") == 0 )  { 
 	sscanf(wd1, "%s", tmpString ); iwd++ ;
-	// xxxx      readchar(fp, tmpString );  
 	parse_PARNAMES_LCLIB(tmpString);
       }
 
@@ -319,7 +315,6 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 	get_PARSE_WORD(0, iwd+2, wd2);
 	sscanf(wd1, "%le", LCLIB_INFO.REDSHIFT_RANGE[0] ); iwd++ ;
 	sscanf(wd2, "%le", LCLIB_INFO.REDSHIFT_RANGE[1] ); iwd++ ;
-	// xxxx      readdouble(fp, 2, LCLIB_INFO.REDSHIFT_RANGE );  
       } 
 
       if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
@@ -329,15 +324,11 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 	if ( strcmp(wd0,"GENRANGE_RANMAG:") == 0 )  {  
 	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_RANMAG[0] ); iwd++ ;
 	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_RANMAG[1] ); iwd++ ;
-	  // xxx	readdouble(fp, 2, LCLIB_INFO.GENRANGE_RANMAG );  
 	}      
 	else if ( strcmp(wd0,"GENRANGE_DIFMAG:") == 0 )  {
 	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_DIFMAG[0] ); iwd++ ;
 	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_DIFMAG[1] ); iwd++ ;
-	  // xxx	readdouble(fp, 2, LCLIB_INFO.GENRANGE_DIFMAG ); 
 	}
-	// xxx      else if ( fscanf(fp, "%s", c_get) == EOF )
-	//xxxx      { FIRST_EVT = 1; }
       }     
 
       if ( strcmp(wd0,"START_EVENT:") == 0 ) { 
@@ -873,7 +864,6 @@ void readNext_LCLIB(double *RA, double *DEC) {
     LINE[0] = 0 ;
     if ( fgets(LINE, 200, fp ) == NULL ) {
       snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
-      //      printf(" xxx %s: REWIND \n", fnam); fflush(stdout);
       // xxx mark delete   rewind(fp); 
     }
 

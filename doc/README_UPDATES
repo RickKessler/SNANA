@@ -20097,4 +20097,7 @@
      + move a few utils from snlc_sim.c[h] to here so that
        SALT2mu can use it.
 
+   Makefile:
+    + add sntools_genGauss_asym dependence for SALT2mu
+
 END: 

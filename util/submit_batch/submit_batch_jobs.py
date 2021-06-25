@@ -102,11 +102,8 @@ def get_args():
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
 
-    msg = (f"DEBUG MODE: reset merge process ")
+    msg = (f"DEBUG MODE: reset (undo) merge process ")
     parser.add_argument("--merge_reset", help=msg, action="store_true")
-
-    msg = (f"DEBUG MODE: debug creation of batch files ")
-    parser.add_argument("--debug_batch", help=msg, action="store_true")
 
     msg = (f"DEBUG MODE: developer flag to avoid conflicts. ")
     parser.add_argument("--devel_flag", help=msg, type=int, default=0 )

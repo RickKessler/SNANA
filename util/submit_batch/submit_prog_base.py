@@ -453,7 +453,6 @@ class Program:
         script_dir       = self.config_prep['script_dir']
         replace_memory   = self.config_prep['memory']
         replace_walltime = self.config_prep['walltime']
-        debug_batch      = self.config_yaml['args'].debug_batch
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
 

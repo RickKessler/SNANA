@@ -10388,11 +10388,12 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
 // *************************************
 void check_file_docana(int optmask, char *fileName) {
   // Created Aug 26 2020
-  // Open and read first line if fileName; abort if no DOCANA key.
+  // Open and read first line of fileName; if not DOCANA key 
+  // then abort or give warning based on input optmask.
   // A separate abort function is available to both C and fortran.
   //
   // Input 
-  //    optmask & 1 -> abort of no DOCANA; else give warning.
+  //    optmask & 1 -> abort if no DOCANA; else give warning.
 
   int MSKOPT   = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
   bool REQUIRE = ( (optmask & 1) > 0 ) ;

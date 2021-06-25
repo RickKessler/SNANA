@@ -10351,11 +10351,66 @@ bool key_in_file(char *fileName, char *key, int nwd_check) {
     if ( nwd_read > nwd_check ) { break; }
   }
 
-  fclose(fp);
+  if ( gzipFlag ) { pclose(fp); }    else  { fclose(fp); }
+
   return found_key ;
 
-  //.xyz
 } // end key_in_file
+
+// ===============================================
+int colnum_in_table(char *fileName, char *varName) {
+
+  // Created Jun 25 2021
+  // if "VARNAMES:" key exists among first nwd_check words,
+  // search for *varname and return column number colnum, 
+  // where colnum=0 for CID.
+  //
+  // ERROR codes:
+  //   colnum = -1 => file does not exist
+  //   colnun = -2 => VARNAMES key does not exist
+  //   colnum = -3 => VARNAMES key exists, but *varname not found.
+  //
+
+  int colnum = -1;
+  int nwd_check = 1000; // stop checking after this many words
+  int gzipFlag, nvar, ivar, nwd_read=0;
+  char KEY[] = "VARNAMES:" ;
+  char c_get[MXPATHLEN], VARNAME_STRING[MXPATHLEN];
+  FILE *fp;
+
+  char fnam[] = "colnum_in_file" ;
+
+  // ------------ BEGIN --------------
+
+  fp  = open_TEXTgz(fileName, "rt", &gzipFlag);
+
+  colnum = -1;
+  if ( !fp ) { return(colnum); }
+
+  colnum = -2;
+  while( fscanf(fp,"%s", c_get )!= EOF ) {
+
+    if ( strcmp(c_get,KEY) == 0 ) { 
+      colnum = -3;
+      fgets(VARNAME_STRING, MXPATHLEN, fp);
+      nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING);
+      for(ivar=0; ivar < nvar; ivar++ ) {
+	get_PARSE_WORD(0, ivar, c_get);
+	if ( strcmp(varName,c_get) == 0 ) { colnum = ivar; }
+      }
+      break; 
+    }
+
+    nwd_read++ ;
+    if ( nwd_read > nwd_check ) { break; }
+  }
+
+  if ( gzipFlag ) { pclose(fp); }  else  { fclose(fp); }
+
+  return colnum ;
+
+} // end colnum_in_file
+
 
 
 // *************************************

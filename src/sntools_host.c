@@ -855,6 +855,13 @@ void open_HOSTLIB(FILE **fp) {
 
   // ----------- BEGIN ----------
 
+  /* xxxx mark delete 
+  char vartmp[] = "g_obs";
+  int colnum = colnum_in_table(INPUTS.HOSTLIB_FILE,vartmp);
+  printf(" xxx %s: colnum = %d for  %s \n", fnam, colnum, vartmp);
+  debugexit(fnam);
+  xxxxxxxxxxxxxxxxxx */
+
   *fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			   PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,
 			   libname_full, &HOSTLIB.GZIPFLAG );  // <== returned
@@ -922,7 +929,7 @@ void  read_HOSTLIB_WGTMAP(void) {
   while( (fscanf(fp, "%s", c_get)) != EOF) 
     { parse_HOSTLIB_WGTMAP(fp,c_get);  }
 
-  fclose(fp);
+  if ( gzipFlag ) { pclose(fp); }   else { fclose(fp); }
 
   HOSTLIB_WGTMAP.READSTAT = true ;
 
@@ -1404,7 +1411,7 @@ void  read_specTable_HOSTLIB(void) {
       { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE_POWZ1); }    
   }
 
-  fclose(fp);
+  if ( gzipFlag ) { pclose(fp); }  else {  fclose(fp); }
 
   if ( !FOUND_VARNAMES ) {
     sprintf(c1err,"Could not find VARNAMES in header of");
@@ -7730,7 +7737,6 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // locally and not in somebody else's directory.
   extract_MODELNAME(HLIB_TMP, DUMPATH, HLIB_NEW);
   
-  // xxx mark  FP_ORIG = fopen(HLIB_ORIG,"rt");
   FP_ORIG = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, "", 
 			       HLIB_ORIG, HLIB_TMP, &gzipFlag);
   FP_NEW  = fopen(HLIB_NEW, "wt");
@@ -7818,7 +7824,8 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   }
 
 
-  fclose(FP_ORIG); fclose(FP_NEW);
+  if(gzipFlag ) { pclose(FP_ORIG); }  else { fclose(FP_ORIG); }
+  fclose(FP_NEW);
   printf("  Wrote %d GAL rows\n", NLINE_GAL);
   fflush(stdout);
 

@@ -842,6 +842,7 @@ void check_file_docana(int optmask, char *fileName);   // open file and check
 void check_file_docana__(int *optmask, char *fileName);
 
 bool key_in_file(char *file, char *key, int nwd_check);
+int  colnum_in_table(char *fileName, char *varName);
 
 void react_missing_docana(bool FOUND_DOCANA, char *fileName);
 void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);

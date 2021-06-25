@@ -1953,7 +1953,8 @@ class BBC(Program):
         has_duplicates = len(counts[counts>1])>0
         if has_duplicates:
             print('Detected duplicates in first fitres! Using duplicate logic...')
-            cid_dict = self.get_cid_list(fitres_list, VOUT)
+            cid_dict = self.get_cid_list_duplicates(fitres_list, VOUT)
+            unique_dict = cid_dict['unique_dict']
         else:
             cid_dict = self.get_cid_list(fitres_list, VOUT)
 
@@ -1985,10 +1986,17 @@ class BBC(Program):
             f.write(f"# These CIDs can be rejected in SALT2mu.exe with\n")
             f.write(f"#    reject_list_file={reject_file} \n")
             f.write(f"\n")
-            f.write(f"VARNAMES: CID NJOB_REJECT \n")
-        
-            for cid,nrej in zip(cid_unique,n_reject) :
-                if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
+            if has_duplicates:
+                f.write(f"# Beware of Duplicate CIDs (each CID + IDSURVEY is unique) \n")
+                f.write(f"VARNAMES: CID IDSURVEY NJOB_REJECT \n")
+                for ucid,nrej in zip(cid_unique,n_reject) :
+                    cid = unique_dict[ucid]['CID']
+                    idsurv = unique_dict[ucid]['IDSURVEY']
+                    if nrej>0: f.write(f"SN:  {cid:<12} {idsurv}  {nrej:3d} \n")
+            else:
+                f.write(f"VARNAMES: CID NJOB_REJECT \n")
+                for cid,nrej in zip(cid_unique,n_reject) :
+                    if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
             f.write(f"\n")
 
         with open(ACCEPT_FILE,"wt") as f:
@@ -2000,10 +2008,18 @@ class BBC(Program):
             f.write(f"# These CIDs can be selected in SALT2mu.exe with\n")
             f.write(f"#    acceptt_list_file={accept_file} \n")
             f.write(f"\n")
-            f.write(f"VARNAMES: CID  \n")
-        
-            for cid,nrej in zip(cid_unique,n_reject) :
-                if nrej==0: f.write(f"SN:  {cid:<12}  \n")
+            if has_duplicates:
+                f.write(f"# Beware of Duplicate CIDs (each CID + IDSURVEY is unique) \n")
+                f.write(f"VARNAMES: CID IDSURVEY \n")
+                for ucid,nrej in zip(cid_unique,n_reject) :
+                    cid = unique_dict[ucid]['CID']
+                    idsurv = unique_dict[ucid]['IDSURVEY']
+                    if nrej==0: f.write(f"SN:  {cid:<12} {idsurv} \n")
+            else:
+                f.write(f"VARNAMES: CID  \n")
+                for cid,nrej in zip(cid_unique,n_reject) :
+                    if nrej==0: f.write(f"SN:  {cid:<12}  \n")
+
             f.write(f"\n")
 
         # end make_reject_summary
@@ -2034,8 +2050,39 @@ class BBC(Program):
 
         return cid_dict
 
-    def get_cid_list_duplicates(self):
-        pass
+    def get_cid_list_duplicates(self,fitres_list,VOUT):
+        # get cid_list of all CIDs in all files. If same events appear in 
+        # each file, each CID appears n_ff times. If a CID appears less 
+        # than n_ff times, it goes into reject list.
+        n_ff     = len(fitres_list)
+        unique_dict = {}
+        ucid_list = []
+        for ff in fitres_list:
+            FF       = (f"{VOUT}/{ff}")
+            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            ucid_list = np.concatenate((ucid_list, df.CID.astype(str)+"__"+df.IDSURVEY.astype(str)))
+
+        # - - - - - - - - - - - - -
+        # get list of unique CIDs, and how many times each CID appears
+        cid_unique, n_count = np.unique(ucid_list, return_counts=True)
+
+        for ucid in cid_unique:
+            unique_dict[ucid] = {}
+            unique_dict[ucid]['CID'] = ucid.split("__")[0]
+            unique_dict[ucid]['IDSURVEY'] = ucid.split("__")[1]
+
+        # number of times each CID does not appear in a fitres file
+        n_reject        = n_ff - n_count
+
+        cid_dict = {}
+        cid_dict['cid_list'] = ucid_list
+        cid_dict['cid_unique'] = cid_unique
+        cid_dict['unique_dict'] = unique_dict
+        cid_dict['n_count'] = n_count
+        cid_dict['n_reject'] = n_reject
+
+        return cid_dict
+
 
     def get_fflist_reject_summary(self,VOUT):
 

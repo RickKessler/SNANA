@@ -7,7 +7,7 @@
 # SUCCESS.
 #
 
-import os, sys, datetime, shutil, subprocess, time, glob, yaml
+import os, sys, datetime, shutil, subprocess, time, glob, yaml, argparse
 import getpass
 
 USERNAME         = getpass.getuser()
@@ -29,6 +29,17 @@ ALL_DONE_FILE      = "ALL.DONE"
 STRING_SUCCESS = "SUCCESS"
 
 # =======================================
+
+def parse_args():
+
+    parser = argparse.ArgumentParser()
+
+    msg = "Submit batch job name"
+    parser.add_argument("--jobname", help=msg, default=SUBMIT_JOB_NAME, type=str)
+
+    args = parser.parse_args()
+
+    return args
 
 def scancel_all_jobs():
     cmd_cancel = (f"scancel --user={USERNAME}")
@@ -105,9 +116,10 @@ def get_outdir_list(config):
     return outdir_list
     # end parse_outdir
 
-def run_submit(infile_list, outdir_list):
+def run_submit(infile_list, outdir_list, INPUTS):
     # infile_list is space-separated list of input files
     # to launch with submit_batch_jobs
+    SUBMIT_JOB_NAME = os.path.expandvars(INPUTS.jobname)
 
     done_file_list = []
     for infile,outdir in zip(infile_list,outdir_list) :
@@ -152,6 +164,10 @@ def run_submit(infile_list, outdir_list):
 
 if __name__ == "__main__":
 
+    # parse input arguments
+    INPUTS = parse_args()
+
+
     SUBMIT_INFO = {}
 
     # read list of input files 
@@ -176,7 +192,7 @@ if __name__ == "__main__":
     for infile_set,outdir_set in zip(infile_submit_list,outdir_submit_list) :
         infile_list  = infile_set.split()
         outdir_list  = outdir_set.split()
-        run_submit(infile_list,outdir_list)  # submit and wait for ALL.DONE
+        run_submit(infile_list,outdir_list,INPUTS)  # submit and wait for ALL.DONE
 
     # - - - - 
     msg = (f"\n Done. " \

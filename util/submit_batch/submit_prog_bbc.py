@@ -81,6 +81,7 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
+PREFIX_wfit = "wfit"
 
 FITPAR_SUMMARY_FILE   = "BBC_SUMMARY_FITPAR.YAML"   # Mar 28 2021
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
@@ -1942,28 +1943,29 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
-        cid_list = []
-        n_file   = 0
+        # xxx cid_list = []
+        # xxx mark delete n_file   = 0
 
-        # get cid_list of all CIDs in all files. If same events appear in 
-        # each file, each CID appears n_ff times. If a CID appears less 
-        # than n_ff times, it goes into reject list.
-        for ff in fitres_list:
-            n_file += 1
-            FF       = (f"{VOUT}/{ff}")
-            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
-            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
+        
+        first_fitres = VOUT+"/"+fitres_list[0]
+        first_fitres_cids = pd.read_csv(first_fitres, comment="#", delim_whitespace=True)['CID']
+        counts = np.unique(first_fitres_cids, return_counts=True)[1]
+        has_duplicates = len(counts[counts>1])>0
+        if has_duplicates:
+            print('Detected duplicates in first fitres! Using duplicate logic...')
+            cid_dict = self.get_cid_list(fitres_list, VOUT)
+        else:
+            cid_dict = self.get_cid_list(fitres_list, VOUT)
 
-        # - - - - - - - - - - - - -
-        # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(cid_list, return_counts=True)
+        cid_list = cid_dict['cid_list']
+        cid_unique = cid_dict['cid_unique']
+        n_count = cid_dict['n_count']
+        n_reject = cid_dict['n_reject']
 
-        # number of times each CID does not appear in a fitres file
-        n_reject        = n_ff - n_count
-
-        if n_file == -9 :
-            sys.exit(f" xxx cid_unique={cid_unique}\n xxx n_count = {n_count}\n xxx n_rej={n_reject}\n xxx n_ff= {n_ff}\n")
-
+        
+        # xxx mark delete if n_file == -9 :
+        # xxx    sys.exit(f" xxx cid_unique={cid_unique}\n xxx n_count = {n_count}\n xxx n_rej={n_reject}\n xxx n_ff= {n_ff}\n")
+            
         cid_all_pass    = cid_unique[n_count == n_ff]
         cid_some_fail   = cid_unique[n_count <  n_ff]
         n_all           = len(cid_unique)
@@ -2005,6 +2007,35 @@ class BBC(Program):
             f.write(f"\n")
 
         # end make_reject_summary
+
+    def get_cid_list(self,fitres_list,VOUT):
+        # get cid_list of all CIDs in all files. If same events appear in 
+        # each file, each CID appears n_ff times. If a CID appears less 
+        # than n_ff times, it goes into reject list.
+        n_ff     = len(fitres_list)
+        cid_list = []
+        for ff in fitres_list:
+            FF       = (f"{VOUT}/{ff}")
+            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
+
+        # - - - - - - - - - - - - -
+        # get list of unique CIDs, and how many times each CID appears
+        cid_unique, n_count = np.unique(cid_list, return_counts=True)
+
+        # number of times each CID does not appear in a fitres file
+        n_reject        = n_ff - n_count
+
+        cid_dict = {}
+        cid_dict['cid_list'] = cid_list
+        cid_dict['cid_unique'] = cid_unique
+        cid_dict['n_count'] = n_count
+        cid_dict['n_reject'] = n_reject
+
+        return cid_dict
+
+    def get_cid_list_duplicates(self):
+        pass
 
     def get_fflist_reject_summary(self,VOUT):
 

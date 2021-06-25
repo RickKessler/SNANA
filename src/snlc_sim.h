@@ -32,6 +32,7 @@
     + MXEPSIM_PERFILT -> 2000 (was 1000) for 0.1 day cadence
     + MXOBS_SIMLIB -> 15,000 (was 10k) for Roman synthetic bands
 
+ Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
 ********************************************/
 
 
@@ -39,7 +40,7 @@
 
 time_t t_start, t_end, t_end_init ;
 
-#define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
+#define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  2000       // 
 #define  MXEPSIM       10000  // really big for sntools_grid

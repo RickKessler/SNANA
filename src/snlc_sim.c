@@ -519,31 +519,16 @@ void get_user_input(void) {
   Get user input from four different priority levels:
   (higher priority number overrides value from lower number)
   
-  1. hard-wired default values in set_user_defaults()
-  2. read from defaults file in $SNDATA_ROOT/models/snlc_sim.defaults
-  3. read from user-input file "input_file"
-  3.5 read 2nd (optional) user-input file 
-  4. read from command-line override
-
-   (changed from rd_input on 12/6/2007)
-
-  Feb 4, 2008: fix buggy error message when default_file does not
-               exist.
-
-  May 24, 2010: change size of default_file from 120 to 200
-
-  Jun 16, 2010: add option to read 2nd input file : input_file_include
-
-  Apr 02, 2012: before reading 2nd input-include file, check command-line
-                args to allow override. 
-
-  Jun 20 2016: remove reading of default snlc_sim.defaults file.
+  1 primary input file
+  2 INCLUDE files in primary
+  3 INCLUDE files on command line
+  4 command line args
 
   Jun 18 2017: move prep_user_input into main, after ranSeed init
   Jul 30 2018: check input_file_include2
-
   Jul 20 2020: 
      + check a few command-line args before reading any files.
+  Jun 25 2021: update logic to implment priority list above.
 
   ***********/
   int i, ifile ;
@@ -557,21 +542,21 @@ void get_user_input(void) {
 
   set_user_defaults();
 
- 
-  /* xxxxxxxxxx mark delete Ju 23 2021 xxxxxxxxx
-  // check option to read 2nd input-include file.
-  // First check command-line args here for override of 2nd input-include...
-  // This check is needed because the override list is read below after
-  // the 2nd input file is already read.
+  /* xxxx mark delete 
+  // Before reading primary input file, load include files on
+  // list of input files so that they are read before parsing other
+  // command-line args with sim_override. Note that index=0 is
+  // for primary input; include file index starts at 1.
+  int N_INC = 0;
   for ( i = 2; i < NARGV_LIST ; i++ ) {   
-    FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE",COLON)  );
-    FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE",COLON)  );
+    FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE", COLON)  );
+    FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE", COLON)  );
     if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
-      sprintf(INPUTS.INPUT_FILE_LIST[1], "%s", ARGV_LIST[i+1] ) ; 
-      INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
+      N_INC++ ; // include file index starts at 1
+      sprintf(INPUTS.INPUT_FILE_LIST[N_INC], "%s", ARGV_LIST[i+1] ) ; 
     }
   } 
-  xxxxxxxx end mark xxxxxxxx */
+  xxx */
 
   // force reading MXINPUT_FILE_SIM input files because
   // the primary input file may have an INCLUDE file that
@@ -582,12 +567,25 @@ void get_user_input(void) {
     }
   }
 
-  // --------------------------------------------
-  // check for command line overrides
-  // --------------------------------------------
+  // -------
+  // check for INCLUDE files on command-line override;
+  // read these AFTER reading include files from primary input.  
+  for ( i = 2; i < NARGV_LIST ; i++ ) {   
+    FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE", COLON)  );
+    FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE", COLON)  );
+    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
+      char *include_file = ARGV_LIST[i+1] ;
+      read_input_file(include_file);
+    }
+  } 
+
+  // ------------------------------------------------------
+  // check for command line overrides after reading all input files
+  // -----------------------------------------------------ß
 
   sim_input_override(); 
 
+  /* xxxx mark delete Ju 25 2021 xxxxxxx
   // June 23 2021
   // if an INCLUDE file is passed via override, read it here.
   // This INCLUDE file does not replace/override previous INCLUDE files
@@ -596,6 +594,7 @@ void get_user_input(void) {
   int N = INPUTS.NREAD_INPUT_FILE;
   char *INPUT_OVERRIDE = INPUTS.INPUT_FILE_LIST[N];
   if ( !IGNOREFILE(INPUT_OVERRIDE) ) { read_input_file(INPUT_OVERRIDE); }
+  xxxxxxxxx */
 
   // check that all command-line args were used
   check_argv(); 
@@ -1405,11 +1404,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // Apr 6 2021: parse FLUXERRMODEL_REDCOV that was left out of refactor
   // Jun 02 2021: add calls to check_arg_len
   // Jun 17 2021: for hostlib, check "NBR" keys too.
+  // Jun 25 2021: check INCLUDE files only if reading file;
+  //              command line INCLUDE files are parsed elsewhere.
+  //
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
-  bool ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
+  bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   FILE *fpNull = NULL ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
@@ -1426,15 +1428,25 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
 		   strstr(WORDS[0],"DNDB") != NULL  ) ;
 
-  if ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
-       keyMatchSim(2, "INPUT_INCLUDE_FILE", WORDS[0], keySource) ) {
+  ISKEY_INCLUDE = 
+    ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
+      keyMatchSim(2, "INPUT_INCLUDE_FILE", WORDS[0], keySource) );
+
+  // - - - - - - -
+
+  if ( ISKEY_INCLUDE ) {
+    if ( keySource == KEYSOURCE_ARG ) { N++; return(N); }
     if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
       { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[1]); }
     else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file
       { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[2] ); }
+    else if ( strlen(INPUTS.INPUT_FILE_LIST[3])==0 )  // 3rd include file
+      { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[3] ); }
     else {
-      sprintf(c1err,"Cannot specify 3 INPUT_INCLUDE_FILE keys");
-      sprintf(c2err,"Only 1 or 2 allowed.") ;
+      sprintf(c1err,"Cannot specify %d INPUT_INCLUDE_FILE keys",
+	      MXINPUT_FILE_SIM );
+      sprintf(c2err,"%d or fewer INCLUDE files allowed.",
+	      MXINPUT_FILE_SIM-1 ) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }    
   }

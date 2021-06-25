@@ -20055,8 +20055,11 @@
 
          ***** USEFUL(v11_02p) ***** 
 
-    + submit_batch(LCFIT) now accepts list of INCLUDE files that
-        map into RANSEED_CHANGE
+    + submit_batch(SIM) has new INCLUDE_FILE_LIST to apply
+        independent systematic changes for each RANSEED_CHANGE.
+
+    + SNANA_code_tester.py has new --snana_dir arg so that anyone
+        can test their private snana repo.
 
          ***** MISCELLANEOUS(v11_02p) ***** 
 
@@ -20079,9 +20082,11 @@
            (lost in July 2020 refactor)
       + fix bug (from May 27) reading TAKE_SPECTRUM keys from SIMLIB header.
       + define GENRANGE_TOBS_PAD = 0.1 to apply consistent MJD-select padding
-      + finally fix INCLUDE_FILE logic so that INPUT_INCLUDE_FILE passed
-        via command line is read after INCLUDE file(s) embedded in the 
-        original input file. 
+      + finally fix INCLUDE_FILE logic with more clear priorities:
+        1) primary input, 2) include files in primary, 
+        3) include files on command line, 4) command line args
+         [higher number priority overrides lower priority]
+      + MXINPUT_FILE_SIM -> 4 (was 3) to allow 3 INCLUDE files.
 
     SNANA_code_tester.py
       + refactor and add --snana_dir arg to that anyone can
@@ -20091,7 +20096,7 @@
      + increase file name string-length allocations
   
    genmag_LCLIB.c
-     + skip comment lines reading LCLIB
+     + skip COMMENT lines and DOCANA block reading LCLIB
 
    sntools_genGauss_asym.c[h]:
      + move a few utils from snlc_sim.c[h] to here so that

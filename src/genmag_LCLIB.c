@@ -37,7 +37,7 @@
  Dec 27 2018: if LCLIB_DEBUG.ZERO_TEMPLATE_FLUX>0, then zero template flux
 
  Feb 03 2021: if OPTMASK & 8, switch RA,DEC coords to those of LCLIB.
- Jun 23 2021: skip comment lines in reading LCLIB
+ Jun 25 2021: skip COMMENT lines and DOCANA block reading LCLIB
 
 *************************************************/
 

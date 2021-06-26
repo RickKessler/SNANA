@@ -20045,7 +20045,7 @@
 
 
 # ======================================================================= 
-         v11_02p (  ) 
+         v11_02p (Jun 26 2021) 
 
          ***** IMPORTANT(v11_02p) ***** 
 
@@ -20060,6 +20060,8 @@
 
     + SNANA_code_tester.py has new --snana_dir arg so that anyone
         can test their private snana repo.
+
+    + new utility colnum_in_table(char *fileName, char *varName)
 
          ***** MISCELLANEOUS(v11_02p) ***** 
 
@@ -20104,5 +20106,13 @@
 
    Makefile:
     + add sntools_genGauss_asym dependence for SALT2mu
+
+  UNRESOLVED SALT2mu ISSUES to FINISH NEXT CODE TAG:
+    - for select_cid_file, match with CID+IDSURVEY to handle duplicates
+         (partially started with column_in_table function)
+    - debug logmass dependence
+        (filled in logmass indices, but no rigorous debug yet)
+    - SUBPROCESS: alpha & beta asym Gaussian profiles
+       (refactored so that parse_input_GENGAUSS is visible to SALT2mu)
 
 END: 

@@ -78,11 +78,14 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
 
     // ERROR codes: 
     //   colnum = -1 => file does not exist
-    //   colnun = -2 => VARNAMES key does not exist
+    //   colnum = -2 => VARNAMES key does not exist
     //   colnum = -3 => VARNAMES key exists, but *varname not found.
     if ( USE_IDSURVEY ) {
       colnum_idsurvey = colnum_in_table(fileName, "IDSURVEY");
-      if ( colnum_idsurvey < 0 ){ *OPTMASK -= 1; }
+
+      // if there is no IDSURVEY column, disable user's request to use IDSURVEY.
+      if ( colnum_idsurvey < 0 ) 
+	{ *OPTMASK -= 1;  USE_IDSURVEY = false; }
     }
     else {
       colnum_idsurvey = -9;

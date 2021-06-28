@@ -16057,12 +16057,12 @@ void parse_cidFile_data(int OPT, char *fileName) {
   if ( (OPTMASK_MATCH & 1) == 0) {
     INPUTS.match_on_cid_idsurvey = false;
     INPUTS.match_on_cid_only = true;
-    sprintf(id_name,"CID_IDSURVEY");
+    sprintf(id_name,"CID");
   }
   else {
     INPUTS.match_on_cid_idsurvey = true;
     INPUTS.match_on_cid_only = false;
-    sprintf(id_name,"CID");
+    sprintf(id_name,"CID_IDSURVEY");
   }
 
   INPUTS.ncidList_data += ncid ;

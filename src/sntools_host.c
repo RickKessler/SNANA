@@ -6333,8 +6333,7 @@ void GEN_SNHOST_NBR(int IGAL) {
   // If NBR_LIST column exists, parse it and convert row numbers
   // to SNHOSTGAL.IGAL_NBR_LIST
   //
-  // Beware that rowNum in +HOSTNBR file is a fortran-like
-  // index, but here it is read with C-like index.
+  // Jun 29 2021: change rownum-1 to rownum to fix index bug.
 
   int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
   int  i, ii, NNBR_READ, NNBR_STORE, rowNum, IGAL_STORE, IGAL_ZSORT ;
@@ -6380,10 +6379,10 @@ void GEN_SNHOST_NBR(int IGAL) {
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
-    // rowNum is a fotran-line index starting at 1, which  is 
-    // NGAL_READ+1 before cuts. Use two layers of  indexing to 
-    // get the desired z-sorted IGAL
-    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum-1];
+    // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
+    // Use two layers of  indexing to get the desired z-sorted IGAL
+    // xxx mark    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum-1];
+    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
     if ( IGAL_STORE < 0 ) { continue; } // neighbor was cut from sample
 
     IGAL_ZSORT = HOSTLIB.LIBINDEX_ZSORT[IGAL_STORE]; 

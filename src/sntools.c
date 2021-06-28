@@ -144,10 +144,11 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
       if ( FORMAT_TABLE ) {
         if ( IS_ROWKEY && iwd == 1 ) {
           sscanf(tmpWord, "%s", CID);
-          LOAD_CID = true;
+          if ( !USE_IDSURVEY ) { LOAD_CID = true; }
         }
 	if ( IS_ROWKEY && iwd == colnum_idsurvey+1 ) {
           sscanf(tmpWord, "%d", &IDSURVEY);
+	  LOAD_CID = true;
         }
       }
       else {
@@ -156,14 +157,14 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
         LOAD_CID = true;
       }
 
-      if ( LOAD_CID ) {
+      if ( LOAD_CID  ) {
 	// xxxx	printf(" xxx %s: load CID=%s  NCID=%d \n", fnam, CID, NCID);
 	char STRINGID[50];
 	if ( colnum_idsurvey < 0 ) {
 	  sprintf(STRINGID,"%s",CID);
 	}
 	else {
-	  sprintf(STRINGID,"%s_%d",CID,IDSURVEY);
+	  sprintf(STRINGID,"%s_%d", CID, IDSURVEY);
 	}
 
 	match_cid_hash(STRINGID, ILIST, NCID);

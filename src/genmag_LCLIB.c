@@ -38,6 +38,7 @@
 
  Feb 03 2021: if OPTMASK & 8, switch RA,DEC coords to those of LCLIB.
  Jun 25 2021: skip COMMENT lines and DOCANA block reading LCLIB
+ Jun 29 2021: call coord_translate_LCLIB before anglematch cut
 
 *************************************************/
 
@@ -675,7 +676,6 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   // Feb  03 2021: if OPTMASK & 8, return RA & DEC from LCLIB
 
   int  IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS==IFLAG_RECUR_NONRECUR);
-  bool switch_RADEC   = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
   LCLIB_EVENT.MWEBV   = *mwebv ;
 
   double AV_MW, XT_MW;
@@ -956,7 +956,9 @@ void readNext_LCLIB(double *RA, double *DEC) {
 
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-
+  
+  // if inputs are RA, DEC then translate RA,DEC -> b,l
+  coord_translate_LCLIB(RA,DEC);
 
   // check PARVAL cuts
   KEEP = keep_PARVAL_LCLIB(); 
@@ -975,23 +977,6 @@ void readNext_LCLIB(double *RA, double *DEC) {
   LCLIB_EVENT.DAYCOVER_ALL = 
     LCLIB_EVENT.DAYCOVER_S + LCLIB_EVENT.DAYCOVER_T ;
 
-  if ( LCLIB_EVENT.RA < 900 && LCLIB_EVENT.DEC < 900.0 ) {
-    // convert J2000 into Galactic coords
-    slaEqgal ( LCLIB_EVENT.RA, LCLIB_EVENT.DEC, 
-	       &LCLIB_EVENT.GLON,  &LCLIB_EVENT.GLAT );  // returned
-
-    if ( switch_RADEC ) {
-      // update Galactic extinction for LCLIB coords
-      *RA = LCLIB_EVENT.RA;   *DEC=LCLIB_EVENT.DEC;
-      double MWEBV = gen_MWEBV(*RA,*DEC);
-      LCLIB_EVENT.MWEBV = MWEBV;
-    }
-  }
-  else if ( LCLIB_EVENT.GLAT < 900 && LCLIB_EVENT.GLON < 900 ) {
-    // Convert Galactic coords into J2000
-    // crap, don't have translator function in SNANA ?!?!?!?
-    LCLIB_EVENT.RA = LCLIB_EVENT.DEC = 66.666 ;
-  }
 
   LCLIB_EVENT.NEVENT_READ++ ;
 
@@ -1171,6 +1156,37 @@ void read_PARVAL_LCLIB(char *LINE) {
   return ;
 
 } // end read_PARVAL_LCLIB
+
+// =========================================
+void coord_translate_LCLIB(double *RA, double *DEC) {
+
+  // Created Jun 29 2021
+  // wrapper to convert RA,DEC -> b,l
+
+  bool switch_RADEC = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
+  char fnam[] = "coord_translate_LCLIB";
+
+  if ( LCLIB_EVENT.RA < 900 && LCLIB_EVENT.DEC < 900.0 ) {
+    // convert J2000 into Galactic coords
+    slaEqgal ( LCLIB_EVENT.RA, LCLIB_EVENT.DEC, 
+	       &LCLIB_EVENT.GLON,  &LCLIB_EVENT.GLAT );  // returned
+
+    if ( switch_RADEC ) {
+      // update Galactic extinction for LCLIB coords
+      *RA = LCLIB_EVENT.RA;   *DEC=LCLIB_EVENT.DEC;
+      double MWEBV = gen_MWEBV(*RA,*DEC);
+      LCLIB_EVENT.MWEBV = MWEBV;
+    }
+  }
+  else if ( LCLIB_EVENT.GLAT < 900 && LCLIB_EVENT.GLON < 900 ) {
+    // Convert Galactic coords into J2000
+    // crap, don't have translator function in SNANA ?!?!?!?
+    LCLIB_EVENT.RA = LCLIB_EVENT.DEC = 66.666 ;
+  }
+
+  return;
+
+} // end coord_translate_LCLIB
 
 // =========================================
 int keep_PARVAL_LCLIB(void) {

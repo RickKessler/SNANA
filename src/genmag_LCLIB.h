@@ -167,6 +167,7 @@ void set_randomStart_LCLIB(void);
 
 void parse_PARNAMES_LCLIB(char *parNameString);
 void read_PARVAL_LCLIB(char *LINE);
+void coord_translate_LCLIB(double *RA, double *DEC);
 int  keep_PARVAL_LCLIB(void);
 int  keep_ANGLEMATCH_LCLIB(double GalLat, double GalLong);
 

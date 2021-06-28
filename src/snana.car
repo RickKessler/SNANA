@@ -3533,17 +3533,6 @@ C ----------------- BEGIN --------------
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
-c xxxxxxxx mark delete Feb 26 2021 xxxxxxxx
-c check option to check DOCANA (Aug 26 2020)
-c Avoid checking sim README with this temporary hack since LSIM_SNANA
-c is not set yet. Remove LSIM_TEMP hack when proper DOCANA key is
-c propagated to sim README
-c      LSIM_TEMP = ( INDEX(SNDATA_PATH,'SIM') > 0 )
-c      IF ( .NOT.LSIM_TEMP .and. REQUIRE_DOCANA > 0 ) THEN
-c         CALL CHECK_FILE_DOCANA(README_FILE, MXCHAR_FILENAME)
-c      ENDIF 
-c xxxxxxxxxxxxxx end mark xxxxxxxxx
-
       CALL CHECK_FILE_DOCANA(REQUIRE_DOCANA,README_FILE,MXCHAR_FILENAME)
 
 c - - - - - - - -       
@@ -5560,11 +5549,6 @@ c VERSION_PHOTOMETRY
       CALL INIT_SNVAR()
       CALL CHECK_FORMAT()
       CALL INIT_READ_DATA()
-
-c xxxxxxx mark delete Apr 17 2021 xxxxxxxx
-c      CALL CHECK_FORMAT()
-c      CALL GETINFO_PHOTOMETRY(1)
-c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - -
       print*,' '

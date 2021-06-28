@@ -16046,6 +16046,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   int  ncid ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
   char fnam[] = "parse_cidFile_data" ;
+  char id_name[20];
 
   // ------------- BEGIN ------------
 
@@ -16056,21 +16057,23 @@ void parse_cidFile_data(int OPT, char *fileName) {
   if ( (OPTMASK_MATCH & 1) == 0) {
     INPUTS.match_on_cid_idsurvey = false;
     INPUTS.match_on_cid_only = true;
+    sprintf(id_name,"CID_IDSURVEY");
   }
   else {
     INPUTS.match_on_cid_idsurvey = true;
     INPUTS.match_on_cid_only = false;
+    sprintf(id_name,"CID");
   }
 
   INPUTS.ncidList_data += ncid ;
  
   if ( OPT > 0 ) {
-    printf("  %s: Accept only %d CIDs in %s\n", 
-	   fnam, ncid, fileName);
+    printf("  %s: Accept only %d %s in %s\n", 
+	   fnam, ncid, id_name, fileName);
   }
   else {
-    printf("  %s: Reject %d  CIDs in %s\n", 
-	   fnam, ncid, fileName);
+    printf("  %s: Reject %d  %s in %s\n", 
+	   fnam, ncid, id_name, fileName);
   }
   fflush(stdout);
 

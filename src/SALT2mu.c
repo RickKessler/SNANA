@@ -1634,10 +1634,10 @@ struct INPUTS {
   // CID select or reject for data only (data can be real or sim)
   int   ncidFile_data;  // number of cid-select files in comma-sep list
   char  **cidFile_data ; // list of cidFiles
-  // xxx mark delete   char  **cidList_data; // cid list
+  
   int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
-
+  bool  match_on_cid_idsurvey, match_on_cid_only ; 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
   int     nlogzbin;  // number of log-spaced redshift bins
@@ -2106,7 +2106,7 @@ int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
-int selectCID_data(char *cid); 
+int selectCID_data(char *cid, int IDSURVEY); 
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -14856,7 +14856,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
-  int  sntype, FOUND, SIM_NONIA_INDEX, idsample ;
+  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey ;
   bool BADERR=false, BADCOV=false ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
@@ -14876,6 +14876,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     
   name      =  TABLEVAR->name[isn];
   idsample  =  (int)TABLEVAR->IDSAMPLE[isn] ;
+  idsurvey  =  (int)TABLEVAR->IDSURVEY[isn] ;
   sntype    =  (int)TABLEVAR->SNTYPE[isn] ;
   
   z         =  (double)TABLEVAR->zhd[isn];
@@ -14995,7 +14996,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
     // djb we only want to apply the cid list for the data                 
-    ACCEPT = selectCID_data(name);
+    ACCEPT = selectCID_data(name, idsurvey);
     if ( !ACCEPT )
       { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); } //the mask is in tablevar
 
@@ -15089,26 +15090,41 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 
 // ===========================================
-int selectCID_data(char *cid){
+int selectCID_data(char *cid, int IDSURVEY){
 
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
   //
   // Sep 2020 RK - Refactor to accept or reject based on user input.
-  // Juj 2021 RK - use match_cidlist_exec util based on hash table.
+  // Jun 2021 RK - use match_cidlist_exec util based on hash table.
+  // Jun 2021 DB - added boolean logic to match on IDSURVERY
 
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
+  bool match_on_cid_idsurvey = INPUTS.match_on_cid_idsurvey;
+  bool match_on_cid_only = INPUTS.match_on_cid_only;
   int ACCEPT = 1, REJECT = 0, i, isn0 ;
   bool MATCH ;
-  char *tmpCID;
+  char *tmpCID, STRINGID[60];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
 
   if ( ncidList == 0 ) { return ACCEPT ; }
 
-  MATCH = match_cidlist_exec(cid);
+  if (match_on_cid_only) {
+      sprintf(STRINGID,"%s",cid);
+    }
+  else if (match_on_cid_idsurvey) {
+      sprintf(STRINGID,"%s_%d",cid,IDSURVEY);
+    }
+  else {
+    sprintf(c1err,"Boolean logic failed, unable to match.");
+    sprintf(c2err,"match_on_cid_only=false and match_on_cid_idsurvey=false");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  MATCH = match_cidlist_exec(STRINGID);
 
   // - - - -
   if ( MATCH ) {
@@ -16028,11 +16044,23 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   int  ncidList_data = INPUTS.ncidList_data  ;
   int  ncid ;
+  int  OPTMASK_MATCH=1; //match CID_IDSURVEY
   char fnam[] = "parse_cidFile_data" ;
 
   // ------------- BEGIN ------------
 
-  ncid = match_cidlist_init(fileName);
+  // NOTE: OPTMASK_MATCH will be set to zero in this function if IDSURVEY column doesnt exist
+  ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
+
+  // DB Jun 2021
+  if ( (OPTMASK_MATCH & 1) == 0) {
+    INPUTS.match_on_cid_idsurvey = false;
+    INPUTS.match_on_cid_only = true;
+  }
+  else {
+    INPUTS.match_on_cid_idsurvey = true;
+    INPUTS.match_on_cid_only = false;
+  }
 
   INPUTS.ncidList_data += ncid ;
  
@@ -17176,6 +17204,7 @@ void prep_input_driver(void) {
 
   int i, icut;
   int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
+  int  OPTMASK;
   char usage[10], *tmpName ;
   char fnam[] = "prep_input_driver";
 
@@ -17462,7 +17491,8 @@ void prep_input_driver(void) {
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
-    match_cidlist_init("");    // init hash table
+    OPTMASK = 0;
+    match_cidlist_init("", &OPTMASK);    // init hash table .xyz
     for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
       { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
     printf("\n"); fflush(stdout);

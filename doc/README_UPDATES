@@ -20123,6 +20123,8 @@
 
          ***** USEFUL(v11_02q) ***** 
 
+	 - SALT2mu now matches on CID_IDSURVEY to handle duplicates.
+
          ***** MISCELLANEOUS(v11_02q) ***** 
 
 END: 

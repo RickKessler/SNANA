@@ -34,9 +34,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
   //
   // if fileName == "", init hash table and return.
   //
-  // OPTMASK += 1: use CID_IDSURVEY for matching, else CID
-  //    WARNING: returned OPTMASK value is changed if 
-  //             IDSURVEY doesnt exist.
+  // OPTMASK += 1: if IDSURVEY column is present, match on CID_IDSURVEY;
+  //               else match on CID and return *OPTMASK -= 1.
+  //       WARNING: returned OPTMASK value is changed if 
+  //                 IDSURVEY doesnt exist.
   //
   // If fileName has a dot, read CID list from file;
   // else read comma or space sep list of CIDs from string.

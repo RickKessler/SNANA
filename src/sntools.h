@@ -591,8 +591,8 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
-int  match_cidlist_init(char *fileName);
-int  match_cidlist_init__(char *fileName);
+int  match_cidlist_init(char *fileName, int *OPTMASK);
+int  match_cidlist_init__(char *fileName, int *OPTMASK);
 bool match_cidlist_exec(char *cid);
 bool match_cidlist_exec__(char *cid);
 

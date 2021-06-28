@@ -11436,7 +11436,7 @@ c this match utility uses hash table for faster access.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE
+      INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
       CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
       LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
@@ -11484,7 +11484,8 @@ c check integer lists the old way
       ENDIF
 
       IF ( IS_CCID_LIST ) THEN
-         NCCID_TMP = MATCH_CIDLIST_INIT(""//char(0) )
+      	 OPTMASK = 0
+         NCCID_TMP = MATCH_CIDLIST_INIT(""//char(0) , OPTMASK, 4)
          
 c  check SNCCID_LIST in &SNLCINP ... 
          i = 1; CCID = SNCCID_LIST(i) 
@@ -11492,14 +11493,14 @@ c  check SNCCID_LIST in &SNLCINP ...
             CALL NMLCHECK_SNCCID("SNCCID_LIST",CCID)
             LENC = INDEX(CCID,' ') - 1
             cCCID = CCID(1:LENC) // char(0)
-            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,LENC)
+            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,OPTMASK,LENC)
             i = i + 1 ; CCID = SNCCID_LIST(i)
          END DO
          NCCID_LIST = i - 1
 
 c check CIDs from separate file (table format, or unformatted)
          IF ( IS_FILE ) THEN
-            NCCID_FILE   = MATCH_CIDLIST_INIT(cFILE,LENF)
+            NCCID_FILE   = MATCH_CIDLIST_INIT(cFILE,OPTMASK,LENF)
          ENDIF
 
          write(6,31) NCCID_LIST, 'SNCCID_LIST'

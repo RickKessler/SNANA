@@ -162,7 +162,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
       if ( LOAD_CID  ) {
 
 	if ( USE_IDSURVEY )
-	  {  sprintf(STRINGID,"%s%d", CID, IDSURVEY); }
+	  {  sprintf(STRINGID,"%s_%d", CID, IDSURVEY); }
 	else
 	  { sprintf(STRINGID,"%s",CID); }
 

@@ -15116,7 +15116,7 @@ int selectCID_data(char *cid, int IDSURVEY){
       sprintf(STRINGID,"%s",cid);
     }
   else if (match_on_cid_idsurvey) {
-      sprintf(STRINGID,"%s%d",cid,IDSURVEY);
+      sprintf(STRINGID,"%s_%d",cid,IDSURVEY);
     }
   else {
     sprintf(c1err,"Boolean logic failed, unable to match.");

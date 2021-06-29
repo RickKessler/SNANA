@@ -10395,7 +10395,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // are different; courser bins for sigmu-scale.
   //
   // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
-  //
+  // Jun 29 2021: fix bug setting im index for logmass.
 
   //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
@@ -10574,7 +10574,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     iz = IBINFUN(z, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z, 
 		 1, fnam );
 
-    im = IBINFUN(z, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m, 
+    im = IBINFUN(m, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m, 
 		 2, fnam );
 
     ic = IBINFUN(c, &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c], 

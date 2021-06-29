@@ -916,15 +916,21 @@ void readNext_LCLIB(double *RA, double *DEC) {
       }
       
       else if ( strcmp(WD0,"RA:") == 0 ) 
-	{ sscanf(WD1,"%le", &LCLIB_EVENT.RA); iwd++; } 
+	{
+		sscanf(WD1,"%le", &LCLIB_EVENT.RA); iwd++;
+        	coord_translate_LCLIB(RA,DEC);
+	} 
       else if ( strcmp(WD0,"DEC:") == 0 ) 
-	{ sscanf(WD1,"%le", &LCLIB_EVENT.DEC); iwd++; } 
-      
+	{
+		sscanf(WD1,"%le", &LCLIB_EVENT.DEC); iwd++;
+  		coord_translate_LCLIB(RA,DEC);
+	} 
+
       else if ( strcmp(WD0,"l:") == 0  || strcmp(WD0,"GLON:")==0 ) 
 	{ sscanf(WD1,"%le", &LCLIB_EVENT.GLON ); iwd++; } 
       else if ( strcmp(WD0,"b:") == 0  || strcmp(WD0,"GLAT:")==0  ) 
 	{ sscanf(WD1,"%le", &LCLIB_EVENT.GLAT); iwd++ ; } 
-
+  
       else if ( strcmp(WD0,"PARVAL:") == 0 )  { 
 	read_PARVAL_LCLIB(LINE);  iwd++ ; 
 	START_EVENT = keep_PARVAL_LCLIB() ;
@@ -1246,7 +1252,7 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
   int KEEP=1 ;
   double b_SIM    = fabs(b);
   double b_LCLIB  = fabs(LCLIB_EVENT.GLAT);
-  //  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;
+  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;
 
   // ------------- BEGIN ------------
 

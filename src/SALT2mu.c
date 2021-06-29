@@ -949,6 +949,9 @@ with append_varname_missing,
     + remove LEGACY table functions for SUBPROCESS
     + new input args force_realdata and select_trueIa
 
+ Jun 29 2021: if interp_biascor_logmass=0, implement for muCOVscale
+              as well as biasCor.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -12726,6 +12729,7 @@ int get_muCOVscale(char *cid,
   //   Function returns 1 on success; 0 on failure
   //
   // Jun 11 2021: include logmass dependence.
+  // Jun 29 2021: check INPUTS.interp_biascor_logmass
 
   int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d, IMMIN, IMMAX ;
 
@@ -12787,8 +12791,12 @@ int get_muCOVscale(char *cid,
   
   SUM_WGT = SUM_muCOVscale = 0.0 ;
 
-  if ( !INPUTS.interp_biascor_logmass ) { IMMIN = IMMAX = IM; }
-  else {IMMIN = IM-1; IMMAX = IM+1;}
+  if ( INPUTS.interp_biascor_logmass ) 
+    { IMMIN = IM-1; IMMAX = IM+1;}
+  else
+    { IMMIN = IMMAX = IM; }  // do NOT interp logmass dimension
+
+  // - - - - - - 
 
   for(iz = IZ-1; iz <= IZ+1; iz++ ) {
     if ( iz < 0 )      { continue ; }

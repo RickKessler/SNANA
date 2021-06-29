@@ -4782,7 +4782,7 @@ to {\tt NON1ASED} and {\tt NON1AGRID} models.
 % ------------------------------------
 
 For the {\tt LCLIB} model, the rate is defined as a function
-of Galactic coordinates ($l$ and $b$). Current option is
+of Galactic $b$-coordinates,
 \begin{verbatim}
    DNDB:  COSBPOLY  b0,b1,b2,,,,bN     # Nth order polynomial in cos(b)
    DNDB:  COSBPOLY  b0 b1 b2 b3 b4 b5  # legacy input for 5th order polynom
@@ -4798,21 +4798,54 @@ of Galactic coordinates ($l$ and $b$). Current option is
 which defines the $b$-dependence with an $N'th$-order
 polynomial function of $\cos(b)$ or $b$.
 The absolute number of generated events is given by
-{\tt NGENTOT\_LC}. To reduce reading of the \simlib,
+{\tt NGENTOT\_LC}.  {\bf\it Beware} of the following:
+\vspace{-0.4cm}
+\begin{itemize}[noitemsep]
+  \item the requested $b$-profile is realized only if the {\tt SIMLIB} 
+          coordinates have isotropic distribution.
+  \item For highly anisotropic profiles, set {\tt SIMLIB\_NREPEAT} $\gg1$
+        for efficient generation.
+\end{itemize}
+
+With default ``{\tt SIMLIB\_NREPEAT: 1},'' the simulation randomly
+selects/rejects each SIMLIB entry based on the input {\tt DNDB} function.
+This procedure is efficient for nearly isotropic {\tt DNDB},
+but for more realistic {\tt DNDB} with a very large anisotropy,
+the simulation spends most of the time reading and skipping {\tt SIMLIB}
+entries, and is thus very inefficient.
+
+To reduce reading of \simlib\ entries,
 and thus reduce processing time, 
 use the {\tt SIMLIB\_NREPEAT} feature (\S\ref{sssec:simlib_options}).
 While {\tt SIMLIB\_NREPEAT} is fixed for isotropic rate models
-that depend on redshift (\S\ref{subsec:DNDZ}), here it is
-multiplied by the relative rate:
+that depend on redshift (\S\ref{subsec:DNDZ}), 
+here it is multiplied by the relative rate for each {\tt SIMLIB} entry $i$:
 \begin{verbatim}
-  SIMLIB_NREPEAT = max(SIMLIB_NREPEAT) * DNDB(b,l)/max[DNDB(b,l)]
+     SIMLIB_NREPEAT(i) = max(SIMLIB_NREPEAT) * DNDB(b)/max[DNDB(b)]
 \end{verbatim}
-The $b$-weight is thus implemented by how many times each
-\simlib\ entry is read. Since {\tt SIMLIB\_NREPEAT} is usually
-a float, the floating remainder is compared with random number
+The $b$-weight is implemented by how many times each
+\simlib\ entry is read. Since {\tt SIMLIB\_NREPEAT(i)} is a float, 
+the floating remainder is compared with random number
 to determine whether to use 
 {\tt NREPEAT=int(SIMLIB\_NREPEAT)} or {\tt int(SIMLIB\_NREPEAT)+1}.
 If {\tt NREPEAT=0}, the \simlib\ entry is skipped.
+
+\medskip
+As an  example consider a $\cos^5(b)$ profile,
+\vspace{-0.2cm}
+\begin{verbatim}
+   DNDB:  COSBPOLY  0,0,0,0,1
+\end{verbatim}
+With default ``{\tt SIMGEN\_NREPEAT: 1}'' using each
+{\tt SIMLIB} entry once,
+only $\int_0^1 x^5 = 1/6$ of the (isotropic) {\tt SIMLIB} entries
+are processed.
+However, with ``{\tt SIMGEN\_NREPEAT: 100}'', 
+{\tt SIMLIB} entries with $|\cos(b)| > 0.4$ (60\%) have 
+{\tt SIMLIB\_NREPEAT(i)}$>1$ and thus are processed.
+A caveat is to generate enough events to sample most of
+the {\tt SIMLIB}; e.g., if {\tt NGENTOT]\_LC = 100} then
+only a few {\tt SIMLIB} entries are sampled in this example.
 
 
 %\bigskip

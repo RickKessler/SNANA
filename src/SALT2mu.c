@@ -15116,7 +15116,7 @@ int selectCID_data(char *cid, int IDSURVEY){
       sprintf(STRINGID,"%s",cid);
     }
   else if (match_on_cid_idsurvey) {
-      sprintf(STRINGID,"%s_%d",cid,IDSURVEY);
+      sprintf(STRINGID,"%s%d",cid,IDSURVEY);
     }
   else {
     sprintf(c1err,"Boolean logic failed, unable to match.");
@@ -15125,6 +15125,12 @@ int selectCID_data(char *cid, int IDSURVEY){
   }
 
   MATCH = match_cidlist_exec(STRINGID);
+
+  /* xxx
+  if ( strstr(STRINGID,"9159") != NULL ) {
+    printf(" xxx %s: STRINGID='%s'  MATCH=%d \n", fnam, STRINGID, MATCH);
+  }
+  xxx */
 
   // - - - -
   if ( MATCH ) {

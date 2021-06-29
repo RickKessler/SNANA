@@ -34,10 +34,9 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
   //
   // if fileName == "", init hash table and return.
   //
-  // OPTMASK += 1: if IDSURVEY column is present, match on CID_IDSURVEY;
-  //               else match on CID and return *OPTMASK -= 1.
-  //       WARNING: returned OPTMASK value is changed if 
-  //                 IDSURVEY doesnt exist.
+  // OPTMASK += 1: use CID_IDSURVEY for matching, else CID
+  //    WARNING: returned OPTMASK value is changed if 
+  //             IDSURVEY doesnt exist.
   //
   // If fileName has a dot, read CID list from file;
   // else read comma or space sep list of CIDs from string.
@@ -57,7 +56,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
   int  NCID, NWD, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, LDMP=0 ;
-  char CID[40];
+  char CID[40], STRINGID[40] ;
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
@@ -74,23 +73,17 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
   ENVreplace(fileName,fnam,1);
 
   if ( IS_FILE ) { 
-    // xxx mark delete FORMAT_TABLE = key_in_file(fileName, "VARNAMES:", 1000);
-
-
     // ERROR codes: 
     //   colnum = -1 => file does not exist
     //   colnum = -2 => VARNAMES key does not exist
     //   colnum = -3 => VARNAMES key exists, but *varname not found.
-    if ( USE_IDSURVEY ) {
-      colnum_idsurvey = colnum_in_table(fileName, "IDSURVEY");
 
-      // if there is no IDSURVEY column, disable user's request to use IDSURVEY.
-      if ( colnum_idsurvey < 0 ) 
-	{ *OPTMASK -= 1;  USE_IDSURVEY = false; }
-    }
-    else {
-      colnum_idsurvey = -9;
-    }
+    colnum_idsurvey = colnum_in_table(fileName, "IDSURVEY");
+    
+    // if there is no IDSURVEY column, disable user's request 
+    // to use IDSURVE.
+    if ( USE_IDSURVEY && colnum_idsurvey < 0 ) 
+      { *OPTMASK -= 1;  USE_IDSURVEY = false; }
 
     if ( colnum_idsurvey == -1 ){ 
       sprintf(c1err,"CID TABLE DOES NOT EXIST");
@@ -109,6 +102,11 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
       match_cid_hash(CID, ILIST, iwd);
     }
     return NCID ;
+  }
+
+  if ( LDMP ) {
+    printf(" xxx %s: FORMAT_TABLE = %d  COLNUM_IDSURVEY = %d\n", 
+	   fnam, FORMAT_TABLE, colnum_idsurvey );
   }
 
   // - - - - - - - -
@@ -150,7 +148,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
           sscanf(tmpWord, "%s", CID);
           if ( !USE_IDSURVEY ) { LOAD_CID = true; }
         }
-	if ( IS_ROWKEY && iwd == colnum_idsurvey+1 ) {
+	if ( USE_IDSURVEY && IS_ROWKEY && iwd == colnum_idsurvey+1 ) {
           sscanf(tmpWord, "%d", &IDSURVEY);
 	  LOAD_CID = true;
         }
@@ -162,14 +160,17 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
       }
 
       if ( LOAD_CID  ) {
-	// xxxx	printf(" xxx %s: load CID=%s  NCID=%d \n", fnam, CID, NCID);
-	char STRINGID[50];
-	if ( colnum_idsurvey < 0 ) {
-	  sprintf(STRINGID,"%s",CID);
-	}
-	else {
-	  sprintf(STRINGID,"%s_%d", CID, IDSURVEY);
-	}
+
+	if ( USE_IDSURVEY )
+	  {  sprintf(STRINGID,"%s%d", CID, IDSURVEY); }
+	else
+	  { sprintf(STRINGID,"%s",CID); }
+
+	// xxxxxx
+	if ( LDMP && strstr(CID,"16hc") != NULL ) {
+	  printf(" xxx %s: load STRINGID = '%s'  NCID=%d \n",
+		 fnam, STRINGID, NCID);
+	} // xxxxxxxx
 
 	match_cid_hash(STRINGID, ILIST, NCID);
 	NCID++ ;
@@ -189,7 +190,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
   fclose(fp);
 
   if ( LDMP ) {
-    printf(" xxx %s: IS_FILE=%d  NCID=%d \n", fnam, IS_FILE, NCID);
+    printf(" xxx %s: IS_FILE=%d  NCID=%d \n", 
+	   fnam, IS_FILE, NCID );
     fflush(stdout);
   }
 
@@ -222,9 +224,9 @@ bool match_cidlist_exec__(char *cid)
 #include "uthash.h"
 // Jun 2021: define stuff for hash table; used to match CID lists.
 struct hash_table_def {
-  int id;                /* key */
-  char name[10];
-  UT_hash_handle hh;    /* makes this structure hashable */
+  int id;               // key 
+  char name[20];        // array size is max length of CID
+  UT_hash_handle hh;    // makes this structure hashable 
 } ;
 struct hash_table_def *hash_table_users = NULL; 
 
@@ -258,6 +260,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
     // create hash table        
     s     = malloc(sizeof(struct hash_table_def));
     s->id = isn;
+
     strcpy(s->name, ccid);
     HASH_ADD_STR( hash_table_users, name, s );
     return(isn) ;

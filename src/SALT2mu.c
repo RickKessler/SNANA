@@ -4344,6 +4344,13 @@ void *MNCHI2FUN(void *thread) {
     INFO_DATA.muBiasErr[n]  = muBiasErr ;
     INFO_DATA.muCOVscale[n] = muCOVscale ;
 
+    // xxx mark delete
+    /*if (strcmp(name,"2152219")==0 || strcmp(name,"15400444")==0) { 
+	printf("xxx %s cid=%s m=%.1f c=%.2f covscale=%f\n",fnam,name,logmass,c,muCOVscale); 
+	fflush(FP_STDOUT);
+	}*/
+
+
     // zero out muBiasErr after storing it, since adding this
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
@@ -10555,6 +10562,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
     z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
     m    = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
+    //xxx mark delete if (ievt < 10) { printf('xxx ievt=%d m=%f',ievt,m);}
     a    = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt];
     b    = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt];
     gDM  = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt];
@@ -10563,6 +10571,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     ia   = (int)INFO_BIASCOR.IA[ievt];
     ib   = (int)INFO_BIASCOR.IB[ievt];
     ig   = (int)INFO_BIASCOR.IG[ievt];
+
     name = INFO_BIASCOR.TABLEVAR.name[ievt];
     for(ipar=0; ipar < NLCPAR; ipar++ ) 
       { BIASCORLIST.FITPAR[ipar] = 
@@ -10685,16 +10694,17 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // -------------------------
   // print errBias info in z bins
 
-  int LPRINT = 0 ;
+  int LPRINT = 1 ;
 
   if ( LPRINT ) {
 
     double zlo, zhi ;  
+    printf("NUMBER OF MASS BINS %d\n",NBINm);
     printf("\n");
     printf("                            "
 	   "RMS(muDif)/RMS(Pull)/NSIM for \n");
     
-    printf("  ia,ib,ig  z-range :   "
+    printf("  ia,ib,ig,im  z-range :   "
 	   "    ic=0               ic=1                ic=2 \n");
     
     printf("  -------------------------------------------------"
@@ -10707,17 +10717,17 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	  for(iz=0; iz < NBINz; iz++ ) {	
 	    zlo = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.lo[iz];
 	    zhi = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.hi[iz];
-	    printf("  %d,%d,%d  %.2f-%.2f : ",  ia,ib,ig, zlo, zhi );
 	    
 	    for(im=0; im < NBINm; im++ ) {	
-
-	      for(ic=0; ic<NBINc; ic++ ) {  
+	      printf("  %d,%d,%d,%d  %.2f-%.2f : ",  ia,ib,ig,im, zlo, zhi );
+	      for(ic=0; ic<3; ic++ ) {  
 		i1d=CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic];
 		N     = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d] ;
 		muCOVscale = (double)ptr_MUCOVSCALE[i1d] ;
 		RMS        = sqrt ( SQMURMS[i1d] );       
-		printf("%6.3f/%5.3f/%5d  ", RMS, sqrt(muCOVscale), N );	  
+		printf("%6.3f/%5.3f/%5d ", RMS, sqrt(muCOVscale), N );	  
 	      } // ic
+	      printf("\n");     fflush(stdout);
 	    } // im
 	    printf("\n");     fflush(stdout);
 	  } // iz
@@ -12145,6 +12155,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	  get_muCOVscale(name, &BIASCORLIST, DUMPFLAG,    // in
 			 &muCOVscale );      // out
 	
+
 	INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] = muCOVscale ;
 
 	if ( DUMPFLAG ) {
@@ -12716,7 +12727,7 @@ int get_muCOVscale(char *cid,
   //
   // Jun 11 2021: include logmass dependence.
 
-  int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d ;
+  int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d, IMMIN, IMMAX ;
 
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
@@ -12776,11 +12787,14 @@ int get_muCOVscale(char *cid,
   
   SUM_WGT = SUM_muCOVscale = 0.0 ;
 
+  if ( !INPUTS.interp_biascor_logmass ) { IMMIN = IMMAX = IM; }
+  else {IMMIN = IM-1; IMMAX = IM+1;}
+
   for(iz = IZ-1; iz <= IZ+1; iz++ ) {
     if ( iz < 0 )      { continue ; }
     if ( iz >= NBINz ) { continue ; }
 
-    for(im = IM-1; im <= IM+1; im++ ) {
+    for(im = IMMIN; im <= IMMAX; im++ ) {
       if ( im < 0 )      { continue ; }
       if ( im >= NBINm ) { continue ; }
           
@@ -12802,7 +12816,14 @@ int get_muCOVscale(char *cid,
 	Dz  = fabs(dif/BINSIZE_z) ;
 
 	dif = m - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[j1d];
-	Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021
+	//Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021
+	
+	if ( INPUTS.interp_biascor_logmass ) {
+	  Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021 
+	}
+	else {
+	  Dm  = 0.0 ; // Jun 2021
+	}
 	
 	dif = c - CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][j1d];
 	Dc  = fabs(dif/BINSIZE_c);
@@ -12817,6 +12838,14 @@ int get_muCOVscale(char *cid,
 	
 	muCOVscale_biascor = (double)ptr_MUCOVSCALE[j1d];
 	SUM_muCOVscale += ( WGT * muCOVscale_biascor );
+
+	if ( DUMPFLAG) {
+	  printf(" xxx %s: ic=%d im=%d iz=%d muCOVscale = %f WGT=%f \n", 
+		 fnam,ic,im,iz, muCOVscale_biascor, WGT);
+	  fflush(stdout);
+	}
+
+
       } // ic
     }  // im
   } // iz
@@ -12827,8 +12856,8 @@ int get_muCOVscale(char *cid,
   }
 
   if ( DUMPFLAG) {
-    printf(" xxx %s: muCOVscale = %f/%f = %f \n", 
-	   fnam, SUM_muCOVscale, SUM_WGT, muCOVscale_local);
+    printf(" xxx %s: IC=%d IM=%d IZ=%d muCOVscale = %f/%f = %f \n", 
+	   fnam,IC,IM,IZ, SUM_muCOVscale, SUM_WGT, muCOVscale_local);
     fflush(stdout);
   }
 

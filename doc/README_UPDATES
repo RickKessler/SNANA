@@ -20123,8 +20123,23 @@
 
          ***** USEFUL(v11_02q) ***** 
 
-	 - SALT2mu now matches on CID_IDSURVEY to handle duplicates.
+    + SALT2mu matches on CID_IDSURVEY to handle duplicate CID
+          from different surveys.
 
          ***** MISCELLANEOUS(v11_02q) ***** 
+
+   genmag_LCLIB: 
+      + call coord_translate_LCLIB before anglematch cut 
+
+   sntools_host.c
+     + fix index bug related to reading HOSTNBR.
+
+   sntools.c
+     + fix hash_table_def to declare name[20] instead of name[10];
+        name[10] was stopping matches for long CID lengths.
+ 
+   SALT2mu.c
+     + implement interp_biascor_logmass option for muCOVscale
+         (to work same way as for biasCor)
 
 END: 

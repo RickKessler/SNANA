@@ -1013,7 +1013,7 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
   //  printf(" xxx %s: LENF=%d FILENAME=%s \n", fnam, LENF, FILENAME);
 
   if ( LENF > 0 )  { 
-    fclose(fp); 
+    if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
   }
   else {
     snana_rewind(fp, FILENAME_TEXT, GZIPFLAG_TEXT);
@@ -1159,7 +1159,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   //
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
-  //
+  // Jun  29 2021; check GZIPFLAG_TEXT for using pclose or fclose
+
   int NROW = 0 ;
   int i, ivar, isn, ICAST, nptr;
 
@@ -1281,7 +1282,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   } // end fscanf 
   
-  fclose(FP);
+
+  if ( GZIPFLAG_TEXT ) { pclose(FP); } else { fclose(FP); }
 
   // May 2 2019: reset flags to allow opening another file.
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;

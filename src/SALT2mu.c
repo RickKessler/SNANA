@@ -949,8 +949,11 @@ with append_varname_missing,
     + remove LEGACY table functions for SUBPROCESS
     + new input args force_realdata and select_trueIa
 
- Jun 29 2021: if interp_biascor_logmass=0, implement for muCOVscale
-              as well as biasCor.
+ Jun 29 2021: 
+   + if interp_biascor_logmass=0, implement for muCOVscale
+        as well as biasCor.
+   + if no biasCor, disable malloc for lots of mubias arrays;
+      needed to save memory for large samples used by SUBPROCESS.
 
  ******************************************************/
 
@@ -2462,7 +2465,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // --------------------------------------
   //Read input data from SALT2 fit
   read_data(); 
-  // xxx mark  read_data_override();  // Nov 2020: e..g, replace VPEC, HOST_LOGMASS, etc ...
+
   compute_more_INFO_DATA();  
 
   if( INPUTS.cat_only ) 
@@ -4140,7 +4143,7 @@ void *MNCHI2FUN(void *thread) {
   int    ia, ib, ig, optmask_muerrsq ;
   int    dumpFlag_muerrsq=0, DUMPFLAG=0 ;
   int    USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
-  bool   set_fitwgt0;
+  bool   set_fitwgt0 = false ;
   MUZMAP_DEF  *CCPRIOR_MUZMAP ;
 
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
@@ -4214,8 +4217,6 @@ void *MNCHI2FUN(void *thread) {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
     if ( cutmask ) { continue; }
 
-    set_fitwgt0 = INFO_DATA.set_fitwgt0[n];
-
     // - - - - -
 
     INFO_DATA.mures[n]     = -999. ;
@@ -4240,7 +4241,7 @@ void *MNCHI2FUN(void *thread) {
     if ( USE_CCPRIOR ) { 
       PTOTRAW_Ia  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
     }
-    muBias_zinterp = INFO_DATA.muBias_zinterp[n] ; 
+
     muerrsq_last   = INFO_DATA.muerrsq_last[n] ;
     muerr_last     = INFO_DATA.muerr_last[n] ;
 
@@ -4250,26 +4251,31 @@ void *MNCHI2FUN(void *thread) {
 	    INFO_DATA.TABLEVAR.covmat_tot[n][ipar][ipar2] ; 
 	}
     }
+
+    if ( NDIM_BIASCOR > 0 ) {
+      muBias_zinterp = INFO_DATA.muBias_zinterp[n] ; 
+      set_fitwgt0    = INFO_DATA.set_fitwgt0[n];
             
-    for(ia=0; ia<MXa; ia++ ) {
-      for(ib=0; ib<MXb; ib++ ) {
-	for(ig=0; ig<MXg; ig++ ) {
+      for(ia=0; ia<MXa; ia++ ) {
+	for(ib=0; ib<MXb; ib++ ) {
+	  for(ig=0; ig<MXg; ig++ ) {
+	    
+	    MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
+	      INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
+	    if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
+	    
+	    for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
+	      FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
+		INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
+	      FITPARBIAS_ALPHABETA[ia][ib][ig].ERR[ipar] = 
+		INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].ERR[ipar] ; 
+	    } // end ipar
+	  }  // end ig
+	}    // end ib 
+      }     // end ia
+      fitParBias = INFO_DATA.fitParBias[n] ; 
+    } // end NDIM_BIASCOR if block
 
-	  MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
-	    INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
-	  if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
-
-	  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
-	    FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
-	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
-	    FITPARBIAS_ALPHABETA[ia][ib][ig].ERR[ipar] = 
-	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].ERR[ipar] ; 
-	  }
-	}
-      }
-    }
-    fitParBias = INFO_DATA.fitParBias[n] ; 
-      
     if ( z < 1.0E-8) { continue ; } // Jun 3 2013 (obsolete?)
 
     // fetch alpha,beta,gamma (include z-dependence)
@@ -4343,16 +4349,11 @@ void *MNCHI2FUN(void *thread) {
 
     // load muBias info into globals
 
-    INFO_DATA.muBias[n]     = muBias ;
-    INFO_DATA.muBiasErr[n]  = muBiasErr ;
-    INFO_DATA.muCOVscale[n] = muCOVscale ;
-
-    // xxx mark delete
-    /*if (strcmp(name,"2152219")==0 || strcmp(name,"15400444")==0) { 
-	printf("xxx %s cid=%s m=%.1f c=%.2f covscale=%f\n",fnam,name,logmass,c,muCOVscale); 
-	fflush(FP_STDOUT);
-	}*/
-
+    if ( NDIM_BIASCOR ) {
+      INFO_DATA.muBias[n]     = muBias ;
+      INFO_DATA.muBiasErr[n]  = muBiasErr ;
+      INFO_DATA.muCOVscale[n] = muCOVscale ;
+    }
 
     // zero out muBiasErr after storing it, since adding this
     // would contradict the muCOVscale correction.
@@ -4370,8 +4371,6 @@ void *MNCHI2FUN(void *thread) {
       muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
     }
 
-    // xxx mark delete jun 2021  
-    // xxxx    muerrsq  += ( muBiasErr*muBiasErr); 
 
     muerr     = sqrt(muerrsq);	
     // ------------------------
@@ -5670,10 +5669,15 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
   // opt < 0 --> free
   //
   // Jan 22 2021: malloc set_fitwgt0
+  // Jun 29 2021: check nfile_biasCor for biascor-dependent mallocs
 
-  int EVENT_TYPE = EVENT_TYPE_DATA;
-  int MEMD, MEMI, MEMB, MEMTOT=0 ;
+  int nfile_biasCor = INPUTS.nfile_biasCor ;
+  int EVENT_TYPE    = EVENT_TYPE_DATA;
+  int MEMD, MEMI, MEMB, i_mem, N_MEM=0;
+  long long MEMTOT=0 ;
   float f_MEMORY = 0.0 ;
+  float f_MEM[10];
+  char  COMMENT_MEM[10][80];
   char fnam[] = "malloc_INFO_DATA";
 
   // ------------- BEGIN --------------
@@ -5683,7 +5687,8 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
   if ( opt > 0 ) {
 
     // start with generic malloc to read any FITRES file
-    f_MEMORY = malloc_TABLEVAR(opt, LEN_MALLOC, &INFO_DATA.TABLEVAR);
+    f_MEM[N_MEM] = malloc_TABLEVAR(opt, LEN_MALLOC, &INFO_DATA.TABLEVAR);
+    sprintf(COMMENT_MEM[N_MEM], "TABLEVAR");	  N_MEM++;
 
     CUTMASK_POINTER[EVENT_TYPE]         = &INFO_DATA.TABLEVAR.CUTMASK[0];
     NALL_CUTMASK_POINTER[EVENT_TYPE]    = &INFO_DATA.TABLEVAR.NSN_ALL;
@@ -5700,36 +5705,53 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.mu             = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muerr          = (double*) malloc(MEMD); MEMTOT+=MEMD; 
     INFO_DATA.muerr_raw      = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.muerr_vpec     = (double*) malloc(MEMD); MEMTOT+=MEMD; // 11.2020
+    INFO_DATA.muerr_vpec     = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.mures          = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.mupull         = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muerr_last     = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muerrsq_last   = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.sigCC_last     = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.sqsigCC_last   = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.muCOVscale     = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.chi2           = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.probcc_beams   = (double*) malloc(MEMD); MEMTOT+=MEMD;
-    INFO_DATA.set_fitwgt0    = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
-    f_MEMORY += (float)(MEMTOT/1.0E6) ;
 
-    // fitParBias[isn][ipar] to allow passing mB,x1,c via array
-    f_MEMORY += malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, 
-				&INFO_DATA.fitParBias ); // <== returned
+    if ( nfile_biasCor > 0 ) {
+      INFO_DATA.muCOVscale     = (double*) malloc(MEMD); MEMTOT+=MEMD;
+      INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
+      INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
+      INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
+      INFO_DATA.set_fitwgt0    = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
+    }
 
-    f_MEMORY += malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
-					    &INFO_DATA.FITPARBIAS_ALPHABETA );
+    f_MEM[N_MEM] = (float)(MEMTOT/1.0E6);
+    sprintf(COMMENT_MEM[N_MEM], "INFO_DATA");  N_MEM++;
 
-    // MUCOVSCALE_AB[isn][ia][ib][ig]
-    f_MEMORY += malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
-				&INFO_DATA.MUCOVSCALE_ALPHABETA ); //<==return
-    
+    if ( nfile_biasCor > 0 ) {
+      // fitParBias[isn][ipar] to allow passing mB,x1,c via array
+      f_MEM[N_MEM] = malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, 
+				     &INFO_DATA.fitParBias ); // <== returned
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.fitparBias");  N_MEM++;
 
-    INFO_DATA.MEMORY = f_MEMORY;
-    fprintf(FP_STDOUT, "\t %s: %6.3f MB \n", fnam, f_MEMORY); 
+      f_MEM[N_MEM] = 
+	malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
+				    &INFO_DATA.FITPARBIAS_ALPHABETA );
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.FITPARBIAS_AB");  N_MEM++;
+
+      // MUCOVSCALE_AB[isn][ia][ib][ig]
+      f_MEM[N_MEM] = 
+	malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
+			&INFO_DATA.MUCOVSCALE_ALPHABETA ); //<==return
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.MUCOVSCALE");  N_MEM++; 
+    }
+
+    for(i_mem=0; i_mem < N_MEM; i_mem++ ) {
+      f_MEMORY += f_MEM[i_mem];
+      fprintf(FP_STDOUT, "\t %s: allocate %7.3f MB for %s\n", 
+	      fnam, f_MEM[i_mem], COMMENT_MEM[i_mem] );
+    }
+
+    INFO_DATA.MEMORY = f_MEMORY;   // .xyz
+    fprintf(FP_STDOUT, "\t %s:   TOTAL  %7.3f MB \n\n", fnam, f_MEMORY); 
     fflush(FP_STDOUT);
   }
   else {
@@ -6309,7 +6331,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   //int IS_BIASCOR = (EVENT_TYPE == EVENT_TYPE_BIASCOR);
   //  int IS_CCPRIOR = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
 
-
   int MEMF    = LEN_MALLOC  * sizeof(float);
   int MEMI    = LEN_MALLOC  * sizeof(int);
   int MEMS    = LEN_MALLOC  * sizeof(short int);
@@ -6325,7 +6346,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   if ( DOBIAS_MU ) { NLCPAR_LOCAL++ ; }
 
   bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
-  int long long MEMTOT=0;
+  long long MEMTOT=0;
   float f_MEMTOT;
   int  i, isn, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
   char fnam[] = "malloc_TABLEVAR" ;
@@ -6398,7 +6419,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->OPT_PHOTOZ    = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->IS_PHOTOZ     = (bool      *) malloc(MEMB); MEMTOT+=MEMB;
     TABLEVAR->IZBIN         = (short int *) malloc(MEMS); MEMTOT+=MEMS;
-    TABLEVAR->CUTMASK       = (int *) malloc(MEMI); MEMTOT+=MEMI;
+    TABLEVAR->CUTMASK       = (int *)       malloc(MEMI); MEMTOT+=MEMI;
 
     TABLEVAR->ICUTWIN_GAMMA       = -9 ;
     TABLEVAR->ICUTWIN_VARNAME_PIA = -9 ;
@@ -6580,7 +6601,7 @@ float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC,
   int MEMa  = sizeof(FITPARBIAS_DEF**)  * MXa ;
   int MEMb  = sizeof(FITPARBIAS_DEF*)   * MXb ;
   int MEMg  = sizeof(FITPARBIAS_DEF )   * MXg ;
-  int MEMTOT = 0 ;
+  long long MEMTOT = 0 ;
   float f_MEMTOT;
   char fnam[] = "malloc_FITPARBIAS_ALPHABETA" ;
   // ----------- BEGIN ----------
@@ -6626,7 +6647,7 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
   // Created Jun 11 2019
   // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
   float f_MEMTOT = 0.0 ;
-  int MEMTOT=0, i1 ;
+  long long MEMTOT=0, i1 ;
   int MEM1 = LEN1 * sizeof(double*); 
   int MEM2 = LEN2 * sizeof(double);
   char fnam[] = "malloc_double2D";
@@ -7516,6 +7537,7 @@ void compute_more_INFO_DATA(void) {
   // Jan 2021: init set_fitwgt0[isn] = false
 
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int nfile_biasCor = INPUTS.nfile_biasCor ;
   double *ptr_sigCC = &INPUTS.parval[IPAR_H11+3];
   double muerrsq, sigCC, zhd, zmuerr, cov, covmat_tot[NLCPAR][NLCPAR] ;
   int    isn, CUTMASK, i, i2 ;
@@ -7556,7 +7578,9 @@ void compute_more_INFO_DATA(void) {
     INFO_DATA.sigCC_last[isn]    = sigCC ;
     INFO_DATA.sqsigCC_last[isn]  = sigCC * sigCC ;
 
-    INFO_DATA.set_fitwgt0[isn]   = false; // Jan 2021
+    if ( nfile_biasCor > 0 ) {
+      INFO_DATA.set_fitwgt0[isn]   = false; // Jan 2021
+    }
   }
 
   return;

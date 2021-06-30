@@ -6325,6 +6325,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   //
   // Functions returns memory allocated in Mega-bytes
   //
+  // Jun 30 2021: fix bug summing memory from malloc_float3D; see f_MEM
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = (EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6347,7 +6348,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
   bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   long long MEMTOT=0;
-  float f_MEMTOT;
+  float f_MEMTOT, f_MEM ;
   int  i, isn, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
   char fnam[] = "malloc_TABLEVAR" ;
 
@@ -6379,10 +6380,12 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     // Note that this array cannot be read or passed as ISN-array,
     // but it can be passed as 2D array to functions.
 
-    MEMTOT += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
-			     &TABLEVAR->covmat_fit );
-    MEMTOT += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
-			     &TABLEVAR->covmat_tot );
+    f_MEM = 0.0;
+    f_MEM += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
+			    &TABLEVAR->covmat_fit );
+    f_MEM += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
+			    &TABLEVAR->covmat_tot );
+    MEMTOT += (int)(f_MEM * 1.0E6); // convert MB back to bytes (Jun 2021)
 
     if ( IDEAL ) { 
       TABLEVAR->x0_ideal = (float *) malloc(MEMF); MEMTOT+=MEMF;

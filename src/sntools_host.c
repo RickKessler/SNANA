@@ -556,6 +556,18 @@ void  checkAbort_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  if (INPUTS.HOSTLIB_MNINTFLUX_SNPOS < 0) {
+    sprintf ( c1err, "Cannot have negative value for");
+    sprintf ( c2err, "HOSTLIB_MNINTFLUX_SNPOS");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if (INPUTS.HOSTLIB_MNINTFLUX_SNPOS > INPUTS.HOSTLIB_MXINTFLUX_SNPOS) {
+    sprintf ( c1err, "Cannot have HOSTLIB min sep > max sep");
+    sprintf ( c2err, "MNINTFLUX_SNPOS > MXINTFLUX_SNPOS");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
 
   return ;
 } // end checkAbort_HOSTLIB
@@ -4706,8 +4718,8 @@ void readme_HOSTLIB(void) {
   }
 
   cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr,"GALPOS generated with %5.4f of total flux.",
-	  INPUTS.HOSTLIB_MXINTFLUX_SNPOS);
+  sprintf(cptr,"GALPOS generated with %5.4f -- %5.4f of total flux.",
+	  INPUTS.HOSTLIB_MNINTFLUX_SNPOS, INPUTS.HOSTLIB_MXINTFLUX_SNPOS);
 
 
   // print out list of aperture radii
@@ -6088,7 +6100,10 @@ void GEN_SNHOST_POS(int IGAL) {
   // To limit very distant SN from the long Sersic tails,
   // 'MXINTFLUX_SNPOS' of the integrated flux is used to
   // determine the reduced radius.
-  RanInteg    = Ran1 * INPUTS.HOSTLIB_MXINTFLUX_SNPOS ;
+  //
+  //XXX DELETE RanInteg    = Ran1 * INPUTS.HOSTLIB_MXINTFLUX_SNPOS ;
+  //GN - added min int flux to allow min offset from host center
+  RanInteg    = INPUTS.HOSTLIB_MNINTFLUX_SNPOS + Ran1 * (INPUTS.HOSTLIB_MXINTFLUX_SNPOS - INPUTS.HOSTLIB_MNINTFLUX_SNPOS) ;
   ptr_r       = SERSIC_TABLE.reduced_logR ;  
   ptr_integ0  = SERSIC_TABLE.INTEG_CUM[k_table] ;
   ptr_integ1  = SERSIC_TABLE.INTEG_CUM[k_table+1] ;

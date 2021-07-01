@@ -1014,6 +1014,7 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_USE    = 0;
   INPUTS.HOSTLIB_MSKOPT = 0;
   INPUTS.HOSTLIB_MAXREAD     = 1000000000 ; // default is 1 billion
+  INPUTS.HOSTLIB_MNINTFLUX_SNPOS = 0.00 ;  // use 0% as the minimum limit for SNPOS
   INPUTS.HOSTLIB_MXINTFLUX_SNPOS = 0.99 ;  // use 99% of total flux for SNPOS
   INPUTS.HOSTLIB_GALID_NULL      = -9;     // value for no host
   INPUTS.HOSTLIB_GALID_PRIORITY[0]  = 0 ;
@@ -3127,6 +3128,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_MINDAYSEP_SAMEGAL",WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL);
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MNINTFLUX_SNPOS",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MNINTFLUX_SNPOS);
   }
   else if ( keyMatchSim(1, "HOSTLIB_MXINTFLUX_SNPOS",WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MXINTFLUX_SNPOS);

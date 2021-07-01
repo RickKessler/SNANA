@@ -464,6 +464,7 @@ struct INPUTS {
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
   int  HOSTLIB_GALID_PRIORITY[2] ;    // preferentially select this GALID range
   int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal  
+  float  HOSTLIB_MNINTFLUX_SNPOS; // gen SNPOS greater than this flux-fraction (.00)
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR

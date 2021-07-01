@@ -37,6 +37,9 @@
    + MXCHAR_LINE_HOSTLIB -> 800 (was 600)
    + define MXCHAR_LINE_APPEND
 
+ Jul 1 2021
+   + MXWGT_HOSTLIB -> 20 million (was 500,000) for GHOST [tested by AG]
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -63,7 +66,7 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXWGT_HOSTLIB     500000  // max number of WGT: keys
+#define MXWGT_HOSTLIB     20000000  // max size of wgtmap
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file

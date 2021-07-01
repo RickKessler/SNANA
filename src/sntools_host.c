@@ -4929,8 +4929,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // Note that ZGEN_HELIO is the desired host HELIOCENTRIC redshift,
   // which could be different than SN redshift if GENLC.CORRECT_HOSTMATCH=0.
   //
-  // Check new FIXRAN_RADIUS and FIXRAN_PHI options
-  // July 2015: add PEAKMJD arg to allow re-using host after MINDAYSEP
   //
   // Jan 31 2020: 
   //  little more refactor to use DDLR sorting. Note that 
@@ -6035,14 +6033,12 @@ void GEN_SNHOST_POS(int IGAL) {
   crot   = cos(a_rot*RAD);
   srot   = sin(a_rot*RAD); 
 
-
   // for SIMLIB model, use already defined RA,DEC in SIMLIB header
   if ( INDEX_GENMODEL == MODEL_SIMLIB && !DEBUG_MODE_SIMLIB ) {
     SIMLIB_SNHOST_POS(IGAL, &SNHOSTGAL.SERSIC, 0 );
     DLR = 99999.0 ;
     goto SNSEP_CALC ;
   }
-
 
   // strip off random numbers to randomly generate a host-location
   Ran0  = SNHOSTGAL.FlatRan1_radius[0] ;
@@ -6057,14 +6053,6 @@ void GEN_SNHOST_POS(int IGAL) {
     if ( WGT >= Ran0 && JPROF < 0 ) { JPROF = j ; }
   }
 
-  /* xxx mark delete May 12 2020 (redundant ) xxxxxx
-  double WGTMAX = SNHOSTGAL.SERSIC.wsum[NPROF-1] ;
-  if ( fabs(WGTMAX-1.0) > 1.0E-10 ) {
-    sprintf(c1err,"Max WGT = %le != 1 ", WGTMAX );
-    sprintf(c2err,"Something wrong for GALID=%lld", SNHOSTGAL.GALID );	    
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  xxxxxxx */
 
   // bail if we cannot pick a Sersic profile.
   if ( JPROF < 0 ) {

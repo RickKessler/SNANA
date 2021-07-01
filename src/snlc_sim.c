@@ -3016,6 +3016,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // May 04 2021: restore +HOSTMAGS and +HOSTNBR 
   // Jun 02 2021: add calls to check_arg_len
   // Jun 17 2021: restore SEPNBR_MAX & NNBR_WRITE_MAX
+  // Jul 01 2021: read forgotten INPUTS.HOSTLIB_MAXDDLR
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -3142,6 +3143,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 			WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR );
   }
   else if ( keyMatchSim(1, "HOSTLIB_SBRADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SBRADIUS );

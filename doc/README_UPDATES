@@ -20137,7 +20137,8 @@
    sntools.c
      + fix hash_table_def to declare name[20] instead of name[10];
         name[10] was stopping matches for long CID lengths.
- 
+     + for large GRIDMAP, print update every 500,000 rows.
+
    SALT2mu.c
      + implement interp_biascor_logmass option for muCOVscale
          (to work same way as for biasCor)

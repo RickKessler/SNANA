@@ -28,6 +28,11 @@
 # Jun 14 2021: refactor using argparse and allow --snana_dir arg
 #              to point to arbitrary user code.
 #
+# Jul 01 2021:
+#   + write $HOST to HOST_MONITOR.INFO
+#   + increas batch time from 20min to 1hr in case of batch delay
+#
+
 import os, sys, datetime, shutil, time, glob
 import subprocess, argparse
 
@@ -38,6 +43,7 @@ import subprocess, argparse
 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS']
+HOST             = os.environ['HOST']
 TASK_DIR         = f"{SNANA_TESTS_DIR}/tasks"
 INPUT_DIR        = f"{SNANA_TESTS_DIR}/inputs"
 LOG_TOPDIR       = f"{SNANA_TESTS_DIR}/logs"
@@ -50,7 +56,7 @@ RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = f"{LOG_TOPDIR}/STOP"
 MEMORY                  = 2000   # Mb
-WALLTIME_MAX            = "00:20:00"    # 20 minutes (Jan 27 2021)
+WALLTIME_MAX            = "01:00:00"    # 1 hr to allow queue delay
 
 # ========================================================
 def parse_args():
@@ -949,9 +955,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
             cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; " \
                       f"{cmd_job}"
 
-#        print(' 0. xxx -------------------- ')
-#        print(' 1. xxx prep sed ... ' )
-        # constrruct sed command to replace strings in batch-template
+        # construct sed command to replace strings in batch-template
         cmd_sed  = 'sed  '
         cmd_sed += f"-e 's/REPLACE_NAME/CodeTest_CPU{cpunum:03d}/g' "
         cmd_sed += f"-e 's/REPLACE_LOGFILE/{batch_logfile}/g' "
@@ -1140,6 +1144,11 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
     REFTEST = INPUTS.REFTEST
     NTASK   = SUBMIT_INFO["NTASK"]
     LOGDIR  = SUBMIT_INFO["LOGDIR"]
+
+    # July 2021: write login HOST in case we forget later
+    host_info_file = f"{LOGDIR}/HOST_MONITOR.INFO"
+    with open(host_info_file,"wt") as f:
+        f.write(f"HOST: {HOST}    # monitor task runs here\n")
 
     print(f"\n Begin monitor of {NTASK} {REFTEST} tasks")
 

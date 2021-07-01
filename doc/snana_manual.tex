@@ -3905,16 +3905,15 @@ See \S\ref{sss:hostlib_wgtmap} for details about the WGTMAP.
 \caption{  Example \hostlib\ for the \snana\ simulation. }
 \label{fig:hostlib}
 \begin{Verbatim}[frame=single]
-NVAR: 15  # obsolete key starting at SNANA version v10_70
 VARNAMES: GALID RA_GAL DEC_GAL ZTRUE ZERR  u_obs g_obs r_obs i_obs z_obs
-          n0_Sersic  a0_Sersic  b0_Sersic  a_rot  ZPHOTFLAG
+          r_ABS n0_Sersic  a0_Sersic  b0_Sersic  a_rot  ZPHOTFLAG
 
 n0_Sersic: 0.5    # optional: fix sersic index for each host
                   # Note that n0_Sersic can be defined only once;
                   # either among the VARNAMES or here.
 
 OPT_EXTRAP_WGTMAP: 1  # option to bring out-of-range values to grid edge
-VARNAMES_WGTMAP: r_obs  WGT  SNMAGSHIFT
+VARNAMES_WGTMAP: r_ABS  WGT  SNMAGSHIFT
 WGT:  -25.0  1.2  -0.05
 WGT:  -23.0  1.0  -0.05
 WGT:  -21.0  0.8  -0.05
@@ -3923,10 +3922,10 @@ WGT:  -17.0  0.4  +0.05
 WGT:  -15.0  0.2  +0.05
 
 GAL:   2940448741  52.67432  -27.17716   0.3964    0.0828    99  
-       22.06580    20.99990  20.65600  20.33090  0.50  0.99290  
+       22.06580    20.99990  20.65600  20.33090  -21.43 0.50  0.99290  
        0.73811  154.40625  1
 GAL:   2940535300  52.67437   -28.42170   0.7860    0.0580    99    
-       25.78030    23.14940    22.06930   21.49040  0.50   1.14660  
+       25.78030    23.14940    22.0693   21.4904  -22.98 0.50   1.14660  
        0.51003     77.85583  1
 etc ...
 \end{Verbatim}
@@ -4781,8 +4780,8 @@ to {\tt NON1ASED} and {\tt NON1AGRID} models.
 \label{subsec:DNDB}
 % ------------------------------------
 
-For the {\tt LCLIB} model, the rate is defined as a function
-of Galactic $b$-coordinates,
+For the {\tt LCLIB} model, the relative rate is defined as a 
+function of Galactic $b$-coordinates,
 \begin{verbatim}
    DNDB:  COSBPOLY  b0,b1,b2,,,,bN     # Nth order polynomial in cos(b)
    DNDB:  COSBPOLY  b0 b1 b2 b3 b4 b5  # legacy input for 5th order polynom
@@ -4798,13 +4797,13 @@ of Galactic $b$-coordinates,
 which defines the $b$-dependence with an $N'th$-order
 polynomial function of $\cos(b)$ or $b$.
 The absolute number of generated events is given by
-{\tt NGENTOT\_LC}.  {\bf\it Beware} of the following:
+{\tt NGENTOT\_LC}.  {\it Beware} of the following:
 \vspace{-0.4cm}
 \begin{itemize}[noitemsep]
-  \item the requested $b$-profile is realized only if the {\tt SIMLIB} 
-          coordinates have isotropic distribution.
-  \item For highly anisotropic profiles, set {\tt SIMLIB\_NREPEAT} $\gg1$
-        for efficient generation.
+  \item {\tt DNDB} is a re-weight function applied to the {\tt SIMLIB} 
+         distribution. 
+  \item For isotropic {\tt SIMLIB} and highly anisotropic {\tt DNDB}
+        reweight, set {\tt SIMLIB\_NREPEAT} $\gg1$ for efficient generation.
 \end{itemize}
 
 With default ``{\tt SIMLIB\_NREPEAT: 1},'' the simulation randomly
@@ -4834,7 +4833,7 @@ If {\tt NREPEAT=0}, the \simlib\ entry is skipped.
 As an  example consider a $\cos^5(b)$ profile,
 \vspace{-0.2cm}
 \begin{verbatim}
-   DNDB:  COSBPOLY  0,0,0,0,1
+   DNDB:  COSBPOLY  0,0,0,0,0,1
 \end{verbatim}
 With default ``{\tt SIMGEN\_NREPEAT: 1}'' using each
 {\tt SIMLIB} entry once,
@@ -4850,7 +4849,7 @@ only a few {\tt SIMLIB} entries are sampled in this example.
 
 %\bigskip
 \clearpage
-The {\tt DNDB}-rate feature specifies a relative rate vs. $b$,
+The {\tt DNDB}-rate feature specifies a relative re-weight vs. $b$,
 but the simulation has no mechanism to normalize separate simulations
 of different sky regions. Here we describe how to determine
 the relative normalization using the 

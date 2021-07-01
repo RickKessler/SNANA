@@ -6315,6 +6315,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
   int   READ_NEXTLINE = 1 ;
   int   NROW_READ     = 0 ;
+  int   NROW_UPDATE   = 500000; // update reading after this many
   int   NVARTOT = NDIM + NFUN;
   char  *VARLIST = GRIDMAP_LOAD->VARLIST ; // for comment only
   double DUMVAL = -999.0 ;
@@ -6385,6 +6386,10 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
     if ( ISKEY_ROW ) {
       
+      if ( NROW_READ > 0 && (NROW_READ % NROW_UPDATE)==0 ) {
+	printf("\t Reading %s row %8d \n", MAPNAME, NROW_READ );
+      }
+
       NROW_SKIP = 0 ;
       // allow comment string on same line as grid data
       EXTRA_WORD_OK = 1 ;

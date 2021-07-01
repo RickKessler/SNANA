@@ -149,9 +149,13 @@ void INIT_HOSTLIB(void) {
   TIME_INIT_HOSTLIB[0]  = time(NULL);
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
+
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
+
+  // Jul 1 2021: require DOCANA in HOSTLIB and in WGTMAP
+  // soon ...  OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; 
 
   // check for spectral templates to determin host spectrum
   read_specTable_HOSTLIB();
@@ -854,13 +858,6 @@ void open_HOSTLIB(FILE **fp) {
   char fnam[] = "open_HOSTLIB" ;
 
   // ----------- BEGIN ----------
-
-  /* xxxx mark delete 
-  char vartmp[] = "g_obs";
-  int colnum = colnum_in_table(INPUTS.HOSTLIB_FILE,vartmp);
-  printf(" xxx %s: colnum = %d for  %s \n", fnam, colnum, vartmp);
-  debugexit(fnam);
-  xxxxxxxxxxxxxxxxxx */
 
   *fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			   PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,

@@ -20141,5 +20141,8 @@
    SALT2mu.c
      + implement interp_biascor_logmass option for muCOVscale
          (to work same way as for biasCor)
+     + suppress unecessary INFO_DATA mallocs if no biasCor.
 
+   snana.car
+     + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
 END: 

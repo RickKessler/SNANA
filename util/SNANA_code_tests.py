@@ -43,8 +43,6 @@ import subprocess, argparse
 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS']
-HOST             = os.environ['HOST']
-HOSTNAME         = os.environ['HOSTNAME']
 TASK_DIR         = f"{SNANA_TESTS_DIR}/tasks"
 INPUT_DIR        = f"{SNANA_TESTS_DIR}/inputs"
 LOG_TOPDIR       = f"{SNANA_TESTS_DIR}/logs"
@@ -1148,6 +1146,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     # July 2021: write login HOST in case we forget later
     host_info_file = f"{LOGDIR}/HOST_MONITOR.INFO"
+    HOSTNAME         = os.environ['HOSTNAME']
     with open(host_info_file,"wt") as f:
         f.write(f"HOST: {HOSTNAME}    # monitor task runs here\n")
 

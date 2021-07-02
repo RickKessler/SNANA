@@ -20146,4 +20146,6 @@
 
    snana.car
      + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
+     + MXLEN_EPSTRING -> 40k (was 20k) to read Roman with synthetic bands.
+
 END: 

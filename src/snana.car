@@ -360,6 +360,7 @@ c Sep 9, 2010: Pulled out of SNDATACOM
       CHARACTER
      &   SNDATA_ROOT*(MXCHAR_PATH)
      &  ,SNANA_DIR*(MXCHAR_PATH)
+     &  ,HOST_MACHINE*(MXCHAR_PATH)     ! name of host machine
      &  ,SNDATA_PATH*(MXCHAR_PATH)      ! subdir with data or sim files
      &  ,SNLIST_FILE*(MXCHAR_FILENAME)  ! input list of SNDATA Files
      &  ,SNREADME_FILE(MXVERS)*(MXCHAR_FILENAME)   ! name of EVERY README file
@@ -371,7 +372,7 @@ c Sep 9, 2010: Pulled out of SNDATACOM
       LOGICAL LFLAG_RDHEAD_ONLY
 
       COMMON / SNFILECOM / 
-     &   SNDATA_ROOT, SNANA_DIR, SNLIST_FILE
+     &   SNDATA_ROOT, SNANA_DIR, HOST_MACHINE, SNLIST_FILE
      &  ,SNDATA_FILE_CURRENT
      &  ,GLOBAL_BANNER, SNDATA_PREFIX, SNREADME_FILE, SNDATA_PATH
      &  ,C1ERR, C2ERR, LFLAG_RDHEAD_ONLY
@@ -2302,7 +2303,7 @@ c max length of catenated strings from all epochs;
 c e.g., FIELD, TELESCOPE ...
 
       INTEGER MXLEN_EPSTRING
-      PARAMETER (MXLEN_EPSTRING = 20000 ) 
+      PARAMETER (MXLEN_EPSTRING = 40000 ) 
 
       INTEGER  
      &   RD_SNFITSIO_PREP
@@ -10586,8 +10587,8 @@ c +CDE,PARSECOM.
 +CDE,SPECCOM.
 
       INTEGER icut, i, ibit, itype, ipar, ifilt, LM,istat
-      INTEGER LL, LL_SNANA, NWD
-      CHARACTER ENVtemp*400, HOST*40, MACH*40, FNAM*12
+      INTEGER LL, LL_SNANA, NWD, LL_HOST
+      CHARACTER ENVtemp*400, MACH*40, FNAM*12
 
 c function
       INTEGER FILTINDX, EXEC_CIDMASK, STORE_PARSE_WORDS
@@ -10718,13 +10719,13 @@ c extract SNDATA_ROOT and SNANA_DIR  env variables
       
       CALL GETENV ( 'HOST',     ENVtemp )
       LL = INDEX ( ENVtemp , ' ' ) - 1
-      HOST = ENVtemp(1:LL)
+      HOST_MACHINE = ENVtemp(1:LL)
 
       CALL GETENV ( 'MACHTYPE', ENVtemp )     
       LM = INDEX ( ENVtemp , ' ' ) - 1
       MACH = ENVtemp(1:LM)
 
-      print*,'  HOST MACHINE = ', HOST(1:LL), 
+      print*,'  HOST MACHINE = ', HOST_MACHINE(1:LL), 
      &      '   (',MACH(1:LM),')'
 
       CALL GETENV ( 'SNDATA_ROOT', ENVtemp )
@@ -13312,7 +13313,7 @@ cc      print*,' xxx UNPACK: ', LENS, '|', STRING, '|'
      &       SNLC_CCID(1:ISNLC_LENCCID)
      &      ,KEYNAME(1:LK)
 
-61      format('NWD=',I3,' substrings, but expected NVAL=',I3)
+61      format('NWD=',I3,' substrings, but expected NVAL=',I4)
 62      format('CID=',A, 2x, 'KEYNAME=',A )
         CALL MADABORT('UNPACK_SNFITSIO_STR', c1err,c2err)
 

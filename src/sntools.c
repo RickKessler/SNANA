@@ -9228,6 +9228,7 @@ void init_GENSPEC_GLOBAL(void) {
 
 void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
+  
   char fnam[] = "init_GENSPEC_EVENT";
 
   //  printf(" xxx %s: ispec=%d NB=%d  last NB=%d\n",
@@ -9257,6 +9258,16 @@ void init_GENSPEC_EVENT(int ispec, int NBLAM) {
   GENSPEC.GENFLAM_LIST[ispec]  = (double*) malloc(MEMD);
   GENSPEC.GENMAG_LIST[ispec]   = (double*) malloc(MEMD);
   
+  // Jul 1 2021: init wave-dependent arrays in case they aren't filled
+  int ilam;
+  for(ilam=0; ilam < NBLAM; ilam++ ) {
+    GENSPEC.FLAM_LIST[ispec][ilam]     = -9.0 ;
+    GENSPEC.FLAMERR_LIST[ispec][ilam]  = -9.0 ;
+    GENSPEC.FLAMWARP_LIST[ispec][ilam] =  1.0 ;
+    GENSPEC.GENFLAM_LIST[ispec][ilam]  = -9.0 ;
+    GENSPEC.GENMAG_LIST[ispec][ilam]   = -9.0 ;
+  }
+
 } // end init_GENSPEC_EVENT
 
 

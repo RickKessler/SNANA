@@ -27480,6 +27480,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   //
   // July 16 2018: include BAND: key in output table for parsing
   //
+  // Jul 02 2021: malloc large MJDLIST arrays to avoid stack issues.
   // ----------------------------------
 
 #define MXSIMLIB_DUMP_STDOUT 50   // max simlib entries to screen-dump
@@ -27513,12 +27514,21 @@ void SIMLIB_DUMP_DRIVER(void) {
   float  MJDMIN4, MJDMAX4, RA4, DEC4 ;
 
   // SNcadenceFoM args
+
+  double 
+     *MJDLIST_ALL
+    ,*MJDLIST[MXFILTINDX]    // MJD list per band
+    ,*M5SIGLIST[MXFILTINDX]   // idem for M5sigma    
+    ;
+
+      /* xxx mark delete Jul 2 2021
   double 
      MJDLIST_ALL[MXEPSIM]   // all filters together 
     ,MJDLIST[MXFILTINDX][MXEPSIM_PERFILT]    // MJD list for one lib entry
     ,M5SIGLIST[MXFILTINDX][MXEPSIM_PERFILT]   // idem for M5sigma    
     ;
-  
+      xxxxxxxxx */
+
   double  MJDGAP_IGNORE = 50.0 ; // ignore Gaps (days) longer than this
   int Nobs;
   char ctmp[40], FIELDNAME[60] ;
@@ -27569,8 +27579,6 @@ void SIMLIB_DUMP_DRIVER(void) {
   init_GENLC();
 
   icut=0;
-
-
   icut++;
   SIMLIB_GENRANGE[icut][0] = INPUTS.GENRANGE_RA[0] ;
   SIMLIB_GENRANGE[icut][1] = INPUTS.GENRANGE_RA[1] ;
@@ -27627,6 +27635,14 @@ void SIMLIB_DUMP_DRIVER(void) {
   NROW_MJD = NROW = 0 ;
 
   fpdmp0 = fpdmp1 = NULL ;
+
+  // malloc local arrays
+  int MEMD = sizeof(double);
+  MJDLIST_ALL = (double*) malloc( MXEPSIM * MEMD);
+  for (ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+    MJDLIST[ifilt]   = (double*)malloc( MXEPSIM_PERFILT * MEMD);
+    M5SIGLIST[ifilt] = (double*)malloc( MXEPSIM_PERFILT * MEMD);
+  }
 
   // =======================================
   // open Dump SIMLIB to fitres-style file with 1 line per LIB
@@ -27742,7 +27758,6 @@ void SIMLIB_DUMP_DRIVER(void) {
 
       ZPTERR    = SIMLIB_OBS_GEN.ZPTERR[iep]; 
       if ( ZPTERR > ZPTERR_MAX ) { continue;} // exclude extreme variations
-
 
       if ( MJD < MJDMIN4 ) { MJDMIN4 = MJD ; }
       if ( MJD > MJDMAX4 ) { MJDMAX4 = MJD ; }

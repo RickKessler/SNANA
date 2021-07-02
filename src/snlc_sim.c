@@ -7250,8 +7250,6 @@ void init_simvar(void) {
 
   GENLC.MWEBV           = 0.0 ;
   GENLC.MWEBV_ERR       = 0.0 ;
-  GENLC.RA_LAST         = -999.0 ;
-  GENLC.DEC_LAST        = -999.0 ;
 
   GENLC.NTYPE_SPEC_CUTS = 0;
   GENLC.NTYPE_SPEC      = 0 ;
@@ -7610,8 +7608,15 @@ void  init_GENLC(void) {
   }
 
   // keep track of last coord to skip parts of gen_MWEBV
-  GENLC.RA_LAST   = GENLC.RA ;
-  GENLC.DEC_LAST  = GENLC.DEC ;
+  if ( NGENLC_TOT == 1 ) {
+    // no previous RA,DEC on 1st event
+    GENLC.RA_LAST         = -999.0 ;
+    GENLC.DEC_LAST        = -999.0 ;
+  }
+  else {
+    GENLC.RA_LAST   = GENLC.RA ;
+    GENLC.DEC_LAST  = GENLC.DEC ;
+  }
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // skip rest of init if we are going to use the same LIBID

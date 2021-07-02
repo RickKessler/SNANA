@@ -8367,6 +8367,11 @@ bool DO_GENSPEC(int imjd) {
   // - - - - - - - - 
 
   DO = (ACCEPT_FIELD && ACCEPT_PS) ;
+
+  // Jul 1 2021: set SKIP logical to account for pre-scale logic above.
+  //     -> used later for writing data.
+  if ( !DO ) { GENSPEC.SKIP[imjd] = true ; }
+
   return DO;
 
 } // end DO_GENSPEC

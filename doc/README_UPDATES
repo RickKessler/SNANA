@@ -20148,4 +20148,8 @@
      + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
      + MXLEN_EPSTRING -> 40k (was 20k) to read Roman with synthetic bands.
 
+   snlc_sim.c
+     + for pre-scaled spectra, fix logic to suppress rejected spectra
+       from output that have NLAM=0.
+
 END: 

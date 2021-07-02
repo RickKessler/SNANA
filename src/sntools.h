@@ -890,7 +890,9 @@ double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 
 // asymmetric gaussians
-double biGaussRan(double siglo, double sighi);  // rndm from bivariate guass
+double biGaussRan(double siglo, double sighi, double peakinterval);  // rndm from bivariate guass, now with support for flat top distributions
+
+double biGaussRan_LEGACY(double siglo, double sighi);  // rndm from bivariate guass, legacy
 
 double skewGaussRan(double rmin, double rmax, 
 		    double siglo, double sighi, double skewlo, double skewhi);

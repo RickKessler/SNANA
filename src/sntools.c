@@ -7357,7 +7357,8 @@ double FlatRan ( int ilist, double *range ) {
 
 
 // ****************************************
-double biGaussRan(double siglo, double sighi ) {
+
+double biGaussRan(double siglo, double sighi, double peakinterval ) {
 
   // Return random number from bifurcate gaussian
   // with sigmas = "siglo" and "sighi" and peak = 0.0
@@ -7395,6 +7396,48 @@ double biGaussRan(double siglo, double sighi ) {
   return biran ;
 
 } // end of biguassran
+
+// **********************************************
+
+double biGaussRan_LEGACY(double siglo, double sighi ) { 
+ 
+  // !!!! HEY YOU! Mark Legacy July 2 2021
+  // Return random number from bifurcate gaussian
+  // with sigmas = "siglo" and "sighi" and peak = 0.0
+  //
+  // Jan 2012: always pick random number to keep randoms synced.
+
+  double rr, rg, sigsum, plo, biran    ;
+
+    // ---------- BEGIN ------------
+
+
+  // pick random number to decide which half of the gaussian we are on
+  rr = FlatRan1(1) ;  // pick random number between 0 and 1
+
+  biran = 0.;
+
+  if ( siglo == 0.0 && sighi == 0.0 ) { return biran;  } 
+
+  sigsum = siglo + sighi ;
+  plo    = siglo / sigsum ;    // prob of picking lo-side gaussian
+
+  if ( sigsum <= 0.0 ) { return biran;  }
+
+
+  // pick random gaussian number; force it positive
+  rg = GaussRan(1);
+  if ( rg < 0.0 ) { rg = -1.0 * rg ; }  // force positive random
+
+  if ( rr < plo ) 
+    { biran = -rg * siglo;  }
+  else
+    { biran = +rg * sighi;  }
+
+
+  return biran ;
+
+} // end of biguassran_LEGACY
 
 // **********************************************
 double skewGaussRan(double xmin, double xmax, 
@@ -7474,7 +7517,7 @@ double skewGaussRan(double xmin, double xmax,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  x = biGaussRan(SIGLO_BBGF, SIGHI_BBGF);
+  x = biGaussRan(SIGLO_BBGF, SIGHI_BBGF, 0.);
   if ( x < xmin ) { goto PICKRAN ; }
   if ( x > xmax ) { goto PICKRAN ; }
 

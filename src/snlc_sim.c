@@ -11734,7 +11734,7 @@ void genran_modelSmear(void) {
   double sighi = (double)INPUTS.GENMAG_SMEAR[1] ;
   if ( fabs(siglo-sighi) > 1.0E-6 ) {
     sighi /= siglo ;      siglo /= siglo ;
-    GENLC.GENSMEAR_RANGauss_FILTER[0] = biGaussRan(siglo,sighi);
+    GENLC.GENSMEAR_RANGauss_FILTER[0] = biGaussRan(siglo,sighi, 0.);
   }
 
   // Now check for model with 100% correlation within a passband,

@@ -5626,7 +5626,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
     zpeak   = ZPHOTERR_ASYMGAUSS.PEAK;
     sigz_lo = ZPHOTERR_ASYMGAUSS.SIGMA[0] ;
     sigz_hi = ZPHOTERR_ASYMGAUSS.SIGMA[1] ;
-    *ZPHOT  = zpeak + biGaussRan(sigz_lo, sigz_hi );
+    *ZPHOT  = zpeak + biGaussRan(sigz_lo, sigz_hi, 0. );
 
     /*
     printf(" xxx zpeak=%.4f sig(-/+)=%.4f/%.4f  ZPHOT=%.3f \n",

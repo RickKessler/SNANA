@@ -31,6 +31,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->USE       = false ;
   genGauss->PEAK      = VAL ;
+  genGauss->PEAKRANGE[0] = VAL ;
+  genGauss->PEAKRANGE[1] = VAL ;
 
   genGauss->RANGE[0]  = VAL ;
   genGauss->RANGE[1]  = VAL ;
@@ -74,6 +76,7 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
     genGauss2->RANGE[i]  = genGauss1->RANGE[i] ;
     genGauss2->SIGMA[i]  = genGauss1->SIGMA[i] ;
     genGauss2->SKEW[i]   = genGauss1->SKEW[i] ;
+    genGauss2->PEAKRANGE[i]  = genGauss1->PEAKRANGE[i] ;
   }
 
   genGauss2->FUNINDEX = genGauss1->FUNINDEX ;
@@ -167,10 +170,12 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   //   + remove skewnormal (never worked)
   //   + return -9 if !USE
   // 
+  // July 2 2021 
+  // Implementing PEAKRANGE with Ric, Dillon, Brodie 
   
-  double peak, lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
+  double peak, peakrange[2], lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
   double gridsize, grid0;
-  int NTRY, DO_SKEWSIGMA, DO_GRID;
+  int NTRY, DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
   double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
@@ -201,6 +206,8 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     ran2 = FlatRan1(1) ;
     if ( ran2 < PROB2 ) {
       peak        = genGauss->PEAK2 ;
+      peakrange[0] = peak ;
+      peakrange[1] = peak ; 
       siglo       = genGauss->SIGMA2[0] ;
       sighi       = genGauss->SIGMA2[1] ;
       skewlo = skewhi = 0.0 ;
@@ -210,6 +217,8 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   if ( USE_PEAK1 ) {
     peak        = genGauss->PEAK ;
+    peakrange[0]   = genGauss->PEAKRANGE[0] ; 
+    peakrange[1]   = genGauss->PEAKRANGE[1] ;
     siglo       = genGauss->SIGMA[0] ;
     sighi       = genGauss->SIGMA[1] ;
     skewlo      = genGauss->SKEW[0] ;
@@ -248,8 +257,9 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   NTRY  = 0;
   sigmax = 10.*rangeDif ;
   DO_SKEWSIGMA  = ( fabs(skewlo)  > 1.0E-9 || fabs(skewhi) > 1.0E-9 ) ;
+  DO_PEAKRANGE  = (peakrange[1] - peakrange[0]) > 1.0E-12 ;
 
-  
+
   if ( LDMP ) {
     printf("\t xxx ----------------- %s ------------ \n", NAME);
     printf("\t xxx peak = %f \n", peak);
@@ -287,10 +297,15 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
       xhi = hi - peak ;
       ranval = peak + skewGaussRan(xlo,xhi,siglo,sighi,skewlo,skewhi); 
     }
-    else { 
-      ranval = peak + biGaussRan(siglo,sighi) ; 
+    else if ( DO_PEAKRANGE ) { //PROB = 1 extended over peak range
+      
+
     }
-    
+
+    else { //prob = 1 only at peak
+      ranval = peak + biGaussRan(siglo,sighi, 0.) ; 
+    }
+
     if ( ranval < lo ) { goto GENVAL;  } 
     if ( ranval > hi ) { goto GENVAL;  } 
   }
@@ -372,7 +387,19 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
 
   sprintf(KEYNAME, "GENPEAK_%s GENMEAN_%s",  VARNAME, VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
-    N++; sscanf(WORDS[N], "%le", &genGauss->PEAK );
+    double PEAK;
+    N++; sscanf(WORDS[N], "%le", &PEAK );
+    genGauss->PEAK = PEAK ; 
+    genGauss->PEAKRANGE[0] = PEAK ;
+    genGauss->PEAKRANGE[1] = PEAK ; 
+  }
+
+  //New GENPEAKRANGE stuff here
+
+  sprintf(KEYNAME, "GENPEAKRANGE_%s",  VARNAME, VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[0] );
+    N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[1] );
   }
 
   sprintf(KEYNAME, "GENSIGMA_%s",  VARNAME );

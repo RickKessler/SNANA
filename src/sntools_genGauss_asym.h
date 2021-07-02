@@ -11,6 +11,7 @@ typedef struct  {
   bool   USE;       // T -> values are set (Jun 11 2020)  
   char   NAME[80];  // name of variable  
   double PEAK ;     // peak prob
+  double PEAKRANGE[2]; // Range where PEAKPROB = 1 
   double SIGMA[2] ; // asymmetric Gaussian sigmas
   double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK|
   double RANGE[2] ; // allows truncation  

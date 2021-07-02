@@ -7250,6 +7250,9 @@ void init_simvar(void) {
 
   GENLC.MWEBV           = 0.0 ;
   GENLC.MWEBV_ERR       = 0.0 ;
+  GENLC.RA_LAST         = -999.0 ;
+  GENLC.DEC_LAST        = -999.0 ;
+
   GENLC.NTYPE_SPEC_CUTS = 0;
   GENLC.NTYPE_SPEC      = 0 ;
   GENLC.NTYPE_PHOT_CUTS = 0;
@@ -10798,9 +10801,7 @@ double gen_MWEBV(double RA, double DEC) {
   //  + if APPLYFLAG_MWEBV is true, compute FLUXCOR_MWEBV[ifilt]
   //
   // Feb 03 2021: pass RA,DEC as args so it can be called fron LCLIB
-  // Jul 02 2021: force NEWCOORD=T in case there is only 1 LIBID that repeats
-  //               (thanks Alex and Gautham for finding this)
-  //
+
 
   int    RANFLAG, OPT, NEWCOORD ;
   double EBV, MWXT_GaussRan ;
@@ -10839,8 +10840,7 @@ double gen_MWEBV(double RA, double DEC) {
     // modify MWEBV only if coordinates have changed
     // (since fetching MWEBV is slow)
 
-    // xxx mark delete  NEWCOORD = (RA != GENLC.RA_LAST || DEC != GENLC.DEC_LAST) ;
-    NEWCOORD = 1;
+    NEWCOORD = (RA != GENLC.RA_LAST || DEC != GENLC.DEC_LAST) ;
 
     if ( NEWCOORD ) 
       { modify_MWEBV_SFD(OPT, RA,DEC, &GENLC.MWEBV, &GENLC.MWEBV_ERR); }

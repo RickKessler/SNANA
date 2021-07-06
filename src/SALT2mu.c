@@ -21406,6 +21406,13 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
     }
   } // end loop over SALT2mu fit params
 
+  // July 6 2021
+  double sigint = FITINP.COVINT_PARAM_FIX ;
+  sprintf(tmpName, "%s", FITRESULT.PARNAME[IPAR_COVINT_PARAM]) ;
+  ERR = 0.0 ;
+  fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f +- %8.5f \n",
+	  tmpName, sigint, ERR );
+
   fflush(FP_OUT);
 
   // - - - - - - 

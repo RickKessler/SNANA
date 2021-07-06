@@ -298,8 +298,8 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
       ranval = peak + skewGaussRan(xlo,xhi,siglo,sighi,skewlo,skewhi); 
     }
     else if ( DO_PEAKRANGE ) { //PROB = 1 extended over peak range
-      
-
+      double peakrangeinterval = peakrange[1] - peakrange[0] ; 
+      ranval = peakrange[0] + biGaussRan(siglo,sighi, peakrangeinterval) ;
     }
 
     else { //prob = 1 only at peak

@@ -99,8 +99,8 @@
 #define DOT        "."
 
 // from Planck 2018 (installed June 8 2020)
-#define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
-#define  CMBapex_b  (double)48.253     // deg (DEC)
+#define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)
+#define  CMBapex_b  (double)48.253     // deg 
 #define  CMBapex_v  (double)369.82    // km/sec
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 

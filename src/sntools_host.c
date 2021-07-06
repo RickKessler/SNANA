@@ -107,6 +107,8 @@
 
  Apr 30 2021: abort on NaN; abort if synthetic band is in HOSTLIB.
 
+ Jul 6 2021: require DOCANA in HOSTLIB and WGTMAP
+
 =========================================================== */
 
 #include <stdio.h>
@@ -150,12 +152,14 @@ void INIT_HOSTLIB(void) {
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
 
+  /* xxxxxxxx mark delete Jul 6 2021 xxxxxx
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
+  xxxxxxx */
 
-  // Jul 1 2021: require DOCANA in HOSTLIB and in WGTMAP
-  // soon ...  OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; 
+  // Jul 6 2021: require DOCANA in HOSTLIB and in WGTMAP
+  OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; 
 
   // check for spectral templates to determin host spectrum
   read_specTable_HOSTLIB();

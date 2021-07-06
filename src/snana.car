@@ -4528,7 +4528,7 @@ C ----------- BEGIN ------------
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO", 
      &       ONE, STRING, DARRAY, OPT)
-      SNLC_zHELIO = SNGL(DARRAY(1))   ! xxx  + REDSHIFT_FINAL_SHIFT
+      SNLC_zHELIO = SNGL(DARRAY(1)) 
       SNLC_REDSHIFT = SNLC_zHELIO  ! used for LC fitting
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_HELIO_ERR", 
@@ -4540,7 +4540,7 @@ c - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL", 
      &       ONE, STRING, DARRAY, OPT)
-      SNLC_zCMB = SNGL(DARRAY(1))  ! xxxx + REDSHIFT_FINAL_SHIFT
+      SNLC_zCMB = SNGL(DARRAY(1))  !
 
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL_ERR", 
      &       ONE, STRING, DARRAY, OPT)
@@ -10031,6 +10031,10 @@ c Jun 21 2013: give big warning if IGNORE file is not created.
 c
 c Feb 26 2015: catenate each original README into final README.
 c
+c Jul 6 2021: don't write anything else to README so that 
+c             original DOCUMENTATION block appears at the top.
+c             (maybe later, call function to append yaml format)
+c
 c -------------
       IMPLICIT NONE
 
@@ -10050,6 +10054,9 @@ c call C function to close out the FITS files.
 
 c make README file and write basic info.
 
++SELF,IF=DELETE.
+
+c xxxxxxxx mark delete July 6 2021 xxxxxxxxx
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
 
       LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
@@ -10077,7 +10084,8 @@ c make README file and write basic info.
 
 500   FORMAT(A)
       CLOSE(LUNTMP)  ! close README file
-
+c xxxxxxxxxxx end mark xxxxxxx
++SELF.
 
 c --- catenate original README contents for each version --------
 
@@ -10087,6 +10095,8 @@ c first write formatted DUMP-statement.
 
          OPEN (LUNTMP, FILE = README_FILE, Access='append',Status='old')
 
++SELF,IF=DELETE.
+c xxx mark delete July 6 2021 xxxxxxxx
          write(LUNTMP,600)
          write(LUNTMP,600)
          write(LUNTMP,700)
@@ -10096,6 +10106,8 @@ c first write formatted DUMP-statement.
 600      format(' ')
 700      format('# ', 74('=') )
 701      format('# DUMP ORIGINAL README for ', A)
+x xxxxxxxxxxxxxxxxxxxx
++SELF.
 
          CLOSE(LUNTMP)  ! close README file
 

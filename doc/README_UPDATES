@@ -20121,6 +20121,8 @@
 
          ***** IMPORTANT(v11_02q) ***** 
 
+     + sim requires DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
+
          ***** USEFUL(v11_02q) ***** 
 
     + SALT2mu matches on CID_IDSURVEY to handle duplicate CID
@@ -20138,6 +20140,7 @@
      + fix hash_table_def to declare name[20] instead of name[10];
         name[10] was stopping matches for long CID lengths.
      + for large GRIDMAP, print update every 500,000 rows.
+     + add peakinterval arg to biGaussRan
 
    SALT2mu.c
      + implement interp_biascor_logmass option for muCOVscale
@@ -20151,5 +20154,11 @@
    snlc_sim.c
      + for pre-scaled spectra, fix logic to suppress rejected spectra
        from output that have NLAM=0.
+     + On 1st event set GENLC.RA_LAST = GENLC.DEC_LAST = -999 so that LIBID 
+       with  RA=DEC=0 results in NEWCOORD=T on 1st event for MWEBV calc.
+         (thanks Alex and Gautham for finding this bug with IDEAL sims)
+       Bug detail: RA[DEC]_LAST variables were not initialized, and
+       thus took values of zero ...so RA != RA_LAST was never satisfied.
+     + require DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
 
 END: 

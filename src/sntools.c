@@ -7362,11 +7362,15 @@ double biGaussRan(double siglo, double sighi, double peakinterval ) {
 
   // Return random number from bifurcate gaussian
   // with sigmas = "siglo" and "sighi" and peak = 0.0
+  // Peak Interval extends from 0 to 0 + peakinterval
+  // siglo extends below 0 
+  // sighi extends above peakinterval
   //
   // Jan 2012: always pick random number to keep randoms synced.
+  // July 6 2021 added peakinterval argument 
 
-  double rr, rg, sigsum, plo, biran    ;
-
+  double rr, rg, psum, biran, p[3]   ;
+  double BIGAUSSNORMCON = 1.25331413732 ;
     // ---------- BEGIN ------------
 
 
@@ -7377,21 +7381,36 @@ double biGaussRan(double siglo, double sighi, double peakinterval ) {
 
   if ( siglo == 0.0 && sighi == 0.0 ) { return biran;  } 
 
-  sigsum = siglo + sighi ;
-  plo    = siglo / sigsum ;    // prob of picking lo-side gaussian
+  psum = (siglo + sighi) * BIGAUSSNORMCON + peakinterval ;
+  p[0] = (siglo * BIGAUSSNORMCON) / psum ;
+  p[1] = p[0] + peakinterval / psum ; 
+  p[2] = p[1] + (sighi * BIGAUSSNORMCON) / psum ; 
+  //printf("XXXX p[2] = %f \n", p[2]) ;
 
-  if ( sigsum <= 0.0 ) { return biran;  }
+  // sigsum = siglo + sighi ; XXX mark for delete
+  // plo    = siglo / sigsum ;    // prob of picking lo-side gaussian
 
+  // if ( sigsum <= 0.0 ) { return biran;  }
 
-  // pick random gaussian number; force it positive
-  rg = GaussRan(1);
-  if ( rg < 0.0 ) { rg = -1.0 * rg ; }  // force positive random
+  //bool useGauss_lo = false ;
+  //bool useGauss_hi = false ; 
+  //bool use_peakinterval = false ; 
 
-  if ( rr < plo ) 
-    { biran = -rg * siglo;  }
-  else
-    { biran = +rg * sighi;  }
-
+  if (rr < p[0]) {
+    //useGauss_lo = true ; 
+    rg = GaussRan(1) ;
+    biran = -fabs(rg) * siglo ; 
+  }
+  else if (rr < p[1]) {
+    //use_peakinterval = true ;
+    rg = FlatRan1(1) ; 
+    biran = (peakinterval * rg) ; 
+  }
+  else {
+    //useGauss_hi = true ; 
+    rg = GaussRan(1) ; 
+    biran = +fabs(rg) * sighi + peakinterval ; 
+  }
 
   return biran ;
 

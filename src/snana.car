@@ -10052,10 +10052,12 @@ C ----------------- BEGIN ----------------
 c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
 
-c make README file and write basic info.
+c create README blank readme file
+
+      CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
+      CLOSE(LUNTMP)  ! close README file
 
 +SELF,IF=DELETE.
-
 c xxxxxxxx mark delete July 6 2021 xxxxxxxxx
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
 

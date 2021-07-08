@@ -20122,12 +20122,16 @@
          ***** IMPORTANT(v11_02q) ***** 
 
      + sim requires DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
+     + fix subtle SATL2mu bug related to chi2max cut (see details below)
 
          ***** USEFUL(v11_02q) ***** 
 
     + SALT2mu matches on CID_IDSURVEY to handle duplicate CID
           from different surveys.
 
+    + new sim input key GENPEAKRANGE_XXX to give flat top to asym Gauss.
+       Initial use is bounding function for SALT2mu SUBPROCES.
+       
          ***** MISCELLANEOUS(v11_02q) ***** 
 
    genmag_LCLIB: 
@@ -20147,9 +20151,16 @@
          (to work same way as for biasCor)
      + suppress unecessary INFO_DATA mallocs if no biasCor.
 
+     + when chi2max cut rejects events, call setup_zbins_fit()
+       for 2nd time to update NFIT(z), and check for z-bin drop-outs.
+       This fixes subtle bug if chi2max cut causes z-bin to be
+       empty; empty z-bin was still included in the fit.
+       Also fixes cosmetic bug for NFIT column in .M0DIF outfile.
+
    snana.car
      + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
      + MXLEN_EPSTRING -> 40k (was 20k) to read Roman with synthetic bands.
+     + add N_SNHOST_ZSPEC[PHOT] to output yaml file if OPT_YAML=1
 
    snlc_sim.c
      + for pre-scaled spectra, fix logic to suppress rejected spectra

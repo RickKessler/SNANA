@@ -2544,7 +2544,7 @@ void SALT2mu_DRIVER_EXEC(void) {
     prep_input_repeat();  // re-initialize a few things (May 2019)
   }
 
-  setup_zbins_fit();    // set z-bins for data and biasCor
+  // xxx setup_zbins_fit();    // set z-bins for data and biasCor
 
   FITRESULT.NCALL_FCN = 0 ;
   mninit_(&inf,&outf,&savef);
@@ -2554,6 +2554,8 @@ void SALT2mu_DRIVER_EXEC(void) {
 
   strcpy(text,"SALT2mu"); len = strlen(text);  
   mnseti_(text,len);    fflush(FP_STDOUT);
+
+  setup_zbins_fit();    // set z-bins
 
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
@@ -3349,7 +3351,10 @@ void applyCut_chi2max(void) {
   // and thus this is NOT the same as cutting on HR resids.
   //
   // Jan 22 2021: refactor to check for FITWGT0 option
-
+  //
+  // Jul 08 2021: if setbit_CUTMASK is called, call setup_zbins_fit()
+  //              to check for z-bin dropouts and update NFIT(z)
+  //
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
 
@@ -3363,7 +3368,7 @@ void applyCut_chi2max(void) {
   bool DOCUT_GLOBAL  = (iflag_chi2max & IFLAG_GLOBAL ) > 0 ;
 
   double chi2max ;
-  int len, icondn, n, cutmask, idsurvey;
+  int len, icondn, n, cutmask, idsurvey, NREJ=0 ;
   const int null=0 ;
   double chi2;
   bool FAILCUT;
@@ -3406,7 +3411,8 @@ void applyCut_chi2max(void) {
 
       if ( DOCUT_APPLY )  { 
 	fprintf(FP_STDOUT, "\t %s -> reject \n", str_chi2);
-	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);       
+	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);
+	NREJ++ ;
       }
       else {
 	// do NOT cut; instead, set fit wgt = 0 via MUERR -> huge number
@@ -3416,6 +3422,9 @@ void applyCut_chi2max(void) {
     } // end FAILCUT
     
   } // end n loop over SN
+
+
+  if ( NREJ > 0 ) { setup_zbins_fit(); }    // set z-bins
 
   fflush(FP_STDOUT);
  

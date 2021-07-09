@@ -450,6 +450,7 @@ class train_SALT3(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
+        CONFIG       = self.config_yaml['CONFIG']
         n_trainopt   = self.config_prep['n_trainopt'] 
         num_list     = self.config_prep['trainopt_num_list']
         arg_list     = self.config_prep['trainopt_arg_list'] 

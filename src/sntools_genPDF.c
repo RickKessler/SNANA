@@ -80,9 +80,11 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // -----------
 
   FILE *fp;
-  int gzipFlag, NMAP=0, NVAR=0, NITEM=0, NWORD=0, ivar, imap=-9, IDMAP=0, NDIM, NFUN, i ;
+  int gzipFlag,  NDIM, NFUN, i ;
+  int NMAP=0, NVAR=0, NITEM=0, NWORD=0, ivar, imap=-9, IDMAP=0;
   bool IGNORE_MAP ;
-  char c_get[60], fileName_full[MXPATHLEN], LINE[100], varName[60];
+  char c_get[60], fileName_full[MXPATHLEN];
+  char LINE[200], TMPLINE[200], varName[60];
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
   char fnam[]     = "init_genPDF";
@@ -156,8 +158,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     // check for asymmetric gaussian for alpha,beta
     if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
       fgets(LINE,100,fp);
-      sprintf(LINE,"%s %s",c_get,LINE);
-      splitString(LINE, " ", 100,          // inputs             
+      sprintf(TMPLINE,"%s %s", c_get, LINE);
+      splitString(TMPLINE, " ", 100,          // inputs             
 		  &NITEM, ptr_ITEMLIST );  // outputs
       NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2BETA);

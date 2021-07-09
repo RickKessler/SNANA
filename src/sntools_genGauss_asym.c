@@ -346,13 +346,16 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   printf("\n");
   printf("# ------------------------------------------- \n");
-  printf(" START %s  for '%s' (INDEX=%d) \n",
-	 fnam, genGauss->NAME, genGauss->FUNINDEX);
+  printf(" START %s  for '%s' (INDEX=%d, USE=%d) \n",
+	 fnam, genGauss->NAME, genGauss->FUNINDEX, genGauss->USE );
 
-  printf("\t PEAK = %.3f  \n", genGauss->PEAK);
+  printf("\t PEAK      = %.3f  \n", genGauss->PEAK);
+
+  ptrVal = genGauss->PEAKRANGE;  // Jul 9 2021 RK
+  printf("\t PEAKRANGE = %.3f, %.3f  \n", ptrVal[0], ptrVal[1] );
 
   ptrVal = genGauss->RANGE ;
-  printf("\t RANGE = %.3f to %.3f \n", 	ptrVal[0], ptrVal[1] );
+  printf("\t RANGE      = %.3f to %.3f \n", 	ptrVal[0], ptrVal[1] );
 
   ptrVal = genGauss->SIGMA; 
   printf("\t SIGMA(-/+) = %.3f / %.3f \n", ptrVal[0], ptrVal[1] );

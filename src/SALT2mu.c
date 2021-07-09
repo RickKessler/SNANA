@@ -2277,6 +2277,7 @@ int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(void);
 void SUBPROCESS_STORE_EBV(void);
+void SUBPROCESS_READ_SIMREF_INPUTS(void);
 void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
 void SUBPROCESS_OUTPUT_LOAD(void);
 void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
@@ -2329,17 +2330,18 @@ typedef struct {
 struct {
   bool  USE;
 
-  // INPUT_xxx are read directory from command line
+  // INPUT_xxx are read directly from command line
   char  *INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
   char  *INPUT_VARNAMES_GENPDF_STRING;
   char  *INPUT_CID_REWGT_DUMP ;
   char **INPUT_OUTPUT_TABLE ; 
+  char  *INPUT_SIMREF_FILE ; 
   int    INPUT_OPTMASK;    // e.g., write fitres file for debug
   int    N_OUTPUT_TABLE ;
   int    NEVT_SIM_PRESCALE ;   // tune sim prescale to fit this many
   int    INPUT_ISEED;         // random seed
   int    STDOUT_CLOBBER; // default=T ==> rewind FP_STDOUT each iter
-
+  
   // variables below are computed/extracted from INPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
@@ -2373,6 +2375,11 @@ struct {
   int    *NEVT_c ;
   double  RANGE_c[2], BIN_c, *SIM_c ;
   double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
+  // For bounding function info
+  bool ISFLAT_SIM ; //True -> all sim distributions are flat; else read bounding functions
+  GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
+  GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
+  GENGAUSS_ASYM_DEF GENGAUSS_RV ;
 } SUBPROCESS ;
 
 
@@ -15553,6 +15560,10 @@ int ppar(char* item) {
     s = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; // comma-sep list of varnames
     sscanf(&item[27],"%s",s); remove_quote(s); return(1);
   }
+  if ( uniqueOverlap(item,"SUBPROCESS_SIMREF_FILE=") ) {
+    s = SUBPROCESS.INPUT_SIMREF_FILE ; // Name/location of input file used to generate sim reference 
+    sscanf(&item[23],"%s",s); remove_quote(s); return(1);
+  }
   if ( uniqueOverlap(item,"SUBPROCESS_CID_REWGT_DUMP=") ) {
     s = SUBPROCESS.INPUT_CID_REWGT_DUMP ; // comma-sep list of SNIDs
     sscanf(&item[26],"%s",s); remove_quote(s); return(1);
@@ -20344,6 +20355,9 @@ void SUBPROCESS_MALLOC_INPUTS(void) {
   SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
     (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
+  SUBPROCESS.INPUT_SIMREF_FILE =
+    (char*) malloc( MXCHAR_FILENAME*sizeof(char) );
+
   SUBPROCESS.N_OUTPUT_TABLE = 0 ;
   SUBPROCESS.INPUT_OUTPUT_TABLE =  (char**) malloc( 10*sizeof(char*) );
   for(i=0; i < 10; i++ ) {
@@ -20354,7 +20368,8 @@ void SUBPROCESS_MALLOC_INPUTS(void) {
   SUBPROCESS.INPUT_FILES[0]          = 0;
   SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
   SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
-  
+  SUBPROCESS.INPUT_SIMREF_FILE[0] = 0;
+
     return ;
 } // end SUBPROCESS_MALLOC_INPUTS
 
@@ -20490,7 +20505,10 @@ void  SUBPROCESS_INIT(void) {
   // malloc logicals to keep/reject based on random re-wgt
   SUBPROCESS.KEEP_AFTER_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
-  if ( !ISDATA_REAL ) { SUBPROCESS_STORE_EBV(); } 
+  if ( !ISDATA_REAL ) { 
+    SUBPROCESS_STORE_EBV(); 
+    SUBPROCESS_READ_SIMREF_INPUTS();
+  } 
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
   fflush(stdout);
@@ -20659,6 +20677,68 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   return ;
 
 } // end  SUBPROCESS_INIT_RANFLAT
+
+// =======================================
+void SUBPROCESS_READ_SIMREF_INPUTS(void) { 
+  FILE *finp ; 
+  int GZIPFLAG, NITEM, i, NWORD ;
+  bool is_salt2, is_rv ; 
+  char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST, LINE[100] ; 
+  char *input_simref_file = SUBPROCESS.INPUT_SIMREF_FILE ;
+  char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
+  //BEGIN 
+  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2c, 0.0 );
+  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2x1, 0.0 );
+  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_RV, 0.0 );
+
+  if (IGNOREFILE(input_simref_file)) {
+    SUBPROCESS.ISFLAT_SIM = true ;
+    return ;
+  } 
+  SUBPROCESS.ISFLAT_SIM = false ; 
+
+  finp  = open_TEXTgz(input_simref_file, "rt", &GZIPFLAG);
+  if (!finp) {
+    sprintf(c1err,"Could not open input simref file:");
+    sprintf(c2err,"%s", input_simref_file);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+
+  }
+  ptr_ITEMLIST = (char**)malloc( 50*sizeof(char*));
+  for(i=0; i<50; i++) { ptr_ITEMLIST[i] = (char*)malloc(40*sizeof(char)); }
+
+  //for referencing names
+  //bool ISFLAT_SIM ; //True -> all sim distributions are flat; else read bounding functions
+  //GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
+  //GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
+  //GENGAUSS_ASYM_DEF GENGAUSS_RV ;
+
+  while (fscanf(finp, "%s", c_get) != EOF ) {
+    is_salt2 = ( strstr(c_get,"SALT2") != NULL ) ; 
+    is_rv = ( strstr(c_get,"RV") != NULL ) ;
+
+    // will need to add EBV later
+    if ( is_salt2 || is_rv ) {  // SALT2 or RV is in c_get
+      fgets(LINE,100,finp);
+      sprintf(LINE,"%s %s",c_get,LINE);
+      splitString(LINE, " ", 100,          // inputs
+                  &NITEM, ptr_ITEMLIST );  // outputs
+      NWORD = parse_input_GENGAUSS("SALT2c", ptr_ITEMLIST, KEYSOURCE_FILE,
+                                   &SUBPROCESS.GENGAUSS_SALT2c);
+      NWORD = parse_input_GENGAUSS("SALT2x1", ptr_ITEMLIST, KEYSOURCE_FILE,
+                                   &SUBPROCESS.GENGAUSS_SALT2x1);
+      NWORD = parse_input_GENGAUSS("RV", ptr_ITEMLIST, KEYSOURCE_FILE,
+                                   &SUBPROCESS.GENGAUSS_RV);
+    }
+  }
+  // .XYZ
+  fclose(finp) ; 
+  dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2c);
+  dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2x1);
+  dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_RV);
+  debugexit(fnam) ; 
+  return ; 
+} //END SUBPROCESS_READ_SIMREF_INPUTS
 
 
 // ========================================

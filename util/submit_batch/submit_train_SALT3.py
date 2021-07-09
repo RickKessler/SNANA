@@ -2,7 +2,10 @@
 # SALT3 training using saltshaker code from 
 #    https://arxiv.org/abs/2104.07795
 # 
-#
+# Jul 09 2021: 
+#   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
+#   to record extra surveys in SALT2.INFO file.      
+
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
@@ -35,6 +38,8 @@ KEY_WAVESHIFT      = "WAVESHIFT"
 KEY_LAMSHIFT       = "LAMSHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 KEY_CALIBSHIFT_LIST  = [ KEY_MAGSHIFT, KEY_WAVESHIFT, KEY_LAMSHIFT ]
+
+KEYS_SURVEY_LIST_SAME = ['SURVEY_LIST_SAMEMAGSYS', 'SURVEY_LIST_SAMEFILTER']
 
 # define prefix for files with calib shifts.
 PREFIX_CALIB_SHIFT   = "CALIB_SHIFT"  
@@ -471,6 +476,12 @@ class train_SALT3(Program):
             f.write(f"  - {model_dir}\n")
         f.write("\n")
 
+        for key in KEYS_SURVEY_LIST_SAME:
+            if key in CONFIG :
+                f.write(f"{key}:  {CONFIG[key]} \n")
+            else:
+                f.write(f"{key}:  [ ] \n")
+
         # write keys for SALT2.INFO to be read by SNANA code 
         # each row is
         #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
@@ -616,6 +627,9 @@ class train_SALT3(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
 
+        SURVEY_LIST_SAMEMAGSYS = submit_info_yaml['SURVEY_LIST_SAMEMAGSYS']
+        SURVEY_LIST_SAMEFILTER = submit_info_yaml['SURVEY_LIST_SAMEFILTER']
+
         if trainopt == f"{TRAINOPT_STRING}000" : return
 
         # read SNANA_SALT3_INFO from SUBMIT.INFO; this includes
@@ -624,7 +638,6 @@ class train_SALT3(Program):
 
         SALT3_INFO_FILE = f"{model_dir}/SALT3.INFO"
         print(f"\t Append calib info to {SALT3_INFO_FILE}")
-
 
         f = open(SALT3_INFO_FILE,"at")
         f.write(f"\n\n# Calibration shifts used in SALTshaker Training\n")
@@ -635,7 +648,19 @@ class train_SALT3(Program):
                 survey = row[2]
                 band   = row[3]
                 shift  = row[4]
-                f.write(f"{key}: {survey} {band} {shift} \n")
+                f.write(f"{key}: {survey:<10} {band} {shift} \n")
+
+                # write other surveys with same magsys (Jul 9 2021)
+                if key == KEY_MAGSHIFT:
+                    s_list  = SURVEY_LIST_SAMEMAGSYS
+                else:
+                    s_list  = SURVEY_LIST_SAMEFILTER
+
+                if survey in s_list :
+                    for s in filter(lambda s: s not in [survey], s_list):
+                        comment = f"same {key} as {survey}"
+                        f.write(f"{key}: {s:<10} {band} {shift}  " \
+                                f"  # {comment}\n")
         f.close()
 
         # end append_SALT2_INFO_FILE

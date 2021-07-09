@@ -20172,4 +20172,8 @@
        thus took values of zero ...so RA != RA_LAST was never satisfied.
      + require DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
 
+   submit_train_SALT3.py:
+      new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
+       (beware: copied code snippets from train_SALT2, but not tested)
+
 END: 

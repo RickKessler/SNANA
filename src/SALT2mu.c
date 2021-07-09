@@ -20683,7 +20683,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   FILE *finp ; 
   int GZIPFLAG, NITEM, i, NWORD ;
   bool is_salt2, is_rv ; 
-  char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST, LINE[100] ; 
+  char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST, LINE[200] ; 
   char *input_simref_file = SUBPROCESS.INPUT_SIMREF_FILE ;
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
   //BEGIN 
@@ -20716,13 +20716,19 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   while (fscanf(finp, "%s", c_get) != EOF ) {
     is_salt2 = ( strstr(c_get,"SALT2") != NULL ) ; 
     is_rv = ( strstr(c_get,"RV") != NULL ) ;
+    printf("xxx ---------------- \n") ;
+    printf("xxx cget=%s is_SALT2 = %d is_RV = %d \n", c_get, is_salt2, is_rv) ;
 
     // will need to add EBV later
     if ( is_salt2 || is_rv ) {  // SALT2 or RV is in c_get
-      fgets(LINE,100,finp);
+      LINE[0] = 0 ;
+      char TMPLINE[300] ; //xxx remove me
+      fgets(LINE,100,finp); 
       sprintf(LINE,"%s %s",c_get,LINE);
+      sprintf(TMPLINE, "%s", LINE) ; //xxx remove me
       splitString(LINE, " ", 100,          // inputs
                   &NITEM, ptr_ITEMLIST );  // outputs
+      printf("xxx LINE=%s NITEM=%d ITEMLIST = %s %s \n", TMPLINE, NITEM, ptr_ITEMLIST[0], ptr_ITEMLIST[1]) ;
       NWORD = parse_input_GENGAUSS("SALT2c", ptr_ITEMLIST, KEYSOURCE_FILE,
                                    &SUBPROCESS.GENGAUSS_SALT2c);
       NWORD = parse_input_GENGAUSS("SALT2x1", ptr_ITEMLIST, KEYSOURCE_FILE,

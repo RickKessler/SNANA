@@ -37365,7 +37365,7 @@ c     &     ,PDFSUM_GRID(MXGRID,MXFITPAR) ! PDF vs. par to plot 1-d pdf
   
 c functions   
       REAL*8 PROB   
-      DOUBLE PRECISION USRFUN, GAUSSRAN 
+      DOUBLE PRECISION USRFUN, GETRAN_GAUSS
    
       INTEGER  MCMCFUN   
       EXTERNAL USRFUN   
@@ -37430,7 +37430,7 @@ c      iflag = 4
          sval(ipar) = FITERR_STORE(ipar)   
          mval(ipar) = xval(ipar)   
 c         xval(ipar) = xval(ipar) 
-c     &     + sval(ipar)*NSIG_MCMC_START*GAUSSRAN()    
+c     &     + sval(ipar)*NSIG_MCMC_START*GETRAN_GAUSS()    
  51   CONTINUE   
    
       call fcnsnlc(nvar, grad8, chi2, xval, iflag, usrfun)   
@@ -37466,7 +37466,7 @@ c     choose a new starting point
             xval(ipar) = FITVAL_STORE(ipar)    
             sval(ipar) = FITERR_STORE(ipar)   
             xval(ipar) = xval(ipar) + 
-     &         sval(ipar)*NSIG_MCMC_START*GAUSSRAN(1)
+     &         sval(ipar)*NSIG_MCMC_START*GETRAN_GAUSS(1)
 c     initialize the chi**2 for passing to snfit_mcmc_   
             call fcnsnlc(nvar, grad8, chi2, xval, iflag, usrfun)    
  52      CONTINUE   
@@ -37709,7 +37709,7 @@ c misc. args
      &     , nsig8, prob8   
    
 c randon generators in sntools.c (RK - Jan 2013)
-      REAL*8  FLATRAN1, GAUSSRAN
+      REAL*8  GETRAN_FLAT1, GETRAN_GAUSS
 
 C ===========================================   
 C ------------------- BEGIN -----------------   
@@ -37729,7 +37729,7 @@ C ===========================================
 c         IF ( sig .GT. 1E-9 ) THEN   
 c heres a better way to see if the variable is floated...   
          IF ( FLOATPAR(ipar) ) THEN   
-            gval = GAUSSRAN(ILIST)   
+            gval = GETRAN_GAUSS(ILIST)   
             XVAL(ipar) = XVAL(ipar) + gval*sig*nsig8   
          ENDIF   
       ENDDO   
@@ -37739,7 +37739,7 @@ c heres a better way to see if the variable is floated...
       delchi2 = c2-c1   
       prob8 = DEXP(-0.5*delchi2)   
 
-      rtest = FlatRan1();   ! RK - Jan 2013
+      rtest = GETRAN_FLAT1();   ! RK - Jan 2013
       rtest2 = -2.0*DLOG(rtest)   
    
       itest = 0   

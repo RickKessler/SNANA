@@ -2325,8 +2325,8 @@ void setRan_for_PHOTPROB(void) {
     obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
     GAURAN_LIST[irow] = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs];
   }
-  GaussRanCorr(&DECOMP, GAURAN_LIST, // (I)
-	       GAURANCORR_LIST);     // (O)
+  getRan_GaussCorr(&DECOMP, GAURAN_LIST, // (I)
+		   GAURANCORR_LIST);     // (O)
 
   double x0=0.0 ;
   for(irow=0; irow < NSTORE; irow++ ) {

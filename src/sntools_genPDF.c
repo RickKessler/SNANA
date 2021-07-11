@@ -362,8 +362,8 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       }
 
       while ( prob < prob_ref ) {
-	prob_ref      = FlatRan1(ILIST_RAN); 
-	r             = FlatRan(ILIST_RAN, VAL_RANGE);
+	prob_ref      = getRan_Flat1(ILIST_RAN); 
+	r             = getRan_Flat(ILIST_RAN, VAL_RANGE);
 	val_inputs[0] = r ;  
 
 	istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
@@ -436,7 +436,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // check explicit asymGauss function
   if  ( GENGAUSS->USE ) {
     N_EVAL++ ;
-    r = exec_GENGAUSS_ASYM(GENGAUSS) ;
+    r = getRan_GENGAUSS_ASYM(GENGAUSS) ;
   }
 
   // - - - - - -

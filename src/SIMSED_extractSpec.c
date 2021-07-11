@@ -1506,7 +1506,7 @@ void fudgeSNR(int ep) {
       }
     }
     FERR     = fabs(F/snrSpec) ; //FERR always positive
-    ranFlux  = SPECFLUX[ilam] + FERR*GaussRan(1) ;
+    ranFlux  = SPECFLUX[ilam] + FERR * getRan_Gauss(1) ;
 
     SPECFLUX[ilam]    = ranFlux;                // measured flux
     SPECFLUXERR[ilam] = FERR * sqrt(fabs(ranFlux/F)); // measured error

@@ -20663,8 +20663,8 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   SUBPROCESS.RANFLAT_PRESCALE = (float*) malloc ( MEMF );
 
   for(isn=0; isn < NSN; isn++ ) {
-    r1 = unix_random(1);
-    r2 = unix_random(1);
+    r1 = unix_getRan_Flat1(1);
+    r2 = unix_getRan_Flat1(1);
 
     SUBPROCESS.RANFLAT_REWGT[isn] = (float)r1; 
     SUBPROCESS.RANFLAT_PRESCALE[isn] = (float)r2; 
@@ -20680,27 +20680,32 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
 
 // =======================================
 void SUBPROCESS_READ_SIMREF_INPUTS(void) { 
+
+  char *input_simref_file             = SUBPROCESS.INPUT_SIMREF_FILE ;
+  GENGAUSS_ASYM_DEF *GENGAUSS_SALT2x1 = &SUBPROCESS.GENGAUSS_SALT2x1;
+  GENGAUSS_ASYM_DEF *GENGAUSS_SALT2c  = &SUBPROCESS.GENGAUSS_SALT2c;
+  GENGAUSS_ASYM_DEF *GENGAUSS_RV      = &SUBPROCESS.GENGAUSS_RV;
+
   FILE *finp ; 
   int GZIPFLAG, NITEM, i, NWORD ;
   bool is_salt2c, is_salt2x1, is_rv ; 
   char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST, LINE[200], TMPLINE[200] ; 
-  char *input_simref_file = SUBPROCESS.INPUT_SIMREF_FILE ;
+  char varlist[40] = "";
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
 
   // ---------- BEGIN -------------
 
   // init optional profiles for REMREF bounding function
-  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2c,  0.0 );
-  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2x1, 0.0 );
-  init_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_RV,      0.0 );
+  init_GENGAUSS_ASYM(GENGAUSS_SALT2c,  0.0 );
+  init_GENGAUSS_ASYM(GENGAUSS_SALT2x1, 0.0 );
+  init_GENGAUSS_ASYM(GENGAUSS_RV,      0.0 );
 
   if (IGNOREFILE(input_simref_file)) {
     SUBPROCESS.ISFLAT_SIM = true ;
     return ;
   } 
 
-  sprintf(BANNER,"%s: read bounding functions for c,x1,RV,EBV ", fnam);
-  fprint_banner(FP_STDOUT,BANNER);
+  fprint_banner(FP_STDOUT,fnam);
 
   SUBPROCESS.ISFLAT_SIM = false ; 
 
@@ -20712,7 +20717,8 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   }
   else {
     fprintf(FP_STDOUT,"\t Read bounding functions from SIMREF input file:\n"
-	    "\t\t %s\n", input_simref_file );
+	    "\t %s\n", input_simref_file );
+    fflush(FP_STDOUT);
   }
 
   ptr_ITEMLIST = (char**)malloc( 50*sizeof(char*));
@@ -20727,7 +20733,6 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     // will need to add EBV later
     if ( is_salt2c || is_salt2x1 || is_rv ) {  // SALT2 or RV is in c_get
 
-
       fgets(LINE,100,finp); 
       sprintf(TMPLINE,"%s %s", c_get, LINE);
       splitString(TMPLINE, " ", 100,          // inputs
@@ -20735,17 +20740,17 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
       if ( is_salt2c ) {
 	NWORD = parse_input_GENGAUSS("SALT2c", ptr_ITEMLIST, KEYSOURCE_FILE,
-				     &SUBPROCESS.GENGAUSS_SALT2c);
+				     GENGAUSS_SALT2c);
       }
 
       if ( is_salt2x1 ) {
 	NWORD = parse_input_GENGAUSS("SALT2x1", ptr_ITEMLIST, KEYSOURCE_FILE,
-				     &SUBPROCESS.GENGAUSS_SALT2x1);
+				     GENGAUSS_SALT2x1);
       }
 
       if ( is_rv ) {
 	NWORD = parse_input_GENGAUSS("RV", ptr_ITEMLIST, KEYSOURCE_FILE,
-				     &SUBPROCESS.GENGAUSS_RV);
+				     GENGAUSS_RV);
       }
     } // end if is_xxx 
   } // end while
@@ -20753,11 +20758,18 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   // .XYZ
   fclose(finp) ; 
 
+  if ( GENGAUSS_SALT2x1->USE ) { catVarList_with_comma(varlist,"SALT2x1"); }
+  if ( GENGAUSS_SALT2c->USE  ) { catVarList_with_comma(varlist,"SALT2c");  }
+  if ( GENGAUSS_RV->USE      ) { catVarList_with_comma(varlist,"RV");      }
+  fprintf(FP_STDOUT,"\t Found bounding functions for '%s' \n", varlist);
+  fflush(FP_STDOUT);
+
+
   int LDMP = 1;
   if ( LDMP ) {
-    dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2c);
-    dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_SALT2x1);
-    dump_GENGAUSS_ASYM(&SUBPROCESS.GENGAUSS_RV);
+    dump_GENGAUSS_ASYM(GENGAUSS_SALT2c);
+    dump_GENGAUSS_ASYM(GENGAUSS_SALT2x1);
+    dump_GENGAUSS_ASYM(GENGAUSS_RV);
   }
 
   debugexit(fnam) ; 

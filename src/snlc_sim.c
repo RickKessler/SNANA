@@ -325,7 +325,7 @@ int main(int argc, char **argv) {
     }
 
     for ( i=1; i<= GENRAN_INFO.NLIST_RAN ; i++ )  
-      { GENRAN_INFO.RANLAST[i] = FlatRan1(i); }
+      { GENRAN_INFO.RANLAST[i] = getRan_Flat1(i); }
 
     // if APPLY opt is set, then require search MASK to keep SN;
     // otherwise keep all SNe    
@@ -6204,20 +6204,20 @@ void  prep_RANSYSTPAR(void) {
   //   (e.g., among separate simulation for each survey)
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  printf("\t* First Sync-Syst Random : %f \n", FlatRan1(ILIST_RAN) );
+  printf("\t* First Sync-Syst Random : %f \n", getRan_Flat1(ILIST_RAN) );
 
   // Galactic extinction
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
   checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
-    NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
     printf("\t FUDGESCALE_MWEBV  = %.2f \n", tmp );
   }
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ;
   if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.RV_MWCOLORLAW += tmp ;
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
@@ -6225,7 +6225,7 @@ void  prep_RANSYSTPAR(void) {
   // Redshift P.Armstrong 2020
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
   if ( tmpSigma != 0.0 ) {
-    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.GENBIAS_REDSHIFT = tmp ;
     printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
    }
@@ -6237,7 +6237,7 @@ void  prep_RANSYSTPAR(void) {
       ENVreplace(wildcard,fnam,1);
       int n_files = glob_file_list(wildcard, &genmodel_list);
       int i;
-      double rand_num = FlatRan1(ILIST_RAN);
+      double rand_num = getRan_Flat1(ILIST_RAN);
       int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
       printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
       sprintf(INPUTS.GENMODEL, "%s", genmodel_list[ifile_ran]);
@@ -6251,7 +6251,7 @@ void  prep_RANSYSTPAR(void) {
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
   if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.OMEGA_MATTER += tmp ;
     printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
   }
@@ -6259,7 +6259,7 @@ void  prep_RANSYSTPAR(void) {
   tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER ;
   if ( tmpRange[1] > tmpRange[0] ) { 
     NSET++; Range = tmpRange[1] - tmpRange[0];
-    tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
+    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
     INPUTS.OMEGA_MATTER += tmp ;
     printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
   }
@@ -6267,7 +6267,7 @@ void  prep_RANSYSTPAR(void) {
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
   if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.w0_LAMBDA += tmp ;
     printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
@@ -6275,13 +6275,13 @@ void  prep_RANSYSTPAR(void) {
   tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
   if ( tmpRange[1] > tmpRange[0] ) { 
     NSET++; Range = tmpRange[1] - tmpRange[0];
-    tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
+    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
     INPUTS.w0_LAMBDA += tmp ;
     printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
   printf("\t* Last  Sync-Syst Random : %f "
-	 "(should be same each survey)\n", FlatRan1(ILIST_RAN) );
+	 "(should be same each survey)\n", getRan_Flat1(ILIST_RAN) );
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   //     Now the unsynched variations
@@ -6298,13 +6298,13 @@ void  prep_RANSYSTPAR(void) {
   printf("\t* ISEED = %d --> %d \n", ISEED_OLD, ISEED_NEW );
 
   printf("\t* First Unsync-Syst Random : %f "
-	 "(should differ each survey)\n", FlatRan1(ILIST_RAN) );
+	 "(should differ each survey)\n", getRan_Flat1(ILIST_RAN) );
 
   // start with fluxerr fudging; SIGSCALE is sigma on fractional change
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
   checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
-    NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR = tmp;
     printf("\t FUDGESCALE_FLUXERR(true&measured) = %.3f \n", tmp );
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
@@ -6314,7 +6314,7 @@ void  prep_RANSYSTPAR(void) {
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
   checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
-    NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET=1; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR2 = tmp;
     printf("\t FUDGESCALE_FLUXERR2(measured) = %.3f \n", tmp );
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
@@ -6327,7 +6327,7 @@ void  prep_RANSYSTPAR(void) {
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
     tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt];
     if ( tmpSigma != 0.0 ) {
-      NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
       INPUTS.TMPOFF_ZP[ifilt]         = tmp;
       INPUTS.GENMAG_OFF_ZP[ifilt_obs] = tmp ;
       printf("\t ZPerr(%s) = %7.4f  (SIG=%.3f) \n", 
@@ -6341,7 +6341,7 @@ void  prep_RANSYSTPAR(void) {
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
     tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt];
     if ( tmpSigma != 0 ) {
-      NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
       INPUTS.FUDGESHIFT_LAM_FILTER[ifilt_obs] = tmp ;
       INPUTS.TMPOFF_LAMFILT[ifilt]            = tmp ;
       printf("\t LAMSHIFT(%s) = %6.2f A  (SIG=%.1f A)\n", 
@@ -7509,8 +7509,8 @@ void  init_GENLC(void) {
   if ( INDEX_GENMODEL == MODEL_NON1AGRID  ) {
     double rmin=-3.0, rmax=3.0 ;
     int    ILIST_RAN = 2 ;
-    GENLC.NON1AGRID_RANGauss = GaussRanClip(ILIST_RAN, rmin, rmax);
-    GENLC.NON1AGRID_RANFlat  = FlatRan1(ILIST_RAN); 
+    GENLC.NON1AGRID_RANGauss = getRan_GaussClip(ILIST_RAN, rmin, rmax);
+    GENLC.NON1AGRID_RANFlat  = getRan_Flat1(ILIST_RAN); 
   }
 
 
@@ -8246,7 +8246,7 @@ void GENSPEC_DRIVER(void) {
   GENSPEC_MJD_ORDER(imjd_order); // check if nearPeak is done first
 
   for(ifield=0; ifield < NFIELD_OVP; ifield++ ) 
-    { GENSPEC.FLATRAN_LIST[ifield]  = FlatRan1(1); } // for optional prescale
+    { GENSPEC.FLATRAN_LIST[ifield]  = getRan_Flat1(1); } // for optional prescale
 
   // - - - - -
   for(i=0; i < NMJD; i++ ) {
@@ -8510,7 +8510,7 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
   if ( OPT_MJD == 0 ) 
     { EPOCH = 0.5 * (EPOCH_RANGE[1] + EPOCH_RANGE[0] ) ; }
   else
-    { EPOCH = FlatRan(ILIST_RAN, EPOCH_RANGE); }  // pick random epoch
+    { EPOCH = getRan_Flat(ILIST_RAN, EPOCH_RANGE); }  // pick random epoch
 
   z1 = 1.0 + z ; 
   if ( OPT_FRAME == GENFRAME_OBS ) 
@@ -9534,16 +9534,16 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
     }
     else if ( imjd == IMJD_NEARPEAK &&  FluxErr_T > 0.0 ) { 
       if ( NSTREAM == 2 ) 
-	{ *GAURAN_T = unix_GaussRan(ISTREAM_RAN); }
+	{ *GAURAN_T = unix_getRan_Gauss(ISTREAM_RAN); }
       else
-	{ *GAURAN_T = GaussRan(ILIST_RAN); }
+	{ *GAURAN_T = getRan_Gauss(ILIST_RAN); }
     }
     GRAN_T    = *GAURAN_T ;
 
     if ( NSTREAM ==  2 ) 
-      { GRAN_S = unix_GaussRan(ISTREAM_RAN); }
+      { GRAN_S = unix_getRan_Gauss(ISTREAM_RAN); }
     else
-      { GRAN_S = GaussRan(ILIST_RAN); }
+      { GRAN_S = getRan_Gauss(ILIST_RAN); }
 
     // random noise from search 
     RanFlux_S = FluxErr_S * GRAN_S ;
@@ -9772,9 +9772,9 @@ void  GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux,
       GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
       if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) { 
 	if ( NSTREAM == 2 ) 
-	  { RANGauss_NOISE_TEMPLATE = unix_GaussRan(ISTREAM_RAN); }
+	  { RANGauss_NOISE_TEMPLATE = unix_getRan_Gauss(ISTREAM_RAN); }
 	else
-	  { RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN); }
+	  { RANGauss_NOISE_TEMPLATE = getRan_Gauss(ILIST_RAN); }
       }
 
       if ( NRAN < MXLAMSMEAR_SPECTROGRAPH ) {
@@ -9782,9 +9782,9 @@ void  GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux,
       }
 
       if ( NSTREAM ==  2 ) 
-	{ GRAN_S = unix_GaussRan(ISTREAM_RAN); }
+	{ GRAN_S = unix_getRan_Gauss(ISTREAM_RAN); }
       else
-	{ GRAN_S = GaussRan(ILIST_RAN); }
+	{ GRAN_S = getRan_Gauss(ILIST_RAN); }
 
       GRAN_T = RANGauss_NOISE_TEMPLATE ;
 
@@ -10439,8 +10439,8 @@ void gen_random_coord_shift(void) {
   // -------------- BEGIN ------------
 
   // pick random radius and randam azimuth angle
-  ran_r   = FlatRan1(1);   // random 0-1
-  ran_phi = FlatRan1(1); 
+  ran_r   = getRan_Flat1(1);   // random 0-1
+  ran_phi = getRan_Flat1(1); 
 
   phi = TWOPI    * ran_phi ;
   r   = MXRADIUS * sqrt(ran_r);
@@ -10792,7 +10792,7 @@ double gen_MWEBV(double RA, double DEC) {
   // the SMEAR value is the true value rather than the
   // measured value.
   //
-  // May 5 2014: use FlatRan for random EBV
+  // May 5 2014: use getRan_Flat for random EBV
   // Nov 26, 2016: for GENRANGE_MWEBV, apply error.
   // Jun 21, 2017: apply INPUTS.MWEBV_SCALE
   // Nov 24, 2017: modify MWEBV if coordinates have changed (see NEWCOORD)
@@ -10818,7 +10818,7 @@ double gen_MWEBV(double RA, double DEC) {
 
   // always burn random number to remain synced
   // MWXT_GaussRan = GaussRan(1);  
-  MWXT_GaussRan = GaussRanClip(1,SigmaClip[0],SigmaClip[1]);
+  MWXT_GaussRan = getRan_GaussClip(1,SigmaClip[0],SigmaClip[1]);
 
   if ( INPUTS.MWEBV_FLAG  == 0 ) { return(0.0) ; }  
 
@@ -10829,7 +10829,7 @@ double gen_MWEBV(double RA, double DEC) {
 
   if ( RANFLAG ) {
     // special map-generation option 
-    EBV             = FlatRan(1, INPUTS.GENRANGE_MWEBV );
+    EBV             = getRan_Flat(1, INPUTS.GENRANGE_MWEBV );
     GENLC.MWEBV     = EBV ;
   }
   else {
@@ -11082,11 +11082,11 @@ void genshift_risefalltimes(void) {
 
   // ---------- BEGIN ------------
 
-  shift = exec_GENGAUSS_ASYM(&INPUTS.GENGAUSS_RISETIME_SHIFT);
+  shift = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_RISETIME_SHIFT);
   if ( INPUTS.GENGAUSS_RISETIME_SHIFT.USE ) 
     { GENLC.RISETIME_SHIFT = (float)shift ; }
   
-  shift = exec_GENGAUSS_ASYM(&INPUTS.GENGAUSS_FALLTIME_SHIFT);
+  shift = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_FALLTIME_SHIFT);
   if ( INPUTS.GENGAUSS_FALLTIME_SHIFT.USE ) 
     { GENLC.FALLTIME_SHIFT = (float)shift ; }
 
@@ -11183,7 +11183,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   else  if ( ISMODEL_FIXMAG ) {	  
     if ( ISFRAME_REST ) 
-      { GENLC.NOSHAPE   = FlatRan ( 2, INPUTS.FIXMAG );  }
+      { GENLC.NOSHAPE   = getRan_Flat ( 2, INPUTS.FIXMAG );  }
 
     if ( ISFRAME_OBS ) {
       if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
@@ -11246,12 +11246,12 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
     GENLC.SALT2alpha = 
-      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
+      getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
     GENLC.SALT2beta = 
-      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
+      getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools
@@ -11352,12 +11352,12 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     }
     
     for(irow=0; irow < NROW_COV; irow++ ) { 
-      GAURAN[irow]  = GaussRan(1);   // Gauss Random
+      GAURAN[irow]  = getRan_Gauss(1);   // Gauss Random
       CORRVAL[irow] = 0.0 ;
     }
 
     
-    GaussRanCorr(&INPUTS.SIMSED_DECOMP, GAURAN, CORRVAL ); // return CORRVAL
+    getRan_GaussCorr(&INPUTS.SIMSED_DECOMP,GAURAN,CORRVAL); // return CORRVAL
 
     for(irow=0; irow < NROW_COV; irow++ ) {
       ipar = INPUTS.IPARLIST_SIMSED_COV[irow];
@@ -11412,7 +11412,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 	GENGAUSS_ZVAR = 
 	  get_zvariation_GENGAUSS(ZCMB,parName,
 				  &INPUTS.GENGAUSS_SIMSED[ipar]);	
-	parVal = exec_GENGAUSS_ASYM( &GENGAUSS_ZVAR );
+	parVal = getRan_GENGAUSS_ASYM( &GENGAUSS_ZVAR );
       }
 
     } // opt_interp
@@ -11442,7 +11442,7 @@ double pick_gridval_SIMSED(int ipar_model) {
 
   bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
   int  nsed=0, ised_ran=-9, itmp=-9 ;
-  double flatRan  = FlatRan1(2); // random between 0-1
+  double flatRan  = getRan_Flat1(2); // random between 0-1
   double PARVAL, PARVAL_TMP ;
   int    LDMP = 0 ;
   char fnam[]  = "pick_gridval_SIMSED" ;
@@ -11465,7 +11465,7 @@ double pick_gridval_SIMSED(int ipar_model) {
   else { 
     // pick random sed. Use GENGAUSS struct to enable 
     // selecting parameter range.
-    PARVAL_TMP = exec_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
+    PARVAL_TMP = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
     PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
   }
 
@@ -11737,14 +11737,14 @@ void genran_modelSmear(void) {
 
   // for global coherent smearing
   
-  GENLC.GENSMEAR_RANGauss_FILTER[0] = GaussRanClip(1,rmin,rmax);
+  GENLC.GENSMEAR_RANGauss_FILTER[0] = getRan_GaussClip(1,rmin,rmax);
 
   // Jun 26 2019: check option for asymmetric smear
   double siglo = (double)INPUTS.GENMAG_SMEAR[0] ;
   double sighi = (double)INPUTS.GENMAG_SMEAR[1] ;
   if ( fabs(siglo-sighi) > 1.0E-6 ) {
     sighi /= siglo ;      siglo /= siglo ;
-    GENLC.GENSMEAR_RANGauss_FILTER[0] = biGaussRan(siglo,sighi, 0.);
+    GENLC.GENSMEAR_RANGauss_FILTER[0] = getRan_GaussAsym(siglo,sighi, 0.);
   }
 
   // Now check for model with 100% correlation within a passband,
@@ -11759,7 +11759,7 @@ void genran_modelSmear(void) {
   RHO  = sqrt( 1.0 - rho*rho );
   
   for ( ifilt=1; ifilt < MXFILTINDX; ifilt++ ) {
-    rr8 = GaussRanClip(ILIST_RAN,rmin,rmax);
+    rr8 = getRan_GaussClip(ILIST_RAN,rmin,rmax);
     rtot =  rho * GENLC.GENSMEAR_RANGauss_FILTER[0] +  RHO * rr8 ; 
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
@@ -11770,9 +11770,9 @@ void genran_modelSmear(void) {
   }
 
   // set randoms for instrinsic scatter matrix (July 2011)
-  GENLC.COVMAT_SCATTER_GRAN[0] =  GaussRan(1);
-  GENLC.COVMAT_SCATTER_GRAN[1] =  GaussRan(1);
-  GENLC.COVMAT_SCATTER_GRAN[2] =  GaussRan(1);
+  GENLC.COVMAT_SCATTER_GRAN[0] =  getRan_Gauss(1);
+  GENLC.COVMAT_SCATTER_GRAN[1] =  getRan_Gauss(1);
+  GENLC.COVMAT_SCATTER_GRAN[2] =  getRan_Gauss(1);
   GEN_COVMAT_SCATTER ( GENLC.COVMAT_SCATTER_GRAN,    // <== input 
 		       GENLC.COVMAT_SCATTER );       // <== output
   
@@ -13182,7 +13182,7 @@ double gen_peakmjd(void) {
   //
   //
   // May 2014: 
-  //   float rangen -> double FlatRan  
+  //   float rangen -> double getRan_Flat  
   //   float GENRANGE_PEAKMJD -> double GENRANGE_PEAKMJD
   //   float PKMJD, MJD[2] -> double
   //
@@ -13214,7 +13214,7 @@ double gen_peakmjd(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  PKMJD = FlatRan (1,INPUTS.GENRANGE_PEAKMJD );
+  PKMJD = getRan_Flat (1,INPUTS.GENRANGE_PEAKMJD );
 
   // check for MJD-ranges to skip
   for ( i=0; i < NSKIP_RANGE ; i++ ) {
@@ -13247,7 +13247,7 @@ double gen_peakmjd_smear(void) {
   // ----------------- BEGIN -----------------
 
   // always burn Gaussian random, regardless of option.
-  GENLC.PEAKMJD_RANGauss = GaussRan(1); 
+  GENLC.PEAKMJD_RANGauss = getRan_Gauss(1); 
 
   // check option of Gaussian smear.
   // Note that PEAKMJD_RANGauss is selected earlier in gen_event_driver()
@@ -13362,7 +13362,7 @@ double gen_redshift_helio(void) {
   }
   else {
     // pick random vpec
-    vpec = ((double)INPUTS.GENSIGMA_VPEC) * GaussRan(2) ;    
+    vpec = ((double)INPUTS.GENSIGMA_VPEC) * getRan_Gauss(2) ;    
   }
 
 
@@ -13418,7 +13418,7 @@ void gen_redshift_LCLIB(void) {
 	   SNHOSTGAL.ZPHOT, SNHOSTGAL.ZPHOT_ERR ); 
   }
 
-  granz = GaussRanClip(1, (double)-3.0, (double)+3.0) ;
+  granz = getRan_GaussClip(1, (double)-3.0, (double)+3.0) ;
   ZERR  = INPUTS.GENSIGMA_REDSHIFT ;
   SNHOSTGAL.ZSPEC             = ZHEL_TRUE ;
   SNHOSTGAL.ZSPEC_ERR         = ZERR ;
@@ -13483,7 +13483,7 @@ void gen_zsmear(double zerr) {
   // generate list of randoms if not already done
   if ( GENLC.REDSHIFT_RAN[0] < -1.0 ) {
     for ( i=0; i < MXZRAN; i++ ) 
-      { GENLC.REDSHIFT_RAN[i] = GaussRan(1); }
+      { GENLC.REDSHIFT_RAN[i] = getRan_Gauss(1); }
   }
 
 
@@ -13604,7 +13604,7 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) 
     { ran1 = 0.5; } // no randoms for GRID mode
   else
-    { ran1 = FlatRan1(2); }  // normal gen: always burn random: May 7 2017
+    { ran1 = getRan_Flat1(2); }  // normal gen: always burn random: May 7 2017
 
   if ( IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE) ) 
     { lensDMU = 0.0 ; }
@@ -13613,7 +13613,7 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
 
 
   if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
-    lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * GaussRan(1) ;
+    lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * getRan_Gauss(1) ;
   }
 
   lensDMU *= INPUTS.WEAKLENS_DMUSCALE ; // user-scale
@@ -13669,7 +13669,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
    Sep 23, 2011: float -> double 
 
-   May 5, 2014: float rangen -> double FlatRan
+   May 5, 2014: float rangen -> double getRan_Flat
                 and remaining legacy floats -> double.
 
    Feb 5 2015: move 'ilist=1' after PICKRAN instead of before so that
@@ -13781,8 +13781,8 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
   ilist = 1 ;  // select which random list
 
   // pick random redshift
-  zran   = FlatRan ( ilist, zrange ); // random redshift
-  wran1  = FlatRan1( ilist );  // for weight
+  zran   = getRan_Flat ( ilist, zrange ); // random redshift
+  wran1  = getRan_Flat1( ilist );  // for weight
 
   if ( zran < zmin || zran > zmax ) { goto PICKRAN ; }
 
@@ -14185,7 +14185,7 @@ double gen_AV(void) {
     GENLC.GENPROFILE_AV.RATIO = INPUTS.GENPROFILE_AV.RATIO
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" ); 
 
-    AV = exec_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_AV);
+    AV = getRan_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_AV);
     
   }
  
@@ -14202,7 +14202,7 @@ double gen_AV(void) {
     GENLC.GENPROFILE_EBV_HOST.RATIO = INPUTS.GENPROFILE_EBV_HOST.RATIO
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_EBV0_HOST" );
 
-    EBV_HOST = exec_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_EBV_HOST);
+    EBV_HOST = getRan_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_EBV_HOST);
     AV       = EBV_HOST * RV ;
     
   }
@@ -14258,7 +14258,7 @@ double GENAV_WV07(void) {
   // pick random AV on defined interval
 
  PICKAV:
-  AV = FlatRan ( 1 ,INPUTS.GENRANGE_AV );
+  AV = getRan_Flat ( 1 ,INPUTS.GENRANGE_AV );
 
   // compute relative wgt
   arg_A = -AV/tau ;                  // broad exponential
@@ -14267,7 +14267,7 @@ double GENAV_WV07(void) {
   W = AEXP * exp(arg_A) + BEXP * exp(arg_B)  ;
   W /= W0;
 
-  if ( W < FlatRan1(1) ) { goto PICKAV ; }
+  if ( W < getRan_Flat1(1) ) { goto PICKAV ; }
 
   return(AV) ;
 
@@ -14278,9 +14278,6 @@ double gen_RV(void) {
 
   // Aug 2006: select RV from bifurcated gaussian
   // Mar 2008: after 1000 tries, abort
-  // May 03, 2012: simplify further using exec_GENGAUSS_ASYM
-  // Jan 28, 2014: call SNPARVAL_from_SNHOST() function.
-  // Jun 11, 2016: move SNPARVAL_from_SNOST call to override_SNPARVAL_xxx
   // Apr 20, 2017: GENMEAN_RV -> GENPEAK_RV
   // Jun 12, 2020: refactor to prepare for using genPDF map file.
 
@@ -14854,7 +14851,7 @@ void SIMLIB_findStart(void) {
   // check user-input SIMLIB_MAXRANSTART
   MAXRANSTART = INPUTS.SIMLIB_MAXRANSTART ; // default
   if ( MAXRANSTART > 0 ) {
-    flatRan     = unix_random(0) ;
+    flatRan     = unix_getRan_Flat1(0) ;
     XSKIP       = (double)MAXRANSTART * flatRan ;
     NSKIP_LIBID = (int)XSKIP + 1 ;
     DOSKIP = 1;
@@ -14864,7 +14861,7 @@ void SIMLIB_findStart(void) {
 
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
-    flatRan     = unix_random(0) ;
+    flatRan     = unix_getRan_Flat1(0) ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;
     NLIBID_EXTRA = NTMP - INPUTS.NGENTOT_LC ; // Number of extra LIBIDs 
@@ -17619,7 +17616,7 @@ int regen_SIMLIB_GENRANGES(void) {
   // check PEAKMJD update
   if(LTRACE) {printf(" xxx %s: 2 PEAKMJD=%f\n", fnam,GENLC.PEAKMJD ); }
   if ( SIMLIB_HEADER.GENGAUSS_PEAKMJD.USE  ) {
-    tmpVal         = exec_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_PEAKMJD) ;
+    tmpVal         = getRan_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_PEAKMJD) ;
     GENLC.PEAKMJD  = tmpVal ;  
     if(LTRACE) 
       { printf(" xxx %s: 2b PEAKMJD(HEADER) -> %f\n", fnam,GENLC.PEAKMJD ); }
@@ -17630,7 +17627,7 @@ int regen_SIMLIB_GENRANGES(void) {
 
   if(LTRACE) {printf(" xxx %s: 3 SALT2x1=%f\n", fnam,GENLC.SALT2x1 ); }
   if ( SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ) {
-    tmpVal         = exec_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_SALT2x1);
+    tmpVal         = getRan_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_SALT2x1);
     GENLC.SALT2x1  = tmpVal ;
     if(LTRACE) 
       { printf(" xxx %s: 3b SALT2x1(HEADER) -> %f\n", fnam,GENLC.SALT2x1); }
@@ -17640,7 +17637,7 @@ int regen_SIMLIB_GENRANGES(void) {
 
   if(LTRACE) {printf(" xxx %s: 4 SALT2c=%f\n", fnam,GENLC.SALT2c ); }
   if ( SIMLIB_HEADER.GENGAUSS_SALT2c.USE ) {
-    tmpVal        = exec_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_SALT2c) ;
+    tmpVal        = getRan_GENGAUSS_ASYM(&SIMLIB_HEADER.GENGAUSS_SALT2c) ;
     GENLC.SALT2c  = tmpVal ;
     if(LTRACE) 
       { printf(" xxx %s: 4b SALT2c(HEADER) -> %f\n", fnam,GENLC.SALT2c); }
@@ -17812,7 +17809,7 @@ void set_SIMLIB_NREPEAT(void) {
   NREPEAT_LO = (int)XNREPEAT ;
   XDIF       = XNREPEAT - (double)NREPEAT_LO ;
 
-  if ( XDIF < FlatRan1(1) ) 
+  if ( XDIF < getRan_Flat1(1) ) 
     { NREPEAT = NREPEAT_LO ; }
   else
     { NREPEAT = NREPEAT_LO+1 ; }
@@ -18744,7 +18741,7 @@ void init_CIDRAN(void) {
 
     // use unix 'random' instead of snana 'rangen()'.
     // because rangen() uses a finite list of randoms.
-    r8 = unix_random(0);   
+    r8 = unix_getRan_Flat1(0);   
     NCALL_random++ ;
     CIDRAN = CIDMIN + (int)( r8 * (double)(CIDMAX-CIDMIN) ) ;
 
@@ -19947,7 +19944,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
     
     oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;
     if ( oldRan < -0.001 ) 
-      { SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] = FlatRan1(1);  NRANTMP++ ; }
+      { SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] = getRan_Flat1(1);  NRANTMP++ ; }
     
 
     if ( NMAP_PHOTPROB > 0 ) {
@@ -19955,13 +19952,13 @@ void  LOAD_SEARCHEFF_DATA(void) {
       if ( ISCORR_PHOTRPBOB ) {
 	oldRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] ;
 	if ( oldRan < -998.0 ) 
-	  { SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] = GaussRan(1); }
+	  { SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] = getRan_Gauss(1); }
       }
       else {
 	// load flat randoms for uncorrelated PHOTPROB
 	oldRan = SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] ;
 	if ( oldRan < -998.0 ) 
-	  { SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] = FlatRan1(1); }	
+	  { SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] = getRan_Flat1(1); }	
       }
     } // end NMAP_PHOTPROB
 
@@ -19977,7 +19974,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
   for ( ifilt=0; ifilt <= MXFILTINDX; ifilt++ ) {
 
     if ( SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt] < -0.01 ) 
-      { SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = FlatRan1(1); }
+      { SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = getRan_Flat1(1); }
 
     if ( ifilt == MXFILTINDX ) { continue ; } // avoid array overwrite
     SEARCHEFF_DATA.PEAKMAG[ifilt] = MAG_UNDEFINED ;
@@ -22387,8 +22384,8 @@ void gen_fluxNoise_randoms(void) {
     if ( !GENLC.OBSFLAG_GEN[ep]  ) { continue ; }
 
     // load randoms into global
-    RAN1 = GaussRan(1) ;  
-    RAN2 = GaussRan(1) ;  
+    RAN1 = getRan_Gauss(1) ;  
+    RAN2 = getRan_Gauss(1) ;  
     GENLC.RANGauss_NOISE_SEARCH[ep] = RAN1;
     GENLC.RANGauss_NOISE_ZP[ep]     = RAN2; // Jan 2020; soon to be obsolete
     GENLC.RANGauss_NOISE_FUDGE[ep]  = RAN2; // for refactored GENFLUX_DRIVER
@@ -22408,7 +22405,7 @@ void gen_fluxNoise_randoms(void) {
     if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
    
     for(ifield=0; ifield < MXFIELD_OVP; ifield++ ) {      
-      GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] = GaussRan(1) ; 
+      GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] = getRan_Gauss(1) ; 
     } 
     
   }
@@ -28880,7 +28877,7 @@ void test_ran(void) {
     // now smear with sigma=1
     NTMP++ ;
     if ( NTMP==100 ) {  fill_RANLISTs();  NTMP = 0 ; }
-    x = GaussRan(1);
+    x = getRan_Gauss(1);
     if ( x >=  0.0 ) 
       { y = 0.5 + GaussIntegral(x0,x);     }
     else 

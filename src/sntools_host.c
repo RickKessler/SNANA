@@ -4959,10 +4959,10 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   // always burn random numbers to stay synced.
   ilist = 1 ; 
-  SNHOSTGAL.FlatRan1_GALID     = FlatRan1(ilist) ; // random GAL in smal z-bin
-  SNHOSTGAL.FlatRan1_radius[0] = FlatRan1(ilist) ; // ran Sersic profile
-  SNHOSTGAL.FlatRan1_radius[1] = FlatRan1(ilist) ; // random integral
-  SNHOSTGAL.FlatRan1_phi       = FlatRan1(ilist) ;  // relative to major axis
+  SNHOSTGAL.FlatRan1_GALID     = getRan_Flat1(ilist) ; // random GAL in smal z-bin
+  SNHOSTGAL.FlatRan1_radius[0] = getRan_Flat1(ilist) ; // ran Sersic profile
+  SNHOSTGAL.FlatRan1_radius[1] = getRan_Flat1(ilist) ; // random integral
+  SNHOSTGAL.FlatRan1_phi       = getRan_Flat1(ilist) ;  // relative to major axis
 
   // ------------------------------------------------
   // check option to fix randoms (Sep 14, 2012)
@@ -5605,7 +5605,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
   
  PICKRAN:
 
-  ranProb  = FlatRan1(1) ;
+  ranProb  = getRan_Flat1(1) ;
 
   if ( ranProb > prob_outlier ) 
     { zphotErr = sigma_core ;  }
@@ -5619,7 +5619,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
   if ( OUTLIER_FLAT ) {
     HOSTLIB_ZRANGE[0] = INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] ;
     HOSTLIB_ZRANGE[1] = INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] ;
-    ranzFlat = FlatRan(2, HOSTLIB_ZRANGE); 
+    ranzFlat = getRan_Flat(2, HOSTLIB_ZRANGE); 
     *ZPHOT = ranzFlat;    
   }
   else {
@@ -5630,7 +5630,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
     zpeak   = ZPHOTERR_ASYMGAUSS.PEAK;
     sigz_lo = ZPHOTERR_ASYMGAUSS.SIGMA[0] ;
     sigz_hi = ZPHOTERR_ASYMGAUSS.SIGMA[1] ;
-    *ZPHOT  = zpeak + biGaussRan(sigz_lo, sigz_hi, 0. );
+    *ZPHOT  = zpeak + getRan_GaussAsym(sigz_lo, sigz_hi, 0. );
 
     /*
     printf(" xxx zpeak=%.4f sig(-/+)=%.4f/%.4f  ZPHOT=%.3f \n",
@@ -5946,7 +5946,7 @@ void GEN_SNHOST_LOGMASS(void) {
       LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
       LOGMASS_ERR  = SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR ;
       LOGMASS_ERR *= SCALE ;
-      GauRan = GaussRanClip(1,rmin,rmax);
+      GauRan = getRan_GaussClip(1,rmin,rmax);
       LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
     }
 
@@ -6303,8 +6303,8 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
  PICK:
 
   // pick random point inside a rectangle containing ellipse
-  FlatRan_x = FlatRan1(ilist) ;
-  FlatRan_y = FlatRan1(ilist) ;
+  FlatRan_x = getRan_Flat1(ilist) ;
+  FlatRan_y = getRan_Flat1(ilist) ;
   x         = a * (2.0*FlatRan_x - 1.0); // -a to +a
   y         = b * (2.0*FlatRan_y - 1.0); // -b to +b
 

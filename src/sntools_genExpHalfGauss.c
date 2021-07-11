@@ -102,15 +102,24 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
 
 }
 
+double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
+  
+  double funVal = NULLDOUBLE ;
+  char fnam[] = "funVal_GEN_EXP_HALFGAUSS";
 
-double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
+  return funVal;
+
+} // end funVal_GEN_EXP_HALFGAUSS
+
+// ************************************************************
+double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   // March 20 2020
   // generate a random value following profile consisting of 
   // EXP & Half Gaussian
   // TO DO: z dependence of parameters.
 
-  char fnam[] = "exec_GEN_EXP_HALFGAUSS";
+  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";
   
   double sig   = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
   double peak  = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
@@ -125,9 +134,9 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   bool DOFUN_GAUSS = false;
 
   // always burn randoms to stay synced.                                                                                        
-  double ran_EXPON = FlatRan1(1) ;                                 
-  double ran_GAUSS = GaussRan(1);
-  double ran_WGT   = FlatRan1(1) ;  
+  double ran_EXPON = getRan_Flat1(1) ;                                 
+  double ran_GAUSS = getRan_Gauss(1);
+  double ran_WGT   = getRan_Flat1(1) ;  
   double epsilon = 1.0E-14;
   double ranval = -9.0 ; //output random value
 
@@ -205,7 +214,7 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
         sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
-      if ( itry  > 1 ) { ran_GAUSS = GaussRan(1); }
+      if ( itry  > 1 ) { ran_GAUSS = getRan_Gauss(1); }
       if (peak > 0.0001 )
         { ranval = sig * ran_GAUSS + peak; }
       else
@@ -224,4 +233,4 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
  DONE:
   return(ranval) ;
 
-} // end of exec_GEN_EXP_HALFGAUSS()
+} // end of getRan_GEN_EXP_HALFGAUSS()

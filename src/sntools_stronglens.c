@@ -360,7 +360,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   // ---------------- BEGIN ---------------
 
   // always burn random
-  FlatRan = FlatRan1(2);   // flat between 0 and 1
+  FlatRan = getRan_Flat1(2);   // flat between 0 and 1
 
   
   *NIMG = 0 ;

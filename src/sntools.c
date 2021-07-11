@@ -873,8 +873,8 @@ void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
 } // end init_Cholesky
 
 
-void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
-		  double *RanList_noCorr, double *RanList_Corr) {
+void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+		      double *RanList_noCorr, double *RanList_Corr) {
 
   // Feb 2020
   // For input list of MATSIZE Gaussian randoms in RanList_noCorr,  
@@ -883,7 +883,7 @@ void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
   int MATSIZE   = DECOMP->MATSIZE;
   double GAURAN, tmpMat, tmpRan ;
   int irow0, irow1;
-  //  char fnam[] = "GaussRanCorr" ;
+  char fnam[] = "getRan_GaussCorr" ;
 
   // ------------- BEGIN ------------
 
@@ -899,7 +899,7 @@ void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
 
   return ;
 
-} // end GaussRanCorr
+} // end getRan_GaussCorr
 
 // ==========================================================
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
@@ -2453,7 +2453,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
     COEFF_RANGE[1] = GENPOLY->COEFF_RANGE[o][1];
 
     if ( COEFF_RANGE[0] < COEFF_RANGE[1] ) 
-      { RANCOEFF = FlatRan ( 2, COEFF_RANGE ) ; }
+      { RANCOEFF = getRan_Flat ( 2, COEFF_RANGE ) ; }
     else
       { RANCOEFF = COEFF_RANGE[0]; }
 
@@ -7337,15 +7337,17 @@ void fillbins(int OPT, char *name, int NBIN, float *RANGE,
 
 
 // ***********************************
-double FlatRan ( int ilist, double *range ) {
+double getRan_Flat(int ilist, double *range ) {
 
   // return random number between range[0] and range[1]
   // 'ilist' selects which random list.
+  // Jul 12 2021: rename FlatRan -> getRan_Flat
 
   double xran, dif, rantmp;
   double x0, x1;
 
-  xran     = FlatRan1(ilist);
+  // xxx mark delete Jul 2021  xran     = FlatRan1(ilist);
+  xran     = getRan_Flat1(ilist);
   x0       = range[0] ;
   x1       = range[1] ;
   dif      = x1 - x0;
@@ -7358,7 +7360,7 @@ double FlatRan ( int ilist, double *range ) {
 
 // ****************************************
 
-double biGaussRan(double siglo, double sighi, double peakinterval ) {
+double getRan_GaussAsym(double siglo, double sighi, double peakinterval ) {
 
   // Return random number from bifurcate gaussian
   // with sigmas = "siglo" and "sighi" and peak = 0.0
@@ -7375,7 +7377,7 @@ double biGaussRan(double siglo, double sighi, double peakinterval ) {
 
 
   // pick random number to decide which half of the gaussian we are on
-  rr = FlatRan1(1) ;  // pick random number between 0 and 1
+  rr = getRan_Flat1(1) ;  // pick random number between 0 and 1
 
   biran = 0.;
 
@@ -7398,23 +7400,23 @@ double biGaussRan(double siglo, double sighi, double peakinterval ) {
 
   if (rr < p[0]) {
     //useGauss_lo = true ; 
-    rg = GaussRan(1) ;
+    rg = getRan_Gauss(1) ;
     biran = -fabs(rg) * siglo ; 
   }
   else if (rr < p[1]) {
     //use_peakinterval = true ;
-    rg = FlatRan1(1) ; 
+    rg = getRan_Flat1(1) ; 
     biran = (peakinterval * rg) ; 
   }
   else {
     //useGauss_hi = true ; 
-    rg = GaussRan(1) ; 
+    rg = getRan_Gauss(1) ; 
     biran = +fabs(rg) * sighi + peakinterval ; 
   }
 
   return biran ;
 
-} // end of biguassran
+} // end of getRan_GaussAsym
 
 // **********************************************
 
@@ -7432,7 +7434,7 @@ double biGaussRan_LEGACY(double siglo, double sighi ) {
 
 
   // pick random number to decide which half of the gaussian we are on
-  rr = FlatRan1(1) ;  // pick random number between 0 and 1
+  rr = getRan_Flat1(1) ;  // pick random number between 0 and 1
 
   biran = 0.;
 
@@ -7445,7 +7447,7 @@ double biGaussRan_LEGACY(double siglo, double sighi ) {
 
 
   // pick random gaussian number; force it positive
-  rg = GaussRan(1);
+  rg = getRan_Gauss(1);
   if ( rg < 0.0 ) { rg = -1.0 * rg ; }  // force positive random
 
   if ( rr < plo ) 
@@ -7459,9 +7461,9 @@ double biGaussRan_LEGACY(double siglo, double sighi ) {
 } // end of biguassran_LEGACY
 
 // **********************************************
-double skewGaussRan(double xmin, double xmax, 
-		    double siglo, double sighi, 
-		    double skewlo, double skewhi) {
+double getRan_skewGauss(double xmin, double xmax, 
+			double siglo, double sighi, 
+			double skewlo, double skewhi) {
 
   //  Mar 16 2014
   //
@@ -7491,7 +7493,7 @@ double skewGaussRan(double xmin, double xmax,
   //
 
   double SIGHI_BBGF, SIGLO_BBGF, x, P_BBGF, P_SG, Prob, ran1 ;
-  char fnam[] = "skewGaussRan" ;
+  char fnam[] = "getRan_skewGauss" ;
   int NTRY;
   int MXTRY = 100 ;
 
@@ -7536,12 +7538,12 @@ double skewGaussRan(double xmin, double xmax,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  x = biGaussRan(SIGLO_BBGF, SIGHI_BBGF, 0.);
+  x = getRan_GaussAsym(SIGLO_BBGF, SIGHI_BBGF, 0.);
   if ( x < xmin ) { goto PICKRAN ; }
   if ( x > xmax ) { goto PICKRAN ; }
 
-  P_BBGF = skewGauss(x, SIGLO_BBGF, SIGHI_BBGF, skewlo, skewhi );
-  P_SG   = skewGauss(x, siglo,      sighi,      skewlo, skewhi );
+  P_BBGF = funVal_skewGauss(x, SIGLO_BBGF, SIGHI_BBGF, skewlo, skewhi );
+  P_SG   = funVal_skewGauss(x, siglo,      sighi,      skewlo, skewhi );
 
   if ( P_BBGF <= 1.0E-9 ) {
     sprintf(c1err,"Invalid P_BBGF = %le for x=%.3f", P_BBGF, x);
@@ -7558,24 +7560,24 @@ double skewGaussRan(double xmin, double xmax,
 
   // apply weight for this x value
 
-  ran1 = FlatRan1(2); // 2-> 2nd list of randoms
+  ran1 = getRan_Flat1(2); // 2-> 2nd list of randoms
   if ( ran1 < Prob ) 
     { return x ; }
   else
     { goto PICKRAN ; }
 
 
-} // end of skewGaussRan 
+} // end of getRan_skewGauss
 
-double skewGauss(double x, double siglo,double sighi, 
-		 double skewlo, double skewhi ) {
+double funVal_skewGauss(double x, double siglo,double sighi, 
+			double skewlo, double skewhi ) {
 
   // March 2014
   // See function definition at top of skewGaussRan().
   // Note that function peak value (mode) must correspond to x=0.
 
   double sqx, sig, sqsig, arg, funval ;
-  char fnam[] = "skewGauss";
+  char fnam[] = "funVal_skewGauss";
 
   // ---------------  BEGIN ----------------
 
@@ -7598,7 +7600,7 @@ double skewGauss(double x, double siglo,double sighi,
 
   return funval ;
 
-} // end of skewGauss
+} // end of funVal_skewGauss
 
 
 // ************************************
@@ -7640,7 +7642,7 @@ void init_random_seed(int ISEED, int NSTREAM) {
 
   fill_RANLISTs(); 
   for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  { 
-    GENRAN_INFO.RANFIRST[i]    = FlatRan1(i); 
+    GENRAN_INFO.RANFIRST[i]    = getRan_Flat1(i); 
     GENRAN_INFO.NWRAP_MIN[i]   = 99999.0 ;
     GENRAN_INFO.NWRAP_MAX[i]   = 0.0; 
     GENRAN_INFO.NWRAP_SUM[i]   = 0.0; 
@@ -7663,9 +7665,9 @@ void fill_RANLISTs(void) {
 
   // Dec 1, 2006 RSK
   // Load RANSTORE array with random numbers (uniform from 0-1)
-  // from stream 0 usins unix_random(0)
+  // from stream 0 using unix_getRan_Flat1(0)
   //
-  // Jun 9 2018: use unix_random() call.
+  // Jun 9 2018: use unix_getRan_Flat1() call.
   // Jun 4 2020: change function name from init_RANLIST -> fill_RANLISTs
 
   int ilist, istore, NLIST_RAN;
@@ -7691,7 +7693,7 @@ void fill_RANLISTs(void) {
     // fill new list of randoms
     GENRAN_INFO.NSTORE_RAN[ilist] = 0 ;
     for ( istore=0; istore < MXSTORE_RAN; istore++ ) {
-      GENRAN_INFO.RANSTORE[ilist][istore] = unix_random(0);
+      GENRAN_INFO.RANSTORE[ilist][istore] = unix_getRan_Flat1(0);
     }
   }
 
@@ -7743,7 +7745,7 @@ void sumstat_RANLISTs(int FLAG) {
 } // end sumstat_RANLISTs
 
 // **********************************
-double unix_random(int istream) {
+double unix_getRan_Flat1(int istream) {
   // Created Jun 9 2018
   // Input istream is the random stream: 0 or 1
   // Return random between 0 and 1.
@@ -7752,7 +7754,7 @@ double unix_random(int istream) {
 
   int NSTREAM = GENRAN_INFO.NSTREAM ;
   int JRAN ;
-  char fnam[] = "unix_random";
+  char fnam[] = "unix_getRan_Flat1";
   // ------------ BEGIN ----------------
   if ( NSTREAM == 1 )  { 
     JRAN = random(); 
@@ -7771,33 +7773,34 @@ double unix_random(int istream) {
   return(r8);
 }
 
-double unix_random__(int *istream) { return( unix_random(*istream) ); }
+double unix_getRan_Flat1__(int *istream) 
+{ return( unix_getRan_Flat1(*istream) ); }
 
 // ***********************************
-double GaussRan(int ilist) {
+double getRan_Gauss(int ilist) {
   // return Gaussian random number using randoms from "ilist",
   // which uses stream 0.
   double R,  V1, V2, FAC, G ;
   // --------------- BEGIN ----------------
  BEGIN:
-  V1 = 2.0 * FlatRan1(ilist) - 1.0;
-  V2 = 2.0 * FlatRan1(ilist) - 1.0;
+  V1 = 2.0 * getRan_Flat1(ilist) - 1.0;
+  V2 = 2.0 * getRan_Flat1(ilist) - 1.0;
   R  = V1*V1 + V2*V2 ;
   if ( R >= 1.0 ) { goto BEGIN ; }
   FAC = sqrt(-2.*log(R)/R) ;
   G = V2 * FAC ;
 
   return G ;
-}  // end of Gaussran
+}  // end of getRan_Gauss
 
 
-double unix_GaussRan(int istream) {
+double unix_getRan_Gauss(int istream) {
   // Created Jun 4 2020
-  // pick random Gaussian directly from unix_random using 
+  // pick random Gaussian directly from unix_getRan_Flat1 using 
   // independent "istream" input.
   double R,  V1, V2, FAC, G ;
   int    NSTREAM = GENRAN_INFO.NSTREAM ;
-  char fnam[] = "unix_GaussRan" ;
+  char fnam[] = "unix_getRan_Gauss" ;
 
   // --------------- BEGIN ----------------
  BEGIN:
@@ -7806,32 +7809,32 @@ double unix_GaussRan(int istream) {
     sprintf(c2err,"Check call to init_random_seed." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
-  V1 = 2.0 * unix_random(istream) - 1.0;
-  V2 = 2.0 * unix_random(istream) - 1.0;
+  V1 = 2.0 * unix_getRan_Flat1(istream) - 1.0;
+  V2 = 2.0 * unix_getRan_Flat1(istream) - 1.0;
   R  = V1*V1 + V2*V2 ;
   if ( R >= 1.0 ) { goto BEGIN ; }
   FAC = sqrt(-2.*log(R)/R) ;
   G = V2 * FAC ;
   return G ;
-} // end unix_GaussRan
+} // end unix_getRan_Gauss
 
-double GaussRanClip(int ilist, double ranGmin, double ranGmax ) {
+double getRan_GaussClip(int ilist, double ranGmin, double ranGmax ) {
   // Created Aug 2016
   double ranG ;
  PICK_RANGAUSS:
-  ranG = GaussRan(ilist);
+  ranG = getRan_Gauss(ilist);
   if ( ranG < ranGmin || ranG > ranGmax ) { goto PICK_RANGAUSS; }
   return(ranG);
 
-} // end GaussRanClip
+} // end getRan_GaussClip
 
 // *********************************
-double FlatRan1(int ilist) {
+double getRan_Flat1(int ilist) {
 
   int  N ;
   double   x8;
   int  NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
-  char fnam[] = "FlatRan1" ;
+  char fnam[] = "getRan_Flat1" ;
 
   // return random number between 0 and 1
   // Feb 2013: pass argument 'ilist' to pick random list.
@@ -7857,11 +7860,11 @@ double FlatRan1(int ilist) {
 
   return x8;
 
-}  // end of FlatRan1
+}  // end of getRan_Flat1
 
 
-double gaussran_(int *ilist) { return GaussRan(*ilist); }
-double flatran1_(int *ilist) { return FlatRan1(*ilist); }
+double getran_gauss__(int *ilist) { return getRan_Gauss(*ilist); }
+double getran_flat1__(int *ilist) { return getRan_Flat1(*ilist); }
 
 
 // ********************************************************

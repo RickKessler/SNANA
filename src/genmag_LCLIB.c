@@ -589,7 +589,7 @@ void set_randomStart_LCLIB(void) {
 
   if ( NEVENT < NEVENT_MIN ) { return ; }
 
-  XEVT_START = unix_random(0) * (double)(NEVENT-NEVENT_MIN) ;
+  XEVT_START = unix_getRan_Flat1(0) * (double)(NEVENT-NEVENT_MIN) ;
   IEVT_START = (int)XEVT_START ;
 
   printf("\t Skip to random LCLIB event %d of %d ... ",
@@ -1294,7 +1294,7 @@ void ranPhase_PERIODIC_LCLIB(void) {
   int    NFILT    = LCLIB_INFO.NFILTERS;
   int    NROW_S   = LCLIB_EVENT.NROW_S ;
   double PERIOD   = LCLIB_EVENT.DAYCOVER_S ;
-  double RANPHASE = PERIOD * FlatRan1(1) ;
+  double RANPHASE = PERIOD * getRan_Flat1(1) ;
   int    ID       = LCLIB_EVENT.ID;
 
   double DT ;
@@ -2214,7 +2214,7 @@ void set_TOBS_OFFSET_LCLIB(void) {
 
   // -------------- BEGIN ------------
 
-  FlatRan = FlatRan1(1);
+  FlatRan = getRan_Flat1(1);
   DAY_BUFFER = 0.0 ;
 
   // no offset for DEBUG
@@ -2405,7 +2405,7 @@ double magSearch_LCLIB(int ifilt, double Tobs) {
   if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
     double DIF0 = LCLIB_INFO.GENRANGE_DIFMAG[0];
     double DIF1 = LCLIB_INFO.GENRANGE_DIFMAG[1];
-    mag    = mag_T + DIF0 + (DIF1-DIF0) * FlatRan1(1);
+    mag    = mag_T + DIF0 + (DIF1-DIF0) * getRan_Flat1(1);
     return(mag) ;
   }
 
@@ -2479,7 +2479,7 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt) {
   if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
     double MAG0 = LCLIB_INFO.GENRANGE_RANMAG[0];
     double MAG1 = LCLIB_INFO.GENRANGE_RANMAG[1];
-    mag = MAG0 + ( MAG1 - MAG0 ) * FlatRan1(1) ;
+    mag = MAG0 + ( MAG1 - MAG0 ) * getRan_Flat1(1) ;
     //    printf(" xxx mag_T = %f (%f - %f)\n", mag, MAG0, MAG1 );
     return(mag);
   }

@@ -226,8 +226,8 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
   double zHOST = zSN ;
 
   // always burn the randoms to stay synced
-  double FlatRan_prob   = FlatRan1(1);
-  double FlatRan_zmatch = FlatRan1(1);
+  double FlatRan_prob   = getRan_Flat1(1);
+  double FlatRan_zmatch = getRan_Flat1(1);
 
   double P_wrongHost, XNRAN ;
   int i ;

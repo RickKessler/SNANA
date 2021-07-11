@@ -284,14 +284,14 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   // generate Guassian randoms for intrinsic scatter [genSmear] model
   if ( NRANGauss < MXFILTINDX-1 ) { NRANGauss = MXFILTINDX-1; } 
   for(iran=0; iran < NRANGauss; iran++ ) {                 
-    GENSMEAR.RANGauss_LIST[iran] = GaussRanClip(ILIST_RAN,gmin,gmax); 
+    GENSMEAR.RANGauss_LIST[iran] = getRan_GaussClip(ILIST_RAN,gmin,gmax); 
   }
 
  
   // repeat for 0-1 [flat] randoms
   if ( NRANFlat < MXFILTINDX-1 ) { NRANFlat = MXFILTINDX-1; }
   for ( iran=0; iran < NRANFlat; iran++ ) 
-    {  GENSMEAR.RANFlat_LIST[iran]  = FlatRan1(ILIST_RAN);  } 
+    {  GENSMEAR.RANFlat_LIST[iran]  = getRan_Flat1(ILIST_RAN);  } 
   
   if ( LDMP ) {
     double GFIRST = GENSMEAR.RANGauss_LIST[0];
@@ -314,7 +314,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
     int NBIN = GENSMEAR_PHASECOR.NBIN ;
     for(iran=0; iran < NBIN; iran++ ) {                 
       GENSMEAR_PHASECOR.RANGauss_LIST[iran] = 
-	GaussRanClip(ILIST_RAN,gmin,gmax); 
+	getRan_GaussClip(ILIST_RAN,gmin,gmax); 
     }
   }
 
@@ -1792,8 +1792,8 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
   // ---------- BEGIN -------
 
   // Feb 17 2020: use new utility for correlated randoms
-  GaussRanCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
-	       SCATTER_VALUES );            // (O)
+  getRan_GaussCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+		   SCATTER_VALUES );            // (O)
 
   // -------------
   for ( ilam=0; ilam < NLam; ilam++ ) {
@@ -3488,8 +3488,8 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
 
 
   // Feb 17 2020: new utility to fetch correlated randoms
-  GaussRanCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
-	       GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
+  getRan_GaussCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+		   GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
 
   // -------------
   for ( iwave=0; iwave < NWAVE; iwave++ ) {
@@ -3837,8 +3837,9 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
     if ( LDMP ) 
       { printf(" xxx ----------- CID = %d -------------- \n", CID); }
 
-    GaussRanCorr(&GENSMEAR_PHASECOR.DECOMP, GENSMEAR_PHASECOR.RANGauss_LIST,
-		 GENSMEAR_PHASECOR.GRID_MAGSMEAR);
+    getRan_GaussCorr(&GENSMEAR_PHASECOR.DECOMP, 
+		     GENSMEAR_PHASECOR.RANGauss_LIST,
+		     GENSMEAR_PHASECOR.GRID_MAGSMEAR);
 
     check_genSmear_phaseCor();    
 	

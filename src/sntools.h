@@ -482,8 +482,11 @@ void write_epoch_list_summary__(void);
 void catVarList_with_comma(char *varList, char *addVarName);
 
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
-void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
-		  double *RanList_noCorr, double *RanList_corr);
+void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
+		      double *RanList_noCorr, double *RanList_corr);
+
+// xxx void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
+// xxx		  double *RanList_noCorr, double *RanList_corr);
 
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );
@@ -875,30 +878,31 @@ double angSep( double RA1,double DEC1,
 void   init_random_seed(int ISEED, int NSTREAM);
 void   fill_RANLISTs(void);
 void   sumstat_RANLISTs(int FLAG);
-double unix_random(int istream) ;
-double unix_GaussRan(int istream);
-double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]
-double FlatRan1(int ilist);          // return 0 < random  < 1
-double GaussRan(int ilist);          // returns gaussian random number
-double GaussRanClip(int ilist, double ranGmin, double ranGmax);
+// xxx double unix_random(int istream) ;
+// xxx double unix_GaussRan(int istream);
+
+double unix_getRan_Flat1(int istream) ;
+double unix_getRan_Gauss(int istream);
+
+double getRan_Flat(int ilist, double *range);  //return rnmd on range[0-1]
+double getRan_Flat1(int ilist);          // return 0 < random  < 1
+double getRan_Gauss(int ilist);   // return Gauss randon (sigma=1)
+double getRan_GaussClip(int ilist, double ranGmin, double ranGmax);
+double getRan_GaussAsym(double siglo, double sighi, double peakinterval);  
 int    getRan_Poisson(double mean);
-//void   FlatRan_correlated(int NDIM, double *COVRED, double *outRanList);
 
 // mangled functions for fortran
 double unix_random__(int *istream) ;
-double flatran1_(int *ilist) ;          // for fortran
-double gaussran_(int *ilist);         // for fortran
+double getran_flat1__(int *ilist) ;          // for fortran
+double getran_gauss__(int *ilist);         // for fortran
 
-// asymmetric gaussians
-double biGaussRan(double siglo, double sighi, double peakinterval);  // rndm from bivariate guass, now with support for flat top distributions
+double biGaussRan_LEGACY(double siglo, double sighi);  
 
-double biGaussRan_LEGACY(double siglo, double sighi);  // rndm from bivariate guass, legacy
+double getRan_skewGauss(double rmin, double rmax, double siglo, double sighi, 
+			double skewlo, double skewhi);
 
-double skewGaussRan(double rmin, double rmax, 
-		    double siglo, double sighi, double skewlo, double skewhi);
-
-double skewGauss(double x, double siglo,double sighi, 
-		 double skewlo, double skewhi) ;
+double funVal_skewGauss(double x, double siglo,double sighi, 
+			double skewlo, double skewhi) ;
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);

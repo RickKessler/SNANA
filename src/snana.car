@@ -4378,7 +4378,7 @@ c i.e., do not depend on host-match.
          CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_MAGOBS, OPT)
          DO ifilt = 1, NFILTDEF_READ
             MAG   = SNHOST_MAGOBS(ifilt,1)
-            if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE.  ! .xyz
+            if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE. 
          ENDDO
 
       ENDIF  ! end IGAL=1
@@ -13194,6 +13194,8 @@ c
 c Returns True if ITYPE passes cuts; returns false otherwise.
 c Also increments global NACCEPT_TYPE if ITYPE is valid.
 c
+c Jul 12 2021: abort if ITYPE < 0
+c
 c -------------------------
 
       IMPLICIT NONE
@@ -13207,10 +13209,20 @@ c local args
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+      CHARACTER FNAM*12
       INTEGER i
       LOGICAL LTYPE
 
 C -------------- BEGIN --------------
+
+      FNAM = 'PASS_SNTYPE'
+      IF ( ITYPE < 0 ) THEN  ! .xyz
+         write(c1err,61) ITYPE, SNLC_CCID
+         write(c2err,62) MXTYPE
+61       format('Invalid data header TYPE = ', I6, ' for CID=',A )
+62       format('Valid TYPE range is 0 to ', I5)
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
 
       PASS_SNTYPE = .FALSE.
 

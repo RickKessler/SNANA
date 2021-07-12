@@ -1413,6 +1413,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
+  bool ISKEY_EBV, ISKEY_AV;
   FILE *fpNull = NULL ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
@@ -1425,6 +1426,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 		   strstr(WORDS[0],"NBR"     ) != NULL );
 
   ISKEY_SIMLIB  = (strstr(WORDS[0],"SIMLIB_") != NULL );
+
+  ISKEY_EBV     = (strstr(WORDS[0],"_EBV") != NULL );
+  ISKEY_AV      = (strstr(WORDS[0],"_AV" ) != NULL );
 
   ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
 		   strstr(WORDS[0],"DNDB") != NULL  ) ;
@@ -1883,11 +1887,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", strPoly);
     parse_GENPOLY(strPoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
   }
-  // - - - - - host AV  - - - -
+  // - - - - - host RV and AV  - - - -
   else if ( strstr(WORDS[0],PARNAME_RV) != NULL ) {
     N += parse_input_GENGAUSS(PARNAME_RV, WORDS, keySource,
 			      &INPUTS.GENGAUSS_RV );  
   }
+
+  /* xxxxxxxxx mark delete July 12 2021 xxxxxxxxxxxx
   else if ( keyMatchSim(1, "GENRANGE_AV",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RANGE[0] ); 
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RANGE[1] ); 
@@ -1907,7 +1913,26 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RATIO ); 
     INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
   }
+  xxxxxxxxxxxx end mark xxxxxxxxxxxxx */
+
+
   // - - - - EBV for HOST - - - - 
+
+  else if ( ISKEY_EBV ) {
+    N += parse_input_EXP_HALFGAUSS("EBV", WORDS, keySource,
+				   &INPUTS.GENPROFILE_EBV_HOST );
+    N += parse_input_EXP_HALFGAUSS("EBV_HOST", WORDS, keySource,
+				   &INPUTS.GENPROFILE_EBV_HOST );
+
+  }
+  else if ( ISKEY_AV ) {
+    N += parse_input_EXP_HALFGAUSS("AV", WORDS, keySource,
+				   &INPUTS.GENPROFILE_AV );
+    N += parse_input_EXP_HALFGAUSS("AV_HOST", WORDS, keySource,
+				   &INPUTS.GENPROFILE_AV );
+  }
+
+  /* xxxx mark delete Jul 2021 xxxx
   else if ( keyMatchSim(1, "GENGAUPEAK_EBV_HOST", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); 
   }
@@ -1925,6 +1950,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[0] ); 
     N++; sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[1] ); 
   }
+  xxxxxxxxx end mark xxxxxxxxx */
+
+
   // - - - - - WV07 options - - - - 
   else if ( keyMatchSim(1, "GENAV_WV07  WV07_GENAV_FLAG", 
 			WORDS[0],keySource) ) {
@@ -1933,6 +1961,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "GENAV_REWGT_EXPAV", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.WV07_REWGT_EXPAV ) ;
   }
+
   // - - - - MW RV - - - - -
 
   else if ( keyMatchSim(1, "RV_MWCOLORLAW RVMW", WORDS[0],keySource) ) {
@@ -6014,8 +6043,9 @@ void prep_dustFlags(void) {
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) 
     { INPUTS.WV07_GENAV_FLAG = DO_WV07 = 1; } 
 
-  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,       PARNAME_AV);
-  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST, PARNAME_EBV);
+
+  // setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,       PARNAME_AV);
+  // setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST, PARNAME_EBV);
 
   // if AV and EBV_HOST useflags are both set, then abort
   if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {

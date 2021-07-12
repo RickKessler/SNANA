@@ -12,9 +12,11 @@ typedef struct {
 
 // ========= FUNCTION PROTOTYPES ==================
 
-void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL );
+void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, 
+			    double VAL );
 
-void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char *name );
+void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, 
+				  char *name );
 
 void set_GEN_EXPON(double tau, double *range, 
 		   GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
@@ -22,5 +24,10 @@ void set_GEN_EXPON(double tau, double *range,
 double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS);
 
-void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, GEN_EXP_HALFGAUSS_DEF *out_EXP_HALFGAUSS);
+void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, 
+			    GEN_EXP_HALFGAUSS_DEF *out_EXP_HALFGAUSS);
+
+int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
+			      GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS );
+
 

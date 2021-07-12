@@ -20761,7 +20761,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   if ( GENGAUSS_SALT2x1->USE ) { catVarList_with_comma(varlist,"SALT2x1"); }
   if ( GENGAUSS_SALT2c->USE  ) { catVarList_with_comma(varlist,"SALT2c");  }
   if ( GENGAUSS_RV->USE      ) { catVarList_with_comma(varlist,"RV");      }
-  fprintf(FP_STDOUT,"\t Found bounding functions for '%s' \n", varlist);
+  fprintf(FP_STDOUT,"\t Stored bounding functions for '%s' \n", varlist);
   fflush(FP_STDOUT);
 
 

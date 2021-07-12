@@ -20134,6 +20134,8 @@
        
          ***** MISCELLANEOUS(v11_02q) ***** 
 
+   all codes: all random-number functions renamed with "getRan_" prefix
+
    genmag_LCLIB: 
       + call coord_translate_LCLIB before anglematch cut 
 
@@ -20175,5 +20177,8 @@
    submit_train_SALT3.py:
       new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
        (beware: copied code snippets from train_SALT2, but not tested)
+
+   sntools_genExpHalfGauss.c :
+      + new utility parse_input_EXP_HALFGAUSS
 
 END: 

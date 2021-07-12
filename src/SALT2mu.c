@@ -2380,6 +2380,7 @@ struct {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
   GENGAUSS_ASYM_DEF GENGAUSS_RV ;
+  GEN_EXP_HALFGAUSS_DEF EXP_HALFGAUSS_EBV ;
 } SUBPROCESS ;
 
 
@@ -20685,10 +20686,11 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   GENGAUSS_ASYM_DEF *GENGAUSS_SALT2x1 = &SUBPROCESS.GENGAUSS_SALT2x1;
   GENGAUSS_ASYM_DEF *GENGAUSS_SALT2c  = &SUBPROCESS.GENGAUSS_SALT2c;
   GENGAUSS_ASYM_DEF *GENGAUSS_RV      = &SUBPROCESS.GENGAUSS_RV;
+  GEN_EXP_HALFGAUSS_DEF *EXP_EBV      = &SUBPROCESS.EXP_HALFGAUSS_EBV ; 
 
   FILE *finp ; 
   int GZIPFLAG, NITEM, i, NWORD ;
-  bool is_salt2c, is_salt2x1, is_rv ; 
+  bool is_salt2c, is_salt2x1, is_rv, is_ebv ; 
   char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST, LINE[200], TMPLINE[200] ; 
   char varlist[40] = "";
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
@@ -20699,6 +20701,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   init_GENGAUSS_ASYM(GENGAUSS_SALT2c,  0.0 );
   init_GENGAUSS_ASYM(GENGAUSS_SALT2x1, 0.0 );
   init_GENGAUSS_ASYM(GENGAUSS_RV,      0.0 );
+  init_GEN_EXP_HALFGAUSS(EXP_EBV, 0.0) ;
 
   if (IGNOREFILE(input_simref_file)) {
     SUBPROCESS.ISFLAT_SIM = true ;
@@ -20729,9 +20732,10 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     is_salt2c  = ( strstr(c_get,"SALT2c")  != NULL ) ; 
     is_salt2x1 = ( strstr(c_get,"SALT2x1") != NULL ) ; 
     is_rv      = ( strstr(c_get,"RV")      != NULL ) ;
+    is_ebv     = ( strstr(c_get,"EBV")     != NULL ) ;
 
     // will need to add EBV later
-    if ( is_salt2c || is_salt2x1 || is_rv ) {  // SALT2 or RV is in c_get
+    if ( is_salt2c || is_salt2x1 || is_rv || is_ebv ) {  // SALT2 or RV is in c_get
 
       fgets(LINE,100,finp); 
       sprintf(TMPLINE,"%s %s", c_get, LINE);
@@ -20752,6 +20756,15 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 	NWORD = parse_input_GENGAUSS("RV", ptr_ITEMLIST, KEYSOURCE_FILE,
 				     GENGAUSS_RV);
       }
+
+      if ( is_ebv ) {
+	NWORD = parse_input_EXP_HALFGAUSS("EBV", ptr_ITEMLIST, KEYSOURCE_FILE,
+					  EXP_EBV);
+        NWORD = parse_input_EXP_HALFGAUSS("EBV_HOST", ptr_ITEMLIST, KEYSOURCE_FILE,
+                                          EXP_EBV);
+
+      }
+
     } // end if is_xxx 
   } // end while
 
@@ -20761,6 +20774,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   if ( GENGAUSS_SALT2x1->USE ) { catVarList_with_comma(varlist,"SALT2x1"); }
   if ( GENGAUSS_SALT2c->USE  ) { catVarList_with_comma(varlist,"SALT2c");  }
   if ( GENGAUSS_RV->USE      ) { catVarList_with_comma(varlist,"RV");      }
+  if ( EXP_EBV->USE          ) { catVarList_with_comma(varlist,"EBV") ;    }
   fprintf(FP_STDOUT,"\t Stored bounding functions for '%s' \n", varlist);
   fflush(FP_STDOUT);
 
@@ -20770,6 +20784,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     dump_GENGAUSS_ASYM(GENGAUSS_SALT2c);
     dump_GENGAUSS_ASYM(GENGAUSS_SALT2x1);
     dump_GENGAUSS_ASYM(GENGAUSS_RV);
+    // xxx maybe will need EBV dump
   }
 
   debugexit(fnam) ; 

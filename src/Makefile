@@ -535,12 +535,13 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 $(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
-$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_genGauss_asym.o
+$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_genGauss_asym.o $(OBJ)/sntools_genExpHalfGauss.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/SALT2mu.o  \
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/sntools_genGauss_asym.o \
+	$(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/minuit.o 	\
 	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 

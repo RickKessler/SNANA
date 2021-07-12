@@ -152,9 +152,47 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 
 // **********************************
 double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
+  // Created July 12 2021
+  // Warning! Works only for a single peaked Gaussian! 
 
+  double peak = genGauss->PEAK ;
+  double siglo = genGauss->SIGMA[0] ; 
+  double sighi = genGauss->SIGMA[1] ;
+  double *peakrange = genGauss->PEAKRANGE ; 
+  double prob2 = genGauss->PROB2 ;
   double funVal = NULLDOUBLE ;
+  double arg, tmp ;
+  char *NAME  = genGauss->NAME;
   char fnam[] = "funVal_GENGAUSS_ASYM";
+
+  //BEGIN .XYZ
+  if (prob2 > 0) {
+    sprintf(c1err,"Second peak not supported for function='%s'", NAME);
+    sprintf(c2err, "Remove PROB2 or fix code") ; 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  if (x < peakrange[0]) {
+    tmp = (x - peakrange[0]) / siglo ;
+    arg = .5 * tmp * tmp ;
+    funVal = exp(-arg) ; //note funVal=1 when x = peakrange[0]
+  }
+
+  else if (x < peakrange[1]) {
+    funVal = 1.0;
+  }
+
+  else {
+    tmp = (x - peakrange[1]) / sighi ;
+    arg = .5 * tmp * tmp ;
+    funVal = exp(-arg) ; //note funVal=1 when x = peakrange[1]
+  }
+
+  if (funVal < 0.) {
+    sprintf(c1err,"Invalid funVal = %f for x = %f", funVal, x);
+    sprintf(c2err, "Something crazy happened for function='%s'", NAME) ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  } 
 
   return funVal;
 

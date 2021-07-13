@@ -818,6 +818,7 @@ void wr_snfitsio_create(int itype ) {
   // Aug 02 2016: new 'SPEC' option to write simulated spectra
   // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
   // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
+  // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
@@ -952,11 +953,25 @@ void wr_snfitsio_create(int itype ) {
   // @@@@@@@ if we are here, write SIM_XXX info @@@@@@@@@@@
   // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+  // Jul 2021: write warning about longstr
+  istat=0;   fits_write_key_longwarn(fp, &istat);
+
   // simlib file
   istat=0;
-  fits_update_key(fp, TSTRING, "SIMLIB_FILE", SNDATA.SIMLIB_FILE, 
-		  "SIMLIB Cadence/conditions File", &istat );  
+  fits_write_key_longstr(fp, "SIMLIB_FILE", SNDATA.SIMLIB_FILE, 
+			 "SIMLIB Cadence/conditions File", &istat );  
+  //xxx  fits_update_key(fp, TSTRING, "SIMLIB_FILE", SNDATA.SIMLIB_FILE, 
+  //xxx		  "SIMLIB Cadence/conditions File", &istat );  
   sprintf(c1err,"Write SIMLIB file name") ;
+  snfitsio_errorCheck(c1err, istat) ;
+
+  //  fitsfile *fptr, char *keyname, char *longstr, char *comment
+  istat = 0;
+  fits_write_key_longstr(fp, "KCOR_FILE", SNDATA.KCOR_FILE,
+			 "KCOR/calibration file", &istat );
+  //xx  fits_update_key(fp, TSTRING, "KCOR_FILE", SNDATA.KCOR_FILE, 
+  //xxx		  "KCOR/calibration file", &istat );  
+  sprintf(c1err,"Write KCOR file name") ;
   snfitsio_errorCheck(c1err, istat) ;
 
   istat=0;

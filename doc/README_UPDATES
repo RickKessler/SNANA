@@ -20123,6 +20123,7 @@
 
      + sim requires DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
      + fix subtle SATL2mu bug related to chi2max cut (see details below)
+     + SALT2mu: interp_biascor_logmass option applies to muCOVscale
 
          ***** USEFUL(v11_02q) ***** 
 
@@ -20132,6 +20133,8 @@
     + new sim input key GENPEAKRANGE_XXX to give flat top to asym Gauss.
        Initial use is bounding function for SALT2mu SUBPROCES.
        
+    + train_SALT3: add SURVEY_LIST_SAMEMAGSYS[FILTER] keys
+
          ***** MISCELLANEOUS(v11_02q) ***** 
 
    all codes: all random-number functions renamed with "getRan_" prefix
@@ -20163,6 +20166,7 @@
      + default CUTWIN_NFILT_SNRMAX -> 0 (was 1) to show events with nothing.
      + MXLEN_EPSTRING -> 40k (was 20k) to read Roman with synthetic bands.
      + add N_SNHOST_ZSPEC[PHOT] to output yaml file if OPT_YAML=1
+     + abort on TYPE < 0 (see PASS_SNTYPE function)
 
    snlc_sim.c
      + for pre-scaled spectra, fix logic to suppress rejected spectra
@@ -20173,6 +20177,7 @@
        Bug detail: RA[DEC]_LAST variables were not initialized, and
        thus took values of zero ...so RA != RA_LAST was never satisfied.
      + require DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
+     + write KCOR_FILE to FITS header.
 
    submit_train_SALT3.py:
       new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  

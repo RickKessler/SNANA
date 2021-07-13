@@ -23,6 +23,9 @@ typedef struct  {
   double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index
   double RMS;  // RMS of asym Gaussian 
+
+  int INDEX; // Generic index for internal use (not part of function)
+
 } GENGAUSS_ASYM_DEF ;
 
 GENGAUSS_ASYM_DEF  GENGAUSS_ASYM_LIST[MXGENGAUSS] ; 

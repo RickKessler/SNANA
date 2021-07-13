@@ -55,6 +55,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->RMS       = 0.0 ;
 
+  genGauss->INDEX     = -999 ;
+
 } // end init_GENGAUSS_ASYM
 
 // ************************************
@@ -88,6 +90,8 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   genGauss2->SIGMA2[1]  =  genGauss1->SIGMA2[1] ;
 
   genGauss2->RMS        =  genGauss1->RMS ;
+
+  genGauss2->INDEX      = genGauss1->INDEX ; 
 
   return ;
 

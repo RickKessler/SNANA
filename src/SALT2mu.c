@@ -20843,7 +20843,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     return ;
   } 
 
-  fprint_banner(FP_STDOUT,fnam);
+  print_banner(fnam);
 
   SUBPROCESS.ISFLAT_SIM = false ; 
 
@@ -20854,9 +20854,9 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    fprintf(FP_STDOUT,"\t Read bounding functions from SIMREF input file:\n"
+    printf("\t Read bounding functions from SIMREF input file:\n"
 	    "\t %s\n", input_simref_file );
-    fflush(FP_STDOUT);
+    fflush(stdout);
   }
 
   ptr_ITEMLIST = (char**)malloc( 50*sizeof(char*));
@@ -20909,11 +20909,11 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   if ( GENGAUSS_SALT2c->USE  ) { catVarList_with_comma(varlist,"SALT2c");  }
   if ( GENGAUSS_RV->USE      ) { catVarList_with_comma(varlist,"RV");      }
   if ( EXP_EBV->USE          ) { catVarList_with_comma(varlist,"EBV") ;    }
-  fprintf(FP_STDOUT,"\t Stored bounding functions for '%s' \n", varlist);
-  fflush(FP_STDOUT);
+  printf("\t Stored bounding functions for '%s' \n", varlist);
+  fflush(stdout);
 
 
-  int LDMP = 1;
+  int LDMP = 0;
   if ( LDMP ) {
     dump_GENGAUSS_ASYM(GENGAUSS_SALT2c);
     dump_GENGAUSS_ASYM(GENGAUSS_SALT2x1);
@@ -20921,7 +20921,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     // xxx maybe will need EBV dump
   }
 
-  debugexit(fnam) ; 
+  //debugexit(fnam) ; 
   return ; 
 } //END SUBPROCESS_READ_SIMREF_INPUTS
 
@@ -21137,7 +21137,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
       } // end ivar loop
 
       istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, &PROB);
-      // XYZ check for bounding function here
+      // check for bounding function here
       if (! SUBPROCESS.ISFLAT_SIM) {
 	PROB_SIMREF =  SUBPROCESS_PROB_SIMREF(ITER_FOUND, imap, XVAL_for_GENPDF[0]) ;
       }
@@ -21182,22 +21182,17 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   char fnam[] = "SUBPROCESS_PROB_SIMREF" ; 
   double PROB_SIMREF = 1.0 ; 
-  int ivar ; 
   int NVAR = SUBPROCESS.NVAR_GENPDF ;
-  char *VARNAME ; 
+  char *VARNAME = GENPDF[imap].VARNAMES[0] ; 
 
   // begin XYZ
-  if (ITER <= 1) {
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      VARNAME = GENPDF[imap].VARNAMES[ivar] ; 
-    
-      if (strcmp(VARNAME, "RV") == 0 ) { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
-      if (strcmp(VARNAME, "SALT2c") == 0 ) { SUBPROCESS.GENGAUSS_SALT2c.INDEX = imap ; }
-      if (strcmp(VARNAME, "SALT2x1") == 0 ) { SUBPROCESS.GENGAUSS_SALT2x1.INDEX = imap ; }
-      if (strcmp(VARNAME, "EBV") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
-      if (strcmp(VARNAME, "EBV_HOST") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
-
-    } // end ivar loop
+  if (ITER <= 1) { 
+    //printf("xxx ITER=%d IVAR=%d VARNAME=%s \n", ITER, ivar, VARNAME) ; 
+    if (strcmp(VARNAME, "SIM_RV") == 0 ) { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_c") == 0 ) { SUBPROCESS.GENGAUSS_SALT2c.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_x1") == 0 ) { SUBPROCESS.GENGAUSS_SALT2x1.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_EBV") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_EBV_HOST") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
   } // end ITER loop
 
   if (SUBPROCESS.GENGAUSS_RV.INDEX == imap) {
@@ -21217,10 +21212,19 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   }
   
   else {
-    VARNAME = GENPDF[imap].VARNAMES[0] ; 
     sprintf(c1err,"Did not find bounding functions for '%s'", VARNAME) ;
     sprintf(c2err,"Bounding functions must be specified for all variables or none!") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  if ( PROB_SIMREF < 0.) {
+    sprintf(c1err,"Invalid PROB_SIMREF=%f for VARNAME=%s", PROB_SIMREF, VARNAME) ;
+    sprintf(c2err,"ITER = %d, imap=%d, XVAL=%f", ITER, imap, XVAL) ;
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+  }
+
+  if (ITER < -1) {
+    printf("xxx ITER = %d, imap = %d, PROB_SIMREF = %f, XVAL = %f, VARNAME = %s \n", ITER, imap, PROB_SIMREF, XVAL, VARNAME); 
   }
 
   return PROB_SIMREF; 

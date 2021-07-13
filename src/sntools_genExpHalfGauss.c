@@ -109,9 +109,20 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
 // ************************************************************
 double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
-  
+  //WARNING!! Half Gaussian not yet coded!
+  double tau = gen_EXP_HALFGAUSS->EXP_TAU ;
   double funVal = NULLDOUBLE ;
+  double sigma = gen_EXP_HALFGAUSS->SIGMA ; 
   char fnam[] = "funVal_GEN_EXP_HALFGAUSS";
+
+  if (sigma > 0.) {
+    sprintf(c1err,"Half Gaussian not yet implemented!");
+    sprintf(c2err,"TAU = %f, SIGMA = %f", tau, sigma);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+  }
+
+  funVal = exp(-x/tau) ; 
+
 
   return funVal;
 

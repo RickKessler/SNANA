@@ -7,6 +7,9 @@ typedef struct {
   double PEAK, SIGMA ; // peak & sigma of half gaussian component
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
+
+  int INDEX; // Generic index for internal use (not part of function)
+
 } GEN_EXP_HALFGAUSS_DEF ;
 
 

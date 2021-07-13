@@ -2279,6 +2279,7 @@ void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
 void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
 				  TABLEVAR_DEF *TABLEVAR); 
 void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
+double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL);
 void SUBPROCESS_SIM_PRESCALE(void);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
@@ -20902,7 +20903,6 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     } // end if is_xxx 
   } // end while
 
-  // .XYZ
   fclose(finp) ; 
 
   if ( GENGAUSS_SALT2x1->USE ) { catVarList_with_comma(varlist,"SALT2x1"); }
@@ -21020,6 +21020,9 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // For sim, read PDF population map(s), same map as for sim-input
   // GENPDF_FILE, and reweight sim data assuming that sim was 
   // generated with a flat distribution in each variable.
+  // 
+  // July 13 2021
+  // Updated to include bounding function option
 
   int  OPTMASK  = OPTMASK_GENPDF_EXTERNAL_FP ;
   int  ITER     = SUBPROCESS.ITER ;
@@ -21101,9 +21104,10 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   bool LDMP, KEEP ;
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
   char *name;
-  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT ;
+  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT, PROB_SIMREF ;
   
   for ( isn=0 ; isn < NSN; isn++ ) {
+    PROB_SIMREF     = 1.0;
     PROB_TOT        = 1.0;
     name            = INFO_DATA.TABLEVAR.name[isn];
     SIM_NONIA_INDEX = INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[isn];
@@ -21133,7 +21137,12 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
       } // end ivar loop
 
       istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, &PROB);
-      PROB_TOT *= PROB ;
+      // XYZ check for bounding function here
+      if (! SUBPROCESS.ISFLAT_SIM) {
+	PROB_SIMREF =  SUBPROCESS_PROB_SIMREF(ITER_FOUND, imap, XVAL_for_GENPDF[0]) ;
+      }
+
+      PROB_TOT *= (PROB/ PROB_SIMREF) ;
 
       if ( LDMP ) {
 	XVAL = XVAL_for_GENPDF[0]; 
@@ -21169,6 +21178,53 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   return ;
 
 } // end SUBPROCESS_SIM_REWGT
+
+double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
+  char fnam[] = "SUBPROCESS_PROB_SIMREF" ; 
+  double PROB_SIMREF = 1.0 ; 
+  int ivar ; 
+  int NVAR = SUBPROCESS.NVAR_GENPDF ;
+  char *VARNAME ; 
+
+  // begin XYZ
+  if (ITER <= 1) {
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      VARNAME = GENPDF[imap].VARNAMES[ivar] ; 
+    
+      if (strcmp(VARNAME, "RV") == 0 ) { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
+      if (strcmp(VARNAME, "SALT2c") == 0 ) { SUBPROCESS.GENGAUSS_SALT2c.INDEX = imap ; }
+      if (strcmp(VARNAME, "SALT2x1") == 0 ) { SUBPROCESS.GENGAUSS_SALT2x1.INDEX = imap ; }
+      if (strcmp(VARNAME, "EBV") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+      if (strcmp(VARNAME, "EBV_HOST") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+
+    } // end ivar loop
+  } // end ITER loop
+
+  if (SUBPROCESS.GENGAUSS_RV.INDEX == imap) {
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_RV) ; 
+  }
+ 
+  else if (SUBPROCESS.GENGAUSS_SALT2c.INDEX == imap) {
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_SALT2c) ; 
+  }
+  
+  else if (SUBPROCESS.GENGAUSS_SALT2x1.INDEX == imap) {
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_SALT2x1) ;
+  }
+
+  else if (SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX == imap) {
+    PROB_SIMREF = funVal_GEN_EXP_HALFGAUSS(XVAL ,&SUBPROCESS.EXP_HALFGAUSS_EBV) ;
+  }
+  
+  else {
+    VARNAME = GENPDF[imap].VARNAMES[0] ; 
+    sprintf(c1err,"Did not find bounding functions for '%s'", VARNAME) ;
+    sprintf(c2err,"Bounding functions must be specified for all variables or none!") ;
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  return PROB_SIMREF; 
+} // end SUBPROCESS_PROB_SIMREF
 
 
 // ================================

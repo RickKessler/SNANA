@@ -1321,6 +1321,9 @@ typedef struct {
   double  *AVG_z;               // wgt-avg z in each cell, vs J1D
   double  *AVG_m;
   double  *AVG_LCFIT[NLCPAR];   // idem for mB,x1,c, vs. J1D
+
+  double   **ABSPULL; //used only for MUCOVSCALE MAD option
+
 } CELLINFO_DEF ;
 
 
@@ -1432,6 +1435,7 @@ struct {
 
   // define bias-scale on muCOV (use float to save memory)
   float **MUCOVSCALE ; 
+
 
   // wgted-avg redshift  corresponding to each M0 offset (for M0 outfile)
   double zM0[MXz];       
@@ -1710,16 +1714,19 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
+  int debug_mucovscale; //write mucovscale binning for every biascor event
 
   // set internal LEGACY and REFAC flags for development
 
   // mucovscale applied to MUERR without VPEC
-  bool REFAC_MUCOVSCALE_noVPEC ; // internally set if debug_flag==68
+  // xxx mark delete bool REFAC_MUCOVSCALE_noVPEC ; // internally set if debug_flag==68
   bool LEGACY_MUCOVSCALE_noVPEC; // internally set if debug_flag=-68
   
   // if logmass dimension; include mass-dependence for muCOVscale
-  bool REFAC_MUCOVSCALE_MASS;   // if debug_flag==611
+  // xxx mark delte bool REFAC_MUCOVSCALE_MASS;   // if debug_flag==611
   bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
+
+  bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
 
 } INPUTS ;
 
@@ -5500,6 +5507,7 @@ void set_defaults(void) {
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
   INPUTS.debug_malloc      = 0 ;
+  INPUTS.debug_mucovscale  = 0 ;
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
@@ -10436,7 +10444,8 @@ void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) {
 void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   // Created May 12, 2016
-  // Make map of sigma_mu bias as a function of (z,x1,c,a,b).
+  // Make map of MUCOVSCALE, where MUCOVSCALE = RMS(MURES)/AVG(MUERR)
+  // as a function of (z,x1,c,a,b).
   //
   // To get better stats, the bias is just a function of z & c,
   // but the 5D binning is still used so that the
@@ -10453,6 +10462,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
+  int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
   double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
   double mmin,  mmax, mbin, m_lo, m_hi, m_avg ;
@@ -10467,7 +10477,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double *SUM_MUDIF, *SUM_SQMUDIF ;
   double *SQMUERR,   *SQMURMS ;
   double *SUM_PULL,  *SUM_SQPULL ;
+  double *MAD_ABSPULL;
   char   *name ;
+
+  // Declare lists for debug_mucovscale
+  int *i1d_list;
+  double *muErr_list;
+  double *muDif_list;
+  int NPULLPERCELL=100;
 
   float    *ptr_MUCOVSCALE;
   BIASCORLIST_DEF     BIASCORLIST ;
@@ -10481,6 +10498,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
+  if ( INPUTS.debug_mucovscale ) {
+    int memd = sizeof(double)*NBIASCOR_ALL;
+    i1d_list = (int*) malloc(sizeof(int)*NBIASCOR_ALL);
+    muErr_list = (double*) malloc(memd);
+    muDif_list = (double*) malloc(memd);
+  }
+
+
   fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) \n", fnam);
   fflush(FP_STDOUT);
 
@@ -10488,6 +10513,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
   NBINg    = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;  
   ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];   
+  // ptr_MUCOVSCALE_MAD = INFO_BIASCOR.MUCOVSCALE_MAD[IDSAMPLE];
 
   // redshift bins are same as for biasCor
   copy_BININFO(&CELLINFO_BIASCOR[IDSAMPLE].BININFO_z, 
@@ -10526,7 +10552,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z    =  (double *) malloc(MEMD);
   CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m    =  (double *) malloc(MEMD);
   CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c] = (double *) malloc(MEMD);
-
+  
   // set color bins; and note that color bins are different ...
   CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin    = NBINc ;
   CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].binSize = cbin ;
@@ -10552,6 +10578,13 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.avg[im] = m_avg ;
   }
 
+  if (INPUTS.REFAC_MAD_MUCOVSCALE) {
+    CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL =  (double **) malloc(sizeof(double*)*NCELL);
+    for (i1d=0; i1d<NCELL; i1d++){
+      CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d] = (double *) malloc(sizeof(double)*NPULLPERCELL);
+    }
+  }
+
   // malloc local 1D arrays to track local sums.
   print_debug_malloc(+1,fnam);
   SUM_MUERR    = (double*) malloc(MEMD);
@@ -10562,6 +10595,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   SQMURMS      = (double*) malloc(MEMD);
   SUM_PULL     = (double*) malloc(MEMD);
   SUM_SQPULL   = (double*) malloc(MEMD);
+  MAD_ABSPULL   = (double*) malloc(MEMD);
   ig = 0 ;
 
 
@@ -10576,6 +10610,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      SUM_MUERR[N1D] = SUM_SQMUERR[N1D] = 0.0 ;
 	      SUM_MUDIF[N1D] = SUM_SQMUDIF[N1D] = 0.0 ;	
 	      SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
+              MAD_ABSPULL[N1D] = 9999.;
 	      ptr_MUCOVSCALE[N1D] = 1.0 ;
 	      CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[N1D]  = 0 ;
 	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[N1D]     = 0.0 ;
@@ -10593,6 +10628,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
+
+    if (INPUTS.debug_mucovscale) {
+      i1d_list[ievt] = -9;
+    }
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
@@ -10688,12 +10727,27 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // get 1d index
     i1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
+    if ( INPUTS.debug_mucovscale ) {
+      i1d_list[ievt] = i1d;
+      muDif_list[ievt] = muDif;
+      muErr_list[ievt] = muErr;
+    }
+
     SUM_PULL[i1d]    += pull ;
     SUM_SQPULL[i1d]  += (pull*pull) ;
     SUM_SQMUDIF[i1d] +=  muDifsq ;
     SUM_MUDIF[i1d]   +=  muDif ;
     SUM_SQMUERR[i1d] +=  muErrsq ;
     SUM_MUERR[i1d]   +=  muErr ;
+
+    if (INPUTS.REFAC_MAD_MUCOVSCALE) {
+      int NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
+      CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d][NperCell] = fabs(pull);
+      if ( NperCell%NPULLPERCELL == 0 && NperCell > 0 ){
+	int newmem = (NperCell+NPULLPERCELL) * sizeof(double);
+	CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d] = (double *)realloc(CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d], newmem);
+      }
+    }
 
     // increment sums to get average in each cell   
     CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d]++ ;
@@ -10734,6 +10788,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     tmp1= SUM_PULL[i1d]/XN;  tmp2=SUM_SQPULL[i1d]/XN ;
     SQRMS = tmp2 - tmp1*tmp1 ;
     ptr_MUCOVSCALE[i1d] = (float)SQRMS ;
+
+    if (INPUTS.REFAC_MAD_MUCOVSCALE) {
+      //void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN)
+      double AVG, RMS, MAD;
+      arrayStat( N, CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d], &AVG, &RMS, &MAD);
+      MAD_ABSPULL[i1d] = 1.48*MAD;
+    }
+
 
   }  // i1d
   
@@ -10784,6 +10846,58 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     } // ia
     
   } // end LPRINT
+
+  if ( INPUTS.debug_mucovscale ) {
+    char outfile[200];
+    char *name;
+
+    sprintf(outfile,"%s_mucovscale.dat",INPUTS.PREFIX); 
+    printf("DEBUG: Create file %s\n",outfile);
+    FILE *fp = fopen(outfile,"wt");
+
+    fprintf(fp,"VARNAMES: CID BIN "
+	    "zMEAN cMEAN LOGMASSMEAN "
+	    "MUCOVSCALE RMS_MUDIF MUCOVSCALE_MAD MUDIF MUERR\n");
+
+    for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
+
+      ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
+      name = INFO_BIASCOR.TABLEVAR.name[ievt];
+
+      // check if there is valid biasCor for this event
+      J1D = J1D_biasCor(ievt,fnam);
+      if ( CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D] < BIASCOR_MIN_PER_CELL ) 
+	{ continue ; }
+
+      i1d = i1d_list[ievt];
+      if (i1d<0) {continue;}
+
+      if ( i1d < 0 || i1d >= NCELL) {
+	printf("xxx i1d %d for cid=%s with NCELL=%d",i1d,name,NCELL);
+      }
+      if ( SQMURMS[i1d] < 0 ) {
+	printf("xxx SQMURMS[i1d] %.3f for cid=%s",SQMURMS[i1d],name);
+      }
+
+      RMS = sqrt ( SQMURMS[i1d] );
+      fprintf(fp,"SN: %8s %d "
+	      "%.3f %.3f %.3f "
+	      "%.3f %.3f %.3f %.3f %.3f\n",
+      	      INFO_BIASCOR.TABLEVAR.name[ievt],
+      	      i1d,
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[i1d],
+	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][i1d],
+              CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[i1d],
+	      ptr_MUCOVSCALE[i1d],
+	      RMS,
+	      MAD_ABSPULL[i1d],
+	      muDif_list[ievt],
+	      muErr_list[ievt]
+      	      );
+
+    }
+    fclose(fp);
+  }
 
 
   print_debug_malloc(+1,fnam);
@@ -16031,6 +16145,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"debug_malloc=")) 
     { sscanf(&item[13],"%d", &INPUTS.debug_malloc); return(1); }
+  if ( uniqueOverlap(item,"debug_mucovscale=")) 
+    { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
 
   if ( uniqueOverlap(item,"nthread=")) 
     { sscanf(&item[8],"%d", &INPUTS.nthread); return(1); }
@@ -17659,16 +17775,19 @@ void prep_debug_flag(void) {
 
 
   INPUTS.LEGACY_MUCOVSCALE_noVPEC = ( INPUTS.debug_flag == -68 );
-  INPUTS.REFAC_MUCOVSCALE_noVPEC  = !INPUTS.LEGACY_MUCOVSCALE_noVPEC ;
+  // xxx mark delete INPUTS.REFAC_MUCOVSCALE_noVPEC  = !INPUTS.LEGACY_MUCOVSCALE_noVPEC ;
 
-  INPUTS.REFAC_MUCOVSCALE_MASS  = ( INPUTS.debug_flag == 611 ) ;
-  INPUTS.LEGACY_MUCOVSCALE_MASS = !INPUTS.REFAC_MUCOVSCALE_MASS ; 
+  INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
+  // xxx mark delete INPUTS.REFAC_MUCOVSCALE_MASS  = !INPUTS.LEGACY_MUCOVSCALE_MASS ; 
 
-  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_noVPEC = %d[%d] \n",
-	  INPUTS.LEGACY_MUCOVSCALE_noVPEC, INPUTS.REFAC_MUCOVSCALE_noVPEC );
+  INPUTS.REFAC_MAD_MUCOVSCALE = ( INPUTS.debug_flag == 99 );
+  fprintf(FP_STDOUT," REFAC_MAD_MUCOVSCALE = %d\n",INPUTS.REFAC_MAD_MUCOVSCALE);
 
-  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_MASS = %d[%d] \n",
-	  INPUTS.LEGACY_MUCOVSCALE_MASS, INPUTS.REFAC_MUCOVSCALE_MASS );
+  // xxx mark delete  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_noVPEC = %d[%d] \n",
+  //	  INPUTS.LEGACY_MUCOVSCALE_noVPEC, INPUTS.REFAC_MUCOVSCALE_noVPEC );
+
+  // xxx mark delete fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_MASS = %d[%d] \n",
+  //	  INPUTS.LEGACY_MUCOVSCALE_MASS, INPUTS.REFAC_MUCOVSCALE_MASS );
 
   fflush(FP_STDOUT);
 

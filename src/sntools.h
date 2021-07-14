@@ -982,4 +982,15 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 
 int glob_file_list(char *wildcard, char ***file_list);
 
+// multi-D malloc functions (copied from SALT2mu.c, July 2021)
+
+void  print_debug_malloc(int opt, char *comment);
+float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
+float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
+                      double ****array3D );
+float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+                      double *****array4D );
+float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3,
+                     float ****array3D );
+
 // ============== END OF FILE =============

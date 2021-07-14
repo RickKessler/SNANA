@@ -2139,7 +2139,6 @@ void  printmsg_fitStart(FILE *fp);
 void  printmsg_repeatFit(char *msg) ;
 void  print_eventStats(int event_type);
 void  print_eventStats_legacy(int event_type);
-void  print_debug_malloc(int opt, char *fnam) ;
 
 void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
@@ -2255,6 +2254,8 @@ int   malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC, 
 				  FITPARBIAS_DEF *****FITPARBIAS );
 
+/* xxxxxxx mark delete Jul 14 2021 xxxxxxxx
+void  print_debug_malloc(int opt, char *fnam) ;
 float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
 float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3, 
 		      double ****array3D );
@@ -2263,7 +2264,7 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 
 float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
 		     float ****array3D );
-
+xxx */
 
 // ======================================================================
 // ==== GLOBALS AND FUNCTIONS TO USE SALT2mu as SUBPROCESS ==============
@@ -2934,13 +2935,14 @@ void setup_BININFO_userz(void) {
 
   int nzbin=0, Nsplit, iz ;
   int MEMC = 20*sizeof(char);
+  int debug_malloc = INPUTS.debug_malloc ;
   double zlo, zhi, zmin=-9.0, zmax=-9.0 ;
   char *ptr_z[MXz];
   char fnam[] = "setup_BININFO_userz" ;
 
   // --------------- BEGIN -------------
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(iz=0; iz < MXz; iz++ ) { ptr_z[iz] = (char*)malloc(MEMC); }
 
   splitString(INPUTS.zbinuser, COMMA, MXz,    // inputs
@@ -3598,6 +3600,8 @@ void check_duplicate_SNID(void) {
 
   int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
+  int debug_malloc = INPUTS.debug_malloc ;
+
   int  isn, isn2, nsn, MEMD, MEMI, MEMB;
   int  unsort, unsort2, *unsortList, ORDER_SORT   ;
   bool IS_SIM, LDMP ;
@@ -3617,7 +3621,7 @@ void check_duplicate_SNID(void) {
   if ( IS_SIM ) { return; }
   // xxx mark delete  if ( IS_SIM && iflag == IFLAG_DUPLICATE_IGNORE) { return; }
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   MEMD = (nsn+1) * sizeof(double)  ;
   MEMI = (nsn+1) * sizeof(int)     ;
   MEMB = (nsn+1) * sizeof(bool)    ;
@@ -3751,7 +3755,7 @@ void check_duplicate_SNID(void) {
 
 
  DONE:
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(zList);  free(unsortList); free(IS_DUPL);
 
   return;
@@ -3982,20 +3986,6 @@ int prepNextFit(void) {
 } // end of prepNextFit
 
 
-// **************************         
-void print_debug_malloc(int opt, char *fnam) {
-  int debug_malloc = INPUTS.debug_malloc ;
-  char what[12];
-  if ( debug_malloc ) {
-    if ( opt > 0 )
-      { sprintf(what,"alloc"); }
-    else
-      { sprintf(what,"free"); }
-
-    printf(" DEBUG_MALLOC-%s for %s\n", what, fnam);
-    fflush(stdout);
-  }
-}  // end print_debug_malloc  
 
 // ******************************************
 void printmsg_repeatFit(char *msg) {
@@ -5701,6 +5691,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
   int nfile_biasCor = INPUTS.nfile_biasCor ;
   int EVENT_TYPE    = EVENT_TYPE_DATA;
+  int debug_malloc = INPUTS.debug_malloc ;
   int MEMD, MEMI, MEMB, i_mem, N_MEM=0;
   long long MEMTOT=0 ;
   float f_MEMORY = 0.0 ;
@@ -5710,7 +5701,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
   // ------------- BEGIN --------------
 
-  print_debug_malloc(opt,fnam);
+  print_debug_malloc(opt*debug_malloc,fnam);
 
   if ( opt > 0 ) {
 
@@ -5844,6 +5835,7 @@ void read_data_override(void) {
   int NSN_CHANGE[MXVAR_OVERRIDE];
   int nfile_over   = INPUTS.nfile_data_override;
   int IVAR_GAMMA   = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int ifile_data, ifile_over, NROW;
   int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
   char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
@@ -5858,7 +5850,7 @@ void read_data_override(void) {
 
   // prepare comma sep list of all varNames in first data files
   // (later may need to check all data files?)
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   VARNAMES_STRING_DATA = (char*) malloc(MXCHAR_VARLIST*sizeof(char));
   VARNAMES_STRING_DATA[0] = 0;
   ifile_data = 0 ; // primary file index
@@ -6131,7 +6123,7 @@ void read_data_override(void) {
   }
 
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(VARNAMES_STRING_DATA);
   free(VARNAMES_STRING_OVER);
 
@@ -6224,14 +6216,14 @@ void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
   int  MEMB = LEN_MALLOC * sizeof(int8_t);     // one byte
   int  MEMBIAS = NSAMPLE * sizeof(FITPARBIAS_DEF*);
   int  MEMCOV  = NSAMPLE * sizeof(float*);
-
+  int debug_malloc = INPUTS.debug_malloc ;
   int  MEMADD=0 ;
   float f_MEMORY = 0.0 ;
   char fnam[] = "malloc_INFO_BIASCOR";
 
   // ------------- BEGIN --------------
 
-  print_debug_malloc(opt,fnam);
+  print_debug_malloc(opt*debug_malloc,fnam);
 
   if ( opt > 0 ) {
     
@@ -6288,13 +6280,14 @@ void malloc_INFO_CCPRIOR(int opt, int LEN_MALLOC, int LEN_MALLOC_CUTS) {
 
   //  int EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
   int USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS > 0 ) ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int MEMTOT=0 ;
   float f_MEMORY = 0.0 ;
   char fnam[] = "malloc_INFO_CCPRIOR";
 
   // ------------- BEGIN --------------
 
-  print_debug_malloc(opt,fnam);
+  print_debug_malloc(opt*debug_malloc,fnam);
 
   if ( opt > 0 ) {
     
@@ -6378,11 +6371,12 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   long long MEMTOT=0;
   float f_MEMTOT, f_MEM ;
   int  i, isn, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
+  int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "malloc_TABLEVAR" ;
 
   // ------------- BEGIN --------------
 
-  print_debug_malloc(opt,fnam);
+  print_debug_malloc(opt*debug_malloc,fnam);
 
   if ( opt > 0 ) {   
     
@@ -6562,6 +6556,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   int MEMTOT = 0;
   int MEMF   = LEN_MALLOC * sizeof(float);
+  int debug_malloc = INPUTS.debug_malloc ;
   char *CUTNAME = INPUTS.CUTWIN_NAME[icut] ;
   char *varname_pIa = INPUTS.varname_pIa ;
   char fnam[] = "malloc_TABLEVAR_CUTVAL" ;
@@ -6602,7 +6597,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   // IDSURVEY and SNTYPE are int ??
 
   else {
-    print_debug_malloc(+1,fnam);
+    print_debug_malloc(+1*debug_malloc,fnam);
     INPUTS.LCUTWIN_RDFLAG[icut] = true ;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
 
@@ -6634,9 +6629,11 @@ float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC,
   int MEMg  = sizeof(FITPARBIAS_DEF )   * MXg ;
   long long MEMTOT = 0 ;
   float f_MEMTOT;
+  int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "malloc_FITPARBIAS_ALPHABETA" ;
   // ----------- BEGIN ----------
-  print_debug_malloc(opt,fnam);
+
+  print_debug_malloc(opt*debug_malloc,fnam);
 
   if ( opt > 0 ) {
 
@@ -6673,174 +6670,6 @@ float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC,
 } // end malloc_FITPARBIAS_ALPHABETA
 
 
-// ***************************************
-float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
-  // Created Jun 11 2019
-  // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
-  float f_MEMTOT = 0.0 ;
-  long long MEMTOT=0, i1 ;
-  int MEM1 = LEN1 * sizeof(double*); 
-  int MEM2 = LEN2 * sizeof(double);
-  char fnam[] = "malloc_double2D";
-  // ----------- BEGIN -------------
-
-  print_debug_malloc(opt,fnam);
-
-  if ( opt > 0 ) {
-
-    *array2D = (double**) malloc(MEM1) ; MEMTOT += MEM1;
-    for(i1=0; i1< LEN1; i1++ ) {
-      (*array2D)[i1] = (double*) malloc(MEM2) ; MEMTOT += MEM2;
-    }
-
-    f_MEMTOT = (float)(MEMTOT)/1.0E6;
-    return(f_MEMTOT);
-  } 
-  else {  
-    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
-    free(array2D[i1]) ;    
-  }
-
-
-  return(f_MEMTOT);
-}
-
-float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3, 
-		      double ****array3D ) {
-  // Created Jun 11 2019
-  // Malloc array3D[LEN1][LEN2][LEN3] 
-  //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb)
-
-  float f_MEMTOT = 0.0 ;
-  int MEMTOT=0, i1, i2 ;
-  int MEM1 = LEN1 * sizeof(double**); 
-  int MEM2 = LEN2 * sizeof(double*);
-  int MEM3 = LEN3 * sizeof(double);
-  char fnam[] = "malloc_double3D";
-  // ----------- BEGIN -------------
-
-  print_debug_malloc(opt,fnam);
-
-  if ( opt > 0 ) {
-
-    *array3D = (double***) malloc(MEM1) ; MEMTOT+=MEM1;
-    for(i1=0; i1<LEN1; i1++ ) {
-      (*array3D)[i1] = (double**) malloc(MEM2) ; MEMTOT+=MEM2;
-      for(i2=0; i2<LEN2; i2++ ) {
-	(*array3D)[i1][i2] = (double*) malloc(MEM3); MEMTOT+=MEM3;
-      }
-    }
-
-    f_MEMTOT = (float)(MEMTOT)/1.0E6;
-    return(f_MEMTOT);
-  } 
-  else {  
-    for(i1=0; i1<MEM1; i1++ ) {
-      for(i2=0; i2<LEN2; i2++ ) {  free( (*array3D)[i1][i2]); }
-      free( (*array3D)[i1]) ;
-    }
-    free(array3D);
-  }
-
-
-  return(f_MEMTOT);
-
-} // end malloc_double3D
-
-
-float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
-		      float ****array3D ) {
-  // Created Jan 2021
-  // Malloc array3D[LEN1][LEN2][LEN3] 
-
-  float f_MEMTOT = 0.0 ;
-  int MEMTOT=0, i1, i2 ;
-  int MEM1 = LEN1 * sizeof(float**); 
-  int MEM2 = LEN2 * sizeof(float*);
-  int MEM3 = LEN3 * sizeof(float);
-  char fnam[] = "malloc_float3D";
-  // ----------- BEGIN -------------
-
-  print_debug_malloc(opt,fnam);
-
-  if ( opt > 0 ) {
-
-    *array3D = (float***) malloc(MEM1) ; MEMTOT+=MEM1;
-    for(i1=0; i1<LEN1; i1++ ) {
-      (*array3D)[i1] = (float**) malloc(MEM2) ; MEMTOT+=MEM2;
-      for(i2=0; i2<LEN2; i2++ ) {
-	(*array3D)[i1][i2] = (float*) malloc(MEM3); MEMTOT+=MEM3;
-      }
-    }
-
-    f_MEMTOT = (float)(MEMTOT)/1.0E6;
-    return(f_MEMTOT);
-  } 
-  else {  
-    for(i1=0; i1<MEM1; i1++ ) {
-      for(i2=0; i2<LEN2; i2++ ) {  free( (*array3D)[i1][i2]); }
-      free( (*array3D)[i1]) ;
-    }
-    free(array3D);
-  }
-
-
-  return(f_MEMTOT);
-
-} // end malloc_float3D
-
-
-float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
-		      double *****array4D ) {
-  // Created July 2019
-  // Malloc array3D[LEN1][LEN2][LEN3][LEN4] 
-  //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb, LEN4=MXg)
-
-  float f_MEMTOT = 0.0 ;
-  int MEMTOT=0, i1, i2, i3 ;
-  int MEM1 = LEN1 * sizeof(double***); 
-  int MEM2 = LEN2 * sizeof(double**);
-  int MEM3 = LEN3 * sizeof(double*);
-  int MEM4 = LEN4 * sizeof(double);
-  char fnam[] = "malloc_double4D";
-
-  // ----------- BEGIN -------------
-
-  print_debug_malloc(opt,fnam);
-
-  if ( opt > 0 ) {
-
-    *array4D = (double****) malloc(MEM1) ; MEMTOT+=MEM1;
-    for(i1=0; i1<LEN1; i1++ ) {
-      (*array4D)[i1] = (double***) malloc(MEM2) ; MEMTOT+=MEM2;
-      for(i2=0; i2<LEN2; i2++ ) {
-	(*array4D)[i1][i2] = (double**) malloc(MEM3); MEMTOT+=MEM3;
-	for(i3=0; i3<LEN3; i3++ ) {
-	  (*array4D)[i1][i2][i3] = (double*) malloc(MEM4); MEMTOT+=MEM4;
-	}
-      }
-    }
-
-    f_MEMTOT = (float)(MEMTOT)/1.0E6;
-    return(f_MEMTOT);
-  } 
-  else {  
-    for(i1=0; i1<MEM1; i1++ ) {
-      for(i2=0; i2<LEN2; i2++ ) {
-	for(i3=0; i3<LEN3; i3++ ) {
-	  free( (*array4D)[i1][i2][i3] ); 
-	}
-	free( (*array4D)[i1][i2]); 
-      }
-      free( (*array4D)[i1]) ;
-    }
-    free(array4D);
-  }
-
-
-  return(f_MEMTOT);
-
-}   // end malloc_double3D
 
 // ***********************************************
 void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
@@ -7637,6 +7466,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   int   IVAR_pIa    = TABLEVAR->IVAR_pIa[ifile];
   char *varname_pIa = INPUTS.varname_pIa ;
   bool USE_PROBCC_ZERO = (INPUTS_PROBCC_ZERO.nidsurvey > 0 );
+  int debug_malloc = INPUTS.debug_malloc ;
 
   char *survey, survey_missing_list[200];
   int evt, sntype, idsurvey, NFORCE, NOTFORCE ;
@@ -7716,7 +7546,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   int MEMC0 =  MXCHAR_VARNAME * sizeof(char);
   int ivar ;
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   TABLEVAR->VARNAMES_LIST[ifile] = (char**) malloc(MEMC1);
   TABLEVAR->NVAR[ifile]          = NVAR;
   for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -7754,6 +7584,7 @@ void store_output_varnames(void) {
   // Dec 4 2020: allow recylcing output fitres to input by chopping
   //             out variables from CUTMASK to end of list.
 
+  int debug_malloc = INPUTS.debug_malloc ;
   int  NFILE = INPUTS.nfile_data;
   //  int  MEMC  = MXCHAR_VARNAME * sizeof(char);
   int  ifile, ifile2, NVAR, NVAR2, MXVAR, NVAR_TOT; 
@@ -7771,7 +7602,7 @@ void store_output_varnames(void) {
   // alloate VARNAMES memory for x2 number of variables in first file ...
   // should be enough
   MXVAR = 2*INFO_DATA.TABLEVAR.NVAR[0];
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < MXVAR; ivar++ ) {
     OUTPUT_VARNAMES.LIST[ivar] = (char*) malloc(MXVAR*sizeof(char) ) ;
     for(ifile=0; ifile < NFILE; ifile++ ) 
@@ -8242,6 +8073,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   // Decode STRINGOPT and set biasCor binSize for z,x1,c
 
   int ipar, nb;
+  int debug_malloc = INPUTS.debug_malloc ;
   double dif;
   char fnam[] = "set_BINSIZE_SAMPLE_biasCor" ;
 
@@ -8293,7 +8125,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 
   if ( strlen(STRINGOPT) == 0 ) { return ; }
     
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(isplit=0; isplit < MXBINSTRING; isplit++ ) {
     ptr_binString[isplit] = (char*) malloc( MEMC ); // varName
     ptr_binVar[isplit]    = (char*) malloc( MEMC ); // varName
@@ -8360,7 +8192,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   } // end LZBIN 
 
   // free local malloc
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(isplit=0; isplit < MXBINSTRING; isplit++ ) {
     free( ptr_binString[isplit] );
     free( ptr_binVar[isplit] );
@@ -8423,6 +8255,7 @@ void  set_SURVEYGROUP_biasCor(void) {
 
   int  LDMP   = 0 ;
   int  USE_SURVEYGROUP = INPUTS.use_surveyGroup_biasCor ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int  i, i2, NGRP, ID, NEVT ;
   char *ptrSURVEY[MXNUM_SAMPLE], *S ;
   char fnam[] = "set_SURVEYGROUP_biasCor" ;
@@ -8443,7 +8276,7 @@ void  set_SURVEYGROUP_biasCor(void) {
   // convert each SURGROUP_LIST (string) into a list of IDSURVEYs
 
   // define temp string space for plus-separated strings.
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   char *ptrTmp[MXNUM_SAMPLE] ;
   for(i=0; i < MXNUM_SAMPLE; i++ ) 
     { ptrTmp[i] = (char*) malloc ( MXCHAR_CCID * sizeof(char) ) ;  }
@@ -8538,7 +8371,7 @@ void  set_SURVEYGROUP_biasCor(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(i=0; i < MXNUM_SAMPLE; i++ )     { free(ptrTmp[i]); }
 
   return ;
@@ -8562,6 +8395,7 @@ void sort_IDSAMPLE_biasCor(void) {
   //
 
   int NSAMPLE = NSAMPLE_BIASCOR ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int ID, ID2, IDSURVEY, NSORT=0  ;
   int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
   int igrp, NGRP_USR,  FLAG ; 
@@ -8571,7 +8405,7 @@ void sort_IDSAMPLE_biasCor(void) {
   char fnam[] = "sort_IDSAMPLE_biasCor" ;
   // ---------------- BEGIN ---------------
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   SAMPLE_BIASCOR_TEMP = 
     (SAMPLE_INFO_DEF*) malloc ( NSAMPLE * sizeof(SAMPLE_INFO_DEF));
   
@@ -8731,7 +8565,7 @@ void sort_IDSAMPLE_biasCor(void) {
     { printf(" xxx ----- END DUMP for %s --------- \n\n", fnam); }
 
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(SAMPLE_BIASCOR_TEMP);
   return ;
 
@@ -9790,6 +9624,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   // July 31 2019: add logmass dimension [im]
 
   int ID = IDSAMPLE;
+  int debug_malloc = INPUTS.debug_malloc ;
   int ia, ib, ig, iz, im, ix1, ic, NCELL, ipar, NDIM ;
   char fnam[] = "set_MAPCELL_biasCor" ;
 
@@ -9852,7 +9687,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   int MEMD0   = NCELL  * sizeof(double);
   int MEMI0   = NCELL  * sizeof(int);
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   CELLINFO_BIASCOR[IDSAMPLE].NperCell = (int   *) malloc(MEMI0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_z    = (double*) malloc(MEMD0);
   CELLINFO_BIASCOR[IDSAMPLE].AVG_m    = (double*) malloc(MEMD0);
@@ -9898,6 +9733,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   int NCELL          = CELLINFO_BIASCOR[IDSAMPLE].NCELL ;
   int NBIASCOR_CUTS  = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   char *PARNAME      = BIASCOR_NAME_LCFIT[ipar_LCFIT] ;
+  int debug_malloc = INPUTS.debug_malloc ;
 
   int MEMD, NEVT_USE, NEVT_SAMPLE,  LDMP, N ;
   int J1D, ia, ib, ig, iz, im, ix1, ic, ievt, isp ;
@@ -9917,7 +9753,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   fflush(FP_STDOUT);
 
   // malloc arrays to store info in each biasCor cell
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   MEMD    = NCELL * sizeof(double) ;
   SUMBIAS = (double*) malloc(MEMD) ;
   SUMWGT  = (double*) malloc(MEMD) ;
@@ -10096,7 +9932,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
   fflush(FP_STDOUT);
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(SUMBIAS); free(SUMWGT); free(sum); free(sumsq);
 
   return ;
@@ -10467,6 +10303,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
+  int debug_malloc = INPUTS.debug_malloc ;
 
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
   double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
@@ -10551,7 +10388,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int MEMD     = NCELL   * sizeof(double);
   int MEMI     = NCELL   * sizeof(int);
     
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
 
   // allocate redshift bins
   CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell =  (int    *) malloc(MEMI);
@@ -10595,7 +10432,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   //xxx fflush(stdout);
 
   // malloc local 1D arrays to track local sums.
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   SUM_MUERR    = (double*) malloc(MEMD);
   SUM_SQMUERR  = (double*) malloc(MEMD);
   SUM_MUDIF    = (double*) malloc(MEMD);
@@ -10912,7 +10749,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   }
 
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(SUM_MUERR);   free(SUM_SQMUERR);
   free(SUM_MUDIF);   free(SUM_SQMUDIF) ;
   free(SQMUERR);     free(SQMURMS);
@@ -11549,6 +11386,8 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
   int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
+  int debug_malloc = INPUTS.debug_malloc ;
+
   int  NROW_TOT, NROW_malloc, i, istat_cov, NCOVFIX, ia, ib, ig, MEMD, cutmask ;
   int  LDMP = 0 ;
 
@@ -11635,7 +11474,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   NROW_malloc += 100; // safety margin
   MEMD = NROW_malloc * sizeof(double) ;
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {
       for(ig=0; ig < NBINg; ig++ ) {
@@ -11841,7 +11680,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   
   // free memory
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {
       for(ig=0; ig < NBINg; ig++ ) {
@@ -11896,6 +11735,7 @@ void  makeSparseList_biasCor(void) {
   // make sparse BIASCOR list for this IDSAMPLE with cuts,
   // so that later loops are faster.
 
+  int debug_malloc = INPUTS.debug_malloc ;
   short int *ptr_IDSAMPLE, idsample ;
   int       *ptr_CUTMASK  ;
   int NROW, irow, isp, cutmask, MEMI, NBIASCOR ;
@@ -11911,7 +11751,7 @@ void  makeSparseList_biasCor(void) {
   fprint_banner(FP_STDOUT,BANNER);    
 
   // allocate memory for sparse irow list
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NBIASCOR = SAMPLE_BIASCOR[idsample].NSN[EVENT_TYPE_BIASCOR] ;
     MEMI     = NBIASCOR * sizeof(int); 
@@ -11954,6 +11794,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
   int NROW    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int MEMD    = NCELL * sizeof(double);
   int MEMI    = NCELL * sizeof(int);
+  int debug_malloc = INPUTS.debug_malloc ;
 
   int irow, isp, J1D, ipar,  *NperCell ;
   double WGT, z, m, fitPar[NLCPAR];
@@ -11969,7 +11810,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
   for(ipar=0; ipar < NLCPAR; ipar++ ) 
     { ptr_fitPar[ipar]  = INFO_BIASCOR.TABLEVAR.fitpar[ipar] ; }  
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc, fnam);
   NperCell    = (int*)    malloc(MEMI) ;
   SUM_z_5D    = (double*) malloc(MEMD) ;
   SUM_m_5D    = (double*) malloc(MEMD) ;
@@ -12030,7 +11871,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
 
   // ---------------------------------------
   // free temp memory
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc, fnam);
   free(NperCell); free(SUM_WGT_5D); free(SUM_z_5D) ; free(SUM_m_5D) ;
   for(ipar=0; ipar < NLCPAR; ipar++ )  { free(SUM_FITPAR_5D[ipar]); }
 
@@ -13062,6 +12903,7 @@ void setup_CELLINFO_biasCor(int IDSAMPLE) {
   int NSAMPLE   = NSAMPLE_BIASCOR ;
   int MEMCELL   = NSAMPLE * sizeof(CELLINFO_DEF);
   int INDX;
+  int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "setup_CELLINFO_biasCor" ;
 
   // ------------ BEGIN -----------
@@ -13071,7 +12913,7 @@ void setup_CELLINFO_biasCor(int IDSAMPLE) {
 
     fprintf(FP_STDOUT, "\n# ============== %s ================= \n", fnam);
 
-    print_debug_malloc(+1,fnam);
+    print_debug_malloc(+1*debug_malloc,fnam);
     CELLINFO_BIASCOR    = (CELLINFO_DEF*) malloc ( MEMCELL );
     CELLINFO_MUCOVSCALE = (CELLINFO_DEF*) malloc ( MEMCELL );
 
@@ -13276,6 +13118,7 @@ void  get_BININFO_biasCor_abg(char *varName,
   bool   FORCE_ONEBIN = false ; 
   int    irow, unsort, NVAL, NBMAX, IPAR_ABG=-9 ;
   int    NROW, IDSURVEY, NONIA_INDEX ;
+  int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "get_BININFO_biasCor_abg" ;
 
   // ------------- BEGIN --------------
@@ -13314,7 +13157,7 @@ void  get_BININFO_biasCor_abg(char *varName,
   }
 
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc, fnam);
   int  ORDER_SORT   = +1 ; // increasing order
   int *INDEX_UNSORT = (int*)malloc( NROW * sizeof(int) );
   sortFloat( NROW, ptrVal_f, ORDER_SORT, INDEX_UNSORT ) ;
@@ -13393,7 +13236,7 @@ void  get_BININFO_biasCor_abg(char *varName,
   fflush(stdout);
   xxxxxx */
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(INDEX_UNSORT); // free memory
   
   // --------------------------
@@ -15764,7 +15607,7 @@ int ppar(char* item) {
     if ( uniqueOverlap(item,keyList_biasCor[ikey]) ) {
 
       // save biasCor arg in case simfile_ccprior = 'same'
-      print_debug_malloc(+1,fnam);
+      print_debug_malloc(+2,fnam);
       INPUTS.simFile_biasCor_arg = (char*) malloc(strlen(item)*sizeof(char));
       sprintf(INPUTS.simFile_biasCor_arg, "%s", &item[len]);
 
@@ -16161,8 +16004,11 @@ int ppar(char* item) {
     return(1); 
   }
 
-  if ( uniqueOverlap(item,"debug_malloc=")) 
-    { sscanf(&item[13],"%d", &INPUTS.debug_malloc); return(1); }
+  if ( uniqueOverlap(item,"debug_malloc=")) { 
+    sscanf(&item[13],"%d", &INPUTS.debug_malloc); 
+    INPUTS.debug_malloc *= 2;  // must be >1 to take effect
+    return(1); 
+  }
   if ( uniqueOverlap(item,"debug_mucovscale=")) 
     { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
 
@@ -16220,13 +16066,14 @@ void parse_simfile_CCprior(char *item) {
   // input item and clobber other arguments.
 
   int ifile;
+  int debug_malloc = INPUTS.debug_malloc ;
   int MEMC     = MXCHAR_FILENAME*sizeof(char);
   char *item_local = (char*) malloc(MEMC);
   char fnam[]  = "parse_simfile_CCprior" ;
 
   // ------------------ BEGIN -----------------
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
 
   // 9.28.2020:check "same" option
   if ( strcmp(item,"same") == 0 ) {
@@ -16250,7 +16097,7 @@ void parse_simfile_CCprior(char *item) {
     if ( strcmp(f0,"H11") == 0 ) { INFO_CCPRIOR.USEH11 =  1; }
   }
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   free(item_local);
 
   return ;
@@ -16459,6 +16306,7 @@ void parse_chi2max(char *item) {
 
   int  IFLAG_GLOBAL = 4;
   int  IFLAG_SURVEY = 8;
+  int  debug_malloc = INPUTS.debug_malloc ;
 
   int  lenkey = strlen("chi2max=");
   int  n_survey, idsurvey, i ;
@@ -16508,7 +16356,7 @@ void parse_chi2max(char *item) {
   // allocate SURVEY-dependent chi2max and init all surveys to 
   // global INPUTS.chi2max value
   if ( !SURVEY_CUTS ) {
-    print_debug_malloc(+1,fnam);
+    print_debug_malloc(+1*debug_malloc,fnam);
     INPUTS.iflag_chi2max |= IFLAG_SURVEY ;
     int MEMD = MXIDSURVEY * sizeof(double) ;
     INPUTS.chi2max_list = (double*)malloc(MEMD);
@@ -17093,12 +16941,13 @@ void parse_FIELDLIST(char *item) {
   // break comma-separated list and load NFIELD values
 
   int  i ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int LDMP = 0 ;
   char fnam[] = "parse_FIELDLIST" ;
 
   // ------------ BEGIN ------------
   
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(i=0; i < MXFIELD_OVERLAP; i++ ) 
     { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
 
@@ -17837,6 +17686,7 @@ void prep_input_probcc0(void) {
   //
   char *str_type_list     = INPUTS_PROBCC_ZERO.str_type_list ;
   char *str_idsurvey_list = INPUTS_PROBCC_ZERO.str_idsurvey_list ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int  LEN_type_list      = strlen(str_type_list);
   int  LEN_idsurvey_list  = strlen(str_idsurvey_list);
   int  DO_PROBCC0, i, itype, id, nval, NERR=0 ;
@@ -17848,7 +17698,7 @@ void prep_input_probcc0(void) {
   
   DO_PROBCC0 = ( LEN_type_list > 0 || LEN_idsurvey_list > 0 ) ;
   if ( DO_PROBCC0 ) {
-    print_debug_malloc(+1,fnam);
+    print_debug_malloc(+1*debug_malloc,fnam);
     INPUTS_PROBCC_ZERO.USE = true;
     for(i=0; i < MXPROBCC_ZERO; i++ ) 
       { str_values[i] = (char*)malloc( 80 * sizeof(char) ); }
@@ -17918,7 +17768,7 @@ void prep_input_probcc0(void) {
 
   
   // free string memory
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(i=0; i < MXPROBCC_ZERO; i++ ) 
     { free(str_values[i]); }
 
@@ -18111,6 +17961,7 @@ void  prep_cosmodl_lookup(void) {
   // If all cosmo params are fixed, then make binned
   // dl vs, z lookup for faster computation.
 
+  int debug_malloc = INPUTS.debug_malloc ;
   int NBZ, iz ;
   double ZMIN, ZMAX, ZBIN, z, di, dl ;
   char fnam[] = "prep_cosmodl_lookup" ;
@@ -18136,7 +17987,7 @@ void  prep_cosmodl_lookup(void) {
   COSMODL_LOOKUP.ZMAX = ZMAX ;
   COSMODL_LOOKUP.ZBIN = ZBIN ;
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   COSMODL_LOOKUP.z   = (double*) malloc(MEMD);
   COSMODL_LOOKUP.dl  = (double*) malloc(MEMD);
 
@@ -19899,6 +19750,7 @@ void muerr_renorm(void) {
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
   int MEMD       = NSN_DATA * sizeof(double);
+  int debug_malloc = INPUTS.debug_malloc ;
   int iz, isn, cutmask ;
   double SUM_WGT[MXz], SUM_MURES[MXz], MURES_check[MXz], M0ERR_check[MXz];
   double RATIO_MUERR[MXz], DIF_MURES[MXz];
@@ -19918,7 +19770,7 @@ void muerr_renorm(void) {
 	 fnam );
   fflush(FP_STDOUT);
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   INFO_DATA.muerr_renorm = (double*) malloc(MEMD);
 
   for(iz=0; iz < MXz; iz++ )  { SUM_WGT[iz] = SUM_MURES[iz] = 0.0 ; }
@@ -20485,9 +20337,10 @@ void SUBPROCESS_MALLOC_INPUTS(void) {
   // malloc SUBPROCESS.INPUT_xxx arrays; called just before reading
   // SUBPROCESS_FILES argument
   int i;
+  int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "SUBPROCESS_MALLOC_INPUTS" ;
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
 
   SUBPROCESS.INPUT_FILES = 
     (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
@@ -20570,6 +20423,7 @@ void  SUBPROCESS_INIT(void) {
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  MEMC      =  MXCHAR_FILENAME * sizeof(char) ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int  NSPLIT, itable ;
   char *tmpFiles[3];
   char fnam[] = "SUBPROCESS_INIT" ;
@@ -20580,7 +20434,7 @@ void  SUBPROCESS_INIT(void) {
 
   printf("\n\n%s  Begin %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
 
   // break comma-sep FILES into INPFILE and OUTFILE
   SUBPROCESS.INPFILE     = (char*) malloc(MEMC);
@@ -20683,6 +20537,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
   int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int  MEMF             = LEN_MALLOC*sizeof(float) ;
   char *ptrVarAll[MXVAR_GENPDF], *varName, varCast[60] ;
   char *VARLIST_READ = (char*) malloc(100*sizeof(char));
@@ -20707,7 +20562,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   fprintf(FP_STDOUT, "%s: \n", fnam); fflush(FP_STDOUT);
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
     { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
 
@@ -20791,6 +20646,7 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
 
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL ;
   int MEMF = NSN * sizeof(float) ;
+  int debug_malloc = INPUTS.debug_malloc ;
   int isn ;
   double r1, r2;
   char fnam[] = "SUBPROCESS_INIT_RANFLAT" ;
@@ -20801,7 +20657,7 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
 	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED );
   init_random_seed(SUBPROCESS.INPUT_ISEED,1);
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   SUBPROCESS.RANFLAT_REWGT    = (float*) malloc ( MEMF );
   SUBPROCESS.RANFLAT_PRESCALE = (float*) malloc ( MEMF );
 
@@ -21309,6 +21165,7 @@ void SUBPROCESS_INIT_DUMP(void) {
   
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int MXSPLIT=20, NSPLIT=0, isn, i, SNID ;
+  int debug_malloc = INPUTS.debug_malloc ;
   bool MATCH, PICK_isn;
   char *ptrSNID[20], *name ;
   char *string = SUBPROCESS.INPUT_CID_REWGT_DUMP ;
@@ -21316,7 +21173,7 @@ void SUBPROCESS_INIT_DUMP(void) {
 
   // ------------- BEGIN ---------------
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   SUBPROCESS.DUMPFLAG_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
   if ( strlen(string) > 0 ) { 
@@ -21354,13 +21211,14 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
   char *TABLE_STRING = SUBPROCESS.INPUT_OUTPUT_TABLE[itable]; 
   int  MXVAR         = MXVAR_TABLE_SUBPROCESS ;
   int  NVAR, ivar ;
+  int debug_malloc = INPUTS.debug_malloc ;
   char *ptrVarDef[MXVAR], DELIM[2]; 
   char BININFO_STRING[40];
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP" ;
 
   // ----------- BEGIN -----------
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
 
   SUBPROCESS.OUTPUT_TABLE[itable].NVAR     = 0 ;
 
@@ -21390,7 +21248,7 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
 
   // - - - - - 
 
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(ivar=0; ivar < MXVAR; ivar++ ) 
     { free(ptrVarDef[ivar]);  }
 
@@ -21409,6 +21267,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   // with all info related to this VARDEF.
   //
 
+  int debug_malloc = INPUTS.debug_malloc ;
   bool LDMP = false ;
   int    NSPLIT, nbin, i, IVAR_FITRES ;
   double xmin, xmax, lo, hi, binSize ;
@@ -21421,7 +21280,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   sprintf(VARNAME,"%s", VARDEF_STRING);
   extractStringOpt(VARNAME, stringOpt); // return stringOpt
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(i=0;  i < 2; i++ ) {
     ptrSplit[i]  = (char*)malloc(40*sizeof(char) ) ;
     ptrRange[i]  = (char*)malloc(40*sizeof(char) ) ;
@@ -21502,7 +21361,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
   // free local memory
-  print_debug_malloc(-1,fnam);
+  print_debug_malloc(-1*debug_malloc,fnam);
   for(i=0; i < 2; i++ ) { free(ptrSplit[i]);  free(ptrRange[i]); }
 
   return ;
@@ -21514,6 +21373,7 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 
   // Convert multi-D tables into 1D arrays for easy access.
   // 
+  int debug_malloc = INPUTS.debug_malloc ;
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int i, ivar, NBINTOT=1, nbin, nbin_per_var[MXVAR_TABLE_SUBPROCESS];
   int MEMI, MEMD, IB1D, ib0, ib1, ib2, ib_per_var[MXVAR_TABLE_SUBPROCESS];
@@ -21540,7 +21400,7 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   MEMI = NBINTOT * sizeof(int);
   MEMD = NBINTOT * sizeof(double);
 
-  print_debug_malloc(+1,fnam);
+  print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < NVAR; ivar++ ) {
 
     SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);

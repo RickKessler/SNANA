@@ -28,6 +28,8 @@
 **********************************************************
 **********************************************************/
 
+
+// =====================================
 int match_cidlist_init(char *fileName, int *OPTMASK) {
 
   // Created June 2021
@@ -11222,3 +11224,188 @@ void debugexit(char *string) {
 }
 
 
+// ***************************************
+void print_debug_malloc(int opt, char *fnam) {
+
+  // print debug statement if |opt| > 1
+  char what[12];
+
+  if ( abs(opt) <= 1 ) { return; }
+  if ( opt > 0 )
+    { sprintf(what,"alloc"); }
+  else
+    { sprintf(what,"free"); }
+  
+  printf(" DEBUG_MALLOC-%s for %s\n", what, fnam);
+  fflush(stdout);
+
+}  // end print_debug_malloc  
+
+
+float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
+  // Created Jun 11 2019
+  // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
+  float f_MEMTOT = 0.0 ;
+  long long MEMTOT=0, i1 ;
+  int MEM1 = LEN1 * sizeof(double*); 
+  int MEM2 = LEN2 * sizeof(double);
+  char fnam[] = "malloc_double2D";
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array2D = (double**) malloc(MEM1) ; MEMTOT += MEM1;
+    for(i1=0; i1< LEN1; i1++ ) {
+      (*array2D)[i1] = (double*) malloc(MEM2) ; MEMTOT += MEM2;
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
+    free(array2D[i1]) ;    
+  }
+
+
+  return(f_MEMTOT);
+}
+
+float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3, 
+		      double ****array3D ) {
+  // Created Jun 11 2019
+  // Malloc array3D[LEN1][LEN2][LEN3] 
+  //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb)
+
+  float f_MEMTOT = 0.0 ;
+  int MEMTOT=0, i1, i2 ;
+  int MEM1 = LEN1 * sizeof(double**); 
+  int MEM2 = LEN2 * sizeof(double*);
+  int MEM3 = LEN3 * sizeof(double);
+  char fnam[] = "malloc_double3D";
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array3D = (double***) malloc(MEM1) ; MEMTOT+=MEM1;
+    for(i1=0; i1<LEN1; i1++ ) {
+      (*array3D)[i1] = (double**) malloc(MEM2) ; MEMTOT+=MEM2;
+      for(i2=0; i2<LEN2; i2++ ) {
+	(*array3D)[i1][i2] = (double*) malloc(MEM3); MEMTOT+=MEM3;
+      }
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1<MEM1; i1++ ) {
+      for(i2=0; i2<LEN2; i2++ ) {  free( (*array3D)[i1][i2]); }
+      free( (*array3D)[i1]) ;
+    }
+    free(array3D);
+  }
+
+
+  return(f_MEMTOT);
+
+} // end malloc_double3D
+
+
+float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
+		      float ****array3D ) {
+  // Created Jan 2021
+  // Malloc array3D[LEN1][LEN2][LEN3] 
+
+  float f_MEMTOT = 0.0 ;
+  int MEMTOT=0, i1, i2 ;
+  int MEM1 = LEN1 * sizeof(float**); 
+  int MEM2 = LEN2 * sizeof(float*);
+  int MEM3 = LEN3 * sizeof(float);
+  char fnam[] = "malloc_float3D";
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array3D = (float***) malloc(MEM1) ; MEMTOT+=MEM1;
+    for(i1=0; i1<LEN1; i1++ ) {
+      (*array3D)[i1] = (float**) malloc(MEM2) ; MEMTOT+=MEM2;
+      for(i2=0; i2<LEN2; i2++ ) {
+	(*array3D)[i1][i2] = (float*) malloc(MEM3); MEMTOT+=MEM3;
+      }
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1<MEM1; i1++ ) {
+      for(i2=0; i2<LEN2; i2++ ) {  free( (*array3D)[i1][i2]); }
+      free( (*array3D)[i1]) ;
+    }
+    free(array3D);
+  }
+
+
+  return(f_MEMTOT);
+
+} // end malloc_float3D
+
+
+float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+		      double *****array4D ) {
+  // Created July 2019
+  // Malloc array3D[LEN1][LEN2][LEN3][LEN4] 
+  //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb, LEN4=MXg)
+
+  float f_MEMTOT = 0.0 ;
+  int MEMTOT=0, i1, i2, i3 ;
+  int MEM1 = LEN1 * sizeof(double***); 
+  int MEM2 = LEN2 * sizeof(double**);
+  int MEM3 = LEN3 * sizeof(double*);
+  int MEM4 = LEN4 * sizeof(double);
+  char fnam[] = "malloc_double4D";
+
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array4D = (double****) malloc(MEM1) ; MEMTOT+=MEM1;
+    for(i1=0; i1<LEN1; i1++ ) {
+      (*array4D)[i1] = (double***) malloc(MEM2) ; MEMTOT+=MEM2;
+      for(i2=0; i2<LEN2; i2++ ) {
+	(*array4D)[i1][i2] = (double**) malloc(MEM3); MEMTOT+=MEM3;
+	for(i3=0; i3<LEN3; i3++ ) {
+	  (*array4D)[i1][i2][i3] = (double*) malloc(MEM4); MEMTOT+=MEM4;
+	}
+      }
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1<MEM1; i1++ ) {
+      for(i2=0; i2<LEN2; i2++ ) {
+	for(i3=0; i3<LEN3; i3++ ) {
+	  free( (*array4D)[i1][i2][i3] ); 
+	}
+	free( (*array4D)[i1][i2]); 
+      }
+      free( (*array4D)[i1]) ;
+    }
+    free(array4D);
+  }
+
+
+  return(f_MEMTOT);
+
+}   // end malloc_double4D

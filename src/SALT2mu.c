@@ -2308,6 +2308,7 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 #define MXTABLE_SUBPROCESS        6  // max number of output tables
 #define MXVAR_TABLE_SUBPROCESS    3  // max number of dimensions per table
 #define SUBPROCESS_OPTMASK_WRFITRES 1 // write fitres file each iteration
+#define SUBPROCESS_OPTMASK_WRM0DIF  2 // write M0DIF file for each iteration
 
 #define VARNAME_SIM_AV   "SIM_AV"
 #define VARNAME_SIM_RV   "SIM_RV"
@@ -2389,6 +2390,7 @@ struct {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;
   GENGAUSS_ASYM_DEF GENGAUSS_RV ;
   GEN_EXP_HALFGAUSS_DEF EXP_HALFGAUSS_EBV ;
+  double MAXPROB_RATIO ; 
 } SUBPROCESS ;
 
 
@@ -18467,9 +18469,14 @@ void outFile_driver(void) {
 
     int OPTMASK   = SUBPROCESS.INPUT_OPTMASK ;
     bool WRFITRES = ( (OPTMASK & SUBPROCESS_OPTMASK_WRFITRES) > 0 );
+    bool WRM0DIF = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
     if ( WRFITRES ) {
       sprintf(tmpFile,"%s.FITRES", prefix );
       write_fitres_driver(tmpFile);  // write result for each SN
+    }
+    if ( WRM0DIF ) {
+      sprintf(tmpFile,"%s.M0DIF", prefix );
+      write_M0_fitres(tmpFile);  // write result for each SN 
     }
 
     return ;
@@ -21104,8 +21111,9 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   bool LDMP, KEEP ;
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
   char *name;
-  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT, PROB_SIMREF ;
-  
+  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT, PROB_SIMREF, PROB_RATIO ;
+  SUBPROCESS.MAXPROB_RATIO = 0.;
+
   for ( isn=0 ; isn < NSN; isn++ ) {
     PROB_SIMREF     = 1.0;
     PROB_TOT        = 1.0;
@@ -21142,7 +21150,13 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	PROB_SIMREF =  SUBPROCESS_PROB_SIMREF(ITER_FOUND, imap, XVAL_for_GENPDF[0]) ;
       }
 
-      PROB_TOT *= (PROB/ PROB_SIMREF) ;
+      PROB_RATIO = (PROB/ PROB_SIMREF) ;
+      PROB_TOT *= PROB_RATIO ;
+
+      if (PROB_RATIO > SUBPROCESS.MAXPROB_RATIO) {
+	SUBPROCESS.MAXPROB_RATIO = PROB_RATIO ; 
+      }
+      // printf("xxx PROB = %le, PROB_SIMREF=%le, PROB_RATIO=%le \n", PROB, PROB_SIMREF, PROB_RATIO) ;  
 
       if ( LDMP ) {
 	XVAL = XVAL_for_GENPDF[0]; 
@@ -21746,6 +21760,10 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   ERR = 0.0 ;
   fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f +- %8.5f \n",
 	  tmpName, sigint, ERR );
+
+  sprintf(tmpName, "MAXPROB_RATIO") ;
+  fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f  #Beware, value > 1 violates bounding function \n",
+          tmpName, SUBPROCESS.MAXPROB_RATIO); 
 
   fflush(FP_OUT);
 

@@ -141,6 +141,10 @@
 
  Mar 01 2021: adapt to work for NEA column replacing 3 PSF columns.
 
+ Jul 15 2021: 
+   + MXCHAR_LINE-> 200 (was 120)
+   + fix string-cat bug for ptrhead (caught by segfault in debug mode)
+
 ***************************************/
 
 #include <stdio.h>
@@ -157,7 +161,7 @@
 #define MXLIBID   6000
 #define MWEBV_MAX  2.0     // reject fields with such large MWEBV
 #define MXLINE_HEADER 30   // max lines for simlib header
-#define MXCHAR_LINE 120 
+#define MXCHAR_LINE 200     
 
 // define index params for INFO_HEAD arra
 #define NPAR_HEAD  6
@@ -409,7 +413,7 @@ int main(int argc, char **argv) {
 void  parse_args(int argc, char **argv) {
 
   int i, i1, N;
-  char *ptrhead, BUFFER[20], copt[20];
+  char *ptrhead, copt[20];
   char fnam[] = "parse_args" ;
 
   // --------------- BEGIN --------------
@@ -488,7 +492,7 @@ void  parse_args(int argc, char **argv) {
   }
 
   N=0;
-  sprintf(BUFFER,"COMMENT:");
+
 
   // first comment is exact user-command
   //xxx  N++;  ptrhead = HEADER_ADD[N];
@@ -499,8 +503,11 @@ void  parse_args(int argc, char **argv) {
 
   ptrhead = HEADER_ADD[N]; N++;
   sprintf(ptrhead,"   '"  );
-  for ( i = 0; i < argc; i++ )  sprintf(ptrhead,"%s %s", ptrhead, argv[i] ); 
-  sprintf(ptrhead,"%s ' ", ptrhead ); 
+  for ( i = 0; i < argc; i++ )  
+    { strcat(ptrhead," "); strcat(ptrhead,argv[i]); }
+
+  strcat(ptrhead," ' ");
+  // xxx mark delete  sprintf(ptrhead,"%s ' ", ptrhead ); 
 
   // now parse what's happening
 
@@ -508,7 +515,7 @@ void  parse_args(int argc, char **argv) {
   //  sprintf(ptrhead," Select  MJD   between %9.2f and %9.2f " );
 
   ptrhead = HEADER_ADD[N]; N++ ;
-  sprintf(ptrhead,"%s and the following co-add cuts/options:" );
+  sprintf(ptrhead,"and the following co-add cuts/options:" );
 
   ptrhead = HEADER_ADD[N]; N++ ;
   sprintf(ptrhead,"   + Select LIBID between %d and %d", 
@@ -624,6 +631,9 @@ void SIMLIB_open_read(void) {
 	NLINE_HEADER++; 
       }
       sprintf(HEADER[NLINE_HEADER], "%s", KEYNAME2_DOCANA_REQUIRED) ;
+      NLINE_HEADER++; 
+
+      sprintf(HEADER[NLINE_HEADER], "\n\n") ;
       NLINE_HEADER++; 
     }
     

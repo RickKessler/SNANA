@@ -766,6 +766,9 @@ int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
 		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
+void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int IDMAP,
+                              int OPT_EXTRAP, int NBIN, double *RANGE,
+                              char *callFun, GRIDMAP *GRIDMAP_LOAD); 
 void warn_NVAR_KEY(char *fileName);
 
 void fillbins(int OPT, char *name, int NBIN, float *RANGE, 

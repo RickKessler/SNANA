@@ -178,7 +178,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9 ; // init for below
       }
 
-      // check options to rejet or ignore map(s)
+      // check options to reject or ignore map(s)
       ptrVar = GENPDF[NMAP].VARNAMES[0] ;
       IGNORE_MAP = false;
       if ( strlen(ignoreList) > 0 ) 
@@ -212,6 +212,13 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   // - - - - - - -
   if ( gengauss_SALT2ALPHA.USE || gengauss_SALT2BETA.USE ) {
+    if ( gengauss_SALT2ALPHA.USE ) {
+      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2ALPHA) ; NMAP++ ; 
+    }
+    if ( gengauss_SALT2BETA.USE ) {
+      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2BETA) ; NMAP++ ;
+    }
+
     dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
     dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
     debugexit(fnam); // xxx remove me!
@@ -255,6 +262,24 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   return;
 
 } // end init_genPDF
+
+// =======================================
+
+void   init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
+  // Created July 16 2021
+  // creates GENPDF map from asymmetric Gaussian structure (*GENGAUSS) input keys
+  // initial use for SALT2 alpha/beta in SALT2mu SUBPROCESS
+  // WARNING! Currently only works for 1D maps
+
+  char fnam[] = "init_genPDF_from_GenGauss" ; 
+
+  //BEGIN
+  //XYZ
+  
+
+  return;
+} // end init_genPDF_from_GenGauss
+
 
 // =======================================
 void free_memory_genPDF(void) {

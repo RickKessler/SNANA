@@ -6280,6 +6280,8 @@ void split2floats(char *string, char *sep, float *fval) {
   return;
 } // end split2floats
 
+// *******************************************************
+
 
 // ********************************************************
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 

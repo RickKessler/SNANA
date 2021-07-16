@@ -42,6 +42,7 @@ float TMPSTORE_RAN_GENPDF[MXITER_GENPDF];
 // ----------------------------------
 
 void   init_genPDF(int OPTMASK, FILE *fp, char *fileName, char *ignore);
+void   init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, int dumpFlag);

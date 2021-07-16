@@ -171,27 +171,22 @@ void INIT_HOSTLIB(void) {
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
-  // open hostlib file and  return file pointer
-  open_HOSTLIB(&fp_hostlib);
-
-  // read header info : NVAR, VARNAMES ...
-  read_head_HOSTLIB(fp_hostlib);
+  // open hostlib and start reading
+  open_HOSTLIB(&fp_hostlib);     // open and return file pointer
+  read_head_HOSTLIB(fp_hostlib); // read header info: VARNAMES, ...
+  close_HOSTLIB(fp_hostlib);     // close HOSTLIB to rewind
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
 
-  // read GAL: keys
-  read_gal_HOSTLIB(fp_hostlib);
+  // re-open hostlib for GAL keys so that it works for gzipped files.
+  // (cannot rewind gzip file, so close and re-open is only way)
+  open_HOSTLIB(&fp_hostlib);     // re-open
+  read_gal_HOSTLIB(fp_hostlib);  // read "GAL:" keys
+  close_HOSTLIB(fp_hostlib);     // close HOSTLIB
 
   // summarize SNPARams that were/weren't found
   summary_snpar_HOSTLIB();
-
-  // close HOSTLIB file
-
-  if ( HOSTLIB.GZIPFLAG ) 
-    { pclose(fp_hostlib); } // close gzip file
-  else
-    { fclose(fp_hostlib); } // close normal file stream
 
   // sort HOSTLIB entries by redshift
   sortz_HOSTLIB();
@@ -902,6 +897,14 @@ void open_HOSTLIB(FILE **fp) {
   fflush(stdout);
 
 }  // end of open_HOSTLIB
+
+void close_HOSTLIB(FILE *fp) {
+  // Created July 16 2021
+  if ( HOSTLIB.GZIPFLAG ) 
+    { pclose(fp); } // close gzip file
+  else
+    { fclose(fp); } // close normal file stream
+} // end close_HOSTLIB
 
 // ====================================
 void  read_HOSTLIB_WGTMAP(void) {
@@ -6371,7 +6374,7 @@ void GEN_SNHOST_NBR(int IGAL) {
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
     // cannot rewind gzip file, and thus first IGAL is skipped
-    if ( HOSTLIB.GZIPFLAG ) { rowNum-- ; } // Jul 15 2021
+    // xxx mark delete if ( HOSTLIB.GZIPFLAG ) { rowNum-- ; } // Jul 15 2021
 
     // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
     // Use two layers of  indexing to get the desired z-sorted IGAL

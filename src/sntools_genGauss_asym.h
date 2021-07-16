@@ -54,4 +54,8 @@ void checkVal_GENGAUSS(char *varName, double *val, char *fromFun );
 int  parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
                             GENGAUSS_ASYM_DEF *genGauss );
 
+/*void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int IDMAP,
+                              int OPT_EXTRAP, int NBIN, double *RANGE,
+                              char *callFun, GRIDMAP *GRIDMAP_LOAD);
+*/
 // == END ==

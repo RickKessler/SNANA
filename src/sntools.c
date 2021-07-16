@@ -10562,11 +10562,7 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
 
   FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
   if ( !FOUND_DOCANA ) {
-    react_missing_docana(REQUIRE_DOCANA,fileName); 
-
-    // if we haven't aborted, rewind in case first word in file
-    // is needed for parsing
-    
+    react_missing_docana(REQUIRE_DOCANA,fileName);     
   }
   return FOUND_DOCANA ;
 

@@ -20144,12 +20144,15 @@
 
    sntools_host.c
      + fix index bug related to reading HOSTNBR.
+     + add kludge reading gzipped HOSTLIB with HOSTNBR by
+        subtracting 1 from rowNum (since first GAL key is skipped)
 
    sntools.c
      + fix hash_table_def to declare name[20] instead of name[10];
         name[10] was stopping matches for long CID lengths.
      + for large GRIDMAP, print update every 500,000 rows.
      + add peakinterval arg to biGaussRan
+     + move malloc_double2D[3D][4D] functions from SALT2mu.c to sntools.c
 
    SALT2mu.c
      + implement interp_biascor_logmass option for muCOVscale
@@ -20178,12 +20181,16 @@
        thus took values of zero ...so RA != RA_LAST was never satisfied.
      + require DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
      + write KCOR_FILE to FITS header.
-
+    
    submit_train_SALT3.py:
       new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
        (beware: copied code snippets from train_SALT2, but not tested)
 
    sntools_genExpHalfGauss.c :
       + new utility parse_input_EXP_HALFGAUSS
+
+   simlib_coadd.c
+     + fix a few string bugs setting header strings.
+        (caught by segfault with debug flag)
 
 END: 

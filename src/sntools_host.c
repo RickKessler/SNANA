@@ -109,6 +109,7 @@
 
  Jul 6 2021: require DOCANA in HOSTLIB and WGTMAP
 
+  
 =========================================================== */
 
 #include <stdio.h>
@@ -2020,6 +2021,7 @@ void read_head_HOSTLIB(FILE *fp) {
     } // end of VARNAMES
 
 
+    // - - - - - 
     // look for fixed Sersic index 'n#_Sersic' outside of VARNAMES list
     if ( FOUND_VARNAMES ) 
       { parse_Sersic_n_fixed(fp,c_get); }
@@ -2307,6 +2309,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 // ====================================
 void  parse_Sersic_n_fixed(FILE *fp, char  *string) {
 
+  // XXXXXXx MARK OBSOLETE JULY 15 2021 XXXXXXXXXXX
+  //
   // look for fixed Sersic index defined after VARANMES.
   // Check all possible keys in case n#_Sersic is defined
   // for '#' that has no corresponding  a#_Sersic and  b#_Sersic.
@@ -2436,12 +2440,10 @@ void read_gal_HOSTLIB(FILE *fp) {
 	  if ( val < HOSTLIB.VALMIN[ivar_STORE] ) 
 	    { HOSTLIB.VALMIN[ivar_STORE] = val; }
 	}
-
       }
 
       // store optional FIELD string 
       if ( IVAR_FIELD > 0  ) {
-	// xxx mark delete	ivar_ALL   = HOSTLIB.IVAR_ALL[IVAR_FIELD];
 	sprintf(HOSTLIB.FIELD_UNSORTED[NGAL],"%s", FIELD);
       }
 
@@ -2454,7 +2456,6 @@ void read_gal_HOSTLIB(FILE *fp) {
 
       // Nov 11 2019: store optional NBR_LIST string 
       if ( IVAR_NBR_LIST > 0 ) {
-	//  xxx mark delete ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
 	MEMC       = (1+strlen(NBR_LIST)) * sizeof(char) ;
 	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
 	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
@@ -2552,20 +2553,6 @@ int passCuts_HOSTLIB(double *xval ) {
 
   // bail for any option to rewrite HOSTLIB with appended columns
   if ( INPUTS.HOSTLIB_USE == 2 ) { return(1); }
-
-  /* xxxxx mark delete May 4 2021 xxxxxxx
-  // if computing host mags, do not apply cuts
-  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
-    { return(1); }
-
-  // ditto for HOST neighbors
-  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
-    { return(1); }
-
-  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_APPEND)>0 ) 
-    { return(1); }
-    xxxxxxxxxxx end mark xxxxxxxxx  */
-
 
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 
@@ -6383,9 +6370,11 @@ void GEN_SNHOST_NBR(int IGAL) {
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
+    // cannot rewind gzip file, and thus first IGAL is skipped
+    if ( HOSTLIB.GZIPFLAG ) { rowNum-- ; } // Jul 15 2021
+
     // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
     // Use two layers of  indexing to get the desired z-sorted IGAL
-    // xxx mark    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum-1];
     IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
     if ( IGAL_STORE < 0 ) { continue; } // neighbor was cut from sample
 
@@ -8382,7 +8371,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   // can be visually checked when appended HOSTLIB is read back.
   LSTDOUT = ( igal_unsort < 10 || 
 	      igal_unsort > NGAL-10 ||
-	      GALID == 432048 
+	      GALID == 293050
 	      );
   if ( LSTDOUT  && strlen(LINE_STDOUT) > 0 ) {
     printf("# ---------------------------------------------------- \n");

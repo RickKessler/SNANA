@@ -20117,15 +20117,16 @@
 
 
 # ======================================================================= 
-         v11_02q (  ) 
+         v11_03 (July 17 2021) 
 
-         ***** IMPORTANT(v11_02q) ***** 
+         ***** IMPORTANT(v11_03) ***** 
 
-     + sim requires DOCANA for HOSTLIB and WGTMAP (Jul6 6 2021)
      + fix subtle SATL2mu bug related to chi2max cut (see details below)
      + SALT2mu: interp_biascor_logmass option applies to muCOVscale
+     + REQUIRE_DOCANA=T for sim; enabled for HOSTLIB, WGTMAP, SIMLIB 
+        [disable with command line arg "REQUIRE_DOCANA 0"]
 
-         ***** USEFUL(v11_02q) ***** 
+         ***** USEFUL(v11_03) ***** 
 
     + SALT2mu matches on CID_IDSURVEY to handle duplicate CID
           from different surveys.
@@ -20135,7 +20136,7 @@
        
     + train_SALT3: add SURVEY_LIST_SAMEMAGSYS[FILTER] keys
 
-         ***** MISCELLANEOUS(v11_02q) ***** 
+         ***** MISCELLANEOUS(v11_03) ***** 
 
    all codes: all random-number functions renamed with "getRan_" prefix
 
@@ -20146,6 +20147,9 @@
      + fix index bug related to reading HOSTNBR.
      + add kludge reading gzipped HOSTLIB with HOSTNBR by
         subtracting 1 from rowNum (since first GAL key is skipped)
+     + fix +HOSTNBR write and read to work for both unzpped and zipped;
+         trick: after reading header, close and re-open file to avoid 
+          rewind that doesn't work for gzip files.
 
    sntools.c
      + fix hash_table_def to declare name[20] instead of name[10];

@@ -1232,8 +1232,8 @@ void set_user_defaults(void) {
 
   // default is to NOT prompt user before clearing (removing) old version 
   INPUTS.CLEARPROMPT      = 0 ;
-  INPUTS.REQUIRE_DOCANA   = 0 ;
-  INPUTS.NVAR_SIMGEN_DUMP = -9 ; // note that 0 => list variables & quit
+  INPUTS.REQUIRE_DOCANA   = 1 ;      // set true, July 17 2021
+  INPUTS.NVAR_SIMGEN_DUMP = -9 ;    // note that 0 => list variables & quit
   INPUTS.IFLAG_SIMGEN_DUMPALL = 0 ; // dump only SN written to data file.
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
 
@@ -3047,6 +3047,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Jun 02 2021: add calls to check_arg_len
   // Jun 17 2021: restore SEPNBR_MAX & NNBR_WRITE_MAX
   // Jul 01 2021: read forgotten INPUTS.HOSTLIB_MAXDDLR
+  // Jul 16 2021: fix override logic by setting INPUTS.HOSTLIB_USE=1
+  //               only if it is not already set.
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -3058,8 +3060,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FILE ) ; 
     if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) 
       { INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;  }
-    else 
-      { setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); INPUTS.HOSTLIB_USE = 1; }
+    else { 
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); 
+      if ( !INPUTS.HOSTLIB_USE )  { INPUTS.HOSTLIB_USE = 1; }
+    }
   }
   else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
@@ -5009,9 +5013,11 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
+  /* NOT_YET
   if ( INPUTS.REQUIRE_DOCANA ) 
-    { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = OPENMASK_REQUIRE_DOCANA ; }
-    
+    { INPUTS_SEARCHEFF.OPTMASK_OPENFILE += OPENMASK_REQUIRE_DOCANA ; }
+  */
+
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
@@ -5775,9 +5781,12 @@ void prep_user_input(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    
+    /* NOT_YET ...
     // Aug 26 2020: check for option to require DOCANA
     if ( INPUTS.REQUIRE_DOCANA ) 
       { INPUTS.FLUXERRMODEL_OPTMASK += MASK_REQUIRE_DOCANA_FLUXERRMAP; }
+    */
   }
 
   if ( INPUTS.RESTORE_DES3YR ) {
@@ -21500,8 +21509,11 @@ void init_genmodel(void) {
     // model-specific init
     // xxxx    OPTMASK = 0;
     OPTMASK = INPUTS.GENMODEL_MSKOPT; 
+
+    /* NOT_YET
     if ( INPUTS.REQUIRE_DOCANA  ) { OPTMASK |= OPENMASK_REQUIRE_DOCANA; }
- 
+    */
+
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );

@@ -153,14 +153,9 @@ void INIT_HOSTLIB(void) {
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
 
-  /* xxxxxxxx mark delete Jul 6 2021 xxxxxx
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
     { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
-  xxxxxxx */
-
-  // Jul 6 2021: require DOCANA in HOSTLIB and in WGTMAP
-  OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; 
 
   // check for spectral templates to determin host spectrum
   read_specTable_HOSTLIB();
@@ -880,6 +875,7 @@ void open_HOSTLIB(FILE **fp) {
 		       PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE, fnam);
   }
 
+  /* xxxxxxxxxx mark delete July 16 2021 xxxxx
   // May 2021
   // if re-writing hostlib, input host lib cannot be gzipped.
   // Reading gzipped file once is fine, but for rewrite need to 'rewind'
@@ -891,6 +887,7 @@ void open_HOSTLIB(FILE **fp) {
     sprintf(c2err,"Unzip HOSTLIB for %s ", INPUTS.HOSTLIB_PLUS_COMMAND);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+  xxxx */
 
   sprintf(HOSTLIB.FILENAME , "%s", libname_full );
   printf("\t Reading %s \n", libname_full );
@@ -2551,6 +2548,7 @@ int passCuts_HOSTLIB(double *xval ) {
   // Return 1 if cuts are satisfied; zero otherwise.
   int ivar_ALL, LRA ,LRA2;
   double ZTRUE, RA, RA2, DEC;
+  char fnam[] = "passCuts_HOSTLIB" ;
 
   // ---------- BEGIN ---------
 
@@ -7712,12 +7710,14 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // generic utility to rewrite HOSTLIB using information
   // Passed here via *HOSTLIB_APPEND.
   // 
+  // July 16 2021: write DOCANA keys to FP_NEW
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
-  int  gzipFlag;
   char *VARNAMES     = HOSTLIB_APPEND->VARNAMES_APPEND ;
+  char *LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
 
+  int  gzipFlag;
   FILE *FP_ORIG, *FP_NEW;
   char *HLIB_ORIG = INPUTS.HOSTLIB_FILE;
   char  HLIB_TMP[MXPATHLEN], HLIB_NEW[100], DUMPATH[MXPATHLEN];
@@ -7732,8 +7732,16 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // locally and not in somebody else's directory.
   extract_MODELNAME(HLIB_TMP, DUMPATH, HLIB_NEW);
   
-  FP_ORIG = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, "", 
+
+  /* xxxx mark delete July 17 2021 xxxxxx
+  int OPTMASK = OPTMASK_OPENFILE_HOSTLIB ;
+  FP_ORIG = snana_openTextFile(OPTMASK, "", 
 			       HLIB_ORIG, HLIB_TMP, &gzipFlag);
+  xxxxxxxx */
+
+  // open orig HOSTLIB without checking for DOCANA so that
+  // we don't skip DOCUMENTATION key
+  FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", &gzipFlag );
   FP_NEW  = fopen(HLIB_NEW, "wt");
 
   if ( !FP_ORIG ) {
@@ -7750,24 +7758,35 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   printf("\n");
   printf("  Created '%s' \n", HLIB_NEW);
 
+  // - - - - - - - -
+  // transfer DOCANA block (July 2021)
+  if ( INPUTS.REQUIRE_DOCANA ) {
+    bool DOCANA_END = false ;
+    int  NLINE_DOCANA = 0 ;
+
+    // keep re-writing HOSTLIB lines until reaching DOCUMENTATION_END key
+    while ( !DOCANA_END ) {
+      fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
+      fprintf(FP_NEW,"%s", LINE); NLINE_DOCANA++ ;
+      if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) 
+	{ DOCANA_END = true; fprintf(FP_NEW,"\n"); }
+    }
+    printf("  Wrote %d DOCANA lines to new HOSTLIB\n", NLINE_DOCANA);
+  } // end REQUIRE_DOCANA
+
+
+  // - - - - - 
   int iline;
   for(iline=0; iline < NLINE_COMMENT; iline++ ) 
     { fprintf(FP_NEW,"# %s\n", HOSTLIB_APPEND->COMMENT[iline] ); }
-
-  fprintf(FP_NEW,"# \n");
-  fprintf(FP_NEW,"# Below are original HOSTLIB comments and table\n");
-  fprintf(FP_NEW,"# with %s column(s) appended.\n", VARNAMES);
-  fprintf(FP_NEW,"# - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  fprintf(FP_NEW,"# \n");
 
   // - - - - - - - - - - - - - - - - - 
   // read each original line
 
   long long GALID, GALID_orig ;
   int   igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
-  char *LINE, *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
+  char *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
 
-  LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
   LINE_APPEND  = (char*) malloc ( sizeof(char) * MXCHAR_LINE_APPEND );
   FIRSTWORD    = (char*) malloc ( sizeof(char) * 100 );
   NEXTWORD     = (char*) malloc ( sizeof(char) * 100 );
@@ -7814,6 +7833,8 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
       }
     }
 
+    if ( NLINE_GAL >= INPUTS.HOSTLIB_MAXREAD ) { break; }
+
     ptrCR = strchr(LINE,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
     fprintf(FP_NEW,"%s %s\n", LINE, LINE_APPEND);
   }
@@ -7834,7 +7855,7 @@ void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // malloc and init
   int i;
   int MEMC = MXCHAR_LINE_APPEND * sizeof(char*) ;
-  //  char fnam[] = "malloc_HOSTLIB_APPEND" ;
+  char fnam[] = "malloc_HOSTLIB_APPEND" ;
 
   // ---------------- BEGIN ---------------
 
@@ -8126,14 +8147,23 @@ void rewrite_HOSTLIB_plusNbr(void) {
   char  *LINE_APPEND, MSG[100] ;
 
   // internal debug
-  int  NGAL_DEBUG  = -500;
+  // xxx mark  int  NGAL_DEBUG  = -500;
+  int  NGAL_DEBUG  = INPUTS.HOSTLIB_MAXREAD ;
 
-  char *INPUT_FILE = INPUTS.INPUT_FILE_LIST[0];
+  char *INPUT_FILE   = INPUTS.INPUT_FILE_LIST[0];
+  char *HOSTLIB_FILE = INPUTS.HOSTLIB_FILE;
+  char SUFFIX_HOSTNBR[] = "+HOSTNBR" ;
   char fnam[] = "rewrite_HOSTLIB_plusNbr" ;
 
   // --------------- BEGIN ---------------
 
   print_banner(fnam);
+
+  if ( strstr(HOSTLIB_FILE,SUFFIX_HOSTNBR) != NULL ) {
+    sprintf(c1err,"HOSTLIB already has NBR_LIST");
+    sprintf(c2err,"Check HOSTLIB_FILE='%s'", HOSTLIB_FILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   if ( IVAR_RA < 0 || IVAR_DEC < 0 ) {
     sprintf(c1err,"Must include galaxy coords to find neighbors.");
@@ -8186,6 +8216,8 @@ void rewrite_HOSTLIB_plusNbr(void) {
     // search for neighbors and fill line to append
     get_LINE_APPEND_HOSTLIB_plusNbr(igal_unsort, LINE_APPEND);
 
+    fflush(stdout);
+
     sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
 
   } // end igal_unsort loop over all galaxies
@@ -8193,7 +8225,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   // - - - - - - - - - - - - 
 
-  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "+HOSTNBR");
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", SUFFIX_HOSTNBR );
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "NBR_LIST" );
 
 

@@ -149,6 +149,7 @@
 # Jun 24 2021: 
 #   + include sntools_genGauss_asym dependence for SALT2mu
 #
+# Jul 17 2021: make sntools_gridmap.o
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -384,9 +385,11 @@ OBJ_GENMAG_SIM =	\
 
 OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools.o 	\
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_nonlinearity.o  	\
 	$(OBJ)/sntools_fluxErrModels.o	  \
 	$(OBJ)/sntools_fluxErrModels_legacy.o	\
+	$(OBJ)/sntools_simeff_obsolete.o	\
 	$(OBJ)/sntools_dataformat_fits.o	\
 	$(OBJ)/sntools_dataformat_text.o	\
 	$(OBJ)/sntools_gridread.o \
@@ -503,7 +506,9 @@ $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 
 $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
-	$(OBJ)/wfit.o  $(OBJ)/sntools.o  $(OBJ)/sntools_cosmology.o \
+	$(OBJ)/wfit.o  \
+	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  \
 	-lm $(LGSL) 
 	(cd $(OBJ);  rm wfit.o )
@@ -535,11 +540,12 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 $(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
-$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_genGauss_asym.o $(OBJ)/sntools_genExpHalfGauss.o
+$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o $(OBJ)/sntools_gridmap.o $(OBJ)/sntools_genGauss_asym.o $(OBJ)/sntools_genExpHalfGauss.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/SALT2mu.o  \
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_genGauss_asym.o \
 	$(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/minuit.o 	\
@@ -681,8 +687,11 @@ $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 
 $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/kcor.o $(OBJ)/sntools.o  $(OBJ)/MWgaldust.o \
-	$(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o \
+	$(OBJ)/kcor.o \
+	$(OBJ)/sntools.o  	\
+	$(OBJ)/MWgaldust.o \
+	$(OBJ)/sntools_spectrograph.o  	\
+	$(OBJ)/sntools_dataformat_fits.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  $(LGSL) $(LCERN)
 	(cd $(OBJ); rm kcor.o )
@@ -703,6 +712,7 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 	$(OBJ)/kcordump.o 	\
 	$(LIB)/libsnana.a  	\
 	$(OBJ)/sntools.o 	\
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_kcor.o 	\
 	$(OBJ)/sntools_dataformat_fits.o \
 	$(OBJ)/sntools_dataformat_text.o \
@@ -787,6 +797,7 @@ $(BIN)/nearnbr_apply.exe :  \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/nearnbr_apply.o \
 	$(OBJ)/sntools.o  	\
+	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ_OUTPUT)		\
 	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
@@ -823,6 +834,10 @@ $(OBJ)/sntools_fluxErrModels.o : $(SRC)/sntools_fluxErrModels.c $(SRC)/sntools_f
 $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(SRC)/sntools_fluxErrModels_legacy.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels_legacy.c )
+
+$(OBJ)/sntools_simeff_obsolete.o : $(SRC)/sntools_simeff_obsolete.c $(SRC)/sntools_simeff_obsolete.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_simeff_obsolete.c )
 
 # -------------------------------------------------
 # Oct 2020: cosmology util (extracted from sntools.c)
@@ -952,6 +967,12 @@ $(OBJ)/sntools_genPDF.o : $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genPDF.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genPDF.c )
 
+# -------------------------------------------------
+#  sntools_gridmap (July 2021)
+
+$(OBJ)/sntools_gridmap.o : $(SRC)/sntools_gridmap.c  $(SRC)/sntools_gridmap.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_gridmap.c )
 # -------------------------------------------------
 #  sntools_genGauss_asym  tools (Sep 2016)
 
@@ -1085,7 +1106,9 @@ $(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
 $(BIN)/filtercal_sim.exe : \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o $(LCERN)  -lm $(LGSL)
+	$(OBJ)/filtercal_sim.o  \
+	$(OBJ)/sntools.o \
+	$(LCERN)  -lm $(LGSL)
 	(cd $(OBJ); rm filtercal_sim.o )
 
 # -------------
@@ -1124,7 +1147,8 @@ $(OBJ)/SIMSED_extractSpec.o : $(SRC)/SIMSED_extractSpec.c \
 
 $(BIN)/SIMSED_extractSpec.exe : \
 	$(OBJ)/SIMSED_extractSpec.o  \
-	$(OBJ)/sntools.o  $(OBJ)/genmag_SEDtools.o 
+	$(OBJ)/sntools.o  \
+	$(OBJ)/genmag_SEDtools.o 
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_extractSpec.o  \
 	$(OBJ)/sntools.o  \

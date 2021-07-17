@@ -545,8 +545,9 @@ void checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) {
 
 }  // end of checkVal_GENGAUSS              
 
-/*
-void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int IDMAP,
+// =============================================
+void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, 
+			      char *MAPNAME, int IDMAP,
 			      int OPT_EXTRAP, int NBIN, double *RANGE,
 			      char *callFun, GRIDMAP *GRIDMAP_LOAD) {
 
@@ -565,7 +566,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int ID
   //Outputs:
   //   *GRIDMAP_LOAD: the GRIDMAP
 
-  char fnam[] = “compute_genGauss_GRIDMAP” ;
+  char fnam[]  = "compute_genGauss_GRIDMAP" ;
   int   MEMD   =  sizeof(double);
   int   MEMVAR = 2 * sizeof(double*);
   int   NDIM = 1, NFUN = 1, ivar;
@@ -585,7 +586,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int ID
     ibin++;
   } //end XVAL loop
 
-  printf(”    Load GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n”,
+  printf("    Load GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
          IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
   
   init_interp_GRIDMAP(IDMAP, MAPNAME, NBIN, NDIM, NFUN, OPT_EXTRAP,
@@ -596,5 +597,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int ID
   for(ivar=0; ivar<NBIN; ivar++) {free(TMPMAP2D[ivar]);} //free memory
   free(TMPMAP2D);
   return ;
-  }
-  */
+} // end compute_genGauss_GRIDMAP
+
+
+

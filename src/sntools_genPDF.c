@@ -91,7 +91,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
-  char **ptr_ITEMLIST;
+  char **ptr_ITEMLIST, *NAME ;
   int KEYSOURCE = 1; //parse file for gengauss (not command line)
   
   // ------------- BEGIN -------------
@@ -212,11 +212,16 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   // - - - - - - -
   if ( gengauss_SALT2ALPHA.USE || gengauss_SALT2BETA.USE ) {
+
+    double RANGE[2];
+
     if ( gengauss_SALT2ALPHA.USE ) {
-      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2ALPHA) ; NMAP++ ; 
+      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2ALPHA) ; 
+      NMAP++ ; 
     }
     if ( gengauss_SALT2BETA.USE ) {
-      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2BETA) ; NMAP++ ;
+      init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2BETA) ;
+      NMAP++ ;
     }
 
     dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
@@ -264,19 +269,26 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 } // end init_genPDF
 
 // =======================================
+void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
-void   init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // Created July 16 2021
-  // creates GENPDF map from asymmetric Gaussian structure (*GENGAUSS) input keys
-  // initial use for SALT2 alpha/beta in SALT2mu SUBPROCESS
+  // Compute 1D GRIDMAP from GENGAUSS and load GENPDF[IMAP].GRIDMAP
+  // as if it were read from GENPDF map file.
+  // Initial use for SALT2 alpha/beta in SALT2mu SUBPROCESS
   // WARNING! Currently only works for 1D maps
 
+  char *NAME   = GENGAUSS->NAME ;
+  int   IDMAP  = IDGRIDMAP_GENPDF + IMAP ;
+  int   NBIN   = 50; // hard-wired guess
   char fnam[] = "init_genPDF_from_GenGauss" ; 
 
-  //BEGIN
+  // ---------- BEGIN ----------
   //XYZ
-  
-
+ 
+  // call utility in sntools_genGauss_asym.c
+  compute_genGauss_GRIDMAP(GENGAUSS, NAME, IDMAP, OPT_EXTRAP_GENPDF, 
+			   NBIN, GENGAUSS->RANGE, fnam,
+			   &GENPDF[IMAP].GRIDMAP ); // <== returned
   return;
 } // end init_genPDF_from_GenGauss
 

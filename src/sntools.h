@@ -58,10 +58,12 @@
 #include <glob.h>
 
 #include "sndata.h"
+
+#include "sntools_gridmap.h"
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_03"                 
+#define  SNANA_VERSION_CURRENT  "v11_03b"                  
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -277,39 +279,10 @@ typedef struct STRING_DICT_DEF {
 } STRING_DICT_DEF ;
 
 
-typedef struct GRIDMAP {
-  int     ID;        // 
-  int     NDIM;     // Number of dimensions
-  int    *NBIN;     // Number of bins in each dimension
-  double *VALMIN;   // min value in each dimension
-  double *VALMAX;   // max value in each dimension
-  double *VALBIN;   // binsize in each dimension
-  double *RANGE;    // max-min in each dimension
 
-  int    NFUN ;        // Number of stored functions
-  double **FUNVAL ;    // function value at each grid point 
-  double  *FUNMIN ;    // min fun-val per function
-  double  *FUNMAX ;    // max fun-val per function
-  int    *INVMAP;      // covert multi-D indices into 1D index
-  int  NROW;          // number or rows read from file 
-  int  OPT_EXTRAP;   // 1=>snap outside values to edge
-  char VARLIST[80]; // comma-sep list of variables (optional to fill)
-} GRIDMAP ;
 
-typedef struct GRIDMAP1D {
-  int NBIN ;
-  double  *XVAL, *YVAL ;
-} GRIDMAP1D ;
+/* xxx mark delete Jul 2021 xxxxxxxx
 
-#define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior
-#define IDGRIDMAP_HOSTLIB_WGTMAP        20  // HOSTLIB weight map
-#define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap
-#define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap
-#define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap
-#define IDGRIDMAP_GENPDF                60  // Jun 2020
-#define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap
-
-// simeff 
 #define MXGENVAR_SIMEFFMAP   10
 
 struct SIMEFFMAP_DEF {
@@ -327,8 +300,9 @@ struct SIMEFFMAP_DEF {
   double  *TMPEFF ; // idem
 } SIMEFFMAP ;
 
-struct GRIDMAP  SIMEFF_GRIDMAP ;
 
+struct GRIDMAP  SIMEFF_GRIDMAP ;
+xxxxxxx end mark xxxxx */
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
@@ -642,6 +616,7 @@ int   landolt_ini__(int *opt, float *mag, float *kshift);
 int   Landolt_convert(int opt, double *mag_in, double *mag_out);
 int   landolt_convert__(int *opt, double *mag_in, double *mag_out);
 
+/* xxxxxxx mark delete xxxxxx
 // simeff utilities (include mangled functions for fortran)
 int    init_SIMEFFMAP(char *file, char *varnamesList);
 double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS);
@@ -649,7 +624,7 @@ void   malloc_SIMEFFMAP(int flag);
 
 int    init_simeffmap__(char *file, char *varnamesList);
 double get_simeff__(int *OPTMASK, int *NVAR, double *GRIDVALS);
-
+xxxxxxxx end mark xxxxxxx */
 
 // errmsg" utilities 
 void  tabs_ABORT(int NTAB, char *fileName, char *callFun);
@@ -755,6 +730,7 @@ int getinfo_photometry_version__(char *VERSION,  char *DATADIR,
 
 int file_timeDif(char *file1, char *file2);
 
+/* xxxxxxx mark delete July 17 2021 xxxxxxxx
 void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE);
 void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
 			 int OPT_EXTRAP, 
@@ -766,6 +742,7 @@ int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
 		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
+xxxxxxx */
 
 void warn_NVAR_KEY(char *fileName);
 
@@ -908,6 +885,7 @@ double funVal_skewGauss(double x, double siglo,double sighi,
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
 
+/* xxxxxxxx mark delete July 17 2021 xxxxxxxxx
 // ------ index mapping
 void clear_1DINDEX(int ID);
 void  init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM );
@@ -917,8 +895,7 @@ int    get_1DINDEX(int ID, int NDIM, int *indx );
 void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-
-// xxxvoid set_sndata_legacy__(char *key, int *NVAL,char *stringVal,double *parVal);
+xxxxxxxxxx end mark xxxxxxxxxx */
 
 void copy_sndata_global__(int *copyFlag, char *key,
 			  int *NVAL, char *stringVal,double *parVal);

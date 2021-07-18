@@ -13,17 +13,10 @@
  
  ******************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <string.h>
-*/
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "genmag_NON1AGRID.h"
 #include "MWgaldust.h"
 

@@ -1,9 +1,8 @@
 /***********
  Created Oct 2010 by R.Kessler
  
- Tools to generate GRID of templates with snlc_sim.exe
+ Tools to read MODEL GRID for simulation, psnid, etc ...
  (see manual for more details).
-
 
  The light curve structure for each SN is
  
@@ -39,17 +38,9 @@
 
 ***************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-*/
-
 #include "sntools.h"      // general snana stuff
 #include "fitsio.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 
 #define ITYPE_PEC1A  11
 #define ITYPE_MODEL  12
@@ -57,8 +48,8 @@
 // ************************************
 void load_EXTNAME_GRIDREAD(int IVERSION) {
 
-  // Duplicate load_EXTNAME_GRIDGEN with different name to
-  // avoid linking conflicts between  ifdef SNGRIDGEN and SNGRIDREAD.
+  // Duplicate load_EXTNAME_GRIDGEN with different name to avoid
+  // linking conflicts between  ifdef MODELGRID_GEN and MODELGRID_READ.
   // This is clearly quite clumsy ?!?!?!
   // Simulation needs GRIDGEN version while fitter needs the
   // READ version.

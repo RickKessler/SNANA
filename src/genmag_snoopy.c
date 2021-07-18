@@ -6,16 +6,9 @@
 
 ********************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-*/
-
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_grid.h" 
+#include "sntools_modelgrid.h" 
 #include "sntools_genSmear.h" // Aug 30 2019
 #include "genmag_snoopy.h" 
 

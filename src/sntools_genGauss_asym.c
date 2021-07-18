@@ -569,16 +569,17 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   char fnam[]  = "compute_genGauss_GRIDMAP" ;
   int   MEMD   =  sizeof(double);
   int   MEMVAR = 2 * sizeof(double*);
-  int   NDIM = 1, NFUN = 1, ivar;
+  int   NDIM = 1, NFUN = 1, ibin=0, ivar;
   double XVAL, funVal;
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double BINSIZE = (RANGE[1] - RANGE[0]) / (float)(NBIN-1);
   char *NAME = GENGAUSS->NAME;
-  //XYZ
+
+  // -------------- BEGIN --------------
+
+  // allocate temporary/local map to store val,funVal
   TMPMAP2D = (double**) malloc(MEMVAR);
   for(ivar=0; ivar<NBIN; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
-
-  int ibin = 0;
 
   for (XVAL = RANGE[0]; XVAL <= RANGE[1]; XVAL+=BINSIZE) {
     funVal = funVal_GENGAUSS_ASYM(XVAL, GENGAUSS) ;
@@ -590,9 +591,8 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
          IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
   
   init_interp_GRIDMAP(IDMAP, MAPNAME, NBIN, NDIM, NFUN, OPT_EXTRAP,
-                      TMPMAP2D,
-                      &TMPMAP2D[NDIM],
-                      GRIDMAP_LOAD  );
+                      TMPMAP2D, &TMPMAP2D[NDIM],
+                      GRIDMAP_LOAD  );    // <== returned
   
   for(ivar=0; ivar<NBIN; ivar++) {free(TMPMAP2D[ivar]);} //free memory
   free(TMPMAP2D);

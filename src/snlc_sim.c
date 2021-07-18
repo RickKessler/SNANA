@@ -44,7 +44,7 @@
 #include "sntools_dataformat_text.h"
 #include "sntools_kcor.h"
 #include "sntools_trigger.h" 
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "sntools_spectrograph.h"
 #include "sntools_genPDF.h"
 #include "sntools_output.h"   // added Jan 11 2017
@@ -61,7 +61,7 @@
 // include C code
 #include "SNcadenceFoM.c"
 
-#define SNGRIDGEN
+#define MODELGRID_GEN
 #define TWO_RANDONE_STREAMS
 
 // ******************************************
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
     if ( INPUTS.INIT_ONLY == 1 ) { debugexit("main: QUIT AFTER RATE-INIT"); }
   }
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
     init_GRIDsource(0); 
 #endif
   }  
@@ -1237,7 +1237,7 @@ void set_user_defaults(void) {
   INPUTS.IFLAG_SIMGEN_DUMPALL = 0 ; // dump only SN written to data file.
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   sprintf(GRIDGEN_INPUTS.FORMAT, "%s", "BLANK" );
   for ( i = 0; i <= NPAR_GRIDGEN; i++ ) 
     {  GRIDGEN_INPUTS.NBIN[i] = 0;  }
@@ -2334,7 +2334,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
   }
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   else if ( strstr(WORDS[0],"GRID") != NULL ) {
     N += parse_input_GRIDGEN(WORDS,keySource);
   }
@@ -3364,7 +3364,7 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
 } // end parse_input_CUTWIN
 
 // ==================================================
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
 int parse_input_GRIDGEN(char **WORDS, int keySource) {
 
   // Created July 2020
@@ -10296,7 +10296,7 @@ void gen_event_driver(int ilc) {
   } 
 
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
     gen_GRIDevent(ilc);
     gen_modelPar(ilc, OPT_FRAME_REST) ;
     gen_modelPar(ilc, OPT_FRAME_OBS ) ;
@@ -11368,7 +11368,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   if ( !ISFRAME_REST ) { return; }
   // everything below is rest frame.
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return; }
 #endif
 
@@ -11583,7 +11583,7 @@ void pick_NON1ASED(int ilc,
     if ( ilc <= MXGEN ) { ispgen = isp; }
   }
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   // special case for GRID generation; 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
     ispgen = (int)GENLC.SHAPEPAR ;  // NONIA sparse index 
@@ -11646,7 +11646,7 @@ void pick_NON1ASED(int ilc,
     }
 
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
     // Aug 20 2013: turn off mag smearing for GRID, but leave 
     // INPUTS.NON1A_MAGSMEAR as is so that its value is stored 
     // in the GRID.
@@ -21103,7 +21103,7 @@ void genmag_boost(void) {
 
   if ( GENLC.AV  < 1.0E-9 ) { goto KCOR ; }
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   // skip boost for SNOOPY model with just 1 logz-bin
   NZ = GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ];
   if ( NZ == 1 &&  INDEX_GENMODEL == MODEL_SNOOPY ) { return ; }
@@ -27171,7 +27171,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   wr_SIMGEN_DUMP(1,SIMFILE_AUX);
   
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
     init_GRIDsource(1); 
     wr_GRIDfile(1,SIMFILE_AUX->GRIDGEN);
 #endif
@@ -27225,7 +27225,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ------------ BEGIN -------------
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
     update_GRIDarrays();
     wr_GRIDfile(2,"");
@@ -27342,7 +27342,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Aug 10 2020: in batch mode, write few stats to YAML formatted file
   if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
     printf("  %s\n", SIMFILE_AUX->GRIDGEN );
     wr_GRIDfile(3,"");

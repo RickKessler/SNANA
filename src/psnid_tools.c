@@ -56,10 +56,10 @@
 #include "sntools_cosmology.h"  // cosmology functions (10.2020)
 #include "MWgaldust.h"    // GALextinct is here
 
-#define SNGRIDREAD // use only the read utilities in sngridtools.c
+#define MODELGRID_READ // use only the read utilities in sngridtools.c
+
 #include "fitsio.h"
-#include "sntools_grid.h"
-// #include "sntools_grid.c"
+#include "sntools_modelgrid.h"
 
 #include "psnid_tools.h"  // psnid tools (after including sngrindtools)
 

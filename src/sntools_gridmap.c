@@ -4,8 +4,8 @@
   Utilities to read and store multi-dimensional map in GRIDMAP struct,
   and use map for multi-D interpolation.
 
-  Note: thes utils are NOT related to those in sntools_gridgen.c[h]
-        and sntools_gridread.c[h]
+  Note: these utils are NOT related to those in sntools_modelgrid_gen.c[h]
+        and sntools_modelgrid_read.c[h]
 
  *****************************************/
 

@@ -1,7 +1,7 @@
 /****************************************
  Created Oct 2010 by R.Kessler
  
- Tools to generate GRID of templates with snlc_sim.exe
+ Tools to generate MODEL GRID from model in snlc_sim.exe
  (see manual for more details).
 
  The light curve structure for each SN is
@@ -38,19 +38,11 @@
 
 *********************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-*/
 
 #include "sntools.h"      // general snana stuff
 #include "sntools_cosmology.h"
 #include "fitsio.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "snlc_sim.h"
 #include "genmag_SIMSED.h"
 #include "genmag_NON1ASED.h"

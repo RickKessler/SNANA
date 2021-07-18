@@ -392,7 +392,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_simeff_obsolete.o	\
 	$(OBJ)/sntools_dataformat_fits.o	\
 	$(OBJ)/sntools_dataformat_text.o	\
-	$(OBJ)/sntools_gridread.o \
+	$(OBJ)/sntools_modelgrid_read.o \
 	$(OBJ)/sntools_kcor.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
@@ -433,7 +433,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_trigger.o  \
-	$(OBJ)/sntools_gridgen.o  \
+	$(OBJ)/sntools_modelgrid_gen.o  \
 	$(OBJ)/sntools_spectrograph.o \
 	$(OBJ)/sntools_genPDF.o \
 	$(OBJ)/sntools_genGauss_asym.o \
@@ -647,16 +647,19 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 # -------------------------------------------------
 # PSNID photometric classifier (Jun 2012)
 
-$(OBJ)/psnid_tools.o : $(SRC)/psnid_tools.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_tools.o : $(SRC)/psnid_tools.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_tools.c )
 
-$(OBJ)/psnid_BEST.o : $(SRC)/psnid_BEST.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_BEST.o : $(SRC)/psnid_BEST.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST.c )
 
 
-$(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+$(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h \
+	$(SRC)/sntools_modelgrid_read.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST2.c )
 
@@ -862,13 +865,13 @@ $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndat
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
 
-$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
+$(OBJ)/sntools_modelgrid_gen.o : $(SRC)/sntools_modelgrid_gen.c $(SRC)/sntools_modelgrid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridgen.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_modelgrid_gen.c )
 
-$(OBJ)/sntools_gridread.o : $(SRC)/sntools_gridread.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
+$(OBJ)/sntools_modelgrid_read.o : $(SRC)/sntools_modelgrid_read.c $(SRC)/sntools_modelgrid.h $(SRC)/sndata.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridread.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_modelgrid_read.c )
 
 # -------------------------------------------------
 # compile sntools_host (.o only)
@@ -1039,7 +1042,8 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 # $(SRC)/sntools_genPDF.c
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
-	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c $(SRC)/sntools_gridgen.c \
+	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c \
+	$(SRC)/sntools_modelgrid_gen.c \
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \
 	$(SRC)/sntools_host.c  \
 	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \

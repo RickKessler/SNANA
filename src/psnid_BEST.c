@@ -306,7 +306,7 @@
 #include "fitsio.h"
 #include "sntools.h"              // snana stuff
 #include "sntools_cosmology.h"    // dLmag
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "sntools_output.h"
 #include "sntools_nearnbr.h"
 #include "psnid_tools.h"

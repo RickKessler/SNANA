@@ -277,19 +277,29 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // Initial use for SALT2 alpha/beta in SALT2mu SUBPROCESS
   // WARNING! Currently only works for 1D maps
 
-  char *NAME   = GENGAUSS->NAME ;
+  char   *NAME   = GENGAUSS->NAME ;
+  double *RANGE  = GENGAUSS->RANGE;
+  double siglo   = GENGAUSS->SIGMA[0];
+  double sighi   = GENGAUSS->SIGMA[1];
+  double sigavg  = 0.5*(siglo+sighi);
   int   IDMAP  = IDGRIDMAP_GENPDF + IMAP ;
-  int   NBIN   = 50; // hard-wired guess
+  int   NBIN_PER_SIGMA = 20; // hard-wired guess
+  int   NBIN;
+  double XNBIN;
   char fnam[] = "init_genPDF_from_GenGauss" ; 
 
   // ---------- BEGIN ----------
   //XYZ
  
+  XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
+  NBIN  = (int)(XNBIN+0.5);
+
   // call utility in sntools_genGauss_asym.c
   compute_genGauss_GRIDMAP(GENGAUSS, NAME, IDMAP, OPT_EXTRAP_GENPDF, 
-			   NBIN, GENGAUSS->RANGE, fnam,
+			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
   return;
+
 } // end init_genPDF_from_GenGauss
 
 

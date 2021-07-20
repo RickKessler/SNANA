@@ -224,9 +224,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       NMAP++ ;
     }
 
-    dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
-    dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
-    debugexit(fnam); // xxx remove me!
+    //dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
+    //dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
+    //debugexit(fnam); // xxx remove me!
   }
 
 
@@ -300,9 +300,8 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
 			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
 
-  printf("xxx returned GRIDMAP range = %f to %f \n", GENPDF[IMAP].GRIDMAP.RANGE[0], GENPDF[IMAP].GRIDMAP.RANGE[1]);
 
-  bool debugflag = true ;
+  bool debugflag = false ;
   if (debugflag) {
     int nbin_test = 4;
     double binsize = (RANGE[1] - RANGE[0]) / (float)nbin_test ;

@@ -21061,6 +21061,10 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 } // end SUBPROCESS_SIM_REWGT
 
 double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
+
+  // Created July 2021
+  // Return bound function prob from reference sim.
+
   char fnam[] = "SUBPROCESS_PROB_SIMREF" ; 
   double PROB_SIMREF = 1.0 ; 
   int NVAR = SUBPROCESS.NVAR_GENPDF ;
@@ -21068,12 +21072,25 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
 
   // begin XYZ
   if (ITER <= 1) { 
+
+    // on 1st iteration, assoicate imap index for each varname
+
     //printf("xxx ITER=%d IVAR=%d VARNAME=%s \n", ITER, ivar, VARNAME) ; 
-    if (strcmp(VARNAME, "SIM_RV") == 0 ) { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
-    if (strcmp(VARNAME, "SIM_c") == 0 ) { SUBPROCESS.GENGAUSS_SALT2c.INDEX = imap ; }
-    if (strcmp(VARNAME, "SIM_x1") == 0 ) { SUBPROCESS.GENGAUSS_SALT2x1.INDEX = imap ; }
-    if (strcmp(VARNAME, "SIM_EBV") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
-    if (strcmp(VARNAME, "SIM_EBV_HOST") == 0 ) { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_RV") == 0 ) 
+      { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_c") == 0 ) 
+      { SUBPROCESS.GENGAUSS_SALT2c.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_x1") == 0 ) 
+      { SUBPROCESS.GENGAUSS_SALT2x1.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_beta") == 0 ) 
+      { SUBPROCESS.GENGAUSS_SALT2BETA.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_alpha") == 0 ) 
+      { SUBPROCESS.GENGAUSS_SALT2ALPHA.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_EBV") == 0 ) 
+      { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+    if (strcmp(VARNAME, "SIM_EBV_HOST") == 0 ) 
+      { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
+
   } // end ITER loop
 
   if (SUBPROCESS.GENGAUSS_RV.INDEX == imap) {
@@ -21081,20 +21098,27 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   }
  
   else if (SUBPROCESS.GENGAUSS_SALT2c.INDEX == imap) {
-    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_SALT2c) ; 
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL,&SUBPROCESS.GENGAUSS_SALT2c) ; 
   }
   
   else if (SUBPROCESS.GENGAUSS_SALT2x1.INDEX == imap) {
-    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_SALT2x1) ;
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL,&SUBPROCESS.GENGAUSS_SALT2x1) ;
+  }
+
+  else if (SUBPROCESS.GENGAUSS_SALT2BETA.INDEX == imap) {
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL,&SUBPROCESS.GENGAUSS_SALT2BETA);
+  }
+  else if (SUBPROCESS.GENGAUSS_SALT2ALPHA.INDEX == imap) {
+    PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL,&SUBPROCESS.GENGAUSS_SALT2ALPHA);
   }
 
   else if (SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX == imap) {
-    PROB_SIMREF = funVal_GEN_EXP_HALFGAUSS(XVAL ,&SUBPROCESS.EXP_HALFGAUSS_EBV) ;
+    PROB_SIMREF = funVal_GEN_EXP_HALFGAUSS(XVAL,&SUBPROCESS.EXP_HALFGAUSS_EBV);
   }
   
   else {
     sprintf(c1err,"Did not find bounding functions for '%s'", VARNAME) ;
-    sprintf(c2err,"Bounding functions must be specified for all variables or none!") ;
+    sprintf(c2err,"Bounding func must be specified for all variables or none!") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -21162,7 +21186,6 @@ int SUBPROCESS_IVAR_TABLE(char *varName) {
   char *varTmp;
   for(ivar=0; ivar < SUBPROCESS.NVAR_GENPDF; ivar++ ) {
     varTmp = SUBPROCESS.VARNAMES_GENPDF[ivar];
-    printf("xxx ivar = %d, vartmp = %s, VARNAME = %s \n", ivar, varTmp, varName) ; 
     if ( strcmp(varName,varTmp)==0 ) { IVAR_TABLE = ivar; }
   }
 

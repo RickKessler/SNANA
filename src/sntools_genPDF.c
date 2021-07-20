@@ -81,7 +81,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   FILE *fp;
   int gzipFlag,  NDIM, NFUN, i ;
-  int NMAP=0, NVAR=0, NITEM=0, NWORD=0, ivar, imap=-9, IDMAP=0;
+  int NMAP=0, NVAR=0, NITEM=0, NWD=0, ivar, imap=-9, IDMAP=0;
   bool IGNORE_MAP ;
   char c_get[60], fileName_full[MXPATHLEN];
   char LINE[200], TMPLINE[200], varName[60];
@@ -153,6 +153,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  bool IS_VARNAMES, IS_SALT2, IS_SIM ;
+
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // check for asymmetric gaussian for alpha,beta
@@ -162,25 +164,34 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     splitString(TMPLINE, " ", 100,          // inputs             
 		&NITEM, ptr_ITEMLIST );  // outputs
 
-      // try sim-input keys
-    NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
-				   &gengauss_SALT2BETA);
-    NWORD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
-				   &gengauss_SALT2ALPHA);      
+    IS_VARNAMES = (strcmp(c_get,"VARNAMES:") == 0 );
+    IS_SALT2    = (strstr(c_get,"SALT2")     != NULL );
+    IS_SIM      = (strstr(c_get,"SIM_")      != NULL );
 
-      // try column name in FITRES file
-    NWORD = parse_input_GENGAUSS("SIM_beta", ptr_ITEMLIST, KEYSOURCE, 
-				   &gengauss_SALT2BETA);
-    NWORD = parse_input_GENGAUSS("SIM_alpha", ptr_ITEMLIST, KEYSOURCE, 
-				   &gengauss_SALT2ALPHA);      
+    // try sim-input keys
+    if ( IS_SALT2 ) {
+      NWD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2BETA);
+      NWD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2ALPHA);      
+    }
 
-    if ( strcmp(c_get,"VARNAMES:") == 0 ) {
-      fgets(LINE,100,fp); // scoop up variable names
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+    // try column name in FITRES file
+    if ( IS_SIM ) {
+      NWD = parse_input_GENGAUSS("SIM_beta", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2BETA);
+      NWD = parse_input_GENGAUSS("SIM_alpha", ptr_ITEMLIST, KEYSOURCE, 
+				 &gengauss_SALT2ALPHA);      
+    }
+
+    if ( IS_VARNAMES ) {
+
+      NVAR = NITEM - 1;  // avoid VARNAMES key
       GENPDF[NMAP].NVAR = NVAR;
       for(ivar=0; ivar < NVAR; ivar++ )	{ 
-	get_PARSE_WORD(0,ivar,varName); 
-	assign_VARNAME_GENPDF(NMAP,ivar,varName);
+	// xxxx	get_PARSE_WORD(0,ivar,varName); 
+	ptrVar = ptr_ITEMLIST[ivar+1]; 
+	assign_VARNAME_GENPDF(NMAP, ivar, ptrVar);
 	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9 ; // init for below
       }
 
@@ -230,9 +241,11 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       NMAP++ ;
     }
 
+    /*
     dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
     dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
     debugexit(fnam); // xxx remove me!
+    */
   }
 
 

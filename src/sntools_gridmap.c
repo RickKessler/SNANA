@@ -141,10 +141,13 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
       //  printf(" xxx extra word = '%s'  OK=%d \n",word, EXTRA_WORD_OK);
 
       if ( (NWD-1 < NVARTOT) || (!EXTRA_WORD_OK) ) {
+	print_preAbort_banner(fnam);
+	printf("  MAPNAME = '%s' \n", MAPNAME);
+	printf("  LINE = '%s' \n", LINE);
 	sprintf(c1err,"Expected NVARTOT=%d words after '%s' key,",
 		NVARTOT, KEY_ROW);
-	sprintf(c2err,"but found %d. (NDIM=%d, NFUN=%d, callFun=%s)", 
-		NWD-1, NDIM, NFUN, callFun );
+	sprintf(c2err,"but found %d. (NDIM=%d, NFUN=%d, ROW=%d, callFun=%s)", 
+		NWD-1, NDIM, NFUN, NROW_READ, callFun );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
       }
 

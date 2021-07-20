@@ -156,25 +156,23 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // check for asymmetric gaussian for alpha,beta
-    if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
-      fgets(LINE,100,fp);
-      sprintf(TMPLINE,"%s %s", c_get, LINE);
-      splitString(TMPLINE, " ", 100,          // inputs             
-		  &NITEM, ptr_ITEMLIST );  // outputs
+    //if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
+    fgets(LINE,100,fp);
+    sprintf(TMPLINE,"%s %s", c_get, LINE);
+    splitString(TMPLINE, " ", 100,          // inputs             
+		&NITEM, ptr_ITEMLIST );  // outputs
 
       // try sim-input keys
-      NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
+    NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2BETA);
-      NWORD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
+    NWORD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2ALPHA);      
 
       // try column name in FITRES file
-      NWORD = parse_input_GENGAUSS("SALT2_beta", ptr_ITEMLIST, KEYSOURCE, 
+    NWORD = parse_input_GENGAUSS("SIM_beta", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2BETA);
-      NWORD = parse_input_GENGAUSS("SALT2_alpha", ptr_ITEMLIST, KEYSOURCE, 
+    NWORD = parse_input_GENGAUSS("SIM_alpha", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2ALPHA);      
-    }
-
 
     if ( strcmp(c_get,"VARNAMES:") == 0 ) {
       fgets(LINE,100,fp); // scoop up variable names
@@ -232,9 +230,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       NMAP++ ;
     }
 
-    //dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
-    //dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
-    //debugexit(fnam); // xxx remove me!
+    dump_GENGAUSS_ASYM(&gengauss_SALT2ALPHA);
+    dump_GENGAUSS_ASYM(&gengauss_SALT2BETA);
+    debugexit(fnam); // xxx remove me!
   }
 
 

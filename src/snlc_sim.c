@@ -1,6 +1,6 @@
 /*******************************************
   snlc_sim:  Mar 2006: Created by R.Kessler
-             Apr 2007: Remove SQL dependencies for public usage.
+             Apr 2007: Remove SQL dependencies for public usage. 
              Feb 2009: add nonIa option
              Oct 2010: add GRID option (for psnid)
              Mar 2011: install snhost package
@@ -1613,8 +1613,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(0, "CLEARPROMPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.CLEARPROMPT );
   }
-  else if ( keyMatchSim(0, "REQUIRE_DOCANA",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.REQUIRE_DOCANA );
+  else if ( keyMatchSim(1, "REQUIRE_DOCANA",  WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &ITMP );
+    // only allow command-line override; not allowed to read from input file
+    // to avoid people forgetting
+    if ( keySource == KEYSOURCE_ARG ) 
+      { INPUTS.REQUIRE_DOCANA = ITMP; }
+    else {
+      sprintf(c1err,"REQUIRE_DOCANA key not allowed in sim-input file.");
+      sprintf(c2err,"Try 'REQUIRE_DOCANA %d' as command-line arg", ITMP);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
   }
   else if ( keyMatchSim(1, "GENSOURCE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );

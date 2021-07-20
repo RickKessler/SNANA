@@ -1416,31 +1416,6 @@ bool NstringMatch(int MAX, char *string, char *key) {
 
 } // end NstringMatch
 
-/* xxx mark delete Jul 17 2020 xxxxxxxxxx
-bool uniqueMatch(char *string,char *key ) {
-  
-  // April 9 2019
-  // utility to check for string match, and abort on
-  // duplicate string
-  char *msgSource = STRING_UNIQUE.SOURCE_of_STRING ;
-  char fnam[] = "uniqueMatch";
-
-  if ( strcmp(string,"INIT") == 0 ) {
-    // interpet *key  as "source of string" to store
-    printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
-    sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
-    STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
-    return(0);
-  }
-
-  if ( strcmp(string,key) == 0 )
-    { checkStringUnique(1,string,msgSource,fnam);  return(true); }
-  else
-    { return(false); }
-
-}  // end uniqueMatch
-xxxxxxxxxxx end mark xxxxxxxxxxxxx */
-
 
 int uniqueOverlap (char *string,char *key ) {
 

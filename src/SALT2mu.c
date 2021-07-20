@@ -10659,7 +10659,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // -------------------------
   // print errBias info in z bins
 
-  int LPRINT = 1 ;
+  int LPRINT = 0 ;
 
   if ( LPRINT ) {
 

@@ -161,9 +161,17 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       sprintf(TMPLINE,"%s %s", c_get, LINE);
       splitString(TMPLINE, " ", 100,          // inputs             
 		  &NITEM, ptr_ITEMLIST );  // outputs
+
+      // try sim-input keys
       NWORD = parse_input_GENGAUSS("SALT2BETA", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2BETA);
       NWORD = parse_input_GENGAUSS("SALT2ALPHA", ptr_ITEMLIST, KEYSOURCE, 
+				   &gengauss_SALT2ALPHA);      
+
+      // try column name in FITRES file
+      NWORD = parse_input_GENGAUSS("SALT2_beta", ptr_ITEMLIST, KEYSOURCE, 
+				   &gengauss_SALT2BETA);
+      NWORD = parse_input_GENGAUSS("SALT2_alpha", ptr_ITEMLIST, KEYSOURCE, 
 				   &gengauss_SALT2ALPHA);      
     }
 
@@ -289,17 +297,16 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   char fnam[] = "init_genPDF_from_GenGauss" ; 
 
   // ---------- BEGIN ----------
-  //XYZ
  
   XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
   NBIN  = (int)(XNBIN+0.5);
-
 
   // call utility in sntools_genGauss_asym.c
   compute_genGauss_GRIDMAP(GENGAUSS, NAME, IDMAP, OPT_EXTRAP_GENPDF, 
 			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
 
+  assign_VARNAME_GENPDF(IMAP, 0, NAME );
 
   bool debugflag = false ;
   if (debugflag) {

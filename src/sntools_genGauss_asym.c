@@ -567,7 +567,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   //   *GRIDMAP_LOAD: the GRIDMAP
 
   char fnam[]  = "compute_genGauss_GRIDMAP" ;
-  int   MEMD   =  sizeof(double);
+  int   MEMD   =  NBIN * sizeof(double);
   int   MEMVAR = 2 * sizeof(double*);
   int   NDIM = 1, NFUN = 1, ibin=0, ivar;
   double XVAL, funVal;
@@ -579,7 +579,7 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
 
   // allocate temporary/local map to store val,funVal
   TMPMAP2D = (double**) malloc(MEMVAR);
-  for(ivar=0; ivar<NBIN; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
+  for(ivar=0; ivar<2; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
 
 
   for (XVAL = RANGE[0]; XVAL <= RANGE[1]; XVAL+=BINSIZE) {
@@ -590,9 +590,6 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
 
   printf("    Load GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
          IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
-  
-  printf("xxx RANGE = %f to %f, BINSIZE = %f, ibin = %d, \n", RANGE[0], RANGE[1], BINSIZE, ibin) ; 
-
   
 
   init_interp_GRIDMAP(IDMAP, MAPNAME, NBIN, NDIM, NFUN, OPT_EXTRAP,

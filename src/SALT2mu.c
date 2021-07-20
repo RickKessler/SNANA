@@ -21151,8 +21151,10 @@ int SUBPROCESS_IVAR_TABLE(char *varName) {
   char *varTmp;
   for(ivar=0; ivar < SUBPROCESS.NVAR_GENPDF; ivar++ ) {
     varTmp = SUBPROCESS.VARNAMES_GENPDF[ivar];
+    printf("xxx ivar = %d, vartmp = %s, VARNAME = %s \n", ivar, varTmp, varName) ; 
     if ( strcmp(varName,varTmp)==0 ) { IVAR_TABLE = ivar; }
   }
+
 
   return(IVAR_TABLE);
 } // end SUBPROCESS_IVAR_TABLE

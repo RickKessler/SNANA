@@ -294,10 +294,26 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
   NBIN  = (int)(XNBIN+0.5);
 
+
   // call utility in sntools_genGauss_asym.c
   compute_genGauss_GRIDMAP(GENGAUSS, NAME, IDMAP, OPT_EXTRAP_GENPDF, 
 			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
+
+  printf("xxx returned GRIDMAP range = %f to %f \n", GENPDF[IMAP].GRIDMAP.RANGE[0], GENPDF[IMAP].GRIDMAP.RANGE[1]);
+
+  bool debugflag = true ;
+  if (debugflag) {
+    int nbin_test = 4;
+    double binsize = (RANGE[1] - RANGE[0]) / (float)nbin_test ;
+    double x, funVal;
+    for (x = RANGE[0]; x <= RANGE[1]; x+= binsize) {
+      interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, &x, &funVal) ;
+      printf("xxx %s: %s=%f ----> funVal = %f \n", fnam, NAME, x, funVal);
+    }
+    debugexit(fnam);
+  }
+
   return;
 
 } // end init_genPDF_from_GenGauss

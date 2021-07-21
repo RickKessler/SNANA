@@ -116,7 +116,6 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   PyObject *genmod, *genclass, *pargs;
 #endif
 
-  //xxx mark delete  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   char *PyMODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   char *PyFUN_NAME   = INPUTS_PySEDMODEL.PyFUN_NAME ;
   int  L, ipar, NPAR ;
@@ -129,11 +128,6 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
   sprintf(BANNER, "%s", fnam);
   print_banner(BANNER);
-
-  /* xxxxxx mark delete Nov 5 2020 xxxxxxxxxxxx
-  // check which model from PATH_VERSION
-  get_MODEL_NAME_PySEDMODEL(PATH_VERSION, MODEL_NAME);
-  xxxxx */
 
   sprintf(PyMODEL_NAME, "%s",      MODEL_NAME);
   sprintf(PyFUN_NAME, "gensed_%s", PyMODEL_NAME) ;
@@ -414,13 +408,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { magobs = MAG_ZEROFLUX ; }
     else if ( FLAG_Finteg == (int)MAG_UNDEFINED ) 
       { magobs = MAG_UNDEFINED ; }
-
-    /* xxx mark delete Apr 4 2021 xxxxxx
-    if ( FLUXSUM_OBS > FLUXSUM_MIN ) 
-      { magobs = ZP - 2.5*log10(FLUXSUM_OBS); }
-    else
-      { magobs = MAG_ZEROFLUX ; }
-    xxxxxxxx end mark xxxxxxxxx*/
 
     MAGOBS_list[o] = magobs;  // load output array
     MAGERR_list[o] = 0.01;    // not used

@@ -118,10 +118,8 @@ void simlib_open_write(
   NSIMLIB = 0;
 
   if ( (FPLIB = fopen(filename, "wt"))==NULL ) {       
-    // xxxx mark delete    sprintf(c1err, "FATAL ERROR(%s): \n", fnam );
     sprintf(c1err, "Cannot open simlib file :" );
     sprintf(c2err, " '%s' \n", filename);
-    // xxx    MADABORT();
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -139,10 +137,8 @@ void simlib_open_write(
 
   if ( strlen(headFile) > 0 ) {
     if ( (fp_head = fopen(headFile, "rt"))==NULL ) {       
-      // xxxx mark printf( "FATAL ERROR(%s): \n", fnam );
       sprintf(c1err, "Cannot open headFile: headFile :\n" );
       sprintf(c2err, " '%s' \n", headFile);
-      // xxxx MADABORT();
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -241,7 +237,6 @@ void simlib_add_header(
       PRINT_SIMLIB_ERROR(c2err);
       
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      // xxx      MADABORT();
     }
     return;
   }
@@ -250,7 +245,6 @@ void simlib_add_header(
   NMJD_EXPECT = NOBS;
   NMJD_FOUND  = 0;
   MJD_LAST    = 0.0 ;
-  // xxx mark delete   IDEXPT_LAST = 0;
   STRINGID_LAST[0] = 0 ;
   sprintf(CFILT_LAST,"?");
 
@@ -387,7 +381,6 @@ void simlib_add_mjd(
   // --------------- BEGIN --------------
 
   // unpack *INFO array
-  // xxx mark delete   MJD      = *(INFO+0) ;  // 53000 in year 2006
   CCDGAIN  = *(INFO+1) ;  // electrons per ADU
   CCDNOISE = *(INFO+2) ;  // CCD read noise in electrons
   SKYSIG   = *(INFO+3) ;  // skynoise in ADU per pixel
@@ -415,7 +408,6 @@ void simlib_add_mjd(
 
     MJD_LAST = MJD ;
     sprintf(CFILT_LAST,"%s", FILTNAME);
-    // xxx mark delete     IDEXPT_LAST = IDEXPT;
     sprintf(STRINGID_LAST, "%s", STRINGID);
   }
   else if ( opt == 2 ) 
@@ -424,7 +416,6 @@ void simlib_add_mjd(
     sprintf(c1err, "opt=%d is invalid for function %s \n", opt, fnam);
     sprintf(c2err, "Something is messed up.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    // xxxx    MADABORT();
   }
 
 
@@ -547,7 +538,6 @@ int CHECK_SIMLIB_VAL(char *varname,
     }
 
     errmsg(SEV_FATAL, 0, fnam, msgerr[1], msgerr[2] ); 
-    //xxxx    MADABORT();
   }
 
   return 0 ;
@@ -562,24 +552,4 @@ void PRINT_SIMLIB_ERROR(char *msgerr ) {
   fprintf(FPLIB, "%s", msgerr );
   return ;
 }  // end of PRINT_SIMLIB_ERROR
-
-/* xxxxxxxxxxx mark delete Jan 7 2021 xxxxxxxxxxx
-void MADABORT(void) {
-   char cmsg[40] = { "ABORT program on Fatal Error." };
-
-   printf("\n");
-   printf("\n   `|```````|`    ");
-   printf("\n   <| o\\ /o |>    ");
-   printf("\n    | ' ; ' |     ");
-   printf("\n    |  ___  |     %s ", cmsg);
-   printf("\n    | |' '| |     ");
-   printf("\n    | `---' |     ");
-   printf("\n    \\_______/    ");
-   printf("\n");
-
-   printf("\n");   exit(1);
-   return ;
-
-}    //  end of "MADABORT"  
-xxxxxxxxxx end mark xxxxxxxxx */
 

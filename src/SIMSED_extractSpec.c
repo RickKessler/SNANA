@@ -314,7 +314,6 @@ int main(int argc, char **argv) {
   printf("   Init randoms, SEED = %d \n", INPUTS.ISEED);
 
   init_random_seed(INPUTS.ISEED, 1);
-  // xxx mark delete Jun 4 2020  srandom(INPUTS.ISEED);
 
   // prepare the corners and SEDs needed to interpolate
   // the SEDs in SED-parameter space

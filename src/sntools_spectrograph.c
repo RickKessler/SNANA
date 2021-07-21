@@ -1027,12 +1027,6 @@ void read_spectrograph_fits(char *inFile) {
 
     INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] = false ;
 
-    // xxx    INPUTS_SPECTRO.LAMSIGMA_LIST[l] = 12.0 ; // xxx REMOVE
-    /* xxxx mark delete May 8 2021 xxxxx
-    if ( l > 0 && fabs(LASTBIN-LBIN)>0.001 ) 
-      { INPUTS_SPECTRO.FORMAT_MASK = 2; } // write LAMMIN & LAMMAX
-    xxxxxxx end mark xxxxxxx */
-
     LASTBIN=LBIN; 
   }
 

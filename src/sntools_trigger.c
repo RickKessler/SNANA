@@ -1332,18 +1332,6 @@ FILE *open_zHOST_FILE(int OPT) {
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
     }
-
-    /* xxxxx mark delete Feb 26 2021 xxxxx
-    else  { 
-      if ( LPRINT )   { 
-	printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
-	       "-> Eff=1.0 \n"); 
-      }
-      fflush(stdout);
-      return(fp) ; 
-    }
-    xxxxxxxxx end mark xxxxxxx */
-
   }
 
   // --------------------------------------------
@@ -2173,11 +2161,6 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
 
     MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_TMP); // Feb 2021
 
-    /* xxxxx mark delete Feb 2021 xxxxxxx
-    if ( strcmp(FIELD_TMP,"ALL")==0 )      { MATCH_FIELD=1; }
-    if ( strstr(FIELD_TMP,FIELD) != NULL ) { MATCH_FIELD=1; }
-    xxxxxxxxxxxxxxx */
-
     if ( strcmp(FILT_TMP,"ALL")==0 )       { MATCH_FILT=1; }
     if ( strstr(FILT_TMP,FILT ) != NULL  ) { MATCH_FILT=1; }
 
@@ -2298,29 +2281,6 @@ void setRan_for_PHOTPROB(void) {
  
   init_Cholesky(+1, &DECOMP);
 
-  /* xxxx mark delete xxxxx
-  // allocate matrix
-  double **CHOLESKY_COV, *COV1D  ;
-  gsl_matrix_view chk; 
-  CHOLESKY_COV = (double**) malloc ( NSTORE * sizeof(double*) );
-  MEMD = NSTORE * sizeof(double);
-  for(irow=0; irow < NSTORE; irow++ ) 
-    { CHOLESKY_COV[irow] = (double*) malloc ( MEMD );  }
-
-  chk = gsl_matrix_view_array ( COVTMP1D, NSTORE, NSTORE ); 
-  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
-  for (irow=0; irow < NSTORE; irow++){
-    for (irow1 = 0; irow1 < NSTORE ; irow1++) {    
-      if ( irow <= irow1 ) {
-	CHOLESKY_COV[irow][irow1] = gsl_matrix_get(&chk.matrix,irow,irow1) ;
-      }
-      else
-	{ CHOLESKY_COV[irow][irow1] = 0.0; }
-    }    
-  }
-  xxxxxxxx end mark delete xxxxxxxxx */
-
-
   for(irow=0; irow < NSTORE; irow++ ) {
     obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
     GAURAN_LIST[irow] = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs];
@@ -2366,13 +2326,6 @@ void setRan_for_PHOTPROB(void) {
 
   // free memory
   init_Cholesky(-1, &DECOMP);
-
-  /* xxxxxxxxxxxxxxx mark delete xxxxxxxxxx
-  // free temp  matrices
-  for(irow=0; irow < NSTORE; irow++ )  { free(CHOLESKY_COV[irow]); }
-  free(CHOLESKY_COV);
-  free(DECOMP.COVMAT1D);
-  xxxxxxxxxxx  end mark xxxxxxxxxxxxx  */
 
   return;
 
@@ -2483,7 +2436,6 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
   int  imap, ivar, NVAR, LFIND, istat ;
   bool MATCH ;
-  // xxx mark delete  int  ALL_FIELDS, MATCH ;
   double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
   char *fld_gen, *fld_map ;
   char fnam[] = "gen_SEARCHEFF_SPEC" ;
@@ -2523,12 +2475,6 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
     fld_map = SEARCHEFF_SPEC[imap].FIELDLIST ;
 
     MATCH = MATCH_SEARCHEFF_FIELD(fld_map); // Feb 2021
-
-    /* xxxxxxxxx mark delete Feb 2021 xxxxxxxx
-    ALL_FIELDS = ( strcmp(fld_map,"ALL")   == 0 ) ;
-    MATCH = ( strstr(fld_map,fld_gen) == 0 ) ; // e.g., allow X1+X2
-    if ( !ALL_FIELDS  ) {      if ( !MATCH ) { continue ;  }    }
-    xxxxxxxxxxxx */
 
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
@@ -2689,8 +2635,6 @@ double interp_SEARCHEFF_zHOST(void) {
       Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
     }
 
-    // xxx mark if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP=imap; NMATCH++;}
-
   } // end imap loop
 
   // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
@@ -2799,11 +2743,6 @@ double interp_SEARCHEFF_zHOST_LEGACY(void) {
     field_map   = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
     MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
     if ( MATCH_FIELD ) { IMAP = imap ; NMATCH++ ; }
-
-    /* xxx mark delete Feb 2021 xxxx
-    if ( strcmp(field_map,"ALL")      == 0    ) { IMAP=imap; NMATCH++ ; }
-    if ( strstr(field_map,field_data) != NULL ) { IMAP=imap; NMATCH++ ; }
-    xxxx */
   }
 
   if ( NMATCH != 1 ) {

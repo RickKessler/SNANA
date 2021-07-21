@@ -65,12 +65,6 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   if ( FPMAP == NULL ) {
     abort_openTextFile("WEAKLENS_PROBMAP_FILE", 
 		       PATH_DEFAULT, mapFileName, fnam);
-
-    /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
-    sprintf(c1err, "Could not find lensing mapFile");
-    sprintf(c2err, " '%s' ", mapFileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
-    xxxxxxxxxxxxx */
   }
 
 

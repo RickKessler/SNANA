@@ -21,15 +21,6 @@
 
 void MWgaldust(double RA,double DEC, double *avgal, double *EBV );
 
-/* xxx mark for deletion Oct 28 2013 (moved to sntools.c/h)
-void slaEqgal ( double dr, double dd, double *dl, double *db );
-void slaDcs2c ( double a, double b, double v[3] );
-void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
-void slaDcc2s ( double v[3], double *a, double *b );
-double slaDrange ( double angle );
-double slaDranrm ( double angle );
-xxxxxxxxxx */
-
 // functions moved from sntools.c (Sep 2013)
 double GALextinct (double  RV, double  AV, double  WAVE, int  OPT);
 double galextinct_(double *RV, double *AV, double *WAVE, int *OPT);

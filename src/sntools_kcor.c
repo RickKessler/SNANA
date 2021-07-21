@@ -9,14 +9,6 @@
 
 ***************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-*/
-
 #include "fitsio.h"
 #include "sntools.h"
 #include "sntools_dataformat_fits.h"
@@ -727,11 +719,6 @@ c            based on user input to &SNLCINP
     icol       = k + 4; // skip T,z,AV columns
     STRING_KLINE = KCOR_INFO.STRING_KCORLINE[k] ; 
     STRING_KSYM  = KCOR_INFO.STRING_KCORSYM[k] ; 
-
-    // xxxx probably obsolete; mark delete xxxxxxxxxxxx
-    //    STRKCOR = KCORINFO_STRING_RDKCOR(ikcor)
-    // CALL RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs,STRKCOR) 
-    // xxxxxxxxxxxxx end mark xxxxxxxxxxxx
     
     //     get sparse filter indices
     ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifilt_obs]; 

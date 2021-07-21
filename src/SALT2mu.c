@@ -1342,7 +1342,6 @@ typedef struct {
   // string-option for each sample (user-defined binning)
   char STRINGOPT[MXCHAR_SAMPLE];
 
-  // xxx mark delete May 2 2021  int  OPT_PHOTOZ ;
   bool IS_PHOTOZ ;
 
   // Full name of each sample. e.g, 'SDSS(82N)'
@@ -1719,11 +1718,9 @@ struct INPUTS {
   // set internal LEGACY and REFAC flags for development
 
   // mucovscale applied to MUERR without VPEC
-  // xxx mark delete bool REFAC_MUCOVSCALE_noVPEC ; // internally set if debug_flag==68
   bool LEGACY_MUCOVSCALE_noVPEC; // internally set if debug_flag=-68
   
   // if logmass dimension; include mass-dependence for muCOVscale
-  // xxx mark delte bool REFAC_MUCOVSCALE_MASS;   // if debug_flag==611
   bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
 
   bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
@@ -2253,18 +2250,6 @@ int   malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 			     TABLEVAR_DEF *TABLEVAR ) ;
 float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC, 
 				  FITPARBIAS_DEF *****FITPARBIAS );
-
-/* xxxxxxx mark delete Jul 14 2021 xxxxxxxx
-void  print_debug_malloc(int opt, char *fnam) ;
-float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
-float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3, 
-		      double ****array3D );
-float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
-		      double *****array4D );
-
-float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
-		     float ****array3D );
-xxx */
 
 // ======================================================================
 // ==== GLOBALS AND FUNCTIONS TO USE SALT2mu as SUBPROCESS ==============
@@ -3368,7 +3353,8 @@ void applyCut_chi2max(void) {
 
   // Created Jul 19 2019
   // Call FCN (fit function) to evaluate chi2 with
-  // initial params, then apply chi2-outlier cut to data.
+  // initial params from input file (i.e., p1,p2,sigint ...) 
+  // then apply chi2-outlier cut to data.
   // Note that this is BEAMS chi2 when there is CC contam,
   // and thus this is NOT the same as cutting on HR resids.
   //
@@ -3458,7 +3444,6 @@ void applyCut_chi2max(void) {
 // *******************************
 void check_redshifts(void) {
   check_vpec_sign();
-  // xxx mark delete  check_zhel();
 }  // check_redshifts
 
 // ******************************************
@@ -3621,7 +3606,6 @@ void check_duplicate_SNID(void) {
 
   // Jun 11 2020: for sims, don't bother tracking duplicates
   if ( IS_SIM ) { return; }
-  // xxx mark delete  if ( IS_SIM && iflag == IFLAG_DUPLICATE_IGNORE) { return; }
 
   print_debug_malloc(+1*debug_malloc,fnam);
   MEMD = (nsn+1) * sizeof(double)  ;
@@ -6078,14 +6062,6 @@ void read_data_override(void) {
 	  INFO_DATA.TABLEVAR.CUTVAL[IVAR_GAMMA][isn] = logmass ;
 	}
 
-	/* xxx mark delete (already loaded below)
-	else if ( ivar_over == IVAR_OVER_LOGMASS ) {
-	  double logmass = dval;
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_LOGMASS][isn] = logmass ;
-	  NSN_CHANGE[IVAR_OVER_LOGMASS]++ ; 
-	}
-	xxxx */
-
 	// apply override AFTER checking zhd[err] overrides
 	INFO_DATA.PTRVAL_OVERRIDE[ivar_over][isn] = dval;
 	NSN_CHANGE[ivar_over]++ ;
@@ -6189,15 +6165,6 @@ double zhderr_data_override(int isn, double vpecerr_over ) {
   //---------- BEGIN ------------
 
   zhderrsq = ZERR1*ZERR1 + ZERR2*ZERR2 ;
-  
-  /* xxx mark delete 
-  // debug with approx formula; later replace with exact formula
-  zhderrsq = 
-    zhderr_orig  * zhderr_orig  - 
-    zpecerr_orig * zpecerr_orig +
-    zpecerr_over * zpecerr_over ;
-  xxxxxxxx end mark xxxxxx*/
-
   zhderr_over = sqrt(zhderrsq);
 
   return zhderr_over ;
@@ -7185,16 +7152,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
   }
 
-  /* xxxxx mark delete Jun 16 2021 xxxxxxxx
-  // Aug 22 2019: logmass
-  if ( INPUTS.USE_GAMMA0 && IVAR_GAMMA >= 0 )
-    { logmass = (double)TABLEVAR->CUTVAL[IVAR_GAMMA][ISN]; }
-  else
-    { logmass = INPUTS.parval[IPAR_LOGMASS_CEN]; } // avoid failing cut
-  TABLEVAR->logmass[ISN] = logmass;
-  xxxxxxxxxx end mark xxxxxxxx */
-
-
   // - - - - - - - - - - - - - 
   // make sure that zHD is positive. Skip test for user-input zVARNAME.
   if ( zhd < 0 && strlen(INPUTS.varname_z)==0 ) { 
@@ -7967,7 +7924,6 @@ void prepare_IDSAMPLE_biasCor(void) {
       { sprintf(zGROUP,"-zPHOT"); }
 
     if ( IVAR_OPT_PHOTOZ < 0 ) { zGROUP[0] = 0 ; }
-    // xxx mark    if ( !FOUNDKEY_OPT_PHOTOZ ) { zGROUP[0] = 0 ; }
 
     DUMPFLAG = 0 ;
     IDSAMPLE = get_IDSAMPLE(IDSURVEY, IS_PHOTOZ, 
@@ -7979,7 +7935,6 @@ void prepare_IDSAMPLE_biasCor(void) {
       sprintf(SAMPLE_BIASCOR[N].NAME_FIELDGROUP,  "%s", FIELDGROUP  );
       sprintf(SAMPLE_BIASCOR[N].NAME_SURVEYGROUP, "%s", SURVEYGROUP ); 
       sprintf(SAMPLE_BIASCOR[N].STRINGOPT,        "%s", STRINGOPT   ); 
-      // xxx mark      SAMPLE_BIASCOR[N].OPT_PHOTOZ = OPT_PHOTOZ ;
       SAMPLE_BIASCOR[N].IS_PHOTOZ = IS_PHOTOZ ;
       SAMPLE_BIASCOR[N].IDSURVEY = IDSURVEY ; // Jun 2020
 
@@ -10498,7 +10453,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
     z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
     m    = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
-    //xxx mark delete if (ievt < 10) { printf('xxx ievt=%d m=%f',ievt,m);}
     a    = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt];
     b    = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt];
     gDM  = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt];
@@ -10641,7 +10595,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // RMS of pull
     tmp1= SUM_PULL[i1d]/XN;  tmp2=SUM_SQPULL[i1d]/XN ;
     SQRMS = tmp2 - tmp1*tmp1 ;
-    // xxx mark delete ptr_MUCOVSCALE[i1d] = (float)SQRMS ;
 
     SIG_PULL_RMS[i1d] = sqrt(SQRMS);
 
@@ -12188,7 +12141,6 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	  fflush(stdout);
       }
 	
-	// xxx mark  if ( istat_bias == 0 ) { return 0 ; }
 	if ( istat_bias == 0 ) { ISTAT = 0 ; }
 
       } // end ig
@@ -13185,12 +13137,6 @@ void  get_BININFO_biasCor_abg(char *varName,
     if ( val < valmin_sample[IDSURVEY] ) { valmin_sample[IDSURVEY]=val; }
     if ( val > valmax_sample[IDSURVEY] ) { valmax_sample[IDSURVEY]=val; }
   }
-
-  /* xxxx mark delete Jul 3 2020 xxxxx
-  // Feb 2020: if lots of gammaDM bins, allow physical distribution
-  //  and do NOT add this dimension to BBC biasCor
-  if(IPAR_ABG==IPAR_GAMMA0 && NVAL > 5 ) { NVAL = 1; val2nd = val_last; }
-  xxxx */
 
   if ( IPAR_ABG==IPAR_GAMMA0 && NVAL > 5 ) { FORCE_ONEBIN = true ; }
   if ( INPUTS.ipar[IPAR_ABG] == 3 )        { FORCE_ONEBIN = true ; }
@@ -14950,12 +14896,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   COV_mBc   = (double)TABLEVAR->covmat_fit[isn][INDEX_mB][INDEX_c];
   COV_x1c   = (double)TABLEVAR->covmat_fit[isn][INDEX_x1][INDEX_c];
 
-  /* xxxxxx mark delete May 28 2021 xxxxxx
-  COV_x0x1  = (double)TABLEVAR->COV_x0x1[isn];
-  COV_x0c   = (double)TABLEVAR->COV_x0c[isn];
-  COV_x1c   = (double)TABLEVAR->COV_x1c[isn];
-  xxxxxxxx end mark xxxxxxxxx */
-
   SIM_NONIA_INDEX = (int)TABLEVAR->SIM_NONIA_INDEX[isn] ;
 
 
@@ -15346,10 +15286,6 @@ void parse_parFile(char *parFile ) {
   char fnam[] = "parse_parFile" ;
 
   // ------------------ BEGIN --------------
-
-  // check for special mode to cat data files and do NOTHING else.
-  // xxx mark delete xxx if ( strcmp(parFile,"cat_only") == 0 ) 
-  // xxx mark delete xxx { INPUTS.cat_only = true; return ;  }
 
   if ( strstr(parFile,"cat_only") != NULL ) 
     { parse_cat_only(parFile); return; }
@@ -16655,8 +16591,6 @@ void parse_CUTWIN(char *line_CUTWIN) {
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
   INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
 
-  // xxxx mark xxx INPUTS.NCUTWIN++ ;
-
   // - - - - - -  -
   // strip each line_CUTWIN item into item_list, and check for missing items
   sprintf(line_local,"%s", line_CUTWIN);
@@ -16885,8 +16819,6 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   
   if ( L_DATAONLY    && !isData ) { return(DOFLAG_CUTWIN_IGNORE); }
   if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_CUTWIN_IGNORE); }
-
-  // xxx mark  if ( L_DISABLE     && isData  ) { return(DOFLAG_CUTWIN_IGNORE); }
 
   // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
   //    and starts with PROB. This assumes that idsurvey_list_probcc0
@@ -17644,19 +17576,12 @@ void prep_debug_flag(void) {
 
 
   INPUTS.LEGACY_MUCOVSCALE_noVPEC = ( INPUTS.debug_flag == -68 );
-  // xxx mark delete INPUTS.REFAC_MUCOVSCALE_noVPEC  = !INPUTS.LEGACY_MUCOVSCALE_noVPEC ;
 
   INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
-  // xxx mark delete INPUTS.REFAC_MUCOVSCALE_MASS  = !INPUTS.LEGACY_MUCOVSCALE_MASS ; 
 
   INPUTS.REFAC_MAD_MUCOVSCALE = ( INPUTS.debug_flag == 99 );
-  fprintf(FP_STDOUT," REFAC_MAD_MUCOVSCALE = %d\n",INPUTS.REFAC_MAD_MUCOVSCALE);
-
-  // xxx mark delete  fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_noVPEC = %d[%d] \n",
-  //	  INPUTS.LEGACY_MUCOVSCALE_noVPEC, INPUTS.REFAC_MUCOVSCALE_noVPEC );
-
-  // xxx mark delete fprintf(FP_STDOUT,"  LEGACY[REFAC]_MUCOVSCALE_MASS = %d[%d] \n",
-  //	  INPUTS.LEGACY_MUCOVSCALE_MASS, INPUTS.REFAC_MUCOVSCALE_MASS );
+  fprintf(FP_STDOUT," REFAC_MAD_MUCOVSCALE = %d\n",
+	  INPUTS.REFAC_MAD_MUCOVSCALE);
 
   fflush(FP_STDOUT);
 
@@ -18973,8 +18898,7 @@ void write_fitres_driver(char* fileName) {
       if ( INPUTS.cat_only ) {
 	// check prescale
 	NLINE++ ;
-	//xxx mark delete printf("xxx %s: NLINE=%d prescale=%d logic=%d\n",fnam,NLINE,INPUTS.cat_prescale,NLINE % INPUTS.cat_prescale == 0);
-	if ( NLINE % INPUTS.cat_prescale != 0 ) { continue ; } // dillon June14,2021
+	if ( NLINE % INPUTS.cat_prescale != 0 ) { continue ; }
       }
       else {
 	// check cutmask for writing events
@@ -19088,7 +19012,6 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 
   // for formatting, check of variable contains zHD
   varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
-  // xxx mark delete  IS_zHD    = (strstr(varName,"zHD") != NULL ) ;
   IS_z      = ( varName[0] == 'z' );
 
   // replace word string
@@ -19356,7 +19279,6 @@ void write_fitres_misc(FILE *fout) {
   int MASK  = INPUTS.opt_biasCor ;
   int NUMD =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
   if ( MASK > 0 ) {
-    // xxx mark delete    if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
     fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   "
 	    "(N_alpha x N_beta = %d x %d) \n"
 	    ,NUMD, NSN_BIASCOR
@@ -19468,7 +19390,6 @@ double BLIND_OFFSET(int ipar) {
   double zero = 0.0 ;
   // ---------------------
   // never blind for sims or if blindflag is turned off
-  // xxx mark delete  if ( FOUNDKEY_SIM )     { return zero ; }
 
   // bail of MU-vs-z blinding is NOT set
   if ( (INPUTS.blindFlag & BLINDMASK_MUz)== 0 ) 
@@ -19889,7 +19810,6 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
 	      NPARz_write); }
 
   fprintf(fp, "\n# %s\n", msg); fflush(fp);
-  // xxx mark delete   num = MAXPAR;  mnemat_(emat,&num);
 
   for ( iMN=0 ; iMN < NPAR_FLOAT ; iMN++ )
     {
@@ -19898,7 +19818,6 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
       sprintf(tmpName, "%s", FITRESULT.PARNAME[i] );
       tmpName[10] = 0;    // force truncation of name
       cov_diag    = FITRESULT.COVMAT[iMN][iMN];
-      // xxxx mark delete      terr[iMN] = sqrt(emat[iMN][iMN]);
       terr[iMN] = sqrt(cov_diag);
 
       //      fprintf(fp,"%2i ",iMN+1); 

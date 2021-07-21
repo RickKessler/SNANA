@@ -305,7 +305,6 @@ double dVdz_integral(int OPT, double zmax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
     wz = 1.0;
     if ( OPT == 1 ) { wz = ztmp; }
-    // xxx mark delete     wz = pow(ztmp,(double)OPT);
 
     sum += wz * tmp;
 

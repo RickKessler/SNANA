@@ -246,7 +246,6 @@ void gridinterp_snoopy(int ifilt, double shape,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // xxx mark delete Jan 2020  ioff=(ifilt-1)*NBIN_TREST + NPADWD_LCBEGIN-1 ;
   ioff       = ifilt*NBIN_TREST + NPADWD_LCBEGIN-1 ;
 
   for ( i=0; i < nobs; i++ ) {

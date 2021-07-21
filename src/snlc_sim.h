@@ -385,7 +385,6 @@ struct INPUTS {
 
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
-  int USE_SPECTROGRAPH_REFACTOR ; // handle LSF at bin edges
 
   bool DASHBOARD_DUMPFLAG ;
   bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
@@ -886,7 +885,7 @@ struct INPUTS {
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // DDD mark delete after refactor
+  char SUBSURVEY_NAME[40]; // subsuryve; e.g,, CFA3 is subsurvey for LOWZ
   int  IDSURVEY ;                
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
@@ -1689,11 +1688,8 @@ void   set_GENMODEL_NAME(void);
 
 int    read_input_file(char *inFile);          // parse this inFile
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
-// bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource); // xxx dillon mark delete
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
-// xxx int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource, // xxx dillon mark delete
-// xxx			    GENGAUSS_ASYM_DEF *genGauss );
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
 int    parse_input_RANSYSTPAR(char **WORDS, int keySource );

@@ -387,7 +387,6 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.NFFILE       = 0;
   INPUTS.MXROW_READ   = 1000000000 ;
 
-  // xxx mark  INPUTS.MATCHFLAG    = MATCHFLAG_HASH_LOCAL ; // 2019
   INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
 
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
@@ -1144,7 +1143,6 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
   NMATCH = 0;
 
   for ( i=0; i < ntlist; i++ ) {
-    // xxx mark delete   OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
     OVP    = strcmp_ignoreCase(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }

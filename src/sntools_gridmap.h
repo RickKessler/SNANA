@@ -26,7 +26,6 @@ typedef struct GRIDMAP1D {
   double  *XVAL, *YVAL ;
 } GRIDMAP1D ;
 
-// xxx mark delete struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 #define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior 
 #define IDGRIDMAP_HOSTLIB_WGTMAP        20  // HOSTLIB weight map 

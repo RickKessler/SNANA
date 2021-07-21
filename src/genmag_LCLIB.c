@@ -864,7 +864,6 @@ void readNext_LCLIB(double *RA, double *DEC) {
     LINE[0] = 0 ;
     if ( fgets(LINE, 200, fp ) == NULL ) {
       snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
-      // xxx mark delete   rewind(fp); 
     }
 
     if ( strlen(LINE) == 0 ) { continue; }
@@ -1258,11 +1257,6 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
 
   // check option to skip ANGLEMATCH cut
   if ( !LCLIB_INFO.DO_ANGLEMATCH ) { return(KEEP); }
-
-  /* xxx mark delete Feb 3 2021 xxxx
-  OVP = ( LCLIB_INFO.OPTMASK &OPTMASK_LCLIB_IGNORE_ANGLEMATCH );
-  if ( OVP > 0 ) { return(KEEP); }
-  xxxxxxxxx */
 
   // bail if not cut is defined.
   if ( LCLIB_EVENT.ANGLEMATCH_b > 500.0 ) { return(KEEP); }
@@ -2563,11 +2557,6 @@ void store_magTemplate_LCLIB(int EXTERNAL_ID, int ifilt, double XT_MW) {
   }
 
   LCLIB_EVENT.magTemplate[ifilt] = mag_T ; // global storage
-
-  /* mark delete Aug 29 2018 ; see SIM_TEMPLATEMAG_[band]
-     ipar = LCLIB_INFO.NPAR_MODEL + 1 + ifilt ;
-     LCLIB_EVENT.PARVAL_MODEL[ipar] = mag_T ; // storage for data files
-  */
 
 } // end store_magTemplate_LCLIB 
 

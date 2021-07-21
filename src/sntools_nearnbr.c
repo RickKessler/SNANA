@@ -751,27 +751,6 @@ void nearnbr_apply_trainLib(void) {
       NEARNBR_LOADVAL(CCID, varNameList[ivar], d_val ) ;
     }
 
-    /* xxx mark delete Jun 16 2019 xxxxxxxxx
-       xxx P_TRAIN not used any more xxxxx
-
-    NEARNBR_APPLY(CCID) ;
-
-    NEARNBR_GETRESULTS(CCID, &ITYPE_BEST, &NTYPE,
-		       ITYPE_LIST, NCELL_TRAIN_LIST ) ;
-
-    XNTOT = 0.0 ;
-    for(itype=0; itype < NTYPE; itype++ ) 
-      { XNTOT += (double)NCELL_TRAIN_LIST[itype] ;  }
-
-    for(itype=0; itype < NTYPE; itype++ ) {
-      NEARNBR_TRAINLIB.P_TRAIN[itype][irow] = 0.0 ;
-      if ( ITYPE_LIST[itype] >= 0 )  {
-	P_TRAIN = (double)NCELL_TRAIN_LIST[itype]/XNTOT ;
-	NEARNBR_TRAINLIB.P_TRAIN[itype][irow] = (float)P_TRAIN ;
-      }
-    }
-    xxxxxxx end mark xxxxxxxxxxxxx */
-
   } // end irow loop over trainLib rows
 
 
@@ -1555,7 +1534,6 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   // find which type passes the CUTPROB cut
   for(i=0; i< NTYPE; i++ ) { 
 
-    // xxx mark delete  XN   = (float)NCUTDIST[i];
     XN   = (float)NCUTDIST[i] / SCALE_TYPE[i] ;
     YN   = XNTOT - XN ;
     PROB = XN / XNTOT ;

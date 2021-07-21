@@ -20197,4 +20197,20 @@
      + fix a few string bugs setting header strings.
         (caught by segfault with debug flag)
 
+
+# ======================================================================= 
+         v11_03b (  ) 
+
+         ***** IMPORTANT(v11_03b) ***** 
+
+         ***** USEFUL(v11_03b) ***** 
+
+         ***** MISCELLANEOUS(v11_03b) ***** 
+
+    extract GRIDMAP utils from sntools.c[h] into sntools_gridmap.c[h]
+    extract SIMEFF  utils from sntools.c[h] into sntools_simeff_obsolete.c[h]
+
+    clean out "mark"
+
+   
 END: 

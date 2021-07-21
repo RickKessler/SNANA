@@ -1154,7 +1154,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
 	     ITER,omin,omax, MJD_LIST[omin], MJD_LIST[omax], SNRCUT ); 
-      // xxx mark     ITER,omin,omax, MJDMIN, MJDMAX, SNRCUT ); 
       fflush(stdout);
     }
 
@@ -1439,7 +1438,6 @@ int uniqueOverlap (char *string,char *key ) {
     {  NstringMatch(-1, STRINGMATCH_INIT, key); return(0); }
 
   strncpy(tmpString,string,lenkey); tmpString[lenkey]='\0';
-  // xxx mark delete Jul 17 2020  match = uniqueMatch(tmpString,key);
   match = NstringMatch(1,tmpString,key);
   return(match);
 
@@ -4832,7 +4830,6 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs]; // back to C index    
-      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
       catVarList_with_comma(stringVal, SNDATA.FILTCHAR[OBS] );
     }
 
@@ -4850,7 +4847,6 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
     stringVal[0] = 0 ;
     for(obs=0; obs < NOBS_STORE; obs++ ) { 
       OBS = SNDATA.OBS_STORE_LIST[obs] ;    
-      // xxx mark delete catVarList_with_comma(stringVal, str2d[OBS] );
       catVarList_with_comma(stringVal, SNDATA.FIELDNAME[OBS] );
     }
 
@@ -5191,322 +5187,6 @@ double prob_chi2ndof__(double *chi2, int *Ndof) {
   return PROB_Chi2Ndof(*chi2, *Ndof);
 } 
 
-/* xxxxxxxxx mark delete July 2021 xxxxxx
-// =================================================
-double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS) {
-
-  // Created July 2011 by R.Kessler
-  // return EFFICIENCY from interpolating map.
-  // Must call init_SIMEFFMAP() before calling this function.
-  // GRIDVALS are the actaul values for each variable
-  // on the grid.
-  // OPTMASK bit 1 (LSB) => return EFF/EFFMAX (default returns EFF)
-
-  int  ivar, istat, iflag;
-  int LDMP = 0 ;
-
-  double 
-    EFF
-    ,tmpval
-    ,TMPVAL
-    ,TMPVAL_LIST[MXGENVAR_SIMEFFMAP]
-    ,MINVAL_4LOG10 = 1.0E-12
-    ,arg
-    ;
-  char fnam[] =  "get_SIMEFFMAP";
-
-  //  --------------- BEGIN -------------
-
-  if ( NVAR != SIMEFFMAP.NGENVAR || SIMEFFMAP.NGENVAR == 0 ) {
-    sprintf(c1err,"Passed NVAR=%d", NVAR);
-    sprintf(c2err,"but NGENVAR = %d", SIMEFFMAP.NGENVAR );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  // check for LIN, LOG and INV scales
-
-  if ( LDMP ) {
-    printf(" 0. xxxxxxxx --------------------------------- \n");
-  }
-
-  TMPVAL = 0.0 ;
-  for ( ivar=1; ivar <= SIMEFFMAP.NGENVAR; ivar++ ) {
-    iflag  = SIMEFFMAP.IFLAGSCALE[ivar];
-    tmpval = GRIDVALS[ivar-1];
-
-    if ( iflag == 1 )        // LINEAR
-      { TMPVAL = tmpval ; }  
-    else if ( iflag == 10 ) {     // LOG10
-      arg = tmpval ;
-      if ( tmpval < MINVAL_4LOG10 )  { arg = MINVAL_4LOG10 ; }
-      TMPVAL = log10(arg) ; 
-    }  
-    else if ( iflag == -1 )     // INVERSE
-      { TMPVAL = 1./tmpval ; }  
-    else {
-      sprintf(c1err,"Invalid IFLAGSCALE = %d for %s = %f",
-	      iflag, SIMEFFMAP.VARNAME[ivar], tmpval );
-      sprintf(c2err,"%s", "Something is really screwed up.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    // if tmpval is  outside the min/max bound,
-    // then pull it to the edge.
-
-    if ( TMPVAL < SIMEFFMAP.VARMIN[ivar] ) {
-      TMPVAL = SIMEFFMAP.VARMIN[ivar] ; 
-    }
-
-    if ( TMPVAL > SIMEFFMAP.VARMAX[ivar] )  { 
-      TMPVAL = SIMEFFMAP.VARMAX[ivar] ;  //  RANGE * 1.0E-6 ; 
-    }
-
-    TMPVAL_LIST[ivar-1] = TMPVAL ;
-
-    if ( LDMP ) {
-      printf(" 1. xxxxxxx ivar=%d : iflag=%d  VAL(orig,interp) = %le ,%le \n",
-	     ivar, iflag, tmpval, TMPVAL );
-      fflush(stdout); 
-    }
-
-  }
-
-  // do the interpolation
-  
-  istat = interp_GRIDMAP(&SIMEFF_GRIDMAP, TMPVAL_LIST, &EFF ); // return EFF
-
-  if ( istat != SUCCESS ) {
-    print_preAbort_banner(fnam);    
-    for ( ivar=1; ivar <= SIMEFFMAP.NGENVAR; ivar++ ) {
-      printf("\t %-12s = %f\n", 
-	     SIMEFFMAP.VARNAME[ivar], *(GRIDVALS+ivar-1) );
-    }
-
-    sprintf(c1err,"interp_GRIDMAP returned istat=%d", istat);
-    sprintf(c2err,"%s", "--> could not interplate");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-
-
-  if ( OPTMASK & 1 ) { EFF /= SIMEFFMAP.EFFMAX ; }
-
-
-  return EFF;
-
-} // end of get_SIMEFFMAP
-
-
-// =================================================
-int init_SIMEFFMAP(char *file, char *varnamesList) {
-
-  // Created July 2011 by R.Kessler
-  // initialize effic. map stored in input *file.
-  // Return list of blank-seprated variable names in *varnamesList.
-  // For example, if the variables are redshift (Z), extinction (AV)
-  // and mlcs DELTA, then  varnamesList = "Z AV DELTA" .
-  //
-
-  int NFUN=1;
-  int NGENVAR, NVAR_READ, NEFF_READ, NBINTOT, ivar, gzipFlag ;
-  double TMPVAL[MXGENVAR_SIMEFFMAP];
-  double EFF;
-
-  FILE *fp;
-  char 
-    c_get[200]
-    ,PATH_SIMEFF[MXPATHLEN]
-    ,FILE[MXPATHLEN]
-    ,*cptr
-    ,fnam[] = "init_SIMEFFMAP" 
-    ;
-
-  // -------------- BEGIN --------------
-
-  varnamesList[0] = 0 ;      // init output
-  SIMEFFMAP.NGENVAR = 0 ;       // init global 
-  SIMEFFMAP.EFFMAX  = 0.0 ;
-
-  // construct official PATH_SIMEFF
-  sprintf(PATH_SIMEFF,"%s/models/simeff", getenv("SNDATA_ROOT") );
-
-  // check user's directory, then check PATH_SIMEFF
-  fp = snana_openTextFile(1,PATH_SIMEFF, file, FILE, &gzipFlag );
-  
-  // abort if there is no SIMEFF file.
-  if ( fp == NULL ) {
-    sprintf(c1err,"%s", "Could not open SIMEFF file");
-    sprintf(c2err,"%s", file );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  sprintf(BANNER,"%s", "init_SIMEFF: read efficiency map from ");
-  print_banner(BANNER);
-  printf("\t %s\n", FILE );
-
-  NVAR_READ =  NEFF_READ =  NGENVAR   = 0 ;
-  NBINTOT   = 1 ;
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-
-    if ( strcmp(c_get,"NGENVAR:") == 0 )  {
-      readint(fp, 1, &NGENVAR);
-      SIMEFFMAP.NGENVAR = NGENVAR ;
-      if ( NGENVAR >= MXGENVAR_SIMEFFMAP ) {
-	sprintf(c1err,"NGENVAR=%d exceeds bound of", NGENVAR);
-	sprintf(c2err,"MXGENVAR_SIMEFFMAP = %d", MXGENVAR_SIMEFFMAP );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-    } // NGENVAR: key
-
-
-    if ( strcmp(c_get,"GENVAR:") == 0 )  {
-      NVAR_READ++ ;
-      readchar(fp, SIMEFFMAP.VARSCALE[NVAR_READ] );
-      readchar(fp, SIMEFFMAP.VARNAME[NVAR_READ] );
-      readint (fp,   1, &SIMEFFMAP.NBIN[NVAR_READ] );
-      readdouble(fp, 1, &SIMEFFMAP.VARMIN[NVAR_READ] );
-      readdouble(fp, 1, &SIMEFFMAP.VARMAX[NVAR_READ] );
-
-      NBINTOT *= SIMEFFMAP.NBIN[NVAR_READ] ;
-      SIMEFFMAP.NBINTOT = NBINTOT;
-      sprintf(varnamesList,"%s %s ", 
-	      varnamesList, SIMEFFMAP.VARNAME[NVAR_READ] );
-
-      cptr = SIMEFFMAP.VARSCALE[NVAR_READ];
-      if ( strcmp(cptr,"LIN") == 0 ) 
-	{ SIMEFFMAP.IFLAGSCALE[NVAR_READ] = 1; }
-      else if ( strcmp(cptr,"LOG") == 0 ) 
-	{ SIMEFFMAP.IFLAGSCALE[NVAR_READ] = 10; } 
-      else if ( strcmp(cptr,"INV") == 0 ) 
-	{ SIMEFFMAP.IFLAGSCALE[NVAR_READ] = -1; } 
-      else {
-	sprintf(c1err,"Invalid scale = '%s'", cptr);
-	sprintf(c2err,"%s", "valid scales are LIN, LOG and  INV");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }	       
-
-      printf("\t Found MAP variable %s %-8s : %2d bins from %7.3f to %7.3f\n"
-	     ,SIMEFFMAP.VARSCALE[NVAR_READ]
-	     ,SIMEFFMAP.VARNAME[NVAR_READ]
-	     ,SIMEFFMAP.NBIN[NVAR_READ]
-	     ,SIMEFFMAP.VARMIN[NVAR_READ]
-	     ,SIMEFFMAP.VARMAX[NVAR_READ]
-	     );
-
-      // allocate temp memory when all of the GENVAR keys are read
-      if ( NVAR_READ == NGENVAR ) { malloc_SIMEFFMAP(+1); }
-
-    } // GENVAR: key
-
-
-    if ( strcmp(c_get,"EFF:") == 0 )  {
-
-      NEFF_READ++ ;
-      readdouble(fp, NGENVAR+1, TMPVAL ) ;
-
-      for ( ivar=0; ivar < NGENVAR; ivar++ ) {
-	SIMEFFMAP.TMPVAL[ivar][NEFF_READ-1] = TMPVAL[ivar];
-      }
-
-      EFF = TMPVAL[NGENVAR];
-
-      SIMEFFMAP.TMPEFF[NEFF_READ-1] = EFF ;
-      if ( EFF > SIMEFFMAP.EFFMAX )
-	{ SIMEFFMAP.EFFMAX  = EFF ; }
-
-    }
-
-
-  } // fscanf
-
-
-  //  printf("\t EFF(MAX) = %6.4f \n", SIMEFFMAP.EFFMAX);
-
-  // init multi-dimensional interpolation
-  init_interp_GRIDMAP(IDGRIDMAP_SIMEFFMAP, "SIMEFF",
-		      NBINTOT, NGENVAR, NFUN, 0,
-		      SIMEFFMAP.TMPVAL, &SIMEFFMAP.TMPEFF,
-		      &SIMEFF_GRIDMAP ); // <== return this struct
-
-  // free temp memory
-  malloc_SIMEFFMAP(-1);
-
-  // make sure we read what was expected.
-  if ( NVAR_READ != NGENVAR ) {
-    sprintf(c1err, "Expected NGENVAR = %d", NGENVAR );
-    sprintf(c2err, "but found %d  'GENVAR:' keys.", NVAR_READ);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  if ( NEFF_READ != NBINTOT ) {
-    sprintf(c1err, "Expected %d 'EFF:' keys", NBINTOT );
-    sprintf(c2err, "but found %d  keys.", NEFF_READ);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  return NGENVAR ;
-
-} // end of init_SIMEFFMAP
-
-// mangled routines for fortrans
-int init_simeffmap__(char *file, char *varnamesList) {
-  return init_SIMEFFMAP(file, varnamesList);
-}
-double get_simeffmap__(int *OPTMASK, int *NVAR, double *GRIDVALS) {
-  return get_SIMEFFMAP(*OPTMASK, *NVAR, GRIDVALS);
-}
-
-
-// ===========================================
-void malloc_SIMEFFMAP(int flag) {
-
-  // Created July 2011 by R.Kessler
-  // flag > 0 => allocate
-  // flag < 0 => free 
-
-  int  NVAR, NBINTOT, MEM, ivar, I8, I8p, I4 ;
-  double XMEM;
-  //  char fnam[] = "malloc_SIMEFFMAP" ;
-
-  // --------------- BEGIN ---------------
-
-  NVAR    = SIMEFFMAP.NGENVAR; 
-  NBINTOT = SIMEFFMAP.NBINTOT ;
-
-  MEM = (NVAR+1)*(NBINTOT) * 8;
-  XMEM = 1.0E-6 * (double)MEM ;
-
-  I8p = sizeof(double*);
-  I8  = sizeof(double );
-  I4  = sizeof(int);
-
-  if ( flag > 0 ) {
-    printf("\t Allocate %6.3f MB of temp SIMEFFMAP memory (NBIN=%d). \n", 
-	   XMEM, NBINTOT );
-
-    SIMEFFMAP.TMPEFF = (double  *)malloc(NBINTOT*I8); // EFF memory
-
-    SIMEFFMAP.TMPVAL = (double **)malloc(NVAR*I8p);   // memory for each var
-    for ( ivar=0; ivar < NVAR; ivar++ ) {
-      SIMEFFMAP.TMPVAL[ivar] = (double *)malloc(NBINTOT*I8);
-    }
-
-
-  }
-  else if ( flag < 0 ) {
-    printf("\t Free temp SIMEFFMAP memory. \n" );
-    free(SIMEFFMAP.TMPEFF);
-    for ( ivar=0; ivar < NVAR; ivar++ ) {
-      free(SIMEFFMAP.TMPVAL[ivar]);
-    }
-    free(SIMEFFMAP.TMPVAL) ;
-  }
-
-} // end of malloc_SIMEFFMAP
-
-xxxxxxxxx end mark xxxxxxxxx */
-
 // ====================================
 int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version 
 			       ,char *DATADIR     // (I/O) dir with data files 
@@ -5600,15 +5280,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
     
   }
   else {
-
-    
     // default locations under SNDATA_ROOT
-    /* xxxxxxxx mark delete Apr 20 2021 xxxxxxxx
-    sprintf(tmpDir[idir], "%s/lcmerge" ,  SNDATA_ROOT );
-    sprintf(tmpFile[idir],"%s/%s.LIST",   tmpDir[idir], VERSION  );    
-    idir++ ;
-    xxxxxxxxxxxx */
-
     sprintf(tmpDir[idir], "%s/lcmerge/%s",  SNDATA_ROOT, VERSION);
     sprintf(tmpFile[idir],"%s/%s.LIST",     tmpDir[idir], VERSION  );
     idir++ ;
@@ -5879,35 +5551,28 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 
 
 // =============================================================
-void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
+void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
 
   // For input *array return *AVG and *RMS
   // Jun 2 2020: include MEDIAN in output
+  // Jul 21 2021: rename RMS -> STD to avoid confusion.
 
   int i;
-  double XN, val, avg, sum, sqsum, rms, median ;
+  double XN, val, avg, sum, sqsum, std, median ;
 
   // ----------- BEGIN ------------
 
-  *AVG = *RMS = 0.0 ;
+  *AVG = *STD = 0.0 ;
   if ( N <= 0 ) { return ; }
 
-  avg  = rms = sqsum = sum = median = 0.0 ;
+  avg  = std = sqsum = sum = median = 0.0 ;
   XN   = (double)N ;
 
   for ( i=0; i < N; i++ ) 
     { val=array[i] ; sum += val; sqsum += (val*val); }
 
   avg = sum/XN ; 
-  rms = STD_from_SUMS(N, sum, sqsum);
-
-  /* xxxxxxxxxxx mark delete Jun 2 2020 xxxxxxx
-  for ( i=0; i < N ; i++ ) {
-    tmpdif =  ( *(array+i) - avg ) ;
-    sqsum += (tmpdif*tmpdif) ;
-  }
-  rms = sqrt(sqsum/XN) ;
-  xxxxxxxxxxx end mark xxxxxxxxx */
+  std = STD_from_SUMS(N, sum, sqsum);
 
   // for median, sort list and them median is middle element
   int ORDER_SORT  = +1;
@@ -5919,7 +5584,7 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
 
   // load output array.
   *AVG    = avg ;
-  *RMS    = rms ;
+  *STD    = std ;
   *MEDIAN = median;
 
   return ;
@@ -6094,7 +5759,6 @@ void trim_blank_spaces(char *string) {
     if ( ISTERM               ) { goto DONE ; }
 
     if ( ISCHAR )  { strcat(tmpString,c1); } 
-    // xxx mark delete    {  sprintf(tmpString,"%s%s", tmpString, c1); }
   }
 
 
@@ -6421,11 +6085,6 @@ int rd2columnFile(
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
 
-    // xxxx mark delete Oct 17 2020 xxxxx
-    //    *(column1 + n - 1) = tmp1 ;
-    //  *(column2 + n - 1) = tmp2 ;
-    // xxxxxxxxx
-
   } // end of while loop
 
 
@@ -6533,7 +6192,6 @@ double getRan_Flat(int ilist, double *range ) {
   double xran, dif, rantmp;
   double x0, x1;
 
-  // xxx mark delete Jul 2021  xran     = FlatRan1(ilist);
   xran     = getRan_Flat1(ilist);
   x0       = range[0] ;
   x1       = range[1] ;
@@ -6546,7 +6204,6 @@ double getRan_Flat(int ilist, double *range ) {
 
 
 // ****************************************
-
 double getRan_GaussAsym(double siglo, double sighi, double peakinterval ) {
 
   // Return random number from bifurcate gaussian
@@ -6574,16 +6231,6 @@ double getRan_GaussAsym(double siglo, double sighi, double peakinterval ) {
   p[0] = (siglo * BIGAUSSNORMCON) / psum ;
   p[1] = p[0] + peakinterval / psum ; 
   p[2] = p[1] + (sighi * BIGAUSSNORMCON) / psum ; 
-  //printf("XXXX p[2] = %f \n", p[2]) ;
-
-  // sigsum = siglo + sighi ; XXX mark for delete
-  // plo    = siglo / sigsum ;    // prob of picking lo-side gaussian
-
-  // if ( sigsum <= 0.0 ) { return biran;  }
-
-  //bool useGauss_lo = false ;
-  //bool useGauss_hi = false ; 
-  //bool use_peakinterval = false ; 
 
   if (rr < p[0]) {
     //useGauss_lo = true ; 
@@ -6606,7 +6253,6 @@ double getRan_GaussAsym(double siglo, double sighi, double peakinterval ) {
 } // end of getRan_GaussAsym
 
 // **********************************************
-
 double biGaussRan_LEGACY(double siglo, double sighi ) { 
  
   // !!!! HEY YOU! Mark Legacy July 2 2021
@@ -8773,17 +8419,6 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
     sprintf(cfilt_user, "%c", filtlist_local[ifilt_user] ) ;
     ifilt_match = INTFILTER(cfilt_user);
 
-    /* xxxx mark delete Jun 22 2021 xxxxxx
-    ifilt_match = -9 ;
-    for ( ifilt_list = 0 ; ifilt_list < LENLIST; ifilt_list++ ) {
-      sprintf(cfilt_tmp, "%c", FILTERSTRING[ifilt_list] ) ;
-      if ( strcmp(cfilt_user,cfilt_tmp) == 0 && ifilt_match < 0 ) {
-	ifilt_match = ifilt_list;
-	filtlist_array[ifilt_user] = ifilt_match ;
-      }
-    }
-    xxxxxxxx end mark xxxxxxxx */
-
     if ( ifilt_match < 0 ) {
       sprintf(c1err,"User-defined filter '%s' is not defined.", cfilt_user);
       sprintf(c2err,"Check filter list  %s' ", filtlist_string);
@@ -8896,7 +8531,6 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 	}
 
       }
-      // xxx mark delete   NVAR_LOCAL += (ivar_end - ivar_start);
     } // end FOUND_VARNAMES
   } // end while    
 
@@ -9499,7 +9133,6 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
     }
 
     if ( istat_gzip == 0 ) {
-      // xxx mark delete      sprintf(cmd_zcat, "zcat %s", gzipFile);
       sprintf(cmd_zcat, "gunzip -c %s", gzipFile);
       fp = popen(cmd_zcat,"r");
       *GZIPFLAG = 1 ;

@@ -214,7 +214,6 @@ int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 #define MXARGV 100
 int  NARGV_LIST;
 char *ARGV_LIST[MXARGV];
-// xxx mark delete Jul 2020 char ARGV_LIST[MXARGV][200];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.
 
 // ---------
@@ -278,31 +277,6 @@ typedef struct STRING_DICT_DEF {
 
 } STRING_DICT_DEF ;
 
-
-
-
-/* xxx mark delete Jul 2021 xxxxxxxx
-
-#define MXGENVAR_SIMEFFMAP   10
-
-struct SIMEFFMAP_DEF {
-  int NGENVAR ; // number of variables to specify map
-  char   VARNAME[MXGENVAR_SIMEFFMAP][20] ;  // variable name
-  char   VARSCALE[MXGENVAR_SIMEFFMAP][8] ;  // LIN, LOG or INV
-  int    IFLAGSCALE[MXGENVAR_SIMEFFMAP];    // 1  , 10,    -1
-  int    NBINTOT;
-  int    NBIN[MXGENVAR_SIMEFFMAP];
-  double VARMIN[MXGENVAR_SIMEFFMAP] ;
-  double VARMAX[MXGENVAR_SIMEFFMAP] ;
-  double EFFMAX ; // max efficiency in map 
-
-  double **TMPVAL ; // temp memory to read effic. map
-  double  *TMPEFF ; // idem
-} SIMEFFMAP ;
-
-
-struct GRIDMAP  SIMEFF_GRIDMAP ;
-xxxxxxx end mark xxxxx */
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
@@ -394,7 +368,6 @@ struct {
 #define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method, wgt=1 per obs
 #define OPTMASK_SETPKMJD_FLUXMAX3 32 // idem, with wgt=log(SNR) per obs
 #define OPTMASK_SETPKMJD_TRIGGER  64 // return MJD_TRIGGER
-// xxx mark delete 9/2020 #define OPTMASK_SETPKMJD_TRIGGER 32 //return MJD_TRIGGER
 
 struct {
   int    OPTMASK;
@@ -616,16 +589,6 @@ int   landolt_ini__(int *opt, float *mag, float *kshift);
 int   Landolt_convert(int opt, double *mag_in, double *mag_out);
 int   landolt_convert__(int *opt, double *mag_in, double *mag_out);
 
-/* xxxxxxx mark delete xxxxxx
-// simeff utilities (include mangled functions for fortran)
-int    init_SIMEFFMAP(char *file, char *varnamesList);
-double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS);
-void   malloc_SIMEFFMAP(int flag);
-
-int    init_simeffmap__(char *file, char *varnamesList);
-double get_simeff__(int *OPTMASK, int *NVAR, double *GRIDVALS);
-xxxxxxxx end mark xxxxxxx */
-
 // errmsg" utilities 
 void  tabs_ABORT(int NTAB, char *fileName, char *callFun);
 void  missingKey_ABORT(char *key, char *file, char *callFun) ;
@@ -729,20 +692,6 @@ int getinfo_photometry_version__(char *VERSION,  char *DATADIR,
 				 char *LISTFILE, char *READMEFILE);
 
 int file_timeDif(char *file1, char *file2);
-
-/* xxxxxxx mark delete July 17 2021 xxxxxxxx
-void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE);
-void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
-			 int OPT_EXTRAP, 
-			 double **GRIDMAP_INPUT, double **GRIDFUN_INPUT,
-			 GRIDMAP *gridmap );
-
-int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
-
-void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
-		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
-		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
-xxxxxxx */
 
 void warn_NVAR_KEY(char *fileName);
 
@@ -884,18 +833,6 @@ double funVal_skewGauss(double x, double siglo,double sighi,
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
-
-/* xxxxxxxx mark delete July 17 2021 xxxxxxxxx
-// ------ index mapping
-void clear_1DINDEX(int ID);
-void  init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM );
-int    get_1DINDEX(int ID, int NDIM, int *indx );
-
-// mangled functions for fortran
-void clear_1dindex__(int *ID);
-void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
-int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-xxxxxxxxxx end mark xxxxxxxxxx */
 
 void copy_sndata_global__(int *copyFlag, char *key,
 			  int *NVAL, char *stringVal,double *parVal);

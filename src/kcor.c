@@ -1557,7 +1557,6 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
 
 
  DONE:
-  // xxx mark delete   *indx_ARGV = i -1 ;
   *indx_ARGV = i ;
 
 } // end of parse_FILTER_LAMSHIFT
@@ -4179,7 +4178,6 @@ int snmag(void) {
        // if filtsum_check (integral over SED-lambda range)
        // does not match integral over entire filter range (to within 20%),
        // set MAG_UNDEFINED to flag problem
-       // xxx mark delete if(fabs(filter_check)>0.2) {mag=MAG_UNDEFINED;}
        if ( fabs(filter_check) > 0.05  ) { 
 	 printf(" WARNING(%s): filter_check(%s) = %.3f  ep=%d\n",
 		fnam, FILTER[ifilt].name, filter_check, iepoch );
@@ -4356,13 +4354,6 @@ void primarymag_zp(int iprim ) {
       // since AB mags are zero
       if ( !PRIMARYSED[iprim].IS_AB ) 
 	{ FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; }
-
-      /* xxxxxxxxxxxxxxx mark delet Apr 11 2020 xxxxxxx
-      name = INPUTS.name_PRIMARY[iprim] ;
-      if ( strcmp(name,"AB" ) != 0 ) {
-	FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; 
-      }
-      xxxxxxxxxx */
 
    }  // end of 'ifilt' loop
 
@@ -4727,8 +4718,8 @@ void wr_fits_HEAD(fitsfile *fp) {
   // --- Trest (Epoch)------
 
   NBIN = SNSED.NEPOCH ;
-  FMIN = SNSED.TREST_MIN;  // xxx mark delete  SNSED.EPOCH[1]
-  FMAX = SNSED.TREST_MAX;  // xxx mark delete  SNSED.EPOCH[NBIN]
+  FMIN = SNSED.TREST_MIN;  
+  FMAX = SNSED.TREST_MAX; 
   FBIN = (FMAX-FMIN)/(float)(NBIN-1) ;
 
   fits_update_key(fp, TINT, "NBT", &NBIN,
@@ -5106,7 +5097,6 @@ void wr_fits_PRIMARY(fitsfile *fp) {
 
   ncol = NPRIM+1 ;  istat = 0;
   for(iprim = 0; iprim <= NPRIM; iprim++ ) {
-    // xxx mark delete Mar 2019 NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
     NAME = INPUTS.name_PRIMARY[iprim];
 
     if ( iprim == 0 ) 

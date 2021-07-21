@@ -160,7 +160,6 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 	DIF = TMPVAL[ivar] - TMPVAL_LAST[ivar];
 	if ( DIF > 0.0  && ivar < NDIM && TMPVAL_LAST[ivar]!=DUMVAL ) { 
 	  DDIF  = DIF - DIFVAL_LAST[ivar] ;
-	  // xxx mark delete	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; 
 	  LDIF1 = ( fabs(DDIF/DIF) > 1.0E-6 ) ; 
 	  LDIF2 = ( DIFVAL_LAST[ivar] > 0.0 ) ;
 	  if ( LDIF1 && LDIF2 ) {

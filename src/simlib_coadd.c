@@ -507,7 +507,6 @@ void  parse_args(int argc, char **argv) {
     { strcat(ptrhead," "); strcat(ptrhead,argv[i]); }
 
   strcat(ptrhead," ' ");
-  // xxx mark delete  sprintf(ptrhead,"%s ' ", ptrhead ); 
 
   // now parse what's happening
 

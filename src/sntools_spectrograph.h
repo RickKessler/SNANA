@@ -108,7 +108,6 @@ struct {
   double FLATRAN_LIST[100]; // 0-1 randoms, e.g., for pre-scales
 
   // define array of Gaussian randoms for noise
-  double *RANGauss_NOISE_LEGACY[MXLAMSMEAR_SPECTROGRAPH] ;  // mark delete
   double *RANGauss_NOISE_TEMPLATE ; 
 
 } GENSPEC ;

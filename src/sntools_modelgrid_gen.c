@@ -440,7 +440,6 @@ void init1_GRIDsource(void) {
   
   
   // transfer NON1A info here
-  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
   if (INDEX_GENMODEL == MODEL_NON1ASED  )  {
     NBIN = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_SHAPEPAR] ;
     for ( i = 1; i <= NBIN; i++ ) { 
@@ -1140,10 +1139,6 @@ void get_GRIDKEY(void) {
   char ctkey[100] ;
   time_t tkey ;
   struct tm * ptm;
-
-  /* xxxxxx mark delete Dec 10 2017 xxxxxxxxxx
-  get_snana_versions__(vers_snana, vers_photom, 20, 200);
-  xxx */
 
   time(&tkey);
   ptm = gmtime ( &tkey );

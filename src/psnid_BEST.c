@@ -1888,20 +1888,6 @@ void psnid_best_setup_searchgrid()
   }
 
 
-  /* xxxxxx mark delete Sep 15 2017 xxxxxxxxxx
-  PSNID_TSTART[0] = -40.0;  // Apr 8 2013
-  PSNID_TSTART[1] = -15.0;
-  PSNID_TSTART[2] =  -5.0;
-
-  PSNID_TSTOP[0]  = +60.0;  // Apr 8 2013
-  PSNID_TSTOP[1]  = +15.0;
-  PSNID_TSTOP[2]  =  +5.0;
-
-  PSNID_TSTEP[0]  = 10.0;
-  PSNID_TSTEP[1]  =  3.0;
-  PSNID_TSTEP[2]  =  1.0; 
-  xxxxxxxxxx
-  */
   return;
 
 }
@@ -4381,14 +4367,6 @@ void psnid_best_store_PBayes(char *CCID, int z, double **evidence, int optdump)
       }
     }
   } 
-
-  /* xxxxxx mark for delete Feb 13 2017 xxxxx
-  // global
-  for (i=0; i<PSNID_NTYPES; i++) {
-    PSNID_BEST_RESULTS.PBAYESIAN[z][i] = 
-    PSNID_BEST_RESULTS.PBAYESIAN[z][i];
-  }
-  xxxxxxxxx */
  
   // get best itype with cuts using function (RK, Feb 2017)
   int itype_best = psnid_bestType_cuts(z);
@@ -5691,13 +5669,6 @@ void PSNID_BEST_INIT(void) {
   psnid_best_reset_results(); // set PSNID_TYPE_NAME
 
   NVAR = snana_nearnbr_rdinput__();
-
-  /* xxxxxx mark delete Aug 28 2017 xxxxxxxxxx
-  // load fitres variables for legacy output only
-  int DO_ADDCOL = 0 ;
-  int DO_NN     = 0 ;
-  psnid_best_define_TableVARNAMES(DO_ADDCOL,DO_NN) ;
-  xxxxxxxxxx end mark xxxxxxxxx */
 
   if ( NVAR>0 && NVAR != PSNID_BEST_NEARNBR_NVAR ) {
     sprintf(c1err,"&SNLCINP NEARNBR_XXX specified NVAR=%d", NVAR);

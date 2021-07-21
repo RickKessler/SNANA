@@ -610,16 +610,6 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   LZOK      = ( LZMIN_OK && LZMAX_OK && LNZBIN_OK ) ;
   LZBAD     = !LZOK ;
 
-  /* xxx mark delete Mar 24 2021 xxxx
-  LZBAD  = ( 
-	     REDSHIFT_SEDMODEL.ZMAX  < ZTMP.ZMAX ||
-	     REDSHIFT_SEDMODEL.NZBIN < ZTMP.NZBIN );
-
-  LZOK   = ( REDSHIFT_SEDMODEL.ZMIN  <= ZTMP.ZMIN &&
-	     REDSHIFT_SEDMODEL.ZMAX  >= ZTMP.ZMAX &&
-	     REDSHIFT_SEDMODEL.NZBIN >= ZTMP.NZBIN );
-  xxxx */
-
   if ( LZBAD ) {
     NERR++ ;
     sprintf(CTAG,"INFO ");  if ( !LNZBIN_OK ) { sprintf(CTAG,"ERROR"); }
@@ -1118,35 +1108,6 @@ void checkBinary_SIMSED(char *binaryFile) {
     }
   } // end ifile loop
 
-
-
-  /* xxxxxxxxxx mark delete Dec 15 2020 xxxxxxxx
-
-  // now check that kcor file was made before binary file
-
-  if ( BINARYFLAG_KCORFILENAME == 0 ) { return ; }
-
-  tdif_sec = file_timeDif(binaryFile, SIMSED_KCORFILE );
-
-  if ( tdif_sec < 0 ) {
-    tdif_day = -(double)tdif_sec / 86400. ;
-
-    printf("\n%s\n WARNING INFO: \n", line);
-    printf(" KCOR_FILE: \n   %s\n",  SIMSED_KCORFILE );
-    printf(" Stale binary file: \n   %s \n", binaryFile );
-    printf(" is %.3f days older than KCOR file", tdif_day );
-
-    sprintf(c1err,"Removing stale binary file above,");
-    sprintf(c2err,"and re-making new binary file.");
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
-    printf("%s\n\n", line);
-
-    sprintf(rm,"rm %s", binaryFile);
-    system(rm);
-  }
-  xxxxxxxxxxx end mark xxxxxxxxxx */
-
-
   return ;
 
 } // end of checkBinary_SIMSED
@@ -1387,8 +1348,6 @@ double nextgrid_flux_SIMSED (
   // ----------- BEGIN -----------
 
   // get SED index for GRIDONLY-sequential
-  // xxx mark delete ISIMSED_SEQUENTIAL  = (int)lumipar[-1] ; 
-
 
   ISED = ISIMSED_SEQUENTIAL ;
 

@@ -229,15 +229,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     // default location under $SNDATA_ROOT
     sprintf( SALT2_MODELPATH, "%s/models/SALT%d/%s",  
 	     getenv("SNDATA_ROOT"), IMODEL_SALT, version );
-
-    /* xxxxxxxxxxxxxxxxxx mark delete Apr 27 2021 xxxxxxx
-    sprintf( SALT2_MODELPATH, "%s/models/SALT2/%s", 
-	     getenv("SNDATA_ROOT"), version );
-    xxxxxxxxx */
-
   }
-  
-  // xxx mark delete (move to above) setFlags_ISMODEL_SALT2(version); 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -1518,7 +1510,6 @@ void  init_BADVAL_SALT2errmap(int imap) {
   }
   else if ( imap == INDEX_ERRMAP_COLORDISP ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    // xxx mark delete Mar 25 2021 SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
     SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
   }
 
@@ -2699,7 +2690,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
       get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
-      // xxx mark delete  LAMOBS    = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
 
       // protect undefined red end for low-z (July 2016)
@@ -2721,7 +2711,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
     // fetch LAM and TRANS with utility to account for spectrograph
     get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
-    // xxx mark delete    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
 
     if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
       { continue ; } // Jul 2013 - skip zeros for leakage
@@ -2831,7 +2820,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	
 	// check option to smear SALT2 flux with intrinsic scatter
 	if ( ISTAT_GENSMEAR ) {
-	  // xxx mark delete  arg   =  -0.4*magSmear[ilamobs] ; 
 	  arg     =  -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
@@ -2854,17 +2842,11 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
 	  LAMRATIO            = LAMSPEC_STEP/LAMFILT_STEP ; // binSize ratio
 	  Flam_spec[ised]     = (Fbin_forSpec * LAMRATIO );
-	  // xxx mark  Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
 
 	} // end OPT_SPEC
 
 	Flam_filter[ised]     = Fbin_forFlux ;
 	Flam_err[ised]        = (Fbin_forFlux/MWXT_FRAC) ;  
-
-	/* xxxx mark Dele Mar 25 2021 xxx
-	Finteg_filter[ised]  +=  Fbin_forFlux ;
-	Finteg_forErr[ised]  += (Fbin_forFlux/MWXT_FRAC) ;	
-	xxxxxxxxx */
 
       } // ised
 
@@ -3601,8 +3583,6 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     
     get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS);
-    // xxx mark delete  LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
-    // xxx mark delete  TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
 
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];
@@ -3759,27 +3739,6 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0 );
   checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0 );
   checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 18000.0 );
-
-  /* xxxxx mark delete 
-  if ( LAM_B < 4000 || LAM_B > 4500 ) {
-    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_V < 5000 || LAM_V >6000 ) {
-    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_MIN < 1000 || LAM_MIN > 6000 ) {
-    sprintf(c1err, "insane LAM_MIN = %6.0f", LAM_MIN );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  if ( LAM_MAX < 6000 || LAM_MAX > 16000 ) {
-    sprintf(c1err, "insane LAM_MAX = %6.0f", LAM_MAX );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  xxxxx */
 
   // ------------------------------
 

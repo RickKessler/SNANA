@@ -62,6 +62,7 @@
 \newcommand{\env}{environment}
 \newcommand{\snana}{{\tt SNANA}}
 \newcommand{\SNANA}{{\tt SNANA}}
+\newcommand{\DOCANA}{{\tt DOCANA}}
 \newcommand{\snanadir}{{\tt SNANA\_DIR}}
 \newcommand{\sndataroot}{{\tt SNDATA\_ROOT}}
 \newcommand{\simlib}{{\tt SIMLIB}}
@@ -12812,6 +12813,83 @@ Finally, {\tt FUDGESHIFT\_ZPT} and {\tt FUDGESHIFT\_LAM}
 can be used for systematic calibation shifts.
 
 % xxxxx end of misc. sim tools
+
+% --------------------------------------
+ \clearpage
+  \subsubsection{{\DOCANA}: Documenting Input Maps}
+  \label{sss:DOCANA}
+% --------------------------------------
+
+The simulation reads up to 20 different inputs maps and libraries
+(see {\tt DASHBOARD} utility in \S\ref{sss:sim_dashboard}),
+and thus documenting is a challenge.
+To enforce/remind about documentation, each map is required to 
+include a yaml-compliant documentation block at the top of the file, 
+which is called {\DOCANA}. The YAML format enables higher-level
+pipelines to extact the \DOCANA\ snippets and glue them together
+in a summary file. Examples can be found using find command, 
+e.g., 
+\vspace{-0.3cm}
+\begin{verbatim}            
+    cd $SNDATA_ROOT/simlib
+    grep -rnw ./ -e 'DOCUMENTATION:'
+\end{verbatim}             
+%
+and here is a generic illustration,
+%
+\vspace{-0.3cm}
+\begin{verbatim}
+DOCUMENTATION:
+  PURPOSE: what is this for ?
+  REF:
+  - AUTHOR: Y. Astro et al 2017 (few-word reminder)
+    ADS:    https://ui.adsabs.harvard.edu/abs/xxx    
+  - AUTHOR: C. Telescope et al 2014 (few-word reminder)
+    ADS:    https://ui.adsabs.harvard.edu/abs/xxx    
+  INTENT:     Nominal or Test
+  USAGE_KEY:  key name for input file
+  USAGE_CODE: snlc_sim.exe 
+  VALIDATE_SCIENCE: 
+  - figure(s) in published paper
+  - local/unpublished tests
+  - None ? 
+  NOTES:
+  - odd reminder
+  - another odd reminder
+  VERSIONS:
+  - DATE:  2020-02
+    AUTHORS: J. Cosmology, Y. Astro
+DOCUMENTATION_END:
+
+\end{verbatim}
+%
+While the YAML block is required to avoid a simulation abort, 
+specific keys are not required.
+Thus the {\tt REF} key could be absent during development 
+(or point to internal collaboration memo),
+while other relevant YAML keys can be added as needed.
+The {\tt INTENT} key indicates nominal analysis, or a
+generic test such as debug, systematic, etc.
+{\tt VALIDATE\_SCIENCE} briefly indicates the level of validation;
+put {\tt NONE} if there is no validation.
+For debugging or urgent/rare situations, 
+the {\DOCANA} requirement can be suppressed {\it interactively} with
+\vspace{-0.3cm}
+\begin{verbatim}                           
+   snlc_sim.exe <myInputFile>  REQUIRE_DOCANA 0
+\end{verbatim}
+%
+
+\bigskip
+\noindent
+As of July 19 2021, {\DOCANA} is required for
+\vspace{-0.3cm}
+\begin{verbatim}
+    HOSTLIB_FILE   HOSTLIB_WGTMAP_FILE  SIMLIB_FILE
+\end{verbatim}
+\vspace{-0.3cm}
+Additional maps will be gradually added over the next few months.
+
 
 % --------------------------------------
   \clearpage

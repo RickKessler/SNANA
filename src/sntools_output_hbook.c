@@ -167,7 +167,6 @@ extern"C" {
 
 
 // globals
-// xxx mark delete #define HBOOK_MEM  1000000
 #define HBOOK_MEM  500000
 struct pawC  { float hmem[HBOOK_MEM];  } pawc_ ;
 //struct Quest { int   iquest[100]; } quest_ ;
@@ -460,7 +459,6 @@ void SNTABLE_ADDCOL_HBOOK(int IDTABLE, char *BLOCK, void* PTRVAR,
     else {
       strcat(VARLIST_FINAL,","); 
       strcat(VARLIST_FINAL,tmpVar); 
-    // xxx mark del { sprintf(VARLIST_FINAL,"%s,%s",VARLIST_FINAL,tmpVar);}
     }
 
 
@@ -915,8 +913,6 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
 
   //  char fnam[] =  "sntable_pushRowOut_hbook" ;
 
-  // xxxx mark delete   int NVAR_TOT  = HBOOK_CWNT_INFO.NVAR ; 
-
   int NVAR_DUMP = READTABLE_POINTERS.NVAR_READ ;
 
   int IVAR_DUMP, IVAR_TOT, ICAST_READ, LDUMP, LREAD, ivarcast, ADDSEPKEY ;
@@ -979,7 +975,6 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
       ptrC   =  HBOOK_CWNT_READROW.VAL_C[ivarcast][IFIT]; 
       trim_blank_spaces(ptrC);  
       load_DUMPLINE_STR(LINE,ptrC);
-      // xxx mark delete    sprintf(LINE,"%s %s", LINE, ptrC );
       if ( LREAD )  { load_READTABLE_POINTER(IROW,IVAR_TOT,VAL_D,ptrC); }
     }
 

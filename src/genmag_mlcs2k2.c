@@ -182,7 +182,6 @@ int init_genmag_mlcs2k2(
     // IR filters are allowed to be missing.
 
     file_ptr = open_TEXTgz(tempFilename, "rt", &GZIPFLAG ) ;
-    // xxx mark delete if (( file_ptr = fopen(tempFilename, "rt")) == NULL ){
       
     if ( file_ptr == NULL ) {
       if ( ifilt < NFILT_MLCS2k2_REQUIRED ) {

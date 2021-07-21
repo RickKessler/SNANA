@@ -1137,9 +1137,6 @@ int  SNTABLE_READPREP_TEXT(void) {
   // reset NVARTOT_FITRES to exclude CID
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
 
-  // rewind, but do not close file.
-  // xxx mark delete  rewind(FP);
-
   // close file and re-open because rewind does not work on
   // gzipped files 
   fclose(PTRFILE_TEXT);
@@ -1211,7 +1208,6 @@ int SNTABLE_READ_EXEC_TEXT(void) {
     NROW++ ;   
 
     ptrtok = strtok(NULL," " ); ivar=0 ;
-    //  xxx mark delete while ( ptrtok != NULL && ptrtok != '\0' && ivar < NVAR_TOT) { 
     while ( ptrtok != NULL && ivar < NVAR_TOT) { 
 
       // Dec 20 2017: extract only variables on READ-list

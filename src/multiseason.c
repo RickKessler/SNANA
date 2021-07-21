@@ -201,19 +201,6 @@ void GET_MULTISEASON(char *CCID, int NOBS, double *MJD_LIST,
   
   for(iSeason=0; iSeason < Nseason; iSeason++ ) {
 
-    /* xxxxxxxx mark delete May 1 2019 xxxxxxxxxxxxx
-    FSUM = WSUM = 0.0 ;
-    for(obs=0; obs < NOBS; obs++ ) {
-      isort = INDX_SORT[obs] ;
-      if ( iSeason == ISEASON[isort] ) {
-	W     = 1.0/(FLUXERR_LIST[isort]*FLUXERR_LIST[isort]);
-	FSUM += W * FLUX_LIST[isort] ;	WSUM += W ;
-      }
-    }
-    AVGFLUX[iSeason] = FSUM / WSUM ;
-    xxxxxxxxxxxx */
-
-
     // build chi2_list for this season
     for(obs=0; obs < NOBS; obs++ ) {
       isort = INDX_SORT[obs] ;

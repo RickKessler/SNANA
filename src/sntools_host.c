@@ -875,20 +875,6 @@ void open_HOSTLIB(FILE **fp) {
 		       PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE, fnam);
   }
 
-  /* xxxxxxxxxx mark delete July 16 2021 xxxxx
-  // May 2021
-  // if re-writing hostlib, input host lib cannot be gzipped.
-  // Reading gzipped file once is fine, but for rewrite need to 'rewind'
-  // by closing and re-opening, which isn't robust. The rewind is needed
-  // to capture first GAL key that is normally skipped after reading header.
-  bool DO_REWRITE = ( INPUTS.HOSTLIB_USE==2 );
-  if ( DO_REWRITE && HOSTLIB.GZIPFLAG ) {
-    sprintf(c1err,"Cannot rewrite a gzipped HOSTLIB;");
-    sprintf(c2err,"Unzip HOSTLIB for %s ", INPUTS.HOSTLIB_PLUS_COMMAND);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  xxxx */
-
   sprintf(HOSTLIB.FILENAME , "%s", libname_full );
   printf("\t Reading %s \n", libname_full );
   fflush(stdout);
@@ -2002,7 +1988,6 @@ void read_head_HOSTLIB(FILE *fp) {
 	// check for optional variables to add to the store list
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
 	  cptr = HOSTLIB.VARNAME_OPTIONAL[i];
-	  // xxx mark	  if( strcmp_ignoreCase(c_var,cptr) == 0 ) {
 	  if( match_varname_HOSTLIB(c_var,cptr)  ) {
 	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
 	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
@@ -2309,7 +2294,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 // ====================================
 void  parse_Sersic_n_fixed(FILE *fp, char  *string) {
 
-  // XXXXXXx MARK OBSOLETE JULY 15 2021 XXXXXXXXXXX
   //
   // look for fixed Sersic index defined after VARANMES.
   // Check all possible keys in case n#_Sersic is defined
@@ -3121,7 +3105,6 @@ void sortz_HOSTLIB(void) {
   int  OPT_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR);
   if ( !(OPT_PLUSMAGS || OPT_PLUSNBR) ) {
     free(HOSTLIB.LIBINDEX_UNSORT);
-    // mark delete Nov 13 2019    free(HOSTLIB.LIBINDEX_ZSORT);
   }
 
 } // end of sortz_HOSTLIB
@@ -5301,9 +5284,6 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
 
-  // xxx mark delete  SNHOSTGAL.LOGMASS     = -9.0 ;
-  // xxx mark delete SNHOSTGAL.LOGMASS_ERR = -9.0 ;  
-
   SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.RA_SNGALSEP_ASEC  = HOSTLIB_SNPAR_UNDEFINED ;
@@ -6371,9 +6351,6 @@ void GEN_SNHOST_NBR(int IGAL) {
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
-    // cannot rewind gzip file, and thus first IGAL is skipped
-    // xxx mark delete if ( HOSTLIB.GZIPFLAG ) { rowNum-- ; } // Jul 15 2021
-
     // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
     // Use two layers of  indexing to get the desired z-sorted IGAL
     IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
@@ -6830,7 +6807,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   double zHEL_ORIG = GENLC.REDSHIFT_HELIO ;
   GENLC.VPEC = zPEC * LIGHT_km;
-  // xxx mark delete  zHEL += zPEC;                    // add vPEC  
   zHEL = (1.0+zHEL)*(1.0+zPEC) - 1.0 ;    // Jan 27 2021 
 
   GENLC.REDSHIFT_HELIO  = zHEL ;     
@@ -7043,15 +7019,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
       sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-
-      /* xxx mark delete June 3 2021 xxxxxxxxx
-      if ( IVAR >=0 && GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] ) {
-	sprintf(c1err,"Remove synthetic spectrograph filter %s from HOSTLIB.",
-		cfilt);
-	sprintf(c2err,"(and remove all other synthetic filters from HOSTLIB)");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-      xxxxxxxxxx end mark xxxxxxxx */
 
       if ( IVAR >= 0 ) {
 	MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 
@@ -7732,13 +7699,6 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // locally and not in somebody else's directory.
   extract_MODELNAME(HLIB_TMP, DUMPATH, HLIB_NEW);
   
-
-  /* xxxx mark delete July 17 2021 xxxxxx
-  int OPTMASK = OPTMASK_OPENFILE_HOSTLIB ;
-  FP_ORIG = snana_openTextFile(OPTMASK, "", 
-			       HLIB_ORIG, HLIB_TMP, &gzipFlag);
-  xxxxxxxx */
-
   // open orig HOSTLIB without checking for DOCANA so that
   // we don't skip DOCUMENTATION key
   FP_ORIG = open_TEXTgz(HLIB_ORIG, "rt", &gzipFlag );

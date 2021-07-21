@@ -412,7 +412,6 @@ void get_genSmear(double *parList, int NLam, double *Lam,
 
   // Mar 2020: check option to scale the smearing vs. c & x1
   if ( GENSMEAR_SCALE.USE ) {    
-    // xxxx mark delete double SCALE = get_genSmear_SCALE(c,x1);
     double SCALE = get_genSmear_SCALE(parList);
     for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
@@ -1740,21 +1739,6 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   init_Cholesky(+1, &GENSMEAR_C11.DECOMP); 
 
-  /* xxxxx mark deleteFeb 17 2020  xxxxxxxxx
-  chk  = gsl_matrix_view_array ( COVAR1, NBAND_C11, NBAND_C11); 
-  gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
-
-  for (i =0; i < NBAND_C11 ; i++){
-    for (j = 0; j < NBAND_C11 ; j++) { 
-      if ( j >= i ) 
-	{ GENSMEAR_C11.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
-      else
-	{ GENSMEAR_C11.Cholesky[i][j] = 0.0 ; }
-    }
-  }
-  xxxxxxxx mark delete xxxxxx */
-
-
   // print Cholesky matrix
   printf("\n\t Cholesky Decomp: \n" );
   for (i =0; i < NBAND_C11; i++){
@@ -2906,11 +2890,6 @@ void init_genSmear_OIR(char *VERSION) {
   }
 
   //  debugexit(fnam); // DDDDDDD
-
-  /* xxx mark delete (RK) since this is done in init_genSmear_randoms
-  GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
-  xxxxxxxxxxxxxx */
 
   // ----------------------------
   // store number of randoms to generate.

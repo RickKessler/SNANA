@@ -649,8 +649,6 @@ void   LOAD_OUTVAR_HOSTLIB(int IGAL) ;
 void   append_HOSTLIB_STOREPAR(void);
 bool   QstringMatch(char *varName0, char *varName1);
 
-// xxx void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void); // mark delete
-
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);

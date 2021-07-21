@@ -95,9 +95,6 @@ bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 // xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
-// xxx char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name
-// xxx mark delete char SNFITSIO_DATATYPE[20] ;
-
 struct TABLEDEF {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
   char  name[MXPAR_SNFITSIO][40] ;

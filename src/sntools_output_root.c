@@ -768,7 +768,6 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
       else if ( LDUMP )  {
 	if ( ICAST == ICAST_C ) 
 	  { load_DUMPLINE_STR(LINE,tmpString); }
-	// xxx mark delete  sprintf(LINE,"%s %s", LINE, tmpString); }
 	else
 	  { load_DUMPLINE(OPT,LINE,DVAL); }  
       }

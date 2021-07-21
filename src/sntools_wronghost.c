@@ -241,16 +241,6 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
 
   // compute wrongHost prob at this zSN using polynom coeff.
 
-  /* xxxxxxxxxx mark delete 
-  P_wrongHost = 0.0 ;
-  zpow        = 1.0 ;
-  for(i=0; i < ORDER_PROB_WRONGHOST_POLY; i++ ) {
-    P_wrongHost += ( WRONGHOST.PROB_POLY[i] * zpow );
-    zpow = zSN;
-  }
-  xxxxxxxxxx end mark xxxxxxxxxxx*/
-
-
   P_wrongHost = eval_GENPOLY(zSN,&WRONGHOST.ZPOLY_PROB,fnam);      
 
   // check for correct host match
@@ -260,7 +250,6 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
 
 #define NZJUMP_WRONGHOST 50  // junp this many z bins for rough ZTRUE check
 
-  // xxx mark to delete  int NZMAX = NLIST - NZJUMP_WRONGHOST - 1 ;
   int PAST_END = 0 ;
   int iz, iz_start, iz_end, N_NEAR;
   int iz_list[5*NZJUMP_WRONGHOST] ;

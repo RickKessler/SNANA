@@ -948,11 +948,9 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
 
     // construct varName2 = name without cast or vector info
     if ( ENDVAR == 0 ) { strcat(varName2,c1); }
-    // xxx mark delete  {  sprintf(varName2, "%s%s", varName2, c1 ) ; }
 
     // construct string-contents of []; should be integer array size
     if ( i > ibr0 && i < ibr1 )  { strcat(cBRACKET,c1); }
-    // xxx mark delete   {   sprintf(cBRACKET, "%s%s", cBRACKET, c1 ) ;  }
 
   } // end of i loop
 
@@ -1704,7 +1702,6 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
   char   CDUMMY[80], *ptrVar, varName_NPT[20];
-  // xxx mark delete   char varName_NPTFIT[] = "NPTFIT";
   char stringOpt[] = "read";
 
   
@@ -1803,7 +1800,6 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   OUTLIER_INFO.CUTWIN_CHI2FLUX[1] = Nsig1*Nsig1 ;
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_NPTFIT] ;
-  // xxx mark  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
   sprintf(varName, "%s", VARLIST[IVAR_NPT] ); // Nov 30 2020
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_IFILT] ;
@@ -1965,7 +1961,6 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // do global init if not already done.
   if ( CALLED_TABLEFILE_INIT != 740 ) { TABLEFILE_INIT();  }
-  // xxx mark delete   print_banner(fnam) ;
   printf("   %s\n", fnam); fflush(stdout);
 
   // check option to store multiple files

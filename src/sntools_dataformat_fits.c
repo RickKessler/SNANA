@@ -233,7 +233,6 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E" , "PIXSIZE", itype ) ;
   wr_snfitsio_addCol( "1I" , "NXPIX",   itype ) ;
   wr_snfitsio_addCol( "1I" , "NYPIX",   itype ) ;
-  // xxx mark delete Mar 15 2021  wr_snfitsio_addCol("1I","CCDNUM",itype);
   wr_snfitsio_addCol( "1J" , "SNTYPE" , itype ) ; 
 
   wr_snfitsio_addCol( "1J" , "NOBS"       , itype ) ; 
@@ -400,7 +399,6 @@ void wr_snfitsio_init_head(void) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
       wr_snfitsio_addCol( "1E", "SIM_STRETCH"       , itype );
-      // xxx mark delete  wr_snfitsio_addCol( "1E", "SIM_DM15", itype );
     }
 
     
@@ -573,7 +571,6 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
   wr_snfitsio_addCol( "2A",  "BAND"        , itype ) ; 
-  // xxx mark 2/15/2021  wr_snfitsio_addCol( "2A",  "FLT"  , itype ) ; 
 
   wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
   wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
@@ -1274,13 +1271,6 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.NYPIX ;
   wr_snfitsio_fillTable ( ptrColnum, "NYPIX", itype );
-
-  /* xxx mark delete Mar 15 2021 ... now it's only in PHOT table
-  // CCDNUM (May 24 2017)
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.CCDNUM[0] ;
-  wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
-  xxxxxxx */
 
   // SNTYPE
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2552,7 +2542,6 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
     sprintf(tmpString,"%s", SNDATA.SNANA_VERSION ); // Feb 2021
-    // xxxx  mark delet  sprintf(tmpString,"%s", SNFITSIO_SNANA_VERSION );
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -2769,11 +2758,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "NYPIX", &SNDATA.NYPIX,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
-
-    /* xxx mark delete Mar 15 2021 ... read only from PHOT table
-    j++ ;  NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[0], 
-				 &SNFITSIO_READINDX_HEAD[j] ) ;
-    xxx */
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "SNTYPE", &SNDATA.SNTYPE,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -4870,12 +4854,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
       if ( strcmp(parName,"FIELD") == 0 ) 
 	{ sprintf(SNDATA.FIELDNAME[NSTORE+1],"%s", C_VAL); }
 
-      /* xxx mark delete 
-      NSTR++ ;
-      if ( NSTR > 1 && strlen(C_VAL)>0 ) { strcat(parString,COMMA); }
-      strcat(parString,C_VAL);
-      // mark original: strcat(parString, C_VAL);  strcat(parString," "); 
-      xxxx */ 
     }
     else if ( iform == IFORM_1J ) { 
       J_VAL = RD_SNFITSIO_TABLEVAL_1J[itype][ipar][J]; 

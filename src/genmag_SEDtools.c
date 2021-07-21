@@ -2103,7 +2103,6 @@ double gridval_SIMSED(int ipar, int ibin) {
   BIN    = SEDMODEL.PARVAL_BIN[ipar] ; 
   XN     = (double)SEDMODEL.NBIN_PARVAL[ipar]  ;
 
-  // xxx mark delete   xbin   = (double)(ibin-1) ; 
   xbin   = (double)ibin ; 
   x      = fmod(xbin,XN) ;
   PARVAL = PMIN + x*BIN;
@@ -2439,12 +2438,6 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   if ( RV != SEDMODEL_HOSTXT_LAST.RV ) { update_hostxt = true; }
   if ( z  != SEDMODEL_HOSTXT_LAST.z  ) { update_hostxt = true; }
   if ( !update_hostxt ) { return; } // put back, July 13 2020
-
-  /*
-  xxx Mark Delete March 18 2020. Dealing with RV changing landmine.
-  if ( AV == SEDMODEL_HOSTXT_LAST.AV  &&  z == SEDMODEL_HOSTXT_LAST.z ) 
-    { return ; }
-  */
 
   OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
   NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -2960,14 +2953,6 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
           fnam, MODEL_NAME, INPUTS_SPECTRO.INSTRUMENT_NAME, NBLAM );
   print_banner(BANNER);
 
-  /* xxx mark delete 
-  if (NBLAM > MXBIN_LAMFILT_SEDMODEL ) {
-    sprintf(c1err,"NBLAM=%d exceeds MXBIN_LAMFILT_SEDMODEL=%d",
-	    NBLAM, MXBIN_LAMFILT_SEDMODEL);
-    sprintf(c2err,"Cannot store in FILTER_SEDMODEL struct");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  xxxxxx end mark */
 
   SPECTROGRAPH_SEDMODEL.NBLAM_TOT   = NBLAM ;
   SPECTROGRAPH_SEDMODEL.LAMMIN_LIST = (double*) malloc(MEMD) ;
@@ -2987,12 +2972,6 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     DUMPFLAG_ZP = 0; // ( fabs(L0-4210.0) < 2.0 ) ;
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
       = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
-
-    /* xxxxx mark delete to avoid overwriting arrays  Mar 23 2021 
-    // load artficial filter 
-    FILTER_SEDMODEL[IFILT].lam[ilam]        = LAVG ;
-    FILTER_SEDMODEL[IFILT].transSN[ilam]    = 1.0 ;
-    xxxxxxxx end mark xxxxxxxxx  */
   }
 
 

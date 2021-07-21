@@ -82,20 +82,6 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
 
   // ------------ BEGIN --------------
 
-  /* xxxxxxxxxxx mark delete Jul 12 2021 xxxxxxxx
-  if (DO_PROFILE && !DO_RANGE) { 
-    print_preAbort_banner(fnam);
-    printf("SIGMA = %f \n",sigma); 
-    printf("EXP_TAU = %f \n",exptau); 
-    printf("RANGE[1] = %f \n",valmax);
-
-    sprintf ( c1err, "INVALID PROFILE FOR %s .", name );
-    sprintf ( c2err, "CHECK SIM INPUT FILE. RANGE MIGHT NOT BE SET.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-  xxxxxx end mark xxxxxx*/
-
-
   if (DO_RANGE && DO_PROFILE){
     gen_EXP_HALFGAUSS->USE = true ;
   }

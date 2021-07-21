@@ -466,7 +466,6 @@ void  RDNN_TypeList(void) {
   DOFLAG = 1 ; // default is to train on all TRUETYPEs
 
   for(i=0; i < NB; i++ ) {
-    // xxx mark delete    TrueType           = (int)X[i]/INPUTS.Nmerge ;
     TrueType           = (int)X[i] ;
     INPUTS.TrueType[i] = TrueType ;
 
@@ -495,7 +494,6 @@ void  RDNN_SEPMAXbins(void) {
   double XMIN[2], XMAX[2], *CONTENTS,  SEPVAL ;
 
   SNHIST_RDBINS(2, HID, CTIT, NB, XMIN, XMAX);
-  // xxx mark delete   XNorm = (double)INPUTS.Nmerge ;
 
   NBSEP              = NB[0] ; // local var
   NVAR               = NB[1] ;
@@ -538,7 +536,6 @@ void  RDNN_SEPMAXbins(void) {
   for(ivar=0; ivar < NVAR; ivar++ ) {
     for( isep=0; isep < NBSEP ; isep++ ) {
       j = ivar*NBSEP + isep;
-      // xxx mark delete      SEPVAL = CONTENTS[j]/XNorm ;
       SEPVAL = CONTENTS[j] ;
       INPUTS.SEPMAX[ivar][isep] = SEPVAL ;
     }
@@ -630,7 +627,6 @@ void  RDNN_UntrainedPurity(void) {
 
   HID       =  HID_UntrainedPurity ;
   NTrueType =  INPUTS.NTrueType ;  
-  // xxx mark delete  XNorm     =  (double)INPUTS.Nmerge ;  
 
   for ( i=0; i < NTrueType; i++ )  { INPUTS.UntrainedPurity[i] = -9.0 ; }
 
@@ -639,7 +635,6 @@ void  RDNN_UntrainedPurity(void) {
 
   for ( i=0; i < NTrueType; i++ ) 
     { INPUTS.UntrainedPurity[i] = tmpPurity[i] ; }
-  // xxx mark delete    { INPUTS.UntrainedPurity[i] = tmpPurity[i]/XNorm ; }
 
   return ;
   

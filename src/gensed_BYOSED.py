@@ -44,7 +44,26 @@ class gensed_BYOSED:
 			# isn't going to do anything with
 			try:
 				self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
-
+				
+				try:
+					# split comman separated key value pairs.
+					# search for key "RANSEED" in list
+					# exctract RASEED integer
+					self.SNANA_RANSEED = [
+						int(arg.split()[1])
+						for arg in ARGLIST.split(",")
+						if "RANSEED" in arg
+					][0]
+				except IndexError:
+					# if ranseed is not given
+					if self.verbose:
+						print("No RANSEED found.", flush=True)
+						self.SNANA_RANSEED = 100
+				if self.verbose:
+					print("Random seed set to ", self.SNANA_RANSEED, flush=True)
+				np.random.seed(self.SNANA_RANSEED)
+				
+				
 				if not PATH_VERSION.endswith('/') and os.path.isdir(PATH_VERSION):
 					PATH_VERSION = PATH_VERSION.rstrip()+'/'
 				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
@@ -705,10 +724,10 @@ def main():
 					
 		import matplotlib.pyplot as plt
 
-		mySED=gensed_BYOSED('$WFIRST_USERS/jpierel/hyperion_wfirst/byosed/',2,[],'REDSHIFT,AGE,ZCMB,METALLICITY,HOSTMASS')
+		mySED=gensed_BYOSED('$SNDATA_ROOT/models/BYOSED/BYOSED.P21/',2,'','REDSHIFT,AGE,ZCMB,METALLICITY,HOSTMASS')
 		mySED.sn_id=1
 		print(np.sum(mySED.fetchSED_BYOSED(0,5000,0,0,[.1,1,1,.5,11])))
-		print(np.sum(mySED.fetchSED_BYOSED(-20,5000,0,1,[.1,1,1,.5,9])))
+		print(np.sum(mySED.fetchSED_BYOSED(-5,5000,0,1,[.1,1,1,.5,9])))
 
 if __name__=='__main__':
 		main()

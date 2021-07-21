@@ -20212,5 +20212,11 @@
 
     clean out "mark"
 
-   
+    snlc_sim.c
+      + fix bug implementing CIDRAN_MIN
+  
+    SALT2mu.c
+      + more subprocess development; add Beta distribution.
+      + read bounding functions from sim-input file.
+
 END: 

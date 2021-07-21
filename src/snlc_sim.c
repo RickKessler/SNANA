@@ -10024,7 +10024,7 @@ void gen_event_driver(int ilc) {
 
   int    NEPMIN = (int)INPUTS.CUTWIN_NEPOCH[0];
   double z, z1, Tobs, Trest,  zHOST, Tobs_min, Tobs_max, MWEBV  ;
-  int    ifilt, ifilt_obs, NEP, iep, USE_HOSTCOORD ;
+  int    CID, ifilt, ifilt_obs, NEP, iep, USE_HOSTCOORD ;
   char   fnam[] = "gen_event_driver" ;
 
   // -------- BEGIN ----------
@@ -10137,8 +10137,16 @@ void gen_event_driver(int ilc) {
   }
   
   // --------------------------
-  if ( WRFLAG_CIDRAN > 0 ) 
-    { GENLC.CIDRAN = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF] ; }
+  if ( WRFLAG_CIDRAN > 0 ) {
+    CID = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF];
+    GENLC.CIDRAN = CID ;
+
+    if ( CID < 0 ) {
+      sprintf(c1err,"Invalid CIDRAN=%d", CID);
+      sprintf(c2err,"CID=%d CIDOFF=%d", GENLC.CID, INPUTS.CIDOFF);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+  }
 
   // ----------------------------------------------------------
   // misc. filter-dependent stuff:
@@ -18461,11 +18469,13 @@ void init_CIDRAN(void) {
   // Jan 04 2021; 
   //   + remove useless calc of NEWSEED
   //
+  // Jul 21 2021: 
+  //   + init all CIDRAN_LIST[i] = -9
+  //   + fix bug implementing CIDRAN_MIN (see CIDRAN_OFF)
 
-  // xxx  int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
-  int CIDMAX, CIDMIN, USED, NTRY, NCALL_random=0, LDMP=0 ;
+  int CIDMAX, CIDMIN, CIDRAN_OFF, USED, NTRY, NCALL_random=0, LDMP=0 ;
   int L_STDOUT, NEWSEED ;
 
   double r8, XN8, XNUPD8;
@@ -18481,9 +18491,8 @@ void init_CIDRAN(void) {
   CIDMAX     = INPUTS.CIDRAN_MAX ; // -> local var      
   CIDMIN     = INPUTS.CIDRAN_MIN ; 
 
-  NSTORE_ALL = 
-    (INPUTS.CIDOFF - INPUTS.CIDRAN_MIN)  + 
-    (INPUTS.NGEN_LC + INPUTS.NGENTOT_LC) ;
+  CIDRAN_OFF = INPUTS.CIDOFF - INPUTS.CIDRAN_MIN ;
+  NSTORE_ALL = CIDRAN_OFF + INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ;
 
   NSTORE     = INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ; // for this sim-job
 
@@ -18529,6 +18538,7 @@ void init_CIDRAN(void) {
   fflush(stdout);
 
   INPUTS.CIDRAN_LIST = (int*)malloc( (NSTORE+2)*sizeof(int) );
+  for(i=0; i < NSTORE+2; i++ ) { INPUTS.CIDRAN_LIST[i] = -9; }
 
   // start main loop
 
@@ -18609,13 +18619,21 @@ void init_CIDRAN(void) {
       i2++ ;
       if ( CIDADD > 0 ) {
 	exec_cidmask(1,CIDADD); // set "USED" bit
+
+	if ( i >= CIDRAN_OFF ) 
+	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ; }
+
+	/* xxxxxxxxxxxxx mark delete Jul 21 2021 xxxx
 	if ( i >= INPUTS.CIDOFF ) 
 	  { INPUTS.CIDRAN_LIST[i-INPUTS.CIDOFF] = CIDADD ; }
+	xxxxxxxxx */
+
 	USED = 0 ;
       }
 
     } // end USED block
 
+    // - - - - - - - -  -
     // check for screen update 
     XN8    = (double)i ;
     L_STDOUT = ( fmod(XN8,XNUPD8) == 0 && i > 0 );
@@ -27145,7 +27163,7 @@ void screen_update(void) {
   bool QUIT_NOREWIND = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND) >0;
   int  NLIBID        = SIMLIB_GLOBAL_HEADER.NLIBID_VALID ;
 
-  if ( WRFLAG_CIDRAN == 0 ) 
+  if ( !WRFLAG_CIDRAN  ) 
     { CID = GENLC.CID ; }
   else
     { CID = GENLC.CIDRAN ; }

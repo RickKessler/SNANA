@@ -7091,6 +7091,12 @@ void init_DNDZ_Rate(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    if ( INPUTS.NGENTOT_LC > 0 ) {
+      sprintf(c1err,"Cannot have both NGENTOT_LC>0 and NGEN_SEASON>0");
+      sprintf(c2err,"At least one must be set to zero.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     INPUTS.NGENTOT_LC = (int)(XTOT);
     INPUTS.NGEN_LC    = 0 ;
     INPUTS.NGEN       = INPUTS.NGENTOT_LC ;
@@ -18472,6 +18478,8 @@ void init_CIDRAN(void) {
   // Jul 21 2021: 
   //   + init all CIDRAN_LIST[i] = -9
   //   + fix bug implementing CIDRAN_MIN (see CIDRAN_OFF)
+  //   + abort if CIDOFF < CIDRAN_MIN
+  //
 
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
@@ -18495,6 +18503,13 @@ void init_CIDRAN(void) {
   NSTORE_ALL = CIDRAN_OFF + INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ;
 
   NSTORE     = INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ; // for this sim-job
+
+  if ( CIDRAN_OFF < 0 ) {
+    sprintf(c1err,"Invalid  CIDOFF=%d < CIDRAN_MIN=%d", 
+	    INPUTS.CIDOFF, INPUTS.CIDRAN_MIN );
+    sprintf(c2err,"CIDOFF must be >= CIDRAN_MIN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   if ( NSTORE == 0 ) {
     sprintf(c1err,"NGEN_LC = NGENTOT_LC = 0 ?? ");
@@ -18535,6 +18550,7 @@ void init_CIDRAN(void) {
   printf("\t CIDRAN_MIN/MAX = %d/%d   CIDOFF=%d   NSTORE_JOB=%d\n", 
 	 CIDMIN, CIDMAX, INPUTS.CIDOFF, NSTORE );
   printf("\t CIDRAN_LIST memory allocation: %6.3f MB \n", XMEM);
+  printf("\t xxx NSTORE_ALL = %d \n", NSTORE_ALL);
   fflush(stdout);
 
   INPUTS.CIDRAN_LIST = (int*)malloc( (NSTORE+2)*sizeof(int) );
@@ -18621,7 +18637,13 @@ void init_CIDRAN(void) {
 	exec_cidmask(1,CIDADD); // set "USED" bit
 
 	if ( i >= CIDRAN_OFF ) 
-	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ; }
+	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ; 
+
+	    if ( i < 10 ) {
+	      printf(" xxx %s: i=%d i-CIDRAN_OFF=%d, CIDADD=%d \n",
+		     fnam, i, i-CIDRAN_OFF, CIDADD );
+	    }
+	  }
 
 	/* xxxxxxxxxxxxx mark delete Jul 21 2021 xxxx
 	if ( i >= INPUTS.CIDOFF ) 

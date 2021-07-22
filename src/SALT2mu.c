@@ -72,7 +72,8 @@ opt_biascor=1136  ! +1024 -> if no valid biasCor, keep event with bias=0
 
 sigint_biascor=<sigmb_bias>   ! instead of auto-computed sigint_biascor
 snrmin_sigint_biascor         ! SNRMIN to compute siginit_biascor 
-prescale_biascor=<sample>,<preScale>
+prescale_biascor=<subset>,<preScale>  ! select <subset> from <prescale>
+prescale_biascor_write=<sample>,<preScale> ! idem & write biasCor sample
 
 fieldGroup_biascor='shallow,medium,deep'             ! for biasCor & CCprior
 fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'
@@ -1543,10 +1544,10 @@ struct INPUTS {
   int nfile_data_override ; 
   char **dataFile_override ; // e.g, change all VPEC, VPEC_ERR
   
-  bool   cat_only;    // cat fitres files and do nothing else
+  bool   cat_only;    // cat data fitres files and do nothing else
   int    cat_prescale; // scale to reduce file size for debugging
   char   cat_file_out[MXCHAR_FILENAME] ;
-
+  
   int    write_yaml;  // used by submit_batch_jobs.py
   int    write_csv ;  // M0DIF formatted for CosmoMC
 
@@ -1568,7 +1569,8 @@ struct INPUTS {
   char **simFile_biasCor ;   // comma-sep list of biasCor inputs
   char *simFile_biasCor_arg;  // store input string in case CCprior needs it
   int  opt_biasCor ;
-  int  prescale_biasCor[2] ; // subset use [0] of [1]
+  int  prescale_biasCor[3] ; // subset use [0] of [1]; [2]=write flag
+
   double sigint_biasCor ;     // force sigint instead of autocompute
   double snrmin_sigint_biasCor; // SNRMIN used to determine sigint
   double sigma_cell_biasCor; // to weight events in cell for biasCor value
@@ -1965,7 +1967,7 @@ int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
-void parse_prescale_biascor(char *item);
+void parse_prescale_biascor(char *item, int wrflag);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
 void parse_sigint_fix(char *item);
@@ -2114,6 +2116,7 @@ void  setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 void  countData_per_zbin(void) ;
 int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
+void  prescale_write_biasCor(void);
 int   outside_biasCor_grid(int isn);
 
 int selectCID_data(char *cid, int IDSURVEY); 
@@ -5284,8 +5287,11 @@ void set_defaults(void) {
   INPUTS.opt_biasCor           = 0 ;
   INPUTS.sigint_biasCor        = -9.0 ; 
   INPUTS.snrmin_sigint_biasCor = BIASCOR_SNRMIN_SIGINT ;
-  INPUTS.prescale_biasCor[0]   = 0;
-  INPUTS.prescale_biasCor[1]   = 1;
+
+  INPUTS.prescale_biasCor[0]   = 0;  // subset number
+  INPUTS.prescale_biasCor[1]   = 1;  // integer pre-scale
+  INPUTS.prescale_biasCor[2]   = 0;  // default is do NOT write out biasCor
+
   INPUTS.sigma_cell_biasCor    = 50.0; // flat WGT distribution in each cell
   INPUTS.nfile_biasCor         = 0 ;
   sprintf(INPUTS.fieldGroup_biasCor, "NONE" );
@@ -8936,6 +8942,9 @@ void prepare_biasCor(void) {
   // read biasCor file
   read_simFile_biasCor();
 
+  // check option to write pre-scaled biasCor and quit
+  if ( INPUTS.prescale_biasCor[2] > 0 ) { prescale_write_biasCor(); }
+
   // setup 5D bins 
   if ( DOCOR_5D || DOCOR_1D5DCUT ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
@@ -9260,7 +9269,6 @@ void  read_simFile_biasCor(void) {
 
   return ;
 } // end read_simFile_biasCor
-
 
 
 // ================================================================
@@ -15212,6 +15220,33 @@ int prescale_reject_biasCor(int isn) {
 
 }  // end prescale_reject_biasCor
 
+// =======================================
+void prescale_write_biasCor(void) {
+
+  // Created July 21 2021
+  // NOT READY !!! ... doing this is tricky because
+  // the biasCor files need to be re-read as string-lines.
+
+  char *PREFIX       = INPUTS.PREFIX;
+  int   NSN_BIASCOR  = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+
+  int evt;
+  FILE *fp;
+  char outFile[200];
+  char fnam[] = "prescale_write_biasCor" ;
+
+  // ----------- BEGIN -------------
+
+  
+  sprintf(outFile,"%s_biasCor.FITRES", PREFIX);
+  printf("\n Open prescaled biasCor file: %s  \n", outFile);
+  fp = fopen(outFile, "wt");
+  fclose(fp);
+
+  return;
+
+} // end prescale_write_biasCor
+
 // ====================================================
 int outside_biasCor_grid(int isn) {
 
@@ -15558,7 +15593,9 @@ int ppar(char* item) {
 
   // - - - - - - 
   if ( uniqueOverlap(item,"prescale_biascor=") ) 
-    { parse_prescale_biascor(&item[17]); return(1); }
+    { parse_prescale_biascor(&item[17],0); return(1); }
+  if ( uniqueOverlap(item,"prescale_biascor_write=") ) 
+    { parse_prescale_biascor(&item[23],1);  return(1);   }
  
   if ( uniqueOverlap(item,"opt_biascor=")  )
     { sscanf(&item[12],"%d", &INPUTS.opt_biasCor);   return(1); }
@@ -15969,9 +16006,11 @@ void parse_cat_only(char *string_cat_only) {
 
   INPUTS.cat_only = true ;
 
-  // for exact cat_only match, bail
 
-  if ( strcmp(string_cat_only,"cat_only") == 0 ) { return; }
+  // for exact cat_only match, exit with default PS=1
+
+  // xxx  if ( strcmp(string_cat_only,"cat_only") == 0 ) { return; }
+  if ( strstr(string_cat_only,"/") == NULL ) { return; }
 
   // check for prescale; e.g., cat_only/4.
   // Try python-like dictionary function parse_string_prescales
@@ -16370,10 +16409,10 @@ void parse_blindpar(char *item) {
 
 
 // **************************************************
-void parse_prescale_biascor (char *item) {
+void parse_prescale_biascor (char *item, int wrflag) {
 
   // June 25, 2016
-  // parse comma-separated prescale of the form
+  // parse input *item that is a comma-separated prescale of the form
   //
   //   prescale_simbias=3,4
   //
@@ -16383,6 +16422,7 @@ void parse_prescale_biascor (char *item) {
   //
   //  Note that PS0 can have values 0,1,2 ... PS1-1
   //
+  // wrflag = 1 -> set flag to write pre-scaled biasCor to out file.
 
   char *ptrtok, local_item[100] ;
   int  N, PS;
@@ -16400,7 +16440,8 @@ void parse_prescale_biascor (char *item) {
     N++ ;  
     ptrtok = strtok(NULL, ",");
   }
-  
+  INPUTS.prescale_biasCor[2] = wrflag; // July 21 2021
+
   int PS0 = INPUTS.prescale_biasCor[0] ;
   int PS1 = INPUTS.prescale_biasCor[1] ;
 
@@ -16409,6 +16450,8 @@ void parse_prescale_biascor (char *item) {
     sprintf(c2err,"Check SALT2mu input file");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
+
+  return ;
 
 } // end of parse_prescale_biascor
 
@@ -18671,6 +18714,8 @@ void write_fitres_driver(char* fileName) {
 
   //  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   //  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
+
+  bool  cat_only         = INPUTS.cat_only ;
   int   IWD_KEY  = 0;
   int   IWD_CCID = 1;
 
@@ -18678,8 +18723,8 @@ void write_fitres_driver(char* fileName) {
   FILE  *fout, *finp;
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
-  int idsample, NSN_DATA, ifile ;
-  char  line[MXCHAR_LINE], tmpName[60];
+  int idsample, NSN_DATA, nfile, ifile ;
+  char  line[MXCHAR_LINE], tmpName[60], *ptrFile ;
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
 
   char fnam[] = "write_fitres_driver" ;
@@ -18702,7 +18747,7 @@ void write_fitres_driver(char* fileName) {
   // - - - - - - - -  -
   fout = fopen(fileName,"wt");
   if (!fout ) {
-    if ( INPUTS.cat_only ) {
+    if ( cat_only ) {
       sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.cat_file_out);
       sprintf(c2err,"Check cat_file_out key." );
     }
@@ -18713,7 +18758,7 @@ void write_fitres_driver(char* fileName) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  if ( INPUTS.cat_only ) {
+  if ( cat_only ) {
     write_cat_info(fout); // write cat info to output file header
   }
   else {
@@ -18750,7 +18795,7 @@ void write_fitres_driver(char* fileName) {
     // no SN lines, hence no header keys
   }
 
-  if ( INPUTS.cat_only ) { goto WRITE_TABLE_ROWS; }
+  if ( cat_only ) { goto WRITE_TABLE_ROWS; }
 
   NCUT = INPUTS.NCUTWIN ;
   if ( NCUT > 0 ) {
@@ -18879,9 +18924,11 @@ void write_fitres_driver(char* fileName) {
 
  WRITE_TABLE_ROWS:
 
+  nfile = INPUTS.nfile_data;
+  for(ifile=0; ifile < nfile; ifile++ ) {
 
-  for(ifile=0; ifile < INPUTS.nfile_data; ifile++ ) {
-    finp  = open_TEXTgz(INPUTS.dataFile[ifile], "rt", &GZIPFLAG); 
+    ptrFile = INPUTS.dataFile[ifile];
+    finp  = open_TEXTgz(ptrFile, "rt", &GZIPFLAG); 
 
     while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
@@ -18895,7 +18942,7 @@ void write_fitres_driver(char* fileName) {
       get_PARSE_WORD(0, IWD_KEY, KEY);
       if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
 
-      if ( INPUTS.cat_only ) {
+      if ( cat_only ) {
 	// check prescale
 	NLINE++ ;
 	if ( NLINE % INPUTS.cat_prescale != 0 ) { continue ; }
@@ -18917,7 +18964,7 @@ void write_fitres_driver(char* fileName) {
 
   fclose(fout);
 
-  if ( INPUTS.cat_only ) {
+  if ( cat_only ) {
     fprintf(FP_STDOUT, " Wrote %d SN to cat table.\n", NWR); 
   }
   else {

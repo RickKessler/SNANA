@@ -552,28 +552,34 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
 			      char *callFun, GRIDMAP *GRIDMAP_LOAD) {
 
   //Created July 16 2021
-  // returns GRIDMAP_LOAD using input *GENGAUSS for analytic functions
-  // initially used for SALT2mu SUBPROCESS alpha/beta
+  // returns GRIDMAP_LOAD using input *GENGAUSS for analytic function.
+  // Initially used for SALT2mu SUBPROCESS alpha/beta
+  //
   //Inputs:
   //   *GENGAUSS    : asymmetric Gaussian structure
   //   *MAPNAME     : name of map
   //   IDMAP        : integer ID of map
   //   OPT_EXTRAP   : flag for extrapolation outside map range
   //                  1-> extrap, 0->return error, -1->abort outside range
-  //   NBIN         : number of bins, includes edges; ie 11 bins from 0-10 means 0,1,2,...10
+  //   NBIN         : number of bins, includes edges; 
+  //                   ie 11 bins from 0-10 means  0,1,2,...10
   //   RANGE        : [minimum, maximum]
   //   *calFun      : calling function, used only for error messages
+  //
   //Outputs:
-  //   *GRIDMAP_LOAD: the GRIDMAP
+  //   *GRIDMAP_LOAD: the GRIDMAP used later for interpolation.
 
-  char fnam[]  = "compute_genGauss_GRIDMAP" ;
+  double BINSIZE = (RANGE[1] - RANGE[0]) / (float)(NBIN-1);
+  char  *NAME    = GENGAUSS->NAME ;
+  double XVAL_MIN = RANGE[0];
+  double XVAL_MAX = RANGE[1] + BINSIZE/1.0E5; // avoid numerical problem
+
   int   MEMD   =  NBIN * sizeof(double);
-  int   MEMVAR = 2 * sizeof(double*);
+  int   MEMVAR =  2    * sizeof(double*);
   int   NDIM = 1, NFUN = 1, ibin=0, ivar;
   double XVAL, funVal;
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
-  double BINSIZE = (RANGE[1] - RANGE[0]) / (float)(NBIN-1);
-  char *NAME = GENGAUSS->NAME;
+  char fnam[]  = "compute_genGauss_GRIDMAP" ;
 
   // -------------- BEGIN --------------
 
@@ -581,10 +587,12 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   TMPMAP2D = (double**) malloc(MEMVAR);
   for(ivar=0; ivar<2; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
 
-
-  for (XVAL = RANGE[0]; XVAL <= RANGE[1]; XVAL+=BINSIZE) {
+  for (XVAL = XVAL_MIN; XVAL <= XVAL_MAX; XVAL+=BINSIZE) {
     funVal = funVal_GENGAUSS_ASYM(XVAL, GENGAUSS) ;
-    TMPMAP2D[0][ibin] = XVAL; TMPMAP2D[1][ibin] = funVal ;
+    TMPMAP2D[0][ibin] = XVAL; 
+    TMPMAP2D[1][ibin] = funVal ;
+    // xxx    printf(" xxx %s: ibin=%2d   X=%le   funVal=%f\n", 
+    // fnam, ibin, XVAL, funVal);
     ibin++;
   } //end XVAL loop
 
@@ -596,8 +604,10 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
                       TMPMAP2D, &TMPMAP2D[NDIM],
                       GRIDMAP_LOAD  );    // <== returned
   
-  for(ivar=0; ivar<2; ivar++) {free(TMPMAP2D[ivar]);} //free memory
+  //free memory
+  for(ivar=0; ivar<2; ivar++) { free(TMPMAP2D[ivar]); } 
   free(TMPMAP2D);
+
   return ;
 } // end compute_genGauss_GRIDMAP
 

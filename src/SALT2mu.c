@@ -11349,7 +11349,8 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
   int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
-  int debug_malloc = INPUTS.debug_malloc ;
+  int  debug_malloc     = INPUTS.debug_malloc ;
+  bool DEBUG_SIGINT_UTIL = (INPUTS.debug_flag == 724); // RK 7.24 2021
 
   int  NROW_TOT, NROW_malloc, i, istat_cov, NCOVFIX, ia, ib, ig, MEMD, cutmask ;
   int  LDMP = 0 ;
@@ -11567,6 +11568,8 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
 	sigInt = sqrt(SQRMS - muErrsq) ;  // approx sigInt
 	
+	// printf(" xxx %s: sigInt_approx=%f  muoff=%f\n", fnam,sigInt,muOff);
+
 	if ( LDMP ) {
 	  printf(" xxx ia,ib,ig=%d,%d,%d  N = %d \n", ia,ib,ig, (int)XN );
 	  printf(" xxx --> RMS(mu)=%.4f  muErr=%.4f  muOff=%.4f  sigInt=%.4f\n",
@@ -11629,17 +11632,17 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	SIGINT_ABGRID[ia][ib][ig] = sigInt ;
 	SIGINT_AVG += sigInt ;
 
-	DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE) ;
+	DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE ) ;
 	if ( DOPRINT ) {
-	  fprintf(FP_STDOUT,"\t sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
-		  "(%d events with SNR>%.0f) \n", 
+	  fprintf(FP_STDOUT,"    sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
+		  "(%d evt with IDSAMPLE=%d & SNR>%.0f) \n", 
 		  ia, ib, ig, sigInt, NUSE[ia][ib][ig], 
-		  INPUTS.snrmin_sigint_biasCor);
+		  IDSAMPLE, INPUTS.snrmin_sigint_biasCor);
 	  fflush(FP_STDOUT);
 	}
       
 	// xxxxxxxxxxx .xyz  
-	if ( INPUTS.debug_flag == 724 ) { // test new recipe, RK
+	if ( DEBUG_SIGINT_UTIL ) { // test new recipe, RK
 	  double sigint_test;					  
 	  sigint_test = sigint_muresid_list(NUSE[ia][ib][ig], 
 					    MUDIF[ia][ib][ig],

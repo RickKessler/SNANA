@@ -5655,14 +5655,9 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
     SUM_MUCOV   += MUCOV ;
     SUM_MURES   += MURES ;
     SUM_SQMURES += SQMURES ;
-
-    /* xxx mark delete
-    SUM_PULL    += MURES / sqrt(MUCOV) ;
-    SUM_SQPULL  += SQMURES / MUCOV ;
-    xxxx end mar  */
   }
 
-  AVG_MUERR = SUM_MURES / XN ;
+  AVG_MURES = SUM_MURES / XN ;
   AVG_MUCOV = SUM_MUCOV / XN;
   AVG_MUERR = sqrt(AVG_MUCOV);
   RMS_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
@@ -5682,7 +5677,7 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
  
   int    OPT_INTERP = 1 ;
   int    NBIN_SIGINT = 0 ;
-  double sigint_bin = 0.005 ;
+  double sigint_bin = 0.01 ;
   double sigTmp_lo  = sigint_approx - (4.*sigint_bin) - 1.0E-7 ;
   double sigTmp_hi  = sigint_approx + (8.*sigint_bin) ;
   double sigTmp, covTmp, covtot, sum_dif, sum_sqdif;
@@ -5717,9 +5712,9 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
   int LDMP = 1;
   if ( LDMP ) {
     printf(" xxx sigint(min-max, approx->final) = "
-	   "%.4f-%.4f   %.4f -> %.4f \n",
+	   "%.4f-%.4f   %.4f -> %.4f  (<MURES>=%f)\n",
 	   sigTmp_store[NBIN_SIGINT-1], sigTmp_store[0], 
-	   sigint_approx, sigint);
+	   sigint_approx, sigint, AVG_MURES);
   }
 
   // .xyz

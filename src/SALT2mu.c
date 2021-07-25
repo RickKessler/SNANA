@@ -5761,7 +5761,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 	      fnam, f_MEM[i_mem], COMMENT_MEM[i_mem] );
     }
 
-    INFO_DATA.MEMORY = f_MEMORY;   // .xyz
+    INFO_DATA.MEMORY = f_MEMORY; 
     fprintf(FP_STDOUT, "\t %s:   TOTAL  %7.3f MB \n\n", fnam, f_MEMORY); 
     fflush(FP_STDOUT);
   }
@@ -11355,7 +11355,9 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   int  LDMP = 0 ;
 
   double muErrsq, muErr, muDif, muOff, SNRMAX, sigInt, tmp1, tmp2 ;
-  double SUMDIF[MXa][MXb][MXg],SUMDIFSQ[MXa][MXb][MXg],SUMERRSQ[MXa][MXb][MXg];
+  double SUM_DIF[MXa][MXb][MXg], SUM_DIFSQ[MXa][MXb][MXg];
+  double SUM_ERRSQ[MXa][MXb][MXg];
+  double SUM_RESID[MXa][MXb][MXg], SUM_RESIDSQ[MXa][MXb][MXg];
   int    NUSE[MXa][MXb][MXg];
   int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, *ptr_CUTMASK, USEMASK ;
   short int *ptr_IDSAMPLE;
@@ -11444,8 +11446,9 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	MUDIF[ia][ib][ig]   = (double*) malloc ( MEMD );
 	MUERRSQ[ia][ib][ig] = (double*) malloc ( MEMD ) ;
 	NUSE[ia][ib][ig]    = NCOVFIX = 0 ;
-	SUMDIF[ia][ib][ig]  = SUMDIFSQ[ia][ib][ig] = 0.0 ;
-	SUMERRSQ[ia][ib][ig] = 0.0 ;
+	SUM_DIF[ia][ib][ig]  = SUM_DIFSQ[ia][ib][ig] = 0.0 ;
+	SUM_ERRSQ[ia][ib][ig] = 0.0 ;
+	SUM_RESID[ia][ib][ig] = SUM_RESIDSQ[ia][ib][ig] = 0.0 ;
       }
     }
   }
@@ -11500,9 +11503,11 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     ib = (int)INFO_BIASCOR.IB[i];
     ig = (int)INFO_BIASCOR.IG[i]; 
 
-    SUMDIF[ia][ib][ig]   +=  muDif ;
-    SUMDIFSQ[ia][ib][ig] += (muDif*muDif);
-    SUMERRSQ[ia][ib][ig] +=  muErrsq ;
+    SUM_DIF[ia][ib][ig]     +=  muDif ;
+    SUM_DIFSQ[ia][ib][ig]   += (muDif*muDif);
+    SUM_ERRSQ[ia][ib][ig]   +=  muErrsq ;
+    SUM_RESID[ia][ib][ig]   += muDif / sqrt(muErrsq);
+    SUM_RESIDSQ[ia][ib][ig] += (muDif*muDif)/muErrsq ;
 
     NTMP = NUSE[ia][ib][ig];
     MUDIF[ia][ib][ig][NTMP]   = muDif ;
@@ -11517,8 +11522,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
       sprintf(c2err,"NROW_malloc = %d", NROW_malloc);
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
     }
-    // xxxxxxxxxx
-
+  
   } // end loop over biasCor sample
 
 
@@ -11544,13 +11548,13 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
 	}
 	
-	tmp1   = SUMDIF[ia][ib][ig]/XN ;
-	tmp2   = SUMDIFSQ[ia][ib][ig]/XN ;
+	tmp1   = SUM_DIF[ia][ib][ig]/XN ;
+	tmp2   = SUM_DIFSQ[ia][ib][ig]/XN ;
 	SQRMS  = tmp2 - tmp1*tmp1 ;
-	muOff  = SUMDIF[ia][ib][ig]/XN ; 
+	muOff  = SUM_DIF[ia][ib][ig]/XN ; 
 
 	// compute approx sigInt using average distance error
-	muErrsq = SUMERRSQ[ia][ib][ig]/XN ;
+	muErrsq = SUM_ERRSQ[ia][ib][ig]/XN ;
 	
 	if ( muErrsq > SQRMS ) { 
 	  muErr = sqrt(muErrsq);        RMS = sqrt(SQRMS);
@@ -11625,15 +11629,25 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	SIGINT_ABGRID[ia][ib][ig] = sigInt ;
 	SIGINT_AVG += sigInt ;
 
-      if ( IDSAMPLE==0 || DO_SIGINT_SAMPLE) { DOPRINT=1; } else { DOPRINT=0; }
-      if ( DOPRINT ) {
-	fprintf(FP_STDOUT,"\t sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
-	       "(%d events with SNR>%.0f) \n", 
-	       ia, ib, ig, sigInt, NUSE[ia][ib][ig], 
-	       INPUTS.snrmin_sigint_biasCor);
-	fflush(FP_STDOUT);
-      }
+	DOPRINT = ( IDSAMPLE==0 || DO_SIGINT_SAMPLE) ;
+	if ( DOPRINT ) {
+	  fprintf(FP_STDOUT,"\t sigInt[ia,ib,ig=%d,%d,%d] = %.4f "
+		  "(%d events with SNR>%.0f) \n", 
+		  ia, ib, ig, sigInt, NUSE[ia][ib][ig], 
+		  INPUTS.snrmin_sigint_biasCor);
+	  fflush(FP_STDOUT);
+	}
       
+	// xxxxxxxxxxx .xyz  
+	if ( INPUTS.debug_flag == 724 ) { // test new recipe, RK
+	  double sigint_test;					  
+	  sigint_test = sigint_muresid_list(NUSE[ia][ib][ig], 
+					    MUDIF[ia][ib][ig],
+					    MUERRSQ[ia][ib][ig] );
+	}
+
+	// xxxxxxxxxxxx
+
       } // ig
     } // ib
   } // ia

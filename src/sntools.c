@@ -5610,6 +5610,125 @@ double STD_from_SUMS(int N, double SUM, double SQSUM) {
 
 } // end STD_from_SUMS
 
+// ======================================================
+double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) { 
+
+
+  // Created July 24 2021 by R.Kessler
+  // Unility to compute sigint from N mu-residuals
+  //   MURES_LIST   : mu - mu(true,fit)
+  //   MUCOV_LIST   : covariance per mu
+  //
+  // Initial estimate is computed from
+  //  RMS_PULL^2 = Sum[ MURES*MURES/COV ] / N
+  //  Define approx COVINT = COVINT_0 and cov scale S_COV such that
+  //
+  //  Sum[ MURES*MURES / (COV + COVINT+0) ] = 
+  //  Sum[ MURES*MURES / COV * S_COV ]      = N
+  //
+  // and S_Cov = rms_Pull_orig^2
+  //
+  // Very roughly,
+  //    Sum[COV] + N*COVINT_0 = Sum[COV] * S_COV
+  //    COVINT = [ (S_COV-1.0) * Sum[COV]/ N 
+
+  double XN              = (double)N;
+  int i ;
+  double RMS_PULL_ORIG, RMS_MURES_ORIG, SQMURES, MURES, MUCOV ;
+  double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
+  double sigint = 0.0, sigint_approx, tmp;
+  double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
+  char fnam[] = "sigint_muresid_list";
+
+  // ---------------- BEGIN -------------
+
+  for ( i=0; i < N ; i ++ ) {
+    MURES    = MURES_LIST[i];
+    MUCOV    = MUCOV_LIST[i];
+    SQMURES  = MURES * MURES ;
+    if ( MUCOV <= 0.0 ) {
+      sprintf(c1err,"Invalid MUCOV = %le ", MUCOV);
+      sprintf(c2err,"i=%d  MURES=%le", i, MURES);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+
+    SUM_MUCOV   += MUCOV ;
+    SUM_MURES   += MURES ;
+    SUM_SQMURES += SQMURES ;
+
+    /* xxx mark delete
+    SUM_PULL    += MURES / sqrt(MUCOV) ;
+    SUM_SQPULL  += SQMURES / MUCOV ;
+    xxxx end mar  */
+  }
+
+  AVG_MUERR = SUM_MURES / XN ;
+  AVG_MUCOV = SUM_MUCOV / XN;
+  AVG_MUERR = sqrt(AVG_MUCOV);
+  RMS_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
+
+  if  ( RMS_MURES_ORIG < AVG_MUERR ) {
+    sprintf(c1err,"Cannot compute sigint because RMS^2 > AVG_MUERR ??");
+    sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
+	    RMS_MURES_ORIG, sqrt(AVG_MUCOV), N);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
+  }
+
+  tmp = RMS_MURES_ORIG*RMS_MURES_ORIG - AVG_MUCOV ;
+  sigint_approx = sqrt(tmp);
+
+  // try a grid of sigint around sigint_approx; then interpolate
+  // RMS vs. sigint_grid 
+ 
+  int    OPT_INTERP = 1 ;
+  int    NBIN_SIGINT = 0 ;
+  double sigint_bin = 0.005 ;
+  double sigTmp_lo  = sigint_approx - (4.*sigint_bin) - 1.0E-7 ;
+  double sigTmp_hi  = sigint_approx + (8.*sigint_bin) ;
+  double sigTmp, covTmp, covtot, sum_dif, sum_sqdif;
+  double pull, sum_pull, sum_sqpull ;
+  double sigTmp_store[20], rmsPull_store[20], rmsPull ;
+  double ONE = 1.0 ;
+
+  // start with largest sigInt and decrease so that RMS is increasing     
+  // for the interp function below                                        
+  for(sigTmp = sigTmp_hi; sigTmp >= sigTmp_lo; sigTmp -= sigint_bin ) {
+    if ( sigTmp < 0.0 ) { continue ; }
+    sum_dif = sum_sqdif = sum_pull = sum_sqpull = 0.0 ;
+    covTmp = sigTmp * sigTmp ;
+
+    for(i=0; i < N; i++ ) {
+      covtot = MUCOV_LIST[i] + covTmp;
+      pull   = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
+      sum_pull   += pull ;
+      sum_sqpull += ( pull * pull);
+    }
+    rmsPull = STD_from_SUMS(N, sum_pull, sum_sqpull);
+    rmsPull_store[NBIN_SIGINT] = rmsPull;
+    sigTmp_store[NBIN_SIGINT]  = sigTmp ;
+    NBIN_SIGINT++ ;
+    
+  } // end sigTmnp loop
+
+  // interpolate sigInt vs. rmsPull at rmsPull=1                          
+  sigint = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
+			rmsPull_store, sigTmp_store, fnam);
+
+  int LDMP = 1;
+  if ( LDMP ) {
+    printf(" xxx sigint(min-max, approx->final) = "
+	   "%.4f-%.4f   %.4f -> %.4f \n",
+	   sigTmp_store[NBIN_SIGINT-1], sigTmp_store[0], 
+	   sigint_approx, sigint);
+  }
+
+  // .xyz
+  // xxx  sigint = sigint_approx;
+
+  return sigint;
+
+} // end sigint_from_array
+
 // =============================================
 void remove_quote(char *string) {
 

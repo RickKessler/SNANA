@@ -470,7 +470,7 @@ bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_full_command(FILE *fp, int argc, char** argv);
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-// xxxvoid set_SNDATA_LEGACY(char *key, int NVAL, char *stringVal, double *parVal);
+
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
@@ -730,6 +730,8 @@ double polyEval(int N, double *coef, double x);
 void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
+double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST);
+
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
 

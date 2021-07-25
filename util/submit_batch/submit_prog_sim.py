@@ -1587,7 +1587,7 @@ class Simulation(Program):
         format_mask       = self.config_prep['format_mask']
         ranseed_key       = self.config_prep['ranseed_key'] 
         ngen_unit         = self.config_prep['ngen_unit']
-        n_core            = self.config_prep['n_core']
+        n_job_split       = self.config_prep['n_job_split']
 
         # - - - - - - - 
         f.write("\n# Original user input \n")
@@ -1612,13 +1612,14 @@ class Simulation(Program):
 
         f.write(f"N_GENVERSION:         {n_genversion} \n")
 
-        comment = "NGEN/core sum over all GENVERSIONs"
-        f.write(f"NGENTOT_SUM:          {ngentot_sum}  # ({comment})\n")
+        comment = "NGEN/split summed over all GENVERSIONs"
+        f.write(f"NGENTOT_SUM:        {ngentot_sum}  # ({comment})\n")
 
         # write grand total over all cores (July 26 2021)
-        ngentot_sumcores = ngentot_sum * n_core
-        comment = "NGEN sum over all GENVERSIONs and cores"
-        f.write(f"NGENTOT_SUMCORES:     {ngentot_sumcores}  # ({comment})\n")
+        ngentot_sumsplit = ngentot_sum * n_job_split
+        comment = f"NGEN x {n_job_split} split-jobs " \
+                  f"summed over all GENVERSIONs"
+        f.write(f"NGENTOT_SUMSPLIT:   {ngentot_sumsplit}  # ({comment})\n")
     
         #end append_info_file
 

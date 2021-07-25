@@ -5611,28 +5611,28 @@ double STD_from_SUMS(int N, double SUM, double SQSUM) {
 } // end STD_from_SUMS
 
 // ======================================================
-double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) { 
+double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
+			   char *callFun ) { 
 
 
-  // Created July 24 2021 by R.Kessler
+  // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
   // Unility to compute sigint from N mu-residuals
   //   MURES_LIST   : mu - mu(true,fit)
   //   MUCOV_LIST   : covariance per mu
   //
-  // Initial estimate is computed from
-  //  RMS_PULL^2 = Sum[ MURES*MURES/COV ] / N
-  //  Define approx COVINT = COVINT_0 and cov scale S_COV such that
+  // Strategy is to make first pass over LIST and compute sigint_approx. 
+  // Then make another pass over LIST and compute RMS_PULL on a grid of 
+  // sigint in small steps around sigint_approx. Finally, interpolate 
+  // sigint vs. RMS_PULL at RMS_PULL=1.0
   //
-  //  Sum[ MURES*MURES / (COV + COVINT+0) ] = 
-  //  Sum[ MURES*MURES / COV * S_COV ]      = N
-  //
-  // and S_Cov = rms_Pull_orig^2
-  //
-  // Very roughly,
-  //    Sum[COV] + N*COVINT_0 = Sum[COV] * S_COV
-  //    COVINT = [ (S_COV-1.0) * Sum[COV]/ N 
+  // *callFun is for error messages.
 
-  double XN              = (double)N;
+  int    OPT_INTERP  = 1 ;
+  double sigint_bin  = 0.01 ;
+  int    nbin_lo     = 4 ; // prep this many bins below sigint_approx
+  int    nbin_hi     = 8 ; // idem above sigint_approx
+  double XN          = (double)N;
+
   int i ;
   double RMS_PULL_ORIG, RMS_MURES_ORIG, SQMURES, MURES, MUCOV ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
@@ -5647,6 +5647,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
     MUCOV    = MUCOV_LIST[i];
     SQMURES  = MURES * MURES ;
     if ( MUCOV <= 0.0 ) {
+      print_preAbort_banner(fnam);
+      printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Invalid MUCOV = %le ", MUCOV);
       sprintf(c2err,"i=%d  MURES=%le", i, MURES);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -5663,23 +5665,23 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
   RMS_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
 
   if  ( RMS_MURES_ORIG < AVG_MUERR ) {
-    sprintf(c1err,"Cannot compute sigint because RMS^2 > AVG_MUERR ??");
+    print_preAbort_banner(fnam);
+    printf("  %s called from %s\n", fnam, callFun);
+    sprintf(c1err,"Cannot compute sigint because RMS < AVG_MUERR ??");
     sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
-	    RMS_MURES_ORIG, sqrt(AVG_MUCOV), N);
+	    RMS_MURES_ORIG, sqrt(AVG_MUCOV), N );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
   }
 
   tmp = RMS_MURES_ORIG*RMS_MURES_ORIG - AVG_MUCOV ;
   sigint_approx = sqrt(tmp);
 
-  // try a grid of sigint around sigint_approx; then interpolate
-  // RMS vs. sigint_grid 
- 
-  int    OPT_INTERP = 1 ;
+  // - - - - - - - 
+  // prepare interp-grid of sigint vs. RMS around sigint_approx.
+
   int    NBIN_SIGINT = 0 ;
-  double sigint_bin = 0.01 ;
-  double sigTmp_lo  = sigint_approx - (4.*sigint_bin) - 1.0E-7 ;
-  double sigTmp_hi  = sigint_approx + (8.*sigint_bin) ;
+  double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
+  double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
   double sigTmp, covTmp, covtot, sum_dif, sum_sqdif;
   double pull, sum_pull, sum_sqpull ;
   double sigTmp_store[20], rmsPull_store[20], rmsPull ;
@@ -5709,7 +5711,7 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
   sigint = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
 			rmsPull_store, sigTmp_store, fnam);
 
-  int LDMP = 1;
+  int LDMP = 0 ;
   if ( LDMP ) {
     printf(" xxx sigint(min-max, approx->final) = "
 	   "%.4f-%.4f   %.4f -> %.4f  (<MURES>=%f)\n",
@@ -5717,12 +5719,10 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST ) {
 	   sigint_approx, sigint, AVG_MURES);
   }
 
-  // .xyz
-  // xxx  sigint = sigint_approx;
 
   return sigint;
 
-} // end sigint_from_array
+} // end sigint_muresid_list
 
 // =============================================
 void remove_quote(char *string) {

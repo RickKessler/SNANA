@@ -730,7 +730,8 @@ double polyEval(int N, double *coef, double x);
 void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
-double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST);
+double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST, 
+			   char *callFun );
 
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;

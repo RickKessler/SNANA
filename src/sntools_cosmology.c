@@ -474,21 +474,28 @@ double Hzfun_wCDM(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   // Created Oct 2020
   // Refactor using HzFUN_INFO struct, and also use wa.
+  //
+  // July 26 2021: fix awful bug for wa; initially I had assumed
+  //    that integral inside exponent was evaluated numerically,
+  //    but it's not. Include analytic integral.
 
   double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0] ; // km/s/Mpc
   double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM] ;
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL] ;
   double w0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
   double wa = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
-  double Hz, sqHz, w, a, ZZ, Z2, Z3, ZL, WW, KAPPA ;
+  double Hz, sqHz, a, ZZ, Z2, Z3, ZL, KAPPA ;
+  double argpow, argexp ;
     
   KAPPA = 1.0 - OM - OL ;  // curvature
   ZZ    = 1.0 + zCMB ;    Z2=ZZ*ZZ ;   Z3=Z2*ZZ ; 
   a     = 1.0/ZZ;
-  w     = w0 + wa*(1.0-a);
-  WW    = 3.0 * (1.0 + w) ;
-  ZL    = pow(ZZ,WW) ;
-  sqHz  = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
+
+  argpow    =  3.0 * (1.0 + w0 + wa) ;
+  argexp    = -3.0 * wa * zCMB * a ;
+  ZL        = pow(ZZ,argpow) * exp(argexp);
+
+  sqHz  = OM*Z3  + KAPPA*Z2 + OL*ZL;
   Hz    = H0 * sqrt ( sqHz ) ;
   return(Hz);
 

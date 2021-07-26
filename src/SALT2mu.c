@@ -9051,10 +9051,11 @@ void prepare_biasCor(void) {
   // determine sigInt for biasCor sample BEFORE makeMap since
   // sigInt is needed for 1/muerr^2 weight
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ )  {  
-    if ( INPUTS.debug_flag == 724 ) 
-      {  init_sigInt_biasCor_SNRCUT(IDSAMPLE);  } // refac
-    else
+    if ( INPUTS.debug_flag == -724 ) 
       {  init_sigInt_biasCor_LEGACY(IDSAMPLE);  } // legacy
+    else
+      {  init_sigInt_biasCor_SNRCUT(IDSAMPLE);  } // refac
+
   } 
 
   // determine intrinsic scatter matrix on grid of

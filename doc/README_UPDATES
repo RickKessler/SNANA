@@ -20218,5 +20218,6 @@
     SALT2mu.c
       + more subprocess development; add Beta distribution.
       + read bounding functions from sim-input file.
+      + use new utility  sigint_muresid_list
 
 END: 

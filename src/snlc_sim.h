@@ -38,8 +38,6 @@
 
 // ************ GLOBAL VARIABLES *************
 
-time_t t_start, t_end, t_end_init ;
-
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  2000       // 
@@ -152,6 +150,11 @@ int WRFLAG_COMPACT   ; // Jan 2018
 #define OFFSET_TYPE_PHOT 100   // add this to specType to get photoType 
 
 FILE  *fp_SIMLIB ;
+
+struct {
+  time_t t_start, t_end, t_end_init, t_update_last ;
+  int    NGENTOT_LAST ;
+} TIMERS ;
 
 // define auxillary files produced with data files.
 typedef struct {

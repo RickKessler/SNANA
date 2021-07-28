@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
   //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
 
-  t_start = time(NULL);
+  TIMERS.t_start = time(NULL);
 
   init_SNPATH();    // init PATH_SNDATA_ROOT
 
@@ -218,8 +218,11 @@ int main(int argc, char **argv) {
   print_banner( " Begin Generating Lightcurves. " );
   fflush(stdout);
 
-  t_end_init = time(NULL); // Mar 15 2020
+  TIMERS.t_end_init    = time(NULL); // Mar 15 2020
+  TIMERS.t_update_last = TIMERS.t_end_init;
+  TIMERS.NGENTOT_LAST  = 0 ;
 
+  // - - - - - 
   for ( ilc = 1; ilc <= INPUTS.NGEN ; ilc++ ) {
 
     NGENLC_TOT++;
@@ -382,7 +385,7 @@ int main(int argc, char **argv) {
 
  ENDLOOP:
 
-  t_end = time(NULL);
+  TIMERS.t_end = time(NULL);
 
   // print final statistics on generated lightcurves.
 
@@ -11747,7 +11750,7 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   FILE *fp ;
   char *ptrFile  = SIMFILE_AUX->YAML ;
   char fnam[] = "wr_SIMGEN_YAML" ;
-  double t_gen   = (t_end - t_end_init); // total gen time after init
+  double t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
 
   // ------------ BEGIN ---------------
     if ( (fp = fopen(ptrFile, "wt")) == NULL ) {       
@@ -25661,7 +25664,7 @@ void readme_doc(int iflag_readme) {
 
   // ---- statistics
 
-  double t_gen   = (t_end - t_end_init); // total gen time after init
+  double t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
   double R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
   double R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
 
@@ -27092,7 +27095,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Jun 09, 2012:  replace GRIDGEN stuff call to wr_GRIDfile(3);
   // May 14, 2019: add call to wr_SIMGEN_DUMP(3,SIMFILE_AUX);
   int i, N1, N2 ;
-
+  
   // ------------ BEGIN -------------
 
   iter_summary_genPDF();
@@ -27184,11 +27187,18 @@ void screen_update(void) {
   int CID, NGEN;
   bool QUIT_NOREWIND = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND) >0;
   int  NLIBID        = SIMLIB_GLOBAL_HEADER.NLIBID_VALID ;
+  char ctmp[40];
+
+  // July 26 2021: print GenRate every 100 sec.
+
+  // ---------- BEGIN --------------
 
   if ( !WRFLAG_CIDRAN  ) 
     { CID = GENLC.CID ; }
   else
     { CID = GENLC.CIDRAN ; }
+
+  // - - - - -
 
   if ( INPUTS.NGEN_LC > 0 ) {
 
@@ -27205,18 +27215,40 @@ void screen_update(void) {
       NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
 
       if ( QUIT_NOREWIND && NLIBID > 0 ) {
+	// user set option to make 1 and only 1 pass thru SIMLIB
 	printf("\t Finished generating %8d of %d valid LIBIDs \n", 
 	       NGENLC_TOT, NLIBID );
       }
       else {
-	printf("\t Finished generating %8d of %d (CID=%6d) \n", 
-	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID );
+	// most likely to end up here
+
+	ctmp[0] = 0 ;
+	if ( INPUTS.NGEN_SCREEN_UPDATE > 50 && NGENLC_TOT > 100 ) {
+	  // time function has 1 sec resolution, so wait at least
+	  // 100 sec to update GenRate so we get 1% precision.
+	  time_t t_now         = time(NULL);
+	  time_t t_update_last = TIMERS.t_update_last ;
+	  if ( t_now - t_update_last > 100 ) {
+	    int    NGENTOT_LAST  = TIMERS.NGENTOT_LAST ;
+	    double XNDIF         = (double)(NGENLC_TOT - NGENTOT_LAST) ;
+	    double TDIF          = (double)(t_now - t_update_last) ;
+	    int GenRate          = (int)( XNDIF/TDIF ) ;
+	    sprintf(ctmp,"GenRate=%d/sec", GenRate);
+	    TIMERS.t_update_last = t_now ;
+	    TIMERS.NGENTOT_LAST  = NGENLC_TOT ;
+	  }
+	}
+
+	printf("\t Finished generating %8d of %d (CID=%d) %s\n", 
+	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID, ctmp );
       }
 
       fflush(stdout);
-    }
+    } // end LUPDGEN
 
   }
+
+  return ;
 
 } // end of screen_update
 

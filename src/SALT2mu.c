@@ -5664,7 +5664,11 @@ void read_data(void) {
 
 // ****************************************            
 float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
+
   // Created July 28 2021 by Dillon Brout
+  // Compute CELLINFO bins and malloc arrays.
+  // Used later for adjusting muErr based on RMS from sim.
+
   char fnam[] = "malloc_MUCOV";
 
   int debug_malloc = INPUTS.debug_malloc ;

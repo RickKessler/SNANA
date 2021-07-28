@@ -5674,8 +5674,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   int NCELL;
 
   int NBINa,NBINb,NBINg,NBINm,NBINz,NBINc;
-  float cmin,cmax,cbin,c_lo,c_hi,c_avg;
-  float mmin,mmax,mbin,m_lo,m_hi,m_avg;
+  double cmin,cmax,cbin,c_lo,c_hi,c_avg;
+  double mmin,mmax,mbin,m_lo,m_hi,m_avg;
   int ic,im,i1d;
 
   int NPERCELL_REALLOC=2000;
@@ -10380,8 +10380,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int debug_malloc = INPUTS.debug_malloc ;
 
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
-  double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
-  double mmin,  mmax, mbin, m_lo, m_hi, m_avg ;
+  //double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
+  //double mmin,  mmax, mbin, m_lo, m_hi, m_avg ;
 
   int DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
@@ -10433,17 +10433,24 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int MEMD     = NCELL   * sizeof(double);
   int MEMI     = NCELL   * sizeof(int);
 
-  /* xxx begin mark delete
+
+  ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];         
+
 
   NBINa    = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
   NBINg    = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;  
+  NBINz = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.nbin ;
+  NBINm = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.nbin ;  
+  NBINc = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin;
+
+  /* xxx begin mark delete
+
   ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];   
 
   // redshift bins are same as for biasCor
   copy_BININFO(&CELLINFO_BIASCOR[IDSAMPLE].BININFO_z, 
 	       &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z);
-  NBINz = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.nbin ;
 
 
 

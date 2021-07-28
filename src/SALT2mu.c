@@ -2281,7 +2281,7 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL);
 void SUBPROCESS_SIM_PRESCALE(void);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
-void SUBPROCESS_INIT_RANFLAT(void);
+void SUBPROCESS_INIT_RANFLAT(int iter);
 void SUBPROCESS_STORE_EBV(void);
 void SUBPROCESS_READ_SIMREF_INPUTS(void);
 void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
@@ -2307,6 +2307,7 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 #define MXVAR_TABLE_SUBPROCESS    3  // max number of dimensions per table
 #define SUBPROCESS_OPTMASK_WRFITRES 1 // write fitres file each iteration
 #define SUBPROCESS_OPTMASK_WRM0DIF  2 // write M0DIF file for each iteration
+#define SUBPROCESS_OPTMASK_RANSEED  4 // Use different set of randoms for each reweight event
 
 #define VARNAME_SIM_AV   "SIM_AV"
 #define VARNAME_SIM_RV   "SIM_RV"
@@ -20870,7 +20871,7 @@ void  SUBPROCESS_INIT(void) {
     // debugexit(fnam);
   
   // prep flat random for each event
-  SUBPROCESS_INIT_RANFLAT();
+  SUBPROCESS_INIT_RANFLAT(-1);
 
   // malloc logicals to keep/reject based on random re-wgt
   SUBPROCESS.KEEP_AFTER_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
@@ -21012,8 +21013,10 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 } // end SUBPROCESS_READPREP_TABLEVAR
 
 // ========================================
-void  SUBPROCESS_INIT_RANFLAT(void) {
+void  SUBPROCESS_INIT_RANFLAT(int iter) {
 
+  // iter < 0 means we need to init malloc before fitting
+  // iter > 0 is during fit
   // Init fixed random number [0-1] for each event;
   // used later to select weighted sub-sample of sim-data.
 
@@ -21021,18 +21024,27 @@ void  SUBPROCESS_INIT_RANFLAT(void) {
   int MEMF = NSN * sizeof(float) ;
   int debug_malloc = INPUTS.debug_malloc ;
   int isn ;
+  int OPTMASK = SUBPROCESS.INPUT_OPTMASK ; 
+  bool INITSTEP = (iter < 0); 
   double r1, r2;
   char fnam[] = "SUBPROCESS_INIT_RANFLAT" ;
 
   // ------------ BEGIN -------------
 
-  printf("%s  init randoms with ISEED=%d \n",
-	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED );
-  init_random_seed(SUBPROCESS.INPUT_ISEED,1);
+  if (INITSTEP) {
+    printf("%s  init randoms with ISEED=%d \n",
+	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED );
 
-  print_debug_malloc(+1*debug_malloc,fnam);
-  SUBPROCESS.RANFLAT_REWGT    = (float*) malloc ( MEMF );
-  SUBPROCESS.RANFLAT_PRESCALE = (float*) malloc ( MEMF );
+    init_random_seed(SUBPROCESS.INPUT_ISEED,1);
+
+    print_debug_malloc(+1*debug_malloc,fnam);
+    SUBPROCESS.RANFLAT_REWGT    = (float*) malloc ( MEMF );
+    SUBPROCESS.RANFLAT_PRESCALE = (float*) malloc ( MEMF );
+
+  }
+
+  bool DORAN = (INITSTEP || (OPTMASK & SUBPROCESS_OPTMASK_RANSEED) > 0) ;
+  if (!DORAN) { return; } 
 
   for(isn=0; isn < NSN; isn++ ) {
     r1 = unix_getRan_Flat1(1);
@@ -21351,6 +21363,8 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   char *name;
   double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT, PROB_SIMREF, PROB_RATIO ;
   SUBPROCESS.MAXPROB_RATIO = 0.;
+
+  SUBPROCESS_INIT_RANFLAT(ITER_EXPECT); 
 
   for ( isn=0 ; isn < NSN; isn++ ) {
     PROB_SIMREF     = 1.0;

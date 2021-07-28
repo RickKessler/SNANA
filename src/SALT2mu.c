@@ -1028,13 +1028,16 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define MASK_BIASCOR_1DZ      4     // bit2: OR of above
 #define MASK_BIASCOR_1D5DCUT  8     // bit3: 1DZWGT, but apply 5D cut (test) 
 #define MASK_BIASCOR_5D      16     // bit4: 5D map of biasCor
-#define MASK_BIASCOR_MUCOV   32     // bit5: apply MUCOVSCALE vs. z
+#define MASK_BIASCOR_MUCOVSCALE   32     // bit5: apply MUCOVSCALE vs. z
 #define MASK_BIASCOR_SAMPLE  64     // bit6: biasCor vs. IDSAMPLE
 #define MASK_BIASCOR_MU     128     // bit7: bias on MU instead of mB,x1,c
 #define MASK_BIASCOR_COVINT 256     // bit8: biasCor-covint(3x3) x SCALE
 #define MASK_BIASCOR_SIGINT_SAMPLE 512  // bit9: sigint(biasCor) vs. IDSAMPLE
 #define MASK_BIASCOR_noCUT  1024    // do NOT reject event if no biasCor
-#define MASK_BIASCOR_DEFAULT  MASK_BIASCOR_5D + MASK_BIASCOR_MUCOV + MASK_BIASCOR_SAMPLE
+#define MASK_BIASCOR_DEFAULT  MASK_BIASCOR_5D + MASK_BIASCOR_MUCOVSCALE + MASK_BIASCOR_SAMPLE
+#define MASK_BIASCOR_MAD    2048 // bit11: use median instead of rms in error scaling
+#define MASK_BIASCOR_MUCOVADD 4096 // bit12: use error floor for error tuning
+
 
 #define USEMASK_BIASCOR_COVFIT 1
 #define USEMASK_BIASCOR_COVINT 2
@@ -1380,7 +1383,7 @@ struct {
   double *mumodel, *M0, *mu, *muerr, *muerr_renorm, *muerr_raw, *muerr_vpec;
   double *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
-  double *muCOVscale, *muBias, *muBiasErr, *muBias_zinterp; 
+  double *muCOVscale, *muCOVadd, *muBias, *muBiasErr, *muBias_zinterp; 
   double *chi2, *probcc_beams;
   double **fitParBias;
 
@@ -1389,8 +1392,9 @@ struct {
   // before fit, store bias[isn][ialpha][ibeta][igammadm]
   FITPARBIAS_DEF ****FITPARBIAS_ALPHABETA ; 
   
-  // before fit, store muCOVscale at each alpha,beta,gamma bin
+  // before fit, store muCOVscale and muCOVadd at each alpha,beta,gamma bin
   double ****MUCOVSCALE_ALPHABETA ; 
+  double ****MUCOVADD_ALPHABETA ;
 
   float MEMORY;  // Mbytes
 
@@ -1435,6 +1439,7 @@ struct {
 
   // define bias-scale on muCOV (use float to save memory)
   float **MUCOVSCALE ; 
+  float **MUCOVADD ;
 
 
   // wgted-avg redshift  corresponding to each M0 offset (for M0 outfile)
@@ -5713,6 +5718,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
     if ( nfile_biasCor > 0 ) {
       INFO_DATA.muCOVscale     = (double*) malloc(MEMD); MEMTOT+=MEMD;
+      INFO_DATA.muCOVadd       = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
@@ -5737,7 +5743,11 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
       f_MEM[N_MEM] = 
 	malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
 			&INFO_DATA.MUCOVSCALE_ALPHABETA ); //<==return
+      f_MEM[N_MEM] = 
+	malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
+			&INFO_DATA.MUCOVADD_ALPHABETA ); //<==return
       sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.MUCOVSCALE");  N_MEM++; 
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.MUCOVADD");  N_MEM++; 
     }
 
     for(i_mem=0; i_mem < N_MEM; i_mem++ ) {
@@ -5776,6 +5786,8 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 				&INFO_DATA.FITPARBIAS_ALPHABETA );
     malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
 		    &INFO_DATA.MUCOVSCALE_ALPHABETA ); 
+    malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
+		    &INFO_DATA.MUCOVADD_ALPHABETA ); 
 
   }
 
@@ -6208,6 +6220,7 @@ void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
     // is allocate later in set_MAPCELL_biascor (when NCELL is known)
     INFO_BIASCOR.FITPARBIAS = (FITPARBIAS_DEF**) malloc ( MEMBIAS );
     INFO_BIASCOR.MUCOVSCALE = (float **        ) malloc ( MEMCOV  );    
+    INFO_BIASCOR.MUCOVADD = (float **        ) malloc ( MEMCOV  );
 
     // print memory consumption to stdout
     f_MEMORY += ((float)MEMADD) / 1.0E6 ;
@@ -8891,7 +8904,7 @@ void prepare_biasCor(void) {
   bool  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   bool  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
   bool  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
-  bool  DOCOR_MUCOV   = ( OPTMASK & MASK_BIASCOR_MUCOV   );
+  bool  DOCOR_MUCOVSCALE   = ( OPTMASK & MASK_BIASCOR_MUCOVSCALE);
   bool  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   bool  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
   bool  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
@@ -8965,7 +8978,7 @@ void prepare_biasCor(void) {
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
     }
 
-    if ( DOCOR_MUCOV ) 
+    if ( DOCOR_MUCOVSCALE ) 
       { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR); }
     else
       { sprintf(txt_biasCor,"%dD", NDIM_BIASCOR); }
@@ -9105,7 +9118,7 @@ void prepare_biasCor(void) {
     fprintf(FP_STDOUT,"\n");  fflush(FP_STDOUT);   
 
     // make map of sigma_mu bias
-    if ( DOCOR_MUCOV ) { makeMap_sigmu_biasCor(IDSAMPLE); }
+    if ( DOCOR_MUCOVSCALE ) { makeMap_sigmu_biasCor(IDSAMPLE); }
 
     fprintf(FP_STDOUT, "\n\t END BIASCOR PREP for %s\n", NAME_SAMPLE);
     fprintf(FP_STDOUT, " %s\n", borderLine);       
@@ -9132,7 +9145,7 @@ void prepare_biasCor(void) {
   fprintf(FP_STDOUT, "\n");
   fprintf(FP_STDOUT, " For each DATA event before fit, store \n");
   fprintf(FP_STDOUT, "   * mb,x1,c-bias at each alpha,beta,gammaDM \n");
-  if ( DOCOR_MUCOV) 
+  if ( DOCOR_MUCOVSCALE) 
     { fprintf(FP_STDOUT, "   * muCOVscale   at each alpha,beta,gammaDM \n"); }
 
 
@@ -9659,6 +9672,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   MEMCOV  = NCELL   * sizeof(float) ;
   INFO_BIASCOR.FITPARBIAS[IDSAMPLE] = (FITPARBIAS_DEF*) malloc ( MEMBIAS);
   INFO_BIASCOR.MUCOVSCALE[IDSAMPLE] = (float *        ) malloc ( MEMCOV );
+  INFO_BIASCOR.MUCOVADD[IDSAMPLE] = (float *        ) malloc ( MEMCOV );
 
   fflush(FP_STDOUT);
   return ;
@@ -13012,7 +13026,7 @@ int get_muCOVscale(char *cid,
   muCOVscale_local = 1.0 ;
   *muCOVscale = muCOVscale_local ;
 
-  if ( (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOV)==0   ) { return(1); }
+  if ( (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE)==0   ) { return(1); }
 
   // check "noBiasCor" option (Aug 20 2016)
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return(1); }

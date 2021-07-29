@@ -7,6 +7,8 @@
 #   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'
 #   to record extra surveys in SALT2.INFO file.
 #
+# Jul 27 2021:
+#   added TRAINOPT_GLOBAL key (G Taylor)
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -16,6 +18,7 @@ from    submit_params    import *
 from    submit_prog_base import Program
 
 TRAINOPT_STRING  = "TRAINOPT"
+TRAINOPT_GLOBAL_STRING = "TRAINOPT_GLOBAL"
 SALTPATH_STRING  = "SALTPATH"  # env name of calib path for snpca
 SALTPATH_FILES   = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 FILTERWHEEL_FILE = "FilterWheel"
@@ -147,6 +150,13 @@ class train_SALT2(Program):
 
     def train_prep_trainopt_list(self):
         CONFIG   = self.config_yaml['CONFIG']
+
+        key = TRAINOPT_GLOBAL_STRING
+        if key in CONFIG:
+            trainopt_global = CONFIG[key]
+        else:
+            trainopt_global = None
+
         key      = TRAINOPT_STRING
         if key in CONFIG :
             trainopt_rows = CONFIG[key]
@@ -177,6 +187,7 @@ class train_SALT2(Program):
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
         self.config_prep['use_shift_file']      = use_shift_file
 
+        self.config_prep['trainopt_global'] = trainopt_global
         # end train_prep_trainopt_list
     
     def get_path_trainopt(self,which,trainopt):
@@ -688,7 +699,13 @@ class train_SALT2(Program):
         path_calib_list   = self.config_prep['outdir_calib_list']
         path_calib        = path_calib_list[itrain]
         prefix            = trainopt_num_list[itrain]
-        arg_list          = [ ]
+        trainopt_global   = self.config_prep['trainopt_global']
+        
+
+        if trainopt_global is None:
+            arg_list = []
+        else:
+            arg_list = [trainopt_global]
 
         trainDir_file  = (f"{prefix}.CONFIG")
         self.create_trainDir_file(itrain,trainDir_file)

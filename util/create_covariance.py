@@ -212,7 +212,7 @@ def load_hubble_diagram(path, args, config):
         #    df.loc[calib_mask, VARNAME_MUERR] = \
         #        np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
         #        df.loc[calib_mask, "MUERR_VPEC"] ** 2)
-        df['CIDstr'] = df['CID'].astype(str)
+        df['CIDstr'] = df['CID'].astype(str)+"_"+df['IDSURVEY'].astype(str)
         df = df.set_index(["IDSURVEY", "CID"])
     elif VARNAME_z in df.columns:
         # should not be needed here for M0DIF, but what the heck
@@ -459,8 +459,8 @@ def get_cov_from_diff(df1, df2, scale):
 
 def get_cov_from_covfile(data, covfile, scale):
     covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
-    covindf['CID1'] = covindf['CID1'].astype(str)
-    covindf['CID2'] = covindf['CID2'].astype(str)
+    covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
+    covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
     covindf = covindf.set_index(["CID1", "CID2"])
     covout = np.zeros((len(data),len(data)))
     for i,cid1,ra1,dec1 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):

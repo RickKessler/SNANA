@@ -2101,16 +2101,17 @@ void  store_iaib_biasCor(void) ;
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
-int get_muCOVscale(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		   double *muCOVscale ) ;
+int get_muCOVcorr(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
+		  double *muCOVscale, double *muCOVadd ) ;
 
 void   get_muBias(char *NAME, 
 		  BIASCORLIST_DEF *BIASCORLIST,  
 		  FITPARBIAS_DEF (*FITPARBIAS_ABGRID)[MXb][MXg],
 		  double         (*MUCOVSCALE_ABGRID)[MXb][MXg],
+		  double         (*MUCOVADD_ABGRID)[MXb][MXg],
 		  INTERPWGT_AlphaBetaGammaDM *INTERPWGT,  
 		  double *FITPARBIAS_INTERP, 
-		  double *muBias, double *muBiasErr, double *muCOVscale ) ;
+		  double *muBias, double *muBiasErr, double *muCOVscale, double *muCOVadd ) ;
 
 double get_gammadm_host(double z, double logmass, double *hostPar);
 
@@ -4141,12 +4142,15 @@ void *MNCHI2FUN(void *thread) {
   char fnam[]    = "MNCHI2FUN" ;
   char *name ;
 
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
   int NDIM_BIASCOR, INTERPFLAG_abg;
   double logmass, omega_l, omega_k, wde, wa;
   double alpha, beta, gamma, scalePROB_fitpar, *hostPar ;
   double cosPar[NCOSPAR], ProbRatio_Ia, ProbRatio_CC ;
   double chi2sum_tot, chi2sum_Ia, sqmures, mures, mu, muBias, muBiasErr ;
-  double z, zmuerr, mb, x1, c, mumodel_store, muCOVscale ;
+  double z, zmuerr, mb, x1, c, mumodel_store, muCOVscale, muCOVadd ;
   double PTOTRAW_Ia=0.0, PTOTRAW_CC=0.0, muBias_zinterp;
   double muerr, muerrsq, muerrsq_last, muerr_last ;
   double PSUM,Prob_SUM,PTOT_Ia,PTOT_CC, dPdmu_Ia, dPdmu_CC, Prob_Ia, Prob_CC ;
@@ -4171,6 +4175,7 @@ void *MNCHI2FUN(void *thread) {
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF FITPARBIAS_ALPHABETA[MXa][MXb][MXg]; // bias at each a,b
   double   MUCOVSCALE_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVscale at each a,b
+  double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
   double   *fitParBias;
 
   // -------------- BEGIN ------------
@@ -4280,7 +4285,14 @@ void *MNCHI2FUN(void *thread) {
 	    
 	    MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
 	      INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
+
+	    if ( DO_COVADD ) {
+	      MUCOVADD_ALPHABETA[ia][ib][ig] = 
+		INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] ; 
+	    }
+
 	    if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
+	    if (set_fitwgt0) { MUCOVADD_ALPHABETA[ia][ib][ig]=1.0; }
 	    
 	    for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
 	      FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
@@ -4338,17 +4350,21 @@ void *MNCHI2FUN(void *thread) {
     BIASCORLIST.FITPAR[INDEX_mB] = mb ;
     BIASCORLIST.FITPAR[INDEX_x1] = x1 ;
     BIASCORLIST.FITPAR[INDEX_c]  = c ;
-    muBias = muBiasErr = 0.0 ;  muCOVscale=1.0 ; 
+    muBias = muBiasErr = 0.0 ;  
+    muCOVscale =1.0 ;
+    muCOVadd = 0.0;
 
     if ( NDIM_BIASCOR >= 5 ) {
       get_muBias(name, &BIASCORLIST,      // (I) misc inputs
 		 FITPARBIAS_ALPHABETA,    // (I) bias at each a,b,g
 		 MUCOVSCALE_ALPHABETA,    // (I) muCOVscale at each a,b
+		 MUCOVADD_ALPHABETA,    // (I) muCOVscale at each a,b
 		 &INTERPWGT,              // (I) wgt at each a,b,g grid point
 		 fitParBias,     // (O) interp bias on mB,x1,c
 		 &muBias,        // (O) interp bias on mu
 		 &muBiasErr,     // (O) stat-error on above
-		 &muCOVscale );  // (O) scale bias on muCOV     
+		 &muCOVscale,   // (O) scale bias on muCOV  
+		 &muCOVadd );  // (O) add bias on muCOV     
     }
     else if ( NDIM_BIASCOR == 1 ) {
       muBias  = muBias_zinterp ; 
@@ -4371,6 +4387,9 @@ void *MNCHI2FUN(void *thread) {
       INFO_DATA.muBias[n]     = muBias ;
       INFO_DATA.muBiasErr[n]  = muBiasErr ;
       INFO_DATA.muCOVscale[n] = muCOVscale ;
+      if ( DO_COVADD ) {
+	INFO_DATA.muCOVadd[n] = muCOVadd ;
+      }
     }
 
     // zero out muBiasErr after storing it, since adding this
@@ -4383,10 +4402,21 @@ void *MNCHI2FUN(void *thread) {
       muerrsq  *= muCOVscale ;  // error scale 
     }
     else {
-      // June 8 2021: refac/test to NOT scale vpec part of distance error
-      muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
-      muerrsq_vpec  = muerr_vpec * muerr_vpec ;
-      muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
+
+      if ( DO_COVADD ) {
+	if ( muCOVscale < 0) {
+	  muerr_vpec    = fcn_muerrz(1, z, zmuerr);
+	  muerrsq_vpec  = muerr_vpec * muerr_vpec ;
+	  muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
+	} else {
+	  muerrsq += muCOVadd; // Aug 2 2021: dillons error floor only for positive floors
+	}
+      } else {
+	// June 8 2021: refac/test to NOT scale vpec part of distance error
+	muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
+	muerrsq_vpec  = muerr_vpec * muerr_vpec ;
+	muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
+      }
     }
 
 
@@ -10412,7 +10442,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
   double muErr, muErrsq, muDif, muDifsq, pull, tmp1, tmp2  ;
-  double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR+1] ;
+  double muBias, muBiasErr, muCOVscale, muCOVadd, fitParBias[NLCPAR+1] ;
   double a, b, gDM, z, m, c ;
   double *SUM_MUERR, *SUM_SQMUERR;
   double *SUM_MUDIF, *SUM_SQMUDIF ;
@@ -10434,6 +10464,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   BIASCORLIST_DEF     BIASCORLIST ;
   FITPARBIAS_DEF      FITPARBIAS[MXa][MXb][MXg] ;
   double              MUCOVSCALE[MXa][MXb][MXg] ;
+  double              MUCOVADD[MXa][MXb][MXg] ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
  
   char fnam[]  = "makeMap_sigmu_biasCor" ;
@@ -10575,6 +10606,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     for(ib=0; ib< NBINb; ib++ ) {  
       for(ig=0; ig< NBINg; ig++ ) {  
 	MUCOVSCALE[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
+	MUCOVADD[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
 	for(iz=0; iz < NBINz; iz++ ) {
 	  for(im=0; im < NBINm; im++ ) {
 	    for(ic=0; ic < NBINc; ic++ ) {
@@ -10591,7 +10623,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
 	      CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic]=N1D;
 
-	      ptr_MUCOVADD[N1D] = 0.0 ;
+	      ptr_MUCOVADD[N1D] = 1.0e-12 ;
 	      CELLINFO_MUCOVADD[IDSAMPLE].NperCell[N1D]  = 0 ;
 	      CELLINFO_MUCOVADD[IDSAMPLE].AVG_z[N1D]     = 0.0 ;
 	      CELLINFO_MUCOVADD[IDSAMPLE].AVG_m[N1D]     = 0.0 ;
@@ -10675,8 +10707,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     if ( istat_bias < 0 ) { continue ; }
 
     get_INTERPWGT_abg(a,b,gDM, DUMPFLAG, &INTERPWGT, fnam );
-    get_muBias(name, &BIASCORLIST, FITPARBIAS, MUCOVSCALE, &INTERPWGT,
-	       fitParBias, &muBias, &muBiasErr, &muCOVscale );  
+    get_muBias(name, &BIASCORLIST, FITPARBIAS, MUCOVSCALE, MUCOVADD, &INTERPWGT,
+	       fitParBias, &muBias, &muBiasErr, &muCOVscale, &muCOVadd );  
 
     // ----------------------------
     muDif   =  muresid_biasCor(ievt);  // mu - muTrue
@@ -10693,7 +10725,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       print_preAbort_banner(fnam);
       printf("\t z=%f  a=%f  b=%f  gDM=%f\n",
 	     z, a, b, gDM);
-      printf("\t ia,ib.ig = %d, %d, %d \n", ia, ib, ig);
+      printf("\t ia,ib,ig = %d, %d, %d \n", ia, ib, ig);
+      printf("\t istat_cov = %d \n", istat_cov);
 
       sprintf(c1err,"Invalid muErrsq=%f for ievt=%d (SNID=%s)", 
 	      muErrsq, ievt, name );
@@ -10804,8 +10837,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       sigInt =
 	sigint_muresid_list(N, CELLINFO_MUCOVADD[IDSAMPLE].MURES[i1d],
 			    CELLINFO_MUCOVADD[IDSAMPLE].MUCOV[i1d], 1, callfun );
+      if (sigInt == 0.) { sigInt = 1.0e-12;}
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
-
+      
     }
 
 
@@ -10854,7 +10888,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 		RMS        = sqrt ( SQMURMS[i1d] );       
 		if ( DO_COVADD ) {
 		  double covint = (double)ptr_MUCOVADD[i1d];
-		  double sigint = covint/fabs(covint)*sqrt(fabs(covint));
+		  double sigint = (covint/fabs(covint))*sqrt(fabs(covint));
 		  printf("%6.3f/%5.3f/%5.3f/%5d ", RMS, sqrt(muCOVscale), sigint, N );	  
 		}
 		else {
@@ -10876,7 +10910,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     char outfile[200];
     char *name;
 
-    sprintf(outfile,"%s_mucovscale.dat",INPUTS.PREFIX); 
+    sprintf(outfile,"%s_%d_mucovscale.dat",INPUTS.PREFIX, IDSAMPLE); 
     printf("DEBUG: Create file %s\n",outfile);
     FILE *fp = fopen(outfile,"wt");
 
@@ -11560,6 +11594,9 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   int  debug_malloc     = INPUTS.debug_malloc ;
   int  MINEVT_SIGINT_COMPUTE = 50; // abort if fewer events in ia,ib,ig bin
 
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
   int  NROW_TOT, NROW_malloc, istat_cov, NCOVFIX, MEMD, cutmask ;
   int  i, ia, ib, ig ;
   int  LDMP = 0 ;
@@ -11596,10 +11633,16 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // ---------------------------------------
   // check option for user to fix sigmb_biascor
   sigInt = INPUTS.sigint_biasCor ;
-  if ( sigInt >= 0.0 ) {
-    if ( IDSAMPLE == 0 ) { 
+  if ( sigInt >= 0.0 || DO_COVADD ) {
+    if ( DO_COVADD ) { // Aug 2 2021 Dillon
+      sigInt = 0.0 ;
       fprintf(FP_STDOUT,
-	      " sigInt -> %.3f from user input sigmb_biascor key\n", sigInt);
+	      " sigInt -> 0: for COV_ADD option IDSAMPLE=%d\n",IDSAMPLE);
+    }
+    else {
+      fprintf(FP_STDOUT,
+	      " sigInt -> %.3f from user input sigmb_biascor key IDSAMPLE=%d\n", 
+	      sigInt, IDSAMPLE);
     }
     fflush(FP_STDOUT);
     SIGINT_AVG = sigInt ;
@@ -12548,11 +12591,14 @@ int  storeDataBias(int n, int DUMPFLAG) {
   // July 1 2016: also store muCOVscale[ia][ib]
   // Apr 18 2017: fix aweful index bug ia -> ib for beta
 
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
   BIASCORLIST_DEF BIASCORLIST ;
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM;
   int    NBINa, NBINb, NBINg, ia, ib, ig, ipar, istat_bias, idsample ;
   int    ISTAT = 1;
-  double z, m, muCOVscale ;
+  double z, m, muCOVscale, muCOVadd ;
   char   *name ;
   char   fnam[] = "storeDataBias" ;
 
@@ -12611,11 +12657,15 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	if ( istat_bias < 0 ) { ISTAT = 0 ; }
 
 	istat_bias = 
-	  get_muCOVscale(name, &BIASCORLIST, DUMPFLAG,    // in
-			 &muCOVscale );      // out
+	  get_muCOVcorr(name, &BIASCORLIST, DUMPFLAG,    // in
+			&muCOVscale, &muCOVadd );      // out
 	
 
 	INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] = muCOVscale ;
+
+	if ( DO_COVADD ) {
+	  INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] = muCOVadd ;
+	}
 
 	if ( DUMPFLAG ) {
 	  printf(" xxx %s: a=%.2f b=%.2f gDM=%.2f (ia,ib,ig=%d,%d,%d) "
@@ -13167,9 +13217,9 @@ int get_fitParBias(char *cid,
 } // end get_fitParBias
 
 // ======================================================
-int get_muCOVscale(char *cid, 
+int get_muCOVcorr(char *cid, 
 		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		   double *muCOVscale ) {
+		   double *muCOVscale, double *muCOVadd ) {
 
   // Created July 1 2016: 
   // Analog of get_fitParBias(), but for scale on muCOV.
@@ -13187,6 +13237,9 @@ int get_muCOVscale(char *cid,
   // Jun 29 2021: check INPUTS.interp_biascor_logmass
 
   int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d, IMMIN, IMMAX ;
+
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
@@ -13212,10 +13265,13 @@ int get_muCOVscale(char *cid,
   
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM ;
   float *ptr_MUCOVSCALE ;
+  float *ptr_MUCOVADD ;
 
-  double dif, Dz, Dm, Dc, WGT, SUM_WGT, SUM_muCOVscale, muCOVscale_biascor ;
-  double muCOVscale_local  ;
-  char fnam[] = "get_muCOVscale" ;
+  double dif, Dz, Dm, Dc, WGT, SUM_WGT, SUM_muCOVscale, SUM_muCOVadd; 
+  double muCOVscale_biascor, muCOVadd_biascor ;
+  double muCOVscale_local, muCOVadd_local  ;
+
+  char fnam[] = "get_muCOVcorr" ;
 
   // -------------- BEGIN --------------
 
@@ -13223,10 +13279,16 @@ int get_muCOVscale(char *cid,
   BININFO_SIM_BETA     = &INFO_BIASCOR.BININFO_SIM_BETA ;
   BININFO_SIM_GAMMADM  = &INFO_BIASCOR.BININFO_SIM_GAMMADM ;
   ptr_MUCOVSCALE       = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE] ;
+  if ( DO_COVADD ) {
+    ptr_MUCOVADD       = INFO_BIASCOR.MUCOVADD[IDSAMPLE] ;
+  }
 
   // init output
   muCOVscale_local = 1.0 ;
   *muCOVscale = muCOVscale_local ;
+
+  muCOVadd_local = 0.0 ;
+  *muCOVadd = muCOVadd_local ;
 
   if ( (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE)==0   ) { return(1); }
 
@@ -13244,7 +13306,7 @@ int get_muCOVscale(char *cid,
   IM  = IBINFUN(m,&CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m,             2,"");
   IC  = IBINFUN(c,&CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c],2,""); 
   
-  SUM_WGT = SUM_muCOVscale = 0.0 ;
+  SUM_WGT = SUM_muCOVscale = SUM_muCOVadd = 0.0 ;
 
   if ( INPUTS.interp_biascor_logmass ) 
     { IMMIN = IM-1; IMMAX = IM+1;}
@@ -13299,12 +13361,19 @@ int get_muCOVscale(char *cid,
 	WGT        = (1.0 - Dz) * (1.0 - Dm) * (1.0 - Dc) ;
 	SUM_WGT   += WGT ;
 	
+	
 	muCOVscale_biascor = (double)ptr_MUCOVSCALE[j1d];
 	SUM_muCOVscale += ( WGT * muCOVscale_biascor );
+	
+	if ( DO_COVADD ) {
+	  muCOVadd_biascor = (double)ptr_MUCOVADD[j1d];
+	  SUM_muCOVadd += ( WGT * muCOVadd_biascor );
+	}
 
 	if ( DUMPFLAG) {
-	  printf(" xxx %s: ic=%d im=%d iz=%d muCOVscale = %f WGT=%f \n", 
-		 fnam,ic,im,iz, muCOVscale_biascor, WGT);
+	  printf(" xxx %s: ic=%d im=%d iz=%d muCOVscale/add = %f/%f WGT=%f \n", 
+		 fnam,ic,im,iz, muCOVscale_biascor,muCOVadd_biascor, WGT);
+	  
 	  fflush(stdout);
 	}
 
@@ -13316,20 +13385,28 @@ int get_muCOVscale(char *cid,
   // - - - - -
   if( SUM_WGT > 0.01 ) {
     muCOVscale_local = SUM_muCOVscale / SUM_WGT ;
+    if ( DO_COVADD ) {
+      muCOVadd_local = SUM_muCOVadd / SUM_WGT ;
+    }
   }
 
   if ( DUMPFLAG) {
     printf(" xxx %s: IC=%d IM=%d IZ=%d muCOVscale = %f/%f = %f \n", 
 	   fnam,IC,IM,IZ, SUM_muCOVscale, SUM_WGT, muCOVscale_local);
+    if ( DO_COVADD ) {
+      printf(" xxx %s: IC=%d IM=%d IZ=%d muCOVadd = %f/%f = %f \n", 
+	     fnam,IC,IM,IZ, SUM_muCOVadd, SUM_WGT, muCOVadd_local);
+    }
     fflush(stdout);
   }
 
   // load output arg.
   *muCOVscale = muCOVscale_local ;
+  *muCOVadd = muCOVadd_local ;
 
   return(1);
 
-} // end get_muCOVscale
+} // end get_muCOVcorr
 
 
 // ======================================================
@@ -13741,9 +13818,11 @@ void get_muBias(char *NAME,
 		BIASCORLIST_DEF *BIASCORLIST, 
 		FITPARBIAS_DEF (*FITPARBIAS_ABGRID)[MXb][MXg],
 		double         (*MUCOVSCALE_ABGRID)[MXb][MXg],
+		double         (*MUCOVADD_ABGRID)[MXb][MXg],
 		INTERPWGT_AlphaBetaGammaDM *INTERPWGT,  
 		double *fitParBias,
-		double *muBias, double *muBiasErr, double *muCOVscale ) { 
+		double *muBias, double *muBiasErr, 
+		double *muCOVscale, double *muCOVadd ) { 
 
   
   // Created Jan 2016
@@ -13758,7 +13837,7 @@ void get_muBias(char *NAME,
   //  muBias      = bias on distance
   //  muBiasErr   = error on above (based on biasCor sim stats)
   //  muCOVscale  = scale bias to apply to muErr 
-  //
+  //  muCOVadd    = floor to apply to muErr Aug 2 2021 Dillon
 
   double alpha    = BIASCORLIST->alpha ;
   double beta     = BIASCORLIST->beta  ;
@@ -13771,6 +13850,10 @@ void get_muBias(char *NAME,
   double muBias_local     = 0.0 ;
   double muBiasErr_local  = 0.0 ;
   double muCOVscale_local = 0.0 ;
+  double muCOVadd_local = 0.0 ;
+
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   double VAL, ERR, SQERR ;
   double WGTabg, WGTpar, WGTpar_SUM[NLCPAR+1];
@@ -13830,7 +13913,11 @@ void get_muBias(char *NAME,
 	// now the COV scale (Jul 1 2016)
 	VAL = MUCOVSCALE_ABGRID[ia][ib][ig] ;
 	muCOVscale_local += ( WGTabg * VAL ) ;
-	
+
+	if ( DO_COVADD ) {
+	  VAL = MUCOVADD_ABGRID[ia][ib][ig] ;
+	  muCOVadd_local += ( WGTabg * VAL ) ;
+	}	
       } // end ig
     } // end ib
   } // end ia
@@ -13885,6 +13972,7 @@ void get_muBias(char *NAME,
   *muBias     = muBias_local ;
   *muBiasErr  = muBiasErr_local ;
   *muCOVscale = muCOVscale_local ;
+  *muCOVadd   = muCOVadd_local ;
 
   return ;
 
@@ -14366,7 +14454,8 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
   double           MUCOVSCALE_TMP[MXa][MXb][MXg] ; 
-  double fitParBias[NLCPAR], muBias, muBiasErr, muCOVscale ;
+  double           MUCOVADD_TMP[MXa][MXb][MXg] ; 
+  double fitParBias[NLCPAR], muBias, muBiasErr, muCOVscale, muCOVadd ;
 
   char fnam[] = "setup_DMUPDF_CCprior" ;
     
@@ -14452,11 +14541,13 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
 		   FITPARBIAS_TMP,         // (I) bias vs. ia,ib
 		   MUCOVSCALE_TMP,         // (I) muCOVscale vs. ia,ib
+		   MUCOVADD_TMP,         // (I) muCOVscale vs. ia,ib
 		   &INTERPWGT,             // (I) wgt at each a,b grid point
 		   fitParBias,     // (O) interp bias on mB,x1,c
 		   &muBias,        // (O) interp bias on mu
 		   &muBiasErr,     // (O) stat-error on above
-		   &muCOVscale );  // (O) scale bias on muCOV (not used below)
+		   &muCOVscale,  // (O) scale bias on muCOV (not used below) 
+		   &muCOVadd );  // (O) add bias on muCOV (not used below)
       }
       else if ( NDIM_BIASCOR == 1 ) {
 	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018

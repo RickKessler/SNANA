@@ -956,6 +956,11 @@ with append_varname_missing,
    + if no biasCor, disable malloc for lots of mubias arrays;
       needed to save memory for large samples used by SUBPROCESS.
 
+ Aug 02 2021:
+   + Dillon added sigint in bins determined from biascor (motivated by BS20).
+       Enabled opt_biascor+=4096
+       Beware of notable code refactors.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -4403,16 +4408,10 @@ void *MNCHI2FUN(void *thread) {
     }
     else {
 
-      if ( DO_COVADD ) {
-	if ( muCOVscale < 0) {
-	  muerr_vpec    = fcn_muerrz(1, z, zmuerr);
-	  muerrsq_vpec  = muerr_vpec * muerr_vpec ;
-	  muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
-	} else {
-	  muerrsq += muCOVadd; // Aug 2 2021: dillons error floor only for positive floors
-	}
+      if ( DO_COVADD && muCOVscale > 1.0) {
+	muerrsq += muCOVadd; // Aug 2 2021: dillons sigint in bins. note that global sigint = 0
       } else {
-	// June 8 2021: refac/test to NOT scale vpec part of distance error
+	// Scale as in original BBC
 	muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
 	muerrsq_vpec  = muerr_vpec * muerr_vpec ;
 	muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
@@ -19646,6 +19645,9 @@ void define_varnames_append(void) {
   // Dec 02 2020: add IZBIN & M0DIFERR
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   char  tmpName[MXCHAR_VARNAME];
   //  char fnam[] = "define_varnames_append";
@@ -19696,7 +19698,10 @@ void define_varnames_append(void) {
       sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_x1");      NVAR_APPEND++ ;  
       sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_c");       NVAR_APPEND++ ;  
     }
-    sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasScale_muCOV");   NVAR_APPEND++ ;  
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_muCOVSCALE");   NVAR_APPEND++ ;  
+    if ( DO_COVADD ) {
+      sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_muCOVADD");   NVAR_APPEND++ ;
+    }
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IDSAMPLE");          NVAR_APPEND++ ;  
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IZBIN");             NVAR_APPEND++ ;  
   }
@@ -20071,9 +20076,12 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Dec 02 2020: write izbin
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
   double mu, muerr, muerr_renorm, muerr_raw, muerr_vpec, mumodel, mures, pull;
   double M0DIF, M0ERR ;
-  double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
+  double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0, muCOVadd=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin ;
   char line[400], word[40] ;	 
@@ -20114,6 +20122,14 @@ void write_fitres_line_append(FILE *fp, int indx ) {
       fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
     }
     muCOVscale           = INFO_DATA.muCOVscale[n]  ;
+    if ( DO_COVADD ) {
+      if (muCOVscale>1.0) { 
+	muCOVscale = 1.0; 
+	muCOVadd           = INFO_DATA.muCOVadd[n]  ;
+      } else {
+	muCOVadd = 0.0;
+      }
+    }
   }
   
   if (pull > 99.999) { pull=99.999; }
@@ -20152,6 +20168,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
       sprintf(word,"%6.4f ", fitParBias[INDEX_c]);  NWR++; strcat(line,word);
     }
     sprintf(word, "%6.3f ", muCOVscale ) ;    NWR++ ; strcat(line,word);
+    if ( DO_COVADD ) {
+      sprintf(word, "%6.3f ", muCOVadd ) ;    NWR++ ; strcat(line,word);
+    }
     sprintf(word, "%d "   , idsample ) ;      NWR++ ; strcat(line,word);
     sprintf(word, "%2d "  , izbin ) ;         NWR++ ; strcat(line,word);
   }

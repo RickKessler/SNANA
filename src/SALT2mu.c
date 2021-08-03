@@ -21616,13 +21616,11 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   double PROB_SIMREF = 1.0 ; 
   int NVAR = SUBPROCESS.NVAR_GENPDF ;
   char *VARNAME = GENPDF[imap].VARNAMES[0] ; 
+  bool  SET_INDEX = true;
 
-  // begin XYZ
-  if (ITER <= 1) { 
+  // begin
+  if ( SET_INDEX ) { 
 
-    // on 1st iteration, assoicate imap index for each varname
-
-    //printf("xxx ITER=%d IVAR=%d VARNAME=%s \n", ITER, ivar, VARNAME) ; 
     if (strcmp(VARNAME, "SIM_RV") == 0 ) 
       { SUBPROCESS.GENGAUSS_RV.INDEX = imap ; }
     if (strcmp(VARNAME, "SIM_c") == 0 ) 
@@ -21638,8 +21636,9 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
     if (strcmp(VARNAME, "SIM_EBV_HOST") == 0 ) 
       { SUBPROCESS.EXP_HALFGAUSS_EBV.INDEX = imap ; }
 
-  } // end ITER loop
+  } // end SET_INDEX
 
+  // - - - - - - - - 
   if (SUBPROCESS.GENGAUSS_RV.INDEX == imap) {
     PROB_SIMREF = funVal_GENGAUSS_ASYM(XVAL ,&SUBPROCESS.GENGAUSS_RV) ; 
   }

@@ -21484,6 +21484,10 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
   printf("%s Read PDF map(s) for ITERATION=%d\n", 
 	 KEYNAME_SUBPROCESS_STDOUT, ITER );
+
+  // re-init uniqueOverlap in case a key is parsed again
+  uniqueOverlap(STRINGMATCH_INIT,"SUBPROCESS"); 
+
   init_genPDF(OPTMASK, FP_INP, INPFILE, "");
 
   // over-write CUTBIT_SPLITRAN 

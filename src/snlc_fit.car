@@ -644,6 +644,9 @@ c
      &  ,INIVAL_SHIFT_ERRFRAC ! after 1st iter, INIVAL += FITERR*ERRFRAC
      &  ,FRACERRDIF_REPEATFIT ! repeat fit with MINOS if FRACERRDIF > thius
 c
+     &  ,INIVAL_GRIDSEARCH_DPEAKMJD(3)  ! min,max w.r.t. t0_approx, binsize
+     &  ,INIVAL_GRIDSEARCH_COLOR(3)  ! min,max,binsize
+c
      &  ,PRIOR_AVEXP(2)   ! 2 exp slopes for AV prior
      &  ,PRIOR_AVWGT(2)   ! 2 exp wgts for AV prior
      &  ,PRIOR_AVRES      ! gaussian resolution-smearing on exponential prior
@@ -655,6 +658,7 @@ c
      &  ,PRIOR_LUMIPAR_RANGE(2)  ! idem, legacy variable
      &  ,PRIOR_LUMIPAR_SIGMA     ! idem, legacy variable
      &  ,PRIOR_DELTA_PROFILE(4)  ! DELTA-prior pars: sig(low,up) & min
+c
      &  ,FUDGE_COVAR      ! fudge normalized covariances (0=> no fudge)
      &  ,SCALE_COVAR      ! scale entire covariance matrix by this factor
      &  ,LANDOLT_COLOR_SHIFT(10)  ! shifts in color terms (if OPT_LANDOLT>0)
@@ -785,6 +789,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
+     &   ,INIVAL_GRIDSEARCH_DPEAKMJD, INIVAL_GRIDSEARCH_COLOR
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
@@ -855,6 +860,7 @@ c ------
      &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
+     &   ,INIVAL_GRIDSEARCH_DPEAKMJD, INIVAL_GRIDSEARCH_COLOR
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
@@ -6903,7 +6909,7 @@ c to reject crazy fits
 
       SNMAGRMS_for_PHOTOZ = 0.12
 
-      INISTP_PEAKMJD   = 2.0    ! 1-day bin
+      INISTP_PEAKMJD   = 2.0  
       INISTP_AV        = 0.2
       INISTP_COLOR     = 0.03   ! Mar 17 2018 (was 0.2)
       INISTP_RV        = 0.0
@@ -6927,6 +6933,15 @@ c to reject crazy fits
       INIVAL_PHOTOZ    = NULLVAL
       INIVAL_SHIFT_ERRFRAC = 0.0
       FRACERRDIF_REPEATFIT = 1.0E9
+
+c setup default grid w.r.t. peakmjd-estimate
+      INIVAL_GRIDSEARCH_DPEAKMJD(1) = -4.0  ! min MJD - PEAKMJD_APPROX (days)
+      INIVAL_GRIDSEARCH_DPEAKMJD(2) = +4.0  ! max 
+      INIVAL_GRIDSEARCH_DPEAKMJD(3) = +2.0  ! bin size , days
+      INIVAL_GRIDSEARCH_COLOR(1)   = 0.0
+      INIVAL_GRIDSEARCH_COLOR(2)   = 0.0
+      INIVAL_GRIDSEARCH_COLOR(3)   = 0.0
+
 
       USESIM_AV       = .FALSE.
       USESIM_COLOR    = .FALSE.
@@ -7769,7 +7784,19 @@ c -------------
 
         else if(MATCH_NMLKEY('INISTP_X0',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) INISTP_X0
+c
+        else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_DPEAKMJD', 
+     &             3,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_DPEAKMJD(1)
+            READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_DPEAKMJD(2)
+            READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
+        else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_COLOR',
+     &            3,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_COLOR(1)
+            READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_COLOR(2)
+            READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_COLOR(3)
+c
         else if(MATCH_NMLKEY('LANDOLT_COLOR_SHIFT',5,i,ARGLIST)) then
             READ(ARGLIST(1),*) LANDOLT_COLOR_SHIFT(1)  ! k0
             READ(ARGLIST(2),*) LANDOLT_COLOR_SHIFT(2)  ! k1
@@ -9067,7 +9094,8 @@ c local var
       REAL
      &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG
      &  ,rflux, CHI2, Xsig, ZTMP
-     &  ,PEAKMJD_INI, PEAKMJD_SAVE, PEAKMJD_STP
+     &  ,PEAKMJD_INI, PEAKMJD_SAVE
+     &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
      &  ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP
      &  ,INIVAL_START(IPAR_MAX)  ! starting initial values
      &  ,RTMP(MXFILT_ALL)
@@ -9153,31 +9181,45 @@ c Now check PEAKMJD by testing 1/2-sigma steps
 
       PEAKMJD_INI  = INIVAL(IPAR_PEAKMJD)
       PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+      DIFMJD_MIN   = INIVAL_GRIDSEARCH_DPEAKMJD(1)
+      DIFMJD_MAX   = INIVAL_GRIDSEARCH_DPEAKMJD(2)
+      DIFMJD_BIN   = INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
-ccc xxx mark delete     DO i = -2, 2
-      DO i = -4, 4, 2   ! Mar 4 2020
-        Xsig                 = 0.5 * float(i)
-        PEAKMJD_STP          = Xsig * INISTP(IPAR_PEAKMJD) 
-        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_STP
+
+c xxxxxxx mark delete Aug 3 2021 xxxxxx
+c      DO 400 i = -4, 4, 2   ! Mar 4 2020
+c        Xsig                 = 0.5 * float(i)
+c        PEAKMJD_DIF          = Xsig * INISTP(IPAR_PEAKMJD) 
+c        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_DIF
+c	print*,' xxx PEAKMJD_DIF = ', PEAKMJD_DIF
+c xxxxxxxxx end mark xxxxxxxx
+
+      DIFMJD = DIFMJD_MIN
+      DO 400 WHILE ( DIFMJD < DIFMJD_MAX+0.001 ) 
+        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + DIFMJD
+
         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
         if ( CHI8 .LT. CHI8MIN ) then
             chi8min = chi8
             PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
         endif
-      ENDDO
+        DIFMJD = DIFMJD + DIFMJD_BIN
+400   CONTINUE
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 5")
 
 c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
 
       IF ( CHI8MIN < CHI8INI ) THEN
-        INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE  ! save new PEAKMJD
+       ! save new initial values at min chi2 on very course grid
+        INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE 
       ELSE
+       ! restore original values
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI
         PEAKMJD_SAVE         = PEAKMJD_INI
       ENDIF

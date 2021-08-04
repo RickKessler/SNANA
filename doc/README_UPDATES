@@ -20228,4 +20228,9 @@
 
     create_covariance.py: minor fix by Dillon
 
+    snlc_fit.car
+     + new inputs INIVAL_GRIDSEARCH_DPEAKMJD and INIVAL_GRIDSEARCH_COLOR
+        (min,max,bin) to find better initial values before fit.
+
+
 END: 

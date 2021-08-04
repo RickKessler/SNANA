@@ -20214,10 +20214,18 @@
 
     snlc_sim.c
       + fix bug implementing CIDRAN_MIN
-  
+      + screen_update prints GenRate every 100 sec.
+
     SALT2mu.c
       + more subprocess development; add Beta distribution.
       + read bounding functions from sim-input file.
       + use new utility  sigint_muresid_list
+      + new option to add to COV instead of scale COV (Dillon)
+
+
+    sntools_cosmology.c
+     + fix dumb bug using wa in Hzfun_wCDM().
+
+    create_covariance.py: minor fix by Dillon
 
 END: 

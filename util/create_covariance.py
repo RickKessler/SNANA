@@ -21,6 +21,9 @@
 # May 14 2021 RK -
 #   + fix bug in get_cov_from_covopt to allow pad spaces between [] terms.
 #
+# Aug 02 2021 Dillon
+#    + update to handle option to subtract MUERR_VPEC
+#
 # ===============================================
 
 import argparse

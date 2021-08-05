@@ -439,7 +439,7 @@ class train_SALT2(Program):
                 if not match : continue 
                 strval = word_list[2] 
                 try :
-                    value = float(strval)
+                    value = float(eval(strval))
                 except:
                     msgerr.append(f"Expected float after '{key_string}'" )
                     msgerr.append(f"but found {strval}")

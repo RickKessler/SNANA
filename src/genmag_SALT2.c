@@ -1086,7 +1086,7 @@ void read_SALT2colorDisp(void) {
 void read_SALT2_INFO_FILE(int OPTMASK) {
 
   // March 18, 2010 R.Kessler
-  // read SALT2.INFO file, and fill SALT2_INFO structure
+  // read SALT2.INFO file (or SALT3.INFO), and fill SALT2_INFO structure
   // 
   // Aug  2, 2010: read COLORLAW_VERSION: <version>
   // May  2, 2011: read SEDFLUX_INTERP_OPT 
@@ -1096,11 +1096,11 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
   // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys
   // Nov 12, 2020: pass OPTMASK instead of REQUIRE_DOCANA
+  // Aug 05, 2021: read last char for BAND
 
   char
      infoFile[MXPATHLEN]
     ,c_get[60]
-    ,fnam[]             = "read_SALT2_INFO_FILE" 
     ,CHAR_ERROPT[3][20] = { "OFF", "Linear", "Spline" }
     ,CHAR_SEDOPT[3][20] = { "OFF", "Linear", "Spline" }
     ,CHAR_OFFON[2][8]   = { "OFF", "ON" }
@@ -1110,8 +1110,10 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   bool   REQUIRE_DOCANA, DISABLE_MAGSHIFT, DISABLE_WAVESHIFT;
   double *errtmp, *ptrpar;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
-  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT ;
+  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT, LEN ;
   FILE  *fp ;
+
+  char fnam[]  = "read_SALT2_INFO_FILE"  ;
 
   // ------- BEGIN ---------
 
@@ -1267,7 +1269,11 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
       NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;
       INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
       readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
-      readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND );
+
+      // if band is SDSS-r, just strip off last character 'r'
+      readchar(fp, ctmp );  LEN = strlen(ctmp) ;
+      sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND, "%c", ctmp[LEN-1] );
+
       readdouble(fp, 1, &INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SHIFT );
       INPUT_SALT2_INFO.NSHIFT_CALIB++ ;
     }

@@ -443,7 +443,7 @@ int main(int argc,char *argv[]){
     0
   };
 
-  int i, j,kk, iarg ;
+  int i, j, kk, iarg ;
   FILE *fpcospar, *fpresid;
   char infile[2000];
   char cosparfile[1000] = "";
@@ -690,12 +690,20 @@ int main(int argc,char *argv[]){
 	omm_steps = (int)atof(argv[++iarg]);
       }
 
-      /* Change w0 grid parameters? */
+      /* accept w or w0 */
       else if (strcasecmp(argv[iarg]+1,"w0min")==0) {   
 	w0_min=atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"w0max")==0) {   
 	w0_max=atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"w0steps")==0) {   
+	w0_steps = (int)atof(argv[++iarg]);
+      }
+
+      else if (strcasecmp(argv[iarg]+1,"wmin")==0) {   
+	w0_min=atof(argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1,"wmax")==0) {   
+	w0_max=atof(argv[++iarg]);
+      } else if (strcasecmp(argv[iarg]+1,"wsteps")==0) {   
 	w0_steps = (int)atof(argv[++iarg]);
       }
 
@@ -916,16 +924,19 @@ int main(int argc,char *argv[]){
     extprobmax=0.0;
     w0_stepsize = wa_stepsize = omm_stepsize = h_stepsize = 0. ;
 
-    if (w0_steps > 1) {w0_stepsize = (w0_max-w0_min)/(w0_steps-1);}
-    if (wa_steps > 1) {wa_stepsize = (wa_max-wa_min)/(wa_steps-1);}
+    if (w0_steps  > 1) {w0_stepsize  = (w0_max-w0_min)/(w0_steps-1);}
+    if (wa_steps  > 1) {wa_stepsize  = (wa_max-wa_min)/(wa_steps-1);}
     if (omm_steps > 1) {omm_stepsize = (omm_max-omm_min)/(omm_steps-1);}
-    if (h_steps > 1) {h_stepsize = (h_max-h_min)/(h_steps-1);}
+    if (h_steps   > 1) {h_stepsize   = (h_max-h_min)/(h_steps-1);}
     
  
     printf("\n\n****************************************\n");
     printf("****************************************\n");
-    printf("   Applying  w(z) = w0 + wa(1-a) \n");
-    printf("   w ~ w0. wa implemented.       \n");
+    if ( usewa ) 
+      { printf("   Apply  w(z) = w0 + wa(1-a) \n"); }
+    else
+      { printf("   Apply  w(z) = w0  \n"); }
+
     printf("****************************************\n");
     printf("****************************************\n\n");
     printf("   --------   Grid parameters   -------- \n");
@@ -933,8 +944,8 @@ int main(int argc,char *argv[]){
 	    w0_min,w0_max,w0_steps,w0_stepsize);
 
     if(usewa){
-    printf("  wa_min: %6.2f   wa_max: %6.2f  %5i steps of size %8.5f\n",
-            wa_min,wa_max,wa_steps,wa_stepsize);
+      printf("  wa_min: %6.2f   wa_max: %6.2f  %5i steps of size %8.5f\n",
+	     wa_min,wa_max,wa_steps,wa_stepsize);
     }
     printf(" omm_min: %6.2f  omm_max: %6.2f  %5i steps of size %8.5f\n",
 	    omm_min,omm_max,omm_steps,omm_stepsize);
@@ -1011,24 +1022,22 @@ int main(int argc,char *argv[]){
 
     for( i=0; i < w0_steps; i++){
       cpar.w0 = w0_min + i*w0_stepsize;
-      for( int kk=0; kk < wa_steps; kk++){    // indent
-	cpar.wa = (wa_min + kk*wa_stepsize);// we will simply incremenet wa without 'a' at the moment *(1-(a_min + k*z_stepsize))	
+      for( kk=0; kk < wa_steps; kk++){    
+	cpar.wa = (wa_min + kk*wa_stepsize);
 	for(j=0; j < omm_steps; j++){
 	  cpar.omm = omm_min + j*omm_stepsize; // AM look here
 	  cpar.ome = 1 - cpar.omm;
 
 	  get_chi2wOM ( cpar.w0,cpar.wa, cpar.omm, sqsnrms, 
-			&muoff_tmp, &snchi_tmp, &extchi_tmp );   // return args. inputs  AM --> insert cpar.wa ?
+			&muoff_tmp, &snchi_tmp, &extchi_tmp ); 
 
 	/*printf("xxxchi %d   %0.4f   %0.4f   %0.4g   %0.4g   %0.4g   \n", 
 	  i, cpar.w0, cpar.omm, snchi_tmp, extchi_tmp, diff); */
 
-	  //snchi[i*omm_steps+j]  = snchi_tmp ;
-	  //extchi[i*omm_steps+j] = extchi_tmp ;
 	  snchi3d[i][kk][j]  = snchi_tmp ; // AM
 	  extchi3d[i][kk][j] = extchi_tmp ;
 	  
-        /* Keep track of minimum chi2 */
+	  /* Keep track of minimum chi2 */
 	  if(snchi_tmp < snchi_min) 
 	    snchi_min = snchi_tmp ;
 
@@ -1057,39 +1066,6 @@ int main(int argc,char *argv[]){
     /*******************************************/
     
     /* First, convert chi2 to likelihoods */
-    // for(i=0; i<w0_steps; i++){
-    // for(j=0; j<omm_steps; j++){
-
-       ///* Probability distribution from SNe alone */
-    // chidif = snchi[i*omm_steps+j] - snchi_min ;
-    //  snprob[i*omm_steps+j] = exp(-0.5*chidif);
-    //  snprobtot += snprob[i*omm_steps+j];
-      
-	/*Probability distribution of SNe + external prior */
-    //  chidif = extchi[i*omm_steps+j] - extchi_min ;
-    //  extprob[i*omm_steps+j] = exp(-0.5*chidif);
-    //	printf("\n XXX1 extprob %f, chidif = %f, extprob3d = %f\n",extchi[i*omm_steps+j], chidif, exp(-0.5*chidif));
-    //	extprobtot += extprob[i*omm_steps+j];
-    // }
-    // }
-
-    /* Now normalize so that these sum to 1.  Note that if the
-       grid does not contain all of the probability, 
-       then these normalizations are incorrect */
-
-    // for(i=0; i<w0_steps; i++){
-    //  for(j=0; j<omm_steps; j++){
-    //  snprob[i*omm_steps+j] /= snprobtot;
-    //  extprob[i*omm_steps+j] /= extprobtot;
-	/*printf("xxxprob %d   %0.4f   %0.4f   %0.4g   %0.4g   \n", 
-	  i, w0_min + i*w0_stepsize, omm_min + j*omm_stepsize, 
-	  snprob[i*omm_steps+j], extprob[i*omm_steps+j]); */
-    //    }
-    // }
-       //----------------- New block below
-
-
-        /* First, convert chi2 to likelihoods */
     for(i=0; i<w0_steps; i++){
       for(kk = 0; kk<wa_steps; kk++){
 	for(j=0; j<omm_steps; j++){
@@ -1097,13 +1073,11 @@ int main(int argc,char *argv[]){
 	  /* Probability distribution from SNe alone */
 	  chidif = snchi3d[i][kk][j] - snchi_min ;
 	  snprob3d[i][kk][j] = exp(-0.5*chidif);
-	  //printf("\n XXX snchi3d %f, chidif = %f, snprob3d = %f\n",snchi3d[i][kk][j], chidif, exp(-0.5*chidif));
 	  snprobtot += snprob3d[i][kk][j];
       
 	  /* Probability distribution of SNe + external prior */
 	  chidif = extchi3d[i][kk][j] - extchi_min ;
 	  extprob3d[i][kk][j] = exp(-0.5*chidif);
-	  //	  printf("\n XXX extprob %f, chidif = %f, extprob3d = %f\n",extchi3d[i][kk][j], chidif, exp(-0.5*chidif));
 	  extprobtot += extprob3d[i][kk][j];
 	}
       }
@@ -1124,7 +1098,6 @@ int main(int argc,char *argv[]){
 	}
       }
     }
-
 
 
     /***************************************/
@@ -1181,7 +1154,7 @@ int main(int argc,char *argv[]){
 	wa_mean    += wa_prob[kk]*wa;
 	wa_probsum += wa_prob[kk];
       } // kk
-    /** Mean of wa distribution: this is our estimate of wa **/
+      /** Mean of wa distribution: this is our estimate of wa **/
       wa_mean /= wa_probsum;   
     }
 
@@ -1196,24 +1169,22 @@ int main(int argc,char *argv[]){
       else
 	{
 	  printf("  CHECK:  ChiSq(min) = %f \n", chi2atmin);
-	  printf("  CHECK:  w0(min)    = %f, %f\n",  w0_atchimin);
+	  printf("  CHECK:  w0(min)    = %f\n" ,  w0_atchimin);
 	  if (usewa)
-	    {printf("  CHECK:  wa(min)    = %f, %f \n",  wa_atchimin );}  
+	    {printf("  CHECK:  wa(min)    = %f \n",  wa_atchimin );}  
 	}
     }
     printf("\n" );
 
 
-    /** Get std dev for the weighted mean.  This is a reasonable                                                                             
+    /** Get std dev for the weighted mean.  This is a reasonable   
        measure of uncertainty in w if distribution is ~Gaussian **/
     w0sig=0;
     for(i=0; i<w0_steps; i++){
       w0 = w0_min + i*w0_stepsize;
       w0_prob[i] /= w0_probsum;   /** normalize the distribution **/
       w0sig += w0_prob[i]*pow((w0-w0_mean),2);
-      //printf("XXX  w0sig=%f, w0_prob=%f, w0=%f, w0_mean=%f\n ",w0sig, w0_prob[i],w0, w0_mean);    
-      w0_sort[i] = w0_prob[i];        /** make a copy to use later **/
-      //      printf("\n XXX w0_sort = %f\n",w0_sort[i]);
+      w0_sort[i] = w0_prob[i];  
     }
     w0sig = sqrt(w0sig/w0_probsum);
     printf("marg w0 err estimate = %f\n", w0sig);
@@ -1265,10 +1236,8 @@ int main(int argc,char *argv[]){
     w0_sort_1sigma=-1;
     for (i=0; i<w0_steps; i++){
       w0_sum += w0_sort[i];
-      //     printf("\n XXX w0_sum = %f, %i \n",w0_sum,i);
       if (w0_sum > 0.683) {
-	//printf("\n XXX w0_sort[i] = %f\n",w0_sort[i]);
-        w0_sort_1sigma = w0_sort[i];  /** w0_sort value corresponding to 68.3%  **/
+        w0_sort_1sigma = w0_sort[i];  // w0_sort value corresponding to 68.3%
         break;
       }
     }
@@ -1279,8 +1248,7 @@ int main(int argc,char *argv[]){
       for (kk=0; kk<wa_steps; kk++){
 	wa_sum += wa_sort[kk];
 	if (wa_sum > 0.683) {
-	  //printf("\n XXX wa_sort[i] = %f\n",wa_sort[kk]);
-	  wa_sort_1sigma = wa_sort[kk];  /** w0_sort value corresponding to 68.3%  **/
+	  wa_sort_1sigma = wa_sort[kk]; // w0_sort value corresponding to 68.3
 	  break;
 	}
       }
@@ -1309,9 +1277,7 @@ int main(int argc,char *argv[]){
     }
     if(usewa){
       for (kk=iwa_mean; kk>=0; kk--){
-	//printf( "XXX %f\n",wa_prob[kk]);
 	if (wa_prob[kk] < wa_sort_1sigma){
-	  //printf( "XXX %f",wa_prob[kk]);
 	  wasig_lower = wa_mean - (wa_min + kk*wa_stepsize);
 	  break;
 	}
@@ -1392,38 +1358,20 @@ int main(int argc,char *argv[]){
     /***************************************/
     omm_probsum=0;
     omm_mean=0;
-    /*  // XXX Mark Delete Ayan Mitra 21/07/2021
+    
     for(j=0; j<omm_steps; j++){
       omm = omm_min + j*omm_stepsize;
-
-      for(i=0; i<w0_steps; i++){
-	printf("XXX om probsum = %f\n", extprob[i*omm_steps+j]);
-        omm_prob[j] += extprob[i*omm_steps+j];
-      }
-
-      omm_mean += omm_prob[j]*omm;
-      omm_probsum += omm_prob[j];
-      }*/  // XXX End Mark DELETE  
-
-    
-      for(j=0; j<omm_steps; j++){
-	omm = omm_min + j*omm_stepsize;
-	for(kk=0; kk<wa_steps; kk++){
-	  for(i=0; i<w0_steps; i++){
-	    //printf("XXX om probsum = %f\n", extprob[i*omm_steps+j]);
-	    omm_prob[j] +=extprob3d[i][kk][j];// extprob[i*omm_steps+j];
-	      }
+      for(kk=0; kk<wa_steps; kk++){
+	for(i=0; i<w0_steps; i++){
+	  omm_prob[j] +=extprob3d[i][kk][j];// extprob[i*omm_steps+j];
 	}
+      }
       omm_mean += omm_prob[j]*omm;
       omm_probsum += omm_prob[j];
-      //printf("2. XXX omm mean = %f, omm_prob = %f, omm = %f\n", omm_mean, omm_prob[j], omm);
-
-      }
+    }
     
-
 
     /** Mean of omega_m distribution: this is our estimate of omega_m **/
-
       omm_mean /= omm_probsum;
 
     /** Get std dev for the weighted mean. This should be a sufficient estimate

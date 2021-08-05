@@ -6941,7 +6941,7 @@ c setup default grid w.r.t. peakmjd-estimate
       INIVAL_GRIDSEARCH_COLOR(1)   = 0.0
       INIVAL_GRIDSEARCH_COLOR(2)   = 0.0
       INIVAL_GRIDSEARCH_COLOR(3)   = 0.0
-
+      
 
       USESIM_AV       = .FALSE.
       USESIM_COLOR    = .FALSE.
@@ -9200,7 +9200,11 @@ c     D. Jones color grid search
       IF ( COLOR_BIN .EQ. 0.0) THEN 
         COLOR_MIN = COLOR_INI
         COLOR_MAX = COLOR_INI
+	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
       ENDIF
+
+       print*,' xxx COLOR(MIN,MAX,BIN) =', 
+     &    COLOR_MIN, COLOR_MAX, COLOR_BIN
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 

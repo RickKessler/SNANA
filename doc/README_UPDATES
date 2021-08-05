@@ -20199,9 +20199,11 @@
 
 
 # ======================================================================= 
-         v11_03b (  ) 
+         v11_03b (Aug 4 2021) 
 
          ***** IMPORTANT(v11_03b) ***** 
+
+    wfit.c: major overhaul to optionally fit for wa
 
          ***** USEFUL(v11_03b) ***** 
 
@@ -20221,7 +20223,6 @@
       + read bounding functions from sim-input file.
       + use new utility  sigint_muresid_list
       + new option to add to COV instead of scale COV (Dillon)
-
 
     sntools_cosmology.c
      + fix dumb bug using wa in Hzfun_wCDM().

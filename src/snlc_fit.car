@@ -9068,6 +9068,9 @@ c
 c Mar 4 2020
 c  + modify PKMJD sweep from -2, 2 in 1 day bins, to -4 to +4 in 2 day bins.
 c  + remove CHI2TEST on 5*NEPOCH
+c
+c Aug 4 2021
+c  + add optional color grid search with INIVAL_GRIDSEARCH_COLOR - D. Jones
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -9096,6 +9099,8 @@ c local var
      &  ,rflux, CHI2, Xsig, ZTMP
      &  ,PEAKMJD_INI, PEAKMJD_SAVE
      &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
+     &  ,COLOR_INI, COLOR_SAVE
+     &  ,COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
      &  ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP
      &  ,INIVAL_START(IPAR_MAX)  ! starting initial values
      &  ,RTMP(MXFILT_ALL)
@@ -9185,6 +9190,18 @@ c Now check PEAKMJD by testing 1/2-sigma steps
       DIFMJD_MAX   = INIVAL_GRIDSEARCH_DPEAKMJD(2)
       DIFMJD_BIN   = INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
+c     D. Jones color grid search
+      COLOR_INI  = INIVAL(IPAR_COLOR)
+      COLOR_SAVE = INIVAL(IPAR_COLOR)
+      COLOR_MIN   = INIVAL_GRIDSEARCH_COLOR(1)
+      COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
+      COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
+
+      IF ( COLOR_BIN .EQ. 0.0) THEN 
+        COLOR_MIN = COLOR_INI
+        COLOR_MAX = COLOR_INI
+      ENDIF
+
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
@@ -9199,7 +9216,10 @@ c        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_DIF
 c	print*,' xxx PEAKMJD_DIF = ', PEAKMJD_DIF
 c xxxxxxxxx end mark xxxxxxxx
 
-      DIFMJD = DIFMJD_MIN
+      COLOR = COLOR_MIN
+      DO 300 WHILE ( COLOR < COLOR_MAX+0.0001 ) 
+        INIVAL(IPAR_COLOR) = COLOR
+        DIFMJD = DIFMJD_MIN
       DO 400 WHILE ( DIFMJD < DIFMJD_MAX+0.001 ) 
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + DIFMJD
 
@@ -9207,9 +9227,12 @@ c xxxxxxxxx end mark xxxxxxxx
         if ( CHI8 .LT. CHI8MIN ) then
             chi8min = chi8
             PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+            COLOR_SAVE = INIVAL(IPAR_COLOR)
         endif
         DIFMJD = DIFMJD + DIFMJD_BIN
 400   CONTINUE
+        COLOR = COLOR + COLOR_BIN
+300   CONTINUE
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 5")
 
@@ -9218,10 +9241,14 @@ c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
       IF ( CHI8MIN < CHI8INI ) THEN
        ! save new initial values at min chi2 on very course grid
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE 
+        INIVAL(IPAR_COLOR) = COLOR_SAVE
       ELSE
        ! restore original values
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI
         PEAKMJD_SAVE         = PEAKMJD_INI
+        INIVAL(IPAR_COLOR)   = COLOR_INI
+        COLOR_SAVE           = COLOR_INI
+
       ENDIF
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
@@ -9232,6 +9259,10 @@ c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
          write(6,44) PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
 44       format(T10,'Adjust PEAKMJD=',F9.3, ' ==> ', F9.3,
      &      2x, '(CHI2=',F10.2,')'  )
+         write(6,45) COLOR_INI, INIVAL(IPAR_COLOR), CHI8
+45       format(T10,'Adjust COLOR=',F9.3, ' ==> ', F9.3,
+     &      2x, '(CHI2=',F10.2,')'  )
+
       endif
 
 444   CONTINUE

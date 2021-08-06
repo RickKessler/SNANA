@@ -5536,8 +5536,6 @@ C -------------- BEGIN ------------
 
       DO_GETINFO = .TRUE.
 
-      print*,' xxx set DO_GETINFO = T '
-
 c if VERSION_ARG has full path, split it into PRIVATE_DATA_PATH and 
 c VERSION_PHOTOMETRY
 

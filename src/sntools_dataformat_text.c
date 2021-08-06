@@ -2269,10 +2269,11 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
   // finding NOBS key.
   //
   // Apr 2 2021: use get_dbl_sntextio_obs to check for NaN
+  // Aug 6 2021: keep only last char of BAND
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
-  int  ep, ivar, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
+  int  ep, ivar, lenstr, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
   float PSF_FWHM ;
   double dval;
@@ -2311,7 +2312,8 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     SNDATA.OBSFLAG_WRITE[ep] = true ;
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
-    sprintf(SNDATA.FILTCHAR[ep], "%s", str);
+    lenstr = strlen(str); 
+    sprintf(SNDATA.FILTCHAR[ep], "%c", str[lenstr-1] );
     catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;

@@ -20868,6 +20868,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   for(m=0; m < NMATCH; m++ ) {
     SNDATA.HOSTGAL_MAG[m][ifilt] = 
       (float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;
+    SNDATA.HOSTGAL_MAGERR[m][ifilt] =
+      (float)SNHOSTGAL_DDLR_SORT[m].MAG_ERR[ifilt_obs] ;
   }
 
   SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] = (float)SNHOSTGAL.SB_FLUXCAL[ifilt_obs];

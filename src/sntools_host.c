@@ -426,13 +426,16 @@ void init_OPTIONAL_HOSTVAR(void) {
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ANGLE );
 
+  char varName_err[50]; 
   // check for observer-frame mags '[filt]_obs' 
   // used to determine galaxy noise  to SN signal-flux
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-    magkey_HOSTLIB(ifilt_obs,varName); // returns varname
+    magkey_HOSTLIB(ifilt_obs,varName,varName_err); // returns varname
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++;  
     sprintf(cptr,"%s", varName);
+    cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++;
+    sprintf(cptr,"%s", varName_err);
   }
 
 
@@ -3559,8 +3562,8 @@ void init_HOSTLIB_ZPHOTEFF(void) {
 // =======================================
 void init_GALMAG_HOSTLIB(void) {
 
-  int NR, j, jth, ifilt, ifilt_obs, IVAR, NMAGOBS, MATCH_FLAG ;
-  char cvar[12], cfilt[2];
+  int NR, j, jth, ifilt, ifilt_obs, IVAR, NMAGOBS, MATCH_FLAG, IVAR_ERR ;
+  char cvar[12], cfilt[2], cvar_err[40];
   char fnam[] = "init_GALMAG_HOSTLIB" ;
   double Rmax, TH, THbin ; 
 
@@ -3574,14 +3577,21 @@ void init_GALMAG_HOSTLIB(void) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
 
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
-    magkey_HOSTLIB(ifilt_obs,cvar); // returns cvar
+    magkey_HOSTLIB(ifilt_obs,cvar,cvar_err); // returns cvar
 
     IVAR = IVAR_HOSTLIB(cvar,MATCH_FLAG) ;
+    IVAR_ERR = IVAR_HOSTLIB(cvar_err,MATCH_FLAG) ;
+    printf("xxx cvar_err = %s, ivar_err = %d\n", cvar_err, IVAR_ERR);
+
 
     if ( IVAR > 0 ) {
       NMAGOBS++ ;
       HOSTLIB.IVAR_MAGOBS[ifilt_obs] = IVAR ;
       strcat(HOSTLIB.filterList,cfilt) ;
+    }
+    if ( IVAR_ERR > 0 ) {
+      NMAGOBS++ ;
+      HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] = IVAR_ERR ;
     }
   }
 
@@ -3816,8 +3826,10 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
 
 
 // ======================================
-void magkey_HOSTLIB(int ifilt_obs, char *key) {
+void magkey_HOSTLIB(int ifilt_obs, char *key, char *key_err) {
   sprintf(key,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_MAGOBS_SUFFIX );
+  sprintf(key_err,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_MAGOBS_ERR_SUFFIX );
+
 } // end of magkey_HOSTLIB
 
 
@@ -6512,7 +6524,7 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
 
   SNHOSTGAL.NNBR = 0;
-  int i;
+  int i, ifilt;
   for(i=0; i < MAXNBR; i++ ) {    
     SNHOSTGAL_DDLR_SORT[i].GALID = -9 ;
     SNHOSTGAL_DDLR_SORT[i].SNSEP = -9.0 ;
@@ -6520,6 +6532,10 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
+    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]  = -9.0 ;
+      SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt]  = -9.0 ;
+    }
   }
 
   SNHOSTGAL.IMATCH_TRUE = -9 ;   // May 31 2021
@@ -6616,9 +6632,9 @@ void SORT_SNHOST_byDDLR(void) {
   int  ORDER_SORT       = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
-  int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, ifilt, ifilt_obs ;
+  int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
   int  NNBR_DDLRCUT = 0 ;
-  double DDLR, SNSEP, MAG, RA_GAL, DEC_GAL ;
+  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
   // ------------- BEGIN ---------------
@@ -6708,6 +6724,13 @@ void SORT_SNHOST_byDDLR(void) {
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
       MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
       SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+
+      IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
+      if (IVAR_ERR > 0){
+      	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
+     	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
+	printf("xxx MAG_ERR = %.2f\n", MAG_ERR);
+      }
     }
 
     if ( LDMP ) {

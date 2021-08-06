@@ -123,6 +123,7 @@
 #define HOSTLIB_VARNAME_FIELD        "FIELD" 
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
+#define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
 
@@ -210,6 +211,7 @@ struct HOSTLIB_DEF {
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
+  int IVAR_MAGOBS_ERR[MXFILTINDX] ;     // pointer to observer-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read
@@ -433,6 +435,7 @@ typedef struct {
   double RA, DEC, SNSEP, DLR, DDLR ;
   double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
   double MAG[MXFILTINDX]; 
+  double MAG_ERR[MXFILTINDX];
   bool   TRUE_MATCH ;
 } SNHOSTGAL_DDLR_SORT_DEF ;
 
@@ -661,7 +664,7 @@ double get_GALFLUX_HOSTLIB(double a, double b);
 
 double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ); 
 double Gauss2d_Overlap(double offset, double sig);
-void   magkey_HOSTLIB(int  ifilt_obs, char *key);
+void   magkey_HOSTLIB(int  ifilt_obs, char *key, char *key_err);
 void   set_usebit_HOSTLIB_MSKOPT(int MSKOPT);
 
 void setbit_HOSTLIB_MSKOPT(int MSKOPT) ; // added Jan 2017

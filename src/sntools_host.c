@@ -3581,7 +3581,7 @@ void init_GALMAG_HOSTLIB(void) {
 
     IVAR = IVAR_HOSTLIB(cvar,MATCH_FLAG) ;
     IVAR_ERR = IVAR_HOSTLIB(cvar_err,MATCH_FLAG) ;
-    printf("xxx cvar_err = %s, ivar_err = %d\n", cvar_err, IVAR_ERR);
+    //printf("xxx cvar_err = %s, ivar_err = %d\n", cvar_err, IVAR_ERR);
 
 
     if ( IVAR > 0 ) {
@@ -6729,7 +6729,7 @@ void SORT_SNHOST_byDDLR(void) {
       if (IVAR_ERR > 0){
       	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
-	printf("xxx MAG_ERR = %.2f\n", MAG_ERR);
+	//printf("xxx MAG_ERR = %.2f\n", MAG_ERR);
       }
     }
 

@@ -632,7 +632,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   Py_DECREF(pLAM);
   Py_DECREF(pFLUX);
   Py_DECREF(arrLAM);
-  Py_DECREF(arrFLUX);
+  //Py_DECREF(arrFLUX);
   Py_DECREF(pargs);
   Py_DECREF(pargs2);
   //Py_DECREF(pylamitem);

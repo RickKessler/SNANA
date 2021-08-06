@@ -1830,6 +1830,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 				     &SNDATA.HOSTGAL_MAG[igal][ifilt]); 
 	}
       }  
+
+      sprintf(KEY_TEST,"%s_MAGERR:", PREFIX);
+      if ( strcmp(word0,KEY_TEST) == 0 ) {
+        for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+          iwd++ ; get_PARSE_WORD_FLT(langC, iwd,
+                                     &SNDATA.HOSTGAL_MAGERR[igal][ifilt]);
+        }
+      }
       
     } // end igal      
 

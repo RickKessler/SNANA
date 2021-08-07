@@ -18816,9 +18816,11 @@ void conflict_check() {
   if ( !INPUTS.cat_only ) {
     double zmin = INPUTS.zmin;
     double zmax = INPUTS.zmax;
-    if ( zmin < 0.0 || zmax > 9.0 ) {
-      sprintf(c1err,"Input file must specify zmin and zmax");
-      sprintf(c2err," ");
+    bool   define_zbinuser  = strlen(INPUTS.zbinuser) > 0 ;
+    bool   define_zminzmax  = ( zmin > 0.0 && zmax < 9.0 );
+    if ( !define_zminzmax && !define_zbinuser ) {
+      sprintf(c1err,"Input file must specify zmin and zmax,");
+      sprintf(c2err,"or specify zbinuser.");
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }

@@ -9203,24 +9203,13 @@ c     D. Jones color grid search
 	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
       ENDIF
 
-       print*,' xxx COLOR(MIN,MAX,BIN) =', 
-     &    COLOR_MIN, COLOR_MAX, COLOR_BIN
-
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
+      COLOR   = COLOR_MIN
 
-c xxxxxxx mark delete Aug 3 2021 xxxxxx
-c      DO 400 i = -4, 4, 2   ! Mar 4 2020
-c        Xsig                 = 0.5 * float(i)
-c        PEAKMJD_DIF          = Xsig * INISTP(IPAR_PEAKMJD) 
-c        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_DIF
-c	print*,' xxx PEAKMJD_DIF = ', PEAKMJD_DIF
-c xxxxxxxxx end mark xxxxxxxx
-
-      COLOR = COLOR_MIN
       DO 300 WHILE ( COLOR < COLOR_MAX+0.0001 ) 
         INIVAL(IPAR_COLOR) = COLOR
         DIFMJD = DIFMJD_MIN

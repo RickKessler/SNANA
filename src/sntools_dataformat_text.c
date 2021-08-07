@@ -2314,7 +2314,8 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.BAND] ;
     lenstr = strlen(str); 
     sprintf(SNDATA.FILTCHAR[ep], "%c", str[lenstr-1] );
-    catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
+    catVarList_with_comma(SNDATA.FILTCHAR_1D, SNDATA.FILTCHAR[ep]);
+    // xxx mark  catVarList_with_comma(SNDATA.FILTCHAR_1D,str);
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.FIELD] ;
     if ( strcmp(str,"NULL") == 0 ) { sprintf(str,FIELD_NONAME); }

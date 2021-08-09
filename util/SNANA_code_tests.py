@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument("-l", "--list_file", help=msg, type=str, 
                         default=LIST_TESTS_FILE_DEFAULT)
 
-    msg = f"private snana code directory (replaces {SNANA_DIR}"
+    msg = f"private snana code directory (replaces {SNANA_DIR})"
     parser.add_argument("--snana_dir", help=msg, type=str, default=None)
 
     msg = "INTERNAL ARG: CPU number"

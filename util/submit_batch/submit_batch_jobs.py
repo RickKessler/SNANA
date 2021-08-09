@@ -115,6 +115,9 @@ def get_args():
     msg = (f"DEBUG MODE: force abort in merge ")
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
 
+    msg = (f"DEBUG MODE: run codes from private snana_dir ")
+    parser.add_argument("--snana_dir", help=msg, type=str, default=None )
+
     # args passed internally from command files
     msg = "INTERNAL:  merge process"
     parser.add_argument("-m", "--merge", help=msg, action="store_true")

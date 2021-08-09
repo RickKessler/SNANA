@@ -2289,6 +2289,11 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
 
+  /* xxxx
+  if ( strcmp(varName,"HOST_LOGMASS") == 0 )  // Aug 2021
+    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
+  xxx */
+
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
 

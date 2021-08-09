@@ -228,7 +228,12 @@
  
  Mar 27 2021: new -om_sim option to change OM for -cmb_sim.
 
- Aug 2021: major refactor to enable CPL model with w0,wa 
+ Aug 2021: 
+   + major refactor to enable CPL model with w0,wa 
+   + refactor write_output_cospar to be less confusing.
+     Fixed bug: usemarg values were written for !usemarge and
+     vice-versa. To avoid confusion, change default usemarg = 0 -> 1
+     so that marg values are still default.
 
 *****************************************************************************/
 
@@ -251,9 +256,9 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
                         HzFUN_INFO_DEF *HzFUN ) ;
 
 typedef struct {
-  double  w0_out, w0sig, w0sig_upper, w0sig_lower ;
-  double  wa_out, wasig, wasig_upper, wasig_lower ;
-  double  omm_out, omm_sig,  chi2_final ;
+  double  w0_out,  w0sig_marg, w0sig_upper, w0sig_lower ;
+  double  wa_out,  wasig_marg, wasig_upper, wasig_lower ;
+  double  omm_out, omm_sig_marg,  chi2_final ;
   double  sigmu_int, w0rand, warand,  ommrand ;
   char    label_cospar[40];
   int     Ndof ;
@@ -268,6 +273,10 @@ int    cidindex(char *cid);
 
 void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS, 
 			 int usemarg, int format_cospar );
+
+void write_output_cospar_legacy(FILE *fp, RESULTS_DEF *RESULTS, 
+				int usemarg, int format_cospar );
+
 void write_output_resid(void);
 void write_output_contour(void);
 
@@ -314,6 +323,8 @@ int mudif_flag = 0 ; // Apri 2016
 int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 
+int debug_flag = 0 ;
+
   /* WMAP + LSS, from SDSS, Tegmark et al, astro-ph/0310723  */
 
 double OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
@@ -327,7 +338,9 @@ double waref =  0.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
-char w_varname[4]; // either w for wCDM or w0 for w0wa model
+char varname_w[4]; // either w for wCDM or w0 for w0wa model
+char varname_wa[] = "wa";
+char varname_omm[] = "OM" ;
 
   /* Cosparam cosmological parameter structure */
 Cosparam cpar;
@@ -473,7 +486,6 @@ int main(int argc,char *argv[]){
   
   double *w0_prob,*wa_prob,  *w0_sort, *wa_sort,  *hvec, *omm_prob;
   double *chitmp;
-  //double *snprob, ***snprob3d, *extprob, ***extprob3d, *snchi, ***snchi3d, *extchi, ***extchi3d;
   double f_memory; // allocated memory in Mb 
   double w0,wa, omm, ld_cos, mu_cos, coeff ;
   int  omm_steps, w0_steps,wa_steps,  h_steps;//Ayan Mitra
@@ -481,13 +493,11 @@ int main(int argc,char *argv[]){
   double w0_sum, w0_sort_1sigma, wa_sum, wa_sort_1sigma;
   double snchi_min=1.e20, extchi_min=1.e20;
   double w0_probsum, w0_probmax, w0_mean, wa_probsum, wa_probmax, wa_mean;
-  //double w_probsum, w_probmax, w_mean, w_probsum, w_probmax, w_mean;
-  double w0sig, w0sig_upper=0.0, w0sig_lower=0.0;
-  double wasig, wasig_upper=0.0, wasig_lower=0.0;
-  //double w0sig, w0sig_upper=0.0, w0sig_lower=0.0;
+  double w0sig_marg, w0sig_upper=0.0, w0sig_lower=0.0;
+  double wasig_marg, wasig_upper=0.0, wasig_lower=0.0;
   double w0_out, wa_out, omm_out ;
   double Pt1mp,Pt2mp, P1max, P2max ;
-  double omm_probsum, omm_mean, omm_sig;
+  double omm_probsum, omm_mean, omm_sig_marg;
   double delta_w0,delta_wa,  mu_dif ;
   double w0_atchimin,wa_atchimin,  OM_atchimin, chi2atmin=0.0;
   int iw0_mean=0, iwa_mean = 0;
@@ -511,9 +521,8 @@ int main(int argc,char *argv[]){
   int fitsflag= 0;
   int gridflag= 0;
   int writechi= 0;
-  int usemarg = 0;
+  int usemarg = 1; // Aug 9 2021: change default to usemarg ON
   int usemucovar = 0;
-
 
   FILE *FILEPTR_TOT, *FILEPTR_SN ;
 
@@ -579,7 +588,7 @@ int main(int argc,char *argv[]){
   CUTSELECT.SNTYPE      = -9 ;
   CUTSELECT.MXSNFIT     = MXSN+1 ;
 
-  sprintf(w_varname,"w");
+  sprintf(varname_w,"w");
 
   /* Range of Hubble parameters to marginalize over */
 
@@ -614,7 +623,7 @@ int main(int argc,char *argv[]){
         usewa=1; 
 	wa_steps = 301; w0_steps = 201;   
 	wa_min = -4. ;  wa_max = 4. ; w0_min = -3.; w0_max = 1;
-	sprintf(w_varname,"w0");
+	sprintf(varname_w,"w0");
       } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
         usecmb=2;
 	omm_prior     = OMEGA_MATTER_SIM ;
@@ -753,6 +762,9 @@ int main(int argc,char *argv[]){
 
       else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
 	{ strcpy(chi2gridfilevar,argv[++iarg]); }
+
+      else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
+	{ debug_flag = atoi(argv[++iarg]); }  // RK Aug 2021
       
       else {
 	printf("Bad arg: %s\n", argv[iarg]);
@@ -948,7 +960,7 @@ int main(int argc,char *argv[]){
     printf("****************************************\n\n");
     printf("   --------   Grid parameters   -------- \n");
     printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
-	   w_varname, w_varname, w0_min,w0_max,w0_steps,w0_stepsize);
+	   varname_w, varname_w, w0_min,w0_max,w0_steps,w0_stepsize);
 
     if(usewa){
       printf("  wa_min: %6.2f   wa_max: %6.2f  %5i steps of size %8.5f\n",
@@ -1169,14 +1181,14 @@ int main(int argc,char *argv[]){
     //printf("XXX w0_mean = %f\n", w0_mean);
     if ( !blind ){
       if (usemarg){
-	printf("  CHECK:  %s(marg) = %f \n",  w_varname, w0_mean);
+	printf("  CHECK:  %s(marg) = %f \n",  varname_w, w0_mean);
 	if (usewa)
 	  {printf("  CHECK:  wa(marg) = %f \n",  wa_mean );}
       }
       else
 	{
 	  printf("  CHECK:  ChiSq(min) = %f \n", chi2atmin);
-	  printf("  CHECK:  %s(min)    = %f\n" ,  w_varname, w0_atchimin);
+	  printf("  CHECK:  %s(min)    = %f\n" ,  varname_w, w0_atchimin);
 	  if (usewa)
 	    {printf("  CHECK:  wa(min)    = %f \n",  wa_atchimin );}  
 	}
@@ -1186,27 +1198,27 @@ int main(int argc,char *argv[]){
 
     /** Get std dev for the weighted mean.  This is a reasonable   
        measure of uncertainty in w if distribution is ~Gaussian **/
-    w0sig=0;
+    w0sig_marg=0;
     for(i=0; i<w0_steps; i++){
       w0 = w0_min + i*w0_stepsize;
       w0_prob[i] /= w0_probsum;   /** normalize the distribution **/
-      w0sig += w0_prob[i]*pow((w0-w0_mean),2);
+      w0sig_marg += w0_prob[i]*pow((w0-w0_mean),2);
       w0_sort[i] = w0_prob[i];  
     }
-    w0sig = sqrt(w0sig/w0_probsum);
-    printf("marg %s err estimate = %f\n", w_varname, w0sig);
+    w0sig_marg = sqrt(w0sig_marg/w0_probsum);
+    printf("marg %s err estimate = %f\n", varname_w, w0sig_marg);
     
     if (usewa){
       
-      wasig=0;
+      wasig_marg=0;
       for(kk=0; kk<wa_steps; kk++){
 	wa = wa_min + kk*wa_stepsize;
 	wa_prob[kk] /= wa_probsum;   // normalize the distribution 
-	wasig += wa_prob[kk]*pow((wa-wa_mean),2);
+	wasig_marg += wa_prob[kk]*pow((wa-wa_mean),2);
 	wa_sort[kk] = wa_prob[kk];        // make a copy to use later 
       }
-      wasig = sqrt(wasig/wa_probsum);
-      printf("marg wa err estimate = %f\n", wasig); 
+      wasig_marg = sqrt(wasig_marg/wa_probsum);
+      printf("marg wa err estimate = %f\n", wasig_marg); 
     } 
        
     
@@ -1314,7 +1326,7 @@ int main(int argc,char *argv[]){
       }
     }
 
-    /** Count from i=iw0_mean towards i=w0_steps to get                                                                                                      
+    /** Count from i=iw0_mean towards i=w0_steps to get   
         upper 1-sigma bound on w **/
     for (i=iw0_mean; i<w0_steps; i++){
       if (w0_prob[i] < w0_sort_1sigma){
@@ -1355,7 +1367,7 @@ int main(int argc,char *argv[]){
     }    
     printf("\n---------------------------------------\n");
     printf("prob%s-err estimates: lower = %f, upper = %f\n", 
-	   w_varname, w0sig_lower, w0sig_upper);
+	   varname_w, w0sig_lower, w0sig_upper);
     if(usewa){
       printf("probwa-err estimates: lower = %f, upper = %f\n", 
 	     wasig_lower, wasig_upper);
@@ -1384,15 +1396,16 @@ int main(int argc,char *argv[]){
 
     /** Get std dev for the weighted mean. This should be a sufficient estimate
         of the uncertainty in omega_m. **/
-    omm_sig=0;
+    omm_sig_marg=0;
     for(i=0; i<omm_steps; i++){ 	
       omm = omm_min + i*omm_stepsize;    
       omm_prob[i] /= omm_probsum;	/** normalize the distribution **/     
-      omm_sig += omm_prob[i]*pow((omm-omm_mean),2);
+      omm_sig_marg += omm_prob[i]*pow((omm-omm_mean),2);
     }
 
-    omm_sig = sqrt(omm_sig/omm_probsum);
-    printf("marg ommerr estimate = %f\n", omm_sig);
+    omm_sig_marg = sqrt(omm_sig_marg/omm_probsum);
+    printf("marg ommerr estimate = %f\n", omm_sig_marg);
+
     printf("\n---------------------------------------\n");
 
     /********************************************************/
@@ -1410,7 +1423,7 @@ int main(int argc,char *argv[]){
     if ( usemarg ) 
       { w0_out = w0_mean ;  wa_out = wa_mean;   omm_out = omm_mean ; }
     else
-      { w0_out = w0_atchimin ;  wa_out = wa_atchimin ; omm_out = OM_atchimin ; }
+      { w0_out = w0_atchimin ; wa_out=wa_atchimin ; omm_out = OM_atchimin ; }
 
     cpar.omm = omm_out;
     cpar.w0  = w0_out;
@@ -1544,18 +1557,18 @@ int main(int argc,char *argv[]){
       char sep[] = " ";
       if ( csv_out ) { sprintf(sep,","); }
       RESULTS.w0_out       = w0_out ;
-      RESULTS.w0sig        = w0sig  ;
+      RESULTS.w0sig_marg   = w0sig_marg  ;
       RESULTS.w0sig_upper  = w0sig_upper  ;
       RESULTS.w0sig_lower  = w0sig_lower  ;
       RESULTS.wa_out       = wa_out ;
-      RESULTS.wasig        = wasig  ;
+      RESULTS.wasig_marg   = wasig_marg  ;
       RESULTS.wasig_upper  = wasig_upper  ;
       RESULTS.wasig_lower  = wasig_lower  ;
-      RESULTS.omm_out     = omm_out;
-      RESULTS.omm_sig     = omm_sig;
-      RESULTS.chi2_final  = chi2_final;
-      RESULTS.Ndof        = Ndof ;
-      RESULTS.sigmu_int   = sigmu_int ;
+      RESULTS.omm_out      = omm_out;
+      RESULTS.omm_sig_marg = omm_sig_marg;
+      RESULTS.chi2_final   = chi2_final;
+      RESULTS.Ndof         = Ndof ;
+      RESULTS.sigmu_int    = sigmu_int ;
       RESULTS.w0rand       = w0rand;
       RESULTS.warand       = warand;
       RESULTS.ommrand     = ommrand ;
@@ -1601,16 +1614,16 @@ int main(int argc,char *argv[]){
       char sep[] = " ";
       if ( csv_out ) { sprintf(sep,","); }
       RESULTS.w0_out       = w0_out ;
-      RESULTS.w0sig        = w0sig  ;
+      RESULTS.w0sig_marg   = w0sig_marg  ;
       RESULTS.w0sig_upper  = w0sig_upper  ;
       RESULTS.w0sig_lower  = w0sig_lower  ;
-      RESULTS.omm_out     = omm_out;
-      RESULTS.omm_sig     = omm_sig;
-      RESULTS.chi2_final  = chi2_final;
-      RESULTS.Ndof        = Ndof ;
-      RESULTS.sigmu_int   = sigmu_int ;
+      RESULTS.omm_out      = omm_out;
+      RESULTS.omm_sig_marg = omm_sig_marg;
+      RESULTS.chi2_final   = chi2_final;
+      RESULTS.Ndof         = Ndof ;
+      RESULTS.sigmu_int    = sigmu_int ;
       RESULTS.w0rand       = w0rand;
-      RESULTS.ommrand     = ommrand ;
+      RESULTS.ommrand      = ommrand ;
       sprintf(RESULTS.label_cospar, "%s", label_cospar);
       write_output_cospar(fpcospar, &RESULTS, usemarg, format_cospar);
       fclose(fpcospar);
@@ -2600,7 +2613,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin, double *OM_atchimin
   nbm = (int)(nb_factor*omm_stepsize/omstep_tmp) ;
 
   printf("   Minimize with refined %sstep=%6.4f (%d bins, %s=%7.4f) \n", 
-	 w_varname, w0step_tmp, 2*nbw0, w_varname, *w0_atchimin);
+	 varname_w, w0step_tmp, 2*nbw0, varname_w, *w0_atchimin);
   if(usewa){
     printf("   Minimize with refined wastep=%6.4f (%d bins, wa=%7.4f) \n",
 	   wastep_tmp, 2*nbwa, *wa_atchimin);
@@ -2936,13 +2949,152 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 			 int usemarg, int format_cospar ) {
 
   // Created Aug 15 2020
+  // Refactor Aug 2021 to avoid too much redundant code.
+  //
+  // format_cospar = 1 : legacy csv format
+  // format_cospar = 2 : YAML format
+
+#define MXVAR_WRITE 20
+  int    ivar, NVAR = 0;
+  char   VALUES_LIST[MXVAR_WRITE][20];
+  char   VARNAMES_LIST[MXVAR_WRITE][20], LINE_STRING[200] ;
+  char   ckey[40], cval[40];
+  char sep[] = " " ;
+  // ----------- BEGIN -------------
+
+  if ( debug_flag != 8921 ) {
+    write_output_cospar_legacy(fp, RESULTS, usemarg, format_cospar);
+    return;
+  }
+  else {
+    printf("\n xxx REFACTOR WRITE OUTPUT WITH debug_flag=%d\n\n", debug_flag);
+  }
+  // - - - -
+  // define variables to write out based on usemarg and usewa flags.
+
+  sprintf(VARNAMES_LIST[NVAR],"%s", varname_w); 
+  sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0_out ) ;
+  NVAR++ ;
+
+  if ( usemarg ) {
+    sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_w); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0sig_marg ) ;
+    NVAR++ ;
+  }
+  else {
+    sprintf(VARNAMES_LIST[NVAR],"%ssig_lo", varname_w); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0sig_lower ) ;
+    NVAR++ ;
+    sprintf(VARNAMES_LIST[NVAR],"%ssig_up", varname_w); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0sig_upper ) ;
+    NVAR++ ;
+  }
+
+  // - - - 
+  if ( usewa ) {
+    sprintf(VARNAMES_LIST[NVAR],"%s", varname_wa); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->wa_out ) ;
+    NVAR++ ;
+    if ( usemarg ) {
+      sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_wa); 
+      sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->wasig_marg ) ;
+      NVAR++ ;
+    }
+    else {
+      sprintf(VARNAMES_LIST[NVAR],"%ssig_lo", varname_wa); 
+      sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->wasig_lower ) ;
+      NVAR++ ;
+      sprintf(VARNAMES_LIST[NVAR],"%ssig_up", varname_wa); 
+      sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->wasig_upper ) ;
+      NVAR++ ;
+    }
+  } // end usewa
+
+
+  // - - - 
+
+  sprintf(VARNAMES_LIST[NVAR],"%s", varname_omm); 
+  sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->omm_out ) ;
+  NVAR++ ;
+  if ( usemarg ) {
+    sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->omm_sig_marg ) ;
+    NVAR++ ;
+  }
+  else {
+    // WARNING: we don't have omm_sig_upper/lower, so just
+    // write omm_sig_marg
+    sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->omm_sig_marg ) ;
+    NVAR++ ;
+  }
+
+  sprintf(VARNAMES_LIST[NVAR],"chi2" );
+  sprintf(VALUES_LIST[NVAR], "%.1f",  RESULTS->chi2_final ) ;
+  NVAR++ ;
+
+  sprintf(VARNAMES_LIST[NVAR],"Ndof" );
+  sprintf(VALUES_LIST[NVAR], "%5d",  RESULTS->Ndof ) ;
+  NVAR++ ;
+
+  sprintf(VARNAMES_LIST[NVAR],"sigint" );
+  sprintf(VALUES_LIST[NVAR], "%6.3f",  RESULTS->sigmu_int ) ;
+  NVAR++ ;
+
+  sprintf(VARNAMES_LIST[NVAR],"%sran", varname_w );
+  sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0rand ) ;
+  NVAR++ ;
+
+  sprintf(VARNAMES_LIST[NVAR],"%sran", varname_omm );
+  sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->ommrand ) ;
+  NVAR++ ;
+
+  sprintf(VARNAMES_LIST[NVAR],"label" );
+  sprintf(VALUES_LIST[NVAR], "%s",  RESULTS->label_cospar ) ;
+  NVAR++ ;
+  
+  // - - - - - - -
+  if ( format_cospar == 1 ) {
+    // legacy format in csv-like format with default sep=" "
+    LINE_STRING[0] = 0;
+    sprintf(LINE_STRING,"# ");
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      strcat(LINE_STRING, VARNAMES_LIST[ivar] );
+      strcat(LINE_STRING, sep );
+    }
+    fprintf(fp,"%s\n", LINE_STRING);
+
+    // now print values
+    LINE_STRING[0] = 0;
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      strcat(LINE_STRING, VALUES_LIST[ivar] );
+      strcat(LINE_STRING, sep );
+    }
+    fprintf(fp,"%s\n", LINE_STRING);
+  }
+  else {
+    // YAML format
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      sprintf(ckey, "%s:",  VARNAMES_LIST[ivar]);
+      sprintf(cval, "%s",  VALUES_LIST[ivar]);
+      fprintf(fp, "%-14s  %s \n", ckey, cval);
+    }
+  }
+
+  return ;
+
+} // end write_output_cospar
+
+// ********************************
+void write_output_cospar_legacy(FILE *fp, RESULTS_DEF *RESULTS, 
+				int usemarg, int format_cospar ) {
+
+  // Created Aug 15 2020
   // format_cospar = 1 : legacy csv format
   // format_cospar = 2 : YAML format
 
   char sep[] = " " ;
   // ----------- BEGIN -------------
-
- 
 
   if(usewa){
 
@@ -2955,11 +3107,11 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 	fprintf(fp,"%8.4f%s %7.4f%s %8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
 	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
 	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig,  sep
+	      , RESULTS->w0sig_marg,  sep
 	      , RESULTS->wa_out, sep
-	      , RESULTS->wasig,  sep
+	      , RESULTS->wasig_marg,  sep
 	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig, sep 
+	      , RESULTS->omm_sig_marg, sep 
 	      , RESULTS->chi2_final, sep
 	      , RESULTS->Ndof, sep
 	      , RESULTS->sigmu_int, sep
@@ -2980,7 +3132,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
               , RESULTS->wasig_upper, sep
               , RESULTS->wasig_lower, sep
 	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig, sep
+	      , RESULTS->omm_sig_marg, sep
 	      , RESULTS->chi2_final, sep
 	      , RESULTS->Ndof, sep
 	      , RESULTS->sigmu_int, sep
@@ -2992,11 +3144,11 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
     else {
     // YAML format
       fprintf(fp, "w0:        %.4f \n", RESULTS->w0_out );
-      fprintf(fp, "w0_sig:    %.4f \n", RESULTS->w0sig  );
+      fprintf(fp, "w0_sig:    %.4f \n", RESULTS->w0sig_marg  );
       fprintf(fp, "wa:        %.4f \n", RESULTS->wa_out );
-      fprintf(fp, "wa_sig:    %.4f \n", RESULTS->wasig  );
+      fprintf(fp, "wa_sig:    %.4f \n", RESULTS->wasig_marg  );
       fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
-      fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
+      fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig_marg );    
       fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
       fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
       fprintf(fp, "w0rand:    %.4f \n", RESULTS->w0rand );    
@@ -3017,9 +3169,9 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 	fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
 	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
 	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig,  sep
+	      , RESULTS->w0sig_marg,  sep
 	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig, sep 
+	      , RESULTS->omm_sig_marg, sep 
 	      , RESULTS->chi2_final, sep
 	      , RESULTS->Ndof, sep
 	      , RESULTS->sigmu_int, sep
@@ -3037,7 +3189,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 	      , RESULTS->w0sig_upper, sep
 	      , RESULTS->w0sig_lower, sep
 	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig, sep
+	      , RESULTS->omm_sig_marg, sep
 	      , RESULTS->chi2_final, sep
 	      , RESULTS->Ndof, sep
 	      , RESULTS->sigmu_int, sep
@@ -3049,9 +3201,9 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
     else {
     // YAML format
     fprintf(fp, "w:        %.4f \n", RESULTS->w0_out );
-    fprintf(fp, "w_sig:    %.4f \n", RESULTS->w0sig  );
+    fprintf(fp, "w_sig:    %.4f \n", RESULTS->w0sig_marg  );
     fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
-    fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
+    fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig_marg );    
     fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
     fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
     fprintf(fp, "wrand:    %.4f \n", RESULTS->w0rand );    
@@ -3064,7 +3216,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   
   return ;
 
-} // end write_output_cospar
+} // end write_output_cospar_legacy
 
 // ********************************
 void write_output_resid(void) {

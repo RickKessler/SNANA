@@ -20,6 +20,7 @@
 #              merge recover (-H FIT for instructions)
 #
 # May 24 2021: new function submit_iter2()
+# Aug 09 2021: implement optional --snana_dir arg
 #
 # ============================================
 
@@ -315,6 +316,7 @@ class Program:
 
         CONFIG      = self.config_yaml['CONFIG']
         input_file  = self.config_yaml['args'].input_file 
+        snana_dir   = self.config_yaml['args'].snana_dir
         output_dir  = self.config_prep['output_dir']
         script_dir  = self.config_prep['script_dir']
         n_core      = self.config_prep['n_core']
@@ -384,6 +386,13 @@ class Program:
                 f.write(f"echo ' ' \n")
 
                 f.write(f"echo 'Begin {command_file}' \n\n")
+
+                if snana_dir is not None:
+                    path_list = f"{snana_dir}/bin:{snana_dir}/util:$PATH"
+                    f.write(f"export SNANA_DIR={snana_dir} \n")
+                    f.write(f"export PATH={path_list}\n" )
+
+                f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 

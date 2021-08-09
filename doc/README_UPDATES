@@ -20234,4 +20234,33 @@
         (min,max,bin) to find better initial values before fit.
 
 
+
+# ======================================================================= 
+         v11_03c (  ) 
+
+         ***** IMPORTANT(v11_03c) ***** 
+
+         ***** USEFUL(v11_03c) ***** 
+
+         ***** MISCELLANEOUS(v11_03c) ***** 
+
+    genmag_SALT2.c
+      + for MAGSHIFT key in SALT2[3].INFO file, read only last char of band.
+
+    sntools_host.c[h]
+      + if hostmag errors are in HOSTLIB, propagate to data files.
+
+    sntools_dataformat_text.c
+      + strip of last char of band to allow full filter string
+        in text formatted data.
+
+    SALT2mu.c
+     + fix conflict_check to allow zbinuser
+
+    submit_batch_jobs     : add optoinal --snana_dir arg
+    SNANA_submit_tests.py : add optional --snana_dir arg
+   
+    wfit.c
+      + refactor write_output_cospar
+
 END: 

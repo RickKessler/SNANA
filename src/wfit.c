@@ -228,6 +228,8 @@
  
  Mar 27 2021: new -om_sim option to change OM for -cmb_sim.
 
+ Aug 2021: major refactor to enable CPL model with w0,wa 
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -238,16 +240,15 @@ void parse_VARLIST(FILE *fp);
 void read_mucovar(char *inFile);
 void invert_mucovar(double sqmurms_add);
 void   get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
-		   double *mu_off, double *chi2sn, double *chi2tot );// AM w0 --> w0
+		   double *mu_off, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
-double get_minwOM( double *w0_atchimin, double *wa_atchimin, double *OM_atchimin ); // AM w0 --> w0
+double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
+		   double *OM_atchimin ); 
 void set_priors(void);
 
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
                         HzFUN_INFO_DEF *HzFUN ) ;
-
-
 
 typedef struct {
   double  w0_out, w0sig, w0sig_upper, w0sig_lower ;
@@ -307,7 +308,7 @@ double sqsnrms = 0.0 ;
 
 int usebao  = 0;
 int usecmb  = 0;
-int usewa = 0 ; //AM
+int usewa   = 0 ; 
 int csv_out = 0; // optional csv format for output cospar and resids
 int mudif_flag = 0 ; // Apri 2016
 int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
@@ -326,6 +327,7 @@ double waref =  0.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
+char w_varname[4]; // either w for wCDM or w0 for w0wa model
 
   /* Cosparam cosmological parameter structure */
 Cosparam cpar;
@@ -566,24 +568,18 @@ int main(int argc,char *argv[]){
   acmb = 1./(1.+zcmb);
 
   /* Omega_m & w0 grid parameters */
- 
- /* number of steps across omega_m range */
-
-
   w0_steps = 201; w0_min = -2.0 ;  w0_max = 0. ;  
   wa_steps = 1;   wa_min = 0. ;  wa_max = 0. ;
   omm_steps = 81; omm_min = 0.0; omm_max = 1.0;
-  h_steps = 121; h_min = 40; h_max = 100;    /* number of steps across H0 range */
-
-
-
-
+  h_steps = 121; h_min = 40; h_max = 100;   
   
   CUTSELECT.ZMIN = 0.0 ;
   CUTSELECT.ZMAX = 9.9 ;
   CUTSELECT.GENTYPE_SIM = -9 ;
   CUTSELECT.SNTYPE      = -9 ;
   CUTSELECT.MXSNFIT     = MXSN+1 ;
+
+  sprintf(w_varname,"w");
 
   /* Range of Hubble parameters to marginalize over */
 
@@ -616,8 +612,9 @@ int main(int argc,char *argv[]){
 	usecmb=1;
       } else if (strcasecmp(argv[iarg]+1,"wa")==0) {
         usewa=1; 
-	wa_steps = 301;w0_steps = 201;   wa_min = -4. ;  wa_max = 4. ; w0_min = -3.; w0_max = 1; //-3,1 Later might add inputs to alter. 
-
+	wa_steps = 301; w0_steps = 201;   
+	wa_min = -4. ;  wa_max = 4. ; w0_min = -3.; w0_max = 1;
+	sprintf(w_varname,"w0");
       } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
         usecmb=2;
 	omm_prior     = OMEGA_MATTER_SIM ;
@@ -950,8 +947,8 @@ int main(int argc,char *argv[]){
     printf("****************************************\n");
     printf("****************************************\n\n");
     printf("   --------   Grid parameters   -------- \n");
-    printf("  w0_min: %6.2f   w0_max: %6.2f  %5i steps of size %8.5f\n",
-	    w0_min,w0_max,w0_steps,w0_stepsize);
+    printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
+	   w_varname, w_varname, w0_min,w0_max,w0_steps,w0_stepsize);
 
     if(usewa){
       printf("  wa_min: %6.2f   wa_max: %6.2f  %5i steps of size %8.5f\n",
@@ -1005,9 +1002,9 @@ int main(int argc,char *argv[]){
     }
     else {
       if ( usemarg != 0 )
-	printf("Will MARGINALIZE for final w0 & OM \n");
+	printf("Will MARGINALIZE for final w & OM \n");
       else
-	printf("Will MINIMIZE for final w0 & OM \n");
+	printf("Will MINIMIZE for final w & OM \n");
     }
 
     printf("Add %4.2f mag-error (snrms) in quadrature to MU-error \n", snrms);
@@ -1172,14 +1169,14 @@ int main(int argc,char *argv[]){
     //printf("XXX w0_mean = %f\n", w0_mean);
     if ( !blind ){
       if (usemarg){
-       printf("  CHECK:  w0(marg) = %f \n",  w0_mean);
+	printf("  CHECK:  %s(marg) = %f \n",  w_varname, w0_mean);
 	if (usewa)
 	  {printf("  CHECK:  wa(marg) = %f \n",  wa_mean );}
       }
       else
 	{
 	  printf("  CHECK:  ChiSq(min) = %f \n", chi2atmin);
-	  printf("  CHECK:  w0(min)    = %f\n" ,  w0_atchimin);
+	  printf("  CHECK:  %s(min)    = %f\n" ,  w_varname, w0_atchimin);
 	  if (usewa)
 	    {printf("  CHECK:  wa(min)    = %f \n",  wa_atchimin );}  
 	}
@@ -1197,7 +1194,7 @@ int main(int argc,char *argv[]){
       w0_sort[i] = w0_prob[i];  
     }
     w0sig = sqrt(w0sig/w0_probsum);
-    printf("marg w0 err estimate = %f\n", w0sig);
+    printf("marg %s err estimate = %f\n", w_varname, w0sig);
     
     if (usewa){
       
@@ -1357,10 +1354,11 @@ int main(int argc,char *argv[]){
       }
     }    
     printf("\n---------------------------------------\n");
-    printf("probw0-err estimates: lower = %f, upper = %f\n", w0sig_lower, w0sig_upper);
+    printf("prob%s-err estimates: lower = %f, upper = %f\n", 
+	   w_varname, w0sig_lower, w0sig_upper);
     if(usewa){
-      //printf("probw0-err estimates: lower = %f, upper = %f\n", w0sig_lower, w0sig_upper);
-      printf("probwa-err estimates: lower = %f, upper = %f\n", wasig_lower, wasig_upper);
+      printf("probwa-err estimates: lower = %f, upper = %f\n", 
+	     wasig_lower, wasig_upper);
     }
 
     /***************************************/
@@ -2601,11 +2599,11 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin, double *OM_atchimin
   //nbwa= (int)(nb_factor*w0_stepsize/w0step_tmp) ; // Addedd AM : simpint error
   nbm = (int)(nb_factor*omm_stepsize/omstep_tmp) ;
 
-  printf("   Minimize with refined w0step=%6.4f (%d bins, w0=%7.4f) \n", 
-	 w0step_tmp, 2*nbw0, *w0_atchimin);
+  printf("   Minimize with refined %sstep=%6.4f (%d bins, %s=%7.4f) \n", 
+	 w_varname, w0step_tmp, 2*nbw0, w_varname, *w0_atchimin);
   if(usewa){
-  printf("   Minimize with refined wastep=%6.4f (%d bins, wa=%7.4f) \n",
-         wastep_tmp, 2*nbwa, *wa_atchimin);
+    printf("   Minimize with refined wastep=%6.4f (%d bins, wa=%7.4f) \n",
+	   wastep_tmp, 2*nbwa, *wa_atchimin);
   }
   printf("   Minimize with refined OMstep=%6.4f (%d bins, OMcen=%6.4f) \n", 
 	 omstep_tmp, 2*nbm, *OM_atchimin );
@@ -3009,10 +3007,11 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
     
   }
   else {
+    // wCDM
     if ( format_cospar == 1 ) {
     // legacy format
       if ( !usemarg ) {
-	fprintf(fp,"# w%s w0sig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
+	fprintf(fp,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
 	      "sigint%s wran%s OMran%s label \n",
 	      sep, sep, sep, sep, sep, sep, sep, sep, sep );
 	fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
@@ -3028,7 +3027,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 	      , RESULTS->ommrand, sep
 	      , RESULTS->label_cospar );
       } else {
-	fprintf(fp,"# w%s w0sig_up%s w0sig_low%s OM%s OM_sig%s chi2%s "
+	fprintf(fp,"# w%s wsig_up%s wsig_low%s OM%s OM_sig%s chi2%s "
 	      "Ndof%s sigint%s wran%s OMran%s label\n",
 	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
       
@@ -3049,18 +3048,16 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
     }
     else {
     // YAML format
-    fprintf(fp, "w0:        %.4f \n", RESULTS->w0_out );
-    fprintf(fp, "w0_sig:    %.4f \n", RESULTS->w0sig  );
+    fprintf(fp, "w:        %.4f \n", RESULTS->w0_out );
+    fprintf(fp, "w_sig:    %.4f \n", RESULTS->w0sig  );
     fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
     fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
     fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
     fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
-    fprintf(fp, "w0rand:    %.4f \n", RESULTS->w0rand );    
+    fprintf(fp, "wrand:    %.4f \n", RESULTS->w0rand );    
     fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  
     fprintf(fp, "label:    %s \n", RESULTS->label_cospar );    
     }
-
-
   }
 
 

@@ -9088,38 +9088,28 @@ c local var
 
       INTEGER 
      &   CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar
-     &  ,IPAR_ADJUST, NF, NZ, LCHAR
+     &  ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
 
       LOGICAL LDMP / .TRUE. /
-      LOGICAL LZFIT, FIRST_ITER
-      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*12
+      LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
+      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
 
       REAL
-     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG
-     &  ,rflux, CHI2, Xsig, ZTMP
+     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2, Xsig, ZTMP
      &  ,PEAKMJD_INI, PEAKMJD_SAVE
      &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
-     &  ,COLOR_INI, COLOR_SAVE
-     &  ,COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
+     &  ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
      &  ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP
-     &  ,INIVAL_START(IPAR_MAX)  ! starting initial values
-     &  ,RTMP(MXFILT_ALL)
+     &  ,INIVAL_START(IPAR_MAX), RTMP(MXFILT_ALL)
 
       REAL*8  T8, Z8
 
-c functions
-
-      REAL  DATA_MODEL_RATIO
-
 c FCNSNLC args
-
       INTEGER IFLAG
-      REAL*8 
-     &    GRAD(MXFITPAR)
-     &  , CHI8INI, CHI8END, CHI8MIN, CHI8
-     &  , CHI8TEST
+      REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8, CHI8TEST
 
 c functions
+      REAL  DATA_MODEL_RATIO
       REAL*8  USRFUN
       EXTERNAL USRFUN
       LOGICAL  FIRST_ITERATION
@@ -9197,7 +9187,10 @@ c     D. Jones color grid search
       COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
       COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
 
-      IF ( COLOR_BIN .EQ. 0.0) THEN 
+      DO_PEAKMJD = (INISTP_PEAKMJD > 0.0 .and. DIFMJD_BIN > 0.0001)
+      DO_COLOR   = (INISTP_COLOR   > 0.0 .and. COLOR_BIN  > 0.0001)
+
+      IF ( .not. DO_COLOR ) THEN 
         COLOR_MIN = COLOR_INI
         COLOR_MAX = COLOR_INI
 	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
@@ -9205,7 +9198,8 @@ c     D. Jones color grid search
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
-      IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
+      if ( .not. DO_PEAKMJD ) GOTO 444
+c xxx mark delet Aug 7 2021  IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
       COLOR   = COLOR_MIN
@@ -9241,20 +9235,33 @@ c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
         PEAKMJD_SAVE         = PEAKMJD_INI
         INIVAL(IPAR_COLOR)   = COLOR_INI
         COLOR_SAVE           = COLOR_INI
-
       ENDIF
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 6")
 
+c - - - - -
       if ( LDMP ) then
-         write(6,44) PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
-44       format(T10,'Adjust PEAKMJD=',F9.3, ' ==> ', F9.3,
-     &      2x, '(CHI2=',F10.2,')'  )
-         write(6,45) COLOR_INI, INIVAL(IPAR_COLOR), CHI8
-45       format(T10,'Adjust COLOR=',F9.3, ' ==> ', F9.3,
-     &      2x, '(CHI2=',F10.2,')'  )
+         LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
+         LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
+	 IF ( DO_COLOR ) THEN
+           write(6,42) 
+     &         PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &         PARNAME_STORE(IPAR_COLOR)(1:LCHAR2),
+     &         PEAKMJD_INI, COLOR_INI,
+     &         INIVAL(IPAR_PEAKMJD), INIVAL(IPAR_COLOR), CHI8
+	 ELSE
+           write(6,41) PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &               PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
+	 ENDIF
+
+41       format(T10,'Adjust ',A,'=',F9.3, ' ==> ', F9.3,
+     &             2x, '(CHI2=',F10.2,')'  )
+
+42       format(T6,'Adjust ',A,'/',A, '=', 
+     &        F9.3,'/',F6.3, ' ==> ', F9.3,'/',F6.3,
+     &        2x, '(CHI2=',F10.2,')'  )
 
       endif
 

@@ -338,9 +338,11 @@ double waref =  0.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
+
+// define cosmo varnames used for consistent output names
 char varname_w[4];          // either w for wCDM or w0 for w0wa model
 char varname_wa[]  = "wa" ;
-char varname_omm[] = "OM" ;
+char varname_omm[] = "OM" ; 
 
   /* Cosparam cosmological parameter structure */
 Cosparam cpar;
@@ -588,7 +590,7 @@ int main(int argc,char *argv[]){
   CUTSELECT.SNTYPE      = -9 ;
   CUTSELECT.MXSNFIT     = MXSN+1 ;
 
-  sprintf(varname_w,"w");
+  sprintf(varname_w,"w");  // default wCDM model
 
   /* Range of Hubble parameters to marginalize over */
 
@@ -2964,7 +2966,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 
   if ( debug_flag == -8921 ) {
     write_output_cospar_legacy(fp, RESULTS, usemarg, format_cospar);
-    return;
+    return; 
   }
   else {
     //    printf("\n xxx REFACTOR WRITE OUTPUT\n\n");
@@ -3055,6 +3057,10 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   NVAR++ ;
   
   // - - - - - - -
+  // List of variable names and values are stored;
+  // now write them out based on format option;
+  // csv-like or YAML
+
   if ( format_cospar == 1 ) {
     // legacy format in csv-like format with default sep=" "
     LINE_STRING[0] = 0;
@@ -3063,7 +3069,7 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
       strcat(LINE_STRING, VARNAMES_LIST[ivar] );
       strcat(LINE_STRING, sep );
     }
-    fprintf(fp,"%s\n", LINE_STRING);
+    fprintf(fp,"%s\n", LINE_STRING);  // write VARNAMES
 
     // now print values
     LINE_STRING[0] = 0;
@@ -3071,13 +3077,13 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
       strcat(LINE_STRING, VALUES_LIST[ivar] );
       strcat(LINE_STRING, sep );
     }
-    fprintf(fp,"%s\n", LINE_STRING);
+    fprintf(fp,"%s\n", LINE_STRING); // write values
   }
   else {
     // YAML format
     for(ivar=0; ivar < NVAR; ivar++ ) {
       sprintf(ckey, "%s:",  VARNAMES_LIST[ivar]);
-      sprintf(cval, "%s",  VALUES_LIST[ivar]);
+      sprintf(cval, "%s",   VALUES_LIST[ivar]);
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
   }

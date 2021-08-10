@@ -338,8 +338,8 @@ double waref =  0.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
-char varname_w[4]; // either w for wCDM or w0 for w0wa model
-char varname_wa[] = "wa";
+char varname_w[4];          // either w for wCDM or w0 for w0wa model
+char varname_wa[]  = "wa" ;
 char varname_omm[] = "OM" ;
 
   /* Cosparam cosmological parameter structure */
@@ -963,11 +963,11 @@ int main(int argc,char *argv[]){
 	   varname_w, varname_w, w0_min,w0_max,w0_steps,w0_stepsize);
 
     if(usewa){
-      printf("  wa_min: %6.2f   wa_max: %6.2f  %5i steps of size %8.5f\n",
-	     wa_min,wa_max,wa_steps,wa_stepsize);
+      printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
+	     varname_wa, varname_wa, wa_min,wa_max,wa_steps,wa_stepsize);
     }
-    printf(" omm_min: %6.2f  omm_max: %6.2f  %5i steps of size %8.5f\n",
-	    omm_min,omm_max,omm_steps,omm_stepsize);
+    printf(" %s_min: %6.2f  %s_max: %6.2f  %5i steps of size %8.5f\n",
+	   varname_omm, varname_omm, omm_min,omm_max,omm_steps,omm_stepsize);
     printf("   h_min: %6.2f   h_max: %6.2f  %5i steps of size %8.5f\n",
 	      h_min,  h_max,  h_steps,  h_stepsize);
     printf("   ------------------------------------\n");
@@ -1404,7 +1404,7 @@ int main(int argc,char *argv[]){
     }
 
     omm_sig_marg = sqrt(omm_sig_marg/omm_probsum);
-    printf("marg ommerr estimate = %f\n", omm_sig_marg);
+    printf("marg %s err estimate = %f\n", varname_omm, omm_sig_marg);
 
     printf("\n---------------------------------------\n");
 
@@ -2962,13 +2962,14 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   char sep[] = " " ;
   // ----------- BEGIN -------------
 
-  if ( debug_flag != 8921 ) {
+  if ( debug_flag == -8921 ) {
     write_output_cospar_legacy(fp, RESULTS, usemarg, format_cospar);
     return;
   }
   else {
-    printf("\n xxx REFACTOR WRITE OUTPUT WITH debug_flag=%d\n\n", debug_flag);
+    //    printf("\n xxx REFACTOR WRITE OUTPUT\n\n");
   }
+
   // - - - -
   // define variables to write out based on usemarg and usewa flags.
 

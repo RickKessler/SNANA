@@ -137,10 +137,6 @@ def run_submit(infile_list, outdir_list, INPUTS):
     SUBMIT_JOB_NAME = os.path.expandvars(INPUTS.jobname)
     snana_dir       = INPUTS.snana_dir
 
-    arg_list = [ infile ]
-    if snana_dir != SNANA_DIR:  
-        arg_list = [ infile, f"--snana_dir", f"{snana_dir}" ]
-
     done_file_list = []
     for infile,outdir in zip(infile_list,outdir_list) :
         merge_file = (f"{SNANA_TESTS_DIR}/{outdir}/{MERGE_LOG_FILE}")
@@ -149,6 +145,10 @@ def run_submit(infile_list, outdir_list, INPUTS):
         done_file_list.append(done_file)
         print(f" submit {infile}  -> {outdir}")
         sys.stdout.flush()
+
+        arg_list = [ infile ]
+        if snana_dir != SNANA_DIR:  
+            arg_list = [ infile, f"--snana_dir", f"{snana_dir}" ]
 
         cmd_list = [ SUBMIT_JOB_NAME] + arg_list
         ret = subprocess.run( cmd_list, 

@@ -22,7 +22,7 @@
 # Jan 22 2021: garbage above CONFIG is ignored.
 # Jan 23 2021: begin adding train_SALT3
 # May 24 2021: call submit_iter2()
-#
+# Aug 09 2021: add --snana_dir arg
 # - - - - - - - - - -
 
 #import os

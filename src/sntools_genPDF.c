@@ -77,6 +77,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //
   //  HISTORY:
   //     Dillon June 24th including alpha beta asym gauss
+  //    
+  //     August 10 2021 Brodie and Rick fixed bug setting NVAR properly
   // -----------
 
   FILE *fp;
@@ -260,6 +262,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   int  ABORTFLAG = 0 ;
   char *VARNAME;
   for(imap=0; imap < NMAP; imap++ ) {
+    NVAR = GENPDF[imap].NVAR ;
 
     if ( GENPDF[imap].GRIDMAP.NDIM == 1 ) { continue; }
 

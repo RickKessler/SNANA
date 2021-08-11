@@ -393,15 +393,19 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
 // =====================================================
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 			 
+  int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
+  int    IGAL = SNHOSTGAL.IGAL;
+
   int    ILIST_RAN = 1;
   int    N_ITER=0, MAX_ITER  = MXITER_GENPDF ;
-  int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp ;
-  int    IVAR_HOSTLIB, IGAL = SNHOSTGAL.IGAL;
+  int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp, IVAR_HOSTLIB;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
   double VAL_RANGE[2], FUNMAX, prob_ratio ;
   int    LDMP = 0 ;
+  bool   DO_GENGAUSS; 
+  bool   matchVar = false ;
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
-  char   *MAPNAME ;
+  char   *MAPNAME, *VARNAME ;
   char fnam[] = "get_random_genPDF";
   
   // ------------- BEGIN -----------
@@ -412,11 +416,13 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
     if ( IDMAP >= 0 ) {
       N_EVAL++ ; NCALL_GENPDF++ ;
       MAPNAME       = GENPDF[IDMAP].MAPNAME ;
-      //      VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-      //      VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+      VARNAME       = GENPDF[IDMAP].VARNAMES[0] ;
       FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
       NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
       prob_ref=1.0; prob=0.0;
+
+      if ( matchVar_GENPDF_GENGAUSS(VARNAME,GENGAUSS->NAME) ) 
+	{ matchVar = true; }
 
       // tack on optional dependence on HOSTLIB
       // Leave var_inputs[0] to be filled below inside while loop
@@ -516,8 +522,24 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   } // end genPDF 
 
   // - - - - - -
-  // check explicit asymGauss function
-  if  ( GENGAUSS->USE ) {
+  // check explicit asymGauss function .xyz
+  DO_GENGAUSS = GENGAUSS->USE ;
+
+  // if GENPDF has higher priority than GENGAUSS,  then turn off GENGAUSS. 
+  // This allows GENPDF on command line to override GENGAUSS ...
+  // and vice-versa.
+  if ( matchVar && KEYSOURCE_GENGAUSS < KEYSOURCE_GENPDF)
+    { DO_GENGAUSS = false; }
+
+  // abort if GENGAUSS and GENPDF have equal priority
+  if ( matchVar && KEYSOURCE_GENGAUSS == KEYSOURCE_GENPDF) { 
+      sprintf(c1err,"Ambiguous method to generate %s", VARNAME);
+      sprintf(c2err,"KEYSOURCE(GENGAUSS,GENPDF) = %d, %d ",
+	      KEYSOURCE_GENGAUSS, KEYSOURCE_GENPDF );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  
+  if  ( DO_GENGAUSS ) {   
     N_EVAL++ ;
     r = getRan_GENGAUSS_ASYM(GENGAUSS) ;
   }
@@ -538,7 +560,19 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
 } // end get_random_genPDF
 
-// ========================================
+// ========================================================
+bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS) {
+  // Created Aug 10 2021 by R.Kessler
+  // return True of the GENPDF and GENGAUSS varNames match.
+  char fnam[] = "matchVar_GENPDF_GENGAUSS" ;
+  // ------------ BEGIN -------------
+  if ( strcmp(varName_GENPDF,varName_GENGAUSS) == 0 )
+    { return true; }
+
+  return false ;
+} // end matchVar_GENPDF_GENGAUSS
+
+// ========================================================
 void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, 
 			  double *VAL_RANGE, int dumpFlag ) {
 

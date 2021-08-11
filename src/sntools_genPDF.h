@@ -19,6 +19,7 @@ int      NMAP_GENPDF;
 int      NCALL_GENPDF ;
 int      OPT_EXTRAP_GENPDF;
 int      OPTMASK_GENPDF ;
+int      KEYSOURCE_GENPDF; // 1=file, 2=arg; used for prioritization
 
 struct {
   char     MAPNAME[40];
@@ -50,5 +51,6 @@ void   free_memory_genPDF(void); // release memory of all genPDF maps
 
 int IDMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);
+bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS);
 
 // END

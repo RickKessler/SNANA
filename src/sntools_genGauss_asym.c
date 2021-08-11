@@ -57,6 +57,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   genGauss->INDEX     = -999 ;
 
+  genGauss->KEYSOURCE = -9;
+
 } // end init_GENGAUSS_ASYM
 
 // ************************************
@@ -93,6 +95,8 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
 
   genGauss2->INDEX      = genGauss1->INDEX ; 
 
+  genGauss2->KEYSOURCE  = genGauss1->KEYSOURCE ; 
+
   return ;
 
 } // end copy_GENGAUSS_ASYM
@@ -104,7 +108,7 @@ void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
 
   // July 2020
   // Utility to set Asymmetric Gauss params of genGauss.
-  // Does not set 2nd peak, nor sew.
+  // Does not set 2nd peak, nor skew.
 
   genGauss->USE      = true ;
   genGauss->PEAK     = peak;
@@ -448,6 +452,7 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
     genGauss->PEAK = PEAK ; 
     genGauss->PEAKRANGE[0] = PEAK ;
     genGauss->PEAKRANGE[1] = PEAK ; 
+    genGauss->KEYSOURCE    = keySource ;
   }
 
   //New GENPEAKRANGE stuff here
@@ -455,6 +460,7 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[1] );
+    genGauss->KEYSOURCE    = keySource;
   }
 
   sprintf(KEYNAME, "GENSIGMA_%s",  VARNAME );
@@ -462,40 +468,47 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
     N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA[1] );
     checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA, fnam );
+    genGauss->KEYSOURCE    = keySource;
   }
   sprintf(KEYNAME, "GENSKEW_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->SKEW[1] );
+    genGauss->KEYSOURCE    = keySource;
   }
 
   sprintf(KEYNAME, "GENRANGE_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->RANGE[1] );
+    genGauss->KEYSOURCE    = keySource;
     checkVal_GENGAUSS(KEYNAME, genGauss->RANGE, fnam );
   }
 
   sprintf(KEYNAME, "GENGRID_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
     N++; sscanf(WORDS[N], "%d", &genGauss->NGRID );
+    genGauss->KEYSOURCE    = keySource;
   }
 
   // 2nd peak ...
   sprintf(KEYNAME, "GENPROB2_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
     N++; sscanf(WORDS[N], "%le", &genGauss->PROB2 );
+    genGauss->KEYSOURCE    = keySource;
   }
 
   sprintf(KEYNAME, "GENPEAK2_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
     N++; sscanf(WORDS[N], "%le", &genGauss->PEAK2 );
+    genGauss->KEYSOURCE    = keySource;
   }
 
   sprintf(KEYNAME, "GENSIGMA2_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) ) {
     N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->SIGMA2[1] );
+    genGauss->KEYSOURCE    = keySource;
     checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA2, fnam );
   }
 

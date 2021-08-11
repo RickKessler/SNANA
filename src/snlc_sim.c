@@ -870,6 +870,7 @@ void set_user_defaults(void) {
   INPUTS.GENPDF_IGNORE[0] = 0 ;
   INPUTS.GENPDF_FLAT[0]   = 0 ;
   INPUTS.GENPDF_OPTMASK   = 0;
+  KEYSOURCE_GENPDF        = -9 ;
 
   INPUTS.GENMODEL_ERRSCALE     = 0.00 ; // .001 -> 0 (Jun 20 2016) 
   INPUTS.GENMODEL_ERRSCALE_OPT = 1;   // use peak error at all epochs
@@ -1614,6 +1615,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - -
   else if ( keyMatchSim(1, "GENPDF_FILE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FILE );
+    KEYSOURCE_GENPDF = keySource ; // for prioritization w.r.t. asymGauss
   }
   else if ( keyMatchSim(1, "GENPDF_IGNORE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_IGNORE );
@@ -18553,7 +18555,6 @@ void init_CIDRAN(void) {
   printf("\t CIDRAN_MIN/MAX = %d/%d   CIDOFF=%d   NSTORE_JOB=%d\n", 
 	 CIDMIN, CIDMAX, INPUTS.CIDOFF, NSTORE );
   printf("\t CIDRAN_LIST memory allocation: %6.3f MB \n", XMEM);
-  printf("\t xxx NSTORE_ALL = %d \n", NSTORE_ALL);
   fflush(stdout);
 
   INPUTS.CIDRAN_LIST = (int*)malloc( (NSTORE+2)*sizeof(int) );

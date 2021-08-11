@@ -192,6 +192,9 @@ int main(int argc, char **argv) {
 
   init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
 	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
+
+  prioritize_genPDF_ASYMGAUSS();
+
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -731,7 +734,7 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DM15,     zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
-  INPUTS.DO_AV          = 0 ;
+  INPUTS.DOGEN_AV       = 0 ;
   INPUTS.GENRANGE_AV[0] = 0.0 ;
   INPUTS.GENRANGE_AV[1] = 0.0 ;
   INPUTS.GENEXPTAU_AV   = 0.0 ;
@@ -758,6 +761,8 @@ void set_user_defaults(void) {
   INPUTS.GENGAUSS_SALT2c.SIGMA[1] =  1.0 ;
   INPUTS.GENGAUSS_SALT2c.RANGE[0] = -0.5 ;
   INPUTS.GENGAUSS_SALT2c.RANGE[1] =  1.0 ;
+
+  INPUTS.DOGEN_SHAPE = INPUTS.DOGEN_COLOR = true ;
 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2x1, zero );
   INPUTS.GENGAUSS_SALT2x1.PEAK     = -9.0 ;
@@ -4719,7 +4724,6 @@ void  parse_input_GENPOP_ASYMGAUSS(void) {
     }
 
     if ( !FOUND_MODEL ) { continue; }
-    // .xyz
 
     if ( ISKEY_END ) { FOUND_END = true; break; }
 
@@ -4918,7 +4922,7 @@ void prep_user_input(void) {
   Oct 04 2018: set INPUTS.USE_HOSTLIB_GENZPHOT
   Feb 15 2019: turn off INPUTS.GENMAG_SMEAR_MODELNAME for SIMSED model.
   Dec 01 2019: allow COH scatter gmodel for NON1ASED and SIMSED models.
-  Feb 06 2020: set DO_AV for GRIDGEN
+  Feb 06 2020: set DOGEN_AV for GRIDGEN
   Oct 16 2020: call prep_user_cosmology()
   Feb 21 2021: abort on FORMAT_MASK +=1, or legacy VERBOSE 
 
@@ -5953,12 +5957,12 @@ void prep_user_SIMSED(void) {
 void prep_dustFlags(void) {
 
   // Created Jun 12 2020
-  // Set INPUTS.DO_AV for host-galaxy dust.
+  // Set INPUTS.DOGEN_AV for host-galaxy dust.
   // Beware to call this function after calling init_genPDF().
   //
-  // Set INPUTS.DO_AV = 1 for analytic EXP+HALFGAUSS function
-  // Set INPUTS.DO_AV = 2 for AV  map in GENPDF_FILE.
-  // Set INPUTS.DO_AV = 4 for EBV map in GENPDF_FILE.
+  // Set INPUTS.DOGEN_AV = 1 for analytic EXP+HALFGAUSS function
+  // Set INPUTS.DOGEN_AV = 2 for AV  map in GENPDF_FILE.
+  // Set INPUTS.DOGEN_AV = 4 for EBV map in GENPDF_FILE.
   //
   // Abort if profile is defined twice (analytic and map),
   // or if only one of AV or RV profile is set.
@@ -6000,7 +6004,7 @@ void prep_dustFlags(void) {
   if ( DO_WV07  || DO_GRID            ) { DO_AV = 1; }
   if ( IDMAP_GENPDF(PARNAME_AV, &LOGPARAM ) >= 0 ) { DO_AV +=2; }
   if ( IDMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
-  INPUTS.DO_AV = DO_AV ; // store global for gen_modelPar_dust()
+  INPUTS.DOGEN_AV = DO_AV ; // store global for gen_modelPar_dust()
 
   // make sure that AV and RV are each defined once and only once.
   if ( DO_AV == 3 || DO_AV == 5 ) {
@@ -7445,7 +7449,7 @@ void  init_GENLC(void) {
   }
 
   // - - - - -
-  // init shape-parameters to NULLFLOAT;
+  // init shape-par pameters to NULLFLOAT;
   // only the selected model will get over-written
 
   GENLC.STRETCH    = NULLFLOAT ;
@@ -11016,13 +11020,17 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   // Check if x1/shape is extracted elsewhere (e.g., SIMLIB header or HOSTLIB).
   // If x1 is from HOSTLIB, SKIP only if SALT2x1 asymGauss is NOT defined
   // in order to preserve random sync.
-  bool SHAPE_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
-  bool SHAPE_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  bool SHAPE_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
-  bool SKIP_SHAPE        = SHAPE_SIMLIB || (SHAPE_HOSTLIB && !SHAPE_ASYMGAUSS );
 
+  /* xxx mark delete 2021 xxxxxxx
+  bool SHAPE_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
+  bool SHAPE_HOSTLIB = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool SKIP_SHAPE     = SHAPE_SIMLIB || (SHAPE_HOSTLIB && !SHAPE_ASYMGAUSS );
   bool DOSHAPE = !( SKIP_SHAPE || ISMODEL_SIMSED || ISMODEL_NON1A || 
 		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
+  xxxxxxx end mark xxxxx*/
+
+  bool SHAPE_SIMLIB = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+  bool DOSHAPE      = INPUTS.DOGEN_SHAPE && !SHAPE_SIMLIB ; // Aug 11 2021
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -11104,10 +11112,13 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
 
+  /* xxx mark delete Aug 11 2021 
   bool GETc_ASYMGAUSS   = (INPUTS.GENGAUSS_SALT2c.USE);
   bool GETc_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  bool GETc_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
   bool SKIPc            = GETc_SIMLIB || (GETc_HOSTLIB && !GETc_ASYMGAUSS );
+  xxxxxxxxxx mark delete xxxxxxx */
+  bool GETc_SIMLIB  = (SIMLIB_HEADER.GENGAUSS_SALT2c.USE) ; // each event
+  bool SKIPc        = (GETc_SIMLIB || !INPUTS.DOGEN_COLOR); // Aug 11 2021
 
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
@@ -11381,7 +11392,7 @@ void gen_modelPar_dust(int OPT_FRAME) {
 
   // ----------- BEGIN ------------
 
-  if ( !INPUTS.DO_AV ) { return; }
+  if ( !INPUTS.DOGEN_AV ) { return; }
 
   GENLC.RV = gen_RV() ; 
   GENLC.AV = gen_AV() ;  //DJB March 20 2020:  EBV.      
@@ -14083,11 +14094,11 @@ double gen_AV(void) {
   }
 
   // Jun 2020: check for map in GENPDF_FILE
-  if ( INPUTS.DO_AV == 2 ) {   // flag to get AV from map
+  if ( INPUTS.DOGEN_AV == 2 ) {   // flag to get AV from map
     GENGAUSS_NULL.USE = false ;
     AV = get_random_genPDF(PARNAME_AV, &GENGAUSS_NULL); 
   }
-  if ( INPUTS.DO_AV == 4 ) {  // flag to get EBV from map
+  if ( INPUTS.DOGEN_AV == 4 ) {  // flag to get EBV from map
     GENGAUSS_NULL.USE = false ;
     EBV_HOST = get_random_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
     AV       = EBV_HOST * RV ;
@@ -18641,13 +18652,7 @@ void init_CIDRAN(void) {
 	exec_cidmask(1,CIDADD); // set "USED" bit
 
 	if ( i >= CIDRAN_OFF ) 
-	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ; 
-
-	    if ( i < 10 ) {
-	      printf(" xxx %s: i=%d i-CIDRAN_OFF=%d, CIDADD=%d \n",
-		     fnam, i, i-CIDRAN_OFF, CIDADD );
-	    }
-	  }
+	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ;  }
 
 	/* xxxxxxxxxxxxx mark delete Jul 21 2021 xxxx
 	if ( i >= INPUTS.CIDOFF ) 
@@ -25433,7 +25438,6 @@ void readme_doc(int iflag_readme) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(ctmp,"\t Shape-par(%s)", GENLC.SHAPEPAR_NAME );
     sprintf_GENGAUSS(cptr, ctmp, &INPUTS.GENGAUSS_SHAPEPAR);
-
   }
 
   // SIMSED parameters
@@ -25441,6 +25445,9 @@ void readme_doc(int iflag_readme) {
 
   // ---- SALT2 params
   readme_doc_SALT2params(&i);
+
+  // ---- GENPDF populations (Aug 2021)
+  readme_doc_GENPDF(&i);
 
   // ---- FIXMAG params
   readme_doc_FIXMAG(&i);
@@ -26783,8 +26790,11 @@ void readme_doc_FIXMAG(int *iline ) {
 
 } // end readme_doc_FIXMAG
 
+
 // **************************************
 void readme_doc_SALT2params(int *iline ) {
+
+  // Aug 11 2021: write SALT2 only if asymGauss fun is used
 
   int i ;
   char *cptr, string[40] ;
@@ -26796,9 +26806,11 @@ void readme_doc_SALT2params(int *iline ) {
 
   i = *iline ;
 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf_GENGAUSS(cptr, "\t SALT2c", &INPUTS.GENGAUSS_SALT2c);
-  
+  if ( INPUTS.GENGAUSS_SALT2c.USE ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf_GENGAUSS(cptr, "\t SALT2c", &INPUTS.GENGAUSS_SALT2c);
+  }
+
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(string, "\t Alpha" );
   sprintf_GENGAUSS(cptr, string, &INPUTS.GENGAUSS_SALT2ALPHA );
@@ -26816,8 +26828,37 @@ void readme_doc_SALT2params(int *iline ) {
 
   *iline = i ;
 
+  return; 
+
 } // end of readme_doc_SALT2params
  
+
+// **************************************
+void readme_doc_GENPDF(int *iline ) {
+
+  // Aug 11 2021: write SALT2 only if asymGauss fun is used
+
+  int i, imap ;
+  char *cptr, string[40] ;
+  char star[2];
+
+  // ------------ BEGIN ---------
+
+  if ( INDEX_GENMODEL != MODEL_SALT2 ) { return ; }
+
+  i = *iline ;
+
+  for (imap=0; imap < NMAP_GENPDF; imap++ ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr, "\t GENPDF: %s(%s)\n", 
+	    GENPDF[imap].MAPNAME,  GENPDF[imap].GRIDMAP.VARLIST );
+  }
+
+  *iline = i ;
+
+  return; 
+
+} // end of readme_doc_GENPDF 
 
 // **************************************
 void sprintf_GENGAUSS(char *string, char *name, 
@@ -27256,7 +27297,149 @@ void screen_update(void) {
 } // end of screen_update
 
 
+// ============================================
+void prioritize_genPDF_ASYMGAUSS(void) {
 
+  // Created Aug 11 2021
+  // When GENPDF_FILE arg is read, the map contents are not known
+  // until it is parsed. Here (after parsing) we check priority 
+  // when both genPDF and GENGAUSS are defined. Command line arg 
+  // has priority over input file; lower priority option is
+  // disabled as if it were never read.
+  // Abort if both options have same priority.
+  // Priority is based on KEYSOURCE = 1(FILE) or 2(command line arg)
+  //
+  // Finally, check for reasons to set DOGEN_SHAPE[COLOR] to false.
+
+  int  FUNTYPE_ASYMGAUSS     = 1;
+  int  FUNTYPE_EXPHALFGAUSS  = 2;
+  char FUNNAME[3][20] = { "", "AsymGauss", "Exp+HalfGauss" };
+
+  int  IDMAP_LIST[10], FUNTYPE_LIST[10], FUNTYPE, IDMAP, i, NCHECK = 0;
+  bool IS_LOGPAR, USE_GENPDF, USE_FUN;
+  int  KEYSOURCE_FUN ; // asymGauss or exp_halfGauss function
+  char PARNAME_LIST[10][20], *PARNAME;
+  GENGAUSS_ASYM_DEF     *ptr_ASYMGAUSS_LIST[10];
+  GEN_EXP_HALFGAUSS_DEF *ptr_EXPHALFGAUSS_LIST[10];
+  char KEYSOURCE_STR[3][20] = { "", "INPUT-FILE", "COMMAND-LINE" };
+
+  char fnam[] = "prioritize_genPDF_ASYMGAUSS";
+
+  // ------------- BEGIN -------------
+  
+  // store asymGauss functions
+  sprintf(PARNAME_LIST[NCHECK],"SALT2x1");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2x1 ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"SALT2c");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2c ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"RV");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_RV ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
+  NCHECK++ ;
+
+  // store expHalfGauss functions
+  sprintf(PARNAME_LIST[NCHECK],"EBV");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"EBV_HOST");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"AV");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_EXPHALFGAUSS_LIST[NCHECK] = &INPUTS.GENPROFILE_EBV_HOST ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_EXPHALFGAUSS;
+  NCHECK++ ;
+
+  // - - - - -
+  for(i=0; i < NCHECK; i++ ) {
+    PARNAME      = PARNAME_LIST[i];
+    USE_GENPDF   = ( IDMAP_LIST[i] >= 0 );
+    FUNTYPE      = FUNTYPE_LIST[i];
+
+    if ( FUNTYPE == FUNTYPE_ASYMGAUSS ) {
+      USE_FUN       = ptr_ASYMGAUSS_LIST[i]->USE ; 
+      KEYSOURCE_FUN = ptr_ASYMGAUSS_LIST[i]->KEYSOURCE ;
+    }
+    else {
+      USE_FUN       = ptr_EXPHALFGAUSS_LIST[i]->USE ; 
+      KEYSOURCE_FUN = ptr_EXPHALFGAUSS_LIST[i]->KEYSOURCE ;
+    }
+   
+    if ( USE_GENPDF && USE_FUN ) {
+
+      // both analytic-function and GENPDF-map are specified;
+      // either abort, or implement priority.
+
+      if ( KEYSOURCE_FUN == KEYSOURCE_GENPDF ) {
+	sprintf(c1err,"Ambiguous method to generate '%s' ; ", PARNAME);
+	sprintf(c2err,"GENPDF and %s are both from %s",
+		FUNNAME[FUNTYPE], KEYSOURCE_STR[KEYSOURCE_GENPDF] );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      }
+      else if ( KEYSOURCE_FUN < KEYSOURCE_GENPDF ) {
+	// disable function as if it were never read
+	if ( FUNTYPE == FUNTYPE_ASYMGAUSS )  {
+	  printf("\t GENPDF overrides asymGauss for %s\n", PARNAME);	 
+	  init_GENGAUSS_ASYM(ptr_ASYMGAUSS_LIST[i], 0.0 ); 
+	}
+	else {
+	  printf("\t GENPDF overrides ExpHalfGauss for %s\n", PARNAME);	 
+	  init_GEN_EXP_HALFGAUSS(ptr_EXPHALFGAUSS_LIST[i], 0.0 ); 
+	}
+      }
+      else if ( KEYSOURCE_FUN > KEYSOURCE_GENPDF ) {
+	// disable GENPDF map by changing VARNAME
+	// so that IDMAP_GENPDF cannot find a match.
+	printf("\t Exp or asymGauss overrides GENPDF for %s\n", PARNAME); 
+	sprintf(GENPDF[IDMAP].VARNAMES[0],"DISABLE-%s", PARNAME);
+      }
+      
+    } // end both methods
+
+  } // end i loop over possible variables to generate
+
+  fflush(stdout);
+
+  // - - - - - - - -
+  
+  bool GETPAR_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+
+  bool GETc_ASYMGAUSS   = INPUTS.GENGAUSS_SALT2c.USE;
+  bool GETc_GENPDF      = (IDMAP_GENPDF("SALT2c", &IS_LOGPAR) >= 0);
+  bool GETc             = GETc_ASYMGAUSS || GETc_GENPDF ;
+  bool SKIPc            = (GETPAR_HOSTLIB && !GETc );
+  if ( SKIPc ) { INPUTS.DOGEN_COLOR = false; }
+
+  bool ISMODEL_SIMSED    = ( INDEX_GENMODEL == MODEL_SIMSED );
+  bool ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
+  bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
+  bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
+  bool NOSHAPE = ( ISMODEL_SIMSED || ISMODEL_SIMLIB|| ISMODEL_NON1A || ISMODEL_LCLIB || IS_PySEDMODEL );
+
+  bool GETx_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
+  bool GETx_GENPDF      = (IDMAP_GENPDF("SALT2x1", &IS_LOGPAR) >= 0);
+  bool GETx             = GETx_ASYMGAUSS || GETx_GENPDF ;
+  bool SKIPx            = NOSHAPE || ( GETPAR_HOSTLIB && !GETx ) ;
+  if ( SKIPx ) { INPUTS.DOGEN_SHAPE = false; }
+
+  return;
+
+} // end prioritize_genPDF_ASYMGAUSS
 
 // ***********************************
 void DASHBOARD_DRIVER(void) {

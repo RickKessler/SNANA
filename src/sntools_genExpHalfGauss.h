@@ -9,6 +9,7 @@ typedef struct {
   double RANGE[2] ;    // generate random value in this RANGE
 
   int INDEX; // Generic index for internal use (not part of function)
+  int KEYSOURCE ;  // 1=FILE, 2=command line ; used to set priority
 
 } GEN_EXP_HALFGAUSS_DEF ;
 

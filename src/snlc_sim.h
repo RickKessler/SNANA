@@ -612,8 +612,9 @@ struct INPUTS {
   double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
   double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
   double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
-  int    DO_AV ;
+  int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
+  bool   DOGEN_SHAPE, DOGEN_COLOR ; // generate with function or GENPDF
 
   int    WV07_GENAV_FLAG;   //  1=> use published ESSENCE-WV07 distrib.
   double WV07_REWGT_EXPAV;   //  re-weight exp component (default=1)   
@@ -1742,7 +1743,7 @@ void   prep_GENPDF_FLAT(void);
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 
 void   genmag_offsets(void) ;
-
+void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
 
 void   prep_simpath(void);
@@ -1920,6 +1921,7 @@ void   readme_doc_SIMSED(int *iline);
 void   readme_doc_magSmear(int *iline);
 void   readme_doc_nonLin(int *iline);
 void   readme_doc_SALT2params(int *iline ) ;
+void   readme_doc_GENPDF(int *iline ) ;
 void   readme_doc_FIXMAG(int *iline ) ;
 void   readme_doc_GENPERFECT(int *iline ) ;
 void   readme_doc_FUDGES(int *iline) ;

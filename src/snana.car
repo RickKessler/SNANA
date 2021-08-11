@@ -19417,6 +19417,7 @@ c -------------------------------------------
       C2ERR = 'Use snana.exe instead. '
       CALL MADABORT(FNAM, c1err, c2err)
 +SELF.
+
         GLOBAL_BANNER = 
      &      'Prepare to write SIMLIB file from data'
         CALL PRBANNER (GLOBAL_BANNER(1:60) )
@@ -19427,22 +19428,38 @@ c -------------------------------------------
      &        , FILE   = SIMLIB_OUTFILE
      &        , STATUS = 'UNKNOWN'         )
 
-        WRITE(LUNOUT,11) 
-     &       'Created from snana.exe using SIMLIB_OUTFILE option.'
-        WRITE(LUNOUT,11) 
-     &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
-        if ( WR_SIM_MAGOBS ) then
-           WRITE(LUNOUT,11)
-     &        'SIM_MAGOBS are copied to MAG column.'   
-        endif
-        WRITE(LUNOUT,11) ' ' 
+c - - - - - -
+c write DOCANA 
 
+        WRITE(LUNOUT,20)  'DOCUMENTATION:'
+
+        WRITE(LUNOUT,24) 
+     &       'PURPOSE: simulation cadence created from data'
+
+        WRITE(LUNOUT,24) 
+     &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
+
+        WRITE(LUNOUT,24) 'NOTES: '
+        WRITE(LUNOUT,24) 
+     &       '- Created from snana.exe using SIMLIB_OUTFILE option.'
+        if ( WR_SIM_MAGOBS ) then
+           WRITE(LUNOUT,24)
+     &        '- SIM_MAGOBS are copied to MAG column.'   
+        endif
+
+        WRITE(LUNOUT,20) 'DOCUMENTATION_END:'
+        WRITE(LUNOUT,20) ' ' 
+
+c - - - - - - - -
         LEN1 = INDEX(SURVEY_NAME,' ') - 1
         LEN2 = INDEX(SURVEY_FILTERS,' ') - 1
         WRITE(LUNOUT,10) 'SURVEY:      ',  SURVEY_NAME(1:LEN1)        
         WRITE(LUNOUT,10) 'FILTERS:     ',  SURVEY_FILTERS(1:LEN2)
 10      FORMAT(A, 1x, A)  ! KEY VAL
 11      FORMAT('# ', A)
+
+20      FORMAT(A)
+24      FORMAT(T4,A)
 
         WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
 

@@ -1791,8 +1791,8 @@ c
      & ,EPCUT_PSFSIG  ! max PSF (arcsec) accepted each epoch/filter
                       ! example: 'u 1.8  g 1.5  r 1.6  i 1.8  z 2.0'
 c
-     & ,SNCUT_HOST_SBFLUX ! max allows surface brightness,
-                          ! example 'r 1000.' -> SBFLUX < 1000
+     & ,SNCUT_HOST_SBFLUX ! require min surface brightness,
+                          ! example 'r 1000.' -> SBFLUX > 1000
 
 c ----------
 c systematic tests for calibration:
@@ -8297,8 +8297,8 @@ c -------
       DO i = 1, NF
          ifiltdef = IAFILT(i)
          ifilt    = IFILTDEF_INVMAP_SURVEY(ifiltdef)
-         cutwin_sbflux_filt(1,i) = xafilt(i) ! Aug 31, 2010
-         ifilt_HOST_SBFLUX(i)    = ifiltdef  ! Aug 31, 2010
+         cutwin_sbflux_filt(1,i) = xafilt(i) 
+         ifilt_HOST_SBFLUX(i)    = ifiltdef
       ENDDO
 
 c ----------
@@ -15589,7 +15589,7 @@ C -------- BEGIN -----------
       END  ! end WRITE_EPOCH_IGNORE_EXEC
 
 C =======================================
-+DECK,INIT_CNAMES.
++DECK,INIT_CUTNAMES.
       SUBROUTINE INIT_CUTNAMES ( IERR )
 c
 c Creatd Jan 31, 2007 by R.Kessler
@@ -15658,14 +15658,19 @@ c hard-wire names of cut variables (maxchar = 28)
       DO ifilt      = 1, NFILT_SNRMAX
           ifilt_obs = IFILT_SNRMAX(ifilt)
           cflt      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-
           ibit = CUTBIT_OFFSET_SNRMAX + ifilt
           cutvar_name(ibit)  = 'SNRMAX-' // cflt // ':'
+      ENDDO
 
+      DO ifilt      = 1, NFILT_HOST_SBFLUX  ! Aug 2021
+          ifilt_obs = ifilt_HOST_SBFLUX(ifilt)
+          cflt      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+          ibit      = CUTBIT_OFFSET_SBFLUX + ifilt
+          cutvar_name(ibit)  = 'SBFLUX-' // cflt // ':'
       ENDDO
 
       RETURN
-      END
+      END   ! end INIT_CUTNAMES
 
 C ======================================
 +DECK,MWEBV_FLUXCOR.

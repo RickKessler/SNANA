@@ -19,6 +19,7 @@
   Dec 23 2020: improve algorithmn in get_VAL_RANGE_genPDF
   Mar 26 2021: allow LOGparName in GENPDF maps; e.g., LOGEBV, LOGAV.
   May 26 2021: new function free_memory_genPDF() to free GRIDMAP memory.
+  Aug 10 2021: check priority of GENPDF vs. GENGAUSS
 
  ****************************************************/
 
@@ -191,14 +192,14 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
       NVAR = NITEM - 1;  // avoid VARNAMES key
       GENPDF[NMAP].NVAR = NVAR;
       for(ivar=0; ivar < NVAR; ivar++ )	{ 
-	// xxxx	get_PARSE_WORD(0,ivar,varName); 
 	ptrVar = ptr_ITEMLIST[ivar+1]; 
 	assign_VARNAME_GENPDF(NMAP, ivar, ptrVar);
 	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9 ; // init for below
       }
 
-      // check options to reject or ignore map(s)
+      // check options to abort or ignore map(s)
       ptrVar = GENPDF[NMAP].VARNAMES[0] ;
+      checkAbort_VARNAME_GENPDF(ptrVar);
       IGNORE_MAP = false;
       if ( strlen(ignoreList) > 0 ) 
 	{ if ( strstr(ignoreList,ptrVar) != NULL ) { IGNORE_MAP=true;}  }
@@ -382,11 +383,28 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
 
   GENPDF[imap].VARNAMES[ivar] = (char*) malloc(40*sizeof(char));
   sprintf(GENPDF[imap].VARNAMES[ivar], "%s", varName);
-
+  
   return ;
 
 } // end assign_VARNAME_GENPDF
 
+
+// ===================================
+void checkAbort_VARNAME_GENPDF(char *varName) {
+
+  // Created Aug 11 2021
+  // Abort on easy/common mistake
+
+  char fnam[] = "checkAbort_VARNAME_GENPDF" ;
+  if ( strcmp(varName,"c")==0 || strcmp(varName,"x1") == 0 ) {
+    sprintf(c1err,"Invalid GENPDF variable '%s'", varName);
+    sprintf(c2err,"Try 'SALT2%s' instead", varName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return;
+
+} // end checkAbort_VARNAME_GENPDF
 
 #ifndef USE_SUBPROCESS
 
@@ -403,7 +421,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   double VAL_RANGE[2], FUNMAX, prob_ratio ;
   int    LDMP = 0 ;
   bool   DO_GENGAUSS; 
-  bool   matchVar = false ;
+  bool   matchVar    = false ; // true -> both GENPDF and GENGAUSS provided
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
   char   *MAPNAME, *VARNAME ;
   char fnam[] = "get_random_genPDF";

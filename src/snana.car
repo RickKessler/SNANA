@@ -8287,8 +8287,8 @@ c -------
 
       CALL PARSE_FILTSTRING(1,SNCUT_HOST_SBFLUX, NF, iafilt, xafilt )
       NFILT_HOST_SBFLUX = NF
-      if ( NF .GT. MXFILT_SNRMAX/2 ) then
-         write(c1err,662) NFILT_HOST_SBFLUX, MXFILT_SNRMAX/2
+      if ( NF .GT. MXFILT_SNRMAX ) then
+         write(c1err,662) NFILT_HOST_SBFLUX, MXFILT_SNRMAX
 662      format(I2,' HOST_SBFLUX cuts exceeds bound of ',I2)
          c2err = 'Check &SNLCINP variable SNCUT_SNRMAX'
          CALL  MADABORT("PROCSNNML", C1ERR, C2ERR)

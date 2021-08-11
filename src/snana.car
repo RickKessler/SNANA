@@ -18182,7 +18182,8 @@ C Created Feb 17 2018
 C Compute surface-brightness mag SNLC_SBMAG(ep) from SB flux.
 C 
 c Mar 23 2021: SBFLUXMIN -> 1.0 (was 0.1)
-
+c Aug 11 2021: SBFLUX = -99 -> SBMAG=99
+c
       IMPLICIT NONE
       INTEGER ifilt  ! (I) sparse filter index
 +CDE,SNDATCOM.
@@ -18196,6 +18197,9 @@ C --------- BEGIN ------------
       ELSE
          SBMAG = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(SBFLUXMIN) 
       ENDIF
+
+      IF ( SBFLUX .LE. -99.0 ) SBMAG = 99.0 ! Aug 2021 - undefined SB
+
       SNHOST_SBMAG(ifilt) = SBMAG
       RETURN
       END

@@ -9,6 +9,9 @@
 #
 # Jul 27 2021:
 #   added TRAINOPT_GLOBAL key (G Taylor)
+#
+# Aug 11 2021:
+#   DJB,RK fix stupid bug writing SNLS waveshift syst to SUBMIT.INFO
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -315,8 +318,8 @@ class train_SALT2(Program):
                     calib_updates += info 
                     
                 elif key == KEY_WAVESHIFT :
-                    n_update    = 0
                     for band,shift in zip(band_list,shift_list):
+                        n_update    = 0
                         shift = float(shift)
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)

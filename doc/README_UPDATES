@@ -20266,4 +20266,10 @@
     snana.car
       + for SIMLIB_OUTFILE option, write DOCANA
 
+   util/make_fluxerr_model.py : 
+     + if SBMAG is used in map, reject epochs with invalid SBMAG>50.
+
+   submit_trainSALT2.py:
+     + fix stupid bug writing SNLS WAVESHIFT info to SUBMIT.INFO
+
 END: 

@@ -583,7 +583,7 @@ def make_outlier_table(ISTAGE,config,what):
 
     use_sbmag = config.map_bin_dict['use_sbmag']
     arg_outlier = 'nsig:0.0'  # default arg for OUTLIER table
-    if use_sbmag: arg_outlier += ',sbmag:30.0'
+    if use_sbmag: arg_outlier += ',sbmag:50.0'
 
 
     if what == STRING_FAKE :

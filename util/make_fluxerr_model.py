@@ -9,6 +9,9 @@
 #  + create tables with every observation
 #  + make fluxError maps
 #
+# Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<30
+#             (initial use is LSST-DC2)
+#
 # ========================
 
 import os, sys, argparse, glob, yaml, math
@@ -578,19 +581,23 @@ def make_outlier_table(ISTAGE,config,what):
     KCOR_FILE         = input_yaml['KCOR_FILE']
     PRIVATE_DATA_PATH = input_yaml['PRIVATE_DATA_PATH']
 
+    use_sbmag = config.map_bin_dict['use_sbmag']
+    arg_outlier = 'nsig:0.0'  # default arg for OUTLIER table
+    if use_sbmag: arg_outlier += ',sbmag:30.0'
+
+
     if what == STRING_FAKE :
         VERSION  = input_yaml['VERSION']
     else:
         # for SIM
         VERSION = config.SIM_GENVERSION
         
-
     # - - - -
     nmlarg_dict = init_nmlargs()
     nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
     nmlarg_dict[NMLKEY_VERSION]     =  VERSION
     nmlarg_dict[NMLKEY_KCOR_FILE]   =  KCOR_FILE
-    nmlarg_dict[NMLKEY_SNTABLE]     =  'SNANA OUTLIER(nsig:0.0)'
+    nmlarg_dict[NMLKEY_SNTABLE]     =  f"SNANA OUTLIER({arg_outlier})"
     nmlarg_dict[NMLKEY_TEXTFILE_PREFIX] = nml_prefix
 
     nml_file, NML_FILE = create_nml_file(config, nmlarg_dict, nml_prefix)
@@ -645,6 +652,7 @@ def parse_map_bins(config):
 
     NDIM   = 0 
     NBIN1D = 1
+    use_sbmag = False
     for row in FLUXERRMAP_BINS:
         NDIM   += 1
         row     = row.split()        
@@ -658,6 +666,7 @@ def parse_map_bins(config):
         valmin_list.append(valmin)
         valmax_list.append(valmax)
         bin_edge_list.append(bins)
+        if varname == 'SBMAG' : use_sbmag = True
 
     # make list for header without FIELD or IFILTOBS 
     varname_header_list = varname_list.copy() 
@@ -719,7 +728,8 @@ def parse_map_bins(config):
         'id_nd'         : id_nd,
         'indexing_array': indexing_array,
         'ivar_field'    : ivar_field,
-        'ivar_filter'   : ivar_filter   # flag to make filter-dependent maps
+        'ivar_filter'   : ivar_filter,   # flag to make filter-dependent maps
+        'use_sbmag'     : use_sbmag      # true if SBMAG is used
     }
 
     config.map_bin_dict = map_bin_dict

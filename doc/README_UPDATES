@@ -20263,4 +20263,7 @@
     wfit.c
       + refactor write_output_cospar
 
+    snana.car
+      + for SIMLIB_OUTFILE option, write DOCANA
+
 END: 

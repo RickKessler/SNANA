@@ -11,6 +11,8 @@
 #
 # Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<50
 #             (initial use is LSST-DC2)
+# Aug 12 2021: if too few fakes to compute cor, take value from 
+#              nearest bin.
 #
 # ========================
 
@@ -144,6 +146,9 @@ def get_args():
 
     msg = "verify on fakes using map; output scales should be 1"
     parser.add_argument("--verify", help=msg, action="store_true")
+
+    msg = "skip reduced cov check"
+    parser.add_argument("--redcov_skip", help=msg, action="store_true")
 
     msg = "reduced cov for sim test using  FLUXERRMODEL_SIM map "
     parser.add_argument("--redcov_test", help=msg, nargs='?', 
@@ -750,7 +755,8 @@ def make_fluxerr_model_map(ISTAGE,config):
     OUTDIR       = config.input_yaml['OUTDIR']
     map_bin_dict = config.map_bin_dict
     prefix       = stage_prefix(ISTAGE)
-
+    nfilters     = len(config.filters)
+        
     fluxerrmodel_file_fake = f"{OUTDIR}/{FLUXERRMODEL_FILENAME_FAKE}"
     fluxerrmodel_file_sim  = f"{OUTDIR}/{FLUXERRMODEL_FILENAME_SIM}"
 
@@ -807,7 +813,11 @@ def make_fluxerr_model_map(ISTAGE,config):
 
     print(f" Begin loop over {NBIN1D} 1D map bins ... ")
     sys.stdout.flush()
-
+    errscale_dict = \
+        { 'bin1d':[], 'n_fake':[], 'n_sim':[], 'cor_fake':[], 'cor_sim':[] }
+    nrow = 0
+    if nfilters > 0 : nrow_per_filter = int(NBIN1D/IFILTOBS_MAX)
+    
     for BIN1D in range(0,NBIN1D):
 
         ifield = -9
@@ -821,7 +831,9 @@ def make_fluxerr_model_map(ISTAGE,config):
             if use_filter and ifiltobs != ifiltobs_last :
                 write_map_header(f_fake, ifield, ifiltobs, config)
                 write_map_header(f_sim,  ifield, ifiltobs, config)
-                
+                nrow = 0
+                errscale_dict = \
+                    { 'bin1d':[], 'n_fake':[], 'n_sim':[], 'cor_fake':[], 'cor_sim':[] }
             ifiltobs_last = ifiltobs
 
         if not use_filter : continue  # skip the pad zeros in ifiltobs_list
@@ -838,10 +850,38 @@ def make_fluxerr_model_map(ISTAGE,config):
         n_fake, n_sim, cor_fake, cor_sim = \
             compute_errscale_cor ( pull_fake, pull_sim, ratio_fake )
 
-        # update map files.
-        write_map_row(f_fake, config, BIN1D, cor_fake, n_fake, -9)
-        write_map_row(f_sim,  config, BIN1D, cor_sim,  n_fake, n_sim )
+        nrow += 1
+        errscale_dict['bin1d'].append(BIN1D)
+        errscale_dict['n_fake'].append(n_fake)
+        errscale_dict['n_sim'].append(n_sim)
+        errscale_dict['cor_fake'].append(cor_fake)
+        errscale_dict['cor_sim'].append(cor_sim)
 
+        # set write flag on last filter or last bin
+        if ivar_filter >=0 :
+            write_flag = (nrow == nrow_per_filter)
+        else:
+            write_flag = (nrow == NBIN1D)
+
+        #print(f" xxx nrow={nrow}  ifiltobs={ifiltobs}  write_flag={write_flag}")
+        
+        if write_flag :
+            errscale_extrap(errscale_dict)
+            for i in range(0,nrow):
+                bin1d    = errscale_dict['bin1d'][i]
+                n_fake   = errscale_dict['n_fake'][i]
+                n_sim    = errscale_dict['n_sim'][i]
+                cor_fake = errscale_dict['cor_fake'][i]
+                cor_sim  = errscale_dict['cor_sim'][i]                
+                write_map_row(f_fake, config, bin1d, cor_fake, n_fake, -9)
+                write_map_row(f_sim,  config, bin1d, cor_sim,  n_fake, n_sim )
+        
+        # xxx mark delete
+        # update map files.
+        #write_map_row(f_fake, config, BIN1D, cor_fake, n_fake, -9)
+        #write_map_row(f_sim,  config, BIN1D, cor_sim,  n_fake, n_sim )
+        # xxxx
+        
     # - - - 
     print("\n")
     print(f" Done creating {fluxerrmodel_file_fake} ")
@@ -852,6 +892,42 @@ def make_fluxerr_model_map(ISTAGE,config):
     # end make_fluxerr_model_map
 
 
+def  errscale_extrap(errscale_dict):
+    # if cor = 0.0, this means there are not enough fake in this bin
+    # to compute a correction. In this case, set cor = cor(nearest bin).
+    # This functions returns modified errscale_dict with cor=0 replaced
+    # with cor=cor(nearest).
+
+    cor_fake_orig = errscale_dict['cor_fake']
+    cor_sim_orig  = errscale_dict['cor_sim']
+
+    # init extrap correction 
+    cor_fake_extrap = []
+    cor_sim_extrap  = []
+
+    npcor_fake_orig = np.array(cor_fake_orig)
+    npcor_sim_orig  = np.array(cor_sim_orig)
+    non_zeros       = np.nonzero(npcor_fake_orig)[0]
+
+    i = 0
+    for cor_fake,cor_sim in zip(cor_fake_orig,cor_sim_orig) :
+        if cor_fake == 0.0 :
+            distances   = np.abs(non_zeros - i)
+            closest_idx = np.min(np.where(distances == np.min(distances)))
+            cor_fake_near  = npcor_fake_orig[non_zeros[closest_idx]]
+            cor_sim_near   = npcor_sim_orig[non_zeros[closest_idx]]
+            cor_fake       = cor_fake_near
+            cor_sim        = cor_sim_near
+            
+        cor_fake_extrap.append(cor_fake)
+        cor_sim_extrap.append(cor_sim)
+        i += 1
+
+    errscale_dict['cor_fake'] = cor_fake_extrap
+    errscale_dict['cor_sim']  = cor_sim_extrap
+
+    # end errscale_extrap
+    
 def  modify_tables(df_fake, df_sim, config):
 
     # Modify tables by
@@ -1011,7 +1087,8 @@ def compute_errscale_cor(pull_fake, pull_sim, ratio_fake):
         #      f" (avgPull={avg_pull_fake:.3f},{avg_pull_sim:0.3f}) " )
 
     else:
-        cor_fake = 1.0 ; cor_sim = 1.0
+        # set cor=0 here and later it will be extrapolated to nearest bin
+        cor_fake = 0.0 ; cor_sim = 0.0
 
 
     return n_fake, n_sim, cor_fake, cor_sim
@@ -1578,6 +1655,8 @@ if __name__ == "__main__":
     make_fluxerr_model_map(ISTAGE,config)
 
     if config.args.verify:   sys.exit(0)
+
+    if config.args.redcov_skip:  sys.exit(0)
 
     # - - - - - - - -
     print("")

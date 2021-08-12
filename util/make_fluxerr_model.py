@@ -9,7 +9,7 @@
 #  + create tables with every observation
 #  + make fluxError maps
 #
-# Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<30
+# Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<50
 #             (initial use is LSST-DC2)
 #
 # ========================
@@ -538,8 +538,8 @@ def simgen_nocorr(ISTAGE,config):
     sim_input_lines.append(f" ")
     sim_input_lines.append(f"USE_SIMLIB_PEAKMJD:   1 ")
     sim_input_lines.append(f"USE_SIMLIB_REDSHIFT:  1 ")
-    sim_input_lines.append(f"GENRANGE_PEAKMJD:     40000  80000 ")
-    sim_input_lines.append(f"GENRANGE_REDSHIFT:    0.012  1.9 ")
+    sim_input_lines.append(f"GENRANGE_PEAKMJD:     40000  90000 ")
+    sim_input_lines.append(f"GENRANGE_REDSHIFT:    0.012  0.98 ")
     sim_input_lines.append(f"GENRANGE_TREST:      -100 100 ")
 
     with open(SIM_INPUT_FILE,"wt") as f:
@@ -581,11 +581,15 @@ def make_outlier_table(ISTAGE,config,what):
     KCOR_FILE         = input_yaml['KCOR_FILE']
     PRIVATE_DATA_PATH = input_yaml['PRIVATE_DATA_PATH']
 
-    use_sbmag = config.map_bin_dict['use_sbmag']
+    # - - - - -
+    # set arg(s) for OUTLIER table.
+    # if SBMAG-dependence is set, require SBMAG<50.
+    FLUXERRMAP_BINS = input_yaml['FLUXERRMAP_BINS']
     arg_outlier = 'nsig:0.0'  # default arg for OUTLIER table
-    if use_sbmag: arg_outlier += ',sbmag:50.0'
-
-
+    for row in FLUXERRMAP_BINS :
+        if row.split()[0] == 'SBMAG': arg_outlier += ',sbmag:50.0'
+    
+    # - - - - -
     if what == STRING_FAKE :
         VERSION  = input_yaml['VERSION']
     else:
@@ -652,7 +656,6 @@ def parse_map_bins(config):
 
     NDIM   = 0 
     NBIN1D = 1
-    use_sbmag = False
     for row in FLUXERRMAP_BINS:
         NDIM   += 1
         row     = row.split()        
@@ -666,7 +669,6 @@ def parse_map_bins(config):
         valmin_list.append(valmin)
         valmax_list.append(valmax)
         bin_edge_list.append(bins)
-        if varname == 'SBMAG' : use_sbmag = True
 
     # make list for header without FIELD or IFILTOBS 
     varname_header_list = varname_list.copy() 
@@ -729,7 +731,6 @@ def parse_map_bins(config):
         'indexing_array': indexing_array,
         'ivar_field'    : ivar_field,
         'ivar_filter'   : ivar_filter,   # flag to make filter-dependent maps
-        'use_sbmag'     : use_sbmag      # true if SBMAG is used
     }
 
     config.map_bin_dict = map_bin_dict

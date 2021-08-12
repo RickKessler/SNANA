@@ -109,7 +109,9 @@
 
  Jul 6 2021: require DOCANA in HOSTLIB and WGTMAP
 
-  
+ Aug 11 2021: for SIMLIB model, if HOSTLIB doesn't match that used to
+              generate fakes, fix to work.
+
 =========================================================== */
 
 #include <stdio.h>
@@ -6034,8 +6036,15 @@ void GEN_SNHOST_POS(int IGAL) {
   // for SIMLIB model, use already defined RA,DEC in SIMLIB header
   if ( INDEX_GENMODEL == MODEL_SIMLIB && !DEBUG_MODE_SIMLIB ) {
     SIMLIB_SNHOST_POS(IGAL, &SNHOSTGAL.SERSIC, 0 );
-    DLR = 99999.0 ;
-    goto SNSEP_CALC ;
+    
+    // Aug 2021: hostlib should be the same as used to generated fakes;
+    // but if not the SN-HOST separation is huge. If SN-host sep
+    // is really big, then run through nominal process of shifting
+    // the host to the SN
+    bool CORRECT_HOST =  
+      fabs(SNHOSTGAL.a_SNGALSEP_ASEC) < 5.0 &&
+      fabs(SNHOSTGAL.b_SNGALSEP_ASEC) < 5.0 ;
+    if ( CORRECT_HOST ) { DLR = 99999.0 ;    goto SNSEP_CALC ; }
   }
 
   // strip off random numbers to randomly generate a host-location

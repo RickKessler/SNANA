@@ -27393,19 +27393,19 @@ void prioritize_genPDF_ASYMGAUSS(void) {
       }
       else if ( KEYSOURCE_FUN < KEYSOURCE_GENPDF ) {
 	// disable function as if it were never read
+	printf("\t GENPDF overrides %s for %s\n", FUNNAME[FUNTYPE],PARNAME);
 	if ( FUNTYPE == FUNTYPE_ASYMGAUSS )  {
-	  printf("\t GENPDF overrides asymGauss for %s\n", PARNAME);	 
 	  init_GENGAUSS_ASYM(ptr_ASYMGAUSS_LIST[i], 0.0 ); 
 	}
 	else {
-	  printf("\t GENPDF overrides ExpHalfGauss for %s\n", PARNAME);	 
 	  init_GEN_EXP_HALFGAUSS(ptr_EXPHALFGAUSS_LIST[i], 0.0 ); 
 	}
       }
       else if ( KEYSOURCE_FUN > KEYSOURCE_GENPDF ) {
 	// disable GENPDF map by changing VARNAME
 	// so that IDMAP_GENPDF cannot find a match.
-	printf("\t Exp or asymGauss overrides GENPDF for %s\n", PARNAME); 
+	printf("\t %s overrides GENPDF for %s\n", 
+	       FUNNAME[FUNTYPE], PARNAME); 
 	sprintf(GENPDF[IDMAP].VARNAMES[0],"DISABLE-%s", PARNAME);
       }
       

@@ -18205,7 +18205,7 @@ C --------- BEGIN ------------
          SBMAG = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(SBFLUXMIN) 
       ENDIF
 
-      IF ( SBFLUX .LE. -99.0 ) SBMAG = 99.0 ! Aug 2021 - undefined SB
+      IF ( SBFLUX .LE. -999.0 ) SBMAG = 99.0 ! Aug 2021 - undefined SB
 
       SNHOST_SBMAG(ifilt) = SBMAG
       RETURN

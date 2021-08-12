@@ -20272,4 +20272,10 @@
    submit_trainSALT2.py:
      + fix stupid bug writing SNLS WAVESHIFT info to SUBMIT.INFO
 
+   snlc_sim.c
+     + refactor to prioritize GENPDF vs. asymGauss, and to
+       print correct genPop source in README when GENPDF
+       overrides asymGauss, or vice-versa
+     + crazyflux *= 2 
+
 END: 

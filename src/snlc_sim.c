@@ -23166,7 +23166,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   arg        = 0.4 * ( ZPADU - 31.0 );  
   pow_arg     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyFlux  = (2.E4 * pow_arg * xt) / (zsn*zsn) ; }
+    { crazyFlux  = (4.E4 * pow_arg * xt) / (zsn*zsn) ; }
   else
     { crazyFlux = 1.0E14 ; } // for LCLIB (July 2018)
 

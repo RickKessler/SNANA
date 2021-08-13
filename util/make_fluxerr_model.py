@@ -1079,8 +1079,8 @@ def compute_errscale_cor(pull_fake, pull_sim, ratio_fake):
         cor_sim        = rms_pull_fake / rms_pull_sim  # correct sims
 
         if FORCE_ERRCORR1 :
-            if cor_fake < 1.0 : cor_fake = 1.0
-            if cor_sim  < 1.0 : cor_sim  = 1.0
+            if cor_fake < 1.0 : cor_fake = 1.001
+            if cor_sim  < 1.0 : cor_sim  = 1.001
 
         #print(f"\t xxx cor_sim = {rms_pull_fake:.3f} / {rms_pull_sim:.3f}" \
         #      f" = {cor_fake:.3f}  " \

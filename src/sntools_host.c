@@ -5323,6 +5323,12 @@ void init_SNHOSTGAL(void) {
     }
   }
 
+  for ( i=0; i <= MXNBR_LIST ; i++ ) {
+	  SNHOSTGAL.IGAL_NBR_LIST[i] = HOSTLIB_IGAL_UNDEFINED ; //
+	  SNHOSTGAL.DDLR_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
+	  SNHOSTGAL.SNSEP_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
+  }
+
 } // end init_SNHOSTGAL
 
 
@@ -7394,6 +7400,8 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
   // These variables are user-defined by sim-input key
   // HOSTLIB_STOREVAR:  <var1>,<var2>,<var3>, ...
 
+  int NNBR = SNHOSTGAL.NNBR;
+  int IGAL_NBR, i_NBR;
   int NVAR_OUT, ivar, IVAR_STORE ;
   double DVAL ;
   //  char fnam[] = "LOAD_OUTVAR_HOSTLIB" ;
@@ -7406,11 +7414,22 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
   for(ivar=0; ivar < NVAR_OUT; ivar++ ) {
     IVAR_STORE = HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[ivar] ;
     DVAL       = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL] ;
-    HOSTLIB_OUTVAR_EXTRA.VALUE[ivar] = DVAL ;   
+    HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][0] = DVAL ;   
+
+    if (NNBR > 0) {
+	   i_NBR = 1; 
+	   //IGAL_NBR = HOSTLIB.IGAL_NBR_LIST[i_NBR];
+           IGAL_NBR = HOSTLIB.IGAL_NBR_LIST;
+           DVAL     = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL_NBR] ;
+  	   HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = DVAL ;
+    }
 
     //    printf(" xxx IGAL=%d  ivar=%d IVAR_STORE=%d DVAL=%f \n", 
     //	   IGAL, ivar, IVAR_STORE, DVAL);
   }
+
+  //NNBR gets loaded
+  //SNHOSTGAL.NNBR
 
 } // end of LOAD_OUTVAR_EXTRA_HOSTLIB
 
@@ -7692,7 +7711,7 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
     for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
       if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
-      VAL_HOSTPAR[NPAR] = HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
+      VAL_HOSTPAR[NPAR] = HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][0];
       NPAR++ ;
     }
 

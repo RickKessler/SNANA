@@ -125,6 +125,7 @@
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED -9999
 
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
@@ -206,6 +207,7 @@ struct HOSTLIB_DEF {
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
   int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
+  int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
@@ -517,7 +519,8 @@ struct SNTABLEVAR_DEF {
   int    USED_IN_WGTMAP[MXVAR_HOSTLIB]; // to avoid printing same var twice
 
   // values updated for each event
-  double VALUE[MXVAR_HOSTLIB] ;   
+  // add second dimension -AG 08/2021
+  double VALUE[MXVAR_HOSTLIB][MXNBR_LIST] ;   
 } HOSTLIB_OUTVAR_EXTRA ;
 
 

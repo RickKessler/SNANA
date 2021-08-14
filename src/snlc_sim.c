@@ -8146,7 +8146,7 @@ void rewrite_HOSTLIB_DRIVER(void) {
 void GENSPEC_DRIVER(void) {
 
   // Created July 2016
-  // Driver for generating spectra.
+  // Driver for generating spectra (units: erg/s/cm^2/A)
   //
   // Sep  1 2016: add flat spectra for FIXRAN model.
   // Oct 16 2016: apply Gaussian LAMRES smearing

@@ -975,6 +975,7 @@ c pointer for calls to SNTABLE_ADDCOL.
       REAL      
      &    ADDCOL_SNHOST_MAGOBS(MXFILT_ALL,MXSNHOST)
      &   ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)
+     &   ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)
      &   ,ADDCOL_FLUXCALMAX(MXFILT_ALL)
      &   ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)
      &   ,ADDCOL_SNRMAX(MXFILT_ALL)
@@ -986,8 +987,8 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ,ADDCOL_NDOF_TRUEFLUX(MXFILT_ALL)
  
       COMMON / ADDCOL_FILTERCOM /
-     &   ADDCOL_FILTERS
-     &  ,ADDCOL_SNHOST_MAGOBS, ADDCOL_SNHOST_SBFLUXCAL 
+     &   ADDCOL_FILTERS, ADDCOL_SNHOST_MAGOBS
+     &  ,ADDCOL_SNHOST_SBFLUXCAL, ADDCOL_SNHOST_SBMAG
      &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
      &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
      &  ,ADDCOL_PROB_TRUEFLUX, ADDCOL_NDOF_TRUEFLUX
@@ -23539,7 +23540,9 @@ c Feb 20 2020: write MWEBV to TEXT table.
 c May 14 2020: add zFLAG
 c Mar 14 2021: always include PKMJDINI in TEXT output
 c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
-c --------------------------------------------------
+c Aug 13 2021: include HOST_SBMAG, and HOST_SB -> HOST_SBFLUXCAL
+c
+c -------------------------------------------------------------
 
       IMPLICIT NONE
       INTEGER   ID          ! (I) table ID
@@ -23823,9 +23826,15 @@ c always write LOGMASS and SFR
       ENDIF
 
       IF ( EXIST_SNHOST_SB ) THEN    ! host surface brightness
-        CALL TABLE_VARLIST_FILTERS('HOST_SB','F', ADDCOL_FILTERS, 
+c        HOST_SB -> HOST_SBFLUXCAL
+        CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
+     &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
+
+        CALL TABLE_VARLIST_FILTERS('HOST_SBMAG','F', ADDCOL_FILTERS, 
+     &           VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
       ENDIF
 
@@ -24902,6 +24911,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2)    = -9.0 
            ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP)   = -9.0
+           ADDCOL_SNHOST_SBMAG(IFILT_REMAP)       = -9.0
       ENDDO
 
       DO 100 ifilt = 1, NFILT
@@ -24918,6 +24928,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_MAGOBS(ifilt,1)  = SNHOST_MAGOBS(ifilt,1) 
            ADDCOL_SNHOST_MAGOBS(ifilt,2)  = SNHOST_MAGOBS(ifilt,2) 
            ADDCOL_SNHOST_SBFLUXCAL(ifilt) = SNHOST_SBFLUXCAL(ifilt) 
+           ADDCOL_SNHOST_SBMAG(ifilt)     = SNHOST_SBMAG(ifilt) 
          ELSE 
            CALL FILTER_REMAP_FETCH(IFILTOBS,  ! (I)
      &           IFILTOBS_REMAP,IFILT_REMAP)  ! (O)
@@ -24962,6 +24973,8 @@ c check that each band is mapped.
      &            SNHOST_MAGOBS(ifilt,2)      ! any band
            ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP) = 
      &            SNHOST_SBFLUXCAL(ifilt)   ! any band
+           ADDCOL_SNHOST_SBMAG(IFILT_REMAP) = 
+     &            SNHOST_SBMAG(ifilt)   ! any band
 
          ENDIF
 

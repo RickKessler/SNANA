@@ -493,28 +493,26 @@ def simgen_nocorr(ISTAGE,config):
     USE_SBMAG      = config.input_yaml['USE_SBMAG']
 
     # init optional keys
-    HOSTLIB_FILE     = "NONE"
-    HOSTLIB_MSKOPT   = 0
-    HOSTLIB_SBRADIUS = None 
-    PATH_SNDATA_SIM  = None 
+    HOSTLIB_FILE         = "NONE"
+    HOSTLIB_MSKOPT       = None
+    HOSTLIB_SBRADIUS     = None 
+    HOSTLIB_SERSIC_SCALE = None
+    PATH_SNDATA_SIM      = None 
 
-    # check optional keys
-    simkey = 'HOSTLIB_FILE'
-    if simkey in config.input_yaml :
-        HOSTLIB_FILE   = config.input_yaml[simkey]
-        HOSTLIB_MSKOPT = 258  # 2=Poisson noise, 256=verbose
-    elif USE_SBMAG is True :
-        sys.exit(f"\n ERROR: SBMAG depdendence requires missing {simkey} key" \
-                 f"\n in {args.input_file}")
-    
+    SIMKEY_REQUIRE_SBMAG = [ 'HOSTLIB_FILE', 'HOSTLIB_MSKOPT', 
+                             'HOSTLIB_SBRADIUS', 
+                             'HOSTLIB_SCALE_SERSIC_SIZE' ]
+    HOSTLIB_DICT = {}
 
-    simkey = 'HOSTLIB_SBRADIUS'
-    if simkey in config.input_yaml :
-        HOSTLIB_SBRADIUS = config.input_yaml[simkey]
+    if USE_SBMAG :
+        for simkey in SIMKEY_REQUIRE_SBMAG :
+            if simkey in config.input_yaml:
+                HOSTLIB_DICT[simkey] = config.input_yaml[simkey]
+            else :
+                sys.exit(f"\n ERROR: SBMAG depdendence requires missing " \
+                         f"{simkey} key \n\t in {args.input_file}")      
 
-    if USE_SBMAG and HOSTLIB_SBRADIUS is None :
-        sys.exit(f"\n ERROR: SBMAG depdendence requires missing {simkey} key" \
-                 f"\n in {args.input_file}")
+            #sys.exit(f"\n xxx HOSTLIB_DICT = {HOSTLIB_DICT}\n")
 
     simkey = 'PATH_SNDATA_SIM'
     if simkey in config.input_yaml :
@@ -549,17 +547,21 @@ def simgen_nocorr(ISTAGE,config):
 
     sim_input_lines.append(f"GENVERSION:        {GENVERSION}")
     sim_input_lines.append(f"SIMLIB_FILE:       {SIMLIB_FILE}")
-    sim_input_lines.append(f"SIMLIB_MSKOPT:     4       # stop at end of SIMLIB file")
+    sim_input_lines.append(f"SIMLIB_MSKOPT:     4      " \
+                           f" # stop at end of SIMLIB file")
     sim_input_lines.append(f"NGENTOT_LC:        1000000  # any large number")
     sim_input_lines.append(f"GENSOURCE:         RANDOM")
     sim_input_lines.append(f"GENMODEL:          SIMLIB")
     sim_input_lines.append(f"GENFILTERS:        {filters}")
     sim_input_lines.append(f"KCOR_FILE:         {KCOR_FILE}")    
-    sim_input_lines.append(f"HOSTLIB_FILE:      {HOSTLIB_FILE}")
-    sim_input_lines.append(f"HOSTLIB_MSKOPT:    {HOSTLIB_MSKOPT}")
-    if USE_SBMAG :
-        sim_input_lines.append(f"HOSTLIB_SBRADIUS:    {HOSTLIB_SBRADIUS}")
 
+    if USE_SBMAG:
+        sim_input_lines.append("\n# Include HOSTLIB info for SBMAG dependene");
+        for simkey in HOSTLIB_DICT:
+            arg = HOSTLIB_DICT[simkey]
+            sim_input_lines.append(f"{simkey}:      {arg}")
+        sim_input_lines.append("")
+        
     sim_input_lines.append(f"RANSEED:           {ranseed} ")
     sim_input_lines.append(f"FORMAT_MASK:       32  # 2=TEXT  32=FITS ")
     sim_input_lines.append(f"SMEARFLAG_FLUX:    1   # Poisson noise from sky+source")
@@ -588,6 +590,9 @@ def simgen_nocorr(ISTAGE,config):
     if 'FATAL' in f.read():
         sys.exit(f"\n FATAL ERROR: check {SIM_LOG_FILE} \n")
 
+    sys.exit("\n xxx DEBUG DIE xxx \n")
+
+    return
     # end simgen_nocorr
 
 def make_outlier_table(ISTAGE,config,what):

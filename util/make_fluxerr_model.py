@@ -207,6 +207,14 @@ def read_input(input_file):
     input_yaml['FIELD_GROUP_NAMES'] = FIELD_GROUP_NAMES
     input_yaml['FIELD_GROUP_LISTS'] = FIELD_GROUP_LISTS
 
+    # check for SBMAG depdendence in mag (Aug 15 2021)
+    FLUXERRMAP_BINS = input_yaml['FLUXERRMAP_BINS']
+    USE_SBMAG = False
+    for row in FLUXERRMAP_BINS :
+        if row.split()[0] == 'SBMAG': USE_SBMAG = True
+    input_yaml['USE_SBMAG'] = USE_SBMAG
+    
+
     return input_yaml
     # end read_input
 
@@ -354,7 +362,7 @@ def create_simdata(ISTAGE,config):
     #print(f"\n xxx run \n{cmd}\n")
     os.system(cmd)
 
-    # .xyz
+
     # end create_simdata
 
 def create_fake_simlib(ISTAGE,config):
@@ -482,19 +490,35 @@ def simgen_nocorr(ISTAGE,config):
     filters        = config.filters
     SIMLIB_FILE    = config.SIMLIB_FILE
     KCOR_FILE      = config.input_yaml['KCOR_FILE']
-    
+    USE_SBMAG      = config.input_yaml['USE_SBMAG']
+
     # init optional keys
-    HOSTLIB_FILE    = "NONE"
-    HOSTLIB_MSKOPT  = 0
-    PATH_SNDATA_SIM = None 
+    HOSTLIB_FILE     = "NONE"
+    HOSTLIB_MSKOPT   = 0
+    HOSTLIB_SBRADIUS = None 
+    PATH_SNDATA_SIM  = None 
 
     # check optional keys
-    if 'HOSTLIB_FILE' in config.input_yaml :
-        HOSTLIB_FILE   = config.input_yaml['HOSTLIB_FILE']
+    simkey = 'HOSTLIB_FILE'
+    if simkey in config.input_yaml :
+        HOSTLIB_FILE   = config.input_yaml[simkey]
         HOSTLIB_MSKOPT = 258  # 2=Poisson noise, 256=verbose
+    elif USE_SBMAG is True :
+        sys.exit(f"\n ERROR: SBMAG depdendence requires missing {simkey} key" \
+                 f"\n in {args.input_file}")
+    
 
-    if 'PATH_SNDATA_SIM' in config.input_yaml :
-        PATH_SNDATA_SIM = config.input_yaml['PATH_SNDATA_SIM']
+    simkey = 'HOSTLIB_SBRADIUS'
+    if simkey in config.input_yaml :
+        HOSTLIB_SBRADIUS = config.input_yaml[simkey]
+
+    if USE_SBMAG and HOSTLIB_SBRADIUS is None :
+        sys.exit(f"\n ERROR: SBMAG depdendence requires missing {simkey} key" \
+                 f"\n in {args.input_file}")
+
+    simkey = 'PATH_SNDATA_SIM'
+    if simkey in config.input_yaml :
+        PATH_SNDATA_SIM = config.input_yaml[simkey]
     
     prefix         = stage_prefix(ISTAGE)
     sim_input_file = f"{prefix}_simgen_fakes.input"
@@ -533,6 +557,8 @@ def simgen_nocorr(ISTAGE,config):
     sim_input_lines.append(f"KCOR_FILE:         {KCOR_FILE}")    
     sim_input_lines.append(f"HOSTLIB_FILE:      {HOSTLIB_FILE}")
     sim_input_lines.append(f"HOSTLIB_MSKOPT:    {HOSTLIB_MSKOPT}")
+    if USE_SBMAG :
+        sim_input_lines.append(f"HOSTLIB_SBRADIUS:    {HOSTLIB_SBRADIUS}")
 
     sim_input_lines.append(f"RANSEED:           {ranseed} ")
     sim_input_lines.append(f"FORMAT_MASK:       32  # 2=TEXT  32=FITS ")
@@ -585,14 +611,13 @@ def make_outlier_table(ISTAGE,config,what):
     input_yaml        = config.input_yaml
     KCOR_FILE         = input_yaml['KCOR_FILE']
     PRIVATE_DATA_PATH = input_yaml['PRIVATE_DATA_PATH']
+    USE_SBMAG         = input_yaml['USE_SBMAG']
 
     # - - - - -
     # set arg(s) for OUTLIER table.
     # if SBMAG-dependence is set, require SBMAG<50.
-    FLUXERRMAP_BINS = input_yaml['FLUXERRMAP_BINS']
     arg_outlier = 'nsig:0.0'  # default arg for OUTLIER table
-    for row in FLUXERRMAP_BINS :
-        if row.split()[0] == 'SBMAG': arg_outlier += ',sbmag:50.0'
+    if USE_SBMAG : arg_outlier += ',sbmag:50.0'
     
     # - - - - -
     if what == STRING_FAKE :

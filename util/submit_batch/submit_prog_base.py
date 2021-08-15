@@ -1518,7 +1518,7 @@ class Program:
         n_job_fail_list[0] += 1
         n_job_fail          = n_job_fail_list[0]
         msg = (f"    *** FAIL {n_job_fail:3d} for " \
-               f"{job_log_file} ")
+               f"{job_log_file}   found_zero={found_zero}")
         logging.info(msg)
 
         # - - - - - - - - - - - - - - -

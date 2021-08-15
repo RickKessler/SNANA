@@ -590,8 +590,6 @@ def simgen_nocorr(ISTAGE,config):
     if 'FATAL' in f.read():
         sys.exit(f"\n FATAL ERROR: check {SIM_LOG_FILE} \n")
 
-    sys.exit("\n xxx DEBUG DIE xxx \n")
-
     return
     # end simgen_nocorr
 

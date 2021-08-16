@@ -12,7 +12,10 @@
 #
 # Aug 11 2021:
 #   DJB,RK fix stupid bug writing SNLS waveshift syst to SUBMIT.INFO
-
+#
+# Aug 15 2021: if SNANA band is a list (e..g, omn for CSP), write
+#              each band in separate row to SUBMIT.INFO
+#
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
 import  datetime, time, subprocess
@@ -845,18 +848,19 @@ class train_SALT2(Program):
         n_item = 0
         for item_full in update_calib_info:
             #print(f" xxx item_full = {item_full} ")
-            survey_snana, band_snana = self.get_SNANA_INFO(item_full)
+            survey_snana, band_snana_string = self.get_SNANA_INFO(item_full)
             if survey_snana is None : continue 
+            band_snana_list = list(band_snana_string)
+            for band_snana in band_snana_list :
+                trainopt  = item_full[ICOL_INFO_TRAINOPT]
+                key_snana = item_full[ICOL_INFO_KEY]
+                shift     = item_full[ICOL_INFO_SHIFT]
+                arg_snana = f"{survey_snana} {band_snana} {shift}"
+                item      = [ trainopt, key_snana, arg_snana ]
 
-            trainopt  = item_full[ICOL_INFO_TRAINOPT]
-            key_snana = item_full[ICOL_INFO_KEY]
-            shift     = item_full[ICOL_INFO_SHIFT]
-            arg_snana = f"{survey_snana} {band_snana} {shift}"
-            item      = [ trainopt, key_snana, arg_snana ]
-
-            n_item += 1
-            if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
-            f.write(f"  - {item} \n")
+                n_item += 1
+                if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
+                f.write(f"  - {item} \n")
         f.write("\n")
 
         # end append_info_file

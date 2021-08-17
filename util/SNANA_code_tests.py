@@ -14,6 +14,8 @@
 # Internal usage:
 #   SNANA_code_tests.py --cpunum <num> --logDir <dir>
 #
+#
+#       HISTORY
 # Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
 # Mar 21 2020: in submitTasks_BATCH(), fix slashes in SNANA_SETUP
@@ -31,6 +33,8 @@
 # Jul 01 2021:
 #   + write $HOST to HOST_MONITOR.INFO
 #   + increas batch time from 20min to 1hr in case of batch delay
+#
+# Aug 17 2021: add arguments --nosubmit and --ncpu
 #
 
 import os, sys, datetime, shutil, time, glob
@@ -75,6 +79,9 @@ def parse_args():
     msg = f"private snana code directory (replaces {SNANA_DIR})"
     parser.add_argument("--snana_dir", help=msg, type=str, default=None)
 
+    msg = f"Override number of CPUs in batch file"
+    parser.add_argument("--ncpu", help=msg, type=int, default=-1)
+
     msg = "INTERNAL ARG: CPU number"
     parser.add_argument("--cpunum", help=msg, type=int, default=-9)
 
@@ -86,6 +93,9 @@ def parse_args():
 
     msg = "stop this script"
     parser.add_argument("--stop", help=msg, action="store_true")
+
+    msg = "prepare jobs, but do not submit"
+    parser.add_argument("--nosubmit", help=msg, action="store_true")
 
     msg = "debug"
     parser.add_argument("--debug", help=msg, action="store_true")
@@ -128,56 +138,6 @@ def parse_args():
         print("\n !!! DEBUG MODE: COMPARE TEST vs. REF only !!! ")
 
     return args
-
-def parse_args_legacy():
-    #return dictionary of user command-line input values
-    SCRIPTNAME = sys.argv[0]
-    DOREF           =  False
-    DOTEST          =  True
-    DOCOMPARE_ONLY  =  False
-    DOSTOP          =  False
-    DEBUG_FLAG      =  False 
-    REFTEST         = 'TEST'
-    CPUNUM_REQ      = -9
-    LOGDIR          = ''
-    LIST_FILE       = LIST_TESTS_FILE_DEFAULT
-
-    iarg     = 0
-    for arg in sys.argv :
-        if ( arg.lower() == 'ref' ):
-            DOREF  = True
-            DOTEST = False
-            REFTEST = 'REF'
-        elif ( arg == '-cpunum' ):
-            CPUNUM_REQ = int(sys.argv[iarg+1])
-        elif ( arg == '-logDir' ):
-            LOGDIR = sys.argv[iarg+1]
-        elif ( arg == '-listFile' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg == '-l' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg.lower() == 'compare' ) :
-            DOCOMPARE_ONLY  = True
-        elif ( arg.lower() == 'stop' ) :
-            DOSTOP  = True
-        elif ( arg.lower() == 'debug' ) :
-            DEBUG_FLAG = True 
-        iarg += 1
-
-    INPUTS_USER = {
-        "SCRIPTNAME"      : SCRIPTNAME,
-        "DOREF"           : DOREF,
-        "DOTEST"          : DOTEST,
-        "DOCOMPARE_ONLY"  : DOCOMPARE_ONLY,
-        "DOSTOP"          : DOSTOP,
-        "DEBUG_FLAG"      : DEBUG_FLAG,
-        "REFTEST"         : REFTEST,
-        "CPUNUM_REQ"      : CPUNUM_REQ,
-        "LOGDIR"          : LOGDIR,
-        "LIST_FILE"       : LIST_FILE
-        }
-
-    return INPUTS_USER
 
 # ====================================
 def get_LOGDIR_REF():
@@ -378,7 +338,10 @@ def parse_listfile(INPUTS, RESULTS_INFO_REF):
             RUN_SSH   = True
         elif ( words[0] == 'BATCH_INFO:' ):
             BATCH_INFO = words[1:]
-            NCPU       = int(BATCH_INFO[2])
+            if INPUTS.ncpu > 0 :
+                NCPU = INPUTS.ncpu  # command line override (Aug 17, 2021
+            else:
+                NCPU       = int(BATCH_INFO[2])
             RUN_BATCH  = True 
         elif ( words[0] == 'TEST:' ):
             NTASK += 1
@@ -902,12 +865,13 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
             cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; {cmd_job}"
 
         # - - - - 
-        cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
+        if INPUTS.nosubmit is False :
+            cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
+            print(f" Launch tasks for CPU {cpunum:3d}")
+            os.system(cmd)
 
-        print(f" Launch tasks for CPU {cpunum:3d}")
-#        sys.exit('\n cmd = %s \n' % cmd )
-        os.system(cmd)
-
+    return
+    # end submitTasks_SSH
 
 # =========================================
 def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
@@ -965,7 +929,6 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         #print(f" xxx sed = {cmd_sed} ")
         os.system(cmd_sed)
 
-
         # make sure batch file was created 
         if ( os.path.isfile(BATCH_RUNFILE) == False ) :
             msg = f" ABORT: could not create BATCH_RUNFILE = \n" \
@@ -974,9 +937,14 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         # launch the job
         cmd_submit = f"cd {LOGDIR} ; {BATCH_SUBMIT_COMMAND} {batch_runfile}"
-        os.system(cmd_submit)
-#        print(' Submitted %s ' % batch_runfile )
-#        sys.stdout.flush()
+
+        if INPUTS.nosubmit is False :
+            os.system(cmd_submit)
+        else:
+            print(f" Skip {cmd_submit}")
+
+    return
+    # end submitTasks_BATCH
 
 #    sys.exit('\n\n xxx Bye bye from submitTasks_BATCH' )
 
@@ -1020,17 +988,16 @@ def submitTasks_driver(INPUTS, LIST_FILE_INFO):
     # below we actually do stuff.
     make_cpufile(CPU_FILE,LIST_FILE_INFO)
 
-    if ( RUN_SSH ):
+    if RUN_SSH :
         submitTasks_SSH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
-    if ( RUN_BATCH ):
+    if RUN_BATCH :
         submitTasks_BATCH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
     # - - - - - - - - - - - - - -
 
-    # loop over cores and assign 
     return SUBMIT_INFO
-
+    # end submitTasks_driver
 
 # ========================================
 def compare_results(INPUTS, RESULTS_INFO_REF, RESULTS_INFO_TEST):
@@ -1251,6 +1218,11 @@ if __name__ == "__main__":
         #sys.exit("\n xxx DEBUG STOP xxx \n")
 
         SUBMIT_INFO = submitTasks_driver(INPUTS,LIST_FILE_INFO)  
+
+        if INPUTS.nosubmit :
+            LOGDIR = SUBMIT_INFO['LOGDIR']
+            sys.exit(f"\n Exit without submitting jobs. " \
+                     f"\n Check output in {LOGDIR} \n")
 
         monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF) 
 

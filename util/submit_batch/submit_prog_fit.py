@@ -451,6 +451,7 @@ class LightCurveFit(Program):
         # Also return comment string; SUCCESS for True,
         # and error msg for False.
 
+        snana_dir       = self.config_yaml['args'].snana_dir
         output_dir      = self.config_prep['output_dir']
         cddir           = (f"cd {output_dir}")
         key_nevt        = 'NEVT_TOT'
@@ -460,7 +461,12 @@ class LightCurveFit(Program):
         textfile_prefix = (f"{PREFIX_TEMP_SNANA}_{version}")
         log_file        = (f"{textfile_prefix}.LOG")
         yaml_file       = (f"{textfile_prefix}.YAML")
-        cmd_snana = "snana.exe NOFILE  "
+
+        if snana_dir is None :
+            cmd_snana = f"snana.exe NOFILE  "
+        else:
+            cmd_snana = f"{snana_dir}/bin/snana.exe NOFILE  "
+
         cmd_snana += (f"VERSION_PHOTOMETRY {version}  ")
         cmd_snana += (f"MXEVT_PROCESS {nevt_proc}  ")
         cmd_snana += (f"JOBSPLIT 1 1  ")

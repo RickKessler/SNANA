@@ -31,7 +31,7 @@
 # Jan 06 2021: cidadd safety margin -> 1000 (was 10) to reduce chance
 #               of running out of random CIDs
 # Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
-#
+# Aug 18 2021: implement --snana_dir for SIMnorm jobs
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -659,6 +659,7 @@ class Simulation(Program):
         output_dir    = self.config_prep['output_dir']
         genopt_global = self.config_prep['genopt_global_SIMnorm']
         genopt        = self.config_prep['genopt_list2d'][iver][ifile]
+        snana_dir     = self.config_yaml['args'].snana_dir
 
         cddir         = (f"cd {output_dir}")
         ngentot       = 0
@@ -685,7 +686,12 @@ class Simulation(Program):
 
         cmd_array = []     # for screen dump
         cmd_array.append(f"{cddir} ; ")
-        cmd_array.append(f"{program} {infile} ")
+
+        if snana_dir is None :
+            cmd_array.append(f"{program} {infile} ")
+        else:
+            cmd_array.append(f"{snana_dir}/bin/{program} {infile} ")
+
         cmd_array.append(f"{arg_list} ")
         cmd_array.append(f"> {log_file}")
 

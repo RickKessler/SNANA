@@ -5990,16 +5990,26 @@ void splitString(char *string, char *sep, int MXsplit,
   // Output :
   //  *Nsplit     : number of split elements return in ptrSplit
   //  **ptrSplit  : array of pointers to split elements
+  //
+  // Aug 18 2021
+  //   remove termination char in case extra blank spaces + <CR> are included.
   // ---------------
 
+  bool ISTERM;
   int LEN, N;
-  char *localString, *ptrtok ;
+  char *localString, *ptrtok, lastc[2] ;
   char fnam[] = "splitString" ;
 
   // ------------ BEGIN ---------------
   LEN         = strlen(string);
   localString = (char*) malloc( (LEN+10) * sizeof(char) );
   sprintf(localString, "%s", string);
+
+  // remove termination char
+  sprintf(lastc,"%c", localString[LEN-1]);
+  ISTERM  = ( lastc[0] == '\0' || lastc[0] == '\n' || lastc[0] == '\r' );
+  if ( ISTERM ) { localString[LEN-1] = 0; }
+
   ptrtok      = strtok(localString,sep) ; // split string
   N=0;
 

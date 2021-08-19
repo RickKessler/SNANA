@@ -21761,6 +21761,8 @@ void init_kcor_legacy(char *kcorFile) {
      + use new function find_pathfile(...) to find kcor_file by searching
        current, SNDATA_ROOT and PATH_USER_INPUT.
 
+   Aug 18 2021: enable for FIXMAG model
+
   *********/
 
   int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
@@ -21818,7 +21820,7 @@ void init_kcor_legacy(char *kcorFile) {
     GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt] = 0 ;
   }
 
-  if ( ISMODEL_FIXMAG ) { return ; } // 4.24.2019
+  // xxx mark delete  if ( ISMODEL_FIXMAG ) { return ; } // 4.24.2019
   if ( ISMODEL_SIMLIB ) { return ; } // 11.22.2019
 
   // init MW extinction (moved from end of init_genmodel on Aug 30 2010)

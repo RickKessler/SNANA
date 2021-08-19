@@ -1106,7 +1106,13 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        cmd_cat = f"SALT2mu.exe  " \
+        snana_dir    = self.config_yaml['args'].snana_dir
+        if snana_dir is None:
+            code_name = PROGRAM_NAME_BBC
+        else:
+            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+
+        cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
                   f"append_varname_missing='PROB*'  " \

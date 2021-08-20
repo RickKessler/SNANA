@@ -37,6 +37,7 @@ struct {
   double *LAMMIN_LIST, *LAMMAX_LIST, *LAMAVG_LIST ;     // per spectro bin
   double *LAMBIN_LIST, *LAMSIGMA_LIST ; // binSize & resolution vs. lambda
   double TEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH] ;    // per expTime bin
+  double LOGTEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH];  // used for ZP-interp
   double **SNR0, **SNR1  ;  // per spectro bin & expTime
   bool   *ISLAM_EXTEND_LIST; // True -> extended lam bin for lam-resulution
 

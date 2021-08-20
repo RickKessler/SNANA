@@ -1367,9 +1367,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   char errmsg_ZP_T[] = "getSNR_spectrograph(ZP_T)";
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
   char errmsg_SQ_T[] = "getSNR_spectrograph(SQ_T)";
-  //  int  LDMP = (ILAM < -3);
-  int  LDMP = ( fabs(INPUTS_SPECTRO.LAMAVG_LIST[ILAM]-8000.) < 2.0 );
-
+  int  LDMP = (ILAM < -3);
+  // int  LDMP = ( fabs(INPUTS_SPECTRO.LAMAVG_LIST[ILAM]-8000.) < 2.0 );
   bool REFAC_ZP = true ;
 
   // -------------- BEGIN --------------

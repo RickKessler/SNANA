@@ -8653,8 +8653,8 @@ void GENSPEC_TRUE(int imjd) {
     genSpec_SALT2(parList_SN, parList_HOST,
 		  GENLC.MWEBV,             // Galactic		 
 		  GENLC.REDSHIFT_HELIO, TOBS,
-		  ptrGENFLUX,                 // (O) fluxGen per bin 
-		  ptrGENMAG                   // (O) magGen per bin
+		  ptrGENFLUX,        // (O) fluxGen per bin (erg/s/cm^2/A)
+		  ptrGENMAG          // (O) magGen per bin
 		  );
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
@@ -8665,7 +8665,7 @@ void GENSPEC_TRUE(int imjd) {
       FLUXGEN = pow(TEN,ARG);
       
       ptrGENMAG[ilam]  = GENMAG ;
-      ptrGENFLUX[ilam] = FLUXGEN ;
+      ptrGENFLUX[ilam] = FLUXGEN ;  // FLUXCAL units
     }
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    

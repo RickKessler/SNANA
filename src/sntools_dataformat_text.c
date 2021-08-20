@@ -840,7 +840,8 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 	}  
 
 	// write SNR only for sim in TEXT format
-	SNR        = FLAM/FLAMERR ;
+	// xxx mark delete SNR  = FLAM/FLAMERR ;
+	SNR  = GENFLAM/FLAMERR ; // true SNR to avoid fluct (Aug 19 2021)
 	sprintf(cval, " %.2f ", SNR);   NVAR++ ; strcat(tmpLine,cval);
 
       } // end WRFLAG_SIM

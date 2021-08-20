@@ -9935,7 +9935,7 @@ c -------------
 +CDE,SNLCINP.
 
       INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
-      REAL*8 DVAL
+      REAL*8 DVAL(4)
       CHARACTER cKEY*20, cSTRING
       EXTERNAL COPY_SNDATA_HEAD
 
@@ -9949,19 +9949,19 @@ C -------------- BEGIN ----------
 
       IF ( OPT_SETPKMJD > 0 ) THEN
         cKEY     = "PEAKMJD" // char(0)
-        DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
+        DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
 
       IF ( OPT_MWEBV > 0 ) THEN
         cKEY     = "MWEBV" // char(0)
-        DVAL     = DBLE(SNLC_MWEBV)
+        DVAL(1)  = DBLE(SNLC_MWEBV)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
         cKEY     = "MWEBV_ERR" // char(0)
-        DVAL     = DBLE(SNLC_MWEBV_ERR)
+        DVAL(1)  = DBLE(SNLC_MWEBV_ERR)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
@@ -9971,34 +9971,34 @@ c or other calculated update.
 
 c zCMB
       cKEY     = "REDSHIFT_CMB" // char(0)
-      DVAL     = DBLE(SNLC_zCMB)
+      DVAL(1)  = DBLE(SNLC_zCMB)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "REDSHIFT_CMB_ERR" // char(0)
-      DVAL     = DBLE(SNLC_zCMB_ERR)
+      DVAL(1)  = DBLE(SNLC_zCMB_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 c zHELIO
       cKEY     = "REDSHIFT_HELIO" // char(0)
-      DVAL     = DBLE(SNLC_zHELIO)
+      DVAL(1)  = DBLE(SNLC_zHELIO)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
-      DVAL     = DBLE(SNLC_zHELIO_ERR)
+      DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 c VPEC
       cKEY     = "VPEC" // char(0)
-      DVAL     = DBLE(SNLC_VPEC)
+      DVAL(1)  = DBLE(SNLC_VPEC)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "VPEC_ERR" // char(0)
-      DVAL     = DBLE(SNLC_VPEC_ERR)
+      DVAL(1)  = DBLE(SNLC_VPEC_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
@@ -20683,8 +20683,8 @@ c Oct 23, 2020: use DLMAG_fortC to get DLMAG
 
 c local var
 
-      INTEGER iz, NBZ, iplot, hid, LENTIT
-      REAL*8  Z0, zbinsize, ZLIM(2), DLMAG
+      INTEGER iz, NBZ(2), iplot, hid, LENTIT
+      REAL*8  Z0, Z0arg(2), zbinsize, ZLIM(2), DLMAG
       character chis*80
 
 c define parameters for theory plots
@@ -20713,14 +20713,14 @@ c define Z bins for each plot
 
       ZLIM(1) = 0.0
       ZLIM(2) = 2.0
-      NBZ     = 200
+      NBZ(1)  = 200
 
 ccccc
       ZLIM(2) = 4.0
-      NBZ     = 200
+      NBZ(1)  = 200
 ccccc
 
-      Zbinsize = ( ZLIM(2)-ZLIM(1) ) / float(NBZ)
+      Zbinsize = ( ZLIM(2)-ZLIM(1) ) / float(NBZ(1))
 
 c book histos
 
@@ -20739,7 +20739,7 @@ c book histos
 
 c comput Mag vs. Z and fill histograms
 
-      DO 100 iz    = 1, NBZ
+      DO 100 iz    = 1, NBZ(1)
         Z0 = zbinsize * ( float(iz)-0.5 )
       DO 200 iplot = 1, NPL
  
@@ -20755,7 +20755,8 @@ c xxxxxxx end mark xxxxx
      &    OM(iplot), OL(iplot), W(iplot), dWdz(iplot) )
 
         HID = 400 + iplot
-        CALL SNHIST_FILL( NDIM, HID, Z0, DLMAG ) 
+        Z0arg(1) = z0  ! use array to aboif gcc 10 warning
+        CALL SNHIST_FILL( NDIM, HID, Z0arg, DLMAG ) 
 
 200   CONTINUE
 100   CONTINUE   ! iz
@@ -36491,7 +36492,7 @@ c local var
       DOUBLE PRECISION 
      &   FIXLIST(NFITPAR)
      &  ,BND1, BND2
-     &  ,STRATEGY, PARG
+     &  ,STRATEGY, PARG(4)
      &  ,MAXCALLS
      &  ,GRAD(NFITPAR)
      &  ,CHI2
@@ -36522,7 +36523,7 @@ C
 +SELF,IF=MINUIT.
       CALL MNINIT(IUNIN,IUOUT,IUWRI)
 
-      PARG = DBLE(PRINT_LEVEL)
+      PARG(1) = DBLE(PRINT_LEVEL)
       CALL MNEXCM(FCNSNLC, 'SET PRI', PARG, 1, IERR, USRFUN )
 +SELF.
 

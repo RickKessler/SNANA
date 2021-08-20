@@ -20236,11 +20236,16 @@
 
 
 # ======================================================================= 
-         v11_03c (  ) 
+         v11_03c (Aug 20 2021) 
 
          ***** IMPORTANT(v11_03c) ***** 
 
          ***** USEFUL(v11_03c) ***** 
+
+   + sim: if hostmag errors are in HOSTLIB, propagate to data files
+   + sim: refactor to prioritize GENPDF_FILE or asymGauss on command line
+   + fix bug reading text files with full filter name
+   + add --snana_dir arg to submit_batch_jobs and SNANA_submit_tests.py 
 
          ***** MISCELLANEOUS(v11_03c) ***** 
 
@@ -20254,6 +20259,10 @@
       + strip of last char of band to allow full filter string
         in text formatted data.
 
+    sntools.c
+      + fix splitString() to remove termination chars so that it works
+        when extra pad spaces + <CR> are included.
+
     SALT2mu.c
      + fix conflict_check to allow zbinuser
 
@@ -20265,6 +20274,7 @@
 
     snana.car
       + for SIMLIB_OUTFILE option, write DOCANA
+      + write HOST_SBMAG to output table, and HOST_SB -> HOST_SBFLUXCAL
 
    util/make_fluxerr_model.py : 
      + if SBMAG is used in map, reject epochs with invalid SBMAG>50.
@@ -20277,5 +20287,9 @@
        print correct genPop source in README when GENPDF
        overrides asymGauss, or vice-versa
      + crazyflux *= 2 
+
+   submit_prog_[fit,sim].py
+     + implment optional --snana_dir to work with SIMnorm job
+       and snana.exe job.
 
 END: 

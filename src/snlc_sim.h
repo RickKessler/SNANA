@@ -1848,6 +1848,7 @@ void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z, 
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
+void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) ;
 
 void   genmodel(int ifilt_obs, int inear);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest, 

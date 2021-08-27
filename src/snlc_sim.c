@@ -8653,7 +8653,7 @@ void GENSPEC_TRUE(int imjd) {
     genSpec_SALT2(parList_SN, parList_HOST,
 		  GENLC.MWEBV,             // Galactic		 
 		  GENLC.REDSHIFT_HELIO, TOBS,
-		  ptrGENFLUX,        // (O) fluxGen per bin (erg/s/cm^2/A)
+		  ptrGENFLUX,        // (O) fluxGen per bin (erg/s/cm^2)
 		  ptrGENMAG          // (O) magGen per bin
 		  );
   }
@@ -8727,10 +8727,92 @@ void GENSPEC_TRUE(int imjd) {
     */
   }
 
+
+  // Aug 2021: check option to integrate flux within each band
+  //            and check peak mags.
+
+  int VERIFY_PEAKMAG = 0 ;
+  int ifilt, ifilt_obs;
+  double PEAKMAG ;
+  if ( TOBS == 0.0 && VERIFY_PEAKMAG ) {
+    printf("\n %s: Verify PEAKMAGs for CID=%d  z=%.4f: \n", 
+	   fnam, GENLC.CID, GENLC.REDSHIFT_CMB);
+    for(ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+      GENSPEC_VERIFY_PEAKMAG(ifilt_obs, ptrGENFLUX);
+    }
+  }
+
   return ;
 
 } // end GENSPEC_TRUE
 
+// ==================================
+void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) {
+
+  // Created Aug 26 2021
+  // Diagnostic:
+  // Convert ptr_GENMAG in each wave bin to flux, sum flux
+  // over filter transmission, then convert back to broadband mag.
+  // Compare with already-computed PEAKMAG.
+
+  int  NLAMSPEC       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
+  double *LAMMAX_LIST = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST ;
+  double *LAMMIN_LIST = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST ;
+  double ZP_SNANA = ZEROPOINT_FLUXCAL_DEFAULT ;
+  double hc8    = (double)hc ;
+  double z1     = 1.0 + GENLC.REDSHIFT_CMB;
+  double PEAKMAG, PEAKMAG_VERIFY, LAMOBS, TRANS, flam, flux, flux_sum=0.0 ;
+  double *FLAM_LIST, lamstep, lambin, ZP ; 
+  int  ifilt, NLAMFILT, ilam;
+  char *cfilt;
+  int  OPT_INTERP = 1; // linear
+  char fnam[] = "GENSPEC_VERIFY_PEAKMAG";
+
+  // --------- BEGIN ------------
+  PEAKMAG = GENLC.peakmag_obs[ifilt_obs] ;
+  if ( PEAKMAG < 1.0 || PEAKMAG > 30.0 )  { return ; }
+
+  // compute true Flam in each spectrograph bin
+  FLAM_LIST = (double*)malloc( NLAMSPEC * sizeof(double) );
+  for(ilam=0; ilam < NLAMSPEC; ilam++ ) {
+    flux   = GENFLUX_LIST[ilam] ;
+    lambin = LAMMAX_LIST[ilam] - LAMMIN_LIST[ilam];
+    flam   = flux / lambin ;
+    FLAM_LIST[ilam] = flam ;
+  }
+
+  ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  NLAMFILT  = FILTER_SEDMODEL[ifilt].NLAM ;
+  cfilt     = FILTER_SEDMODEL[ifilt].name ;
+  lamstep   = FILTER_SEDMODEL[ifilt].lamstep ;
+  ZP        = FILTER_SEDMODEL[ifilt].ZP ;
+
+  // loop over filter wave bins
+  for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS );
+    if ( TRANS < 1.0E-12 ) { continue; }
+
+    flam = interp_1DFUN(OPT_INTERP, LAMOBS, NLAMSPEC,
+			LAMAVG_LIST, FLAM_LIST, fnam );
+
+    flux_sum += ( flam * LAMOBS * TRANS );
+  } // end ilam
+
+  flux_sum *= (lamstep/hc8) ;
+  PEAKMAG_VERIFY = ZP - 2.5*log10(flux_sum);
+
+  printf(" %s: Peakmag(%s) = %.3f / %.3f (orig/specVerify) \n",
+	 fnam, cfilt, PEAKMAG, PEAKMAG_VERIFY );
+  fflush(stdout);
+  // .xyz
+
+  free(FLAM_LIST);
+
+  return ;
+
+} // end GENSPEC_VERIFY_PEAKMAG
 
 // *****************************************
 void GENSPEC_HOST_CONTAMINATION(int imjd) {
@@ -15337,7 +15419,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       { OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ;  }
 
     // always check reasons to reject (header cuts, FIELD, APPEND ...)
-    OPTLINE_REJECT = ( USEFLAG_LIBID==REJECT_FLAG || 
+    OPTLINE_REJECT = ( USEFLAG_LIBID == REJECT_FLAG || 
 		       SKIP_FIELD || SKIP_APPEND ) ;
 
     if ( OPTLINE && OPTLINE_REJECT )  {    
@@ -15945,7 +16027,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // --------------- BEGIN ----------------
 
   GENLC.NEPOCH = 0 ; // Mar 17 2015: needed for LIBID repeats
-
 
   // Apr 13, 2016: 
   // check if anything needs to be re-generated based on header info
@@ -16571,7 +16652,7 @@ int keep_SIMLIB_OBS(int isort, int REPEAT) {
   int  LTRACE= 0 ; 
   double  MJD, MJDrange[2];
   char *FIELD ;
-  //  char fnam[] = "keep_SIMLIB_OBS" ;
+  char fnam[] = "keep_SIMLIB_OBS" ;
 
   // ------------ BEGIN --------------
 

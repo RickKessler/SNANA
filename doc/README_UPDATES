@@ -20292,4 +20292,22 @@
      + implment optional --snana_dir to work with SIMnorm job
        and snana.exe job.
 
+
+# ======================================================================= 
+         v11_03d (  ) 
+
+         ***** IMPORTANT(v11_03d) ***** 
+
+         ***** USEFUL(v11_03d) ***** 
+
+         ***** MISCELLANEOUS(v11_03d) ***** 
+
+    + sntools_spectrograph.c: 
+      in getSNR_spectrograph, interpolate ZP vs. log10(Texpose) instead
+      of ZP vs. Texpose. Works much better with sparse Texpose grid.
+      [issue found by comparing SNR against D.Rubin]
+ 
+    + genmag_SALT2.c: 
+      in genSpec_SALT2, remove buggy 1/z1 factor in computing GENMAG from GENFLUX
+   
 END: 

@@ -285,9 +285,9 @@ int init_filter_SEDMODEL(
   transSN_MAX = transREF_MAX = 0.0 ;
 
   for ( ilam=0; ilam < NLAM; ilam++ ) {
-    lam       = *(LAMLIST+ilam)  + LAMSHIFT ;
-    transSN   = *(TRANSSNLIST+ilam) ;
-    transREF  = *(TRANSREFLIST+ilam) ;
+    lam       = LAMLIST[ilam]  + LAMSHIFT ;
+    transSN   = TRANSSNLIST[ilam] ;
+    transREF  = TRANSREFLIST[ilam] ;
     FILTER_SEDMODEL[ifilt].lam[ilam]   = lam ;
     FILTER_SEDMODEL[ifilt].transSN[ilam] = transSN ; 
     FILTER_SEDMODEL[ifilt].transREF[ilam] = transREF ; 

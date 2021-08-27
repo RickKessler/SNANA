@@ -37,6 +37,8 @@
  May 31 2021: refactor to receive parList_SN and parList_HOST so that
               logMass can be included and passed to get_genSmear.
 
+ Aug 26 2021: remove buggy 1/z1 factor in genSpec_SALT2
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -3528,7 +3530,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/(hc8*z1)) * GENFLUX;
+    // xxxx mark delete Aug 26 2021  FTMP    = (LAM/(hc8*z1)) * GENFLUX;
+    FTMP    = (LAM/hc8) * GENFLUX;
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
       MAG = -2.5*log10(FTMP) + ZP; 
     }

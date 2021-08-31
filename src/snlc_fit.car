@@ -8210,9 +8210,11 @@ c make sure that alpha & beta are defined for photoZ fit.
 c set bounds on color and stretch
 c Mar 24, 2012: reduce range from +-2
 c Dec 5 2013: reduce max color frmo +2 to +1.
+c Aug 30 2021: max color -> 2 to fit redder events
 
          INIBND(1,IPAR_COLOR) = -1.6  ! c
-         INIBND(2,IPAR_COLOR) = +1.0 
+cc         INIBND(2,IPAR_COLOR) = +1.0 
+         INIBND(2,IPAR_COLOR) = +2.0 
 
          INIBND(1,IPAR_SHAPE) = -5.0  ! x1
          INIBND(2,IPAR_SHAPE) = +5.0

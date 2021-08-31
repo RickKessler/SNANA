@@ -1029,7 +1029,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 			   double z, char *funCall ) {
 
   // Nov 2016
-  // Return redshifted-SED-integrated flux for inputs
+  // Return rest-frame SED Flam for inputs
   //  ised = SED index
   //  iep  = epoch index (if >= 0 )
   //  Tobs = T - Tpeak (if iep<0)
@@ -3229,7 +3229,7 @@ void getSpec_SEDMODEL(int ised,
       LAMTMP_OBS   = lam + lamBin/2.0 ;
       LAMTMP_REST  = LAMTMP_OBS/z1 ;
       FTMP  = getFluxLam_SEDMODEL(ised, -9, Tobs, LAMTMP_OBS, z, fnam) ;
-      FLUXGEN_forMAG  += (FTMP * lamBin * LAMTMP_REST);
+      FLUXGEN_forMAG  += (FTMP * lamBin * LAMTMP_REST); 
       FLUXGEN_forSPEC += (FTMP * lamBin );
     }
 
@@ -3239,7 +3239,7 @@ void getSpec_SEDMODEL(int ised,
     FLUXGEN_forMAG   *= (x0fac*SEDNORM_forMAG ) ; 
 
     MAG  = MAG_UNDEFINED ;
-    if ( ZP > 0.0 && FLUXGEN_forMAG > 0.0 ) 
+    if ( ZP > 0.0 && FLUXGEN_forMAG > 1.0E-50 ) 
       { MAG = ZP - 2.5*log10(FLUXGEN_forMAG) ; }
 
     // load function output 
@@ -3264,7 +3264,6 @@ void getSpec_SEDMODEL(int ised,
   double MAGOFF_XT, FRAC, FRAC_XT, LAM ;
   int  DOXT = ( AV_host > 1.0E-9 ) ;
   // check before removing: int NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-
 
   if ( MAGOFF == 0.0  &&  DOXT==0 ) { return ; }
 

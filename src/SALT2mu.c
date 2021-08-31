@@ -1052,7 +1052,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE    200  // always abort if more than this many
+#define MXSTORE_DUPLICATE    800  // always abort if more than this many
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
 #define STRING_FITWGT0 "FITWGT0"
@@ -3722,7 +3722,7 @@ void check_duplicate_SNID(void) {
     NTMP   = NDUPL_LIST[idup] ;
     snid   = INFO_DATA.TABLEVAR.name[unsort]; 
     z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f \n",
+    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%14.14s at z=%.5f \n",
 	    idup, NTMP, snid, z );	
   }
 
@@ -3732,7 +3732,7 @@ void check_duplicate_SNID(void) {
   // - - - - - - -
   fflush(FP_STDOUT);
 
-  if ( NDUPL_SET >= MXSTORE ) {
+  if ( NDUPL_SET >= MXSTORE  && iflag>0 ) {
     sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
 	    NDUPL_TOT, MXSTORE );
     sprintf(c2err,"Check duplicates");
@@ -22190,6 +22190,8 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
 
   printf("%s write SALT2mu output\n",  KEYNAME_SUBPROCESS_STDOUT );
   fflush(stdout);
+
+  fprintf(FP_OUT,"# Created by SALT2mu SUBPROCESS\n"); // Aug 30 2021
 
   fprintf(FP_OUT,"# ITERATION: %d\n#\n", ITER);
   fflush(FP_OUT);

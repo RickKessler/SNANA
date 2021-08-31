@@ -24125,7 +24125,6 @@ c glue together variables in comma-separate VARLIST
      &                   LENBLOCK, LENLIST)
       ENDIF     ! end of NPAR_PRIVATE if-block
 
-
 c --- Sep 23 2017: user variables --------
       IF ( NTABLEVAR_USER > 0 ) THEN
         DO ivar = 1, NTABLEVAR_USER
@@ -24136,7 +24135,7 @@ c --- Sep 23 2017: user variables --------
      &               VARLIST, 1, LENBLOCK, LENLIST+2)           
         ENDDO
       ENDIF
- 
+
       RETURN
       END   !  end of INIT_TABLE_SNANAVAR
 

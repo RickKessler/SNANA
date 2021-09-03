@@ -1738,7 +1738,7 @@ struct INPUTS {
   // if logmass dimension; include mass-dependence for muCOVscale
   bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
 
-  bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
+  // xxx mark delete bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
 
 } INPUTS ;
 
@@ -5704,7 +5704,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   char fnam[] = "malloc_MUCOV";
 
   int debug_malloc = INPUTS.debug_malloc ;
-  bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
+  // xxx mark delete bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
+  bool DO_MAD = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
@@ -5790,7 +5791,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
     CELLINFO->BININFO_m.avg[im] = m_avg ;
   }
 
-  if (USE_MAD_MUCOVSCALE) {
+  if (DO_MAD) {
     if (DO_COVSCALE || DO_COVADD) {
 	CELLINFO->ABSPULL =  (double **) malloc(sizeof(double*)*NCELL);
 	for (i1d=0; i1d<NCELL; i1d++){
@@ -9061,6 +9062,7 @@ void prepare_biasCor(void) {
   bool  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
   bool  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
   bool  DOCOR_MUCOVSCALE   = ( OPTMASK & MASK_BIASCOR_MUCOVSCALE);
+  bool  DOCOR_MUCOVADD   = ( OPTMASK & MASK_BIASCOR_MUCOVADD);
   bool  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   bool  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
   bool  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
@@ -9081,6 +9083,10 @@ void prepare_biasCor(void) {
   INFO_BIASCOR.TABLEVAR.NSN_REJECT    = 0 ;
   INFO_BIASCOR.GAMMADM_OFFSET         = 0.0 ;
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
+
+  if (DOCOR_MUCOVADD) { // tying together MAD with MUCOVADD, doesnt work without MAD
+    INPUTS.opt_biasCor |= MASK_BIASCOR_MAD;
+  }
 
   if ( DOCOR_MU ) 
     { INFO_BIASCOR.ILCPAR_MIN = INDEX_mu; INFO_BIASCOR.ILCPAR_MAX = INDEX_mu;}
@@ -10427,7 +10433,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-  bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
+  // xxx mark delete bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
+  bool DO_MAD = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
+
   int debug_malloc = INPUTS.debug_malloc ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
@@ -10752,7 +10760,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     SUM_SQMUERR[i1d] +=  muErrsq ;
     SUM_MUERR[i1d]   +=  muErr ;
 
-    if (USE_MAD_MUCOVSCALE) {
+    if (DO_MAD) {
       int NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
       int newmem = (NperCell+1+NPERCELL_REALLOC) * sizeof(double);
       bool DO_REALLOC = (NperCell+1)%NPERCELL_REALLOC == 0 && NperCell > 0;
@@ -10814,7 +10822,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     SIG_PULL_RMS[i1d] = sqrt(SQRMS);
 
-    if (USE_MAD_MUCOVSCALE) {
+    if (DO_MAD) {
       //void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN)
       double AVG, RMS, MAD;
       arrayStat( N, CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d], &AVG, &RMS, &MAD);
@@ -10957,7 +10965,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   free(SQMUERR);     free(SQMURMS);
   free(SUM_PULL);    free(SUM_SQPULL);
  
-  if (USE_MAD_MUCOVSCALE) {
+  if (DO_MAD) {
     for (i1d=0; i1d<NCELL; i1d++){
       free(CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d]);
     }
@@ -18189,9 +18197,9 @@ void prep_debug_flag(void) {
 
   INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
 
-  INPUTS.REFAC_MAD_MUCOVSCALE = ( INPUTS.debug_flag == 99 );
-  fprintf(FP_STDOUT," REFAC_MAD_MUCOVSCALE = %d\n",
-	  INPUTS.REFAC_MAD_MUCOVSCALE);
+  // xxx mark delete INPUTS.REFAC_MAD_MUCOVSCALE = ( INPUTS.debug_flag == 99 );
+  //fprintf(FP_STDOUT," REFAC_MAD_MUCOVSCALE = %d\n",
+  //	  INPUTS.REFAC_MAD_MUCOVSCALE);
 
   fflush(FP_STDOUT);
 

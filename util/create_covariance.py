@@ -582,7 +582,9 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                 final_cov = cov.copy()
             else:
                 # If we have calibrators and this is VPEC term, filter out calib
-                if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC")):
+                if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC") or \
+                                    apply_filter(fitopt_label, "+ZSHIFT") or apply_filter(muopt_label, "+ZSHIFT")):
+                    print(f'FITOPT {fitopt_label} MUOPT {muopt_label} ignored for calibrators...')
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0

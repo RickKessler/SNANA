@@ -8806,7 +8806,6 @@ void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) {
   printf(" %s: Peakmag(%s) = %.3f / %.3f (orig/specVerify) \n",
 	 fnam, cfilt, PEAKMAG, PEAKMAG_VERIFY );
   fflush(stdout);
-  // .xyz
 
   free(FLAM_LIST);
 
@@ -10133,6 +10132,8 @@ void gen_event_driver(int ilc) {
     // GENRANGE_TREST ... avoids wasting memory.
     // Note that z_helio is computed after SIMLIB_READ because
     // we need RA/DEC for z_helio.
+
+
     GENLC.PEAKMJD = gen_peakmjd(); 
 
     // set GENLC.RATEPAR struct (Aug 2016)
@@ -10149,6 +10150,7 @@ void gen_event_driver(int ilc) {
 
     // read entry from libray after generated PEAKMJD and redshift ;
     // see comment above.
+
     SIMLIB_READ_DRIVER();
 
     GENLC.CID   = GENLC.CIDOFF + ilc ; 
@@ -14971,7 +14973,7 @@ void  GENFILTERS_CHECK(void) {
 
 
 // *************************************************
-void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
+int SIMLIB_read_templateNoise(char *FIELD, char *whatNoise, char **wdlist) {
 
   // Feb 2014
   // For *whatNoise = "SKY" or "CCD" or "ZPT", read correlated template 
@@ -14981,22 +14983,25 @@ void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
   // as for the FILTERS key.
   // Note that this is different from the T: keys where
   // the template noise is UN-correlated among epochs.
+  // **wdlist is list of words passed from file;
+  // Function returns number of words read (0 or NFILT)
   //
-  // Aug 2014: new FIELD arg and major re-org to handle overlapping fields.
-  //
-  // Sep 29 2015: check that noise is within validNoiseRange to
-  //              avoid reading crazy values 
+  //     HISTORY
   //
   // Mar 02 2018: check option to ignore template noise
+  // Sep 02 2021: 
+  //   + refactor to read from wdlist instead of reading file from
+  //     fp_SIMLIB; return number or words read
+  //
 
   double noise, *ptrNoise, validNoise_min, validNoise_max;
-  int NFILT, ifilt, ifilt_obs, IFIELD, IGNORE  ;
+  int  NRD=0, NFILT, ifilt, ifilt_obs, IFIELD, IGNORE  ;
   char fnam[] = "SIMLIB_read_templateNoise" ;
   
   // ------------- BEGIN -----------
 
   IGNORE = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IGNORE_TEMPLATENOISE);
-  if ( IGNORE ) { return ; }
+  if ( IGNORE ) { return NRD ; }
 
   // determine local FIELD index.
   IFIELD = IFIELD_OVP_SIMLIB(0,FIELD);
@@ -15043,7 +15048,6 @@ void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-
   NFILT = GENLC.NFILTDEF_SIMLIB ;
 
   if ( NFILT <= 0 ) {
@@ -15055,7 +15059,8 @@ void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
   char varName[60] ;
 
   for(ifilt= 0 ; ifilt < NFILT; ifilt++ ) {
-    readdouble(fp_SIMLIB, 1, &noise);
+    // xxx mark    readdouble(fp_SIMLIB, 1, &noise);
+    sscanf(wdlist[ifilt], "%le", &noise ); NRD++ ;
     ifilt_obs = GENLC.IFILTMAP_SIMLIB[ifilt] ;
     ptrNoise[ifilt_obs] = noise ;
 
@@ -15071,7 +15076,7 @@ void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
 
   SIMLIB_TEMPLATE.USEFLAG |= 1;
 
-  return ;
+  return NRD ;
   
 } // end of SIMLIB_read_templateNoise
 
@@ -15249,16 +15254,26 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Feb 05 2021: fix to handle mutliple FIELDs
   // Feb 25 2021: c_get[80] -> c_get[200] to allow for long comment strings
   //
+  // Sep 01 2021: refactor to read entire line with fgets;
+  //              hopefully speeds up Cori batch jobs.
+  //
+#define MXWDLIST_SIMLIB 20  // max number of words per line to read
+
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
-  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
-  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
-  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP, NFIELD ;
-  int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
-  bool  FOUND_SPECTROGRAPH ;
+  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0 ;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, iwd, IWD ;
+  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NTMP, NFIELD ;
+  int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
+  int OPTMASK, noTEMPLATE ;
+  double TEXPOSE, TSCALE ;
+  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY ;
+  bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
-  char c_get[200], ctmp[80], *BAND, cline[200] ;
+  char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
+  char WDLIST[MXWDLIST_SIMLIB][200], *ptrWDLIST[MXWDLIST_SIMLIB];
   char *FIELD = SIMLIB_HEADER.FIELD;
   char *TEL   = SIMLIB_HEADER.TELESCOPE ;
+  char sepKey[] = " ";
   char fnam[] = "SIMLIB_readNextCadence_TEXT" ;
 
   // ------------ BEGIN --------------
@@ -15266,10 +15281,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   SIMLIB_HEADER.NWRAP = NTRY = 0 ; // reset wrap before START 
   SIMLIB_OBS_RAW.NOBS = SIMLIB_OBS_RAW.NOBS_READ = 0 ;
   SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH = 0 ;
-  NWD=0;
+
+  for(iwd=0; iwd < MXWDLIST_SIMLIB; iwd++ ) { ptrWDLIST[iwd] = WDLIST[iwd]; }
 
  START:
-
 
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
@@ -15291,13 +15306,21 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   while ( !DONE_READING ) {
 
-    scanStat = fscanf(fp_SIMLIB, "%s", c_get);
+    cline[0] = 0 ;   FOUND_EOF = false ;
+    if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
-    DO_REWIND = 0;
-    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) { DO_REWIND = 1; }
-    if ( scanStat == EOF )                     { DO_REWIND = 1; }
+    // skip comment character
+    if ( commentchar(cline) ) { continue; }
 
-    if ( DO_REWIND ) {
+    // remove line feed    
+    if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
+
+    // note that splitString2 is fast, but destroys cline
+    splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
+
+    // check end of file, or end of simlib keywork -> rewind
+    FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
+    if ( FOUND_EOF || FOUND_ENDKEY ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       ENDSIMLIB_check();
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
@@ -15307,240 +15330,261 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
       }
-    }  // end of END_IF_SIMLIB if-block
- 
-    if ( strcmp(c_get,"LIBID:") == 0 ) {
-      readint ( fp_SIMLIB, 1, &ID );
-      SIMLIB_HEADER.LIBID = ID ; 
-      sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
-      USEFLAG_LIBID = ACCEPT_FLAG ;
-      NFIELD = 0 ;
-    }
+      continue ;
+    }  // end REWIND
 
-    if ( strcmp(c_get,"RA:") == 0 ) 
-      { readdouble(fp_SIMLIB, 1, &SIMLIB_HEADER.RA ); }
-    if ( strcmp(c_get,"DEC:") == 0 ) 
-      { readdouble(fp_SIMLIB, 1, &SIMLIB_HEADER.DEC ); }
-    if ( strcmp(c_get,"DECL:") == 0 ) 
-      { readdouble(fp_SIMLIB, 1, &SIMLIB_HEADER.DEC ); }
+    ISKEY_S        = ( strcmp(WDLIST[0], "S:") == 0 ) ;
+    ISKEY_TEMPLATE = ( strstr(WDLIST[0], "TEMPLATE_") != NULL ) ;
 
-    if ( strcmp(c_get,"SUBSURVEY:")==0 ) 
-      { readchar( fp_SIMLIB, SIMLIB_HEADER.SUBSURVEY_NAME); }
+    for(iwd=0; iwd < NWD; iwd++ ) {
 
-    if ( strcmp(c_get,"FIELD:") == 0 )  { 
+      wd0[0] = wd1[0] = 0;
+      sprintf(wd0,"%s", WDLIST[iwd] );
+      if ( NWD > 1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
 
-      char tmp_field[40];
-      readchar ( fp_SIMLIB, tmp_field ); 
-      sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
-
-      NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
-      if ( NFIELD == 1 ) 
-	{ sprintf(FIELD, "%s", tmp_field) ; }
-      else
-	{ strcat(FIELD,"+"); strcat(FIELD,tmp_field); }
-
-      SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
-		     (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
-    }
-
-    if ( strcmp(c_get,"PIXSIZE:") == 0 )  
-      {  readdouble ( fp_SIMLIB, 1, &SIMLIB_HEADER.PIXSIZE ); }
-
-    if ( strcmp(c_get,"TELESCOPE:") == 0 ) 
-      { readchar ( fp_SIMLIB, SIMLIB_HEADER.TELESCOPE ); }
-  
-    if ( strcmp(c_get,"MWEBV:") == 0  )
-      { readdouble ( fp_SIMLIB, 1, &SIMLIB_HEADER.MWEBV ); }
-
-    if ( strcmp(c_get,"CCD:") == 0 || strcmp(c_get,"CCDNUM:") == 0 )  
-      {  readint ( fp_SIMLIB, 1, &SIMLIB_HEADER.CCDNUM);  }
-
-    // read optional header keys for FAKEID option
-    if ( strcmp(c_get,"GALID:") == 0 )  
-      { readlong ( fp_SIMLIB, 1, &SIMLIB_HEADER.GALID ); }
-    if ( strcmp(c_get,"FAKEID:") == 0 )  
-      { readint ( fp_SIMLIB, 1, &SIMLIB_HEADER.FAKEID ); }
-
-    // check for APPEND option --> last MJDs are not sorted.
-    if ( strcmp(c_get,"APPEND:") == 0 ) { 
-      readint ( fp_SIMLIB, 1, &APPEND_PHOTFLAG ); 
-      SKIP_APPEND = 0 ; // to do: replace with user input flag
-    }
-    
-
-    // note that NOBS can exceed MXEPSIM ... 
-    // as long as it's less than MXOBS_SIMLIB
-    if ( strcmp(c_get,"NOBS:") == 0 )   {  
-      readint ( fp_SIMLIB, 1, &NOBS_EXPECT );
-      SIMLIB_HEADER.NOBS = NOBS_EXPECT ;
-
-      if ( NOBS_EXPECT >= MXOBS_SIMLIB ) {
-	sprintf(c1err,"NOBS=%d exceeds bound for LIBID=%d.", NOBS_EXPECT, ID);
-	sprintf(c2err,"Check bound: MXOBS_SIMLIB = %d", MXOBS_SIMLIB );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+      if ( strcmp(wd0,"LIBID:") == 0 ) {
+	sscanf(wd1, "%d", &ID ); 
+	SIMLIB_HEADER.LIBID = ID ; 
+	sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
+	USEFLAG_LIBID = ACCEPT_FLAG ;
+	NFIELD = 0 ;
+	iwd++ ; continue;
       }
-    }
-    
-    // check for correlated template noise ; fill SIMLIB_TEMPLATE
-    if ( strcmp(c_get,"TEMPLATE_SKYSIG:") == 0 )
-      { SIMLIB_read_templateNoise(FIELD,"SKYSIG"); }
-    else if ( strcmp(c_get,"TEMPLATE_CCDSIG:") == 0 )
-      { SIMLIB_read_templateNoise(FIELD,"CCDSIG"); }
-    else if ( strcmp(c_get,"TEMPLATE_ZPT:") == 0 )
-      { SIMLIB_read_templateNoise(FIELD,"ZPT"); }
 
-    // read spectrograph exposure time for template
-    int OPTMASK, noTEMPLATE, ISKEY ;
-    double TEXPOSE, TSCALE ;
-    OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
-    noTEMPLATE = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
-    ISKEY      = ( strcmp(c_get,"TEMPLATE_TEXPOSE_SPECTROGRAPH:")==0);
-    if ( ISKEY && (noTEMPLATE==0) ) {
-      TSCALE=INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ;
-      readdouble(fp_SIMLIB, 1, &TEXPOSE );
-      SIMLIB_TEMPLATE.TEXPOSE_SPECTROGRAPH = TEXPOSE * TSCALE ;
-    }
+      if ( strcmp(wd0,"RA:") == 0 ) 
+	{ sscanf(wd1, "%le", &SIMLIB_HEADER.RA );  iwd++ ; continue; }
+      else if ( strcmp(wd0,"DEC:") == 0 ) 
+	{ sscanf(wd1, "%le", &SIMLIB_HEADER.DEC ); iwd++ ; continue; }
+      else if ( strcmp(wd0,"DECL:") == 0 ) 
+	{ sscanf(wd1, "%le", &SIMLIB_HEADER.DEC ); iwd++ ; continue; }
+      
+      else if ( strcmp(wd0,"SUBSURVEY:")==0 ) 
+	{ sscanf(wd1,"%s",SIMLIB_HEADER.SUBSURVEY_NAME); iwd++; continue;}
+      
+      else if ( strcmp(wd0,"FIELD:") == 0 )  { 
 
-    // check for optional GENRANGE or cut keys in header.
-    parse_SIMLIB_GENRANGES(fp_SIMLIB,c_get);
-    
-    // ------------------------------------------------
-    // check for epochs
-    OPTLINE = 0;
-    if ( strcmp(c_get,"S:") == 0 ) {
-      NOBS_FOUND_ALL++ ;
-      if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S;  }
-    }
+	char tmp_field[40];
+	sscanf(wd1, "%s", tmp_field ); 
+	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
 
-    
-    FOUND_SPECTROGRAPH = 
-      ( SPECTROGRAPH_USEFLAG && strcmp(c_get,"SPECTROGRAPH:")==0 );
-    if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
-      { OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ;  }
-
-    // always check reasons to reject (header cuts, FIELD, APPEND ...)
-    OPTLINE_REJECT = ( USEFLAG_LIBID == REJECT_FLAG || 
-		       SKIP_FIELD || SKIP_APPEND ) ;
-
-    if ( OPTLINE && OPTLINE_REJECT )  {    
-      // MJD line in already rejected LIBID --> read rest of line 
-      fgets(cline, 180, fp_SIMLIB) ;
-      if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
-    }
-    else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
-      ISTORE = NOBS_FOUND ;
-      SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MJD[ISTORE] );
-
-      readchar( fp_SIMLIB, ctmp );
-      parse_SIMLIB_IDplusNEXPOSE(ctmp,
-				 &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
-				 &SIMLIB_OBS_RAW.NEXPOSE[ISTORE] );
-
-      readchar   ( fp_SIMLIB,     SIMLIB_OBS_RAW.BAND[ISTORE]     );
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE]   );
-
-      if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) 
-	{ readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.NEA[ISTORE] ); }
-      else {
-	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE]  );
-	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  );
-	readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE] );
-
-	// if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
-	// this trap will hopefully abort.
-	checkval_D("PSF1(readNextCadence)", 1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 
-		   0.0, 30.0 ) ;
+	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
+	if ( NFIELD == 1 ) 
+	  { sprintf(FIELD, "%s", tmp_field) ; }
+	else
+	  { strcat(FIELD,"+"); strcat(FIELD,tmp_field); }
+	
+	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
+		       (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
+	iwd++ ; continue;
       }
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
-      checkval_D("ZPT(readNextCadence)", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 
-		 5.0, 50.0 ) ;
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MAG[ISTORE]      );
-
-
-      if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
-	{ SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
-
-      // check MAG column for SIMLIB model (Nov 2019)
-      MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
-      if ( MAG < MAG_ZEROFLUX-0.001 ) { NMAG_notZeroFlux++ ; }
-
-      // convert filter-char to integer		   
-      BAND      = SIMLIB_OBS_RAW.BAND[ISTORE] ;
-      ifilt_obs = INTFILTER(BAND);
-      SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs ;
-
-      // update few header items for each epoch since
-      // these item can be changed at any epoch.
-      sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
-      sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
-      PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
-      SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
-
-      // set 'not from spectrograph' values
-      SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;
-      SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] =  0.0 ; 
-      SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
-
-      NOBS_FOUND++ ;   
-
-    }
-    else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
-
-      ISTORE = NOBS_FOUND ;
-      readdouble( fp_SIMLIB, 1, &MJD );
-      readdouble( fp_SIMLIB, 1, &TEXPOSE_S );
-
-      // increment sparse list so that SPECTROGRAPH entries
-      // can be found later (in SIMLIB_addCadence_SPECTROGRAPH)
-      // without looping thru entire list.
-      NTMP = SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
-      SIMLIB_OBS_RAW.OBSLIST_SPECTROGRAPH[NTMP] = ISTORE;
-      SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH++ ;
-
-      // store few things at this ISTORE location
-      SIMLIB_OBS_RAW.OPTLINE[ISTORE]    = OPTLINE ;
-      SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;
-      SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] = TEXPOSE_S ;      
-      SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
-      sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
-
-      NOBS_FOUND++ ;
-
-    } // end OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH
-
-    
-    // check APPEND_PHOTFLAG to NOT sort this MJD (Jan 2018)
-    if ( OPTLINE && (OPTLINE_REJECT==0) )  {    
-      if ( APPEND_PHOTFLAG > 0 ) { SIMLIB_HEADER.NOBS_APPEND++ ; }
-      SIMLIB_OBS_RAW.APPEND_PHOTFLAG[ISTORE] = APPEND_PHOTFLAG ;
-    }
-
-    // after first OBS is found we are done with header.
-    // -> check for random RA,DEC shift
-    // -> apply header cuts on ID, redshift, etc...
-    if ( NOBS_FOUND_ALL == 1 ) { 
-      SIMLIB_randomize_skyCoords();
-      USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
-
-      if ( USEFLAG_LIBID!=ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
-        { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }
-
-    }
-
-    // stop reading when we reach the end of this LIBID
-    if ( strcmp(c_get, "END_LIBID:") == 0 ) { 
-      if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
-	{ DONE_READING = 1 ; }
-      else
-	{ goto START ; }      // read another 
-    }
-
-  } // end while loop with fscanf
+      
+      else if ( strcmp(wd0,"PIXSIZE:") == 0 )  
+	{ sscanf(wd1,"%le",&SIMLIB_HEADER.PIXSIZE ); iwd++; continue;}
+      
+      else if ( strcmp(wd0,"TELESCOPE:") == 0 ) 
+	{ sscanf(wd1,"%s",SIMLIB_HEADER.TELESCOPE ); iwd++; continue;}
   
+      else if ( strcmp(wd0,"MWEBV:") == 0  )
+	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
+
+      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 )  
+	{ sscanf(wd1,"%d",&SIMLIB_HEADER.CCDNUM);  iwd++ ; continue; }
+
+      // read optional header keys for FAKEID option
+      else if ( strcmp(wd0,"GALID:") == 0 )  
+	{ sscanf(wd1, "%lld", &SIMLIB_HEADER.GALID ); iwd++ ; continue; }
+      else if ( strcmp(wd0,"FAKEID:") == 0 )  
+	{ sscanf(wd1, "%d", &SIMLIB_HEADER.FAKEID ); iwd++ ; continue; }
+
+      // check for APPEND option --> last MJDs are not sorted.
+      else if ( strcmp(wd0,"APPEND:") == 0 ) { 
+	sscanf(wd1, "%d", &APPEND_PHOTFLAG ); 
+	SKIP_APPEND = 0 ; // to do: replace with user input flag
+	iwd++ ; continue;
+      }
+    
+      // - - - -
+      // note that NOBS can exceed MXEPSIM ... 
+      // as long as it's less than MXOBS_SIMLIB
+      if ( strcmp(wd0,"NOBS:") == 0 )   {  
+	sscanf(wd1, "%d", &NOBS_EXPECT ); 
+	SIMLIB_HEADER.NOBS = NOBS_EXPECT ;
+	
+	if ( NOBS_EXPECT >= MXOBS_SIMLIB ) {
+	  sprintf(c1err,"NOBS=%d exceeds bound for LIBID=%d.", 
+		  NOBS_EXPECT, ID);
+	  sprintf(c2err,"Check bound: MXOBS_SIMLIB = %d", 
+		  MXOBS_SIMLIB );
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+	}
+	iwd++; continue ;
+      }
+    
+      // check for correlated template noise ; fill SIMLIB_TEMPLATE
+      if ( ISKEY_TEMPLATE && iwd==0 ) {
+	int iwd_start = iwd;
+	if ( strcmp(wd0,"TEMPLATE_SKYSIG:") == 0 )
+	  { iwd += SIMLIB_read_templateNoise(FIELD,"SKYSIG", &ptrWDLIST[1] ); } 
+	else if ( strcmp(wd0,"TEMPLATE_CCDSIG:") == 0 )
+	  { iwd += SIMLIB_read_templateNoise(FIELD,"CCDSIG", &ptrWDLIST[1] ); } 
+	else if ( strcmp(wd0,"TEMPLATE_ZPT:") == 0 )
+	  { iwd += SIMLIB_read_templateNoise(FIELD,"ZPT", &ptrWDLIST[1] ); }    
+
+	// read spectrograph exposure time for template
+	OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
+	noTEMPLATE = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
+	ISKEY      = ( strcmp(wd0,"TEMPLATE_TEXPOSE_SPECTROGRAPH:")==0);
+	if ( ISKEY && (noTEMPLATE==0) ) {
+	  TSCALE=INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ;
+	  sscanf(wd1,"%le", &TEXPOSE ); iwd++ ;
+	  SIMLIB_TEMPLATE.TEXPOSE_SPECTROGRAPH = TEXPOSE * TSCALE ;
+	}
+	// ?? if ( iwd > iwd_start ) { continue; }
+      } // end ISKEY_TEMPLATE
+
+      // check for optional GENRANGE or cut keys in header.
+      parse_SIMLIB_GENRANGES( &ptrWDLIST[iwd] ); 
+    
+      // ------------------------------------------------
+      // check for epochs
+      OPTLINE = 0;
+      if ( ISKEY_S ) {
+	NOBS_FOUND_ALL++ ;
+	if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S;}
+      }
+    
+      FOUND_SPECTROGRAPH = 
+	( SPECTROGRAPH_USEFLAG && strcmp(wd0,"SPECTROGRAPH:")==0 );
+      if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
+	{ OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ; }
+
+      // always check reasons to reject (header cuts, FIELD, APPEND ...)
+      OPTLINE_REJECT = ( USEFLAG_LIBID == REJECT_FLAG || 
+			 SKIP_FIELD || SKIP_APPEND ) ;
+
+      if ( OPTLINE && OPTLINE_REJECT )  {    
+	// xxx MJD line in already rejected LIBID --> read rest of line 
+	// xxx mark delete	fgets(cline, 180, fp_SIMLIB) ;
+	if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
+      }
+      else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
+	ISTORE = NOBS_FOUND ;
+	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
+	IWD = iwd;
+
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE] );
+	
+	IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
+	parse_SIMLIB_IDplusNEXPOSE(ctmp, 
+				   &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
+				   &SIMLIB_OBS_RAW.NEXPOSE[ISTORE] );
+
+	IWD++; sscanf(WDLIST[IWD], "%s" , SIMLIB_OBS_RAW.BAND[ISTORE]     );
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.READNOISE[ISTORE]);
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.SKYSIG[ISTORE]   );
+
+	if ( SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) 
+	  { IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.NEA[ISTORE] ); }
+	else {
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG1[ISTORE] );
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFSIG2[ISTORE] );
+	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.PSFRATIO[ISTORE]);
+
+	  // if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
+	  // this trap will hopefully abort.
+	  checkval_D("PSF1(readNextCadence)", 1, 
+		     &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+	}
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
+	checkval_D("ZPT(readNextCadence)", 1, 
+		   &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
+
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]      );
+	iwd = NWD; 
+
+	if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
+	  { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
+
+	// check MAG column for SIMLIB model (Nov 2019)
+	MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
+	if ( MAG < MAG_ZEROFLUX-0.001 ) { NMAG_notZeroFlux++ ; }
+
+	// convert filter-char to integer		   
+	BAND      = SIMLIB_OBS_RAW.BAND[ISTORE] ;
+	ifilt_obs = INTFILTER(BAND);
+	SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs ;
+
+	// update few header items for each epoch since
+	// these item can be changed at any epoch.
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
+	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
+	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
+
+	// set 'not from spectrograph' values
+	SIMLIB_OBS_RAW.IFILT_SPECTROGRAPH[ISTORE]   = -9 ;
+	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] =  0.0 ; 
+	SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
+
+	NOBS_FOUND++ ; 
+      }
+      else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
+	
+	ISTORE = NOBS_FOUND ;
+	sscanf(WDLIST[iwd+1], "%le", &MJD );
+	sscanf(WDLIST[iwd+2], "%le", &TEXPOSE_S );
+	iwd = NWD;
+
+	// increment sparse list so that SPECTROGRAPH entries
+	// can be found later (in SIMLIB_addCadence_SPECTROGRAPH)
+	// without looping thru entire list.
+	NTMP = SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
+	SIMLIB_OBS_RAW.OBSLIST_SPECTROGRAPH[NTMP] = ISTORE;
+	SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH++ ;
+	
+	// store few things at this ISTORE location
+	SIMLIB_OBS_RAW.OPTLINE[ISTORE]    = OPTLINE ;
+	SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;
+	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] = TEXPOSE_S ;      
+	SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+
+	NOBS_FOUND++ ;
+
+      } // end OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH
+
+      // check APPEND_PHOTFLAG to NOT sort this MJD (Jan 2018)
+      if ( OPTLINE && (OPTLINE_REJECT==0) )  {    
+	if ( APPEND_PHOTFLAG > 0 ) { SIMLIB_HEADER.NOBS_APPEND++ ; }
+	SIMLIB_OBS_RAW.APPEND_PHOTFLAG[ISTORE] = APPEND_PHOTFLAG ;
+      }
+
+      // after first OBS is found we are done with header.
+      // -> check for random RA,DEC shift
+      // -> apply header cuts on ID, redshift, etc...
+      if ( NOBS_FOUND_ALL == 1 ) { 
+	SIMLIB_randomize_skyCoords();
+	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
+	
+	if ( USEFLAG_LIBID!=ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
+	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
+      }
+
+      // stop reading when we reach the end of this LIBID
+      if ( strcmp(wd0, "END_LIBID:") == 0 ) { 
+	if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
+	  { DONE_READING = 1 ; }
+	else
+	  { goto START ; }      // read another 
+      }
+
+    } // end while wd loop with 
+  }   // end !DONE_READING
+  
+  // ---------------------
+
   /*
   printf(" xxx %s  NOBS(EXPECT,FOUND,SKIP,not0) = %d,%d,%d,%d   FIELD=%s \n",
 	 fnam, NOBS_EXPECT, NOBS_FOUND, NOBS_SKIP, NMAG_notZeroFlux,
@@ -16199,7 +16243,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     //      {  ABORT_SIMLIB_FILTER(OPTLINE,MJD,cfilt);  }
 
     // check if this MJD is kept.
-    KEEP = keep_SIMLIB_OBS(isort,REPEAT_CADENCE);
+    KEEP = keep_SIMLIB_OBS(isort);
 
     if ( GENLC.SIMLIB_ID < -99 ) {
       printf(" xxx isort=%3d OBSRAW=%3d  IFILT_OBS=%2d(%s) "
@@ -16635,7 +16679,7 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
 
 
 // =================================================
-int keep_SIMLIB_OBS(int isort, int REPEAT) {
+int keep_SIMLIB_OBS(int isort) {
 
   // Created Aug 2017
   // Return 1 of this raw-OBS is kept.
@@ -16643,9 +16687,9 @@ int keep_SIMLIB_OBS(int isort, int REPEAT) {
   //
   // Inputs:
   //   OBS      = MJD-sort index; needed to get absolute OBS index
-  //   REPEAT   = 1 if this cadence is repeated
   //
   // Sep 24 2017: check field.
+  // Sep 02 2021: remove obsolete REPEAT arg
 
   int  KEEP=1, NOKEEP=0; 
   int  ifilt, ifilt_obs, OBS ;
@@ -16659,16 +16703,16 @@ int keep_SIMLIB_OBS(int isort, int REPEAT) {
   
   if (LTRACE) {
     printf(" xxx ---------------------------- \n");
-    printf(" xxx 0 isort=%d REPEAT=%d \n",isort,REPEAT); 
+    printf(" xxx 0 isort=%d  \n",isort); 
   }
   OBS  = SIMLIB_LIST_forSORT.INDEX_SORT[isort] ; // absolute OBS_RAW index
-
 
   FIELD = SIMLIB_OBS_RAW.FIELDNAME[OBS] ;
   MJD   = SIMLIB_OBS_RAW.MJD[OBS] ;
 
   // compute & store SEASON info; return MJDrange to keep SIMLIB entries
-  set_SIMLIB_MJDrange(REPEAT,MJDrange);
+  // .xyz should call this only once per LIBID ??
+  set_SIMLIB_MJDrange(MJDrange);
 
   if ( MJD < MJDrange[0] ) { return(NOKEEP); }
   if ( MJD > MJDrange[1] ) { return(NOKEEP); }
@@ -16725,13 +16769,10 @@ int keep_SIMLIB_OBS(int isort, int REPEAT) {
 } // end keep_SIMLIB_OBS
 
 // ==============================================
-void set_SIMLIB_MJDrange(int sameFlag, double *MJDrange) {
+void set_SIMLIB_MJDrange(double *MJDrange) {
 
   // 
   // Return MJDrange
-  //
-  // Input: sameFlag=T if LIBID has not changed.
-  //    (sameFlag not used; obsolete)
   //
   // Output:  MJDrange[0:1] = range of MJD to keep SIMLIB entries
   //
@@ -16743,6 +16784,7 @@ void set_SIMLIB_MJDrange(int sameFlag, double *MJDrange) {
   // Mar 27 2018: check ENTIRE_SEASON & ENTIRE_SURVEY options
   // Aug 06 2018: refactor by moving SEASON computation elsewhere
   // Jul 20 2019: update MJD range for strong lens.
+  // Sep 03 2021: remove obsolete sameFlag arg.
 
   int    KEEP_ENTIRE_SEASON = 
     (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON );
@@ -16752,9 +16794,9 @@ void set_SIMLIB_MJDrange(int sameFlag, double *MJDrange) {
   double PEAKMJD = GENLC.PEAKMJD ;
   double z       = GENLC.REDSHIFT_CMB ;
   double z1      = 1. + z ;
-  double Tpad = GENRANGE_TOBS_PAD ;
-  double Tmin = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[0]) - Tpad ;
-  double Tmax = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[1]) + Tpad ;
+  double Tpad    = GENRANGE_TOBS_PAD ;
+  double Tmin    = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[0]) - Tpad ;
+  double Tmax    = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[1]) + Tpad ;
   double TMPmin, TMPmax;
   int    ISEASON; 
   char fnam[] = "set_SIMLIB_MJDrange" ;
@@ -17318,20 +17360,25 @@ void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
 } // end parse_SIMLIB_IDplusNEXPOSE
 
 // ================================================
-void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
+void parse_SIMLIB_GENRANGES(char **WDLIST ) {
 
   // Created Aug 2017
   // Read optional GENRANGE_XXX keys.
   //
   // Inputs:
-  //   fp_SIMLIB : file pointer to SIMLIB file
-  //   KEY       : current simlib string to check
+  //   **WDLIST : key + args
   //
   // Jan 4 2018: read optional DISTANCE key, and convert to zCMB
-  //
   // May 29 2020: check for TAKE_SPECTRUM key(s) in header.
   // May 31 2020: parse SALT2 params only of USE_SIMLIB_SALT2 flag is set
   // Nov 12 2020: check RDFLAG_SPECTRA before reading TAKE_SPECTRUM keys
+  // Sep 01 2021: refactor to use WDLIST input instead of fp_SIMLIB input
+  //
+  //  TO-DO: if there are no GENRANGE keys on first LIBID, then don't
+  //     bother checking remaining LIBIDs
+  //
+
+  char *KEY  = WDLIST[0];
 
   bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
@@ -17346,13 +17393,15 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
   // ------------ BEGIN ----------------
 
-
   // Nov 2015: check optional CUTWIN_REDSHIFT so that each LIBID
   //           can have its own z-range (originally for WFIRST study)
   //    Note that this is a cut, not a range to generate.
   if (  strcmp(KEY,"CUTWIN_REDSHIFT:") == 0  ||
 	strcmp(KEY,"REDSHIFT_RANGE:" ) == 0  ) 
-    { readdouble( fp_SIMLIB, 2, SIMLIB_HEADER.CUTWIN_REDSHIFT );   }
+    {
+      sscanf(WDLIST[1], "%le", &SIMLIB_HEADER.CUTWIN_REDSHIFT[0]);
+      sscanf(WDLIST[2], "%le", &SIMLIB_HEADER.CUTWIN_REDSHIFT[1]);
+    }
   
   // -------------------------------------------------
   // ------------ READ GENRANGEs ---------------------
@@ -17362,19 +17411,21 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // check for redshift value or range 
   LTMP = 0 ;
   if ( strcmp(KEY,"REDSHIFT:")==0 && RDFLAG_REDSHIFT ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL );
+    sscanf(WDLIST[1], "%le", &TMPVAL);
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
-    readdouble ( fp_SIMLIB, 1, &dist );  // Lumi-distance (D_L), Mpc (Jan 2018)
+    sscanf(WDLIST[1], "%le", &dist);
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
     TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
   if ( strcmp(KEY,"GENRANGE_REDSHIFT:")==0 ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE );  LTMP=1;
+    sscanf(WDLIST[1], "%le", &TMPRANGE[0] ) ;
+    sscanf(WDLIST[2], "%le", &TMPRANGE[1] ) ;
+    LTMP=1;
   }
 
   if ( LTMP ) {
@@ -17386,12 +17437,14 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // check for optional PEAKMJD value or range in SIMLIB; 
   LTMP=0;
   if ( strcmp(KEY,"PEAKMJD:")==0  && RDFLAG_PEAKMJD )  { 
-    readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+    sscanf(WDLIST[1], "%le", &TMPVAL ) ;
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
   if ( strcmp(KEY,"GENRANGE_PEAKMJD:") == 0   || 
        strcmp(KEY,"GENRANGE_PKMJD:")   == 0  ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE ) ;  LTMP=1 ;
+    sscanf(WDLIST[1], "%le", &TMPRANGE[0] ) ;
+    sscanf(WDLIST[2], "%le", &TMPRANGE[1] ) ;
+    LTMP=1 ;
   }
   if ( LTMP ) {
     SIMLIB_HEADER.GENGAUSS_PEAKMJD.USE      = true;      
@@ -17403,22 +17456,23 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
   // check for PEAKMJD sigma
   if ( strcmp(KEY,"GENSIGMA_PEAKMJD:")==0  ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+    sscanf(WDLIST[1], "%le", &TMPVAL ) ;
     SIMLIB_HEADER.GENGAUSS_PEAKMJD.SIGMA[0] = TMPVAL ;
     SIMLIB_HEADER.GENGAUSS_PEAKMJD.SIGMA[1] = TMPVAL ;
   }
-
 
   // - - - - - - - - - - - - - - - - - 
   if ( RDFLAG_SALT2 ) {
     LTMP=0;
     // check for SALT2c range & sigma
     if ( strcmp(KEY,"SALT2c:") == 0 ) {
-      readdouble ( fp_SIMLIB, 1, &TMPVAL);
+      sscanf(WDLIST[1], "%le", &TMPVAL ) ;
       TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;
     }
     else if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
-      readdouble ( fp_SIMLIB, 2, TMPRANGE ); LTMP=1 ;
+      sscanf(WDLIST[1], "%le", &TMPRANGE[0] ) ;
+      sscanf(WDLIST[2], "%le", &TMPRANGE[1] ) ;
+      LTMP=1 ;
     }
     if ( LTMP ) {
       SIMLIB_HEADER.GENGAUSS_SALT2c.USE      = true ;
@@ -17429,7 +17483,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     }
     
     if ( strcmp(KEY,"GENSIGMA_SALT2c:") == 0 ) {
-      readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+      sscanf(WDLIST[1], "%le", &TMPVAL ) ;
       SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[0] = TMPVAL ;
       SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[1] = TMPVAL ;
     } 
@@ -17437,11 +17491,13 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     // check for SALT2x1 range & sigma
     LTMP=0;
     if ( strcmp(KEY,"SALT2x1:")==0 ) {
-      readdouble ( fp_SIMLIB, 1, &TMPVAL );   
+      sscanf(WDLIST[1], "%le", &TMPVAL ) ; 
       TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;  
     }
     else if ( strcmp(KEY,"GENRANGE_SALT2x1:")==0 ) {
-      readdouble ( fp_SIMLIB, 2, TMPRANGE );   LTMP=1;
+      sscanf(WDLIST[1], "%le", &TMPRANGE[0] ) ;   
+      sscanf(WDLIST[2], "%le", &TMPRANGE[1] ) ;   
+      LTMP=1;
     }
     if ( LTMP ) {
       SIMLIB_HEADER.GENGAUSS_SALT2x1.USE      = true ;
@@ -17452,7 +17508,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     }
     
     if ( strcmp(KEY,"GENSIGMA_SALT2x1:") == 0 ) {
-      readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+      sscanf(WDLIST[1], "%le", &TMPVAL ) ;    
       SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[0] = TMPVAL ;
       SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[1] = TMPVAL ;
     } 
@@ -17462,8 +17518,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
-    char **NULLWORDS;
-    parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
+    parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
   }
 
   return ;

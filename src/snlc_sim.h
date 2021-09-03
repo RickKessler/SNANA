@@ -920,6 +920,7 @@ struct GENLC {
   double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
+  double MJD_RANGE[2];       // MJD range to accept in SIMLIB
   int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
   double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
@@ -1344,6 +1345,7 @@ struct SIMLIB_GLOBAL_HEADER {
 
 } SIMLIB_GLOBAL_HEADER ;
 
+
 struct SIMLIB_HEADER {
   // header info for each LIBID entry
 
@@ -1638,9 +1640,9 @@ void   SIMLIB_randomize_skyCoords(void);
 
 void   init_SIMLIB_HEADER(void);
 int    keep_SIMLIB_HEADER(void);
-int    keep_SIMLIB_OBS(int isort, int REPEAT);
+int    keep_SIMLIB_OBS(int isort);
 
-void   SIMLIB_read_templateNoise(char *field, char *whatNoise); 
+int    SIMLIB_read_templateNoise(char *field, char *whatNoise, char **wdlist); 
 void   SIMLIB_TAKE_SPECTRUM(void) ;
 
 int    SKIP_SIMLIB_FIELD(char *field);
@@ -1648,7 +1650,7 @@ int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
 
 void   store_SIMLIB_SEASONS(void);
-void   set_SIMLIB_MJDrange(int sameFlag, double *MJDrange);
+void   set_SIMLIB_MJDrange(double *MJDrange);
 void   remove_short_SIMLIB_SEASON(void);
 
 void   store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE);
@@ -1676,7 +1678,8 @@ double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT, 
 			char *cfiltList, int *ifiltList) ;
-void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
+// xxx mark void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
+void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header

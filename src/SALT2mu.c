@@ -3911,6 +3911,7 @@ int prepNextFit(void) {
   //
   // July 5 2018: stop if input sigint_fix is set; see STOP_COVFIX
   // Sep 7 2019: STOP if INPUTS.fixpar_all is set.
+  // Sep 3 2021: REPEAT fit msg incldues alpha,beta,redchi2.
 
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
@@ -3982,9 +3983,15 @@ int prepNextFit(void) {
     }
     retCode = FITFLAG_CHI2 ;
 
+    /* 
     sprintf(msg,"last redchi2=%.3f --> next %s=%.3f (NCALL_FCN=%d)", 
 	    redchi2, FITRESULT.PARNAME[IPAR_COVINT_PARAM],
 	    FITINP.COVINT_PARAM_FIX,  FITRESULT.NCALL_FCN );
+    .xyz */
+    sprintf(msg,"last a,b,redchi2=%.3f,%.2f,%.3f --> next %s=%.3f", 
+	    FITRESULT.ALPHA, FITRESULT.BETA, redchi2, 
+	    FITRESULT.PARNAME[IPAR_COVINT_PARAM],
+	    FITINP.COVINT_PARAM_FIX );
     printmsg_repeatFit(msg);
   }
   
@@ -4593,14 +4600,6 @@ void *MNCHI2FUN(void *thread) {
 	   fnam, FITRESULT.NCALL_FCN, id_thread, nthread, nsnfit );
     fflush(stdout);
   }
-
-
-  /* xxxx
-#ifdef USE_THREAD
-  if ( nthread > 1 ) {  pthread_exit(NULL); }
-#endif
-  xxxx */
-
 
   return(void *) 0 ;
 
@@ -10509,89 +10508,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   NBINz = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z.nbin ;
   NBINm = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.nbin ;  
   NBINc = CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin;
-
-  /* xxx begin mark delete
-
-  ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];   
-
-  // redshift bins are same as for biasCor
-  copy_BININFO(&CELLINFO_BIASCOR[IDSAMPLE].BININFO_z, 
-	       &CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_z);
-
-
-
-  // setup color bins that are coarser than those for muBias.
-  // Note that other bins (a,b,z) are same for muCOVscale and muBias.
-  // Beware hard-wired values here.
-  NBINc=3; cmin=-0.3; cmax=+0.3; cbin=0.2; // xxx mark delete
-
-  // Jun 11 2021: include logmass bins.
-  NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
-  if ( NBINm == 1 || INPUTS.LEGACY_MUCOVSCALE_MASS ) 
-    { NBINm = 1; mmin=-15.0; mmax=15.0; mbin=30.0 ; } // legacy behavior
-  else  { 
-    // start with 2 logmass bins for devel; later decide on either
-    // biasCor logmass bins, or hard-wired bins such as for color
-    NBINm = 2; mmin=5.0; mmax=15.0; mbin=5.0 ;  // refactor
-  }
-
-  // - - - - 
-  NCELL    = NBINa * NBINb * NBINg * NBINz * NBINc * NBINm ; //xxx mark delete
-  CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL = NCELL ; // xxx mark delete
-
-  // ---------------------------------------------
-  // malloc global struct to store CELLINFO
-  fprintf(FP_STDOUT, "\t Malloc CELL-INFO arrays with size=%d \n", NCELL);
-  int MEMD     = NCELL   * sizeof(double);
-  int MEMI     = NCELL   * sizeof(int);
-    
-  print_debug_malloc(+1*debug_malloc,fnam);
-  
-
-  // allocate redshift bins
-  CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell =  (int    *) malloc(MEMI);
-  CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z    =  (double *) malloc(MEMD);
-  CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m    =  (double *) malloc(MEMD);
-  CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c] = (double *) malloc(MEMD);
-  
-
-  // set color bins; and note that color bins are different ...
-  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].nbin    = NBINc ;
-  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].binSize = cbin ;
-  for(ic=0; ic < NBINc; ic++ ) {
-    c_lo  = cmin + cbin * (double)ic ;
-    c_hi  = c_lo + cbin ;
-    c_avg = 0.5*(c_lo + c_hi) ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].lo[ic]  = c_lo ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].hi[ic]  = c_hi ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_LCFIT[INDEX_c].avg[ic] = c_avg ;
-  }
-
-  
-  // June 11 2021: set logmass bins
-  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.nbin    = NBINm ;
-  CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.binSize = mbin ;
-  for(im=0; im < NBINm; im++ ) {
-    m_lo  = mmin + mbin * (double)im ;
-    m_hi  = m_lo + mbin ;
-    m_avg = 0.5*(m_lo + m_hi) ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.lo[im]  = m_lo ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.hi[im]  = m_hi ;
-    CELLINFO_MUCOVSCALE[IDSAMPLE].BININFO_m.avg[im] = m_avg ;
-  }
-
-  if (USE_MAD_MUCOVSCALE) {
-    CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL =  (double **) malloc(sizeof(double*)*NCELL);
-    for (i1d=0; i1d<NCELL; i1d++){
-      // xxx printf("xxx malloc i1d=%d of %d\n",i1d,NCELL); fflush(stdout);
-      CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d] = (double *) malloc(sizeof(double)*NPERCELL_REALLOC);
-    }
-  }
-  //xxx printf("xxx done mallocing\n");
-  //xxx fflush(stdout);
-
-  xxx END MARK DELETE
-  */
  
   // malloc local 1D arrays to track local sums.
   print_debug_malloc(+1*debug_malloc,fnam);
@@ -18121,7 +18037,7 @@ void prep_input_driver(void) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
     OPTMASK = 0;
-    match_cidlist_init("", &OPTMASK);    // init hash table .xyz
+    match_cidlist_init("", &OPTMASK);    // init hash table 
     for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
       { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
     printf("\n"); fflush(stdout);

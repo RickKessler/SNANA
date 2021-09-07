@@ -240,7 +240,6 @@ int main(int argc, char **argv) {
 
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) 
       { fill_RANLISTs(); }      // init list of random numbers for each SN    
-
     gen_event_driver(ilc); 
 
     if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
@@ -10133,7 +10132,6 @@ void gen_event_driver(int ilc) {
     // Note that z_helio is computed after SIMLIB_READ because
     // we need RA/DEC for z_helio.
 
-
     GENLC.PEAKMJD = gen_peakmjd(); 
 
     // set GENLC.RATEPAR struct (Aug 2016)
@@ -10746,12 +10744,23 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  /*
-  printf(" xxx REJECT_STAGE = '%s',  ilc=%3d -> %3d \n",
-	 REJECT_STAGE, ilc_orig, ilc); fflush(stdout);
-  */
+  
+  int LDMP=0;
+  if ( LDMP && *ILC != ilc ) {
+    printf(" xxx %s: ILC=%d  ilc=%d  CID=%d  LIBID=%d\n",
+	   fnam, *ILC, ilc, GENLC.CID, GENLC.SIMLIB_ID );
+    printf(" xxx %s: NREJEVT[GENRANGE,GENMAG|SEARCH,CUT,NEP] = "
+	   " %d %d | %d %d %d\n",
+	   fnam, 
+	   NGEN_REJECT.GENRANGE, NGEN_REJECT.GENMAG,
+	   NGEN_REJECT.SEARCHEFF, NGEN_REJECT.CUTWIN, 
+	   NGEN_REJECT.NEPOCH );
+    fflush(stdout);
+  }
 
   *ILC = ilc ;
+
+  return;
 
 } // end gen_event_reject
 
@@ -15202,7 +15211,7 @@ void SIMLIB_READ_DRIVER(void) {
   GENLC.NGEN_SIMLIB_ID++ ;
   REPEAT = USE_SAME_SIMLIB_ID(2);
 
-  if ( REPEAT == 0 ) {  // process next cadence
+  if ( !REPEAT ) {  // process next cadence
 
     // read next cadence from SIMLIB/Cadence file (any format)
     SIMLIB_readNextCadence_TEXT(); 
@@ -15266,7 +15275,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
-  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY ;
+  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD ;
   bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
@@ -15284,10 +15293,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   for(iwd=0; iwd < MXWDLIST_SIMLIB; iwd++ ) { ptrWDLIST[iwd] = WDLIST[iwd]; }
 
+
  START:
 
   init_SIMLIB_HEADER();
-  NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
+  NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = ISTORE = 0 ;
+  USEFLAG_LIBID =USEFLAG_MJD = 0 ;
   DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
   NMAG_notZeroFlux = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
@@ -15301,11 +15312,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
-
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
+  int NLINE=0;
 
   while ( !DONE_READING ) {
 
+    NLINE++ ;
     cline[0] = 0 ;   FOUND_EOF = false ;
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
@@ -15329,6 +15341,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.NWRAP++ ; 
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
+	ISTORE = 0;
       }
       continue ;
     }  // end REWIND
@@ -15348,7 +15361,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
 	USEFLAG_LIBID = ACCEPT_FLAG ;
 	NFIELD = 0 ;
-	iwd++ ; continue;
+	iwd++ ; continue ;
       }
 
       if ( strcmp(wd0,"RA:") == 0 ) 
@@ -15375,11 +15388,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	
 	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
 		       (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
+
 	iwd++ ; continue;
       }
       
       else if ( strcmp(wd0,"PIXSIZE:") == 0 )  
-	{ sscanf(wd1,"%le",&SIMLIB_HEADER.PIXSIZE ); iwd++; continue;}
+	{ sscanf(wd1,"%le", &SIMLIB_HEADER.PIXSIZE ); iwd++; continue;}
       
       else if ( strcmp(wd0,"TELESCOPE:") == 0 ) 
 	{ sscanf(wd1,"%s",SIMLIB_HEADER.TELESCOPE ); iwd++; continue;}
@@ -15450,7 +15464,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       OPTLINE = 0;
       if ( ISKEY_S ) {
 	NOBS_FOUND_ALL++ ;
-	if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S;}
+	if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S; }
       }
     
       FOUND_SPECTROGRAPH = 
@@ -15468,12 +15482,21 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
-	ISTORE = NOBS_FOUND ;
-	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
-	IWD = iwd;
+	NOBS_FOUND++ ; 	IWD = iwd;  SKIP_MJD = false;
 
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE] );
-	
+	/* xxxxxx mark delete 
+	if ( INPUTS.DEBUG_FLAG == 903 ) {
+	  if ( MJD < GENLC.MJD_RANGE[0] || MJD > GENLC.MJD_RANGE[1] ) {
+	    SKIP_MJD = true ;
+	  }
+	}
+	if ( SKIP_MJD ) { iwd=NWD; break; }
+	xxxxxx */
+
+	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
+
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE]);
+
 	IWD++; sscanf(WDLIST[IWD], "%s", ctmp );
 	parse_SIMLIB_IDplusNEXPOSE(ctmp, 
 				   &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
@@ -15496,7 +15519,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  checkval_D("PSF1(readNextCadence)", 1, 
 		     &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
 	}
-	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
+	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   ); 
 	checkval_D("ZPT(readNextCadence)", 1, 
 		   &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
 
@@ -15528,11 +15551,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] =  0.0 ; 
 	SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[ISTORE]   = -9 ; 
 
-	NOBS_FOUND++ ; 
+	ISTORE++ ;
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
 	
-	ISTORE = NOBS_FOUND ;
+	NOBS_FOUND++ ;
+
 	sscanf(WDLIST[iwd+1], "%le", &MJD );
 	sscanf(WDLIST[iwd+2], "%le", &TEXPOSE_S );
 	iwd = NWD;
@@ -15551,7 +15575,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
 	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
 
-	NOBS_FOUND++ ;
+	ISTORE++ ;
 
       } // end OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH
 
@@ -15567,8 +15591,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       if ( NOBS_FOUND_ALL == 1 ) { 
 	SIMLIB_randomize_skyCoords();
 	USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
-	
-	if ( USEFLAG_LIBID!=ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
+	if ( USEFLAG_LIBID != ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
 	  { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }	
       }
 
@@ -15595,8 +15618,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     { goto START ; }
 
 
-  SIMLIB_OBS_RAW.NOBS      = NOBS_FOUND ;  // can change with SPECTROGRAPH
-  SIMLIB_OBS_RAW.NOBS_READ = NOBS_FOUND ;  // won't change for this cadence
+  SIMLIB_OBS_RAW.NOBS      = ISTORE ;      // can change with SPECTROGRAPH
+  SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;  // won't change for this cadence
+
 
   NOBS_EXPECT -= NOBS_SKIP ;
   if ( NOBS_EXPECT != NOBS_FOUND ) {
@@ -15659,22 +15683,21 @@ int keep_SIMLIB_HEADER(void) {
   int  NSKIP   = INPUTS.NSKIP_SIMLIB ;
   int  NWRAP   = SIMLIB_HEADER.NWRAP ;
   double  zCMB = GENLC.REDSHIFT_CMB ;
-  int  ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
+  bool  ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
+  bool  ISMODEL_SALT2  = ( INDEX_GENMODEL == MODEL_SALT2  );
   double z_min     = SIMLIB_HEADER.GENRANGE_REDSHIFT[0];
-  //  double z_max     = SIMLIB_HEADER.GENRANGE_REDSHIFT[1];
   double pkmjd_min = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0];
-  //  double pkmjd_max = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1];
 
   int  iskip, icheck ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
-  int LTRACE = 0 ;
+  int LTRACE  = 0; // (SIMLIB_HEADER.LIBID == 4 );
 
   // ----------- BEGIN ---------------
 
   if(LTRACE) {
-    printf(" xxx %s: ----------- ID=%d ------------ \n", 
-	   fnam, GENLC.SIMLIB_ID );
+    printf(" xxx %s: ----------- LIBID=%d  NOBS_RAW=%d ------------ \n", 
+	   fnam, SIMLIB_HEADER.LIBID, NOBS );
   }
 
   // for SIMLIB model, make sure required REDSHIFT and PEAKMJD
@@ -15759,30 +15782,31 @@ int keep_SIMLIB_HEADER(void) {
   }
 
 
-  // check SALT2c
-  if(LTRACE) {printf(" xxx %s: 10 check SALT2c \n", fnam );}
-  ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE ;
-  if ( fabs(ptrGen[0]) < 90.0 ) {
-    icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2c.RANGE, ptrGen);
-    if ( icheck < 0 ) { return(REJECT_FLAG); }    
-    SIMLIB_HEADER.REGEN_FLAG = 1; 
-  }
-
-  // check SALT2x1
-  if(LTRACE) {printf(" xxx %s: 11 check SALT2x1\n", fnam );}
-  ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE ;
-  if ( fabs(ptrGen[0]) < 90.0 ) {
-    icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2x1.RANGE, ptrGen);
-    if ( icheck < 0 ) { return(REJECT_FLAG); }    
-    SIMLIB_HEADER.REGEN_FLAG = 1; 
-  }
+  if ( ISMODEL_SALT2 ) {
+    // check SALT2c
+    if(LTRACE) {printf(" xxx %s: 10 check SALT2c \n", fnam );}
+    ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE ;
+    if ( fabs(ptrGen[0]) < 90.0 ) {
+      icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2c.RANGE, ptrGen);
+      if ( icheck < 0 ) { return(REJECT_FLAG); }    
+      SIMLIB_HEADER.REGEN_FLAG = 1; 
+    }
+    
+    // check SALT2x1
+    if(LTRACE) {printf(" xxx %s: 11 check SALT2x1\n", fnam );}
+    ptrGen = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE ;
+    if ( fabs(ptrGen[0]) < 90.0 ) {
+      icheck = check_SIMLIB_GENRANGE(INPUTS.GENGAUSS_SALT2x1.RANGE, ptrGen);
+      if ( icheck < 0 ) { return(REJECT_FLAG); }    
+      SIMLIB_HEADER.REGEN_FLAG = 1; 
+    }
+  } // end ISMODEL_SALT2
 
 
   // Nov 26 2017: check NREPEAT for LCLIB
-  if(LTRACE) {printf(" xxx %s: 12\n", fnam );}
-  //  printf(" 1. xxx %s: HEADER.NREPEAT=%d   INPUTS.NREPEAT=%d\n", 
-  //	 fnam, SIMLIB_HEADER.NREPEAT, INPUTS.SIMLIB_NREPEAT );
   set_SIMLIB_NREPEAT();
+  if(LTRACE) 
+    {printf(" xxx %s: 12 SIMLIB_NREPEAT=%d\n", fnam, INPUTS.SIMLIB_NREPEAT );}
   if ( INPUTS.SIMLIB_NREPEAT == 0 ) { return(REJECT_FLAG); }
   
 
@@ -15931,7 +15955,7 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // in case of repeated cadence, reset NOBS to leave out 
   // previous TAKE_SPECTRUM obs.
   SIMLIB_OBS_RAW.NOBS = SIMLIB_HEADER.NOBS =
-    SIMLIB_OBS_RAW.NOBS_READ + SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
+    (SIMLIB_OBS_RAW.NOBS_READ + SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH) ;
   
 
   OBSRAW = SIMLIB_OBS_RAW.NOBS ;  NOBS_ADD=0;
@@ -16059,7 +16083,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Dec 08 2020: increase max PSF limit fro 9.9 to 20 (for LSST)
   // Feb 28 2021: check PSF_UNIT for NEA 
 
-  int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
+  int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int ISTORE,  OPTLINE, OBSRAW ;
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], TREST ;
@@ -16071,6 +16095,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // --------------- BEGIN ----------------
 
   GENLC.NEPOCH = 0 ; // Mar 17 2015: needed for LIBID repeats
+
+  if ( NOBS_RAW == 0 ) { return; } // 9.03.2021
 
   // Apr 13, 2016: 
   // check if anything needs to be re-generated based on header info
@@ -16170,6 +16196,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
   char   *TEL, *FIELD, cfilt[2];
 
+  set_SIMLIB_MJDrange(2,GENLC.MJD_RANGE); // 9.03.2021 refac
+
   // init stuff before loop over MJDs
   NEP=NEP_NEWMJD=0;  MJD_LAST_KEEP=-9.0;  
 
@@ -16244,13 +16272,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     // check if this MJD is kept.
     KEEP = keep_SIMLIB_OBS(isort);
-
-    if ( GENLC.SIMLIB_ID < -99 ) {
-      printf(" xxx isort=%3d OBSRAW=%3d  IFILT_OBS=%2d(%s) "
-	     "MJD=%.3f  KEEP=%d\n",
-	     isort, OBSRAW, IFILT_OBS, BAND, MJD, KEEP ); // xxxxxx
-      fflush(stdout);
-    }
 
     if ( KEEP == 0 ) { continue ; }
 
@@ -16333,13 +16354,15 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     }
 
 
-    // check template noise for normal filters                                
+    // check template noise for normal filters   
     if ( (IFLAG_TEMPLATE & 1)>0 && IFLAG_SYNFILT == 0 ) {
 
       IFIELD = IFIELD_OVP_SIMLIB(1,FIELD);
       if ( IFIELD < 0 || IFIELD >= MXFIELD_OVP ) {
-	sprintf(c1err,"Invalid IFIELD=%d for template FIELD=%s",IFIELD,FIELD);
-	sprintf(c2err, "Check LIBID=%d  %s-band", GENLC.SIMLIB_ID,cfilt );
+	sprintf(c1err,"Invalid IFIELD=%d for template FIELD='%s'",
+		IFIELD,FIELD);
+	sprintf(c2err, "Check LIBID=%d  %s-band  OBSRAW=%d of %d", 
+		GENLC.SIMLIB_ID,cfilt, OBSRAW, NOBS_RAW );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
       }  
 
@@ -16711,11 +16734,12 @@ int keep_SIMLIB_OBS(int isort) {
   MJD   = SIMLIB_OBS_RAW.MJD[OBS] ;
 
   // compute & store SEASON info; return MJDrange to keep SIMLIB entries
-  // .xyz should call this only once per LIBID ??
-  set_SIMLIB_MJDrange(MJDrange);
+  if ( INPUTS.DEBUG_FLAG == 903 ) { // legacy
+    set_SIMLIB_MJDrange(2,GENLC.MJD_RANGE);
+  }
 
-  if ( MJD < MJDrange[0] ) { return(NOKEEP); }
-  if ( MJD > MJDrange[1] ) { return(NOKEEP); }
+  if ( MJD < GENLC.MJD_RANGE[0] ) { return(NOKEEP); }
+  if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
 
   if (LTRACE) {printf(" xxx 1 \n"); fflush(stdout); }
   // check option to skip MJDs
@@ -16769,10 +16793,16 @@ int keep_SIMLIB_OBS(int isort) {
 } // end keep_SIMLIB_OBS
 
 // ==============================================
-void set_SIMLIB_MJDrange(double *MJDrange) {
+void set_SIMLIB_MJDrange(int OPT, double *MJDrange) {
 
   // 
   // Return MJDrange
+  //
+  // Input: 
+  //   OPT = 1 --> called before processing SIMLIB header
+  //   OPT = 2 --> called after processing SIMLIB header
+  //     (OPT=1 isn't used since processing before SIMLIB header
+  //          has too many problems)
   //
   // Output:  MJDrange[0:1] = range of MJD to keep SIMLIB entries
   //
@@ -16784,12 +16814,15 @@ void set_SIMLIB_MJDrange(double *MJDrange) {
   // Mar 27 2018: check ENTIRE_SEASON & ENTIRE_SURVEY options
   // Aug 06 2018: refactor by moving SEASON computation elsewhere
   // Jul 20 2019: update MJD range for strong lens.
-  // Sep 03 2021: remove obsolete sameFlag arg.
+  // Sep 03 2021: remove obsolete sameFlag arg; add OPT arg
 
-  int    KEEP_ENTIRE_SEASON = 
-    (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON );
-  int    KEEP_ENTIRE_SURVEY = 
-    (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SURVEY );
+  int  MSKOPT = INPUTS.SIMLIB_MSKOPT;
+  int  KEEP_ENTIRE_SEASON = 
+    (MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON );
+  int  KEEP_ENTIRE_SURVEY = 
+    (MSKOPT & SIMLIB_MSKOPT_ENTIRE_SURVEY );
+  int REPEAT_UNTIL_ACCEPT = 
+    (MSKOPT & SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT );
 
   double PEAKMJD = GENLC.PEAKMJD ;
   double z       = GENLC.REDSHIFT_CMB ;
@@ -16798,10 +16831,12 @@ void set_SIMLIB_MJDrange(double *MJDrange) {
   double Tmin    = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[0]) - Tpad ;
   double Tmax    = PEAKMJD + (z1 * INPUTS.GENRANGE_TREST[1]) + Tpad ;
   double TMPmin, TMPmax;
-  int    ISEASON; 
+  int    ISEASON, LDMP = 0 ; 
   char fnam[] = "set_SIMLIB_MJDrange" ;
 
   // -------------- BEGIN ------------
+
+  // printf(" xxx %s: Tmin / Tmax = %.3f / %.3f \n", fnam, Tmin, Tmax);
 
   MJDrange[0] = -9.0 ;
   MJDrange[1] = -9.0 ;
@@ -16815,12 +16850,31 @@ void set_SIMLIB_MJDrange(double *MJDrange) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
+  // - - - - - - - - 
+  // if LIBID header hasn't been processed yet, just set MJD range
+  // based on GENRANGE_TREST. If KEEP_ENTIRE_SEASON/SURVEY is set,
+  // set MJD_RANGE to be wide open so that it gets set properly
+  // in a 2nd call later.
+  if ( OPT == 1 ) {
+    if ( KEEP_ENTIRE_SEASON   || 
+	 KEEP_ENTIRE_SURVEY   ||
+	 REPEAT_UNTIL_ACCEPT  || 
+	 INPUTS.SIMLIB_NREPEAT > 1 ) {
+      MJDrange[0] = 1000.0 ;  // not ready to compute, so wide open
+      MJDrange[1] = 100000.0 ;
+    } else {
+      MJDrange[0] = Tmin ;
+      MJDrange[1] = Tmax ;
+    }
+    return ;
+  }
+  
+  // - - - - - - - - 
   if ( INPUTS.SIMLIB_DUMP >= 0 ) {
     MJDrange[0] = INPUTS.GENRANGE_PEAKMJD[0] ;
     MJDrange[1] = INPUTS.GENRANGE_PEAKMJD[1] ;
     return ;
   }
-
 
   if ( KEEP_ENTIRE_SEASON ) {
     // option: keep all MJDs in season if Trest range overlaps
@@ -16849,6 +16903,7 @@ void set_SIMLIB_MJDrange(double *MJDrange) {
 
   // if user Tmin/Tmax range is completely outside SIMLIB MJD-range,
   // return with MJDrange=-9,-9.
+  // 
   if ( Tmax < SIMLIB_HEADER.MJDRANGE_SURVEY[0]+Tpad ||
        Tmin > SIMLIB_HEADER.MJDRANGE_SURVEY[1]-Tpad ) 
     { 
@@ -16864,7 +16919,7 @@ void set_SIMLIB_MJDrange(double *MJDrange) {
 		  );
 
   // ------------ check dump option ---------------
-  int LDMP = 0 ;
+  LDMP = 0 ;
   if ( LDMP || ERRFLAG ) {
     printf("\n xxx --------- SEASON DUMP for LIBID=%d --------------- \n",
 	   GENLC.SIMLIB_ID );
@@ -17165,7 +17220,7 @@ void SIMLIB_sortbyMJD(void) {
   // Initial use: WFIRST-imaging triggers IFC(spectra),
   // which overlaps more imaging that appends observations.
 
-  int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
+  int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
   int NOBS_APPEND = SIMLIB_HEADER.NOBS_APPEND ;
   int NOBS_SORT   = NOBS_RAW - NOBS_APPEND ;
   int  ORDER_SORT = +1 ; // increasing order
@@ -17174,6 +17229,8 @@ void SIMLIB_sortbyMJD(void) {
 
   // ------------- BEGIN --------------
 
+  /* xxx mark delete Sep 3 2021; 
+     NOBS==0 is allowed with MDJRANGE cut while reading SIMLIB
   if ( NOBS_SORT < 1 ) {
     sprintf(c1err,"Invalid NOBS_SORT=%d for LIBID=%d CID=%d", 
 	    NOBS_SORT, SIMLIB_HEADER.LIBID, GENLC.CID );
@@ -17181,10 +17238,13 @@ void SIMLIB_sortbyMJD(void) {
 	    NOBS_RAW, NOBS_APPEND);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
+  xxxx*/
 
-  sortDouble( NOBS_SORT, SIMLIB_LIST_forSORT.MJD, ORDER_SORT, 
-	      SIMLIB_LIST_forSORT.INDEX_SORT ) ;  // return array
-  
+  if ( NOBS_SORT > 0 ) {
+    sortDouble( NOBS_SORT, SIMLIB_LIST_forSORT.MJD, ORDER_SORT, 
+		SIMLIB_LIST_forSORT.INDEX_SORT ) ;  // return array
+  }
+
   // if there are unsorted MJDs, add them to the back fo the sort-list
   if ( NOBS_SORT < NOBS_RAW ) {
     for ( isort = NOBS_SORT-1; isort < NOBS_RAW; isort++ ) {
@@ -17386,6 +17446,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
   bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA );
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
+  bool UPDATE_MJDrange = false;
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
 
@@ -17452,6 +17513,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
     SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0] = TMPRANGE[0] ;
     SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1] = TMPRANGE[1] ;
     SIMLIB_HEADER.REGEN_FLAG = 1;
+    UPDATE_MJDrange = true ;
   }
 
   // check for PEAKMJD sigma
@@ -17669,7 +17731,7 @@ void  ABORT_SIMLIB_FILTER(int isort) {
   // Missing filter in SIMLIB, so here give proper abort message
   // depending on regular filter or SPECTROGRAPH filter.
 
-  int NOBS_RAW = SIMLIB_HEADER.NOBS ;
+  int NOBS_RAW = SIMLIB_OBS_RAW.NOBS; // xxxx SIMLIB_HEADER.NOBS ;
   int OBSRAW   = SIMLIB_LIST_forSORT.INDEX_SORT[isort]; 
   int OPTLINE  = SIMLIB_OBS_RAW.OPTLINE[OBSRAW] ;
   int IFILT_OBS= SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
@@ -17779,7 +17841,7 @@ void set_SIMLIB_NREPEAT(void) {
 
   int    NREPEAT_LO, NREPEAT ;
   double relRate, XNREPEAT, XDIF, RA, DEC ;
-  //  char fnam[] = "set_SIMLIB_NREPEAT" ;
+  char fnam[] = "set_SIMLIB_NREPEAT" ;
 
   // ----------------- BEGIN -----------------
 
@@ -17809,7 +17871,6 @@ void set_SIMLIB_NREPEAT(void) {
     { NREPEAT = NREPEAT_LO ; }
   else
     { NREPEAT = NREPEAT_LO+1 ; }
-
 
   int LDMP = 0 ;
 
@@ -19149,7 +19210,7 @@ int GENRANGE_CUT(void) {
   //
   // Aug 22 2018: skip REDSHIFT cut for LCLIB model.
 
-  int LTRACE = 0 ;
+  int LTRACE = 0; 
   int istat ;
   char fnam[] = "GENRANGE_CUT" ;
 
@@ -19161,16 +19222,22 @@ int GENRANGE_CUT(void) {
 
   istat = 0 ;
 
+  if(LTRACE) {
+    printf(" xxx %s: trace CID=%d LIBID=%d\n", 
+	   fnam, GENLC.CID, GENLC.SIMLIB_ID ); fflush(stdout);
+  }
+
   if(LTRACE) { printf(" xxx %s: 0 check RA=%f \n", fnam, GENLC.RA); }
   if ( GENLC.RA < INPUTS.GENRANGE_RA[0] ) { return istat; }
   if ( GENLC.RA > INPUTS.GENRANGE_RA[1] ) { return istat; }
 
-  if(LTRACE) { printf(" xxx %s: 1 check RA=%f \n", fnam, GENLC.DEC); }
+  if(LTRACE) { printf(" xxx %s: 1 check DEC=%f \n", fnam, GENLC.DEC); }
   if ( GENLC.DEC < INPUTS.GENRANGE_DEC[0] )  { return istat; }
   if ( GENLC.DEC > INPUTS.GENRANGE_DEC[1] )  { return istat; }
 
   if ( INDEX_GENMODEL != MODEL_LCLIB ) {
-    if(LTRACE) {printf(" xxx %s: 2 check zCMB=%f \n",fnam,GENLC.REDSHIFT_CMB);}
+    if(LTRACE) {printf(" xxx %s: 2 check zCMB=%f \n",
+		       fnam, GENLC.REDSHIFT_CMB);}
     if ( GENLC.REDSHIFT_CMB < INPUTS.GENRANGE_REDSHIFT[0] ) { return istat; }
     if ( GENLC.REDSHIFT_CMB > INPUTS.GENRANGE_REDSHIFT[1] ) { return istat; }
   }

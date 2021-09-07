@@ -24601,10 +24601,11 @@ cc      ENDIF
      &                   LENBLOCK, LENLIST)
 
 c add SIM_gammaDM if not zero.
-      ITEXT = 0
-      if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
+c Sep 7 2021: always write SIM_gammaDM in case first value is 0
+c    followed by non0-zero values.
+cc xxx mark ITEXT = 0 ; if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST,ITEXT,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST, 1,
      &                   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)

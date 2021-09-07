@@ -921,6 +921,7 @@ struct GENLC {
 
   double PEAKMJD;
   double MJD_RANGE[2];       // MJD range to accept in SIMLIB
+  double MJD_RANGE_LC[2];    // MJD range of lightcurve withing GENRANGE_TREST
   int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
   double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
@@ -1650,7 +1651,7 @@ int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
 
 void   store_SIMLIB_SEASONS(void);
-void   set_SIMLIB_MJDrange(double *MJDrange);
+void   set_SIMLIB_MJDrange(int OPT, double *MJDrange);
 void   remove_short_SIMLIB_SEASON(void);
 
 void   store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE);

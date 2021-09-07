@@ -1223,7 +1223,7 @@ void WRITE_SNTABLE(void) {
   int ivar, ivarstr, isn, ICAST, CIDint ;
   int IFILETYPE, NOUT, out, SKIP ;
 
-  // char  fnam[] = "WRITE_SNTABLE" ;
+  char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
   NOUT = 0 ;
@@ -1364,6 +1364,16 @@ void WRITE_SNTABLE(void) {
       else
 	{ TABLEROW_VALUES.FLT[ivar] = FITRES_VALUES.FLT_ALL[ivar][isn];  }
       
+      /*
+      float VAL = TABLEROW_VALUES.FLT[ivar];
+      if ( ivar == 54 && VAL < 0.0 ) {
+	printf(" xxx %s: CID=%d  %s = %le \n", 
+	       fnam, CIDint,  VARNAME_COMBINE[ivar], 
+	       TABLEROW_VALUES.FLT[ivar] );
+	fflush(stdout);
+	}  */
+
+
     } // ivar
 
     SKIP = 0 ;

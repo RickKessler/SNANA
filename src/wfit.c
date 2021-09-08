@@ -235,6 +235,8 @@
      vice-versa. To avoid confusion, change default usemarg = 0 -> 1
      so that marg values are still default.
 
+ Sep 7 2021: disable omprior for -cmb (was already disabled for -cmb_sim)
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -504,7 +506,7 @@ int main(int argc,char *argv[]){
   double w0_atchimin,wa_atchimin,  OM_atchimin, chi2atmin=0.0;
   int iw0_mean=0, iwa_mean = 0;
   int imin=0, kmin=0, jmin=0;
-  double snprobtot=0, snprobmax, extprobtot=0, extprobmax;
+  double snprobtot=0, snprobmax, extprobtot=0, extprobmax, delta;
 
   double zerr=0.0, mu_sig_z;
   float  dif, mindif ;
@@ -621,20 +623,21 @@ int main(int argc,char *argv[]){
 	z_bao = atof(argv[++iarg]); a1 = 1./(1. + z_bao);
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	usecmb=1;
+	omm_prior_sig = 0.9;  // turn off omm prior (9/2021)
       } else if (strcasecmp(argv[iarg]+1,"wa")==0) {
-        usewa=1; 
+        usewa=1;
 	wa_steps = 301; w0_steps = 201;   
 	wa_min = -4. ;  wa_max = 4. ; w0_min = -3.; w0_max = 1;
 	sprintf(varname_w,"w0");
       } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
-        usecmb=2;
+        usecmb=2 ;
 	omm_prior     = OMEGA_MATTER_SIM ;
-	omm_prior_sig = 0.5;  // turn off omm prior
+	omm_prior_sig = 0.9;  // turn off omm prior
       } else if (strcasecmp(argv[iarg]+1,"om_sim")==0) {
 	OMEGA_MATTER_SIM = atof(argv[++iarg]); 
 	omm_prior     = OMEGA_MATTER_SIM ;
       } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
-	usemarg=0;
+	usemarg=0 ;
       } else if (strcasecmp(argv[iarg]+1,"marg")==0) { 
 	usemarg=1;
 
@@ -1032,13 +1035,9 @@ int main(int argc,char *argv[]){
     //Ndof = NCIDLIST - 3 + usebao + usecmb ;
     
     Ndof = NCIDLIST - 3 ;
-    if ( usebao ) 
-      Ndof++ ;
-    if ( usecmb ) 
-      Ndof++ ;
-
-    
-
+    if ( usebao ) { Ndof++ ; }
+    if ( usecmb ) { Ndof++ ; }
+   
     chi_approx = (double)(Ndof);
 
     for( i=0; i < w0_steps; i++){
@@ -1204,8 +1203,10 @@ int main(int argc,char *argv[]){
     for(i=0; i<w0_steps; i++){
       w0 = w0_min + i*w0_stepsize;
       w0_prob[i] /= w0_probsum;   /** normalize the distribution **/
-      w0sig_marg += w0_prob[i]*pow((w0-w0_mean),2);
+      delta       = w0 - w0_mean ;
+      w0sig_marg += w0_prob[i] * (delta*delta);
       w0_sort[i] = w0_prob[i];  
+      //   printf(" xxx w0 = %6.3f  prob = %8.4f \n", w0, 1000.*w0_prob[i]);
     }
     w0sig_marg = sqrt(w0sig_marg/w0_probsum);
     printf("marg %s err estimate = %f\n", varname_w, w0sig_marg);
@@ -1216,7 +1217,8 @@ int main(int argc,char *argv[]){
       for(kk=0; kk<wa_steps; kk++){
 	wa = wa_min + kk*wa_stepsize;
 	wa_prob[kk] /= wa_probsum;   // normalize the distribution 
-	wasig_marg += wa_prob[kk]*pow((wa-wa_mean),2);
+	delta = wa - wa_mean ;
+	wasig_marg += wa_prob[kk]*(delta*delta);
 	wa_sort[kk] = wa_prob[kk];        // make a copy to use later 
       }
       wasig_marg = sqrt(wasig_marg/wa_probsum);
@@ -1499,7 +1501,6 @@ int main(int argc,char *argv[]){
 		  &muoff_tmp, &snchi_tmp, &chi2tmp );   // return args
 
       dif = chi2tmp/(double)Ndof - 1.0 ;
-
       if ( fabsf(dif) < mindif ) {
         sigmu_int = sigmu_tmp ; mindif = dif;
       }
@@ -2328,7 +2329,6 @@ void set_priors(void) {
   
   if ( usebao == 2 ){ 
     //recompute abest
-
     rz = codist(z_bao, &cparloc);
     tmp1 = pow( EofZ(z_bao, &cparloc), NEGTHIRD) ;
     tmp2 = pow( (1./z_bao) * rz, TWOTHIRD );
@@ -2339,8 +2339,7 @@ void set_priors(void) {
   if ( usecmb == 2) {
     //recompute Rbest
     HzFUN_INFO_DEF HzFUN;
-    set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN);
-    // xxx mark delete rz=Hainv_integral(ONE,OM,OE,w0,acmb, ONE ) / LIGHT_km;
+    set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( acmb, ONE, &HzFUN ) / LIGHT_km;
     Rcmb_best = sqrt(OM) * rz ;
   }
@@ -2432,18 +2431,10 @@ void get_chi2wOM (
   //               include nonflat H0 prior term using SQSIG_MUOFF
   //
 
-  double OE ;
-
   double 
-    a, rz, sqmusig, sqmusiginv, Bsum, Csum
+    OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
     ,chi_hat, dchi_hat, ld_cos
-    ,mu_cos[MXSN]
-    ,tmp1, tmp2
-    ,Rcmb
-    ,nsig
-    ,dmu
-    ,sqdmu
-    ,covinv
+    ,mu_cos[MXSN], tmp1, tmp2, Rcmb, nsig, dmu, sqdmu, covinv
     ;
 
   Cosparam cparloc;
@@ -2457,21 +2448,17 @@ void get_chi2wOM (
   cparloc.w0  = w0 ;
   cparloc.wa  = wa ;
 
-
   Bsum = Csum = chi_hat = 0.0 ;
 
   /* Loop over all data and calculate chi2 */
   for (k=0; k < NCIDLIST; k++){
 
     sqmusig     = mu_sqsig[k] + sqmurms_add ;
-    sqmusiginv  = 1./sqmusig ;
-    
-    rz        = codist(z[k], &cparloc); // cparloc -- input. w, om etc. 
-    ld_cos    = (1+z[k]) *  rz * c_light / H0;
-    mu_cos[k] =  5.*log10(ld_cos) + 25. ;
-
-
-    dmu  = mu_cos[k] - mu[k] ;
+    sqmusiginv  = 1./sqmusig ;    
+    rz          = codist(z[k], &cparloc); // cparloc -- input. w, om etc. 
+    ld_cos      = (1+z[k]) *  rz * c_light / H0;
+    mu_cos[k]   =  5.*log10(ld_cos) + 25. ;
+    dmu         = mu_cos[k] - mu[k] ;
 
     // add chi2 only for SNe that have no off-diag terms
 
@@ -2555,16 +2542,13 @@ void get_chi2wOM (
 
   // May 29, 2008 RSK - add CMB prior if requested
   if (usecmb) {
-
     HzFUN_INFO_DEF HzFUN;
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN);
-    // xxx mark rz = Hainv_integral ( ONE, OM, OE, w0,wa,  acmb, ONE ) / LIGHT_km;
-    rz = Hainv_integral ( acmb, ONE, &HzFUN ) / LIGHT_km;
+    rz   = Hainv_integral ( acmb, ONE, &HzFUN ) / LIGHT_km;
     Rcmb = sqrt(OM) * rz ;
-    nsig = (Rcmb - Rcmb_best)/sigma_Rcmb ;
+    nsig = (Rcmb - Rcmb_best) / sigma_Rcmb ;
     *chi2tot += pow( nsig, TWO );
   }
-
 
 }  // end of get_chi2wOM
 

@@ -10646,18 +10646,21 @@ is the amount of memory on your computer.
 An example of an {\tt SED.INFO} file is as follows:
 \begin{Verbatim}[frame=single]
 # optional keys:
-   FLUX_SCALE:        1.000         # global flux scale (e.g., to fix units)
-   RESTLAMBDA_RANGE:  2500  15000   # valid range of <lamObs>/(1+z)
-   OPTFLAG_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
+FLUX_SCALE:        1.000         # global flux scale (e.g., to fix units)
+RESTLAMBDA_RANGE:  2500  15000   # valid range of <lamObs>/(1+z)
+OPTFLAG_T0SHIFT_PEAKMAG: 0       # do NOT time-shift PEAKMAG to DAY=0
+MAG_ERR:                 0.1     # not used
+MINSLOPE_EXTRAP_LATE:   0.05     # force min mag/day slope for late-time extrap
+LOGZBIN: 0.05                    # force logz bins to reduce storage
 
 # required keys
-   NPAR: 5
-   PARNAMES: MNI COSANGLE MBSED DM15SED TEXPL
-   SED: GCD2D_Ni0.47_Pre80_1.SED  0.47  -0.967  -18.350  0.571  -21.628
-   SED: GCD2D_Ni0.47_Pre80_8.SED  0.47  -0.500  -18.413  0.574  -20.977
-   SED: GCD2D_Ni0.47_Pre80_1.SED  0.47  -0.033  -18.426  0.654  -21.398
-   SED: GCD2D_Ni0.47_Pre80_2.SED  0.47  +0.500  -18.400  0.767  -21.385
-   etc ...
+NPAR: 6
+PARNAMES: SN_INDEX MNI COSANGLE MBSED DM15SED TEXPL
+SED: GCD2D_Ni0.47_Pre80_1.SED  1  0.47  -0.967  -18.350  0.571  -21.628
+SED: GCD2D_Ni0.47_Pre80_8.SED  2  0.47  -0.500  -18.413  0.574  -20.977
+SED: GCD2D_Ni0.47_Pre80_1.SED  3  0.47  -0.033  -18.426  0.654  -21.398
+SED: GCD2D_Ni0.47_Pre80_2.SED  4  0.47  +0.500  -18.400  0.767  -21.385
+etc ...
 \end{Verbatim}
 Users prepare the {\tt SED.INFO} file, along with each
 SED time-series file with format
@@ -10673,16 +10676,22 @@ and this rest-frame epoch corresponds to {\tt PEAKMJD} in the data header.
 In cases where the explosion time is well defined 
 (e.g., triggered event from LIGO or ICECUBE),
 it may be useful to leave the original $T=0$ definition in each
-SED file by specifying 
-\begin{verbatim}
-  OPTFLAG_T0SHIFT_PEAKMAG: 0    # do NOT shift PEAKMAG to T=0
-\end{verbatim}
+SED file by specifying   ``{\tt OPTFLAG\_T0SHIFT\_PEAKMAG: 0}'' 
 in the {\tt SED.INFO} file.  With this option,
 beware that input {\tt GENRANGE\_PEAKMJD} and output {\tt PEAKMJD} 
 correspond to the explosion time, not the time of maximum brightness.
 
+{\tt MINSLOPE\_EXTRAP\_LATE} forces extrapolated mags to get fainter
+with time; this feature is useful if late-time model fluctuations
+result in extrapolations that give brighter mags at later times.
 
-The first two parameters ({\tt MNI} and {\tt COSANGLE})
+The default redshift binning in log-space has {\tt LOGZBIN=0.02}.
+For models consuming significant memory, {\tt LOGZBIN} can be
+increased to reduce storage.
+
+The first parameter with {\tt \_INDEX} in the name can be used
+to select random indices as shown below.
+The next two parameters ({\tt MNI} and {\tt COSANGLE})
 are the physical parameters for generation; the remaining three
 {\it baggage} parameters (see below) depend on the first two 
 and they are inertly passed along to the output tables, 
@@ -10690,7 +10699,7 @@ just as a small pebble in your food is passed through
 the digestive system.
 
 
-\clearpage
+%\clearpage
 To simulate a \SIMSED\ model, the distribution for each
 physical parameter must be specified in the sim-input file 
 as follows,
@@ -10714,9 +10723,9 @@ SIMSED_COV(MNI,COSANGLE):  -1.34  # optional covar
 # other GRIDONLY options=
 SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
      or
-SIMSED_GRIDONLY: KN_INDEX    # pick random KN_INDEX
+SIMSED_GRIDONLY: SN_INDEX    # pick random SN_INDEX
     or
-SIMSED_GRIDONLY: KN_INDEX(3,5,6,9) # pick random among these KN_INDEX values
+SIMSED_GRIDONLY: SN_INDEX(3,5,6,9) # pick random among these SN_INDEX values
 
 SIMSED_PATH_BINARY:   <path for flux-table binary file>
 \end{Verbatim}

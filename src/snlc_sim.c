@@ -3998,14 +3998,14 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
-  // fp==NULL means reading words from sim-input file
-  // fp!=NULL means reading directly from SIMLIB file
-  if ( fp == NULL && INPUTS.USE_SIMLIB_SPECTRA ) {
+  /* xxxxxxx mark delete 9/08/2021 xxxxxx
+     can't make test since SIMLIB and input file are parsed same way
+  if ( keySource == KEYSOURCE_FILE && INPUTS.USE_SIMLIB_SPECTRA ) {
     sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
-
+  xxxxxxxxxx */
 
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 

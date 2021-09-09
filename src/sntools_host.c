@@ -5323,7 +5323,7 @@ void init_SNHOSTGAL(void) {
     }
   }
 
-  for ( i=0; i <= MXNBR_LIST ; i++ ) {
+  for ( i=0; i < MXNBR_LIST ; i++ ) {
 	  SNHOSTGAL.IGAL_NBR_LIST[i] = HOSTLIB_IGAL_UNDEFINED ; //
 	  SNHOSTGAL.DDLR_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
 	  SNHOSTGAL.SNSEP_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
@@ -6393,6 +6393,7 @@ void GEN_SNHOST_NBR(int IGAL) {
 
     ii = NNBR_STORE; NNBR_STORE++ ;
     SNHOSTGAL.IGAL_NBR_LIST[ii] = IGAL_ZSORT;
+    //HOSTLIB.IGAL_NBR_LIST = IGAL_ZSORT; // AG 09/2021 Need to fix later
 
     ROWNUM_LIST[ii] = rowNum; // for dump
     if( LDMP == 6 ) {
@@ -7404,10 +7405,10 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
   int IGAL_NBR, i_NBR;
   int NVAR_OUT, ivar, IVAR_STORE ;
   double DVAL ;
-  //  char fnam[] = "LOAD_OUTVAR_HOSTLIB" ;
+  char fnam[] = "LOAD_OUTVAR_HOSTLIB" ;
 
   // ------------- BEGIN ------------
-
+ 
   NVAR_OUT = HOSTLIB_OUTVAR_EXTRA.NOUT ;
   if ( NVAR_OUT == 0 ) { return ; }
 
@@ -7419,9 +7420,11 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
     if (NNBR > 0) {
 	   i_NBR = 1; 
 	   //IGAL_NBR = HOSTLIB.IGAL_NBR_LIST[i_NBR];
-           IGAL_NBR = HOSTLIB.IGAL_NBR_LIST;
+           //IGAL_NBR = HOSTLIB.IGAL_NBR_LIST; ?
+	   IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i_NBR];
            DVAL     = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL_NBR] ;
   	   HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = DVAL ;
+	   printf("xxx %s: IGAL_NBR = %d, %s = %f\n", fnam, IGAL_NBR, HOSTLIB_OUTVAR_EXTRA.NAME[ivar], DVAL);
     }
 
     //    printf(" xxx IGAL=%d  ivar=%d IVAR_STORE=%d DVAL=%f \n", 

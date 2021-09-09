@@ -1203,7 +1203,7 @@ void wr_snfitsio_update_head(void) {
 
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
 
-  int itype, LOC ,*ptrColnum, ipar, ivar    ;
+  int itype, LOC ,*ptrColnum, ipar, ivar, igal    ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80];
@@ -1337,7 +1337,7 @@ void wr_snfitsio_update_head(void) {
   wr_snfitsio_fillTable ( ptrColnum, "VPEC_ERR", itype );
 
   // ---------- HOST --------------
-  int igal, NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
+  int NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
   if ( SNFITSIO_SIMFLAG_NBR_LIST ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1585,11 +1585,13 @@ void wr_snfitsio_update_head(void) {
   // - - - - - - - user-selected sim host properties - - - - - - - -
 
   // selected HOSTLIB properties using sim-input key  HOSTLIB_STOREVAR
-  for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_HOSTLIB_PARVAL[ipar] ;
-    sprintf(parName,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+  for(igal=0; igal < MXHOSTGAL; igal++ ) {
+  	for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+  		LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+   		WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal] ;
+   		sprintf(parName,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
+   	 	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+ 	 }
   }
   
 

@@ -54,6 +54,7 @@
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables
 #define MXHOSTGAL      2 // max number of matched hosts to write out
+#define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
@@ -354,9 +355,9 @@ struct SNDATA {
   char  HOSTLIB_FILE[MXPATHLEN];       // name of hostlib file (Feb 2014)
   int   SIM_HOSTLIB_MSKOPT ;          // non-zero => simulate HOSTLIB
   int   NPAR_SIM_HOSTLIB;             // number of host params
-  char  SIM_HOSTLIB_KEYWORD[100][60]; // keyword for ascii
-  char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store
-  float SIM_HOSTLIB_PARVAL[100];      // host param values
+  char  SIM_HOSTLIB_KEYWORD[MXVAR_HOSTGAL][60]; // keyword for ascii
+  char  SIM_HOSTLIB_PARNAME[MXVAR_HOSTGAL][40]; // name of host params to store
+  float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];      // host param values per neighbor
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
 

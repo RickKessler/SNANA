@@ -20294,7 +20294,7 @@
 
 
 # ======================================================================= 
-         v11_03d (  ) 
+         v11_03d (Aug 30 2021) 
 
          ***** IMPORTANT(v11_03d) ***** 
 
@@ -20308,6 +20308,34 @@
       [issue found by comparing SNR against D.Rubin]
  
     + genmag_SALT2.c: 
-      in genSpec_SALT2, remove buggy 1/z1 factor in computing GENMAG from GENFLUX
+      in genSpec_SALT2, remove buggy 1/z1 factor in computing GENMAG 
+         from GENFLUX
    
+    + snlc_fit.car:
+      INIBND(color) = -1.6,1 -> -1.6,2 to allow for redder events.
+      Results in very snall regression test differences, so need
+      to cut new version.
+
+
+# ======================================================================= 
+         v11_03e (  ) 
+
+         ***** IMPORTANT(v11_03e) ***** 
+
+         ***** USEFUL(v11_03e) ***** 
+
+         ***** MISCELLANEOUS(v11_03e) ***** 
+
+   snlc_sim.c
+     + refactor simlib-read to read entire line with fgets instead
+       of reading each string. Hope is to speed up jobs on Cori.
+
+   SALT2mu.c:
+     + remove debug_flag=99 and integrate feature into code.
+       Note that MASK_BIASCOR_MAD=2048 is automatically set
+       if MASK_BIASCOR_MUCOVADD=4096 is set.
+
+   snana.car
+     + always write SIM_gammaDM; previously it required SIM_gammaDM!=0,
+       but can fail if sim has gDM = 0 and nonZero values.
 END: 

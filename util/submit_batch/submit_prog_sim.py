@@ -602,9 +602,12 @@ class Simulation(Program):
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
         found_GENOPT_override = False 
+        
+        ngentot = 0
 
         # Start with default NGENTOT_LC is from the sim-input file
-        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
+        if KEY_NGENTOT in INFILE_KEYS[iver][ifile]:
+            ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
         # check for GENOPT override
         genopt_replace, strval = \

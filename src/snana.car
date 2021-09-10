@@ -8474,6 +8474,10 @@ c so that large numbers of candidates can be ignored from a
 c list file.
 c
 c Sep 2 2019: allow up to MXIGNORE_LIST=500 (instead of 52)
+c Sep 10 2021: 
+c   + fix to work properly with/without DOCANA
+c   + ignore comments
+c   + print first/last CID for visual crosscheck
 c
 c --------
 
@@ -8483,8 +8487,10 @@ c --------
 +CDE,SNLCINP.
 
       CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME), FNAM*12
-      INTEGER i, LENFILE, LENCID, NWD, FLAG_DOCANA
-      LOGICAL FOUND_DOCANA_END, LREQUIRE_DOCANA
+      CHARACTER WD1*40
+      INTEGER MSKOPT, i, LENFILE, LENCID, NWD, FLAG_DOCANA
+      INTEGER NSTORE, NCCID_IGNORE_ORIG
+      LOGICAL FOUND_DOCANA, FOUND_DOCANA_END, LREQUIRE_DOCANA
 
       INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
       EXTERNAL STORE_PARSE_WORDS, REACT_MISSING_DOCANA
@@ -8496,26 +8502,36 @@ C ------------- BEGIN ---------
       CALL ENVreplace(SNCID_IGNORE_FILE)
       LENFILE   = INDEX(SNCID_IGNORE_FILE,' ') - 1
       cFILE     = SNCID_IGNORE_FILE(1:LENFILE)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, cFILE, LENFILE) 
+      MSKOPT    = MSKOPT_PARSE_WORDS_FILE 
+     &          + MSKOPT_PARSE_WORDS_IGNORECOMMENT 
+      NWD = STORE_PARSE_WORDS(MSKOPT, cFILE, LENFILE) 
 
       LENCID = INDEX(CCID,' ')-1
 
-      FOUND_DOCANA_END=.FALSE.
+c check if 1st word is DOCANA key
+      CALL get_PARSE_WORD_fortran(1, WD1, LENCID)
+      FOUND_DOCANA     = ( WD1 .EQ. 'DOCUMENTATION:' )
+      FOUND_DOCANA_END = (.FALSE.)
+      LREQUIRE_DOCANA  = (REQUIRE_DOCANA > 0 )
 
+      if ( .NOT. FOUND_DOCANA ) then
+         CALL REACT_MISSING_DOCANA(LREQUIRE_DOCANA,cFILE,LENFILE)
+      endif
+
+      NSTORE = 0
+      NCCID_IGNORE_ORIG = NCCID_IGNORE !might include CIDs from elsewhere
+
+c - - - - - -
       DO 200 i = 1, NWD
-
          CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
 
-         IF ( .NOT. FOUND_DOCANA_END) THEN
+         IF ( FOUND_DOCANA .and. .NOT. FOUND_DOCANA_END) THEN
             FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
-            if ( FLAG_DOCANA < 0 ) then
-              LREQUIRE_DOCANA = (REQUIRE_DOCANA > 0 )
-              CALL REACT_MISSING_DOCANA(LREQUIRE_DOCANA,cFILE,LENFILE)
-            endif
             IF ( FLAG_DOCANA==FLAG_DOCANA_END ) FOUND_DOCANA_END=.TRUE.
             goto 200
          ENDIF
 
+         NSTORE       = NSTORE + 1
          NCCID_IGNORE = NCCID_IGNORE + 1
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
@@ -8532,6 +8548,12 @@ C ------------- BEGIN ---------
       CALL PRBANNER(FNAM)
       print*,' Loaded ', NCCID_IGNORE,' IGNORE-candidates from '
       print*, '  ', SNCID_IGNORE_FILE(1:LENFILE)
+      print*,'  First IGNORED CID: ', 
+     &     SNCCID_IGNORE_ALL(NCCID_IGNORE_ORIG+1)
+      if ( NSTORE > 1 ) then
+        print*,'  Last  IGNORED CID: ', 
+     &     SNCCID_IGNORE_ALL(NCCID_IGNORE)
+      endif
       print*,' '
 
       RETURN
@@ -8569,7 +8591,7 @@ c ---------- BEGIN -----------
           ISTAT_FILE_DOCANA = FLAG_DOCANA_END
        endif
 
-      if ( IWD == 1 .and. ISTAT_FILE_DOCANA .NE. 1 ) then
+      if (IWD==1 .and. ISTAT_FILE_DOCANA.NE.FLAG_DOCANA_START) then
          ISTAT_FILE_DOCANA = FLAG_DOCANA_ERROR
       endif
 

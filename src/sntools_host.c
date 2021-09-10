@@ -1025,7 +1025,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   // read WGT keys and load GRIDMAP struct.
   read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 
 	       HOSTLIB_WGTMAP.OPT_EXTRAP,
-	       MXWGT_HOSTLIB, fnam,
+	       MXROW_WGTMAP, fnam,
 	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
   
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
@@ -7882,7 +7882,6 @@ void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   HOSTLIB_APPEND->NLINE_APPEND = NGAL;
   HOSTLIB_APPEND->LINE_APPEND = (char**) malloc( NGAL*sizeof(char*) );
-
   for(i=0; i < NGAL; i++ ) {
     HOSTLIB_APPEND->LINE_APPEND[i] = (char*) malloc(MEMC);
     sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
@@ -8205,14 +8204,15 @@ void rewrite_HOSTLIB_plusNbr(void) {
   HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX = -9 ;
   HOSTLIB_NBR_WRITE.NNBR_MAX         =  0 ;
 
+
   // sort by DEC to improve NBR-matching speed
   int  ORDER_SORT = +1 ;
   double *ptrDEC = HOSTLIB.VALUE_ZSORTED[IVAR_DEC] ; 
   double *ptrRA  = HOSTLIB.VALUE_ZSORTED[IVAR_RA] ; 
+
   sortDouble( NGAL, ptrDEC, ORDER_SORT, 
 	      HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort);
   
-
   // load new lists of RA & DEC sorted by DEC
   for(igal_DECsort=0; igal_DECsort < NGAL; igal_DECsort++ ) {
     igal_zsort = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[igal_DECsort];
@@ -8226,7 +8226,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   }
   
   // ----------------------------
-  if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
+  if ( NGAL_DEBUG < MXROW_HOSTLIB ) { NGAL = NGAL_DEBUG; }
 
   // init diagnistic counters (filled in get_LINE_APPEND_HOSTLIB_plusNbr)
   monitor_HOSTLIB_plusNbr(0,&HOSTLIB_APPEND); 
@@ -8236,7 +8236,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
     // search for neighbors and fill line to append
     get_LINE_APPEND_HOSTLIB_plusNbr(igal_unsort, LINE_APPEND);
-
+    
     fflush(stdout);
 
     sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
@@ -8464,6 +8464,7 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   int nnbr, NGAL_TMP;
   float frac;
   char MSG[100];
+  char fnam[] = "monitor_HOSTLIB_plusNbr";
   // ------------ BEGIN -------------
 
   if ( OPT == 0 ) {
@@ -8488,7 +8489,6 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     printf("%s\n", MSG); fflush(stdout);
     addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
   }
-
   return ;
 
 } // end monitor_HOSTLIB_plusNbr

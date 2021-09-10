@@ -993,7 +993,7 @@ void set_user_defaults(void) {
 
   INPUTS.HOSTLIB_USE    = 0;
   INPUTS.HOSTLIB_MSKOPT = 0;
-  INPUTS.HOSTLIB_MAXREAD     = 1000000000 ; // default is 1 billion
+  INPUTS.HOSTLIB_MAXREAD     = MXROW_HOSTLIB;
   INPUTS.HOSTLIB_MNINTFLUX_SNPOS = 0.00 ;  // use 0% as the minimum limit for SNPOS
   INPUTS.HOSTLIB_MXINTFLUX_SNPOS = 0.99 ;  // use 99% of total flux for SNPOS
   INPUTS.HOSTLIB_GALID_NULL      = -9;     // value for no host

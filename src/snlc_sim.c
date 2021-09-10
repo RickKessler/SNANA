@@ -5044,6 +5044,9 @@ void prep_user_input(void) {
   }
 
 
+  // disable HOSTLIB_MSKOPT if HOSTLIB_FILE isn't set.
+  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { INPUTS.HOSTLIB_MSKOPT=0; }
+
   // -------------------------------
   // set INPUTS.GENSOURCE
 
@@ -5626,7 +5629,7 @@ void prep_user_input(void) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_PHOT; // internal logical flag
   }
 
-  if ( IGNOREFILE(INPUTS.HOSTNOISE_FILE) == 0 ) {
+  if ( !IGNOREFILE(INPUTS.HOSTNOISE_FILE)  ) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_IMAGE; 
   }
 

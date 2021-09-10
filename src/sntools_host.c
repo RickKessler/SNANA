@@ -1082,6 +1082,8 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   int  LDMP = 0 ;
   // ------------- BEGIN ------------
 
+  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { return(0) ; }
+
   VARLIST_WGTMAP[0] = 0 ;
 
   if ( !IGNOREFILE(INPUTS.HOSTLIB_WGTMAP_FILE)  )

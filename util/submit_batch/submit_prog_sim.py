@@ -32,6 +32,8 @@
 #               of running out of random CIDs
 # Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
 # Aug 18 2021: implement --snana_dir for SIMnorm jobs
+# Sep 09 2021: abort of NGEN_UNIT is mixed with NGENTOT_LC in GENOPT
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -558,8 +560,9 @@ class Simulation(Program):
             ngentot_list = []
             for ifile in range(0,n_file):
                 if ngen_unit < 0.0 :
-                    ngentot = self.get_ngentot_from_input(iver,ifile)
+                    ngentot = self.get_ngentot_from_input(iver,ifile,+1)
                 else:
+                    dummy   = self.get_ngentot_from_input(iver,ifile,-1)
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
 
@@ -587,15 +590,24 @@ class Simulation(Program):
 
         # end sim_prep_NGENTOT_LC
 
-    def get_ngentot_from_input(self,iver,ifile):
+    def get_ngentot_from_input(self,iver,ifile,opt):
+
+        # Sep 9 2021: add opt input:
+        # opt > 0 -> return ngentot from input file or GENOPT key
+        # opt < 0 -> abort of NGENTOT_LC is in GENOPT key 
+        #             (to avoid conflict with NGEN_UNIT)
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
         ngentot_global   = self.config_prep['ngentot_global']
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
+        found_GENOPT_override = False 
+        
+        ngentot = 0
 
         # Start with default NGENTOT_LC is from the sim-input file
-        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
+        if KEY_NGENTOT in INFILE_KEYS[iver][ifile]:
+            ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
         # check for GENOPT override
         genopt_replace, strval = \
@@ -604,10 +616,22 @@ class Simulation(Program):
             ngentot = int(strval)
             genopt_list2d[iver][ifile]        = genopt_replace
             self.config_prep['genopt_list2d'] = genopt_list2d
+            found_GENOPT_override = True
 
         # check for GENOPT_GLOBAL override (Dec 10 2020)
         if ngentot_global > 0 :
             ngentot = ngentot_global
+            found_GENOPT_override = True
+
+        # 9.09.2021: check option to abort on NGENTOT key
+        if found_GENOPT_override and opt < 0 :
+            msgerr = []
+            input_file   = self.config_yaml['args'].input_file 
+            msgerr.append(f"Cannot mix NGEN_UNIT and NGENTOT_LC in")
+            msgerr.append(f"{input_file} .")
+            msgerr.append(f"Either remove NGENTOT_LC from GENOPT[_GLOBAL]")
+            msgerr.append(f"or remove NGEN_UNIT from CONFIG.")
+            self.log_assert(False,msgerr)
 
         return ngentot
 

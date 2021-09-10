@@ -4344,13 +4344,14 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   // Output:
   //    *stringVal  : string value if *key points to string
   //    *parVal     : double value if *key points to double,float,int
-  //
+  // History:
+  //  Sept 9 2021 Load igal dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
 
   int NFILT = SNDATA_FILTER.NDEF ;
   char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ; // BYOSED or SNEMO
   int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
   int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
-  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar ;
+  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar;
   double DVAL;
   char PREFIX[40], KEY_TEST[60], cfilt[2] ;
   char fnam[] = "copy_SNDATA_HEAD" ;
@@ -4570,8 +4571,10 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       { copy_lli(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_GALID) ; }  
 
     else if ( strncmp(key,"SIM_HOSTLIB",11) == 0 ) {
-      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-	copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar]) ; 
+      for(igal=0; igal < MXHOSTGAL; igal++ ) {
+      	for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+		copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
+        }
       }
     }
     else if ( strcmp(key,"SIM_DLMU") == 0 ) 

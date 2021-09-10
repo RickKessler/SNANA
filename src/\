@@ -1917,7 +1917,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.OPT_MWEBV = abs(ITMP);
     if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
-    if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
   }
 
 
@@ -3999,14 +3998,14 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
-  /* xxxxxxx mark delete 9/08/2021 xxxxxx
-     can't make test since SIMLIB and input file are parsed same way
-  if ( keySource == KEYSOURCE_FILE && INPUTS.USE_SIMLIB_SPECTRA ) {
+  // fp==NULL means reading words from sim-input file
+  // fp!=NULL means reading directly from SIMLIB file
+  if ( fp == NULL && INPUTS.USE_SIMLIB_SPECTRA ) {
     sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
-  xxxxxxxxxx */
+
 
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
@@ -5044,9 +5043,6 @@ void prep_user_input(void) {
   }
 
 
-  // disable HOSTLIB_MSKOPT if HOSTLIB_FILE isn't set.
-  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { INPUTS.HOSTLIB_MSKOPT=0; }
-
   // -------------------------------
   // set INPUTS.GENSOURCE
 
@@ -5629,7 +5625,7 @@ void prep_user_input(void) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_PHOT; // internal logical flag
   }
 
-  if ( !IGNOREFILE(INPUTS.HOSTNOISE_FILE)  ) {
+  if ( IGNOREFILE(INPUTS.HOSTNOISE_FILE) == 0 ) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_IMAGE; 
   }
 

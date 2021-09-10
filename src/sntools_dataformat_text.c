@@ -158,7 +158,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   int NTMP, NPAR, ipar, ifilt, ifilt_obs, iscat ;
   char key[80], ctmp[100] ;  
-  float parval ;
+  float parval, parval2;
   char fnam[] = "wr_dataformat_text_SIMPAR" ;
 
   // ------------ BEGIN -----------
@@ -222,8 +222,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_HOSTLIB_NPAR:    %d \n", NPAR);
   for(ipar=0; ipar < NPAR; ipar++ ) {
     sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
-    parval = SNDATA.SIM_HOSTLIB_PARVAL[ipar] ;
-    fprintf(fp, "%-28.28s  %.3f \n", key, parval);
+    parval = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
+    parval2 = SNDATA.SIM_HOSTLIB_PARVAL[ipar][1] ; // kluge for now
+    fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
   }
 
   fprintf(fp, "SIM_DLMU:            %.4f   # mag   [ -5*log10(10pc/dL) ]\n", 
@@ -1930,7 +1931,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	sprintf(KEY_TEST,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar]) ;
 	if ( strcmp(word0,KEY_TEST) == 0 ) {
 	  iwd++ ; get_PARSE_WORD_FLT(langC, iwd, 
-				     &SNDATA.SIM_HOSTLIB_PARVAL[ipar]) ; 
+				     &SNDATA.SIM_HOSTLIB_PARVAL[ipar][0]) ; 
+	  // need to add code to read for second neighbor 
+	  // for now, only read true host (no neighbors)
 	}
       }
     }

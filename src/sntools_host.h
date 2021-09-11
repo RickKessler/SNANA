@@ -66,7 +66,9 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXWGT_HOSTLIB     20000000  // max size of wgtmap
+//#define MXWGT_HOSTLIB     20000000  // max size of wgtmap xxx
+#define MXROW_WGTMAP      20000000  // 20 million, Alex Gagliano 09/2021
+#define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file

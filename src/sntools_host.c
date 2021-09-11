@@ -7426,7 +7426,9 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
 	   IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i_NBR];
            DVAL     = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL_NBR] ;
   	   HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = DVAL ;
-	   printf("xxx %s: IGAL_NBR = %d, %s = %f\n", fnam, IGAL_NBR, HOSTLIB_OUTVAR_EXTRA.NAME[ivar], DVAL);
+
+	   //	   printf("xxx %s: IGAL_NBR = %d, %s = %f\n", 
+	   //	  fnam, IGAL_NBR, HOSTLIB_OUTVAR_EXTRA.NAME[ivar], DVAL);
     }
 
     //    printf(" xxx IGAL=%d  ivar=%d IVAR_STORE=%d DVAL=%f \n", 

@@ -124,6 +124,9 @@
 #define HOSTLIB_VARNAME_ANGLE        "a_rot"    // rotation angle
 #define HOSTLIB_VARNAME_FIELD        "FIELD" 
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
+#define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
+#define HOSTLIB_VARNAME_GALID2       "GALID2"
+#define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
@@ -210,6 +213,9 @@ struct HOSTLIB_DEF {
   int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
+  int IVAR_GALID2;                // AG 09/2021
+  int IVAR_ELLIPTICITY;
+  int IVAR_SQRADIUS;
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
@@ -441,6 +447,11 @@ typedef struct {
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
   bool   TRUE_MATCH ;
+  // Added for LSST but maybe of more general utility
+  // Alex Gagliano 09/2021
+  long long GALID2 ; // Second ID e.g., from external catalog
+  double SQRADIUS; // Ixx + Iyy
+  double ELLIPTICITY;
 } SNHOSTGAL_DDLR_SORT_DEF ;
 
 SNHOSTGAL_DDLR_SORT_DEF SNHOSTGAL_DDLR_SORT[MXNBR_LIST] ;

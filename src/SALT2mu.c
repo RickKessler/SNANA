@@ -1040,7 +1040,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define MASK_BIASCOR_SIGINT_SAMPLE 512  // bit9: sigint(biasCor) vs. IDSAMPLE
 #define MASK_BIASCOR_noCUT  1024    // do NOT reject event if no biasCor
 #define MASK_BIASCOR_DEFAULT  MASK_BIASCOR_5D + MASK_BIASCOR_MUCOVSCALE + MASK_BIASCOR_SAMPLE
-#define MASK_BIASCOR_MAD    2048 // bit11: use median instead of rms in error scaling
+#define MASK_BIASCOR_MAD    2048 // bit11: median instead of rms in COV scale
 #define MASK_BIASCOR_MUCOVADD 4096 // bit12: use error floor for error tuning
 
 
@@ -1415,6 +1415,7 @@ struct {
 
 
 struct {
+
   int ILCPAR_MIN, ILCPAR_MAX ; // either mB,x1,c  OR just mu
   TABLEVAR_DEF TABLEVAR ;
 
@@ -1448,11 +1449,14 @@ struct {
   float **MUCOVSCALE ; 
   float **MUCOVADD ;
 
-
   // wgted-avg redshift  corresponding to each M0 offset (for M0 outfile)
   double zM0[MXz];       
 
   float MEMORY;  // Mbytes
+
+  // diagnostic arrays if "write biascor" option is set
+  float  *muerr_raw, *muerr, *mu, *mures ;
+  int    *J1D_COV;
 
 } INFO_BIASCOR;
 
@@ -1732,9 +1736,6 @@ struct INPUTS {
 
   // set internal LEGACY and REFAC flags for development
 
-  // mucovscale applied to MUERR without VPEC
-  bool LEGACY_MUCOVSCALE_noVPEC; // internally set if debug_flag=-68
-  
   // if logmass dimension; include mass-dependence for muCOVscale
   bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
 
@@ -2132,7 +2133,6 @@ void  setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR );
 void  countData_per_zbin(void) ;
 int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
-void  prescale_write_biasCor(void);
 int   outside_biasCor_grid(int isn);
 
 int selectCID_data(char *cid, int IDSURVEY); 
@@ -3987,7 +3987,7 @@ int prepNextFit(void) {
     sprintf(msg,"last redchi2=%.3f --> next %s=%.3f (NCALL_FCN=%d)", 
 	    redchi2, FITRESULT.PARNAME[IPAR_COVINT_PARAM],
 	    FITINP.COVINT_PARAM_FIX,  FITRESULT.NCALL_FCN );
-    .xyz */
+     */
     sprintf(msg,"last a,b,redchi2=%.3f,%.2f,%.3f --> next %s=%.3f", 
 	    FITRESULT.ALPHA, FITRESULT.BETA, redchi2, 
 	    FITRESULT.PARNAME[IPAR_COVINT_PARAM],
@@ -4408,24 +4408,16 @@ void *MNCHI2FUN(void *thread) {
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
                    
-    // apply bias corrections
-    if ( INPUTS.LEGACY_MUCOVSCALE_noVPEC ) {
-      // legacy model scales entire muerr, including vpec
-      muerrsq  *= muCOVscale ;  // error scale 
+    if ( DO_COVADD && muCOVscale > 1.0) {
+      // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
+      muerrsq += muCOVadd; 
+    } else {
+      // Scale as in original BBC
+      muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
+      muerrsq_vpec  = muerr_vpec * muerr_vpec ;
+      muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
     }
-    else {
-
-      if ( DO_COVADD && muCOVscale > 1.0) {
-	muerrsq += muCOVadd; // Aug 2 2021: dillons sigint in bins. note that global sigint = 0
-      } else {
-	// Scale as in original BBC
-	muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
-	muerrsq_vpec  = muerr_vpec * muerr_vpec ;
-	muerrsq       = (muerrsq-muerrsq_vpec) * muCOVscale + muerrsq_vpec ;
-      }
-    }
-
-
+    
     muerr     = sqrt(muerrsq);	
     // ------------------------
 
@@ -5313,7 +5305,6 @@ void set_defaults(void) {
 
   INPUTS.prescale_biasCor[0]   = 0;  // subset number
   INPUTS.prescale_biasCor[1]   = 1;  // integer pre-scale
-  INPUTS.prescale_biasCor[2]   = 0;  // default is do NOT write out biasCor
 
   INPUTS.sigma_cell_biasCor    = 50.0; // flat WGT distribution in each cell
   INPUTS.nfile_biasCor         = 0 ;
@@ -6337,12 +6328,15 @@ void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
   // opt > 0 --> malloc
   // opt < 0 --> free
 
-  int  NSAMPLE = NSAMPLE_BIASCOR;
+  int  NSAMPLE    = NSAMPLE_BIASCOR;
   int  EVENT_TYPE = EVENT_TYPE_BIASCOR ;
-  int  MEMB = LEN_MALLOC * sizeof(int8_t);     // one byte
-  int  MEMBIAS = NSAMPLE * sizeof(FITPARBIAS_DEF*);
-  int  MEMCOV  = NSAMPLE * sizeof(float*);
+  int  MEMB       = LEN_MALLOC * sizeof(int8_t);     // one byte
+  int  MEMI       = NSAMPLE * sizeof(int);
+  int  MEMF       = NSAMPLE * sizeof(float);
+  int  MEMBIAS    = NSAMPLE * sizeof(FITPARBIAS_DEF*);
+  int  MEMCOV     = NSAMPLE * sizeof(float*);
   int debug_malloc = INPUTS.debug_malloc ;
+
   int  MEMADD=0 ;
   float f_MEMORY = 0.0 ;
   char fnam[] = "malloc_INFO_BIASCOR";
@@ -6374,14 +6368,13 @@ void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
     // is allocate later in set_MAPCELL_biascor (when NCELL is known)
     INFO_BIASCOR.FITPARBIAS = (FITPARBIAS_DEF**) malloc ( MEMBIAS );
     INFO_BIASCOR.MUCOVSCALE = (float **        ) malloc ( MEMCOV  );    
-    INFO_BIASCOR.MUCOVADD = (float **        ) malloc ( MEMCOV  );
+    INFO_BIASCOR.MUCOVADD   = (float **        ) malloc ( MEMCOV  );
 
     // print memory consumption to stdout
     f_MEMORY += ((float)MEMADD) / 1.0E6 ;
     INFO_BIASCOR.MEMORY = f_MEMORY;
     fprintf(FP_STDOUT, "\t %s: %6.3f MB \n", fnam, f_MEMORY); 
     fflush(FP_STDOUT);
-
 
   }
   else {
@@ -7225,10 +7218,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   if ( INPUTS.cat_only ) { return; }
 
-  if ( FIRST_EVENT ) {
-    TABLEVAR->NCOVFIX  =  0 ;
-  }
-
+  if ( FIRST_EVENT ) { TABLEVAR->NCOVFIX  =  0 ;  }
 
   // convert x0 and error to mB[err]
   x0 = TABLEVAR->x0[ISN];  x0err=TABLEVAR->x0err[ISN]; 
@@ -7519,7 +7509,7 @@ void compute_more_INFO_DATA(void) {
   double muerrsq, sigCC, zhd, zmuerr, cov, covmat_tot[NLCPAR][NLCPAR] ;
   int    isn, CUTMASK, i, i2 ;
   char *name;
-  //  char fnam[] = "compute_more_INFO_DATA";
+  char fnam[] = "compute_more_INFO_DATA";
 
   // ----------- BEGIN ------------
 
@@ -9083,7 +9073,7 @@ void prepare_biasCor(void) {
   INFO_BIASCOR.GAMMADM_OFFSET         = 0.0 ;
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
 
-  if (DOCOR_MUCOVADD) { // tying together MAD with MUCOVADD, doesnt work without MAD
+  if (DOCOR_MUCOVADD) { // link MAD with MUCOVADD; doesnt work without MAD
     INPUTS.opt_biasCor |= MASK_BIASCOR_MAD;
   }
 
@@ -9100,9 +9090,6 @@ void prepare_biasCor(void) {
 
   // read biasCor file
   read_simFile_biasCor();
-
-  // check option to write pre-scaled biasCor and quit
-  if ( INPUTS.prescale_biasCor[2] > 0 ) { prescale_write_biasCor(); }
 
   // setup 5D bins 
   if ( DOCOR_5D || DOCOR_1D5DCUT ) {
@@ -9205,10 +9192,9 @@ void prepare_biasCor(void) {
   
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
-
   for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ )  { 
-    compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); 
-    compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR ); 
+    compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR );
+    compute_CUTMASK(ievt, &INFO_BIASCOR.TABLEVAR );
   }
 
   if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
@@ -9371,6 +9357,7 @@ void prepare_biasCor(void) {
   }
 
   INFO_BIASCOR.NDIM = NDIM_BIASCOR ;
+
 
   return ;
 
@@ -10428,21 +10415,20 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   //
   // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
   // Jun 29 2021: fix bug setting im index for logmass.
+  // Sep 14 2021: little cleanup/refac 
 
   //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   // xxx mark delete bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
-  bool DO_MAD = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
-
+  bool DO_MAD      = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
   int debug_malloc = INPUTS.debug_malloc ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
-  int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
-  //double cmin,  cmax, cbin, c_lo, c_hi, c_avg ;
-  //double mmin,  mmax, mbin, m_lo, m_hi, m_avg ;
+  int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
+
 
   int DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
@@ -10473,6 +10459,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double              MUCOVADD[MXa][MXb][MXg] ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
  
+  // xx ??  CELLINFO_DEF *CELLINFO = &CELLINFO_MUCOVSCALE[IDSAMPLE];
+
   char fnam[]  = "makeMap_sigmu_biasCor" ;
   
   // ----------------- BEGIN -------------------
@@ -10480,8 +10468,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
   if ( INPUTS.debug_mucovscale ) {
-    int memd = sizeof(double)*NBIASCOR_ALL;
-    i1d_list = (int*) malloc(sizeof(int)*NBIASCOR_ALL);
+    int memd   = sizeof(double)*NBIASCOR_ALL;
+    int memi   = sizeof(int   )*NBIASCOR_ALL;
+    i1d_list   = (int   *) malloc(memi);
     muErr_list = (double*) malloc(memd);
     muDif_list = (double*) malloc(memd);
   }
@@ -10497,10 +10486,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int MEMD     = NCELL   * sizeof(double);
   int MEMI     = NCELL   * sizeof(int);
 
-
   ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];         
-  ptr_MUCOVADD = INFO_BIASCOR.MUCOVADD[IDSAMPLE];         
-
+  ptr_MUCOVADD   = INFO_BIASCOR.MUCOVADD[IDSAMPLE];         
 
   NBINa    = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
@@ -10511,14 +10498,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
  
   // malloc local 1D arrays to track local sums.
   print_debug_malloc(+1*debug_malloc,fnam);
-  SUM_MUERR    = (double*) malloc(MEMD);
-  SUM_SQMUERR  = (double*) malloc(MEMD);
-  SUM_MUDIF    = (double*) malloc(MEMD);
-  SUM_SQMUDIF  = (double*) malloc(MEMD);
-  SQMUERR      = (double*) malloc(MEMD);
-  SQMURMS      = (double*) malloc(MEMD);
-  SUM_PULL     = (double*) malloc(MEMD);
-  SUM_SQPULL   = (double*) malloc(MEMD);
+  SUM_MUERR      = (double*) malloc(MEMD);
+  SUM_SQMUERR    = (double*) malloc(MEMD);
+  SUM_MUDIF      = (double*) malloc(MEMD);
+  SUM_SQMUDIF    = (double*) malloc(MEMD);
+  SQMUERR        = (double*) malloc(MEMD);
+  SQMURMS        = (double*) malloc(MEMD);
+  SUM_PULL       = (double*) malloc(MEMD);
+  SUM_SQPULL     = (double*) malloc(MEMD);
   SIG_PULL_MAD   = (double*) malloc(MEMD);
   SIG_PULL_RMS   = (double*) malloc(MEMD);
   ig = 0 ;
@@ -10565,9 +10552,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    if (INPUTS.debug_mucovscale) {
-      i1d_list[ievt] = -9;
-    }
+    if (INPUTS.debug_mucovscale) {  i1d_list[ievt] = -9;  }
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
@@ -10638,11 +10623,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif  -=  muBias ;  
     muDifsq =  muDif*muDif ;
 
-    // computee error with intrinsic scatter 
+    // compute error with intrinsic scatter 
     USEMASK = USEMASK_BIASCOR_COVTOT;
-    if ( INPUTS.LEGACY_MUCOVSCALE_noVPEC ) 
-      { USEMASK += USEMASK_BIASCOR_ZMUERR; }
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
+
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
       print_preAbort_banner(fnam);
@@ -10664,7 +10648,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     i1d = CELLINFO_MUCOVSCALE[IDSAMPLE].MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
     if ( INPUTS.debug_mucovscale ) {
-      i1d_list[ievt] = i1d;
+      i1d_list[ievt]   = i1d;
       muDif_list[ievt] = muDif;
       muErr_list[ievt] = muErr;
     }
@@ -10677,8 +10661,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     SUM_MUERR[i1d]   +=  muErr ;
 
     if (DO_MAD) {
-      int NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
-      int newmem = (NperCell+1+NPERCELL_REALLOC) * sizeof(double);
+      NperCell = CELLINFO_MUCOVSCALE[IDSAMPLE].NperCell[i1d];
+      int  newmem = (NperCell+1+NPERCELL_REALLOC) * sizeof(double);
       bool DO_REALLOC = (NperCell+1)%NPERCELL_REALLOC == 0 && NperCell > 0;
       CELLINFO_MUCOVSCALE[IDSAMPLE].ABSPULL[i1d][NperCell] = fabs(pull);
       if ( DO_COVADD ) {
@@ -10829,17 +10813,19 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
   } // end LPRINT
 
-  if ( INPUTS.debug_mucovscale ) {
-    char outfile[200];
-    char *name;
+  // - - - - - - - - - - - - - - - - - - - 
 
-    sprintf(outfile,"%s_%d_mucovscale.dat",INPUTS.PREFIX, IDSAMPLE); 
-    printf("DEBUG: Create file %s\n",outfile);
+  if ( INPUTS.debug_mucovscale ) {
+    char outfile[200], line[200], *name;
+
+    sprintf(outfile,"%s_IDSAMPLE%d_mucovscale.dat", INPUTS.PREFIX, IDSAMPLE); 
+    printf("DEBUG: Create diagnostic file %s\n", outfile);
     FILE *fp = fopen(outfile,"wt");
 
     fprintf(fp,"VARNAMES: CID BIN "
-	    "zMEAN cMEAN LOGMASSMEAN "
-	    "MUCOVSCALE_RMS MUCOVSCALE_MAD RMS_MUDIF MUDIF MUERR\n");
+	    "zMEAN cMEAN mMEAN "
+	    "MUCOVSCALE_RMS MUCOVSCALE_MAD "
+	    "RMS_MUDIF MUDIF MUERR\n");
 
     for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
 
@@ -10848,33 +10834,32 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
       // check if there is valid biasCor for this event
       J1D = J1D_biasCor(ievt,fnam);
-      if ( CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D] < BIASCOR_MIN_PER_CELL ) 
-	{ continue ; }
+      NperCell = CELLINFO_BIASCOR[IDSAMPLE].NperCell[J1D];
+      i1d      = i1d_list[ievt];     
 
-      i1d = i1d_list[ievt];
-      if (i1d<0) {continue;}
+      if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
+      if ( i1d < 0 )                          { continue ; }
 
       RMS = sqrt ( SQMURMS[i1d] );
-      fprintf(fp,"SN: %8s %d "
-	      "%.3f %.3f %.3f "
-	      "%.3f %.3f %.3f %.3f %.3f\n",
-      	      INFO_BIASCOR.TABLEVAR.name[ievt],
-      	      i1d,
-	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[i1d],
-	      CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][i1d],
-              CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[i1d],
-	      SIG_PULL_RMS[i1d],
-	      SIG_PULL_MAD[i1d],
-	      RMS,
-	      muDif_list[ievt],
-	      muErr_list[ievt]
+      sprintf(line,"SN: "
+	      "%8s %d "     // name bin
+	      "%.3f %.3f %.3f "    // zMEAN cMEAN mMEAN
+	      "%.3f %.3f "         // MUCOVSCALE_RMS MUCOVSCALE_MAD
+	      "%.3f %.3f %.3f "    // RMS_MUDIF  MUDIF MUERR
+      	      ,name, i1d
+	      ,CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_z[i1d]
+	      ,CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_LCFIT[INDEX_c][i1d]
+              ,CELLINFO_MUCOVSCALE[IDSAMPLE].AVG_m[i1d]
+	      ,SIG_PULL_RMS[i1d], SIG_PULL_MAD[i1d]
+	      ,RMS, muDif_list[ievt], muErr_list[ievt]
       	      );
+      fprintf(fp, "%s\n", line);
+    }  // end isp loop over sparse events
 
-    }
     fclose(fp);
-  }
+  }  // end debug_mucovscale
 
-
+  // - - - - - 
   print_debug_malloc(-1*debug_malloc,fnam);
   free(SUM_MUERR);   free(SUM_SQMUERR);
   free(SUM_MUDIF);   free(SUM_SQMUDIF) ;
@@ -11044,7 +11029,7 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   double COVTMP, muErrsq ;
   int  j0, j1 ;
   char *name ;
-  //  char fnam[] = "muerrsq_biasCor" ;
+  char fnam[] = "muerrsq_biasCor" ;
   
   // ------------- BEGIN -----------
 
@@ -15711,32 +15696,6 @@ int prescale_reject_biasCor(int isn) {
 
 }  // end prescale_reject_biasCor
 
-// =======================================
-void prescale_write_biasCor(void) {
-
-  // Created July 21 2021
-  // NOT READY !!! ... doing this is tricky because
-  // the biasCor files need to be re-read as string-lines.
-
-  char *PREFIX       = INPUTS.PREFIX;
-  int   NSN_BIASCOR  = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-
-  int evt;
-  FILE *fp;
-  char outFile[200];
-  char fnam[] = "prescale_write_biasCor" ;
-
-  // ----------- BEGIN -------------
-
-  
-  sprintf(outFile,"%s_biasCor.FITRES", PREFIX);
-  printf("\n Open prescaled biasCor file: %s  \n", outFile);
-  fp = fopen(outFile, "wt");
-  fclose(fp);
-
-  return;
-
-} // end prescale_write_biasCor
 
 // ====================================================
 int outside_biasCor_grid(int isn) {
@@ -16931,7 +16890,6 @@ void parse_prescale_biascor (char *item, int wrflag) {
     N++ ;  
     ptrtok = strtok(NULL, ",");
   }
-  INPUTS.prescale_biasCor[2] = wrflag; // July 21 2021
 
   int PS0 = INPUTS.prescale_biasCor[0] ;
   int PS1 = INPUTS.prescale_biasCor[1] ;
@@ -18107,9 +18065,6 @@ void prep_debug_flag(void) {
   // General convention: 
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
-
-
-  INPUTS.LEGACY_MUCOVSCALE_noVPEC = ( INPUTS.debug_flag == -68 );
 
   INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
 
@@ -19896,6 +19851,7 @@ void write_cat_info(FILE *fout) {
 
   return;
 } // end write_cat_info
+
 
 // =====================================
 int ISBLIND_FIXPAR(int ipar) {

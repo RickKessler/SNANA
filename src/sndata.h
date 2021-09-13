@@ -289,6 +289,9 @@ struct SNDATA {
   float   HOSTGAL_LOGMASS_ERR[MXHOSTGAL] ;
   float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
   float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
+  float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;
   int     HOSTLIB_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
 
   float REDSHIFT_HELIO;         // final (best) redshift, Helio frame

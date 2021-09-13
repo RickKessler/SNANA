@@ -496,6 +496,27 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_sSFR_ERR[igal] );
     }
 
+    // Added for LSST but may be of more general use
+    // Alex Gagliano 09/2021
+    if ( SNDATA.HOSTGAL_OBJID2[igal] > 0 ) {
+      fprintf(fp, "%s_OBJID2:     %lld   # alternate ID\n",
+              PREFIX,
+              SNDATA.HOSTGAL_OBJID2[igal]);
+    }
+
+    if ( SNDATA.HOSTGAL_ELLIPTICITY[igal] > 0 ) {
+      fprintf(fp, "%s_ELLIPTICITY:     %.3f\n",
+              PREFIX,
+              SNDATA.HOSTGAL_ELLIPTICITY[igal]);
+    }
+
+    if ( SNDATA.HOSTGAL_SQRADIUS[igal] > 0 ) {
+      fprintf(fp, "%s_SQRADIUS:     %.3f   # Ixx + Iyy\n",
+              PREFIX,
+              SNDATA.HOSTGAL_SQRADIUS[igal]);
+    }
+
+
     // if MAGOBS has been read for any filter, then write MAGOBS
     // for all filters.
 

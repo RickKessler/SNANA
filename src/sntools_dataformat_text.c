@@ -222,7 +222,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_HOSTLIB_NPAR:    %d \n", NPAR);
   for(ipar=0; ipar < NPAR; ipar++ ) {
     sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
-    parval = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
+    parval  = SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ;
     parval2 = SNDATA.SIM_HOSTLIB_PARVAL[ipar][1] ; // kluge for now
     fprintf(fp, "%-40.40s  %.3f %.3f \n", key, parval, parval2);
   }

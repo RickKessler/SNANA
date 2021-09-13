@@ -7403,7 +7403,7 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
   // These variables are user-defined by sim-input key
   // HOSTLIB_STOREVAR:  <var1>,<var2>,<var3>, ...
 
-  int NNBR = SNHOSTGAL.NNBR;
+  int NNBR = SNHOSTGAL.NNBR ; // includes true host
   int IGAL_NBR, i_NBR;
   int NVAR_OUT, ivar, IVAR_STORE ;
   double DVAL ;
@@ -7419,24 +7419,22 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
     DVAL       = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL] ;
     HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][0] = DVAL ;   
 
-    if (NNBR > 0) {
-	   i_NBR = 1; 
-	   //IGAL_NBR = HOSTLIB.IGAL_NBR_LIST[i_NBR];
-           //IGAL_NBR = HOSTLIB.IGAL_NBR_LIST; ?
-	   IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i_NBR];
-           DVAL     = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL_NBR] ;
-  	   HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = DVAL ;
-
-	   //	   printf("xxx %s: IGAL_NBR = %d, %s = %f\n", 
-	   //	  fnam, IGAL_NBR, HOSTLIB_OUTVAR_EXTRA.NAME[ivar], DVAL);
+    i_NBR    = 1; 
+    HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = NULLDOUBLE ;
+    if ( NNBR > 1 ) {
+      IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i_NBR];
+      DVAL     = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL_NBR] ;
+      HOSTLIB_OUTVAR_EXTRA.VALUE[ivar][i_NBR] = DVAL ;
+      
+      //	   printf("xxx %s: IGAL_NBR = %d, %s = %f\n", 
+      //	  fnam, IGAL_NBR, HOSTLIB_OUTVAR_EXTRA.NAME[ivar], DVAL);
     }
 
     //    printf(" xxx IGAL=%d  ivar=%d IVAR_STORE=%d DVAL=%f \n", 
     //	   IGAL, ivar, IVAR_STORE, DVAL);
-  }
+  } // end IVAR loop
 
-  //NNBR gets loaded
-  //SNHOSTGAL.NNBR
+  return ;
 
 } // end of LOAD_OUTVAR_EXTRA_HOSTLIB
 

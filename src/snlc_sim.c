@@ -20984,13 +20984,14 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Feb 12, 2014: fill SNDATA.SIM_HOSTGAL_xxx, and add IFLAG arg
   // Jun 02, 2018: load zphot info for LCLIB
   // Jan 29 2020: USE_REFACTOR -> true to get multiple hosts
-  // Sept 09 2021: Fill igal dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
+  // Sep 09 2021: 
+  //   + Fill nbr dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
 
 
-  int    NPAR, ipar, igal, OVP, ifilt, NMATCH, m ;
+  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
-  //  char fnam[] = "hostgal_to_SNDATA" ;
+  char fnam[] = "hostgal_to_SNDATA" ;
 
   // --------------- BEGIN ------------
 
@@ -21063,10 +21064,11 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     
   
     NPAR = SNDATA.NPAR_SIM_HOSTLIB ;
-    for(igal=0; igal < MXHOSTGAL; igal++){ 
-    	for(ipar=0; ipar < NPAR ; ipar++ ) {
-   	   SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal] = HOSTLIB_OUTVAR_EXTRA.VALUE[ipar][igal] ;
-  	  }
+    for(nbr=0; nbr < MXHOSTGAL; nbr++){  // loop over neighbors 
+      for(ipar=0; ipar < NPAR ; ipar++ ) {
+	SNDATA.SIM_HOSTLIB_PARVAL[ipar][nbr] = 
+	  HOSTLIB_OUTVAR_EXTRA.VALUE[ipar][nbr] ;
+      }
     }
     SNDATA.SIM_HOSTLIB_GALID = SNHOSTGAL.GALID; // store true GALID, Feb 2020
 

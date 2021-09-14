@@ -10867,21 +10867,19 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       NperCell = CELL_BIASCOR->NperCell[J1D];
       i1d      = i1d_list[ievt];     
 
-      /* xxx mark xxx
-      if ( NperCell < NperCell_min         )  { continue ; }
+
       if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
-      xxxxxx */
-      if ( i1d < 0 )                    { continue ; }
-      if ( !CELL_MUCOVSCALE->USE[i1d] ) { continue; }
+      if ( i1d < 0 )                          { continue ; }
+      if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
 
       RMS = sqrt ( SQMURMS[i1d] );
       sprintf(line,"SN: "
-	      "%8s %d %d "     // name bin Ncell
+	      "%8s %d %d "         // name bin Ncell
 	      "%.3f %.3f %.3f "    // zMEAN cMEAN mMEAN
 	      "%.3f %.3f "         // MUCOVSCALE_RMS MUCOVSCALE_MAD
 	      "%.3f %.3f "         // RMS_MUDIF  MUDIF
 	      "%.3f %.3f "         // MUERR MUERR_RAW
-      	      ,name, i1d, NperCell
+      	      ,name, i1d, CELL_MUCOVSCALE->NperCell[i1d]
 	      ,CELL_MUCOVSCALE->AVG_z[i1d]
 	      ,CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d]
               ,CELL_MUCOVSCALE->AVG_m[i1d]

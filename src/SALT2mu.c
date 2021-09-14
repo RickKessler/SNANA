@@ -10427,10 +10427,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Jun 29 2021: fix bug setting im index for logmass.
   // Sep 14 2021: little cleanup/refac 
 
-  //  int ID = IDSAMPLE;
+
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-  // xxx mark delete bool USE_MAD_MUCOVSCALE = INPUTS.REFAC_MAD_MUCOVSCALE;
   bool DO_MAD      = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
   int debug_malloc = INPUTS.debug_malloc ;
 
@@ -10451,6 +10450,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double *SIG_PULL_MAD; //1.48*MedianAbsDev
   double *SIG_PULL_RMS;
   char   *name ;
+
+  int NperCell_min = 5;
 
   // Declare lists for debug_mucovscale
   int *i1d_list;
@@ -10718,7 +10719,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     N  = CELL_MUCOVSCALE->NperCell[i1d] ;
     XN = (double)N ;
 
-    if ( N < 5 ) {       
+    if ( N < NperCell_min ) {       
       CELL_MUCOVSCALE->USE[i1d]             = false;
 
       if ( INPUTS.restore_mucovscale_bug ) { 
@@ -10850,7 +10851,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     printf("DEBUG: Create diagnostic file %s\n", outfile);
     FILE *fp = fopen(outfile,"wt");
 
-    fprintf(fp,"VARNAMES: CID BIN "
+    fprintf(fp,"VARNAMES: CID BIN Ncell "
 	    "zMEAN cMEAN mMEAN "
 	    "MUCOVSCALE_RMS MUCOVSCALE_MAD "
 	    "RMS_MUDIF MUDIF "
@@ -10866,17 +10867,21 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       NperCell = CELL_BIASCOR->NperCell[J1D];
       i1d      = i1d_list[ievt];     
 
+      /* xxx mark xxx
+      if ( NperCell < NperCell_min         )  { continue ; }
       if ( NperCell < BIASCOR_MIN_PER_CELL )  { continue ; }
-      if ( i1d < 0 )                          { continue ; }
+      xxxxxx */
+      if ( i1d < 0 )                    { continue ; }
+      if ( !CELL_MUCOVSCALE->USE[i1d] ) { continue; }
 
       RMS = sqrt ( SQMURMS[i1d] );
       sprintf(line,"SN: "
-	      "%8s %d "     // name bin
+	      "%8s %d %d "     // name bin Ncell
 	      "%.3f %.3f %.3f "    // zMEAN cMEAN mMEAN
 	      "%.3f %.3f "         // MUCOVSCALE_RMS MUCOVSCALE_MAD
 	      "%.3f %.3f "         // RMS_MUDIF  MUDIF
 	      "%.3f %.3f "         // MUERR MUERR_RAW
-      	      ,name, i1d
+      	      ,name, i1d, NperCell
 	      ,CELL_MUCOVSCALE->AVG_z[i1d]
 	      ,CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d]
               ,CELL_MUCOVSCALE->AVG_m[i1d]

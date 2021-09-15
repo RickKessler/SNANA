@@ -10428,10 +10428,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Sep 14 2021: little cleanup/refac 
 
 
-  int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
-  int NBIASCOR_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-  bool DO_MAD      = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
-  int debug_malloc = INPUTS.debug_malloc ;
+  int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
+  int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+  bool DO_MAD          = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
+  int debug_malloc     = INPUTS.debug_malloc ;
+  int debug_mucovscale = INPUTS.debug_mucovscale ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
@@ -10478,7 +10479,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if ( INPUTS.debug_mucovscale ) {
+  if ( debug_mucovscale ) {
     int memd   = sizeof(double) * NBIASCOR_ALL;
     int memi   = sizeof(int   ) * NBIASCOR_ALL;
     i1d_list       = (int   *) malloc(memi);
@@ -10563,7 +10564,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    if (INPUTS.debug_mucovscale) {  i1d_list[ievt] = -9;  }
+    if ( debug_mucovscale) {  i1d_list[ievt] = -9;  }
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
@@ -10623,10 +10624,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     //  DUMPFLAG = 0 ; // xxx REMOVE
 
     // skip if bias cannot be computed, just like for data
-    if ( istat_bias < 0 ) { continue ; }
+    if ( istat_bias <= 0 ) { continue ; }
 
     get_INTERPWGT_abg(a,b,gDM, DUMPFLAG, &INTERPWGT, fnam );
-    get_muBias(name, &BIASCORLIST, FITPARBIAS, MUCOVSCALE, MUCOVADD, &INTERPWGT,
+    get_muBias(name, &BIASCORLIST, FITPARBIAS,MUCOVSCALE,MUCOVADD, &INTERPWGT,
 	       fitParBias, &muBias, &muBiasErr, &muCOVscale, &muCOVadd );  
 
     // ----------------------------
@@ -10657,7 +10658,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // get 1d index
     i1d = CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
-    if ( INPUTS.debug_mucovscale ) {
+    if ( debug_mucovscale ) {
       i1d_list[ievt]   = i1d;
       muDif_list[ievt] = muDif;
       muErr_list[ievt] = muErr;
@@ -10844,7 +10845,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   // - - - - - - - - - - - - - - - - - - - 
 
-  if ( INPUTS.debug_mucovscale ) {
+  if ( debug_mucovscale ) {
     char outfile[200], line[200], *name; 
 
     sprintf(outfile,"%s_IDSAMPLE%d_mucovscale.dat", INPUTS.PREFIX, IDSAMPLE); 
@@ -10891,6 +10892,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     }  // end isp loop over sparse events
 
     fclose(fp);
+    free(i1d_list); free(muErr_list); free(muErr_raw_list); free(muDif_list);
   }  // end debug_mucovscale
 
   // - - - - - 
@@ -10969,7 +10971,7 @@ double muresid_biasCor(int ievt ) {
   double z, a, b, M0, mB, x1, c, logmass, dmHost, hostPar[10];
   double zTrue, muFit, muTrue, muz, muDif ;
   double dlz, dlzTrue, dmu  ;
-  //  char fnam[] = "muresid_biasCor" ;
+  char fnam[] = "muresid_biasCor" ;
 
   // ----------------- BEGIN ----------------
 
@@ -12533,7 +12535,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
   // Sep 14 2021: check istat for get_muCOVcor
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
 
   BIASCORLIST_DEF BIASCORLIST ;
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM;
@@ -13281,22 +13283,17 @@ int get_muCOVcorr(char *cid,
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
        
-
 	if ( iz==IZ && ic==IC && im==IM ) { USEBIN_CENTER = true; }
 
 	// get distance between current data value and bin-center  
 	dif = z - CELL_MUCOVSCALE->AVG_z[j1d];
 	Dz  = fabs(dif/BINSIZE_z) ;
 
-	dif = m - CELL_MUCOVSCALE->AVG_m[j1d];
-	//Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021
-	
-	if ( INPUTS.interp_biascor_logmass ) {
-	  Dm  = fabs(dif/BINSIZE_m) ; // Jun 2021 
-	}
-	else {
-	  Dm  = 0.0 ; // Jun 2021
-	}
+	dif = m - CELL_MUCOVSCALE->AVG_m[j1d];	
+	if ( INPUTS.interp_biascor_logmass ) 
+	  { Dm  = fabs(dif/BINSIZE_m) ;  }
+	else 
+	  { Dm  = 0.0 ; } // Jun 2021	
 	
 	dif = c - CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][j1d];
 	Dc  = fabs(dif/BINSIZE_c);

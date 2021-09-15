@@ -955,7 +955,8 @@ void set_user_defaults(void) {
 
   GENLC.IFLAG_GENSOURCE = 0;
 
-  sprintf(INPUTS.SIMLIB_FILE,      "BLANK" );
+  sprintf(INPUTS.SIMLIB_FILE,      "NONE" );
+  sprintf(INPUTS.SIMLIB_SURVEY,    "NONE" );
   sprintf(INPUTS.SIMLIB_FIELDLIST, "ALL" );
   INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; //-->count skipped fields in NGENTOT
 
@@ -2909,6 +2910,12 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FILE );
   }
+
+  else if ( keyMatchSim(1, "SIMLIB_SURVEY",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_SURVEY );
+  }
+
   else if ( keyMatchSim(1, "SIMLIB_FIELDLIST",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], 200 );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FIELDLIST );
@@ -14408,6 +14415,13 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
     if ( strcmp(c_get,"SURVEY:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
+
+      // 9.15.2021: check optoin to override survey name,
+      // E.g., lowz and hiz from LSST can be split into LOWZ and LSST.
+      char *S = INPUTS.SIMLIB_SURVEY ;
+      if ( !IGNOREFILE(S) ) 
+	{ sprintf(SIMLIB_GLOBAL_HEADER.SURVEY_NAME,"%s", S); }
+      
     }
     else if ( strcmp(c_get,"SUBSURVEY_LIST:")==0  ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME );
@@ -14516,6 +14530,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL ;
+  char *SURVEY, *SUBSURVEY ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
 
   // -------------- BEGIN ------------
@@ -14523,8 +14538,8 @@ void SIMLIB_prepGlobalHeader(void) {
   print_banner(fnam);
 
 
-  char *SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
-  char *SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
+  SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
+  SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
   
   sprintf(GENLC.SURVEY_NAME,    "%s", SURVEY);
   sprintf(GENLC.SUBSURVEY_NAME, "%s", SUBSURVEY);

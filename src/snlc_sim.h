@@ -408,9 +408,10 @@ struct INPUTS {
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
-  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
+  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
   int  SIMLIB_GZIPFLAG ;            // gzip flag (needed to rewind)
 
+  char SIMLIB_SURVEY[40];     // override name of SURVEY in simlib file
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
   //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //

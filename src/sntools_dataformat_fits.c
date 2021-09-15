@@ -272,6 +272,10 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS_ERR", itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR" ,       itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR_ERR",    itype ); 
+  wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
+  wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_SQRADIUS",    itype );
+
 
 
   // add HOSTGAL mags 
@@ -310,6 +314,9 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR_ERR",    itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
+    wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
 
     // add HOSTGAL mags 
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -1431,6 +1438,20 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_sSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_ELLIPTICITY", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_ELLIPTICITY[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_OBJID2", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID2[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_SQRADIUS", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_SQRADIUS[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // HOSTGAL MAGS
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {

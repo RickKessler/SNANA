@@ -966,6 +966,8 @@ with append_varname_missing,
 
  Sep 14 2021:
    + fix subtle bug by rejecting cells where MUCOVSCALE is not defined.
+   + CUTWIN varname matching previous varname replaces it, enabling
+     looser cuts on command line.
 
  ******************************************************/
 
@@ -1986,7 +1988,7 @@ void parse_FIELDLIST(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
-
+void copy_CUTWIN(int icut0,int icut1);
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item, int wrflag);
@@ -17197,6 +17199,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
     } // end i= loop over CUTWIN(option) item
 
+
     if ( i == 1 ) { 
       nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME[ICUT] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
@@ -17214,6 +17217,19 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
   } // end i loop
 
+
+  // - - - - -
+  // 9.15.2021: allow command line override of CUTWIN with looser
+  //   cut by repacing previous CUTWIN with same variable name.
+  int icut;
+  char *name, *NAME = INPUTS.CUTWIN_NAME[ICUT];
+  for(icut=0; icut < ICUT; icut++ ) {
+    name = INPUTS.CUTWIN_NAME[icut] ;
+    if ( strcmp(NAME,name) == 0 ) {
+      copy_CUTWIN(ICUT,icut);
+      INPUTS.NCUTWIN-- ;
+    }
+  }
 
   // - - - - - -
   char cMUERR[20] = "" ;
@@ -17234,6 +17250,29 @@ void parse_CUTWIN(char *line_CUTWIN) {
   return ;
 } // end of parse_CUTWIN
 
+// **************************************************
+void copy_CUTWIN(int icut0,int icut1) {
+
+  // Created Sep 15 2021
+  // Copy CUTWIN contents from icut0 to icut1.
+  // Used to enable command line CUTWIN overrides with relaxed cut
+  // compared to CUTWIN in the input file.
+
+  char fnam[] = "copy_CUTWIN" ;
+
+  // ---------- BEGIN ---------
+
+  sprintf(INPUTS.CUTWIN_NAME[icut1], "%s", INPUTS.CUTWIN_NAME[icut0] );
+  INPUTS.CUTWIN_RANGE[icut1][0] = INPUTS.CUTWIN_RANGE[icut0][0];
+  INPUTS.CUTWIN_RANGE[icut1][1] = INPUTS.CUTWIN_RANGE[icut0][1];
+
+  INPUTS.LCUTWIN_ABORTFLAG[icut1]   = INPUTS.LCUTWIN_ABORTFLAG[icut0] ;
+  INPUTS.LCUTWIN_DATAONLY[icut1]    = INPUTS.LCUTWIN_DATAONLY[icut1] ;
+  INPUTS.LCUTWIN_BIASCORONLY[icut1] = INPUTS.LCUTWIN_BIASCORONLY[icut1] ;
+  INPUTS.LCUTWIN_FITWGT0[icut1]     = INPUTS.LCUTWIN_FITWGT0[icut1] ;
+
+  return;
+} // end copy_CUTWIN
 
 // **************************************************
 int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {

@@ -112,6 +112,9 @@
  Aug 11 2021: for SIMLIB model, if HOSTLIB doesn't match that used to
               generate fakes, fix to work.
 
+ Sep 16 2021: abort on duplicate columns in HOSTLIB; e.g., 
+              ZERR and ZPHOTERR are both mapped to ZPHOT_ERR -> abort.
+
 =========================================================== */
 
 #include <stdio.h>
@@ -1935,9 +1938,10 @@ void read_head_HOSTLIB(FILE *fp) {
 
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR, USE, IS_SNPAR, VBOSE ;
+  int ivar2, NDUPL;
   bool FOUND_VARNAMES, FOUND_VPECERR;
   int NCHAR;
-  char  key[40], c_get[40], c_var[40], ctmp[80], wd[20], *cptr ;
+  char  key[40], c_get[40], c_var[40], ctmp[80], wd[20], *cptr, *cptr2 ;
   char  LINE[MXCHAR_LINE_HOSTLIB];
   char  fnam[] = "read_head_HOSTLIB" ;
 
@@ -1990,6 +1994,8 @@ void read_head_HOSTLIB(FILE *fp) {
       // parse the VARNAMES from LINE string
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	get_PARSE_WORD(0,ivar,c_var);
+	sprintf( HOSTLIB.VARNAME_ORIG[ivar], "%s", c_var); // 9.16.2021
+
 	checkAlternateVarNames_HOSTLIB(c_var);
 
 	// if coeff_template[nn], make sure it's actually needed
@@ -1997,6 +2003,20 @@ void read_head_HOSTLIB(FILE *fp) {
 
 	// load ALL array
 	sprintf( HOSTLIB.VARNAME_ALL[ivar], "%s", c_var);
+
+	// check for duplicate columns (9.16.2021)  
+	// E.g., ZERR and ZPHOTERR are both converted to ZPHOT_ERR.
+	for(ivar2=0; ivar2 < ivar; ivar2++ ) {
+	  cptr2 = HOSTLIB.VARNAME_ALL[ivar2];
+	  if ( strcmp(c_var,cptr2) == 0 ) {
+	    sprintf(c1err,"Found two '%s' columns at ivar=%d and %d", 
+		    c_var, ivar2, ivar );
+	    sprintf(c2err,"Original column names are %s and %s",
+		    HOSTLIB.VARNAME_ORIG[ivar2],
+		    HOSTLIB.VARNAME_ORIG[ivar] );
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	  }
+	}
 
 	// check for optional variables to add to the store list
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
@@ -5007,7 +5027,10 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // determine DLR and ordered list
   for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
     { GEN_SNHOST_DDLR(ilist); }
-  
+
+  // 9.2021: generate ZPHOT before sorting by DDLR
+  // xxx  GEN_SNHOST_ZPHOT(IGAL);
+
   // sort by DDLR
   SORT_SNHOST_byDDLR();
 
@@ -5858,7 +5881,7 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
 
   int IVAR_ZPHOT, IVAR_ZPHOT_ERR ;
   double ZDIF, ZTRUE, zphot_local, zerr_local ;
-  //  char fnam[] = "GEN_SNHOST_ZPHOT_from_HOSTLIB" ;
+  char fnam[] = "GEN_SNHOST_ZPHOT_from_HOSTLIB" ;
 
   // ----------- BEGIN -----------
 
@@ -5874,9 +5897,13 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
     ZDIF = ZGEN - ZTRUE ; 
   }
 
+  //  zphot_local = ??
+  //  zerr_local  = ?? .xyz
+  /* xxxx mark delete Sep 16 2021 xxxxx
   zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
   zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
-  
+  xxxxxx */
+
   if ( zphot_local < 0.0 || zerr_local < 0.0 ) 
     { zphot_local = zerr_local = -9.0; }
   
@@ -6738,7 +6765,12 @@ void SORT_SNHOST_byDDLR(void) {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
     }
 
-
+    /* xxx
+    printf(" xxx %s: i=%d  IVAR_ZPHOT=%d  ZPHOT=%.2f +_ %.2f \n",
+	   fnam, IVAR_ZPHOT, 
+	   SNHOSTGAL_DDLR_SORT[i].ZPHOT,
+	   SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR
+    */
 
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = -9.0;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.0;

@@ -363,8 +363,8 @@ double acmb ;
   //  double sigma_Rcmb = .021;  // used in Kowalski ??
   // double Rcmb_best = 1.715 ;  // idem
 
-double sigma_Rcmb = 0.019;   // from Komatsu
-double Rcmb_best  = 1.710 ;  // 
+double sigma_Rcmb = 0.019;   // from Komatsu 2008, Eq 69 and Table 10
+double Rcmb_best  = 1.710 ;  //  idem
 
 double TWOTHIRD = 2./3. ;
 double TWO = 2. ;

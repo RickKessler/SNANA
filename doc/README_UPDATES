@@ -20324,6 +20324,12 @@
 
          ***** USEFUL(v11_03e) ***** 
 
+   + add makeDataFiles/
+   + for SALT2mu, CUTWIN on command line properly overrides, allowing
+      relaxed cut w.r.t. CUTIN in the input file.
+   + new SIMLIB_SURVEY key to fake a different sample (e.g., LOWZ)
+     with the same survey-sim.
+
          ***** MISCELLANEOUS(v11_03e) ***** 
 
    snlc_sim.c
@@ -20333,19 +20339,28 @@
      + prep_user_input; set HOSTLIB_MSKOPT=0 if HOSTLIB_FILE is NONE;
        fixes command line override to remove HOSTLIB by setting 
        file name to NONE
+     + new input key SIMLIB_SURVEY to override SURVEY in simlib file.
+       If LOWZ and high are from same survey, can split into LOWZ and
+       survey name.
 
    sntools_host, snlc_sim:
-     + for HOSTLIB_STOREPAR, write values for true host and 1 neighbor.
-       So far, works only for TEXT format ... need to figure out how
-       to implement for FITS format.
-
+     + add few more HOSTLIB variables to output HOSTGAL (for ELASTICC):
+       OBJID2, SQRADIUS, ELLIPTICITY.
+   
    SALT2mu.c:
      + remove debug_flag=99 and integrate feature into code.
        Note that MASK_BIASCOR_MAD=2048 is automatically set
        if MASK_BIASCOR_MUCOVADD=4096 is set.
-     + fix subtle bug by rejecting cells where MUCOVSCALE is not
-       defined. Fix could result in fewer cells to interpolate,
-       and possibly more rejected events.
+
+     + fix subtle bug by rejecting cells where MUCOVSCALE is not valid
+       because NperCell < 5. Not clear what info was stored in these 
+       cells that were not processed. The bug-fix could result in fewer 
+       cells to interpolate, and possibly more rejected events. Regression 
+       test on SALT2mu jobs show two small changes: 
+         delta-beta/beta = 3E-5,  and delta-gamma/gamma = 3E-5
+
+     + fix CUTWIN parsing to properly override from command line;
+       allows looser CUTWIN on command line to override input file.
 
    snana.car
      + always write SIM_gammaDM; previously it required SIM_gammaDM!=0,

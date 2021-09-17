@@ -166,7 +166,8 @@ struct HOSTLIB_DEF {
 
   char VARNAME_REQUIRED[MXVAR_HOSTLIB][40];
   char VARNAME_OPTIONAL[MXVAR_HOSTLIB][40];
-  char VARNAME_ALL[MXVAR_HOSTLIB][40];
+  char VARNAME_ALL[MXVAR_HOSTLIB][40];  // all names
+  char VARNAME_ORIG[MXVAR_HOSTLIB][40]; // all original names
   char VARNAME_STORE[MXVAR_HOSTLIB][40];  
   
   int  IVAR_ALL[MXVAR_HOSTLIB];  // [sparse store index] = ALL-ivar

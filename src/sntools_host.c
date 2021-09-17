@@ -1935,6 +1935,7 @@ void read_head_HOSTLIB(FILE *fp) {
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
+  bool CHECK_DUPLICATE_COLUMNS = false; // set True after GHOSTLIBS are fixed
 
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR, USE, IS_SNPAR, VBOSE ;
@@ -2006,17 +2007,19 @@ void read_head_HOSTLIB(FILE *fp) {
 
 	// check for duplicate columns (9.16.2021)  
 	// E.g., ZERR and ZPHOTERR are both converted to ZPHOT_ERR.
-	for(ivar2=0; ivar2 < ivar; ivar2++ ) {
-	  cptr2 = HOSTLIB.VARNAME_ALL[ivar2];
-	  if ( strcmp(c_var,cptr2) == 0 ) {
-	    sprintf(c1err,"Found two '%s' columns at ivar=%d and %d", 
-		    c_var, ivar2, ivar );
-	    sprintf(c2err,"Original column names are %s and %s",
-		    HOSTLIB.VARNAME_ORIG[ivar2],
-		    HOSTLIB.VARNAME_ORIG[ivar] );
-	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	if ( CHECK_DUPLICATE_COLUMNS ) {
+	  for(ivar2=0; ivar2 < ivar; ivar2++ ) {
+	    cptr2 = HOSTLIB.VARNAME_ALL[ivar2];
+	    if ( strcmp(c_var,cptr2) == 0 ) {
+	      sprintf(c1err,"Found two '%s' columns at ivar=%d and %d", 
+		      c_var, ivar2, ivar );
+	      sprintf(c2err,"Original column names are %s and %s",
+		      HOSTLIB.VARNAME_ORIG[ivar2],
+		      HOSTLIB.VARNAME_ORIG[ivar] );
+	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	    }
 	  }
-	}
+	} // end CHECK_DUPLICATE_COLUMNS
 
 	// check for optional variables to add to the store list
 	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {

@@ -20367,6 +20367,9 @@
      + yaml output includes stats by IDSAMPLE for each
         event_type = DATA, BIASCOR, CCPRIOR
 
+   submit_batch_jobs:
+     + print NEVT_bySAMPLE to BBC_SUMMARY_FITPAR.YAML
+
    snana.car
      + always write SIM_gammaDM; previously it required SIM_gammaDM!=0,
        but can fail if sim has gDM = 0 and nonZero values.

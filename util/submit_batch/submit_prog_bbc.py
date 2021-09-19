@@ -45,6 +45,7 @@
 # Aug 09 2021: 
 #     use def get_wfit_values() to handel legacy vs. refact yaml keys.
 #     Beware that new w0,wa model in wfit is NOT handled here [yet]
+# Sep 19 2021: write NEVT_bySAMPLE in BBC_SUMMARY_FITPAR.YAML
 #
 # - - - - - - - - - -
 
@@ -1574,102 +1575,14 @@ class BBC(Program):
         f.write("\n")
         f.write("MUOPT_OUT_LIST:  " \
                 "# 'MUOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(muopt_num_list,muopt_arg_list,
+        for num,arg,label in zip(muopt_num_list, muopt_arg_list,
                                  muopt_label_list):
+            if arg == '' : arg = None  # 9.19.2021
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
 
         # end append_info_file
-
-    def append_fitopt_info_file(self,f):
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        #
-        # write list of output FITOPTS to filt pointer f, and include
-        #   FIOPTmmm  SURVEY  LABEL ARG
-        #
-        # where
-        #   SURVEY = GLOBAL if every INPDIR has valid arg
-        #   SURVEY = <survey> if only one INPDIR has valid arg
-        #   LABEL  = user label back in LC fit stage
-        #   ARG    = FITOPT argList used in LC fit
-        #
-        # The logic & code here is nasty because we have input FITOPTs
-        # in the LC fit stage, and output FITOPTs from FITOPT_MAP.
-
-        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #iver,ifit
-        fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
-        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
-        inpdir_list     = self.config_prep['inpdir_list']
-        n_inpdir        = self.config_prep['n_inpdir']
-        survey_list     = self.config_prep['survey_list']
-        dump_flag = False  # local dump flag
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-        f.write("\n")
-        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
-                f"'user_label'   'user_args'\n")
-
-        if not USE_INPDIR : 
-            item_list = [ 'GLOBAL', 'FITOPT000', None, None ]
-            f.write(f"  - {item_list}\n")
-            return
-
-        ifit_out = 0
-        for fitopt_num_out in fitopt_num_list:            
-
-            if dump_flag :
-                print(" xxx ---------------------------------------- ")
-            # check if this FITOPT is global, or specific to one survey
-            fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
-            survey_store = 'ERROR' ;  label_store = None; arg_store = None 
-            for idir in range(0,n_inpdir):          
-                survey         = survey_list[idir]   
-                fitopt_num_inp = fitopt_num_inplist[idir]
-                ifit_inp       = int(fitopt_num_inp[6:])
-                row    = fitopt_table_list2d[idir][ifit_inp]
-                num    = row[COLNUM_FITOPT_NUM]  # e.g., FITOPT003
-                label  = row[COLNUM_FITOPT_LABEL]
-                arg    = row[COLNUM_FITOPT_ARG]
-                if arg == '' : # only for FITOPT000
-                    n_arg_none  += 1
-                elif arg == 'FITOPT000' : # sym link back to FITOPT000
-                    n_arg_FITOPT000 += 1  
-                else :                    # genuine LC fit arg list
-                    survey_store = survey
-                    arg_store    = arg
-                    label_store  = label
-                    n_arg_define += 1
-
-                if dump_flag :
-                    print(f" xxx {fitopt_num_out}: idir={idir} num={num} " \
-                          f"label={label} arg='{arg}'")
-
-            # - - - - - - - - - - - - - - - - - - - - - 
-            # if all args are valid, set survey_store to GLOBAL
-            if n_arg_define == n_inpdir or ifit_out == 0 :
-                survey_store = 'GLOBAL'
-
-            ifit_out += 1
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            # construct and write yaml-compliant info list
-            item_list = []
-            item_list.append(fitopt_num_out)
-            item_list.append(survey_store)
-            item_list.append(label_store)
-            item_list.append(arg_store)
-            f.write(f"  - {item_list}\n")
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        # end append_fitopt_info_file
 
     def create_merge_table(self,f):
 
@@ -2198,11 +2111,45 @@ class BBC(Program):
             if len(MUOPT_LIST) > 0 :
                 f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-            f.write(f"    NEVT(DATA,BIASCOR,CCPRIOR):  " \
-                    f" {NEVT_DATA} {NEVT_BIASCOR} {NEVT_CCPRIOR} \n")
-            f.write(f"    REJECT_FRAC_BIASCOR:  {frac_reject:.3f} " \
-                    f" # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+            f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+                    f"        # DATA, BIASCOR, CCPRIOR\n")
 
+            # - - - - - - - - -
+            # check for NEVT by sample (9.19.2021)
+            if 'SAMPLE_LIST' in bbc_yaml :
+                # split string by commas and remove white space
+                tmp         = bbc_yaml['SAMPLE_LIST']
+                SAMPLE_LIST = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_DATA_bySAMPLE']
+                NEVT_DATA_bySAMPLE    = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_BIASCOR_bySAMPLE']
+                NEVT_BIASCOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
+                NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                #print(f" xxx ---------------------------- ")
+                #print(f" xxx {fitopt_num}_{muopt_num}")
+                #print(f" xxx SAMPLE_LIST = {SAMPLE_LIST} ")
+                #print(f" xxx NEVT_DATA_bySAMPLE = {NEVT_DATA_bySAMPLE}")
+                
+                f.write(f"    NEVT_bySAMPLE:"
+                        f"                # DATA, BIASCOR, CCPRIOR\n")
+                for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+                                                  NEVT_DATA_bySAMPLE,
+                                                  NEVT_BIASCOR_bySAMPLE,
+                                                  NEVT_CCPRIOR_bySAMPLE) :
+                    key = f"{sample}:"
+                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+
+            # - - - - -
+            f.write(f"    REJECT_FRAC_BIASCOR:" 
+                    f"  # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+
+
+            # - - - - 
             for result in BBCFIT_RESULTS:
                 #print(f" xxx result = {result}  key = {result.keys()} ")
                 for key in result:

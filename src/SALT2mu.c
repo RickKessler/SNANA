@@ -18920,7 +18920,7 @@ void write_yaml_info(char *fileName) {
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 
   FILE *fp;
-  int  NSN_PASS, evtype, idsample ;
+  int  NSN_PASS, NSN_PASS_LIST[10], evtype, idsample ;
   bool USE; 
   char KEY[60], ctmp[100], *str ;
   char fnam[] = "write_yaml_info" ;
@@ -18942,6 +18942,7 @@ void write_yaml_info(char *fileName) {
     else
       { NSN_PASS = 0 ; }
     str       =   STRING_EVENT_TYPE[evtype] ;
+    NSN_PASS_LIST[evtype] = NSN_PASS; // used below for 'ALL' bySAMPLE
     sprintf(KEY,"NEVT_%s:", str);
     fprintf(fp,"%-22.22s %d \n", KEY, NSN_PASS );
   }
@@ -18964,12 +18965,20 @@ void write_yaml_info(char *fileName) {
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ )
       { STR_NEVT_LIST[evtype][0] = 0 ; }
 
-    for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
-      sprintf(ctmp," %s", SAMPLE_BIASCOR[idsample].NAME);
+    // idsample = -1 is for 'ALL'
+    for(idsample=-1; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+
+      if ( idsample < 0 ) 
+	{ sprintf(ctmp,"ALL"); }
+      else
+	{ sprintf(ctmp," %s", SAMPLE_BIASCOR[idsample].NAME); }
       catVarList_with_comma(STR_SAMPLE_LIST, ctmp);
 
       for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
-	NSN_PASS = NPASS_CUTMASK_BYSAMPLE[evtype][idsample] ;
+	if(idsample < 0 ) 
+	  { NSN_PASS = NSN_PASS_LIST[evtype]; } // ALL samples combined
+	else
+	  { NSN_PASS = NPASS_CUTMASK_BYSAMPLE[evtype][idsample] ; }
 	sprintf(ctmp," %d", NSN_PASS);
 	catVarList_with_comma(STR_NEVT_LIST[evtype], ctmp);	
       }      

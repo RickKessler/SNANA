@@ -20346,7 +20346,9 @@
    sntools_host, snlc_sim:
      + add few more HOSTLIB variables to output HOSTGAL (for ELASTICC):
        OBJID2, SQRADIUS, ELLIPTICITY.
-   
+     + abort on duplicate HOSTLIB colmuns ... but disable with local
+       logical until GHOSTLIBs are fixed on Cori.
+
    SALT2mu.c:
      + remove debug_flag=99 and integrate feature into code.
        Note that MASK_BIASCOR_MAD=2048 is automatically set
@@ -20362,10 +20364,15 @@
      + fix CUTWIN parsing to properly override from command line;
        allows looser CUTWIN on command line to override input file.
 
+     + yaml output includes stats by IDSAMPLE for each
+        event_type = DATA, BIASCOR, CCPRIOR
+
    snana.car
      + always write SIM_gammaDM; previously it required SIM_gammaDM!=0,
        but can fail if sim has gDM = 0 and nonZero values.
      + fixes for SNCID_IGNORE_FILE: works with/without DOCANA,
        ignores comments after hash, prints 1st/last CID.
+
+To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 END: 

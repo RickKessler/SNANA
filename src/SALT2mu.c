@@ -1186,10 +1186,12 @@ int  NSTORE_CUTBIT[MXEVENT_TYPE][MXCUTBIT] ;
 int  CUTMASK_LIST[MXCUTBIT];          // ERRMASK for each bit
 char CUTSTRING_LIST[MXCUTBIT][40];    // text definition per cut
 int  *CUTMASK_POINTER[MXEVENT_TYPE];
+short int  *IDSAMPLE_POINTER[MXEVENT_TYPE];
 int  *NALL_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NPASS_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NREJECT_CUTMASK_POINTER[MXEVENT_TYPE];
 int  NDATA_BIASCORCUT[2][MXNUM_SAMPLE]; // track biascor reject for data
+int  NPASS_CUTMASK_BYSAMPLE[MXEVENT_TYPE][MXNUM_SAMPLE]; // 9.18.2021
 
 int MAXSN ;
 int NJOB_SPLITRAN; // number of random split-jobs
@@ -5848,6 +5850,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     sprintf(COMMENT_MEM[N_MEM], "TABLEVAR");	  N_MEM++;
 
     CUTMASK_POINTER[EVENT_TYPE]         = &INFO_DATA.TABLEVAR.CUTMASK[0];
+    IDSAMPLE_POINTER[EVENT_TYPE]        = &INFO_DATA.TABLEVAR.IDSAMPLE[0];
     NALL_CUTMASK_POINTER[EVENT_TYPE]    = &INFO_DATA.TABLEVAR.NSN_ALL;
     NPASS_CUTMASK_POINTER[EVENT_TYPE]   = &INFO_DATA.TABLEVAR.NSN_PASSCUTS;
     NREJECT_CUTMASK_POINTER[EVENT_TYPE] = &INFO_DATA.TABLEVAR.NSN_REJECT;
@@ -6364,6 +6367,7 @@ void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
 
     // set pointers to track event stats vs. EVENT_TYPE
     CUTMASK_POINTER[EVENT_TYPE]         = &INFO_BIASCOR.TABLEVAR.CUTMASK[0];
+    IDSAMPLE_POINTER[EVENT_TYPE]        = &INFO_BIASCOR.TABLEVAR.IDSAMPLE[0];
     NALL_CUTMASK_POINTER[EVENT_TYPE]    = &INFO_BIASCOR.TABLEVAR.NSN_ALL;
     NPASS_CUTMASK_POINTER[EVENT_TYPE]   = &INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS;
     NREJECT_CUTMASK_POINTER[EVENT_TYPE] = &INFO_BIASCOR.TABLEVAR.NSN_REJECT ;
@@ -14078,6 +14082,7 @@ void  read_simFile_CCprior(void) {
   malloc_INFO_CCPRIOR(+1, LEN_MALLOC, 0);
 
   CUTMASK_POINTER[EVENT_TYPE]       = &INFO_CCPRIOR.TABLEVAR.CUTMASK[0];
+  IDSAMPLE_POINTER[EVENT_TYPE]      = &INFO_CCPRIOR.TABLEVAR.IDSAMPLE[0];
   NALL_CUTMASK_POINTER[EVENT_TYPE]  = &INFO_CCPRIOR.TABLEVAR.NSN_ALL;
   NPASS_CUTMASK_POINTER[EVENT_TYPE] = &INFO_CCPRIOR.TABLEVAR.NSN_PASSCUTS ;
   NREJECT_CUTMASK_POINTER[EVENT_TYPE] = &INFO_CCPRIOR.TABLEVAR.NSN_REJECT ;
@@ -15148,7 +15153,7 @@ void print_eventStats(int event_type) {
   // Created Jun 1 2019
   // for input "event_type" (DATA,BIASCOR, or CCPRIOR),
   // Print number of events: total, pass, reject.
-  // Note that NPASS is computed and stored here/
+  // Note that NPASS is computed and stored here.
   // 
   // Tricky part is counting how many events are rejected by
   // a single cut ... and to to it efficiently.
@@ -15158,25 +15163,36 @@ void print_eventStats(int event_type) {
   // Jun 08 2021: refactor to compute NSN_PASS and NSN_REJ here ...
   //              needed for SUBPROCESS iterations.
   //
+  // Sep 18 2021: increment NPASS_CUTMASK_BYSAMPLE for YAML print out later.
 
   int  NSN_TOT      = *NALL_CUTMASK_POINTER[event_type];
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
-  int  NSN_REJ=0, NSN_PASS=0, *NBIT, bit, isn, cutmask, NCUT=0 ;
+  int  NSN_REJ=0, NSN_PASS=0, *NBIT, bit, isn, cutmask, idsample, NCUT=0 ;
   int  *CUTMASK_PTR, NCUT_SOLO[MXCUTBIT];
+  short int *IDSAMPLE_PTR ;
   char fnam[] = "print_eventStats" ;
 
   // ---------- BEGIN ------------
 
-  CUTMASK_PTR  =  CUTMASK_POINTER[event_type];
-  NBIT         =  &NSTORE_CUTBIT[event_type][0];
+  CUTMASK_PTR   =  CUTMASK_POINTER[event_type];
+  IDSAMPLE_PTR  =  IDSAMPLE_POINTER[event_type];
+  NBIT          =  &NSTORE_CUTBIT[event_type][0];
+
+  for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) 
+    { NPASS_CUTMASK_BYSAMPLE[event_type][idsample] = 0; }
 
   // loop over all events and for each cutbit, count how many
   // events were cut by ONLY this one cut (i.e.. passed all other cuts)
   for(bit=0; bit < MXCUTBIT; bit++ ) { NCUT_SOLO[bit]=0; }
 
   for(isn=0; isn < NSN_TOT; isn++ ) {
-    cutmask = CUTMASK_PTR[isn];
-    if ( cutmask ==0 ) { NSN_PASS++ ; continue; }
+    cutmask  = CUTMASK_PTR[isn];
+    idsample = IDSAMPLE_PTR[isn];
+    if ( cutmask ==0 ) {       
+      NPASS_CUTMASK_BYSAMPLE[event_type][idsample]++ ;
+      NSN_PASS++ ; 
+      continue; 
+    }
     // check if one and only 1 bit is set
     if ( (cutmask & (cutmask-1) ) == 0 ) {
       for(bit=0; bit < MXCUTBIT; bit++ ) {
@@ -18891,6 +18907,7 @@ void write_yaml_info(char *fileName) {
   // Write value and error for every entry; if no error, write error=0.
   // 
   // Jun 7 2021: write subprocess iteration
+  // Sep 18 2021: write stats_bySAMPLE
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -18903,8 +18920,9 @@ void write_yaml_info(char *fileName) {
   double t_cpu = (t_end_fit-t_start)/60.0 ;
 
   FILE *fp;
-  int  NSN_PASS, event_type ;
-  char KEY[60], *str ;
+  int  NSN_PASS, evtype, idsample ;
+  bool USE; 
+  char KEY[60], ctmp[100], *str ;
   char fnam[] = "write_yaml_info" ;
 
   // -------------- BEGIN ----------------
@@ -18918,13 +18936,12 @@ void write_yaml_info(char *fileName) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  for(event_type=1; event_type < MXEVENT_TYPE; event_type++ ) {
-    bool USE = USE_EVENT_TYPE[event_type];
-    if ( USE )
-      { NSN_PASS  =  *NPASS_CUTMASK_POINTER[event_type]; }  // pass cuts
+  for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
+    if ( USE_EVENT_TYPE[evtype] )
+      { NSN_PASS  =  *NPASS_CUTMASK_POINTER[evtype]; }  // pass cuts
     else
       { NSN_PASS = 0 ; }
-    str       =   STRING_EVENT_TYPE[event_type] ;
+    str       =   STRING_EVENT_TYPE[evtype] ;
     sprintf(KEY,"NEVT_%s:", str);
     fprintf(fp,"%-22.22s %d \n", KEY, NSN_PASS );
   }
@@ -18937,6 +18954,38 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
+
+  // write NEVT_[WHAT]_bySAMPLE (e.g., LOWZ, SDSS, PS1, DES)
+  if ( NSAMPLE_BIASCOR > 0 ) {
+    fprintf(fp,"\n") ;  
+
+    char STR_SAMPLE_LIST[200], STR_NEVT_LIST[MXEVENT_TYPE][100];
+    STR_SAMPLE_LIST[0] = 0;
+    for(evtype=1; evtype < MXEVENT_TYPE; evtype++ )
+      { STR_NEVT_LIST[evtype][0] = 0 ; }
+
+    for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+      sprintf(ctmp," %s", SAMPLE_BIASCOR[idsample].NAME);
+      catVarList_with_comma(STR_SAMPLE_LIST, ctmp);
+
+      for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
+	NSN_PASS = NPASS_CUTMASK_BYSAMPLE[evtype][idsample] ;
+	sprintf(ctmp," %d", NSN_PASS);
+	catVarList_with_comma(STR_NEVT_LIST[evtype], ctmp);	
+      }      
+    }
+    //.xyz
+    sprintf(KEY,"SAMPLE_LIST:");
+    fprintf(fp,"%-22.22s %s\n", KEY, STR_SAMPLE_LIST);
+    for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
+      str       =   STRING_EVENT_TYPE[evtype] ;
+      sprintf(KEY,"NEVT_%s_bySAMPLE:", str);
+      fprintf(fp,"%-22.22s %s\n", KEY, STR_NEVT_LIST[evtype] );
+    }
+    fflush(fp);
+  } // end NSAMPLE_BIASCOR>0
+
+  
 
   if ( SUBPROCESS.ITER >= 0 ) {
     sprintf(KEY,"SUBPROCESS_ITERATION:");

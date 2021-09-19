@@ -699,10 +699,10 @@ class Program:
         # one-time init
         self.init_read_data()
 
-        NEVT_READ = 0
+        NEVT_READ  = 0
         NEVT_WRITE = 0
-        nevent_subgroup = 1
-        i_subgroup = 0
+        nevent_subgroup = 1  # anything > 0 to pass while block below
+        i_subgroup      = 0  # start with this subbroup index
         
         while nevent_subgroup > 0 :
             

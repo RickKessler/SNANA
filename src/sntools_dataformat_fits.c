@@ -3080,7 +3080,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY, "SIM_TEMPLATEMAG_%c", FILTERSTRING[ifilt_obs] );
-	j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_TEMPLATEMAG[ifilt] ,
+	j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ,
 				   &SNFITSIO_READINDX_HEAD[j] ) ; 
       }	
     } // end MODEL_LCLIB
@@ -3090,13 +3090,13 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 
       sprintf(KEY, "SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs] );
-      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_PEAKMAG[ifilt] ,
+      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_PEAKMAG[ifilt_obs] ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;	
       sprintf(KEY, "SIM_EXPOSURE_%c", FILTERSTRING[ifilt_obs] );
-      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_EXPOSURE_TIME[ifilt] ,
+      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_EXPOSURE_TIME[ifilt_obs] ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;	
       sprintf(KEY, "SIM_GALFRAC_%c", FILTERSTRING[ifilt_obs] );
-      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_GALFRAC[ifilt] ,
+      j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_GALFRAC[ifilt_obs] ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;	
     }
 

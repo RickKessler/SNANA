@@ -407,7 +407,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp, "SIM_TEMPLATEMAG: "); NTMP=0;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ) ;
+      fprintf(fp," %6.2f", SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }
@@ -2030,7 +2030,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY_TEST, "SIM_PEAKMAG_%c:", FILTERSTRING[ifilt_obs]);
 	if ( strcmp(word0,KEY_TEST) == 0 )  {
-	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_PEAKMAG[ifilt]);
+	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_PEAKMAG[ifilt_obs]);
 	}
       }
     }
@@ -2040,7 +2040,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY_TEST, "SIM_TEMPLATEMAG_%c:", FILTERSTRING[ifilt_obs]);
 	if ( strcmp(word0,KEY_TEST) == 0 )  {
-	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_TEMPLATEMAG[ifilt]);
+	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_TEMPLATEMAG[ifilt_obs]);
 	}
       }
     }    
@@ -2050,7 +2050,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY_TEST, "SIM_EXPOSURE_%c:", FILTERSTRING[ifilt_obs]);
 	if ( strcmp(word0,KEY_TEST) == 0 )  {
-	  iwd++; get_PARSE_WORD_FLT(langC,iwd,&SNDATA.SIM_EXPOSURE_TIME[ifilt]);
+	  iwd++; get_PARSE_WORD_FLT(langC,iwd,&SNDATA.SIM_EXPOSURE_TIME[ifilt_obs]);
 	}
       }
     }
@@ -2060,7 +2060,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY_TEST, "SIM_GALFRAC_%c:", FILTERSTRING[ifilt_obs]);
 	if ( strcmp(word0,KEY_TEST) == 0 )  {
-	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_GALFRAC[ifilt]);
+	  iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_GALFRAC[ifilt_obs]);
 	}
       }
     }

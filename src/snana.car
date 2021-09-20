@@ -4792,6 +4792,7 @@ c - - - -  filter dependent keys  - - - - -
 
       CALL RDHEAD_FILTERLOOP("SIM_PEAKMAG",  SIM_PEAKMAG, OPT)
       CALL RDHEAD_FILTERLOOP("SIM_EXPOSURE", SIM_EXPOSURE_TIME, OPT)
+      CALL RDHEAD_FILTERLOOP("SIM_TEMPLATEMAG", SIM_TEMPLATEMAG, OPT) ! 9.20.2021
 
       
 c - - -  model params: SIMSED, LCLIB, etc   - - - -

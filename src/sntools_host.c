@@ -5900,12 +5900,8 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
     ZDIF = ZGEN - ZTRUE ; 
   }
 
-  //  zphot_local = ??
-  //  zerr_local  = ?? .xyz
-  /* xxxx mark delete Sep 16 2021 xxxxx
   zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
   zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
-  xxxxxx */
 
   if ( zphot_local < 0.0 || zerr_local < 0.0 ) 
     { zphot_local = zerr_local = -9.0; }

@@ -20378,4 +20378,24 @@
 
 To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
+
+# ======================================================================= 
+         v11_03f (  ) 
+
+         ***** IMPORTANT(v11_03f) ***** 
+
+         ***** USEFUL(v11_03f) ***** 
+
+         ***** MISCELLANEOUS(v11_03f) ***** 
+
+    snana.car, sntoold_dataformat_fits.c
+      + fix bug reading SIM_TEMPLATEMAG
+
+    create_covariance.py:
+      + major refac to write more standard output that is
+         separate from the output for cosmomc.
+
+    Remove obsolete sntable_dump.pl
+
+
 END: 

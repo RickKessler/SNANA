@@ -4172,6 +4172,7 @@ void *MNCHI2FUN(void *thread) {
   // loop over all events from 0 to NSN_DATA-1 
   //
   // Apr 8 2021: subtract muerr_vpec from muerr_raw
+  // Sep 24 2021: abort on muerrsq < 0
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4441,6 +4442,23 @@ void *MNCHI2FUN(void *thread) {
     if ( DO_COVADD && muCOVscale > 1.0) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
+
+      if ( muerrsq < 0.0 ) {
+	double muerrsq_orig = muerrsq - muCOVadd;
+	print_preAbort_banner(fnam);
+	printf("   SNID=%s  IDSAMPLE=%d \n", name, idsample );
+	printf("   z=%.5f, mB=%.3f  x1=%.4f  c=%.4f  logmass=%.3f \n",
+	       z, mb, x1, c, logmass);
+	printf("   alpha=%.4f  beta=%.4f  gDM=%.4f\n", 
+	       alpha, beta, gammaDM);
+
+	sprintf(c1err,"Insane muerrsq = %.5f for snid=%s", 
+		muerrsq, name);
+	sprintf(c2err,"muerrsq_orig=%.5f, muCOVadd=%.5f", 
+		muerrsq_orig, muCOVadd );
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+      }
+
     } else {
       // Scale as in original BBC
       muerr_vpec    = fcn_muerrz(1, z, zmuerr); 

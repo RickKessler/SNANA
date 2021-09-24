@@ -1060,7 +1060,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE    800  // always abort if more than this many
+#define MXSTORE_DUPLICATE    800  // abort if more than this many
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
 #define STRING_FITWGT0 "FITWGT0"
@@ -3617,6 +3617,10 @@ void check_duplicate_SNID(void) {
   // 1 -> abort
   // 2 -> merge fitparams and cov into one LC
   //
+  // Sep 24 2021: malloc local UNSORT_DUPL and NDUPL_LIST
+  //              Introduce 2nd dimension MXSET_DUPLICATE
+
+#define MXSET_DUPLICATE 10 // abort if more than this many per dupl set
 
   int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
@@ -3661,14 +3665,23 @@ void check_duplicate_SNID(void) {
   int   NTMP, idup ;
   double z, z2 ;
   char *snid, *snid2 ;
-  int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
-  int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
+  int  **UNSORT_DUPL;
+  int  *NDUPL_LIST; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
   int  NDUPL_TOT ; // includes those beyone storage capacity
   int  NDUPL_SN  ; // total number of SN controbuting to duplicates
 
+  MEMI = MXSTORE_DUPLICATE * sizeof(int);
+  NDUPL_LIST  = (int*)  malloc(MEMI);
+  UNSORT_DUPL = (int**) malloc( MXSTORE * sizeof(int*) );
+
+  for(idup=0; idup < MXSTORE; idup++ )  {  
+    NDUPL_LIST[idup] = 0 ; 
+    UNSORT_DUPL[idup] = (int*) malloc(MXSET_DUPLICATE*sizeof(int)) ;
+  }
   NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
-  for(idup=0; idup < MXSTORE; idup++ )  {  NDUPL_LIST[idup] = 0 ; }
+
+  // - - - - 
 
   for ( isn=0; isn < nsn-1; isn++ ) {
     unsort  = unsortList[isn];
@@ -3714,7 +3727,8 @@ void check_duplicate_SNID(void) {
 
       // always store isn2 info
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
+      if( NTMP < MXSET_DUPLICATE ) 
+	{ UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
       NDUPL_LIST[NDUPL_SET-1]++ ;
       NDUPL_SN++ ;
       
@@ -3776,6 +3790,10 @@ void check_duplicate_SNID(void) {
  DONE:
   print_debug_malloc(-1*debug_malloc,fnam);
   free(zList);  free(unsortList); free(IS_DUPL);
+  
+  free(NDUPL_LIST);
+  for(idup=0; idup < MXSTORE; idup++ )  { free(UNSORT_DUPL[idup]); }
+  free(UNSORT_DUPL);
 
   return;
 

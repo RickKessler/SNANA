@@ -481,18 +481,21 @@ def get_cov_from_covfile(data, covfile, scale):
     covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
     covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
     covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
-    covindf = covindf.set_index(["CID1", "CID2"])
     covout = np.zeros((len(data),len(data)))
-    for i,cid1,ra1,dec1 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
-        nmissing = 0
-        for j,cid2,ra2,dec2 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
-            try:
-                covout[i,j] = covindf.loc[(cid1,cid2), "MU_COV"]
-            except KeyError:
-                nmissing+=1
-        if nmissing > 100:
-            logging.info(f'{i} {cid1} RA {ra1} DEC {dec1} \t MISSING FROM COVFILE')
-        
+    for i,row in covindf.iterrows():
+        if len(np.argwhere(data['CIDstr'] == row['CID1'])) == 0:
+            print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
+            continue
+        if len(np.argwhere(data['CIDstr'] == row['CID2'])) == 0:
+            print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
+            continue
+        ww1 = np.argwhere(data['CIDstr'] == row['CID1'])[0][0]
+        ww2 = np.argwhere(data['CIDstr'] == row['CID2'])[0][0]
+        if ww1 == ww2:
+            print('skipping, not doing same SN diagonals')
+            continue
+        covout[ww1,ww2] = row['MU_COV']
+
     return covout, (0, 0, 0)
 
 def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales, extracovdict):

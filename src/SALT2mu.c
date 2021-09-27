@@ -4173,6 +4173,7 @@ void *MNCHI2FUN(void *thread) {
   //
   // Apr 8 2021: subtract muerr_vpec from muerr_raw
   // Sep 24 2021: abort on muerrsq < 0
+  // Sep 27 2021: require muCOVadd>0 to implement; fixes rare muerrsq<0 problem.
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4439,7 +4440,7 @@ void *MNCHI2FUN(void *thread) {
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
                    
-    if ( DO_COVADD && muCOVscale > 1.0) {
+    if ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
 

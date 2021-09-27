@@ -5628,8 +5628,10 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   // sigint in small steps around sigint_approx. Finally, interpolate 
   // sigint vs. RMS_PULL at RMS_PULL=1.0
   //
-  // if OPTMASK & 1 --> do not abort on negative sigint
+  // OPTMASK & 1 --> do not abort on negative sigint
   //    will return negative sqrt(abs(arg)) as flag/quantitative info
+  //
+  // OPTMASK & 64 --> print debug dump (9.27 2021, RK)
   //
   // *callFun is for error messages.
 
@@ -5644,12 +5646,11 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
 #define MXSTORE_PULL 100
 
-  bool TABORT; 
-  TABORT = OPTMASK & 1 == 0;
-  //printf("xxx callfun %s\n N=%d OPTMASK=%d ABORT=%d\n",callFun,N,OPTMASK,TABORT);
+  bool TABORT = (OPTMASK & 1) == 0 ;
+  bool LDMP   = (OPTMASK & 64) > 0 ;
 
   int i ;
-  double RMS_PULL_ORIG, RMS_MURES_ORIG, SQMURES, MURES, MUCOV ;
+  double STD_MURES_ORIG, SQMURES, MURES, MUCOV ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
@@ -5677,18 +5678,18 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   AVG_MURES = SUM_MURES / XN ;
   AVG_MUCOV = SUM_MUCOV / XN;
   AVG_MUERR = sqrt(AVG_MUCOV);
-  RMS_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
+  STD_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
 
-  tmp = RMS_MURES_ORIG*RMS_MURES_ORIG - AVG_MUCOV ;
+  tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
 
   
-  bool INVALID_SIGINT_APPROX = (RMS_MURES_ORIG < AVG_MUERR);
+  bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
   if  ( INVALID_SIGINT_APPROX && TABORT ) {
       print_preAbort_banner(fnam);
       printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Cannot compute sigint because RMS < AVG_MUERR ??");
       sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
-	      RMS_MURES_ORIG, sqrt(AVG_MUCOV), N );
+	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
   } // end INVALID_SIGINT && ABORT
   
@@ -5712,6 +5713,17 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
   bool BOUND_ONE = false;
   
+  if ( LDMP ) {
+    printf(" xxx - - - - - - - - - - - - \n");
+    printf(" xxx %s: debug dump for %s\n", fnam, callFun);
+    printf(" xxx %s: AVG[MURES,MUCOV,MUERR] = %.3f, %.5f, %.3f \n",
+	   fnam, AVG_MURES, AVG_MUCOV, AVG_MUERR);
+    printf(" xxx %s: STD(MURES_ORIG) = %.3f \n", 
+	   fnam, STD_MURES_ORIG);
+    printf(" xxx %s: sigint[approx, (lo-hi)] = %.3f,  (%.3f to %.3f) \n",
+	   fnam, sigint_approx, sigTmp_lo, sigTmp_hi);
+    fflush(stdout);
+  }
 
   // start with largest sigInt and decrease so that RMS is increasing     
   // for the interp function below                                        
@@ -5726,8 +5738,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 	print_preAbort_banner(fnam);
 	printf("  %s called from %s\n", fnam, callFun);
 	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",sigint_min);
-	sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
-		RMS_MURES_ORIG, sqrt(AVG_MUCOV), N );
+	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
+		STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
       } else { return sigint_min; }
     }
@@ -5785,8 +5797,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
     printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
 	   NBIN_SIGINT, N, sigint_approx );
-    printf("  RMS_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
-	   RMS_MURES_ORIG, sqrt(AVG_MUCOV) );
+    printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
+	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
     sprintf(c1err,"ONE NOT CONTAINED by rmsPull_store array" );
     sprintf(c2err,"rmsPull_store range is %f to %f",
 	    rmsPull_store[0],rmsPull_store[NBIN_SIGINT-1]);
@@ -5796,12 +5808,12 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   sigint = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
 			rmsPull_store, sigTmp_store, fnam);
 
-  int LDMP = 0 ;
   if ( LDMP ) {
-    printf(" xxx sigint(min-max, approx->final) = "
-	   "%.4f-%.4f   %.4f -> %.4f  (<MURES>=%f)\n",
-	   sigTmp_store[NBIN_SIGINT-1], sigTmp_store[0], 
-	   sigint_approx, sigint, AVG_MURES);
+    printf(" xxx %s: sigint(approx->final) = "
+	   "%.4f -> %.4f  (<MURES>=%f)\n",
+	   fnam, sigint_approx, sigint, AVG_MURES);
+    printf(" xxx \n");
+    fflush(stdout) ;
   }
 
 

@@ -20412,4 +20412,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   sntools.c
     sigint_muresid_list(): reduce covfloor from 0.1^2 to 0.02^2
 
+  wfit.c
+    + write wa info to yaml file
+  submit_prog_bbc.py:
+    + include wa results in BBC_SUMMARY_wfit file
+
 END: 

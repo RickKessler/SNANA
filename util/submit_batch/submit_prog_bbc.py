@@ -46,6 +46,7 @@
 #     use def get_wfit_values() to handel legacy vs. refact yaml keys.
 #     Beware that new w0,wa model in wfit is NOT handled here [yet]
 # Sep 19 2021: write NEVT_bySAMPLE in BBC_SUMMARY_FITPAR.YAML
+# Sep 28 2021: include wa if -wa arg is specified for wfit
 #
 # - - - - - - - - - -
 
@@ -1541,8 +1542,12 @@ class BBC(Program):
                 f"# number of BBC options\n")
         f.write(f"NSPLITRAN:      {n_splitran}      " \
                 f"# number of random sub-samples\n")
+
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
+        if use_wfit :
+            f.write(f"OPT_WFIT:       {CONFIG['WFITMUDIF_OPT']}    " \
+                    f"# wfit arguments\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -2173,15 +2178,28 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
+        opt_wfit         = submit_info_yaml['OPT_WFIT']
+        use_wfit_w0wa    = '-wa'    in opt_wfit
+        use_wfit_blind   = '-blind' in opt_wfit
 
         # - - - 
         SUMMARYF_FILE     = (f"{output_dir}/{WFIT_SUMMARY_FILE}")
         f = open(SUMMARYF_FILE,"w") 
 
+        varname_w   = "w"
+        if use_wfit_w0wa : varname_w = "w0"
+        varname_wa  = "wa"
+        varname_omm = "omm"
+        
+        # prepare w-varnames for varnames
+        varlist_w = f"{varname_w} {varname_w}sig"
+        if use_wfit_w0wa :
+            varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
+
+
         varnames = (f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
-                    f"w w_sig  omm omm_sig  "\
-                    f"chi2 sigint w_ran omm_ran  \n" )
-        f.write(f"{varnames}\n")
+                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
+                    f"chi2 sigint   \n" )
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
@@ -2210,17 +2228,37 @@ class BBC(Program):
 
             w       = wfit_values_dict['w']  
             w_sig   = wfit_values_dict['w_sig']
+            wa      = wfit_values_dict['wa']    # None, or number
+            wa_sig  = wfit_values_dict['wa_sig']  # None or number
             omm     = wfit_values_dict['omm']  
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             w_ran   = int(wfit_values_dict['w_ran']) 
+            wa_ran  = int(wfit_values_dict['wa_ran'])  # None or number
             omm_ran = int(wfit_values_dict['omm_ran'])
+
+            if use_wfit_w0wa :
+                w0 = w ; w0_sig = w_sig
+                w_values = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+            else:
+                w_values = f"{w:7.4f} {w_sig:6.4f}"
 
             string_values = \
                 (f"{nrow:3d}  {version} {ifit} {imu} " \
-                 f"{w:7.4f} {w_sig:6.4f}  {omm:6.4f} {omm_sig:6.4f} " \
-                 f"{chi2:.1f} {sigint:.3f} {w_ran} {omm_ran} ")
+                 f"{w_values}  {omm:6.4f} {omm_sig:6.4f} " \
+                 f"{chi2:.1f} {sigint:.3f} ")
+
+            if nrow == 1 and use_wfit_blind: 
+                f.write(f"# cosmology params blinded.\n")
+                f.write(f"#   {varname_w:<3} includes sin({w_ran}) \n")
+                if use_wfit_w0wa :
+                    f.write(f"#   {varname_wa:<3} includes sin({wa_ran}) \n")
+                f.write(f"#   {varname_omm:<3} includes sin({omm_ran}) \n")
+                f.write(f"\n")
+
+            if nrow==1 : 
+                f.write(f"{varnames}\n")
 
             f.write(f"{KEY_ROW} {string_values}\n")
 

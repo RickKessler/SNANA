@@ -276,9 +276,6 @@ int    cidindex(char *cid);
 void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS, 
 			 int usemarg, int format_cospar );
 
-void write_output_cospar_legacy(FILE *fp, RESULTS_DEF *RESULTS, 
-				int usemarg, int format_cospar );
-
 void write_output_resid(void);
 void write_output_contour(void);
 
@@ -1526,7 +1523,7 @@ int main(int argc,char *argv[]){
 	srand(48901);
 	w0rand   = floor(1e6*rand()/RAND_MAX);
 	warand   = floor(1e6*rand()/RAND_MAX);
-	ommrand = floor(1e6*rand()/RAND_MAX);
+	ommrand  = floor(1e6*rand()/RAND_MAX);
       } else {
 	w0rand   = 0.0 ;
 	warand   = 0.0 ;
@@ -1553,7 +1550,7 @@ int main(int argc,char *argv[]){
 
       w0_out   += sin(w0rand);
       wa_out   += sin(warand);
-      omm_out += sin(ommrand);
+      omm_out  += sin(ommrand);
       
 
     // Jun 2019: check for csv format
@@ -1574,21 +1571,23 @@ int main(int argc,char *argv[]){
       RESULTS.sigmu_int    = sigmu_int ;
       RESULTS.w0rand       = w0rand;
       RESULTS.warand       = warand;
-      RESULTS.ommrand     = ommrand ;
+      RESULTS.ommrand      = ommrand ;
       sprintf(RESULTS.label_cospar, "%s", label_cospar);
       write_output_cospar(fpcospar, &RESULTS, usemarg, format_cospar);
       fclose(fpcospar);
     }
 
     else{
+      // wCDM model
+
       if (blind){
       //    srand(time(NULL));
 	srand(48901);
 	w0rand   = floor(1e6*rand()/RAND_MAX);
-	ommrand = floor(1e6*rand()/RAND_MAX);
+	ommrand  = floor(1e6*rand()/RAND_MAX);
       } else {
 	w0rand   = 0.0 ;
-	ommrand = 0.0 ;
+	ommrand  = 0.0 ;
       }
 
       if ( strlen(cosparfilevar) == 0){
@@ -1610,8 +1609,7 @@ int main(int argc,char *argv[]){
     // modified format to include label (RK, Jun 2017)
 
       w0_out   += sin(w0rand);
-      omm_out += sin(ommrand);
-
+      omm_out  += sin(ommrand);
 
     // Jun 2019: check for csv format
       char sep[] = " ";
@@ -2948,14 +2946,6 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   char sep[] = " " ;
   // ----------- BEGIN -------------
 
-  if ( debug_flag == -8921 ) {
-    write_output_cospar_legacy(fp, RESULTS, usemarg, format_cospar);
-    return; 
-  }
-  else {
-    //    printf("\n xxx REFACTOR WRITE OUTPUT\n\n");
-  }
-
   // - - - -
   // define variables to write out based on usemarg and usewa flags.
 
@@ -3032,9 +3022,17 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->w0rand ) ;
   NVAR++ ;
 
+  if ( usewa ) {
+    sprintf(VARNAMES_LIST[NVAR],"%sran", varname_wa );
+    sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->warand ) ;
+    NVAR++ ;
+  }
+
   sprintf(VARNAMES_LIST[NVAR],"%sran", varname_omm );
   sprintf(VALUES_LIST[NVAR], "%7.4f",  RESULTS->ommrand ) ;
   NVAR++ ;
+
+
 
   sprintf(VARNAMES_LIST[NVAR],"label" );
   sprintf(VALUES_LIST[NVAR], "%s",  RESULTS->label_cospar ) ;
@@ -3076,138 +3074,6 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
 
 } // end write_output_cospar
 
-// ********************************
-void write_output_cospar_legacy(FILE *fp, RESULTS_DEF *RESULTS, 
-				int usemarg, int format_cospar ) {
-
-  // Created Aug 15 2020
-  // format_cospar = 1 : legacy csv format
-  // format_cospar = 2 : YAML format
-
-  char sep[] = " " ;
-  // ----------- BEGIN -------------
-
-  if(usewa){
-
-    if ( format_cospar == 1 ) {
-    // legacy format
-      if ( !usemarg ) {
-	fprintf(fp,"# w0%s w0sig_marg%s wa%s wasig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
-		"sigint%s wran%s OMran%s label \n",
-		sep, sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
-	fprintf(fp,"%8.4f%s %7.4f%s %8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
-	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig_marg,  sep
-	      , RESULTS->wa_out, sep
-	      , RESULTS->wasig_marg,  sep
-	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig_marg, sep 
-	      , RESULTS->chi2_final, sep
-	      , RESULTS->Ndof, sep
-	      , RESULTS->sigmu_int, sep
-	      , RESULTS->w0rand,   sep
-	      , RESULTS->ommrand, sep
-	      , RESULTS->label_cospar );
-      } else {
-	fprintf(fp,"# w0%s w0sig_up%s wa%s wasig_up%s w0sig_low%s OM%s OM_sig%s chi2%s "
-	      "Ndof%s sigint%s wran%s OMran%s label\n",
-	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
-      
-	fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
-	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig_upper, sep
-	      , RESULTS->w0sig_lower, sep
-              , RESULTS->wa_out, sep
-              , RESULTS->wasig_upper, sep
-              , RESULTS->wasig_lower, sep
-	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig_marg, sep
-	      , RESULTS->chi2_final, sep
-	      , RESULTS->Ndof, sep
-	      , RESULTS->sigmu_int, sep
-	      , RESULTS->w0rand, sep
-	      , RESULTS->ommrand, sep
-	      , RESULTS->label_cospar);
-      }
-    }
-    else {
-    // YAML format
-      fprintf(fp, "w0:        %.4f \n", RESULTS->w0_out );
-      fprintf(fp, "w0_sig:    %.4f \n", RESULTS->w0sig_marg  );
-      fprintf(fp, "wa:        %.4f \n", RESULTS->wa_out );
-      fprintf(fp, "wa_sig:    %.4f \n", RESULTS->wasig_marg  );
-      fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
-      fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig_marg );    
-      fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
-      fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
-      fprintf(fp, "w0rand:    %.4f \n", RESULTS->w0rand );    
-      fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  
-      fprintf(fp, "label:    %s \n", RESULTS->label_cospar );    
-    }
-
-    
-  }
-  else {
-    // wCDM
-    if ( format_cospar == 1 ) {
-    // legacy format
-      if ( !usemarg ) {
-	fprintf(fp,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
-	      "sigint%s wran%s OMran%s label \n",
-	      sep, sep, sep, sep, sep, sep, sep, sep, sep );
-	fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
-	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig_marg,  sep
-	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig_marg, sep 
-	      , RESULTS->chi2_final, sep
-	      , RESULTS->Ndof, sep
-	      , RESULTS->sigmu_int, sep
-	      , RESULTS->w0rand,   sep
-	      , RESULTS->ommrand, sep
-	      , RESULTS->label_cospar );
-      } else {
-	fprintf(fp,"# w%s wsig_up%s wsig_low%s OM%s OM_sig%s chi2%s "
-	      "Ndof%s sigint%s wran%s OMran%s label\n",
-	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
-      
-	fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
-	      , RESULTS->w0_out, sep
-	      , RESULTS->w0sig_upper, sep
-	      , RESULTS->w0sig_lower, sep
-	      , RESULTS->omm_out, sep
-	      , RESULTS->omm_sig_marg, sep
-	      , RESULTS->chi2_final, sep
-	      , RESULTS->Ndof, sep
-	      , RESULTS->sigmu_int, sep
-	      , RESULTS->w0rand, sep
-	      , RESULTS->ommrand, sep
-	      , RESULTS->label_cospar);
-      }
-    }
-    else {
-    // YAML format
-    fprintf(fp, "w:        %.4f \n", RESULTS->w0_out );
-    fprintf(fp, "w_sig:    %.4f \n", RESULTS->w0sig_marg  );
-    fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
-    fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig_marg );    
-    fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
-    fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
-    fprintf(fp, "wrand:    %.4f \n", RESULTS->w0rand );    
-    fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  
-    fprintf(fp, "label:    %s \n", RESULTS->label_cospar );    
-    }
-  }
-
-
-  
-  return ;
-
-} // end write_output_cospar_legacy
 
 // ********************************
 void write_output_resid(void) {

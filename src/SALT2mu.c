@@ -104,7 +104,9 @@ ndump_nobiascor=20       ! dump for first 20 data events with no biasCor
 dumpflag_nobiascor=20;   ! idem; legacy input variable
 
 frac_warn_nobiascor=0.02  ! print warning in output fitres file if nobiascor
-                          ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
+                  ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
+
+cidlist_debug_biascor  ! comma-sep list to dump biasCor info
 
 To check sample stats for each surveyGroup and fieldGroup,
    grep IDSAMPLE  <stdout_file>
@@ -352,6 +354,8 @@ iflag_duplicate=1  # 0=ignore, 1=abort, 2=merge
 
 snid_mucovdump='5944'  # after each fit iteration, full muCOV dump 
 
+dump_mucovscale=44  # print info for j1d=44 (mucovscale cell), and also
+                    # write biasCor-fitres file with mucovScale info
 
 Default output files (can change names with "prefix" argument)
   SALT2mu.log
@@ -1408,7 +1412,6 @@ struct {
   double *muCOVscale, *muCOVadd, *muBias, *muBiasErr, *muBias_zinterp; 
   double *chi2, *probcc_beams;
   double **fitParBias;
-  int    *i1d_muCOVscale;  // store central bin for mucovscale (9.27.2021)
 
   bool *set_fitwgt0; // flag to set fit wgt=0 with MUERR -> large value
 
@@ -1418,6 +1421,7 @@ struct {
   // before fit, store muCOVscale and muCOVadd at each alpha,beta,gamma bin
   double ****MUCOVSCALE_ALPHABETA ; 
   double ****MUCOVADD_ALPHABETA ;
+  short int ****I1D_MUCOVSCALE ;
 
   float MEMORY;  // Mbytes
 
@@ -1744,20 +1748,16 @@ struct INPUTS {
 
   int nthread ; // number of threads (default = 0 -> no threads)
 
-
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
-  int debug_mucovscale; //write mucovscale binning for every biascor event
+  int debug_mucovscale; //write mucovscale info for every biascor event
+  char cidlist_debug_biascor[100];
 
   // set internal LEGACY and REFAC flags for development
 
-  // if logmass dimension; include mass-dependence for muCOVscale
-  bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
-
-  // xxx mark delete bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
 
 } INPUTS ;
 
@@ -2127,6 +2127,7 @@ int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVcorr(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		  double *muCOVscale, double *muCOVadd, int *i1d_cen ) ;
+void dump_muCOVcorr(int n);
 
 void   get_muBias(char *NAME, 
 		  BIASCORLIST_DEF *BIASCORLIST,  
@@ -4193,7 +4194,8 @@ void *MNCHI2FUN(void *thread) {
   char *name ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
+  bool APPLY_COVADD ;
 
   int NDIM_BIASCOR, INTERPFLAG_abg;
   double logmass, omega_l, omega_k, wde, wa;
@@ -4445,25 +4447,29 @@ void *MNCHI2FUN(void *thread) {
     // zero out muBiasErr after storing it, since adding this
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
-                   
-    if ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 ) {
+                 
+    APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 );
+    if ( INPUTS.debug_flag == 927 ) 
+      { APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  ); }
+
+    if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
       
       if ( muerrsq < 0.0 ) {
 	double muerrsq_orig = muerrsq - muCOVadd;
-	int    i1d          = INFO_DATA.i1d_muCOVscale[n];
 	print_preAbort_banner(fnam);
 	printf("   SNID=%s  IDSAMPLE=%d \n", name, idsample );
 	printf("   z=%.5f, mB=%.3f  x1=%.4f  c=%.4f  logmass=%.3f \n",
 	       z, mb, x1, c, logmass);
 	printf("   alpha=%.4f  beta=%.4f  gDM=%.4f\n", 
 	       alpha, beta, gammaDM);
-
+	dump_muCOVcorr(n);
+	
 	sprintf(c1err,"Insane muerrsq = %.5f for snid=%s (muerrsq_orig=%.5f)", 
 		muerrsq, muerrsq_orig, name);
-	sprintf(c2err,"muCOV[scale,add] = %.5f,%.5f  i1d_cen=%d", 
-		muCOVscale, muCOVadd, i1d );
+	sprintf(c2err,"muCOV[scale,add] = %.5f,%.5f ", 
+		muCOVscale, muCOVadd );
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
       }
 
@@ -5562,10 +5568,12 @@ void set_defaults(void) {
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
   INPUTS.debug_malloc      = 0 ;
-  INPUTS.debug_mucovscale  = 0 ;
+  INPUTS.debug_mucovscale  = -9 ; // 
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_mucovscale_bug = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
+
+  INPUTS.cidlist_debug_biascor[0] = 0 ;
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
   ISDATA_REAL = 1 ;
@@ -5786,7 +5794,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 
   // Jun 11 2021: include logmass bins.
   NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
-  if ( NBINm == 1 || INPUTS.LEGACY_MUCOVSCALE_MASS ) 
+  if ( NBINm == 1 ) 
     { NBINm = 1; mmin=-15.0; mmax=15.0; mbin=30.0 ; } // legacy behavior
   else  { 
     // start with 2 logmass bins for devel; later decide on either
@@ -5921,7 +5929,6 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
     if ( nfile_biasCor > 0 ) {
       INFO_DATA.muCOVscale     = (double*) malloc(MEMD); MEMTOT+=MEMD;
-      INFO_DATA.i1d_muCOVscale = (int   *) malloc(MEMI); MEMTOT+=MEMI;
       INFO_DATA.muCOVadd       = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
@@ -5953,6 +5960,12 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 	malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
 			&INFO_DATA.MUCOVADD_ALPHABETA ); //<==return
       sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.MUCOVADD");  N_MEM++; 
+
+      f_MEM[N_MEM] = 
+	malloc_shortint4D(opt, LEN_MALLOC, MXa, MXb, MXg,
+			  &INFO_DATA.I1D_MUCOVSCALE ); //<==return
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.I1D_MUCOVSCALE");  N_MEM++; 
+
     }
 
     for(i_mem=0; i_mem < N_MEM; i_mem++ ) {
@@ -9119,7 +9132,7 @@ void prepare_biasCor(void) {
   bool  DOCOR_MU      = ( OPTMASK & MASK_BIASCOR_MU ) ;
   bool  REQUIRE_VALID_BIASCOR = (OPTMASK & MASK_BIASCOR_noCUT) == 0 ;
 
-  char txt_biasCor[40]  ;
+  char txt_biasCor[40], *name  ;
   
   bool USEDIM_GAMMADM, USEDIM_LOGMASS;
   int NDIM_BIASCOR=0, ILCPAR_MIN, ILCPAR_MAX ;
@@ -9370,7 +9383,9 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = 0 ; // (NUSE_TOT == 1 ) ; // xxx REMOVE
+    name = INFO_DATA.TABLEVAR.name[n];
+    DUMPFLAG = ( strstr(INPUTS.cidlist_debug_biascor,name) != NULL );
+
     istore = storeDataBias(n,DUMPFLAG);
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -10478,7 +10493,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
   // Jun 29 2021: fix bug setting im index for logmass.
   // Sep 14 2021: little cleanup/refac 
-  // Sep 16 2021: add dump utils; see I1D_DUMP and OPTMASK
+  // Sep 16 2021: add dump utils; see i1d_dump_mucovscale and OPTMASK
 
   int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
@@ -10491,7 +10506,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
   int    OPTMASK, DUMPFLAG = 0 ;
-  int    I1D_DUMP = 57, I1D_DUMP_2 = -55 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
   double muErr, muErrsq, muErrsq_raw, muDif, muDifsq, pull, tmp1, tmp2  ;
@@ -10532,7 +10546,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if ( debug_mucovscale ) {
+  if ( debug_mucovscale > 0 ) {
     int memd   = sizeof(double) * NBIASCOR_ALL;
     int memi   = sizeof(int   ) * NBIASCOR_ALL;
     i1d_list       = (int   *) malloc(memi);
@@ -10617,7 +10631,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    if ( debug_mucovscale) {  i1d_list[ievt] = -9;  }
+    if ( debug_mucovscale > 0 ) {  i1d_list[ievt] = -9;  }
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
@@ -10711,7 +10725,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // get 1d index
     i1d = CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
-    if ( debug_mucovscale ) {
+    if ( debug_mucovscale > 0 ) {
       i1d_list[ievt]   = i1d;
       muDif_list[ievt] = muDif;
       muErr_list[ievt] = muErr;
@@ -10827,7 +10841,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      CELL_MUCOVSCALE->AVG_m[i1d],
 	      IDSAMPLE);
       OPTMASK = 1;  // 1 --> do NOT abort if sigInt < 0
-      if ( i1d == I1D_DUMP || i1d == I1D_DUMP_2 ) {
+
+      
+      if ( INPUTS.debug_flag == 927 ) { OPTMASK += 32; } // RK 9.27.2021
+
+      if ( i1d == INPUTS.debug_mucovscale ) {
 	OPTMASK += 64;
 	printf(" xxx %s: ========================================= \n", fnam);
 	printf(" xxx %s: ptr_MUCOVSCALE[%d] = %f   NperCell=%d\n", 
@@ -10908,7 +10926,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   // - - - - - - - - - - - - - - - - - - - 
 
-  if ( debug_mucovscale ) {
+  if ( debug_mucovscale > 0 ) {
     char outfile[200], line[200], *name; 
 
     sprintf(outfile,"%s_IDSAMPLE%d_mucovscale.dat", INPUTS.PREFIX, IDSAMPLE); 
@@ -12667,7 +12685,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	if ( istat_bias <= 0 ) { ISTAT = 0 ; }        //  Sep 2021
 
 	INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] = muCOVscale ;
-	INFO_DATA.i1d_muCOVscale[n]                   = i1d_cen ;
+	INFO_DATA.I1D_MUCOVSCALE[n][ia][ib][ig]       = i1d_cen ;
 
 	if ( DO_COVADD ) {
 	  INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] = muCOVadd ;
@@ -13229,7 +13247,7 @@ int get_muCOVcorr(char *cid,
 
   // Created July 1 2016: 
   // Analog of get_fitParBias(), but for scale on muCOV.
-  //  
+  // 
   // inputs:
   //   cid          = name of SN (for error message)
   //   BIASCORLIST  = list of input values
@@ -13385,8 +13403,10 @@ int get_muCOVcorr(char *cid,
 	}
 
 	if ( DUMPFLAG) {
-	  printf(" xxx %s: ic=%d im=%d iz=%d muCOVscale/add = %f/%f WGT=%f\n", 
-		 fnam,ic,im,iz, muCOVscale_biascor,muCOVadd_biascor, WGT);
+	  printf(" xxx %s: j1d=%d, ic=%d im=%d iz=%d "
+		 "muCOVscale/add = %.3f/%.5f WGT=%f\n", 
+		 fnam, j1d, ic,im,iz, 
+		 muCOVscale_biascor,muCOVadd_biascor, WGT);
 	  
 	  fflush(stdout);
 	}
@@ -13425,6 +13445,38 @@ int get_muCOVcorr(char *cid,
 
 } // end get_muCOVcorr
 
+// ======================================================
+void dump_muCOVcorr(int n) {
+
+  int NBINa = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin;
+  int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin;
+  int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+
+  int ia, ib, ig, i1d;
+  double MUCOVSCALE, MUCOVADD;
+  char fnam[] = "dump_muCOVcorr" ;
+
+  // -----------BEGIN ------------
+
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+
+        MUCOVSCALE = INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig];
+	MUCOVADD   = INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig];
+	i1d        = INFO_DATA.I1D_MUCOVSCALE[n][ia][ib][ig];
+	printf(" %s: ia,ib,ig=%d,%d,%d  "
+	       "MUCOV[i1d,SCALE,ADD]= %d, %.3f, %.4f\n",
+	       fnam, ia, ib, ig, i1d, MUCOVSCALE, MUCOVADD );
+      }
+    }
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end dump_muCOVcorr
 
 // ======================================================
 void setup_CELLINFO_biasCor(int IDSAMPLE) {
@@ -16558,8 +16610,11 @@ int ppar(char* item) {
     INPUTS.debug_malloc *= 2;  // must be >1 to take effect
     return(1); 
   }
+
   if ( uniqueOverlap(item,"debug_mucovscale=")) 
     { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
+  if ( uniqueOverlap(item,"cidlist_debug_biascor=")) 
+    { sscanf(&item[22],"%s", INPUTS.cidlist_debug_biascor); return(1); }
 
   if ( uniqueOverlap(item,"nthread=")) 
     { sscanf(&item[8],"%d", &INPUTS.nthread); return(1); }
@@ -18226,8 +18281,6 @@ void prep_debug_flag(void) {
   // General convention: 
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
-
-  INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
 
   if ( INPUTS.restore_mucovscale_bug ) {
     printf("\n RESTORE mucovscale bug \n");

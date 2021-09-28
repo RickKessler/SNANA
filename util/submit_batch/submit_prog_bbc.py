@@ -2274,10 +2274,6 @@ class BBC(Program):
         # Also check for wsig_marg vs. wsig_lo/wsig_hi
         # Sep 28 2021: check for wa and its uncertainty
 
-        wa     = None
-        wa_sig = None
-        wa_ran = None
-
         key_list = [ 'w', 'w0' ]
         for key in key_list:
             if  key in wfit_yaml:
@@ -2300,11 +2296,13 @@ class BBC(Program):
 
         # - - - repeat for optoinal wa
         key_list = [ 'wa' ]
+        wa       = -9.0
         for key in key_list:
             if  key in wfit_yaml:
                 wa  = wfit_yaml[key]  
 
         key_list = [ 'wasig_marg', 'wasig_lo' ]
+        wa_sig   = -9.0
         for key in key_list:
             if key in wfit_yaml: 
                 wa_sig = wfit_yaml[key]
@@ -2336,6 +2334,7 @@ class BBC(Program):
                 w_ran   = wfit_yaml[key]
 
         key_list = [ 'warand', 'waran' ]
+        wa_ran   = 0
         for key in key_list:
             if key in wfit_yaml:
                 wa_ran   = wfit_yaml[key]

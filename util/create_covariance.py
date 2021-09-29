@@ -593,8 +593,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         if apply_filter(fitopt_label, fitopt_filter) and \
            apply_filter(muopt_label, muopt_filter):
             if final_cov is None:
-                final_cov = cov.copy()
-            else:
+                final_cov = cov.copy()*0
+            if True:
                 # If we have calibrators and this is VPEC term, filter out calib
                 if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC") or \
                                     apply_filter(fitopt_label, "+ZSHIFT") or apply_filter(muopt_label, "+ZSHIFT")):

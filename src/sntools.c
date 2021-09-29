@@ -5648,8 +5648,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   int    OPT_INTERP  = 1 ;
   double sigint_bin  = 0.01 ;
   double sigint_min = -0.3 ;
-  double covtotfloor = 0.1*0.1 ; // protection for negative covtot
-  if ( LTEST ) { covtotfloor = 0.02*0.02; }
+  double covtotfloor = 0.02*0.02 ; // protection for negative covtot
+  if ( LTEST ) { covtotfloor = 0.1*0.1; } // see -927 flag in SALT2mu
 
   int    nbin_lo     = 30 ; // prep this many bins below sigint_approx
   int    nbin_hi     = 30 ; // idem above sigint_approx

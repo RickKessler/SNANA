@@ -4448,9 +4448,10 @@ void *MNCHI2FUN(void *thread) {
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
                  
-    APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 );
-    if ( INPUTS.debug_flag == 927 ) 
-      { APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  ); }
+    APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
+
+    if ( INPUTS.debug_flag == -927 ) 
+      { APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 ); }
 
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
@@ -10843,7 +10844,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       OPTMASK = 1;  // 1 --> do NOT abort if sigInt < 0
 
       
-      if ( INPUTS.debug_flag == 927 ) { OPTMASK += 32; } // RK 9.27.2021
+      if ( INPUTS.debug_flag == -927 ) { OPTMASK += 32; } // RK 9.27.2021
 
       if ( i1d == INPUTS.debug_mucovscale ) {
 	OPTMASK += 64;

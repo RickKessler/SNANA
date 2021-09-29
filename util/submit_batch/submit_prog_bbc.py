@@ -2228,14 +2228,14 @@ class BBC(Program):
 
             w       = wfit_values_dict['w']  
             w_sig   = wfit_values_dict['w_sig']
-            wa      = wfit_values_dict['wa']    # None, or number
-            wa_sig  = wfit_values_dict['wa_sig']  # None or number
+            wa      = wfit_values_dict['wa']    
+            wa_sig  = wfit_values_dict['wa_sig']
             omm     = wfit_values_dict['omm']  
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             w_ran   = int(wfit_values_dict['w_ran']) 
-            wa_ran  = int(wfit_values_dict['wa_ran'])  # None or number
+            wa_ran  = int(wfit_values_dict['wa_ran'])
             omm_ran = int(wfit_values_dict['omm_ran'])
 
             if use_wfit_w0wa :

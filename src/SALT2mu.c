@@ -22338,27 +22338,28 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   // increment table info for event index ISN and table index ITABLE.
 
-  char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
-  int  NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
-  int  NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  //  char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
+  int  NVAR         = OUTPUT_TABLE->NVAR ;
+  int  NBINTOT      = OUTPUT_TABLE->NBINTOT ;
   double mures      = INFO_DATA.mures[ISN] ;
   double muerr      = INFO_DATA.muerr[ISN] ;
   double WGT        = 1.0/(muerr*muerr);
-  double *MURES_LIST;
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
   int   NEVT, IBIN1D, IVAR, OPT_BININFO=2;
   float FVAL;        double DVAL ;
   BININFO_DEF *BININFO ;
-
+  int   LPRINT_MALLOC = 0 ;
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
 
   // ---------- BEGIN -----------
 
   for(IVAR=0; IVAR < NVAR; IVAR++ ) {
-    BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[IVAR];
+    BININFO = &OUTPUT_TABLE->BININFO[IVAR];
 
     // get data value for this variable and ISN event number  
-    FVAL = SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR][ISN] ;
+    FVAL = OUTPUT_TABLE->PTRVAL[IVAR][ISN] ;
     DVAL = (double)FVAL ;   
 
     // convert data value to table index
@@ -22372,39 +22373,42 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
 
   if ( INPUTS.REFAC_SUBPROC_STD ) {
-    int MEMD, LEN_REALLOC = 50; // increase to 1000 after valgrind debug xyzz
-    MURES_LIST = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D];
-    NEVT       = SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D];
+    int MEMD, LEN_REALLOC = 100; // increase to 1000 after valgrind debug xyzz
+    NEVT       = OUTPUT_TABLE->NEVT[IBIN1D];
     if ( NEVT == 0 ) {
       // malloc before any events are stored xyzz
       MEMD = LEN_REALLOC * sizeof(double);
-      //MURES_LIST = (double*) malloc(MEMD);
-      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D] = (double*) malloc(MEMD); 
-      printf(" xxx %s: malloc MURES_LIST with MEMD=%d ITABLE= %d ibin1d = %d \n",
-	     fnam, MEMD, ITABLE, IBIN1D); fflush(stdout);
-
+      OUTPUT_TABLE->MURES_LIST[IBIN1D] = (double*) malloc(MEMD); 
+      if ( LPRINT_MALLOC ) {
+	printf(" xxx %s: malloc MURES_LIST with MEMD=%d ITABLE=%d ibin1d=%d\n",
+	       fnam, MEMD, ITABLE, IBIN1D); fflush(stdout);
+      }
     }
     else if ( (NEVT % LEN_REALLOC) == 0 )  {
       // realloc
       MEMD       = (NEVT+LEN_REALLOC) * sizeof(double);
-      printf(" xxx %s: realloc MURES_LIST with MEMD=%d \n",
-	     fnam, MEMD); fflush(stdout);
-      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D] = (double *)realloc(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D],MEMD);
-      
+      OUTPUT_TABLE->MURES_LIST[IBIN1D] = 
+	(double *)realloc(OUTPUT_TABLE->MURES_LIST[IBIN1D],MEMD);
+      if ( LPRINT_MALLOC ) {
+	printf(" xxx %s: realloc MURES_LIST with MEMD=%d \n",
+	       fnam, MEMD); fflush(stdout);
+      }
     }
   } // end REFAC 
 
 
   // increment table contents
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D]++ ;
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D]    += mures ;
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D]  += (mures*mures) ;
+  OUTPUT_TABLE->NEVT[IBIN1D]++ ;
+  OUTPUT_TABLE->MURES_SUM[IBIN1D]    += mures ;
+  OUTPUT_TABLE->MURES_SQSUM[IBIN1D]  += (mures*mures) ;
 
   //Now the weighted sums 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D]        += WGT ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D]  += (mures*WGT) ;
 
-  if ( INPUTS.REFAC_SUBPROC_STD ) { SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D][NEVT] = mures; }
+  if ( INPUTS.REFAC_SUBPROC_STD ) { 
+    OUTPUT_TABLE->MURES_LIST[IBIN1D][NEVT] = mures; 
+  }
 
   return;
 

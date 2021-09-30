@@ -5559,13 +5559,14 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   // For input *array return *AVG and *RMS
   // Jun 2 2020: include MEDIAN in output
   // Jul 21 2021: rename RMS -> STD to avoid confusion.
+  // Sep 30 2021: fix median calc based on odd or even N
 
   int i;
   double XN, val, avg, sum, sqsum, std, median ;
 
   // ----------- BEGIN ------------
 
-  *AVG = *STD = 0.0 ;
+  *AVG = *STD = *MEDIAN = 0.0 ;
   if ( N <= 0 ) { return ; }
 
   avg  = std = sqsum = sum = median = 0.0 ;
@@ -5580,10 +5581,26 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   // for median, sort list and them median is middle element
   int ORDER_SORT  = +1;
   int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
-  int imedian, iHalf       = N/2;
+  int imed0, imed1, iHalf       = N/2;
   sortDouble(N, array, ORDER_SORT, INDEX_SORT );
-  imedian = INDEX_SORT[iHalf];
-  median  = array[imedian];
+
+  // xxx mark delete 9.30 2021: imedian = INDEX_SORT[iHalf];
+  // xxx median  = array[imedian];
+
+  // xxx  printf(" xxx N=%d ihalf=%d \n", N, iHalf);
+
+  if ( N%2 == 1 ) { 
+    // odd number of elements -> use middle value
+    imed0   = INDEX_SORT[iHalf];
+    median  = array[imed0]; 
+  }
+  else {
+    // even number of elements; average middle two values
+    imed0 = INDEX_SORT[iHalf-1];
+    imed1 = INDEX_SORT[iHalf];
+    median  = 0.5 * ( array[imed0] + array[imed1] );
+  }
+  
 
   // load output array.
   *AVG    = avg ;
@@ -5593,8 +5610,28 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   return ;
 } // end of arrayStat
 
-void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN) 
+void arraystat_(int *N, double *array, double *AVG, double *RMS, 
+		double *MEDIAN) 
 { arrayStat(*N, array, AVG, RMS, MEDIAN); }
+
+void test_arrayStat(void) {
+#define NTEST_arrayStat 9
+  double AVG, RMS, MEDIAN, array[NTEST_arrayStat];
+  int N, i;
+  char fnam[] = "test_arrayStat" ;
+
+  // ----------- begin -----------
+  // load array values 1 ... N
+  for(i=0; i < NTEST_arrayStat; i++ ) { array[i] = (double)(i+1); }
+
+  for(N=NTEST_arrayStat; N > NTEST_arrayStat-2; N-- ) {
+    arrayStat(N, array, &AVG, &RMS, &MEDIAN);
+    printf(" xxx %s: N=%d -> AVG=%.3f, RMS=%.3f, MEDIAN=%.3f \n",
+	   fnam, N, AVG, RMS, MEDIAN ); fflush(stdout);
+  }
+  return;
+
+} // end test_arrayStat
 
 // ========================================================
 double STD_from_SUMS(int N, double SUM, double SQSUM) {

@@ -1758,6 +1758,7 @@ struct INPUTS {
 
   // set internal LEGACY and REFAC flags for development
 
+  int REFAC_SUBPROC_STD ;
 
 } INPUTS ;
 
@@ -2317,6 +2318,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
 void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
 void SUBPROCESS_OUTPUT_WRITE(void); 
 void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
+void SUBPROCESS_COMPUTE_STD(int ITABLE) ;
 
 void SUBPROCESS_EXIT(void);
 
@@ -2358,6 +2360,8 @@ typedef struct {
   int    *NEVT;   
   double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
   double *MURES_SUM_WGT, *SUM_WGT; // Brodie June 14 2021
+  double **MURES_LIST;        // mures list per table bin; needed for median
+  double *MURES_STD, *MURES_STD_ROBUST ;
 
 } SUBPROCESS_TABLE_DEF ;
 
@@ -2403,13 +2407,6 @@ struct {
   // define info for each SALT2mu-output table.
   SUBPROCESS_TABLE_DEF OUTPUT_TABLE[MXTABLE_SUBPROCESS] ;
 
-  // below are LEGAY variables filled by OUTPUT_TABLE_LOAD 
-  // at end of each subproc iter
-  char    LINE_VARNAMES[200];
-  int     NBIN_c ;
-  int    *NEVT_c ;
-  double  RANGE_c[2], BIN_c, *SIM_c ;
-  double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
   // For bounding function info
   bool ISFLAT_SIM ; //True -> all sim distributions are flat; else read bounding functions
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
@@ -2438,9 +2435,6 @@ int main(int argc,char* argv[ ]) {
   
  DRIVER_EXEC:
   N_EXEC++ ;
-
-  //  fprintf(FP_STDOUT," 1. xxx %s: N_EXEC = %d \n", 
-  //	  fnam, N_EXEC); fflush(FP_STDOUT);
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
@@ -5596,6 +5590,8 @@ void set_defaults(void) {
   SUBPROCESS.INPUT_ISEED = 12345;
   SUBPROCESS.STDOUT_CLOBBER  = 1; // default is to clobber each stdout
   SUBPROCESS.NEVT_SIM_PRESCALE     = -9; 
+
+  INPUTS.REFAC_SUBPROC_STD = 0;
 #endif
 
   return ;
@@ -18276,7 +18272,7 @@ void  prep_input_trueIa(void) {
 void prep_debug_flag(void) {
 
   // -----------------------------------
-  // check debug_flag and set internal LEGACY/REFAC options.
+  // check INPUTS.debug_flag and set internal LEGACY/REFAC options.
   // These options are intended to be temporary to allow switching
   // back and forth between LEGACY/REFAC codes.
   // General convention: 
@@ -18288,8 +18284,10 @@ void prep_debug_flag(void) {
     fflush(stdout);
   }
 
+  INPUTS.REFAC_SUBPROC_STD = (INPUTS.debug_flag == 930);
+  printf("  Set REFAC_SUBPROC_STD=%d \n",  INPUTS.REFAC_SUBPROC_STD);
+  
   fflush(FP_STDOUT);
-
 
 }  // end prep_debug_flag
 
@@ -18954,7 +18952,7 @@ void outFile_driver(void) {
 
     int OPTMASK   = SUBPROCESS.INPUT_OPTMASK ;
     bool WRFITRES = ( (OPTMASK & SUBPROCESS_OPTMASK_WRFITRES) > 0 );
-    bool WRM0DIF = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
+    bool WRM0DIF  = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
     if ( WRFITRES ) {
       sprintf(tmpFile,"%s.FITRES", prefix );
       write_fitres_driver(tmpFile);  // write result for each SN
@@ -22121,7 +22119,8 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   int debug_malloc = INPUTS.debug_malloc ;
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int i, ivar, NBINTOT=1, nbin, nbin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int MEMI, MEMD, IB1D, ib0, ib1, ib2, ib_per_var[MXVAR_TABLE_SUBPROCESS];
+  int MEMI, MEMD, MEMDD, IB1D, ib0, ib1, ib2;
+  int ib_per_var[MXVAR_TABLE_SUBPROCESS];
   int  IDMAP = 10 + ITABLE;
   int  *INDEX_BININFO[MXVAR_TABLE_SUBPROCESS];
   char fnam[] = "SUBPROCESS_MAP1D_BININFO"; 
@@ -22149,11 +22148,18 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   for(ivar=0; ivar < NVAR; ivar++ ) {
 
     SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT        = (int   *)malloc(MEMI);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM = (double*)malloc(MEMD);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT          = (int   *)malloc(MEMI);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM     = (double*)malloc(MEMD);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT = (double*)malloc(MEMD);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT       =  (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT       = (double*)malloc(MEMD);
+
+    
+    if ( INPUTS.REFAC_SUBPROC_STD ) {
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD        = (double*)malloc(MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST = (double*)malloc(MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST = (double**)malloc(MEMDD);
+    }
 
     INDEX_BININFO[ivar] = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar];
     for(i=0; i < NBINTOT; i++ )  { INDEX_BININFO[ivar][i] = -9 ; }
@@ -22217,7 +22223,7 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   // driver function to load output tables after subprocess iteration
   int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  N_TABLE       = SUBPROCESS.N_OUTPUT_TABLE;
-  int  isn, ITABLE, cutmask ;
+  int  isn, ITABLE, cutmask; 
   char *TABLE_NAME ;
   char fnam[] = "SUBPROCESS_OUTPUT_LOAD" ;
 
@@ -22234,6 +22240,9 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
       SUBPROCESS_OUTPUT_TABLE_LOAD(isn,ITABLE);
     }  // end isn
 
+    // RK 9.29.2021 compute and store STD and STD_ROBUST
+    if ( INPUTS.REFAC_SUBPROC_STD ) { SUBPROCESS_COMPUTE_STD(ITABLE);  } 
+
   } // end ITABLE
   
   return ;
@@ -22241,24 +22250,80 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
 } // end SUBPROCESS_OUTPUT_LOAD
 
 
+// ========================================
+void SUBPROCESS_COMPUTE_STD(int ITABLE) {
+
+  // Created Sep 29 2021
+  // for ITABLE, compute STD and STD_ROBUST for each 1d bin,
+  // and store it in SUBPROCESS.OUTPUT_TABLE[ITABLE].
+
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
+  int    NBINTOT, ibin, NEVT, i;
+  double SUM, SQSUM, STD, STD_ROBUST, *MURES_LIST;
+  double MURES_AVG, *ABSMURES_LIST, DUM_AVG, DUM_STD, MEDIAN ;
+  char fnam[] = "SUBPROCESS_COMPUTE_STD" ;
+
+  // -------------- BEGIN ------------
+
+  NBINTOT  = OUTPUT_TABLE->NBINTOT ;
+  for(ibin=0; ibin < NBINTOT; ibin++ ) {
+    NEVT  = OUTPUT_TABLE->NEVT[ibin];
+    SUM   = OUTPUT_TABLE->MURES_SUM[ibin];
+    SQSUM = OUTPUT_TABLE->MURES_SQSUM[ibin];
+    MURES_LIST = OUTPUT_TABLE->MURES_LIST[ibin];
+
+    if (NEVT <= 1 ) {
+      OUTPUT_TABLE->MURES_STD[ibin]        = 0.0 ;
+      OUTPUT_TABLE->MURES_STD_ROBUST[ibin] = 0.0 ;
+      continue ;
+    }
+    MURES_AVG     = SUM/(double)NEVT;
+    ABSMURES_LIST = (double*) malloc( NEVT*sizeof(double) );
+    for(i=0; i < NEVT; i++ )
+      { ABSMURES_LIST[i] = fabs(MURES_LIST[i]-MURES_AVG); }
+	
+    arrayStat(NEVT, ABSMURES_LIST, &DUM_AVG, &DUM_STD, &MEDIAN);
+
+    STD        = STD_from_SUMS(NEVT, SUM, SQSUM) ;
+    STD_ROBUST = 1.48 * MEDIAN ;
+	
+    OUTPUT_TABLE->MURES_STD[ibin]        = STD;
+    OUTPUT_TABLE->MURES_STD_ROBUST[ibin] = STD_ROBUST ;
+	
+    free(ABSMURES_LIST);
+  } // end ibin loop
+
+  return ;
+
+}  // end SUBPROCESS_COMPUTE_STD
+
 // =====================================================
 void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
 
   // For each 1D bin in ITABLE, zero NEVT and MURES sums.
-  int NBINTOT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  int NBINTOT = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
   int  ibin1d;
   // ----------- BEGIN ---------
   for ( ibin1d=0; ibin1d < NBINTOT; ibin1d++ ) {
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[ibin1d] = 0;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[ibin1d]    = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[ibin1d]      = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[ibin1d]        = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[ibin1d]  = 0.0 ;
+    OUTPUT_TABLE->NEVT[ibin1d]           = 0;
+    OUTPUT_TABLE->MURES_SQSUM[ibin1d]    = 0.0 ;
+    OUTPUT_TABLE->MURES_SUM[ibin1d]      = 0.0 ;
+    OUTPUT_TABLE->SUM_WGT[ibin1d]        = 0.0 ;
+    OUTPUT_TABLE->MURES_SUM_WGT[ibin1d]  = 0.0 ;
+
+    if ( INPUTS.REFAC_SUBPROC_STD ) {
+      OUTPUT_TABLE->MURES_STD[ibin1d]         = 0.0 ;
+      OUTPUT_TABLE->MURES_STD_ROBUST[ibin1d]  = 0.0 ;
+      free(OUTPUT_TABLE->MURES_LIST[ibin1d]); // fragile?
+    }
   }
   return;
 } // end  SUBPROCESS_OUTPUT_TABLE_RESET
 
-// ============================
+// ==============================================================
 void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   // increment table info for event index ISN and table index ITABLE.
@@ -22266,12 +22331,12 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
   int  NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int  NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
-  double   mures    = INFO_DATA.mures[ISN] ;
+  double mures      = INFO_DATA.mures[ISN] ;
   double muerr      = INFO_DATA.muerr[ISN] ;
   double WGT        = 1.0/(muerr*muerr);
-
+  double *MURES_LIST;
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int   IBIN1D, IVAR, OPT_BININFO=2;
+  int   NEVT, IBIN1D, IVAR, OPT_BININFO=2;
   float FVAL;        double DVAL ;
   BININFO_DEF *BININFO ;
 
@@ -22295,14 +22360,40 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   // - - - - 
   // convert multiple table indices to global 1D index for table
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
-  
+
+  if ( INPUTS.REFAC_SUBPROC_STD ) {
+    int MEMD, LEN_REALLOC = 10; // increase to 1000 after valgrind debug
+    MURES_LIST = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D];
+    NEVT       = SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D];
+    if ( NEVT == 0 ) {
+      // malloc before any events are stored
+      MEMD = LEN_REALLOC * sizeof(double);
+      MURES_LIST = (double*) malloc(MEMD);
+      printf(" xxx %s: malloc MURES_LIST with MEMD=%d \n",
+	     fnam, MEMD); fflush(stdout);
+    }
+    else if ( (NEVT % LEN_REALLOC) == 0 )  {
+      // realloc
+      MEMD       = (NEVT+LEN_REALLOC) * sizeof(double);
+      printf(" xxx %s: realloc MURES_LIST with MEMD=%d \n",
+	     fnam, MEMD); fflush(stdout);
+      MURES_LIST = (double *)realloc(MURES_LIST,MEMD);
+      
+    }
+  } // end REFAC 
+
+
   // increment table contents
   SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D]++ ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D]    += mures ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D]  += (mures*mures) ;
-  //Now the weighted sums Brodiedebug
+
+  //Now the weighted sums 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D]        += WGT ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D]  += (mures*WGT) ;
+
+  if ( INPUTS.REFAC_SUBPROC_STD ) { MURES_LIST[NEVT] = mures; }
+
   return;
 
 } // end SUBPROCESS_OUTPUT_TABLE_LOAD

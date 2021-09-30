@@ -20408,9 +20408,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
           wgt from logmass; fixes add bug found by Brodie and Dillon.
       + new input cidlist_debug_biascor
       + debug_mucovscale is now a j1d index to print info for.
+      + prep SUBPROCESS output table to write STD and STD_ROBUST
 
   sntools.c
-    sigint_muresid_list(): reduce covfloor from 0.1^2 to 0.02^2
+    + sigint_muresid_list(): reduce covfloor from 0.1^2 to 0.02^2
+    + arrayStat(); fix median calculation to depend on odd or even N
 
   wfit.c
     + write wa info to yaml file

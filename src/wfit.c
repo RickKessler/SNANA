@@ -244,7 +244,8 @@ void writemodel(char*, float, float, float);
 void printerror( int status);
 void read_fitres(char *inFile);
 void parse_VARLIST(FILE *fp);
-void read_mucovar(char *inFile);
+void read_mucovar_legacy(char *inFile);
+void read_mucov_sys(char *inFile);
 void invert_mucovar(double sqmurms_add);
 void   get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
@@ -346,6 +347,10 @@ char varname_w[4];          // either w for wCDM or w0 for w0wa model
 char varname_wa[]  = "wa" ;
 char varname_omm[] = "OM" ; 
 
+/* Covariance Systematic Input File AYAN MIRTA */
+
+char cov_sys_file[400]="";
+
   /* Cosparam cosmological parameter structure */
 Cosparam cpar;
 
@@ -371,8 +376,10 @@ double TWO = 2. ;
 double NEGTHIRD = -1./3. ;
 double ONE = 1.0;
 double ZERO = 0.0;
+double **MU_COV_SYS; // AM 
 
 
+// /* XXX MARK DELETE 23/09/2021 XXX 
 // May 20, 2009: mu-covariance structures
 
 
@@ -383,6 +390,7 @@ int NCOVPAIR = 0 ;
 int NCOVSN   = 0 ; 
 int INDEX_COVSN_MAP[MXCOVSN];      // CIDLIST index vs. NCOVSN index
 int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
+
 
 struct MUCOV_INPUT {
   char   CID[2][40]; // name of each SN
@@ -396,6 +404,10 @@ struct MUCOV_STORE {
   double COV ;     // covariance
   double COVINV;   // inverse
 } MUCOV_STORE[MXCOVSN][MXCOVSN];
+
+// XXX END MARK DELETE XXX*/
+
+
 
 double *snprob, ***snprob3d, *extprob, ***extprob3d, *snchi, ***snchi3d, *extchi, ***extchi3d;
 
@@ -442,6 +454,7 @@ int main(int argc,char *argv[]){
     "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -gridwrite\tWrite 2D likelihoods as output file.",
     "   -mucovar\tUse distance covariances from this input file.",
+    "   -mucovarsys\tUse covariance systematic matrix input",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -errscale\trescale prior errors as 1/sqrt(N).. must include comp SN sample size",
     "",
@@ -629,7 +642,8 @@ int main(int argc,char *argv[]){
 	wa_steps = 301; w0_steps = 201;   
 	wa_min = -4. ;  wa_max = 4. ; w0_min = -3.; w0_max = 1;
 	sprintf(varname_w,"w0");
-      } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
+      }
+      else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
         usecmb=2 ;
 	omm_prior     = OMEGA_MATTER_SIM ;
 	omm_prior_sig = 0.9;  // turn off omm prior
@@ -835,7 +849,7 @@ int main(int argc,char *argv[]){
     /************************/
     /*** Read in the data ***/
     /************************/
-
+    
     read_fitres(infile);  // local function
 
     /*******************************************/
@@ -930,8 +944,8 @@ int main(int argc,char *argv[]){
     for ( i=0; i<MXSN; i++ )  { INDEX_COVSN_INVMAP[i] = -9 ; }
   
     if ( usemucovar > 0 ) {
-      read_mucovar(mucovarfile);
-
+      //read_mucovar_legacy(mucovarfile);// AM 23/09/21
+      read_mucov_sys(mucovarfile);
       printf(" Invert MU-covariance matrix with CERN's dfinv. \n");
       invert_mucovar(sqsnrms);
     }
@@ -2146,7 +2160,91 @@ void read_fitres(char *inFile) {
 
 
 // ==================================
-void read_mucovar(char *inFile) {
+void read_mucov_sys(char *inFile){
+  char ctmp[200], SN[2][12], locFile[1000] ;
+  char fnam[] = "read_mucov_sys" ;
+#define MXSPLIT_mucov 20
+  int NSPLIT, NROW_read=0,NDIM=0;
+  float f_MEM;
+  double cov;
+  int N, N0, N1, i0, i1, j;
+  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  char  **ptrSplit;
+  FILE *fp;
+  int iwd,NWD,i,gzipFlag ;
+
+  // 
+  //begin
+  // Open File using the utility
+  int OPENMASK = OPENMASK_VERBOSE ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+                          locFile, &gzipFlag );
+
+  
+  // Read first row to get Dim of the matrix
+  printf("\n Open mucovar systematic file: \n  %s \n", locFile);
+
+
+  ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
+  for(j=0;j<MXSPLIT_mucov;j++){
+    ptrSplit[j]=(char *)malloc(200*sizeof(char));
+  }
+  
+  i0 = i1 = 0;
+  
+  while( fgets(ctmp, 60, fp) != NULL ){
+    
+    // COMMENT LINE : from SNTOOLS_fluxErrModels.c L:140. AM 2021
+    if ( commentchar(ctmp) ) { continue ;}
+    
+
+    splitString(ctmp, " ",MXSPLIT_mucov,
+		&NSPLIT, ptrSplit);
+    if(NROW_read == 0){
+      sscanf(ptrSplit[0],"%d",&NDIM);
+      printf("\tFOUND COV DIMENSION %d",NDIM);
+      f_MEM = malloc_double2D(+1, NDIM, NDIM,&MU_COV_SYS );  
+    }
+    else {
+      sscanf( ptrSplit[0],"%le",&cov);      
+      MU_COV_SYS[i0][i1]=cov;
+      i0++;
+      if(i0==NDIM-1){
+	i1++;i0=0;
+      }
+      
+    }
+    
+    NROW_read+=1;
+    
+    
+  } // end of read loop
+
+  
+
+  
+  for ( N0=1; N0 <= NCOVSN; N0++ ) {
+    for ( N1=1; N1 <= NCOVSN; N1++ ) {
+
+      if ( N0 == N1 ) continue ;
+
+      i0  = INDEX_COVSN_MAP[N0];
+      i1  = INDEX_COVSN_MAP[N1];
+      cov = MUCOV_STORE[N0][N1].COV ;
+    }
+  }
+
+  
+  // Malloc MU_COV_SYS [2D] array
+  // READ MU_COV_SYS
+  // And allow for comment fields
+  // 
+  
+  return ; 
+}
+// end of read_mucov_sys
+
+void read_mucovar_legacy(char *inFile) {
 
   /*************
     Created May 20, 2009 by R.Kessler
@@ -2160,10 +2258,15 @@ void read_mucovar(char *inFile) {
   double cov;
   int N, N0, N1, i0, i1, j;
   FILE *fp;
+  int gzipFlag;
 
   // -------- BEGIN --------
+  int OPENMASK = OPENMASK_VERBOSE ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+                          locFile, &gzipFlag );
 
 
+  /* XXX MARK DELETE 23/09/21 
   // first try to open file in current user area
 
   sprintf(locFile, "%s", inFile );
@@ -2180,7 +2283,7 @@ void read_mucovar(char *inFile) {
     printf(" ***** ABORT ****** \n");
     exit(EXIT_ERRCODE_wfit);
   }
-
+  XXX END MARK DELETE */
 
  READIT:
 

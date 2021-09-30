@@ -22143,6 +22143,7 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT = NBINTOT;
   MEMI = NBINTOT * sizeof(int);
   MEMD = NBINTOT * sizeof(double);
+  MEMDD = NBINTOT * sizeof(double*);
 
   print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -22197,10 +22198,17 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int ivar;
   char VARNAMES[200], varName[40] ;
-  char VARNAMES_FIX[] = "NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT" ;
+  char VARNAMES_FIX[100]; // = "NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT" ;
   BININFO_DEF *BININFO;
 
   // ----------- BEGIN ---------
+
+  if ( INPUTS.REFAC_SUBPROC_STD ){
+    sprintf(VARNAMES_FIX,"NEVT MURES_SUM STD STD_ROBUST");
+  }
+  else {
+    sprintf(VARNAMES_FIX,"NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT");
+  }
 
   sprintf(VARNAMES,"ROW ");
 
@@ -22317,7 +22325,9 @@ void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
     if ( INPUTS.REFAC_SUBPROC_STD ) {
       OUTPUT_TABLE->MURES_STD[ibin1d]         = 0.0 ;
       OUTPUT_TABLE->MURES_STD_ROBUST[ibin1d]  = 0.0 ;
-      free(OUTPUT_TABLE->MURES_LIST[ibin1d]); // fragile?
+      if ( ITABLE > 0 ) {
+	free(OUTPUT_TABLE->MURES_LIST[ibin1d]); // fragile?
+      }
     }
   }
   return;
@@ -22362,22 +22372,24 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
 
   if ( INPUTS.REFAC_SUBPROC_STD ) {
-    int MEMD, LEN_REALLOC = 10; // increase to 1000 after valgrind debug
+    int MEMD, LEN_REALLOC = 50; // increase to 1000 after valgrind debug xyzz
     MURES_LIST = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D];
     NEVT       = SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D];
     if ( NEVT == 0 ) {
-      // malloc before any events are stored
+      // malloc before any events are stored xyzz
       MEMD = LEN_REALLOC * sizeof(double);
-      MURES_LIST = (double*) malloc(MEMD);
-      printf(" xxx %s: malloc MURES_LIST with MEMD=%d \n",
-	     fnam, MEMD); fflush(stdout);
+      //MURES_LIST = (double*) malloc(MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D] = (double*) malloc(MEMD); 
+      printf(" xxx %s: malloc MURES_LIST with MEMD=%d ITABLE= %d ibin1d = %d \n",
+	     fnam, MEMD, ITABLE, IBIN1D); fflush(stdout);
+
     }
     else if ( (NEVT % LEN_REALLOC) == 0 )  {
       // realloc
       MEMD       = (NEVT+LEN_REALLOC) * sizeof(double);
       printf(" xxx %s: realloc MURES_LIST with MEMD=%d \n",
 	     fnam, MEMD); fflush(stdout);
-      MURES_LIST = (double *)realloc(MURES_LIST,MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D] = (double *)realloc(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D],MEMD);
       
     }
   } // end REFAC 
@@ -22392,7 +22404,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D]        += WGT ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D]  += (mures*WGT) ;
 
-  if ( INPUTS.REFAC_SUBPROC_STD ) { MURES_LIST[NEVT] = mures; }
+  if ( INPUTS.REFAC_SUBPROC_STD ) { SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST[IBIN1D][NEVT] = mures; }
 
   return;
 
@@ -22487,7 +22499,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
   char *VARNAMES     = SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER ;
 
   int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
-  double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT ;
+  double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT, STD, STD_ROBUST ;
   char cLINE[200], cVAL0[100], cVAL1[100];
   char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
 
@@ -22509,6 +22521,10 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
     MURES_SUM_WGT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D];
     SUM_WGT         = SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D];   
 
+    if (INPUTS.REFAC_SUBPROC_STD) {
+      STD = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD[IBIN1D]; 
+      STD_ROBUST = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST[IBIN1D];
+    } //end debug statement
 
 
     for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -22518,11 +22534,17 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
       strcat(cLINE,cVAL0);
     } // end ivar
 
-    sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
-    sprintf(cVAL1," %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT);
-    strcat(cLINE,cVAL0);
-    strcat(cLINE,cVAL1);
+    if (INPUTS.REFAC_SUBPROC_STD) {
+      sprintf(cVAL0," %5d  %12.4le  %12.4le %12.4le", NEVT, MURES_SUM, STD, STD_ROBUST);
+      strcat(cLINE,cVAL0);
+    }
 
+    else {
+      sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
+      sprintf(cVAL1," %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT);
+      strcat(cLINE,cVAL0);
+      strcat(cLINE,cVAL1);
+    }
     fprintf(FP_OUT,"ROW: %4.4d %s\n", IBIN1D, cLINE);
 
   } // end IBIN1D

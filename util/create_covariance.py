@@ -55,6 +55,7 @@ SUFFIX_FITRES = "FITRES"
 PREFIX_COVSYS  = "covsys"
 HD_FILENAME    = "hubble_diagram.txt"
 
+VARNAME_CID       = "CID"
 VARNAME_MU        = "MU"
 VARNAME_M0DIF     = "M0DIF"
 VARNAME_MUDIF     = "MUDIF"
@@ -214,7 +215,7 @@ def load_hubble_diagram(path, args, config):
     if VARNAME_MUERR not in df.columns:
         df[VARNAME_MUERR] = df[VARNAME_MUDIFERR]
 
-    # Sort by CID for unbiined; sort by z for M0DIF
+    # Sort by CID for unbinned; sort by z for M0DIF
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
@@ -224,24 +225,18 @@ def load_hubble_diagram(path, args, config):
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {path}"
             assert "MUERR_VPEC" in df.columns, msgerr
-            # xxx mark delete df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df['biasScale_muCOV']*df["MUERR_VPEC"] ** 2)
+
             df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2) # removed biasScale_muCOV
             logging.debug("Subtracted MUERR_VPEC from MUERR")
-        #elif config.get("CALIBRATORS"):
-        #    calib_mask = df["CID"].isin(config.get("CALIBRATORS"))
-        #    df.loc[calib_mask, VARNAME_MUERR] = \
-        #        np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
-        #        df.loc[calib_mask, "MUERR_VPEC"] ** 2)
+
+
         df['CIDstr'] = df['CID'].astype(str)+"_"+df['IDSURVEY'].astype(str)
         df = df.set_index(["IDSURVEY", "CID"])
     elif VARNAME_z in df.columns:
-        # should not be needed here for M0DIF, but what the heck
+        # should not z-sorting here for M0DIF, but what the heck
         df = df.sort_values(VARNAME_z)
 
     # - - - -  -
-    # strip out only what is needed for CosmoMC; ignore the rest
-    # .xyz BEWARE: do not strip for rebin
-    # mark delete  df = df.loc[:, ["z", "MU", "MUERR", "MUREF"]]
     
     return df
     # end load_hubble_diagram
@@ -426,8 +421,6 @@ def rebin_hubble_diagram(config, HD_unbinned):
             print(f"\n xxx z   = \n{col_z[binmask]}\n")
             print(f"\n xxx wgt = \n{wgt[binmask]}\n")
             sys.exit(f"\n xxx DEBUG DIE xxx \n")
-            
-# .xyz
 
 #    print(f"\n xxx HD_unbinned = \n{HD_unbinned}")
 
@@ -766,16 +759,35 @@ def write_HD(path, base):
 
     # Dec 2020
     # Write standard HD format for BBC method
+    # Sep 30 2021: replace csv format with SNANA fitres format
+    
+    #if "CID" in df.columns:
 
+    logging.info(f"Write HD to {path}")
+    
+    #print(f"\n xxx base = \n{base}\n")
+
+    if "CIDstr" in base:
+        varname_row = "CIDstr"
+        keyname_row = "SN:"
+    else:
+        varname_row = "ROW"
+        keyname_row = "ROW:"
+
+    varlist = f"{varname_row} zCMB zHEL MU MUERR"
+
+    name_list   = base[varname_row].to_numpy()
     z_list      = base[VARNAME_z].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
-    
-    logging.info(f"Write HD to {path}")
+
     with open(path, "w") as f:
-        f.write("# name zcmb    zhel    dz  mu   muerr\n")
-        for i, (z, mu, muerr) in enumerate(zip(z_list, mu_list, muerr_list)):
-            f.write(f"{i:5d} {z:6.5f} {z:6.5f} 0  {mu:8.5f} {muerr:8.5f} \n")
+        f.write(f"VARNAMES: {varlist}\n")
+        for (name, z, mu, muerr) in \
+            zip(name_list, z_list, mu_list, muerr_list):
+            val_list = f"{name:<10}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
+            f.write(f"{keyname_row} {val_list}\n")
+
     # end write_HD
 
 def write_covariance(path, cov, opt_cov):
@@ -942,7 +954,8 @@ def create_covariance(config, args):
     data = get_hubble_diagrams(data_dir, args, config)
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
-    # Now that we have the data, figure out how each much each FITOPT/MUOPT pair contributes to cov
+    # Now that we have the data, figure out how each much each
+    # FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
                                                muopt_labels, muopt_scales, extracovdict)
     # find contributions which match to construct covs for each COVOPT

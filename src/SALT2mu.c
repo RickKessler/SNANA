@@ -15179,10 +15179,10 @@ int IBINFUN(double VAL, BININFO_DEF *BIN, int OPT, char *MSG_ABORT ) {
   // and bins defined by struct *BIN.
   // If VAL is outside range, return -9
   // 
-  // If OPT == 0  return =9 if VAL is outside range
-  // If OPT == 1  abort if VAL is outside range
-  // If OPT == 2  if VAL is outside, return edge bin (do not abort)
-  // If OPT == 7  dump
+  // OPT == 0  -> return =9 if VAL is outside range
+  // OPT == 1  -> abort if VAL is outside range
+  // OPT == 2  -> if VAL is outside, return edge bin (do not abort)
+  // OPT == 7  -> dump
   
   int ibin, IBIN, nbin;
   int LDMP = ( OPT == 7 ) ;
@@ -22337,19 +22337,24 @@ void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
 void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   // increment table info for event index ISN and table index ITABLE.
+  // 
+  // Sep 30 2021: OPT_BININFO -> 0 so that events outside bin range
+  //              are excluded.
+  //
 
-  //  char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
   SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
 
   int  NVAR         = OUTPUT_TABLE->NVAR ;
   int  NBINTOT      = OUTPUT_TABLE->NBINTOT ;
+  char   *name      = INFO_DATA.TABLEVAR.name[ISN] ;
   double mures      = INFO_DATA.mures[ISN] ;
   double muerr      = INFO_DATA.muerr[ISN] ;
   double WGT        = 1.0/(muerr*muerr);
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int   NEVT, IBIN1D, IVAR, OPT_BININFO=2;
+  int   NEVT, IBIN1D, IVAR, OPT_BININFO=0;
   float FVAL;        double DVAL ;
   BININFO_DEF *BININFO ;
+  bool  VALID = true;
   int   LPRINT_MALLOC = 0 ;
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
 
@@ -22364,10 +22369,21 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
     // convert data value to table index
     ibin_per_var[IVAR] = IBINFUN(DVAL, BININFO, OPT_BININFO, fnam );	
-
+    
+    if ( ibin_per_var[IVAR] < 0 ) { VALID = false; }
   } // end ivar      
 
+  // bail if any event is outside bin range .xyz
+
   
+  if ( !VALID ) { 
+    if ( ISDATA_REAL ) { 
+      fprintf(FP_STDOUT,"%s: REJECT SNID=%s -> outside table bin range\n",
+	      fnam, name);
+    }
+    return; 
+  }
+
   // - - - - 
   // convert multiple table indices to global 1D index for table
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);

@@ -2210,7 +2210,7 @@ void read_mucov_sys(char *inFile){
     else {
       sscanf( ptrSplit[0],"%le",&cov);      
       MU_COV_SYS[i0][i1]=cov;
-      #printf("  %d \n", &ptrSplit[i0]);// XXX AM DELETE
+      //printf("  %d \n", &ptrSplit[i0]);// XXX AM DELETE
       printf("  %d \n", cov);
       i0++;
       if(i0==NDIM-1){

@@ -31,6 +31,12 @@
 #      If COSMOMC_TEMPALTES_PATH is defined, the legacy /cosmomc 
 #      subDir is created as well.
 #
+# Oct 01 2021 R,Kessler
+#    + create seprate write_HD_binned and write_HD_unbinned functions
+#    + output HD is fitres format (same format as other SNANA codes)
+#    + unbinned HD includes CID IDSURVEY MUERR_VPEC
+#    + comment out df = df.set_index(["IDSURVEY", "CID"]) and pray
+#
 # ===============================================
 
 import argparse
@@ -55,14 +61,16 @@ SUFFIX_FITRES = "FITRES"
 PREFIX_COVSYS  = "covsys"
 HD_FILENAME    = "hubble_diagram.txt"
 
-VARNAME_CID       = "CID"
-VARNAME_MU        = "MU"
-VARNAME_M0DIF     = "M0DIF"
-VARNAME_MUDIF     = "MUDIF"
-VARNAME_MUDIFERR  = "MUDIFERR"
-VARNAME_MUREF     = "MUREF"
-VARNAME_MURES     = "MURES"
-VARNAME_MUERR     = "MUERR"
+VARNAME_CID         = "CID"
+VARNAME_IDSURVEY    = "IDSURVEY"
+VARNAME_MU          = "MU"
+VARNAME_M0DIF       = "M0DIF"
+VARNAME_MUDIF       = "MUDIF"
+VARNAME_MUDIFERR    = "MUDIFERR"
+VARNAME_MUREF       = "MUREF"
+VARNAME_MURES       = "MURES"
+VARNAME_MUERR       = "MUERR"
+VARNAME_MUERR_VPEC  = "MUERR_VPEC"
 VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
@@ -230,8 +238,12 @@ def load_hubble_diagram(path, args, config):
             logging.debug("Subtracted MUERR_VPEC from MUERR")
 
 
-        df['CIDstr'] = df['CID'].astype(str)+"_"+df['IDSURVEY'].astype(str)
-        df = df.set_index(["IDSURVEY", "CID"])
+        df['CIDstr'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
+
+        # RK Oct 1 2021: undo this indexing so that we can access these
+        #   table columns elsewhere ... hope it doesn't break anything ??
+        #df = df.set_index(["IDSURVEY", "CID"])
+
     elif VARNAME_z in df.columns:
         # should not z-sorting here for M0DIF, but what the heck
         df = df.sort_values(VARNAME_z)
@@ -629,7 +641,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     return label, final_cov
 
 
-def write_standard_output(config, covs, base):
+def write_standard_output(config, unbinned, covs, base):
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
     # e.g., wfit, CosmoSIS, firecrown ...
@@ -643,7 +655,11 @@ def write_standard_output(config, covs, base):
     os.makedirs(outdir, exist_ok=True)
 
     data_file = outdir / HD_FILENAME
-    write_HD(data_file, base)
+
+    if unbinned :
+        write_HD_unbinned(data_file, base)
+    else:
+        write_HD_binned(data_file, base)
 
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
@@ -755,26 +771,19 @@ def write_cosmomc_HD(path, base, cosmomc_format=True):
 # ========= end cosmomc utils ====================
 
 
-def write_HD(path, base):
+def write_HD_binned(path, base):
 
     # Dec 2020
-    # Write standard HD format for BBC method
+    # Write standard binned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
     
     #if "CID" in df.columns:
 
-    logging.info(f"Write HD to {path}")
+    logging.info(f"Write binned HD to {path}")
     
-    #print(f"\n xxx base = \n{base}\n")
-
-    if "CIDstr" in base:
-        varname_row = "CIDstr"
-        keyname_row = "SN:"
-    else:
-        varname_row = "ROW"
-        keyname_row = "ROW:"
-
-    varlist = f"{varname_row} zCMB zHEL MU MUERR"
+    varname_row = "ROW"
+    keyname_row = "ROW:"
+    varlist = f"{varname_row} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
 
     name_list   = base[varname_row].to_numpy()
     z_list      = base[VARNAME_z].to_numpy()
@@ -785,10 +794,59 @@ def write_HD(path, base):
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr) in \
             zip(name_list, z_list, mu_list, muerr_list):
-            val_list = f"{name:<10}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
+            val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
             f.write(f"{keyname_row} {val_list}\n")
 
-    # end write_HD
+    # end write_HD_binned
+
+def write_HD_unbinned(path, base):
+
+    # Dec 2020
+    # Write standard unbinned HD format for BBC method
+    # Sep 30 2021: replace csv format with SNANA fitres format
+    
+    #if "CID" in df.columns:
+
+    logging.info(f"Write unbinned HD to {path}")
+    
+    #print(f"\n xxx base=\n{base} \n")
+
+    varname_row = "CID"
+    keyname_row = "SN:"
+
+    varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
+              f"zCMB zHEL " \
+              f"{VARNAME_MU} {VARNAME_MUERR}"
+
+    name_list   = base[VARNAME_CID].to_numpy()
+    idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
+    z_list      = base[VARNAME_z].to_numpy()
+    mu_list     = base[VARNAME_MU].to_numpy()
+    muerr_list  = base[VARNAME_MUERR].to_numpy()
+
+    # check for optional quantities that may not exist in older files
+    found_muerr_vpec = VARNAME_MUERR_VPEC in base
+    if found_muerr_vpec :   
+        varlist += f" {VARNAME_MUERR_VPEC}"
+        muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
+    else:
+        muerr2_list = muerr_list # anything for zip command
+
+    # - - - - - - -
+    # .xyz
+    with open(path, "w") as f:
+        f.write(f"VARNAMES: {varlist}\n")
+        for (name, idsurv, z, mu, muerr, muerr2) in \
+            zip(name_list, idsurv_list, z_list, 
+                mu_list, muerr_list, muerr2_list ):
+            val_list = f"{name:<10} {idsurv:3d} " \
+                       f"{z:6.5f} {z:6.5f} " \
+                       f"{mu:8.5f} {muerr:8.5f}"
+            if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
+
+            f.write(f"{keyname_row} {val_list}\n")
+
+    # end write_HD_unbinned
 
 def write_covariance(path, cov, opt_cov):
 
@@ -965,7 +1023,7 @@ def create_covariance(config, args):
                                        config.get("CALIBRATORS")) for c in covopts]
 
     # write standard output (9.22.2021)
-    write_standard_output(config, covariances, base)
+    write_standard_output(config, args.unbinned, covariances, base)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :

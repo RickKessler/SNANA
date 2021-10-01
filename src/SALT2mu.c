@@ -104,7 +104,9 @@ ndump_nobiascor=20       ! dump for first 20 data events with no biasCor
 dumpflag_nobiascor=20;   ! idem; legacy input variable
 
 frac_warn_nobiascor=0.02  ! print warning in output fitres file if nobiascor
-                          ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
+                  ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
+
+cidlist_debug_biascor  ! comma-sep list to dump biasCor info
 
 To check sample stats for each surveyGroup and fieldGroup,
    grep IDSAMPLE  <stdout_file>
@@ -352,6 +354,8 @@ iflag_duplicate=1  # 0=ignore, 1=abort, 2=merge
 
 snid_mucovdump='5944'  # after each fit iteration, full muCOV dump 
 
+dump_mucovscale=44  # print info for j1d=44 (mucovscale cell), and also
+                    # write biasCor-fitres file with mucovScale info
 
 Default output files (can change names with "prefix" argument)
   SALT2mu.log
@@ -969,6 +973,10 @@ with append_varname_missing,
    + CUTWIN varname matching previous varname replaces it, enabling
      looser cuts on command line.
 
+ Sep 27 2021:  
+   + require muCOVadd>0 to use it (function MNCHI2FUN)
+   + define MINPERCELL_MUCOVSCALE 5
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1023,7 +1031,8 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
 #define MAXBIN_BIASCOR_1D  500000  // max on total 5D bins for {a,b,z,x1,c}
-#define MINPERCELL_BIASCOR    10  // min per cell for RMS and mBslope corr
+#define MINPERCELL_BIASCOR    10  // min per cell for biasCor
+#define MINPERCELL_MUCOVSCALE  5  // min per cell for MUCOVSCALE
 
 // shorter names for local declarations
 #define MXz   MAXBIN_z
@@ -1060,7 +1069,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE    800  // always abort if more than this many
+#define MXSTORE_DUPLICATE    800  // abort if more than this many
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
 #define STRING_FITWGT0 "FITWGT0"
@@ -1408,10 +1417,11 @@ struct {
 
   // before fit, store bias[isn][ialpha][ibeta][igammadm]
   FITPARBIAS_DEF ****FITPARBIAS_ALPHABETA ; 
-  
+ 
   // before fit, store muCOVscale and muCOVadd at each alpha,beta,gamma bin
   double ****MUCOVSCALE_ALPHABETA ; 
   double ****MUCOVADD_ALPHABETA ;
+  short int ****I1D_MUCOVSCALE ;
 
   float MEMORY;  // Mbytes
 
@@ -1738,20 +1748,17 @@ struct INPUTS {
 
   int nthread ; // number of threads (default = 0 -> no threads)
 
-
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
-  int debug_mucovscale; //write mucovscale binning for every biascor event
+  int debug_mucovscale; //write mucovscale info for every biascor event
+  char cidlist_debug_biascor[100];
 
   // set internal LEGACY and REFAC flags for development
 
-  // if logmass dimension; include mass-dependence for muCOVscale
-  bool LEGACY_MUCOVSCALE_MASS;  // if debug_flag=-611
-
-  // xxx mark delete bool REFAC_MAD_MUCOVSCALE; // if debug_flag=99
+  int REFAC_SUBPROC_STD ;
 
 } INPUTS ;
 
@@ -2120,7 +2127,8 @@ void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVcorr(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		  double *muCOVscale, double *muCOVadd ) ;
+		  double *muCOVscale, double *muCOVadd, int *i1d_cen ) ;
+void dump_muCOVcorr(int n);
 
 void   get_muBias(char *NAME, 
 		  BIASCORLIST_DEF *BIASCORLIST,  
@@ -2310,6 +2318,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
 void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
 void SUBPROCESS_OUTPUT_WRITE(void); 
 void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
+void SUBPROCESS_COMPUTE_STD(int ITABLE) ;
 
 void SUBPROCESS_EXIT(void);
 
@@ -2351,6 +2360,8 @@ typedef struct {
   int    *NEVT;   
   double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
   double *MURES_SUM_WGT, *SUM_WGT; // Brodie June 14 2021
+  double **MURES_LIST;        // mures list per table bin; needed for median
+  double *MURES_STD, *MURES_STD_ROBUST ;
 
 } SUBPROCESS_TABLE_DEF ;
 
@@ -2396,13 +2407,6 @@ struct {
   // define info for each SALT2mu-output table.
   SUBPROCESS_TABLE_DEF OUTPUT_TABLE[MXTABLE_SUBPROCESS] ;
 
-  // below are LEGAY variables filled by OUTPUT_TABLE_LOAD 
-  // at end of each subproc iter
-  char    LINE_VARNAMES[200];
-  int     NBIN_c ;
-  int    *NEVT_c ;
-  double  RANGE_c[2], BIN_c, *SIM_c ;
-  double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
   // For bounding function info
   bool ISFLAT_SIM ; //True -> all sim distributions are flat; else read bounding functions
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2c ;
@@ -2431,9 +2435,6 @@ int main(int argc,char* argv[ ]) {
   
  DRIVER_EXEC:
   N_EXEC++ ;
-
-  //  fprintf(FP_STDOUT," 1. xxx %s: N_EXEC = %d \n", 
-  //	  fnam, N_EXEC); fflush(FP_STDOUT);
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
@@ -3617,6 +3618,10 @@ void check_duplicate_SNID(void) {
   // 1 -> abort
   // 2 -> merge fitparams and cov into one LC
   //
+  // Sep 24 2021: malloc local UNSORT_DUPL and NDUPL_LIST
+  //              Introduce 2nd dimension MXSET_DUPLICATE
+
+#define MXSET_DUPLICATE 10 // abort if more than this many per dupl set
 
   int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
@@ -3661,14 +3666,23 @@ void check_duplicate_SNID(void) {
   int   NTMP, idup ;
   double z, z2 ;
   char *snid, *snid2 ;
-  int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
-  int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
+  int  **UNSORT_DUPL;
+  int  *NDUPL_LIST; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
   int  NDUPL_TOT ; // includes those beyone storage capacity
   int  NDUPL_SN  ; // total number of SN controbuting to duplicates
 
+  MEMI = MXSTORE_DUPLICATE * sizeof(int);
+  NDUPL_LIST  = (int*)  malloc(MEMI);
+  UNSORT_DUPL = (int**) malloc( MXSTORE * sizeof(int*) );
+
+  for(idup=0; idup < MXSTORE; idup++ )  {  
+    NDUPL_LIST[idup] = 0 ; 
+    UNSORT_DUPL[idup] = (int*) malloc(MXSET_DUPLICATE*sizeof(int)) ;
+  }
   NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
-  for(idup=0; idup < MXSTORE; idup++ )  {  NDUPL_LIST[idup] = 0 ; }
+
+  // - - - - 
 
   for ( isn=0; isn < nsn-1; isn++ ) {
     unsort  = unsortList[isn];
@@ -3714,7 +3728,8 @@ void check_duplicate_SNID(void) {
 
       // always store isn2 info
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
+      if( NTMP < MXSET_DUPLICATE ) 
+	{ UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
       NDUPL_LIST[NDUPL_SET-1]++ ;
       NDUPL_SN++ ;
       
@@ -3776,6 +3791,10 @@ void check_duplicate_SNID(void) {
  DONE:
   print_debug_malloc(-1*debug_malloc,fnam);
   free(zList);  free(unsortList); free(IS_DUPL);
+  
+  free(NDUPL_LIST);
+  for(idup=0; idup < MXSTORE; idup++ )  { free(UNSORT_DUPL[idup]); }
+  free(UNSORT_DUPL);
 
   return;
 
@@ -4154,6 +4173,8 @@ void *MNCHI2FUN(void *thread) {
   // loop over all events from 0 to NSN_DATA-1 
   //
   // Apr 8 2021: subtract muerr_vpec from muerr_raw
+  // Sep 24 2021: abort on muerrsq < 0
+  // Sep 27 2021: require muCOVadd>0 to implement; fixes rare muerrsq<0 problem.
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4167,7 +4188,8 @@ void *MNCHI2FUN(void *thread) {
   char *name ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
+  bool APPLY_COVADD ;
 
   int NDIM_BIASCOR, INTERPFLAG_abg;
   double logmass, omega_l, omega_k, wde, wa;
@@ -4419,10 +4441,33 @@ void *MNCHI2FUN(void *thread) {
     // zero out muBiasErr after storing it, since adding this
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
-                   
-    if ( DO_COVADD && muCOVscale > 1.0) {
+                 
+    APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
+
+    if ( INPUTS.debug_flag == -927 ) 
+      { APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0 && muCOVadd > 0.0 ); }
+
+    if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
+      
+      if ( muerrsq < 0.0 ) {
+	double muerrsq_orig = muerrsq - muCOVadd;
+	print_preAbort_banner(fnam);
+	printf("   SNID=%s  IDSAMPLE=%d \n", name, idsample );
+	printf("   z=%.5f, mB=%.3f  x1=%.4f  c=%.4f  logmass=%.3f \n",
+	       z, mb, x1, c, logmass);
+	printf("   alpha=%.4f  beta=%.4f  gDM=%.4f\n", 
+	       alpha, beta, gammaDM);
+	dump_muCOVcorr(n);
+	
+	sprintf(c1err,"Insane muerrsq = %.5f for snid=%s (muerrsq_orig=%.5f)", 
+		muerrsq, muerrsq_orig, name);
+	sprintf(c2err,"muCOV[scale,add] = %.5f,%.5f ", 
+		muCOVscale, muCOVadd );
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
+      }
+
     } else {
       // Scale as in original BBC
       muerr_vpec    = fcn_muerrz(1, z, zmuerr); 
@@ -5518,10 +5563,12 @@ void set_defaults(void) {
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
   INPUTS.debug_malloc      = 0 ;
-  INPUTS.debug_mucovscale  = 0 ;
+  INPUTS.debug_mucovscale  = -9 ; // 
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_mucovscale_bug = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
+
+  INPUTS.cidlist_debug_biascor[0] = 0 ;
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
   ISDATA_REAL = 1 ;
@@ -5543,6 +5590,8 @@ void set_defaults(void) {
   SUBPROCESS.INPUT_ISEED = 12345;
   SUBPROCESS.STDOUT_CLOBBER  = 1; // default is to clobber each stdout
   SUBPROCESS.NEVT_SIM_PRESCALE     = -9; 
+
+  INPUTS.REFAC_SUBPROC_STD = 0;
 #endif
 
   return ;
@@ -5742,7 +5791,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 
   // Jun 11 2021: include logmass bins.
   NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
-  if ( NBINm == 1 || INPUTS.LEGACY_MUCOVSCALE_MASS ) 
+  if ( NBINm == 1 ) 
     { NBINm = 1; mmin=-15.0; mmax=15.0; mbin=30.0 ; } // legacy behavior
   else  { 
     // start with 2 logmass bins for devel; later decide on either
@@ -5908,6 +5957,12 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 	malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg,
 			&INFO_DATA.MUCOVADD_ALPHABETA ); //<==return
       sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.MUCOVADD");  N_MEM++; 
+
+      f_MEM[N_MEM] = 
+	malloc_shortint4D(opt, LEN_MALLOC, MXa, MXb, MXg,
+			  &INFO_DATA.I1D_MUCOVSCALE ); //<==return
+      sprintf(COMMENT_MEM[N_MEM], "INFO_DATA.I1D_MUCOVSCALE");  N_MEM++; 
+
     }
 
     for(i_mem=0; i_mem < N_MEM; i_mem++ ) {
@@ -9074,7 +9129,7 @@ void prepare_biasCor(void) {
   bool  DOCOR_MU      = ( OPTMASK & MASK_BIASCOR_MU ) ;
   bool  REQUIRE_VALID_BIASCOR = (OPTMASK & MASK_BIASCOR_noCUT) == 0 ;
 
-  char txt_biasCor[40]  ;
+  char txt_biasCor[40], *name  ;
   
   bool USEDIM_GAMMADM, USEDIM_LOGMASS;
   int NDIM_BIASCOR=0, ILCPAR_MIN, ILCPAR_MAX ;
@@ -9325,7 +9380,9 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = 0 ; // (NUSE_TOT == 1 ) ; // xxx REMOVE
+    name = INFO_DATA.TABLEVAR.name[n];
+    DUMPFLAG = ( strstr(INPUTS.cidlist_debug_biascor,name) != NULL );
+
     istore = storeDataBias(n,DUMPFLAG);
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -10149,6 +10206,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   // opt=2 --> muerr^-2 x [wgt from cell location]
   //
   // Aug 22 2019: include logmass dependence
+  // Sep 27 2021: check INPUTS.interp_biascor_logmass
 
   int  USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR;
   int  istat_cov, J1D, idsample ;
@@ -10188,7 +10246,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
 
   // check for logmass contribution
   int NBINm  = CELLINFO_BIASCOR[idsample].BININFO_m.nbin ;
-  if ( NBINm > 1 ) {
+  if ( NBINm > 1 && INPUTS.interp_biascor_logmass ) {
     m          = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt] ;
     binSize_m  = CELLINFO_BIASCOR[idsample].BININFO_m.binSize ;
     Dm         = (m  - CELLINFO_BIASCOR[idsample].AVG_m[J1D])/binSize_m ;
@@ -10432,7 +10490,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
   // Jun 29 2021: fix bug setting im index for logmass.
   // Sep 14 2021: little cleanup/refac 
-
+  // Sep 16 2021: add dump utils; see i1d_dump_mucovscale and OPTMASK
 
   int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
@@ -10444,7 +10502,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
-  int DUMPFLAG = 0 ;
+  int    OPTMASK, DUMPFLAG = 0 ;
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar, USEMASK ;
   double muErr, muErrsq, muErrsq_raw, muDif, muDifsq, pull, tmp1, tmp2  ;
@@ -10452,13 +10510,13 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double a, b, gDM, z, m, c ;
   double *SUM_MUERR, *SUM_SQMUERR;
   double *SUM_MUDIF, *SUM_SQMUDIF ;
-  double *SQMUERR,   *SQMURMS ;
+  double *SQMUERR,   *SQMUSTD ;
   double *SUM_PULL,  *SUM_SQPULL ;
   double *SIG_PULL_MAD; //1.48*MedianAbsDev
-  double *SIG_PULL_RMS;
+  double *SIG_PULL_STD;
   char   *name ;
 
-  int NperCell_min = 5;
+  int NperCell_min = MINPERCELL_MUCOVSCALE;
 
   // Declare lists for debug_mucovscale
   int *i1d_list;
@@ -10485,7 +10543,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if ( debug_mucovscale ) {
+  if ( debug_mucovscale > 0 ) {
     int memd   = sizeof(double) * NBIASCOR_ALL;
     int memi   = sizeof(int   ) * NBIASCOR_ALL;
     i1d_list       = (int   *) malloc(memi);
@@ -10521,11 +10579,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   SUM_MUDIF      = (double*) malloc(MEMD);
   SUM_SQMUDIF    = (double*) malloc(MEMD);
   SQMUERR        = (double*) malloc(MEMD);
-  SQMURMS        = (double*) malloc(MEMD);
+  SQMUSTD        = (double*) malloc(MEMD);
   SUM_PULL       = (double*) malloc(MEMD);
   SUM_SQPULL     = (double*) malloc(MEMD);
   SIG_PULL_MAD   = (double*) malloc(MEMD);
-  SIG_PULL_RMS   = (double*) malloc(MEMD);
+  SIG_PULL_STD   = (double*) malloc(MEMD);
   ig = 0 ;
 
 
@@ -10542,7 +10600,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      SUM_MUDIF[N1D] = SUM_SQMUDIF[N1D] = 0.0 ;	
 	      SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
               SIG_PULL_MAD[N1D] = UNDEFINED ;
-	      SIG_PULL_RMS[N1D] = UNDEFINED ;
+	      SIG_PULL_STD[N1D] = UNDEFINED ;
 
 	      ptr_MUCOVSCALE[N1D] = 1.0 ;
 	      CELL_MUCOVSCALE->NperCell[N1D]  = 0 ;
@@ -10570,7 +10628,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
 
-    if ( debug_mucovscale) {  i1d_list[ievt] = -9;  }
+    if ( debug_mucovscale > 0 ) {  i1d_list[ievt] = -9;  }
 
     // check if there is valid biasCor for this event
     J1D = J1D_biasCor(ievt,fnam);
@@ -10664,7 +10722,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // get 1d index
     i1d = CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
-    if ( debug_mucovscale ) {
+    if ( debug_mucovscale > 0 ) {
       i1d_list[ievt]   = i1d;
       muDif_list[ievt] = muDif;
       muErr_list[ievt] = muErr;
@@ -10716,11 +10774,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   //printf("xxx N_REALLOC=%d\n",N_REALLOC);
 
   // -------------------------------------------------
-  double XN, SQRMS, RMS ;
+  double XN, SQSTD, AVG=-9.0, STD=-9.0, MAD=-9.0 ;
   
   for(i1d=0; i1d < NCELL; i1d++ ) {
 
-    SQMURMS[i1d] = 0.0 ;
+    SQMUSTD[i1d] = 0.0 ;
     SQMUERR[i1d] = 0.0 ;
     
     N  = CELL_MUCOVSCALE->NperCell[i1d] ;
@@ -10746,8 +10804,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] /= XN ;
 
     tmp1= SUM_MUDIF[i1d]/XN ;    tmp2= SUM_SQMUDIF[i1d]/XN ;
-    SQRMS = tmp2 - tmp1*tmp1 ;
-    SQMURMS[i1d] = SQRMS ;
+    SQSTD = tmp2 - tmp1*tmp1 ;
+    SQMUSTD[i1d] = SQSTD ;
 
     // average calculated muErrsq
     muErr        = SUM_MUERR[i1d]/XN ;
@@ -10756,35 +10814,49 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
     // RMS of pull
     tmp1= SUM_PULL[i1d]/XN;  tmp2=SUM_SQPULL[i1d]/XN ;
-    SQRMS = tmp2 - tmp1*tmp1 ;
+    SQSTD = tmp2 - tmp1*tmp1 ;
 
-    SIG_PULL_RMS[i1d] = sqrt(SQRMS);
+    SIG_PULL_STD[i1d] = sqrt(SQSTD);
 
     if (DO_MAD) {
-      double AVG, RMS, MAD;
-      arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &RMS, &MAD);
-      SIG_PULL_MAD[i1d] = 1.48*MAD;
+      // beware that only MAD is meaningfill for |PULL|; ignore AVG and STD
+      arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
+      SIG_PULL_MAD[i1d]   = 1.48*MAD;
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
-    } else {
-      ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_RMS[i1d]*SIG_PULL_RMS[i1d]) ;
+    } 
+    else {
+      ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_STD[i1d]*SIG_PULL_STD[i1d]) ;
     }
 
     if ( DO_COVADD ) {
       double sigInt;
-      char callfun[100];
-      sprintf(callfun,"%s(z=%.2f,c=%.2f,m=%.2f,IDSAMPLE=%d)",
-	      fnam,
+      char   callfun[100];
+      sprintf(callfun,"%s(j1d=%d,z=%.2f,c=%.2f,m=%.2f,IDSAMPLE=%d)",
+	      fnam, i1d,
 	      CELL_MUCOVSCALE->AVG_z[i1d],
 	      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d],
 	      CELL_MUCOVSCALE->AVG_m[i1d],
 	      IDSAMPLE);
+      OPTMASK = 1;  // 1 --> do NOT abort if sigInt < 0
+
+      
+      if ( INPUTS.debug_flag == -927 ) { OPTMASK += 32; } // RK 9.27.2021
+
+      if ( i1d == INPUTS.debug_mucovscale ) {
+	OPTMASK += 64;
+	printf(" xxx %s: ========================================= \n", fnam);
+	printf(" xxx %s: ptr_MUCOVSCALE[%d] = %f   NperCell=%d\n", 
+	       fnam, i1d, ptr_MUCOVSCALE[i1d], N );
+	printf(" xxx %s: SIG_PULL_[STD,MAD][%d] = %f, %f \n",
+	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
+      }
       sigInt =
 	sigint_muresid_list(N, CELL_MUCOVADD->MURES[i1d],
-			    CELL_MUCOVADD->MUCOV[i1d], 1, callfun );
+			    CELL_MUCOVADD->MUCOV[i1d], OPTMASK, callfun );
       if (sigInt == 0.) { sigInt = 1.0e-12;}
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
     }
-  }  // i1d
+  }  // end i1d loop
   
  
   // -------------------------
@@ -10826,16 +10898,16 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 		i1d=CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic];
 		N     = CELL_MUCOVSCALE->NperCell[i1d] ;
 		muCOVscale = (double)ptr_MUCOVSCALE[i1d] ;
-		RMS        = sqrt ( SQMURMS[i1d] );       
+		STD        = sqrt ( SQMUSTD[i1d] );       
 		if ( DO_COVADD ) {
 		  double covint = (double)ptr_MUCOVADD[i1d];
 		  double sigint = (covint/fabs(covint))*sqrt(fabs(covint));
 		  printf("%6.3f/%5.3f/%5.3f/%5d ", 
-			 RMS, sqrt(muCOVscale), sigint, N );	  
+			 STD, sqrt(muCOVscale), sigint, N );	  
 		}
 		else {
 		  printf("%6.3f/%5.3f/%5d ",
-			 RMS, sqrt(muCOVscale), N );	  
+			 STD, sqrt(muCOVscale), N );	  
 		}
 	      } // ic
 	      printf("\n");     fflush(stdout);
@@ -10851,7 +10923,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   // - - - - - - - - - - - - - - - - - - - 
 
-  if ( debug_mucovscale ) {
+  if ( debug_mucovscale > 0 ) {
     char outfile[200], line[200], *name; 
 
     sprintf(outfile,"%s_IDSAMPLE%d_mucovscale.dat", INPUTS.PREFIX, IDSAMPLE); 
@@ -10860,7 +10932,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     fprintf(fp,"VARNAMES: CID BIN Ncell "
 	    "zMEAN cMEAN mMEAN "
-	    "MUCOVSCALE_RMS MUCOVSCALE_MAD "
+	    "MUCOVSCALE_STD MUCOVSCALE_MAD "
 	    "RMS_MUDIF MUDIF "
 	    "MUERR MUERR_RAW\n");
 
@@ -10879,7 +10951,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       if ( i1d < 0 )                          { continue ; }
       if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
 
-      RMS = sqrt ( SQMURMS[i1d] );
+      STD = sqrt ( SQMUSTD[i1d] );
       sprintf(line,"SN: "
 	      "%8s %d %d "         // name bin Ncell
 	      "%.3f %.3f %.3f "    // zMEAN cMEAN mMEAN
@@ -10890,8 +10962,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      ,CELL_MUCOVSCALE->AVG_z[i1d]
 	      ,CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d]
               ,CELL_MUCOVSCALE->AVG_m[i1d]
-	      ,SIG_PULL_RMS[i1d], SIG_PULL_MAD[i1d]
-	      ,RMS, muDif_list[ievt]
+	      ,SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d]
+	      ,STD, muDif_list[ievt]
 	      ,muErr_list[ievt], muErr_raw_list[ievt]
       	      );
       fprintf(fp, "%s\n", line);
@@ -10905,7 +10977,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   print_debug_malloc(-1*debug_malloc,fnam);
   free(SUM_MUERR);   free(SUM_SQMUERR);
   free(SUM_MUDIF);   free(SUM_SQMUDIF) ;
-  free(SQMUERR);     free(SQMURMS);
+  free(SQMUERR);     free(SQMUSTD);
   free(SUM_PULL);    free(SUM_SQPULL);
  
   if ( DO_MAD ) {
@@ -12545,7 +12617,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 
   BIASCORLIST_DEF BIASCORLIST ;
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM;
-  int    NBINa, NBINb, NBINg, ia, ib, ig, ipar, istat_bias, idsample ;
+  int    NBINa, NBINb, NBINg, ia, ib, ig, ipar, istat_bias, idsample, i1d_cen ;
   int    ISTAT = 1;
   double z, m, muCOVscale, muCOVadd ;
   char   *name ;
@@ -12606,10 +12678,11 @@ int  storeDataBias(int n, int DUMPFLAG) {
 
 	istat_bias = 
 	  get_muCOVcorr(name, &BIASCORLIST, DUMPFLAG,    // in
-			&muCOVscale, &muCOVadd );        // out
+			&muCOVscale, &muCOVadd, &i1d_cen );        // out
 	if ( istat_bias <= 0 ) { ISTAT = 0 ; }        //  Sep 2021
 
 	INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] = muCOVscale ;
+	INFO_DATA.I1D_MUCOVSCALE[n][ia][ib][ig]       = i1d_cen ;
 
 	if ( DO_COVADD ) {
 	  INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] = muCOVadd ;
@@ -13167,17 +13240,19 @@ int get_fitParBias(char *cid,
 // ======================================================
 int get_muCOVcorr(char *cid, 
 		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		   double *muCOVscale, double *muCOVadd ) {
+		  double *muCOVscale, double *muCOVadd, int *i1d_cen ) {
 
   // Created July 1 2016: 
   // Analog of get_fitParBias(), but for scale on muCOV.
-  //  
+  // 
   // inputs:
   //   cid          = name of SN (for error message)
   //   BIASCORLIST  = list of input values
   //
   // Output:
-  //   muCovScale
+  //   muCovScale   # scale for covariance
+  //   muCOVadd     # optional additive term for cov
+  //   i1d_cen      #  central i1d bin index
   //
   //   Function returns 1 on success; 0 on failure
   //
@@ -13186,6 +13261,7 @@ int get_muCOVcorr(char *cid,
   // Sep 14 2021: check CELL_MUCOVSCALE->USE[j1d] and return 0 for
   //              events that have no valid MUSCALE -> bug fix !
   //
+  // Sep 27 2021: return i1d_cen for diagnostic/debug/abort-message.
 
   int ia, ib, ig, iz, im, ic, IZ, IM, IC, j1d, IMMIN, IMMAX ;
 
@@ -13238,6 +13314,8 @@ int get_muCOVcorr(char *cid,
   muCOVadd_local = 0.0 ;
   *muCOVadd = muCOVadd_local ;
 
+  *i1d_cen = -9;
+
   if ( (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE)==0   ) { return(1); }
 
   // check "noBiasCor" option (Aug 20 2016)
@@ -13289,7 +13367,8 @@ int get_muCOVcorr(char *cid,
 	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
 	}
        
-	if ( iz==IZ && ic==IC && im==IM ) { USEBIN_CENTER = true; }
+	if ( iz==IZ && ic==IC && im==IM ) 
+	  { USEBIN_CENTER = true; *i1d_cen = j1d; }
 
 	// get distance between current data value and bin-center  
 	dif = z - CELL_MUCOVSCALE->AVG_z[j1d];
@@ -13321,8 +13400,10 @@ int get_muCOVcorr(char *cid,
 	}
 
 	if ( DUMPFLAG) {
-	  printf(" xxx %s: ic=%d im=%d iz=%d muCOVscale/add = %f/%f WGT=%f\n", 
-		 fnam,ic,im,iz, muCOVscale_biascor,muCOVadd_biascor, WGT);
+	  printf(" xxx %s: j1d=%d, ic=%d im=%d iz=%d "
+		 "muCOVscale/add = %.3f/%.5f WGT=%f\n", 
+		 fnam, j1d, ic,im,iz, 
+		 muCOVscale_biascor,muCOVadd_biascor, WGT);
 	  
 	  fflush(stdout);
 	}
@@ -13361,6 +13442,38 @@ int get_muCOVcorr(char *cid,
 
 } // end get_muCOVcorr
 
+// ======================================================
+void dump_muCOVcorr(int n) {
+
+  int NBINa = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin;
+  int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin;
+  int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+
+  int ia, ib, ig, i1d;
+  double MUCOVSCALE, MUCOVADD;
+  char fnam[] = "dump_muCOVcorr" ;
+
+  // -----------BEGIN ------------
+
+  for(ia=0; ia < NBINa; ia++ ) {
+    for(ib=0; ib < NBINb; ib++ ) {
+      for(ig=0; ig < NBINg; ig++ ) {
+
+        MUCOVSCALE = INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig];
+	MUCOVADD   = INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig];
+	i1d        = INFO_DATA.I1D_MUCOVSCALE[n][ia][ib][ig];
+	printf(" %s: ia,ib,ig=%d,%d,%d  "
+	       "MUCOV[i1d,SCALE,ADD]= %d, %.3f, %.4f\n",
+	       fnam, ia, ib, ig, i1d, MUCOVSCALE, MUCOVADD );
+      }
+    }
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end dump_muCOVcorr
 
 // ======================================================
 void setup_CELLINFO_biasCor(int IDSAMPLE) {
@@ -15066,10 +15179,10 @@ int IBINFUN(double VAL, BININFO_DEF *BIN, int OPT, char *MSG_ABORT ) {
   // and bins defined by struct *BIN.
   // If VAL is outside range, return -9
   // 
-  // If OPT == 0  return =9 if VAL is outside range
-  // If OPT == 1  abort if VAL is outside range
-  // If OPT == 2  if VAL is outside, return edge bin (do not abort)
-  // If OPT == 7  dump
+  // OPT == 0  -> return =9 if VAL is outside range
+  // OPT == 1  -> abort if VAL is outside range
+  // OPT == 2  -> if VAL is outside, return edge bin (do not abort)
+  // OPT == 7  -> dump
   
   int ibin, IBIN, nbin;
   int LDMP = ( OPT == 7 ) ;
@@ -16494,8 +16607,11 @@ int ppar(char* item) {
     INPUTS.debug_malloc *= 2;  // must be >1 to take effect
     return(1); 
   }
+
   if ( uniqueOverlap(item,"debug_mucovscale=")) 
     { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
+  if ( uniqueOverlap(item,"cidlist_debug_biascor=")) 
+    { sscanf(&item[22],"%s", INPUTS.cidlist_debug_biascor); return(1); }
 
   if ( uniqueOverlap(item,"nthread=")) 
     { sscanf(&item[8],"%d", &INPUTS.nthread); return(1); }
@@ -18156,22 +18272,22 @@ void  prep_input_trueIa(void) {
 void prep_debug_flag(void) {
 
   // -----------------------------------
-  // check debug_flag and set internal LEGACY/REFAC options.
+  // check INPUTS.debug_flag and set internal LEGACY/REFAC options.
   // These options are intended to be temporary to allow switching
   // back and forth between LEGACY/REFAC codes.
   // General convention: 
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
 
-  INPUTS.LEGACY_MUCOVSCALE_MASS = ( INPUTS.debug_flag == -611 );
-
   if ( INPUTS.restore_mucovscale_bug ) {
     printf("\n RESTORE mucovscale bug \n");
     fflush(stdout);
   }
 
+  INPUTS.REFAC_SUBPROC_STD = (INPUTS.debug_flag == 930);
+  printf("  Set REFAC_SUBPROC_STD=%d \n",  INPUTS.REFAC_SUBPROC_STD);
+  
   fflush(FP_STDOUT);
-
 
 }  // end prep_debug_flag
 
@@ -18836,7 +18952,7 @@ void outFile_driver(void) {
 
     int OPTMASK   = SUBPROCESS.INPUT_OPTMASK ;
     bool WRFITRES = ( (OPTMASK & SUBPROCESS_OPTMASK_WRFITRES) > 0 );
-    bool WRM0DIF = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
+    bool WRM0DIF  = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
     if ( WRFITRES ) {
       sprintf(tmpFile,"%s.FITRES", prefix );
       write_fitres_driver(tmpFile);  // write result for each SN
@@ -18983,7 +19099,7 @@ void write_yaml_info(char *fileName) {
 	catVarList_with_comma(STR_NEVT_LIST[evtype], ctmp);	
       }      
     }
-    //.xyz
+
     sprintf(KEY,"SAMPLE_LIST:");
     fprintf(fp,"%-22.22s %s\n", KEY, STR_SAMPLE_LIST);
     for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
@@ -20143,11 +20259,11 @@ void write_fitres_line_append(FILE *fp, int indx ) {
       fitParBias[INDEX_x1] = INFO_DATA.fitParBias[n][INDEX_x1] ;
       fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
     }
-    muCOVscale           = INFO_DATA.muCOVscale[n]  ;
+    muCOVscale  = INFO_DATA.muCOVscale[n]  ;
     if ( DO_COVADD ) {
-      if (muCOVscale>1.0) { 
+      muCOVadd    = INFO_DATA.muCOVadd[n] ;
+      if ( muCOVscale > 1.0 && muCOVadd > 0.0 ) { 
 	muCOVscale = 1.0; 
-	muCOVadd           = INFO_DATA.muCOVadd[n]  ;
       } else {
 	muCOVadd = 0.0;
       }
@@ -22003,7 +22119,8 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   int debug_malloc = INPUTS.debug_malloc ;
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int i, ivar, NBINTOT=1, nbin, nbin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int MEMI, MEMD, IB1D, ib0, ib1, ib2, ib_per_var[MXVAR_TABLE_SUBPROCESS];
+  int MEMI, MEMD, MEMDD, IB1D, ib0, ib1, ib2;
+  int ib_per_var[MXVAR_TABLE_SUBPROCESS];
   int  IDMAP = 10 + ITABLE;
   int  *INDEX_BININFO[MXVAR_TABLE_SUBPROCESS];
   char fnam[] = "SUBPROCESS_MAP1D_BININFO"; 
@@ -22026,16 +22143,24 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
   SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT = NBINTOT;
   MEMI = NBINTOT * sizeof(int);
   MEMD = NBINTOT * sizeof(double);
+  MEMDD = NBINTOT * sizeof(double*);
 
   print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < NVAR; ivar++ ) {
 
     SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT        = (int   *)malloc(MEMI);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM = (double*)malloc(MEMD);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT          = (int   *)malloc(MEMI);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM     = (double*)malloc(MEMD);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT = (double*)malloc(MEMD);
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT       =  (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT       = (double*)malloc(MEMD);
+
+    
+    if ( INPUTS.REFAC_SUBPROC_STD ) {
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD        = (double*)malloc(MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST = (double*)malloc(MEMD);
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST = (double**)malloc(MEMDD);
+    }
 
     INDEX_BININFO[ivar] = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar];
     for(i=0; i < NBINTOT; i++ )  { INDEX_BININFO[ivar][i] = -9 ; }
@@ -22073,10 +22198,17 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int ivar;
   char VARNAMES[200], varName[40] ;
-  char VARNAMES_FIX[] = "NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT" ;
+  char VARNAMES_FIX[100]; // = "NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT" ;
   BININFO_DEF *BININFO;
 
   // ----------- BEGIN ---------
+
+  if ( INPUTS.REFAC_SUBPROC_STD ){
+    sprintf(VARNAMES_FIX,"NEVT MURES_SUM STD STD_ROBUST");
+  }
+  else {
+    sprintf(VARNAMES_FIX,"NEVT MURES_SUM MURES_SQSUM  SUM_WGT MURES_SUM_WGT");
+  }
 
   sprintf(VARNAMES,"ROW ");
 
@@ -22099,7 +22231,7 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   // driver function to load output tables after subprocess iteration
   int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  N_TABLE       = SUBPROCESS.N_OUTPUT_TABLE;
-  int  isn, ITABLE, cutmask ;
+  int  isn, ITABLE, cutmask; 
   char *TABLE_NAME ;
   char fnam[] = "SUBPROCESS_OUTPUT_LOAD" ;
 
@@ -22116,6 +22248,9 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
       SUBPROCESS_OUTPUT_TABLE_LOAD(isn,ITABLE);
     }  // end isn
 
+    // RK 9.29.2021 compute and store STD and STD_ROBUST
+    if ( INPUTS.REFAC_SUBPROC_STD ) { SUBPROCESS_COMPUTE_STD(ITABLE);  } 
+
   } // end ITABLE
   
   return ;
@@ -22123,68 +22258,174 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
 } // end SUBPROCESS_OUTPUT_LOAD
 
 
+// ========================================
+void SUBPROCESS_COMPUTE_STD(int ITABLE) {
+
+  // Created Sep 29 2021
+  // for ITABLE, compute STD and STD_ROBUST for each 1d bin,
+  // and store it in SUBPROCESS.OUTPUT_TABLE[ITABLE].
+
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
+  int    NBINTOT, ibin, NEVT, i;
+  double SUM, SQSUM, STD, STD_ROBUST, *MURES_LIST;
+  double MURES_AVG, *ABSMURES_LIST, DUM_AVG, DUM_STD, MEDIAN ;
+  char fnam[] = "SUBPROCESS_COMPUTE_STD" ;
+
+  // -------------- BEGIN ------------
+
+  NBINTOT  = OUTPUT_TABLE->NBINTOT ;
+  for(ibin=0; ibin < NBINTOT; ibin++ ) {
+    NEVT  = OUTPUT_TABLE->NEVT[ibin];
+    SUM   = OUTPUT_TABLE->MURES_SUM[ibin];
+    SQSUM = OUTPUT_TABLE->MURES_SQSUM[ibin];
+    MURES_LIST = OUTPUT_TABLE->MURES_LIST[ibin];
+
+    if (NEVT <= 1 ) {
+      OUTPUT_TABLE->MURES_STD[ibin]        = 0.0 ;
+      OUTPUT_TABLE->MURES_STD_ROBUST[ibin] = 0.0 ;
+      continue ;
+    }
+    MURES_AVG     = SUM/(double)NEVT;
+    ABSMURES_LIST = (double*) malloc( NEVT*sizeof(double) );
+    for(i=0; i < NEVT; i++ )
+      { ABSMURES_LIST[i] = fabs(MURES_LIST[i]-MURES_AVG); }
+	
+    arrayStat(NEVT, ABSMURES_LIST, &DUM_AVG, &DUM_STD, &MEDIAN);
+
+    STD        = STD_from_SUMS(NEVT, SUM, SQSUM) ;
+    STD_ROBUST = 1.48 * MEDIAN ;
+	
+    OUTPUT_TABLE->MURES_STD[ibin]        = STD;
+    OUTPUT_TABLE->MURES_STD_ROBUST[ibin] = STD_ROBUST ;
+	
+    free(ABSMURES_LIST);
+  } // end ibin loop
+
+  return ;
+
+}  // end SUBPROCESS_COMPUTE_STD
+
 // =====================================================
 void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
 
   // For each 1D bin in ITABLE, zero NEVT and MURES sums.
-  int NBINTOT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  int NBINTOT = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
   int  ibin1d;
   // ----------- BEGIN ---------
   for ( ibin1d=0; ibin1d < NBINTOT; ibin1d++ ) {
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[ibin1d] = 0;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[ibin1d]    = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[ibin1d]      = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[ibin1d]        = 0.0 ;
-    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[ibin1d]  = 0.0 ;
+    OUTPUT_TABLE->NEVT[ibin1d]           = 0;
+    OUTPUT_TABLE->MURES_SQSUM[ibin1d]    = 0.0 ;
+    OUTPUT_TABLE->MURES_SUM[ibin1d]      = 0.0 ;
+    OUTPUT_TABLE->SUM_WGT[ibin1d]        = 0.0 ;
+    OUTPUT_TABLE->MURES_SUM_WGT[ibin1d]  = 0.0 ;
+
+    if ( INPUTS.REFAC_SUBPROC_STD ) {
+      OUTPUT_TABLE->MURES_STD[ibin1d]         = 0.0 ;
+      OUTPUT_TABLE->MURES_STD_ROBUST[ibin1d]  = 0.0 ;
+      if ( ITABLE > 0 ) {
+	free(OUTPUT_TABLE->MURES_LIST[ibin1d]); // fragile?
+      }
+    }
   }
   return;
 } // end  SUBPROCESS_OUTPUT_TABLE_RESET
 
-// ============================
+// ==============================================================
 void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
 
   // increment table info for event index ISN and table index ITABLE.
+  // 
+  // Sep 30 2021: OPT_BININFO -> 0 so that events outside bin range
+  //              are excluded.
+  //
 
-  char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
-  int  NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
-  int  NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
-  double   mures    = INFO_DATA.mures[ISN] ;
+  SUBPROCESS_TABLE_DEF *OUTPUT_TABLE = &SUBPROCESS.OUTPUT_TABLE[ITABLE] ;
+
+  int  NVAR         = OUTPUT_TABLE->NVAR ;
+  int  NBINTOT      = OUTPUT_TABLE->NBINTOT ;
+  char   *name      = INFO_DATA.TABLEVAR.name[ISN] ;
+  double mures      = INFO_DATA.mures[ISN] ;
   double muerr      = INFO_DATA.muerr[ISN] ;
   double WGT        = 1.0/(muerr*muerr);
-
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int   IBIN1D, IVAR, OPT_BININFO=2;
+  int   NEVT, IBIN1D, IVAR, OPT_BININFO=0;
   float FVAL;        double DVAL ;
   BININFO_DEF *BININFO ;
-
+  bool  VALID = true;
+  int   LPRINT_MALLOC = 0 ;
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
 
   // ---------- BEGIN -----------
 
   for(IVAR=0; IVAR < NVAR; IVAR++ ) {
-    BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[IVAR];
+    BININFO = &OUTPUT_TABLE->BININFO[IVAR];
 
     // get data value for this variable and ISN event number  
-    FVAL = SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR][ISN] ;
+    FVAL = OUTPUT_TABLE->PTRVAL[IVAR][ISN] ;
     DVAL = (double)FVAL ;   
 
     // convert data value to table index
     ibin_per_var[IVAR] = IBINFUN(DVAL, BININFO, OPT_BININFO, fnam );	
-
+    
+    if ( ibin_per_var[IVAR] < 0 ) { VALID = false; }
   } // end ivar      
 
+  // bail if any event is outside bin range .xyz
+
   
+  if ( !VALID ) { 
+    if ( ISDATA_REAL ) { 
+      fprintf(FP_STDOUT,"%s: REJECT SNID=%s -> outside table bin range\n",
+	      fnam, name);
+    }
+    return; 
+  }
+
   // - - - - 
   // convert multiple table indices to global 1D index for table
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
-  
+
+  if ( INPUTS.REFAC_SUBPROC_STD ) {
+    int MEMD, LEN_REALLOC = 100; // increase to 1000 after valgrind debug xyzz
+    NEVT       = OUTPUT_TABLE->NEVT[IBIN1D];
+    if ( NEVT == 0 ) {
+      // malloc before any events are stored xyzz
+      MEMD = LEN_REALLOC * sizeof(double);
+      OUTPUT_TABLE->MURES_LIST[IBIN1D] = (double*) malloc(MEMD); 
+      if ( LPRINT_MALLOC ) {
+	printf(" xxx %s: malloc MURES_LIST with MEMD=%d ITABLE=%d ibin1d=%d\n",
+	       fnam, MEMD, ITABLE, IBIN1D); fflush(stdout);
+      }
+    }
+    else if ( (NEVT % LEN_REALLOC) == 0 )  {
+      // realloc
+      MEMD       = (NEVT+LEN_REALLOC) * sizeof(double);
+      OUTPUT_TABLE->MURES_LIST[IBIN1D] = 
+	(double *)realloc(OUTPUT_TABLE->MURES_LIST[IBIN1D],MEMD);
+      if ( LPRINT_MALLOC ) {
+	printf(" xxx %s: realloc MURES_LIST with MEMD=%d \n",
+	       fnam, MEMD); fflush(stdout);
+      }
+    }
+  } // end REFAC 
+
+
   // increment table contents
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D]++ ;
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D]    += mures ;
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D]  += (mures*mures) ;
-  //Now the weighted sums Brodiedebug
+  OUTPUT_TABLE->NEVT[IBIN1D]++ ;
+  OUTPUT_TABLE->MURES_SUM[IBIN1D]    += mures ;
+  OUTPUT_TABLE->MURES_SQSUM[IBIN1D]  += (mures*mures) ;
+
+  //Now the weighted sums 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D]        += WGT ;
   SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D]  += (mures*WGT) ;
+
+  if ( INPUTS.REFAC_SUBPROC_STD ) { 
+    OUTPUT_TABLE->MURES_LIST[IBIN1D][NEVT] = mures; 
+  }
+
   return;
 
 } // end SUBPROCESS_OUTPUT_TABLE_LOAD
@@ -22278,7 +22519,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
   char *VARNAMES     = SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER ;
 
   int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
-  double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT ;
+  double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT, STD, STD_ROBUST ;
   char cLINE[200], cVAL0[100], cVAL1[100];
   char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
 
@@ -22300,6 +22541,10 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
     MURES_SUM_WGT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT[IBIN1D];
     SUM_WGT         = SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT[IBIN1D];   
 
+    if (INPUTS.REFAC_SUBPROC_STD) {
+      STD = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD[IBIN1D]; 
+      STD_ROBUST = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST[IBIN1D];
+    } //end debug statement
 
 
     for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -22309,11 +22554,17 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
       strcat(cLINE,cVAL0);
     } // end ivar
 
-    sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
-    sprintf(cVAL1," %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT);
-    strcat(cLINE,cVAL0);
-    strcat(cLINE,cVAL1);
+    if (INPUTS.REFAC_SUBPROC_STD) {
+      sprintf(cVAL0," %5d  %12.4le  %12.4le %12.4le", NEVT, MURES_SUM, STD, STD_ROBUST);
+      strcat(cLINE,cVAL0);
+    }
 
+    else {
+      sprintf(cVAL0," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
+      sprintf(cVAL1," %12.4le  %12.4le", SUM_WGT, MURES_SUM_WGT);
+      strcat(cLINE,cVAL0);
+      strcat(cLINE,cVAL1);
+    }
     fprintf(FP_OUT,"ROW: %4.4d %s\n", IBIN1D, cLINE);
 
   } // end IBIN1D

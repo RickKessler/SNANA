@@ -5996,8 +5996,8 @@ void GEN_SNHOST_POS(int IGAL) {
   // Input IGAL is the sequential library index
   //
   // Galaxy profile is a sum of Sersic profiles.
-  // First randomly pick a profile based on its total weight (flux).
-  // Then pick a random location from this profile using 
+  // First, randomly pick a profile based on its total weight (flux).
+  // Next, pick a random location from this profile using 
   // pre-tabulated integrals of flux vs. reduced radius (r=R/Rhalf).
   //
   // if ( LSN2GAL  ) then call gen_MWEBV with new SN coords.

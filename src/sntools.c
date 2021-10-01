@@ -5559,13 +5559,14 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   // For input *array return *AVG and *RMS
   // Jun 2 2020: include MEDIAN in output
   // Jul 21 2021: rename RMS -> STD to avoid confusion.
+  // Sep 30 2021: fix median calc based on odd or even N
 
   int i;
   double XN, val, avg, sum, sqsum, std, median ;
 
   // ----------- BEGIN ------------
 
-  *AVG = *STD = 0.0 ;
+  *AVG = *STD = *MEDIAN = 0.0 ;
   if ( N <= 0 ) { return ; }
 
   avg  = std = sqsum = sum = median = 0.0 ;
@@ -5580,10 +5581,26 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   // for median, sort list and them median is middle element
   int ORDER_SORT  = +1;
   int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
-  int imedian, iHalf       = N/2;
+  int imed0, imed1, iHalf       = N/2;
   sortDouble(N, array, ORDER_SORT, INDEX_SORT );
-  imedian = INDEX_SORT[iHalf];
-  median  = array[imedian];
+
+  // xxx mark delete 9.30 2021: imedian = INDEX_SORT[iHalf];
+  // xxx median  = array[imedian];
+
+  // xxx  printf(" xxx N=%d ihalf=%d \n", N, iHalf);
+
+  if ( N%2 == 1 ) { 
+    // odd number of elements -> use middle value
+    imed0   = INDEX_SORT[iHalf];
+    median  = array[imed0]; 
+  }
+  else {
+    // even number of elements; average middle two values
+    imed0 = INDEX_SORT[iHalf-1];
+    imed1 = INDEX_SORT[iHalf];
+    median  = 0.5 * ( array[imed0] + array[imed1] );
+  }
+  
 
   // load output array.
   *AVG    = avg ;
@@ -5593,8 +5610,28 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   return ;
 } // end of arrayStat
 
-void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN) 
+void arraystat_(int *N, double *array, double *AVG, double *RMS, 
+		double *MEDIAN) 
 { arrayStat(*N, array, AVG, RMS, MEDIAN); }
+
+void test_arrayStat(void) {
+#define NTEST_arrayStat 9
+  double AVG, RMS, MEDIAN, array[NTEST_arrayStat];
+  int N, i;
+  char fnam[] = "test_arrayStat" ;
+
+  // ----------- begin -----------
+  // load array values 1 ... N
+  for(i=0; i < NTEST_arrayStat; i++ ) { array[i] = (double)(i+1); }
+
+  for(N=NTEST_arrayStat; N > NTEST_arrayStat-2; N-- ) {
+    arrayStat(N, array, &AVG, &RMS, &MEDIAN);
+    printf(" xxx %s: N=%d -> AVG=%.3f, RMS=%.3f, MEDIAN=%.3f \n",
+	   fnam, N, AVG, RMS, MEDIAN ); fflush(stdout);
+  }
+  return;
+
+} // end test_arrayStat
 
 // ========================================================
 double STD_from_SUMS(int N, double SUM, double SQSUM) {
@@ -5628,15 +5665,28 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   // sigint in small steps around sigint_approx. Finally, interpolate 
   // sigint vs. RMS_PULL at RMS_PULL=1.0
   //
-  // if OPTMASK & 1 --> do not abort on negative sigint
+  // OPTMASK & 1 --> do not abort on negative sigint
   //    will return negative sqrt(abs(arg)) as flag/quantitative info
   //
+  // OPTMASK & 32 --> implement test feature
+  // OPTMASK & 64 --> print debug dump
+  //
   // *callFun is for error messages.
+  //
+  // Sep 27 2021
+  //   + implement debug dump with OPTMASK & 64
+  //   + reduce covtotfloor from 0.1^2 to 0.02^2
+  //
 
+  bool LABORT = (OPTMASK & 1) == 0 ;
+  bool LTEST  = (OPTMASK & 32) > 0 ;
+  bool LDMP   = (OPTMASK & 64) > 0 ;
+  
   int    OPT_INTERP  = 1 ;
   double sigint_bin  = 0.01 ;
   double sigint_min = -0.3 ;
-  double covtotfloor = 0.01; // protection for negative covtot
+  double covtotfloor = 0.02*0.02 ; // protection for negative covtot
+  if ( LTEST ) { covtotfloor = 0.1*0.1; } // see -927 flag in SALT2mu
 
   int    nbin_lo     = 30 ; // prep this many bins below sigint_approx
   int    nbin_hi     = 30 ; // idem above sigint_approx
@@ -5644,19 +5694,16 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
 #define MXSTORE_PULL 100
 
-  bool TABORT; 
-  TABORT = OPTMASK & 1 == 0;
-  //printf("xxx callfun %s\n N=%d OPTMASK=%d ABORT=%d\n",callFun,N,OPTMASK,TABORT);
-
   int i ;
-  double RMS_PULL_ORIG, RMS_MURES_ORIG, SQMURES, MURES, MUCOV ;
+  double STD_MURES_ORIG, SQMURES, MURES, MUCOV ;
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
   char fnam[] = "sigint_muresid_list";
   
   // ---------------- BEGIN -------------
-  
+ 
+
   for ( i=0; i < N ; i ++ ) {
     MURES    = MURES_LIST[i];
     MUCOV    = MUCOV_LIST[i];
@@ -5677,18 +5724,18 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   AVG_MURES = SUM_MURES / XN ;
   AVG_MUCOV = SUM_MUCOV / XN;
   AVG_MUERR = sqrt(AVG_MUCOV);
-  RMS_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
+  STD_MURES_ORIG = STD_from_SUMS(N, SUM_MURES, SUM_SQMURES);
 
-  tmp = RMS_MURES_ORIG*RMS_MURES_ORIG - AVG_MUCOV ;
+  tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
 
   
-  bool INVALID_SIGINT_APPROX = (RMS_MURES_ORIG < AVG_MUERR);
-  if  ( INVALID_SIGINT_APPROX && TABORT ) {
+  bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
+  if  ( INVALID_SIGINT_APPROX && LABORT ) {
       print_preAbort_banner(fnam);
       printf("  %s called from %s\n", fnam, callFun);
       sprintf(c1err,"Cannot compute sigint because RMS < AVG_MUERR ??");
       sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
-	      RMS_MURES_ORIG, sqrt(AVG_MUCOV), N );
+	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
   } // end INVALID_SIGINT && ABORT
   
@@ -5712,6 +5759,17 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
   bool BOUND_ONE = false;
   
+  if ( LDMP ) {
+    printf(" xxx - - - - - - - - - - - - \n");
+    printf(" xxx %s: debug dump for %s\n", fnam, callFun);
+    printf(" xxx %s: AVG[MURES,MUCOV,MUERR] = %.3f, %.5f, %.3f \n",
+	   fnam, AVG_MURES, AVG_MUCOV, AVG_MUERR);
+    printf(" xxx %s: STD(MURES_ORIG) = %.3f \n", 
+	   fnam, STD_MURES_ORIG);
+    printf(" xxx %s: sigint[approx, (lo-hi)] = %.3f,  (%.3f to %.3f) \n",
+	   fnam, sigint_approx, sigTmp_lo, sigTmp_hi);
+    fflush(stdout);
+  }
 
   // start with largest sigInt and decrease so that RMS is increasing     
   // for the interp function below                                        
@@ -5722,14 +5780,18 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   while (!BOUND_ONE){
     
     if ( sigTmp < sigint_min ) {
-      if (TABORT) {
+      if ( LABORT ) {
 	print_preAbort_banner(fnam);
 	printf("  %s called from %s\n", fnam, callFun);
-	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",sigint_min);
-	sprintf(c2err,"RMS=%le, sqrt(AVG_COV)=%le  N=%d",
-		RMS_MURES_ORIG, sqrt(AVG_MUCOV), N );
+	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",
+		sigint_min );
+	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
+		STD_MURES_ORIG, sqrt(AVG_MUCOV), N );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-      } else { return sigint_min; }
+      } 
+      else { 
+	return sigint_min; 
+      }
     }
     
     sum_dif = sum_sqdif = sum_pull = sum_sqpull = 0.0 ;
@@ -5737,15 +5799,15 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 
     for(i=0; i < N; i++ ) {
       covtot = MUCOV_LIST[i] + covTmp;
-      if ( covTmp < 0 && covtot < covtotfloor ) {
+      if ( covTmp < 0  &&  covtot < covtotfloor ) {
 	covtot = covtotfloor;
       }
-      pull   = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
+      pull        = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
       sum_pull   += pull ;
       sum_sqpull += ( pull * pull);
     }
     rmsPull = STD_from_SUMS(N, sum_pull, sum_sqpull);
-    if ( rmsPull==0 ){
+    if ( rmsPull == 0.0 ){
       debugexit("xxx rmsPull = 0");
     }
 
@@ -5785,8 +5847,8 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
 	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
     printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
 	   NBIN_SIGINT, N, sigint_approx );
-    printf("  RMS_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
-	   RMS_MURES_ORIG, sqrt(AVG_MUCOV) );
+    printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
+	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
     sprintf(c1err,"ONE NOT CONTAINED by rmsPull_store array" );
     sprintf(c2err,"rmsPull_store range is %f to %f",
 	    rmsPull_store[0],rmsPull_store[NBIN_SIGINT-1]);
@@ -5796,12 +5858,12 @@ double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
   sigint = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
 			rmsPull_store, sigTmp_store, fnam);
 
-  int LDMP = 0 ;
   if ( LDMP ) {
-    printf(" xxx sigint(min-max, approx->final) = "
-	   "%.4f-%.4f   %.4f -> %.4f  (<MURES>=%f)\n",
-	   sigTmp_store[NBIN_SIGINT-1], sigTmp_store[0], 
-	   sigint_approx, sigint, AVG_MURES);
+    printf(" xxx %s: sigint(approx->final) = "
+	   "%.4f -> %.4f  (<MURES>=%f)\n",
+	   fnam, sigint_approx, sigint, AVG_MURES);
+    printf(" xxx \n");
+    fflush(stdout) ;
   }
 
 
@@ -10265,6 +10327,36 @@ void print_debug_malloc(int opt, char *fnam) {
 }  // end print_debug_malloc  
 
 
+float malloc_shortint2D(int opt, int LEN1, int LEN2, short int ***array2D ) {
+  // Created Sep 2021
+  // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
+  float f_MEMTOT = 0.0 ;
+  long long MEMTOT=0, i1 ;
+  int MEM1 = LEN1 * sizeof(short int*); 
+  int MEM2 = LEN2 * sizeof(short int);
+  char fnam[] = "malloc_shortint2D";
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array2D = (short int**) malloc(MEM1) ; MEMTOT += MEM1;
+    for(i1=0; i1< LEN1; i1++ ) {
+      (*array2D)[i1] = (short int*) malloc(MEM2) ; MEMTOT += MEM2;
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
+    free(array2D[i1]) ;    
+  }
+
+  return(f_MEMTOT);
+} // end malloc_shortint2D
+
 float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
   // Created Jun 11 2019
   // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
@@ -10432,3 +10524,56 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
   return(f_MEMTOT);
 
 }   // end malloc_double4D
+
+
+float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+			short int *****array4D ) {
+  // Created Sep 2021
+  // Malloc array3D[LEN1][LEN2][LEN3][LEN4] 
+  //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb, LEN4=MXg)
+
+  float f_MEMTOT = 0.0 ;
+  int MEMTOT=0, i1, i2, i3 ;
+  int MEM1 = LEN1 * sizeof(short int***); 
+  int MEM2 = LEN2 * sizeof(short int**);
+  int MEM3 = LEN3 * sizeof(short int*);
+  int MEM4 = LEN4 * sizeof(short int);
+  char fnam[] = "malloc_shortint4D";
+
+  // ----------- BEGIN -------------
+
+  print_debug_malloc(opt,fnam);
+
+  if ( opt > 0 ) {
+
+    *array4D = (short int****) malloc(MEM1) ; MEMTOT+=MEM1;
+    for(i1=0; i1<LEN1; i1++ ) {
+      (*array4D)[i1] = (short int***) malloc(MEM2) ; MEMTOT+=MEM2;
+      for(i2=0; i2<LEN2; i2++ ) {
+	(*array4D)[i1][i2] = (short int**) malloc(MEM3); MEMTOT+=MEM3;
+	for(i3=0; i3<LEN3; i3++ ) {
+	  (*array4D)[i1][i2][i3] = (short int*) malloc(MEM4); MEMTOT+=MEM4;
+	}
+      }
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1<MEM1; i1++ ) {
+      for(i2=0; i2<LEN2; i2++ ) {
+	for(i3=0; i3<LEN3; i3++ ) {
+	  free( (*array4D)[i1][i2][i3] ); 
+	}
+	free( (*array4D)[i1][i2]); 
+      }
+      free( (*array4D)[i1]) ;
+    }
+    free(array4D);
+  }
+
+
+  return(f_MEMTOT);
+
+}   // end malloc_shortint4D

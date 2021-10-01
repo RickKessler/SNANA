@@ -35,6 +35,7 @@ from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap
 from   read_data_lsst_drp      import data_lsst_drp
 from   read_data_sirah_folder  import data_sirah_folder
+from   read_data_ztf           import data_ztf_folder
 from   read_data_snana_folder  import data_snana_folder
 
 # =====================================
@@ -49,6 +50,9 @@ def get_args():
 
     msg = "Data source: SIRAH pkl folder"
     parser.add_argument("--sirah_folder", help=msg, type=str, default=None )
+
+    msg = "Data source: ZTF folder"
+    parser.add_argument("--ztf_folder", help=msg, type=str, default=None )    
 
     msg = "Data source: SNANA sim-data folder (for testing)"
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
@@ -104,6 +108,7 @@ def restore_args_from_readme(args,readme_yaml):
     args.lsst_ap      = False
     args.lsst_drp     = False
     args.sirah_folder = None
+    args.ztf_folder   = None
     args.snana_folder = None
             
     key = 'SOURCE_LSST_AP'
@@ -118,6 +123,10 @@ def restore_args_from_readme(args,readme_yaml):
     if key in readme_yaml:
         args.sirah_folder  = readme_yaml[key]
 
+    key = 'SOURCE_ZTF_FOLDER'
+    if key in readme_yaml:
+        args.ztf_folder  = readme_yaml[key]
+        
     key = 'SOURCE_SNANA_FOLDER'
     if key in readme_yaml:
         args.snana_folder  = readme_yaml[key]
@@ -149,6 +158,9 @@ def which_program_class(args):
     elif args.sirah_folder is not None :        
         program_class = data_sirah_folder
         args.survey = "SIRAH"
+    elif args.ztf_folder is not None :   
+        program_class = data_ztf_folder
+        args.survey = "ZTF"
     elif args.snana_folder is not None :
         program_class     = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)

@@ -729,6 +729,7 @@ double polyEval(int N, double *coef, double x);
 
 void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
+void test_arrayStat(void);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
 double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST, 
 			   int OPTMASK, char *callFun );
@@ -910,5 +911,10 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
                       double *****array4D );
 float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3,
                      float ****array3D );
+
+float malloc_shortint2D(int opt, int LEN1, int LEN2, 
+			short int ***array2D );
+float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+			short int *****array4D );
 
 // ============== END OF FILE =============

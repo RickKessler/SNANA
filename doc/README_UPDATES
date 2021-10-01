@@ -20396,6 +20396,27 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
          separate from the output for cosmomc.
 
     Remove obsolete sntable_dump.pl
+  
+    get_fitres_values.py:
+      + update to work for HOSTLIB and to skip DOCANA keys
 
+    SALT2mu.c:
+      + in MNCHI2FUN, abort on muerrsq < 0
+      + in check_duplicate_SNID, replace large local arrays
+        with malloc to avoid weird valgrind errors.
+      + in WGT_biasCor, check interp_biasCor_logmass to include
+          wgt from logmass; fixes add bug found by Brodie and Dillon.
+      + new input cidlist_debug_biascor
+      + debug_mucovscale is now a j1d index to print info for.
+      + prep SUBPROCESS output table to write STD and STD_ROBUST
+
+  sntools.c
+    + sigint_muresid_list(): reduce covfloor from 0.1^2 to 0.02^2
+    + arrayStat(); fix median calculation to depend on odd or even N
+
+  wfit.c
+    + write wa info to yaml file
+  submit_prog_bbc.py:
+    + include wa results in BBC_SUMMARY_wfit file
 
 END: 

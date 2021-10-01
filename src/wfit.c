@@ -2202,17 +2202,22 @@ void read_mucov_sys(char *inFile){
 		&NSPLIT, ptrSplit);
     if(NROW_read == 0){
       sscanf(ptrSplit[0],"%d",&NDIM);
+      printf("\n\n****************************************\n");
+      printf("****************************************\n");
       printf("\tFOUND COV DIMENSION %d",NDIM);
+      printf("\n****************************************\n");
+      printf("****************************************\n\n\n");
       f_MEM = malloc_double2D(+1, NDIM, NDIM,&MU_COV_SYS );  
     }
     else {
       sscanf( ptrSplit[0],"%le",&cov);      
       MU_COV_SYS[i0][i1]=cov;
+      #printf("  %d \n", &ptrSplit[i0]);// XXX AM DELETE
+      printf("  %d \n", cov);
       i0++;
       if(i0==NDIM-1){
 	i1++;i0=0;
       }
-      
     }
     
     NROW_read+=1;

@@ -496,9 +496,9 @@ def get_cov_from_covfile(data, covfile, scale):
             continue
         ww1 = np.argwhere(data['CIDstr'] == row['CID1'])[0][0]
         ww2 = np.argwhere(data['CIDstr'] == row['CID2'])[0][0]
-        if ww1 == ww2:
-            print('skipping, not doing same SN diagonals')
-            continue
+        #if ww1 == ww2:
+        #    print('skipping, not doing same SN diagonals')
+        #    continue
         covout[ww1,ww2] = row['MU_COV']
 
     return covout, (0, 0, 0)

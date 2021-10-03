@@ -4457,9 +4457,7 @@ c set local dump logicals = namelist flag .and. (debug option)
      &           .and. LFITDATA 
 
 c dumpe header just once per filter.
-
-cc xxx mark delete Oct 2020   if ( LDMPFCN_LOC .and. FIRSTFILT ) then      
-         if ( LDMPFCN_LOC ) then
+         if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
               print*,' '
               print*,' -------------------------------------- '
@@ -4481,7 +4479,7 @@ c print  fit-pars to see crazy values.
               write(6,603) 'SHAPE', SHAPEPAR(1)
               write(6,603)  PARNAME_STORE(IPAR_DLMAG)(1:6), DISTPAR
 
-603           format(T7, A, T17,'= ', G14.4 )
+603           format(T7, A, T17,'= ', G14.6 )
 604           format(T7, A, T17,'= ', F12.4 )
 
 c print non-zero chi2prior contributions
@@ -7359,8 +7357,10 @@ c  skip DUMP options after 20 filters
              CALL MADABORT(FNAM, c1err, c2err)
            endif
            if ( LPLOTCHI2 ) then
+              ! either plot ...
               LDMPFCN_PLOTCHI2(ifilt) = .TRUE.
            else
+              ! or stdout dump ...
               LDMPFCN(ifilt) = .TRUE.
               LDMPFCN(0)     = .TRUE.
            endif
@@ -19725,7 +19725,8 @@ c hard-wire  a few things
       PARAMETER ( 
      &    HOFF      = 2000  ! hbook offset
      &   ,NFITSIG   = 10    ! go out +-NSIG sigma from central value
-     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
+     &   ,NBFITPAR  = 100   ! Number of fitpar bins to compute chi2
+c     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
      &      )
 
 
@@ -19739,7 +19740,7 @@ c hard-wire  a few things
       CHARACTER chis*80
 
       INTEGER 
-     &   hid, NBx, NBf, NHB(2), ipar, ix, LL, LF
+     &   hid, NBx, NBf, NHB(2), ipar, ix, i, LL, LF
      &  ,ifilt, ifilt_obs, NFUSE
      &  ,IPAR_LOOP1, IPAR_LOOP2
      &  ,NDIM1, NDIM2
@@ -19830,7 +19831,7 @@ c book chi2 vs. par - par(at min) vs. filter
          DO ix = 1, NBx
 
              LDMPCHECK = ( IPAR .EQ. IPAR_PLOTCHI2 )
-     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
+cc     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
 
              FCN_FITCHI2(0) = 0.0
              do ifilt = 1, NFILTDEF_SURVEY
@@ -19841,6 +19842,7 @@ c check for filters to dump near the minimum
                if ( LDMPCHECK ) then
                  LDMPFCN(ifilt_obs) = LDMPFCN_PLOTCHI2(ifilt_obs)
                  LDMPFUN(ifilt_obs) = LDMPFUN_PLOTCHI2(ifilt_obs)
+                 LDMPFCN(0)         = .true. ! xxx ?? 9.30.2021
                else
                  LDMPFCN(ifilt_obs) = .FALSE.
                  LDMPFUN(ifilt_obs) = .FALSE.

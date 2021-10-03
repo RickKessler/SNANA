@@ -3783,7 +3783,7 @@ void invertMatrix(int N, int n, double *Matrix ) {
   // if you want to save the original matrix, save
   // it before calling this function.
 
-  int s;
+  int s ;
   int i1, i2, J ;
   
   // -------------- BEGIN ---------------

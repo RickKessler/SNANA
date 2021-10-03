@@ -24040,6 +24040,8 @@ void genmodel(
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
  
+    ptr_generr[0] = 4.44; // xxx REMOVE
+
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options
 		  ,ifilt_obs      // (I) obs filter index 
@@ -24052,6 +24054,15 @@ void genmodel(
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
+
+    /* xxxxxxxxxx
+    if ( ifilt_obs == INPUTS.DEBUG_FLAG ) {
+      double Trest_tmp = ptr_epoch[0]/(1.0+z);
+      printf(" xxx %s: ifilt_obs=%d  z=%.5f  Trest=%.3f magerr=%.3f \n",
+	     fnam, ifilt_obs, z, Trest_tmp, ptr_generr[0] ) ;
+    }
+    xxxxxxx */
+
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {

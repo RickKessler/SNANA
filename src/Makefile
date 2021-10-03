@@ -173,7 +173,7 @@ CC   = gcc
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -
-#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
@@ -504,11 +504,13 @@ $(OBJ)/minuit.o :  minuit.F
 $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
-$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_cosmology.o
+$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/wfit.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o \
+	$(LCERN) $(LROOT) $(CPPLIB) \
 	$(LCFITSIO)  \
 	-lm $(LGSL) 
 	(cd $(OBJ);  rm wfit.o )

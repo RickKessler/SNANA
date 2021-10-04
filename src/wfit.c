@@ -877,8 +877,8 @@ void read_fitres(char *inFile) {
 
   // --------------- BEGIN --------------
 
-  TABLEFILE_INIT();
 
+  TABLEFILE_INIT();
   NROW = SNTABLE_NEVT(inFile,TBNAME);
   IFILETYPE = TABLEFILE_OPEN(inFile,"read");
   NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,TBNAME);

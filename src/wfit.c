@@ -253,6 +253,8 @@ void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
+double get_DMU_chi2wOM(int k, Cosparam *cpar); // AM OCT, 2021
+
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *OM_atchimin ); 
 void set_priors(void);
@@ -1305,14 +1307,14 @@ void read_mucov_sys(char *inFile){
 
     if ( NROW_read == 0 ) {
       sscanf(ptrSplit[0],"%d",&NDIM);
-      printf("\t Found COV dimension %d", NDIM);
+      printf("\t Found COV dimension %d\n", NDIM);
       f_MEM = malloc_double2D(+1, NDIM, NDIM, &WORKSPACE.MUCOV_SYS );  
     }
     else {
       NMAT_read++ ;
       sscanf( ptrSplit[0],"%le",&cov);      
       WORKSPACE.MUCOV_SYS[i0][i1] = cov;
-      printf(" xxx %s: cov[%d][%d] = %f \n", fnam, i0,i1, cov);
+      //printf(" xxx %s: cov[%d][%d] = %f \n", fnam, i0,i1, cov);
       i0++;
       if ( i0 == NDIM ) { i1++; i0=0; }
     }
@@ -2102,43 +2104,18 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
 // ==================================
 void invert_mucovar(double sqmurms_add) {
 
-  // May 20, 2009
+  // May 20, 2009 + 04 OCt, 2021
   // add diagonal elements to covariance matrix, then invert.
   //
-  int N0, N1, i0, NMAX;
-  double covtmp[MXCOVSN][MXCOVSN];
+  int NSN=HD.NSN;
 
   // =================================
 
-  if ( NCOVSN <= 0 ) return ;
+  if(INPUTS.use_mucov){
 
-  // set diagonal terms to errors computed before this function was called.
-  for ( N0=1; N0 <= NCOVSN; N0++ ) {
-    i0  = INDEX_COVSN_MAP[N0];
-    MUCOV_STORE[N0][N0].INDEX[0] = i0 ;
-    MUCOV_STORE[N0][N0].INDEX[1] = i0 ;
-    MUCOV_STORE[N0][N0].COV      = HD.mu_sqsig[i0] + sqmurms_add ;
+    invertMatrix( NSN, NSN, &WORKSPACE.MUCOV_SYS[0][0] ) ;
   }
-
-
-  // load full COV matrix into temp array that starts at zero.
-  for ( N0=1; N0 <= NCOVSN; N0++ ) {
-    for ( N1=1; N1 <= NCOVSN; N1++ ) {
-      covtmp[N0-1][N1-1] = MUCOV_STORE[N0][N1].COV ;
-    }
-  }
-
-  NMAX = MXCOVSN ;
-
-  invertMatrix( NMAX, NCOVSN, &covtmp[0][0] ) ;
-
-  // store inverted matrix in global struct
-  for ( N0=1; N0 <= NCOVSN; N0++ ) {
-    for ( N1=1; N1 <= NCOVSN; N1++ ) {
-      MUCOV_STORE[N0][N1].COVINV = covtmp[N0-1][N1-1];
-    }
-  }
-
+  return ;
 
 } // end of invert_mucovar
 
@@ -2165,9 +2142,9 @@ void get_chi2wOM (
   double 
     OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
     ,chi_hat, dchi_hat, ld_cos
-    ,tmp1, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv ;
+    ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv ;
 
-  double *mu_cos;
+  
 
   Cosparam cparloc;
   int k, k0, k1, N0, N1, icov;
@@ -2184,39 +2161,53 @@ void get_chi2wOM (
 
   Bsum = Csum = chi_hat = 0.0 ;
 
-  mu_cos = (double*) malloc( HD.NSN * sizeof(double) );
 
+
+  
   /* Loop over all data and calculate chi2 */
-  for (k=0; k < HD.NSN; k++){
+  if (INPUTS.use_mucov){
+    double dmu0, dmu1, chi_tmp;
+   
 
-    sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
-    sqmusiginv  = 1./sqmusig ;    
-    rz          = codist(HD.z[k], &cparloc); // cparloc -- input. w, om etc. 
-    ld_cos      = (1.0 + HD.z[k]) *  rz * c_light / H0;
-    mu_cos[k]   =  5.*log10(ld_cos) + 25. ;
-    dmu         = mu_cos[k] - HD.mu[k] ;
+    for(k0=0; k0 < HD.NSN; k0++)
+      {
+	for(k1=k0; k1 < HD.NSN; k1++)
+	  {
 
-    // add chi2 only for SNe that have no off-diag terms
+	    sqmusiginv = WORKSPACE.MUCOV_SYS[k0][k1]; // Inverse of the matrix 
+	    dmu0 = get_DMU_chi2wOM(k0, &cparloc);
+	    dmu1 = get_DMU_chi2wOM(k1, &cparloc);
+	    Bsum       += sqmusiginv * dmu0 ;       // Eq. A.11 of Goliath 2001                                                                                                     
+	    Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001                                                                                                     
+	    chi_tmp     = sqmusiginv*dmu0*dmu1;
+	    if(k1=k0){chi_hat += chi_tmp;}
+	    else{chi_hat+= 2.*chi_tmp;}
+	  }
+      }
+    
+  }
+  else{
+    for (k=0; k < HD.NSN; k++){
 
-    icov = INDEX_COVSN_INVMAP[k] ; 
-
-    if ( icov < 0 )  {
-      Bsum    += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
-      Csum    += sqmusiginv ;             // Eq. A.12 of Goliath 2001
-      chi_hat += sqmusiginv * dmu*dmu ;
-    }
+      sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
+      sqmusiginv  = 1./sqmusig ;     
+      dmu         = get_DMU_chi2wOM(k, &cparloc);      
+      Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
+      Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
+      chi_hat    += sqmusiginv * dmu*dmu ;
+      
 
     /*
     printf("  xxxx dmu(%4s) = %6.2f - %6.2f = %6.2f   sigmu=%f  \n", 
 	   CIDLIST[k], mu_cos[k], mu[k], dmu, mu_sig[k] );
     */
+    }
   }
-
 
   // check for SNe with off-diagonal terms
   // Note that below includes both diag & off-diag for 
   // the SN-subset with covariances.
-
+  /*
   if ( NCOVPAIR > 0 ) {
     for ( N0=1; N0 <= NCOVSN; N0++ ) {
       for ( N1=1; N1 <= NCOVSN; N1++ ) {
@@ -2242,7 +2233,8 @@ void get_chi2wOM (
     } // N0
   }
 
-
+  */
+  
   *mu_off  = Bsum/Csum ;  // load function output before adding H0-prior corr
 
   /* Analytic marginalization over H0.  
@@ -2286,13 +2278,33 @@ void get_chi2wOM (
     *chi2tot += pow( nsig, TWO );
   }
 
-  free(mu_cos);
+
 
   return ;
 
 }  // end of get_chi2wOM
+double get_DMU_chi2wOM(int k, Cosparam *cpar)  
+{
 
+  // Created oct, 2021. Mitra, Kessler.
+  // For the chi sq. function to evaluate the Hubble residual.
+  // Inputs :
+  // k : Index of HUbble diagram array
+  // cpar : Structure containing the cosmological parameters
+  // Output :
+  // Function returns mu_obs-mu_theory for k-th observation.
+  
+  double rz, ld_cos, mu_cos, dmu;
+  
+  rz          = codist(HD.z[k], cpar); // cparloc -- input. w, om etc.                                                                                                      
+  ld_cos      = (1.0 + HD.z[k]) *  rz * c_light / H0;
+  mu_cos      =  5.*log10(ld_cos) + 25. ;
+  dmu         = mu_cos - HD.mu[k] ;
 
+  return dmu;
+    
+
+}
 // ==============================================
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *omm_atchimin ) {

@@ -2431,11 +2431,9 @@ class BBC(Program):
 
             for yaml_file in yaml_list :
                 tmp_yaml  = util.extract_yaml(yaml_file, None, None )
-                wfit_values_dict = self.get_wfit_values(tmp_yaml)
+                wfit_values_dict = util.get_wfit_values(tmp_yaml)
                 w       = wfit_values_dict['w']  
                 w_sig   = wfit_values_dict['w_sig']
-                # xxx mark delete w         = tmp_yaml['w']
-                # xxx mark delete w_sig     = tmp_yaml['w_sig']
                 w_list.append(w)
                 werr_list.append(w_sig)
             value_list2d[ivar] = w_list

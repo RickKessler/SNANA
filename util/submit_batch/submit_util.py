@@ -41,13 +41,13 @@ def get_wfit_values(wfit_yaml):
 
     # - - - repeat for optoinal wa
     key_list = [ 'wa' ]
-    wa       = -9.0
+    wa       = 0.0
     for key in key_list:
         if  key in wfit_yaml:
             wa  = wfit_yaml[key]  
 
     key_list = [ 'wasig_marg', 'wasig_lo' ]
-    wa_sig   = -9.0
+    wa_sig   = 0.0
     for key in key_list:
         if key in wfit_yaml: 
             wa_sig = wfit_yaml[key]

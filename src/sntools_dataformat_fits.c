@@ -1845,6 +1845,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   //              for the no-blank rule on strins. See SUBSURVEY.
   //
   int istat, colnum, firstelem, firstrow, nrow, LEN ;
+  int LDMP = 0 ;
   fitsfile *fp ;
   char *ptrForm, cfirst[2], clast[2] ;
   char fnam[] = "wr_snfitsio_fillTable";
@@ -2229,6 +2230,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   for ( ipar=1; ipar <= NPAR; ipar++ ) {
     ptrTmp = SNFITSIO_TABLEDEF[itype].name[ipar] ;
 
+    //    printf(" xxx %s: check ipar=%d parname='%s' \n", fnam, ipar, ptrTmp);
     if ( strcmp(ptrTmp,parName) == 0 ) 
       { return ipar ; }
   }
@@ -2292,6 +2294,7 @@ void WR_SNFITSIO_END(void) {
 
   int istat, extver, ifile, itype, NTYPE, isys ;
   fitsfile *fp ;
+  char fnam[] = "WR_SNFITSIO_END";
 
   // ------------ BEGIN -------------
 

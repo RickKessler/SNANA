@@ -968,8 +968,6 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
   if ( NFILE < 0 ) { return -1 ; } // not TEXT format
 
   // read/store global info from first file
-  
-
   if ( SNTEXTIO_VERSION_INFO.NVERSION == 0 ) 
     { rd_sntextio_global(); }
 
@@ -1076,6 +1074,7 @@ void  rd_sntextio_global(void) {
   // Open first text file and read info that is global;
   // skip SN-dependent info. Stop reading at first "OBS:" key.
   //
+  // Oct 5 2021: read SIM_MODEL_INDEX for sim
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1178,9 +1177,11 @@ void  rd_sntextio_global(void) {
       if ( IS_SNEMO  ) { sprintf(SNDATA.PySEDMODEL_NAME, "SNEMO" ); }
     } 
 
-    
     else if ( IS_SIM ) {
-      if ( strcmp(word0,"SIMLIB_MSKOPT:") == 0 ) {
+      if ( strcmp(word0,"SIM_MODEL_INDEX:") == 0 ) {
+	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SIM_MODEL_INDEX) ;
+      }
+      else if ( strcmp(word0,"SIMLIB_MSKOPT:") == 0 ) {
 	iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SIMLIB_MSKOPT) ;
       }
       else if ( strcmp(word0,"SIMOPT_MWCOLORLAW:") == 0 ) {

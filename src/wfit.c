@@ -2886,6 +2886,7 @@ void write_output_cospar(void) {
       sprintf(cval, "%s",   VALUES_LIST[ivar]);
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
+    fprintf(fp,"ABORT_IF_ZERO:  %d\n  # same as Ndof", WORKSPACE.Ndof);
   }
 
   fclose(fp);

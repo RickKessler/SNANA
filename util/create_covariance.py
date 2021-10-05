@@ -672,7 +672,7 @@ def write_standard_output(config, unbinned, covs, base):
 # =====================================
 # cosmomc utilities
 
-def write_cosmomc_output(config, covs, base):
+def write_cosmomc_output(config, covs, base, args):
 
     # Copy & modify INI files. 
     # Create covariance matrices
@@ -697,8 +697,8 @@ def write_cosmomc_output(config, covs, base):
     data_file      = out / f"data.txt"
     data_file_wCID = out / f"data_wCID.txt"
     prefix_covsys  = "sys"
-    write_cosmomc_HD(data_file, base)
-    write_cosmomc_HD(data_file_wCID, base, cosmomc_format=False)
+    write_cosmomc_HD(data_file, base, args.unbinned)
+    write_cosmomc_HD(data_file_wCID, base, args.unbinned, cosmomc_format=False)
 
     # Create covariance matrices and datasets
     opt_cov = 0     # write cov with no comments
@@ -747,10 +747,15 @@ def write_cosmomc_dataset(path, data_file, cov_file, template_path):
                                            cov_file=cov_file))
     # end write_cosmomc_dataset
 
-def write_cosmomc_HD(path, base, cosmomc_format=True):
+def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 
     if not cosmomc_format:
-        base[[VARNAME_z, VARNAME_MU, VARNAME_MUERR]].to_csv(path, sep=" ", index=True, float_format="%.5f")
+        if unbinned:
+            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+        else:
+            varlist = [VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+
+        base[varlist].to_csv(path, sep=" ", index=False, float_format="%.5f")
         return
 
     zs   = base[VARNAME_z].to_numpy()
@@ -1027,7 +1032,7 @@ def create_covariance(config, args):
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
-        write_cosmomc_output(config, covariances, base)
+        write_cosmomc_output(config, covariances, base, args)
 
     write_summary_output(config, covariances, base)
     #write_debug_output(config, covariances, base, summary)

@@ -900,11 +900,29 @@ void read_fitres(char *inFile) {
   IVAR_NFIT  = SNTABLE_READPREP_VARDEF("NFIT:I", 
 				       HD.nfit_perbin, NROW, VBOSE );
   // - - - -
-  IVAR_zHD    = SNTABLE_READPREP_VARDEF("zHD:D z:D Z:D",    
+  IVAR_zHD    = SNTABLE_READPREP_VARDEF("zHD:D zCMB:D z:D Z:D",    
 					HD.z,     NROW, VBOSE) ;
-  IVAR_zHDERR = SNTABLE_READPREP_VARDEF("zHDERR:D zERR:D ZERR:D", 
+  IVAR_zHDERR = SNTABLE_READPREP_VARDEF("zHDERR:D zCMBERR:D zERR:D ZERR:D", 
 					HD.z_sig, NROW, VBOSE) ;
 
+  // check for required elements
+  if ( IVAR_MU < 0 ) {
+    sprintf(c1err,"Could not find required distance column:");
+    sprintf(c2err,"MU or DLMAG or MUDIF", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+  if ( IVAR_MUERR < 0 ) {
+    sprintf(c1err,"Could not find required distance-uncertainty column:");
+    sprintf(c2err,"MUERR or DLMAGERR or MUDIFERR", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+  if ( IVAR_zHD < 0 ) {
+    sprintf(c1err,"Could not find required redshift column:");
+    sprintf(c2err,"zHD or z or Z or zCMB", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  // - - - - - - - - - 
   // read table
   HD.NSN = SNTABLE_READ_EXEC();
 

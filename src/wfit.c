@@ -199,6 +199,8 @@ char varname_w[4];          // either w for wCDM or w0 for w0wa model
 char varname_wa[4]  ;
 char varname_omm[4] ; 
 
+time_t t_start, t_end_init, t_end_fit ;
+
 // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 //  XXX MARK DELETE 23/09/2021 XXX 
 
@@ -241,6 +243,7 @@ void read_mucov_sys(char *inFile);
 void invert_mucovar(double sqmurms_add);
 void set_stepsizes(void);
 void set_Ndof(void);
+void check_refit(void);
 
 void wfit_minimize(void);
 void wfit_normalize(void);
@@ -270,6 +273,8 @@ void write_output_contour(void);
 void write_output_cospar(void);
 void write_output_fits(void);
 
+void CPU_summary(void);
+
 // cosmology functions
 double EofZ(double z, Cosparam *cptr);
 double one_over_EofZ(double z, Cosparam *cptr);
@@ -298,6 +303,8 @@ double trapezoid(double (*func)(double, Cosparam *),
 int main(int argc,char *argv[]){
 
   // ----------------- BEGIN MAIN ----------------
+
+  t_start = time(NULL);
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
 
@@ -336,13 +343,14 @@ int main(int argc,char *argv[]){
     // read optional mu-cov matrix (e..g, Cov_syst)
     read_mucov_sys(INPUTS.mucov_file);
    
-
     // compute grid step size per floated variable
     set_stepsizes();
 
     // compute number of degrees of freedom
     set_Ndof(); 
 
+    t_end_init = time(NULL);
+ 
     // minimize chi2 on a grid
     wfit_minimize(); 
     
@@ -358,33 +366,15 @@ int main(int argc,char *argv[]){
     // determine "final" quantities, including sigma_mu^int
     wfit_final();
 
+    t_end_fit = time(NULL);
+
     // call driver routine for output(s)
     WRITE_OUTPUT_DRIVER();
 
     // --------------------------------------------------
-
-    /* xxxxxxxxx mark delete ???
-    invert_mucovar(sigmu_int);
-    get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sigmu_int*sigmu_int,  // inputs
-	  	&muoff_tmp, &snchi_tmp, &chi2tmp );   // return args
-    xxxx */
-
-
     // check option to repeat fit with updated snrms = sigmu_int
-    double sigmu_int = WORKSPACE.sigmu_int ;
-    if ( INPUTS.fitnumber == 0 ) {
-      if ( sigmu_int > INPUTS.snrms ) {
-	printf("REFITTING DATA WITH UPDATED INTRINSIC SCATTER\n\n");
-	printf("\t input snrms = %.4f --> %.4f\n", INPUTS.snrms, sigmu_int);
-	INPUTS.snrms   = sigmu_int;
-	INPUTS.sqsnrms = sigmu_int * sigmu_int;
-      } else {
-	printf("SKIPPING REFIT - NO ADDITIONAL INTRINSIC SCATTER\n\n");
-	printf("\t initial snrms   = %.4f \n", INPUTS.snrms);
-	printf("\t final sigma_int = %0.4f \n\n", sigmu_int);
-	INPUTS.fitnumber++ ;
-      }
-    }
+    check_refit();
+
 
     INPUTS.fitnumber++ ;
 
@@ -395,6 +385,7 @@ int main(int argc,char *argv[]){
   // free memory
   malloc_HDarrays(-1,0);
   malloc_workspace(-1);
+  CPU_summary();
 
   printf("DONE. \n"); fflush(stdout);
 
@@ -1507,6 +1498,35 @@ void set_Ndof(void) {
   return ;
 
 } // end set_Ndof
+
+
+// ==================================
+void check_refit(void) {
+  
+  // Created Oct 6 2021
+  // [move old JLM code from main to here]
+
+  double sigmu_int = WORKSPACE.sigmu_int ;
+
+  // ----------- BEGIN --------------
+
+  if ( INPUTS.fitnumber == 0 ) {
+    if ( sigmu_int > INPUTS.snrms ) {
+      printf("REFITTING DATA WITH UPDATED INTRINSIC SCATTER\n\n");
+      printf("\t input snrms = %.4f --> %.4f\n", INPUTS.snrms, sigmu_int);
+      INPUTS.snrms   = sigmu_int;
+      INPUTS.sqsnrms = sigmu_int * sigmu_int;
+    } else {
+      printf("SKIPPING REFIT - NO ADDITIONAL INTRINSIC SCATTER\n\n");
+      printf("\t initial snrms   = %.4f \n", INPUTS.snrms);
+      printf("\t final sigma_int = %0.4f \n\n", sigmu_int);
+      INPUTS.fitnumber++ ;
+    }
+  }
+
+  return ;
+
+} // end check_refit
 
 // ==================================
 void wfit_minimize(void) {
@@ -2757,7 +2777,7 @@ void write_output_cospar(void) {
     sprintf(outFile, "%s.cospar", INPUTS.infile);
   } 
     
-  printf("Write cosmo params to %s \n", outFile);
+  printf("  Write cosmo params to %s \n", outFile);
   fp = fopen(outFile, "w");
   if (fp == NULL){
     printf("ERROR: couldn't open %s\n", outFile);
@@ -2887,6 +2907,10 @@ void write_output_cospar(void) {
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
     fprintf(fp,"ABORT_IF_ZERO:  %d   # same as Ndof \n", WORKSPACE.Ndof);
+
+    double dt_fit  = (double)(t_end_fit  - t_start)/ 60.0 ;
+    fprintf(fp,"CPU_MINUTES:    %.2f \n", dt_fit);
+
   }
 
   fclose(fp);
@@ -3111,3 +3135,19 @@ void write_output_fits(void) {
 
   return;
 } // end write_output_fits
+
+
+// ==========================
+void CPU_summary(void) {
+
+  double dt_init = (double)(t_end_init - t_start)   / 60.0 ;
+  double dt_fit  = (double)(t_end_fit  - t_end_init)/ 60.0 ;
+
+  // ----------- BEGIN -----------
+
+  printf("  CPU summary for init/fit: %.2f / %.2f minutes \n",
+	 dt_init, dt_fit);
+  fflush(stdout);
+
+  return;
+} // end CPU_summary

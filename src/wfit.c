@@ -2906,9 +2906,13 @@ void write_output_resid(int fitnum) {
 
   // ----------- BEGIN -------------
 
+  if ( IGNOREFILE(INPUTS.outFile_resid) ) { return; }
+
+  /* xxx mark delete 
   if ( strlen(INPUTS.outFile_resid) == 0 ) {
     sprintf(INPUTS.outFile_resid,"%s.resid", INPUTS.infile);
   }
+  xxxxxxx */
 
   getname(INPUTS.outFile_resid, tempfilename1, fitnum);
   strcpy(residfile, tempfilename1);

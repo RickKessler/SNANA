@@ -133,6 +133,14 @@ def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
     jobopt_file_list  = [ None ]   
     use_arg_file      = False
 
+    if 'WFIT' in string_jobopt :  # no default 000 job for wfit 
+        n_jobopt = 0
+        jobopt_ARG_list = [] 
+        jobopt_arg_list = []
+        jobopt_num_list = []
+        jobopt_label_list = []
+        jobopt_file_list  = []
+
     for jobopt_raw in config_rows :    # might include label
         num = (f"{string_jobopt}{n_jobopt:03d}")
 

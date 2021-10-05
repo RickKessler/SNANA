@@ -62,6 +62,11 @@ class wFit(Program):
         # easy 3D loops
         self.wfit_prep_index_lists()
 
+        # copy input file 
+        input_file    = self.config_yaml['args'].input_file
+        script_dir    = self.config_prep['script_dir']
+        shutil.copy(input_file,script_dir)
+
         #sys.exit(f"\n xxx debug exit in submit_prepare_driver \n")
         # end submit_prepare_driver
 
@@ -71,7 +76,7 @@ class wFit(Program):
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
 
-        key = 'INPDIR_LIST'
+        key = 'INPDIR'
         if key not in CONFIG:
             msgerr.append(f"Missing required {key} key in CONFIG block")
             msgerr.append(f"Check {input_file}")
@@ -119,15 +124,14 @@ class wFit(Program):
         wfitopt_num_list   = wfitopt_dict['jobopt_num_list']
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
    
-        n_wfitopt -= 1
         logging.info(f" Store {n_wfitopt} wfit options from " \
                      f"{key} keys" )
 
         # exclude 0th element since there is no default
         self.config_prep['n_wfitopt']          = n_wfitopt
-        self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list[1:]
-        self.config_prep['wfitopt_num_list']   = wfitopt_num_list[1:]
-        self.config_prep['wfitopt_label_list'] = wfitopt_label_list[1:]
+        self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list
+        self.config_prep['wfitopt_num_list']   = wfitopt_num_list
+        self.config_prep['wfitopt_label_list'] = wfitopt_label_list
 
         # check for global wfitopt
         key   = f"{WFITOPT_STRING}_GLOBAL"
@@ -286,14 +290,35 @@ class wFit(Program):
     def append_info_file(self,f):
         # append info to SUBMIT.INFO file
 
-        n_wfitopt     = self.config_prep['n_wfitopt']
+        n_wfitopt          = self.config_prep['n_wfitopt']
+        wfitopt_arg_list   = self.config_prep['wfitopt_arg_list'] 
+        wfitopt_num_list   = self.config_prep['wfitopt_num_list']
+        wfitopt_label_list = self.config_prep['wfitopt_label_list']
+        wfitopt_global     = self.config_prep['wfitopt_global']
+        inpdir_list_orig   = self.config_prep['inpdir_list_orig']
 
         f.write(f"\n# wfit info\n")
 
         f.write(f"JOBFILE_WILDCARD:  'DIR*COVOPT*WFITOPT*' \n")
 
+        f.write("\n")
+        f.write(f"INPDIR_LIST: \n")
+        for inpdir in inpdir_list_orig:
+            f.write(f"  - {inpdir} \n")
+
+        f.write("\n")
         f.write(f"N_WFITOPT:         {n_wfitopt}      " \
                 f"# number of wfit options\n")
+
+        f.write("\n")
+        f.write("WFITOPT_LIST:  " \
+                "# 'WFITOPTNUM'  'user_label'  'user_args'\n")
+        for num,arg,label in zip(wfitopt_num_list, wfitopt_arg_list,
+                                 wfitopt_label_list):
+            row   = [ num, label, arg ]
+            f.write(f"  - {row} \n")
+        f.write("\n")
+        f.write(f"WFITOPT_GLOBAL: {wfitopt_global} \n")
 
         # end append_info_file  
 
@@ -452,17 +477,15 @@ class wFit(Program):
 
     def make_wfit_summary(self):
 
+        CONFIG           = self.config_yaml['CONFIG']
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        SUMMARYF_FILE     = (f"{output_dir}/{WFIT_SUMMARY_FILE}")
-        f = open(SUMMARYF_FILE,"w") 
+        print(f" xxx CONFIG = {CONFIG}\n")
 
-        # check w0,wa or w; could be different for each case ?
-        VARNAMES_STRING = \
-            "ROW  DIROPT COVOPT WFITOPT  w0 w0sig wa wa_sig "  \
-            "omm omm_sig  chi2 sigint"
+        SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
+        f = open(SUMMARYF_FILE,"w") 
 
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS,comment_lines = \
@@ -471,14 +494,60 @@ class wFit(Program):
         nrow = 0 
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
+            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:]
+            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:]
+            wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:]
             prefix     = self.wfit_prefix(row)
-            YAML_FILE  = (f"{script_dir}/{prefix}.YAML")
+            YAML_FILE  = f"{script_dir}/{prefix}.YAML"
             wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
-            
+            wfit_values_dict = util.get_wfit_values(wfit_yaml)
+
+            w       = wfit_values_dict['w']  
+            w_sig   = wfit_values_dict['w_sig']
+            wa      = wfit_values_dict['wa']    
+            wa_sig  = wfit_values_dict['wa_sig']
+            omm     = wfit_values_dict['omm']  
+            omm_sig = wfit_values_dict['omm_sig']
+            chi2    = wfit_values_dict['chi2'] 
+            sigint  = wfit_values_dict['sigint']
+
+            if nrow == 1:
+                self.write_wfit_summary_header(f,wfit_values_dict)
+
+            str_nums    = f"{dirnum} {covnum} {wfitnum}"
+            str_results = f"{w:.4f} {w_sig:.4f}  {wa:6.3f} {wa_sig:6.3f}  " \
+                          f"{omm:.4f} {omm_sig:.4f}"
+            str_misc    = f"{chi2:.1f} {sigint:.3f} "
+            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  {str_misc}\n")
+
  
         f.close()
         # .xyz
         # end make_wfit_summary
+
+    def write_wfit_summary_header(f,wfit_values_dict):
+        # write header info and VARNAMES for wfit-summary file
+
+        VARNAMES_STRING = \
+            "ROW  DIROPT COVOPT WFITOPT  w0 w0sig wa wa_sig "  \
+            "omm omm_sig  chi2 sigint"
+
+        w_ran   = int(wfit_values_dict['w_ran']) 
+        wa_ran  = int(wfit_values_dict['wa_ran'])
+        omm_ran = int(wfit_values_dict['omm_ran'])
+
+        if w_ran > 0 : 
+            f.write(f"#  w0,wa,omm are blinded by adding " \
+                    f"sin({w_ran},{wa_ran},{omm_ran}) \n")
+            f.write(f"\n")
+         
+        
+        #key   = f"{WFITOPT_STRING}_GLOBAL"
+        #wfitopt_global = ""
+        #if key in CONFIG: wfitopt_global = CONFIG[key]
+            
+        f.write(f"VARNAMES: {VARNAMES_STRING} \n")
+
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file  

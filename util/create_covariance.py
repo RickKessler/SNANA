@@ -664,7 +664,7 @@ def write_standard_output(config, unbinned, covs, base):
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
     for i, (label, cov) in enumerate(covs):
-        covsys_file = outdir / f"{PREFIX_COVSYS}_{i}.txt" 
+        covsys_file = outdir / f"{PREFIX_COVSYS}_{i:03d}.txt" 
         write_covariance(covsys_file, cov, opt_cov)
 
     # end write_standard_output

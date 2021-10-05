@@ -111,7 +111,7 @@ class LightCurveFit(Program):
     def __init__(self, config_yaml):
 
         config_prep = {}
-        config_prep['program'] = PROGRAM_NAME_FIT
+        config_prep['program'] = PROGRAM_NAME_LCFIT
         super().__init__(config_yaml, config_prep)
 
     def set_output_dir_name(self):
@@ -125,7 +125,7 @@ class LightCurveFit(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        return output_dir_name,SUBDIR_SCRIPTS_FIT
+        return output_dir_name,SUBDIR_SCRIPTS_LCFIT
         # end set_output_dir_name
 
     def submit_prepare_driver(self):
@@ -246,7 +246,7 @@ class LightCurveFit(Program):
                     copy_list_string += (f"{infile} ")
 
         if len(copy_list_string) > 0 :
-            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_FIT}:\n" \
+            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
                    f"   {copy_list_string} \n")
             logging.info(msg)
             os.system(f"cp {copy_list_string} {script_dir}/")
@@ -1677,7 +1677,7 @@ class LightCurveFit(Program):
         use_table_format    = submit_info_yaml['USE_TABLE_FORMAT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
-        subdir         = SUBDIR_SCRIPTS_FIT
+        subdir         = SUBDIR_SCRIPTS_LCFIT
         tar_file       = (f"{subdir}.tar")
 
         logging.info(f" FIT cleanup: check if all merged tables exist.")
@@ -1775,10 +1775,10 @@ class LightCurveFit(Program):
             os.system(cmd_rm)
 
         # if script_dir is tarred & gzipped, unpack it
-        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_FIT}")
+        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_LCFIT}")
         util.compress_subdir(-1, script_dir)
 
-        # untar and unzip file inside SUBDIR_SCRIPTS_FIT
+        # untar and unzip file inside SUBDIR_SCRIPTS_LCFIT
         backup_list = glob.glob1(script_dir, "BACKUP*")
         if len(backup_list) > 0 :
             cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
@@ -1794,7 +1794,7 @@ class LightCurveFit(Program):
         wildcard_output_dir = [ f"{MERGE_LOG_FILE}_*", "*.DONE", "BUSY*" ]
 
         logging.info(f"  {fnam}: remove misc junk files from " \
-                     f"{SUBDIR_SCRIPTS_FIT}")
+                     f"{SUBDIR_SCRIPTS_LCFIT}")
         for wildcard in wildcard_script_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
             if len(glob.glob1(script_dir,wildcard)) > 0 :

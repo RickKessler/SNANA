@@ -28,14 +28,16 @@ SNDATA_ROOT      = os.environ['SNDATA_ROOT']
 SHELL            = os.environ['SHELL']
 
 # generic program types to control batch flow
-PROGRAM_TYPE_SIM  = "SIM"  # simulation
-PROGRAM_TYPE_FIT  = "FIT"  # light curve fit (e.g., SALT2, PSNID, ...)
-PROGRAM_TYPE_BBC  = "BBC"  # BEAMS with bias corrections
+PROGRAM_TYPE_SIM    = "SIM"    # simulation
+PROGRAM_TYPE_LCFIT  = "FIT"    # light curve fit (e.g., SALT2, PSNID, ...)
+PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
+PROGRAM_TYPT_WFIT   = "WFIT"   # fast cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM   =  "snlc_sim.exe"
-PROGRAM_NAME_FIT   =  "snlc_fit.exe"
+PROGRAM_NAME_LCFIT =  "snlc_fit.exe"
 PROGRAM_NAME_BBC   =  "SALT2mu.exe"
+PROGRAM_NAME_WFIT  =  "wfit.exe"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
 SUBMIT_MODE_BATCH = "BATCH"
@@ -43,8 +45,9 @@ SUBMIT_MODE_SSH   = "SSH"
 
 # define subDir for batch scripts
 SUBDIR_SCRIPTS_SIM   = "" 
-SUBDIR_SCRIPTS_FIT   = "SPLIT_JOBS_LCFIT"
+SUBDIR_SCRIPTS_LCFIT = "SPLIT_JOBS_LCFIT"
 SUBDIR_SCRIPTS_BBC   = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_WFIT  = "SCRIPTS_WFIT"
 SUBDIR_SCRIPTS_TRAIN = "SCRIPTS_TRAIN"
 SUBDIR_OUTPUT_TRAIN  = "OUTPUT_TRAIN"
 SUBDIR_CALIB_TRAIN   = "CALIB_TRAIN"
@@ -374,7 +377,7 @@ HELP_CONFIG_FIT = f"""
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # * Namelists below are used by snana.exe, psnid.exe, snlc_fit.exe.
 # * Supplemental input files (e.g., KCOR_FILE) are copied to
-#     {SUBDIR_SCRIPTS_FIT} if path is not included in file name.
+#     {SUBDIR_SCRIPTS_LCFIT} if path is not included in file name.
 # * HFILE_OUT and ROOTFILE_OUT are logical flags for batch script.
 
   &SNLCINP

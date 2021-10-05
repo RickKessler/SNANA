@@ -10,6 +10,106 @@ from   submit_params import *
 
 # =================================================
 
+def get_wfit_values(wfit_yaml):
+
+    # Created Aug 9 2021
+    # parse yaml for wfit values, allowing for legacy and 
+    # refactored (Aug 2021) wfit. 
+    # Also check for wsig_marg vs. wsig_lo/wsig_hi
+    # Sep 28 2021: check for wa and its uncertainty
+
+    key_list = [ 'w', 'w0' ]
+    for key in key_list:
+        if  key in wfit_yaml:
+            w  = wfit_yaml[key]  
+
+    key_list = [ 'w_sig', 'wsig_marg', 'wsig_lo', 
+                 'w0sig_marg', 'w0sig_lo' ]
+    w_sig    = -9.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            w_sig = wfit_yaml[key]
+            if key == 'wsig_lo' :
+                w_sig_lo = wfit_yaml['wsig_lo'] 
+                w_sig_hi = wfit_yaml['wsig_hi'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+            if key == 'w0sig_lo' :
+                w_sig_lo = wfit_yaml['w0sig_lo'] 
+                w_sig_hi = wfit_yaml['w0sig_hi'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+
+
+    # - - - repeat for optoinal wa
+    key_list = [ 'wa' ]
+    wa       = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            wa  = wfit_yaml[key]  
+
+    key_list = [ 'wasig_marg', 'wasig_lo' ]
+    wa_sig   = -9.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            wa_sig = wfit_yaml[key]
+            if key == 'wasig_lo' :
+                wa_sig_lo = wfit_yaml['wasig_lo'] 
+                wa_sig_hi = wfit_yaml['wasig_hi'] 
+                wa_sig    = 0.5*(wa_sig_lo + wa_sig_hi)
+
+    # - - - OM - - - -
+    key_list = [ 'omm', 'OM' ]
+    OM = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm  = wfit_yaml[key]  
+
+    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg' ]
+    omm_sig = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm_sig  = wfit_yaml[key]  
+
+    # - - - misc - - - - 
+    chi2    = wfit_yaml['chi2'] 
+    sigint  = wfit_yaml['sigint']
+
+    key_list = [ 'wrand', 'wran', 'w0ran' ]
+    w_ran = -9.0 
+    for key in key_list:
+        if key in wfit_yaml:
+            w_ran   = wfit_yaml[key]
+
+    key_list = [ 'warand', 'waran' ]
+    wa_ran   = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            wa_ran   = wfit_yaml[key]
+
+    key_list = [ 'ommrand', 'ommran', 'OMran' ]
+    omm_ran = -9.0
+    for key in key_list:
+        if key in wfit_yaml:
+            omm_ran   = wfit_yaml[key]
+
+    wfit_values_dict = {
+        'w'        : w ,
+        'w_sig'    : w_sig ,
+        'omm'      : omm ,
+        'omm_sig'  : omm_sig ,
+        'chi2'     : chi2 ,
+        'sigint'   : sigint ,
+        'w_ran'    : w_ran,
+        'omm_ran'  : omm_ran,
+        # optional below
+        'wa'       : wa,
+        'wa_sig'   : wa_sig,
+        'wa_ran'   : wa_ran
+    }
+
+    return wfit_values_dict
+
+    # end get_wfit_values
+
 def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
 
     # Created Jan 23 2021

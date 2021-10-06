@@ -152,7 +152,7 @@ struct  {
   double wa_sig_marg,  wa_sig_upper,  wa_sig_lower;
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
 
-  double **MUCOV_SYS;
+  double **MUCOV;
 
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
@@ -164,6 +164,7 @@ struct  {
 struct {
   int    NSN ;
   char   **cid;
+  bool   *pass_cut;
   double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig ;
   int    *nfit_perbin;
 } HD;
@@ -239,6 +240,7 @@ void malloc_HDarrays(int opt, int NSN);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile);
+void dump_MUCOV(void);
 void invert_mucovar(double sqmurms_add);
 void set_stepsizes(void);
 void set_Ndof(void);
@@ -832,7 +834,8 @@ void  malloc_HDarrays(int opt, int NSN) {
   if ( opt > 0 ) {
     HD.cid = (char**) malloc( NSN * sizeof(char*) );
     for(i=0; i < NSN; i++ ) { HD.cid[i] = (char*)malloc( 20*sizeof(char) ); }
-    
+
+    HD.pass_cut    = (bool *)calloc(NSN,sizeof(bool));
     HD.mu          = (double *)calloc(NSN,sizeof(double));
     HD.mu_sig      = (double *)calloc(NSN,sizeof(double));
     HD.mu_ref      = (double *)calloc(NSN,sizeof(double));
@@ -842,6 +845,7 @@ void  malloc_HDarrays(int opt, int NSN) {
     HD.nfit_perbin = (int*) calloc(NSN,sizeof(int));
   }
   else {
+    free(HD.pass_cut);
     free(HD.mu); 
     free(HD.mu_sig); 
     free(HD.mu_ref); 
@@ -940,8 +944,10 @@ void read_fitres(char *inFile) {
       (ztmp >= INPUTS.zmin) &&
       (ztmp <= INPUTS.zmax) &&
       (NFIT > 1) ;
-
+    
+    HD.pass_cut[irow] = false;
     if ( PASSCUTS ) {
+      HD.pass_cut[irow]  = true;
       sprintf(HD.cid[NROW2], "%s", HD.cid[irow] );
       HD.mu[NROW2]       = HD.mu[irow];
       HD.mu_sig[NROW2]   = HD.mu_sig[irow];
@@ -960,6 +966,7 @@ void read_fitres(char *inFile) {
 	double mu_sig_z = coeff * ( (1.0+z)/(z*(1.0+z/2.0)) ) * z_sig ;
 	HD.mu_sqsig[NROW2] += (mu_sig_z*mu_sig_z);
 	HD.mu_sig[NROW2]    = sqrt(HD.mu_sqsig[NROW2]);
+	
       }
       // xxxxxxxxx
 
@@ -1276,10 +1283,10 @@ void read_mucov_sys(char *inFile){
 
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
   char ctmp[200], SN[2][12], locFile[1000] ;
-  int NSPLIT, NROW_read=0, NDIM=0, NMAT_read=0;
+  int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NDIM_STORE = HD.NSN, NMAT_read=0,  NMAT_store = 0;
   float f_MEM;
   double cov;
-  int N, N0, N1, i0, i1, j, iwd, NWD, i, gzipFlag ;
+  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, gzipFlag ;
   char  **ptrSplit;
   FILE *fp;
   char fnam[] = "read_mucov_sys" ;
@@ -1308,6 +1315,7 @@ void read_mucov_sys(char *inFile){
   }
   
   i0 = i1 = 0 ;
+  k0 = k1 = 0 ;
   while ( fgets(ctmp, 100, fp) != NULL ) {
     // ignore comment lines 
     if ( commentchar(ctmp) ) { continue; }
@@ -1317,17 +1325,24 @@ void read_mucov_sys(char *inFile){
 		&NSPLIT, ptrSplit);       // (O)
 
     if ( NROW_read == 0 ) {
-      sscanf(ptrSplit[0],"%d",&NDIM);
-      printf("\t Found COV dimension %d\n", NDIM);
-      f_MEM = malloc_double2D(+1, NDIM, NDIM, &WORKSPACE.MUCOV_SYS );  
+      sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
+      printf("\t Found COV dimension %d\n", NDIM_ORIG);
+      f_MEM = malloc_double2D(+1, NDIM_STORE, NDIM_STORE, &WORKSPACE.MUCOV );  
     }
     else {
       NMAT_read++ ;
       sscanf( ptrSplit[0],"%le",&cov);      
-      WORKSPACE.MUCOV_SYS[i0][i1] = cov;
+      cov = 0; // REMOVE THIS 
+      if(HD.pass_cut[i0] && HD.pass_cut[i1] ) {
+	WORKSPACE.MUCOV[k0][k1] = cov;
+	NMAT_store+=1;
+	k0++;
+	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
+	
+      }
       //printf(" xxx %s: cov[%d][%d] = %f \n", fnam, i0,i1, cov);
       i0++;
-      if ( i0 == NDIM ) { i1++; i0=0; }
+      if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
     }
     
     NROW_read+=1;
@@ -1336,13 +1351,31 @@ void read_mucov_sys(char *inFile){
 
   // - - - - - - - - - 
   // sanify check
-  if ( NMAT_read != NDIM*NDIM )  {
+  if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
     sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
-	    NMAT_read, NDIM, NDIM*NDIM);
+	    NMAT_read, NDIM_ORIG, NDIM_ORIG*NDIM_ORIG);
     sprintf(c2err,"Check %s", inFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  if ( NMAT_store != NDIM_STORE*NDIM_STORE )  {
+    sprintf(c1err,"Store %d cov elements, but expected %d**2=%d",
+            NMAT_store, NDIM_STORE, NDIM_STORE*NDIM_STORE);
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // Add diagonal errors from the Hubble diagram
+  double COV_STAT;
+  for ( i=0; i<HD.NSN; i++ )  {
+
+
+    COV_STAT = HD.mu_sqsig[i] ;
+    WORKSPACE.MUCOV[i][i] += COV_STAT ;
+  }
+
+  dump_MUCOV();
+  
   // - - - - -
   // invert matrix [need to refactor invert_mucovar ...]
   invert_mucovar(INPUTS.sqsnrms);
@@ -1350,6 +1383,32 @@ void read_mucov_sys(char *inFile){
   return ; 
 }
 // end of read_mucov_sys
+
+
+void dump_MUCOV(void){
+
+  char fnam[]="dump_MUCOV";
+  int i0, i1, NROW;
+  int MAX_ROW = 20;
+  if(HD.NSN < MAX_ROW){NROW = HD.NSN;}
+  else{NROW= MAX_ROW;}
+  
+  // dump
+  printf("\n DUMP MUCOV \n");
+  
+  for (i0=0; i0<NROW; i0++)
+    {
+      for(i1=0; i1<NROW; i1++)
+	{
+	  printf("%8.4f ",WORKSPACE.MUCOV[i0][i1] );
+	}
+
+      printf("\n");
+    }
+  printf("\n"); 
+}// end of dump_MUCOV
+
+
 
 
 //===================================
@@ -2177,7 +2236,7 @@ void invert_mucovar(double sqmurms_add) {
 
   if(INPUTS.use_mucov){
 
-    invertMatrix( NSN, NSN, &WORKSPACE.MUCOV_SYS[0][0] ) ;
+    invertMatrix( NSN, NSN, &WORKSPACE.MUCOV[0][0] ) ;
   }
   return ;
 
@@ -2238,7 +2297,7 @@ void get_chi2wOM (
 	for(k1=k0; k1 < HD.NSN; k1++)
 	  {
 
-	    sqmusiginv = WORKSPACE.MUCOV_SYS[k0][k1]; // Inverse of the matrix 
+	    sqmusiginv = WORKSPACE.MUCOV[k0][k1]; // Inverse of the matrix 
 	    dmu0 = get_DMU_chi2wOM(k0, &cparloc);
 	    dmu1 = get_DMU_chi2wOM(k1, &cparloc);
 	    Bsum       += sqmusiginv * dmu0 ;       // Eq. A.11 of Goliath 2001                                                                                                     

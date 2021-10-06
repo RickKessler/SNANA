@@ -1389,6 +1389,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // Jun 25 2021: check INCLUDE files only if reading file;
   //              command line INCLUDE files are parsed elsewhere.
   //
+  // Oct 06 2021: read missing "WV07_REWGT_EXPAV" 
+  //
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
@@ -1902,7 +1904,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &INPUTS.WV07_GENAV_FLAG ) ;
   }
-  else if ( keyMatchSim(1, "GENAV_REWGT_EXPAV", WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "WV07_REWGT_EXPAV GENAV_REWGT_EXPAV", 
+			WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.WV07_REWGT_EXPAV ) ;
   }
 

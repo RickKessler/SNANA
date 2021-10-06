@@ -69,6 +69,13 @@ def get_wfit_values(wfit_yaml):
         if  key in wfit_yaml:
             omm_sig  = wfit_yaml[key]  
 
+    # - - - repeat for FoM (for w0wa fit)
+    key_list = [ 'FoM' ]
+    FoM       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            FoM  = wfit_yaml[key]  
+
     # - - - misc - - - - 
     chi2    = wfit_yaml['chi2'] 
     sigint  = wfit_yaml['sigint']
@@ -103,7 +110,8 @@ def get_wfit_values(wfit_yaml):
         # optional below
         'wa'       : wa,
         'wa_sig'   : wa_sig,
-        'wa_ran'   : wa_ran
+        'wa_ran'   : wa_ran,
+        'FoM'      : FoM
     }
 
     return wfit_values_dict

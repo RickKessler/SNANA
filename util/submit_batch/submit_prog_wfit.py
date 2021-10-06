@@ -20,6 +20,7 @@ COLNUM_WFIT_MERGE_DIROPT       = 1
 COLNUM_WFIT_MERGE_COVOPT       = 2
 COLNUM_WFIT_MERGE_WFITOPT      = 3
 COLNUM_WFIT_MERGE_NDOF         = 4   # Ndof
+COLNUM_WFIT_MERGE_CPU          = 5
 
 WFITOPT_STRING = "WFITOPT"
 
@@ -94,6 +95,20 @@ class wFit(Program):
             n_covsys = len(covsys_list)
             print(f" Found {n_covsys} {PREFIX_covsys} files under\n" \
                   f"\t {inpdir_orig} ")
+
+            # sanity checks
+            hd_file    = f"{inpdir}/{HD_FILENAME}"
+            if n_covsys == 0 :            
+                msgerr.append(f"Cannot find any {PREFIX_covsys}* files in")
+                msgerr.append(f"  {inpdir_orig}")       
+                msgerr.append(f"Check INPDIR key in {input_file}")
+                self.log_assert(False, msgerr)
+
+            if not os.path.exists(hd_file):
+                msgerr.append(f"Cannot find expected HD file:")
+                msgerr.append(f"  {hd_file}")       
+                msgerr.append(f"Check INPDIR key in {input_file}")
+                self.log_assert(False, msgerr)
 
         #print(f" xxx covsys_list = {covsys_list} ")
         # - - - - - -
@@ -332,8 +347,8 @@ class wFit(Program):
         
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
-            (f" STATE  DIROPT  COVOPT  WFITOPT  NDOF" \
-             f" SPLITRAN" )
+                f" STATE  DIROPT  COVOPT  WFITOPT  NDOF CPU "
+        # xxx f" SPLITRAN"
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -354,8 +369,8 @@ class wFit(Program):
             ROW_MERGE.append(diropt_num)
             ROW_MERGE.append(covopt_num)
             ROW_MERGE.append(wfitopt_num)
-            ROW_MERGE.append(0)
-            ROW_MERGE.append(None)
+            ROW_MERGE.append(0)    # Ndof
+            ROW_MERGE.append(0.0)  # CPU
             INFO_MERGE['row_list'].append(ROW_MERGE)  
 
         # - - - - -
@@ -381,11 +396,15 @@ class wFit(Program):
         COLNUM_COVOPT    = COLNUM_WFIT_MERGE_COVOPT  
         COLNUM_WFITOPT   = COLNUM_WFIT_MERGE_WFITOPT  
         COLNUM_NDOF      = COLNUM_WFIT_MERGE_NDOF
+        COLNUM_CPU       = COLNUM_WFIT_MERGE_CPU
         NROW_DUMP   = 0
 
         key_ndof, key_ndof_sum, key_ndof_list = \
                 self.keynames_for_job_stats('Ndof')
-        key_list = [ key_ndof ] 
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                self.keynames_for_job_stats('CPU_MINUTES')
+
+        key_list = [ key_ndof, key_cpu ] 
 
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
@@ -436,6 +455,7 @@ class wFit(Program):
                  
                     row[COLNUM_STATE]     = NEW_STATE
                     row[COLNUM_NDOF]      = wfit_stats[key_ndof_sum]
+                    row[COLNUM_CPU]       = wfit_stats[key_cpu_sum]
                     
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
@@ -482,8 +502,6 @@ class wFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        print(f" xxx CONFIG = {CONFIG}\n")
-
         SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"w") 
 
@@ -525,7 +543,7 @@ class wFit(Program):
         # .xyz
         # end make_wfit_summary
 
-    def write_wfit_summary_header(f,wfit_values_dict):
+    def write_wfit_summary_header(self,f,wfit_values_dict):
         # write header info and VARNAMES for wfit-summary file
 
         VARNAMES_STRING = \

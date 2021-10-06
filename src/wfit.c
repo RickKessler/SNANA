@@ -156,8 +156,7 @@ struct  {
 
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
-  double sigmu_int, muoff_final ;
-
+  double sigmu_int, muoff_final, FoM_final ;
 } WORKSPACE ;
 
 
@@ -249,8 +248,8 @@ void wfit_minimize(void);
 void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
-
 void wfit_final(void);
+void wfit_FoM(void);
 
 void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
@@ -365,6 +364,9 @@ int main(int argc,char *argv[]){
 
     // determine "final" quantities, including sigma_mu^int
     wfit_final();
+
+    // estimate FoM
+    wfit_FoM();
 
     t_end_fit = time(NULL);
 
@@ -1569,8 +1571,9 @@ void wfit_minimize(void) {
 	
 	if(extchi_tmp < WORKSPACE.extchi_min)  { 
 	  WORKSPACE.extchi_min = extchi_tmp ;  
-	  imin=i; jmin=j;kmin=kk; 
+	  imin=i; jmin=j; kmin=kk; 
 	}
+
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
@@ -1615,12 +1618,12 @@ void wfit_normalize(void) {
     for(kk = 0; kk < INPUTS.wa_steps; kk++){
       for(j=0; j < INPUTS.omm_steps; j++){
 	
-	/* Probability distribution from SNe alone */
+	// Probability distribution from SNe alone 
 	chidif = WORKSPACE.snchi3d[i][kk][j] - WORKSPACE.snchi_min ;
 	WORKSPACE.snprob3d[i][kk][j] = exp(-0.5*chidif);
 	WORKSPACE.snprobtot += WORKSPACE.snprob3d[i][kk][j];
       
-	/* Probability distribution of SNe + external prior */
+	// Probability distribution of SNe + external prior
 	chidif = WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min ;
 	WORKSPACE.extprob3d[i][kk][j] = exp(-0.5*chidif);
 	WORKSPACE.extprobtot += WORKSPACE.extprob3d[i][kk][j];
@@ -2117,11 +2120,34 @@ void wfit_final(void) {
       sigmu_int = sigmu_tmp ; mindif = dif;
     }
   }
-  
+ 
   WORKSPACE.sigmu_int   = sigmu_int ;
+  
 
   return;
 } // end wfit_final
+
+// ==================================
+void wfit_FoM(void) {
+
+  // estimate FoM for w0wa model ... need to finish ...
+
+  double extchi_min = WORKSPACE.extchi_min;
+  
+  int i, kk, j;
+  double extchi, extchi_dif ; 
+  Cosparam cpar;
+  char fnam[] = "wfit_FoM" ;
+
+  // --------------BEGIN --------------
+
+  WORKSPACE.FoM_final = 0.0 ;
+  if ( !INPUTS.use_wa ) { return ; }
+
+  WORKSPACE.FoM_final = 0.1 ;
+
+  return ;
+} // emd wfit_FoM
 
 // ==================================
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
@@ -2844,6 +2870,13 @@ void write_output_cospar(void) {
     NVAR++ ;
   }
 
+  if ( use_wa ) {
+    sprintf(VARNAMES_LIST[NVAR],"FoM" );
+    sprintf(VALUES_LIST[NVAR], "%.1f",  WORKSPACE.FoM_final ) ;
+    NVAR++ ;
+  }
+
+
   sprintf(VARNAMES_LIST[NVAR],"chi2" );
   sprintf(VALUES_LIST[NVAR], "%.1f",  WORKSPACE.chi2_final ) ;
   NVAR++ ;
@@ -2860,7 +2893,7 @@ void write_output_cospar(void) {
   sprintf(VALUES_LIST[NVAR], "%d",  (int)WORKSPACE.w0_ran ) ;
   NVAR++ ;
 
-  if ( INPUTS.use_wa ) {
+  if ( use_wa ) {
     sprintf(VARNAMES_LIST[NVAR],"%sran", varname_wa );
     sprintf(VALUES_LIST[NVAR], "%d",  (int)WORKSPACE.wa_ran ) ;
     NVAR++ ;

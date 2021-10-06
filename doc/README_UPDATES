@@ -20380,13 +20380,17 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_03f (  ) 
+         v11_04 (Oct 3 2021) 
 
-         ***** IMPORTANT(v11_03f) ***** 
+         ***** IMPORTANT(v11_04) ***** 
 
-         ***** USEFUL(v11_03f) ***** 
+    + Major refact/overhaul of wfit.c code; read top of source code.
+    + create_covariance.py writes "standard" output 
+      (cosmomc/ subdir still created if input "COSMOMC" key is used)
 
-         ***** MISCELLANEOUS(v11_03f) ***** 
+         ***** USEFUL(v11_04) ***** 
+
+         ***** MISCELLANEOUS(v11_04) ***** 
 
     snana.car, sntoold_dataformat_fits.c
       + fix bug reading SIM_TEMPLATEMAG
@@ -20416,7 +20420,26 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
   wfit.c
     + write wa info to yaml file
+    + complete refactor/overhaul; read top of code.
+
   submit_prog_bbc.py:
     + include wa results in BBC_SUMMARY_wfit file
+
+  create_covariance:
+    + for unbinned, write CID IDSURVEY MUERR_VPEC ...
+
+  genmag_SALT2.c:
+    + remove setting magerr=5 when errfrac > 1 -> 
+        5 very small changes in regression test.
+
+
+# ======================================================================= 
+         v11_04b (  ) 
+
+         ***** IMPORTANT(v11_04b) ***** 
+
+         ***** USEFUL(v11_04b) ***** 
+
+         ***** MISCELLANEOUS(v11_04b) ***** 
 
 END: 

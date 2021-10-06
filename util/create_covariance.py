@@ -281,9 +281,10 @@ def load_hubble_diagram(hd_file, args, config):
 
         df['CIDstr'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
 
-        # RK Oct 1 2021: undo this indexing so that we can access these
-        #   table columns elsewhere ... hope it doesn't break anything ??
-        #df = df.set_index(["IDSURVEY", "CID"])
+        # we need to make a new column to index the dataframe on unique rows for merging two 
+        # different systematic dfs - Dillon
+        df['CIDindex'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
+        df = df.set_index("CIDindex")
 
     elif VARNAME_z in df.columns:
         # should not z-sorting here for M0DIF, but what the heck

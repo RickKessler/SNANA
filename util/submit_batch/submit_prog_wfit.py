@@ -156,6 +156,14 @@ class wFit(Program):
         
         self.config_prep['wfitopt_global'] = wfitopt_global
 
+        # check for wa in fit
+        use_wa = False
+        tmp_list = wfitopt_arg_list + [ wfitopt_global ]
+        for tmp in tmp_list:
+            if '-wa' in tmp : use_wa = True
+
+        self.config_prep['use_wa'] = use_wa
+
         # end wfit_prep_wfitopt_list
 
     def wfit_prep_index_lists(self):
@@ -311,6 +319,7 @@ class wFit(Program):
         wfitopt_label_list = self.config_prep['wfitopt_label_list']
         wfitopt_global     = self.config_prep['wfitopt_global']
         inpdir_list_orig   = self.config_prep['inpdir_list_orig']
+        use_wa             = self.config_prep['use_wa']
 
         f.write(f"\n# wfit info\n")
 
@@ -324,6 +333,8 @@ class wFit(Program):
         f.write("\n")
         f.write(f"N_WFITOPT:         {n_wfitopt}      " \
                 f"# number of wfit options\n")
+        f.write(f"USE_wa:        {use_wa}   " \
+                f"# T if any WFITOPT uses waw0CDM model\n")
 
         f.write("\n")
         f.write("WFITOPT_LIST:  " \
@@ -501,6 +512,7 @@ class wFit(Program):
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
+        use_wa           = submit_info_yaml['USE_wa']
 
         SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"w") 
@@ -522,33 +534,44 @@ class wFit(Program):
 
             w       = wfit_values_dict['w']  
             w_sig   = wfit_values_dict['w_sig']
-            wa      = wfit_values_dict['wa']    
-            wa_sig  = wfit_values_dict['wa_sig']
             omm     = wfit_values_dict['omm']  
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
 
+            if use_wa:
+                wa      = wfit_values_dict['wa']    
+                wa_sig  = wfit_values_dict['wa_sig']
+                FoM     = wfit_values_dict['FoM']
+
             if nrow == 1:
                 self.write_wfit_summary_header(f,wfit_values_dict)
 
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
-            str_results = f"{w:.4f} {w_sig:.4f}  {wa:6.3f} {wa_sig:6.3f}  " \
-                          f"{omm:.4f} {omm_sig:.4f}"
+
+            str_results = f"{w:.4f} {w_sig:.4f}  "
+            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:.1f} "
+            str_results += f"{omm:.4f} {omm_sig:.4f}  "
+
             str_misc    = f"{chi2:.1f} {sigint:.3f} "
+
             f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  {str_misc}\n")
 
  
         f.close()
-        # .xyz
         # end make_wfit_summary
 
     def write_wfit_summary_header(self,f,wfit_values_dict):
         # write header info and VARNAMES for wfit-summary file
 
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        use_wa           = submit_info_yaml['USE_wa']
+
+        varnames_w  = "w w_sig"
+        if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM"
         VARNAMES_STRING = \
-            "ROW  DIROPT COVOPT WFITOPT  w0 w0sig wa wa_sig "  \
-            "omm omm_sig  chi2 sigint"
+            f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
+            f"omm omm_sig  chi2 sigint"
 
         w_ran   = int(wfit_values_dict['w_ran']) 
         wa_ran  = int(wfit_values_dict['wa_ran'])

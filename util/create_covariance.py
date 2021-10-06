@@ -37,6 +37,10 @@
 #    + unbinned HD includes CID IDSURVEY MUERR_VPEC
 #    + comment out df = df.set_index(["IDSURVEY", "CID"]) and pray
 #
+# Oct 6 2021: INFO.YML now includes ISDATA_REAL so that cosmology-fitting
+#             programs can auto-detect real data and apply default blinding.
+#             Only works on SALT2mu/BBC jobs run after Oct 6 2021.
+#
 # ===============================================
 
 import argparse
@@ -47,9 +51,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-import re
-import yaml
-import sys
+import re, yaml, sys, gzip
 from sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -75,6 +77,9 @@ VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
+
+SUBDIR_COSMOMC = "cosmomc"
+KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
 
 m_REF = 0  # MUOPT reference number for cov
 f_REF = 0  # FITOPT reference number for cov
@@ -199,16 +204,52 @@ COSMOMC_DATASET_FILE: <out file with cosmomc instructions>
 
     # end print_help_menu
 
-def load_hubble_diagram(path, args, config):
+
+def check_isdata_real(hd_file):
+
+    # Created oct 6 2021 by R.Kessler
+    # read first few lines of hd_file and look for ISDATA_REAL  key
+    # that is in a comment field ... hence read as yaml.
+    # SALT2mu begain wriring ISDATA_REAL key on Oct 6 2021;
+    # Function returns ISDATA_REAL = 0 or 1 of key is found;
+    # returns -1 (unknown) if key not found.
+
+    with gzip.open(hd_file, 'r') as f:
+        line_list = f.readlines()
+
+    isdata_real = -1  # init to unknonw
+    maxline_read = 10 # bail after this many lines
+    nline_read   = 0
+
+    key = f"{KEYNAME_ISDATA}:" # include colon in brute force search
+
+    for line in line_list:
+        line  = line.rstrip()  # remove trailing space and linefeed  
+        line  = line.decode('utf-8')
+        wd_list = line.split()
+        if key in wd_list:
+            j = wd_list.index(key)
+            isdata_real = int(wd_list[j+1])
+                        
+        nline_read += 1
+        if nline_read == maxline_read or isdata_real>=0 : break
+
+    logging.info(f"ISDATA_REAL = {isdata_real}")
+    return isdata_real
+
+    # end check_isdata_real
+
+def load_hubble_diagram(hd_file, args, config):
 
     # read single M0DIF or FITRES file from BBC output,
     # and return contents.
 
-    if not os.path.exists(path):
-        raise ValueError(f"Cannot load data from {path} - it doesnt exist")
+    if not os.path.exists(hd_file):
+        raise ValueError(f"Cannot load Hubble diagram data from {hd_file}" \
+                         f" - it doesnt exist")
 
-    df = pd.read_csv(path, delim_whitespace=True, comment="#")
-    logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {path}")
+    df = pd.read_csv(hd_file, delim_whitespace=True, comment="#")
+    logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
     #sys.exit("\n xxx DEBUG STOP xxx\n")
 
@@ -231,7 +272,7 @@ def load_hubble_diagram(path, args, config):
         df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
-                     f"doesn't exist in {path}"
+                     f"doesn't exist in {hd_file}"
             assert "MUERR_VPEC" in df.columns, msgerr
 
             df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2) # removed biasScale_muCOV
@@ -264,9 +305,11 @@ def get_hubble_diagrams(folder, args, config):
 
     folder_expand = Path(os.path.expandvars(folder))
     logging.debug(f"Loading all data files in {folder_expand}")
-    HD_list = {}
+    HD_list     = {}
     infile_list = []
     label_list  = []
+    first_load  = True
+    isdata_real = -1  # init to unknwon data or sim
 
     for infile in sorted(os.listdir(folder_expand)):
 
@@ -292,13 +335,15 @@ def get_hubble_diagrams(folder, args, config):
 
             infile_list.append(infile)
             label_list.append(label)
-
+            hd_file = folder_expand/infile
             # grab contents of every M0DIF(binned) or FITRES(unbinned) file 
-            HD_list[label] = load_hubble_diagram(folder_expand/infile,
-                                                 args, config)
-
+            HD_list[label] = load_hubble_diagram(hd_file, args, config)
+            if first_load:  isdata_real = check_isdata_real(hd_file)
+            first_load = False
 
     #sys.exit(f"\n xxx\n result = {result} \n")
+
+    config[KEYNAME_ISDATA] = isdata_real # Oct 6 2021, R.Kessler
 
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
@@ -316,7 +361,7 @@ def get_hubble_diagrams(folder, args, config):
             HD_list[label] = rebin_hubble_diagram(config,HD_list[label])
 
     return HD_list
-
+    # end get_hubble_diagrams
 
 def get_common_set_of_sne(datadict):
 
@@ -672,7 +717,7 @@ def write_standard_output(config, unbinned, covs, base):
 # =====================================
 # cosmomc utilities
 
-def write_cosmomc_output(config, covs, base, args):
+def write_cosmomc_output(config, args, covs, base):
 
     # Copy & modify INI files. 
     # Create covariance matrices
@@ -682,13 +727,14 @@ def write_cosmomc_output(config, covs, base, args):
     logging.info("# - - - - - - - - - - - - - - - - - - - - - - - -")
     logging.info(f"       OUTPUT FOR COSMOMC-JLA ")
 
-    out = Path(config["OUTDIR"]) / "cosmomc"
-
+    OUTDIR           = config["OUTDIR"]
     cosmomc_path     = config["COSMOMC_TEMPLATES_PATH"]
     dataset_file     = config["COSMOMC_DATASET_FILE"]
+    unbinned         = args.unbinned
 
+    out              = Path(OUTDIR) / SUBDIR_COSMOMC
     dataset_template = Path(cosmomc_path) / dataset_file
-    dataset_files = []
+    dataset_files    = []
 
     os.makedirs(out, exist_ok=True)
 
@@ -697,8 +743,8 @@ def write_cosmomc_output(config, covs, base, args):
     data_file      = out / f"data.txt"
     data_file_wCID = out / f"data_wCID.txt"
     prefix_covsys  = "sys"
-    write_cosmomc_HD(data_file, base, args.unbinned)
-    write_cosmomc_HD(data_file_wCID, base, args.unbinned, cosmomc_format=False)
+    write_cosmomc_HD(data_file, base, unbinned)
+    write_cosmomc_HD(data_file_wCID, base, unbinned, cosmomc_format=False)
 
     # Create covariance matrices and datasets
     opt_cov = 0     # write cov with no comments
@@ -895,10 +941,13 @@ def write_summary_output(config, covariances, base):
         cov_info[i] = label
     info["COVOPTS"] = cov_info
 
+    info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+
     logging.info("Write INFO.YML")
     with open(out / "INFO.YML", "w") as f:
         yaml.safe_dump(info, f)
 
+    # end write_summary_output
 
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")
@@ -1005,7 +1054,6 @@ def create_covariance(config, args):
     # Feb 15 2021 RK - check option to selet only one of the muopt
     if args.muopt >= 0 :
         tmp_label    = muopt_labels[args.muopt]
-        #muopt_labels = { args.muopt : tmp_label }
         muopt_labels = { args.muopt : "DEFAULT" }     
     
     muopt_scales = config["MUOPT_SCALES"]
@@ -1020,10 +1068,16 @@ def create_covariance(config, args):
     # Now that we have the data, figure out how each much each
     # FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
-                                               muopt_labels, muopt_scales, extracovdict)
+                                               muopt_labels, 
+                                               muopt_scales, 
+                                               extracovdict)
+
     # find contributions which match to construct covs for each COVOPT
     logging.info(f"Compute covariance for COVOPTS")
-    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  # Adds covopt to compute everything
+
+    # Add covopt to compute everything
+    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
+
     covariances = [get_cov_from_covopt(c, contributions, base, 
                                        config.get("CALIBRATORS")) for c in covopts]
 
@@ -1032,10 +1086,13 @@ def create_covariance(config, args):
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
-        write_cosmomc_output(config, covariances, base, args)
+        write_cosmomc_output(config, args, covariances, base)
 
     write_summary_output(config, covariances, base)
-    #write_debug_output(config, covariances, base, summary)
+
+    # xxxxx mark delete Sep 2021 R.K
+    #  write_debug_output(config, covariances, base, summary)
+    # xxxxxxxxxx
 
     # end create_covariance
 

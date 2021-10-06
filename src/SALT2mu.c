@@ -19008,6 +19008,7 @@ void outFile_driver(void) {
 // ******************************************
 void write_version_info(FILE *fp) {
 
+  fprintf(fp,"# ISDATA_REAL:   %d \n", ISDATA_REAL);
   fprintf(fp,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
   fprintf(fp,"# BBC_VERSION:   %d \n", BBC_VERSION);
   fprintf(fp,"\n");
@@ -19024,6 +19025,7 @@ void write_yaml_info(char *fileName) {
   // 
   // Jun 7 2021: write subprocess iteration
   // Sep 18 2021: write stats_bySAMPLE
+  // Oct 06 2021: write ISDATA_REAL
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -19071,6 +19073,9 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
+
+  sprintf(KEY,"ISDATA_REAL:");
+  fprintf(fp,"%-22.22s %d\n", KEY, ISDATA_REAL );
 
   // write NEVT_[WHAT]_bySAMPLE (e.g., LOWZ, SDSS, PS1, DES)
   if ( NSAMPLE_BIASCOR > 0 ) {
@@ -19906,6 +19911,7 @@ void write_MUERR_INCLUDE(FILE *fp) {
   // double-counting MUERR contributions.
   //
   // Oct 13 2019: write hash to make comment field
+  // Oct 06 2021: remove obsolete line with zERR
 
   int USE=0;
   double tmpErr;
@@ -19913,12 +19919,12 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
   // --------------- BEGIN ----------------
 
-  fprintf(fp, "# MUERR_INCLUDE: zERR \n" );  USE=1;
+  // xxx mark delete   fprintf(fp, "# MUERR_INCLUDE: zERR \n" );  USE=1;
 
   tmpErr = INPUTS.zpecerr ;
   if ( tmpErr > 0.0 ) {
     fprintf(fp, "# MUERR_INCLUDE: zPECERR=%.5f \n", tmpErr );
-    USE = 1;
+    USE=1;
   }
 
   tmpErr = INPUTS.lensing_zpar;

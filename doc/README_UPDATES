@@ -20438,8 +20438,22 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04b) ***** 
 
+   create_covariance.py: 
+     + write ISDATA_REAL flag to INFO.YML so that cosmology fitting
+       codes can auto-detect real data and apply blinding.
+
          ***** USEFUL(v11_04b) ***** 
 
+   submit_batch: add new 'wfit' class
+
          ***** MISCELLANEOUS(v11_04b) ***** 
+
+   wfit.c : misc updates to work with submit_batch
+
+   SALT2mu.c: 
+    + write ISDATA_REAL to output yaml so that it can be
+      propagated to cosmology fitters for auto-blinding.
+
+  
 
 END: 

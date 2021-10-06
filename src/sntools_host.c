@@ -6410,6 +6410,12 @@ void GEN_SNHOST_NBR(int IGAL) {
     printf(" xxx %s: parse NBR_LIST for GALID=%lld: \n", fnam, GALID ); 
   }
 
+  if ( INPUTS.HOSTLIB_MAXREAD < MXROW_HOSTLIB ) {
+    sprintf(c1err,"Cannot use HOSTLIB_MAXREAD with HOSTLIB that has NBR.");
+    sprintf(c2err,"Remove HOSTLIB_MAXREAD or use HOSTLIB without NBR.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
   // parse comma-sep list of HOSTLIB row numbers
   splitString2(NBR_LIST, COMMA, MXNBR_LIST , &NNBR_READ, &TMPWORD_HOSTLIB[1]);
 

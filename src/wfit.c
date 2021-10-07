@@ -152,7 +152,7 @@ struct  {
   double wa_sig_marg,  wa_sig_upper,  wa_sig_lower;
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
 
-  double **MUCOV;
+  double *MUCOV; // 1D array for cov matrix
 
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
@@ -240,7 +240,7 @@ void malloc_HDarrays(int opt, int NSN);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile);
-void dump_MUCOV(void);
+void dump_MUCOV(char *comment);
 void invert_mucovar(double sqmurms_add);
 void set_stepsizes(void);
 void set_Ndof(void);
@@ -257,7 +257,7 @@ void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
-double get_DMU_chi2wOM(int k, Cosparam *cpar); // AM OCT, 2021
+double get_DMU_chi2wOM(int k, double rz); // AM OCT, 2021
 
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *OM_atchimin ); 
@@ -1286,7 +1286,7 @@ void read_mucov_sys(char *inFile){
   int NSPLIT, NROW_read=0, NDIM_ORIG = 0, NDIM_STORE = HD.NSN, NMAT_read=0,  NMAT_store = 0;
   float f_MEM;
   double cov;
-  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, gzipFlag ;
+  int N, N0, N1, i0, i1, j, iwd, NWD, i, k0, k1, kk,gzipFlag ;
   char  **ptrSplit;
   FILE *fp;
   char fnam[] = "read_mucov_sys" ;
@@ -1327,18 +1327,21 @@ void read_mucov_sys(char *inFile){
     if ( NROW_read == 0 ) {
       sscanf(ptrSplit[0],"%d",&NDIM_ORIG);
       printf("\t Found COV dimension %d\n", NDIM_ORIG);
-      f_MEM = malloc_double2D(+1, NDIM_STORE, NDIM_STORE, &WORKSPACE.MUCOV );  
+      printf("\t Store COV dimension %d\n", NDIM_STORE);
+      
+      int MEMD = NDIM_STORE * NDIM_STORE * sizeof(double);
+      WORKSPACE.MUCOV = (double*) malloc(MEMD);
     }
     else {
       NMAT_read++ ;
       sscanf( ptrSplit[0],"%le",&cov);      
-      cov = 0; // REMOVE THIS 
+      //      cov = 0; // REMOVE THIS 
       if(HD.pass_cut[i0] && HD.pass_cut[i1] ) {
-	WORKSPACE.MUCOV[k0][k1] = cov;
-	NMAT_store+=1;
+	kk = k1*NDIM_STORE + k0;
+	WORKSPACE.MUCOV[kk] = cov;
+	NMAT_store += 1;
 	k0++;
 	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
-	
       }
       //printf(" xxx %s: cov[%d][%d] = %f \n", fnam, i0,i1, cov);
       i0++;
@@ -1368,43 +1371,44 @@ void read_mucov_sys(char *inFile){
   // Add diagonal errors from the Hubble diagram
   double COV_STAT;
   for ( i=0; i<HD.NSN; i++ )  {
-
-
+    kk = i*NDIM_STORE + i;
     COV_STAT = HD.mu_sqsig[i] ;
-    WORKSPACE.MUCOV[i][i] += COV_STAT ;
+    WORKSPACE.MUCOV[kk] += COV_STAT ;
   }
 
-  dump_MUCOV();
+  int LDMP_MUCOV = 0 ;
+  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV"); }
   
   // - - - - -
-  // invert matrix [need to refactor invert_mucovar ...]
+  // invert MUCOV matrix ... this will ovewrite WORKSPACE.MUCOV
+  // with its inverse.
   invert_mucovar(INPUTS.sqsnrms);
+
+  if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV^-1"); }
 
   return ; 
 }
 // end of read_mucov_sys
 
 
-void dump_MUCOV(void){
+void dump_MUCOV(char *comment ) {
 
   char fnam[]="dump_MUCOV";
-  int i0, i1, NROW;
+  int i0, i1, NROW, kk ;
   int MAX_ROW = 20;
   if(HD.NSN < MAX_ROW){NROW = HD.NSN;}
   else{NROW= MAX_ROW;}
   
   // dump
-  printf("\n DUMP MUCOV \n");
+  printf("\n DUMP %s \n", comment);
   
-  for (i0=0; i0<NROW; i0++)
-    {
-      for(i1=0; i1<NROW; i1++)
-	{
-	  printf("%8.4f ",WORKSPACE.MUCOV[i0][i1] );
-	}
-
+  for (i0=0; i0 < NROW; i0++)  {
+      for(i1=0; i1 < NROW; i1++) {
+	kk = i0*NROW + i1;
+	printf("%8.4f ", WORKSPACE.MUCOV[kk] );
+      }
       printf("\n");
-    }
+  }
   printf("\n"); 
 }// end of dump_MUCOV
 
@@ -2235,8 +2239,7 @@ void invert_mucovar(double sqmurms_add) {
   // =================================
 
   if(INPUTS.use_mucov){
-
-    invertMatrix( NSN, NSN, &WORKSPACE.MUCOV[0][0] ) ;
+    invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
   }
   return ;
 
@@ -2266,11 +2269,10 @@ void get_chi2wOM (
     OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
     ,chi_hat, dchi_hat, ld_cos
     ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv ;
-
-  
-
+    
+  double *rz_list = (double*) malloc(HD.NSN * sizeof(double) );
   Cosparam cparloc;
-  int k, k0, k1, N0, N1, icov;
+  int k, k0, k1, N0, N1 ;
   
   char fnam[] = "get_chi2wOM";
 
@@ -2284,47 +2286,44 @@ void get_chi2wOM (
 
   Bsum = Csum = chi_hat = 0.0 ;
 
+  // precompute rz in each z bin to avoid redundant calculations
+  // when using covariance matrix.
+  for(k=0; k < HD.NSN; k++ )  { rz_list[k] = codist(HD.z[k], &cparloc); }
 
-
-  
-  /* Loop over all data and calculate chi2 */
-  if (INPUTS.use_mucov){
+  // Loop over all data and calculate chi2
+  if ( INPUTS.use_mucov) {
     double dmu0, dmu1, chi_tmp;
-   
+    for ( k0=0; k0 < HD.NSN; k0++) {
+      for ( k1=k0; k1 < HD.NSN; k1++)  {
+	k = k0*HD.NSN + k1;
+	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
+	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
+	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
+	Bsum    += sqmusiginv * dmu0 ;   // Eq. A.11 of Goliath 2001  
+	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
+	chi_tmp  = sqmusiginv*dmu0*dmu1;
+	if ( k1 == k0 ) 
+	  { chi_hat += chi_tmp;   }
+	else    
+	  { chi_hat += 2.*chi_tmp; }
 
-    for(k0=0; k0 < HD.NSN; k0++)
-      {
-	for(k1=k0; k1 < HD.NSN; k1++)
-	  {
-
-	    sqmusiginv = WORKSPACE.MUCOV[k0][k1]; // Inverse of the matrix 
-	    dmu0 = get_DMU_chi2wOM(k0, &cparloc);
-	    dmu1 = get_DMU_chi2wOM(k1, &cparloc);
-	    Bsum       += sqmusiginv * dmu0 ;       // Eq. A.11 of Goliath 2001                                                                                                     
-	    Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001                                                                                                     
-	    chi_tmp     = sqmusiginv*dmu0*dmu1;
-	    if(k1=k0){chi_hat += chi_tmp;}
-	    else{chi_hat+= 2.*chi_tmp;}
-	  }
-      }
-    
+      } // end k1
+    } // end k0
   }
   else{
     for (k=0; k < HD.NSN; k++){
-
       sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
       sqmusiginv  = 1./sqmusig ;     
-      dmu         = get_DMU_chi2wOM(k, &cparloc);      
+      dmu         = get_DMU_chi2wOM(k, rz_list[k] );
       Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
       Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
       chi_hat    += sqmusiginv * dmu*dmu ;
       
-
     /*
     printf("  xxxx dmu(%4s) = %6.2f - %6.2f = %6.2f   sigmu=%f  \n", 
 	   CIDLIST[k], mu_cos[k], mu[k], dmu, mu_sig[k] );
     */
-    }
+    } // end k
   }
 
   // check for SNe with off-diagonal terms
@@ -2401,33 +2400,34 @@ void get_chi2wOM (
     *chi2tot += pow( nsig, TWO );
   }
 
-
+  free(rz_list);
 
   return ;
 
 }  // end of get_chi2wOM
-double get_DMU_chi2wOM(int k, Cosparam *cpar)  
-{
+
+
+double get_DMU_chi2wOM(int k, double rz)  {
 
   // Created oct, 2021. Mitra, Kessler.
   // For the chi sq. function to evaluate the Hubble residual.
   // Inputs :
-  // k : Index of HUbble diagram array
-  // cpar : Structure containing the cosmological parameters
+  //   k  : Index of HUbble diagram array
+  //   rz : codist
   // Output :
-  // Function returns mu_obs-mu_theory for k-th observation.
+  //   Function returns mu_obs-mu_theory for k-th observation.
   
-  double rz, ld_cos, mu_cos, dmu;
+  double ld_cos, mu_cos, dmu;
   
-  rz          = codist(HD.z[k], cpar); // cparloc -- input. w, om etc.                                                                                                      
+  // xxx mark delete  rz = codist(HD.z[k], cpar);
   ld_cos      = (1.0 + HD.z[k]) *  rz * c_light / H0;
   mu_cos      =  5.*log10(ld_cos) + 25. ;
   dmu         = mu_cos - HD.mu[k] ;
+  return dmu ;
 
-  return dmu;
-    
+}  // end get_DMU_chi2wOM
 
-}
+
 // ==============================================
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *omm_atchimin ) {
@@ -2515,11 +2515,9 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
       }
     } // end j
   } // end i
-  //for (int ii=0; ii < NCIDLIST; ii++){
-    //printf("XXX z=%6.4f\n",z[ii]);}
 
+  // - - - - - -
   // change input values with final w,OM
-
   *w0_atchimin  = w0cen_tmp + (double)imin * w0step_tmp ;
   *wa_atchimin  = wacen_tmp + (double)kmin * wastep_tmp ;
   *omm_atchimin = omcen_tmp + (double)jmin * omstep_tmp ;

@@ -162,7 +162,7 @@ struct  {
 
 // define structure to hold hubble diagram (Oct 1 2021)
 struct {
-  int    NSN ;
+  int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
   char   **cid;
   bool   *pass_cut;
   double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig ;
@@ -920,8 +920,8 @@ void read_fitres(char *inFile) {
   }
 
   // - - - - - - - - - 
-  // read table
-  HD.NSN = SNTABLE_READ_EXEC();
+  // read table ; note that HD.NSN_ORIG = NROW
+  HD.NSN_ORIG = SNTABLE_READ_EXEC();
 
   // for MUDIF output from BBC, MU is actually MUDIF,
   // so set MU += MUREF
@@ -1329,6 +1329,13 @@ void read_mucov_sys(char *inFile){
       printf("\t Found COV dimension %d\n", NDIM_ORIG);
       printf("\t Store COV dimension %d\n", NDIM_STORE);
       
+      if ( NDIM_ORIG != HD.NSN_ORIG ) {
+	sprintf(c1err,"NDIM(COV)=%d does not match NDIM(HD)=%d ??",
+		NDIM_ORIG, HD.NSN_ORIG);
+	sprintf(c2err,"Above NDIM are before cuts.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
       int MEMD = NDIM_STORE * NDIM_STORE * sizeof(double);
       WORKSPACE.MUCOV = (double*) malloc(MEMD);
     }
@@ -2268,7 +2275,7 @@ void get_chi2wOM (
   double 
     OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
     ,chi_hat, dchi_hat, ld_cos
-    ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv ;
+    ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv, fac ;
     
   double *rz_list = (double*) malloc(HD.NSN * sizeof(double) );
   Cosparam cparloc;
@@ -2299,21 +2306,29 @@ void get_chi2wOM (
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
 	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
 	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
-	Bsum    += sqmusiginv * dmu0 ;   // Eq. A.11 of Goliath 2001  
-	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
-	chi_tmp  = sqmusiginv*dmu0*dmu1;
-	if ( k1 == k0 ) 
+
+	// fac=1 on diag; fac=2 on off-diag to include k0<-->k1
+	if ( k0 == k1 ) { fac=1.0; }    else { fac=2.0; }
+
+	Bsum    += (fac * sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
+	Csum    += (fac * sqmusiginv );          // Eq. A.12 of Goliath 2001
+	chi_hat += (fac * sqmusiginv * dmu0 * dmu1 );
+
+	/* xxxxxxxxxxxxxx mark delete 
+	chi_tmp  = sqmusiginv * dmu0 * dmu1 ;
+	if ( k0 == k1 ) 
 	  { chi_hat += chi_tmp;   }
 	else    
-	  { chi_hat += 2.*chi_tmp; }
+	  { chi_hat += 2.*chi_tmp; } // includes k0 <--> k1
+	xxxxxxxxxx */
 
       } // end k1
     } // end k0
   }
-  else{
+  else {
     for (k=0; k < HD.NSN; k++){
       sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
-      sqmusiginv  = 1./sqmusig ;     
+      sqmusiginv  = 1./sqmusig ; 
       dmu         = get_DMU_chi2wOM(k, rz_list[k] );
       Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
       Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
@@ -2326,10 +2341,11 @@ void get_chi2wOM (
     } // end k
   }
 
+
+  /* xxxxxxxxx mark delete xxxxxxxxxxx
   // check for SNe with off-diagonal terms
   // Note that below includes both diag & off-diag for 
   // the SN-subset with covariances.
-  /*
   if ( NCOVPAIR > 0 ) {
     for ( N0=1; N0 <= NCOVSN; N0++ ) {
       for ( N1=1; N1 <= NCOVSN; N1++ ) {
@@ -2354,9 +2370,9 @@ void get_chi2wOM (
       } // N1
     } // N0
   }
-
-  */
+  xxxxxxxxxxx end mark xxxxxxxxxxxxxxx  */
   
+
   *mu_off  = Bsum/Csum ;  // load function output before adding H0-prior corr
 
   /* Analytic marginalization over H0.  

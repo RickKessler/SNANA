@@ -12,9 +12,14 @@ from submit_params    import *
 from submit_prog_base import Program
 
 PREFIX_wfit   = "wfit"
-PREFIX_covsys = "covsys"
-HD_FILENAME   = "hubble_diagram.txt"
 
+# define names of files produced by create_covariance.py
+PREFIX_covsys = "covsys"
+HD_FILENAME   = "hubble_diagram.txt"  #
+COV_INFO_FILENAME = "INFO.YML"        # contains ISREAL_DATA flag
+KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
+
+# define columns for MERGE.LOG
 # column 0 is always for STATE
 COLNUM_WFIT_MERGE_DIROPT       = 1
 COLNUM_WFIT_MERGE_COVOPT       = 2
@@ -22,7 +27,12 @@ COLNUM_WFIT_MERGE_WFITOPT      = 3
 COLNUM_WFIT_MERGE_NDOF         = 4   # Ndof
 COLNUM_WFIT_MERGE_CPU          = 5
 
-WFITOPT_STRING = "WFITOPT"
+KEYNAME_WFITOPT    = "WFITOPT"
+KEYNAME_BLIND_DATA = "BLIND_DATA"
+KEYNAME_BLIND_SIM  = "BLIND_SIM"
+
+BLIND_DATA_DEFAULT = True
+BLIND_SIM_DEFAULT  = False
 
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 
@@ -59,6 +69,9 @@ class wFit(Program):
         # store wfit options under WFITOPT key
         self.wfit_prep_wfitopt_list()
 
+        # prepare blinding for data and sim
+        self.wfit_prep_blind()
+
         # prepare index list for inpdir/covsys/wfitopt to enable
         # easy 3D loops
         self.wfit_prep_index_lists()
@@ -85,16 +98,30 @@ class wFit(Program):
 
         wildcard = f"{PREFIX_covsys}*"
         inpdir_list_orig = CONFIG[key]
+        isdata_list   = []
         inpdir_list   = []
         covsys_list2d = [] # list per inpdir
         for inpdir_orig in inpdir_list_orig:
             inpdir = os.path.expandvars(inpdir_orig)
             inpdir_list.append(inpdir)
+
+            if not os.path.exists(inpdir) :
+                msgerr.append(f"Cannot find input directory")
+                msgerr.append(f"  {inpdir_orig}")       
+                if inpdir != inpdir_orig : msgerr.append(f"  {inpdir}")
+                self.log_assert(False, msgerr)
+                
             covsys_list  = sorted(glob.glob1(inpdir,wildcard))
             covsys_list2d.append(covsys_list)
             n_covsys = len(covsys_list)
-            print(f" Found {n_covsys} {PREFIX_covsys} files under\n" \
-                  f"\t {inpdir_orig} ")
+
+            # check ISDATA_REAL flag
+            isdata = self.read_isdata(inpdir)
+            isdata_list.append(isdata)
+
+            print(f" Found {inpdir_orig} \n" \
+                  f" \t with {n_covsys} {PREFIX_covsys} files and " \
+                  f"ISDATA_REAL={isdata} ")
 
             # sanity checks
             hd_file    = f"{inpdir}/{HD_FILENAME}"
@@ -116,15 +143,31 @@ class wFit(Program):
         self.config_prep['inpdir_list']       = inpdir_list
         self.config_prep['n_inpdir']          = len(inpdir_list)
         self.config_prep['covsys_list2d']     = covsys_list2d
+        self.config_prep['isdata_list']       = isdata_list
+
+        #print(f" isdata_list = {isdata_list}")
 
         # end wfit_prep_input_list
 
+    def read_isdata(self,inpdir):
+
+        yaml_file = f"{inpdir}/{COV_INFO_FILENAME}"
+        yaml_info = util.extract_yaml(yaml_file, None, None )
+        isdata    = False  # arbitrary default in dase key is missing
+
+        key = KEYNAME_ISDATA
+        if key in yaml_info:
+            isdata = (yaml_info[KEYNAME_ISDATA] > 0)
+
+        return isdata
+        # end read_isdata 
+        
     def wfit_prep_wfitopt_list(self):
 
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
-        key             = WFITOPT_STRING
+        key             = KEYNAME_WFITOPT
 
         if key not in CONFIG:
             msgerr.append(f"Missing required {key} key in CONFIG block")
@@ -139,7 +182,7 @@ class wFit(Program):
         wfitopt_num_list   = wfitopt_dict['jobopt_num_list']
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
    
-        logging.info(f" Store {n_wfitopt} wfit options from " \
+        logging.info(f"\n Store {n_wfitopt} wfit options from " \
                      f"{key} keys" )
 
         # exclude 0th element since there is no default
@@ -149,7 +192,7 @@ class wFit(Program):
         self.config_prep['wfitopt_label_list'] = wfitopt_label_list
 
         # check for global wfitopt
-        key   = f"{WFITOPT_STRING}_GLOBAL"
+        key   = f"{KEYNAME_WFITOPT}_GLOBAL"
         wfitopt_global = ""
         if key in CONFIG :
             wfitopt_global = CONFIG[key]
@@ -165,6 +208,56 @@ class wFit(Program):
         self.config_prep['use_wa'] = use_wa
 
         # end wfit_prep_wfitopt_list
+
+    def wfit_prep_blind(self):
+
+        CONFIG   = self.config_yaml['CONFIG']
+
+        # if no user-override for blind optoin, set CONFIG to default
+
+        # check user override for data
+        key = KEYNAME_BLIND_DATA
+        if key not in CONFIG:  CONFIG[key] = BLIND_DATA_DEFAULT
+        blind_data = CONFIG[key]
+
+        # ... and for sim
+        key = KEYNAME_BLIND_SIM
+        if key not in CONFIG:  CONFIG[key] = BLIND_SIM_DEFAULT
+        blind_sim = CONFIG[key]
+
+        logging.info(f" ")
+        logging.info(f"\t BLIND DATA: {blind_data}")
+        logging.info(f"\t BLIND SIM:  {blind_sim}")
+        logging.info(f" ")
+        
+        # abort if any WFITOPT has -blind ... to avoid interference
+        # with BLIND_DATA and BLIND_SIM yaml flags
+        
+        wfitopt_list     = self.config_prep['wfitopt_arg_list']
+        wfitopt_global   = self.config_prep['wfitopt_global']
+        tmp_list = wfitopt_list + [ wfitopt_global ]
+        for wfitopt in tmp_list:
+            if "-blind" in wfitopt :
+                msgerr=[]
+                msgerr.append(f"Cannot use -blind arg in WFITOPT.")
+                msgerr.append(f"Control blinding in CONFIG with")
+                msgerr.append(f"  {KEYNAME_BLIND_DATA} and {KEYNAME_BLIND_SIM} keys")
+                self.log_assert(False, msgerr)
+
+        # check isdata flag per inpdir
+        inpdir_list      = self.config_prep['inpdir_list']
+        isdata_list      = self.config_prep['isdata_list']
+        arg_blind_list   = [] # set to either "-blind" or ""
+        for inpdir,isdata in zip(inpdir_list,isdata_list):
+            issim = not isdata
+            arg_blind = "-blind"
+            if isdata and not blind_data : arg_blind = ""
+            if issim  and not blind_sim  : arg_blind = ""
+            arg_blind_list.append(arg_blind)
+
+        self.config_prep['arg_blind_list'] = arg_blind_list
+
+        # end wfit_prep_blind
 
     def wfit_prep_index_lists(self):
 
@@ -248,6 +341,7 @@ class wFit(Program):
         script_dir   = self.config_prep['script_dir']
 
         inpdir      = self.config_prep['inpdir_list_orig'][idir]
+        arg_blind   = self.config_prep['arg_blind_list'][idir]
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
         covsys_file = self.config_prep['covsys_list2d'][idir][icov]
@@ -258,9 +352,12 @@ class wFit(Program):
         log_file   = f"{prefix}.LOG" 
         done_file  = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
-
+        
         arg_list =  [ arg_string ]
         if len(arg_global) > 0: arg_list.append(arg_global)
+
+        arg_list.append(arg_blind)
+
         arg_list.append(f"-cospar_yaml {prefix}.YAML")
 
         JOB_INFO = {}
@@ -313,6 +410,7 @@ class wFit(Program):
     def append_info_file(self,f):
         # append info to SUBMIT.INFO file
 
+        CONFIG           = self.config_yaml['CONFIG']
         n_wfitopt          = self.config_prep['n_wfitopt']
         wfitopt_arg_list   = self.config_prep['wfitopt_arg_list'] 
         wfitopt_num_list   = self.config_prep['wfitopt_num_list']
@@ -320,6 +418,9 @@ class wFit(Program):
         wfitopt_global     = self.config_prep['wfitopt_global']
         inpdir_list_orig   = self.config_prep['inpdir_list_orig']
         use_wa             = self.config_prep['use_wa']
+
+        blind_data   = CONFIG[KEYNAME_BLIND_DATA] # T or F
+        blind_sim    = CONFIG[KEYNAME_BLIND_SIM] # T or F
 
         f.write(f"\n# wfit info\n")
 
@@ -329,6 +430,10 @@ class wFit(Program):
         f.write(f"INPDIR_LIST: \n")
         for inpdir in inpdir_list_orig:
             f.write(f"  - {inpdir} \n")
+
+        f.write("\n")
+        f.write(f"{KEYNAME_BLIND_DATA}:  {blind_data}\n")
+        f.write(f"{KEYNAME_BLIND_SIM}:   {blind_sim}\n")
 
         f.write("\n")
         f.write(f"N_WFITOPT:         {n_wfitopt}      " \
@@ -538,6 +643,7 @@ class wFit(Program):
             omm_sig = wfit_values_dict['omm_sig']
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
+            blind   = wfit_values_dict['blind']
 
             if use_wa:
                 wa      = wfit_values_dict['wa']    
@@ -553,7 +659,7 @@ class wFit(Program):
             if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:.1f} "
             str_results += f"{omm:.4f} {omm_sig:.4f}  "
 
-            str_misc    = f"{chi2:.1f} {sigint:.3f} "
+            str_misc    = f"{chi2:.1f} {sigint:.3f} {blind}"
 
             f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  {str_misc}\n")
 
@@ -571,24 +677,19 @@ class wFit(Program):
         if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM"
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
-            f"omm omm_sig  chi2 sigint"
+            f"omm omm_sig  chi2 sigint blind"
 
         w_ran   = int(wfit_values_dict['w_ran']) 
         wa_ran  = int(wfit_values_dict['wa_ran'])
         omm_ran = int(wfit_values_dict['omm_ran'])
 
         if w_ran > 0 : 
-            f.write(f"#  w0,wa,omm are blinded by adding " \
+            f.write(f"#  blind=1 ==> w0,wa,omm += " \
                     f"sin({w_ran},{wa_ran},{omm_ran}) \n")
             f.write(f"\n")
-         
-        
-        #key   = f"{WFITOPT_STRING}_GLOBAL"
-        #wfitopt_global = ""
-        #if key in CONFIG: wfitopt_global = CONFIG[key]
-            
+                             
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
-
+        # write_wfit_summary_header
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file  

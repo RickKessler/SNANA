@@ -1057,7 +1057,11 @@ def create_covariance(config, args):
         tmp_label    = muopt_labels[args.muopt]
         muopt_labels = { args.muopt : "DEFAULT" }     
     
-    muopt_scales = config["MUOPT_SCALES"]
+    if 'MUOPT_SCALES' in config:
+        muopt_scales = config["MUOPT_SCALES"]
+    else:
+        muopt_scales = { "DEFAULT", 1.0 }
+
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]
 
@@ -1103,7 +1107,8 @@ def prep_config(config,args):
                   'COSMOMC_TEMPLATES_PATH' ]
     
     # 9.22.2021 RK - check legacy keys
-    key_legacy_list = [ 'COSMOMC_TEMPLATES', 'DATASET_FILE', 'SYSFILE' ]
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+                        'SYSFILE' ]
     key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
                         'SYS_SCALE_FILE' ]
 
@@ -1114,21 +1119,13 @@ def prep_config(config,args):
             config[key_update] = config[key_legacy] 
 
     for path in path_list:
-        config[path] = os.path.expandvars(config[path]) ;   
+        if path in config:
+            config[path] = os.path.expandvars(config[path]) ;   
 
     # check special/legacy features for cosmoMC/JLA
     config['use_cosmomc'] = False
     if 'COSMOMC_TEMPLATES_PATH' in config: 
         config['use_cosmomc'] = True
-
-    #print(f"\n xxx config = {config} \n")
-
-    # xxxx mark delete 9.22.2021 xxxxxxx
-    # if cosmomc method is NOT specified, revert to legacy jla method
-    # to preserve current/old inputs for pippin
-    ##if KEYNAME_COSMOMC_METHOD not in config:
-    ##    config[KEYNAME_COSMOMC_METHOD] = COSMOMC_METHOD_JLA
-    # xxxxx end mark
 
     # WARNING: later add option to read from input file
     #sys.exit(f" xxx nbin(x1,c) = {args.nbin_x1} {args.nbin_c} ")

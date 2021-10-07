@@ -98,6 +98,12 @@ def get_wfit_values(wfit_yaml):
         if key in wfit_yaml:
             omm_ran   = wfit_yaml[key]
 
+    key_list = [ 'BLIND', 'blind' ]
+    blind    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            blind = wfit_yaml[key]
+
     wfit_values_dict = {
         'w'        : w ,
         'w_sig'    : w_sig ,
@@ -107,6 +113,7 @@ def get_wfit_values(wfit_yaml):
         'sigint'   : sigint ,
         'w_ran'    : w_ran,
         'omm_ran'  : omm_ran,
+        'blind'    : blind ,
         # optional below
         'wa'       : wa,
         'wa_sig'   : wa_sig,

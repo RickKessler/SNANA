@@ -20455,5 +20455,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       propagated to cosmology fitters for auto-blinding.
 
   
+   snlc_sim.c
+     + restore parsing "WV07_REWGT_EXPAV" key
 
 END: 

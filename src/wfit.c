@@ -2266,18 +2266,14 @@ void get_chi2wOM (
 	      ) {
 
   // Jul 10, 2021: Return chi2 at this w0, wa, OM and z value
-  // Jan 23, 2009: return chi2 at this w,OM value
-  // Apr 23, 2009: fix bug: use cparloc instead of global cpar
-  // May 22, 2009: add args *mu_off and sqmurms_add
-  //               include nonflat H0 prior term using SQSIG_MUOFF
-  //
+  // Oct     2021: refactor using new cov matrix formalism
 
   double 
     OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
-    ,chi_hat, dchi_hat, ld_cos
+    ,chi_hat, chi_tmp, ld_cos
     ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv, fac ;
     
-  bool use_speed_trick = false;
+  bool use_speed_trick = true ;
   double *rz_list = (double*) malloc(HD.NSN * sizeof(double) );
   Cosparam cparloc;
   int k, k0, k1, N0, N1, k1min ;
@@ -2309,14 +2305,17 @@ void get_chi2wOM (
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
 	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
 	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
+	chi_tmp  = (sqmusiginv * dmu0 * dmu1 );
 
-	// fac=1 on diag; fac=2 on off-diag to include k0<-->k1
-	fac = 1.0;
-	if ( use_speed_trick && k0 != k1 ) { fac=2.0 ; } 
+	Bsum    += (sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
+	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
+	chi_hat += chi_tmp ;
 
-	Bsum    += (fac * sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
-	Csum    += (fac * sqmusiginv );          // Eq. A.12 of Goliath 2001
-	chi_hat += (fac * sqmusiginv * dmu0 * dmu1 );
+	if ( use_speed_trick && k0 != k1 ) { // add symmetric off-diag term
+	  Bsum    += (sqmusiginv * dmu1) ;
+	  Csum    += sqmusiginv ;
+	  chi_hat += chi_tmp ;	  
+	}
 
       } // end k1
     } // end k0

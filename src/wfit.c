@@ -2277,9 +2277,10 @@ void get_chi2wOM (
     ,chi_hat, dchi_hat, ld_cos
     ,tmp1,mu_cos, tmp2, Rcmb_calc, nsig, dmu, sqdmu, covinv, fac ;
     
+  bool use_speed_trick = false;
   double *rz_list = (double*) malloc(HD.NSN * sizeof(double) );
   Cosparam cparloc;
-  int k, k0, k1, N0, N1 ;
+  int k, k0, k1, N0, N1, k1min ;
   
   char fnam[] = "get_chi2wOM";
 
@@ -2301,26 +2302,21 @@ void get_chi2wOM (
   if ( INPUTS.use_mucov) {
     double dmu0, dmu1, chi_tmp;
     for ( k0=0; k0 < HD.NSN; k0++) {
-      for ( k1=k0; k1 < HD.NSN; k1++)  {
+      if ( use_speed_trick ) {k1min=k0; }  else { k1min=0; }
+
+      for ( k1=k1min; k1 < HD.NSN; k1++)  {
 	k = k0*HD.NSN + k1;
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
 	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
 	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
 
 	// fac=1 on diag; fac=2 on off-diag to include k0<-->k1
-	if ( k0 == k1 ) { fac=1.0; }    else { fac=2.0; }
+	fac = 1.0;
+	if ( use_speed_trick && k0 != k1 ) { fac=2.0 ; } 
 
 	Bsum    += (fac * sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
 	Csum    += (fac * sqmusiginv );          // Eq. A.12 of Goliath 2001
 	chi_hat += (fac * sqmusiginv * dmu0 * dmu1 );
-
-	/* xxxxxxxxxxxxxx mark delete 
-	chi_tmp  = sqmusiginv * dmu0 * dmu1 ;
-	if ( k0 == k1 ) 
-	  { chi_hat += chi_tmp;   }
-	else    
-	  { chi_hat += 2.*chi_tmp; } // includes k0 <--> k1
-	xxxxxxxxxx */
 
       } // end k1
     } // end k0

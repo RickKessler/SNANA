@@ -2847,7 +2847,9 @@ void write_output_cospar(void) {
   int  use_marg  = INPUTS.use_marg;
   int  use_wa    = INPUTS.use_wa ;
   int  format    = INPUTS.format_cospar;
+  int  blind     = INPUTS.blind ;
   char *outFile  = INPUTS.outFile_cospar;
+  double dt_fit  = (double)(t_end_fit  - t_start)/ 60.0 ;
 
 #define MXVAR_WRITE 20
   int    ivar, NVAR = 0;
@@ -2856,6 +2858,7 @@ void write_output_cospar(void) {
   char   VARNAMES_LIST[MXVAR_WRITE][20], LINE_STRING[200] ;
   char   ckey[40], cval[40];
   char sep[] = " " ;
+
   // ----------- BEGIN -------------
 
   if ( strlen(outFile) == 0){
@@ -2999,10 +3002,8 @@ void write_output_cospar(void) {
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
     fprintf(fp,"ABORT_IF_ZERO:  %d   # same as Ndof \n", WORKSPACE.Ndof);
-
-    double dt_fit  = (double)(t_end_fit  - t_start)/ 60.0 ;
     fprintf(fp,"CPU_MINUTES:    %.2f \n", dt_fit);
-
+    fprintf(fp,"BLIND:          %d \n", blind);
   }
 
   fclose(fp);

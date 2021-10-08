@@ -5,33 +5,13 @@
 
     HISTORY
 
-  Feb 15, 2013: 
-      MXPAR_SNFITSIO  -> 200  (was 100) to handle 56 JPAS filters
-
-  May 16, 2013
-      MXPAR_SNFITSIO  -> 400  (was 200) to handle 56 JPAS filters
-      with HOSTLIB
-
-  Feb 2014:
-   - define  SNFITSIO_CODE_IVERSION
-   - SNFITSIO_PATH    -> SNFITSIO_DATA_PATH
-   - SNFITSIO_VERSION -> SNFITSIO_PHOT_VERSION
-
-
-  Apr 30 2014: MXFILE_SNFITSIO -> 50 (was 20)
-
-  Aug 6 2014: SNFITSIO_SIMFLAG -> SNFITSIO_SIMFLAG_SNANA 
-              and add SNFITSIO_SIMFLAG_MAGOBS
-
-  Aug 2 2016: 
-   + define SNFITSIO_SIMFLAG_SPECTROGRAPH
-   + define MXTYPE_SNFITSIO and all dimention [2] -> [MXTYPE_SNFITSIO]
-
   July 25 2017: MXFILE_SNFITSIO -> 100 (was 50) 
   Mar  23 2019: MXFILE_SNFITSIO -> 300 (was 100) 
   Apr  12 2021: MXFILE_SNFITSIO -> 500 (was 300)
   Apr  28 2021: MXPAR_SNFITSIO -> 600 (was 400)
-
+  Oct  08 2021: split fp_snfitsFile into fp_wr[rd]_snfitsio
+                to allow translating FITS -> FITS .
+                
 **************************************************/
 
 // ==================================
@@ -54,15 +34,18 @@
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 
 
-fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
+fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
+fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
+// xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
 #define  snfitsType  (char*[MXTYPE_SNFITSIO]) { "HEAD", "PHOT", "SPEC", "SPECTMP"  }
 
 // name of FITS file without/with path
-char  snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN];   
-char  snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN]; 
+char  *rd_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
+char  *rd_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN]; 
+char  *wr_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
+char  *wr_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; //[MXPATHLEN]; 
 
 int   SNFITSIO_CODE_IVERSION  ; // internal: for back-compatibility
-// xxx char  SNFITSIO_SNANA_VERSION[12]   ; // e.g, v10_79b (Oct 2020)
 
 char  SNFITSIO_DATA_PATH[MXPATHLEN];
 char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
@@ -226,10 +209,15 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
 
 void WR_SNFITSIO_END(void);
 
-void snfitsio_close(int ifile, int itype);
+void rd_snfitsFile_close(int ifile, int itype);
+void wr_snfitsFile_close(int ifile, int itype);
+
 void snfitsio_errorCheck(char *comment, int status);
 int  IPAR_SNFITSIO(int OPT, char *parName, int itype );
 int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
+
+void malloc_wr_snfitsFiles(int opt, int ifile);
+void malloc_rd_snfitsFiles(int opt, int ifile);
 
 // Now the readback routines
 void  RD_SNFITSIO_INIT(int init_num);

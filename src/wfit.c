@@ -153,6 +153,7 @@ struct  {
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
 
   double *MUCOV; // 1D array for cov matrix
+  int    NCOV_NONZERO ;
 
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
@@ -1297,16 +1298,24 @@ void read_mucov_sys(char *inFile){
   // after refactor.
   for ( i=0; i<HD.NSN; i++ )  { INDEX_COVSN_INVMAP[i] = -9 ; }  
 
+  WORKSPACE.NCOV_NONZERO = 0;
+
   // bail if there is no cov matrix to read
   if ( !INPUTS.use_mucov  ) { return; }
 
-  // Open File using the utility
-  int OPENMASK = OPENMASK_VERBOSE ;
-  fp = snana_openTextFile(OPENMASK, "", inFile,
-    locFile, &gzipFlag );
-
   printf("\n# ======================================= \n");
   printf("  Open MUCOV systematic file: \n  %s \n", locFile);
+
+  // Open File using the utility
+  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+			  locFile, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open mucov_file") ;
+    sprintf(c2err,"%s", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   // allocate strings to read each line ... in case there are comments
   ptrSplit = (char **)malloc(MXSPLIT_mucov*sizeof(char*));
@@ -1346,6 +1355,7 @@ void read_mucov_sys(char *inFile){
       if(HD.pass_cut[i0] && HD.pass_cut[i1] ) {
 	kk = k1*NDIM_STORE + k0;
 	WORKSPACE.MUCOV[kk] = cov;
+	if ( cov != 0.0 ) { WORKSPACE.NCOV_NONZERO++ ; }
 	NMAT_store += 1;
 	k0++;
 	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
@@ -1355,11 +1365,19 @@ void read_mucov_sys(char *inFile){
       if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
     }
     
-    NROW_read+=1;
-      
+    NROW_read += 1 ;
+
   } // end of read loop
 
-  // - - - - - - - - - 
+
+  printf("\t Read %d non-zero COV elements.\n", WORKSPACE.NCOV_NONZERO );
+  fflush(stdout);
+
+  // if all COV elements are zero, this is a request for stat-only fit,
+  // so disable cov
+  if ( WORKSPACE.NCOV_NONZERO == 0 ) { INPUTS.use_mucov = 0; return; }
+
+  // - - - - - - - - - - - - - - - - -
   // sanify check
   if ( NMAT_read != NDIM_ORIG*NDIM_ORIG )  {
     sprintf(c1err,"Read %d cov elements, but expected %d**2=%d",
@@ -1376,7 +1394,7 @@ void read_mucov_sys(char *inFile){
   }
 
   // Add diagonal errors from the Hubble diagram
-  double COV_STAT;
+  double COV_STAT ;
   for ( i=0; i<HD.NSN; i++ )  {
     kk = i*NDIM_STORE + i;
     COV_STAT = HD.mu_sqsig[i] ;

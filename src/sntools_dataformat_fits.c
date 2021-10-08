@@ -1,6 +1,7 @@
 /*************************************************
-  May 2011, R.Kessler
+ TO DO: check_required_headkeys and IPAR_SNFITSIO need rd/wr flag
 
+  May 2011, R.Kessler
 
   Code to write and read SNANA data files in fits format.
   Handles data and simulated SNe.
@@ -165,7 +166,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // misc inits
 
   for ( itype=0 ; itype < MXTYPE_SNFITSIO; itype++ ) {
-    NPAR_SNFITSIO[itype] = 0;
+    NPAR_WR_SNFITSIO[itype] = 0;
     WR_SNFITSIO_TABLEVAL[itype].NROW = 0 ;
     for ( ipar=0; ipar < MXPAR_SNFITSIO ; ipar++ ) 
       { WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[ipar] = -1 ; }
@@ -182,6 +183,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPECTMP ) ; 
     wr_snfitsio_init_spec();
   }
+
 
 } // end of  WR_SNFITSIO_INIT
 
@@ -397,6 +399,9 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
     wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
 
+    printf(" xxx %s: MODEL_INDEX = %d \n", 
+	   fnam, SNDATA.SIM_MODEL_INDEX ); fflush(stdout);
+
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SALT2 ) {
       wr_snfitsio_addCol( "1E", "SIM_SALT2x0"       , itype );
       wr_snfitsio_addCol( "1E", "SIM_SALT2x1"       , itype );
@@ -502,17 +507,15 @@ void wr_snfitsio_init_head(void) {
 
   // ----------------------
   // create header table. 
-  ncol = NPAR_SNFITSIO[itype] ;  istat = 0;
+  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrUnit[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
 		  ,TBLname, &istat );
 
   sprintf(BANNER,"fits_create_tbl for %s", TBLname );
   snfitsio_errorCheck(BANNER, istat) ;
-
-
 
 } // end of wr_snfitsio_init_head
 
@@ -529,12 +532,11 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // ------------- BEGIN -------------------
 
   // increment global parameter counter
-  NPAR_SNFITSIO[itype]++ ;
-  NPAR = NPAR_SNFITSIO[itype] ;
-
+  NPAR_WR_SNFITSIO[itype]++ ;
+  NPAR = NPAR_WR_SNFITSIO[itype] ;
 
   if ( NPAR >= MXPAR_SNFITSIO ) {
-    sprintf(c1err,"NPAR_SNFITSIO[%s] = %d exceeds bound", 
+    sprintf(c1err,"NPAR_WR_SNFITSIO[%s] = %d exceeds bound", 
 	    snfitsType[itype], NPAR);
     sprintf(c2err,"Current table par-name=%s  and  tform=%s", 
 	    name, tform) ;
@@ -542,18 +544,18 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   }
 
   // name of parameter
-  ptrTmp = SNFITSIO_TABLEDEF[itype].name[NPAR] ;
-  SNFITSIO_TABLEDEF[itype].ptrName[NPAR] = ptrTmp ;
+  ptrTmp = WR_SNFITSIO_TABLEDEF[itype].name[NPAR] ;
+  WR_SNFITSIO_TABLEDEF[itype].ptrName[NPAR] = ptrTmp ;
   sprintf(ptrTmp, "%s", name ) ;
 
   // param  type (int, float ...)
-  ptrTmp = SNFITSIO_TABLEDEF[itype].form[NPAR];  
-  SNFITSIO_TABLEDEF[itype].ptrForm[NPAR] = ptrTmp ;
+  ptrTmp = WR_SNFITSIO_TABLEDEF[itype].form[NPAR];  
+  WR_SNFITSIO_TABLEDEF[itype].ptrForm[NPAR] = ptrTmp ;
   sprintf(ptrTmp, "%s", tform ) ;
 
 
   // set unit to blank
-  SNFITSIO_TABLEDEF[itype].ptrUnit[NPAR] = stringBlank ;
+  WR_SNFITSIO_TABLEDEF[itype].ptrUnit[NPAR] = stringBlank ;
 
 
 } // end of wr_snfitsio_addCol
@@ -634,11 +636,11 @@ void wr_snfitsio_init_phot(void) {
   }
 
   // create header table. 
-  ncol = NPAR_SNFITSIO[itype] ;  istat = 0;
+  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrUnit[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
 		  ,TBLname, &istat ) ;
 
   sprintf(BANNER,"fits_create_tbl for %s", TBLname );
@@ -694,11 +696,11 @@ void wr_snfitsio_init_spec(void) {
   }
 
   // create header table. 
-  ncol = NPAR_SNFITSIO[itype] ;  istat = 0;
+  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrUnit[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
 		  ,TBLname, &istat ) ;
 
   sprintf(BANNER,"fits_create_tbl for %s", TBLname );
@@ -742,7 +744,7 @@ void wr_snfitsio_init_spec(void) {
   // ---------------------------------------------------
   // delete Table 1 LAMBDA-MAP, and create spec-summary table.
   // --> One row summary per spectrum.
-  NPAR_SNFITSIO[itype] = 0;
+  NPAR_WR_SNFITSIO[itype] = 0;
   WR_SNFITSIO_TABLEVAL[itype].NROW = 0 ;
   for ( ipar=0; ipar < MXPAR_SNFITSIO ; ipar++ ) 
     { WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[ipar] = -1 ; }
@@ -761,11 +763,11 @@ void wr_snfitsio_init_spec(void) {
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MIN", itype   ) ; 
   wr_snfitsio_addCol( "1J",  "PTRSPEC_MAX", itype   ) ; 
 
-  ncol = NPAR_SNFITSIO[itype] ;  istat = 0;
+  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrUnit[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
 		  ,TBLname, &istat ) ;
 
   sprintf(BANNER,"fits_create_tbl for %s", TBLname );
@@ -792,11 +794,11 @@ void wr_snfitsio_init_spec(void) {
   if ( GENSPEC.USE_WARP ) 
     { wr_snfitsio_addCol( "1I", "SIM_WARP",  itype   ) ; }
   
-  ncol = NPAR_SNFITSIO[itype] ;  istat = 0;
+  ncol = NPAR_WR_SNFITSIO[itype] ;  istat = 0;
   fits_create_tbl(fp, BINARY_TBL, NROW, ncol
-		  ,&SNFITSIO_TABLEDEF[itype].ptrName[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrForm[1]
-		  ,&SNFITSIO_TABLEDEF[itype].ptrUnit[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrName[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrForm[1]
+		  ,&WR_SNFITSIO_TABLEDEF[itype].ptrUnit[1]
 		  ,TBLname, &istat ) ;
 
   sprintf(BANNER,"fits_create_tbl for %s", TBLname );
@@ -1753,7 +1755,7 @@ void wr_snfitsio_update_head(void) {
   // now do filter-dependent stuf
 
   // PEAKMAG
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) { 
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs] );
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1828,7 +1830,7 @@ void wr_snfitsio_update_head(void) {
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
   // make sure that required keys exist.
-  check_required_headkeys();
+  check_required_headkeys(OPTMASK_WR_SNFITSIO);
 
   return ;
 
@@ -1849,7 +1851,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   // Sep 20 2017: define logical ALLOW_BLANK to allow exceptions
   //              for the no-blank rule on strins. See SUBSURVEY.
   //
-  int istat, colnum, firstelem, firstrow, nrow, LEN ;
+  int istat, colnum, firstelem, firstrow, nrow, LEN, OPTMASK ;
   int LDMP = 0 ;
   fitsfile *fp ;
   char *ptrForm, cfirst[2], clast[2] ;
@@ -1859,14 +1861,16 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 
   fp    = fp_wr_snfitsio[itype] ;
 
-  if ( *COLNUM < 0 ) 
-    { *COLNUM = IPAR_SNFITSIO(1,parName,itype); }
+  if ( *COLNUM < 0 ) { 
+    OPTMASK = OPTMASK_WR_SNFITSIO + OPTMASK_ABORT_SNFITSIO ;
+    *COLNUM = IPAR_SNFITSIO(OPTMASK,parName,itype);
+  }
 
   colnum    = *COLNUM ;
   nrow      = 1 ;
   firstelem = 1 ;
   firstrow  = WR_SNFITSIO_TABLEVAL[itype].NROW ;
-  ptrForm   = SNFITSIO_TABLEDEF[itype].ptrForm[colnum];
+  ptrForm   = WR_SNFITSIO_TABLEDEF[itype].ptrForm[colnum];
   
   LEN = strlen(ptrForm);
   sprintf(cfirst, "%c",  ptrForm[0] ); // first character only
@@ -2222,33 +2226,52 @@ void  wr_snfitsio_update_spec(int imjd)  {
 int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
 
   // return IPAR header-column index for *parName and *type.
-  // OPT=0 => do NOT abort on error, but return -9
-  // OPT=1 => abort on error;
 
+  bool FLAG_RD        = (OPT & OPTMASK_RD_SNFITSIO) > 0;
+  bool FLAG_WR        = (OPT & OPTMASK_WR_SNFITSIO) > 0;
+  bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------
 
-  NPAR = NPAR_SNFITSIO[itype] ;
-  for ( ipar=1; ipar <= NPAR; ipar++ ) {
-    ptrTmp = SNFITSIO_TABLEDEF[itype].name[ipar] ;
+  if ( FLAG_RD ) 
+    { NPAR = NPAR_RD_SNFITSIO[itype] ; }
+  else 
+    { NPAR = NPAR_WR_SNFITSIO[itype] ; }
 
-    //    printf(" xxx %s: check ipar=%d parname='%s' \n", fnam, ipar, ptrTmp);
-    if ( strcmp(ptrTmp,parName) == 0 ) 
-      { return ipar ; }
+  for ( ipar=1; ipar <= NPAR; ipar++ ) {
+
+    if ( FLAG_RD ) {
+      ptrTmp = RD_SNFITSIO_TABLEDEF[itype].name[ipar] ;
+    }
+    else {    
+      ptrTmp = WR_SNFITSIO_TABLEDEF[itype].name[ipar] ;
+    }
+    
+    /*
+    if ( strcmp(parName,"SIM_SALT2x0") == 0 ) {
+      printf(" xxx %s: ipar=%d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
+	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD ); // xxxx
+    }
+    */
+
+    if ( strcmp(ptrTmp,parName) == 0 )   { return ipar ; }
   }
 
   // if we get here then abort or return -9. 
-  if ( OPT == 0 )
-    { return -9 ; }
-  else {
-    sprintf(c1err, "Could not find IPAR for parName='%s'", parName);
+
+  if ( FLAG_ABORT_ON_NOPAR ) {
+    sprintf(c1err, "Could not find IPAR for parName='%s'  "
+	    "FLAG_[RD,WR]=%d,%d", parName, FLAG_RD, FLAG_WR);
     sprintf(c2err, "Check parameter names in %s ", 
 	    wr_snfitsFile[IFILE_SNFITSIO][itype]); // .xyz ??
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
+  }
+  else {
+    return -9 ; 
   }
 
 }  // end of IPAR_SNFITSIO
@@ -2258,9 +2281,13 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
 
   // same as IPAR_SNFITSIOT, but search subset with form (1J,1E,1D ...)
   // specified by the input index 'iform'.
-  // OPT=0 => do NOT abort on error, but return -9
-  // OPT=1 => abort on error;
+  //
+  // Input OPT -> see OPTMASK_XXX_SNFITSIO in sntools_dataformat_fits.h
+  // For read only.
 
+  bool FLAG_RD        = (OPT & OPTMASK_RD_SNFITSIO) > 0;
+  bool FLAG_WR        = (OPT & OPTMASK_WR_SNFITSIO) > 0;
+  bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int ipar, NPAR, icol ;
   char *ptrTmp;
   char fnam[] = "IPARFORM_SNFITSIO";
@@ -2271,24 +2298,30 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
 
   for ( ipar=1; ipar <= NPAR; ipar++ ) {
 
-    // get absolute column index
-    icol  = RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][ipar] ; 
-
-    // parameter name at this column
-    ptrTmp = SNFITSIO_TABLEDEF[itype].name[icol] ;
+    if ( FLAG_RD ) {
+      icol   = RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][ipar] ; // abs col index
+      ptrTmp = RD_SNFITSIO_TABLEDEF[itype].name[icol] ;        // par name
+    }
+    else { 
+      sprintf(c1err, "Invalid write mode.");
+      sprintf(c2err, "This function works only for read mode.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
 
     if ( strcmp(ptrTmp,parName) == 0 )  { return ipar ; }
   }
-  
+
+  // - - - - - 
   // if we get here then abort or return -9.
-  if ( OPT == 0 )
-    { return -9 ; }
-  else {
+  if ( FLAG_ABORT_ON_NOPAR ) {
     sprintf(c1err, "Could not find IPAR(iform=%d) for parName='%s'", 
 	    iform, parName);
     sprintf(c2err, "Check parameter names in %s ", 
 	    wr_snfitsFile[IFILE_SNFITSIO][itype]);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    return -9 ;
+  }
+  else {
     return -9 ;
   }
 
@@ -2593,6 +2626,10 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
+
+    printf(" xxx %s: read SIM_MODEL_INDEX = %d \n",
+	   fnam, SNDATA.SIM_MODEL_INDEX); fflush(stdout);
+
   }
   else if ( strcmp(parName,"SIM_TYPE_INDEX") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIM_TYPE_INDEX );
@@ -3114,6 +3151,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       sprintf(KEY, "SIM_PEAKMAG_%c", FILTERSTRING[ifilt_obs] );
       j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_PEAKMAG[ifilt_obs] ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;	
+
       sprintf(KEY, "SIM_EXPOSURE_%c", FILTERSTRING[ifilt_obs] );
       j++; NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.SIM_EXPOSURE_TIME[ifilt_obs] ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;	
@@ -3871,7 +3909,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   fitsfile *fp ;
 
   char  keyname[100], comment[200], *ptrTmp  ;
-  //  char  fnam[] = "rd_snfitsio_tblpar"    ;
+  char  fnam[] = "rd_snfitsio_tblpar"    ;
 
   // ------------ BEGIN --------------
 
@@ -3881,7 +3919,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
-  NPAR_SNFITSIO[itype] = (int)NCOLUMN ;
+  NPAR_RD_SNFITSIO[itype] = (int)NCOLUMN ;
   
   if ( LDMP ) { 
     ncol = (int)NCOLUMN ;
@@ -3899,21 +3937,21 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
     istat = 0 ;
     sprintf(keyname,"TTYPE%d", icol );
-    ptrTmp = SNFITSIO_TABLEDEF[itype].name[icol];
+    ptrTmp = RD_SNFITSIO_TABLEDEF[itype].name[icol];
     fits_read_key(fp, TSTRING, keyname,  ptrTmp, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
     snfitsio_errorCheck(c1err, istat);
 
     istat = 0 ;
     sprintf(keyname,"TFORM%d", icol );
-    ptrTmp = SNFITSIO_TABLEDEF[itype].form[icol];
+    ptrTmp = RD_SNFITSIO_TABLEDEF[itype].form[icol];
     fits_read_key(fp, TSTRING, keyname,  ptrTmp, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
     snfitsio_errorCheck(c1err, istat);
 
     // keep track of how many header parameters are of each form
     iform = formIndex_snfitsio(ptrTmp);
-    SNFITSIO_TABLEDEF[itype].iform[icol] = iform ;
+    RD_SNFITSIO_TABLEDEF[itype].iform[icol] = iform ;
 
     RD_SNFITSIO_TABLEVAL[itype].NPAR[iform]++ ;
     npar = RD_SNFITSIO_TABLEVAL[itype].NPAR[iform] ;
@@ -3923,8 +3961,8 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     if ( LDMP ) {
       printf("\t  Found %s-Param[%2d] = %s (form = %s)\n"
 	     ,snfitsType[itype], icol
-	     ,SNFITSIO_TABLEDEF[itype].name[icol]
-	     ,SNFITSIO_TABLEDEF[itype].form[icol] );
+	     ,RD_SNFITSIO_TABLEDEF[itype].name[icol]
+	     ,RD_SNFITSIO_TABLEDEF[itype].form[icol] );
       fflush(stdout);
     }
 
@@ -3933,9 +3971,9 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   // make sure that required keys exist.
   if ( itype == ITYPE_SNFITSIO_HEAD ) 
-    {  check_required_headkeys(); }
+    {  check_required_headkeys(OPTMASK_RD_SNFITSIO); }
 
-} // end of function
+} // end of function rd_snfitsio_tblpar
 
 
 // ================================
@@ -4181,7 +4219,7 @@ void rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow) {
   FIRSTELEM = 1 ;  
   NROW      = lastRow - firstRow + 1 ;
 
-  iform     = SNFITSIO_TABLEDEF[itype].iform[icol];
+  iform     = RD_SNFITSIO_TABLEDEF[itype].iform[icol];
   istat = 0;
 
   // get sparse ipar for this form.
@@ -4239,7 +4277,7 @@ void rd_snfitsio_head(int ifile) {
   // Also fill MXOBS_SNFITSIO 
   //
 
-  int  itype,  icol, ipar, isn, NOBS, NCOL, NSNLC  ;
+  int  itype,  icol, ipar, isn, NOBS, NCOL, NSNLC, OPTMASK  ;
   fitsfile *fp ;
   //  char  fnam[] = "rd_snfitsio_head" ;
 
@@ -4249,14 +4287,15 @@ void rd_snfitsio_head(int ifile) {
   itype = ITYPE_SNFITSIO_HEAD ;
   fp    = fp_rd_snfitsio[itype] ;
 
-  NCOL = NPAR_SNFITSIO[itype];
+  NCOL = NPAR_RD_SNFITSIO[itype];
   for ( icol=1; icol <= NCOL; icol++ ) {
     rd_snfitsio_tblcol ( itype, icol, 1, NSNLC ); 
   }
 
 
   // find largest NOBS = MXOBS_SNFITSIO
-  ipar = IPARFORM_SNFITSIO(1, IFORM_1J, "NOBS", itype) ;
+  OPTMASK = OPTMASK_RD_SNFITSIO + OPTMASK_ABORT_SNFITSIO ;
+  ipar = IPARFORM_SNFITSIO(OPTMASK, IFORM_1J, "NOBS", itype) ;
   MXOBS_SNFITSIO = 0 ;
   for ( isn = 1; isn <= NSNLC; isn++ ) {
     NOBS = RD_SNFITSIO_TABLEVAL_1J[itype][ipar][isn] ;
@@ -4269,12 +4308,12 @@ void rd_snfitsio_head(int ifile) {
 
 
 // =================================
-void check_required_headkeys(void) {
+void check_required_headkeys(int OPTMASK) {
 
-  
 #define MXPARREQ_SNFITSIO 20
 
-  int  NREQ, ireq, itype, NERR   ;
+  int  OPTMASK_LOCAL = OPTMASK ; // read of write flag
+  int  NREQ, ireq, itype, NERR   ;  
   char *ptrReq, REQUIRED_HEADKEYS[MXPARREQ_SNFITSIO][20] ;
   char  fnam[] = "check_required_headkeys"  ;
 
@@ -4287,23 +4326,23 @@ void check_required_headkeys(void) {
 
   NREQ++ ;  ptrReq = REQUIRED_HEADKEYS[NREQ] ;
   sprintf(ptrReq, "%s", "SNID" );
-  IPAR_SNFITSIO_SNID       = IPAR_SNFITSIO(0,ptrReq,itype);
+  IPAR_SNFITSIO_SNID       = IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype);
 
   NREQ++ ;  ptrReq = REQUIRED_HEADKEYS[NREQ] ;
   sprintf(ptrReq, "%s", "FAKE" );
-  IPAR_SNFITSIO_FAKE       = IPAR_SNFITSIO(0,ptrReq,itype);
+  IPAR_SNFITSIO_FAKE       = IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype);
 
   NREQ++ ;  ptrReq = REQUIRED_HEADKEYS[NREQ] ;
   sprintf(ptrReq, "%s", "NOBS" );
-  IPAR_SNFITSIO_NOBS    = IPAR_SNFITSIO(0,ptrReq,itype);
+  IPAR_SNFITSIO_NOBS    = IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype);
 
   NREQ++ ;  ptrReq = REQUIRED_HEADKEYS[NREQ] ;
   sprintf(ptrReq, "%s", "PTROBS_MIN" );   // start LC pointer in PHOT file
-  IPAR_SNFITSIO_PTROBS_MIN = IPAR_SNFITSIO(0,ptrReq,itype);
+  IPAR_SNFITSIO_PTROBS_MIN = IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype);
 
   NREQ++ ;  ptrReq = REQUIRED_HEADKEYS[NREQ] ;
   sprintf(ptrReq, "%s", "PTROBS_MAX" );
-  IPAR_SNFITSIO_PTROBS_MAX = IPAR_SNFITSIO(0,ptrReq,itype);
+  IPAR_SNFITSIO_PTROBS_MAX = IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype);
 
   if ( NREQ >= MXPARREQ_SNFITSIO ) {
     sprintf(c1err,"NREQ = %d exceeds bound.", NREQ);
@@ -4319,7 +4358,7 @@ void check_required_headkeys(void) {
   NERR = 0;
   for ( ireq = 1; ireq <= NREQ; ireq++ ) {
     ptrReq = REQUIRED_HEADKEYS[ireq] ;
-    if ( IPAR_SNFITSIO(0,ptrReq,itype) < 0 ) {
+    if ( IPAR_SNFITSIO(OPTMASK_LOCAL,ptrReq,itype) < 0 ) {
       NERR++ ;
       printf(" ERROR: missing required header key '%s' \n", ptrReq );
     }
@@ -4333,6 +4372,7 @@ void check_required_headkeys(void) {
   }
 
 
+  return;
 
 } // end of check_required_headkeys
 
@@ -4771,7 +4811,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
     ,NPARVAL
     ,J, JMIN, JMAX, NSTR=0
     ,*IPTR
-    ,MASK, NEP_RDMASK, NEP_MASK, LDMP 
+    ,MASK, NEP_RDMASK, NEP_MASK, OPTMASK, LDMP 
     ;
 
   char   C_VAL[80];
@@ -4828,8 +4868,9 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   else {
 
     // search list of all param-names
+    OPTMASK = OPTMASK_RD_SNFITSIO;
     for ( itype=0; itype <= 1; itype++ ) { // check HEAD and PHOT 
-      icol = IPAR_SNFITSIO(0, parName, itype) ;
+      icol = IPAR_SNFITSIO(OPTMASK, parName, itype) ;
       if ( icol > 0 ) { 
 	*iptr = icol + itype*MXPAR_SNFITSIO ;
 	goto FOUND_COLUMN ; 
@@ -4849,7 +4890,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
 
  FOUND_COLUMN:
-  iform =  SNFITSIO_TABLEDEF[itype].iform[icol] ;
+  iform =  RD_SNFITSIO_TABLEDEF[itype].iform[icol] ;
   ipar =   RD_SNFITSIO_TABLEVAL[itype].IPARINV[iform][icol] ; // sparse ipar
 
 

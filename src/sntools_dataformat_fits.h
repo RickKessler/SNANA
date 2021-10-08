@@ -33,6 +33,9 @@
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 
+#define OPTMASK_WR_SNFITSIO    1
+#define OPTMASK_RD_SNFITSIO    2
+#define OPTMASK_ABORT_SNFITSIO 4
 
 fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
 fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
@@ -61,7 +64,11 @@ int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
 int NFILE_SNFITSIO ;     // number of fits files
 int IFILE_SNFITSIO ;     // current fits-file index
 int ISNFIRST_SNFITSIO ;  // first ISN in file
-int NPAR_SNFITSIO[MXTYPE_SNFITSIO] ;  // Npar (i.e., columns) for each fits-file type
+
+// Npar (i.e., columns) for each fits-file type
+int NPAR_WR_SNFITSIO[MXTYPE_SNFITSIO] ;  
+int NPAR_RD_SNFITSIO[MXTYPE_SNFITSIO] ;  
+
 int MXOBS_SNFITSIO ;     // max NOBS among SNe (to allocate memory)
 
 int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
@@ -78,7 +85,7 @@ bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 // xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
-struct TABLEDEF {
+typedef struct {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
   char  name[MXPAR_SNFITSIO][40] ;
   char *ptrName[MXPAR_SNFITSIO] ;
@@ -92,10 +99,12 @@ struct TABLEDEF {
 
   int iform[MXPAR_SNFITSIO] ;
 
-} SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO] ;  // index is itype
+} SNFITSIO_TABLEDEF ;
 
+SNFITSIO_TABLEDEF RD_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
+SNFITSIO_TABLEDEF WR_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
 
-struct WR_TABLEVAL_DEF {
+struct { 
   // temp values to fill Header table
   char          *value_A  ;  // ascii/text
   float          value_1E ;  // 4-byte float
@@ -131,7 +140,7 @@ struct WR_TABLEVAL_DEF {
 #define NULL_1K     (long long)-9
 
 
-struct RD_TABLEVAL_DEF {
+struct  {
   int    NPAR[MXFORM_SNFITSIO] ;
   int    IPAR[MXFORM_SNFITSIO][MXPAR_SNFITSIO] ;    // absolute IPAR/column
   int    IPARINV[MXFORM_SNFITSIO][MXPAR_SNFITSIO] ; // inverse of above
@@ -259,7 +268,7 @@ void RD_SNFITSIO_SPECDATA_LEGACY(int irow, double *METADATA, int *NLAMBIN,
 				 double *LAMMIN, double *LAMMAX, 
 				 double *FLAM, double *FLAMERR);
 
-void  check_required_headkeys(void) ;
+void  check_required_headkeys(int OPTMASK) ; 
 int   formIndex_snfitsio(char *form) ;
 
 void SET_RDMASK_SNFITSIO(int N, int *mask) ;

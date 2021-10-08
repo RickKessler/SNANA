@@ -1,4 +1,4 @@
-+KEEP,HISTORY.
++KEEP,HISTORY. 
 c
 c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
@@ -3638,7 +3638,8 @@ c Transfer global variables from SNDATA struct to fortran:
 c SURVEY, FILTERS, etc ...
 c
 c Apr 24 2021: read SIM_BIASCOR_MASK
-
+c Oct 08 2021: read SIM_MODEL_INDEX
+c 
       IMPLICIT NONE
 
 c local var
@@ -3731,6 +3732,16 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
          CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK", 
      &        ONE, STRING, DARRAY, OPT)
          SIM_BIASCOR_MASK = int(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  ! Oct 8 2021
+     &       ONE, STRING, DARRAY, OPT)
+         SIM_MODEL_INDEX = INT(DARRAY(1))
+
+c xxxxxxxxxxxxxxxxx
+         print*,' xxx RDGLOBAL_DRIVER: SIM_MODEL_INDEX=',
+     &        SIM_MODEL_INDEX
+          call flush(6)
+c xxxxxxxxxxxxxxxxxxxx
 
          CALL RDGLOBAL_SIMSED(OPT)
 
@@ -9355,10 +9366,6 @@ c -----------------------------
       CALL PRBANNER ( "CALL USREND" )
       CALL USREND ( IERR )
 
-      IF ( REFORMAT_SNANA )  THEN
-         CALL END_REFORMAT()
-      ENDIF
-
 c close hbook file using wrapper so that we don't need CERNLIB flag here.
       IF ( USE_TABLEFILE_HBOOK ) THEN
          LENF = index(HFILE_OUT,' ') - 1
@@ -9395,6 +9402,10 @@ c - - - - - -
 
       IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
          CALL write_epoch_list_summary()
+      ENDIF
+
+      IF ( REFORMAT_SNANA )  THEN
+         CALL END_REFORMAT()
       ENDIF
 
       call flush(6)
@@ -10092,55 +10103,12 @@ c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
 
 c create README blank readme file
-
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
       CLOSE(LUNTMP)  ! close README file
-
-+SELF,IF=DELETE.
-c xxxxxxxx mark delete July 6 2021 xxxxxxxxx
-      CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
-      LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-      if ( OPT_REFORMAT_FITS > 0 ) then
-         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'TEXT', 'FITS'
-      else
-         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'FITS', 'TEXT'
-      endif
-20    FORMAT('Convert ', A, 2x, A,' files into ',A,' format for ')
-      WRITE(LUNTMP,500) txt
-
-      DO i = 1, N_VERSION
-        TXT = '     ' // VERSION_PHOTOMETRY(i)
-        write(LUNTMP,500) txt
-      ENDDO
-      WRITE(LUNTMP,500) ' '
-      WRITE(LUNTMP,30) 'Processed', N_SNLC_PROC
-      WRITE(LUNTMP,30) 'Wrote    ', N_SNLC_CUTS
-30    format(A, 2x, I7, 2x, ' light curves.' )
-      call FLUSH(LUNTMP)
-500   FORMAT(A)
-      CLOSE(LUNTMP)  ! close README file
-c xxxxxxxxxxx end mark xxxxxxx
-+SELF.
 
 c --- catenate original README contents for each version --------
 
       DO iver = 1, N_VERSION
-
-+SELF,IF=DELETE.
-c first write formatted DUMP-statement.
-         OPEN (LUNTMP, FILE = README_FILE, Access='append',Status='old')
-c xxx mark delete July 6 2021 xxxxxxxx
-         write(LUNTMP,600)
-         write(LUNTMP,600)
-         write(LUNTMP,700)
-         write(LUNTMP,700)
-         write(LUNTMP,701)  VERSION_PHOTOMETRY(iver)
-600      format(' ')
-700      format('# ', 74('=') )
-701      format('# DUMP ORIGINAL README for ', A)
-         CLOSE(LUNTMP)  ! close README file
-c xxxxxxxxxxxxxxxxxxxxx
-+SELF.
 
 c now just catenate the final readme with the original readme file.
 
@@ -10156,6 +10124,14 @@ c ---- update IGNORE file with comment on total number of IGNORE epochs
       write(LUNIGNORE2,430) NEPOCH_IGNORE_WRFITS
  430  format(/,'Total number of IGNORE epochs: ', I5)
       close(LUNIGNORE2)
+
+      IF ( OPT_REFORMAT_FITS > 0 ) then
+         print*,' Done writing reformatted FITS version: ', 
+     &        VERSION_REFORMAT_FITS
+      ELSE
+         print*,' Done writing reformatted TEXT version: ', 
+     &        VERSION_REFORMAT_TEXT
+      ENDIF
 
       RETURN
       END    ! END_REFORMAT

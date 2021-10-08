@@ -2253,11 +2253,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
   }
-  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
-  }
-  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
   }
   // - - - - TAKE_SPECTRUM - - - - -
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
@@ -2271,15 +2268,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
     N++;  sscanf(WORDS[N], "%s", FIELDLIST);
     parse_string_prescales(FIELDLIST, DICT);
-    //    dump_string_dict(DICT); // xxx remove
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
   }
-  //elseif(keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
-  // check after other TAKE_SPECTRUM_XXX keys
   else if ( strstr(WORDS[0],"TAKE_SPECTRUM") ) {  
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
+  }
+  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
   }
 
 #ifdef MODELGRID_GEN
@@ -17601,9 +17598,15 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
-  if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
-    parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
-  }
+  if ( RDFLAG_SPECTRA ) {
+    if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+      parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
+    }
+    else if ( strcmp(KEY,"WARP_SPECTRUM:") == 0 ) {
+      sscanf(WDLIST[1], "%s", INPUTS.WARP_SPECTRUM_STRING );
+    }
+
+  } // end RDFLAG_SPECTRA
 
   return ;
 

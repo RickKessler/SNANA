@@ -14,22 +14,7 @@
     * gen_SEARCHEFF()
 
 
-  HISTORY
-
- Jan 30 2015: new option FUNEFF_DEBUG to hack in arbitrary function.
-
- Jun 23 2016: new variables to define SPECEFF: HOSTMAG_[band] SBMAG_[band]
-
- Feb 20 2017: new feature to specify peakmag list in map
-                  VARNAMES:   a+b+c+d   SPECEFF
-              will take average PEAKMAG among a,b,c,d bands.
-
- Nov 6 2017: set SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY; used to speed generation
-             when trigger depends ONLy on peakmags.
-
- Dec 22 2017: allow Spec-selection functon to depend on SALT2  'mB'
-
- Dec 27 2017: allow detection based on ABS(SNR)
+                HISTORY
 
  March 2018: 
    + lots of refactoring and new PHOTPROB map
@@ -1240,7 +1225,7 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
 
   FILE *fp ;
-  //  char fnam[] = "init_SEARCHEFF_zHOST" ;
+  char fnam[] = "init_SEARCHEFF_zHOST" ;
 
   // --------------- BEGIN ------------
 
@@ -1280,7 +1265,6 @@ FILE *open_zHOST_FILE(int OPT) {
   // OPT = +1 -> normal init called from trigger code
   // OPT = -1 -> called from init_HOSTLIB to get VARNAMES
 
-  int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   int LPRINT = ( OPT > 0 ) ; // stdout printing
   int IREQUIRE, gzipFlag ;
   char *ptrFile_user ;
@@ -1306,8 +1290,6 @@ FILE *open_zHOST_FILE(int OPT) {
 	     "-> Eff=1.0 \n"); 
     }
     return(fp);
-    // xxx    sprintf(localFile, "%s",  ptrFile_user); 
-    // xxx    IREQUIRE = 0 ;
   }
   else if ( strcmp(ptrFile_user,"ZERO") == 0 ) {
     // no file to read, but set all EFF_zHOST=0  (Jun 2018)
@@ -1323,6 +1305,7 @@ FILE *open_zHOST_FILE(int OPT) {
 
 
   // use utility to check local dir and path.
+  int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
 			  ptrFile_final, &gzipFlag); // returned
   

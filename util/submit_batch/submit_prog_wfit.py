@@ -69,22 +69,26 @@ class wFit(Program):
         # store wfit options under WFITOPT key
         self.wfit_prep_wfitopt_list()
 
-        # prepare blinding for data and sim
+        # prepare blind flag for each inpdir based on data or sim
         self.wfit_prep_blind()
 
-        # prepare index list for inpdir/covsys/wfitopt to enable
-        # easy 3D loops
+        # prepare index list for inpdir/covsys/wfitopt to simplify
+        # 3D loops
         self.wfit_prep_index_lists()
 
-        # copy input file 
+        # copy input file to outdir
         input_file    = self.config_yaml['args'].input_file
         script_dir    = self.config_prep['script_dir']
         shutil.copy(input_file,script_dir)
 
-        #sys.exit(f"\n xxx debug exit in submit_prepare_driver \n")
         # end submit_prepare_driver
 
     def wfit_prep_input_list(self):
+
+        # store user list of input directories (INPDIR key),
+        # where each inpdir is an output of create_covariance.py.
+        # For eac INPDIR, read and store list of covsys_[nnn].txt
+        # files so that wfit runs for each systematic test. 
 
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
@@ -95,12 +99,15 @@ class wFit(Program):
             msgerr.append(f"Missing required {key} key in CONFIG block")
             msgerr.append(f"Check {input_file}")
             self.log_assert(False, msgerr)
+        else:
+            inpdir_list_orig = CONFIG[key] # orig list may include ENVs
 
-        wildcard = f"{PREFIX_covsys}*"
-        inpdir_list_orig = CONFIG[key]
+        # - - - - -
+        wildcard      = f"{PREFIX_covsys}*"
         isdata_list   = []
         inpdir_list   = []
         covsys_list2d = [] # list per inpdir
+
         for inpdir_orig in inpdir_list_orig:
             inpdir = os.path.expandvars(inpdir_orig)
             inpdir_list.append(inpdir)
@@ -112,10 +119,10 @@ class wFit(Program):
                 self.log_assert(False, msgerr)
                 
             covsys_list  = sorted(glob.glob1(inpdir,wildcard))
+            n_covsys     = len(covsys_list)
             covsys_list2d.append(covsys_list)
-            n_covsys = len(covsys_list)
 
-            # check ISDATA_REAL flag
+            # read ISDATA_REAL flag from INFO.YML file
             isdata = self.read_isdata(inpdir)
             isdata_list.append(isdata)
 
@@ -123,19 +130,6 @@ class wFit(Program):
                   f" \t with {n_covsys} {PREFIX_covsys} files and " \
                   f"ISDATA_REAL={isdata} ")
 
-            # sanity checks
-            hd_file    = f"{inpdir}/{HD_FILENAME}"
-            if n_covsys == 0 :            
-                msgerr.append(f"Cannot find any {PREFIX_covsys}* files in")
-                msgerr.append(f"  {inpdir_orig}")       
-                msgerr.append(f"Check INPDIR key in {input_file}")
-                self.log_assert(False, msgerr)
-
-            if not os.path.exists(hd_file):
-                msgerr.append(f"Cannot find expected HD file:")
-                msgerr.append(f"  {hd_file}")       
-                msgerr.append(f"Check INPDIR key in {input_file}")
-                self.log_assert(False, msgerr)
 
         #print(f" xxx covsys_list = {covsys_list} ")
         # - - - - - -
@@ -145,9 +139,45 @@ class wFit(Program):
         self.config_prep['covsys_list2d']     = covsys_list2d
         self.config_prep['isdata_list']       = isdata_list
 
+        self.wfit_error_check_input_list()
+
         #print(f" isdata_list = {isdata_list}")
 
         # end wfit_prep_input_list
+
+    def wfit_error_check_input_list(self):
+        # loop over each inpdir and abort on problems such as
+        # non-existing inpdir, n_covsys=0, etc ...
+        # Print all ERRORS before aborting.
+
+        inpdir_list_orig = self.config_prep['inpdir_list_orig']
+        inpdir_list      = self.config_prep['inpdir_list'] 
+        covsys_list2d    = self.config_prep['covsys_list2d']
+        nerr = 0
+        msgerr = []
+
+        for inpdir_orig,inpdir,covsys_list in \
+            zip(inpdir_list_orig, inpdir_list, covsys_list2d):
+
+            hd_file    = f"{inpdir}/{HD_FILENAME}"
+            n_covsys   = len(covsys_list)
+            if n_covsys == 0 :            
+                nerr += 1
+                msgerr.append(f"ERROR: cannot find {PREFIX_covsys}* files in")
+                msgerr.append(f"   {inpdir_orig}")  
+
+            if not os.path.exists(hd_file):
+                nerr += 1
+                msgerr.append(f"ERROR: cannot find expected HD file:")
+                msgerr.append(f"   {hd_file}")       
+        
+        # - - - - - - -
+        if nerr > 0 :
+            msgerr.append(f"Found {nerr} errors with INPDIR list.")
+            msgerr.append(f"See {nerr} ERROR messages above.")
+            self.log_assert(False, msgerr)
+
+        # end wfit_error_check_input_list
 
     def read_isdata(self,inpdir):
 
@@ -344,20 +374,27 @@ class wFit(Program):
         arg_blind   = self.config_prep['arg_blind_list'][idir]
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
-        covsys_file = self.config_prep['covsys_list2d'][idir][icov]
+        tmpcov_file = self.config_prep['covsys_list2d'][idir][icov]
 
         prefix = self.wfit_num_string(idir,icov,ifit)
 
-        hd_file    = f"{inpdir}/{HD_FILENAME}"
-        log_file   = f"{prefix}.LOG" 
-        done_file  = f"{prefix}.DONE"
+        covsys_file   = f"{inpdir}/{tmpcov_file}"
+        hd_file       = f"{inpdir}/{HD_FILENAME}"
+        log_file      = f"{prefix}.LOG" 
+        done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
         
+        # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list =  [ arg_string ]
         if len(arg_global) > 0: arg_list.append(arg_global)
 
+        # define covsys file from create_cov
+        arg_list.append(f"-mucov_file {covsys_file}")
+
+        # tack on blind arg
         arg_list.append(arg_blind)
 
+        # define output YAML file to be parsed by submit-merge process
         arg_list.append(f"-cospar_yaml {prefix}.YAML")
 
         JOB_INFO = {}

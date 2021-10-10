@@ -20442,6 +20442,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + write ISDATA_REAL flag to INFO.YML so that cosmology fitting
        codes can auto-detect real data and apply blinding.
 
+   Require DOCANA in weak-lensing map.
+
          ***** USEFUL(v11_04b) ***** 
 
    submit_batch: add new 'wfit' class
@@ -20454,8 +20456,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     + write ISDATA_REAL to output yaml so that it can be
       propagated to cosmology fitters for auto-blinding.
 
-  
    snlc_sim.c
      + restore parsing "WV07_REWGT_EXPAV" key
+     + read WARP_SPECTRUM from simlib
+
+   sntools_dataformat_fits.c[h]
+     + split several arrays ito RD_ and WR_ so that FITS formatted
+       data files can be read and re-written in FITS format after
+       apply corrections to fluxes and their uncertainties.
+
+   sntools_weaklensig.c: require DOCANA
 
 END: 

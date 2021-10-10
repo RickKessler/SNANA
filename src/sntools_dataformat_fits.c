@@ -399,9 +399,6 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
     wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
 
-    printf(" xxx %s: MODEL_INDEX = %d \n", 
-	   fnam, SNDATA.SIM_MODEL_INDEX ); fflush(stdout);
-
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SALT2 ) {
       wr_snfitsio_addCol( "1E", "SIM_SALT2x0"       , itype );
       wr_snfitsio_addCol( "1E", "SIM_SALT2x1"       , itype );
@@ -2626,10 +2623,6 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
-
-    printf(" xxx %s: read SIM_MODEL_INDEX = %d \n",
-	   fnam, SNDATA.SIM_MODEL_INDEX); fflush(stdout);
-
   }
   else if ( strcmp(parName,"SIM_TYPE_INDEX") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIM_TYPE_INDEX );

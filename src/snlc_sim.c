@@ -607,7 +607,7 @@ void set_user_defaults(void) {
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
   INPUTS.TRACE_MAIN = 0;
-  INPUTS.DEBUG_FLAG = 0 ;
+  INPUTS.DEBUG_FLAG = 0; // 1024 ;
 
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
@@ -4948,10 +4948,9 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
-  /* NOT_YET
-  if ( INPUTS.REQUIRE_DOCANA ) 
+
+  if ( INPUTS.DEBUG_FLAG == 1024 ) 
     { INPUTS_SEARCHEFF.OPTMASK_OPENFILE += OPENMASK_REQUIRE_DOCANA ; }
-  */
 
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  

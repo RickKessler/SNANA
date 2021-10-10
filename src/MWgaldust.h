@@ -13,7 +13,7 @@
 #define OPT_MWEBV_SFD98          2  // use SFD98 value
 #define OPT_MWEBV_Sch11_PS2013   3  // PS1-2013 implementation of Schlafly 2011
 
-#define WAVEMAX_FITZ99 12000.0  // Jan 2020
+#define WAVEMAX_FITZ99 25000.0  // Oct 2021 Dillon and Dan switched from 12000
 
 // =======================================
 //      SNANA-interface functons

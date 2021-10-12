@@ -8236,7 +8236,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_DEC[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]         =  -9.0 ;
     SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.1 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.0 ;
     SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9.0 ;
     SNDATA.HOSTGAL_sSFR[igal]         = -99.0 ;
     SNDATA.HOSTGAL_sSFR_ERR[igal]     = -99.0 ;

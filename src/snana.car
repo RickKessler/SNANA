@@ -2200,7 +2200,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
 c
 c Below are cut-variables defined in SNCUTS
 c
-     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, MXEVT_PROCESS
+     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
+     &   ,MXEVT_PROCESS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
@@ -3402,7 +3403,7 @@ c LOOP OVER EVENTS
 
       DO 100 isn = IJOB, NSN_VERS, NJOBTOT ! every NJOBTOT'th SN
 
-         IF ( N_SNLC_FITCUTS > MXLC_FIT ) GOTO 100 
+         IF ( N_SNLC_FITCUTS >= MXLC_FIT ) GOTO 100 
 
          CALL INIT_SNLC()
 
@@ -5157,7 +5158,6 @@ c allows parsing function to stop early.
 c
 c May 18, 2012: return FALSE if interp-option is set
 c Jun 25, 2019: check MXEVT_PROCESS
-c
 c -----------
       IMPLICIT NONE
 
@@ -5175,6 +5175,9 @@ c ------------- BEGIN --------------
          LDONE_CIDLIST = .TRUE.
          RETURN
       endif
+
+c      if ( N_SNLC_CUTS .GE. MXEVT_CUTS ) then
+c      endif
 
 c if CUTWIN_CID is set then return FALSE
       if ( cutwin_cid(1) .GT. 0 ) RETURN
@@ -7468,6 +7471,10 @@ c - - - -
          else if ( MATCH_NMLKEY('MXEVT_PROCESS',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) MXEVT_PROCESS
+
+         else if ( MATCH_NMLKEY('MXLC_FIT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXLC_FIT
 
          else if ( MATCH_NMLKEY('SIM_TEMPLATE_INDEX_LIST',
      &             1, iArg, ARGLIST) ) then 

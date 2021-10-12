@@ -24,6 +24,7 @@
 # May 24 2021: call submit_iter2()
 # Aug 09 2021: add --snana_dir arg
 # Oct 04 2021; add wfit class; maybe later can generalize to cosmofit?
+# Oct 12 2021: implement --check_abort for lcfit
 #
 # - - - - - - - - - -
 
@@ -61,7 +62,8 @@ def get_args():
     # - - - - - 
     # change number of cores
     msg = "number of cores"
-    parser.add_argument('--ncore', nargs='+', help=msg, type=int )
+    parser.add_argument('--ncore', help=msg, type=int, default=None )
+    # xxx mark parser.add_argument('--ncore', nargs='+', help=msg, type=int )
 
     msg = "override OUTDIR in config file"
     parser.add_argument('--outdir', help=msg, type=str, default=None )
@@ -92,6 +94,9 @@ def get_args():
 
     msg = "kill jobs if FAIL is detected"
     parser.add_argument("--kill_on_fail", help=msg, action="store_true")
+
+    msg = "check for abort using interactive job for 1 event"
+    parser.add_argument("--check_abort", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \

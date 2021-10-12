@@ -201,7 +201,6 @@ class LightCurveFit(Program):
         #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
 
         # load the goodies
-        # xxx mark self.config_prep['opt_sncid_list']     = opt_sncid_list
         self.config_prep['argdict_same_sncid'] = argdict_same_sncid
 
         # end fit_prep_same_scnid
@@ -444,7 +443,7 @@ class LightCurveFit(Program):
 
     def fit_validate2_VERSION(self, path, version):
 
-        # Stron validation method:
+        # Strong validation method:
         # run short snana.exe job on input  version and create
         # YAML file; if NEVT_TOT=0, or YAML file is not produced,
         # return False. If NEVT_TOT > 0, return True
@@ -844,8 +843,10 @@ class LightCurveFit(Program):
         isplit = index_dict['isplit']+1  # fortran like index for file names
         icpu   = index_dict['icpu']      # cpu index
 
-        input_file    = self.config_yaml['args'].input_file 
-        kill_on_fail  = self.config_yaml['args'].kill_on_fail
+        args          = self.config_yaml['args']
+        input_file    = args.input_file 
+        kill_on_fail  = args.kill_on_fail
+        check_abort   = args.check_abort
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -870,16 +871,17 @@ class LightCurveFit(Program):
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")
         arg_list.append(f"  JOBSPLIT {isplit} {n_job_split}")
 
         # check fast option to prescale sims by 10 (data never pre-scaled)
-        if self.config_yaml['args'].fast :
+        if args.fast :
             arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
 
-        if self.config_yaml['args'].require_docana :
+        if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")
 
         # tack on outFile for each table format. For TEXT, do NOT
@@ -899,6 +901,10 @@ class LightCurveFit(Program):
 
         # Jan 8, 2021: option to use CID list from FITOPT000
         opt_sncid_list = self.config_prep['opt_sncid_list']
+
+        if args.check_abort: 
+            arg_list.append("MXEVT_CUTS 1")
+            opt_sncid_list = 0  # disable event-sync feature
 
         if fitopt_label is None:
             NOREJECT = None
@@ -1607,7 +1613,6 @@ class LightCurveFit(Program):
         
         cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
                     f" | grep 'NEVT:' ")
-        print('xxxx','cmd_nevt',cmd_nevt)
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')

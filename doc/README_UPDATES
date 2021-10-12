@@ -20446,8 +20446,12 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04b) ***** 
 
-   submit_batch: add new 'wfit' class
-
+   submit_batch: 
+     +  add new 'wfit' class
+     +  fix logic to wait for program to exist; abort if program
+        is not found after 5 minutes.
+     + new --check_abort option (for sim and lcfit) 
+     
          ***** MISCELLANEOUS(v11_04b) ***** 
 
    wfit.c : misc updates to work with submit_batch
@@ -20469,7 +20473,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sntools_host.c: 
      + set LOGMASS_OBS = LOGMASS_TRUE
-       if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
-       avoids mysterious -9 values in data files
+        if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
+        avoids mysterious -9 values in data files
+
+  snana.car
+    + new &SNLCIP input MXEVT_CUTS
 
 END: 

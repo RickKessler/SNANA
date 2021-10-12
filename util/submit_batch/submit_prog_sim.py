@@ -418,9 +418,12 @@ class Simulation(Program):
         # Note that RANSEED_REPEAT splits a sim into sub-jobs, 
         # then re-combines into one effective sim job.
         # RANSEED_CHANGE splits into sub-jobs; does NOT re-combine.
+        #
+        # Oct 12 2021: if --check_abort, n_job_split -> 1
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file     # for msgerr
+        check_abort  = self.config_yaml['args'].check_abort
         do_cidran    = self.config_prep['do_cidran']
         nkey_found   = 0  # local: number of valid RANSEED_XXX keys
         ranseed_list = [] # array vs. split index
@@ -439,6 +442,8 @@ class Simulation(Program):
                 RANSEED_LIST    = CONFIG[key]
                 n_job_split     = int(RANSEED_LIST.split()[0])
                 ranseed         = int(RANSEED_LIST.split()[1])
+                if check_abort: n_job_split=1
+
                 if ranseed > RANSEED_MAX :
                     msgerr.append(f"ranseed = {ranseed} is too big.")
                     msgerr.append(f"ranseed must be under {RANSEED_MAX} " \
@@ -1486,8 +1491,12 @@ class Simulation(Program):
         # pick off a few globals
         CONFIG            = self.config_yaml['CONFIG']
         GENPREFIX         = CONFIG['GENPREFIX']
-        no_merge          = self.config_yaml['args'].nomerge
-        kill_on_fail      = self.config_yaml['args'].kill_on_fail
+
+        args              = self.config_yaml['args']
+        no_merge          = args.nomerge
+        kill_on_fail      = args.kill_on_fail
+        check_abort       = args.check_abort
+
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
@@ -1530,6 +1539,7 @@ class Simulation(Program):
         infile       = infile_list2d[iver][ifile]
         model        = model_list2d[iver][ifile]
         ngentot      = ngentot_list2d[iver][ifile]
+        if check_abort: ngentot = 100              # Oct 12 2021
         Nsec         = seconds_since_midnight
 
         split_string = (f"{isplit1:04d}")          # e.g., 0010
@@ -1590,6 +1600,7 @@ class Simulation(Program):
         JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         return JOB_INFO
 

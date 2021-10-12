@@ -8660,6 +8660,7 @@ a list of CIDs:
    OPT_SNCID_LIST = 3    ! both of the above
 
    MXEVT_PROCESS = 20    ! stop processing after 20 events
+   MXEVT_CUTS    =  5    ! stop processing after 5 events pass cuts
 \end{Verbatim}
 %
 Internally all CIDs are strings. If the CIDs are integers
@@ -8710,6 +8711,8 @@ use a comma-separated list:
    snana.exe <myInputFile>  SNCCID_LIST 2004cx,2002cx,2005he
      or
    snana.exe <myInputFile> MXEVT_PROCESS 5
+     or
+   snana.exe <myInputFile> MXEVT_CUTS 5
 \end{verbatim} 
 %
 and this syntax also works for the {\tt snlc\_fit.exe} and {\tt psnid.exe}
@@ -13193,6 +13196,7 @@ There are other non-{\tt CUTWIN} inputs to select based on CID or TYPE,
    SNCCID_LIST   = 'Joe,Henry,Sam'   ! same for char string names
    SNTYPE_LIST   = 1,18              ! select ITYPE = 1 or 18
    MXEVT_PROCESS = 10                ! process first 10 events
+   MXEVT_CUTS    = 4                 ! process until 4 events pass cuts
 \end{verbatim}
 
 

@@ -794,15 +794,22 @@ def write_job_info(f,JOB_INFO,icpu):
     log_file     = JOB_INFO['log_file']   # pipe stdout here
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
+    msgerr       = []
 
+    key = 'check_abort'
+    check_abort = False
+    if key in JOB_INFO:  check_abort = JOB_INFO[key]
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
-    CHECK_CODE_EXISTS = '.exe' in program
+    CHECK_CODE_EXISTS = '.exe' in program and not check_abort
+
     CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
-                        'kill_on_fail' in JOB_INFO
+                        'kill_on_fail'  in JOB_INFO  and \
+                        not check_abort
+
     CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
@@ -828,7 +835,9 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if CHECK_CODE_EXISTS :
         # wait for program to appear in case SNANA make is in progress
-        program_plus_path = shutil.which(program)
+
+        program_plus_path = find_program(program)
+
         wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
@@ -863,7 +872,8 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
-        f.write(f"echo 'Finished {program} -> create DONE file.' \n")
+        f.write(f"echo 'Finished {program} -> create {done_file}' \n")
+        # xxx f.write(f"echo 'Finished {program} -> create DONE file.' \n")
 
     f.write(f"\n")
 
@@ -875,6 +885,39 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"\n")
 
     # end write_job_info
+
+def find_program(program):
+
+    # Created Oct 11 2021 by R.Kessler
+    # use unix "which" to find program. If not found, keep searching
+    # every 5 seconds in case code update/make is in progress.
+    # If program is not found after very long time -> abort.
+    # Function returns full name of program including path.
+
+    t_next        = 5    # check for program this often (sec)
+    t_abort       = 300  # abort after this many seconds of searching
+    t_sum         = 0    # total time searching for program (sec)
+
+    found_program = False
+    while not found_program :
+        program_plus_path = shutil.which(program)
+        if program_plus_path is None: 
+            time_now        = datetime.datetime.now()
+            tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+            print(f" Cannot find program {program} at {tstr}; " \
+                  f"will try again in {t_next} sec.")
+            t_sum += t_next
+            if t_sum > t_abort :
+                msgerr.append(f"Cannot find program {program}")
+                msgerr.append(f"after {t_sum} seconds.");  
+                log_assert(False, msgerr) 
+            
+            time.sleep(t_next)
+        else:
+            found_program = True                
+
+    return program_plus_path
+    # end find_program
 
 def write_jobmerge_info(f,JOB_INFO,icpu):
     # write merge task 

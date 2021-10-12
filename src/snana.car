@@ -1684,7 +1684,8 @@ c define namelist cuts
      &   SNTYPE_LIST(MXLISTNML)    ! (I) user list of types to select
      &  ,SNTYPE_IGNORE(MXLISTNML)  ! (I) types to ignore
      &  ,SNCID_LIST(MXLISTNML)     ! (I) user-list of integer CIDs
-     &  ,MXEVT_PROCESS             ! (I) max number of events to process
+     &  ,MXEVT_PROCESS             ! (I) quit after processing this many
+     &  ,MXEVT_CUTS                ! (I) quit after Nevt passing cuts
      &  ,CCDNUM_LIST(MXLISTNML)    ! (I) user-list of CCDNUMs (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
      &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
@@ -1863,7 +1864,7 @@ c
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
-     &   ,MXEVT_PROCESS
+     &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNTEL_LIST,   IDTEL_LIST,   NIDTEL_LIST,   DOALL_SNTEL
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
@@ -2201,7 +2202,7 @@ c
 c Below are cut-variables defined in SNCUTS
 c
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
-     &   ,MXEVT_PROCESS
+     &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
@@ -5158,6 +5159,7 @@ c allows parsing function to stop early.
 c
 c May 18, 2012: return FALSE if interp-option is set
 c Jun 25, 2019: check MXEVT_PROCESS
+c Oct 12, 2021: check MXEVT_CUTS
 c -----------
       IMPLICIT NONE
 
@@ -5176,8 +5178,10 @@ c ------------- BEGIN --------------
          RETURN
       endif
 
-c      if ( N_SNLC_CUTS .GE. MXEVT_CUTS ) then
-c      endif
+      if ( N_SNLC_CUTS .GE. MXEVT_CUTS ) then
+         LDONE_CIDLIST = .TRUE.
+         RETURN
+      endif
 
 c if CUTWIN_CID is set then return FALSE
       if ( cutwin_cid(1) .GT. 0 ) RETURN
@@ -5753,6 +5757,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
 
       MXEVT_PROCESS      = 999888777
+      MXEVT_CUTS         = 999888777
       SIMLIB_OUT     = ''
       SIMLIB_OUTFILE = ''
       SIMLIB_ZPERR_LIST = ''
@@ -7472,6 +7477,10 @@ c - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) MXEVT_PROCESS
 
+         else if ( MATCH_NMLKEY('MXEVT_CUTS',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXEVT_CUTS
+
          else if ( MATCH_NMLKEY('MXLC_FIT',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) MXLC_FIT
@@ -8952,7 +8961,7 @@ c Jul 08 2021: write N_SNHOST_ZSPEC[ZPHOT]
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
 
-      INTEGER LEN, JDIFF
+      INTEGER LEN, JDIFF, AIZ
       REAL    T_CPU
       CHARACTER OUTFILE*(MXCHAR_FILENAME)
 
@@ -8999,11 +9008,21 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
       write(LUNDAT,20) 'NEVT_HOST_ZPHOT: ', N_SNHOST_ZPHOT
 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
-      write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 19    format(A, A)
 20    format(A, I8)
 21    format(A, F8.1)
+
+c check options for ABORT_IF_ZERO (AIZ)
+
++SELF,IF=SNANA.
+      AIZ = N_SNLC_CUTS
++SELF,IF=SNFIT.
+      AIZ = N_SNLC_FITCUTS
++SELF.
+      IF ( MXEVT_CUTS < 10 ) AIZ = N_SNLC_CUTS
+
+      write(LUNDAT,20) 'ABORT_IF_ZERO:   ', AIZ
 
       CLOSE ( UNIT = LUNDAT ) 
 

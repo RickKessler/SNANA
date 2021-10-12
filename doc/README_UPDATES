@@ -20467,4 +20467,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sntools_weaklensig.c: require DOCANA
 
+   sntools_host.c: 
+     + set LOGMASS_OBS = LOGMASS_TRUE
+       if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
+       avoids mysterious -9 values in data files
+
 END: 

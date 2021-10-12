@@ -5949,6 +5949,8 @@ void GEN_SNHOST_LOGMASS(void) {
   // If LOGMASS_OBS is defined in HOSTLIB, do nothing.
   // Otherwise, use LOGMASS_TRUE and LOGMASS_ERR to determine 
   // LOGMASS_OBS.
+  // Alex Gagliano 10/12/21 Added if block to set LOGMASS_OBS = LOGMASS_TRUE
+  // if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
 
   int  NNBR       = SNHOSTGAL.NNBR;
   int  IVAR_TRUE  = HOSTLIB.IVAR_LOGMASS_TRUE ;
@@ -5959,7 +5961,7 @@ void GEN_SNHOST_LOGMASS(void) {
 
   double LOGMASS_TRUE, LOGMASS_OBS, LOGMASS_ERR, GauRan ;
   double rmin=-3.0, rmax=3.0 ;
-  //  char fnam[] = "GEN_SNHOST_LOGMASS" ;
+  char fnam[] = "GEN_SNHOST_LOGMASS" ;
 
   // ---------- BEGIN -----------
   
@@ -5978,6 +5980,13 @@ void GEN_SNHOST_LOGMASS(void) {
       LOGMASS_ERR *= SCALE ;
       GauRan = getRan_GaussClip(1,rmin,rmax);
       LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
+    } 
+    else {
+	 LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
+	 LOGMASS_OBS = LOGMASS_TRUE;
+         //sprintf(c1err,"Cannot determine LOGMASS_OBS");
+   	 //sprintf(c2err,"HOSTLIB needs LOGMASS_OBS or LOGMASS_ERR column");
+  	 //errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = LOGMASS_OBS;
@@ -6778,7 +6787,7 @@ void SORT_SNHOST_byDDLR(void) {
     */
 
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = -9.0;
-    SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.0;
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.2;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR  = -9.0;
 
     IVAR = HOSTLIB.IVAR_LOGMASS_TRUE; 

@@ -57,6 +57,8 @@
 #      for visual convenience. snana.car was modified to strip last
 #      char of filter column. FITS format still single char.
 #
+# Oct 13 2021 RK - fix snana.exe arg bugs in get_survey() function
+#
 # ====================================
 
 import os, sys
@@ -292,14 +294,14 @@ def get_survey(PRIVATE_DATA_PATH,VERSION):
     survey = None
     prefix = (f"OUT_{VERSION}")
     cmd = "snana.exe NOFILE "
-    cmd += (f"VERSION_PHOTOMETRY={VERSION} ")
-    cmd += (f"SNTABLE_LIST '' ")
-    cmd += (f"OPT_YAML=1 " )
-    cmd += (f"READ_SPECTRA=F " )
-    cmd += (f"TEXTFILE_PREFIX={prefix} " )
+    cmd += f"VERSION_PHOTOMETRY={VERSION} "
+    cmd += f"SNTABLE_LIST=NONE "
+    cmd += f"OPT_YAML=1 " 
+    # xxx ??? no such key in snana.exe cmd += (f"READ_SPECTRA=F " )
+    cmd += f"TEXTFILE_PREFIX={prefix} " 
     if len(PRIVATE_DATA_PATH) > 2 :
-        cmd += (f"PRIVATE_DATA_PATH={PRIVATE_DATA_PATH} ")
-    cmd += (f" > {prefix}.LOG")
+        cmd += f"PRIVATE_DATA_PATH={PRIVATE_DATA_PATH} "
+    cmd += f" > {prefix}.LOG"
     #print(f" xxx cmd = {cmd}\n")
     os.system(cmd)
 

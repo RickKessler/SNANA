@@ -693,10 +693,10 @@ class wFit(Program):
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
 
             str_results = f"{w:.4f} {w_sig:.4f}  "
-            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:.1f} "
+            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:5.1f} "
             str_results += f"{omm:.4f} {omm_sig:.4f}  "
 
-            str_misc    = f"{chi2:.1f} {sigint:.3f} {blind}"
+            str_misc    = f"{chi2:4.1f} {sigint:.3f} {blind}"
 
             f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  {str_misc}\n")
 

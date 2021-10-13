@@ -1304,7 +1304,7 @@ void read_mucov_sys(char *inFile){
   if ( !INPUTS.use_mucov  ) { return; }
 
   printf("\n# ======================================= \n");
-  printf("  Open MUCOV systematic file: \n  %s \n", locFile);
+  printf("  Process MUCOV systematic file  \n"); // XXX
 
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
@@ -2217,22 +2217,74 @@ void wfit_final(void) {
 
 // ==================================
 void wfit_FoM(void) {
-
   // estimate FoM for w0wa model ... need to finish ...
-
+  int Ndof = WORKSPACE.Ndof;
   double extchi_min = WORKSPACE.extchi_min;
-  
   int i, kk, j;
-  double extchi, extchi_dif ; 
+  double extchi, extchi_dif, chi_approx, snchi_tmp, extchi_tmp, muoff_tmp;;
+  double sig_product, rho;
   Cosparam cpar;
   char fnam[] = "wfit_FoM" ;
-
   // --------------BEGIN --------------
-
+  /*
+    1. Run a loop over w0, wa, Om
+    2. Call getchi2Om function and compute the Chi-sq for each bin
+    3. Compute delta_Chi = [Chi-sq] - [Chi-sq_min]
+    4. Check if delta_Chi is less than 4.6
+    5. Store it in a variable (eg. Chi_Tot) if Yes
+    6. Return the Sum of Chi_Tot
+   */
+  
   WORKSPACE.FoM_final = 0.0 ;
-  if ( !INPUTS.use_wa ) { return ; }
 
-  WORKSPACE.FoM_final = 0.1 ;
+  if ( !INPUTS.use_wa ) {return ; }
+
+  sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);
+
+
+  rho = 0.; // Need to compute this XX
+  sig_product *= sqrt(1.0- rho*rho);
+
+  
+  if (sig_product > 0.){WORKSPACE.FoM_final = 1./sig_product; }
+  else {WORKSPACE.FoM_final = -9. ;}
+  printf("FOM = %.2f", WORKSPACE.FoM_final);
+  
+  /*
+        chi_approx = (double)(Ndof);
+
+      for( i=0; i < INPUTS.w0_steps; i++){
+	cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
+	for( kk=0; kk < INPUTS.wa_steps; kk++){
+	  cpar.wa = (INPUTS.wa_min + kk*INPUTS.wa_stepsize);
+	  for(j=0; j < INPUTS.omm_steps; j++){
+	    cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;
+	    cpar.ome = 1 - cpar.omm;
+	    get_chi2wOM ( cpar.w0,cpar.wa, cpar.omm, INPUTS.sqsnrms,
+			  &muoff_tmp, &snchi_tmp, &extchi_tmp );
+
+	    WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ;
+	    WORKSPACE.extchi3d[i][kk][j] = extchi_tmp ;
+
+        // Keep track of minimum chi2                                                                                                                    
+	    if(snchi_tmp < WORKSPACE.snchi_min)
+	      { WORKSPACE.snchi_min = snchi_tmp ; }
+
+	    if(extchi_tmp < extchi_min)  {
+	      WORKSPACE.extchi_min = extchi_tmp ;
+	      imin=i; jmin=j; kmin=kk;
+	      chidif = WORKSPACE.extchi3d[i][kk][j] - extchi_min ;
+	      if (chidif < 4.6):
+		{
+		  chi_Tot += chidif;
+		}
+	    }
+	  } // j loop                                                                                                                                    
+	}  // end of k-loop                                                                                                                             
+      }  // end of i-loop        
+
+  */   
+ 
 
   return ;
 } // emd wfit_FoM

@@ -106,7 +106,8 @@ class wFit(Program):
         wildcard      = f"{PREFIX_covsys}*"
         isdata_list   = []
         inpdir_list   = []
-        covsys_list2d = [] # list per inpdir
+        covsys_list2d = [] # file list per inpdir
+        covinfo_list  = [] # list of yaml info per inpdir
 
         for inpdir_orig in inpdir_list_orig:
             inpdir = os.path.expandvars(inpdir_orig)
@@ -123,8 +124,9 @@ class wFit(Program):
             covsys_list2d.append(covsys_list)
 
             # read ISDATA_REAL flag from INFO.YML file
-            isdata = self.read_isdata(inpdir)
+            isdata, yaml_info = self.read_isdata(inpdir)
             isdata_list.append(isdata)
+            covinfo_list.append(yaml_info)
 
             print(f" Found {inpdir_orig} \n" \
                   f" \t with {n_covsys} {PREFIX_covsys} files and " \
@@ -138,6 +140,7 @@ class wFit(Program):
         self.config_prep['n_inpdir']          = len(inpdir_list)
         self.config_prep['covsys_list2d']     = covsys_list2d
         self.config_prep['isdata_list']       = isdata_list
+        self.config_prep['covinfo_list']      = covinfo_list
 
         self.wfit_error_check_input_list()
 
@@ -189,7 +192,8 @@ class wFit(Program):
         if key in yaml_info:
             isdata = (yaml_info[KEYNAME_ISDATA] > 0)
 
-        return isdata
+        return isdata, yaml_info
+
         # end read_isdata 
         
     def wfit_prep_wfitopt_list(self):
@@ -447,13 +451,14 @@ class wFit(Program):
     def append_info_file(self,f):
         # append info to SUBMIT.INFO file
 
-        CONFIG           = self.config_yaml['CONFIG']
+        CONFIG             = self.config_yaml['CONFIG']
         n_wfitopt          = self.config_prep['n_wfitopt']
         wfitopt_arg_list   = self.config_prep['wfitopt_arg_list'] 
         wfitopt_num_list   = self.config_prep['wfitopt_num_list']
         wfitopt_label_list = self.config_prep['wfitopt_label_list']
         wfitopt_global     = self.config_prep['wfitopt_global']
         inpdir_list_orig   = self.config_prep['inpdir_list_orig']
+        covinfo_list       = self.config_prep['covinfo_list']
         use_wa             = self.config_prep['use_wa']
 
         blind_data   = CONFIG[KEYNAME_BLIND_DATA] # T or F
@@ -463,10 +468,24 @@ class wFit(Program):
 
         f.write(f"JOBFILE_WILDCARD:  'DIR*COVOPT*WFITOPT*' \n")
 
+        idir=-1
         f.write("\n")
         f.write(f"INPDIR_LIST: \n")
-        for inpdir in inpdir_list_orig:
-            f.write(f"  - {inpdir} \n")
+        for inpdir, covinfo in zip(inpdir_list_orig, covinfo_list):
+            idir += 1
+            diropt_num  = self.wfit_num_string(idir,-1,-1)
+            row         = [ diropt_num, inpdir ]
+            f.write(f"  {diropt_num}: {inpdir} \n")
+            #f.write(f"  - {row} \n")
+
+            COVOPTS = covinfo['COVOPTS']
+            
+            n_covopt = len(COVOPTS)
+            f.write(f"  COVOPTS({diropt_num}): \n")
+            for icov in range(0,n_covopt):
+                covopt_num  = self.wfit_num_string(-1,icov,-1)
+                covopt      = COVOPTS[icov]
+                f.write(f"    {covopt_num}: {covopt} \n")
 
         f.write("\n")
         f.write(f"{KEYNAME_BLIND_DATA}:  {blind_data}\n")

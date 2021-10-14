@@ -607,7 +607,7 @@ void set_user_defaults(void) {
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
   INPUTS.TRACE_MAIN = 0;
-  INPUTS.DEBUG_FLAG = 0; // 1024 ;
+  INPUTS.DEBUG_FLAG = 0 ;
 
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
@@ -955,8 +955,7 @@ void set_user_defaults(void) {
 
   GENLC.IFLAG_GENSOURCE = 0;
 
-  sprintf(INPUTS.SIMLIB_FILE,      "NONE" );
-  sprintf(INPUTS.SIMLIB_SURVEY,    "NONE" );
+  sprintf(INPUTS.SIMLIB_FILE,      "BLANK" );
   sprintf(INPUTS.SIMLIB_FIELDLIST, "ALL" );
   INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; //-->count skipped fields in NGENTOT
 
@@ -994,7 +993,7 @@ void set_user_defaults(void) {
 
   INPUTS.HOSTLIB_USE    = 0;
   INPUTS.HOSTLIB_MSKOPT = 0;
-  INPUTS.HOSTLIB_MAXREAD     = MXROW_HOSTLIB;
+  INPUTS.HOSTLIB_MAXREAD     = 1000000000 ; // default is 1 billion
   INPUTS.HOSTLIB_MNINTFLUX_SNPOS = 0.00 ;  // use 0% as the minimum limit for SNPOS
   INPUTS.HOSTLIB_MXINTFLUX_SNPOS = 0.99 ;  // use 99% of total flux for SNPOS
   INPUTS.HOSTLIB_GALID_NULL      = -9;     // value for no host
@@ -1388,8 +1387,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // Jun 17 2021: for hostlib, check "NBR" keys too.
   // Jun 25 2021: check INCLUDE files only if reading file;
   //              command line INCLUDE files are parsed elsewhere.
-  //
-  // Oct 06 2021: read missing "WV07_REWGT_EXPAV" 
   //
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
@@ -1904,8 +1901,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &INPUTS.WV07_GENAV_FLAG ) ;
   }
-  else if ( keyMatchSim(1, "WV07_REWGT_EXPAV GENAV_REWGT_EXPAV", 
-			WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "GENAV_REWGT_EXPAV", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.WV07_REWGT_EXPAV ) ;
   }
 
@@ -1921,7 +1917,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.OPT_MWEBV = abs(ITMP);
     if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
-    if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
   }
 
 
@@ -2253,8 +2248,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
   }
-  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
+  }
+  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
   }
   // - - - - TAKE_SPECTRUM - - - - -
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
@@ -2268,15 +2266,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
     N++;  sscanf(WORDS[N], "%s", FIELDLIST);
     parse_string_prescales(FIELDLIST, DICT);
+    //    dump_string_dict(DICT); // xxx remove
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
   }
+  //elseif(keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
+  // check after other TAKE_SPECTRUM_XXX keys
   else if ( strstr(WORDS[0],"TAKE_SPECTRUM") ) {  
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
-  }
-  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
   }
 
 #ifdef MODELGRID_GEN
@@ -2910,12 +2908,6 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FILE );
   }
-
-  else if ( keyMatchSim(1, "SIMLIB_SURVEY",  WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
-    N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_SURVEY );
-  }
-
   else if ( keyMatchSim(1, "SIMLIB_FIELDLIST",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], 200 );
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FIELDLIST );
@@ -4006,14 +3998,14 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
-  /* xxxxxxx mark delete 9/08/2021 xxxxxx
-     can't make test since SIMLIB and input file are parsed same way
-  if ( keySource == KEYSOURCE_FILE && INPUTS.USE_SIMLIB_SPECTRA ) {
+  // fp==NULL means reading words from sim-input file
+  // fp!=NULL means reading directly from SIMLIB file
+  if ( fp == NULL && INPUTS.USE_SIMLIB_SPECTRA ) {
     sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
-  xxxxxxxxxx */
+
 
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
@@ -4948,9 +4940,10 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
-
-  if ( INPUTS.DEBUG_FLAG == 1024 ) 
+  /* NOT_YET
+  if ( INPUTS.REQUIRE_DOCANA ) 
     { INPUTS_SEARCHEFF.OPTMASK_OPENFILE += OPENMASK_REQUIRE_DOCANA ; }
+  */
 
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
@@ -5049,9 +5042,6 @@ void prep_user_input(void) {
     //	    getenv(PRIVATE_MODELPATH_NAME), INPUTS.MODELNAME );
   }
 
-
-  // disable HOSTLIB_MSKOPT if HOSTLIB_FILE isn't set.
-  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { INPUTS.HOSTLIB_MSKOPT=0; }
 
   // -------------------------------
   // set INPUTS.GENSOURCE
@@ -5635,7 +5625,7 @@ void prep_user_input(void) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_PHOT; // internal logical flag
   }
 
-  if ( !IGNOREFILE(INPUTS.HOSTNOISE_FILE)  ) {
+  if ( IGNOREFILE(INPUTS.HOSTNOISE_FILE) == 0 ) {
     INPUTS.SMEARFLAG_HOSTGAL += SMEARMASK_HOSTGAL_IMAGE; 
   }
 
@@ -14414,13 +14404,6 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
     if ( strcmp(c_get,"SURVEY:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
-
-      // 9.15.2021: check optoin to override survey name,
-      // E.g., lowz and hiz from LSST can be split into LOWZ and LSST.
-      char *S = INPUTS.SIMLIB_SURVEY ;
-      if ( !IGNOREFILE(S) ) 
-	{ sprintf(SIMLIB_GLOBAL_HEADER.SURVEY_NAME,"%s", S); }
-      
     }
     else if ( strcmp(c_get,"SUBSURVEY_LIST:")==0  ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME );
@@ -14529,7 +14512,6 @@ void SIMLIB_prepGlobalHeader(void) {
 
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL ;
-  char *SURVEY, *SUBSURVEY ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
 
   // -------------- BEGIN ------------
@@ -14537,8 +14519,8 @@ void SIMLIB_prepGlobalHeader(void) {
   print_banner(fnam);
 
 
-  SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
-  SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
+  char *SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
+  char *SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
   
   sprintf(GENLC.SURVEY_NAME,    "%s", SURVEY);
   sprintf(GENLC.SUBSURVEY_NAME, "%s", SUBSURVEY);
@@ -15419,7 +15401,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"MWEBV:") == 0  )
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
 
-      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 ) 
+      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 )  
 	{ sscanf(wd1,"%d",&SIMLIB_HEADER.CCDNUM);  iwd++ ; continue; }
 
       // read optional header keys for FAKEID option
@@ -17597,15 +17579,9 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
-  if ( RDFLAG_SPECTRA ) {
-    if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
-      parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
-    }
-    else if ( strcmp(KEY,"WARP_SPECTRUM:") == 0 ) {
-      sscanf(WDLIST[1], "%s", INPUTS.WARP_SPECTRUM_STRING );
-    }
-
-  } // end RDFLAG_SPECTRA
+  if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+    parse_input_TAKE_SPECTRUM( WDLIST, KEYSOURCE_FILE, NULL ); 
+  }
 
   return ;
 
@@ -21004,14 +20980,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Feb 12, 2014: fill SNDATA.SIM_HOSTGAL_xxx, and add IFLAG arg
   // Jun 02, 2018: load zphot info for LCLIB
   // Jan 29 2020: USE_REFACTOR -> true to get multiple hosts
-  // Sep 09 2021: 
-  //   + Fill nbr dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
+  // Sept 09 2021: Fill igal dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
 
 
-  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m ;
+  int    NPAR, ipar, igal, OVP, ifilt, NMATCH, m ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
-  char fnam[] = "hostgal_to_SNDATA" ;
+  //  char fnam[] = "hostgal_to_SNDATA" ;
 
   // --------------- BEGIN ------------
 
@@ -21080,21 +21055,14 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
       SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
-      // Added for LSST but may be of more general use
-      // Alex Gagliano 09/2021
-      SNDATA.HOSTGAL_OBJID2[m]       = SNHOSTGAL_DDLR_SORT[m].GALID2;
-      SNDATA.HOSTGAL_ELLIPTICITY[m]  = SNHOSTGAL_DDLR_SORT[m].ELLIPTICITY;
-      SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
-
     }
     
   
     NPAR = SNDATA.NPAR_SIM_HOSTLIB ;
-    for(nbr=0; nbr < MXHOSTGAL; nbr++){  // loop over neighbors 
-      for(ipar=0; ipar < NPAR ; ipar++ ) {
-	SNDATA.SIM_HOSTLIB_PARVAL[ipar][nbr] = 
-	  HOSTLIB_OUTVAR_EXTRA.VALUE[ipar][nbr] ;
-      }
+    for(igal=0; igal < MXHOSTGAL; igal++){ 
+    	for(ipar=0; ipar < NPAR ; ipar++ ) {
+   	   SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal] = HOSTLIB_OUTVAR_EXTRA.VALUE[ipar][igal] ;
+  	  }
     }
     SNDATA.SIM_HOSTLIB_GALID = SNHOSTGAL.GALID; // store true GALID, Feb 2020
 
@@ -24045,8 +24013,6 @@ void genmodel(
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
  
-    ptr_generr[0] = 4.44; // xxx REMOVE
-
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options
 		  ,ifilt_obs      // (I) obs filter index 
@@ -24059,15 +24025,6 @@ void genmodel(
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
-
-    /* xxxxxxxxxx
-    if ( ifilt_obs == INPUTS.DEBUG_FLAG ) {
-      double Trest_tmp = ptr_epoch[0]/(1.0+z);
-      printf(" xxx %s: ifilt_obs=%d  z=%.5f  Trest=%.3f magerr=%.3f \n",
-	     fnam, ifilt_obs, z, Trest_tmp, ptr_generr[0] ) ;
-    }
-    xxxxxxx */
-
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {

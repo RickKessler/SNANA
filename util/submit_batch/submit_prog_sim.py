@@ -31,6 +31,8 @@
 # Jan 06 2021: cidadd safety margin -> 1000 (was 10) to reduce chance
 #               of running out of random CIDs
 # Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
+# Aug 18 2021: implement --snana_dir for SIMnorm jobs
+# Sep 09 2021: abort of NGEN_UNIT is mixed with NGENTOT_LC in GENOPT
 #
 # ==========================================
 
@@ -416,9 +418,12 @@ class Simulation(Program):
         # Note that RANSEED_REPEAT splits a sim into sub-jobs, 
         # then re-combines into one effective sim job.
         # RANSEED_CHANGE splits into sub-jobs; does NOT re-combine.
+        #
+        # Oct 12 2021: if --check_abort, n_job_split -> 1
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file     # for msgerr
+        check_abort  = self.config_yaml['args'].check_abort
         do_cidran    = self.config_prep['do_cidran']
         nkey_found   = 0  # local: number of valid RANSEED_XXX keys
         ranseed_list = [] # array vs. split index
@@ -437,6 +442,8 @@ class Simulation(Program):
                 RANSEED_LIST    = CONFIG[key]
                 n_job_split     = int(RANSEED_LIST.split()[0])
                 ranseed         = int(RANSEED_LIST.split()[1])
+                if check_abort: n_job_split=1
+
                 if ranseed > RANSEED_MAX :
                     msgerr.append(f"ranseed = {ranseed} is too big.")
                     msgerr.append(f"ranseed must be under {RANSEED_MAX} " \
@@ -558,8 +565,9 @@ class Simulation(Program):
             ngentot_list = []
             for ifile in range(0,n_file):
                 if ngen_unit < 0.0 :
-                    ngentot = self.get_ngentot_from_input(iver,ifile)
+                    ngentot = self.get_ngentot_from_input(iver,ifile,+1)
                 else:
+                    dummy   = self.get_ngentot_from_input(iver,ifile,-1)
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
 
@@ -587,15 +595,24 @@ class Simulation(Program):
 
         # end sim_prep_NGENTOT_LC
 
-    def get_ngentot_from_input(self,iver,ifile):
+    def get_ngentot_from_input(self,iver,ifile,opt):
+
+        # Sep 9 2021: add opt input:
+        # opt > 0 -> return ngentot from input file or GENOPT key
+        # opt < 0 -> abort of NGENTOT_LC is in GENOPT key 
+        #             (to avoid conflict with NGEN_UNIT)
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
         ngentot_global   = self.config_prep['ngentot_global']
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
+        found_GENOPT_override = False 
+        
+        ngentot = 0
 
         # Start with default NGENTOT_LC is from the sim-input file
-        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
+        if KEY_NGENTOT in INFILE_KEYS[iver][ifile]:
+            ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
         # check for GENOPT override
         genopt_replace, strval = \
@@ -604,10 +621,22 @@ class Simulation(Program):
             ngentot = int(strval)
             genopt_list2d[iver][ifile]        = genopt_replace
             self.config_prep['genopt_list2d'] = genopt_list2d
+            found_GENOPT_override = True
 
         # check for GENOPT_GLOBAL override (Dec 10 2020)
         if ngentot_global > 0 :
             ngentot = ngentot_global
+            found_GENOPT_override = True
+
+        # 9.09.2021: check option to abort on NGENTOT key
+        if found_GENOPT_override and opt < 0 :
+            msgerr = []
+            input_file   = self.config_yaml['args'].input_file 
+            msgerr.append(f"Cannot mix NGEN_UNIT and NGENTOT_LC in")
+            msgerr.append(f"{input_file} .")
+            msgerr.append(f"Either remove NGENTOT_LC from GENOPT[_GLOBAL]")
+            msgerr.append(f"or remove NGEN_UNIT from CONFIG.")
+            self.log_assert(False,msgerr)
 
         return ngentot
 
@@ -659,6 +688,7 @@ class Simulation(Program):
         output_dir    = self.config_prep['output_dir']
         genopt_global = self.config_prep['genopt_global_SIMnorm']
         genopt        = self.config_prep['genopt_list2d'][iver][ifile]
+        snana_dir     = self.config_yaml['args'].snana_dir
 
         cddir         = (f"cd {output_dir}")
         ngentot       = 0
@@ -685,7 +715,12 @@ class Simulation(Program):
 
         cmd_array = []     # for screen dump
         cmd_array.append(f"{cddir} ; ")
-        cmd_array.append(f"{program} {infile} ")
+
+        if snana_dir is None :
+            cmd_array.append(f"{program} {infile} ")
+        else:
+            cmd_array.append(f"{snana_dir}/bin/{program} {infile} ")
+
         cmd_array.append(f"{arg_list} ")
         cmd_array.append(f"> {log_file}")
 
@@ -1456,8 +1491,12 @@ class Simulation(Program):
         # pick off a few globals
         CONFIG            = self.config_yaml['CONFIG']
         GENPREFIX         = CONFIG['GENPREFIX']
-        no_merge          = self.config_yaml['args'].nomerge
-        kill_on_fail      = self.config_yaml['args'].kill_on_fail
+
+        args              = self.config_yaml['args']
+        no_merge          = args.nomerge
+        kill_on_fail      = args.kill_on_fail
+        check_abort       = args.check_abort
+
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
@@ -1500,6 +1539,7 @@ class Simulation(Program):
         infile       = infile_list2d[iver][ifile]
         model        = model_list2d[iver][ifile]
         ngentot      = ngentot_list2d[iver][ifile]
+        if check_abort: ngentot = 100              # Oct 12 2021
         Nsec         = seconds_since_midnight
 
         split_string = (f"{isplit1:04d}")          # e.g., 0010
@@ -1560,6 +1600,7 @@ class Simulation(Program):
         JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         return JOB_INFO
 

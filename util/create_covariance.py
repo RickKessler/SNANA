@@ -24,6 +24,23 @@
 # Aug 02 2021 Dillon
 #    + update to handle option to subtract MUERR_VPEC
 #
+#
+# Sep 22 2021 R.Kessler
+#    + major overhaul to create a "standard" output under OUTDIR that is
+#      intended for multiple cosmology fitting programs. 
+#      If COSMOMC_TEMPALTES_PATH is defined, the legacy /cosmomc 
+#      subDir is created as well.
+#
+# Oct 01 2021 R,Kessler
+#    + create seprate write_HD_binned and write_HD_unbinned functions
+#    + output HD is fitres format (same format as other SNANA codes)
+#    + unbinned HD includes CID IDSURVEY MUERR_VPEC
+#    + comment out df = df.set_index(["IDSURVEY", "CID"]) and pray
+#
+# Oct 6 2021: INFO.YML now includes ISDATA_REAL so that cosmology-fitting
+#             programs can auto-detect real data and apply default blinding.
+#             Only works on SALT2mu/BBC jobs run after Oct 6 2021.
+#
 # ===============================================
 
 import argparse
@@ -34,9 +51,7 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-import re
-import yaml
-import sys
+import re, yaml, sys, gzip
 from sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -45,21 +60,26 @@ import matplotlib.pyplot as plt
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
-KEYNAME_COSMOMC_METHOD = 'COSMOMC_METHOD'
-COSMOMC_METHOD_JLA = "JLA"
-COSMOMC_METHOD_BBC = "BBC"
+PREFIX_COVSYS  = "covsys"
+HD_FILENAME    = "hubble_diagram.txt"
 
-VARNAME_MU        = "MU"
-VARNAME_M0DIF     = "M0DIF"
-VARNAME_MUDIF     = "MUDIF"
-VARNAME_MUDIFERR  = "MUDIFERR"
-VARNAME_MUREF     = "MUREF"
-VARNAME_MURES     = "MURES"
-VARNAME_MUERR     = "MUERR"
+VARNAME_CID         = "CID"
+VARNAME_IDSURVEY    = "IDSURVEY"
+VARNAME_MU          = "MU"
+VARNAME_M0DIF       = "M0DIF"
+VARNAME_MUDIF       = "MUDIF"
+VARNAME_MUDIFERR    = "MUDIFERR"
+VARNAME_MUREF       = "MUREF"
+VARNAME_MURES       = "MURES"
+VARNAME_MUERR       = "MUERR"
+VARNAME_MUERR_VPEC  = "MUERR_VPEC"
 VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
+
+SUBDIR_COSMOMC = "cosmomc"
+KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
 
 m_REF = 0  # MUOPT reference number for cov
 f_REF = 0  # FITOPT reference number for cov
@@ -89,38 +109,48 @@ def get_args():
     parser.add_argument("-H", "--HELP", help=msg, action="store_true")
 
     msg = "name of the yml config file to run"
-    parser.add_argument("input_file", help=msg, nargs="?", default=None)
+    parser.add_argument("input_file", help=msg, 
+                        nargs="?", default=None)
 
-    msg = "override INPUT_DIR" 
-    parser.add_argument("-i", "--input_dir", help=msg, nargs='?',
-                        type=str, default=None)
+    msg = "override INPUT_DIR (=BBC output)" 
+    parser.add_argument("-i", "--input_dir", help=msg, 
+                        nargs='?', type=str, default=None)
     
     msg = "override OUTDIR" 
-    parser.add_argument("-o", "--outdir", help=msg, nargs='?', type=str, default=None)
-
-    msg = "override COSMOMC_METHOD" 
-    parser.add_argument("--method", help=msg, nargs='?', type=str, default=None)
+    parser.add_argument("-o", "--outdir", help=msg, 
+                        nargs='?', type=str, default=None)
     
     msg = "override data VERSION"
-    parser.add_argument("-v", "--version", help=msg, nargs='?', type=str, default=None)
+    parser.add_argument("-v", "--version", help=msg, 
+                        nargs='?', type=str, default=None)
     
+    msg = "override METHOD (e.g., JLA, BBC)" 
+    parser.add_argument("--method", help=msg, 
+                        nargs='?', type=str, default=None)
+
     msg = "use only this muopt number"
-    parser.add_argument("-m", "--muopt", help=msg, nargs='?', type=int, default=-1 ) 
+    parser.add_argument("-m", "--muopt", help=msg, 
+                        nargs='?', type=int, default=-1 ) 
     
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
     msg = "number of x1 bins (default=1)"
-    parser.add_argument("--nbin_x1", help=msg, nargs='?', type=int, default=1 )
+    parser.add_argument("--nbin_x1", help=msg, 
+                        nargs='?', type=int, default=1 )
 
     msg = "number of c bins (default=1)"
-    parser.add_argument("--nbin_c", help=msg, nargs='?', type=int, default=1 )
+    parser.add_argument("--nbin_c", help=msg, 
+                        nargs='?', type=int, default=1 )
 
     #msg = "rebin args; 0 (unbinned) or e.g., c:5,x1:2 (5 c bins,2 x1 bins)"
     #parser.add_argument("--rebin", help=msg, nargs='+', type=str )
 
     msg = "Subtract MUERR(VPEC) from MUERR. Forces unbinned."
-    parser.add_argument("-s", "--subtract_vpec", help=msg, action="store_true")
+    parser.add_argument("-s", "--subtract_vpec", help=msg, 
+                        action="store_true")
+
+    # parse it
     args = parser.parse_args()
     if args.subtract_vpec: args.unbinned = True
 
@@ -136,25 +166,16 @@ def get_args():
 def print_help_menu():
     menu = """
 
-   HELP MENU for create_covariance CONFIG
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   HELP MENU for create_covariance input file
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-COSMOMC_TEMPLATES: <location of ini files for Cosmomc>
-
-DATASET_FILE: <file name with cosmomc instructions>
-
-COSMOMC_METHOD: JLA   # default: legacy option with old CosmoMC code
-   or
-COSMOMC_METHOD: BBC   # BBC option with new CosmoMC code
-
-INPUT_DIR:  <BBC output dir from Pippin>
+INPUT_DIR:  <BBC output dir from submit_batch_jobs or from Pippin>
 VERSION:    <subDir under INPUT_DIR>  
 
-SYSFILE: <yaml file with systematic scales>
+SYS_SCALE_FILE: <optional yaml file with systematic scales>
+  [allows legacy key SYSFILE: ]
 
-NAME:      <name> # ???
-
-#  [CosmoMC-label]  [FITOPT-label,MUOPT-label]
+#  [CosmoMC-label]  [FITOPT-label, MUOPT-label]
 COVOPTS:
 - '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst (for JLA method only)
 - '[PS1CAL] [+PS1CAL,=DEFAULT]'  # PS1CAL syst only MUOPT=0
@@ -163,27 +184,72 @@ COVOPTS:
 - '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
 
-MUOPT_SCALES:  # replace scales in SYSFILE
+MUOPT_SCALES:  # replace scales in SYS_SCALE_FILE
   CLAS_SNIRF:  1.0
   SCATTER_C11: 1.0
 
 OUTDIR:  <name of output directory>
+
+# specialized keys for CosmoMC
+COSMOMC_TEMPLATES_PATH: <out path of ini files for Cosmomc>
+  [allows legacy key COSMOMC_TEMPLATES:]
+
+COSMOMC_DATASET_FILE: <out file with cosmomc instructions>
+  [allows legacy key DATASET_FILE: ]
 
     """
     print(f"{menu}")
 
     sys.exit()
 
-def load_hubble_diagram(path, args, config):
+    # end print_help_menu
+
+
+def check_isdata_real(hd_file):
+
+    # Created oct 6 2021 by R.Kessler
+    # read first few lines of hd_file and look for ISDATA_REAL  key
+    # that is in a comment field ... hence read as yaml.
+    # SALT2mu begain wriring ISDATA_REAL key on Oct 6 2021;
+    # Function returns ISDATA_REAL = 0 or 1 of key is found;
+    # returns -1 (unknown) if key not found.
+
+    with gzip.open(hd_file, 'r') as f:
+        line_list = f.readlines()
+
+    isdata_real = -1  # init to unknonw
+    maxline_read = 10 # bail after this many lines
+    nline_read   = 0
+
+    key = f"{KEYNAME_ISDATA}:" # include colon in brute force search
+
+    for line in line_list:
+        line  = line.rstrip()  # remove trailing space and linefeed  
+        line  = line.decode('utf-8')
+        wd_list = line.split()
+        if key in wd_list:
+            j = wd_list.index(key)
+            isdata_real = int(wd_list[j+1])
+                        
+        nline_read += 1
+        if nline_read == maxline_read or isdata_real>=0 : break
+
+    logging.info(f"ISDATA_REAL = {isdata_real}")
+    return isdata_real
+
+    # end check_isdata_real
+
+def load_hubble_diagram(hd_file, args, config):
 
     # read single M0DIF or FITRES file from BBC output,
     # and return contents.
 
-    if not os.path.exists(path):
-        raise ValueError(f"Cannot load data from {path} - it doesnt exist")
+    if not os.path.exists(hd_file):
+        raise ValueError(f"Cannot load Hubble diagram data from {hd_file}" \
+                         f" - it doesnt exist")
 
-    df = pd.read_csv(path, delim_whitespace=True, comment="#")
-    logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {path}")
+    df = pd.read_csv(hd_file, delim_whitespace=True, comment="#")
+    logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
     #sys.exit("\n xxx DEBUG STOP xxx\n")
 
@@ -198,7 +264,7 @@ def load_hubble_diagram(path, args, config):
     if VARNAME_MUERR not in df.columns:
         df[VARNAME_MUERR] = df[VARNAME_MUDIFERR]
 
-    # Sort by CID for unbiined; sort by z for M0DIF
+    # Sort by CID for unbinned; sort by z for M0DIF
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
@@ -206,26 +272,25 @@ def load_hubble_diagram(path, args, config):
         df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
-                     f"doesn't exist in {path}"
+                     f"doesn't exist in {hd_file}"
             assert "MUERR_VPEC" in df.columns, msgerr
-            # xxx mark delete df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df['biasScale_muCOV']*df["MUERR_VPEC"] ** 2)
+
             df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2) # removed biasScale_muCOV
             logging.debug("Subtracted MUERR_VPEC from MUERR")
-        #elif config.get("CALIBRATORS"):
-        #    calib_mask = df["CID"].isin(config.get("CALIBRATORS"))
-        #    df.loc[calib_mask, VARNAME_MUERR] = \
-        #        np.sqrt(df.loc[calib_mask, VARNAME_MUERR] ** 2 - \
-        #        df.loc[calib_mask, "MUERR_VPEC"] ** 2)
-        df['CIDstr'] = df['CID'].astype(str)+"_"+df['IDSURVEY'].astype(str)
-        df = df.set_index(["IDSURVEY", "CID"])
+
+
+        df['CIDstr'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
+
+        # we need to make a new column to index the dataframe on unique rows for merging two 
+        # different systematic dfs - Dillon
+        df['CIDindex'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
+        df = df.set_index("CIDindex")
+
     elif VARNAME_z in df.columns:
-        # should not be needed here for M0DIF, but what the heck
+        # should not z-sorting here for M0DIF, but what the heck
         df = df.sort_values(VARNAME_z)
 
     # - - - -  -
-    # strip out only what is needed for CosmoMC; ignore the rest
-    # .xyz BEWARE: do not strip for rebin
-    # mark delete  df = df.loc[:, ["z", "MU", "MUERR", "MUREF"]]
     
     return df
     # end load_hubble_diagram
@@ -241,9 +306,11 @@ def get_hubble_diagrams(folder, args, config):
 
     folder_expand = Path(os.path.expandvars(folder))
     logging.debug(f"Loading all data files in {folder_expand}")
-    HD_list = {}
+    HD_list     = {}
     infile_list = []
     label_list  = []
+    first_load  = True
+    isdata_real = -1  # init to unknwon data or sim
 
     for infile in sorted(os.listdir(folder_expand)):
 
@@ -269,13 +336,15 @@ def get_hubble_diagrams(folder, args, config):
 
             infile_list.append(infile)
             label_list.append(label)
-
+            hd_file = folder_expand/infile
             # grab contents of every M0DIF(binned) or FITRES(unbinned) file 
-            HD_list[label] = load_hubble_diagram(folder_expand/infile,
-                                                 args, config)
-
+            HD_list[label] = load_hubble_diagram(hd_file, args, config)
+            if first_load:  isdata_real = check_isdata_real(hd_file)
+            first_load = False
 
     #sys.exit(f"\n xxx\n result = {result} \n")
+
+    config[KEYNAME_ISDATA] = isdata_real # Oct 6 2021, R.Kessler
 
     # - - - - -  -
     # for unbinned or rebin, select SNe that are common to all 
@@ -293,7 +362,7 @@ def get_hubble_diagrams(folder, args, config):
             HD_list[label] = rebin_hubble_diagram(config,HD_list[label])
 
     return HD_list
-
+    # end get_hubble_diagrams
 
 def get_common_set_of_sne(datadict):
 
@@ -410,8 +479,6 @@ def rebin_hubble_diagram(config, HD_unbinned):
             print(f"\n xxx z   = \n{col_z[binmask]}\n")
             print(f"\n xxx wgt = \n{wgt[binmask]}\n")
             sys.exit(f"\n xxx DEBUG DIE xxx \n")
-            
-# .xyz
 
 #    print(f"\n xxx HD_unbinned = \n{HD_unbinned}")
 
@@ -465,18 +532,21 @@ def get_cov_from_covfile(data, covfile, scale):
     covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
     covindf['CID1'] = covindf['CID1'].astype(str)+"_"+covindf['IDSURVEY1'].astype(str)
     covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
-    covindf = covindf.set_index(["CID1", "CID2"])
     covout = np.zeros((len(data),len(data)))
-    for i,cid1,ra1,dec1 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
-        nmissing = 0
-        for j,cid2,ra2,dec2 in zip(range(len(data)),data['CIDstr'],data['RA'],data['DEC']):
-            try:
-                covout[i,j] = covindf.loc[(cid1,cid2), "MU_COV"]
-            except KeyError:
-                nmissing+=1
-        if nmissing > 100:
-            logging.info(f'{i} {cid1} RA {ra1} DEC {dec1} \t MISSING FROM COVFILE')
-        
+    for i,row in covindf.iterrows():
+        if len(np.argwhere(data['CIDstr'] == row['CID1'])) == 0:
+            print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
+            continue
+        if len(np.argwhere(data['CIDstr'] == row['CID2'])) == 0:
+            print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
+            continue
+        ww1 = np.argwhere(data['CIDstr'] == row['CID1'])[0][0]
+        ww2 = np.argwhere(data['CIDstr'] == row['CID2'])[0][0]
+        #if ww1 == ww2:
+        #    print('skipping, not doing same SN diagonals')
+        #    continue
+        covout[ww1,ww2] = row['MU_COV']
+
     return covout, (0, 0, 0)
 
 def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales, extracovdict):
@@ -551,11 +621,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     # move away from legacy, but dont want to make too many people 
     # change how they are doing things in one go
 
-    # xxxx mark delete May 14 2021 (RK) xxxxxxxx
-    #label, fitopt_filter, muopt_filter = \
-    #    re.findall(r"\[(.*)\] \[(.*),(.*)\]", covopt)[0]
-    # xxxxxxxx end mark xxxxxxxxx
-
     # split covopt into two terms so that extra pad spaces 
     # doesn't break findall command (RK May 14 2021)  
     tmp0 = covopt.split()[0]
@@ -579,10 +644,12 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         if apply_filter(fitopt_label, fitopt_filter) and \
            apply_filter(muopt_label, muopt_filter):
             if final_cov is None:
-                final_cov = cov.copy()
-            else:
+                final_cov = cov.copy()*0
+            if True:
                 # If we have calibrators and this is VPEC term, filter out calib
-                if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC")):
+                if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC") or \
+                                    apply_filter(fitopt_label, "+ZSHIFT") or apply_filter(muopt_label, "+ZSHIFT")):
+                    print(f'FITOPT {fitopt_label} MUOPT {muopt_label} ignored for calibrators...')
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0
@@ -595,7 +662,8 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     # Validate that the final_cov is invertible
     try:
-        # CosmoMC will add the diag terms, so lets do it here and make sure its all good
+        # CosmoMC will add the diag terms, 
+        # so lets do it here and make sure its all good
         effective_cov = final_cov + np.diag(base[VARNAME_MUERR] ** 2)
 
         # First just try and invert it to catch singular matrix errors
@@ -619,132 +687,81 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     return label, final_cov
 
 
-def write_dataset(path, data_file, cov_file, template_path):
-    with open(template_path) as f_in:
-        with open(path, "w") as f_out:
-            f_out.write(f_in.read().format(data_file=data_file, cov_file=cov_file))
+def write_standard_output(config, unbinned, covs, base):
+    # Created 9.22.2021 by R.Kessler
+    # Write standard cov matrices and HD for cosmology fitting programs;
+    # e.g., wfit, CosmoSIS, firecrown ...
+    # Note that CosmoMC uses a more specialized output created
+    # by write_cosmomc_output().
 
+    logging.info("")
+    logging.info("   OUTPUT  ")
 
-def write_data_jla(path, base, cosmomc_format=True):
+    outdir = Path(config["OUTDIR"])
+    os.makedirs(outdir, exist_ok=True)
 
-    logging.info(f"Write Hubble diagram for cosmomc-jla method")
-    if not cosmomc_format:
-        base[[VARNAME_z, VARNAME_MU, VARNAME_MUERR]].to_csv(path, sep=" ", index=True, float_format="%.5f")
-        return
+    data_file = outdir / HD_FILENAME
 
-    zs   = base[VARNAME_z].to_numpy()
-    mu   = base[VARNAME_MU].to_numpy()
-    mbs  = -19.36 + mu
-    mbes = base[VARNAME_MUERR].to_numpy()
+    if unbinned :
+        write_HD_unbinned(data_file, base)
+    else:
+        write_HD_binned(data_file, base)
 
-    # I am so sorry about this, but CosmoMC is very particular
-    logging.info(f"Writing out data to {path}")
-    with open(path, "w") as f:
-        f.write("#name zcmb    zhel    dz mb        dmb     x1 dx1 color dcolor 3rdvar d3rdvar cov_m_s cov_m_c cov_s_c set ra dec biascor\n")
-        for i, (z, mb, mbe) in enumerate(zip(zs, mbs, mbes)):
-            f.write(f"{i:5d} {z:6.5f} {z:6.5f} 0  {mb:8.5f} {mbe:8.5f} 0 0 0 0 0 0 0 0 0 0 0 0\n")
+    # Create covariance matrices and datasets
+    opt_cov = 1  # tag rows and diagonal elements
+    for i, (label, cov) in enumerate(covs):
+        covsys_file = outdir / f"{PREFIX_COVSYS}_{i:03d}.txt" 
+        write_covariance(covsys_file, cov, opt_cov)
 
+    # end write_standard_output
 
+# =====================================
+# cosmomc utilities
 
-def write_data_bbc(path, base):
-    # Dec 2020
-    # Write format for new BBC method in cosmomc
+def write_cosmomc_output(config, args, covs, base):
 
-    z_list      = base[VARNAME_z].to_numpy()
-    mu_list     = base[VARNAME_MU].to_numpy()
-    muerr_list  = base[VARNAME_MUERR].to_numpy()
-    
-    #sys.exit(f"\n xxx DEBUG DIE xxxx\n ")
+    # Copy & modify INI files. 
+    # Create covariance matrices
+    # Create dataset file
+ 
+    logging.info("")
+    logging.info("# - - - - - - - - - - - - - - - - - - - - - - - -")
+    logging.info(f"       OUTPUT FOR COSMOMC-JLA ")
 
-    logging.info(f"Writing out data to {path}")
-    with open(path, "w") as f:
-        f.write("# name zcmb    zhel    dz  mu   muerr\n")
-        for i, (z, mu, muerr) in enumerate(zip(z_list, mu_list, muerr_list)):
-            f.write(f"{i:5d} {z:6.5f} {z:6.5f} 0  {mu:8.5f} {muerr:8.5f} \n")
+    OUTDIR           = config["OUTDIR"]
+    cosmomc_path     = config["COSMOMC_TEMPLATES_PATH"]
+    dataset_file     = config["COSMOMC_DATASET_FILE"]
+    unbinned         = args.unbinned
 
-def write_covariance(path, cov):
-
-    cosmomc_method = config["COSMOMC_METHOD"]
-    file_base      = os.path.basename(path)
-    covdet         = np.linalg.det(cov)
-    nrow           = cov.shape[0]
-
-    logging.info(f"Write cov to {path}")
-
-    # RK - write diagnostic to check if anything changes
-    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:.5e}")
-
-    # - - - - -
-    # Write out the matrix
-    nwr = 0 ; rownum = 0; colnum=0
-
-    with open(path, "w") as f:
-        f.write(f"{nrow}\n")
-
-        for c in cov.flatten():
-
-            if cosmomc_method == COSMOMC_METHOD_JLA :
-                f.write(f"{c:.14f}\n")
-            else:
-                # for bbc method write human-readable cov:
-                # comment line for each new row, and off-diag elements
-                # are indented with pad_space
-                nwr += 1
-                is_new_row = False
-                pad_space  = "   "   # few spaces for off-diag
-                if (nwr-1) % nrow == 0 : 
-                    is_new_row = True ; rownum += 1 ; colnum = 0
-                colnum += 1
-                if rownum == colnum : 
-                    pad_space = ""  # no pad space for diagonal
-
-                if is_new_row:
-                    f.write(f"# -------- Begin Row {rownum} of {nrow} " \
-                            f"-----------\n")
-                f.write(f"{pad_space}{c:11.8f}\n")
-
-
-def write_cosmomc_output(config, covs, base):
-    # Copy INI files. Create covariance matrices. Create .dataset. Modifying INI files to point to resources
-    out = Path(config["OUTDIR"]) / "cosmomc"
-
-    dataset_template = Path(config["COSMOMC_TEMPLATES"]) / config["DATASET_FILE"]    
-    dataset_files = []
-    cosmomc_method = config["COSMOMC_METHOD"]
+    out              = Path(OUTDIR) / SUBDIR_COSMOMC
+    dataset_template = Path(cosmomc_path) / dataset_file
+    dataset_files    = []
 
     os.makedirs(out, exist_ok=True)
 
     # Create lcparam file
-    if cosmomc_method == COSMOMC_METHOD_JLA :
-        data_file      = out / f"data.txt"
-        data_file_wCID = out / f"data_wCID.txt"
-        prefix_covsys  = "sys"
-        write_data_jla(data_file, base)
-        write_data_jla(data_file_wCID, base, cosmomc_format=False)
-    elif cosmomc_method == COSMOMC_METHOD_BBC :
-        data_file      = out / f"hubble_diagram.txt"
-        data_file_wCID = out / f"hubble_diagram_wCID.txt"
-        prefix_covsys  = "covsyst"
-        write_data_bbc(data_file, base)
-    else:
-        msg = f"Invalid COSMOMC method = {cosmomc_method}"
-        raise ValueError(msg)
-
-    # ?? Create supplementary file for people to merge covmat with fitres ??
+    
+    data_file      = out / f"data.txt"
+    data_file_wCID = out / f"data_wCID.txt"
+    prefix_covsys  = "sys"
+    write_cosmomc_HD(data_file, base, unbinned)
+    write_cosmomc_HD(data_file_wCID, base, unbinned, cosmomc_format=False)
 
     # Create covariance matrices and datasets
+    opt_cov = 0     # write cov with no comments
     for i, (label, cov) in enumerate(covs):
         dataset_file = out / f"dataset_{i}.txt"
         covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
 
-        write_covariance(covsyst_file, cov)
-        write_dataset(dataset_file, data_file, covsyst_file, dataset_template)
+        write_covariance(covsyst_file, cov, opt_cov)
+        write_cosmomc_dataset(dataset_file, data_file, 
+                              covsyst_file, dataset_template)
         dataset_files.append(dataset_file)
 
     # Copy some INI files
-    ini_files = [f for f in os.listdir(config["COSMOMC_TEMPLATES"]) if f.endswith(".ini") or f.endswith(".yml") or f.endswith(".md")]
+    ini_files = [f for f in os.listdir(cosmomc_path) if f.endswith(".ini") or f.endswith(".yml") or f.endswith(".md")]
     for ini in ini_files:
-        op = Path(config["COSMOMC_TEMPLATES"]) / ini
+        op = Path(cosmomc_path) / ini
 
         if ini in ["base.ini"]:
             # If its the base.ini, just copy it
@@ -765,6 +782,158 @@ def write_cosmomc_output(config, covs, base):
                     f.write(f"jla_dataset={dataset_files[i]}\n")
 
 
+    logging.info("# - - - - - - - - - - - - - - - - - - - - - - - -")
+    logging.info("")
+
+    # end write_cosmomc_output
+
+def write_cosmomc_dataset(path, data_file, cov_file, template_path):
+    with open(template_path) as f_in:
+        with open(path, "w") as f_out:
+            f_out.write(f_in.read().format(data_file=data_file, 
+                                           cov_file=cov_file))
+    # end write_cosmomc_dataset
+
+def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
+
+    if not cosmomc_format:
+        if unbinned:
+            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+        else:
+            varlist = [VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+
+        base[varlist].to_csv(path, sep=" ", index=False, float_format="%.5f")
+        return
+
+    zs   = base[VARNAME_z].to_numpy()
+    mu   = base[VARNAME_MU].to_numpy()
+    mbs  = -19.36 + mu
+    mbes = base[VARNAME_MUERR].to_numpy()
+
+    # I am so sorry about this, but CosmoMC is very particular
+    logging.info(f"Write HD to {path}")
+    with open(path, "w") as f:
+        f.write("#name zcmb    zhel    dz mb        dmb     x1 dx1 color dcolor 3rdvar d3rdvar cov_m_s cov_m_c cov_s_c set ra dec biascor\n")
+        for i, (z, mb, mbe) in enumerate(zip(zs, mbs, mbes)):
+            f.write(f"{i:5d} {z:6.5f} {z:6.5f} 0  {mb:8.5f} {mbe:8.5f} " \
+                    f"0 0 0 0 0 0 0 0 0 0 0 0\n")
+
+    # end write_cosmomc_HD
+
+# ========= end cosmomc utils ====================
+
+
+def write_HD_binned(path, base):
+
+    # Dec 2020
+    # Write standard binned HD format for BBC method
+    # Sep 30 2021: replace csv format with SNANA fitres format
+    
+    #if "CID" in df.columns:
+
+    logging.info(f"Write binned HD to {path}")
+    
+    varname_row = "ROW"
+    keyname_row = "ROW:"
+    varlist = f"{varname_row} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+
+    name_list   = base[varname_row].to_numpy()
+    z_list      = base[VARNAME_z].to_numpy()
+    mu_list     = base[VARNAME_MU].to_numpy()
+    muerr_list  = base[VARNAME_MUERR].to_numpy()
+
+    with open(path, "w") as f:
+        f.write(f"VARNAMES: {varlist}\n")
+        for (name, z, mu, muerr) in \
+            zip(name_list, z_list, mu_list, muerr_list):
+            val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
+            f.write(f"{keyname_row} {val_list}\n")
+
+    # end write_HD_binned
+
+def write_HD_unbinned(path, base):
+
+    # Dec 2020
+    # Write standard unbinned HD format for BBC method
+    # Sep 30 2021: replace csv format with SNANA fitres format
+    
+    #if "CID" in df.columns:
+
+    logging.info(f"Write unbinned HD to {path}")
+    
+    #print(f"\n xxx base=\n{base} \n")
+
+    varname_row = "CID"
+    keyname_row = "SN:"
+
+    varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
+              f"zCMB zHEL " \
+              f"{VARNAME_MU} {VARNAME_MUERR}"
+
+    name_list   = base[VARNAME_CID].to_numpy()
+    idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
+    z_list      = base[VARNAME_z].to_numpy()
+    mu_list     = base[VARNAME_MU].to_numpy()
+    muerr_list  = base[VARNAME_MUERR].to_numpy()
+
+    # check for optional quantities that may not exist in older files
+    found_muerr_vpec = VARNAME_MUERR_VPEC in base
+    if found_muerr_vpec :   
+        varlist += f" {VARNAME_MUERR_VPEC}"
+        muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
+    else:
+        muerr2_list = muerr_list # anything for zip command
+
+    # - - - - - - -
+    # .xyz
+    with open(path, "w") as f:
+        f.write(f"VARNAMES: {varlist}\n")
+        for (name, idsurv, z, mu, muerr, muerr2) in \
+            zip(name_list, idsurv_list, z_list, 
+                mu_list, muerr_list, muerr2_list ):
+            val_list = f"{name:<10} {idsurv:3d} " \
+                       f"{z:6.5f} {z:6.5f} " \
+                       f"{mu:8.5f} {muerr:8.5f}"
+            if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
+
+            f.write(f"{keyname_row} {val_list}\n")
+
+    # end write_HD_unbinned
+
+def write_covariance(path, cov, opt_cov):
+
+    add_labels     = (opt_cov == 1) # label each element in comment field
+    file_base      = os.path.basename(path)
+    covdet         = np.linalg.det(cov)
+    nrow           = cov.shape[0]
+
+    logging.info(f"Write cov to {path}")
+
+    # RK - write diagnostic to check if anything changes
+    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:.5e}")
+    sys.stdout.flush() 
+
+    # - - - - -
+    # Write out the matrix
+    nwr = 0 ; rownum = -1; colnum=-1
+
+    with open(path, "wt") as f:
+        f.write(f"{nrow}\n")
+        for c in cov.flatten():
+            nwr += 1
+            is_new_row = False
+            if (nwr-1) % nrow == 0 : 
+                is_new_row = True ; rownum += 1 ; colnum = -1
+            colnum += 1
+
+            label = ""
+            if add_labels:
+                label = f"# ({rownum},{colnum})"
+                if colnum == 0 : label += " ------ "
+            f.write(f"{c:12.8f}  {label}\n")
+
+    # end write_covariance
+
 def write_summary_output(config, covariances, base):
     out = Path(config["OUTDIR"])
     info = {}
@@ -773,13 +942,16 @@ def write_summary_output(config, covariances, base):
         cov_info[i] = label
     info["COVOPTS"] = cov_info
 
-    logging.info("Writing INFO.YML")
+    info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+
+    logging.info("Write INFO.YML")
     with open(out / "INFO.YML", "w") as f:
         yaml.safe_dump(info, f)
 
+    # end write_summary_output
 
 def write_correlation(path, label, base_cov, diag, base):
-    logging.debug(f"\tWriting out cov for COVOPT {label}")
+    logging.debug(f"\tWrite out cov for COVOPT {label}")
 
     zs = base[VARNAME_z].round(decimals=5)
     cov = diag + base_cov
@@ -824,7 +996,7 @@ def write_debug_output(config, covariances, base, summary):
     out = Path(config["OUTDIR"])
 
     # The slopes can be used to figure out what systematics have largest impact on cosmology
-    logging.info("Writing out summary.csv information")
+    logging.info("Write out summary.csv information")
     with open(out / "summary.csv", "w") as f:
         with pd.option_context("display.max_rows", 100000, "display.max_columns", 100, "display.width", 1000):
             f.write(summary.__repr__())
@@ -857,15 +1029,16 @@ def remove_nans(data):
 
 def create_covariance(config, args):
     # Define all our pathing to be super obvious about where it all is
-    input_dir = Path(config["INPUT_DIR"])
-    version   = config["VERSION"]
-    data_dir  = input_dir / version
-    sys_file  = Path(config["SYSFILE"])
-    extra_covs = config.get("EXTRA_COVS",[])
-    
+    input_dir       = Path(config["INPUT_DIR"])
+    version         = config["VERSION"]
+    data_dir        = input_dir / version
+    sys_scale_file  = Path(config["SYS_SCALE_FILE"])
+    extra_covs      = config.get("EXTRA_COVS",[])
+    use_cosmomc     = config['use_cosmomc']
+
     # Read in all the needed data
-    submit_info = read_yaml(input_dir / "SUBMIT.INFO")
-    sys_scale = read_yaml(sys_file)
+    submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
+    sys_scale     = read_yaml(sys_scale_file)
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
 
     # Also need to get the MUOPT labels from the original LCFIT directory
@@ -882,10 +1055,13 @@ def create_covariance(config, args):
     # Feb 15 2021 RK - check option to selet only one of the muopt
     if args.muopt >= 0 :
         tmp_label    = muopt_labels[args.muopt]
-        #muopt_labels = { args.muopt : tmp_label }
         muopt_labels = { args.muopt : "DEFAULT" }     
     
-    muopt_scales = config["MUOPT_SCALES"]
+    if 'MUOPT_SCALES' in config:
+        muopt_scales = config["MUOPT_SCALES"]
+    else:
+        muopt_scales = { "DEFAULT", 1.0 }
+
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]
 
@@ -894,30 +1070,62 @@ def create_covariance(config, args):
     data = get_hubble_diagrams(data_dir, args, config)
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
-    # Now that we have the data, figure out how each much each FITOPT/MUOPT pair contributes to cov
+    # Now that we have the data, figure out how each much each
+    # FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
-                                               muopt_labels, muopt_scales, extracovdict)
+                                               muopt_labels, 
+                                               muopt_scales, 
+                                               extracovdict)
+
     # find contributions which match to construct covs for each COVOPT
     logging.info(f"Compute covariance for COVOPTS")
-    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  # Adds covopt to compute everything
+
+    # Add covopt to compute everything
+    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
+
     covariances = [get_cov_from_covopt(c, contributions, base, 
                                        config.get("CALIBRATORS")) for c in covopts]
-    
-    write_cosmomc_output(config, covariances, base)
+
+    # write standard output (9.22.2021)
+    write_standard_output(config, args.unbinned, covariances, base)
+
+    # write specialized output for cosmoMC sampler
+    if use_cosmomc :
+        write_cosmomc_output(config, args, covariances, base)
+
     write_summary_output(config, covariances, base)
-    write_debug_output(config, covariances, base, summary)
+
+    # xxxxx mark delete Sep 2021 R.K
+    #  write_debug_output(config, covariances, base, summary)
+    # xxxxxxxxxx
+
+    # end create_covariance
 
 def prep_config(config,args):
 
-    path_list = [ 'OUTDIR', 'SYSFILE', 'INPUT_DIR', 'COSMOMC_TEMPLATES' ]
+    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
+                  'COSMOMC_TEMPLATES_PATH' ]
+    
+    # 9.22.2021 RK - check legacy keys
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+                        'SYSFILE' ]
+    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
+                        'SYS_SCALE_FILE' ]
+
+    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
+        if key_legacy in config:
+            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
+            logging.info(msg)
+            config[key_update] = config[key_legacy] 
 
     for path in path_list:
-        config[path] = os.path.expandvars(config[path]) ;   
+        if path in config:
+            config[path] = os.path.expandvars(config[path]) ;   
 
-    # if cosmomc method is NOT specified, revert to legacy jla method
-    # to preserve current/old inputs for pippin
-    if KEYNAME_COSMOMC_METHOD not in config:
-        config[KEYNAME_COSMOMC_METHOD] = COSMOMC_METHOD_JLA
+    # check special/legacy features for cosmoMC/JLA
+    config['use_cosmomc'] = False
+    if 'COSMOMC_TEMPLATES_PATH' in config: 
+        config['use_cosmomc'] = True
 
     # WARNING: later add option to read from input file
     #sys.exit(f" xxx nbin(x1,c) = {args.nbin_x1} {args.nbin_c} ")
@@ -925,11 +1133,6 @@ def prep_config(config,args):
     config['nbin_c']  = args.nbin_c
 
     # check override args (RK, Feb 15 2021)
-
-    if args.method is not None :
-        config["COSMOMC_METHOD"] = args.method
-        logging.info(f"OPTION: override COSMOMC_METHOD with {args.method}")
-        
     if args.input_dir is not None :
         config["INPUT_DIR"] = args.input_dir
         logging.info(f"OPTION: override INPUT_DIR with {args.input_dir}")
@@ -946,6 +1149,8 @@ def prep_config(config,args):
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
         
+    # end prep_config
+
 # ===================================================
 if __name__ == "__main__":
     try:

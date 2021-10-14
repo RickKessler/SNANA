@@ -42,6 +42,13 @@
 # May 24 2021: check option to use events from FITOPT000
 # May 27 2021: new def make_FITOPT_OUT_LIST 
 #                 (append_fitopt_info_file is obsolete)
+# Aug 09 2021: 
+#     use def get_wfit_values() to handel legacy vs. refact yaml keys.
+#     Beware that new w0,wa model in wfit is NOT handled here [yet]
+# Sep 19 2021: write NEVT_bySAMPLE in BBC_SUMMARY_FITPAR.YAML
+# Sep 28 2021: include wa if -wa arg is specified for wfit
+# Oct 05 2021: move get_wfit_values to submit_util.py so that
+#                dedicated wfit class can use it too.
 #
 # - - - - - - - - - -
 
@@ -61,7 +68,7 @@ USE_INPDIR = True
 PREFIX_SALT2mu           = "SALT2mu"
 
 # define FIT column to extract FIT VERSION for FIT-MERGE.LOG
-COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_fit.py -> fragile
+COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_lcfit.py -> fragile
 
 # define colums in BBC MERGE.LOG
 COLNUM_BBC_MERGE_VERSION      = 1
@@ -1103,7 +1110,13 @@ class BBC(Program):
         #
         # function returns number of rows in catenated file
 
-        cmd_cat = f"SALT2mu.exe  " \
+        snana_dir    = self.config_yaml['args'].snana_dir
+        if snana_dir is None:
+            code_name = PROGRAM_NAME_BBC
+        else:
+            code_name = f"{snana_dir}/bin/{PROGRAM_NAME_BBC}"
+
+        cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
                   f"append_varname_missing='PROB*'  " \
@@ -1531,8 +1544,12 @@ class BBC(Program):
                 f"# number of BBC options\n")
         f.write(f"NSPLITRAN:      {n_splitran}      " \
                 f"# number of random sub-samples\n")
+
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
+        if use_wfit :
+            f.write(f"OPT_WFIT:       {CONFIG['WFITMUDIF_OPT']}    " \
+                    f"# wfit arguments\n")
 
         f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
         f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
@@ -1565,102 +1582,14 @@ class BBC(Program):
         f.write("\n")
         f.write("MUOPT_OUT_LIST:  " \
                 "# 'MUOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(muopt_num_list,muopt_arg_list,
+        for num,arg,label in zip(muopt_num_list, muopt_arg_list,
                                  muopt_label_list):
+            if arg == '' : arg = None  # 9.19.2021
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
 
         # end append_info_file
-
-    def append_fitopt_info_file(self,f):
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        #
-        # write list of output FITOPTS to filt pointer f, and include
-        #   FIOPTmmm  SURVEY  LABEL ARG
-        #
-        # where
-        #   SURVEY = GLOBAL if every INPDIR has valid arg
-        #   SURVEY = <survey> if only one INPDIR has valid arg
-        #   LABEL  = user label back in LC fit stage
-        #   ARG    = FITOPT argList used in LC fit
-        #
-        # The logic & code here is nasty because we have input FITOPTs
-        # in the LC fit stage, and output FITOPTs from FITOPT_MAP.
-
-        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #iver,ifit
-        fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
-        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
-        inpdir_list     = self.config_prep['inpdir_list']
-        n_inpdir        = self.config_prep['n_inpdir']
-        survey_list     = self.config_prep['survey_list']
-        dump_flag = False  # local dump flag
-
-        # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-        f.write("\n")
-        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
-                f"'user_label'   'user_args'\n")
-
-        if not USE_INPDIR : 
-            item_list = [ 'GLOBAL', 'FITOPT000', None, None ]
-            f.write(f"  - {item_list}\n")
-            return
-
-        ifit_out = 0
-        for fitopt_num_out in fitopt_num_list:            
-
-            if dump_flag :
-                print(" xxx ---------------------------------------- ")
-            # check if this FITOPT is global, or specific to one survey
-            fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
-            survey_store = 'ERROR' ;  label_store = None; arg_store = None 
-            for idir in range(0,n_inpdir):          
-                survey         = survey_list[idir]   
-                fitopt_num_inp = fitopt_num_inplist[idir]
-                ifit_inp       = int(fitopt_num_inp[6:])
-                row    = fitopt_table_list2d[idir][ifit_inp]
-                num    = row[COLNUM_FITOPT_NUM]  # e.g., FITOPT003
-                label  = row[COLNUM_FITOPT_LABEL]
-                arg    = row[COLNUM_FITOPT_ARG]
-                if arg == '' : # only for FITOPT000
-                    n_arg_none  += 1
-                elif arg == 'FITOPT000' : # sym link back to FITOPT000
-                    n_arg_FITOPT000 += 1  
-                else :                    # genuine LC fit arg list
-                    survey_store = survey
-                    arg_store    = arg
-                    label_store  = label
-                    n_arg_define += 1
-
-                if dump_flag :
-                    print(f" xxx {fitopt_num_out}: idir={idir} num={num} " \
-                          f"label={label} arg='{arg}'")
-
-            # - - - - - - - - - - - - - - - - - - - - - 
-            # if all args are valid, set survey_store to GLOBAL
-            if n_arg_define == n_inpdir or ifit_out == 0 :
-                survey_store = 'GLOBAL'
-
-            ifit_out += 1
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-
-            # construct and write yaml-compliant info list
-            item_list = []
-            item_list.append(fitopt_num_out)
-            item_list.append(survey_store)
-            item_list.append(label_store)
-            item_list.append(arg_store)
-            f.write(f"  - {item_list}\n")
-
-            # xxxxxx OBSOLETE MAY 27 2021 xxxxxxxxxx
-        # end append_fitopt_info_file
 
     def create_merge_table(self,f):
 
@@ -2189,11 +2118,45 @@ class BBC(Program):
             if len(MUOPT_LIST) > 0 :
                 f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
-            f.write(f"    NEVT(DATA,BIASCOR,CCPRIOR):  " \
-                    f" {NEVT_DATA} {NEVT_BIASCOR} {NEVT_CCPRIOR} \n")
-            f.write(f"    REJECT_FRAC_BIASCOR:  {frac_reject:.3f} " \
-                    f" # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+            f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
+                    f"        # DATA, BIASCOR, CCPRIOR\n")
 
+            # - - - - - - - - -
+            # check for NEVT by sample (9.19.2021)
+            if 'SAMPLE_LIST' in bbc_yaml :
+                # split string by commas and remove white space
+                tmp         = bbc_yaml['SAMPLE_LIST']
+                SAMPLE_LIST = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_DATA_bySAMPLE']
+                NEVT_DATA_bySAMPLE    = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_BIASCOR_bySAMPLE']
+                NEVT_BIASCOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                tmp = bbc_yaml['NEVT_CCPRIOR_bySAMPLE']
+                NEVT_CCPRIOR_bySAMPLE = [x.strip() for x in tmp.split(',')]
+
+                #print(f" xxx ---------------------------- ")
+                #print(f" xxx {fitopt_num}_{muopt_num}")
+                #print(f" xxx SAMPLE_LIST = {SAMPLE_LIST} ")
+                #print(f" xxx NEVT_DATA_bySAMPLE = {NEVT_DATA_bySAMPLE}")
+                
+                f.write(f"    NEVT_bySAMPLE:"
+                        f"                # DATA, BIASCOR, CCPRIOR\n")
+                for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+                                                  NEVT_DATA_bySAMPLE,
+                                                  NEVT_BIASCOR_bySAMPLE,
+                                                  NEVT_CCPRIOR_bySAMPLE) :
+                    key = f"{sample}:"
+                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+
+            # - - - - -
+            f.write(f"    REJECT_FRAC_BIASCOR:" 
+                    f"  # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+
+
+            # - - - - 
             for result in BBCFIT_RESULTS:
                 #print(f" xxx result = {result}  key = {result.keys()} ")
                 for key in result:
@@ -2217,15 +2180,28 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         n_splitran       = submit_info_yaml['NSPLITRAN']
+        opt_wfit         = submit_info_yaml['OPT_WFIT']
+        use_wfit_w0wa    = '-wa'    in opt_wfit
+        use_wfit_blind   = '-blind' in opt_wfit
 
         # - - - 
         SUMMARYF_FILE     = (f"{output_dir}/{WFIT_SUMMARY_FILE}")
         f = open(SUMMARYF_FILE,"w") 
 
+        varname_w   = "w"
+        if use_wfit_w0wa : varname_w = "w0"
+        varname_wa  = "wa"
+        varname_omm = "omm"
+        
+        # prepare w-varnames for varnames
+        varlist_w = f"{varname_w} {varname_w}sig"
+        if use_wfit_w0wa :
+            varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
+
+
         varnames = (f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
-                    f"w w_sig  omm omm_sig  "\
-                    f"chi2 sigint wrand ommrand  \n" )
-        f.write(f"{varnames}\n")
+                    f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
+                    f"chi2 sigint   \n" )
 
         # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
@@ -2250,16 +2226,41 @@ class BBC(Program):
             wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
 
             # extract wfit values into local variables
-            w   = wfit_yaml['w']   ; w_sig   = wfit_yaml['w_sig']
-            omm = wfit_yaml['omm'] ; omm_sig = wfit_yaml['omm_sig']
-            chi2  = wfit_yaml['chi2'] ;  sigint= wfit_yaml['sigint']
-            wrand   = int(wfit_yaml['wrand']) 
-            ommrand = int(wfit_yaml['ommrand'])
+            wfit_values_dict = util.get_wfit_values(wfit_yaml)
+
+            w       = wfit_values_dict['w']  
+            w_sig   = wfit_values_dict['w_sig']
+            wa      = wfit_values_dict['wa']    
+            wa_sig  = wfit_values_dict['wa_sig']
+            omm     = wfit_values_dict['omm']  
+            omm_sig = wfit_values_dict['omm_sig']
+            chi2    = wfit_values_dict['chi2'] 
+            sigint  = wfit_values_dict['sigint']
+            w_ran   = int(wfit_values_dict['w_ran']) 
+            wa_ran  = int(wfit_values_dict['wa_ran'])
+            omm_ran = int(wfit_values_dict['omm_ran'])
+
+            if use_wfit_w0wa :
+                w0 = w ; w0_sig = w_sig
+                w_values = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+            else:
+                w_values = f"{w:7.4f} {w_sig:6.4f}"
 
             string_values = \
                 (f"{nrow:3d}  {version} {ifit} {imu} " \
-                 f"{w:7.4f} {w_sig:6.4f}  {omm:6.4f} {omm_sig:6.4f} " \
-                 f"{chi2:.1f} {sigint:.3f} {wrand} {ommrand} ")
+                 f"{w_values}  {omm:6.4f} {omm_sig:6.4f} " \
+                 f"{chi2:.1f} {sigint:.3f} ")
+
+            if nrow == 1 and use_wfit_blind: 
+                f.write(f"# cosmology params blinded.\n")
+                f.write(f"#   {varname_w:<3} includes sin({w_ran}) \n")
+                if use_wfit_w0wa :
+                    f.write(f"#   {varname_wa:<3} includes sin({wa_ran}) \n")
+                f.write(f"#   {varname_omm:<3} includes sin({omm_ran}) \n")
+                f.write(f"\n")
+
+            if nrow==1 : 
+                f.write(f"{varnames}\n")
 
             f.write(f"{KEY_ROW} {string_values}\n")
 
@@ -2430,8 +2431,9 @@ class BBC(Program):
 
             for yaml_file in yaml_list :
                 tmp_yaml  = util.extract_yaml(yaml_file, None, None )
-                w         = tmp_yaml['w']
-                w_sig     = tmp_yaml['w_sig']
+                wfit_values_dict = util.get_wfit_values(tmp_yaml)
+                w       = wfit_values_dict['w']  
+                w_sig   = wfit_values_dict['w_sig']
                 w_list.append(w)
                 werr_list.append(w_sig)
             value_list2d[ivar] = w_list

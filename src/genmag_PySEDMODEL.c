@@ -890,6 +890,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   // March 2019
   // Return PySEDMODEL spectrum in SPECTROGRAPH bins
   //
+  // Aug 26 2021: remove buggy 1/z1 factor
 
   double hc8   = (double)hc ;
   double z1    = 1.0 + zHEL ;
@@ -916,7 +917,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     LAM  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP   = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP = (LAM/(hc8*z1)) * GENFLUX_LIST[ilam] ;
+    FTMP = ( LAM/ hc8 ) * GENFLUX_LIST[ilam] ;
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
       MAG = -2.5*log10(FTMP) + ZP ;
     }

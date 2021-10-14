@@ -28,14 +28,16 @@ SNDATA_ROOT      = os.environ['SNDATA_ROOT']
 SHELL            = os.environ['SHELL']
 
 # generic program types to control batch flow
-PROGRAM_TYPE_SIM  = "SIM"  # simulation
-PROGRAM_TYPE_FIT  = "FIT"  # light curve fit (e.g., SALT2, PSNID, ...)
-PROGRAM_TYPE_BBC  = "BBC"  # BEAMS with bias corrections
+PROGRAM_TYPE_SIM    = "SIM"    # simulation
+PROGRAM_TYPE_LCFIT  = "FIT"    # light curve fit (e.g., SALT2, PSNID, ...)
+PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
+PROGRAM_TYPT_WFIT   = "WFIT"   # fast cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM   =  "snlc_sim.exe"
-PROGRAM_NAME_FIT   =  "snlc_fit.exe"
+PROGRAM_NAME_LCFIT =  "snlc_fit.exe"
 PROGRAM_NAME_BBC   =  "SALT2mu.exe"
+PROGRAM_NAME_WFIT  =  "wfit.exe"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
 SUBMIT_MODE_BATCH = "BATCH"
@@ -43,8 +45,9 @@ SUBMIT_MODE_SSH   = "SSH"
 
 # define subDir for batch scripts
 SUBDIR_SCRIPTS_SIM   = "" 
-SUBDIR_SCRIPTS_FIT   = "SPLIT_JOBS_LCFIT"
+SUBDIR_SCRIPTS_LCFIT = "SPLIT_JOBS_LCFIT"
 SUBDIR_SCRIPTS_BBC   = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_WFIT  = "SCRIPTS_WFIT"
 SUBDIR_SCRIPTS_TRAIN = "SCRIPTS_TRAIN"
 SUBDIR_OUTPUT_TRAIN  = "OUTPUT_TRAIN"
 SUBDIR_CALIB_TRAIN   = "CALIB_TRAIN"
@@ -231,8 +234,8 @@ HELP_CONFIG_SIM =  f"""
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
-  JOBNAME: $MY_PATH/snlc_sim.exe 
+  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_SIM}
+  JOBNAME: $MY_PATH/{PROGRAM_NAME_SIM}
 
   # option to re-route data files (default is $SNDATA_ROOT/SIM)
   PATH_SNDATA_SIM:  $SCRATCH_SIMDIR 
@@ -305,15 +308,15 @@ GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
 """
 
 
-HELP_CONFIG_FIT = f"""    
+HELP_CONFIG_LCFIT = f"""    
    ***** HELP/MENU for LightCurveFit YAML Input *****
 
     All YAML input must go above &SNLCINP nameList block.
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
-  JOBNAME: $MY_PATH/snlc_fit.exe 
+  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_LCFIT}
+  JOBNAME: $MY_PATH/{PROGRAM_NAME_LCFIT}
 
   OUTDIR:  [outdir]              # all output goes here
   VERSION:
@@ -372,20 +375,20 @@ HELP_CONFIG_FIT = f"""
   - DES_TEST3_FITOPT002
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# * Namelists below are used by snana.exe, psnid.exe, snlc_fit.exe.
+# * Namelists below are used by snana.exe, psnid.exe, {PROGRAM_NAME_LCFIT}.
 # * Supplemental input files (e.g., KCOR_FILE) are copied to
-#     {SUBDIR_SCRIPTS_FIT} if path is not included in file name.
+#     {SUBDIR_SCRIPTS_LCFIT} if path is not included in file name.
 # * HFILE_OUT and ROOTFILE_OUT are logical flags for batch script.
 
   &SNLCINP
-   ! input for snana.exe, psnid.exe, snlc_fit.exe
+   ! input for snana.exe, psnid.exe, {PROGRAM_NAME_LCFIT}
     HFILE_OUT    = 'XYZ.HBOOK' # any name is logical flag for batch job
     ROOTFILE_OUT = 'XYZ.ROOT'  # any name is logical flag for batch job
    ! TEXT format is used regardless of whether TEXTFILE_PREFIX is defined
   &END
 
   &FITINP
-     ! input for snlc_fit.exe
+     ! input for {PROGRAM_NAME_LCFIT}
   &END
 
 # If the merge process fails for silly reason (e.g, insufficiency memory,
@@ -399,12 +402,49 @@ HELP_CONFIG_FIT = f"""
 
 """
 
+HELP_CONFIG_WFIT = f"""    
+   ***** HELP/MENU for wfit YAML Input *****
+
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_WFIT}
+  JOBNAME: $MY_PATH/{PROGRAM_NAME_WFIT}
+
+  # input directories for wfit are output by create_covariance.
+  # Each dir contains hubble diagram file, covsys_* files, and INFO.YML
+  INPDIR:
+  - <dir0>
+  - <dir1>
+  - <dir2>
+  - etc ...
+
+  # List wfit command-line options; each row is for a separate wfit job.
+  # Beware that there is no default setting, so WFITOPT starts here at 0.
+  WFITOPT:  
+  -  "-ompri 0.31 -dompri 0.01 "
+  -  "-cmb_sim -sigma_Rcmb 0.007 "
+  -  "-cmb_sim -sigma_Rcmb 0.007 -bao_sim"
+  -  "-wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007 "
+
+# optional global wfit options appended to each WFITOPT above
+  WFITOPT_GLOBAL: "-hsteps 61 -wsteps 101 -omsteps 81"
+
+# Default blind flag is set for data, but not for sim.
+# These defaults can be changed with
+  BLIND_DATA: False   # no blinding -> show results
+  BLIND_SIM:  True    # blind the sim results
+# The -blind flag cannot be included in WFITOPT above,
+# otherwise submit_batch will abort.
+
+  OUTDIR:  [outdir]              # all output goes here
+"""
+
 HELP_CONFIG_BBC = f"""
     ***** HELP/MENU for BBC YAML Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-  # optional switch from using default $SNANA_DIR/bin/SALT2mu.exe
-  JOBNAME: $MY_PATH/SALT2mu.exe 
+  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_BBC}
+  JOBNAME: $MY_PATH/{PROGRAM_NAME_BBC}
 
   INPDIR+: 
   - dirSurvey1  # LCFIT OUTDIR for Survey1
@@ -743,8 +783,9 @@ A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 # - - - - - - - 
 HELP_MENU = { 
     'SIM'         : HELP_CONFIG_SIM,
-    'FIT'         : HELP_CONFIG_FIT,
+    'LCFIT'       : HELP_CONFIG_LCFIT,
     'BBC'         : HELP_CONFIG_BBC,
+    'WFIT'        : HELP_CONFIG_WFIT,
     'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,
     'TRANSLATE'   : HELP_TRANSLATE,

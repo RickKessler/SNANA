@@ -66,7 +66,9 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXWGT_HOSTLIB     20000000  // max size of wgtmap
+//#define MXWGT_HOSTLIB     20000000  // max size of wgtmap xxx
+#define MXROW_WGTMAP      20000000  // 20 million, Alex Gagliano 09/2021
+#define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file
@@ -122,8 +124,13 @@
 #define HOSTLIB_VARNAME_ANGLE        "a_rot"    // rotation angle
 #define HOSTLIB_VARNAME_FIELD        "FIELD" 
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
+#define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
+#define HOSTLIB_VARNAME_GALID2       "GALID2"
+#define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
+#define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED -9999
 
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
@@ -159,7 +166,8 @@ struct HOSTLIB_DEF {
 
   char VARNAME_REQUIRED[MXVAR_HOSTLIB][40];
   char VARNAME_OPTIONAL[MXVAR_HOSTLIB][40];
-  char VARNAME_ALL[MXVAR_HOSTLIB][40];
+  char VARNAME_ALL[MXVAR_HOSTLIB][40];  // all names
+  char VARNAME_ORIG[MXVAR_HOSTLIB][40]; // all original names
   char VARNAME_STORE[MXVAR_HOSTLIB][40];  
   
   int  IVAR_ALL[MXVAR_HOSTLIB];  // [sparse store index] = ALL-ivar
@@ -205,11 +213,16 @@ struct HOSTLIB_DEF {
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
   int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
+  int IGAL_NBR_LIST;              // AG 08/2021
+  int IVAR_GALID2;                // AG 09/2021
+  int IVAR_ELLIPTICITY;
+  int IVAR_SQRADIUS;
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
+  int IVAR_MAGOBS_ERR[MXFILTINDX] ;     // pointer to observer-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read
@@ -433,7 +446,13 @@ typedef struct {
   double RA, DEC, SNSEP, DLR, DDLR ;
   double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
   double MAG[MXFILTINDX]; 
+  double MAG_ERR[MXFILTINDX];
   bool   TRUE_MATCH ;
+  // Added for LSST but maybe of more general utility
+  // Alex Gagliano 09/2021
+  long long GALID2 ; // Second ID e.g., from external catalog
+  double SQRADIUS; // Ixx + Iyy
+  double ELLIPTICITY;
 } SNHOSTGAL_DDLR_SORT_DEF ;
 
 SNHOSTGAL_DDLR_SORT_DEF SNHOSTGAL_DDLR_SORT[MXNBR_LIST] ;
@@ -514,7 +533,8 @@ struct SNTABLEVAR_DEF {
   int    USED_IN_WGTMAP[MXVAR_HOSTLIB]; // to avoid printing same var twice
 
   // values updated for each event
-  double VALUE[MXVAR_HOSTLIB] ;   
+  // add second dimension -AG 08/2021
+  double VALUE[MXVAR_HOSTLIB][MXNBR_LIST] ;   
 } HOSTLIB_OUTVAR_EXTRA ;
 
 
@@ -661,7 +681,7 @@ double get_GALFLUX_HOSTLIB(double a, double b);
 
 double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ); 
 double Gauss2d_Overlap(double offset, double sig);
-void   magkey_HOSTLIB(int  ifilt_obs, char *key);
+void   magkey_HOSTLIB(int  ifilt_obs, char *key, char *key_err);
 void   set_usebit_HOSTLIB_MSKOPT(int MSKOPT);
 
 void setbit_HOSTLIB_MSKOPT(int MSKOPT) ; // added Jan 2017

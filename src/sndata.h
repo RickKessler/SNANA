@@ -54,6 +54,7 @@
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables
 #define MXHOSTGAL      2 // max number of matched hosts to write out
+#define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
@@ -197,7 +198,9 @@ struct SNDATA {
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
-  int   CCDNUM[MXEPOCH] ;
+
+  int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
+  int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch
@@ -215,7 +218,6 @@ struct SNDATA {
 
   int   SEARCH_RUN[MXEPOCH] ;
   int   TEMPLATE_RUN[MXEPOCH] ;
-  int   QMASK[MXEPOCH];
   int   SEARCH_FIELD[MXEPOCH] ;
   int   TEMPLATE_FIELD[MXEPOCH] ;
 
@@ -288,6 +290,9 @@ struct SNDATA {
   float   HOSTGAL_LOGMASS_ERR[MXHOSTGAL] ;
   float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
   float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
+  float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;
   int     HOSTLIB_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
 
   float REDSHIFT_HELIO;         // final (best) redshift, Helio frame
@@ -303,10 +308,12 @@ struct SNDATA {
   float SEARCH_PEAKMJD ;     // approx MJD at g-band peak, from LC fit
   int   SEARCH_TYPE ;        // type from search (i.e., 120=confirmed Ia)
 
-
-  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
-  char  DATE[MXEPOCH][80];        // entry date
-  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
+  // xxxx removed obsolete variables Oct 13 2021 xxxx
+  // xxxx  int   QMASK[MXEPOCH];
+  // xxx  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
+  // xxx  char  DATE[MXEPOCH][80];        // entry date
+  // xxx  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
+  // xxxxxxxxxxx
 
   float MJD_TRIGGER ;      //  MJD when trigger is satisfied (Apr 2017)
 
@@ -354,9 +361,9 @@ struct SNDATA {
   char  HOSTLIB_FILE[MXPATHLEN];       // name of hostlib file (Feb 2014)
   int   SIM_HOSTLIB_MSKOPT ;          // non-zero => simulate HOSTLIB
   int   NPAR_SIM_HOSTLIB;             // number of host params
-  char  SIM_HOSTLIB_KEYWORD[100][60]; // keyword for ascii
-  char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store
-  float SIM_HOSTLIB_PARVAL[100];      // host param values
+  char  SIM_HOSTLIB_KEYWORD[MXVAR_HOSTGAL][60]; // keyword for ascii
+  char  SIM_HOSTLIB_PARNAME[MXVAR_HOSTGAL][40]; // name of host params to store
+  float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];      // host param values per neighbor
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
 

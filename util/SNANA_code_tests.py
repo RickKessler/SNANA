@@ -14,6 +14,8 @@
 # Internal usage:
 #   SNANA_code_tests.py --cpunum <num> --logDir <dir>
 #
+#
+#       HISTORY
 # Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
 # Mar 21 2020: in submitTasks_BATCH(), fix slashes in SNANA_SETUP
@@ -31,6 +33,8 @@
 # Jul 01 2021:
 #   + write $HOST to HOST_MONITOR.INFO
 #   + increas batch time from 20min to 1hr in case of batch delay
+#
+# Aug 17 2021: add arguments --nosubmit and --ncpu
 #
 
 import os, sys, datetime, shutil, time, glob
@@ -72,8 +76,11 @@ def parse_args():
     parser.add_argument("-l", "--list_file", help=msg, type=str, 
                         default=LIST_TESTS_FILE_DEFAULT)
 
-    msg = f"private snana code directory (replaces {SNANA_DIR}"
+    msg = f"private snana code directory (replaces {SNANA_DIR})"
     parser.add_argument("--snana_dir", help=msg, type=str, default=None)
+
+    msg = f"Override number of CPUs in batch file"
+    parser.add_argument("--ncpu", help=msg, type=int, default=-1)
 
     msg = "INTERNAL ARG: CPU number"
     parser.add_argument("--cpunum", help=msg, type=int, default=-9)
@@ -86,6 +93,9 @@ def parse_args():
 
     msg = "stop this script"
     parser.add_argument("--stop", help=msg, action="store_true")
+
+    msg = "prepare jobs, but do not submit"
+    parser.add_argument("--nosubmit", help=msg, action="store_true")
 
     msg = "debug"
     parser.add_argument("--debug", help=msg, action="store_true")
@@ -128,56 +138,6 @@ def parse_args():
         print("\n !!! DEBUG MODE: COMPARE TEST vs. REF only !!! ")
 
     return args
-
-def parse_args_legacy():
-    #return dictionary of user command-line input values
-    SCRIPTNAME = sys.argv[0]
-    DOREF           =  False
-    DOTEST          =  True
-    DOCOMPARE_ONLY  =  False
-    DOSTOP          =  False
-    DEBUG_FLAG      =  False 
-    REFTEST         = 'TEST'
-    CPUNUM_REQ      = -9
-    LOGDIR          = ''
-    LIST_FILE       = LIST_TESTS_FILE_DEFAULT
-
-    iarg     = 0
-    for arg in sys.argv :
-        if ( arg.lower() == 'ref' ):
-            DOREF  = True
-            DOTEST = False
-            REFTEST = 'REF'
-        elif ( arg == '-cpunum' ):
-            CPUNUM_REQ = int(sys.argv[iarg+1])
-        elif ( arg == '-logDir' ):
-            LOGDIR = sys.argv[iarg+1]
-        elif ( arg == '-listFile' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg == '-l' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg.lower() == 'compare' ) :
-            DOCOMPARE_ONLY  = True
-        elif ( arg.lower() == 'stop' ) :
-            DOSTOP  = True
-        elif ( arg.lower() == 'debug' ) :
-            DEBUG_FLAG = True 
-        iarg += 1
-
-    INPUTS_USER = {
-        "SCRIPTNAME"      : SCRIPTNAME,
-        "DOREF"           : DOREF,
-        "DOTEST"          : DOTEST,
-        "DOCOMPARE_ONLY"  : DOCOMPARE_ONLY,
-        "DOSTOP"          : DOSTOP,
-        "DEBUG_FLAG"      : DEBUG_FLAG,
-        "REFTEST"         : REFTEST,
-        "CPUNUM_REQ"      : CPUNUM_REQ,
-        "LOGDIR"          : LOGDIR,
-        "LIST_FILE"       : LIST_FILE
-        }
-
-    return INPUTS_USER
 
 # ====================================
 def get_LOGDIR_REF():
@@ -241,7 +201,7 @@ def get_RESULTS_TASKS(LOGDIR):
     for line in lineList:          
         line  = line.rstrip()  # remove trailing space and linefeed
         words = line.split()
-        if ( len(words) == 0 ):   continue
+        if len(words) == 0 :   continue
         wd0   = words[0]
         if wd0[0:4] != 'TASK' : continue
         TASKNUM    = int(wd0[4:7])  # strip NUM from TASK[NUM]
@@ -327,7 +287,7 @@ def set_task_order(TASKNAME_LIST):
 def parse_listfile(INPUTS, RESULTS_INFO_REF):
 
     LIST_FILE = INPUTS.list_file
-    if ( os.path.isfile(LIST_FILE) == False ) :
+    if os.path.isfile(LIST_FILE) is False  :
         msg = f"ERROR: Cannot find list file of tests: \n  {LIST_FILE}"
         sys.exit(msg)
 
@@ -366,29 +326,32 @@ def parse_listfile(INPUTS, RESULTS_INFO_REF):
         lw    = len(words)
         if lw == 0 :
             continue
-        if ( words[0][0:1] == '#' ):
+        if  words[0][0:1] == '#' :
             continue   # skip comment lines
-        elif ( words[0] == 'REF_SNANA_SETUP:' ):
+        elif  words[0] == 'REF_SNANA_SETUP:' :
             REF_SNANA_SETUP = ' '.join(words[1:])
-        elif ( words[0] == 'TEST_SNANA_SETUP:' ):
+        elif words[0] == 'TEST_SNANA_SETUP:' :
             TEST_SNANA_SETUP = ' '.join(words[1:])
-        elif ( words[0] == 'SSH_NODES:' ):
+        elif  words[0] == 'SSH_NODES:' :
             SSH_NODES = words[1:]
             NCPU      = len(SSH_NODES)
             RUN_SSH   = True
-        elif ( words[0] == 'BATCH_INFO:' ):
+        elif words[0] == 'BATCH_INFO:' :
             BATCH_INFO = words[1:]
-            NCPU       = int(BATCH_INFO[2])
+            if INPUTS.ncpu > 0 :
+                NCPU = INPUTS.ncpu  # command line override (Aug 17, 2021
+            else:
+                NCPU       = int(BATCH_INFO[2])
             RUN_BATCH  = True 
-        elif ( words[0] == 'TEST:' ):
+        elif words[0] == 'TEST:' :
             NTASK += 1
             TASKNAME = words[1]
             TASKNAME_LIST.append(TASKNAME)
-            if DOREF is True :
+            if DOREF  :
                 TASKNUM = NTASK
             else:
                 # for TEST, fetch TASKNUM from REF job
-                if ( TASKNAME in REF_TASKNAME_LIST ) :
+                if TASKNAME in REF_TASKNAME_LIST :
                     itask_ref = REF_TASKNAME_LIST.index(TASKNAME)
                     TASKNUM   = REF_TASKNUM_LIST[itask_ref]
                 else:
@@ -398,7 +361,7 @@ def parse_listfile(INPUTS, RESULTS_INFO_REF):
 
             TASKNUM_LIST.append(TASKNUM)
 
-        elif ( words[0] == 'END:' ):
+        elif words[0] == 'END:':
             break
 
 
@@ -459,21 +422,21 @@ def parse_taskfile(TASKFILE):
         lw    = len(words)
         if lw == 0 :
             continue
-        if ( words[0][0:1] == '#' ):
+        if words[0][0:1] == '#' :
             continue   # skip comment lines
-        elif ( words[0] == 'TESTINPUT:' ):
+        elif words[0] == 'TESTINPUT:' :
             TESTINPUT = words[1:]
-        elif ( words[0] == 'TESTJOB:' ):
+        elif words[0] == 'TESTJOB:' :
             TESTJOB = words[1]
-        elif ( words[0] == 'TESTJOB_ARGS:' ):
+        elif words[0] == 'TESTJOB_ARGS:' :
             TESTJOB_ARGS = ' '.join(words[1:])
-        elif ( words[0] == 'TESTNAME:' ):
+        elif words[0] == 'TESTNAME:' :
             TESTNAME = words[1]
-        elif ( words[0] == 'TESTRESULT:' ):
+        elif words[0] == 'TESTRESULT:' :
             TESTRESULT = ' '.join(words[1:])
-        elif ( words[0] == 'WORDNUM:' ):
+        elif words[0] == 'WORDNUM:' :
             WORDNUM = words[1].split('-')
-        elif ( words[0] == 'DEPENDENCY:' ):
+        elif words[0] == 'DEPENDENCY:' :
             DEPENDENCY = words[1]
 
     CONTENTS = {
@@ -501,7 +464,7 @@ def check_listfile_contents(LIST_FILE_INFO):
     TASKNUM_LIST    = LIST_FILE_INFO["TASKNUM_LIST"]
     ABORT_FLAG       = False
 
-    if ( NTASK == 0 ):
+    if NTASK == 0 :
         msg = f" ABORT: found no tasks in\n {LIST_FILE}"
         sys.exit(msg)
 
@@ -520,7 +483,7 @@ def check_listfile_contents(LIST_FILE_INFO):
         itask += 1
         comment_substring = f"{REFTEST} TASKNUM {TASKNUM:03d} : " \
                             f"file={TASKNAME}"
-        if ( os.path.isfile(TASKFILE) == False ) :
+        if os.path.isfile(TASKFILE) is False :
             NOTFOUND_TASK += 1 ; ABORT_FLAG = True
             print(f" ERROR: cannot find {comment_substring}")
             continue
@@ -536,7 +499,7 @@ def check_listfile_contents(LIST_FILE_INFO):
 
         for infile in TESTINPUT :
             INFILE = f"{INPUT_DIR}/{infile}"
-            if ( os.path.isfile(INFILE) == False ) :
+            if os.path.isfile(INFILE) is False :
                 print(f"\t--> ERROR: cannot find TESTINPUT file='{TESTINPUT}'"\
                       f"\n\t\t for task {TASKNAME}")
                 NOTFOUND_INPUT += 1
@@ -552,7 +515,7 @@ def check_listfile_contents(LIST_FILE_INFO):
 
         # check for duplicates 
         NFIND = TASKNAME_LIST.count(TASKNAME)
-        if ( NFIND > 1 ) :
+        if NFIND > 1 :
             print("\t--> DUPLICATE ERROR: Task {TASKNAME} " \
                   f"occurs {NFIND} times.")
             NDUPLICATE += 1 ; ABORT_FLAG = True
@@ -561,16 +524,16 @@ def check_listfile_contents(LIST_FILE_INFO):
     # done looping over task files; abort on error
 
     print(' ')
-    if ( NOTFOUND_TASK > 0 ) :
+    if NOTFOUND_TASK > 0 :
         print(f" ERROR: {NOTFOUND_TASK} missing TASK files.")
 
-    if ( NOTFOUND_INPUT > 0 ) :
+    if NOTFOUND_INPUT > 0 :
         print(f" ERROR: {NOTFOUND_INPUT} missing INPUT files.") 
 
-    if ( NOTFOUND_DEPEND > 0 ) :
+    if NOTFOUND_DEPEND > 0 :
         print(f" ERROR: {NOTFOUND_DEPEND} missing DEPENDENCY tasks.")
 
-    if ( NDUPLICATE > 0 ) :
+    if NDUPLICATE > 0 :
         NDUPLICATE /= 2
         print(f" ERROR: {NDUPLICATE} duplicate tasks.") 
 
@@ -606,7 +569,7 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
         lw    = len(words)
         if lw == 0 :
             continue        
-        if ( words[0] == 'TASK:' ) :
+        if words[0] == 'TASK:' :
             tmp_numcpu   = int(words[1])
             tmp_numtask  = int(words[2])
             tmp_task     = words[3]
@@ -624,7 +587,7 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
             LOGFILE.append(tmp_logfile)
 
             NTASK_TOT += 1
-            if ( CPUNUM_REQ == tmp_numcpu ) :   NTASK_REQ += 1
+            if CPUNUM_REQ == tmp_numcpu :   NTASK_REQ += 1
 
     CPU_TASKLIST = {
         "NTASK_TOT"    :  NTASK_TOT,
@@ -673,7 +636,7 @@ def copy_input_files(INPUTS, PREFIX, *TESTINPUT):
     os.system(CMD_COPY)
 
     # make sure INFILE_COPY is created; if not, abort
-    if ( os.path.isfile(INFILE_COPY) == False ) :
+    if os.path.isfile(INFILE_COPY) is False :
         msg = f"\n ABORT: Unable to create input file with" \
               f"\n\t {CMD_COPY}"
         sys.exit(msg)
@@ -707,18 +670,17 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     TASKNUMNAME = f"{PREFIX}_{TASK}"
 
     # if done file already exists bail
-    if ( os.path.isfile(DONEFILE) == True ) :
-        return 0
+    if os.path.isfile(DONEFILE)  :        return 0
 
     CONTENTS_TASK = parse_taskfile(TASKFILE)
 
     # check dependency 
     TASK_DEPEND = CONTENTS_TASK["DEPENDENCY"]
-    if ( TASK_DEPEND is not None ) :        
+    if TASK_DEPEND is not None  :  
         itask_depend    = CPU_TASKLIST["TASK"].index(TASK_DEPEND)
         DONEFILE_DEPEND = CPU_TASKLIST["DONEFILE"][itask_depend]
         PREFIX_DEPEND   = CPU_TASKLIST["PREFIX"][itask_depend]
-        if ( os.path.isfile(DONEFILE_DEPEND) == False ) : 
+        if os.path.isfile(DONEFILE_DEPEND) is False : 
             print(' Delay   %s_%s (waiting for %s_%s) ' %
                   (PREFIX,TASK, PREFIX_DEPEND,TASK_DEPEND) )
             sys.stdout.flush()
@@ -804,11 +766,11 @@ def runTasks_driver(INPUTS):
     print(f" Begin execution of {NTASK_REQ} tasks for CPUNUM={CPUNUM_REQ}")
     sys.stdout.flush()
 
-    while ( NDONE_REQ < NTASK_REQ ) :
+    while NDONE_REQ < NTASK_REQ :
         for itask in range(0,NTASK_TOT) :
-            if ( os.path.isfile(STOP_FILE) == True ) :
+            if os.path.isfile(STOP_FILE) :
                 sys.exit()
-            if ( CPUNUM[itask] == CPUNUM_REQ ) :
+            if  CPUNUM[itask] == CPUNUM_REQ  :
                 NDONE_REQ += execute_task(itask,CPU_TASKLIST,INPUTS)
                 time.sleep(2)
 
@@ -837,7 +799,7 @@ def make_logdir(INPUTS):
 
     # - - - - - - - - - - - - - - - - - 
     print(f" Create log-dir = \n\t {LOGDIR} \n")
-    if ( os.path.exists(LOGDIR) ):
+    if os.path.exists(LOGDIR) :
         shutil.rmtree(LOGDIR)
 
     os.mkdir(LOGDIR)
@@ -863,7 +825,7 @@ def  make_cpufile(CPU_FILE,LIST_FILE_INFO):
         TASKNUM  = TASKNUM_LIST[itask]
         f.write(f"TASK: {cpunum:3d} {TASKNUM:3d}   {TASK} \n")
         cpunum  += 1
-        if ( cpunum == NCPU ) :  cpunum = 0
+        if cpunum == NCPU :  cpunum = 0
         
     f.close()
     return
@@ -902,12 +864,13 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
             cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; {cmd_job}"
 
         # - - - - 
-        cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
+        if INPUTS.nosubmit is False :
+            cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
+            print(f" Launch tasks for CPU {cpunum:3d}")
+            os.system(cmd)
 
-        print(f" Launch tasks for CPU {cpunum:3d}")
-#        sys.exit('\n cmd = %s \n' % cmd )
-        os.system(cmd)
-
+    return
+    # end submitTasks_SSH
 
 # =========================================
 def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
@@ -965,18 +928,23 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         #print(f" xxx sed = {cmd_sed} ")
         os.system(cmd_sed)
 
-
         # make sure batch file was created 
-        if ( os.path.isfile(BATCH_RUNFILE) == False ) :
+        if os.path.isfile(BATCH_RUNFILE) is False  :
             msg = f" ABORT: could not create BATCH_RUNFILE = \n" \
               f" {BATCH_RUNFILE}"
             sys.exit(msg)
 
         # launch the job
         cmd_submit = f"cd {LOGDIR} ; {BATCH_SUBMIT_COMMAND} {batch_runfile}"
-        os.system(cmd_submit)
-#        print(' Submitted %s ' % batch_runfile )
-#        sys.stdout.flush()
+
+        if INPUTS.nosubmit :
+            print(f" Skip {BATCH_SUBMIT_COMMAND} {batch_runfile}")
+        else:
+            os.system(cmd_submit)
+
+
+    return
+    # end submitTasks_BATCH
 
 #    sys.exit('\n\n xxx Bye bye from submitTasks_BATCH' )
 
@@ -999,7 +967,7 @@ def submitTasks_driver(INPUTS, LIST_FILE_INFO):
     LOGDIR = make_logdir(INPUTS)
 
     # remove relic STOP-file flag if it's still there
-    if ( os.path.isfile(STOP_FILE) == True ) :
+    if os.path.isfile(STOP_FILE) :
         cmd_rm = f"rm {STOP_FILE}"
         os.system(cmd_rm)
 
@@ -1020,17 +988,16 @@ def submitTasks_driver(INPUTS, LIST_FILE_INFO):
     # below we actually do stuff.
     make_cpufile(CPU_FILE,LIST_FILE_INFO)
 
-    if ( RUN_SSH ):
+    if RUN_SSH :
         submitTasks_SSH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
-    if ( RUN_BATCH ):
+    if RUN_BATCH :
         submitTasks_BATCH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
     # - - - - - - - - - - - - - -
 
-    # loop over cores and assign 
     return SUBMIT_INFO
-
+    # end submitTasks_driver
 
 # ========================================
 def compare_results(INPUTS, RESULTS_INFO_REF, RESULTS_INFO_TEST):
@@ -1161,12 +1128,12 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
         print(f" Found {NDONE} of {NTASK} done files  " \
               f"({t_proc:0.1f} minutes elapsed).")
         sys.stdout.flush()
-        if ( os.path.isfile(STOP_FILE) == True ) :
+        if os.path.isfile(STOP_FILE) :
             cmd_cp = f"cp {STOP_FILE} {LOGDIR}"
             os.system(cmd_cp)
             sys.exit()
 
-        if ( NDONE < NTASK ) :
+        if NDONE < NTASK :
             time.sleep(10)
 
     # everything has finished.
@@ -1212,7 +1179,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
         NCOMPARE_FAIL = 0   # REF cannot have compare errors
 
     # if no errors, tar things up
-    if ( NABORT==0 and NBLANK==0 and NCOMPARE_FAIL==0 ) :
+    if NABORT==0 and NBLANK==0 and NCOMPARE_FAIL==0 :
         make_tarfiles(LOGDIR)
 
     return               
@@ -1227,14 +1194,14 @@ if __name__ == "__main__":
     # parse input arguments
     INPUTS = parse_args()
 
-    if INPUTS.stop is True:
+    if INPUTS.stop :
         os.system(f"touch {STOP_FILE}")
         sys.exit('STOP flag sent. Wait for current job to finish')
 
     print(" ")
     sys.stdout.flush()
 
-    if ( INPUTS.cpunum >= 0 ) :
+    if INPUTS.cpunum >= 0 :
         runTasks_driver(INPUTS)  # run jobs for this CPUNUM
     else:
         # for TEST, need to read REF_RESULTS now to make sure
@@ -1251,6 +1218,11 @@ if __name__ == "__main__":
         #sys.exit("\n xxx DEBUG STOP xxx \n")
 
         SUBMIT_INFO = submitTasks_driver(INPUTS,LIST_FILE_INFO)  
+
+        if INPUTS.nosubmit :
+            LOGDIR = SUBMIT_INFO['LOGDIR']
+            sys.exit(f"\n Exit without submitting jobs. " \
+                     f"\n Check output in {LOGDIR} \n")
 
         monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF) 
 

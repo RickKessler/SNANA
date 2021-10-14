@@ -2,7 +2,7 @@
 // Nov 20 2020: MXPAR_PySEDMODEL -> 20 (was 10) for SNEMO
 
 // define pre-processor command to use python interface
-#define USE_PYTHONxxx              
+#define USE_PYTHONxxx                 
 
 
 // ===========================================

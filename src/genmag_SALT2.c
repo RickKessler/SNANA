@@ -37,6 +37,10 @@
  May 31 2021: refactor to receive parList_SN and parList_HOST so that
               logMass can be included and passed to get_genSmear.
 
+ Aug 26 2021: remove buggy 1/z1 factor in genSpec_SALT2
+
+ Oct 01 2021: no longer set magerr=5.0 -> avoid LC fit discontinuity.
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -2366,6 +2370,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   //   + pass new arg Finteg_noMW
   //   + vartot_flux for SALT3 (relative for SALT2)
   //
+  // Oct 01 2021: no longer set magerr=5.0 to avoid discontinuity in LC fit.
 
   double 
      ERRMAP[NERRMAP], Trest_tmp
@@ -2424,13 +2429,16 @@ double SALT2magerr(double Trest, double lamRest, double z,
   // get total fractional  error.
   fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
 
-  // convert frac-error to mag-error, and load return array
+  /* xxxxxxxxxx mark delete Oct 1 2021 xxxxx
   if ( fracerr_TOT > .999 ) 
-    { magerr_model = 5.0 ; }
+    { magerr_model = 5.0 ; } // .xyz causes fit discontinuity ?
   else  { 
-    // magerr_model  = -2.5*log10(arg) ;  // dumb approx
-    magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact, Jul 12 2013
+    magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact
   }
+  xxxxxxxxxxxx end mark xxxxxx */ 
+
+  // convert frac-error to mag-error, and load return array
+  magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact
 
   // check for error fudges
   magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
@@ -3528,7 +3536,8 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/(hc8*z1)) * GENFLUX;
+    // xxxx mark delete Aug 26 2021  FTMP    = (LAM/(hc8*z1)) * GENFLUX;
+    FTMP    = (LAM/hc8) * GENFLUX;
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
       MAG = -2.5*log10(FTMP) + ZP; 
     }

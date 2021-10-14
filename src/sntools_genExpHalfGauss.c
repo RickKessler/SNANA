@@ -30,6 +30,7 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   gen_EXP_HALFGAUSS->RANGE[1]  = VAL ;
   gen_EXP_HALFGAUSS->RATIO     = 0;
   gen_EXP_HALFGAUSS->INDEX     = -999;
+  gen_EXP_HALFGAUSS->KEYSOURCE = -9;
 
 } //  end init_GEN_EXP_HALFGAUSS
 
@@ -62,6 +63,7 @@ void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, GEN_EXP_HA
   out_EXP_HALFGAUSS->RANGE[1] = inp_EXP_HALFGAUSS->RANGE[1];
   out_EXP_HALFGAUSS->RATIO    = inp_EXP_HALFGAUSS->RATIO;
   out_EXP_HALFGAUSS->INDEX    = inp_EXP_HALFGAUSS->INDEX;
+  out_EXP_HALFGAUSS->KEYSOURCE = inp_EXP_HALFGAUSS->KEYSOURCE;
 }
 
 
@@ -74,15 +76,16 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
   double valmax = gen_EXP_HALFGAUSS->RANGE[1] ;
   double sigma  = gen_EXP_HALFGAUSS->SIGMA ;
   double exptau = gen_EXP_HALFGAUSS->EXP_TAU ;
+  double ratio  = gen_EXP_HALFGAUSS->RATIO ;
 
   bool DO_PROFILE = (sigma > 1.0E-9 || exptau > 1.0E-9 );
   bool DO_RANGE   = (valmax > 1.0E-9) ;
-
+  bool DO_RATIO   = ratio > 0.0 ;
   char fnam[] = "setUseFlag_GEN_EXP_HALFGAUSS";
 
   // ------------ BEGIN --------------
 
-  if (DO_RANGE && DO_PROFILE){
+  if (DO_RANGE || DO_PROFILE || DO_RATIO ){
     gen_EXP_HALFGAUSS->USE = true ;
   }
   
@@ -258,17 +261,20 @@ int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
   sprintf(KEYNAME, "GENGAUPEAK_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->PEAK );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
   }
 
   sprintf(KEYNAME, "GENSIG_%s GENSIGMA_%s",  VARNAME, VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->SIGMA );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
   }
 
   // check Exponential param
   sprintf(KEYNAME, "GENTAU_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->EXP_TAU );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
   }
 
 
@@ -278,12 +284,14 @@ int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
     { strcat(KEYNAME," EBV0_HOST"); } // back-compatible
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RATIO );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
   }
 
   sprintf(KEYNAME, "GENRANGE_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RANGE[0] );
     N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RANGE[1] );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
   }
 
   // set NAME and USE flag

@@ -1,4 +1,4 @@
-+KEEP,HISTORY.
++KEEP,HISTORY. 
 c
 c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
@@ -611,6 +611,7 @@ c May 6, 2008: define lists for epochs to ignore
       REAL
      &   NSIGCUT_OUTLIER    ! e.g., SNTABLE_LIST='OUTLIER(nsig:3.5)'
      &  ,FTRUECUT_OUTLIER   ! e.g., SNTABLE_LIST='OUTLIER(Ftrue:0.0)'
+     &  ,SBMAGCUT_OUTLIER   ! e.g., SNTABLE_LIST='OUTLIER(sbmag:25.0)
 
       REAL*8 OUTLIER_MJD
       REAL*4 
@@ -634,7 +635,7 @@ c May 6, 2008: define lists for epochs to ignore
       CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*20
 
       COMMON / OUTLIERCUTS /
-     &   NSIGCUT_OUTLIER, FTRUECUT_OUTLIER
+     &   NSIGCUT_OUTLIER, FTRUECUT_OUTLIER, SBMAGCUT_OUTLIER
 
       COMMON / OUTLIERCOM8 / OUTLIER_MJD 
       COMMON / OUTLIERCOM4 / NEP_OUTLIER_TOT, NEP_OUTLIER_PEREVT
@@ -788,6 +789,7 @@ c analysis-related variables.
 c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
      &  ,ISNLC_CCDNUM(MXEPOCH)  ! read from header (May 2017)
+     &  ,ISNLC_IMGNUM(MXEPOCH)  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
      &  ,ISNLC_IDTEL(MXEPOCH)   ! integer telescope id      
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
@@ -953,7 +955,7 @@ c
      &    ,ISNLC_NEPOCH_USE, ISNLC_NEPOCH_PHOTPROB
      &    ,ISNLC_NEPOCH_FILT,  ISNLC_NEPOCH_PRESN, ISNLC_NMJD_INCLUDE
      &    ,ISNLC_NEPOCH_DETECT, SNLC_TLIVE_DETECT
-     &    ,ISNLC_FAKE, ISNLC_CCDNUM
+     &    ,ISNLC_FAKE, ISNLC_CCDNUM, ISNLC_IMGNUM
      &    ,ISNLC_NFILT_SNRMAX, ISNLC_NFILT_SNRMAX2
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
@@ -974,6 +976,7 @@ c pointer for calls to SNTABLE_ADDCOL.
       REAL      
      &    ADDCOL_SNHOST_MAGOBS(MXFILT_ALL,MXSNHOST)
      &   ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)
+     &   ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)
      &   ,ADDCOL_FLUXCALMAX(MXFILT_ALL)
      &   ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)
      &   ,ADDCOL_SNRMAX(MXFILT_ALL)
@@ -985,8 +988,8 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ,ADDCOL_NDOF_TRUEFLUX(MXFILT_ALL)
  
       COMMON / ADDCOL_FILTERCOM /
-     &   ADDCOL_FILTERS
-     &  ,ADDCOL_SNHOST_MAGOBS, ADDCOL_SNHOST_SBFLUXCAL 
+     &   ADDCOL_FILTERS, ADDCOL_SNHOST_MAGOBS
+     &  ,ADDCOL_SNHOST_SBFLUXCAL, ADDCOL_SNHOST_SBMAG
      &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
      &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
      &  ,ADDCOL_PROB_TRUEFLUX, ADDCOL_NDOF_TRUEFLUX
@@ -1682,7 +1685,8 @@ c define namelist cuts
      &   SNTYPE_LIST(MXLISTNML)    ! (I) user list of types to select
      &  ,SNTYPE_IGNORE(MXLISTNML)  ! (I) types to ignore
      &  ,SNCID_LIST(MXLISTNML)     ! (I) user-list of integer CIDs
-     &  ,MXEVT_PROCESS             ! (I) max number of events to process
+     &  ,MXEVT_PROCESS             ! (I) quit after processing this many
+     &  ,MXEVT_CUTS                ! (I) quit after Nevt passing cuts
      &  ,CCDNUM_LIST(MXLISTNML)    ! (I) user-list of CCDNUMs (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
      &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
@@ -1791,8 +1795,8 @@ c
      & ,EPCUT_PSFSIG  ! max PSF (arcsec) accepted each epoch/filter
                       ! example: 'u 1.8  g 1.5  r 1.6  i 1.8  z 2.0'
 c
-     & ,SNCUT_HOST_SBFLUX ! max allows surface brightness,
-                          ! example 'r 1000.' -> SBFLUX < 1000
+     & ,SNCUT_HOST_SBFLUX ! require min surface brightness,
+                          ! example 'r 1000.' -> SBFLUX > 1000
 
 c ----------
 c systematic tests for calibration:
@@ -1861,7 +1865,7 @@ c
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
-     &   ,MXEVT_PROCESS
+     &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNTEL_LIST,   IDTEL_LIST,   NIDTEL_LIST,   DOALL_SNTEL
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
@@ -2198,7 +2202,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
 c
 c Below are cut-variables defined in SNCUTS
 c
-     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, MXEVT_PROCESS
+     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
+     &   ,MXEVT_PROCESS, MXEVT_CUTS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
@@ -3400,7 +3405,7 @@ c LOOP OVER EVENTS
 
       DO 100 isn = IJOB, NSN_VERS, NJOBTOT ! every NJOBTOT'th SN
 
-         IF ( N_SNLC_FITCUTS > MXLC_FIT ) GOTO 100 
+         IF ( N_SNLC_FITCUTS >= MXLC_FIT ) GOTO 100 
 
          CALL INIT_SNLC()
 
@@ -3636,7 +3641,8 @@ c Transfer global variables from SNDATA struct to fortran:
 c SURVEY, FILTERS, etc ...
 c
 c Apr 24 2021: read SIM_BIASCOR_MASK
-
+c Oct 08 2021: read SIM_MODEL_INDEX
+c 
       IMPLICIT NONE
 
 c local var
@@ -3729,6 +3735,16 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
          CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK", 
      &        ONE, STRING, DARRAY, OPT)
          SIM_BIASCOR_MASK = int(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  ! Oct 8 2021
+     &       ONE, STRING, DARRAY, OPT)
+         SIM_MODEL_INDEX = INT(DARRAY(1))
+
+c xxxxxxxxxxxxxxxxx
+         print*,' xxx RDGLOBAL_DRIVER: SIM_MODEL_INDEX=',
+     &        SIM_MODEL_INDEX
+          call flush(6)
+c xxxxxxxxxxxxxxxxxxxx
 
          CALL RDGLOBAL_SIMSED(OPT)
 
@@ -4246,12 +4262,6 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("NYPIX", ONE, STRING, DARRAY, OPT)
       SNLC_NYPIX = INT(DARRAY(1))
-
-
-c xxxxxxx mark delete Mar 15 2021 : read only from PHOT table xxxxx
-c      CALL FETCH_SNDATA_WRAPPER("CCDNUM", ONE, STRING, DARRAY, OPT)
-c      ISNLC_CCDNUM(1) = INT(DARRAY(1))
-c xxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("SNTYPE", ONE, STRING, DARRAY, OPT)
       ISNLC_TYPE = INT(DARRAY(1))
@@ -4790,6 +4800,7 @@ c - - - -  filter dependent keys  - - - - -
 
       CALL RDHEAD_FILTERLOOP("SIM_PEAKMAG",  SIM_PEAKMAG, OPT)
       CALL RDHEAD_FILTERLOOP("SIM_EXPOSURE", SIM_EXPOSURE_TIME, OPT)
+      CALL RDHEAD_FILTERLOOP("SIM_TEMPLATEMAG", SIM_TEMPLATEMAG, OPT) ! 9.20.2021
 
       
 c - - -  model params: SIMSED, LCLIB, etc   - - - -
@@ -4891,6 +4902,10 @@ c     &    + OPTMASK_SNDATA_DUMP
       CALL FETCH_SNDATA_WRAPPER("CCDNUM",  
      &        NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; ISNLC_CCDNUM(o)=int(DARRAY(o)); ENDDO
+
+      CALL FETCH_SNDATA_WRAPPER("IMGNUM",  
+     &        NOBS_STORE, STRING, DARRAY, OPT)
+      DO o=1,NOBS_STORE; ISNLC_IMGNUM(o)=int(DARRAY(o)); ENDDO
 
 
       CALL FETCH_SNDATA_WRAPPER("FIELD",  
@@ -5143,7 +5158,7 @@ c allows parsing function to stop early.
 c
 c May 18, 2012: return FALSE if interp-option is set
 c Jun 25, 2019: check MXEVT_PROCESS
-c
+c Oct 12, 2021: check MXEVT_CUTS
 c -----------
       IMPLICIT NONE
 
@@ -5158,6 +5173,11 @@ c ------------- BEGIN --------------
       LDONE_CIDLIST = .FALSE.  ! default
 
       if ( N_SNLC_PROC .GE. MXEVT_PROCESS ) then
+         LDONE_CIDLIST = .TRUE.
+         RETURN
+      endif
+
+      if ( N_SNLC_CUTS .GE. MXEVT_CUTS ) then
          LDONE_CIDLIST = .TRUE.
          RETURN
       endif
@@ -5536,8 +5556,6 @@ C -------------- BEGIN ------------
 
       DO_GETINFO = .TRUE.
 
-      print*,' xxx set DO_GETINFO = T '
-
 c if VERSION_ARG has full path, split it into PRIVATE_DATA_PATH and 
 c VERSION_PHOTOMETRY
 
@@ -5738,6 +5756,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
 
       MXEVT_PROCESS      = 999888777
+      MXEVT_CUTS         = 999888777
       SIMLIB_OUT     = ''
       SIMLIB_OUTFILE = ''
       SIMLIB_ZPERR_LIST = ''
@@ -6701,6 +6720,7 @@ c           OUTLIER table is automatically disabled for large BIASCOR sim
               OPT_TABLE(ITAB) = 1
               NSIGCUT_OUTLIER   = 3.0   ! default outlier def is 3sigma
               FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
+              SBMAGCUT_OUTLIER  = 999.  ! default is no SBMAG cut (Aug 2021)
             endif
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
@@ -6782,6 +6802,11 @@ c check for options inside ()
 	    MATCH = copt(1:6) .EQ. 'ftrue:'
             IF ( MATCH ) THEN
                read(copt(7:LENOPT),*) FTRUECUT_OUTLIER
+               USEOPT = .TRUE.
+            ENDIF
+	    MATCH = copt(1:6) .EQ. 'sbmag:'
+            IF ( MATCH ) THEN
+               read(copt(7:LENOPT),*) SBMAGCUT_OUTLIER
                USEOPT = .TRUE.
             ENDIF
 
@@ -7450,6 +7475,14 @@ c - - - -
          else if ( MATCH_NMLKEY('MXEVT_PROCESS',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) MXEVT_PROCESS
+
+         else if ( MATCH_NMLKEY('MXEVT_CUTS',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXEVT_CUTS
+
+         else if ( MATCH_NMLKEY('MXLC_FIT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXLC_FIT
 
          else if ( MATCH_NMLKEY('SIM_TEMPLATE_INDEX_LIST',
      &             1, iArg, ARGLIST) ) then 
@@ -8289,8 +8322,8 @@ c -------
 
       CALL PARSE_FILTSTRING(1,SNCUT_HOST_SBFLUX, NF, iafilt, xafilt )
       NFILT_HOST_SBFLUX = NF
-      if ( NF .GT. MXFILT_SNRMAX/2 ) then
-         write(c1err,662) NFILT_HOST_SBFLUX, MXFILT_SNRMAX/2
+      if ( NF .GT. MXFILT_SNRMAX ) then
+         write(c1err,662) NFILT_HOST_SBFLUX, MXFILT_SNRMAX
 662      format(I2,' HOST_SBFLUX cuts exceeds bound of ',I2)
          c2err = 'Check &SNLCINP variable SNCUT_SNRMAX'
          CALL  MADABORT("PROCSNNML", C1ERR, C2ERR)
@@ -8299,8 +8332,8 @@ c -------
       DO i = 1, NF
          ifiltdef = IAFILT(i)
          ifilt    = IFILTDEF_INVMAP_SURVEY(ifiltdef)
-         cutwin_sbflux_filt(1,i) = xafilt(i) ! Aug 31, 2010
-         ifilt_HOST_SBFLUX(i)    = ifiltdef  ! Aug 31, 2010
+         cutwin_sbflux_filt(1,i) = xafilt(i) 
+         ifilt_HOST_SBFLUX(i)    = ifiltdef
       ENDDO
 
 c ----------
@@ -8468,6 +8501,10 @@ c so that large numbers of candidates can be ignored from a
 c list file.
 c
 c Sep 2 2019: allow up to MXIGNORE_LIST=500 (instead of 52)
+c Sep 10 2021: 
+c   + fix to work properly with/without DOCANA
+c   + ignore comments
+c   + print first/last CID for visual crosscheck
 c
 c --------
 
@@ -8477,8 +8514,10 @@ c --------
 +CDE,SNLCINP.
 
       CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME), FNAM*12
-      INTEGER i, LENFILE, LENCID, NWD, FLAG_DOCANA
-      LOGICAL FOUND_DOCANA_END, LREQUIRE_DOCANA
+      CHARACTER WD1*40
+      INTEGER MSKOPT, i, LENFILE, LENCID, NWD, FLAG_DOCANA
+      INTEGER NSTORE, NCCID_IGNORE_ORIG
+      LOGICAL FOUND_DOCANA, FOUND_DOCANA_END, LREQUIRE_DOCANA
 
       INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
       EXTERNAL STORE_PARSE_WORDS, REACT_MISSING_DOCANA
@@ -8490,26 +8529,36 @@ C ------------- BEGIN ---------
       CALL ENVreplace(SNCID_IGNORE_FILE)
       LENFILE   = INDEX(SNCID_IGNORE_FILE,' ') - 1
       cFILE     = SNCID_IGNORE_FILE(1:LENFILE)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, cFILE, LENFILE) 
+      MSKOPT    = MSKOPT_PARSE_WORDS_FILE 
+     &          + MSKOPT_PARSE_WORDS_IGNORECOMMENT 
+      NWD = STORE_PARSE_WORDS(MSKOPT, cFILE, LENFILE) 
 
       LENCID = INDEX(CCID,' ')-1
 
-      FOUND_DOCANA_END=.FALSE.
+c check if 1st word is DOCANA key
+      CALL get_PARSE_WORD_fortran(1, WD1, LENCID)
+      FOUND_DOCANA     = ( WD1 .EQ. 'DOCUMENTATION:' )
+      FOUND_DOCANA_END = (.FALSE.)
+      LREQUIRE_DOCANA  = (REQUIRE_DOCANA > 0 )
 
+      if ( .NOT. FOUND_DOCANA ) then
+         CALL REACT_MISSING_DOCANA(LREQUIRE_DOCANA,cFILE,LENFILE)
+      endif
+
+      NSTORE = 0
+      NCCID_IGNORE_ORIG = NCCID_IGNORE !might include CIDs from elsewhere
+
+c - - - - - -
       DO 200 i = 1, NWD
-
          CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
 
-         IF ( .NOT. FOUND_DOCANA_END) THEN
+         IF ( FOUND_DOCANA .and. .NOT. FOUND_DOCANA_END) THEN
             FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
-            if ( FLAG_DOCANA < 0 ) then
-              LREQUIRE_DOCANA = (REQUIRE_DOCANA > 0 )
-              CALL REACT_MISSING_DOCANA(LREQUIRE_DOCANA,cFILE,LENFILE)
-            endif
             IF ( FLAG_DOCANA==FLAG_DOCANA_END ) FOUND_DOCANA_END=.TRUE.
             goto 200
          ENDIF
 
+         NSTORE       = NSTORE + 1
          NCCID_IGNORE = NCCID_IGNORE + 1
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
@@ -8526,6 +8575,12 @@ C ------------- BEGIN ---------
       CALL PRBANNER(FNAM)
       print*,' Loaded ', NCCID_IGNORE,' IGNORE-candidates from '
       print*, '  ', SNCID_IGNORE_FILE(1:LENFILE)
+      print*,'  First IGNORED CID: ', 
+     &     SNCCID_IGNORE_ALL(NCCID_IGNORE_ORIG+1)
+      if ( NSTORE > 1 ) then
+        print*,'  Last  IGNORED CID: ', 
+     &     SNCCID_IGNORE_ALL(NCCID_IGNORE)
+      endif
       print*,' '
 
       RETURN
@@ -8563,7 +8618,7 @@ c ---------- BEGIN -----------
           ISTAT_FILE_DOCANA = FLAG_DOCANA_END
        endif
 
-      if ( IWD == 1 .and. ISTAT_FILE_DOCANA .NE. 1 ) then
+      if (IWD==1 .and. ISTAT_FILE_DOCANA.NE.FLAG_DOCANA_START) then
          ISTAT_FILE_DOCANA = FLAG_DOCANA_ERROR
       endif
 
@@ -8905,7 +8960,7 @@ c Jul 08 2021: write N_SNHOST_ZSPEC[ZPHOT]
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
 
-      INTEGER LEN, JDIFF
+      INTEGER LEN, JDIFF, AIZ
       REAL    T_CPU
       CHARACTER OUTFILE*(MXCHAR_FILENAME)
 
@@ -8952,11 +9007,21 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
       write(LUNDAT,20) 'NEVT_HOST_ZPHOT: ', N_SNHOST_ZPHOT
 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
-      write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 19    format(A, A)
 20    format(A, I8)
 21    format(A, F8.1)
+
+c check options for ABORT_IF_ZERO (AIZ)
+
++SELF,IF=SNANA.
+      AIZ = N_SNLC_CUTS
++SELF,IF=SNFIT.
+      AIZ = N_SNLC_FITCUTS
++SELF.
+      IF ( MXEVT_CUTS < 10 ) AIZ = N_SNLC_CUTS
+
+      write(LUNDAT,20) 'ABORT_IF_ZERO:   ', AIZ
 
       CLOSE ( UNIT = LUNDAT ) 
 
@@ -9326,10 +9391,6 @@ c -----------------------------
       CALL PRBANNER ( "CALL USREND" )
       CALL USREND ( IERR )
 
-      IF ( REFORMAT_SNANA )  THEN
-         CALL END_REFORMAT()
-      ENDIF
-
 c close hbook file using wrapper so that we don't need CERNLIB flag here.
       IF ( USE_TABLEFILE_HBOOK ) THEN
          LENF = index(HFILE_OUT,' ') - 1
@@ -9366,6 +9427,10 @@ c - - - - - -
 
       IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
          CALL write_epoch_list_summary()
+      ENDIF
+
+      IF ( REFORMAT_SNANA )  THEN
+         CALL END_REFORMAT()
       ENDIF
 
       call flush(6)
@@ -9929,7 +9994,7 @@ c -------------
 +CDE,SNLCINP.
 
       INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
-      REAL*8 DVAL
+      REAL*8 DVAL(4)
       CHARACTER cKEY*20, cSTRING
       EXTERNAL COPY_SNDATA_HEAD
 
@@ -9943,19 +10008,19 @@ C -------------- BEGIN ----------
 
       IF ( OPT_SETPKMJD > 0 ) THEN
         cKEY     = "PEAKMJD" // char(0)
-        DVAL     = DBLE(SNLC_SEARCH_PEAKMJD)
+        DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
 
       IF ( OPT_MWEBV > 0 ) THEN
         cKEY     = "MWEBV" // char(0)
-        DVAL     = DBLE(SNLC_MWEBV)
+        DVAL(1)  = DBLE(SNLC_MWEBV)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
         cKEY     = "MWEBV_ERR" // char(0)
-        DVAL     = DBLE(SNLC_MWEBV_ERR)
+        DVAL(1)  = DBLE(SNLC_MWEBV_ERR)
         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF
@@ -9965,34 +10030,34 @@ c or other calculated update.
 
 c zCMB
       cKEY     = "REDSHIFT_CMB" // char(0)
-      DVAL     = DBLE(SNLC_zCMB)
+      DVAL(1)  = DBLE(SNLC_zCMB)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "REDSHIFT_CMB_ERR" // char(0)
-      DVAL     = DBLE(SNLC_zCMB_ERR)
+      DVAL(1)  = DBLE(SNLC_zCMB_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 c zHELIO
       cKEY     = "REDSHIFT_HELIO" // char(0)
-      DVAL     = DBLE(SNLC_zHELIO)
+      DVAL(1)  = DBLE(SNLC_zHELIO)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
-      DVAL     = DBLE(SNLC_zHELIO_ERR)
+      DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 c VPEC
       cKEY     = "VPEC" // char(0)
-      DVAL     = DBLE(SNLC_VPEC)
+      DVAL(1)  = DBLE(SNLC_VPEC)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "VPEC_ERR" // char(0)
-      DVAL     = DBLE(SNLC_VPEC_ERR)
+      DVAL(1)  = DBLE(SNLC_VPEC_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
@@ -10063,55 +10128,12 @@ c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
 
 c create README blank readme file
-
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
       CLOSE(LUNTMP)  ! close README file
-
-+SELF,IF=DELETE.
-c xxxxxxxx mark delete July 6 2021 xxxxxxxxx
-      CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
-      LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-      if ( OPT_REFORMAT_FITS > 0 ) then
-         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'TEXT', 'FITS'
-      else
-         WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY), 'FITS', 'TEXT'
-      endif
-20    FORMAT('Convert ', A, 2x, A,' files into ',A,' format for ')
-      WRITE(LUNTMP,500) txt
-
-      DO i = 1, N_VERSION
-        TXT = '     ' // VERSION_PHOTOMETRY(i)
-        write(LUNTMP,500) txt
-      ENDDO
-      WRITE(LUNTMP,500) ' '
-      WRITE(LUNTMP,30) 'Processed', N_SNLC_PROC
-      WRITE(LUNTMP,30) 'Wrote    ', N_SNLC_CUTS
-30    format(A, 2x, I7, 2x, ' light curves.' )
-      call FLUSH(LUNTMP)
-500   FORMAT(A)
-      CLOSE(LUNTMP)  ! close README file
-c xxxxxxxxxxx end mark xxxxxxx
-+SELF.
 
 c --- catenate original README contents for each version --------
 
       DO iver = 1, N_VERSION
-
-+SELF,IF=DELETE.
-c first write formatted DUMP-statement.
-         OPEN (LUNTMP, FILE = README_FILE, Access='append',Status='old')
-c xxx mark delete July 6 2021 xxxxxxxx
-         write(LUNTMP,600)
-         write(LUNTMP,600)
-         write(LUNTMP,700)
-         write(LUNTMP,700)
-         write(LUNTMP,701)  VERSION_PHOTOMETRY(iver)
-600      format(' ')
-700      format('# ', 74('=') )
-701      format('# DUMP ORIGINAL README for ', A)
-         CLOSE(LUNTMP)  ! close README file
-c xxxxxxxxxxxxxxxxxxxxx
-+SELF.
 
 c now just catenate the final readme with the original readme file.
 
@@ -10127,6 +10149,14 @@ c ---- update IGNORE file with comment on total number of IGNORE epochs
       write(LUNIGNORE2,430) NEPOCH_IGNORE_WRFITS
  430  format(/,'Total number of IGNORE epochs: ', I5)
       close(LUNIGNORE2)
+
+      IF ( OPT_REFORMAT_FITS > 0 ) then
+         print*,' Done writing reformatted FITS version: ', 
+     &        VERSION_REFORMAT_FITS
+      ELSE
+         print*,' Done writing reformatted TEXT version: ', 
+     &        VERSION_REFORMAT_TEXT
+      ENDIF
 
       RETURN
       END    ! END_REFORMAT
@@ -13216,7 +13246,7 @@ c local args
 C -------------- BEGIN --------------
 
       FNAM = 'PASS_SNTYPE'
-      IF ( ITYPE < 0 ) THEN  ! .xyz
+      IF ( ITYPE < 0 ) THEN 
          write(c1err,61) ITYPE, SNLC_CCID
          write(c2err,62) MXTYPE
 61       format('Invalid data header TYPE = ', I6, ' for CID=',A )
@@ -15117,6 +15147,7 @@ C ------------- BEGIN ------------
 c beware that CCDNUM is read from header, and also from 
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
       ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
+      ISNLC_IMGNUM(EP1)        = ISNLC_IMGNUM(EP2)
 
       IF ( ISJOB_SIM ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
@@ -15195,6 +15226,7 @@ c ------------- BEGIN -------------
       NEPOCH_BADPHOT      =   0
       ISNLC_FAKE          =   0  ! Feb 2021: default is real data
       ISNLC_CCDNUM(1)     =  -9
+      ISNLC_IMGNUM(1)     =  -9
 
       SNLC8_RA            =  -9.0
       SNLC8_DEC           =  -9.0
@@ -15591,7 +15623,7 @@ C -------- BEGIN -----------
       END  ! end WRITE_EPOCH_IGNORE_EXEC
 
 C =======================================
-+DECK,INIT_CNAMES.
++DECK,INIT_CUTNAMES.
       SUBROUTINE INIT_CUTNAMES ( IERR )
 c
 c Creatd Jan 31, 2007 by R.Kessler
@@ -15660,14 +15692,19 @@ c hard-wire names of cut variables (maxchar = 28)
       DO ifilt      = 1, NFILT_SNRMAX
           ifilt_obs = IFILT_SNRMAX(ifilt)
           cflt      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-
           ibit = CUTBIT_OFFSET_SNRMAX + ifilt
           cutvar_name(ibit)  = 'SNRMAX-' // cflt // ':'
+      ENDDO
 
+      DO ifilt      = 1, NFILT_HOST_SBFLUX  ! Aug 2021
+          ifilt_obs = ifilt_HOST_SBFLUX(ifilt)
+          cflt      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+          ibit      = CUTBIT_OFFSET_SBFLUX + ifilt
+          cutvar_name(ibit)  = 'SBFLUX-' // cflt // ':'
       ENDDO
 
       RETURN
-      END
+      END   ! end INIT_CUTNAMES
 
 C ======================================
 +DECK,MWEBV_FLUXCOR.
@@ -18179,7 +18216,8 @@ C Created Feb 17 2018
 C Compute surface-brightness mag SNLC_SBMAG(ep) from SB flux.
 C 
 c Mar 23 2021: SBFLUXMIN -> 1.0 (was 0.1)
-
+c Aug 11 2021: SBFLUX = -99 -> SBMAG=99
+c
       IMPLICIT NONE
       INTEGER ifilt  ! (I) sparse filter index
 +CDE,SNDATCOM.
@@ -18193,6 +18231,9 @@ C --------- BEGIN ------------
       ELSE
          SBMAG = ZEROPOINT_FLUXCAL_DEFAULT - 2.5*LOG10(SBFLUXMIN) 
       ENDIF
+
+      IF ( SBFLUX .LE. -999.0 ) SBMAG = 99.0 ! Aug 2021 - undefined SB
+
       SNHOST_SBMAG(ifilt) = SBMAG
       RETURN
       END
@@ -19414,6 +19455,7 @@ c -------------------------------------------
       C2ERR = 'Use snana.exe instead. '
       CALL MADABORT(FNAM, c1err, c2err)
 +SELF.
+
         GLOBAL_BANNER = 
      &      'Prepare to write SIMLIB file from data'
         CALL PRBANNER (GLOBAL_BANNER(1:60) )
@@ -19424,22 +19466,38 @@ c -------------------------------------------
      &        , FILE   = SIMLIB_OUTFILE
      &        , STATUS = 'UNKNOWN'         )
 
-        WRITE(LUNOUT,11) 
-     &       'Created from snana.exe using SIMLIB_OUTFILE option.'
-        WRITE(LUNOUT,11) 
-     &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
-        if ( WR_SIM_MAGOBS ) then
-           WRITE(LUNOUT,11)
-     &        'SIM_MAGOBS are copied to MAG column.'   
-        endif
-        WRITE(LUNOUT,11) ' ' 
+c - - - - - -
+c write DOCANA 
 
+        WRITE(LUNOUT,20)  'DOCUMENTATION:'
+
+        WRITE(LUNOUT,24) 
+     &       'PURPOSE: simulation cadence created from data'
+
+        WRITE(LUNOUT,24) 
+     &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
+
+        WRITE(LUNOUT,24) 'NOTES: '
+        WRITE(LUNOUT,24) 
+     &       '- Created from snana.exe using SIMLIB_OUTFILE option.'
+        if ( WR_SIM_MAGOBS ) then
+           WRITE(LUNOUT,24)
+     &        '- SIM_MAGOBS are copied to MAG column.'   
+        endif
+
+        WRITE(LUNOUT,20) 'DOCUMENTATION_END:'
+        WRITE(LUNOUT,20) ' ' 
+
+c - - - - - - - -
         LEN1 = INDEX(SURVEY_NAME,' ') - 1
         LEN2 = INDEX(SURVEY_FILTERS,' ') - 1
         WRITE(LUNOUT,10) 'SURVEY:      ',  SURVEY_NAME(1:LEN1)        
         WRITE(LUNOUT,10) 'FILTERS:     ',  SURVEY_FILTERS(1:LEN2)
 10      FORMAT(A, 1x, A)  ! KEY VAL
 11      FORMAT('# ', A)
+
+20      FORMAT(A)
+24      FORMAT(T4,A)
 
         WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
 
@@ -20651,8 +20709,8 @@ c Oct 23, 2020: use DLMAG_fortC to get DLMAG
 
 c local var
 
-      INTEGER iz, NBZ, iplot, hid, LENTIT
-      REAL*8  Z0, zbinsize, ZLIM(2), DLMAG
+      INTEGER iz, NBZ(2), iplot, hid, LENTIT
+      REAL*8  Z0, Z0arg(2), zbinsize, ZLIM(2), DLMAG
       character chis*80
 
 c define parameters for theory plots
@@ -20681,14 +20739,14 @@ c define Z bins for each plot
 
       ZLIM(1) = 0.0
       ZLIM(2) = 2.0
-      NBZ     = 200
+      NBZ(1)  = 200
 
 ccccc
       ZLIM(2) = 4.0
-      NBZ     = 200
+      NBZ(1)  = 200
 ccccc
 
-      Zbinsize = ( ZLIM(2)-ZLIM(1) ) / float(NBZ)
+      Zbinsize = ( ZLIM(2)-ZLIM(1) ) / float(NBZ(1))
 
 c book histos
 
@@ -20707,7 +20765,7 @@ c book histos
 
 c comput Mag vs. Z and fill histograms
 
-      DO 100 iz    = 1, NBZ
+      DO 100 iz    = 1, NBZ(1)
         Z0 = zbinsize * ( float(iz)-0.5 )
       DO 200 iplot = 1, NPL
  
@@ -20723,7 +20781,8 @@ c xxxxxxx end mark xxxxx
      &    OM(iplot), OL(iplot), W(iplot), dWdz(iplot) )
 
         HID = 400 + iplot
-        CALL SNHIST_FILL( NDIM, HID, Z0, DLMAG ) 
+        Z0arg(1) = z0  ! use array to aboif gcc 10 warning
+        CALL SNHIST_FILL( NDIM, HID, Z0arg, DLMAG ) 
 
 200   CONTINUE
 100   CONTINUE   ! iz
@@ -22772,12 +22831,13 @@ C Goal is to replace outlier option in sntable_dump so that making
 C OUTLIER table is a 1-step process (snana.exe) instead of 2 steps
 C (snana.exe + sntable_dump.py)
 C
+c Aug 11 2021: check SBMAG cut
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
-c+CDE,FILTCOM.
++CDE,FILTCOM.
 +CDE,OUTLIERCOM.
 
       INTEGER IDTABLE  ! (I) table ID
@@ -22786,9 +22846,9 @@ c+CDE,FILTCOM.
 c local var
 
       INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP, BIT
-      INTEGER   IFILTOBS
-      LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE
-      REAL      NSIG, FTRUE, FLUXCAL_FIT, FLUXCAL_ERR_FIT
+      INTEGER   IFILTOBS, IFILT
+      LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE, LCUT_SBMAG
+      REAL      NSIG, FTRUE, SBMAG, FLUXCAL_FIT, FLUXCAL_ERR_FIT
       CHARACTER NAME_forC*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
 
       REAL  NSIG_OUTLIER_FIT  ! function 
@@ -22849,27 +22909,31 @@ c   terminate strings for C table-functions (snana.car routine)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
         DO 201 EP = EPMIN, EPMAX
            IFILTOBS   = ISNLC_IFILT_OBS(ep)
+	   IFILT      = IFILTDEF_INVMAP_SURVEY(IFILTOBS)
            if ( ISNLC_SNRECON_USE(ep) == 0 ) goto 201
 
            if ( ISJOB_SNANA ) then
               NSIG   = abs(SIM_EPPULL(ep))
               FTRUE  = SIM_EPFLUXCAL(ep)
+              SBMAG  = SNHOST_SBMAG(ifilt) ! Aug 2021 .xyz
            else
 +SELF,IF=SNFIT.
               NSIG   = NSIG_OUTLIER_FIT(ep)
               FTRUE  = 1000.0  ! something guaranteed to pass cut
+              SBMAG  = 20.0    ! idem
 +SELF.
            endif
 
            if ( NSIG  < -0.01            ) goto 201
-	   if ( FTRUE < FTRUECUT_OUTLIER ) goto 201 ! Mar 24 2021
+	   if ( FTRUE < FTRUECUT_OUTLIER ) goto 201   ! Mar 24 2021
 
            LCUT_NSIG  = ( NSIG  >= NSIGCUT_OUTLIER  ) 
            LCUT_FTRUE = ( FTRUE >= FTRUECUT_OUTLIER )
+           LCUT_SBMAG = ( SBMAG <= SBMAGCUT_OUTLIER ) ! Aug 2021
  
            CALL COUNT_OUTLIERS(1,ep)
 
-           if ( LCUT_NSIG .and. LCUT_FTRUE ) then
+           if ( LCUT_NSIG .and. LCUT_FTRUE .and. LCUT_SBMAG ) then
               NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
               NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
               CALL LOAD_OUTLIER_VAR(ep)
@@ -22886,7 +22950,7 @@ c   terminate strings for C table-functions (snana.car routine)
 
 
 C ======================================
-+DECK,COUNT_OUTLIERS.
++DECK,COUNT_OULIERS.
       SUBROUTINE COUNT_OUTLIERS(OPT,EP)
 
       IMPLICIT NONE
@@ -23503,7 +23567,9 @@ c Feb 20 2020: write MWEBV to TEXT table.
 c May 14 2020: add zFLAG
 c Mar 14 2021: always include PKMJDINI in TEXT output
 c Mar 19 2021: add NEP_OUTLIER if OUTLIER table is defined
-c --------------------------------------------------
+c Aug 13 2021: include HOST_SBMAG, and HOST_SB -> HOST_SBFLUXCAL
+c
+c -------------------------------------------------------------
 
       IMPLICIT NONE
       INTEGER   ID          ! (I) table ID
@@ -23787,9 +23853,15 @@ c always write LOGMASS and SFR
       ENDIF
 
       IF ( EXIST_SNHOST_SB ) THEN    ! host surface brightness
-        CALL TABLE_VARLIST_FILTERS('HOST_SB','F', ADDCOL_FILTERS, 
+c        HOST_SB -> HOST_SBFLUXCAL
+        CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
+     &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
+
+        CALL TABLE_VARLIST_FILTERS('HOST_SBMAG','F', ADDCOL_FILTERS, 
+     &           VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
       ENDIF
 
@@ -24079,7 +24151,6 @@ c glue together variables in comma-separate VARLIST
      &                   LENBLOCK, LENLIST)
       ENDIF     ! end of NPAR_PRIVATE if-block
 
-
 c --- Sep 23 2017: user variables --------
       IF ( NTABLEVAR_USER > 0 ) THEN
         DO ivar = 1, NTABLEVAR_USER
@@ -24090,7 +24161,7 @@ c --- Sep 23 2017: user variables --------
      &               VARLIST, 1, LENBLOCK, LENLIST+2)           
         ENDDO
       ENDIF
- 
+
       RETURN
       END   !  end of INIT_TABLE_SNANAVAR
 
@@ -24556,10 +24627,11 @@ cc      ENDIF
      &                   LENBLOCK, LENLIST)
 
 c add SIM_gammaDM if not zero.
-      ITEXT = 0
-      if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
+c Sep 7 2021: always write SIM_gammaDM in case first value is 0
+c    followed by non0-zero values.
+cc xxx mark ITEXT = 0 ; if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST,ITEXT,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST, 1,
      &                   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)
@@ -24866,6 +24938,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,2)    = -9.0 
            ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP)   = -9.0
+           ADDCOL_SNHOST_SBMAG(IFILT_REMAP)       = -9.0
       ENDDO
 
       DO 100 ifilt = 1, NFILT
@@ -24882,6 +24955,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_MAGOBS(ifilt,1)  = SNHOST_MAGOBS(ifilt,1) 
            ADDCOL_SNHOST_MAGOBS(ifilt,2)  = SNHOST_MAGOBS(ifilt,2) 
            ADDCOL_SNHOST_SBFLUXCAL(ifilt) = SNHOST_SBFLUXCAL(ifilt) 
+           ADDCOL_SNHOST_SBMAG(ifilt)     = SNHOST_SBMAG(ifilt) 
          ELSE 
            CALL FILTER_REMAP_FETCH(IFILTOBS,  ! (I)
      &           IFILTOBS_REMAP,IFILT_REMAP)  ! (O)
@@ -24926,6 +25000,8 @@ c check that each band is mapped.
      &            SNHOST_MAGOBS(ifilt,2)      ! any band
            ADDCOL_SNHOST_SBFLUXCAL(IFILT_REMAP) = 
      &            SNHOST_SBFLUXCAL(ifilt)   ! any band
+           ADDCOL_SNHOST_SBMAG(IFILT_REMAP) = 
+     &            SNHOST_SBMAG(ifilt)   ! any band
 
          ENDIF
 
@@ -36442,7 +36518,7 @@ c local var
       DOUBLE PRECISION 
      &   FIXLIST(NFITPAR)
      &  ,BND1, BND2
-     &  ,STRATEGY, PARG
+     &  ,STRATEGY, PARG(4)
      &  ,MAXCALLS
      &  ,GRAD(NFITPAR)
      &  ,CHI2
@@ -36473,7 +36549,7 @@ C
 +SELF,IF=MINUIT.
       CALL MNINIT(IUNIN,IUOUT,IUWRI)
 
-      PARG = DBLE(PRINT_LEVEL)
+      PARG(1) = DBLE(PRINT_LEVEL)
       CALL MNEXCM(FCNSNLC, 'SET PRI', PARG, 1, IERR, USRFUN )
 +SELF.
 

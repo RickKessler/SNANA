@@ -58,6 +58,8 @@
 //              in TEXT SPECPLOT table.
 //
 // Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
+// Sep 07 2021: abort if found too few variables (SNTABLE_READ_EXEC_TEXT)
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -176,7 +178,6 @@ extern"C" {
   void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
-  // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
 
   int count_varnames_TEXT();
   int get_varname_TEXT(int ivar, char *varName );
@@ -1157,6 +1158,9 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
   // Jun  29 2021; check GZIPFLAG_TEXT for using pclose or fclose
+  // Sep  07 2021: abort if ivar < NVAR_TOT 
+  //    (e.g., if split jobs with different NVAR are merged)
+  //
 
   int NROW = 0 ;
   int i, ivar, isn, ICAST, nptr;
@@ -1220,6 +1224,12 @@ int SNTABLE_READ_EXEC_TEXT(void) {
       ivar++ ;
     }
             
+    if ( NROW>1 && ivar < NVAR_TOT ) {
+      sprintf(MSGERR1,"Exepcted %d values, but found %d", NVAR_TOT, ivar);
+      sprintf(MSGERR2,"Check CID = %s", CVAR[0]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+    }
+
     if ( fmodf( (float)(NROW), 100000. ) == 0 && NROW > 0 )  { 
       printf("\t Reading table row %d  (%s=%s) \n", 
 	     NROW, KEYNAME_ID, CVAR[0] );  fflush(stdout);

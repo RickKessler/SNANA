@@ -22,6 +22,9 @@
 # Jan 22 2021: garbage above CONFIG is ignored.
 # Jan 23 2021: begin adding train_SALT3
 # May 24 2021: call submit_iter2()
+# Aug 09 2021: add --snana_dir arg
+# Oct 04 2021; add wfit class; maybe later can generalize to cosmofit?
+# Oct 12 2021: implement --check_abort for lcfit
 #
 # - - - - - - - - - -
 
@@ -32,8 +35,9 @@ import submit_translate as tr
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
-from   submit_prog_fit    import LightCurveFit
+from   submit_prog_lcfit  import LightCurveFit
 from   submit_prog_bbc    import BBC
+from   submit_prog_wfit   import wFit
 from   submit_train_SALT2 import train_SALT2
 from   submit_train_SALT3 import train_SALT3
 from   argparse import Namespace
@@ -44,10 +48,9 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
-                        choices = ["SIM", "FIT", "BBC", 
+                        choices = ["SIM", "LCFIT", "BBC", "WFIT",
                                    "TRAIN_SALT2", "TRAIN_SALT3", 
-                                   "TRANSLATE", "MERGE", "AIZ" ])
-    
+                                   "TRANSLATE", "MERGE", "AIZ" ])    
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
@@ -59,7 +62,8 @@ def get_args():
     # - - - - - 
     # change number of cores
     msg = "number of cores"
-    parser.add_argument('--ncore', nargs='+', help=msg, type=int )
+    parser.add_argument('--ncore', help=msg, type=int, default=None )
+    # xxx mark parser.add_argument('--ncore', nargs='+', help=msg, type=int )
 
     msg = "override OUTDIR in config file"
     parser.add_argument('--outdir', help=msg, type=str, default=None )
@@ -91,6 +95,9 @@ def get_args():
     msg = "kill jobs if FAIL is detected"
     parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
+    msg = "check for abort using interactive job for 1 event"
+    parser.add_argument("--check_abort", help=msg, action="store_true")
+
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \
           "+=4 -> continue submit with new file. "
@@ -114,6 +121,9 @@ def get_args():
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
     msg = (f"DEBUG MODE: force abort in merge ")
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
+
+    msg = (f"DEBUG MODE: run codes from private snana_dir ")
+    parser.add_argument("--snana_dir", help=msg, type=str, default=None )
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process"
@@ -153,14 +163,22 @@ def which_program_class(config):
     CONFIG        = config['CONFIG'] 
     if "GENVERSION_LIST" in config :
         program_class = Simulation
+
     elif "VERSION" in CONFIG :
         program_class = LightCurveFit # SALT2 LC fits
+
     elif "INPDIR+" in CONFIG :
         program_class = BBC          # Beams with Bias Corr (KS17)
+
+    elif "WFITOPT" in CONFIG :
+        program_class = wFit         # fast cosmology fitter "wfit"
+
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
+
     elif "SALT3_CONFIG_FILE" in CONFIG :
         program_class = train_SALT3  # saltshaker from D'Arcy & David
+
     else :
         sys.exit("\nERROR: Could not determine program_class")
 
@@ -342,10 +360,9 @@ def print_nosubmit_messages(config_yaml):
 
 def purge_old_submit_output():
     
-    #REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
 
     # LC fitting
-    util.find_and_remove(f"{SUBDIR_SCRIPTS_FIT}*")
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_LCFIT}*")
     util.find_and_remove(f"FITOPT*.LCPLOT*")
     util.find_and_remove(f"FITOPT*.HBOOK*")
     util.find_and_remove(f"FITOPT*.ROOT*")

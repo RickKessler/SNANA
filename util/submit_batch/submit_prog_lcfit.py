@@ -111,7 +111,7 @@ class LightCurveFit(Program):
     def __init__(self, config_yaml):
 
         config_prep = {}
-        config_prep['program'] = PROGRAM_NAME_FIT
+        config_prep['program'] = PROGRAM_NAME_LCFIT
         super().__init__(config_yaml, config_prep)
 
     def set_output_dir_name(self):
@@ -125,7 +125,7 @@ class LightCurveFit(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        return output_dir_name,SUBDIR_SCRIPTS_FIT
+        return output_dir_name,SUBDIR_SCRIPTS_LCFIT
         # end set_output_dir_name
 
     def submit_prepare_driver(self):
@@ -201,7 +201,6 @@ class LightCurveFit(Program):
         #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
 
         # load the goodies
-        # xxx mark self.config_prep['opt_sncid_list']     = opt_sncid_list
         self.config_prep['argdict_same_sncid'] = argdict_same_sncid
 
         # end fit_prep_same_scnid
@@ -246,7 +245,7 @@ class LightCurveFit(Program):
                     copy_list_string += (f"{infile} ")
 
         if len(copy_list_string) > 0 :
-            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_FIT}:\n" \
+            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
                    f"   {copy_list_string} \n")
             logging.info(msg)
             os.system(f"cp {copy_list_string} {script_dir}/")
@@ -444,13 +443,14 @@ class LightCurveFit(Program):
 
     def fit_validate2_VERSION(self, path, version):
 
-        # Stron validation method:
+        # Strong validation method:
         # run short snana.exe job on input  version and create
         # YAML file; if NEVT_TOT=0, or YAML file is not produced,
         # return False. If NEVT_TOT > 0, return True
         # Also return comment string; SUCCESS for True,
         # and error msg for False.
 
+        snana_dir       = self.config_yaml['args'].snana_dir
         output_dir      = self.config_prep['output_dir']
         cddir           = (f"cd {output_dir}")
         key_nevt        = 'NEVT_TOT'
@@ -460,7 +460,12 @@ class LightCurveFit(Program):
         textfile_prefix = (f"{PREFIX_TEMP_SNANA}_{version}")
         log_file        = (f"{textfile_prefix}.LOG")
         yaml_file       = (f"{textfile_prefix}.YAML")
-        cmd_snana = "snana.exe NOFILE  "
+
+        if snana_dir is None :
+            cmd_snana = f"snana.exe NOFILE  "
+        else:
+            cmd_snana = f"{snana_dir}/bin/snana.exe NOFILE  "
+
         cmd_snana += (f"VERSION_PHOTOMETRY {version}  ")
         cmd_snana += (f"MXEVT_PROCESS {nevt_proc}  ")
         cmd_snana += (f"JOBSPLIT 1 1  ")
@@ -838,8 +843,10 @@ class LightCurveFit(Program):
         isplit = index_dict['isplit']+1  # fortran like index for file names
         icpu   = index_dict['icpu']      # cpu index
 
-        input_file    = self.config_yaml['args'].input_file 
-        kill_on_fail  = self.config_yaml['args'].kill_on_fail
+        args          = self.config_yaml['args']
+        input_file    = args.input_file 
+        kill_on_fail  = args.kill_on_fail
+        check_abort   = args.check_abort
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -864,16 +871,17 @@ class LightCurveFit(Program):
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")
         arg_list.append(f"  JOBSPLIT {isplit} {n_job_split}")
 
         # check fast option to prescale sims by 10 (data never pre-scaled)
-        if self.config_yaml['args'].fast :
+        if args.fast :
             arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
 
-        if self.config_yaml['args'].require_docana :
+        if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")
 
         # tack on outFile for each table format. For TEXT, do NOT
@@ -893,6 +901,10 @@ class LightCurveFit(Program):
 
         # Jan 8, 2021: option to use CID list from FITOPT000
         opt_sncid_list = self.config_prep['opt_sncid_list']
+
+        if args.check_abort: 
+            arg_list.append("MXEVT_CUTS 1")
+            opt_sncid_list = 0  # disable event-sync feature
 
         if fitopt_label is None:
             NOREJECT = None
@@ -1601,7 +1613,6 @@ class LightCurveFit(Program):
         
         cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
                     f" | grep 'NEVT:' ")
-        print('xxxx','cmd_nevt',cmd_nevt)
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')
@@ -1671,7 +1682,7 @@ class LightCurveFit(Program):
         use_table_format    = submit_info_yaml['USE_TABLE_FORMAT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
-        subdir         = SUBDIR_SCRIPTS_FIT
+        subdir         = SUBDIR_SCRIPTS_LCFIT
         tar_file       = (f"{subdir}.tar")
 
         logging.info(f" FIT cleanup: check if all merged tables exist.")
@@ -1769,10 +1780,10 @@ class LightCurveFit(Program):
             os.system(cmd_rm)
 
         # if script_dir is tarred & gzipped, unpack it
-        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_FIT}")
+        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_LCFIT}")
         util.compress_subdir(-1, script_dir)
 
-        # untar and unzip file inside SUBDIR_SCRIPTS_FIT
+        # untar and unzip file inside SUBDIR_SCRIPTS_LCFIT
         backup_list = glob.glob1(script_dir, "BACKUP*")
         if len(backup_list) > 0 :
             cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
@@ -1788,7 +1799,7 @@ class LightCurveFit(Program):
         wildcard_output_dir = [ f"{MERGE_LOG_FILE}_*", "*.DONE", "BUSY*" ]
 
         logging.info(f"  {fnam}: remove misc junk files from " \
-                     f"{SUBDIR_SCRIPTS_FIT}")
+                     f"{SUBDIR_SCRIPTS_LCFIT}")
         for wildcard in wildcard_script_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
             if len(glob.glob1(script_dir,wildcard)) > 0 :

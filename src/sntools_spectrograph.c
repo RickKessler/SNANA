@@ -37,6 +37,11 @@
   May 06 2020:
     + in getSNR_spectrograph, return SNR=0 if ZP is undefined.
 
+  Aug 20 2021:
+    + in getSNR_spectrograph, interpolate ZP vs. log10(Texpose) instead
+      of ZP vs. Texpose. Works much better with sparse Texpose grid.
+      [issue found by comparing SNR against D.Rubin]
+
 *********************************************************/
 
 #include "fitsio.h"
@@ -892,7 +897,9 @@ void read_spectrograph_fits(char *inFile) {
   //
   // Oct 14 2016: read LAMSIGMA_LIST
   // Sep 19 2018: fill INPUTS_SPECTRO.ISFIX_LAMBIN (used for output FORMAT)
-  // May 06 2020: default format is to format LAMMIN & LAMMAX instead of just LAMCEN
+  // May 06 2020: default format is to format LAMMIN & LAMMAX 
+  //  instead of just LAMCEN
+  // Aug 20 2021: store LOGTEXPOSE_LIST
 
   int istat, hdutype, extver, icol, anynul ;
   fitsfile *fp ;
@@ -979,6 +986,7 @@ void read_spectrograph_fits(char *inFile) {
 
     printf("%d ", (int)tmpVal_f );
     INPUTS_SPECTRO.TEXPOSE_LIST[t] = tmpVal_f ;
+    INPUTS_SPECTRO.LOGTEXPOSE_LIST[t] = log10(tmpVal_f) ; // Aug 20 2021
   }
   printf("\n"); fflush(stdout);
 
@@ -1342,12 +1350,15 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // May 22 2020: return SNR=0 if variance < 0 (see SQ_SUM)
   // May 27 2020: pass & implement new option ALLOW_TEXTRAP 
   // Jun 04 2020: init *ERRFRAC_T=0
+  // Aug 20 2021: minor refac to interpolate ZP vs. log(Texpose)
+  //               intead of ZP vs. Texpose
 
   int OPT_INTERP=1;
   int NBT       = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   double Tmin   = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   double Tmax   = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
   double TEXPOSE_S_local = TEXPOSE_S ;
+  double LOGTEXPOSE_S, LOGTEXPOSE_T;
   //  double TEXPOSE_T_local = TEXPOSE_T ;
   double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
   bool   DO_TEXTRAP = false;
@@ -1357,6 +1368,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
   char errmsg_SQ_T[] = "getSNR_spectrograph(SQ_T)";
   int  LDMP = (ILAM < -3);
+  // int  LDMP = ( fabs(INPUTS_SPECTRO.LAMAVG_LIST[ILAM]-8000.) < 2.0 );
+  bool REFAC_ZP = true ;
 
   // -------------- BEGIN --------------
 
@@ -1376,22 +1389,43 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   }
 
 
+  LOGTEXPOSE_S = log10(TEXPOSE_S_local); // Aug 20 2021
+
   // May 2020: if ZP is undefined in this ILAM bin, return SNR=0
   if ( INPUTS_SPECTRO.ZP[ILAM][0] < 0.0 ) { return(SNR); }
 
   // interpolate ZP(Texpose) and SQSIG(Texpose)
-  ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
-		       INPUTS_SPECTRO.TEXPOSE_LIST,
-		       INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
-  
+
+  if ( REFAC_ZP ) {
+    ZP_S = interp_1DFUN (OPT_INTERP, LOGTEXPOSE_S, NBT, 
+			 INPUTS_SPECTRO.LOGTEXPOSE_LIST,
+			 INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
+  }
+  else {
+    // legacy 
+    ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
+			 INPUTS_SPECTRO.TEXPOSE_LIST,
+			 INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
+  }
+
   SQ_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
 		       INPUTS_SPECTRO.TEXPOSE_LIST,
 		       INPUTS_SPECTRO.SQSIGSKY[ILAM], errmsg_SQ_S );
   
   if ( TEXPOSE_T > 0.01 ) {
-    ZP_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
-		       INPUTS_SPECTRO.TEXPOSE_LIST,
-		       INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+    LOGTEXPOSE_T = log10(TEXPOSE_T);
+    if ( REFAC_ZP ) {
+      ZP_T = interp_1DFUN (OPT_INTERP, LOGTEXPOSE_T, NBT, 
+			   INPUTS_SPECTRO.LOGTEXPOSE_LIST,
+			   INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+
+    }
+    else {
+      // legacy
+      ZP_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
+			   INPUTS_SPECTRO.TEXPOSE_LIST,
+			   INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_T );
+    }
 
     SQ_T = interp_1DFUN (OPT_INTERP, TEXPOSE_T, NBT, 
 			 INPUTS_SPECTRO.TEXPOSE_LIST,
@@ -1431,10 +1465,17 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
     printf(" xxx GENMAG = %f \n", GENMAG);
     printf(" xxx SQ[S,T] = %le , %le    Flux=%le \n", SQ_S, SQ_T, Flux);    
     printf(" xxx SQ_SUM(SQ_S+SQ_T+Flux) = %le \n", SQ_SUM );
-    printf(" xxx ZP[S,T] = %le , %le  \n", ZP_S, ZP_T );    
-    printf(" xxx INPUTS_SPECTRO.ZP = %f, %f, %f ... \n",
-	   INPUTS_SPECTRO.ZP[ILAM][0], INPUTS_SPECTRO.ZP[ILAM][1], 
-	   INPUTS_SPECTRO.ZP[ILAM][2]);
+
+    int i;
+    for(i=0;  i< NBT; i++ ) {
+      printf(" xxx ZP-interpFun: i=%d: log10(Texpose)=%6.3f, ZP=%.3f \n", i,
+             INPUTS_SPECTRO.LOGTEXPOSE_LIST[i],
+             INPUTS_SPECTRO.ZP[ILAM][i] );
+    }
+
+    printf(" xxx ZP[S,T] interp values = %.3f , %.3f  \n", ZP_S, ZP_T );    
+
+    printf(" xxx SNR = %f / %f = %f \n", Flux, FluxErr,SNR);
     printf(" xxx \n");
 
 

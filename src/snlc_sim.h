@@ -408,9 +408,10 @@ struct INPUTS {
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
-  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
+  char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
   int  SIMLIB_GZIPFLAG ;            // gzip flag (needed to rewind)
 
+  char SIMLIB_SURVEY[40];     // override name of SURVEY in simlib file
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
   //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //
@@ -612,8 +613,9 @@ struct INPUTS {
   double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
   double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
   double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
-  int    DO_AV ;
+  int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
+  bool   DOGEN_SHAPE, DOGEN_COLOR ; // generate with function or GENPDF
 
   int    WV07_GENAV_FLAG;   //  1=> use published ESSENCE-WV07 distrib.
   double WV07_REWGT_EXPAV;   //  re-weight exp component (default=1)   
@@ -919,6 +921,8 @@ struct GENLC {
   double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
+  double MJD_RANGE[2];       // MJD range to accept in SIMLIB
+  double MJD_RANGE_LC[2];    // MJD range of lightcurve withing GENRANGE_TREST
   int    ISOURCE_PEAKMJD;    // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;       // explosion time for NON1A or SIMSED
   double DTSEASON_PEAK;      // |PEAKMJD-MJD_seasonEdge|
@@ -1343,6 +1347,7 @@ struct SIMLIB_GLOBAL_HEADER {
 
 } SIMLIB_GLOBAL_HEADER ;
 
+
 struct SIMLIB_HEADER {
   // header info for each LIBID entry
 
@@ -1637,9 +1642,9 @@ void   SIMLIB_randomize_skyCoords(void);
 
 void   init_SIMLIB_HEADER(void);
 int    keep_SIMLIB_HEADER(void);
-int    keep_SIMLIB_OBS(int isort, int REPEAT);
+int    keep_SIMLIB_OBS(int isort);
 
-void   SIMLIB_read_templateNoise(char *field, char *whatNoise); 
+int    SIMLIB_read_templateNoise(char *field, char *whatNoise, char **wdlist); 
 void   SIMLIB_TAKE_SPECTRUM(void) ;
 
 int    SKIP_SIMLIB_FIELD(char *field);
@@ -1647,7 +1652,7 @@ int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
 
 void   store_SIMLIB_SEASONS(void);
-void   set_SIMLIB_MJDrange(int sameFlag, double *MJDrange);
+void   set_SIMLIB_MJDrange(int OPT, double *MJDrange);
 void   remove_short_SIMLIB_SEASON(void);
 
 void   store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE);
@@ -1675,7 +1680,8 @@ double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT, 
 			char *cfiltList, int *ifiltList) ;
-void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
+// xxx mark void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
+void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 
 int    regen_SIMLIB_GENRANGES(void); // regenerate after reading SIMLIB header
@@ -1742,7 +1748,7 @@ void   prep_GENPDF_FLAT(void);
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 
 void   genmag_offsets(void) ;
-
+void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
 
 void   prep_simpath(void);
@@ -1847,6 +1853,7 @@ void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z, 
 		       double *TOBS, double *TREST );
 void   GENSPEC_FUDGES(int imjd);
+void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) ;
 
 void   genmodel(int ifilt_obs, int inear);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest, 
@@ -1920,6 +1927,7 @@ void   readme_doc_SIMSED(int *iline);
 void   readme_doc_magSmear(int *iline);
 void   readme_doc_nonLin(int *iline);
 void   readme_doc_SALT2params(int *iline ) ;
+void   readme_doc_GENPDF(int *iline ) ;
 void   readme_doc_FIXMAG(int *iline ) ;
 void   readme_doc_GENPERFECT(int *iline ) ;
 void   readme_doc_FUDGES(int *iline) ;

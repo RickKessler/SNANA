@@ -4457,9 +4457,7 @@ c set local dump logicals = namelist flag .and. (debug option)
      &           .and. LFITDATA 
 
 c dumpe header just once per filter.
-
-cc xxx mark delete Oct 2020   if ( LDMPFCN_LOC .and. FIRSTFILT ) then      
-         if ( LDMPFCN_LOC ) then
+         if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
               print*,' '
               print*,' -------------------------------------- '
@@ -4481,7 +4479,7 @@ c print  fit-pars to see crazy values.
               write(6,603) 'SHAPE', SHAPEPAR(1)
               write(6,603)  PARNAME_STORE(IPAR_DLMAG)(1:6), DISTPAR
 
-603           format(T7, A, T17,'= ', G14.4 )
+603           format(T7, A, T17,'= ', G14.6 )
 604           format(T7, A, T17,'= ', F12.4 )
 
 c print non-zero chi2prior contributions
@@ -7359,8 +7357,10 @@ c  skip DUMP options after 20 filters
              CALL MADABORT(FNAM, c1err, c2err)
            endif
            if ( LPLOTCHI2 ) then
+              ! either plot ...
               LDMPFCN_PLOTCHI2(ifilt) = .TRUE.
            else
+              ! or stdout dump ...
               LDMPFCN(ifilt) = .TRUE.
               LDMPFCN(0)     = .TRUE.
            endif
@@ -8210,9 +8210,11 @@ c make sure that alpha & beta are defined for photoZ fit.
 c set bounds on color and stretch
 c Mar 24, 2012: reduce range from +-2
 c Dec 5 2013: reduce max color frmo +2 to +1.
+c Aug 30 2021: max color -> 2 to fit redder events
 
          INIBND(1,IPAR_COLOR) = -1.6  ! c
-         INIBND(2,IPAR_COLOR) = +1.0 
+cc         INIBND(2,IPAR_COLOR) = +1.0 
+         INIBND(2,IPAR_COLOR) = +2.0 
 
          INIBND(1,IPAR_SHAPE) = -5.0  ! x1
          INIBND(2,IPAR_SHAPE) = +5.0
@@ -9088,38 +9090,28 @@ c local var
 
       INTEGER 
      &   CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar
-     &  ,IPAR_ADJUST, NF, NZ, LCHAR
+     &  ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
 
       LOGICAL LDMP / .TRUE. /
-      LOGICAL LZFIT, FIRST_ITER
-      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*12
+      LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
+      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
 
       REAL
-     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG
-     &  ,rflux, CHI2, Xsig, ZTMP
+     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2, Xsig, ZTMP
      &  ,PEAKMJD_INI, PEAKMJD_SAVE
      &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
-     &  ,COLOR_INI, COLOR_SAVE
-     &  ,COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
+     &  ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
      &  ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP
-     &  ,INIVAL_START(IPAR_MAX)  ! starting initial values
-     &  ,RTMP(MXFILT_ALL)
+     &  ,INIVAL_START(IPAR_MAX), RTMP(MXFILT_ALL)
 
       REAL*8  T8, Z8
 
-c functions
-
-      REAL  DATA_MODEL_RATIO
-
 c FCNSNLC args
-
       INTEGER IFLAG
-      REAL*8 
-     &    GRAD(MXFITPAR)
-     &  , CHI8INI, CHI8END, CHI8MIN, CHI8
-     &  , CHI8TEST
+      REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8, CHI8TEST
 
 c functions
+      REAL  DATA_MODEL_RATIO
       REAL*8  USRFUN
       EXTERNAL USRFUN
       LOGICAL  FIRST_ITERATION
@@ -9197,30 +9189,23 @@ c     D. Jones color grid search
       COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
       COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
 
-      IF ( COLOR_BIN .EQ. 0.0) THEN 
+      DO_PEAKMJD = (INISTP_PEAKMJD > 0.0 .and. DIFMJD_BIN > 0.0001)
+      DO_COLOR   = (INISTP_COLOR   > 0.0 .and. COLOR_BIN  > 0.0001)
+
+      IF ( .not. DO_COLOR ) THEN 
         COLOR_MIN = COLOR_INI
         COLOR_MAX = COLOR_INI
 	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
       ENDIF
 
-       print*,' xxx COLOR(MIN,MAX,BIN) =', 
-     &    COLOR_MIN, COLOR_MAX, COLOR_BIN
-
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
-      IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
+      if ( .not. DO_PEAKMJD ) GOTO 444
+c xxx mark delet Aug 7 2021  IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
+      COLOR   = COLOR_MIN
 
-c xxxxxxx mark delete Aug 3 2021 xxxxxx
-c      DO 400 i = -4, 4, 2   ! Mar 4 2020
-c        Xsig                 = 0.5 * float(i)
-c        PEAKMJD_DIF          = Xsig * INISTP(IPAR_PEAKMJD) 
-c        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_DIF
-c	print*,' xxx PEAKMJD_DIF = ', PEAKMJD_DIF
-c xxxxxxxxx end mark xxxxxxxx
-
-      COLOR = COLOR_MIN
       DO 300 WHILE ( COLOR < COLOR_MAX+0.0001 ) 
         INIVAL(IPAR_COLOR) = COLOR
         DIFMJD = DIFMJD_MIN
@@ -9252,20 +9237,33 @@ c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
         PEAKMJD_SAVE         = PEAKMJD_INI
         INIVAL(IPAR_COLOR)   = COLOR_INI
         COLOR_SAVE           = COLOR_INI
-
       ENDIF
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 6")
 
+c - - - - -
       if ( LDMP ) then
-         write(6,44) PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
-44       format(T10,'Adjust PEAKMJD=',F9.3, ' ==> ', F9.3,
-     &      2x, '(CHI2=',F10.2,')'  )
-         write(6,45) COLOR_INI, INIVAL(IPAR_COLOR), CHI8
-45       format(T10,'Adjust COLOR=',F9.3, ' ==> ', F9.3,
-     &      2x, '(CHI2=',F10.2,')'  )
+         LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
+         LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
+	 IF ( DO_COLOR ) THEN
+           write(6,42) 
+     &         PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &         PARNAME_STORE(IPAR_COLOR)(1:LCHAR2),
+     &         PEAKMJD_INI, COLOR_INI,
+     &         INIVAL(IPAR_PEAKMJD), INIVAL(IPAR_COLOR), CHI8
+	 ELSE
+           write(6,41) PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &               PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
+	 ENDIF
+
+41       format(T10,'Adjust ',A,'=',F9.3, ' ==> ', F9.3,
+     &             2x, '(CHI2=',F10.2,')'  )
+
+42       format(T6,'Adjust ',A,'/',A, '=', 
+     &        F9.3,'/',F6.3, ' ==> ', F9.3,'/',F6.3,
+     &        2x, '(CHI2=',F10.2,')'  )
 
       endif
 
@@ -19727,7 +19725,8 @@ c hard-wire  a few things
       PARAMETER ( 
      &    HOFF      = 2000  ! hbook offset
      &   ,NFITSIG   = 10    ! go out +-NSIG sigma from central value
-     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
+     &   ,NBFITPAR  = 100   ! Number of fitpar bins to compute chi2
+c     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
      &      )
 
 
@@ -19741,7 +19740,7 @@ c hard-wire  a few things
       CHARACTER chis*80
 
       INTEGER 
-     &   hid, NBx, NBf, NHB(2), ipar, ix, LL, LF
+     &   hid, NBx, NBf, NHB(2), ipar, ix, i, LL, LF
      &  ,ifilt, ifilt_obs, NFUSE
      &  ,IPAR_LOOP1, IPAR_LOOP2
      &  ,NDIM1, NDIM2
@@ -19832,7 +19831,7 @@ c book chi2 vs. par - par(at min) vs. filter
          DO ix = 1, NBx
 
              LDMPCHECK = ( IPAR .EQ. IPAR_PLOTCHI2 )
-     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
+cc     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
 
              FCN_FITCHI2(0) = 0.0
              do ifilt = 1, NFILTDEF_SURVEY
@@ -19843,6 +19842,7 @@ c check for filters to dump near the minimum
                if ( LDMPCHECK ) then
                  LDMPFCN(ifilt_obs) = LDMPFCN_PLOTCHI2(ifilt_obs)
                  LDMPFUN(ifilt_obs) = LDMPFUN_PLOTCHI2(ifilt_obs)
+                 LDMPFCN(0)         = .true. ! xxx ?? 9.30.2021
                else
                  LDMPFCN(ifilt_obs) = .FALSE.
                  LDMPFUN(ifilt_obs) = .FALSE.

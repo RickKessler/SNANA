@@ -25,7 +25,7 @@ HOSTNAME = os.environ['HOSTNAME']
 SURVEY_INFO = {
     'FILTERS' : {           # mandatory 
         'LSST'  : "ugrizY",
-        'SIRAH' : "GRcogrizyLYJNH",  # ztf/ATLAS/PS1/WFC3
+        'SIRAH' : "GRcogrizyABCLYJNH",  # ztf/ATLAS/PS1/WFC3
         'DES'   : "griz" ,
         'PS1'   : "griz"
     },

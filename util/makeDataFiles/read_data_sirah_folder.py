@@ -5,22 +5,32 @@ import makeDataFiles_util  as    util
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
+# J.Pierel 10/14 -- updated filter names
+#filt_swap = {'F098M':'WFC3_IR_F098M-L','F105W':'WFC3_IR_F105W-Y',
+#             'F110W':'WFC3_IR_F110W-M','F125W':'WFC3_IR_F125W-J',
+#             'F140W':'WFC3_IR_F140W-N','F160W':'WFC3_IR_F160W-H',
+#             'ZTFg':'ZTF-G','ZTFr':'ZTF-R','ZTFr':'ZTF-I'
+#             }
+
 FILTERMAP_PKL2SNANA = {
-    # PLK ->     SNANA
-    'ztfg'     : 'ZTF-G' ,
-    'ztfr'     : 'ZTF-R' ,
+    # PKL ->     SNANA
+    'ZTFg'     : 'ZTF-G' ,
+    'ZTFr'     : 'ZTF-R' ,
     'ATLAS-c'  : 'ATLAS-c' ,
     'ATLAS-o'  : 'ATLAS-o' ,
-    'GPC1-g'   : 'PS1-g' ,
-    'GPC1-r'   : 'PS1-r' ,
-    'GPC1-i'   : 'PS1-i' ,
-    'GPC1-z'   : 'PS1-z' ,
-    'GPC1-y'   : 'PS1-y' ,
-    'F098M'    : 'WFC3_F098M-L' ,  # <lam> ~  9,900 A
-    'F105W'    : 'WFC3_F105W-Y' ,  # <lam> ~ 10,600 A
-    'F125W'    : 'WFC3_F125W-J' ,  # <lam> ~ 12,500 
-    'F140W'    : 'WFC3_F140W-N' ,  # <lam> ~ 14,000 A
-    'F160W'    : 'WFC3_F160W-H'    # <lam> ~ 15,400 A
+    'PS1-g'   : 'PS1-g' ,
+    'PS1-r'   : 'PS1-r' ,
+    'PS1-i'   : 'PS1-i' ,
+    'PS1-z'   : 'PS1-z' ,
+    'PS1-y'   : 'PS1-y' ,
+    'NIRIY'   : 'NIRI-Y/A', # Gemini Photometry
+	'NIRIJ'   : 'NIRI-J/B', # Gemini Photometry
+	'NIRIH'   : 'NIRI-H/C',	# Gemini Photometry
+    'F098M'    : 'WFC3_IR_F098M-L' ,  # <lam> ~  9,900 A
+    'F105W'    : 'WFC3_IR_F105W-Y' ,  # <lam> ~ 10,600 A
+    'F125W'    : 'WFC3_IR_F125W-J' ,  # <lam> ~ 12,500 
+    'F140W'    : 'WFC3_IR_F140W-N' ,  # <lam> ~ 14,000 A
+    'F160W'    : 'WFC3_IR_F160W-H'    # <lam> ~ 15,400 A
 }
 
 # - - - - - - - - - - - - - - - - - - -     -
@@ -82,7 +92,7 @@ class data_sirah_folder(Program):
 
         print(f"\t Read {pkl_file}")
 
-        pkl_phot, plk_spec = pickle.load(open(PKL_FILE,'rb'))
+        pkl_phot, pkl_spec = pickle.load(open(PKL_FILE,'rb'))
         SNID     = pkl_phot.meta['NAME']
         zHEL     = pkl_phot.meta['zHEL']
         zHEL_ERR = pkl_phot.meta['zHEL_ERR']            

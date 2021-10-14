@@ -1,5 +1,4 @@
 /*************************************************
- TO DO: check_required_headkeys and IPAR_SNFITSIO need rd/wr flag
 
   May 2011, R.Kessler
 
@@ -207,6 +206,7 @@ void wr_snfitsio_init_head(void) {
   // Jul 20, 2019: add strong lens info
   // Feb 27, 2020: add SIM_HOSTLIB_GALID
   // May 14, 2020: add REDSHIFT_QUALITYFLAG
+  // Oct 13, 2021: add EXPNUM  (mimic CCDNUM)
 
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar ;
@@ -572,7 +572,7 @@ void wr_snfitsio_init_phot(void) {
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
   fitsfile *fp;
   char TBLname[40] ;
-  //  char fnam[] = "wr_snfitsio_init_phot" ;
+  char fnam[] = "wr_snfitsio_init_phot" ;
 
   // ------------- BEGIN --------------
 
@@ -584,6 +584,10 @@ void wr_snfitsio_init_phot(void) {
   wr_snfitsio_addCol( "2A",  "BAND"        , itype ) ; 
 
   wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
+  
+  if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
+    { wr_snfitsio_addCol( "1J",  "EXPNUM" , itype ) ; }  // Oct 2021; 
+
   wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
 
   wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
@@ -866,7 +870,8 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 7; // Mar 18 2018: add SNRMAG[mag]
   //  SNFITSIO_CODE_IVERSION = 8; // Dec 26 2018: SIMSED_PAR loops 0 to NPAR-1
   //  SNFITSIO_CODE_IVERSION = 9; // FEB 8 2019: more HOSTGAL stuff
-  SNFITSIO_CODE_IVERSION = 10 ; // Sep 10 2020: PySEDMODEL
+  //  SNFITSIO_CODE_IVERSION = 10 ; // Sep 10 2020: PySEDMODEL
+  SNFITSIO_CODE_IVERSION = 11 ; // Oct 13 2021: add EXPNUM to phot table
  
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
@@ -1959,7 +1964,14 @@ void wr_snfitsio_update_phot(int ep) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
-  
+
+  // EXPNUM (Oct 2021)
+  if ( !SNFITSIO_SIMFLAG_SNANA ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.EXPNUM[ep] ;
+    wr_snfitsio_fillTable ( ptrColnum, "EXPNUM", itype );
+  }
+
   // FIELD
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FIELDNAME[ep] ;
@@ -3202,6 +3214,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     for(ep=0; ep<=NRD; ep++) { SNDATA.OBSFLAG_WRITE[ep] = true ; }
 
     j++; NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    j++; NRD = RD_SNFITSIO_INT(isn, "EXPNUM", &SNDATA.EXPNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
 
     // note that FIELD returns comma-separated list in 1D string

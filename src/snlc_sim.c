@@ -15419,7 +15419,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"MWEBV:") == 0  )
 	{ sscanf(wd1,"%le", &SIMLIB_HEADER.MWEBV ); iwd++ ; continue; }
 
-      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 )  
+      else if ( strcmp(wd0,"CCD:") == 0 || strcmp(wd0,"CCDNUM:") == 0 ) 
 	{ sscanf(wd1,"%d",&SIMLIB_HEADER.CCDNUM);  iwd++ ; continue; }
 
       // read optional header keys for FAKEID option

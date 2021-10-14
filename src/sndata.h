@@ -198,7 +198,9 @@ struct SNDATA {
 
   float PIXSIZE;                 // pixel size, arcsec
   int   NXPIX, NYPIX;
-  int   CCDNUM[MXEPOCH] ;
+
+  int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
+  int   EXPNUM[MXEPOCH] ; // Oct 13 2021 ... exposure number or visit id
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch
@@ -216,7 +218,6 @@ struct SNDATA {
 
   int   SEARCH_RUN[MXEPOCH] ;
   int   TEMPLATE_RUN[MXEPOCH] ;
-  int   QMASK[MXEPOCH];
   int   SEARCH_FIELD[MXEPOCH] ;
   int   TEMPLATE_FIELD[MXEPOCH] ;
 
@@ -307,10 +308,12 @@ struct SNDATA {
   float SEARCH_PEAKMJD ;     // approx MJD at g-band peak, from LC fit
   int   SEARCH_TYPE ;        // type from search (i.e., 120=confirmed Ia)
 
-
-  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
-  char  DATE[MXEPOCH][80];        // entry date
-  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
+  // xxxx removed obsolete variables Oct 13 2021 xxxx
+  // xxxx  int   QMASK[MXEPOCH];
+  // xxx  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
+  // xxx  char  DATE[MXEPOCH][80];        // entry date
+  // xxx  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
+  // xxxxxxxxxxx
 
   float MJD_TRIGGER ;      //  MJD when trigger is satisfied (Apr 2017)
 

@@ -4868,6 +4868,12 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_int(copyFlag, &parVal[obs], &SNDATA.CCDNUM[OBS]) ; 
     }  
   }
+  else if ( strcmp(key,"EXPNUM") == 0 ) {
+    for(obs=0; obs < NOBS_STORE; obs++ ) {
+      OBS = SNDATA.OBS_STORE_LIST[obs];  
+      copy_int(copyFlag, &parVal[obs], &SNDATA.EXPNUM[OBS]) ; 
+    }  
+  }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  
@@ -8330,13 +8336,13 @@ int init_SNDATA_EVENT(void) {
 
   for ( i_epoch = 0; i_epoch < MXEPOCH; i_epoch++ ) {
 
-    SNDATA.QMASK[i_epoch]        = NULLINT ;
     SNDATA.SEARCH_RUN[i_epoch]   = NULLINT ;
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
 
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
 
     SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
+    SNDATA.EXPNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
 
     // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 
     //  gets confused with NULL
@@ -8344,8 +8350,7 @@ int init_SNDATA_EVENT(void) {
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
     sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );
-    sprintf(SNDATA.DATE[i_epoch],      "BLANK" );
-    SNDATA.IDATE[i_epoch]          = NULLINT ;
+
 
     SNDATA.FILTINDX[i_epoch]       = NULLINT ;
     SNDATA.SEARCH_FIELD[i_epoch]   = NULLINT ;

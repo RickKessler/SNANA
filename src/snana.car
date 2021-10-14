@@ -789,7 +789,7 @@ c analysis-related variables.
 c
      &  ,ISNLC_FAKE             ! => real data, else it's a fake
      &  ,ISNLC_CCDNUM(MXEPOCH)  ! read from header (May 2017)
-     &  ,ISNLC_EXPNUM(MXEPOCH)  ! Oct 2021
+     &  ,ISNLC_IMGNUM(MXEPOCH)  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
      &  ,ISNLC_IDTEL(MXEPOCH)   ! integer telescope id      
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
@@ -955,7 +955,7 @@ c
      &    ,ISNLC_NEPOCH_USE, ISNLC_NEPOCH_PHOTPROB
      &    ,ISNLC_NEPOCH_FILT,  ISNLC_NEPOCH_PRESN, ISNLC_NMJD_INCLUDE
      &    ,ISNLC_NEPOCH_DETECT, SNLC_TLIVE_DETECT
-     &    ,ISNLC_FAKE, ISNLC_CCDNUM, ISNLC_EXPNUM
+     &    ,ISNLC_FAKE, ISNLC_CCDNUM, ISNLC_IMGNUM
      &    ,ISNLC_NFILT_SNRMAX, ISNLC_NFILT_SNRMAX2
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
@@ -4903,9 +4903,9 @@ c     &    + OPTMASK_SNDATA_DUMP
      &        NOBS_STORE, STRING, DARRAY, OPT)
       DO o=1,NOBS_STORE; ISNLC_CCDNUM(o)=int(DARRAY(o)); ENDDO
 
-      CALL FETCH_SNDATA_WRAPPER("EXPNUM",  
+      CALL FETCH_SNDATA_WRAPPER("IMGNUM",  
      &        NOBS_STORE, STRING, DARRAY, OPT)
-      DO o=1,NOBS_STORE; ISNLC_EXPNUM(o)=int(DARRAY(o)); ENDDO
+      DO o=1,NOBS_STORE; ISNLC_IMGNUM(o)=int(DARRAY(o)); ENDDO
 
 
       CALL FETCH_SNDATA_WRAPPER("FIELD",  
@@ -15147,7 +15147,7 @@ C ------------- BEGIN ------------
 c beware that CCDNUM is read from header, and also from 
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
       ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
-      ISNLC_EXPNUM(EP1)        = ISNLC_EXPNUM(EP2)
+      ISNLC_IMGNUM(EP1)        = ISNLC_IMGNUM(EP2)
 
       IF ( ISJOB_SIM ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
@@ -15226,7 +15226,7 @@ c ------------- BEGIN -------------
       NEPOCH_BADPHOT      =   0
       ISNLC_FAKE          =   0  ! Feb 2021: default is real data
       ISNLC_CCDNUM(1)     =  -9
-      ISNLC_EXPNUM(1)     =  -9
+      ISNLC_IMGNUM(1)     =  -9
 
       SNLC8_RA            =  -9.0
       SNLC8_DEC           =  -9.0

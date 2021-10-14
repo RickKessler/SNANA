@@ -200,7 +200,7 @@ struct SNDATA {
   int   NXPIX, NYPIX;
 
   int   CCDNUM[MXEPOCH] ; // CCD number or sensor id
-  int   EXPNUM[MXEPOCH] ; // Oct 13 2021 ... exposure number or visit id
+  int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch

@@ -4868,10 +4868,10 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
       copy_int(copyFlag, &parVal[obs], &SNDATA.CCDNUM[OBS]) ; 
     }  
   }
-  else if ( strcmp(key,"EXPNUM") == 0 ) {
+  else if ( strcmp(key,"IMGNUM") == 0 ) {
     for(obs=0; obs < NOBS_STORE; obs++ ) {
       OBS = SNDATA.OBS_STORE_LIST[obs];  
-      copy_int(copyFlag, &parVal[obs], &SNDATA.EXPNUM[OBS]) ; 
+      copy_int(copyFlag, &parVal[obs], &SNDATA.IMGNUM[OBS]) ; 
     }  
   }
   else if ( strcmp(key,"PHOTFLAG") == 0 ) {
@@ -8342,7 +8342,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
 
     SNDATA.CCDNUM[i_epoch]   = NULLINT ; // Mar 15 2021
-    SNDATA.EXPNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
+    SNDATA.IMGNUM[i_epoch]   = NULLINT ; // Oct 13 2021 
 
     // Mar 28 2021: replace 'NULL' with 'VOID' because pandas 
     //  gets confused with NULL

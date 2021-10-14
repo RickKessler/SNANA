@@ -580,7 +580,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   // Created Feb 2021
   // write photometry rows
-  // Oct 2021: add EXPNUM
+  // Oct 2021: add IMGNUM
 
   char OBSKEY[] = "OBS:" ;
   bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
@@ -593,7 +593,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
   bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
-  bool WRFLAG_EXPNUM     = (SNDATA.EXPNUM[1] >= 0);
+  bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1] >= 0);
 
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
@@ -606,7 +606,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   NVAR++ ;  strcat(VARLIST,"MJD ");  
   NVAR++ ;  strcat(VARLIST,"BAND ");
   if ( WRFLAG_CCDNUM ) { NVAR++ ; strcat(VARLIST,"CCDNUM "); }
-  if ( WRFLAG_EXPNUM ) { NVAR++ ; strcat(VARLIST,"EXPNUM "); }
+  if ( WRFLAG_IMGNUM ) { NVAR++ ; strcat(VARLIST,"IMGNUM "); }
   NVAR++ ;  strcat(VARLIST,"FIELD ");
 
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
@@ -664,8 +664,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       sprintf(cval,"%3d ", SNDATA.CCDNUM[ep]);
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
-    if ( WRFLAG_EXPNUM ) {
-      sprintf(cval,"%d ", SNDATA.EXPNUM[ep]);
+    if ( WRFLAG_IMGNUM ) {
+      sprintf(cval,"%d ", SNDATA.IMGNUM[ep]);
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
 
@@ -1263,7 +1263,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   IVAROBS_SNTEXTIO.GAIN = -9;
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
   IVAROBS_SNTEXTIO.XPIX = IVAROBS_SNTEXTIO.YPIX = -9;
-  IVAROBS_SNTEXTIO.CCDNUM = IVAROBS_SNTEXTIO.EXPNUM = -9;
+  IVAROBS_SNTEXTIO.CCDNUM = IVAROBS_SNTEXTIO.IMGNUM = -9;
   IVAROBS_SNTEXTIO.SIMEPOCH_MAG -9 ;
 
   NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
@@ -1290,8 +1290,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"CCDNUM") == 0 ) 
       { IVAROBS_SNTEXTIO.CCDNUM = ivar; }  
 
-    else if ( strcmp(varName,"EXPNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.EXPNUM = ivar; }  
+    else if ( strcmp(varName,"IMGNUM") == 0 ) 
+      { IVAROBS_SNTEXTIO.IMGNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 
       { IVAROBS_SNTEXTIO.FIELD = ivar; }
@@ -1741,8 +1741,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   else if ( strcmp(word0,"CCDNUM:") == 0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.CCDNUM[0] );
   }
-  else if ( strcmp(word0,"EXPNUM:") == 0 ) {
-    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.EXPNUM[0] );
+  else if ( strcmp(word0,"IMGNUM:") == 0 ) {
+    iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.IMGNUM[0] );
   }
   else if ( strcmp(word0,"TYPE:")==0 || strcmp(word0,"SNTYPE:")==0 ) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.SNTYPE );
@@ -2434,9 +2434,9 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.CCDNUM] ;
       sscanf(str, "%d", &SNDATA.CCDNUM[ep] );
     }
-    if ( IVAROBS_SNTEXTIO.EXPNUM >= 0 ) {
-      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.EXPNUM] ;
-      sscanf(str, "%d", &SNDATA.EXPNUM[ep] );
+    if ( IVAROBS_SNTEXTIO.IMGNUM >= 0 ) {
+      str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.IMGNUM] ;
+      sscanf(str, "%d", &SNDATA.IMGNUM[ep] );
     }
 
     // - - -

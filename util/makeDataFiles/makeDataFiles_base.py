@@ -438,6 +438,8 @@ class Program:
 
         self.config_data['data_unit_nevent_list'][indx_unit] += 1
         
+        FILTERS = head_raw[DATAKEY_FILTERS]  # list of all filters 
+
         with open(data_file, "wt") as f :
 
             # write header info
@@ -466,6 +468,17 @@ class Program:
                             
                     #print(f" xxx load varnamne={varname} val={val} fmt={fmt}")
                     LINE += f" {val:{fmt}}"
+
+                    # abort if band is not in FILTERS list
+                    if varname == 'BAND' :
+                        band = val[-1]
+                        if band not in FILTERS:
+                            msgerr.append(f"Unknown filter {val} " \
+                                          f"not in {FILTERS}")
+                            msgerr.append(f"Check SURVEY_INFO in " \
+                                          f"makeDataFiles_params.py")
+                            util.log_assert(False,msgerr)
+
                 f.write(f"{LINE}\n")
 
             f.write(f"END:\n")
@@ -684,7 +697,7 @@ class Program:
             time_now = datetime.datetime.now()
             time_dif = (time_now - time_0).total_seconds()
             rate     = int(float(evt)/float(time_dif))
-            logging.info(f"\t\t Process evt={evt:6d} of {NEVT_TOT} "
+            logging.info(f"\t\t Process evt={evt+1:6d} of {NEVT_TOT} "
                          f" ({rate}/sec)")
             sys.stdout.flush()
             

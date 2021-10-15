@@ -63,7 +63,9 @@
 #define WRITE_MASK_SIM_MAGOBS    8  // write data-like with SIM_MAGOBS only 
 #define WRITE_MASK_SIM_SNRMON   16  // write SNR(MAGMONITOR)
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
-#define WRITE_MASK_COMPACT    64  // suppress non-essential PHOT output
+#define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
+#define WRITE_MASK_SPECTRA     128  // write spectra (Oct 14 2021)
+#define WRITE_MASK_SPECTRA_LEGACY 4096  // legacy format with LAMINDEX
 
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run

@@ -38,7 +38,8 @@ class Program:
 
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
-        
+    
+    
         # end Program __init__
         
     def init_data_unit(self, config_inputs, config_data ):
@@ -89,7 +90,7 @@ class Program:
 
         unit_nevent_list = [ 0 ] * n_data_unit
         
-        config_data['data_folder_prefix']  = survey
+        config_data['data_folder_prefix']      = survey
         config_data['data_unit_name_list']     = unit_name_list
         config_data['data_unit_nevent_list']   = unit_nevent_list
 
@@ -242,6 +243,7 @@ class Program:
         # compute & append a few varaibles to
         #   data_event_dict['head_raw']
         #   data_event_dict['head_calc'] 
+        # Also count how many spectra and append to data_event_dict
 
         msgerr   = []
         fake     = self.config_inputs['args'].fake
@@ -320,6 +322,18 @@ class Program:
             d_calc[DATAKEY_VPEC]     = VPEC_DEFAULT[0]
             d_calc[DATAKEY_VPEC_ERR] = VPEC_DEFAULT[1]
             
+        # check if there are spectra
+        if 'spec_raw' in data_event_dict :
+            spec_raw    = data_event_dict['spec_raw']
+            n_spectra   = len(spec_raw)
+        else:
+            # if read class ignoers spectra, add empty dictionary
+            # to avoid crash later
+            data_event_dict['spec_raw'] = {}
+            n_spectra = 0
+
+        data_event_dict['n_spectra'] = n_spectra
+
         return
         # compute_data_event
 
@@ -423,11 +437,13 @@ class Program:
             logging.info(f"\t Create folder {folder}")
             sys.stdout.flush()
             os.mkdir(data_dir)
-            
+
+        # - - - - -
         head_raw  = data_event_dict['head_raw']
         head_calc = data_event_dict['head_calc']
         phot_raw  = data_event_dict['phot_raw']
         spec_raw  = data_event_dict['spec_raw']
+        
         SNID      = head_raw[DATAKEY_SNID]
 
         str_SNID     = SNID
@@ -582,6 +598,13 @@ class Program:
         nevent_list   = self.config_data['data_unit_nevent_list']
         name_list     = self.config_data['data_unit_name_list']
         prefix        = self.config_data['data_folder_prefix']
+        NEVT_SPECTRA  = self.config_data['NEVT_SPECTRA']
+        write_spectra = False
+
+        opt_snana = OPTIONS_TEXT2FITS_SNANA
+        if NEVT_SPECTRA > 0 : 
+            opt_snana += f"  {OPTION_TEXT2FITS_SPECTRA_SNANA}"
+            write_spectra = True
 
         print(f"")
         sys.stdout.flush()
@@ -599,7 +622,7 @@ class Program:
             NUNIT_TOT += 1
             
             msg = f"  Convert TEXT -> FITS for {folder_fits}" \
-                  f" NEVT={nevent}"
+                  f" NEVT={nevent}  (write spectra: {write_spectra})"
             logging.info(msg)
             sys.stdout.flush()
             
@@ -616,7 +639,7 @@ class Program:
                           f"PRIVATE_DATA_PATH ./ " \
                           f"VERSION_PHOTOMETRY    {folder_text} " \
                           f"VERSION_REFORMAT_FITS {folder_fits} " \
-                          f"{OPTIONS_TEXT2FITS_SNANA} "
+                          f"{opt_snana} "
             cmd = f"cd {outdir}; {cmd_snana} > {log_file}"
             os.system(cmd)
 
@@ -678,13 +701,14 @@ class Program:
         script_command = ' '.join(sys.argv)
         IS_FITS      = (data_format == FORMAT_FITS)
         
-        # for FITS format, pick up extra info from YAML file created by snana.exe
+        # for FITS format, read extra info from YAML file created by snana.exe
         if IS_FITS :
             yaml_file       = f"{outdir}/{FORMAT_TEXT}_{folder}.YAML"  
             snana_yaml      = util.read_yaml(yaml_file)
             NEVT_HOST_ZSPEC = snana_yaml['NEVT_HOST_ZSPEC']
             NEVT_HOST_ZPHOT = snana_yaml['NEVT_HOST_ZPHOT']
-                #print(f"\n xxx snana_yaml = \n{snana_yaml}")
+            NEVT_SPECTRA    = snana_yaml['NEVT_SPECTRA']
+
             # remove YAML file
             cmd_rm = f"rm {yaml_file}"
             os.system(cmd_rm)
@@ -716,7 +740,8 @@ class Program:
 
             if IS_FITS:
                 f.write(f"  NEVT_HOST_ZSPEC:  {NEVT_HOST_ZSPEC} \n")
-                f.write(f"  NEVT_HOST_ZPHOT:  {NEVT_HOST_ZPHOT} \n")                
+                f.write(f"  NEVT_HOST_ZPHOT:  {NEVT_HOST_ZPHOT} \n") 
+                f.write(f"  NEVT_SPECTRA:     {NEVT_SPECTRA} \n")   
                 
             f.write(f"{DOCANA_KEY_END}: \n")
             
@@ -777,8 +802,9 @@ class Program:
         # one-time init
         self.init_read_data()
 
-        NEVT_READ  = 0
-        NEVT_WRITE = 0
+        NEVT_READ    = 0
+        NEVT_WRITE   = 0
+        NEVT_SPECTRA = 0  # NEVT with spectra (not number of spectra)
         nevent_subgroup = 1  # anything > 0 to pass while block below
         i_subgroup      = 0  # start with this subbroup index
         
@@ -795,7 +821,7 @@ class Program:
 
                 # call class-dependent function to read event
                 data_event_dict = self.read_event(evt)
-
+                
                 # add computed variables; e.g., zCMB, MWEBV ...
                 self.compute_data_event(data_event_dict)
 
@@ -804,6 +830,7 @@ class Program:
                 if data_unit_name is None : continue
 
                 NEVT_WRITE += 1
+                if data_event_dict['n_spectra'] > 0 : NEVT_SPECTRA += 1        
 
                 self.write_event_text_snana(data_event_dict,data_unit_name)
 
@@ -820,7 +847,12 @@ class Program:
 
         # create LIST and README file 
         self.write_aux_files_snana()
-            
+        
+        # load stats
+        self.config_data['NEVT_READ']    = NEVT_READ
+        self.config_data['NEVT_WRITE']   = NEVT_WRITE
+        self.config_data['NEVT_SPECTRA'] = NEVT_SPECTRA
+
         # end read_data_driver
     
     def reset_data_event_dict(self):
@@ -906,7 +938,6 @@ class Program:
         n_move = 0
         statsum_dict = {}
         for key in KEYLIST_README_STATS:   statsum_dict[key] = 0
-
 
         folder_list = glob.glob1(outdir, f"{folder_list_string}" )
         for folder in folder_list :

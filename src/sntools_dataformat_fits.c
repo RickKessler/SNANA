@@ -44,6 +44,9 @@
 
   May 2021: read/write HOSTGAL_FLAG
 
+  Oct 15 2021: refactor to write spectra based on input write_flag
+               to enable for data as well as for sim.
+
 **************************************************/
 
 #include "fitsio.h"
@@ -53,8 +56,8 @@
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
 
-// ==================================
-void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag, 
+// ======================================================================
+void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag, 
 		      int Nsubsample_mark,
 		      char *headFile  // ==> return arg
 		   ) {
@@ -65,7 +68,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // (I) *path is the path to the data (or sim)
   // (I) *version is the photometry version name
   // (I) *prefix  is the prefix for the fits filenames
-  // (I) simFlag indicates if this is simulation or data
+  // (I) writeFlag indicates if sim or data, and if there are spectra
   // (O) headFile is the full name of the header file.
   //
   // Dec 1, 2011: add *prefix input argument.
@@ -79,6 +82,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // Aug 19 2019: check length of filename.
   // May 14 2020: set SNFITSIO_DATAFLAG
   // Sep 10 2020: begin refactor with BYOSED -> PySEDMODEL
+  // Oct 14 2021: change simFlag to writeFlag that has spectra bit
 
   int  MEMC = MXPATHLEN * sizeof(char);
   int  itype, ipar, OVP, lenpath, lenfile, lentot ;
@@ -97,30 +101,34 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
   SNFITSIO_SIMFLAG_NBR_LIST     = false ; 
   SNFITSIO_COMPACT_FLAG         = false ; 
+  SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
-  OVP = ( simFlag & WRITE_MASK_SIM_SNANA) ;
-  if ( OVP > 0 )  {// full SNANA sim
+  OVP = ( writeFlag & WRITE_MASK_SPECTRA ) ;
+  if ( OVP > 0 ) { SNFITSIO_SPECTRA_FLAG = true; }
+
+  OVP = ( writeFlag & WRITE_MASK_SIM_SNANA) ;
+  if ( OVP > 0 )  {   // full SNANA sim
     SNFITSIO_SIMFLAG_SNANA = true ; 
     if ( SPECTROGRAPH_USEFLAG ) { SNFITSIO_SIMFLAG_SPECTROGRAPH = true ; }
   }
 
-  OVP = ( simFlag & WRITE_MASK_SIM_MAGOBS ) ;
+  OVP = ( writeFlag & WRITE_MASK_SIM_MAGOBS ) ;
   if ( OVP > 0 ) // data-like, but with MAGOBS
     { SNFITSIO_SIMFLAG_MAGOBS = true ; }
 
   SNFITSIO_DATAFLAG = !(SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS);
 
-  OVP = ( simFlag & WRITE_MASK_SIM_SNRMON ) ;
+  OVP = ( writeFlag & WRITE_MASK_SIM_SNRMON ) ;
   if ( OVP > 0 ) { 
     SNFITSIO_SIMFLAG_SNRMON = true ; 
     sprintf(SNDATA.VARNAME_SNRMON, "SIM_SNRMAG%2.2d", 
 	    SNDATA.MAGMONITOR_SNR);
   }
 
-  OVP = ( simFlag & WRITE_MASK_COMPACT ) ; // Jan 23 2018
+  OVP = ( writeFlag & WRITE_MASK_COMPACT ) ; // Jan 23 2018
   if ( OVP > 0  ) { SNFITSIO_COMPACT_FLAG = true ; }
 
-  OVP = ( simFlag & WRITE_MASK_SIM_MODELPAR ) ;
+  OVP = ( writeFlag & WRITE_MASK_SIM_MODELPAR ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
 
   IFILE_SNFITSIO = 1; // only one file written here.
@@ -177,7 +185,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   wr_snfitsio_init_head();
   wr_snfitsio_init_phot();
 
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )  { 
+  // xxx mark delete   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )  { 
+  if ( SNFITSIO_SPECTRA_FLAG ) {
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPEC    ) ; 
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPECTMP ) ; 
     wr_snfitsio_init_spec();
@@ -187,8 +196,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
 } // end of  WR_SNFITSIO_INIT
 
 void wr_snfitsio_init__(char *path, char *version, char *prefix, 
-			int *simFlag, int *Nsubsample_mark, char *headFile ) {
-  WR_SNFITSIO_INIT(path,version,prefix,*simFlag,*Nsubsample_mark,headFile);
+			int *writeFlag, int *Nsubsample_mark, 
+			char *headFile ) {
+  WR_SNFITSIO_INIT(path,version,prefix,*writeFlag,*Nsubsample_mark,headFile);
 }
 
 
@@ -915,10 +925,10 @@ void wr_snfitsio_create(int itype ) {
 		  "Photometry FITS file", &istat );
 
   // optional: name of spectrograph file
-  if( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
+  if( SNFITSIO_SPECTRA_FLAG ) {
     fits_update_key(fp, TSTRING, "SPECFILE",
 		    wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_SPEC],
-		    "SPECTROGRAPH FITS file", &istat );
+		    "Spectra FITS file", &istat );
   }
 
   // ----------------------------------
@@ -1200,7 +1210,8 @@ void WR_SNFITSIO_UPDATE(void) {
   // while NMJD_PROC is how many spectra exist
   // (e.g., Trest outside sim-model range can't create spectra)
   int imjd;
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
+  // xxx mark delete  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
+  if ( SNFITSIO_SPECTRA_FLAG ) {
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) 
       { wr_snfitsio_update_spec(imjd) ; }
   }
@@ -2347,7 +2358,8 @@ void WR_SNFITSIO_END(void) {
 
   NTYPE = 2 ; // defult is HEAD + PHOT
 
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { 
+  // xxx mark delete  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { 
+  if ( SNFITSIO_SPECTRA_FLAG ) {
     NTYPE += 2 ; 
         
     // append flux-table after summary table so that it's
@@ -2369,7 +2381,9 @@ void WR_SNFITSIO_END(void) {
     snfitsio_errorCheck(c1err, istat);
   }
 
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { 
+
+  // xxx mark  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { 
+  if ( SNFITSIO_SPECTRA_FLAG ) {
     // remove SPECTMP file after its table has been
     // append to SPEC file with summary table.
     char cmd[400];    

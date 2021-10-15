@@ -4932,6 +4932,7 @@ void prep_user_input(void) {
   Feb 06 2020: set DOGEN_AV for GRIDGEN
   Oct 16 2020: call prep_user_cosmology()
   Feb 21 2021: abort on FORMAT_MASK +=1, or legacy VERBOSE 
+  oct 14 2021: set spectra bit of WRITE_MASK if spectrograph is used.
 
   *******************/
 
@@ -5610,7 +5611,8 @@ void prep_user_input(void) {
     INPUTS.WRITE_MASK    += WRITE_MASK_SIM_SNRMON;
   }
 
-  if ( INPUTS.WRFLAG_MODELPAR ) { INPUTS.WRITE_MASK += WRITE_MASK_SIM_MODELPAR; }
+  if ( INPUTS.WRFLAG_MODELPAR ) 
+    { INPUTS.WRITE_MASK += WRITE_MASK_SIM_MODELPAR; }
 
   // abort if no valid format is given
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM  && 
@@ -27210,12 +27212,10 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // the sim quits after the dump.
   //
   // Jun 2011: check option to call WR_SNFITSIO_INIT
-  //
   // Feb 12, 2014: always call snlc_to_SNDATA(1) instead of only
   //               for FITS format.
-  //
   // Feb 06, 2021: Remove .IGNORE file (no longer required)
-  //
+  // Oct 14 2021: set spectra bit of INPUTS.WRITE_MASK 
 
   int i, isys ;
   char headFile[MXPATHLEN];
@@ -27288,6 +27288,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 
+
+    if ( SPECTROGRAPH_USEFLAG ) 
+      { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA_LEGACY ; } // Oct 14 2021
 
     // abort of any text-option is defined along with fits format
     if ( WRFLAG_TEXT  ) {

@@ -429,7 +429,8 @@ c
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
-     &  ,REFORMAT_SAVE_BADEPOCHS  ! set if bit2 is set on any OPT_REFORMAT
+     &  ,REFORMAT_SAVE_BADEPOCHS ! if bit2 is set on any OPT_REFORMAT
+     &  ,REFORMAT_SPECTRA        ! if 128-bit is set (Oct 2021)    
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
@@ -467,6 +468,7 @@ c global survey info
      &  ,N_SNLC_READ(MXVERS)   ! total numbrer of LC per version
      &  ,N_SNLC_PROC           ! number of SNLC processed with SNANA_DRIVER
      &  ,N_SNLC_CUTS           ! Number of SN after cuts (bookkeeping only)
+     &  ,N_SNLC_SPEC           ! idem, but with 1 or more spectra
      &  ,N_SNLC_FIT            ! Number of fitted SN
      &  ,N_SNLC_FITCUTS        ! Number of fitted SN after fit cuts
      &  ,N_SNLC_COVFIX         ! Number of SN with fixed COV to be invertible
@@ -515,7 +517,7 @@ c global survey info
      &    ,NSTORE_MAGCOR, NUSE_MAGCOR, SIGN_MAGCOR, FORCEMASK_FLUXCOR
      &    ,LSIM_SNANA, LSIM_MAGOBS
      &    ,ISTAGE_SNANA
-     &    ,N_VERSION, N_SNLC_READ, N_SNLC_PROC, N_SNLC_CUTS
+     &    ,N_VERSION, N_SNLC_READ, N_SNLC_PROC, N_SNLC_CUTS, N_SNLC_SPEC
      &    ,N_SNLC_FIT, N_SNLC_FITCUTS, N_SNLC_COVFIX
      &    ,N_SNHOST_ZSPEC, N_SNHOST_ZPHOT
      &    ,N_SNFILE, N_SNFILE_LAST, N_DUPLICATE_CID
@@ -523,7 +525,8 @@ c global survey info
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
-     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SAVE_BADEPOCHS
+     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA
+     &    ,REFORMAT_SAVE_BADEPOCHS
      &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
@@ -5667,7 +5670,7 @@ c set namelist defaults
       OPT_REFORMAT_TEXT     = 0
       OPT_REFORMAT_FITS     = 0 ! +=1 => write fits; +=2 =>save bad epochs
       REFORMAT_SAVE_BADEPOCHS = .FALSE.
-
+      REFORMAT_SPECTRA        = .FALSE.
       REFORMAT_KEYS     = 'NULL'
 
       NONSURVEY_FILTERS = ''
@@ -6180,6 +6183,15 @@ c check option to save bad epochs for OPT_REFORMAT
       IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
      &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
          REFORMAT_SAVE_BADEPOCHS = .TRUE.
+      ENDIF
+
+c check option to reformat spectra: note that for TEXT -> FITS,
+c spectra may not appear in 1st text file, so user must explicitly
+c request reformatting spectra. MASK=128 -> bit 7
+c 
+      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
+         REFORMAT_SPECTRA = .TRUE.
       ENDIF
 
 c - - - - -
@@ -9005,6 +9017,7 @@ c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
 
       write(LUNDAT,20) 'NEVT_HOST_ZSPEC: ', N_SNHOST_ZSPEC
       write(LUNDAT,20) 'NEVT_HOST_ZPHOT: ', N_SNHOST_ZPHOT
+      write(LUNDAT,20) 'NEVT_SPECTRA: ',    N_SNLC_SPEC ! nevt with spectra
 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
@@ -9583,7 +9596,7 @@ c
      &  ,IGNORE_FILE*(MXCHAR_FILENAME)
 
       INTEGER 
-     &   SIMFLAG, LL, NMARK
+     &   WRITE_FLAG, LL, NMARK
      &  ,LEN_DIR
      &  ,LEN_SURVEY
      &  ,LEN_VERS
@@ -9602,16 +9615,19 @@ C ------------------ BEGIN ----------------
       LEN_DIR    = INDEX(REFORMAT_VERSION,' ') - 1 
       cPATH      = REFORMAT_VERSION(1:LEN_DIR) // char(0)
 
+c to see flags in C code, "grep WRITE_MASK sndata.h"
       IF ( LSIM_MAGOBS ) THEN
-         SIMFLAG = 8   ! Jan 23 2018
+         WRITE_FLAG = 8   ! Jan 23 2018
       ELSE IF ( LSIM_SNANA ) THEN 
-         SIMFLAG = 4   ! Jan 23 2018
+         WRITE_FLAG = 4   ! Jan 23 2018
       ELSE
-         SIMFLAG = 2
+         WRITE_FLAG = 2
       ENDIF
 
+      if ( REFORMAT_SPECTRA ) WRITE_FLAG = WRITE_FLAG + 128
+
 c -----------------------
-      CALL WR_SNFITSIO_INIT(cPATH, cVERSION, cPREFIX, SIMFLAG
+      CALL WR_SNFITSIO_INIT(cPATH, cVERSION, cPREFIX, WRITE_FLAG
      &           , NMARK, cHEADFILE  ! output name
      &           , LEN_DIR, LEN_VERS, LEN_VERS, LEN_HEAD)     
 
@@ -10810,6 +10826,7 @@ c - - - - -
 
       N_SNLC_PROC     = 0
       N_SNLC_CUTS     = 0
+      N_SNLC_SPEC     = 0
       N_SNLC_FIT      = 0
       N_SNLC_FITCUTS  = 0
       N_SNLC_COVFIX   = 0
@@ -21254,6 +21271,7 @@ c -----------------------------
 +CDE,SNDATCOM.
 +CDE,FILTCOM.
 +CDE,SNLCINP.
++CDE,SPECCOM.
 
 c local var
 
@@ -21599,7 +21617,7 @@ c set SN cut-logical
          LSNCUTS       = .TRUE.
          CUTFLAG_SNANA = IBSET(CUTFLAG_SNANA,0)
          N_SNLC_CUTS   = N_SNLC_CUTS + 1
-
+         if (NSPECTRUM > 0) N_SNLC_SPEC = N_SNLC_SPEC + 1
 	 if(SNHOST_ZSPEC(1) > 0.) N_SNHOST_ZSPEC = N_SNHOST_ZSPEC+1
 	 if(SNHOST_ZPHOT(1) > 0.) N_SNHOST_ZPHOT = N_SNHOST_ZPHOT+1
       ENDIF

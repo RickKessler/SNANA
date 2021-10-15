@@ -82,14 +82,17 @@ PROGRAM_SNANA = "snana.exe"
 #  + estimate PEAKMJD from fmax-clump method
 
 OPTIONS_TEXT2FITS_SNANA = \
-        "OPT_YAML 1  OPT_MWEBV 2 OPT_SETPKMJD 20"  #  ZTOL_HELIO2CMB 0.3"
+        "OPT_YAML 1  OPT_MWEBV 2  OPT_SETPKMJD 20"
+OPTION_TEXT2FITS_SPECTRA_SNANA =  \
+        "OPT_REFORMAT_FITS 128"
 
 # for writing events, update screen after this many
 NEVT_SCREEN_UPDATE = 500
 
 # define yaml keys in README that store statistics
-KEYLIST_README_STATS = [ 'NEVT_ALL', 'NEVT_HOST_ZSPEC', 'NEVT_HOST_ZPHOT' ]
-
+KEYLIST_README_STATS = [ 'NEVT_ALL', 'NEVT_HOST_ZSPEC', 'NEVT_HOST_ZPHOT',
+                         'NEVT_SPECTRA' ]
+  
 # define key names for data_event_dict dictionary,
 # and for TEXT-formatted data files (readable by snana codes)
 # The global list is used to initial all values to -9

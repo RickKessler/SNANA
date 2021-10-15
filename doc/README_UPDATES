@@ -20447,6 +20447,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Add IMGNUM (image number) into data files (similar to CCDNUM); 
    this is EXPNUM for DES, VISIT_ID for LSST.
    Needed for chromatic corrections and useful for image debugging.
+ 
+   Realized problem writing sim spectra to FITS; constant wave bins 
+   for each spectrum is assumed to write more compact output,
+   but this won't work for real data. Next snana version, need to
+   re-write output with explicit wave column, and include legacy flag.
 
          ***** USEFUL(v11_04b) ***** 
 
@@ -20472,6 +20477,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + split several arrays ito RD_ and WR_ so that FITS formatted
        data files can be read and re-written in FITS format after
        apply corrections to fluxes and their uncertainties.
+     + pass mask for writing spectra so that it can work for
+        both sim and data.
 
    sntools_weaklensig.c: require DOCANA
 

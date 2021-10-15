@@ -90,8 +90,6 @@ class data_sirah_folder(Program):
 
         varlist_obs = self.config_data['varlist_obs']
 
-        print(f"\t Read {pkl_file}")
-
         pkl_phot, pkl_spec = pickle.load(open(PKL_FILE,'rb'))
         SNID     = pkl_phot.meta['NAME']
         zHEL     = pkl_phot.meta['zHEL']
@@ -163,6 +161,9 @@ class data_sirah_folder(Program):
             'spec_raw'  : spec_raw   # added Oct 14 2021
         }
         
+        print(f"\t Read {pkl_file:<14}    " \
+              f"NOBS={NOBS:3d}  NSPECTRA={NSPEC:2d}")
+
         return data_dict
   
         # end read_event

@@ -81,6 +81,7 @@ bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
+bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
 
 // xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
@@ -201,7 +202,7 @@ struct {
 // wr_snfitsio_xxx are called internally.
 
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
-		      int simFlag, int Nsubsample_mark, char *headFile);
+		      int writeFlag, int Nsubsample_mark, char *headFile);
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);

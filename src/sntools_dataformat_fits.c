@@ -103,7 +103,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
-  OVP = ( writeFlag & WRITE_MASK_SPECTRA ) ;
+  OVP = ( writeFlag & WRITE_MASK_SPECTRA_LEGACY );
   if ( OVP > 0 ) { SNFITSIO_SPECTRA_FLAG = true; }
 
   OVP = ( writeFlag & WRITE_MASK_SIM_SNANA) ;

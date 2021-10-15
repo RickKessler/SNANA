@@ -18,14 +18,14 @@ FILTERMAP_PKL2SNANA = {
     'ZTFr'     : 'ZTF-R' ,
     'ATLAS-c'  : 'ATLAS-c' ,
     'ATLAS-o'  : 'ATLAS-o' ,
-    'PS1-g'   : 'PS1-g' ,
-    'PS1-r'   : 'PS1-r' ,
-    'PS1-i'   : 'PS1-i' ,
-    'PS1-z'   : 'PS1-z' ,
-    'PS1-y'   : 'PS1-y' ,
-    'NIRIY'   : 'NIRI-Y/A', # Gemini Photometry
-	'NIRIJ'   : 'NIRI-J/B', # Gemini Photometry
-	'NIRIH'   : 'NIRI-H/C',	# Gemini Photometry
+    'PS1-g'    : 'PS1-g' ,
+    'PS1-r'    : 'PS1-r' ,
+    'PS1-i'    : 'PS1-i' ,
+    'PS1-z'    : 'PS1-z' ,
+    'PS1-y'    : 'PS1-y' ,
+    'NIRIY'    : 'NIRI-Y/A', # Gemini Photometry
+    'NIRIJ'    : 'NIRI-J/B', # Gemini Photometry
+    'NIRIH'    : 'NIRI-H/C',	# Gemini Photometry
     'F098M'    : 'WFC3_IR_F098M-L' ,  # <lam> ~  9,900 A
     'F105W'    : 'WFC3_IR_F105W-Y' ,  # <lam> ~ 10,600 A
     'F125W'    : 'WFC3_IR_F125W-J' ,  # <lam> ~ 12,500 
@@ -141,12 +141,26 @@ class data_sirah_folder(Program):
         #if evt == 0 :
         #    print(f"\n xxx NOBS = {NOBS} \n{pkl_phot.meta}")
                 
+        # copy spectra
+        NSPEC    = len(pkl_spec) 
+        spec_raw = pkl_spec
+
+        #for mjd in pkl_spec.keys():
+        #    spec_data = pkl_spec[mjd]
+        #    wave      = spec_data['wave']
+        #    flux      = spec_data['flux']
+        #    fluxerr   = spec_data['fluxerr']
+
+        #if NSPEC == 2 :
+        #    sys.exit(f" xxx pkl_spec = \n{pkl_spec.keys() } \n")
+
         # - - - - -
         # load output dictionary
         data_dict = {
             'head_raw'  : head_raw,
             'head_calc' : head_calc,
-            'phot_raw'  : phot_raw
+            'phot_raw'  : phot_raw,
+            'spec_raw'  : spec_raw   # added Oct 14 2021
         }
         
         return data_dict

@@ -9,6 +9,7 @@ import numpy as np
 import makeDataFiles_util as util
 
 from   makeDataFiles_params  import *
+import numpy as np
 from   abc import ABC, abstractmethod
 
 # ======================================
@@ -340,6 +341,11 @@ class Program:
         return phot_dict
         # end init_phot_dict
 
+    def init_spec_dict(self,NSPEC):
+        spec_dict = {}
+        spec_dict['NSPEC'] = NSPEC
+        return spec_dict
+
     def write_aux_files_snana(self):
 
         # write auxilary files (.LIST and .README) for each created folder
@@ -421,25 +427,16 @@ class Program:
         head_raw  = data_event_dict['head_raw']
         head_calc = data_event_dict['head_calc']
         phot_raw  = data_event_dict['phot_raw']
-        
+        spec_raw  = data_event_dict['spec_raw']
         SNID      = head_raw[DATAKEY_SNID]
-        NOBS      = phot_raw[DATAKEY_NOBS]
 
         str_SNID     = SNID
         if SNID.isdigit(): str_SNID = f"{int(SNID):010d}"
         
         data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
-        nvar_obs      = self.config_data['nvar_obs']
-        varlist_obs   = self.config_data['varlist_obs']
-        varlist_fmt   = self.config_data['varlist_fmt']
-        vallist_undef = self.config_data['vallist_undef'] 
-        varstring_obs = ' '.join(varlist_obs)
-        msgerr = []
 
         self.config_data['data_unit_nevent_list'][indx_unit] += 1
         
-        FILTERS = head_raw[DATAKEY_FILTERS]  # list of all filters 
-
         with open(data_file, "wt") as f :
 
             # write header info
@@ -449,39 +446,11 @@ class Program:
             self.write_header_snana(f,head_calc)
 
             # write epoch/phot info
-            f.write(f"\n# -------------------------------------- \n" \
-                    f"# obs info\n")
-            f.write(f"NOBS: {NOBS}\nNVAR: {nvar_obs} \n"
-                    f"VARLIST: {varstring_obs}\n")
-            
-            for obs in range(0,NOBS):
-                LINE = "OBS:"
-                for varname,fmt,val_undef in \
-                    zip(varlist_obs,varlist_fmt,vallist_undef):
-                    val = phot_raw[varname][obs]
-                    if val == None:
-                        val = val_undef
-                        if val == VAL_ABORT :
-                            msgerr.append(f"Missing required PHOT column {varname}")
-                            msgerr.append(f"Check SNID = {SNID}")
-                            util.log_assert(False,msgerr)
-                            
-                    #print(f" xxx load varnamne={varname} val={val} fmt={fmt}")
-                    LINE += f" {val:{fmt}}"
+            self.write_phot_snana(f, head_raw, phot_raw)
 
-                    # abort if band is not in FILTERS list
-                    if varname == 'BAND' :
-                        band = val[-1]
-                        if band not in FILTERS:
-                            msgerr.append(f"Unknown filter {val} " \
-                                          f"not in {FILTERS}")
-                            msgerr.append(f"Check SURVEY_INFO in " \
-                                          f"makeDataFiles_params.py")
-                            util.log_assert(False,msgerr)
+            # write optional spectra
+            self.write_spec_snana(f, head_raw, spec_raw)
 
-                f.write(f"{LINE}\n")
-
-            f.write(f"END:\n")
         # end write_event_text_snana
 
     def write_header_snana(self, f, data_head):
@@ -504,7 +473,103 @@ class Program:
             f.write(f"{key_plus_colon:<20s}  {string_val} \n")
             f.flush()
             
-        # and write_head_keys
+        # and write_header_snana
+
+    def write_phot_snana(self, f, head_raw, phot_raw):
+
+        # write photometry (phot_raw) in SNANA format to text file 
+        # poitner f. 
+
+        nvar_obs      = self.config_data['nvar_obs']
+        varlist_obs   = self.config_data['varlist_obs']
+        varlist_fmt   = self.config_data['varlist_fmt']
+        vallist_undef = self.config_data['vallist_undef'] 
+        varstring_obs = ' '.join(varlist_obs)
+        msgerr   = []
+        SNID     = head_raw[DATAKEY_SNID]
+        FILTERS  = head_raw[DATAKEY_FILTERS]
+        NOBS     = phot_raw[DATAKEY_NOBS]
+
+        f.write(f"\n# -------------------------------------- \n" \
+                f"# obs info\n")
+        f.write(f"NOBS: {NOBS}\nNVAR: {nvar_obs} \n"
+                f"VARLIST: {varstring_obs}\n")
+
+        # .xyz
+        for obs in range(0,NOBS):
+            LINE = "OBS:"
+            for varname,fmt,val_undef in \
+                zip(varlist_obs,varlist_fmt,vallist_undef):
+                val = phot_raw[varname][obs]
+                if val == None:  val = val_undef
+                if val == VAL_ABORT :
+                    msgerr.append(f"Missing required PHOT column {varname}")
+                    msgerr.append(f"Check SNID = {SNID}")
+                    util.log_assert(False,msgerr)
+
+                if varname == 'BAND' :
+                    band = val[-1]
+                    if band not in FILTERS:
+                        msgerr.append(f"Unknown band {band} is not in "\
+                                      f"{FILTERS} for SNID={SNID}")
+                        msgerr.append(f"Check SURVEY_INFO[FILTERS] ")
+                        util.log_assert(False,msgerr)
+
+                LINE += f" {val:{fmt}}"
+            f.write(f"{LINE}\n")
+
+        # - - - - -
+        f.write(f"END:\n")
+
+        # end write_phot_snana
+
+    def write_spec_snana(self, f, head_raw, spec_raw):
+        SNID     = head_raw[DATAKEY_SNID]
+
+        NSPEC = len(spec_raw)
+        if NSPEC == 0 : return
+
+        VARLIST = "LAMMIN LAMMAX FLAM FLAMERR"
+        NVAR    = len(VARLIST.split())
+        f.write(f"\nNSPECTRA: {NSPEC} \n\n");
+
+        f.write(f"NVAR_SPEC:      {NVAR} \n")
+        f.write(f"VARNAMES_SPEC:  {VARLIST} \n")
+
+        ID = 0
+        for mjd in spec_raw.keys():  
+            spec_data      = spec_raw[mjd]      
+            wave_list      = spec_data['wave']
+            flux_list      = spec_data['flux'] 
+            fluxerr_list   = spec_data['fluxerr'] 
+            ID    += 1
+            nblam  = len(wave_list)
+
+            wave_diff_list  = np.diff(wave_list) 
+            diff_last       = wave_diff_list[nblam-2]
+            wave_diff_list  = np.append(wave_diff_list,diff_last)
+
+            wave_min_list   = wave_list - wave_diff_list/2.0
+            wave_max_list   = wave_list + wave_diff_list/2.0
+
+            #sys.exit(f"\n xxx wave=\n{wave_list}\n" \
+            #         f" xxx wave_dif=\n{wave_list_diff} ")
+
+            f.write(f"SPECTRUM_ID:    {ID} \n")
+            f.write(f"SPECTRUM_MJD:   {mjd:.3f} \n")
+            f.write(f"SPECTRUM_NLAM:  {nblam} \n")
+
+            for wave_min, wave_max, flux,fluxerr in \
+                zip(wave_min_list, wave_max_list, flux_list,fluxerr_list):
+                f.write(f"SPEC: {wave_min:.2f}  {wave_max:.2f} " \
+                        f"{flux:12.3e} {fluxerr:12.3e}\n")
+
+            f.write(f"\n")
+
+        #sys.exit(f"\n xxx DEBUG DIE xxx")
+        return
+
+        # end write_spec_snana
 
     def convert2fits_snana(self):
 

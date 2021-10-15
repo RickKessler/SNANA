@@ -20444,6 +20444,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    Require DOCANA in weak-lensing map.
 
+   Add IMGNUM (image number) into data files (similar to CCDNUM); 
+   this is EXPNUM for DES, VISIT_ID for LSST.
+   Needed for chromatic corrections and useful for image debugging.
+
          ***** USEFUL(v11_04b) ***** 
 
    submit_batch: 
@@ -20478,5 +20482,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
   snana.car
     + new &SNLCIP input MXEVT_CUTS
+
+  combine_dataVersions.py
+    + fix bug in args for snana.exe
 
 END: 

@@ -20434,7 +20434,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04b (  ) 
+         v11_04b (Oct 15 2021) 
 
          ***** IMPORTANT(v11_04b) ***** 
 
@@ -20448,10 +20448,16 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    this is EXPNUM for DES, VISIT_ID for LSST.
    Needed for chromatic corrections and useful for image debugging.
  
-   Realized problem writing sim spectra to FITS; constant wave bins 
-   for each spectrum is assumed to write more compact output,
-   but this won't work for real data. Next snana version, need to
-   re-write output with explicit wave column, and include legacy flag.
+   Realized 2 problems that need be fixed next snana version:
+   1) writing sim spectra to FITS; constant wave bins for each spectrum 
+      is assumed to write more compact output, but this won't work for 
+      real data. Need to re-write output with explicit wave column, 
+      and include legacy flag.
+   2) combine_dataVersions writes corrupt kcor-input file if there
+      are multiple filter sets in one of the input kcor inputs.
+
+  snlc_sim.exe <input> DEBUG_FLAG 1024
+    -> require DOCANA in trigger files; will be permanent Oct 24.
 
          ***** USEFUL(v11_04b) ***** 
 

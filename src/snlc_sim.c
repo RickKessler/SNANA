@@ -27289,8 +27289,16 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // check option for fits format (Jun 2011)
   if ( WRFLAG_FITS ) { 
 
-    if ( SPECTROGRAPH_USEFLAG ) 
-      { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA_LEGACY ; } // Oct 14 2021
+    // Oct 14 2021 - check to set write-mask bit for spectra
+    if ( SPECTROGRAPH_USEFLAG ) {
+      int OPTMASK = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK;
+      int REFAC  = (OPTMASK & SPECTROGRAPH_OPTMASK_FITS_REFAC);
+      int LEGACY = (OPTMASK & SPECTROGRAPH_OPTMASK_FITS_LEGACY); // default
+      if ( REFAC ) 
+	{ INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA ; }
+      else 
+	{ INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA_LEGACY ; }
+    } 
 
     // abort of any text-option is defined along with fits format
     if ( WRFLAG_TEXT  ) {

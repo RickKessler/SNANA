@@ -82,6 +82,7 @@ bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
 
 // xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
@@ -209,6 +210,7 @@ void wr_snfitsio_create(int itype);
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
+void wr_snfitsio_init_spec_legacy(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
 
 void WR_SNFITSIO_UPDATE(void);
@@ -251,6 +253,7 @@ void  rd_snfitsio_tblpar(int ifile, int itype);
 void  rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow);
 
 void  rd_snfitsio_specFile(int ifile); 
+void  rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp);
 void  rd_snfitsio_mallocSpec(int opt);
 
 int RD_SNFITSIO_PARVAL(int isn, char *parName, 

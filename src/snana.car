@@ -3675,7 +3675,6 @@ c     &     + OPTMASK_SNDATA_DUMP
      &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
       ISCORRECT_SIGN_VPEC = 
      &      correct_sign_vpec_data(SNANA_VERSION//char(0))
-cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)
@@ -3744,9 +3743,9 @@ cc      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
          SIM_MODEL_INDEX = INT(DARRAY(1))
 
 c xxxxxxxxxxxxxxxxx
-         print*,' xxx RDGLOBAL_DRIVER: SIM_MODEL_INDEX=',
-     &        SIM_MODEL_INDEX
-          call flush(6)
+c         print*,' xxx RDGLOBAL_DRIVER: SIM_MODEL_INDEX=',
+c     &        SIM_MODEL_INDEX
+c          call flush(6)
 c xxxxxxxxxxxxxxxxxxxx
 
          CALL RDGLOBAL_SIMSED(OPT)

@@ -1449,7 +1449,6 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
   IVARSPEC_SNTEXTIO.LAMMIN = IVARSPEC_SNTEXTIO.FLAMERR = -9;
   IVARSPEC_SNTEXTIO.SIM_GENFLAM = IVARSPEC_SNTEXTIO.SIM_GENMAG = -9;
 
-
   NVAR = SNTEXTIO_FILE_INFO.NVARSPEC ;
   if ( NVAR < 3 || NVAR >= MXVAROBS_TEXT ) {
     sprintf(c1err,"Invalid NVAR=%d (MXVARSPEC_TEXT=%d) for CID=%s", 
@@ -1469,10 +1468,10 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
       { IVARSPEC_SNTEXTIO.LAMAVG = ivar; }
 
     else if ( strcmp(varName,"LAMMIN") == 0 ) 
-      { IVARSPEC_SNTEXTIO.LAMMIN = ivar; }
+      { IVARSPEC_SNTEXTIO.LAMMIN = ivar;   }
 
     else if ( strcmp(varName,"LAMMAX") == 0 ) 
-      { IVARSPEC_SNTEXTIO.LAMMAX = ivar; }
+      { IVARSPEC_SNTEXTIO.LAMMAX = ivar;  }
 
     else if ( strcmp(varName,"FLAM") == 0 ) 
       { IVARSPEC_SNTEXTIO.FLAM = ivar; }
@@ -2507,6 +2506,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   if ( strcmp(word0,"NSPECTRA:") == 0 ) {
       iwd++ ;  get_PARSE_WORD_INT(langC, iwd, &GENSPEC.NMJD_PROC );
+      GENSPEC.NMJD_TOT = GENSPEC.NMJD_PROC ;
   }
 
   else if ( strcmp(word0,"NVAR_SPEC:") == 0 ) {
@@ -2551,6 +2551,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
     iwd++; get_PARSE_WORD_INT(langC, iwd, &NBLAM );
     init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam
     GENSPEC.NBLAM_VALID[ISPEC] = NBLAM ;
+    GENSPEC.NBLAM_TOT[ISPEC]   = NBLAM ;
   }
 
   else if ( strcmp(word0,"SPEC:") == 0 ) {

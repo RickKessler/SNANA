@@ -4301,11 +4301,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       { copy_int(copyFlag, parVal, &SNDATA.SIM_BIASCOR_MASK ); }
 
     else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 ) 
-      { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX ); 
-
-	printf(" xxx %s: copy SIM_MODEL_INDEX=%d\n", 
-	       fnam, SNDATA.SIM_MODEL_INDEX); fflush(stdout);
-      }
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX );  }
 
     else {
       // error message

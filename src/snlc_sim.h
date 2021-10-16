@@ -295,6 +295,8 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
 #define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
+#define SPECTROGRAPH_OPTMASK_FITS_REFAC 1024 // temp: refactor fits format
+#define SPECTROGRAPH_OPTMASK_FITS_LEGACY 4096 // later: preserve legacy format
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
 typedef struct {

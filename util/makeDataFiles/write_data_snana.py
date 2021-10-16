@@ -459,7 +459,7 @@ def merge_snana_driver(args):
     return
     # end merge_snana_driver 
 
-def merge_snana_folders(self, MODE, outdir, folder_list_string, merge_folder):
+def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
     # e.g., folder_list_string = LSST_WFD01_SPLIT*       
     #       merge_folder       = LSST_WFD01                             

@@ -30,6 +30,7 @@
 
 import sys, yaml, argparse, subprocess, logging, glob
 import makeDataFiles_util  as util
+import write_data_snana    as snana
 
 from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap
@@ -190,7 +191,8 @@ if __name__ == "__main__":
     program = read_class(config_inputs)  # calls __init only
 
     if args.merge_snana:
-        program.merge_snana_driver()
+        #program.merge_snana_driver()
+        snana.merge_snana_driver(args)
         sys.exit(' Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;
@@ -200,7 +202,8 @@ if __name__ == "__main__":
 
     # translate TEXT -> BINARY; allow multiple output formats
     if args.outdir_snana is not None:
-        program.convert2fits_snana()
+        #program.convert2fits_snana()
+        snana.convert2fits_snana(args, program.config_data)
 
     #if args.outdir_XYZ is not None:
     #    program.convert2XYZ()        

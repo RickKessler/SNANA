@@ -44,7 +44,8 @@ SNANA_ZP = 27.5 # FLUXCAL = FLUX * 10^[ -0.4*(ZP-SNANA_ZP) ]
 VPEC_DEFAULT = [ 0.0, 300.0 ]  # VPEC and error, km/sec
 
 # define list of variable names for each observation;
-VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  XPIX YPIX CCDNUM GAIN " \
+VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
+               "XPIX YPIX CCDNUM GAIN " \
                "FLUXCAL FLUXCALERR ZPFLUX NEA SKYSIG"
 
 # define text format for each VARNAMES_OBS
@@ -56,8 +57,8 @@ VARNAMES_FMT = "10.4f 2s   8s    4d      6.1f 6.1f  4d     6.3f "\
 VAL_ABORT    = 666  
 VAL_NULL     = -9
 VAL_UNDEFINED_LIST = [
-    VAL_ABORT, VAL_ABORT, "VOID",  0, 
-    VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
+    VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
+    VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL,
     VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL ]
 
 VARNAME_TRUEMAG = "SIM_MAGOBS"  # for fakes, add this to VARNAMES_OBS
@@ -89,8 +90,9 @@ OPTION_TEXT2FITS_SPECTRA_SNANA =  \
 # for writing events, update screen after this many
 NEVT_SCREEN_UPDATE = 500
 
-# define yaml keys in README that store statistics
-KEYLIST_README_STATS = [ 'NEVT_ALL', 'NEVT_HOST_ZSPEC', 'NEVT_HOST_ZPHOT',
+# define yaml keys to store statistics for README
+KEYLIST_README_STATS = [ 'NEVT_ALL', 
+                         'NEVT_HOSTGAL_SPECZ', 'NEVT_HOSTGAL_PHOTOZ',
                          'NEVT_SPECTRA' ]
   
 # define key names for data_event_dict dictionary,

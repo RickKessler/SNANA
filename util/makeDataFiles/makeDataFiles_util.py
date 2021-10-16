@@ -1,4 +1,5 @@
-
+# Generic Utilities for makeDataFiles.
+#
 
 
 import os, sys, yaml, shutil, glob, math
@@ -9,6 +10,58 @@ from   astropy.table import Table
 from   makeDataFiles_params    import *
 
 # =======================================
+def init_readme_stats():
+    readme_stats = {}
+    for key in KEYLIST_README_STATS:   readme_stats[key] = 0
+    return readme_stats
+
+def write_readme(args, readme_dict):
+
+    # input args are the user-command line args.
+    # input readme_dict is prepared by write_data_xxx module.
+
+    readme_file  = readme_dict['readme_file']
+    readme_stats = readme_dict['readme_stats']
+    data_format  = readme_dict['data_format']
+
+    script_command = ' '.join(sys.argv)
+
+    with open(readme_file,"wt") as f:
+        f.write(f"{DOCANA_KEY}: \n")
+        f.write(f"  PURPOSE:  transient lightcurve data files " \
+                f"for analysis\n")
+
+        if args.lsst_ap :
+            f.write(f"  SOURCE_LSST_AP:   {args.lsst_ap} \n")
+
+        if args.lsst_drp :
+            f.write(f"  SOURCE_LSST_DRP:  {args.lsst_drp} \n")
+
+        if args.sirah_folder is not None :
+            f.write(f"  SOURCE_SIRAH_FOLDER:  {args.sirah_folder} \n")
+
+        if args.snana_folder is not None:
+            f.write(f"  SOURCE_SNANA_FOLDER:  {args.snana_folder} \n")    
+    
+        f.write(f"  SURVEY:           {args.survey} \n")
+        f.write(f"  FIELD:            {args.field} \n")
+        f.write(f"  FORMAT:           {data_format} \n")
+        f.write(f"  SCRIPT_COMMAND:   {script_command} \n")
+        f.write(f"  USERNAME:         {USERNAME} \n")
+        f.write(f"  HOSTNAME:         {HOSTNAME} \n")
+    
+        for key in KEYLIST_README_STATS:
+            key_plus_colon = f"{key}:"
+            n = readme_stats[key]
+            f.write(f"  {key_plus_colon:<20}   {n} \n")
+
+    # end write_readme
+
+def write_yaml(file_name, yaml_contents):
+    # write yaml_contents to file_name (e..g, for README)
+    with open(file_name,"wt") as r:
+        yaml.dump(yaml_contents, r, sort_keys=False)
+
 def get_survey_snana(snana_folder):
     # for input snana_folder, run snana.exe GETINFO folder
     # and extract survey

@@ -95,8 +95,10 @@ class Program:
         config_data['data_unit_name_list']     = unit_name_list
         config_data['data_unit_nevent_list']   = unit_nevent_list
 
+        readme_stats = util.init_readme_stats()
+        config_data['readme_stats_list'] = [ readme_stats ] * n_data_unit 
+        config_data['NEVT_SPECTRA']      = 0
         return
-    
         # end init_data_unit
 
     def assign_data_unit_name(self, survey, field, iseason, iran):
@@ -406,8 +408,7 @@ class Program:
         self.init_read_data()
 
         NEVT_READ    = 0
-        NEVT_WRITE   = 0
-        NEVT_SPECTRA = 0  # NEVT with spectra (not number of spectra)
+
         nevent_subgroup = 1  # anything > 0 to pass while block below
         i_subgroup      = 0  # start with this subbroup index
         
@@ -433,18 +434,21 @@ class Program:
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
                 if data_unit_name is None : continue
-                
-                NEVT_WRITE += 1
-                if data_event_dict['n_spectra'] > 0 : NEVT_SPECTRA += 1   
+                index_unit  = data_unit_name_list.index(data_unit_name)
+
+                # add more info to data event dictionary
+                data_event_dict['data_unit_name'] = data_unit_name
+                data_event_dict['index_unit']     = index_unit
 
                 if args.outdir_snana is not None :
                     snana.write_event_text_snana(args, self.config_data,
-                                                 data_event_dict, 
-                                                 data_unit_name)
+                                                 data_event_dict) 
 
                 # increment number of events for this data unit
-                indx_unit  = data_unit_name_list.index(data_unit_name)
-                self.config_data['data_unit_nevent_list'][indx_unit] += 1
+
+                self.config_data['data_unit_nevent_list'][index_unit] += 1
+
+                self.update_readme_stats(data_event_dict)
 
                 self.screen_update(evt,nevent_subgroup)
                 
@@ -455,17 +459,18 @@ class Program:
             i_subgroup += 1
             
         # - - - - -
+        # option end-read tasks; e.g., close data base connection
         self.end_read_data()
-
-        # create LIST and README file 
-        #self.write_aux_files_snana()
-        if args.outdir_snana is not None:
-            snana.write_aux_files_snana(args,self.config_data)
-
-        # load stats 
-        self.config_data['NEVT_READ']    = NEVT_READ
-        self.config_data['NEVT_WRITE']   = NEVT_WRITE
-        self.config_data['NEVT_SPECTRA'] = NEVT_SPECTRA
+        
+        # write auxilary files for each data unit (name); 
+        # e.g.  LIST and README files.
+        # Use aux_file util based on choice of output format.
+        nevent_list   = self.config_data['data_unit_nevent_list']
+        name_list     = self.config_data['data_unit_name_list']
+        for nevent, name in zip(nevent_list, name_list):
+            if nevent == 0 : continue
+            if args.outdir_snana is not None:
+                snana.write_aux_files_snana(name, args, self.config_data)
 
         # end read_data_driver
     
@@ -485,7 +490,38 @@ class Program:
             calc_dict[key] = -9            
             
         return raw_dict, calc_dict
+
         # end reset_data_event_dict
+
+    def update_readme_stats(self, data_event_dict):
+        
+        head_raw   = data_event_dict['head_raw']
+        n_spectra  = data_event_dict['n_spectra'] 
+        index_unit = data_event_dict['index_unit']
+        
+
+        # update stats that will eventually written to README file
+
+        specz = -9.0;  photoz = -9.0
+        if HOSTKEY_SPECZ in head_raw:   specz   = head_raw[HOSTKEY_SPECZ]
+        if HOSTKEY_PHOTOZ in head_raw:  photoz  = head_raw[HOSTKEY_PHOTZ]
+
+        readme_stats = self.config_data['readme_stats_list'][index_unit]
+
+        readme_stats['NEVT_ALL'] += 1
+
+        if specz > 0.0 :
+            readme_stats['NEVT_HOSTGAL_SPECZ'] += 1
+
+        if photoz > 0.0 :
+            readme_stats['NEVT_HOSTGAL_PHOTOZ'] += 1
+
+        if n_spectra > 0 : 
+            key = 'NEVT_SPECTRA'
+            readme_stats[key]      += 1  # this data unit
+            self.config_data[key]  += 1  # sum over all data units
+
+        # end update_readme_stats
 
     # ====================================
     @abstractmethod

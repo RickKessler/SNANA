@@ -10,14 +10,12 @@ import makeDataFiles_util  as util
 
 # ====================================================
 
-def write_event_text_snana(args, config_data, 
-                           data_event_dict, data_unit_name):
+def write_event_text_snana(args, config_data, data_event_dict):
 
     # Inputs:
     #   args : user command line inputs
     #   config_data       : info about data units and phot varnames
     #   data_event_dict   : current event: header, phot, spec
-    #   data_unit_name    : name of current data unit
 
     # create one text file and write one event described by  
     # dictionary data_event_dict. 
@@ -27,10 +25,14 @@ def write_event_text_snana(args, config_data,
     data_unit_name_list   = config_data['data_unit_name_list']
     data_unit_nevent_list = config_data['data_unit_nevent_list']
     prefix                = config_data['data_folder_prefix']
-    indx_unit      = data_unit_name_list.index(data_unit_name)
-    nevent         = data_unit_nevent_list[indx_unit]
+
+    data_unit_name    = data_event_dict['data_unit_name']
+    index_unit        = data_event_dict['index_unit']
+    # xxx indx_unit      = data_unit_name_list.index(data_unit_name)
+
+    nevent         = data_unit_nevent_list[index_unit]
     folder         = output_data_folder_name(config_data,
-                                             data_unit_name,ISTEXT)
+                                             data_unit_name, ISTEXT)
     data_dir       = f"{outdir}/{folder}"
     tar_file       = f"{outdir}/{folder}.tar.gz"
     exist_folder   = os.path.exists(data_dir)
@@ -63,8 +65,6 @@ def write_event_text_snana(args, config_data,
     if SNID.isdigit(): str_SNID = f"{int(SNID):010d}"
 
     data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
-
-    #xxx mark config_data['data_unit_nevent_list'][indx_unit] += 1
 
     with open(data_file, "wt") as f :
 
@@ -216,107 +216,52 @@ def output_data_folder_name(config_data, data_unit_name, ISTEXT):
 
     # end output_data_folder_name      
 
-def write_aux_files_snana(args, config_data):
+def write_aux_files_snana(name, args, config_data):
 
-    # write auxilary files (.LIST and .README) for each created folder      
-    # with TEXT formatted files.  
-    # Here we loop over folders created from this task.   
+    # write auxilary files (.LIST and .README) for data unit "name"
+    # with TEXT formatted files. 
 
     outdir        = args.outdir_snana
     nevent_list   = config_data['data_unit_nevent_list']
     name_list     = config_data['data_unit_name_list']
     prefix        = config_data['data_folder_prefix']
+    readme_stats_list = config_data['readme_stats_list']
 
     print(f"")
     sys.stdout.flush()
 
-    for nevent, name in zip(nevent_list, name_list):
+    folder_out  = output_data_folder_name(config_data, name, True)
+    index_unit  = name_list.index(name)
 
-        if nevent == 0 : continue
-        folder_out    = output_data_folder_name(config_data, name, True)
+    msg = f" Create aux files for {folder_out} and gzip " \
+          f"{TEXTFILE_SUFFIX} files."
+    logging.info(msg)
+    sys.stdout.flush()
 
-        msg = f" Create aux files for {folder_out} and gzip " \
-              f"{TEXTFILE_SUFFIX} files."
-        logging.info(msg)
-        sys.stdout.flush()
+    data_dir      = f"{outdir}/{folder_out}"
+    search_string = f"{prefix}*{TEXTFILE_SUFFIX}"
 
-        data_dir      = f"{outdir}/{folder_out}"
-        search_string = f"{prefix}*{TEXTFILE_SUFFIX}"
+    data_file_list = glob.glob1(data_dir, f"{search_string}" )
+    list_file      = f"{data_dir}/{folder_out}.LIST"
+    readme_file    = f"{data_dir}/{folder_out}.README"
 
-        data_file_list = glob.glob1(data_dir, f"{search_string}" )
-        list_file      = f"{data_dir}/{folder_out}.LIST"
-        readme_file    = f"{data_dir}/{folder_out}.README"
+    with open(list_file,"wt") as f:
+        for data_file in data_file_list:
+            f.write(f"{data_file}\n")
 
-        with open(list_file,"wt") as f:
-            for data_file in data_file_list:
-                f.write(f"{data_file}\n")
+    # prepare standard readme dictionary for global utility write_readme
+    readme_dict = {
+        'readme_file'  : readme_file,
+        'readme_stats' : readme_stats_list[index_unit],
+        'data_format'  : FORMAT_TEXT
+    }
+    util.write_readme(args, readme_dict)
 
-        write_readme_snana(args, folder_out, nevent, FORMAT_TEXT)
-
-        # gzip data files       
-        cmd = f"cd {data_dir} ; gzip {search_string}"
-        os.system(cmd)
+    # gzip data files       
+    cmd = f"cd {data_dir} ; gzip {search_string}"
+    os.system(cmd)
 
     # end write_aux_files_snana  
-
-def write_readme_snana(args, folder, nevent, data_format):
-
-    # write readme file for SNANA formatted data folder. 
-    # data_format is either TEXT or FITS ... for FITS, include 
-    # extra info from YAML file created by snana.exe.  
-
-    outdir        = args.outdir_snana
-    outdir_data  = f"{outdir}/{folder}"
-    readme_file  = f"{outdir_data}/{folder}.README"
-    script_command = ' '.join(sys.argv)
-    IS_FITS      = (data_format == FORMAT_FITS)
-
-    # for FITS format, read extra info from YAML file created by snana.exe  
-    if IS_FITS :
-        yaml_file       = f"{outdir}/{FORMAT_TEXT}_{folder}.YAML"
-        snana_yaml      = util.read_yaml(yaml_file)
-        NEVT_HOST_ZSPEC = snana_yaml['NEVT_HOST_ZSPEC']
-        NEVT_HOST_ZPHOT = snana_yaml['NEVT_HOST_ZPHOT']
-        NEVT_SPECTRA    = snana_yaml['NEVT_SPECTRA']
-
-        # remove YAML file   
-        cmd_rm = f"rm {yaml_file}"
-        os.system(cmd_rm)
-
-    with open(readme_file,"wt") as f:
-        f.write(f"{DOCANA_KEY}: \n")
-        f.write(f"  PURPOSE:  transient lightcurve data files " \
-                f"for analysis\n")
-
-        if args.lsst_ap :
-            f.write(f"  SOURCE_LSST_AP:   {args.lsst_ap} \n")
-
-        if args.lsst_drp :
-            f.write(f"  SOURCE_LSST_DRP:  {args.lsst_drp} \n")
-
-        if args.sirah_folder is not None :
-            f.write(f"  SOURCE_SIRAH_FOLDER:  {args.sirah_folder} \n")
-
-        if args.snana_folder is not None:
-            f.write(f"  SOURCE_SNANA_FOLDER:  {args.snana_folder} \n")
-
-        f.write(f"  SURVEY:           {args.survey} \n")
-        f.write(f"  FIELD:            {args.field} \n")
-        f.write(f"  FORMAT:           {data_format} \n")
-        f.write(f"  SCRIPT_COMMAND:   {script_command} \n")
-        f.write(f"  USERNAME:         {USERNAME} \n")
-        f.write(f"  HOSTNAME:         {HOSTNAME} \n")
-        f.write(f"  NEVT_ALL:         {nevent} \n")
-
-        if IS_FITS:
-            f.write(f"  NEVT_HOST_ZSPEC:  {NEVT_HOST_ZSPEC} \n")
-            f.write(f"  NEVT_HOST_ZPHOT:  {NEVT_HOST_ZPHOT} \n")
-            f.write(f"  NEVT_SPECTRA:     {NEVT_SPECTRA} \n")
-
-        f.write(f"{DOCANA_KEY_END}: \n")
-
-    # end write_readme_snana
-
 
 def convert2fits_snana(args, config_data):
 
@@ -328,11 +273,13 @@ def convert2fits_snana(args, config_data):
     nevent_list   = config_data['data_unit_nevent_list']
     name_list     = config_data['data_unit_name_list']
     prefix        = config_data['data_folder_prefix']
+    readme_stats_list = config_data['readme_stats_list']
+
     NEVT_SPECTRA  = config_data['NEVT_SPECTRA']
     write_spectra = False
 
     opt_snana = OPTIONS_TEXT2FITS_SNANA
-    if NEVT_SPECTRA > 0 :
+    if NEVT_SPECTRA > 0 :  # global counter over all data units
         opt_snana += f"  {OPTION_TEXT2FITS_SPECTRA_SNANA}"
         write_spectra = True
 
@@ -344,6 +291,7 @@ def convert2fits_snana(args, config_data):
 
         folder_text    = output_data_folder_name(config_data, name, True)
         folder_fits    = output_data_folder_name(config_data, name, False)
+        index_unit     = name_list.index(name)
         log_file       = f"{folder_text}/convert2fits_{folder_fits}.log"
         yaml_file      = f"{outdir}/{folder_text}.YAML"  # expected output  
 
@@ -397,8 +345,14 @@ def convert2fits_snana(args, config_data):
         if not text:
             os.system(cmd_tar_text)
 
-        # re-write FITS readme in data folder                               
-        write_readme_snana(args, folder_fits, nevent, FORMAT_FITS )
+        # re-write readme in FITS data folder 
+        readme_file    = f"{outdir_fits}/{folder_fits}.README"
+        readme_dict = {
+            'readme_file'  : readme_file,
+            'readme_stats' : readme_stats_list[index_unit],
+            'data_format'  : FORMAT_FITS
+        }
+        util.write_readme(args, readme_dict)
 
         time_1   = datetime.datetime.now()
         time_dif = (time_1 - time_0).total_seconds()
@@ -418,6 +372,10 @@ def convert2fits_snana(args, config_data):
 # ================================================ 
 
 def merge_snana_driver(args):
+
+    # called by main after processing to perform optional
+    # merge process; e.g., convert text to other format, 
+    # re-organize files, etc...
 
     outdir = args.outdir_snana
     survey = args.survey
@@ -500,7 +458,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
             cmd    = f"cd {FOLDER}; {cmd_mv}"
             os.system(cmd)
 
-        # increment sum stats from readme  
+        # increment sum stats from readme 
         README_file  = f"{FOLDER}/{folder}.README"
         README_yaml  = util.read_yaml(README_file)
         for key in KEYLIST_README_STATS:
@@ -513,7 +471,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     for key in KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
         README_yaml[DOCANA_KEY][key] = statsum_dict[key]
-        write_merge_readme(README_file,README_yaml)
+        util.write_yaml(README_file,README_yaml)
 
     # - - - -                                                         
     # remove original folders    
@@ -538,11 +496,5 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
     return
     # end merge_snana_folders  
-
-def write_merge_readme(README_file, README_yaml):
-
-    # write to README_file with contents README_yaml.    
-    with open(README_file,"wt") as r:
-        yaml.dump(README_yaml,r, sort_keys=False)
 
 # end:

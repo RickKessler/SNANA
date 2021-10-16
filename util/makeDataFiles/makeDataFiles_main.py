@@ -187,7 +187,7 @@ if __name__ == "__main__":
     config_inputs =  { 'args' : args }
 
     # init the data-source class
-    read_program = read_class(config_inputs)  # calls __init only
+    program = read_class(config_inputs)  # calls __init only
 
     if args.merge_snana:
         program.merge_snana_driver()
@@ -196,16 +196,16 @@ if __name__ == "__main__":
     # read data and write each event to text-format data files;
     # these intermediate text files are useful for visual debugging,
     # and they will be translated to binary below.
-    read_program.read_data_driver()
+    program.read_data_driver()
 
     # translate TEXT -> BINARY; allow multiple output formats
     if args.outdir_snana is not None:
-        read_program.convert2fits_snana()
+        program.convert2fits_snana()
 
     #if args.outdir_XYZ is not None:
     #    program.convert2XYZ()        
 
     # final summary
-    read_program.final_summary()
+    program.final_summary()
     
     # === END ===

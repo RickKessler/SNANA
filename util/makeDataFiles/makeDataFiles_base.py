@@ -39,7 +39,6 @@ class Program:
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
     
-    
         # end Program __init__
         
     def init_data_unit(self, config_inputs, config_data ):
@@ -511,7 +510,7 @@ class Program:
         f.write(f"NOBS: {NOBS}\nNVAR: {nvar_obs} \n"
                 f"VARLIST: {varstring_obs}\n")
 
-        # .xyz
+        
         for obs in range(0,NOBS):
             LINE = "OBS:"
             for varname,fmt,val_undef in \
@@ -848,7 +847,7 @@ class Program:
         # create LIST and README file 
         self.write_aux_files_snana()
         
-        # load stats
+        # load stats 
         self.config_data['NEVT_READ']    = NEVT_READ
         self.config_data['NEVT_WRITE']   = NEVT_WRITE
         self.config_data['NEVT_SPECTRA'] = NEVT_SPECTRA

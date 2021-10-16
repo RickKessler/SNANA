@@ -136,8 +136,8 @@ def restore_args_from_readme(args,readme_yaml):
     
     # end restore_args_from_readme
     
-def which_program_class(args):
-    program_class = None 
+def which_read_class(args):
+    read_class = None 
 
     # if merge process, read any one of the README files to 
     # recover the user-input logicals
@@ -150,28 +150,28 @@ def which_program_class(args):
         restore_args_from_readme(args,readme_yaml[DOCANA_KEY])
         
     if args.lsst_ap:
-        program_class = data_lsst_ap
+        read_class = data_lsst_ap
         args.survey = "LSST"
     elif args.lsst_drp :
-        program_class = data_lsst_drp
+        read_class = data_lsst_drp
         args.survey = "LSST"
     elif args.sirah_folder is not None :        
-        program_class = data_sirah_folder
+        read_class = data_sirah_folder
         args.survey = "SIRAH"
     elif args.ztf_folder is not None :   
-        program_class = data_ztf_folder
+        read_class = data_ztf_folder
         args.survey = "ZTF"
     elif args.snana_folder is not None :
-        program_class     = data_snana_folder
+        read_class     = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)
         args.survey   = util.get_survey_snana(snana_folder_base)
     else:
         sys.exit("\nERROR: Could not determine program_class")
 
     
-    return program_class
+    return read_class
 
-    # end which_program_class    
+    # end which_read_class    
 
 # =============================================
 if __name__ == "__main__":
@@ -180,14 +180,14 @@ if __name__ == "__main__":
     store = util.setup_logging(args)
 
     # determine which program class (AP, DRP, test data)
-    program_class  = which_program_class(args)
+    read_class  = which_read_class(args)
 
     # store inputs; for now just include command-line args, but later
     # might include yaml contents from input file.
     config_inputs =  { 'args' : args }
 
     # init the data-source class
-    program = program_class(config_inputs)  # calls __init only
+    read_program = read_class(config_inputs)  # calls __init only
 
     if args.merge_snana:
         program.merge_snana_driver()
@@ -196,16 +196,16 @@ if __name__ == "__main__":
     # read data and write each event to text-format data files;
     # these intermediate text files are useful for visual debugging,
     # and they will be translated to binary below.
-    program.read_data_driver()
+    read_program.read_data_driver()
 
     # translate TEXT -> BINARY; allow multiple output formats
     if args.outdir_snana is not None:
-        program.convert2fits_snana()
+        read_program.convert2fits_snana()
 
     #if args.outdir_XYZ is not None:
     #    program.convert2XYZ()        
 
     # final summary
-    program.final_summary()
+    read_program.final_summary()
     
     # === END ===

@@ -95,8 +95,11 @@ class Program:
         config_data['data_unit_name_list']     = unit_name_list
         config_data['data_unit_nevent_list']   = unit_nevent_list
 
-        readme_stats = util.init_readme_stats()
-        config_data['readme_stats_list'] = [ readme_stats ] * n_data_unit 
+        readme_stats_list = []
+        for i in range(0,n_data_unit):
+            readme_stats_list.append(util.init_readme_stats())
+
+        config_data['readme_stats_list'] = readme_stats_list
         config_data['NEVT_SPECTRA']      = 0
         return
         # end init_data_unit
@@ -499,9 +502,7 @@ class Program:
         n_spectra  = data_event_dict['n_spectra'] 
         index_unit = data_event_dict['index_unit']
         
-
         # update stats that will eventually written to README file
-
         specz = -9.0;  photoz = -9.0
         if HOSTKEY_SPECZ in head_raw:   specz   = head_raw[HOSTKEY_SPECZ]
         if HOSTKEY_PHOTOZ in head_raw:  photoz  = head_raw[HOSTKEY_PHOTZ]

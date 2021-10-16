@@ -425,13 +425,18 @@ class Program:
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
                 if data_unit_name is None : continue
-
+                
                 NEVT_WRITE += 1
                 if data_event_dict['n_spectra'] > 0 : NEVT_SPECTRA += 1   
 
-                #self.write_event_text_snana(data_event_dict, data_unit_name)
-                snana.write_event_text_snana(args, self.config_data,
-                                             data_event_dict, data_unit_name)
+                if args.outdir_snana is not None :
+                    snana.write_event_text_snana(args, self.config_data,
+                                                 data_event_dict, 
+                                                 data_unit_name)
+
+                # increment number of events for this data unit
+                indx_unit  = data_unit_name_list.index(data_unit_name)
+                self.config_data['data_unit_nevent_list'][indx_unit] += 1
 
                 self.screen_update(evt,nevent_subgroup)
                 
@@ -446,7 +451,8 @@ class Program:
 
         # create LIST and README file 
         #self.write_aux_files_snana()
-        snana.write_aux_files_snana(args,self.config_data)
+        if args.outdir_snana is not None:
+            snana.write_aux_files_snana(args,self.config_data)
 
         # load stats 
         self.config_data['NEVT_READ']    = NEVT_READ

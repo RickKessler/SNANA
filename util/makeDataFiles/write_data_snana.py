@@ -58,7 +58,7 @@ def write_event_text_snana(args, config_data,
 
     data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
 
-    config_data['data_unit_nevent_list'][indx_unit] += 1
+    #xxx mark config_data['data_unit_nevent_list'][indx_unit] += 1
 
     with open(data_file, "wt") as f :
 

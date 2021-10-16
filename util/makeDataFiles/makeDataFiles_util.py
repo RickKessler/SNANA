@@ -53,7 +53,7 @@ def write_readme(args, readme_dict):
         for key in KEYLIST_README_STATS:
             key_plus_colon = f"{key}:"
             n = readme_stats[key]
-            f.write(f"  {key_plus_colon:<20}   {n} \n")
+            f.write(f"  {key_plus_colon:<22}   {n} \n")
 
     # end write_readme
 

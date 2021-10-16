@@ -504,8 +504,8 @@ class Program:
         
         # update stats that will eventually written to README file
         specz = -9.0;  photoz = -9.0
-        if HOSTKEY_SPECZ in head_raw:   specz   = head_raw[HOSTKEY_SPECZ]
-        if HOSTKEY_PHOTOZ in head_raw:  photoz  = head_raw[HOSTKEY_PHOTZ]
+        if HOSTKEY_SPECZ  in head_raw:  specz   = head_raw[HOSTKEY_SPECZ]
+        if HOSTKEY_PHOTOZ in head_raw:  photoz  = head_raw[HOSTKEY_PHOTOZ]
 
         readme_stats = self.config_data['readme_stats_list'][index_unit]
 

@@ -13,6 +13,12 @@ import makeDataFiles_util  as util
 def write_event_text_snana(args, config_data, 
                            data_event_dict, data_unit_name):
 
+    # Inputs:
+    #   args : user command line inputs
+    #   config_data       : info about data units and phot varnames
+    #   data_event_dict   : current event: header, phot, spec
+    #   data_unit_name    : name of current data unit
+
     # create one text file and write one event described by  
     # dictionary data_event_dict. 
     # Input data_unit_name is used to determine name of folder.   
@@ -333,17 +339,13 @@ def convert2fits_snana(args, config_data):
     print(f"")
     sys.stdout.flush()
 
-    NEVT_TOT  = 0
-    NUNIT_TOT = 0
-    for nevent,name in zip(nevent_list, name_list):
+    for nevent, name in zip(nevent_list, name_list):
         if nevent == 0 : continue
+
         folder_text    = output_data_folder_name(config_data, name, True)
         folder_fits    = output_data_folder_name(config_data, name, False)
         log_file       = f"{folder_text}/convert2fits_{folder_fits}.log"
         yaml_file      = f"{outdir}/{folder_text}.YAML"  # expected output  
-
-        NEVT_TOT  += nevent
-        NUNIT_TOT += 1
 
         msg = f"  Convert TEXT -> FITS for {folder_fits}" \
               f" NEVT={nevent}  (write spectra: {write_spectra})"
@@ -405,10 +407,6 @@ def convert2fits_snana(args, config_data):
         sys.stdout.flush()
 
     # - - - - -                       
-    # xxx timing belongs back in base ...
-    config_data['t_end']     = datetime.datetime.now()
-    config_data['NEVT_TOT']  = NEVT_TOT
-    config_data['NUNIT_TOT'] = NUNIT_TOT
 
     return
 

@@ -343,10 +343,20 @@ class Program:
         return spec_dict
         
     def final_summary(self):
-        
-        # grand summary
+    
+
+        # comput total number of events and number of data units created
+        NEVT_TOT  = 0
+        NUNIT_TOT = 0
+        nevent_list   = self.config_data['data_unit_nevent_list']
+        for nevent in nevent_list:
+            if nevent == 0 : continue 
+            NEVT_TOT  += nevent
+            NUNIT_TOT += 1
+
+        # get total process time
         t_start = self.config_data['t_start']
-        t_end   = self.config_data['t_end']
+        t_end   = datetime.datetime.now()  # xxx self.config_data['t_end']
         t_dif_sec  = (t_end-t_start).total_seconds()
 
         if t_dif_sec < 2000.0:
@@ -356,8 +366,6 @@ class Program:
             t_dif  = t_dif_sec/3600.0
             t_unit = "hours"
 
-        NEVT_TOT  = self.config_data['NEVT_TOT']
-        NUNIT_TOT = self.config_data['NUNIT_TOT']
 
         logging.info("\n FINAL MAKE-DATA-FILE SUMMARY: \n")
         logging.info(f" Total number of data units created: {NUNIT_TOT}")

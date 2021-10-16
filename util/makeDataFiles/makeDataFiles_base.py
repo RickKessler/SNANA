@@ -499,13 +499,14 @@ class Program:
     def update_readme_stats(self, data_event_dict):
         
         head_raw   = data_event_dict['head_raw']
+        head_calc  = data_event_dict['head_calc']
         n_spectra  = data_event_dict['n_spectra'] 
         index_unit = data_event_dict['index_unit']
         
         # update stats that will eventually written to README file
         specz = -9.0;  photoz = -9.0
-        if HOSTKEY_SPECZ  in head_raw:  specz   = head_raw[HOSTKEY_SPECZ]
-        if HOSTKEY_PHOTOZ in head_raw:  photoz  = head_raw[HOSTKEY_PHOTOZ]
+        if HOSTKEY_SPECZ  in head_raw:   specz   = head_raw[HOSTKEY_SPECZ]
+        if HOSTKEY_PHOTOZ in head_calc:  photoz  = head_calc[HOSTKEY_PHOTOZ]
 
         readme_stats = self.config_data['readme_stats_list'][index_unit]
 
@@ -519,7 +520,7 @@ class Program:
 
         if n_spectra > 0 : 
             key = 'NEVT_SPECTRA'
-            readme_stats[key]      += 1  # this data unit
+            readme_stats[key]      += 1  # increment this data unit
             self.config_data[key]  += 1  # sum over all data units
 
         # end update_readme_stats

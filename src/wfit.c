@@ -151,7 +151,9 @@ struct  {
   double w0_sig_marg,  w0_sig_upper,  w0_sig_lower;
   double wa_sig_marg,  wa_sig_upper,  wa_sig_lower;
   double omm_sig_marg, omm_sig_upper, omm_sig_lower;
-
+  double cov_w0wa, cov_w0omm;
+  double rho_w0wa, rho_w0omm; 
+  
   double *MUCOV; // 1D array for cov matrix
   int    NCOV_NONZERO ;
 
@@ -253,6 +255,8 @@ void wfit_marginalize(void);
 void wfit_uncertainty(void);
 void wfit_final(void);
 void wfit_FoM(void);
+void wfit_Covariance(void);
+
 
 void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
@@ -365,6 +369,9 @@ int main(int argc,char *argv[]){
     // get uncertainties
     wfit_uncertainty();
 
+    // Compute covriance with fitted parameters
+    wfit_Covariance();
+    
     // determine "final" quantities, including sigma_mu^int
     wfit_final();
 
@@ -2113,6 +2120,61 @@ void wfit_uncertainty(void) {
 } // end wfit_uncertainty
 
 
+// ==========================================x 
+void wfit_Covariance(void){
+
+
+  // To compute the fitted covariance
+  // 18/Oct/2021. AM, RK
+  // Store output in WORKSPACE.cov_*
+  // and WORKSPACE.rho*
+  int i,kk, j ;
+  Cosparam cpar;  
+  double cov_w0wa=0., cov_w0omm =0., rho_w0wa=0., rho_w0omm=0.;
+  double probsum = 0., prob=0;
+  double diff_w0, diff_wa, diff_omm;
+  bool use_wa=INPUTS.use_wa;
+  
+  
+  
+  for( i=0; i < INPUTS.w0_steps; i++){                                                                                                              
+    cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;                                                                                                 
+    for( kk=0; kk < INPUTS.wa_steps; kk++){                                                                                                         
+      cpar.wa = (INPUTS.wa_min + kk*INPUTS.wa_stepsize);                                                                                            
+      for(j=0; j < INPUTS.omm_steps; j++){                                                                                                          
+	cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;    
+	prob = WORKSPACE.extprob3d[i][kk][j];
+	probsum += prob;
+	diff_w0 = cpar.w0 - WORKSPACE.w0_mean;
+	if(use_wa){diff_wa = cpar.wa - WORKSPACE.wa_mean;}
+	diff_omm = cpar.omm - WORKSPACE.omm_mean;
+        if(use_wa){cov_w0wa +=  diff_w0 * diff_wa * prob;}
+	cov_w0omm +=  diff_w0 * diff_omm * prob;
+      }
+    }
+  }
+
+  if(use_wa){cov_w0wa  /= probsum;}
+  cov_w0omm /= probsum;
+
+
+  // Compute reduced covariances
+  rho_w0omm = cov_w0omm / (WORKSPACE.w0_sig_marg * WORKSPACE.omm_sig_marg);
+  if(use_wa){rho_w0wa = cov_w0wa / (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);}
+
+  WORKSPACE.cov_w0omm  = cov_w0omm ;
+  WORKSPACE.cov_w0wa   = cov_w0wa ;
+  WORKSPACE.rho_w0omm  = rho_w0omm ;
+  WORKSPACE.rho_w0wa   = rho_w0wa ;
+
+  printf("Reduced Covariance, w0omm = %.4f \n", WORKSPACE.rho_w0omm);
+  if(use_wa){  printf("Reduced Covariance, w0wa = %.4f \n", WORKSPACE.rho_w0wa);}
+  return;  
+} // end wfit_covariance
+
+
+
+
 // ==========================================x
 void wfit_final(void) {
 
@@ -2242,7 +2304,13 @@ void wfit_FoM(void) {
   sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);
 
 
-  rho = 0.; // Need to compute this XX
+  rho = WORKSPACE.rho_w0wa;
+  if(fabs(rho)>=1.){
+    sprintf(c1err,"Invalid Rho = %f \n",rho);
+    sprintf(c2err,"Check Covariance Calculation ");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+}
+
   sig_product *= sqrt(1.0- rho*rho);
 
   
@@ -2250,41 +2318,6 @@ void wfit_FoM(void) {
   else {WORKSPACE.FoM_final = -9. ;}
   printf("FOM = %.2f", WORKSPACE.FoM_final);
   
-  /*
-        chi_approx = (double)(Ndof);
-
-      for( i=0; i < INPUTS.w0_steps; i++){
-	cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
-	for( kk=0; kk < INPUTS.wa_steps; kk++){
-	  cpar.wa = (INPUTS.wa_min + kk*INPUTS.wa_stepsize);
-	  for(j=0; j < INPUTS.omm_steps; j++){
-	    cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;
-	    cpar.ome = 1 - cpar.omm;
-	    get_chi2wOM ( cpar.w0,cpar.wa, cpar.omm, INPUTS.sqsnrms,
-			  &muoff_tmp, &snchi_tmp, &extchi_tmp );
-
-	    WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ;
-	    WORKSPACE.extchi3d[i][kk][j] = extchi_tmp ;
-
-        // Keep track of minimum chi2                                                                                                                    
-	    if(snchi_tmp < WORKSPACE.snchi_min)
-	      { WORKSPACE.snchi_min = snchi_tmp ; }
-
-	    if(extchi_tmp < extchi_min)  {
-	      WORKSPACE.extchi_min = extchi_tmp ;
-	      imin=i; jmin=j; kmin=kk;
-	      chidif = WORKSPACE.extchi3d[i][kk][j] - extchi_min ;
-	      if (chidif < 4.6):
-		{
-		  chi_Tot += chidif;
-		}
-	    }
-	  } // j loop                                                                                                                                    
-	}  // end of k-loop                                                                                                                             
-      }  // end of i-loop        
-
-  */   
- 
 
   return ;
 } // emd wfit_FoM

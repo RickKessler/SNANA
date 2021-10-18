@@ -1491,6 +1491,7 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // Goal is to quickly catch retraining pathologies.
   //
   // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
+  // Oct 18 2021: extend valid COVAR range to -30 (was -10)
   //
   // --------------- BEGIN ------------
   SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
@@ -1503,16 +1504,16 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // - - - - - - - - 
   // set valid ranges for SALT2
   if ( imap == INDEX_ERRMAP_VAR0 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =   5.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
   }
   else if ( imap == INDEX_ERRMAP_VAR1 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  500.0 ;
   }
   else if ( imap == INDEX_ERRMAP_COVAR01 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
   }
   else if ( imap == INDEX_ERRMAP_SCAL ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;

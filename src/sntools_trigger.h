@@ -234,7 +234,10 @@ struct {
 } SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
 
 
-
+// Oct 2021 - definine MJDs associated with pipeline detections
+typedef struct {
+  double TRIGGER, FIRST, LAST;
+} MJD_DETECT_DEF ;
 
 // ------ data needed to evaluate trigger -------
 
@@ -297,8 +300,8 @@ int  malloc_NEXTMAP_SEARCHEFF_DETECT(void);
 void   check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF);
 
 int    gen_SEARCHEFF(int ID, double *EFF_SPEC, double *EFF_zHOST, 
-		     double *MJD_TRIGGER ) ;
-int    gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER );
+		     MJD_DETECT_DEF *MJD_DETECT );
+int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
 int    gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);

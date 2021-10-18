@@ -1191,6 +1191,8 @@ struct GENLC {
   double  SEARCHEFF_SPEC;     // EFF(spec-confirmed) 
   double  SEARCHEFF_zHOST;    // zHOST efficiency (only of not spec-confirmed)
   double  MJD_TRIGGER;           // min MJD when search trigger is satisfied.
+  double  MJD_DETECT_FIRST;   // mjd of first detection
+  double  MJD_DETECT_LAST;    // mjd of last detection
 
   int     CUTBIT_MASK;           // snana cutbit mask
   float   GENEFF, GENEFFERR;     // generation efficiency & error

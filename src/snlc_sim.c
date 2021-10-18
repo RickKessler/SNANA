@@ -321,12 +321,17 @@ int main(int argc, char **argv) {
     // check if search finds this SN:
     GENLC.SEARCHEFF_MASK = 3 ;
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) {
+      MJD_DETECT_DEF MJD_DETECT;
       LOAD_SEARCHEFF_DATA();
       GENLC.SEARCHEFF_MASK = 
 	gen_SEARCHEFF(GENLC.CID                 // (I) ID for dump/abort
 		      ,&GENLC.SEARCHEFF_SPEC     // (O)
 		      ,&GENLC.SEARCHEFF_zHOST    // (O) Mar 2018
-		      ,&GENLC.MJD_TRIGGER ) ;    // (O)
+		      ,&MJD_DETECT   );          // (O) Oct 2021
+
+      GENLC.MJD_TRIGGER        = (float)MJD_DETECT.TRIGGER ;
+      GENLC.MJD_DETECT_FIRST   = (float)MJD_DETECT.FIRST ;
+      GENLC.MJD_DETECT_LAST    = (float)MJD_DETECT.LAST ;
     }
 
     for ( i=1; i<= GENRAN_INFO.NLIST_RAN ; i++ )  
@@ -7422,6 +7427,10 @@ void  init_GENLC(void) {
     SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs] = -999.0 ;
   }
   
+
+  GENLC.MJD_TRIGGER      = -9.0 ;
+  GENLC.MJD_DETECT_FIRST = -9.0 ;
+  GENLC.MJD_DETECT_LAST  = -9.0 ;
 
   // Aug 9 2014: moved from gen_cutwin()
   GENLC.NOBS_SNR    = 0 ;
@@ -20465,6 +20474,8 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_NOBS_UNDEFINED   = GENLC.NOBS_UNDEFINED;
 
   SNDATA.MJD_TRIGGER          = GENLC.MJD_TRIGGER ;
+  SNDATA.MJD_DETECT_FIRST     = GENLC.MJD_DETECT_FIRST;
+  SNDATA.MJD_DETECT_LAST      = GENLC.MJD_DETECT_LAST;
 
   SNDATA.NEA_PSF_UNIT         = SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT;
 

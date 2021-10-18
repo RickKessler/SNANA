@@ -1645,7 +1645,7 @@ void read_VARNAMES_zHOST(FILE *fp) {
 int gen_SEARCHEFF ( int ID                  // (I) identifier 
 		    ,double *EFF_SPEC       // (O) spec eff
 		    ,double *EFF_zHOST      // (O) EFF(zHOST)
-		    ,double *MJD_TRIGGER    // (O) minMJD where SN is detected
+		    ,MJD_DETECT_DEF *MJD_DETECT 
 		    ) {
 
   /******
@@ -1685,7 +1685,9 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
   // init function args
   *EFF_SPEC = *EFF_zHOST = 0.0;  
-  *MJD_TRIGGER = 1.0E6 ;
+  MJD_DETECT->TRIGGER = 1.0E6 ;
+  MJD_DETECT->FIRST   = 1.0E6 ;
+  MJD_DETECT->LAST    = 1.0E6 ;
   MASK = 0 ;  // init return arg
 
   // 5/26/2009: minimum trigger is at least 2 measurements
@@ -1702,7 +1704,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   }
   else {
     // check check software/pipeline finds this SN
-    LFIND1_PIPELINE = gen_SEARCHEFF_PIPELINE(ID,MJD_TRIGGER);
+    LFIND1_PIPELINE = gen_SEARCHEFF_PIPELINE(ID,MJD_DETECT);
   }
 
 
@@ -1736,14 +1738,15 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
 
 // ***************************************
-int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
+int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
 
   // Created Jul 3, 2011 by R.Kessler
   //
   // returns 1 if this SN is found by pipeline; returns 0 otherwise.
   // (I) integer identifier for debug dump and abort
-  // (O) *MJD_TRIGGER is the MJD where the pipeline trigger 
+  // (O) MJD_DETECT->TRIGGER is the MJD where the pipeline trigger 
   //      is first satisfied.
+  // (O) MJD_DETECT-FIRST[LAST] is MJD of first and last detection
   //
   // Global outputs per observation:
   //    SEARCHEFF_DATA.detectFlag[obs] 
@@ -1768,11 +1771,13 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //  + refactor to implement CUTVAL cut on PHOTPROB and use
   //    it as part of detection.
   //
+  // Oct 18 2021: load MJD_DETECT-FIRST[LAST]
+  //
 
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
   int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
-  int FOUND_TRIGGER=0, LCUT_PHOTPROB ;
+  int FOUND_TRIGGER=0,  FOUND_DETECT_FIRST=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
   double  PHOTPROB, CUTVAL ;
@@ -1892,14 +1897,19 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
     MARK        = OBSMARKER_DETECT[obs] ;
 
     // set filter-detect mask if both detection and PHOTPROB are satisfied.
-    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) 
-      { IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; }
-    
- 
+    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) { 
+      IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; 
+
+      if ( MJD_DETECT->FIRST > 0.99E6 ) { MJD_DETECT->FIRST = MJD; }
+      MJD_DETECT->LAST = MJD ;
+    }
+
+   
     // Check for trigger if trigger not yet formed, and at least
     // one obs-group marker has passed.  Check IFILTOBS_MASK for detection(s).
 
-    FOUND_TRIGGER = (*MJD_TRIGGER < 0.99E6 ) ;
+    FOUND_TRIGGER      = (MJD_DETECT->TRIGGER < 0.99E6 ) ;
+ 
     if ( !FOUND_TRIGGER  ) {
 
       NDETECT = 0 ;  // reset number of detections 
@@ -1912,7 +1922,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
       if ( NDETECT>0 && !DETECT_MARK ) { NMJD_DETECT++;  DETECT_MARK=1; }
 
       if ( NMJD_DETECT >= SEARCHEFF_LOGIC.NMJD ) {
-	LFIND = 1 ;   *MJD_TRIGGER = MJD; 
+	LFIND = 1 ;   MJD_DETECT->TRIGGER = MJD; 
 	SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_MJD_TRIGGER ; ;
 	
 	if ( LDMP ) {

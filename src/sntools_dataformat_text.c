@@ -114,6 +114,14 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp, "PEAKMJD:  %9.3f     # estimate for LC fit codes\n", 
 	  SNDATA.SEARCH_PEAKMJD ); 
 
+  // Oct 18 2021: write mjds related to detections
+  if ( SNDATA.MJD_TRIGGER < 1.0E6 ) 
+    { fprintf(fp, "MJD_TRIGGER:       %9.3f  \n", SNDATA.MJD_TRIGGER );  }
+  if ( SNDATA.MJD_DETECT_FIRST < 1.0E6 ) 
+    { fprintf(fp, "MJD_DETECT_FIRST:  %9.3f  \n", SNDATA.MJD_DETECT_FIRST); }
+  if ( SNDATA.MJD_DETECT_LAST < 1.0E6 ) 
+    { fprintf(fp, "MJD_DETECT_LAST:   %9.3f  \n", SNDATA.MJD_DETECT_LAST); }
+
   // redshift info
   fprintf(fp, "\n");
 

@@ -234,9 +234,10 @@ c
 c Note that EPLIST_FIT is used in FCN to loop over only
 c the epochs to be fit.
 c
+c Oct 15 2021: add IEP_CCDNUN, IEP_IMGNUM
 
       INTEGER MXVAR_R4, MXVAR_I4
-      PARAMETER ( MXVAR_R4=60, MXVAR_I4=10 )
+      PARAMETER ( MXVAR_R4=60, MXVAR_I4=12 )
       
       REAL*4 
      &   R4EP_ALL(MXFIT_DATA,MXVAR_R4) !vs. absolute epoch; fixed each iter
@@ -263,6 +264,7 @@ c variable indices for I4EP_
      &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
+     &  ,IEP_CCDNUM, IEP_IMGNUM
 
 c variable indices for R4EP_
       INTEGER   
@@ -296,6 +298,8 @@ c for I4EP_XXX
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
      &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
+     &  ,IEP_CCDNUM          = 10 ! CCD number
+     &  ,IEP_IMGNUM          = 11 ! image number (e..g, EXPNUM, VISIT_ID)
 c
 c for R4EP_XXX
      &  ,JEP_MJD              = 1
@@ -930,6 +934,7 @@ c variables to define subset of fitted bands;
 
 c variables for SPECTRA table (Nov 2016)
       INTEGER    MXLAM_TBLSPEC, NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
+      INTEGER    TBLSPEC_CCDNUM, TBLSPEC_IMGNUM  ! Oct 2021
       PARAMETER ( MXLAM_TBLSPEC = 1000 )
       CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
       REAL  
@@ -950,6 +955,7 @@ c
      &  ,SURVEY_FILTERS_TABLE
 c
      &  ,NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
+     &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
@@ -10287,6 +10293,8 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
         I4EP_ALL(ep,IEP_IDTEL)       = ISNLC_IDTEL(ep)
+	I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+	I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
 c Get nearest and 2nd nearest rest filter
@@ -19243,6 +19251,8 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST) 
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
           TBLSPEC_IFILTOBS          = IFILTOBS
+          TBLSPEC_CCDNUM            = I4EP_ALL(ep,IEP_CCDNUM) 
+          TBLSPEC_IMGNUM            = I4EP_ALL(ep,IEP_IMGNUM)
           TBLSPEC_FLUXCAL_DATA      = R4EP_ALL(ep,JEP_DATAFLUX)
           TBLSPEC_FLUXCAL_DATA_ERR  = R4EP_ALL(ep,JEP_DATAFLUX_ERR)
           TBLSPEC_FLUXCAL_MODEL     = R4EP_ALL(ep,JEP_MODELFLUX)
@@ -19353,6 +19363,14 @@ c - - - -
       VARNAME = 'BAND:C*4' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_CFILT, VARNAME, 1,
      &                   LENBLOCK, 4 )
+
+      VARNAME = 'CCDNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_CCDNUM, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'IMGNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_IMGNUM, VARNAME, 1,
+     &                   LENBLOCK, 20 )
 
       VARNAME = 'IFILTOBS:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_IFILTOBS, VARNAME, 1,

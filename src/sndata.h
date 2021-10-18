@@ -310,14 +310,9 @@ struct SNDATA {
   float SEARCH_PEAKMJD ;     // approx MJD at g-band peak, from LC fit
   int   SEARCH_TYPE ;        // type from search (i.e., 120=confirmed Ia)
 
-  // xxxx removed obsolete variables Oct 13 2021 xxxx
-  // xxxx  int   QMASK[MXEPOCH];
-  // xxx  int   UNSORTED_EPOCH[MXEPOCH];  // unsorted epoch vs [epoch]
-  // xxx  char  DATE[MXEPOCH][80];        // entry date
-  // xxx  int   IDATE[MXEPOCH];            // integer date = YYYYMMDD
-  // xxxxxxxxxxx
-
   float MJD_TRIGGER ;      //  MJD when trigger is satisfied (Apr 2017)
+  float MJD_DETECT_FIRST ; // mjd of 1st detection
+  float MJD_DETECT_LAST;
 
   // declare generation quantities for simulation (fake flag = 2)
 

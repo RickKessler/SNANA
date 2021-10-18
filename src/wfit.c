@@ -1570,13 +1570,15 @@ void set_stepsizes(void) {
 	   varname_wa, varname_wa, 
 	   INPUTS.wa_min, INPUTS.wa_max, INPUTS.wa_steps, INPUTS.wa_stepsize);
   }
-  printf(" %s_min: %6.2f  %s_max: %6.2f  %5i steps of size %8.5f\n",
+  printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_omm, varname_omm, 
 	 INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
-  printf("   h_min: %6.2f   h_max: %6.2f  %5i steps of size %8.5f\n",
+  printf("  h_min:  %6.2f   h_max:  %6.2f  %5i steps of size %8.5f\n",
 	 INPUTS.h_min,  INPUTS.h_max,  INPUTS.h_steps,  INPUTS.h_stepsize);
   
   printf("   ------------------------------------\n");
+
+  fflush(stdout);
 
   return;
 } // end set_stepsizes
@@ -2123,44 +2125,54 @@ void wfit_uncertainty(void) {
 // ==========================================x 
 void wfit_Covariance(void){
 
-
-  // To compute the fitted covariance
-  // 18/Oct/2021. AM, RK
-  // Store output in WORKSPACE.cov_*
-  // and WORKSPACE.rho*
+  // Created Oct 18 2021 by A.Mitra and R.Kessler
+  // Compute the fitted covariance Cov(w0,Om).
+  // and if wa option is set, also compute cov(w0,wa)/
+  // Store covariances in WORKSPACE.cov_* and store
+  // reduced covar in WORKSPACE.rho*
+  //
   int i,kk, j ;
   Cosparam cpar;  
   double cov_w0wa=0., cov_w0omm =0., rho_w0wa=0., rho_w0omm=0.;
   double probsum = 0., prob=0;
-  double diff_w0, diff_wa, diff_omm;
+  double diff_w0, diff_wa, diff_omm, sig_product ;
   bool use_wa=INPUTS.use_wa;
   
+  // ----------- BEGIN --------------
   
-  
-  for( i=0; i < INPUTS.w0_steps; i++){                                                                                                              
-    cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;                                                                                                 
-    for( kk=0; kk < INPUTS.wa_steps; kk++){                                                                                                         
-      cpar.wa = (INPUTS.wa_min + kk*INPUTS.wa_stepsize);                                                                                            
-      for(j=0; j < INPUTS.omm_steps; j++){                                                                                                          
+  for( i=0; i < INPUTS.w0_steps; i++) {     
+    cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
+    for( kk=0; kk < INPUTS.wa_steps; kk++) { 
+      cpar.wa = (INPUTS.wa_min + kk*INPUTS.wa_stepsize); 
+      for(j=0; j < INPUTS.omm_steps; j++) {
 	cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize;    
-	prob = WORKSPACE.extprob3d[i][kk][j];
+
+	prob     = WORKSPACE.extprob3d[i][kk][j];
 	probsum += prob;
 	diff_w0 = cpar.w0 - WORKSPACE.w0_mean;
-	if(use_wa){diff_wa = cpar.wa - WORKSPACE.wa_mean;}
 	diff_omm = cpar.omm - WORKSPACE.omm_mean;
-        if(use_wa){cov_w0wa +=  diff_w0 * diff_wa * prob;}
 	cov_w0omm +=  diff_w0 * diff_omm * prob;
-      }
-    }
-  }
 
-  if(use_wa){cov_w0wa  /= probsum;}
+	if ( use_wa ) {
+	  diff_wa   = cpar.wa - WORKSPACE.wa_mean;
+	  cov_w0wa +=  diff_w0 * diff_wa * prob;
+	}
+
+      } // end j
+    } // end kk 
+  } // end i
+
+  // - - - - - -
+  // Compute cov and reduced covariances
+  sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.omm_sig_marg);
   cov_w0omm /= probsum;
+  rho_w0omm = cov_w0omm / sig_product;
 
-
-  // Compute reduced covariances
-  rho_w0omm = cov_w0omm / (WORKSPACE.w0_sig_marg * WORKSPACE.omm_sig_marg);
-  if(use_wa){rho_w0wa = cov_w0wa / (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);}
+  if( use_wa ) { 
+    sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg) ;
+    cov_w0wa  /= probsum ;
+    rho_w0wa = cov_w0wa / sig_product ;
+  }
 
   WORKSPACE.cov_w0omm  = cov_w0omm ;
   WORKSPACE.cov_w0wa   = cov_w0wa ;

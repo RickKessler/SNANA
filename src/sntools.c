@@ -4517,6 +4517,13 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"PEAKMJD") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.SEARCH_PEAKMJD) ; }  
 
+  else if ( strcmp(key,"MJD_TRIGGER") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.MJD_TRIGGER) ; }  
+  else if ( strcmp(key,"MJD_DETECT_FIRST") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.MJD_DETECT_FIRST) ; }  
+  else if ( strcmp(key,"MJD_DETECT_LAST") == 0 ) 
+    { copy_flt(copyFlag, parVal, &SNDATA.MJD_DETECT_LAST) ; }  
+
   else if ( strcmp(key,"SEARCH_TYPE") == 0 ) 
     { copy_int(copyFlag, parVal, &SNDATA.SEARCH_TYPE) ; }  
 
@@ -8252,8 +8259,11 @@ int init_SNDATA_EVENT(void) {
 
 
   // init SEARCH parameters
-  SNDATA.SEARCH_TYPE     = NULLINT ;
-  SNDATA.SEARCH_PEAKMJD  = NULLFLOAT ;
+  SNDATA.SEARCH_TYPE      = NULLINT ;
+  SNDATA.SEARCH_PEAKMJD   = NULLFLOAT ;
+  SNDATA.MJD_TRIGGER      = NULLFLOAT ;
+  SNDATA.MJD_DETECT_FIRST = NULLFLOAT ;
+  SNDATA.MJD_DETECT_LAST  = NULLFLOAT ;
   
   // init sim parameters (used for simulation only)
   sprintf(SNDATA.SIM_MODEL_NAME, "NULL" );

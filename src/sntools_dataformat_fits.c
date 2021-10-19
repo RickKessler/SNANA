@@ -377,8 +377,11 @@ void wr_snfitsio_init_head(void) {
 
   // -----------------
 
-  wr_snfitsio_addCol( "1E", "PEAKMJD" ,        itype );
-  wr_snfitsio_addCol( "1J", "SEARCH_TYPE",     itype );
+  wr_snfitsio_addCol( "1E", "PEAKMJD" ,          itype );
+  wr_snfitsio_addCol( "1E", "MJD_TRIGGER" ,      itype );
+  wr_snfitsio_addCol( "1E", "MJD_DETECT_FIRST",  itype );
+  wr_snfitsio_addCol( "1E", "MJD_DETECT_LAST",   itype );
+  wr_snfitsio_addCol( "1J", "SEARCH_TYPE",       itype );
 
   // optional PRIVATE vars.
   for ( ivar=1; ivar <= SNDATA.NVAR_PRIVATE; ivar++ ) {
@@ -1638,6 +1641,20 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SEARCH_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "PEAKMJD", itype );
+
+  // MJD_TRIGGER (Oct 2021)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_TRIGGER ;
+  wr_snfitsio_fillTable ( ptrColnum, "MJD_TRIGGER", itype );
+
+  // MJD_DETECT[FIRST,LAST] (Oct 2021)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_DETECT_FIRST ;
+  wr_snfitsio_fillTable ( ptrColnum, "MJD_DETECT_FIRST", itype );
+
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_DETECT_LAST ;
+  wr_snfitsio_fillTable ( ptrColnum, "MJD_DETECT_LAST", itype );
 
   // SEARCH_TYPE (for SDSS only)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3148,6 +3165,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     // - - - - -
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "PEAKMJD", &SNDATA.SEARCH_PEAKMJD,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;          
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MJD_TRIGGER", &SNDATA.MJD_TRIGGER,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;          
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MJD_DETECT_FIRST", 
+				 &SNDATA.MJD_DETECT_FIRST,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;          
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MJD_DETECT_LAST", 
+				 &SNDATA.MJD_DETECT_LAST,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;          
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "SEARCH_TYPE", &SNDATA.SEARCH_TYPE,

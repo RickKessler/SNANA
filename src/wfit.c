@@ -118,7 +118,6 @@ struct INPUTS {
   double omm_prior, omm_prior_sig;  // Gauss OM prior
   double Rcmb, sigma_Rcmb;          // CMB R shift parameter and error
   double zcmb, acmb ;
-  double z_bao, abest, sigma_a;            // BOA prior params
 
   double snrms, sqsnrms;
   double OMEGA_MATTER_SIM ;
@@ -181,6 +180,27 @@ typedef struct  {
   double wa;   //    w(z) = w0 + wa(1-a)  
 } Cosparam ;
 
+
+// define SDSS4-eBOSS structure
+#define NZBIN_BAO_SDSS4 7
+
+struct {
+
+  bool use_sdss;  // from Eisenstein 2005  astro-ph/0501171 
+  bool use_sdss4; // from SDSS-IV-eBOSS    arxiv:2007.08991
+
+  // define params for E05
+  double z_sdss, a_sdss, siga_sdss; 
+
+  // define params for SDSS-IV, Alam 20
+  double  rd_sdss4; 
+  double  z_sdss4[NZBIN_BAO_SDSS4];
+  double  DH_sdss4[NZBIN_BAO_SDSS4];
+  double  DM_sdss4[NZBIN_BAO_SDSS4];
+
+  char comment[200];
+	      
+} BAO_PRIOR;
 
 // =========== global variables ================
 
@@ -267,6 +287,8 @@ double get_DMU_chi2wOM(int k, double rz); // AM OCT, 2021
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *OM_atchimin ); 
 void set_priors(void);
+void init_bao_prior(void) ;
+double chi2_bao_prior(Cosparam *cpar);
 
 void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
                         HzFUN_INFO_DEF *HzFUN ) ;
@@ -431,11 +453,6 @@ void init_stuff(void) {
   INPUTS.omm_prior        = OMEGA_MATTER_DEFAULT ;  // mean
   INPUTS.omm_prior_sig    = 0.04;  // sigma
 
-  // BAO parameters 
-  INPUTS.abest   = 0.469;
-  INPUTS.sigma_a = 0.017;
-  INPUTS.z_bao   = 0.35;
-
   // CMB params
   INPUTS.sigma_Rcmb = 0.019;   // from Komatsu 2008, Eq 69 and Table 10
   INPUTS.Rcmb       = 1.710 ;  //  idem
@@ -500,19 +517,15 @@ void print_help(void) {
     "   -wa\t\tfit for w0-wa from Chevallier & Polarski, 2001 [Int.J.Mod.Phys.D10,213(2001)]",
     "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
     "   -dompri\twidth of omega_m prior [default: 0.04]",
-    "   -bao\t\tuse BAO constraints from Eisenstein et al, 2006",
-    "   -bao_sim\tuse BAO constraints with simulated cosmology and E06 formalism",
-    "   -cmb\t\tuse CMB constraints from 5-year WMAP (2008)",
-    "   -cmb_sim\tuse CMB constraints with simulated cosmology and WMAP formalism",
+    "   -bao\t\tuse BAO prior from Eisenstein et al, 2006",
+    "   -bao_sim\tuse BAO prior with simulated cosmology and E06 formalism",
+    "   -cmb\t\tuse CMB prior from 5-year WMAP (2008)",
+    "   -cmb_sim\tuse CMB prior with simulated cosmology and WMAP formalism",
     "   -om_sim\tOmega_M for cmb_sim (default from sntools.h)",
     "   -minchi2\tget w and OM from minchi2 instead of marginalizing",
     "   -marg\tget w and OM from marginalizing (default)",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
     "   -sigma_Rcmb\tUncertainty on Rcmb",
-    "   -abest\tBAO constraints: A = abest +/- sigma_a [= 0.469 +/- 0.017]",
-    "   -sigma_a\tSee Eisensten et al., '06, eqn. 4 for details",
-    "   -z_bao\tBAO average redshift, z_bao=0.35",
-    "   \t\tchoose either Omega_m or BAO prior, not both",
     "   -snrms\tadd this to reported errors (mags) [default: 0]",
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
@@ -593,12 +606,6 @@ void parse_args(int argc, char **argv) {
 	INPUTS.Rcmb = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
 	INPUTS.sigma_Rcmb = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"abest")==0) { 
-	INPUTS.abest = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"sigma_a")==0) { 
-	INPUTS.sigma_a = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"z_bao")==0) { 
-	INPUTS.z_bao = atof(argv[++iarg]); 
 
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	INPUTS.use_cmb = 1;
@@ -1453,11 +1460,10 @@ void set_priors(void) {
   char fnam[]="set_priors";
 
   double rz, tmp1, tmp2;
-  double OM = INPUTS.OMEGA_MATTER_SIM ;
-  double OE = 1 - OM ;
-  double w0 = w0_DEFAULT ;
-  double wa = wa_DEFAULT ;
-  double z_bao = INPUTS.z_bao;
+  double OM    = INPUTS.OMEGA_MATTER_SIM ;
+  double OE    = 1 - OM ;
+  double w0    = w0_DEFAULT ;
+  double wa    = wa_DEFAULT ;
 
   Cosparam cparloc;
   cparloc.omm = OM ;
@@ -1465,65 +1471,58 @@ void set_priors(void) {
   cparloc.w0  = w0 ;
   cparloc.wa  = wa ; 
 
-  // ===== BEGIN ==========
+  // =========== BEGIN ============
   
-  if ( INPUTS.use_bao == 2 ){ 
-    //recompute abest
-    rz = codist(z_bao, &cparloc);
-    tmp1 = pow( EofZ(z_bao, &cparloc), NEGTHIRD) ;
-    tmp2 = pow( (1./z_bao) * rz, TWOTHIRD );
-    INPUTS.abest = sqrt(OM) * tmp1 * tmp2 ;
-  }
+  if ( INPUTS.use_bao ) 
+    { init_bao_prior(); }
+
 
   if ( INPUTS.use_cmb == 2) {
-    //recompute Rbest
-    HzFUN_INFO_DEF HzFUN;
+    //recompute R
+    HzFUN_INFO_DEF HzFUN ;
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( INPUTS.acmb, ONE, &HzFUN ) / LIGHT_km;
     INPUTS.Rcmb = sqrt(OM) * rz ;
   }
 
 
+  // - - - - - - - -
   // Report priors being used 
   bool noprior = true;
   printf("\n PRIOR(s): \n");
   // - - - -
   if ( H0SIG < 100. ) {
-    printf("\t Fit with H0 prior: sigH0/H0=%4.1f/%4.1f  => sig(MUOFF)=%5.3f \n", 
-	   H0SIG, H0, SIG_MUOFF );
+    printf("\t Fit with H0 prior: sigH0/H0=%4.1f/%4.1f  "
+	   "=> sig(MUOFF)=%5.3f \n",  H0SIG, H0, SIG_MUOFF );
     noprior = false;
   }
 
-  // - - - -
+  // - - - - - - - -
   if ( INPUTS.use_bao ) {
     noprior = false;
-    if (INPUTS.use_bao == 1) {
-      printf("\t BAO Eisen 2006 prior: "
-	     "A(BAO) =%5.3f +- %5.3f \n", INPUTS.abest, INPUTS.sigma_a);
-    }
-    if (INPUTS.use_bao == 2) {
-      printf("\t BAO prior using sim cosmology: \n"
-	     "\t\t OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f \n" ,
-	     INPUTS.OMEGA_MATTER_SIM, w0_DEFAULT, INPUTS.abest, INPUTS.sigma_a);
-    } 
+    bool REFAC = (INPUTS.debug_flag == 7) ;
+    char *comment = BAO_PRIOR.comment ; 
+    printf("   %s\n", comment) ;
   } 
+
   else if ( INPUTS.omm_prior_sig < .5 ) {
     noprior = false;
-    printf("\t Gaussian Omega_m prior: %5.3f +/- %5.3f\n",
+    printf("   Gaussian Omega_m prior: %5.3f +/- %5.3f\n",
 	   INPUTS.omm_prior, INPUTS.omm_prior_sig);
   }
 
   // - - - -
-  if (INPUTS.use_cmb) {
+  if ( INPUTS.use_cmb ) {
     noprior = false;
     if ( INPUTS.use_cmb == 1 ) {
-      printf("\t CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
+      printf("   CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
 	     INPUTS.Rcmb, INPUTS.sigma_Rcmb);
     }
     if ( INPUTS.use_cmb == 2 ) {
-      printf("\t CMB (WMAP) prior using sim cosmology: \n"
-	     "\t\t OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f  \n" ,
-	     INPUTS.OMEGA_MATTER_SIM, w0_DEFAULT, INPUTS.Rcmb, INPUTS.sigma_Rcmb);
+      printf("   CMB (WMAP) prior using sim cosmology: \n"
+	     "\t OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f  \n" ,
+	     INPUTS.OMEGA_MATTER_SIM, w0_DEFAULT, 
+	     INPUTS.Rcmb, INPUTS.sigma_Rcmb);
     } 
   }
 
@@ -1537,7 +1536,76 @@ void set_priors(void) {
 
 } //end of set_priors()
 
-// ==================================
+
+// =========================================
+void init_bao_prior(void) {
+
+  bool REFAC  = INPUTS.debug_flag == 7; // USE SDSS-IV, Alam 2020
+
+  int iz;
+  double rz, tmp1, tmp2, z;
+  double OM = INPUTS.OMEGA_MATTER_SIM ;
+  double OE = 1 - OM ;
+  double w0 = w0_DEFAULT ;
+  double wa = wa_DEFAULT ;
+
+  Cosparam cparloc;
+  cparloc.omm = OM ;
+  cparloc.ome = OE ;
+  cparloc.w0  = w0 ;
+  cparloc.wa  = wa ; 
+
+  char *comment = BAO_PRIOR.comment;
+  char fnam[] = "init_bao_prior" ;
+
+  // -----------------BEGIN ------------------
+
+  if ( REFAC ) {
+    BAO_PRIOR.rd_sdss4    = 0.0 ;
+    BAO_PRIOR.z_sdss4[0]  = 0. ;
+    BAO_PRIOR.DM_sdss4[0] = 0. ;
+    BAO_PRIOR.DH_sdss4[0] = 0. ;
+    // keep loading all 7 z ranges ...
+    sprintf(comment,"BAO prior from SDSS-IV (Alam 2020)" );
+
+  }
+  else {
+    BAO_PRIOR.a_sdss    = 0.469 ;
+    BAO_PRIOR.siga_sdss = 0.017 ;
+    BAO_PRIOR.z_sdss    = 0.35  ;
+    sprintf(comment,"BAO prior from SDSS (Eisen 2006);"
+	    " a = %.3f +_ %.3f at z=%.3f", 
+	    BAO_PRIOR.a_sdss, BAO_PRIOR.siga_sdss, BAO_PRIOR.z_sdss);
+  }
+
+
+  // - - - - - -
+  // check option to compute BAO params from sim cosmology
+  if ( INPUTS.use_bao == 2 ) { 
+    if ( REFAC ) {
+      for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
+	BAO_PRIOR.DM_sdss4[iz] = 0.0 ;
+	BAO_PRIOR.DH_sdss4[iz] = 0.0 ;
+      }
+      sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
+    }
+    else {
+      z    = BAO_PRIOR.z_sdss ;
+      rz   = codist(z, &cparloc);
+      tmp1 = pow( EofZ(z, &cparloc), NEGTHIRD) ;
+      tmp2 = pow( (1./z) * rz, TWOTHIRD );
+      BAO_PRIOR.a_sdss = sqrt(OM) * tmp1 * tmp2 ;
+    }
+    sprintf(comment,"BAO prior from sim cosmology;"
+	    " a = %.3f +_ %.3f at z=%.3f", 
+	    BAO_PRIOR.a_sdss, BAO_PRIOR.siga_sdss, BAO_PRIOR.z_sdss);
+  }
+
+  return ;
+
+} // end init_bao_prior
+
+// =========================================
 void set_stepsizes(void) {
 
   // Created Oct 1 2021
@@ -2383,6 +2451,7 @@ void get_chi2wOM (
   // Jul 10, 2021: Return chi2 at this w0, wa, OM and z value
   // Oct     2021: refactor using new cov matrix formalism
 
+  double chi2_prior = 0.0 ;
   double 
     OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
     ,chi_hat, chi_tmp, ld_cos
@@ -2450,38 +2519,7 @@ void get_chi2wOM (
     */
     } // end k
   }
-
-
-  /* xxxxxxxxx mark delete xxxxxxxxxxx
-  // check for SNe with off-diagonal terms
-  // Note that below includes both diag & off-diag for 
-  // the SN-subset with covariances.
-  if ( NCOVPAIR > 0 ) {
-    for ( N0=1; N0 <= NCOVSN; N0++ ) {
-      for ( N1=1; N1 <= NCOVSN; N1++ ) {
-
-	k0     = INDEX_COVSN_MAP[N0]  ;
-	k1     = INDEX_COVSN_MAP[N1]  ;
-	covinv = MUCOV_STORE[N0][N1].COVINV ;
-
-	sqdmu    = (mu_cos[k0] - HD.mu[k0]) * (mu_cos[k1] - HD.mu[k1]) ;
-	dchi_hat = sqdmu * covinv ;
-	chi_hat += dchi_hat ;
-
-	// increment B & C terms
-	dmu    = mu_cos[k0] - HD.mu[k0] ;
-	Bsum  += covinv * dmu ;
-	Csum  += covinv ;      
-
-	if ( k0 >= 9999990 ) 
-	  printf("  xxxx covini(%4s,%4s) = %10.4f   dchi=%12.4f  chi=%f \n", 
-		 HD.cid[k0], HD.cid[k1], covinv, dchi_hat, chi_hat );
-
-      } // N1
-    } // N0
-  }
-  xxxxxxxxxxx end mark xxxxxxxxxxxxxxx  */
-  
+ 
 
   *mu_off  = Bsum/Csum ;  // load function output before adding H0-prior corr
 
@@ -2499,21 +2537,15 @@ void get_chi2wOM (
 
   *chi2tot = *chi2sn ;     // load intermediate function output
 
+
   /* Compute likelihood with external prior: Omega_m or BAO */
   if ( INPUTS.use_bao ) {
-    /* Use BAO constraints from Eisenstein et al, 2006 */
-
-    rz = codist(INPUTS.z_bao, &cparloc);
-    tmp1 = pow( EofZ(INPUTS.z_bao, &cparloc), NEGTHIRD) ;
-    tmp2 = pow( (1./INPUTS.z_bao) * rz, TWOTHIRD );
-    a = sqrt(OM) * tmp1 * tmp2 ;
-    nsig = (a-INPUTS.abest)/INPUTS.sigma_a ;
-    *chi2tot =  *chi2sn + pow( nsig, TWO );
+    chi2_prior += chi2_bao_prior(&cparloc);
 
   } else {
-    /* Use Omega_m constraints */
+    // Gaussian Omega_m prior
     nsig = (OM-INPUTS.omm_prior)/INPUTS.omm_prior_sig ;
-    *chi2tot =  *chi2sn + pow( nsig, TWO );
+    chi2_prior += nsig*nsig;
   }
 
   // May 29, 2008 RSK - add CMB prior if requested
@@ -2523,8 +2555,11 @@ void get_chi2wOM (
     rz        = Hainv_integral ( INPUTS.acmb, ONE, &HzFUN ) / LIGHT_km;
     Rcmb_calc = sqrt(OM) * rz ;
     nsig      = (Rcmb_calc - INPUTS.Rcmb) / INPUTS.sigma_Rcmb ;
-    *chi2tot += pow( nsig, TWO );
+    chi2_prior += pow( nsig, TWO );
+
   }
+
+  *chi2tot += chi2_prior;
 
   free(rz_list);
 
@@ -2532,6 +2567,46 @@ void get_chi2wOM (
 
 }  // end of get_chi2wOM
 
+
+// ======================================
+double chi2_bao_prior(Cosparam *cpar) {
+
+  // Created Oct 2021
+  // Return chi2 for bao prior.
+
+  bool   REFAC     = (INPUTS.debug_flag == 7) ;
+  double OM        = cpar->omm ;
+  double rz, tmp1, tmp2, a, nsig, E, chi2 = 0.0 ;
+  int    iz;
+  char   fnam[] = "chi2_bao_prior" ;
+
+  // ------------ BEGIN -------------
+  if ( REFAC ) {
+    // Alam 2020, SDSS-IV
+    for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
+      chi2 += 0.1; // xxx 
+    }
+
+    
+  }
+  else {
+    // Eisen 2006
+    double z_sdss    = BAO_PRIOR.z_sdss;
+    double a_sdss    = BAO_PRIOR.a_sdss;
+    double siga_sdss = BAO_PRIOR.siga_sdss;
+
+    rz   = codist(z_sdss, cpar);
+    E    = EofZ(z_sdss, cpar) ;
+    tmp1 = pow( E, NEGTHIRD) ;
+    tmp2 = pow( (rz/z_sdss),   TWOTHIRD );
+    a    = sqrt(OM) * tmp1 * tmp2 ;
+    nsig = (a - a_sdss) / siga_sdss ;
+    chi2 = nsig * nsig ;
+  }
+
+  return chi2;
+
+} // end chi2_bao_prior
 
 double get_DMU_chi2wOM(int k, double rz)  {
 

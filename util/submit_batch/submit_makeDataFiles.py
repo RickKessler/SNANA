@@ -18,7 +18,8 @@ COLNUM_MKDATA_MERGE_NSPECZ      = 3
 COLNUM_MKDATA_MERGE_CPU         = 4
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
-
+KEYLIST_OUTPUT                  = ['OUTDIR_SNANA', 'OUTDIR_ALERTS']
+KEYLIST_OUTPUT_OPTIONS          = ['--outdir_snana', '--outdir_alerts']
 
 
 # ====================================================
@@ -49,10 +50,62 @@ class MakeDataFiles(Program):
         return output_dir_name, SUBDIR_SCRIPTS_MKDATA
         # end set_output_dir_name
 
+    def prepare_make_data_units(self):
+        CONFIG      = self.config_yaml['CONFIG']
+        inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
+        input_file  = self.config_yaml['args'].input_file  # for msgerr
+        nsplitran   = CONFIG.get('NSPLITRAN', 1)
+        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
+        msgerr      = []
+
+        output_args  = None
+        for key, opt in zip(KEYLIST_OUTPUT, KEYLIST_OUTPUT_OPTIONS):
+            if key in CONFIG:
+                output_args = f'{opt} {CONFIG[key]}'
+        if output_args is None:
+            msgerr.append(f"Missing key for output format in yaml-CONFIG")
+            msgerr.append(f'Require one of {KEYLIST_OUTPUT}')
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
+
+        if inputs_list is None:
+            msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
+
+        split_mjd_detect = {}
+        if split_mjd_detect_in is None:
+            split_mjd_detect['nbin'] = 1
+            split_mjd_detect['step'] = 0
+        else:
+            mjdmin, mjdmax, mjdbin  = split_mjd_detect_in.split()
+            split_mjd_detect['min']  = int(mjdmin)
+            split_mjd_detect['max']  = int(mjdmax)
+            split_mjd_detect['nbin'] = int(mjdbin)
+            split_mjd_detect['step'] = (split_mjd_detect['max'] - split_mjd_detect['min'])/split_mjd_detect['nbin']
+
+        makeDataFiles_args = []
+        for input_dir in inputs_list:
+            for isplitran in range(nsplitran):
+                # add a third index for MJD here
+                args = f'--snana_folder {input_dir} ' ### HACK HACK HACK - will need to generalize for other inputs
+                args += f'{output_args} '
+                if nsplitran > 1:
+                    args += f'--nsplitran {nsplitran} '
+                    args += f'--isplitran {isplitran} '
+                makeDataFiles_args.append(args)
+
+        self.config_prep['inputs_list'] = inputs_list
+        self.config_prep['split_mjd_detect'] = split_mjd_detect
+        self.config_prep['makeDataFiles_args'] = makeDataFiles_args
+        # end prepare_make_data_units
+
+
     def submit_prepare_driver(self):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file
+        self.prepare_make_data_units()
 
         # end submit_prepare_driver
 
@@ -62,9 +115,9 @@ class MakeDataFiles(Program):
         # Function returns number of jobs for this cpu
 
         n_core          = self.config_prep['n_core']
-        n_trainopt      = self.config_prep['n_trainopt']
-        n_job_tot   = n_trainopt
-        n_job_split = 1     # cannot break up train job
+        makeDataFiles_args = self.config_prep['makeDataFiles_args']
+        n_job_tot   = len(makeDataFiles_args)
+        n_job_split = 1     # cannot break up makeDataFiles job since already broken up
         n_job_local = 0
         n_job_cpu   = 0
 
@@ -72,13 +125,13 @@ class MakeDataFiles(Program):
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
 
-        for itrain in range(0,n_trainopt):
+        for idata_unit in range(0,n_job_tot):
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
 
                 n_job_cpu += 1
-                job_info_train   = self.prep_JOB_INFO_mkdata(itrain)
-                util.write_job_info(f, job_info_train, icpu)
+                job_info_data_unit   = self.prep_JOB_INFO_mkdata(idata_unit)
+                util.write_job_info(f, job_info_data_unit, icpu)
 
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local)
                 util.write_jobmerge_info(f, job_info_merge, icpu)
@@ -87,25 +140,19 @@ class MakeDataFiles(Program):
 
         # end write_command_file
 
-    def prep_JOB_INFO_mkdata(self,itrain):
+    def prep_JOB_INFO_mkdata(self,idata_unit):
 
         CONFIG            = self.config_yaml['CONFIG']
+        makeDataFiles_args = self.config_prep['makeDataFiles_args'][idata_unit]
         program           = self.config_prep['program']
-        input_file_list   = self.config_prep['input_file_list']
-        config_file       = self.config_prep['input_file_list'][0]
         script_dir        = self.config_prep['script_dir']
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
 
         output_dir        = self.config_prep['output_dir']
-        trainopt_num      = self.config_prep['trainopt_num_list'][itrain]
-        trainopt_arg      = self.config_prep['trainopt_arg_list'][itrain]
-        trainopt_global   = self.config_prep['trainopt_global']
-        outdir_model      = self.config_prep['outdir_model_list'][itrain]
-        do_fast           = self.config_yaml['args'].fast
-        do_global         = len(trainopt_global) > 0
+        # do_fast           = self.config_yaml['args'].fast
 
-        prefix            = trainopt_num
-        arg_list          = [ ]
+        prefix            = f'MKDATA_{idata_unit:04d}'  # HACK HACK HACK - pick nicer name later
+        arg_list          = [makeDataFiles_args,]
         msgerr            = [ ]
 
         log_file   = f"{prefix}.LOG"
@@ -113,17 +160,8 @@ class MakeDataFiles(Program):
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
 
-        # xxxx mark delete
-        #for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
-        #    arg_list.append(f"{key} {input_file}")
-        # xxxx
-
-        arg_list.append(f"--configfile {config_file}")
-        arg_list.append(f"--outputdir {outdir_model}")
-        arg_list.append(f"--yamloutputfile {yaml_file}")
-        arg_list.append(f"{trainopt_arg}")
-        if do_global : arg_list.append(trainopt_global)
-        if do_fast   : arg_list.append("--fast")
+        #arg_list.append(f"--yamloutputfile {yaml_file}") # need this later
+        # if do_fast   : arg_list.append("--fast")        # may need later
 
         JOB_INFO = {}
         JOB_INFO['program']       = f"{program}"

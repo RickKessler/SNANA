@@ -345,6 +345,10 @@ def convert2fits_snana(args, config_data):
         if not text:
             os.system(cmd_tar_text)
 
+        # remove YAML file
+        cmd_rm = f"rm {yaml_file}"
+        os.system(cmd_rm)
+
         # re-write readme in FITS data folder 
         readme_file    = f"{outdir_fits}/{folder_fits}.README"
         readme_dict = {

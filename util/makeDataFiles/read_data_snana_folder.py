@@ -180,12 +180,16 @@ class data_snana_folder(Program):
             phot_raw[varname] = \
                 table_phot[varname_table][ROWMIN:ROWMAX].copy()
             
+        # - - - -
+        spec_raw = {}
+
         # - - - - -
         # load output dictionary
         data_dict = {
             'head_raw'  : head_raw,
             'head_calc' : head_calc,
-            'phot_raw'  : phot_raw
+            'phot_raw'  : phot_raw,
+            'spec_raw'  : spec_raw
         }
         
         return data_dict

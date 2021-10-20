@@ -5,7 +5,7 @@
 #
 # TO-DO LIST for
 #
-#  BASE/util: 
+#  BASE/util:
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that  WAIT -> RUN
 #
@@ -25,6 +25,7 @@
 # Aug 09 2021: add --snana_dir arg
 # Oct 04 2021; add wfit class; maybe later can generalize to cosmofit?
 # Oct 12 2021: implement --check_abort for lcfit
+# Oct 20 2021: add makeDataFiles
 #
 # - - - - - - - - - -
 
@@ -40,6 +41,7 @@ from   submit_prog_bbc    import BBC
 from   submit_prog_wfit   import wFit
 from   submit_train_SALT2 import train_SALT2
 from   submit_train_SALT3 import train_SALT3
+from   submit_makeDataFiles import MakeDataFiles
 from   argparse import Namespace
 
 # =====================================
@@ -49,8 +51,8 @@ def get_args():
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
                         choices = ["SIM", "LCFIT", "BBC", "WFIT",
-                                   "TRAIN_SALT2", "TRAIN_SALT3", 
-                                   "TRANSLATE", "MERGE", "AIZ" ])    
+                                   "TRAIN_SALT2", "TRAIN_SALT3",
+                                   "TRANSLATE", "MERGE", "AIZ" ])
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
@@ -58,8 +60,8 @@ def get_args():
 
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
-    
-    # - - - - - 
+
+    # - - - - -
     # change number of cores
     msg = "number of cores"
     parser.add_argument('--ncore', help=msg, type=int, default=None )
@@ -79,16 +81,16 @@ def get_args():
     msg = "ignore MUOPT for BBC fit"
     parser.add_argument("--ignore_muopt", help=msg, action="store_true")
 
-    # - - - - 
+    # - - - -
     # purge files
     msg = "Use 'find' to locate and remove non-essential output."
     parser.add_argument("--purge", help=msg, action="store_true")
 
-    # - - - 
+    # - - -
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
 
-    # - - - - 
+    # - - - -
     msg = "kill current jobs (requires input file as 1st arg)"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
 
@@ -157,10 +159,10 @@ def which_program_class(config):
     # check YAML/input_file keys to determine which program class
     # (sim,fit,bbc) will run
 
-    program_class = None 
+    program_class = None
     input_file    = config['args'].input_file
     merge_flag    = config_yaml['args'].merge_flag
-    CONFIG        = config['CONFIG'] 
+    CONFIG        = config['CONFIG']
     if "GENVERSION_LIST" in config :
         program_class = Simulation
 
@@ -179,6 +181,9 @@ def which_program_class(config):
     elif "SALT3_CONFIG_FILE" in CONFIG :
         program_class = train_SALT3  # saltshaker from D'Arcy & David
 
+    elif "MAKEDATAFILE_SOURCE" in CONFIG:
+        program_class = MakeDataFiles
+
     else :
         sys.exit("\nERROR: Could not determine program_class")
 
@@ -196,7 +201,7 @@ def set_merge_flag(config):
 
     set_cpunum0 = args.merge_reset or args.MERGE_LAST
     cpunum      = args.cpunum
-    if cpunum is None and set_cpunum0 :  
+    if cpunum is None and set_cpunum0 :
         args.cpunum = [ 0 ]
 
     return merge_flag
@@ -254,8 +259,8 @@ def check_legacy_input_file(input_file, opt_translate):
     # - - - -  -
 
     #if opt_translate is None:  opt_translate = 1
-    
-    # prepare options 
+
+    # prepare options
     rename_refac_file    = (opt_translate & 1 ) > 0
     rename_legacy_file   = (opt_translate & 2 ) > 0
     exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
@@ -294,9 +299,9 @@ def check_legacy_input_file(input_file, opt_translate):
     IS_SIM = False;   IS_FIT = False;  IS_BBC = False
 
     if  'GENVERSION:' in flat_word_list :  IS_SIM = True
-    if  'VERSION:'    in flat_word_list :  IS_FIT = True 
-    if  '&SNLCINP'    in flat_word_list :  IS_FIT = True 
-    if  'u1='    in str(flat_word_list) :  IS_BBC = True 
+    if  'VERSION:'    in flat_word_list :  IS_FIT = True
+    if  '&SNLCINP'    in flat_word_list :  IS_FIT = True
+    if  'u1='    in str(flat_word_list) :  IS_BBC = True
 
     if  IS_SIM :
         logging.info(f"{msg_translate} sim_SNmix.pl :")
@@ -309,11 +314,11 @@ def check_legacy_input_file(input_file, opt_translate):
     elif IS_BBC :
         logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
         tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
-    #    program = BBC(config_yaml) 
+    #    program = BBC(config_yaml)
     else:
         msgerr = ['Unrecognized legacy input file:', input_file ]
         util.log_assert(False,msgerr)
-    
+
     if exit_after_translate :
         sys.exit("\n Exit after input file translation.")
 
@@ -359,7 +364,7 @@ def print_nosubmit_messages(config_yaml):
     # end print_nosubmit_messages
 
 def purge_old_submit_output():
-    
+
 
     # LC fitting
     util.find_and_remove(f"{SUBDIR_SCRIPTS_LCFIT}*")
@@ -432,10 +437,10 @@ if __name__ == "__main__":
             print(f"{e}")
             msg      = [f"Check {cpu_file} for merge crash" ]
             program.log_assert(False, msg )
-            
-    # - - - - - - 
-    # check option to kill jobs 
-    if config_yaml['args'].kill : 
+
+    # - - - - - -
+    # check option to kill jobs
+    if config_yaml['args'].kill :
         program.kill_jobs()
         print('  Done killing jobs -> exit Main.')
         exit(0)
@@ -446,22 +451,22 @@ if __name__ == "__main__":
         program.create_output_dir()
 
         # prepare files, lists, program args
-        program.submit_prepare_driver() 
+        program.submit_prepare_driver()
 
         # write .BATCH and .CMD scripts
         program.write_script_driver()
-    
-        # Create MERGE.LOG file with all jobs in WAIT state.          
+
+        # Create MERGE.LOG file with all jobs in WAIT state.
         # This file gets updated later by merge process.
         program.create_merge_file()
 
-        # create static SUBMIT.INFO file for merge process 
+        # create static SUBMIT.INFO file for merge process
         # (unlike MERGE.LOG, SUBMIT.INFO never changes)
         program.create_info_file()
 
     except Exception as e:
         logging.exception(e, exc_info=True)
-        msg    = [ e, "Crashed while preparing batch jobs.", 
+        msg    = [ e, "Crashed while preparing batch jobs.",
                    "Check Traceback" ]
         program.log_assert(False, msg )
 
@@ -470,13 +475,13 @@ if __name__ == "__main__":
         print_nosubmit_messages(config_yaml);
         program.submit_iter2()
         exit(0)
-    
+
     # - - - - - - - - -
     program.launch_jobs() # submit via batch or ssh
 
     # Print warnings and errors to make sure they aren't missed
     store.print_warnings()
-    store.print_errors()    
+    store.print_errors()
     print_submit_messages(config_yaml) # final stuff for user to REMEMBER
 
     # check for iterative submit (e.g., sync events in BBC)

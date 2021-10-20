@@ -469,7 +469,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
             NEVT  = README_yaml[DOCANA_KEY][key]
             statsum_dict[key] += NEVT
 
-    # - - - - - - - -         
+    # - - - - - - - - 
     # update sum stats and re-write readme   
     README_file = f"{merge_folder_full}/{merge_folder}.README"
     for key in KEYLIST_README_STATS:

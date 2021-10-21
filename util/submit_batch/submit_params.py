@@ -17,12 +17,12 @@ NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
 #NCPU_MERGE_DISTRIBUTE  = 0  # 0 -> merge only with CPU=0 (no conflict issues)
 
 # debug feature: copy each MERGE.LOG to MERGE.LOG_{Nsec}
-KEEP_EVERY_MERGELOG = False  
+KEEP_EVERY_MERGELOG = False
 
 # --fast option prescales by this factor
 FASTFAC = 10
 
-# - - - - - - 
+# - - - - - -
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNDATA_ROOT      = os.environ['SNDATA_ROOT']
 SHELL            = os.environ['SHELL']
@@ -38,19 +38,21 @@ PROGRAM_NAME_SIM   =  "snlc_sim.exe"
 PROGRAM_NAME_LCFIT =  "snlc_fit.exe"
 PROGRAM_NAME_BBC   =  "SALT2mu.exe"
 PROGRAM_NAME_WFIT  =  "wfit.exe"
+PROGRAM_NAME_MKDATA=  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"
 
 # define subDir for batch scripts
-SUBDIR_SCRIPTS_SIM   = "" 
+SUBDIR_SCRIPTS_SIM   = ""
 SUBDIR_SCRIPTS_LCFIT = "SPLIT_JOBS_LCFIT"
 SUBDIR_SCRIPTS_BBC   = "SCRIPTS_BBCFIT"
 SUBDIR_SCRIPTS_WFIT  = "SCRIPTS_WFIT"
 SUBDIR_SCRIPTS_TRAIN = "SCRIPTS_TRAIN"
 SUBDIR_OUTPUT_TRAIN  = "OUTPUT_TRAIN"
 SUBDIR_CALIB_TRAIN   = "CALIB_TRAIN"
+SUBDIR_SCRIPTS_MKDATA= "SCRIPTS_MKDATA"
 SUBDIR_MISC          = "misc"           # used by train_SALT3
 
 MODEL_SNIa  = "SNIa"
@@ -76,7 +78,7 @@ SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_COV    = "COV"
 
 # define monitor files
-MERGE_LOG_FILE    = "MERGE.LOG"                                      
+MERGE_LOG_FILE    = "MERGE.LOG"
 SUBMIT_INFO_FILE  = "SUBMIT.INFO"
 TABLE_SPLIT       = "SPLIT"  # yaml table in MERGE.LOG
 TABLE_MERGE       = "MERGE"  # yaml table in MERGE.LOG
@@ -84,7 +86,7 @@ TABLE_MERGE       = "MERGE"  # yaml table in MERGE.LOG
 # True -> uses 'set -e' in each CPU*.CMD script to stop all
 # all future processing upon any merge failures.
 # BEWARE: doesn't work, and not clear we want this feature.
-STOP_ALL_ON_MERGE_ERROR = False  
+STOP_ALL_ON_MERGE_ERROR = False
 
 SNANA_ABORT_STRING    = "FATAL ERROR ABORT"
 FAIL_SUMMARY_FILE     = "FAIL_SUMMARY.LOG"
@@ -109,7 +111,7 @@ STRING_STOP    = "STOP"
 KEY_END_YAML = "#END_YAML"
 
 # either of these keys allowed in CONFIG
-CONFIG_KEYLIST_DONE_FILE = [ 'DONE_STAMP', 'DONE_STAMP_FILE' ] 
+CONFIG_KEYLIST_DONE_FILE = [ 'DONE_STAMP', 'DONE_STAMP_FILE' ]
 DEFAULT_DONE_FILE = "ALL.DONE"  # default if DONE_STAMP not in CONFIG
 
 # lok file for merge process
@@ -135,7 +137,7 @@ COMMENT_NOMORE_SALT2mu = "No more SALT2mu from FIT-input; use BBC input."
 COMMENT_MAYBE_LATER    = "Might add this feature later."
 COMMENT_NOT_NEEDED     = "No longer needed or relevant."
 OBSOLETE_CONFIG_KEYS = \
-{ 
+{
     'SALT2mu_INFILE'            : COMMENT_NOMORE_SALT2mu ,
     'SALT2mu_SIMVERSION_INPUT'  : COMMENT_NOMORE_SALT2mu ,
     'SALT2mu_BIASCOR_PATH'      : COMMENT_NOMORE_SALT2mu ,
@@ -146,16 +148,16 @@ OBSOLETE_CONFIG_KEYS = \
     'VERSION+FITOPT'            : COMMENT_MAYBE_LATER ,
     'PLOTOPT'                   : COMMENT_MAYBE_LATER ,
     'CONVERT_SIMGEN_DUMP'       : COMMENT_NOT_NEEDED ,
-    'DELAY_SUBMIT'              : COMMENT_NOT_NEEDED , 
-    'H2ROOT_FLAG'               : COMMENT_NOT_NEEDED , 
-    'MIN_SNANA_VERSION'         : COMMENT_NOT_NEEDED , 
+    'DELAY_SUBMIT'              : COMMENT_NOT_NEEDED ,
+    'H2ROOT_FLAG'               : COMMENT_NOT_NEEDED ,
+    'MIN_SNANA_VERSION'         : COMMENT_NOT_NEEDED ,
     'TOPDIR_OVERRIDE'           : COMMENT_NOT_NEEDED ,
     'TOTAL_WAIT_ABORT'          : COMMENT_NOT_NEEDED ,
     'OUTDIR_OVERRIDE'           : "Use OUTDIR key instead (same key as in FIT input)" ,
     'GZIP_FLAG'                 : "gzip automatic; see CLEANUP_FLAG to NOT gzip",
-    'APPEND_FITRES'             : "see APPEND_TABLE_VARLIST with -H FIT" , 
-    'APPEND_TABLE_TEXT'         : "see APPEND_TABLE_VARLIST with -H FIT" , 
-    'FITRES_COMBINE_FILE'       : "see APPEND_TABLE_TEXTFILE with -H FIT" , 
+    'APPEND_FITRES'             : "see APPEND_TABLE_VARLIST with -H FIT" ,
+    'APPEND_TABLE_TEXT'         : "see APPEND_TABLE_VARLIST with -H FIT" ,
+    'FITRES_COMBINE_FILE'       : "see APPEND_TABLE_TEXTFILE with -H FIT" ,
     'DUMMY'                     : "no comma here"
 }
 
@@ -167,9 +169,9 @@ OBSOLETE_CONFIG_KEYS = \
 
 HELP_CONFIG_GENERIC = f"""
 CONFIG:
-  BATCH_INFO: sbatch [batch_template_file]  [n_core] 
-     or 
-  NODELIST: [node1] [node2] ...  # for ssh 
+  BATCH_INFO: sbatch [batch_template_file]  [n_core]
+     or
+  NODELIST: [node1] [node2] ...  # for ssh
 
   # optional memory request (default is 2 GB)
   BATCH_MEM: 4000     # 4GB (e.g., extra mem for big SIMSED models)
@@ -184,14 +186,14 @@ CONFIG:
 
 
 HELP_TRANSLATE = f"""
-          TRANSLATING LEGACY INPUT FILES 
+          TRANSLATING LEGACY INPUT FILES
 
-The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit] will 
-not work with submit_batch_jobs.py, and therefore submit_batch_jobs includes 
+The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit] will
+not work with submit_batch_jobs.py, and therefore submit_batch_jobs includes
 an automatic translation of the input file. Command line option
      --opt_translate <opt>
-controls the file-name convention, and also whether to exit or continue after 
-translation. Note that opt_translate is a bit mask. LEGACY input files are 
+controls the file-name convention, and also whether to exit or continue after
+translation. Note that opt_translate is a bit mask. LEGACY input files are
 automatically detected by the lack of a 'CONFIG:' key. If a CONFIG key exists,
 opt_translate is ignored.
 
@@ -199,9 +201,9 @@ opt_translate is ignored.
     This default behavior produces a translated input file with name
     REFAC_[input_file]. The original input file is not modified.
 
-  opt_translate +=2 -> 
-    The original input file is saved as LEGACY_[input_file]; the translated 
-    input file has the original name. If the original input file already has 
+  opt_translate +=2 ->
+    The original input file is saved as LEGACY_[input_file]; the translated
+    input file has the original name. If the original input file already has
     a 'LEGACY_' prefix, the file name is not modified and the translated input
     file has the 'LEGACY_'  prefix removed.
     Example 1: input_file = abc.input is saved as LEGACY_abc.input;
@@ -215,22 +217,22 @@ opt_translate is ignored.
   opt_translate +=8 ->
     always exit, regardless of whether input file is legacy or not.
 
-Setting opt_translate to 1 or 2 results in translation followed by exiting 
-submit_batch_jobs. This option enables visual inspection of translated input 
-file before launching batch jobs. 
+Setting opt_translate to 1 or 2 results in translation followed by exiting
+submit_batch_jobs. This option enables visual inspection of translated input
+file before launching batch jobs.
 
-Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation that is 
-immediately followed by executation of the batch script (no questions asked). 
+Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation that is
+immediately followed by executation of the batch script (no questions asked).
 This option enables pipelines to run without interruption.
 
-If the input file is already in the correct YAML format, opt_translate is 
+If the input file is already in the correct YAML format, opt_translate is
 ignored; therefore it is safe to always include an opt_translate argument.
 
   """
 
 
 HELP_CONFIG_SIM =  f"""
-  ***** HELP/MENU for Simulation YAML Input ***** 
+  ***** HELP/MENU for Simulation YAML Input *****
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
@@ -238,7 +240,7 @@ HELP_CONFIG_SIM =  f"""
   JOBNAME: $MY_PATH/{PROGRAM_NAME_SIM}
 
   # option to re-route data files (default is $SNDATA_ROOT/SIM)
-  PATH_SNDATA_SIM:  $SCRATCH_SIMDIR 
+  PATH_SNDATA_SIM:  $SCRATCH_SIMDIR
 
   RANSEED_REPEAT: 4 34212  # split into 4 jobs, then merge
        or
@@ -250,7 +252,7 @@ HELP_CONFIG_SIM =  f"""
   RANGE(z,PKMJD) \n\t\t\t and SOLID_ANGLE
     (if no NGEN_UNIT, use NGENTOT_LC from sim-input or from GENOPT)
   GENPREFIX:    DES  # out_file name prefix (please keep it short)
-                     # and default log dir is SIMLOGS_[GENPREFIX] 
+                     # and default log dir is SIMLOGS_[GENPREFIX]
   LOGDIR:   MY_LOGS  # override default SIMLOGS_[GENPREFIX]
   CLEANUP_FLAG:  0   # turn off default cleanup (for debug)
 
@@ -277,12 +279,12 @@ GENVERSION_LIST:
   - GENVERSION: DES_TEST1     # apply GENOPT changes below
     GENOPT:
       GENPEAK_SALT2x1:   0.84
-      GENSIGMA_SALT2x1:  1.4  0.2 
+      GENSIGMA_SALT2x1:  1.4  0.2
     SIMGEN_INFILE_NONIa:
     - SIMGEN_SNII-NMF_OVERRIDE.INPUT    # override default NON1a INFILEs above
 
   - GENVERSION: DES_TEST2
-    GENOPT(SNIa):                  # apply only to SNIa jobs 
+    GENOPT(SNIa):                  # apply only to SNIa jobs
       GENPEAK_SALT2c:   -0.054
       GENSIGMA_SALT2c:   0.042  0.105
       GENTAU_AV:  0.18
@@ -308,7 +310,7 @@ GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
 """
 
 
-HELP_CONFIG_LCFIT = f"""    
+HELP_CONFIG_LCFIT = f"""
    ***** HELP/MENU for LightCurveFit YAML Input *****
 
     All YAML input must go above &SNLCINP nameList block.
@@ -320,36 +322,36 @@ HELP_CONFIG_LCFIT = f"""
 
   OUTDIR:  [outdir]              # all output goes here
   VERSION:
-  - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
-  - MY_SIMDATA 
+  - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH
+  - MY_SIMDATA
   - MY_SIMBIASCOR_*     # wildcard allowed
-  - etc ... 
+  - etc ...
   FITOPT:
   - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
   - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
-  - /ZPCAL/    MAGOBS_SHIFT_ZP i .01 
-  - /ZPCAL/    MAGOBS_SHIFT_ZP z .01 
-  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
-  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
-  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
+  - /ZPCAL/    MAGOBS_SHIFT_ZP i .01
+  - /ZPCAL/    MAGOBS_SHIFT_ZP z .01
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3
   - /NOREJECT_misc/  CUTWIN_MJD 56550 57040    # not in 2nd-iter BBC reject
   - CUTWIN_SNRMAX 6 999                        # no label needed
-  - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
+  - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed
   - USE_MINOS
   - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
   - FITOPT000     # another synLink for FITOPT012
-  - etc ... 
+  - etc ...
 
   # Sym Link Notes for FITOPT000: this feature is useful for systematics
-  # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
+  # with multiple surveys. For example above, FITOPT011 and FITOP012 could
   # be calibration variatios for a different survey, so here the sym link
   # uses the default LCFIT (FITOPT000) without wasting CPU.
-  # Labels with NOREJECT are used by BBC to exlcude these tests in 
+  # Labels with NOREJECT are used by BBC to exlcude these tests in
   # determining reject list in 2nd BBC fit iteration.
 
   # Option to use events from FITOPT000 in all FITOPTs ...
   # except those with NOREJECT in label.
-  OPT_SNCID_LIST: 1         # original SNANA key 
+  OPT_SNCID_LIST: 1         # original SNANA key
      or
   FLAG_USE_SAME_EVENTS: 1   # alternate key used by Pippin
 
@@ -374,7 +376,7 @@ HELP_CONFIG_LCFIT = f"""
   FORCE_MERGE_TABLE_CORRUPT(ROOT): # force corrupt ROOT file
   - DES_TEST3_FITOPT002
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # * Namelists below are used by snana.exe, psnid.exe, {PROGRAM_NAME_LCFIT}.
 # * Supplemental input files (e.g., KCOR_FILE) are copied to
 #     {SUBDIR_SCRIPTS_LCFIT} if path is not included in file name.
@@ -402,7 +404,7 @@ HELP_CONFIG_LCFIT = f"""
 
 """
 
-HELP_CONFIG_WFIT = f"""    
+HELP_CONFIG_WFIT = f"""
    ***** HELP/MENU for wfit YAML Input *****
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
@@ -420,7 +422,7 @@ HELP_CONFIG_WFIT = f"""
 
   # List wfit command-line options; each row is for a separate wfit job.
   # Beware that there is no default setting, so WFITOPT starts here at 0.
-  WFITOPT:  
+  WFITOPT:
   -  "-ompri 0.31 -dompri 0.01 "
   -  "-cmb_sim -sigma_Rcmb 0.007 "
   -  "-cmb_sim -sigma_Rcmb 0.007 -bao_sim"
@@ -446,7 +448,7 @@ HELP_CONFIG_BBC = f"""
   # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_BBC}
   JOBNAME: $MY_PATH/{PROGRAM_NAME_BBC}
 
-  INPDIR+: 
+  INPDIR+:
   - dirSurvey1  # LCFIT OUTDIR for Survey1
   - dirSurvey2  # LCFIT OUTDIR for Survey2
   - dirSurvey3  # LCFIT OUTDIR for Survey3
@@ -458,25 +460,25 @@ HELP_CONFIG_BBC = f"""
   OUTDIR:   [outdir]   # all output goes here
 
   # if there are multiple versions per INPDIR, method is to "IGNORE"
-  # substrings and then match version names. In example below, 
-  # TEST1_DES is combined with TEST1_LOWZ,  TEST2_DES is matched to 
-  # TEST2_LOWZ, etc... If there is 1 and only 1 version per INPDIR, 
+  # substrings and then match version names. In example below,
+  # TEST1_DES is combined with TEST1_LOWZ,  TEST2_DES is matched to
+  # TEST2_LOWZ, etc... If there is 1 and only 1 version per INPDIR,
   # there is no need for this string-match key.
-  STRINGMATCH_IGNORE:   _DES  _LOWZ 
-    
+  STRINGMATCH_IGNORE:   _DES  _LOWZ
+
   STRING_VERSION_IGNORE:  ABC DEF  # ignore versions with these strings
 
   # BBC variations (for each VERSION and each FITOPT). Note that the
   # NOREJECT label excludes this MUOPT from defining reject.list.
-  MUOPT: 
-  - /SYST_ab/   p1=0.2 p2=3.3 
+  MUOPT:
+  - /SYST_ab/   p1=0.2 p2=3.3
   - /SYST_tol/  redchi2_tol=.02
   - /SYST_sig1/ sig1=0.14
   - /NOREJECT/  simfile_biascor=[something_else]
-  
+
   # Option to run wfit (fast, but ancient) as merge process. Useful
-  # for quick cosmology cross-checks. To get help on argList, 
-  # run "wfit.exe" with no args. Output cosmology fit params are 
+  # for quick cosmology cross-checks. To get help on argList,
+  # run "wfit.exe" with no args. Output cosmology fit params are
   # in YAML format.
   WFITMUDIF_OPT: <argList>
 
@@ -487,15 +489,15 @@ HELP_CONFIG_BBC = f"""
   FITOPTxMUOPT: 2&3   # process only FITOPT=002 and MUOPT=003
 
   # and to specify multiple options,
-  FITOPTxMUOPT: 
+  FITOPTxMUOPT:
   - 0+0   # process FITOPT=000 or MUOPT=000 ...
   - 2&4   # and include FITOPT002 x MUOPT004
   - DUMP  # optional flag to dump explicit matrix for FITOPTxMUOPT
 
   # For first two examples, the number of BBC jobs per version is
   # NFITOPT + NMUOPT + 1. For next 2 examples, just 1 BBC job per version.
-  # This key cannot be configured to mimic command line args 
-  # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is 
+  # This key cannot be configured to mimic command line args
+  # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is
   # equivalent to setting both with "--ignore_fitopt --ignore_muopt"
 
   # process independent random sum-samples; useful to compare RMS vs. errors.
@@ -503,14 +505,14 @@ HELP_CONFIG_BBC = f"""
   NSPLITRAN: <nsplitran>
 
   # Optional FITOPT map of SURVEY x FITOPT(LCFIT) for each output FITOPT(BBC).
-  # For each FITOPT(BBC), this map gives instructions for which FITRES file 
+  # For each FITOPT(BBC), this map gives instructions for which FITRES file
   # (from LCFIT task) to catenate from each INPDIR. This map is designed to
-  # be created automatically by Pippin, but there may be cases where users 
+  # be created automatically by Pippin, but there may be cases where users
   # create this map manually, or with a different script. The order of
-  # LCFIT-FITOPTs follows the INPDIR order. With this map feature, links to 
+  # LCFIT-FITOPTs follows the INPDIR order. With this map feature, links to
   # FITOPT000 are NOT needed in LCFIT task. Batch init process for BBC writes
-  # FITOPT_OUT_LIST (yaml block) to SUBMIT.INFO file with summary of labels 
-  # and args for each FITOPT(BBC). Beware that LCFIT FITOPT numbers do not 
+  # FITOPT_OUT_LIST (yaml block) to SUBMIT.INFO file with summary of labels
+  # and args for each FITOPT(BBC). Beware that LCFIT FITOPT numbers do not
   # align with BBC's FITOPT_OUT_LIST numbers.
   FITOPT_MAP:
     SURVEY_LIST:  LOWZ  DES  PS1              # human-readable table header
@@ -526,16 +528,16 @@ HELP_CONFIG_BBC = f"""
  #       SAME-EVENT LOGIC for SYSTEMATICS
  # The BBC class reads SUBMIT.INFO from the LCFIT output and checks for
  #       OPT_SNCID_LIST > 0   or   FLAG_USE_SAME_EVENTS > 0
- # which is a flag to analyze common events from FITOPT000. In this case, 
- # submit_batch automatically applies similar logic to BBC by submiting 
+ # which is a flag to analyze common events from FITOPT000. In this case,
+ # submit_batch automatically applies similar logic to BBC by submiting
  # two sequential iterations:
  #   iter1: analyze list of events passing cuts in FITOPT000
  #            (BiasCor rejects might still be different per FITOPT)
  #   iter2: analyze common subset found in all FITOPTs
  #            (accounts for biasCor rejects)
  # This process results in two sets of OUTDIRs: [OUTDIR]_ITER1 and [OUTDIR],
- # where the latter is for the 2nd (final) iteration. Beware that 2 x NCORE 
- # jobs are launched; the 2nd set of jobs waits until the ALL.DONE file 
+ # where the latter is for the 2nd (final) iteration. Beware that 2 x NCORE
+ # jobs are launched; the 2nd set of jobs waits until the ALL.DONE file
  # appears from 1st set. FITOPT labels with NOREJECT (e.g., NOREJECT_TEST)
  # are analyzed with cuts and not used for same-event logic. To use this
  # feature with Pippin, put "FLAG_USE_SAME_EVENTS: 1" in the FITOPT.yml
@@ -555,15 +557,15 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
 
   # input data files and config for snpca. Includes survey.yaml, which
   # maps snpca surveys/instruments into SNANA survey/bandpasses.
-  PATH_INPUT_TRAIN: [path]  
+  PATH_INPUT_TRAIN: [path]
 
   # input Instrument and MagSys (aka SALTPATH)
-  PATH_INPUT_CALIB: [path] 
+  PATH_INPUT_CALIB: [path]
 
   # TRAINOPT args specify calibration systematics per band or group of bands.
   # An independent training is done for each TRAINOPT argument.
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
-  # keys; <CR> are stripped so that contents can be distributed among 
+  # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
@@ -581,10 +583,10 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
 
   OUTDIR:   [outdir]   # all output goes here
 
- # The TRAINOPT-calibration shifts in the training are propagated to 
+ # The TRAINOPT-calibration shifts in the training are propagated to
  # SNANA's light curve fitting via MAGSHIFT and WAVESHIFT keys written
  # to the SALT2.INFO file for each SALT2.MODELnnn directory. The mapping
- # "snpca survey/instrument -> SNANA survey/passbands" is contained in 
+ # "snpca survey/instrument -> SNANA survey/passbands" is contained in
  # [PATH_INPUT_TRAIN]/survey.yaml.
 
 """
@@ -611,7 +613,7 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
   # TRAINOPT args specify calibration systematics per band or group of bands.
   # An independent training is done for each TRAINOPT argument.
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
-  # keys; <CR> are stripped so that contents can be distributed among 
+  # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
@@ -628,9 +630,9 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
 
   OUTDIR:   [outdir]   # all output goes here
 
- # The TRAINOPT-calibration shifts in the training are propagated to 
+ # The TRAINOPT-calibration shifts in the training are propagated to
  # SNANA's light curve fitting via MAGSHIFT and LAMSHIFT keys written
- # to the SALT3.INFO file in each SALT3.MODELnnn directory. 
+ # to the SALT3.INFO file in each SALT3.MODELnnn directory.
 
 """
 
@@ -645,85 +647,85 @@ process combines sim data files from multiple split jobs into a single
 data version. For FIT, the merge process combines tables from the split
 jobs into a single table (per FITOPT). For BBC, there is no merging since
 a BBC job cannot be split among multiple cores. Merge tasks also include
-organization of science files (e.g. FITRES tables), such as moving them 
-to a more appropriate location outside of the messy script-directory where 
+organization of science files (e.g. FITRES tables), such as moving them
+to a more appropriate location outside of the messy script-directory where
 jobs had run.
 
 The general merge strategy is that each CPU launches a merge process
 after each SciJob has finished. Thus each merge process must wake
 up, figure out what (if any) action is needed, and take action. The
-advantages of this strategy are 
+advantages of this strategy are
   1:) distribute merge task load among multiple CPUs.
   2:) merge tasks are done in batch job, not on login node.
   3:) if batch jobs are killed, no lingering background jobs on login node.
-Difficulties are 
+Difficulties are
   1:( collect adequate information.
   2:( avoid conflict when mutliple merge tasks are launched simultaneously.
   3:( ensure merge process runs when all is finished.
 
 In the CPU*.CMD files, each SciJob is followed by a merge
 task as follows
-   python submit_batch_jobs.py <inputFile> -m -t 21014 --cpunum 0 
+   python submit_batch_jobs.py <inputFile> -m -t 21014 --cpunum 0
 
-where -m tells the batch script to function as a merge task (instead of 
+where -m tells the batch script to function as a merge task (instead of
 submit task), the -t argument is a time stamp (Nsec since midnight)
 to verify against time stamp in OUTDIR, and --cpunum is used to label
-BUSY files. 
+BUSY files.
 
 The difficulties are addressed as follows:
 
 1:(
 Each merge task collects information from two required files under OUTDIR
-that are created before batch jobs are submitted: 
+that are created before batch jobs are submitted:
      SUBMIT.INFO    # fixed info, never changes
      MERGE.LOG      # state of each SciJob: WAIT, RUN, DONE, FAIL
- 
+
 The merge process analyzes these two files and decides what action is
-necessary. After taking action, MERGE.LOG is updated so that the next 
-merge process knows not to repeat already finished merge tasks. When all 
-SciJobs and merge tasks have finished, a final "cleanup" task is run to 
+necessary. After taking action, MERGE.LOG is updated so that the next
+merge process knows not to repeat already finished merge tasks. When all
+SciJobs and merge tasks have finished, a final "cleanup" task is run to
 do things like compress files and create a summary file.
 
 2:(
 Merge conflicts are avoided using busy files named
    BUSY_MERGE_CPU[cpunum].LOCK
-A merge process exits immediately if a BUSY*.LOCK file exists; otherwise 
+A merge process exits immediately if a BUSY*.LOCK file exists; otherwise
 it creates a BUSY file to lock out other merge processes. The BUSY*LOCK
 file is removed after the merge process has finished and updated MERGE.LOG.
-It is possible that multiple BUSY*LOCK files are created simultaneously. 
-To handle this situation, after a BUSY*LOCK file is created the merge 
-process waits a few seconds and then checks again for a list of BUSY*LOCK 
-files. If more than 1 exists, only the first in the sorted list remains 
+It is possible that multiple BUSY*LOCK files are created simultaneously.
+To handle this situation, after a BUSY*LOCK file is created the merge
+process waits a few seconds and then checks again for a list of BUSY*LOCK
+files. If more than 1 exists, only the first in the sorted list remains
 active, while the others exit. For example, suppose
-       BUSY_MERGE_CPU0002.LOCK  
-       BUSY_MERGE_CPU0006.LOCK  
-both exist; CPU0006 merge process will exit while CPU0002 merge process 
-remains to carry out its merge tasks. To track the occurance of multiple 
+       BUSY_MERGE_CPU0002.LOCK
+       BUSY_MERGE_CPU0006.LOCK
+both exist; CPU0006 merge process will exit while CPU0002 merge process
+remains to carry out its merge tasks. To track the occurance of multiple
 BUSY*LOCK files, "grep simultaneous CPU*.LOG"
 
 
 3:(
 The last issue is that all merge tasks can exit before finishing. For example,
-consider 30 jobs on 30 CPUs, and suppose that CPU-4 SciJob finishes first. 
-Next, suppose that the merge process performs a few tasks, and during these 
-tasks all other CPUs finish and exit because of the BUSY_MERGE_CPU0004.LOCK 
-file. In summary, a single LOCK file can result in no remaiming merge task 
+consider 30 jobs on 30 CPUs, and suppose that CPU-4 SciJob finishes first.
+Next, suppose that the merge process performs a few tasks, and during these
+tasks all other CPUs finish and exit because of the BUSY_MERGE_CPU0004.LOCK
+file. In summary, a single LOCK file can result in no remaiming merge task
 when all SciJobs finish.
 
-To ensure a final merge process after all SciJobs finish, the merge task 
-after the last SciJob gets a -M argument instead of -m. The -M argument is 
-an instruction to wait for all expected DONE files, and to wait for any 
-remaining BUSY*LOCK files to clear. Beware that the last SciJob does not 
-always run last due to different wait times in the batch queue. For example, 
-consider 3 SciJobs submitted to 2 CPUs (CPU000, CPU001). CPU000 has SciJob 
-1 & 3, while CPU001 has SciJob 2. If CPU000 runs before CPU001, the last 
+To ensure a final merge process after all SciJobs finish, the merge task
+after the last SciJob gets a -M argument instead of -m. The -M argument is
+an instruction to wait for all expected DONE files, and to wait for any
+remaining BUSY*LOCK files to clear. Beware that the last SciJob does not
+always run last due to different wait times in the batch queue. For example,
+consider 3 SciJobs submitted to 2 CPUs (CPU000, CPU001). CPU000 has SciJob
+1 & 3, while CPU001 has SciJob 2. If CPU000 runs before CPU001, the last
 SciJob (3) can finish long before SciJob 2. In this scenario, here is the
 expected sequence of events:
   + CPU000 runs, while CPU001 waits in the queue.
   + SciJob 1 finishes on CPU000.
   + merge proc 1 (-m) runs after SciJob 1
   + SciJob 3 finishes on CPU000.
-  + merge proc 3 (-M) sees only 2 DONE files, so does nothing while waiting 
+  + merge proc 3 (-M) sees only 2 DONE files, so does nothing while waiting
     for 3rd DONE file.
   + CPU001 finally runs
   + SciJob 2 finishes on CPU001.
@@ -731,32 +733,32 @@ expected sequence of events:
     including unfinished tasks from CPU000. It skips cleanup because only
     the last merge proc can do cleanup.
   + waiting merge proc 3 (CPU000) sees all 3 DONE files, and also sees that
-    all merge tasks are done. It runs only the cleanup to compress and 
+    all merge tasks are done. It runs only the cleanup to compress and
     create summary file(s).
 
 
 """
 
 HELP_AIZ = f"""
-    LOGIC for "ABORT IF ZERO" (AIZ) 
+    LOGIC for "ABORT IF ZERO" (AIZ)
 
 There are many mistakes which can result in zero output events. To trap such
-mistakes (or code bugs), the YAML output for each science job includes 
-ABORT_IF_ZERO (AIZ), which is the number of events processed; AIZ=0 is a 
+mistakes (or code bugs), the YAML output for each science job includes
+ABORT_IF_ZERO (AIZ), which is the number of events processed; AIZ=0 is a
 failure flag for the merge process.
 
-However, care is needed to avoid aborting on low-stat jobs where Poisson 
-fluctuations result in zero events for a subset of the split jobs. For example, 
-consider a Kilonova simulation where there are 50 total events (after trigger), 
-and the sim job is split over 50 cores. The average number per core is 1, 
-meaning that about 1/3 of the split jobs will have zero events. In this case, 
+However, care is needed to avoid aborting on low-stat jobs where Poisson
+fluctuations result in zero events for a subset of the split jobs. For example,
+consider a Kilonova simulation where there are 50 total events (after trigger),
+and the sim job is split over 50 cores. The average number per core is 1,
+meaning that about 1/3 of the split jobs will have zero events. In this case,
 there is no failure, but a naive check on AIZ=0 would result in a false failure.
 On the other hand, if 50 SNIa jobs result in AIZ>10000 on 49 cores and AIZ=0
 on 1 core, this should result in a failure.
 
-The AIZ abort logic is as follows in the merge process. If any AIZ >= 30, the 
+The AIZ abort logic is as follows in the merge process. If any AIZ >= 30, the
 naive logic applies where any AIZ=0 flags a failure. If all AIZ < 30 (grep
-for aiz_thresh), the low-stat Poisson regime is assumed and a subset of AIZ=0 
+for aiz_thresh), the low-stat Poisson regime is assumed and a subset of AIZ=0
 is allowed without flagging a failure. If all AIZ=0, failure is flagged.
 
 Determining aiz_thresh:
@@ -765,7 +767,7 @@ has AIZ=0 (with probabilithy P_0), and at least one job has AIZ >= aiz_thresh
 (with prob P_thresh). For 'Nsplit' jobs, the false failure probability is
        P_FF = [1-(1-P_0)**Nsplit)] x [1-(1-P_thresh)**Nsplit)]
 
-With Nsplit = 100, the table below shows P_FF values where the mean aiz is 
+With Nsplit = 100, the table below shows P_FF values where the mean aiz is
 taken to be <aiz> = aiz_thresh/2:
 
     aiz_thresh <aiz>    P_0     P_thresh    P_FF
@@ -780,8 +782,8 @@ A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 
 """
 
-# - - - - - - - 
-HELP_MENU = { 
+# - - - - - - -
+HELP_MENU = {
     'SIM'         : HELP_CONFIG_SIM,
     'LCFIT'       : HELP_CONFIG_LCFIT,
     'BBC'         : HELP_CONFIG_BBC,

@@ -640,12 +640,12 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
 HELP_MERGE = f"""
           MERGE LOGIC
 
-While there are no merge options, this help section may be useful in case
-debugging is needed for a merge process that doesn't finish properly.
+While there are no explicit merge options, this help section may be useful for 
+adding a new class, or debugging a merge process that doesn't finish properly.
 'MERGE' refers to tasks run after a science job (SciJob). For SIM, the merge
 process combines sim data files from multiple split jobs into a single
 data version. For FIT, the merge process combines tables from the split
-jobs into a single table (per FITOPT). For BBC, there is no merging since
+jobs into a single table (per FITOPT). For BBC, there is no combine since
 a BBC job cannot be split among multiple cores. Merge tasks also include
 organization of science files (e.g. FITRES tables), such as moving them
 to a more appropriate location outside of the messy script-directory where

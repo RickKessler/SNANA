@@ -11095,6 +11095,8 @@ c               avoid discontinuity in CHI2_PRIOR.
 c
 c Apr 2 2018: check PRIOR_COLOR_RANGE
 c
+c Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
+c 
 c ------------------------
 
       IMPLICIT NONE
@@ -11124,7 +11126,7 @@ c ------------------------
 
       character comment_prior*60
       LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
-      LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT
+      LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT, IS_SNOOPY
 
 C -------------- BEGIN ---------------
 
@@ -11133,7 +11135,8 @@ C -------------- BEGIN ---------------
       LFLAT = .TRUE.  ! default is flat between Guass-rolls
 
       IS_SALT2 = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
-      IS_COLOR = ( IPAR .EQ. IPAR_COLOR )
+      IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
+      IS_COLOR = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
       IS_SHAPE = ( IPAR .EQ. IPAR_SHAPE )
       IS_zPHOT = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
 
@@ -11153,7 +11156,7 @@ C -------------- BEGIN ---------------
             LFLAT = .FALSE.
           endif
 
-      ELSE IF ( IS_COLOR .and. IS_SALT2 ) THEN  ! Apr 2 2018
+      ELSE IF ( IS_COLOR .and. (IS_SALT2 .or. IS_SNOOPY) ) THEN  ! Apr 2 2018
           RANGE(1) = PRIOR_COLOR_RANGE(1)
           RANGE(2) = PRIOR_COLOR_RANGE(2)
           SIGMA    = PRIOR_COLOR_SIGMA

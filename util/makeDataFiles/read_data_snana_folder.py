@@ -103,7 +103,6 @@ class data_snana_folder(Program):
     
     # end open_snana_fits
 
-   
     def read_event(self, evt ):
 
         msgerr    = []
@@ -140,7 +139,13 @@ class data_snana_folder(Program):
         head_calc[DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
         head_calc[DATAKEY_MWEBV]         = table_head.MWEBV[evt]
         head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
+
+        # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[DATAKEY_PEAKMJD]       = int(table_head.PEAKMJD[evt])
+
+        if "MJD_DETECT_FIRST" in vars(table_head):  # likely very slow??
+            head_calc[DATAKEY_MJD_DETECT] = table_head.MJD_DETECT_FIRST
+
 
         head_raw[HOSTKEY_OBJID]         = table_head.HOSTGAL_OBJID[evt]
         head_raw[HOSTKEY_SPECZ]         = table_head.HOSTGAL_SPECZ[evt]

@@ -87,7 +87,7 @@ def read_yaml(yaml_file):
     with open(yaml_file,"rt") as y:
         for line in y: yaml_lines.append(line)
 
-    contents      = yaml.safe_load("\n".join(yaml_lines))
+    contents  = yaml.safe_load("\n".join(yaml_lines))
     return contents
     # end read_yaml
 
@@ -109,7 +109,9 @@ def iyear_survey(survey, event_dict):
     #end iyear_survey
 
 def iyear_LSST(event_dict):
-    mjd   = event_dict['mjd']
+
+    # need to read season map to replace fixed MJD range.
+    mjd   = event_dict['peakmjd']
     ra    = event_dict['ra']
     dec   = event_dict['dec']
     field = event_dict['field']  # DDF or WFD

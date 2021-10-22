@@ -62,6 +62,12 @@ class Program:
         unit_nevent_list = []
         msgerr    = []
         
+        if isplit_select == 0 or isplit_select > nsplit:
+            msgerr = []
+            msgerr.append(f"Invalid --isplitran {isplit_select}")
+            msgerr.append(f"Valid --isplitran arg range is 1 to {nsplit}")
+            util.log_assert(False,msgerr)
+
         for iseason in range(0,nseason):
             iyear  = iseason + 1    # starts at 1
             if iyear_select > 0 and iyear != iyear_select :
@@ -74,11 +80,13 @@ class Program:
                 if isplit_select > 0 and ISPLIT != isplit_select :
                     continue ;
 
+                # define unit name for all seasons combined
                 if isplit == 0 and iseason==0 :
                     unit_name = \
                         self.assign_data_unit_name(survey, field, -1, ISPLIT)
                     unit_name_list.append(unit_name)
                 
+                # define unit name for this season/iyear
                 unit_name = \
                     self.assign_data_unit_name(survey, field, iyear, ISPLIT)
                 unit_name_list.append(unit_name)
@@ -128,32 +136,52 @@ class Program:
         iyear_select  = args.year       # 1 to nyear, or -1 for all
         field         = args.field
         survey        = args.survey
-        
+        peakmjd_range    = args.peakmjd_range
+        mjd_detect_range = args.mjd_detect_range
+
         data_unit_name = None
         d_raw    = data_dict['head_raw']
         d_calc   = data_dict['head_calc']
 
-        SNID    = d_raw[DATAKEY_SNID]
-        RA      = d_raw[DATAKEY_RA]
-        DEC     = d_raw[DATAKEY_DEC]
-        FIELD   = d_raw[DATAKEY_FIELD]
-        MJD     = d_calc[DATAKEY_PEAKMJD] # later should use MJD_TRIGGER
+        SNID       = d_raw[DATAKEY_SNID]
+        RA         = d_raw[DATAKEY_RA]
+        DEC        = d_raw[DATAKEY_DEC]
+        FIELD      = d_raw[DATAKEY_FIELD]
+        PEAKMJD    = d_calc[DATAKEY_PEAKMJD] 
+        MJD_DETECT = d_calc[DATAKEY_MJD_DETECT] 
 
-        # create dictionary needed to determine iyear
-        event_dict = { 'mjd':MJD,  'ra': RA, 'dec':DEC, 'field':field }
-        YY = util.iyear_survey(survey, event_dict)
-                
         # check field match
         match_field = False
         if field == FIELD       : match_field = True
         if field == FIELD_VOID  : match_field = True
         if not match_field : return None
 
+        # create dictionary needed to determine iyear
+        event_dict = { 'peakmjd': PEAKMJD,  'mjd_detect': MJD_DETECT,
+                       'ra': RA, 'dec':DEC, 'field':field }
+        YY = util.iyear_survey(survey, event_dict)
+        
         # check year/season match
         match_year = True
-        if iyear_select > 0 : match_year = (YY == iyear_select)
-        if not match_year : return None
-        
+        if peakmjd_range is not None:
+            YY = -1  # disable default seasons
+            match_year = \
+                PEAKMJD >= peakmjd_range[0] and \
+                PEAKMJD <= peakmjd_range[1]
+
+        if mjd_detect_range is not None:
+            YY = -1  # disable default seasons
+            match_year = \
+                MJD_DETECT >= mjd_detect_range[0] and \
+                MJD_DETECT <  mjd_detect_range[1]
+            
+        if iyear_select > 0 : 
+            match_year = (YY == iyear_select)
+
+        if not match_year : 
+            return None
+
+        # - - - - - - - - - - - - - 
         # check split job    
         match_split = True ; ISPLIT = -9
         if nsplit > 1 :
@@ -314,7 +342,7 @@ class Program:
             spec_raw    = data_event_dict['spec_raw']
             n_spectra   = len(spec_raw)
         else:
-            # if read class ignoers spectra, add empty dictionary
+            # if read source ignores spectra, add empty dictionary
             # to avoid crash later
             data_event_dict['spec_raw'] = {}
             n_spectra = 0
@@ -326,7 +354,7 @@ class Program:
 
     def init_phot_dict(self,NOBS):
         
-        # The read_event function for each class should call this
+        # The read_event function for each source should call this
         # function before reading event photometry.
         # Init value = None for each column and observation.
         # If a PHOT variable isn't set, base code sees None value
@@ -428,7 +456,7 @@ class Program:
 
                 NEVT_READ += 1
 
-                # call class-dependent function to read event
+                # call read-source-dependent function to read event
                 data_event_dict = self.read_event(evt)
                 
                 # add computed variables; e.g., zCMB, MWEBV ...

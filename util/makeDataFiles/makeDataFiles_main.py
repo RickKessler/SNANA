@@ -76,6 +76,13 @@ def get_args():
     msg = "select year index (1-Nyear); default = -1 -> all"
     parser.add_argument("-y", "--year", help=msg, type=int, default=-1 )
 
+    msg = "Select events with MJD(first detection) in this range"
+    parser.add_argument('--mjd_detect_range', 
+                        nargs='+', help=msg, type=int, default=None )
+    msg = "Select events with PEAKMJD in this range"
+    parser.add_argument('--peakmjd_range', 
+                        nargs='+', help=msg, type=int, default=None )
+
     msg = "number of events to process (default is all)"
     parser.add_argument("--nevt", help=msg, type=int, default=99999999 )    
 

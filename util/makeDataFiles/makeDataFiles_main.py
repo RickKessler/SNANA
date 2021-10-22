@@ -29,8 +29,9 @@
 # ============================================
 
 import sys, yaml, argparse, subprocess, logging, glob
-import makeDataFiles_util  as util
-import write_data_snana    as snana
+import makeDataFiles_util    as util
+import write_data_snana      as snana
+import write_data_lsst_alert as lsst_alert
 
 from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap
@@ -61,11 +62,13 @@ def get_args():
     msg = "field name (e.g., SHALLOW, DEEP, etc ..)"
     parser.add_argument("--field", help=msg, type=str, default=FIELD_VOID )
 
-    msg = "SNANA format: output top-directory for data"
-    parser.add_argument("--outdir_snana", help=msg, type=str, default=None )
+    msg = "output SNANA format: top-directory for data"
+    parser.add_argument("--outdir_snana", 
+                        help=msg, type=str, default=None )
 
-    msg = "XYZ format: output top-directory for data"
-    parser.add_argument("--outdir_XYZ", help=msg, type=str, default=None )    
+    msg = "output LSST-ALERT format: top-directory for data"
+    parser.add_argument("--outdir_lsst_alert", 
+                        help=msg, type=str, default=None )    
     
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )

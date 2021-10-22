@@ -147,7 +147,6 @@ DATAKEY_LIST_CALC = \
       HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
     ]
 
-
 # -------
 MODE_MERGE_MOVE = "MERGE_MOVE" # move files, then remove original folder
 MODE_MERGE_LINK = "MERGE_LINK" # merge with sym links; keep orig folder

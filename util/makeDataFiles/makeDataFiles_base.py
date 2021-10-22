@@ -8,6 +8,7 @@ import getpass, ntpath, glob
 import numpy as np
 import makeDataFiles_util as util
 import write_data_snana   as snana
+import write_data_lsst_alert as lsst_alert
 
 from   makeDataFiles_params  import *
 
@@ -31,8 +32,9 @@ class Program:
         self.init_data_unit(config_inputs, config_data)
 
         # create top-level outdir
-        outdir_list = [ args.outdir_snana ]
-        for outdir  in outdir_list :
+        outdir_list = [ args.outdir_snana, args.outdir_lsst_alert ]
+        for outdir in outdir_list :
+            if outdir is None: continue
             if not os.path.exists(outdir):
                 logging.info(f" Create top-dir for light curves: {outdir}")
                 sys.stdout.flush()
@@ -505,7 +507,9 @@ class Program:
                 if args.outdir_snana is not None :
                     snana.write_event_text_snana(args, self.config_data,
                                                  data_event_dict) 
-
+                if args.outdir_lsst_alert is not None:
+                    lsst_alert.write_event_lsst_alert(args, self.config_data,
+                                                      data_event_dict) 
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1

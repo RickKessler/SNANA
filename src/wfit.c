@@ -3250,9 +3250,15 @@ void write_output_cospar(void) {
 
   if ( use_wa ) {
     sprintf(VARNAMES_LIST[NVAR],"FoM" );
-    sprintf(VALUES_LIST[NVAR], "%.1f",  WORKSPACE.FoM_final ) ;
+    sprintf(VALUES_LIST[NVAR], "%5.1f",  WORKSPACE.FoM_final ) ;
     NVAR++ ;
+
+    sprintf(VARNAMES_LIST[NVAR],"Rho" );
+    sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0wa ) ;
+    NVAR++;
   }
+
+
 
 
   sprintf(VARNAMES_LIST[NVAR],"chi2" );

@@ -700,19 +700,20 @@ class wFit(Program):
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             blind   = wfit_values_dict['blind']
-
+            
             if use_wa:
                 wa      = wfit_values_dict['wa']    
                 wa_sig  = wfit_values_dict['wa_sig']
                 FoM     = wfit_values_dict['FoM']
-
+                Rho     = wfit_values_dict['Rho']
+                
             if nrow == 1:
                 self.write_wfit_summary_header(f,wfit_values_dict)
 
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
 
             str_results = f"{w:.4f} {w_sig:.4f}  "
-            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:5.1f} "
+            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:5.1f} {Rho:6.3f} "
             str_results += f"{omm:.4f} {omm_sig:.4f}  "
 
             str_misc    = f"{chi2:4.1f} {sigint:.3f} {blind}"
@@ -730,7 +731,7 @@ class wFit(Program):
         use_wa           = submit_info_yaml['USE_wa']
 
         varnames_w  = "w w_sig"
-        if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM"
+        if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM Rho"
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
             f"omm omm_sig  chi2 sigint blind"

@@ -6546,6 +6546,8 @@ void genperfect_override(void) {
 
   Apr 06, 2012: set GENMAG_SMEAR_MODELNAME = "" for no mag-smear
 
+  Oct 22, 2021: add GENPERFECT_HOSTLIB bit A Gagliano
+
   ****/
 
   int NVAR, ifilt, MASK, OVP, bit, MSKTMP ;
@@ -6558,9 +6560,10 @@ void genperfect_override(void) {
 #define BITPERFECT_MAGSMEAR   2  // MASK=4: intrinsic mag-smearing        
 #define BITPERFECT_XTMW       3  // MASK=8: Milky Way extinction
 #define BITPERFECT_AV         4  // MASK=16: host-galaxy extinction
-#define MSKPERFECT_ALL       31  // mask with all bits
+#define BITPERFECT_HOSTLIB    5  // MASK=32: Hostlib A Gagliano 
+#define MSKPERFECT_ALL       63  // mask with all bits
 
-  //  char fnam[] = "genperfect_override" ;
+  char fnam[] = "genperfect_override" ;
 
   // ---------- BEGIN ---------------
 
@@ -6598,6 +6601,10 @@ void genperfect_override(void) {
     bit = BITPERFECT_AV ; MSKTMP = (1 <<  bit ) ;
     printf("  GENPERFECT %2d (bit %d) => no host-galaxy extinction (AV=0) \n", 
 	   MSKTMP, bit );
+
+    bit = BITPERFECT_HOSTLIB ; MSKTMP = (1 <<  bit ) ;
+    printf("  GENPERFECT %2d (bit %d) => no HOSTLIB \n",
+           MSKTMP, bit );
 
 
     happyend();
@@ -6709,6 +6716,15 @@ void genperfect_override(void) {
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE");
   }
 
+  OVP = MASK & (1 <<  BITPERFECT_HOSTLIB ) ;
+  if ( OVP > 0 ){
+   NVAR++ ;  iptr = &INPUTS.HOSTLIB_USE ;
+   sprintf(GENPERFECT.parnam[NVAR], "HOSTLIB_USE" );
+   GENPERFECT.parval[NVAR][0] = (float)*iptr ;
+   *iptr = 0 ;
+   GENPERFECT.parval[NVAR][1] = (float)*iptr ;
+   GENPERFECT.partype[NVAR]   = 1 ;
+ }
 
   // now do the mandatory ones.
 
@@ -6727,14 +6743,14 @@ void genperfect_override(void) {
   GENPERFECT.partype[NVAR]   = 2 ;
 
 
-
+/* xxx mark delete
   NVAR++ ;  iptr = &INPUTS.HOSTLIB_USE ;
   sprintf(GENPERFECT.parnam[NVAR], "HOSTLIB_USE" );
   GENPERFECT.parval[NVAR][0] = (float)*iptr ;
   *iptr = 0 ;
   GENPERFECT.parval[NVAR][1] = (float)*iptr ;
   GENPERFECT.partype[NVAR]   = 1 ;
-
+*/
 
   NVAR++ ;  fptr = &INPUTS.GENSIGMA_PEAKMJD ;
   sprintf(GENPERFECT.parnam[NVAR], "GENSIGMA_PEAKMJD" ) ;

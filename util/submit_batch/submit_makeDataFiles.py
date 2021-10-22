@@ -20,6 +20,7 @@ OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
 KEYLIST_OUTPUT                  = ['OUTDIR_SNANA', 'OUTDIR_ALERTS']
 KEYLIST_OUTPUT_OPTIONS          = ['--outdir_snana', '--outdir_alerts']
+BASE_PREFIX                     = 'MAKEDATA'
 
 
 # ====================================================
@@ -55,6 +56,7 @@ class MakeDataFiles(Program):
         inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
         input_file  = self.config_yaml['args'].input_file  # for msgerr
         nsplitran   = CONFIG.get('NSPLITRAN', 1)
+        field       = CONFIG.get('FIELD', None)
         split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
         msgerr      = []
 
@@ -84,21 +86,45 @@ class MakeDataFiles(Program):
             split_mjd_detect['nbin'] = int(mjdbin)
             split_mjd_detect['step'] = (split_mjd_detect['max'] - split_mjd_detect['min'])/split_mjd_detect['nbin']
 
-        makeDataFiles_args = []
-        for input_dir in inputs_list:
+        makeDataFiles_args_list = []
+        prefix_output_list = []
+        isplitmjd = 0 ### HACK HACK HACK - fix this when we add a look over MJD
+        for input_src in inputs_list:  # e.g. folder or name of DB
             for isplitran in range(nsplitran):
                 # add a third index for MJD here
-                args = f'--snana_folder {input_dir} ' ### HACK HACK HACK - will need to generalize for other inputs
+                base_name = os.path.basename(input_src)
+                prefix_output = self.get_prefix_output(isplitmjd, base_name, isplitran)
+                prefix_output_list.append(prefix_output)
+
+                args = f'--snana_folder {input_src} ' ### HACK HACK HACK - will need to generalize for other inputs
                 args += f'{output_args} '
+                args += f'--field {field} '
                 if nsplitran > 1:
                     args += f'--nsplitran {nsplitran} '
                     args += f'--isplitran {isplitran} '
-                makeDataFiles_args.append(args)
+                makeDataFiles_args_list.append(args)
 
         self.config_prep['inputs_list'] = inputs_list
         self.config_prep['split_mjd_detect'] = split_mjd_detect
-        self.config_prep['makeDataFiles_args'] = makeDataFiles_args
+        self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
+        self.config_prep['prefix_output_list'] = prefix_output_list
         # end prepare_make_data_units
+
+    def get_prefix_output(self, isplitmjd, base_name, isplitran):
+
+        CONFIG       = self.config_yaml['CONFIG']
+        input_file   = self.config_yaml['args'].input_file
+        output_format = self.config_yaml['args'].output_format
+        msgerr = []
+        if output_format == OUTPUT_FORMAT_LSST_ALERTS:
+            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}_SPLITRAN{isplitran:03d}'
+        elif output_format == OUTPUT_FORMAT_SNANA:
+            prefix_output = f'{BASE_PREFIX}_{base_name}_SPLITRAN{isplitran:03d}'
+        else:
+            msgerr.append(f'Invalid Output Format {output_format}')
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
+        return prefix_output
 
 
     def submit_prepare_driver(self):
@@ -115,8 +141,8 @@ class MakeDataFiles(Program):
         # Function returns number of jobs for this cpu
 
         n_core          = self.config_prep['n_core']
-        makeDataFiles_args = self.config_prep['makeDataFiles_args']
-        n_job_tot   = len(makeDataFiles_args)
+        makeDataFiles_args_list = self.config_prep['makeDataFiles_args_list']
+        n_job_tot   = len(makeDataFiles_args_list)
         n_job_split = 1     # cannot break up makeDataFiles job since already broken up
         n_job_local = 0
         n_job_cpu   = 0
@@ -143,7 +169,8 @@ class MakeDataFiles(Program):
     def prep_JOB_INFO_mkdata(self,idata_unit):
 
         CONFIG            = self.config_yaml['CONFIG']
-        makeDataFiles_args = self.config_prep['makeDataFiles_args'][idata_unit]
+        makeDataFiles_arg = self.config_prep['makeDataFiles_args_list'][idata_unit]
+        prefix            = self.config_prep['prefix_output_list'][idata_unit]
         program           = self.config_prep['program']
         script_dir        = self.config_prep['script_dir']
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
@@ -151,8 +178,7 @@ class MakeDataFiles(Program):
         output_dir        = self.config_prep['output_dir']
         # do_fast           = self.config_yaml['args'].fast
 
-        prefix            = f'MKDATA_{idata_unit:04d}'  # HACK HACK HACK - pick nicer name later
-        arg_list          = [makeDataFiles_args,]
+        arg_list          = [makeDataFiles_arg,]
         msgerr            = [ ]
 
         log_file   = f"{prefix}.LOG"

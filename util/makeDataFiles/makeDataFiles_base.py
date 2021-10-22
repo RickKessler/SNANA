@@ -50,14 +50,19 @@ class Program:
         # The name in each list is a name that will be part of the
         # folder name.
 
-        args      = self.config_inputs['args'] # user command line args
-        nseason       = 10
+        args          = self.config_inputs['args'] # user command line args
         nsplit        = args.nsplitran
         isplit_select = args.isplitran # 1 to nsplit, or -1 for all
         iyear_select  = args.year      # 1-NYEAR, or -1 for all
         field         = args.field
         survey        = args.survey
-        
+        peakmjd_range    = args.peakmjd_range
+        mjd_detect_range = args.mjd_detect_range
+
+        nseason       = 10
+        if peakmjd_range    is not None: nseason = 1
+        if mjd_detect_range is not None: nseason = 1
+
         unit_name_list   = []
         unit_nevent_list = []
         msgerr    = []
@@ -81,7 +86,7 @@ class Program:
                     continue ;
 
                 # define unit name for all seasons combined
-                if isplit == 0 and iseason==0 :
+                if (isplit == 0 or isplit_select>0) and iseason==0 :
                     unit_name = \
                         self.assign_data_unit_name(survey, field, -1, ISPLIT)
                     unit_name_list.append(unit_name)
@@ -89,10 +94,7 @@ class Program:
                 # define unit name for this season/iyear
                 unit_name = \
                     self.assign_data_unit_name(survey, field, iyear, ISPLIT)
-                unit_name_list.append(unit_name)
-
-                
-        #sys.exit(f"\n xxx unit_name_list = {unit_name_list}")
+                unit_name_list.append(unit_name)                
         
         # init 'exist' logical to false for each data unit
         n_data_unit      = len(unit_name_list)
@@ -200,7 +202,7 @@ class Program:
             msgerr = []
             msgerr.append(f"Invalid data_unit_name = {data_unit_name}")
             msgerr.append(f"for SNID = {SNID} .")
-            msgerr.append(f"RA={RA}  DEC={DEC}  MJD={MJD}")
+            msgerr.append(f"RA={RA}  DEC={DEC}  PEAKMJD={PEAKMJD}")
             msgerr.append(f"Valid data_unit_name_list = ")
             msgerr.append(f"    {data_unit_name_list}")
             util.log_assert(False,msgerr)

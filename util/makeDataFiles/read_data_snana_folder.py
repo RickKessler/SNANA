@@ -105,9 +105,10 @@ class data_snana_folder(Program):
 
     def read_event(self, evt ):
 
-        msgerr    = []
+        msgerr     = []
         table_dict = self.config_data['table_dict']
-        
+        args       = self.config_inputs['args']  # command line args
+
         # read and store one event for row "evt" and return data_dict.
         
         varlist_obs = self.config_data['varlist_obs']
@@ -143,8 +144,15 @@ class data_snana_folder(Program):
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[DATAKEY_PEAKMJD]       = int(table_head.PEAKMJD[evt])
 
-        if "MJD_DETECT_FIRST" in vars(table_head):  # likely very slow??
+        if DATAKEY_MJD_DETECT in vars(table_head):  # could be very slow??
             head_calc[DATAKEY_MJD_DETECT] = table_head.MJD_DETECT_FIRST
+        else:
+            if args.mjd_detect_range is not None:
+                msgerr.append(f"Cannot implement args.mjd_detect_range = " \
+                              f"{args.mjd_detect_range}")
+                msgerr.append(f"Because {DATAKEY_MJD_DETECT} is not in " \
+                              f"data header")
+                util.log_assert(False,msgerr)
 
 
         head_raw[HOSTKEY_OBJID]         = table_head.HOSTGAL_OBJID[evt]

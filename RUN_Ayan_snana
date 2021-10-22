@@ -1,0 +1,19 @@
+
+# ==========================================
+# OM prior = 0.3 +_ 0.0
+
+prefix=out_wfit_priorOM
+wfit.exe  test.MUDIF\
+  -cospar  ${prefix}_old.cospar \
+  > ${prefix}_old.log
+
+~/SNANA/bin/wfit.exe  test.MUDIF\
+  -cospar ${prefix}_new.cospar \
+  > ${prefix}_new.log
+
+echo '# ============================== '
+echo ' Compare NEW and OLD with OM prior = 0.3 :'
+cat ${prefix}_*.cospar
+
+# ==========================================
+# CMB prior

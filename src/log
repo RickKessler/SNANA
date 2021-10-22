@@ -1,0 +1,67 @@
+ Full command: 
+    ../bin/wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF
+
+
+ XXX wa_steps = 0.000000
+
+ XXX inside NOT usewa conditions 
+ =============================================== 
+ SNANA_DIR = /global/cfs/cdirs/lsst/groups/SN/snana/SNANA 
+ Open fitres file: /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+	 Opened : /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+
+	 ***** DOCANA WARNING ******* 
+  Missing required 'DOCUMENTATION:'  key in 
+    /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+  See DOCANA examples with linux command: 
+    grep -R DOCUMENTATION_END $SNDATA_ROOT 
+  File must begin with 'DOCUMENTATION:' key
+
+
+ !!! Found MUDIF --> fit for w-wref and OM-OMref 
+
+ Read 14 SNe from /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+ Select 10 SNe for fitting.
+ MUERR_INCLUDE(zERR,LENS) = 1, 1 
+ Done reading file -- NCIDLIST: 10, NSNE_NBIN: 0 
+
+
+****************************************
+****************************************
+   Applying  w(z) = w0 + wa(1-a) 
+   w ~ w0. wa implemented.       
+****************************************
+****************************************
+
+   --------   Grid parameters   -------- 
+  w0_min:  -2.00   w0_max:   0.00    101 steps of size  0.02000
+  wa_min:   0.00   wa_max:   0.00      1 steps of size  0.00000
+ omm_min:   0.00 omm_max:   1.00     81 steps of size  0.01250
+   h_min:  40.00   h_max: 100.00    121 steps of size  0.50000
+Fit data with Omega_m prior: 0.315 +/- 0.040
+Will MINIMIZE for final w & OM 
+Add 0.00 mag-error (snrms) in quadrature to MU-error 
+   Minimize with refined w0step=0.0020 (80 bins, w0=-0.9200, wa= 0.0000) 
+   Minimize with refined wastep=0.0000 (0 bins, w0=-0.9200, wa= 0.0000) 
+   Minimize with refined OMstep=0.0013 (80 bins, OMcen=0.3000) 
+z=0.1368
+z=0.1873
+z=0.2488
+z=0.3114
+z=0.3823
+z=0.4720
+z=0.5590
+z=0.6630
+z=0.7764
+z=0.9142
+
+Marginalizing over omega_m...
+  CHECK:  w0, wa(marg) = -0.972516 , -nan 
+w0, wa (minchi2=  12.40) = -0.934000, 0.000000
+marg w0 err estimate = 0.135767
+marg wa err estimate = -nan
+Not USING Wa prob w0-err estimates: lower = 0.107484, upper = 0.172516
+prob wa-err estimates: lower = 0.000000, upper = 0.000000
+marg ommerr estimate = 0.035939
+Write cosmo params to /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF.cospar 
+DONE. 

@@ -1,0 +1,37 @@
+
+# ==========================================
+# OM prior = 0.3 +_ 0.01
+
+prefix=out_wfit_priorOM
+wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF \
+-wa  -cospar  ${prefix}_old.cospar \
+  -dompri  0.01 \
+  > ${prefix}_old.log
+
+../bin/wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF \
+  -cospar ${prefix}_new.cospar \
+  -dompri 0.01 \
+  > ${prefix}_new.log
+
+echo '# ============================== '
+echo ' Compare NEW and OLD with OM prior = 0.3+_0.01 :'
+cat ${prefix}_*.cospar
+
+# ==========================================
+# CMB prior
+
+prefix=out_wfit_priorCMB
+wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF \
+-wa  -cospar  ${prefix}_old.cospar \
+  -cmb_sim \
+  > ${prefix}_old.log
+
+../bin/wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF \
+  -cospar ${prefix}_new.cospar \
+  -cmb_sim \
+  > ${prefix}_new.log
+
+echo ' '
+echo '# ============================== '
+echo ' Compare NEW and OLD with CMB_SIM prior:'
+cat ${prefix}_*.cospar

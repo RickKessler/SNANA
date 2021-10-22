@@ -1,0 +1,61 @@
+ Full command: 
+    /global/homes/a/ayanmitr/SNANA/bin/wfit.exe test.MUDIF -cospar out_wfit_priorOM_new.cospar
+
+ =============================================== 
+ SNANA_DIR = /global/cfs/cdirs/lsst/groups/SN/snana/SNANA 
+ Open fitres file: test.MUDIF 
+	 Opened : test.MUDIF 
+
+	 ***** DOCANA WARNING ******* 
+  Missing required 'DOCUMENTATION:'  key in 
+    test.MUDIF 
+  See DOCANA examples with linux command: 
+    grep -R DOCUMENTATION_END $SNDATA_ROOT 
+  File must begin with 'DOCUMENTATION:' key
+
+
+ !!! Found MUDIF --> fit for w-wref and OM-OMref 
+
+ Read 1 SNe from test.MUDIF 
+ Select 0 SNe for fitting.
+ MUERR_INCLUDE(zERR,LENS) = 1, 0 
+ Done reading file -- NCIDLIST: 0, NSNE_NBIN: 0 
+
+
+****************************************
+****************************************
+   Applying  w(z) = w0 + wa(1-a) 
+   w ~ w0. wa implemented.       
+****************************************
+****************************************
+
+   --------   Grid parameters   -------- 
+  w0_min:  -2.00   w0_max:   0.00    201 steps of size  0.01000
+ omm_min:   0.00  omm_max:   1.00     81 steps of size  0.01250
+   h_min:  40.00   h_max: 100.00    121 steps of size  0.50000
+   ------------------------------------
+Fit data with Omega_m prior: 0.315 +/- 0.040
+Will MINIMIZE for final w0 & OM 
+Add 0.00 mag-error (snrms) in quadrature to MU-error 
+---------------------------------------
+   Minimize with refined w0step=0.0010 (80 bins, w0=-2.0000) 
+   Minimize with refined OMstep=0.0013 (80 bins, OMcen=0.3125) 
+---------------------------------------
+XXX om_chi min=0.3150
+---------------------------------------
+Marginalizing over omega_m...
+  CHECK:  ChiSq(min) = 0.000000 
+  CHECK:  w0(min)    = -2.040000, -1.000000
+
+marg w0 err estimate = 0.580230
+WARNING: 1. w0 grid is too coarse to resolve lower 1-sigma limit
+WARNING: 2. w0 grid is too coarse to resolve upper 1-sigma limit
+ 0.000000, 0.010000
+
+---------------------------------------
+probw0-err estimates: lower = 0.010000, upper = 0.010000
+marg ommerr estimate = 0.040000
+
+---------------------------------------
+Write cosmo params to out_wfit_priorOM_new.cospar 
+DONE. 

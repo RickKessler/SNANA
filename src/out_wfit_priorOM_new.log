@@ -1,0 +1,67 @@
+ Full command: 
+    ../bin/wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF -cospar out_wfit_priorOM_new.cospar -dompri 0.01
+
+ =============================================== 
+ SNANA_DIR = /global/cfs/cdirs/lsst/groups/SN/snana/SNANA 
+ Open fitres file: /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+	 Opened : /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+
+	 ***** DOCANA WARNING ******* 
+  Missing required 'DOCUMENTATION:'  key in 
+    /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+  See DOCANA examples with linux command: 
+    grep -R DOCUMENTATION_END $SNDATA_ROOT 
+  File must begin with 'DOCUMENTATION:' key
+
+
+ !!! Found MUDIF --> fit for w-wref and OM-OMref 
+
+ Read 14 SNe from /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF 
+ Select 10 SNe for fitting.
+ MUERR_INCLUDE(zERR,LENS) = 1, 1 
+ Done reading file -- NCIDLIST: 10, NSNE_NBIN: 0 
+
+
+****************************************
+****************************************
+   Applying  w(z) = w0 + wa(1-a) 
+   w ~ w0. wa implemented.       
+****************************************
+****************************************
+
+   --------   Grid parameters   -------- 
+  w0_min:  -2.00   w0_max:   0.00    101 steps of size  0.02000
+ omm_min:   0.00  omm_max:   1.00     81 steps of size  0.01250
+   h_min:  40.00   h_max: 100.00    121 steps of size  0.50000
+   ------------------------------------
+Fit data with Omega_m prior: 0.315 +/- 0.010
+Will MINIMIZE for final w0 & OM 
+Add 0.00 mag-error (snrms) in quadrature to MU-error 
+---------------------------------------
+   Minimize with refined w0step=0.0020 (80 bins, w0=-0.9600) 
+   Minimize with refined OMstep=0.0013 (80 bins, OMcen=0.3125) 
+---------------------------------------
+XXX z=0.1368
+XXX z=0.1873
+XXX z=0.2488
+XXX z=0.3114
+XXX z=0.3823
+XXX z=0.4720
+XXX z=0.5590
+XXX z=0.6630
+XXX z=0.7764
+XXX z=0.9142
+---------------------------------------
+Marginalizing over omega_m...
+  CHECK:  ChiSq(min) = 12.492852 
+  CHECK:  w0(min)    = -0.964000
+
+marg w0 err estimate = 0.068373
+
+---------------------------------------
+probw0-err estimates: lower = 0.065304, upper = 0.094696
+marg ommerr estimate = 0.009935
+
+---------------------------------------
+Write cosmo params to out_wfit_priorOM_new.cospar 
+DONE. 

@@ -1,0 +1,6 @@
+(cd ../obj;  gcc  -c -static -m64 -g -fbounds-check   -I//usr/common/software/cfitsio/3.47/include -I/global/common/sw/cray/cnl7/haswell/gsl/2.5/gcc/8.2.0/sr445ay/include ../src/wfit.c ) 
+gfortran -o  ../bin/wfit.exe -m64 -lpthread  \
+../obj/wfit.o  ../obj/sntools.o  ../obj/sntools_cosmology.o \
+-L/usr/common/software/cfitsio/3.47/lib -lcfitsio  \
+-lm /global/common/sw/cray/cnl7/haswell/gsl/2.5/gcc/8.2.0/sr445ay/lib/libgsl.a /global/common/sw/cray/cnl7/haswell/gsl/2.5/gcc/8.2.0/sr445ay/lib/libgslcblas.a 
+(cd ../obj;  rm wfit.o )

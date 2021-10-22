@@ -1,0 +1,4 @@
+ Full command: 
+    wfit.exe /global/cscratch1/sd/kessler/PIPPIN_OUTPUT/PLASTICC_SPECTROZ_NEW/6_BIASCOR/BBC_SIMDATA/output/OUTPUT_BBCFIT/FITOPT001_MUOPT000.M0DIF -wa -cospar out_wfit_priorCMB_old.cospar -cmb_sim
+
+Bad arg: -wa

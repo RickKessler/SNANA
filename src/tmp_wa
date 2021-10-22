@@ -1,0 +1,41 @@
+ Full command: 
+    ../bin/wfit.exe ../test.MUDIF -wa
+
+ =============================================== 
+ SNANA_DIR = /global/cfs/cdirs/lsst/groups/SN/snana/SNANA 
+ Open fitres file: ../test.MUDIF 
+	 Opened : ../test.MUDIF 
+
+	 ***** DOCANA WARNING ******* 
+  Missing required 'DOCUMENTATION:'  key in 
+    ../test.MUDIF 
+  See DOCANA examples with linux command: 
+    grep -R DOCUMENTATION_END $SNDATA_ROOT 
+  File must begin with 'DOCUMENTATION:' key
+
+
+ !!! Found MUDIF --> fit for w-wref and OM-OMref 
+
+ Read 12 SNe from ../test.MUDIF 
+ Select 12 SNe for fitting.
+ MUERR_INCLUDE(zERR,LENS) = 1, 1 
+ Done reading file -- NCIDLIST: 12, NSNE_NBIN: 0 
+
+
+****************************************
+****************************************
+   Applying  w(z) = w0 + wa(1-a) 
+   w ~ w0. wa implemented.       
+****************************************
+****************************************
+
+   --------   Grid parameters   -------- 
+  w0_min:  -3.00   w0_max:   1.00    101 steps of size  0.04000
+  wa_min:  -4.00   wa_max:   4.00    101 steps of size  0.08000
+ omm_min:   0.00  omm_max:   1.00     81 steps of size  0.01250
+   h_min:  40.00   h_max: 100.00    121 steps of size  0.50000
+   ------------------------------------
+Fit data with Omega_m prior: 0.315 +/- 0.040
+Will MINIMIZE for final (w0, wa) & OM 
+Add 0.00 mag-error (snrms) in quadrature to MU-error 
+---------------------------------------

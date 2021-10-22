@@ -9,9 +9,9 @@ import numpy as np
 from   makeDataFiles_params    import *
 import makeDataFiles_util  as util
 
-#import lsst.alert.packet
-#from pathlib import Path
-#from fastavro import writer, reader
+from pathlib import Path
+import lsst.alert.packet
+from fastavro import writer, reader
 
 
 # map dictionary(SNANA) varName to alert varName 

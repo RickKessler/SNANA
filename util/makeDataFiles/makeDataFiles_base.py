@@ -8,7 +8,11 @@ import getpass, ntpath, glob
 import numpy as np
 import makeDataFiles_util as util
 import write_data_snana   as snana
-import write_data_lsst_alert as lsst_alert
+
+try:
+    import write_data_lsst_alert as lsst_alert
+except ImportError:
+    pass
 
 from   makeDataFiles_params  import *
 

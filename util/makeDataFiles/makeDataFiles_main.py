@@ -31,7 +31,11 @@
 import sys, yaml, argparse, subprocess, logging, glob
 import makeDataFiles_util    as util
 import write_data_snana      as snana
-import write_data_lsst_alert as lsst_alert
+
+try:
+    import write_data_lsst_alert as lsst_alert
+except ImportError:
+    pass
 
 from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap

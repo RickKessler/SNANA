@@ -311,6 +311,10 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
+double rd_bao_prior(Cosparam *cpar) ;
+double DM_bao_prior(double z, Cosparam *cpar);
+double DH_bao_prior(double z, Cosparam *cpar);
+
 void   init_cmb_prior(int OPT) ;
 double chi2_bao_prior(Cosparam *cpar);
 double chi2_cmb_prior(Cosparam *cpar);
@@ -1647,7 +1651,7 @@ void init_bao_prior(int OPT) {
 
     return;
   }
-
+  
   // - - - - - -
 
   if ( REFAC ) {
@@ -1681,9 +1685,15 @@ void init_bao_prior(int OPT) {
   // check option to compute BAO params from sim cosmology
   if ( INPUTS.use_bao == 2 ) { 
     if ( REFAC ) {
+      double rd,z, DM, DH;
+      rd = rd_bao_prior(&cparloc);
       for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-	BAO_PRIOR.DMrd_sdss4[iz] = 0.0 ; // xxx need to compute ???
-	BAO_PRIOR.DHrd_sdss4[iz] = 0.0 ;
+	z = BAO_PRIOR.z_sdss4[iz];
+	DM = DM_bao_prior(z, &cparloc);
+	DH = DH_bao_prior(z, &cparloc);
+	printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le\n",z,rd,DM,DH);
+	BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ; // xxx need to compute ???
+	BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
 	// covariances ??
       }
       sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
@@ -1703,6 +1713,30 @@ void init_bao_prior(int OPT) {
   return ;
 
 } // end init_bao_prior
+
+
+double rd_bao_prior(Cosparam *cpar) {
+
+  double rd = 1.0;
+
+  return rd;
+}
+double DM_bao_prior(double z, Cosparam *cpar){
+  double DM = 1.0;
+
+  return DM;
+  
+}
+double DH_bao_prior(double z, Cosparam *cpar){
+
+    double DH = 1.0;
+
+  return DH;
+}
+
+
+
+
 
 // =========================================
 void set_stepsizes(void) {

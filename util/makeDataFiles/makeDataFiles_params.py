@@ -19,6 +19,8 @@ FORMAT_FITS = "FITS"
 USERNAME = getpass.getuser()
 HOSTNAME = os.environ['HOSTNAME']
 
+MXSEASON = 12 # max number of seasons
+
 # - - - - - - - 
 # define survey info that is fixed for all events;
 # e.g., NXPIX = SURVEY_INFO['CCD'][survey][0]

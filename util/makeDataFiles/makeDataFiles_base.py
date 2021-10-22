@@ -59,9 +59,12 @@ class Program:
         peakmjd_range    = args.peakmjd_range
         mjd_detect_range = args.mjd_detect_range
 
-        nseason       = 10
-        if peakmjd_range    is not None: nseason = 1
-        if mjd_detect_range is not None: nseason = 1
+        n_season       = MXSEASON
+
+        # for MJD-related cuts, set n_season=1 so that there is
+        # no explicit season breakdown
+        if peakmjd_range    is not None: n_season = 1 
+        if mjd_detect_range is not None: n_season = 1
 
         unit_name_list   = []
         unit_nevent_list = []
@@ -73,7 +76,7 @@ class Program:
             msgerr.append(f"Valid --isplitran arg range is 1 to {nsplit}")
             util.log_assert(False,msgerr)
 
-        for iseason in range(0,nseason):
+        for iseason in range(0,n_season):
             iyear  = iseason + 1    # starts at 1
             if iyear_select > 0 and iyear != iyear_select :
                 continue
@@ -104,6 +107,7 @@ class Program:
         config_data['data_folder_prefix']      = survey
         config_data['data_unit_name_list']     = unit_name_list
         config_data['data_unit_nevent_list']   = unit_nevent_list
+        config_data['n_season']                = n_season
 
         readme_stats_list = []
         for i in range(0,n_data_unit):
@@ -131,7 +135,7 @@ class Program:
 
         # use data header info to figure out which data unit.
         # If no data unit is matched, return None
-
+        n_season      = self.config_data['n_season']
         args          = self.config_inputs['args'] # user command line args
         nsplit        = args.nsplitran
         isplit_select = args.isplitran  # 1 to nsplit, or -1 for all
@@ -159,23 +163,16 @@ class Program:
         if not match_field : return None
 
         # create dictionary needed to determine iyear
-        event_dict = { 'peakmjd': PEAKMJD,  'mjd_detect': MJD_DETECT,
-                       'ra': RA, 'dec':DEC, 'field':field }
-        YY = util.iyear_survey(survey, event_dict)
-        
+        small_event_dict = { 'peakmjd': PEAKMJD,  'mjd_detect': MJD_DETECT,
+                             'ra': RA,  'dec': DEC,  'field': field }
+
+        if n_season > 1:
+            YY = util.iyear_survey(survey, small_event_dict)
+        else:
+            YY = -1  # no explicit season dependence
+
         # check year/season match
         match_year = True
-        if peakmjd_range is not None:
-            YY = -1  # disable default seasons
-            match_year = \
-                PEAKMJD >= peakmjd_range[0] and \
-                PEAKMJD <= peakmjd_range[1]
-
-        if mjd_detect_range is not None:
-            YY = -1  # disable default seasons
-            match_year = \
-                MJD_DETECT >= mjd_detect_range[0] and \
-                MJD_DETECT <  mjd_detect_range[1]
             
         if iyear_select > 0 : 
             match_year = (YY == iyear_select)
@@ -354,6 +351,32 @@ class Program:
         return
         # compute_data_event
 
+    def pass_data_cuts(self,data_event_dict):
+
+        # Apply optional user cuts from command line
+        # Return pass_cuts = True of False.
+
+        pass_cuts = True  # init output to True
+
+        args             = self.config_inputs['args']
+        peakmjd_range    = args.peakmjd_range
+        mjd_detect_range = args.mjd_detect_range
+        #d_raw         = data_event_dict['head_raw']
+        d_calc        = data_event_dict['head_calc']
+
+        if peakmjd_range is not None:
+            PEAKMJD       = d_calc[DATAKEY_PEAKMJD] 
+            if PEAKMJD < peakmjd_range[0] : pass_cuts = False
+            if PEAKMJD > peakmjd_range[1] : pass_cuts = False
+
+        if mjd_detect_range is not None:
+            MJD_DETECT    = d_calc[DATAKEY_MJD_DETECT] 
+            if MJD_DETECT < mjd_detect_range[0]: pass_cuts = False
+            if MJD_DETECT > mjd_detect_range[1]: pass_cuts = False
+            
+        return pass_cuts
+        # end pass_data_cuts
+
     def init_phot_dict(self,NOBS):
         
         # The read_event function for each source should call this
@@ -464,12 +487,18 @@ class Program:
                 # add computed variables; e.g., zCMB, MWEBV ...
                 self.compute_data_event(data_event_dict)
 
+                # apply optional user-cuts (e.g., PEAKMJD cut, etc...)
+                pass_cuts = self.pass_data_cuts(data_event_dict)
+                if pass_cuts is False:
+                    continue
+
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
-                if data_unit_name is None : continue
-                index_unit  = data_unit_name_list.index(data_unit_name)
+                if data_unit_name is None : 
+                    continue
 
                 # add more info to data event dictionary
+                index_unit  = data_unit_name_list.index(data_unit_name)
                 data_event_dict['data_unit_name'] = data_unit_name
                 data_event_dict['index_unit']     = index_unit
 

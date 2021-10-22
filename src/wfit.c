@@ -192,16 +192,15 @@ struct {
 #define NZBIN_BAO_SDSS4 7
 
 // define default values from Table 3 of Alam 2020
-double rd_sdss4_DEFAULT = 0.0;
 double  z_sdss4_DEFAULT[NZBIN_BAO_SDSS4] =
   { 0.38,   0.51,  0.70,  0.85,  1.48,  2.33, 2.33 } ;
-double DM_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
+double DMrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   { 10.27, 13.38, 17.65, 19.50, 30.21, 37.60, 37.30 } ;
-double sigDM_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
+double sigDMrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   {  0.15,  0.18,  0.30,  1.00,  0.79,  1.90,  1.70 } ;
-double DH_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
+double DHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   { 24.89, 22.43, 19.78, 19.60, 13.23, 8.93, 9.08 };   
-double sigDH_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
+double sigDHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   {  0.58,  0.48,  0.46,  2.10,  0.47, 0.28, 0.34 } ;
 
 struct {
@@ -215,10 +214,10 @@ struct {
   // define params for Alam 2010 (SDSS-IV-eBOSS)  arxiv:2007.08991 
   double  rd_sdss4; 
   double  z_sdss4[NZBIN_BAO_SDSS4] ;
-  double  DM_sdss4[NZBIN_BAO_SDSS4] ;
-  double  DH_sdss4[NZBIN_BAO_SDSS4] ;
-  double  sigDM_sdss4[NZBIN_BAO_SDSS4] ;
-  double  sigDH_sdss4[NZBIN_BAO_SDSS4] ;
+  double  DMrd_sdss4[NZBIN_BAO_SDSS4] ;
+  double  DHrd_sdss4[NZBIN_BAO_SDSS4] ;
+  double  sigDMrd_sdss4[NZBIN_BAO_SDSS4] ;
+  double  sigDHrd_sdss4[NZBIN_BAO_SDSS4] ;
 
   // comment for stdout
   char comment[200];
@@ -1640,8 +1639,8 @@ void init_bao_prior(int OPT) {
     BAO_PRIOR.rd_sdss4    = -9.0 ;
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
       BAO_PRIOR.z_sdss4[iz]  = -9.0 ;
-      BAO_PRIOR.DM_sdss4[iz] = -9.0 ;
-      BAO_PRIOR.DH_sdss4[iz] = -9.0 ;
+      BAO_PRIOR.DMrd_sdss4[iz] = -9.0 ;
+      BAO_PRIOR.DHrd_sdss4[iz] = -9.0 ;
     }
 
     BAO_PRIOR.comment[0] = 0;
@@ -1655,13 +1654,13 @@ void init_bao_prior(int OPT) {
     BAO_PRIOR.use_sdss4   = true ;
 
     // Default values from SDSS4
-    BAO_PRIOR.rd_sdss4 =  rd_sdss4_DEFAULT;
+    BAO_PRIOR.rd_sdss4 = -9.0 ;
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-      BAO_PRIOR.z_sdss4[iz]     = z_sdss4_DEFAULT[iz];
-      BAO_PRIOR.DM_sdss4[iz]    = DM_sdss4_DEFAULT[iz];
-      BAO_PRIOR.DH_sdss4[iz]    = DH_sdss4_DEFAULT[iz];
-      BAO_PRIOR.sigDM_sdss4[iz] = sigDM_sdss4_DEFAULT[iz];
-      BAO_PRIOR.sigDH_sdss4[iz] = sigDH_sdss4_DEFAULT[iz];
+      BAO_PRIOR.z_sdss4[iz]       = z_sdss4_DEFAULT[iz];
+      BAO_PRIOR.DMrd_sdss4[iz]    = DMrd_sdss4_DEFAULT[iz];
+      BAO_PRIOR.DHrd_sdss4[iz]    = DHrd_sdss4_DEFAULT[iz];
+      BAO_PRIOR.sigDMrd_sdss4[iz] = sigDMrd_sdss4_DEFAULT[iz];
+      BAO_PRIOR.sigDHrd_sdss4[iz] = sigDHrd_sdss4_DEFAULT[iz];
     }
     // keep loading all 7 z ranges ...
     sprintf(comment,"BAO prior from SDSS-IV (Alam 2020)" );
@@ -1683,8 +1682,8 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     if ( REFAC ) {
       for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-	BAO_PRIOR.DM_sdss4[iz] = 0.0 ; // xxx need to compute ???
-	BAO_PRIOR.DH_sdss4[iz] = 0.0 ;
+	BAO_PRIOR.DMrd_sdss4[iz] = 0.0 ; // xxx need to compute ???
+	BAO_PRIOR.DHrd_sdss4[iz] = 0.0 ;
 	// covariances ??
       }
       sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );

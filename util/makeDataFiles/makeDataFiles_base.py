@@ -539,11 +539,30 @@ class Program:
         name_list     = self.config_data['data_unit_name_list']
         for nevent, name in zip(nevent_list, name_list):
             if nevent == 0 : continue
-            if args.outdir_snana is not None:
+            index_unit   = data_unit_name_list.index(name)
+            if args.output_yaml_file:
+                self.write_yaml_file(index_unit)
+            if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
+            elif args.outdir_lsst_alert:
+                pass # ???
 
         # end read_data_driver
     
+    def write_yaml_file(self, index_unit):
+        # write yaml file to be parsed by pipeline.
+        # This is the same file as README file in output directory.
+        args         = self.config_inputs['args'] 
+        readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_dict = {
+            'readme_file'  : args.output_yaml_file,
+            'readme_stats' : readme_stats,
+            'data_format'  : FORMAT_TEXT
+        }
+        util.write_readme(args,readme_dict)
+
+        # end write_yaml_file
+
     def reset_data_event_dict(self):
 
         # reset all data values to -9 to ensure that every

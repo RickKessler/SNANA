@@ -50,11 +50,18 @@ def write_readme(args, readme_dict):
         f.write(f"  USERNAME:         {USERNAME} \n")
         f.write(f"  HOSTNAME:         {HOSTNAME} \n")
     
+        n_list = []
         for key in KEYLIST_README_STATS:
             key_plus_colon = f"{key}:"
             n = readme_stats[key]
+            n_list.append(n)
             f.write(f"  {key_plus_colon:<22}   {n} \n")
 
+        nevt_all = n_list[0]
+        f.write(f"  ABORT_IF_ZERO:  {nevt_all}\n")
+        f.write(f"{DOCANA_KEY_END}: \n")
+
+    return
     # end write_readme
 
 def write_yaml(file_name, yaml_contents):

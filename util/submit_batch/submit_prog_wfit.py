@@ -705,7 +705,7 @@ class wFit(Program):
                 wa      = wfit_values_dict['wa']    
                 wa_sig  = wfit_values_dict['wa_sig']
                 FoM     = wfit_values_dict['FoM']
-                Rho     = wfit_values_dict['Rho']
+                Rho     = wfit_values_dict['Rho'] # Rho 
                 
             if nrow == 1:
                 self.write_wfit_summary_header(f,wfit_values_dict)

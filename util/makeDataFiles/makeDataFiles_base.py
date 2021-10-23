@@ -1,7 +1,7 @@
 # Base class Program
 
 import os, sys, shutil, yaml
-import logging, coloredlogs
+import logging   # , coloredlogs
 import datetime, time, subprocess
 import getpass, ntpath, glob
 

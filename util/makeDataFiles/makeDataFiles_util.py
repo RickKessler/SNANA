@@ -3,7 +3,7 @@
 
 
 import os, sys, yaml, shutil, glob, math
-import logging, coloredlogs, subprocess
+import logging, subprocess  # ,coloredlogs
 
 import numpy as np
 from   astropy.table import Table
@@ -299,8 +299,9 @@ def setup_logging(args):
     handlers = [logging.StreamHandler(), message_store]
     handlers[0].setLevel(level)
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
-    coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
-                        level_styles=coloredlogs.parse_encoded_styles("debug=8;notice=green;warning=yellow;error=red,bold;critical=red,inverse"),)
+
+#    coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
+#                        level_styles=coloredlogs.parse_encoded_styles("debug=8#;notice=green;warning=yellow;error=red,bold;critical=red,inverse"),)
     return message_store
 
 

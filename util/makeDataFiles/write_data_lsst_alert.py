@@ -3,7 +3,7 @@
 # [R.Hlozek, R.Kessler ...]
 
 import os, sys, yaml, shutil, glob, math
-import logging, coloredlogs, subprocess
+import logging, subprocess  # coloredlogs
 
 import numpy as np
 from   makeDataFiles_params    import *

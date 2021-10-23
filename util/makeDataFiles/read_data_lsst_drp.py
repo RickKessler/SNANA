@@ -1,5 +1,5 @@
 import os,sys,glob,yaml,shutil
-import logging, coloredlogs
+import logging  # , coloredlogs
 
 import makeDataFiles_util  as    util
 from   makeDataFiles_base import Program

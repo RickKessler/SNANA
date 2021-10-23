@@ -17,6 +17,7 @@ def get_wfit_values(wfit_yaml):
     # refactored (Aug 2021) wfit. 
     # Also check for wsig_marg vs. wsig_lo/wsig_hi
     # Sep 28 2021: check for wa and its uncertainty
+    # Oct 23 2021: check for Rho
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -76,6 +77,13 @@ def get_wfit_values(wfit_yaml):
         if  key in wfit_yaml:
             FoM  = wfit_yaml[key]  
 
+    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
+    key_list = [ 'Rho' ]
+    Rho       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            Rho  = wfit_yaml[key]  
+
     # - - - misc - - - - 
     chi2    = wfit_yaml['chi2'] 
     sigint  = wfit_yaml['sigint']
@@ -118,7 +126,8 @@ def get_wfit_values(wfit_yaml):
         'wa'       : wa,
         'wa_sig'   : wa_sig,
         'wa_ran'   : wa_ran,
-        'FoM'      : FoM
+        'FoM'      : FoM,
+        'Rho'      : Rho
     }
 
     return wfit_values_dict

@@ -2,9 +2,14 @@
 #
 # Created Feb 2017 by R.Kessler
 #
-# Revived Nov 2020 with python 3
-#    + fetch survey name and write SURVEY key to kcor-input
-#
+# To do (Oct 21 2021):
+#  * optional key to not add extra /char
+#  * check if full filter name already written in the input data
+#  * if same FILTPATH appears multiple times, don't duplicate in output kcor
+#  * parse mulitple filter paths in each input kcor
+#     (don't assume just 1 filter set liek PS1 or SDSS)
+#  * to merge SN with same name, make sure to include all spectra
+#  
 #
 # @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
 #

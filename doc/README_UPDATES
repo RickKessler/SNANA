@@ -20499,4 +20499,25 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   combine_dataVersions.py
     + fix bug in args for snana.exe
 
+
+# ======================================================================= 
+         v11_04c (  ) 
+
+         ***** IMPORTANT(v11_04c) ***** 
+
+         ***** USEFUL(v11_04c) ***** 
+
+         ***** MISCELLANEOUS(v11_04c) ***** 
+
+    sntools_dataformat*
+      + fix to read/write spectra with real data (SIRAH)
+      + fix bug from recent zbug writing SIM_HOSTLIB info to FITS file
+   
+    snlc_fit.car
+      + write CCDNUM and IMGNUM to model spec table (for chromatic corr)
+
+    snlc_sim, sntools_dataformat_*
+      + write new header variables: 
+           MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST
+
 END: 

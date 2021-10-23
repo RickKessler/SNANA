@@ -44,6 +44,9 @@ class Program:
                 sys.stdout.flush()
                 os.mkdir(outdir)
 
+        # - - - - - - - - 
+        self.extend_DATAKEY_LIST(config_inputs)
+
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
     
@@ -214,6 +217,24 @@ class Program:
         return data_unit_name
         # end which_data_unit
     
+    def extend_DATAKEY_LIST(self,config_inputs):
+
+        # expand global DATAKEY_LIST_RAW to include filter-dependent
+        # HOSTGAL keys.
+
+        survey   = config_inputs['args'].survey
+        filters  = list(SURVEY_INFO['FILTERS'][survey])
+
+        global DATAKEY_LIST_RAW
+        prefix_list = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR, 
+                        HOSTKEY_PREFIX_SB ]
+        for prefix in prefix_list :
+            for band in filters:
+                datakey = f"{prefix}_{band}"
+                DATAKEY_LIST_RAW.append(datakey)
+
+        # end load_HOSTKEY_band
+
     def store_varlist_obs(self, config_inputs, config_data):
 
         # for fakes, tack on true mag to list of variables per obs
@@ -408,7 +429,6 @@ class Program:
         
     def final_summary(self):
     
-
         # comput total number of events and number of data units created
         NEVT_TOT  = 0
         NUNIT_TOT = 0

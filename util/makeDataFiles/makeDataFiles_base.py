@@ -1,13 +1,18 @@
 # Base class Program
 
 import os, sys, shutil, yaml
-import logging, coloredlogs
+import logging   # , coloredlogs
 import datetime, time, subprocess
 import getpass, ntpath, glob
 
 import numpy as np
 import makeDataFiles_util as util
 import write_data_snana   as snana
+
+try:
+    import write_data_lsst_alert as lsst_alert
+except ImportError:
+    pass
 
 from   makeDataFiles_params  import *
 
@@ -31,12 +36,16 @@ class Program:
         self.init_data_unit(config_inputs, config_data)
 
         # create top-level outdir
-        outdir_list = [ args.outdir_snana ]
-        for outdir  in outdir_list :
+        outdir_list = [ args.outdir_snana, args.outdir_lsst_alert ]
+        for outdir in outdir_list :
+            if outdir is None: continue
             if not os.path.exists(outdir):
                 logging.info(f" Create top-dir for light curves: {outdir}")
                 sys.stdout.flush()
                 os.mkdir(outdir)
+
+        # - - - - - - - - 
+        self.extend_DATAKEY_LIST(config_inputs)
 
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
@@ -208,6 +217,24 @@ class Program:
         return data_unit_name
         # end which_data_unit
     
+    def extend_DATAKEY_LIST(self,config_inputs):
+
+        # expand global DATAKEY_LIST_RAW to include filter-dependent
+        # HOSTGAL keys.
+
+        survey   = config_inputs['args'].survey
+        filters  = list(SURVEY_INFO['FILTERS'][survey])
+
+        global DATAKEY_LIST_RAW
+        prefix_list = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR, 
+                        HOSTKEY_PREFIX_SB ]
+        for prefix in prefix_list :
+            for band in filters:
+                datakey = f"{prefix}_{band}"
+                DATAKEY_LIST_RAW.append(datakey)
+
+        # end load_HOSTKEY_band
+
     def store_varlist_obs(self, config_inputs, config_data):
 
         # for fakes, tack on true mag to list of variables per obs
@@ -402,7 +429,6 @@ class Program:
         
     def final_summary(self):
     
-
         # comput total number of events and number of data units created
         NEVT_TOT  = 0
         NUNIT_TOT = 0
@@ -505,7 +531,9 @@ class Program:
                 if args.outdir_snana is not None :
                     snana.write_event_text_snana(args, self.config_data,
                                                  data_event_dict) 
-
+                if args.outdir_lsst_alert is not None:
+                    lsst_alert.write_event_lsst_alert(args, self.config_data,
+                                                      data_event_dict) 
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1
@@ -531,11 +559,30 @@ class Program:
         name_list     = self.config_data['data_unit_name_list']
         for nevent, name in zip(nevent_list, name_list):
             if nevent == 0 : continue
-            if args.outdir_snana is not None:
+            index_unit   = data_unit_name_list.index(name)
+            if args.output_yaml_file:
+                self.write_yaml_file(index_unit)
+            if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
+            elif args.outdir_lsst_alert:
+                pass # ???
 
         # end read_data_driver
     
+    def write_yaml_file(self, index_unit):
+        # write yaml file to be parsed by pipeline.
+        # This is the same file as README file in output directory.
+        args         = self.config_inputs['args'] 
+        readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_dict = {
+            'readme_file'  : args.output_yaml_file,
+            'readme_stats' : readme_stats,
+            'data_format'  : FORMAT_TEXT
+        }
+        util.write_readme(args,readme_dict)
+
+        # end write_yaml_file
+
     def reset_data_event_dict(self):
 
         # reset all data values to -9 to ensure that every

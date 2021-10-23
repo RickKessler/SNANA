@@ -1,5 +1,5 @@
 import os, sys, glob, yaml, shutil, pickle
-import logging, coloredlogs
+import logging  # , coloredlogs
 import numpy as np
 import makeDataFiles_util  as    util
 from   makeDataFiles_base    import Program

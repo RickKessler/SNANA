@@ -29,8 +29,13 @@
 # ============================================
 
 import sys, yaml, argparse, subprocess, logging, glob
-import makeDataFiles_util  as util
-import write_data_snana    as snana
+import makeDataFiles_util    as util
+import write_data_snana      as snana
+
+try:
+    import write_data_lsst_alert as lsst_alert
+except ImportError:
+    pass
 
 from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap
@@ -61,11 +66,13 @@ def get_args():
     msg = "field name (e.g., SHALLOW, DEEP, etc ..)"
     parser.add_argument("--field", help=msg, type=str, default=FIELD_VOID )
 
-    msg = "SNANA format: output top-directory for data"
-    parser.add_argument("--outdir_snana", help=msg, type=str, default=None )
+    msg = "output SNANA format: top-directory for data"
+    parser.add_argument("--outdir_snana", 
+                        help=msg, type=str, default=None )
 
-    msg = "XYZ format: output top-directory for data"
-    parser.add_argument("--outdir_XYZ", help=msg, type=str, default=None )    
+    msg = "output LSST-ALERT format: top-directory for data"
+    parser.add_argument("--outdir_lsst_alert", 
+                        help=msg, type=str, default=None )    
     
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
@@ -92,8 +99,12 @@ def get_args():
     msg = "leave text files uncompressed"
     parser.add_argument("--text", help=msg, action="store_true")
 
-    msg = "merge SNANA files (after split jobs finish)"
-    parser.add_argument("--merge_snana", help=msg, action="store_true")
+    msg = "output yaml file (used by submit_batch_jobs)"
+    parser.add_argument("--output_yaml_file", 
+                        help=msg, type=str, default=None )    
+
+    msg = "merge/postprocess output files (after jobs finish)"
+    parser.add_argument("--merge", help=msg, action="store_true")
 
     msg = "process fakes (default is real data)"
     parser.add_argument("--fake", help=msg, action="store_true")    
@@ -149,14 +160,18 @@ def which_read_class(args):
 
     # if merge process, read any one of the README files to 
     # recover the user-input logicals
-    if args.merge_snana:
+    if args.merge:
         # restore args for merge process.
-        outdir      = args.outdir_snana
-        folder      = glob.glob1(outdir, f"[!_TEXT]*" )[0]        
-        readme_file = f"{outdir}/{folder}/{folder}.README"
-        readme_yaml = util.read_yaml(readme_file)
-        restore_args_from_readme(args,readme_yaml[DOCANA_KEY])
-        
+        if args.outdir_snana:
+            outdir      = args.outdir_snana
+            folder      = glob.glob1(outdir, f"[!_TEXT]*" )[0]        
+            readme_file = f"{outdir}/{folder}/{folder}.README"
+            readme_yaml = util.read_yaml(readme_file)
+            restore_args_from_readme(args,readme_yaml[DOCANA_KEY])
+        elif args.outdir_lsst_alert:
+            outdir   = args.outdir_lsst_alert
+
+    # - - - - - - - -
     if args.lsst_ap:
         read_class = data_lsst_ap
         args.survey = "LSST"
@@ -197,9 +212,13 @@ if __name__ == "__main__":
     # init the data-source class
     program = read_class(config_inputs)  # calls __init only
 
-    if args.merge_snana:
-        #program.merge_snana_driver()
-        snana.merge_snana_driver(args)
+    # check for merge process; then use outdir_xyz args to 
+    # figure out which output format
+    if args.merge:
+        if args.outdir_snana:
+            snana.merge_snana_driver(args)
+        elif args.outdir_lsst_alert:
+            pass  # lsst_alert.merge_lsst_alert_driver(args)
         sys.exit(' Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;

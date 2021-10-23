@@ -2,7 +2,7 @@
 # Intended only for testing makeDataFiles; not for production.
 
 import os,sys,glob,yaml,shutil
-import logging, coloredlogs
+import logging # , coloredlogs
 
 import makeDataFiles_util  as    util
 
@@ -54,15 +54,20 @@ class data_snana_folder(Program):
         PHOT_file_base  = hdu_head[0].header['PHOTFILE']
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
         NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
-
+            
         logging.info(f"\t Read {nevt} events from {HEAD_file_base}")
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
             
+        head_names = table_head.columns.names
+        phot_names = table_phot.columns.names
+
         table_dict = {
             'head_file'  : HEAD_file_base,
             'table_head' : table_head,
-            'table_phot' : table_phot
+            'table_phot' : table_phot,
+            'head_names' : head_names,
+            'phot_names' : phot_names
         }
 
         self.config_data['nevt_subgroup'] = nevt
@@ -116,7 +121,9 @@ class data_snana_folder(Program):
         # define local pointers to head and phot tables from FITS file
         table_head = table_dict['table_head']
         table_phot = table_dict['table_phot']
-        
+        head_names = table_dict['head_names']
+        phot_names = table_dict['phot_names']
+
         # init output dictionaries
         head_raw, head_calc = self.reset_data_event_dict()
 
@@ -142,10 +149,10 @@ class data_snana_folder(Program):
         head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
-        head_calc[DATAKEY_PEAKMJD]       = int(table_head.PEAKMJD[evt])
+        head_calc[DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
 
-        if DATAKEY_MJD_DETECT in vars(table_head):  # could be very slow??
-            head_calc[DATAKEY_MJD_DETECT] = table_head.MJD_DETECT_FIRST
+        if DATAKEY_MJD_DETECT in head_names:
+            head_calc[DATAKEY_MJD_DETECT] = table_head.MJD_DETECT_FIRST[evt]
         else:
             if args.mjd_detect_range is not None:
                 msgerr.append(f"Cannot implement args.mjd_detect_range = " \
@@ -155,13 +162,16 @@ class data_snana_folder(Program):
                 util.log_assert(False,msgerr)
 
 
-        head_raw[HOSTKEY_OBJID]         = table_head.HOSTGAL_OBJID[evt]
-        head_raw[HOSTKEY_SPECZ]         = table_head.HOSTGAL_SPECZ[evt]
-        head_raw[HOSTKEY_SPECZ_ERR]     = table_head.HOSTGAL_SPECZ_ERR[evt] 
-        head_raw[HOSTKEY_SNSEP]         = table_head.HOSTGAL_SNSEP[evt]
+        # strip off the HOSTGAL keys
+        for key in DATAKEY_LIST_RAW:
+            if "HOSTGAL" not in key: continue
+            if key in head_names :
+                head_raw[key] = table_head[key][evt]
 
-        head_calc[HOSTKEY_PHOTOZ]       = table_head.HOSTGAL_PHOTOZ[evt]
-        head_calc[HOSTKEY_PHOTOZ_ERR]   = table_head.HOSTGAL_PHOTOZ_ERR[evt]
+        for key in DATAKEY_LIST_CALC:
+            if "HOSTGAL" not in key: continue
+            if key in head_names :
+                head_calc[key] = table_head[key][evt]
         
         # ugly/embarassing hack to get field (DDF or WFD) from filename
         # because original plasticc data didn't store field.

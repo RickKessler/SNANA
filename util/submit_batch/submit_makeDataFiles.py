@@ -21,6 +21,7 @@ OUTPUT_FORMAT_SNANA             = 'snana'
 KEYLIST_OUTPUT                  = ['OUTDIR_SNANA', 'OUTDIR_ALERTS']
 KEYLIST_OUTPUT_OPTIONS          = ['--outdir_snana', '--outdir_alerts']
 BASE_PREFIX                     = 'MAKEDATA'
+DATA_UNIT_STR                   = 'DATA_UNIT'
 
 
 # ====================================================
@@ -61,9 +62,21 @@ class MakeDataFiles(Program):
         msgerr      = []
 
         output_args  = None
+        noutkeys = 0
         for key, opt in zip(KEYLIST_OUTPUT, KEYLIST_OUTPUT_OPTIONS):
             if key in CONFIG:
-                output_args = f'{opt} {CONFIG[key]}'
+                outdir = CONFIG[key]
+                if '/' not in outdir: # checking to make sure that the outdir has a full path
+                    outdir = os.getcwd() + '/' + outdir
+                output_args = f'{opt} {outdir}'
+                noutkeys += 1
+
+        if noutkeys > 1:
+            msgerr.append(f"Multiply defined key for output format in yaml-CONFIG")
+            msgerr.append(f'Require EXACTLY one of {KEYLIST_OUTPUT}')
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
+
         if output_args is None:
             msgerr.append(f"Missing key for output format in yaml-CONFIG")
             msgerr.append(f'Require one of {KEYLIST_OUTPUT}')
@@ -101,7 +114,7 @@ class MakeDataFiles(Program):
                 args += f'--field {field} '
                 if nsplitran > 1:
                     args += f'--nsplitran {nsplitran} '
-                    args += f'--isplitran {isplitran} '
+                    args += f'--isplitran {isplitran+1} ' # note that argument for isplitran starts with 1
                 makeDataFiles_args_list.append(args)
 
         self.config_prep['inputs_list'] = inputs_list
@@ -116,10 +129,12 @@ class MakeDataFiles(Program):
         input_file   = self.config_yaml['args'].input_file
         output_format = self.config_yaml['args'].output_format
         msgerr = []
+        splitran_str = f'SPLITRAN{isplitran+1:03d}'
         if output_format == OUTPUT_FORMAT_LSST_ALERTS:
-            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}_SPLITRAN{isplitran:03d}'
+            # isplit
+            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}_{splitran_str}'
         elif output_format == OUTPUT_FORMAT_SNANA:
-            prefix_output = f'{BASE_PREFIX}_{base_name}_SPLITRAN{isplitran:03d}'
+            prefix_output = f'{BASE_PREFIX}_{base_name}_{splitran_str}'
         else:
             msgerr.append(f'Invalid Output Format {output_format}')
             msgerr.append(f"Check {input_file}")
@@ -206,22 +221,20 @@ class MakeDataFiles(Program):
 
     def create_merge_table(self,f):
 
-        n_trainopt        = self.config_prep['n_trainopt']
-        trainopt_num_list = self.config_prep['trainopt_num_list']
+        prefix_output_list        = self.config_prep['prefix_output_list']
 
-        header_line_merge = (f"    STATE   {TRAINOPT_STRING}  NLC NSPEC  CPU")
+        header_line_merge = (f"    STATE   {DATA_UNIT_STR}  NEVT CPU")
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
             'row_list'    : []   }
 
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
-        for num in trainopt_num_list :
+        for prefix in prefix_output_list :
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            ROW_MERGE.append(num)     # e..g, TRAINOPT002
+            ROW_MERGE.append(prefix)
             ROW_MERGE.append(0)       # NLC
-            ROW_MERGE.append(0)       # NSPEC
             ROW_MERGE.append(0.0)     # CPU
 
             INFO_MERGE['row_list'].append(ROW_MERGE)
@@ -235,48 +248,18 @@ class MakeDataFiles(Program):
         # append info to SUBMIT.INFO file; use passed file pointer f
 
         CONFIG       = self.config_yaml['CONFIG']
-        n_trainopt   = self.config_prep['n_trainopt']
-        num_list     = self.config_prep['trainopt_num_list']
-        arg_list     = self.config_prep['trainopt_arg_list']
-        ARG_list     = self.config_prep['trainopt_ARG_list']
-        label_list   = self.config_prep['trainopt_label_list']
-        calib_shift_list = self.config_prep['calib_shift_list']
-        outdir_model_list_base = self.config_prep['outdir_model_list_base']
+        prefix_output_list   = self.config_prep['prefix_output_list']
 
-        f.write(f"# train_SALT2 info \n")
-        f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
+        f.write(f"# makeDataFiles info \n")
+        f.write(f"JOBFILE_WILDCARD: {BASE_PREFIX}* \n")
 
         f.write(f"\n")
-        f.write(f"TRAINOPT_OUT_LIST:  " \
-                f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
+        f.write(f"PREFIX_OUTPUT_LIST:  \n" )
         # use original ARG_list instead of arg_list; the latter may
         # include contents of shiftlist_file.
-        for num, arg, label in zip(num_list, ARG_list, label_list):
-            row   = [ num, label, arg ]
-            f.write(f"  - {row} \n")
+        for prefix in prefix_output_list:
+            f.write(f"  - {prefix} \n")
         f.write("\n")
-
-        f.write("MODELDIR_LIST:\n")
-        for model_dir in outdir_model_list_base :
-            f.write(f"  - {model_dir}\n")
-        f.write("\n")
-
-        for key in KEYS_SURVEY_LIST_SAME:
-            if key in CONFIG :
-                f.write(f"{key}:  {CONFIG[key]} \n")
-            else:
-                f.write(f"{key}:  [ ] \n")
-
-        # write keys for SALT2.INFO to be read by SNANA code
-        # each row is
-        #  [ 'TRAINOPTnnn', KEY, SURVEY, SHIFT_VAL ]
-        f.write(f"{KEY_SNANA_SALT3_INFO}: \n")
-        for num, item_list in zip(num_list,calib_shift_list) :
-            for item in item_list:
-                row = [ num ] + item.split()
-                f.write(f"  - {row} \n")
-        f.write("\n")
-
         # end append_info_file
 
     def merge_config_prep(self,output_dir):

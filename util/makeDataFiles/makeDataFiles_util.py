@@ -3,7 +3,7 @@
 
 
 import os, sys, yaml, shutil, glob, math
-import logging, coloredlogs, subprocess
+import logging, subprocess  # ,coloredlogs
 
 import numpy as np
 from   astropy.table import Table
@@ -50,11 +50,18 @@ def write_readme(args, readme_dict):
         f.write(f"  USERNAME:         {USERNAME} \n")
         f.write(f"  HOSTNAME:         {HOSTNAME} \n")
     
+        n_list = []
         for key in KEYLIST_README_STATS:
             key_plus_colon = f"{key}:"
             n = readme_stats[key]
+            n_list.append(n)
             f.write(f"  {key_plus_colon:<22}   {n} \n")
 
+        nevt_all = n_list[0]
+        f.write(f"  ABORT_IF_ZERO:  {nevt_all}\n")
+        f.write(f"{DOCANA_KEY_END}: \n")
+
+    return
     # end write_readme
 
 def write_yaml(file_name, yaml_contents):
@@ -292,8 +299,9 @@ def setup_logging(args):
     handlers = [logging.StreamHandler(), message_store]
     handlers[0].setLevel(level)
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
-    coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
-                        level_styles=coloredlogs.parse_encoded_styles("debug=8;notice=green;warning=yellow;error=red,bold;critical=red,inverse"),)
+
+#    coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
+#                        level_styles=coloredlogs.parse_encoded_styles("debug=8#;notice=green;warning=yellow;error=red,bold;critical=red,inverse"),)
     return message_store
 
 

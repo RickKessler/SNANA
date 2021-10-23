@@ -2,7 +2,7 @@
 # utilities to write data in snana format
 
 import os, sys, yaml, shutil, glob, math
-import logging, coloredlogs, subprocess
+import logging, subprocess  # coloredlogs
 
 import numpy as np
 from   makeDataFiles_params    import *
@@ -28,7 +28,6 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
     data_unit_name    = data_event_dict['data_unit_name']
     index_unit        = data_event_dict['index_unit']
-    # xxx indx_unit      = data_unit_name_list.index(data_unit_name)
 
     nevent         = data_unit_nevent_list[index_unit]
     folder         = output_data_folder_name(config_data,
@@ -87,6 +86,16 @@ def write_header_snana(f, data_head):
     # write list of header key,val pairs in data_head. 
     # If XXX and XXX_ERR both exist, write as    
     #   KEYXXX:  XXX +_ XXX_ERR    
+    # Be careful for HOSTGAL_XXX keys that are filter dependent;
+    # filter-dependent values are written on same line as key, 
+    # not separate line per filter.
+
+    # init filter-dependent list of hostgal values
+    hostgal_string_vals = {}
+    for prefix  in HOSTKEY_PREFIX_LIST:
+        hostgal_string_vals[prefix] = ""
+
+    n_hostkey = 0
 
     for key in data_head:
         #print(f" xxx header key = {key}") 
@@ -95,14 +104,39 @@ def write_header_snana(f, data_head):
         key_plus_colon = f"{key}:"
         val            = data_head[key]
         string_val     = f"{val}"
+
         if val == VAL_NULL : continue
+
+        if "HOSTGAL" in key:
+            n_hostkey += 1
+            if n_hostkey == 1: f.write(f"\n")
+
+        # increment mag-dependent host strings
+        skip_hostkey = False
+        for prefix  in HOSTKEY_PREFIX_LIST:
+            if prefix in key: 
+                skip_hostkey = True
+                hostgal_string_vals[prefix] += f"{val} "
+        if skip_hostkey : continue
+
         if key_plus_err in data_head:
             err  = data_head[key_plus_err]
             string_val = f"{val:9.6f} +- {err:9.6f}"
-        f.write(f"{key_plus_colon:<20s}  {string_val} \n")
-        f.flush()
 
-    # and write_header_snana        
+        f.write(f"{key_plus_colon:<20s}  {string_val} \n")
+
+    # - - - - - - 
+    # write mag-dependent host info where are n_filter values
+    # are written on one line.
+    for prefix in HOSTKEY_PREFIX_LIST:
+        string_vals = hostgal_string_vals[prefix] 
+        if len(string_vals) > 0:
+            f.write(f"{prefix}: {string_vals}\n")        
+
+    f.flush()
+    return
+
+    # end write_header_snana        
 
 def write_phot_snana(f, head_raw, phot_raw, config_data):
 

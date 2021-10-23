@@ -1729,7 +1729,7 @@ double DM_bao_prior(double z, Cosparam *cpar){
 }
 double DH_bao_prior(double z, Cosparam *cpar){
 
-    double DH = 1.0;
+  double DH = 1.0; // c/H(z) Eq. 14 [arXiv:2007.08991] 
 
   return DH;
 }

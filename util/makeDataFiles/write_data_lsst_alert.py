@@ -24,8 +24,22 @@ VARNAME_HEADER_MAP = {
     DATAKEY_MWEBV_ERR       : lc,
     DATAKEY_zHEL            : 'z_final' ,
     DATAKEY_zHEL_ERR        : 'z_final_err',
-    DATAKEY_NOBS            : lc  # in phot_raw, not header
+    DATAKEY_NOBS            : lc,       # in phot_raw, not header
+    #
+    HOSTKEY_SNSEP           : lc,
+    HOSTKEY_SPECZ           : 'hostgal_z' ,
+    HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
+
+#HOSTKEY_OBJID         = "HOSTGAL_OBJID"
+#HOSTKEY_PHOTOZ        = "HOSTGAL_PHOTOZ"
+#HOSTKEY_PHOTOZ_ERR    = "HOSTGAL_PHOTOZ_ERR"
+#HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
+
+for prefix in [ 'HOSTGAL_MAG', 'HOSTGAL_MAGERR' ] :
+    for band in list(SURVEY_INFO['FILTERS']['LSST']):
+        key = f"{prefix}_{band}"
+        VARNAME_HEADER_MAP[key] = lc
 
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',

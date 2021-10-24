@@ -73,6 +73,9 @@ def get_args():
     msg = "output LSST-ALERT format: top-directory for data"
     parser.add_argument("--outdir_lsst_alert", 
                         help=msg, type=str, default=None )    
+    msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
+    parser.add_argument("--lsst_alert_schema", 
+                        help=msg, type=str, default=None )    
     
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )

@@ -2769,12 +2769,13 @@ double get_DMU_chi2wOM(int k, double rz)  {
   // Output :
   //   Function returns mu_obs-mu_theory for k-th observation.
   
+  double z      = HD.z[k];
+  double mu_obs = HD.mu[k] ;
   double ld_cos, mu_cos, dmu;
   
-  // xxx mark delete  rz = codist(HD.z[k], cpar);
-  ld_cos      = (1.0 + HD.z[k]) *  rz * c_light / H0;
+  ld_cos      = (1.0 + z) *  rz * c_light / H0;
   mu_cos      =  5.*log10(ld_cos) + 25. ;
-  dmu         = mu_cos - HD.mu[k] ;
+  dmu         = mu_cos - mu_obs ;
   return dmu ;
 
 }  // end get_DMU_chi2wOM

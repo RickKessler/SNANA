@@ -74,7 +74,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     #   config_data       : info about data units and phot varnames
     #   data_event_dict   : current event: header, phot, spec
 
-    head_raw  = data_event_dict['head_raw']
+    head_raw = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
     SNID      = head_raw[DATAKEY_SNID] # for error message
@@ -95,21 +95,22 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         config_data['schema']          = schema
         config_data['alert_data_orig'] = alert_data_orig
         config_data['diaSourceId']     = 1000000
-
+        
     schema          = config_data['schema'] 
     diaSourceId     = config_data['diaSourceId'] 
     alert_data_orig = config_data['alert_data_orig']
     alert           = copy(alert_data_orig)
-
+    
     prvDiaSources = alert_data_orig['prvDiaSources']
-    ll = len(prvDiaSources)
-    prvType = type(prvDiaSources)
-    #print(f"\n xxx len={ll} {prvType}  alert_data_orig = \n{prvDiaSources}\n")
-    diasrc = prvDiaSources[0]
-            
-    alert = copy(alert_data_orig)   # ???
-    alert['prvDiaSources'].clear()  # ???
+    diasrc = prvDiaSources[0]    
 
+    alert['prvDiaSources'].clear()
+
+    print(f" xxx ---------------------------------------------")
+    print(f"\n xxx BBEFORE LOOP alert = \n{alert}\n")
+    print(f" xxx NOBS = {NOBS} ")
+    sys.stdout.flush()
+    
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst aler
     my_diasrc = {}
@@ -122,12 +123,22 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         diaSourceId += 1
         my_diasrc['diaSourceId'] = diaSourceId
 
+        translate_dict_diasrc(o, data_event_dict, my_diasrc) # update my_diasrc
+
+        print(f" xxx start o = {o} ")
+        if o == 0 :
+            alert['diaSource'] = my_diasrc
+            continue
+
         # ?? my_diasrc['ccdVisitId']  = 1000 + o  # dummy val
         # ?? my_diasrc['programId']   = 2000 
 
         translate_dict_diasrc(o, data_event_dict, my_diasrc) # update my_diasrc
         alert['prvDiaSources'].append(alert['diaSource'])
-        
+
+        print(f"\n xxx o={o} alert = \n{alert}\n")
+        sys.stdout.flush()
+            
         # serialize the alert    
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
@@ -135,6 +146,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
         diaObjectId = my_diasrc['diaObjectId']
         mjd_file    = f"{mjd}_{diaObjectId}_{diaSourceId}.avro"
+
         with open(mjd_file,"wb") as f:
             schema.store_alerts(f, [alert])
 

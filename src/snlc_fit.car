@@ -938,7 +938,7 @@ c variables for SPECTRA table (Nov 2016)
       PARAMETER ( MXLAM_TBLSPEC = 1000 )
       CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
       REAL  
-     &   TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
+     &   TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
      &  ,TBLSPEC_LAMLIST(MXLAM_TBLSPEC)
@@ -957,6 +957,7 @@ c
      &  ,NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
      &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
+     &  ,TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
      &  ,TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST
@@ -19253,6 +19254,7 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
           TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST) 
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
+          TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST) 
           TBLSPEC_IFILTOBS          = IFILTOBS
           TBLSPEC_CCDNUM            = I4EP_ALL(ep,IEP_CCDNUM) 
           TBLSPEC_IMGNUM            = I4EP_ALL(ep,IEP_IMGNUM)
@@ -19354,7 +19356,6 @@ C ---------------- BEGIN ------------
       CBLOCK   = BLOCK(1:LENBLOCK) // char(0)
 
 c - - - - 
-
       VARNAME = 'CCID:C*20' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARNAME, 1,
      &                   LENBLOCK, 20 )
@@ -19379,16 +19380,16 @@ c - - - -
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_IFILTOBS, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
-c      VARNAME = 'MJD:F' // char(0)
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_MJD, VARNAME, 1,
-c     &                   LENBLOCK, 20 )
-
       VARNAME = 'MJD:D' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC8_MJD, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
       VARNAME = 'TREST:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_TREST, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'LAMREST:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_LAMREST, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
       VARNAME = 'FLUXCAL_DATA:F' // char(0)

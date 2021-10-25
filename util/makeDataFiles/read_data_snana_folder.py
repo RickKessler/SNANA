@@ -161,30 +161,10 @@ class data_snana_folder(Program):
                               f"data header")
                 util.log_assert(False,msgerr)
 
-
-        # strip off the HOSTGAL keys
-        for key in DATAKEY_LIST_RAW:
-            if "HOSTGAL" not in key: continue
-            if key in head_names :
-                head_raw[key] = table_head[key][evt]
-
-        for key in DATAKEY_LIST_CALC:
-            if "HOSTGAL" not in key: continue
-            if key in head_names :
-                head_calc[key] = table_head[key][evt]
+        # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
+        self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
+        self.store_hostgal(DATAKEY_LIST_CALC, evt, head_calc)
         
-        # ugly/embarassing hack to get field (DDF or WFD) from filename
-        # because original plasticc data didn't store field.
-        head_file  = table_dict['head_file']
-        if FIELD_DDF in head_file:
-            head_raw[DATAKEY_FIELD] = FIELD_DDF
-        elif FIELD_WFD in head_file:
-            head_raw[DATAKEY_FIELD] = FIELD_WFD
-        else:
-            msgerr.append(f"Unable to determine FIELD for")
-            msgerr.append(f"{head_file}")
-            util.log_assert(False,msgerr)
-            
         # - - - - - - -
         # get pointers to PHOT table
         ROWMIN = table_head.PTROBS_MIN[evt]
@@ -203,6 +183,15 @@ class data_snana_folder(Program):
             phot_raw[varname] = \
                 table_phot[varname_table][ROWMIN:ROWMAX].copy()
             
+        # - - - - - 
+        # get field from from first observation,
+        # Beware that event can overlap multiple fields.
+        field = phot_raw[DATAKEY_FIELD][0]
+        if field == "NULL" and args.survey == 'LSST' :
+            field = self.field_plasticc_hack(table_dict['head_file'])
+
+        head_raw[DATAKEY_FIELD] = field
+
         # - - - -
         spec_raw = {}
 
@@ -219,6 +208,27 @@ class data_snana_folder(Program):
     
         # end read_event
 
+    def store_hostgal(self, datakey_list, evt, head_store):
+
+        # store hostgal info in head_store dictionary.
+        # Note that input head_store is modified here.
+
+        table_dict = self.config_data['table_dict']
+        table_head = table_dict['table_head']
+        head_names = table_dict['head_names']
+
+        len_base = len(HOSTKEY_BASE)
+        for key in datakey_list:
+            if HOSTKEY_BASE not in key: continue
+            key2 = HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
+            key3 = HOSTKEY_BASE + '3' + key[len_base:]
+            key_list = [ key, key2, key3]
+            for k in key_list: 
+                if k in head_names :
+                    head_store[k] = table_head[k][evt]
+
+        # end store_hostgal
+        
     def get_table_value(self, varlist, irow, table):
 
         # return "irow" table value for varlist,
@@ -236,6 +246,22 @@ class data_snana_folder(Program):
         return value
         # end get_table_value
         
+    def field_plasticc_hack(self,head_file_name):
+
+        # ugly/embarassing hack to get field (DDF or WFD) from filename
+        # because original plasticc data didn't store field.
+        
+        if FIELD_DDF in head_file_name:
+            field = FIELD_DDF
+        elif FIELD_WFD in head_file:
+            field = FIELD_WFD
+        else:
+            msgerr.append(f"Unable to determine FIELD for")
+            msgerr.append(f"{head_file_name}")
+            util.log_assert(False,msgerr)
+
+        return field
+        # end field_plasticc_hack
 
     def set_dump_flag(self, isn, data_event_dict):
         d_raw = data_event_dict['head_raw']

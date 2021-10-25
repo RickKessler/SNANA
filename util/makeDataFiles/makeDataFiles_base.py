@@ -63,7 +63,7 @@ class Program:
         nsplit        = args.nsplitran
         isplit_select = args.isplitran # 1 to nsplit, or -1 for all
         iyear_select  = args.year      # 1-NYEAR, or -1 for all
-        field         = args.field
+        field_select  = args.field
         survey        = args.survey
         peakmjd_range    = args.peakmjd_range
         mjd_detect_range = args.mjd_detect_range
@@ -77,7 +77,7 @@ class Program:
 
         unit_name_list   = []
         unit_nevent_list = []
-        msgerr    = []
+        msgerr           = []
         
         if isplit_select == 0 or isplit_select > nsplit:
             msgerr = []
@@ -100,12 +100,14 @@ class Program:
                 # define unit name for all seasons combined
                 if (isplit == 0 or isplit_select>0) and iseason==0 :
                     unit_name = \
-                        self.assign_data_unit_name(survey, field, -1, ISPLIT)
+                        self.assign_data_unit_name(survey, field_select, 
+                                                   -1, ISPLIT)
                     unit_name_list.append(unit_name)
                 
                 # define unit name for this season/iyear
                 unit_name = \
-                    self.assign_data_unit_name(survey, field, iyear, ISPLIT)
+                    self.assign_data_unit_name(survey, field_select, 
+                                               iyear, ISPLIT)
                 unit_name_list.append(unit_name)                
         
         # init 'exist' logical to false for each data unit
@@ -149,7 +151,7 @@ class Program:
         nsplit        = args.nsplitran
         isplit_select = args.isplitran  # 1 to nsplit, or -1 for all
         iyear_select  = args.year       # 1 to nyear, or -1 for all
-        field         = args.field
+        field_select  = args.field
         survey        = args.survey
         peakmjd_range    = args.peakmjd_range
         mjd_detect_range = args.mjd_detect_range
@@ -165,24 +167,28 @@ class Program:
         PEAKMJD    = d_calc[DATAKEY_PEAKMJD] 
         MJD_DETECT = d_calc[DATAKEY_MJD_DETECT] 
 
-        # check field match
-        match_field = False
-        if field == FIELD       : match_field = True
-        if field == FIELD_VOID  : match_field = True
-        if not match_field : return None
-
-        # create dictionary needed to determine iyear
-        small_event_dict = { 'peakmjd': PEAKMJD,  'mjd_detect': MJD_DETECT,
-                             'ra': RA,  'dec': DEC,  'field': field }
-
-        if n_season > 1:
-            YY = util.iyear_survey(survey, small_event_dict)
+        # - - - - - - - - - - - - - - - - -
+        # check match for field 
+        if field_select == FIELD_VOID :
+            match_field = True  # no --field arg
         else:
-            YY = -1  # no explicit season dependence
+            match_field = False
+            if field_select == FIELD  : match_field = True
 
-        # check year/season match
-        match_year = True
-            
+        if not match_field : 
+            return None
+
+        # - - - - - - - - -
+        # check match for season/year
+
+        YY = -1  # no explicit season dependence
+        if n_season > 1:
+        # create dictionary needed to determine iyear
+            small_event_dict = { 'peakmjd':PEAKMJD,  'mjd_detect':MJD_DETECT,
+                                 'ra':RA,  'dec':DEC,  'field':FIELD }
+            YY = util.iyear_survey(survey, small_event_dict)
+
+        match_year = True            
         if iyear_select > 0 : 
             match_year = (YY == iyear_select)
 
@@ -190,7 +196,7 @@ class Program:
             return None
 
         # - - - - - - - - - - - - - 
-        # check split job    
+        # check match for split job
         match_split = True ; ISPLIT = -9
         if nsplit > 1 :
             iSNID  = int(SNID)
@@ -201,8 +207,10 @@ class Program:
         if not match_split : return None
 
         # - - - - - - - -        
-        data_unit_name  =  self.assign_data_unit_name(survey,FIELD, YY, ISPLIT)
-        data_unit_name_list = self.config_data['data_unit_name_list']
+        data_unit_name  =  \
+            self.assign_data_unit_name(survey, field_select, YY, ISPLIT)
+        data_unit_name_list = \
+            self.config_data['data_unit_name_list']
         
         if data_unit_name not in data_unit_name_list :
             msgerr = []

@@ -6812,7 +6812,9 @@ void SORT_SNHOST_byDDLR(void) {
 
     if ( INPUTS.HOSTLIB_GALID_UNIQUE_OFFSET >= 0 ) {
       // compute GALID_UNIQUE from GALID (it's NOT read from hostlib)
-      HOSTLIB.GALID_UNIQUE_GLOBAL += 10;
+      if (i==0){
+         HOSTLIB.GALID_UNIQUE_GLOBAL += 10;
+      }
       SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = HOSTLIB.GALID_UNIQUE_GLOBAL + i;
     }
 

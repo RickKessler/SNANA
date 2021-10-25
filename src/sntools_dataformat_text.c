@@ -510,6 +510,12 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
               SNDATA.HOSTGAL_OBJID2[igal]);
     }
 
+    if ( SNDATA.HOSTGAL_OBJID_UNIQUE[igal] > 0 ) {
+      fprintf(fp, "%s_OBJID_UNIQUE:  %lld   # unique ID\n",
+              PREFIX,
+              SNDATA.HOSTGAL_OBJID_UNIQUE[igal]);
+    }
+
     if ( SNDATA.HOSTGAL_ELLIPTICITY[igal] > 0 ) {
       fprintf(fp, "%s_ELLIPTICITY:     %.3f\n",
               PREFIX,

@@ -3,7 +3,7 @@
 # [R.Hlozek, R.Kessler ...]
 
 import os, sys, yaml, shutil, glob, math
-import logging, subprocess  # coloredlogs
+import logging, subprocess, json
 
 import numpy as np
 from   makeDataFiles_params    import *
@@ -12,6 +12,7 @@ import makeDataFiles_util  as util
 from pathlib import Path
 import lsst.alert.packet
 from fastavro import writer, reader
+from copy import copy
 
 
 # map dictionary(SNANA) varName to alert varName 
@@ -48,30 +49,100 @@ VARNAME_OBS_MAP = {
     'FLUXCALERR' : 'apFluxErr'
 }
 
-# ====================================================
+# ===============================================================
+def init_schema_lsst_alert(schema_file):
 
+    schema     = lsst.alert.packet.Schema.from_file(filename=schema_file)
+    schema_dir = os.path.dirname(schema_file)
+    json_file  = f"{schema_dir}/sample_data/plasticc.json"  # too much hard coding
+
+    print(f"\n Init alert schema based on\n\t schema_file={schema_file}\n" \
+          f"\t jon_file={json_file}")
+    
+    # Load an example json alert, and clear the numberical input
+    with open(json_file) as f:
+        alert_data = json.load(f)
+    
+    return schema, alert_data
+
+    # end prep_write_lsst_alert
+    
 def write_event_lsst_alert(args, config_data, data_event_dict):
+
+    # Inputs:
+    #   args : user command line inputs
+    #   config_data       : info about data units and phot varnames
+    #   data_event_dict   : current event: header, phot, spec
 
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
     SNID      = head_raw[DATAKEY_SNID] # for error message
     NOBS      = phot_raw[DATAKEY_NOBS]
-    diasrc    = {}
 
-    translate_dict_alert(-1, data_event_dict, diasrc) # translate header
+    # strip off number of processed events; init stuff on nevent=0
+    data_unit_name    = data_event_dict['data_unit_name']
+    index_unit        = data_event_dict['index_unit']
+    data_unit_name_list   = config_data['data_unit_name_list']
+    data_unit_nevent_list = config_data['data_unit_nevent_list']    
+    nevent            = data_unit_nevent_list[index_unit]
+    outdir            = args.outdir_snana
+
+    if nevent == 0 :
+        # later check for removing old folders ??
+        schema, alert_data  = init_schema_lsst_alert(args.lsst_alert_schema)
+        alert_data_orig = alert_data.copy()
+        config_data['schema']          = schema
+        config_data['alert_data_orig'] = alert_data_orig
+        config_data['diaSourceId']     = 1000000
+
+    schema          = config_data['schema'] 
+    diaSourceId     = config_data['diaSourceId'] 
+    alert_data_orig = config_data['alert_data_orig']
+    alert           = copy(alert_data_orig)
+
+    prvDiaSources = alert_data_orig['prvDiaSources']
+    ll = len(prvDiaSources)
+    prvType = type(prvDiaSources)
+    #print(f"\n xxx len={ll} {prvType}  alert_data_orig = \n{prvDiaSources}\n")
+    diasrc = prvDiaSources[0]
+            
+    alert = copy(alert_data_orig)   # ???
+    alert['prvDiaSources'].clear()  # ???
+
+    # - - - - - -
+    # translate snana header and create diasrc dictionary for lsst aler
+    my_diasrc = {}
+    translate_dict_diasrc(-1, data_event_dict, my_diasrc)
+
+    alert['diaSource'] = my_diasrc
 
     # translate each obs
     for o in range(0,NOBS):
-        translate_dict_alert(o, data_event_dict, diasrc)
-        #print(f"\t xxx write obs {o:3d} of {NOBS} for {SNID} ")
+        diaSourceId += 1
+        my_diasrc['diaSourceId'] = diaSourceId
 
+        # ?? my_diasrc['ccdVisitId']  = 1000 + o  # dummy val
+        # ?? my_diasrc['programId']   = 2000 
 
-    sys.exit(f"\n xxx NOBS={NOBS}  diasrc = \n{diasrc}")
+        translate_dict_diasrc(o, data_event_dict, my_diasrc) # update my_diasrc
+        alert['prvDiaSources'].append(alert['diaSource'])
+        
+        # serialize the alert    
+        avro_bytes = schema.serialize(alert)
+        messg      = schema.deserialize(avro_bytes)
+
+        mjd         = data_event_dict['phot_raw']['MJD'][o]
+        diaObjectId = my_diasrc['diaObjectId']
+        mjd_file    = f"{mjd}_{diaObjectId}_{diaSourceId}.avro"
+        with open(mjd_file,"wb") as f:
+            schema.store_alerts(f, [alert])
+
+        #print(f" xxx o={o}  mjd={mjd}")
+        
     # end write_event_lsst_alert
 
-
-def translate_dict_alert(obs, data_event_dict, diasrc):
+def translate_dict_diasrc(obs, data_event_dict, diasrc):
     # obs = -1 -> set header info
     # obs >= 0 -> set info for obs 
 
@@ -85,17 +156,21 @@ def translate_dict_alert(obs, data_event_dict, diasrc):
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
             if varName_inp in head_raw:
-                diasrc[varName_avro] = head_raw[varName_inp]
+                if varName_inp == DATAKEY_SNID:
+                    diasrc[varName_avro] = int(head_raw[varName_inp])
+                else:
+                    diasrc[varName_avro] = head_raw[varName_inp]
+                    
             elif varName_inp in head_calc :
                 diasrc[varName_avro] = head_calc[varName_inp]
             else:
                 diasrc[varName_avro] = phot_raw[varName_inp]
                 
-            print(f" xxx {varName_inp} -> {varName_avro} ")
+            #print(f" xxx {varName_inp} -> {varName_avro} ")
     else:
         for varName_inp in VARNAME_OBS_MAP:
             varName_avro = VARNAME_OBS_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
             diasrc[varName_avro] = phot_raw[varName_inp][obs]
         
-# end translate_dict_alert
+    # end translate_dict_diasrc

@@ -8254,6 +8254,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_SQRADIUS[igal]     = -99.0 ;
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
+    SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
   }
   SNDATA.HOSTGAL_USEMASK = 0 ;
 

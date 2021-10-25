@@ -293,6 +293,7 @@ struct SNDATA {
   float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
   float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
   long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
   float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
   float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;
   int     HOSTLIB_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)

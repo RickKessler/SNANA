@@ -223,6 +223,8 @@ void INIT_HOSTLIB(void) {
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
   fflush(stdout);
 
+  HOSTLIB.GALID_UNIQUE_GLOBAL = INPUTS.HOSTLIB_GALID_UNIQUE_OFFSET ;
+
   //  debugexit(fnam); // xxxx REMOVE
   return ;
 
@@ -404,10 +406,13 @@ void init_OPTIONAL_HOSTVAR(void) {
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
+
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
+
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ELLIPTICITY );
+
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_SQRADIUS );
 
@@ -5031,9 +5036,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
     { GEN_SNHOST_DDLR(ilist); }
 
-  // 9.2021: generate ZPHOT before sorting by DDLR
-  // xxx  GEN_SNHOST_ZPHOT(IGAL);
-
   // sort by DDLR
   SORT_SNHOST_byDDLR();
 
@@ -6605,8 +6607,9 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
-    SNHOSTGAL_DDLR_SORT[i].GALID2 = -9;
-    SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY = 999.0;
+    SNHOSTGAL_DDLR_SORT[i].GALID2       = -9;
+    SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = -9;
+    SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY  = 999.0;
     SNHOSTGAL_DDLR_SORT[i].SQRADIUS = 999.0;
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
       SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]  = -9.0 ;
@@ -6697,7 +6700,7 @@ void SORT_SNHOST_byDDLR(void) {
   // At end of function, set SNHOSTGAL.NNBR = number passing DDLR cut.
   //
   // May 20 2020: bug fix for LSN2GAL
-  
+  // Oct 25 2021: compute optional GALID_UNIQUE (for LSST broker test)
   
   bool LSN2GAL_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
   int  NNBR          = SNHOSTGAL.NNBR ;
@@ -6708,7 +6711,8 @@ void SORT_SNHOST_byDDLR(void) {
   int  ORDER_SORT       = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
-  int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
+  int  INDEX_UNSORT[MXNBR_LIST];
+  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
   int  NNBR_DDLRCUT = 0 ;
   double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
@@ -6793,18 +6797,29 @@ void SORT_SNHOST_byDDLR(void) {
     IVAR = HOSTLIB.IVAR_LOGMASS_TRUE; 
     if ( IVAR > 0 ) 
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = get_VALUE_HOSTLIB(IVAR,IGAL); }
+
     IVAR = HOSTLIB.IVAR_LOGMASS_OBS; 
     if ( IVAR > 0 ) 
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = get_VALUE_HOSTLIB(IVAR,IGAL); }
+
     IVAR = HOSTLIB.IVAR_LOGMASS_ERR; 
     if ( IVAR > 0 )
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL); }
+
     IVAR = HOSTLIB.IVAR_GALID2;
     if ( IVAR > 0 ) 
-      { SNHOSTGAL_DDLR_SORT[i].GALID2 = get_VALUE_HOSTLIB(IVAR,IGAL); }                           
+      { SNHOSTGAL_DDLR_SORT[i].GALID2 = get_VALUE_HOSTLIB(IVAR,IGAL); } 
+
+    if ( INPUTS.HOSTLIB_GALID_UNIQUE_OFFSET >= 0 ) {
+      // compute GALID_UNIQUE from GALID (it's NOT read from hostlib)
+      HOSTLIB.GALID_UNIQUE_GLOBAL += 10;
+      SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = HOSTLIB.GALID_UNIQUE_GLOBAL + i;
+    }
+
     IVAR = HOSTLIB.IVAR_ELLIPTICITY;
     if ( IVAR > 0 )
-      { SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY = get_VALUE_HOSTLIB(IVAR,IGAL); }    
+      { SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY = get_VALUE_HOSTLIB(IVAR,IGAL); }
+
     IVAR = HOSTLIB.IVAR_SQRADIUS;
     if ( IVAR > 0 )
       { SNHOSTGAL_DDLR_SORT[i].SQRADIUS = get_VALUE_HOSTLIB(IVAR,IGAL); }
@@ -8598,8 +8613,6 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "%s", varList);
   sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+APPEND");
-
-  // .xyz
   
   int  igal_unsort, igal_zsort, istat_read;
   long long GALID;

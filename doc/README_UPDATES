@@ -20519,5 +20519,12 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     snlc_sim, sntools_dataformat_*
       + write new header variables: 
            MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST
+      + new input HOSTLIB_GALID_UNIQUE_OFFSET
+
+    wfit.c
+      + begin adding modern BAO prior from Alam 2020
+
+    makeDataFiles/
+       + lots of development
 
 END: 

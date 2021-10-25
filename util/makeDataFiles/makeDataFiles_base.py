@@ -49,7 +49,7 @@ class Program:
 
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
-    
+
         # end Program __init__
         
     def init_data_unit(self, config_inputs, config_data ):

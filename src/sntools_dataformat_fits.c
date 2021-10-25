@@ -307,6 +307,8 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_SQRADIUS",    itype );
 
+  // add if-block later if possible; to avoid writing garbage for most sims
+  wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
 
   // add HOSTGAL mags 
@@ -348,6 +350,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
+
+    wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID_UNIQUE",  itype ); // if-block??
 
     // add HOSTGAL mags 
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -1587,6 +1591,11 @@ void wr_snfitsio_update_head(void) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID2", PREFIX);
     WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID2[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_OBJID_UNIQUE", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID_UNIQUE[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

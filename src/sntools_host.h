@@ -126,7 +126,6 @@
 #define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
 #define HOSTLIB_VARNAME_GALID2       "GALID2"
-#define HOSTLIB_VARNAME_GALID_UNIQUE "GALID_UNIQUE"
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
@@ -216,7 +215,6 @@ struct HOSTLIB_DEF {
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_GALID2;                // AG 09/2021
-  int IVAR_GALID_UNIQUE;          // Oct 2021 DESC-sprint
   int IVAR_ELLIPTICITY;
   int IVAR_SQRADIUS;
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
@@ -267,8 +265,6 @@ struct HOSTLIB_DEF {
   // pre-computed cos and sin to speed gal-flux integration
   double Aperture_cosTH[NTHBIN_GALMAG+1] ;
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
-
-  long long GALID_UNIQUE_GLOBAL;
 
 } HOSTLIB ;
 
@@ -699,6 +695,8 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN, 
 				   double *ZPHOT, double *ZPHOT_ERR); 
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
+
+void   set_GALID_UNIQUE(int i);
 
 // SPECBASIS functions
 void   read_specTable_HOSTLIB(void);

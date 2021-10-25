@@ -223,8 +223,6 @@ void INIT_HOSTLIB(void) {
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
   fflush(stdout);
 
-  HOSTLIB.GALID_UNIQUE_GLOBAL = INPUTS.HOSTLIB_GALID_UNIQUE_OFFSET ;
-
   //  debugexit(fnam); // xxxx REMOVE
   return ;
 
@@ -6810,12 +6808,9 @@ void SORT_SNHOST_byDDLR(void) {
     if ( IVAR > 0 ) 
       { SNHOSTGAL_DDLR_SORT[i].GALID2 = get_VALUE_HOSTLIB(IVAR,IGAL); } 
 
-    if ( INPUTS.HOSTLIB_GALID_UNIQUE_OFFSET >= 0 ) {
+    if ( INPUTS.HOSTLIB_GALID_UNIQUE ) {
       // compute GALID_UNIQUE from GALID (it's NOT read from hostlib)
-      if (i==0){
-         HOSTLIB.GALID_UNIQUE_GLOBAL += 10;
-      }
-      SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = HOSTLIB.GALID_UNIQUE_GLOBAL + i;
+      set_GALID_UNIQUE(i);
     }
 
     IVAR = HOSTLIB.IVAR_ELLIPTICITY;
@@ -6857,6 +6852,38 @@ void SORT_SNHOST_byDDLR(void) {
   return ;
 
 } // SORT_SNHOST_byDDLR
+
+// ================================= 
+void set_GALID_UNIQUE(int i){
+ // Oct 2021
+ // Creates unique GALID 
+ // Initial use is for LSST DESC broker test
+ // Input i is the neighbor index 
+ 
+ char fnam[] = "set_GALID_UNIQUE";
+ int CID = GENLC.CID;
+ int CID_MULTIPLIER = 97;
+ long long GALID_UNIQUE;
+ int ilist = 1;
+ int i2;
+ double rand1 = getRan_Flat1(ilist);
+ bool match_GALID = true;
+
+ while (match_GALID){
+ 	GALID_UNIQUE = CID*CID_MULTIPLIER + (int)(rand1*CID_MULTIPLIER);
+	SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = GALID_UNIQUE;
+ 	if (i==0){
+		 return ;
+ 	}
+	 // if GALID_UNIQUE matches previous neighbor, pick another GALID
+	 match_GALID = false;
+	 for (i2 = 0; i2 < i; i2++){
+		if (GALID_UNIQUE == SNHOSTGAL_DDLR_SORT[i2].GALID_UNIQUE){
+			match_GALID = true;
+		}
+ 	} //end i2 for  
+ } // end while
+} // end set_GALID_UNIQUE
 
 // =================================
 void TRANSFER_SNHOST_REDSHIFT(int IGAL) {

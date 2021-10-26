@@ -13,9 +13,9 @@ from    submit_prog_base import Program
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 COLNUM_MKDATA_MERGE_DATAUNIT    = 1
-COLNUM_MKDATA_MERGE_NEVENTS     = 2
-COLNUM_MKDATA_MERGE_NSPECZ      = 3
-COLNUM_MKDATA_MERGE_CPU         = 4
+COLNUM_MKDATA_MERGE_NEVT        = 2
+COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
+COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
 KEYLIST_OUTPUT                  = ['OUTDIR_SNANA', 'OUTDIR_ALERTS']
@@ -201,7 +201,7 @@ class MakeDataFiles(Program):
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
 
-        #arg_list.append(f"--yamloutputfile {yaml_file}") # need this later
+        arg_list.append(f"--output_yaml_file {yaml_file}")
         # if do_fast   : arg_list.append("--fast")        # may need later
 
         JOB_INFO = {}
@@ -223,7 +223,7 @@ class MakeDataFiles(Program):
 
         prefix_output_list        = self.config_prep['prefix_output_list']
 
-        header_line_merge = (f"    STATE   {DATA_UNIT_STR}  NEVT CPU")
+        header_line_merge = (f"    STATE   {DATA_UNIT_STR}  NEVT NEVT_SPECZ NEVT_PHOTOZ")
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
@@ -234,8 +234,9 @@ class MakeDataFiles(Program):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
             ROW_MERGE.append(prefix)
-            ROW_MERGE.append(0)       # NLC
-            ROW_MERGE.append(0.0)     # CPU
+            ROW_MERGE.append(0)       # NEVT
+            ROW_MERGE.append(0)       # NEVT_SPECZ
+            ROW_MERGE.append(0)       # NEVT_PHOTOZ
 
             INFO_MERGE['row_list'].append(ROW_MERGE)
         # - - - -
@@ -275,34 +276,42 @@ class MakeDataFiles(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
 
-        COLNUM_STATE     = COLNUM_MERGE_STATE
-        COLNUM_TRAINOPT  = COLNUM_TRAIN_MERGE_TRAINOPT
-        COLNUM_NLC       = COLNUM_TRAIN_MERGE_NLC
-        COLNUM_NSPEC     = COLNUM_TRAIN_MERGE_NSPEC
-        COLNUM_CPU       = COLNUM_TRAIN_MERGE_CPU
+        COLNUM_STATE       = COLNUM_MERGE_STATE
+        COLNUM_DATAUNIT    = COLNUM_MKDATA_MERGE_DATAUNIT
+        COLNUM_NEVT        = COLNUM_MKDATA_MERGE_NEVT
+        COLNUM_NEVT_SPECZ  = COLNUM_MKDATA_MERGE_NEVT_SPECZ
+        COLNUM_NEVT_PHOTOZ = COLNUM_MKDATA_MERGE_NEVT_PHOTOZ
 
         # init outputs of function
         n_state_change     = 0
         row_list_merge_new = []
         row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
+        # keys from YAML file
+        # NEVT_ALL:                118
+        # NEVT_HOSTGAL_SPECZ:      60
+        # NEVT_HOSTGAL_PHOTOZ:     118
+        # NEVT_SPECTRA:            0
+
         # keynames_for_job_stats returns 3 keynames :
         #   {base}, {base}_sum, {base}_list
-        key_nlc, key_nlc_sum, key_nlc_list = \
-                self.keynames_for_job_stats('NUM_SNE')
-        key_nspec, key_nspec_sum, key_nspec_list = \
-                 self.keynames_for_job_stats('NUM_SPECTRA')
-        key_cpu, key_cpu_sum, key_cpu_list = \
-                self.keynames_for_job_stats('CPU_MINUTES')
-        key_list = [ key_nlc, key_nspec, key_cpu ]
+        key_nall, key_nall_sum, key_nall_list = \
+                self.keynames_for_job_stats('NEVT_ALL')
+        key_nspecz, key_nspecz_sum, key_nspecz_list = \
+                 self.keynames_for_job_stats('NEVT_HOSTGAL_SPECZ')
+        key_nphotz, key_nphotz_sum, key_nphotz_list = \
+                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')
+        #key_cpu, key_cpu_sum, key_cpu_list = \
+        #        self.keynames_for_job_stats('CPU_MINUTES')
+        key_list = [ key_nall, key_nspecz, key_nphotz ]
 
         nrow_check = 0
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input
             nrow_check += 1
             irow        = nrow_check - 1 # row index
-            trainopt    = row[COLNUM_TRAINOPT] # e.g., TRAINOPT001
-            search_wildcard = (f"{trainopt}*")
+            data_unit    = row[COLNUM_DATAUNIT]
+            search_wildcard = (f"{data_unit}*")
 
             # strip off row info
             STATE       = row[COLNUM_STATE]
@@ -331,10 +340,10 @@ class MakeDataFiles(Program):
                 job_stats = self.get_job_stats(script_dir,
                                                log_list, yaml_list, key_list)
 
-                row[COLNUM_STATE]     = NEW_STATE
-                row[COLNUM_NLC]       = job_stats[key_nlc_sum]
-                row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
-                row[COLNUM_CPU]       = job_stats[key_cpu_sum]
+                row[COLNUM_STATE]       = NEW_STATE
+                row[COLNUM_NEVT]        = job_stats[key_nall_sum]
+                row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
+                row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
 
                 row_list_merge_new[irow] = row  # update new row
                 n_state_change += 1
@@ -350,37 +359,14 @@ class MakeDataFiles(Program):
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
-        modeldir_list    = submit_info_yaml['MODELDIR_LIST']
 
         row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
-        trainopt = row[COLNUM_TRAIN_MERGE_TRAINOPT]
-        model_dir = f"{output_dir}/{modeldir_list[irow]}"
-        misc_dir  = f"{model_dir}/{SUBDIR_MISC}"
-        print(f" Cleanup {model_dir}")
+        print(f" Do nothing!")
 
-        # - - - - - -
-        # check if SALTshaker already cleaned up
-        tar_file = f"{SUBDIR_MISC}.tar"
-        tmp_list = glob.glob1(misc_dir,f"{tar_file}*")
-        done_misc = len(tmp_list) > 0
-
-        if not done_misc :
-            os.mkdir(misc_dir)
-            mv_string = "*.png *.pdf *.npy gauss* *parameters* " \
-                        "salt3train_snparams.txt"
-            cmd = f"cd {model_dir} ; mv {mv_string} {SUBDIR_MISC}/"
-            os.system(cmd)
-
-            # tar and gzip misc sub dir
-            cmd_tar = f"cd {model_dir} ; " \
-                    f"tar -cf {tar_file} {SUBDIR_MISC} ; " \
-                    f"gzip  {tar_file} ; " \
-                    f"rm -r {SUBDIR_MISC} "
-            os.system(cmd_tar)
-
+        # Gautham - 20211026 - for alerts - will need to edit this and create gz files
         # gzip dat files
-        cmd_gzip = f"cd {model_dir} ; gzip *.dat "
-        os.system(cmd_gzip)
+        # cmd_gzip = f"cd {model_dir} ; gzip *.dat "
+        # os.system(cmd_gzip)
 
         # end  merge_job_wrapup
 
@@ -394,13 +380,20 @@ class MakeDataFiles(Program):
         # end get_misc_merge_info
 
     def merge_cleanup_final(self):
-        # every snlc_fit job succeeded, so here we simply compress output.
+        # every makeDataFiles succeeded, so here we simply compress output.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
+        cwd              = submit_info_yaml['CWD']
 
-        wildcard_list = [ 'TRAINOPT', 'CPU', 'CALIB_SHIFT' ]
+        command_list = ['makeDataFiles.sh', '--outdir_snana', output_dir, '--merge']
+        ret = subprocess.run(  command_list,
+                                 cwd=cwd,
+                                 capture_output=False, text=True )
+        print(ret,' debugging')
+
+        wildcard_list = [ 'MAKEDATA', 'CPU',  ]
         for w in wildcard_list :
             wstar = f"{w}*"
             tmp_list = glob.glob1(script_dir,wstar)
@@ -415,7 +408,7 @@ class MakeDataFiles(Program):
         # end merge_cleanup_final
 
     def get_merge_COLNUM_CPU(self):
-        return COLNUM_TRAIN_MERGE_CPU
+        return -9
 
 # =========== END: =======
 

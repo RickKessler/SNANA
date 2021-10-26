@@ -17,9 +17,9 @@ def write_event_text_snana(args, config_data, data_event_dict):
     #   config_data       : info about data units and phot varnames
     #   data_event_dict   : current event: header, phot, spec
 
-    # create one text file and write one event described by  
-    # dictionary data_event_dict. 
-    # Input data_unit_name is used to determine name of folder.   
+    # create one text file and write one event described by
+    # dictionary data_event_dict.
+    # Input data_unit_name is used to determine name of folder.
     ISTEXT = True
     outdir                = args.outdir_snana
     data_unit_name_list   = config_data['data_unit_name_list']
@@ -38,7 +38,7 @@ def write_event_text_snana(args, config_data, data_event_dict):
     exist_tar_file = os.path.exists(tar_file)
 
     if nevent == 0 :
-        # remove folder if it already exists       
+        # remove folder if it already exists
         if exist_folder :
             cmd_rm = f"rm -r {data_dir}"
             os.system(cmd_rm)
@@ -47,12 +47,12 @@ def write_event_text_snana(args, config_data, data_event_dict):
             cmd_rm = f"rm -r {tar_file}"
             os.system(cmd_rm)
 
-        # create folder       
+        # create folder
         logging.info(f"\t Create folder {folder}")
         sys.stdout.flush()
         os.mkdir(data_dir)
 
-    # - - - - -                         
+    # - - - - -
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
@@ -67,27 +67,27 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
     with open(data_file, "wt") as f :
 
-        # write header info   
+        # write header info
         write_header_snana(f,head_raw)
 
         f.write("\n# computed quantities \n")
         write_header_snana(f,head_calc)
 
-        # write epoch/phot info 
+        # write epoch/phot info
         write_phot_snana(f, head_raw, phot_raw, config_data)
 
-        # write optional spectra  
+        # write optional spectra
         write_spec_snana(f, head_raw, spec_raw)
 
-    # end write_event_text_snana                       
+    # end write_event_text_snana
 
 def write_header_snana(f, data_head):
 
-    # write list of header key,val pairs in data_head. 
-    # If XXX and XXX_ERR both exist, write as    
-    #   KEYXXX:  XXX +_ XXX_ERR    
+    # write list of header key,val pairs in data_head.
+    # If XXX and XXX_ERR both exist, write as
+    #   KEYXXX:  XXX +_ XXX_ERR
     # Be careful for HOSTGAL_XXX keys that are filter dependent;
-    # filter-dependent values are written on same line as key, 
+    # filter-dependent values are written on same line as key,
     # not separate line per filter.
 
     # init filter-dependent list of hostgal values
@@ -98,7 +98,7 @@ def write_header_snana(f, data_head):
     n_hostkey = 0
 
     for key in data_head:
-        #print(f" xxx header key = {key}") 
+        #print(f" xxx header key = {key}")
         if '_ERR' in key: continue
         key_plus_err   = f"{key}_ERR"
         key_plus_colon = f"{key}:"
@@ -114,7 +114,7 @@ def write_header_snana(f, data_head):
         # increment mag-dependent host strings
         skip_hostkey = False
         for prefix  in HOSTKEY_PREFIX_LIST:
-            if prefix in key: 
+            if prefix in key:
                 skip_hostkey = True
                 hostgal_string_vals[prefix] += f"{val} "
         if skip_hostkey : continue
@@ -125,23 +125,23 @@ def write_header_snana(f, data_head):
 
         f.write(f"{key_plus_colon:<20s}  {string_val} \n")
 
-    # - - - - - - 
+    # - - - - - -
     # write mag-dependent host info where are n_filter values
     # are written on one line.
     for prefix in HOSTKEY_PREFIX_LIST:
-        string_vals = hostgal_string_vals[prefix] 
+        string_vals = hostgal_string_vals[prefix]
         if len(string_vals) > 0:
-            f.write(f"{prefix}: {string_vals}\n")        
+            f.write(f"{prefix}: {string_vals}\n")
 
     f.flush()
     return
 
-    # end write_header_snana        
+    # end write_header_snana
 
 def write_phot_snana(f, head_raw, phot_raw, config_data):
 
     # write photometry (phot_raw) in SNANA format to text file
-    # poitner f.                                      
+    # poitner f.
     nvar_obs      = config_data['nvar_obs']
     varlist_obs   = config_data['varlist_obs']
     varlist_fmt   = config_data['varlist_fmt']
@@ -179,11 +179,11 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
             LINE += f" {val:{fmt}}"
         f.write(f"{LINE}\n")
 
-    # - - - - -   
+    # - - - - -
     f.write(f"END:\n")
     return
 
-    # end write_phot_snana  
+    # end write_phot_snana
 
 
 def write_spec_snana(f, head_raw, spec_raw):
@@ -228,7 +228,7 @@ def write_spec_snana(f, head_raw, spec_raw):
 
     return
 
-    # end write_spec_snana          
+    # end write_spec_snana
 
 def output_data_folder_name(config_data, data_unit_name, ISTEXT):
 
@@ -248,12 +248,12 @@ def output_data_folder_name(config_data, data_unit_name, ISTEXT):
 
     return folder
 
-    # end output_data_folder_name      
+    # end output_data_folder_name
 
 def write_aux_files_snana(name, args, config_data):
 
     # write auxilary files (.LIST and .README) for data unit "name"
-    # with TEXT formatted files. 
+    # with TEXT formatted files.
 
     outdir        = args.outdir_snana
     nevent_list   = config_data['data_unit_nevent_list']
@@ -287,20 +287,21 @@ def write_aux_files_snana(name, args, config_data):
     readme_dict = {
         'readme_file'  : readme_file,
         'readme_stats' : readme_stats_list[index_unit],
-        'data_format'  : FORMAT_TEXT
+        'data_format'  : FORMAT_TEXT,
+        'docana_flag'  : True
     }
     util.write_readme(args, readme_dict)
 
-    # gzip data files       
+    # gzip data files
     cmd = f"cd {data_dir} ; gzip {search_string}"
     os.system(cmd)
 
-    # end write_aux_files_snana  
+    # end write_aux_files_snana
 
 def convert2fits_snana(args, config_data):
 
-    # loop over newly created TEXT file versions and convert 
-    # to fits format ... then tar up TEXT folder.      
+    # loop over newly created TEXT file versions and convert
+    # to fits format ... then tar up TEXT folder.
 
     outdir        = args.outdir_snana
     text          = args.text
@@ -327,7 +328,7 @@ def convert2fits_snana(args, config_data):
         folder_fits    = output_data_folder_name(config_data, name, False)
         index_unit     = name_list.index(name)
         log_file       = f"{folder_text}/convert2fits_{folder_fits}.log"
-        yaml_file      = f"{outdir}/{folder_text}.YAML"  # expected output  
+        yaml_file      = f"{outdir}/{folder_text}.YAML"  # expected output
 
         msg = f"  Convert TEXT -> FITS for {folder_fits}" \
               f" NEVT={nevent}  (write spectra: {write_spectra})"
@@ -338,7 +339,7 @@ def convert2fits_snana(args, config_data):
         outdir_text  = f"{outdir}/{folder_text}"
         outdir_fits  = f"{outdir}/{folder_fits}"
 
-        # rm fits folder if still there from previous job  
+        # rm fits folder if still there from previous job
         if os.path.exists(outdir_fits):
             cmd_rm = f"cd {outdir} ; rm -r {folder_fits}"
             os.system(cmd_rm)
@@ -351,9 +352,9 @@ def convert2fits_snana(args, config_data):
         cmd = f"cd {outdir}; {cmd_snana} > {log_file}"
         os.system(cmd)
 
-        # - - - -       
-        # if YAML file doesn't exist, abort with message that 
-        # convert job probably aborted or crashed. 
+        # - - - -
+        # if YAML file doesn't exist, abort with message that
+        # convert job probably aborted or crashed.
         if not os.path.exists(yaml_file):
             msgerr = []
             msgerr.append(f"Cannot find expected yaml file:")
@@ -364,9 +365,9 @@ def convert2fits_snana(args, config_data):
             msgerr.append(f"    {outdir}/{log_file} ")
             util.log_assert(False,msgerr)
 
-        # - - - - -   
-        # clean up   
-        # gzip FITS files and make compressed tar file from TEXT dir  
+        # - - - - -
+        # clean up
+        # gzip FITS files and make compressed tar file from TEXT dir
         cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
 
         tar_file = f"{folder_text}.tar"
@@ -383,12 +384,13 @@ def convert2fits_snana(args, config_data):
         cmd_rm = f"rm {yaml_file}"
         os.system(cmd_rm)
 
-        # re-write readme in FITS data folder 
+        # re-write readme in FITS data folder
         readme_file    = f"{outdir_fits}/{folder_fits}.README"
         readme_dict = {
             'readme_file'  : readme_file,
             'readme_stats' : readme_stats_list[index_unit],
-            'data_format'  : FORMAT_FITS
+            'data_format'  : FORMAT_FITS,
+            'docana_flag'  : True
         }
         util.write_readme(args, readme_dict)
 
@@ -398,21 +400,21 @@ def convert2fits_snana(args, config_data):
         logging.info(f"\t Rate(convert+cleanup): {rate}/sec ")
         sys.stdout.flush()
 
-    # - - - - -                       
+    # - - - - -
 
     return
 
-    # end convert2fits_snana      
+    # end convert2fits_snana
 
 
-# ================================================      
-#    MERGE PROCESS                             
-# ================================================ 
+# ================================================
+#    MERGE PROCESS
+# ================================================
 
 def merge_snana_driver(args):
 
     # called by main after processing to perform optional
-    # merge process; e.g., convert text to other format, 
+    # merge process; e.g., convert text to other format,
     # re-organize files, etc...
 
     outdir = args.outdir_snana
@@ -428,21 +430,21 @@ def merge_snana_driver(args):
     search_string = f"{survey}*{PREFIX_SPLIT}001"
     split_dir_list = sorted(glob.glob1(outdir, search_string ))
     for split_dir in split_dir_list:
-        # if split_dir = LSST_WFDY01_SPLIT001, base_name=LSST_WFDY01        
+        # if split_dir = LSST_WFDY01_SPLIT001, base_name=LSST_WFDY01
         merge_folder = split_dir.split(f"_{PREFIX_SPLIT}")[0]
         search_string = f"{merge_folder}_{PREFIX_SPLIT}*"
         merge_snana_folders(MODE_MERGE_MOVE,
                             outdir, search_string, merge_folder)
-        
 
-    # merge Y## folders into folder with all seasons  
+
+    # merge Y## folders into folder with all seasons
     search_string = f"{survey}_*{PREFIX_SEASON}*"
     year_dir_list = sorted(glob.glob1(outdir, search_string ))
     merge_folder  = year_dir_list[0].split(f"_{PREFIX_SEASON}")[0]
     merge_snana_folders(MODE_MERGE_LINK,
                         outdir, search_string, merge_folder)
 
-    # archive TEXT versions                                            
+    # archive TEXT versions
     TEXT_archive_dir = "TEXT_archive"
     TEXT_list = glob.glob1(outdir, f"TEXT*" )
     if len(TEXT_list) > 0 :
@@ -451,15 +453,15 @@ def merge_snana_driver(args):
         os.system(cmd_mv)
 
     return
-    # end merge_snana_driver 
+    # end merge_snana_driver
 
 def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
-    # e.g., folder_list_string = LSST_WFD01_SPLIT*       
-    #       merge_folder       = LSST_WFD01                             
-    #    ->                                    
-    #      combine data from all LSST_WFD01_SPLIT* folders into 
-    #      single folder LSST_WFD01                   
+    # e.g., folder_list_string = LSST_WFD01_SPLIT*
+    #       merge_folder       = LSST_WFD01
+    #    ->
+    #      combine data from all LSST_WFD01_SPLIT* folders into
+    #      single folder LSST_WFD01
 
     msgerr = []
     logging.info(f"\t Create merge-folder {merge_folder}")
@@ -496,43 +498,43 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
             cmd    = f"cd {FOLDER}; {cmd_mv}"
             os.system(cmd)
 
-        # increment sum stats from readme 
+        # increment sum stats from readme
         README_file  = f"{FOLDER}/{folder}.README"
         README_yaml  = util.read_yaml(README_file)
         for key in KEYLIST_README_STATS:
             NEVT  = README_yaml[DOCANA_KEY][key]
             statsum_dict[key] += NEVT
 
-    # - - - - - - - - 
-    # update sum stats and re-write readme   
+    # - - - - - - - -
+    # update sum stats and re-write readme
     README_file = f"{merge_folder_full}/{merge_folder}.README"
     for key in KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
         README_yaml[DOCANA_KEY][key] = statsum_dict[key]
         util.write_yaml(README_file,README_yaml)
 
-    # - - - -                                                         
-    # remove original folders    
+    # - - - -
+    # remove original folders
     if MODE == MODE_MERGE_MOVE:
         cmd_rm = f"rm -r {folder_list_string}"
         cmd    = f"cd {outdir}; {cmd_rm}"
         os.system(cmd)
 
-    # create merged LIST file                             
+    # create merged LIST file
     HEAD_list = glob.glob1(merge_folder_full, "*HEAD*.FITS.gz" )
     LIST_file = f"{merge_folder_full}/{merge_folder}.LIST"
     with open(LIST_file,"wt") as l :
         for item in HEAD_list:
             HEAD_file = item
-            # strip off .gz extension 
+            # strip off .gz extension
             if '.gz' in item: HEAD_file = item.split('.gz')[0]
             l.write(f"{HEAD_file}\n")
 
-    #print(f" xxx ---------------------------- ")                           
-    #print(f" xxx base_name = {base_name} ")                                
-    #print(f" xxx split_dir_list = {split_dir_list} ")                      
+    #print(f" xxx ---------------------------- ")
+    #print(f" xxx base_name = {base_name} ")
+    #print(f" xxx split_dir_list = {split_dir_list} ")
 
     return
-    # end merge_snana_folders  
+    # end merge_snana_folders
 
 # end:

@@ -86,7 +86,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     data_unit_name_list   = config_data['data_unit_name_list']
     data_unit_nevent_list = config_data['data_unit_nevent_list']    
     nevent            = data_unit_nevent_list[index_unit]
-    outdir            = args.outdir_snana
+    outdir            = args.outdir_lsst_alert
 
     if nevent == 0 :
         # later check for removing old folders ??
@@ -102,20 +102,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     alert           = copy(alert_data_orig)
     
     prvDiaSources = alert_data_orig['prvDiaSources']
-    diasrc = prvDiaSources[0]    
+    diasrc = prvDiaSources[0] # take the structure of the diasrc from the original sample alert
 
-    alert['prvDiaSources'].clear()
 
-    print(f" xxx ---------------------------------------------")
-    print(f"\n xxx BBEFORE LOOP alert = \n{alert}\n")
-    print(f" xxx NOBS = {NOBS} ")
-    sys.stdout.flush()
-    
+
+    # # print this out for testing
+    #for key in diasrc.keys():
+    #    print(key)
+    #print('---------- diasrc keys ----------')
+        
+    alert['prvDiaSources'].clear() # for this alert clear out all the past histories
+
     # - - - - - -
-    # translate snana header and create diasrc dictionary for lsst aler
-    my_diasrc = {}
+    # translate snana header and create diasrc dictionary for lsst alert
+    my_diasrc = diasrc #{}
     translate_dict_diasrc(-1, data_event_dict, my_diasrc)
-
     alert['diaSource'] = my_diasrc
 
     # translate each obs
@@ -124,32 +125,27 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         my_diasrc['diaSourceId'] = diaSourceId
 
         translate_dict_diasrc(o, data_event_dict, my_diasrc) # update my_diasrc
-
-        print(f" xxx start o = {o} ")
+    
         if o == 0 :
+            # Save the my_diasrc info input the diaSource to be saved
             alert['diaSource'] = my_diasrc
             continue
-
-        # ?? my_diasrc['ccdVisitId']  = 1000 + o  # dummy val
-        # ?? my_diasrc['programId']   = 2000 
-
-        translate_dict_diasrc(o, data_event_dict, my_diasrc) # update my_diasrc
-        alert['prvDiaSources'].append(alert['diaSource'])
-
-        print(f"\n xxx o={o} alert = \n{alert}\n")
-        sys.stdout.flush()
             
-        # serialize the alert    
-        avro_bytes = schema.serialize(alert)
-        messg      = schema.deserialize(avro_bytes)
-
         mjd         = data_event_dict['phot_raw']['MJD'][o]
         diaObjectId = my_diasrc['diaObjectId']
         mjd_file    = f"{mjd}_{diaObjectId}_{diaSourceId}.avro"
 
-        with open(mjd_file,"wb") as f:
+                # serialize the alert    
+        avro_bytes = schema.serialize(alert)
+        messg      = schema.deserialize(avro_bytes)
+        
+        with open(outdir+'/'+mjd_file,"wb") as f:
             schema.store_alerts(f, [alert])
 
+        # now that you have written out this alert,
+        # move the diasource info to the "past" for the next observation
+        alert['prvDiaSources'].append(alert['diaSource'])
+        
         #print(f" xxx o={o}  mjd={mjd}")
         
     # end write_event_lsst_alert
@@ -161,8 +157,10 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
-
+    
     if obs < 0 :
+        for key in diasrc.keys():
+            print(key)
         for varName_inp in VARNAME_HEADER_MAP:
             varName_avro = VARNAME_HEADER_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()

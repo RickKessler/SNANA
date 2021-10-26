@@ -229,7 +229,7 @@ struct {
 double H0        = H0_SALT2;   
 double H0SIG     = 1000.0 ;       // error used in prior
 double c_light   = 299792.458 ;   // speed of light, km/s 
-double c_sound   = 170000.00 ;    // speed of sound km/s AM, 23/OCT/2021. [http://www.astro.ucla.edu/~wright/BAO-cosmology.html]
+double c_sound   = 0.51961*299792.458; //23/OCT/2021. Tamara Davis (Intern Notes). [http://www.astro.ucla.edu/~wright/BAO-cosmology.html] = 170000.
 double TWOTHIRD  = 2./3. ;
 double TWO       = 2. ;
 double NEGTHIRD  = -1./3. ;
@@ -312,7 +312,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
-double rd_bao_prior(Cosparam *cpar) ;
+double rd_bao_prior(double z, Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 
@@ -1687,7 +1687,8 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     if ( REFAC ) {
       double rd,z, DM, DH;
-      rd = rd_bao_prior(&cparloc);
+      HzFUN_INFO_DEF HzFUN;
+      rd = rd_bao_prior(z, &cparloc);
       for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
 	z = BAO_PRIOR.z_sdss4[iz];
 	DM = DM_bao_prior(z, &cparloc);
@@ -1716,10 +1717,12 @@ void init_bao_prior(int OPT) {
 } // end init_bao_prior
 
 
-double rd_bao_prior(Cosparam *cpar) {
-
+double rd_bao_prior(double z, Cosparam *cpar ) {
+ 
   double rd = 1.0;
-
+  HzFUN_INFO_DEF HzFUN_INFO;
+  //set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN_INFO);
+  // double H = Hzfun ( z, HzFUN_INFO);
   /*
                                                                                                                                                          
         /inf                                                                                                                                             
@@ -1739,24 +1742,24 @@ double DM_bao_prior(double z, Cosparam *cpar){
 
   // DM = c/H0*(S)*(D_c(z) / (c/H0))  where S = r  for Om_k = 0
   // DC = c/H0 * (integral_0^z H0/H(z) dz )
-  double DM = 1.0;
 
+  double DM = 1.0;
+  double DC;
+
+    
+    
   return DM;
   
 }
 double DH_bao_prior(double z, Cosparam *cpar){
 
-  // double DH = 1.0; // c/H(z) Eq. 14 [arXiv:2007.08991] 
-
-  double omega_k = 0.; 
-  double zz = 1.0 + z;
-  double rhode = cpar->ome*pow(zz,3.0*(1.0+cpar->w0+cpar->wa));
-  rhode = rhode*exp(-3.0*(cpar->wa*z/zz));
-  double hubble = sqrt((cpar->omm*(zz*zz*zz))+rhode+(omega_k*(zz*zz)));
-  double h_z = (1.0/hubble) ; 
-  //1/EofZ(z, &cparloc)
-  double DH = (c_light / h_z);
-  //double DH = (c_light / sqrt(EofZ(z, &cpar) ));
+  // DH =  c/H(z) Eq. 14 [arXiv:2007.08991] 
+  HzFUN_INFO_DEF HzFUN;
+  set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN);
+  double H = Hzfun(z, &HzFUN);
+  double DH = (c_light / H);
+  
+ 
   return DH;
 }
 

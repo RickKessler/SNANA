@@ -1928,6 +1928,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.OPT_MWEBV = abs(ITMP);
     if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
     if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
+
+    // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
+    if ( INPUTS.OPT_MWEBV < 0 ) {
+      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d)"
+	      "no longer allowed.", INPUTS.OPT_MWEBV);
+      sprintf(c2err,"OPT_MWEBV must be > 0");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
   }
 
 

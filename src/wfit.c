@@ -1718,26 +1718,29 @@ void init_bao_prior(int OPT) {
 
 double rd_bao_prior(double z, Cosparam *cpar) {
 
+  double Hz, H0 = H0_Planck;
   double rd = 1.0;
   HzFUN_INFO_DEF HzFUN_INFO;
-  set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN_INFO);
-  double H  = Hzfun(z, &HzFUN_INFO);
+  // ---------- BEGIN ----------
+  set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
+		     &HzFUN_INFO);
+  Hz  = Hzfun(z, &HzFUN_INFO);
  
-
   return rd;
 }
 double DM_bao_prior(double z, Cosparam *cpar){
   double DM = 1.0;
 
   return DM;
-  
 }
-double DH_bao_prior(double z, Cosparam *cpar){
-  HzFUN_INFO_DEF HzFUN;
-  set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN);
-  double H  = Hzfun(z, &HzFUN);
-  double DH = (c_light / H);
 
+
+double DH_bao_prior(double z, Cosparam *cpar){
+  double H0 = H0_Planck, H, DH;
+  HzFUN_INFO_DEF HzFUN;
+  set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN);
+  H  = Hzfun(z, &HzFUN);
+  DH = (c_light / H);
   return DH;
 }
 

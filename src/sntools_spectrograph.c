@@ -906,7 +906,7 @@ void read_spectrograph_fits(char *inFile) {
 
   float  tmpVal_f  ;
   int    NBL, NBT, l, t ;
-  double L0, L1  ;
+  double L0, L1;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
   //  char fnam[] = "read_spectrograph_fits" ;
@@ -1014,7 +1014,7 @@ void read_spectrograph_fits(char *inFile) {
   sprintf(c1err,"read LAMMAX_LIST column" );
   snfitsio_errorCheck(c1err, istat);
 
-  printf("   Wavelength range: %.2f to %.2f A \n",
+  printf("   Wavelength range stored: %.2f to %.2f A \n",
 	 INPUTS_SPECTRO.LAMMIN_LIST[0], INPUTS_SPECTRO.LAMMAX_LIST[NBL-1]);
 
   icol = 3 ;
@@ -1050,6 +1050,8 @@ void read_spectrograph_fits(char *inFile) {
   int NBL_MALLOC = NBL + MXLAM_SPECTROGRAPH_EXTEND ;
   float *ZP_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
   float *SQ_f = (float*)malloc( NBL_MALLOC * sizeof(float) ) ;
+  double  LAMMIN_ZP=1.0E9, LAMMAX_ZP=0.0, LAM, ZP, SQ ;
+
   for(t=0; t < NBT; t++ ) {
     icol++ ;
     fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
@@ -1064,10 +1066,23 @@ void read_spectrograph_fits(char *inFile) {
     snfitsio_errorCheck(c1err, istat);
 
     for(l=0; l <NBL; l++ ) {
-      INPUTS_SPECTRO.ZP[l][t]       = (double)ZP_f[l] ;
-      INPUTS_SPECTRO.SQSIGSKY[l][t] = (double)SQ_f[l] ;      
+      ZP = (double)ZP_f[l] ;
+      SQ = (double)SQ_f[l] ;
+      LAM = INPUTS_SPECTRO.LAMAVG_LIST[l];
+      INPUTS_SPECTRO.ZP[l][t]       = ZP ;
+      INPUTS_SPECTRO.SQSIGSKY[l][t] = SQ ;
+
+      if ( ZP != 0.0 ) {
+	if ( LAMMIN_ZP > 0.9E9 ) { LAMMIN_ZP = LAM; }
+	LAMMAX_ZP = LAM;
+      }
+
     } // end l loop over lambda
   } // end t loop over Texpose
+
+  /* xxx
+  printf("   Wavelength range with valid ZP: %.1f to %.1f \n",
+  LAMMIN_ZP, LAMMAX_ZP); xxx */
 
   free(ZP_f);  free(SQ_f);
 

@@ -23,43 +23,47 @@ def write_readme(args, readme_dict):
     readme_file  = readme_dict['readme_file']
     readme_stats = readme_dict['readme_stats']
     data_format  = readme_dict['data_format']
+    docana_flag  = readme_dict['docana_flag']
 
     script_command = ' '.join(sys.argv)
-
+    indent_str = ''
     with open(readme_file,"wt") as f:
-        f.write(f"{DOCANA_KEY}: \n")
-        f.write(f"  PURPOSE:  transient lightcurve data files " \
+        if docana_flag:
+            f.write(f"{DOCANA_KEY}: \n")
+            indent_str = '  '
+        f.write(f"{indent_str}PURPOSE:  transient lightcurve data files " \
                 f"for analysis\n")
 
         if args.lsst_ap :
-            f.write(f"  SOURCE_LSST_AP:   {args.lsst_ap} \n")
+            f.write(f"{indent_str}SOURCE_LSST_AP:   {args.lsst_ap} \n")
 
         if args.lsst_drp :
-            f.write(f"  SOURCE_LSST_DRP:  {args.lsst_drp} \n")
+            f.write(f"{indent_str}SOURCE_LSST_DRP:  {args.lsst_drp} \n")
 
         if args.sirah_folder is not None :
-            f.write(f"  SOURCE_SIRAH_FOLDER:  {args.sirah_folder} \n")
+            f.write(f"{indent_str}SOURCE_SIRAH_FOLDER:  {args.sirah_folder} \n")
 
         if args.snana_folder is not None:
-            f.write(f"  SOURCE_SNANA_FOLDER:  {args.snana_folder} \n")    
-    
-        f.write(f"  SURVEY:           {args.survey} \n")
-        f.write(f"  FIELD:            {args.field} \n")
-        f.write(f"  FORMAT:           {data_format} \n")
-        f.write(f"  SCRIPT_COMMAND:   {script_command} \n")
-        f.write(f"  USERNAME:         {USERNAME} \n")
-        f.write(f"  HOSTNAME:         {HOSTNAME} \n")
-    
+            f.write(f"{indent_str}SOURCE_SNANA_FOLDER:  {args.snana_folder} \n")
+
+        f.write(f"{indent_str}SURVEY:           {args.survey} \n")
+        f.write(f"{indent_str}FIELD:            {args.field} \n")
+        f.write(f"{indent_str}FORMAT:           {data_format} \n")
+        f.write(f"{indent_str}SCRIPT_COMMAND:   {script_command} \n")
+        f.write(f"{indent_str}USERNAME:         {USERNAME} \n")
+        f.write(f"{indent_str}HOSTNAME:         {HOSTNAME} \n")
+
         n_list = []
         for key in KEYLIST_README_STATS:
             key_plus_colon = f"{key}:"
             n = readme_stats[key]
             n_list.append(n)
-            f.write(f"  {key_plus_colon:<22}   {n} \n")
+            f.write(f"{indent_str}{key_plus_colon:<22}   {n} \n")
 
         nevt_all = n_list[0]
-        f.write(f"  ABORT_IF_ZERO:  {nevt_all}\n")
-        f.write(f"{DOCANA_KEY_END}: \n")
+        f.write(f"{indent_str}ABORT_IF_ZERO:  {nevt_all}\n")
+        if docana_flag:
+            f.write(f"{DOCANA_KEY_END}: \n")
 
     return
     # end write_readme
@@ -83,12 +87,12 @@ def get_survey_snana(snana_folder):
         msgerr.append(f"Cannot find {key_survey} key from command")
         msgerr.append(f"   {cmd}")
         log_assert(False,msgerr)
-        
-    k      = ret_stdout.index(key_survey)        
+
+    k      = ret_stdout.index(key_survey)
     survey = ret_stdout[k+1]
     return survey
     # end get_survey_snana
-    
+
 def read_yaml(yaml_file):
     yaml_lines = []
     with open(yaml_file,"rt") as y:
@@ -106,12 +110,12 @@ def iyear_survey(survey, event_dict):
     elif survey == 'DES' :
         iyear = iyear_DES(event_dict)
     elif survey == 'SIRAH' :
-        iyear = -1 
+        iyear = -1
     else:
         msgerr = []
         msgerr.append(f"Cannot determine iyear for survey={survey}")
         log_assert(False,msgerr)
-        
+
     return iyear
     #end iyear_survey
 
@@ -129,7 +133,7 @@ def iyear_LSST(event_dict):
         iyear = 2
     else:
         iyear = 3
- 
+
     return iyear
 
 # - - - - -
@@ -169,7 +173,7 @@ def jd_to_mjd(t):
 
 def mag_to_flux(m, me, zp):
     """Convert magnitude and magnitude error to flux, given a zeropoint."""
-    
+
     f = 10.**(0.4 * (zp - m))
     fe = math.log(10.) * 0.4 * me * f
 
@@ -196,14 +200,14 @@ def cmb_dz(ra, dec):
     CMB_XYZ = radec_to_xyz(CMB_RA, CMB_DEC)
 
     coords_xyz = radec_to_xyz(ra, dec)
-    
+
     dz = CMB_DZ * np.dot(CMB_XYZ, coords_xyz)
 
     return dz
 
 def helio_to_cmb(z, ra, dec):
     """Convert from heliocentric redshift to CMB-frame redshift.
-    
+
     Parameters
     ----------
     z : float
@@ -220,7 +224,7 @@ def helio_to_cmb(z, ra, dec):
 
 def cmb_to_helio(z, ra, dec):
     """Convert from CMB-frame redshift to heliocentric redshift.
-    
+
     Parameters
     ----------
     z : float
@@ -236,8 +240,8 @@ def cmb_to_helio(z, ra, dec):
     return one_plus_z_helio - 1.
 
 # ---------------------------------------------------
-# MESSAGING       
-# ------------------------     
+# MESSAGING
+# ------------------------
 class MessageStore(logging.Handler):
     store = None
 
@@ -250,7 +254,7 @@ class MessageStore(logging.Handler):
         if l not in self.store:
             self.store[l] = []
         self.store[l].append(record)
-        
+
     def get_warnings(self):
         return self.store.get("WARNING", []) + []
 
@@ -274,11 +278,11 @@ class MessageStore(logging.Handler):
             logging.error(f"{len(items)} Errors:")
             for w in items:
                 logging.error(f"\t{w.msg}")
-    
-        
+
+
 def setup_logging(args):
     level = logging.DEBUG if args.verbose else logging.INFO
-    
+
     # Adding notice level for more important lines that arent warning
     message_store = MessageStore()
     message_store.setLevel(logging.WARNING)
@@ -314,9 +318,9 @@ def log_assert(condition, message):
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
             f"\n    |  ___  |     ABORT makeDataFiles on Fatal Error. "
-            f"\n    | |' '| |     "         
+            f"\n    | |' '| |     "
             f"\n    | `---' |     "
-            f"\n    \\_______/    " 
+            f"\n    \\_______/    "
             f"\n"
             f"\nFATAL ERROR ABORT : "
         )

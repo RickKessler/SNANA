@@ -311,7 +311,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
-double rd_bao_prior(Cosparam *cpar) ;
+double rd_bao_prior(double z, Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 
@@ -1686,7 +1686,8 @@ void init_bao_prior(int OPT) {
   if ( INPUTS.use_bao == 2 ) { 
     if ( REFAC ) {
       double rd,z, DM, DH;
-      rd = rd_bao_prior(&cparloc);
+      HzFUN_INFO_DEF HzFUN;
+      rd = rd_bao_prior(z, &cparloc);
       for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
 	z = BAO_PRIOR.z_sdss4[iz];
 	DM = DM_bao_prior(z, &cparloc);
@@ -1715,9 +1716,13 @@ void init_bao_prior(int OPT) {
 } // end init_bao_prior
 
 
-double rd_bao_prior(Cosparam *cpar) {
+double rd_bao_prior(double z, Cosparam *cpar) {
 
   double rd = 1.0;
+  HzFUN_INFO_DEF HzFUN_INFO;
+  set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN_INFO);
+  double H  = Hzfun(z, &HzFUN_INFO);
+ 
 
   return rd;
 }
@@ -1728,8 +1733,10 @@ double DM_bao_prior(double z, Cosparam *cpar){
   
 }
 double DH_bao_prior(double z, Cosparam *cpar){
-
-    double DH = 1.0;
+  HzFUN_INFO_DEF HzFUN;
+  set_HzFUN_for_wfit(ONE, cpar->omm, cpar->ome, cpar->w0, cpar->wa, &HzFUN);
+  double H  = Hzfun(z, &HzFUN);
+  double DH = (c_light / H);
 
   return DH;
 }

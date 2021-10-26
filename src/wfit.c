@@ -2549,7 +2549,7 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
   double COSPAR_LIST[10];  int VBOSE=0;
   // ---------- BEGIN ----------
 
-  COSPAR_LIST[ICOSPAR_HzFUN_H0] = 1. ;
+  COSPAR_LIST[ICOSPAR_HzFUN_H0] = H0 ;
   COSPAR_LIST[ICOSPAR_HzFUN_OM] = OM ;
   COSPAR_LIST[ICOSPAR_HzFUN_OL] = OE ;
   COSPAR_LIST[ICOSPAR_HzFUN_w0] = w0 ;

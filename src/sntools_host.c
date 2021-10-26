@@ -2922,6 +2922,9 @@ void check_duplicate_GALID(void) {
 
   if ( VBOSE ) { 
     printf("\t Check HOSTLIB for duplicate entries. \n"); 
+    if (INPUTS.HOSTLIB_GALID_UNIQUE){
+	    printf("\t Assign GALID_UNIQUE for re-used hosts and randomize HOSTMAG.\n");
+    }
     fflush(stdout);
   }
 
@@ -6833,6 +6836,15 @@ void SORT_SNHOST_byDDLR(void) {
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
 	//printf("xxx MAG_ERR = %.2f\n", MAG_ERR);
       }
+      if (INPUTS.HOSTLIB_GALID_UNIQUE && IVAR_ERR > 0){
+	      // for unique GALIDs, fluctuate mags to avoid duplicate mags
+	      double GauRan, rmin=-3., rmax=3.;
+
+	      MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
+	      GauRan = getRan_GaussClip(1,rmin,rmax);
+	      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;
+
+      }
     }
 
     if ( LDMP ) {
@@ -6862,14 +6874,20 @@ void set_GALID_UNIQUE(int i){
  
  char fnam[] = "set_GALID_UNIQUE";
  int CID = GENLC.CID;
- int CID_MULTIPLIER = 97;
+ int CID_MULTIPLIER = 57;
  long long GALID_UNIQUE;
  int ilist = 1;
  int i2;
- double rand1 = getRan_Flat1(ilist);
+ double rand1;
  bool match_GALID = true;
+ bool test_DUPLICATE_AVOID = false;
+
+ if (test_DUPLICATE_AVOID){
+	 CID_MULTIPLIER = 5;
+ }
 
  while (match_GALID){
+	rand1 = getRan_Flat1(ilist);
  	GALID_UNIQUE = CID*CID_MULTIPLIER + (int)(rand1*CID_MULTIPLIER);
 	SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = GALID_UNIQUE;
  	if (i==0){
@@ -6880,6 +6898,9 @@ void set_GALID_UNIQUE(int i){
 	 for (i2 = 0; i2 < i; i2++){
 		if (GALID_UNIQUE == SNHOSTGAL_DDLR_SORT[i2].GALID_UNIQUE){
 			match_GALID = true;
+			if (test_DUPLICATE_AVOID){
+				printf("xxx %s: DUPLICATE GALID FOR CID = %d, DDLR = %.2f\n", fnam, CID, SNHOSTGAL_DDLR_SORT[i].DDLR);
+			}
 		}
  	} //end i2 for  
  } // end while

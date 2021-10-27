@@ -9,6 +9,7 @@ import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *
 from    submit_prog_base import Program
+import numpy as np
 
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
@@ -16,10 +17,16 @@ COLNUM_MKDATA_MERGE_DATAUNIT    = 1
 COLNUM_MKDATA_MERGE_NEVT        = 2
 COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
 COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
+
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
+
 KEYLIST_OUTPUT                  = ['OUTDIR_SNANA', 'OUTDIR_ALERTS']
 KEYLIST_OUTPUT_OPTIONS          = ['--outdir_snana', '--outdir_alerts']
+
+KEYLIST_SPLIT_MJD               = ['SPLIT_MJD_DETECT', 'SPLIT_PEAKMJD']
+KEYLIST_SPLIT_MJD_OPTIONS       = ['--mjd_detect_range', '--peakmjd_range']
+
 BASE_PREFIX                     = 'MAKEDATA'
 DATA_UNIT_STR                   = 'DATA_UNIT'
 
@@ -93,7 +100,6 @@ class MakeDataFiles(Program):
         CONFIG      = self.config_yaml['CONFIG']
         inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
         input_file  = self.config_yaml['args'].input_file  # for msgerr
-        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
         msgerr      = []
 
         if inputs_list is None:
@@ -101,19 +107,43 @@ class MakeDataFiles(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        split_mjd_detect = {}
-        if split_mjd_detect_in is None:
-            split_mjd_detect['nbin'] = 1
-            split_mjd_detect['step'] = 0
+        # select the SPLIT_MJD option
+        # abort if more than one SPLIT_MJD option is specified
+        n_mjd_split_opts = 0
+        split_mjd_in = None
+        split_mjd_key_name = None
+        split_mjd_option = None
+        for key, opt in zip(KEYLIST_SPLIT_MJD, KEYLIST_SPLIT_MJD_OPTIONS):
+            if key in CONFIG:
+                n_mjd_split_opts += 1
+                split_mjd_key_name = key
+                split_mjd_option = opt
+                split_mjd_in = CONFIG[key]
+        if n_mjd_split_opts > 1:
+            msgerr.append(f"DEFINE ONLY ONE OF {KEYLIST_SPLIT_MJD}")
+            msgerr.append(f"Check {input_file}")
+            util.log_assert(False,msgerr) # just abort, no done stamp
+
+        # parse the input SPLIT_MJD string into ranges for makeDataFiles
+        split_mjd = {}
+        if split_mjd_in is None:
+            split_mjd['nbin'] = 1
+            split_mjd['step'] = 0
         else:
-            mjdmin, mjdmax, mjdbin  = split_mjd_detect_in.split()
-            split_mjd_detect['min']  = int(mjdmin)
-            split_mjd_detect['max']  = int(mjdmax)
-            split_mjd_detect['nbin'] = int(mjdbin)
-            split_mjd_detect['step'] = (split_mjd_detect['max'] - split_mjd_detect['min'])/split_mjd_detect['nbin']
+            mjdmin, mjdmax, mjdbin  = split_mjd_in.split()
+            split_mjd['min']  = int(mjdmin)
+            split_mjd['max']  = int(mjdmax)
+            split_mjd['nbin'] = int(mjdbin)
+            split_mjd['step'] = (split_mjd['max'] - split_mjd['min'])/split_mjd['nbin']
+            # use nbin + 1 to include the edges
+            grid  = np.linspace(split_mjd['min'], split_mjd['max'], split_mjd['nbin']+1)
+            split_mjd['min_edge'] = grid[0:-1]
+            split_mjd['max_edge'] = grid[1:]
 
         self.config_prep['inputs_list'] = inputs_list
-        self.config_prep['split_mjd_detect'] = split_mjd_detect
+        self.config_prep['split_mjd'] = split_mjd
+        self.config_prep['split_mjd_key_name'] = split_mjd_key_name  # CONFIG YAML keyname
+        self.config_prep['split_mjd_option'] = split_mjd_option #makeDataFiles.sh option
         # end prepare_input_args
 
 
@@ -122,29 +152,47 @@ class MakeDataFiles(Program):
         output_args = self.config_prep['output_args']
         inputs_list = self.config_prep['inputs_list']
         input_file  = self.config_yaml['args'].input_file  # for msgerr
+        split_mjd   = self.config_prep['split_mjd']
+        split_mjd_option = self.config_prep['split_mjd_option']
+        n_splitmjd  = split_mjd['nbin']
         n_splitran  = CONFIG.get('NSPLITRAN', 1)
         field       = CONFIG.get('FIELD', None)
-        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
         msgerr      = []
 
         makeDataFiles_args_list = []
         prefix_output_list = []
-        isplitmjd = 0 ### HACK HACK HACK - fix this when we add a look over MJD
-        for input_src in inputs_list:  # e.g. folder or name of DB
-            # add a second index for MJD here
-            base_name = os.path.basename(input_src)
+        if n_splitmjd > 1:
+            isplitmjd_temp_list = zip(range(0, n_splitmjd),\
+                                            split_mjd['min_edge'],\
+                                            split_mjd['max_edge'])
 
-            # construct base prefix without isplitran
-            prefix_output = self.get_prefix_output(isplitmjd, base_name, -1)
-            prefix_output_list.append(prefix_output)
+        else:
+            isplitmjd_temp_list = [(-1, -1, -1),]
+        # Note that if you use a zip in Python 3, you get an iterator
+        # not a list and if you print the iterator or cause anything to loop over it
+        # e.g. len(), then the generator is exhausted and has to be recreated
+        # i.e. do not mess with any variable that is created from a zip
+        # DO NOT MESS WITH isplitmjd_temp_list
 
-            args = f'--snana_folder {input_src} ' ### HACK HACK HACK - will need to generalize for other inputs
-            args += f'{output_args} '
-            args += f'--field {field} '
-            if n_splitran > 1:
-                args += f'--nsplitran {n_splitran} '
-                # args += f'--isplitran {isplitran+1} ' # note that argument for isplitran starts with 1
-            makeDataFiles_args_list.append(args)
+        for isplitmjd, min_edge, max_edge in isplitmjd_temp_list:
+            for input_src in inputs_list:  # e.g. folder or name of DB
+                args_list = []
+                base_name = os.path.basename(input_src)
+
+                # construct base prefix without isplitran
+                prefix_output = self.get_prefix_output(min_edge, base_name, -1)
+                prefix_output_list.append(prefix_output)
+
+
+                args_list.append(f'--snana_folder {input_src}') ### HACK need to generalize for other inputs
+                args_list.append(f'{output_args}')
+                args_list.append(f'--field {field}')
+                if n_splitmjd > 1:
+                    args_list.append(f'{split_mjd_option} {min_edge} {max_edge}')
+                if n_splitran > 1:
+                    args_list.append(f'--nsplitran {n_splitran}')
+                    # args_list.append(f'--isplitran {isplitran+1}') # note that argument for isplitran starts with 1
+                makeDataFiles_args_list.append(args_list)
 
         n_job = len(makeDataFiles_args_list)
         n_job_tot   = n_job*n_splitran
@@ -152,17 +200,22 @@ class MakeDataFiles(Program):
         n_job_local = 0
         n_job_cpu   = 0
 
+        isplitmjd_list  = []
         idata_unit_list = []
         isplitran_list  = []
-        for idata_unit in range(0, n_job):
-            for isplitran in range(0, n_splitran):
-                idata_unit_list.append(idata_unit)
-                isplitran_list.append(isplitran)
+
+        for isplitmjd in range(0, n_splitmjd):
+            for idata_unit in range(0, n_job):
+                for isplitran in range(0, n_splitran):
+                    isplitmjd_list.append(isplitmjd)
+                    idata_unit_list.append(idata_unit)
+                    isplitran_list.append(isplitran)
 
         self.config_prep['n_job']       = n_job
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
+        self.config_prep['isplitmjd_list']  = isplitmjd_list
         self.config_prep['idata_unit_list'] = idata_unit_list
         self.config_prep['isplitran_list']  = isplitran_list
 
@@ -171,22 +224,22 @@ class MakeDataFiles(Program):
         # end prepare_data_units
 
 
-    def get_prefix_output(self, isplitmjd, base_name, isplitran):
+    def get_prefix_output(self, mjd, base_name, isplitran):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file
         output_format = self.config_yaml['args'].output_format
         msgerr = []
+        imjd = int(mjd)
         splitran_str = f'SPLITRAN{isplitran+1:03d}'
-        if output_format == OUTPUT_FORMAT_LSST_ALERTS:
-            # isplit
-            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}'
-        elif output_format == OUTPUT_FORMAT_SNANA:
-            prefix_output = f'{BASE_PREFIX}_{base_name}'
-        else:
-            msgerr.append(f'Invalid Output Format {output_format}')
-            msgerr.append(f"Check {input_file}")
-            util.log_assert(False,msgerr) # just abort, no done stamp
+        splitmjd_str = f'SPLITMJD{imjd:05d}'
+        prefix_output = f'{BASE_PREFIX}'
+
+        if imjd >= 10000:
+            prefix_output += f'_{splitmjd_str}'
+
+        prefix_output += f'_{base_name}'
+
         if isplitran >= 0:
             prefix_output += f'_{splitran_str}'
         return prefix_output
@@ -264,7 +317,7 @@ class MakeDataFiles(Program):
         # do_fast           = self.config_yaml['args'].fast
 
         arg_split         = f'--isplitran {isplitarg}'
-        arg_list          = [makeDataFiles_arg, arg_split]
+        arg_list          = makeDataFiles_arg + [arg_split,]
         msgerr            = [ ]
 
         log_file   = f"{prefix}.LOG"

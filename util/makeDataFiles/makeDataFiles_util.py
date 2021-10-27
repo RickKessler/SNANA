@@ -27,41 +27,50 @@ def write_readme(args, readme_dict):
 
     script_command = ' '.join(sys.argv)
     indent_str = ''
+
+    # store line of yanl lines without indentation
+    line_list = []
+    line_list.append(f"PURPOSE:  transient lightcurve data files " \
+                f"for analysis")
+
+    if args.lsst_ap :
+        line_list.append(f"SOURCE_LSST_AP:   {args.lsst_ap} ")
+
+    if args.lsst_drp :
+        line_list.append(f"SOURCE_LSST_DRP:  {args.lsst_drp} ")
+
+    if args.sirah_folder is not None :
+        line_list.append(f"SOURCE_SIRAH_FOLDER:  {args.sirah_folder}")
+
+    if args.snana_folder is not None:
+        line_list.appendf.write(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")
+
+    line_list.append(f"SURVEY:           {args.survey}")
+    line_list.append(f"FIELD:            {args.field} ")
+    line_list.append(f"FORMAT:           {data_format} ")
+    line_list.append(f"SCRIPT_COMMAND:   {script_command} ")
+    line_list.append(f"USERNAME:         {USERNAME} ")
+    line_list.append(f"HOSTNAME:         {HOSTNAME}")
+
+    n_list = []
+    for key in KEYLIST_README_STATS:
+        key_plus_colon = f"{key}:"
+        n = readme_stats[key]
+        n_list.append(n)
+        line_list.append(f"{key_plus_colon:<22}   {n}")
+
+    nevt_all = n_list[0]
+    line_list.append(f"ABORT_IF_ZERO:  {nevt_all}")
+
+    # - - - - - - - -
     with open(readme_file,"wt") as f:
         if docana_flag:
             f.write(f"{DOCANA_KEY}: \n")
             indent_str = '  '
-        f.write(f"{indent_str}PURPOSE:  transient lightcurve data files " \
-                f"for analysis\n")
 
-        if args.lsst_ap :
-            f.write(f"{indent_str}SOURCE_LSST_AP:   {args.lsst_ap} \n")
+        for line in line_list:
+            f.write(f"{indent_str}{line}\n")
 
-        if args.lsst_drp :
-            f.write(f"{indent_str}SOURCE_LSST_DRP:  {args.lsst_drp} \n")
-
-        if args.sirah_folder is not None :
-            f.write(f"{indent_str}SOURCE_SIRAH_FOLDER:  {args.sirah_folder} \n")
-
-        if args.snana_folder is not None:
-            f.write(f"{indent_str}SOURCE_SNANA_FOLDER:  {args.snana_folder} \n")
-
-        f.write(f"{indent_str}SURVEY:           {args.survey} \n")
-        f.write(f"{indent_str}FIELD:            {args.field} \n")
-        f.write(f"{indent_str}FORMAT:           {data_format} \n")
-        f.write(f"{indent_str}SCRIPT_COMMAND:   {script_command} \n")
-        f.write(f"{indent_str}USERNAME:         {USERNAME} \n")
-        f.write(f"{indent_str}HOSTNAME:         {HOSTNAME} \n")
-
-        n_list = []
-        for key in KEYLIST_README_STATS:
-            key_plus_colon = f"{key}:"
-            n = readme_stats[key]
-            n_list.append(n)
-            f.write(f"{indent_str}{key_plus_colon:<22}   {n} \n")
-
-        nevt_all = n_list[0]
-        f.write(f"{indent_str}ABORT_IF_ZERO:  {nevt_all}\n")
         if docana_flag:
             f.write(f"{DOCANA_KEY_END}: \n")
 

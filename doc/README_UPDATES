@@ -20520,6 +20520,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + write new header variables: 
            MJD_TRIGGER, MJD_DETECT_FIRST, MJD_DETECT_LAST
       + new input HOSTLIB_GALID_UNIQUE_OFFSET
+      + abort if OPT_MWEBV < 0 
+      + require DOCANA in trigger/search files (Oct 26 2021, 9pm)
 
     wfit.c
       + begin adding modern BAO prior from Alam 2020

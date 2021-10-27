@@ -43,7 +43,7 @@ def write_readme(args, readme_dict):
         line_list.append(f"SOURCE_SIRAH_FOLDER:  {args.sirah_folder}")
 
     if args.snana_folder is not None:
-        line_list.appendf.write(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")
+        line_list.append(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")
 
     line_list.append(f"SURVEY:           {args.survey}")
     line_list.append(f"FIELD:            {args.field} ")

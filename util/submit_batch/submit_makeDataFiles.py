@@ -56,7 +56,7 @@ class MakeDataFiles(Program):
         CONFIG      = self.config_yaml['CONFIG']
         inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
         input_file  = self.config_yaml['args'].input_file  # for msgerr
-        nsplitran   = CONFIG.get('NSPLITRAN', 1)
+        n_splitran   = CONFIG.get('NSPLITRAN', 1)
         field       = CONFIG.get('FIELD', None)
         split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
         msgerr      = []
@@ -103,25 +103,47 @@ class MakeDataFiles(Program):
         prefix_output_list = []
         isplitmjd = 0 ### HACK HACK HACK - fix this when we add a look over MJD
         for input_src in inputs_list:  # e.g. folder or name of DB
-            for isplitran in range(nsplitran):
-                # add a third index for MJD here
-                base_name = os.path.basename(input_src)
-                prefix_output = self.get_prefix_output(isplitmjd, base_name, isplitran)
-                prefix_output_list.append(prefix_output)
+            # add a second index for MJD here
+            base_name = os.path.basename(input_src)
 
-                args = f'--snana_folder {input_src} ' ### HACK HACK HACK - will need to generalize for other inputs
-                args += f'{output_args} '
-                args += f'--field {field} '
-                if nsplitran > 1:
-                    args += f'--nsplitran {nsplitran} '
-                    args += f'--isplitran {isplitran+1} ' # note that argument for isplitran starts with 1
-                makeDataFiles_args_list.append(args)
+            # construct base prefix without isplitran
+            prefix_output = self.get_prefix_output(isplitmjd, base_name, -1)
+            prefix_output_list.append(prefix_output)
+
+            args = f'--snana_folder {input_src} ' ### HACK HACK HACK - will need to generalize for other inputs
+            args += f'{output_args} '
+            args += f'--field {field} '
+            if n_splitran > 1:
+                args += f'--nsplitran {n_splitran} '
+                # args += f'--isplitran {isplitran+1} ' # note that argument for isplitran starts with 1
+            makeDataFiles_args_list.append(args)
+
+        n_job = len(makeDataFiles_args_list)
+        n_job_tot   = n_job*n_splitran
+        n_job_split = n_splitran
+        n_job_local = 0
+        n_job_cpu   = 0
+
+        idata_unit_list = []
+        isplitran_list  = []
+        for idata_unit in range(0, n_job):
+            for isplitran in range(0, n_splitran):
+                idata_unit_list.append(idata_unit)
+                isplitran_list.append(isplitran)
+
+        self.config_prep['n_job']       = n_job
+        self.config_prep['n_job_split'] = n_job_split
+        self.config_prep['n_job_tot']   = n_job_tot
+        self.config_prep['n_done_tot']  = n_job_tot
+        self.config_prep['idata_unit_list'] = idata_unit_list
+        self.config_prep['isplitran_list']  = isplitran_list
 
         self.config_prep['inputs_list'] = inputs_list
         self.config_prep['split_mjd_detect'] = split_mjd_detect
         self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
         self.config_prep['prefix_output_list'] = prefix_output_list
         # end prepare_make_data_units
+
 
     def get_prefix_output(self, isplitmjd, base_name, isplitran):
 
@@ -132,13 +154,15 @@ class MakeDataFiles(Program):
         splitran_str = f'SPLITRAN{isplitran+1:03d}'
         if output_format == OUTPUT_FORMAT_LSST_ALERTS:
             # isplit
-            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}_{splitran_str}'
+            prefix_output = f'{BASE_PREFIX}_SPLITMJD{isplitmjd:03d}_{base_name}'
         elif output_format == OUTPUT_FORMAT_SNANA:
-            prefix_output = f'{BASE_PREFIX}_{base_name}_{splitran_str}'
+            prefix_output = f'{BASE_PREFIX}_{base_name}'
         else:
             msgerr.append(f'Invalid Output Format {output_format}')
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
+        if isplitran >= 0:
+            prefix_output += f'_{splitran_str}'
         return prefix_output
 
 
@@ -156,36 +180,54 @@ class MakeDataFiles(Program):
         # Function returns number of jobs for this cpu
 
         n_core          = self.config_prep['n_core']
+        CONFIG          = self.config_yaml['CONFIG']
         makeDataFiles_args_list = self.config_prep['makeDataFiles_args_list']
-        n_job_tot   = len(makeDataFiles_args_list)
-        n_job_split = 1     # cannot break up makeDataFiles job since already broken up
-        n_job_local = 0
-        n_job_cpu   = 0
 
-        self.config_prep['n_job_split'] = n_job_split
-        self.config_prep['n_job_tot']   = n_job_tot
-        self.config_prep['n_done_tot']  = n_job_tot
+        n_job       = self.config_prep['n_job']
+        n_job_split = self.config_prep['n_job_split']
+        n_job_tot   = self.config_prep['n_job_tot']
+        n_job_tot   = self.config_prep['n_done_tot']
+        idata_unit_list = self.config_prep['idata_unit_list']
+        isplitran_list  = self.config_prep['isplitran_list']
+        n_job_local     = 0
+        n_job_cpu       = 0
 
-        for idata_unit in range(0,n_job_tot):
+        index_dict = {}
+        for idata_unit, isplitran in zip(idata_unit_list, isplitran_list):
+
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
 
                 n_job_cpu += 1
-                job_info_data_unit   = self.prep_JOB_INFO_mkdata(idata_unit)
+                index_dict['isplitran']   = isplitran
+                index_dict['icpu']        = icpu
+                index_dict['idata_unit']  = idata_unit
+                index_dict['n_job_local'] = n_job_local
+
+                job_info_data_unit   = self.prep_JOB_INFO_mkdata(index_dict)
                 util.write_job_info(f, job_info_data_unit, icpu)
 
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local)
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-        return n_job_cpu
 
+        return n_job_cpu
         # end write_command_file
 
-    def prep_JOB_INFO_mkdata(self,idata_unit):
 
-        CONFIG            = self.config_yaml['CONFIG']
+    def prep_JOB_INFO_mkdata(self,index_dict):
+
+        CONFIG  = self.config_yaml['CONFIG']
+
+        isplitran   = index_dict['isplitran']
+        isplitarg   = isplitran + 1           # passed to makeDataFiles.py
+        icpu        = index_dict['icpu']
+        idata_unit  = index_dict['idata_unit']
+        n_job_local = index_dict['n_job_local']
+
         makeDataFiles_arg = self.config_prep['makeDataFiles_args_list'][idata_unit]
-        prefix            = self.config_prep['prefix_output_list'][idata_unit]
+        prefix_base       = self.config_prep['prefix_output_list'][idata_unit]
+        prefix            = f'{prefix_base}_SPLITRAN{isplitarg:03d}'
         program           = self.config_prep['program']
         script_dir        = self.config_prep['script_dir']
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
@@ -193,7 +235,8 @@ class MakeDataFiles(Program):
         output_dir        = self.config_prep['output_dir']
         # do_fast           = self.config_yaml['args'].fast
 
-        arg_list          = [makeDataFiles_arg,]
+        arg_split         = f'--isplitran {isplitarg}'
+        arg_list          = [makeDataFiles_arg, arg_split]
         msgerr            = [ ]
 
         log_file   = f"{prefix}.LOG"
@@ -216,7 +259,6 @@ class MakeDataFiles(Program):
         JOB_INFO['arg_list']      = arg_list
 
         return JOB_INFO
-
         # end prep_JOB_INFO_mkdata
 
     def create_merge_table(self,f):
@@ -338,8 +380,8 @@ class MakeDataFiles(Program):
                     NEW_STATE = SUBMIT_STATE_DONE
 
                     job_stats = self.get_job_stats(script_dir,
-                                                   log_list, 
-                                                   yaml_list, 
+                                                   log_list,
+                                                   yaml_list,
                                                    key_list)
 
                     row[COLNUM_STATE]       = NEW_STATE

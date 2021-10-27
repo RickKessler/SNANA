@@ -49,6 +49,9 @@ VARNAME_OBS_MAP = {
     'FLUXCALERR' : 'apFluxErr'
 }
 
+PHOTFLAG_DETECT = 4096  # should read this from global data header ??
+
+
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
 
@@ -101,17 +104,16 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     alert_data_orig = config_data['alert_data_orig']
     alert           = copy(alert_data_orig)
     
+    # copy structure of original sample alert to local diasrc
     prvDiaSources = alert_data_orig['prvDiaSources']
-    diasrc = prvDiaSources[0] # take the structure of the diasrc from the original sample alert
-
-
+    diasrc = prvDiaSources[0] 
 
     # # print this out for testing
     #for key in diasrc.keys():
     #    print(key)
     #print('---------- diasrc keys ----------')
         
-    alert['prvDiaSources'].clear() # for this alert clear out all the past histories
+    alert['prvDiaSources'].clear() # clear out all the past histories
 
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst alert
@@ -119,8 +121,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     translate_dict_diasrc(-1, data_event_dict, my_diasrc)
     alert['diaSource'] = my_diasrc
 
-    # translate each obs
-    for o in range(0,NOBS):
+    diaObjectId = my_diasrc['diaObjectId'] # same as SNID in snana sim file
+
+    # translate each obs to diasrc dictionary 
+    for o in range(0,NOBS)
+
         diaSourceId += 1
         my_diasrc['diaSourceId'] = diaSourceId
 
@@ -130,16 +135,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save the my_diasrc info input the diaSource to be saved
             alert['diaSource'] = my_diasrc
             continue
-            
-        mjd         = data_event_dict['phot_raw']['MJD'][o]
-        diaObjectId = my_diasrc['diaObjectId']
-        mjd_file    = f"{mjd}_{diaObjectId}_{diaSourceId}.avro"
 
-                # serialize the alert    
+        # check for detection
+        photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
+        detect      = (photflag & PHOTFLAG_DETECT) > 0
+
+        # construct name of avro file using mjd, objid, srcid
+        outdir_mjd  = outdir  # xxx later tack on /[mjdint]
+        mjd         = data_event_dict['phot_raw']['MJD'][o]
+        mjd_file    = f"{outdir_mjd}/{mjd}_{diaObjectId}_{diaSourceId}.avro"
+
+        # serialize the alert    
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
         
-        with open(outdir+'/'+mjd_file,"wb") as f:
+        with open(mjd_file,"wb") as f:
             schema.store_alerts(f, [alert])
 
         # now that you have written out this alert,
@@ -151,8 +161,9 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     # end write_event_lsst_alert
 
 def translate_dict_diasrc(obs, data_event_dict, diasrc):
-    # obs = -1 -> set header info
-    # obs >= 0 -> set info for obs 
+
+    # obs = -1 -> translate header info in data_event_dict to diasrc
+    # obs >= 0 -> translate obs in data_event_dict to diasrc
 
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']

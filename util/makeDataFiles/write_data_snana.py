@@ -2,7 +2,7 @@
 # utilities to write data in snana format
 
 import os, sys, yaml, shutil, glob, math
-import logging, subprocess  # coloredlogs
+import logging, subprocess  
 
 import numpy as np
 from   makeDataFiles_params    import *

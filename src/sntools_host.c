@@ -6867,43 +6867,55 @@ void SORT_SNHOST_byDDLR(void) {
 
 // ================================= 
 void set_GALID_UNIQUE(int i){
- // Oct 2021
- // Creates unique GALID 
- // Initial use is for LSST DESC broker test
- // Input i is the neighbor index 
- 
- char fnam[] = "set_GALID_UNIQUE";
- int CID = GENLC.CID;
- int CID_MULTIPLIER = 57;
- long long GALID_UNIQUE;
- int ilist = 1;
- int i2;
- double rand1;
- bool match_GALID = true;
- bool test_DUPLICATE_AVOID = false;
+  // Created Oct 2021 by A.Gagliaon and R.Kessler
+  //
+  // Assign unique GALID in separate GALID_UNIQUE variable.
+  // Initial use is LSST DESC broker test where HOSTLIB galaxies are
+  // re-used many times, but a unique GALID is needed for each event.
+  // Algorithm:
+  //   GALID_UNIQUE = CID * CID_MULTIPLIER + ran[0,CID_MULTIPLIER]
+  // and works only if the CID are unique, which is an already
+  // existing feature (FORMAT_MASK += 16).
+  //
+  // Input i is the neighbor index 
+  //
 
- if (test_DUPLICATE_AVOID){
-	 CID_MULTIPLIER = 5;
- }
+  int CID = GENLC.CID;
+  int CID_MULTIPLIER = 57;
+  long long GALID_UNIQUE;
+  int i2, ilist = 1;
+  double rand1 ;
+  bool match_GALID = true ;
+  bool test_DUPLICATE_AVOID = false ; // for unit test only
+  char fnam[] = "set_GALID_UNIQUE";
 
- while (match_GALID){
-	rand1 = getRan_Flat1(ilist);
- 	GALID_UNIQUE = CID*CID_MULTIPLIER + (int)(rand1*CID_MULTIPLIER);
-	SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = GALID_UNIQUE;
- 	if (i==0){
-		 return ;
- 	}
-	 // if GALID_UNIQUE matches previous neighbor, pick another GALID
-	 match_GALID = false;
-	 for (i2 = 0; i2 < i; i2++){
-		if (GALID_UNIQUE == SNHOSTGAL_DDLR_SORT[i2].GALID_UNIQUE){
-			match_GALID = true;
-			if (test_DUPLICATE_AVOID){
-				printf("xxx %s: DUPLICATE GALID FOR CID = %d, DDLR = %.2f\n", fnam, CID, SNHOSTGAL_DDLR_SORT[i].DDLR);
-			}
-		}
- 	} //end i2 for  
- } // end while
+  // ----------- BEGIN ------------
+
+  if ( test_DUPLICATE_AVOID ) { CID_MULTIPLIER = 5; }
+
+  while ( match_GALID ) {
+    rand1        = getRan_Flat1(ilist);
+    GALID_UNIQUE = CID*CID_MULTIPLIER + (int)(rand1*CID_MULTIPLIER);
+    SNHOSTGAL_DDLR_SORT[i].GALID_UNIQUE = GALID_UNIQUE;
+
+    // done for first host on list.
+    if ( i == 0 ) { return ; }
+
+    // check if GALID_UNIQUE matches previous neighbor ;
+    // if there's a match, pick another GALID
+    match_GALID = false;
+    for (i2 = 0; i2 < i; i2++){
+      if (GALID_UNIQUE == SNHOSTGAL_DDLR_SORT[i2].GALID_UNIQUE){
+	match_GALID = true;
+	if ( test_DUPLICATE_AVOID ) {
+	  printf("xxx %s: DUPLICATE GALID FOR CID = %d, DDLR = %.2f\n", 
+		 fnam, CID, SNHOSTGAL_DDLR_SORT[i].DDLR);
+	}
+      }
+    } //end i2 over previous neighbors
+
+  } // end while
+
 } // end set_GALID_UNIQUE
 
 // =================================

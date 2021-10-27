@@ -50,7 +50,7 @@ VARNAME_OBS_MAP = {
 }
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
-
+TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -129,13 +129,13 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     config_data['n_event_write'] += 1
     FIRST_OBS = True
     MJD_REF=data_event_dict['head_calc'][DATAKEY_PEAKMJD] # later change to  DATAKEY_MJD_DETECT
-    MJD_TIMEBACK_FORCE=50 #how many observations to include as forced photometry
     
     #translate each obs to diasrc dictionary 
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
-        keep_force = (MJD_REF - mjd) < MJD_TIMEBACK_FORCE # test to be sure
-#        print(keep_force, mjd, MJD_REF)
+        keep_force = (MJD_REF - mjd) < TIMEBACK_FORCE and \
+                     (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT     
+    
         
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]

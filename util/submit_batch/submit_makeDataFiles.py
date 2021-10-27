@@ -52,13 +52,12 @@ class MakeDataFiles(Program):
         return output_dir_name, SUBDIR_SCRIPTS_MKDATA
         # end set_output_dir_name
 
-    def prepare_make_data_units(self):
+    def prepare_output_args(self):
+        '''
+        Prepare the output directory based on format options (SNANA/ALERTS/etc)
+        '''
         CONFIG      = self.config_yaml['CONFIG']
-        inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
         input_file  = self.config_yaml['args'].input_file  # for msgerr
-        n_splitran   = CONFIG.get('NSPLITRAN', 1)
-        field       = CONFIG.get('FIELD', None)
-        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
         msgerr      = []
 
         output_args  = None
@@ -83,6 +82,20 @@ class MakeDataFiles(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
+        self.config_prep['output_args'] = output_args
+        # end prepare_output_args
+
+
+    def prepare_input_args(self):
+        '''
+        Prepare input arguments from config file
+        '''
+        CONFIG      = self.config_yaml['CONFIG']
+        inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
+        input_file  = self.config_yaml['args'].input_file  # for msgerr
+        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
+        msgerr      = []
+
         if inputs_list is None:
             msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
@@ -98,6 +111,21 @@ class MakeDataFiles(Program):
             split_mjd_detect['max']  = int(mjdmax)
             split_mjd_detect['nbin'] = int(mjdbin)
             split_mjd_detect['step'] = (split_mjd_detect['max'] - split_mjd_detect['min'])/split_mjd_detect['nbin']
+
+        self.config_prep['inputs_list'] = inputs_list
+        self.config_prep['split_mjd_detect'] = split_mjd_detect
+        # end prepare_input_args
+
+
+    def prepare_data_units(self):
+        CONFIG      = self.config_yaml['CONFIG']
+        output_args = self.config_prep['output_args']
+        inputs_list = self.config_prep['inputs_list']
+        input_file  = self.config_yaml['args'].input_file  # for msgerr
+        n_splitran  = CONFIG.get('NSPLITRAN', 1)
+        field       = CONFIG.get('FIELD', None)
+        split_mjd_detect_in = CONFIG.get('SPLIT_MJD_DETECT',None)
+        msgerr      = []
 
         makeDataFiles_args_list = []
         prefix_output_list = []
@@ -138,11 +166,9 @@ class MakeDataFiles(Program):
         self.config_prep['idata_unit_list'] = idata_unit_list
         self.config_prep['isplitran_list']  = isplitran_list
 
-        self.config_prep['inputs_list'] = inputs_list
-        self.config_prep['split_mjd_detect'] = split_mjd_detect
         self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
         self.config_prep['prefix_output_list'] = prefix_output_list
-        # end prepare_make_data_units
+        # end prepare_data_units
 
 
     def get_prefix_output(self, isplitmjd, base_name, isplitran):
@@ -164,14 +190,16 @@ class MakeDataFiles(Program):
         if isplitran >= 0:
             prefix_output += f'_{splitran_str}'
         return prefix_output
+        # end get_prefix_output
 
 
     def submit_prepare_driver(self):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file
-        self.prepare_make_data_units()
-
+        self.prepare_output_args()
+        self.prepare_input_args()
+        self.prepare_data_units()
         # end submit_prepare_driver
 
     def write_command_file(self, icpu, f):

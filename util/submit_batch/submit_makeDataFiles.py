@@ -332,21 +332,23 @@ class MakeDataFiles(Program):
                 NDONE  = sum(x is not None for x in done_list)
                 NYAML  = sum(x is not None for x in yaml_list)
 
-                if NLOG > 0:
+                if NLOG > 0 :
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
 
-                job_stats = self.get_job_stats(script_dir,
-                                               log_list, yaml_list, key_list)
+                    job_stats = self.get_job_stats(script_dir,
+                                                   log_list, 
+                                                   yaml_list, 
+                                                   key_list)
 
-                row[COLNUM_STATE]       = NEW_STATE
-                row[COLNUM_NEVT]        = job_stats[key_nall_sum]
-                row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
-                row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
+                    row[COLNUM_STATE]       = NEW_STATE
+                    row[COLNUM_NEVT]        = job_stats[key_nall_sum]
+                    row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
+                    row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
 
-                row_list_merge_new[irow] = row  # update new row
-                n_state_change += 1
+                    row_list_merge_new[irow] = row  # update new row
+                    n_state_change += 1
 
         # first return arg (row_split) is null since there is
         # no need for a SPLIT table

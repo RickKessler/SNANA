@@ -18,12 +18,12 @@
 # A merge process combines data_units into more useful samples
 # such as entire season and ALL data.
 #
-# To-DO list:                    
-#    - write PHOTFLAG_REJECT_BITS to IGNORE files      
-#    - add makeDataFile class to submit_batch framework 
-#    - update snlc_sim to create season map from SIMLIB;  
-#         read season map here to determin integer YY index   
-#    - modify framework to write output directly without  
+# To-DO list:
+#    - write PHOTFLAG_REJECT_BITS to IGNORE files
+#    - add makeDataFile class to submit_batch framework
+#    - update snlc_sim to create season map from SIMLIB;
+#         read season map here to determin integer YY index
+#    - modify framework to write output directly without
 #       intermediate text files.
 #
 # ============================================
@@ -52,13 +52,13 @@ def get_args():
     parser.add_argument("--lsst_ap", help=msg, action="store_true")
 
     msg = "Data source: LSST_DRP"
-    parser.add_argument("--lsst_drp", help=msg, action="store_true")    
+    parser.add_argument("--lsst_drp", help=msg, action="store_true")
 
     msg = "Data source: SIRAH pkl folder"
     parser.add_argument("--sirah_folder", help=msg, type=str, default=None )
 
     msg = "Data source: ZTF folder"
-    parser.add_argument("--ztf_folder", help=msg, type=str, default=None )    
+    parser.add_argument("--ztf_folder", help=msg, type=str, default=None )
 
     msg = "Data source: SNANA sim-data folder (for testing)"
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
@@ -67,16 +67,16 @@ def get_args():
     parser.add_argument("--field", help=msg, type=str, default=FIELD_VOID )
 
     msg = "output SNANA format: top-directory for data"
-    parser.add_argument("--outdir_snana", 
+    parser.add_argument("--outdir_snana",
                         help=msg, type=str, default=None )
 
     msg = "output LSST-ALERT format: top-directory for data"
-    parser.add_argument("--outdir_lsst_alert", 
-                        help=msg, type=str, default=None )    
+    parser.add_argument("--outdir_lsst_alert",
+                        help=msg, type=str, default=None )
     msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
-    parser.add_argument("--lsst_alert_schema", 
-                        help=msg, type=str, default=None )    
-    
+    parser.add_argument("--lsst_alert_schema",
+                        help=msg, type=str, default=None )
+
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
 
@@ -87,14 +87,14 @@ def get_args():
     parser.add_argument("-y", "--year", help=msg, type=int, default=-1 )
 
     msg = "Select events with MJD(first detection) in this range"
-    parser.add_argument('--mjd_detect_range', 
-                        nargs='+', help=msg, type=int, default=None )
+    parser.add_argument('--mjd_detect_range',
+                        nargs='+', help=msg, type=float, default=None )
     msg = "Select events with PEAKMJD in this range"
-    parser.add_argument('--peakmjd_range', 
-                        nargs='+', help=msg, type=int, default=None )
+    parser.add_argument('--peakmjd_range',
+                        nargs='+', help=msg, type=float, default=None )
 
     msg = "number of events to process (default is all)"
-    parser.add_argument("--nevt", help=msg, type=int, default=99999999 )    
+    parser.add_argument("--nevt", help=msg, type=int, default=99999999 )
 
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
@@ -103,14 +103,14 @@ def get_args():
     parser.add_argument("--text", help=msg, action="store_true")
 
     msg = "output yaml file (used by submit_batch_jobs)"
-    parser.add_argument("--output_yaml_file", 
-                        help=msg, type=str, default=None )    
+    parser.add_argument("--output_yaml_file",
+                        help=msg, type=str, default=None )
 
     msg = "merge/postprocess output files (after jobs finish)"
     parser.add_argument("--merge", help=msg, action="store_true")
 
     msg = "process fakes (default is real data)"
-    parser.add_argument("--fake", help=msg, action="store_true")    
+    parser.add_argument("--fake", help=msg, action="store_true")
 
     # - - - -
     args = parser.parse_args()
@@ -126,13 +126,13 @@ def get_args():
 def restore_args_from_readme(args,readme_yaml):
 
     # restore user args from readme_yaml that was read from README file.
-    
+
     args.lsst_ap      = False
     args.lsst_drp     = False
     args.sirah_folder = None
     args.ztf_folder   = None
     args.snana_folder = None
-            
+
     key = 'SOURCE_LSST_AP'
     if key in readme_yaml:
         args.lsst_ap   = readme_yaml[key]
@@ -148,26 +148,26 @@ def restore_args_from_readme(args,readme_yaml):
     key = 'SOURCE_ZTF_FOLDER'
     if key in readme_yaml:
         args.ztf_folder  = readme_yaml[key]
-        
+
     key = 'SOURCE_SNANA_FOLDER'
     if key in readme_yaml:
         args.snana_folder  = readme_yaml[key]
 
     args.field        = readme_yaml['FIELD']
 
-    
-    # end restore_args_from_readme
-    
-def which_read_class(args):
-    read_class = None 
 
-    # if merge process, read any one of the README files to 
+    # end restore_args_from_readme
+
+def which_read_class(args):
+    read_class = None
+
+    # if merge process, read any one of the README files to
     # recover the user-input logicals
     if args.merge:
         # restore args for merge process.
         if args.outdir_snana:
             outdir      = args.outdir_snana
-            folder      = glob.glob1(outdir, f"[!_TEXT]*" )[0]        
+            folder      = glob.glob1(outdir, f"[!_TEXT]*" )[0]
             readme_file = f"{outdir}/{folder}/{folder}.README"
             readme_yaml = util.read_yaml(readme_file)
             restore_args_from_readme(args,readme_yaml[DOCANA_KEY])
@@ -181,10 +181,10 @@ def which_read_class(args):
     elif args.lsst_drp :
         read_class = data_lsst_drp
         args.survey = "LSST"
-    elif args.sirah_folder is not None :        
+    elif args.sirah_folder is not None :
         read_class = data_sirah_folder
         args.survey = "SIRAH"
-    elif args.ztf_folder is not None :   
+    elif args.ztf_folder is not None :
         read_class = data_ztf_folder
         args.survey = "ZTF"
     elif args.snana_folder is not None :
@@ -194,10 +194,10 @@ def which_read_class(args):
     else:
         sys.exit("\nERROR: Could not determine program_class")
 
-    
+
     return read_class
 
-    # end which_read_class    
+    # end which_read_class
 
 # =============================================
 if __name__ == "__main__":
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     # init the data-source class
     program = read_class(config_inputs)  # calls __init only
 
-    # check for merge process; then use outdir_xyz args to 
+    # check for merge process; then use outdir_xyz args to
     # figure out which output format
     if args.merge:
         if args.outdir_snana:
@@ -235,9 +235,9 @@ if __name__ == "__main__":
         snana.convert2fits_snana(args, program.config_data)
 
     #if args.outdir_XYZ is not None:
-    #    program.convert2XYZ()        
+    #    program.convert2XYZ()
 
     # final summary
     program.final_summary()
-    
+
     # === END ===

@@ -50,7 +50,7 @@ VARNAME_OBS_MAP = {
 }
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
-
+TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -128,15 +128,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
     config_data['n_event_write'] += 1
     FIRST_OBS = True
+    MJD_REF=data_event_dict['head_calc'][DATAKEY_PEAKMJD] # later change to  DATAKEY_MJD_DETECT
     
-    # translate each obs to diasrc dictionary 
+    #translate each obs to diasrc dictionary 
     for o in range(0,NOBS):
-
+        mjd         = data_event_dict['phot_raw']['MJD'][o]
+        keep_force = (MJD_REF - mjd) < TIMEBACK_FORCE and \
+                     (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT     
+    
+        
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
-        if not detect: continue
-        
+        #        if not detect: continue
+
+        if not keep_force: continue
         diaSourceId += 1
         my_diasrc['diaSourceId'] = diaSourceId
 
@@ -147,14 +153,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
             FIRST_OBS = False
-            continue
+#            continue
 
-        # construct name of avro file using mjd, objid, srcid
-        mjd         = data_event_dict['phot_raw']['MJD'][o]
-        outdir_mjd  = make_outdir_mjd(outdir,mjd)
-        mjd_file    = f"{outdir_mjd}/" \
-                      f"{mjd:.4f}_{diaObjectId}_{diaSourceId}.avro"
 
+
+ 
         # serialize the alert    
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
@@ -163,6 +166,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         # problem: first alert includes previous force photometry
         #   which violates causality.
         if detect :
+            # construct name of avro file using mjd, objid, srcid
+            outdir_mjd  = make_outdir_mjd(outdir,mjd)
+            mjd_file    = f"{outdir_mjd}/" \
+                          f"alert_mjd{mjd:.4f}_obj{diaObjectId}_src{diaSourceId}.avro"
+
             with open(mjd_file,"wb") as f:
                 schema.store_alerts(f, [alert])
                 config_data['n_alert_write'] += 1

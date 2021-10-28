@@ -50,9 +50,7 @@ VARNAME_OBS_MAP = {
 }
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
-TIMEBACK_FORCE  = 50    # N_days before 1st detect to include forced phot.
-
-NALERT_SCREEN_UPDATE = 100 # update Nalert and write speed
+TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -63,13 +61,12 @@ def init_schema_lsst_alert(schema_file):
 
     print(f"\n Init alert schema based on\n\t schema_file={schema_file}\n" \
           f"\t jon_file={json_file}")
-
+    
     # Load an example json alert, and clear the numberical input
     with open(json_file) as f:
         alert_data = json.load(f)
 
     print('')
-    sys.stdout.flush()
     return schema, alert_data
 
     # end prep_write_lsst_alert
@@ -137,15 +134,13 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
         keep_force = (MJD_REF - mjd) < TIMEBACK_FORCE and \
-                     (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT     
-    
+                     (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT
+        if not keep_force: continue
         
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
-        #        if not detect: continue
 
-        if not keep_force: continue
         diaSourceId += 1
         my_diasrc['diaSourceId'] = diaSourceId
 
@@ -156,11 +151,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
             FIRST_OBS = False
-#            continue
 
-
-
- 
         # serialize the alert    
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
@@ -171,9 +162,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if detect :
             # construct name of avro file using mjd, objid, srcid
             outdir_mjd  = make_outdir_mjd(outdir,mjd)
-            mjd_file    = f"{outdir_mjd}/" \
-                          f"alert_mjd{mjd:.4f}_obj{diaObjectId}_src{diaSourceId}.avro"
-
+            mjd_file  = f"{outdir_mjd}/" \
+                        f"alert_mjd{mjd:.4f}_obj{diaObjectId}_src{diaSourceId}.avro"
             with open(mjd_file,"wb") as f:
                 schema.store_alerts(f, [alert])
                 config_data['n_alert_write'] += 1
@@ -244,14 +234,17 @@ def print_alert_stats(config_data):
     n_alert = config_data['n_alert_write']
     n_event = config_data['n_event_write']
             
-    if n_alert % NALERT_SCREEN_UPDATE == 0 :
+    if n_alert % 50 == 0 :
         t_start_alert = config_data['t_start_alert']
         t_now         = datetime.datetime.now()
         t_dif_sec  = (t_now - t_start_alert).total_seconds()
         rate       = int(n_alert / t_dif_sec)
         print(f"\t Wrote {n_alert:8d} alerts ({rate}/sec) " \
               f"for {n_event:6d} events.")
-        sys.stdout.flush()
+
+        #self.config_data['t_start'] = datetime.datetime.now()
+        #t_start = self.config_data['t_start']
+
         
 # end update_alert_stats
     

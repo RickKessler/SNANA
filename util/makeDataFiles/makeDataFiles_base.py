@@ -50,6 +50,11 @@ class Program:
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
 
+        # for lsst alert, add extra N_ALERT column to readme_stats
+        if args.outdir_lsst_alert:
+            global KEYLIST_README_STATS
+            KEYLIST_README_STATS += ['N_ALERT']
+            
         # end Program __init__
 
     def init_data_unit(self, config_inputs, config_data ):
@@ -568,8 +573,10 @@ class Program:
         for nevent, name in zip(nevent_list, name_list):
             if nevent == 0 : continue
             index_unit   = data_unit_name_list.index(name)
+
             if args.output_yaml_file:
                 self.write_yaml_file(index_unit)
+
             if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
@@ -582,6 +589,12 @@ class Program:
         # This is the same file as README file in output directory.
         args         = self.config_inputs['args']
         readme_stats = self.config_data['readme_stats_list'][index_unit]
+
+        # check to add N_ALERT for lsst_alert format .xyz
+        if args.outdir_lsst_alert :
+            n_alert = self.config_data['n_alert_write'] # write_data_lsst_alert.py
+            readme_stats['N_ALERT'] = n_alert
+            
         readme_dict = {
             'readme_file'  : args.output_yaml_file,
             'readme_stats' : readme_stats,

@@ -27,7 +27,6 @@ class data_snana_folder(Program):
         
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_foler = {data_folder}")
-        sys.stdout.flush()
 
         # scoop up contents of LIST file
         with open(list_file, 'r') as f:
@@ -57,8 +56,6 @@ class data_snana_folder(Program):
         NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
             
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
-        sys.stdout.flush()
-
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
             
@@ -256,7 +253,7 @@ class data_snana_folder(Program):
         
         if FIELD_DDF in head_file_name:
             field = FIELD_DDF
-        elif FIELD_WFD in head_file_name :
+        elif FIELD_WFD in head_file_name:
             field = FIELD_WFD
         else:
             msgerr.append(f"Unable to determine FIELD for")

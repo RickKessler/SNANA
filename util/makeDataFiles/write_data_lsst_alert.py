@@ -264,7 +264,7 @@ def print_alert_stats(config_data, done_flag=False):
         sys.stdout.flush()
 
     if done_flag:
-        print(f"\t Finished writing LSST alerts.")
+        print(f"\t Finished writing {n_alert} LSST alerts.")
         sys.stdout.flush()
         
 # end print_alert_stats

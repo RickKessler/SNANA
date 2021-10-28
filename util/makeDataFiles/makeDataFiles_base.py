@@ -404,15 +404,18 @@ class Program:
         #d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
 
+        # cut is "xmin <= x < xmax" so that distributed jobs with
+        # successive MJD windows do not include the same event
+        # on a cut boundary,
         if peakmjd_range is not None:
             PEAKMJD       = d_calc[DATAKEY_PEAKMJD]
-            if PEAKMJD < peakmjd_range[0] : pass_cuts = False
-            if PEAKMJD > peakmjd_range[1] : pass_cuts = False
+            if PEAKMJD <  peakmjd_range[0] : pass_cuts = False
+            if PEAKMJD >= peakmjd_range[1] : pass_cuts = False
 
         if mjd_detect_range is not None:
             MJD_DETECT    = d_calc[DATAKEY_MJD_DETECT]
-            if MJD_DETECT < mjd_detect_range[0]: pass_cuts = False
-            if MJD_DETECT > mjd_detect_range[1]: pass_cuts = False
+            if MJD_DETECT <  mjd_detect_range[0]: pass_cuts = False
+            if MJD_DETECT >= mjd_detect_range[1]: pass_cuts = False
 
         return pass_cuts
         # end pass_data_cuts

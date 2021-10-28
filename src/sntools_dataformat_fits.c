@@ -3161,11 +3161,19 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
 
-      
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
 	sprintf(KEY,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
-	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_MAG[igal][ifilt],
+	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, 
+				     &SNDATA.HOSTGAL_MAG[igal][ifilt],
+				     &SNFITSIO_READINDX_HEAD[j] ) ;  
+      }
+
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+	sprintf(KEY,"%s_MAGERR_%c", PREFIX, FILTERSTRING[ifilt_obs] );
+	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, 
+				     &SNDATA.HOSTGAL_MAGERR[igal][ifilt],
 				     &SNFITSIO_READINDX_HEAD[j] ) ;  
       }
       

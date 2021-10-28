@@ -52,6 +52,7 @@ VARNAME_OBS_MAP = {
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
 TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
 NOBS_ALERT_MAX  = 2000  # used to compute diaSource
+NOBS_ALERT_UPDATE = 100 # std update after this many alerts
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -171,7 +172,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             with open(mjd_file,"wb") as f:
                 schema.store_alerts(f, [alert])
                 config_data['n_alert_write'] += 1
-                print_alert_stats(config_data)            
+                print_alert_stats(config_data) 
                 
         # now that you have written out this alert,
         # move the diasource info to the "past" for the next observation
@@ -248,23 +249,29 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
         
     # end translate_dict_diasrc
 
-def print_alert_stats(config_data):
+def print_alert_stats(config_data, done_flag=False):
     
     n_alert = config_data['n_alert_write']
     n_event = config_data['n_event_write']
             
-    if n_alert % 50 == 0 :
+    if n_alert % NOBS_ALERT_UPDATE == 0 or done_flag :
         t_start_alert = config_data['t_start_alert']
         t_now         = datetime.datetime.now()
         t_dif_sec  = (t_now - t_start_alert).total_seconds()
         rate       = int(n_alert / t_dif_sec)
         print(f"\t Wrote {n_alert:8d} alerts ({rate}/sec) " \
-              f"for {n_event:6d} events.")
+              f"for {n_event:6d} events.")        
         sys.stdout.flush()
 
-        #self.config_data['t_start'] = datetime.datetime.now()
-        #t_start = self.config_data['t_start']
-
+    if done_flag:
+        print(f"\t Finished writing LSST alerts.")
+        sys.stdout.flush()
         
-# end update_alert_stats
-    
+# end print_alert_stats
+   
+def write_summary_lsst_alert(name, config_data):
+    # write final summary to stdout for "name" of data unit
+    done_flag = True
+    print_alert_stats(config_data, done_flag)
+    # end
+

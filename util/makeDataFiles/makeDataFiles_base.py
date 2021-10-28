@@ -580,7 +580,7 @@ class Program:
             if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
-                pass # ???
+                lsst_alert.write_summary_lsst_alert(name, self.config_data)
 
         # end read_data_driver
 

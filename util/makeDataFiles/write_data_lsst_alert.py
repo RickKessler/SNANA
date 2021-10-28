@@ -50,7 +50,9 @@ VARNAME_OBS_MAP = {
 }
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
-TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
+TIMEBACK_FORCE  = 50    # N_days before 1st detect to include forced phot.
+
+NALERT_SCREEN_UPDATE = 100 # update Nalert and write speed
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -61,12 +63,13 @@ def init_schema_lsst_alert(schema_file):
 
     print(f"\n Init alert schema based on\n\t schema_file={schema_file}\n" \
           f"\t jon_file={json_file}")
-    
+
     # Load an example json alert, and clear the numberical input
     with open(json_file) as f:
         alert_data = json.load(f)
 
     print('')
+    sys.stdout.flush()
     return schema, alert_data
 
     # end prep_write_lsst_alert
@@ -241,17 +244,14 @@ def print_alert_stats(config_data):
     n_alert = config_data['n_alert_write']
     n_event = config_data['n_event_write']
             
-    if n_alert % 50 == 0 :
+    if n_alert % NALERT_SCREEN_UPDATE == 0 :
         t_start_alert = config_data['t_start_alert']
         t_now         = datetime.datetime.now()
         t_dif_sec  = (t_now - t_start_alert).total_seconds()
         rate       = int(n_alert / t_dif_sec)
         print(f"\t Wrote {n_alert:8d} alerts ({rate}/sec) " \
               f"for {n_event:6d} events.")
-
-        #self.config_data['t_start'] = datetime.datetime.now()
-        #t_start = self.config_data['t_start']
-
+        sys.stdout.flush()
         
 # end update_alert_stats
     

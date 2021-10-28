@@ -36,7 +36,12 @@ import submit_translate as tr
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
-from   submit_prog_lcfit  import LightCurveFit
+
+try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
+    from   submit_prog_lcfit  import LightCurveFit
+except Exception as e:
+    pass
+
 from   submit_prog_bbc    import BBC
 from   submit_prog_wfit   import wFit
 from   submit_train_SALT2 import train_SALT2

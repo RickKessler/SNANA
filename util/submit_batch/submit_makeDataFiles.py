@@ -14,10 +14,11 @@ import numpy as np
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 COLNUM_MKDATA_MERGE_DATAUNIT    = 1
-COLNUM_MKDATA_MERGE_NEVT        = 2
-COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
-COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
-COLNUM_MKDATA_MERGE_NOBS_ALERT  = 5  # for lsst alerts only
+COLNUM_MKDATA_MERGE_ISPLITMJD   = 2
+COLNUM_MKDATA_MERGE_NEVT        = 3
+COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 4
+COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 5
+COLNUM_MKDATA_MERGE_NOBS_ALERT  = 6  # for lsst alerts only
 
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
@@ -164,7 +165,6 @@ class MakeDataFiles(Program):
 
         # end prepare_input_args
 
-
     def prepare_data_units(self):
         CONFIG      = self.config_yaml['CONFIG']
         output_args = self.config_prep['output_args']
@@ -179,6 +179,8 @@ class MakeDataFiles(Program):
 
         makeDataFiles_args_list = []
         prefix_output_list = []
+        isplitmjd_list     = []
+
         if n_splitmjd > 1:
             isplitmjd_temp_list = zip(range(0, n_splitmjd),\
                                             split_mjd['min_edge'],\
@@ -200,6 +202,7 @@ class MakeDataFiles(Program):
                 # construct base prefix without isplitran
                 prefix_output = self.get_prefix_output(min_edge, base_name, -1)
                 prefix_output_list.append(prefix_output)
+                isplitmjd_list.append(isplitmjd)
 
                 args_list.append(f'--snana_folder {input_src}') ### HACK need to generalize for other inputs
 
@@ -262,14 +265,24 @@ class MakeDataFiles(Program):
 
     def submit_prepare_driver(self):
 
+        # called from base to prepare makeDataFile arguments for batch.
+
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file
+        script_dir   = self.config_prep['script_dir']
+
         self.prepare_output_args()
         self.prepare_input_args()
         self.prepare_data_units()
+
+        # copy input config file to script-dir
+        shutil.copy(input_file,script_dir)
+
         # end submit_prepare_driver
 
     def write_command_file(self, icpu, f):
+
+        # Called from base;
         # For this icpu, write full set of sim commands to
         # already-opened command file with pointer f.
         # Function returns number of jobs for this cpu
@@ -369,10 +382,12 @@ class MakeDataFiles(Program):
 
     def create_merge_table(self,f):
 
+        # Called from base to create rows for table in  MERGE.LOG 
+
         prefix_output_list  = self.config_prep['prefix_output_list']
         output_format       = self.config_yaml['args'].output_format 
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
-        header_line_merge = f"    STATE   {DATA_UNIT_STR}  " \
+        header_line_merge = f"    STATE   {DATA_UNIT_STR}  ISPLITMJD " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert : header_line_merge += "NOBS_ALERT"
             
@@ -383,10 +398,11 @@ class MakeDataFiles(Program):
             'row_list'    : []   }
 
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
-        for prefix in prefix_output_list :
+        for prefix, isplitmjd in zip(prefix_output_list,isplitmjd_list):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
             ROW_MERGE.append(prefix)
+            ROW_MERGE.append(isplitmjd) 
             ROW_MERGE.append(0)       # NEVT
             ROW_MERGE.append(0)       # NEVT_SPECZ
             ROW_MERGE.append(0)       # NEVT_PHOTOZ
@@ -400,23 +416,37 @@ class MakeDataFiles(Program):
 
     def append_info_file(self,f):
 
+        # Called from base to
         # append info to SUBMIT.INFO file; use passed file pointer f
 
         CONFIG              = self.config_yaml['CONFIG']       
         output_format       = self.config_yaml['args'].output_format
         prefix_output_list  = self.config_prep['prefix_output_list']
         input_source        = self.config_prep['input_source']
-        
+
+        split_mjd_key_name  = self.config_prep['split_mjd_key_name']
+        split_mjd           = self.config_prep['split_mjd']
+        nsplitmjd           = split_mjd['nbin']
+
         f.write(f"# makeDataFiles info \n")
         f.write(f"JOBFILE_WILDCARD: {BASE_PREFIX}* \n")
-
         f.write(f"\n")
+
         f.write(f"MAKEDATAFILE_SOURCE: {input_source} \n")
         f.write(f"OUTPUT_FORMAT:   {output_format} \n")
         f.write(f"\n")
+
+        f.write(f"KEYNAME_SPLITMJD:  {split_mjd_key_name}\n")
+        f.write(f"NSPLITMJD: {nsplitmjd} \n");
+        if nsplitmjd > 1:
+            min_edge = split_mjd['min_edge']
+            max_edge = split_mjd['max_edge']
+            f.write(f"MIN_MJD_EDGE: {min_edge} \n")
+            f.write(f"MAX_MJD_EDGE: {max_edge} \n")
+        f.write(f"\n")
+
+        # write out each job prefix
         f.write(f"PREFIX_OUTPUT_LIST:  \n" )
-        # use original ARG_list instead of arg_list; the latter may
-        # include contents of shiftlist_file.
         for prefix in prefix_output_list:
             f.write(f"  - {prefix} \n")
         f.write("\n")
@@ -427,6 +457,7 @@ class MakeDataFiles(Program):
 
     def merge_update_state(self, MERGE_INFO_CONTENTS):
 
+        # Called from base to
         # read MERGE.LOG, check LOG & DONE files.
         # Return update row list MERGE tables.
 

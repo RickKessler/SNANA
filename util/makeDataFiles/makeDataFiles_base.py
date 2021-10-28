@@ -50,10 +50,10 @@ class Program:
         # store info for phot varnames
         self.store_varlist_obs(config_inputs, config_data)
 
-        # for lsst alert, add extra N_ALERT column to readme_stats
+        # for lsst alert, add extra NOBS_ALERT column to readme_stats
         if args.outdir_lsst_alert:
             global KEYLIST_README_STATS
-            KEYLIST_README_STATS += ['N_ALERT']
+            KEYLIST_README_STATS += [KEYNAME_NOBS_ALERT]
             
         # end Program __init__
 
@@ -590,10 +590,10 @@ class Program:
         args         = self.config_inputs['args']
         readme_stats = self.config_data['readme_stats_list'][index_unit]
 
-        # check to add N_ALERT for lsst_alert format .xyz
+        # check to add NOBS_ALERT for lsst_alert format 
         if args.outdir_lsst_alert :
-            n_alert = self.config_data['n_alert_write'] # write_data_lsst_alert.py
-            readme_stats['N_ALERT'] = n_alert
+            n_alert = self.config_data['n_alert_write']
+            readme_stats[KEYNAME_NOBS_ALERT] = n_alert
             
         readme_dict = {
             'readme_file'  : args.output_yaml_file,

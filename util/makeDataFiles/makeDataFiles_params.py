@@ -96,7 +96,8 @@ NEVT_SCREEN_UPDATE = 500
 KEYLIST_README_STATS = [ 'NEVT_ALL', 
                          'NEVT_HOSTGAL_SPECZ', 'NEVT_HOSTGAL_PHOTOZ',
                          'NEVT_SPECTRA' ]
-  
+KEYNAME_NOBS_ALERT = "NOBS_ALERT"  # for lsst alerts
+
 # define key names for data_event_dict dictionary,
 # and for TEXT-formatted data files (readable by snana codes)
 # The global list is used to initial all values to -9

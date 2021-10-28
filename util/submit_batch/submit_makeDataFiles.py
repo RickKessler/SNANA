@@ -17,7 +17,7 @@ COLNUM_MKDATA_MERGE_DATAUNIT    = 1
 COLNUM_MKDATA_MERGE_NEVT        = 2
 COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
 COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
-COLNUM_MKDATA_MERGE_N_ALERT     = 5  # for lsst alerts only
+COLNUM_MKDATA_MERGE_NOBS_ALERT  = 5  # for lsst alerts only
 
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
@@ -374,7 +374,7 @@ class MakeDataFiles(Program):
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         header_line_merge = f"    STATE   {DATA_UNIT_STR}  " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
-        if out_lsst_alert : header_line_merge += "N_ALERT"
+        if out_lsst_alert : header_line_merge += "NOBS_ALERT"
             
             
         INFO_MERGE = {
@@ -390,7 +390,7 @@ class MakeDataFiles(Program):
             ROW_MERGE.append(0)       # NEVT
             ROW_MERGE.append(0)       # NEVT_SPECZ
             ROW_MERGE.append(0)       # NEVT_PHOTOZ
-            if out_lsst_alert: ROW_MERGE.append(0)  # N_ALERT
+            if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
             
             INFO_MERGE['row_list'].append(ROW_MERGE)
         # - - - -
@@ -443,7 +443,7 @@ class MakeDataFiles(Program):
         COLNUM_NEVT        = COLNUM_MKDATA_MERGE_NEVT
         COLNUM_NEVT_SPECZ  = COLNUM_MKDATA_MERGE_NEVT_SPECZ
         COLNUM_NEVT_PHOTOZ = COLNUM_MKDATA_MERGE_NEVT_PHOTOZ
-        COLNUM_N_ALERT     = COLNUM_MKDATA_MERGE_N_ALERT
+        COLNUM_NOBS_ALERT  = COLNUM_MKDATA_MERGE_NOBS_ALERT
         
         # init outputs of function
         n_state_change     = 0
@@ -462,7 +462,7 @@ class MakeDataFiles(Program):
 
         if out_lsst_alert:
             key_nalert, key_nalert_sum, key_nalert_list = \
-                self.keynames_for_job_stats('N_ALERT')
+                self.keynames_for_job_stats('NOBS_ALERT')
             key_list += [ key_nalert ]
                                                           
         nrow_check = 0
@@ -508,7 +508,7 @@ class MakeDataFiles(Program):
                     row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
 
                     if out_lsst_alert:
-                        row[COLNUM_N_ALERT] = job_stats[key_nalert_sum]
+                        row[COLNUM_NOBS_ALERT] = job_stats[key_nalert_sum]
                         
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
@@ -537,11 +537,32 @@ class MakeDataFiles(Program):
 
 
     def get_misc_merge_info(self):
+
         # return misc info lines to write into MERGE.LOG file.
         # Each info line must be of the form
         #  KEYNAME:  VALUE
 
-        return []
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+
+        # sum NEVT column in MERGE.LOG
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_INFO_CONTENTS, comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+        row_list  = MERGE_INFO_CONTENTS[TABLE_MERGE]
+        NEVT_SUM = 0
+        NOBS_SUM = 0
+        for row in row_list:            
+            NEVT_SUM += int(row[COLNUM_MKDATA_MERGE_NEVT]) 
+            if isfmt_lsst_alert:
+                NOBS_SUM += int(row[COLNUM_MKDATA_MERGE_NOBS_ALERT]) 
+
+        info_lines = [ f"NEVT_SUM:        {NEVT_SUM}" ]
+        if isfmt_lsst_alert:
+            info_lines += [ f"NOBS_ALERT_SUM:  {NOBS_SUM}" ]
+
+        return info_lines
+
         # end get_misc_merge_info
 
     def merge_cleanup_final(self):
@@ -552,14 +573,16 @@ class MakeDataFiles(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         cwd              = submit_info_yaml['CWD']
         output_format    = submit_info_yaml['OUTPUT_FORMAT']
+        isfmt_snana      = (output_format == OUTPUT_FORMAT_SNANA)
+        isfmt_lsst_alert = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         msgerr = []
         
-        if output_format == OUTPUT_FORMAT_SNANA:
+        if isfmt_snana :
             command_list = ['makeDataFiles.sh',
                             '--outdir_snana', output_dir, '--merge']
             ret = subprocess.run(command_list, capture_output=False, text=True )
             
-        elif output_format == OUTPUT_FORMAT_LSST_ALERTS :
+        elif isfmt_lsst_alert :
             print(f" xxx not ready for avro cleanup")
             
         else:

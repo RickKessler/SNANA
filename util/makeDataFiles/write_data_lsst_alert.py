@@ -67,6 +67,8 @@ def init_schema_lsst_alert(schema_file):
         alert_data = json.load(f)
 
     print('')
+    sys.stdout.flush()
+
     return schema, alert_data
 
     # end prep_write_lsst_alert
@@ -174,6 +176,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         alert['prvDiaSources'].append(alert['diaSource'])
         
         #print(f" xxx o={o}  mjd={mjd}")
+
+    # - - - - - -           
+    # if first obs was never found, hack alert to avoid crash.
+    # This error can happen using MJD_REF=PEAKMJD, but should not 
+    # occur when using MJD_REF = MJD_DETECT_FIRST.
+    if  FIRST_OBS :
+        print(f"   No detections found for SNID={SNID}; " \
+              f"hack alert to avoid crash")
+        sys.stdout.flush()
+
+        o = 0
+        translate_dict_diasrc(o, data_event_dict, my_diasrc)
+        alert['diaSource'] = my_diasrc
+        alert['prvDiaSources'].append(alert['diaSource'])
+
     return
 
 # end write_event_lsst_alert
@@ -241,6 +258,7 @@ def print_alert_stats(config_data):
         rate       = int(n_alert / t_dif_sec)
         print(f"\t Wrote {n_alert:8d} alerts ({rate}/sec) " \
               f"for {n_event:6d} events.")
+        sys.stdout.flush()
 
         #self.config_data['t_start'] = datetime.datetime.now()
         #t_start = self.config_data['t_start']

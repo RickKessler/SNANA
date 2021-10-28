@@ -104,10 +104,13 @@ class MakeDataFiles(Program):
         '''
         Prepare input arguments from config file
         '''
-        CONFIG      = self.config_yaml['CONFIG']
-        inputs_list = CONFIG.get('MAKEDATAFILE_INPUTS', None)
-        input_file  = self.config_yaml['args'].input_file  # for msgerr
-        msgerr      = []
+        CONFIG        = self.config_yaml['CONFIG']
+        inputs_list   = CONFIG.get('MAKEDATAFILE_INPUTS', None)
+        input_source  = CONFIG.get('MAKEDATAFILE_SOURCE', None)
+        nevt          = CONFIG.get('NEVT', None)
+                                   
+        input_file    = self.config_yaml['args'].input_file  # for msgerr
+        msgerr        = []
 
         if inputs_list is None:
             msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
@@ -154,6 +157,10 @@ class MakeDataFiles(Program):
         self.config_prep['split_mjd']   = split_mjd
         self.config_prep['split_mjd_key_name'] = split_mjd_key_name  # CONFIG YAML keyname
         self.config_prep['split_mjd_option'] = split_mjd_option #makeDataFiles.sh option
+
+        self.config_prep['input_source'] = input_source
+        self.config_prep['nevt']         = nevt
+
         # end prepare_input_args
 
 
@@ -319,8 +326,10 @@ class MakeDataFiles(Program):
         prefix            = f'{prefix_base}_SPLITRAN{isplitarg:03d}'
         program           = self.config_prep['program']
         script_dir        = self.config_prep['script_dir']
-        kill_on_fail      = self.config_yaml['args'].kill_on_fail
         output_dir        = self.config_prep['output_dir']
+        nevt              = self.config_prep['nevt']
+
+        kill_on_fail      = self.config_yaml['args'].kill_on_fail
         output_format     = self.config_yaml['args'].output_format
         # do_fast           = self.config_yaml['args'].fast
 
@@ -336,7 +345,10 @@ class MakeDataFiles(Program):
         if output_format == OUTPUT_FORMAT_LSST_ALERTS :
             schema_file = CONFIG['LSST_ALERT_SCHEMA']
             arg_list.append(f"--lsst_alert_schema {schema_file}")
-            
+
+        if nevt is not None:
+            arg_list.append(f"--nevt {nevt}")
+
         arg_list.append(f"--output_yaml_file {yaml_file}")
         # if do_fast   : arg_list.append("--fast")        # may need later
 
@@ -383,10 +395,10 @@ class MakeDataFiles(Program):
 
         # append info to SUBMIT.INFO file; use passed file pointer f
 
-        CONFIG              = self.config_yaml['CONFIG']        
-        prefix_output_list  = self.config_prep['prefix_output_list']
+        CONFIG              = self.config_yaml['CONFIG']       
         output_format       = self.config_yaml['args'].output_format
-        input_source        = CONFIG['MAKEDATAFILE_SOURCE']
+        prefix_output_list  = self.config_prep['prefix_output_list']
+        input_source        = self.config_prep['input_source']
         
         f.write(f"# makeDataFiles info \n")
         f.write(f"JOBFILE_WILDCARD: {BASE_PREFIX}* \n")

@@ -56,7 +56,7 @@ class data_snana_folder(Program):
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
         NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
             
-        logging.info(f"\t Read {nevt} events from {HEAD_file_base}")
+        logging.info(f"   Read {nevt} events from {HEAD_file_base}")
         sys.stdout.flush()
 
         table_head = hdu_head[1].data

@@ -30,9 +30,9 @@ OUTPUT_FORMAT                   = [OUTPUT_FORMAT_SNANA, OUTPUT_FORMAT_LSST_ALERT
 KEYLIST_SPLIT_MJD               = ['SPLIT_MJD_DETECT', 'SPLIT_PEAKMJD']
 KEYLIST_SPLIT_MJD_OPTIONS       = ['--mjd_detect_range', '--peakmjd_range']
 
-BASE_PREFIX                     = 'MAKEDATA'
-DATA_UNIT_STR                   = 'DATA_UNIT'
-
+BASE_PREFIX          = 'MAKEDATA'   # base for log,yaml,done files
+DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
+SUBDIR_ALERTS        = "ALERTS"     # move mjd tar files here
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -272,6 +272,7 @@ class MakeDataFiles(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file
         script_dir   = self.config_prep['script_dir']
+        output_dir   = self.config_prep['output_dir']
 
         self.prepare_output_args()
         self.prepare_input_args()
@@ -279,6 +280,11 @@ class MakeDataFiles(Program):
 
         # copy input config file to script-dir
         shutil.copy(input_file,script_dir)
+
+        # create ALERTS subdir for final mjd-tar files
+        alerts_dir    = f"{output_dir}/{SUBDIR_ALERTS}"
+        self.config_prep['alerts_dir'] = alerts_dir
+        os.mkdir(alerts_dir)
 
         # end submit_prepare_driver
 
@@ -426,7 +432,7 @@ class MakeDataFiles(Program):
         output_format       = self.config_yaml['args'].output_format
         prefix_output_list  = self.config_prep['prefix_output_list']
         input_source        = self.config_prep['input_source']
-
+        alerts_dir          = self.config_prep['alerts_dir']
         split_mjd_key_name  = self.config_prep['split_mjd_key_name']
         split_mjd           = self.config_prep['split_mjd']
         nsplitmjd           = split_mjd['nbin']
@@ -437,13 +443,14 @@ class MakeDataFiles(Program):
 
         f.write(f"MAKEDATAFILE_SOURCE: {input_source} \n")
         f.write(f"OUTPUT_FORMAT:   {output_format} \n")
+        f.write(f"ALERTS_DIR:      {alerts_dir}\n")
         f.write(f"\n")
 
         f.write(f"KEYNAME_SPLITMJD:  {split_mjd_key_name}\n")
         f.write(f"NSPLITMJD: {nsplitmjd} \n");
         if nsplitmjd > 1:
-            min_edge = split_mjd['min_edge']
-            max_edge = split_mjd['max_edge']
+            min_edge = list(split_mjd['min_edge'])
+            max_edge = list(split_mjd['max_edge'])
             f.write(f"MIN_MJD_EDGE: {min_edge} \n")
             f.write(f"MAX_MJD_EDGE: {max_edge} \n")
         f.write(f"\n")

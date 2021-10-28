@@ -253,7 +253,7 @@ class data_snana_folder(Program):
         
         if FIELD_DDF in head_file_name:
             field = FIELD_DDF
-        elif FIELD_WFD in head_file:
+        elif FIELD_WFD in head_file_name :
             field = FIELD_WFD
         else:
             msgerr.append(f"Unable to determine FIELD for")

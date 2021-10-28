@@ -20377,7 +20377,10 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   //   npe > 0 ==> saturated
   //
   // Used only if NPE_PIXEL_SATURATION key is given in the SIMLIB header.
-
+  // 
+  // Oct 28 2021: reutrn -999 if INPUTS.EXPOSURE_TIME>10
+  //               (otherwise all epochs saturate and fail trigger)
+  //
   int npe = -999 ; // default is not saturated
   int NEXPOSE      = SIMLIB_OBS_GEN.NEXPOSE[epoch] ;
   int LDMP ;
@@ -20397,6 +20400,9 @@ int npe_above_saturation ( int epoch, double flux_pe) {
 
   // if no saturation value is given, then never saturate
   if ( NPE_SAT > 999999999 ) { return(npe); }
+
+  // skip saturation check if using large exposure_time (Oct 28 2021)     
+  if ( INPUTS.EXPOSURE_TIME > 10.0 ) { return(npe); } //.xyz                         
 
   skysig_pe = (skysig_adu * ccdgain) ;  // convert ADU -> pe
   sky_pe    = skysig_pe * skysig_pe ;   // sky counts per pix, Npe

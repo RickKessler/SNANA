@@ -544,6 +544,10 @@ class MakeDataFiles(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_format    = submit_info_yaml['OUTPUT_FORMAT']
+        isfmt_snana      = (output_format == OUTPUT_FORMAT_SNANA)
+        isfmt_lsst_alert = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
         # sum NEVT column in MERGE.LOG
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")

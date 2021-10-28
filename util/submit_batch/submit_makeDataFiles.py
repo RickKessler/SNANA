@@ -238,6 +238,8 @@ class MakeDataFiles(Program):
 
         self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
         self.config_prep['prefix_output_list'] = prefix_output_list
+        self.config_prep['isplitmjd_list']     = isplitmjd_list
+
         # end prepare_data_units
 
 
@@ -384,6 +386,7 @@ class MakeDataFiles(Program):
 
         # Called from base to create rows for table in  MERGE.LOG 
 
+        isplitmjd_list      = self.config_prep['isplitmjd_list']
         prefix_output_list  = self.config_prep['prefix_output_list']
         output_format       = self.config_yaml['args'].output_format 
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)

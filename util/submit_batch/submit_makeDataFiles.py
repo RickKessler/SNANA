@@ -17,6 +17,7 @@ COLNUM_MKDATA_MERGE_DATAUNIT    = 1
 COLNUM_MKDATA_MERGE_NEVT        = 2
 COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 3
 COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 4
+COLNUM_MKDATA_MERGE_N_ALERT     = 5  # for lsst alerts only
 
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
@@ -368,9 +369,14 @@ class MakeDataFiles(Program):
 
     def create_merge_table(self,f):
 
-        prefix_output_list        = self.config_prep['prefix_output_list']
-
-        header_line_merge = (f"    STATE   {DATA_UNIT_STR}  NEVT NEVT_SPECZ NEVT_PHOTOZ")
+        prefix_output_list  = self.config_prep['prefix_output_list']
+        output_format       = self.config_yaml['args'].output_format 
+        out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
+        header_line_merge = f"    STATE   {DATA_UNIT_STR}  " \
+                            f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
+        if out_lsst_alert : header_line_merge += "N_ALERT"
+            
+            
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
@@ -384,7 +390,8 @@ class MakeDataFiles(Program):
             ROW_MERGE.append(0)       # NEVT
             ROW_MERGE.append(0)       # NEVT_SPECZ
             ROW_MERGE.append(0)       # NEVT_PHOTOZ
-
+            if out_lsst_alert: ROW_MERGE.append(0)  # N_ALERT
+            
             INFO_MERGE['row_list'].append(ROW_MERGE)
         # - - - -
         util.write_merge_file(f, INFO_MERGE, [] )
@@ -428,22 +435,20 @@ class MakeDataFiles(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
 
+        output_format       = submit_info_yaml['OUTPUT_FORMAT']
+        out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
+        
         COLNUM_STATE       = COLNUM_MERGE_STATE
         COLNUM_DATAUNIT    = COLNUM_MKDATA_MERGE_DATAUNIT
         COLNUM_NEVT        = COLNUM_MKDATA_MERGE_NEVT
         COLNUM_NEVT_SPECZ  = COLNUM_MKDATA_MERGE_NEVT_SPECZ
         COLNUM_NEVT_PHOTOZ = COLNUM_MKDATA_MERGE_NEVT_PHOTOZ
-
+        COLNUM_N_ALERT     = COLNUM_MKDATA_MERGE_N_ALERT
+        
         # init outputs of function
         n_state_change     = 0
         row_list_merge_new = []
         row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
-
-        # keys from YAML file
-        # NEVT_ALL:                118
-        # NEVT_HOSTGAL_SPECZ:      60
-        # NEVT_HOSTGAL_PHOTOZ:     118
-        # NEVT_SPECTRA:            0
 
         # keynames_for_job_stats returns 3 keynames :
         #   {base}, {base}_sum, {base}_list
@@ -452,11 +457,14 @@ class MakeDataFiles(Program):
         key_nspecz, key_nspecz_sum, key_nspecz_list = \
                  self.keynames_for_job_stats('NEVT_HOSTGAL_SPECZ')
         key_nphotz, key_nphotz_sum, key_nphotz_list = \
-                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')
-        #key_cpu, key_cpu_sum, key_cpu_list = \
-        #        self.keynames_for_job_stats('CPU_MINUTES')
+                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')        
         key_list = [ key_nall, key_nspecz, key_nphotz ]
 
+        if out_lsst_alert:
+            key_nalert, key_nalert_sum, key_nalert_list = \
+                self.keynames_for_job_stats('N_ALERT')
+            key_list += [ key_nalert ]
+                                                          
         nrow_check = 0
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input
@@ -499,6 +507,9 @@ class MakeDataFiles(Program):
                     row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
                     row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
 
+                    if out_lsst_alert:
+                        row[COLNUM_N_ALERT] = job_stats[key_nalert_sum]
+                        
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
 

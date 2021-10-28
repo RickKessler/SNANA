@@ -51,6 +51,7 @@ VARNAME_OBS_MAP = {
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
 TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
+NOBS_ALERT_MAX  = 2000  # used to compute diaSource
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -83,7 +84,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
-    SNID      = head_raw[DATAKEY_SNID] # for error message
+    SNID      = int(head_raw[DATAKEY_SNID]) # to compare sourceID
     NOBS      = phot_raw[DATAKEY_NOBS]
 
     # strip off number of processed events; init stuff on nevent=0
@@ -100,7 +101,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         alert_data_orig     = alert_data.copy()
         config_data['schema']          = schema
         config_data['alert_data_orig'] = alert_data_orig
-        config_data['diaSourceId']     = 1000000
+        config_data['diaSourceId']     = 0
         config_data['n_alert_write']   = 0
         config_data['n_event_write']   = 0
         config_data['t_start_alert']   = datetime.datetime.now()
@@ -143,7 +144,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
 
-        diaSourceId += 1
+        # compute UNIQUE diaSource from already unique SNID
+        diaSourceId = NOBS_ALERT_MAX*SNID + o
         my_diasrc['diaSourceId'] = diaSourceId
 
         # update my_diasrc with this obs
@@ -201,7 +203,7 @@ def make_outdir_mjd(outdir,mjd):
     # + create outdir_mjd if it does not already exit
 
     mjdint = int(mjd)
-    outdir_mjd = outdir + '/' + str(mjdint)
+    outdir_mjd = outdir + '/mjd' + str(mjdint)
     if not os.path.exists(outdir_mjd) :
         cmd = f"mkdir {outdir_mjd}"
         #print(f"\t Create {outdir_mjd}")

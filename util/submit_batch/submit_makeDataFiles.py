@@ -37,6 +37,10 @@ SUBDIR_ALERTS        = "ALERTS"     # move mjd tar files here
 AVRO_FILE_PREFIX = "alert"
 AVRO_FILE_SUFFIX = "avro"
 
+TABLE_COMPRESS = "COMPRESS" # name of supplemental table in MERGE.LOG file
+
+ENV_LSST_STACK  = "LSST_STACK_VERSION"
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -267,7 +271,20 @@ class MakeDataFiles(Program):
         return prefix_output
         # end get_prefix_output
 
+    def check_lsst_stack(self):
+        # read or write option that requires lsst stack,
+        # abort if ENV_LSST_STACK  = "LSST_STACK_VERSION"
+        # is not set
 
+        output_format = self.config_yaml['args'].output_format
+        isfmt_lsst_alert = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
+
+        require_lsst_stack = isfmt_lsst_alert
+
+        if require_lsst_stack :
+            pass
+        # end check_lsst_stack
+        
     def submit_prepare_driver(self):
 
         # called from base to prepare makeDataFile arguments for batch.
@@ -281,6 +298,8 @@ class MakeDataFiles(Program):
         self.prepare_input_args()
         self.prepare_data_units()
 
+        self.check_lsst_stack()
+        
         # copy input config file to script-dir
         shutil.copy(input_file,script_dir)
 
@@ -394,12 +413,16 @@ class MakeDataFiles(Program):
     def create_merge_table(self,f):
 
         # Called from base to create rows for table in  MERGE.LOG 
-
+        # Always create required MERGE table.
+        # For LSST alerts, also create supplemental "COMPRESS" table
+        # to track mjd compression
+        
         isplitmjd_list      = self.config_prep['isplitmjd_list']
         prefix_output_list  = self.config_prep['prefix_output_list']
         output_format       = self.config_yaml['args'].output_format 
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
+        # 1. required MERGE table
         header_line_merge = f"    STATE   {DATA_UNIT_STR}  ISPLITMJD " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert : header_line_merge += "NOBS_ALERT"
@@ -421,8 +444,36 @@ class MakeDataFiles(Program):
             if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
             
             INFO_MERGE['row_list'].append(ROW_MERGE)
-        # - - - -
         util.write_merge_file(f, INFO_MERGE, [] )
+
+
+        # - - - - -
+        if out_lsst_alert:
+            split_mjd            = self.config_prep['split_mjd']
+            nsplitmjd            = split_mjd['nbin']
+            min_edge_list        = split_mjd['min_edge']
+            max_edge_list        = split_mjd['max_edge']
+            header_line_compress = f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD"
+                        
+            INFO_COMPRESS = {
+                'primary_key' : TABLE_COMPRESS,
+                'header_line' : header_line_compress,
+                'row_list'    : []   }
+
+            STATE = SUBMIT_STATE_WAIT    # all start in WAIT state
+            for isplitmjd in range(0,nsplitmjd):
+                imin         = int(min_edge_list[isplitmjd])
+                imax         = int(max_edge_list[isplitmjd])
+                str_mjd_range = f"{imin}-{imax}"
+                
+                ROW_COMPRESS = []
+                ROW_COMPRESS.append(STATE)
+                ROW_COMPRESS.append(isplitmjd) 
+                ROW_COMPRESS.append(str_mjd_range)
+                ROW_COMPRESS.append(0)              # init NDIR_MJD=0
+            
+                INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
+            # ??? maybe ??? util.write_merge_file(f, INFO_COMPRESS, [] )
 
         # end create_merge_table
 
@@ -473,7 +524,8 @@ class MakeDataFiles(Program):
         # Called from base to
         # read MERGE.LOG, check LOG & DONE files.
         # Return update row list MERGE tables.
-
+        # For lsst alerts, also update COMPRESS table.
+        
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -560,6 +612,7 @@ class MakeDataFiles(Program):
         # first return arg (row_split) is null since there is
         # no need for a SPLIT table
         return [], row_list_merge_new, n_state_change
+    
         # end merge_update_state
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):

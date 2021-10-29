@@ -20522,6 +20522,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + new input HOSTLIB_GALID_UNIQUE_OFFSET
       + abort if OPT_MWEBV < 0 
       + require DOCANA in trigger/search files (Oct 26 2021, 9pm)
+      + if EXPOSURE_TIME>10, skip saturation check.
 
     wfit.c
       + begin adding modern BAO prior from Alam 2020

@@ -399,11 +399,11 @@ class MakeDataFiles(Program):
         prefix_output_list  = self.config_prep['prefix_output_list']
         output_format       = self.config_yaml['args'].output_format 
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
+
         header_line_merge = f"    STATE   {DATA_UNIT_STR}  ISPLITMJD " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert : header_line_merge += "NOBS_ALERT"
-            
-            
+                        
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
@@ -415,9 +415,9 @@ class MakeDataFiles(Program):
             ROW_MERGE.append(STATE)
             ROW_MERGE.append(prefix)
             ROW_MERGE.append(isplitmjd) 
-            ROW_MERGE.append(0)       # NEVT
-            ROW_MERGE.append(0)       # NEVT_SPECZ
-            ROW_MERGE.append(0)       # NEVT_PHOTOZ
+            ROW_MERGE.append(0)         # NEVT
+            ROW_MERGE.append(0)         # NEVT_SPECZ
+            ROW_MERGE.append(0)         # NEVT_PHOTOZ
             if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
             
             INFO_MERGE['row_list'].append(ROW_MERGE)
@@ -573,8 +573,8 @@ class MakeDataFiles(Program):
             min_edge_list = submit_info_yaml['MIN_MJD_EDGE']
             max_edge_list = submit_info_yaml['MAX_MJD_EDGE']
         else:
-            min_edge_list = [10000.0]
-            max_edge_list = [99000.0]
+            min_edge_list = [ 10000 ]
+            max_edge_list = [ 99000 ]
 
         # check which isplitmjd are done/not done
         # Init all isplitmjd_done to true, then set to false
@@ -586,7 +586,6 @@ class MakeDataFiles(Program):
             if state != SUBMIT_STATE_DONE:
                 splitmjd_done_list[isplitmjd] = False
 
-                
         wildcard = "mjd*"
         mjd_dir_list = sorted(glob.glob1(output_dir,wildcard))
 
@@ -609,8 +608,15 @@ class MakeDataFiles(Program):
         
         output_dir   = self.config_prep['output_dir']
 
+        imin = int(min_edge)
+        imax = int(max_edge)
+        base_name = f"compress_mjd{imin}-{imax}.done"
+        compress_done_file = f"{output_dir}/{SUBDIR_ALERTS}/{base_name}"
+
+        if os.path.exists(compress_done_file): return
+        
         n_compress = 0
-        print(f"  Compress mjd{min_edge} to mjd{max_edge-1}")
+        print(f"  Compress mjd{imin} to mjd{imax-1}")
         for mjd_dir in mjd_dir_list:
             mjd = int(mjd_dir[3:])
             do_compress = mjd>= min_edge and mjd < max_edge
@@ -626,7 +632,11 @@ class MakeDataFiles(Program):
                           f"rm -r {mjd_dir}"
                 os.system(cmd_gzip)
                 os.system(cmd_tar)
-                
+
+        # touch done file to flag that this MJD range is compressed
+        cmd_done = f"touch {compress_done_file}"
+        os.system(cmd_done)
+        
         # end compress_mjd_dirs
             
     def get_misc_merge_info(self):
@@ -658,6 +668,13 @@ class MakeDataFiles(Program):
         if isfmt_lsst_alert:
             info_lines += [ f"NOBS_ALERT_SUM:  {NOBS_SUM}" ]
 
+        # count mjd*.tar files in SUBDIR_ALERTS
+        alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
+        wildcard  = "mjd*.tar"
+        mjd_tar_list = glob.glob1(alert_dir, wildcard)
+        ndir = len(mjd_tar_list)
+        info_lines += [ f"NDIR_MJD_SUM:    {ndir}" ]
+                    
         return info_lines
 
         # end get_misc_merge_info

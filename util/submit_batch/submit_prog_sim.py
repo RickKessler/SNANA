@@ -1976,7 +1976,14 @@ class Simulation(Program):
                 row_merge_new[iver_all][COLNUM_STATE] = SUBMIT_STATE_FAIL
             iver_all += 1
 
-        return row_split_new, row_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : row_split_new,
+            'row_merge_list' : row_merge_new,
+            'row_extra_list' : []
+        }
+        return row_list_dict, n_state_change
+
+        # xxx mark return row_split_new, row_merge_new, n_state_change
 
         # end merge_update_state
 

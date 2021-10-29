@@ -21,6 +21,7 @@
 #
 # May 24 2021: new function submit_iter2()
 # Aug 09 2021: implement optional --snana_dir arg
+# Oct 29 2021: add optional TABLE_EXTRA to MERGE.LOG file
 #
 # ============================================
 
@@ -981,13 +982,20 @@ class Program:
 
         # check for changes in state for SPLIT and MERGE tables.
         # function returns updated set of SPLIT and MERGE table rows.
-        row_list_split, row_list_merge, n_change = \
+
+        # xxxrow_list_split, row_list_merge, n_change = \
+        row_list_dict, n_change = \
             self.merge_update_state(MERGE_INFO_CONTENTS)
-        
+
+        row_split_list = row_list_dict['row_split_list'] # optional
+        row_merge_list = row_list_dict['row_merge_list'] # required
+        row_extra_list = row_list_dict['row_extra_list'] # optional
+
         if not MERGE_LAST:  self.force_merge_failure(submit_info_yaml)
 
-        use_split = len(row_list_split) > 0
-        use_merge = len(row_list_merge) > 0
+        use_split = len(row_split_list) > 0
+        use_merge = len(row_merge_list) > 0
+        use_extra = len(row_extra_list) > 0
 
         # Modify MERGE.LOG if there is a change in the processing STATE
         if n_change > 0 :
@@ -997,14 +1005,21 @@ class Program:
                 INFO_STATE_SPLIT = {
                     'header_line' : comment_lines[itable],
                     'primary_key' : TABLE_SPLIT,
-                    'row_list'    : row_list_split }
+                    'row_list'    : row_split_list }
                 itable += 1
 
             if use_merge :
                 INFO_STATE_MERGE = {
                     'header_line' : comment_lines[itable],
                     'primary_key' : TABLE_MERGE, 
-                    'row_list'    : row_list_merge }
+                    'row_list'    : row_merge_list }
+                itable += 1
+
+            if use_extra :  # Oct 29 2021
+                INFO_STATE_EXTRA = {
+                    'header_line' : comment_lines[itable],
+                    'primary_key' : TABLE_EXTRA, 
+                    'row_list'    : row_extra_list }
                 itable += 1
 
             # re-write MERGE.LOG file with new set of STATEs
@@ -1014,6 +1029,12 @@ class Program:
             with open(MERGE_LOG_PATHFILE, 'w') as f :
                 if use_split :
                     util.write_merge_file(f, INFO_STATE_SPLIT, [] )
+
+                if use_extra :
+                    util.write_merge_file(f, INFO_STATE_EXTRA, [] )
+                    
+                # note that merge table must be last because it includes
+                # the comment lines for after the table.
                 if use_merge :
                     util.write_merge_file(f, INFO_STATE_MERGE, \
                                           comment_lines[itable:] )

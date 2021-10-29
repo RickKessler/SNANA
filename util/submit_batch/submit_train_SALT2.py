@@ -971,7 +971,13 @@ class train_SALT2(Program):
         # - - - - - -  -
         # The first return arg (row_split) is null since there is 
         # no need for a SPLIT table
-        return [], row_list_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+        return row_list_dict, n_state_change
+        # xxx mark return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
 

@@ -709,8 +709,7 @@ class MakeDataFiles(Program):
 
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
-        # "Compress" means gzip alert*.avro files inside,
-        # and then mjd[mjd] -> mjd[mjd].tar.gz
+        # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
         
         output_dir   = self.config_prep['output_dir']
 
@@ -737,7 +736,7 @@ class MakeDataFiles(Program):
                           f"tar -czf {tar_file} {mjd_dir} ; " \
                           f"mv {tar_file} {SUBDIR_ALERTS} ; " \
                           f"rm -r {mjd_dir}"
-                os.system(cmd_gzip)
+                # not needed as of Oct 29 2021 os.system(cmd_gzip) 
                 os.system(cmd_tar)
 
         # touch done file to flag that this MJD range is compressed

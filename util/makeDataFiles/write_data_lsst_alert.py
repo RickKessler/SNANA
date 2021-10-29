@@ -173,7 +173,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
             # with open(mjd_file,"wb") as f:
             gzip_mjd_file =mjd_file + '.gz'
-            with gzip.GzipFile(filename=gzip_mjd_file, mode='wb', compresslevel=9) as f:
+            with gzip.GzipFile(filename=gzip_mjd_file, 
+                               mode='wb', compresslevel=9) as f:
                 schema.store_alerts(f, [alert])
                 config_data['n_alert_write'] += 1
                 print_alert_stats(config_data)

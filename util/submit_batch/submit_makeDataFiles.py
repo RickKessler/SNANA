@@ -444,38 +444,48 @@ class MakeDataFiles(Program):
             if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
             
             INFO_MERGE['row_list'].append(ROW_MERGE)
+
+        # call util to write tables to MERGE.LOG
+        if out_lsst_alert: 
+            self.create_compress_table(f)
+
         util.write_merge_file(f, INFO_MERGE, [] )
-
-
-        # - - - - -
-        if out_lsst_alert:
-            split_mjd            = self.config_prep['split_mjd']
-            nsplitmjd            = split_mjd['nbin']
-            min_edge_list        = split_mjd['min_edge']
-            max_edge_list        = split_mjd['max_edge']
-            header_line_compress = f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD"
-                        
-            INFO_COMPRESS = {
-                'primary_key' : TABLE_COMPRESS,
-                'header_line' : header_line_compress,
-                'row_list'    : []   }
-
-            STATE = SUBMIT_STATE_WAIT    # all start in WAIT state
-            for isplitmjd in range(0,nsplitmjd):
-                imin         = int(min_edge_list[isplitmjd])
-                imax         = int(max_edge_list[isplitmjd])
-                str_mjd_range = f"{imin}-{imax}"
-                
-                ROW_COMPRESS = []
-                ROW_COMPRESS.append(STATE)
-                ROW_COMPRESS.append(isplitmjd) 
-                ROW_COMPRESS.append(str_mjd_range)
-                ROW_COMPRESS.append(0)              # init NDIR_MJD=0
-            
-                INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
-            # ??? maybe ??? util.write_merge_file(f, INFO_COMPRESS, [] )
-
+        
         # end create_merge_table
+
+    def create_compress_table(self, f):
+        # Called for lsst alert output
+
+        split_mjd            = self.config_prep['split_mjd']
+        nsplitmjd            = split_mjd['nbin']
+        min_edge_list        = split_mjd['min_edge']
+        max_edge_list        = split_mjd['max_edge']
+        header_line_compress = f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD"
+                        
+        global TABLE_EXTRA
+        TABLE_EXTRA = TABLE_COMPRESS  # inform base code of name change
+
+        INFO_COMPRESS = {
+            'primary_key' : TABLE_COMPRESS,
+            'header_line' : header_line_compress,
+            'row_list'    : []   }
+        
+        STATE = SUBMIT_STATE_WAIT    # all start in WAIT state
+        for isplitmjd in range(0,nsplitmjd):
+            imin         = int(min_edge_list[isplitmjd])
+            imax         = int(max_edge_list[isplitmjd])
+            str_mjd_range = f"{imin}-{imax}"
+                
+            ROW_COMPRESS = []
+            ROW_COMPRESS.append(STATE)
+            ROW_COMPRESS.append(isplitmjd) 
+            ROW_COMPRESS.append(str_mjd_range)
+            ROW_COMPRESS.append(0)              # init NDIR_MJD=0
+            
+            INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
+        util.write_merge_file(f, INFO_COMPRESS, [] )
+
+        # end create_compress_table
 
     def append_info_file(self,f):
 

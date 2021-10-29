@@ -462,9 +462,6 @@ class MakeDataFiles(Program):
         max_edge_list        = split_mjd['max_edge']
         header_line_compress = f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD"
                         
-        global TABLE_EXTRA
-        TABLE_EXTRA = TABLE_COMPRESS  # inform base code of name change
-
         INFO_COMPRESS = {
             'primary_key' : TABLE_COMPRESS,
             'header_line' : header_line_compress,
@@ -619,58 +616,101 @@ class MakeDataFiles(Program):
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
 
+        # - - - - - - - - - - -
+        # check for optional extra table
+        row_extra_list = []
+        if out_lsst_alert:
+            row_extra_list = self.compress_update_state(MERGE_INFO_CONTENTS)
+            
         # first return arg (row_split) is null since there is
         # no need for a SPLIT table
+        
         row_list_dict = {
-            'row_split_list' : [],
-            'row_merge_list' : row_list_merge_new,
-            'row_extra_list' : []
+            'row_split_list'   : [],
+            'row_merge_list'   : row_list_merge_new,
+            'row_extra_list'   : row_extra_list,
+            'table_names'      : [ TABLE_SPLIT, TABLE_MERGE, TABLE_COMPRESS ]
         }
         return row_list_dict, n_state_change
-        # xxx mark return [], row_list_merge_new, n_state_change
     
         # end merge_update_state
 
-    def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
-
-        # cleanup for 'irow' training job.
-
+    def compress_update_state(self,MERGE_INFO_CONTENTS):
+        
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         nsplitmjd        = submit_info_yaml['NSPLITMJD']
-        if nsplitmjd > 1 :
-            min_edge_list = submit_info_yaml['MIN_MJD_EDGE']
-            max_edge_list = submit_info_yaml['MAX_MJD_EDGE']
-        else:
-            min_edge_list = [ 10000 ]
-            max_edge_list = [ 99000 ]
+        
+        COLNUM_STATE     = COLNUM_MERGE_STATE
+        COLNUM_ISPLITMJD = 1
+        COLNUM_NMJD_DIR  = 3
+        
+        row_merge_list        = MERGE_INFO_CONTENTS[TABLE_MERGE]
+        row_compress_list     = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
+        row_compress_list_new = [] 
+        nrow = 0
+        
+        for row in row_compress_list:
+            # strip off row info
+            row_compress_list_new.append(row)
+            nrow += 1
+            STATE       = row[COLNUM_STATE]
+            ISPLITMJD   = row[COLNUM_ISPLITMJD]
+            # check if DONE or FAIL ; i.e., if Finished
+            Finished = (STATE==SUBMIT_STATE_DONE) or (STATE==SUBMIT_STATE_FAIL)
 
-        # check which isplitmjd are done/not done
-        # Init all isplitmjd_done to true, then set to false
-        # if any job isn't done.
-        splitmjd_done_list = [True] * nsplitmjd
-        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
-            state     = row[COLNUM_MERGE_STATE]
-            isplitmjd = row[COLNUM_MKDATA_MERGE_ISPLITMJD]
-            if state != SUBMIT_STATE_DONE:
-                splitmjd_done_list[isplitmjd] = False
+            if Finished:
+                continue  # already compressed; try next
 
-        wildcard = "mjd*"
-        mjd_dir_list = sorted(glob.glob1(output_dir,wildcard))
+            # xxx if ISPLITMJD > 0 : continue  # temp xxx REMOVE
+            
+            # Check if makeDataFile tasks have finished for this MJD range        
+            splitmjd_done_list = [True] * nsplitmjd
+            for row in row_merge_list:
+                state     = row[COLNUM_MERGE_STATE]
+                isplitmjd = row[COLNUM_MKDATA_MERGE_ISPLITMJD]
+                if state != SUBMIT_STATE_DONE:
+                    splitmjd_done_list[isplitmjd] = False
 
-        for is_done, min_edge, max_edge in \
-            zip(splitmjd_done_list, min_edge_list, max_edge_list):
-            if not is_done : continue
-            self.compress_mjd_dirs(mjd_dir_list, min_edge, max_edge)
-                                   
+            if not splitmjd_done_list[ISPLITMJD]:
+                continue    # avro file creation tasks not done; bye bye
+
+            # compress it !
+            wildcard = "mjd*"
+            mjd_dir_list = sorted(glob.glob1(output_dir,wildcard))
+
+            if nsplitmjd > 1 :
+                min_edge_list = submit_info_yaml['MIN_MJD_EDGE']
+                max_edge_list = submit_info_yaml['MAX_MJD_EDGE']
+            else:
+                min_edge_list = [ 10000 ]
+                max_edge_list = [ 99000 ]
+
+            min_edge = min_edge_list[ISPLITMJD]
+            max_edge = max_edge_list[ISPLITMJD]
+            
+            n_compress = self.compress_mjd_dirs(mjd_dir_list, min_edge, max_edge)
+
+            irow = nrow - 1
+            row_compress_list_new[irow][COLNUM_STATE]    = SUBMIT_STATE_DONE
+            row_compress_list_new[irow][COLNUM_NMJD_DIR] = n_compress
+            
+        return row_compress_list_new
+    
+        # end compress_update_state
+        
+    
+    def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+        # nothing to do here (yet)
+        pass
         # end  merge_job_wrapup
 
     def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
 
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
-        # "Compress" means gzip alert*.avro files inside, and then
-        # mjd[mjd] -> mjd[mjd].tar
+        # "Compress" means gzip alert*.avro files inside,
+        # and then mjd[mjd] -> mjd[mjd].tar.gz
         
         output_dir   = self.config_prep['output_dir']
 
@@ -679,16 +719,16 @@ class MakeDataFiles(Program):
         base_name = f"compress_mjd{imin}-{imax}.done"
         compress_done_file = f"{output_dir}/{SUBDIR_ALERTS}/{base_name}"
 
-        if os.path.exists(compress_done_file): return
+        # xxx not necessary if os.path.exists(compress_done_file): return
         
         n_compress = 0
         print(f"  Compress mjd{imin} to mjd{imax-1}")
         for mjd_dir in mjd_dir_list:
-            mjd = int(mjd_dir[3:])
+            mjd         = int(mjd_dir[3:])
             do_compress = mjd>= min_edge and mjd < max_edge
             if do_compress:
                 n_compress += 1
-                #print(f"\t Compress {mjd}")
+                
                 cmd_gzip = f"cd {output_dir}/{mjd_dir} ; " \
                            f"gzip {AVRO_FILE_PREFIX}*.{AVRO_FILE_SUFFIX}"
 
@@ -703,7 +743,9 @@ class MakeDataFiles(Program):
         # touch done file to flag that this MJD range is compressed
         cmd_done = f"touch {compress_done_file}"
         os.system(cmd_done)
-        
+
+        return n_compress
+    
         # end compress_mjd_dirs
             
     def get_misc_merge_info(self):
@@ -723,6 +765,7 @@ class MakeDataFiles(Program):
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS, comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
+        
         row_list  = MERGE_INFO_CONTENTS[TABLE_MERGE]
         NEVT_SUM = 0
         NOBS_SUM = 0
@@ -737,7 +780,7 @@ class MakeDataFiles(Program):
 
         # count mjd*.tar files in SUBDIR_ALERTS
         alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
-        wildcard  = "mjd*.tar"
+        wildcard  = "mjd*.tar.gz"
         mjd_tar_list = glob.glob1(alert_dir, wildcard)
         ndir = len(mjd_tar_list)
         info_lines += [ f"NDIR_MJD_SUM:    {ndir}" ]

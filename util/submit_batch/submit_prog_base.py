@@ -971,7 +971,7 @@ class Program:
 
         logging.info(f"# {fnam}: examine {MERGE_LOG_FILE}")
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
-        MERGE_INFO_CONTENTS,comment_lines = \
+        MERGE_INFO_CONTENTS, comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         self.merge_config_prep(output_dir)  # restore config_prep
@@ -990,7 +990,7 @@ class Program:
         row_split_list = row_list_dict['row_split_list'] # optional
         row_merge_list = row_list_dict['row_merge_list'] # required
         row_extra_list = row_list_dict['row_extra_list'] # optional
-
+        
         if not MERGE_LAST:  self.force_merge_failure(submit_info_yaml)
 
         use_split = len(row_split_list) > 0
@@ -999,7 +999,7 @@ class Program:
 
         # Modify MERGE.LOG if there is a change in the processing STATE
         if n_change > 0 :
-            itable = 0 
+            itable = 0
             # redefine SPLIT table
             if use_split :
                 INFO_STATE_SPLIT = {
@@ -1008,22 +1008,25 @@ class Program:
                     'row_list'    : row_split_list }
                 itable += 1
 
-            if use_merge :
+            if use_extra :  # Oct 29 2021
+                # table_names[0,1] are always SPLIT and MERGE
+                # table_names[2] for extra table can have any name.
+                table_name = row_list_dict['table_names'][2] # fragile warning!!
+                INFO_STATE_EXTRA = {
+                    'header_line' : comment_lines[itable],
+                    'primary_key' : table_name,
+                    'row_list'    : row_extra_list }
+                itable += 1
+            
+            if use_merge :  # MERGE table must always be last
                 INFO_STATE_MERGE = {
                     'header_line' : comment_lines[itable],
                     'primary_key' : TABLE_MERGE, 
                     'row_list'    : row_merge_list }
                 itable += 1
-
-            if use_extra :  # Oct 29 2021
-                INFO_STATE_EXTRA = {
-                    'header_line' : comment_lines[itable],
-                    'primary_key' : TABLE_EXTRA, 
-                    'row_list'    : row_extra_list }
-                itable += 1
-
-            # re-write MERGE.LOG file with new set of STATEs
-            # Note that SPLIT table is optional; MERGE table is required.
+                
+            # re-write MERGE.LOG file with new set of STATEs. Note that
+            # SPLIT & EXTRA tables are optional; MERGE table is required.
             # Any comment_lines after the tables are re-written so that
             # we don't lose information or merge-abort messages.
             with open(MERGE_LOG_PATHFILE, 'w') as f :
@@ -1032,9 +1035,9 @@ class Program:
 
                 if use_extra :
                     util.write_merge_file(f, INFO_STATE_EXTRA, [] )
-                    
+
                 # note that merge table must be last because it includes
-                # the comment lines for after the table.
+                # the comment lines for after the tables.
                 if use_merge :
                     util.write_merge_file(f, INFO_STATE_MERGE, \
                                           comment_lines[itable:] )

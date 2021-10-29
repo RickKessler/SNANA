@@ -594,9 +594,6 @@ class MakeDataFiles(Program):
             if not is_done : continue
             self.compress_mjd_dirs(mjd_dir_list, min_edge, max_edge)
                                    
-        # cmd_gzip = f"cd {model_dir} ; gzip *.dat "
-        # os.system(cmd_gzip)
-
         # end  merge_job_wrapup
 
     def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
@@ -626,9 +623,10 @@ class MakeDataFiles(Program):
                 cmd_gzip = f"cd {output_dir}/{mjd_dir} ; " \
                            f"gzip {AVRO_FILE_PREFIX}*.{AVRO_FILE_SUFFIX}"
 
+                tar_file = f"{mjd_dir}.tar.gz"
                 cmd_tar = f"cd {output_dir} ; " \
-                          f"tar -cf {mjd_dir}.tar {mjd_dir} ; " \
-                          f"mv {mjd_dir}.tar {SUBDIR_ALERTS} ; " \
+                          f"tar -czf {tar_file} {mjd_dir} ; " \
+                          f"mv {tar_file} {SUBDIR_ALERTS} ; " \
                           f"rm -r {mjd_dir}"
                 os.system(cmd_gzip)
                 os.system(cmd_tar)

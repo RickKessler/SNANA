@@ -229,6 +229,7 @@ struct {
 double H0        = H0_SALT2;   
 double H0SIG     = 1000.0 ;       // error used in prior
 double c_light   = 299792.458 ;   // speed of light, km/s 
+double c_sound   = 155776.730694; 
 double TWOTHIRD  = 2./3. ;
 double TWO       = 2. ;
 double NEGTHIRD  = -1./3. ;
@@ -1718,18 +1719,90 @@ void init_bao_prior(int OPT) {
 
 double rd_bao_prior(double z, Cosparam *cpar) {
 
+  // rd ~ 150 Mpc                                      Pg. 9, Aubourg et al. [1411.1074]
+  // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
+  // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
+  // Om_b ~ 0.02/h^2                                   Davis T. Note
+  // Om_g 2.469 * 10e-5 * T_CMB / 2.725                Davis et al, after eq. 15 
+
   double Hz, H0 = H0_Planck;
   double rd = 1.0;
+  int    ia, NABIN = 10000 ;
+  double ZMIN, ZMAX, ZBIN, AMIN, AMAX,ABIN, atmp, ztmp, xa, tmp  ;
+  double sum,aH ;
+
+  double c_sound = 0.9 * c_light / sqrt(3); // Davis internal note
+  double h = H0_Planck/ 100., Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
+  //c_sound = 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) ); 
+
   HzFUN_INFO_DEF HzFUN_INFO;
   // ---------- BEGIN ----------
   set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
 		     &HzFUN_INFO);
   Hz  = Hzfun(z, &HzFUN_INFO);
+
+
+  /*
+  //Using Z integral
+  ZMIN = 1060; //1080. ; // 1080
+  ZMAX = 100000.; //1. / (1. + z) ;
+  ZBIN = (ZMAX - ZMIN) / (double)NABIN ;
+
+  sum = 0.0 ;
+
+  for ( ia=1; ia <= NABIN; ia++ ) {
+    xa   = (double)ia ;
+    atmp = ZMIN + ZBIN * (xa);// - 0.5 ) ;
+    ztmp = atmp; //(1. / atmp) - 1.0 ;
+    
+    Hz  = Hzfun(ztmp, &HzFUN_INFO);
+    sum += c_sound / Hz ;
+  }
+  sum *= ZBIN;
+  */
+      
+  // Using a integral
+  AMIN = 0.; //1/(1+1060))                                                                                                                     
+  AMAX = 1/1061.; //1. / (1. + z) ;                                                                                                                      
+  ABIN = -(AMAX - AMIN) / (double)NABIN ;
+  sum = 0.0;
+
+  for ( ia=1; ia <= NABIN; ia++ ) {
+    xa   = (double)ia ;
+    atmp = AMIN - ABIN * (xa);// - 0.5 ) ;
+    //atmp = ztmp; //(1. / atmp) - 1.0 ;
+    //printf("amin = %.6f, atmp = %.5f \n",AMIN, atmp);
+    Hz  = -Hainv_integral( AMIN, atmp,  &HzFUN_INFO); // AMIN >> atmp
+    sum += c_sound / Hz ;
+  }
+  sum *= ABIN;
  
+
+  //
+  rd =  sum; 
+  
   return rd;
 }
 double DM_bao_prior(double z, Cosparam *cpar){
-  double DM = 1.0;
+  double DM = 1.0,  DA, H0 = H0_Planck;
+
+  double rd = codist(1., cpar);
+  
+  /*
+    The codist functions says 
+    DL = (1+z)*c/H0 * d(z)
+    We named d(z) = rd
+    according to [1607.03155] 
+    DA = DL/ (1+z)^2
+       = c/H0 * d(z) / (1+z) 
+  Ayan Mitra, Oct, 2021.
+  */
+
+  DA =  (c_light/H0) * rd / (1+z); 
+  DM = DA;
+
+  double check = (c_light * log(1091.)) / ((c_light/H0) * 150. / (1091.));
+  //printf("c ln(1+z) / DM(z) = %.4f",check );
 
   return DM;
 }

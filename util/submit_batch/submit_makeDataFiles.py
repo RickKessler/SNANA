@@ -34,6 +34,9 @@ BASE_PREFIX          = 'MAKEDATA'   # base for log,yaml,done files
 DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
 SUBDIR_ALERTS        = "ALERTS"     # move mjd tar files here
 
+AVRO_FILE_PREFIX = "alert"
+AVRO_FILE_SUFFIX = "avro"
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -565,18 +568,67 @@ class MakeDataFiles(Program):
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
+        nsplitmjd        = submit_info_yaml['NSPLITMJD']
+        if nsplitmjd > 1 :
+            min_edge_list = submit_info_yaml['MIN_MJD_EDGE']
+            max_edge_list = submit_info_yaml['MAX_MJD_EDGE']
+        else:
+            min_edge_list = [10000.0]
+            max_edge_list = [99000.0]
 
-        row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
-        print(f" Do nothing!")
+        # check which isplitmjd are done/not done
+        # Init all isplitmjd_done to true, then set to false
+        # if any job isn't done.
+        splitmjd_done_list = [True] * nsplitmjd
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            state     = row[COLNUM_MERGE_STATE]
+            isplitmjd = row[COLNUM_MKDATA_MERGE_ISPLITMJD]
+            if state != SUBMIT_STATE_DONE:
+                splitmjd_done_list[isplitmjd] = False
 
-        # Gautham - 20211026 - for alerts - will need to edit this and create gz files
-        # gzip dat files
+                
+        wildcard = "mjd*"
+        mjd_dir_list = sorted(glob.glob1(output_dir,wildcard))
+
+        for is_done, min_edge, max_edge in \
+            zip(splitmjd_done_list, min_edge_list, max_edge_list):
+            if not is_done : continue
+            self.compress_mjd_dirs(mjd_dir_list, min_edge, max_edge)
+                                   
         # cmd_gzip = f"cd {model_dir} ; gzip *.dat "
         # os.system(cmd_gzip)
 
         # end  merge_job_wrapup
 
+    def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
 
+        # For mjd_dirs in mjd_dir_list, compress those within
+        # min_edge and max_edge-1.
+        # "Compress" means gzip alert*.avro files inside, and then
+        # mjd[mjd] -> mjd[mjd].tar
+        
+        output_dir   = self.config_prep['output_dir']
+
+        n_compress = 0
+        print(f"  Compress mjd{min_edge} to mjd{max_edge-1}")
+        for mjd_dir in mjd_dir_list:
+            mjd = int(mjd_dir[3:])
+            do_compress = mjd>= min_edge and mjd < max_edge
+            if do_compress:
+                n_compress += 1
+                #print(f"\t Compress {mjd}")
+                cmd_gzip = f"cd {output_dir}/{mjd_dir} ; " \
+                           f"gzip {AVRO_FILE_PREFIX}*.{AVRO_FILE_SUFFIX}"
+
+                cmd_tar = f"cd {output_dir} ; " \
+                          f"tar -cf {mjd_dir}.tar {mjd_dir} ; " \
+                          f"mv {mjd_dir}.tar {SUBDIR_ALERTS} ; " \
+                          f"rm -r {mjd_dir}"
+                os.system(cmd_gzip)
+                os.system(cmd_tar)
+                
+        # end compress_mjd_dirs
+            
     def get_misc_merge_info(self):
 
         # return misc info lines to write into MERGE.LOG file.
@@ -628,7 +680,7 @@ class MakeDataFiles(Program):
             ret = subprocess.run(command_list, capture_output=False, text=True )
             
         elif isfmt_lsst_alert :
-            print(f" xxx not ready for avro cleanup")
+            pass
             
         else:
             msgerr.append(f"Unknown format '{output_format}" )

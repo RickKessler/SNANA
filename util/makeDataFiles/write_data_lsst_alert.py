@@ -14,8 +14,9 @@ import lsst.alert.packet
 from fastavro import writer, reader
 from copy import copy
 
+import gzip
 
-# map dictionary(SNANA) varName to alert varName 
+# map dictionary(SNANA) varName to alert varName
 lc = "lc"  # instruction to take lower case of dict value
 VARNAME_HEADER_MAP = {
     DATAKEY_SNID            : 'diaObjectId',
@@ -63,7 +64,7 @@ def init_schema_lsst_alert(schema_file):
 
     print(f"\n Init alert schema based on\n\t schema_file={schema_file}\n" \
           f"\t jon_file={json_file}")
-    
+
     # Load an example json alert, and clear the numberical input
     with open(json_file) as f:
         alert_data = json.load(f)
@@ -74,7 +75,7 @@ def init_schema_lsst_alert(schema_file):
     return schema, alert_data
 
     # end prep_write_lsst_alert
-    
+
 def write_event_lsst_alert(args, config_data, data_event_dict):
 
     # Inputs:
@@ -92,7 +93,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     data_unit_name        = data_event_dict['data_unit_name']
     index_unit            = data_event_dict['index_unit']
     data_unit_name_list   = config_data['data_unit_name_list']
-    data_unit_nevent_list = config_data['data_unit_nevent_list']    
+    data_unit_nevent_list = config_data['data_unit_nevent_list']
     nevent        = data_unit_nevent_list[index_unit]
     outdir        = args.outdir_lsst_alert
 
@@ -106,22 +107,22 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         config_data['n_alert_write']   = 0
         config_data['n_event_write']   = 0
         config_data['t_start_alert']   = datetime.datetime.now()
-        
-    schema          = config_data['schema'] 
-    diaSourceId     = config_data['diaSourceId'] 
+
+    schema          = config_data['schema']
+    diaSourceId     = config_data['diaSourceId']
     alert_data_orig = config_data['alert_data_orig']
     alert           = copy(alert_data_orig)
-    
+
     # copy structure of original sample alert to local diasrc
     prvDiaSources = alert_data_orig['prvDiaSources']
-    diasrc = prvDiaSources[0] 
+    diasrc = prvDiaSources[0]
 
     # # print this out for testing
     #for key in diasrc.keys():
     #    print(f" xxx found original alert key: {key}")
-        
+
     alert['prvDiaSources'].clear() # clear out all the past histories
-        
+
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst alert
     my_diasrc = diasrc #{}
@@ -133,14 +134,14 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     config_data['n_event_write'] += 1
     FIRST_OBS = True
     MJD_REF=data_event_dict['head_calc'][DATAKEY_PEAKMJD] # later change to  DATAKEY_MJD_DETECT
-    
-    #translate each obs to diasrc dictionary 
+
+    #translate each obs to diasrc dictionary
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
         keep_force = (MJD_REF - mjd) < TIMEBACK_FORCE and \
                      (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT
         if not keep_force: continue
-        
+
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
@@ -150,14 +151,14 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         my_diasrc['diaSourceId'] = diaSourceId
 
         # update my_diasrc with this obs
-        translate_dict_diasrc(o, data_event_dict, my_diasrc) 
-    
+        translate_dict_diasrc(o, data_event_dict, my_diasrc)
+
         if FIRST_OBS:
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
             FIRST_OBS = False
 
-        # serialize the alert    
+        # serialize the alert
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
 
@@ -169,20 +170,23 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             outdir_mjd  = make_outdir_mjd(outdir,mjd)
             mjd_file  = f"{outdir_mjd}/" \
                         f"alert_mjd{mjd:.4f}_obj{diaObjectId}_src{diaSourceId}.avro"
-            with open(mjd_file,"wb") as f:
+
+            # with open(mjd_file,"wb") as f:
+            gzip_mjd_file =mjd_file + '.gz'
+            with gzip.GzipFile(filename=gzip_mjd_file, mode='wb', compresslevel=9) as f:
                 schema.store_alerts(f, [alert])
                 config_data['n_alert_write'] += 1
-                print_alert_stats(config_data) 
-                
+                print_alert_stats(config_data)
+
         # now that you have written out this alert,
         # move the diasource info to the "past" for the next observation
         alert['prvDiaSources'].append(alert['diaSource'])
-        
+
         #print(f" xxx o={o}  mjd={mjd}")
 
-    # - - - - - -           
+    # - - - - - -
     # if first obs was never found, hack alert to avoid crash.
-    # This error can happen using MJD_REF=PEAKMJD, but should not 
+    # This error can happen using MJD_REF=PEAKMJD, but should not
     # occur when using MJD_REF = MJD_DETECT_FIRST.
     if  FIRST_OBS :
         print(f"   No detections found for SNID={SNID}; " \
@@ -222,7 +226,7 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
-    
+
     if obs < 0 :
         # xxx for key in diasrc.keys():    print(key)
         for varName_inp in VARNAME_HEADER_MAP:
@@ -234,41 +238,41 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
                     diasrc[varName_avro] = int(head_raw[varName_inp])
                 else:
                     diasrc[varName_avro] = head_raw[varName_inp]
-                    
+
             elif varName_inp in head_calc :
                 diasrc[varName_avro] = head_calc[varName_inp]
             else:
                 diasrc[varName_avro] = phot_raw[varName_inp]
-                
+
             #print(f" xxx {varName_inp} -> {varName_avro} ")
     else:
         for varName_inp in VARNAME_OBS_MAP:
             varName_avro = VARNAME_OBS_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
             diasrc[varName_avro] = phot_raw[varName_inp][obs]
-        
+
     # end translate_dict_diasrc
 
 def print_alert_stats(config_data, done_flag=False):
-    
+
     n_alert = config_data['n_alert_write']
     n_event = config_data['n_event_write']
-            
+
     if n_alert % NOBS_ALERT_UPDATE == 0 or done_flag :
         t_start_alert = config_data['t_start_alert']
         t_now         = datetime.datetime.now()
         t_dif_sec  = (t_now - t_start_alert).total_seconds()
         rate       = int(n_alert / t_dif_sec)
         print(f"\t Wrote {n_alert:8d} alerts ({rate}/sec) " \
-              f"for {n_event:6d} events.")        
+              f"for {n_event:6d} events.")
         sys.stdout.flush()
 
     if done_flag:
         print(f"\t Finished writing {n_alert} LSST alerts.")
         sys.stdout.flush()
-        
+
 # end print_alert_stats
-   
+
 def write_summary_lsst_alert(name, config_data):
     # write final summary to stdout for "name" of data unit
     done_flag = True

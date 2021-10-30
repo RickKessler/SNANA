@@ -399,8 +399,15 @@ class Program:
         args          = self.config_inputs['args']
         d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
+
+        SNID_raw = d_raw[DATAKEY_SNID]
+        if SNID_raw.isdigit() :
+            SNID = int(SNID_raw)
+        else:
+            SNID = SNID_raw
+
         var_dict = {
-            DATAKEY_SNID       : int(d_raw[DATAKEY_SNID]),
+            DATAKEY_SNID       : SNID,
             DATAKEY_RA         : d_raw[DATAKEY_RA],
             DATAKEY_DEC        : d_raw[DATAKEY_DEC],
             DATAKEY_PEAKMJD    : d_calc[DATAKEY_PEAKMJD],
@@ -566,6 +573,8 @@ class Program:
         # option end-read tasks; e.g., close data base connection
         self.end_read_data()
 
+        self.walltime_read_data()
+
         # write auxilary files for each data unit (name);
         # e.g.  LIST and README files.
         # Use aux_file util based on choice of output format.
@@ -586,25 +595,37 @@ class Program:
         # end read_data_driver
 
     def write_yaml_file(self, index_unit):
+
         # write yaml file to be parsed by pipeline.
         # This is the same file as README file in output directory.
         args         = self.config_inputs['args']
         readme_stats = self.config_data['readme_stats_list'][index_unit]
+        t_proc       = self.config_data['t_proc'] # seconds
 
         # check to add NOBS_ALERT for lsst_alert format 
         if args.outdir_lsst_alert :
             n_alert = self.config_data['n_alert_write']
             readme_stats[KEYNAME_NOBS_ALERT] = n_alert
-            
+
         readme_dict = {
             'readme_file'  : args.output_yaml_file,
             'readme_stats' : readme_stats,
             'data_format'  : FORMAT_TEXT,
             'docana_flag'  : False       # no DOCUMENTATION block
         }
-        util.write_readme(args,readme_dict)
+        util.write_readme(args,readme_dict, t_proc )
 
         # end write_yaml_file
+
+    def walltime_read_data(self):
+        # compute wall time (t_proc) since t_start
+        t_start = self.config_data['t_start']
+        t_end   = datetime.datetime.now()
+        t_dif_sec  = (t_end - t_start).total_seconds()
+        self.config_data['t_end']      = t_end
+        self.config_data['t_proc']     = t_dif_sec
+        return
+        # end walltime_read_data
 
     def reset_data_event_dict(self):
 

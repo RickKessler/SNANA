@@ -221,7 +221,7 @@ if __name__ == "__main__":
         if args.outdir_snana:
             snana.merge_snana_driver(args)
         elif args.outdir_lsst_alert:
-            pass  # lsst_alert.merge_lsst_alert_driver(args)
+            pass  # 
         sys.exit(' Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;

@@ -19,6 +19,7 @@ COLNUM_MKDATA_MERGE_NEVT        = 3
 COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 4
 COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 5
 COLNUM_MKDATA_MERGE_NOBS_ALERT  = 6  # for lsst alerts only
+COLNUM_MKDATA_MERGE_RATE        = 6  # or add 1 for lsst_alerts
 
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
@@ -409,8 +410,11 @@ class MakeDataFiles(Program):
         # 1. required MERGE table
         header_line_merge = f"    STATE   {DATA_UNIT_STR}  ISPLITMJD " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
-        if out_lsst_alert : header_line_merge += "NOBS_ALERT"
-                        
+        if out_lsst_alert : 
+            header_line_merge += "NOBS_ALERT  ALERT/sec"
+        else:
+            header_line_merge += "NEVT/sec"
+        
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
@@ -426,6 +430,7 @@ class MakeDataFiles(Program):
             ROW_MERGE.append(0)         # NEVT_SPECZ
             ROW_MERGE.append(0)         # NEVT_PHOTOZ
             if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
+            ROW_MERGE.append(0.0)       # rate/sec
             
             INFO_MERGE['row_list'].append(ROW_MERGE)
 
@@ -531,7 +536,9 @@ class MakeDataFiles(Program):
         COLNUM_NEVT_SPECZ  = COLNUM_MKDATA_MERGE_NEVT_SPECZ
         COLNUM_NEVT_PHOTOZ = COLNUM_MKDATA_MERGE_NEVT_PHOTOZ
         COLNUM_NOBS_ALERT  = COLNUM_MKDATA_MERGE_NOBS_ALERT
-        
+        COLNUM_RATE        = COLNUM_MKDATA_MERGE_RATE
+        if out_lsst_alert: COLNUM_RATE += 1
+
         # init outputs of function
         n_state_change     = 0
         row_list_merge_new = []
@@ -545,7 +552,10 @@ class MakeDataFiles(Program):
                  self.keynames_for_job_stats('NEVT_HOSTGAL_SPECZ')
         key_nphotz, key_nphotz_sum, key_nphotz_list = \
                  self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')        
-        key_list = [ key_nall, key_nspecz, key_nphotz ]
+        key_tproc, key_tproc_sum, key_tproc_list = \
+                 self.keynames_for_job_stats('WALLTIME')  
+
+        key_list = [ key_nall, key_nspecz, key_nphotz, key_tproc ]
 
         if out_lsst_alert:
             key_nalert, key_nalert_sum, key_nalert_list = \
@@ -587,16 +597,24 @@ class MakeDataFiles(Program):
                     job_stats = self.get_job_stats(script_dir,
                                                    log_list,
                                                    yaml_list,
-                                                   key_list)
+                                                   key_list )
 
                     row[COLNUM_STATE]       = NEW_STATE
                     row[COLNUM_NEVT]        = job_stats[key_nall_sum]
                     row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
                     row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
-
+                    
                     if out_lsst_alert:
                         row[COLNUM_NOBS_ALERT] = job_stats[key_nalert_sum]
-                        
+                        n_tmp = row[COLNUM_NOBS_ALERT]
+                    else:
+                        n_tmp = row[COLNUM_NEVT]
+
+                    # load N/sec instead of CPU time
+                    t_proc = job_stats[key_tproc_sum]
+                    rate   = t_proc / n_tmp
+                    row[COLNUM_RATE] = rate
+
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
 

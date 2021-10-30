@@ -49,7 +49,7 @@ def init_readme_stats():
     for key in KEYLIST_README_STATS:   readme_stats[key] = 0
     return readme_stats
 
-def write_readme(args, readme_dict):
+def write_readme(args, readme_dict, walltime = -1.0):
 
     # input args are the user-command line args.
     # input readme_dict is prepared by write_data_xxx module.
@@ -93,6 +93,10 @@ def write_readme(args, readme_dict):
         n_list.append(n)
         line_list.append(f"{key_plus_colon:<22}   {n}")
 
+    if walltime > 0.0 :
+        key_plus_colon = "WALLTIME:"
+        line_list.append(f"{key_plus_colon:<22}   {walltime:.2f}   # seconds")
+
     nevt_all = n_list[0]
     line_list.append(f"ABORT_IF_ZERO:  {nevt_all}")
 
@@ -112,7 +116,7 @@ def write_readme(args, readme_dict):
     # end write_readme
 
 def write_yaml(file_name, yaml_contents):
-    # write yaml_contents to file_name (e..g, for README)
+    # write yaml_contents to file_name (e.g., for README)
     with open(file_name,"wt") as r:
         yaml.dump(yaml_contents, r, sort_keys=False)
 

@@ -195,9 +195,10 @@ class MakeDataFiles(Program):
 
         else:
             isplitmjd_temp_list = [(-1, -1, -1),]
-        # Note that if you use a zip in Python 3, you get an iterator
-        # not a list and if you print the iterator or cause anything to loop over it
-        # e.g. len(), then the generator is exhausted and has to be recreated
+        # When using zip in Python 3, you get an iterator, not a list,
+        # and thus if you print the iterator or cause anything to loop 
+        # over it e.g. len(), then the generator is exhausted and has 
+        # to be recreated
         # i.e. do not mess with any variable that is created from a zip
         # DO NOT MESS WITH isplitmjd_temp_list
 
@@ -722,6 +723,7 @@ class MakeDataFiles(Program):
         
         n_compress = 0
         print(f"  Compress mjd{imin} to mjd{imax-1}")
+        sys.stdout.flush()
         for mjd_dir in mjd_dir_list:
             mjd         = int(mjd_dir[3:])
             do_compress = mjd>= min_edge and mjd < max_edge
@@ -820,6 +822,7 @@ class MakeDataFiles(Program):
             tmp_list = glob.glob1(script_dir,wstar)
             if len(tmp_list) == 0 : continue
             print(f"\t Compress {wstar}")
+            sys.stdout.flush()
             util.compress_files(+1, script_dir, wstar, w, "" )
 
         # - - - -

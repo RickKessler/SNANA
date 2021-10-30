@@ -22,6 +22,7 @@
 # May 24 2021: new function submit_iter2()
 # Aug 09 2021: implement optional --snana_dir arg
 # Oct 29 2021: add optional TABLE_EXTRA to MERGE.LOG file
+# Oct 30 2021: new ENV_REQUIRE key for any task.
 #
 # ============================================
 
@@ -63,15 +64,7 @@ class Program:
         if args.merge_flag :  # bail for merge process
             return
 
-        # check conda env (Feb 2021)
-        ENV = 'CONDA_DEFAULT_ENV'
-        if ENV in CONFIG :
-            ENV_value_expect = CONFIG[ENV]
-            ENV_value        = os.getenv(ENV)
-            if ( ENV_value != ENV_value_expect ) :
-                msgerr.append(f"Expected  ${ENV} = {ENV_value_expect} ; ")
-                msgerr.append(f"but found ${ENV} = {ENV_value} ")
-                util.log_assert(False,msgerr)
+        self.check_env_required(config_yaml)
 
         # - - - - -
         program = config_prep['program']
@@ -84,7 +77,7 @@ class Program:
             msgerr.append(f"in {input_file}")
             util.log_assert(False,msgerr)
 
-        # Oct 12 2021: option to run interactive jobs and check for abort
+        # Oct 12 2021: option to run interactive jobs and check if job aborted
         if args.check_abort :
             self.prep_check_abort(config_yaml)
 
@@ -162,6 +155,44 @@ class Program:
         CONFIG['CLEANUP_FLAG'] = 0
 
         # end prep_check_abort
+
+    def check_env_required(self, config_yaml):
+
+        CONFIG = config_yaml['CONFIG']
+        msgerr = []
+
+        # check conda env for SALT3 (Feb 2021)
+        ENV = 'CONDA_DEFAULT_ENV'
+        if ENV in CONFIG :
+            ENV_value_expect = CONFIG[ENV]
+            ENV_value        = os.getenv(ENV)
+            if ( ENV_value != ENV_value_expect ) :
+                msgerr.append(f"Expected  ${ENV} = {ENV_value_expect} ; ")
+                msgerr.append(f"but found ${ENV} = {ENV_value} ")
+                util.log_assert(False,msgerr)
+
+        # check optional ENV required to exist (doesn't matter what value)
+        key = CONFIG_KEYNAME_ENV_REQUIRE
+        if key in CONFIG:
+            ENV_name_list  = CONFIG[key].split()
+            n_missing = 0
+            for ENV_name in ENV_name_list:
+                ENV_value = os.getenv(ENV_name,None)
+                if ENV_value is None:
+                    n_missing += 1
+                    logging.info(f"  ERROR: missing required env ${ENV_name}")
+                else:
+                    logging.info(f"  Found required ${ENV_name} = {ENV_value}")
+
+            if n_missing > 0:
+                msgerr.append(f"{n_missing} required envs are not set.")
+                msgerr.append(f"Check {key} key in config input file.")
+                util.log_assert(False,msgerr)
+            else:
+                print('')
+
+        sys.stdout.flush()
+        # end check_env_required
 
     def parse_batch_info(self,config_yaml,config_prep):
     

@@ -39,7 +39,6 @@ AVRO_FILE_SUFFIX = "avro"
 
 TABLE_COMPRESS = "COMPRESS" # name of supplemental table in MERGE.LOG file
 
-ENV_LSST_STACK  = "LSST_STACK_VERSION"
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -271,20 +270,6 @@ class MakeDataFiles(Program):
             prefix_output += f'_{splitran_str}'
         return prefix_output
         # end get_prefix_output
-
-    def check_lsst_stack(self):
-        # read or write option that requires lsst stack,
-        # abort if ENV_LSST_STACK  = "LSST_STACK_VERSION"
-        # is not set
-
-        output_format = self.config_yaml['args'].output_format
-        isfmt_lsst_alert = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
-
-        require_lsst_stack = isfmt_lsst_alert
-
-        if require_lsst_stack :
-            pass
-        # end check_lsst_stack
         
     def submit_prepare_driver(self):
 
@@ -298,8 +283,6 @@ class MakeDataFiles(Program):
         self.prepare_output_args()
         self.prepare_input_args()
         self.prepare_data_units()
-
-        self.check_lsst_stack()
         
         # copy input config file to script-dir
         shutil.copy(input_file,script_dir)

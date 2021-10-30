@@ -115,6 +115,8 @@ KEY_END_YAML = "#END_YAML"
 CONFIG_KEYLIST_DONE_FILE = [ 'DONE_STAMP', 'DONE_STAMP_FILE' ]
 DEFAULT_DONE_FILE = "ALL.DONE"  # default if DONE_STAMP not in CONFIG
 
+CONFIG_KEYNAME_ENV_REQUIRE  = "ENV_REQUIRE"  # name of key with required ENV
+
 # lok file for merge process
 BUSY_FILE_PREFIX = "BUSY_MERGE_CPU"
 BUSY_FILE_SUFFIX = "LOCK"
@@ -179,6 +181,9 @@ CONFIG:
 
   # optional max walltime request (default is 24hr)
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
+
+  # optional list of required ENVs (aborts if any ENV is not defined)
+  ENV_REQUIRE: SNANA_LSST_SIM  LSST_STACK_VERSION
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere

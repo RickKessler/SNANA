@@ -161,8 +161,8 @@ class data_snana_folder(Program):
         if apply_select :
             var_dict = { 
                 DATAKEY_SNID       : int(SNID),
-                DATAKEY_RA         : head_calc[DATAKEY_RA],
-                DATAKEY_DEC        : head_calc[DATAKEY_DEC],
+                DATAKEY_RA         : head_raw[DATAKEY_RA],
+                DATAKEY_DEC        : head_raw[DATAKEY_DEC],
                 DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
                 DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
             }

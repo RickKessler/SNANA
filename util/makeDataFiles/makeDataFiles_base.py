@@ -401,8 +401,8 @@ class Program:
         d_calc        = data_event_dict['head_calc']
         var_dict = {
             DATAKEY_SNID       : int(d_raw[DATAKEY_SNID]),
-            DATAKEY_RA         : d_calc[DATAKEY_RA],
-            DATAKEY_DEC        : d_calc[DATAKEY_DEC],
+            DATAKEY_RA         : d_raw[DATAKEY_RA],
+            DATAKEY_DEC        : d_raw[DATAKEY_DEC],
             DATAKEY_PEAKMJD    : d_calc[DATAKEY_PEAKMJD],
             DATAKEY_MJD_DETECT : d_calc[DATAKEY_MJD_DETECT]
         }

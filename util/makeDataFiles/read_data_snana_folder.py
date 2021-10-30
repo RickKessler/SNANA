@@ -164,26 +164,24 @@ class data_snana_folder(Program):
                 util.log_assert(False,msgerr)
 
         # - - - - - - -
-        # check to apply user command-line cuts here 
-        # instead of waiting for base program
-        cutvar_dict = { 
-            DATAKEY_SNID       : int(SNID),
-            DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
-            DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
-        }
-        pass_cuts = util.pass_data_cuts(args,cutvar_dict)
-        pass_cuts = True  # xxx REMOVE after testing
-        if not pass_cuts:
-            data_dict = { 
-                'head_raw'  : head_raw, 
-                'head_calc' : head_calc,
-                'phot_raw'  : {}, 
-                'spec_raw'  : {},
-                'pass_cuts' : False
+        # check to apply user command-line cuts here to avoid reading
+        # photometry for rejected events.
+        apply_data_cuts = True
+        if apply_data_cuts:
+            cutvar_dict = { 
+                DATAKEY_SNID       : int(SNID),
+                DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
+                DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
             }
-            return data_dict
+            pass_cuts = util.pass_data_cuts(args,cutvar_dict)
+            if pass_cuts is False:
+                data_dict = {
+                    'head_raw' : head_raw,
+                    'head_calc' : head_calc,
+                    'pass_cuts' : False
+                }
+                return data_dict
             
-
         # - - - - - - 
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
         self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
@@ -226,8 +224,9 @@ class data_snana_folder(Program):
             'head_calc' : head_calc,
             'phot_raw'  : phot_raw,
             'spec_raw'  : spec_raw,
-            'pass_cuts' : True
         }
+        if apply_data_cuts:
+            data_dict['pass_cuts'] = True
         
         return data_dict
     

@@ -396,28 +396,21 @@ class Program:
         # Apply optional user cuts from command line
         # Return pass_cuts = True of False.
 
-        pass_cuts = True  # init output to True
-
-        args             = self.config_inputs['args']
-        peakmjd_range    = args.peakmjd_range
-        mjd_detect_range = args.mjd_detect_range
-        #d_raw         = data_event_dict['head_raw']
+        args          = self.config_inputs['args']
+        d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
-
-        # cut is "xmin <= x < xmax" so that distributed jobs with
-        # successive MJD windows do not include the same event
-        # on a cut boundary,
-        if peakmjd_range is not None:
-            PEAKMJD       = d_calc[DATAKEY_PEAKMJD]
-            if PEAKMJD <  peakmjd_range[0] : pass_cuts = False
-            if PEAKMJD >= peakmjd_range[1] : pass_cuts = False
-
-        if mjd_detect_range is not None:
-            MJD_DETECT    = d_calc[DATAKEY_MJD_DETECT]
-            if MJD_DETECT <  mjd_detect_range[0]: pass_cuts = False
-            if MJD_DETECT >= mjd_detect_range[1]: pass_cuts = False
+        SNID          = int(d_raw[DATAKEY_SNID])
+        PEAKMJD       = d_calc[DATAKEY_PEAKMJD]
+        MJD_DETECT    = d_calc[DATAKEY_MJD_DETECT]
+        cutvar_dict = {
+            DATAKEY_SNID       : SNID,
+            DATAKEY_PEAKMJD    : PEAKMJD,
+            DATAKEY_MJD_DETECT : MJD_DETECT
+        }
+        pass_cuts = util.pass_data_cuts(args, cutvar_dict)
 
         return pass_cuts
+
         # end pass_data_cuts
 
     def init_phot_dict(self,NOBS):
@@ -526,11 +519,14 @@ class Program:
                 # call read-source-dependent function to read event
                 data_event_dict = self.read_event(evt)
 
-                # add computed variables; e.g., zCMB, MWEBV ...
-                self.compute_data_event(data_event_dict)
+                # check optional pass_cuts defined by reader; if cuts are
+                # not evaluated by reader,  cuts are evaluated here.
+                if 'pass_cuts' in data_event_dict :
+                    pass_cuts = data_event_dict['pass_cuts']
+                else:
+                    # reader did not apply cuts, so apply them here
+                    pass_cuts = self.pass_data_cuts(data_event_dict)
 
-                # apply optional user-cuts (e.g., PEAKMJD cut, etc...)
-                pass_cuts = self.pass_data_cuts(data_event_dict)
                 if pass_cuts is False:
                     continue
 
@@ -539,6 +535,9 @@ class Program:
                 if data_unit_name is None :
                     continue
 
+                # add computed variables; e.g., zCMB, MWEBV ...
+                self.compute_data_event(data_event_dict)
+                
                 # add more info to data event dictionary
                 index_unit  = data_unit_name_list.index(data_unit_name)
                 data_event_dict['data_unit_name'] = data_unit_name

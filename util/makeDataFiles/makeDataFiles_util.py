@@ -36,8 +36,11 @@ def pass_data_cuts(args, cutvar_dict):
 
     # random split cut
     if nsplitran > 1 :
-        if (SNID % nsplitran) != isplitran:  pass_cuts = False
+        if (SNID % nsplitran)+1 != isplitran:  pass_cuts = False
 
+    #if pass_cuts:
+    #   print(f" xxx snid={SNID} peakmjd={PEAKMJD}  cuts={pass_cuts}")
+    
     return pass_cuts
     # end pass_data_cuts
 

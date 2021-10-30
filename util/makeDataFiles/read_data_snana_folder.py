@@ -118,7 +118,6 @@ class data_snana_folder(Program):
         args       = self.config_inputs['args']  # command line args
 
         # read and store one event for row "evt" and return data_dict.
-        
         varlist_obs = self.config_data['varlist_obs']
 
         # define local pointers to head and phot tables from FITS file
@@ -164,11 +163,33 @@ class data_snana_folder(Program):
                               f"data header")
                 util.log_assert(False,msgerr)
 
+        # - - - - - - -
+        # check to apply user command-line cuts here 
+        # instead of waiting for base program
+        cutvar_dict = { 
+            DATAKEY_SNID       : int(SNID),
+            DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
+            DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
+        }
+        pass_cuts = util.pass_data_cuts(args,cutvar_dict)
+        pass_cuts = True  # xxx REMOVE after testing
+        if not pass_cuts:
+            data_dict = { 
+                'head_raw'  : head_raw, 
+                'head_calc' : head_calc,
+                'phot_raw'  : {}, 
+                'spec_raw'  : {},
+                'pass_cuts' : False
+            }
+            return data_dict
+            
+
+        # - - - - - - 
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
         self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
         self.store_hostgal(DATAKEY_LIST_CALC, evt, head_calc)
         
-        # - - - - - - -
+        # - - - - - - - - - - -
         # get pointers to PHOT table
         ROWMIN = table_head.PTROBS_MIN[evt]
         ROWMAX = table_head.PTROBS_MAX[evt]        
@@ -204,7 +225,8 @@ class data_snana_folder(Program):
             'head_raw'  : head_raw,
             'head_calc' : head_calc,
             'phot_raw'  : phot_raw,
-            'spec_raw'  : spec_raw
+            'spec_raw'  : spec_raw,
+            'pass_cuts' : True
         }
         
         return data_dict
@@ -232,6 +254,7 @@ class data_snana_folder(Program):
 
         # end store_hostgal
         
+
     def get_table_value(self, varlist, irow, table):
 
         # return "irow" table value for varlist,

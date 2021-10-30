@@ -10,6 +10,38 @@ from   astropy.table import Table
 from   makeDataFiles_params    import *
 
 # =======================================
+def pass_data_cuts(args, cutvar_dict):
+
+    # return True of variables in cutvar_dict pass cuts
+    # defined in args. Return False if any cut fails.
+    # If there is a window, apply cut with xmin <= x < xmax.
+
+    pass_cuts = True
+    SNID       = cutvar_dict[DATAKEY_SNID]
+    PEAKMJD    = cutvar_dict[DATAKEY_PEAKMJD]
+    MJD_DETECT = cutvar_dict[DATAKEY_MJD_DETECT]
+
+    nsplitran  = args.nsplitran  # from command line input
+    isplitran  = args.isplitran
+
+    # cut on PEAKMJD
+    if args.peakmjd_range :
+        if PEAKMJD <  args.peakmjd_range[0]: pass_cuts = False
+        if PEAKMJD >= args.peakmjd_range[1]: pass_cuts = False
+
+    # cut on MJD of first detection
+    if args.mjd_detect_range :
+        if MJD_DETECT <  args.mjd_detect_range[0]: pass_cuts = False
+        if MJD_DETECT >= args.mjd_detect_range[1]: pass_cuts = False
+
+    # random split cut
+    if nsplitran > 1 :
+        if (SNID % nsplitran) != isplitran:  pass_cuts = False
+
+    return pass_cuts
+    # end pass_data_cuts
+
+
 def init_readme_stats():
     readme_stats = {}
     for key in KEYLIST_README_STATS:   readme_stats[key] = 0

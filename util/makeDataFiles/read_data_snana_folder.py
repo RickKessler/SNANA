@@ -141,15 +141,6 @@ class data_snana_folder(Program):
         head_raw[DATAKEY_DEC] = \
             self.get_table_value(['DEC','DECL'],evt,table_head)
 
-        head_raw[DATAKEY_zHEL]       = table_head.REDSHIFT_HELIO[evt]
-        head_raw[DATAKEY_zHEL_ERR]   = table_head.REDSHIFT_HELIO_ERR[evt]
-
-        # strip off calculated values
-        head_calc[DATAKEY_zCMB]          = table_head.REDSHIFT_FINAL[evt]
-        head_calc[DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
-        head_calc[DATAKEY_MWEBV]         = table_head.MWEBV[evt]
-        head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
-
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
 
@@ -164,24 +155,36 @@ class data_snana_folder(Program):
                 util.log_assert(False,msgerr)
 
         # - - - - - - -
-        # check to apply user command-line cuts here to avoid reading
-        # photometry for rejected events.
-        apply_data_cuts = True
-        if apply_data_cuts:
-            cutvar_dict = { 
+        # check user sub-sample selection here to avoid reading
+        # remainder of header and photometry for rejected events.
+        apply_select = True
+        if apply_select :
+            var_dict = { 
                 DATAKEY_SNID       : int(SNID),
+                DATAKEY_RA         : head_calc[DATAKEY_RA],
+                DATAKEY_DEC        : head_calc[DATAKEY_DEC],
                 DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
                 DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
             }
-            pass_cuts = util.pass_data_cuts(args,cutvar_dict)
-            if pass_cuts is False:
+            sel = util.select_subsample(args,var_dict)
+            if sel is False :
                 data_dict = {
-                    'head_raw' : head_raw,
+                    'head_raw'  : head_raw,
                     'head_calc' : head_calc,
-                    'pass_cuts' : False
+                    'select'    : False
                 }
                 return data_dict
-            
+
+        # - - - - - - -
+        head_raw[DATAKEY_zHEL]       = table_head.REDSHIFT_HELIO[evt]
+        head_raw[DATAKEY_zHEL_ERR]   = table_head.REDSHIFT_HELIO_ERR[evt]
+
+        # strip off calculated values
+        head_calc[DATAKEY_zCMB]          = table_head.REDSHIFT_FINAL[evt]
+        head_calc[DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
+        head_calc[DATAKEY_MWEBV]         = table_head.MWEBV[evt]
+        head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
+                
         # - - - - - - 
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
         self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
@@ -225,8 +228,8 @@ class data_snana_folder(Program):
             'phot_raw'  : phot_raw,
             'spec_raw'  : spec_raw,
         }
-        if apply_data_cuts:
-            data_dict['pass_cuts'] = True
+        if apply_select :
+            data_dict['select'] = True
         
         return data_dict
     

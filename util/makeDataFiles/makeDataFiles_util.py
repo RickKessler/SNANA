@@ -10,40 +10,39 @@ from   astropy.table import Table
 from   makeDataFiles_params    import *
 
 # =======================================
-def pass_data_cuts(args, cutvar_dict):
+def select_subsample(args, var_dict):
 
-    # return True of variables in cutvar_dict pass cuts
-    # defined in args. Return False if any cut fails.
-    # If there is a window, apply cut with xmin <= x < xmax.
+    # return True of variables in var_dict pass selection
+    # defined in args. Return False if any selection fails.
+    # If there is a window, require xmin <= x < xmax.
+    # The selection here is intened to be a CPU sub-sample 
+    # rather than a traditional cut. 
 
-    pass_cuts = True
-    SNID       = cutvar_dict[DATAKEY_SNID]
-    PEAKMJD    = cutvar_dict[DATAKEY_PEAKMJD]
-    MJD_DETECT = cutvar_dict[DATAKEY_MJD_DETECT]
+    SNID       = cut_dict[DATAKEY_SNID]
+    PEAKMJD    = cut_dict[DATAKEY_PEAKMJD]
+    MJD_DETECT = cut_dict[DATAKEY_MJD_DETECT]
 
-    nsplitran  = args.nsplitran  # from command line input
-    isplitran  = args.isplitran
+    nsplitran         = args.nsplitran  # from command line input
+    isplitran_select  = args.isplitran
 
-    # cut on PEAKMJD
-    if args.peakmjd_range :
-        if PEAKMJD <  args.peakmjd_range[0]: pass_cuts = False
-        if PEAKMJD >= args.peakmjd_range[1]: pass_cuts = False
-
-    # cut on MJD of first detection
-    if args.mjd_detect_range :
-        if MJD_DETECT <  args.mjd_detect_range[0]: pass_cuts = False
-        if MJD_DETECT >= args.mjd_detect_range[1]: pass_cuts = False
-
-    # random split cut
+    # random split cut. Be careful that isplitran = 1 to N
+    # (not 0 to N-1)
     if nsplitran > 1 :
-        if (SNID % nsplitran)+1 != isplitran:  pass_cuts = False
+        isplitran = (SNID % nsplitran) + 1
+        if isplitran != isplitran_select:  return False
 
-    #if pass_cuts:
-    #   print(f" xxx snid={SNID} peakmjd={PEAKMJD}  cuts={pass_cuts}")
+    # PEAKMJD
+    if args.peakmjd_range :
+        if PEAKMJD <  args.peakmjd_range[0]: return False
+        if PEAKMJD >= args.peakmjd_range[1]: return False
+
+    # MJD of first detection
+    if args.mjd_detect_range :
+        if MJD_DETECT <  args.mjd_detect_range[0]: return False
+        if MJD_DETECT >= args.mjd_detect_range[1]: return False
     
-    return pass_cuts
-    # end pass_data_cuts
-
+    return True
+    # end select_subsample
 
 def init_readme_stats():
     readme_stats = {}

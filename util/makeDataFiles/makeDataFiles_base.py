@@ -391,27 +391,26 @@ class Program:
         return
         # compute_data_event
 
-    def pass_data_cuts(self,data_event_dict):
+    def select_subsample(self,data_event_dict):
 
-        # Apply optional user cuts from command line
-        # Return pass_cuts = True of False.
+        # Apply optional subsample selection from command line
+        # Return sel = True of False.
 
         args          = self.config_inputs['args']
         d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
-        SNID          = int(d_raw[DATAKEY_SNID])
-        PEAKMJD       = d_calc[DATAKEY_PEAKMJD]
-        MJD_DETECT    = d_calc[DATAKEY_MJD_DETECT]
-        cutvar_dict = {
-            DATAKEY_SNID       : SNID,
-            DATAKEY_PEAKMJD    : PEAKMJD,
-            DATAKEY_MJD_DETECT : MJD_DETECT
+        var_dict = {
+            DATAKEY_SNID       : int(d_raw[DATAKEY_SNID]),
+            DATAKEY_RA         : d_calc[DATAKEY_RA],
+            DATAKEY_DEC        : d_calc[DATAKEY_DEC],
+            DATAKEY_PEAKMJD    : d_calc[DATAKEY_PEAKMJD],
+            DATAKEY_MJD_DETECT : d_calc[DATAKEY_MJD_DETECT]
         }
-        pass_cuts = util.pass_data_cuts(args, cutvar_dict)
+        sel = util.select_subsample(args, var_dict)
 
-        return pass_cuts
+        return sel
 
-        # end pass_data_cuts
+        # end select_subsample
 
     def init_phot_dict(self,NOBS):
 
@@ -516,18 +515,18 @@ class Program:
 
                 NEVT_READ += 1
 
-                # call read-source-dependent function to read event
+                # call source-dependent function to read event
                 data_event_dict = self.read_event(evt)
 
-                # check optional pass_cuts defined by reader; if cuts are
-                # not evaluated by reader,  cuts are evaluated here.
-                if 'pass_cuts' in data_event_dict :
-                    pass_cuts = data_event_dict['pass_cuts']
+                # check optional subsample selection defined by reader; 
+                # if selection is not evaluated by reader, evaluate here.
+                if 'select' in data_event_dict :
+                    sel = data_event_dict['select']
                 else:
-                    # reader did not apply cuts, so apply them here
-                    pass_cuts = self.pass_data_cuts(data_event_dict)
+                    # read_event did not select subsample, so do it here.
+                    sel = self.select_subsample(data_event_dict)
 
-                if pass_cuts is False:
+                if sel is False:
                     continue
 
                 # figure out which data unit

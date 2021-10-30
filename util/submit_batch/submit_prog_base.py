@@ -175,17 +175,20 @@ class Program:
         key = CONFIG_KEYNAME_ENV_REQUIRE
         if key in CONFIG:
             ENV_name_list  = CONFIG[key].split()
-            n_missing = 0
+            missing_ENV_list = []
             for ENV_name in ENV_name_list:
                 ENV_value = os.getenv(ENV_name,None)
                 if ENV_value is None:
-                    n_missing += 1
+                    missing_ENV_list.append(ENV_name)
                     logging.info(f"  ERROR: missing required env ${ENV_name}")
                 else:
                     logging.info(f"  Found required ${ENV_name} = {ENV_value}")
 
+            n_missing = len(missing_ENV_list)
             if n_missing > 0:
-                msgerr.append(f"{n_missing} required envs are not set.")
+                msgerr.append(f"This/these {n_missing} required envs " \
+                              f"are not set:")
+                msgerr.append(f"    {missing_ENV_list}")
                 msgerr.append(f"Check {key} key in config input file.")
                 util.log_assert(False,msgerr)
             else:

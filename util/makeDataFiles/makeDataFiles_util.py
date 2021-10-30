@@ -18,9 +18,9 @@ def select_subsample(args, var_dict):
     # The selection here is intened to be a CPU sub-sample 
     # rather than a traditional cut. 
 
-    SNID       = cut_dict[DATAKEY_SNID]
-    PEAKMJD    = cut_dict[DATAKEY_PEAKMJD]
-    MJD_DETECT = cut_dict[DATAKEY_MJD_DETECT]
+    SNID       = var_dict[DATAKEY_SNID]    # int
+    PEAKMJD    = var_dict[DATAKEY_PEAKMJD] # float
+    MJD_DETECT = var_dict[DATAKEY_MJD_DETECT] # float
 
     nsplitran         = args.nsplitran  # from command line input
     isplitran_select  = args.isplitran

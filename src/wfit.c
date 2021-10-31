@@ -191,6 +191,7 @@ struct {
 // define SDSS4-eBOSS prior/structure
 #define NZBIN_BAO_SDSS4 7
 
+double rd_DEFAULT = 150.0; // from ???
 // define default values from Table 3 of Alam 2020
 double  z_sdss4_DEFAULT[NZBIN_BAO_SDSS4] =
   { 0.38,   0.51,  0.70,  0.85,  1.48,  2.33, 2.33 } ;
@@ -226,7 +227,7 @@ struct {
 
 // =========== global variables ================
 
-double H0        = H0_SALT2;   
+// xxx mark delete RK xxx double H0        = H0_SALT2;   
 double H0SIG     = 1000.0 ;       // error used in prior
 double c_light   = 299792.458 ;   // speed of light, km/s 
 double c_sound   = 155776.730694; 
@@ -338,6 +339,10 @@ double EofZ(double z, Cosparam *cptr);
 double one_over_EofZ(double z, Cosparam *cptr);
 double codist(double z, Cosparam *cptr);
 void   test_codist(void);
+
+double EofA(double a, Cosparam *cptr);
+double one_over_EofA(double a, Cosparam *cptr);
+double Einv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
 
@@ -459,6 +464,7 @@ int main(int argc,char *argv[]){
 // ================================
 void init_stuff(void) {
 
+  
   char fnam[] = "init_stuff" ;
 
   // ------------ BEGIN -----------
@@ -499,7 +505,7 @@ void init_stuff(void) {
 
   // - - - - - - - - - - -  - -
   // init misc variables
-  SIG_MUOFF   = 5.0 * log10(1. + H0SIG/H0);
+  SIG_MUOFF   = 5.0 * log10(1. + H0SIG/H0_SALT2);
   SQSIG_MUOFF = SIG_MUOFF * SIG_MUOFF ;
 
   sprintf(varname_w,   "w"  );  // default wCDM model
@@ -1510,7 +1516,7 @@ void set_priors(void) {
   // - - - -
   if ( H0SIG < 100. ) {
     printf("\t Fit with H0 prior: sigH0/H0=%4.1f/%4.1f  "
-	   "=> sig(MUOFF)=%5.3f \n",  H0SIG, H0, SIG_MUOFF );
+	   "=> sig(MUOFF)=%5.3f \n",  H0SIG, H0_SALT2, SIG_MUOFF );
     noprior = false;
   }
 
@@ -1719,68 +1725,41 @@ void init_bao_prior(int OPT) {
 
 double rd_bao_prior(double z, Cosparam *cpar) {
 
-  // rd ~ 150 Mpc                                      Pg. 9, Aubourg et al. [1411.1074]
+  // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
   // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
   // Om_b ~ 0.02/h^2                                   Davis T. Note
   // Om_g 2.469 * 10e-5 * T_CMB / 2.725                Davis et al, after eq. 15 
 
-  double Hz, H0 = H0_Planck;
-  double rd = 1.0;
-  int    ia, NABIN = 10000 ;
-  double ZMIN, ZMAX, ZBIN, AMIN, AMAX,ABIN, atmp, ztmp, xa, tmp  ;
-  double sum,aH ;
-
-  double c_sound = 0.9 * c_light / sqrt(3); // Davis internal note
-  double h = H0_Planck/ 100., Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
+  double H0      = H0_Planck;
+  double c_sound = 0.9 * c_light / sqrt(3.0); // Davis internal note
+  double h       = H0 / 100.0 ;
+  double Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
   //c_sound = 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) ); 
+  double z_d    = 1060.0 ; 
+  double amin=0.0, amax = 1.0/(1+z_d);
+  double Hinv_integ, rd = 1.0;
 
   HzFUN_INFO_DEF HzFUN_INFO;
+  bool DO_INTEGRAL = false ;
+  char fnam[] = "rd_bao_prior" ;
+
   // ---------- BEGIN ----------
-  set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
-		     &HzFUN_INFO);
-  Hz  = Hzfun(z, &HzFUN_INFO);
-
-
-  /*
-  //Using Z integral
-  ZMIN = 1060; //1080. ; // 1080
-  ZMAX = 100000.; //1. / (1. + z) ;
-  ZBIN = (ZMAX - ZMIN) / (double)NABIN ;
-
-  sum = 0.0 ;
-
-  for ( ia=1; ia <= NABIN; ia++ ) {
-    xa   = (double)ia ;
-    atmp = ZMIN + ZBIN * (xa);// - 0.5 ) ;
-    ztmp = atmp; //(1. / atmp) - 1.0 ;
-    
-    Hz  = Hzfun(ztmp, &HzFUN_INFO);
-    sum += c_sound / Hz ;
-  }
-  sum *= ZBIN;
-  */
-      
-  // Using a integral
-  AMIN = 0.; //1/(1+1060))                                                                                                                     
-  AMAX = 1/1061.; //1. / (1. + z) ;                                                                                                                      
-  ABIN = -(AMAX - AMIN) / (double)NABIN ;
-  sum = 0.0;
-
-  for ( ia=1; ia <= NABIN; ia++ ) {
-    xa   = (double)ia ;
-    atmp = AMIN - ABIN * (xa);// - 0.5 ) ;
-    //atmp = ztmp; //(1. / atmp) - 1.0 ;
-    //printf("amin = %.6f, atmp = %.5f \n",AMIN, atmp);
-    Hz  = -Hainv_integral( AMIN, atmp,  &HzFUN_INFO); // AMIN >> atmp
-    sum += c_sound / Hz ;
-  }
-  sum *= ABIN;
- 
-
-  //
-  rd =  sum; 
   
+  if ( DO_INTEGRAL ) {
+    // does not include omega_rad, so has no chance
+    // Convergence is also bad as z -> inf.
+    set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
+		       &HzFUN_INFO);
+    Hinv_integ = Hainv_integral(amin, amax, &HzFUN_INFO);
+    rd = c_sound * (Hinv_integ/c_light)  ; 
+    printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f  c_s=%.1f\n",
+	   fnam, z_d, h, rd, c_sound);
+    debugexit(fnam); // xxx remove
+  }
+
+  rd = rd_DEFAULT;
+
   return rd;
 }
 double DM_bao_prior(double z, Cosparam *cpar){
@@ -2854,6 +2833,7 @@ double get_DMU_chi2wOM(int k, double rz)  {
   
   double z      = HD.z[k];
   double mu_obs = HD.mu[k] ;
+  double H0     = H0_SALT2 ;
   double ld_cos, mu_cos, dmu;
   
   ld_cos      = (1.0 + z) *  rz * c_light / H0;
@@ -3048,37 +3028,50 @@ int compare_double_reverse (const void *a, const void *b)
 ******************************************************************************/
 
 
-double codist(double z, Cosparam *cptr)
-/* Returns dimensionless comoving distance. */
-{
+double codist(double z, Cosparam *cptr) {
+  // Returns dimensionless comoving distance.
   double zero = 0.0 ;
   return simpint(one_over_EofZ, zero, z, cptr);
 }
 
+double Einv_integral(double amin, double amax, Cosparam *cptr) {
+  // return integral for 1/E. Does not include H0
+  return simpint(one_over_EofA, amin, amax, cptr);
+}
+
 double one_over_EofZ(double z, Cosparam *cptr){
-  /* This is actually the function that we pass to the integrator. */
+  // This is actually the function that we pass to the integrator.
   return 1./EofZ(z, cptr);
+}
+double one_over_EofA(double a, Cosparam *cptr){
+  return 1./EofA(a, cptr);
 }
 
 double EofZ(double z, Cosparam *cptr){
   double E;
   double omm, omk, ome, w0, wa;
+  double z1 = 1.0 + z;
+  double z1_sq   = z1*z1;
+  double z1_cube = z1_sq * z1;
 
   omm = cptr->omm;
   ome = cptr->ome;
+  omk = 1. - omm - ome;
   w0  = cptr->w0;
   wa  = cptr->wa;
 
-  omk = 1. - omm - ome;
-
-  E =  sqrt( omm*pow((1+z),3.) + 
-	     omk*pow((1+z),2.) + 
-	     ome*pow((1+z),3.*(1+w0+wa)) * exp(-3*wa*(z/(1+z))) );
-
-
+  E =  sqrt( omm * z1_cube + 
+	     omk * z1_sq   + 
+	     ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) );
 
   return E;
 }
+
+double EofA(double a, Cosparam *cptr) {
+  double z = 1.0/a - 1.0 ;
+  double E = EofZ(z, cptr);
+  return E;
+} 
 
 
 
@@ -3176,7 +3169,7 @@ void test_codist() {
   cpar.ome  =  0.7;
   cpar.w0   = -1.0;
   cpar.wa   =  0.0;
-
+  double H0 = H0_SALT2;
   HzFUN_INFO_DEF HzFUN;
   set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, cpar.wa, &HzFUN);
 
@@ -3486,6 +3479,7 @@ void write_output_resid(int fitnum) {
     
   int i;
   double rz, ld_cos, mu_cos, mu_dif, sqmusig_tmp, musig_tmp;
+  double H0 = H0_SALT2;
   fprintf(fpresid,"z, mu_dif,  mu_sig,  tel_id,  CID \n"); // csv format
   for (i=0; i<HD.NSN; i++){
     rz     = codist( HD.z[i], &cpar) ;

@@ -405,7 +405,8 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
 
   int ia, Nabin ;
-  double da, Hz, xa, atmp, ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  double da, Hz, xa, atmp, ztmp, tmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  char fnam[] = "Hainv_integral";
 
   // ------ return integral c*r(z) = int c*dz/H(z) -------------
   // Note that D_L = (1+z)*Hzinv_integral
@@ -421,7 +422,8 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
     atmp = amin + da * (xa + 0.5) ;
     ztmp = 1./atmp - 1.0 ;
     Hz   = Hzfun (ztmp, HzFUN_INFO);
-    sum += 1.0/( Hz * atmp * atmp) ;
+    tmp  = 1.0/( Hz * atmp * atmp) ;
+    sum += tmp ;
   }
 
   // remove H0 factor from inetgral before checking curvature.

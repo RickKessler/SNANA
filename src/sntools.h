@@ -78,8 +78,8 @@
 #define OMEGA_LAMBDA_DEFAULT   0.685 
 #define w0_DEFAULT            -1.0
 #define wa_DEFAULT             0.0
-#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
-#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_SALT2            70.0    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65.0    // km/s/Mpc : tied to MLCS training
 #define H0_Planck          67.4   // 1807.06209 (Planck 2018)
 #define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
 

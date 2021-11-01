@@ -736,24 +736,22 @@ class MakeDataFiles(Program):
         n_compress = 0
         logging.info(f"  Begin compression for mjd{imin} to mjd{imax-1}")
 
+        # construct big tar command
         sys.stdout.flush()
+        cmd_tar = f"cd {output_dir} ; "
         for mjd_dir in mjd_dir_list:
             mjd         = int(mjd_dir[3:])
             do_compress = mjd>= min_edge and mjd < max_edge
             if do_compress:
                 n_compress += 1
-                
-                cmd_gzip = f"cd {output_dir}/{mjd_dir} ; " \
-                           f"gzip {AVRO_FILE_PREFIX}*.{AVRO_FILE_SUFFIX}"
-                # not needed as of Oct 29 2021 os.system(cmd_gzip) 
-
                 tar_file = f"{mjd_dir}.tar.gz"
-                cmd_tar = f"cd {output_dir} ; " \
-                          f"tar -czf {tar_file} {mjd_dir} --remove-files ; " \
-                          f"mv {tar_file} {SUBDIR_ALERTS} ; "
-                          #f"rm -r {mjd_dir}"
+                cmd_tar += f"tar -czf {tar_file} {mjd_dir} --remove-files ; "
 
-                os.system(cmd_tar)
+        # tack on command to move it all into /ALERTS,
+        # and ten run it all with one os command
+        if do_compress > 0:
+            cmd_tar += f"mv mjd*.tar.gz {SUBDIR_ALERTS}"
+            os.system(cmd_tar)
 
         # touch done file to flag that this MJD range is compressed
         cmd_done = f"touch {compress_done_file}"

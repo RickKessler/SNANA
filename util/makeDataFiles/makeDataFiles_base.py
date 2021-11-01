@@ -170,7 +170,7 @@ class Program:
         DEC        = d_raw[DATAKEY_DEC]
         FIELD      = d_raw[DATAKEY_FIELD]
         PEAKMJD    = d_calc[DATAKEY_PEAKMJD]
-        MJD_DETECT = d_calc[DATAKEY_MJD_DETECT]
+        MJD_DETECT = d_calc[DATAKEY_MJD_DETECT_FIRST]
 
         # - - - - - - - - - - - - - - - - -
         # check match for field
@@ -411,7 +411,7 @@ class Program:
             DATAKEY_RA         : d_raw[DATAKEY_RA],
             DATAKEY_DEC        : d_raw[DATAKEY_DEC],
             DATAKEY_PEAKMJD    : d_calc[DATAKEY_PEAKMJD],
-            DATAKEY_MJD_DETECT : d_calc[DATAKEY_MJD_DETECT]
+            DATAKEY_MJD_DETECT : d_calc[DATAKEY_MJD_DETECT_FIRST]
         }
         sel = util.select_subsample(args, var_dict)
 

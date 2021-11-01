@@ -138,7 +138,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
         MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
         TIME_BACK_FORCE  = 30   #Ndays before MJD_REF to include forced phot.
-        TIME_FORWAFD_FORCE = MJD_LAST - MJD_REF + 0.1
+        TIME_FORWARD_FORCE = MJD_LAST - MJD_REF + 0.1
     elif args.peakmjd_range:
         MJD_REF = head_calc[DATAKEY_PEAKMJD]
         TIME_BACK_FORCE  = 50   #Ndays before MJD_REF to include forced phot.

@@ -614,7 +614,8 @@ class MakeDataFiles(Program):
 
                     # load N/sec instead of CPU time
                     t_proc = job_stats[key_tproc_sum]
-                    rate   = n_tmp / t_proc
+                    rate   = 0.0
+                    if t_proc > 0.0 : rate   = n_tmp / t_proc
                     row[COLNUM_RATE] = float(f"{rate:.1f}")
 
                     row_list_merge_new[irow] = row  # update new row

@@ -342,7 +342,7 @@ void   test_codist(void);
 
 double EofA(double a, Cosparam *cptr);
 double one_over_EofA(double a, Cosparam *cptr);
-double Einv_integral(double amin, double amax, Cosparam *cptr) ;
+double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
 
@@ -1756,7 +1756,7 @@ double rd_bao_prior(double z, Cosparam *cpar) {
 
   if ( DO_INTEGRAL  ) {
     printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam );
-    Einv_integ = Einv_integral(amin, amax, cpar);
+    Einv_integ = Eainv_integral(amin, amax, cpar);
     Hinv_integ = Einv_integ / H0 ;
     rd = c_sound * Hinv_integ  ; 
   }
@@ -3041,8 +3041,11 @@ double codist(double z, Cosparam *cptr) {
   return simpint(one_over_EofZ, zero, z, cptr);
 }
 
-double Einv_integral(double amin, double amax, Cosparam *cptr) {
-  // return integral for 1/E. Does not include H0
+double Eainv_integral(double amin, double amax, Cosparam *cptr) {
+  // Created Oct 2021 by R.Kessler
+  // return integral of 1/E..
+  // This is the analog of codist, but integrating over a instead of z.
+  // Note that the one_over_EofA function includes 1/a^2 jacobian factor.
   return simpint(one_over_EofA, amin, amax, cptr);
 }
 
@@ -3050,8 +3053,8 @@ double one_over_EofZ(double z, Cosparam *cptr){
   // This is actually the function that we pass to the integrator.
   return 1./EofZ(z, cptr);
 }
-double one_over_EofA(double a, Cosparam *cptr){
-  double Einv = 1./EofA(a, cptr);
+double one_over_EofA(double a, Cosparam *cptr) {
+  double Einv     = 1./EofA(a, cptr);
   double Jacobian = 1.0/(a*a);  // dz = da/a^2, Jac=1/a^2
   return Einv * Jacobian;
 }

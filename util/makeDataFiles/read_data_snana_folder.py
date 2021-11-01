@@ -144,13 +144,16 @@ class data_snana_folder(Program):
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
 
-        if DATAKEY_MJD_DETECT in head_names:
-            head_calc[DATAKEY_MJD_DETECT] = table_head.MJD_DETECT_FIRST[evt]
+        if DATAKEY_MJD_DETECT_FIRST in head_names:
+            head_calc[DATAKEY_MJD_DETECT_FIRST] = \
+                table_head.MJD_DETECT_FIRST[evt]
+            head_calc[DATAKEY_MJD_DETECT_LAST] = \
+                table_head.MJD_DETECT_LAST[evt]
         else:
             if args.mjd_detect_range is not None:
                 msgerr.append(f"Cannot implement args.mjd_detect_range = " \
                               f"{args.mjd_detect_range}")
-                msgerr.append(f"Because {DATAKEY_MJD_DETECT} is not in " \
+                msgerr.append(f"Because {DATAKEY_MJD_DETECT_FIRST} is not in "\
                               f"data header")
                 util.log_assert(False,msgerr)
 
@@ -164,7 +167,7 @@ class data_snana_folder(Program):
                 DATAKEY_RA         : head_raw[DATAKEY_RA],
                 DATAKEY_DEC        : head_raw[DATAKEY_DEC],
                 DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
-                DATAKEY_MJD_DETECT : head_calc[DATAKEY_MJD_DETECT]
+                DATAKEY_MJD_DETECT_FIRST : head_calc[DATAKEY_MJD_DETECT_FIRST]
             }
             sel = util.select_subsample(args,var_dict)
             if sel is False :

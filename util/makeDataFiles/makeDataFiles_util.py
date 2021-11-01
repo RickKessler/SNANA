@@ -20,7 +20,7 @@ def select_subsample(args, var_dict):
 
     SNID       = var_dict[DATAKEY_SNID]    # int
     PEAKMJD    = var_dict[DATAKEY_PEAKMJD] # float
-    MJD_DETECT = var_dict[DATAKEY_MJD_DETECT] # float
+    MJD_DETECT_FIRST = var_dict[DATAKEY_MJD_DETECT_FIRST] # float
 
     nsplitran         = args.nsplitran  # from command line input
     isplitran_select  = args.isplitran
@@ -38,8 +38,8 @@ def select_subsample(args, var_dict):
 
     # MJD of first detection
     if args.mjd_detect_range :
-        if MJD_DETECT <  args.mjd_detect_range[0]: return False
-        if MJD_DETECT >= args.mjd_detect_range[1]: return False
+        if MJD_DETECT_FIRST <  args.mjd_detect_range[0]: return False
+        if MJD_DETECT_FIRST >= args.mjd_detect_range[1]: return False
     
     return True
     # end select_subsample

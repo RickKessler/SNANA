@@ -13,8 +13,8 @@ import numpy as np
 
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
-COLNUM_MKDATA_MERGE_DATAUNIT    = 1
-COLNUM_MKDATA_MERGE_ISPLITMJD   = 2
+COLNUM_MKDATA_MERGE_ISPLITMJD   = 1
+COLNUM_MKDATA_MERGE_DATAUNIT    = 2
 COLNUM_MKDATA_MERGE_NEVT        = 3
 COLNUM_MKDATA_MERGE_NEVT_SPECZ  = 4
 COLNUM_MKDATA_MERGE_NEVT_PHOTOZ = 5
@@ -408,7 +408,7 @@ class MakeDataFiles(Program):
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
         # 1. required MERGE table
-        header_line_merge = f"    STATE   {DATA_UNIT_STR}  ISPLITMJD " \
+        header_line_merge = f"    STATE   ISPLITMJD  {DATA_UNIT_STR}  " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert : 
             header_line_merge += "NOBS_ALERT  ALERT/sec"
@@ -424,8 +424,8 @@ class MakeDataFiles(Program):
         for prefix, isplitmjd in zip(prefix_output_list,isplitmjd_list):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            ROW_MERGE.append(prefix)
             ROW_MERGE.append(isplitmjd) 
+            ROW_MERGE.append(prefix)    # data unit name
             ROW_MERGE.append(0)         # NEVT
             ROW_MERGE.append(0)         # NEVT_SPECZ
             ROW_MERGE.append(0)         # NEVT_PHOTOZ

@@ -51,7 +51,7 @@ VARNAME_OBS_MAP = {
 }
 
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
-TIMEBACK_FORCE  = 50    #how many days before 1st detect to include forced phot.
+
 NOBS_ALERT_MAX  = 2000  # used to compute diaSource
 NOBS_ALERT_UPDATE = 100 # std update after this many alerts
 
@@ -135,16 +135,20 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     FIRST_OBS = True
 
     if args.mjd_detect_range:
-        MJD_REF = head_calc[DATAKEY_MJD_DETECT]
+        MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
+        MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
+        TIME_BACK_FORCE  = 30   #Ndays before MJD_REF to include forced phot.
+        TIME_FORWAFD_FORCE = MJD_LAST - MJD_REF + 0.1
     elif args.peakmjd_range:
         MJD_REF = head_calc[DATAKEY_PEAKMJD]
-
+        TIME_BACK_FORCE  = 50   #Ndays before MJD_REF to include forced phot.
+        TIME_FORWARD_FORCE = 100
     # - - - - - - - - - - - 
     #translate each obs to diasrc dictionary
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
-        keep_force = (MJD_REF - mjd) < TIMEBACK_FORCE and \
-                     (mjd - MJD_REF) < 100  # temp until we have last MJD_DETECT
+        keep_force = (MJD_REF - mjd) < TIME_BACK_FORCE and \
+                     (mjd - MJD_REF) < TIME_FORWARD_FORCE
         if not keep_force: continue
 
         # skip non-detections (maybe later, add force photo after 1st detect?)

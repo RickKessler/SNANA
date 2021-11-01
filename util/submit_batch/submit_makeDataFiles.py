@@ -745,13 +745,14 @@ class MakeDataFiles(Program):
                 
                 cmd_gzip = f"cd {output_dir}/{mjd_dir} ; " \
                            f"gzip {AVRO_FILE_PREFIX}*.{AVRO_FILE_SUFFIX}"
+                # not needed as of Oct 29 2021 os.system(cmd_gzip) 
 
                 tar_file = f"{mjd_dir}.tar.gz"
                 cmd_tar = f"cd {output_dir} ; " \
-                          f"tar -czf {tar_file} {mjd_dir} ; " \
-                          f"mv {tar_file} {SUBDIR_ALERTS} ; " \
-                          f"rm -r {mjd_dir}"
-                # not needed as of Oct 29 2021 os.system(cmd_gzip) 
+                          f"tar -czf {tar_file} {mjd_dir} --remove-files ; " \
+                          f"mv {tar_file} {SUBDIR_ALERTS} ; "
+                          #f"rm -r {mjd_dir}"
+
                 os.system(cmd_tar)
 
         # touch done file to flag that this MJD range is compressed

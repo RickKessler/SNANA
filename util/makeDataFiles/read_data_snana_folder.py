@@ -201,18 +201,26 @@ class data_snana_folder(Program):
 
         table_column_names = table_phot.columns.names
 
+        if 'FLT' in table_column_names:
+            LEGACY_FLT = True  # legacy column name is FLT for band
+        else:
+            LEGACY_FLT = False
+
         for varname in varlist_obs:
             varname_table = varname
-            if varname == 'BAND' : varname_table = 'FLT'
-            if varname_table not in table_column_names : continue
-            phot_raw[varname] = \
-                table_phot[varname_table][ROWMIN:ROWMAX].copy()
-            
+            if LEGACY_FLT:
+                if varname == 'BAND' : varname_table = 'FLT'
+
+            if varname_table in table_column_names : 
+                phot_raw[varname] = \
+                    table_phot[varname_table][ROWMIN:ROWMAX].copy()
+
         # - - - - - 
         # get field from from first observation,
         # Beware that event can overlap multiple fields.
         field = phot_raw[DATAKEY_FIELD][0]
-        if field == "NULL" and args.survey == 'LSST' :
+        missing_field = (field == FIELD_NULL or field == FIELD_VOID )
+        if missing_field  and args.survey == 'LSST' :
             field = self.field_plasticc_hack(table_dict['head_file'])
 
         head_raw[DATAKEY_FIELD] = field

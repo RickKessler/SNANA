@@ -133,8 +133,13 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
     config_data['n_event_write'] += 1
     FIRST_OBS = True
-    MJD_REF=data_event_dict['head_calc'][DATAKEY_PEAKMJD] # later change to  DATAKEY_MJD_DETECT
 
+    if args.mjd_detect_range:
+        MJD_REF = head_calc[DATAKEY_MJD_DETECT]
+    elif args.peakmjd_range:
+        MJD_REF = head_calc[DATAKEY_PEAKMJD]
+
+    # - - - - - - - - - - - 
     #translate each obs to diasrc dictionary
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]

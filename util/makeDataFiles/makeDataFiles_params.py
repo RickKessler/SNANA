@@ -72,6 +72,7 @@ FIELD_DEEP     = "DEEP"
 FIELD_MEDIUM   = "MEDIUM"
 FIELD_SHALLOW  = "SHALLOW"
 FIELD_VOID     = "VOID"
+FIELD_NULL     = "NULL"
 
 PREFIX_SEASON   = "Y"       # e.g.. for Y03 in file name
 PREFIX_SPLIT    = "SPLIT"   # e.g., for SPLIT012 in file name

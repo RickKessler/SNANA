@@ -397,9 +397,9 @@ class MakeDataFiles(Program):
         # for lsst alerts, wait for previous compress-ISPLITMJD to finish
         # to avoid piling up too many alert files. Remember that 
         # isplitmjd goes from 1 - nsplitmjd.
-        if out_lsst_alert and isplitmjd > 1:
+        if out_lsst_alert and isplitmjd > 0 :
             split_mjd   = self.config_prep['split_mjd']
-            isplit_previous = isplitmjd-2 # switch to {0:N-1}, and subtract 1
+            isplit_previous = isplitmjd-1 
             min_edge    = split_mjd['min_edge'][isplit_previous]
             max_edge    = split_mjd['max_edge'][isplit_previous]
             wait_file   = self.get_compress_done_file(min_edge,max_edge)

@@ -351,6 +351,7 @@ class MakeDataFiles(Program):
         n_job_local = index_dict['n_job_local']
 
         makeDataFiles_arg = self.config_prep['makeDataFiles_args_list'][idata_unit]
+        isplitmjd         = self.config_prep['isplitmjd_list'][idata_unit]
         prefix_base       = self.config_prep['prefix_output_list'][idata_unit]
         prefix            = f'{prefix_base}_SPLITRAN{isplitarg:03d}'
         program           = self.config_prep['program']
@@ -360,6 +361,7 @@ class MakeDataFiles(Program):
 
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
         output_format     = self.config_yaml['args'].output_format
+        out_lsst_alert    = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         # do_fast           = self.config_yaml['args'].fast
 
         msgerr            = [ ]
@@ -371,7 +373,7 @@ class MakeDataFiles(Program):
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
         
-        if output_format == OUTPUT_FORMAT_LSST_ALERTS :
+        if out_lsst_alert :
             schema_file = CONFIG['LSST_ALERT_SCHEMA']
             arg_list.append(f"--lsst_alert_schema {schema_file}")
 
@@ -391,6 +393,17 @@ class MakeDataFiles(Program):
         JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['kill_on_fail']  = kill_on_fail
         JOB_INFO['arg_list']      = arg_list
+
+        # for lsst alerts, wait for previous compress-ISPLITMJD to finish
+        # to avoid piling up too many alert files. Remember that 
+        # isplitmjd goes from 1 - nsplitmjd.
+        if out_lsst_alert and isplitmjd > 1:
+            split_mjd   = self.config_prep['split_mjd']
+            isplit_previous = isplitmjd-2 # switch to {0:N-1}, and subtract 1
+            min_edge    = split_mjd['min_edge'][isplit_previous]
+            max_edge    = split_mjd['max_edge'][isplit_previous]
+            wait_file   = self.get_compress_done_file(min_edge,max_edge)
+            JOB_INFO['wait_file'] = wait_file
 
         return JOB_INFO
         # end prep_JOB_INFO_mkdata
@@ -724,17 +737,13 @@ class MakeDataFiles(Program):
         # min_edge and max_edge-1.
         # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
         
-        output_dir   = self.config_prep['output_dir']
+        output_dir = self.config_prep['output_dir']
 
-        imin = int(min_edge)
-        imax = int(max_edge)
-        base_name = f"compress_mjd{imin}-{imax}.done"
-        compress_done_file = f"{output_dir}/{SUBDIR_ALERTS}/{base_name}"
-
-        # xxx not necessary if os.path.exists(compress_done_file): return
-        
+        compress_done_file = self.get_compress_done_file(min_edge,max_edge)
         n_compress = 0
-        logging.info(f"  Begin compression for mjd{imin} to mjd{imax-1}")
+
+        imin = int(min_edge); imax = int(max_edge)-1
+        logging.info(f"  Begin compression for mjd{imin} to mjd{imax}")
 
         # construct big tar command
         sys.stdout.flush()
@@ -761,6 +770,19 @@ class MakeDataFiles(Program):
     
         # end compress_mjd_dirs
             
+    def get_compress_done_file(self,min_edge,max_edge):
+        # return name of done file for compress mjd range defined by
+        # min_edge to max_edge (for LSST alerts)
+        output_dir       = self.config_prep['output_dir']
+        imin = int(min_edge)
+        imax = int(max_edge)
+        mjd_range_str = f"mjd{imin}-{imax}"
+        alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
+        done_file = f"{alert_dir}/compress_mjd{mjd_range_str}.done"
+        return done_file
+
+        # end get_done_file_compress
+
     def get_misc_merge_info(self):
 
         # return misc info lines to write into MERGE.LOG file.

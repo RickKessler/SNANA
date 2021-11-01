@@ -173,7 +173,7 @@ struct {
 typedef struct  {
   // Cosmological parameter structure used by codist.c 
   double omm;  // Omega_matter 
-  double ome;  // Omega_energy 
+  double ome;  // Omega_energy
   double w0;   // equation of state of Dark Energy: 
   double wa;   //    w(z) = w0 + wa(1-a)  
 } Cosparam ;
@@ -346,7 +346,7 @@ double Einv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
 
-#define EPS 1.0e-6
+#define EPS  1.0e-6
 #define JMAX 20
 
 double simpint(double (*func)(double, Cosparam *), 
@@ -1737,31 +1737,38 @@ double rd_bao_prior(double z, Cosparam *cpar) {
   double Om_b = 0.02 / (h * h), Om_gamma = 2.46*0.00001;
   //c_sound = 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) ); 
   double z_d    = 1060.0 ; 
-  double amin=0.0, amax = 1.0/(1+z_d);
-  double Hinv_integ, rd = 1.0;
+  double amin   = 1.0E-6,  amax = 1.0/(1+z_d);
+  double Hinv_integ, Einv_integ, rd = 1.0;
 
   HzFUN_INFO_DEF HzFUN_INFO;
-  bool DO_INTEGRAL = false ;
+  bool DO_INTEGRAL = true ; 
   char fnam[] = "rd_bao_prior" ;
 
   // ---------- BEGIN ----------
   
-  if ( DO_INTEGRAL ) {
-    // does not include omega_rad, so has no chance
-    // Convergence is also bad as z -> inf.
-    set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
-		       &HzFUN_INFO);
-    Hinv_integ = Hainv_integral(amin, amax, &HzFUN_INFO);
-    rd = c_sound * (Hinv_integ/c_light)  ; 
-    printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f  c_s=%.1f\n",
-	   fnam, z_d, h, rd, c_sound);
-    debugexit(fnam); // xxx remove
+  rd = rd_DEFAULT;
+
+  /* xxxxxxxxxx mark obsolete, RK
+     set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
+     &HzFUN_INFO);
+     xxxxxxx */
+
+
+  if ( DO_INTEGRAL  ) {
+    printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam );
+    Einv_integ = Einv_integral(amin, amax, cpar);
+    Hinv_integ = Einv_integ / H0 ;
+    rd = c_sound * Hinv_integ  ; 
   }
 
-  rd = rd_DEFAULT;
+  printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f Mpc,  c_s=%.1f km/sec\n",
+	 fnam, z_d, h, rd, c_sound);
+
+  debugexit(fnam); // xxx remove
 
   return rd;
 }
+
 double DM_bao_prior(double z, Cosparam *cpar){
   double DM = 1.0,  DA, H0 = H0_Planck;
 
@@ -3044,25 +3051,51 @@ double one_over_EofZ(double z, Cosparam *cptr){
   return 1./EofZ(z, cptr);
 }
 double one_over_EofA(double a, Cosparam *cptr){
-  return 1./EofA(a, cptr);
+  double Einv = 1./EofA(a, cptr);
+  double Jacobian = 1.0/(a*a);  // dz = da/a^2, Jac=1/a^2
+  return Einv * Jacobian;
 }
 
 double EofZ(double z, Cosparam *cptr){
+
+  // Oct 31 2021 R.Kessler
+  //  Implement omr (radiation) erm such that setting omr=0.0 reduce
+  //  to previous code.
+  //  omr includes photons+neutrinos for early-universe integrals.
+  //  This is inaccurate at late times when neutrinos become non-relativistic,
+  //  but the late time omr contribution is so small that the approximation
+  //  is insignificant.
+
   double E;
-  double omm, omk, ome, w0, wa;
+  double arg, argr, omm, omk, ome, w0, wa;
   double z1 = 1.0 + z;
-  double z1_sq   = z1*z1;
-  double z1_cube = z1_sq * z1;
+  double z1_pow2  = z1*z1;
+  double z1_pow3  = z1_pow2 * z1;
+  double z1_pow4;
+  double omr      = 0.9E-4 ; // photon+neutrino, Oct 31 2021, RK
 
   omm = cptr->omm;
   ome = cptr->ome;
-  omk = 1. - omm - ome;
+  omk = 1.0 - omm - ome;
   w0  = cptr->w0;
   wa  = cptr->wa;
 
-  E =  sqrt( omm * z1_cube + 
-	     omk * z1_sq   + 
-	     ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) );
+  if ( omr > 0.0 ) {
+    // omm + ome + omr = 1 => flat universe 
+    omm *= (1.0 - omr);
+    ome *= (1.0 - omr);
+    z1_pow4  = z1_pow2 * z1_pow2;
+    argr     = omr * z1_pow4;
+  }
+
+  arg = 
+    omm * z1_pow3 + 
+    omk * z1_pow2 + 
+    ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
+
+  if ( omr > 0.0 )  { arg += (omr * z1_pow4); }
+
+  E = sqrt(arg);
 
   return E;
 }
@@ -3072,7 +3105,6 @@ double EofA(double a, Cosparam *cptr) {
   double E = EofZ(z, cptr);
   return E;
 } 
-
 
 
 /***************************************************************************
@@ -3102,6 +3134,7 @@ double simpint(double (*func)(double, Cosparam *), double x1,
   for(j=1; j<=JMAX; j++){
     st = trapezoid(func,x1,x2,j,ost,vptr);
     s = (4.0*st-ost)/3.0;
+    //    printf(" xxx %d: s-os=%le  os=%le\n", j, s-os, os);
     if (j > 5)  		/* Avoid spurious early convergence */
       if (fabs(s-os) < EPS*fabs(os) || (s==0.0 && os==0.0))  return s;
     os = s;

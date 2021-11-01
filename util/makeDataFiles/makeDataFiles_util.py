@@ -1,7 +1,6 @@
 # Generic Utilities for makeDataFiles.
 #
 
-
 import os, sys, yaml, shutil, glob, math
 import logging, subprocess  # ,coloredlogs
 
@@ -38,6 +37,7 @@ def select_subsample(args, var_dict):
 
     # MJD of first detection
     if args.mjd_detect_range :
+        # need check for NITE instead of MJD
         if MJD_DETECT_FIRST <  args.mjd_detect_range[0]: return False
         if MJD_DETECT_FIRST >= args.mjd_detect_range[1]: return False
     

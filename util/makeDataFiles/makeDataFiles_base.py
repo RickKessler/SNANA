@@ -581,11 +581,14 @@ class Program:
         nevent_list   = self.config_data['data_unit_nevent_list']
         name_list     = self.config_data['data_unit_name_list']
         for nevent, name in zip(nevent_list, name_list):
-            if nevent == 0 : continue
+
             index_unit   = data_unit_name_list.index(name)
 
+            # create yaml file even if there are zero events.
             if args.output_yaml_file:
                 self.write_yaml_file(index_unit)
+
+            if nevent == 0 : continue
 
             if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
@@ -602,9 +605,14 @@ class Program:
         readme_stats = self.config_data['readme_stats_list'][index_unit]
         t_proc       = self.config_data['t_proc'] # seconds
 
-        # check to add NOBS_ALERT for lsst_alert format 
+        # check to add NOBS_ALERT for lsst_alert format.
+        # Beware that if zero events are processed, 
+        # the 'n_alert_write' element doesn't exist
         if args.outdir_lsst_alert :
-            n_alert = self.config_data['n_alert_write']
+            key = 'n_alert_write'
+            n_alert = 0
+            if key in self.config_data:
+                n_alert = self.config_data[key]
             readme_stats[KEYNAME_NOBS_ALERT] = n_alert
 
         readme_dict = {

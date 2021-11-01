@@ -778,7 +778,7 @@ class MakeDataFiles(Program):
         imax = int(max_edge)
         mjd_range_str = f"mjd{imin}-{imax}"
         alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
-        done_file = f"{alert_dir}/compress_mjd{mjd_range_str}.done"
+        done_file = f"{alert_dir}/compress_{mjd_range_str}.done"
         return done_file
 
         # end get_done_file_compress

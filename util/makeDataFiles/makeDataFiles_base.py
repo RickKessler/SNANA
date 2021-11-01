@@ -70,9 +70,9 @@ class Program:
         iyear_select  = args.year      # 1-NYEAR, or -1 for all
         field_select  = args.field
         survey        = args.survey
-        peakmjd_range    = args.peakmjd_range
-        mjd_detect_range = args.mjd_detect_range
-
+        peakmjd_range     = args.peakmjd_range
+        mjd_detect_range  = args.mjd_detect_range
+        outdir_lsst_alert = args.outdir_lsst_alert
         n_season       = MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
@@ -102,18 +102,23 @@ class Program:
                 if isplit_select > 0 and ISPLIT != isplit_select :
                     continue ;
 
+                do_all_seasons = (isplit == 0 or isplit_select>0) \
+                                 and iseason==0
+                do_one_season  = (not outdir_lsst_alert)
+                
                 # define unit name for all seasons combined
-                if (isplit == 0 or isplit_select>0) and iseason==0 :
+                if do_all_seasons :
                     unit_name = \
                         self.assign_data_unit_name(survey, field_select,
                                                    -1, ISPLIT)
                     unit_name_list.append(unit_name)
 
                 # define unit name for this season/iyear
-                unit_name = \
-                    self.assign_data_unit_name(survey, field_select,
-                                               iyear, ISPLIT)
-                unit_name_list.append(unit_name)
+                if do_one_season :
+                    unit_name = \
+                        self.assign_data_unit_name(survey, field_select,
+                                                   iyear, ISPLIT)
+                    unit_name_list.append(unit_name)
 
         # init 'exist' logical to false for each data unit
         n_data_unit      = len(unit_name_list)

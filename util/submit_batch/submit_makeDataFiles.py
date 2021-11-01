@@ -449,7 +449,8 @@ class MakeDataFiles(Program):
         nsplitmjd            = split_mjd['nbin']
         min_edge_list        = split_mjd['min_edge']
         max_edge_list        = split_mjd['max_edge']
-        header_line_compress = f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD"
+        header_line_compress = \
+            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD  NDIR/sec"
                         
         INFO_COMPRESS = {
             'primary_key' : TABLE_COMPRESS,
@@ -467,6 +468,7 @@ class MakeDataFiles(Program):
             ROW_COMPRESS.append(isplitmjd) 
             ROW_COMPRESS.append(str_mjd_range)
             ROW_COMPRESS.append(0)              # init NDIR_MJD=0
+            ROW_COMPRESS.append(0.0)            # init rate = NDIR/sec
             
             INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
         util.write_merge_file(f, INFO_COMPRESS, [] )
@@ -613,7 +615,7 @@ class MakeDataFiles(Program):
                     # load N/sec instead of CPU time
                     t_proc = job_stats[key_tproc_sum]
                     rate   = n_tmp / t_proc
-                    row[COLNUM_RATE] = f"{rate:.1f}"
+                    row[COLNUM_RATE] = float(f"{rate:.1f}")
 
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
@@ -646,6 +648,7 @@ class MakeDataFiles(Program):
         COLNUM_STATE     = COLNUM_MERGE_STATE
         COLNUM_ISPLITMJD = 1
         COLNUM_NMJD_DIR  = 3
+        COLNUM_RATE      = 4  # Ndir/sec
         
         row_merge_list        = MERGE_INFO_CONTENTS[TABLE_MERGE]
         row_compress_list     = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
@@ -691,11 +694,18 @@ class MakeDataFiles(Program):
             min_edge = min_edge_list[ISPLITMJD]
             max_edge = max_edge_list[ISPLITMJD]
             
-            n_compress = self.compress_mjd_dirs(mjd_dir_list, min_edge, max_edge)
+            time_0     = datetime.datetime.now()
+            n_compress = self.compress_mjd_dirs(mjd_dir_list, 
+                                                min_edge, max_edge)
+            time_1     = datetime.datetime.now()
+            time_dif   = (time_1 - time_0).total_seconds()
+            rate       = n_compress / time_dif
+            rate_str   = f"{rate:.1f}"
 
             irow = nrow - 1
             row_compress_list_new[irow][COLNUM_STATE]    = SUBMIT_STATE_DONE
             row_compress_list_new[irow][COLNUM_NMJD_DIR] = n_compress
+            row_compress_list_new[irow][COLNUM_RATE]     = float(rate_str)
             
         return row_compress_list_new
     
@@ -723,7 +733,8 @@ class MakeDataFiles(Program):
         # xxx not necessary if os.path.exists(compress_done_file): return
         
         n_compress = 0
-        print(f"  Compress mjd{imin} to mjd{imax-1}")
+        logging.info(f"  Begin compression for mjd{imin} to mjd{imax-1}")
+
         sys.stdout.flush()
         for mjd_dir in mjd_dir_list:
             mjd         = int(mjd_dir[3:])

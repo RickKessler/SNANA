@@ -223,7 +223,7 @@ def make_outdir_mjd(outdir,mjd):
     # + create outdir_mjd if it does not already exit
 
     mjdint = int(mjd)
-    outdir_mjd = outdir + '/{ALERT_DAY_NAME}' + str(mjdint)
+    outdir_mjd = outdir + '/' + f"{ALERT_DAY_NAME}" + str(mjdint)
     if not os.path.exists(outdir_mjd) :
         cmd = f"mkdir {outdir_mjd}"
         #print(f"\t Create {outdir_mjd}")

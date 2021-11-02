@@ -24,21 +24,20 @@ COLNUM_MKDATA_MERGE_RATE        = 6  # or add 1 for lsst_alerts
 OUTPUT_FORMAT_LSST_ALERTS       = 'lsst_avro'
 OUTPUT_FORMAT_SNANA             = 'snana'
 
-KEYLIST_OUTPUT                  = ['OUTDIR_SNANA',   'OUTDIR_LSST_ALERT']
-KEYLIST_OUTPUT_OPTIONS          = ['--outdir_snana', '--outdir_lsst_alert']
-OUTPUT_FORMAT                   = [OUTPUT_FORMAT_SNANA, OUTPUT_FORMAT_LSST_ALERTS]
+KEYLIST_OUTPUT           = ['OUTDIR_SNANA',   'OUTDIR_LSST_ALERT']
+KEYLIST_OUTPUT_OPTIONS   = ['--outdir_snana', '--outdir_lsst_alert']
+OUTPUT_FORMAT            = [OUTPUT_FORMAT_SNANA, OUTPUT_FORMAT_LSST_ALERTS]
 
-KEYLIST_SPLIT_MJD               = ['SPLIT_MJD_DETECT', 'SPLIT_PEAKMJD']
-KEYLIST_SPLIT_MJD_OPTIONS       = ['--mjd_detect_range', '--peakmjd_range']
+KEYLIST_SPLIT_MJD          = ['SPLIT_MJD_DETECT', 'SPLIT_PEAKMJD']
+KEYLIST_SPLIT_MJD_OPTIONS  = ['--mjd_detect_range', '--peakmjd_range']
 
 BASE_PREFIX          = 'MAKEDATA'   # base for log,yaml,done files
 DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
-SUBDIR_ALERTS        = "ALERTS"     # move mjd tar files here
 
-AVRO_FILE_PREFIX = "alert"
-AVRO_FILE_SUFFIX = "avro"
-
-TABLE_COMPRESS = "COMPRESS" # name of supplemental table in MERGE.LOG file
+# params for lsst alerts
+ALERT_SUBDIR        = "ALERTS"     # move mjd tar files here
+ALERT_DAY_NAME      = "mjd"      # xxx later switch to nite 
+TABLE_COMPRESS      = "COMPRESS" # name of extra table in MERGE.LOG file
 
 
 # ====================================================
@@ -258,8 +257,8 @@ class MakeDataFiles(Program):
         output_format = self.config_yaml['args'].output_format
         msgerr = []
         imjd = int(mjd)
-        splitran_str = f'SPLITRAN{isplitran+1:03d}'
-        splitmjd_str = f'SPLITMJD{imjd:05d}'
+        splitran_str  = f'SPLITRAN{isplitran+1:03d}'
+        splitmjd_str  = f'SPLITMJD{imjd:05d}'
         prefix_output = f'{BASE_PREFIX}'
 
         if imjd >= 10000:
@@ -289,7 +288,7 @@ class MakeDataFiles(Program):
         shutil.copy(input_file,script_dir)
 
         # create ALERTS subdir for final mjd-tar files
-        alerts_dir    = f"{output_dir}/{SUBDIR_ALERTS}"
+        alerts_dir    = f"{output_dir}/{ALERT_SUBDIR}"
         self.config_prep['alerts_dir'] = alerts_dir
         os.mkdir(alerts_dir)
 
@@ -463,7 +462,7 @@ class MakeDataFiles(Program):
         min_edge_list        = split_mjd['min_edge']
         max_edge_list        = split_mjd['max_edge']
         header_line_compress = \
-            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_MJD  NDIR/sec"
+            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_{ALERT_DAY_NAME}  NDIR/sec"
                         
         INFO_COMPRESS = {
             'primary_key' : TABLE_COMPRESS,
@@ -647,7 +646,8 @@ class MakeDataFiles(Program):
             'row_split_list'   : [],
             'row_merge_list'   : row_list_merge_new,
             'row_extra_list'   : row_extra_list,
-            'table_names'      : [ TABLE_SPLIT, TABLE_MERGE, TABLE_COMPRESS ]
+            'table_names'      : [ TABLE_SPLIT, TABLE_MERGE, 
+                                   TABLE_COMPRESS ]
         }
         return row_list_dict, n_state_change
     
@@ -743,7 +743,9 @@ class MakeDataFiles(Program):
         n_compress = 0
 
         imin = int(min_edge); imax = int(max_edge)-1
-        logging.info(f"  Begin compression for mjd{imin} to mjd{imax}")
+        logging.info(f"  Begin compression for " \
+                     f"{ALERT_DAY_NAME}mjd{imin} to " \
+                     f"{ALERT_DAY_NAME}mjd{imax} ")
 
         # construct big tar command
         sys.stdout.flush()
@@ -759,7 +761,7 @@ class MakeDataFiles(Program):
         # tack on command to move it all into /ALERTS,
         # and ten run it all with one os command
         if n_compress > 0:
-            cmd_tar += f"mv mjd*.tar.gz {SUBDIR_ALERTS}"
+            cmd_tar += f"mv {ALERT_DAY_NAME}*.tar.gz {ALERT_SUBDIR}"
             os.system(cmd_tar)
 
         # touch done file to flag that this MJD range is compressed
@@ -776,8 +778,8 @@ class MakeDataFiles(Program):
         output_dir       = self.config_prep['output_dir']
         imin = int(min_edge)
         imax = int(max_edge)
-        mjd_range_str = f"mjd{imin}-{imax}"
-        alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
+        mjd_range_str = f"{ALERT_DAY_NAME}{imin}-{imax}"
+        alert_dir = f"{output_dir}/{ALERT_SUBDIR}"
         done_file = f"{alert_dir}/compress_{mjd_range_str}.done"
         return done_file
 
@@ -813,8 +815,8 @@ class MakeDataFiles(Program):
         if isfmt_lsst_alert:
             info_lines += [ f"NOBS_ALERT_SUM:  {NOBS_SUM}" ]
 
-        # count mjd*.tar files in SUBDIR_ALERTS
-        alert_dir = f"{output_dir}/{SUBDIR_ALERTS}"
+        # count mjd*.tar files in ALERT_SUBDIR
+        alert_dir = f"{output_dir}/{ALERT_SUBDIR}"
         wildcard  = "mjd*.tar.gz"
         mjd_tar_list = glob.glob1(alert_dir, wildcard)
         ndir = len(mjd_tar_list)

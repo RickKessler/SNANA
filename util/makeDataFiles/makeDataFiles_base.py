@@ -90,6 +90,7 @@ class Program:
             msgerr.append(f"Valid --isplitran arg range is 1 to {nsplit}")
             util.log_assert(False,msgerr)
 
+        # - - - - - - 
         for iseason in range(0,n_season):
             iyear  = iseason + 1    # starts at 1
             if iyear_select > 0 and iyear != iyear_select :
@@ -120,6 +121,7 @@ class Program:
                                                    iyear, ISPLIT)
                     unit_name_list.append(unit_name)
 
+        # - - - - - - - - - - -
         # init 'exist' logical to false for each data unit
         n_data_unit      = len(unit_name_list)
 

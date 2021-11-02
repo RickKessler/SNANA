@@ -55,6 +55,8 @@ PHOTFLAG_DETECT = 4096  # should read this from global data header ??
 NOBS_ALERT_MAX  = 2000  # used to compute diaSource
 NOBS_ALERT_UPDATE = 100 # std update after this many alerts
 
+ALERT_DAY_NAME    = "mjd"
+
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
 
@@ -177,8 +179,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if detect :
             # construct name of avro file using mjd, objid, srcid
             outdir_mjd  = make_outdir_mjd(outdir,mjd)
+            str_day = f"{ALERT_DAY_NAME}{mjd:.4f}"
+            str_obj = f"obj{diaObjectId}"
+            str_src = f"src{diaSourceId}"
             mjd_file  = f"{outdir_mjd}/" \
-                        f"alert_mjd{mjd:.4f}_obj{diaObjectId}_src{diaSourceId}.avro"
+                        f"alert_{str_day}_{str_obj}_{str_src}.avro"
 
             # with open(mjd_file,"wb") as f:
             gzip_mjd_file =mjd_file + '.gz'
@@ -218,7 +223,7 @@ def make_outdir_mjd(outdir,mjd):
     # + create outdir_mjd if it does not already exit
 
     mjdint = int(mjd)
-    outdir_mjd = outdir + '/mjd' + str(mjdint)
+    outdir_mjd = outdir + '/{ALERT_DAY_NAME}' + str(mjdint)
     if not os.path.exists(outdir_mjd) :
         cmd = f"mkdir {outdir_mjd}"
         #print(f"\t Create {outdir_mjd}")

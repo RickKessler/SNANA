@@ -462,7 +462,8 @@ class MakeDataFiles(Program):
         min_edge_list        = split_mjd['min_edge']
         max_edge_list        = split_mjd['max_edge']
         header_line_compress = \
-            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_{ALERT_DAY_NAME}  NDIR/sec"
+            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_{ALERT_DAY_NAME}  " \
+            f"Nsec NDIR/sec"
                         
         INFO_COMPRESS = {
             'primary_key' : TABLE_COMPRESS,
@@ -477,9 +478,10 @@ class MakeDataFiles(Program):
                 
             ROW_COMPRESS = []
             ROW_COMPRESS.append(STATE)
-            ROW_COMPRESS.append(isplitmjd) 
-            ROW_COMPRESS.append(str_mjd_range)
+            ROW_COMPRESS.append(isplitmjd)      # index: 0,1,...
+            ROW_COMPRESS.append(str_mjd_range)  # e.g., 59000-59200
             ROW_COMPRESS.append(0)              # init NDIR_MJD=0
+            ROW_COMPRESS.append(0.0)            # init Nsec
             ROW_COMPRESS.append(0.0)            # init rate = NDIR/sec
             
             INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
@@ -662,7 +664,8 @@ class MakeDataFiles(Program):
         COLNUM_STATE     = COLNUM_MERGE_STATE
         COLNUM_ISPLITMJD = 1
         COLNUM_NMJD_DIR  = 3
-        COLNUM_RATE      = 4  # Ndir/sec
+        COLNUM_TIME      = 4  # Nsec
+        COLNUM_RATE      = 5  # Ndir/sec
         
         row_merge_list        = MERGE_INFO_CONTENTS[TABLE_MERGE]
         row_compress_list     = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
@@ -719,6 +722,7 @@ class MakeDataFiles(Program):
             irow = nrow - 1
             row_compress_list_new[irow][COLNUM_STATE]    = SUBMIT_STATE_DONE
             row_compress_list_new[irow][COLNUM_NMJD_DIR] = n_compress
+            row_compress_list_new[irow][COLNUM_TIME]     = int(time_dif)
             row_compress_list_new[irow][COLNUM_RATE]     = float(rate_str)
             
         return row_compress_list_new

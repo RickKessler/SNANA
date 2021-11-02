@@ -486,7 +486,7 @@ class MakeDataFiles(Program):
             ROW_COMPRESS.append(isplitmjd)      # index: 0,1,...
             ROW_COMPRESS.append(str_mjd_range)  # e.g., 59000-59200
             ROW_COMPRESS.append(0)              # init NDIR_MJD=0
-            ROW_COMPRESS.append(0.0)            # init Nsec
+            ROW_COMPRESS.append(0)              # init Nsec
             ROW_COMPRESS.append(0.0)            # init rate = NDIR/sec
             
             INFO_COMPRESS['row_list'].append(ROW_COMPRESS)

@@ -337,9 +337,10 @@ void CPU_summary(void);
 // cosmology functions
 double EofZ(double z, Cosparam *cptr);
 double one_over_EofZ(double z, Cosparam *cptr);
-double codist(double z, Cosparam *cptr);
+double codist(double z, Cosparam *cptr); // maybe change name to Ezinv_integral
 void   test_codist(void);
 
+// Nov 1 2021 R.Kessler - new set of functions to integrate over "a"
 double EofA(double a, Cosparam *cptr);
 double one_over_EofA(double a, Cosparam *cptr);
 double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
@@ -1742,29 +1743,27 @@ double rd_bao_prior(double z, Cosparam *cpar) {
 
   HzFUN_INFO_DEF HzFUN_INFO;
   bool DO_INTEGRAL = true ; 
+  int  LDMP = 0;
   char fnam[] = "rd_bao_prior" ;
 
   // ---------- BEGIN ----------
   
   rd = rd_DEFAULT;
 
-  /* xxxxxxxxxx mark obsolete, RK
-     set_HzFUN_for_wfit(H0, cpar->omm, cpar->ome, cpar->w0, cpar->wa, 
-     &HzFUN_INFO);
-     xxxxxxx */
-
-
   if ( DO_INTEGRAL  ) {
-    printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam );
+    if (LDMP ) 
+      { printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam ); }
+
     Einv_integ = Eainv_integral(amin, amax, cpar);
     Hinv_integ = Einv_integ / H0 ;
     rd = c_sound * Hinv_integ  ; 
   }
 
-  printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f Mpc,  c_s=%.1f km/sec\n",
-	 fnam, z_d, h, rd, c_sound);
-
-  debugexit(fnam); // xxx remove
+  if ( LDMP ) {
+    printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f Mpc,  c_s=%.1f km/sec\n",
+	   fnam, z_d, h, rd, c_sound);
+    debugexit(fnam); // xxx remove
+  }
 
   return rd;
 }
@@ -3071,7 +3070,7 @@ double EofZ(double z, Cosparam *cptr){
 
   double E;
   double arg, argr, omm, omk, ome, w0, wa;
-  double z1 = 1.0 + z;
+  double z1       = 1.0 + z;
   double z1_pow2  = z1*z1;
   double z1_pow3  = z1_pow2 * z1;
   double z1_pow4;
@@ -3084,7 +3083,7 @@ double EofZ(double z, Cosparam *cptr){
   wa  = cptr->wa;
 
   if ( omr > 0.0 ) {
-    // omm + ome + omr = 1 => flat universe 
+    // omm + ome + omr = 1 => preserve flat universe 
     omm *= (1.0 - omr);
     ome *= (1.0 - omr);
     z1_pow4  = z1_pow2 * z1_pow2;

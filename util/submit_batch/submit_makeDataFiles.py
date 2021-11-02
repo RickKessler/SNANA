@@ -838,7 +838,7 @@ class MakeDataFiles(Program):
             row_list = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
             for row in row_list: nsec_sum += row[COLNUM_COMPRESS_TIME] 
             t_compress = nsec_sum/60.0
-            t_compress = float(f"{t_min:.1f}") 
+            t_compress = float(f"{t_compress:.1f}") 
             info_lines += [ f"TIME_COMPRESS_SUM:  {t_compress}  # minutes" ]
             
         # - - - - -

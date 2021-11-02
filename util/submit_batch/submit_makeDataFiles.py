@@ -758,7 +758,7 @@ class MakeDataFiles(Program):
 
         # tack on command to move it all into /ALERTS,
         # and ten run it all with one os command
-        if do_compress > 0:
+        if n_compress > 0:
             cmd_tar += f"mv mjd*.tar.gz {SUBDIR_ALERTS}"
             os.system(cmd_tar)
 

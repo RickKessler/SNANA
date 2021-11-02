@@ -38,6 +38,11 @@ DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
 ALERT_SUBDIR        = "ALERTS"     # move mjd tar files here
 ALERT_DAY_NAME      = "mjd"      # xxx later switch to nite 
 TABLE_COMPRESS      = "COMPRESS" # name of extra table in MERGE.LOG file
+COLNUM_COMPRESS_ISPLITMJD = 1  # index for split MJD range
+COLNUM_COMPRESS_MJDRANGE  = 2
+COLNUM_COMPRESS_NMJD_DIR  = 3  # number of day directories
+COLNUM_COMPRESS_TIME      = 4  # Nsec
+COLNUM_COMPRESS_RATE      = 5  # Ndir/sec
 
 
 # ====================================================
@@ -662,10 +667,10 @@ class MakeDataFiles(Program):
         nsplitmjd        = submit_info_yaml['NSPLITMJD']
         
         COLNUM_STATE     = COLNUM_MERGE_STATE
-        COLNUM_ISPLITMJD = 1
-        COLNUM_NMJD_DIR  = 3
-        COLNUM_TIME      = 4  # Nsec
-        COLNUM_RATE      = 5  # Ndir/sec
+        COLNUM_ISPLITMJD = COLNUM_COMPRESS_ISPLITMJD
+        COLNUM_NMJD_DIR  = COLNUM_COMPRESS_NMJD_DIR
+        COLNUM_TIME      = COLNUM_COMPRESS_TIME  # Nsec
+        COLNUM_RATE      = COLNUM_COMPRESS_RATE  # Ndir/sec
         
         row_merge_list        = MERGE_INFO_CONTENTS[TABLE_MERGE]
         row_compress_list     = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
@@ -791,8 +796,9 @@ class MakeDataFiles(Program):
 
     def get_misc_merge_info(self):
 
-        # return misc info lines to write into MERGE.LOG file.
-        # Each info line must be of the form
+        # Called at end of all jobs, return misc info lines 
+        # (yaml format) to write at the end of the MERGE.LOG file.
+        # Each info yaml-compatible line must be of the form
         #  KEYNAME:  VALUE
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -816,16 +822,26 @@ class MakeDataFiles(Program):
                 NOBS_SUM += int(row[COLNUM_MKDATA_MERGE_NOBS_ALERT]) 
 
         info_lines = [ f"NEVT_SUM:        {NEVT_SUM}" ]
+
         if isfmt_lsst_alert:
             info_lines += [ f"NOBS_ALERT_SUM:  {NOBS_SUM}" ]
 
-        # count mjd*.tar files in ALERT_SUBDIR
-        alert_dir = f"{output_dir}/{ALERT_SUBDIR}"
-        wildcard  = "mjd*.tar.gz"
-        mjd_tar_list = glob.glob1(alert_dir, wildcard)
-        ndir = len(mjd_tar_list)
-        info_lines += [ f"NDIR_MJD_SUM:    {ndir}" ]
-                    
+            # count mjd*.tar files in ALERT_SUBDIR
+            alert_dir    = f"{output_dir}/{ALERT_SUBDIR}"
+            wildcard     = f"{ALERT_DAY_NAME}*.tar.gz"
+            mjd_tar_list = glob.glob1(alert_dir, wildcard)
+            ndir         = len(mjd_tar_list)
+            info_lines  += [ f"NDIR_MJD_SUM:    {ndir}" ]
+
+            # sum alert-compress times
+            nsec_sum = 0.0
+            row_list = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
+            for row in row_list: nsec_sum += row[COLNUM_COMPRESS_TIME] 
+            t_compress = nsec_sum/60.0
+            t_compress = float(f"{t_min:.1f}") 
+            info_lines += [ f"TIME_COMPRESS_SUM:  {t_compress}  # minutes" ]
+            
+        # - - - - -
         return info_lines
 
         # end get_misc_merge_info

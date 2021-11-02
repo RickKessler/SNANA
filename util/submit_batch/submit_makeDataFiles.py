@@ -4,7 +4,7 @@
 
 
 import  os, sys, shutil, yaml, configparser, glob
-import  logging, coloredlogs
+import  logging, coloredlogs, tarfile
 import  datetime, time, subprocess
 import  submit_util as util
 from    submit_params    import *
@@ -365,6 +365,8 @@ class MakeDataFiles(Program):
 
         kill_on_fail      = self.config_yaml['args'].kill_on_fail
         output_format     = self.config_yaml['args'].output_format
+        no_merge          = self.config_yaml['args'].nomerge
+
         out_lsst_alert    = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         # do_fast           = self.config_yaml['args'].fast
 
@@ -401,7 +403,9 @@ class MakeDataFiles(Program):
         # for lsst alerts, wait for previous compress-ISPLITMJD to finish
         # to avoid piling up too many alert files. Remember that 
         # isplitmjd goes from 1 - nsplitmjd.
-        if out_lsst_alert and isplitmjd > 0 :
+        set_wait_file = out_lsst_alert and (isplitmjd > 0) \
+                        and (not no_merge)
+        if set_wait_file :
             split_mjd   = self.config_prep['split_mjd']
             isplit_previous = isplitmjd-1 
             min_edge    = split_mjd['min_edge'][isplit_previous]
@@ -753,6 +757,46 @@ class MakeDataFiles(Program):
 
         imin = int(min_edge); imax = int(max_edge)-1
         logging.info(f"  Begin compression for " \
+                     f"{ALERT_DAY_NAME}{imin} to " \
+                     f"{ALERT_DAY_NAME}{imax} ")
+
+        # loop over each mjd within range and tar it up
+        sys.stdout.flush()
+        for mjd_dir in mjd_dir_list:
+            mjd         = int(mjd_dir[3:])
+            do_compress = mjd>= min_edge and mjd < max_edge
+            if do_compress :
+                n_compress += 1
+                tar_file     = f"{output_dir}/{ALERT_SUBDIR}/{mjd_dir}.tar.gz"
+                mjd_dir_full = f"{output_dir}/{mjd_dir}"
+                with tarfile.open(tar_file,"w:gz") as tar:
+                    tar.add(mjd_dir_full,
+                            arcname=os.path.basename(mjd_dir_full))
+                shutil.rmtree(mjd_dir_full)                
+        
+        # touch done file to flag that this MJD range is compressed
+        cmd_done = f"touch {compress_done_file}"
+        os.system(cmd_done)
+
+        return n_compress
+    
+        # end compress_mjd_dirs
+
+    def compress_mjd_dirs_obsolete(self, mjd_dir_list, min_edge, max_edge):
+
+        # xxx uses os.system  xxxxx
+        #
+        # For mjd_dirs in mjd_dir_list, compress those within
+        # min_edge and max_edge-1.
+        # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
+        
+        output_dir = self.config_prep['output_dir']
+
+        compress_done_file = self.get_compress_done_file(min_edge,max_edge)
+        n_compress = 0
+
+        imin = int(min_edge); imax = int(max_edge)-1
+        logging.info(f"  Begin compression for " \
                      f"{ALERT_DAY_NAME}mjd{imin} to " \
                      f"{ALERT_DAY_NAME}mjd{imax} ")
 
@@ -779,8 +823,8 @@ class MakeDataFiles(Program):
 
         return n_compress
     
-        # end compress_mjd_dirs
-            
+        # end compress_mjd_dirs_obsolete
+                    
     def get_compress_done_file(self,min_edge,max_edge):
         # return name of done file for compress mjd range defined by
         # min_edge to max_edge (for LSST alerts)
@@ -838,7 +882,7 @@ class MakeDataFiles(Program):
             row_list = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
             for row in row_list: nsec_sum += row[COLNUM_COMPRESS_TIME] 
             t_compress = nsec_sum/60.0
-            t_compress = float(f"{t_compress:.1f}") 
+            t_compress = float(f"{t_compress:.2f}") 
             info_lines += [ f"TIME_COMPRESS_SUM:  {t_compress}  # minutes" ]
             
         # - - - - -

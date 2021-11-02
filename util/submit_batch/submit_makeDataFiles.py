@@ -744,7 +744,9 @@ class MakeDataFiles(Program):
         pass
         # end  merge_job_wrapup
 
-    def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
+    def compress_mjd_dirs_slow(self, mjd_dir_list, min_edge, max_edge):
+
+        # xxx uses python tar util, which is much slower than os.system
 
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
@@ -780,15 +782,15 @@ class MakeDataFiles(Program):
 
         return n_compress
     
-        # end compress_mjd_dirs
+        # end compress_mjd_dirs_slow
 
-    def compress_mjd_dirs_obsolete(self, mjd_dir_list, min_edge, max_edge):
+    def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
 
-        # xxx uses os.system  xxxxx
         #
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
         # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
+        # using os.system ... it's faster than python tar.
         
         output_dir = self.config_prep['output_dir']
 
@@ -823,7 +825,7 @@ class MakeDataFiles(Program):
 
         return n_compress
     
-        # end compress_mjd_dirs_obsolete
+        # end compress_mjd_dirs
                     
     def get_compress_done_file(self,min_edge,max_edge):
         # return name of done file for compress mjd range defined by

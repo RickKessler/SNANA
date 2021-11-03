@@ -6414,7 +6414,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
   int   NJOBTOT = INPUTS.NJOBTOT ; // >0 for batch job
   int   JOBID   = INPUTS.JOBID   ; // for batch job
   int i, n_files, ifile;
-  double rand_num;
+  double rand_num ;
   char **genmodel_list ;
   char fnam[] = "pick_RANSYSTFILE_WILDCARD";
   // ------------- BEGIN ----------
@@ -6426,7 +6426,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
 
   // pick sequential ifile for batch job; else random file
   if ( NJOBTOT > 0 ) {
-    ifile = JOBID;  // batch job
+    ifile = JOBID-1;  // batch job; JOBID starts at 1; ifile starts at 0
   }
   else {
     // interactive
@@ -6434,7 +6434,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
     ifile    = (int)(rand_num * (double)n_files); 
   }
 
-  printf("    * Select GENPDF_FILE %d of %d from\n\t %s", 
+  printf("\t* Select GENPDF_FILE %d of %d from\n\t %s \n", 
 	 ifile, n_files, wildcard);
 
   if ( ifile < 0 || ifile >= n_files ) {

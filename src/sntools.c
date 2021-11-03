@@ -498,9 +498,7 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
 // =================================================
 int glob_file_list(char *wildcard, char ***file_list) {
 
-  // TO DO:
-  //  + add creation date, author and comment here
-  //  + test with "module load valgrind; valgrind snlc_sim.exe <input>"
+  // Created by P.Armstron and R.Kessler, 2020
   //  + abort if n_file > MXFILE_LIST
 
   int    i, n_file = 0; 

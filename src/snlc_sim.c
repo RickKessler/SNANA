@@ -1291,6 +1291,7 @@ void set_user_defaults_RANSYSTPAR(void) {
 
   INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT = 0.0 ; // PA 2020
   INPUTS.RANSYSTPAR.GENMODEL_WILDCARD[0] = 0; // PA 2020
+  INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD[0] = 0; // Nov 2021
 
   INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER  = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_W0            = 0.0 ;
@@ -3578,14 +3579,20 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
 
-  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", 
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", // P.Armstrong, 2020
 			KEYNAME, keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT ); // PA 2020
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT );
   }
-  else if ( keyMatchSim(1,"RANSYSTPAR_GENMODEL_WILDCARD", 
+
+  else if ( keyMatchSim(1,"RANSYSTPAR_GENMODEL_WILDCARD",  // P.Armstron, 2020
 			KEYNAME, keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENMODEL_WILDCARD ); // PA 2020
+    N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENMODEL_WILDCARD ); 
   }
+  else if ( keyMatchSim(1,"RANSYSTPAR_GENPDF_FILE_WILDCARD", 
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD ); 
+  }
+
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
 			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
@@ -6179,13 +6186,13 @@ void  prep_RANSYSTPAR(void) {
   //
   // Nov 9 2020: refactor filter-dependent RANSYSTPAR (see manual)
 
-  int   ifilt, ifilt_obs, NSET=0 ;
+  int   ifilt, ifilt_obs, NSET=0; 
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
   float SIGSCALE_MIN = -1.0E-6, SIGSCALE_MAX = 0.2 ;
   double gmin = -3.0, gmax=+3.0; // Gaussian clip params
-  char cfilt[2];
+  char cfilt[2], *wildcard ;
   char fnam[] = "prep_RANSYSTPAR" ;
 
   // ---------- BEGIN -----------
@@ -6226,23 +6233,54 @@ void  prep_RANSYSTPAR(void) {
     printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
    }
 
-  // GENMODEL Wildcard PA 2020
-  char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
-  char **genmodel_list;
+  // - - - - - 
+  // check wild card files
+  wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD; 
+  if ( strlen(wildcard) > 0 ) 
+    { pick_RANSYSTFILE_WILDCARD(wildcard,INPUTS.GENMODEL); }
+
+  wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
+  if ( strlen(wildcard) > 0 ) 
+    { pick_RANSYSTFILE_WILDCARD(wildcard,INPUTS.GENPDF_FILE); }
+
+  /* xxxxxxxx mark delete Nov 2 2021 xxxxxxxxxx
   if ( strlen(wildcard) > 0 ) {
       ENVreplace(wildcard,fnam,1);
-      int n_files = glob_file_list(wildcard, &genmodel_list);
-      int i;
-      double rand_num = getRan_Flat1(ILIST_RAN);
-      int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
+      n_files = glob_file_list(wildcard, &genmodel_list);
+      rand_num = getRan_Flat1(ILIST_RAN);
+      // generate random ifile-index between 0 and n_files-1
+      ifile_ran = (int)(rand_num * (double)n_files); 
       printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
       sprintf(INPUTS.GENMODEL, "%s", genmodel_list[ifile_ran]);
       if ( ifile_ran < 0 || ifile_ran >= n_files ) {
-        sprintf(c1err,"Invalid ifile_ran = %d", ifile_ran);
-        sprintf(c2err,"Expected ifile_ran between 0 and %d", n_files - 1);
+        sprintf(c1err,"Invalid ifile_ran = %d for GENMODEL_WILDCARD", 
+		ifile_ran);
+        sprintf(c2err,"Expected ifile_ran between 0 and %d", 
+		n_files - 1);
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
   }
+
+  // - - - - - 
+  // GENPDF_FILE Wildcard R.Kessler, Nov 2 2021
+  wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
+  if ( strlen(wildcard) > 0 ) {
+      ENVreplace(wildcard,fnam,1);
+      n_files = glob_file_list(wildcard, &genmodel_list);
+      rand_num = getRan_Flat1(ILIST_RAN);
+      // generate random ifile-index between 0 and n_files-1
+      ifile_ran = (int)(rand_num * (double)n_files); 
+      printf("\t Select GENPDF_FILE %d of %d\n", ifile_ran, n_files);
+      sprintf(INPUTS.GENPDF_FILE, "%s", genmodel_list[ifile_ran]);
+      if ( ifile_ran < 0 || ifile_ran >= n_files ) {
+        sprintf(c1err,"Invalid ifile_ran = %d for GENPDF_FILE_WILDCARD", 
+		ifile_ran);
+        sprintf(c2err,"Expected ifile_ran between 0 and %d", 
+		n_files - 1);
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+  }
+  xxxxxxxxxx end mark xxxxxxxxxxx */
 
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
@@ -6363,6 +6401,45 @@ void  prep_RANSYSTPAR(void) {
   return ;
 
 } // end prep_RANSYSTPAR
+
+// *********************************************
+void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
+
+  // Created Nov 2 2021 by R.kessler
+  // For input *wildcard, get list of files and select a random file.
+  // Load random file name into ouput arg *randomFile.
+  // 
+
+  int   ILIST_RAN=1;
+  int i, n_files, ifile_ran;
+  double rand_num;
+  char **genmodel_list ;
+  char fnam[] = "pick_RANSYSTFILE_WILDCARD";
+  // ------------- BEGIN ----------
+
+  randomFile[0] = 0;
+
+  ENVreplace(wildcard,fnam,1);
+  n_files = glob_file_list(wildcard, &genmodel_list);
+  rand_num = getRan_Flat1(ILIST_RAN);
+  // generate random ifile-index between 0 and n_files-1
+  ifile_ran = (int)(rand_num * (double)n_files); 
+  printf("\t Select GENPDF_FILE %d of %d\n", ifile_ran, n_files);
+  sprintf(randomFile, "%s", genmodel_list[ifile_ran]);
+  if ( ifile_ran < 0 || ifile_ran >= n_files ) {
+    sprintf(c1err,"Invalid ifile_ran = %d for GENPDF_FILE_WILDCARD", 
+	    ifile_ran);
+    sprintf(c2err,"Expected ifile_ran between 0 and %d", 
+	    n_files - 1);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+  for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }
+  free(genmodel_list);
+
+  return;
+
+} // end pick_RANSYSTFILE_WILDCARD 
 
 // *******************************************
 void prep_genmag_offsets(void) {

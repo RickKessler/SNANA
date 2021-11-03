@@ -238,6 +238,7 @@ typedef struct {
   float SIGSHIFT_MWRV;       // shift RV
   float SIGSHIFT_REDSHIFT;   // shift redshift PA 2020
   char GENMODEL_WILDCARD[MXPATHLEN]; // choose between wildcard models PA 2020
+  char GENPDF_FILE_WILDCARD[MXPATHLEN]; // choose between wildcard GENPDF_FILEs
 
   float SIGSHIFT_OMEGA_MATTER ;
   float SIGSHIFT_W0 ;
@@ -1752,6 +1753,8 @@ void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 
+void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile);
+
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);

@@ -11339,15 +11339,11 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   // Created Feb 26 2018
   // Generated c, x1, alpha, beta
   // Mar 11 2020: pass OPT_FRAME argument.
+  // Nov 03 2021: call get_random_genPDF for alpha and beta
 
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
 
-  /* xxx mark delete Aug 11 2021 
-  bool GETc_ASYMGAUSS   = (INPUTS.GENGAUSS_SALT2c.USE);
-  bool GETc_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  bool SKIPc            = GETc_SIMLIB || (GETc_HOSTLIB && !GETc_ASYMGAUSS );
-  xxxxxxxxxx mark delete xxxxxxx */
   bool GETc_SIMLIB  = (SIMLIB_HEADER.GENGAUSS_SALT2c.USE) ; // each event
   bool SKIPc        = (GETc_SIMLIB || !INPUTS.DOGEN_COLOR); // Aug 11 2021
 
@@ -11373,13 +11369,17 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
-    GENLC.SALT2alpha = 
-      getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
+    GENLC.SALT2alpha =    // Nov 3 2021
+      get_random_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR );
+    // xxx mark delete   GENLC.SALT2alpha = 
+    // xxx mark delete   getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
-    GENLC.SALT2beta = 
-      getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
+    GENLC.SALT2beta =    // Nov 3 2021
+      get_random_genPDF("SALT2BETA", &GENGAUSS_ZVAR );
+    // xxx mark delete    GENLC.SALT2beta = 
+    // xxx mark delete getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools

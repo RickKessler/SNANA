@@ -6411,7 +6411,9 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
   // 
 
   int   ILIST_RAN=1;
-  int i, n_files, ifile_ran;
+  int   NJOBTOT = INPUTS.NJOBTOT ; // >0 for batch job
+  int   JOBID   = INPUTS.JOBID   ; // for batch job
+  int i, n_files, ifile;
   double rand_num;
   char **genmodel_list ;
   char fnam[] = "pick_RANSYSTFILE_WILDCARD";
@@ -6421,19 +6423,28 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
 
   ENVreplace(wildcard,fnam,1);
   n_files = glob_file_list(wildcard, &genmodel_list);
-  rand_num = getRan_Flat1(ILIST_RAN);
-  // generate random ifile-index between 0 and n_files-1
-  ifile_ran = (int)(rand_num * (double)n_files); 
-  printf("\t Select GENPDF_FILE %d of %d\n", ifile_ran, n_files);
-  sprintf(randomFile, "%s", genmodel_list[ifile_ran]);
-  if ( ifile_ran < 0 || ifile_ran >= n_files ) {
-    sprintf(c1err,"Invalid ifile_ran = %d for GENPDF_FILE_WILDCARD", 
-	    ifile_ran);
-    sprintf(c2err,"Expected ifile_ran between 0 and %d", 
-	    n_files - 1);
+
+  // pick sequential ifile for batch job; else random file
+  if ( NJOBTOT > 0 ) {
+    ifile = JOBID;  // batch job
+  }
+  else {
+    // interactive
+    rand_num = getRan_Flat1(ILIST_RAN);
+    ifile    = (int)(rand_num * (double)n_files); 
+  }
+
+  printf("    * Select GENPDF_FILE %d of %d from\n\t %s", 
+	 ifile, n_files, wildcard);
+
+  if ( ifile < 0 || ifile >= n_files ) {
+    sprintf(c1err,"Invalid ifile = %d for GENPDF_FILE_WILDCARD", ifile );
+    sprintf(c2err,"Expected ifile between 0 and %d", n_files-1);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  
+
+  sprintf(randomFile, "%s", genmodel_list[ifile]);  
+
   for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }
   free(genmodel_list);
 

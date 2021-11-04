@@ -11,9 +11,10 @@
 #define MXITER_GENPDF  1000   // max number of iterations for genPDF
 #define PROBMAX_REJECT_GENPDF 1.0E-3  // ignore range where P > this value
 
-#define  OPTMASK_GENPDF_EXTRAP       1
-#define  OPTMASK_GENPDF_SLOW         2  // use full val range
-#define  OPTMASK_GENPDF_EXTERNAL_FP  8
+#define  OPTMASK_GENPDF_EXTRAP        1
+#define  OPTMASK_GENPDF_SLOW          2  // use full val range
+#define  OPTMASK_GENPDF_KEYSOURCE_ARG 4  // arg is from command line
+#define  OPTMASK_GENPDF_EXTERNAL_FP   8
 
 int      NMAP_GENPDF;
 int      NCALL_GENPDF ;

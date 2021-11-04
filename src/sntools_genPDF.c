@@ -77,9 +77,10 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //     [note that REDSHIFT can be used instead of ZTRUE]
   //
   //  HISTORY:
-  //     Dillon June 24th including alpha beta asym gauss
-  //    
-  //     August 10 2021 Brodie and Rick fixed bug setting NVAR properly
+  //   Jun 24 2021 Dillon - including alpha beta asym gauss
+  //   Aug 10 2021 Brodie and Rick fixed bug setting NVAR properly
+  //   Nov  4 2021 RK - check OPTMASK_GENPDF_KEYSOURCE_ARG
+  //
   // -----------
 
   FILE *fp;
@@ -95,7 +96,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
   char **ptr_ITEMLIST, *NAME ;
-  int KEYSOURCE = 1; //parse file for gengauss (not command line)
+  int KEYSOURCE = 1; // default source is from file
   
   // ------------- BEGIN -------------
 
@@ -128,12 +129,16 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   }
 
   if ( (OPTMASK & OPTMASK_GENPDF_SLOW) > 0 ) { 
-    printf("\t skip speed-trick: select regardless of PROB \n");
+    printf("\t skip speed-trick: select regardless of PROB. \n");
   }
   else {
-    printf("\t use speed-trick: select from range bounded by PROB ~ 0 \n");
+    printf("\t use speed-trick: select from range bounded by PROB ~ 0. \n");
   }
 
+  if ( (OPTMASK & OPTMASK_GENPDF_KEYSOURCE_ARG) > 0 ) {
+    printf("\t GENPDF_FILE is from command line -> allow overrides.\n");
+    KEYSOURCE = 2; // genpdf_file was from command line
+  }
   
   if ( strlen(ignoreList) > 0 ) 
     { printf("\t Ignore PDF map(s): %s \n", ignoreList); }

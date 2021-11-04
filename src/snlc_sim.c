@@ -6244,45 +6244,6 @@ void  prep_RANSYSTPAR(void) {
   if ( strlen(wildcard) > 0 ) 
     { pick_RANSYSTFILE_WILDCARD(wildcard,INPUTS.GENPDF_FILE); }
 
-  /* xxxxxxxx mark delete Nov 2 2021 xxxxxxxxxx
-  if ( strlen(wildcard) > 0 ) {
-      ENVreplace(wildcard,fnam,1);
-      n_files = glob_file_list(wildcard, &genmodel_list);
-      rand_num = getRan_Flat1(ILIST_RAN);
-      // generate random ifile-index between 0 and n_files-1
-      ifile_ran = (int)(rand_num * (double)n_files); 
-      printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
-      sprintf(INPUTS.GENMODEL, "%s", genmodel_list[ifile_ran]);
-      if ( ifile_ran < 0 || ifile_ran >= n_files ) {
-        sprintf(c1err,"Invalid ifile_ran = %d for GENMODEL_WILDCARD", 
-		ifile_ran);
-        sprintf(c2err,"Expected ifile_ran between 0 and %d", 
-		n_files - 1);
-        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-  }
-
-  // - - - - - 
-  // GENPDF_FILE Wildcard R.Kessler, Nov 2 2021
-  wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
-  if ( strlen(wildcard) > 0 ) {
-      ENVreplace(wildcard,fnam,1);
-      n_files = glob_file_list(wildcard, &genmodel_list);
-      rand_num = getRan_Flat1(ILIST_RAN);
-      // generate random ifile-index between 0 and n_files-1
-      ifile_ran = (int)(rand_num * (double)n_files); 
-      printf("\t Select GENPDF_FILE %d of %d\n", ifile_ran, n_files);
-      sprintf(INPUTS.GENPDF_FILE, "%s", genmodel_list[ifile_ran]);
-      if ( ifile_ran < 0 || ifile_ran >= n_files ) {
-        sprintf(c1err,"Invalid ifile_ran = %d for GENPDF_FILE_WILDCARD", 
-		ifile_ran);
-        sprintf(c2err,"Expected ifile_ran between 0 and %d", 
-		n_files - 1);
-        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-  }
-  xxxxxxxxxx end mark xxxxxxxxxxx */
-
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
   if ( tmpSigma != 0.0 ) { 
@@ -6446,6 +6407,15 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
 
   sprintf(randomFile, "%s", genmodel_list[ifile]);  
 
+  // for GENPDF wildcard, set GENPDF_OPTMASK to tell init_genPDF
+  // that the source is command-line arg instead of file.
+  // This allows the command-line arg to override sim-inputs.
+  if ( strstr(wildcard,"GENPDF") != NULL ) {
+    if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
+      { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
+  }
+
+// - - - - - -
   for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }
   free(genmodel_list);
 

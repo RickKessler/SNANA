@@ -113,8 +113,9 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     schema          = config_data['schema']
     diaSourceId     = config_data['diaSourceId']
     alert_data_orig = config_data['alert_data_orig']
-    alert           = copy(alert_data_orig)
-
+    alert              = copy(alert_data_orig)
+    alert_first_detect = copy(alert_data_orig)
+    
     # copy structure of original sample alert to local diasrc
     prvDiaSources = alert_data_orig['prvDiaSources']
     diasrc = prvDiaSources[0]
@@ -124,18 +125,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     #    print(f" xxx found original alert key: {key}")
 
     alert['prvDiaSources'].clear() # clear out all the past histories
+    alert_first_detect['prvDiaSources'].clear() 
 
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst alert
     my_diasrc = diasrc #{}
     translate_dict_diasrc(-1, data_event_dict, my_diasrc)
-    alert['diaSource'] = my_diasrc
+    alert['diaSource']              = my_diasrc
+    alert_first_detect['diaSource'] = my_diasrc
 
     diaObjectId = my_diasrc['diaObjectId'] # same as SNID in snana sim file
 
     config_data['n_event_write'] += 1
-    FIRST_OBS = True
-
+    FIRST_OBS    = True
+    n_detect     = 0
+    
     if args.mjd_detect_range:
         MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
         MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
@@ -156,7 +160,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
-
+        
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
         my_diasrc['diaSourceId'] = diaSourceId
@@ -164,19 +168,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         # update my_diasrc with this obs
         translate_dict_diasrc(o, data_event_dict, my_diasrc)
 
-        if FIRST_OBS:
+        if FIRST_OBS  :
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
             FIRST_OBS = False
-
+                
         # serialize the alert
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
-
+            
         # write alerts ONLY for detection.
         # problem: first alert includes previous force photometry
         #   which violates causality.
         if detect :
+            n_detect += 1
+            
             # construct name of avro file using mjd, objid, srcid
             outdir_mjd  = make_outdir_mjd(outdir,mjd)
             str_day = f"{ALERT_DAY_NAME}{mjd:.4f}"
@@ -184,20 +190,26 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             str_src = f"src{diaSourceId}"
             mjd_file  = f"{outdir_mjd}/" \
                         f"alert_{str_day}_{str_obj}_{str_src}.avro"
-
-            # with open(mjd_file,"wb") as f:
+            
             gzip_mjd_file =mjd_file + '.gz'
             with gzip.GzipFile(filename=gzip_mjd_file, 
                                mode='wb', compresslevel=9) as f:
-                schema.store_alerts(f, [alert])
+                if n_detect == 1 :
+                    # store only 1st detection; no force photo yet.
+                    avro_bytes = schema.serialize(alert_first_detect)
+                    messg      = schema.deserialize(avro_bytes)
+                    schema.store_alerts(f, [alert_first_detect] )
+                else:
+                    # store alert with previous epochs
+                    schema.store_alerts(f, [alert])
+                    
                 config_data['n_alert_write'] += 1
                 print_alert_stats(config_data)
 
-        # now that you have written out this alert,
-        # move the diasource info to the "past" for the next observation
-        alert['prvDiaSources'].append(alert['diaSource'])
-
-        #print(f" xxx o={o}  mjd={mjd}")
+        # after writing each aler, copy diasource info to the "past"
+        # for the next observation. Make sure to use .copy() to
+        # avoid storing a pointer.
+        alert['prvDiaSources'].append(alert['diaSource'].copy())
 
     # - - - - - -
     # if first obs was never found, hack alert to avoid crash.

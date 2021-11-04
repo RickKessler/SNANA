@@ -337,8 +337,6 @@ struct  FILTER
 
 double FILTER_LAMBDA_MAX ; // max lambda among all filters
 double FILTER_LAMBDA_MIN ; // min lambda ...
-double SPECTRA_LAMBDA_MAX ; // Nov 3 2021 RK
-double SPECTRA_LAMBDA_MIN ;
 double STORE_LAMBDA_MAX ;
 double STORE_LAMBDA_MIN ;
 
@@ -391,6 +389,8 @@ void  kcor_input_override(int OPT);
 void  primary_override(char *primName, char *fileName);
 int   kcor_ini(void) ;
 void  set_kcorFile_format(void) ;
+void  set_store_lambda_range(void);
+
 int   malloc_ini(void);
 int   kcor_out(void) ;
 int   kcor_grid(void) ;

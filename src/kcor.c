@@ -200,6 +200,10 @@
  Jan 15 2021: new ZPOFF_FILE input key (for each FILTPATH) to override
               default ZPOFF.DAT
 
+ Nov 3 2021:
+   For spectrograph, extend stored wavelength range of SEDs to that
+   of spectraograph. See new function set_store_lambda_range().
+
 ****************************************************/
 
 
@@ -1840,8 +1844,9 @@ int kcor_ini(void) {
          istat = rd_filter(i);
    }
    fflush(stdout);
-   printf("\n Global range of all filters: %d to %d A \n",
-	  (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+   // set min/max wavelength range to store SEDs
+   set_store_lambda_range();
 
    if ( rd_snsed() != SUCCESS ) { return ERROR; }
 
@@ -1923,6 +1928,52 @@ int kcor_ini(void) {
    return SUCCESS;
 }
 
+// ***************************************************
+void  set_store_lambda_range(void) {
+
+  // Created Nov 3 2021 by R.Kessler
+  // Set wave range to store SEDs.
+  // Default is min/max wavelength of bluest/reddest filters.
+  // If spectrograph goes bluer/redder than filters, store
+  // extended wvae range.
+  //
+  // Output is global STORE_LAMBDA_MIN and STORE_LAMBDA_MAX
+  //
+  // TEMP: code still uses FILTER_LAMBDA_MIN[MAX] until new
+  //      STORE_LAMBDA_MIN[MAX] are verified.
+  //
+
+  int  LEGACY = 0;  // set True to restore using FILTER_LAMBDA_MIN[MAX]
+  char fnam[] = "set_store_lambda_range" ;
+
+  // ------------ BEGIN ------------
+
+  printf("\n");
+  printf(" Global wave range of all filters: %d to %d A \n",
+	 (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+  STORE_LAMBDA_MIN = FILTER_LAMBDA_MIN;
+  STORE_LAMBDA_MAX = FILTER_LAMBDA_MAX;
+
+  if ( SPECTROGRAPH_USEFLAG && !LEGACY ) {
+    printf(" Global wave range of spectrograph: %d to %d A\n",
+	   (int)INPUTS_SPECTRO.LAM_MIN, (int)INPUTS_SPECTRO.LAM_MAX);
+
+    if ( INPUTS_SPECTRO.LAM_MIN < STORE_LAMBDA_MIN ) 
+      { STORE_LAMBDA_MIN = INPUTS_SPECTRO.LAM_MIN; }
+
+    if ( INPUTS_SPECTRO.LAM_MAX > STORE_LAMBDA_MAX ) 
+      { STORE_LAMBDA_MAX = INPUTS_SPECTRO.LAM_MAX; }
+  }
+  
+  printf(" Final wavelength storage range: %d to %d A \n",
+	 (int)STORE_LAMBDA_MIN, (int)STORE_LAMBDA_MAX );
+  
+  fflush(stdout);
+
+  return;
+
+} // end set_store_lambda_range
 
 // ***************************************************
 void set_kcorFile_format(void) {
@@ -3161,20 +3212,23 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
     Use linear interpolation for lam_in values closest
     to SNSED.LAMBDA grid point.
 
+    Nov 3 2021: replace FILTER_LAMBDA_MIN[MAX] with STORE_LAMBDA_MIN[MAX]
+             (to allow for spectrograph with broader wave range)
   ****/
 
   int NBLAM, ilam, idump=0;
   double  DLAM, LAM, LAM0,  LAM1, F0, F1, slope, FLUX_OUT  ;
-  
+  char fnam[] = "rebin_primary" ;
+
   /* ---------------------------- BEGIN -------------------- */
 
   DLAM = 10.0 ;  //hard-wire lambda binning to 10 A
   LAM  = LAM0 = LAM1 = F0 = F1 = 0.0 ; 
   NBLAM = 0 ;
 
-  while ( LAM < FILTER_LAMBDA_MAX ) {
+  while ( LAM < STORE_LAMBDA_MAX ) {
     LAM += DLAM ;
-    if ( LAM < FILTER_LAMBDA_MIN ) continue ;
+    if ( LAM < STORE_LAMBDA_MIN ) continue ;
 
     NBLAM++ ;
 

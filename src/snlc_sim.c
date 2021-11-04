@@ -21129,7 +21129,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // IFLAG = 0 --> nominal loading
   // IFLAG = 1 --> load header info only (for FITS-file init)
 
-  // Compute and global hostgal properties (i.e., epoch-independent)
+  // Compute global hostgal properties (i.e., epoch-independent)
   // and load SNDATA structure,
   //   SNDATA.SIM_GALFRAC[ifilt_obs]      => reference quantity
   //   SNDATA.HOSTGAL_SB_FLUXCAL[ifilt_obs]  => data-like quantity
@@ -21194,7 +21194,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   if ( ifilt_obs == 0 ) {
 
-    // NEW(Nov 2019): test multiple host matches with NBR_LIST in HOSTLIB
+    // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
     SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
     for(m=0; m < NMATCH; m++ ) {
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
@@ -21217,12 +21217,11 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
       SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
-      // Added for LSST but may be of more general use
-      // Alex Gagliano 09/2021
+
+      // Added for LSST but may be of more general use; Alex Gagliano 09/2021
       SNDATA.HOSTGAL_OBJID2[m]       = SNHOSTGAL_DDLR_SORT[m].GALID2;
       SNDATA.HOSTGAL_ELLIPTICITY[m]  = SNHOSTGAL_DDLR_SORT[m].ELLIPTICITY;
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
-
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
     }
     
@@ -21241,11 +21240,11 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   } // end of ifilt_obs==0
   
 
+  /* xxxx mark delete/obsolete Nov 4 2021 R.Kessler 
   // transfer total host mag (Feb 2013)
-
   SNDATA.HOSTGAL_MAG[0][ifilt] = (float)SNHOSTGAL.GALMAG[ifilt_obs][0]; 
   SNDATA.HOSTGAL_USEMASK |= 1 ; // flag to write host mag
-
+  xxxxxxxxxxxxx end mark xxxxxxxxxxx */
 
   for(m=0; m < NMATCH; m++ ) {
     SNDATA.HOSTGAL_MAG[m][ifilt] = 

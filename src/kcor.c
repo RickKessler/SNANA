@@ -203,6 +203,7 @@
  Nov 3 2021:
    For spectrograph, extend stored wavelength range of SEDs to that
    of spectraograph. See new function set_store_lambda_range().
+   Goal is to enable simulated spectra to go beyond wave range of filters.
 
 ****************************************************/
 

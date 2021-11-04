@@ -6613,7 +6613,7 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     SNHOSTGAL_DDLR_SORT[i].ELLIPTICITY  = 999.0;
     SNHOSTGAL_DDLR_SORT[i].SQRADIUS = 999.0;
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
-      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]  = -9.0 ;
+      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]      = -9.0 ;
       SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt]  = -9.0 ;
     }
   }
@@ -6827,23 +6827,23 @@ void SORT_SNHOST_byDDLR(void) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
-      MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
-      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+      if ( IVAR > 0 ) {
+	MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
+	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+      }
 
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
-      if (IVAR_ERR > 0){
+      if ( IVAR_ERR > 0 ) {
       	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
-	//printf("xxx MAG_ERR = %.2f\n", MAG_ERR);
       }
-      if (INPUTS.HOSTLIB_GALID_UNIQUE && IVAR_ERR > 0){
-	      // for unique GALIDs, fluctuate mags to avoid duplicate mags
-	      double GauRan, rmin=-3., rmax=3.;
 
-	      MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
-	      GauRan = getRan_GaussClip(1,rmin,rmax);
-	      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;
-
+      if ( INPUTS.HOSTLIB_GALID_UNIQUE && IVAR_ERR > 0 ) {
+	// for unique GALIDs, fluctuate mags to avoid duplicate mags
+	double GauRan, rmin=-3., rmax=3.;
+	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
+	GauRan = getRan_GaussClip(1,rmin,rmax);
+	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;
       }
     }
 

@@ -3591,6 +3591,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"RANSYSTPAR_GENPDF_FILE_WILDCARD", 
 			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD ); 
+    KEYSOURCE_GENPDF = keySource ;
   }
 
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",

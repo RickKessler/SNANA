@@ -335,9 +335,12 @@ struct  FILTER
 } FILTER[MXFILTDEF] ;
 
 
-double FILTER_LAMBDA_MAX; // max lambda among all filters
-double FILTER_LAMBDA_MIN; // min lambda ...
-
+double FILTER_LAMBDA_MAX ; // max lambda among all filters
+double FILTER_LAMBDA_MIN ; // min lambda ...
+double SPECTRA_LAMBDA_MAX ; // Nov 3 2021 RK
+double SPECTRA_LAMBDA_MIN ;
+double STORE_LAMBDA_MAX ;
+double STORE_LAMBDA_MIN ;
 
 struct R4KCOR_GRID {
   float ****VALUE ;

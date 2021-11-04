@@ -575,7 +575,7 @@ void get_user_input(void) {
 
   // ------------------------------------------------------
   // check for command line overrides after reading all input files
-  // -----------------------------------------------------ß
+  // -----------------------------------------------------
 
   sim_input_override(); 
 
@@ -6009,7 +6009,7 @@ void prep_dustFlags(void) {
 
   // ------------ BEGIN --------------
 
-  if ( INPUTS.GENGAUSS_RV.USE        ) { DO_RV  = 1; }
+  if ( INPUTS.GENGAUSS_RV.USE           )        { DO_RV  = 1; }
   if ( IDMAP_GENPDF(PARNAME_RV,&LOGPARAM) >= 0 ) { DO_RV += 2; }
 
   // check for WV07 option
@@ -27707,6 +27707,8 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   // Priority is based on KEYSOURCE = 1(FILE) or 2(command line arg)
   //
   // Finally, check for reasons to set DOGEN_SHAPE[COLOR] to false.
+  //
+  // Nov 3 2021: check SALT2ALPHA and SALT2BETA
 
   int  FUNTYPE_ASYMGAUSS     = 1;
   int  FUNTYPE_EXPHALFGAUSS  = 2;
@@ -27734,6 +27736,18 @@ void prioritize_genPDF_ASYMGAUSS(void) {
   sprintf(PARNAME_LIST[NCHECK],"SALT2c");
   IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
   ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2c ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"SALT2ALPHA");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2ALPHA ;
+  FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
+  NCHECK++ ;
+
+  sprintf(PARNAME_LIST[NCHECK],"SALT2BETA");
+  IDMAP_LIST[NCHECK]        = IDMAP_GENPDF(PARNAME_LIST[NCHECK], &IS_LOGPAR);
+  ptr_ASYMGAUSS_LIST[NCHECK] = &INPUTS.GENGAUSS_SALT2BETA ;
   FUNTYPE_LIST[NCHECK] = FUNTYPE_ASYMGAUSS;
   NCHECK++ ;
 
@@ -27767,6 +27781,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
     PARNAME      = PARNAME_LIST[i];
     USE_GENPDF   = ( IDMAP_LIST[i] >= 0 );
     FUNTYPE      = FUNTYPE_LIST[i];
+    IDMAP        = IDMAP_LIST[i];
 
     if ( FUNTYPE == FUNTYPE_ASYMGAUSS ) {
       USE_FUN       = ptr_ASYMGAUSS_LIST[i]->USE ; 
@@ -27814,8 +27829,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
 
   // - - - - - - - -
   
-  bool GETPAR_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-
+  bool GETPAR_HOSTLIB   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
   bool GETc_ASYMGAUSS   = INPUTS.GENGAUSS_SALT2c.USE;
   bool GETc_GENPDF      = (IDMAP_GENPDF("SALT2c", &IS_LOGPAR) >= 0);
   bool GETc             = GETc_ASYMGAUSS || GETc_GENPDF ;

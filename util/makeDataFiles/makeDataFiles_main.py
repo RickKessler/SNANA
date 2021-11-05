@@ -86,8 +86,8 @@ def get_args():
     msg = "select year index (1-Nyear); default = -1 -> all"
     parser.add_argument("-y", "--year", help=msg, type=int, default=-1 )
 
-    msg = "Select events with MJD(first detection) in this range"
-    parser.add_argument('--mjd_detect_range',
+    msg = "Select LSST events with MJD(first detection) in this NITE range (i.e. sunset to sunrise)"
+    parser.add_argument('--nite_detect_range',
                         nargs='+', help=msg, type=float, default=None )
     msg = "Select events with PEAKMJD in this range"
     parser.add_argument('--peakmjd_range',
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         if args.outdir_snana:
             snana.merge_snana_driver(args)
         elif args.outdir_lsst_alert:
-            pass  # 
+            pass  #
         sys.exit(' Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;

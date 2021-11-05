@@ -14,7 +14,7 @@ from   astropy.io import fits
 # - - - - - - - - - - - - - - - - - - -     -
 class data_snana_folder(Program):
     def __init__(self, config_inputs) :
-        config_data = {}  
+        config_data = {}
         print(" Init data_snana_folder class.")
         super().__init__(config_inputs,config_data)
 
@@ -24,7 +24,7 @@ class data_snana_folder(Program):
         data_folder  = os.path.expandvars(args.snana_folder)
         version      = os.path.basename(data_folder)
         list_file    = f"{data_folder}/{version}.LIST"
-        
+
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_foler = {data_folder}")
         sys.stdout.flush()
@@ -37,7 +37,7 @@ class data_snana_folder(Program):
         self.config_data['n_HEAD_file']    = len(HEAD_file_list)
         self.config_data['version']        = version
         self.config_data['data_folder']    = data_folder
-        
+
         # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):
@@ -48,20 +48,20 @@ class data_snana_folder(Program):
 
         if i_subgroup == n_HEAD_file - 1 :
             return 0 # done reading
-        
+
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
         nevt, hdu_head  = self.open_snana_fits(HEAD_file)
-        
+
         PHOT_file_base  = hdu_head[0].header['PHOTFILE']
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
         NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
-            
+
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
         sys.stdout.flush()
 
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
-            
+
         head_names = table_head.columns.names
         phot_names = table_phot.columns.names
 
@@ -79,7 +79,7 @@ class data_snana_folder(Program):
         self.config_data['hdu_phot']   = hdu_phot
 
         return nevt
-    
+
         #end prep_read_data_subgroup
 
     def end_read_data_subgroup(self):
@@ -89,7 +89,7 @@ class data_snana_folder(Program):
     def end_read_data(self):
         # global end for reading data
         pass
-        
+
     def open_snana_fits(self,file_name):
        # check file_name and file_name.gz, and open the file that exists.
        # Function returns hdu pointer and number of rows in table.
@@ -105,10 +105,10 @@ class data_snana_folder(Program):
             msgerr.append(f" {file_name}   not")
             msgerr.append(f" {file_namegz} ")
             util.log_assert(False,msgerr)
-            
+
         NROW = hdul[1].header['NAXIS2']
         return NROW, hdul
-    
+
     # end open_snana_fits
 
     def read_event(self, evt ):
@@ -134,7 +134,7 @@ class data_snana_folder(Program):
         except:
             SNID = table_head.SNID[evt]
         head_raw[DATAKEY_SNID]  = SNID
-        
+
         head_raw[DATAKEY_RA]    = table_head.RA[evt]
 
         # check 'DEC' and legacy column name 'DECL'
@@ -150,9 +150,9 @@ class data_snana_folder(Program):
             head_calc[DATAKEY_MJD_DETECT_LAST] = \
                 table_head.MJD_DETECT_LAST[evt]
         else:
-            if args.mjd_detect_range is not None:
-                msgerr.append(f"Cannot implement args.mjd_detect_range = " \
-                              f"{args.mjd_detect_range}")
+            if args.nite_detect_range is not None:
+                msgerr.append(f"Cannot implement args.nite_detect_range = " \
+                              f"{args.nite_detect_range}")
                 msgerr.append(f"Because {DATAKEY_MJD_DETECT_FIRST} is not in "\
                               f"data header")
                 util.log_assert(False,msgerr)
@@ -162,7 +162,7 @@ class data_snana_folder(Program):
         # remainder of header and photometry for rejected events.
         apply_select = True
         if apply_select :
-            var_dict = { 
+            var_dict = {
                 DATAKEY_SNID       : int(SNID),
                 DATAKEY_RA         : head_raw[DATAKEY_RA],
                 DATAKEY_DEC        : head_raw[DATAKEY_DEC],
@@ -187,17 +187,17 @@ class data_snana_folder(Program):
         head_calc[DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
         head_calc[DATAKEY_MWEBV]         = table_head.MWEBV[evt]
         head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
-                
-        # - - - - - - 
+
+        # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
         self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
         self.store_hostgal(DATAKEY_LIST_CALC, evt, head_calc)
-        
+
         # - - - - - - - - - - -
         # get pointers to PHOT table
         ROWMIN = table_head.PTROBS_MIN[evt]
-        ROWMAX = table_head.PTROBS_MAX[evt]        
-        
+        ROWMAX = table_head.PTROBS_MAX[evt]
+
         # note that there are NOBS+1 rows, but last row is pad word -777
         NOBS = ROWMAX - ROWMIN
         phot_raw = self.init_phot_dict(NOBS)
@@ -214,11 +214,11 @@ class data_snana_folder(Program):
             if LEGACY_FLT:
                 if varname == 'BAND' : varname_table = 'FLT'
 
-            if varname_table in table_column_names : 
+            if varname_table in table_column_names :
                 phot_raw[varname] = \
                     table_phot[varname_table][ROWMIN:ROWMAX].copy()
 
-        # - - - - - 
+        # - - - - -
         # get field from from first observation,
         # Beware that event can overlap multiple fields.
         field = phot_raw[DATAKEY_FIELD][0]
@@ -241,9 +241,9 @@ class data_snana_folder(Program):
         }
         if apply_select :
             data_dict['select'] = True
-        
+
         return data_dict
-    
+
         # end read_event
 
     def store_hostgal(self, datakey_list, evt, head_store):
@@ -261,12 +261,12 @@ class data_snana_folder(Program):
             key2 = HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
             key3 = HOSTKEY_BASE + '3' + key[len_base:]
             key_list = [ key, key2, key3]
-            for k in key_list: 
+            for k in key_list:
                 if k in head_names :
                     head_store[k] = table_head[k][evt]
 
         # end store_hostgal
-        
+
 
     def get_table_value(self, varlist, irow, table):
 
@@ -281,15 +281,15 @@ class data_snana_folder(Program):
                 return value
             except:
                 pass  # just try next varname
-            
+
         return value
         # end get_table_value
-        
+
     def field_plasticc_hack(self,head_file_name):
 
         # ugly/embarassing hack to get field (DDF or WFD) from filename
         # because original plasticc data didn't store field.
-        
+
         if FIELD_DDF in head_file_name:
             field = FIELD_DDF
         elif FIELD_WFD in head_file_name:
@@ -309,4 +309,4 @@ class data_snana_folder(Program):
         return dump_flag
         # set_dump_flag
 
-   
+

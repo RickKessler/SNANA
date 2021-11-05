@@ -54,7 +54,7 @@ class Program:
         if args.outdir_lsst_alert:
             global KEYLIST_README_STATS
             KEYLIST_README_STATS += [KEYNAME_NOBS_ALERT]
-            
+
         # end Program __init__
 
     def init_data_unit(self, config_inputs, config_data ):
@@ -71,14 +71,14 @@ class Program:
         field_select  = args.field
         survey        = args.survey
         peakmjd_range     = args.peakmjd_range
-        mjd_detect_range  = args.mjd_detect_range
+        nite_detect_range  = args.nite_detect_range
         outdir_lsst_alert = args.outdir_lsst_alert
         n_season       = MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
         # no explicit season breakdown
         if peakmjd_range    is not None: n_season = 1
-        if mjd_detect_range is not None: n_season = 1
+        if nite_detect_range is not None: n_season = 1
 
         unit_name_list   = []
         unit_nevent_list = []
@@ -90,7 +90,7 @@ class Program:
             msgerr.append(f"Valid --isplitran arg range is 1 to {nsplit}")
             util.log_assert(False,msgerr)
 
-        # - - - - - - 
+        # - - - - - -
         for iseason in range(0,n_season):
             iyear  = iseason + 1    # starts at 1
             if iyear_select > 0 and iyear != iyear_select :
@@ -106,7 +106,7 @@ class Program:
                 do_all_seasons = (isplit == 0 or isplit_select>0) \
                                  and iseason==0
                 do_one_season  = (not outdir_lsst_alert)
-                
+
                 # define unit name for all seasons combined
                 if do_all_seasons :
                     unit_name = \
@@ -166,7 +166,7 @@ class Program:
         field_select  = args.field
         survey        = args.survey
         peakmjd_range    = args.peakmjd_range
-        mjd_detect_range = args.mjd_detect_range
+        nite_detect_range = args.nite_detect_range
 
         data_unit_name = None
         d_raw    = data_dict['head_raw']
@@ -532,7 +532,7 @@ class Program:
                 # call source-dependent function to read event
                 data_event_dict = self.read_event(evt)
 
-                # check optional subsample selection defined by reader; 
+                # check optional subsample selection defined by reader;
                 # if selection is not evaluated by reader, evaluate here.
                 if 'select' in data_event_dict :
                     sel = data_event_dict['select']
@@ -550,7 +550,7 @@ class Program:
 
                 # add computed variables; e.g., zCMB, MWEBV ...
                 self.compute_data_event(data_event_dict)
-                
+
                 # add more info to data event dictionary
                 index_unit  = data_unit_name_list.index(data_unit_name)
                 data_event_dict['data_unit_name'] = data_unit_name
@@ -613,7 +613,7 @@ class Program:
         t_proc       = self.config_data['t_proc'] # seconds
 
         # check to add NOBS_ALERT for lsst_alert format.
-        # Beware that if zero events are processed, 
+        # Beware that if zero events are processed,
         # the 'n_alert_write' element doesn't exist
         if args.outdir_lsst_alert :
             key = 'n_alert_write'

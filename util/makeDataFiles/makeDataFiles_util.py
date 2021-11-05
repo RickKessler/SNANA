@@ -7,6 +7,13 @@ import logging, subprocess  # ,coloredlogs
 import numpy as np
 from   astropy.table import Table
 from   makeDataFiles_params    import *
+ASTROPLAN_EXISTS = False
+try:
+    from astroplan import Observer
+    ASTROPLAN_EXISTS = True
+except ImportError as e:
+    pass
+from astropy.time import Time
 
 # =======================================
 def select_subsample(args, var_dict):
@@ -14,8 +21,8 @@ def select_subsample(args, var_dict):
     # return True of variables in var_dict pass selection
     # defined in args. Return False if any selection fails.
     # If there is a window, require xmin <= x < xmax.
-    # The selection here is intened to be a CPU sub-sample 
-    # rather than a traditional cut. 
+    # The selection here is intened to be a CPU sub-sample
+    # rather than a traditional cut.
 
     SNID       = var_dict[DATAKEY_SNID]    # int
     PEAKMJD    = var_dict[DATAKEY_PEAKMJD] # float
@@ -36,13 +43,35 @@ def select_subsample(args, var_dict):
         if PEAKMJD >= args.peakmjd_range[1]: return False
 
     # MJD of first detection
-    if args.mjd_detect_range :
-        # need check for NITE instead of MJD
-        if MJD_DETECT_FIRST <  args.mjd_detect_range[0]: return False
-        if MJD_DETECT_FIRST >= args.mjd_detect_range[1]: return False
-    
+    if args.nite_detect_range :
+        # make coarse approximate cut using MJD for speed
+        if MJD_DETECT_FIRST <  args.nite_detect_range[0]-1.: return False
+        if MJD_DETECT_FIRST >= args.nite_detect_range[1]+1.: return False
+
+        # TODO - pass site into select_subsample
+        NITE = get_sunset_mjd(MJD_DETECT_FIRST, site='CTIO')
+
+        # make exact cut for MJD using NITE
+        if NITE <  args.nite_detect_range[0]: return False
+        if NITE >= args.nite_detect_range[1]: return False
+
     return True
     # end select_subsample
+
+
+def get_sunset_mjd(mjd, site='CTIO'):
+    '''
+    Returns an MJD of sunset prior to input mjd as float - not a Time Object
+    '''
+    if ASTROPLAN_EXISTS:
+        ctio = Observer.at_site(site)
+        detect_time = Time(mjd, format='mjd')
+        sun_set = ctio.sun_set_time(detect_time, which='previous').mjd
+        NITE = sun_set
+    else:
+        NITE = mjd
+    return NITE
+
 
 def init_readme_stats():
     readme_stats = {}

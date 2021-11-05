@@ -28,15 +28,15 @@ KEYLIST_OUTPUT           = ['OUTDIR_SNANA',   'OUTDIR_LSST_ALERT']
 KEYLIST_OUTPUT_OPTIONS   = ['--outdir_snana', '--outdir_lsst_alert']
 OUTPUT_FORMAT            = [OUTPUT_FORMAT_SNANA, OUTPUT_FORMAT_LSST_ALERTS]
 
-KEYLIST_SPLIT_MJD          = ['SPLIT_MJD_DETECT', 'SPLIT_PEAKMJD']
-KEYLIST_SPLIT_MJD_OPTIONS  = ['--mjd_detect_range', '--peakmjd_range']
+KEYLIST_SPLIT_NITE          = ['SPLIT_NITE_DETECT', 'SPLIT_PEAKMJD']
+KEYLIST_SPLIT_NITE_OPTIONS  = ['--nite_detect_range', '--peakmjd_range']
 
 BASE_PREFIX          = 'MAKEDATA'   # base for log,yaml,done files
 DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
 
 # params for lsst alerts
 ALERT_SUBDIR        = "ALERTS"     # move mjd tar files here
-ALERT_DAY_NAME      = "mjd"      # xxx later switch to nite 
+ALERT_DAY_NAME      = "NITE"      # xxx later switch to nite
 TABLE_COMPRESS      = "COMPRESS" # name of extra table in MERGE.LOG file
 COLNUM_COMPRESS_ISPLITMJD = 1  # index for split MJD range
 COLNUM_COMPRESS_MJDRANGE  = 2
@@ -60,9 +60,9 @@ class MakeDataFiles(Program):
         input_file = self.config_yaml['args'].input_file  # for msgerr
         msgerr     = []
         output_format = None
-        
+
         for key_output, format_str in zip(KEYLIST_OUTPUT, OUTPUT_FORMAT):
-            
+
             if key_output in CONFIG:
                 output_format = format_str
                 output_dir_name = os.path.expandvars(CONFIG[key_output])
@@ -72,10 +72,10 @@ class MakeDataFiles(Program):
             msgerr.append(f"Must provide one of {KEYLIST_OUTPUT}")
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
-            
+
         self.config_yaml['args'].output_format = output_format
 
-        
+
         return output_dir_name, SUBDIR_SCRIPTS_MKDATA
         # end set_output_dir_name
 
@@ -121,7 +121,7 @@ class MakeDataFiles(Program):
         inputs_list   = CONFIG.get('MAKEDATAFILE_INPUTS', None)
         input_source  = CONFIG.get('MAKEDATAFILE_SOURCE', None)
         nevt          = CONFIG.get('NEVT', None)
-                                   
+
         input_file    = self.config_yaml['args'].input_file  # for msgerr
         msgerr        = []
 
@@ -136,14 +136,14 @@ class MakeDataFiles(Program):
         split_mjd_in       = None
         split_mjd_key_name = None
         split_mjd_option   = None
-        for key, opt in zip(KEYLIST_SPLIT_MJD, KEYLIST_SPLIT_MJD_OPTIONS):
+        for key, opt in zip(KEYLIST_SPLIT_NITE, KEYLIST_SPLIT_NITE_OPTIONS):
             if key in CONFIG:
                 n_mjd_split_opts  += 1
                 split_mjd_key_name = key
                 split_mjd_option   = opt
                 split_mjd_in       = CONFIG[key]
         if n_mjd_split_opts > 1:
-            msgerr.append(f"DEFINE ONLY ONE OF {KEYLIST_SPLIT_MJD}")
+            msgerr.append(f"DEFINE ONLY ONE OF {KEYLIST_SPLIT_NITE}")
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
@@ -200,8 +200,8 @@ class MakeDataFiles(Program):
         else:
             isplitmjd_temp_list = [(-1, -1, -1),]
         # When using zip in Python 3, you get an iterator, not a list,
-        # and thus if you print the iterator or cause anything to loop 
-        # over it e.g. len(), then the generator is exhausted and has 
+        # and thus if you print the iterator or cause anything to loop
+        # over it e.g. len(), then the generator is exhausted and has
         # to be recreated
         # i.e. do not mess with any variable that is created from a zip
         # DO NOT MESS WITH isplitmjd_temp_list
@@ -275,7 +275,7 @@ class MakeDataFiles(Program):
             prefix_output += f'_{splitran_str}'
         return prefix_output
         # end get_prefix_output
-        
+
     def submit_prepare_driver(self):
 
         # called from base to prepare makeDataFile arguments for batch.
@@ -288,7 +288,7 @@ class MakeDataFiles(Program):
         self.prepare_output_args()
         self.prepare_input_args()
         self.prepare_data_units()
-        
+
         # copy input config file to script-dir
         shutil.copy(input_file,script_dir)
 
@@ -339,7 +339,7 @@ class MakeDataFiles(Program):
 
         #print(f" xxx n_core={n_core}   n_job_cpu = {n_job_cpu}  " \
         #      f" n_job_local = {n_job_local}")
-        
+
         return n_job_cpu
         # end write_command_file
 
@@ -378,7 +378,7 @@ class MakeDataFiles(Program):
 
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
-        
+
         if out_lsst_alert :
             schema_file = CONFIG['LSST_ALERT_SCHEMA']
             arg_list.append(f"--lsst_alert_schema {schema_file}")
@@ -401,13 +401,13 @@ class MakeDataFiles(Program):
         JOB_INFO['arg_list']      = arg_list
 
         # for lsst alerts, wait for previous compress-ISPLITMJD to finish
-        # to avoid piling up too many alert files. Remember that 
+        # to avoid piling up too many alert files. Remember that
         # isplitmjd goes from 1 - nsplitmjd.
         set_wait_file = out_lsst_alert and (isplitmjd > 0) \
                         and (not no_merge)
         if set_wait_file :
             split_mjd   = self.config_prep['split_mjd']
-            isplit_previous = isplitmjd-1 
+            isplit_previous = isplitmjd-1
             min_edge    = split_mjd['min_edge'][isplit_previous]
             max_edge    = split_mjd['max_edge'][isplit_previous]
             wait_file   = self.get_compress_done_file(min_edge,max_edge)
@@ -418,24 +418,24 @@ class MakeDataFiles(Program):
 
     def create_merge_table(self,f):
 
-        # Called from base to create rows for table in  MERGE.LOG 
+        # Called from base to create rows for table in  MERGE.LOG
         # Always create required MERGE table.
         # For LSST alerts, also create supplemental "COMPRESS" table
         # to track mjd compression
-        
+
         isplitmjd_list      = self.config_prep['isplitmjd_list']
         prefix_output_list  = self.config_prep['prefix_output_list']
-        output_format       = self.config_yaml['args'].output_format 
+        output_format       = self.config_yaml['args'].output_format
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
         # 1. required MERGE table
         header_line_merge = f"    STATE   ISPLITMJD  {DATA_UNIT_STR}  " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
-        if out_lsst_alert : 
+        if out_lsst_alert :
             header_line_merge += "NOBS_ALERT  ALERT/sec"
         else:
             header_line_merge += "NEVT/sec"
-        
+
         INFO_MERGE = {
             'primary_key' : TABLE_MERGE,
             'header_line' : header_line_merge,
@@ -445,22 +445,22 @@ class MakeDataFiles(Program):
         for prefix, isplitmjd in zip(prefix_output_list,isplitmjd_list):
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            ROW_MERGE.append(isplitmjd) 
+            ROW_MERGE.append(isplitmjd)
             ROW_MERGE.append(prefix)    # data unit name
             ROW_MERGE.append(0)         # NEVT
             ROW_MERGE.append(0)         # NEVT_SPECZ
             ROW_MERGE.append(0)         # NEVT_PHOTOZ
             if out_lsst_alert: ROW_MERGE.append(0)  # NOBS_ALERT
             ROW_MERGE.append(0.0)       # rate/sec
-            
+
             INFO_MERGE['row_list'].append(ROW_MERGE)
 
         # call util to write tables to MERGE.LOG
-        if out_lsst_alert: 
+        if out_lsst_alert:
             self.create_compress_table(f)
 
         util.write_merge_file(f, INFO_MERGE, [] )
-        
+
         # end create_merge_table
 
     def create_compress_table(self, f):
@@ -473,18 +473,18 @@ class MakeDataFiles(Program):
         header_line_compress = \
             f"    STATE   ISPLITMJD MJD-RANGE  NDIR_{ALERT_DAY_NAME}  " \
             f"Nsec NDIR/sec"
-                        
+
         INFO_COMPRESS = {
             'primary_key' : TABLE_COMPRESS,
             'header_line' : header_line_compress,
             'row_list'    : []   }
-        
+
         STATE = SUBMIT_STATE_WAIT    # all start in WAIT state
         for isplitmjd in range(0,nsplitmjd):
             imin         = int(min_edge_list[isplitmjd])
             imax         = int(max_edge_list[isplitmjd])
             str_mjd_range = f"{imin}-{imax}"
-                
+
             ROW_COMPRESS = []
             ROW_COMPRESS.append(STATE)
             ROW_COMPRESS.append(isplitmjd)      # index: 0,1,...
@@ -492,7 +492,7 @@ class MakeDataFiles(Program):
             ROW_COMPRESS.append(0)              # init NDIR_MJD=0
             ROW_COMPRESS.append(0)              # init Nsec
             ROW_COMPRESS.append(0.0)            # init rate = NDIR/sec
-            
+
             INFO_COMPRESS['row_list'].append(ROW_COMPRESS)
         util.write_merge_file(f, INFO_COMPRESS, [] )
 
@@ -503,7 +503,7 @@ class MakeDataFiles(Program):
         # Called from base to
         # append info to SUBMIT.INFO file; use passed file pointer f
 
-        CONFIG              = self.config_yaml['CONFIG']       
+        CONFIG              = self.config_yaml['CONFIG']
         output_format       = self.config_yaml['args'].output_format
         prefix_output_list  = self.config_prep['prefix_output_list']
         input_source        = self.config_prep['input_source']
@@ -546,7 +546,7 @@ class MakeDataFiles(Program):
         # read MERGE.LOG, check LOG & DONE files.
         # Return update row list MERGE tables.
         # For lsst alerts, also update COMPRESS table.
-        
+
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -554,7 +554,7 @@ class MakeDataFiles(Program):
 
         output_format       = submit_info_yaml['OUTPUT_FORMAT']
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
-        
+
         COLNUM_STATE       = COLNUM_MERGE_STATE
         COLNUM_DATAUNIT    = COLNUM_MKDATA_MERGE_DATAUNIT
         COLNUM_NEVT        = COLNUM_MKDATA_MERGE_NEVT
@@ -576,9 +576,9 @@ class MakeDataFiles(Program):
         key_nspecz, key_nspecz_sum, key_nspecz_list = \
                  self.keynames_for_job_stats('NEVT_HOSTGAL_SPECZ')
         key_nphotz, key_nphotz_sum, key_nphotz_list = \
-                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')        
+                 self.keynames_for_job_stats('NEVT_HOSTGAL_PHOTOZ')
         key_tproc, key_tproc_sum, key_tproc_list = \
-                 self.keynames_for_job_stats('WALLTIME')  
+                 self.keynames_for_job_stats('WALLTIME')
 
         key_list = [ key_nall, key_nspecz, key_nphotz, key_tproc ]
 
@@ -586,7 +586,7 @@ class MakeDataFiles(Program):
             key_nalert, key_nalert_sum, key_nalert_list = \
                 self.keynames_for_job_stats('NOBS_ALERT')
             key_list += [ key_nalert ]
-                                                          
+
         nrow_check = 0
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input
@@ -628,7 +628,7 @@ class MakeDataFiles(Program):
                     row[COLNUM_NEVT]        = job_stats[key_nall_sum]
                     row[COLNUM_NEVT_SPECZ]  = job_stats[key_nspecz_sum]
                     row[COLNUM_NEVT_PHOTOZ] = job_stats[key_nphotz_sum]
-                    
+
                     if out_lsst_alert:
                         row[COLNUM_NOBS_ALERT] = job_stats[key_nalert_sum]
                         n_tmp = row[COLNUM_NOBS_ALERT]
@@ -649,38 +649,38 @@ class MakeDataFiles(Program):
         row_extra_list = []
         if out_lsst_alert:
             row_extra_list = self.compress_update_state(MERGE_INFO_CONTENTS)
-            
+
         # first return arg (row_split) is null since there is
         # no need for a SPLIT table
-        
+
         row_list_dict = {
             'row_split_list'   : [],
             'row_merge_list'   : row_list_merge_new,
             'row_extra_list'   : row_extra_list,
-            'table_names'      : [ TABLE_SPLIT, TABLE_MERGE, 
+            'table_names'      : [ TABLE_SPLIT, TABLE_MERGE,
                                    TABLE_COMPRESS ]
         }
         return row_list_dict, n_state_change
-    
+
         # end merge_update_state
 
     def compress_update_state(self,MERGE_INFO_CONTENTS):
-        
+
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         nsplitmjd        = submit_info_yaml['NSPLITMJD']
-        
+
         COLNUM_STATE     = COLNUM_MERGE_STATE
         COLNUM_ISPLITMJD = COLNUM_COMPRESS_ISPLITMJD
         COLNUM_NMJD_DIR  = COLNUM_COMPRESS_NMJD_DIR
         COLNUM_TIME      = COLNUM_COMPRESS_TIME  # Nsec
         COLNUM_RATE      = COLNUM_COMPRESS_RATE  # Ndir/sec
-        
+
         row_merge_list        = MERGE_INFO_CONTENTS[TABLE_MERGE]
         row_compress_list     = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
-        row_compress_list_new = [] 
+        row_compress_list_new = []
         nrow = 0
-        
+
         for row in row_compress_list:
             # strip off row info
             row_compress_list_new.append(row)
@@ -694,8 +694,8 @@ class MakeDataFiles(Program):
                 continue  # already compressed; try next
 
             # xxx if ISPLITMJD > 0 : continue  # temp xxx REMOVE
-            
-            # Check if makeDataFile tasks have finished for this MJD range        
+
+            # Check if makeDataFile tasks have finished for this MJD range
             splitmjd_done_list = [True] * nsplitmjd
             for row in row_merge_list:
                 state     = row[COLNUM_MERGE_STATE]
@@ -707,8 +707,8 @@ class MakeDataFiles(Program):
                 continue    # avro file creation tasks not done; bye bye
 
             # compress it !
-            wildcard = "mjd*"
-            mjd_dir_list = sorted(glob.glob1(output_dir,wildcard))
+            wildcard = f"{ALERT_DAY_NAME}*"
+            nite_dir_list = sorted(glob.glob1(output_dir,wildcard))
 
             if nsplitmjd > 1 :
                 min_edge_list = submit_info_yaml['MIN_MJD_EDGE']
@@ -719,9 +719,9 @@ class MakeDataFiles(Program):
 
             min_edge = min_edge_list[ISPLITMJD]
             max_edge = max_edge_list[ISPLITMJD]
-            
+
             time_0     = datetime.datetime.now()
-            n_compress = self.compress_mjd_dirs(mjd_dir_list, 
+            n_compress = self.compress_nite_dirs(nite_dir_list,
                                                 min_edge, max_edge)
             time_1     = datetime.datetime.now()
             time_dif   = (time_1 - time_0).total_seconds()
@@ -733,25 +733,25 @@ class MakeDataFiles(Program):
             row_compress_list_new[irow][COLNUM_NMJD_DIR] = n_compress
             row_compress_list_new[irow][COLNUM_TIME]     = int(time_dif)
             row_compress_list_new[irow][COLNUM_RATE]     = float(rate_str)
-            
+
         return row_compress_list_new
-    
+
         # end compress_update_state
-        
-    
+
+
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
         # nothing to do here (yet)
         pass
         # end  merge_job_wrapup
 
-    def compress_mjd_dirs_slow(self, mjd_dir_list, min_edge, max_edge):
+    def compress_nite_dirs(self, nite_dir_list, min_edge, max_edge):
 
-        # xxx uses python tar util, which is much slower than os.system
-
+        #
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
         # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
-        
+        # using os.system ... it's faster than python tar.
+
         output_dir = self.config_prep['output_dir']
 
         compress_done_file = self.get_compress_done_file(min_edge,max_edge)
@@ -762,56 +762,16 @@ class MakeDataFiles(Program):
                      f"{ALERT_DAY_NAME}{imin} to " \
                      f"{ALERT_DAY_NAME}{imax} ")
 
-        # loop over each mjd within range and tar it up
-        sys.stdout.flush()
-        for mjd_dir in mjd_dir_list:
-            mjd         = int(mjd_dir[3:])
-            do_compress = mjd>= min_edge and mjd < max_edge
-            if do_compress :
-                n_compress += 1
-                tar_file     = f"{output_dir}/{ALERT_SUBDIR}/{mjd_dir}.tar.gz"
-                mjd_dir_full = f"{output_dir}/{mjd_dir}"
-                with tarfile.open(tar_file,"w:gz") as tar:
-                    tar.add(mjd_dir_full,
-                            arcname=os.path.basename(mjd_dir_full))
-                shutil.rmtree(mjd_dir_full)                
-        
-        # touch done file to flag that this MJD range is compressed
-        cmd_done = f"touch {compress_done_file}"
-        os.system(cmd_done)
-
-        return n_compress
-    
-        # end compress_mjd_dirs_slow
-
-    def compress_mjd_dirs(self, mjd_dir_list, min_edge, max_edge):
-
-        #
-        # For mjd_dirs in mjd_dir_list, compress those within
-        # min_edge and max_edge-1.
-        # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz
-        # using os.system ... it's faster than python tar.
-        
-        output_dir = self.config_prep['output_dir']
-
-        compress_done_file = self.get_compress_done_file(min_edge,max_edge)
-        n_compress = 0
-
-        imin = int(min_edge); imax = int(max_edge)-1
-        logging.info(f"  Begin compression for " \
-                     f"{ALERT_DAY_NAME}mjd{imin} to " \
-                     f"{ALERT_DAY_NAME}mjd{imax} ")
-
         # construct big tar command
         sys.stdout.flush()
         cmd_tar = f"cd {output_dir} ; "
-        for mjd_dir in mjd_dir_list:
-            mjd         = int(mjd_dir[3:])
-            do_compress = mjd>= min_edge and mjd < max_edge
+        for nite_dir in nite_dir_list:
+            nite         = int(nite_dir[4:])
+            do_compress = nite>= min_edge and nite < max_edge
             if do_compress:
                 n_compress += 1
-                tar_file = f"{mjd_dir}.tar.gz"
-                cmd_tar += f"tar -czf {tar_file} {mjd_dir} --remove-files ; "
+                tar_file = f"{nite_dir}.tar.gz"
+                cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files ; "
 
         # tack on command to move it all into /ALERTS,
         # and ten run it all with one os command
@@ -824,9 +784,9 @@ class MakeDataFiles(Program):
         os.system(cmd_done)
 
         return n_compress
-    
-        # end compress_mjd_dirs
-                    
+
+        # end compress_nite_dirs
+
     def get_compress_done_file(self,min_edge,max_edge):
         # return name of done file for compress mjd range defined by
         # min_edge to max_edge (for LSST alerts)
@@ -842,7 +802,7 @@ class MakeDataFiles(Program):
 
     def get_misc_merge_info(self):
 
-        # Called at end of all jobs, return misc info lines 
+        # Called at end of all jobs, return misc info lines
         # (yaml format) to write at the end of the MERGE.LOG file.
         # Each info yaml-compatible line must be of the form
         #  KEYNAME:  VALUE
@@ -858,14 +818,14 @@ class MakeDataFiles(Program):
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS, comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
-        
+
         row_list  = MERGE_INFO_CONTENTS[TABLE_MERGE]
         NEVT_SUM = 0
         NOBS_SUM = 0
-        for row in row_list:            
-            NEVT_SUM += int(row[COLNUM_MKDATA_MERGE_NEVT]) 
+        for row in row_list:
+            NEVT_SUM += int(row[COLNUM_MKDATA_MERGE_NEVT])
             if isfmt_lsst_alert:
-                NOBS_SUM += int(row[COLNUM_MKDATA_MERGE_NOBS_ALERT]) 
+                NOBS_SUM += int(row[COLNUM_MKDATA_MERGE_NOBS_ALERT])
 
         info_lines = [ f"NEVT_SUM:        {NEVT_SUM}" ]
 
@@ -877,16 +837,16 @@ class MakeDataFiles(Program):
             wildcard     = f"{ALERT_DAY_NAME}*.tar.gz"
             mjd_tar_list = glob.glob1(alert_dir, wildcard)
             ndir         = len(mjd_tar_list)
-            info_lines  += [ f"NDIR_MJD_SUM:    {ndir}" ]
+            info_lines  += [ f"NDIR_{ALERT_DAY_NAME}_SUM:    {ndir}" ]
 
             # sum alert-compress times
             nsec_sum = 0.0
             row_list = MERGE_INFO_CONTENTS[TABLE_COMPRESS]
-            for row in row_list: nsec_sum += row[COLNUM_COMPRESS_TIME] 
+            for row in row_list: nsec_sum += row[COLNUM_COMPRESS_TIME]
             t_compress = nsec_sum/60.0
-            t_compress = float(f"{t_compress:.2f}") 
+            t_compress = float(f"{t_compress:.2f}")
             info_lines += [ f"TIME_COMPRESS_SUM:  {t_compress}  # minutes" ]
-            
+
         # - - - - -
         return info_lines
 
@@ -903,19 +863,19 @@ class MakeDataFiles(Program):
         isfmt_snana      = (output_format == OUTPUT_FORMAT_SNANA)
         isfmt_lsst_alert = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         msgerr = []
-        
+
         if isfmt_snana :
             command_list = ['makeDataFiles.sh',
                             '--outdir_snana', output_dir, '--merge']
             ret = subprocess.run(command_list, capture_output=False, text=True )
-            
+
         elif isfmt_lsst_alert :
             pass
-            
+
         else:
             msgerr.append(f"Unknown format '{output_format}" )
             util.log_assert(False,msgerr) # just abort, no done stamp
-            
+
         #print(ret,' debugging')
 
         wildcard_list = [ 'MAKEDATA', 'CPU',  ]

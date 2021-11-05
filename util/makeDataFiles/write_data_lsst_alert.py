@@ -55,7 +55,8 @@ PHOTFLAG_DETECT = 4096  # should read this from global data header ??
 NOBS_ALERT_MAX  = 2000  # used to compute diaSource
 NOBS_ALERT_UPDATE = 100 # std update after this many alerts
 
-ALERT_DAY_NAME    = "mjd"
+ALERT_DAY_NAME    = "NITE"
+LSST_SITE_NAME    = "CTIO"
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -115,7 +116,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     alert_data_orig = config_data['alert_data_orig']
     alert              = copy(alert_data_orig)
     alert_first_detect = copy(alert_data_orig)
-    
+
     # copy structure of original sample alert to local diasrc
     prvDiaSources = alert_data_orig['prvDiaSources']
     diasrc = prvDiaSources[0]
@@ -125,7 +126,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     #    print(f" xxx found original alert key: {key}")
 
     alert['prvDiaSources'].clear() # clear out all the past histories
-    alert_first_detect['prvDiaSources'].clear() 
+    alert_first_detect['prvDiaSources'].clear()
 
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst alert
@@ -139,8 +140,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     config_data['n_event_write'] += 1
     FIRST_OBS    = True
     n_detect     = 0
-    
-    if args.mjd_detect_range:
+
+    if args.nite_detect_range:
         MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
         MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
         TIME_BACK_FORCE  = 30   #Ndays before MJD_REF to include forced phot.
@@ -149,7 +150,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         MJD_REF = head_calc[DATAKEY_PEAKMJD]
         TIME_BACK_FORCE  = 50   #Ndays before MJD_REF to include forced phot.
         TIME_FORWARD_FORCE = 100
-    # - - - - - - - - - - - 
+    # - - - - - - - - - - -
     #translate each obs to diasrc dictionary
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
@@ -160,7 +161,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         # skip non-detections (maybe later, add force photo after 1st detect?)
         photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
         detect      = (photflag & PHOTFLAG_DETECT) > 0
-        
+
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
         my_diasrc['diaSourceId'] = diaSourceId
@@ -172,27 +173,27 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
             FIRST_OBS = False
-                
+
         # serialize the alert
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
-            
+
         # write alerts ONLY for detection.
         # problem: first alert includes previous force photometry
         #   which violates causality.
         if detect :
             n_detect += 1
-            
+
             # construct name of avro file using mjd, objid, srcid
-            outdir_mjd  = make_outdir_mjd(outdir,mjd)
-            str_day = f"{ALERT_DAY_NAME}{mjd:.4f}"
+            outdir_nite  = make_outdir_nite(outdir,mjd)
+            str_day = f"mjd{mjd:.4f}"
             str_obj = f"obj{diaObjectId}"
             str_src = f"src{diaSourceId}"
-            mjd_file  = f"{outdir_mjd}/" \
+            mjd_file  = f"{outdir_nite}/" \
                         f"alert_{str_day}_{str_obj}_{str_src}.avro"
-            
+
             gzip_mjd_file =mjd_file + '.gz'
-            with gzip.GzipFile(filename=gzip_mjd_file, 
+            with gzip.GzipFile(filename=gzip_mjd_file,
                                mode='wb', compresslevel=9) as f:
                 if n_detect == 1 :
                     # store only 1st detection; no force photo yet.
@@ -202,7 +203,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
                 else:
                     # store alert with previous epochs
                     schema.store_alerts(f, [alert])
-                    
+
                 config_data['n_alert_write'] += 1
                 print_alert_stats(config_data)
 
@@ -229,21 +230,23 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
 # end write_event_lsst_alert
 
-def make_outdir_mjd(outdir,mjd):
+def make_outdir_nite(outdir,mjd):
 
     # + construct name of mjd-specific outdir for this outdir and mjd
-    # + create outdir_mjd if it does not already exit
+    # + create outdir_nite if it does not already exit
 
-    mjdint = int(mjd)
-    outdir_mjd = outdir + '/' + f"{ALERT_DAY_NAME}" + str(mjdint)
-    if not os.path.exists(outdir_mjd) :
-        cmd = f"mkdir {outdir_mjd}"
-        #print(f"\t Create {outdir_mjd}")
+    # TODO - pass site name
+    nite   = util.get_sunset_mjd(mjd, site=LSST_SITE_NAME)
+    niteint = int(nite)
+    outdir_nite = outdir + '/' + f"{ALERT_DAY_NAME}" + str(niteint)
+    if not os.path.exists(outdir_nite) :
+        cmd = f"mkdir {outdir_nite}"
+        #print(f"\t Create {outdir_nite}")
         os.system(cmd)
 
-    return outdir_mjd
+    return outdir_nite
+# end make_outdir_nite
 
-# end make_outdir_mjd
 
 def translate_dict_diasrc(obs, data_event_dict, diasrc):
 

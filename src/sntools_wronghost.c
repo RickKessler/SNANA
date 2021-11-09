@@ -88,15 +88,26 @@ void INIT_WRONGHOST(char *inFile, double ZMIN, double ZMAX) {
     if ( strcmp(c_get,key_prob) == 0 ) {
       readchar(fp,tmpWord);
       if ( strstr(tmpWord,",") == NULL )  { 
+
 	// if no comma, read legacy hard-coded 3rd order poly
 	// with space-separated coefficients
 	sscanf(tmpWord, "%le", &WRONGHOST.PROB_POLY[0]);
 	readdouble(fp, ORDER_PROB_WRONGHOST_POLY-1, &WRONGHOST.PROB_POLY[1]);
 	sprintf(tmpWord,"%f,%f,%f,%f",
-		WRONGHOST.PROB_POLY[0],WRONGHOST.PROB_POLY[1],
-		WRONGHOST.PROB_POLY[2],WRONGHOST.PROB_POLY[3] );
+		WRONGHOST.PROB_POLY[0], WRONGHOST.PROB_POLY[1],
+		WRONGHOST.PROB_POLY[2], WRONGHOST.PROB_POLY[3]   );
       }
-      parse_GENPOLY(tmpWord, "z", &WRONGHOST.ZPOLY_PROB,fnam);      
+
+      // if last char of tmpWord is a comma, abort since space-separated
+      // values are not allowed.
+      int lentmp = strlen(tmpWord);
+      if ( tmpWord[lentmp-1] == ',' ) {
+	sprintf(c1err, "Invalid input %s %s", key_prob, tmpWord);
+	sprintf(c2err, "pad spaces not allowed with commas.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+      parse_GENPOLY(tmpWord, "z", &WRONGHOST.ZPOLY_PROB, fnam);
       goto NEXTREAD ;
     }
 

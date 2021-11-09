@@ -3255,7 +3255,7 @@ C ==============================================
       SUBROUTINE PREP_VERSION_SUBFOLDER()
 
 c Created Apr 7 2021
-c If VERSION_PHOTOMETTRY includes a sub-folder, e.g.,
+c If VERSION_PHOTOMETRY includes a sub-folder, e.g.,
 c     'JLA2014/JLA2014_CSP'
 c then reset VERSION_PHOTOMTRY = 'JLA2014_CSP' and update
 c PRIVATE_DATA_PATH to be 

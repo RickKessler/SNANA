@@ -239,10 +239,13 @@ def protect_parentheses(arg):
     # end protect_parentheses
 
 def is_comment_line(line):
-    if line[0] == '#' : return True
-    if line[0] == '@' : return True
-    if line[0] == '%' : return True
-    if line[0] == '!' : return True
+    if len(line) == 0  : return True
+    if line[0] == '#'  : return True
+    if line[0] == '@'  : return True
+    if line[0] == '%'  : return True
+    if line[0] == '!'  : return True
+    if line[0] == '\n' : return True
+
     return False
 
 def fix_partial_path(file_list):

@@ -33,7 +33,8 @@
 # Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
 # Aug 18 2021: implement --snana_dir for SIMnorm jobs
 # Sep 09 2021: abort of NGEN_UNIT is mixed with NGENTOT_LC in GENOPT
-#
+# Nov 09 2021: strip comment fields before reading sim-input files
+#                (see is_comment_line)
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -1240,11 +1241,15 @@ class Simulation(Program):
         util.check_file_exists(infile,msgerr)
 
         # read everything as YAML (take advantage of KEY: [VALUE] syntax)
-        with open(infile, 'r') as f :
+        with open(infile, 'rt') as f :
             for line in f: 
+                if util.is_comment_line(line) : continue
+                if '#' in line: line = line.split('#')[0] 
                 input_lines.append(line)
                 input_word_list += line.split()
                 #flat_word_list = [word for line in f for word in line.split()]
+
+        #sys.exit(f"\n xxx input_lines({infile}) = \n{input_lines}\n")
         input_yaml = yaml.safe_load("\n".join(input_lines))
 
         # search input_word_list for include file keys the old-fashion 
@@ -1282,8 +1287,10 @@ class Simulation(Program):
         for inc_file in inc_file_list :
             util.check_file_exists(inc_file,
                                    [(f"Check INCLUDE files in {infile}")] )
-            with open(inc_file, 'r') as finc :
+            with open(inc_file, 'rt') as finc :
                 for line in finc:
+                    if util.is_comment_line(line) : continue
+                    if '#' in line: line = line.split('#')[0]
                     input_lines.append(line)
 
         # read YAML again, but with all include file lines 

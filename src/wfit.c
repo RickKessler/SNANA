@@ -1506,7 +1506,8 @@ void set_priors(void) {
 
   // =========== BEGIN ============
   
-  if ( INPUTS.use_bao )   { init_bao_prior(1); }
+  if ( INPUTS.use_bao )   {
+    init_bao_prior(1); }
 
   if ( INPUTS.use_cmb )   { init_cmb_prior(1); }
 
@@ -1520,12 +1521,13 @@ void set_priors(void) {
 	   "=> sig(MUOFF)=%5.3f \n",  H0SIG, H0_SALT2, SIG_MUOFF );
     noprior = false;
   }
-
+ 
+  
   // - - - - - - - -
   if ( INPUTS.use_bao ) {
     noprior = false;
     char *comment = BAO_PRIOR.comment ; 
-    printf("   %s\n", comment) ;
+    printf("   '%s'\n", comment) ;
   } 
   else if ( INPUTS.omm_prior_sig < .5 ) {
     noprior = false;
@@ -1572,7 +1574,7 @@ void init_cmb_prior(int OPT) {
   cparloc.w0  = w0 ;
   cparloc.wa  = wa ; 
 
-  char *comment = BAO_PRIOR.comment;
+  char *comment = CMB_PRIOR.comment;
   char fnam[] = "init_cmb_prior" ;
 
   // ---------- BEGIN ------------
@@ -1656,7 +1658,7 @@ void init_bao_prior(int OPT) {
     }
 
     BAO_PRIOR.comment[0] = 0;
-
+    
     return;
   }
   
@@ -1700,9 +1702,10 @@ void init_bao_prior(int OPT) {
 	z = BAO_PRIOR.z_sdss4[iz];
 	DM = DM_bao_prior(z, &cparloc);
 	DH = DH_bao_prior(z, &cparloc);
-	printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le\n",z,rd,DM,DH);
+	//printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le\n",z,rd,DM,DH);
 	BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ; // xxx need to compute ???
 	BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
+	printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le, DMrd = %.2f, DHrd = %.2f\n",z,rd,DM,DH, BAO_PRIOR.DMrd_sdss4[iz],BAO_PRIOR.DHrd_sdss4[iz]);
 	// covariances ??
       }
       sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
@@ -1713,10 +1716,10 @@ void init_bao_prior(int OPT) {
       tmp1 = pow( EofZ(z, &cparloc), NEGTHIRD) ;
       tmp2 = pow( (1./z) * rz, TWOTHIRD );
       BAO_PRIOR.a_sdss = sqrt(OM) * tmp1 * tmp2 ;
+      sprintf(comment,"BAO prior from sim cosmology;"
+	      " a = %.3f +_ %.3f at z=%.3f",
+	      BAO_PRIOR.a_sdss, BAO_PRIOR.siga_sdss, BAO_PRIOR.z_sdss);
     }
-    sprintf(comment,"BAO prior from sim cosmology;"
-	    " a = %.3f +_ %.3f at z=%.3f", 
-	    BAO_PRIOR.a_sdss, BAO_PRIOR.siga_sdss, BAO_PRIOR.z_sdss);
   }
 
   return ;
@@ -1725,13 +1728,11 @@ void init_bao_prior(int OPT) {
 
 
 double rd_bao_prior(double z, Cosparam *cpar) {
-
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
   // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
   // Om_b ~ 0.02/h^2                                   Davis T. Note
   // Om_g 2.469 * 10e-5 * T_CMB / 2.725                Davis et al, after eq. 15 
-
   double H0      = H0_Planck;
   double c_sound = 0.9 * c_light / sqrt(3.0); // Davis internal note
   double h       = H0 / 100.0 ;
@@ -1740,16 +1741,12 @@ double rd_bao_prior(double z, Cosparam *cpar) {
   double z_d    = 1060.0 ; 
   double amin   = 1.0E-6,  amax = 1.0/(1+z_d);
   double Hinv_integ, Einv_integ, rd = 1.0;
-
   HzFUN_INFO_DEF HzFUN_INFO;
   bool DO_INTEGRAL = true ; 
   int  LDMP = 0;
   char fnam[] = "rd_bao_prior" ;
-
-  // ---------- BEGIN ----------
-  
+  // ---------- BEGIN ----------  
   rd = rd_DEFAULT;
-
   if ( DO_INTEGRAL  ) {
     if (LDMP ) 
       { printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam ); }
@@ -1769,26 +1766,24 @@ double rd_bao_prior(double z, Cosparam *cpar) {
 }
 
 double DM_bao_prior(double z, Cosparam *cpar){
+  // AM Nov, 2021
   double DM = 1.0,  DA, H0 = H0_Planck;
-
-  double rd = codist(1., cpar);
+  double amin   = 1.,  amax = 1.0/(1+z);
+  double rd = codist(z, cpar);
+  double Hinv_integ, Einv_integ;
+  HzFUN_INFO_DEF HzFUN_INFO;
+  bool DO_INTEGRAL = true ;
+  int  LDMP = 0;
+  char fnam[] = "DM_bao_prior" ;
   
-  /*
-    The codist functions says 
-    DL = (1+z)*c/H0 * d(z)
-    We named d(z) = rd
-    according to [1607.03155] 
-    DA = DL/ (1+z)^2
-       = c/H0 * d(z) / (1+z) 
-  Ayan Mitra, Oct, 2021.
-  */
+  if ( DO_INTEGRAL  ) {
+    if (LDMP )
+      { printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam ); }
 
-  DA =  (c_light/H0) * rd / (1+z); 
-  DM = DA;
-
-  double check = (c_light * log(1091.)) / ((c_light/H0) * 150. / (1091.));
-  //printf("c ln(1+z) / DM(z) = %.4f",check );
-
+    Einv_integ = Eainv_integral(amax, amin, cpar);
+    Hinv_integ = Einv_integ / H0 ;
+    DM = c_light * Hinv_integ  ;
+  }  
   return DM;
 }
 
@@ -2803,7 +2798,22 @@ double chi2_bao_prior(Cosparam *cpar) {
 
   if ( BAO_PRIOR.use_sdss4 ) {
     // Alam 2020, SDSS-IV
+    double z_sdss4;
+    double a_sdss4;
+    double siga_sdss4;
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
+      //BAO_PRIOR.z_sdss4[iz];
+      //BAO_PRIOR.DMrd_sdss4[iz]   ;
+      //BAO_PRIOR.DHrd_sdss4[iz]   ;
+      //BAO_PRIOR.sigDMrd_sdss4[iz];
+      //BAO_PRIOR.sigDHrd_sdss4[iz];
+
+      z_sdss4    = BAO_PRIOR.z_sdss4[iz];
+      //a_sdss4    = BAO_PRIOR.a_sdss4[iz];
+      //siga_sdss4 = BAO_PRIOR.siga_sdss4[iz];
+
+    
+	
       chi2 += 0.1; // xxx  compute, maybe with covariance ??
     }
     

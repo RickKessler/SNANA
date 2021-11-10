@@ -8650,8 +8650,8 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
   GENSPEC.NBLAM_TOT[imjd]     = INPUTS_SPECTRO.NBIN_LAM ;
   GENSPEC.NBLAM_VALID[imjd]   =  0 ;
-  GENSPEC.LAMRANGE_VALID[imjd][0] = 1.0E5;
-  GENSPEC.LAMRANGE_VALID[imjd][1] = 1.0E5;
+  GENSPEC.LAMRANGE_VALID[imjd][0] = +1.0E5;
+  GENSPEC.LAMRANGE_VALID[imjd][1] = -1.0E5;
 
   if ( OPT == 1 ) {
     GENSPEC.MJD_LIST[imjd]      = -9.0 ;

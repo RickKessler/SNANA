@@ -8648,8 +8648,10 @@ void GENSPEC_INIT(int OPT, int imjd) {
 
   // ------------ BEGIN ----------
 
-  GENSPEC.NBLAM_VALID[imjd]   =  0 ;
   GENSPEC.NBLAM_TOT[imjd]     = INPUTS_SPECTRO.NBIN_LAM ;
+  GENSPEC.NBLAM_VALID[imjd]   =  0 ;
+  GENSPEC.LAMRANGE_VALID[imjd][0] = 1.0E5;
+  GENSPEC.LAMRANGE_VALID[imjd][1] = 1.0E5;
 
   if ( OPT == 1 ) {
     GENSPEC.MJD_LIST[imjd]      = -9.0 ;
@@ -9348,6 +9350,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   // May 10 2021: 
   //  Major refactor to use SNR from measured wave bins, not true wave bin.
   //  Fix bug from v10_78 where GRAN_T no longer followed correlated option.
+  //
+  // Nov 10 2021: store LAMRANGE_VALID[imjd][0:1]
 
   int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   int    MEMD  = NBLAM * sizeof(double);
@@ -9446,6 +9450,14 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam] = ERRSQ ;
 
     GENSPEC.NBLAM_VALID[imjd]++ ; 
+
+    // Nov 2021: store min/max wave for this spectrum (for printing)
+    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+    if ( LAMAVG < GENSPEC.LAMRANGE_VALID[imjd][0] ) 
+      { GENSPEC.LAMRANGE_VALID[imjd][0] = LAMAVG; }
+    if ( LAMAVG > GENSPEC.LAMRANGE_VALID[imjd][1] ) 
+      { GENSPEC.LAMRANGE_VALID[imjd][1] = LAMAVG; }
+
     SUM_FLUX    += GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
     SUM_ERRSQ   += ERRSQ ;
   } // end ilam loop
@@ -9650,105 +9662,6 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 
 } // end GENSPEC_OBSFLUX_RANSMEAR
 
-// *************************************************
-double GENSPEC_SMEAR_LEGACY(int imjd, double LAMMIN, double LAMMAX ) {
-  
-  // apply noise to flux and smear over wavelength bins.
-  // Return SNR over input wavelength range.
-  //
-  // Mat 6 2020: skip bin if SNR_true = 0
-
-  int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
-  int    ilam, ILAM_MIN=99999, ILAM_MAX=-9, NBLAM_USE=0 ;
-  double GENFLUX, GENFLUXERR, GENFLUXERR_T, GENMAG, SNR_true ;
-  double ERRFRAC_T, LAMAVG ; 
-
-  double  TEXPOSE_S  = GENSPEC.TEXPOSE_LIST[imjd] ;
-  double  TEXPOSE_T  = GENSPEC.TEXPOSE_TEMPLATE ;
-  double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
-  double  SNR_SPEC ;
-
-  int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
-  bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
-  //  char   fnam[] = "GENSPEC_SMEAR_LEGACY" ;
-
-  // ------------- BEGIN -------------
-
-  // ****** MARK OBSOLETE *******
-
-  for(ilam=0; ilam < NBLAM; ilam++ ) {
-
-    LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
-    if ( LAMAVG < LAMMIN ) { continue; }
-    if ( LAMAVG > LAMMAX ) { continue; }
-
-    if ( ILAM_MIN > 99990 ) { ILAM_MIN=ilam; }
-    ILAM_MAX = ilam;
-
-    GENFLUX = GENSPEC.GENFLUX_LIST[imjd][ilam] ;
-    GENMAG  = GENSPEC.GENMAG_LIST[imjd][ilam] ;
-
-    // skip unphysical fluxes
-    if ( GENFLUX <= 0.0  ) { continue ; }
-    if ( GENMAG  > 600.0 ) { continue ; } // Mar 2019
-
-    // get true SNR in this lambda bin
-    SNR_true = getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, ALLOW_TEXTRAP,
-				   GENMAG, 
-				   &ERRFRAC_T);  // template frac of error
-
-    // ****** MARK OBSOLETE *******
-
-    if ( SNR_true < 1.0E-18 ) { continue; } // May 2020
-
-    if ( SCALE_SNR != 1.00 ) { SNR_true *= SCALE_SNR ;  }
-    
-    GENFLUXERR    = GENFLUX/SNR_true ;       // sigma on FLUXGEN
-    GENFLUXERR_T  = GENFLUXERR * ERRFRAC_T;  // template contribution
-
-    // apply lambda smear to distribute GENFLUX over lambda bins 
-    GENSPEC_LAMSMEAR_LEGACY(imjd, ilam, GENFLUX, GENFLUXERR, GENFLUXERR_T );
-
-    NBLAM_USE++ ;
-
-  } // end ilam  
-
-  if ( NBLAM_USE == 0 ) { return(0.0); }
-
-  // ****** MARK OBSOLETE *******
-
-  // - - - - - - - - - - - - - - 
-  // convert sum(ERRSQ) -> ERR in each lambda bin and
-  // count number of wavelength bins with flux;
-  double ERRSQ, SUM_FLUX, SUM_ERRSQ, SUM_ERR ;
-  SUM_FLUX = SUM_ERRSQ = SNR_SPEC = 0.0 ;
-
-  for(ilam=ILAM_MIN; ilam <=ILAM_MAX ; ilam++ ) {
-    ERRSQ = GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam] ;
-    if ( ERRSQ <= 1.0E-100 ) { continue ; }
-
-    GENSPEC.OBSFLUXERR_LIST[imjd][ilam] = sqrt(ERRSQ);
-    GENSPEC.NBLAM_VALID[imjd]++ ; 
-
-    SUM_FLUX    += GENSPEC.OBSFLUX_LIST[imjd][ilam] ;
-    SUM_ERRSQ   += ERRSQ ;
-  }
-
-  // ****** MARK OBSOLETE *******
-
-  if ( SUM_ERRSQ > 0.0 ) {
-    SUM_ERR  = sqrt(SUM_ERRSQ);
-    SNR_SPEC = SUM_FLUX / SUM_ERR ;
-  }
-
-  /*
-  printf("\t xxx %s: SNR = %le / %le = %le \n", 
-	 fnam, SUM_FLUX, sqrt(SUM_ERRSQ), SNR_SPEC); fflush(stdout);
-  */
-
-  return(SNR_SPEC) ;
-
-} // end GENSPEC_SMEAR_LEGACY
 
 // *********************************************
 void  GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux, 

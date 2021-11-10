@@ -837,12 +837,10 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
             GENSPEC.LAMOBS_SNR_LIST[imjd][0],
             GENSPEC.LAMOBS_SNR_LIST[imjd][1] );
 
-    /* xxx
     fprintf(fp,"SPECTRUM_LAMRANGE:   %7.1f %7.1f  "
-            "# wave range for spectrum \n",
-	    GENSPEC.LAMMIN_LIST[imjd][0],
-            GENSPEC.LAMMAX_LIST[imjd][NBLAM_TOT-1] );
-    xxxx */
+            "# valid wave range for spectrum \n",
+	    GENSPEC.LAMRANGE_VALID[imjd][0],
+            GENSPEC.LAMRANGE_VALID[imjd][1] );
 
     fprintf(fp,"SPECTRUM_NLAM:       %4d  %4d         "
             "# Number of wave bins: VALID  TOTAL\n",

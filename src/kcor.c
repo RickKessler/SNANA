@@ -2935,6 +2935,9 @@ int rd_primary ( int INDX, char *subdir ) {
     which is then re-binned to have same bins as SN 
     for global structure.
 
+   Nov 10 2021: replace FILTER_LAMBDA_MAX -> STORE_LAMBDA_MAX
+                to store primary SED out to max of filter or spectrograph.
+
   ****************/
 
    FILE  *fp;
@@ -2988,7 +2991,7 @@ int rd_primary ( int INDX, char *subdir ) {
 
    while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
 
-     if ( lambda < FILTER_LAMBDA_MAX + 200. ) {
+     if ( lambda < STORE_LAMBDA_MAX + 20. ) {
 
        ilam++;  NRAW=ilam;
   

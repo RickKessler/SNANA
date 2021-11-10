@@ -3537,8 +3537,13 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    // xxxx mark delete Aug 26 2021  FTMP    = (LAM/(hc8*z1)) * GENFLUX;
     FTMP    = (LAM/hc8) * GENFLUX;
+
+    /*xxxx
+    printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",
+	   fnam, ilam, LAM, ZP, GENFLUX); fflush(stdout);
+    */
+
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
       MAG = -2.5*log10(FTMP) + ZP; 
     }

@@ -770,6 +770,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   
   // Apr 02 2021: fix to work after reading spectra from FITS format
   //   (e..g, from sims)
+  // Nov 10 2021: write SPECTRUM_LAMRANGE
 
   bool WRFLAG_SIM = (SNDATA.FAKE == FAKEFLAG_LCSIM);
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
@@ -835,6 +836,13 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
             "# range for SNR_COMPUTE\n",
             GENSPEC.LAMOBS_SNR_LIST[imjd][0],
             GENSPEC.LAMOBS_SNR_LIST[imjd][1] );
+
+    /* xxx
+    fprintf(fp,"SPECTRUM_LAMRANGE:   %7.1f %7.1f  "
+            "# wave range for spectrum \n",
+	    GENSPEC.LAMMIN_LIST[imjd][0],
+            GENSPEC.LAMMAX_LIST[imjd][NBLAM_TOT-1] );
+    xxxx */
 
     fprintf(fp,"SPECTRUM_NLAM:       %4d  %4d         "
             "# Number of wave bins: VALID  TOTAL\n",

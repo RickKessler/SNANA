@@ -20501,11 +20501,19 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04c (  ) 
+         v11_04c (Nov 1 2021) 
 
          ***** IMPORTANT(v11_04c) ***** 
 
+   + Sim aborts if DOCANA missing from files specified by SEARCHEFF* keys.
+   + Sim aborts if OPT_MWEBV < 0 (no more correcting FLUXCAL for MWEBV)
+
          ***** USEFUL(v11_04c) ***** 
+
+   + Integrate makeDataFiles into submit_batch
+   + Integrate writing LSST alerts into makeDataFiles
+   + Sim writes new header vars: MJD_TRIGGER, MJD_DETECT_FIRST[LAST]
+   + fix I/O to handle spectra for real data
 
          ***** MISCELLANEOUS(v11_04c) ***** 
 
@@ -20527,7 +20535,42 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     wfit.c
       + begin adding modern BAO prior from Alam 2020
 
+    submit_batch_jobs:
+      + integrate makeDataFiles 
+      + add optional "extra table" to MERGE.LOG
+
     makeDataFiles/
        + lots of development
+       - tasks to complete next snana version
+         1. organize LSST alerts by NITE instead of MJD
+         2. try to split compression tasks among more CPUs to avoid overload
+
+
+# ======================================================================= 
+         v11_04d (  ) 
+
+         ***** IMPORTANT(v11_04d) ***** 
+
+         ***** USEFUL(v11_04d) ***** 
+
+         ***** MISCELLANEOUS(v11_04d) ***** 
+
+   snlc_sim.c:
+     + new input RANSYSTPAR_GENPDF_FILE_WILDCARD
+        (not yet tested)
+     + can read SALT2ALPHA and SALT2BETA maps from GENPDF_FILE,
+        or read asumGauss keys from GENPDF_FILE and convert to map.
+     + in hostgal_to_SNDATA(), remove ancient code snippet that
+        set hostmags even if there was no DDLR match.
+     + for text format with spectra, write LAMRANGE_VALID key
+        in data file.
+
+   kcor.c:
+    + For spectrograph, extend stored wavelength range of SEDs to that 
+      of spectraograph.
+    + fix bug reading correct wave range of primary SED.
+
+   submit_prog_sim.py:
+     strip out comments from reading sim-input files.
 
 END: 

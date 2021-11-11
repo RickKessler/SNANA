@@ -3960,8 +3960,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_SPECDATA_FILE:  xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
-   HOSTLIB_MNINTFLUX_SNPOS: .999      # default=0
-   HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
+   HOSTLIB_MNINTFLUX_SNPOS: .20       # default=0.0
+   HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
@@ -6688,7 +6688,11 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_RANGESHIFT_W0:           -0.5 0.5   # flat shift range for w
    RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
-   RANSYSTPAR_GENMODEL_WILDCARD: "/path/to/genmodels*" # picks random model out of globbed list
+   RANSYSTPAR_GENMODEL_WILDCARD: "/path/to/genmodels*" 
+           # pick random model out of globbed list
+
+   RANSYSTPAR_GENPDF_FILE_WILDCARD: "/path/to/genpdf_files*" 
+           # pick random GENPDF_FILE out of globbed list
 
   # filter-dependent variants:
   RANSYSTPAR_SIGSHIFT_ZP:           .01 .02 -0.01 .03      # sigma per band

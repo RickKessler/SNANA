@@ -3707,7 +3707,7 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   }
 
   // - - - - - - - - - - - - - - - - - - -
-  // check python models: BYOSED & SNEMO
+  // check python models: BYOSED, SNEMO, BAYESN
   NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
   if ( strcmp(GENMODEL,NAME0)==0 ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH );
@@ -3715,6 +3715,12 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   }
 
   NAME0 = GENMODEL_NAME[MODEL_SNEMO][0];  // Sep 2020
+  if ( strcmp(GENMODEL,NAME0)==0 ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH ); 
+    IS_PySEDMODEL = true;
+  }
+
+  NAME0 = GENMODEL_NAME[MODEL_BAYESN][0];  // Nov 2021
   if ( strcmp(GENMODEL,NAME0)==0 ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH ); 
     IS_PySEDMODEL = true;
@@ -7431,6 +7437,8 @@ void  set_GENMODEL_NAME(void) {
   sprintf(GENMODEL_NAME[MODEL_BYOSED][0],  "%s", "BYOSED"  ); // pyModel
 
   sprintf(GENMODEL_NAME[MODEL_SNEMO][0],   "%s", "SNEMO"   ); // pyModel
+
+  sprintf(GENMODEL_NAME[MODEL_BAYESN][0],  "%s", "BAYESN"   ); // pyModel
 
   sprintf(GENMODEL_NAME[MODEL_SIMSED][0],  "%s", "SIMSED"  );
 
@@ -24128,7 +24136,7 @@ void genmodel(
 
   else if ( IS_PySEDMODEL ) {
 
-    // python-based SED model: BYOSED or SNEMO
+    // python-based SED model: BYOSED, SNEMO, BAYESN
     int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
     double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
     NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);

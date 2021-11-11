@@ -4,12 +4,12 @@
 #
 # Update text-formatted data files with following options:
 # 
-#   update_data_files.pl -v <VERSION>  -u <updFile>  -var <varList>
+#   update_data_files.pl -V <VERSION>  -u <updFile>  -v <varList>
 #     -> update varList variables in updFile
 #
 #    or
 #
-#   update_data_files.pl -v <VERSION> --MINUS_VPEC
+#   update_data_files.pl -V <VERSION> --MINUS_VPEC
 #     -> change sign of VPEC
 #
 # BEWARE: only --MINUS_VPEC works now ... 
@@ -130,7 +130,7 @@ def update_data_file(upd_dict):
 
     DATA_FILE_ORIG = (f"{path_data}/{data_file}")
     if not os.path.exists(DATA_FILE_ORIG) :
-        DATA_FILE_ORIG += '.gz'
+        DATA_FILE_ORIG = DATA_FILE_ORIG.strip() + '.gz'
 
     DATA_FILE_OUT  = (f"{version}/{data_file}.gz")
     KEY_SNID       = "SNID:"

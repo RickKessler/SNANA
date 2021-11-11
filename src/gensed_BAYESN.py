@@ -15,7 +15,6 @@ def print_err():
 class gensed_BAYESN:
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
-        print('Hello there','XXXX')
 
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
@@ -47,13 +46,12 @@ class gensed_BAYESN:
                 raise RuntimeError(f'Cannot load Hsiao Model - check if {hsiao_model} exists.')
 
             self._hsiao = at.Table.read(hsiao_model, format='ascii', names=('phase','wave','flux'))
-            print(self._hsiao)
 
             ### FILL IN THESE REQUIRED ELEMENTS
-            #self.wave =
-            #self.wavelen = len(self.wave)
-            #self.parameter_names = []
-            #self.parameter_values = {}
+            self.wave = self._hsiao['wave']
+            self.wavelen = len(self.wave)
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON']
+            self.parameter_values = {key:-9. for key in self.parameter_names}
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -114,21 +112,21 @@ class gensed_BAYESN:
             print_err()
 
 
-    def fetchParNames_SNEMO(self):
+    def fetchParNames_BAYESN(self):
         """
         Returns the names of model parameters
         """
         return list(self.parameter_names)
 
 
-    def fetchNParNames_SNEMO(self):
+    def fetchNParNames_BAYESN(self):
         """
         Returns the number of model parameters
         """
-        return len(self.self.parameter_names)
+        return len(self.parameter_names)
 
 
-    def fetchParVals_SNEMO_4SNANA(self,varname):
+    def fetchParVals_BAYESN_4SNANA(self,varname):
         """
         Returns the value of parameter 'varname'
 

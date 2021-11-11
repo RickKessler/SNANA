@@ -14,6 +14,9 @@ def print_err():
 
 class gensed_BAYESN:
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
+
+        print('Hello there','XXXX')
+
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
             self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]

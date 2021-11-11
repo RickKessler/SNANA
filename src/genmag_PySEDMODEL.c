@@ -196,6 +196,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   int nResult4 = PyRun_SimpleStringFlags("import configparser",NULL);
 
   // xxxx  genmod = PyImport_ImportModule("genmag_BYOSED");
+  printf("DEBUG", PyFUN_NAME, "\n");
   genmod = PyImport_ImportModule(PyFUN_NAME);
 
   if (genmod == NULL) {

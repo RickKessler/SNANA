@@ -1326,6 +1326,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char SURVEY_NAME[60];
   char SUBSURVEY_NAME[40];
   char FILTERS[MXFILTINDX];  // global list of all filters 
+  char FIELD[60];            // Nov 2021
   char TELESCOPE[60];
   char PSF_UNIT[40] ;
   bool NEA_PSF_UNIT;

@@ -14362,7 +14362,8 @@ void SIMLIB_initGlobalHeader(void) {
   SIMLIB_GLOBAL_HEADER.PIXSIZE            = 0.0 ;
   SIMLIB_GLOBAL_HEADER.SOLID_ANGLE        = 0.0 ;
   SIMLIB_GLOBAL_HEADER.NGENSKIP_PEAKMJD   = 0 ;
-  sprintf(SIMLIB_GLOBAL_HEADER.TELESCOPE, "UNKNOWN"); // cannot be blank string
+  sprintf(SIMLIB_GLOBAL_HEADER.TELESCOPE, "UNKNOWN"); 
+  sprintf(SIMLIB_GLOBAL_HEADER.FIELD,  "%s", FIELD_NONAME);
 
   sprintf(SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT, "%s", 
 	  SIMLIB_SKYSIG_SQPIX );
@@ -14405,6 +14406,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   // SIMLIB_GLOBAL_HEADER structure.
   //
   // Sep 3 2020: check REQUIRE_DOCANA
+  // Nov 12 2021: read optional FIELD
 
   char PATH_DEFAULT[2*MXPATHLEN];
   char *OPENFILE      = INPUTS.SIMLIB_OPENFILE;
@@ -14447,6 +14449,9 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     }
     else if ( strcmp(c_get,"TELESCOPE:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.TELESCOPE );
+    }
+    else if ( strcmp(c_get,"FIELD:") == 0 ) {      
+      readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.FIELD );
     }
     else if ( strcmp(c_get,"PIXSIZE:") == 0 ) {      
       readdouble(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.PIXSIZE );
@@ -14548,14 +14553,13 @@ void SIMLIB_prepGlobalHeader(void) {
   // Dec 1 2020: abort if GENLC.IDSURVEY < 0
 
   int i, NTMP, ifilt, ifilt_obs ;
-  char cfilt[4], *FILTERS, *TEL ;
+  char cfilt[4], *FILTERS, *TEL, *FIELD ;
   char *SURVEY, *SUBSURVEY ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
 
   // -------------- BEGIN ------------
 
   print_banner(fnam);
-
 
   SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
   SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
@@ -14576,8 +14580,14 @@ void SIMLIB_prepGlobalHeader(void) {
   }
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
-  sprintf(GENLC.TELESCOPE[0],       "%s", TEL );
-  printf("\t SIMLIB telescope : %s \n", TEL );
+  sprintf(GENLC.TELESCOPE[0], "%s", TEL );
+  if ( !IGNOREFILE(TEL) )
+    { printf("\t SIMLIB telescope : %s \n", TEL ); }
+
+  FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
+  sprintf(GENLC.FIELDNAME[0], "%s", FIELD );
+  if ( !IGNOREFILE(FIELD) )
+    { printf("\t SIMLIB Field : %s \n", FIELD ); }
 
 
   double PIXSIZE = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
@@ -16146,7 +16156,9 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   if ( INPUTS.OPT_MWEBV == OPT_MWEBV_FILE ) 
     { GENLC.MWEBV = SIMLIB_HEADER.MWEBV ; }
+
   GENLC.SIMLIB_ID  = SIMLIB_HEADER.LIBID ;
+
   sprintf(GENLC.FIELDNAME[0], "%s", SIMLIB_HEADER.FIELD);
   sprintf(GENLC.TELESCOPE[0], "%s", SIMLIB_HEADER.TELESCOPE);
 
@@ -17395,7 +17407,9 @@ void init_SIMLIB_HEADER(void) {
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2x1, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2c,  (double)999. ) ;  
 
-  sprintf(SIMLIB_HEADER.FIELD,"%s", FIELD_NONAME );
+  // xxx mark delete  sprintf(SIMLIB_HEADER.FIELD,"%s", FIELD_NONAME );
+  sprintf(SIMLIB_HEADER.FIELD,"%s", SIMLIB_GLOBAL_HEADER.FIELD);
+
   SIMLIB_HEADER.NFIELD_OVP = 0 ;
   SIMLIB_HEADER.SUBSURVEY_NAME[0] = 0 ;
   // doesn't work  sprintf(SIMLIB_HEADER.SUBSURVEY_NAME, "NULL" );

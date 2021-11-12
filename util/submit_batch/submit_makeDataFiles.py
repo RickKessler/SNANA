@@ -260,19 +260,22 @@ class MakeDataFiles(Program):
         CONFIG        = self.config_yaml['CONFIG']
         input_file    = self.config_yaml['args'].input_file
         output_format = self.config_yaml['args'].output_format
-        msgerr = []
-        imjd = int(mjd)
-        splitran_str  = f'SPLITRAN{isplitran+1:03d}'
-        splitmjd_str  = f'SPLITMJD{imjd:05d}'
+        msgerr   = []
+        imjd     = int(mjd)
         prefix_output = f'{BASE_PREFIX}'
+        do_base = True
 
         if imjd >= 10000:
+            splitmjd_str  = f'SPLITNITE{imjd:05d}'
             prefix_output += f'_{splitmjd_str}'
 
-        prefix_output += f'_{base_name}'
+        if do_base:
+            prefix_output += f'_{base_name}'
 
         if isplitran >= 0:
+            splitran_str  = f'SPLITRAN{isplitran+1:03d}'
             prefix_output += f'_{splitran_str}'
+
         return prefix_output
         # end get_prefix_output
 
@@ -429,7 +432,7 @@ class MakeDataFiles(Program):
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
 
         # 1. required MERGE table
-        header_line_merge = f"    STATE   ISPLITMJD  {DATA_UNIT_STR}  " \
+        header_line_merge = f"    STATE   ISPLIT_NITE  {DATA_UNIT_STR}  " \
                             f"NEVT NEVT_SPECZ NEVT_PHOTOZ  "
         if out_lsst_alert :
             header_line_merge += "NOBS_ALERT  ALERT/sec"
@@ -471,7 +474,7 @@ class MakeDataFiles(Program):
         min_edge_list        = split_mjd['min_edge']
         max_edge_list        = split_mjd['max_edge']
         header_line_compress = \
-            f"    STATE   ISPLITMJD MJD-RANGE  NDIR_{ALERT_DAY_NAME}  " \
+            f"    STATE   ISPLIT_NITE NITE-RANGE  NDIR_{ALERT_DAY_NAME}  " \
             f"Nsec NDIR/sec"
 
         INFO_COMPRESS = {

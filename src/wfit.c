@@ -2737,6 +2737,7 @@ void get_chi2wOM (
   /* Compute likelihood with external prior: Omega_m or BAO */
   if ( INPUTS.use_bao ) {
     chi2_prior += chi2_bao_prior(&cparloc);
+    
 
   } else {
     // Gaussian Omega_m prior
@@ -2791,32 +2792,39 @@ double chi2_bao_prior(Cosparam *cpar) {
 
   double OM        = cpar->omm ;
   double rz, tmp1, tmp2, a, nsig, E, chi2 = 0.0 ;
+  double DM, DM_measured, DH, DH_measured, DMvar, DHvar, rd, rd_measured;
   int    iz;
+  Cosparam cparloc;
   char   fnam[] = "chi2_bao_prior" ;
 
   // ------------ BEGIN -------------
 
   if ( BAO_PRIOR.use_sdss4 ) {
     // Alam 2020, SDSS-IV
+    // AM Nov, 2021
     double z_sdss4;
     double a_sdss4;
     double siga_sdss4;
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
-      //BAO_PRIOR.z_sdss4[iz];
-      //BAO_PRIOR.DMrd_sdss4[iz]   ;
-      //BAO_PRIOR.DHrd_sdss4[iz]   ;
-      //BAO_PRIOR.sigDMrd_sdss4[iz];
-      //BAO_PRIOR.sigDHrd_sdss4[iz];
+      
+      /* Model*/
+      rd      = rd_DEFAULT; //150.;
+      DH      = DHrd_sdss4_DEFAULT[iz]*rd;
+      DM      = DMrd_sdss4_DEFAULT[iz]*rd; 
+      DMvar   = (sigDMrd_sdss4_DEFAULT[iz] * sigDMrd_sdss4_DEFAULT[iz]); // variance = sigma **2
+      DHvar   = (sigDHrd_sdss4_DEFAULT[iz] * sigDHrd_sdss4_DEFAULT[iz]);
 
-      z_sdss4    = BAO_PRIOR.z_sdss4[iz];
-      //a_sdss4    = BAO_PRIOR.a_sdss4[iz];
-      //siga_sdss4 = BAO_PRIOR.siga_sdss4[iz];
+      /* Measured*/
+      DH_measured      = DH_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
+      DM_measured      = DM_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
+      rd_measured      = rd_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
+      
+      tmp1             = (DH_measured/rd_measured -DH/rd) * (DH_measured/rd_measured -DH/rd);
+      tmp2             = (DM_measured/rd_measured -DM/rd) * (DM_measured/rd_measured -DM/rd);
 
-    
-	
-      chi2 += 0.1; // xxx  compute, maybe with covariance ??
+      
+      chi2 += (tmp1/DHvar + tmp2/DMvar); 
     }
-    
   }
   else if ( BAO_PRIOR.use_sdss ) {
     // Eisen 2006
@@ -2832,7 +2840,7 @@ double chi2_bao_prior(Cosparam *cpar) {
     nsig = (a - a_sdss) / siga_sdss ;
     chi2 = nsig * nsig ;
   }
-
+  //printf("XXX chi2 XX = %.4f",chi2);
   return chi2;
 
 } // end chi2_bao_prior

@@ -130,6 +130,22 @@ class MakeDataFiles(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
+        # if input_list includes a wildcard, scoop up files with glob.
+        inputs_list_temp = inputs_list
+        found_wildcard = False
+        for inp in inputs_list_temp :
+            if '*' in inp:
+                inp = os.path.expandvars(inp)
+                inputs_list = sorted(glob.glob(inp))
+                found_wildcard = True
+
+        if found_wildcard:
+            n = len(inputs_list)
+            print(f"\n  Load {n} inputs from wildcard:")
+            for inp in inputs_list:
+                print(f"    Resolved {inp}")
+            print('')
+            
         # select the SPLIT_MJD option
         # abort if more than one SPLIT_MJD option is specified
         n_mjd_split_opts   = 0

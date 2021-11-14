@@ -394,13 +394,15 @@ class MakeDataFiles(Program):
         done_file  = f"{prefix}.DONE"
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
-
+        
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
 
         if out_lsst_alert :
             schema_file = CONFIG['LSST_ALERT_SCHEMA']
-            arg_list.append(f"--lsst_alert_schema {schema_file}")
+            truth_file  = f"{prefix}.csv"
+            arg_list.append(f"--lsst_alert_schema   {schema_file}")
+            arg_list.append(f"--outfile_alert_truth {truth_file}")
 
         if nevt is not None:
             arg_list.append(f"--nevt {nevt}")

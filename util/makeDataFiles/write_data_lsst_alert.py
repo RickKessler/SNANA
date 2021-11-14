@@ -82,7 +82,7 @@ def init_schema_lsst_alert(schema_file):
 def init_truth_dict(outfile):
     truth_dict = {
         'outfile'      : outfile,
-        'n_keep'       : [],
+        'nobs_store'   : 0,
         'diaSourceId'  : [],
         'snid'         : [],
         'mjd'          : [],
@@ -160,8 +160,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
     config_data['n_event_write'] += 1
     FIRST_OBS    = True
-    n_detect     = 0
-    n_keep       = 0 # N_detect + n_forcePhoto
+    nobs_detect  = 0
+    nobs_keep    = 0 # nobs_detect + nobs_forcePhoto
     
     if args.nite_detect_range:
         MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
@@ -177,28 +177,37 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     mjd_list         = data_event_dict['phot_raw']['MJD']
     photflag_list    = data_event_dict['phot_raw']['PHOTFLAG']
     true_genmag_list = data_event_dict['phot_raw'][VARNAME_TRUEMAG]
-    
-    # get boolean list of obs within TIME_BACK_FORCE from 1st detect and last detection
-    keep_force_list = [ (MJD_REF-mjd)<TIME_BACK_FORCE and (mjd-MJD_REF)<TIME_FORWARD_FORCE \
-                        for mjd in mjd_list ]
-    # get boolean list of detections per observation
-    detect_list     = [ (photflag & PHOTFLAG_DETECT) > 0 \
-                        for photflag in photflag_list ]
 
+    # get boolean list of obs within TIME_BACK_FORCE from 1st detect
+    # and up to last detection
+    keep_force_list = [ (MJD_REF-mjd)<TIME_BACK_FORCE and \
+                        (mjd-MJD_REF)<TIME_FORWARD_FORCE \
+                        for mjd in mjd_list ]
+
+    set_limits_o = True # False  # testing for optimal speed for obs loop
+    if set_limits_o :
+        # find min and max obs index where keep_force = True
+        reversed_list = keep_force_list[::-1]
+        o_start = keep_force_list.index(True)
+        o_end   = NOBS - reversed_list.index(True)
+    else:
+        # brute-force loop over all obs
+        o_start = 0
+        o_end   = NOBS
+        
+    # get list of boolean detection flag per observation
+    detect_list     = [ (photflag & PHOTFLAG_DETECT)>0 \
+                        for photflag in photflag_list ]
 
     # - - - - - - - - - - -
     #translate each obs to diasrc dictionary
-    for o in range(0,NOBS):
-        mjd         = data_event_dict['phot_raw']['MJD'][o]
-        # xx keep_force = (MJD_REF - mjd) < TIME_BACK_FORCE and \
-        # xx            (mjd - MJD_REF) < TIME_FORWARD_FORCE
+    for o in range(o_start,o_end):
         keep_force = keep_force_list[o]
         if not keep_force: continue
-        n_keep += 1
-        # skip non-detections (maybe later, add force photo after 1st detect?)
-        # xx photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]        
-        # xx detect      = (photflag & PHOTFLAG_DETECT) > 0
-        detect      = detect_list[o]
+        
+        nobs_keep += 1
+        mjd       = data_event_dict['phot_raw']['MJD'][o]
+        detect    = detect_list[o]
         
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
@@ -220,7 +229,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if args.outfile_alert_truth:
             truth_dict = config_data['truth_dict']
             #print(f"\n xxx truth_dict = {truth_dict} \n")
-            truth_dict['n_keep'].append(n_keep)
+            truth_dict['nobs_store'] += 1
             truth_dict['diaSourceId'].append(diaSourceId)
             truth_dict['snid'].append(SNID)
             truth_dict['mjd'].append(mjd)
@@ -232,7 +241,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         # problem: first alert includes previous force photometry
         #   which violates causality.
         if detect :
-            n_detect += 1
+            nobs_detect += 1
 
             # construct name of avro file using mjd, objid, srcid
             outdir_nite  = make_outdir_nite(outdir,mjd)
@@ -242,10 +251,10 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             mjd_file  = f"{outdir_nite}/" \
                         f"alert_{str_day}_{str_obj}_{str_src}.avro"
 
-            gzip_mjd_file =mjd_file + '.gz'
+            gzip_mjd_file = mjd_file + '.gz'
             with gzip.GzipFile(filename=gzip_mjd_file,
                                mode='wb', compresslevel=9) as f:
-                if n_detect == 1 :
+                if nobs_detect == 1 :
                     # store only 1st detection; no force photo yet.
                     avro_bytes = schema.serialize(alert_first_detect)
                     messg      = schema.deserialize(avro_bytes)
@@ -354,25 +363,6 @@ def print_alert_stats(config_data, done_flag=False):
 # end print_alert_stats
 
 
-def write_alert_truth(alert_truth_dict):
-    # write true info about this alert.
-    # For now, just write test to stdout; but need to write
-    # to a formatted table that can be easily appended to other tables.
-    # .xyz
-
-    n_keep       = alert_truth_dict['n_keep']     # =1 (not 0) on 1st obs
-    diaSourceId  = alert_truth_dict['diaSourceId']
-    snid         = alert_truth_dict['snid']
-    mjd          = alert_truth_dict['mjd']
-    detect       = alert_truth_dict['detect']
-    true_gentype = alert_truth_dict['TRUE_GENTYPE']
-    true_genmag  = alert_truth_dict['TRUE_GENMAG']
-    
-    #print(f"\t xxx {diaSourceId}  {snid}  {detect} " \
-    #      f"{true_gentype}  {true_genmag:.4f}")
-
-# end write_alert_truth
-
 def write_summary_lsst_alert(name, config_data):
     # write final summary to stdout for "name" of data unit
     done_flag = True
@@ -383,29 +373,32 @@ def write_summary_lsst_alert(name, config_data):
         write_truth(truth_dict)
     
     # end write_summary_lsst_alert
+    
 def write_truth(truth_dict):
     
-    outfile = truth_dict['outfile']
-    nobs = len(truth_dict['n_keep'])
+    outfile = truth_dict['outfile'] + '.gz'
+    nobs    = truth_dict['nobs_store']
     
     logging.info(f"\n Write {nobs} obs to truth table in {outfile}")
-    
-    with open(outfile,"wt") as f :
-        f.write(f"VARNAMES:  ROW  SourceID SNID DETECT " \
-                f"TRUE_GENTYPE TRUE_GENMAG\n")
+
+    with gzip.open(outfile, mode='wt') as f:
+        
+        f.write(f"# SourceID, SNID, MJD, DETECT, " \
+                f"TRUE_GENTYPE, TRUE_GENMAG\n")
         
         for o in range(0,nobs):
-            n_keep       = truth_dict['n_keep'][o]
             diaSourceId  = truth_dict['diaSourceId'][o]
             snid         = truth_dict['snid'][o]
+            mjd          = truth_dict['mjd'][o]
             detect       = truth_dict['detect'][o]
             idetect=0
             if detect: idetect = 1
             true_gentype = truth_dict['true_gentype'][o]
             true_genmag  = truth_dict['true_genmag'][o]        
-            
-            f.write(f"ROW: {n_keep:5d} {diaSourceId} {snid} {idetect} " \
-                    f"{true_gentype} {true_genmag:.4f} \n")
+
+            line = f"{diaSourceId}, {snid}, {mjd:.4f}, {idetect}, " \
+                   f"{true_gentype}, {true_genmag:.3f}"
+            f.write(f"{line}\n")
             
     # end write_truth
         

@@ -46,7 +46,7 @@ class data_snana_folder(Program):
         HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
         n_HEAD_file      = self.config_data['n_HEAD_file']
         
-        if i_subgroup == n_HEAD_file :
+        if i_subgroup == n_HEAD_file -1 :
             return 0 # done reading
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"

@@ -384,12 +384,16 @@ def write_summary_lsst_alert(name, config_data):
     
     # end write_summary_lsst_alert
 def write_truth(truth_dict):
+    
     outfile = truth_dict['outfile']
+    nobs = len(truth_dict['n_keep'])
+    
+    logging.info(f"\n Write {nobs} obs to truth table in {outfile}")
+    
     with open(outfile,"wt") as f :
-        f.write(f"VARNAMES:  ROW  diaSourceId snid detect " \
+        f.write(f"VARNAMES:  ROW  SourceID SNID DETECT " \
                 f"TRUE_GENTYPE TRUE_GENMAG\n")
         
-        nobs = len(truth_dict['n_keep'])
         for o in range(0,nobs):
             n_keep       = truth_dict['n_keep'][o]
             diaSourceId  = truth_dict['diaSourceId'][o]

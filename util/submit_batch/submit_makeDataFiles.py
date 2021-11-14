@@ -888,10 +888,14 @@ class MakeDataFiles(Program):
         if isfmt_snana :
             command_list = ['makeDataFiles.sh',
                             '--outdir_snana', output_dir, '--merge']
-            ret = subprocess.run(command_list, capture_output=False, text=True )
+            ret = subprocess.run(command_list, 
+                                 capture_output=False, text=True )
 
         elif isfmt_lsst_alert :
-            pass
+            wstar = f"{BASE_PREFIX}*.csv"
+            print(f"\t Compress {wstar}")
+            sys.stdout.flush()
+            util.compress_files(+1, script_dir, wstar, "csv", "" )
 
         else:
             msgerr.append(f"Unknown format '{output_format}" )

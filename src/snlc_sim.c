@@ -1931,9 +1931,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
 
     // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
-    if ( INPUTS.OPT_MWEBV < 0 ) {
-      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d)"
-	      "no longer allowed.", INPUTS.OPT_MWEBV);
+    if ( ITMP < 0 ) {
+      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d) "
+	      "is no longer allowed.", ITMP);
       sprintf(c2err,"OPT_MWEBV must be > 0");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -27893,13 +27893,11 @@ void SIMLIB_DUMP_DRIVER(void) {
   
   double
     MJD, MJD_LAST, GAPMAX, GAPAVG, MJDWIN, FRAC, *ptrmjd
-    ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe
-    ,ZPTERR, M5SIG
+    ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe ,ZPTERR, M5SIG
     ,ZPT_SIMLIB, PSF_SIMLIB, SNR_maglimit
     ,FSKY_pe, SKYMAG, RA, DEC, MWEBV
     ,XNobs, TMP, TMP0,  TMP1, wgt_LCLIB, wgtsum_LCLIB=0.0
-    ,GLOBAL_RANGE_RA[2]
-    ,GLOBAL_RANGE_DEC[2]
+    ,GLOBAL_RANGE_RA[2], GLOBAL_RANGE_DEC[2]
     ,GAIN_SIMLIB, PIXSIZE_SIMLIB
     ;
 
@@ -28209,7 +28207,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     } // end of 'ep' epoch loop for this simlib entry
 
 
-    // get max temporal gap for unsorted list of MJDs
+    // get max and avg temporal gap for unsorted list of MJDs
     Nobs   = (int)SIMLIB_DUMP_AVG1.NEPFILT[0] ;
     ptrmjd = &MJDLIST_ALL[1] ;
     MJDGAP(Nobs, ptrmjd, MJDGAP_IGNORE, &GAPMAX, &GAPAVG );
@@ -28244,7 +28242,6 @@ void SIMLIB_DUMP_DRIVER(void) {
       SIMLIB_DUMP_AVG1.SKYSIG_pe[ifilt_obs]  /= XNobs ;
       SIMLIB_DUMP_AVG1.SKYMAG[ifilt_obs]     /= XNobs ;
       SIMLIB_DUMP_AVG1.M5SIG[ifilt_obs]      /= XNobs ;
-
 
       if ( LDMP_SEQ_TEXT ) {
 	fprintf(fpdmp0,"%2d %6.2f %5.2f %5.2f ", Nobs
@@ -28301,7 +28298,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     } // end of LDMP_LOCAL - screen dump
 
     update_SIMLIB_DUMP_AVGALL(1);
-    if ( LDMP_ROOT) {
+    if ( LDMP_ROOT ) {
       SNTABLE_FILL(TABLEID_SIMLIB_DUMP); 
     }
 
@@ -28335,9 +28332,9 @@ void SIMLIB_DUMP_DRIVER(void) {
   update_SIMLIB_DUMP_AVGALL(2);
 
 
-  printf("\n Done reading %d SIMLIB entries. \n", NREAD );
+  printf("\n Done reading %d entries from %s \n", NREAD, INPUTS.SIMLIB_FILE );
   
-  printf("\n LIBRARY AVERAGES PER FILTER:  \n");
+  printf("\n CADENCE LIBRARY AVERAGES PER FILTER:  \n");
   printf("                   <PSF>  \n" );
   printf("          <ZPT-pe> FWHM  <SKYSIG>  <SKYMAG>                    \n");
   printf("      FLT  (mag)  (asec) (pe/pix)  (asec^-2) <m5sig> <Nep> <GAP>\n");

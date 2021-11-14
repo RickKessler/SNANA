@@ -417,7 +417,6 @@ struct INPUTS {
   char SIMLIB_SURVEY[40];     // override name of SURVEY in simlib file
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
-  //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //
   STRING_DICT_DEF DICT_SIMLIB_FIELDLIST_PRESCALE;   // SIMLIB ps per FIELD
   STRING_DICT_DEF DICT_SPECTRUM_FIELDLIST_PRESCALE; // spectrum ps per FIELD
 

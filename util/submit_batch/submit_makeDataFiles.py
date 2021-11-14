@@ -892,7 +892,7 @@ class MakeDataFiles(Program):
                                  capture_output=False, text=True )
 
         elif isfmt_lsst_alert :
-            wstar = f"{BASE_PREFIX}*.csv"
+            wstar = f"{BASE_PREFIX}*.csv.gz"
             print(f"\t Compress {wstar}")
             sys.stdout.flush()
             util.compress_files(+1, script_dir, wstar, "csv", "" )

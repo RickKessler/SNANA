@@ -45,8 +45,8 @@ class data_snana_folder(Program):
         data_folder      = self.config_data['data_folder']
         HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
         n_HEAD_file      = self.config_data['n_HEAD_file']
-
-        if i_subgroup == n_HEAD_file - 1 :
+        
+        if i_subgroup == n_HEAD_file :
             return 0 # done reading
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
@@ -58,13 +58,17 @@ class data_snana_folder(Program):
 
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
         sys.stdout.flush()
-
+        
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
 
         head_names = table_head.columns.names
         phot_names = table_phot.columns.names
 
+        # on first subgroup, check for true mag in PHOT table
+        if i_subgroup == 0 and  VARNAME_TRUEMAG in phot_names:
+            self.append_truemag_obs()
+        
         table_dict = {
             'head_file'  : HEAD_file_base,
             'table_head' : table_head,
@@ -127,7 +131,7 @@ class data_snana_folder(Program):
         phot_names = table_dict['phot_names']
 
         # init output dictionaries
-        head_raw, head_calc = self.reset_data_event_dict()
+        head_raw, head_calc, head_sim = self.reset_data_event_dict()
 
         try:
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
@@ -193,6 +197,10 @@ class data_snana_folder(Program):
         self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
         self.store_hostgal(DATAKEY_LIST_CALC, evt, head_calc)
 
+        # check for true sim type (sim or fakes), Nov 14 2021
+        if SIMKEY_TYPE_INDEX in head_names:
+            head_sim[SIMKEY_TYPE_INDEX] = table_head[SIMKEY_TYPE_INDEX][evt]
+ 
         # - - - - - - - - - - -
         # get pointers to PHOT table
         ROWMIN = table_head.PTROBS_MIN[evt]
@@ -239,6 +247,9 @@ class data_snana_folder(Program):
             'phot_raw'  : phot_raw,
             'spec_raw'  : spec_raw,
         }
+        if len(head_sim) > 0:
+            data_dict['head_sim'] =  head_sim
+            
         if apply_select :
             data_dict['select'] = True
 

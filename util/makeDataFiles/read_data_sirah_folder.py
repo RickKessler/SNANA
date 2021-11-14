@@ -143,15 +143,6 @@ class data_sirah_folder(Program):
         NSPEC    = len(pkl_spec) 
         spec_raw = pkl_spec
 
-        #for mjd in pkl_spec.keys():
-        #    spec_data = pkl_spec[mjd]
-        #    wave      = spec_data['wave']
-        #    flux      = spec_data['flux']
-        #    fluxerr   = spec_data['fluxerr']
-
-        #if NSPEC == 2 :
-        #    sys.exit(f" xxx pkl_spec = \n{pkl_spec.keys() } \n")
-
         # - - - - -
         # load output dictionary
         data_dict = {

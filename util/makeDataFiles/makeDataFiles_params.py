@@ -48,11 +48,11 @@ VPEC_DEFAULT = [ 0.0, 300.0 ]  # VPEC and error, km/sec
 # define list of variable names for each observation;
 VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
                "XPIX YPIX CCDNUM GAIN " \
-               "FLUXCAL FLUXCALERR ZPFLUX NEA SKYSIG"
+               "FLUXCAL FLUXCALERR ZPFLUX NEA SKYSIG "
 
 # define text format for each VARNAMES_OBS
 VARNAMES_FMT = "10.4f 2s   8s    4d      6.1f 6.1f  4d     6.3f "\
-               "12.4e    12.4e    8.4f  6.3f 6.2f"
+               "12.4e    12.4e    8.4f  6.3f 6.2f "
 
 # define values for undefined variables ...
 # value set to VAL_ABORT will trigger abort because it is required.
@@ -63,7 +63,7 @@ VAL_UNDEFINED_LIST = [
     VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL,
     VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL ]
 
-VARNAME_TRUEMAG = "SIM_MAGOBS"  # for fakes, add this to VARNAMES_OBS
+VARNAME_TRUEMAG = "SIM_MAGOBS"  # for fakes or sim, add this to VARNAMES_OBS
 
 FIELD_DDF      = "DDF"
 FIELD_WFD      = "WFD"
@@ -142,8 +142,8 @@ HOSTKEY_PREFIX_MAG    = "HOSTGAL_MAG"         # band-dependent
 HOSTKEY_PREFIX_MAGERR = "HOSTGAL_MAGERR"      # idem
 HOSTKEY_PREFIX_SB     = "HOSTGAL_SB_FLUXCAL"  # idem
 
-HOSTKEY_PREFIX_LIST = [HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR, 
-                       HOSTKEY_PREFIX_SB ]
+HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR, 
+                        HOSTKEY_PREFIX_SB ]
 
 DATAKEY_LIST_RAW = \
     [ DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_FAKE, DATAKEY_FILTERS,
@@ -159,6 +159,9 @@ DATAKEY_LIST_CALC = \
       DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_LAST, 
       HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
     ]
+
+SIMKEY_TYPE_INDEX = "SIM_TYPE_INDEX"
+DATAKEY_LIST_SIM = [ SIMKEY_TYPE_INDEX ]
 
 # -------
 MODE_MERGE_MOVE = "MERGE_MOVE" # move files, then remove original folder

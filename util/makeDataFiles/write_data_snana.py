@@ -55,6 +55,12 @@ def write_event_text_snana(args, config_data, data_event_dict):
     # - - - - -
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
+
+    if 'head_sim' in data_event_dict :
+        head_sim  = data_event_dict['head_sim']
+    else:
+        head_sim = None
+
     phot_raw  = data_event_dict['phot_raw']
     spec_raw  = data_event_dict['spec_raw']
 
@@ -72,6 +78,10 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
         f.write("\n# computed quantities \n")
         write_header_snana(f,head_calc)
+
+        if head_sim :
+            f.write("\n# sim/truth quantities \n")
+            write_header_snana(f,head_sim)
 
         # write epoch/phot info
         write_phot_snana(f, head_raw, phot_raw, config_data)

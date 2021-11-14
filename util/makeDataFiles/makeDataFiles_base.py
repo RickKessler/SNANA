@@ -70,10 +70,10 @@ class Program:
         iyear_select  = args.year      # 1-NYEAR, or -1 for all
         field_select  = args.field
         survey        = args.survey
-        peakmjd_range     = args.peakmjd_range
+        peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
-        outdir_lsst_alert = args.outdir_lsst_alert
-        n_season       = MXSEASON
+        outdir_lsst_alert  = args.outdir_lsst_alert
+        n_season           = MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
         # no explicit season breakdown
@@ -264,11 +264,13 @@ class Program:
         varfmt    = VARNAMES_FMT
         val_undef = VAL_UNDEFINED_LIST
 
-        if fake :
-            varnames   += f" {VARNAME_TRUEMAG}"
-            varfmt     += f" 8.4f"
-            val_undef  += VAL_NULL
-
+        # xxxx mark delete Nov 14 2021 
+        #if fake :
+        #    varnames   += f" {VARNAME_TRUEMAG}"
+        #    varfmt     += f" 8.4f"
+        #    val_undef  += VAL_NULL
+        # xxxxxxxxx end mark xxxxxxxxx
+        
         # convert space-sep string list into python list
         varlist_obs   = varnames.split()
         varlist_fmt   = varfmt.split()    # format per var
@@ -293,6 +295,21 @@ class Program:
 
         # end store_varlist_obs
 
+    def append_truemag_obs(self):
+        
+        # add true mag variable to list of variables in PHOT table
+        # (called by read function of true mag exists; e.g. ,sim or fakes)
+
+        logging.info(f"\t Append {VARNAME_TRUEMAG} to PHOT table")
+        
+        self.config_data['vallist_undef']  += [ VAL_NULL ]
+        self.config_data['varlist_fmt']    += [ "8.4f"   ]
+        self.config_data['varlist_obs']    += [ VARNAME_TRUEMAG ]
+        self.config_data['nvar_obs']       += 1
+        
+        return
+    # end add_truemag_obs
+        
     def exclude_varlist_obs(self):
         # return optional list of phot columns to exclude from the
         # output text data files; default is exclude nothing and
@@ -650,14 +667,18 @@ class Program:
 
         raw_dict  = {}
         calc_dict = {}
-
+        sim_dict  = {}
+        
         for key in DATAKEY_LIST_RAW :
             raw_dict[key] = -9
 
         for key in DATAKEY_LIST_CALC :
             calc_dict[key] = -9
 
-        return raw_dict, calc_dict
+        for key in DATAKEY_LIST_SIM :
+            sim_dict[key] = -9  
+
+        return raw_dict, calc_dict, sim_dict
 
         # end reset_data_event_dict
 

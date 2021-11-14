@@ -132,6 +132,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     # translate snana header and create diasrc dictionary for lsst alert
     my_diasrc = diasrc #{}
     translate_dict_diasrc(-1, data_event_dict, my_diasrc)
+    true_gentype = data_event_dict['head_sim'][SIMKEY_TYPE_INDEX]
+    
     alert['diaSource']              = my_diasrc
     alert_first_detect['diaSource'] = my_diasrc
 
@@ -140,7 +142,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     config_data['n_event_write'] += 1
     FIRST_OBS    = True
     n_detect     = 0
-
+    n_keep       = 0 # N_detect + n_forcePhoto
+    
     if args.nite_detect_range:
         MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
         MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
@@ -150,18 +153,34 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         MJD_REF = head_calc[DATAKEY_PEAKMJD]
         TIME_BACK_FORCE  = 50   #Ndays before MJD_REF to include forced phot.
         TIME_FORWARD_FORCE = 100
+
+    # compute things for each obs
+    mjd_list         = data_event_dict['phot_raw']['MJD']
+    photflag_list    = data_event_dict['phot_raw']['PHOTFLAG']
+    true_genmag_list = data_event_dict['phot_raw'][VARNAME_TRUEMAG]
+    
+    # get boolean list of obs within TIME_BACK_FORCE from 1st detect and last detection
+    keep_force_list = [ (MJD_REF-mjd)<TIME_BACK_FORCE and (mjd-MJD_REF)<TIME_FORWARD_FORCE \
+                        for mjd in mjd_list ]
+    # get boolean list of detections per observation
+    detect_list     = [ (photflag & PHOTFLAG_DETECT) > 0 \
+                        for photflag in photflag_list ]
+
+
     # - - - - - - - - - - -
     #translate each obs to diasrc dictionary
     for o in range(0,NOBS):
         mjd         = data_event_dict['phot_raw']['MJD'][o]
-        keep_force = (MJD_REF - mjd) < TIME_BACK_FORCE and \
-                     (mjd - MJD_REF) < TIME_FORWARD_FORCE
+        # xx keep_force = (MJD_REF - mjd) < TIME_BACK_FORCE and \
+        # xx            (mjd - MJD_REF) < TIME_FORWARD_FORCE
+        keep_force = keep_force_list[o]
         if not keep_force: continue
-
+        n_keep += 1
         # skip non-detections (maybe later, add force photo after 1st detect?)
-        photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]
-        detect      = (photflag & PHOTFLAG_DETECT) > 0
-
+        # xx photflag    = data_event_dict['phot_raw']['PHOTFLAG'][o]        
+        # xx detect      = (photflag & PHOTFLAG_DETECT) > 0
+        detect      = detect_list[o]
+        
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
         my_diasrc['diaSourceId'] = diaSourceId
@@ -178,6 +197,18 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
 
+        # write truth table for detections and forced photo
+        alert_truth_dict = {
+            'n_keep'       : n_keep,
+            'diaSourceId'  : diaSourceId,
+            'snid'         : SNID,
+            'mjd'          : mjd,
+            'detect'       : detect,
+            'TRUE_GENTYPE' : true_gentype,
+            'TRUE_GENMAG'  : true_genmag_list[o],
+        }
+        write_alert_truth(alert_truth_dict)
+        
         # write alerts ONLY for detection.
         # problem: first alert includes previous force photometry
         #   which violates causality.
@@ -201,12 +232,12 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
                     messg      = schema.deserialize(avro_bytes)
                     schema.store_alerts(f, [alert_first_detect] )
                 else:
-                    # store alert with previous epochs
+                    #store alert with previous epochs
                     schema.store_alerts(f, [alert])
 
                 config_data['n_alert_write'] += 1
                 print_alert_stats(config_data)
-
+                
         # after writing each aler, copy diasource info to the "past"
         # for the next observation. Make sure to use .copy() to
         # avoid storing a pointer.
@@ -302,6 +333,26 @@ def print_alert_stats(config_data, done_flag=False):
         sys.stdout.flush()
 
 # end print_alert_stats
+
+
+def write_alert_truth(alert_truth_dict):
+    # write true info about this alert.
+    # For now, just write test to stdout; but need to write
+    # to a formatted table that can be easily appended to other tables.
+    # .xyz
+
+    n_keep       = alert_truth_dict['n_keep']     # =1 (not 0) on 1st obs
+    diaSourceId  = alert_truth_dict['diaSourceId']
+    snid         = alert_truth_dict['snid']
+    mjd          = alert_truth_dict['mjd']
+    detect       = alert_truth_dict['detect']
+    true_gentype = alert_truth_dict['TRUE_GENTYPE']
+    true_genmag  = alert_truth_dict['TRUE_GENMAG']
+    
+    #print(f"\t xxx {diaSourceId}  {snid}  {detect} " \
+    #      f"{true_gentype}  {true_genmag:.4f}")
+
+# end write_alert_truth
 
 def write_summary_lsst_alert(name, config_data):
     # write final summary to stdout for "name" of data unit

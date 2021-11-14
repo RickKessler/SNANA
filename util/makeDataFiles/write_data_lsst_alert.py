@@ -77,8 +77,22 @@ def init_schema_lsst_alert(schema_file):
 
     return schema, alert_data
 
-    # end prep_write_lsst_alert
+    # end init_schema_lsst_alert
 
+def init_truth_dict(outfile):
+    truth_dict = {
+        'outfile'      : outfile,
+        'n_keep'       : [],
+        'diaSourceId'  : [],
+        'snid'         : [],
+        'mjd'          : [],
+        'detect'       : [],
+        'true_gentype' : [],
+        'true_genmag'  : []
+    }
+    return truth_dict
+    # end init_truth_dict
+    
 def write_event_lsst_alert(args, config_data, data_event_dict):
 
     # Inputs:
@@ -101,7 +115,6 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     outdir        = args.outdir_lsst_alert
 
     if nevent == 0 :
-        # later check for removing old folders ??
         schema, alert_data  = init_schema_lsst_alert(args.lsst_alert_schema)
         alert_data_orig     = alert_data.copy()
         config_data['schema']          = schema
@@ -111,6 +124,12 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         config_data['n_event_write']   = 0
         config_data['t_start_alert']   = datetime.datetime.now()
 
+        outfile = args.outfile_alert_truth
+        if outfile :
+            config_data['truth_dict'] = init_truth_dict(outfile)
+        else:
+            config_data['truth_dict'] = None
+            
     schema          = config_data['schema']
     diaSourceId     = config_data['diaSourceId']
     alert_data_orig = config_data['alert_data_orig']
@@ -198,16 +217,16 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         messg      = schema.deserialize(avro_bytes)
 
         # write truth table for detections and forced photo
-        alert_truth_dict = {
-            'n_keep'       : n_keep,
-            'diaSourceId'  : diaSourceId,
-            'snid'         : SNID,
-            'mjd'          : mjd,
-            'detect'       : detect,
-            'TRUE_GENTYPE' : true_gentype,
-            'TRUE_GENMAG'  : true_genmag_list[o],
-        }
-        write_alert_truth(alert_truth_dict)
+        if args.outfile_alert_truth:
+            truth_dict = config_data['truth_dict']
+            #print(f"\n xxx truth_dict = {truth_dict} \n")
+            truth_dict['n_keep'].append(n_keep)
+            truth_dict['diaSourceId'].append(diaSourceId)
+            truth_dict['snid'].append(SNID)
+            truth_dict['mjd'].append(mjd)
+            truth_dict['detect'].append(detect)
+            truth_dict['true_gentype'].append(true_gentype)
+            truth_dict['true_genmag'].append(true_genmag_list[o])
         
         # write alerts ONLY for detection.
         # problem: first alert includes previous force photometry
@@ -358,5 +377,32 @@ def write_summary_lsst_alert(name, config_data):
     # write final summary to stdout for "name" of data unit
     done_flag = True
     print_alert_stats(config_data, done_flag)
-    # end
+
+    truth_dict = config_data['truth_dict']
+    if truth_dict :
+        write_truth(truth_dict)
+    
+    # end write_summary_lsst_alert
+def write_truth(truth_dict):
+    outfile = truth_dict['outfile']
+    with open(outfile,"wt") as f :
+        f.write(f"VARNAMES:  ROW  diaSourceId snid detect " \
+                f"TRUE_GENTYPE TRUE_GENMAG\n")
+        
+        nobs = len(truth_dict['n_keep'])
+        for o in range(0,nobs):
+            n_keep       = truth_dict['n_keep'][o]
+            diaSourceId  = truth_dict['diaSourceId'][o]
+            snid         = truth_dict['snid'][o]
+            detect       = truth_dict['detect'][o]
+            idetect=0
+            if detect: idetect = 1
+            true_gentype = truth_dict['true_gentype'][o]
+            true_genmag  = truth_dict['true_genmag'][o]        
+            
+            f.write(f"ROW: {n_keep:5d} {diaSourceId} {snid} {idetect} " \
+                    f"{true_gentype} {true_genmag:.4f} \n")
+            
+    # end write_truth
+        
 

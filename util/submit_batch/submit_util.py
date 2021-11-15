@@ -867,6 +867,8 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"{wait_for_file}\n")
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
+    if check_abort:  # leave human readable marker for each job
+        f.write("echo '# ======================================= '\n")
 
     # check optional ENV to set before running program
     if 'setenv' in JOB_INFO :
@@ -940,12 +942,18 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     merge_arg_list   = JOB_INFO['merge_arg_list']
     match_cpu    = icpu <= NCPU_MERGE_DISTRIBUTE
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
+
+    key = 'check_abort'
+    check_abort = False
+    if key in JOB_INFO:  check_abort = JOB_INFO[key]
+    
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
         f.write(f"echo Run merge_driver monitor task. \n")
         f.write(f"{merge_task} \n")
-        f.write(f"echo $?")
+        if not check_abort: 
+            f.write(f"echo $?")
         f.write(f"\n")
 
     # end write_jobmerge_info

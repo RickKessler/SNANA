@@ -596,7 +596,8 @@ class Program:
         # if check_abort, skip merge except for last job
         skip_merge = check_abort and not last_job_cpu
 
-        if no_merge or skip_merge :
+        # xxx mark delete if no_merge or skip_merge :
+        if no_merge :
             JOB_INFO['merge_input_file'] = ""
             JOB_INFO['merge_arg_list']   = ""
             return JOB_INFO
@@ -957,14 +958,16 @@ class Program:
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam     = "merge_driver"
 
-        args        = self.config_yaml['args']
-        MERGE_LAST  = args.MERGE_LAST
-        cpunum      = args.cpunum[0]
-        check_abort = args.check_abort 
+        args         = self.config_yaml['args']
+        MERGE_LAST   = args.MERGE_LAST
+        cpunum       = args.cpunum[0]
+        check_abort  = args.check_abort 
+        verbose_flag = not check_abort
 
-        logging.info(f"\n")
-        logging.info(f"# ================================================== ")
-        logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
+        if verbose_flag :
+            logging.info(f"\n")
+            logging.info(f"# =========================================== ")
+            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
 
         # need to re-compute output_dir to find submit info file
         output_dir,script_subdir = self.set_output_dir_name()
@@ -973,7 +976,9 @@ class Program:
 
         # read SUBMIT.INFO passed from original submit job... 
         # this info never changes
-        logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
+
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
         self.config_prep['submit_info_yaml'] = submit_info_yaml
@@ -1003,7 +1008,9 @@ class Program:
         # these post-table comments are saved in comment_lines, and 
         # re-written below in write_merge_file function.
 
-        logging.info(f"# {fnam}: examine {MERGE_LOG_FILE}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: examine {MERGE_LOG_FILE}")
+
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS, comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
@@ -1080,7 +1087,8 @@ class Program:
         else:
             msg_update = (f"No merge updates -> do nothing. ")
 
-        logging.info(f"# {fnam}: {msg_update}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: {msg_update}")
 
         # -----------------------------------
         # for debug, keep each MERGE.LOG as MERGE.LOG_{Nsec}
@@ -1104,7 +1112,8 @@ class Program:
                 n_wrapup += 1
                 self.merge_job_wrapup(job_merge,MERGE_INFO_CONTENTS)
 
-        logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
+        if verbose_flag:
+            logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
 
         # Only last merge process does cleanup tasks and DONE stamps
         if MERGE_LAST and n_done == n_job_merge :
@@ -1238,8 +1247,9 @@ class Program:
 
         Nsec  = seconds_since_midnight  # current Nsec, not from submit info
         t_msg = (f"T_midnight={Nsec}")
-
-        output_dir     = self.config_prep['output_dir']
+        output_dir   = self.config_prep['output_dir']
+        args         = self.config_yaml['args']
+        verbose_flag = not args.check_abort
 
         if self.config_yaml['args'].cpunum :
             cpunum = self.config_yaml['args'].cpunum[0] # passed from script
@@ -1260,7 +1270,7 @@ class Program:
                 sys.exit(msg)  
             else: 
                 msg = (f"# merge_driver: \t Create {busy_file} for {t_msg}")
-                logging.info(msg)
+                if verbose_flag: logging.info(msg)
                 with open(BUSY_FILE,"w") as f:
                     f.write(f"{Nsec}\n")  # maybe useful for debug situation
 
@@ -1276,7 +1286,9 @@ class Program:
                     sys.exit(msg)  
 
         elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
-            logging.info(f"# merge_driver: \t Remove {busy_file} for {t_msg}")
+            if verbose_flag:
+                logging.info(f"# merge_driver: " \
+                             f"\t Remove {busy_file} for {t_msg}")
             cmd_rm = (f"rm {BUSY_FILE}")
             os.system(cmd_rm)
 
@@ -1348,7 +1360,7 @@ class Program:
         # to manually extract the new time stamp from SUBMIT.INFO 
         # file to debug merge process.
         # This allows debugging with
-        #   submit_batch_jobs.py <inFile> -m
+        #   submit_batch_jobs.sh <inFile> -m
         if not self.config_yaml['args'].t :
             return
 

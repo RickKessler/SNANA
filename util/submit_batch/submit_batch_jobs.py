@@ -433,8 +433,11 @@ if __name__ == "__main__":
     if config_yaml['args'].merge_flag :
         try:
             program.merge_driver()
-            logging.info('  Done with merge process -> exit Main.')
-            exit(0)
+            if args.check_abort:
+                exit(0)
+            else:
+                logging.info('  Done with merge process -> exit Main.')
+                exit(0)
         except Exception as e:
             logging.exception(e, exc_info=True)
             cpunum   = config_yaml['args'].cpunum[0]

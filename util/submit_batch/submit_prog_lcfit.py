@@ -1063,7 +1063,7 @@ class LightCurveFit(Program):
         # Required element of submit process. Before submitting jobs,
         # create initial merge file with all WAIT states.
         # This file is read and updated frequently by merge
-        # process invoked by -m argument to submit_batch_jobs.py.
+        # process invoked by -m argument to submit_batch_jobs.sh
         # A locally defined MERGE_INFO structure is passed to 
         # a generic write_MERGE_INFO function to create MERGE.LOG/
         # Uses YAML format, and for human-readability there is a 

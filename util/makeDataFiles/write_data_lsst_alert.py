@@ -50,6 +50,13 @@ VARNAME_OBS_MAP = {
     'FLUXCALERR' : 'apFluxErr'
 }
 
+LSST_ZP_nJy     = 31.4  # report calibrated flux in this unit
+
+# FLXUCAL(ALERT) = FLUXCAL(SNANA)*SCALE_FLUXCAL
+ARG_ZPDIF       = 0.4*(LSST_ZP_nJy-SNANA_ZP)
+SCALE_FLUXCAL   = math.pow(10.0,ARG_ZPDIF) 
+KEYNAME_SUBSTRING_FLUXCAL = 'FLUXCAL' # scale variables with this substring
+
 PHOTFLAG_DETECT = 4096  # should read this from global data header ??
 
 NOBS_ALERT_MAX  = 2000  # used to compute diaSource
@@ -103,6 +110,12 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
+
+    # scale SNANA-sim flux[Err] to alert flux unit (nJy)
+    for key in VARNAME_OBS_MAP:
+        if KEYNAME_SUBSTRING_FLUXCAL in key:
+            phot_raw[key] = [f*SCALE_FLUXCAL for f in phot_raw[key] ]
+
     SNID      = int(head_raw[DATAKEY_SNID]) # to compare sourceID
     NOBS      = phot_raw[DATAKEY_NOBS]
 

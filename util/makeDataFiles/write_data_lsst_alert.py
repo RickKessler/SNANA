@@ -143,9 +143,10 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         else:
             config_data['truth_dict'] = None
             
-    schema          = config_data['schema']
-    diaSourceId     = config_data['diaSourceId']
-    alert_data_orig = config_data['alert_data_orig']
+    # - - - - - 
+    schema             = config_data['schema']
+    diaSourceId        = config_data['diaSourceId']
+    alert_data_orig    = config_data['alert_data_orig']
     alert              = copy(alert_data_orig)
     alert_first_detect = copy(alert_data_orig)
 

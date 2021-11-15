@@ -1017,6 +1017,9 @@ void set_user_defaults(void) {
     INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] =  0.0 ; 
     INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     =  0.0 ; 
   }
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN   = 0;
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING[0] = 0;
+
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
   INPUTS.HOSTLIB_MAXDDLR = 4.0 ;   // cut on SN-host separation
@@ -2616,6 +2619,54 @@ void parse_input_FIXMAG(char *string) {
 
 } // end parse_input_FIXMAG
 
+// ===============================================
+void parse_input_GENZPHOT_FUEGEMAP(char *string) {
+
+  // Created Nov 15 2021 by R.Kessler
+  // Parse input *string of the form
+  //     z0:rms0,z1,rms1,z2:rms2,etc ...
+  // and load INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP struct.
+  //
+
+  int VERBOSE = 0 ;
+  int MAX_NzBIN = 50, MXCHAR=200, NzBIN, iz, Nsplit2 ;
+  double z, rms;
+  char **split_string, **split_string2;
+  char fnam[] = "parse_input_GENZPHOT_FUEGEMAP" ;
+
+  // ------------- BEGIN ------------
+
+  // split string by commas
+  parse_commaSepList(fnam, string, MAX_NzBIN, MXCHAR,
+		     &NzBIN, &split_string );
+
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN = NzBIN;
+  if ( VERBOSE ) {    print_banner(fnam);  }
+
+  split_string2    = (char**) malloc( 2 * sizeof(char*) );
+  split_string2[0] = (char*)malloc( 40*sizeof(char) );
+  split_string2[1] = (char*)malloc( 40*sizeof(char) );
+
+  // .xyz  
+
+  // each element is z:rms, so split each element by colon
+  for ( iz=0; iz < NzBIN; iz++ ) {
+    splitString(split_string[iz], COLON, 2, 
+		&Nsplit2, split_string2);
+    sscanf(split_string2[0], "%le", &z);
+    sscanf(split_string2[1], "%le", &rms);
+    INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST[iz]   = z;
+    INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST[iz] = rms;
+
+    if ( VERBOSE ) {
+      printf("\t z=%.3f, rms(zPhot-zTrue) = %.3f  \n", 
+	     split_string[iz], z, rms ); fflush(stdout);
+    }
+  }
+
+  //  debugexit(fnam);
+  return;
+} // end parse_input_GENZPHOT_FUEGEMAP
 
 // ==============================================================
 void  parse_input_GENZPHOT_OUTLIER(char *string) {
@@ -3015,6 +3066,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   //               only if it is not already set.
 
   int  j, ITMP, N=0, nread ;
+  char *ptr_str;
   char fnam[] = "parse_input_HOSTLIB" ;
 
   // ------------ BEGIN ------------
@@ -3081,6 +3133,11 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
 
+  else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEMAP",WORDS[0],keySource)){
+    ptr_str = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING ;
+    N++ ; sscanf(WORDS[N], "%s", ptr_str);
+    parse_input_GENZPHOT_FUEGEMAP(ptr_str);
+  }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
     for(j=0; j < 4; j++ )  {
@@ -5114,6 +5171,7 @@ void prep_user_input(void) {
     if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] >  0.0 ) { USE=1; }
     if ( INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     != 0.0 ) { USE=1; }
   }
+  if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN > 0 ) { USE=1; }
   INPUTS.USE_HOSTLIB_GENZPHOT = USE ;
 
   // -----------------------------------------------
@@ -5509,7 +5567,6 @@ void prep_user_input(void) {
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
-
   printf("\t Observer Gen-FILTERS  :  %s ", INPUTS.GENFILTERS );
 
   printf(" \n" );
@@ -5760,6 +5817,31 @@ void prep_user_input(void) {
     */
   }
 
+  // Nov 15 2021
+  // check GENZPHOT_FUDGEMAP, and abort if z-range does not cover
+  // GENRANGE_REDSHIFT.
+  int iz, NzBIN = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN;
+  if ( NzBIN > 0 ) { 
+    double *z_list   = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST;
+    double *rms_list = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST;
+    for(iz=0; iz < NzBIN; iz++ ) {
+      printf("\t RMS(zPhot-zSpec) = %.3f at z=%.3f\n",
+	     z_list[iz], rms_list[iz] ); fflush(stdout);
+    }
+    bool bad_z = false;
+    if ( z_list[0]       > INPUTS.GENRANGE_REDSHIFT[0] )  { bad_z = true; }
+    if ( z_list[NzBIN-1] < INPUTS.GENRANGE_REDSHIFT[1] )  { bad_z = true; }
+    if ( bad_z ) {
+      print_preAbort_banner(fnam);
+      sprintf(c1err,"HOSTLIB_GENZPHOT_FUDGEMAP covers %.4f < z < %.4f ",
+	      z_list[0], z_list[NzBIN-1]);
+      sprintf(c2err,"but GENRANGE_REDSHIFT covers %.4f %.4f", 
+	      INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
+  // - - - - - - - -
   if ( INPUTS.RESTORE_DES3YR ) {
     INPUTS.RESTORE_HOSTLIB_BUGS = true ;
     INPUTS.RESTORE_FLUXERR_BUGS = true ;
@@ -15314,6 +15396,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Sep 01 2021: refactor to read entire line with fgets;
   //              hopefully speeds up Cori batch jobs.
   //
+  // Nov 15 2021: skip key checks for  SIMLIB_ID < 0 to avoid
+  //     confustion between LIBID header and global header on wrap-around.
+  //
+
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
@@ -15323,7 +15409,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
-  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD ;
+  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD, FOUND_LIBID ;
   bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
@@ -15412,6 +15498,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	iwd++ ; continue ;
       }
 
+      if ( SIMLIB_HEADER.LIBID < 0 ) { continue; } // Nov 15 2021
+
       if ( strcmp(wd0,"RA:") == 0 ) 
 	{ sscanf(wd1, "%le", &SIMLIB_HEADER.RA );  iwd++ ; continue; }
       else if ( strcmp(wd0,"DEC:") == 0 ) 
@@ -15422,10 +15510,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"SUBSURVEY:")==0 ) 
 	{ sscanf(wd1,"%s",SIMLIB_HEADER.SUBSURVEY_NAME); iwd++; continue;}
       
-      else if ( strcmp(wd0,"FIELD:") == 0 )  { 
+      else if ( strcmp(wd0,"FIELD:") == 0  )  { 
 
 	char tmp_field[40];
 	sscanf(wd1, "%s", tmp_field ); 
+
+	printf(" xxx %s: NFIELD=%d for tmp_field='%s' \n",
+	       fnam, NFIELD, tmp_field);
+
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;

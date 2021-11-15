@@ -5589,7 +5589,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
 
   // Created Feb 23 2017
   // Compute ZPHOT and ZPHOT_ERR from Gaussian profiles specified
-  // by sim-input  HOSTLIB_GENZPHOT_FUDGEPAR
+  // by sim-input  HOSTLIB_GENZPHOT_FUDGEPAR or HOSTLIB_GENZPHOT_FUDGEMAP
   //
   // Mar 29 2018: 
   //  + float -> double
@@ -5601,6 +5601,10 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
   //
   // June 7 2018: protect against ZPHOT < 0
   // Jan 31 2020: pass ZGEN instead of unused IGAL
+  // Nov 15 2021: check for HOSTLIB_GENZPHOT_FUDGEMAP
+
+  int      NzBIN             = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN ;
+  float   *GENZPHOT_FUDGEPAR = INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR ;
 
   double  sigz1_core[3] ;  // sigma/(1+z): a0 + a1*(1+z) + a2*(1+z)^2
   double  sigz1_outlier, prob_outlier, zpeak, sigz_lo, sigz_hi ;
@@ -5611,18 +5615,27 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
 
   int    OUTLIER_FLAT=0;
   double SIGMA_OUTLIER_FLAT = 9.999 ; // pick random z if sig_outlier> this
-  //  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
+  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
 
   // ----------- BEGIN -------------
 
   *ZPHOT = *ZPHOT_ERR = -9.0 ;
   
-  sigz1_core[0] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[0] ;
-  sigz1_core[1] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[1] ;
-  sigz1_core[2] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[2] ;
-
-  prob_outlier  = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[3] ;
-  sigz1_outlier = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[4] ;
+  if ( NzBIN > 0 ) {
+    // use map of RMS vs. z
+    double *z_LIST   = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST   ;
+    double *RMS_LIST = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST ;
+    sigz1_core[0] = interp_1DFUN(1, ZGEN, NzBIN, z_LIST, RMS_LIST, fnam);
+    sigz1_core[1] = sigz1_core[2] = prob_outlier = sigz1_outlier = 0.0;
+  }
+  else {
+    // use 3rd-order polynomial and outlier Gaussian
+    sigz1_core[0] = (double)GENZPHOT_FUDGEPAR[0] ;
+    sigz1_core[1] = (double)GENZPHOT_FUDGEPAR[1] ;
+    sigz1_core[2] = (double)GENZPHOT_FUDGEPAR[2] ;
+    prob_outlier  = (double)GENZPHOT_FUDGEPAR[3] ;
+    sigz1_outlier = (double)GENZPHOT_FUDGEPAR[4] ;
+  }
 
   // - - - - - - - - - - - - 
 

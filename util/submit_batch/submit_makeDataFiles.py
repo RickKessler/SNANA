@@ -10,7 +10,7 @@ import  submit_util as util
 from    submit_params    import *
 from    submit_prog_base import Program
 import numpy as np
-
+import pandas as pd
 
 # Define columns in MERGE.LOG. Column 0 is always the STATE.
 COLNUM_MKDATA_MERGE_ISPLITNITE  = 1
@@ -772,11 +772,11 @@ class MakeDataFiles(Program):
         script_dir          = submit_info_yaml['SCRIPT_DIR']
         output_format       = submit_info_yaml['OUTPUT_FORMAT']
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
-        row                 = MERGE_INFO_CONTENTS[irow]
+        row                 = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
 
         if out_lsst_alert:
-            data_unit = MERGE[COLNUM_MKDATA_MERGE_DATAUNIT]
-            combine_alert_truth(data_unit)
+            data_unit = row[COLNUM_MKDATA_MERGE_DATAUNIT]
+            self.combine_alert_truth(data_unit)
 
         # end  merge_job_wrapup
 
@@ -784,6 +784,8 @@ class MakeDataFiles(Program):
 
         # combine SPLITRAN alert truth tables (csv) for this data unit.
         
+        logging.info(f"  Combine csv truth tables for {data_unit}")
+
         submit_info_yaml    = self.config_prep['submit_info_yaml']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
 

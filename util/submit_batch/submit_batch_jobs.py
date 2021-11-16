@@ -356,6 +356,8 @@ def print_submit_messages(config_yaml):
     if config_yaml['args'].force_abort_merge :
         print(f" REMEMBER: there is a forced abort in MERGE process.")
 
+    return
+
     # end print_submit_messages
 
 def print_nosubmit_messages(config_yaml):

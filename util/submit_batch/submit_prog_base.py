@@ -623,7 +623,7 @@ class Program:
 
         # check for check_abort (Oct 12 2021)
         if check_abort :
-            arg_list += f" --check_abort"
+            arg_list += f" --{arg_check_abort}"
 
         # check for devel flag
         if devel_flag != 0 :

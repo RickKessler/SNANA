@@ -810,10 +810,7 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
     msgerr       = []
-
-    key = 'check_abort'
-    check_abort = False
-    if key in JOB_INFO:  check_abort = JOB_INFO[key]
+    check_abort = JOB_INFO.get(arg_check_abort,False)
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
@@ -940,12 +937,9 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     # write merge task 
     merge_input_file = JOB_INFO['merge_input_file']
     merge_arg_list   = JOB_INFO['merge_arg_list']
+    check_abort      = JOB_INFO.get(arg_check_abort,False)
     match_cpu    = icpu <= NCPU_MERGE_DISTRIBUTE
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
-
-    key = 'check_abort'
-    check_abort = False
-    if key in JOB_INFO:  check_abort = JOB_INFO[key]
     
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")

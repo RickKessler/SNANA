@@ -768,28 +768,46 @@ class MakeDataFiles(Program):
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
         # All splitran have finished
-        output_dir          = self.config_prep['output_dir']
         submit_info_yaml    = self.config_prep['submit_info_yaml']
+        script_dir          = submit_info_yaml['SCRIPT_DIR']
         output_format       = submit_info_yaml['OUTPUT_FORMAT']
         out_lsst_alert      = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
-        
-        if out_lsst_alert:
-            # combine csv files for all SPLITRANs in this data unit
-            row       = MERGE_INFO_CONTENTS[irow]
-            data_unit = MERGE[COLNUM_MKDATA_MERGE_DATAUNIT]
-            wildcard  = f"{data_unit}_SPLITRAN*.csv.gz"
-            combined_file = f"{data_unit}.csv.gz"
-            csv_file_list = sorted(glob.glob1(output_dir,wildcard))
+        row                 = MERGE_INFO_CONTENTS[irow]
 
-            combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
-                                      for f in csv_file_list ] )
-            combined_csv.to_csv(combined_file, index=False) 
+        if out_lsst_alert:
+            data_unit = MERGE[COLNUM_MKDATA_MERGE_DATAUNIT]
+            combine_alert_truth(data_unit)
 
         # end  merge_job_wrapup
 
+    def combine_alert_truth(self, data_unit):
+
+        # combine SPLITRAN alert truth tables (csv) for this data unit.
+        
+        submit_info_yaml    = self.config_prep['submit_info_yaml']
+        script_dir          = submit_info_yaml['SCRIPT_DIR']
+
+        wildcard      = f"{script_dir}/{data_unit}_SPLITRAN*.csv.gz"
+        combined_file = f"{script_dir}/{data_unit}.csv.gz"
+        csv_file_list = sorted(glob.glob(wildcard))
+
+        # read table contents as strings to avoid modifying float format
+        # in the combined csv.
+        combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
+                                  for f in csv_file_list ] )
+
+        # write it all out in one combined file
+        combined_csv.to_csv(combined_file, index=False) 
+
+        # remove original csv files
+        cmd_rm = f"rm {wildcard}"
+        os.system(cmd_rm)
+
+        # end combine_alert_truth
+
     def compress_nite_dirs(self, nite_dir_list, min_edge, max_edge):
 
-        #
+        # For lsst alerts only:
         # For mjd_dirs in mjd_dir_list, compress those within
         # min_edge and max_edge-1.
         # "Compress"  mjd[mjd] diretory -> mjd[mjd].tar.gz

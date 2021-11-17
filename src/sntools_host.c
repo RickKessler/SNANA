@@ -6718,9 +6718,12 @@ void SORT_SNHOST_byDDLR(void) {
   //
   // May 20 2020: bug fix for LSN2GAL
   // Oct 25 2021: compute optional GALID_UNIQUE (for LSST broker test)
-  
-  bool LSN2GAL_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
-  int  NNBR          = SNHOSTGAL.NNBR ;
+  // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
+
+  int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
+  bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
+  bool LSN2GAL_RADEC    = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  int  NNBR             = SNHOSTGAL.NNBR ;
   int  IVAR_RA          = HOSTLIB.IVAR_RA;
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
@@ -6740,17 +6743,18 @@ void SORT_SNHOST_byDDLR(void) {
   // sort by DDLR
   sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
 
-  // check for SN-host distance-difference correction on 
-  // host gal mags (Nov 2021)
+  // check for SN-host distance-diff correction on host gal mags (Nov 2021)
   ifilt_obs = GENLC.IFILTMAP_OBS[0];
   IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
-  if ( IVAR >= 0 ) {
-    double MU_HOST, LENSDMU;
-    double zCMB, zHEL = SNHOSTGAL.ZTRUE; // zHEL
+  if ( IVAR >= 0 && !LSN2GAL_Z ) {
+    double HOST_DLMU, LENSDMU, zCMB, zHEL;
+    zHEL = SNHOSTGAL.ZTRUE; 
     zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
     gen_distanceMag(zCMB, zHEL,
-		    &MU_HOST, &LENSDMU ); // <== returned
-    DMUCOR = GENLC.DLMU - MU_HOST ;
+		    &HOST_DLMU, &LENSDMU ); // <== returned
+    DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
+    printf(" xxx %s: DMUCOR = %.4f(zSN=%.4f) - %.4f(zHOST=%.4f) = %.4f\n",
+	   fnam, GENLC.DLMU, GENLC.REDSHIFT_CMB, HOST_DLMU, zCMB, DMUCOR);  
   }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;

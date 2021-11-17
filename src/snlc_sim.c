@@ -15466,6 +15466,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     // check end of file, or end of simlib keywork -> rewind
     FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
+
     if ( FOUND_EOF || FOUND_ENDKEY ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       ENDSIMLIB_check();
@@ -15514,9 +15515,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	char tmp_field[40];
 	sscanf(wd1, "%s", tmp_field ); 
-
-	printf(" xxx %s: NFIELD=%d for tmp_field='%s' \n",
-	       fnam, NFIELD, tmp_field);
 
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
 

@@ -5627,6 +5627,9 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
     double *RMS_LIST = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST ;
     sigz1_core[0] = interp_1DFUN(1, ZGEN, NzBIN, z_LIST, RMS_LIST, fnam);
     sigz1_core[1] = sigz1_core[2] = prob_outlier = sigz1_outlier = 0.0;
+
+    //    printf(" xxx %s: zgen=%.3f -> sigz1 = %.3f \n",
+    //	   fnam, ZGEN, sigz1_core[0] ); fflush(stdout);
   }
   else {
     // use 3rd-order polynomial and outlier Gaussian
@@ -6729,12 +6732,26 @@ void SORT_SNHOST_byDDLR(void) {
   int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
   int  NNBR_DDLRCUT = 0 ;
   double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
+  double DMUCOR = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
   // ------------- BEGIN ---------------
 
   // sort by DDLR
   sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
+
+  // check for SN-host distance-difference correction on 
+  // host gal mags (Nov 2021)
+  ifilt_obs = GENLC.IFILTMAP_OBS[0];
+  IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+  if ( IVAR >= 0 ) {
+    double MU_HOST, LENSDMU;
+    double zCMB, zHEL = SNHOSTGAL.ZTRUE; // zHEL
+    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
+    gen_distanceMag(zCMB, zHEL,
+		    &MU_HOST, &LENSDMU ); // <== returned
+    DMUCOR = GENLC.DLMU - MU_HOST ;
+  }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;
 
@@ -6842,7 +6859,7 @@ void SORT_SNHOST_byDDLR(void) {
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
       if ( IVAR > 0 ) {
 	MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
-	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG + DMUCOR ; 
       }
 
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
@@ -6969,10 +6986,10 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
-  // check for transferring redshift to host redshift.
+  // check for transferring SN redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    zHEL = ZTRUE ;
+    zHEL = ZTRUE ;  // true host z
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
       zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
     }

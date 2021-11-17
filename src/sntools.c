@@ -6343,7 +6343,7 @@ int rd2columnFile(
     ptrtok = strtok(NULL, " ");
 
     // skip comment-lines
-    if ( commentchar(s1) == 1 ) { continue ; }
+    if ( commentchar(s1) ) { continue ; }
 
     // skip DOCUMENTATION lines (Oct 2020)
     if (strcmp(s1,KEYNAME_DOCANA_REQUIRED)  == 0 ) 
@@ -6393,15 +6393,16 @@ int commentchar(char *str) {
 
   // returns 1 if input string s is a comment character
   // such as #  %  ! 
+  // Nov 17 2021: Return true on blank string.
 
   char c1[2];
+  if ( strlen(str) == 0 ) return 1;
   sprintf(c1,"%c", str[0]);
 
   if ( strcmp(c1,"#") == 0 ) return  1 ;
   if ( strcmp(c1,"!") == 0 ) return  1 ;
   if ( strcmp(c1,"%") == 0 ) return  1 ;
   if ( strcmp(c1,"@") == 0 ) return  1 ;
-
   return  0;
 }
 

@@ -136,7 +136,7 @@ struct  {
   double   *snprob,     *extprob,      *snchi,      *extchi ;
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
 
-  int    Ndof;
+  int    Ndof, Ndof_prior, Ndof_data;
   double snchi_min, extchi_min ;
   double snprobtot, snprobmax, extprobtot, extprobmax;
   double w0_atchimin, wa_atchimin,  omm_atchimin, chi2atmin;
@@ -313,7 +313,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
-double rd_bao_prior(double z, Cosparam *cpar) ;
+double rd_bao_prior(Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
 
@@ -1529,11 +1529,11 @@ void set_priors(void) {
     char *comment = BAO_PRIOR.comment ; 
     printf("   '%s'\n", comment) ;
   } 
-  else if ( INPUTS.omm_prior_sig < .5 ) {
+  else if ( INPUTS.omm_prior_sig < 1. ) {
     noprior = false;
     printf("   Gaussian Omega_m prior: %5.3f +/- %5.3f\n",
 	   INPUTS.omm_prior, INPUTS.omm_prior_sig);
-  }
+    }
 
   // - - - -
   if ( INPUTS.use_cmb ) {
@@ -1583,7 +1583,7 @@ void init_cmb_prior(int OPT) {
     CMB_PRIOR.z      = 1089.0 ;
     CMB_PRIOR.a      = 1.0/(1.0 + CMB_PRIOR.z) ;
     CMB_PRIOR.R      = -9.0 ;
-    CMB_PRIOR.sigR   = -9.0 ;
+    CMB_PRIOR.sigR   = .019 ;
     comment[0]       =  0;
     return ;
   }
@@ -1697,7 +1697,7 @@ void init_bao_prior(int OPT) {
     if ( REFAC ) {
       double rd,z, DM, DH;
       HzFUN_INFO_DEF HzFUN;
-      rd = rd_bao_prior(z, &cparloc);
+      rd = rd_bao_prior(&cparloc);
       for (iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
 	z = BAO_PRIOR.z_sdss4[iz];
 	DM = DM_bao_prior(z, &cparloc);
@@ -1727,7 +1727,7 @@ void init_bao_prior(int OPT) {
 } // end init_bao_prior
 
 
-double rd_bao_prior(double z, Cosparam *cpar) {
+double rd_bao_prior( Cosparam *cpar) {
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
   // c_s= 1/ (sqrt( 3 * (1 + 3*Om_b / 4*Om_gamma) ) )  Davis et al, Page 4.
@@ -1852,12 +1852,21 @@ void set_stepsizes(void) {
 void set_Ndof(void) {
   // Compute number of degrees of freedom for wfit
   int Ndof;
-  Ndof = HD.NSN - 3 ; // h, w, omm
-  if ( INPUTS.use_wa  ) { Ndof-- ; }
-  if ( INPUTS.use_bao ) { Ndof++ ; }
-  if ( INPUTS.use_cmb ) { Ndof++ ; }
+  int Ndof_data = HD.NSN - 3 ; // h, w, om = 3 fitted parameters
+  int Ndof_prior = 0;
+  if ( INPUTS.use_wa  ) { Ndof_data-- ; } 
+  if ( INPUTS.use_bao ) { Ndof_prior+=2*NZBIN_BAO_SDSS4 ; }
+  if ( INPUTS.use_cmb ) { Ndof_prior+=1 ; }
 
+  Ndof = Ndof_data + Ndof_prior;
+  
   WORKSPACE.Ndof = Ndof ;
+  WORKSPACE.Ndof_data = Ndof_data;
+  WORKSPACE.Ndof_prior= Ndof_prior;
+  printf("XXX NDOF PRIOR = %d\n", Ndof_prior);
+  printf("XXX NDOF DATA  = %d\n", Ndof_data);
+  printf("XXX USE BAO = %d\n", INPUTS.use_bao);
+  printf("XXX NDOF  = %d\n", Ndof);
   return ;
 
 } // end set_Ndof
@@ -2792,9 +2801,8 @@ double chi2_bao_prior(Cosparam *cpar) {
 
   double OM        = cpar->omm ;
   double rz, tmp1, tmp2, a, nsig, E, chi2 = 0.0 ;
-  double DM, DM_measured, DH, DH_measured, DMvar, DHvar, rd, rd_measured;
+  double DM_rd_measured,  DH_rd_measured,  DMvar, DHvar, rd_model,dif_M, dif_H, DM_rd_var, DH_rd_var,DH_rd_model,DM_rd_model;
   int    iz;
-  Cosparam cparloc;
   char   fnam[] = "chi2_bao_prior" ;
 
   // ------------ BEGIN -------------
@@ -2805,25 +2813,29 @@ double chi2_bao_prior(Cosparam *cpar) {
     double z_sdss4;
     double a_sdss4;
     double siga_sdss4;
+    
+    
+    rd_model      = rd_bao_prior( cpar);
+    //printf("XXX rd_model = %.3f\n",rd_model);
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
       
-      /* Model*/
-      rd      = rd_DEFAULT; //150.;
-      DH      = DHrd_sdss4_DEFAULT[iz]*rd;
-      DM      = DMrd_sdss4_DEFAULT[iz]*rd; 
-      DMvar   = (sigDMrd_sdss4_DEFAULT[iz] * sigDMrd_sdss4_DEFAULT[iz]); // variance = sigma **2
-      DHvar   = (sigDHrd_sdss4_DEFAULT[iz] * sigDHrd_sdss4_DEFAULT[iz]);
-
       /* Measured*/
-      DH_measured      = DH_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
-      DM_measured      = DM_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
-      rd_measured      = rd_bao_prior(z_sdss4_DEFAULT[iz], &cparloc);
-      
-      tmp1             = (DH_measured/rd_measured -DH/rd) * (DH_measured/rd_measured -DH/rd);
-      tmp2             = (DM_measured/rd_measured -DM/rd) * (DM_measured/rd_measured -DM/rd);
 
+      DH_rd_measured      = DHrd_sdss4_DEFAULT[iz];
+      DM_rd_measured      = DMrd_sdss4_DEFAULT[iz]; 
+      DM_rd_var   = (sigDMrd_sdss4_DEFAULT[iz] * sigDMrd_sdss4_DEFAULT[iz]); // variance = sigma **2
+      DH_rd_var   = (sigDHrd_sdss4_DEFAULT[iz] * sigDHrd_sdss4_DEFAULT[iz]);
+
+      /* Model*/
+      DH_rd_model      = DH_bao_prior(z_sdss4_DEFAULT[iz], cpar)/rd_model ;
+      DM_rd_model      = DM_bao_prior(z_sdss4_DEFAULT[iz], cpar)/rd_model ;
+
+      dif_H            = (DH_rd_measured - DH_rd_model);
+      dif_M   	       = (DM_rd_measured - DM_rd_model);
+     
       
-      chi2 += (tmp1/DHvar + tmp2/DMvar); 
+      chi2 += (dif_H*dif_H)/DH_rd_var;
+      chi2 += (dif_M*dif_M)/DM_rd_var; 
     }
   }
   else if ( BAO_PRIOR.use_sdss ) {

@@ -49,6 +49,7 @@
 # Sep 28 2021: include wa if -wa arg is specified for wfit
 # Oct 05 2021: move get_wfit_values to submit_util.py so that
 #                dedicated wfit class can use it too.
+# Nov 17 2021: add list protection in def make_fitpar_summary()
 #
 # - - - - - - - - - -
 
@@ -2066,7 +2067,10 @@ class BBC(Program):
         # Output is YAML, but designed mainly for human readability.
         # When this function was written, there were no codes expected
         # to read this; only for human eyes.
-
+        #
+        # Nov 17 2021: 
+        #     protect against FITOPT_LIST=None and MUOPT_LIST=None
+        
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -2119,9 +2123,14 @@ class BBC(Program):
             f.write(f"- {fitopt_num}_{muopt_num}: \n")
 
             # check list sizes to accomodate noINPDIR option
-            if len(FITOPT_LIST) > 0 :
+            n_list = 0
+            if FITOPT_LIST : n_list = len(FITOPT_LIST)
+            if n_list > 0 :
                 f.write(f"    FITOPT: {FITOPT_LIST[ifit][3]} \n")
-            if len(MUOPT_LIST) > 0 :
+
+            n_list = 0
+            if MUOPT_LIST : n_list = len(MUOPT_LIST)
+            if n_list > 0 :
                 f.write(f"    MUOPT:  {MUOPT_LIST[imu][2]} \n")
 
             f.write(f"    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"

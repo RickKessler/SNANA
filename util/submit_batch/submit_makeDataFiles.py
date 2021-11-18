@@ -775,37 +775,12 @@ class MakeDataFiles(Program):
         row                 = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
 
         if out_lsst_alert:
-            data_unit = row[COLNUM_MKDATA_MERGE_DATAUNIT]
-            self.combine_alert_truth(data_unit)
+            data_unit     = row[COLNUM_MKDATA_MERGE_DATAUNIT]
+            wildcard      = f"{script_dir}/{data_unit}_SPLITRAN*.csv.gz"
+            combined_file = f"{script_dir}/{data_unit}.csv.gz"
+            util.combine_csv_files(wildcard, combined_file, True)
 
         # end  merge_job_wrapup
-
-    def combine_alert_truth(self, data_unit):
-
-        # combine SPLITRAN alert truth tables (csv) for this data unit.
-        
-        logging.info(f"  Combine csv truth tables for {data_unit}")
-
-        submit_info_yaml    = self.config_prep['submit_info_yaml']
-        script_dir          = submit_info_yaml['SCRIPT_DIR']
-
-        wildcard      = f"{script_dir}/{data_unit}_SPLITRAN*.csv.gz"
-        combined_file = f"{script_dir}/{data_unit}.csv.gz"
-        csv_file_list = sorted(glob.glob(wildcard))
-
-        # read table contents as strings to avoid modifying float format
-        # in the combined csv.
-        combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
-                                  for f in csv_file_list ] )
-
-        # write it all out in one combined file
-        combined_csv.to_csv(combined_file, index=False) 
-
-        # remove original csv files
-        cmd_rm = f"rm {wildcard}"
-        os.system(cmd_rm)
-
-        # end combine_alert_truth
 
     def compress_nite_dirs(self, nite_dir_list, min_edge, max_edge):
 
@@ -934,10 +909,16 @@ class MakeDataFiles(Program):
                                  capture_output=False, text=True )
 
         elif isfmt_lsst_alert :
-            wstar = f"{BASE_PREFIX}*.csv.gz"
-            print(f"\t Compress {wstar}")
-            sys.stdout.flush()
-            util.compress_files(+1, script_dir, wstar, "csv", "" )
+            wildcard_base = f"{BASE_PREFIX}*.csv.gz"
+        
+            wildcard      = f"{script_dir}/{wildcard_base}"
+            combined_file = f"{output_dir}/ALERTS_TRUTH.csv.gz"
+            util.combine_csv_files(wildcard, combined_file, True)
+
+            # xxx nothing to compress after combining csv files
+            #print(f"\t Compress {wildcard_base}")
+            #sys.stdout.flush()
+            #util.compress_files(+1, script_dir, wildcard_base, "csv", "" )
 
         else:
             msgerr.append(f"Unknown format '{output_format}" )

@@ -6,9 +6,34 @@
 
 import os, sys, yaml, shutil, glob, math, ntpath
 import logging, coloredlogs, subprocess
+import pandas as pd
 from   submit_params import *
 
 # =================================================
+
+def combine_csv_files(wildcard, combined_file, remove_flag=False):
+
+    # Created Nov 18 2021
+    # combine csv files from wildcard -> 
+    # output combined_file includes contents from all wildcard files.
+
+    logging.info(f"  Combine csv truth tables for\n\t {wildcard}")
+    csv_file_list = sorted(glob.glob(wildcard))
+
+    # read table contents as strings to avoid modifying float format 
+    # in the combined csv.            
+    combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
+                              for f in csv_file_list ] )
+
+    # write it all out in one combined file                                 
+    combined_csv.to_csv(combined_file, index=False)
+
+    # remove original csv files 
+    if remove_flag :
+        cmd_rm = f"rm {wildcard}"
+        os.system(cmd_rm)
+
+    # end combine_csv_files
 
 def get_wfit_values(wfit_yaml):
 

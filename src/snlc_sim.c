@@ -15401,6 +15401,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Nov 15 2021: skip key checks for  SIMLIB_ID < 0 to avoid
   //     confustion between LIBID header and global header on wrap-around.
   //
+  // Nov 18 2021: check iscomment() after removing newline to fix subtle
+  //    bug in which blank line at top of SIMLIB causes infinite loop.
+  //
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
@@ -15459,16 +15462,16 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
     /* xxxxxxxx
-    printf(" xxx %s: EOF=%d  ptr='%s' \n", 
-	   fnam, FOUND_EOF, ptr );
+    printf(" xxx %s: EOF=%d  cline='%s' \n", 
+	   fnam, FOUND_EOF, cline );
     if ( NLINE == 30 ) { debugexit(fnam); }
     xxxxxxxxxxxxx */
 
-    // skip comment character
-    if ( commentchar(cline) ) { continue; }
-
     // remove line feed    
     if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
+
+    // skip comment character (after removing newline)
+    if ( commentchar(cline) ) { continue; }
 
     // note that splitString2 is fast, but destroys cline
     splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
@@ -15485,6 +15488,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.NWRAP++ ; 
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
+	FOUND_ENDKEY = FOUND_EOF = false;
 	ISTORE = 0;
       }
       continue ;

@@ -9456,7 +9456,6 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
   else {
     // cannot rewind popen for gz file; must close and re-open
     int istat = pclose(fp);
-
     if ( istat == -1 ) {
       sprintf(c1err,"pclose Error = -1 for file=");
       sprintf(c2err,"%s", FILENAME);
@@ -9666,12 +9665,24 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // A separate abort function is available to both C and fortran.
   //
   // Return FOUND_DOCANA logical
+  //
+  // Nov 18 2021; use fgets instead of fscanf
 
-  char key[60];
+  char line[MXPATHLEN], key[60], *ptrtok, *pos;
   bool FOUND_DOCANA ;
   char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
-  fscanf(fp, "%s", key);
+
+  line[0] = 0 ;
+  while ( strlen(line) == 0 ) {  // skip blank lines
+    fgets(line, MXPATHLEN-10, fp);
+    if ( (pos=strchr(line,'\n') ) != NULL )  { *pos = '\0' ; }
+  }
+
+  //  printf(" xxx %s: found line = '%s'\n", fnam, line);
+
+  ptrtok = strtok(line," ") ; // split line into words
+  sprintf(key, "%s", ptrtok);  // first word in file
 
   FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
   if ( !FOUND_DOCANA ) {

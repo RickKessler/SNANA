@@ -6753,8 +6753,11 @@ void SORT_SNHOST_byDDLR(void) {
     gen_distanceMag(zCMB, zHEL,
 		    &HOST_DLMU, &LENSDMU ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
+
+    /* 
     printf(" xxx %s: DMUCOR = %.4f(zSN=%.4f) - %.4f(zHOST=%.4f) = %.4f\n",
 	   fnam, GENLC.DLMU, GENLC.REDSHIFT_CMB, HOST_DLMU, zCMB, DMUCOR);  
+    */
   }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;

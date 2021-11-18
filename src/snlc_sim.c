@@ -14495,7 +14495,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   int  REQUIRE_DOCANA = INPUTS.REQUIRE_DOCANA ; 
   int  OPENMASK       = OPENMASK_VERBOSE ;
   if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
-  char c_get[80];
+  char c_get[200];
   int  NTMP, NFILT;
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
 
@@ -14503,8 +14503,10 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
   print_banner(fnam);
 
+  // xxx  OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA;
+
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  fp_SIMLIB = snana_openTextFile(OPENMASK,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
+  fp_SIMLIB = snana_openTextFile(OPENMASK, PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
 				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
   
   if ( fp_SIMLIB == NULL ) {
@@ -15448,12 +15450,19 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
   int NLINE=0;
-
+  
   while ( !DONE_READING ) {
 
     NLINE++ ;
     cline[0] = 0 ;   FOUND_EOF = false ;
+
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
+
+    /* xxxxxxxx
+    printf(" xxx %s: EOF=%d  ptr='%s' \n", 
+	   fnam, FOUND_EOF, ptr );
+    if ( NLINE == 30 ) { debugexit(fnam); }
+    xxxxxxxxxxxxx */
 
     // skip comment character
     if ( commentchar(cline) ) { continue; }

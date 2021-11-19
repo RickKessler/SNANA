@@ -2,6 +2,8 @@ import sys
 import os
 import yaml
 import astropy.table as at
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator
 
 
 mask_bit_locations = {'verbose':1,'dump':2}
@@ -20,17 +22,17 @@ class gensed_BAYESN:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
             self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
             self.dump = OPTMASK & (1 << mask_bit_locations['dump'])>0
-            self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+            self.PATH_VERSION = os.path.expandvars(PATH_VERSION)
 
             # check if a param file exists
-            if os.path.exists(os.path.join(self.PATH_VERSION,'bayesn.params')):
-                self.paramfile = os.path.join(self.PATH_VERSION,'bayesn.params')
-            # look for all upper case extension as well as lower case
-            elif os.path.exists(os.path.join(self.PATH_VERSION,'BAYESN.PARAMS')):
-                self.paramfile = os.path.join(self.PATH_VERSION,'BAYESN.PARAMS')
-            else:
-                raise RuntimeError('param file %s not found!'%\
-                                   os.path.join(self.PATH_VERSION,'BAYESN.params'))
+            self.paramfile = None
+            param_files = ['bayesn.params','BAYESN.PARAMS', 'BAYESN.params']
+            for param_file in param_files:
+                if os.path.exists(os.path.join(self.PATH_VERSION, param_file)):
+                    self.paramfile = os.path.join(self.PATH_VERSION,param_file)
+                    break
+            if self.paramfile is None:
+                raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
 
             #self.params_file_contents = yaml.load(open(self.paramfile),
             #                                      Loader=yaml.FullLoader)
@@ -48,8 +50,10 @@ class gensed_BAYESN:
             self._hsiao = at.Table.read(hsiao_model, format='ascii', names=('phase','wave','flux'))
 
             ### FILL IN THESE REQUIRED ELEMENTS
-            self.wave = self._hsiao['wave']
+            self.phase = np.unique(self._hsiao['phase'])
+            self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
+            self.flux = self._hsiao['flux']
             self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON']
             self.parameter_values = {key:-9. for key in self.parameter_names}
 
@@ -65,6 +69,7 @@ class gensed_BAYESN:
         """
         Returns the length of the wavelength vector
         """
+        print('python', self.wavelen, 'XXXXX WAVELEN')
         return self.wavelen
 
 
@@ -75,7 +80,7 @@ class gensed_BAYESN:
         return list(self.wave)
 
 
-    def fetchSED_SNEMO(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
+    def fetchSED_BAYESN(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
         """
         Returns the flux at every wavelength, for a given phase.
 
@@ -99,17 +104,17 @@ class gensed_BAYESN:
         A list of length self.wavelen containing the flux at
         every wavelength in self.wave, at the phase trest
         """
+        print('PYTHON CODE', new_event)
+        if new_event != 1:
+            newSN=False
+        else:
+            newSN=True
 
-        try:
-            if len(self.wave)>maxlam:
-                raise RuntimeError("Your wavelength array\
-                        cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
+        ind =  np.abs(self.phase - trest).argmin()
+        ind_flux = ind*self.wavelen
+        flux = self.flux[ind_flux:ind_flux+self.wavelen]
+        return list(flux)
 
-            # Calculation for flux at self.wave wavelengths for phase trest
-            return flux_at_all_wavelengths_for_trest
-        except Exception as e:
-            print('Python Error :',e)
-            print_err()
 
 
     def fetchParNames_BAYESN(self):
@@ -139,7 +144,7 @@ class gensed_BAYESN:
 
 
 def main():
-  mySED=gensed_SNEMO('$WFIRST_USERS/jpierel/pySED_test/SNEMO.P20/',2,[],'z,AGE,ZCMB,METALLICITY')
+  mySED=gensed_BAYESN('$WFIRST_USERS/jpierel/pySED_test/SNEMO.P20/',2,[],'z,AGE,ZCMB,METALLICITY')
 
 
 if __name__=='__main__':

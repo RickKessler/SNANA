@@ -579,6 +579,8 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
   *NLAM_SED = 0 ; // init output
 
+  printf("BEGIN %s\nTREST = %f\n",fnam, Trest);
+
 #ifdef USE_PYTHON
   PyObject *pmeth, *pargs, *pargs2, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
   int NLAM, ilam, ihost;
@@ -608,7 +610,10 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   }
 
   PyTuple_SetItem(pargs,4,pargs2);
+  printf("C code BEGIN\n");
+  printf("C code NEWEVT_FLAT %d\n",NEWEVT_FLAG);
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
+  printf("C code pNLAM = %f\n", pNLAM);
   pLAM  = PyEval_CallObject(plammeth, NULL);
   pFLUX   = PyEval_CallObject(pmeth, pargs);
 
@@ -617,6 +622,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   Py_DECREF(pnlammeth);
 
   NLAM = PyFloat_AsDouble(pNLAM);
+  printf("C code NLAM = %d\npnlammeth = %d\n", NLAM, pnlammeth);
   Py_DECREF(pNLAM);
 
   arrLAM  = (PyListObject *)(pLAM);

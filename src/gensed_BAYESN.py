@@ -17,7 +17,6 @@ def print_err():
 class gensed_BAYESN:
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
-
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
             self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
@@ -69,7 +68,6 @@ class gensed_BAYESN:
         """
         Returns the length of the wavelength vector
         """
-        print('python', self.wavelen, 'XXXXX WAVELEN')
         return self.wavelen
 
 
@@ -104,7 +102,6 @@ class gensed_BAYESN:
         A list of length self.wavelen containing the flux at
         every wavelength in self.wave, at the phase trest
         """
-        print('PYTHON CODE', new_event)
         if new_event != 1:
             newSN=False
         else:

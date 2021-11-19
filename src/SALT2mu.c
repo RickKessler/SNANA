@@ -6022,9 +6022,14 @@ void read_data_override(void) {
   // override, update zCMB and zHD.
   //
   // May 12 2021: for HOST_LOGMASS, also set CUTVAL for applying cuts.
-  
+  // Nov 18 2021: 
+  //   + allow VPECERR or VPEC_ERR
+  //   + avoid double-counting zHD override if zHEL and VPEC are both
+  //      on override list. Same for zHDERR with ZHELERR and VPECERR.
+  //
   char VARNAME_VPEC[]     = "VPEC";
-  char VARNAME_VPECERR[]  = "VPEC_ERR";
+  char VARNAME_VPECERR[]  = "VPECERR";
+  char VARNAME_VPECERR2[] = "VPEC_ERR";
   char VARNAME_zHD[]      = "zHD";
   char VARNAME_zHDERR[]   = "zHDERR";
   char VARNAME_zHEL[]     = "zHEL";
@@ -6090,6 +6095,8 @@ void read_data_override(void) {
 
       if ( strcmp(varName,VARNAME_VPECERR) == 0 ) 
 	{ IVAR_OVER_VPECERR = NVAR_OVER ; }
+      if ( strcmp(varName,VARNAME_VPECERR2) == 0 ) // alternate key 11.18.2021
+	{ IVAR_OVER_VPECERR = NVAR_OVER ; }
 
       if ( strcmp(varName,VARNAME_zHEL) == 0     ) 
 	{ IVAR_OVER_zHEL = NVAR_OVER ; }
@@ -6106,6 +6113,7 @@ void read_data_override(void) {
       NVAR_OVER++ ;
     }
   }
+
 
   // - - - - - - - -
   // check for conflicts
@@ -6142,17 +6150,20 @@ void read_data_override(void) {
   }
 
   // - - - - - - 
-  // if VPEC is on override list, add recalculated zHD to override list.
-  // if VPEC_ERR is on override list, add recalculated zHDERR
-  if ( IVAR_OVER_VPEC >= 0 ) {     
+  // if VPEC or zHEL is on override list, add recalc zHD to override list.
+
+  if ( IVAR_OVER_VPEC >= 0 || IVAR_OVER_zHEL >= 0 ) {     
     IVAR_OVER_zHD = NVAR_OVER ;
     NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
   }
-  if ( IVAR_OVER_VPECERR >= 0 )  {
+
+  // if zHELERR or VPEC_ERR is on override list, add recalculated zHDERR
+  if ( IVAR_OVER_VPECERR >= 0 || IVAR_OVER_zHELERR >= 0 )  {
     IVAR_OVER_zHDERR = NVAR_OVER ; 
     NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
   }
 
+  /* xxx mark delete Nov 18 2021 xxxxxxxxxx
   // if zHEL is on override list, add shifted zHD
   if ( IVAR_OVER_zHEL >= 0 ) {     
     IVAR_OVER_zHD = NVAR_OVER ;
@@ -6162,6 +6173,7 @@ void read_data_override(void) {
     IVAR_OVER_zHDERR = NVAR_OVER ; 
     NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
   }
+  xxxxxxxxx end mark xxxxxxxxxx */
 
 
   INFO_DATA.NVAR_OVERRIDE = NVAR_OVER;
@@ -6191,10 +6203,15 @@ void read_data_override(void) {
     varName   = INFO_DATA.VARNAMES_OVERRIDE[ivar_over] ;
     NSN_CHANGE[ivar_over] = 0 ;
 
-    if ( strcmp(varName,"VPEC") == 0 )
+    if ( strcmp(varName,VARNAME_VPEC) == 0 )
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpec ;  }   
-    else if ( strcmp(varName,"VPEC_ERR") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr ;  }  
+
+    // Nov 18 2021: allow VPECERR or VPEC_ERR
+    else if ( strcmp(varName,VARNAME_VPECERR) == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr; }  
+    else if ( strcmp(varName,VARNAME_VPECERR2) == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr; }  
+
     else if ( strcmp(varName,"HOST_LOGMASS") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.logmass ;  }
 
@@ -6226,7 +6243,7 @@ void read_data_override(void) {
 
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
   int istat, isn;
-  bool  override_zhd;
+  bool  override_zhd, override_zhderr;
   float *fval ;   double dval;    char *name, *cval ;
   double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
 
@@ -6234,6 +6251,7 @@ void read_data_override(void) {
 
     zhd_orig   = (double)INFO_DATA.TABLEVAR.zhd[isn];
     zhel_orig  = (double)INFO_DATA.TABLEVAR.zhel[isn];
+    override_zhd = override_zhderr = false;
 
     for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
 
@@ -6243,9 +6261,9 @@ void read_data_override(void) {
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
       SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval ); 
-
-      override_zhd = false;
       
+      // xxx mark delete override_zhd = false;
+
       // xxxxxxx
       if ( istat == -99990 ) {
 	printf(" xxx %s: isn=%4d ivar_over=%d  istat=%d, dval=%f \n",
@@ -6259,7 +6277,7 @@ void read_data_override(void) {
 	  double vpec_over = dval;
 	  zhd_over = zhd_data_override(isn,vpec_over); 
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
-	  NSN_CHANGE[IVAR_OVER_zHD]++ ; 
+	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
 	else if ( ivar_over == IVAR_OVER_VPECERR ) {	 
@@ -6267,12 +6285,13 @@ void read_data_override(void) {
 	  zhderr_over = zhderr_data_override(isn,vpecerr_over); 
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHDERR][isn] = zhderr_over ;
 	  NSN_CHANGE[IVAR_OVER_zHDERR]++ ; 
+          override_zhderr = true ;
 	}
 	else if ( ivar_over == IVAR_OVER_zHEL ) {
-	  zhel_over  = dval ;
-	  zhd_over = zhd_orig + (zhel_over-zhel_orig); 
+	  zhel_over = dval ;
+	  zhd_over  = zhd_orig + (zhel_over-zhel_orig); 
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
-	  NSN_CHANGE[IVAR_OVER_zHD]++ ; 
+	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
 	else if ( ivar_over == IVAR_OVER_LOGMASS && IVAR_GAMMA >= 0 ) {
@@ -6323,7 +6342,7 @@ void read_data_override(void) {
   free(VARNAMES_STRING_DATA);
   free(VARNAMES_STRING_OVER);
 
-  // xxx  debugexit(fnam);
+  //  debugexit(fnam); // xxx remove
   return ;
 
 } // end  read_data_override

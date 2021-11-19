@@ -6284,6 +6284,7 @@ void read_data_override(void) {
 	  double vpecerr_over = dval;
 	  zhderr_over = zhderr_data_override(isn,vpecerr_over); 
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHDERR][isn] = zhderr_over ;
+	  INFO_DATA.TABLEVAR.zmuerr[isn] = vpecerr_over/LIGHT_km ;// Erik Peterson 11/19
 	  NSN_CHANGE[IVAR_OVER_zHDERR]++ ; 
           override_zhderr = true ;
 	}
@@ -6403,7 +6404,6 @@ double zhderr_data_override(int isn, double vpecerr_over ) {
 
   zhderrsq = ZERR1*ZERR1 + ZERR2*ZERR2 ;
   zhderr_over = sqrt(zhderrsq);
-
   return zhderr_over ;
 
 } // end zhderr_data_override

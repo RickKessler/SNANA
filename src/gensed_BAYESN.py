@@ -106,6 +106,7 @@ class gensed_BAYESN:
             newSN=False
         else:
             newSN=True
+            self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
 
         ind =  np.abs(self.phase - trest).argmin()
         ind_flux = ind*self.wavelen

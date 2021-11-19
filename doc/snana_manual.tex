@@ -10295,9 +10295,9 @@ Examples are
    GENMODEL:  [PATH]/SALT2.JLA-B14       
    GENMODEL:  [PATH]/SIMSED.SNII-MOSFIT
    GENMODEL:  [PATH]/NONIASED.UV2IR
-   GENMODEL:  [PATH]/BYOSED.TEST
 
    GENMODEL: BYOSED [AnyPathName]   # option without PATH name restriction
+   GENMODEL: BAYESN [AnyPathName]   # idem
 
    # models based on file; no restriction on PATH or fileName
    GENMODEL:  LCLIB      [PATH]/fileName
@@ -11368,6 +11368,55 @@ END_EVENT:  <ID1>
      SIMLIB cadence library with the correct RA,DEC distribution
      (and {\tt GENMODEL\_MSKOPT=0}).
 \end{itemize}
+
+
+% -----------------------------------------
+\clearpage
+\subsection{PySEDMODEL: Python SED models}
+\label{subsec:PySEDMODEL}
+
+To accomodate a broader class of SED models in the simulation,
+there is a C-python interface for python SED models ({\tt PySEDMODEL}) 
+to return
+i) rest-frame SED at requested phase, and 
+ii) relevant internal parameters.
+The rest-frame SED is used by the simulation C-code\footnote{{\tt PySEDMODEL}
+  does not connect with SNANA light curve fitting codes.}
+to compute broadbad fluxes and noise in the same way as
+any other SED model (e.g., SALT2, NON1ASED ...). 
+The internal parameters are not used by the C-code, 
+but are passed to the output data files and/or {\tt SIMGEN\_DUMP} file.
+There are currently 3 python models under development which
+can be called with the following syntax:
+%
+\begin{Verbatim}[frame=single]
+   GENMODEL:  BYOSED  [path]  # Build-Your-Own SED
+   GENMODEL:  SNEMO   [path]  # based on SNFactory data
+   GENMODEL:  BAYESN  [path]  # optical+NIR
+
+   GENMODEL_MSKOPT: [mask] # integer option or mask
+   GENMODEL_ARGLIST: `key0 val0 key1 val1 key2 x0,x1,x2,x3 etc ...'
+\end{Verbatim}
+
+The {\tt GENMODEL} key is followed by a {\tt PySEDMODEL} name
+and path. The path contains formatted information \& instructions 
+that are parsed by the init function in the python code.
+
+The last two keys allow passing additional options to the
+python code, both in the form of an integer flag or char-string.
+These arguments can be passed on the command line to override
+default behavior, e.g.,
+%
+\begin{verbatim}
+    snlc_sim.exe <myInputFile> GENMODEL_MSKOPT 8
+        or
+    snlc_sim.exe <myInputFile> GENMODEL_ARGLIST `TAU_AV 0.33 ZETA 4.3'
+\end{verbatim}
+The simulation C code does not parse these argument, but simply
+passes these arguments to the python init function.
+
+% .xyz
+
 
 % ##########################################
    \clearpage

@@ -1017,6 +1017,9 @@ void set_user_defaults(void) {
     INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] =  0.0 ; 
     INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     =  0.0 ; 
   }
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN   = 0;
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING[0] = 0;
+
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
   INPUTS.HOSTLIB_MAXDDLR = 4.0 ;   // cut on SN-host separation
@@ -1931,9 +1934,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
 
     // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
-    if ( INPUTS.OPT_MWEBV < 0 ) {
-      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d)"
-	      "no longer allowed.", INPUTS.OPT_MWEBV);
+    if ( ITMP < 0 ) {
+      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d) "
+	      "is no longer allowed.", ITMP);
       sprintf(c2err,"OPT_MWEBV must be > 0");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -2616,6 +2619,54 @@ void parse_input_FIXMAG(char *string) {
 
 } // end parse_input_FIXMAG
 
+// ===============================================
+void parse_input_GENZPHOT_FUEGEMAP(char *string) {
+
+  // Created Nov 15 2021 by R.Kessler
+  // Parse input *string of the form
+  //     z0:rms0,z1,rms1,z2:rms2,etc ...
+  // and load INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP struct.
+  //
+
+  int VERBOSE = 0 ;
+  int MAX_NzBIN = 50, MXCHAR=200, NzBIN, iz, Nsplit2 ;
+  double z, rms;
+  char **split_string, **split_string2;
+  char fnam[] = "parse_input_GENZPHOT_FUEGEMAP" ;
+
+  // ------------- BEGIN ------------
+
+  // split string by commas
+  parse_commaSepList(fnam, string, MAX_NzBIN, MXCHAR,
+		     &NzBIN, &split_string );
+
+  INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN = NzBIN;
+  if ( VERBOSE ) {    print_banner(fnam);  }
+
+  split_string2    = (char**) malloc( 2 * sizeof(char*) );
+  split_string2[0] = (char*)malloc( 40*sizeof(char) );
+  split_string2[1] = (char*)malloc( 40*sizeof(char) );
+
+  // .xyz  
+
+  // each element is z:rms, so split each element by colon
+  for ( iz=0; iz < NzBIN; iz++ ) {
+    splitString(split_string[iz], COLON, 2, 
+		&Nsplit2, split_string2);
+    sscanf(split_string2[0], "%le", &z);
+    sscanf(split_string2[1], "%le", &rms);
+    INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST[iz]   = z;
+    INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST[iz] = rms;
+
+    if ( VERBOSE ) {
+      printf("\t z=%.3f, rms(zPhot-zTrue) = %.3f  \n", 
+	     split_string[iz], z, rms ); fflush(stdout);
+    }
+  }
+
+  //  debugexit(fnam);
+  return;
+} // end parse_input_GENZPHOT_FUEGEMAP
 
 // ==============================================================
 void  parse_input_GENZPHOT_OUTLIER(char *string) {
@@ -3015,6 +3066,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   //               only if it is not already set.
 
   int  j, ITMP, N=0, nread ;
+  char *ptr_str;
   char fnam[] = "parse_input_HOSTLIB" ;
 
   // ------------ BEGIN ------------
@@ -3081,6 +3133,11 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
 
+  else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEMAP",WORDS[0],keySource)){
+    ptr_str = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING ;
+    N++ ; sscanf(WORDS[N], "%s", ptr_str);
+    parse_input_GENZPHOT_FUEGEMAP(ptr_str);
+  }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
     for(j=0; j < 4; j++ )  {
@@ -5114,6 +5171,7 @@ void prep_user_input(void) {
     if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] >  0.0 ) { USE=1; }
     if ( INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     != 0.0 ) { USE=1; }
   }
+  if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN > 0 ) { USE=1; }
   INPUTS.USE_HOSTLIB_GENZPHOT = USE ;
 
   // -----------------------------------------------
@@ -5509,7 +5567,6 @@ void prep_user_input(void) {
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
-
   printf("\t Observer Gen-FILTERS  :  %s ", INPUTS.GENFILTERS );
 
   printf(" \n" );
@@ -5760,6 +5817,31 @@ void prep_user_input(void) {
     */
   }
 
+  // Nov 15 2021
+  // check GENZPHOT_FUDGEMAP, and abort if z-range does not cover
+  // GENRANGE_REDSHIFT.
+  int iz, NzBIN = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN;
+  if ( NzBIN > 0 ) { 
+    double *z_list   = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST;
+    double *rms_list = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST;
+    for(iz=0; iz < NzBIN; iz++ ) {
+      printf("\t RMS(zPhot-zSpec) = %.3f at z=%.3f\n",
+	     z_list[iz], rms_list[iz] ); fflush(stdout);
+    }
+    bool bad_z = false;
+    if ( z_list[0]       > INPUTS.GENRANGE_REDSHIFT[0] )  { bad_z = true; }
+    if ( z_list[NzBIN-1] < INPUTS.GENRANGE_REDSHIFT[1] )  { bad_z = true; }
+    if ( bad_z ) {
+      print_preAbort_banner(fnam);
+      sprintf(c1err,"HOSTLIB_GENZPHOT_FUDGEMAP covers %.4f < z < %.4f ",
+	      z_list[0], z_list[NzBIN-1]);
+      sprintf(c2err,"but GENRANGE_REDSHIFT covers %.4f %.4f", 
+	      INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
+  // - - - - - - - -
   if ( INPUTS.RESTORE_DES3YR ) {
     INPUTS.RESTORE_HOSTLIB_BUGS = true ;
     INPUTS.RESTORE_FLUXERR_BUGS = true ;
@@ -14413,7 +14495,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   int  REQUIRE_DOCANA = INPUTS.REQUIRE_DOCANA ; 
   int  OPENMASK       = OPENMASK_VERBOSE ;
   if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
-  char c_get[80];
+  char c_get[200];
   int  NTMP, NFILT;
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
 
@@ -14421,8 +14503,10 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
   print_banner(fnam);
 
+  // xxx  OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA;
+
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  fp_SIMLIB = snana_openTextFile(OPENMASK,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
+  fp_SIMLIB = snana_openTextFile(OPENMASK, PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
 				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
   
   if ( fp_SIMLIB == NULL ) {
@@ -15314,6 +15398,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Sep 01 2021: refactor to read entire line with fgets;
   //              hopefully speeds up Cori batch jobs.
   //
+  // Nov 15 2021: skip key checks for  SIMLIB_ID < 0 to avoid
+  //     confustion between LIBID header and global header on wrap-around.
+  //
+  // Nov 18 2021: check iscomment() after removing newline to fix subtle
+  //    bug in which blank line at top of SIMLIB causes infinite loop.
+  //
+
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
@@ -15323,7 +15414,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
-  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD ;
+  bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY, SKIP_MJD, FOUND_LIBID ;
   bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
@@ -15362,24 +15453,32 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
   int NLINE=0;
-
+  
   while ( !DONE_READING ) {
 
     NLINE++ ;
     cline[0] = 0 ;   FOUND_EOF = false ;
+
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
-    // skip comment character
-    if ( commentchar(cline) ) { continue; }
+    /* xxxxxxxx
+    printf(" xxx %s: EOF=%d  cline='%s' \n", 
+	   fnam, FOUND_EOF, cline );
+    if ( NLINE == 30 ) { debugexit(fnam); }
+    xxxxxxxxxxxxx */
 
     // remove line feed    
     if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
+
+    // skip comment character (after removing newline)
+    if ( commentchar(cline) ) { continue; }
 
     // note that splitString2 is fast, but destroys cline
     splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
 
     // check end of file, or end of simlib keywork -> rewind
     FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
+
     if ( FOUND_EOF || FOUND_ENDKEY ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       ENDSIMLIB_check();
@@ -15389,6 +15488,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.NWRAP++ ; 
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
+	FOUND_ENDKEY = FOUND_EOF = false;
 	ISTORE = 0;
       }
       continue ;
@@ -15412,6 +15512,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	iwd++ ; continue ;
       }
 
+      if ( SIMLIB_HEADER.LIBID < 0 ) { continue; } // Nov 15 2021
+
       if ( strcmp(wd0,"RA:") == 0 ) 
 	{ sscanf(wd1, "%le", &SIMLIB_HEADER.RA );  iwd++ ; continue; }
       else if ( strcmp(wd0,"DEC:") == 0 ) 
@@ -15422,10 +15524,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"SUBSURVEY:")==0 ) 
 	{ sscanf(wd1,"%s",SIMLIB_HEADER.SUBSURVEY_NAME); iwd++; continue;}
       
-      else if ( strcmp(wd0,"FIELD:") == 0 )  { 
+      else if ( strcmp(wd0,"FIELD:") == 0  )  { 
 
 	char tmp_field[40];
 	sscanf(wd1, "%s", tmp_field ); 
+
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
@@ -27893,13 +27996,11 @@ void SIMLIB_DUMP_DRIVER(void) {
   
   double
     MJD, MJD_LAST, GAPMAX, GAPAVG, MJDWIN, FRAC, *ptrmjd
-    ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe
-    ,ZPTERR, M5SIG
+    ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe ,ZPTERR, M5SIG
     ,ZPT_SIMLIB, PSF_SIMLIB, SNR_maglimit
     ,FSKY_pe, SKYMAG, RA, DEC, MWEBV
     ,XNobs, TMP, TMP0,  TMP1, wgt_LCLIB, wgtsum_LCLIB=0.0
-    ,GLOBAL_RANGE_RA[2]
-    ,GLOBAL_RANGE_DEC[2]
+    ,GLOBAL_RANGE_RA[2], GLOBAL_RANGE_DEC[2]
     ,GAIN_SIMLIB, PIXSIZE_SIMLIB
     ;
 
@@ -28209,7 +28310,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     } // end of 'ep' epoch loop for this simlib entry
 
 
-    // get max temporal gap for unsorted list of MJDs
+    // get max and avg temporal gap for unsorted list of MJDs
     Nobs   = (int)SIMLIB_DUMP_AVG1.NEPFILT[0] ;
     ptrmjd = &MJDLIST_ALL[1] ;
     MJDGAP(Nobs, ptrmjd, MJDGAP_IGNORE, &GAPMAX, &GAPAVG );
@@ -28244,7 +28345,6 @@ void SIMLIB_DUMP_DRIVER(void) {
       SIMLIB_DUMP_AVG1.SKYSIG_pe[ifilt_obs]  /= XNobs ;
       SIMLIB_DUMP_AVG1.SKYMAG[ifilt_obs]     /= XNobs ;
       SIMLIB_DUMP_AVG1.M5SIG[ifilt_obs]      /= XNobs ;
-
 
       if ( LDMP_SEQ_TEXT ) {
 	fprintf(fpdmp0,"%2d %6.2f %5.2f %5.2f ", Nobs
@@ -28301,7 +28401,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     } // end of LDMP_LOCAL - screen dump
 
     update_SIMLIB_DUMP_AVGALL(1);
-    if ( LDMP_ROOT) {
+    if ( LDMP_ROOT ) {
       SNTABLE_FILL(TABLEID_SIMLIB_DUMP); 
     }
 
@@ -28335,9 +28435,9 @@ void SIMLIB_DUMP_DRIVER(void) {
   update_SIMLIB_DUMP_AVGALL(2);
 
 
-  printf("\n Done reading %d SIMLIB entries. \n", NREAD );
+  printf("\n Done reading %d entries from %s \n", NREAD, INPUTS.SIMLIB_FILE );
   
-  printf("\n LIBRARY AVERAGES PER FILTER:  \n");
+  printf("\n CADENCE LIBRARY AVERAGES PER FILTER:  \n");
   printf("                   <PSF>  \n" );
   printf("          <ZPT-pe> FWHM  <SKYSIG>  <SKYMAG>                    \n");
   printf("      FLT  (mag)  (asec) (pe/pix)  (asec^-2) <m5sig> <Nep> <GAP>\n");

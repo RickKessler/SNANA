@@ -20567,14 +20567,28 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + read/apply global FIELD key simlib header.
      + abort if OPT_MWEBV < 0 (previous attempt didn't actaully abort)
      + new input  HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
+     
+   sntools_host.c:
+     + adjust HOSTGAL mags for MU(zSN) - MU(zGAL)
+
    kcor.c:
     + For spectrograph, extend stored wavelength range of SEDs to that 
       of spectraograph.
     + fix bug reading correct wave range of primary SED.
 
+   submit_batch_jobs:
+     + check_abort is monitored after each job so no longer have
+        to wait for all jobs to finish.
+
    submit_prog_sim.py:
      strip out comments from reading sim-input files.
 
+   genmag_LCLIB: fix refac bugs from Jun 23 2021 (affected AGN)
+
    Add gensed_BAYESN.py [begin development of new PySEDMODEL option]
+ 
+   SALT2mu.c:
+     + fix override to work when two variables (zHEL and VPEC)
+       both affect zHD.
 
 END: 

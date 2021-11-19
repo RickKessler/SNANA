@@ -6343,7 +6343,7 @@ int rd2columnFile(
     ptrtok = strtok(NULL, " ");
 
     // skip comment-lines
-    if ( commentchar(s1) == 1 ) { continue ; }
+    if ( commentchar(s1) ) { continue ; }
 
     // skip DOCUMENTATION lines (Oct 2020)
     if (strcmp(s1,KEYNAME_DOCANA_REQUIRED)  == 0 ) 
@@ -6393,15 +6393,16 @@ int commentchar(char *str) {
 
   // returns 1 if input string s is a comment character
   // such as #  %  ! 
+  // Nov 17 2021: Return true on blank string.
 
   char c1[2];
+  if ( strlen(str) == 0 ) return 1;
   sprintf(c1,"%c", str[0]);
 
   if ( strcmp(c1,"#") == 0 ) return  1 ;
   if ( strcmp(c1,"!") == 0 ) return  1 ;
   if ( strcmp(c1,"%") == 0 ) return  1 ;
   if ( strcmp(c1,"@") == 0 ) return  1 ;
-
   return  0;
 }
 
@@ -9455,7 +9456,6 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
   else {
     // cannot rewind popen for gz file; must close and re-open
     int istat = pclose(fp);
-
     if ( istat == -1 ) {
       sprintf(c1err,"pclose Error = -1 for file=");
       sprintf(c2err,"%s", FILENAME);
@@ -9665,12 +9665,24 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // A separate abort function is available to both C and fortran.
   //
   // Return FOUND_DOCANA logical
+  //
+  // Nov 18 2021; use fgets instead of fscanf
 
-  char key[60];
+  char line[MXPATHLEN], key[60], *ptrtok, *pos;
   bool FOUND_DOCANA ;
   char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
-  fscanf(fp, "%s", key);
+
+  line[0] = 0 ;
+  while ( strlen(line) == 0 ) {  // skip blank lines
+    fgets(line, MXPATHLEN-10, fp);
+    if ( (pos=strchr(line,'\n') ) != NULL )  { *pos = '\0' ; }
+  }
+
+  //  printf(" xxx %s: found line = '%s'\n", fnam, line);
+
+  ptrtok = strtok(line," ") ; // split line into words
+  sprintf(key, "%s", ptrtok);  // first word in file
 
   FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
   if ( !FOUND_DOCANA ) {

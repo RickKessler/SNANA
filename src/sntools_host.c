@@ -5589,7 +5589,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
 
   // Created Feb 23 2017
   // Compute ZPHOT and ZPHOT_ERR from Gaussian profiles specified
-  // by sim-input  HOSTLIB_GENZPHOT_FUDGEPAR
+  // by sim-input  HOSTLIB_GENZPHOT_FUDGEPAR or HOSTLIB_GENZPHOT_FUDGEMAP
   //
   // Mar 29 2018: 
   //  + float -> double
@@ -5601,6 +5601,10 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
   //
   // June 7 2018: protect against ZPHOT < 0
   // Jan 31 2020: pass ZGEN instead of unused IGAL
+  // Nov 15 2021: check for HOSTLIB_GENZPHOT_FUDGEMAP
+
+  int      NzBIN             = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN ;
+  float   *GENZPHOT_FUDGEPAR = INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR ;
 
   double  sigz1_core[3] ;  // sigma/(1+z): a0 + a1*(1+z) + a2*(1+z)^2
   double  sigz1_outlier, prob_outlier, zpeak, sigz_lo, sigz_hi ;
@@ -5611,18 +5615,30 @@ void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
 
   int    OUTLIER_FLAT=0;
   double SIGMA_OUTLIER_FLAT = 9.999 ; // pick random z if sig_outlier> this
-  //  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
+  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
 
   // ----------- BEGIN -------------
 
   *ZPHOT = *ZPHOT_ERR = -9.0 ;
   
-  sigz1_core[0] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[0] ;
-  sigz1_core[1] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[1] ;
-  sigz1_core[2] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[2] ;
+  if ( NzBIN > 0 ) {
+    // use map of RMS vs. z
+    double *z_LIST   = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.z_LIST   ;
+    double *RMS_LIST = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST ;
+    sigz1_core[0] = interp_1DFUN(1, ZGEN, NzBIN, z_LIST, RMS_LIST, fnam);
+    sigz1_core[1] = sigz1_core[2] = prob_outlier = sigz1_outlier = 0.0;
 
-  prob_outlier  = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[3] ;
-  sigz1_outlier = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[4] ;
+    //    printf(" xxx %s: zgen=%.3f -> sigz1 = %.3f \n",
+    //	   fnam, ZGEN, sigz1_core[0] ); fflush(stdout);
+  }
+  else {
+    // use 3rd-order polynomial and outlier Gaussian
+    sigz1_core[0] = (double)GENZPHOT_FUDGEPAR[0] ;
+    sigz1_core[1] = (double)GENZPHOT_FUDGEPAR[1] ;
+    sigz1_core[2] = (double)GENZPHOT_FUDGEPAR[2] ;
+    prob_outlier  = (double)GENZPHOT_FUDGEPAR[3] ;
+    sigz1_outlier = (double)GENZPHOT_FUDGEPAR[4] ;
+  }
 
   // - - - - - - - - - - - - 
 
@@ -6702,9 +6718,12 @@ void SORT_SNHOST_byDDLR(void) {
   //
   // May 20 2020: bug fix for LSN2GAL
   // Oct 25 2021: compute optional GALID_UNIQUE (for LSST broker test)
-  
-  bool LSN2GAL_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
-  int  NNBR          = SNHOSTGAL.NNBR ;
+  // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
+
+  int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
+  bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
+  bool LSN2GAL_RADEC    = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  int  NNBR             = SNHOSTGAL.NNBR ;
   int  IVAR_RA          = HOSTLIB.IVAR_RA;
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
@@ -6716,12 +6735,30 @@ void SORT_SNHOST_byDDLR(void) {
   int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
   int  NNBR_DDLRCUT = 0 ;
   double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
+  double DMUCOR = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
   // ------------- BEGIN ---------------
 
   // sort by DDLR
   sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
+
+  // check for SN-host distance-diff correction on host gal mags (Nov 2021)
+  ifilt_obs = GENLC.IFILTMAP_OBS[0];
+  IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+  if ( IVAR >= 0 && !LSN2GAL_Z ) {
+    double HOST_DLMU, LENSDMU, zCMB, zHEL;
+    zHEL = SNHOSTGAL.ZTRUE; 
+    zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
+    gen_distanceMag(zCMB, zHEL,
+		    &HOST_DLMU, &LENSDMU ); // <== returned
+    DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
+
+    /* 
+    printf(" xxx %s: DMUCOR = %.4f(zSN=%.4f) - %.4f(zHOST=%.4f) = %.4f\n",
+	   fnam, GENLC.DLMU, GENLC.REDSHIFT_CMB, HOST_DLMU, zCMB, DMUCOR);  
+    */
+  }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;
 
@@ -6829,7 +6866,7 @@ void SORT_SNHOST_byDDLR(void) {
       IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
       if ( IVAR > 0 ) {
 	MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
-	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG + DMUCOR ; 
       }
 
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
@@ -6956,10 +6993,10 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
-  // check for transferring redshift to host redshift.
+  // check for transferring SN redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    zHEL = ZTRUE ;
+    zHEL = ZTRUE ;  // true host z
     if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
       zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
     }

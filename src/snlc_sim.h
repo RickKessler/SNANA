@@ -384,6 +384,16 @@ typedef struct {
   double RHO_EVT, RHO_SUM, RHO_AVG ;
 } MONITOR_REDCOV_FLUXNOISE_DEF ;
 
+
+// Nov 2021: define struct for interpolating host photo-z resolution vs z
+//   Sim input key is HOSTLIB_GENZPHOT_FUDGEMAP: <STRING>
+typedef struct {
+  char STRING[200]; // e.g., 'z0:RMS0,z1:RMS1,z2:RMS2,etc...'
+  int    NzBIN; 
+  double z_LIST[100]  ;
+  double RMS_LIST[100] ;
+} HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
+
 // -------------------------------------
 // define user INPUTS
 
@@ -417,7 +427,6 @@ struct INPUTS {
   char SIMLIB_SURVEY[40];     // override name of SURVEY in simlib file
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
-  //xxxSTRING_DICT_DEF DICT_FIELDLIST_PRESCALE; //
   STRING_DICT_DEF DICT_SIMLIB_FIELDLIST_PRESCALE;   // SIMLIB ps per FIELD
   STRING_DICT_DEF DICT_SPECTRUM_FIELDLIST_PRESCALE; // spectrum ps per FIELD
 
@@ -475,7 +484,9 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
-  float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR
+  float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
+
+  HOSTLIB_GENZPHOT_FUDGEMAP_DEF HOSTLIB_GENZPHOT_FUDGEMAP;
   float  HOSTLIB_GENZPHOT_OUTLIER[2];  // range for FLAT outlier distribution.
   float  HOSTLIB_GENZPHOT_BIAS[5];     // poly(z) bias on ZPHOT (Mar 28 2018)
   int    USE_HOSTLIB_GENZPHOT;         // T if any of above are used
@@ -1461,6 +1472,7 @@ SIMLIB_OBS_DEF SIMLIB_OBS_RAW ;  // read from simlib
 SIMLIB_OBS_DEF SIMLIB_OBS_GEN ;  // used to generate SN
 
 
+
 // Jan 6 2016 - define contiguous temp arrays used to sort SIMLIB by MJD.
 struct {
   int     NMJD ;
@@ -1707,6 +1719,7 @@ int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
+void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);
 int    parse_input_RANSYSTPAR(char **WORDS, int keySource );
 int    parse_input_HOSTLIB(char **WORDS, int keySource );

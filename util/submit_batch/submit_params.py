@@ -129,6 +129,8 @@ SUBMIT_STATE_DONE = "DONE"
 SUBMIT_STATE_FAIL = "FAIL"
 SUBMIT_STATE_BUSY = "BUSY"
 
+arg_check_abort = "check_abort"
+
 # column ids for FITOPT_LIST written by fit job and read by BBC
 COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
 COLNUM_FITOPT_LABEL = 1   # optional user label
@@ -195,7 +197,7 @@ HELP_TRANSLATE = f"""
           TRANSLATING LEGACY INPUT FILES
 
 The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit] will
-not work with submit_batch_jobs.py, and therefore submit_batch_jobs includes
+not work with submit_batch_jobs.sh, and therefore submit_batch_jobs includes
 an automatic translation of the input file. Command line option
      --opt_translate <opt>
 controls the file-name convention, and also whether to exit or continue after
@@ -671,7 +673,7 @@ Difficulties are
 
 In the CPU*.CMD files, each SciJob is followed by a merge
 task as follows
-   python submit_batch_jobs.py <inputFile> -m -t 21014 --cpunum 0
+   submit_batch_jobs.sh <inputFile> -m -t 21014 --cpunum 0
 
 where -m tells the batch script to function as a merge task (instead of
 submit task), the -t argument is a time stamp (Nsec since midnight)

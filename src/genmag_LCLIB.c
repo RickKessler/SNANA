@@ -39,7 +39,8 @@
  Feb 03 2021: if OPTMASK & 8, switch RA,DEC coords to those of LCLIB.
  Jun 25 2021: skip COMMENT lines and DOCANA block reading LCLIB
  Jun 29 2021: call coord_translate_LCLIB before anglematch cut
-
+ Nov 15 2021: fix read_GLOBAL_HEADER_LCLIB bugs from refactor 
+                back on Jun 23 2021
 *************************************************/
 
 #include "sntools.h"           // community tools
@@ -201,6 +202,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
   // Jun 2 2018: call parse_PARNAMES_LCLIB
   // Jun 23 2021: refactor to skip comment lines
+  // Nov 15 2021: fix refac bugs reading a few doubles (was missing &)
 
   int NRD_ABORT = 1000 ; // abort after this many words and no FIRST_EVT
   int NRD       = 0 ;
@@ -314,8 +316,8 @@ void read_GLOBAL_HEADER_LCLIB(void) {
       // HOSTLIB.
       if ( strcmp(wd0,"REDSHIFT_RANGE:") == 0 ) { 
 	get_PARSE_WORD(0, iwd+2, wd2);
-	sscanf(wd1, "%le", LCLIB_INFO.REDSHIFT_RANGE[0] ); iwd++ ;
-	sscanf(wd2, "%le", LCLIB_INFO.REDSHIFT_RANGE[1] ); iwd++ ;
+	sscanf(wd1, "%le", &LCLIB_INFO.REDSHIFT_RANGE[0] ); iwd++ ;
+	sscanf(wd2, "%le", &LCLIB_INFO.REDSHIFT_RANGE[1] ); iwd++ ;
       } 
 
       if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) {
@@ -323,12 +325,12 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 	
 	// check DEBUG mag ranges
 	if ( strcmp(wd0,"GENRANGE_RANMAG:") == 0 )  {  
-	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_RANMAG[0] ); iwd++ ;
-	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_RANMAG[1] ); iwd++ ;
+	  sscanf(wd1, "%le", &LCLIB_INFO.GENRANGE_RANMAG[0] ); iwd++ ;
+	  sscanf(wd2, "%le", &LCLIB_INFO.GENRANGE_RANMAG[1] ); iwd++ ;
 	}      
 	else if ( strcmp(wd0,"GENRANGE_DIFMAG:") == 0 )  {
-	  sscanf(wd1, "%le", LCLIB_INFO.GENRANGE_DIFMAG[0] ); iwd++ ;
-	  sscanf(wd2, "%le", LCLIB_INFO.GENRANGE_DIFMAG[1] ); iwd++ ;
+	  sscanf(wd1, "%le", &LCLIB_INFO.GENRANGE_DIFMAG[0] ); iwd++ ;
+	  sscanf(wd2, "%le", &LCLIB_INFO.GENRANGE_DIFMAG[1] ); iwd++ ;
 	}
       }     
 

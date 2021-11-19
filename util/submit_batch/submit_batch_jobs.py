@@ -356,6 +356,8 @@ def print_submit_messages(config_yaml):
     if config_yaml['args'].force_abort_merge :
         print(f" REMEMBER: there is a forced abort in MERGE process.")
 
+    return
+
     # end print_submit_messages
 
 def print_nosubmit_messages(config_yaml):
@@ -433,8 +435,11 @@ if __name__ == "__main__":
     if config_yaml['args'].merge_flag :
         try:
             program.merge_driver()
-            logging.info('  Done with merge process -> exit Main.')
-            exit(0)
+            if args.check_abort:
+                exit(0)
+            else:
+                logging.info('  Done with merge process -> exit Main.')
+                exit(0)
         except Exception as e:
             logging.exception(e, exc_info=True)
             cpunum   = config_yaml['args'].cpunum[0]

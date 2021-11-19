@@ -6,9 +6,34 @@
 
 import os, sys, yaml, shutil, glob, math, ntpath
 import logging, coloredlogs, subprocess
+import pandas as pd
 from   submit_params import *
 
 # =================================================
+
+def combine_csv_files(wildcard, combined_file, remove_flag=False):
+
+    # Created Nov 18 2021
+    # combine csv files from wildcard -> 
+    # output combined_file includes contents from all wildcard files.
+
+    logging.info(f"  Combine csv truth tables for\n\t {wildcard}")
+    csv_file_list = sorted(glob.glob(wildcard))
+
+    # read table contents as strings to avoid modifying float format 
+    # in the combined csv.            
+    combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
+                              for f in csv_file_list ] )
+
+    # write it all out in one combined file                                 
+    combined_csv.to_csv(combined_file, index=False)
+
+    # remove original csv files 
+    if remove_flag :
+        cmd_rm = f"rm {wildcard}"
+        os.system(cmd_rm)
+
+    # end combine_csv_files
 
 def get_wfit_values(wfit_yaml):
 
@@ -810,10 +835,7 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
     msgerr       = []
-
-    key = 'check_abort'
-    check_abort = False
-    if key in JOB_INFO:  check_abort = JOB_INFO[key]
+    check_abort = JOB_INFO.get(arg_check_abort,False)
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
@@ -867,6 +889,8 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"{wait_for_file}\n")
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
+    if check_abort:  # leave human readable marker for each job
+        f.write("echo '# ======================================= '\n")
 
     # check optional ENV to set before running program
     if 'setenv' in JOB_INFO :
@@ -938,14 +962,17 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     # write merge task 
     merge_input_file = JOB_INFO['merge_input_file']
     merge_arg_list   = JOB_INFO['merge_arg_list']
+    check_abort      = JOB_INFO.get(arg_check_abort,False)
     match_cpu    = icpu <= NCPU_MERGE_DISTRIBUTE
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
+    
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
         f.write(f"echo Run merge_driver monitor task. \n")
         f.write(f"{merge_task} \n")
-        f.write(f"echo $?")
+        if not check_abort: 
+            f.write(f"echo $?")
         f.write(f"\n")
 
     # end write_jobmerge_info

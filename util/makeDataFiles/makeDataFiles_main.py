@@ -70,13 +70,18 @@ def get_args():
     parser.add_argument("--outdir_snana",
                         help=msg, type=str, default=None )
 
+    # - - - - specialized args teo create fake lsst alerts - - - - - -
     msg = "output LSST-ALERT format: top-directory for data"
     parser.add_argument("--outdir_lsst_alert",
                         help=msg, type=str, default=None )
     msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
     parser.add_argument("--lsst_alert_schema",
                         help=msg, type=str, default=None )
-
+    msg = "out file with truth info for each alert"
+    parser.add_argument("--outfile_alert_truth",
+                        help=msg, type=str, default=None )
+    # - - - - - - - -
+    
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
 

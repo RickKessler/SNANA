@@ -20564,7 +20564,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
         set hostmags even if there was no DDLR match.
      + for text format with spectra, write LAMRANGE_VALID key
         in data file.
-
+     + read/apply global FIELD key simlib header.
+     + abort if OPT_MWEBV < 0 (previous attempt didn't actaully abort)
+     + new input  HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
    kcor.c:
     + For spectrograph, extend stored wavelength range of SEDs to that 
       of spectraograph.
@@ -20572,5 +20574,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    submit_prog_sim.py:
      strip out comments from reading sim-input files.
+
+   Add gensed_BAYESN.py [begin development of new PySEDMODEL option]
 
 END: 

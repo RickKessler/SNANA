@@ -375,6 +375,7 @@ struct HOSTLIB_WGTMAP_DEF {
   char  VARNAME[MXVAR_HOSTLIB][40]; 
   bool  READSTAT ;    // T => wgtmap has been read
   bool  USE_SALT2GAMMA_GRID;
+  bool  FOUNDVAR_SNMAGSHIFT;  // T -> SNMAGSHIFT column was found
 
   double MEMTOT_MB;  // memory (MB) allocated for wgtmap
 
@@ -400,10 +401,8 @@ struct HOSTLIB_WGTMAP_DEF {
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
   //double *WGT ;         // wgt for each hostlib entry
   short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
-
-  //  double **WGT_SNVAR ;                // vs. [igal][ibin_SN]
   double **WGTSUM_SNVAR;              // idem
-  short int **I2SNMAGSHIFT_SNVAR ;   // idem
+  short int **I2SNMAGSHIFT_SNVAR ;    // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;

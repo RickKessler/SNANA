@@ -15461,23 +15461,19 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
-    /* xxxxxxxx
-    printf(" xxx %s: EOF=%d  cline='%s' \n", 
-	   fnam, FOUND_EOF, cline );
-    if ( NLINE == 30 ) { debugexit(fnam); }
-    xxxxxxxxxxxxx */
-
-    // remove line feed    
-    if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
-
-    // skip comment character (after removing newline)
-    if ( commentchar(cline) ) { continue; }
-
-    // note that splitString2 is fast, but destroys cline
-    splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
-
-    // check end of file, or end of simlib keywork -> rewind
-    FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
+    if ( !FOUND_EOF ) {
+      // remove line feed    
+      if ( (pos=strchr(cline,'\n') ) != NULL )  { *pos = '\0' ; }
+      
+      // skip comment character (after removing newline)
+      if ( commentchar(cline) ) { continue; }
+      
+      // note that splitString2 is fast, but destroys cline
+      splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
+      
+      // check end of file, or end of simlib keywork -> rewind
+      FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
+    }
 
     if ( FOUND_EOF || FOUND_ENDKEY ) {
       // check SIMLIB after 5 passes to avoid infinite loop

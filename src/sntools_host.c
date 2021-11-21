@@ -115,6 +115,8 @@
  Sep 16 2021: abort on duplicate columns in HOSTLIB; e.g., 
               ZERR and ZPHOTERR are both mapped to ZPHOT_ERR -> abort.
 
+ Nov 18 2021: allow WGTMAP to be missing SNMAGSHIFT column
+
 =========================================================== */
 
 #include <stdio.h>
@@ -969,7 +971,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   // Mar 14 2019: refactor to use read_GRIDMAP().
   // Apr 12 2019: return if string != VARNAMES_WGTMAP
   // Jun 20 2020: fix what seems like a cut-and-paste bug for N_SNVAR
-  //
+  // Nov 18 2021: check HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT
 
   int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
   long long GALID ;
@@ -996,20 +998,25 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
  
   fgets(LINE,100,fp);
   NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-  NDIM = NVAR_WGTMAP-2; NFUN=2;
+
+  NFUN = 1;    // WGT is required fun-val
+  if ( HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT )  { NFUN++; }
+  NDIM = NVAR_WGTMAP-NFUN ; 
+
   if ( NDIM < 1 ) {
     sprintf(c1err, "Invalid NDIM=%d for %s", NDIM, string);
     sprintf(c2err, "VARNAMES_WGTMAP must inclulde WGT & SNMAGSHIFT");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
   
-  // read in names used for weight ma
-  HOSTLIB_WGTMAP.GRIDMAP.VARLIST[0]       = 0 ;
+  // - - - - - - -  -
+  // read in names used for weight map
+  HOSTLIB_WGTMAP.GRIDMAP.VARLIST[0] = 0 ;
 
   for ( ivar=0; ivar < NVAR_WGTMAP ; ivar++ ) {
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
-    get_PARSE_WORD(0,ivar,VARNAME);
-    
+    get_PARSE_WORD(0,ivar,VARNAME) ;
+
     checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
     // check SN properties (e..g, x1, c) that are not in HOSTLIB
@@ -1023,11 +1030,11 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
       N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
     }
 
-    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
-    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ");
+    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME) ;
+    strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ") ;
     
     // load variable if it's not already loaded, and NOT SN var.
-    IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 );
+    IS_STORED = (IVAR_HOSTLIB(VARNAME,0) >= 0 ); 
     if ( !IS_STORED && !IS_SNVAR && ivar < NDIM ) {
       sprintf(HOSTLIB.VARNAME_STORE[IVAR_STORE], "%s", VARNAME );
       IVAR_STORE++ ;
@@ -1072,7 +1079,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
 int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
   // July 14 2020
-  // pre-HOSTLIB-read utility to fetch & return comma-sep list of
+  // pre-HOSTLIB-read utility to fetch & return list of
   // VARNAMES appearing in WGTMAP so that WGTMAP variables can
   // be automatically stored in data files.
   // Check external WGTMAP file first; if no external WGTMAP file,
@@ -1080,12 +1087,16 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   // Function returns number of WGTMAP variables found.
   //
   // Jan 15 2021: abort if EOF is reached.
+  // Nov 18 2021: 
+  //   + abort if WGT is not found
+  //   + set FOUNDVAR_SNMAGSHIFT 
+  //
 
   int NVAR   = 0 ;
   int MXCHAR = MXPATHLEN;
   int NWD, ivar, gzipFlag, NTMP=0 ;
   FILE *fp ;
-  bool IS_SNVAR;
+  bool IS_SNVAR, FOUNDVAR_WGT=false, FOUNDVAR_SNMAGSHIFT=false;
   char FILENAME_FULL[MXPATHLEN], *WGTMAP_FILE, LINE[MXPATHLEN];
   char c_get[60], VARNAME[60];
   char KEY_VARNAMES[] = "VARNAMES_WGTMAP:" ;
@@ -1141,9 +1152,18 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
       STOP_READ = true ;
       fgets(LINE, MXCHAR, fp);
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-      NVAR = NWD - 2;    // exclude WGT and SNMAGSHIFT
-      for(ivar=0; ivar < NVAR; ivar++ ) {
+     
+      // xxx mark Nov 18 2021   NVAR = NWD - 2; // exclude WGT and SNMAGSHIFT
+      for(ivar=0; ivar < NWD; ivar++ ) {
 	get_PARSE_WORD(0,ivar,VARNAME);
+
+	if ( strcmp(VARNAME,"WGT") == 0 )
+	  { FOUNDVAR_WGT = true; continue; }
+
+	if ( strcmp(VARNAME,HOSTLIB_VARNAME_SNMAGSHIFT) == 0 )
+	  { FOUNDVAR_SNMAGSHIFT = true; continue; }
+
+	NVAR++ ;
 	IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME);
 	if ( !IS_SNVAR ) 
 	  { catVarList_with_comma(VARLIST_WGTMAP,VARNAME); }
@@ -1154,7 +1174,15 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
     } // end reading VARNAMES_WGTMAP line
   } // end STOP_READ
-  
+
+  // - - - - -  
+  if ( NVAR > 0 && !FOUNDVAR_WGT ) {
+    sprintf(c1err,"Missing required WGT column in WGTMAP");
+    sprintf(c2err,"Check WGTMAP");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  HOSTLIB_WGTMAP.FOUNDVAR_SNMAGSHIFT = FOUNDVAR_SNMAGSHIFT;
+
   if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
 
   return(NVAR) ;

@@ -4,9 +4,15 @@ import yaml
 import astropy.table as at
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from SNmodel import spline_utils
 
 
 mask_bit_locations = {'verbose':1,'dump':2}
+DEFAULT_BAYESN_MODEL='M20'
+ALLOWED_BAYESN_MODEL=['M20', 'T21']
+PRODUCTS_DIR = os.getenv('PRODUCTS')
+BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'bayesn', 'SNmodel', 'model_files')
+BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
 
 
 def print_err():
@@ -33,11 +39,11 @@ class gensed_BAYESN:
             if self.paramfile is None:
                 raise RuntimeError(f'param file not found! in {self.PATH_VERSION}. Looking for one of {param_files}')
 
-            #self.params_file_contents = yaml.load(open(self.paramfile),
-            #                                      Loader=yaml.FullLoader)
+            self.params_file_contents = yaml.load(open(self.paramfile),
+                                                  Loader=yaml.FullLoader)
 
-            #print('PARAMS FILE:')
-            #print(self.params_file_contents)
+            print('PARAMS FILE:')
+            print(self.params_file_contents)
 
             SNDATA_PATH = os.getenv('SNDATA_ROOT')
             if SNDATA_PATH is None:
@@ -53,7 +59,7 @@ class gensed_BAYESN:
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON']
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX']
             self.parameter_values = {key:-9. for key in self.parameter_names}
 
         except Exception as e:
@@ -61,6 +67,16 @@ class gensed_BAYESN:
             print('Python Error :',e)
             print('gensed_BAYESN.py, line number: %i'%exc_tb.tb_lineno)
             print_err()
+
+        # load the bayesn model files
+        BAYESN_MODEL = self.params_file_contents.get('BAYESN_MODEL', DEFAULT_BAYESN_MODEL)
+        if BAYESN_MODEL not in ALLOWED_BAYESN_MODEL:
+            print(f'gensed_BAYESN.py: INVALID BAYESN_MODEL {BAYESN_MODEL} - must be one of {ALLOWED_BAYESN_MODEL}')
+            print_err()
+
+        bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'{BAYESN_MODEL}_model')
+        self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir, f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
+
         return
 
 
@@ -107,6 +123,9 @@ class gensed_BAYESN:
         else:
             newSN=True
             self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
+
+		#Matrix needed for wavelength spline
+        # KD_l = spline_utils.invKD_irr(self.l_k)
 
         ind =  np.abs(self.phase - trest).argmin()
         ind_flux = ind*self.wavelen

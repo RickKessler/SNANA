@@ -41,6 +41,13 @@
 #             programs can auto-detect real data and apply default blinding.
 #             Only works on SALT2mu/BBC jobs run after Oct 6 2021.
 #
+# Nov 23 2021 TO-DO
+#   + if unbinned or rebin option, read MUERR_RENORM,PROBCC_BEAMS
+#   + If unbinned:
+#        replace MUERR -> MUERR_RENORM / sqrt(1-PROBCC_BEAMS)
+#   + if rebin:
+#        recompute wgted MUERR in each bin
+#
 # ===============================================
 
 import argparse
@@ -275,19 +282,22 @@ def load_hubble_diagram(hd_file, args, config):
                      f"doesn't exist in {hd_file}"
             assert "MUERR_VPEC" in df.columns, msgerr
 
-            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR] ** 2 - df["MUERR_VPEC"] ** 2) # removed biasScale_muCOV
-            logging.debug("Subtracted MUERR_VPEC from MUERR")
+            df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR]**2 - \
+                                        df[VARNAME_MUERR_VPEC]**2)  
+            logging.debug(f"Subtracted {VARNAME_MUERR_VPEC} " \
+                          f"from {VARNAME_MUERR}")
 
+        df['CIDstr'] = df['CID'].astype(str) + "_" + \
+                       df['IDSURVEY'].astype(str)
 
-        df['CIDstr'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
-
-        # we need to make a new column to index the dataframe on unique rows for merging two 
-        # different systematic dfs - Dillon
-        df['CIDindex'] = df['CID'].astype(str) + "_" + df['IDSURVEY'].astype(str)
+        # we need to make a new column to index the dataframe on 
+        # unique rows for merging two different systematic dfs - Dillon
+        df['CIDindex'] = df['CID'].astype(str) + "_" + \
+                         df['IDSURVEY'].astype(str)
         df = df.set_index("CIDindex")
 
     elif VARNAME_z in df.columns:
-        # should not z-sorting here for M0DIF, but what the heck
+        # should not need z-sorting here for M0DIF, but what the heck
         df = df.sort_values(VARNAME_z)
 
     # - - - -  -
@@ -354,6 +364,7 @@ def get_hubble_diagrams(folder, args, config):
 
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
+
     if is_rebin : 
         label0 = label_list[0]
         get_rebin_info(config,HD_list[label])

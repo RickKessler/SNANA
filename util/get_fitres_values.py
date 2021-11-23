@@ -5,11 +5,16 @@
 # Extract table value(s) for cid(s) and print to screen.
 # Intended for visual debugging.
 #
+# For "-f bla.fitres", script checks for both bla.fitres and bla.fitres.gz.
+# for "-f bla.fitres.gz", script checks only for this file name.
+#
 # Feb 24 2021: print table with sorted(cid_list) to avoid random ordering.
 # Sep 23 2021: add -g (--galid) option to work for HOSTLIB, and 
 #              count DOCANA rows to skip
 #
-import os, sys, argparse
+# Nov 22 2021: fix to work with gzip files
+#
+import os, sys, argparse, gzip
 import pandas as pd
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
@@ -18,8 +23,8 @@ KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
 def get_args():
     parser = argparse.ArgumentParser()
     
-    msg = "name of fitres file"
-    parser.add_argument("-f", "--file", help=msg, type=str, default="")
+    msg = "name of fitres file (automatically checks for .gz extension)"
+    parser.add_argument("-f", "--fitres_file", help=msg, type=str, default="")
 
     msg = "comma separated list of CIDs for FITRES file"
     parser.add_argument("-c", "--cid", help=msg, type=str, default=None)
@@ -44,13 +49,29 @@ def get_args():
 def parse_inputs(args):
 
     # parse comma-sep list of cid(s) and varname(s)
+    fitres_file = args.fitres_file
 
-    exist_ff   = os.path.exists(args.file)
-    msgerr_ff  = (f"fitres file {args.file} does not exist.")
+    # - - - - - -
+    # check fitres_file and fitres_file.gz
+    msgerr_ff  = (f"fitres file {args.fitres_file} does not exist.")
+    ff_list    = [ fitres_file ]
+    if ".gz" not in fitres_file:
+        ff_list.append(f"{fitres_file}.gz")
+    
+    n_ff = 0
+    exist_ff = False
+    for ff in ff_list:
+        if os.path.exists(ff):
+            n_ff += 1
+            exist_ff = True
+            args.fitres_file = ff
 
-    exist_cid_list = (args.cid is not None) or (args.galid is not None) or (args.nrow > 0 )
+    # - - - - - - -
+    exist_cid_list = (args.cid   is not None) or \
+                     (args.galid is not None) or \
+                     (args.nrow > 0)
+
     msgerr_cid     = "Must cid list using --cid or --nrow arg"
-
     exist_var_list = args.varname is not None
     msgerr_var     = "Must specify varnames using -v arg"
 
@@ -73,7 +94,7 @@ def parse_inputs(args):
     var_list   = args.varname.split(",")
 
     info_fitres = {
-        'fitres_file' : args.file,
+        'fitres_file' : args.fitres_file,
         'id_list'     : id_list,
         'nrow'        : nrow,
         'var_list'    : var_list,
@@ -91,32 +112,42 @@ def read_fitres_file(info_fitres):
     var_list   = info_fitres['var_list']     # list of variables
     keyname_id = info_fitres['keyname_id']
  
+    print(f"\n Read {ff}")
+
+    nskip_row = 0
+    isrow_docana = False
+
+    if ".gz" in ff:
+        f = gzip.open(ff,"rt", encoding='utf-8')
+    else:
+        f = open(ff,"rt")
+
+    # - - - - - 
     # check keyname of id; e.g., CID, ROW, GALID, etc ...
     # read first VARNAMES element and number of rows to
     # skip for DOCANAN keys
 
-    nskip_row = 0
-    isrow_docana = False
-    with open(ff,"rt") as f:
-        for line in f:                
-            wdlist = line.split()
-            if len(wdlist) < 1 : 
-                nskip_row += 1
-                continue
+    for line in f:       
+        wdlist = line.split()
+        if len(wdlist) < 1 : 
+            nskip_row += 1
+            continue
 
-            if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
-            if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
-            if isrow_docana : 
-                nskip_row += 1
-                continue
+        if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
+        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
+        if isrow_docana : 
+            nskip_row += 1
+            continue
 
-            if wdlist[0] == 'VARNAMES:' : 
-                keyname_id = wdlist[1]
-                print(f" Found keyname_id = {keyname_id}")
-                info_fitres['keyname_id'] = keyname_id
-                break
+        if wdlist[0] == 'VARNAMES:' : 
+            keyname_id = wdlist[1]
+            print(f" Found keyname_id = {keyname_id}")
+            info_fitres['keyname_id'] = keyname_id
+            break
 
+    f.close()
     # - - - - - - 
+
     var_list_local =  [ keyname_id ] + var_list
     df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
                       skiprows=nskip_row,

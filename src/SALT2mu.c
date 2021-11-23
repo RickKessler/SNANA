@@ -20560,7 +20560,7 @@ void muerr_renorm(void) {
     if ( fabs(dif) > tol_warn ) { NERR++; sprintf(star_mures,"*"); }
 
     fprintf(FP_STDOUT,
-	     "    <z_2.2d>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
+	     "    <z_%2.2d>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
 	   iz, INPUTS.BININFO_z.avg[iz], 1.0/ratio, dif, star_mures );
     fflush(FP_STDOUT);
 

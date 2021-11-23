@@ -20590,5 +20590,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c:
      + fix override to work when two variables (zHEL and VPEC)
        both affect zHD.
+     + fix VPECERR override to affect MUERR.
+
+  get_fitres_values.py:
+    + fix to work on gzipped files.
+
 
 END: 

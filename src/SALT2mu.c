@@ -4562,7 +4562,7 @@ void *MNCHI2FUN(void *thread) {
       // xxxxxxxxxxxxxxxxxxx
 
       
-      // sum total chi2 that includes Ia + CC
+      // sum total prob that includes Ia + CC
       if ( Prob_SUM > 0.0 ) {
 	ProbRatio_Ia = Prob_Ia / Prob_SUM ;
 	ProbRatio_CC = Prob_CC / Prob_SUM ;
@@ -20467,15 +20467,17 @@ void muerr_renorm(void) {
   // M0DIF-mean and M0DIF-error; flag discrepancies > 0.001 mag.
   //
   // May 25 2021: write to FP_STDOUT
+  // Nov 22 2021: include missing factor of 1/sqrt(pia)
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
   int MEMD       = NSN_DATA * sizeof(double);
   int debug_malloc = INPUTS.debug_malloc ;
   int iz, isn, cutmask ;
   double SUM_WGT[MXz], SUM_MURES[MXz], MURES_check[MXz], M0ERR_check[MXz];
-  double RATIO_MUERR[MXz], DIF_MURES[MXz];
+  double RATIO_MUERR[MXz], DIF_MURES[MXz], DIF_VARIANCE[MXz];
   double mumodel, mu, muerr, mures, WGT, ratio, dif, pcc, pia ;
   double tol_warn = 0.001;
+  double pia_min  = 1.0E-6;
   char star_mures[2] ;
   char fnam[] = "muerr_renorm" ;
 
@@ -20505,7 +20507,8 @@ void muerr_renorm(void) {
     mu         = INFO_DATA.mu[isn] - FITRESULT.SNMAG0; 
     muerr      = INFO_DATA.muerr[isn];
     mures      = INFO_DATA.mures[isn] ;
-    pia        = 1.0 - INFO_DATA.probcc_beams[isn];
+    pcc        = INFO_DATA.probcc_beams[isn];
+    pia        = 1.0 - pcc;
 
     WGT             = pia / (muerr*muerr) ;
     SUM_WGT[iz]    += WGT;
@@ -20517,8 +20520,9 @@ void muerr_renorm(void) {
   // - - - - -
   // compute diagnostic for each z bin
   for(iz=0; iz < INPUTS.nzbin ; iz++ ) {
-    RATIO_MUERR[iz] = 0.0;
-    DIF_MURES[iz]   = 0.0;
+    RATIO_MUERR[iz]  = 0.0;
+    DIF_MURES[iz]    = 0.0;
+
     if ( SUM_WGT[iz] == 0.0 ) { continue ; }
 
     MURES_check[iz] = SUM_MURES[iz] / SUM_WGT[iz] ;
@@ -20535,8 +20539,12 @@ void muerr_renorm(void) {
     if ( cutmask ) { continue; }
     muerr      = INFO_DATA.muerr[isn];
     iz         = INFO_DATA.TABLEVAR.IZBIN[isn] ;
+    pcc        = INFO_DATA.probcc_beams[isn];
+    pia        = 1.0 - pcc;
+    if ( pia < pia_min ) { pia = pia_min; } // avoid divide-by-zero below
+
     ratio      = RATIO_MUERR[iz];
-    INFO_DATA.muerr_renorm[isn] = muerr/ratio ;
+    INFO_DATA.muerr_renorm[isn] = (muerr/ratio)/sqrt(pia) ;
   }
 
 
@@ -20552,7 +20560,7 @@ void muerr_renorm(void) {
     if ( fabs(dif) > tol_warn ) { NERR++; sprintf(star_mures,"*"); }
 
     fprintf(FP_STDOUT,
-	     "\t iz=%2d  <z>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
+	     "    <z_2.2d>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
 	   iz, INPUTS.BININFO_z.avg[iz], 1.0/ratio, dif, star_mures );
     fflush(FP_STDOUT);
 

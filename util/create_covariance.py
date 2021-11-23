@@ -361,7 +361,7 @@ def get_hubble_diagrams(folder, args, config):
     # FITOPTs and MUOPTs
     if is_unbinned or is_rebin:
         HD_list = get_common_set_of_sne(HD_list)
-
+        
     # - - - - -    
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
 
@@ -371,6 +371,9 @@ def get_hubble_diagrams(folder, args, config):
         for label in label_list:
             HD_list[label]['iHD'] = config['col_iHD']
             HD_list[label] = rebin_hubble_diagram(config,HD_list[label])
+    if is_unbinned :
+        HD_list = update_MUERR(HD_list)
+
 
     return HD_list
     # end get_hubble_diagrams
@@ -400,6 +403,11 @@ def get_common_set_of_sne(datadict):
 
     return datadict
 
+def update_MUERR(HDs):
+    for label,df in HDs.items():
+        if 'MUERR_RENORM' in df.columns:
+            HDs[label]['MUERR'] =  df['MUERR_RENORM']
+    return HDs
 
 def get_rebin_info(config,HD):
 

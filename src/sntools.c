@@ -9667,7 +9667,10 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // Return FOUND_DOCANA logical
   //
   // Nov 18 2021; use fgets instead of fscanf
-
+  // Nov 23 2021: 
+  //   fgets parsing doesn't work if there is no pad space after
+  //   "DOCUMENTATION:", so use strstr instead of exact match.
+  //
   char line[MXPATHLEN], key[60], *ptrtok, *pos;
   bool FOUND_DOCANA ;
   char fnam[] = "check_openFile_docana";
@@ -9676,18 +9679,22 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   line[0] = 0 ;
   while ( strlen(line) == 0 ) {  // skip blank lines
     fgets(line, MXPATHLEN-10, fp);
-    if ( (pos=strchr(line,'\n') ) != NULL )  { *pos = '\0' ; }
+    line[strcspn(line, "\n")] = 0 ; // more elegant, Nov 23 2021
+    //    if ( (pos=strchr(line,'\n') ) != NULL )  { *pos = '\0' ; }
   }
 
-  //  printf(" xxx %s: found line = '%s'\n", fnam, line);
-
+  /* xxxx mark delete Nov 23 2021 xxxxxxx
   ptrtok = strtok(line," ") ; // split line into words
   sprintf(key, "%s", ptrtok);  // first word in file
-
   FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
-  if ( !FOUND_DOCANA ) {
-    react_missing_docana(REQUIRE_DOCANA,fileName);     
-  }
+  xxxxx */
+
+  // use strstr in case line has newline.
+  FOUND_DOCANA = ( strstr(line,KEYNAME_DOCANA_REQUIRED) != NULL );
+
+  if ( !FOUND_DOCANA ) 
+    { react_missing_docana(REQUIRE_DOCANA,fileName); }
+
   return FOUND_DOCANA ;
 
 } // end check_openFile_docana

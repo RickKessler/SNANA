@@ -2580,13 +2580,19 @@ void invert_mucovar(double sqmurms_add) {
   // May 20, 2009 + 04 OCt, 2021
   // add diagonal elements to covariance matrix, then invert.
   //
-  int NSN=HD.NSN;
+  int NSN = HD.NSN;
 
   // =================================
 
-  if(INPUTS.use_mucov){
+  printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
+	 NSN, NSN, sqmurms_add);
+  printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n");
+  fflush(stdout);
+
+  if ( INPUTS.use_mucov) {
     invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
   }
+
   return ;
 
 } // end of invert_mucovar

@@ -2551,7 +2551,8 @@ void wfit_FoM(void) {
   else 
     { WORKSPACE.FoM_final = -9.0; }
 
-  printf("FOM = %.2f", WORKSPACE.FoM_final);
+  printf("# ====================================== \n");
+  printf(" FOM = %.2f\n", WORKSPACE.FoM_final);
   fflush(stdout);
 
   return ;

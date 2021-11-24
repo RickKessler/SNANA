@@ -12543,7 +12543,7 @@ void calc_zM0_data(void) {
     if ( WGT < 1.0E-9 ) { continue ; }
 
     muAvg = SUM_mumodel[iz]/WGT ;
-    zM0   = zmu_solve(muAvg,cosPar); // new
+    zM0   = zmu_solve(muAvg,cosPar); 
     FITRESULT.zM0[iz] = zM0 ;
 
     if ( LDMP ) {

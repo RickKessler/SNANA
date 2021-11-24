@@ -62,7 +62,7 @@
      HISTORY
    -----------------
 
-
+ Nov 24 2021: BOA prior from Alam 2020 is the new default for -bao option.
 
 *****************************************************************************/
 
@@ -1476,7 +1476,7 @@ void set_priors(void) {
   if ( INPUTS.use_bao ) {
     noprior = false;
     char *comment = BAO_PRIOR.comment ; 
-    printf("   '%s'\n", comment) ;
+    printf("   %s\n", comment) ;
   } 
   else if ( INPUTS.omm_prior_sig < 1. ) {
     noprior = false;
@@ -1544,7 +1544,7 @@ void init_cmb_prior(int OPT) {
     // unless user has already specified value on command line input
     if(CMB_PRIOR.R    < 0.0) { CMB_PRIOR.R     = 1.710; }
     if(CMB_PRIOR.sigR < 0.0) { CMB_PRIOR.sigR  = 0.019; }
-    sprintf(comment, "   CMB WMAP-prior:  R=%5.3f +- %5.3f  \n" ,
+    sprintf(comment, "CMB WMAP-prior:  R=%5.3f +- %5.3f  \n" ,
 	   CMB_PRIOR.R, CMB_PRIOR.sigR);
   }
   else if ( INPUTS.use_cmb == 2 ) {
@@ -1554,7 +1554,7 @@ void init_cmb_prior(int OPT) {
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( a, ONE, &HzFUN ) / LIGHT_km;
     CMB_PRIOR.R = sqrt(OM) * rz ;
-    sprintf(comment, "   CMB sim-prior:  R=%5.3f +- %5.3f  \n" ,
+    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f  \n" ,
 	    CMB_PRIOR.R, CMB_PRIOR.sigR);
   }
 
@@ -1571,8 +1571,12 @@ void init_bao_prior(int OPT) {
   // OPT= +1 --> set params to measured or sim values.
   //               (after reading user input)
   //
-  bool REFAC  = INPUTS.debug_flag == 7; // USE SDSS-IV, Alam 2020
+  // Nov 24 2021: BAO from SDSSIV is new default.
+  //              legacy prior used if debug_flag = -7
+  //
 
+  bool LEGACY = INPUTS.debug_flag == -7 ;
+  bool REFAC  = !LEGACY;
   int iz;
   double rz, tmp1, tmp2, z;
   double OM = INPUTS.OMEGA_MATTER_SIM ;
@@ -2316,7 +2320,6 @@ void wfit_uncertainty(void) {
 	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
   }
   
-  printf("\n---------------------------------------\n");
   fflush(stdout);
 
   return ;
@@ -2381,8 +2384,13 @@ void wfit_Covariance(void){
   WORKSPACE.rho_w0omm  = rho_w0omm ;
   WORKSPACE.rho_w0wa   = rho_w0wa ;
 
-  printf("Reduced Covariance, w0omm = %.4f \n", WORKSPACE.rho_w0omm);
-  if(use_wa){  printf("Reduced Covariance, w0wa = %.4f \n", WORKSPACE.rho_w0wa);}
+  printf("# ========================================== \n");
+  printf(" Reduced Covariance, w0omm = %.4f \n", WORKSPACE.rho_w0omm);
+  if ( use_wa )
+    { printf(" Reduced Covariance, w0wa = %.4f \n", WORKSPACE.rho_w0wa); }
+
+  fflush(stdout);
+
   return;  
 } // end wfit_covariance
 
@@ -2403,11 +2411,15 @@ void wfit_final(void) {
   double dif, mindif, muoff_tmp, snchi_tmp, chi2_tmp ;
   double w0_final, wa_final, omm_final ;
   double w0_ran=0.0,  wa_ran=0.0, omm_ran=0.0 ;
-  double muoff_final, chi2_final;
+  double muoff_final, chi2_final, sigint_binsize ;
   int i;
   char fnam[] = "wfit_final" ;
 
   // ----------- BEGIN -----------
+
+  printf("# =================================== \n");
+  printf(" Extract final cosmolofy quantities \n");
+  fflush(stdout);
 
   // load final cosmology parameters based on marg or minimize option
   if ( INPUTS.use_marg ) {
@@ -2455,9 +2467,12 @@ void wfit_final(void) {
 
   // - - - -  sigmu_int - - - - 
 
+  sigint_binsize = 0.01;
+  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
+  fflush(stdout);
   mindif = 999999.;
   for ( i = 0; i< 20; i++ ) {
-    sigmu_tmp   = (double)i * .01 ;
+    sigmu_tmp   = (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
     invert_mucovar(sqmusig_tmp);
     get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, sqmusig_tmp,  // inputs
@@ -2470,9 +2485,12 @@ void wfit_final(void) {
   } // end i loop
 
   // search again in .001 sigmu_int bins
+  sigint_binsize = 0.0002;
+  printf("\t search for sigint in bins of %.4f \n", sigint_binsize);
+  fflush(stdout);
   mindif = 9999999. ;
   for ( i = -10; i < 10; i++ ) {
-    sigmu_tmp   = sigmu_int1 + (double)i * .0002 ;
+    sigmu_tmp   = sigmu_int1 + (double)i * sigint_binsize ;
     sqmusig_tmp = sigmu_tmp * sigmu_tmp ;
     invert_mucovar(sqmusig_tmp);
     
@@ -2528,10 +2546,13 @@ void wfit_FoM(void) {
   sig_product *= sqrt(1.0- rho*rho);
 
   
-  if (sig_product > 0.){WORKSPACE.FoM_final = 1./sig_product; }
-  else {WORKSPACE.FoM_final = -9. ;}
+  if (sig_product > 0. ) 
+    { WORKSPACE.FoM_final = 1.0/sig_product; }
+  else 
+    { WORKSPACE.FoM_final = -9.0; }
+
   printf("FOM = %.2f", WORKSPACE.FoM_final);
-  
+  fflush(stdout);
 
   return ;
 } // emd wfit_FoM
@@ -3226,6 +3247,9 @@ void WRITE_OUTPUT_DRIVER(void) {
   char fnam[] = "WRITE_OUTPUT_DRIVER" ;
 
   // ------------ BEGIN ------------
+
+  printf("# ==================================== \n");
+  printf(" %s\n", fnam);
 
   // primary output is the cosmo params
   write_output_cospar();

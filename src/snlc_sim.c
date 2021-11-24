@@ -7275,7 +7275,7 @@ void init_DNDZ_Rate(void) {
       { sprintf(cnum,"%10.3le", TOTsum) ; }
 
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Number of EVENTS per season = %s ", cnum );
+		 "\t Calculated Number of EVENTS per season = %s ", cnum );
     if ( FRAC_PEC1A > 0.0 ) {
       sprintf(LINE_RATE_INFO[i],"%s  (%.3f PEC1A)",
 	      LINE_RATE_INFO[i], FRAC_PEC1A ) ;
@@ -7362,7 +7362,7 @@ void init_DNDB_Rate(void) {
   // - - - - - - - 
 
   i++; sprintf(LINE_RATE_INFO[i],
-	       "\t Number of EVENTS per season = %d  (NGENTOT_LC)", 
+	       "\t Calculated Number of EVENTS per season = %d  (NGENTOT_LC)", 
 	       INPUTS.NGENTOT_LC );
 
   i++; LINE_RATE_INFO[i][0] = 0 ;

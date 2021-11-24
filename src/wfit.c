@@ -227,7 +227,7 @@ struct {
 
 // =========== global variables ================
 
-// xxx mark delete RK xxx double H0        = H0_SALT2;   
+
 double H0SIG     = 1000.0 ;       // error used in prior
 double c_light   = 299792.458 ;   // speed of light, km/s 
 double c_sound   = 155776.730694; 
@@ -248,8 +248,6 @@ char varname_omm[4] ;
 
 time_t t_start, t_end_init, t_end_fit ;
 
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-//  XXX MARK DELETE 23/09/2021 XXX 
 
 int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
@@ -257,21 +255,9 @@ int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 #define MXCOVPAIR MXCOVSN*(MXCOVSN-1)/2 // max off-diag covariance pairs 
 int NCOVPAIR = 0 ;
 int NCOVSN   = 0 ; 
+
 int INDEX_COVSN_MAP[MXCOVSN];      // CIDLIST index vs. NCOVSN index
 int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
-struct MUCOV_INPUT {
-  char   CID[2][40]; // name of each SN
-  int    INDEX[2];   // index in CIDLIST
-  double COV ;   // covariance
-} MUCOV_INPUT[MXCOVPAIR];
-struct MUCOV_STORE {
-  int    INDEX[2];   // index in CIDLIST
-  double COV ;     // covariance
-  double COVINV;   // inverse
-} MUCOV_STORE[MXCOVSN][MXCOVSN];
-
-// XXX END MARK DELETE XXX*/
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 // =========== function prototypes ================
 
@@ -306,7 +292,7 @@ void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
-double get_DMU_chi2wOM(int k, double rz); // AM OCT, 2021
+double get_DMU_chi2wOM(int k, double rz); // Ayan Mitra OCT, 2021
 
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *OM_atchimin ); 
@@ -819,13 +805,6 @@ void  malloc_workspace(int opt) {
     WORKSPACE.wa_sort   = (double *)calloc(INPUTS.wa_steps, memd);
 
     /* Probability arrays */
-    //* xxx mark delete Oct 01 2021 xxxx
-    int n2d = INPUTS.omm_steps * INPUTS.w0_steps;
-    WORKSPACE.extprob = (double *) calloc(n2d, memd);
-    WORKSPACE.snprob  = (double *) calloc(n2d, memd);
-    WORKSPACE.extchi  = (double *) calloc(n2d, memd);
-    WORKSPACE.snchi   = (double *) calloc(n2d, memd);
-    // xxxxxxxx end mark */
     
     f_mem = 0; 
     f_mem += malloc_double3D(+1, INPUTS.w0_steps, INPUTS.wa_steps, 
@@ -1002,20 +981,6 @@ void read_fitres(char *inFile) {
       HD.z_sig[NROW2]    = HD.z_sig[irow];
       HD.mu_sqsig[NROW2] = HD.mu_sig[irow]*HD.mu_sig[irow];
 
-      // xxxxxxx mark delete xxxxxxxxx
-      // check debug option to restore obsolete mu_sig_z;
-      // this is only for regression testing.
-      if ( INPUTS.debug_flag == -2009 ) {
-	double coeff    = 5./log(10.);
-	double z        = HD.z[NROW2];
-	double z_sig    = HD.z_sig[NROW2];
-	double mu_sqsig = HD.mu_sqsig[NROW2];
-	double mu_sig_z = coeff * ( (1.0+z)/(z*(1.0+z/2.0)) ) * z_sig ;
-	HD.mu_sqsig[NROW2] += (mu_sig_z*mu_sig_z);
-	HD.mu_sig[NROW2]    = sqrt(HD.mu_sqsig[NROW2]);
-	
-      }
-      // xxxxxxxxx
 
       NROW2++ ;
 
@@ -1084,17 +1049,13 @@ void read_fitres_legacy(char *inFile) {
 
   printf(" Open fitres file: %s \n", inFile);
 
-  // xxx mark delete fp = fopen(inFile,"rt");
+
   int OPENMASK = OPENMASK_VERBOSE ;
   fp = snana_openTextFile(OPENMASK, "", inFile, 
 			  inFile_opened, &gzipFlag );
 
   HD.NSN = NCUT = NRDTOT = NFIT = 0;
 
-  /* xxxx mark delete 
-  printf(" Reading fitres file: NCIDLIST %d, NSNE_NBIN %d \n", 
-	 NCIDLIST, NSNE_NBIN);
-  */
 
   MUERR_INCLUDE_zERR=0;
   MUERR_INCLUDE_LENS=0;
@@ -1267,7 +1228,6 @@ void read_fitres_legacy(char *inFile) {
 	}
       } // end LCUT 
 
-      // xxx move check cuts above (9.21.2020) xxxx
 
       NRDTOT++ ;
 
@@ -1283,15 +1243,6 @@ void read_fitres_legacy(char *inFile) {
 	HD.mu_sqsig[i] = MUERR * MUERR;
 
 	if ( mudif_flag ) { HD.mu[i] += MUREF; } // Oct 1 2021
-
-	/* xxxxxxxxxx mark delete Oct 1 2021 RK xxxxxx
-	if ( NBIN ) {
-	  NSNE_NBIN = NSNE_NBIN + NBIN; 
-	  snnbin[i] = NBIN;
-	} else {
-	  snnbin[i] = 1;
-	}
-	xxxxxxxxx end mark xxxxxxxx*/
 
       }
       else {
@@ -1350,7 +1301,7 @@ void read_mucov_sys(char *inFile){
   if ( !INPUTS.use_mucov  ) { return; }
 
   printf("\n# ======================================= \n");
-  printf("  Process MUCOV systematic file  \n"); // XXX
+  printf("  Process MUCOV systematic file  \n"); 
 
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
@@ -1397,7 +1348,6 @@ void read_mucov_sys(char *inFile){
     else {
       NMAT_read++ ;
       sscanf( ptrSplit[0],"%le",&cov);      
-      //      cov = 0; // REMOVE THIS 
       if(HD.pass_cut[i0] && HD.pass_cut[i1] ) {
 	kk = k1*NDIM_STORE + k0;
 	WORKSPACE.MUCOV[kk] = cov;
@@ -1406,7 +1356,6 @@ void read_mucov_sys(char *inFile){
 	k0++;
 	if ( k0 == NDIM_STORE ) { k1++; k0=0; }
       }
-      //printf(" xxx %s: cov[%d][%d] = %f \n", fnam, i0,i1, cov);
       i0++;
       if ( i0 == NDIM_ORIG ) { i1++; i0=0; }
     }
@@ -1702,11 +1651,8 @@ void init_bao_prior(int OPT) {
 	z = BAO_PRIOR.z_sdss4[iz];
 	DM = DM_bao_prior(z, &cparloc);
 	DH = DH_bao_prior(z, &cparloc);
-	//printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le\n",z,rd,DM,DH);
-	BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ; // xxx need to compute ???
+	BAO_PRIOR.DMrd_sdss4[iz] = DM/rd ;
 	BAO_PRIOR.DHrd_sdss4[iz] = DH/rd ;
-	printf("XXX z = %.2f, rd = %le, DM = %le, DH = %le, DMrd = %.2f, DHrd = %.2f\n",z,rd,DM,DH, BAO_PRIOR.DMrd_sdss4[iz],BAO_PRIOR.DHrd_sdss4[iz]);
-	// covariances ??
       }
       sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
     }
@@ -1748,25 +1694,15 @@ double rd_bao_prior( Cosparam *cpar) {
   // ---------- BEGIN ----------  
   rd = rd_DEFAULT;
   if ( DO_INTEGRAL  ) {
-    if (LDMP ) 
-      { printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam ); }
-
     Einv_integ = Eainv_integral(amin, amax, cpar);
     Hinv_integ = Einv_integ / H0 ;
     rd = c_sound * Hinv_integ  ; 
   }
-
-  if ( LDMP ) {
-    printf(" xxx %s: z_d=%.1f, h=%.3f,  rd=%.1f Mpc,  c_s=%.1f km/sec\n",
-	   fnam, z_d, h, rd, c_sound);
-    debugexit(fnam); // xxx remove
-  }
-
   return rd;
 }
 
 double DM_bao_prior(double z, Cosparam *cpar){
-  // AM Nov, 2021
+  // Ayan Mitra Nov, 2021
   double DM = 1.0,  DA, H0 = H0_Planck;
   double amin   = 1.,  amax = 1.0/(1+z);
   double rd = codist(z, cpar);
@@ -1777,9 +1713,6 @@ double DM_bao_prior(double z, Cosparam *cpar){
   char fnam[] = "DM_bao_prior" ;
   
   if ( DO_INTEGRAL  ) {
-    if (LDMP )
-      { printf(" xxx %s: perform new Einv_integral with Omega_rad\n", fnam ); }
-
     Einv_integ = Eainv_integral(amax, amin, cpar);
     Hinv_integ = Einv_integ / H0 ;
     DM = c_light * Hinv_integ  ;
@@ -1863,10 +1796,6 @@ void set_Ndof(void) {
   WORKSPACE.Ndof = Ndof ;
   WORKSPACE.Ndof_data = Ndof_data;
   WORKSPACE.Ndof_prior= Ndof_prior;
-  printf("XXX NDOF PRIOR = %d\n", Ndof_prior);
-  printf("XXX NDOF DATA  = %d\n", Ndof_data);
-  printf("XXX USE BAO = %d\n", INPUTS.use_bao);
-  printf("XXX NDOF  = %d\n", Ndof);
   return ;
 
 } // end set_Ndof
@@ -2717,11 +2646,6 @@ void get_chi2wOM (
       Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
       Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
       chi_hat    += sqmusiginv * dmu*dmu ;
-      
-    /*
-    printf("  xxxx dmu(%4s) = %6.2f - %6.2f = %6.2f   sigmu=%f  \n", 
-	   CIDLIST[k], mu_cos[k], mu[k], dmu, mu_sig[k] );
-    */
     } // end k
   }
  
@@ -2809,14 +2733,13 @@ double chi2_bao_prior(Cosparam *cpar) {
 
   if ( BAO_PRIOR.use_sdss4 ) {
     // Alam 2020, SDSS-IV
-    // AM Nov, 2021
+    // Ayan Mitra Nov, 2021
     double z_sdss4;
     double a_sdss4;
     double siga_sdss4;
     
     
     rd_model      = rd_bao_prior( cpar);
-    //printf("XXX rd_model = %.3f\n",rd_model);
     for(iz=0; iz < NZBIN_BAO_SDSS4; iz++ ) {
       
       /* Measured*/
@@ -2852,7 +2775,6 @@ double chi2_bao_prior(Cosparam *cpar) {
     nsig = (a - a_sdss) / siga_sdss ;
     chi2 = nsig * nsig ;
   }
-  //printf("XXX chi2 XX = %.4f",chi2);
   return chi2;
 
 } // end chi2_bao_prior
@@ -2939,11 +2861,6 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
   wacen_tmp  = *wa_atchimin ;
   omcen_tmp  = *omm_atchimin ;
 
-  if ( LDMP ) {
-    printf(" xxx %s: w0,wa,om(atchi2min) = %.4f, %.4f, %.4f \n",
-	   fnam, w0cen_tmp, wacen_tmp, omcen_tmp );
-  }
-
   for ( i = -nbw0; i <= nbw0; i++ ) {
     w0_tmp = w0cen_tmp + (double)i*w0step_tmp ;
     // break up w into w0,wa AM
@@ -2955,8 +2872,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 	om_tmp = omcen_tmp + (double)j*omstep_tmp ;
 
 	if ( LDMP ) {
-	  printf(" xxx %s: w0,wa,omm = %.4f, %.4f, %.4f \n",
-		 fnam, w0_tmp, wa_tmp, om_tmp); fflush(stdout);
+	  fflush(stdout);
 	}
 
 	get_chi2wOM(w0_tmp, wa_tmp, om_tmp, INPUTS.sqsnrms, 
@@ -2973,7 +2889,6 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
   *w0_atchimin  = w0cen_tmp + (double)imin * w0step_tmp ;
   *wa_atchimin  = wacen_tmp + (double)kmin * wastep_tmp ;
   *omm_atchimin = omcen_tmp + (double)jmin * omstep_tmp ;
-  // printf("XXX om_chi min=%6.4f\n",*OM_atchimin);
   return extchi_min;
 
 } // end of get_minwOM
@@ -3166,7 +3081,6 @@ double simpint(double (*func)(double, Cosparam *), double x1,
   for(j=1; j<=JMAX; j++){
     st = trapezoid(func,x1,x2,j,ost,vptr);
     s = (4.0*st-ost)/3.0;
-    //    printf(" xxx %d: s-os=%le  os=%le\n", j, s-os, os);
     if (j > 5)  		/* Avoid spurious early convergence */
       if (fabs(s-os) < EPS*fabs(os) || (s==0.0 && os==0.0))  return s;
     os = s;
@@ -3254,7 +3168,6 @@ void test_codist() {
     */
     rz = 1.;
 
-    // xxx ra = Hainv_integral(H0, cpar.omm, cpar.ome, cpar.w0, atmp, amax );
     ra = Hainv_integral ( atmp, amax, &HzFUN );
 
     rz *= H0/LIGHT_km ;
@@ -3272,7 +3185,7 @@ void test_codist() {
   }
 
   printf("  Exit gracefully after test_codist \n");
-  exit(0); // xxxxx
+  exit(0); 
 
 
 } //
@@ -3524,12 +3437,6 @@ void write_output_resid(int fitnum) {
 
   if ( IGNOREFILE(INPUTS.outFile_resid) ) { return; }
 
-  /* xxx mark delete 
-  if ( strlen(INPUTS.outFile_resid) == 0 ) {
-    sprintf(INPUTS.outFile_resid,"%s.resid", INPUTS.infile);
-  }
-  xxxxxxx */
-
   getname(INPUTS.outFile_resid, tempfilename1, fitnum);
   strcpy(residfile, tempfilename1);
 
@@ -3550,7 +3457,7 @@ void write_output_resid(int fitnum) {
     rz     = codist( HD.z[i], &cpar) ;
     ld_cos = ( 1.0 + HD.z[i]) *  rz * c_light / H0;
     mu_cos =  5.*log10(ld_cos) + 25. ;
-    mu_dif =  mu_cos - HD.mu[i]; // xxx RESTORE ??  - mu_offset ;
+    mu_dif =  mu_cos - HD.mu[i];
     sqmusig_tmp  =  HD.mu_sqsig[i] + INPUTS.sqsnrms ;
     musig_tmp    = sqrt(sqmusig_tmp);
 	

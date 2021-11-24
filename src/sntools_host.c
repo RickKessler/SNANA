@@ -2951,7 +2951,8 @@ void check_duplicate_GALID(void) {
   if ( VBOSE ) { 
     printf("\t Check HOSTLIB for duplicate entries. \n"); 
     if (INPUTS.HOSTLIB_GALID_UNIQUE){
-	    printf("\t Assign GALID_UNIQUE for re-used hosts and randomize HOSTMAG.\n");
+      printf("\t Assign GALID_UNIQUE for re-used hosts and "
+	     "randomize HOSTMAG.\n");
     }
     fflush(stdout);
   }

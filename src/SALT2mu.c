@@ -342,6 +342,7 @@ redchi2_tol   or sig1tol = tolerance (0.02) on chi2/dof-1
 
 prescale_simdata=<preScale>  # pre scale for sim data
 prescale_simcc=<preScale>    # pre-scale only the simulated CC
+prescale_simIa=<preScale>    # pre-scale only the simulated Ia
 nthread=<n>                  # use pthread for multiple cores on same node
 
 NSPLITRAN=[NRAN] = number of independent sub-samples to run SALT2mu.
@@ -977,6 +978,8 @@ with append_varname_missing,
    + require muCOVadd>0 to use it (function MNCHI2FUN)
    + define MINPERCELL_MUCOVSCALE 5
 
+ Nov 24 2021: new input key prescale_simIa
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1205,7 +1208,7 @@ int  NPASS_CUTMASK_BYSAMPLE[MXEVENT_TYPE][MXNUM_SAMPLE]; // 9.18.2021
 int MAXSN ;
 int NJOB_SPLITRAN; // number of random split-jobs
 
-int    NSIMDATA,NSIMCC ;  // used to implement prescale_sim[Data,CC]
+int    NSIMDATA, NSIMIa, NSIMCC ;  // to implement prescale_sim[Data,Ia,CC]
 double PIFAC; 
 
 // ----------- TYPEDEF STRUCTURES -------------
@@ -1649,6 +1652,7 @@ struct INPUTS {
 
   double prescale_simData ;   // prescale for simData (never real data)
   double prescale_simCC ;     // e.g., 2 --> use only 1/2 of sim CC
+  double prescale_simIa ;     // prescale Ia only 
 
   // - - - - - -  cuts - - - - - 
   double cmin,  cmax  ;
@@ -5505,6 +5509,7 @@ void set_defaults(void) {
 
   INPUTS.prescale_simData  = 1.0 ; // include all simData by default
   INPUTS.prescale_simCC    = 1.0 ; // include all simcc by default.
+  INPUTS.prescale_simIa    = 1.0 ; // include all simIa by default.
 
   DOFIT_FLAG = FITFLAG_CHI2 ;
   INPUTS.zpolyflag = 0;
@@ -15822,18 +15827,21 @@ int selectCID_data(char *cid, int IDSURVEY){
 int prescale_reject_simData(int SIM_NONIA_INDEX) {
 
   // Created Apr 14 2017 by R.Kessler
-  // For simulated data, check prescale_simData and prescale_simCC
-  // to see if this event is rejected.
+  // For simulated data, check prescales to see if this event is rejected:
   //   * prescale_simData pre-scales all sim events randomly
   //   * prescale_simCC   pre-scales only the true CC subset
+  //   * prescale_simIa   pre-scales only the true Ia subset
   // Note that real data are always accepted.
   // Function returns 1 to reject, 0 to keep.
+  // Prescale can be float, e.g., 2.6.
   //
   // Do not use this function for biasCor or CCprior.
+  //
+  // Nov 25 2021: check prescale_simIa
 
   int REJECT = 0 ;
   float XN, XNPS;
-  //  char fnam[] = "prescale_reject_simData" ;
+  char fnam[] = "prescale_reject_simData" ;
 
   // ------------- BEGIN -----------------
 
@@ -15855,6 +15863,15 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
     if ( fmodf( XN, XNPS ) != 0 ) { REJECT = 1 ; }
     if ( INPUTS.prescale_simCC > 9999.0 ) { REJECT=1 ; }
   }
+
+  if ( SIM_NONIA_INDEX == 0 ) {
+    NSIMIa++ ;
+    XN    = (float)NSIMIa ;
+    XNPS  = (float)INPUTS.prescale_simIa ;
+    if ( fmodf( XN, XNPS ) != 0 ) { REJECT = 1 ; }
+  }
+
+
   return(REJECT);
 
 } // end prescale_reject_simData
@@ -16575,7 +16592,7 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"sig1tol=")) // legacy key from JLM
     { sscanf(&item[8],"%lf",&INPUTS.redchi2_tol); return(1); }
-  if ( uniqueOverlap(item,"redchi2_tol="))  // new key from RK (Mar 2015)
+  if ( uniqueOverlap(item,"redchi2_tol="))  
     { sscanf(&item[12],"%lf",&INPUTS.redchi2_tol); return(1); }
 
   if ( uniqueOverlap(item,"prescale_simdata="))  
@@ -16583,8 +16600,13 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"simdata_prescale="))  // allow mental flip, Jan 2021
     { sscanf(&item[17],"%lf",&INPUTS.prescale_simData); return(1); }
 
-  if ( uniqueOverlap(item,"prescale_simcc="))  // new key from RK (Dec 2015)
+  if ( uniqueOverlap(item,"prescale_simcc=")) 
     { sscanf(&item[15],"%lf",&INPUTS.prescale_simCC); return(1); }
+
+  if ( uniqueOverlap(item,"prescale_simIa="))  
+    { sscanf(&item[15],"%lf",&INPUTS.prescale_simIa); return(1); }
+  if ( uniqueOverlap(item,"prescale_sim1a="))  // allow 1a or Ia
+    { sscanf(&item[15],"%lf",&INPUTS.prescale_simIa); return(1); }
 
 
   // misc.  
@@ -18005,7 +18027,7 @@ void prep_input_driver(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  NSIMCC = NSIMDATA = 0 ;
+  NSIMIa = NSIMCC = NSIMDATA = 0 ;
   NJOB_SPLITRAN = 0;
 
   if ( strlen(INPUTS.sigint_fix) > 0 ) { INPUTS.sigmB = 0.0 ; }
@@ -18078,6 +18100,10 @@ void prep_input_driver(void) {
   if ( INPUTS.prescale_simData > 1.0 ) {
     fprintf(FP_STDOUT, "PRE-SCALE SIMDATA by %.1f \n", 
 	    INPUTS.prescale_simData);
+  }
+  if ( INPUTS.prescale_simIa > 1.0 ) {
+    fprintf(FP_STDOUT, "PRE-SCALE SIMIa by %.1f \n", 
+	    INPUTS.prescale_simIa);
   }
   if ( INPUTS.prescale_simCC > 1.0 ) {
     fprintf(FP_STDOUT, "PRE-SCALE SIMCC by %.1f \n", 

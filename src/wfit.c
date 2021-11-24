@@ -62,7 +62,9 @@
      HISTORY
    -----------------
 
- Nov 24 2021: BOA prior from Alam 2020 is the new default for -bao option.
+ Nov 24 2021: 
+   + BOA prior from Alam 2020 is the new default for -bao option.
+   + disable computation of sigint unless refit option is used.
 
 *****************************************************************************/
 
@@ -2466,6 +2468,8 @@ void wfit_final(void) {
   WORKSPACE.muoff_final = muoff_final ;
 
   // - - - -  sigmu_int - - - - 
+  WORKSPACE.sigmu_int = 0.0;
+  if ( INPUTS.fitnumber == 1 ) { return; } // Nov 24 2021
 
   sigint_binsize = 0.01;
   printf("\t search for sigint in bins of %.4f \n", sigint_binsize);

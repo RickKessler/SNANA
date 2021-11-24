@@ -65,6 +65,7 @@
  Nov 24 2021: 
    + BOA prior from Alam 2020 is the new default for -bao option.
    + disable computation of sigint unless refit option is used.
+     (for large NSN, calc was slow because of matrix inversion each step)
 
 *****************************************************************************/
 
@@ -2590,7 +2591,10 @@ void invert_mucovar(double sqmurms_add) {
 
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
 	 NSN, NSN, sqmurms_add);
-  printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n");
+
+  if ( sqmurms_add != 0.0 ) 
+    { printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n"); }
+
   fflush(stdout);
 
   if ( INPUTS.use_mucov) {

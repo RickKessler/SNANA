@@ -20591,6 +20591,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix override to work when two variables (zHEL and VPEC)
        both affect zHD.
      + fix VPECERR override to affect MUERR.
+     + new input prescale_simIa=3
 
   get_fitres_values.py:
     + fix to work on gzipped files.

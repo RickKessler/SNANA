@@ -3970,6 +3970,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MINDAYSEP_SAMEGAL: xxx     # default=9999999
    HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
    HOSTLIB_GALID_PRIORITY: xxx yyy    # default= 0 0 
+   HOSTLIB_GALID_UNIQUE: 0            # default=0; 1-> assign unique GALID
    HOSTLIB_GENZPHOT_FUDGEMAP: 'z0:rms0,z1:rms1,z2:rms2,etc..' #no pad spaces
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
@@ -4051,6 +4052,21 @@ with {\tt GALID < 0}, then setting
 ``{\tt HOSTLIB\_GALID\_PRIORITY: 0 99999999}''  will preferentially
 select the real galaxies before picking the fake galaxies.
 
+{\tt HOSTLIB\_GALID\_UNIQUE} sets a unique {\tt GALID} for every event, 
+even if the same {\tt HOSTLIB} galaxy is re-used many times. This 
+feature is useful, for example, in simulated data challenges.
+The algorithm uses the already unique 
+{\tt CID}\footnote{To ensure unique CIDs, set ``{\tt RESET\_CID: 2}''
+   in the sim-master-input file for {\tt submit\_batch\_jobs}.}
+and computes 
+\vspace{-0.1in}
+\begin{verbatim}
+       GALID = 57 * CID + int[ ran(0:1) x 57 ]
+\end{verbatim}
+\vspace{-0.1in}
+If there are multiple hosts per event and a duplicate GALID,
+another random GALID is selected.
+
 {\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} specifies an analytic description
 of the host photo-z profile and its error.
 This {\tt FUDGEPAR} implemenation does not require
@@ -4072,6 +4088,7 @@ The reported {\tt ZPHOTERR} is $\sigma_1$, and thus G2
 introduces non-Gaussian outliers which are not described
 by the reported \unc.
 
+\clearpage
 \newcommand{\sigplus}{\sigma_{+}}
 \newcommand{\sigminus}{\sigma_{-}}
 \newcommand{\zpeak}{z_{\rm peak}}

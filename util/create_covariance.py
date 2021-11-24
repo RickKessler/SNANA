@@ -41,24 +41,19 @@
 #             programs can auto-detect real data and apply default blinding.
 #             Only works on SALT2mu/BBC jobs run after Oct 6 2021.
 #
-# Nov 23 2021 TO-DO
-#   + if unbinned or rebin option, read MUERR_RENORM,PROBCC_BEAMS
-#   + If unbinned:
-#        replace MUERR -> MUERR_RENORM / sqrt(1-PROBCC_BEAMS)
-#   + if rebin:
-#        recompute wgted MUERR in each bin
+# Nov 23 2021 
+#   + for unbinned replace MUERR -> MUERR_RENORM
+#   + rebin working, but <z> still not quite right.
 #
 # ===============================================
 
-import argparse
-import logging
-import shutil
+import argparse, logging, shutil
 from functools import reduce
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
-import re, yaml, sys, gzip
+import re, yaml, sys, gzip, math
 from sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -70,16 +65,18 @@ SUFFIX_FITRES = "FITRES"
 PREFIX_COVSYS  = "covsys"
 HD_FILENAME    = "hubble_diagram.txt"
 
-VARNAME_CID         = "CID"
-VARNAME_IDSURVEY    = "IDSURVEY"
-VARNAME_MU          = "MU"
-VARNAME_M0DIF       = "M0DIF"
-VARNAME_MUDIF       = "MUDIF"
-VARNAME_MUDIFERR    = "MUDIFERR"
-VARNAME_MUREF       = "MUREF"
-VARNAME_MURES       = "MURES"
-VARNAME_MUERR       = "MUERR"
-VARNAME_MUERR_VPEC  = "MUERR_VPEC"
+VARNAME_CID          = "CID"  # for unbinned fitres files
+VARNAME_ROW          = "ROW"  # for binned M0DIF files
+VARNAME_IDSURVEY     = "IDSURVEY"
+VARNAME_MU           = "MU"
+VARNAME_M0DIF        = "M0DIF"
+VARNAME_MUDIF        = "MUDIF"
+VARNAME_MUDIFERR     = "MUDIFERR"
+VARNAME_MUREF        = "MUREF"
+VARNAME_MURES        = "MURES"
+VARNAME_MUERR        = "MUERR"
+VARNAME_MUERR_VPEC   = "MUERR_VPEC"
+VARNAME_MUERR_RENORM = "MUERR_RENORM"
 VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
@@ -142,13 +139,13 @@ def get_args():
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
-    msg = "number of x1 bins (default=1)"
+    msg = "number of x1 bins (default=0)"
     parser.add_argument("--nbin_x1", help=msg, 
-                        nargs='?', type=int, default=1 )
+                        nargs='?', type=int, default=0 )
 
-    msg = "number of c bins (default=1)"
+    msg = "number of c bins (default=0)"
     parser.add_argument("--nbin_c", help=msg, 
-                        nargs='?', type=int, default=1 )
+                        nargs='?', type=int, default=0 )
 
     #msg = "rebin args; 0 (unbinned) or e.g., c:5,x1:2 (5 c bins,2 x1 bins)"
     #parser.add_argument("--rebin", help=msg, nargs='+', type=str )
@@ -310,7 +307,7 @@ def get_hubble_diagrams(folder, args, config):
 
     # return table for each Hubble diagram 
 
-    is_rebin    = config['nbin_x1'] > 1 or config['nbin_c'] > 1
+    is_rebin    = config['nbin_x1'] > 0 and config['nbin_c'] > 0
     is_unbinned = args.unbinned 
     is_binned   = not (is_unbinned or is_rebin)
 
@@ -369,11 +366,12 @@ def get_hubble_diagrams(folder, args, config):
         label0 = label_list[0]
         get_rebin_info(config,HD_list[label])
         for label in label_list:
+            print(f"   Rebin {label}")
             HD_list[label]['iHD'] = config['col_iHD']
             HD_list[label] = rebin_hubble_diagram(config,HD_list[label])
+
     if is_unbinned :
         HD_list = update_MUERR(HD_list)
-
 
     return HD_list
     # end get_hubble_diagrams
@@ -405,8 +403,8 @@ def get_common_set_of_sne(datadict):
 
 def update_MUERR(HDs):
     for label,df in HDs.items():
-        if 'MUERR_RENORM' in df.columns:
-            HDs[label]['MUERR'] =  df['MUERR_RENORM']
+        if VARNAME_MUERR_RENORM in df.columns:
+            HDs[label][VARNAME_MUERR] =  df[VARNAME_MUERR_RENORM]
     return HDs
 
 def get_rebin_info(config,HD):
@@ -482,27 +480,50 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_c        = HD_unbinned[VARNAME_c]
     col_z        = HD_unbinned[VARNAME_z]
     col_mures    = HD_unbinned[VARNAME_MURES]
-    col_muerr    = HD_unbinned[VARNAME_MUERR]
-    HD_rebin = {}
+    col_muref    = HD_unbinned[VARNAME_MUREF]
+    col_mu       = HD_unbinned[VARNAME_MU]
+    col_muerr    = HD_unbinned[VARNAME_MUERR_RENORM]
+    HD_rebin_dict = { VARNAME_ROW: [], 
+                      VARNAME_z: [], VARNAME_MU: [] , VARNAME_MUERR: [],
+                      VARNAME_MUREF: [] }
 
     wgt      = 1.0/(col_muerr*col_muerr)
+    wgtmu    = wgt * col_mu
+    wgtz     = wgt * col_z
     wgtmures = wgt * col_mures
+    wgtmuref = wgt * col_muref
+
+    #print(f"\n xxx HD input = \n{HD_unbinned}\n")
+    # .xyz
 
     for i in range(0,nbin_HD):
-        binmask  = (col_iHD == i)
-        m0dif    = np.sum(wgtmures[binmask]) / np.sum(wgt[binmask])
+        binmask      = (col_iHD == i)
+        wgtsum       = np.sum(wgt[binmask])
+        if wgtsum == 0.0:   continue
 
-        print(f"  xxx rebinned m0dif[{i:2d}] = {m0dif:7.4f}")
+        row_name     = f"BIN{i:04d}"
+        muerr_wgtavg = math.sqrt(1.0/wgtsum)
+        mu_wgtavg    = np.sum(wgtmu[binmask]) / wgtsum
+        muref_wgtavg = np.sum(wgtmuref[binmask]) / wgtsum
 
-        if i == 1:
-            print(f"\n xxx z   = \n{col_z[binmask]}\n")
-            print(f"\n xxx wgt = \n{wgt[binmask]}\n")
-            sys.exit(f"\n xxx DEBUG DIE xxx \n")
+        # wgt-avg z is place-holder; need to implement calc_zM0_data()
+        # in SALT2mu.c
+        z_wgtavg     = np.sum(wgtz[binmask]) / wgtsum
+        
+        #print(f"  xxx rebinned mu[{i:2d}] = " \
+        #      f"{mu_wgtavg:7.4f} +_ {muerr_wgtavg:7.4f}")
 
-#    print(f"\n xxx HD_unbinned = \n{HD_unbinned}")
+        HD_rebin_dict[VARNAME_ROW].append(row_name)
+        HD_rebin_dict[VARNAME_z].append(z_wgtavg)
+        HD_rebin_dict[VARNAME_MU].append(mu_wgtavg)
+        HD_rebin_dict[VARNAME_MUERR].append(muerr_wgtavg)
+        HD_rebin_dict[VARNAME_MUREF].append(muref_wgtavg)
 
-    sys.exit("\n xxx DEBUG DIE xxx \n")
+    # - - - - -
+    HD_rebin = pd.DataFrame(HD_rebin_dict)
     return HD_rebin
+
+    # end rebin_hubble_diagram
 
 def get_fitopt_muopt_from_name(name):
     f = int(name.split("FITOPT")[1][:3])
@@ -529,23 +550,30 @@ def get_fitopt_scales(lcfit_info, sys_scales):
     return result
 
 def get_cov_from_diff(df1, df2, scale):
-    """ Returns both the covariance contribution and summary stats (slope and mean abs diff) """
-    assert df1[VARNAME_MU].size == df2[VARNAME_MU].size, "Oh no, looks like you have a different number of bins/supernova for your systematic and this is not good."
-    diff = scale * ((df1[VARNAME_MU] - df1[VARNAME_MUREF]) - (df2[VARNAME_MU] - df2[VARNAME_MUREF])).to_numpy()
+    """ Returns both the covariance contribution and summary stats 
+    (slope and mean abs diff) """
+    assert df1[VARNAME_MU].size == df2[VARNAME_MU].size, \
+        "Oh no, looks like you have a different number of bins/supernova " \
+        "for your systematic and this is not good."
+
+    diff = scale * ((df1[VARNAME_MU] - df1[VARNAME_MUREF]) - \
+                    (df2[VARNAME_MU] - df2[VARNAME_MUREF])).to_numpy()
     diff[~np.isfinite(diff)] = 0
     cov = diff[:, None] @ diff[None, :]
 
     # Determine the gradient using simple linear regression
     reg = LinearRegression()
-    weights = 1 / np.sqrt(0.003 ** 2 + df1[VARNAME_MUERR].to_numpy() ** 2 + df2[VARNAME_MUERR].to_numpy() ** 2)
+    weights = 1 / np.sqrt(0.003**2 + df1[VARNAME_MUERR].to_numpy()**2 \
+                          + df2[VARNAME_MUERR].to_numpy()**2)
     mask = np.isfinite(weights)
-    reg.fit(df1.loc[mask, [VARNAME_z]], diff[mask], sample_weight=weights[mask])
+    reg.fit(df1.loc[mask, [VARNAME_z]], diff[mask], 
+            sample_weight=weights[mask])
     coef = reg.coef_[0]
 
     mean_abs_deviation = np.average(np.abs(diff), weights=weights)
     max_abs_deviation = np.max(np.abs(diff))
     return cov, (coef, mean_abs_deviation, max_abs_deviation)
-
+    # end get_cov_from_diff
 
 def get_cov_from_covfile(data, covfile, scale):
     covindf = pd.read_csv(covfile,float_precision='high',low_memory=False)
@@ -568,7 +596,8 @@ def get_cov_from_covfile(data, covfile, scale):
 
     return covout, (0, 0, 0)
 
-def get_contributions(m0difs, fitopt_scales, muopt_labels, muopt_scales, extracovdict):
+def get_contributions(m0difs, fitopt_scales, muopt_labels, 
+                      muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result, slopes = {}, []
 
@@ -852,11 +881,10 @@ def write_HD_binned(path, base):
 
     logging.info(f"Write binned HD to {path}")
     
-    varname_row = "ROW"
-    keyname_row = "ROW:"
-    varlist = f"{varname_row} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+    keyname_row = f"{VARNAME_ROW}:"
+    varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
 
-    name_list   = base[varname_row].to_numpy()
+    name_list   = base[VARNAME_ROW].to_numpy()
     z_list      = base[VARNAME_z].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()

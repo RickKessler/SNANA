@@ -10694,6 +10694,8 @@ SED time-series file with format
 \begin{verbatim}
    epoch(days)   wavelength(A)   flux(erg/cm^2/s/A) .
 \end{verbatim}
+The wavelength binning must be uniform, but the epoch binning
+can be non-uniform.
 If the fluxes have incorrect units, the {\tt FLUX\_SCALE} key
 can be used to make a global unit conversion. 
 For each SED, there is a default internal time-shift 

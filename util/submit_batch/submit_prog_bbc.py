@@ -50,6 +50,7 @@
 # Oct 05 2021: move get_wfit_values to submit_util.py so that
 #                dedicated wfit class can use it too.
 # Nov 17 2021: add list protection in def make_fitpar_summary()
+# Nov 24 2021: write OLAM_REF and w_REF to submit info
 #
 # - - - - - - - - - -
 
@@ -1525,6 +1526,7 @@ class BBC(Program):
         survey_list       = self.config_prep['survey_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
+        input_file_dict   = self.config_prep['input_file_dict']
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
@@ -1546,6 +1548,11 @@ class BBC(Program):
         f.write(f"NSPLITRAN:      {n_splitran}      " \
                 f"# number of random sub-samples\n")
 
+        olam_ref = input_file_dict['p9']
+        w_ref    = input_file_dict['p11']
+        f.write(f"OLAM_REF:  {olam_ref} \n")
+        f.write(f"w_REF:     {w_ref}  \n")
+        
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
         if use_wfit :

@@ -1473,8 +1473,8 @@ struct {
   float **MUCOVADD ;
 
   // wgted-avg redshift  corresponding to each M0 offset (for M0 outfile)
-  double zM0[MXz];       
-
+  double zM0[MXz];
+  
   float MEMORY;  // Mbytes
 
   // diagnostic arrays if "write biascor" option is set
@@ -1907,7 +1907,8 @@ struct {
 
   double M0DIF[MXz]; // M0-M0avg per z-bin
   double M0ERR[MXz]; // error on above
-  double zM0[MXz];   // wgted-average z (not from fit)
+  double zM0[MXz];       // wgted-average z (not from fit)
+  double MUREF_M0[MXz];  // wgted-avg MUREF per iz bin
 
   char   PARNAME[MAXPAR][MXCHAR_VARNAME];
 
@@ -12549,7 +12550,8 @@ void calc_zM0_data(void) {
 
     muAvg = SUM_mumodel[iz]/WGT ;
     zM0   = zmu_solve(muAvg,cosPar); 
-    FITRESULT.zM0[iz] = zM0 ;
+    FITRESULT.zM0[iz]      = zM0 ;
+    FITRESULT.MUREF_M0[iz] = muAvg;
 
     if ( LDMP ) {
       zAvg = SUM_z[iz] / WGT ;  // wgted avg redshift (for comparison)
@@ -19296,9 +19298,16 @@ void  write_M0_fitres(char *fileName) {
   for(iz=0; iz < INPUTS.nzbin; iz++ ) {
 
     irow++ ;    
-    z   = INPUTS.BININFO_z.avg[iz] ;
 
-    if ( INPUTS.opt_biasCor > 0 ) { z = FITRESULT.zM0[iz]; }
+    if ( INPUTS.opt_biasCor > 0 ) { 
+      z     = FITRESULT.zM0[iz]; 
+      MUREF = FITRESULT.MUREF_M0[iz]; 
+    }  
+    else {
+      z = INPUTS.BININFO_z.avg[iz] ;
+      dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
+      MUREF = 5.0*log10(dl) + 25.0 ;
+    }
 
     zMIN   = INPUTS.BININFO_z.lo[iz] ;
     zMAX   = INPUTS.BININFO_z.hi[iz] ;
@@ -19306,8 +19315,6 @@ void  write_M0_fitres(char *fileName) {
     VAL   = FITRESULT.M0DIF[iz];
     ERR   = FITRESULT.M0ERR[iz];	
 
-    dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
-    MUREF = 5.0*log10(dl) + 25.0 ;
     NFIT = FITINP.NZBIN_FIT[iz] ;
 
     fprintf(fp, "ROW:     "

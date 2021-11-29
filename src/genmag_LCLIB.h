@@ -21,7 +21,7 @@
 
 #define DAYBACK_TEMPLATE_LCLIB 30.0 // used in forceTemplateRows
 #define MODEL_RANMAG_LCLIB  "RANMAG" 
-
+#define PARNAME_REDSHIFT_LCLIB "REDSHIFT"
 
 int LDUMP_EVENT_LCLIB ;
 
@@ -76,6 +76,7 @@ struct {
   int    NCUTWIN;
   char   PARNAME[MXCUT_LCLIB][40];
   double CUTWIN[MXCUT_LCLIB][2];
+  int    ICUT_REDSHIFT;
 } LCLIB_CUTS ;
 
 

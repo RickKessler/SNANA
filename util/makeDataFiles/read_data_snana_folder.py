@@ -1,5 +1,6 @@
 # Read data from already existing folder in SNANA-FITS format.
 # Intended only for testing makeDataFiles; not for production.
+# Nov 30 2021: fix bug to account for PTROBS starting at 1 instead of 0.
 
 import os,sys,glob,yaml,shutil
 import logging # , coloredlogs
@@ -202,12 +203,13 @@ class data_snana_folder(Program):
             head_sim[SIMKEY_TYPE_INDEX] = table_head[SIMKEY_TYPE_INDEX][evt]
  
         # - - - - - - - - - - -
-        # get pointers to PHOT table
-        ROWMIN = table_head.PTROBS_MIN[evt]
-        ROWMAX = table_head.PTROBS_MAX[evt]
+        # get pointers to PHOT table.
+        # Beware that PTROBS pointers start at 1 instead of 0, 
+        # so subtract 1 here to have python indexing.
+        ROWMIN = table_head.PTROBS_MIN[evt] - 1
+        ROWMAX = table_head.PTROBS_MAX[evt] - 1
 
-        # note that there are NOBS+1 rows, but last row is pad word -777
-        NOBS = ROWMAX - ROWMIN
+        NOBS     = ROWMAX - ROWMIN + 1
         phot_raw = self.init_phot_dict(NOBS)
 
         table_column_names = table_phot.columns.names

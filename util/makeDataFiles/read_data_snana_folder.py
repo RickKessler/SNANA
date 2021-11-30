@@ -226,7 +226,7 @@ class data_snana_folder(Program):
 
             if varname_table in table_column_names :
                 phot_raw[varname] = \
-                    table_phot[varname_table][ROWMIN:ROWMAX].copy()
+                    table_phot[varname_table][ROWMIN:ROWMAX+1].copy()
 
         # - - - - -
         # get field from from first observation,

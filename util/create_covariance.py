@@ -47,17 +47,19 @@
 #
 # ===============================================
 
-import argparse, logging, shutil
-from functools import reduce
-import numpy as np
-import os
+import os, argparse, logging, shutil
+import re, yaml, sys, gzip, math
+import numpy  as np
 import pandas as pd
 from pathlib import Path
-import re, yaml, sys, gzip, math
+from functools import reduce
 from sklearn.linear_model import LinearRegression
 import seaborn as sb
 import matplotlib.pyplot as plt
 
+import astropy.units as u
+from astropy.cosmology import Planck13, z_at_value
+from astropy.cosmology import FlatLambdaCDM
 
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
@@ -472,7 +474,9 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
     # Dec 29 2020
     # rebin unbinned results based on nbin_xxx user inputs
-    
+    #
+    # 
+
     nbin_x1      = config['nbin_x1']
     nbin_c       = config['nbin_c']
     nbin_HD      = config['nbin_HD']
@@ -480,41 +484,43 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_c        = HD_unbinned[VARNAME_c]
     col_z        = HD_unbinned[VARNAME_z]
     col_mures    = HD_unbinned[VARNAME_MURES]
+    col_mudif    = HD_unbinned[VARNAME_M0DIF]
     col_muref    = HD_unbinned[VARNAME_MUREF]
     col_mu       = HD_unbinned[VARNAME_MU]
-    col_muerr    = HD_unbinned[VARNAME_MUERR_RENORM]
+    col_muerr    = HD_unbinned[VARNAME_MUERR]
+    col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
     HD_rebin_dict = { VARNAME_ROW: [], 
                       VARNAME_z: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [] }
 
-    wgt      = 1.0/(col_muerr*col_muerr)
-    wgtmu    = wgt * col_mu
-    wgtz     = wgt * col_z
-    wgtmures = wgt * col_mures
-    wgtmuref = wgt * col_muref
+    wgt0      = 1.0/(col_muerr*col_muerr)
+    wgt1      = 1.0/(col_muerr_renorm*col_muerr_renorm)
+    wgtmuref  = wgt0 * col_muref
+    wgtmudif  = wgt1 * col_mudif
 
-    #print(f"\n xxx HD input = \n{HD_unbinned}\n")
+    # - - - - -
+    OM_ref = 0.30  # .xyz should read OM_ref from BBC output
+    zcalc_grid, mucalc_grid = get_HDcalc(OM_ref)
     # .xyz
 
     for i in range(0,nbin_HD):
-        binmask      = (col_iHD == i)
-        wgtsum       = np.sum(wgt[binmask])
-        if wgtsum == 0.0:   continue
+        binmask       = (col_iHD == i)
+        wgt0sum       = np.sum(wgt0[binmask])
+        wgt1sum       = np.sum(wgt1[binmask])
+        if wgt0sum == 0.0:   continue
 
         row_name     = f"BIN{i:04d}"
-        muerr_wgtavg = math.sqrt(1.0/wgtsum)
-        mu_wgtavg    = np.sum(wgtmu[binmask]) / wgtsum
-        muref_wgtavg = np.sum(wgtmuref[binmask]) / wgtsum
+        muerr_wgtavg = math.sqrt(1.0/wgt1sum)
+        muref_wgtavg = np.sum(wgtmuref[binmask]) / wgt0sum
+        mudif_wgtavg = np.sum(wgtmudif[binmask]) / wgt1sum
+        mu_wgtavg    = muref_wgtavg + mudif_wgtavg
+        z_invert     = np.interp(muref_wgtavg, mucalc_grid.value, zcalc_grid)
 
-        # wgt-avg z is place-holder; need to implement calc_zM0_data()
-        # in SALT2mu.c
-        z_wgtavg     = np.sum(wgtz[binmask]) / wgtsum
-        
         #print(f"  xxx rebinned mu[{i:2d}] = " \
         #      f"{mu_wgtavg:7.4f} +_ {muerr_wgtavg:7.4f}")
 
         HD_rebin_dict[VARNAME_ROW].append(row_name)
-        HD_rebin_dict[VARNAME_z].append(z_wgtavg)
+        HD_rebin_dict[VARNAME_z].append(z_invert)
         HD_rebin_dict[VARNAME_MU].append(mu_wgtavg)
         HD_rebin_dict[VARNAME_MUERR].append(muerr_wgtavg)
         HD_rebin_dict[VARNAME_MUREF].append(muref_wgtavg)
@@ -524,6 +530,16 @@ def rebin_hubble_diagram(config, HD_unbinned):
     return HD_rebin
 
     # end rebin_hubble_diagram
+
+def get_HDcalc(OM):
+
+    # return calculated HD for input OM and flat LCDM.
+    zmin    = 1.0E-04
+    zmax    = 4.0
+    z_grid  = np.geomspace(zmin, zmax, 500)
+    cosmo   = FlatLambdaCDM(H0=70, Om0=OM)
+    mu_grid = cosmo.distmod(z_grid)
+    return z_grid, mu_grid
 
 def get_fitopt_muopt_from_name(name):
     f = int(name.split("FITOPT")[1][:3])

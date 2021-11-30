@@ -12745,6 +12745,7 @@ int  storeBias_CCprior(int n) {
   // This routine is analagous to storeDataBias for real data.
   //
   // Jan 17 2020: fix index bug setting BIASCORLIST.gammadm.
+  // Nov 29 2021: return if idsample < 0
 
   int  NBINa   = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
   int  NBINb   = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
@@ -12754,7 +12755,7 @@ int  storeBias_CCprior(int n) {
   BIASCORLIST_DEF BIASCORLIST ;
 
   int    DUMPFLAG = 0; // (strcmp(name,"184000") == 0) ;
-  int    ia, ib, ig, istat_bias ;
+  int    ia, ib, ig, istat_bias, idsample ;
   char   fnam[] = "storeBias_CCprior" ;
 
   // ------------- BEGIN -------------
@@ -12777,7 +12778,17 @@ int  storeBias_CCprior(int n) {
 
   BIASCORLIST.idsample =
     INFO_CCPRIOR.TABLEVAR.IDSAMPLE[n];
-  
+
+  idsample = BIASCORLIST.idsample ;
+  if ( SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { return(0); }
+
+  if ( idsample < 0 ) {
+    sprintf(c1err,"Undefined IDSAMPLE for CID=%s", name);
+    sprintf(c2err," ");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+ 
   if ( DUMPFLAG ) {
     printf(" xxx --------------------------------- \n");
     printf(" xxx %s: mB,x1,c = %.3f, %.3f, %.3f \n", fnam,

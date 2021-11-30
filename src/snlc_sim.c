@@ -1238,6 +1238,7 @@ void set_user_defaults(void) {
   INPUTS.LCLIB_FILE[0] = 0 ;
   INPUTS.LCLIB_TEMPLATE_EPOCHS[0] = 0 ;
   LCLIB_CUTS.NCUTWIN      = 0 ;
+  LCLIB_CUTS.ICUT_REDSHIFT = -9;
   LCLIB_DEBUG.DAYSCALE             = 1.0 ;
   LCLIB_DEBUG.TOBS_OFFSET_RANGE[0] = 0.0 ;
   LCLIB_DEBUG.TOBS_OFFSET_RANGE[1] = 0.0 ;
@@ -3251,6 +3252,9 @@ int  parse_input_LCLIB(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%s",  LCLIB_CUTS.PARNAME[NCUT] );
     N++ ; sscanf(WORDS[N], "%le", &LCLIB_CUTS.CUTWIN[NCUT][0] );
     N++ ; sscanf(WORDS[N], "%le", &LCLIB_CUTS.CUTWIN[NCUT][1] );
+    if (strcmp(LCLIB_CUTS.PARNAME[NCUT], PARNAME_REDSHIFT_LCLIB) == 0){
+	    LCLIB_CUTS.ICUT_REDSHIFT = NCUT;
+    } 
     LCLIB_CUTS.NCUTWIN++ ;
   }
   else if ( keyMatchSim(1, "LCLIB_DEBUG_DAYSCALE",  WORDS[0],keySource) ) {
@@ -21822,9 +21826,17 @@ void init_genmodel(void) {
     //  REDSHIFT parameter (e.g., AGN). Note that redshift range is read 
     //  from  the LCLIB header, not from sim-input file.
     //  SHOULD AVOID USING LCLIB MODEL for EXTRA-GALACTIC models.
+    //  Alex Gagliano 11/29/2021 Check for LCLIB_CUTWIN override.
     if ( LCLIB_INFO.IPAR_REDSHIFT >= 0 && LCLIB_INFO.HOSTLIB_MSKOPT>0 )  { 
-      INPUTS.GENRANGE_REDSHIFT[0] = LCLIB_INFO.REDSHIFT_RANGE[0] ;
-      INPUTS.GENRANGE_REDSHIFT[1] = LCLIB_INFO.REDSHIFT_RANGE[1] ;
+      int ICUT = LCLIB_CUTS.ICUT_REDSHIFT;
+      if (ICUT < 0){
+          INPUTS.GENRANGE_REDSHIFT[0] = LCLIB_INFO.REDSHIFT_RANGE[0] ;
+          INPUTS.GENRANGE_REDSHIFT[1] = LCLIB_INFO.REDSHIFT_RANGE[1] ;
+      } else {
+          INPUTS.GENRANGE_REDSHIFT[0] = LCLIB_CUTS.CUTWIN[ICUT][0] ;
+          INPUTS.GENRANGE_REDSHIFT[1] = LCLIB_CUTS.CUTWIN[ICUT][1] ;
+      }
+
       INPUTS.HOSTLIB_MSKOPT       = LCLIB_INFO.HOSTLIB_MSKOPT ;
       INPUTS.HOSTLIB_USE          = 1 ;
       INIT_HOSTLIB(); 

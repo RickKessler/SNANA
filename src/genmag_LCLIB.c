@@ -406,8 +406,9 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
       sprintf(c2err,"hash (#) not allowed");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
-    if ( strcmp(parName,"redshift")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
-    if ( strcmp(parName,"REDSHIFT")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
+    // to delete if ( strcmp(parName,"redshift")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
+    // to delete if ( strcmp(parName,"REDSHIFT")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
+    if (strcmp_ignoreCase(parName, PARNAME_REDSHIFT_LCLIB) == 0){ LCLIB_INFO.IPAR_REDSHIFT=ipar;}
   }
   
   return ;

@@ -127,6 +127,7 @@ def write_readme(args, readme_dict, walltime = -1.0):
         line_list.append(f"{key_plus_colon:<22}   {walltime:.2f}   # seconds")
 
     nevt_all = n_list[0]
+    if nevt_all == 0 : nevt_all=1  # never allow abort on 0 events.
     line_list.append(f"ABORT_IF_ZERO:  {nevt_all}")
 
     # - - - - - - - -

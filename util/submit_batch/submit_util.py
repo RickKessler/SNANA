@@ -16,9 +16,13 @@ def combine_csv_files(wildcard, combined_file, remove_flag=False):
     # Created Nov 18 2021
     # combine csv files from wildcard -> 
     # output combined_file includes contents from all wildcard files.
+    # Nov 30 2021: return if there are no files with wildcard.
 
-    logging.info(f"  Combine csv truth tables for\n\t {wildcard}")
     csv_file_list = sorted(glob.glob(wildcard))
+
+    n_csv = len(csv_file_list)
+    logging.info(f"  Combine {n_csv} csv truth tables for\n\t {wildcard}")
+    if n_csv ==0 : return
 
     # read table contents as strings to avoid modifying float format 
     # in the combined csv.            

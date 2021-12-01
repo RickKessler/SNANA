@@ -59,13 +59,19 @@
 
 
 
-     HISTORY
-   -----------------
-
- Nov 24 2021: 
+     HISTORY (RK=R.Kessler, AM=A.Mitra, ...)
+   --------------------------------------------
+   
+ Nov 24 2021 RK :
    + BOA prior from Alam 2020 is the new default for -bao option.
    + disable computation of sigint unless refit option is used.
      (for large NSN, calc was slow because of matrix inversion each step)
+
+ Dec 01 2021 RK :
+   in get_chi2wOM(), skip off-diag computation if chi2(diag) is 
+   > 10 sigma above naive chi2=Ndof.
+   With 1800^2 cov matrix (unbinned data), speed increase is 
+   about x3 for wCDM fit.
 
 *****************************************************************************/
 
@@ -140,6 +146,7 @@ struct  {
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
 
   int    Ndof, Ndof_prior, Ndof_data;
+  double sig_chi2min_naive; // sqrt(2*Ndof)
   double snchi_min, extchi_min ;
   double snprobtot, snprobmax, extprobtot, extprobmax;
   double w0_atchimin, wa_atchimin,  omm_atchimin, chi2atmin;
@@ -1485,7 +1492,7 @@ void set_priors(void) {
     noprior = false;
     printf("   Gaussian Omega_m prior: %5.3f +/- %5.3f\n",
 	   INPUTS.omm_prior, INPUTS.omm_prior_sig);
-    }
+  }
 
   // - - - -
   if ( INPUTS.use_cmb ) {
@@ -1495,8 +1502,6 @@ void set_priors(void) {
   }
 
   if ( noprior ) { printf("\t None.\n"); }
-
-  printf("\n");
 
   fflush(stdout);
 
@@ -1547,7 +1552,7 @@ void init_cmb_prior(int OPT) {
     // unless user has already specified value on command line input
     if(CMB_PRIOR.R    < 0.0) { CMB_PRIOR.R     = 1.710; }
     if(CMB_PRIOR.sigR < 0.0) { CMB_PRIOR.sigR  = 0.019; }
-    sprintf(comment, "CMB WMAP-prior:  R=%5.3f +- %5.3f  \n" ,
+    sprintf(comment, "CMB WMAP-prior:  R=%5.3f +- %5.3f " ,
 	   CMB_PRIOR.R, CMB_PRIOR.sigR);
   }
   else if ( INPUTS.use_cmb == 2 ) {
@@ -1557,7 +1562,7 @@ void init_cmb_prior(int OPT) {
     set_HzFUN_for_wfit(ONE, OM, OE, w0, wa, &HzFUN) ;
     rz = Hainv_integral ( a, ONE, &HzFUN ) / LIGHT_km;
     CMB_PRIOR.R = sqrt(OM) * rz ;
-    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f  \n" ,
+    sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f " ,
 	    CMB_PRIOR.R, CMB_PRIOR.sigR);
   }
 
@@ -1795,14 +1800,15 @@ void set_Ndof(void) {
   int Ndof_data = HD.NSN - 3 ; // h, w, om = 3 fitted parameters
   int Ndof_prior = 0;
   if ( INPUTS.use_wa  ) { Ndof_data-- ; } 
-  if ( INPUTS.use_bao ) { Ndof_prior+=2*NZBIN_BAO_SDSS4 ; }
-  if ( INPUTS.use_cmb ) { Ndof_prior+=1 ; }
+  if ( INPUTS.use_bao ) { Ndof_prior += 2*NZBIN_BAO_SDSS4 ; }
+  if ( INPUTS.use_cmb ) { Ndof_prior += 1 ; }
 
   Ndof = Ndof_data + Ndof_prior;
   
   WORKSPACE.Ndof       = Ndof ;
   WORKSPACE.Ndof_data  = Ndof_data;
   WORKSPACE.Ndof_prior = Ndof_prior;
+  WORKSPACE.sig_chi2min_naive = sqrt(2.0*(double)Ndof);
 
   printf("\n# ====================================== \n");
   printf("   Ndof(data,prior,final) = %d, %d, %d \n",
@@ -1849,9 +1855,8 @@ void wfit_minimize(void) {
   // Driver function to minimize chi2 on grid,
   // Outputs loaded to WORKSPACE struct.
 
-  int Ndof = WORKSPACE.Ndof;
   Cosparam cpar;
-  double chi_approx, snchi_tmp, extchi_tmp, muoff_tmp;
+  double snchi_tmp, extchi_tmp, muoff_tmp;
   int  i, kk, j;
   int  imin = -9, kmin = -9, jmin = -9;
   char fnam[] = "wfit_minimize" ;
@@ -1865,7 +1870,6 @@ void wfit_minimize(void) {
   // Get approximate expected minimum chi2 (= NSN - 3 dof),
   // used to keep numbers small in the chi2 loop. 
     
-  chi_approx = (double)(Ndof);
 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -2634,15 +2638,21 @@ void get_chi2wOM (
 
   // Jul 10, 2021: Return chi2 at this w0, wa, OM and z value
   // Oct     2021: refactor using new cov matrix formalism
+  // Dec 01  2021: enable speed trick using nsig_chi2_skip (R.Kessler)
 
-  double chi2_prior = 0.0 ;
-  double 
-    OE, a, rz, sqmusig, sqmusiginv, Bsum, Csum
-    ,chi_hat, chi_tmp, ld_cos
-    ,tmp1,mu_cos, tmp2, nsig, dmu, sqdmu, covinv, fac ;
+  int use_mucov = INPUTS.use_mucov ;
+  int NSN       = HD.NSN;
+  int Ndof      = WORKSPACE.Ndof;
+  double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
+  double chi_hat_naive     = Ndof;
+  double nsig_chi2_skip    = 10.0; // skip off-diag if chi2_diag > this val
+
+  double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
+  double nsig_chi2, chi_hat, chi_tmp ;
+  double dmu, dmu0, dmu1 ;
     
-  bool use_speed_trick = true ;
-  double *rz_list = (double*) malloc(HD.NSN * sizeof(double) );
+  double  chi2_prior = 0.0 ;
+  double *rz_list = (double*) malloc(NSN * sizeof(double) );
   Cosparam cparloc;
   int k, k0, k1, N0, N1, k1min ;
   
@@ -2658,18 +2668,44 @@ void get_chi2wOM (
 
   Bsum = Csum = chi_hat = 0.0 ;
 
-  // precompute rz in each z bin to avoid redundant calculations
-  // when using covariance matrix.
-  for(k=0; k < HD.NSN; k++ )  { rz_list[k] = codist(HD.z[k], &cparloc); }
+  // Compute diag part first and precompute rz in each z bin to 
+  // avoid redundant calculations when using covariance matrix.
+  for(k=0; k < NSN; k++ )  { 
+    rz_list[k]  = codist(HD.z[k], &cparloc);
 
-  // Loop over all data and calculate chi2
-  if ( INPUTS.use_mucov) {
-    double dmu0, dmu1, chi_tmp;
-    for ( k0=0; k0 < HD.NSN; k0++) {
-      if ( use_speed_trick ) {k1min=k0; }  else { k1min=0; }
+    if ( use_mucov ) {
+      sqmusiginv = WORKSPACE.MUCOV[k*(NSN+1)]; 
+    }
+    else {
+      sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
+      sqmusiginv  = 1./sqmusig ; 
+    }
 
-      for ( k1=k1min; k1 < HD.NSN; k1++)  {
-	k = k0*HD.NSN + k1;
+    dmu         = get_DMU_chi2wOM(k, rz_list[k] );
+    Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
+    Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
+    chi_hat    += sqmusiginv * dmu*dmu ;
+  } // end k
+
+  
+  // - - - - -  -
+  // check for adding off-diagonal terms from cov matrix.
+  // If chi_hat(diag) is already > 10 sigma above naive chi2 -> 
+  // skip off-diag computation to save time.
+  bool do_offdiag = false;
+  if ( use_mucov ) {
+    nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
+    do_offdiag = nsig_chi2 < nsig_chi2_skip ;
+    // do_offdiag = true; // enable this to disable speed trick
+  }
+
+  // add off-diag elements if using cov matrix
+  if ( do_offdiag ) {
+    for ( k0=0; k0 < NSN-1; k0++) {
+      k1min = k0 + 1;
+
+      for ( k1=k1min; k1 < NSN; k1++)  {
+	k = k0*NSN + k1;
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
 	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
 	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
@@ -2679,27 +2715,15 @@ void get_chi2wOM (
 	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
 	chi_hat += chi_tmp ;
 
-	if ( use_speed_trick && k0 != k1 ) { // add symmetric off-diag term
-	  Bsum    += (sqmusiginv * dmu1) ;
-	  Csum    += sqmusiginv ;
-	  chi_hat += chi_tmp ;	  
-	}
+	Bsum    += (sqmusiginv * dmu1) ;
+	Csum    += sqmusiginv ;
+	chi_hat += chi_tmp ; 
 
       } // end k1
     } // end k0
-  }
-  else {
-    for (k=0; k < HD.NSN; k++){
-      sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
-      sqmusiginv  = 1./sqmusig ; 
-      dmu         = get_DMU_chi2wOM(k, rz_list[k] );
-      Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
-      Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
-      chi_hat    += sqmusiginv * dmu*dmu ;
-    } // end k
-  }
- 
+  }  // end do_offdiag
 
+  //  - - - - - -
   *mu_off  = Bsum/Csum ;  // load function output before adding H0-prior corr
 
   /* Analytic marginalization over H0.  
@@ -2720,15 +2744,15 @@ void get_chi2wOM (
   /* Compute likelihood with external prior: Omega_m or BAO */
   if ( INPUTS.use_bao ) {
     chi2_prior += chi2_bao_prior(&cparloc);
-    
-
-  } else {
+  } 
+  else {
     // Gaussian Omega_m prior
+    double nsig;
     nsig = (OM-INPUTS.omm_prior)/INPUTS.omm_prior_sig ;
     chi2_prior += nsig*nsig;
   }
 
-  // May 29, 2008 RSK - add CMB prior if requested
+  // CMB prior
   if ( INPUTS.use_cmb ) {
     chi2_prior += chi2_cmb_prior(&cparloc);
   }

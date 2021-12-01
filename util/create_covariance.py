@@ -84,6 +84,8 @@ VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
 
+VARNAME_NEVT_BIN = 'NEVT'
+
 SUBDIR_COSMOMC = "cosmomc"
 KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
 
@@ -428,9 +430,9 @@ def get_rebin_info(config,HD):
     cmin  = HD[VARNAME_c].min()   - epsilon
     cmax  = HD[VARNAME_c].max()   + epsilon
 
-    logging.info(f"\t z (min,max) = {zmin} {zmax}   (nbin={nbin_z}) ")
-    logging.info(f"\t x1(min,max) = {x1min} {x1max}  (nbin={nbin_x1}) ")
-    logging.info(f"\t c (min,max) = {cmin} {cmax}  (nbin={nbin_c}) ") 
+    logging.info(f"\t z (min,max) = {zmin:.3f} {zmax:.3f}   (nbin={nbin_z}) ")
+    logging.info(f"\t x1(min,max) = {x1min:.3f} {x1max:.3f}  (nbin={nbin_x1}) ")
+    logging.info(f"\t c (min,max) = {cmin:.3f} {cmax:.3f}  (nbin={nbin_c}) ") 
     
     bins_x1 = np.linspace(x1min, x1max, num=nbin_x1+1, endpoint=True)
     bins_c  = np.linspace(cmin,   cmax, num=nbin_c+1,  endpoint=True)
@@ -464,11 +466,16 @@ def get_rebin_info(config,HD):
     config['bins_x1']        = bins_x1
     config['bins_c']         = bins_c
     config['nbin_HD']        = nbin_x1 * nbin_c * nbin_z
-    config['col_ix1']        = col_ix1
-    config['col_ic']         = col_ic
     config['col_iHD']        = col_iHD
 
+    config['col_iz']         = col_iz
+    config['col_ix1']        = col_ix1
+    config['col_ic']         = col_ic
+
     #sys.exit(f"\n xxx DEBUG DIE from get_rebins xxx ")
+    return
+
+    # end get_rebin_info
 
 def rebin_hubble_diagram(config, HD_unbinned):
 
@@ -480,6 +487,10 @@ def rebin_hubble_diagram(config, HD_unbinned):
     nbin_x1      = config['nbin_x1']
     nbin_c       = config['nbin_c']
     nbin_HD      = config['nbin_HD']
+    col_iz       = config['col_iz']
+    col_ix1      = config['col_ix1']
+    col_ic       = config['col_ic']
+
     col_iHD      = HD_unbinned['iHD']
     col_c        = HD_unbinned[VARNAME_c]
     col_z        = HD_unbinned[VARNAME_z]
@@ -491,12 +502,13 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
     HD_rebin_dict = { VARNAME_ROW: [], 
                       VARNAME_z: [], VARNAME_MU: [] , VARNAME_MUERR: [],
-                      VARNAME_MUREF: [] }
+                      VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }
 
     wgt0      = 1.0/(col_muerr*col_muerr)
     wgt1      = 1.0/(col_muerr_renorm*col_muerr_renorm)
     wgtmuref  = wgt0 * col_muref
     wgtmudif  = wgt1 * col_mudif
+    wgtmu     = wgt1 * col_mu
 
     # - - - - -
     OM_ref = 0.30  # .xyz should read OM_ref from BBC output
@@ -507,13 +519,19 @@ def rebin_hubble_diagram(config, HD_unbinned):
         binmask       = (col_iHD == i)
         wgt0sum       = np.sum(wgt0[binmask])
         wgt1sum       = np.sum(wgt1[binmask])
-        if wgt0sum == 0.0:   continue
+        nevt          = np.sum(binmask)
+        if nevt == 0 :   continue
 
-        row_name     = f"BIN{i:04d}"
+        iz  = col_iz[binmask][0]
+        ix1 = col_ix1[binmask][0]
+        ic  = col_ic[binmask][0]
+
+        row_name     = f"BIN{i:04d}_z{iz:02d}-x{ix1}-c{ic}"
         muerr_wgtavg = math.sqrt(1.0/wgt1sum)
         muref_wgtavg = np.sum(wgtmuref[binmask]) / wgt0sum
-        mudif_wgtavg = np.sum(wgtmudif[binmask]) / wgt1sum
-        mu_wgtavg    = muref_wgtavg + mudif_wgtavg
+        #mudif_wgtavg = np.sum(wgtmudif[binmask]) / wgt1sum
+        #mu_wgtavg    = muref_wgtavg + mudif_wgtavg
+        mu_wgtavg    = np.sum(wgtmu[binmask]) / wgt1sum
         z_invert     = np.interp(muref_wgtavg, mucalc_grid.value, zcalc_grid)
 
         #print(f"  xxx rebinned mu[{i:2d}] = " \
@@ -524,6 +542,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
         HD_rebin_dict[VARNAME_MU].append(mu_wgtavg)
         HD_rebin_dict[VARNAME_MUERR].append(muerr_wgtavg)
         HD_rebin_dict[VARNAME_MUREF].append(muref_wgtavg)
+        HD_rebin_dict[VARNAME_NEVT_BIN].append(nevt)
 
     # - - - - -
     HD_rebin = pd.DataFrame(HD_rebin_dict)
@@ -896,7 +915,9 @@ def write_HD_binned(path, base):
     #if "CID" in df.columns:
 
     logging.info(f"Write binned HD to {path}")
-    
+
+    wrflag_nevt = (VARNAME_NEVT_BIN in base)
+
     keyname_row = f"{VARNAME_ROW}:"
     varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
 
@@ -905,11 +926,19 @@ def write_HD_binned(path, base):
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
 
+    if wrflag_nevt:
+        varlist += f"  {VARNAME_NEVT_BIN}"
+        nevt_list = base[VARNAME_NEVT_BIN].to_numpy()
+    else:
+        nevt_list = muerr_list  # anything to allow for loop with zip
+
     with open(path, "w") as f:
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, z, mu, muerr) in \
-            zip(name_list, z_list, mu_list, muerr_list):
+        for (name, z, mu, muerr, nevt) in \
+            zip(name_list, z_list, mu_list, muerr_list, nevt_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
+            if wrflag_nevt: val_list += f" {nevt} "
+
             f.write(f"{keyname_row} {val_list}\n")
 
     # end write_HD_binned

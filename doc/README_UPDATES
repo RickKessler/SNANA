@@ -20567,7 +20567,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + read/apply global FIELD key simlib header.
      + abort if OPT_MWEBV < 0 (previous attempt didn't actaully abort)
      + new input  HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
-     
+     + copy LCLIB_CUTWIN REDSHIFT to GENRANGE_REDSHIFT
+ 
    sntools_host.c:
      + adjust HOSTGAL mags for MU(zSN) - MU(zGAL)
 

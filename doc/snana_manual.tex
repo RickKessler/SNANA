@@ -4066,8 +4066,9 @@ and computes
 \vspace{-0.1in}
 If there are multiple hosts per event and a duplicate GALID,
 another random GALID is selected. To avoid posible confusion with
-duplicate host-galaxy mags, the mags are shifted by 
-Gaussian-random fluctuations based on the mag-uncertainties.
+duplicate host-galaxy mags (e.g., {\tt r\_obs} column), 
+each mag is shifted by a Gaussian-random fluctuation based on the 
+mag-uncertainty (e.g., {\tt r\_obs\_err} column).
 
 {\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} specifies an analytic description
 of the host photo-z profile and its error.

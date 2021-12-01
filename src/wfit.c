@@ -992,7 +992,7 @@ void read_fitres(char *inFile) {
   } // end irow
 
   HD.NSN  = NROW2;
-  printf("   Keep %d of %d z-bins with NFIT>1 & z cut\n", 
+  printf("   Keep %d of %d z-bins with z cut\n", 
 	 HD.NSN, NROW);  
 
   fflush(stdout);
@@ -1800,9 +1800,15 @@ void set_Ndof(void) {
 
   Ndof = Ndof_data + Ndof_prior;
   
-  WORKSPACE.Ndof = Ndof ;
-  WORKSPACE.Ndof_data = Ndof_data;
-  WORKSPACE.Ndof_prior= Ndof_prior;
+  WORKSPACE.Ndof       = Ndof ;
+  WORKSPACE.Ndof_data  = Ndof_data;
+  WORKSPACE.Ndof_prior = Ndof_prior;
+
+  printf("\n# ====================================== \n");
+  printf("   Ndof(data,prior,final) = %d, %d, %d \n",
+	 Ndof_data, Ndof_prior, Ndof);
+  fflush(stdout);
+
   return ;
 
 } // end set_Ndof
@@ -1852,6 +1858,10 @@ void wfit_minimize(void) {
 
   // ---------- BEGIN --------------
 
+  printf("\n# ======================================= \n");
+  printf(" Get Mimimized values: \n");
+  fflush(stdout);
+
   // Get approximate expected minimum chi2 (= NSN - 3 dof),
   // used to keep numbers small in the chi2 loop. 
     
@@ -1884,6 +1894,11 @@ void wfit_minimize(void) {
     }  // end of k-loop
   }  // end of i-loop
   
+  printf("   Approx chi2min(SNonly, SN+prior): %.1f , %.1f \n", 
+	 WORKSPACE.snchi_min, WORKSPACE.extchi_min );
+
+  fflush(stdout);
+
   // get w,OM at min chi2 by using more refined grid
   // Pass approx w,OM,  then return w,OM at true min
   //  printf("  Get minimized w,OM from refined chi2grid \n");
@@ -1891,16 +1906,15 @@ void wfit_minimize(void) {
   WORKSPACE.wa_atchimin = INPUTS.wa_min  + kmin * INPUTS.wa_stepsize ;
   WORKSPACE.omm_atchimin= INPUTS.omm_min + jmin * INPUTS.omm_stepsize ;
   
-  fflush(stdout);
-
   if ( !INPUTS.use_marg  ) {
     WORKSPACE.chi2atmin  = 
       get_minwOM( &WORKSPACE.w0_atchimin, 
 		  &WORKSPACE.wa_atchimin,  
 		  &WORKSPACE.omm_atchimin ); 
+    printf("   Final chi2min(SN+prior) = %f \n", WORKSPACE.chi2atmin);
+    fflush(stdout);
   }
 
-  fflush(stdout);
 
   return;
 

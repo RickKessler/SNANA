@@ -250,6 +250,7 @@ double ZERO      = 0.0;
 double SIG_MUOFF ;  // computed from H0 and H0SIG
 double SQSIG_MUOFF ;
 
+double NSIG_CHI2_SKIP = 10.0; // skip off-diag if chi2_diag > this val
 
 // define cosmo varnames used for consistent output names
 char varname_w[4];          // either w for wCDM or w0 for w0wa model
@@ -1855,6 +1856,8 @@ void wfit_minimize(void) {
   // Driver function to minimize chi2 on grid,
   // Outputs loaded to WORKSPACE struct.
 
+  int Ndof                 = WORKSPACE.Ndof;
+  double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
   Cosparam cpar;
   double snchi_tmp, extchi_tmp, muoff_tmp;
   int  i, kk, j;
@@ -1898,8 +1901,29 @@ void wfit_minimize(void) {
     }  // end of k-loop
   }  // end of i-loop
   
+  double extchi_min = WORKSPACE.extchi_min;
+  double snchi_min  = WORKSPACE.snchi_min ;
+
+
+  // - - - - -
+  // compute nsig_chi2 above naive chi2min=Ndof and compare
+  // with nsig_chi2_skip used for speed trick
+  double nsig = (extchi_min - (double)Ndof) / sig_chi2min_naive;
+
   printf("   Approx chi2min(SNonly, SN+prior): %.1f , %.1f \n", 
-	 WORKSPACE.snchi_min, WORKSPACE.extchi_min );
+	 snchi_min, extchi_min );
+  printf("\t nsig(naive) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n", 
+	 nsig);
+
+  if ( INPUTS.use_mucov ) {
+    printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
+	   NSIG_CHI2_SKIP );
+    if ( nsig > NSIG_CHI2_SKIP - 5.0 ) {
+      printf("  WARNING: nsig(naive) is large -> "
+	     "check off-diag speed-trick in get_chi2wOM\n");
+    }
+  }
+
 
   fflush(stdout);
 
@@ -2645,7 +2669,6 @@ void get_chi2wOM (
   int Ndof      = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
   double chi_hat_naive     = Ndof;
-  double nsig_chi2_skip    = 10.0; // skip off-diag if chi2_diag > this val
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
   double nsig_chi2, chi_hat, chi_tmp ;
@@ -2695,7 +2718,7 @@ void get_chi2wOM (
   bool do_offdiag = false;
   if ( use_mucov ) {
     nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
-    do_offdiag = nsig_chi2 < nsig_chi2_skip ;
+    do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ;
     // do_offdiag = true; // enable this to disable speed trick
   }
 

@@ -20547,11 +20547,20 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04d (  ) 
+         v11_04d (Dec 2 2021) 
 
          ***** IMPORTANT(v11_04d) ***** 
 
+    + create_covariance.py works with BEAMS for unbin and rebin
+        (needs high-stat sim testing)
+    + wfit's boa option is now based on Alam 2020 (no longer Eisen2006)
+    + submit_batch ready with wfit (submit_batch_jobs -H WFIT)
+    + Integrate skeleton gensed_BAYESN.py into sim
+
          ***** USEFUL(v11_04d) ***** 
+
+    + new sim-input HOSTLIB_GENZPHOT_FUDGEMAP (see manual)
+    + get_fitres_values.py works on gzip files, and on HOSTLIB
 
          ***** MISCELLANEOUS(v11_04d) ***** 
 
@@ -20559,7 +20568,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new input RANSYSTPAR_GENPDF_FILE_WILDCARD
         (not yet tested)
      + can read SALT2ALPHA and SALT2BETA maps from GENPDF_FILE,
-        or read asumGauss keys from GENPDF_FILE and convert to map.
+        or read asymGauss keys from GENPDF_FILE and convert to map.
      + in hostgal_to_SNDATA(), remove ancient code snippet that
         set hostmags even if there was no DDLR match.
      + for text format with spectra, write LAMRANGE_VALID key
@@ -20580,9 +20589,12 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_batch_jobs:
      + check_abort is monitored after each job so no longer have
         to wait for all jobs to finish.
-
+     
    submit_prog_sim.py:
-     strip out comments from reading sim-input files.
+     + strip out comments from reading sim-input files.
+
+   submit_prog_wfit.py
+     + improve WFIT_SUMMARY file
 
    genmag_LCLIB: fix refac bugs from Jun 23 2021 (affected AGN)
 
@@ -20597,5 +20609,12 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   get_fitres_values.py:
     + fix to work on gzipped files.
 
+  wfit.c
+    + -bao and -bao_sim priors now use Alam 2020
+        (no longer uses Eisenstein 2006 prior)
+
+  create_covariance.py
+    + unbinning/rebinning working with BBC(Ia+CC), but needs
+      more testing with high-stat sins to measure bias.
 
 END: 

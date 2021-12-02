@@ -224,11 +224,10 @@ class wFit(Program):
         wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']
         wfitopt_num_list   = wfitopt_dict['jobopt_num_list']
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
-   
+
         logging.info(f"\n Store {n_wfitopt} wfit options from " \
                      f"{key} keys" )
 
-        # exclude 0th element since there is no default
         self.config_prep['n_wfitopt']          = n_wfitopt
         self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list
         self.config_prep['wfitopt_num_list']   = wfitopt_num_list
@@ -691,6 +690,8 @@ class wFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wa           = submit_info_yaml['USE_wa']
+        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
+        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
 
         SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
         f = open(SUMMARYF_FILE,"w") 
@@ -699,15 +700,18 @@ class wFit(Program):
         MERGE_INFO_CONTENTS,comment_lines = \
                 util.read_merge_file(MERGE_LOG_PATHFILE)
 
+        dirnum_last = "xyz"
+
         nrow = 0 
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
-            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:]
-            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:]
-            wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:]
+            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:] # e.g., 000
+            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., 001
+            wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
             prefix     = self.wfit_prefix(row)
             YAML_FILE  = f"{script_dir}/{prefix}.YAML"
-            wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
+
+            wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
 
             w       = wfit_values_dict['w']  
@@ -717,7 +721,16 @@ class wFit(Program):
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             blind   = wfit_values_dict['blind']
-            
+         
+            # extract user labels for cov and wfit
+            str_diropt  = 'DIROPT' + dirnum
+            str_covopt  = 'COVOPT' + covnum
+            dir_name    = INPDIR_LIST[str_diropt]  # create_cov dir
+            covopt_dict = INPDIR_LIST[f'COVOPTS({str_diropt})']
+            #print(f" xxx covopt_dict = {covopt_dict} ")
+            covopt_label  = covopt_dict[str_covopt]
+            wfitopt_label = WFITOPT_LIST[int(covnum)][1]
+
             if use_wa:
                 wa      = wfit_values_dict['wa']    
                 wa_sig  = wfit_values_dict['wa_sig']
@@ -727,17 +740,25 @@ class wFit(Program):
             if nrow == 1:
                 self.write_wfit_summary_header(f,wfit_values_dict)
 
+            if dirnum != dirnum_last:
+                f.write(f"\n# {str_diropt}={dir_name}\n")
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
+            if use_wa : 
+                str_results  = f"{w:.3f} {w_sig:.3f} "
+                str_results += f"{wa:6.3f} {wa_sig:6.3f} "
+                str_results += f"{FoM:5.1f} {Rho:6.3f} "
+                str_results += f"{omm:.3f} {omm_sig:.3f}  "
+            else:
+                str_results  = f"{w:.4f} {w_sig:.4f}  "
+                str_results += f"{omm:.4f} {omm_sig:.4f}  "
 
-            str_results = f"{w:.4f} {w_sig:.4f}  "
-            if use_wa : str_results += f"{wa:6.3f} {wa_sig:6.3f} {FoM:5.1f} {Rho:6.3f} "
-            str_results += f"{omm:.4f} {omm_sig:.4f}  "
+            str_misc    = f"{chi2:4.1f} {blind} "
+            str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
+                    f"{str_misc} {str_labels}\n")
 
-            str_misc    = f"{chi2:4.1f} {sigint:.3f} {blind}"
+            dirnum_last = dirnum
 
-            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  {str_misc}\n")
-
- 
         f.close()
         # end make_wfit_summary
 
@@ -751,7 +772,7 @@ class wFit(Program):
         if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM Rho"
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
-            f"omm omm_sig  chi2 sigint blind"
+            f"omm omm_sig  chi2 blind  COVOPT WFITOPT"
 
         w_ran   = int(wfit_values_dict['w_ran']) 
         wa_ran  = int(wfit_values_dict['wa_ran'])

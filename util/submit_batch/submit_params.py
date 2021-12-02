@@ -426,6 +426,8 @@ HELP_CONFIG_WFIT = f"""
   - <dir0>
   - <dir1>
   - <dir2>
+  - /global/mydir/output_test1*    # wildcards allowed
+  - /global/mydir/output_test2*    # multiple times
   - etc ...
 
   # List wfit command-line options; each row is for a separate wfit job.

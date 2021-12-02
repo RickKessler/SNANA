@@ -102,21 +102,29 @@ class wFit(Program):
         else:
             inpdir_list_orig = CONFIG[key] # orig list may include ENVs
 
+            
+        # expand inpdir for wildcards and ENVs .xyz
+        inpdir_list = []
+        for inpdir_orig in inpdir_list_orig:
+            inpdir = os.path.expandvars(inpdir_orig)
+            if '*' in inpdir_orig:
+                tmp_list = sorted(glob.glob(inpdir))
+            else:
+                tmp_list = [ inpdir ]
+            inpdir_list += tmp_list
+
         # - - - - -
         wildcard      = f"{PREFIX_covsys}*"
         isdata_list   = []
-        inpdir_list   = []
         covsys_list2d = [] # file list per inpdir
         covinfo_list  = [] # list of yaml info per inpdir
 
-        for inpdir_orig in inpdir_list_orig:
-            inpdir = os.path.expandvars(inpdir_orig)
-            inpdir_list.append(inpdir)
+        for inpdir in inpdir_list:
 
             if not os.path.exists(inpdir) :
                 msgerr.append(f"Cannot find input directory")
-                msgerr.append(f"  {inpdir_orig}")       
-                if inpdir != inpdir_orig : msgerr.append(f"  {inpdir}")
+                msgerr.append(f"  {inpdir}")       
+                #if inpdir != inpdir_orig : msgerr.append(f"  {inpdir}")
                 self.log_assert(False, msgerr)
                 
             covsys_list  = sorted(glob.glob1(inpdir,wildcard))
@@ -128,14 +136,15 @@ class wFit(Program):
             isdata_list.append(isdata)
             covinfo_list.append(yaml_info)
 
-            print(f" Found {inpdir_orig} \n" \
+            print(f" Found {inpdir} \n" \
                   f" \t with {n_covsys} {PREFIX_covsys} files and " \
                   f"ISDATA_REAL={isdata} ")
 
 
+        #sys.exit(f"\n xxx inpdir_list = \n{inpdir_list} \n")
         #print(f" xxx covsys_list = {covsys_list} ")
         # - - - - - -
-        self.config_prep['inpdir_list_orig']  = inpdir_list_orig
+        #self.config_prep['inpdir_list_orig']  = inpdir_list_orig
         self.config_prep['inpdir_list']       = inpdir_list
         self.config_prep['n_inpdir']          = len(inpdir_list)
         self.config_prep['covsys_list2d']     = covsys_list2d
@@ -153,21 +162,21 @@ class wFit(Program):
         # non-existing inpdir, n_covsys=0, etc ...
         # Print all ERRORS before aborting.
 
-        inpdir_list_orig = self.config_prep['inpdir_list_orig']
+        #inpdir_list_orig = self.config_prep['inpdir_list_orig']
         inpdir_list      = self.config_prep['inpdir_list'] 
         covsys_list2d    = self.config_prep['covsys_list2d']
         nerr = 0
         msgerr = []
 
-        for inpdir_orig,inpdir,covsys_list in \
-            zip(inpdir_list_orig, inpdir_list, covsys_list2d):
+        for inpdir, covsys_list in \
+            zip(inpdir_list, covsys_list2d):
 
             hd_file    = f"{inpdir}/{HD_FILENAME}"
             n_covsys   = len(covsys_list)
             if n_covsys == 0 :            
                 nerr += 1
                 msgerr.append(f"ERROR: cannot find {PREFIX_covsys}* files in")
-                msgerr.append(f"   {inpdir_orig}")  
+                msgerr.append(f"   {inpdir}")  
 
             if not os.path.exists(hd_file):
                 nerr += 1
@@ -374,7 +383,7 @@ class wFit(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
 
-        inpdir      = self.config_prep['inpdir_list_orig'][idir]
+        inpdir      = self.config_prep['inpdir_list'][idir]
         arg_blind   = self.config_prep['arg_blind_list'][idir]
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
@@ -457,7 +466,7 @@ class wFit(Program):
         wfitopt_num_list   = self.config_prep['wfitopt_num_list']
         wfitopt_label_list = self.config_prep['wfitopt_label_list']
         wfitopt_global     = self.config_prep['wfitopt_global']
-        inpdir_list_orig   = self.config_prep['inpdir_list_orig']
+        inpdir_list        = self.config_prep['inpdir_list']
         covinfo_list       = self.config_prep['covinfo_list']
         use_wa             = self.config_prep['use_wa']
 
@@ -471,7 +480,7 @@ class wFit(Program):
         idir=-1
         f.write("\n")
         f.write(f"INPDIR_LIST: \n")
-        for inpdir, covinfo in zip(inpdir_list_orig, covinfo_list):
+        for inpdir, covinfo in zip(inpdir_list, covinfo_list):
             idir += 1
             diropt_num  = self.wfit_num_string(idir,-1,-1)
             row         = [ diropt_num, inpdir ]

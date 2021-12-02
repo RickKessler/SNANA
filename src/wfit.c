@@ -3381,31 +3381,31 @@ void write_output_cospar(void) {
   // define variables to write out based on use_marg and use_wa flags.
 
   sprintf(VARNAMES_LIST[NVAR],"%s", varname_w); 
-  sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.w0_final ) ;
+  sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_final ) ;
   NVAR++ ;
 
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_w); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.w0_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_marg ) ;
     NVAR++ ;
   }
   else {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_lo", varname_w); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.w0_sig_lower ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_lower ) ;
     NVAR++ ;
     sprintf(VARNAMES_LIST[NVAR],"%ssig_up", varname_w); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.w0_sig_upper ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_sig_upper ) ;
     NVAR++ ;
   }
 
   // - - - 
   if ( use_wa ) {
     sprintf(VARNAMES_LIST[NVAR],"%s", varname_wa); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.wa_final ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_final ) ;
     NVAR++ ;
     if ( use_marg ) {
       sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_wa); 
-      sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.wa_sig_marg ) ;
+      sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_sig_marg ) ;
       NVAR++ ;
     }
     else {
@@ -3422,18 +3422,18 @@ void write_output_cospar(void) {
   // - - - 
 
   sprintf(VARNAMES_LIST[NVAR],"%s", varname_omm); 
-  sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.omm_final ) ;
+  sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_final ) ;
   NVAR++ ;
   if ( use_marg ) {
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.omm_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;
     NVAR++ ;
   }
   else {
     // WARNING: we don't have omm_sig_upper/lower, so just
     // write omm_sig_marg
     sprintf(VARNAMES_LIST[NVAR],"%ssig_marg", varname_omm); 
-    sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.omm_sig_marg ) ;
+    sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.omm_sig_marg ) ;
     NVAR++ ;
   }
 

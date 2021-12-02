@@ -741,16 +741,16 @@ class wFit(Program):
                 self.write_wfit_summary_header(f,wfit_values_dict)
 
             if dirnum != dirnum_last:
-                f.write(f"\n# {str_diropt}={dir_name}\n")
+                f.write(f"#\n# {str_diropt}={dir_name}\n")
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
             if use_wa : 
-                str_results  = f"{w:.3f} {w_sig:.3f} "
-                str_results += f"{wa:6.3f} {wa_sig:6.3f} "
+                str_results  = f"{w:.4f} {w_sig:.4f} "
+                str_results += f"{wa:7.4f} {wa_sig:7.4f} "
                 str_results += f"{FoM:5.1f} {Rho:6.3f} "
                 str_results += f"{omm:.3f} {omm_sig:.3f}  "
             else:
-                str_results  = f"{w:.4f} {w_sig:.4f}  "
-                str_results += f"{omm:.4f} {omm_sig:.4f}  "
+                str_results  = f"{w:.5f} {w_sig:.5f}  "
+                str_results += f"{omm:.5f} {omm_sig:.5f}  "
 
             str_misc    = f"{chi2:4.1f} {blind} "
             str_labels  = f"{covopt_label:<10} {wfitopt_label}"

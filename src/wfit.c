@@ -251,7 +251,7 @@ double ZERO      = 0.0;
 double SIG_MUOFF ;  // computed from H0 and H0SIG
 double SQSIG_MUOFF ;
 
-double NSIG_CHI2_SKIP = 10.0; // skip off-diag if chi2_diag > this val
+double NSIG_CHI2_SKIP = 30.0; // skip off-diag if chi2_diag > this val
 
 // define cosmo varnames used for consistent output names
 char varname_w[4];          // either w for wCDM or w0 for w0wa model
@@ -752,7 +752,7 @@ void parse_args(int argc, char **argv) {
 	{ strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
 
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
-	{ INPUTS.debug_flag = atoi(argv[++iarg]);  }  // 
+	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
       else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)  
 	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]);  }        

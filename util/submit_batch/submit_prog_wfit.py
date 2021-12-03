@@ -727,9 +727,8 @@ class wFit(Program):
             str_covopt  = 'COVOPT' + covnum
             dir_name    = INPDIR_LIST[str_diropt]  # create_cov dir
             covopt_dict = INPDIR_LIST[f'COVOPTS({str_diropt})']
-            #print(f" xxx covopt_dict = {covopt_dict} ")
             covopt_label  = covopt_dict[str_covopt]
-            wfitopt_label = WFITOPT_LIST[int(covnum)][1]
+            wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
 
             if use_wa:
                 wa      = wfit_values_dict['wa']    

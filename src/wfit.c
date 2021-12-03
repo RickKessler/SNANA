@@ -469,6 +469,7 @@ void init_stuff(void) {
   // ------------ BEGIN -----------
 
   INPUTS.blind = INPUTS.fitsflag = INPUTS.debug_flag = 0;
+  INPUTS.speed_flag_chi2 = 1; // enable speed trick by default
 
   INPUTS.OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
 

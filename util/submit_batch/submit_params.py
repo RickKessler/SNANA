@@ -432,11 +432,13 @@ HELP_CONFIG_WFIT = f"""
 
   # List wfit command-line options; each row is for a separate wfit job.
   # Beware that there is no default setting, so WFITOPT starts here at 0.
+  # The /label/ are optional, and are included in the wfit-summary table
+  # for human- and machine-readability.
   WFITOPT:
-  -  "-ompri 0.31 -dompri 0.01 "
-  -  "-cmb_sim -sigma_Rcmb 0.007 "
-  -  "-cmb_sim -sigma_Rcmb 0.007 -bao_sim"
-  -  "-wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007 "
+  - /OMpri/     -ompri 0.31 -dompri 0.01
+  - /CMBpri/    -cmb_sim -sigma_Rcmb 0.007
+  - /CMB+BAO/   -cmb_sim -sigma_Rcmb 0.007 -bao_sim
+  - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007
 
 # optional global wfit options appended to each WFITOPT above
   WFITOPT_GLOBAL: "-hsteps 61 -wsteps 101 -omsteps 81"

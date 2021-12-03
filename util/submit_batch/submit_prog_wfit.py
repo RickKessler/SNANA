@@ -102,7 +102,11 @@ class wFit(Program):
         else:
             inpdir_list_orig = CONFIG[key] # orig list may include ENVs
 
-            
+        if inpdir_list_orig is None :
+            msgerr.append(f"{key} is empty;")
+            msgerr.append(f"Check {input_file}")
+            self.log_assert(False, msgerr)
+
         # expand inpdir for wildcards and ENVs .xyz
         inpdir_list = []
         for inpdir_orig in inpdir_list_orig:
@@ -216,8 +220,13 @@ class wFit(Program):
             msgerr.append(f"Missing required {key} key in CONFIG block")
             msgerr.append(f"Check {input_file}")
             self.log_assert(False, msgerr)
+        else:
+            wfitopt_rows = CONFIG[key]
+            if wfitopt_rows is None:
+                msgerr.append(f"{key} is empty.")
+                msgerr.append(f"Check {input_file}")
+                self.log_assert(False, msgerr)                
 
-        wfitopt_rows = CONFIG[key]
         wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key, None)
 
         n_wfitopt          = wfitopt_dict['n_jobopt']
@@ -729,6 +738,7 @@ class wFit(Program):
             covopt_dict = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
             wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
+            if wfitopt_label == "None" : wfitopt_label = "NoLabel"
 
             if use_wa:
                 wa      = wfit_values_dict['wa']    

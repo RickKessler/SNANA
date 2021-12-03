@@ -1942,6 +1942,8 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 } 
 
 
+
+// *******************************************************
 int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
   // Read FILENAME (ascii) and store each word to be fetched later
@@ -2040,7 +2042,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
       sprintf(c2err,"%s", FILENAME);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-    NWD = PARSE_WORDS.NWD = nline = 0 ;
+    NWD = PARSE_WORDS.NWD = nline = LINE[0] = 0 ;
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
       nline++ ;
       malloc_PARSE_WORDS();
@@ -2063,6 +2065,8 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
       if ( FIRSTLINE && nline > 5 ) { break; }
     } // end while
     NWD = PARSE_WORDS.NWD ;
+
+    check_EOF(fp, FILENAME, fnam, nline); 
 
     fclose(fp);
   }
@@ -9891,6 +9895,40 @@ int wr_filtband_float(
   return(0); // add Aug 7 2014 to avoid compile warnings.
 
 } // end of wr_filtband_float
+
+// *********************************************************
+void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) {
+
+  // Created Dec 3 2021 by R.Kessler
+  // if feof(fp) is True, return with no comment.
+  // if !feof(fp), abort on error that EOF was not reached.
+  // Initial motivation is to better identify file-read
+  // errors on cori.
+
+  int ieof = feof(fp);
+  int ierr = ferror(fp);
+  char fnam[] = "check_EOF" ;
+
+  // ---------- BEGIN -----------
+
+  if ( ierr == 0 ) { return; }
+
+  print_preAbort_banner(fnam);
+  printf("   EOF failed for: \n");
+  printf("    file name: %s\n", file_name);
+  printf("    from function: %s\n", fun_name);
+  printf("    after reading %d lines. \n", nline_read);
+
+  printf("    feof(fp)   = %d \n", ieof );
+  printf("    ferror(fp) = %d \n", ierr );
+
+  sprintf(c1err,"File reading ended without reaching EOF;");
+  sprintf(c2err,"Check file-system or if file was altered during read.");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+  return;
+
+} // end check_EOF
 
 
 // ***********************************

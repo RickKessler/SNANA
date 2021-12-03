@@ -902,6 +902,11 @@ void open_HOSTLIB(FILE **fp) {
 
 void close_HOSTLIB(FILE *fp) {
   // Created July 16 2021
+
+  char fnam[] = "close_HOSTLIB";
+
+  check_EOF(fp, INPUTS.HOSTLIB_FILE, fnam, HOSTLIB.NGAL_READ);
+
   if ( HOSTLIB.GZIPFLAG ) 
     { pclose(fp); } // close gzip file
   else

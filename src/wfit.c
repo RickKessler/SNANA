@@ -101,7 +101,8 @@ struct INPUTS {
   int fitsflag ;
   int blind;  // blind cosmology results by adding sin(big number) 
   int debug_flag ;
-  int fitnumber;   // default=1; 
+  int speed_flag_chi2; // default = 1; set to 0 to disable
+  int fitnumber;   // default=1; legacy for iterative fit after sigint calc
 
   char infile[1000];          // input hubble diagram in fitres format
   char outFile_cospar[1000] ; // output name of cospar file
@@ -563,6 +564,7 @@ void print_help(void) {
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -mucovar\t\t [Legacy key for previous]",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
+    "   -speed_flag_chi2\t 0 -> disable speed trick (remove cut on chi2 diag.)",
     "",
     " Grid spacing:",
     " wCDM Fit:",
@@ -749,8 +751,11 @@ void parse_args(int argc, char **argv) {
 	{ strcpy(INPUTS.outFile_chi2grid,argv[++iarg]); }
 
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
-	{ INPUTS.debug_flag = atoi(argv[++iarg]);  }  // RK Aug 2021
-      
+	{ INPUTS.debug_flag = atoi(argv[++iarg]);  }  // 
+
+      else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)  
+	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]);  }        
+
       else {
 	printf("Bad arg: %s\n", argv[iarg]);
 	exit(EXIT_ERRCODE_wfit);
@@ -1867,7 +1872,8 @@ void wfit_minimize(void) {
   // ---------- BEGIN --------------
 
   printf("\n# ======================================= \n");
-  printf(" Get Mimimized values: \n");
+  printf(" Get Mimimized values (speed_flag_chi2=%d) \n",
+	 INPUTS.speed_flag_chi2 );
   fflush(stdout);
 
   // Get approximate expected minimum chi2 (= NSN - 3 dof),
@@ -2717,9 +2723,13 @@ void get_chi2wOM (
   // skip off-diag computation to save time.
   bool do_offdiag = false;
   if ( use_mucov ) {
-    nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
-    do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ;
-    // do_offdiag = true; // enable this to disable speed trick
+    if ( INPUTS.speed_flag_chi2 ) {
+      nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
+      do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ; 
+    }
+    else {
+      do_offdiag = true ; 
+    }
   }
 
   // add off-diag elements if using cov matrix

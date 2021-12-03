@@ -63,7 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04d"
+#define  SNANA_VERSION_CURRENT  "v11_04e" 
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -557,6 +557,7 @@ void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);
 void check_arg_len(char *keyName, char *arg, int MXLEN) ;
+void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) ;
 
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);

@@ -69,9 +69,11 @@
 
  Dec 01 2021 RK :
    in get_chi2wOM(), skip off-diag computation if chi2(diag) is 
-   > 10 sigma above naive chi2=Ndof.
+   > 30 sigma above naive chi2=Ndof.
    With 1800^2 cov matrix (unbinned data), speed increase is 
-   about x3 for wCDM fit.
+   about x2.6 for wCDM fit.
+
+ Dec 03 2021 RK : new input option -lcdm to fit for OM with w=-1
 
 *****************************************************************************/
 
@@ -116,8 +118,12 @@ struct INPUTS {
   double h_min,   omm_min,   w0_min,   wa_min   ;    
   double h_max,   omm_max,   w0_max,   wa_max   ;
 
+  int dofit_wcdm ;    // default is true
+  int dofit_lcdm ;    // option with -lcdm
+  int dofit_w0wa ;    // option with -wa
+
   int use_bao, use_cmb ; // flags for bao and cmb priors
-  int use_wa;            // flag to fit for wa (added Sep 2021)
+  //  int use_wa;            // flag to fit for wa (added Sep 2021)
   int use_marg;          // flag to marginalize (instead of only minimize)
   int use_mucov;         // flag to read cov matrix
   double zmin, zmax;               // redshift selection
@@ -489,7 +495,11 @@ void init_stuff(void) {
   init_bao_prior(-9); 
   init_cmb_prior(-9);  
 
-  INPUTS.use_bao = INPUTS.use_cmb = INPUTS.use_wa = 0 ;
+  INPUTS.dofit_wcdm = 1 ;
+  INPUTS.dofit_lcdm = 0 ;
+  INPUTS.dofit_w0wa = 0 ;
+
+  INPUTS.use_bao  = INPUTS.use_cmb ;
   INPUTS.use_marg = 1;
 
 
@@ -545,7 +555,9 @@ void print_help(void) {
     " Default for input file is 3 columns: z, mu, sigma_mu, but see below",
     "",
     "  Options:",
-    "   -wa\t\tfit for w0-wa from Chevallier & Polarski, 2001 [Int.J.Mod.Phys.D10,213(2001)]",
+    "   -wa\t\tfit for w0 & wa [w=w0+wa*(1-a)] from ",
+    "     \t\t Chevallier & Polarski, 2001 [Int.J.Mod.Phys.D10,213(2001)]",
+    "   -lcdm\tfit for OM only (fix w=-1)" ,
     "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
     "   -dompri\twidth of omega_m prior [default: 0.04]",
     "   -bao\t\tuse BAO prior from Eisenstein et al, 2006",
@@ -643,8 +655,13 @@ void parse_args(int argc, char **argv) {
 	INPUTS.use_cmb = 1;
 	INPUTS.omm_prior_sig = 0.9;  // turn off omm prior (9/2021)
       } else if (strcasecmp(argv[iarg]+1,"wa")==0) {
-        INPUTS.use_wa=1;
+        INPUTS.dofit_w0wa = 1 ;
+	INPUTS.dofit_wcdm = 0 ;
 	sprintf(varname_w,"w0");
+      }
+      else if (strcasecmp(argv[iarg]+1,"lcdm")==0) {
+	INPUTS.dofit_lcdm = 1 ;
+	INPUTS.dofit_wcdm = 0 ;
       }
       else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
         INPUTS.use_cmb = 2 ;
@@ -769,15 +786,20 @@ void parse_args(int argc, char **argv) {
   char var_w[20], str_marg_min[20];
 	   
   printf(" ****************************************\n");
-  if ( INPUTS.use_wa )  { 
-    printf("   Fit model:  w(z) = w0 + wa(1-a) \n"); 
+  if ( INPUTS.dofit_w0wa )  { 
+    printf("   Fit w0waCDM  model:  w(z) = w0 + wa(1-a) \n"); 
     sprintf(var_w,"%s,%s", varname_w, varname_wa);
   }
-  else {
-    printf("   Fit model:  w(z) = w0  \n"); 
+  else if ( INPUTS.dofit_lcdm ) {
+    printf("  Fit LCDM model for OM  with w=-1 \n" );
     sprintf(var_w,"%s", varname_w);
-    INPUTS.wa_steps = 1; 
-    INPUTS.wa_min = INPUTS.wa_max = 0.0 ;
+    INPUTS.w0_steps = 1;   INPUTS.w0_min = INPUTS.w0_max = -1.0 ;
+    INPUTS.wa_steps = 1;   INPUTS.wa_min = INPUTS.wa_max =  0.0 ;
+  }
+  else {
+    printf("   Fit wCDM model:  w(z) = w0  \n"); 
+    sprintf(var_w,"%s", varname_w);
+    INPUTS.wa_steps = 1;   INPUTS.wa_min = INPUTS.wa_max = 0.0 ;
   }
 
   if ( INPUTS.use_marg ) 
@@ -1781,7 +1803,7 @@ void set_stepsizes(void) {
 	 varname_w, varname_w, 
 	 INPUTS.w0_min, INPUTS.w0_max, INPUTS.w0_steps, INPUTS.w0_stepsize);
   
-  if( INPUTS.use_wa ){
+  if( INPUTS.dofit_w0wa ){
     printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	   varname_wa, varname_wa, 
 	   INPUTS.wa_min, INPUTS.wa_max, INPUTS.wa_steps, INPUTS.wa_stepsize);
@@ -1806,9 +1828,9 @@ void set_Ndof(void) {
   int Ndof;
   int Ndof_data = HD.NSN - 3 ; // h, w, om = 3 fitted parameters
   int Ndof_prior = 0;
-  if ( INPUTS.use_wa  ) { Ndof_data-- ; } 
-  if ( INPUTS.use_bao ) { Ndof_prior += 2*NZBIN_BAO_SDSS4 ; }
-  if ( INPUTS.use_cmb ) { Ndof_prior += 1 ; }
+  if ( INPUTS.dofit_w0wa  ) { Ndof_data-- ; } 
+  if ( INPUTS.use_bao     ) { Ndof_prior += 2*NZBIN_BAO_SDSS4 ; }
+  if ( INPUTS.use_cmb     ) { Ndof_prior += 1 ; }
 
   Ndof = Ndof_data + Ndof_prior;
   
@@ -2051,7 +2073,7 @@ void wfit_marginalize(void) {
 	
   // - - - - - - - -
   // Get Marginalise wa 	
-  if( INPUTS.use_wa ) {
+  if( INPUTS.dofit_w0wa ) {
     printf("\t Get Marginalized %s\n", varname_wa ); fflush(stdout);
     for(kk=0; kk < INPUTS.wa_steps; kk++){
       wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
@@ -2112,7 +2134,7 @@ void wfit_marginalize(void) {
   }
 
   printf("  CHECK:  %s(%s) = %f \n",  varname_w, str, w0);
-  if ( INPUTS.use_wa )
+  if ( INPUTS.dofit_w0wa )
     { printf("  CHECK:  %s(%s) = %f \n",  varname_wa, str, wa);  }
 
   printf("  CHECK:  %s(%s) = %f \n",  varname_omm, str, omm);
@@ -2168,7 +2190,7 @@ void wfit_uncertainty(void) {
 	 varname_w, WORKSPACE.w0_sig_marg);
     
 
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     sqdelta = 0.0 ;
     for(kk=0; kk < INPUTS.wa_steps; kk++){
       wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
@@ -2180,7 +2202,7 @@ void wfit_uncertainty(void) {
     WORKSPACE.wa_sig_marg = sqrt(sqdelta/WORKSPACE.wa_probsum);
     printf("\t marg %s_sig estimate = %.4f\n", 
 	   varname_wa, WORKSPACE.wa_sig_marg);
-  } // end use_wa 
+  } // end dofit_w0wa 
      
   // omm ...  
   sqdelta = 0.0;
@@ -2209,7 +2231,7 @@ void wfit_uncertainty(void) {
     }
   }
 
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     for (kk=0; kk < INPUTS.wa_steps; kk++){
       wa = INPUTS.wa_min + kk*INPUTS.wa_stepsize;
       if (fabs(wa - WORKSPACE.wa_mean) < delta_wa){
@@ -2222,7 +2244,7 @@ void wfit_uncertainty(void) {
     // Sort probability
   qsort(WORKSPACE.w0_sort, INPUTS.w0_steps, memd,
 	compare_double_reverse);
-  if (INPUTS.use_wa) {
+  if (INPUTS.dofit_w0wa) {
     qsort(WORKSPACE.wa_sort, INPUTS.wa_steps, memd,
 	  compare_double_reverse);
   }
@@ -2239,7 +2261,7 @@ void wfit_uncertainty(void) {
     }
   }
 
-  if (INPUTS.use_wa){
+  if (INPUTS.dofit_w0wa){
     wa_sum=0.;
     wa_sort_1sigma=-1;
     for (kk=0; kk < INPUTS.wa_steps; kk++){
@@ -2259,7 +2281,7 @@ void wfit_uncertainty(void) {
     exit(EXIT_ERRCODE_wfit);
   }
 
-  if ( INPUTS.use_wa ){
+  if ( INPUTS.dofit_w0wa ){
     if (wa_sort_1sigma < 0 ){
       printf("ERROR: wa grid doesn't enclose 68.3% of probability!\n");
       exit(EXIT_ERRCODE_wfit);
@@ -2277,7 +2299,7 @@ void wfit_uncertainty(void) {
     }
   }
 
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     for (kk=iwa_mean; kk>=0; kk--){
       if (WORKSPACE.wa_prob[kk] < wa_sort_1sigma){
 	WORKSPACE.wa_sig_lower = WORKSPACE.wa_mean - 
@@ -2287,26 +2309,27 @@ void wfit_uncertainty(void) {
     }
   }
 
-  
+  if ( INPUTS.dofit_lcdm ) { return; }
+
   // Error checking 
   if(i==0){
     printf("WARNING: lower 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
   }
   
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     if(kk==0){
       printf("WARNING: lower 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;
     }
   }
 
-  if (WORKSPACE.w0_sig_lower <= INPUTS.w0_stepsize) {   
+  if ( WORKSPACE.w0_sig_lower <= INPUTS.w0_stepsize ) {   
     printf("WARNING: 1. w0 grid is too coarse to resolve "
 	   "lower 1-sigma limit\n");
     WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
   }
-  if (INPUTS.use_wa){
+  if (INPUTS.dofit_w0wa){
     if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
       printf("WARNING: 1. wa grid is too coarse to resolve "
 	     "lower 1-sigma limit\n");
@@ -2325,7 +2348,7 @@ void wfit_uncertainty(void) {
     }
   }
 
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     for (kk=iwa_mean; kk < INPUTS.wa_steps; kk++){
       if (WORKSPACE.wa_prob[kk] < wa_sort_1sigma){
         WORKSPACE.wa_sig_upper = 
@@ -2350,7 +2373,7 @@ void wfit_uncertainty(void) {
     WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
   }
 
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     if(kk==(INPUTS.wa_steps-1)){
       printf("WARNING: upper 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;	
@@ -2367,7 +2390,7 @@ void wfit_uncertainty(void) {
   //printf("\n---------------------------------------\n");
   printf("  Prob %s-err estimates: lower = %f, upper = %f\n", 
 	 varname_w, WORKSPACE.w0_sig_lower, WORKSPACE.w0_sig_upper);
-  if ( INPUTS.use_wa ) {
+  if ( INPUTS.dofit_w0wa ) {
     printf("Prob %s-err estimates: lower = %f, upper = %f\n", 
 	   varname_wa, WORKSPACE.wa_sig_lower, WORKSPACE.wa_sig_upper);
   }
@@ -2393,7 +2416,7 @@ void wfit_Covariance(void){
   double cov_w0wa=0., cov_w0omm =0., rho_w0wa=0., rho_w0omm=0.;
   double probsum = 0., prob=0;
   double diff_w0, diff_wa, diff_omm, sig_product ;
-  bool use_wa=INPUTS.use_wa;
+  bool dofit_w0wa = INPUTS.dofit_w0wa;
   
   // ----------- BEGIN --------------
   
@@ -2410,7 +2433,7 @@ void wfit_Covariance(void){
 	diff_omm = cpar.omm - WORKSPACE.omm_mean;
 	cov_w0omm +=  diff_w0 * diff_omm * prob;
 
-	if ( use_wa ) {
+	if ( dofit_w0wa ) {
 	  diff_wa   = cpar.wa - WORKSPACE.wa_mean;
 	  cov_w0wa +=  diff_w0 * diff_wa * prob;
 	}
@@ -2425,7 +2448,7 @@ void wfit_Covariance(void){
   cov_w0omm /= probsum;
   rho_w0omm = cov_w0omm / sig_product;
 
-  if( use_wa ) { 
+  if( dofit_w0wa ) { 
     sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg) ;
     cov_w0wa  /= probsum ;
     rho_w0wa = cov_w0wa / sig_product ;
@@ -2438,7 +2461,7 @@ void wfit_Covariance(void){
 
   printf("# ========================================== \n");
   printf(" Reduced Covariance, w0omm = %.4f \n", WORKSPACE.rho_w0omm);
-  if ( use_wa )
+  if ( dofit_w0wa )
     { printf(" Reduced Covariance, w0wa = %.4f \n", WORKSPACE.rho_w0wa); }
 
   fflush(stdout);
@@ -2585,7 +2608,7 @@ void wfit_FoM(void) {
   
   WORKSPACE.FoM_final = 0.0 ;
 
-  if ( !INPUTS.use_wa ) {return ; }
+  if ( !INPUTS.dofit_w0wa ) {return ; }
 
   sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);
 
@@ -2957,7 +2980,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
   printf("   Minimize with refined %sstep=%6.4f (%d bins, %s=%7.4f) \n", 
 	 varname_w, w0step_tmp, 2*nbw0, varname_w, *w0_atchimin);
-  if(INPUTS.use_wa){
+  if(INPUTS.dofit_w0wa){
     printf("   Minimize with refined wastep=%6.4f (%d bins, wa=%7.4f) \n",
 	   wastep_tmp, 2*nbwa, *wa_atchimin);
   }
@@ -3361,7 +3384,7 @@ void write_output_cospar(void) {
   // format_cospar = 2 : YAML format
 
   int  use_marg  = INPUTS.use_marg;
-  int  use_wa    = INPUTS.use_wa ;
+  int  dofit_w0wa= INPUTS.dofit_w0wa ;
   int  format    = INPUTS.format_cospar;
   int  blind     = INPUTS.blind ;
   char *outFile  = INPUTS.outFile_cospar;
@@ -3389,7 +3412,7 @@ void write_output_cospar(void) {
   }
 
   // - - - -
-  // define variables to write out based on use_marg and use_wa flags.
+  // define variables to write out based on use_marg and dofit_w0wa flags.
 
   sprintf(VARNAMES_LIST[NVAR],"%s", varname_w); 
   sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.w0_final ) ;
@@ -3410,7 +3433,7 @@ void write_output_cospar(void) {
   }
 
   // - - - 
-  if ( use_wa ) {
+  if ( dofit_w0wa ) {
     sprintf(VARNAMES_LIST[NVAR],"%s", varname_wa); 
     sprintf(VALUES_LIST[NVAR], "%8.5f",  WORKSPACE.wa_final ) ;
     NVAR++ ;
@@ -3427,7 +3450,7 @@ void write_output_cospar(void) {
       sprintf(VALUES_LIST[NVAR], "%7.4f",  WORKSPACE.wa_sig_upper ) ;
       NVAR++ ;
     }
-  } // end use_wa
+  } // end dofit_w0wa
 
 
   // - - - 
@@ -3448,7 +3471,7 @@ void write_output_cospar(void) {
     NVAR++ ;
   }
 
-  if ( use_wa ) {
+  if ( dofit_w0wa ) {
     sprintf(VARNAMES_LIST[NVAR],"FoM" );
     sprintf(VALUES_LIST[NVAR], "%5.1f",  WORKSPACE.FoM_final ) ;
     NVAR++ ;
@@ -3477,7 +3500,7 @@ void write_output_cospar(void) {
   sprintf(VALUES_LIST[NVAR], "%d",  (int)WORKSPACE.w0_ran ) ;
   NVAR++ ;
 
-  if ( use_wa ) {
+  if ( dofit_w0wa ) {
     sprintf(VARNAMES_LIST[NVAR],"%sran", varname_wa );
     sprintf(VALUES_LIST[NVAR], "%d",  (int)WORKSPACE.wa_ran ) ;
     NVAR++ ;

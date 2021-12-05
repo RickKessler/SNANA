@@ -815,10 +815,12 @@ class MakeDataFiles(Program):
 
         # construct big tar command. Use mostly & for parallel tar.
         cmd_tar = f"cd {output_dir} ; "
-        for nite_dir in nite_dir_tarlist:
+        ntar_simultaneous = 5
+        for i in range(0,do_compress):
+            nite_dir   = nite_dir_tarlist[i]
+            last_nite  = nite_dir == nite_dir_tarlist[-1]
             sep = '&'  
-            set_semicolon = \
-                (n_compress % 5) == 0 or nite_dir == nite_dir_tarlist[-1]
+            set_semicolon = (i % ntar_simultaneous) == 0 or last_nite
             if set_semicolon : 
                 sep = ';' 
             tar_file = f"{ALERT_SUBDIR}/{nite_dir}.tar.gz"

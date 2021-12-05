@@ -810,8 +810,11 @@ class MakeDataFiles(Program):
             do_compress = nite>= min_edge and nite < max_edge
             if do_compress:
                 n_compress += 1
+                sep = '&'  
+                if (n_compress % 5) == 0 : sep = ';'  # 5 simultaneous tars
                 tar_file = f"{nite_dir}.tar.gz"
-                cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files ; "
+                cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files "
+                cmd_tar += f"{sep} "
 
         # tack on command to move it all into /ALERTS,
         # and ten run it all with one os command

@@ -383,9 +383,11 @@ class MakeDataFiles(Program):
         output_dir        = self.config_prep['output_dir']
         nevt              = self.config_prep['nevt']
 
-        kill_on_fail      = self.config_yaml['args'].kill_on_fail
-        output_format     = self.config_yaml['args'].output_format
-        no_merge          = self.config_yaml['args'].nomerge
+        args = self.config_yaml['args']
+        kill_on_fail      = args.kill_on_fail
+        output_format     = args.output_format
+        merge_background  = args.merge_background
+        no_merge          = args.nomerge and not merge_background
 
         out_lsst_alert    = (output_format == OUTPUT_FORMAT_LSST_ALERTS)
         # do_fast           = self.config_yaml['args'].fast

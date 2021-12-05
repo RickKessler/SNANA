@@ -816,7 +816,7 @@ class MakeDataFiles(Program):
         # construct big tar command. Use mostly & for parallel tar.
         cmd_tar = f"cd {output_dir} ; "
         ntar_simultaneous = 5
-        for i in range(0,do_compress):
+        for i in range(0,n_compress):
             nite_dir   = nite_dir_tarlist[i]
             last_nite  = nite_dir == nite_dir_tarlist[-1]
             sep = '&'  

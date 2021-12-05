@@ -755,11 +755,12 @@ class MakeDataFiles(Program):
             time_dif   = (time_1 - time_0).total_seconds()
             rate       = n_compress / time_dif
             rate_str   = f"{rate:.1f}"
+            time_str   = f"{time_dif:.1f}"
 
             irow = nrow - 1
             row_compress_list_new[irow][COLNUM_STATE]    = SUBMIT_STATE_DONE
             row_compress_list_new[irow][COLNUM_NMJD_DIR] = n_compress
-            row_compress_list_new[irow][COLNUM_TIME]     = int(time_dif)
+            row_compress_list_new[irow][COLNUM_TIME]     = float(time_str)
             row_compress_list_new[irow][COLNUM_RATE]     = float(rate_str)
 
         return row_compress_list_new

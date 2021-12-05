@@ -84,6 +84,10 @@ TABLE_SPLIT       = "SPLIT"  # yaml table in MERGE.LOG
 TABLE_MERGE       = "MERGE"  # yaml table in MERGE.LOG
 TABLE_EXTRA       = "EXTRA"  # do global overwrite on this name
 
+MERGE_MODE_DEFAULT     = "DEFAULT"     # default
+MERGE_MODE_SKIP        = "SKIP"        # if --nomerge
+MERGE_MODE_BACKGROUND  = "BACKGROUND"  # if --merge_background
+
 # True -> uses 'set -e' in each CPU*.CMD script to stop all
 # all future processing upon any merge failures.
 # BEWARE: doesn't work, and not clear we want this feature.

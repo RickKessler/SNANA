@@ -829,7 +829,7 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
 def write_job_info(f,JOB_INFO,icpu):
 
     # write job program plus arguemnts to file pointer f.
-    # All job-info are passed via JOB_INFO.
+    # All job-info params are passed via JOB_INFO dictionary.
     # Jan 8 2021: check optional wait_file
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
@@ -916,7 +916,6 @@ def write_job_info(f,JOB_INFO,icpu):
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
         f.write(f"echo 'Finished {program} -> create {done_file}' \n")
-        # xxx f.write(f"echo 'Finished {program} -> create DONE file.' \n")
 
     f.write(f"\n")
 

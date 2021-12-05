@@ -376,10 +376,13 @@ class Program:
         #
         # Jan 21 2201: write_command_file returns n_job_cpu;
         #     if n_job_cpu==0, add extra delay to avoid npid error
+        #
+        # Dec 04 2021: write CPU*DONE file (for merge_background)
 
         CONFIG      = self.config_yaml['CONFIG']
-        input_file  = self.config_yaml['args'].input_file 
-        snana_dir   = self.config_yaml['args'].snana_dir
+        args        = self.config_yaml['args']
+        input_file  = args.input_file 
+        snana_dir   = args.snana_dir
         output_dir  = self.config_prep['output_dir']
         script_dir  = self.config_prep['script_dir']
         n_core      = self.config_prep['n_core']
@@ -410,6 +413,9 @@ class Program:
             command_file  = f"{prefix}.CMD"
             log_file      = f"{prefix}.LOG"
             COMMAND_FILE  = f"{script_dir}/{command_file}"
+            done_file     = f"{prefix}.DONE"
+            DONE_FILE     = f"{script_dir}/{done_file}"
+
             logging.info(f"\t Create {command_file}")
 
             if submit_iter is None:
@@ -472,6 +478,8 @@ class Program:
                 else:
                     n_core_with_jobs += 1
 
+                f.write(f"\ntouch {DONE_FILE}\n")     # Dec 2021
+
             # - - - - - 
             # write extra batch file for batch mode
             if ( submit_mode == SUBMIT_MODE_BATCH ):
@@ -491,6 +499,10 @@ class Program:
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
         self.config_prep['n_core_with_jobs']  = n_core_with_jobs
 
+        # check option to run merge process in the background
+        if args.merge_background:
+            self.write_script_merge_background()
+
         # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
         # permission to user, or wipe out group privs. 
@@ -504,10 +516,77 @@ class Program:
 
         
         # check option to force crash (to test higher level pipelines)
-        if self.config_yaml['args'].force_crash_prep :
+        if args.force_crash_prep :
             printf(" xxx force batch-prep crash with C-like printf xxx \n")
 
         # end write_script_driver
+
+    def write_script_merge_background(self):
+
+        # Created Dec 4 2021 by R.Kessler
+        # Invoked by --merge_background option.
+        # Write bash script to execute merge process until all of the
+        # CPU*DONE files exist.
+        # This bash script is launched in the background after the
+        # nominal tasks have been submitted.
+
+        n_core         = self.config_prep['n_core']
+        script_dir     = self.config_prep['script_dir']
+        args           = self.config_yaml['args']
+        input_file     = args.input_file 
+        t_stamp        = seconds_since_midnight
+        cpunum         = 0
+
+        if args.fast:
+            t_sleep = 20  # sleep time between checking merge
+        else:
+            t_sleep = 200
+
+        base_name         = "CPU_MERGE_BACKGROUND"
+        cpu_merge_script  =  f"{script_dir}/{base_name}.CMD"
+        cpu_merge_log     =  f"{script_dir}/{base_name}.LOG"
+        
+        merge_script     = sys.argv[0]  # $path/submit_batch_jobs
+        merge_args       = f"{input_file} -m  -t {t_stamp} --cpunum {cpunum}"
+        merge_args_final = f"{input_file} -M  -t {t_stamp} --cpunum {cpunum}"
+        wildcard = "CPU*DONE"
+        wildcard_echo = "CPU\*DONE"
+
+        # store for when it's launched
+        self.config_prep['cpu_merge_script'] = cpu_merge_script
+        self.config_prep['cpu_merge_log']    = cpu_merge_log
+
+        with open(cpu_merge_script,"wt") as f:
+            f.write("#!/usr/bin/env bash \n")
+            f.write(f"echo HOST = {HOSTNAME} \n")
+            f.write(f"echo \n")
+            f.write(f"n_done=0\n\n")
+
+            f.write(f"while [ $n_done -lt {n_core} ] \n")
+            f.write(f"do\n")
+            f.write(f"  sleep {t_sleep} \n")
+            f.write(f"  echo '# ======== MERGE_BACKGROUND CHECK ==========' \n")
+
+            f.write(f"  echo Found $n_done of {n_core} {wildcard_echo} files.\n")
+            f.write(f"  echo Run merge at "
+                    f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+            f.write(f"  cd {CWD}\n")
+            f.write(f"  {merge_script} {merge_args} \n")
+            f.write(f"  \n")
+            f.write(f"  cd {script_dir}\n")
+            f.write(f"  n_done=`ls {wildcard} 2> /dev/null | wc -l` \n")
+            f.write(f"  echo \n")
+            f.write(f"done\n")
+
+            f.write("\n")
+            f.write(f"echo Found all $n_done of {n_core} {wildcard_echo} files.\n")
+            f.write(f"echo Run final merge   \n")
+            f.write(f"  cd {CWD}\n")
+            f.write(f"  {merge_script} {merge_args_final} \n")
+            f.write(f"echo Done with merge_background.\n")
+        return
+        # end write_script_merge_background
 
     def write_batch_file(self, batch_file, log_file, command_file, job_name):
 
@@ -684,6 +763,14 @@ class Program:
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
         f.write(f"SUBMIT_MODE:       {submit_mode} \n")
+
+        if args.merge_background :
+            merge_mode = MERGE_MODE_BACKGROUND
+        elif args.nomerge : 
+            merge_mode = MERGE_MODE_SKIP
+        else:
+            merge_mode = MERGE_MODE_DEFAULT            
+        f.write(f"MERGE_MODE:       {merge_mode} \n")
         
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
@@ -851,10 +938,33 @@ class Program:
                 ret = subprocess.Popen(["ssh", "-x", node, cmd_source ],
                                        stdout = subprocess.PIPE,
                                        stderr = subprocess.PIPE)
-                #print(f" xxx {node} ret = {ret}")
 
+        # check to launch background merge process (Dec 2021)
+        if args.merge_background:
+            self.launch_merge_background()
+
+        return
         # end launch_jobs
+
+    def launch_merge_background(self):
+
+        # Created Dec 4 2021 by R.Kessler
+        # Launch merge-background script into background on login node.
+
+        script_dir       = self.config_prep['script_dir']
+        cpu_merge_script = self.config_prep['cpu_merge_script']
+        cpu_merge_log    = self.config_prep['cpu_merge_log']
         
+        script_base_name = os.path.basename(cpu_merge_script)
+        log_base_name    = os.path.basename(cpu_merge_log)
+        logging.info(f"\n\t Launch {script_base_name}\n")
+
+        command = f"sh ./{script_base_name} >& {log_base_name} & "
+        ret = subprocess.run( [ command ], cwd=script_dir, 
+                              shell=True, capture_output=False, text=True )
+
+        # end launch_merge_background
+
     def submit_iter2(self):
 
         # if this is the first of two submit jobs, then launch 
@@ -898,7 +1008,7 @@ class Program:
         if batch_command != 'sbatch' : return
 
         # prep squeue command with format: i=pid, j=jobname            
-        cmd = (f"squeue -u {USERNAME} -h -o '%i %j' ")
+        cmd = f"squeue -u {USERNAME} -h -o '%i %j' "
         ret = subprocess.run( [cmd], shell=True, 
                               capture_output=True, text=True )
         pid_all = ret.stdout.split()

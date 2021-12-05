@@ -2,20 +2,6 @@
 #
 # Created July 2020 by R.Kessler & S. Hinton
 #
-#
-# TO-DO LIST for
-#
-#  BASE/util:
-#   - more elegant HELP menu per program?
-#   - run merge task immediately after launch so that  WAIT -> RUN
-#
-#  SIM:
-#   - for sim, leave symbolic links for redundant sim job
-#
-#  FIT:
-#
-#  BBC
-#
 # Oct 29 2020: add SALT2train framework
 # Nov 24 2020: add --ncore arg
 # Dec 17 2020: purge now works on train_SALT2 outputs
@@ -26,6 +12,7 @@
 # Oct 04 2021; add wfit class; maybe later can generalize to cosmofit?
 # Oct 12 2021: implement --check_abort for lcfit
 # Oct 20 2021: add makeDataFiles
+# Dec 04 2021: new input --merge_background
 #
 # - - - - - - - - - -
 
@@ -113,6 +100,9 @@ def get_args():
     msg = "abort on missing DOCANA keys in maps & libraries"
     parser.add_argument("--require_docana", help=msg, action="store_true")
 
+    msg = "run merge as background process instead of via batch"
+    parser.add_argument("--merge_background", help=msg, action="store_true")
+
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
 
@@ -199,6 +189,7 @@ def which_program_class(config):
     return program_class
 
 def set_merge_flag(config):
+
     args = config['args']
     merge_flag = args.merge  or \
                  args.MERGE_LAST  or \
@@ -209,7 +200,11 @@ def set_merge_flag(config):
     if cpunum is None and set_cpunum0 :
         args.cpunum = [ 0 ]
 
+    if args.merge_background:
+        args.nomerge = True
+
     return merge_flag
+    # end set_merge_flag
 
 def check_input_file_name(args):
 
@@ -336,6 +331,7 @@ def print_submit_messages(config_yaml):
 
     # print final info to screen for user
     CONFIG = config_yaml['CONFIG']
+    args   = config_yaml['args']
 
     print(f" Done launching jobs. Sit back and relax.")
 
@@ -344,16 +340,18 @@ def print_submit_messages(config_yaml):
         MERGE_LOG = (f"{OUTDIR}/{MERGE_LOG_FILE}")
         print(f" Check status in {MERGE_LOG} ")
 
-    if config_yaml['args'].nomerge :
+    if args.merge_background :
+        print(f" REMEMBER: merge is background process (view with ps -f).")
+    elif args.nomerge :
         print(f" REMEMBER: you disabled the merge process.")
 
-    if config_yaml['args'].fast :
+    if args.fast :
         print(f" REMEMBER: fast option will process 1/{FASTFAC} of request.")
 
-    if config_yaml['args'].force_crash_merge :
+    if args.force_crash_merge :
         print(f" REMEMBER: there is a forced crash in MERGE process.")
 
-    if config_yaml['args'].force_abort_merge :
+    if args.force_abort_merge :
         print(f" REMEMBER: there is a forced abort in MERGE process.")
 
     return
@@ -392,18 +390,39 @@ def purge_old_submit_output():
 
     # end purge_old_submit_output
 
+def print_HELP():
+    see_me = (f" !!! ************************************************ !!!")
+    print(f"\n{see_me}\n{see_me}\n{see_me}")
+    print(f"{HELP_MENU[args.HELP]}")
+    sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+
+def run_merge_driver(program,args):
+    try:
+        program.merge_driver()
+        if args.check_abort:
+            exit(0)
+        else:
+            logging.info('  Done with merge process -> exit Main.')
+            exit(0)
+    except Exception as e:
+        logging.exception(e, exc_info=True)
+        cpunum   = args.cpunum[0]
+        cpu_file = f"CPU{cpunum:04d}*.LOG"
+        print(f"{e}")
+        msg      = [ f"Check {cpu_file} for merge crash" ]
+        program.log_assert(False, msg )
+    
+    # end run_merge_driver
+
 # =============================================
 if __name__ == "__main__":
 
     args  = get_args()
     store = util.setup_logging(args)
 
-    # option for long HELP menus
-    if args.HELP :
-        see_me = (f" !!! ************************************************ !!!")
-        print(f"\n{see_me}\n{see_me}\n{see_me}")
-        print(f"{HELP_MENU[args.HELP]}")
-        sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+    # check option for long HELP menus
+    if args.HELP : 
+        print_HELP()
 
     # check option to "purge" un-needed files with linux find and rm;
     # removes tarred script-dirs, root & hbook files, etc ...
@@ -432,28 +451,15 @@ if __name__ == "__main__":
 
     # - - - - - - - -
     # check merge options
-    if config_yaml['args'].merge_flag :
-        try:
-            program.merge_driver()
-            if args.check_abort:
-                exit(0)
-            else:
-                logging.info('  Done with merge process -> exit Main.')
-                exit(0)
-        except Exception as e:
-            logging.exception(e, exc_info=True)
-            cpunum   = config_yaml['args'].cpunum[0]
-            cpu_file = (f"CPU{cpunum:04d}*.LOG")
-            print(f"{e}")
-            msg      = [f"Check {cpu_file} for merge crash" ]
-            program.log_assert(False, msg )
+    if args.merge_flag:
+        run_merge_driver(program,args)
 
     # - - - - - -
     # check option to kill jobs
-    if config_yaml['args'].kill :
+    if args.kill :
         program.kill_jobs()
         print('  Done killing jobs -> exit Main.')
-        exit(0)
+        exit(0) 
 
     # - - - - - -
     try:

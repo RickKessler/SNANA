@@ -540,7 +540,7 @@ class Program:
         if args.fast:
             t_sleep = 20  # sleep time between checking merge
         else:
-            t_sleep = 200
+            t_sleep = 100
 
         base_name         = "CPU_MERGE_BACKGROUND"
         cpu_merge_script  =  f"{script_dir}/{base_name}.CMD"

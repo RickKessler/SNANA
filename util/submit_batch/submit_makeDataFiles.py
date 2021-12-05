@@ -721,9 +721,7 @@ class MakeDataFiles(Program):
             if Finished:
                 continue  # already compressed; try next
 
-            # xxx if ISPLITNITE > 0 : continue  # temp xxx REMOVE
-
-            # Check if makeDataFile tasks have finished for this MJD range
+            # Check if makeDataFile tasks have finished for this NITE range
             splitnite_done_list = [True] * nsplitnite
             for row in row_merge_list:
                 state      = row[COLNUM_MERGE_STATE]
@@ -750,7 +748,7 @@ class MakeDataFiles(Program):
 
             time_0     = datetime.datetime.now()
             n_compress = self.compress_nite_dirs(nite_dir_list,
-                                                min_edge, max_edge)
+                                                 min_edge, max_edge)
             time_1     = datetime.datetime.now()
             time_dif   = (time_1 - time_0).total_seconds()
             rate       = n_compress / time_dif
@@ -803,6 +801,8 @@ class MakeDataFiles(Program):
                      f"{ALERT_DAY_NAME}{imin} to " \
                      f"{ALERT_DAY_NAME}{imax} ")
 
+        t0     = datetime.datetime.now()
+
         # construct list of nite_dirs to compress
         sys.stdout.flush()
         nite_dir_tarlist = []
@@ -821,15 +821,23 @@ class MakeDataFiles(Program):
                 (n_compress % 5) == 0 or nite_dir == nite_dir_tarlist[-1]
             if set_semicolon : 
                 sep = ';' 
-            tar_file = f"{nite_dir}.tar.gz"
+            tar_file = f"{ALERT_SUBDIR}/{nite_dir}.tar.gz"
             cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files "
             cmd_tar += f"{sep} "
             
-        # tack on command to move it all into /ALERTS,
-        # and ten run it all with one os command
+        t1     = datetime.datetime.now()
+        dt_cmd = (t1-t0).total_seconds()
+        logging.info(f"\t {dt_cmd:.1f} sec to construct tar command for " \
+                     f"{n_compress} NITE dirs.")
+
+        # run  all tarballs with one os command
         if n_compress > 0:
-            cmd_tar += f"mv {ALERT_DAY_NAME}*.tar.gz {ALERT_SUBDIR}"
+            # xxx mark cmd_tar += f"mv {ALERT_DAY_NAME}*.tar.gz {ALERT_SUBDIR}"
             os.system(cmd_tar)
+            t2     = datetime.datetime.now()
+            dt_tar = (t2-t1).total_seconds()
+            logging.info(f"\t {dt_tar:.1f} sec to compress " \
+                         f"{n_compress} NITE dirs")
 
         # touch done file to flag that this MJD range is compressed
         cmd_done = f"touch {compress_done_file}"

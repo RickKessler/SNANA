@@ -830,7 +830,8 @@ class MakeDataFiles(Program):
         t1     = datetime.datetime.now()
         dt_cmd = (t1-t0).total_seconds()
         logging.info(f"\t {dt_cmd:.1f} sec to construct tar command for " \
-                     f"{n_compress} NITE dirs.")
+                     f"{n_compress} NITE dirs:")
+        logging.info(f"\t tar command: {cmd_tar}\n")
 
         # run  all tarballs with one os command
         if n_compress > 0:

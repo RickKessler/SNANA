@@ -802,20 +802,28 @@ class MakeDataFiles(Program):
                      f"{ALERT_DAY_NAME}{imin} to " \
                      f"{ALERT_DAY_NAME}{imax} ")
 
-        # construct big tar command
+        # construct list of nite_dirs to compress
         sys.stdout.flush()
-        cmd_tar = f"cd {output_dir} ; "
+        nite_dir_tarlist = []
         for nite_dir in nite_dir_list:
-            nite         = int(nite_dir[4:])
+            nite        = int(nite_dir[4:])
             do_compress = nite>= min_edge and nite < max_edge
             if do_compress:
                 n_compress += 1
-                sep = '&'  
-                if (n_compress % 5) == 0 : sep = ';'  # 5 simultaneous tars
-                tar_file = f"{nite_dir}.tar.gz"
-                cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files "
-                cmd_tar += f"{sep} "
+                nite_dir_tarlist.append(nite_dir)
 
+        # construct big tar command. Use mostly & for parallel tar.
+        cmd_tar = f"cd {output_dir} ; "
+        for nite_dir in nite_dir_tarlist:
+            sep = '&'  
+            set_semicolon = \
+                (n_compress % 5) == 0 or nite_dir == nite_dir_tarlist[-1]
+            if set_semicolon : 
+                sep = ';' 
+            tar_file = f"{nite_dir}.tar.gz"
+            cmd_tar += f"tar -czf {tar_file} {nite_dir} --remove-files "
+            cmd_tar += f"{sep} "
+            
         # tack on command to move it all into /ALERTS,
         # and ten run it all with one os command
         if n_compress > 0:

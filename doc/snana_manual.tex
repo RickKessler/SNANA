@@ -1225,6 +1225,10 @@ etc ...
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
   USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
   USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
+
+  SMEARFLAG_FLUX:    1  # apply Poisson noise to fluxes
+  SMEARFLAG_ZEROPT:  1  # apply ZPTSIG to true flux, but not reported flux
+  SMEARFLAG_ZEROPT:  3  # apply ZPTSIG to true and reported flux
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option

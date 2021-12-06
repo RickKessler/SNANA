@@ -20617,4 +20617,26 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     + unbinning/rebinning working with BBC(Ia+CC), but needs
       more testing with high-stat sins to measure bias.
 
+
+# ======================================================================= 
+         v11_04e (  ) 
+
+         ***** IMPORTANT(v11_04e) ***** 
+
+         ***** USEFUL(v11_04e) ***** 
+
+   Call check_EOF from store_PARSE_WORDS and host-reading;
+     try to get more info about file-reading errors.
+
+         ***** MISCELLANEOUS(v11_04e) ***** 
+
+   submit_batch:
+     + new arg --merge_background
+
+   submit_prog_wfit.py: fix few bugs
+
+   wfit.c: 
+     + new input "-speed_flag_chi2 0" to disable speed-trick.
+     + for speed-trick, increase CHI2-DIAG cut from 10 to 30 sigma.
+
 END: 

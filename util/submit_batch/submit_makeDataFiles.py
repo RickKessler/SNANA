@@ -820,7 +820,7 @@ class MakeDataFiles(Program):
             nite_dir   = nite_dir_tarlist[i]
             last_nite  = nite_dir == nite_dir_tarlist[-1]
             sep = '&'  
-            set_semicolon = (i % ntar_simultaneous) == 0 or last_nite
+            set_semicolon = ( (i+1) % ntar_simultaneous) == 0 or last_nite
             if set_semicolon : 
                 sep = ';' 
             tar_file = f"{ALERT_SUBDIR}/{nite_dir}.tar.gz"

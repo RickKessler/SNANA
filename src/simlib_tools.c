@@ -192,17 +192,16 @@ void simlib_add_header(
    optflag = -1  leave END_LIBID marker after all epochs 
                       (all other args ignored) 
 
-  Jun  8, 2009: pass FIELDNAME to include in header
+      HISTORY
 
-  Sep 22 2013: write MWEBV ad .4f instead of .3f to have better
-               precision on verifying that it's from SFD.
+  Dec 6 2021: fix setting NEA_PSF_UNIT
 
   *****/
 
 
   char fnam[20] = "simlib_add_header";
   char msgerr[100];
-  int istat, NOPT;
+  int istat, NOPT, NEA_PSF_UNIT ;
 
   float RA, DEC, MWEBV, PIXSIZE, Z, PEAKMJD ;
 
@@ -250,12 +249,13 @@ void simlib_add_header(
 
   // unpack header info
 
-  RA      = *(INFO+0) ;  // required: right-ascension, degrees
-  DEC     = *(INFO+1) ;  // required: declination, degrees
-  MWEBV   = *(INFO+2) ;  // required: MilkyWay extinction = AV/RV
-  PIXSIZE = *(INFO+3) ;  // required: pixel size, arcseconds
-  Z       = *(INFO+4) ;  // optional: redshift
-  PEAKMJD = *(INFO+5) ;  // optional: MJD at maximum B-band luminosity
+  RA      = INFO[0] ;  // required: right-ascension, degrees
+  DEC     = INFO[1] ;  // required: declination, degrees
+  MWEBV   = INFO[2] ;  // required: MilkyWay extinction = AV/RV
+  PIXSIZE = INFO[3] ;  // required: pixel size, arcseconds
+  Z       = INFO[4] ;  // optional: redshift
+  PEAKMJD = INFO[5] ;  // optional: MJD at maximum B-band luminosity
+  NEA_PSF_UNIT = (int)INFO[6] ; // Dec 2021
 
   // start by writing required info.
 
@@ -284,8 +284,6 @@ void simlib_add_header(
 
 
   // make table header to that file is self-documented.
-
-  bool NEA_PSF_UNIT = ( INFO[6] < -900.0 );  // PSF[1]
 
   fprintf(FPLIB, "\n");
   if ( NEA_PSF_UNIT ) {

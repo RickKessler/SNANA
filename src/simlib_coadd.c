@@ -145,6 +145,9 @@
    + MXCHAR_LINE-> 200 (was 120)
    + fix string-cat bug for ptrhead (caught by segfault in debug mode)
 
+ Dec 6 2021: fix bug setting NEA or PSF label for each LIBID.
+             Only impacts human-readability; no effect on sim.
+
 ***************************************/
 
 #include <stdio.h>
@@ -163,14 +166,16 @@
 #define MXLINE_HEADER 30   // max lines for simlib header
 #define MXCHAR_LINE 200     
 
-// define index params for INFO_HEAD arra
-#define NPAR_HEAD  6
+// define index params for INFO_HEAD array
+
+#define NPAR_HEAD  7
 #define IPAR_RA       0
 #define IPAR_DECL     1
 #define IPAR_MWEBV    2 
 #define IPAR_PIXSIZE  3
 #define IPAR_Z        4
 #define IPAR_PKMJD    5 
+#define IPAR_NEA_UNIT 6  // Dec 2021, RK
 
 // define index parameters for INFO_MJD array
 #define NPAR_MJD     10
@@ -729,6 +734,8 @@ void SIMLIB_read(int *RDSTAT) {
   /* Copied/modified from snlc_sim.c    
     Read next LIBID in simlib. Fill SIMLIB structure.
     Note that fp_simlib_input has already been opened
+
+    Dec 6 2021: set INFO_HEAD[IPAR_NEA_UNIT] 
   */
 
   char  c_get[80], c_tmp[80],cfilt[4], STRING_IDEXPT[20] ;
@@ -743,8 +750,6 @@ void SIMLIB_read(int *RDSTAT) {
   char  fnam[20] = "SIMLIB_read"  ;
 
   // ---------------- BEGIN ------------------
-
-
 
   NMJD_READ    =  0  ;
   NMJD_ACCEPT  =  0  ;
@@ -937,6 +942,7 @@ void SIMLIB_read(int *RDSTAT) {
 
   }  // end of while fscanf loop
 
+  SIMLIB_INPUT.INFO_HEAD[IPAR_NEA_UNIT] = (float)PSF_NEA_UNIT ;
 
   return ;
   

@@ -23,6 +23,7 @@
 # Aug 09 2021: implement optional --snana_dir arg
 # Oct 29 2021: add optional TABLE_EXTRA to MERGE.LOG file
 # Oct 30 2021: new ENV_REQUIRE key for any task.
+# Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
 #
 # ============================================
 
@@ -1538,15 +1539,20 @@ class Program:
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
         t_seconds = time_dif.total_seconds()
-        if t_seconds < 3000.0 :
-            t_unit = 60.0;      unit = "minutes"
-        else:
-            t_unit = 3600.0 ;    unit = "hours"
+
+        # xxxx mark delete 
+        #if t_seconds < 3000.0 :
+        #    t_unit = 60.0;      unit = "minutes"
+        #else:
+        #    t_unit = 3600.0 ;    unit = "hours"
+        # xxxxxxxx end mark
+
+        t_unit = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
         msg_time = [ ]
-        msg_time.append(f"UNIT_TIME:      {unit} ")
-        msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
+        msg_time.append(f"UNIT_TIME:      {unit}   ")
+        msg_time.append(f"WALL_TIME:      {t_wall:.3f}  # {unit}  ")
 
         # - - - - - - - - 
         # Read TIME_START value from each CPU*LOG file, and measure
@@ -1602,7 +1608,7 @@ class Program:
             cpu_avg  = cpu_sum / n_core_with_jobs
             eff_cpu  = cpu_avg / t_wall
 
-            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
+            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f}   # {unit}")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   " \
                             f"# CPU/core/T_wall")
 

@@ -10006,10 +10006,13 @@ c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
 c   + REDSHIFT_HELIO[_ERR]
 c   + VPEC[_ERR]
-c 
+c   + HOSTGAL_LOGMASS[_ERR]  ??? TO DO (how to handle mutliple hosts?)
+c   + HOSTGAL_sSFR[_ERR]     ??? TO DO (idem)
+c
 c   + FLUXCAL      # if MAGCOR_INFILE is set  (Dec 2021)
 c   + FLUXCALERR   # if FLUXMODELERR_FILE is set (Dec 2021)
 c  
+
 c -------------
 
       IMPLICIT NONE
@@ -10086,6 +10089,8 @@ c VPEC
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
+c ----
+c update logmass and sSFR
 c ------
       IF ( DOFUDGE_FLUXERRMODEL ) THEN
          cKEY  = "FLUXCALERR" // char(0)

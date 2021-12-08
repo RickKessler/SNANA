@@ -51,7 +51,8 @@
     + always write XPIX and YPIX columns in PHOT file ... no more
       check on NXPIX and NYPIX values. Needed to enable reformatting
       FITS -> FITS with header overrides.
-         
+    + set HOSTGAL_USEMASK bit if NRD>0 for reading host mags[err] and SB[err]
+
 **************************************************/
 
 #include "fitsio.h"

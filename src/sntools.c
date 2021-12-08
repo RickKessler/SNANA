@@ -8171,6 +8171,9 @@ int init_SNDATA_GLOBAL(void) {
    SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
   }
 
+  SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
+  SNDATA.HOSTGAL_USEMASK      = 0;
+
   return(SUCCESS);
 
 } // end init_SNDATA_GLOBAL
@@ -8259,7 +8262,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
   }
-  SNDATA.HOSTGAL_USEMASK = 0 ;
+  // xxx mark delete (move to global init)  SNDATA.HOSTGAL_USEMASK = 0 ;
 
 
   // init SEARCH parameters

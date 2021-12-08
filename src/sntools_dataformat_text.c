@@ -15,8 +15,11 @@
   the SNDATA structure to pass the data.
 
   May 2021: read/write HOSTGAL_FLAG
-  Juj 10 2021: new function allow_but_ignore_sntextio() to allow
+  Jun 10 2021: new function allow_but_ignore_sntextio() to allow
                obsolete or private columns.
+
+  Dec 08 2021: use SNDATA.HOSTGAL_USEMASK to write gal mag[err] instead
+               of HOSTGAL_NFILT_MAGOBS>0.
 
 *************************************************/
 
@@ -532,7 +535,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     // if MAGOBS has been read for any filter, then write MAGOBS
     // for all filters.
 
-    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
+    // xxx mark if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
+    if ( (SNDATA.HOSTGAL_USEMASK & 1) > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
@@ -543,7 +547,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
       fprintf(fp,"# %s\n", filtlist) ;
     }
 
-    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
+    // xxx mark    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
+    if ( (SNDATA.HOSTGAL_USEMASK & 2) > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;

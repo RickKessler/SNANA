@@ -21192,6 +21192,14 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       sprintf(SNDATA.SIM_HOSTLIB_KEYWORD[ipar],"SIM_HOSTLIB(%s)", name);
     }
     SNDATA.HOSTGAL_NFILT_MAGOBS   = HOSTLIB.NFILT_MAGOBS ;
+    if ( HOSTLIB.NFILT_MAGOBS > 0 ) {
+      SNDATA.HOSTGAL_USEMASK |= 1;  // flag to write host mags Dec 2021
+      SNDATA.HOSTGAL_USEMASK |= 2;  // flag to write host mags uncert
+    }
+
+    OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
+    if ( OVP ) 
+      { SNDATA.HOSTGAL_USEMASK |= 4; } // flat to write SB Dec 2021
 
     return ;
   }  // end IFLAG==1
@@ -21248,12 +21256,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   } // end of ifilt_obs==0
   
 
-  /* xxxx mark delete/obsolete Nov 4 2021 R.Kessler 
-  // transfer total host mag (Feb 2013)
-  SNDATA.HOSTGAL_MAG[0][ifilt] = (float)SNHOSTGAL.GALMAG[ifilt_obs][0]; 
-  SNDATA.HOSTGAL_USEMASK |= 1 ; // flag to write host mag
-  xxxxxxxxxxxxx end mark xxxxxxxxxxx */
-
   for(m=0; m < NMATCH; m++ ) {
     SNDATA.HOSTGAL_MAG[m][ifilt] = 
       (float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;
@@ -21266,7 +21268,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
-    SNDATA.HOSTGAL_USEMASK |= 4 ; // flag to write surface brightness
+    // xxx mark delete     SNDATA.HOSTGAL_USEMASK |= 4 ; 
     psfsig   = 1./2.355 ;     // typical PSF in arcsec
     mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;

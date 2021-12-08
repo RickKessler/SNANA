@@ -35,6 +35,8 @@
 # Sep 09 2021: abort of NGEN_UNIT is mixed with NGENTOT_LC in GENOPT
 # Nov 09 2021: strip comment fields before reading sim-input files
 #                (see is_comment_line)
+# Dec 08 2021: write NLC_GEN[WRITE]_SUM to MERGE.LOG via get_misc_merge_info()
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -2364,6 +2366,22 @@ class Simulation(Program):
         info_lines   = []
         info_lines.append(f"SURVEY:         {survey}")
         info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        # report sum of NGEN and NWRITE (Dec 2021)
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_INFO_CONTENTS,comment_lines = \
+                util.read_merge_file(MERGE_LOG_PATHFILE)
+        NLC_GEN_SUM = 0
+        NLC_WRITE_SUM = 0
+        NSPEC_WRITE_SUM = 0
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE] :
+            NLC_GEN_SUM     += row[COLNUM_SIM_MERGE_NLC_GEN]
+            NLC_WRITE_SUM   += row[COLNUM_SIM_MERGE_NLC_WRITE]
+            NSPEC_WRITE_SUM += row[COLNUM_SIM_MERGE_NSPEC_WRITE]
+        
+        info_lines.append(f"NLC_GEN_SUM:      {NLC_GEN_SUM}")
+        info_lines.append(f"NLC_WRITE_SUM:    {NLC_WRITE_SUM}")
+        info_lines.append(f"NSPEC_WRITE_SUM:  {NSPEC_WRITE_SUM}")
 
         return info_lines
         # end get_misc_merge_info

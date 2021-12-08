@@ -3175,7 +3175,6 @@ c ------------------------------
       JTIME_LOOPSTART = TIME()
 c ------------------------------
 
-      
       DO ivers = 1, N_VERSION
          CALL PROCESS_DATA_VERSION(IVERS)
       ENDDO
@@ -3188,8 +3187,6 @@ c ------------------------------
 
 c ###################
 c  graceful end here
-
-ccc      STOP
       CALL EXIT(0)
 c ###################
 
@@ -5424,10 +5421,11 @@ c Called from MAIN to read & ananlyze events.
 +CDE,SNLCINP.
 
       INTEGER IERR, OPTMASK
+
 C --------------- BEGIN -------------
 
       CALL GETINFO_PHOTOMETRY(ivers)
-cc      CALL DUMP_README(ivers)
+
       CALL READ_EPIGNORE_FILE(ivers)
 
       CALL EXEC_READ_DATA(ivers,OPTMASK_SNDATA_ALL)
@@ -10008,7 +10006,10 @@ c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
 c   + REDSHIFT_HELIO[_ERR]
 c   + VPEC[_ERR]
-c
+c 
+c   + FLUXCAL      # if MAGCOR_INFILE is set  (Dec 2021)
+c   + FLUXCALERR   # if FLUXMODELERR_FILE is set (Dec 2021)
+c  
 c -------------
 
       IMPLICIT NONE
@@ -10016,14 +10017,15 @@ c -------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER COPYFLAG, NARG, LEN_KEY, LEN_STR
-      REAL*8 DVAL(4)
+      INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
+      REAL*8 DVAL(MXEPOCH)
       CHARACTER cKEY*20, cSTRING
       EXTERNAL COPY_SNDATA_HEAD
 
 C -------------- BEGIN ----------
 
       NARG     =  1
+      NOBS     =  ISNLC_NEWMJD_FOUND
       COPYFLAG = +1
       LEN_KEY  = 20
       LEN_STR  = 20
@@ -10084,7 +10086,22 @@ c VPEC
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-      RETURN
+c ------
+      IF ( DOFUDGE_FLUXERRMODEL ) THEN
+         cKEY  = "FLUXCALERR" // char(0)
+         DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
+         CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+      IF ( NSTORE_MAGCOR > 0 ) THEN
+         cKEY  = "FLUXCAL" // char(0)
+         DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL(o) ; END DO
+         CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
+      RETURN 
       END
 
 C =========================================
@@ -10122,12 +10139,6 @@ C ===============================
 
 c
 c Close FITS files and create README file.
-c Nov 25, 2012: create blank IGNORE file if 2nd bit if 
-c               OPT_REFORMAT_FITS is set
-c
-c Jun 21 2013: give big warning if IGNORE file is not created.
-c
-c Feb 26 2015: catenate each original README into final README.
 c
 c Jul 6 2021: don't write anything else to README so that 
 c             original DOCUMENTATION block appears at the top.
@@ -10143,12 +10154,13 @@ c -------------
       INTEGER LEN_VERS, LEN_SURVEY, i, iver
       CHARACTER 
      &   README_FILE*(MXCHAR_FILENAME)
-     &  ,TXT*80, CMD*(MXCHAR_FILENAME)
+     &  ,CMD*(2*MXCHAR_FILENAME)
 
 C ----------------- BEGIN ----------------
 
 c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
+
 
 c create README blank readme file
       CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)

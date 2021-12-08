@@ -269,7 +269,7 @@ struct SNDATA {
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
 
-  int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
+  int     HOSTGAL_USEMASK ;  // bits 0,1,2,3 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
   int     HOSTGAL_FLAG[MXHOSTGAL];    // indicate problems (May 2021)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
@@ -296,7 +296,7 @@ struct SNDATA {
   long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
   float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
   float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;
-  int     HOSTLIB_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
+  int     HOSTGAL_NFILT_MAGOBS ;      // NFILT with magobs (fixed number)
 
   float REDSHIFT_HELIO;         // final (best) redshift, Helio frame
   float REDSHIFT_HELIO_ERR;     // final (best) redshift, Helio frame

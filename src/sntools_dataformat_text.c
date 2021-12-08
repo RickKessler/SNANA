@@ -532,7 +532,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     // if MAGOBS has been read for any filter, then write MAGOBS
     // for all filters.
 
-    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
+    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
@@ -543,7 +543,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
       fprintf(fp,"# %s\n", filtlist) ;
     }
 
-    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
+    if ( SNDATA.HOSTGAL_NFILT_MAGOBS > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
@@ -1813,6 +1813,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     
     else if ( strcmp(word0,"HOSTGAL_SB_FLUXCAL:") == 0 ) {
+      SNDATA.HOSTGAL_USEMASK |= 4;
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	iwd++; get_PARSE_WORD_FLT(langC, iwd, 
 				  &SNDATA.HOSTGAL_SB_FLUXCAL[ifilt]); 
@@ -1880,6 +1881,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
       sprintf(KEY_TEST,"%s_MAG:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
+	SNDATA.HOSTGAL_USEMASK |= 1;
 	for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	  iwd++ ; get_PARSE_WORD_FLT(langC, iwd, 
 				     &SNDATA.HOSTGAL_MAG[igal][ifilt]); 
@@ -1888,6 +1890,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
       sprintf(KEY_TEST,"%s_MAGERR:", PREFIX);
       if ( strcmp(word0,KEY_TEST) == 0 ) {
+	SNDATA.HOSTGAL_USEMASK |= 2;
         for(ifilt=0; ifilt < NFILT; ifilt++ ) {
           iwd++ ; get_PARSE_WORD_FLT(langC, iwd,
                                      &SNDATA.HOSTGAL_MAGERR[igal][ifilt]);

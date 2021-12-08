@@ -21191,7 +21191,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       // set key name for ascii output
       sprintf(SNDATA.SIM_HOSTLIB_KEYWORD[ipar],"SIM_HOSTLIB(%s)", name);
     }
-    SNDATA.HOSTLIB_NFILT_MAGOBS   = HOSTLIB.NFILT_MAGOBS ;
+    SNDATA.HOSTGAL_NFILT_MAGOBS   = HOSTLIB.NFILT_MAGOBS ;
 
     return ;
   }  // end IFLAG==1

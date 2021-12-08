@@ -47,6 +47,11 @@
   Oct 15 2021: refactor to write spectra based on input write_flag
                to enable for data as well as for sim.
 
+  Dec 7 2021: 
+    + always write XPIX and YPIX columns in PHOT file ... no more
+      check on NXPIX and NYPIX values. Needed to enable reformatting
+      FITS -> FITS with header overrides.
+         
 **************************************************/
 
 #include "fitsio.h"
@@ -90,6 +95,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   char fnam[] = "WR_SNFITSIO_INIT"  ;
   
   // --------------- BEGIN --------------
+
+  print_banner(fnam);  
 
   // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
@@ -194,7 +201,6 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   wr_snfitsio_init_head();
   wr_snfitsio_init_phot();
 
-  // xxx mark delete   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )  { 
   if ( SNFITSIO_SPECTRA_FLAG ) {
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPEC    ) ; 
     wr_snfitsio_create ( ITYPE_SNFITSIO_SPECTMP ) ; 
@@ -650,10 +656,18 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "GAIN"       , itype ) ; // OPTIONAL
   }
 
+
+  /* xxx  Dec 2021
+     NXPIX and NYPIX are not read until after REFORMAT file
+     is initialize,. so instead always include XPIX and YPIX
   if ( SNDATA.NXPIX > 0 ) {
     wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
     wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
-  }
+    } xxxxxxxx */
+
+  wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
+  wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
+
 
   if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS ) {
     wr_snfitsio_addCol( "1E" , "SIM_MAGOBS"  , itype ) ;
@@ -2205,15 +2219,15 @@ void wr_snfitsio_update_phot(int ep) {
     wr_snfitsio_fillTable ( ptrColnum, "GAIN", itype );
   }
 
-  if ( SNDATA.NXPIX > 0 ) {
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.XPIX[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "XPIX", itype );
+  // xxx mark delete Dec 7 2021  if ( SNDATA.NXPIX > 0 ) {
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.XPIX[ep] ;
+  wr_snfitsio_fillTable ( ptrColnum, "XPIX", itype );
 
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.YPIX[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
-  }
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.YPIX[ep] ;
+  wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
+  // xxx }
 
   // check for sim-mag
 
@@ -2420,6 +2434,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
+  bool LDMP = false; // ( strstr(parName,"PIX") != NULL );
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------
@@ -2428,6 +2443,12 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
     { NPAR = NPAR_RD_SNFITSIO[itype] ; }
   else 
     { NPAR = NPAR_WR_SNFITSIO[itype] ; }
+
+  if ( LDMP ) {
+    printf(" xxx ------------------------------------------- \n");
+    printf(" xxx %s: set dump for parName='%s'  NPAR=%d \n",
+	   fnam, parName, NPAR ); fflush(stdout);
+  }
 
   for ( ipar=1; ipar <= NPAR; ipar++ ) {
 
@@ -2438,12 +2459,11 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
       ptrTmp = WR_SNFITSIO_TABLEDEF[itype].name[ipar] ;
     }
     
-    /*
-    if ( strcmp(parName,"SIM_SALT2x0") == 0 ) {
-      printf(" xxx %s: ipar=%d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
-	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD ); // xxxx
+    
+    if ( LDMP ) {
+      printf(" xxx %s: ipar=%2d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
+	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD );  fflush(stdout);
     }
-    */
 
     if ( strcmp(ptrTmp,parName) == 0 )   { return ipar ; }
   }
@@ -3097,6 +3117,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       sprintf(KEY,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_SB_FLUXCAL[ifilt],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
+      if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 4; }
     }
     
     NGAL = MXHOSTGAL;
@@ -3166,7 +3187,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	sprintf(KEY,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
 	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, 
 				     &SNDATA.HOSTGAL_MAG[igal][ifilt],
-				     &SNFITSIO_READINDX_HEAD[j] ) ;  
+				     &SNFITSIO_READINDX_HEAD[j] ) ;
+	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 1; }
       }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
@@ -3175,6 +3197,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, 
 				     &SNDATA.HOSTGAL_MAGERR[igal][ifilt],
 				     &SNFITSIO_READINDX_HEAD[j] ) ;  
+	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 2; }
       }
       
 
@@ -3824,8 +3847,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
 
-
-
   if ( SNFITSIO_SIMFLAG_SNANA ) {
 
     // read name of SIMLIB_FILE file
@@ -4081,7 +4102,7 @@ void rd_snfitsio_file(int ifile) {
 
   int photflag_open=1;
   int vbose=0;
-  //  char fnam[] = "rd_snfitsio_file" ;
+  char fnam[] = "rd_snfitsio_file" ;
 
   // ----------- BEGIN --------------
 

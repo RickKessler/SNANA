@@ -334,9 +334,14 @@ def translate_simgen_dump_file(args):
 
             o.write(f"{line}\n")
 
-    # .xyz    
-    
     # end translate_simgen_dump_file
+
+def print_HELP():
+    see_me = (f" !!! ************************************************ !!!")
+    print(f"\n{see_me}\n{see_me}\n{see_me}")
+    print(f"{HELP_COMMANDS}")
+    sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+    
 # =====================================
 #
 #      MAIN
@@ -348,11 +353,8 @@ if __name__ == "__main__":
     args = get_args()
     
     # option for long HELP menus
-    if args.HELP :
-        see_me = (f" !!! ************************************************ !!!")
-        print(f"\n{see_me}\n{see_me}\n{see_me}")
-        print(f"{HELP_COMMANDS}")
-        sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+    if args.HELP : 
+        print_HELP()
 
     if args.version_reformat_fits :
         reformat_fits(args)

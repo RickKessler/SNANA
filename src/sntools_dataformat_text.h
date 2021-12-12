@@ -65,6 +65,8 @@ struct {
 } SNTEXTIO_FILE_INFO ;
 
 
+bool DEBUG_FLAG_SNTEXTIO ;
+
 void WR_SNTEXTIO_DATAFILE(char *OUTFILE);
 void wr_sntextio_datafile__(char *OUTFILE);
 
@@ -91,6 +93,7 @@ void rd_sntextio_malloc_spec(int ISPEC, int NBLAM);
 void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile);
 void rd_sntextio_event__(int *OPTMASK, int *ifile);
 bool parse_SNTEXTIO_HEAD(int *iwd);
+bool parse_SNTEXTIO_HEAD_legacy(int *iwd);
 bool parse_SNTEXTIO_OBS(int *iwd);
 bool parse_SNTEXTIO_SPEC(int *iwd);
 

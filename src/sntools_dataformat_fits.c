@@ -58,6 +58,7 @@
 #include "fitsio.h"
 #include "sntools.h"
 #include "sntools_dataformat_fits.h"
+#include "sntools_data.h"
 #include "sntools_host.h" 
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
@@ -2654,6 +2655,8 @@ void RD_SNFITSIO_INIT(int init_num) {
     init_GENSPEC_GLOBAL();
   }
 
+  RD_OVERRIDE.USE     = false ;
+
 } // end RD_SNFITSIO_INIT
 
 // =========================================
@@ -5048,14 +5051,11 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // on subsequent calls to avoid the slow string searches
   // to match *parName to one of the stored parameter names.
   //
-  // May 5 2014: 
-  //   Fix subtle bug; on first SN in each file, reset *iptr = -9
-  //   so that new header is searched for each parameter.
-  //   Now works properly with Ia and CC file in same version.
   //
   // Feb 11 2021: parString is now comma-sep instead of space-sep
   //         --> allows other functions to use parse_commaSep function
   //
+
   int  
     iptr_local, iform, itype, ifile, itmp
     ,icol, ipar, NSTORE
@@ -5270,6 +5270,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   if ( strcmp(parName,"FIELD")==0  ) 
     { printf(" xxx %s: FIELD -> '%s' \n", fnam, parString); }
   xxxx */
+
+  // check HEADER_OVERRIDE(parName, CCID, &DVAL);
 
   if ( NEP_MASK == 0 )
     { return -9;     }   // flag that all epochs failed MASK cut

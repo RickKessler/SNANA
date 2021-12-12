@@ -496,7 +496,7 @@ c global survey info
      &   ,FOUND_SURVEY
      &   ,FORMAT_TEXT    ! ascii/txt for input data
      &   ,FORMAT_FITS    ! snfitsio for input data.
-
+     &   ,LEGACY_HEADER_OVERRIDE
 
       INTEGER N_SNLC_PLOT
       LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
@@ -538,7 +538,7 @@ c global survey info
 c logical *1 stuff
 
       COMMON / SNDATCOM1 / EXIST_FILT, FOUND_SURVEY
-     &    ,FORMAT_TEXT, FORMAT_FITS
+     &    ,FORMAT_TEXT, FORMAT_FITS, LEGACY_HEADER_OVERRIDE
 
 c SNTABLE control variables (May 2014)
       LOGICAL
@@ -2965,7 +2965,6 @@ C =================================================
 +USE,P=*FITPKMJD,T=EXE.
 +USE,P=*SPLINE,T=EXE.
 
-cccc delete Apr 2 2021 +USE,P=*LEGACYIO.
 
 C =============================================
 +PATCH,*SNMAIN.
@@ -3223,7 +3222,7 @@ c Called once during global init stage.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER IVERS, IERR, INIT_NUM
+      INTEGER IVERS, IERR, INIT_NUM, LENF
 C ------------ BEGIN -----------
 
 c one-time init for both FITS and TEXT (since we don't know format yet)   
@@ -3234,6 +3233,9 @@ c one-time init for both FITS and TEXT (since we don't know format yet)
 
       INIT_NUM = INIT_NUM+1
       CALL RD_SNTEXTIO_INIT(INIT_NUM)
+
+      LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
+      CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
 
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization
@@ -3367,6 +3369,7 @@ c read global info and store in SNDATA struct in sndata.h
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
+         if ( OPT_DEBUG == 1210 ) OPTRD = OPTRD + 256 ! debug flag
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)
@@ -3421,7 +3424,7 @@ c Note that ISN is a fortran index starting at 1
            CALL RD_SNTEXTIO_EVENT(OPTMASK_SNDATA_HEAD,ISN) ! C func
         ENDIF
 
-c transfer from C struct to glopbal fortran variables
+c transfer from C struct to global fortran variables
         CALL RDHEAD_DRIVER(istat) 
 
         if ( ISTAT < 0 ) GOTO 100    ! failed cut on header var/CID
@@ -6017,6 +6020,8 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(1) = 4.9
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
+
+      LEGACY_HEADER_OVERRIDE = (OPT_DEBUG .NE. 1210) ! Dec 2021
 
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN
@@ -16779,6 +16784,8 @@ c functions
       EXTERNAL STORE_PARSE_WORDS, IGNOREFILE
 C ------------ BEGIN -------------
 
+      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
+
       NVAR_HEADER_OVERRIDE = 0
 
       LENF   = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
@@ -16907,6 +16914,8 @@ c functions
 
 C ------------- BEGIN -----------
      
+      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
+
       FNAM = 'READ_HEADER_OVERRIDE_FILE'
       CALL ENVreplace(FILENAME) 
 
@@ -17005,6 +17014,8 @@ c Oct 27 2020: add REDSHIFT_CMB_ERR, REDSHIFT_HELIO[_ERR] to list
 c functions
       EXTERNAL SNTABLE_AUTOSTORE_READ
 C ------------ BEGIN ------------
+
+      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
 
       IF ( NVAR_HEADER_OVERRIDE <= 0 ) RETURN
 
@@ -20782,7 +20793,6 @@ c define Z bins for each plot
       ZLIM(2) = 2.0
       NBZ(1)  = 200
 
-ccccc
       ZLIM(2) = 4.0
       NBZ(1)  = 200
 ccccc

@@ -476,6 +476,7 @@ void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE);
 void set_exit_errcode__(int *ERRCODE);
 
+/* xxxxxxxx mark delete Dec 10 2021 xxxxxxxxx
 void copy_SNDATA_GLOBAL(int copyFlag, char *key,
 			int NVAL, char *stringVal, double *parVal);
 void copy_SNDATA_HEAD(int copyFlag, char *key,
@@ -492,6 +493,7 @@ void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 //void copy_void(int copyFlag, double *DVAL0, void   *VAL1) ;
+xxxxxxxxxxxxxx end mark xxxxxxxxxxx */
 
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
@@ -536,6 +538,9 @@ void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
 void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val);
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val);
+
 void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
 void get_parse_word__(int *langFlag, int *iwd, char  *word );
 void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
@@ -840,6 +845,7 @@ double funVal_skewGauss(double x, double siglo,double sighi,
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
 
+/* xxxxxxxxx mark delete Dec 10 2021 xxxxxxxxxx
 void copy_sndata_global__(int *copyFlag, char *key,
 			  int *NVAL, char *stringVal,double *parVal);
 void copy_sndata_head__(int *copyFlag, char *key,
@@ -849,6 +855,8 @@ void copy_sndata_obs__(int *copyFlag, char *key,
 int  select_mjd_sndata__(double *MJD_WINDOW);
 
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
+xxxxxxxxx end mark xxxxxxxxxx */
+
 
 
 // ------ sorting --------

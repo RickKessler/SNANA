@@ -150,6 +150,7 @@
 #   + include sntools_genGauss_asym dependence for SALT2mu
 #
 # Jul 17 2021: make sntools_gridmap.o
+# Dec 10 2021: incorporate sntools_data.o
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -392,6 +393,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_simeff_obsolete.o	\
 	$(OBJ)/sntools_dataformat_fits.o	\
 	$(OBJ)/sntools_dataformat_text.o	\
+	$(OBJ)/sntools_data.o 			\
 	$(OBJ)/sntools_modelgrid_read.o \
 	$(OBJ)/sntools_kcor.o \
 	$(OBJ)/sntools_nearnbr.o \
@@ -697,6 +699,7 @@ $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntoo
 	$(OBJ)/MWgaldust.o \
 	$(OBJ)/sntools_spectrograph.o  	\
 	$(OBJ)/sntools_dataformat_fits.o \
+	$(OBJ)/sntools_data.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  $(LGSL) $(LCERN)
 	(cd $(OBJ); rm kcor.o )
@@ -721,6 +724,7 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 	$(OBJ)/sntools_kcor.o 	\
 	$(OBJ)/sntools_dataformat_fits.o \
 	$(OBJ)/sntools_dataformat_text.o \
+	$(OBJ)/sntools_data.o \
 	$(LCFITSIO)  $(LGSL) 	\
 	$(LCERN)  -lm
 	(cd $(OBJ); rm kcordump.o)
@@ -861,6 +865,10 @@ $(OBJ)/sntools_dataformat_fits.o : $(SRC)/sntools_dataformat_fits.c $(SRC)/sntoo
 $(OBJ)/sntools_dataformat_text.o : $(SRC)/sntools_dataformat_text.c $(SRC)/sntools_dataformat_text.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_dataformat_text.c )
+
+$(OBJ)/sntools_data.o : $(SRC)/sntools_data.c $(SRC)/sntools_data.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_data.c )
 
 # ---------
 $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
@@ -1046,6 +1054,7 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c \
 	$(SRC)/sntools_modelgrid_gen.c \
+	$(SRC)/sntools_data.c 	\
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \
 	$(SRC)/sntools_host.c  \
 	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \
@@ -1130,6 +1139,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
 	$(OBJ)/sntools_cosmology.o  \
+	$(OBJ)/sntools_data.o  \
 	$(OBJ)/sntools_dataformat_fits.o  \
 	$(OBJ)/sntools_dataformat_text.o  \
 	$(OBJ)/genmag_SEDtools.o \

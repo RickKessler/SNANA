@@ -1066,7 +1066,7 @@ c
 c Transfer namelist arguments to linear arrays,
 c then pass them to C function.
 c
-c Feb 25 2020: pass OPT_DEBUG to C code.
+c Feb 25 2020: pass DEBUG_FLAG to C code.
 
       IMPLICIT NONE
 
@@ -1096,7 +1096,7 @@ c start with &SNLCINP values
       INPUT_ARRAY(NVAR) = W0_REF(1)
 
       NVAR = NVAR + 1
-      INPUT_ARRAY(NVAR) = DBLE(OPT_DEBUG)
+      INPUT_ARRAY(NVAR) = DBLE(DEBUG_FLAG)
   
 c next the  INPUT ARRAY from &PSNIDINP
 

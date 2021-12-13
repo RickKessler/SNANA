@@ -8066,7 +8066,7 @@ c continue below on 1st iteration only.
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
 
-      IF ( OPT_DEBUG == 30 ) THEN
+      IF ( DEBUG_FLAG == 30 ) THEN
          INIBND(1,IPAR)  =  INIVAL(IPAR) - 30.0
          INIBND(2,IPAR)  =  INIVAL(IPAR) + 30.0
       ENDIF
@@ -15919,12 +15919,6 @@ c selected by snana, not just the ones in FILTLIST_FIT.
 c Use EPCUT_SNRMIN to reject extra filters.
 
          LAMTMP = LAMREST(itry)
-
-c xxxxxxxxxx Mark delete May 18 2021 xxxxxxxxxx 
-c         IF ( OPT_DEBUG == 1000 ) then
-c            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
-c         else
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 c new default, Mar 28 2020
           NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 

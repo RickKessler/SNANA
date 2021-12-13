@@ -403,6 +403,13 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/multiseason.o
 
+OBJ_SNTOOLS_DATA =  \
+	$(OBJ)/sntools_dataformat_fits.o        \
+        $(OBJ)/sntools_dataformat_text.o        \
+        $(OBJ)/sntools_data.o                   \
+	$(OBJ)/sntools_output.o			\
+	$(OBJ)/sntools_cosmology.o
+ 
 OBJ_OUTPUT = $(OBJ)/sntools_output.o
 
 # now the program-specific lists
@@ -692,16 +699,14 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO)  $(IGSL) $(SRC)/kcor.c )
 
-$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ)/sntools_cosmology.o
+$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_dataformat_fits.o $(OBJ_SNTOOLS_DATA)
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcor.o \
 	$(OBJ)/sntools.o  	\
-	$(OBJ)/MWgaldust.o \
+	$(OBJ)/MWgaldust.o 	\
+	$(OBJ_SNTOOLS_DATA) 	\
 	$(OBJ)/sntools_spectrograph.o  	\
-	$(OBJ)/sntools_dataformat_fits.o \
-	$(OBJ)/sntools_data.o \
-	$(OBJ)/sntools_cosmology.o \
-	$(LCFITSIO)  $(LGSL) $(LCERN)
+	$(LCFITSIO)  $(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm kcor.o )
 
 # -------------------------------------------------
@@ -715,19 +720,22 @@ kcordump.f : kcordump.cra  kcordump.cra
 	$(UTIL)/ypatchy.pl - $@ kcordump.cra .go
 	rm snana.lnk
 
-$(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
+$(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o $(OBJ_SNTOOLS_DATA)
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcordump.o 	\
 	$(LIB)/libsnana.a  	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ)/sntools_gridmap.o \
 	$(OBJ)/sntools_kcor.o 	\
-	$(OBJ)/sntools_dataformat_fits.o \
-	$(OBJ)/sntools_dataformat_text.o \
-	$(OBJ)/sntools_data.o \
+	$(OBJ_SNTOOLS_DATA) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  -lm
+	$(LCERN)  $(LROOT) -lm $(CPPLIB)
 	(cd $(OBJ); rm kcordump.o)
+
+#	$(OBJ)/sntools_dataformat_fits.o \
+#	$(OBJ)/sntools_dataformat_text.o \
+#	$(OBJ)/sntools_data.o \
+#	$(OBJ)/sntools_output.o \
 
 # -------------------------------------------------
 # combine_fitres (C-version with no array limits)
@@ -1138,10 +1146,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
-	$(OBJ)/sntools_cosmology.o  \
-	$(OBJ)/sntools_data.o  \
-	$(OBJ)/sntools_dataformat_fits.o  \
-	$(OBJ)/sntools_dataformat_text.o  \
+	$(OBJ_SNTOOLS_DATA) 		\
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
 	$(OBJ)/genmag_SALT2.o   \
@@ -1149,7 +1154,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/sntools_devel.o \
 	$(OBJ)/MWgaldust.o \
 	$(LIB)/libsnana.a  \
-	-lm $(LCFITSIO) $(LGSL) $(LCERN)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_fudge.o )
 
 # -------------

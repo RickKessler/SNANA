@@ -6,11 +6,23 @@
  ******************************************/
 
 #define MXFILE_OVERRIDE 10
+#define MXVAR_OVERRIDE  20
+
 struct {
   bool USE;
-  int N_FILE; // number of override files
-  
+  int NFILE; // number of override files
+  int NVAR;  // number of override variables
+  int N_PER_VAR[MXVAR_OVERRIDE] ;
+
+  // logicals to decide if zCMB or zHEL needs to be recomputed.
+  bool FOUND_zCMB, FOUND_zHEL;
+
 } RD_OVERRIDE;
+
+
+#define FORMAT_SNDATA_FITS 32
+#define FORMAT_SNDATA_TEXT  2
+int FORMAT_SNDATA ;
 
 // ======== function prototypes =============
 
@@ -33,6 +45,9 @@ void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE);
 int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);
+void RD_OVERRIDE_POSTPROC(void); 
+void rd_override_append(void);
+void rd_override_zcalc(void);
 
 // mangled functions for fortran
 void copy_sndata_global__(int *copyFlag, char *key,

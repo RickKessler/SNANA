@@ -5833,17 +5833,14 @@ void wr_fits_SPECTROGRAPH(fitsfile *fp) {
 
 // ==================================================
 void wr_fits_errorCheck(char *comment, int status) {
+  // Print out cfitsio error messages and exit program
   char fnam[] = "wr_fits_errorCheck" ;
-  /*****************************************************/
-  /* Print out cfitsio error messages and exit program */
-  /*****************************************************/
-
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, "Check cfitsio routines." ); 
   }
   return;
-}
+}  // wr_fits_errorCheck
 
 
 // ********************************

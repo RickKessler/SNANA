@@ -2018,7 +2018,7 @@ c
      &  ,OPT_REFORMAT_FITS       ! T=> re-write  in FITSformat (data only)
      &  ,OPT_REFORMAT_SALT2      ! T=> re-write SNDATA files in SALT2 format
      &  ,OPTSIM_LCWIDTH          ! T=> option to compute LC width
-     &  ,OPT_DEBUG               ! T=> for internal debug
+     &  ,DEBUG_FLAG               ! T=> for internal debug
      &  ,JOBSPLIT(2)             ! process (1)-range of (2)=TOTAL
      &  ,JOBSPLIT_EXTERNAL(2)    ! passed by split_and_fit for text format 
      &  ,MXLC_FIT                ! stop after this many fits passing all cuts
@@ -2136,7 +2136,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2184,7 +2184,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -3235,7 +3235,10 @@ c one-time init for both FITS and TEXT (since we don't know format yet)
       CALL RD_SNTEXTIO_INIT(INIT_NUM)
 
       LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
+
+      IF ( DEBUG_FLAG == 1210 ) THEN
+        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
+      ENDIF
 
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization
@@ -3369,7 +3372,7 @@ c read global info and store in SNDATA struct in sndata.h
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
-         if ( OPT_DEBUG == 1210 ) OPTRD = OPTRD + 256 ! debug flag
+         if ( DEBUG_FLAG == 1210 ) OPTRD = OPTRD + 256 ! debug flag
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)
@@ -4286,7 +4289,6 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       CALL FETCH_SNDATA_WRAPPER("NOBS", ONE, STRING, DARRAY, OPT)
       ISNLC_NEWMJD_FOUND = INT(DARRAY(1)) 
 
-
       CALL RDHEAD_REDSHIFT(OPT)
 
       DO igal = 1, MXSNHOST
@@ -4557,6 +4559,7 @@ c - - - - -
      &       ONE, STRING, DARRAY, OPT)
       SNLC_zCMB = SNGL(DARRAY(1))  !
 
+      
       CALL FETCH_SNDATA_WRAPPER("REDSHIFT_FINAL_ERR", 
      &       ONE, STRING, DARRAY, OPT)
       SNLC_zCMB_ERR = SNGL(DARRAY(1))
@@ -4567,9 +4570,9 @@ c (beware that VPEC correction should NOT be included here)
       IF ( SNLC_zCMB < 0.0 ) THEN
          CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB",
      &         ONE, STRING, DARRAY, OPT)
-         SNLC_zCMB = SNGL(DARRAY(1)) ! xxx + REDSHIFT_FINAL_SHIFT
+         SNLC_zCMB = SNGL(DARRAY(1))
 
-      CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB_ERR",
+         CALL FETCH_SNDATA_WRAPPER("REDSHIFT_CMB_ERR",
      &         ONE, STRING, DARRAY, OPT)
          SNLC_zCMB_ERR = SNGL(DARRAY(1))
       ENDIF
@@ -5868,7 +5871,7 @@ c default is to reject nothing (accept everything)
       MJDWIN_SETPKMJD   = 60.0  ! only for FLUXMAX2 option (Fmax-clump)
       SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
-      OPT_DEBUG           =  0
+      DEBUG_FLAG          =  0
       LDMP_SNFAIL         = .FALSE.
       LDMP_SNANA_VERSION  = .FALSE.
       LSIM_SEARCH_SPEC    = .FALSE.
@@ -6021,7 +6024,7 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
 
-      LEGACY_HEADER_OVERRIDE = (OPT_DEBUG .NE. 1210) ! Dec 2021
+      LEGACY_HEADER_OVERRIDE = (DEBUG_FLAG .NE. 1210) ! Dec 2021
 
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN
@@ -7399,9 +7402,9 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) LSIM_SEARCH_ZHOST
 
-         else if ( MATCH_NMLKEY('OPT_DEBUG',
+         else if ( MATCH_NMLKEY('DEBUG_FLAG',
      &             1, iArg, ARGLIST) ) then 
-           READ(ARGLIST(1),*) OPT_DEBUG
+           READ(ARGLIST(1),*) DEBUG_FLAG
 
          else if ( MATCH_NMLKEY('LPROB_TRUEFLUX',
      &             1, iArg, ARGLIST) ) then 
@@ -17614,8 +17617,6 @@ c check to increment SUBSURVEY_LIST
           endif
         ENDIF
       ENDIF
-
-      
 
 c - - - - - - - - -
 c prepare redshifts; e.g. use photo-z, apply systematic shifts, etc ...
@@ -36234,7 +36235,7 @@ c  current FITS file being read.
 
 C ----------- BEGIN ------------------
 
-      if ( OPT_DEBUG == 0 ) RETURN
+      if ( DEBUG_FLAG == 0 ) RETURN
  
       CALL GET_SNFITSIO_INFO(VERSION,FILENAME_HEAD,FILENAME_PHOT,IFILE,
      &      80,80,80 )

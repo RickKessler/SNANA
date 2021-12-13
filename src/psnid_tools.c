@@ -101,7 +101,7 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   init_HzFUN_INFO(VBOSE, cosPar, "", &PSNID_INPUTS.HzFUN_INFO);
 
   ivar++ ; dval = input_array[ivar];
-  PSNID_INPUTS.OPT_DEBUG = (int)dval ;
+  PSNID_INPUTS.DEBUG_FLAG = (int)dval ;
 
   // load &PSNIDINP doubles ...
   ivar++ ; dval = input_array[ivar];

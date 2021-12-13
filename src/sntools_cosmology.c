@@ -648,11 +648,7 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
 
  ****************/
 
-  double 
-     ra_gal, dec_gal
-    ,ss, ccc, c1, c2, c3, vdotn, z_out
-    ;
-
+  double  ra_gal, dec_gal, ss, ccc, c1, c2, c3, vdotn, z_out  ;
   char fnam[] = "zhelio_zcmb_translator" ;
 
   // --------------- BEGIN ------------
@@ -702,14 +698,12 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
    
   return(z_out) ;
 
-
 } // end of zhelio_zcmb_translator 
-
 
 double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DEC,
                                  char *coordSys, int *OPT ) {
   return zhelio_zcmb_translator(*z_input, *RA, *DEC, coordSys, *OPT) ;
 }
 
-
+// end:
 

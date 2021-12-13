@@ -909,7 +909,7 @@ void read_spectrograph_fits(char *inFile) {
   double L0, L1;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
-  //  char fnam[] = "read_spectrograph_fits" ;
+  char fnam[] = "read_spectrograph_fits" ;
 
   // --------------- BEGIN -----------------
 

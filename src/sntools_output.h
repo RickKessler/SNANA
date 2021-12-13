@@ -481,6 +481,7 @@ extern"C" {
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
 
 
+  int IVAR_VARNAME_AUTOSTORE(char *varName);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);
 

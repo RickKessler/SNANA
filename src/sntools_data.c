@@ -16,6 +16,7 @@
 #include  "sntools_spectrograph.h"  
 #include  "sntools_data.h"
 #include  "sntools_output.h"
+#include  "sntools_cosmology.h"
 
 //#include  "sntools_dataformat_text.h"
 //#include  "sntools_host.h" 
@@ -969,17 +970,17 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 // ==============================================
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
 
-  // read and store columns from comma-sep list of 
-  // override files to override values in data headers.
+  // read and store columns from comma-sep list of  override files 
+  // to override values in data headers (not photometry).
   // Allows float/double/int, but not strings
   // (e.g., cannot override SNID, FIELD, .. )
 
-  int NROW, ifile, N_FILE = 0;
+  int NROW, ivar, ifile, NFILE = 0;
   int OPTMASK_SNTABLE = 4; // append next file
   char **file_list, *ptrFile;
   char TABLE_NAME[] = "OVERRIDE";
   char VARLIST[]    = "ALL";
-  char fnam[] = "RD_OVERRIDE_INIT";
+  char fnam[]       = "RD_OVERRIDE_INIT";
 
   // ----------- BEGIN -----------
 
@@ -990,14 +991,11 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
 
   // split comma-sep OVERRIDE_FILE 
   parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
-		     &N_FILE, &file_list ); // <== returned
+		     &NFILE, &file_list ); // <== returned
   
-  RD_OVERRIDE.USE    = true ;
-  RD_OVERRIDE.N_FILE = N_FILE;
-
-  /* 
-  for(ifile=0; ifile < N_FILE; ifile++ ) {
+  for(ifile=0; ifile < NFILE; ifile++ ) {
     ptrFile = file_list[ifile] ;
+    ENVreplace(ptrFile, fnam, 1);
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );
     printf("   Stored %d rows of header-override data\n", NROW);
@@ -1008,9 +1006,30 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
   } // end ifile
-  */
 
-  return;
+  // - - - - - - - - - - - - 
+  RD_OVERRIDE.USE    = true ;
+  RD_OVERRIDE.NFILE  = NFILE;
+  for(ivar=0; ivar < MXVAR_OVERRIDE; ivar++ )
+    { RD_OVERRIDE.N_PER_VAR[ivar] = 0 ; }
+
+  // - - - - - - - 
+  // set z logicals in case zHEL <-> zCMB needs to be recomputed
+  RD_OVERRIDE.FOUND_zCMB = false;
+  RD_OVERRIDE.FOUND_zHEL = false;
+  if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_FINAL") ) 
+    { RD_OVERRIDE.FOUND_zCMB = true; }
+  if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB") ) 
+    { RD_OVERRIDE.FOUND_zCMB = true; }
+  if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
+    { RD_OVERRIDE.FOUND_zHEL = true; }
+
+  // if both zCMB and zHEL are on header-override list,
+  // turn them off since there is no need to recompute.
+  if ( RD_OVERRIDE.FOUND_zCMB && RD_OVERRIDE.FOUND_zHEL ) 
+    { RD_OVERRIDE.FOUND_zCMB = RD_OVERRIDE.FOUND_zHEL = false; }
+
+  return ;
 
 
 } // end RD_OVERRIDE_INIT
@@ -1022,7 +1041,7 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
   // and function returns 1.
   // Function returns 0 if there is no override.
 
-  int  ISTAT, NRD ;
+  int  ISTAT, NRD, IVAR, NTMP ;
   char STRDUM[20];
   char fnam[] = "RD_OVERRIDE_FETCH";
 
@@ -1030,20 +1049,25 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
   *DVAL = 0.0;
   if ( !RD_OVERRIDE.USE ) { return 0; }
 
-  /* 
-  if ( !EXIST_VARNAME_AUTOSTORE(VARNAME) ) { return 0; }
+  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME);
+  if ( IVAR < 0 ) { return 0; }
 
-  SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRDUM);
-  */
+  
+  // read from override table; ISTAT and DVALare returned
+  SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRDUM);  
 
   // *ISTAT =  0  if CCID is found; 
   // *ISTAT = -1  if CCID is NOT found    
   // *ISTAT = -2  if VARNAME is NOT found
 
   if ( ISTAT == 0 ) {
-    printf(" xxx %s: CID=%s  '%s'=%f  ISTAT=%d \n",
-	   fnam, CCID, VARNAME, *DVAL, ISTAT); fflush(stdout);
+    //    printf(" xxx %s: CID=%s  '%s'=%f  ISTAT=%d \n",
+    //	   fnam, CCID, VARNAME, *DVAL, ISTAT); fflush(stdout);
     NRD = 1;
+    if ( RD_OVERRIDE.N_PER_VAR[IVAR] == 0 ) 
+      { printf("\t Found override for %s\n", VARNAME );  fflush(stdout); }
+
+    RD_OVERRIDE.N_PER_VAR[IVAR]++;
   }
   else {
     NRD = 0 ;
@@ -1052,6 +1076,106 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
   return NRD ;
 
 } // end RD_OVERRIDE_FETCH
+
+// =====================================
+void RD_OVERRIDE_POSTPROC(void) {
+
+  char fnam[] = "RD_OVERRIDE_POSTPROC" ;
+  
+  // ------------ BEGIN --------------
+
+  if ( !RD_OVERRIDE.USE ) { return; }
+
+  // for text format, check for variables that are not in
+  // the data files and thus header_override is an addition.
+  if ( FORMAT_SNDATA == FORMAT_SNDATA_TEXT ) 
+    { rd_override_append(); }
+
+  // check for redshift_helio update that forces zcmb to also change.
+  rd_override_zcalc();
+
+  return ;
+
+} // end RD_OVERRIDE_POSTPROC
+
+
+void rd_override_append(void) {
+
+  // Called only for TEXT format that might be missing
+  // some variables.
+
+#define NVAR_OVERRIDE_CHECK 6
+
+  char VARNAME_CHECK[NVAR_OVERRIDE_CHECK][40] = {
+    "VPEC", "VPEC_ERR", 
+    "REDSHIFT_HELIO", "REDSHIFT_HELIO_ERR",
+    "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR"
+  };
+  float *ptr_SNDATA[NVAR_OVERRIDE_CHECK] = {
+    &SNDATA.VPEC, &SNDATA.VPEC_ERR, 
+    &SNDATA.REDSHIFT_HELIO, &SNDATA.REDSHIFT_HELIO_ERR,
+    &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0]
+  } ;
+
+  int ivar;
+  double DVAL ;
+  char *varName ;
+  char fnam[] = "rd_override_append" ;
+
+  // --------- BEGIN --------
+
+  for (ivar=0; ivar < NVAR_OVERRIDE_CHECK; ivar++ ) {
+    varName = VARNAME_CHECK[ivar] ;
+    if ( EXIST_VARNAME_AUTOSTORE(varName) ) { 
+      RD_OVERRIDE_FETCH(SNDATA.CCID, varName, &DVAL) ;
+      *ptr_SNDATA[ivar] = (float)DVAL;
+
+      if ( strstr(varName,"HOSTGAL") != NULL ) {
+	SNDATA.HOSTGAL_NMATCH[0] = 1;
+      }
+
+    }  // end exist varname in header overrid
+  } // end ivar loop
+
+  return;
+} // end rd_override_append
+
+void rd_override_zcalc(void) {
+
+  // If either zCMB or zHEL is on override list; recompute the other.
+  
+  double RA, DEC, zCMB, zHEL ;
+  bool FOUND_z= ( RD_OVERRIDE.FOUND_zCMB || RD_OVERRIDE.FOUND_zHEL );
+  char eq[]   = "eq" ;
+  char fnam[] = "rd_override_zcalc" ;
+  // ---------- BEGIN -------------
+
+  if ( !FOUND_z ) { return; }
+  RA  = SNDATA.RA;  
+  DEC = SNDATA.DEC ;
+
+  if ( RD_OVERRIDE.FOUND_zCMB ) {
+    zCMB = (double)SNDATA.REDSHIFT_FINAL;
+    zHEL = zhelio_zcmb_translator(zCMB,RA,DEC,eq,-1); 
+    SNDATA.REDSHIFT_HELIO = (float)zHEL ;
+  }
+  else if ( RD_OVERRIDE.FOUND_zHEL ) {
+    zHEL = (double)SNDATA.REDSHIFT_HELIO ;
+    zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
+    SNDATA.REDSHIFT_FINAL = (float)zCMB ;
+
+    /* xxx mark delete xxxxxxxx
+    if ( strcmp(SNDATA.CCID,"1032") == 0 ) {
+      printf(" xxx %s: ov zHEL=%.4f -> zCMB=%.4f (RA,DEC=%f,%f)\n",
+	     fnam, zHEL, zCMB, RA, DEC); fflush(stdout);
+    }
+    xxxxxx end mark xxx */
+  }
+
+  return ;
+
+} // end rd_override_zcalc
+
 
 // - - - - - - - 
 // mangled fortran functions

@@ -100,6 +100,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   print_banner(fnam);  
 
+  FORMAT_SNDATA = FORMAT_SNDATA_FITS ;
+
   // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
   SNFITSIO_SIMFLAG_SNANA        = false ;
@@ -1010,15 +1012,14 @@ void wr_snfitsio_create(int itype ) {
 
   // CODE_VERSION (Feb 2014)
   //  SNFITSIO_CODE_IVERSION = 2; // Feb 11 2014 - first usage 
-  //  SNFITSIO_CODE_IVERSION = 3; // Aug 7 2014 - add NXPIX,NYPIX,XPIX,YPIX
+  //  SNFITSIO_CODE_IVERSION = 3; // Aug 7  2014 - add NXPIX,NYPIX,XPIX,YPIX
   //  SNFITSIO_CODE_IVERSION = 4; // Sep 3, 2014: add HOSTGAL_MAG & SB
-  //  SNFITSIO_CODE_IVERSION = 5; // Aug 2 2016: add sim spectra
+  //  SNFITSIO_CODE_IVERSION = 5; // Aug 2  2016: add sim spectra
   //  SNFITSIO_CODE_IVERSION = 6; // May 24 2017: add CCDNUM to header
   //  SNFITSIO_CODE_IVERSION = 7; // Mar 18 2018: add SNRMAG[mag]
   //  SNFITSIO_CODE_IVERSION = 8; // Dec 26 2018: SIMSED_PAR loops 0 to NPAR-1
-  //  SNFITSIO_CODE_IVERSION = 9; // FEB 8 2019: more HOSTGAL stuff
-  //  SNFITSIO_CODE_IVERSION = 10 ; // Sep 10 2020: PySEDMODEL
-
+  //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
+  //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
   if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
     { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
@@ -2618,19 +2619,14 @@ void wr_snfitsFile_close(int ifile, int itype) {
 
 // ========================================
 void snfitsio_errorCheck(char *comment, int status) {
-
+  // Print out cfitsio error messages and exit program */
   char fnam[] = "snfitsio_errorCheck" ;
-
-  /*****************************************************/
-  /* Print out cfitsio error messages and exit program */
-  /*****************************************************/
-
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, "Check cfitsio routines." ); 
   }
   return;
-}
+} //  end snfitsio_errorCheck
 
 
 // ###########################################
@@ -3090,6 +3086,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 
+
     if ( SNFITSIO_DATAFLAG ) {
       j++ ;  NRD = RD_SNFITSIO_INT(isn, "REDSHIFT_QUALITYFLAG", 
 				   &SNDATA.REDSHIFT_QUALITYFLAG, 
@@ -3124,6 +3121,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 4; }
     }
     
+
     NGAL = MXHOSTGAL;
     for ( igal=0; igal < NGAL; igal++ ) {
       sprintf(PREFIX,"HOSTGAL");
@@ -3193,6 +3191,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				     &SNDATA.HOSTGAL_MAG[igal][ifilt],
 				     &SNFITSIO_READINDX_HEAD[j] ) ;
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 1; }
+
+	// older FITS files don't have NMATCH, so load it here.
+	if ( SNFITSIO_CODE_IVERSION <= 4 ) { SNDATA.HOSTGAL_NMATCH[0] = 1; }
       }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
@@ -3229,6 +3230,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNDATA.PRIVATE_VALUE[ivar],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;          
     }
+
+    RD_OVERRIDE_POSTPROC(); // Dec 2021; only for real data
 
     // ---------- SIM ----------
     if ( !SNFITSIO_SIMFLAG_SNANA ) { return(SUCCESS); }
@@ -3414,6 +3417,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
 
   } // end LRD_HEAD
+
+  
 
   // - - - - - - - -
 
@@ -5030,60 +5035,50 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 		      ) {
 
   //
-  // Generic fits-read function to return the value(s) for
-  // input parameter *parName.  If the parameter is int, float
-  // or double, then double *parList is filled and *parString
-  // is NULL. If the  parameter cast is character (such as SNID)
-  // then *parString is fill and *parList is ignored.
-  // The return value of the function is the number of elements
-  // filled;  1 for a header value or NOBS for a 'phot' value
-  // such as MJD or FLUXCAL. If the parameter does not exist
-  // then zero is returned.
+  // Generic fits-read function to return the value(s) for  input parameter 
+  // *parName.  If the parameter is int/float/double, then double *parList 
+  // is filled and *parString is NULL. If the  parameter cast is character 
+  // (such as SNID or FIELD) then *parString is fill and *parList is ignored.
+  // The return value of the function is the number of elements filled; 1 for
+  // a header value or NOBS for a 'phot' value such as MJD or FLUXCAL. 
+  // If the parameter does not exist then zero is returned.
   //
-  // For *parString a blank space separates each element:
-  // for example, the NOBS filters are returned as
-  //  *parString = "u g r i z u g r i z ..."
-  // Thus the calling function must split *parString to 
-  // read the elements.  The motivation for this strategy
-  // is to allow fortran calls. Make sure to pass sufficiently
-  // large *parString and *parList arrays.
-  // The last return value *iptr allows faster lookup
-  // on subsequent calls to avoid the slow string searches
-  // to match *parName to one of the stored parameter names.
+  // For *parString a blank space separates each element: for example, 
+  // the NOBS filters are returned as
+  //      *parString = "u g r i z u g r i z ..."
+  // Thus the calling function must split *parString to read the elements.  
+  // The motivation for this strategy is to allow fortran calls. Make sure 
+  // to pass sufficiently large *parString and *parList arrays.  The last 
+  // return value *iptr allows faster lookup on subsequent calls to avoid 
+  // the slow string searches to match *parName to one of the stored 
+  // parameter names.
   //
   //
   // Feb 11 2021: parString is now comma-sep instead of space-sep
   //         --> allows other functions to use parse_commaSep function
   //
+  // Dec 12 2021: call RD_OVERRIDE_FETCH
 
-  int  
-    iptr_local, iform, itype, ifile, itmp
-    ,icol, ipar, NSTORE
-    ,iparRow
-    ,isn_file
-    ,firstRow, lastRow
-    ,NPARVAL
-    ,J, JMIN, JMAX, NSTR=0
-    ,*IPTR
-    ,MASK, NEP_RDMASK, NEP_MASK, OPTMASK, LDMP 
-    ;
+  int  iptr_local, iform, itype, ifile, itmp, icol, ipar, NSTORE;
+  int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
+  int  *IPTR, MASK, NEP_RDMASK, NEP_MASK=0, OPTMASK ;
 
   char   C_VAL[80];
   int    J_VAL ;
   float  E_VAL ;
   double D_VAL ;
   long long K_VAL ;
-
+  
+  int LDMP = 0 ; // ( strcmp(parName,"SIM_PEAKMAG_i") == 0 ||
   char fnam[] = "RD_SNFITSIO_PARVAL" ;
 
   // ------------ BEGIN --------------
 
   // init output args
-  NPARVAL  = 0;  
-  *parList = -9.0 ;
+  NPARVAL      = 0;  
+  parList[0]   = -9.0 ;
   parString[0] = 0 ;
 
-  LDMP = 0 ; // ( strcmp(parName,"SIM_PEAKMAG_i") == 0 ||
   ifile = -9 ;
 
   // check if we read current fits file, or need to open the next one.
@@ -5105,6 +5100,14 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
   isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_SNFITSIO-1];
+
+  // Dec 2021:
+  // if there is a header override, load value here and return
+  // since there is no point in finding value in FITS file.
+  // This override occurs whether or not parName exists, and thus
+  // it overrides or appends data.
+  if ( RD_OVERRIDE_FETCH(SNDATA.CCID, parName, &D_VAL) > 0 ) 
+    { parList[0] = D_VAL;  return 1; }
 
   // determine 'itype' and 'icol' from parName.
   // use pointer if it's defined (i.e, positive); otherwise search list.
@@ -5133,13 +5136,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
     *iptr = -999 ; // return flag that this param does not exist
     return 0 ;
-
-    /*
-    sprintf(c1err,"No table column for parName = '%s'", parName);
-    sprintf(c2err,"           ");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    */
-
   }
 
 
@@ -5218,7 +5214,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
       if ( MASK == 0 ) { continue ; }
     }
 
-    NEP_MASK++ ; // increment epochs passing MASK cut
+    NEP_MASK++ ; // increment header or epochs passing MASK cut
 
     if ( iform == IFORM_A ) { 
       sprintf(C_VAL,"%s", RD_SNFITSIO_TABLEVAL_A[itype][ipar][J] ); 
@@ -5271,7 +5267,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
     { printf(" xxx %s: FIELD -> '%s' \n", fnam, parString); }
   xxxx */
 
-  // check HEADER_OVERRIDE(parName, CCID, &DVAL);
 
   if ( NEP_MASK == 0 )
     { return -9;     }   // flag that all epochs failed MASK cut

@@ -2219,10 +2219,36 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // 
   // Jan 6, 2017: check all files. 
   // Oct 27 2020: if varName == LIST, list all varNames and return 0
+  // Dec 13 2021: refactor to use IVAR_VARNAME_AUTOSTORE
+  //
+  int ivar;
+  // ------- BEGIN ---------
+
+  ivar = IVAR_VARNAME_AUTOSTORE(varName);
+
+  if ( ivar >=  0 ) 
+    { return 1; }  // true
+  else
+    { return(0); } // false
+  
+} // end   int EXIST_VARNAME_AUTOSTORE
+
+int exist_varname_autostore__(char *varName) {
+  return EXIST_VARNAME_AUTOSTORE(varName);
+}
+
+
+// ============================================
+int IVAR_VARNAME_AUTOSTORE(char *varName) {
+
+  // Created Dec 13 2021
+  // Returns ivar [0:NVAR-1] if varName exists; else return -9
+  // 
 
   int ivar, ifile, NVAR_USR ;
   char *varName_autostore;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
+  // ------- BEGIN ---------
 
   ifile = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
@@ -2234,19 +2260,15 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
 	       ifile, ivar, varName_autostore); fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
-	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(1) ; }
+	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar) ; }
       }
     }
   }
 
   // varName does NOT exist
-  return(0);
+  return(-9);
   
-} // end   int EXIST_VARNAME_AUTOSTORE
-
-int exist_varname_autostore__(char *varName) {
-  return EXIST_VARNAME_AUTOSTORE(varName);
-}
+} // end   int IVAR_VARNAME_AUTOSTORE
 
 
 // ===========================================

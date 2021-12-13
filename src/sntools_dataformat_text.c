@@ -122,12 +122,18 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 	  SNDATA.SEARCH_PEAKMJD ); 
 
   // Oct 18 2021: write mjds related to detections
-  if ( SNDATA.MJD_TRIGGER < 1.0E6 ) 
-    { fprintf(fp, "MJD_TRIGGER:       %9.3f  \n", SNDATA.MJD_TRIGGER );  }
-  if ( SNDATA.MJD_DETECT_FIRST < 1.0E6 ) 
-    { fprintf(fp, "MJD_DETECT_FIRST:  %9.3f  \n", SNDATA.MJD_DETECT_FIRST); }
-  if ( SNDATA.MJD_DETECT_LAST < 1.0E6 ) 
-    { fprintf(fp, "MJD_DETECT_LAST:   %9.3f  \n", SNDATA.MJD_DETECT_LAST); }
+  float MJD_TMP;
+  MJD_TMP = SNDATA.MJD_TRIGGER;
+  if ( MJD_TMP > 0.0 && MJD_TMP < 1.0E6 ) 
+    { fprintf(fp, "MJD_TRIGGER:       %9.3f  \n", MJD_TMP );  }
+
+  MJD_TMP = SNDATA.MJD_DETECT_FIRST;
+  if ( MJD_TMP > 0.0 &&  MJD_TMP < 1.0E6 ) 
+    { fprintf(fp, "MJD_DETECT_FIRST:  %9.3f  \n", MJD_TMP); }
+
+  MJD_TMP = SNDATA.MJD_DETECT_LAST ;
+  if ( MJD_TMP > 0.0 && MJD_TMP < 1.0E6 ) 
+    { fprintf(fp, "MJD_DETECT_LAST:   %9.3f  \n", MJD_TMP); }
 
   // redshift info
   fprintf(fp, "\n");
@@ -573,8 +579,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   if ( (SNDATA.HOSTGAL_USEMASK & 4) > 0 ) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL:  " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %.2f",SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ) ;
+      // xxx ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %.2f", SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }
@@ -585,8 +591,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   if ( (SNDATA.HOSTGAL_USEMASK & 8) > 0 ) {
     fprintf(fp,"HOSTGAL_SB_FLUXCAL_ERR:    " ); NTMP=0 ;
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt_obs] ) ;
+      // xxx      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXCALERR[ifilt] ) ;
       NTMP++ ;
       if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
     }
@@ -938,6 +944,8 @@ void RD_SNTEXTIO_INIT(int init_num) {
   // init_num = 1 --> first init --> init everything
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
   //        so avoid re-mallocing strings.
+
+  FORMAT_SNDATA = FORMAT_SNDATA_TEXT;
 
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
@@ -1620,6 +1628,10 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
       iwd++ ;  
     }
 
+    // check for override variables that are not in the original
+    // data files.
+    RD_OVERRIDE_POSTPROC();
+
     // run header sanity checks to catch common user mistakes
     // when making text formatted data files.
     check_head_sntextio(2);
@@ -1759,7 +1771,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
   sprintf(KEY_ERR, "%s_ERR", KEY);
   NRD = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY, &DVAL);  // return DVAL
-  if ( NRD > 0 ) {  sprintf(word1_val, "%le", &DVAL); }
+  if ( NRD > 0 ) {  sprintf(word1_val, "%le", DVAL); }
 
   // strip off double value 
   DVAL     = atof(word1_val);  // 0.00 for strings; else double val
@@ -1770,10 +1782,12 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     DVAL_ERR = atof(word3_err) ; 
   }
 
-  /* xxx
-  printf(" xxx %s: words= '%s'   [DVAL=%.3f +_ %.3f]\n",
-	 fnam, word0, DVAL, DVAL_ERR ); fflush(stdout);
-  xxxx */
+  
+  /* 
+  if ( strcmp(SNDATA.CCID,"2005am") == 0 ) {
+    printf(" xxx %s: CCID=%s word0= '%s'   [DVAL=%.3f +_ %.3f]\n",
+	   fnam, SNDATA.CCID, word0, DVAL, DVAL_ERR ); fflush(stdout);
+	   } */
 
   // set int and float values for casting below
   IVAL  = (int)DVAL;  FVAL=(float)DVAL;  FVAL_ERR=(float)DVAL_ERR;

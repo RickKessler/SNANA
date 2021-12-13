@@ -2245,12 +2245,12 @@ int IVAR_VARNAME_AUTOSTORE(char *varName) {
   // Returns ivar [0:NVAR-1] if varName exists; else return -9
   // 
 
-  int ivar, ifile, NVAR_USR ;
+  int ivar, ifile, ivar_tot, NVAR_USR ;
   char *varName_autostore;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
   // ------- BEGIN ---------
 
-  ifile = 0;
+  ifile = ivar_tot = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
@@ -2260,8 +2260,9 @@ int IVAR_VARNAME_AUTOSTORE(char *varName) {
 	       ifile, ivar, varName_autostore); fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
-	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar) ; }
+	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar_tot) ; }
       }
+      ivar_tot++ ;
     }
   }
 

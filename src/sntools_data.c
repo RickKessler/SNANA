@@ -1052,7 +1052,6 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
   IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME);
   if ( IVAR < 0 ) { return 0; }
 
-  
   // read from override table; ISTAT and DVALare returned
   SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, DVAL, STRDUM);  
 
@@ -1067,7 +1066,7 @@ int RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL) {
     if ( RD_OVERRIDE.N_PER_VAR[IVAR] == 0 ) 
       { printf("\t Found override for %s\n", VARNAME );  fflush(stdout); }
 
-    RD_OVERRIDE.N_PER_VAR[IVAR]++;
+    RD_OVERRIDE.N_PER_VAR[IVAR]++ ;
   }
   else {
     NRD = 0 ;
@@ -1104,16 +1103,20 @@ void rd_override_append(void) {
   // Called only for TEXT format that might be missing
   // some variables.
 
-#define NVAR_OVERRIDE_CHECK 6
+#define NVAR_OVERRIDE_CHECK 10
 
   char VARNAME_CHECK[NVAR_OVERRIDE_CHECK][40] = {
     "VPEC", "VPEC_ERR", 
-    "REDSHIFT_HELIO", "REDSHIFT_HELIO_ERR",
+    "REDSHIFT_HELIO",  "REDSHIFT_HELIO_ERR",
+    "REDSHIFT_FINAL",  "REDSHIFT_FINAL_ERR",
+    "REDSHIFT_CMB",    "REDSHIFT_CMB_ERR",
     "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR"
   };
   float *ptr_SNDATA[NVAR_OVERRIDE_CHECK] = {
     &SNDATA.VPEC, &SNDATA.VPEC_ERR, 
     &SNDATA.REDSHIFT_HELIO, &SNDATA.REDSHIFT_HELIO_ERR,
+    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
+    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
     &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0]
   } ;
 

@@ -20623,6 +20623,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04e) ***** 
 
+   Fixed HEADER_OVERRIDE bug that set zFit = zCMB instead of zHEL.
+   New &SNLCINP input RESTORE_OVERRIDE_ZBUG restores the bug.
+
          ***** USEFUL(v11_04e) ***** 
 
    Call check_EOF from store_PARSE_WORDS and host-reading;
@@ -20638,5 +20641,18 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    wfit.c: 
      + new input "-speed_flag_chi2 0" to disable speed-trick.
      + for speed-trick, increase CHI2-DIAG cut from 10 to 30 sigma.
+
+   sntools_dataformat_fits.c
+     + always write XPIX and YPIX columns.
+     + check HOSTGAL_USEMASK to write host mags and SB
+
+   snana.car:
+     fix REFORMAT to work when FLUXCALERR are modified by 
+     FLUXERRMODEL_FILE, and when FLUXCAL are changed by MAGCOR_INFILE.
+
+   new code-utility files sntools_data.c[h] that contain data-handling
+   functions which are not format-specific. Move relevant functions
+   out of sntools.c[h] and into new code file.
+
 
 END: 

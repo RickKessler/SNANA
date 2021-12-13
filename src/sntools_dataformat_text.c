@@ -1887,7 +1887,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
 
   else if ( strcmp(word0,"REDSHIFT_CMB:") == 0 ) {
-    SNDATA.REDSHIFT_FINAL = FVAL;
+    SNDATA.REDSHIFT_FINAL = FVAL ;
     if(PLUS_MINUS) { SNDATA.REDSHIFT_FINAL_ERR = FVAL_ERR; }
     SNTEXTIO_FILE_INFO.HEAD_EXIST_REQUIRE[HEAD_REQUIRE_z] = true ;
   }
@@ -1896,11 +1896,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
   
   else if ( strcmp(word0,"VPEC:") == 0 ) {
-    SNDATA.VPEC = FVAL;
+    SNDATA.VPEC = FVAL ;
     if(PLUS_MINUS) { SNDATA.VPEC_ERR = FVAL_ERR; }
   }
   else if ( strcmp(word0,"VPEC_ERR:") == 0 ) {
-    SNDATA.VPEC_ERR = FVAL;
+    SNDATA.VPEC_ERR = FVAL ;
   }
 
   else if ( strncmp(word0,"HOSTGAL",7) == 0 ) {

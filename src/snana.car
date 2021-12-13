@@ -2063,6 +2063,7 @@ c
      &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
+     &  ,RESTORE_OVERRIDE_ZBUG ! restore z=zCMB insteead of zHEL
 
 c LC plot info
 
@@ -2142,7 +2143,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
-     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
+     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
@@ -2190,7 +2192,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
-     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
+     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
@@ -3236,10 +3239,6 @@ c one-time init for both FITS and TEXT (since we don't know format yet)
 
       LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
 
-      IF ( DEBUG_FLAG == 1210 ) THEN
-        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
-      ENDIF
-
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization
 
@@ -3248,6 +3247,10 @@ c (SURVEY, FILTERS ..) needed for initialization
       CALL GETINFO_PHOTOMETRY(IVERS)
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
+
+      IF ( .not. LSIM_SNANA .and. DEBUG_FLAG == 1210 ) THEN  
+        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
+      ENDIF
 
       RETURN
       END    ! end INIT_READ_DATA
@@ -5883,7 +5886,8 @@ c default is to reject nothing (accept everything)
 
       LPROB_TRUEFLUX     = .FALSE.  
       RESTORE_DES3YR     = .FALSE.
-      RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
+      RESTORE_WRONG_VPEC = .FALSE.    ! Nov 3 2020
+      RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
@@ -7440,6 +7444,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('RESTORE_WRONG_VPEC',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_WRONG_VPEC
+
+         else if ( MATCH_NMLKEY('RESTORE_OVERRIDE_ZBUG',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) RESTORE_OVERRIDE_ZBUG
 
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
@@ -17059,7 +17067,9 @@ c brute-force check each possible header variable
           SNLC_ZCMB    = z; 
           SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
           CALL SET_ZHELIO()  ! compute zHEL from zCMB  (7.30.2020)
-          SNLC_REDSHIFT = z
+          SNLC_REDSHIFT = SNLC_ZHELIO
+	  IF(RESTORE_OVERRIDE_ZBUG) SNLC_REDSHIFT = z
+
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' .or.
      &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB_ERR' ) THEN
           zerr = sngl(DVAL)

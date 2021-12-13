@@ -448,11 +448,13 @@ class VERSION_INFO:
         for V in self.NAME :
             survey_name = get_survey(PRIVATE_DATA_PATH,V)
             print(f"    VERSION {V:<28.28} -> {survey_name} ")
+            sys.stdout.flush() 
             self.SURVEY_INP.append(survey_name)
 
         self.input_config = input_config
         print(f"")
         sys.stdout.flush() 
+
         return
 
         

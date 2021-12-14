@@ -471,15 +471,19 @@ void init_commandLine_simargs(int argc, char **argv) {
 // ***************************
 void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
+  // after all SN are generated, wrap up.
+
   char fnam[] = "simEnd" ;
 
-  // after all SN are generated, wrap up.
-  
+  // --------- BEGIN -------------
+
   sprintf(BANNER, " Done generating %d SN lightcurves from %s source.", 
 	  NGENLC_TOT, INPUTS.GENSOURCE );
   print_banner(BANNER);
   printf("\t (%d lightcurves requested => %d were written) \n",
 	 INPUTS.NGEN, NGENLC_WRITE );
+
+  fflush(stdout);
 
   if ( NGEN_ALLSKIP >= INPUTS.NGEN ) {
     sprintf(c1err,"No generated observations because of invalid passbands.");
@@ -496,7 +500,14 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( NAVWARP_OVERFLOW[0] > 0 ) 
     { printf("%s", WARNING_AVWARP_OVERFLOW ); }
 
-  if ( NGEN_REJECT.NEPOCH == NGENLC_TOT ) {
+  // abort if every event fails NEPOCH cut ... unless either
+  // SIMSED binary file is force to be created.
+  int  USEMASK = INPUTS.USE_BINARY_SIMSED;
+  bool FORCE = 
+    (USEMASK & OPTMASK_INIT_SIMSED_BINARY1)>0 ||
+    (USEMASK & OPTMASK_INIT_SIMSED_BINARY2)>0  ;
+
+  if ( NGEN_REJECT.NEPOCH == NGENLC_TOT && !FORCE) {
     sprintf ( c1err, "Every generated event fails NEPOCH>=%d .",
 	      (int)INPUTS.CUTWIN_NEPOCH[0] );
     sprintf ( c2err, "GENRANGE_PEAKMJD and SIMLIB probably don't overlap."); 
@@ -798,8 +809,8 @@ void set_user_defaults(void) {
   INPUTS.NPAR_SIMSED_param    = 0;
   INPUTS.NPAR_SIMSED_MODEL    = 0;
 
-  INPUTS.USE_BINARY_SIMSED   = 1; // default is to use binary files
-  sprintf(INPUTS.PATH_BINARY_SIMSED,"%s", ".");
+  INPUTS.USE_BINARY_SIMSED   = 0;
+  sprintf(INPUTS.PATH_BINARY_SIMSED,"%s", "");
 
   INPUTS.IPAR_SIMSED_SHAPE = -9 ;
   INPUTS.IPAR_SIMSED_COLOR = -9 ;
@@ -21754,11 +21765,14 @@ void init_genmodel(void) {
 
     // model-specific init
 
+    /* xxx mark delete Dec 14 2021
     OPTMASK = INPUTS.GENMODEL_MSKOPT ;
     if( INPUTS.USE_BINARY_SIMSED > 0 ) 
       { OPTMASK += OPTMASK_INIT_SIMSED_BINARY; }
-    if( INPUTS.JOBID             > 0 ) 
-      { OPTMASK += OPTMASK_INIT_SIMSED_BATCH; }
+    xxxxxxxxxx */
+
+    OPTMASK = INPUTS.USE_BINARY_SIMSED;
+    if( INPUTS.JOBID > 0 ) { OPTMASK += OPTMASK_INIT_SIMSED_BATCH; }
 
     istat = init_genmag_SIMSED (INPUTS.GENMODEL
 			       ,INPUTS.PATH_BINARY_SIMSED

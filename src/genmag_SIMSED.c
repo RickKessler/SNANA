@@ -50,6 +50,9 @@
    + checkBinary_SIMSED aborts if in batch mode and SED.BINARY needs
      to be remade. Avoids conflict among multiple batch jobs.
 
+ Dec 14 2021: check new OPTMASK options to force creation of binaries.
+              See FORCE_SEDBINARY and FORCE_TABBINARY
+
 *************************************/
 
 #include  <stdio.h> 
@@ -135,12 +138,16 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ) {   
 
   // OPTMASK +=  1 --> create binary file
+  // OPTMASK +=  2 --> force creation of SED.INFO
+  // OPTMASK +=  4 --> force creaton of flux-table binary
   // OPTMASK += 64 --> test mode only, no binary, no time-stamp checks
+  // OPTMASK += 128 -> batch mode, thus abort on stale binary
   //
   // Aug 18 2020: check kcor file with .gz
+  // Dec 14 2021: new OPTMASK 2 and 4
 
   int 
-    OPT_BINARY, OPT_TESTMODE, NZBIN, IZSIZE
+    NZBIN, IZSIZE
     ,ifilt, ifilt_obs, ised, istat
     ,retval = SUCCESS
     ,WRFLAG_SEDBINARY  // for global SEDs
@@ -148,6 +155,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     ,WRFLAG_TABBINARY  // for local flux table
     ,RDFLAG_TABBINARY    
     ;
+
+  bool USE_BINARY=false, USE_TESTMODE=false;
+  bool FORCE_SEDBINARY=false, FORCE_TABBINARY=false;
 
   char
     BANNER[120]
@@ -169,11 +179,17 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   print_banner(BANNER);
 
   // get local logicals for bit-mask  options
-  OPT_BINARY      = ( OPTMASK &  OPTMASK_INIT_SIMSED_BINARY   ) ;
-  OPT_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) ;
-  ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) ;
+  USE_BINARY      = ( OPTMASK &  OPTMASK_INIT_SIMSED_BINARY   ) > 0 ;
+  USE_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) > 0 ;
+  ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) > 0 ;
 
-  if ( NFILT_SEDMODEL == 0  && OPT_TESTMODE==0 ) {
+  printf(" xxx %s  OPTMASK = %d \n", fnam, OPTMASK);
+  if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY1)> 0 )
+    { FORCE_SEDBINARY = true; USE_BINARY = true;  }
+  if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY2)> 0 )
+    { FORCE_TABBINARY = true; USE_BINARY = true;  }
+
+  if ( NFILT_SEDMODEL == 0  && !USE_TESTMODE ) {
     sprintf(c1err,"No filters defined ?!?!?!? " );
     sprintf(c2err,"Need to call init_filter_SEDMODEL");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -181,7 +197,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
 
   // get full path of kcor file ... as passed or in $SNDATA_ROOT/kcor
-  if ( BINARYFLAG_KCORFILENAME && OPT_TESTMODE==0 ) {
+  if ( BINARYFLAG_KCORFILENAME && !USE_TESTMODE ) {
     sprintf(kcorFile_gz, "%s.gz", kcorFile);
     bool ACCESS_KCOR = ( access(kcorFile,   F_OK) == 0 || 
 			 access(kcorFile_gz,F_OK) == 0 );
@@ -196,7 +212,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
 
   // summarize filter info
-  if ( OPT_TESTMODE == 0 ) {  filtdump_SEDMODEL(); }
+  if ( !USE_TESTMODE  ) {  filtdump_SEDMODEL(); }
 
   // ==========================================
   // construct path to SIMSED surfaces
@@ -215,8 +231,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   printf("\n");
 
-  sprintf(INFO_SIMSED_FILENAME_FULL, "%s/%s", 
-	  SIMSED_PATHMODEL, INFO_SIMSED_FILENAME );
+  sprintf(SIMSED_INFO_FILENAME_FULL, "%s/%s", 
+	  SIMSED_PATHMODEL, SIMSED_INFO_FILENAME );
   
   // set defaults
 
@@ -246,12 +262,12 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   WRFLAG_SEDBINARY = RDFLAG_SEDBINARY = 0 ;
   WRFLAG_TABBINARY = RDFLAG_TABBINARY = 0 ;
 
-  if ( OPT_BINARY ) {
+  if ( USE_BINARY ) {
 
     IVERSION_SIMSED_BINARY = WRVERSION_SIMSED_BINARY ;
 
     // make sure that PATH_BINARY exists, and copy it to global
-    sprintf(SIMSED_PATHBINARY, "%s", PATH_BINARY);
+    sprintf(SIMSED_BINARY_INFO.PATH, "%s", PATH_BINARY);
     istat = stat(PATH_BINARY, &statbuf);
     if ( istat != 0 ) {
       sprintf(c1err,"PATH_BINARY='%s'", PATH_BINARY);
@@ -259,12 +275,14 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    sprintf(bin1File, "%s/SED.BINARY", SIMSED_PATHMODEL );
+    sprintf(bin1File, "%s/%s", SIMSED_PATHMODEL, SIMSED_BINARY_FILENAME );
     sprintf(bin2File,"%s/%s_%s-%s.BINARY", 
 	    PATH_BINARY, version, SURVEY, FILTLIST_SEDMODEL );
 
-    open_SEDBINARY(bin1File, &fpbin1, &RDFLAG_SEDBINARY, &WRFLAG_SEDBINARY);
-    open_TABBINARY(bin2File, &fpbin2, &RDFLAG_TABBINARY, &WRFLAG_TABBINARY);
+    open_SEDBINARY(bin1File, FORCE_SEDBINARY,
+		   &fpbin1, &RDFLAG_SEDBINARY, &WRFLAG_SEDBINARY);
+    open_TABBINARY(bin2File, FORCE_TABBINARY,
+		   &fpbin2, &RDFLAG_TABBINARY, &WRFLAG_TABBINARY);
   }
 
   // -------------------------------------- 
@@ -275,7 +293,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
 
   // - - - - - - - - - - - - - - - - - - - - 
-  if ( OPT_TESTMODE ) { return(retval); } // July 28 2018
+  if ( USE_TESTMODE ) { return(retval); } // July 28 2018
   // - - - - - - - - - - - - - - - - - - - - 
 
 
@@ -313,7 +331,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 	printf("BINARY   SED File: '%s' \n", sedFile );
 	printf("EXPECTED SED File: '%s' \n", tmpFile );
 	sprintf(c1err,"binary SED file does not match expected file.");
-	sprintf(c2err,"Try deleting SED.BINARY file.");
+	sprintf(c2err,"Try deleting %s file.", SIMSED_BINARY_FILENAME);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
 
@@ -435,7 +453,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
 
 // ******************************************************
-void open_SEDBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
+void open_SEDBINARY(char *binFile, bool force_create, 
+		    FILE **fpbin, int *RDFLAG, int *WRFLAG) {
 
   // Created July 30 2017
   // Open SED binary in read or write mode.
@@ -443,10 +462,14 @@ void open_SEDBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
   //
   // Inputs:  
   //    binFile = name of binary file.
+  //    force_create -> force creation of binary of true;
+  //                   else create only if file does not exist.
   // Outputs:
   //   fpbin = file pointer
   //   *RDFLAG & WRFLAG to indicate which mode.
-
+  //
+  // Dec 14 2021: add force_create arg.
+  //
   // ----------- BEGIN -----------
 
   *RDFLAG = *WRFLAG = 0 ; *fpbin = NULL;
@@ -455,7 +478,7 @@ void open_SEDBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
 
   *fpbin = fopen(binFile,"rb") ;
 
-  if ( *fpbin == NULL ) {
+  if ( *fpbin == NULL || force_create ) {
     *WRFLAG = 1 ;
     // re-open in write mode
     *fpbin = fopen(binFile,"wb") ;
@@ -478,7 +501,8 @@ void open_SEDBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
 } // end open_SEDBINARY
 
 
-void open_TABBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
+void open_TABBINARY(char *binFile, bool force_create, 
+		    FILE **fpbin, int *RDFLAG, int *WRFLAG) {
 
   // Created July 30 2017
   // Open Flux-table binary file in read or write mode.
@@ -486,6 +510,8 @@ void open_TABBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
   //
   // Inputs:
   //   binFile = name of binary file
+  //    force_create -> force creation of binary of true;
+  //                   else create only if file does not exist.
   // Outputs:
   //   fpbin = file pointer
   //   *RDFLAG & WRFLAG to indicate which mode.
@@ -499,7 +525,7 @@ void open_TABBINARY(char *binFile, FILE **fpbin, int *RDFLAG, int *WRFLAG) {
 
   *fpbin = fopen(binFile,"rb") ;
 
-  if ( *fpbin == NULL ) {
+  if ( *fpbin == NULL || force_create ) {
     *WRFLAG = 1 ;
     *fpbin = fopen(binFile,"wb") ;
   }
@@ -718,8 +744,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   // open & read info file
 
-  ptrFile = INFO_SIMSED_FILENAME_FULL ;
-  sprintf(ptrFile, "%s/%s",PATHMODEL,INFO_SIMSED_FILENAME);
+  ptrFile = SIMSED_INFO_FILENAME_FULL ;
+  sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_NON1A_INDEX = -9;
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
@@ -881,7 +907,7 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
 
   // ---------------- BEGIN --------------
 
-  sprintf(FILENAME, "%s/%s",PATHMODEL, INFO_SIMSED_FILENAME);
+  sprintf(FILENAME, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
 
   if (( fp = fopen(FILENAME,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
@@ -1073,13 +1099,12 @@ void checkBinary_SIMSED(char *binaryFile) {
     ptrType = file_type[ifile]; // SED.INFO, KCOR
 
     if ( ifile == 0 ) 
-      { ptrFile = INFO_SIMSED_FILENAME_FULL; }
+      { ptrFile = SIMSED_INFO_FILENAME_FULL; }
     else {
       ptrFile = SIMSED_KCORFILE ; 
       if ( BINARYFLAG_KCORFILENAME == 0 ) { continue; }
     }
 
-    //  tdif_sec = file_timeDif(binaryFile, INFO_SIMSED_FILENAME_FULL );
     tdif_sec = file_timeDif(binaryFile, ptrFile );
 
     // xxx    if ( ifile ==1 ) { tdif_sec = -54.0 ; } // xxx REMOVE
@@ -1104,7 +1129,7 @@ void checkBinary_SIMSED(char *binaryFile) {
       printf("%s\n\n", line);
       
       sprintf(rm,"rm %s", binaryFile);
-      system(rm);  return ;
+      system(rm); return ;
     }
   } // end ifile loop
 

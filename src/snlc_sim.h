@@ -948,6 +948,7 @@ struct GENLC {
   double REDSHIFT_SMEAR_ERR ;     // reported error on above
   double VPEC ;                   // true radial peculiar velocity, km/sec
   double VPEC_SMEAR ;             // measured VPEC (Jan 2018)
+  double REDSHIFT_MAX_SNR5 ;      // zmax with SNR > 5 (for monitor only)
 
   int    CORRECT_HOSTMATCH ;  // 1=correct match, 0=wrong host
 
@@ -1230,7 +1231,6 @@ struct GENLC {
   // misc.
   int   STOPGEN_FLAG;
   int   FUDGE_SNRMAX_FLAG ;  // 0 or 1 or 2
-  int   PEAKMAG_TRIGGER_FLAG;
 
 } GENLC ;
 

@@ -12000,11 +12000,10 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // write a few extras when creating binary flux table for SIMSED model
   if ( SIMSED_BINARY_INFO.WRFLAG_FLUX ) {
     double sizeMB = 1.0E-6 * (double)ISIZE_SEDMODEL_FLUXTABLE ;
-    fprintf(fp,"SIZE_SIMSED_FLUXTABLE:     %.3f   # Mega bytes\n",  
-	    sizeMB);
-    fprintf(fp,"REDSHIFT_RANGE_FLUXTABLE:  %.3f %.3f \n",
+    fprintf(fp,"SIZE_SIMSED_FLUXTABLE:    %.3f       # Mega bytes\n",  sizeMB);
+    fprintf(fp,"REDSHIFT_RANGE_FLUXTABLE: %.3f %.3f \n",
 	    INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
-    fprintf(fp,"REDSHIFT_MAX_SNR5:         %.3f   # max z with SNR>5\n", 
+    fprintf(fp,"REDSHIFT_MAX_SNR5:        %.3f   # max redshift with SNR>5\n", 
 	    GENLC.REDSHIFT_MAX_SNR5);
   }
   
@@ -20518,7 +20517,7 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   if ( NPE_SAT > 999999999 ) { return(npe); }
 
   // skip saturation check if using large exposure_time (Oct 28 2021)     
-  if ( INPUTS.EXPOSURE_TIME > 10.0 ) { return(npe); } 
+  if ( INPUTS.EXPOSURE_TIME > 10.0 ) { return(npe); } //.xyz                         
 
   skysig_pe = (skysig_adu * ccdgain) ;  // convert ADU -> pe
   sky_pe    = skysig_pe * skysig_pe ;   // sky counts per pix, Npe

@@ -52,10 +52,19 @@ char SIMSED_KCORFILE[MXPATHLEN];
 // xxx mark delete Dec 2021 char SIMSED_PATHBINARY[MXPATHLEN]; 
 
 struct { 
-  bool USE ;
-  bool FORCE_CREATE_SED;
-  bool FORCE_CREATE_FLUXTABLE;
-  char PATH[MXPATHLEN];
+  bool USE ;   // flat that binary table is used (read or write mode)
+  char PATH[MXPATHLEN];  // path where binaries are read or written
+
+  // read and write flag for both binary tables
+  bool WRFLAG_SED;  // flag to write binary for SEDs
+  bool RDFLAG_SED;  // flag to read existing binary
+  bool WRFLAG_FLUX; // flag to write binary for flux-integral table
+  bool RDFLAG_FLUX; // flag to read
+
+  // force-create options 
+  bool FORCE_CREATE_SED;       // set if SIMSED_USE_BINARY += 2
+  bool FORCE_CREATE_FLUX;      // set if SIMSED_USE_BINARY += 4
+ 
 } SIMSED_BINARY_INFO ;
 
 /**********************************************
@@ -70,15 +79,15 @@ int read_simsed_info__(char *PATHMODEL );
 int count_SIMSED_INFO(char *PATHMODEL);
 
 void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin, 
-		      int RDFLAG_BINARY, int WRFLAG_BINARY );
+		      bool RDFLAG_BINARY, bool WRFLAG_BINARY );
 void set_SIMSED_LOGZBIN(void);
 
 void dump_SIMSED_INFO(void);
 
 void open_SEDBINARY(char *fileName, bool force_create, 
-		    FILE **fpbin, int *RDFLAG, int *WRFLAG);
+		    FILE **fpbin, bool *RDFLAG, bool *WRFLAG);
 void open_TABBINARY(char *fileName, bool force_create, 
-		    FILE **fpbin, int *RDFLAG, int *WRFLAG);
+		    FILE **fpbin, bool *RDFLAG, bool *WRFLAG);
 
 void read_SIMSED_TABBINARY(FILE *fp, char *binFile);
 

@@ -146,15 +146,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Aug 18 2020: check kcor file with .gz
   // Dec 14 2021: new OPTMASK 2 and 4
 
-  int 
-    NZBIN, IZSIZE
-    ,ifilt, ifilt_obs, ised, istat
-    ,retval = SUCCESS
-    ,WRFLAG_SEDBINARY  // for global SEDs
-    ,RDFLAG_SEDBINARY 
-    ,WRFLAG_TABBINARY  // for local flux table
-    ,RDFLAG_TABBINARY    
-    ;
+  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat;
+  int retval = SUCCESS ;
 
   bool USE_BINARY=false, USE_TESTMODE=false;
   bool FORCE_SEDBINARY=false, FORCE_TABBINARY=false;
@@ -259,8 +252,10 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // check for binary file to read SEDs much quicker.
   // If binary does not exist, then set flag to create binary for next time.
 
-  WRFLAG_SEDBINARY = RDFLAG_SEDBINARY = 0 ;
-  WRFLAG_TABBINARY = RDFLAG_TABBINARY = 0 ;
+  SIMSED_BINARY_INFO.WRFLAG_SED  = false;
+  SIMSED_BINARY_INFO.RDFLAG_SED  = false;
+  SIMSED_BINARY_INFO.WRFLAG_FLUX = false;
+  SIMSED_BINARY_INFO.RDFLAG_FLUX = false;
 
   if ( USE_BINARY ) {
 
@@ -279,10 +274,14 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     sprintf(bin2File,"%s/%s_%s-%s.BINARY", 
 	    PATH_BINARY, version, SURVEY, FILTLIST_SEDMODEL );
 
-    open_SEDBINARY(bin1File, FORCE_SEDBINARY,
-		   &fpbin1, &RDFLAG_SEDBINARY, &WRFLAG_SEDBINARY);
-    open_TABBINARY(bin2File, FORCE_TABBINARY,
-		   &fpbin2, &RDFLAG_TABBINARY, &WRFLAG_TABBINARY);
+    open_SEDBINARY(bin1File, FORCE_SEDBINARY,&fpbin1, 
+		   &SIMSED_BINARY_INFO.RDFLAG_SED, 
+		   &SIMSED_BINARY_INFO.WRFLAG_SED);
+
+    open_TABBINARY(bin2File, FORCE_TABBINARY, &fpbin2,
+		   &SIMSED_BINARY_INFO.RDFLAG_FLUX, 
+		   &SIMSED_BINARY_INFO.WRFLAG_FLUX);
+
   }
 
   // -------------------------------------- 
@@ -300,7 +299,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   // determine SEDMODEL.MXDAY from ASCII or binary file
   set_SIMSED_MXDAY(SIMSED_PATHMODEL,fpbin1, 
-		   RDFLAG_SEDBINARY, WRFLAG_SEDBINARY); 
+		   SIMSED_BINARY_INFO.RDFLAG_SED, 
+		   SIMSED_BINARY_INFO.WRFLAG_SED); 
 
   // check to change default logz binning
   set_SIMSED_LOGZBIN();
@@ -323,7 +323,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     // check whether to read from binary or from text files.
     // Text files are slow (1 sec per SED)
 
-    if ( RDFLAG_SEDBINARY ) {
+    if ( SIMSED_BINARY_INFO.RDFLAG_SED ) {
       // read from binary file
       fread(sedFile, sizeof(sedFile), 1, fpbin1 );
       if ( strcmp(tmpFile,sedFile) != 0 ) {
@@ -374,7 +374,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     }
 
 
-    if ( RDFLAG_TABBINARY == 0 ) {
+    if ( !SIMSED_BINARY_INFO.RDFLAG_FLUX  ) {
 
       // make fine lambda bins for faster integration
       init_FINEBIN_SEDMODEL(ised); 
@@ -390,7 +390,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       init_flux_SEDMODEL(0,ised);  // set a few things, then skip integrals
     }
 
-    if ( WRFLAG_SEDBINARY ) {
+    if ( SIMSED_BINARY_INFO.WRFLAG_SED ) {
 
       pack_SEDBINARY(+1);   // transfer SEDMODEL to SEDBINARY array
       fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
@@ -412,13 +412,14 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   fflush(stdout);
 
-  if ( WRFLAG_SEDBINARY || RDFLAG_SEDBINARY ) {  fclose(fpbin1);  }
+  if ( SIMSED_BINARY_INFO.WRFLAG_SED || SIMSED_BINARY_INFO.RDFLAG_SED ) 
+    {  fclose(fpbin1);  }
 
 
   // write binary integral-flux table to current directory;
   // saves lots of init-time when reading this back
 
-  if ( WRFLAG_TABBINARY ) {
+  if ( SIMSED_BINARY_INFO.WRFLAG_FLUX ) {
     IZSIZE = sizeof(REDSHIFT_SEDMODEL) ;
     fwrite(NBIN_SEDMODEL_FLUXTABLE, sizeof(NBIN_SEDMODEL_FLUXTABLE),1,fpbin2);
     fwrite(&IZSIZE, sizeof(IZSIZE),    1, fpbin2); // size of REDSHIFT struct
@@ -433,7 +434,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     printf("\t %s \n\n", bin2File);
     fflush(stdout);
   }
-  else if ( RDFLAG_TABBINARY ) {
+  else if ( SIMSED_BINARY_INFO.RDFLAG_FLUX ) {
     read_SIMSED_TABBINARY(fpbin2,bin2File);
     fclose(fpbin2);
   }
@@ -454,7 +455,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
 // ******************************************************
 void open_SEDBINARY(char *binFile, bool force_create, 
-		    FILE **fpbin, int *RDFLAG, int *WRFLAG) {
+		    FILE **fpbin, bool *RDFLAG, bool *WRFLAG) {
 
   // Created July 30 2017
   // Open SED binary in read or write mode.
@@ -472,14 +473,14 @@ void open_SEDBINARY(char *binFile, bool force_create,
   //
   // ----------- BEGIN -----------
 
-  *RDFLAG = *WRFLAG = 0 ; *fpbin = NULL;
+  *RDFLAG = *WRFLAG = false ; *fpbin = NULL;
 
   checkBinary_SIMSED(binFile); // remove obsolete binary
 
   *fpbin = fopen(binFile,"rb") ;
 
   if ( *fpbin == NULL || force_create ) {
-    *WRFLAG = 1 ;
+    *WRFLAG = true ;
     // re-open in write mode
     *fpbin = fopen(binFile,"wb") ;
     printf("\n Create SED-BINARY file for quicker initialization: \n");
@@ -487,7 +488,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
     fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
   }
   else {
-    *RDFLAG = 1 ;
+    *RDFLAG = true ;
     printf("\n Read SED-BINARY file for quicker initialization: \n");
     printf("  %s\n\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
@@ -502,7 +503,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
 
 
 void open_TABBINARY(char *binFile, bool force_create, 
-		    FILE **fpbin, int *RDFLAG, int *WRFLAG) {
+		    FILE **fpbin, bool *RDFLAG, bool *WRFLAG) {
 
   // Created July 30 2017
   // Open Flux-table binary file in read or write mode.
@@ -519,18 +520,18 @@ void open_TABBINARY(char *binFile, bool force_create,
   // ----------- BEGIN -----------
 
 
-  *RDFLAG = *WRFLAG = 0 ; *fpbin = NULL;
+  *RDFLAG = *WRFLAG = false ; *fpbin = NULL;
 
   checkBinary_SIMSED(binFile); // remove obsolete binary
 
   *fpbin = fopen(binFile,"rb") ;
 
   if ( *fpbin == NULL || force_create ) {
-    *WRFLAG = 1 ;
+    *WRFLAG = true ;
     *fpbin = fopen(binFile,"wb") ;
   }
   else {
-    *RDFLAG = 1 ;
+    *RDFLAG = true ;
   }
 
   fflush(stdout);
@@ -930,13 +931,13 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
 
 // **********************************************
 void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin, 
-		      int RDFLAG_BINARY, int WRFLAG_BINARY ) {
+		      bool RDFLAG_BINARY, bool WRFLAG_BINARY ) {
 
   // Created July 30 2017
   // Determine and fill SEDMODEL.MXDAY 
-  // If RDFLAG_BINARY >  0 --> 
+  // If RDFLAG_BINARY = true --> 
   //    read SEDMODEL.MXDAY from fpbin
-  // If RDFLAG_BINARY == 0 --> 
+  // If RDFLAG_BINARY == false --> 
   //   find & read largest ASCII-SED file; then read NDAY
   //                  
   // Aug 10 2017: SEDMODEL.MXDAY = NDAY  and not NDAY+10
@@ -950,7 +951,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   // ---------------- BEGIN -----------------
 
-  if ( RDFLAG_BINARY == 0 ) {
+  if ( !RDFLAG_BINARY  ) {
     // find and read largest ASCII-SED file
     MXsize = 0 ;  ised_MXsize=-9;
     for(ised=1; ised <= NSED; ised++ ) {

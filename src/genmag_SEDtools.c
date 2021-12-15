@@ -485,6 +485,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
 
   // Nov 24, 2008: allocate flux-integral memory for NSED & NZBIN
   // Jan 30, 2010: switch from fancy 5-dim pointer to 1d pointer
+  // Dec 15, 2021: fix isize=sizeof(float) instead of pointer size.
 
   int isize;
   char fnam[] = "malloc_FLUXTABLE_SEDMODEL" ;

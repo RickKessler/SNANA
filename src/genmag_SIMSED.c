@@ -176,7 +176,6 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   USE_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) > 0 ;
   ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) > 0 ;
 
-  printf(" xxx %s  OPTMASK = %d \n", fnam, OPTMASK);
   if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY1)> 0 )
     { FORCE_SEDBINARY = true; USE_BINARY = true;  }
   if ( (OPTMASK & OPTMASK_INIT_SIMSED_BINARY2)> 0 )

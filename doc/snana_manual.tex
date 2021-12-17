@@ -10761,6 +10761,10 @@ SIMSED_GRIDONLY: SN_INDEX    # pick random SN_INDEX
     or
 SIMSED_GRIDONLY: SN_INDEX(3,5,6,9) # pick random among these SN_INDEX values
 
+SIMSED_USE_BINARY:    1  # create binarys if they don't exist
+SIMSED_USE_BINARY:    2  # force creation of SED.BINARY
+SIMSED_USE_BINARY:    4  # force creation of flux-integral binary table
+SIMSED_USE_BINARY:    6  # force creation of both binarys
 SIMSED_PATH_BINARY:   <path for flux-table binary file>
 \end{Verbatim}
 %
@@ -10819,47 +10823,55 @@ in the {\tt SIMGEN\_DUMP} list (\S\ref{sss:simgen_dump}).
 An explicitly defined SIMSED parameter in the {\tt SIMGEN\_DUMP} 
 list will cause the simulation to abort because of a redundant parameter.
 
-A binary flux-table (see below) is created in your current
-directory by default. Since these binary files can be quite
-large, a separate binary-table directory can be specified
-with the {\tt SIMSED\_PATH\_BINARY} key (see above).
+%A binary flux-table (see below) is created in your current
+%directory by default. Since these binary files can be quite
+%large, a separate binary-table directory can be specified
+%with the {\tt SIMSED\_PATH\_BINARY} key (see above).
 
-There are two internal binary files to speed up the initialization. 
-In principle this all works behind the scenes, 
-but it is explained here in case there are problems. 
-The initialization takes about 1 second per SED, 
-and will be rather annoying if/when there are 100's or 1000's 
-of SEDs to initialize. About half the time is reading the 
-SED text files, and the other half is
-spent doing all the flux-integrals as a function of passband,
-redshift, Trest, and SED surface. The first time that a new
-\SIMSED\ version is simulated, the initialization will be slow, 
-but two binary files are created to speed up future runs.
+\bigskip
+\noindent{\bf BINARY FILES:} \\
+The {\tt SIMSED} initialization takes ${\sim}1$~sec per SED, 
+and is somewhat time-consuming for 100's or 1000's of SEDs. 
+About half the time is reading the SED text files, and the other half 
+is doing the flux-integrals as a function of passband,
+redshift, Trest, and SED surface. 
+To greatly speed up this slow initialization,
+two internal binary files are created
+the first time a new \SIMSED\ model is simulated.
+The first simulation must be interactive; batch jobs abort to 
+avoid multiple cores writing to the same binary file.
+
 The first binary file contains the SEDs ({\tt SED.BINARY}), 
-and it is stored in the same version ({\tt VVV}) directory
+and it is stored in the same model ({\tt MMM}) directory
 as the SED text files,
-\${\tt SNDATA\_ROOT/models/SIMSED/VVV}.
-This {\tt SED.BINARY} file will be automatically used
-by any \snana\ user who specifies the {\tt VVV} version.
+\${\tt SNDATA\_ROOT/models/SIMSED/MMM}.
+This {\tt SED.BINARY} file is automatically used
+by any \snana\ user who specifies the {\tt MMM} version.
 
 
 The second binary file is the filter-specific flux-integral table, 
-and this file
-is stored either in your local directory (default)
-or the directory specified by {\tt SIMSED\_PATH\_BINARY}.
-The reason for storing in a user-specified directory is that 
-the flux integrals depend on the survey and filters,
-and therefore this file is specific to your analysis.
+and this survey-specific file is stored in the directory specified by 
+{\tt SIMSED\_PATH\_BINARY}.
+%The reason for storing in a user-specified directory is that 
+%the flux integrals depend on the survey and filters,
+%and therefore this file is specific to the survey analysis team.
 The validity of each binary file is verified internally; 
 if there is an inconsistency between the two binary files
 and/or the requested survey parameters, the simulation will 
 abort and recommend removing the old binary file(s) so that
-new ones can be created. A similar abort will occur if
-the user's binary flux-integral table has a time-stamp
+new ones can be created. A similar abort occurs if
+the binary flux-integral table has a time-stamp
 that is earlier than the SIMSED model or earlier than
 the K-cor file used to define the primary reference
 and filter transmissions.
 
+To create binary files for multiple SIMSED models,
+\vspace{-2mm}
+\begin{verbatim}
+   make_simsed_binaries.py -H  # get help on input config file
+\end{verbatim}
+\vspace{-2mm}
+Beware that this script uses the force-create options.
 
 If you are having problems with the binary files and just
 want to use the text files, the use of binary files can

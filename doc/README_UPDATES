@@ -20628,6 +20628,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04e) ***** 
 
+   New script make_simsed_binaries.py
+
    Call check_EOF from store_PARSE_WORDS and host-reading;
      try to get more info about file-reading errors.
 
@@ -20654,5 +20656,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    functions which are not format-specific. Move relevant functions
    out of sntools.c[h] and into new code file.
 
+   snlc_sim.c
+    + new default SIMSED_USE_BINARY = 0
+    + new bit-mask options for SIMSED_USE_BINARY; see manual
+    + if writing binary flux table, write few more items to yaml.
+
+   genmag_SIMSED.c
+     + implement new options to force creation of binaries (see manual)
+     + refactor so that WR and RD binary flags are global.
+
+   Begin development of make_simsed_binaries.py
 
 END: 

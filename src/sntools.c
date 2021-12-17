@@ -8445,20 +8445,25 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
   // Dec 1 2017:
   // Shell to call fopen.
   // If mode is read, then check for gzipped file.
-  // If both gzip and unzip file exist, ABORT.
+  // If both gzip and unzip file exist, wait 5 sec and
+  // try again ... if both still exist then ABORT.
   // Return GZIPFLAG=1 if gzip file is opened
   //
   // Mar 6 2019: replace zcat with 'gunzip -c' so that it works on Mac.
-
+  // Dec 17 2021: add logic to wait 5 sec if file and file.gz both exist.
+  //
   FILE *fp ;
   struct stat statbuf ;
-  int istat_gzip, istat_unzip, LEN;
+  int istat_gzip, istat_unzip, LEN, N_ITER=0;
   char gzipFile[MXPATHLEN], unzipFile[MXPATHLEN];
   char cmd_zcat[MXPATHLEN] ;
   char fnam[]=  "open_TEXTgz" ;
 
   // -------------- BEGIN ------------
 
+ START:
+
+  N_ITER++ ;
   *GZIPFLAG = 0 ;
 
   // for reading, check for gz file
@@ -8484,7 +8489,16 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
     //    printf(" xxx istat=%3d for '%s' \n", istat_gzip,  gzipFile);
     //    printf(" xxx istat=%3d for '%s' \n", istat_unzip, unzipFile);
 
-    if ( istat_gzip==0 && istat_unzip==0 ) {
+    // .xyz
+    bool FOUND_2FILES = ( istat_gzip==0 && istat_unzip==0 );
+    if ( FOUND_2FILES && N_ITER==1 ) { 
+      printf("\t found gzip and unzip file ... try again in 5 sec... \n");
+      fflush(stdout);
+      sleep(5.0); 
+      goto START;    
+    }
+
+    if ( FOUND_2FILES ) {
       print_preAbort_banner(fnam);
       printf("  Found %s \n", gzipFile );
       printf("  Found %s \n", unzipFile );

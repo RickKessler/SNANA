@@ -88,7 +88,7 @@ SIMSED_MODELS:    # model                         zmin  zmax
 
 # after binaries are created, check processing status in 
 #      MAKE_SIMSED_BINARY_SUMMARY.INFO
-# Ideally zmax(SNR<5) should be about 0.1 to 0.2 below zmax.
+# Ideally zmax(SNR>5) should be about 0.1 to 0.2 below zmax.
 
 """
     
@@ -316,11 +316,12 @@ def make_summary(info_dict):
     summary_header += f'# USERNAME:    {os.environ["USER"]}\n'
     summary_header += f'# HOST:    {os.environ["HOSTNAME"]}\n'
     summary_header += f'# CWD:     {os.getcwd()}\n# \n'
-    summary_header += f'{"ROW:":<5}{"MODEL":<20} {"zmin":<7} {"zmax":<7} {"zmax(SNR<5)":<15} {"size(MB)":<10}\n'
+    summary_header += f'{"ROW:":<5}{"MODEL":<20} {"zmin":<7} {"zmax":<7} {"zmax(SNR>5)":<15} {"size(MB)":<10}\n'
     with open(summary_file, 'wt') as sum:
         sum.write(summary_header)
-        for yml,model_basename,index,success in zip(yaml_list, model_basename_list,\
-                                                    range(n_model), success_list):
+        for yml,model_basename,index,success in \
+            zip(yaml_list, model_basename_list,\
+                range(n_model), success_list):
             if success:
                 yml_content = yaml.load(open(yml), Loader=yaml.FullLoader)
                 [zmin,zmax] = yml_content['REDSHIFT_RANGE_FLUXTABLE'].split()

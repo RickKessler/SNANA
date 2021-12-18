@@ -15,9 +15,9 @@ import os, argparse, logging, shutil, time
 import re, yaml, sys, gzip, math, subprocess
 
 # define a few globals
-GENVERSION_PREFIX = 'SIMSED_BINARY'             # prefix for sim genversion
-BASH_PREFIX       = f'MAKE_{GENVERSION_PREFIX}' # prefix for bash file
-LOG_PREFIX        = BASH_PREFIX                 # prefix for log files
+GENVERSION_PREFIX = 'MAKE_SIMSED_BINARY'        # prefix for sim genversion
+BASH_PREFIX       = GENVERSION_PREFIX           # prefix for bash file
+LOG_PREFIX        = GENVERSION_PREFIX           # prefix for log files
 JOB_NAME          = 'snlc_sim.exe'              # sim executable name in snana
 
 # 2=force new SED.BINARY, 4=force new fluxTable binary, 6=force both

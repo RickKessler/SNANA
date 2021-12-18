@@ -23,6 +23,11 @@ JOB_NAME          = 'snlc_sim.exe'              # sim executable name in snana
 # 2=force new SED.BINARY, 4=force new fluxTable binary, 6=force both
 USE_BINARY        = 4  
 
+# define key names for input config file
+KEYNAME_SIM_KEYS      = "SIM_KEYS"
+KEYNANE_SIMSED_MODELS = "SIMSED_MODELS"
+KEYNAME_NJOB_PARALLEL = "NJOB_PARALLEL"
+
 # ============================
 def setup_logging():
 
@@ -67,24 +72,27 @@ def get_args():
 
 def print_help_menu():
 
-    help_menu = """
+    help_menu = f"""
 
 # example input config file for DES
 
 # Provide a few sim-input keys 
-SIM_KEYS:
+{KEYNAME_SIM_KEYS}:
   GENFILTERS:         griz
   KCOR_FILE:          $SNDATA_ROOT/kcor/DES/DES-SN3YR/kcor_DECam.fits
   SIMLIB_FILE:        $DES_ROOT/simlibs/DES_DIFFIMG.SIMLIB
   SIMSED_PATH_BINARY: $PLASTICC_ROOT/model_libs/SIMSED_BINARIES
 
 # provide models
-SIMSED_MODELS:    # model                         zmin  zmax
+{KEYNANE_SIMSED_MODELS}:    # model                         zmin  zmax
   - $PLASTICC_ROOT/model_libs/SIMSED.CART-MOSFIT  0.02  1.5
   - $PLASTICC_ROOT/model_libs/SIMSED.KN-K17       0.01  0.4
   - $PLASTICC_ROOT/model_libs/SIMSED.SNII-NMF     0.01  1.30
   - $PLASTICC_ROOT/model_libs/SIMSED.SNIa-91bg    0.01  0.5
   - etc ...
+
+# optional parallel jobs (interactive; not batch)
+{KEYNAME_NJOB_PARALLEL}: 3 # process in groups of 3
 
 # after binaries are created, check processing status in 
 #      MAKE_SIMSED_BINARY_SUMMARY.INFO
@@ -98,12 +106,12 @@ SIMSED_MODELS:    # model                         zmin  zmax
 
 
 def check_paths(info_dict):
-    SIM_KEYS=info_dict['config']['SIM_KEYS']
+    SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
     model_path_list=info_dict['model_path_list']
     model_basename_list=info_dict['model_basename_list']
-    path_dict = {'KCOR_FILE':SIM_KEYS['KCOR_FILE'],
-                 'SIMLIB_FILE':SIM_KEYS['SIMLIB_FILE'],
-                 'SIMSED_PATH_BINARY':SIM_KEYS['SIMSED_PATH_BINARY']}
+    path_dict = {'KCOR_FILE':   SIM_KEYS['KCOR_FILE'],
+                 'SIMLIB_FILE': SIM_KEYS['SIMLIB_FILE'],
+                 'SIMSED_PATH_BINARY': SIM_KEYS['SIMSED_PATH_BINARY']}
     for model, model_base in zip(model_path_list, model_basename_list):
         path_dict[model_base]=model
     found_error = False
@@ -120,7 +128,7 @@ def check_paths(info_dict):
 
 def parse_models(info_dict):
     logging.info('Parse simsed models')
-    SIMSED_MODELS=info_dict['config']['SIMSED_MODELS']
+    SIMSED_MODELS=info_dict['config'][KEYNANE_SIMSED_MODELS]
     survey=info_dict['survey']
     model_path_list=[]
     model_zmin_list=[]
@@ -156,7 +164,7 @@ def parse_models(info_dict):
 def get_simlib_info(info_dict):
     logging.info(f'Extracting info from simlib')
     args=info_dict['args']
-    SIM_KEYS=info_dict['config']['SIM_KEYS']
+    SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
     simlib_file_name = os.path.expandvars(SIM_KEYS['SIMLIB_FILE'])
      
     with open(simlib_file_name) as s:
@@ -180,7 +188,7 @@ def create_simgen_file(info_dict):
     args=info_dict['args']
     genversion=f'{GENVERSION_PREFIX}_{survey}'
     sim_input_file_name= f"SIM_{survey}.input"
-    SIM_KEYS=info_dict['config']['SIM_KEYS']
+    SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
     GENRANGE_PEAKMJD = info_dict['GENRANGE_PEAKMJD']
     with open(sim_input_file_name, 'wt') as f:
         f.write(f"# Input keys passed from {args.input_file}\n")
@@ -217,7 +225,7 @@ def create_bash_script(info_dict):
     genversion_list=info_dict['genversion_list']
 
     n_model = info_dict['n_model']
-    njobs = info_dict['config']['NJOB_PARALLEL']  
+    njobs = info_dict['config'][KEYNAME_NJOB_PARALLEL]  
     with open(bash_name, 'wt') as b:
         for index, model, zmin, zmax, model_base, logfile, genversion\
                           in zip(range(n_model), model_path_list,

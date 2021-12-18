@@ -1448,6 +1448,7 @@ class Program:
         # end get_merge_done_list   
     
     def merge_check_time_stamp(self,output_dir):
+
         # compare time stamp in SUBMIT.INFO file against time
         # stamp passed to this merge process; if they don't match,
         #   + create STOP-MERGE_{Nsec_now} file (with comments inside)

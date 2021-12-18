@@ -215,28 +215,30 @@ def create_simgen_file(info_dict):
 
 def create_bash_script(info_dict):
     survey = info_dict['survey']    
-    sim_input_file = info_dict['sim_input_file']
-    bash_name=f'{BASH_PREFIX}_{survey}.sh'    
-    model_path_list=info_dict['model_path_list']
-    model_zmin_list=info_dict['model_zmin_list']
-    model_zmax_list=info_dict['model_zmax_list']
-    model_basename_list=info_dict['model_basename_list']
-    model_logfile_list=info_dict['model_logfile_list']
-    genversion_list=info_dict['genversion_list']
+    sim_input_file      = info_dict['sim_input_file']
+    model_path_list     = info_dict['model_path_list']
+    model_zmin_list     = info_dict['model_zmin_list']
+    model_zmax_list     = info_dict['model_zmax_list']
+    model_basename_list = info_dict['model_basename_list']
+    model_logfile_list  = info_dict['model_logfile_list']
+    genversion_list     = info_dict['genversion_list']
+    config              = info_dict['config']
+    n_model             = info_dict['n_model']
 
-    n_model = info_dict['n_model']
-    njobs = info_dict['config'][KEYNAME_NJOB_PARALLEL]  
+    bash_name           = f'{BASH_PREFIX}_{survey}.sh'
+    njobs               = get(config[KEYNAME_NJOB_PARALLEL],1)
+
     with open(bash_name, 'wt') as b:
         for index, model, zmin, zmax, model_base, logfile, genversion\
-                          in zip(range(n_model), model_path_list,
-                            model_zmin_list, model_zmax_list, 
-                            model_basename_list, model_logfile_list, genversion_list):
-            arg_string= f'GENMODEL {model} '
-            arg_string+= f'GENRANGE_REDSHIFT {zmin} {zmax} '
-            arg_string+= f'GENVERSION {genversion} '
+            in zip(range(n_model), model_path_list,
+                   model_zmin_list, model_zmax_list, 
+                   model_basename_list, model_logfile_list, genversion_list):
+            arg_string  = f'GENMODEL {model} '
+            arg_string += f'GENRANGE_REDSHIFT {zmin} {zmax} '
+            arg_string += f'GENVERSION {genversion} '
 
-            output_line = f'{JOB_NAME} {sim_input_file} {arg_string} '
-       	    output_line	+=f' > {logfile} '
+            output_line  = f'{JOB_NAME} {sim_input_file} {arg_string} '
+       	    output_line	+= f' > {logfile} '
             if (index+1)%njobs!=0: 
                 output_line +=' & '
             b.write(f'{output_line}\n')

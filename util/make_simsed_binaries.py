@@ -187,7 +187,7 @@ def create_simgen_file(info_dict):
     survey = info_dict['survey']
     args=info_dict['args']
     genversion=f'{GENVERSION_PREFIX}_{survey}'
-    sim_input_file_name= f"SIM_{survey}.input"
+    sim_input_file_name= f"SIMGEN_TEMPLATE_{survey}.input"
     SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
     GENRANGE_PEAKMJD = info_dict['GENRANGE_PEAKMJD']
     with open(sim_input_file_name, 'wt') as f:

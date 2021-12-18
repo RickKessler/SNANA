@@ -197,6 +197,7 @@ def create_simgen_file(info_dict):
         f.write(f'#\n# auto-generated keys with required values\n')
         f.write(f'GENVERSION: {genversion}\n')
         f.write(f'SIMSED_USE_BINARY: {USE_BINARY}\n')
+        f.write(f'SIMSED_GRIDONLY:   SEQUENTIAL  \n')
         f.write(f'GENSOURCE:   RANDOM\n')
         f.write(f'GENRANGE_PEAKMJD: {GENRANGE_PEAKMJD}\n')
         f.write(f'#\n# auto-generated keys to prevent abort (values do not matter)\n')

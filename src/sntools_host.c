@@ -1717,6 +1717,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   // Call fill_TABLE_MWXT_SEDMODEL
   //
   // May 6 2021: check ABMAG_FORCE
+  // Dec 17 2021: exclude last LAM bin from LAMBIN_CHECK test;
+  //             -> avoids mysterious abort.
+  //
 
   int  NBLAM_SPECTRO    = INPUTS_SPECTRO.NBIN_LAM;
   double ABMAG_FORCE    = INPUTS.HOSTLIB_ABMAG_FORCE;
@@ -1907,7 +1910,9 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     // Basis wave is rest frame and SPECTROGRAPH bin is obs frame;
     // hence z1 factor needed to compare.
 
-    if ( fabs(LAMBIN_CHECK - LAMOBS_BIN/z1) > 0.001 ) {
+    bool LAST_LAM          = (ilam == NBLAM_SPECTRO-1);
+    bool FAIL_LAMBIN_CHECK = ( fabs(LAMBIN_CHECK - LAMOBS_BIN/z1) > 0.001 );
+    if ( FAIL_LAMBIN_CHECK && !LAST_LAM ) {
       print_preAbort_banner(fnam);
       printf("   SPECTROGRAPH LAM(OBS) : %.3f to %.3f  (ilam=%d)\n",
 	     LAMOBS_MIN, LAMOBS_MAX, ilam );

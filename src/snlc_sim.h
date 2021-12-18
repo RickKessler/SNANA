@@ -267,6 +267,7 @@ typedef struct {
 
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )
+  double DNDB_SCALE ;         // scale rate for galactic models (LCLIB)
 
   // rate model pars: A&B or R0&beta, zpoly ...
   int    NMODEL_ZRANGE;     // number of rate models glued together

@@ -2378,6 +2378,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[0] ); 
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[1] ); 
     }
+    else if ( keyMatchSim(1, "DNDB_SCALE", KEYNAME, keySource) ) {
+      N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDB_SCALE ); 
+    }
     else if ( keyMatchSim(1, "DNDZ_ALLSCALE", KEYNAME, keySource) ) {
       N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ALLSCALE ); 
     }
@@ -7335,6 +7338,8 @@ void init_DNDB_Rate(void) {
   // Created Nov 27 2017
   // Analog to init_DNDZ_Rate, summarize DNDB rate, 
   // but nothing is computed here.
+  //
+  // Dec 18 2021: implement DNDB_SCALE if != 1
 
   int i, j ;
   double *PARLIST     = INPUTS.RATEPAR.MODEL_PARLIST[1] ;
@@ -7365,7 +7370,6 @@ void init_DNDB_Rate(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
     
-
     i++ ;
     sprintf(LINE_RATE_INFO[i],"\t dN/d%s = POLY(%s)",
 	    varName, INPUTS.RATEPAR.MODEL_BPOLY.STRING);
@@ -7373,6 +7377,15 @@ void init_DNDB_Rate(void) {
   } // end MODEL_LCLIB
 
   // - - - - - - - 
+
+  // Dec 2021: check DNDB scale option
+  float DNDB_SCALE, xgen;
+  DNDB_SCALE = INPUTS.RATEPAR.DNDB_SCALE ;
+  if ( DNDB_SCALE != 1.0 ) {
+    xgen              = DNDB_SCALE * (float)INPUTS.NGENTOT_LC ;
+    INPUTS.NGENTOT_LC = (int)(xgen+0.5);
+    INPUTS.NGEN       = INPUTS.NGENTOT_LC ;
+  }
 
   i++; sprintf(LINE_RATE_INFO[i],
 	       "\t Calculated Number of EVENTS per season = %d  (NGENTOT_LC)", 
@@ -14011,6 +14024,7 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   RATEPAR->DNDZ_SCALE[1]       = 1.0 ; // Apr 19 2017
   RATEPAR->DNDZ_ALLSCALE       = 1.0 ; // Aug 30 2017
   RATEPAR->RATEMAX = 0.0 ;
+  RATEPAR->DNDB_SCALE          = 1.0 ; // Dec 2021
 
   init_GENPOLY(&RATEPAR->MODEL_ZPOLY);
   init_GENPOLY(&RATEPAR->MODEL_BPOLY);
@@ -21772,12 +21786,6 @@ void init_genmodel(void) {
     init_genSEDMODEL();
 
     // model-specific init
-
-    /* xxx mark delete Dec 14 2021
-    OPTMASK = INPUTS.GENMODEL_MSKOPT ;
-    if( INPUTS.USE_BINARY_SIMSED > 0 ) 
-      { OPTMASK += OPTMASK_INIT_SIMSED_BINARY; }
-    xxxxxxxxxx */
 
     OPTMASK = INPUTS.USE_BINARY_SIMSED;
     if( INPUTS.JOBID > 0 ) { OPTMASK += OPTMASK_INIT_SIMSED_BATCH; }

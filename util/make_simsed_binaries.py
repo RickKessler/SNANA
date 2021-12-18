@@ -226,7 +226,11 @@ def create_bash_script(info_dict):
     n_model             = info_dict['n_model']
 
     bash_name           = f'{BASH_PREFIX}_{survey}.sh'
-    njobs               = get(config[KEYNAME_NJOB_PARALLEL],1)
+
+    if KEYNAME_NJOB_PARALLEL in config:
+        njobs = config[KEYNAME_NJOB_PARALLEL]
+    else:
+        njobs = 1
 
     with open(bash_name, 'wt') as b:
         for index, model, zmin, zmax, model_base, logfile, genversion\

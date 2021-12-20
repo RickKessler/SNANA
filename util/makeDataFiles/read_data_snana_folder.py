@@ -1,6 +1,7 @@
 # Read data from already existing folder in SNANA-FITS format.
 # Intended only for testing makeDataFiles; not for production.
 # Nov 30 2021: fix bug to account for PTROBS starting at 1 instead of 0.
+# Dec 20 2021: fix dumb bug to read last HEAD & PHOT file.
 
 import os,sys,glob,yaml,shutil
 import logging # , coloredlogs
@@ -43,12 +44,13 @@ class data_snana_folder(Program):
 
     def prep_read_data_subgroup(self, i_subgroup):
 
-        data_folder      = self.config_data['data_folder']
-        HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
         n_HEAD_file      = self.config_data['n_HEAD_file']
         
-        if i_subgroup == n_HEAD_file -1 :
+        if i_subgroup == n_HEAD_file  :
             return 0 # done reading
+
+        data_folder      = self.config_data['data_folder']
+        HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
         nevt, hdu_head  = self.open_snana_fits(HEAD_file)

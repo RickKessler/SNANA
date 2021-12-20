@@ -3,7 +3,7 @@
 # Created July 2021 by R.Kessler
 # Program to
 #   + read data from user-specified source
-#       (e.g., LSST-AP, LSST-DRP, SIRAH, ZTF, or test with data folder)
+#       (e.g., LSST-AP, LSST-DRP, SIRAH, DES, ZTF, or test with data folder)
 #   + write data files in human-readable TEXT format (1 file per event)
 #   + convert TEXT -> FITS format
 #   + tar up TEXT files
@@ -18,14 +18,8 @@
 # A merge process combines data_units into more useful samples
 # such as entire season and ALL data.
 #
-# To-DO list:
-#    - write PHOTFLAG_REJECT_BITS to IGNORE files
-#    - add makeDataFile class to submit_batch framework
-#    - update snlc_sim to create season map from SIMLIB;
-#         read season map here to determin integer YY index
-#    - modify framework to write output directly without
-#       intermediate text files.
-#
+# Dec 20 2021: add --des_folder for SMP
+
 # ============================================
 
 import sys, yaml, argparse, subprocess, logging, glob
@@ -41,6 +35,7 @@ from   makeDataFiles_params    import *
 from   read_data_lsst_ap       import data_lsst_ap
 from   read_data_lsst_drp      import data_lsst_drp
 from   read_data_sirah_folder  import data_sirah_folder
+from   read_data_des_folder    import data_des_folder
 from   read_data_ztf           import data_ztf_folder
 from   read_data_snana_folder  import data_snana_folder
 
@@ -56,6 +51,9 @@ def get_args():
 
     msg = "Data source: SIRAH pkl folder"
     parser.add_argument("--sirah_folder", help=msg, type=str, default=None )
+
+    msg = "Data source: DES folder with SMP"
+    parser.add_argument("--des_folder", help=msg, type=str, default=None )
 
     msg = "Data source: ZTF folder"
     parser.add_argument("--ztf_folder", help=msg, type=str, default=None )
@@ -135,6 +133,7 @@ def restore_args_from_readme(args,readme_yaml):
     args.lsst_ap      = False
     args.lsst_drp     = False
     args.sirah_folder = None
+    args.des_folder   = None
     args.ztf_folder   = None
     args.snana_folder = None
 
@@ -149,6 +148,10 @@ def restore_args_from_readme(args,readme_yaml):
     key = 'SOURCE_SIRAH_FOLDER'
     if key in readme_yaml:
         args.sirah_folder  = readme_yaml[key]
+
+    key = 'SOURCE_DES_FOLDER'
+    if key in readme_yaml:
+        args.des_folder  = readme_yaml[key]
 
     key = 'SOURCE_ZTF_FOLDER'
     if key in readme_yaml:
@@ -189,6 +192,9 @@ def which_read_class(args):
     elif args.sirah_folder is not None :
         read_class = data_sirah_folder
         args.survey = "SIRAH"
+    elif args.des_folder is not None :
+        read_class = data_des_folder
+        args.survey = "DES"
     elif args.ztf_folder is not None :
         read_class = data_ztf_folder
         args.survey = "ZTF"

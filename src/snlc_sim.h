@@ -1667,6 +1667,8 @@ int    keep_SIMLIB_OBS(int isort);
 int    SIMLIB_read_templateNoise(char *field, char *whatNoise, char **wdlist);
 void   SIMLIB_TAKE_SPECTRUM(void) ;
 
+void   set_TIMERS(int flag);
+
 int    SKIP_SIMLIB_FIELD(char *field);
 int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
@@ -1714,7 +1716,6 @@ void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);
 void   set_user_defaults_RANSYSTPAR(void);
 void   set_GENMODEL_NAME(void);
-
 int    read_input_file(char *inFile);          // parse this inFile
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 

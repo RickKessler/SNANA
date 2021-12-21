@@ -2539,10 +2539,15 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
 }  // end of IPARFORM_SNFITSIO
 
 // ==================================
-void WR_SNFITSIO_END(void) {
+void WR_SNFITSIO_END(int OPTMASK) {
+
+  // Close FITS files
+  // Dec 20 2021: pass OPTMASK and check for GZIP flag.
 
   int istat, extver, ifile, itype, NTYPE, isys ;
+  bool DO_GZIP = ( (OPTMASK & OPTMASK_SNFITSIO_END_GZIP) > 0 ) ;
   fitsfile *fp ;
+  char cmd[MXPATHLEN*2];    
   char fnam[] = "WR_SNFITSIO_END";
 
   // ------------ BEGIN -------------
@@ -2575,18 +2580,26 @@ void WR_SNFITSIO_END(void) {
   if ( SNFITSIO_SPECTRA_FLAG ) {
     // remove SPECTMP file after its table has been
     // append to SPEC file with summary table.
-    char cmd[400];    
     ifile = IFILE_SNFITSIO ;
     itype = ITYPE_SNFITSIO_SPECTMP ;
     sprintf(cmd,"rm %s", wr_snfitsFile_plusPath[ifile][itype] );
-    //printf(" xxx '%s' \n", cmd) ;
     isys = system( cmd );
   }
 
+  // Dec 2021:check option go gzip FITS files
+
+  if ( DO_GZIP ) {  // .xyz
+    sprintf(cmd,"cd %s ; gzip *.FITS", SNFITSIO_DATA_PATH);
+    printf("\t gzip FITS files.\n"); fflush(stdout);
+    isys = system( cmd );
+  }
+
+  return;
+
 } // end of WR_SNFITSIO_END
 
-void wr_snfitsio_end__(void) {
-  WR_SNFITSIO_END();
+void wr_snfitsio_end__(int *OPTMASK) {
+  WR_SNFITSIO_END(*OPTMASK);
 }
 
 // ===============================================
@@ -2600,6 +2613,7 @@ void rd_snfitsFile_close(int ifile, int itype) {
   fits_close_file(fp, &istat);
   sprintf(c1err,"Close(read) %s ", rd_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err,istat);
+  return ;
 
 } // end of  rd_snfitsFile_close
 
@@ -2614,6 +2628,7 @@ void wr_snfitsFile_close(int ifile, int itype) {
   fits_close_file(fp, &istat);
   sprintf(c1err,"Close(write) %s ", wr_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err,istat);
+  return;
 
 } // end of  wr_snfitsFile_close
 

@@ -20660,11 +20660,18 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     + new default SIMSED_USE_BINARY = 0
     + new bit-mask options for SIMSED_USE_BINARY; see manual
     + if writing binary flux table, write few more items to yaml.
+    + new sim-input DNDB_SCALE to scale galactic/LCLIB models
+    + for batch mode FITS format, automatically gzip FITS files;
+       should speed up submit_batch for sims.
+    + print sim-init time before event-generation loop.
 
    genmag_SIMSED.c
      + implement new options to force creation of binaries (see manual)
      + refactor so that WR and RD binary flags are global.
 
-   Begin development of make_simsed_binaries.py
+   sntools.c
+     + in open_textgz, if both file and file.gz exist, wait 5 sec
+       and try again. Needed for pipelines where job runs while
+       gzip on another core is in progress.
 
 END: 

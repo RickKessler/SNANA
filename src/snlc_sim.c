@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
   //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
 
-  TIMERS.t_start = time(NULL);
+  set_TIMERS(0);
 
   init_SNPATH();    // init PATH_SNDATA_ROOT
 
@@ -215,15 +215,14 @@ int main(int argc, char **argv) {
 
   if ( INPUTS.INIT_ONLY ==2 ) { debugexit("main: QUIT AFTER FULL INIT"); }
 
+  set_TIMERS(1);
+
   // =================================================
   // start main loop over "ilc"
 
   print_banner( " Begin Generating Lightcurves. " );
   fflush(stdout);
 
-  TIMERS.t_end_init    = time(NULL); // Mar 15 2020
-  TIMERS.t_update_last = TIMERS.t_end_init;
-  TIMERS.NGENTOT_LAST  = 0 ;
 
   // - - - - - 
   for ( ilc = 1; ilc <= INPUTS.NGEN ; ilc++ ) {
@@ -392,7 +391,7 @@ int main(int argc, char **argv) {
 
  ENDLOOP:
 
-  TIMERS.t_end = time(NULL);
+  set_TIMERS(2);
 
   // print final statistics on generated lightcurves.
 
@@ -11986,6 +11985,38 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   return ;
 
 } // end of wr_SIMGEN_FILTERS
+
+
+// ***********************************************
+void set_TIMERS(int flag) {
+
+  // Created Dec 20 2021
+  // flag=0 -> start
+  // flag=1 -> end of init
+  // flat=2 -> end of job
+
+  char fnam[] = "set_TIMERS" ;
+  // ---------- BEGIN -----------
+
+  if ( flag == 0 ) {
+    TIMERS.t_start = time(NULL);
+  }
+  else if ( flag == 1 ) {
+    TIMERS.t_end_init    = time(NULL); // Mar 15 2020
+    TIMERS.t_update_last = TIMERS.t_end_init;
+    TIMERS.NGENTOT_LAST  = 0 ;
+
+    double dt_init = TIMERS.t_end_init - TIMERS.t_start ;
+    print_banner(fnam);
+    printf("\t Sim-init time: %.1f sec \n", dt_init);
+    fflush(stdout);
+  } 
+  else if ( flag == 2 ) {
+    TIMERS.t_end = time(NULL);
+  }
+
+  return;
+} // end set_TIMERS
 
 // ***********************************************
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
@@ -27581,11 +27612,11 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // close out auxiliary simfiles, and leave 1-line 
   // summary to stdout for each aux file.
   //
-  // Oct 16, 2010: print GRIDGEN summary if used
-  // Jun 09, 2012:  replace GRIDGEN stuff call to wr_GRIDfile(3);
   // May 14, 2019: add call to wr_SIMGEN_DUMP(3,SIMFILE_AUX);
-  int i, N1, N2 ;
-  
+  // Dec 20, 2021: pass gzip flag for batch mode and fits files.
+
+  int i, N1, N2, OPTMASK=0 ;
+
   // ------------ BEGIN -------------
 
   iter_summary_genPDF();
@@ -27652,7 +27683,10 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 #endif
 
   fflush(stdout);
-  if ( WRFLAG_FITS) { WR_SNFITSIO_END(); }
+  if ( WRFLAG_FITS) { 
+    if ( INPUTS.JOBID > 0 ) { OPTMASK = OPTMASK_SNFITSIO_END_GZIP; }
+    WR_SNFITSIO_END(OPTMASK); 
+  }
 
 } // end of end_simFiles
 

@@ -37,6 +37,9 @@
 #define OPTMASK_RD_SNFITSIO    2
 #define OPTMASK_ABORT_SNFITSIO 4
 
+// Dec 20 2021: define OPTMASK bits for WR_SNFITSIO_END
+#define OPTMASK_SNFITSIO_END_GZIP 1
+
 fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
 fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
 // xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
@@ -220,7 +223,7 @@ void wr_snfitsio_update_phot(int ep);
 void wr_snfitsio_update_spec(int imjd);
 void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
 
-void WR_SNFITSIO_END(void);
+void WR_SNFITSIO_END(int OPTMASK);
 
 void rd_snfitsFile_close(int ifile, int itype);
 void wr_snfitsFile_close(int ifile, int itype);
@@ -310,7 +313,7 @@ void wr_snfitsio_update__(void) ;
 void wr_snfitsio_init__(char *path, char *version, char *prefix, 
 			int *simFlag, int *Nsubsample_mark, char *headFile ) ;
 
-void wr_snfitsio_end__(void) ;
+void wr_snfitsio_end__(int *OPTMASK) ;
 
 
 // ========= END ============

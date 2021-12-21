@@ -2009,6 +2009,8 @@ class Simulation(Program):
         # If nfail > 0, create genversion_combine and write FAIL 
         # in README file; the quit. This allows downstream analysis codes 
         # to quickly check for FAIL.
+        #
+        # Dec 20 2021: gzip FITS if not already gzipped.
 
         args             = self.config_yaml['args']
         if args.check_abort: return
@@ -2063,22 +2065,26 @@ class Simulation(Program):
         # message when SNIa or NONIa FITS files are not there.
         # 
 
-        cd_dir      = (f"cd {target_dir}")
-        mv_FITS      = (f"mv {from_dir}/*.FITS .")
+        cd_dir    = f"cd {target_dir}"
+        mv_FITS   = f"mv {from_dir}/*.FITS* ."
         
-        tmp_FITS  = (f"*{MODEL_SNIa}MODEL*HEAD.FITS*")
-        ls_SNIa      = (f"ls {tmp_FITS}  >     {list_file} 2>/dev/null")
+        tmp_FITS  = f"*{MODEL_SNIa}MODEL*HEAD.FITS*"
+        ls_SNIa   = f"ls {tmp_FITS}  >     {list_file} 2>/dev/null"
 
-        tmp_FITS  = (f"*{MODEL_NONIa}MODEL*HEAD.FITS*")
-        ls_NONIa  = (f"ls {tmp_FITS} >> {list_file} 2>/dev/null")
+        tmp_FITS  = f"*{MODEL_NONIa}MODEL*HEAD.FITS*"
+        ls_NONIa  = f"ls {tmp_FITS} >> {list_file} 2>/dev/null"
 
-        ls_LIST      = (f"{ls_SNIa};  {ls_NONIa}")
+        ls_LIST    = f"{ls_SNIa};  {ls_NONIa}"
 
-        # gzip FITS files, and remove .gz extensions in LIST file
-        gzip_FITS = (f"gzip *.FITS")
-        rm_gz      = (f"sed -i 's/FITS.gz/FITS/g' {list_file}")
+        #remove .gz extensions in LIST file
+        rm_gz      = f"sed -i 's/FITS.gz/FITS/g' {list_file}"
 
-        cmd     = (f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz}; {gzip_FITS}")
+        cmd     = f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz} "
+
+        # gzip FITS files if not already gzipped. .xyz
+        fits_list = glob.glob1(target_dir,"*.FITS")
+        if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
+
         os.system(cmd)
 
         # loop over TMP_*DUMP files and append combined DUMP file

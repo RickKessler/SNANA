@@ -10172,7 +10172,7 @@ c -------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-      INTEGER LEN_VERS, LEN_SURVEY, i, iver
+      INTEGER LEN_VERS, LEN_SURVEY, i, iver, OPTMASK
       CHARACTER 
      &   README_FILE*(MXCHAR_FILENAME)
      &  ,CMD*(2*MXCHAR_FILENAME)
@@ -10180,7 +10180,10 @@ c -------------
 C ----------------- BEGIN ----------------
 
 c call C function to close out the FITS files.
-      IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
+      IF ( OPT_REFORMAT_FITS > 0 ) THEN
+         OPTMASK = 1  ! gzip flag (Dec 2020)
+         CALL wr_snfitsio_end(OPTMASK)
+      ENDIF  
 
 
 c create README blank readme file

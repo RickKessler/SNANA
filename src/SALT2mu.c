@@ -1595,7 +1595,7 @@ struct INPUTS {
 
   int    nmax_tot ;   // Nmax to fit for all
   int    nmax[MXIDSURVEY];   // idem by survey
-  char   nmaxString[100];
+  char   nmaxString[200];
 
   double maxerr_abort_c, maxerr_abort_x1, maxerr_abort_x0;
 

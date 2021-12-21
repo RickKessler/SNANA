@@ -9231,9 +9231,11 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
   //   Comma sep can have any order, while space-sep is
   //   restricted to order_legacy passed as argument.
   //
+  // Dec 21 2021: increase char arrays from len=60 to 200
+  //
   int  MEMD, nread, j, N=0;
   double *zpoly_legacy ;
-  char first_word[60], cpoly[60] ;
+  char first_word[200], cpoly[200] ;
   char fnam[] = "read_genpoly" ;
 
   // -------------- BEGIN -----------

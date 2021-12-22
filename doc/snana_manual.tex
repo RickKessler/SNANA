@@ -3681,6 +3681,8 @@ Galactic extinction:
   OPT_MWEBV:            1      # default: MWEBV key in SIMLIB file
   GENSIGMA_MWEBV_RATIO: 0.16   # default: smear by sig(MWEBV) = .16*MWEBV
 
+  APPLYFLAG_MWEBV: 1   # correct FLUXCAL for MWEBV (e.g., for PLASTICC)
+
   # for systematic tests:
   GENSIGMA_MWEBV:       0.0      # smear by fixed sig(MWEBV) 
   GENSHIFT_MWEBV:       0.0      # fixed shift relative to dust map
@@ -3742,8 +3744,12 @@ magnitudes in the simulation.
 If the smearing for a given SN results in negative extinction, 
 the extinction is set to zero.
 
+Finally, the reported {\tt FLUXCAL} are corrected for {\tt MWEBV}
+if {\t APPLYFLAG\_MWEBV} is set, as was done for the PLASTICC 
+classification challenge. Use caution with this flag to avoid
+double-correcting in both the simulation and in the analysis.
 
-\clearpage
+%\clearpage
 \subsubsection{Some Details on Galactic Extinction Computations}
 \label{sss:GALextinc_misc}
 

@@ -1309,7 +1309,9 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 int keyMatch(char *string,char *key, char *keySuffix_optional ) {
   if ( strcmp(string,key)==0 )   
     { return(1); }
+
   else if ( strlen(keySuffix_optional) > 0 ) {
+    // e.g. of keySuffix_optional == ':' then check for key:
     int ISTAT = 0;
     int MEMC  = (strlen(key)+10) * sizeof(char);
     char *KEY = (char*) malloc (MEMC);
@@ -1327,13 +1329,13 @@ int keyMatch(char *string,char *key, char *keySuffix_optional ) {
 bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
 
   // Jul 20 2020                                     
-  // special key-match for sim-inputs based on keySource:                             
+  // special key-match for sim-inputs based on keySource:    
   //  FILE -> match with colon, and only MXKEY keys allowed                    
   //  ARG  -> match with or without colon, no limit to repeat keys 
-  //                         
-  // if KEY has multiple space separated values, test them all.                          
-  // E.g., KEY = "GENSMEAR GEN_SMEAR" is equivalent to two                        
-  // calls with KEY = GENSMEAR, and again with KEY = GEN_SMEAR                                                 
+  //    
+  // if KEY has multiple space separated values, test them all.  
+  // E.g., KEY = "GENSMEAR GEN_SMEAR" is equivalent to two
+  // calls with KEY = GENSMEAR, and again with KEY = GEN_SMEAR
 
   bool IS_FILE = (keySource == KEYSOURCE_FILE);
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
@@ -1344,12 +1346,11 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   char fnam[] = "keyMatchSim";
 
   // ------------ BEGIN --------------                                          
-
   NKEY = store_PARSE_WORDS(MSKOPT,KEY);
   for(ikey=0; ikey < NKEY; ikey++ ) {
     get_PARSE_WORD(0, ikey, tmpKey);
     if ( IS_FILE ) {
-      // read from file; key must have colon               
+      // read from file; key must have colon
       sprintf(KEY_PLUS_COLON, "%s%s", tmpKey, COLON);
       if ( NstringMatch( MXKEY, KEY_PLUS_COLON, WORD ) )
         { return(true); }
@@ -1363,7 +1364,6 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
 
   return(match);
 } // end keyMatchSim                                                                                       
-
 
 bool NstringMatch(int MAX, char *string, char *key) {
 
@@ -1418,7 +1418,7 @@ int uniqueOverlap (char *string,char *key ) {
 
   // check Overlap string match up to length of key.
   // Example: 
-  //   *key    =  'file='
+  //   *key    = 'file='
   //   *string = 'file=anything' will return true.
   // 
   //  The overlap match must start at beginning of *string.
@@ -1432,6 +1432,7 @@ int uniqueOverlap (char *string,char *key ) {
 
   if ( strcmp(string,STRINGMATCH_INIT) == 0 )  
     {  NstringMatch( 0, STRINGMATCH_INIT, key); return(0); }
+
   if ( strcmp(string,STRINGMATCH_KEY_DUMP) == 0 )  
     {  NstringMatch(-1, STRINGMATCH_INIT, key); return(0); }
 

@@ -20664,6 +20664,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     + for batch mode FITS format, automatically gzip FITS files;
        should speed up submit_batch for sims.
     + print sim-init time before event-generation loop.
+    + new sim-input "APPLYFLAG_MWEBV: 1" to correct FLUXCAL for MWEBV.
 
    genmag_SIMSED.c
      + implement new options to force creation of binaries (see manual)

@@ -1946,13 +1946,18 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
     // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
     if ( ITMP < 0 ) {
-      sprintf(c1err,"Correcting FLUXCAL for MWEBV (OPT_MWEBV=%d) "
-	      "is no longer allowed.", ITMP);
-      sprintf(c2err,"OPT_MWEBV must be > 0");
+      print_preAbort_banner(fnam);
+      printf("\t OPT_MWEBV = %d < 0 is no longer allowed.\n", ITMP);
+      printf("\t To correct FLUXCAL for MWEBV, set \n");
+      printf("\t   APPLYFLAG_MWEBV: 1\n");
+      sprintf(c1err,"OPT_MWEBV = %d < 0 is no longer allowed.", ITMP);
+      sprintf(c2err,"OPT_MWEBV must be >= 0");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
   }
-
+  else if ( keyMatchSim(1, "APPLYFLAG_MWEBV", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &INPUTS.APPLYFLAG_MWEBV );
+  }
 
   else if ( keyMatchSim(1, "GENSIGMA_MWEBV_RATIO", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SIGRATIO ) ;
@@ -25768,12 +25773,13 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   bool  USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   if ( USE_HOSTLIB_VPEC  ) {
-    sprintf(cptr,"\t Peculiar Velocity (VPEC) HOSTLIB RMS : %.1f km/sec\n", 
+    sprintf(cptr,"\t Pec. Velocity (VPEC) HOSTLIB RMS : %.1f km/sec\n", 
 	    HOSTLIB.VPEC_RMS );
   }
   else {
-    sprintf(cptr,"\t Peculiar Velocity (VPEC) Gauss sigma: %.1f km/sec\n", 
-	    INPUTS.GENSIGMA_VPEC );
+    sprintf(cptr,"\t Pec. Velocity (VPEC) sigma(gen,correct): "
+	    "%.1f, %.1f km/sec\n", 
+	    INPUTS.GENSIGMA_VPEC, INPUTS.VPEC_ERR );
   }
   if ( INPUTS.RESTORE_WRONG_VPEC ) {
     i++ ; cptr = VERSION_INFO.README_DOC[i] ;

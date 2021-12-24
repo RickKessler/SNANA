@@ -6,7 +6,7 @@
 #
 # =========================
 
-import os, sys, argparse
+import os, sys, argparse, subprocess, yaml
 import pandas as pd
 
 # ----------------
@@ -89,6 +89,9 @@ def get_args():
 
     msg = "convert this simgen_dump file to fitres file for SALT2mu"
     parser.add_argument("--simgen_dump_file", help=msg, type=str, default="")
+
+    msg = "extract sim-input file from sim VERSION.README"
+    parser.add_argument("--extract_sim_input", help=msg, action="store_true")
 
 # SIMLIB_OUT ...
 
@@ -206,7 +209,7 @@ def get_info_photometry(args):
     # end get_info_photometry
 
 def get_info_code(args):
-    command = f"snana.exe --snana_version"
+    command = f"{snana_program} --snana_version"
     exec_command(command,args,4)
 
 def rmdir_check(dir_name):
@@ -336,6 +339,55 @@ def translate_simgen_dump_file(args):
 
     # end translate_simgen_dump_file
 
+def extract_sim_input_file(args):
+
+    # read INPUT_KEYS from DOCUMENTATION in VERSION.README,
+    # and create a sim-input file. Modify the GENVERSION
+    # to be {version}_REPEAT to avoid clobbering orginal output.
+
+    version_orig   = args.version
+    version_repeat = f"{version_orig}_REPEAT"
+
+    sim_input_file = f"sim_input_{version_orig}.input"
+    print(f"\n Create sim-input file: {sim_input_file}")
+
+    # find directory with sim data using snana uti;
+    command  = f"{snana_program} GETINFO {version_orig}" 
+    ret = subprocess.run( [ command ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+ 
+    ret_list = (ret.stdout).split()
+    j        = ret_list.index("SNDATA_PATH:")
+    path_simdata = ret_list[j+1]
+    print(f"\n Found sim data in : {path_simdata} ")
+    readme_file = f"{path_simdata}/{version_orig}.README"
+
+    # read README created by simulation
+    with open(readme_file, 'rt') as r:
+        docana_yaml = yaml.safe_load(r)
+
+    nkey_write = 0
+    INPUT_KEYS = docana_yaml['DOCUMENTATION']['INPUT_KEYS']
+    with open(sim_input_file,"wt") as f :
+        for key, val_orig in INPUT_KEYS.items() :
+            key_plus_colon = key + ':'
+            val_out = val_orig
+            if key == "GENVERSION" : val_out = version_repeat
+
+            # check for key list with multiple entries .xyz
+            if isinstance(val_out,list):
+                val_list = val_out  # val_out is already a list
+            else:
+                val_list = [ val_out ] # convert item into list
+
+            for val in val_list:
+                f.write(f"{key_plus_colon:<28}  {val}\n")
+                nkey_write += 1
+
+    print(f"\t Done writing {nkey_write} keys.")
+
+    # end extract_sim_input_file
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -379,5 +431,8 @@ if __name__ == "__main__":
 
     if args.simgen_dump_file :
         translate_simgen_dump_file(args)
+
+    if args.extract_sim_input :
+        extract_sim_input_file(args)
 
     # END

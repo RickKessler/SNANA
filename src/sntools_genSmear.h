@@ -408,5 +408,6 @@ struct {
   int    NVAL ;    // number of values passed per SMEARPAR (default=1)
   char   NAME[60]; // name of parameter to override
   double VALUE[MXSMEARPAR_OVERRIDE] ; // list of value(s)
+  char   README[MXPATHLEN];           // string for README/docana
 } GENMAG_SMEARPAR_OVERRIDE[MXSMEARPAR_OVERRIDE] ;
 

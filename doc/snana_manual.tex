@@ -130,10 +130,10 @@
 \newcommand{\indx}{{\bf\tt INDEX}}
 \newcommand{\fpkrat}{F/F_0}
 
-\newcommand{\MXSNLC}{3100}
-\newcommand{\MXSIM}{999,000}
+\newcommand{\MXSIM}{300,000,000}
 \newcommand{\MXFILTOBS}{62}
 \newcommand{\MXFILTREST}{10}
+\newcommand{\vCMB}{370}
 
 \newcommand{\wwwMINUIT}{http://wwwasdoc.web.cern.ch/wwwasdoc/minuit/minmain.html}
 \newcommand{\minuit}{{\sc minuit}}
@@ -5538,13 +5538,13 @@ An overview of redshift-related inputs are as follows:
    GENRANGE_REDSHIFT:  0.01 1.0  # ZCMB-gen range
    GENSIGMA_REDSHIFT:  0.001     # Gaussian z-error      (default=0)
    GENBIAS_REDSHIFT:   1.0E-4    # global redshift bias  (default=0)
-   VEL_CMBAPEX:        371       # CMB dipole, (default = 371 km/sec)
+   VEL_CMBAPEX:        370       # CMB dipole, (default = 370 km/sec)
 \end{verbatim}
 %
 The CMB redshift is generated first, and then the RA \& DEC
 from the \simlib\ file is used to compute $\zhelio$ with
 $\ell=264.14$~deg, ~~ $b=48.26$~deg,~~
-and default {\tt VEL\_CMBAPEX=371}.
+and default {\tt VEL\_CMBAPEX=370}.
 
 To generate $\zhelio=\zcmb$ (sometimes useful for debugging), 
 set {\tt GENSIGMA\_VPEC} (\S\ref{sss:vpec}) and  {\tt VEL\_CMBAPEX} 
@@ -5585,8 +5585,8 @@ To be on the safe side, one should generate a slightly larger
 $\zcmb$-redshift range compared to the anticipated 
 analysis cuts. The extended generation range should allow
 for $\vpec$ variations\footnote{Beware that the maximum 
-$\vpec$-redshift variation is $(1+z) 371/c$ and 
-not just $371/c$.}  % end footnote
+$\vpec$-redshift variation is $(1+z) 370/c$ and 
+not just $370/c$.}  % end footnote
 and measurement noise. 
 
 Finally, rather than simulating a $z$-bias with {\tt GENBIAS\_REDSHIFT},
@@ -5602,7 +5602,20 @@ The simulated luminosity distance is computed as
      r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.
 \end{equation}
 %
-
+\medskip
+To override either min or max redshift,
+\vspace{-0.4cm}
+\begin{verbatim}
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT .05 -1  # (a) update only zmin
+         or
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT -1  1.3 # (b) update only zmax
+\end{verbatim}
+\vspace{-0.2cm}
+and note that setting the $-1$ value in a sim-inpult file results in abort.
+A usage example is a new {\tt HOSTLIB} with min galaxy redshift above
+the minimun defined by {\tt GENRANGE\_REDSHIFT}.
+To avoid abort, add global command (a) in either the
+command-line override, {\tt submit\_batch\_jobs}, or {\tt pippin}.
 
 % - - - - - - -
 \clearpage 
@@ -11713,7 +11726,7 @@ from the fitting programs \\ ({\tt snlc\_fit.exe, SALT2mu.exe}):
 \begin{itemize}
    \item {\bf\tt zHEL, zHELERR:} heliocentric redshift.
    \item {\bf\tt zCMB, zCMBERR:} redshift transformed to CMB  \\
-      ($\ell=264.14$~deg, ~~ $b=48.26$~deg,~~${\rm v}_{\rm apex} = 371$~km/s)
+      ($\ell=264.14$~deg, ~~ $b=48.26$~deg,~~${\rm v}_{\rm apex} = 370$~km/s)
    \item {\bf\tt VPEC, VPECERR:} peculiar-velocity correction.  \\
            If host galaxy is moving away from (toward) Earth, 
             then {\tt VPEC<0} ({\tt VPEC>0}).

@@ -20665,6 +20665,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        should speed up submit_batch for sims.
     + print sim-init time before event-generation loop.
     + new sim-input "APPLYFLAG_MWEBV: 1" to correct FLUXCAL for MWEBV.
+    + DEBUG_FLAG 1222 -> write refactored [GENVERSION].README
+    + new option to globally override min or max redshift;
+         GENRANGE_REDSHIFT 0.05 -1 # override zmin only
 
    genmag_SIMSED.c
      + implement new options to force creation of binaries (see manual)

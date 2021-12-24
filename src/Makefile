@@ -151,6 +151,8 @@
 #
 # Jul 17 2021: make sntools_gridmap.o
 # Dec 10 2021: incorporate sntools_data.o
+# Dec 22 2021: incorporate sntools_sim_readme.c[h]
+#
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -441,6 +443,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_wronghost.o   \
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_devel.o  \
+	$(OBJ)/sntools_sim_readme.o \
 	$(OBJ)/sntools_trigger.o  \
 	$(OBJ)/sntools_modelgrid_gen.o  \
 	$(OBJ)/sntools_spectrograph.o \
@@ -905,6 +908,13 @@ $(OBJ)/sntools_host.o : $(SRC)/sntools_host.c  $(SRC)/sntools_host.h $(SRC)/snlc
 $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_devel.c )
+
+# -------------------------------------------------
+# compile sntools_sim_readme (.o only)
+
+$(OBJ)/sntools_sim_readme.o : $(SRC)/sntools_sim_readme.c  $(SRC)/sntools_sim_readme.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_sim_readme.c )
 
 # -------------------------------------------------
 # compile sntools_weaklens (.o only)

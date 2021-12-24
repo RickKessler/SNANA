@@ -3643,8 +3643,9 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
   // Then read list of params externally. Then call this function
   // to store parameter values.
 
-
   int N, i ;
+  char *R     = GENMAG_SMEARPAR_OVERRIDE[NSMEARPAR_OVERRIDE].README ;
+  char cval[20];
   char fnam[] = "store_genSmear_override" ;
 
   // ------------- BEGIN ----------
@@ -3663,13 +3664,19 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
   printf("\t %s : store %2d values for '%s' \n", fnam, NVAL, parName);
   fflush(stdout);
 
+  // note that readme includes only the args, not the key,
+  // because the same key can appear multiple times.
+  sprintf(R,"%s  ", parName); 
   for(i=0 ; i < NVAL; i++ ) {
     GENMAG_SMEARPAR_OVERRIDE[N].VALUE[i] = tmpList[i] ;
+    sprintf(cval,"%.3f  ", tmpList[i]);    strcat(R,cval); // store README
   }
 
   NSMEARPAR_OVERRIDE++ ;
 
-} // end of   store_genSmear_override
+  return;
+
+} // end of store_genSmear_override
 
 int  exec_genSmear_override(int IPAR, char *PARNAME, double *VAL) {
 

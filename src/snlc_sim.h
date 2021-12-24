@@ -43,6 +43,7 @@
 #define  MXEPSIM_PERFILT  2000       //
 #define  MXEPSIM       10000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
+#define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
 #define  MXCUTWIN_PEAKMJD_BYFIELD 10
 #define  MXNON1A_TYPE 1000     // max number of non1a types/indices
@@ -261,6 +262,7 @@ typedef struct  {
 
 typedef struct {
   char   NAME[40] ;           // filled internally
+
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT
   double DNDZ_ZPOLY_REWGT_LEGACY[4]; // xxx legacy var
   GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
@@ -565,8 +567,8 @@ struct INPUTS {
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
 
-  float GENRANGE_RA[2];        // RA range (deg) to generate
-  float GENRANGE_DEC[2];       // idem for DEC
+  double GENRANGE_RA[2];        // RA range (deg) to generate
+  double GENRANGE_DEC[2];       // idem for DEC
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
 
@@ -574,7 +576,7 @@ struct INPUTS {
   double GENSIGMA_REDSHIFT;     // smear reported redshift
   double GENBIAS_REDSHIFT ;     // measurement + local bubble
   float  GENSIGMA_VPEC ;        // Gaussian sigma on Vpec, km/sec (default=0)
-  float  VEL_CMBAPEX ;          // CMB dipole vel; =0 --> zhelio = zcmb
+  double VEL_CMBAPEX ;          // CMB dipole vel; =0 --> zhelio = zcmb
   float  VPEC_ERR;              // error for vpec in data file
 
   char   WRONGHOST_FILE[MXPATHLEN];
@@ -805,6 +807,7 @@ struct INPUTS {
   int APPLY_CUTWIN_OPT ;      // 0= ignore cuts; 1=> apply cuts;
                               // 3=> apply cuts to data, not to SIMGEN-DUMP
 
+  int   NCUTWIN_TOT;
   float EPCUTWIN_LAMREST[2];    // lambda-requirement on all epochs
   float EPCUTWIN_SNRMIN[2];     // min SNR needed for each epoch
   float CUTWIN_TRESTMIN[2];
@@ -1143,7 +1146,6 @@ struct GENLC {
 
   double  COVMAT_SCATTER_GRAN[3];   // Gaussian randoms for intrinsic scatter
   double  COVMAT_SCATTER[3];        // scattered values
-  char    COVMAT_SCATTER_README[10][100];
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
@@ -1939,25 +1941,6 @@ void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;
-
-void   readme_doc(int iflag_readme);
-void   readme_doc_SIMLIB(int *iline) ;
-void   readme_doc_filterWarn(int *iline);
-void   readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) ;
-void   readme_doc_MWXT(int *iline);
-void   readme_doc_NON1ASED(int *iline);
-void   readme_doc_SIMSED(int *iline);
-void   readme_doc_magSmear(int *iline);
-void   readme_doc_nonLin(int *iline);
-void   readme_doc_SALT2params(int *iline ) ;
-void   readme_doc_GENPDF(int *iline ) ;
-void   readme_doc_FIXMAG(int *iline ) ;
-void   readme_doc_GENPERFECT(int *iline ) ;
-void   readme_doc_FUDGES(int *iline) ;
-void   readme_doc_mapFileList(int *iline) ;
-void   readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) ;
-void   readme_doc_CUTWIN(int *iline) ;
-void   readme_doc_TAKE_SPECTRUM(int *iline);
 
 void   sprintf_GENGAUSS(char *string, char *name,
 			GENGAUSS_ASYM_DEF *genGauss);

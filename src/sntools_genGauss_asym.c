@@ -29,8 +29,8 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   sprintf(genGauss->NAME,"NULL");
 
-  genGauss->USE       = false ;
-  genGauss->PEAK      = VAL ;
+  genGauss->USE          = false ;
+  genGauss->PEAK         = VAL ;
   genGauss->PEAKRANGE[0] = VAL ;
   genGauss->PEAKRANGE[1] = VAL ;
 
@@ -173,7 +173,7 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   char *NAME  = genGauss->NAME;
   char fnam[] = "funVal_GENGAUSS_ASYM";
 
-  //BEGIN .XYZ
+  // ----------- BEGIN ---------------
   if (prob2 > 0) {
     sprintf(c1err,"Second peak not supported for function='%s'", NAME);
     sprintf(c2err, "Remove PROB2 or fix code") ; 

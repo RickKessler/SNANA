@@ -133,7 +133,7 @@ struct VERSION
 
   int NEPOCH_TOT;          // total number of epochs in all SN
 
-  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
+  // xxx mark  int GENFRAME_SIM ;   // sim only: 1=rest+boost(=> KCOR), 2=obs
 
 } VERSION_INFO ;
 

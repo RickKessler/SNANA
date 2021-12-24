@@ -2587,8 +2587,7 @@ void WR_SNFITSIO_END(int OPTMASK) {
   }
 
   // Dec 2021:check option go gzip FITS files
-
-  if ( DO_GZIP ) {  // .xyz
+  if ( DO_GZIP ) {  
     sprintf(cmd,"cd %s ; gzip *.FITS", SNFITSIO_DATA_PATH);
     printf("\t gzip FITS files.\n"); fflush(stdout);
     isys = system( cmd );
@@ -4727,7 +4726,8 @@ void  rd_snfitsio_specFile( int ifile ) {
 // ==================================================
 void rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp) {
 
-  int istat, itype, hdutype, icol, anynul, MEMD, ilam ;
+  int itype = ITYPE_SNFITSIO_SPEC ;
+  int istat, hdutype, icol, anynul, MEMD, ilam ;
   int nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   char keyName[40], comment[200] ;
@@ -4735,6 +4735,7 @@ void rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp) {
 
   // ------------ BEGIN -------------
   // move to table with wave binning
+
 
   fits_movrel_hdu( fp, nmove, &hdutype, &istat );
   sprintf(c1err,"movrel to %s table", snfitsType[itype] ) ;

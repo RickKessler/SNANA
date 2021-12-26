@@ -12,25 +12,33 @@ char  ORIG_FILE_README[MXPATHLEN]; // temp space to restore original filenames
 
 // define KEY+ARG strings for keys that have variable number of 
 // arguments, or that can have duplicate keys.
-struct {
+typedef struct {
+  int NKEY;
+  char **KEY_LIST, **ARG_LIST;
+} README_KEYPLUSARGS_DEF ;
 
-  char GENMODEL[MXPATHLEN];                // GENMODEL 
-
-  char *RATEMODEL[MXRATEPAR_ZRANGE+1];          // for DNDZ and DNDB
-  char *RATEMODEL_PEC1A[MXRATEPAR_ZRANGE+1];    // for DNDZ_PEC1A
-
-  // store each CUTWIN; store key and arg separately to track duplicates
-  char *KEY_CUTWIN[MXCUTWIN];  
-  char *ARG_CUTWIN[MXCUTWIN];
-
-  // store filter-dependent keys that can appear multiple times.
-  int NKEY_FILTER;     
-  char *KEY_FILTER[MXFILTINDX]; // store each key to track duplicdates
-  char *ARG_FILTER[MXFILTINDX]; // store each arg separately
-
-  char COVMAT_SCATTER[10][100]; // very old ... need to check??
-
-} README_KEYPLUSARGS ;
+README_KEYPLUSARGS_DEF README_KEYS_COSMO ;
+README_KEYPLUSARGS_DEF README_KEYS_GENMODEL ;
+README_KEYPLUSARGS_DEF README_KEYS_SIMLIB ; 
+README_KEYPLUSARGS_DEF README_KEYS_HOSTLIB ; 
+README_KEYPLUSARGS_DEF README_KEYS_RATEMODEL ; 
+README_KEYPLUSARGS_DEF README_KEYS_LENS ; 
+README_KEYPLUSARGS_DEF README_KEYS_SKY ;  // solid angl, RA, DEC ...
+README_KEYPLUSARGS_DEF README_KEYS_MWEBV ; 
+README_KEYPLUSARGS_DEF README_KEYS_NON1ASED ;
+README_KEYPLUSARGS_DEF README_KEYS_SIMSED ;
+README_KEYPLUSARGS_DEF README_KEYS_LCLIB ;
+README_KEYPLUSARGS_DEF README_KEYS_FILTER ;
+README_KEYPLUSARGS_DEF README_KEYS_FLUXERRMODEL ;
+README_KEYPLUSARGS_DEF README_KEYS_GENMAG_OFF ;
+README_KEYPLUSARGS_DEF README_KEYS_GENMAG_SMEAR ;
+README_KEYPLUSARGS_DEF README_KEYS_TAKE_SPECTRUM ;
+README_KEYPLUSARGS_DEF README_KEYS_RANSYSTPAR ;
+README_KEYPLUSARGS_DEF README_KEYS_ZVARIATION ;
+README_KEYPLUSARGS_DEF README_KEYS_GRIDGEN ; 
+README_KEYPLUSARGS_DEF README_KEYS_CUTWIN ;
+README_KEYPLUSARGS_DEF README_KEYS_COVMAT_SCATTER ;
+README_KEYPLUSARGS_DEF README_KEYS_SIMGEN_DUMP ;
 
 // -------- function prototypes -----------
 
@@ -39,6 +47,7 @@ void  README_DOCANA_OVERVIEW(int *iline);
 void  README_DOCANA_INPUT_KEYS(int *iline);
 void  README_DOCANA_NOTES(int *iline);
 
+void  readme_docana_output(int *iline, char *pad); 
 void  readme_docana_genmodel(int *iline, char *pad);
 void  readme_docana_redshift(int *iline, char *pad);
 void  readme_docana_epoch(int *iline, char *pad); // MJD, Trest ...
@@ -53,10 +62,18 @@ void  readme_docana_misc(int *iline, char *pad);
 
 void  readme_docana_comment(int *iline, char *comment); // write # <comment> 
 
+
 void VERSION_INFO_load(int *iline, char *pad, char *keyName, char *comment,
                        int lenkey, bool isint,
                        int nval, double *val, double valmin, double valmax,
                        double val_noprint ) ;
+
+void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
+			     README_KEYPLUSARGS_DEF *README_KEYS, 
+			     char *callFun);
+
+void  readme_docana_load_list(int *iline, char *pad,
+			      README_KEYPLUSARGS_DEF *README_KEYS);
 
 void readme_docana_load_asymGauss(int *iline, char *pad, 
 				  GENGAUSS_ASYM_DEF *GENGAUASS);

@@ -1419,8 +1419,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE, SKIP ;
-  bool ISKEY_EBV, ISKEY_AV;
-  FILE *fpNull = NULL ;
+  bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_SPEC, ISKEY_LENS ;
+  bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
@@ -1431,13 +1431,35 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
 		   strstr(WORDS[0],"NBR"     ) != NULL );
 
-  ISKEY_SIMLIB  = (strstr(WORDS[0],"SIMLIB_") != NULL );
+  ISKEY_SIMLIB    = (strstr(WORDS[0],"SIMLIB_" ) != NULL );
 
+  ISKEY_GENMODEL  = (strstr(WORDS[0],"GENMODEL") != NULL );
+
+  ISKEY_CUTWIN    =
+    (strstr(WORDS[0],"CUTWIN") != NULL ) && 
+    (strcmp(WORDS[0], "LCLIB_CUTWIN") != 0 ) ;
+  
   ISKEY_EBV     = (strstr(WORDS[0],"_EBV") != NULL );
+
   ISKEY_AV      = (strstr(WORDS[0],"_AV" ) != NULL );
 
   ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
 		   strstr(WORDS[0],"DNDB") != NULL  ) ;
+
+  ISKEY_LENS = (strstr(WORDS[0],"WEAKLENS")    != NULL ||
+		strstr(WORDS[0],"STRONGLENS")  != NULL ||
+		strstr(WORDS[0],"LENSING")     != NULL );
+
+  ISKEY_MWEBV = 
+    (strstr(WORDS[0],"MWEBV")      != NULL ||
+     strstr(WORDS[0],"MWCOLORLAW") != NULL )     && !ISKEY_CUTWIN ;
+		 
+  ISKEY_GENMAG_OFF   = (strstr(WORDS[0],"GENMAG_OFF")    != NULL );
+  ISKEY_GENMAG_SMEAR = (strstr(WORDS[0],"GENMAG_SMEAR")  != NULL );
+
+  ISKEY_SPEC = (strstr(WORDS[0],"SPECTRUM")     != NULL ||
+		strstr(WORDS[0],"SPECTROGRAPH") != NULL );
+		
 
   ISKEY_INCLUDE = 
     ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
@@ -1490,25 +1512,28 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - -
   else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
+    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
+    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], 200);
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
+    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
     strcat(STR_REDCOV," ");         // blank space 
     strcat(STR_REDCOV,ctmp );   // store argument
     strcat(STR_REDCOV," ");         // blank space  
     if ( IGNOREFILE(ctmp) ) { sprintf(STR_REDCOV,"NONE"); }
-
   }
 
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
+    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
@@ -1632,14 +1657,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
   }
 
-  else if ( keyMatchSim(1, "GENMODEL_MSKOPT GENMODEL_OPTMASK",  
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_MSKOPT );
-  }
-  else if ( keyMatchSim(1, "GENMODEL_ARGLIST",  WORDS[0],keySource) ) {
-    N += parse_input_GENMODEL_ARGLIST(WORDS,keySource);
-  }
-  else if ( keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) {
+  else if ( ISKEY_GENMODEL ) {
     N += parse_input_GENMODEL(WORDS,keySource);
   }
   // - - - -
@@ -1656,9 +1674,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "GENPDF_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPDF_OPTMASK );
   }
-  else if ( keyMatchSim(1,"GENMODEL_EXTRAP_LATETIME",WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
-  }
   // - - - - - PATHs  - - - -
   else if ( keyMatchSim(1, "PATH_USER_INPUT",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
@@ -1674,7 +1689,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     return(N);
   }
   else if ( 
-	   // check first 5 chars to avoid other strings with NON1A after 1st char
+	   // check first 5 chars to avoid other strings with NON1A 
+	   // after 1st char
 	   strncmp(WORDS[0],"NONIA",5) == 0  ||
 	   strncmp(WORDS[0],"NON1A",5) == 0  ||
 	   strncmp(WORDS[0],"PECIA",5) == 0  ||
@@ -1719,10 +1735,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_RA", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[1] );
+    README_KEYPLUSARGS_load(10, 2, WORDS, &README_KEYS_SKY, fnam) ;
   }
   else if ( keyMatchSim(1,"GENRANGE_DEC GENRANGE_DECL", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[1] );
+    README_KEYPLUSARGS_load(10, 2, WORDS, &README_KEYS_SKY, fnam) ;
   }
 
   else if ( keyMatchSim(1,"MXRADIUS_RANDOM_SHIFT", WORDS[0],keySource) ) {
@@ -1807,6 +1825,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_GENGAUSS(parName, WORDS, keySource,
 			      &INPUTS.GENGAUSS_SIMSED[ITMP] );
     INPUTS.GENGAUSS_SIMSED[ITMP].FUNINDEX = ITMP ;
+
+    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, 
+			    &README_KEYS_SIMSED, fnam) ;
   }
   // - - - - - - - - - - 
   // read risetime-shift info
@@ -1939,156 +1960,32 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.WV07_REWGT_EXPAV ) ;
   }
 
-  // - - - - MW RV - - - - -
-
-  else if ( keyMatchSim(1, "RV_MWCOLORLAW RVMW", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.RV_MWCOLORLAW ) ;
-  }
-  else if ( keyMatchSim(1, "OPT_MWCOLORLAW", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%d", &INPUTS.OPT_MWCOLORLAW ) ;
-  }
-  else if ( keyMatchSim(1, "OPT_MWEBV", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%d", &ITMP );
-    INPUTS.OPT_MWEBV = abs(ITMP);
-    if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
-    if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
-
-    // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
-    if ( ITMP < 0 ) {
-      print_preAbort_banner(fnam);
-      printf("\t OPT_MWEBV = %d < 0 is no longer allowed.\n", ITMP);
-      printf("\t To correct FLUXCAL for MWEBV, set \n");
-      printf("\t   APPLYFLAG_MWEBV: 1\n");
-      sprintf(c1err,"OPT_MWEBV = %d < 0 is no longer allowed.", ITMP);
-      sprintf(c2err,"OPT_MWEBV must be >= 0");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-  }
-  else if ( keyMatchSim(1, "APPLYFLAG_MWEBV", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%d", &INPUTS.APPLYFLAG_MWEBV );
+  // - - - - Galactic extinction - - - - -
+  else if ( ISKEY_MWEBV ) {
+    parse_input_MWEBV(WORDS, keySource);
   }
 
-  else if ( keyMatchSim(1, "GENSIGMA_MWEBV_RATIO", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SIGRATIO ) ;
-  }
-  else if ( keyMatchSim(1, "GENSIGMA_MWEBV", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SIG ) ;
-  }
-  else if ( keyMatchSim(1, "GENSHIFT_MWEBV FUDGESHIFT_MWEBV", 
-			WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SHIFT ) ;
-  }
-  else if ( keyMatchSim(1, "GENSCALE_MWEBV FUDGESCALE_MWEBV", 
-			WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SCALE ) ;
-  }
-  else if ( keyMatchSim(1, "GENRANGE_MWEBV", WORDS[0],keySource) ) {
-    N++; sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MWEBV[0] ) ;
-    N++; sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MWEBV[1] ) ;
-  }
-  // - - - - host extinction color law model - - - -
+  // - - - - host extinction color law model for host- - - -
   else if ( keyMatchSim(1, "EXTINC_HOSTGAL  COLORLAW_HOSTGAL",  
 			WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSNXT );
   }
-  // - - - - -
 
-  else if ( keyMatchSim(1, "GENMAG_OFF_ZP  GENMAG_OFF_ZP", 
-			WORDS[0],keySource) ) {
-    NFILTDEF = INPUTS.NFILTDEF_OBS ;
-    if ( NFILTDEF == 0 ) {
-      sprintf(c1err,"Filters NOT specified: cannot read ZP/AB offsets.");
-      sprintf(c2err,"Must define filters BEFORE ZP/AB offsets.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    for(j=0; j < NFILTDEF; j++ ) 
-      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_ZP[j] ); }
+  // - - - - - GENMAG_OFF_XX - - - - -
+  else if ( ISKEY_GENMAG_OFF ) {
+    N += parse_input_GENMAG_OFF(WORDS,keySource) ;
   }
 
-
-  else if ( keyMatchSim(1, "GENMAG_OFF_GLOBAL", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_GLOBAL );
-  }
-  else if ( keyMatchSim(1, "GENMAG_OFF_NON1A", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_NON1A );
+  // - - - - GENMAG_SMEAR_XXX - - - 
+  else if ( ISKEY_GENMAG_SMEAR ) {
+    N += parse_input_GENMAG_SMEAR(WORDS,keySource) ;    
   }
 
-  else if ( keyMatchSim(1, "GENMAG_OFF_MODEL", WORDS[0],keySource) ) {
-    NFILTDEF = INPUTS.NFILTDEF_OBS ;
-    if ( NFILTDEF == 0 ) {
-      sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
-      sprintf(c2err,"Must define filters BEFORE MODEL offsets.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    for(j=0; j < NFILTDEF; j++ ) 
-      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_MODEL[j] ); }
-  }
-  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMODEL_ERRSCALE );
-  }
-  else if ( keyMatchSim(1, "GENMAG_SMEAR", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", ctmp);
-    split2floats(ctmp, COMMA, INPUTS.GENMAG_SMEAR );
-  }
-  else if ( keyMatchSim(1, "GENMAG_SMEAR_ADDPHASECOR", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] );
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] );
-  }
-  else if ( keyMatchSim(1, "GENMAG_SMEAR_USRFUN", WORDS[0],keySource) ) {
-    sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
-    INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param             
-    for(j=0; j < INPUTS.NPAR_GENSMEAR_USRFUN; j++ ) 
-      { N++ ; sscanf(WORDS[N], "%le", INPUTS.GENMAG_SMEAR_USRFUN ); }    	
-
-    // turn off this option if first USRFUN parameter is negative                    
-    if ( INPUTS.GENMAG_SMEAR_USRFUN[0] <= -1.0E-7 ) {
-      sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE");
-      INPUTS.NPAR_GENSMEAR_USRFUN  = 0 ;
-    }
-  }
-  else if ( strstr(WORDS[0],"GENMAG_SMEAR_SCALE") != NULL ) {
-    N += parse_input_GENMAG_SMEAR_SCALE(WORDS,keySource); 
-  }
-  else if ( keyMatchSim(1, "GENMAG_SMEAR_MSKOPT",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
-  }
-
-  if ( keyMatchSim(1, "GENMAG_SMEAR_MODELNAME", WORDS[0], keySource) ) {
-    char *modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
-    N++ ; sscanf(WORDS[N], "%s", modelName );
-    if ( strcmp(modelName,"G10FUDGE") == 0 )
-      { N++ ; sscanf(WORDS[N], "%le", &INPUTS.GENMAG_SMEAR_USRFUN[0] ); }
-
-    if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME(); }
-  }
   // - - - - strong and weak lens - - - - 
-  else if ( keyMatchSim(1, "STRONGLENS_FILE",  WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.STRONGLENS_FILE );
-  }
-  else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
-			WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.WEAKLENS_PROBMAP_FILE );
-  }
-  else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DMUSCALE );
+  else if ( ISKEY_LENS ) {
+    N += parse_input_LENS(WORDS,keySource);
   }
 
-  else if ( keyMatchSim(1, "WEAKLENS_DSIGMADZ LENSING_DSIGMADZ",
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DSIGMADZ );
-  }
-  else if ( keyMatchSim(5, "GENMAG_SMEARPAR_OVERRIDE", WORDS[0],keySource) ) {
-    int NVAL;      char key[60], parName[60];
-    double tmpList[MXSMEARPAR_OVERRIDE];
-    N++ ; sscanf(WORDS[N], "%s", key);  
-    NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
-    for(j=0; j<NVAL; j++) 
-      { N++; sscanf(WORDS[N],"%le", &tmpList[j] ); } // read tmpList 
-    store_genSmear_override(parName,NVAL,tmpList);
-  }
   else if ( keyMatchSim(1, "GENSMEAR_RANGauss_FIX GENSMEAR_RANGAUSS_FIX",  
 			WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENSMEAR_RANGauss_FIX );
@@ -2101,28 +1998,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.SIGMACLIP_MAGSMEAR[0] );
     N++;  sscanf(WORDS[N], "%f", &INPUTS.SIGMACLIP_MAGSMEAR[1] );
   }
-  else if ( keyMatchSim(4, "GENMAG_SMEAR_FILTER", WORDS[0],keySource) ) {
-    char filterList[50];  float smear;  int ifilt;
-    N++ ; sscanf(WORDS[N] , "%s", filterList );
-    N++ ; sscanf(WORDS[N] , "%f", smear );
-    NFILT = INPUTS.NFILT_SMEAR ; 
-      INPUTS.NFILT_SMEAR += 
-	PARSE_FILTLIST(filterList,&INPUTS.IFILT_SMEAR[NFILT+1]);
-      for ( j=NFILT+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
-        ifilt = INPUTS.IFILT_SMEAR[j];
-        INPUTS.GENMAG_SMEAR_FILTER[ifilt] = smear ;
-      }
-  }
-  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE_OPT", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_ERRSCALE_OPT );
-  }
-  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE_CORRELATION", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMODEL_ERRSCALE_CORRELATION );
-  }
   else if ( strncmp(WORDS[0],"COVMAT_SCATTER",14) == 0 ) {
     char ckey[40];    sprintf(ckey,"%s", WORDS[0] );
     N++ ; sscanf(WORDS[N], "%s", ctmp);
     PARSE_COVMAT_SCATTER(ckey,ctmp) ;
+    README_KEYPLUSARGS_load(10, 2, WORDS, 
+			    &README_KEYS_COVMAT_SCATTER, fnam) ;
   }
   // - - - filters - - - -
   else if ( keyMatchSim(1, "GENFILTERS", WORDS[0],keySource) ) {
@@ -2153,28 +2034,37 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++ ; sscanf(WORDS[N], "%s", INPUTS.KCOR_FILE );
   }
+
+  //  - - - - - cosmology params - - - - - - 
   else if ( keyMatchSim(1, "OMEGA_MATTER", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_MATTER );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
+    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
   }
-  // - - - 
+  // - - - - - - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_FUDGE_SNRMAX );
     INPUTS.OPT_FUDGE_SNRMAX = 1;
@@ -2286,40 +2176,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( strstr(WORDS[0],"LCLIB") != NULL ) {
     N += parse_input_LCLIB(WORDS,keySource);
   }
-  else if ( strstr(WORDS[0],"CUTWIN") != NULL ) {
+  else if ( ISKEY_CUTWIN ) {
     N += parse_input_CUTWIN(WORDS,keySource);
   }
   else if ( keyMatchSim(1, "EFFERR_STOPGEN",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.EFFERR_STOPGEN );
   }
   // - - -  specrtrograph - - - -
-  else if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
-  }
-  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
-  }
-  // - - - - TAKE_SPECTRUM - - - - -
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
-  }
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTSNFRAC",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
-  }
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM_PRESCALE",  WORDS[0],keySource) ) {
-    char FIELDLIST[60];
-    STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
-    N++;  sscanf(WORDS[N], "%s", FIELDLIST);
-    parse_string_prescales(FIELDLIST, DICT);
-  }
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
-  }
-  else if ( strstr(WORDS[0],"TAKE_SPECTRUM") ) {  
-    N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
-  }
-  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
+  else if ( ISKEY_SPEC ) {
+    N += parse_input_SPECTRUM(WORDS,keySource);
   }
 
 #ifdef MODELGRID_GEN
@@ -2419,7 +2284,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   // --------------------
 
-  N_MODELPAR = 0; //.xyz
+  N_MODELPAR = 0; 
 
   if ( FOUND_PRIMARY_KEY ) {
 
@@ -2546,26 +2411,14 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    // load string for readme/docana
-    m = RATEPAR->NMODEL_ZRANGE - 1 ; 
-    if ( m < 0 ) { m=0; } // for Galactic model
-    if ( IS_NOMINAL) {
-      README_KEYPLUSARGS.RATEMODEL[m] = (char*)malloc(MEMC);
-      README = README_KEYPLUSARGS.RATEMODEL[m];
-    }
-    else {
-      README_KEYPLUSARGS.RATEMODEL_PEC1A[m] = (char*)malloc(MEMC);
-      README = README_KEYPLUSARGS.RATEMODEL_PEC1A[m];
-    }
-    README[0] = 0 ;
-    for(j=0; j < N_MODELPAR+2; j++ ) {     
-      strcat(README, WORDS[j]) ;   
-      strcat(README, "  ") ;
-    }
-    // printf(" xxx %s: m=%d readme = '%s' \n", fnam, m, README);
-    
   } // DNDZ
 
+
+  // - - - -  load README info - - - - -
+  if ( FOUND_PRIMARY_KEY && N > 0 ) {
+    README_KEYPLUSARGS_load(MXRATEPAR_ZRANGE, N, WORDS, 
+			    &README_KEYS_RATEMODEL, fnam) ;
+  }
 
   return(N);
 
@@ -2721,7 +2574,7 @@ void parse_input_GENZPHOT_FUEGEMAP(char *string) {
 
   //  debugexit(fnam);
   return;
-} // end parse_input_GENZPHOT_FUEGEMAP
+} // end parse_input_GENZPHOT_FUDGEEMAP
 
 // ==============================================================
 void  parse_input_GENZPHOT_OUTLIER(char *string) {
@@ -2842,7 +2695,7 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
     
-    return(N);
+    goto README_LOAD; 
 
   } // end of NON1ASED_KEYS
 
@@ -2919,8 +2772,13 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
 	}
       }
+  }
 
-      return(N);
+
+ README_LOAD:
+  if ( N > 0 ) { 
+    README_KEYPLUSARGS_load(MXNON1A_TYPE, N, WORDS, 
+			    &README_KEYS_NON1ASED, fnam);
   }
 
   return(N);
@@ -2973,7 +2831,6 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
     N++; sscanf(WORDS[N] , "%f", VALUE_GLOBAL ); 
     for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
       { VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL ; }
-    // xxx mark delete Dec 2021    return(N);
     goto README_LOAD ;
   }
 
@@ -3012,24 +2869,12 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
       ifilt_obs = ifilt_list[ifilt] ;
       VALUE_FILTERLIST[ifilt_obs] = val_list[ifilt];
     }      
-    // xxx mark delete    return(2);
   }
 
  README_LOAD:
   if ( N > 0 ) {
-    int iwd, NKEY;  char *KEY, *ARG;
-    int MEMC = 100*sizeof(char);
-    NKEY = README_KEYPLUSARGS.NKEY_FILTER; // NKEY summed over all keys
-    README_KEYPLUSARGS.KEY_FILTER[NKEY] =  (char*) malloc(MEMC);
-    README_KEYPLUSARGS.ARG_FILTER[NKEY] =  (char*) malloc(MEMC);
-    KEY    = README_KEYPLUSARGS.KEY_FILTER[NKEY] ;  KEY[0] = 0 ;
-    ARG    = README_KEYPLUSARGS.ARG_FILTER[NKEY] ;  ARG[0] = 0 ;
-
-    sprintf(KEY,"%s", WORDS[0] ); // store key
-    for(iwd=1; iwd <= N; iwd++ ) 
-      { strcat(ARG,WORDS[iwd]); strcat(ARG,"  ");  } // store arg string
-
-    README_KEYPLUSARGS.NKEY_FILTER++ ;
+    README_KEYPLUSARGS_load(MXFILTINDX, N, WORDS, 
+			    &README_KEYS_FILTER, fnam) ;
   }
 
   return(N);
@@ -3105,7 +2950,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_SIMLIB_PEAKMJD",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_PEAKMJD );
-    INPUTS.USE_SIMLIB_GENOPT=1;
+    INPUTS.USE_SIMLIB_GENOPT=1 ;
   }
   else if ( keyMatchSim(1, "USE_SIMLIB_MAGOBS",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_MAGOBS );
@@ -3121,6 +2966,11 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MSKOPT );
+  }
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(100, N, WORDS, 
+			    &README_KEYS_SIMLIB, fnam );      
   }
 
   return(N);
@@ -3305,6 +3155,11 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
 
 
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(100, N, WORDS, 
+			    &README_KEYS_HOSTLIB, fnam );   
+  }
+
   return(N);
 
 } // end parse_input_HOSTLIB
@@ -3345,10 +3200,52 @@ int  parse_input_LCLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &LCLIB_DEBUG.FORCE_NREPEAT);
   }
 
+  if( N > 0 ) {
+    README_KEYPLUSARGS_load(MXPAR_LCLIB, N, WORDS, 
+			    &README_KEYS_LCLIB, fnam );
+  }
+
   return(N);
 
 } // end parse_input_LCLIB
 
+
+// ================================
+int parse_input_LENS(char **WORDS, int keySource) {
+
+  int N=0;
+  char fnam[] = "parse_input_LENS";
+
+  // -------------- BEGIN -------------
+
+  if ( keyMatchSim(1, "STRONGLENS_FILE",  WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
+    N++;  sscanf(WORDS[N], "%s", &INPUTS.STRONGLENS_FILE );
+  }
+  else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
+			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
+    N++;  sscanf(WORDS[N], "%s", &INPUTS.WEAKLENS_PROBMAP_FILE );
+  }
+  else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DMUSCALE );
+  }
+
+  else if ( keyMatchSim(1, "WEAKLENS_DSIGMADZ LENSING_DSIGMADZ",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.WEAKLENS_DSIGMADZ );
+  }
+
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(20, N, WORDS, 
+			    &README_KEYS_LENS, fnam );
+  }
+
+  return N;
+
+} // end parse_input_LENS
 
 // ================================================
 int  parse_input_CUTWIN(char **WORDS, int keySource ) {
@@ -3461,21 +3358,11 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
    N++;  sscanf(WORDS[N], "%s", INPUTS.CUTWIN_EPOCHS_FILTERS );
  }
 
-
  // load CUTWIN in README string for readme/docana file (Dec 2021).
- // Beware that if multiple CUTWIN_SNRMAX keys are  written,
- // only last duplicate key is read with python yaml.
  if ( N > 0 ) {
-   char *KEY, *ARG;
-   int iwd, NTOT=INPUTS.NCUTWIN_TOT, MEMC=100*sizeof(char);
-   README_KEYPLUSARGS.KEY_CUTWIN[NTOT] = (char*)malloc(MEMC);
-   README_KEYPLUSARGS.ARG_CUTWIN[NTOT] = (char*)malloc(MEMC);
-   KEY = README_KEYPLUSARGS.KEY_CUTWIN[NTOT] ;  KEY[0]=0;
-   ARG = README_KEYPLUSARGS.ARG_CUTWIN[NTOT] ;  ARG[0]=0;
-
-   sprintf(KEY,"%-24s", WORDS[0]);
-   for(iwd=1; iwd <= N; iwd++ )  { strcat(ARG,WORDS[iwd]); strcat(ARG," "); }
-   INPUTS.NCUTWIN_TOT++;
+   INPUTS.NCUTWIN_TOT++ ; 
+   README_KEYPLUSARGS_load(MXCUTWIN, N, WORDS, 
+			   &README_KEYS_CUTWIN, fnam );
  }
 
  return(N);
@@ -3490,7 +3377,7 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
   // read/parse input keys to generate grid of population params.
 
   int N=0, *IPTR ;
-  char fnan[] = "parse_input_GRIDGEN";
+  char fnam[] = "parse_input_GRIDGEN";
 
   // ------------- BEGIN -------------
 
@@ -3519,6 +3406,11 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
   else if ( keyMatchSim(1,"NGRID_TREST", WORDS[0], keySource) ) {
     IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] ;
     N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(20, N, WORDS, 
+			    &README_KEYS_GRIDGEN, fnam) ;
   }
 
   return(N);
@@ -3568,7 +3460,7 @@ int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
     N++ ; sscanf(WORDS[N] , "%f", &INPUTS.SOLID_ANGLE ); 
   }
   else {
-    return(N);
+    return(N); // N=0
   }
     
   if ( LDMP ) {
@@ -3591,6 +3483,11 @@ int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
   printf(" xxx %s: KEY= '%s'  SKIP_FLAG=%d \n",
 	 fnam, KEYLOCAL, INPUTS.SIMLIB_FIELDSKIP_FLAG );
   */
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(10, N, WORDS, 
+			    &README_KEYS_SKY, fnam) ;
+  }
 
   return(N) ;
 
@@ -3629,56 +3526,15 @@ int parse_input_ZVARIATION(char **WORDS, int keySource) {
 			&INPUT_ZVARIATION[NPAR].POLY);
     }
 
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(MXPAR_ZVAR, N, WORDS, 
+			    &README_KEYS_ZVARIATION,fnam) ;
+  }
+
   return(N);
 
 } // end parse_input_ZVARIATION
 
-// ==============================
-int parse_input_ZVARIATION_LEGACY(char **WORDS, int keySource) {
-
-  // Sep 2020: LEGACY -> does not use read_genpoly(...)
-
-  int N=0, j, NPAR ;
-  char tmpLine[60], cpoly[60];
-  char fnam[] = "parse_input_ZVARIATION_LEGACY" ;
-
-  // ------------ BEGIN -----------
-
-  if ( keyMatchSim(1,"ZVARIATION_FILE", WORDS[0], keySource)  ) {  
-    N++; sscanf(WORDS[N], "%s", INPUT_ZVARIATION_FILE ); 
-    if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) ) { USE_ZVAR_FILE = 1 ; }
-    return(N) ;
-  }
-
-  if ( keyMatchSim(10, "ZVARIATION_POLY", WORDS[0], keySource) ) { 
-      NPAR = NPAR_ZVAR_USR ;
-      INPUT_ZVARIATION[NPAR].FLAG = FLAG_ZPOLY_ZVAR ;
-      INPUT_ZVARIATION[NPAR].NZBIN = 0 ;
-      NPAR_ZVAR_USR++ ;  
-
-      N++; sscanf(WORDS[N], "%s", INPUT_ZVARIATION[NPAR].PARNAME ) ;
-      N++; sscanf(WORDS[N], "%s", tmpLine); 
-      // if there is a comma, use new GENPOLY struct; else read legacy format
-      if ( strstr(tmpLine,COMMA) ) {
-	// store comma-separate poly coefficients in cpoly
-	sprintf(cpoly, "%s", tmpLine);	
-      }
-      else {
-	// read LEGACY format of space-separated 3rd order poly
-	double zpoly[POLYORDER_ZVAR+2];
-	sscanf(tmpLine, "%le", &zpoly[0]); 
-	for(j=1; j <= POLYORDER_ZVAR; j++ ) 
-	  { N++; sscanf(WORDS[N], "%le", &zpoly[j] ); }
-
-	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
-      }
-      parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[NPAR].POLY, fnam);
-      return(N);
-    }
-
-  return(N);
-
-} // end parse_input_ZVARIATION_LEGACY
 
 // ======================================
 int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
@@ -3818,7 +3674,11 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     //  debugexit(fnam) ;
   }
 
-  if ( N > 0 ) {  INPUTS.RANSYSTPAR.USE = 1; }
+  if ( N > 0 ) {  
+    INPUTS.RANSYSTPAR.USE = 1; 
+    README_KEYPLUSARGS_load(100, N, WORDS, 
+			    &README_KEYS_RANSYSTPAR, fnam) ;
+  }
 
   return(N) ;
 
@@ -3828,7 +3688,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 int parse_input_GENMODEL(char **WORDS, int keySource) {
 
   // Created July 2020 [refactor]
-  // Parse GENMODEL key.
+  // Parse GENMODEL key, and GENMODEL_XXX keys.
 
   int  N=0;
   int  jnam;
@@ -3838,6 +3698,36 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   char fnam[] = "parse_input_GENMODEL" ;
   
   // ---------- BEGIN ------------
+
+  // check GENMODEL_XXX keys
+  if ( keyMatchSim(1, "GENMODEL_MSKOPT GENMODEL_OPTMASK",  
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_MSKOPT );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_ARGLIST",  WORDS[0],keySource) ) {
+    N += parse_input_GENMODEL_ARGLIST(WORDS,keySource);
+  }
+  else if ( keyMatchSim(1,"GENMODEL_EXTRAP_LATETIME",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMODEL_ERRSCALE );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE_OPT", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_ERRSCALE_OPT );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_ERRSCALE_CORRELATION", 
+			WORDS[0],keySource) )  {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMODEL_ERRSCALE_CORRELATION );
+  }
+
+  if ( N > 0 ) { goto README_LOAD; }
+
+  // if not GENMODEL key, skip.
+  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+
+  // - - - -
+  // Everything below is for GENMODEL key
 
   N++ ; sscanf(WORDS[N], "%s", GENMODEL ); 
 
@@ -3909,11 +3799,11 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
 
 
   // constuct README string that includes all args after GENMODEL
+ README_LOAD:
+
   if ( N > 0 ) {
-    int i; char *R;
-    R = README_KEYPLUSARGS.GENMODEL ;
-    sprintf(R,"%-20s", WORDS[0]);
-    for ( i=1; i <=N; i++ )  { strcat( R, WORDS[i] ); strcat(R," "); }
+    README_KEYPLUSARGS_load(20, N, WORDS, 
+			    &README_KEYS_GENMODEL, fnam) ;
   }
   
   return(N) ;
@@ -3945,7 +3835,6 @@ int parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource) {
   // (C code scoops everything within quotes)
   N++ ;  sprintf(INPUTS.GENMODEL_ARGLIST, "%s", WORDS[N] );
 
-  
   return(N) ;
 
 } // end parse_input_GENMODEL_ARGLIST
@@ -3986,7 +3875,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // - - - - - - - 
 
-  if ( !LRD ) { return(N); }
+  if ( !LRD ) { goto README_LOAD ; }
 
   // check of comma sep or space-sep format.
   if ( strstr(WORDS[N+1],COMMA) != NULL ) 
@@ -4037,9 +3926,197 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
     checkAlternateVarNames_HOSTLIB(varName);
   }
 
+ README_LOAD:
+  if ( N > 0 ) {
+    printf(" xxx %s: N=%d  %s \n", fnam, N, WORDS[0] );
+    README_KEYPLUSARGS_load(10, N, WORDS, 
+    			    &README_KEYS_SIMGEN_DUMP, fnam) ;
+  }
+
   return(N);
 
 } // end parse_input_SIMGEN_DUMP
+
+
+// =====================================================
+int parse_input_MWEBV(char **WORDS, int keySource ) {
+
+  int ITMP, N=0;
+  char fnam[] = "parse_input_MWEBV" ;
+  // ------------- BEGIN -------------
+
+  if ( keyMatchSim(1, "RV_MWCOLORLAW RVMW", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.RV_MWCOLORLAW ) ;
+  }
+  else if ( keyMatchSim(1, "OPT_MWCOLORLAW", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &INPUTS.OPT_MWCOLORLAW ) ;
+  }
+  else if ( keyMatchSim(1, "OPT_MWEBV", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &ITMP );
+    INPUTS.OPT_MWEBV = abs(ITMP);
+    if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
+    if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
+
+    // Oct 26 2021: no longer allow correcting FLUXCAL for MWEBV
+    if ( ITMP < 0 ) {
+      print_preAbort_banner(fnam);
+      printf("\t OPT_MWEBV = %d < 0 is no longer allowed.\n", ITMP);
+      printf("\t To correct FLUXCAL for MWEBV, set \n");
+      printf("\t   APPLYFLAG_MWEBV: 1\n");
+      sprintf(c1err,"OPT_MWEBV = %d < 0 is no longer allowed.", ITMP);
+      sprintf(c2err,"OPT_MWEBV must be >= 0");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+  else if ( keyMatchSim(1, "APPLYFLAG_MWEBV", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%d", &INPUTS.APPLYFLAG_MWEBV );
+  }
+
+  else if ( keyMatchSim(1, "GENSIGMA_MWEBV_RATIO", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SIGRATIO ) ;
+  }
+  else if ( keyMatchSim(1, "GENSIGMA_MWEBV", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SIG ) ;
+  }
+  else if ( keyMatchSim(1, "GENSHIFT_MWEBV FUDGESHIFT_MWEBV", 
+			WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SHIFT ) ;
+  }
+  else if ( keyMatchSim(1, "GENSCALE_MWEBV FUDGESCALE_MWEBV", 
+			WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.MWEBV_SCALE ) ;
+  }
+  else if ( keyMatchSim(1, "GENRANGE_MWEBV", WORDS[0],keySource) ) {
+    N++; sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MWEBV[0] ) ;
+    N++; sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MWEBV[1] ) ;
+  }
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(20, N, WORDS, 
+			    &README_KEYS_MWEBV, fnam) ;
+  }
+
+  return N;
+
+} // end parse_input_MWEBV
+
+
+// =======================================================
+int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
+
+  int N=0;
+  int  NFILTDEF, j ;
+  char fnam[] = "parse_input_GENMAG_OFF" ;
+
+  // ------------- BEGIN -------------
+
+  if ( keyMatchSim(1, "GENMAG_OFF_ZP", 	WORDS[0],keySource) ) {
+    NFILTDEF = INPUTS.NFILTDEF_OBS ;
+    if ( NFILTDEF == 0 ) {
+      sprintf(c1err,"Filters NOT specified: cannot read ZP/AB offsets.");
+      sprintf(c2err,"Must define filters BEFORE ZP/AB offsets.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    for(j=0; j < NFILTDEF; j++ ) 
+      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_ZP[j] ); }
+  }
+
+  else if ( keyMatchSim(1, "GENMAG_OFF_GLOBAL", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_GLOBAL );
+  }
+  else if ( keyMatchSim(1, "GENMAG_OFF_NON1A", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_NON1A );
+  }
+
+  else if ( keyMatchSim(1, "GENMAG_OFF_MODEL", WORDS[0],keySource) ) {
+    NFILTDEF = INPUTS.NFILTDEF_OBS ;
+    if ( NFILTDEF == 0 ) {
+      sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
+      sprintf(c2err,"Must define filters BEFORE MODEL offsets.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    for(j=0; j < NFILTDEF; j++ ) 
+      { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_MODEL[j] ); }
+  }
+
+
+  // load README 
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(100, N, WORDS, 
+			    &README_KEYS_GENMAG_OFF, fnam) ;
+  }
+
+  return N;
+
+} // end parse_input_GENMAG_OFF
+
+int parse_input_GENMAG_SMEAR(char **WORDS, int keySource ) {
+
+  int N=0;
+  int j, NFILT, ifilt ;
+  char ctmp[60];
+  char fnam[] = "parse_input_GENMAG_SMEAR" ;
+  // ------------- BEGIN -------------
+
+  if ( keyMatchSim(1, "GENMAG_SMEAR", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", ctmp);
+    split2floats(ctmp, COMMA, INPUTS.GENMAG_SMEAR );
+  }
+  else if ( keyMatchSim(1, "GENMAG_SMEAR_ADDPHASECOR", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] );
+  }
+  else if ( keyMatchSim(1, "GENMAG_SMEAR_USRFUN", WORDS[0],keySource) ) {
+    sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
+    INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param             
+    for(j=0; j < INPUTS.NPAR_GENSMEAR_USRFUN; j++ ) 
+      { N++ ; sscanf(WORDS[N], "%le", INPUTS.GENMAG_SMEAR_USRFUN ); } 
+    // turn off this option if first USRFUN parameter is negative  
+    if ( INPUTS.GENMAG_SMEAR_USRFUN[0] <= -1.0E-7 ) {
+      sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE");
+      INPUTS.NPAR_GENSMEAR_USRFUN  = 0 ;
+    }
+  }
+  else if ( strstr(WORDS[0],"GENMAG_SMEAR_SCALE") != NULL ) {
+    N += parse_input_GENMAG_SMEAR_SCALE(WORDS,keySource); 
+  }
+  else if ( keyMatchSim(1, "GENMAG_SMEAR_MSKOPT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
+  }
+
+  if ( keyMatchSim(1, "GENMAG_SMEAR_MODELNAME", WORDS[0], keySource) ) {
+    char *modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
+    N++ ; sscanf(WORDS[N], "%s", modelName );
+    if ( strcmp(modelName,"G10FUDGE") == 0 )
+      { N++ ; sscanf(WORDS[N], "%le", &INPUTS.GENMAG_SMEAR_USRFUN[0] ); }
+
+    if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME(); }
+  }
+  else if ( keyMatchSim(4, "GENMAG_SMEAR_FILTER", WORDS[0],keySource) ) {
+    char filterList[50];  float smear;  int ifilt;
+    N++ ; sscanf(WORDS[N] , "%s", filterList );
+    N++ ; sscanf(WORDS[N] , "%f", smear );
+    NFILT = INPUTS.NFILT_SMEAR ; 
+      INPUTS.NFILT_SMEAR += 
+	PARSE_FILTLIST(filterList,&INPUTS.IFILT_SMEAR[NFILT+1]);
+      for ( j=NFILT+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
+        ifilt = INPUTS.IFILT_SMEAR[j];
+        INPUTS.GENMAG_SMEAR_FILTER[ifilt] = smear ;
+      }
+  }
+  else if ( keyMatchSim(5, "GENMAG_SMEARPAR_OVERRIDE", WORDS[0],keySource) ) {
+    N += parse_input_GENMAG_SMEARPAR_OVERRIDE(WORDS, keySource);
+  }
+
+  // load README 
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(100, N, WORDS, 
+			    &README_KEYS_GENMAG_SMEAR, fnam) ;
+  }
+
+  return N;
+
+} // end parse_input_GENMAG_SMEAR
 
 // ======================================================
 int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
@@ -4095,6 +4172,33 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
 } // end parse_input_GENMAG_SMEAR_SCALE
 
 
+// ====================================
+int parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource ) {
+
+  // Created Dec 2021 [move code out of parse_input_key_driver]
+
+  int NVAL, j, N=0;
+  char key[60], parName[60];
+  double tmpList[MXSMEARPAR_OVERRIDE];
+  char fnam[] = "parse_input_GENMAG_SMEARPAR_OVERRIDE";
+
+  // ----------- BEGIN -----------
+
+  N++ ; sscanf(WORDS[N], "%s", key);  
+  NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
+  for(j=0; j<NVAL; j++) 
+    { N++; sscanf(WORDS[N],"%le", &tmpList[j] ); } // read tmpList 
+  store_genSmear_override(parName,NVAL,tmpList);
+
+  /* xxx mark delete 
+  // Store info for readme/docana.
+  README_KEYPLUSARGS_load(MXSMEARPAR_OVERRIDE, N, WORDS, 
+			  &README_KEYS_SMEARPAR_OVERRIDE, fnam) ;
+  */
+
+  return(N);
+} // end parse_input_GENMAG_SMEARPAR_OVERRIDE
+
 // ==============================================================
 void parse_GENMAG_SMEAR_MODELNAME(void) {
 
@@ -4131,6 +4235,55 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
 
 } // end parse_GENMAG_SMEAR_MODELNAME
 
+// =====================================================
+int parse_input_SPECTRUM(char **WORDS, int keySource) {
+
+  // Created Dec 2021
+  // Parse keys with SPECTRUM or SPECTROGRAPH
+
+  int N=0;
+  FILE *fpNull = NULL ;
+  char fnam[] = "parse_input_SPECTRUM";
+
+  // ------------- BEGIN -------------
+
+  if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
+  }
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",WORDS[0],keySource)) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
+  }
+  // - - - - TAKE_SPECTRUM - - - - -
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTSNFRAC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_PRESCALE",  WORDS[0],keySource) ) {
+    char FIELDLIST[60];
+    STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
+    N++;  sscanf(WORDS[N], "%s", FIELDLIST);
+    parse_string_prescales(FIELDLIST, DICT);
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
+  }
+  else if ( strstr(WORDS[0],"TAKE_SPECTRUM") ) {  
+    N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
+  }
+  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.WARP_SPECTRUM_STRING );
+  }
+
+  // load README
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(MXSPECTRA, N, WORDS, 
+			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
+  }
+
+  return N;
+} // end parse_input_SPECTRUM
 
 // *****************************************************
 int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
@@ -4197,15 +4350,6 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   char fnam[] = "parse_input_TAKE_SPECTRUM" ;
 
   // ----------- BEGIN -----------
-
-  /* xxxxxxx mark delete 9/08/2021 xxxxxx
-     can't make test since SIMLIB and input file are parsed same way
-  if ( keySource == KEYSOURCE_FILE && INPUTS.USE_SIMLIB_SPECTRA ) {
-    sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
-    sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-  xxxxxxxxxx */
 
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
@@ -4461,6 +4605,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+
   return(N);
 
 } // end parse_input_TAKE_SPECTRUM
@@ -4611,7 +4756,12 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
     sprintf(c2err, "Check SIMSED_PARAM keywords in input file." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  
+
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, 
+			    &README_KEYS_SIMSED, fnam) ;
+  }
+
   return(N);
 
 } // end parse_input_SIMSED
@@ -7586,6 +7736,8 @@ void init_simvar(void) {
 		   "SIMLIB_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
   init_string_dict(&INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE, 
 		   "SPECTRUM_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
+
+  if ( INPUTS.DEBUG_FLAG == 1222 )  { README_DOCANA_DRIVER(0); }
 
   return ;
 
@@ -25371,6 +25523,7 @@ void INIT_COVMAT_SCATTER( void )
     }
   }
 
+  /* xxxxxxx mark delete Dec 22 2021 xxxxxxxxxxxxx
   int N = -1;
   char *cptr ;
   N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
@@ -25403,6 +25556,9 @@ void INIT_COVMAT_SCATTER( void )
   for ( i=0; i <= N; i++ ) {
     printf("%s\n", README_KEYPLUSARGS.COVMAT_SCATTER[i] );
   }
+
+  xxxxxxxxxx end mark xxxxxxxxxx */
+
 
   //printvals();
   //Do the Cholesky Decomposition once and for all

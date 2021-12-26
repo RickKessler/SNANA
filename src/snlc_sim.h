@@ -1735,12 +1735,11 @@ void   parse_GENMAG_SMEAR_MODELNAME(void);
 int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
-void   parse_input_FIELDLIST(void);
+// xxx mark void   parse_input_FIELDLIST(void);
 
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 			   RATEPAR_DEF *RATEPAR );
 int    parse_input_ZVARIATION(char **WORDS, int keySource);
-int    parse_input_ZVARIATION_LEGACY(char **WORDS, int keySource);
 int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
@@ -1752,9 +1751,18 @@ bool   keyContains_SIMSED_PARAM(char *KEYNAME);
 int    parse_input_LCLIB(char **WORDS, int keySource );
 int    parse_input_CUTWIN(char **WORDS, int keySource );
 int    parse_input_GRIDGEN(char **WORDS, int keySource);
+int    parse_input_LENS(char **WORDS, int keySource );
 int    parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp );
 void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
+int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );
+
+// xxx to do ...
+int    parse_input_MWEBV(char **WORDS, int keySource );
+int    parse_input_GENMAG_OFF(char **WORDS, int keySource );
+int    parse_input_GENMAG_SMEAR(char **WORDS, int keySource );
+// xxxx
+
 void   parse_input_OBSOLETE(char **WORDS, int keySource );
 bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
 

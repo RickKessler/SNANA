@@ -1,5 +1,5 @@
 /******************************************************
-
+  
    Created Dec 22 2021 [code moved out of snlc_sim]
    Write DOCUMENTATION block to [VERSION].README
 
@@ -15,6 +15,7 @@
 #include "sntools_trigger.h" 
 #include "sntools_genPDF.h"
 #include "sntools_sim_readme.h"
+
 
 // *************************************************
 void README_DOCANA_DRIVER(int iflag_readme) {
@@ -46,9 +47,34 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   if ( iflag_readme == 0 ) {
     VERSION_INFO.NLINE_README      = 0;
     VERSION_INFO.NLINE_README_INIT = 0;
-    README_KEYPLUSARGS.NKEY_FILTER = 0;
+
+    README_KEYS_COSMO.NKEY             = 0 ;
+    README_KEYS_GENMODEL.NKEY          = 0 ;
+    README_KEYS_SIMLIB.NKEY            = 0 ;
+    README_KEYS_HOSTLIB.NKEY           = 0 ;
+    README_KEYS_RATEMODEL.NKEY         = 0 ;
+    README_KEYS_LENS.NKEY              = 0 ;
+    README_KEYS_SKY.NKEY               = 0 ;
+    README_KEYS_MWEBV.NKEY             = 0 ;
+    README_KEYS_NON1ASED.NKEY          = 0 ;
+    README_KEYS_SIMSED.NKEY            = 0 ;
+    README_KEYS_LCLIB.NKEY             = 0 ;
+    README_KEYS_FILTER.NKEY            = 0 ; // keys with _FILTER
+    README_KEYS_FLUXERRMODEL.NKEY      = 0 ;
+
+    README_KEYS_GENMAG_OFF.NKEY        = 0 ;
+    README_KEYS_GENMAG_SMEAR.NKEY      = 0 ;
+
+    README_KEYS_TAKE_SPECTRUM.NKEY     = 0 ;
+    README_KEYS_RANSYSTPAR.NKEY        = 0 ;
+    README_KEYS_ZVARIATION.NKEY        = 0 ;
+    README_KEYS_GRIDGEN.NKEY           = 0 ;
+    README_KEYS_CUTWIN.NKEY            = 0 ;
+    README_KEYS_COVMAT_SCATTER.NKEY    = 0 ;
+    README_KEYS_SIMGEN_DUMP.NKEY       = 0 ;
     return;
   }
+
 
   i = VERSION_INFO.NLINE_README ;
 
@@ -143,9 +169,10 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  INPUT_KEYS:");
 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENVERSION:", INPUTS.GENVERSION);
+  // output genversion, format, nevt ...
+  readme_docana_output(&i, pad);
 
+  // source model
   readme_docana_genmodel(&i, pad);
 
   // instrument: filter, kcor, simlib, noise ...
@@ -211,8 +238,13 @@ void readme_docana_genmodel(int *iline, char *pad) {
 
   readme_docana_comment(&i, "Source model");
 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%s", pad, README_KEYPLUSARGS.GENMODEL);
+  readme_docana_load_list(&i, pad, &README_KEYS_GENMODEL);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_NON1ASED);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_SIMSED);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_LCLIB);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s%-*s %s ",  pad,lenkey,
@@ -230,13 +262,14 @@ void readme_docana_genmodel(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "GENMODEL_ERRSCALE:", noComment,
 		    lenkey, false, nval1, &dval, 0.0, 20.0, 0.0); 
 
-  if ( NSMEARPAR_OVERRIDE > 0 ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%sGENMAG_SMEARPAR_OVERRIDE: ",  pad );
-    for(o=0; o < NSMEARPAR_OVERRIDE; o++ ) {
-      i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s- %s",  pad, GENMAG_SMEARPAR_OVERRIDE[o].README);
-    }
+  readme_docana_load_list(&i, pad, &README_KEYS_GENMAG_OFF);
+  readme_docana_load_list(&i, pad, &README_KEYS_GENMAG_SMEAR);
+
+  // - - - - 
+  if ( README_KEYS_COSMO.NKEY>0 || README_KEYS_LENS.NKEY > 0 ) {
+    readme_docana_comment(&i, "Cosmology inputs");
+    readme_docana_load_list(&i, pad, &README_KEYS_COSMO);
+    readme_docana_load_list(&i, pad, &README_KEYS_LENS);
   }
 
   *iline = i;
@@ -267,6 +300,9 @@ void readme_docana_instr(int *iline, char *pad) {
   sprintf(cptr,"%s%-*s %s ",
 	  pad, lenkey, "KCOR_FILE:", ORIG_FILE_README);
 
+  readme_docana_load_list(&i, pad, &README_KEYS_SIMLIB);
+
+  /* xxxx mark delete 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   ENVrestore(INPUTS.SIMLIB_FILE, ORIG_FILE_README);
   sprintf(cptr,"%s%-*s %s", 
@@ -334,6 +370,7 @@ void readme_docana_instr(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "USE_SIMLIB_SALT2:", noComment,
 		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
 
+  xxxxxxxx end mark xxxxxxxx */
 
   dval = (double)INPUTS.SMEARFLAG_FLUX ;
   VERSION_INFO_load(&i, pad, "SMEARFLAG_FLUX:", "1->add Poisson noise",
@@ -348,29 +385,13 @@ void readme_docana_instr(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "FUDGE_SNRMAX:", noComment,
 		    lenkey, true, nval1, &dval, 0.0,1.0E5, -9.0); 
 
-  // filter-dependent keys. Write as lists to allow for duplicates:
-  // KEY:
-  // - arg0
-  // - arg1
-  // etc ..
-  
-  int k, NKEY = README_KEYPLUSARGS.NKEY_FILTER;
-  char *KEY, KEY_LAST[100]="", *ARG;
-  for(k=0; k < NKEY; k++ ) {
-    KEY = README_KEYPLUSARGS.KEY_FILTER[k];
-    ARG = README_KEYPLUSARGS.ARG_FILTER[k];
+  readme_docana_load_list(&i, pad, &README_KEYS_FILTER);
 
-    // write key when it's new
-    if ( strcmp(KEY,KEY_LAST) != 0 ) { 
-      i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s%s", pad, KEY);
-    }
+  readme_docana_load_list(&i, pad, &README_KEYS_FLUXERRMODEL);
 
-    // always store arg
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s- %s", pad, ARG);
-
-    sprintf(KEY_LAST,"%s", KEY);
+  if ( README_KEYS_TAKE_SPECTRUM.NKEY > 0 ) {
+    readme_docana_comment(&i, "Spectrograph inputs");
+    readme_docana_load_list(&i, pad, &README_KEYS_TAKE_SPECTRUM);
   }
 
   *iline = i;
@@ -389,7 +410,6 @@ void readme_docana_hostlib(int *iline, char *pad) {
 
   int i = *iline;
   int lenkey = 24; // to format printing of key
-#define MXLIST_LOCAL_HOSTLIB 50
   double dval, dval_list[20] ;
   char *cptr, *sval, *key;
   int n, nval;
@@ -398,136 +418,20 @@ void readme_docana_hostlib(int *iline, char *pad) {
 
   // ----------- BEGIN ------------
 
-  readme_docana_comment(&i, "HOSTLIB inputs");
-
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  ENVrestore(INPUTS.HOSTLIB_FILE, ORIG_FILE_README);
-  sprintf(cptr,"%s%-*s  %s ", 
-	  pad, lenkey, "HOSTLIB_FILE:", ORIG_FILE_README);
+  if ( !IGNOREFILE(INPUTS.WRONGHOST_FILE) ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    ENVrestore(INPUTS.WRONGHOST_FILE, ORIG_FILE_README);
+    sprintf(cptr,"%s%-*s  %s ", 
+	    pad, lenkey, "WRONGHOST_FILE:", ORIG_FILE_README);
+    *iline = i;
+  }
 
   if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { return; }
 
-  dval = (double)INPUTS.HOSTLIB_MSKOPT;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_MSKOPT:", noComment, lenkey, true, 
-		    1, &dval, -9.0, 1.0E8, -9.0); // nval, min,max noprint
+  readme_docana_comment(&i, "HOSTLIB inputs");
 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  ENVrestore(INPUTS.HOSTLIB_WGTMAP_FILE, ORIG_FILE_README);
-  sprintf(cptr,"%s%-*s  %s", 
-	  pad, lenkey, "HOSTLIB_WGTMAP_FILE:", ORIG_FILE_README);
+  readme_docana_load_list(&i, pad, &README_KEYS_HOSTLIB);
 
-  ENVrestore(INPUTS.HOSTLIB_ZPHOTEFF_FILE, ORIG_FILE_README);
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s  %s", 
-	  pad, lenkey, "HOSTLIB_ZPHOTEFF_FILE:", ORIG_FILE_README);
-
-  ENVrestore(INPUTS.HOSTLIB_SPECBASIS_FILE, ORIG_FILE_README);
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s  %s", 
-	  pad, lenkey, "HOSTLIB_SPECBASIS_FILE:", ORIG_FILE_README);
-
-  ENVrestore(INPUTS.HOSTLIB_SPECDATA_FILE, ORIG_FILE_README);
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s  %s", 
-	  pad, lenkey, "HOSTLIB_SPECDATA_FILE:", ORIG_FILE_README);
-
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s  %s    # |zSN-zGAL| tolerance", 
-      pad, lenkey, "HOSTLIB_DZTOL:", INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING);
-
-  sval = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  if ( !IGNOREFILE(sval) ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%-*s  %s    # store in data files and simgen dump", 
-	    pad, lenkey, "HOSTLIB_STOREPAR:", sval );
-  }
-
-  sval = INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.STRING;
-  if ( !IGNOREFILE(sval) ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%-*s  %s    # fudge host zPhot bias vs. z",
-	    pad, lenkey, "HOSTLIB_GENZPHOT_FUDGEMAP:", sval);
-  }
-
-  // - - - - - 
-  nval = 5;
-
-  // beware that print-test is based on value of dval_list[0]
-
-  for(n=0; n<5; n++ ) 
-    { dval_list[n] = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[n]; }
-  VERSION_INFO_load(&i, pad, "HOSTLIB_GENZPHOT_FUDGEPAR:", 
-		    noComment, lenkey, false, 
-		    nval, dval_list, 0.0,10.0, 0.0); // val,min,max noprint
-
-  for(n=0; n<5; n++ ) 
-    { dval_list[n] = (double)INPUTS.HOSTLIB_GENZPHOT_BIAS[n]; }
-  VERSION_INFO_load(&i, pad, "HOSTLIB_GENZPHOT_BIAS:", 
-		    noComment, lenkey, false, 
-		    nval, dval_list, 0.0,10.0, 0.0); // val,min,max noprint
-
-
-  // - - - - - -
-  // store keys with single value
-  
-  nval = 1;
-
-  dval = (double)INPUTS.HOSTLIB_GALID_UNIQUE ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_GALID_UNIQUE:", 
-		    noComment, lenkey, true, 
-		    nval, &dval, -9.0, 1.0E20, 0.0); // val, min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_GALID_FORCE ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_GALID_FORCE:", 
-		    noComment, lenkey, true, 
-		    nval, &dval, -1.0E10, 1.0E20, -9.0); // val,min,max noprint
-
-  // now the floats ...
-
-  dval = (double)INPUTS.HOSTLIB_MAXDDLR ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_MAXDDLR:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 2000., -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_SCALE_SERSIC_SIZE:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 500.0, 1.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_SCALE_LOGMASS_ERR:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 500.0, 1.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_MINDAYSEP_SAMEGAL:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 9.0E5, -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_MNINTFLUX_SNPOS ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_MNINTFLUX_SNPOS:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 1.0E-4, 2.0, -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_MXINTFLUX_SNPOS ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_MXINTFLUX_SNPOS:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 0.98, -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_ABMAG_FORCE ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_ABMAG_FORCE:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 50.0, -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_FIXRAN_RADIUS ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_FIXRAN_RADIUS:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 500.0, -9.0); // val,min,max noprint
-
-  dval = (double)INPUTS.HOSTLIB_FIXRAN_PHI ;
-  VERSION_INFO_load(&i, pad, "HOSTLIB_FIXRAN_PHI:", 
-		    noComment, lenkey, false, 
-		    nval, &dval, 0.0, 500.0, -9.0); // val,min,max noprint
 
   // - - - - -
   *iline = i;
@@ -584,35 +488,8 @@ void readme_docana_rate(int *iline, char *pad) {
   double *dptr, dval;
   // ----------- BEGIN ------------
 
-  // rate model is tricky because 
-  // + there can be more than one DNDZ key
-  // + NMODEL_zRANGE=0 means its a Galactic model.
+  readme_docana_load_list(&i, pad, &README_KEYS_RATEMODEL);
 
-  NMODEL = INPUTS.RATEPAR.NMODEL_ZRANGE ;
-  if ( NMODEL==0 ) { NMODEL=1; } // galactic model
-  if ( NMODEL == 1 ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%s ", pad, README_KEYPLUSARGS.RATEMODEL[0] );
-  }
-  else {
-    // print DNDZ: key, followed by list of multiple args.
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%s", pad, "DNDZ:" );
-    for(m=0; m < NMODEL; m++ ) {
-      i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s- %s ", pad, &README_KEYPLUSARGS.RATEMODEL[m][7] );
-    }
-  }
-
-  // - - - -  check PEC1A model
-  NMODEL = INPUTS.RATEPAR_PEC1A.NMODEL_ZRANGE ;
-  if ( NMODEL == 1 ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%s ", pad, README_KEYPLUSARGS.RATEMODEL_PEC1A[0] );
-  }
-
-
-  // - - - - - -
   if ( INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     s = INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING;
@@ -663,20 +540,7 @@ void readme_docana_cutwin(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "APPLY_CUTWIN_OPT:", noComment,
                       lenkey, true, nval1, &dval, 0.0, 100, 0.0 );
   
-  for(icut=0; icut < NCUTWIN; icut++ ) {
-    KEY = README_KEYPLUSARGS.KEY_CUTWIN[icut] ;
-    ARG = README_KEYPLUSARGS.ARG_CUTWIN[icut] ;
-
-    if ( strcmp(KEY,KEY_LAST) != 0 ) {
-      i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s%s", pad, KEY);
-    }
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s- %s", pad, ARG);
-
-    sprintf(KEY_LAST, "%s" , KEY);
-  }
+  readme_docana_load_list(&i, pad, &README_KEYS_CUTWIN);
 
   *iline = i;
   return;
@@ -778,29 +642,21 @@ void readme_docana_misc(int *iline, char *pad) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENSOURCE:", INPUTS.GENSOURCE);
 
-  dval = (double)INPUTS.FORMAT_MASK ;
-  VERSION_INFO_load(&i, pad, "FORMAT_MASK:", 
-		    " += 2,32,16 -> TEXT, FITS, randomCID", 
-		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
-
-  // - - - -- types - - - - -
-  dval = (double)GENLC.SIMTYPE ;
-  VERSION_INFO_load(&i, pad, "GENTYPE:", "true type", 
-		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
-
-  dval_list[0] = (double)INPUTS.SNTYPE_Ia_SPEC;
-  dval_list[1] = (double)INPUTS.SNTYPE_Ia_PHOT;
-  VERSION_INFO_load(&i, pad, "SNTYPE:", "spec Type, photID type", 
-		    lenkey, true, nval2, dval_list, 0.0,2000.0, -1.0); 
-
-  // ranseed, cidoff
   dval = (double)INPUTS.ISEED ;
   VERSION_INFO_load(&i, pad, "RANSEED:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
 
-  dval = (double)INPUTS.CIDOFF ;
-  VERSION_INFO_load(&i, pad, "CIDOFF:", noComment, 
+  dval = (double)INPUTS.DEBUG_FLAG ;
+  VERSION_INFO_load(&i, pad, "DEBUG_FLAG:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+
+  readme_docana_load_list(&i, pad, &README_KEYS_RANSYSTPAR);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_ZVARIATION);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_GRIDGEN);
+
+  readme_docana_load_list(&i, pad, &README_KEYS_SIMGEN_DUMP);
 
   *iline = i;
   return;
@@ -818,22 +674,7 @@ void readme_docana_mwebv(int *iline, char *pad) {
 
   readme_docana_comment(&i, "Galactic extinction");
 
-  dval = (double)INPUTS.OPT_MWEBV;
-  VERSION_INFO_load(&i, pad, "OPT_MWEBV:", noComment, 
-		    lenkey, true, nval1, &dval, 0.0,10.0, -9.0); 
-
-  dval = (double)INPUTS.MWEBV_SIGRATIO ;
-  VERSION_INFO_load(&i, pad, "GENSIGMA_MWEBV_RATIO:",
-		    "sigma(MWEBV)/MWEBV", 
-		    lenkey, false, nval1, &dval, 0.0,10.0, -9.0); 
-
-  dval = (double)INPUTS.MWEBV_SHIFT ;
-  VERSION_INFO_load(&i, pad, "GENSHIFT_MWEBV:", noComment,
-		    lenkey, false, nval1, &dval, -5.0,5.0, 0.0); 
-
-  dval = (double)INPUTS.MWEBV_SCALE ;
-  VERSION_INFO_load(&i, pad, "GENSCALE_MWEBV:", noComment,
-		    lenkey, false, nval1, &dval, 0.0,10.0, 1.0); 
+  readme_docana_load_list(&i, pad, &README_KEYS_MWEBV);
 
   *iline = i;
   return;
@@ -885,6 +726,62 @@ void readme_docana_searcheff(int *iline, char *pad) {
 } // end readme_docana_searcheff
 
 
+void readme_docana_output(int *iline, char *pad) {
+
+  // Store GENVERSTION, FORMAT_MASK, etc ...
+
+  int i = *iline;
+  int nval1=1, nval2=2, lenkey=24 ;
+  char *cptr, noComment[]="" ;
+  double *dptr, dval, dval_list[10];
+
+  // ----------- BEGIN ------------
+
+  readme_docana_comment(&i, "Output data");
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENVERSION:", INPUTS.GENVERSION);
+
+  dval = (double)INPUTS.NGENTOT_LC ;
+  VERSION_INFO_load(&i, pad, "NGENTOT_LC:", noComment,
+		    lenkey, true, nval1, &dval, 1.0,1.0E8, 0.0); 
+
+  dval = (double)INPUTS.NGEN_SEASON ;
+  VERSION_INFO_load(&i, pad, "NGEN_SEASON:", noComment,
+		    lenkey, true, nval1, &dval, 0.0,1.0E8, 0.0); 
+
+  dval = (double)INPUTS.FORMAT_MASK ;
+  VERSION_INFO_load(&i, pad, "FORMAT_MASK:", 
+		    " += 2,32,16 -> TEXT, FITS, randomCID", 
+		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
+
+  // - - - -- types - - - - -
+  dval = (double)GENLC.SIMTYPE ;
+  VERSION_INFO_load(&i, pad, "GENTYPE:", "true type", 
+		    lenkey, true, nval1, &dval, 0.0,2000.0, -1.0); 
+
+  dval_list[0] = (double)INPUTS.SNTYPE_Ia_SPEC;
+  dval_list[1] = (double)INPUTS.SNTYPE_Ia_PHOT;
+  VERSION_INFO_load(&i, pad, "SNTYPE:", "spec Type, photID type", 
+		    lenkey, true, nval2, dval_list, 0.0,2000.0, -1.0); 
+
+  dval = (double)INPUTS.CIDOFF ;
+  VERSION_INFO_load(&i, pad, "CIDOFF:", noComment, 
+		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+
+  dval = (double)INPUTS.CIDRAN_MIN ;
+  VERSION_INFO_load(&i, pad, "CIDRAN_MIN:", noComment, 
+		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+
+  dval = (double)INPUTS.CIDRAN_MAX ;
+  VERSION_INFO_load(&i, pad, "CIDRAN_MAX:", noComment, 
+		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+ 
+  *iline = i;
+  return;
+
+} // end readme_docana_output
+
 void readme_docana_template(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
@@ -897,6 +794,64 @@ void readme_docana_template(int *iline, char *pad) {
   return;
 
 } // end readme_docana_template
+
+void  readme_docana_load_list(int *iline, char *pad,
+                              README_KEYPLUSARGS_DEF *README_KEYS) {
+
+  // Created Dec 2021
+  // Load list of NKEY keys. If KEY is unique, write it as
+  //   KEY ARG
+  // If there are duplicate keys, write them as
+  //   KEY
+  //   - ARG0
+  //   - ARG1
+  //   etc ...
+  // Each KEY_LIST item is assumed to include a colon.
+  // Beware that duplidates are assumed to be sequential in the list.
+  // Non-sequential duplicates will both be written as "KEY ARG".
+  // 
+
+  int i = *iline;
+  int NKEY = README_KEYS->NKEY;
+  int k, lenkey=24 ;
+  bool NEW, UNIQUE;
+  char *KEY, *ARG, *KEY_NEXT, KEY_LAST[100] = "", *cptr ;
+
+  // ------------- BEGIN -------------
+
+  for(k=0; k < NKEY; k++ ) {
+    KEY = README_KEYS->KEY_LIST[k]; 
+    ARG = README_KEYS->ARG_LIST[k];
+    NEW = (strcmp(KEY,KEY_LAST) != 0) ; // it's a new key
+
+    if ( k < NKEY-1 ) {
+      KEY_NEXT = README_KEYS->KEY_LIST[k+1];
+      UNIQUE = NEW && (strcmp(KEY,KEY_NEXT) != 0 ); 
+    }
+    else
+      { UNIQUE = NEW; } 
+
+    if ( NEW && UNIQUE ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"%s%-*s %s", pad, lenkey, KEY, ARG); // write "KEY ARG"
+    }
+    else if ( NEW ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"%s%-*s", pad, lenkey, KEY); // write "KEY"
+    }
+
+    if ( !UNIQUE ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"%s- %s", pad, ARG); // write "- ARG"
+    }
+
+    sprintf(KEY_LAST,"%s", KEY);
+  }
+
+  *iline = i;
+  return;
+
+} // end readme_docana_load_list
 
 
 void readme_docana_load_asymGauss(int *iline, char *pad,
@@ -1074,6 +1029,58 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName,  char *comment,
   return ;
 } // end VERSION_INFO_load
 
+// =============================================================
+void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
+			     README_KEYPLUSARGS_DEF *README_KEYS,
+			     char *callFun ) {
+
+  // Store NWD WORDS in README_KEYS strut.
+  // Inputs:
+  //   MXKEY : max number of keys to store
+  //   NWD   : number of words past 
+  //   WORDS : list of words;  KEY=WORDS[0], ARGS=WORDS[1:N]
+  //   callFun: calling function, for error message
+  //
+  // Output:
+  //   README_KEYS : structure to load
+  //
+
+  int NKEY = README_KEYS->NKEY;
+  int MEMC1 = MXKEY * sizeof(char*);
+  int MEMC0 = 100   * sizeof(char);
+  int iwd;
+  char *KEY, *ARG;
+  // ------------ BEGIN ----------
+
+  if ( NKEY == 0 ) {
+    // allocate pointer for all MXKEY possible keys
+    README_KEYS->KEY_LIST = (char**) malloc(MEMC1);
+    README_KEYS->ARG_LIST = (char**) malloc(MEMC1);
+  }
+
+  // allodate way more memory for SIMGEN_DUMP
+  if ( strstr(WORDS[0],"SIMGEN_DUMP") != NULL ) 
+    { MEMC0 = 1000   * sizeof(char);  }
+
+  // allocate 100 chars for this key
+  README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC0);
+  README_KEYS->ARG_LIST[NKEY] = (char*) malloc(MEMC0);
+
+  KEY = README_KEYS->KEY_LIST[NKEY];  KEY[0]=0;
+  ARG = README_KEYS->ARG_LIST[NKEY];  ARG[0]=0;
+
+  sprintf(KEY, "%s", WORDS[0]);
+
+  // load args
+  for(iwd=1; iwd<=NWD; iwd++ ) 
+    { strcat(ARG,WORDS[iwd]); strcat(ARG," ");  }
+
+  // increment number of stored keys in this structure.
+  README_KEYS->NKEY++ ;
+
+  return;
+
+} // README_KEYPLUSARGS_load
 
 
 
@@ -2523,6 +2530,7 @@ void  readme_doc_magSmear(int *iline) {
   sprintf(cptr,"   Model 4: intrinsic scatter matrix is %s \n", 
 	  conoff[onoff] );
 
+  /* xxx mark delete 
   char *ptrScat; 
   for ( j=0; j < 8; j++ ) {
     ptrScat = README_KEYPLUSARGS.COVMAT_SCATTER[j] ;
@@ -2531,7 +2539,7 @@ void  readme_doc_magSmear(int *iline) {
       sprintf(cptr,"%s\n", ptrScat ); 
     }
   }
-
+  xxxxxxxx */
   
   // model 5: SMEAR_USRFUN
   if ( INPUTS.NPAR_GENSMEAR_USRFUN > 0 )  { onoff=1;} else { onoff=0;}

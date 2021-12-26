@@ -1549,7 +1549,6 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
     INODE = INODE_LAMBDA(lam, GENSMEAR_SALT2.NNODE, GENSMEAR_SALT2.LAM_NODE);
     if ( INODE < 0 || INODE >= GENSMEAR_SALT2.NNODE ) {      
-      // .xyz
       print_preAbort_banner(fnam);
       printf("  MINLAM / MAXLAM = %.2f / %.2f \n", MINLAM, MAXLAM);
       printf("  ilam = %d of %d \n", ilam, NLam);
@@ -3644,7 +3643,6 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
   // to store parameter values.
 
   int N, i ;
-  char *R     = GENMAG_SMEARPAR_OVERRIDE[NSMEARPAR_OVERRIDE].README ;
   char cval[20];
   char fnam[] = "store_genSmear_override" ;
 
@@ -3663,15 +3661,8 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
 
   printf("\t %s : store %2d values for '%s' \n", fnam, NVAL, parName);
   fflush(stdout);
-
-  // note that readme includes only the args, not the key,
-  // because the same key can appear multiple times.
-  sprintf(R,"%s  ", parName); 
-  for(i=0 ; i < NVAL; i++ ) {
-    GENMAG_SMEARPAR_OVERRIDE[N].VALUE[i] = tmpList[i] ;
-    sprintf(cval,"%.3f  ", tmpList[i]);    strcat(R,cval); // store README
-  }
-
+  for(i=0 ; i < NVAL; i++ ) 
+    { GENMAG_SMEARPAR_OVERRIDE[N].VALUE[i] = tmpList[i] ; }
   NSMEARPAR_OVERRIDE++ ;
 
   return;

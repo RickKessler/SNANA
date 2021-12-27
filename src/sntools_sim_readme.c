@@ -61,10 +61,8 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_KEYS_LCLIB.NKEY             = 0 ;
     README_KEYS_FILTER.NKEY            = 0 ; // keys with _FILTER
     README_KEYS_FLUXERRMODEL.NKEY      = 0 ;
-
     README_KEYS_GENMAG_OFF.NKEY        = 0 ;
     README_KEYS_GENMAG_SMEAR.NKEY      = 0 ;
-
     README_KEYS_TAKE_SPECTRUM.NKEY     = 0 ;
     README_KEYS_RANSYSTPAR.NKEY        = 0 ;
     README_KEYS_ZVARIATION.NKEY        = 0 ;
@@ -88,9 +86,10 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 
     README_DOCANA_OVERVIEW(&i);
     README_DOCANA_INPUT_KEYS(&i);
+    README_DOCANA_INPUT_NOTES(&i);
   }
   else {
-    README_DOCANA_NOTES(&i);
+    README_DOCANA_OUTPUT_NOTES(&i);
 
     i++; 
     sprintf(VERSION_INFO.README_DOC[i],"%s",KEYNAME2_DOCANA_REQUIRED); 
@@ -167,7 +166,7 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
   readme_docana_comment(&i, "");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  INPUT_KEYS:");
+  sprintf(cptr,"  %s:", DOCANA_INPUT_KEYS);
 
   // output genversion, format, nevt ...
   readme_docana_output(&i, pad);
@@ -209,14 +208,137 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
   return;
 } // end README_DOCANA_INPUT_KEYS
 
-void README_DOCANA_NOTES(int *iline) {
-  int i = *iline;
+void README_DOCANA_INPUT_NOTES(int *iline) {
+  int  OVP, j, i = *iline;
+  char *cptr, *onoff, pad[] = "  ", dash[]="  -";
+
   // ----------- BEGIN ------------
 
+  readme_docana_comment(&i, "");
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s%s:", pad, DOCANA_INPUT_NOTES );  
 
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  onoff = onoff_readme_docana(INPUTS.SMEARFLAG_FLUX);
+  sprintf(cptr, "%s Poisson noise is %s ", dash, onoff);
+
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s Reported flux-uncertainty includes ", dash ); 
+  OVP = (INPUTS.SMEARFLAG_FLUX & 2);
+  if ( OVP == 0 ) 
+    { strcat(cptr,"SKY+GALAXY+SOURCE"); }
+  else
+    { strcat(cptr,"SKY only"); } 
+  
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_IMAGE ; 
+  onoff = onoff_readme_docana(OVP);
+  sprintf(cptr, "%s SB-dependent flux scatter is %s",dash, onoff);
+
+  for ( j=0; j < NLINE_RATE_INFO; j++ ) {
+     i++; cptr = VERSION_INFO.README_DOC[i] ;
+     sprintf(cptr,"%s %s", dash, LINE_RATE_INFO[j] );
+  }
+
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s H0 = %6.2f km/s/Mpc ", dash, INPUTS.H0 );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s Omega_{M,L} = %6.3f, %.3f     w0,wa = %5.2f,%5.3f",
+	  dash, INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
+	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s %s ", dash, COMMENT_README_TRIGGER);
+
+ 
   *iline = i;
   return;
-} // end README_DOCANA_NOTES
+} // end README_DOCANA_INPUT_NOTES
+
+
+// ========================================
+void README_DOCANA_OUTPUT_NOTES(int *iline) {
+  int  OVP, j, i = *iline;
+  char *cptr, *onoff, pad[] = "    ", dash[]="    -";
+
+  readme_docana_comment(&i, "");
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  %s:", DOCANA_OUTPUT_NOTES );  
+
+  // first and last random number per random list
+  int ilist;
+  sumstat_RANLISTs(2);
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sRANDOM_SYNC: ", pad);
+  for ( ilist=1; ilist <= GENRAN_INFO.NLIST_RAN; ilist++ ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s List=%d  FIRST=%f  LAST=%f   "
+	    "AVG(wrap) = %.1f +_ %.1f ", 
+	    dash, ilist, 
+	    GENRAN_INFO.RANFIRST[ilist], GENRAN_INFO.RANLAST[ilist],
+	    GENRAN_INFO.NWRAP_AVG[ilist], GENRAN_INFO.NWRAP_RMS[ilist]	);
+  }
+
+  readme_docana_comment(&i, "");
+
+  // ---- statistics
+  double t_gen, R_gen=0.0, R_write=0.0 ;
+
+  t_gen   = (TIMERS.t_end - TIMERS.t_end_init); // total time after init
+  
+  if ( t_gen > 0.0 ) {
+    R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
+    R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
+  }
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sCPU_MINUTES:    %.1f  ",  pad, t_gen/60.);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNGENLC_TOT:     %d    # (%.f/sec)", 
+	  pad, NGENLC_TOT, R_gen );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNGENLC_WRITE:   %d    # (%.f/sec)", 
+	  pad, NGENLC_WRITE, R_write );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNGENSPEC_WRITE: %d  ", 
+	  pad, NGENSPEC_WRITE );
+
+  /*
+  // spectroscopic tags ; do we still need this ???
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  Spectroscopic-type: %d -> %d (before -> after cuts)\n",
+	  GENLC.NTYPE_SPEC, GENLC.NTYPE_SPEC_CUTS);
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  Photometric-type:   %d -> %d (before -> after cuts)\n",
+	  GENLC.NTYPE_PHOT, GENLC.NTYPE_PHOT_CUTS);
+  */
+
+  //.xyz
+  *iline = i;
+  return;
+
+} // end README_DOCANA_OUTPUT_NOTES
+
+
+// ========================================
+char *onoff_readme_docana(int FLAG) {
+  char STR_ON[] = "ON";
+  char STR_OFF[] = "OFF";
+  char *STR;
+  if ( FLAG == 0 )     { STR = STR_OFF ; }
+  else                 { STR = STR_ON ; }    
+  return STR;
+
+} // end onoff_readme_docana
 
 
 void readme_docana_comment(int *iline, char *comment) {
@@ -245,10 +367,6 @@ void readme_docana_genmodel(int *iline, char *pad) {
   readme_docana_load_list(&i, pad, &README_KEYS_SIMSED);
 
   readme_docana_load_list(&i, pad, &README_KEYS_LCLIB);
-
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s%-*s %s ",  pad,lenkey,
-	  "GENMAG_SMEAR_MODELNAME:", INPUTS.GENMAG_SMEAR_MODELNAME);
 
   dval = (double)INPUTS.GENMAG_OFF_GLOBAL ;
   VERSION_INFO_load(&i, pad, "GENMAG_OFF_GLOBAL:", noComment,
@@ -445,7 +563,9 @@ void readme_docana_modelPar(int *iline, char *pad) {
   // load population params for stretch, color, alpha, beta ...
 
   int i = *iline;
-  char *cptr, *s;
+  char *cptr, *s, noComment[]="" ;
+  int nval1=1, nval2=2, lenkey=24;
+  double *dptr, dval_list[10];
 
   // ----------- BEGIN ------------
 
@@ -473,6 +593,9 @@ void readme_docana_modelPar(int *iline, char *pad) {
   readme_docana_load_expHalfGauss(&i, pad, &INPUTS.GENPROFILE_EBV_HOST);
   readme_docana_load_asymGauss   (&i, pad, &INPUTS.GENGAUSS_RV );
 
+  dptr = INPUTS.BIASCOR_SALT2GAMMA_GRID ;
+  VERSION_INFO_load(&i, pad, "BIASCOR_SALT2GAMMA_GRID:", noComment,
+		    lenkey, false, nval2, dptr, -1.0,1.0, 9.0); 
 
   *iline = i;
   return;
@@ -1048,7 +1171,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   int NKEY = README_KEYS->NKEY;
   int MEMC1 = MXKEY * sizeof(char*);
   int MEMC0 = 100   * sizeof(char);
-  int iwd;
+  int iwd, lenkey;
   char *KEY, *ARG;
   // ------------ BEGIN ----------
 
@@ -1070,6 +1193,13 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   ARG = README_KEYS->ARG_LIST[NKEY];  ARG[0]=0;
 
   sprintf(KEY, "%s", WORDS[0]);
+
+  // if there is no colon after key, add it to work for command-line
+  // overrides that have no colon
+  if ( strchr(KEY,':') == NULL ) {
+    lenkey = strlen(KEY);
+    KEY[lenkey] = ':'  ;
+  }
 
   // load args
   for(iwd=1; iwd<=NWD; iwd++ ) 

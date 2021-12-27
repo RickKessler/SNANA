@@ -367,7 +367,14 @@ def extract_sim_input_file(args):
         docana_yaml = yaml.safe_load(r)
 
     nkey_write = 0
-    INPUT_KEYS = docana_yaml['DOCUMENTATION']['INPUT_KEYS']
+    key = 'INPUT_KEYS'
+    DOCANA = docana_yaml['DOCUMENTATION']
+    if key in DOCANA:
+        INPUT_KEYS = DOCANA[key]
+    else:
+        msgerr = f"\n ERROR: could not find {key} key in \n {sim_input_file} "
+        assert False, msgerr 
+
     with open(sim_input_file,"wt") as f :
         for key, val_orig in INPUT_KEYS.items() :
             key_plus_colon = key + ':'

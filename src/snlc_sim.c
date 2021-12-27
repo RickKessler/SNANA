@@ -1962,7 +1962,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   // - - - - Galactic extinction - - - - -
   else if ( ISKEY_MWEBV ) {
-    parse_input_MWEBV(WORDS, keySource);
+    N += parse_input_MWEBV(WORDS, keySource);
   }
 
   // - - - - host extinction color law model for host- - - -
@@ -3928,7 +3928,6 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
  README_LOAD:
   if ( N > 0 ) {
-    printf(" xxx %s: N=%d  %s \n", fnam, N, WORDS[0] );
     README_KEYPLUSARGS_load(10, N, WORDS, 
     			    &README_KEYS_SIMGEN_DUMP, fnam) ;
   }
@@ -3954,6 +3953,7 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "OPT_MWEBV", WORDS[0],keySource) ) {
     N++; sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.OPT_MWEBV = abs(ITMP);
+
     if ( ITMP < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
     if ( ITMP== 0 ) { INPUTS.APPLYFLAG_MWEBV=0; } // turn off with override
 
@@ -3991,12 +3991,13 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
     N++; sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MWEBV[1] ) ;
   }
 
+
   if ( N > 0 ) {
     README_KEYPLUSARGS_load(20, N, WORDS, 
 			    &README_KEYS_MWEBV, fnam) ;
   }
 
-  return N;
+  return(N);
 
 } // end parse_input_MWEBV
 
@@ -7343,36 +7344,38 @@ void init_DNDZ_Rate(void) {
 
   i = -1 ;
 
-  i++; sprintf(LINE_RATE_INFO[i], 
-	       "\n *********************************** " );
+  if ( INPUTS.DEBUG_FLAG != 1222 ) {
+    i++; sprintf(LINE_RATE_INFO[i], 
+		 "\n *********************************** " );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	       "   SIMULATED VOLUME, TIME, RATE(%s)", 
-	       INPUTS.RATEPAR.NAME );
+    i++; sprintf(LINE_RATE_INFO[i],
+		 " SIMULATED VOLUME, TIME, RATE(%s)", 
+		 INPUTS.RATEPAR.NAME );
 
-  i++; sprintf(LINE_RATE_INFO[i], 
-	 "\t Survey dOmega  = %8.4e steradians  (%8.5f PI) ", 
-	 dOmega, 2.0*dOmega/TWOPI );
+    i++; sprintf(LINE_RATE_INFO[i], 
+		 "\t Survey dOmega  = %8.4e steradians  (%8.5f PI) ", 
+		 dOmega, 2.0*dOmega/TWOPI );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Redshift range = %7.4f - %7.4f", Z0, Z1 );
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t Redshift range = %7.4f - %7.4f", Z0, Z1 );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t <redsfhit>     = %7.4f  (volume-weighted) ", Z_AVG ) ;
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t <redsfhit>     = %7.4f  (volume-weighted) ", Z_AVG ) ;
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, cH0 );
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, cH0 );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Survey Time    = %7.4f  years/season ", Tyear );
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t Survey Time    = %7.4f  years/season ", Tyear );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Co-moving Time = %7.4f  years/season  [ T/(1+<z>) ] ", 
-	       Tcomoving );
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t Co-moving Time = %7.4f  years/season  [ T/(1+<z>) ] ", 
+		 Tcomoving );
 
-  i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", VT, cH0 );
-
+    i++; sprintf(LINE_RATE_INFO[i],
+		 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", 
+		 VT, cH0 );
+  } // end DEBUG FLAG != 1222
 
   int  DNDZFLAG = 0;
   char ctmp_z[80], ctmp[100], ctmp_pec1a[80], *NAME;
@@ -7406,7 +7409,7 @@ void init_DNDZ_Rate(void) {
   if ( IMODEL_AB ) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t A+B MODEL: A(delayed) = %7.2e    B(prompt) = %7.2e", 
+		 " A+B RATE MODEL: A(delayed) = %7.2e    B(prompt) = %7.2e", 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][0], 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][1] );
   }
@@ -7421,17 +7424,17 @@ void init_DNDZ_Rate(void) {
 	      INPUTS.RATEPAR.MODEL_ZRANGE[iz][1] );
 
       i++; sprintf(LINE_RATE_INFO[i],
-		   "\t POWERLAW MODEL:  %s  (%s) ", ctmp, ctmp_z );
+		   " POWERLAW RATE MODEL:  %s  (%s) ", ctmp, ctmp_z );
     }
   }
   else if ( IMODEL_ZPOLY ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i],"\t dN/dz = ZPOLY(%s)", 
+    sprintf(LINE_RATE_INFO[i]," dN/dz = ZPOLY(%s)", 
 	    INPUTS.RATEPAR.MODEL_ZPOLY.STRING) ;    
   }
   else if ( IMODEL_FLAT ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i], "\t dN/dz = FLAT  ~  (MJDrage * dOmega) ");  
+    sprintf(LINE_RATE_INFO[i], " dN/dz = FLAT  ~  (MJDrage * dOmega) ");  
 
     // Oct 22 2015
     // there is no rate for FLAT option, so make up SNsum so that
@@ -7440,28 +7443,28 @@ void init_DNDZ_Rate(void) {
   }
   else if ( IMODEL_HUBBLE ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i], "\t dN/dz = constant/volume (HUBBLE)  ");  
+    sprintf(LINE_RATE_INFO[i], " dN/dz = constant/volume (HUBBLE)  ");  
   }
   else if ( IMODEL_CCS15 ) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t dN/dz from %4.2f x Strolger15(CANDELS): ", 
+		 " dN/dz from %4.2f x Strolger15(CANDELS): ", 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] );
   }
   else if ( IMODEL_PISN ) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t dN/dz from PISN: " );
+		 " dN/dz from PISN: " );
   }
   else if ( IMODEL_TDE ) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t dN/dz from TDE: " );
+		 " dN/dz from TDE: " );
   }
   else if ( IMODEL_MD14 ) {
     DNDZFLAG = 1;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t dN/dz = SFR(MD14,rV=%9.2le):  ", 
+		 " dN/dz = SFR(MD14,rV=%9.2le):  ", 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] ) ;
     
   }
@@ -7498,7 +7501,7 @@ void init_DNDZ_Rate(void) {
       rtmp  = rtmp1 + rtmp2 ;
       FRAC_PEC1A = rtmp2/rtmp ;
       if ( rtmp2 > 0.0 ) { sprintf(ctmp_pec1a,"(%.3f PEC1a)", FRAC_PEC1A); }
-      sprintf(ctmp_z,"\t    MODEL-RATE(z=%4.2f) = %8.3e/Mpc^3/yr   %s ", 
+      sprintf(ctmp_z,"    MODEL-RATE(z=%4.2f) = %8.3e/Mpc^3/yr   %s ", 
 	      ztmp, rtmp, ctmp_pec1a );
       i++; sprintf(LINE_RATE_INFO[i],"%s", ctmp_z);
       ztmp += 0.2 ;
@@ -7526,7 +7529,7 @@ void init_DNDZ_Rate(void) {
       { sprintf(cnum,"%10.3le", TOTsum) ; }
 
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Calculated Number of EVENTS per season = %s ", cnum );
+		 " Calculated Number of EVENTS per season = %s ", cnum );
     if ( FRAC_PEC1A > 0.0 ) {
       sprintf(LINE_RATE_INFO[i],"%s  (%.3f PEC1A)",
 	      LINE_RATE_INFO[i], FRAC_PEC1A ) ;
@@ -7561,7 +7564,6 @@ void init_DNDZ_Rate(void) {
   i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
-
 
   return ;
 

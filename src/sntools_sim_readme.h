@@ -45,7 +45,8 @@ README_KEYPLUSARGS_DEF README_KEYS_SIMGEN_DUMP ;
 void  README_DOCANA_DRIVER(int iflag_readme);
 void  README_DOCANA_OVERVIEW(int *iline);
 void  README_DOCANA_INPUT_KEYS(int *iline);
-void  README_DOCANA_NOTES(int *iline);
+void  README_DOCANA_INPUT_NOTES(int *iline);
+void  README_DOCANA_OUTPUT_NOTES(int *iline);
 
 void  readme_docana_output(int *iline, char *pad); 
 void  readme_docana_genmodel(int *iline, char *pad);
@@ -59,6 +60,8 @@ void  readme_docana_cutwin(int *iline, char *pad) ;
 void  readme_docana_searcheff(int *iline, char *pad);
 void  readme_docana_mwebv(int *iline, char *pad);
 void  readme_docana_misc(int *iline, char *pad);
+
+char *onoff_readme_docana(int FLAG);
 
 void  readme_docana_comment(int *iline, char *comment); // write # <comment> 
 

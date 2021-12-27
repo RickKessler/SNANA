@@ -101,7 +101,9 @@ FORMAT_FITS = "FITS"
 RANSEED_MAX = 1000000000   # 1 billion
 
 KEY_NGENTOT    = "NGENTOT_LC"
-    
+
+NGENTOT_CHECK_ABORT = 300
+
 # - - - - - - - - - - - - - - - - - - -     -
 class Simulation(Program):
     def __init__(self, config_yaml) :
@@ -1548,7 +1550,7 @@ class Simulation(Program):
         infile       = infile_list2d[iver][ifile]
         model        = model_list2d[iver][ifile]
         ngentot      = ngentot_list2d[iver][ifile]
-        if check_abort: ngentot = 100              # Oct 12 2021
+        if check_abort: ngentot = NGENTOT_CHECK_ABORT
         Nsec         = seconds_since_midnight
 
         split_string = (f"{isplit1:04d}")          # e.g., 0010

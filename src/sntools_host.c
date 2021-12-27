@@ -2479,6 +2479,11 @@ void read_gal_HOSTLIB(FILE *fp) {
 
       read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD, NBR_LIST ); 
 
+      if ( (HOSTLIB.NGAL_READ % 200000)==0  ) {
+	printf("\t Finished reading %d GAL rows\n", HOSTLIB.NGAL_READ);
+	fflush(stdout);
+      }
+
       if ( HOSTLIB.NGAL_READ > INPUTS.HOSTLIB_MAXREAD ) 
 	{ goto DONE_RDGAL ; } 
 

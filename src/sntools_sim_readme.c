@@ -1232,8 +1232,8 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
 
   int NKEY = README_KEYS->NKEY;
   int MEMC1 = MXKEY * sizeof(char*);
-  int MEMC0 = 100   * sizeof(char);
-  int iwd, lenkey;
+  int MEMC0;
+  int iwd, lenkey, LENWORDS_SUM=0 ;
   char *KEY, *ARG;
   // ------------ BEGIN ----------
 
@@ -1243,9 +1243,10 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
     README_KEYS->ARG_LIST = (char**) malloc(MEMC1);
   }
 
-  // allodate way more memory for SIMGEN_DUMP
-  if ( strstr(WORDS[0],"SIMGEN_DUMP") != NULL ) 
-    { MEMC0 = 1000   * sizeof(char);  }
+  // compute lenth of string needed to store the WORDS
+  for(iwd=1; iwd<=NWD; iwd++ )  { LENWORDS_SUM += strlen(WORDS[iwd]) ; } 
+
+  MEMC0 = ( LENWORDS_SUM + NWD + 10 ) * sizeof(char);
 
   // allocate 100 chars for this key
   README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC0);
@@ -1264,8 +1265,9 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   }
 
   // load args
+  char BLANK[] = " ";
   for(iwd=1; iwd<=NWD; iwd++ ) 
-    { strcat(ARG,WORDS[iwd]); strcat(ARG," ");  }
+    { strcat(ARG,WORDS[iwd]); strcat(ARG,BLANK);  }
 
   // increment number of stored keys in this structure.
   README_KEYS->NKEY++ ;

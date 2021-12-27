@@ -25,15 +25,15 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   // Complete refactor for output README.
   // Replace casual comments with yaml-compliant format
   // under DOCUMENTATION block in several parts:
-  // 1. OVERVIEW       # survey, model, host, user ...
-  // 2. INPUTS_KEYS    # summarize all user input keys
-  // 3. INPUTS_NOTES   # compute rates, etc ...
-  // 4. OUTPUT_NOTES   # stats, cpu time ...
+  // 1. OVERVIEW        # survey, model, host, user ...
+  // 2. INPUTS_KEYS     # summarize all user input keys
+  // 3. INPUTS_NOTES    # compute rates, etc ...
+  // 4. OUTPUT_SUMMARY  # stats, cpu time ...
   //
   // Input arg:
   //   iflag_readme = 0 => one-time init 
   //   iflag_readme = 1 => write first 3 parts
-  //   iflag_readme = 2 => write OUTPUT_NOTES
+  //   iflag_readme = 2 => write OUTPUT_SUMMARY
   //
   // The iflag_readme scheme enables viewing most of the README
   // while job is running; e.g., can check INPUT_KEYS before 
@@ -89,7 +89,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     README_DOCANA_INPUT_NOTES(&i);
   }
   else {
-    README_DOCANA_OUTPUT_NOTES(&i);
+    README_DOCANA_OUTPUT_SUMMARY(&i);
 
     i++; 
     sprintf(VERSION_INFO.README_DOC[i],"%s",KEYNAME2_DOCANA_REQUIRED); 
@@ -253,8 +253,25 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s %s ", dash, COMMENT_README_TRIGGER);
+  sprintf(cptr,"%s %s ", dash, COMMENT_README_SEARCHEFF);
 
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s PIPELINE requires %d detections among %s "
+	  "(MJD dif > %.4f days) ", 
+	  dash, SEARCHEFF_LOGIC.NMJD, SEARCHEFF_LOGIC.INPUT_STRING,
+	  INPUTS.NEWMJD_DIF);
+
+
+  // write warning for option to read entire SIMLIB once and not rewind.
+  int  MSKOPT = SIMLIB_MSKOPT_QUIT_NOREWIND;
+  bool QUIT_NOREWIND=( (INPUTS.SIMLIB_MSKOPT & MSKOPT)>0 );
+  
+  if ( QUIT_NOREWIND ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,
+	    "%s WARNING: STOP GENERATION AFTER ONE PASS THRU SIMLIB "
+	    "(MSKOPT+=%d)",  dash, MSKOPT);
+  }
  
   *iline = i;
   return;
@@ -262,14 +279,17 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 
 
 // ========================================
-void README_DOCANA_OUTPUT_NOTES(int *iline) {
+void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   int  OVP, j, i = *iline;
   char *cptr, *onoff, pad[] = "    ", dash[]="    -";
+  double XN, XNERR;
+  double NGEN_PER_SEASON=0.0, NACC_PER_SEASON=0.0, NACCERR_PER_SEASON=0.0;
+  // ------------- BEGIN ------------
 
   readme_docana_comment(&i, "");
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  %s:", DOCANA_OUTPUT_NOTES );  
+  sprintf(cptr,"  %s:", DOCANA_OUTPUT_SUMMARY );  
 
   // first and last random number per random list
   int ilist;
@@ -298,19 +318,57 @@ void README_DOCANA_OUTPUT_NOTES(int *iline) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sCPU_MINUTES:    %.1f  ",  pad, t_gen/60.);
+  sprintf(cptr,"%sCPU_MINUTES:       %.1f  ",  pad, t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_TOT:     %d    # (%.f/sec)", 
+  sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
 	  pad, NGENLC_TOT, R_gen );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENLC_WRITE:   %d    # (%.f/sec)", 
+  sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
 	  pad, NGENLC_WRITE, R_write );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sNGENSPEC_WRITE: %d  ", 
+  sprintf(cptr,"%sNGENSPEC_WRITE:    %d  ", 
 	  pad, NGENSPEC_WRITE );
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sEFF(SEARCH+CUTS): %7.4f +- %7.4f", 
+	  pad, GENLC.GENEFF, GENLC.GENEFFERR);
+
+
+  // --- number of events per season: calc and accepted
+  if ( NLINE_RATE_INFO > 0 ) {
+    NGEN_PER_SEASON =  
+      INPUTS.RATEPAR.SEASON_COUNT + INPUTS.RATEPAR_PEC1A.SEASON_COUNT ;
+
+    NACC_PER_SEASON   = NGEN_PER_SEASON * GENLC.GENEFF ;
+    if ( NGENLC_WRITE > 0 ) 
+      { NACCERR_PER_SEASON = NACC_PER_SEASON/sqrt((double)NGENLC_WRITE); }   
+  
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNGEN_PER_SEASON:   %.0f       "
+	    "# NSN(GEN) in GENRANGE(z,MJD,dOmega)", pad, NGEN_PER_SEASON );
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNACC_PER_SEASON:   %.0f +_ %.0f  "
+	    "# NSN(ACCEPT) after trigger+cuts", 
+	    pad, NACC_PER_SEASON, NACCERR_PER_SEASON);
+  }
+
+  // - - - - - 
+  // Reject stats
+
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sNREJECT:  [%d,%d,%d,  %d,%d]   "
+	  "# [NEP<%d,GENRANGE,PEAKMAG,  SEARCHEFF,CUTWIN] ", pad,
+	  NGEN_REJECT.NEPOCH, 
+	  NGEN_REJECT.GENRANGE,
+	  NGEN_REJECT.GENMAG,
+	  NGEN_REJECT.SEARCHEFF,
+	  NGEN_REJECT.CUTWIN,
+	  (int)INPUTS.CUTWIN_NEPOCH[0] ) ;
 
   /*
   // spectroscopic tags ; do we still need this ???
@@ -326,7 +384,7 @@ void README_DOCANA_OUTPUT_NOTES(int *iline) {
   *iline = i;
   return;
 
-} // end README_DOCANA_OUTPUT_NOTES
+} // end README_DOCANA_OUTPUT_SUMMARY
 
 
 // ========================================
@@ -772,6 +830,10 @@ void readme_docana_misc(int *iline, char *pad) {
   dval = (double)INPUTS.DEBUG_FLAG ;
   VERSION_INFO_load(&i, pad, "DEBUG_FLAG:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
+
+  dptr = INPUTS.GENRANGE_PEAKMAG;
+  VERSION_INFO_load(&i, pad, "GENRANGE_PEAKMAG:", noComment, 
+		    lenkey, false, nval2,dptr, 0.0,40.0, -999.0); 
 
   readme_docana_load_list(&i, pad, &README_KEYS_RANSYSTPAR);
 
@@ -1255,56 +1317,56 @@ void readme_doc_legacy(int iflag_readme) {
   //--- brief description
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
+  sprintf(cptr,"%s ", KEYNAME_DOCANA_REQUIRED ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  SURVEY:       %s\n",  GENLC.SURVEY_NAME);
+  sprintf(cptr,"  SURVEY:       %s",  GENLC.SURVEY_NAME);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  GENMODEL:     %s \n", INPUTS.MODELNAME);
+  sprintf(cptr,"  GENMODEL:     %s ", INPUTS.MODELNAME);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  HOST_MACHINE: %s \n", getenv("HOST") );
+  sprintf(cptr,"  HOST_MACHINE: %s ", getenv("HOST") );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf( cptr, "  USERNAME:  %s \n", getenv("USER") );
+  sprintf( cptr, "  USERNAME:  %s ", getenv("USER") );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  SNDATA_ROOT:  %s \n", PATH_SNDATA_ROOT );
+  sprintf(cptr,"  SNDATA_ROOT:  %s ", PATH_SNDATA_ROOT );
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  SNANA_DIR:     %s \n", PATH_SNANA_DIR );
+  sprintf(cptr,"  SNANA_DIR:     %s ", PATH_SNANA_DIR );
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT );
+  sprintf(cptr,"  SNANA_VERSION: %s ", SNANA_VERSION_CURRENT );
 
   // write current directory (Sep 5 2013)
   if ( getcwd(cwd,MXPATHLEN) != NULL ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"  CWD:   %s \n", cwd );
+    sprintf(cptr,"  CWD:   %s ", cwd );
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s \n", KEYNAME2_DOCANA_REQUIRED ); 
+  sprintf(cptr,"%s ", KEYNAME2_DOCANA_REQUIRED ); 
 
   // indicate changes if "GENPERFECT" is requested.
   readme_doc_GENPERFECT(&i);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n LEGACY_DESCRIPTION: \n" ); 
+  sprintf(cptr,"\n LEGACY_DESCRIPTION: " ); 
 
   readme_doc_SIMLIB(&i);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Generation VERSION: %s \n", INPUTS.GENVERSION ); 
+  sprintf(cptr,"\t Generation VERSION: %s ", INPUTS.GENVERSION ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Generation source : %s \n", INPUTS.GENSOURCE ); 
+  sprintf(cptr,"\t Generation source : %s ", INPUTS.GENSOURCE ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Generation FILTERS: %s \n", INPUTS.GENFILTERS ); 
+  sprintf(cptr,"\t Generation FILTERS: %s ", INPUTS.GENFILTERS ); 
 
   if ( GENFRAME_OPT == GENFRAME_REST ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Rest-frame FILTERS: %s  for  model=%s\n", 
+    sprintf(cptr,"\t Rest-frame FILTERS: %s  for  model=%s", 
 	    GENLC.FILTLIST_REST, INPUTS.MODELNAME );
 
   }
@@ -1315,51 +1377,51 @@ void readme_doc_legacy(int iflag_readme) {
 
   NON1A_non1a = ( INDEX_GENMODEL == MODEL_NON1ASED ) ;
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t KCOR lookup tables: %s \n", INPUTS.KCOR_FILE ); 
+  sprintf(cptr,"\t KCOR lookup tables: %s ", INPUTS.KCOR_FILE ); 
     
 
   if ( GENFRAME_OPT == GENFRAME_REST ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t KCOR lookup  time : Trest" );
-    strcat ( cptr, "\n" );
+    strcat ( cptr, " " );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t AVwarp option for SED : color from " );
     if ( INPUTS.KCORFLAG_COLOR == 1 ) 
-      { strcat ( cptr, "closest passbands \n" ); }
+      { strcat ( cptr, "closest passbands " ); }
     else if ( INPUTS.KCORFLAG_COLOR == 2 ) 
-      { strcat ( cptr, "Jha table \n" ); }
+      { strcat ( cptr, "Jha table " ); }
     else
-      { strcat ( cptr, "UNKNOWN\n" ); }
+      { strcat ( cptr, "UNKNOWN" ); }
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   if ( INPUTS.SMEARFLAG_FLUX>0 ) { j=1; } else { j=0; }
-  sprintf(cptr, "\t Flux-smearing is %s \n", conoff[j] );
+  sprintf(cptr, "\t Flux-smearing is %s ", conoff[j] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t Reported flux-uncertainty includes " ); 
   j2 = (INPUTS.SMEARFLAG_FLUX & 2);
   if ( j2 == 0 ) 
-    { strcat(cptr,"SKY+GALAXY+SOURCE\n"); }
+    { strcat(cptr,"SKY+GALAXY+SOURCE"); }
   else
-    { strcat(cptr,"SKY only\n"); } // SMP-like errors
+    { strcat(cptr,"SKY only"); } // SMP-like errors
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   if( INPUTS.SMEARFLAG_ZEROPT > 0 ) { j=1; } else { j=0; }
-  sprintf(cptr, "\t Zeropt-smearing is %s \n", conoff[j] );
+  sprintf(cptr, "\t Zeropt-smearing is %s ", conoff[j] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;  j=0;
   OVP1 = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT ; 
   if ( OVP1 ) { j = 1; }
-  sprintf(cptr, "\t Host-galaxy shot-noise  is %s \n", conoff[j] );
+  sprintf(cptr, "\t Host-galaxy shot-noise  is %s ", conoff[j] );
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;  j=0;
   OVP2 = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_IMAGE ; 
   if ( OVP2 ) { j = 1; }
-  sprintf(cptr, "\t Host-galaxy image-noise  is %s \n", conoff[j] );
+  sprintf(cptr, "\t Host-galaxy image-noise  is %s ", conoff[j] );
 
 
   readme_doc_MWXT(&i);
@@ -1369,17 +1431,17 @@ void readme_doc_legacy(int iflag_readme) {
 
   for ( j=0; j < NLINE_RATE_INFO; j++ ) {
      i++; cptr = VERSION_INFO.README_DOC[i] ;
-     sprintf(cptr,"%s\n", LINE_RATE_INFO[j] );
+     sprintf(cptr,"%s", LINE_RATE_INFO[j] );
   }
 
   // ------- generation --------
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  GENERATION RANGES: \n");
+  sprintf(cptr,"\n  GENERATION RANGES: ");
 
   if ( INPUTS.USE_SIMLIB_GENOPT ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t ==> Override gen-values with SIMLIB header values.\n");
+    sprintf(cptr,"\t ==> Override gen-values with SIMLIB header values.");
   }
 
   if ( INPUTS.USE_SIMLIB_REDSHIFT == 0 ) 
@@ -1389,7 +1451,7 @@ void readme_doc_legacy(int iflag_readme) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,
-	  "\t Generate Redshift : %6.3f to %6.3f  using  %s \n"
+	  "\t Generate Redshift : %6.3f to %6.3f  using  %s "
 	  ,INPUTS.GENRANGE_REDSHIFT[0]
 	  ,INPUTS.GENRANGE_REDSHIFT[1] 
 	  ,ctmp	  );
@@ -1397,22 +1459,22 @@ void readme_doc_legacy(int iflag_readme) {
 
   if ( INPUTS.GENBIAS_REDSHIFT != 0.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Generate redshift bias : %f \n", 
+    sprintf(cptr,"\t Generate redshift bias : %f ", 
 	    INPUTS.GENBIAS_REDSHIFT );
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 ) {
-    sprintf(cptr,"\t REDSHIFT_FINAL is ZCMB_GEN smeared by : %8.5f \n", 
+    sprintf(cptr,"\t REDSHIFT_FINAL is ZCMB_GEN smeared by : %8.5f ", 
 	    INPUTS.GENSIGMA_REDSHIFT);
   }
   else
-    { sprintf(cptr,"\t REDSHIFT_FINAL is host-photoZ \n"); }
+    { sprintf(cptr,"\t REDSHIFT_FINAL is host-photoZ "); }
 
   
   if ( WRONGHOST.NLIST > 0.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t WRONGHOST model frac: %.3f + %.3f*z + %.5f*z^2 \n"
+    sprintf(cptr,"\t WRONGHOST model frac: %.3f + %.3f*z + %.5f*z^2 "
 	    ,WRONGHOST.PROB_POLY[0]
 	    ,WRONGHOST.PROB_POLY[1]
 	    ,WRONGHOST.PROB_POLY[2]     );
@@ -1421,23 +1483,23 @@ void readme_doc_legacy(int iflag_readme) {
   if ( INPUTS.VEL_CMBAPEX == 0.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,
-	    "\t v(cmb)=0 -> REDSHIFT_HELIO=REDSHIFT_CMB (legacy option)\n");
+	    "\t v(cmb)=0 -> REDSHIFT_HELIO=REDSHIFT_CMB (legacy option)");
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   bool  USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   if ( USE_HOSTLIB_VPEC  ) {
-    sprintf(cptr,"\t Pec. Velocity (VPEC) HOSTLIB RMS : %.1f km/sec\n", 
+    sprintf(cptr,"\t Pec. Velocity (VPEC) HOSTLIB RMS : %.1f km/sec", 
 	    HOSTLIB.VPEC_RMS );
   }
   else {
     sprintf(cptr,"\t Pec. Velocity (VPEC) sigma(gen,correct): "
-	    "%.1f, %.1f km/sec\n", 
+	    "%.1f, %.1f km/sec", 
 	    INPUTS.GENSIGMA_VPEC, INPUTS.VPEC_ERR );
   }
   if ( INPUTS.RESTORE_WRONG_VPEC ) {
     i++ ; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t\t (RESTORE wrong VPEC sign convention)\n") ;
+    sprintf(cptr,"\t\t (RESTORE wrong VPEC sign convention)") ;
   }
 
 
@@ -1448,7 +1510,7 @@ void readme_doc_legacy(int iflag_readme) {
     sprintf(ctmp,"%6.3f ", INPUTS.GENMAG_OFF_ZP[ifilt_obs] ); 
     strcat(cptr,ctmp); 
   }
-  strcat(cptr,"\n"); 
+  strcat(cptr," "); 
 
 
   float magoff;
@@ -1460,7 +1522,7 @@ void readme_doc_legacy(int iflag_readme) {
     sprintf(ctmp,"%6.3f ", magoff ); 
     strcat(cptr,ctmp); 
   }
-  strcat(cptr,"\n"); 
+  strcat(cptr," "); 
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -1476,7 +1538,7 @@ void readme_doc_legacy(int iflag_readme) {
 
     strcat(cptr,ctmp); 
   } // end if ifilt
-  strcat(cptr,"\n"); 
+  strcat(cptr,""); 
 
   // indicate which quantities were scaled by EXPOSURE_TIME  
   if ( xtprod != 1.0 ) {
@@ -1491,7 +1553,7 @@ void readme_doc_legacy(int iflag_readme) {
     if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 2) )
       { strcat(cptr, "READNOISE  "); }
 
-    strcat(cptr,"\n");
+    strcat(cptr,"");
   }
 
   // - - - - - - -  -
@@ -1508,17 +1570,17 @@ void readme_doc_legacy(int iflag_readme) {
 	strcat(cptr,ctmp); 
       }
     } // end if ifilt
-    strcat(cptr,"\n"); 
+    strcat(cptr,""); 
   }
 
   // - - - - - - -
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t RA       : %6.2f to %6.2f  deg\n", 
+  sprintf(cptr,"\t RA       : %6.2f to %6.2f  deg", 
 	  INPUTS.GENRANGE_RA[0], INPUTS.GENRANGE_RA[1] );
 
   // - - - -  PEAKMJD stuff - - - - - 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t PEAKMJD  : %8.1f to %8.1f   \n", 
+  sprintf(cptr,"\t PEAKMJD  : %8.1f to %8.1f  ", 
 	  INPUTS.GENRANGE_PEAKMJD[0], INPUTS.GENRANGE_PEAKMJD[1] );
 
   if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) {
@@ -1532,30 +1594,30 @@ void readme_doc_legacy(int iflag_readme) {
     sprintf(ctmp,"naive max flux.");
   }
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t PEAKMJD-estimate  : %s\n", ctmp);
+  sprintf(cptr,"\t PEAKMJD-estimate  : %s", ctmp);
 
   // - - - - - - - - - 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Trest    : %8.2f to %8.2f  days \n", 
+  sprintf(cptr,"\t Trest    : %8.2f to %8.2f  days ", 
 	  INPUTS.GENRANGE_TREST[0], INPUTS.GENRANGE_TREST[1] );
 
   
   if ( INPUTS.TGRIDSTEP_MODEL_INTERP > 0.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t TGRIDSTEP  : %.1f days (for model-mag interp) \n",
+    sprintf(cptr,"\t TGRIDSTEP  : %.1f days (for model-mag interp) ",
 	    INPUTS.TGRIDSTEP_MODEL_INTERP );
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t RISETIME-SHIFT(days) SIGMA(lo,hi) : %3.1f , %3.1f  (Mean= %3.1f) \n"
+  sprintf(cptr,"\t RISETIME-SHIFT(days) SIGMA(lo,hi) : %3.1f , %3.1f  (Mean= %3.1f) "
 	  ,INPUTS.GENGAUSS_RISETIME_SHIFT.SIGMA[0]
 	  ,INPUTS.GENGAUSS_RISETIME_SHIFT.SIGMA[1] 
 	  ,INPUTS.GENGAUSS_RISETIME_SHIFT.PEAK
 	  );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t FALLTIME-SHIFT(days) SIGMA(lo,hi) : %3.1f , %3.1f  (Mean= %3.1f) \n"
+  sprintf(cptr,"\t FALLTIME-SHIFT(days) SIGMA(lo,hi) : %3.1f , %3.1f  (Mean= %3.1f) "
 	  ,INPUTS.GENGAUSS_FALLTIME_SHIFT.SIGMA[0]
 	  ,INPUTS.GENGAUSS_FALLTIME_SHIFT.SIGMA[1] 
 	  ,INPUTS.GENGAUSS_FALLTIME_SHIFT.PEAK
@@ -1590,7 +1652,7 @@ void readme_doc_legacy(int iflag_readme) {
     { readme_doc_hostxt(&i, &INPUTS.GENPROFILE_EBV_HOST); }
   else {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\n  Host Extinction Parameters: NONE  (AV=0) \n");    
+    sprintf(cptr,"\n  Host Extinction Parameters: NONE  (AV=0) ");    
   }
 
 
@@ -1600,7 +1662,7 @@ void readme_doc_legacy(int iflag_readme) {
   if ( NPAR_ZVAR_USR > 0 ) {
     
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "\n  Z-dependent SN-parameter shifts: \n");
+    sprintf(cptr, "\n  Z-dependent SN-parameter shifts: ");
 
     for ( ipar=0; ipar < NPAR_ZVAR_USR; ipar++ ) {
       sprintf(ctmp,"%s", INPUT_ZVARIATION[ipar].PARNAME );
@@ -1610,12 +1672,12 @@ void readme_doc_legacy(int iflag_readme) {
       shift[1] = get_zvariation(ZMAX,ctmp) ;
 
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr," %20s-shift = %6.3f(ZMIN=%5.3f), %6.3f(ZMAX=%5.3f) \n",
+      sprintf(cptr," %20s-shift = %6.3f(ZMIN=%5.3f), %6.3f(ZMAX=%5.3f) ",
 	      ctmp, shift[0],ZMIN, shift[1], ZMAX );
     }  // end of NPAR_ZVAR_USR loop
   } else {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "\n  Z-dependent SN-parameter shifts:  None. \n");
+    sprintf(cptr, "\n  Z-dependent SN-parameter shifts:  None.");
   }
 
 
@@ -1643,7 +1705,7 @@ void readme_doc_legacy(int iflag_readme) {
       if ( NOV > 0 ) sprintf(ctmp, "%s %d(%s)", ctmp, NOV, cfilt);
     } 
   }
-  strcat(ctmp,"\n");
+  strcat(ctmp,"");
   strcat(cptr,ctmp);
   sprintf(WARNING_AVWARP_OVERFLOW,"\n  WARNING: %s", ctmp); 
 
@@ -1652,13 +1714,13 @@ void readme_doc_legacy(int iflag_readme) {
   // ----- cosmology parameters
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Cosmology Parameters: \n");
+  sprintf(cptr,"\n  Cosmology Parameters: ");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t H0 = %6.2f km/s per MPc \n", INPUTS.H0 );
+  sprintf(cptr,"\t H0 = %6.2f km/s per MPc ", INPUTS.H0 );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Omega_{M,L} = %6.3f, %6.3f   w0,wa = %5.2f,%5.3f  \n",
+  sprintf(cptr,"\t Omega_{M,L} = %6.3f, %6.3f   w0,wa = %5.2f,%5.3f",
 	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
 	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 
@@ -1667,10 +1729,10 @@ void readme_doc_legacy(int iflag_readme) {
   // ------ software Search efficiency
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n --------------------------------------------------- \n");
+  sprintf(cptr,"\n --------------------------------------------------- ");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Software-Pipeline Search Efficiency (MINOBS=%d) from \n", 
+  sprintf(cptr,"  Software-Pipeline Search Efficiency (MINOBS=%d) from ", 
 	  INPUTS_SEARCHEFF.MINOBS );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -1702,39 +1764,39 @@ void readme_doc_legacy(int iflag_readme) {
   // ------ Spec Search efficiency
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s", "\n  Spectroscopic Efficiency : \n" );
+  sprintf(cptr,"%s", "\n  Spectroscopic Efficiency : " );
   for ( iopt=0; iopt < SEARCHEFF_SPEC_INFO.NLINE_README; iopt++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr, "%s \n", SEARCHEFF_SPEC_INFO.README[iopt] ) ;    
+      sprintf(cptr, "%s ", SEARCHEFF_SPEC_INFO.README[iopt] ) ;    
   }
   
 
   if ( INPUTS_SEARCHEFF.NMAP_zHOST ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s", "\n  Unconfirmed zHOST Efficiency map from \n" );
+    sprintf(cptr,"%s", "\n  Unconfirmed zHOST Efficiency map from" );
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t %s \n", INPUTS_SEARCHEFF.zHOST_FILE );
   }
   else {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s", "\n  Unconfirmed zHOST Efficiency : 100% \n" );
+    sprintf(cptr,"%s", "\n  Unconfirmed zHOST Efficiency : 100% " );
   }
   
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
+  sprintf(cptr,"\n  %s ", COMMENT_README_SEARCHEFF);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 
   // For NONIA there is only one type specified with the NONIA keys.
   if ( LGEN_SNIA ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"  SNTYPE(Ia) = %d(SPEC)  and %d(PHOT) \n", 
+    sprintf(cptr,"  SNTYPE(Ia) = %d(SPEC)  and %d(PHOT)", 
 	    INPUTS.SNTYPE_Ia_SPEC, INPUTS.SNTYPE_Ia_PHOT);    
   }
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr," --------------------------------------------------- \n");
+  sprintf(cptr," --------------------------------------------------- ");
 
 
   // ------ software cuts -----------
@@ -1748,15 +1810,15 @@ void readme_doc_legacy(int iflag_readme) {
 
   if ( INPUTS.HOSTLIB_USE == 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"None. \n" );
+    sprintf(cptr,"None." );
   }
   else {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\n" );
+    sprintf(cptr,"" );
     NLINE = HOSTLIB.NLINE_COMMENT ;
     for ( itmp=0; itmp < NLINE; itmp++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t %s \n", HOSTLIB.COMMENT[itmp] );
+      sprintf(cptr,"\t %s ", HOSTLIB.COMMENT[itmp] );
     }
   }
 
@@ -1776,15 +1838,15 @@ void readme_doc_legacy(int iflag_readme) {
   i = VERSION_INFO.NLINE_README_INIT ;
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n ============ END OF SIMULATION SUMMARY ============== \n");
+  sprintf(cptr,"\n ============ END OF SIMULATION SUMMARY ============== ");
 
   // ---- random seed and first/last random
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Random Number Sync: \n");
+  sprintf(cptr,"\n  Random Number Sync:");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t RANDOM SEED: %d   (RANLIST_START_GENSMEAR: %d)\n", 
+  sprintf(cptr,"\t RANDOM SEED: %d   (RANLIST_START_GENSMEAR: %d)", 
 	  INPUTS.ISEED, INPUTS.RANLIST_START_GENSMEAR );
 
 
@@ -1793,7 +1855,7 @@ void readme_doc_legacy(int iflag_readme) {
   for ( ilist=1; ilist <= GENRAN_INFO.NLIST_RAN; ilist++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"   FIRST/LAST Random Number (List=%d): %f %f  "
-	    "AVG(wrap) = %.1f +_ %.1f \n", ilist, 
+	    "AVG(wrap) = %.1f +_ %.1f ", ilist, 
 	    GENRAN_INFO.RANFIRST[ilist], GENRAN_INFO.RANLAST[ilist],
 	    GENRAN_INFO.NWRAP_AVG[ilist], GENRAN_INFO.NWRAP_RMS[ilist]	);
   }
@@ -1805,30 +1867,30 @@ void readme_doc_legacy(int iflag_readme) {
   double R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Generation Statistics (gen CPU=%.1f minutes): \n", 
+  sprintf(cptr,"\n  Generation Statistics (gen CPU=%.1f minutes):", 
 	  t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t Generated %5d simulated light curves "
-	  "(%.f/sec) \n",  NGENLC_TOT, R_gen );
+	  "(%.f/sec) ",  NGENLC_TOT, R_gen );
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t Wrote     %5d simulated light curves to SNDATA files "
-	  "(%.f/sec). \n",  NGENLC_WRITE, R_write );
+	  "(%.f/sec).",  NGENLC_WRITE, R_write );
 
   if ( NGENSPEC_WRITE > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Wrote     %5d simulated spectra to SNDATA files \n",
+    sprintf(cptr,"\t Wrote     %5d simulated spectra to SNDATA files ",
 	    NGENSPEC_WRITE );
   }
 
   // spectroscopic tags
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Spectroscopic-type: %d -> %d (before -> after cuts)\n",
+  sprintf(cptr,"  Spectroscopic-type: %d -> %d (before -> after cuts)",
 	  GENLC.NTYPE_SPEC, GENLC.NTYPE_SPEC_CUTS);
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Photometric-type:   %d -> %d (before -> after cuts)\n",
+  sprintf(cptr,"  Photometric-type:   %d -> %d (before -> after cuts)",
 	  GENLC.NTYPE_PHOT, GENLC.NTYPE_PHOT_CUTS);
 
 
@@ -1838,16 +1900,16 @@ void readme_doc_legacy(int iflag_readme) {
     int N0      = NGENLC_WRITE ;
     int N1      = GENLC.NTYPE_PHOT_WRONGHOST ;
     if ( GENLC.NTYPE_PHOT_CUTS > 0 ) { frac = (double)N1 / (double)N0 ; }
-    sprintf(cptr,"  Wrong-host fraction: %d/%d = %.4f\n", N1,N0,frac);
+    sprintf(cptr,"  Wrong-host fraction: %d/%d = %.4f", N1,N0,frac);
   }
 
   // ----------------
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Rejection Statistics: \n");
+  sprintf(cptr,"  Rejection Statistics:");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t %5d rejected by NEPOCH<%d \n",
+  sprintf(cptr,"\t %5d rejected by NEPOCH<%d",
 	  NGEN_REJECT.NEPOCH, (int)INPUTS.CUTWIN_NEPOCH[0] ) ;
 
 
@@ -1855,26 +1917,26 @@ void readme_doc_legacy(int iflag_readme) {
   double MAGMAX = INPUTS.GENRANGE_PEAKMAG[1];
   if ( MAGMIN > 0.0 && MAGMAX < 9999. ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t %5d rejected by GENRANGE_PEAKMAG(%.1f to %.1f) \n",  
+    sprintf(cptr,"\t %5d rejected by GENRANGE_PEAKMAG(%.1f to %.1f) ",  
 	    NGEN_REJECT.GENMAG, MAGMIN, MAGMAX );
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t %5d rejected by GENRANGEs \n",  
+  sprintf(cptr,"\t %5d rejected by GENRANGEs ",  
 	  NGEN_REJECT.GENRANGE );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t %5d rejected by SEARCH-TRIGGER \n",  
+  sprintf(cptr,"\t %5d rejected by SEARCH-TRIGGER ",  
 	  NGEN_REJECT.SEARCHEFF );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t %5d rejected by CUTWIN-SELECTION \n",  
+  sprintf(cptr,"\t %5d rejected by CUTWIN-SELECTION ",  
 	  NGEN_REJECT.CUTWIN );
 
   // ---
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  SEARCH+CUTS Efficiency: %7.4f +- %7.4f \n", 
+  sprintf(cptr,"  SEARCH+CUTS Efficiency: %7.4f +- %7.4f", 
 	  GENLC.GENEFF, GENLC.GENEFFERR);
 
   // give warning if generation stops early
@@ -1885,20 +1947,20 @@ void readme_doc_legacy(int iflag_readme) {
     if ( QUIT_NOREWIND ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
       sprintf(cptr,
-	      "\n  WARNING: GENERATION STOPPED AFTER ONE PASS THRU SIMLIB\n");
+	      "\n  WARNING: GENERATION STOPPED AFTER ONE PASS THRU SIMLIB");
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t  AS REQUESTED BY SIM-INPUT SIMLIB_MSKOPT += %d\n",
+      sprintf(cptr,"\t  AS REQUESTED BY SIM-INPUT SIMLIB_MSKOPT += %d",
 	      SIMLIB_MSKOPT_QUIT_NOREWIND );
     }
     else {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\n  WARNING: GENERATION STOPPED WHEN ERROR\n");
+      sprintf(cptr,"\n  WARNING: GENERATION STOPPED WHEN ERROR");
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t   on ERR(EFF) <= EFFERR_STOPGEN(=%f)\n",  
+      sprintf(cptr,"\t   on ERR(EFF) <= EFFERR_STOPGEN(=%f)",  
 	      INPUTS.EFFERR_STOPGEN );
       
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t  => YOU HAVE %d FEWER LIGHT CURVES THAN REQUESTED\n",
+      sprintf(cptr,"\t  => YOU HAVE %d FEWER LIGHT CURVES THAN REQUESTED",
 	      INPUTS.NGEN_LC - NGENLC_WRITE );
     }
   }
@@ -1915,7 +1977,7 @@ void readme_doc_legacy(int iflag_readme) {
     
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\n  Number of SNe per season AFTER CUTS : "
-	    "%6.0f +- %5.0f \n", XN, XNERR );
+	    "%6.0f +- %5.0f ", XN, XNERR );
   }
 
 
@@ -1925,7 +1987,7 @@ void readme_doc_legacy(int iflag_readme) {
   // end marker
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n\t ===== END OF README FILE ====== \n");
+  sprintf(cptr,"\n\t ===== END OF README FILE ====== ");
 
   // ------
   if ( i >= MXDOCLINE ) {
@@ -1952,40 +2014,40 @@ void readme_doc_CUTWIN(int *iline) {
   i = *iline ;
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  SOFTWARE CUTS: \n");
+  sprintf(cptr,"\n  SOFTWARE CUTS: ");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t EPOCH CUT: %5.0f Lambda(rest) < %5.0f A \n",
+  sprintf(cptr,"\t EPOCH CUT: %5.0f Lambda(rest) < %5.0f A ",
 	  INPUTS.EPCUTWIN_LAMREST[0], INPUTS.EPCUTWIN_LAMREST[1] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t EPOCH CUT: SNR >= %2.0f  \n",
+  sprintf(cptr,"\t EPOCH CUT: SNR >= %2.0f  ",
 	  INPUTS.EPCUTWIN_SNRMIN[0] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t TrestMIN < %5.1f  &&  TrestMAX > %4.1f days \n",
+  sprintf(cptr,"\t TrestMIN < %5.1f  &&  TrestMAX > %4.1f days ",
 	  INPUTS.CUTWIN_TRESTMIN[1], INPUTS.CUTWIN_TRESTMAX[0] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Max TGAP(rest) <= %5.1f  days \n",
+  sprintf(cptr,"\t Max TGAP(rest) <= %5.1f  days ",
 	  INPUTS.CUTWIN_TGAPMAX[1] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Max T0GAP(rest) <= %5.1f  days \n",
+  sprintf(cptr,"\t Max T0GAP(rest) <= %5.1f  days ",
 	  INPUTS.CUTWIN_T0GAPMAX[1] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t NOBS(MJDDIF > %3.1f) >= %2d \n",
+  sprintf(cptr,"\t NOBS(MJDDIF > %3.1f) >= %2d ",
 	  INPUTS.CUTWIN_MJDDIF[0], INPUTS.CUTWIN_NOBSDIF[0] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t NEPOCH(SNR > %4.1f) >= %2.0f \n",
+  sprintf(cptr,"\t NEPOCH(SNR > %4.1f) >= %2.0f ",
 	  INPUTS.CUTWIN_NEPOCH[1], INPUTS.CUTWIN_NEPOCH[0] ) ;
 
   for ( icut=1; icut <= INPUTS.NCUTWIN_SNRMAX; icut++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t SNRMAX > %4.1f for %d of the '%s' filters "
-	    "(%5.1f < Trest < %5.1f) \n"
+	    "(%5.1f < Trest < %5.1f) "
 	    , INPUTS.CUTWIN_SNRMAX[icut][0]
 	    , INPUTS.CUTWIN_SNRMAX_NFILT[icut]
 	    , INPUTS.CUTWIN_SNRMAX_FILTERS[icut]
@@ -1997,14 +2059,14 @@ void readme_doc_CUTWIN(int *iline) {
 
   for ( icut=0; icut < INPUTS.NCUTWIN_SATURATE; icut++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t NOBS_SATURATE = %d to %d for each %s filter. \n"
+    sprintf(cptr,"\t NOBS_SATURATE = %d to %d for each %s filter. "
 	    , INPUTS.CUTWIN_SATURATE_NOBS[icut][0]
 	    , INPUTS.CUTWIN_SATURATE_NOBS[icut][1]
 	    , INPUTS.CUTWIN_SATURATE_FILTERS[icut]	    );
   }
   for ( icut=0; icut < INPUTS.NCUTWIN_NOSATURATE; icut++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t NOBS_NOSATURATE = %d to %d for each %s filter. \n"
+    sprintf(cptr,"\t NOBS_NOSATURATE = %d to %d for each %s filter. "
 	    , INPUTS.CUTWIN_NOSATURATE_NOBS[icut][0]
 	    , INPUTS.CUTWIN_NOSATURATE_NOBS[icut][1]
 	    , INPUTS.CUTWIN_NOSATURATE_FILTERS[icut]	    );
@@ -2016,37 +2078,37 @@ void readme_doc_CUTWIN(int *iline) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(ctmp,"\t SIMGEN_DUMP file includes" );
     if ( INPUTS.APPLY_CUTWIN_OPT  == 1 ) 
-      { sprintf(cptr,"%s SNe passing software cuts. \n", ctmp ); }
+      { sprintf(cptr,"%s SNe passing software cuts. ", ctmp ); }
     else 
-      { sprintf(cptr,"%s ALL SNe; use CUTMASK for software cuts.\n", ctmp); }
+      { sprintf(cptr,"%s ALL SNe; use CUTMASK for software cuts.", ctmp); }
   }
   xxxx */
 
   if ( INPUTS.CUTWIN_PEAKMAG[1] < 998.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t PEAKMAG(All bands) :  %.1f - %.1f\n", 
+    sprintf(cptr,"\t PEAKMAG(All bands) :  %.1f - %.1f", 
 	    INPUTS.CUTWIN_PEAKMAG_ALL[0], INPUTS.CUTWIN_PEAKMAG_ALL[1] ) ;
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t PEAKMAG(any filter) < %3.1f \n", 
+  sprintf(cptr,"\t PEAKMAG(any filter) < %3.1f", 
 	  INPUTS.CUTWIN_PEAKMAG[1] ) ;
   
   for ( icut=1; icut <= INPUTS.NCUTWIN_PEAKMAG_BYFIELD; icut++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t PEAKMAG(%s): %.1f to %1.f \n", 
+    sprintf(cptr,"\t PEAKMAG(%s): %.1f to %1.f ", 
 	    INPUTS.CUTWIN_BYFIELDLIST[icut],
 	    INPUTS.CUTWIN_PEAKMAG_BYFIELD[icut][0],
 	    INPUTS.CUTWIN_PEAKMAG_BYFIELD[icut][1] );
   }
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t MWEBV <= %3.1f \n", INPUTS.CUTWIN_MWEBV[1] ) ;
+  sprintf(cptr,"\t MWEBV <= %3.1f ", INPUTS.CUTWIN_MWEBV[1] ) ;
   
   // optional cut on time above SNRMIN
   if ( INPUTS.CUTWIN_EPOCHS_NFILT > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Time < %.1f days for SNR(%s) > %.1f \n",
+    sprintf(cptr,"\t Time < %.1f days for SNR(%s) > %.1f ",
 	    INPUTS.CUTWIN_EPOCHS_TRANGE[1],
 	    INPUTS.CUTWIN_EPOCHS_FILTERS,
 	    INPUTS.CUTWIN_EPOCHS_SNRMIN );
@@ -2082,7 +2144,7 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
   i = *iline ;
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  TAKE_SPECTRUM: \n");
+  sprintf(cptr,"\n  TAKE_SPECTRUM: ");
 
   
   for(j=0; j < N; j++ ) {
@@ -2127,12 +2189,12 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
     // - - - - 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     if ( IS_HOST ) {
-      sprintf(cptr,"    %s                      %s-zPOLY:%s  %s  %s\n",
+      sprintf(cptr,"    %s                      %s-zPOLY:%s  %s  %s",
 	      Tname, name2, zpolyString, warpString, fieldString );
     }
     else {
       sprintf(cptr,"    %s = %5.1f to %5.1f  "
-	      "  %s-zPOLY:%s  %s  %s\n",
+	      "  %s-zPOLY:%s  %s  %s",
 	      Tname, ptrEP[0], ptrEP[1],
 	      name2, zpolyString, warpString, fieldString );
     }
@@ -2143,7 +2205,7 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
   STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
   if ( DICT->N_ITEM > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"    SPECTRUM_PRESCALE: %s\n", DICT->STRING);
+    sprintf(cptr,"    SPECTRUM_PRESCALE: %s", DICT->STRING);
   }
 
   *iline = i;
@@ -2235,15 +2297,15 @@ void readme_doc_FUDGES(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   if( NLINE_FUDGE == 0 ) 
-    {  sprintf(cptr,"\n  Fudges on SIMLIB Seeing Conditions: NONE. \n"); }
+    {  sprintf(cptr,"\n  Fudges on SIMLIB Seeing Conditions: NONE. "); }
   else
-    {  sprintf(cptr,"\n  Fudges on SIMLIB Seeing Conditions: \n"); }
+    {  sprintf(cptr,"\n  Fudges on SIMLIB Seeing Conditions: "); }
 
 
   // print summary of USED fudges only.
   for(j=0; j < NLINE_FUDGE; j++ ) {
     i++ ; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "%s\n", fudgeLine[j]);
+    sprintf(cptr, "%s", fudgeLine[j]);
   }
 
 
@@ -2266,7 +2328,7 @@ void readme_doc_mapFileList(int *iline) {
   i = *iline;
 
   i++; 
-  sprintf(VERSION_INFO.README_DOC[i], "\n");
+  sprintf(VERSION_INFO.README_DOC[i], "");
 
   readme_doc_mapFile(&i, "SIMLIB_FILE:", INPUTS.SIMLIB_FILE);
   readme_doc_mapFile(&i, "KCOR_FILE:",   INPUTS.KCOR_FILE);
@@ -2314,7 +2376,7 @@ void readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) {
   
   if ( !IGNOREFILE(FILENAME) ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s %s %s\n", KEY_MAP, KEY, FILENAME);
+    sprintf(cptr,"%s %s %s", KEY_MAP, KEY, FILENAME);
   }
 
 
@@ -2339,7 +2401,7 @@ void readme_doc_GENPERFECT(int *iline) {
   if ( GENPERFECT.NVAR <= 0 ) { return ; }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n PERFECT LIGHTCURVES REQUESTED: \n");
+  sprintf(cptr,"\n PERFECT LIGHTCURVES REQUESTED: ");
   
   for ( itmp=1; itmp <= GENPERFECT.NVAR; itmp++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -2351,11 +2413,11 @@ void readme_doc_GENPERFECT(int *iline) {
     if ( GENPERFECT.partype[itmp] == 1 ) {
       IPARVAL_ORIG = (int)DPARVAL_ORIG ;
       IPARVAL_USED = (int)DPARVAL_USED ;
-      sprintf(cptr,"\t %-28.28s : %d -> %d \n",
+      sprintf(cptr,"\t %-28.28s : %d -> %d ",
 	      PARNAME, IPARVAL_ORIG, IPARVAL_USED );
     }
     else {
-      sprintf(cptr,"\t %-28.28s : %.5f -> %.5f \n" ,
+      sprintf(cptr,"\t %-28.28s : %.5f -> %.5f " ,
 	      PARNAME, DPARVAL_ORIG, DPARVAL_USED );
     }
   }
@@ -2385,17 +2447,17 @@ void readme_doc_NON1ASED(int *iline) {
 
   sprintf(cline,
 	  " ---------------------------------------------------"
-	  "-------------------------\n");
+	  "-------------------------");
 
   // summarize user inputs
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n\n  NON1A USER INPUTS vs. INDEX: \n");
+  sprintf(cptr,"\n\n  NON1A USER INPUTS vs. INDEX: ");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr," INDEX(TYPE) " );
   for ( j = 2; j <= INPUTS.NON1ASED.NKEY; j++ )
     { sprintf(cptr,"%s %8s", cptr, INPUTS.NON1ASED.KEYLIST[j] ); }
-  strcat(cptr,"\n");
+  strcat(cptr,"");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s", cline);
@@ -2412,19 +2474,19 @@ void readme_doc_NON1ASED(int *iline) {
     for ( j = 2; j <= INPUTS.NON1ASED.NKEY; j++ )
       { sprintf(cptr,"%s %8.3f", cptr, INPUTS.NON1ASED.KEYVAL[isp][j] ); }
     
-    sprintf(cptr,"%s  %s\n", cptr,  INPUTS.NON1ASED.LIST_NAME[index] );
+    sprintf(cptr,"%s  %s", cptr,  INPUTS.NON1ASED.LIST_NAME[index] );
   } // end isp loop
   
   // ----------------------------------------
   // now summarize stats, effic, CID-range, peakmags ...
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  NON1A-SUMMARY vs. INDEX: \n");
+  sprintf(cptr,"\n  NON1A-SUMMARY vs. INDEX: ");
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"                  NGEN    NGEN   SEARCH   \n");
+  sprintf(cptr,"                  NGEN    NGEN   SEARCH ");
   
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr," INDEX(TYPE)      written total  Effic    CID-range \n" );
+    sprintf(cptr," INDEX(TYPE)      written total  Effic    CID-range " );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s", cline);
@@ -2445,7 +2507,7 @@ void readme_doc_NON1ASED(int *iline) {
 
       ctmp[0] = 0 ;
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr," %3.3d (%10s)  %4d  %5d   %5.3f %6d -%6d\n", 
+      sprintf(cptr," %3.3d (%10s)  %4d  %5d   %5.3f %6d -%6d", 
 	      index, ptrtype, NGENWR, NGENTOT, eff, CID0, CID1 );
 
       if ( NGENUSR != NGENWR  && INPUTS.NGEN_LC > 0 ) {
@@ -2484,26 +2546,26 @@ void readme_doc_SIMLIB(int *iline) {
   if ( INPUTS.SIMLIB_NREPEAT > 1 ) // Apr 26 2017
     { sprintf(ctmp,"NREPEAT=%d", INPUTS.SIMLIB_NREPEAT ); } 
 
-  sprintf(cptr,"\t SIMLIB filename  : %s (%s) \n", 
+  sprintf(cptr,"\t SIMLIB filename  : %s (%s) ", 
 	  INPUTS.SIMLIB_FILE, ctmp ); 
 
   // - - - - - - 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t SIMLIB SURVEY    : %s  (TELESCOPE=%s, MINOBS=%d) \n", 
+  sprintf(cptr,"\t SIMLIB SURVEY    : %s  (TELESCOPE=%s, MINOBS=%d) ", 
 	  GENLC.SURVEY_NAME, GENLC.TELESCOPE[0], INPUTS.SIMLIB_MINOBS  ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t SIMLIB UNITS     : %s for PSF,  %s for SKYSIG \n", 
+  sprintf(cptr,"\t SIMLIB UNITS     : %s for PSF,  %s for SKYSIG ", 
 	  SIMLIB_GLOBAL_HEADER.PSF_UNIT, SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT  ); 
 
   if ( INPUTS.SIMLIB_MSKOPT != 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t SIMLIB MSKOPT   : %d \n", INPUTS.SIMLIB_MSKOPT );
+    sprintf(cptr,"\t SIMLIB MSKOPT   : %d ", INPUTS.SIMLIB_MSKOPT );
   }
 
   if ( strcmp(INPUTS.SIMLIB_FIELDLIST,"ALL") != 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "\t SIMLIB FIELDLIST : %s\n", INPUTS.SIMLIB_FIELDLIST); 
+    sprintf(cptr, "\t SIMLIB FIELDLIST : %s", INPUTS.SIMLIB_FIELDLIST); 
   }
   
 
@@ -2520,23 +2582,23 @@ void readme_doc_SIMLIB(int *iline) {
   if ( NPE_SAT < 999999999 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t SIMLIB Saturation : %d pe in central pixel "
-	    "-> PHOTFLAG=%d\n",  NPE_SAT, PHOTFLAG);
+	    "-> PHOTFLAG=%d",  NPE_SAT, PHOTFLAG);
   }
 
   if ( INPUTS.FUDGEOPT_FLUXERR ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t FUDGEOPT_FLUXERR : %d \n",
+    sprintf(cptr,"\t FUDGEOPT_FLUXERR : %d ",
 	    INPUTS.FUDGEOPT_FLUXERR );
   }
 
   if ( INPUTS.SIMLIB_IDLOCK > 1 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t SIMLIB ID LOCKED to LIBID : %d \n", 
+    sprintf(cptr,"\t SIMLIB ID LOCKED to LIBID : %d ", 
 	    GENLC.SIMLIB_IDLOCK ); 
   }
   if ( INPUTS.SIMLIB_IDLOCK == 1 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t SIMLIB ID LOCKED to first accepted LIBID : %d \n", 
+    sprintf(cptr,"\t SIMLIB ID LOCKED to first accepted LIBID : %d ", 
 	    GENLC.SIMLIB_IDLOCK ); 
   }
 
@@ -2548,12 +2610,12 @@ void readme_doc_SIMLIB(int *iline) {
       sprintf(ctmp," %d", INPUTS.SIMLIB_IDSKIP[j] );
       strcat(cptr, ctmp);
     }
-    strcat ( cptr, "\n" );
+    strcat ( cptr, "" );
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t NEWMJD_DIF       : "
-	  "%5.2f  minutes (defines trigger epoch)\n", 
+	  "%5.2f  minutes (defines trigger epoch)", 
 	  24.*60.*INPUTS.NEWMJD_DIF ); 
 
   *iline = i;
@@ -2580,13 +2642,13 @@ void  readme_doc_magSmear(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n  Intrinsic MAG-smearing models "
-	  "(sigma clip %4.1f to %4.1f) : \n"
+	  "(sigma clip %4.1f to %4.1f) : "
 	  ,INPUTS.SIGMACLIP_MAGSMEAR[0]
 	  ,INPUTS.SIGMACLIP_MAGSMEAR[1]
 	  );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"   Model 1: Coherent MAG-smearing (GENMAG_SMEAR) : %6.3f  \n", 
+  sprintf(cptr,"   Model 1: Coherent MAG-smearing (GENMAG_SMEAR) : %6.3f ", 
 	  INPUTS.GENMAG_SMEAR[0] );
 
 
@@ -2596,7 +2658,7 @@ void  readme_doc_magSmear(int *iline) {
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"   Model 2: passband MAG-smearing is %s \n", conoff[onoff] );
+  sprintf(cptr,"   Model 2: passband MAG-smearing is %s ", conoff[onoff] );
 
   if ( onoff > 0 ) {
     if ( INPUTS.GENMODEL_ERRSCALE_OPT == 1 )  
@@ -2606,7 +2668,7 @@ void  readme_doc_magSmear(int *iline) {
 
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Scale %s model errors (GENMODEL_ERRSCALE) : %6.3f  \n", 
+    sprintf(cptr,"\t Scale %s model errors (GENMODEL_ERRSCALE) : %6.3f ", 
 	    ctmp, INPUTS.GENMODEL_ERRSCALE );
 
     if ( INPUTS.NFILT_SMEAR > 0 ) {
@@ -2622,12 +2684,12 @@ void  readme_doc_magSmear(int *iline) {
 	ifilt = INPUTS.IFILT_SMEAR[j]; 
 	sprintf(cptr, "%s %4.2f", cptr, INPUTS.GENMAG_SMEAR_FILTER[ifilt] ) ;
       }
-      strcat(cptr,"\n");
+      strcat(cptr,"");
 
     }
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Correlation between models 1 & 2 : %5.2f \n",
+    sprintf(cptr,"\t Correlation between models 1 & 2 : %5.2f",
 	    INPUTS.GENMODEL_ERRSCALE_CORRELATION );
 
   } // NFILT_SMEAR
@@ -2639,13 +2701,13 @@ void  readme_doc_magSmear(int *iline) {
   if ( istat_genSmear() > 0 ) 
     { onoff=1;     sprintf(ctmp,"%s", INPUTS.GENMAG_SMEAR_MODELNAME); }
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"   Model 3: %s model-smear is %s  \n", 
+  sprintf(cptr,"   Model 3: %s model-smear is %s ", 
 	  ctmp, conoff[onoff] );
 
   // print override parameter names xxxgenmag
   for(j=0; j < NSMEARPAR_OVERRIDE; j++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "\t    %s-Override :  %d values for %s\n" 
+    sprintf(cptr, "\t    %s-Override :  %d values for %s" 
 	    , ctmp
 	    , GENMAG_SMEARPAR_OVERRIDE[j].NVAL
 	    , GENMAG_SMEARPAR_OVERRIDE[j].NAME );
@@ -2657,7 +2719,7 @@ void  readme_doc_magSmear(int *iline) {
   if ( INPUTS.NCOVMAT_SCATTER > 0 ) { onoff=1;} else { onoff=0;}
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"   Model 4: intrinsic scatter matrix is %s \n", 
+  sprintf(cptr,"   Model 4: intrinsic scatter matrix is %s ", 
 	  conoff[onoff] );
 
   /* xxx mark delete 
@@ -2666,7 +2728,7 @@ void  readme_doc_magSmear(int *iline) {
     ptrScat = README_KEYPLUSARGS.COVMAT_SCATTER[j] ;
     if ( strlen(ptrScat) > 0 ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s\n", ptrScat ); 
+      sprintf(cptr,"%s", ptrScat ); 
     }
   }
   xxxxxxxx */
@@ -2674,7 +2736,7 @@ void  readme_doc_magSmear(int *iline) {
   // model 5: SMEAR_USRFUN
   if ( INPUTS.NPAR_GENSMEAR_USRFUN > 0 )  { onoff=1;} else { onoff=0;}
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"   Model 5: GENMAG_SMEAR_USRFUN is  %s \n", 
+  sprintf(cptr,"   Model 5: GENMAG_SMEAR_USRFUN is  %s ", 
 	  conoff[onoff] );
   
   if ( onoff == 1 ) {
@@ -2684,7 +2746,7 @@ void  readme_doc_magSmear(int *iline) {
       sprintf(ctmp,"%6.2f ", INPUTS.GENMAG_SMEAR_USRFUN[j] );  
       cptr = strcat(cptr,ctmp);
     }
-    cptr = strcat(cptr,"\n");
+    cptr = strcat(cptr,"");
   }
 
 
@@ -2707,7 +2769,7 @@ void  readme_doc_nonLin(int *iline) {
 
   for(j=0; j < NONLIN_README.NLINE; j++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s\n", NONLIN_README.LINE[j] );
+    sprintf(cptr,"%s", NONLIN_README.LINE[j] );
   }
 
   *iline = i;
@@ -2727,12 +2789,12 @@ void  readme_doc_SIMSED(int *iline) {
   // xxx mark? if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) {
   if ( INPUTS.OPTMASK_SIMSED == 4 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;  
-    sprintf(cptr,"\n   %s model option is GRIDONLY & SEQUENTIAL \n", 
+    sprintf(cptr,"\n   %s model option is GRIDONLY & SEQUENTIAL ", 
 	    INPUTS.MODELNAME );
   } 
   else if ( INPUTS.NPAR_SIMSED > 0  ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;  
-    sprintf(cptr,"\n   %s model parameters: \n", 
+    sprintf(cptr,"\n   %s model parameters: ", 
 	    INPUTS.MODELNAME );
   }
 
@@ -2771,40 +2833,40 @@ void  readme_doc_MWXT(int *iline) {
   if ( INPUTS.MWEBV_FLAG ) {
 
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
-    sprintf(cptr, "\t MilkyWay extinction  is ON  \n" );
+    sprintf(cptr, "\t MilkyWay extinction  is ON  " );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
-    sprintf(cptr, "\t    Color law: %s  (OPT_MWCOLORLAW=%d) \n",  
+    sprintf(cptr, "\t    Color law: %s  (OPT_MWCOLORLAW=%d) ",  
 	    INPUTS.STR_MWCOLORLAW, INPUTS.OPT_MWCOLORLAW );
 
 
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
     if ( INPUTS.GENRANGE_MWEBV[0] >= 0.0 ) {
-      sprintf(cptr, "\t    E(B-V) randomly picked between %.3f and %.3f\n",  
+      sprintf(cptr, "\t    E(B-V) randomly picked between %.3f and %.3f",  
 	      INPUTS.GENRANGE_MWEBV[0], INPUTS.GENRANGE_MWEBV[1] );
     }
     else {
-      sprintf(cptr, "\t    E(B-V): %s   (OPT_MWEBV=%d)\n",  
+      sprintf(cptr, "\t    E(B-V): %s   (OPT_MWEBV=%d)",  
 	      INPUTS.STR_MWEBV, INPUTS.OPT_MWEBV );
     }
 
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
-    sprintf(cptr, "\t    sigma(MWEBV) = %.2f*MWEBV + %.2f  \n", 
+    sprintf(cptr, "\t    sigma(MWEBV) = %.2f*MWEBV + %.2f ", 
 	    INPUTS.MWEBV_SIGRATIO, INPUTS.MWEBV_SIG );
 
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
-    sprintf(cptr, "\t    shift(MWEBV) = %5.3f mag \n", 
+    sprintf(cptr, "\t    shift(MWEBV) = %5.3f mag ", 
 	    INPUTS.MWEBV_SHIFT );
 
     if ( INPUTS.APPLYFLAG_MWEBV ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ; 
-      sprintf(cptr, "\t    Correct dataFile FLUXCAL for MWEBV \n");
+      sprintf(cptr, "\t    Correct dataFile FLUXCAL for MWEBV ");
     }
     
   }
   else {
     i++; cptr = VERSION_INFO.README_DOC[i] ; 
-    sprintf(cptr, "\t MilkyWay extinction  is OFF \n" );
+    sprintf(cptr, "\t MilkyWay extinction  is OFF " );
   }
 
   *iline = i ;
@@ -2830,13 +2892,13 @@ void readme_doc_filterWarn(int *iline) {
 
     if ( NSKIP > 0 && ZMIN > 100. ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t FILTER-WARNING: %s not generated for any z-range. \n", 
+      sprintf(cptr,"\t FILTER-WARNING: %s not generated for any z-range. ", 
 	      cfilt);
     }
 
     if ( NSKIP > 0 && ZMIN < 10. ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"\t FILTER-WARNING: %s generated only for %5.3f < z < %5.3f\n",
+      sprintf(cptr,"\t FILTER-WARNING: %s generated only for %5.3f < z < %5.3f",
 	      cfilt, ZMIN, ZMAX );       
     }
 
@@ -2865,14 +2927,14 @@ void readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) {
   // write host extinct info
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Host Extinction Parameters: \n");
+  sprintf(cptr,"\n  Host Extinction Parameters: ");
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf_GENGAUSS(cptr, "\t RV ", &INPUTS.GENGAUSS_RV);
   
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Gen-Range for %s  : %4.2f to %4.2f  (model=%s) \n", 
+  sprintf(cptr,"\t Gen-Range for %s  : %4.2f to %4.2f  (model=%s) ", 
 	  VARNAME,GENPROFILE->RANGE[0], GENPROFILE->RANGE[1], INPUTS.GENSNXT );
   
  
@@ -2892,10 +2954,10 @@ void readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) {
     if ( INPUTS.GENGAUSIG_AV > 1.0E-9 ) 
       { sprintf(cGAUSS,"%4.2f x Gauss(%s,sig=%4.2f)", RATIO, VARNAME,SIG );  }
     
-    sprintf(cptr,"\t dN/d%s = %s + %s \n", VARNAME, cEXPON, cGAUSS ); 
+    sprintf(cptr,"\t dN/d%s = %s + %s ", VARNAME, cEXPON, cGAUSS ); 
   }
   else  { 
-    sprintf(cptr,"\t dN/d%s = flat \n", VARNAME ); 
+    sprintf(cptr,"\t dN/d%s = flat ", VARNAME ); 
   }
   
 
@@ -2950,7 +3012,7 @@ void readme_doc_SALT2params(int *iline ) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   if ( INPUTS.SALT2BETA_cPOLY.ORDER >= 0 ) { 
-    sprintf(cptr,"\t Beta(c) = %s \n", INPUTS.SALT2BETA_cPOLY.STRING);
+    sprintf(cptr,"\t Beta(c) = %s ", INPUTS.SALT2BETA_cPOLY.STRING);
   }
   else {
     sprintf(string, "\t Beta ");
@@ -2982,7 +3044,7 @@ void readme_doc_GENPDF(int *iline ) {
 
   for (imap=0; imap < NMAP_GENPDF; imap++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "\t GENPDF: %s(%s)\n", 
+    sprintf(cptr, "\t GENPDF: %s(%s)", 
 	    GENPDF[imap].MAPNAME,  GENPDF[imap].GRIDMAP.VARLIST );
   }
 

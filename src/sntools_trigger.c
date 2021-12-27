@@ -146,7 +146,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // Abort if APPLYMASK_SEARCHEFF_USER is impossible to obtain.
   //
   // July 6 2018: fix bug related to "ZERO" option for spec efficiency.
-  // Sep 4 2019: write COMMENT_README_TRIGGER
+  // Sep 4 2019: write COMMENT_README_SEARCHEFF
 
   int  APPLYMASK_ALLOWED, OVP ;
   int  IFLAG_SPEC_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO;
@@ -192,7 +192,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // - - - - - - 
   // Sep 4 2019: prepare README comment for trigger.
 
-  sprintf(COMMENT_README_TRIGGER,"APPLY_SEARCHEFF_OPT=%d --> ",
+  sprintf(COMMENT_README_SEARCHEFF, "APPLY_SEARCHEFF_OPT=%d --> ",
 	  APPLYMASK_SEARCHEFF_USER);
 
   int REQ_PIPE, REQ_SPEC, REQ_zHOST, NUSE=0;
@@ -219,7 +219,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   else
     { sprintf(ctmp,"No trigger requirements"); }
 
-  strcat(COMMENT_README_TRIGGER,ctmp);
+  strcat(COMMENT_README_SEARCHEFF,ctmp);
 
   
   return ;
@@ -746,7 +746,7 @@ void check_SEARCHEFF_DETECT(int imap) {
   //      printf(" xxx IBIN[ONE,HALF] = %d  %d \n", IBIN_ONE, IBIN_HALF);
   VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_ONE];
   EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_ONE];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f \n", 
+  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
 	  cfilt, EFF, ptr_effname, VAL );
   
   printf("%s", cline);
@@ -759,7 +759,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_HALF];
   EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_HALF];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f \n", 
+  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
 	  cfilt, EFF, ptr_effname, VAL );
 
   printf("%s", cline);
@@ -858,14 +858,14 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   }
 
 
-  sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : \n"); 
+  sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : "); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
 
-  sprintf(cline, "\t %s \n", ptrFile_final ); 
+  sprintf(cline, "\t %s", ptrFile_final ); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
@@ -925,13 +925,13 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
 
   
   // use c1err for message, even though it's not an error
-  sprintf(c1err, "\t Logic: %d MJDs require filters=%s \n", NMJD, logic);
+  sprintf(c1err, "\t Logic: %d MJDs require filters=%s ", NMJD, logic);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
   printf("%s", c1err);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
-  sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days\n",
+  sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days",
 	  INPUTS_SEARCHEFF.TIME_SINGLE_DETECT);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);

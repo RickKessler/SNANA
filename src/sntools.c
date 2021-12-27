@@ -3622,7 +3622,7 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
   // ------------- BEGIN -------------
 
   if ( strcmp(fileName,"init") == 0 || strcmp(fileName,"INIT") ==0 ) 
-    { ENVreplace_store.NFILE = 0 ; return(SUCCESS); }
+    { ENVreplace_store.NFILE = 0 ; return(SUCCESS);  }
 
   sprintf(firstChar,"%c", fileName[0] );
   suffix[0]=0;

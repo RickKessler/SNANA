@@ -424,6 +424,8 @@ void init_commandLine_simargs(int argc, char **argv) {
 
   // ---------------- BEGIN --------------
 
+  ENVreplace("init", fnam, 1);
+
   printf("   Full command: ");
 
   if ( argc >= 2 ) {
@@ -439,7 +441,6 @@ void init_commandLine_simargs(int argc, char **argv) {
 
     for ( i = 0; i < NARGV_LIST ; i++ ) {
       LENARG = strlen(argv[i]) + 10;
-	// xxx mark ARGV_LIST[i]=(char*) malloc( MXPATHLEN*sizeof(char) );
       ARGV_LIST[i] = (char*) malloc( LENARG*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
@@ -619,6 +620,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
+  INPUTS.USE_README_LEGACY = 1 ; // Dec 22 2021
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1341,7 +1343,7 @@ int read_input_file(char *input_file) {
   int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING ;
   FILE *fp;
   char tmpWord[MXPATHLEN];  
-  char  stringSource[] = "sim-input file" ;
+  char stringSource[] = "sim-input file" ;
   char fnam[] = "read_input_file" ;
 
   // ---------- BEGIN ----------
@@ -1497,6 +1499,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
+    INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -7344,7 +7347,7 @@ void init_DNDZ_Rate(void) {
 
   i = -1 ;
 
-  if ( INPUTS.DEBUG_FLAG != 1222 ) {
+  if ( INPUTS.USE_README_LEGACY ) {
     i++; sprintf(LINE_RATE_INFO[i], 
 		 "\n *********************************** " );
 
@@ -7375,7 +7378,7 @@ void init_DNDZ_Rate(void) {
     i++; sprintf(LINE_RATE_INFO[i],
 		 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", 
 		 VT, cH0 );
-  } // end DEBUG FLAG != 1222
+  } // end README_LEGACY
 
   int  DNDZFLAG = 0;
   char ctmp_z[80], ctmp[100], ctmp_pec1a[80], *NAME;
@@ -7480,12 +7483,12 @@ void init_DNDZ_Rate(void) {
   if ( IFLAG_REWGT_ZEXP ) {
     i++; 
     sprintf(LINE_RATE_INFO[i],
-	    "\t Reweight dN/dz by z^(%4.2f) ", 
+	    " Reweight dN/dz by z^(%4.2f) ", 
 	    INPUTS.RATEPAR.DNDZ_ZEXP_REWGT);
   }
   else if ( IFLAG_REWGT_ZPOLY ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i],"\t Reweight dN/dz by ZPOLY(%s)",
+    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by ZPOLY(%s)",
 	    INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
   }
 
@@ -7556,12 +7559,12 @@ void init_DNDZ_Rate(void) {
     INPUTS.NGEN_LC    = 0 ;
     INPUTS.NGEN       = INPUTS.NGENTOT_LC ;
     i++; sprintf(LINE_RATE_INFO[i],
-		 "\t NGEN_SEASON=%.2f --> NGENTOT_LC=%d ", 
+		 "  NGEN_SEASON=%.2f --> NGENTOT_LC=%d ", 
 		 INPUTS.NGEN_SEASON, INPUTS.NGENTOT_LC );
     set_screen_update(INPUTS.NGENTOT_LC) ;
   }
 
-  i++; LINE_RATE_INFO[i][0] = 0 ;
+  // xxx mark  i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
 
@@ -7656,7 +7659,7 @@ void init_simvar(void) {
   set_GENMODEL_NAME();
 
   init_GaussIntegral();
-  ENVreplace("init", fnam, 1);
+  // xxx mark   ENVreplace("init", fnam, 1);
 
   GENLC.STOPGEN_FLAG = 0 ;
   GENLC.ACCEPTFLAG   = GENLC.ACCEPTFLAG_LAST = 0 ;
@@ -7739,7 +7742,7 @@ void init_simvar(void) {
   init_string_dict(&INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE, 
 		   "SPECTRUM_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
 
-  if ( INPUTS.DEBUG_FLAG == 1222 )  { README_DOCANA_DRIVER(0); }
+  if ( !INPUTS.USE_README_LEGACY )  { README_DOCANA_DRIVER(0); }
 
   return ;
 
@@ -15940,15 +15943,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
 	NOBS_FOUND++ ; 	IWD = iwd;  SKIP_MJD = false;
 
-	/* xxxxxx mark delete 
-	if ( INPUTS.DEBUG_FLAG == 903 ) {
-	  if ( MJD < GENLC.MJD_RANGE[0] || MJD > GENLC.MJD_RANGE[1] ) {
-	    SKIP_MJD = true ;
-	  }
-	}
-	if ( SKIP_MJD ) { iwd=NWD; break; }
-	xxxxxx */
-
 	SIMLIB_OBS_RAW.OPTLINE[ISTORE] = OPTLINE ;
 
 	IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MJD[ISTORE]);
@@ -17191,10 +17185,6 @@ int keep_SIMLIB_OBS(int isort) {
   FIELD = SIMLIB_OBS_RAW.FIELDNAME[OBS] ;
   MJD   = SIMLIB_OBS_RAW.MJD[OBS] ;
 
-  // compute & store SEASON info; return MJDrange to keep SIMLIB entries
-  if ( INPUTS.DEBUG_FLAG == 903 ) { // legacy
-    set_SIMLIB_MJDrange(2,GENLC.MJD_RANGE);
-  }
 
   if ( MJD < GENLC.MJD_RANGE[0] ) { return(NOKEEP); }
   if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
@@ -24517,14 +24507,6 @@ void genmodel(
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
 
-    /* xxxxxxxxxx
-    if ( ifilt_obs == INPUTS.DEBUG_FLAG ) {
-      double Trest_tmp = ptr_epoch[0]/(1.0+z);
-      printf(" xxx %s: ifilt_obs=%d  z=%.5f  Trest=%.3f magerr=%.3f \n",
-	     fnam, ifilt_obs, z, Trest_tmp, ptr_generr[0] ) ;
-    }
-    xxxxxxx */
-
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {
@@ -25891,10 +25873,12 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ------------ BEGIN -------------
 
   // always construct readme lines
-  if ( INPUTS.DEBUG_FLAG == 1222 ) 
-    { README_DOCANA_DRIVER(1); }
-  else 
+  if ( INPUTS.USE_README_LEGACY ) 
     { readme_doc_legacy(1); }
+  else
+    { README_DOCANA_DRIVER(1); }
+  
+
 
   // init DUMP file regardless of SNDATA file status
 
@@ -25937,10 +25921,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // dump out the README file
   for ( i = 1; i <= VERSION_INFO.NLINE_README_INIT; i++ ) {
-    if ( INPUTS.DEBUG_FLAG==1222) 
-      { fprintf(SIMFILE_AUX->FP_README, "%s\n",VERSION_INFO.README_DOC[i]);}
-    else
-      { fprintf(SIMFILE_AUX->FP_README, "%s", VERSION_INFO.README_DOC[i]);}
+    fprintf(SIMFILE_AUX->FP_README, "%s\n",VERSION_INFO.README_DOC[i] ) ;
   }
 
   fflush(SIMFILE_AUX->FP_README);
@@ -26086,18 +26067,16 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   iter_summary_genPDF();
 
   // fill post-sim part of readme
-  if ( INPUTS.DEBUG_FLAG == 1222 ) 
-    { README_DOCANA_DRIVER(2); }
-  else
+  if ( INPUTS.USE_README_LEGACY ) 
     { readme_doc_legacy(2); }
+  else
+    { README_DOCANA_DRIVER(2); }
+
 
   // always dump entire readme contents to screen
   print_banner("DUMP README CONTENTS TO SCREEN\n");
   for ( i = 1; i<= VERSION_INFO.NLINE_README; i++ )
-    if ( INPUTS.DEBUG_FLAG==1222) 
-      { printf("%s\n", VERSION_INFO.README_DOC[i] ); }
-    else
-      { printf("%s", VERSION_INFO.README_DOC[i] ); }
+    {  printf("%s\n", VERSION_INFO.README_DOC[i] );  }
 
   // ==========================================
   // continue only if SNDATA files are written for each SN
@@ -26121,12 +26100,8 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // dump post-sim part of readme to README file.
   N1 = VERSION_INFO.NLINE_README_INIT + 1 ; 
   N2 = VERSION_INFO.NLINE_README ; 
-  for ( i = N1; i <= N2; i++ ) {
-    if ( INPUTS.DEBUG_FLAG==1222) 
-      { fprintf(SIMFILE_AUX->FP_README, "%s\n", VERSION_INFO.README_DOC[i] ); }
-    else
-      { fprintf(SIMFILE_AUX->FP_README, "%s", VERSION_INFO.README_DOC[i] ); }
-  }
+  for ( i = N1; i <= N2; i++ )
+    { fprintf(SIMFILE_AUX->FP_README, "%s\n", VERSION_INFO.README_DOC[i] ); }
 
   // close files.
   fclose(SIMFILE_AUX->FP_LIST);

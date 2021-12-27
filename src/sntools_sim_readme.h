@@ -3,10 +3,10 @@
 
 **********************************/
 
-#define DOCANA_OVERVIEW      "OVERVIEW"
-#define DOCANA_INPUT_KEYS    "INPUT_KEYS"
-#define DOCANA_INPUT_NOTES   "INPUT_NOTES"
-#define DOCANA_OUTPUT_NOTES  "OUTPUT_NOTES"
+#define DOCANA_OVERVIEW         "OVERVIEW"
+#define DOCANA_INPUT_KEYS       "INPUT_KEYS"
+#define DOCANA_INPUT_NOTES      "INPUT_NOTES"
+#define DOCANA_OUTPUT_SUMMARY   "OUTPUT_SUMMARY"
 
 char  ORIG_FILE_README[MXPATHLEN]; // temp space to restore original filenames
 
@@ -46,7 +46,7 @@ void  README_DOCANA_DRIVER(int iflag_readme);
 void  README_DOCANA_OVERVIEW(int *iline);
 void  README_DOCANA_INPUT_KEYS(int *iline);
 void  README_DOCANA_INPUT_NOTES(int *iline);
-void  README_DOCANA_OUTPUT_NOTES(int *iline);
+void  README_DOCANA_OUTPUT_SUMMARY(int *iline);
 
 void  readme_docana_output(int *iline, char *pad); 
 void  readme_docana_genmodel(int *iline, char *pad);

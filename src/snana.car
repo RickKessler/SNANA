@@ -2020,7 +2020,7 @@ c
      &  ,OPTSIM_LCWIDTH          ! T=> option to compute LC width
      &  ,DEBUG_FLAG               ! T=> for internal debug
      &  ,JOBSPLIT(2)             ! process (1)-range of (2)=TOTAL
-     &  ,JOBSPLIT_EXTERNAL(2)    ! passed by split_and_fit for text format 
+     &  ,JOBSPLIT_EXTERNAL(2)    ! passed by submit_batch for text format 
      &  ,MXLC_FIT                ! stop after this many fits passing all cuts
      &  ,PHOTFLAG_DETECT         ! used to count NEPOCH_DETECT and TLIVE_DETECT
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
@@ -3599,7 +3599,6 @@ c --------------- BEGIN --------------
 
       L1 = INDEX( SNDATA_PREFIX, ' ' ) - 1
 
-
       FILENAME = SNREADME_FILE(IVERS)
 
       OPEN(UNIT = LUNDMP, FILE = FILENAME, 
@@ -3617,7 +3616,6 @@ c --------------- BEGIN --------------
         CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
 
-
       write(cmd,50) FILENAME(1:LEN_README)
 50    format('cat ', A )
 
@@ -3627,7 +3625,6 @@ c --------------- BEGIN --------------
       GLOBAL_BANNER = " DUMP README FILE for VERSION " 
      &       // VERSION(1:LL)
       CALL PRBANNER ( global_banner(1:80) )
-
 
       print*, cmd
         CALL FLUSH(6)
@@ -6046,9 +6043,10 @@ c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       NFIT_ITERATION = 0
 +SELF.
 
-      WRITE ( 6 , NML = SNLCINP )
-      CALL FLUSH(6)
-
+      IF ( JOBSPLIT(1) < 2 ) THEN
+        WRITE ( 6 , NML = SNLCINP )
+        CALL FLUSH(6)
+      ENDIF
 
 +SELF,IF=SNFIT.
       IF ( NFIT_ITERATION .LE. 0 ) THEN

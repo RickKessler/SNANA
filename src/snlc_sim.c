@@ -4287,6 +4287,7 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
   }
 
   return N;
+
 } // end parse_input_SPECTRUM
 
 // *****************************************************

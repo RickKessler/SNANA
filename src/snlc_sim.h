@@ -1754,6 +1754,7 @@ int    parse_input_CUTWIN(char **WORDS, int keySource );
 int    parse_input_GRIDGEN(char **WORDS, int keySource);
 int    parse_input_LENS(char **WORDS, int keySource );
 int    parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp );
+int    parse_input_SPECTRUM(char **WORDS, int keySource);
 void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );

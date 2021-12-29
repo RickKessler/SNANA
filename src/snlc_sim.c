@@ -1340,7 +1340,7 @@ int read_input_file(char *input_file) {
   //     (to match YAML syntax for refactored submit script)
 
   int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT ;
-  int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING ;
+  int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING, NTRY=0 ;
   FILE *fp;
   char tmpWord[MXPATHLEN];  
   char stringSource[] = "sim-input file" ;
@@ -1361,13 +1361,20 @@ int read_input_file(char *input_file) {
   printf(" --------------------------------------------------------\n");
   INIT_FLAG_STRING = 0 ;
   if ( INPUTS.KEYNAME_DUMPFLAG ) { INIT_FLAG_STRING = -1; }   
-  NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); // 7.2020
+  NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); 
 
-
+ READ_FILE:
+  NTRY++ ;
   NWD_FILE = store_PARSE_WORDS(MSKOPT,input_file);
 
   printf("  Read %d words from user input file %d: \n\t %s \n", 
 	 NWD_FILE, INPUTS.NREAD_INPUT_FILE, input_file );
+
+  // Dec 28 2021: try to fix issue on Cori where file isn't read properly
+  if ( NWD_FILE==0 && NTRY <= 1 ) { 
+    sleep(3.0);  // wait few seconds before trying to read file again
+    goto READ_FILE; 
+  }
 
   // copy input file contents to another [WORDLIST] buffer because
   // store_PARSE_WORDS may be used later to parse some of the input

@@ -16284,7 +16284,8 @@ int ppar(char* item) {
     sscanf(&item[19],"%s",s); remove_quote(s);
     return(1);
   }
-  if ( uniqueOverlap(item,"fieldgroup_biascor=")  ) {
+  if ( uniqueOverlap(item,"fieldgroup_biascor=") ||
+       uniqueOverlap(item,"fieldGroup_biascor=")     ) {
     s=INPUTS.fieldGroup_biasCor ;  
     sscanf(&item[19],"%s",s); remove_quote(s);
     return(1);

@@ -1363,10 +1363,11 @@ int read_input_file(char *input_file) {
   if ( INPUTS.KEYNAME_DUMPFLAG ) { INIT_FLAG_STRING = -1; }   
   NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); // 7.2020
 
-  printf("  Read user input file %d: %s \n", 
-	 INPUTS.NREAD_INPUT_FILE, input_file );
 
   NWD_FILE = store_PARSE_WORDS(MSKOPT,input_file);
+
+  printf("  Read %d words from user input file %d: \n\t %s \n", 
+	 NWD_FILE, INPUTS.NREAD_INPUT_FILE, input_file );
 
   // copy input file contents to another [WORDLIST] buffer because
   // store_PARSE_WORDS may be used later to parse some of the input
@@ -1719,7 +1720,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - -
   else if ( keyMatchSim(1,"RANSEED", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);
-    INPUTS.ISEED = ITMP; // set unsigned int
+    INPUTS.ISEED      = ITMP; // set unsigned int
+    INPUTS.ISEED_ORIG = ITMP; // store original SEED in case it is altered.
+    
   }
   else if ( keyMatchSim(1,"NSTREAM_RAN", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NSTREAM_RAN );
@@ -7592,8 +7595,10 @@ void init_DNDB_Rate(void) {
 
   i = -1 ;
 
-  i++; sprintf(LINE_RATE_INFO[i], 
-	       "\n *********************************** " );
+  if ( INPUTS.USE_README_LEGACY ) {
+    i++; sprintf(LINE_RATE_INFO[i], 
+		 "\n *********************************** " );
+  }
 
   i++; sprintf(LINE_RATE_INFO[i],
 	       "   SIMULATED RATE(%s)",  INPUTS.RATEPAR.NAME );
@@ -7612,7 +7617,7 @@ void init_DNDB_Rate(void) {
     }
     
     i++ ;
-    sprintf(LINE_RATE_INFO[i],"\t dN/d%s = POLY(%s)",
+    sprintf(LINE_RATE_INFO[i]," dN/d%s = POLY(%s)",
 	    varName, INPUTS.RATEPAR.MODEL_BPOLY.STRING);
     
   } // end MODEL_LCLIB
@@ -7629,10 +7634,10 @@ void init_DNDB_Rate(void) {
   }
 
   i++; sprintf(LINE_RATE_INFO[i],
-	       "\t Calculated Number of EVENTS per season = %d  (NGENTOT_LC)", 
+	       " Calculated Number of EVENTS per season = %d  (NGENTOT_LC)", 
 	       INPUTS.NGENTOT_LC );
 
-  i++; LINE_RATE_INFO[i][0] = 0 ;
+  // xxx mark  i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
 

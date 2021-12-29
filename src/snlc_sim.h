@@ -555,6 +555,7 @@ struct INPUTS {
   char GENMODEL_ARGLIST[400] ;
   int  GENMAG_SMEAR_MSKOPT;   // bit-mask of GENSMEAR options
   unsigned int ISEED;         // random seed
+  unsigned int ISEED_ORIG;    // for readme output
   int          NSTREAM_RAN;   // number of independent random streams
 
   int    RANLIST_START_GENSMEAR;  // to pick different genSmear randoms

@@ -8425,10 +8425,11 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   if ( !FOUNDIT ) {
     print_preAbort_banner(fnam);
     printf("   Called by function %s \n", funCall);
+    printf("   jstat=%d jstat_gz=%d \n", jstat, jstat_gz);
     for ( ipath=1; ipath < NPATH; ipath++ ) 
       { printf("   File not in path: %s \n", PATH[ipath] ); }
     sprintf(c1err,"Could not find file in paths listed above:");
-    sprintf(c2err,"fileName = %s", fileName);
+    sprintf(c2err,"fileName = '%s'", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
   }
 

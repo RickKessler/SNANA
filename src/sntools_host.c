@@ -2479,8 +2479,8 @@ void read_gal_HOSTLIB(FILE *fp) {
 
       read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD, NBR_LIST ); 
 
-      if ( (HOSTLIB.NGAL_READ % 200000)==0  ) {
-	printf("\t Finished reading %d GAL rows\n", HOSTLIB.NGAL_READ);
+      if ( (HOSTLIB.NGAL_READ % 400000)==0  ) {
+	printf("\t\t read %6d GAL rows\n", HOSTLIB.NGAL_READ);
 	fflush(stdout);
       }
 

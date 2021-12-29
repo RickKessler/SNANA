@@ -823,7 +823,7 @@ void readme_docana_misc(int *iline, char *pad) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENSOURCE:", INPUTS.GENSOURCE);
 
-  dval = (double)INPUTS.ISEED ;
+  dval = (double)INPUTS.ISEED_ORIG ;
   VERSION_INFO_load(&i, pad, "RANSEED:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
 

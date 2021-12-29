@@ -1232,7 +1232,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
 
   int NKEY = README_KEYS->NKEY;
   int MEMC1 = MXKEY * sizeof(char*);
-  int MEMC0;
+  int MEMC_KEY, MEMC_ARG;
   int iwd, lenkey, LENWORDS_SUM=0 ;
   char *KEY, *ARG;
   // ------------ BEGIN ----------
@@ -1246,11 +1246,12 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   // compute lenth of string needed to store the WORDS
   for(iwd=1; iwd<=NWD; iwd++ )  { LENWORDS_SUM += strlen(WORDS[iwd]) ; } 
 
-  MEMC0 = ( LENWORDS_SUM + NWD + 10 ) * sizeof(char);
+  MEMC_KEY = ( strlen(WORDS[0])   + 10 ) * sizeof(char);
+  MEMC_ARG = ( LENWORDS_SUM + NWD + 10 ) * sizeof(char);
 
   // allocate 100 chars for this key
-  README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC0);
-  README_KEYS->ARG_LIST[NKEY] = (char*) malloc(MEMC0);
+  README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC_KEY);
+  README_KEYS->ARG_LIST[NKEY] = (char*) malloc(MEMC_ARG);
 
   KEY = README_KEYS->KEY_LIST[NKEY];  KEY[0]=0;
   ARG = README_KEYS->ARG_LIST[NKEY];  ARG[0]=0;

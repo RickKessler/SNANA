@@ -9,7 +9,7 @@
                        genSmear_models.c
              Jan 2014: separate trigger code into sntools_trigger.c[h]
              Jan 2017: add SPECTROGRAPH 
-             Aug 2017: refactor SIMLIB_read
+             Aug 2017: refactor SIMLIB_read 
 
  ---------------------------------------------------------
 
@@ -2880,7 +2880,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
  README_LOAD:
   if ( N > 0 ) {
     README_KEYPLUSARGS_load(MXFILTINDX, N, WORDS, 
-			    &README_KEYS_FILTER, fnam) ;
+    			    &README_KEYS_FILTER, fnam) ;
   }
 
   return(N);

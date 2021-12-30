@@ -66,7 +66,6 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-//#define MXWGT_HOSTLIB     20000000  // max size of wgtmap xxx
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
 #define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
@@ -265,6 +264,8 @@ struct HOSTLIB_DEF {
   // pre-computed cos and sin to speed gal-flux integration
   double Aperture_cosTH[NTHBIN_GALMAG+1] ;
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
+
+  long long IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
 
 } HOSTLIB ;
 

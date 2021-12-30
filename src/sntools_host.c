@@ -347,6 +347,8 @@ void initvar_HOSTLIB(void) {
 
   reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
 
+  
+  HOSTLIB.IGAL_FORCE = -9 ;
 
   return ;
 
@@ -3049,6 +3051,7 @@ void sortz_HOSTLIB(void) {
   int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT, MEMC, IVAR_VPEC ;
   double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   double VPEC, VSUM, VSUMSQ ;
+  long long GALID;
   char *ptr_UNSORT ;
   char fnam[] = "sortz_HOSTLIB" ;
 
@@ -3155,6 +3158,13 @@ void sortz_HOSTLIB(void) {
     }
     ZLAST = ZTRUE;
 
+    // store IGAL if GALID_FORCE is set (Dec 29 2021)
+    if ( INPUTS.HOSTLIB_GALID_FORCE > 0 ) {
+      GALID  = get_GALID_HOSTLIB(igal);
+      if ( INPUTS.HOSTLIB_GALID_FORCE == GALID ) 
+	{ HOSTLIB.IGAL_FORCE = igal; }
+    }
+
     if ( DO_VPEC ) {
       VPEC = HOSTLIB.VALUE_ZSORTED[IVAR_VPEC][igal];
       if ( VPEC > HOSTLIB.VPEC_MAX ) { HOSTLIB.VPEC_MAX = VPEC; }
@@ -3207,13 +3217,9 @@ void sortz_HOSTLIB(void) {
 // =======================================
 void zptr_HOSTLIB(void) {
 
-  // construct z-pointers to z-sorted library 
-  // so that later we can quickly find the
-  // nearest redshift in library.
+  // construct z-pointers to z-sorted library so that later we can 
+  // quickly find the nearest redshift in library.
   //
-  // Sep 11, 2012: switch from linear to logz grid
-  // Nov 20, 2015: fix syntax bug: fabsf -> fabs  for zdif
-  // Dec 29, 2017: speed up; see igal_start and NPAST
   // Sep 20, 2019: compute NZPTR from define params, and alloate IZPTR
   //
 
@@ -3222,7 +3228,7 @@ void zptr_HOSTLIB(void) {
 
   int iz, igal, igal_start, igal_last, NTMP, NSET, NPAST, NZPTR ;
   double ZTRUE, ZSAVE, LOGZ_GRID, Z_GRID, zdif, zdifmin ;
-  //  char fnam[] = "zptr_HOSTLIB" ;
+  char fnam[] = "zptr_HOSTLIB" ;
 
   // ----------- BEGIN -------------
 
@@ -5129,30 +5135,23 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // * SNHOSTGAL.GALID
   // * SNHOSTGAL.ZTRUE (GAL)
   //
-  // Jan 2012: check new USEONCE flag
-  //
-  // Sep 2012: switch to logz binning; see iz_cen
-  //
-  // Oct 9 2013: ranval_GALID -> ranval_GALID * 0.95  to leave
-  //             extra room to find an unused host.
-  //
-  // Nov 20 2015: compute ZCMB from ZTRUE = ZHELIO
-  // Nov 23 2015: new algorithm to select igal_start & igal_end
-  //              based on input key HOSTLIB_DZTOL
-  // 
-  // Dec 18 2015: if we have intentional wrong host, do NOT move SN redshift
-  //              to match that of HOST. See GENLC.CORRECT_HOSTMATCH .
-  //
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
+  // Dec 29 2021: minor refactor to compute things more quickly.
 
+  double DZPTR          = DZPTR_HOSTLIB ;
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
-  int N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR ;
+  int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
-  int  IZ_CEN, iz_cen, IGAL_SELECT, igal_start, igal_end, igal, LDMP;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9; 
-  long long GALID_FORCE, GALID ;
-  double  ZTRUE, LOGZGEN ,WGT_start, WGT_end, WGT_dif, WGT_select, WGT ;
+  int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
+  int  IGAL_SELECT, igal_start, igal_end, igal;
+  int  igal_start_init, igal_end_init ;
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9, LDMP=0; 
+  long long GALID ;
+  double  ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
+  double WGT_start, WGT_end, WGT_dif, WGT_select, WGT ;
   double  ztol, dztol, z, z_start, z_end ;
+  bool ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB ) ;
+  bool REFAC = (INPUTS.DEBUG_FLAG == 1229);
   char fnam[] = "GEN_SNHOST_GALID" ;
 
   // ---------- BEGIN ------------
@@ -5163,7 +5162,12 @@ void GEN_SNHOST_GALID(double ZGEN) {
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
     
   // find start zbin 
-  LOGZGEN = log10(ZGEN);
+  LOGZGEN    = log10(ZGEN);
+  LOGZTOLMAX = log10(ZGEN+dztol);
+  if ( (ZGEN-dztol) > ZMIN_HOSTLIB )
+    { LOGZTOLMIN = log10(ZGEN-dztol); }
+  else
+    { LOGZTOLMIN = MINLOGZ_HOSTLIB ; }
 
   if ( LOGZGEN < MINLOGZ_HOSTLIB ) {
     sprintf(c1err,"LOGZGEN=%.3f < MINLOGZ_HOSTLIB=%.3f",
@@ -5173,30 +5177,42 @@ void GEN_SNHOST_GALID(double ZGEN) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  IZ_CEN  = (int)((LOGZGEN-MINLOGZ_HOSTLIB)/DZPTR_HOSTLIB) ; 
+  // compute approx IZ index at z, z-dztol, z+dztol
+  LOGZDIF    = LOGZGEN - MINLOGZ_HOSTLIB;
+  IZ_CEN     = (int)( LOGZDIF/DZPTR ) ; 
 
-  // select min/max GALID using dztol from user
-  iz_cen=IZ_CEN;    z=ZGEN ;  ztol=z-dztol ; 
-  if ( iz_cen >= HOSTLIB.MAXiz ) 
+  LOGZDIF    = LOGZTOLMIN - MINLOGZ_HOSTLIB;
+  IZ_TOLMIN  = (int)( LOGZDIF/DZPTR ) ; 
+
+  LOGZDIF    = LOGZTOLMAX - MINLOGZ_HOSTLIB;
+  IZ_TOLMAX  = (int)( LOGZDIF/DZPTR ) ; 
+
+  // - - - - - - -
+  // select min GALID using dztol from user
+  z=ZGEN ;  ztol=z-dztol ; 
+  if ( IZ_CEN >= HOSTLIB.MAXiz ) 
     { igal_start = HOSTLIB.NGAL_STORE-1; }
-  else 
-    { igal_start = HOSTLIB.IZPTR[iz_cen+1]; }
+  else {
+     igal_start = HOSTLIB.IZPTR[IZ_CEN+1]; 
+     if ( REFAC ) { igal_start = HOSTLIB.IZPTR[IZ_TOLMIN+1]; }
+  }
 
-  
-  LDMP = ( GENLC.CID == -117 ) ; 
-
-  while ( z > ztol && igal_start > 1 )   { 
+  igal_start_init = igal_start;
+  while ( z > ztol && igal_start > 1 )  { 
     igal_start-- ; z = get_ZTRUE_HOSTLIB(igal_start);  
   }
 
   // - - - - - - - - - 
-
-  iz_cen   = IZ_CEN;  z = ZGEN ; ztol = z+dztol ;
-  if ( iz_cen < HOSTLIB.MINiz ) 
+  // select max GALID using dztol from user
+  z = ZGEN ; ztol = z+dztol ;
+  if ( IZ_CEN < HOSTLIB.MINiz ) 
     { igal_end = 0; }
-  else   
-    { igal_end = HOSTLIB.IZPTR[iz_cen-1]; }
-  
+  else { 
+    igal_end = HOSTLIB.IZPTR[IZ_CEN-1]; 
+    if ( REFAC ) { igal_end = HOSTLIB.IZPTR[IZ_TOLMAX-1]; }
+  }
+
+  igal_end_init = igal_end;
   while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) 
     { igal_end++ ; z = get_ZTRUE_HOSTLIB(igal_end);  }
 
@@ -5208,9 +5224,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   /*
   printf(" xxx ---------- %s DUMP ---------- \n", fnam);
   printf(" xxx ZGEN = %f  dztol=%f \n", ZGEN, dztol );
-  printf(" xxx NEW igal(start,cen,end) = %d, %d, %d \n",
-	 igal_start, igal_cen, igal_end);
-  */
+  printf(" xxx igal_start = %d -> %d \n", igal_start_init, igal_start);
+  printf(" xxx igal_end   = %d -> %d \n", igal_end_init, igal_end);
+  fflush(stdout);
+  xxxxxx */
 
   if ( igal_end < igal_start ) { igal_end = igal_start ; }
 
@@ -5234,7 +5251,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.IGAL_SELECT_RANGE[1] = igal_end ;
 
   // now pick random igal between igal_start and igal_end
-
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
@@ -5250,9 +5266,12 @@ void GEN_SNHOST_GALID(double ZGEN) {
   WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
-  GALID_FORCE = INPUTS.HOSTLIB_GALID_FORCE ;
-  if ( INDEX_GENMODEL == MODEL_SIMLIB && SIMLIB_HEADER.GALID>0) 
-    { GALID_FORCE = SIMLIB_HEADER.GALID; }
+  // xxx mark  GALID_FORCE = INPUTS.HOSTLIB_GALID_FORCE ;
+
+  if ( ISMODEL_SIMLIB  &&  SIMLIB_HEADER.GALID > 0 ) { 
+    INPUTS.HOSTLIB_GALID_PRIORITY[0] = SIMLIB_HEADER.GALID;
+    INPUTS.HOSTLIB_GALID_PRIORITY[1] = SIMLIB_HEADER.GALID;
+  }
 
   // ---------------------------------------------------------
   // Feb 16 2016
@@ -5273,38 +5292,67 @@ void GEN_SNHOST_GALID(double ZGEN) {
     if ( IGAL_SELECT >= 0 ) { goto DONE_SELECT_GALID ; }
   } 
 
+  
+  // check GALID_FORCE here (Dec 29 2021)
+  if ( HOSTLIB.IGAL_FORCE > 0 ) {
+    IGAL_SELECT = HOSTLIB.IGAL_FORCE;
+    goto DONE_SELECT_GALID ;
+  }
 
   // ---------------------------------------------------
   // start nominal loop over galaxies
+
+  //.xyz
+
+  if ( REFAC  ) {
+    int igal_middle ;
+    int igal0 = igal_start;
+    int igal1 = igal_end;    
+    igal_middle = (int)( (igal0 + igal1)/2 );
+    
+    if ( N_SNVAR > 0 ) 
+      { WGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_middle]; }
+    else
+      { WGT  = HOSTLIB_WGTMAP.WGTSUM[igal_middle] ; }
+
+    if ( WGT < WGT_select )      {  igal1 = igal_middle ;    } 
+    else {  igal0 = igal_middle ;   }
+
+  } // end REFAC
+
+  // - - - - - -
+  // legacy loop
+
+  /* 
+#define NGAL_STEP 3
+  int ngal_step[NGAL_STEP] = {100, 10, 1};
+  int jstep, jstep0, jstep1, igal_step ;
+  if ( REFAC ) 
+    { jstep0=0; jstep1=NGAL_STEP; }
+  else
+    { jstep0 = jstep1 = NGAL_STEP; }
+  */
+
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
 
     NGAL_CHECK++ ;
-
-    // check for forced GALID (Mar 12 2012)
-    if ( GALID_FORCE > 0 ) {
-      MATCH = (GALID_FORCE == get_GALID_HOSTLIB(igal) ) ; 
-      if ( MATCH ) 
-	{ IGAL_SELECT = igal; goto DONE_SELECT_GALID ; }
-      else
-	{ continue ; }
-    }
 
     if ( N_SNVAR > 0 ) 
       { WGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal]; }
     else
       { WGT  = HOSTLIB_WGTMAP.WGTSUM[igal] ; }
-
-    if ( WGT <  WGT_select  ) 
+    
+    if ( WGT <  WGT_select  )  
       { NSKIP_WGT++; continue ; }
-
+    
     if ( USEHOST_GALID(igal) == 0 ) 
       { NSKIP_USED++ ; continue ; }
-
+    
+    // select first igal with WGT > WGT_select
     IGAL_SELECT = igal ;
     goto DONE_SELECT_GALID ;
-
-  }
-
+    
+  } // end igal loop
 
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 

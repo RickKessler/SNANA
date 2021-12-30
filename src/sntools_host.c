@@ -5175,9 +5175,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   IZ_CEN  = (int)((LOGZGEN-MINLOGZ_HOSTLIB)/DZPTR_HOSTLIB) ; 
 
-  // Nov 23 2015: New algorithm to select min/max GALID using
-  //              dztol from user
-
+  // select min/max GALID using dztol from user
   iz_cen=IZ_CEN;    z=ZGEN ;  ztol=z-dztol ; 
   if ( iz_cen >= HOSTLIB.MAXiz ) 
     { igal_start = HOSTLIB.NGAL_STORE-1; }
@@ -5190,7 +5188,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
   while ( z > ztol && igal_start > 1 )   { 
     igal_start-- ; z = get_ZTRUE_HOSTLIB(igal_start);  
   }
-
 
   // - - - - - - - - - 
 
@@ -5214,7 +5211,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
   printf(" xxx NEW igal(start,cen,end) = %d, %d, %d \n",
 	 igal_start, igal_cen, igal_end);
   */
-
 
   if ( igal_end < igal_start ) { igal_end = igal_start ; }
 

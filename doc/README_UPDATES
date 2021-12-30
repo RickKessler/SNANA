@@ -20619,12 +20619,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04e (  ) 
+         v11_04e (Dec 29 2021) 
 
          ***** IMPORTANT(v11_04e) ***** 
 
    Fixed HEADER_OVERRIDE bug that set zFit = zCMB instead of zHEL.
    New &SNLCINP input RESTORE_OVERRIDE_ZBUG restores the bug.
+
+   sim: DEBUG_FLAG 1222 -> write refactored [GENVERSION].README
+         (will become default next code version)
 
          ***** USEFUL(v11_04e) ***** 
 
@@ -20633,9 +20636,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Call check_EOF from store_PARSE_WORDS and host-reading;
      try to get more info about file-reading errors.
 
+   SALT2mu prescale option now works for HOSTLIB.
+
          ***** MISCELLANEOUS(v11_04e) ***** 
 
-   submit_batch:
+   submit_batch_jobs:
      + new arg --merge_background
 
    submit_prog_wfit.py: fix few bugs
@@ -20677,5 +20682,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + in open_textgz, if both file and file.gz exist, wait 5 sec
        and try again. Needed for pipelines where job runs while
        gzip on another core is in progress.
+
+   SALT2mu.c
+     + fix prescale option to also work with HOSTLIB.
 
 END: 

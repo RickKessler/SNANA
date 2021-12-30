@@ -159,8 +159,10 @@ void INIT_HOSTLIB(void) {
     { checkAbort_HOSTLIB(); }
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
-  print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
+  sprintf(BANNER,"%s: Read host-galaxy library (MSKOPT=%d)",
+	  fnam, INPUTS.HOSTLIB_MSKOPT);
+  print_banner(BANNER);
 
   OPTMASK_OPENFILE_HOSTLIB = 0;
   if ( INPUTS.REQUIRE_DOCANA ) 
@@ -5135,9 +5137,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
 
-  int  IGAL_RANGE_CONVERGE = 5;  // convergence for binary search
-  int  NGAL_CHECK_ABORT    = 50; // avoid infinite loop
-
+  int  IGAL_JUMP           = 20 ; // spped search for approx start range
+  int  IGAL_RANGE_CONVERGE = 5;   // convergence for binary search
+  int  NGAL_CHECK_ABORT    = 50;  // avoid infinite loop in binary search
   bool ISMODEL_SIMLIB   = ( INDEX_GENMODEL == MODEL_SIMLIB ) ;
   int    USEONCE        = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEONCE;
   double DZPTR          = DZPTR_HOSTLIB ;
@@ -5155,7 +5157,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double ztol, dztol, z, z_start, z_end ;
 
   int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
-  bool REFAC  = (INPUTS.DEBUG_FLAG == 1229);
+  bool REFAC  = (INPUTS.DEBUG_FLAG != -1229); // -1229 -> legacy
   char fnam[] = "GEN_SNHOST_GALID" ;
 
   // ---------- BEGIN ------------
@@ -5193,6 +5195,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // - - - - - - -
   // select min GALID using dztol from user
+
+  // begin with approx calculation using IZPTR grid
   z=ZGEN ;  ztol=z-dztol ; 
   if ( IZ_CEN >= HOSTLIB.MAXiz ) 
     { igal_start = HOSTLIB.NGAL_STORE-1; }
@@ -5201,10 +5205,18 @@ void GEN_SNHOST_GALID(double ZGEN) {
      if ( REFAC ) { igal_start = HOSTLIB.IZPTR[IZ_TOLMIN+1]; }
   }
 
+  // loop every IGAL_JUMP galaxy to get refined range
   igal_start_init = igal_start;
-  while ( z > ztol && igal_start > 1 )  { 
-    igal_start-- ; z = get_ZTRUE_HOSTLIB(igal_start);  
+  if ( REFAC ) {
+    while ( z > ztol && igal_start > 1 )
+      {  igal_start-=IGAL_JUMP ; z = get_ZTRUE_HOSTLIB(igal_start);  }
+    if ( igal_start != igal_start_init ) 
+      { igal_start += IGAL_JUMP ;  z = get_ZTRUE_HOSTLIB(igal_start); }
   }
+
+  // final loop one galaxy at a time to find exact igal at z < ztol
+  while ( z > ztol && igal_start > 1 )  
+    {  igal_start-- ; z = get_ZTRUE_HOSTLIB(igal_start);  }
 
   // - - - - - - - - - 
   // select max GALID using dztol from user
@@ -5217,9 +5229,16 @@ void GEN_SNHOST_GALID(double ZGEN) {
   }
 
   igal_end_init = igal_end;
+  if ( REFAC ) {
+    while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) 
+      { igal_end+=IGAL_JUMP ; z = get_ZTRUE_HOSTLIB(igal_end);  }
+    if ( igal_end != igal_end_init ) 
+      { igal_end -= IGAL_JUMP; z = get_ZTRUE_HOSTLIB(igal_end);}
+  }
   while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) 
     { igal_end++ ; z = get_ZTRUE_HOSTLIB(igal_end);  }
 
+  // - - - - - - - - - - - - - - - - - - - - - - - -  -
   // back up one step to stay inside dztol
   igal_start++ ;    igal_end--   ; 
   z_start = get_ZTRUE_HOSTLIB(igal_start); 

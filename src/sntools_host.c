@@ -117,6 +117,8 @@
 
  Nov 18 2021: allow WGTMAP to be missing SNMAGSHIFT column
 
+ Dec 30 2021: refactor GEN_SNHOST_GALID() to use binary search for speed.
+
 =========================================================== */
 
 #include <stdio.h>
@@ -225,7 +227,6 @@ void INIT_HOSTLIB(void) {
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
   fflush(stdout);
 
-  //  debugexit(fnam); // xxxx REMOVE
   return ;
 
 } // end of INIT_HOSTLIB
@@ -1160,7 +1161,6 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
       fgets(LINE, MXCHAR, fp);
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
      
-      // xxx mark Nov 18 2021   NVAR = NWD - 2; // exclude WGT and SNMAGSHIFT
       for(ivar=0; ivar < NWD; ivar++ ) {
 	get_PARSE_WORD(0,ivar,VARNAME);
 
@@ -2856,8 +2856,6 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   DO_FIELD    = ( HOSTLIB.IVAR_FIELD    > 0 );
   DO_NBR      = ( HOSTLIB.IVAR_NBR_LIST > 0 );
 
-  // xxx remove bug Jan 2020   if ( NGAL_STORE == 0 ) {
-
   if ( NGAL_READ == 0 ) {
 
     if  ( LDMP ) 
@@ -2896,7 +2894,6 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   // --------------------------------------------------
   int UPD = ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 );
-  // xxx remove bug, Jan 15 2020:  if ( UPD  ) {    
   if ( UPD && NGAL_STORE > 0 ) {    
     HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
@@ -5136,22 +5133,29 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // * SNHOSTGAL.ZTRUE (GAL)
   //
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
-  // Dec 29 2021: minor refactor to compute things more quickly.
+  // Dec 30 2021: minor refactor to make igal loops faster with binary search.
 
+  int  IGAL_RANGE_CONVERGE = 5;  // convergence for binary search
+  int  NGAL_CHECK_ABORT    = 50; // avoid infinite loop
+
+  bool ISMODEL_SIMLIB   = ( INDEX_GENMODEL == MODEL_SIMLIB ) ;
+  int    USEONCE        = INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEONCE;
   double DZPTR          = DZPTR_HOSTLIB ;
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
 
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
+  int  igal0, igal1, igal_middle;
   int  igal_start_init, igal_end_init ;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9, LDMP=0; 
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR=-9; 
   long long GALID ;
-  double  ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
-  double WGT_start, WGT_end, WGT_dif, WGT_select, WGT ;
-  double  ztol, dztol, z, z_start, z_end ;
-  bool ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB ) ;
-  bool REFAC = (INPUTS.DEBUG_FLAG == 1229);
+  double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
+  double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
+  double ztol, dztol, z, z_start, z_end ;
+
+  int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
+  bool REFAC  = (INPUTS.DEBUG_FLAG == 1229);
   char fnam[] = "GEN_SNHOST_GALID" ;
 
   // ---------- BEGIN ------------
@@ -5182,10 +5186,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   IZ_CEN     = (int)( LOGZDIF/DZPTR ) ; 
 
   LOGZDIF    = LOGZTOLMIN - MINLOGZ_HOSTLIB;
-  IZ_TOLMIN  = (int)( LOGZDIF/DZPTR ) ; 
+  IZ_TOLMIN  = (int)( LOGZDIF/DZPTR + 0.5 ) ; 
 
   LOGZDIF    = LOGZTOLMAX - MINLOGZ_HOSTLIB;
-  IZ_TOLMAX  = (int)( LOGZDIF/DZPTR ) ; 
+  IZ_TOLMAX  = (int)( LOGZDIF/DZPTR + 0.5 ) ; 
 
   // - - - - - - -
   // select min GALID using dztol from user
@@ -5221,13 +5225,16 @@ void GEN_SNHOST_GALID(double ZGEN) {
   z_start = get_ZTRUE_HOSTLIB(igal_start); 
   z_end   = get_ZTRUE_HOSTLIB(igal_end); 
 
-  /*
-  printf(" xxx ---------- %s DUMP ---------- \n", fnam);
-  printf(" xxx ZGEN = %f  dztol=%f \n", ZGEN, dztol );
-  printf(" xxx igal_start = %d -> %d \n", igal_start_init, igal_start);
-  printf(" xxx igal_end   = %d -> %d \n", igal_end_init, igal_end);
-  fflush(stdout);
-  xxxxxx */
+  if ( LDMP ) {
+    printf(" xxx ---------- %s DUMP ---------- \n", fnam);
+    printf(" xxx CID=%d  ZGEN = %f  dztol=%f \n", 
+	   GENLC.CID, ZGEN, dztol );
+    printf(" xxx igal_start = %d -> %d (loop %d)\n", 
+	   igal_start_init, igal_start, igal_start_init-igal_start);
+    printf(" xxx igal_end   = %d -> %d (loop %d)\n", 
+	   igal_end_init, igal_end, igal_end-igal_end_init );
+    fflush(stdout);
+  }
 
   if ( igal_end < igal_start ) { igal_end = igal_start ; }
 
@@ -5254,14 +5261,18 @@ void GEN_SNHOST_GALID(double ZGEN) {
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
-    WGT_start  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_start];
-    WGT_end    = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_end];
+    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR];
+    // xxx WGT_start  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_start];
+    // xxx WGT_end    = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_end];
   }
   else {
-    WGT_start  = HOSTLIB_WGTMAP.WGTSUM[igal_start];
-    WGT_end    = HOSTLIB_WGTMAP.WGTSUM[igal_end];
+    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM;
+    // xxx    WGT_start  = HOSTLIB_WGTMAP.WGTSUM[igal_start];
+    // xxx    WGT_end    = HOSTLIB_WGTMAP.WGTSUM[igal_end];
   }
 
+  WGT_start  = ptrWGT[igal_start];
+  WGT_end    = ptrWGT[igal_end];    
   WGT_dif    = WGT_end - WGT_start ;
   WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
 
@@ -5300,48 +5311,59 @@ void GEN_SNHOST_GALID(double ZGEN) {
   }
 
   // ---------------------------------------------------
-  // start nominal loop over galaxies
-
-  //.xyz
 
   if ( REFAC  ) {
-    int igal_middle ;
-    int igal0 = igal_start;
-    int igal1 = igal_end;    
+    // perform binary search to restrict igal range to within a few galaxies.
+    bool CONVERGE = false;
+    igal0 = igal_start;
+    igal1 = igal_end;    
     igal_middle = (int)( (igal0 + igal1)/2 );
     
-    if ( N_SNVAR > 0 ) 
-      { WGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_middle]; }
-    else
-      { WGT  = HOSTLIB_WGTMAP.WGTSUM[igal_middle] ; }
+    while ( !CONVERGE ) {
+      WGT = ptrWGT[igal_middle] ;
+      NGAL_CHECK++ ;
+      if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
+	print_preAbort_banner(fnam);
+	printf("\t CID=%d  ZGEN=%f\n", GENLC.CID, ZGEN);
+	printf("\t WGT_select=%le   current WGT=%le\n", WGT_select, WGT);
+	printf("\t igal[start,end]=%d,%d  igal[0,middle,1]=%d,%d,%d\n",
+	       igal_start, igal_end,   igal0, igal_middle, igal1);
+	sprintf(c1err,"Cannot converge finding igal range.");
+	sprintf(c2err,"NGAL_CHECK=%d", NGAL_CHECK );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+      }
+      if ( WGT < WGT_select )
+	{  igal0 = igal_middle ;  } // select upper half for next iter
+      else 
+	{  igal1 = igal_middle ;   } // lower half for next iter
 
-    if ( WGT < WGT_select )      {  igal1 = igal_middle ;    } 
-    else {  igal0 = igal_middle ;   }
+      igal_middle = (int)( (igal0 + igal1)/2 );
+      CONVERGE = (igal1 - igal0) < IGAL_RANGE_CONVERGE ;
+
+      if ( LDMP ) {
+	double WGT_ratio = (WGT-WGT_start) / ( WGT_select-WGT_start);
+	printf(" xxx igal[0,m,1] = %d, %d, %d   CONVERGE=%d "
+	       "WGT_ratio=%.4f \n",
+	       igal0, igal_middle, igal1, CONVERGE, WGT_ratio);
+      }
+
+    } // end while not CONVERGE
+
+    // reset igal_start[end] for brute-force search below.
+    igal_start = igal0;
+    if ( !USEONCE ) { igal_end = igal1; }
 
   } // end REFAC
 
-  // - - - - - -
-  // legacy loop
 
-  /* 
-#define NGAL_STEP 3
-  int ngal_step[NGAL_STEP] = {100, 10, 1};
-  int jstep, jstep0, jstep1, igal_step ;
-  if ( REFAC ) 
-    { jstep0=0; jstep1=NGAL_STEP; }
-  else
-    { jstep0 = jstep1 = NGAL_STEP; }
-  */
+  // - - - - - - - - - - - 
+  // Brute force search, one igal at a time.
 
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
 
     NGAL_CHECK++ ;
+    WGT = ptrWGT[igal];
 
-    if ( N_SNVAR > 0 ) 
-      { WGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal]; }
-    else
-      { WGT  = HOSTLIB_WGTMAP.WGTSUM[igal] ; }
-    
     if ( WGT <  WGT_select  )  
       { NSKIP_WGT++; continue ; }
     
@@ -5357,6 +5379,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // - - - - - - - - - - - - - - - - - - - - - - - - 
 
  DONE_SELECT_GALID:
+
+  if ( LDMP ) {
+    bool GOOD = ( IGAL_SELECT >= igal_start && IGAL_SELECT <= igal_end);
+    printf(" xxx IGAL_SEL=%d  igal_range=%d,%d [GOOD=%d]  NGAL_CHECK=%d\n",
+	   IGAL_SELECT, igal_start, igal_end, GOOD, NGAL_CHECK ); 
+    fflush(stdout);
+  }
 
   if ( IGAL_SELECT < 0 ) {
     
@@ -5376,7 +5405,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
     fflush(stdout);
 
     sprintf(c1err,"Could not find HOSTLIB entry for ZGEN=%5.4f .", ZGEN);
-    int USEONCE   = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEONCE );
     if ( USEONCE ) 
       { sprintf(c2err,"Each HOST used only once -> need larger library."); }
     else
@@ -8436,7 +8464,6 @@ void rewrite_HOSTLIB_plusNbr(void) {
   char  *LINE_APPEND, MSG[100] ;
 
   // internal debug
-  // xxx mark  int  NGAL_DEBUG  = -500;
   int  NGAL_DEBUG  = INPUTS.HOSTLIB_MAXREAD ;
 
   char *INPUT_FILE   = INPUTS.INPUT_FILE_LIST[0];

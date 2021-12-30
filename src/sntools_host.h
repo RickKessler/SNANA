@@ -88,7 +88,7 @@
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
 // hard wire logarithmic z-bins
-#define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
+#define DZPTR_HOSTLIB      0.01   // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB

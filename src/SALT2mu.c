@@ -979,6 +979,7 @@ with append_varname_missing,
    + define MINPERCELL_MUCOVSCALE 5
 
  Nov 24 2021: new input key prescale_simIa
+ Dec 28 2021: few tweaks so that prescale works with HOSTLIB
 
  ******************************************************/
 
@@ -2167,7 +2168,8 @@ void  write_fitres_misc(FILE *fout);
 void  write_version_info(FILE *fp) ;
 void  write_yaml_info(char *fileName);
 void  define_varnames_append(void) ;
-int   write_fitres_line(int indx, int ifile, char *line, FILE *fout) ;
+int   write_fitres_line(int indx, int ifile, char *rowkey, 
+			char *line, FILE *fout) ;
 void  write_fitres_line_append(FILE *fp, int indx);
 void  write_cat_info(FILE *fout) ;
 void  prep_blindVal_strings(void);
@@ -6995,7 +6997,9 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 
   // - - - - - - - - prep strings - - - - - - - 
-  sprintf(vartmp, "CID:C*%d  CCID:C*%d", MXCHAR_CCID, MXCHAR_CCID); 
+  sprintf(vartmp, "CID:C*%d  CCID:C*%d  GALID:C*%d", 
+	  MXCHAR_CCID, MXCHAR_CCID, MXCHAR_CCID);
+ 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->name[ISTART], 
 			  LEN, VBOSE) ;
 
@@ -19497,6 +19501,7 @@ void write_fitres_driver(char* fileName) {
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
   int idsample, NSN_DATA, nfile, ifile ;
+  bool VALID_ROWKEY;
   char  line[MXCHAR_LINE], tmpName[60], *ptrFile ;
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
 
@@ -19713,7 +19718,12 @@ void write_fitres_driver(char* fileName) {
 
       // skip if first wd of line is not a valid row key
       get_PARSE_WORD(0, IWD_KEY, KEY);
-      if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
+      VALID_ROWKEY = 
+	( strcmp(KEY,"SN:" )    == 0 ) ||
+	( strcmp(KEY,"ROW:")    == 0 ) ||
+	( strcmp(KEY,"GAL:")    == 0 ) ;
+      if ( !VALID_ROWKEY ) { continue ; }
+      // xxx mark      if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
 
       if ( cat_only ) {
 	// check prescale
@@ -19728,7 +19738,7 @@ void write_fitres_driver(char* fileName) {
 	if ( !keep_cutmask(cutmask)  ) { continue; }
       }
 
-      NWR += write_fitres_line(indx,ifile,line,fout);
+      NWR += write_fitres_line(indx,ifile, KEY,line,fout);
 
     }  // end reading line with fgets
 
@@ -19751,7 +19761,8 @@ void write_fitres_driver(char* fileName) {
 } // end of write_fitres_driver
 
 // ===============================================
-int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
+int write_fitres_line(int indx, int ifile, char *rowkey, 
+		      char *line, FILE *fout) {
 
   // for input 'ifile' and 'line', write to fout.
   // Note that store_PARSE_WORDS has already been called,
@@ -19761,6 +19772,7 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
   // different columns.
   //  
   // Nov 14 2020: check for datafile_overrides.
+  // Dec 28 2021: pass rowkey to allow for prescaling HOSTLIB
 
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
@@ -19772,7 +19784,9 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
   // ----------- BEGIN -----------
 
 
-  sprintf(line_out,"SN: ");
+  // xxx mark delete  sprintf(line_out,"SN: ");
+  sprintf(line_out,"%s ", rowkey);
+
   for(ivar_tot=0; ivar_tot < NVAR_TOT; ivar_tot++ ) {
     ivar_file = OUTPUT_VARNAMES.IVARMAP[ifile][ivar_tot];
     ivar_word = ivar_file + 1; // add 1 to skip SN: key

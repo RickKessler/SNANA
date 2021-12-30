@@ -711,8 +711,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
     printf(" xxx read LCLIB: EXTERN_ID=%d  ifiltObs=%d  NREPEAT=%d \n", 
 	   EXTERNAL_ID, ifilt_obs, LCLIB_EVENT.NREPEAT );
     */
-	  
-
+     
     readNext_LCLIB(RA,DEC);  // read next event
     set_NREPEAT_LCLIB(); 
   }
@@ -807,12 +806,11 @@ void readNext_LCLIB(double *RA, double *DEC) {
   int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
   int NWD, iwd, NLINE_SKIP, Nfread ;
   bool  VALID_RADEC ;
-  char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], WD0[100], WD1[100];
+  char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], *WD0, *WD1; // xx[100], WD1[100];
   char *ptrWDLIST[MXFILTINDX+MXPAR_LCLIB];
   double GalLat, GalLong ;
   char key[60], LINE[200], tmpLINE[200];
 
-  int  DOFLAG_RDBIGBUF = 0 ;  // doesn't seem to help read faster
   char fnam[] = "readNext_LCLIB" ;
 
   // ------------- BEGIN --------------
@@ -831,7 +829,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
   for(iwd=0; iwd < MXWD; iwd++ )  { ptrWDLIST[iwd] = WDLIST[iwd] ; }
 
  NEXT_EVENT:
-  
+
   START_EVENT = END_EVENT = 0 ; 
   REJECT = NLINE_SKIP = Nfread = 0;
   LCLIB_EVENT.NROW = LCLIB_EVENT.NROW_S = LCLIB_EVENT.NROW_T = 0 ;
@@ -874,7 +872,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
 
     // don't parse LINE if we know this event has been rejected
     // and we have not read all of the expected ROWs.
-    if ( REJECT  &&  (NLINE_SKIP < NROW_EXPECT-10) && DOFLAG_RDBIGBUF==0 )
+    if ( REJECT  &&  (NLINE_SKIP < NROW_EXPECT-5) )
       { NLINE_SKIP++ ;  continue; }
 
     // split LINE into individual words
@@ -897,8 +895,11 @@ void readNext_LCLIB(double *RA, double *DEC) {
     ISROW_S = ( strcmp(key,"S:") == 0 );
 
     while(iwd < NWD-1 ) {
-      sprintf(WD0, "%s", WDLIST[iwd+0] );
-      sprintf(WD1, "%s", WDLIST[iwd+1] );
+
+      WD0 = WDLIST[iwd+0];
+      WD1 = WDLIST[iwd+1];
+      // xxx mark sprintf(WD0, "%s", WDLIST[iwd+0] );
+      // xxx mark sprintf(WD1, "%s", WDLIST[iwd+1] );
 
       if ( iwd==0 && (ISROW_T || ISROW_S) ) {
 
@@ -1154,7 +1155,6 @@ void read_PARVAL_LCLIB(char *LINE) {
   for(ipar=0; ipar < NPAR; ipar++ ) {
     sscanf(stringPARVAL[ipar], "%le", &PARVAL );
     LCLIB_EVENT.PARVAL_MODEL[ipar] = PARVAL ;
-    //  printf(" xxx PARVAL[%2d] = %f \n", ipar, PARVAL);
   }
   LCLIB_EVENT.PARVAL_MODEL[NPAR+0] = (double)LCLIB_EVENT.ID ;  
 

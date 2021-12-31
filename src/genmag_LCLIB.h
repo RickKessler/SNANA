@@ -18,6 +18,7 @@
 
 #define OPTMASK_LCLIB_IGNORE_ANGLEMATCH 1 // option to ignore ANGLEMATCH cut
 #define OPTMASK_LCLIB_useRADEC          8 // use RA,DEC from LCLIB
+#define OPTMASK_LCLIB_DEBUG           512 // debug/refactor
 
 #define DAYBACK_TEMPLATE_LCLIB 30.0 // used in forceTemplateRows
 #define MODEL_RANMAG_LCLIB  "RANMAG" 
@@ -144,6 +145,8 @@ struct {
   double TOBS_MIN, TOBS_MAX;      // passed to function set_TobsRange_LCLIB
   double TOBS_RANGE ;
   double TOBS_OFFSET ;            // shift Tobs overlap LCLIB DAY-range
+
+  int NCHAR_ROW; // used by fseek to skip rows (Dec 2021)
 
 } LCLIB_EVENT ;
 

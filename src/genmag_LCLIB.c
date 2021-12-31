@@ -72,8 +72,9 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   //
   //  OPTMASK: user bit-mask options passed from sim-input 
   //           GENMODEL_MSKOPT: <OPTMASK>
-  //     += 1 --> ignore ANGLEMATCH cut 
-  //     += 8 --> use LCLIB coordinates (Feb 2021)
+  //     += 1   --> ignore ANGLEMATCH cut 
+  //     += 8   --> use LCLIB coordinates (Feb 2021)
+  //     += 512 --> DEGUB/REFACTOR flag
   //
   //  If LCLIBFILE's SURVEY and FILTERLIST does not match input,
   //  abort on error.
@@ -94,7 +95,6 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   LCLIB_INFO.TOBS_RANGE_MAX = TOBS_RANGE_MAX;
   LCLIB_INFO.NGENTOT = NGENTOT ;
   LCLIB_INFO.OPTMASK = OPTMASK ;
-
 
   LCLIB_INFO.DO_ANGLEMATCH = true;
   if ( OPTMASK & OPTMASK_LCLIB_IGNORE_ANGLEMATCH ) 
@@ -121,6 +121,7 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   LCLIB_EVENT.NREPEAT     = LCLIB_INFO.NREPEAT ;
   LCLIB_EVENT.NforceTemplateRows = 0 ;
   LCLIB_EVENT.NROWADD_NONRECUR = 0 ;
+  LCLIB_EVENT.NCHAR_ROW = 0;
 
   printf("\n");
 
@@ -704,14 +705,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   NEXT_LCLIBEVENT = ( LCLIB_EVENT.NREPEAT == LCLIB_INFO.NREPEAT ||
 		      LCLIB_EVENT.NEVENT_READ == 0 ) ;
 
-  if ( NEXT_SIMEVENT && NEXT_LCLIBEVENT  ) {
-
-    /*    
-    printf(" xxx -------------------------------------- \n");
-    printf(" xxx read LCLIB: EXTERN_ID=%d  ifiltObs=%d  NREPEAT=%d \n", 
-	   EXTERNAL_ID, ifilt_obs, LCLIB_EVENT.NREPEAT );
-    */
-     
+  if ( NEXT_SIMEVENT && NEXT_LCLIBEVENT  ) {     
     readNext_LCLIB(RA,DEC);  // read next event
     set_NREPEAT_LCLIB(); 
   }
@@ -795,18 +789,22 @@ void readNext_LCLIB(double *RA, double *DEC) {
   double RA_LOCAL  = *RA  ;
   double DEC_LOCAL = *DEC ;
 
-  bool switch_RADEC = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
+  int  OPTMASK      = LCLIB_INFO.OPTMASK;
+  bool switch_RADEC = (OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
+  bool REFAC        = (OPTMASK & OPTMASK_LCLIB_DEBUG   ) > 0 ;
+
   FILE *fp   = LCLIB_INFO.FP ;
   int NPAR   = LCLIB_INFO.NPAR_MODEL ;
   int NFILT  = LCLIB_INFO.NFILTERS;
   int IFLAG_PERIODIC = (LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_PERIODIC);
   int MXWD   = NFILT + NPAR + 2 ;
- 
+  bool FIRST_EVENT = LCLIB_EVENT.NEVENT_READ==0;
   int START_EVENT, END_EVENT, ISROW_T, ISROW_S ;
   int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
-  int NWD, iwd, NLINE_SKIP, Nfread ;
+  int NWD, iwd, NLINE_READ, NLINE_SKIP, Nfread, NCHAR_ROW, istat ;
+  long int NCHAR_SKIP;
   bool  VALID_RADEC ;
-  char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], *WD0, *WD1; // xx[100], WD1[100];
+  char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], *WD0, *WD1; 
   char *ptrWDLIST[MXFILTINDX+MXPAR_LCLIB];
   double GalLat, GalLong ;
   char key[60], LINE[200], tmpLINE[200];
@@ -831,7 +829,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
  NEXT_EVENT:
 
   START_EVENT = END_EVENT = 0 ; 
-  REJECT = NLINE_SKIP = Nfread = 0;
+  REJECT = NLINE_READ = NLINE_SKIP = Nfread = 0;
   LCLIB_EVENT.NROW = LCLIB_EVENT.NROW_S = LCLIB_EVENT.NROW_T = 0 ;
   LCLIB_EVENT.RA     = LCLIB_EVENT.DEC     = 999. ;
   LCLIB_EVENT.GLAT   = LCLIB_EVENT.GLON  = 999. ;
@@ -859,21 +857,30 @@ void readNext_LCLIB(double *RA, double *DEC) {
   NROW_FOUND = NROW_EXPECT = 0 ;
 
   //  - - - - - - - - 
-
   while ( END_EVENT == 0 ) {
     
     LINE[0] = 0 ;
-    if ( fgets(LINE, 200, fp ) == NULL ) {
-      snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);
-    }
-
-    if ( strlen(LINE) == 0 ) { continue; }
-    if ( commentchar(LINE) ) { continue; } // Jun 23 2021
+    if ( fgets(LINE, 200, fp ) == NULL ) 
+      { snana_rewind(fp, LCLIB_INFO.FILENAME, LCLIB_INFO.GZIPFLAG);  }
+    
+    if ( commentchar(LINE) ) { continue; } 
+    NLINE_READ++;
 
     // don't parse LINE if we know this event has been rejected
     // and we have not read all of the expected ROWs.
-    if ( REJECT  &&  (NLINE_SKIP < NROW_EXPECT-5) )
-      { NLINE_SKIP++ ;  continue; }
+    if ( REJECT  &&  (NLINE_SKIP < NROW_EXPECT-5) )  { 
+      NCHAR_ROW = LCLIB_EVENT.NCHAR_ROW;
+
+      if ( REFAC && NCHAR_ROW > 0 ) {
+	NCHAR_SKIP  = (NROW_EXPECT-5) * NCHAR_ROW ;
+	NLINE_SKIP += (NROW_EXPECT-5) ;
+	istat = fseek(fp, NCHAR_SKIP, SEEK_CUR);
+      }
+      else {
+	NLINE_SKIP++ ;
+      }
+      continue ;
+    }
 
     // split LINE into individual words
     sprintf(tmpLINE, "%s", LINE);
@@ -883,7 +890,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
     if ( strcmp(WDLIST[0],"START_EVENT:") == 0 ) {
       sscanf(WDLIST[1],"%lld", &LCLIB_EVENT.ID); 
       START_EVENT = 1;
-      NLINE_SKIP = REJECT = Nfread = 0;
+      NLINE_SKIP = REJECT = Nfread = NLINE_READ = 0;
     }       
 
     if ( REJECT           ) { NLINE_SKIP++ ; continue ; }
@@ -898,8 +905,6 @@ void readNext_LCLIB(double *RA, double *DEC) {
 
       WD0 = WDLIST[iwd+0];
       WD1 = WDLIST[iwd+1];
-      // xxx mark sprintf(WD0, "%s", WDLIST[iwd+0] );
-      // xxx mark sprintf(WD1, "%s", WDLIST[iwd+1] );
 
       if ( iwd==0 && (ISROW_T || ISROW_S) ) {
 
@@ -907,7 +912,10 @@ void readNext_LCLIB(double *RA, double *DEC) {
 	  if ( LCLIB_EVENT.NEVENT_READ>0 ) { malloc_LCLIB_EVENT(-1); }
 	  malloc_LCLIB_EVENT(+1);
 	}
-	
+
+	NCHAR_ROW = strlen(LINE);
+	LCLIB_EVENT.NCHAR_ROW = NCHAR_ROW;
+
 	if ( NROW_FOUND < NROW_EXPECT ) 
 	  { read_ROW_LCLIB(NROW_FOUND,key,ptrWDLIST); }
 	NROW_FOUND++ ;	

@@ -201,7 +201,8 @@ def which_read_class(args):
     elif args.snana_folder is not None :
         read_class     = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)
-        args.survey   = util.get_survey_snana(snana_folder_base)
+        args.survey       = util.get_survey_snana(args.snana_folder)
+        # xxx mark args.survey   = util.get_survey_snana(snana_folder_base)
     else:
         sys.exit("\nERROR: Could not determine program_class")
 

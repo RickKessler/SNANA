@@ -765,6 +765,9 @@ class Program:
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
         f.write(f"SUBMIT_MODE:       {submit_mode} \n")
 
+        comment = "submit from this HOST"
+        f.write(f"SUBMIT_HOST:       {HOSTNAME}   # {comment} \n")
+
         if args.merge_background :
             merge_mode = MERGE_MODE_BACKGROUND
         elif args.nomerge : 

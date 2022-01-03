@@ -1540,15 +1540,7 @@ class Program:
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
         t_seconds = time_dif.total_seconds()
-
-        # xxxx mark delete 
-        #if t_seconds < 3000.0 :
-        #    t_unit = 60.0;      unit = "minutes"
-        #else:
-        #    t_unit = 3600.0 ;    unit = "hours"
-        # xxxxxxxx end mark
-
-        t_unit = 3600.0 ;    unit = "hours"
+        t_unit    = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
         msg_time = [ ]

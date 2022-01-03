@@ -482,7 +482,7 @@ class Program:
         t_end   = datetime.datetime.now()  # xxx self.config_data['t_end']
         t_dif_sec  = (t_end-t_start).total_seconds()
 
-        if t_dif_sec < 2000.0:
+        if t_dif_sec < 20000.0:
             t_dif   = t_dif_sec/60.0
             t_unit  = "minutes"
         else:

@@ -5208,9 +5208,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // loop every IGAL_JUMP galaxy to get refined range
   igal_start_init = igal_start;
   if ( REFAC ) {
-    while ( z > ztol && igal_start > 1 ) {
+    while ( z > ztol && igal_start > IGAL_JUMP ) {
       igal_start -= IGAL_JUMP ; 
-      if ( igal_start < 1 ) { igal_start=1; }
+      // xxx mark delete  if ( igal_start < 1 ) { igal_start=1; }
       z  = get_ZTRUE_HOSTLIB(igal_start);  
     }
 
@@ -5234,9 +5234,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   igal_end_init = igal_end;
   if ( REFAC ) {
-    while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) { 
+    while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-IGAL_JUMP ) { 
       igal_end += IGAL_JUMP ; 
-      if(igal_end>HOSTLIB.NGAL_STORE-1) { igal_end=HOSTLIB.NGAL_STORE-1;}
+      // xxx mark if(igal_end>HOSTLIB.NGAL_STORE-1) {igal_end=HOSTLIB.NGAL_STORE-1;}
       z = get_ZTRUE_HOSTLIB(igal_end);  
     }
 

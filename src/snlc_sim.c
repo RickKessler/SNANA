@@ -3168,7 +3168,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
 
 
-  if ( N > 0 ) {
+  if ( N > 0  && N < FLAG_NWD_ZERO ) {
     README_KEYPLUSARGS_load(100, N, WORDS, 
 			    &README_KEYS_HOSTLIB, fnam );   
   }

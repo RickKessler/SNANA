@@ -1115,7 +1115,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
-  INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0 ;
+  INPUTS_SEARCHEFF.OPTMASK_OPENFILE = OPENMASK_REQUIRE_DOCANA ;
   sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE, "NONE");
   sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE,"NONE");
 
@@ -1507,7 +1507,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
-    INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -1769,10 +1768,32 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
     // if command-line arg value is negative, skip updating value.
     // -> allows global overring for only zmin or zmax.
+
+    bool FULL_UPDATE = ( TMPVAL[0] > 0.0 && TMPVAL[1] > 0.0 );
+    if ( FULL_UPDATE ) {
+      // set zmin and zmax
+      for(j=0; j < 2; j++ ) { INPUTS.GENRANGE_REDSHIFT[j] = TMPVAL[j]; }
+    }
+    else if ( IS_ARG ) {
+      // if either zmin or zmax override is -1, leave it alone from sim-input file.
+      // the other limit is updated only if larger[smaller] than original zmin[zmax]
+      if ( TMPVAL[0] > INPUTS.GENRANGE_REDSHIFT[0] && TMPVAL[0]>0.0 )
+	{ INPUTS.GENRANGE_REDSHIFT[0] = TMPVAL[0]; }
+      if ( TMPVAL[1] < INPUTS.GENRANGE_REDSHIFT[1] && TMPVAL[1]>0.0)
+	{ INPUTS.GENRANGE_REDSHIFT[1] = TMPVAL[1]; }
+    }
+    else { 
+      sprintf(c1err,"Invalid GENRANGE_REDSSHIFT: %f %f", TMPVAL[0], TMPVAL[1]);      
+      sprintf(c2err,"Negative value allowed only for command-line override");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    /* xxx mark xxx
     for(j=0; j < 2; j++ ) {
-      SKIP = ( keySource==KEYSOURCE_ARG && TMPVAL[j] < 0.0 );
+      SKIP = ( IS_ARG && TMPVAL[j] < 0.0 );
       if ( !SKIP ) { INPUTS.GENRANGE_REDSHIFT[j] =  TMPVAL[j] ; }
     }
+    xxxx */
   }
   else if ( keyMatchSim(1,"GENSIGMA_REDSHIFT", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENSIGMA_REDSHIFT );
@@ -2308,7 +2329,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
 	sprintf(c1err,"cannot mix multiple rate models with %s", KEYNAME);
 	sprintf(c2err,"%s and %s (pick one)", RATEPAR->NAME, TMPNAME);
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
     }
     
@@ -5306,11 +5327,11 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
+  if (INPUTS.DEBUG_FLAG == -1024) { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0; }
 
-  if ( INPUTS.DEBUG_FLAG != -1024 ) 
-    { INPUTS_SEARCHEFF.OPTMASK_OPENFILE += OPENMASK_REQUIRE_DOCANA ; }
+  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
 
-  // Feb 2015: replace ENV names in inputs
+  // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_FILE,fnam,1);

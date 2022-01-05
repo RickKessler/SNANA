@@ -146,9 +146,9 @@ def run_submit(infile_list, outdir_list, INPUTS):
 
     done_file_list = []
     for infile,outdir in zip(infile_list,outdir_list) :
-        merge_file = (f"{SNANA_TESTS_DIR}/{outdir}/{MERGE_LOG_FILE}")
-        info_file  = (f"{SNANA_TESTS_DIR}/{outdir}/{SUBMIT_INFO_FILE}")
-        done_file  = (f"{SNANA_TESTS_DIR}/{outdir}/{ALL_DONE_FILE}")        
+        merge_file = f"{SNANA_TESTS_DIR}/{outdir}/{MERGE_LOG_FILE}"
+        info_file  = f"{SNANA_TESTS_DIR}/{outdir}/{SUBMIT_INFO_FILE}"
+        done_file  = f"{SNANA_TESTS_DIR}/{outdir}/{ALL_DONE_FILE}"      
         done_file_list.append(done_file)
         print(f" submit {infile}  -> {outdir}")
         sys.stdout.flush()

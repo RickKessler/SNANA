@@ -2032,9 +2032,9 @@ class Simulation(Program):
 
         # defin aux files for combined version
         # xxx mark ignore_file = (f"{target_dir}/{genversion_combine}.IGNORE")
-        dump_file     = (f"{target_dir}/{genversion_combine}.DUMP")
-        readme_file   = (f"{target_dir}/{genversion_combine}.README")
-        list_file     = (f"{target_dir}/{genversion_combine}.LIST")
+        dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
+        readme_file   = f"{target_dir}/{genversion_combine}.README"
+        list_file     = f"{target_dir}/{genversion_combine}.LIST"
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
@@ -2194,7 +2194,7 @@ class Simulation(Program):
         # create and write README file
         msg = (f"\t Create README for {genversion}")
         logging.info(msg)
-        readme_file   = (f"{path_genv}/{genversion}.README")
+        readme_file   = f"{path_genv}/{genversion}.README"
         with open(readme_file,"w") as f : 
             self.merge_write_readme(f, iver_all, MERGE_INFO_CONTENTS)
 
@@ -2211,8 +2211,8 @@ class Simulation(Program):
                 TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION] + suffix
                 TMP_GENV   += (f"*{Nsec_time_stamp}" ) 
                 TMP_GENV_LIST.append(TMP_GENV)
-                readme_list = (f"{path_sndata_sim}/{TMP_GENV}/TMP*README")
-                mv_readme   = (f"mv {readme_list} {misc_dir}/")
+                readme_list = f"{path_sndata_sim}/{TMP_GENV}/TMP*README"
+                mv_readme   = f"mv {readme_list} {misc_dir}/"
                 os.system(mv_readme)
 
         # - - - - - - - - - - 

@@ -5606,12 +5606,17 @@ The simulated luminosity distance is computed as
 To override either min or max redshift,
 \vspace{-0.4cm}
 \begin{verbatim}
-   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT .05 -1  # (a) update only zmin
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT .05 -1  # (a) increase zmin if < 0.05
          or
-   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT -1  1.3 # (b) update only zmax
+   snlc_sim.exe <inputFile> GENRANGE_REDSHIFT -1  1.3 # (b) decrease zmax if > 1.3
 \end{verbatim}
 \vspace{-0.2cm}
-and note that setting the $-1$ value in a sim-inpult file results in abort.
+and setting the $-1$ value in a sim-input file results in abort.
+Note that the half-range update is applied {\it only} if it is more strict
+than the original value.
+For example, if zmin=0.06 in the sim-input file, 
+the first example above makes no change; 
+but if zmin=0.04 in the sim-input file, then zmin is increased to 0.05.
 A usage example is a new {\tt HOSTLIB} with min galaxy redshift above
 the minimun defined by {\tt GENRANGE\_REDSHIFT}.
 To avoid abort, add global command (a) in either the

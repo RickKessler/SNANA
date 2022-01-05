@@ -153,6 +153,7 @@ def write_yaml(file_name, yaml_contents):
 def get_survey_snana(snana_folder):
     # for input snana_folder, run snana.exe GETINFO folder
     # and extract survey
+
     cmd = f"{PROGRAM_SNANA} GETINFO {snana_folder}"
     ret = subprocess.run( [cmd], shell=True,
                           capture_output=True, text=True )

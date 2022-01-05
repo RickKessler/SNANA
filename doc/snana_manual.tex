@@ -371,7 +371,7 @@ If significant development time is needed, use multiple
 Before running the simulation or light curve fitting program,
 a ``K-correction'' file must be created.
 This file contains 
-\begin{itemize}
+\begin{itemize}[noitemsep]
   \item filter transmissions.
   \item native mag for each filter.
   \item SED of the primary reference (i.e., AB, BD17, ...)
@@ -379,7 +379,7 @@ This file contains
   \item zeropoint offsets (native $-$ synthetic mags)
   \item Optional AB offsets (to apply to data)
   \item for rest-frame models requiring K-correction,
-  \begin{itemize}
+  \begin{itemize}[noitemsep]
     \item K-correction tables vs. 
              redshift, epoch, $A_V$-warp.
     \item rest-frame magnitudes.
@@ -744,7 +744,7 @@ To see all maps in your simulation job,
 see dashboard utility in \S\ref{sss:sim_dashboard}.
 The simulation will search for each supplemental file with
 the following priority
-\begin{enumerate}
+\begin{enumerate}[noitemsep]
   \item current diretory (i.e., no path appended to file name)
   \item path specified by sim-input~~~ {\tt PATH\_USER\_INPUT: <path>}
   \item default path under \$\sndataroot.
@@ -1412,7 +1412,7 @@ The central PSF-pixel fluxes are summed for source, galaxy and sky.
 If the resulting number of photoelectrons exceeds 
 {\tt NPE\_PIXEL\_SATURATE}, then this epoch is flagged 
 as saturated as follows:
-\begin{itemize}
+\begin{itemize}[noitemsep]
    \item {\tt PHOTFLAG = PHOTFLAG\_SATURATE}
    \item {\tt MAG = -7}
    \item {\tt FLUXCAL} $= 0 \pm 10^8$
@@ -6787,6 +6787,45 @@ of shifts.
         after systematic variations are selected. This removes statistical
         fluctuations from multiple GENVERSIONs.
 \end{itemize}
+
+
+% --------------------------------------------
+   \subsection{Auto-Generated README (valid starting Jan 7 2022) }
+   \label{ssec:SIM_README}
+% --------------------------------------------
+
+The simulation produces an auto-generated {\tt README} file in the
+same directory as the data files,
+\begin{verbatim}
+    $SNDATA_ROOT/SIM/[GENVERSION]/[GENVERSION].README
+\end{verbatim} 
+where {\tt [GENVERSION]} is the argument of the {\tt GENVERSION} key.
+The {\tt README} content is a yaml-compliant {\tt DOCUMENTATION} block
+that includes 4 sub-blocks:
+\begin{verbatim} 
+  DOCUMENTATION:
+     OVERVIEW:     # survey, genmodel, node, username, snana_version ...
+       ...
+     INPUT_KEYS:   # collection of all user input keys and args
+        ...
+     INPUT_NOTES:  # computed quantities & subtle explanations
+        ...
+     OUTPUT_SUMMARY:  # summary stats
+        ...
+\end{verbatim} 
+The first 3 blocks are created during initialization and can therefore
+be viewed while the simulation is running. The {\tt OUTPUT\_SUMMARY} block
+is created at the end of the job.
+The simulation input can be distributed among several {\tt INCLUDE} files
+and command-line overrides, and thus tracking the input can be difficult.
+To enable checking the inputs more easily, the {\tt INPUT\_KEYS} block 
+lists all of the user-inputs in one location regardless of their origin.
+The {\tt INPUT\_KEYS} can be converted into a single sim-input file
+with quick-command (\S\ref{sss:quick_commands})
+\begin{verbatim}
+    quick_commands.py -v [GENVERSION] --extract_sim_input 
+       (creates sim_input_[GENVERSION].input)
+\end{verbatim}
 
 
 % ##########################################
@@ -12487,6 +12526,27 @@ you can rerun the same job as long as you
 have the original input file.
 
 
+% --------------------------------------
+  \subsubsection{{\tt quick\_commands,py}}
+   \label{sss:quick_commands}
+% --------------------------------------
+
+Many useful/quick commands can be run from a python script
+\begin{verbatim}
+   quick_commands.py -h   # standard python args help
+   quick_commands.py -H   # examples
+\end{verbatim}
+Options include
+\vspace{-0.3cm}
+\begin{itemize}[noitemsep]
+   \item translate TEXT formatted data to FITS format
+   \item extract a few events from FITS format to TEXT format
+   \item create SIMLIB file from LOWZ data that has no metaData.
+   \item make human-readable table of redshifts and vpec
+   \item Create SNANA-formatted table(s) from data or sim
+   \item extract info about a photometry version
+   \item extract info about SNANA code
+\end{itemize}
 
 % --------------------------------------
   \subsubsection{Bug-Catcher: the {\tt SNANA\_tester} Script }

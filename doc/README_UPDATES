@@ -20686,4 +20686,18 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c
      + fix prescale option to also work with HOSTLIB.
 
+
+# ======================================================================= 
+         v11_04f (  ) 
+
+         ***** IMPORTANT(v11_04f) ***** 
+
+   sntools_host.c:
+     + Imorve IGAL search algorithm to improve speed. With few million
+       galaxies in HOSTLIB, overall sim speed up is x2 to x3.
+
+         ***** USEFUL(v11_04f) ***** 
+
+         ***** MISCELLANEOUS(v11_04f) ***** 
+
 END: 

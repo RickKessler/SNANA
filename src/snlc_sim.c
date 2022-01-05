@@ -3024,7 +3024,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Jul 16 2021: fix override logic by setting INPUTS.HOSTLIB_USE=1
   //               only if it is not already set.
 
-  int  j, ITMP, N=0, nread ;
+  int  j, ITMP, N=0, nread, MSKOPT_OLD ;
   char *ptr_str ,ctmp[60];
   char fnam[] = "parse_input_HOSTLIB" ;
 
@@ -3058,7 +3058,16 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECDATA_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT );
+    MSKOPT_OLD = INPUTS.HOSTLIB_MSKOPT ; 
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT);
+
+    // restore special HOSTLIB_MSKOPT flags that might have been
+    // set before overriding MSKOPT
+    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
+      { INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS; }
+    if ( (MSKOPT_OLD & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
+      { INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR; }
+
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
   }
 

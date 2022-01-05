@@ -1,15 +1,17 @@
 
 // Created July 2016 by R.Kessler
 
-#define MXSPEC                 50   // max Nspec per event   
+#define MXSPEC                 MXSPECTRA  // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
 #define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
+#define MXLAM_SPECTROGRAPH_EXTEND 20 // max number of extra bins for resolution
 #define MXLAMSMEAR_SPECTROGRAPH 40  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise
 #define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
 #define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
+#define ISPEC_PEAK        3*MXSPECTRA // imjd=ISPEC_PEAK -> fetch peak spec
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
@@ -35,7 +37,9 @@ struct {
   double *LAMMIN_LIST, *LAMMAX_LIST, *LAMAVG_LIST ;     // per spectro bin
   double *LAMBIN_LIST, *LAMSIGMA_LIST ; // binSize & resolution vs. lambda
   double TEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH] ;    // per expTime bin
+  double LOGTEXPOSE_LIST[MXTEXPOSE_SPECTROGRAPH];  // used for ZP-interp
   double **SNR0, **SNR1  ;  // per spectro bin & expTime
+  bool   *ISLAM_EXTEND_LIST; // True -> extended lam bin for lam-resulution
 
   int FORMAT_MASK ;  // 1=>LAMCEN only, 2=LAMMIN and LAMMAX
 
@@ -58,12 +62,16 @@ double  VALUES_SPECBIN[MXVALUES_SPECBIN];
 
 struct {
   int    NMJD_TOT, NMJD_PROC ;
-  int    NBLAM_TOT;            // total number of wavelength bins
+  int    NBLAM_TOT[MXSPEC];    // total number of wavelength bins
   int    NBLAM_VALID[MXSPEC] ; // number of valid wavelength bins per epoch
-  int    IS_HOST[MXSPEC];
+  double LAMRANGE_VALID[MXSPEC][2];  // used for print only
+
+  int    IMJD_HOST, IS_HOST[MXSPEC];
+  bool   SKIP[MXSPEC];        // outside Trest range of model
 
   double MJDREF_LIST[MXSPEC]; // same for each event
   double MJD_LIST[MXSPEC], TOBS_LIST[MXSPEC], TREST_LIST[MXSPEC];
+  int    IMJD_NEARPEAK;   // imjd for SN spectrum closest to peak
 
   int    OPT_TEXPOSE_LIST[MXSPEC] ; // =1(user-fixe), =2(compute from SNR)
   double TEXPOSE_LIST[MXSPEC];
@@ -82,6 +90,8 @@ struct {
   double *GENSNR_LIST[MXSPEC] ;
   double *GENFLUX_LIST[MXSPEC] ;    // true flux with no noise or lam-smear
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
+  double *GENFLUX_PEAK ; // GENFLUX at PEAKMJD; needed for HOSTSNFRAC option
+  double *GENMAG_PEAK ;  
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise
@@ -94,8 +104,14 @@ struct {
   double  *FLAMWARP_LIST[MXSPEC]; // warp applied to FLAM
   int      USE_WARP;
 
+  // items below are used for read utils (not used for sim)
+  int     ID_LIST[MXSPEC] ;
+  double *LAMMIN_LIST[MXSPEC], *LAMMAX_LIST[MXSPEC], *LAMAVG_LIST[MXSPEC] ; 
+
+  double FLATRAN_LIST[100]; // 0-1 randoms, e.g., for pre-scales
+
   // define array of Gaussian randoms for noise
-  double *RANGauss_NOISE_TEMPLATE[MXLAMSMEAR_SPECTROGRAPH] ; 
+  double *RANGauss_NOISE_TEMPLATE ; 
 
 } GENSPEC ;
 
@@ -107,6 +123,9 @@ void init_spectrograph(char *inFile, char *stringOpt ) ;
 void parse_spectrograph_options(char *stringOpt) ;
 void read_spectrograph_text(char *inFile) ;
 void read_spectrograph_fits(char *inFile) ;
+void extend_spectrograph_lambins(void);
+void copy_INPUTS_SPECTRO(int ilam0, int ilam1);
+void dump_INPUTS_SPECTRO(int nbin_dump, char *comment);
 int  read_TEXPOSE_LIST(FILE *fp); 
 int  read_SPECBIN_spectrograph(FILE *fp);
 void reset_VALUES_SPECBIN(void) ;

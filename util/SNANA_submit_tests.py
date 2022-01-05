@@ -6,8 +6,11 @@
 # each successive line is launched when ALL.DONEs exist with
 # SUCCESS.
 #
+# Aug 09 2021: add --snana_dir and --nrowskip args
+#
+# ==================================================
 
-import os, sys, datetime, shutil, subprocess, time, glob, yaml
+import os, sys, datetime, shutil, subprocess, time, glob, yaml, argparse
 import getpass
 
 USERNAME         = getpass.getuser()
@@ -29,6 +32,36 @@ ALL_DONE_FILE      = "ALL.DONE"
 STRING_SUCCESS = "SUCCESS"
 
 # =======================================
+
+def parse_args():
+
+    parser = argparse.ArgumentParser()
+
+    msg = "Submit batch job name"
+    parser.add_argument("--jobname", help=msg, default=SUBMIT_JOB_NAME, 
+                        type=str)
+
+    msg = f"private snana devel directory (replaces {SNANA_DIR}"
+    parser.add_argument("--snana_dir", help=msg, default=None, 
+                        type=str)
+
+    msg = f"Number of rows to skip in job-list file"
+    parser.add_argument("--nrowskip", help=msg, default=0, 
+                        type=int)
+
+    args = parser.parse_args()
+
+    if args.snana_dir is None:
+        args.snana_dir = SNANA_DIR
+
+    if args.snana_dir is not None :
+        args.jobname = f"{args.snana_dir}/util/{SUBMIT_JOB_NAME}"
+
+    print(f" Inputs: ")
+    print(f"   SNANA_DIR       = {args.snana_dir} ")
+    print(f"   SUBMIT_JOB_NAME = {args.jobname}")
+
+    return args
 
 def scancel_all_jobs():
     cmd_cancel = (f"scancel --user={USERNAME}")
@@ -105,20 +138,27 @@ def get_outdir_list(config):
     return outdir_list
     # end parse_outdir
 
-def run_submit(infile_list, outdir_list):
+def run_submit(infile_list, outdir_list, INPUTS):
     # infile_list is space-separated list of input files
     # to launch with submit_batch_jobs
+    SUBMIT_JOB_NAME = os.path.expandvars(INPUTS.jobname)
+    snana_dir       = INPUTS.snana_dir
 
     done_file_list = []
     for infile,outdir in zip(infile_list,outdir_list) :
-        merge_file = (f"{SNANA_TESTS_DIR}/{outdir}/{MERGE_LOG_FILE}")
-        info_file  = (f"{SNANA_TESTS_DIR}/{outdir}/{SUBMIT_INFO_FILE}")
-        done_file  = (f"{SNANA_TESTS_DIR}/{outdir}/{ALL_DONE_FILE}")        
+        merge_file = f"{SNANA_TESTS_DIR}/{outdir}/{MERGE_LOG_FILE}"
+        info_file  = f"{SNANA_TESTS_DIR}/{outdir}/{SUBMIT_INFO_FILE}"
+        done_file  = f"{SNANA_TESTS_DIR}/{outdir}/{ALL_DONE_FILE}"      
         done_file_list.append(done_file)
         print(f" submit {infile}  -> {outdir}")
         sys.stdout.flush()
 
-        ret = subprocess.run( [ SUBMIT_JOB_NAME, infile ], 
+        arg_list = [ infile ]
+        if snana_dir != SNANA_DIR:  
+            arg_list = [ infile, f"--snana_dir", f"{snana_dir}" ]
+
+        cmd_list = [ SUBMIT_JOB_NAME] + arg_list
+        ret = subprocess.run( cmd_list, 
                               cwd=SNANA_TESTS_DIR,
                               capture_output=True, text=True )
         
@@ -152,6 +192,9 @@ def run_submit(infile_list, outdir_list):
 
 if __name__ == "__main__":
 
+    # parse input arguments
+    INPUTS = parse_args()
+
     SUBMIT_INFO = {}
 
     # read list of input files 
@@ -159,7 +202,10 @@ if __name__ == "__main__":
     config = extract_yaml(SUBMIT_LIST_FILE)
     SUBMIT_INFO.update( {'config' : config} )
     infile_submit_list = config[KEY_SUBMIT_LIST]
+    nset = 0
     for infile_set in infile_submit_list:
+        nset += 1
+        if nset <= INPUTS.nrowskip : continue
         print(f"   inFile set:  {infile_set}")
         sys.stdout.flush() 
        
@@ -173,10 +219,13 @@ if __name__ == "__main__":
     print(f" Output subDirs under \n  {SNANA_TESTS_DIR}\n")
     sys.stdout.flush()
 
+    nset =  0
     for infile_set,outdir_set in zip(infile_submit_list,outdir_submit_list) :
+        nset += 1
+        if nset <= INPUTS.nrowskip : continue
         infile_list  = infile_set.split()
         outdir_list  = outdir_set.split()
-        run_submit(infile_list,outdir_list)  # submit and wait for ALL.DONE
+        run_submit(infile_list,outdir_list,INPUTS)  #submit, wait for ALL.DONE
 
     # - - - - 
     msg = (f"\n Done. " \

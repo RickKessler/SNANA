@@ -23,60 +23,30 @@
              HISTORY
             ~~~~~~~~~~~
 
- Mar 13, 2012: use optional magSmear function;
-                see MAGSMEAR.FUNPAR_FLAG.
-
-          
- Jan 27, 2013: minor fix in genmag_SALT2 to avoid aborting when
-               Trest = 50.0000 exactly.
-
- Feb 13, 2013: new function set_RVMW_SALT2(RV) to override default RV=3.1.
-
- May 11, 2013: fix  magerrFudge_SALT2 to add fudged mag-errors in quadrature
-               instead of replacing magerr_model.
-
- May 15, 2013: remove obsolete code under SALT2_CFIT_FLAG.
-
- May 18, 2013: new function checkLamRange_SALT2().
-
- Jul 3 2013:  fix aweful bug in gencovar_SALT2;
-              was double-counting kcor term on diagonals.
-
- Jul 9, 2013: in SALT2magerr, when vartot<0 set it to .01^2 as JG does
-
- Jul 12, 2013: in SALT2magerr, replace magerr_model with exact calculation
-               instead of approximation.
-
- Jul 25, 2013: inside integration loop (INTEG_zSED_SALT2),
-               add continue statement when TRANS=0 ... to speed integration
-               for leakage filters that have lots of bins with TRANS=0.
-
- Aug 23 2013: move checkLamRange_SEDMODEL to genmag_SEDMODEL.c
-
- Sep 18, 2013: remove function set_rvmw_SALT2() and use generic call to
-               init_MWXT_SEDMODEL() to init OPT_MWCOLORLAW and RVMW.
-
- May 5 2014:  Add Fratio output argument to INTEG_zSED_SALT2( ... )
-              to easily allow computing ratio with/without 
-              Galactic extinction in the integrals.
-   
- July 15 2016: add RV_host & AV_host arguments to genmag_SALT2,
-               to allow for simulating Mandel's BayeSN model.
-           
- July 30 2016: in fill_SALT2_TABLE_SED(), check for uniform bins.
-               Now catches missing LAM=8490 bin in SALT2.Guy10_UV2IR.
-
- Aug 31 2016: in genSpec_SALT2(), return of Trest is outside epoch
-              range of SALT2 ; cannot extrapolate spectra.
 
  Oct 2020: minor refactor for INTGEG_zSED_SALT2 and SALT2magerr;  
            needed to handle SALT3 or SALT2.
+
+ Dec 28 2020: use function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2[3]
+
+ Mar 23 2021: use get_LAMTRANS_SEDMODEL util to getch LAM and TRANS
+
+ Apr 27 2021: minor refactor so that default SALT3 models are checked
+              in $SNDATA_ROOT/models/SALT3 (not under SALT2)
+
+ May 31 2021: refactor to receive parList_SN and parList_HOST so that
+              logMass can be included and passed to get_genSmear.
+
+ Aug 26 2021: remove buggy 1/z1 factor in genSpec_SALT2
+
+ Oct 01 2021: no longer set magerr=5.0 -> avoid LC fit discontinuity.
 
 *************************************/
 
 #include "sntools.h"           // community tools
 #include "sntools_genSmear.h"
 #include "sntools_spectrograph.h"
+#include "sntools_devel.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h" 
 #include "MWgaldust.h"
@@ -84,21 +54,21 @@
 // =======================================================
 // define mangled functions with underscore (for fortran)
 
-int init_genmag_salt2__(char *model_version, char *model_extrap, int *OPTMASK ) {
+int init_genmag_salt2__(char *model_version, char *model_extrap, 
+			int *OPTMASK) {
   int istat;
-  istat = init_genmag_SALT2 ( model_version, model_extrap,  *OPTMASK ) ;
+  istat = init_genmag_SALT2 ( model_version, model_extrap,  *OPTMASK);
   return istat ;
 } 
 
 
 void genmag_salt2__(int *OPTMASK, int *ifilt, 
-		    double *x0, double *x1, double *x1_forErr, double *c, 
-		    double *mwebv, double *RV_host, double *AV_host,
+		    double *parList_SN, double *parList_HOST, double *mwebv,
 		    double *z, double *z_forErr, int *nobs, double *Tobs_list, 
 		    double *magobs_list, double *magerr_list ) {
 
-  genmag_SALT2(*OPTMASK, *ifilt, *x0, *x1, *x1_forErr, *c, *mwebv, 
-	       *RV_host, *AV_host, *z, *z_forErr, *nobs, Tobs_list, 
+  genmag_SALT2(*OPTMASK, *ifilt, parList_SN, parList_HOST, *mwebv,
+	       *z, *z_forErr, *nobs, Tobs_list, 
 	       magobs_list, magerr_list );
 }
 
@@ -123,17 +93,14 @@ int gencovar_salt2__ (
                   ,int *ifilt_obs      // (I) list of 'matsize' filter indices
                   ,double *epobs       // (I) list of 'matsize' rest days
 		  ,double *z            // (I) redshift
-		  ,double *x0
-		  ,double *x1
-		  ,double *c
+		  ,double *parList_SN 
+		  ,double *parList_HOST
 		  ,double *mwebv
-		  ,double *RV_host
-		  ,double *AV_host
                   ,double *covar       // (O) covariance matrix
                   ) {
   int istat ;
-  istat = gencovar_SALT2 ( *MATSIZE, ifilt_obs, epobs, *z, *x0, *x1, *c,
-			   *mwebv, *RV_host, *AV_host, covar ) ;
+  istat = gencovar_SALT2 ( *MATSIZE, ifilt_obs, epobs, *z, parList_SN,
+			   parList_HOST, *mwebv, covar ) ;
   return istat;
 }
 
@@ -146,7 +113,7 @@ extern void in2dex_(int *ispline, int *N2D,
 extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
 /****************************************************************
-  init_genmag_SALT:
+  init_genmag_SALT2:
     o reads in the filters from FilterFiles
     o calculates filter mean and AB zeropoint
     o reads the templates from TemplateFiles
@@ -199,15 +166,19 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Sep 03 2020: check REQUIRE_DOCANA
  Oct 16 2020: refactor SALT2magerr to handle SALT3 vs. SALT2 vartot
 
+ Nov 23 2020: pass and store *SURVEY; used to match
+              MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
+
+ Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
-		      int OPTMASK ) {
+		      int OPTMASK) {
 
-  double Trange[2], Lrange[2]     ;
-  int  ised, LEGACY_colorXTMW ;
+  double Trange[2], Lrange[2];
+  int  ised;
   int  retval = 0   ;
-  int  REQUIRE_DOCANA = 0 ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
@@ -217,9 +188,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // extrac OPTMASK options
 
-  REQUIRE_DOCANA          = ( OPTMASK & OPENMASK_REQUIRE_DOCANA );
-  ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
-  LEGACY_colorXTMW        = ( OPTMASK & 128 ) ;
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -231,6 +199,15 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_SALT2_ABORT_LAMRANGE ) ; 
+
+  ALLOW_NEGFLUX_SALT2 = true;      // default
+  if ( OPTMASK & OPTMASK_SALT2_NONEGFLUX ) {
+    // Mar 24 2021: if "GENMODEL_MSKOPT: 16"
+    ALLOW_NEGFLUX_SALT2 = false ;    
+    printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
+  }
+
   // summarize filter info
   filtdump_SEDMODEL();
 
@@ -240,6 +217,10 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   extract_MODELNAME(MODEL_VERSION,             // input
 		    SALT2_MODELPATH, version); // returned
+
+  // parse version string to check if SALT2 or SALT3
+  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT3 and ISMODEL_SALT3
+  sprintf(SALT2_PREFIX_FILENAME,"salt%d", IMODEL_SALT);
   
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
     sprintf( SALT2_MODELPATH, "%s/%s", 
@@ -250,19 +231,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   else {
     // default location under $SNDATA_ROOT
-    sprintf( SALT2_MODELPATH, "%s/models/SALT2/%s", 
-	     getenv("SNDATA_ROOT"), version );
+    sprintf( SALT2_MODELPATH, "%s/models/SALT%d/%s",  
+	     getenv("SNDATA_ROOT"), IMODEL_SALT, version );
   }
-  
-
-  // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  ISMODEL_SALT2 = true ;
-  ISMODEL_SALT3 = false ; 
-  sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
-  if ( strstr(version,"SALT3") != NULL ) {
-    sprintf(SALT2_PREFIX_FILENAME,"salt3");  
-    ISMODEL_SALT2 = false; ISMODEL_SALT3 = true ; 
-  } 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -300,7 +271,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     sprintf(c2err,"Check SALT2.INFO/SALT3.INFO") ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
-  read_SALT2_INFO_FILE(REQUIRE_DOCANA);  
+  read_SALT2_INFO_FILE(OPTMASK);  
 
   // check option to override late-time extrap model from sim-input file
   if ( strlen(MODEL_EXTRAP_LATETIME) > 0 ) { 
@@ -385,6 +356,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   init_extrap_latetime_SALT2();
 
+  init_calib_shift_SALT2train(); // Nov 2020
+
   fflush(stdout) ;
 
 
@@ -399,6 +372,62 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
 } // end of function init_genmag_SALT2
 
+// ***********************************************
+void setFlags_ISMODEL_SALT2(char *version) {
+
+  // Created Dec 28 2020
+  // Based on input *version, set global flags
+  // ISMODEL_SALT2 and ISMODEL_SALT3
+  //
+  // Models are of the form
+  //   [path]/SALT2.XYZ  or
+  //   [path]/SALT3.XYZ
+  //
+  // So check 5 characters before the dot. 
+  //
+  // Mar 16 2021: abort on null version
+  // Apr 27 2021: set IMODEL_SALT = 2 or 3
+
+  int  index_dot, set=0 ;
+  int  LENSALT2 = strlen("SALT2");
+  char *dot, version_near_dot[60];
+  char fnam[] = "setFlags_ISMODEL_SALT2" ;
+
+  // ------------- BEGIN ------------
+
+  ISMODEL_SALT2 = false;
+  ISMODEL_SALT3 = false;
+  IMODEL_SALT   = -9 ;
+
+  if ( strlen(version) < LENSALT2+1 ) {
+    sprintf(c1err,"Invalid version = '%s' (name too short)", version);
+    sprintf(c2err,"version must contain SALT2.[bla] or SALT2.[bla]");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  dot       = strchr(version, '.');
+  index_dot = (int)(dot - version);
+  sprintf(version_near_dot, "%s", &version[index_dot-LENSALT2] );
+
+  if ( strstr(version_near_dot,"SALT2") != NULL ) 
+    { set=1; ISMODEL_SALT2 = true;  IMODEL_SALT = 2 ; } 
+  if ( strstr(version_near_dot,"SALT3") != NULL ) 
+    { set=1; ISMODEL_SALT3 = true;  IMODEL_SALT = 3 ; } 
+
+  if ( !set ) {
+    printf("\n\t index_dot = %d \n", index_dot);
+    sprintf(c1err,"Unable to set ISMODEL_SALT2 or ISMODEL_SALT3");
+    sprintf(c2err,"Check GENNODEL: %s (%s)", version, version_near_dot);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  printf("\t ISMODEL = SALT%d\n", IMODEL_SALT);
+
+  fflush(stdout);
+
+  return;
+
+} // end setFlags_ISMODEL_SALT2
 
 // ***********************************************
 void fill_SALT2_TABLE_SED(int ISED) {
@@ -765,6 +794,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   // May 2011: check array bound
   // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
   // Jul 23 2020: for SALT3, remove _relative from file names
+  // Apr 27 2021: skip reading ERRSCAL map for SALT3
 
   int imap, NDAY, NLAM, NBTOT;
   double DUMMY[20];
@@ -789,7 +819,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
   sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix,lc_string);
   sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
   sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
 
@@ -805,6 +835,8 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
     init_BADVAL_SALT2errmap(imap);
      
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
+
+    if ( ISMODEL_SALT3 && imap==INDEX_ERRMAP_SCAL ) { continue; }
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
     sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
@@ -1055,10 +1087,10 @@ void read_SALT2colorDisp(void) {
 
 
 // =================================
-void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
+void read_SALT2_INFO_FILE(int OPTMASK) {
 
   // March 18, 2010 R.Kessler
-  // read SALT2.INFO file, and fill SALT2_INFO structure
+  // read SALT2.INFO file (or SALT3.INFO), and fill SALT2_INFO structure
   // 
   // Aug  2, 2010: read COLORLAW_VERSION: <version>
   // May  2, 2011: read SEDFLUX_INTERP_OPT 
@@ -1066,30 +1098,45 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   // Oct 25, 2015: read optional RESTLAM_FORCEZEROFLUX
   // Sep 03, 2020: pass REQUIRE_DOCANA arg
   // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
-  
+  // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys
+  // Nov 12, 2020: pass OPTMASK instead of REQUIRE_DOCANA
+  // Aug 05, 2021: read last char for BAND
+
   char
      infoFile[MXPATHLEN]
     ,c_get[60]
-    ,fnam[]             = "read_SALT2_INFO_FILE" 
     ,CHAR_ERROPT[3][20] = { "OFF", "Linear", "Spline" }
     ,CHAR_SEDOPT[3][20] = { "OFF", "Linear", "Spline" }
     ,CHAR_OFFON[2][8]   = { "OFF", "ON" }
     ,ctmp[100]
        ;
 
+  bool   REQUIRE_DOCANA, DISABLE_MAGSHIFT, DISABLE_WAVESHIFT;
   double *errtmp, *ptrpar;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
-  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i ;
+  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT, LEN ;
   FILE  *fp ;
+
+  char fnam[]  = "read_SALT2_INFO_FILE"  ;
 
   // ------- BEGIN ---------
 
+  REQUIRE_DOCANA     = ( OPTMASK & OPENMASK_REQUIRE_DOCANA );
+  DISABLE_MAGSHIFT   = ( OPTMASK & OPTMASK_SALT2_DISABLE_MAGSHIFT );
+  DISABLE_WAVESHIFT  = ( OPTMASK & OPTMASK_SALT2_DISABLE_WAVESHIFT );
+
   printf("  Read SALT2 model parameters from  \n\t  %s\n",
 	 SALT2_MODELPATH );
+  printf("\t OPTMASK = %d  \n", OPTMASK );
+  if ( DISABLE_MAGSHIFT ) 
+    { printf("\t WARNING: MAGSHIFT keys DISABLED !\n"); }
+  if ( DISABLE_WAVESHIFT ) 
+    { printf("\t WARNING: WAVESHIFT keys DISABLED !\n"); }
+  fflush(stdout);
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
-  if ( REQUIRE_DOCANA ) { check_file_docana(infoFile); }
+  check_file_docana((int)REQUIRE_DOCANA, infoFile);
 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
     print_preAbort_banner(fnam);
@@ -1132,6 +1179,9 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   INPUT_SALT2_INFO.RESTLAM_FORCEZEROFLUX[0] = 0.0 ;
   INPUT_SALT2_INFO.RESTLAM_FORCEZEROFLUX[1] = 0.0 ;
 
+  INPUT_SALT2_INFO.NSHIFT_CALIB = 0;
+
+  // - - - - - - - - - -
   // read info variables
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
@@ -1170,7 +1220,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
       NPAR_POLY = (int)INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_NPAR_POLY];
 
       // read CL poly param
-      readdouble(fp, NPAR_POLY, &INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_POLY]);
+      readdouble(fp,NPAR_POLY,&INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_POLY]);
 
     }
     if ( strcmp(c_get, "COLOR_OFFSET:") == 0 ) {
@@ -1208,6 +1258,28 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 
     if ( strcmp(c_get, "RESTLAM_FORCEZEROFLUX:") == 0 ) {
       readdouble(fp, 2, INPUT_SALT2_INFO.RESTLAM_FORCEZEROFLUX );
+    }
+
+    // Nov 10 2020: read optional calib shifts done in training
+    WHICH = 0;
+    if ( !DISABLE_MAGSHIFT && strcmp(c_get,"MAGSHIFT:" )==0) 
+      { WHICH = CALIB_SALT2_MAGSHIFT  ; }
+    if ( !DISABLE_WAVESHIFT && strcmp(c_get,"WAVESHIFT:")==0) 
+      { WHICH = CALIB_SALT2_WAVESHIFT ; }
+    if ( !DISABLE_WAVESHIFT && strcmp(c_get,"LAMSHIFT:")==0)  // May 21 2021
+      { WHICH = CALIB_SALT2_WAVESHIFT ; }
+
+    if ( WHICH > 0 ) {
+      NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;
+      INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
+      readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
+
+      // if band is SDSS-r, just strip off last character 'r'
+      readchar(fp, ctmp );  LEN = strlen(ctmp) ;
+      sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND, "%c", ctmp[LEN-1] );
+
+      readdouble(fp, 1, &INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SHIFT );
+      INPUT_SALT2_INFO.NSHIFT_CALIB++ ;
     }
 
   } // end while
@@ -1306,7 +1378,22 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   OPT = INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT ;
   printf("\t ERRMAP_BADVAL_ABORT: %d  (%s) \n", OPT, CHAR_OFFON[OPT] );
 
+  
+  NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB ;
+  char KEY_SHIFT[4][12] = { "", "MAGSHIFT", "WAVESHIFT", "" } ;
+  for(i=0; i < NSHIFT; i++ ) {
+    WHICH = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
+    printf("\t Apply %s=%7.4f for SURVEY=%s, BAND=%s\n",
+	   KEY_SHIFT[WHICH],
+	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT,
+	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING,
+	   INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND );
+  }
+  if ( NSHIFT > 0 ) { check_surveyDefined_SEDMODEL(); }
+
   printf("\n");    fflush(stdout);
+
+  return ;
 
 } // end of read_SALT2_INFO_FILE
 
@@ -1402,7 +1489,11 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // Created July 26 2020
   // Init stuff to count bad values in error maps.
   // Goal is to quickly catch retraining pathologies.
-
+  //
+  // Mar 25 2021: increase color-disp crazy range to 5 (was 3)
+  // Oct 18 2021: extend valid COVAR range to -30 (was -10)
+  //
+  // --------------- BEGIN ------------
   SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
   SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
   SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
@@ -1413,16 +1504,16 @@ void  init_BADVAL_SALT2errmap(int imap) {
   // - - - - - - - - 
   // set valid ranges for SALT2
   if ( imap == INDEX_ERRMAP_VAR0 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =   5.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =   500.0 ;
   }
   else if ( imap == INDEX_ERRMAP_VAR1 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -10.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  500.0 ;
   }
   else if ( imap == INDEX_ERRMAP_COVAR01 ) {
-    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E2 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -30.0 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  100.0 ;
   }
   else if ( imap == INDEX_ERRMAP_SCAL ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
@@ -1430,7 +1521,7 @@ void  init_BADVAL_SALT2errmap(int imap) {
   }
   else if ( imap == INDEX_ERRMAP_COLORDISP ) {
     SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
-    SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0 ;
   }
 
   // - - - - - - - - 
@@ -1785,7 +1876,6 @@ double genmag_extrap_latetime_SALT2(double mag_daymin, double day,
 
   }
 
-
   return(mag_extrap);
 
 } // end genmag_extrap_latetime_SALT2
@@ -1798,6 +1888,180 @@ double FLUXFUN_EXTRAP_LATETIME(double t, double tau1, double tau2,
   double F  = F1 + F2;
   return(F);
 } 
+
+
+// =========================================
+void init_calib_shift_SALT2train(void) {
+
+  // Nov 10 2020
+  // apply training-calibration shifts from SALT2.INFO file
+  // Works for MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
+  
+  int  NSHIFT_TOT   = INPUT_SALT2_INFO.NSHIFT_CALIB ;
+  int  NSHIFT_APPLY = 0 ;
+  int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM, ilam, MEMD ;
+  char **survey_list, *survey_string, *survey, *band, *filter_name ;
+  double shift, magprimary, mag_shift, lam_shift;
+  double *lam, *trans, *transREF ;
+  bool MATCH ;
+  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
+  char fnam[] = "init_calib_shift_SALT2train" ;
+
+  // ----------- BEGIN -------------
+
+  if ( NSHIFT_TOT == 0 ) { return; }
+
+  sprintf(BANNER,"Propagate calibration shifts from SALT2 training");
+  print_banner(BANNER);
+
+  set_FILTERSTRING(FILTERSTRING);
+
+  for(i=0; i < NSHIFT_TOT; i++ ) {
+    which         = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
+    survey_string = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING ;
+    band          = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
+    shift         = INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT ;
+   
+    mag_shift = lam_shift = 0.0 ;
+    if ( which == CALIB_SALT2_MAGSHIFT ) 
+      {  mag_shift = shift ; }
+    else 
+      {  lam_shift = shift;  }	
+
+    // extract array of surveys for comma-sep input:
+    // e.g., survey_string = 'CFA3,CFA3S,CFA3K' ->
+    // survey_list = 'CFA3', 'CFA3S', 'CFA3K'
+    parse_commaSepList(fnam,survey_string, 10, 40, 
+		       &n_survey, &survey_list);
+
+    for(isurvey=0; isurvey < n_survey; isurvey++ ) {
+      survey = survey_list[isurvey] ;
+      
+      for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+      
+	MATCH  = match_SALT2train(survey,band,ifilt);
+	if ( !MATCH ) { continue; }
+
+	// store current filter trans in separate array so that
+	// original array can be modified.
+	NLAM = copy_filter_trans_SALT2(ifilt, &lam, &trans, &transREF);
+
+	magprimary    = FILTER_SEDMODEL[ifilt].magprimary ;
+	filter_name   = FILTER_SEDMODEL[ifilt].name ;
+	ifilt_obs     = INTFILTER(filter_name);
+	
+	printf("\t Update %s(%d) with %s = %.3f \n",
+	       filter_name, ifilt_obs, string_shift[which], shift); 
+	NSHIFT_APPLY++ ;
+	fflush(stdout);
+	
+	init_filter_SEDMODEL(ifilt_obs, filter_name, survey, 
+			     magprimary+mag_shift, 
+			     NLAM, lam, trans, transREF, lam_shift );
+	
+	free(lam); free(trans); free(transREF);
+      } // end ifilt
+
+    } // end isurvey loop
+    
+  } // end i loop over NSHIFT
+
+
+  printf("\t --> Apply %d of %d calibration shifts.\n",
+	 NSHIFT_APPLY, NSHIFT_TOT );  fflush(stdout);
+
+  if ( NSHIFT_APPLY > 0 ) {  filtdump_SEDMODEL(); }
+
+  //debugexit(fnam); // xxx REMOVE
+
+
+
+  return ;
+
+} // end init_calib_shift_SALT2train
+
+
+// =========================================
+int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
+			    double **transREF) {
+
+  // Created Nov 11 2020
+  // malloc arrays and copy filter info for 'ifilt'.
+
+  int  NLAM          = FILTER_SEDMODEL[ifilt].NLAM ;
+  int  MEMD          = NLAM * sizeof(double);
+  int  ilam ;
+  char fnam[] = "copy_filter_trans_SALT2" ;
+  // ----------- BEGIN ------------
+
+  *lam           = (double*) malloc(MEMD) ;
+  *trans         = (double*) malloc(MEMD) ;
+  *transREF      = (double*) malloc(MEMD) ;
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    (*lam)[ilam]      = FILTER_SEDMODEL[ifilt].lam[ilam];
+    (*trans)[ilam]    = FILTER_SEDMODEL[ifilt].transSN[ilam];
+    (*transREF)[ilam] = FILTER_SEDMODEL[ifilt].transREF[ilam];
+  }
+  
+  return NLAM;
+
+} // end copy_filter_trans_SALT2
+
+// ========================================
+bool match_SALT2train(char *survey_calib, char *band_calib, int ifilt) {
+
+  // Created Nov 10 2020
+  // return true if input "icalib" calibration shift matches ifilt.
+  
+  char *survey_filt  = FILTER_SEDMODEL[ifilt].survey ;
+  char *filter_name  = FILTER_SEDMODEL[ifilt].name ;
+  char  band_filt[2] ;
+  int   j_band, j_slash ;
+  bool  MATCH_SURVEY, MATCH_BAND ;
+  int   LDMP = 0 ;
+  char fnam[] = "match_SALT2train";
+
+  // ---------- BEGIN ----------
+
+  /*
+  printf(" xxx %s: survey[calib,filt] = [ %s, %s ] \n",
+	 fnam, survey_calib, survey_filt); fflush(stdout);
+  */
+
+  MATCH_SURVEY = ( strcmp(survey_calib,survey_filt) == 0 ) ;
+  if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }
+
+  j_band       = strlen(filter_name) - 1 ;
+  j_slash      = index_charString("/", filter_name) ;
+  if ( j_slash > 0 ) { j_band = j_slash - 1; }
+  sprintf(band_filt, "%c", filter_name[j_band] );
+
+  // matching band requires:
+  // 1) survey name is part of full filter name (FRAGILE ALERT !!!)
+  // 2) band_calib is last character, or last char before slash
+  // .xyz FRAGILE ALERT: need to include SURVEY in kcor file
+  MATCH_BAND = 
+    ( strstr(filter_name,survey_filt) != NULL ) && 
+    ( strcmp(band_filt,band_calib) == 0 ) ;
+
+  if ( LDMP ) {
+    printf(" xxx ----------------------------------------- \n");
+    printf(" xxx %s: survey_calib=%s, band_calib=%s \n",
+	   fnam, survey_calib, band_calib );
+
+    printf(" xxx %s: ifilt=%d  survey_filt=%s  filter=%s \n",
+	   fnam, ifilt, survey_filt, filter_name );
+
+    printf(" xxx %s: j_[band,slash]=%d,%d  MATCH_BAND=%d \n",
+	   fnam, j_band, j_slash, MATCH_BAND);
+    fflush(stdout);
+  }
+
+  bool MATCH = MATCH_SURVEY && MATCH_BAND ;
+  return MATCH ;
+
+} // end match_SALT2train
+
 
 /**********************************************
   SALT-II color correction formula
@@ -1843,17 +2107,13 @@ double SALT2colorCor(double lam_rest, double c ) {
 void genmag_SALT2(
 		  int OPTMASK     // (I) bit-mask of options (LSB=0)
 		  ,int ifilt_obs  // (I) absolute filter index
-		  ,double x0      // (I) SALT2 x0 parameter
-		  ,double x1      // (I) SALT2 x1-stretch parameter
-		  ,double x1_forErr // (I) x1 used for error calc.
-		  ,double c       // (I) SALT2 color parameter 
+		  ,double *parList_SN   // x0, x1, x1_forErr, c
+		  ,double *parList_HOST // RV, AV, logMass
 		  ,double mwebv   // (I) Galactic extinction: E(B-V)
-		  ,double RV_host // (I) for Mandel SALT2+XThost model
-		  ,double AV_host // (I) for Mandel SALT2+XThost model
 		  ,double z       // (I) Supernova redshift
 		  ,double z_forErr// (I) z used for error calc (Mar 2018)
-		  ,int Nobs       // (I) number of epochs
-		  ,double *Tobs_list   // (I) list of obs times (since mB max) 
+		  ,int    Nobs         // (I) number of epochs
+		  ,double *Tobs_list   // (I) list of Tobs (w.r.t peakMJD) 
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
@@ -1887,7 +2147,18 @@ void genmag_SALT2(
  
  Jun 25 2018: check mag-extrap option for late times
 
+ May 31 2021: refactor to receive parList_SN[HOST]
+
   ***/
+
+  double x0        = parList_SN[0];
+  double x1        = parList_SN[1];
+  double c         = parList_SN[2];
+  double x1_forErr = parList_SN[3];
+
+  double RV_host      = parList_HOST[0];
+  double AV_host      = parList_HOST[1];
+  double logMass_host = parList_HOST[2];
 
   double 
     meanlam_obs,  meanlam_rest, ZP, z1
@@ -1967,7 +2238,7 @@ void genmag_SALT2(
 
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
-    INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, x0,x1,c, RV_host, AV_host,
+    INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, parList_SN, parList_HOST,
 		     &Finteg, &Finteg_errPar, FspecDum); // returned
     flux_interp = Finteg ;
 
@@ -1987,7 +2258,7 @@ void genmag_SALT2(
       Trest_tmp  = Trest_edge - nday_slope ;
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
-      INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, x0,x1,c, RV_host,AV_host,
+      INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, parList_SN, parList_HOST,
 		       &Finteg, &Finteg_errPar, FspecDum); // return
       flux_tmp = Finteg;
       
@@ -2100,6 +2371,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   //   + pass new arg Finteg_noMW
   //   + vartot_flux for SALT3 (relative for SALT2)
   //
+  // Oct 01 2021: no longer set magerr=5.0 to avoid discontinuity in LC fit.
 
   double 
      ERRMAP[NERRMAP], Trest_tmp
@@ -2158,13 +2430,16 @@ double SALT2magerr(double Trest, double lamRest, double z,
   // get total fractional  error.
   fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
 
-  // convert frac-error to mag-error, and load return array
+  /* xxxxxxxxxx mark delete Oct 1 2021 xxxxx
   if ( fracerr_TOT > .999 ) 
-    { magerr_model = 5.0 ; }
+    { magerr_model = 5.0 ; } // .xyz causes fit discontinuity ?
   else  { 
-    // magerr_model  = -2.5*log10(arg) ;  // dumb approx
-    magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact, Jul 12 2013
+    magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact
   }
+  xxxxxxxxxxxx end mark xxxxxx */ 
+
+  // convert frac-error to mag-error, and load return array
+  magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact
 
   // check for error fudges
   magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
@@ -2255,8 +2530,7 @@ double magerrFudge_SALT2(double magerr_model,
 
 // **********************************************
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
-		      double x0, double x1, double c,
-		      double RV_host, double AV_host,
+		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec ) {
 
@@ -2317,6 +2591,23 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   so that it works properly with repeat function.
   //
   // Oct 2020: replace Fratio with general Finteg_errPar
+  // Mar 23 2021: use get_LAMTRANS_SEDMODEL() to avoid overwriting
+  //              FILTER_SEDMODEL with spectrograph info
+  //
+  // Mar 24 2021: 
+  //   + check ALLOW_NEGFLUX_SALT2 to allow or avoid negative spectral flux.
+  //
+  // May 31 2021: refactor to pass parList_SN and parList_HOST
+
+
+  // strip of SN and HOST params
+  double x0   = parList_SN[0];
+  double x1   = parList_SN[1];
+  double c    = parList_SN[2];
+  
+  double RV_host   = parList_HOST[0];
+  double AV_host   = parList_HOST[1];
+  double m_host    = parList_HOST[2];
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2331,10 +2622,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,MWXT_FRAC, HOSTXT_FRAC, CCOR, CCOR_LAM0, CCOR_LAM1, CDIF, CNEAR
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
-    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL]
+    ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR, *lam
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
-    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3
+    ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck
+    ,Flam_filter[2], Flam_err[2], Flam_spec[2], parList_genSmear[10]
     ,hc8 = (double)hc ;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2402,18 +2693,29 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Should be used only for simulation (not for fitting mode)
   ISTAT_GENSMEAR = istat_genSmear();  
   if ( ISTAT_GENSMEAR  ) {
+    lam = (double*) malloc(NLAMFILT*sizeof(double) );
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
+
+    parList_genSmear[0] = Trest;
+    parList_genSmear[1] = x1;
+    parList_genSmear[2] = c;
+    parList_genSmear[3] = m_host ; 
+
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
-      LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+
+      get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
-      lam[ilamobs] = LAMSED ; 
 
       // protect undefined red end for low-z (July 2016)
-      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
+      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }  
+
+      lam[ilamobs] = LAMSED ; 
       NLAMTMP++ ;
     }
-    get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+
+    get_genSmear(parList_genSmear, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    free(lam);
   }
 
 
@@ -2422,7 +2724,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
-    TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
+    // fetch LAM and TRANS with utility to account for spectrograph
+    get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
 
     if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
       { continue ; } // Jul 2013 - skip zeros for leakage
@@ -2435,9 +2738,13 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     else 
       { HOSTXT_FRAC = 1.0 ; } // standard SALT2 model has no host extinction
 
-    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+    // xxx    LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
+
+    // Jan 2021: bail if outside model range 
+    if ( LAMSED <= SALT2_TABLE.LAMMIN ) { continue ; }
+    if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; } 
 
     LDMP = 0; // (OPT_SPEC>0 && ifilt_obs==2 );
 
@@ -2528,7 +2835,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	
 	// check option to smear SALT2 flux with intrinsic scatter
 	if ( ISTAT_GENSMEAR ) {
-	  // xxx mark delete  arg   =  -0.4*magSmear[ilamobs] ; 
 	  arg     =  -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
@@ -2550,14 +2856,30 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	  }
 
 	  LAMRATIO            = LAMSPEC_STEP/LAMFILT_STEP ; // binSize ratio
-          Finteg_spec[ised]  += (Fbin_forSpec * LAMRATIO );
+	  Flam_spec[ised]     = (Fbin_forSpec * LAMRATIO );
 
 	} // end OPT_SPEC
 
-	Finteg_filter[ised]  +=  Fbin_forFlux ;
-	Finteg_forErr[ised]  += (Fbin_forFlux/MWXT_FRAC) ;	
+	Flam_filter[ised]     = Fbin_forFlux ;
+	Flam_err[ised]        = (Fbin_forFlux/MWXT_FRAC) ;  
 
       } // ised
+
+
+      // check option to force negative flux to zero
+      if ( !ALLOW_NEGFLUX_SALT2 ) {
+	Fcheck = ( Flam_filter[0] + x1*Flam_filter[1] ); 
+	if ( Fcheck < 0.0 ) { 
+	  Flam_filter[0] = Flam_filter[1] = 0.0 ;
+	  Flam_spec[0]   = Flam_spec[1]   = 0.0 ;
+	}
+      }
+
+      for(ised=0; ised <2; ised++ ) {
+	Finteg_filter[ised]  +=  Flam_filter[ised];
+	Finteg_forErr[ised]  +=  Flam_err[ised];
+	if(OPT_SPEC) { Finteg_spec[ised] +=  Flam_spec[ised]; }
+      }
 
     } // end LAMSED loop 
 
@@ -2665,7 +2987,7 @@ double SALT2mBcalc(double x0) {
 // ***********************************************
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
-  /***
+  /***********************************************
    Apr 14, 2009: 
    return error values from each of the NERRMAP maps.
    Trest         :  (I) rest-frame epoch (days,  T=0 at peak)
@@ -2683,7 +3005,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     + protect iday_min and ilam_min from being negative. Negative indices
       can occur because ERRMAPs don't always cover SED range.
            
-  ***/
+  Apr 27 2021:
+     for SALT3, ignore error-scale map and hard wired scale=1
+
+  *****************************************************/
 
   int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
   int NLAM, NDAY, IND, IERR ;
@@ -2698,6 +3023,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
   for ( imap=0; imap < NERRMAP; imap++ ) {
 
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+
+    // 4.2021: there is no error-scale map for SALT3, so hard wired scale=1
+    if ( ISMODEL_SALT3 && imap == INDEX_ERRMAP_SCAL )
+      { ERRMAP[imap] = 1.0 ; continue ; }
 
     LMIN  = SALT2_ERRMAP[imap].LAMMIN ;
     LSTEP = SALT2_ERRMAP[imap].LAMSTEP ;
@@ -2719,7 +3048,6 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     if ( ilam_min >= NLAM-1 ) { ilam_min = NLAM - 2 ; }
     if ( ilam_min <  0      ) { ilam_min = 0;         }
     ilam_max = ilam_min + 1;
-
     
     // Aug 27, 2009: 
     // interpolate Trest at LAM-MIN
@@ -2769,7 +3097,6 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
     }  // SPLINE option
 
-
     ERRMAP[imap] = val ;
     
   } // end of imap loop
@@ -2779,9 +3106,8 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
 // *******************************************************
 int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList, 
-		   double z, double x0, double x1, double c, double mwebv,
-		   double RV_host, double AV_host,
-		   double *covar ) {
+		   double z, double *parList_SN, double *parList_HOST,
+		   double mwebv, double *covar ) {
 
   // Jun 2, 2011 R.Kessler
   // return *covar matrix that depends on ifilt_obs and redshift. 
@@ -2803,6 +3129,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   int  icovar, irow, icol, ifilt_obs, ifilt_row, ifilt_col, ifilt ;
   int ISDIAG, LDMP ;
 
+  double x1    = parList_SN[1] ;
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
@@ -2882,8 +3209,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	Trest = Trest_tmp ;
 	Tobs  = Trest * z1 ;
 
-	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, x0, x1, c,      // input
-			 RV_host, AV_host,                   // input
+	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, parList_SN, parList_HOST, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
 	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, 
@@ -3145,9 +3471,9 @@ void test_SALT2colorlaw1(void) {
 
 
 // ==========================
-void genSpec_SALT2(double x0, double x1, double c, double mwebv,
-                   double RV_host, double AV_host,  double z,
-                   double Tobs, double *GENFLUX_LIST, double *GENMAG_LIST ) {
+void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
+                   double z, double Tobs, 
+		   double *GENFLUX_LIST, double *GENMAG_LIST ) {
 
   // July 2016
   // For input SALT2 params, return *GENFLUX_LIST and *GENMAG_LIST.
@@ -3173,6 +3499,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   //
   // Mar 29 2019: apply MAG_OFFSET to GENFLUX_LIST
   //
+  // Mar 23 2021: call fill_TABLE_MWXT_SEDMODEL
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3182,9 +3509,11 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   double Trest, Finteg, Finteg_errPar;
   double FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
   double hc8 = (double)hc ;
-  //  char fnam[] = "genSpec_SALT2" ;
+  char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
+
+  fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
 
   z1 = 1.0 + z;
 
@@ -3196,7 +3525,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   if ( Trest > SALT2_TABLE.DAYMAX-0.1 ) { return ; }
 	
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
-		   x0, x1, c,	RV_host, AV_host,
+		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
 
   FSCALE_ZP = pow(TEN,-0.4*MAG_OFFSET);
@@ -3208,7 +3537,13 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/(hc8*z1)) * GENFLUX;
+    FTMP    = (LAM/hc8) * GENFLUX;
+
+    /*xxxx
+    printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",
+	   fnam, ilam, LAM, ZP, GENFLUX); fflush(stdout);
+    */
+
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
       MAG = -2.5*log10(FTMP) + ZP; 
     }
@@ -3241,7 +3576,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   int MEMD   = NBLAM * sizeof(double);
   int ilam ;
   double LAMOBS, LAMREST, z1, Finteg, Finteg_errPar, Finteg_check, TRANS ;
-  double RV_host=-9.0, AV_host=0.0 ;
+  double RV_host=-9.0, AV_host=0.0, m_host = -9.0  ;
 
   double Tobs  = (double)Tobs_f ;
   double z     = (double)z_f ;
@@ -3251,6 +3586,9 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   double *FLUXLIST = (double*) malloc ( MEMD );
   double Trest = Tobs/(1.0 + z) ;
 
+  double parList_SN[3]   = { x0, x1, c };
+  double parList_HOST[3] = { RV_host, AV_host, m_host } ;
+
   //   char fnam[] = "getSpec_band_SALT2" ;
 
   // ------------- BEGIN ---------------
@@ -3259,17 +3597,19 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   if ( Trest >= SALT2_TABLE.DAYMAX ) { return(0); }
 
   INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs,         // (I)
-		   x0, x1, c, RV_host, AV_host,   // (I)
+		   parList_SN, parList_HOST,      // (I)
 		   &Finteg, &Finteg_errPar, FLUXLIST ) ; // (O)
   
   Finteg_check = 0.0 ;  z1=1.0+z ;
   for(ilam=0; ilam < NBLAM; ilam++ ) {
-    LAMOBS  = FILTER_SEDMODEL[ifilt].lam[ilam] ;
+    
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS);
+
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];
 
     // check Finteg; FLUXLIST already includes LAMSTEP
-    TRANS   = FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+
     LAMREST = LAMOBS/z1 ;
     Finteg_check += ( TRANS * LAMREST * FLUXLIST[ilam] ); 
   }
@@ -3420,27 +3760,6 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0 );
   checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0 );
   checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 18000.0 );
-
-  /* xxxxx mark delete 
-  if ( LAM_B < 4000 || LAM_B > 4500 ) {
-    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_V < 5000 || LAM_V >6000 ) {
-    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_MIN < 1000 || LAM_MIN > 6000 ) {
-    sprintf(c1err, "insane LAM_MIN = %6.0f", LAM_MIN );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  if ( LAM_MAX < 6000 || LAM_MAX > 16000 ) {
-    sprintf(c1err, "insane LAM_MAX = %6.0f", LAM_MAX );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  xxxxx */
 
   // ------------------------------
 

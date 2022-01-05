@@ -116,7 +116,8 @@ struct FILTER_SEDMODEL {
   double  lammin, lammax ;   // min/max wavelength
   double  mean;              // mean wavelength of filter
   double  ZP;                // reference zeropoint
-  char    name[20];
+  char    name[40];          // full name of filter
+  char    survey[40];        // name of survey (Nov 2020)
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
 
 
@@ -294,8 +295,8 @@ int reset_SEDMODEL(void);
 int init_primary_SEDMODEL(char *refname, int NLAM, 
 			  double *LAMLIST, double *FLUXLIST ) ;
 
-int init_filter_SEDMODEL(int ifilt_obs, char *filtname, double magprimary,
-			 int NLAM,  double *LAMLIST, 
+int init_filter_SEDMODEL(int ifilt_obs, char *filter_name, char *survey_name,
+			 double magprimary, int NLAM,  double *LAMLIST, 
 			 double *TRANSSNLIST, double *TRANSREFLIST, 
 			 double LAMSHIFT ) ;
 
@@ -329,6 +330,8 @@ double get_magerr_SEDMODEL(int ISED, int ifilt_obs,
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );
 
+void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
+
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 void checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) ;
 void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC);
@@ -343,6 +346,7 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
 
 void check_sedflux_bins(int ised, char *VARNAME, 
 			int NBIN, double VAL0, double BINSIZE);
+void check_surveyDefined_SEDMODEL(void);
 
 double gridval_SIMSED(int ipar, int ibin);
 double nearest_gridval_SIMSED (int ipar, double lumipar );
@@ -393,7 +397,8 @@ int reset_SEDMODEL__(void);
 int init_primary_sedmodel__(char *refname, int *NLAM, 
 			    double *LAMLIST, double *FLUXLIST );
 
-int init_filter_sedmodel__(int *ifilt_obs, char *filtname, 
+int init_filter_sedmodel__(int *ifilt_obs, char *filter_name, 
+			   char *survey_name, 
 			   double *magprimary,
 			   int *NLAM,  double *LAMLIST, 
 			   double *TRANSSNLIST, 

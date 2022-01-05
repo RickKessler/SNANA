@@ -2,6 +2,29 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # Base class Program
+#
+#     HISTORY
+# Jan 2 2021: add small delay in each CPU* file to avoid jobs finishing
+#             before all are submitted, resulting in pid-check failure.
+#
+# Jan 6 2021: 
+#   in write_batch_file, add REPLACE_[WALLTIME,NTASK,CPU_PER_TASK].
+#   These keys are hard-coded for submit_batch, but can be altered
+#   by Pippin for non-SNANA jobs.
+#
+# Jan 21 2021: 
+#   write_command_file return n_job_cpu; if n_job_cpu==0, sleep 10 sec
+#   so that npid check doesn't fail.
+#
+# Apr 23 2021: fix --merge_reset and -M to hopefully allow interactive 
+#              merge recover (-H FIT for instructions)
+#
+# May 24 2021: new function submit_iter2()
+# Aug 09 2021: implement optional --snana_dir arg
+# Oct 29 2021: add optional TABLE_EXTRA to MERGE.LOG file
+# Oct 30 2021: new ENV_REQUIRE key for any task.
+# Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
+#
 # ============================================
 
 #import argparse
@@ -28,15 +51,36 @@ class Program:
         self.config_yaml   = config_yaml
         self.config_prep   = config_prep
         self.config        = None
-
+        args        = config_yaml['args']
+        msgerr      = []
+            
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
 
-        if config_yaml['args'].merge_flag :  # bail for merge process
+        # default is 1 submit, so iter is None
+        # (bbc might change this to 1 and 2) 
+        config_prep['submit_iter'] = None  # May 24 2021
+
+        if args.merge_flag :  # bail for merge process
             return
 
-        logging.info(f" Program name: {config_prep['program']}")
+        self.check_env_required(config_yaml)
+
+        # - - - - -
+        program = config_prep['program']
+        logging.info(f" Program name: {program}")
+
+        if program == PROGRAM_NAME_UNKNOWN :
+            input_file  = args.input_file 
+            msgerr.append(f"Unknown program name.")
+            msgerr.append(f"Must define program with JOBNAME key")
+            msgerr.append(f"in {input_file}")
+            util.log_assert(False,msgerr)
+
+        # Oct 12 2021: option to run interactive jobs and check if job aborted
+        if args.check_abort :
+            self.prep_check_abort(config_yaml)
 
         # unpack BATCH_INFO or NODELIST keys; update config_prep
         self.parse_batch_info(config_yaml,config_prep)
@@ -72,6 +116,10 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod       
+    def merge_config_prep(self,output_dir):
+        raise NotImplementedError()
+
+    @abstractmethod       
     def merge_cleanup_final(self):
         raise NotImplementedError()
 
@@ -87,6 +135,69 @@ class Program:
     def get_misc_merge_info(self):
         raise NotImplementedError()
 
+    @abstractmethod
+    def check_abort(self):
+        print(f"\n WARNING: not implemented.")
+
+    def prep_check_abort(self,config_yaml):
+        # Prepare to run interactive job with 1 event and check for abort.
+        # set ncore=1
+
+        CONFIG = config_yaml['CONFIG']
+
+        if 'NODELIST' in CONFIG  :
+            NODELIST    = CONFIG['NODELIST']
+            FIRSTNODE   = NODELIST.split()[0]
+            CONFIG['NODELIST'] = FIRSTNODE
+        else :
+            config_yaml['args'].ncore = 1
+
+        # disable cleanup flag
+        CONFIG['CLEANUP_FLAG'] = 0
+
+        # end prep_check_abort
+
+    def check_env_required(self, config_yaml):
+
+        CONFIG = config_yaml['CONFIG']
+        msgerr = []
+
+        # check conda env for SALT3 (Feb 2021)
+        ENV = 'CONDA_DEFAULT_ENV'
+        if ENV in CONFIG :
+            ENV_value_expect = CONFIG[ENV]
+            ENV_value        = os.getenv(ENV)
+            if ( ENV_value != ENV_value_expect ) :
+                msgerr.append(f"Expected  ${ENV} = {ENV_value_expect} ; ")
+                msgerr.append(f"but found ${ENV} = {ENV_value} ")
+                util.log_assert(False,msgerr)
+
+        # check optional ENV required to exist (doesn't matter what value)
+        key = CONFIG_KEYNAME_ENV_REQUIRE
+        if key in CONFIG:
+            ENV_name_list  = CONFIG[key].split()
+            missing_ENV_list = []
+            for ENV_name in ENV_name_list:
+                ENV_value = os.getenv(ENV_name,None)
+                if ENV_value is None:
+                    missing_ENV_list.append(ENV_name)
+                    logging.info(f"  ERROR: missing required env ${ENV_name}")
+                else:
+                    logging.info(f"  Found required ${ENV_name} = {ENV_value}")
+
+            n_missing = len(missing_ENV_list)
+            if n_missing > 0:
+                msgerr.append(f"This/these {n_missing} required envs " \
+                              f"are not set:")
+                msgerr.append(f"    {missing_ENV_list}")
+                msgerr.append(f"Check {key} key in config input file.")
+                util.log_assert(False,msgerr)
+            else:
+                print('')
+
+        sys.stdout.flush()
+        # end check_env_required
+
     def parse_batch_info(self,config_yaml,config_prep):
     
         # check of SSH or BATCH, and parse relevant strings
@@ -95,8 +206,12 @@ class Program:
         n_core        = 0
         submit_mode   = "NULL"
         node_list     = []
+
         memory        = BATCH_MEM_DEFAULT
+        maxjob        = BATCH_MAXJOB_DEFAULT
+        walltime      = BATCH_WALLTIME_DEFAULT
         kill_flag     = config_yaml['args'].kill
+        n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
         config_prep['nodelist']       = ''
         config_prep['batch_command']  = ''
@@ -119,7 +234,12 @@ class Program:
             BATCH_INFO  = CONFIG['BATCH_INFO'].split()
             command     = BATCH_INFO[0]
             template    = os.path.expandvars(BATCH_INFO[1])
-            n_core      = int(BATCH_INFO[2])
+
+            if n_core_arg is None :
+                n_core = int(BATCH_INFO[2]) # from CONFIG input
+            else:
+                n_core = n_core_arg  # command-line override
+
             node_list   = [HOSTNAME] * n_core  # used for script file name
             submit_mode = SUBMIT_MODE_BATCH
             config_prep['batch_command']  = command
@@ -128,17 +248,21 @@ class Program:
             logging.info(f"\t Batch template: {template}" )
             logging.info(f"\t Batch n_core:   {n_core}" )
         else :
-            msgerr.append(f"Could not find BATCH_INFO or NODELIST")
-            self.log_assert(False, msgerr)
+            msgerr.append(f"Could not find BATCH_INFO or NODELIST.")
+            msgerr.append(f"Check CONFIG block in the input file.")
+            util.log_assert(False, msgerr)
 
-        # check optional memory spec
+        # check optional memory input
         if 'BATCH_MEM' in CONFIG :
             memory = str(CONFIG['BATCH_MEM'])
 
-            #if isinstance(memory,int) :
-            #    msgerr.append(f"Missing memory units")
-            #    msgerr.append(f"Try  BATCH_MEM: {memory}Mb")
-            #    self.log_assert(False, msgerr)
+        # check optional walltime (Jan 6 2021)
+        if 'BATCH_WALLTIME' in CONFIG :
+            walltime = CONFIG['BATCH_WALLTIME']
+
+        # check optional maxjob
+        # ?? if 'BATCH_MAXJOB' in CONFIG :
+        # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
 
         sys.stdout.flush()
 
@@ -146,6 +270,8 @@ class Program:
         config_prep['submit_mode'] = submit_mode
         config_prep['node_list']   = node_list
         config_prep['memory']      = memory
+        config_prep['walltime']    = walltime
+        config_prep['maxjob']      = maxjob
     
     # end parse_batch_info
 
@@ -161,6 +287,7 @@ class Program:
         batch_command = self.config_prep['batch_command'] 
         IS_SSH        = submit_mode == SUBMIT_MODE_SSH
         IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
+
 
         if IS_SSH :
             self.kill_ssh_jobs()
@@ -189,7 +316,7 @@ class Program:
     def kill_ssh_jobs(self):
         node_list   = self.config_prep['node_list']
         for node in node_list :
-            print(f" Kill jobs on {node}")
+            logging.info(f" Kill jobs on {node}")
             cmd_kill  = "kill -KILL -1"                
             ret       = subprocess.call(["ssh", node, cmd_kill] )
 
@@ -206,7 +333,7 @@ class Program:
 
         output_dir       = self.config_prep['output_dir']
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE,None,None)
 
         # if cpunum is an argument, this cpu is kill last.
         cpunum_last = -9;  job_name_last = ''
@@ -240,23 +367,30 @@ class Program:
 
     def write_script_driver(self):
 
-        # For each CPU, create batch script (CPU*.BATCH) which sources
-        # command file (CPU*.CMD) that has list of native SNANA commands.
+        # For each CPU, create batch script (CPU[nnn]*.BATCH and also
+        # command script (CPU[nnn].CMD) that has list of native commands.
         # For ssh mode, these .CMD files are sourced upon login, and
         # thus .BATCH files are not needed for ssh mode.
         # BATCH files are written here and do not depend on task.
         # CMD files are program-dependent via call to
         #       self.write_command_file(icpu,COMMAND_FILE)
         #
-        
+        # Jan 21 2201: write_command_file returns n_job_cpu;
+        #     if n_job_cpu==0, add extra delay to avoid npid error
+        #
+        # Dec 04 2021: write CPU*DONE file (for merge_background)
+
         CONFIG      = self.config_yaml['CONFIG']
-        input_file  = self.config_yaml['args'].input_file 
+        args        = self.config_yaml['args']
+        input_file  = args.input_file 
+        snana_dir   = args.snana_dir
         output_dir  = self.config_prep['output_dir']
         script_dir  = self.config_prep['script_dir']
         n_core      = self.config_prep['n_core']
         submit_mode = self.config_prep['submit_mode']
         node_list   = self.config_prep['node_list']
         program     = self.config_prep['program']
+        submit_iter = self.config_prep['submit_iter']
 
         # for each cpu, store name of script and batch file
         command_file_list = []  # command file name, no path
@@ -265,19 +399,40 @@ class Program:
         BATCH_FILE_LIST   = []   # idem
         cmdlog_file_list  = []
         job_name_list     = []
+        n_core_with_jobs  = 0
 
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
         # create batch_file using BATCH_TEMPLATE
+
+        logging.info(f"  Create command files:")
+
         for icpu in range(0,n_core) :
             node          = node_list[icpu]
-            cpu_name      = (f"CPU{icpu:04d}")
-            job_name      = (f"{input_file}-{cpu_name}") 
-            prefix        = (f"CPU{icpu:04d}_JOBLIST_{node}")
-            command_file  = (f"{prefix}.CMD")
-            log_file      = (f"{prefix}.LOG")
-            COMMAND_FILE  = (f"{script_dir}/{command_file}")
-            print(f"\t Create {command_file}")
+            cpu_name      = f"CPU{icpu:04d}"
+            prefix        = f"CPU{icpu:04d}_JOBLIST_{node}"
+            command_file  = f"{prefix}.CMD"
+            log_file      = f"{prefix}.LOG"
+            COMMAND_FILE  = f"{script_dir}/{command_file}"
+            done_file     = f"{prefix}.DONE"
+            DONE_FILE     = f"{script_dir}/{done_file}"
+
+            logging.info(f"\t Create {command_file}")
+
+            if submit_iter is None:
+                # normal task is single submit, so ignore iter in job name
+                job_name      = f"{input_file}-{cpu_name}"
+            else:
+                # job name depends on submit_iter
+                ii        = f"iter{submit_iter}"
+                job_name  = f"{input_file}_{ii}-{cpu_name}"
+
+            # compute small (0.1s) delay per core to avoid first jobs
+            # finishing before all are submitted, then failing
+            # the pid-submit check. Delay is largest for core 0, 
+            # then is reduced by 0.2 sec per core. For 100 cores,
+            # first delay is 20 sec.
+            delay = float(n_core - icpu)/5.0
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
@@ -293,16 +448,40 @@ class Program:
                 f.write(f"#!/usr/bin/env bash \n")
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+                f.write(f"echo 'Sleep {delay} sec " \
+                        f"(wait for remaining batch-submits)' \n")
+                f.write(f"sleep {delay} \n")
+
+                f.write(f"echo ' ' \n")
+
                 f.write(f"echo 'Begin {command_file}' \n\n")
+
+                if snana_dir is not None:
+                    path_list = f"{snana_dir}/bin:{snana_dir}/util:$PATH"
+                    f.write(f"export SNANA_DIR={snana_dir} \n")
+                    f.write(f"export PATH={path_list}\n" )
+
+                f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
-                #if 'SNANA_LOGIN_SETUP' in CONFIG:
-                #    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
 
-            # write program-specific content
-            self.write_command_file(icpu,COMMAND_FILE)
+                # write program-specific content
+                n_job_cpu = self.write_command_file(icpu,f)
 
+                # if there are no jobs, sleep another 5 seconds so that
+                # batch job does not immediately exit and fail npid check.
+                if n_job_cpu == 0 :
+                    f.write(f"echo 'No jobs -> sleep 10s to " \
+                            f"ensure npid check is ok' \n")
+                    f.write(f"sleep 10 \n")
+                else:
+                    n_core_with_jobs += 1
+
+                f.write(f"\ntouch {DONE_FILE}\n")     # Dec 2021
+
+            # - - - - - 
             # write extra batch file for batch mode
             if ( submit_mode == SUBMIT_MODE_BATCH ):
                 batch_file = (f"{prefix}.BATCH")
@@ -319,24 +498,96 @@ class Program:
         self.config_prep['job_name_list']     = job_name_list
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
+        self.config_prep['n_core_with_jobs']  = n_core_with_jobs
 
-        # make all CMD files group-executable with g+x.
+        # check option to run merge process in the background
+        if args.merge_background:
+            self.write_script_merge_background()
+
+        # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
         # permission to user, or wipe out group privs. 
         # To make things easier here, we just use os.system().
-        cmd_chmod = (f"chmod g+x {script_dir}/CPU*.CMD")
+        cmd_chmod = (f"chmod +x {script_dir}/CPU*.CMD")
         os.system(cmd_chmod);
 
         n_job_tot   = self.config_prep['n_job_tot']
-        print(f" BATCH DRIVER JOB COUNT SUMMARY:",
-              f"{n_job_tot} {program} jobs on {n_core} cores")
+        logging.info(f" BATCH DRIVER JOB COUNT SUMMARY: " \
+                     f"{n_job_tot} jobs on {n_core} cores")
 
         
         # check option to force crash (to test higher level pipelines)
-        if self.config_yaml['args'].force_crash_prep :
+        if args.force_crash_prep :
             printf(" xxx force batch-prep crash with C-like printf xxx \n")
 
         # end write_script_driver
+
+    def write_script_merge_background(self):
+
+        # Created Dec 4 2021 by R.Kessler
+        # Invoked by --merge_background option.
+        # Write bash script to execute merge process until all of the
+        # CPU*DONE files exist.
+        # This bash script is launched in the background after the
+        # nominal tasks have been submitted.
+
+        n_core         = self.config_prep['n_core']
+        script_dir     = self.config_prep['script_dir']
+        args           = self.config_yaml['args']
+        input_file     = args.input_file 
+        t_stamp        = seconds_since_midnight
+        cpunum         = 0
+
+        if args.fast:
+            t_sleep = 20  # sleep time between checking merge
+        else:
+            t_sleep = 100
+
+        base_name         = "CPU_MERGE_BACKGROUND"
+        cpu_merge_script  =  f"{script_dir}/{base_name}.CMD"
+        cpu_merge_log     =  f"{script_dir}/{base_name}.LOG"
+        
+        merge_script     = sys.argv[0]  # $path/submit_batch_jobs
+        merge_args       = f"{input_file} -m  -t {t_stamp} --cpunum {cpunum}"
+        merge_args_final = f"{input_file} -M  -t {t_stamp} --cpunum {cpunum}"
+        wildcard = "CPU*DONE"
+        wildcard_echo = "CPU\*DONE"
+
+        # store for when it's launched
+        self.config_prep['cpu_merge_script'] = cpu_merge_script
+        self.config_prep['cpu_merge_log']    = cpu_merge_log
+
+        with open(cpu_merge_script,"wt") as f:
+            f.write("#!/usr/bin/env bash \n")
+            f.write(f"echo HOST = {HOSTNAME} \n")
+            f.write(f"echo \n")
+            f.write(f"n_done=0\n\n")
+
+            f.write(f"while [ $n_done -lt {n_core} ] \n")
+            f.write(f"do\n")
+            f.write(f"  sleep {t_sleep} \n")
+            f.write(f"  echo '# ======== MERGE_BACKGROUND CHECK ==========' \n")
+
+            f.write(f"  echo Found $n_done of {n_core} {wildcard_echo} files.\n")
+            f.write(f"  echo Run merge at "
+                    f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+            f.write(f"  cd {CWD}\n")
+            f.write(f"  {merge_script} {merge_args} \n")
+            f.write(f"  \n")
+            f.write(f"  cd {script_dir}\n")
+            f.write(f"  n_done=`ls {wildcard} 2> /dev/null | wc -l` \n")
+            f.write(f"  echo \n")
+            f.write(f"done\n")
+
+            f.write("\n")
+            f.write(f"echo Found all $n_done of {n_core} {wildcard_echo} files.\n")
+            f.write(f"echo Run final merge   \n")
+            f.write(f"  cd {CWD}\n")
+            f.write(f"  {merge_script} {merge_args_final} \n")
+            f.write(f"echo Done with merge_background.\n")
+        return
+        # end write_script_merge_background
 
     def write_batch_file(self, batch_file, log_file, command_file, job_name):
 
@@ -348,17 +599,12 @@ class Program:
         # Note that lower-case xxx_file has no path; 
         # upper case XXX_FILE includes full path
 
-        BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
-        script_dir      = self.config_prep['script_dir']
-        replace_memory  = self.config_prep['memory']
-        debug_batch     = self.config_yaml['args'].debug_batch
+        BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
+        script_dir       = self.config_prep['script_dir']
+        replace_memory   = self.config_prep['memory']
+        replace_walltime = self.config_prep['walltime']
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
-
-        with open(BATCH_TEMPLATE,"r") as f:
-            template_batch_lines = f.readlines()
-
-        #print(f" xxx template_batch_lines = {template_batch_lines} ")
 
         # get strings to replace 
         replace_job_name   = job_name
@@ -369,22 +615,27 @@ class Program:
         #replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
         replace_job_cmd = (f"cd {script_dir} \nsh {command_file}")
 
+        # Jan 6 2021: add few more replace keys that can be modified
+        # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
+        replace_ntask        = 1
+        replace_cpu_per_task = 1
+
         # - - - define list of strings to replace - - - - 
-        batch_lines = []            
-        REPLACE_KEY_LIST = [ 'REPLACE_NAME', 'REPLACE_MEM',
-                             'REPLACE_LOGFILE', 'REPLACE_JOB' ]
-        replace_string_list = [ replace_job_name, replace_memory,
-                                replace_log_file, replace_job_cmd ]
-        NKEY = len(REPLACE_KEY_LIST)
 
-        # replace strings in batch_lines
-        for line in template_batch_lines:
-            for ikey in range(0,NKEY):
-                REPLACE_KEY    = REPLACE_KEY_LIST[ikey]
-                replace_string = replace_string_list[ikey] 
-                line           = line.replace(REPLACE_KEY,replace_string)
-            batch_lines.append(line)
+        REPLACE_KEY_DICT = { 
+            'REPLACE_NAME'          : replace_job_name,
+            'REPLACE_MEM'           : replace_memory,
+            'REPLACE_LOGFILE'       : replace_log_file,
+            'REPLACE_JOB'           : replace_job_cmd,
+            'REPLACE_WALLTIME'      : replace_walltime,
+            'REPLACE_NTASK'         : replace_ntask,
+            'REPLACE_CPU_PER_TASK'  : replace_cpu_per_task
+        }
+        batch_lines = open(BATCH_TEMPLATE,'r').read()
+        for KEY,VALUE in REPLACE_KEY_DICT.items():
+            batch_lines = batch_lines.replace(KEY,str(VALUE))
 
+        # write batch lines with REPLACE_XXX replaced
         with open(BATCH_FILE,"w") as f:
             f.write("".join(batch_lines))
 
@@ -403,36 +654,61 @@ class Program:
         #  -M -> wait for all DONE files to appear, then merge it all.
         #  -t <Nsec>   time stamp to verify merge and submit jobs
         #  --cpunum <cpunum>  in case specific CPU needs to be identified    
+        #
+        #  May 24 2021: check outdir override from command line
 
-        input_file     = self.config_yaml['args'].input_file
-        no_merge       = self.config_yaml['args'].nomerge
+        args                = self.config_yaml['args']
+        input_file          = args.input_file
+        no_merge            = args.nomerge
+        output_dir_override = args.outdir 
+        devel_flag          = args.devel_flag
+        check_abort         = args.check_abort
+
         n_core         = self.config_prep['n_core']
         n_job_tot      = self.config_prep['n_job_tot']
         Nsec           = seconds_since_midnight
 
         JOB_INFO = {}
 
+        # determine if this is last job for this cpu
+        last_job_cpu  = (n_job_tot - ijob) < n_core
+
+        # if check_abort, skip merge except for last job
+        skip_merge = check_abort and not last_job_cpu
+
+        # xxx mark delete if no_merge or skip_merge :
         if no_merge :
             JOB_INFO['merge_input_file'] = ""
             JOB_INFO['merge_arg_list']   = ""
             return JOB_INFO
 
         # - - - - 
-        # determine if this is last job for this cpu
-        last_job_cpu  = (n_job_tot - ijob) < n_core
  
         # check where to flag last merge process with -M
         if NCPU_MERGE_DISTRIBUTE == 0 :
-            # cpu=0 has last merge process
+            # cpu=0 has last merge process 
             last_merge =  last_job_cpu and icpu == 0
         else:
-            # last merge is after last job, regardless of cpunum
+            # last merge is after last job, regardless of cpunum (default)
             last_merge =  ijob == n_job_tot
 
         m_arg = "-m"
         if last_merge :  m_arg = "-M" 
 
-        arg_list = (f"{m_arg} -t {Nsec} --cpunum {icpu}")
+        arg_list = f"{m_arg} -t {Nsec} --cpunum {icpu}"
+        
+        # check for outdir override (May 24 2021)
+        if output_dir_override is not None:
+            arg_list += f"  --outdir {output_dir_override}"
+
+        # check for check_abort (Oct 12 2021)
+        if check_abort :
+            arg_list += f" --{arg_check_abort}"
+
+        # check for devel flag
+        if devel_flag != 0 :
+            arg_list += f" --devel_flag {devel_flag}"
+
         JOB_INFO['merge_input_file']  = input_file
         JOB_INFO['merge_arg_list']    = arg_list
         
@@ -450,34 +726,56 @@ class Program:
         #
         # This function creates file and writes required info.
         # Then it calls append_info_file() to get program-specific info.
+        #
+        # Write FAST if set.
 
-        CONFIG          = self.config_yaml['CONFIG']
-        n_job_tot       = self.config_prep['n_job_tot']
-        n_done_tot      = self.config_prep['n_done_tot']
-        n_job_split     = self.config_prep['n_job_split']
-        n_core          = self.config_prep['n_core']
-        output_dir      = self.config_prep['output_dir']
-        script_dir      = self.config_prep['script_dir']
-        done_stamp_list = self.config_prep['done_stamp_list']
-        Nsec            = seconds_since_midnight
-        time_now        = datetime.datetime.now()
-
+        args             = self.config_yaml['args']
+        fast             = self.config_yaml['args'].fast
+        CONFIG           = self.config_yaml['CONFIG']
+        n_job_tot        = self.config_prep['n_job_tot']
+        n_done_tot       = self.config_prep['n_done_tot']
+        n_job_split      = self.config_prep['n_job_split']
+        n_core           = self.config_prep['n_core']
+        n_core_with_jobs = self.config_prep['n_core_with_jobs']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = self.config_prep['script_dir']
+        done_stamp_list  = self.config_prep['done_stamp_list']
+        submit_mode      = self.config_prep['submit_mode']
+        Nsec             = seconds_since_midnight
+        time_now         = datetime.datetime.now()
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
             cleanup_flag = CONFIG['CLEANUP_FLAG']  # override deault
 
-        print(f"  Create {SUBMIT_INFO_FILE}")
+        logging.info(f"  Create {SUBMIT_INFO_FILE}")
         INFO_PATHFILE  = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         f = open(INFO_PATHFILE, 'w') 
 
         # required info for all tasks
         f.write("\n# Required info \n")
 
+        f.write(f"CWD:         {CWD}\n")
+
+        arg_string = " ".join(sys.argv[1:])
+        f.write(f"ARG_LIST:    {arg_string}\n")
+
         comment = "submit time; Nsec since midnight"
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
+        f.write(f"SUBMIT_MODE:       {submit_mode} \n")
 
+        comment = "submit from this HOST"
+        f.write(f"SUBMIT_HOST:       {HOSTNAME}   # {comment} \n")
+
+        if args.merge_background :
+            merge_mode = MERGE_MODE_BACKGROUND
+        elif args.nomerge : 
+            merge_mode = MERGE_MODE_SKIP
+        else:
+            merge_mode = MERGE_MODE_DEFAULT            
+        f.write(f"MERGE_MODE:       {merge_mode} \n")
+        
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
         f.write(f"CLEANUP_FLAG:     {cleanup_flag} \n")
@@ -494,10 +792,19 @@ class Program:
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
 
+        comment = "n_core with jobs"
+        f.write(f"N_CORE_WITH_JOBS: {n_core_with_jobs}   # {comment} \n")
+
+        if fast :
+            f.write(f"FAST:             {FASTFAC}    " \
+                    f"# process 1/{FASTFAC} of request\n")
+
         force_crash_prep  = self.config_yaml['args'].force_crash_prep
         force_crash_merge = self.config_yaml['args'].force_crash_merge
+        force_abort_merge = self.config_yaml['args'].force_abort_merge
         f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
         f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
+        f.write(f"FORCE_ABORT_MERGE:   {force_abort_merge}\n")
   
         # append program-specific information
         f.write("\n")
@@ -513,9 +820,13 @@ class Program:
         # to make sure full path is included. Then create output_dir.
         # if output_dir already exists, clobber it.
 
-        kill_flag = self.config_yaml['args'].kill
-        output_dir_temp,script_subdir = self.set_output_dir_name()
-        
+        kill_flag       = self.config_yaml['args'].kill
+
+        output_dir_temp,script_subdir = self.set_output_dir_name()  
+
+        # check command line option to override outdir (May 2021)
+        output_dir_temp = self.override_output_dir_name(output_dir_temp)
+
         if '/' not in output_dir_temp :
             output_dir = (f"{CWD}/{output_dir_temp}")
         else:
@@ -533,7 +844,7 @@ class Program:
 
         # fetch & store done stamp file(s)
         CONFIG          = self.config_yaml['CONFIG']
-        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DONE
+        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DON
         done_stamp_file,Found = util.parse_done_stamp(output_dir,CONFIG)
         if Found : done_stamp_list.append(done_stamp_file)  # check for another
         self.config_prep['done_stamp_list'] = done_stamp_list
@@ -543,8 +854,7 @@ class Program:
         # - - - - - - - - - 
 
         logging.info(f" Create output dir:\n   {output_dir}")
-        if  os.path.exists(output_dir) :
-            shutil.rmtree(output_dir)
+        if  os.path.exists(output_dir) : shutil.rmtree(output_dir)
         os.mkdir(output_dir)
 
         # next create subdir for scripts, unless subDir is ./
@@ -553,6 +863,16 @@ class Program:
             
         # end create_output_dir
 
+    def override_output_dir_name(self,output_dir):
+    
+        output_dir_override = self.config_yaml['args'].outdir
+
+        if output_dir_override is None: 
+            return output_dir
+        else:        
+            return output_dir_override
+
+        # end override_output_dir_name
 
     def create_merge_file(self):
         output_dir      = self.config_prep['output_dir'] 
@@ -571,28 +891,35 @@ class Program:
 
     def launch_jobs(self):
         
+        args = self.config_yaml['args']
+        check_abort = args.check_abort
+
         # submit all the jobs; either batch or ssh
         submit_mode    = self.config_prep['submit_mode']
         script_dir     = self.config_prep['script_dir']
-        cddir          = (f"cd {script_dir}")
+        cddir          = f"cd {script_dir}"
 
-        if submit_mode == SUBMIT_MODE_BATCH :
+        if check_abort :
+            command_file_list = self.config_prep['command_file_list']
+            command_file      = './' + command_file_list[0]
+            ret = subprocess.run( [ command_file ], 
+                                  cwd=script_dir,
+                                  capture_output=False, text=True )
+            sys.exit("\n Done with abort check.")
+
+        elif submit_mode == SUBMIT_MODE_BATCH :
             batch_command    = self.config_prep['batch_command'] 
             batch_file_list  = self.config_prep['batch_file_list']
             for batch_file in batch_file_list :
-                cmd = (f"{cddir} ; {batch_command} {batch_file}")
-                #os.system(cmd)
-
                 ret = subprocess.run( [ batch_command, batch_file], 
                                       cwd=script_dir,
                                       capture_output=True, text=True )
-                #print(f" xxx launch {batch_file} -> '{ret.stdout}' ")
-
             self.fetch_slurm_pid_list()
 
-        else:
-            n_core         = self.config_prep['n_core']
-            node_list      = self.config_prep['node_list']
+        elif submit_mode == SUBMIT_MODE_SSH :
+            # SSH
+            n_core            = self.config_prep['n_core']
+            node_list         = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
             CONFIG            = self.config_yaml['CONFIG']
@@ -607,8 +934,6 @@ class Program:
                 node       = node_list[inode]
                 log_file   = cmdlog_file_list[inode]
                 cmd_file   = command_file_list[inode]
-
-                #cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
                 cmd_source = (f"{login_setup}; {cddir} ; " \
                               f"sh {cmd_file} >& {log_file} &")
 
@@ -617,14 +942,68 @@ class Program:
                 ret = subprocess.Popen(["ssh", "-x", node, cmd_source ],
                                        stdout = subprocess.PIPE,
                                        stderr = subprocess.PIPE)
-                #print(f" xxx {node} ret = {ret}")
 
+        # check to launch background merge process (Dec 2021)
+        if args.merge_background:
+            self.launch_merge_background()
+
+        return
         # end launch_jobs
+
+    def launch_merge_background(self):
+
+        # Created Dec 4 2021 by R.Kessler
+        # Launch merge-background script into background on login node.
+
+        script_dir       = self.config_prep['script_dir']
+        cpu_merge_script = self.config_prep['cpu_merge_script']
+        cpu_merge_log    = self.config_prep['cpu_merge_log']
+        
+        script_base_name = os.path.basename(cpu_merge_script)
+        log_base_name    = os.path.basename(cpu_merge_log)
+        logging.info(f"\n\t Launch {script_base_name}\n")
+
+        command = f"sh ./{script_base_name} >& {log_base_name} & "
+        ret = subprocess.run( [ command ], cwd=script_dir, 
+                              shell=True, capture_output=False, text=True )
+
+        # end launch_merge_background
+
+    def submit_iter2(self):
+
+        # if this is the first of two submit jobs, then launch 
+        # 2nd (iter) submit. Note that typical submit has only
+        # one iteration in which submit_iter = None and this
+        # function does nothing. Action here is only when submit_iter==1.
+
+        submit_iter = self.config_prep['submit_iter']
+        if submit_iter != 1 : return
+
+        line = "# ============================================="
+        print(f"")
+        print(f"{line}")
+        print(f"{line}")
+        print(f"{line}")
+
+        for t in range(3,0,-1):
+            print(f"\t Will auto-submit 2nd iteration in {t} seconds ...")
+            time.sleep(1)
+
+        arg_list   = sys.argv 
+        arg_list.append('--iter2')
+        arg_string = " ".join(arg_list) 
+        print(f"\n submit_iter2 with \n  {arg_string}\n")
+
+        ret  = subprocess.call( arg_list )
+
+        # .xyz
+        # end launch_jobs_iter2
 
     def fetch_slurm_pid_list(self):
 
         # for sbatch, fetch process id for each CPU; otherwise do nothing.
-        # 
+        # Nov 25 2020: list all pid failures before aborting.
+
         batch_command    = self.config_prep['batch_command']
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
@@ -633,7 +1012,7 @@ class Program:
         if batch_command != 'sbatch' : return
 
         # prep squeue command with format: i=pid, j=jobname            
-        cmd = (f"squeue -u {USERNAME} -h -o '%i %j' ")
+        cmd = f"squeue -u {USERNAME} -h -o '%i %j' "
         ret = subprocess.run( [cmd], shell=True, 
                               capture_output=True, text=True )
         pid_all = ret.stdout.split()
@@ -642,19 +1021,26 @@ class Program:
         f = open(INFO_PATHFILE, 'a') 
         f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
 
+        npid_fail = 0 ; njob_tot = len(job_name_list)
         for job_name in job_name_list :
-            j_job    = pid_all.index(job_name)
-            if j_job <= 0 :
-                msgerr.append(f"Could not find pid for job = {job_name}")
-                msgerr.append(f"Check for sbatch problem")
-                self.log_assert(False, msgerr)
+            if job_name in pid_all:
+                j_job    = pid_all.index(job_name)
+                pid      = pid_all[j_job-1]
+                cpunum   = int(job_name[-4:])
+                logging.info(f"\t pid = {pid} for {job_name}")
+                f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+            else:
+                npid_fail += 1
+                logging.info(f" ERROR: cannot find pid for job = {job_name}")
+                continue
 
-            pid      = pid_all[j_job-1]
-            cpunum   = int(job_name[-4:])
-            print(f"\t pid = {pid} for {job_name}")
-            f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
         f.close()
         
+        if npid_fail > 0 :
+            msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
+            msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
+            self.log_assert(False, msgerr)
+
         # end fetch_slurm_pid_list
 
     def merge_driver(self):
@@ -684,31 +1070,36 @@ class Program:
         Nsec     = seconds_since_midnight  # current Nsec, not from submit info
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
-        fnam = "merge_driver"
-        MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
-        cpunum      = self.config_yaml['args'].cpunum[0]
+        fnam     = "merge_driver"
 
-        logging.info(f"\n")
-        logging.info(f"# ================================================== ")
-        logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
+        args         = self.config_yaml['args']
+        MERGE_LAST   = args.MERGE_LAST
+        cpunum       = args.cpunum[0]
+        check_abort  = args.check_abort 
+        verbose_flag = not check_abort
+
+        if verbose_flag :
+            logging.info(f"\n")
+            logging.info(f"# =========================================== ")
+            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
 
         # need to re-compute output_dir to find submit info file
         output_dir,script_subdir = self.set_output_dir_name()
+        output_dir               = self.override_output_dir_name(output_dir)
         self.config_prep['output_dir']  = output_dir
 
         # read SUBMIT.INFO passed from original submit job... 
         # this info never changes
-        logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
+
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
         self.config_prep['submit_info_yaml'] = submit_info_yaml
 
         # check option to reset merge process 
         if self.config_yaml['args'].merge_reset :
-            logging.info(f"# {fnam}: Execute merge_reset debug utility")
-            self.merge_reset(output_dir)
-            sys.exit("\n Done with merge_reset. " \
-                     f"Try merge again with -m option.")
+            self.merge_reset_driver()
 
         # make sure DONE_STAMP is stored in both config_prep and info_yaml
         # in case a prep function is called again during merge process.
@@ -731,9 +1122,11 @@ class Program:
         # these post-table comments are saved in comment_lines, and 
         # re-written below in write_merge_file function.
 
-        logging.info(f"# {fnam}: examine {MERGE_LOG_FILE}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: examine {MERGE_LOG_FILE}")
+
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
-        MERGE_INFO_CONTENTS,comment_lines = \
+        MERGE_INFO_CONTENTS, comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         self.merge_config_prep(output_dir)  # restore config_prep
@@ -744,41 +1137,62 @@ class Program:
 
         # check for changes in state for SPLIT and MERGE tables.
         # function returns updated set of SPLIT and MERGE table rows.
-        row_list_split, row_list_merge, n_change = \
-                   self.merge_update_state(MERGE_INFO_CONTENTS)
-        
-        # check option to force crash (to test higher level pipelines)
-        if submit_info_yaml['FORCE_CRASH_MERGE'] and cpunum == 0 :
-            printf(" xxx force merge crash with C-like printf xxx \n")
 
-        use_split = len(row_list_split) > 0
-        use_merge = len(row_list_merge) > 0
+        # xxxrow_list_split, row_list_merge, n_change = \
+        row_list_dict, n_change = \
+            self.merge_update_state(MERGE_INFO_CONTENTS)
+
+        row_split_list = row_list_dict['row_split_list'] # optional
+        row_merge_list = row_list_dict['row_merge_list'] # required
+        row_extra_list = row_list_dict['row_extra_list'] # optional
+        
+        if not MERGE_LAST:  self.force_merge_failure(submit_info_yaml)
+
+        use_split = len(row_split_list) > 0
+        use_merge = len(row_merge_list) > 0
+        use_extra = len(row_extra_list) > 0
 
         # Modify MERGE.LOG if there is a change in the processing STATE
         if n_change > 0 :
-            itable = 0 
+            itable = 0
             # redefine SPLIT table
             if use_split :
                 INFO_STATE_SPLIT = {
                     'header_line' : comment_lines[itable],
                     'primary_key' : TABLE_SPLIT,
-                    'row_list'    : row_list_split }
+                    'row_list'    : row_split_list }
                 itable += 1
 
-            if use_merge :
+            if use_extra :  # Oct 29 2021
+                # table_names[0,1] are always SPLIT and MERGE
+                # table_names[2] for extra table can have any name.
+                table_name = row_list_dict['table_names'][2] # fragile warning!!
+                INFO_STATE_EXTRA = {
+                    'header_line' : comment_lines[itable],
+                    'primary_key' : table_name,
+                    'row_list'    : row_extra_list }
+                itable += 1
+            
+            if use_merge :  # MERGE table must always be last
                 INFO_STATE_MERGE = {
                     'header_line' : comment_lines[itable],
                     'primary_key' : TABLE_MERGE, 
-                    'row_list'    : row_list_merge }
+                    'row_list'    : row_merge_list }
                 itable += 1
-
-            # re-write MERGE.LOG file with new set of STATEs
-            # Note that SPLIT table is optional; MERGE table is required.
+                
+            # re-write MERGE.LOG file with new set of STATEs. Note that
+            # SPLIT & EXTRA tables are optional; MERGE table is required.
             # Any comment_lines after the tables are re-written so that
             # we don't lose information or merge-abort messages.
             with open(MERGE_LOG_PATHFILE, 'w') as f :
                 if use_split :
                     util.write_merge_file(f, INFO_STATE_SPLIT, [] )
+
+                if use_extra :
+                    util.write_merge_file(f, INFO_STATE_EXTRA, [] )
+
+                # note that merge table must be last because it includes
+                # the comment lines for after the tables.
                 if use_merge :
                     util.write_merge_file(f, INFO_STATE_MERGE, \
                                           comment_lines[itable:] )
@@ -787,7 +1201,8 @@ class Program:
         else:
             msg_update = (f"No merge updates -> do nothing. ")
 
-        logging.info(f"# {fnam}: {msg_update}")
+        if verbose_flag:
+            logging.info(f"# {fnam}: {msg_update}")
 
         # -----------------------------------
         # for debug, keep each MERGE.LOG as MERGE.LOG_{Nsec}
@@ -807,20 +1222,21 @@ class Program:
             done_new     = done_now and not done_before
             if done_now :
                 n_done += 1
-            if done_new and not fail_now :
+            if done_new and not fail_now and not check_abort :
                 n_wrapup += 1
                 self.merge_job_wrapup(job_merge,MERGE_INFO_CONTENTS)
 
-        logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
+        if verbose_flag:
+            logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
 
         # Only last merge process does cleanup tasks and DONE stamps
         if MERGE_LAST and n_done == n_job_merge :
             nfail_tot = self.failure_summary()
 
-            #self.merge_write_misc_info()     # write task-specific info
-            misc_info     = self.get_misc_merge_info()
-            proctime_info = self.get_proctime_info() 
-            self.append_merge_file(misc_info+proctime_info)
+            if not check_abort :
+                misc_info     = self.get_misc_merge_info()
+                proctime_info = self.get_proctime_info() 
+                self.append_merge_file(misc_info+proctime_info)
 
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
@@ -841,6 +1257,55 @@ class Program:
         self.set_merge_busy_lock(-1)
         
         # end merge_driver
+
+    def merge_reset_driver(self):
+
+        # Created Apr 24 2021
+
+        # parse batch info to enable kill_jobs
+        self.parse_batch_info(self.config_yaml,self.config_prep)
+
+        output_dir    = self.config_prep['output_dir']
+        submit_mode   = self.config_prep['submit_mode'] 
+
+        IS_SSH        = submit_mode == SUBMIT_MODE_SSH
+        IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
+
+        logging.info(f"# merge_rest: Execute merge_reset debug utility")
+
+        # kill lingering jobs to avoid waiting monitor task to
+        # mess things up.
+        if IS_SSH :
+            self.kill_ssh_jobs()
+
+        elif IS_BATCH : 
+            self.kill_sbatch_jobs()
+
+        # call class-specific merge_reset function
+        self.merge_reset(output_dir)
+        sys.exit(f"\n Done with merge_reset. " \
+                 f"Try merge again with -M option.")
+
+        # end merge_reset_driver
+
+    def force_merge_failure(self,submit_info_yaml):
+
+        # Apr 23 2021
+        # check user option to force crash or force abort in merge process.
+
+        # check option to force crash (to test higher level pipelines)
+        if submit_info_yaml['FORCE_CRASH_MERGE']  :
+            print(f" xxx force merge crash with C-like printf xxx \n")
+            printf(" xxx force merge crash with C-like printf xxx \n")
+
+        # check option to force abort (to test higher level pipelines)
+        if submit_info_yaml['FORCE_ABORT_MERGE']  :
+            msgerr = []
+            msgerr.append(f" Force ABORT in merge process;")
+            msgerr.append(f" see --force_abort_merge argument")
+            util.log_assert(False,msgerr)
+
+        # end force_merge_failure
 
     def merge_last_wait(self):
 
@@ -896,8 +1361,9 @@ class Program:
 
         Nsec  = seconds_since_midnight  # current Nsec, not from submit info
         t_msg = (f"T_midnight={Nsec}")
-
-        output_dir     = self.config_prep['output_dir']
+        output_dir   = self.config_prep['output_dir']
+        args         = self.config_yaml['args']
+        verbose_flag = not args.check_abort
 
         if self.config_yaml['args'].cpunum :
             cpunum = self.config_yaml['args'].cpunum[0] # passed from script
@@ -913,11 +1379,12 @@ class Program:
             # check for other busy files to avoid conflict
             n_busy,busy_list = self.get_busy_list()
             if n_busy > 0 :
-                msg = (f"\n Found existing {busy_list[0]} --> "\
-                       f"exit merge process.")
+                msg = (f"\n# merge_driver: Found existing " \
+                       f"{busy_list[0]} --> exit merge process.")
                 sys.exit(msg)  
             else: 
-                logging.info(f"\t Create {busy_file} for {t_msg}")
+                msg = (f"# merge_driver: \t Create {busy_file} for {t_msg}")
+                if verbose_flag: logging.info(msg)
                 with open(BUSY_FILE,"w") as f:
                     f.write(f"{Nsec}\n")  # maybe useful for debug situation
 
@@ -928,12 +1395,14 @@ class Program:
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = (f"rm {BUSY_FILE}")
                     os.system(cmd_rm)
-                    msg = (f"\n Found simultaneous {busy_list[0]} --> "\
-                           f" exit merge process.")
+                    msg = (f"\n# merge_driver: Found simultaneous " \
+                           f"{busy_list[0]} --> exit merge process.")
                     sys.exit(msg)  
 
-        elif len(BUSY_FILE) > 10 :  # avoid disaster with rm
-            logging.info(f"\t Remove {busy_file} for {t_msg}")
+        elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
+            if verbose_flag:
+                logging.info(f"# merge_driver: " \
+                             f"\t Remove {busy_file} for {t_msg}")
             cmd_rm = (f"rm {BUSY_FILE}")
             os.system(cmd_rm)
 
@@ -941,8 +1410,8 @@ class Program:
 
     def get_busy_list(self):
         # return numbrer of busy files,  and sorted list of busy files.
-        output_dir     = self.config_prep['output_dir']
-        busy_wildcard  = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
+        output_dir      = self.config_prep['output_dir']
+        busy_wildcard   = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
         busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
         n_busy     = len(busy_list)
         return n_busy, busy_list
@@ -982,6 +1451,7 @@ class Program:
         # end get_merge_done_list   
     
     def merge_check_time_stamp(self,output_dir):
+
         # compare time stamp in SUBMIT.INFO file against time
         # stamp passed to this merge process; if they don't match,
         #   + create STOP-MERGE_{Nsec_now} file (with comments inside)
@@ -1005,7 +1475,7 @@ class Program:
         # to manually extract the new time stamp from SUBMIT.INFO 
         # file to debug merge process.
         # This allows debugging with
-        #   submit_batch_jobs.py <inFile> -m
+        #   submit_batch_jobs.sh <inFile> -m
         if not self.config_yaml['args'].t :
             return
 
@@ -1045,7 +1515,7 @@ class Program:
         output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
-        print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
+        #print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
 
         #  append to bottom of MERGE.LOG
         with open(MERGE_LOG_PATHFILE,"a") as f:
@@ -1064,6 +1534,7 @@ class Program:
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
         n_core            = submit_info_yaml['N_CORE']
+        n_core_with_jobs  = submit_info_yaml['N_CORE_WITH_JOBS']
         time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
         time_now          = datetime.datetime.now()
         time_dif          = time_now - time_submit
@@ -1072,15 +1543,12 @@ class Program:
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
         t_seconds = time_dif.total_seconds()
-        if t_seconds < 3000.0 :
-            t_unit = 60.0;      unit = "minutes"
-        else:
-            t_unit = 3600.0 ;    unit = "hours"
+        t_unit    = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
         msg_time = [ ]
-        msg_time.append(f"UNIT_TIME:      {unit} ")
-        msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
+        msg_time.append(f"UNIT_TIME:      {unit}   ")
+        msg_time.append(f"WALL_TIME:      {t_wall:.3f}  # {unit}  ")
 
         # - - - - - - - - 
         # Read TIME_START value from each CPU*LOG file, and measure
@@ -1133,12 +1601,12 @@ class Program:
                 cpu_sum += cpu  # units are minutes, not seconds
 
             cpu_sum *= 60.0/t_unit
-            cpu_avg  = cpu_sum / n_core
+            cpu_avg  = cpu_sum / n_core_with_jobs
             eff_cpu  = cpu_avg / t_wall
 
-            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
-            msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
-
+            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f}   # {unit}")
+            msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   " \
+                            f"# CPU/core/T_wall")
 
         return msg_time
 
@@ -1162,6 +1630,8 @@ class Program:
         # nevt <=0 means job failed, so call faulure_update
         # function that will update FAILURES.LOG
         # This function returns true if failure is identified.
+        #
+        # Mar 26 2021: create=True always. isplit<4 missing too much.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
@@ -1170,8 +1640,9 @@ class Program:
         fail_no_output   = (nevt <  0)  # no output
         fail_zero_evt    = (nevt == 0)  # zero events 
         found_fail       = (fail_no_output or fail_zero_evt)
-        create           = (isplit <= MXSPLIT_FAIL_REPEAT )
-        
+        # xxx mark create           = (isplit <= MXSPLIT_FAIL_REPEAT )
+        create           = True   # Mar 26 2021
+
         if found_fail :
             cleanup_flag   = 0 # STOP all cleanup activities
             self.failure_update(log_file, create, fail_zero_evt )
@@ -1274,7 +1745,7 @@ class Program:
         n_job_fail_list[0] += 1
         n_job_fail          = n_job_fail_list[0]
         msg = (f"    *** FAIL {n_job_fail:3d} for " \
-               f"{job_log_file} ")
+               f"{job_log_file}   found_zero={found_zero}")
         logging.info(msg)
 
         # - - - - - - - - - - - - - - -
@@ -1380,8 +1851,10 @@ class Program:
             CMD_FILE = (f"{script_dir}/{cmd_file}")
             with open(CMD_FILE,"r") as f_cmd :
                 for line in f_cmd :
-                    if len(line) > 0 and line[0] != '#' :
-                        command_lines.append(line.rstrip("\n"))
+                    if util.is_comment_line(line) : continue
+                    if len(line) == 0 : continue
+                    #if len(line) > 0 and line[0] != '#' :
+                    command_lines.append(line.rstrip("\n"))
 
         nlines = len(command_lines)
         msg = (f"  Stored {nlines} command lines from " \
@@ -1487,7 +1960,7 @@ class Program:
             YAML_FILE = (f"{script_dir}/{yaml_file}")
 
             if os.path.isfile(YAML_FILE) :
-                stats_yaml       = util.extract_yaml(YAML_FILE)
+                stats_yaml       = util.extract_yaml(YAML_FILE, None, None )
             
                 aiz              = stats_yaml[key_AIZ]
                 aiz_list[isplit] = aiz
@@ -1547,6 +2020,7 @@ class Program:
         # same as log_assert in util, except here it also
         # + writes FAIL to done_stamp_file
         # + appends msgerr to MERGE.LOG
+        # + remove BUSY file
 
         if condition is False :
             output_dir      = self.config_prep['output_dir']
@@ -1562,7 +2036,8 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
+            self.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
             util.log_assert(condition, msgerr)        
-
+            
 # ======= END OF FILE =========
 

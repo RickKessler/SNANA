@@ -88,15 +88,26 @@ void INIT_WRONGHOST(char *inFile, double ZMIN, double ZMAX) {
     if ( strcmp(c_get,key_prob) == 0 ) {
       readchar(fp,tmpWord);
       if ( strstr(tmpWord,",") == NULL )  { 
+
 	// if no comma, read legacy hard-coded 3rd order poly
 	// with space-separated coefficients
 	sscanf(tmpWord, "%le", &WRONGHOST.PROB_POLY[0]);
 	readdouble(fp, ORDER_PROB_WRONGHOST_POLY-1, &WRONGHOST.PROB_POLY[1]);
 	sprintf(tmpWord,"%f,%f,%f,%f",
-		WRONGHOST.PROB_POLY[0],WRONGHOST.PROB_POLY[1],
-		WRONGHOST.PROB_POLY[2],WRONGHOST.PROB_POLY[3] );
+		WRONGHOST.PROB_POLY[0], WRONGHOST.PROB_POLY[1],
+		WRONGHOST.PROB_POLY[2], WRONGHOST.PROB_POLY[3]   );
       }
-      parse_GENPOLY(tmpWord, "z", &WRONGHOST.ZPOLY_PROB,fnam);      
+
+      // if last char of tmpWord is a comma, abort since space-separated
+      // values are not allowed.
+      int lentmp = strlen(tmpWord);
+      if ( tmpWord[lentmp-1] == ',' ) {
+	sprintf(c1err, "Invalid input %s %s", key_prob, tmpWord);
+	sprintf(c2err, "pad spaces not allowed with commas.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+      parse_GENPOLY(tmpWord, "z", &WRONGHOST.ZPOLY_PROB, fnam);
       goto NEXTREAD ;
     }
 
@@ -226,8 +237,8 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
   double zHOST = zSN ;
 
   // always burn the randoms to stay synced
-  double FlatRan_prob   = FlatRan1(1);
-  double FlatRan_zmatch = FlatRan1(1);
+  double FlatRan_prob   = getRan_Flat1(1);
+  double FlatRan_zmatch = getRan_Flat1(1);
 
   double P_wrongHost, XNRAN ;
   int i ;
@@ -241,16 +252,6 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
 
   // compute wrongHost prob at this zSN using polynom coeff.
 
-  /* xxxxxxxxxx mark delete 
-  P_wrongHost = 0.0 ;
-  zpow        = 1.0 ;
-  for(i=0; i < ORDER_PROB_WRONGHOST_POLY; i++ ) {
-    P_wrongHost += ( WRONGHOST.PROB_POLY[i] * zpow );
-    zpow = zSN;
-  }
-  xxxxxxxxxx end mark xxxxxxxxxxx*/
-
-
   P_wrongHost = eval_GENPOLY(zSN,&WRONGHOST.ZPOLY_PROB,fnam);      
 
   // check for correct host match
@@ -260,7 +261,6 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
 
 #define NZJUMP_WRONGHOST 50  // junp this many z bins for rough ZTRUE check
 
-  // xxx mark to delete  int NZMAX = NLIST - NZJUMP_WRONGHOST - 1 ;
   int PAST_END = 0 ;
   int iz, iz_start, iz_end, N_NEAR;
   int iz_list[5*NZJUMP_WRONGHOST] ;

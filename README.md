@@ -9,4 +9,4 @@ Read documentation in SNANA/doc.
 SNANA code moved from snana.uchicago.edu to Git (May 2019).
 
 SNANA tutorial:
-  https://kicp.uchicago.edu/~kessler/SNANA_Tutorial/SNANA_Tutorial_2020.pdf
+  https://kicp.uchicago.edu/~kessler/SNANA_Tutorial/2020-06_SNANA_Tutorial_Duke.pdf

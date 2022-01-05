@@ -38,7 +38,7 @@
     sntable_dump.exe <tableFile>  <tableName>  NEVT
         (print number of events in table)
 
-    sntable_dump.exe <tableFile>  <tableName>  -outlier 3 4
+    sntable_dump.exe <tableFile>  <tableName>  -outlier_fit 3 4
     sntable_dump.exe <tableFile>  <tableName>  -outlier_sim 3 4
        (print 3-4 sigma outliers: '-outlier' for fit-data,
           '--outlier_sim' for data-sim outliers)
@@ -89,7 +89,7 @@
      + check for both CCID and ROW
 
   Aug 17 2017:
-    + checking "CCID ROW" causes problem with APPEND_FITRES,
+    + checking "CCID ROW" causes problem with APPEND_FITRlES,
       so remove ROW-check for now as quick fix.
 
  Feb 22 2018: new OBS argument to dump all observations
@@ -108,6 +108,12 @@
  May 13 2020: replace --v with -v, etc ...
 
  Aug 08 2020: new NEVT option to print number of events
+
+ Mar 14 2021: for outlier output table, write string BAND before IFILTOBS.
+              See OPT arg to load_DUMPLINE in sntools_output_hbook[root].c
+
+ Jun 22 2021: replace 200 -> MXPATHLEN for input file names.
+                [fixes failure found by Dillon]
 
 ********************************************/
 
@@ -129,17 +135,19 @@ char msgerr1[80], msgerr2[80];
 #define MXVAR_DUMP 40 
 
 struct INPUTS {
-  char TABLE_FILE[200];
+  char TABLE_FILE[MXPATHLEN];
   char TABLE_ID[60];
+  bool IS_SNANA, IS_FITRES;
   char VARNAMES[MXVAR_DUMP][60] ;
   char VARLIST[MXVAR_DUMP*60];     // space-separate list
-  char OUTFILE_FITRES[200] ;
-  char OUTFILE_IGNORE[200] ;   // if --format IGNORE
+  char OUTFILE_FITRES[MXPATHLEN] ;
+  char OUTFILE_IGNORE[MXPATHLEN] ;   // if --format IGNORE
   char FORMAT_OUTFILE[40];   
   int  ISFORMAT_CSV ;
 
   int  ADD_HEADER ;  // add fitres header of NVAR > 0
   int  NVAR ;        // number of VARNAMES variables to dump
+  int  IVAR_NPT;     // ivar index for NOBS or NPTFIT
 
   float OUTLIER_NSIGMA[2] ;   // Nsigma range for OUTLIER option
   char  OUTLIER_VARNAME_CHI2FLUX[40];
@@ -157,6 +165,7 @@ void  open_fitresFile(void);
 void  set_outlier_varnames(void); 
 void  write_IGNORE_FILE(void) ;
 void  write_headerInfo(FILE *FP) ;
+bool  keyMatch_dash(char *arg, char *key_base);
 
 FILE *FP_OUTFILE ;
 char LINEKEY_DUMP[40];  // 'SN:' or  ''
@@ -166,7 +175,7 @@ char SEPKEY_DUMP[2];   // ',' or ' '
 int main(int argc, char **argv) {
 
   char *TFILE, *TID, *TLIST[MXVAR_DUMP] ;
-  int   NVAR, ivar, NDUMP, DO_IGNORE ;
+  int   NVAR, ivar, NDUMP, DO_IGNORE, IVAR_NPT ;
 
   // ------------- BEGIN -----------
 
@@ -188,8 +197,10 @@ int main(int argc, char **argv) {
   TFILE    = INPUTS.TABLE_FILE ;
   TID      = INPUTS.TABLE_ID ;
   NVAR     = INPUTS.NVAR ;
+  IVAR_NPT = INPUTS.IVAR_NPT ;
+
   for(ivar=0; ivar<NVAR; ivar++ )   
-    {  TLIST[ivar] = INPUTS.VARNAMES[ivar] ; }
+    {  TLIST[ivar] = INPUTS.VARNAMES[ivar] ;     }
 
 
   TABLEFILE_INIT();
@@ -212,7 +223,7 @@ int main(int argc, char **argv) {
   else if ( INPUTS.OUTLIER_NSIGMA[0] >= 0.0 ) {
     // dump fit-outliers for each epoch to ascii/fitres file
     // Must set SNTABLE_LIST = 'FITRES+RESIDUALS'
-    NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, 
+    NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, IVAR_NPT, 
 				  INPUTS.OUTLIER_NSIGMA, FP_OUTFILE,
 				  LINEKEY_DUMP, SEPKEY_DUMP );
 
@@ -220,7 +231,7 @@ int main(int argc, char **argv) {
   } 
   else {
     // dump variable values to ascii/fitres file.
-    NDUMP = SNTABLE_DUMP_VALUES(TFILE, TID, NVAR, TLIST, 
+    NDUMP = SNTABLE_DUMP_VALUES(TFILE, TID, NVAR, TLIST, IVAR_NPT,
 				FP_OUTFILE, LINEKEY_DUMP, SEPKEY_DUMP );  
   }
 
@@ -263,6 +274,8 @@ void parse_args(int NARG, char **argv) {
   
   INPUTS.TABLE_FILE[0]     = 0;
   INPUTS.TABLE_ID[0]       = 0;
+  INPUTS.IS_SNANA = INPUTS.IS_FITRES = false ;
+
   INPUTS.FORMAT_OUTFILE[0] = 0;
   INPUTS.VARLIST[0]        = 0;
   sprintf(INPUTS.OUTFILE_FITRES, "sntable_dump.fitres" );
@@ -281,7 +294,21 @@ void parse_args(int NARG, char **argv) {
 
   sprintf(INPUTS.TABLE_FILE, "%s", argv[1] );  // required
 
-  if ( NARG > 2 )  { sprintf(INPUTS.TABLE_ID, "%s", argv[2] ); }
+  if ( NARG > 2 )  { 
+    sprintf(INPUTS.TABLE_ID, "%s", argv[2] ); 
+
+    if (strcmp(INPUTS.TABLE_ID,TABLENAME_SNANA) == 0 ) 
+      { INPUTS.IS_SNANA = true; }
+
+    if (atoi(INPUTS.TABLE_ID) == TABLEID_SNANA )
+      { INPUTS.IS_SNANA = true; }
+
+    if (strcmp(INPUTS.TABLE_ID,TABLENAME_FITRES) == 0 ) 
+      { INPUTS.IS_FITRES = true; }
+
+    if (atoi(INPUTS.TABLE_ID) == TABLEID_FITRES )
+      { INPUTS.IS_FITRES = true; }
+  }
 
   // ----
 
@@ -298,7 +325,9 @@ void parse_args(int NARG, char **argv) {
       INPUTS.SNTABLE_NEVT = true ;  // Aug 2020
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
+    // xxx mark    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
+    if ( keyMatch_dash(argv[i],"outlier") || 
+	 keyMatch_dash(argv[i],"outlier_fit") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX" );
@@ -306,7 +335,8 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.COMMENT_FLUXREF,          "fitFlux" );
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
+    // xxx mark if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
+    if ( keyMatch_dash(argv[i],"outlier_sim") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX_SIM" );
@@ -368,9 +398,34 @@ void parse_args(int NARG, char **argv) {
 
 
   fflush(stdout);
+  return ;
 
 } // end of parse_args
 
+
+// ==================================
+bool keyMatch_dash(char *arg, char *key_base) {
+
+  // Created march 2021
+  // for input *arg, check if it matches
+  //    key_base
+  //   -key_base
+  //  --key_base
+
+  int i;
+  char key[60];
+  char dash_list[3][4] = { "", "-", "--" };
+
+  // ---------- BEGIN -----------
+
+  for(i=0; i < 3; i++ ) {
+    sprintf(key, "%s%s", dash_list[i], key_base);
+    if ( strcmp_ignoreCase(arg,key) == 0 ) { return true; }
+  }
+
+  return false;
+
+} // end keyMatch
 
 
 // ==================================
@@ -381,6 +436,7 @@ void  set_outlier_varnames(void) {
   //
   // Feb 22 2018: add more variables for OPTOBS
   // Nov 01 2019: add FLUXERRCALC_SIM for 'OBS' option
+  // Nov 30 2020: check IS_SNANA and IS_FITRES
 
   int  ivar, NVAR = 0, NVAR_APPEND = 0 ;
   char VARNAMES_APPEND[MXVAR_DUMP][60];
@@ -413,7 +469,8 @@ void  set_outlier_varnames(void) {
 
   if ( INPUTS.OPT_OBS ) {
     sprintf(INPUTS.VARNAMES[NVAR],"%s", "zHD"     );    NVAR++ ;
-    sprintf(INPUTS.VARNAMES[NVAR],"%s", "FITPROB" );    NVAR++ ;
+    if ( INPUTS.IS_FITRES ) 
+      { sprintf(INPUTS.VARNAMES[NVAR],"%s", "FITPROB" );    NVAR++ ; }
   }
 
   // append extra user variables here
@@ -422,7 +479,16 @@ void  set_outlier_varnames(void) {
     NVAR++ ;
   }
 
-  sprintf(INPUTS.VARNAMES[NVAR],"%s", "NPTFIT" );   
+  /* xxxxxxxxxx
+  if ( INPUTS.IS_SNANA )
+    { sprintf(INPUTS.VARNAMES[NVAR],"%s", VARNAME_CUTFLAG_SNANA ); NVAR++ ; }
+  xxxxxx */
+
+  if ( INPUTS.IS_SNANA ) 
+    { sprintf(INPUTS.VARNAMES[NVAR],"%s", "NOBS" );  }    
+  else 
+    { sprintf(INPUTS.VARNAMES[NVAR],"%s", "NPTFIT" );  }
+  INPUTS.IVAR_NPT = NVAR;
   NVAR++ ;
 
   // epoch/vector quantities are after NPTFIT
@@ -430,18 +496,20 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "MJD" );   
   NVAR++ ;
 
-  // including BAND results in core dump; don't know why ??
+  // including BAND results in core dump; don't know why ??  .xyz
   //  sprintf(INPUTS.VARNAMES[NVAR],"%s", "BAND" );   
   //  NVAR++ ;
 
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "IFILTOBS" );   
   NVAR++ ;
 
-  sprintf(INPUTS.VARNAMES[NVAR],"%s", "REJECT" );  // 1--> excluded from fit
-  NVAR++ ;
+  if ( INPUTS.IS_FITRES ) {
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "REJECT" );  // 1--> excluded from fit
+    NVAR++ ;
 
-  sprintf(INPUTS.VARNAMES[NVAR],"%s", "TOBS" );   
-  NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "TOBS" );   
+    NVAR++ ;
+  }
 
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "PSF" );   
   NVAR++ ;
@@ -466,12 +534,14 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", INPUTS.OUTLIER_VARNAME_FLUXCAL );   
   NVAR++ ;
 
+  sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_DATA_ERR" );  
+  NVAR++ ;
+    
   sprintf(INPUTS.VARNAMES[NVAR],"%s", INPUTS.OUTLIER_VARNAME_CHI2FLUX );   
   NVAR++ ;
 
-  if ( INPUTS.OPT_OBS ) {
-    sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_MODEL" ); NVAR++ ; // Dec 18 2019
-    sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_DATA_ERR" );  NVAR++ ;
+  if ( INPUTS.OPT_OBS  &&  INPUTS.IS_FITRES ) {
+    sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_MODEL" );    NVAR++ ; 
     sprintf(INPUTS.VARNAMES[NVAR], "SBFLUXCAL" );         NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "ERRTEST"   );         NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "FLUXERRCALC_SIM" );   NVAR++ ;
@@ -542,6 +612,10 @@ void  open_fitresFile(void) {
       else if ( strcmp(INPUTS.TABLE_ID,"SIMLIB") == 0 ) 
 	{ ptrVar = VARNAME_ROW ; }  // use ROW for 1st SIMLIB column 
     }
+
+    // Mar 14 2021: insert band string before IFILTOBS
+    if ( ISTABLEVAR_IFILT(ptrVar) )
+      { fprintf(FP_OUTFILE,"%s%s", "BAND", SEP );  }
 
     if ( i == INPUTS.NVAR-1 ) { sprintf(SEP," ") ; }
     fprintf(FP_OUTFILE,"%s%s", ptrVar, SEP ); 

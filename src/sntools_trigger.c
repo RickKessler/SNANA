@@ -14,22 +14,7 @@
     * gen_SEARCHEFF()
 
 
-  HISTORY
-
- Jan 30 2015: new option FUNEFF_DEBUG to hack in arbitrary function.
-
- Jun 23 2016: new variables to define SPECEFF: HOSTMAG_[band] SBMAG_[band]
-
- Feb 20 2017: new feature to specify peakmag list in map
-                  VARNAMES:   a+b+c+d   SPECEFF
-              will take average PEAKMAG among a,b,c,d bands.
-
- Nov 6 2017: set SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY; used to speed generation
-             when trigger depends ONLy on peakmags.
-
- Dec 22 2017: allow Spec-selection functon to depend on SALT2  'mB'
-
- Dec 27 2017: allow detection based on ABS(SNR)
+                HISTORY
 
  March 2018: 
    + lots of refactoring and new PHOTPROB map
@@ -57,6 +42,10 @@
     + pass OPTMASK to snana_openTextFile to check DOCANA; If the new
       sim-input "REQUIRE_DOCANA: 1" is set, then code aborts if first
       key is NOT a DOCUMENTATION key.
+
+  Feb 05 2021:
+    + use new MATCH_SEARCHEFF_FIELD(field_map) function to handle
+      overlaps.
 
 ************************************/
 
@@ -88,17 +77,7 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
        argument of sim-input APPLY_SEARCHEFF_OPT (only for error checking)
 
 
-   June 18, 2008: 
-      fix dumb bug to read MAG-files in addition to SNR-files.
-      Define PATH_EFF to avoid multiple definitions of this path.
-
-  Feb 20, 2009: init IREAD=0 at top, and define NREAD.
-
-  July 3, 2011
-    - complete re-organization to upgrade SPECEFF simulation.
-    - call new functions init_SEARCHEFF_[FILTER,LOGIC,SPEC]
-             
-  Jan 31, 2013: remove logic related to INPUTS.HUMAN_SEARCHEFF_OPT 
+        HISTORY
    
   Mar 06 2018: 
     + new input argument APPLYMASK_SEARCHEFF
@@ -167,7 +146,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // Abort if APPLYMASK_SEARCHEFF_USER is impossible to obtain.
   //
   // July 6 2018: fix bug related to "ZERO" option for spec efficiency.
-  // Sep 4 2019: write COMMENT_README_TRIGGER
+  // Sep 4 2019: write COMMENT_README_SEARCHEFF
 
   int  APPLYMASK_ALLOWED, OVP ;
   int  IFLAG_SPEC_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO;
@@ -198,9 +177,12 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 	   APPLYMASK_SEARCHEFF_SPEC );
     printf("\t APPLY_SEARCHEFF_OPT += %d --> zHOST.\n",
 	   APPLYMASK_SEARCHEFF_zHOST );
+    printf("\t NONZERO_SEARCHEFF_SPEC=%d   LSPEC=%d \n", 
+	   NONZERO_SEARCHEFF_SPEC, LSPEC);
+    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", NONZERO_SEARCHEFF_zHOST);
 
-    sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' ",
-	    APPLYMASK_SEARCHEFF_USER) ;
+    sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
+	    APPLYMASK_SEARCHEFF_USER, OVP) ;
     sprintf(c2err,"Simulation can produce SEARCHEFF mask %d \n",
 	    APPLYMASK_ALLOWED);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -210,7 +192,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // - - - - - - 
   // Sep 4 2019: prepare README comment for trigger.
 
-  sprintf(COMMENT_README_TRIGGER,"APPLY_SEARCHEFF_OPT=%d --> ",
+  sprintf(COMMENT_README_SEARCHEFF, "APPLY_SEARCHEFF_OPT=%d --> ",
 	  APPLYMASK_SEARCHEFF_USER);
 
   int REQ_PIPE, REQ_SPEC, REQ_zHOST, NUSE=0;
@@ -237,7 +219,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   else
     { sprintf(ctmp,"No trigger requirements"); }
 
-  strcat(COMMENT_README_TRIGGER,ctmp);
+  strcat(COMMENT_README_SEARCHEFF,ctmp);
 
   
   return ;
@@ -714,7 +696,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   char 
     *ptr_effname 
-    ,cline[100]
+    ,cline[MXPATHLEN]
     ,fnam[] = "check_SEARCHEFF_DETECT" 
     ;
 
@@ -764,7 +746,7 @@ void check_SEARCHEFF_DETECT(int imap) {
   //      printf(" xxx IBIN[ONE,HALF] = %d  %d \n", IBIN_ONE, IBIN_HALF);
   VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_ONE];
   EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_ONE];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f \n", 
+  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
 	  cfilt, EFF, ptr_effname, VAL );
   
   printf("%s", cline);
@@ -777,7 +759,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_HALF];
   EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_HALF];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f \n", 
+  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
 	  cfilt, EFF, ptr_effname, VAL );
 
   printf("%s", cline);
@@ -842,7 +824,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   FILE *fp ;
 
   char 
-     cline[100]
+     cline[MXPATHLEN]
     ,logic[60]
     ,c_get[60]
     ,surveykey[60]
@@ -876,14 +858,14 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   }
 
 
-  sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : \n"); 
+  sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : "); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
 
-  sprintf(cline, "\t %s \n", ptrFile_final ); 
+  sprintf(cline, "\t %s", ptrFile_final ); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
@@ -943,13 +925,13 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
 
   
   // use c1err for message, even though it's not an error
-  sprintf(c1err, "\t Logic: %d MJDs require filters=%s \n", NMJD, logic);
+  sprintf(c1err, "\t Logic: %d MJDs require filters=%s ", NMJD, logic);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
   printf("%s", c1err);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
-  sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days\n",
+  sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days",
 	  INPUTS_SEARCHEFF.TIME_SINGLE_DETECT);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
@@ -1095,6 +1077,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
     INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO = 1 ;
     sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ZERO -> Force EFF_SPEC=0. \n");
+    printf("\n %s\n", cptr);
     fflush(stdout);
     return ;
   }
@@ -1114,7 +1097,8 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 			 PATH_SEARCHEFF, effspec_file_local, fnam );
     }
     else  { 
-      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
+      //      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
+      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> EFF_SPEC=1 \n");
       fflush(stdout);
       NONZERO_SEARCHEFF_SPEC++; // default EFFspec = 100%
       return ; 
@@ -1241,7 +1225,7 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
 
   FILE *fp ;
-  //  char fnam[] = "init_SEARCHEFF_zHOST" ;
+  char fnam[] = "init_SEARCHEFF_zHOST" ;
 
   // --------------- BEGIN ------------
 
@@ -1281,7 +1265,6 @@ FILE *open_zHOST_FILE(int OPT) {
   // OPT = +1 -> normal init called from trigger code
   // OPT = -1 -> called from init_HOSTLIB to get VARNAMES
 
-  int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   int LPRINT = ( OPT > 0 ) ; // stdout printing
   int IREQUIRE, gzipFlag ;
   char *ptrFile_user ;
@@ -1301,9 +1284,12 @@ FILE *open_zHOST_FILE(int OPT) {
   ptrFile_final = INPUTS_SEARCHEFF.zHOST_FILE ;      // includes full path
   
   if( IGNOREFILE(ptrFile_user) ) {
-    // NULL or NONE, etc ...
-    sprintf(localFile, "%s",  ptrFile_user); 
-    IREQUIRE = 0 ;
+    // NULL or NONE, etc ... -> EFF=1
+    if ( LPRINT )   { 
+      printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
+	     "-> Eff=1.0 \n"); 
+    }
+    return(fp);
   }
   else if ( strcmp(ptrFile_user,"ZERO") == 0 ) {
     // no file to read, but set all EFF_zHOST=0  (Jun 2018)
@@ -1319,6 +1305,7 @@ FILE *open_zHOST_FILE(int OPT) {
 
 
   // use utility to check local dir and path.
+  int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
 			  ptrFile_final, &gzipFlag); // returned
   
@@ -1327,14 +1314,6 @@ FILE *open_zHOST_FILE(int OPT) {
     if ( IREQUIRE ) {
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
-    }
-    else  { 
-      if ( LPRINT )   { 
-	printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
-	       "-> Eff=1.0 \n"); 
-      }
-      fflush(stdout);
-      return(fp) ; 
     }
   }
 
@@ -1666,7 +1645,7 @@ void read_VARNAMES_zHOST(FILE *fp) {
 int gen_SEARCHEFF ( int ID                  // (I) identifier 
 		    ,double *EFF_SPEC       // (O) spec eff
 		    ,double *EFF_zHOST      // (O) EFF(zHOST)
-		    ,double *MJD_TRIGGER    // (O) minMJD where SN is detected
+		    ,MJD_DETECT_DEF *MJD_DETECT 
 		    ) {
 
   /******
@@ -1706,7 +1685,9 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
   // init function args
   *EFF_SPEC = *EFF_zHOST = 0.0;  
-  *MJD_TRIGGER = 1.0E6 ;
+  MJD_DETECT->TRIGGER = 1.0E6 ;
+  MJD_DETECT->FIRST   = 1.0E6 ;
+  MJD_DETECT->LAST    = 1.0E6 ;
   MASK = 0 ;  // init return arg
 
   // 5/26/2009: minimum trigger is at least 2 measurements
@@ -1723,7 +1704,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   }
   else {
     // check check software/pipeline finds this SN
-    LFIND1_PIPELINE = gen_SEARCHEFF_PIPELINE(ID,MJD_TRIGGER);
+    LFIND1_PIPELINE = gen_SEARCHEFF_PIPELINE(ID,MJD_DETECT);
   }
 
 
@@ -1757,14 +1738,15 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
 
 // ***************************************
-int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
+int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
 
   // Created Jul 3, 2011 by R.Kessler
   //
   // returns 1 if this SN is found by pipeline; returns 0 otherwise.
   // (I) integer identifier for debug dump and abort
-  // (O) *MJD_TRIGGER is the MJD where the pipeline trigger 
+  // (O) MJD_DETECT->TRIGGER is the MJD where the pipeline trigger 
   //      is first satisfied.
+  // (O) MJD_DETECT-FIRST[LAST] is MJD of first and last detection
   //
   // Global outputs per observation:
   //    SEARCHEFF_DATA.detectFlag[obs] 
@@ -1789,11 +1771,13 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //  + refactor to implement CUTVAL cut on PHOTPROB and use
   //    it as part of detection.
   //
+  // Oct 18 2021: load MJD_DETECT-FIRST[LAST]
+  //
 
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
   int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
-  int FOUND_TRIGGER=0, LCUT_PHOTPROB ;
+  int FOUND_TRIGGER=0,  FOUND_DETECT_FIRST=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
   double  PHOTPROB, CUTVAL ;
@@ -1913,14 +1897,19 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
     MARK        = OBSMARKER_DETECT[obs] ;
 
     // set filter-detect mask if both detection and PHOTPROB are satisfied.
-    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) 
-      { IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; }
-    
- 
+    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) { 
+      IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; 
+
+      if ( MJD_DETECT->FIRST > 0.99E6 ) { MJD_DETECT->FIRST = MJD; }
+      MJD_DETECT->LAST = MJD ;
+    }
+
+   
     // Check for trigger if trigger not yet formed, and at least
     // one obs-group marker has passed.  Check IFILTOBS_MASK for detection(s).
 
-    FOUND_TRIGGER = (*MJD_TRIGGER < 0.99E6 ) ;
+    FOUND_TRIGGER      = (MJD_DETECT->TRIGGER < 0.99E6 ) ;
+ 
     if ( !FOUND_TRIGGER  ) {
 
       NDETECT = 0 ;  // reset number of detections 
@@ -1933,7 +1922,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
       if ( NDETECT>0 && !DETECT_MARK ) { NMJD_DETECT++;  DETECT_MARK=1; }
 
       if ( NMJD_DETECT >= SEARCHEFF_LOGIC.NMJD ) {
-	LFIND = 1 ;   *MJD_TRIGGER = MJD; 
+	LFIND = 1 ;   MJD_DETECT->TRIGGER = MJD; 
 	SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_MJD_TRIGGER ; ;
 	
 	if ( LDMP ) {
@@ -2144,7 +2133,8 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   char  *FIELD     = SEARCHEFF_DATA.FIELDNAME ; 
 
   int  NSTORE = OBS_PHOTPROB.NSTORE;
-  int  imap, IMAP, NMATCH, MATCH_FIELD, MATCH_FILT ;
+  int  imap, IMAP, NMATCH;
+  bool MATCH_FIELD, MATCH_FILT ;
   char FILT[2], *FIELD_TMP, *FILT_TMP;
   char fnam[]      = "setObs_for_PHOTPROB" ;
 
@@ -2158,11 +2148,12 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   // find map for this filter and field.
   NMATCH = 0 ;  IMAP=-9;
   for(imap=0; imap < NMAP; imap++ ) {
-    MATCH_FIELD = MATCH_FILT = 0;
+    MATCH_FIELD = MATCH_FILT = false ;
     FIELD_TMP  = SEARCHEFF_PHOTPROB[imap].FIELDLIST;
     FILT_TMP   = SEARCHEFF_PHOTPROB[imap].FILTERLIST ;
-    if ( strcmp(FIELD_TMP,"ALL")==0 )      { MATCH_FIELD=1; }
-    if ( strstr(FIELD_TMP,FIELD) != NULL ) { MATCH_FIELD=1; }
+
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_TMP); // Feb 2021
+
     if ( strcmp(FILT_TMP,"ALL")==0 )       { MATCH_FILT=1; }
     if ( strstr(FILT_TMP,FILT ) != NULL  ) { MATCH_FILT=1; }
 
@@ -2283,35 +2274,12 @@ void setRan_for_PHOTPROB(void) {
  
   init_Cholesky(+1, &DECOMP);
 
-  /* xxxx mark delete xxxxx
-  // allocate matrix
-  double **CHOLESKY_COV, *COV1D  ;
-  gsl_matrix_view chk; 
-  CHOLESKY_COV = (double**) malloc ( NSTORE * sizeof(double*) );
-  MEMD = NSTORE * sizeof(double);
-  for(irow=0; irow < NSTORE; irow++ ) 
-    { CHOLESKY_COV[irow] = (double*) malloc ( MEMD );  }
-
-  chk = gsl_matrix_view_array ( COVTMP1D, NSTORE, NSTORE ); 
-  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
-  for (irow=0; irow < NSTORE; irow++){
-    for (irow1 = 0; irow1 < NSTORE ; irow1++) {    
-      if ( irow <= irow1 ) {
-	CHOLESKY_COV[irow][irow1] = gsl_matrix_get(&chk.matrix,irow,irow1) ;
-      }
-      else
-	{ CHOLESKY_COV[irow][irow1] = 0.0; }
-    }    
-  }
-  xxxxxxxx end mark delete xxxxxxxxx */
-
-
   for(irow=0; irow < NSTORE; irow++ ) {
     obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
     GAURAN_LIST[irow] = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs];
   }
-  GaussRanCorr(&DECOMP, GAURAN_LIST, // (I)
-	       GAURANCORR_LIST);     // (O)
+  getRan_GaussCorr(&DECOMP, GAURAN_LIST, // (I)
+		   GAURANCORR_LIST);     // (O)
 
   double x0=0.0 ;
   for(irow=0; irow < NSTORE; irow++ ) {
@@ -2351,13 +2319,6 @@ void setRan_for_PHOTPROB(void) {
 
   // free memory
   init_Cholesky(-1, &DECOMP);
-
-  /* xxxxxxxxxxxxxxx mark delete xxxxxxxxxx
-  // free temp  matrices
-  for(irow=0; irow < NSTORE; irow++ )  { free(CHOLESKY_COV[irow]); }
-  free(CHOLESKY_COV);
-  free(DECOMP.COVMAT1D);
-  xxxxxxxxxxx  end mark xxxxxxxxxxxxx  */
 
   return;
 
@@ -2467,7 +2428,7 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   int  BOOLEAN_AND = SEARCHEFF_SPEC_INFO.BOOLEAN_AND ;
 
   int  imap, ivar, NVAR, LFIND, istat ;
-  int  ALL_FIELDS, MATCH ;
+  bool MATCH ;
   double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
   char *fld_gen, *fld_map ;
   char fnam[] = "gen_SEARCHEFF_SPEC" ;
@@ -2505,12 +2466,8 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
     // check if current field goes with this map
     fld_map = SEARCHEFF_SPEC[imap].FIELDLIST ;
-    ALL_FIELDS = ( strcmp(fld_map,"ALL")   == 0 ) ;
-    MATCH = ( strstr(fld_map,fld_gen) == 0 ) ; // e.g., allow X1+X2
 
-    if ( !ALL_FIELDS  ) {
-      if ( !MATCH ) { continue ;  }
-    }
+    MATCH = MATCH_SEARCHEFF_FIELD(fld_map); // Feb 2021
 
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
@@ -2628,11 +2585,12 @@ double interp_SEARCHEFF_zHOST(void) {
   //
   // July 2020: check PEAKMJD too
   // Oct 15 2020: clarify error message on interp failure.
+  // May 27 2021: refactor to take logical OR of multiple maps
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
-  double EFF = 0.0, PEAKMJD, *PEAKMJD_RANGE ;
+  double EFF = 0.0, Pnoz=1.0, EFF_TMP, PEAKMJD, *PEAKMJD_RANGE ;
   char *field_map, *field_data, *varName ;  
   bool MATCH_FIELD, MATCH_PEAKMJD ;
 
@@ -2644,35 +2602,43 @@ double interp_SEARCHEFF_zHOST(void) {
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
     MATCH_FIELD = MATCH_PEAKMJD = false ;
+
     field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
     field_data = SEARCHEFF_DATA.FIELDNAME ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
 
     PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
     PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
-    
-    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
-    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
     if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
       { MATCH_PEAKMJD = true; }
 
-    if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP = imap;  NMATCH++ ; }
-  }
-  if ( NMATCH != 1 ) {
+    if ( MATCH_FIELD && MATCH_PEAKMJD ) {
+      // load VARDATA from HOSTLIB
+      NMATCH++ ;
+      NVAR = SEARCHEFF_zHOST[imap].GRIDMAP.NDIM ;
+      IGAL = SNHOSTGAL.IGAL ;
+      for(ivar=0; ivar < NVAR; ivar++ ) {
+	ivar_HOSTLIB  = SEARCHEFF_zHOST[imap].IVAR_HOSTLIB[ivar] ;
+	VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+      }
+      
+      istat = interp_GRIDMAP(&SEARCHEFF_zHOST[imap].GRIDMAP, VARDATA, 
+			     &EFF_TMP );        // <== returned  
+
+      Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
+    }
+
+  } // end imap loop
+
+  // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
+  EFF = 1.0 - Pnoz ;
+
+  // .xyz
+  if ( NMATCH == 0 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
-
-  // load VARDATA from HOSTLIB
-  NVAR = SEARCHEFF_zHOST[IMAP].GRIDMAP.NDIM ;
-  IGAL = SNHOSTGAL.IGAL ;
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    ivar_HOSTLIB  = SEARCHEFF_zHOST[IMAP].IVAR_HOSTLIB[ivar] ;
-    VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-  }
-
-  istat = interp_GRIDMAP(&SEARCHEFF_zHOST[IMAP].GRIDMAP, VARDATA, 
-			 &EFF );  // <== returned  
 
 
   if ( LDMP || istat != SUCCESS ) {
@@ -2710,6 +2676,43 @@ double interp_SEARCHEFF_zHOST(void) {
 
 } // end of interp_SEARCHEFF_zHOST
 
+
+bool MATCH_SEARCHEFF_FIELD(char *field_map) {
+
+  // Created Feb 5 2021
+  // Return true of SEARCHEFF_DATA.FIELDLIST_OVP matches field_map.
+  // 
+  // Ideally all overlap fields are checked, but this causes
+  // downstream abort if an event overlaps two FIELDS.
+  // Here we only check first field loaded in FIELDLIST_OVP;
+  // maybe somebody we'll have an algorithm for choosing
+  // among multiple FIELD-dependent maps.
+  //
+  // Previous logic had checked last overlap field (since each
+  // subsequent field had clobbered previous field), and here we
+  // check first field ... so new logic (Feb 5 2021) can result
+  // in using a different map for field overlaps.
+
+  int  NFIELD_OVP = SEARCHEFF_DATA.NFIELD_OVP;
+  int  i;
+  char *field_data;
+  // ---------- BEGIN ----------
+
+  if ( strcmp(field_map,"ALL")      == 0    ) { return true ; }
+
+  // xxx  for(i=0; i < NFIELD_OVP; i++ ) { // maybe someday ??
+
+  for(i=0; i < 1; i++ ) { // only check first FIELD among overlaps
+    field_data = SEARCHEFF_DATA.FIELDLIST_OVP[i];
+    if ( strstr(field_map,field_data) != NULL ) { return true ; }
+  }
+
+  // if we get here, there is no match -> return false
+  return false ;
+
+} // end MATCH_SEARCHEFF_FIELD
+
+
 // *******************************************
 double interp_SEARCHEFF_zHOST_LEGACY(void) {
 
@@ -2722,16 +2725,25 @@ double interp_SEARCHEFF_zHOST_LEGACY(void) {
 
   double z, EFF;
   int NMATCH=0, IMAP=-9, imap;   char *field_map, *field_data ;
+  bool MATCH_FIELD ;
   char fnam[] = "interp_SEARCHEFF_zHOST_LEGACY" ;
 
   z          = SEARCHEFF_DATA.REDSHIFT ; 
-  field_data = SEARCHEFF_DATA.FIELDNAME ;
+  field_data = SEARCHEFF_DATA.FIELDNAME ; 
+
   for(imap=0; imap < NMAP;  imap++ ) {
-    field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
-    if ( strcmp(field_map,"ALL")      == 0    ) { IMAP=imap; NMATCH++ ; }
-    if ( strstr(field_map,field_data) != NULL ) { IMAP=imap; NMATCH++ ; }
+
+    field_map   = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
+    if ( MATCH_FIELD ) { IMAP = imap ; NMATCH++ ; }
   }
+
   if ( NMATCH != 1 ) {
+    print_preAbort_banner(fnam);
+    for(imap=0; imap < NMAP;  imap++ ) {
+      field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+      printf("\t FIELD_MAP[%2d] = %s", imap, field_map );
+    }    
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'", field_data );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -2944,7 +2956,8 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   //                a+b+c+d --> peakMag from any abcd band.
   //
   // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
-
+  // May 13 2021: allow HOSTMAG or HOST_MAG
+  //
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
   int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
 
@@ -3054,7 +3067,7 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     return ;
   }
 
-  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"HOSTMAG");
+  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"HOSTMAG HOST_MAG");
   if ( ifilt_obs >=0 ) {
     SEARCHEFF_SPEC[imap].IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_HOSTMAG ;
@@ -3090,17 +3103,34 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   // Example:  VARNAME = HOSTMAG_r and PREFIX = HOSTMAG
   //           --> returns IFILTOBS=3
   //
-   
-  int  LENV, IFILTOBS = -9;
-  char cfilt[2];
+  // May 13 2021:
+  //   Allow multiple prefix names separated by space; e.g., 
+  //    PREFIX = "HOSTMAG HOST_MAG"
+  //
+
+#define MXPREFIX 4
+  int  NPREFIX=0;
+  int  i, LENV, IFILTOBS = -9;
+  char cfilt[2], PREFIX_LIST[MXPREFIX][80], *ptr_PREFIX;
+  char *ptrList[MXPREFIX];
+  char sepKey[] = " ";
   //  char fnam[] = "IFILTOBS_SPECEFF_VAR" ;
 
   // -------------- BEGIN ---------------
 
-  if ( strstr(VARNAME,PREFIX) != NULL ) {
-    LENV      = strlen(VARNAME);
-    sprintf(cfilt,"%c", VARNAME[LENV-1] );
-    IFILTOBS  = INTFILTER(cfilt);
+  for(i=0; i < MXPREFIX; i++ ) { ptrList[i] = PREFIX_LIST[i]; }
+
+  // check how many space-separated PREFIX names to check
+  splitString2(PREFIX, sepKey, MXPREFIX,
+	       &NPREFIX, ptrList ); // <== returned
+
+  for ( i=0; i < NPREFIX; i++ ) {
+    ptr_PREFIX = PREFIX_LIST[i];
+    if ( strstr(VARNAME,ptr_PREFIX) != NULL ) {
+      LENV      = strlen(VARNAME);
+      sprintf(cfilt,"%c", VARNAME[LENV-1] );
+      IFILTOBS  = INTFILTER(cfilt);
+    }
   }
 
   return(IFILTOBS);

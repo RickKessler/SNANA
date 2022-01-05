@@ -2,17 +2,9 @@
  May 2017
  Implement weak lensing effects on distance modulus.
 
+ Oct 2021: require DOCANA at top of weak lensing map file.
+
  ******************/
-
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-*/
-
 
 #include "sntools.h"
 #include "sntools_weaklens.h"
@@ -29,14 +21,22 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   // is symmetric Gaussian.
   //
   // If file does not exist, return but don't abort.
+  //
+  // Oct 10 2021: require DOCANA
 
   FILE *FPMAP;
-
-  int MEMD, NROW, irow, jj, iz, imu, gzipFlag, NZ=0, NDMU=0 ;  
-  double VALTMP[3], Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
+  int    OPENMASK = OPENMASK_VERBOSE + OPENMASK_REQUIRE_DOCANA ;
+  int    MEMD, NROW_TOT, NROW_TABLE, irow;
+  int    jj, iz, imu, gzipFlag, NZ=0, NDMU=0 ;  
+  bool   DOCANA_END = false;
+  double Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
   double SUM_WGT, SUM_dmu, dmu_avg, SUM_Prob ;
 
-  char PATH_DEFAULT[2*MXPATHLEN], MAPFILENAME[MXPATHLEN] ;
+  char PATH_DEFAULT[2*MXPATHLEN], MAPFILENAME[MXPATHLEN];
+  char tmpLine[MXPATHLEN], tmpLine_copy[MXPATHLEN];
+  int  LEN, iwd, NWD ;
+  char *ptrWORD[10]; int MXWD=10;
+  char *firstWord, sep[] = " ";
   char fnam[] = "init_lensDMU" ;
 
   // ---------------- BEGIN -----------------
@@ -59,18 +59,12 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT);
   
   // check mapFileName in user dir, then under PATH_DEFAULT
-  FPMAP = snana_openTextFile(1,PATH_DEFAULT, mapFileName, 
+  FPMAP = snana_openTextFile(OPENMASK, PATH_DEFAULT, mapFileName, 
 			     MAPFILENAME, &gzipFlag );
 
   if ( FPMAP == NULL ) {
     abort_openTextFile("WEAKLENS_PROBMAP_FILE", 
 		       PATH_DEFAULT, mapFileName, fnam);
-
-    /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
-    sprintf(c1err, "Could not find lensing mapFile");
-    sprintf(c2err, " '%s' ", mapFileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
-    xxxxxxxxxxxxx */
   }
 
 
@@ -78,34 +72,70 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   LENSING_PROBMAP.USEFLAG = 1 ;
   // ---------------------------------
 
+  for(iwd=0; iwd < MXWD; iwd++ ) 
+    { ptrWORD[iwd] = (char*)malloc(200*sizeof(char)) ; }
+
   // we have a mapFile
   // get NROW for malloc
 
   MEMD = sizeof(double);
-  NROW = nrow_read(MAPFILENAME,fnam);
-  printf("\t Found %d rows to read. \n", NROW);
+  NROW_TOT = nrow_read(MAPFILENAME,fnam); // includes DOCANA rows
+  printf("\t Found %d total rows in file. \n", NROW_TOT );
 
   // malloc temp 1D arrays to read everything
-  double *z_TMP1D    = (double*) malloc( MEMD * NROW );
-  double *dmu_TMP1D  = (double*) malloc( MEMD * NROW );
-  double *Prob_TMP1D = (double*) malloc( MEMD * NROW );
+  double *z_TMP1D    = (double*) malloc( MEMD * NROW_TOT );
+  double *dmu_TMP1D  = (double*) malloc( MEMD * NROW_TOT );
+  double *Prob_TMP1D = (double*) malloc( MEMD * NROW_TOT );
 
-  
-  for(irow=0; irow < NROW; irow++ ) {
-    readdouble(FPMAP, 3, VALTMP);
-    z_TMP1D[irow]    = VALTMP[0] ;
-    dmu_TMP1D[irow]  = VALTMP[1];
-    Prob_TMP1D[irow] = VALTMP[2];
+  NROW_TABLE = 0;
+  for(irow=0; irow < NROW_TOT; irow++ ) {
 
-    z = z_TMP1D[irow] ;
+    fgets(tmpLine, MXPATHLEN, FPMAP);
+    if ( commentchar(tmpLine) ) { continue ; }
+
+    if ( !DOCANA_END ) { 
+      sprintf(tmpLine_copy,"%s", tmpLine);
+      LEN = strlen(tmpLine_copy);
+      firstWord = strtok(tmpLine_copy, sep);
+      if ( LEN > 0 ) { firstWord[LEN-1] = 0; } // remove termination
+      if ( strcmp(firstWord,KEYNAME2_DOCANA_REQUIRED)==0 ) 
+	{ DOCANA_END = true; }
+      continue ;
+    }
+
+    splitString(tmpLine, " ", MXWD, &NWD, ptrWORD);
+    if ( NWD != 3 ) { continue; }
+
+    /* xxxxxx
+    if ( NROW_TABLE == 0 ) {
+      printf(" xxx %s: first table line: '%s' \n", fnam, tmpLine);
+    }
+    xxx */
+
+    // we have a line after DOCANA that is not a comment line; parse it
+    sscanf(ptrWORD[0], "%le", &z_TMP1D[NROW_TABLE] );
+    sscanf(ptrWORD[1], "%le", &dmu_TMP1D[NROW_TABLE] );
+    sscanf(ptrWORD[2], "%le", &Prob_TMP1D[NROW_TABLE] );
+    
+    z = z_TMP1D[NROW_TABLE] ;
     if ( z > zLAST ) { NZ++ ; }
     zLAST = z;
+    NROW_TABLE++ ;
   }
   fclose(FPMAP);
 
+  // - - - - - 
+  if ( NZ == 0 ) {
+    sprintf(c1err,"Number of weak-lensing z bins is zero.");
+    sprintf(c2err,"Something is really messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
 
   // convert TMP1D arrays to 2D map 
-  NDMU = NROW/NZ ;
+  NDMU = NROW_TABLE/NZ ;
+
+  printf("\t Convert %d lens-table rows into %d(z) x %d(DMU) array\n",
+	 NROW_TABLE, NZ, NDMU); fflush(stdout);
 
   // allocate memory for LENSING structure
   LENSING_PROBMAP.NBIN_z   = NZ;
@@ -172,7 +202,7 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   LENSING_PROBMAP.dmuMAX =  LENSING_PROBMAP.dmu_LIST[NDMU-1] ;
 
   // print summary 
-  printf("\t Done initializing Prpb(%.3f < DeltaMU < %.3f) \n",
+  printf("\t Done initializing Prob(%.3f < DeltaMU < %.3f) \n",
 	 LENSING_PROBMAP.dmu_LIST[0], LENSING_PROBMAP.dmu_LIST[NDMU-1] );
   printf("\t in %d redshfit bins from %.3f to %.3f \n",
 	 NZ, LENSING_PROBMAP.z_LIST[0], LENSING_PROBMAP.z_LIST[NZ-1] );

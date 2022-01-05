@@ -10,6 +10,8 @@
 
   Jul 13 2020: MXMAP_SEARCHEFF_zHOST -> 20 (was 10)
 
+  Feb 05 2021: define FIELDLIST_OVP and NFIELD_OVP
+
  **************************************************/
 
 
@@ -64,7 +66,7 @@
 #define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
 #define MXDEF_VARNAMES_PHOTPROB    5
 
-char COMMENT_README_TRIGGER[200];
+char COMMENT_README_SEARCHEFF[200];
 
 char VARDEF_SEARCHEFF_PHOTPROB[MXDEF_VARNAMES_PHOTPROB][20] ;
 
@@ -232,7 +234,10 @@ struct {
 } SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
 
 
-
+// Oct 2021 - definine MJDs associated with pipeline detections
+typedef struct {
+  double TRIGGER, FIRST, LAST;
+} MJD_DETECT_DEF ;
 
 // ------ data needed to evaluate trigger -------
 
@@ -242,7 +247,10 @@ struct {
   // scalars
   int    CID ;
   double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX ;
-  char   FIELDNAME[20];
+
+  char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
+  char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
+  int  NFIELD_OVP;   // number of overlap fields
 
   // filter-dependent peak-mags
   double PEAKMAG[MXFILTINDX] ;
@@ -292,8 +300,8 @@ int  malloc_NEXTMAP_SEARCHEFF_DETECT(void);
 void   check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF);
 
 int    gen_SEARCHEFF(int ID, double *EFF_SPEC, double *EFF_zHOST, 
-		     double *MJD_TRIGGER ) ;
-int    gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER );
+		     MJD_DETECT_DEF *MJD_DETECT );
+int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
 int    gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
@@ -317,5 +325,7 @@ void   assign_SPECEFF(int imap, int ivar, char *VARNAME) ;
 void   parse_search_eff_logic(char *survey, int NMJD, char *logic);
 int    IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) ;
 int    IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME);
+
+bool   MATCH_SEARCHEFF_FIELD(char *field_map);
 
 // ============= END ===============

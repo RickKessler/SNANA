@@ -106,6 +106,8 @@
  * Oct 29 2013 RK - move slalib routines to sntools.c
  *
  * Jan 28 2020 RK - abort if WAVE>12000 and using Fitz99 color law
+ * 
+ * Oct 9 2021 DB and DS - update Fitz/Odonell ratio and extend WAVE to 15000
  */
 /**************************************************************************/
 
@@ -419,16 +421,22 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
   // Sep 18 2013 RK/DS - Check option for Fitzptrack 99
 
-#define NPOLY_FITZ99 8
+#define NPOLY_FITZ99 11 //Dillon and Dan upped to 10, Oct 9 2021
   if ( OPT == 99 ) {  
 
     double XTcor, wpow[NPOLY_FITZ99] ;
 
-    double F99_over_O94[NPOLY_FITZ99] = {  // From D.Scolnic, Sep 18 2013
-      0.485382, 0.791117, -0.534349, 0.191105,
-      -0.0380031, 0.00416853,  -0.000235077, 5.31309e-06 
-    } ;
+    // xxx mark delete double F99_over_O94[NPOLY_FITZ99] = {  // From D.Scolnic, Sep 18 2013
+    //  0.485382, 0.791117, -0.534349, 0.191105,
+    //  -0.0380031, 0.00416853,  -0.000235077, 5.31309e-06 
+    //} ;
     
+    double F99_over_O94[NPOLY_FITZ99] = {  // Dillon and Dan, Oct 9 2021
+      8.55929205e-02,  1.91547833e+00, -1.65101945e+00,  7.50611119e-01,
+      -2.00041118e-01,  3.30155576e-02, -3.46344458e-03,  2.30741420e-04,
+      -9.43018242e-06,  2.14917977e-07, -2.08276810e-09
+    };
+
     if ( WAVE > WAVEMAX_FITZ99  ) {
       sprintf(c1err,"Invalid WAVE=%.1f A for Fitzpatrick 99 color law.",
 	      WAVE );
@@ -446,6 +454,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
     wpow[5]  = wpow[3] * wpow[2] ;
     wpow[6]  = wpow[3] * wpow[3] ;
     wpow[7]  = wpow[4] * wpow[3] ;
+    wpow[8]  = wpow[4] * wpow[4] ;
+    wpow[9]  = wpow[5] * wpow[4] ;
+    wpow[10]  = wpow[5] * wpow[5] ;
 
     XTcor = 0.0 ;
     for(i=0; i < NPOLY_FITZ99; i++ ) 

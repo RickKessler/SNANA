@@ -12,21 +12,34 @@
 #   SNANA_code_tests.py STOP ! send signal to STOP all jobs
 #
 # Internal usage:
-#   SNANA_code_tests.py -cpunum <num> -logDir <dir>
+#   SNANA_code_tests.py --cpunum <num> --logDir <dir>
 #
+#
+#       HISTORY
 # Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
 # Mar 21 2020: in submitTasks_BATCH(), fix slashes in SNANA_SETUP
 #              to work with sed.
 #
+# Jan 8 2021: print python version to SNANA.INFO
+# Jan 27 2021: 
+#   + replace WALLTIME key in SBATCH file
+#   + fix bug to allow blank setup arg
+#   + include RUNJOBS* in BACKUP_MISC.tar.gz
+#
+# Jun 14 2021: refactor using argparse and allow --snana_dir arg
+#              to point to arbitrary user code.
+#
+# Jul 01 2021:
+#   + write $HOST to HOST_MONITOR.INFO
+#   + increas batch time from 20min to 1hr in case of batch delay
+#
+# Aug 17 2021: add arguments --nosubmit and --ncpu
+#
 
-import os
-import sys 
-import datetime
-import shutil
-import subprocess
-import time
-import glob
+import os, sys, datetime, shutil, time, glob
+import subprocess, argparse
+
 
 # ===============================================
 # define hard-wired globals up here so that they are
@@ -34,69 +47,97 @@ import glob
 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNANA_TESTS_DIR  = os.environ['SNANA_TESTS']
-TASK_DIR         = ('%s/%s' % (SNANA_TESTS_DIR, "tasks") )
-INPUT_DIR        = ('%s/%s' % (SNANA_TESTS_DIR, "inputs") )
-LOG_TOPDIR       = ('%s/%s' % (SNANA_TESTS_DIR, "logs") )
+TASK_DIR         = f"{SNANA_TESTS_DIR}/tasks"
+INPUT_DIR        = f"{SNANA_TESTS_DIR}/inputs"
+LOG_TOPDIR       = f"{SNANA_TESTS_DIR}/logs"
 USERNAME         = os.environ['USER']
 USERNAME_TAG     = USERNAME[0:4]       # suffix for logdir name
-LIST_TESTS_FILE_DEFAULT = ('%s/%s' % (SNANA_TESTS_DIR,"SNANA_code_tests.LIST"))
+LIST_TESTS_FILE_DEFAULT = f"{SNANA_TESTS_DIR}/SNANA_code_tests.LIST"
 CPU_FILE_DEFAULT        = 'CPU_ASSIGN.DAT'  
 RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
-STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
+STOP_FILE               = f"{LOG_TOPDIR}/STOP"
 MEMORY                  = 2000   # Mb
+WALLTIME_MAX            = "01:00:00"    # 1 hr to allow queue delay
 
 # ========================================================
 def parse_args():
-    #return dictionary of user command-line input values
-    SCRIPTNAME = sys.argv[0]
-    DOREF           =  False
-    DOTEST          =  True
-    DOCOMPARE_ONLY  =  False
-    DOSTOP          =  False
-    DEBUG_FLAG      =  False 
-    REFTEST         = 'TEST'
-    CPUNUM_REQ      = -9
-    LOGDIR          = ''
-    LIST_FILE       = LIST_TESTS_FILE_DEFAULT
 
-    iarg     = 0
-    for arg in sys.argv :
-        if ( arg.lower() == 'ref' ):
-            DOREF  = True
-            DOTEST = False
-            REFTEST = 'REF'
-        elif ( arg == '-cpunum' ):
-            CPUNUM_REQ = int(sys.argv[iarg+1])
-        elif ( arg == '-logDir' ):
-            LOGDIR = sys.argv[iarg+1]
-        elif ( arg == '-listFile' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg == '-l' ):
-            LIST_FILE = sys.argv[iarg+1]
-        elif ( arg.lower() == 'compare' ) :
-            DOCOMPARE_ONLY  = True
-        elif ( arg.lower() == 'stop' ) :
-            DOSTOP  = True
-        elif ( arg.lower() == 'debug' ) :
-            DEBUG_FLAG = True 
-        iarg += 1
+    parser = argparse.ArgumentParser()
 
-    INPUTS_USER = {
-        "SCRIPTNAME"      : SCRIPTNAME,
-        "DOREF"           : DOREF,
-        "DOTEST"          : DOTEST,
-        "DOCOMPARE_ONLY"  : DOCOMPARE_ONLY,
-        "DOSTOP"          : DOSTOP,
-        "DEBUG_FLAG"      : DEBUG_FLAG,
-        "REFTEST"         : REFTEST,
-        "CPUNUM_REQ"      : CPUNUM_REQ,
-        "LOGDIR"          : LOGDIR,
-        "LIST_FILE"       : LIST_FILE
-        }
+    msg = "Build reference"
+    parser.add_argument("--ref", help=msg, action="store_true")
 
-    return INPUTS_USER
+    msg = "test against reference (default with no args)"
+    parser.add_argument("--test", help=msg, action="store_true")
+
+    msg = f"private list of tests (replaces {LIST_TESTS_FILE_DEFAULT}"
+    parser.add_argument("-l", "--list_file", help=msg, type=str, 
+                        default=LIST_TESTS_FILE_DEFAULT)
+
+    msg = f"private snana code directory (replaces {SNANA_DIR})"
+    parser.add_argument("--snana_dir", help=msg, type=str, default=None)
+
+    msg = f"Override number of CPUs in batch file"
+    parser.add_argument("--ncpu", help=msg, type=int, default=-1)
+
+    msg = "INTERNAL ARG: CPU number"
+    parser.add_argument("--cpunum", help=msg, type=int, default=-9)
+
+    msg = "INTERNAL ARG: log dir"
+    parser.add_argument("--logdir", help=msg, type=str,  default=None)
+
+    msg = "only compare TEST vs. REF (do not submit jobs)"
+    parser.add_argument("--compare_only", help=msg, action="store_true")
+
+    msg = "stop this script"
+    parser.add_argument("--stop", help=msg, action="store_true")
+
+    msg = "prepare jobs, but do not submit"
+    parser.add_argument("--nosubmit", help=msg, action="store_true")
+
+    msg = "debug"
+    parser.add_argument("--debug", help=msg, action="store_true")
+
+    args = parser.parse_args()
+
+    # - - - - -
+    # tack on a few extras
+    # if --ref is not given, set test mode to true
+    if args.ref is False:  
+        args.test    = True
+        args.REFTEST = "TEST"
+        args.reftest = "--test"
+    else:
+        args.REFTEST = "REF"
+        args.reftest = "--ref"
+
+    if args.snana_dir is None: 
+        args.snana_dir = SNANA_DIR
+
+    args.SCRIPTNAME = sys.argv[0]
+
+    # - - - - -
+
+    print(f" Inputs: ")
+    print(f"   SNANA_DIR     =  {args.snana_dir} ")
+    print(f"   SNANA_TESTS   =  {SNANA_TESTS_DIR} ")
+    print(f"   REF or TEST   =  {args.REFTEST} ")
+
+    if args.cpunum >= 0 :
+        print(f"   cpunum        =  {args.cpunum} " )
+
+    if args.logdir is not None :
+        print(f"   logdir        =  {args.logdir} "   )
+
+    if args.list_file is not None:
+        print(f"   list_file     =  {args.list_file} " )
+
+    if args.compare_only is True:
+        print("\n !!! DEBUG MODE: COMPARE TEST vs. REF only !!! ")
+
+    return args
 
 # ====================================
 def get_LOGDIR_REF():
@@ -108,7 +149,7 @@ def get_LOGDIR_REF():
 
     # loop over subdirs; use last one in alphabetical list
     for sdir in sorted(sdirlist):
-        dir_name = ('%s/%s' % (LOG_TOPDIR,sdir) )
+        dir_name = f"{LOG_TOPDIR}/{sdir}"
         if sdir[0:3] == 'REF' and os.path.isdir(dir_name) is True : 
             LOGDIR_REF = dir_name
 
@@ -121,13 +162,15 @@ def get_LOGDIR_REF():
 # ========================================
 def read_SNANA_INFO(LOGDIR):
 
-    snana_file = ('%s/%s' % (LOGDIR,SNANA_INFO_FILE) )
+    snana_file = f"{LOGDIR}/{SNANA_INFO_FILE}"
     with open(snana_file, 'rt') as f:
         lineList = f.readlines()    
 
     for line in lineList:          
         line  = line.rstrip()  # remove trailing space and linefeed
         words = line.split()
+        if len(words) == 0 : continue
+
         if words[0] == "SNANA_VERSION:" :
             SNANA_VERSION = words[1]
         elif words[0] == "SNANA_DIR:" :
@@ -151,18 +194,16 @@ def get_RESULTS_TASKS(LOGDIR):
     SNANA_VERSION = None
 
     # scoop up everything in RESULTS file
-    result_file = ('%s/%s' % (LOGDIR,RESULT_TASKS_FILE) )
+    result_file = f"{LOGDIR}/{RESULT_TASKS_FILE}"
     with open(result_file, 'rt') as f:
         lineList = f.readlines()    
 
     for line in lineList:          
         line  = line.rstrip()  # remove trailing space and linefeed
         words = line.split()
-        if ( len(words) == 0 ):
-            continue
+        if len(words) == 0 :   continue
         wd0   = words[0]
-        if wd0[0:4] != 'TASK' :
-            continue
+        if wd0[0:4] != 'TASK' : continue
         TASKNUM    = int(wd0[4:7])  # strip NUM from TASK[NUM]
         TASKNAME   = wd0[8:]        # strip name from TASKnnn-[TASKNAME]
         TASKRESULT = ' '.join(words[2:])  # skip colon
@@ -172,15 +213,15 @@ def get_RESULTS_TASKS(LOGDIR):
         TASKRESULT_LIST.append(TASKRESULT)
         TASKNUMNAME_LIST.append(wd0)
 
-#        print(" xxx %s -> NUM=%d RES='%s' " % (words[0],TASKNUM,TASKRESULT))
+#       print(" xxx %s -> NUM=%d RES='%s' " % (words[0],TASKNUM,TASKRESULT))
 
-    print(' Stored %d task results ' % len(TASKNAME_LIST) )
+    ntask = len(TASKNAME_LIST)
+    print(f" Stored {ntask} task results " )
     sys.stdout.flush()
 
     # - - - - - - - - - - - - - - -
     # read SNANA info
     (SNANA_VERSION,SNANA_DIR) = read_SNANA_INFO(LOGDIR)
-
 
     # - - - - - - - - - - - - - - -
     RESULTS_INFO = {
@@ -226,7 +267,7 @@ def set_task_order(TASKNAME_LIST):
     for order in range(0,NTASK):
         itask = TASKORDER_LIST[order]
         if itask < 0 or itask >= NTASK :
-            msg = (' ABORT: invalid itask=%d for order=%d' % (itask,order) )
+            msg = f" ABORT: invalid itask={itask} for order={order}"
             sys.exit(msg)     
 #        TASKNAME = TASKNAME_LIST[itask]
 #        print(' xxx itask=%3d -> order=%3d (%s) ' % (itask,order,TASKNAME) )
@@ -235,17 +276,19 @@ def set_task_order(TASKNAME_LIST):
         n = nuse[itask]
         TASKNAME = TASKNAME_LIST[itask]
         if n != 1:
-            msg = (" ABORT: itask=%d (%s) used %d times in ordering\n\t"
-            " Something is really messed up." % (itask,TASKNAME,n) )
+            msg = f" ABORT: itask={itask} ({TASKNAME}) used {n}" \
+                  f"times in ordering\n\t" \
+                  f" Something is really messed up."
             sys.exit(msg) 
 
     return TASKORDER_LIST
 
 # ===================================
-def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
+def parse_listfile(INPUTS, RESULTS_INFO_REF):
 
-    if ( os.path.isfile(LIST_FILE) == False ) :
-        msg = ('ERROR: Cannot find list file of tests: \n %s ' % LIST_FILE)
+    LIST_FILE = INPUTS.list_file
+    if os.path.isfile(LIST_FILE) is False  :
+        msg = f"ERROR: Cannot find list file of tests: \n  {LIST_FILE}"
         sys.exit(msg)
 
     REF_SNANA_SETUP   = ''
@@ -259,9 +302,9 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
     TASKNAME_LIST     = []
     TASKNUM_LIST      = []
     
-    DOREF   = INPUTS["DOREF"]
-    DOTEST  = INPUTS["DOTEST"]
-    REFTEST = INPUTS["REFTEST"]
+    DOREF   = INPUTS.ref
+    DOTEST  = INPUTS.test
+    REFTEST = INPUTS.REFTEST
 
     NERR_TASKNUM = 0  # used only for TEST mode
 
@@ -271,7 +314,7 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
         LOGDIR_REF        = RESULTS_INFO_REF["LOGDIR"]
         REF_TASKNAME_LIST = RESULTS_INFO_REF["TASKNAME_LIST"]
         REF_TASKNUM_LIST  = RESULTS_INFO_REF["TASKNUM_LIST"]
-        print(' Select REF logdir: %s ' % LOGDIR_REF )
+        print(f" Select REF logdir: {LOGDIR_REF} " )
 
 
     with open(LIST_FILE, 'rt') as f:
@@ -283,29 +326,32 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
         lw    = len(words)
         if lw == 0 :
             continue
-        if ( words[0][0:1] == '#' ):
+        if  words[0][0:1] == '#' :
             continue   # skip comment lines
-        elif ( words[0] == 'REF_SNANA_SETUP:' ):
+        elif  words[0] == 'REF_SNANA_SETUP:' :
             REF_SNANA_SETUP = ' '.join(words[1:])
-        elif ( words[0] == 'TEST_SNANA_SETUP:' ):
+        elif words[0] == 'TEST_SNANA_SETUP:' :
             TEST_SNANA_SETUP = ' '.join(words[1:])
-        elif ( words[0] == 'SSH_NODES:' ):
+        elif  words[0] == 'SSH_NODES:' :
             SSH_NODES = words[1:]
             NCPU      = len(SSH_NODES)
             RUN_SSH   = True
-        elif ( words[0] == 'BATCH_INFO:' ):
+        elif words[0] == 'BATCH_INFO:' :
             BATCH_INFO = words[1:]
-            NCPU       = int(BATCH_INFO[2])
+            if INPUTS.ncpu > 0 :
+                NCPU = INPUTS.ncpu  # command line override (Aug 17, 2021
+            else:
+                NCPU       = int(BATCH_INFO[2])
             RUN_BATCH  = True 
-        elif ( words[0] == 'TEST:' ):
+        elif words[0] == 'TEST:' :
             NTASK += 1
             TASKNAME = words[1]
             TASKNAME_LIST.append(TASKNAME)
-            if DOREF is True :
+            if DOREF  :
                 TASKNUM = NTASK
             else:
                 # for TEST, fetch TASKNUM from REF job
-                if ( TASKNAME in REF_TASKNAME_LIST ) :
+                if TASKNAME in REF_TASKNAME_LIST :
                     itask_ref = REF_TASKNAME_LIST.index(TASKNAME)
                     TASKNUM   = REF_TASKNUM_LIST[itask_ref]
                 else:
@@ -315,12 +361,12 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
 
             TASKNUM_LIST.append(TASKNUM)
 
-        elif ( words[0] == 'END:' ):
+        elif words[0] == 'END:':
             break
 
 
     if ( NERR_TASKNUM > 0 ) :
-        msg = (' ABORT: %d TASKS not in REF' % NERR_TASKNUM )
+        msg = f" ABORT: {NERR_TASKNUM} TASKS not in REF"
         sys.exit(msg)
 
 
@@ -376,21 +422,21 @@ def parse_taskfile(TASKFILE):
         lw    = len(words)
         if lw == 0 :
             continue
-        if ( words[0][0:1] == '#' ):
+        if words[0][0:1] == '#' :
             continue   # skip comment lines
-        elif ( words[0] == 'TESTINPUT:' ):
+        elif words[0] == 'TESTINPUT:' :
             TESTINPUT = words[1:]
-        elif ( words[0] == 'TESTJOB:' ):
+        elif words[0] == 'TESTJOB:' :
             TESTJOB = words[1]
-        elif ( words[0] == 'TESTJOB_ARGS:' ):
+        elif words[0] == 'TESTJOB_ARGS:' :
             TESTJOB_ARGS = ' '.join(words[1:])
-        elif ( words[0] == 'TESTNAME:' ):
+        elif words[0] == 'TESTNAME:' :
             TESTNAME = words[1]
-        elif ( words[0] == 'TESTRESULT:' ):
+        elif words[0] == 'TESTRESULT:' :
             TESTRESULT = ' '.join(words[1:])
-        elif ( words[0] == 'WORDNUM:' ):
+        elif words[0] == 'WORDNUM:' :
             WORDNUM = words[1].split('-')
-        elif ( words[0] == 'DEPENDENCY:' ):
+        elif words[0] == 'DEPENDENCY:' :
             DEPENDENCY = words[1]
 
     CONTENTS = {
@@ -418,8 +464,8 @@ def check_listfile_contents(LIST_FILE_INFO):
     TASKNUM_LIST    = LIST_FILE_INFO["TASKNUM_LIST"]
     ABORT_FLAG       = False
 
-    if ( NTASK == 0 ):
-        msg = ( 'ERROR: found no tasks in\n %s ' % LIST_FILE )
+    if NTASK == 0 :
+        msg = f" ABORT: found no tasks in\n {LIST_FILE}"
         sys.exit(msg)
 
     # check for  missing task files and missing input files
@@ -435,14 +481,14 @@ def check_listfile_contents(LIST_FILE_INFO):
         TASKFILE = ('%s/%s' % (TASK_DIR,TASKNAME) )
 
         itask += 1
-        comment_substring = ("%s TASKNUM %3.3d : file=%s"
-                             % (REFTEST, TASKNUM, TASKNAME) )
-        if ( os.path.isfile(TASKFILE) == False ) :
+        comment_substring = f"{REFTEST} TASKNUM {TASKNUM:03d} : " \
+                            f"file={TASKNAME}"
+        if os.path.isfile(TASKFILE) is False :
             NOTFOUND_TASK += 1 ; ABORT_FLAG = True
-            print(" ERROR: cannot find %s" % comment_substring ) 
+            print(f" ERROR: cannot find {comment_substring}")
             continue
         else:
-            print(" Found %s " % comment_substring )
+            print(f" Found {comment_substring}")
             sys.stdout.flush()
 
         # parse TASKFILE contents, and make sure things exist.
@@ -452,42 +498,44 @@ def check_listfile_contents(LIST_FILE_INFO):
         TASKNAME_DEPEND = CONTENTS_TASK["DEPENDENCY"]
 
         for infile in TESTINPUT :
-            INFILE = ('%s/%s' % (INPUT_DIR,infile) )
-            if ( os.path.isfile(INFILE) == False ) :
-                print("\t--> ERROR: cannot find TESTINPUT file='%s' "
-                      "\n\t\t for task %s" % (TESTINPUT,TASKNAME) )
-                NOTFOUND_INPUT += 1 ; ABORT_FLAG = True
+            INFILE = f"{INPUT_DIR}/{infile}"
+            if os.path.isfile(INFILE) is False :
+                print(f"\t--> ERROR: cannot find TESTINPUT file='{TESTINPUT}'"\
+                      f"\n\t\t for task {TASKNAME}")
+                NOTFOUND_INPUT += 1
+                ABORT_FLAG = True
     
         # check DEPENDENCY
         if TASKNAME_DEPEND is not None :
             if TASKNAME_DEPEND not in TASKNAME_LIST :
                 NOTFOUND_DEPEND += 1 ; ABORT_FLAG = True
-                print("\t--> ERROR: DEPENDENCY-Task %s not defined. "   
-                     % (TASKNAME_DEPEND) )            
+                print(f"\t--> ERROR: DEPENDENCY-Task {TASKNAME_DEPEND} "\
+                      f"not defined. ")   
+
 
         # check for duplicates 
         NFIND = TASKNAME_LIST.count(TASKNAME)
-        if ( NFIND > 1 ) :
-            print("\t--> DUPLICATE ERROR: Task %s occurs %d times." 
-                  % (TASKNAME,NFIND) )
+        if NFIND > 1 :
+            print("\t--> DUPLICATE ERROR: Task {TASKNAME} " \
+                  f"occurs {NFIND} times.")
             NDUPLICATE += 1 ; ABORT_FLAG = True
 
     # =================================================
     # done looping over task files; abort on error
 
     print(' ')
-    if ( NOTFOUND_TASK > 0 ) :
-        print(' ERROR: %d missing TASK files.' % NOTFOUND_TASK) 
+    if NOTFOUND_TASK > 0 :
+        print(f" ERROR: {NOTFOUND_TASK} missing TASK files.")
 
-    if ( NOTFOUND_INPUT > 0 ) :
-        print(' ERROR: %d missing INPUT files.' % NOTFOUND_INPUT) 
+    if NOTFOUND_INPUT > 0 :
+        print(f" ERROR: {NOTFOUND_INPUT} missing INPUT files.") 
 
-    if ( NOTFOUND_DEPEND > 0 ) :
-        print(' ERROR: %d missing DEPENDENCY tasks.' % NOTFOUND_DEPEND ) 
+    if NOTFOUND_DEPEND > 0 :
+        print(f" ERROR: {NOTFOUND_DEPEND} missing DEPENDENCY tasks.")
 
-    if ( NDUPLICATE > 0 ) :
+    if NDUPLICATE > 0 :
         NDUPLICATE /= 2
-        print(' ERROR: %d duplicate tasks.' % NDUPLICATE ) 
+        print(f" ERROR: {NDUPLICATE} duplicate tasks.") 
 
     if ABORT_FLAG is True :
         sys.exit(' ABORT ')
@@ -498,8 +546,8 @@ def check_listfile_contents(LIST_FILE_INFO):
 # =====================================
 def parse_cpufile(INPUTS,CPUNUM_REQ):
 
-    LOGDIR    = INPUTS["LOGDIR"]
-    CPU_FILE  = ('%s/%s' % (LOGDIR,CPU_FILE_DEFAULT) )
+    LOGDIR    = INPUTS.logdir
+    CPU_FILE  = f"{LOGDIR}/{CPU_FILE_DEFAULT}"
 
     TASK      = []
     TASKNUM   = []
@@ -521,14 +569,14 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
         lw    = len(words)
         if lw == 0 :
             continue        
-        if ( words[0] == 'TASK:' ) :
-            tmp_numcpu  = int(words[1])
-            tmp_numtask = int(words[2])
-            tmp_task    = words[3]
-            tmp_prefix  = ('TASK%3.3d' % tmp_numtask )
-            tmp_taskfile = ('%s/%s' % (TASK_DIR,tmp_task) )
-            tmp_logfile  = ( '%s/%s_%s.LOG'  % (LOGDIR,tmp_prefix,tmp_task) )
-            tmp_donefile = ( '%s/%s_%s.DONE' % (LOGDIR,tmp_prefix,tmp_task) )
+        if words[0] == 'TASK:' :
+            tmp_numcpu   = int(words[1])
+            tmp_numtask  = int(words[2])
+            tmp_task     = words[3]
+            tmp_prefix   = f"TASK{tmp_numtask:03d}"
+            tmp_taskfile = f"{TASK_DIR}/{tmp_task}"
+            tmp_logfile  = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.LOG"
+            tmp_donefile = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.DONE"
 
             TASK.append(tmp_task)
             TASKNUM.append(tmp_numtask)
@@ -539,8 +587,7 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
             LOGFILE.append(tmp_logfile)
 
             NTASK_TOT += 1
-            if ( CPUNUM_REQ == tmp_numcpu ) :
-                NTASK_REQ += 1
+            if CPUNUM_REQ == tmp_numcpu :   NTASK_REQ += 1
 
     CPU_TASKLIST = {
         "NTASK_TOT"    :  NTASK_TOT,
@@ -558,7 +605,7 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
 
 
 # ==============================================
-def copy_input_files(INPUTS,PREFIX,*TESTINPUT):
+def copy_input_files(INPUTS, PREFIX, *TESTINPUT):
 
     # Copy first input to logdir and tack on PREFIX = TASKnnn_.
     # If not HBOOK or ROOT file,  use 'sed' to copy with 
@@ -570,44 +617,45 @@ def copy_input_files(INPUTS,PREFIX,*TESTINPUT):
         print (' No TESTINPUT --> no input files to copy. ')
         return
 
-    REFTEST     = INPUTS["REFTEST"]
-    LOGDIR      = INPUTS["LOGDIR"]
+    REFTEST     = INPUTS.REFTEST
+    LOGDIR      = INPUTS.logdir 
     infile_orig = TESTINPUT[0]
-    infile_copy = ('%s_%s' % (PREFIX,infile_orig) )
-    INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
-    INFILE_COPY = ('%s/%s' % (LOGDIR,infile_copy) )
+    infile_copy = f"{PREFIX}_{infile_orig}"
+    INFILE_ORIG = f"{INPUT_DIR}/{infile_orig}"
+    INFILE_COPY = f"{LOGDIR}/{infile_copy}"
 
-    print ('\t Copy input file %s' % (infile_orig) )
+    print(f"\t Copy input file {infile_orig}")
 
-    if ".HBOOK" in INFILE_ORIG or ".ROOT" in INFILE_ORIG :
+    if ".HBOOK" in INFILE_ORIG  or  ".ROOT" in INFILE_ORIG :
         # regular copy
-        CMD_COPY = ( 'cp %s %s' % (INFILE_ORIG, INFILE_COPY) )
+        CMD_COPY = f"cp {INFILE_ORIG} {INFILE_COPY}"
     else:
         # sed with substitution of XXX -> REF or TEST
-        CMD_COPY = ( "sed -e 's/XXX/%s/g'  %s > %s" % 
-                     (REFTEST, INFILE_ORIG, INFILE_COPY) )
+        CMD_COPY = f"sed -e \'s/XXX/{REFTEST}/g\'  {INFILE_ORIG} " \
+                   f" > {INFILE_COPY}" 
     os.system(CMD_COPY)
 
     # make sure INFILE_COPY is created; if not, abort
-    if ( os.path.isfile(INFILE_COPY) == False ) :
-        msg = ('\n ABORT: Unable to create input file with\n\t %s' % CMD_COPY)
+    if os.path.isfile(INFILE_COPY) is False :
+        msg = f"\n ABORT: Unable to create input file with" \
+              f"\n\t {CMD_COPY}"
         sys.exit(msg)
 
     # copy remaining input files (without alteration) if more than
     # one input file is specified.
     for ifile in range(1,len(TESTINPUT)):
         infile_orig = TESTINPUT[ifile]
-        print ('\t Copy supplemental input file %s' % (infile_orig) )
-        INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
-        INFILE_COPY = ('%s/%s' % (LOGDIR,infile_orig) )
-        CMD_cp      = ('cp %s %s' % (INFILE_ORIG,INFILE_COPY) )
+        print(f"\t Copy supplemental input file {infile_orig}")
+        INFILE_ORIG = f"{INPUT_DIR}/{infile_orig}"
+        INFILE_COPY = f"{LOGDIR}/{infile_orig}"
+        CMD_cp      = f"cp {INFILE_ORIG} {INFILE_COPY}"
         os.system(CMD_cp)
 
     # return input file name with prefix used for task
     return(infile_copy)
 
 # ==============================================
-def execute_task(itask,CPU_TASKLIST,INPUTS) :
+def execute_task(itask, CPU_TASKLIST, INPUTS) :
 
     # execute job, grep out result, and  create DONE file with result.
 
@@ -617,23 +665,22 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
     TASKFILE = CPU_TASKLIST["TASKFILE"][itask]
     DONEFILE = CPU_TASKLIST["DONEFILE"][itask]
     LOGFILE  = CPU_TASKLIST["LOGFILE"][itask]
-    REFTEST  = INPUTS["REFTEST"]
-    LOGDIR   = INPUTS["LOGDIR"]
-    TASKNUMNAME = ('%s_%s' % (PREFIX,TASK) )
+    REFTEST  = INPUTS.REFTEST
+    LOGDIR   = INPUTS.logdir
+    TASKNUMNAME = f"{PREFIX}_{TASK}"
 
     # if done file already exists bail
-    if ( os.path.isfile(DONEFILE) == True ) :
-        return 0
+    if os.path.isfile(DONEFILE)  :        return 0
 
     CONTENTS_TASK = parse_taskfile(TASKFILE)
 
     # check dependency 
     TASK_DEPEND = CONTENTS_TASK["DEPENDENCY"]
-    if ( TASK_DEPEND is not None ) :        
-        itask_depend = CPU_TASKLIST["TASK"].index(TASK_DEPEND)
+    if TASK_DEPEND is not None  :  
+        itask_depend    = CPU_TASKLIST["TASK"].index(TASK_DEPEND)
         DONEFILE_DEPEND = CPU_TASKLIST["DONEFILE"][itask_depend]
         PREFIX_DEPEND   = CPU_TASKLIST["PREFIX"][itask_depend]
-        if ( os.path.isfile(DONEFILE_DEPEND) == False ) : 
+        if os.path.isfile(DONEFILE_DEPEND) is False : 
             print(' Delay   %s_%s (waiting for %s_%s) ' %
                   (PREFIX,TASK, PREFIX_DEPEND,TASK_DEPEND) )
             sys.stdout.flush()
@@ -661,16 +708,14 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
         if "TESTINPUT" in TESTJOB_ARGS:
             TESTJOB_ARGS = TESTJOB_ARGS.replace("TESTINPUT", infile_copy)
 
-        job_plus_args = ('%s %s' % (TESTJOB, TESTJOB_ARGS) )
+        job_plus_args = f"{TESTJOB} {TESTJOB_ARGS}"
     else:
-        job_plus_args = ('%s %s' % (TESTJOB, infile_copy) )
+        job_plus_args = f"{TESTJOB} {infile_copy}"
 
 
     # run full job, include 'cd' and pipe to LOGFILE
-    CMD_JOB     = ('cd %s; %s > %s' % 
-                   (LOGDIR, job_plus_args, LOGFILE))
+    CMD_JOB     = f"cd {LOGDIR}; {job_plus_args} >& {LOGFILE}"
     os.system(CMD_JOB)
-
 
     # - - - - - - - - - - - - - - - - 
     # single task has finished
@@ -681,7 +726,7 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
     else:
         # grep out results
         CMD_grep = TESTRESULT.replace("logFile",LOGFILE)
-        CMD_grep = ('%s | tail -1' % CMD_grep)
+        CMD_grep = f"{CMD_grep} | tail -1"
         resultLine = subprocess.check_output(CMD_grep,shell=True).rstrip()
         if sys.version_info > (3,0):
             resultLine = resultLine.decode('utf-8')
@@ -699,7 +744,7 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
 
     # finally, write DONE_STRING to the DONE file
     f = open(DONEFILE, 'wt')
-    f.write('%s\n' % DONE_STRING)
+    f.write(f"{DONE_STRING}\n")
     f.close()
 
     return 1
@@ -709,7 +754,7 @@ def runTasks_driver(INPUTS):
 
     # process all tasks for one CPU (CPUNUM_REQ)
 
-    CPUNUM_REQ      = INPUTS["CPUNUM_REQ"]
+    CPUNUM_REQ      = INPUTS.cpunum
     CPU_TASKLIST    = parse_cpufile(INPUTS,CPUNUM_REQ)
 
     NTASK_TOT     = CPU_TASKLIST["NTASK_TOT"]  # total number of tasks
@@ -718,15 +763,14 @@ def runTasks_driver(INPUTS):
     CPUNUM        = CPU_TASKLIST["CPUNUM"]
     NDONE_REQ     = 0
 
-    print(' Begin execution of %d tasks for CPUNUM=%d ' % 
-          (NTASK_REQ,CPUNUM_REQ) )
+    print(f" Begin execution of {NTASK_REQ} tasks for CPUNUM={CPUNUM_REQ}")
     sys.stdout.flush()
 
-    while ( NDONE_REQ < NTASK_REQ ) :
+    while NDONE_REQ < NTASK_REQ :
         for itask in range(0,NTASK_TOT) :
-            if ( os.path.isfile(STOP_FILE) == True ) :
+            if os.path.isfile(STOP_FILE) :
                 sys.exit()
-            if ( CPUNUM[itask] == CPUNUM_REQ ) :
+            if  CPUNUM[itask] == CPUNUM_REQ  :
                 NDONE_REQ += execute_task(itask,CPU_TASKLIST,INPUTS)
                 time.sleep(2)
 
@@ -735,27 +779,27 @@ def runTasks_driver(INPUTS):
 # ====================
 def make_logdir(INPUTS):
 
-    DOREF          = INPUTS["DOREF"]
-    DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]
-    REFTEST        = INPUTS["REFTEST"]
-    DEBUG_FLAG     = INPUTS["DEBUG_FLAG"]
+    DOREF          = INPUTS.ref
+    DOCOMPARE_ONLY = INPUTS.compare_only
+    REFTEST        = INPUTS.REFTEST
+    DEBUG_FLAG     = INPUTS.debug
 
     tnow   = datetime.datetime.now()
     TSTAMP = ('%4.4d%2.2d%2.2d-%2.2d%2.2d' % 
-              (tnow.year,tnow.month,tnow.day,tnow.hour,tnow.minute) )
+              (tnow.year, tnow.month, tnow.day, tnow.hour, tnow.minute) )
     
     if DEBUG_FLAG is True:
         TSTAMP = 'DEBUG' 
 
-    logDir = ( '%s_%s_%s' % (REFTEST,TSTAMP,USERNAME_TAG) )
-    LOGDIR = ( '%s/%s' % (LOG_TOPDIR,logDir) )
+    logDir = f"{REFTEST}_{TSTAMP}_{USERNAME_TAG}"
+    LOGDIR = f"{LOG_TOPDIR}/{logDir}"
 
     if DOCOMPARE_ONLY is True :
         return LOGDIR
 
     # - - - - - - - - - - - - - - - - - 
-    print(' Create log-dir = \n\t %s \n' % LOGDIR)
-    if ( os.path.exists(LOGDIR) ):
+    print(f" Create log-dir = \n\t {LOGDIR} \n")
+    if os.path.exists(LOGDIR) :
         shutil.rmtree(LOGDIR)
 
     os.mkdir(LOGDIR)
@@ -779,10 +823,9 @@ def  make_cpufile(CPU_FILE,LIST_FILE_INFO):
         itask    = TASKORDER_LIST[order]
         TASK     = TASKNAME_LIST[itask]
         TASKNUM  = TASKNUM_LIST[itask]
-        f.write('TASK: %3d %3d   %s \n' % (cpunum,TASKNUM,TASK) )
+        f.write(f"TASK: {cpunum:3d} {TASKNUM:3d}   {TASK} \n")
         cpunum  += 1
-        if ( cpunum == NCPU ) :
-            cpunum = 0
+        if cpunum == NCPU :  cpunum = 0
         
     f.close()
     return
@@ -791,44 +834,50 @@ def  make_cpufile(CPU_FILE,LIST_FILE_INFO):
 def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
     # launch SSH jobs
-    SCRIPTNAME     = INPUTS["SCRIPTNAME"]
-    REFTEST        = INPUTS["REFTEST"]
+    SCRIPTNAME     = INPUTS.SCRIPTNAME
+    REFTEST        = INPUTS.REFTEST   # REF or TEST 
+    reftest        = INPUTS.reftest   # --ref or --test
     SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
     SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
     NCPU           = LIST_FILE_INFO["NCPU"]
     LOGDIR         = SUBMIT_INFO["LOGDIR"]
 
     # loop over CPUs and launch each SSH job
-
-    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
-
     for cpunum in range(0,NCPU) :
 
         node        =  SSH_NODES[cpunum]
-        logfile_cpu = ('%s/RUNJOB_CPU%3.3d.LOG' % (LOGDIR,cpunum) )
+        logfile_cpu = f"{LOGDIR}/RUNJOB_CPU{cpunum:03d}.LOG"
 
-        cmd_ssh     = ('ssh -x %s' % node)
-        cmd_cd      = ('cd %s' % LOGDIR)
-        cmd_job     = ('%s %s -cpunum %d  -logDir %s > %s' % 
-                       (SCRIPTNAME, REFTEST, cpunum, LOGDIR, logfile_cpu) )
+        cmd_ssh   = f"ssh -x {node}"
+        cmd_cd    = f"cd {LOGDIR}"
+        cmd_job   = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
+                    f"--logdir {LOGDIR} > {logfile_cpu}"
  
         # on first job, run snana.exe to leave version info
         if cpunum == 0 :
-            cmd_job = cmd_job0 + ' ; ' + cmd_job
+            cmd_snana_version  = f"snana.exe --snana_version > " \
+                                 f"{SNANA_INFO_FILE}"
 
-        cmd = ('%s  "%s; %s ; %s" & ' % 
-               (cmd_ssh, SNANA_SETUP, cmd_cd, cmd_job) )
+            cmd_python_version = f"python    --version       >> " \
+                                 f"{SNANA_INFO_FILE}"
 
-        print (' Launch tasks for CPU %3d' % cpunum )
-#        sys.exit('\n cmd = %s \n' % cmd )
-        os.system(cmd)
+            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; {cmd_job}"
 
+        # - - - - 
+        if INPUTS.nosubmit is False :
+            cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
+            print(f" Launch tasks for CPU {cpunum:3d}")
+            os.system(cmd)
+
+    return
+    # end submitTasks_SSH
 
 # =========================================
 def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     # launch batch jobs
-    SCRIPTNAME     = INPUTS["SCRIPTNAME"]
-    REFTEST        = INPUTS["REFTEST"]
+    SCRIPTNAME     = INPUTS.SCRIPTNAME
+    REFTEST        = INPUTS.REFTEST
+    reftest        = INPUTS.reftest   # --ref or --test
     SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
     BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
     NCPU           = LIST_FILE_INFO["NCPU"]
@@ -838,59 +887,75 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
     SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
-    
-    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
-    for cpunum in range(0,NCPU) :
-        batch_runfile = ('RUNJOBS_CPU%3.3d.BATCH'     % (cpunum) )
-        batch_logfile = ('RUNJOBS_CPU%3.3d.BATCH-LOG' % (cpunum) )
-        BATCH_RUNFILE = ('%s/%s' % (LOGDIR,batch_runfile) )
+    if len(SNANA_SETUP_forSed) == 0:
+        SNANA_SETUP_forSed = 'echo "No setup"'
 
-        cmd_job     = ("%s %s -cpunum %d  -logDir %s"  % 
-                       (SCRIPTNAME, REFTEST, cpunum, LOGDIR) )
-        cmd_job     = cmd_job.replace('/','\/')
+    # Jun 2021: check user snana_dir
+    snana_dir = os.path.expandvars(INPUTS.snana_dir)
+    if snana_dir != SNANA_DIR :
+        path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
+        SNANA_SETUP_forSed = f"export SNANA_DIR={snana_dir} ; " \
+                             f"export PATH={path_list}"
+        SNANA_SETUP_forSed  = SNANA_SETUP_forSed.replace('/','\/')
+        #print(f" xxx SNANA_SETUP_forSed = {SNANA_SETUP_forSed}")
+
+    for cpunum in range(0,NCPU) :
+        batch_runfile = f"RUNJOBS_CPU{cpunum:03d}.BATCH"
+        batch_logfile = f"RUNJOBS_CPU{cpunum:03d}.BATCH-LOG"
+        BATCH_RUNFILE = f"{LOGDIR}/{batch_runfile}"
+
+        cmd_job  = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
+                   f"--logdir {LOGDIR}"
+        cmd_job  = cmd_job.replace('/','\/')
 
         # on first job, run snana.exe to leave version info
         if cpunum == 0 :
-            cmd_job = cmd_job0 + ' ; ' + cmd_job
+            cmd_snana_version = f"snana.exe --snana_version " \
+                                f"> {SNANA_INFO_FILE}"
+            cmd_python_version = f"python --version          " \
+                                 f">> {SNANA_INFO_FILE}"
+            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; " \
+                      f"{cmd_job}"
 
-#        print(' 0. xxx -------------------- ')
-#        print(' 1. xxx prep sed ... ' )
-        # constrruct sed command to replace strings in batch-template
+        # construct sed command to replace strings in batch-template
         cmd_sed  = 'sed  '
-        cmd_sed += ("-e 's/REPLACE_NAME/CodeTest_CPU%3.3d/g' " % cpunum )
-        cmd_sed += ("-e 's/REPLACE_LOGFILE/%s/g' " % batch_logfile)
-        cmd_sed += ("-e 's/REPLACE_MEM/%d/g' " % MEMORY )
-        cmd_sed += ("-e 's/REPLACE_JOB/%s ; %s/g' " 
-                    % (SNANA_SETUP_forSed,cmd_job) )
-        cmd_sed += (" %s > %s" % (BATCH_TEMPLATE_FILE,BATCH_RUNFILE) )
-#        print(' xxx sed = %s ' % cmd_sed)
-
+        cmd_sed += f"-e 's/REPLACE_NAME/CodeTest_CPU{cpunum:03d}/g' "
+        cmd_sed += f"-e 's/REPLACE_LOGFILE/{batch_logfile}/g' "
+        cmd_sed += f"-e 's/REPLACE_MEM/{MEMORY}/g' "
+        cmd_sed += f"-e 's/REPLACE_WALLTIME/{WALLTIME_MAX}/g' "
+        cmd_sed += f"-e 's/REPLACE_JOB/{SNANA_SETUP_forSed} ; {cmd_job}/g' " 
+        cmd_sed += f" {BATCH_TEMPLATE_FILE} > {BATCH_RUNFILE}"
+        #print(f" xxx sed = {cmd_sed} ")
         os.system(cmd_sed)
 
-
-        # make sure batch file was created .xyz
-        if ( os.path.isfile(BATCH_RUNFILE) == False ) :
-            msg = (' ABORT: could not create BATCH_RUNFILE = \n %s' % 
-                   BATCH_RUNFILE )
+        # make sure batch file was created 
+        if os.path.isfile(BATCH_RUNFILE) is False  :
+            msg = f" ABORT: could not create BATCH_RUNFILE = \n" \
+              f" {BATCH_RUNFILE}"
             sys.exit(msg)
 
         # launch the job
-        cmd_submit = ('cd %s ; %s %s' % 
-                      (LOGDIR, BATCH_SUBMIT_COMMAND, batch_runfile) )
-        os.system(cmd_submit)
-#        print(' Submitted %s ' % batch_runfile )
-#        sys.stdout.flush()
+        cmd_submit = f"cd {LOGDIR} ; {BATCH_SUBMIT_COMMAND} {batch_runfile}"
+
+        if INPUTS.nosubmit :
+            print(f" Skip {BATCH_SUBMIT_COMMAND} {batch_runfile}")
+        else:
+            os.system(cmd_submit)
+
+
+    return
+    # end submitTasks_BATCH
 
 #    sys.exit('\n\n xxx Bye bye from submitTasks_BATCH' )
 
 # ===================================
-def submitTasks_driver(INPUTS,LIST_FILE_INFO):
+def submitTasks_driver(INPUTS, LIST_FILE_INFO):
 
     print('\n Prepare to Submit tasks ')
 
-    SCRIPTNAME     = INPUTS["SCRIPTNAME"]
-    DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]
-    REFTEST        = INPUTS["REFTEST"]
+    SCRIPTNAME     = INPUTS.SCRIPTNAME
+    DOCOMPARE_ONLY = INPUTS.compare_only
+    REFTEST        = INPUTS.REFTEST
     SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
     BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
     RUN_SSH        = LIST_FILE_INFO["RUN_SSH"]
@@ -902,13 +967,13 @@ def submitTasks_driver(INPUTS,LIST_FILE_INFO):
     LOGDIR = make_logdir(INPUTS)
 
     # remove relic STOP-file flag if it's still there
-    if ( os.path.isfile(STOP_FILE) == True ) :
-        cmd_rm = ('rm %s' % STOP_FILE)
+    if os.path.isfile(STOP_FILE) :
+        cmd_rm = f"rm {STOP_FILE}"
         os.system(cmd_rm)
 
     # - - - - - - - - - - - - - - 
     # get file nanme with CPU assignments
-    CPU_FILE =  ('%s/%s' % (LOGDIR,CPU_FILE_DEFAULT) )
+    CPU_FILE =  f"{LOGDIR}/{CPU_FILE_DEFAULT}"
     
     SUBMIT_INFO = {
         "NTASK"    : NTASK,
@@ -923,20 +988,19 @@ def submitTasks_driver(INPUTS,LIST_FILE_INFO):
     # below we actually do stuff.
     make_cpufile(CPU_FILE,LIST_FILE_INFO)
 
-    if ( RUN_SSH ):
+    if RUN_SSH :
         submitTasks_SSH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
-    if ( RUN_BATCH ):
+    if RUN_BATCH :
         submitTasks_BATCH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
     # - - - - - - - - - - - - - -
 
-    # loop over cores and assign 
     return SUBMIT_INFO
-
+    # end submitTasks_driver
 
 # ========================================
-def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
+def compare_results(INPUTS, RESULTS_INFO_REF, RESULTS_INFO_TEST):
 
     # compare TEST vs. REF and write final summary file.
 
@@ -963,7 +1027,7 @@ def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
     SNANA_VER_REF   = RESULTS_INFO_REF["SNANA_VERSION"]
     SNANA_VER_TEST  = RESULTS_INFO_TEST["SNANA_VERSION"] 
 
-    DIFF_FILE = ('%s/%s' % (LOGDIR_TEST,RESULT_DIFF_FILE) )
+    DIFF_FILE = f"{LOGDIR_TEST}/{RESULT_DIFF_FILE}"
     f = open(DIFF_FILE, 'wt')
 
     NTASK_TEST  = len(TASKNUM_TEST)
@@ -971,12 +1035,12 @@ def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
     NTASK_FAIL  = 0
 
     # write header info before comparison infox
-    f.write("LIST_FILE: %s \n" % INPUTS["LIST_FILE"] )
-    f.write("REF  LOGDIR    : %s \n" % logdir_ref )
-    f.write("TEST LOGDIR    : %s \n" % logdir_test )
-    f.write("REF  SNANA_DIR : %s (%s)\n" % (SNANA_DIR_REF, SNANA_VER_REF) )
-    f.write("TEST SNANA_DIR : %s (%s)\n" % (SNANA_DIR_TEST,SNANA_VER_TEST) )
-    f.write("\n# ------------------------------------------------- \n");
+    f.write(f"LIST_FILE: {INPUTS.list_file} \n")
+    f.write(f"REF  LOGDIR    : {logdir_ref} \n")
+    f.write(f"TEST LOGDIR    : {logdir_test} \n")
+    f.write(f"REF  SNANA_DIR : {SNANA_DIR_REF} ({SNANA_VER_REF})\n")
+    f.write(f"TEST SNANA_DIR : {INPUTS.snana_dir} ({SNANA_VER_TEST})\n")
+    f.write(f"\n# ------------------------------------------------- \n");
     f.flush()
 
     for NUM in TASKNUM_TEST :
@@ -992,18 +1056,18 @@ def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
             NTASK_MATCH += 1
         else:
             f.write('%-40s:  mis-match (REF != TEST)\n' % TASKNUMNAME )
-            f.write('\t ==> REF:  %s\n' % RESULT_REF  )
-            f.write('\t ==> TEST: %s\n' % RESULT_TEST )
+            f.write(f"\t ==> REF:  {RESULT_REF}\n")
+            f.write(f"\t ==> TEST: {RESULT_TEST}\n")
             NTASK_FAIL += 1
 
     # write final summary
-    f.write("\n TEST Summary\n")
-    f.write("  %3d tests have perfect match \n" % NTASK_MATCH )
-    f.write("  %3d tests have mis-match \n"     % NTASK_FAIL )
+    f.write(f"\n TEST Summary\n")
+    f.write(f"  {NTASK_MATCH:3d} tests have perfect match \n" )
+    f.write(f"  {NTASK_FAIL:3d} tests have mis-match \n")
     f.close()
 
     # dump DIFF_FILE to screen
-    cmd_cat = ('cat %s' % DIFF_FILE)
+    cmd_cat = (f"cat {DIFF_FILE}")
     os.system(cmd_cat)
 
     return(NTASK_FAIL)
@@ -1016,7 +1080,7 @@ def make_tarfiles(LOGDIR):
     tarfile_list  = []
 
     filespec_list.append('TASK*')
-    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST')
+    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.COV *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST RUNJOBS* ')
 
     tarfile_list.append('BACKUP_TASKFILES.tar')
     tarfile_list.append('BACKUP_MISC.tar')
@@ -1028,11 +1092,11 @@ def make_tarfiles(LOGDIR):
     for i in range(0,NLIST):
         filespec  = filespec_list[i]
         tarfile   = tarfile_list[i]
-        cmd_cd    = ('cd %s' % LOGDIR)
-        cmd_tar   = ('tar -cf %s %s >/dev/null 2>&1' % (tarfile,filespec))
-        cmd_gzip  = ('gzip %s' % tarfile)
-        cmd_rm    = ('rm %s >/dev/null 2>&1' % filespec)
-        cmd_all   = ('%s ; %s ; %s ; %s' % (cmd_cd,cmd_tar,cmd_gzip,cmd_rm) ) 
+        cmd_cd    = f"cd {LOGDIR}"
+        cmd_tar   = f"tar -cf {tarfile} {filespec} >/dev/null 2>&1"
+        cmd_gzip  = f"gzip {tarfile}"
+        cmd_rm    = f"rm {filespec} >/dev/null 2>&1"
+        cmd_all   = f"{cmd_cd} ; {cmd_tar} ; {cmd_gzip} ; {cmd_rm}"
 
         os.system(cmd_all)
 
@@ -1041,13 +1105,19 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     t_start = time.time()
 
-    DOREF   = INPUTS["DOREF"]
-    DOTEST  = INPUTS["DOTEST"]
-    REFTEST = INPUTS["REFTEST"]
+    DOREF   = INPUTS.ref
+    DOTEST  = INPUTS.test
+    REFTEST = INPUTS.REFTEST
     NTASK   = SUBMIT_INFO["NTASK"]
     LOGDIR  = SUBMIT_INFO["LOGDIR"]
 
-    print('\n Begin monitor of %d %s tasks' % (NTASK,REFTEST) )
+    # July 2021: write login HOST in case we forget later
+    host_info_file = f"{LOGDIR}/HOST_MONITOR.INFO"
+    HOSTNAME         = os.environ['HOSTNAME']
+    with open(host_info_file,"wt") as f:
+        f.write(f"HOST: {HOSTNAME}    # monitor task runs here\n")
+
+    print(f"\n Begin monitor of {NTASK} {REFTEST} tasks")
 
     NDONE = 0
     while ( NDONE < NTASK ) :
@@ -1055,25 +1125,25 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
         # track total run time
         t_now  = time.time()
         t_proc = (t_now-t_start)/60.0  # time in minutes
-        print(' Found %d of %d done files  (%.1f minutes elapsed).' 
-              % (NDONE,NTASK,t_proc) )
+        print(f" Found {NDONE} of {NTASK} done files  " \
+              f"({t_proc:0.1f} minutes elapsed).")
         sys.stdout.flush()
-        if ( os.path.isfile(STOP_FILE) == True ) :
-            cmd_cp = ('cp %s %s' % (STOP_FILE,LOGDIR) )
+        if os.path.isfile(STOP_FILE) :
+            cmd_cp = f"cp {STOP_FILE} {LOGDIR}"
             os.system(cmd_cp)
             sys.exit()
 
-        if ( NDONE < NTASK ) :
+        if NDONE < NTASK :
             time.sleep(10)
 
     # everything has finished.
     # Catenate the one-line summary from each DONE file
-    result_file = ('%s/%s' % (LOGDIR,RESULT_TASKS_FILE) )
-    print(" All jobs have finished; check RESULTS summary file: \n"
-          "    %s " % result_file)
+    result_file = f"{LOGDIR}/{RESULT_TASKS_FILE}"
+    print(f" All jobs have finished; check RESULTS summary file: \n" \
+          f"    {result_file}")
     sys.stdout.flush()
 
-    CMD = ('cd %s ; cat TASK*DONE > %s' % (LOGDIR,RESULT_TASKS_FILE) )
+    CMD = f"cd {LOGDIR} ; cat TASK*DONE > {RESULT_TASKS_FILE}"
     os.system(CMD)
 
     # Count number or ABORT and BLANK entries
@@ -1093,23 +1163,23 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     # append NABORT and NBLANK to results file.
     f = open(result_file, 'at')
-    f.write("\n")
-    f.write(" SNANA_VERSION: %s\n" % SNANA_VER)
-    f.write(" SNANA_DIR:     %s\n" % SNANA_DIR)
-    f.write(" Total process time for %d tasks: %.1f minutes\n"
-            % (NTASK,t_proc ) )
-    f.write(" Number of jobs with ABORT output: %d \n" % NABORT)
-    f.write(" Number of jobs with BLANK output: %d \n" % NBLANK)
+    f.write(f"\n")
+    f.write(f" SNANA_VERSION: {SNANA_VER}\n")
+    f.write(f" SNANA_DIR:     {INPUTS.snana_dir}\n")
+    f.write(f" Total process time for {NTASK} tasks: {t_proc:0.1f} minutes\n")
+    f.write(f" Number of jobs with ABORT output: {NABORT} \n")
+    f.write(f" Number of jobs with BLANK output: {NBLANK} \n")
     f.close()
 
     if DOTEST is True :
         RESULTS_INFO_TEST = get_RESULTS_TASKS(LOGDIR)
-        NCOMPARE_FAIL = compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST)
+        NCOMPARE_FAIL     = compare_results(INPUTS, RESULTS_INFO_REF,
+                                            RESULTS_INFO_TEST)
     else:
         NCOMPARE_FAIL = 0   # REF cannot have compare errors
 
     # if no errors, tar things up
-    if ( NABORT==0 and NBLANK==0 and NCOMPARE_FAIL==0 ) :
+    if NABORT==0 and NBLANK==0 and NCOMPARE_FAIL==0 :
         make_tarfiles(LOGDIR)
 
     return               
@@ -1124,51 +1194,35 @@ if __name__ == "__main__":
     # parse input arguments
     INPUTS = parse_args()
 
-    # strip off local INPUT arg values
-    DOREF            = INPUTS["DOREF"]
-    DOTEST           = INPUTS["DOTEST"]
-    DOCOMPARE_ONLY   = INPUTS["DOCOMPARE_ONLY"]
-    DOSTOP           = INPUTS["DOSTOP"]
-    REFTEST          = INPUTS["REFTEST"]
-    CPUNUM_REQ       = INPUTS["CPUNUM_REQ"]
-    LOGDIR           = INPUTS["LOGDIR"]
-    LIST_FILE        = INPUTS["LIST_FILE"]
-
-    if DOSTOP is True:
-        msg = ('touch %s' % STOP_FILE )
-        os.system(msg)
+    if INPUTS.stop :
+        os.system(f"touch {STOP_FILE}")
         sys.exit('STOP flag sent. Wait for current job to finish')
 
-
-    print(" Inputs: ")
-    print("   SNANA_DIR     =  %s  " % SNANA_DIR )
-    print("   SNANA_TESTS   =  %s  " % SNANA_TESTS_DIR )
-    print("   REF or TEST   =  %s  " % REFTEST )
-    print("   CPUNUM_REQ    =  %d  " % CPUNUM_REQ )
-    print("   LOGDIR     = '%s' " % LOGDIR   )
-    print("   LIST_FILE  = '%s' " % LIST_FILE )
-
-    if DOCOMPARE_ONLY is True:
-        print("\n !!! DEBUG MODE: COMPARE TEST vs. REF only !!! ")
-   
     print(" ")
     sys.stdout.flush()
 
-    if ( CPUNUM_REQ >= 0 ) :
+    if INPUTS.cpunum >= 0 :
         runTasks_driver(INPUTS)  # run jobs for this CPUNUM
     else:
         # for TEST, need to read REF_RESULTS now to make sure
         # that each TEST has a corresponding REF entry.
-        if INPUTS["DOTEST"] is True :
+        if INPUTS.test  :
             LOGDIR_REF        = get_LOGDIR_REF()
             RESULTS_INFO_REF  = get_RESULTS_TASKS(LOGDIR_REF)
         else:
             RESULTS_INFO_REF = []
 
-        LIST_FILE_INFO = parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF)
+        LIST_FILE_INFO = parse_listfile(INPUTS, RESULTS_INFO_REF)
         check_listfile_contents(LIST_FILE_INFO)
 
+        #sys.exit("\n xxx DEBUG STOP xxx \n")
+
         SUBMIT_INFO = submitTasks_driver(INPUTS,LIST_FILE_INFO)  
+
+        if INPUTS.nosubmit :
+            LOGDIR = SUBMIT_INFO['LOGDIR']
+            sys.exit(f"\n Exit without submitting jobs. " \
+                     f"\n Check output in {LOGDIR} \n")
 
         monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF) 
 

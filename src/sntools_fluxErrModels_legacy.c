@@ -307,12 +307,6 @@ void INIT_NOISEMODEL_HOST_LEGACY(char *HOSTNOISE_FILE) {
 
   if ( !fp ) {
     abort_openTextFile("HOSTNOISE_FILE", PATH_SIMLIB, ptrFile, fnam);
-
-    /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxx
-    sprintf(c1err, "could not open HOSTNOISE_FILE:");
-    sprintf(c2err, "%s", ptrFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    xxxxxxxx */
   }
   else {
     //    printf("\t Read noise model from: \n\t %s\n", NOISEMODEL_FILE );

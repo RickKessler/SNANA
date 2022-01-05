@@ -1,7 +1,7 @@
 /****************************************
  Created Oct 2010 by R.Kessler
  
- Tools to generate GRID of templates with snlc_sim.exe
+ Tools to generate MODEL GRID from model in snlc_sim.exe
  (see manual for more details).
 
  The light curve structure for each SN is
@@ -38,19 +38,11 @@
 
 *********************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-*/
 
 #include "sntools.h"      // general snana stuff
 #include "sntools_cosmology.h"
 #include "fitsio.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "snlc_sim.h"
 #include "genmag_SIMSED.h"
 #include "genmag_NON1ASED.h"
@@ -448,7 +440,6 @@ void init1_GRIDsource(void) {
   
   
   // transfer NON1A info here
-  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
   if (INDEX_GENMODEL == MODEL_NON1ASED  )  {
     NBIN = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_SHAPEPAR] ;
     for ( i = 1; i <= NBIN; i++ ) { 
@@ -1148,10 +1139,6 @@ void get_GRIDKEY(void) {
   char ctkey[100] ;
   time_t tkey ;
   struct tm * ptm;
-
-  /* xxxxxx mark delete Dec 10 2017 xxxxxxxxxx
-  get_snana_versions__(vers_snana, vers_photom, 20, 200);
-  xxx */
 
   time(&tkey);
   ptm = gmtime ( &tkey );

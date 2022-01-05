@@ -44,20 +44,12 @@ void init_stronglens(char *MODEL_FILE) {
 
 
   // open input file for reading
-  // xxx mark delete  fp = fopen(MODEL_FILE,"rt");
   fp = snana_openTextFile(1,PATH_USER_INPUT, MODEL_FILE,
 			  FULLNAME_MODEL_FILE, &gzipFlag );
 
   if ( fp == NULL ) {
     abort_openTextFile("STRONGLENS_FILE",
 		       PATH_USER_INPUT, MODEL_FILE, fnam );
-
-    /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
-    sprintf(c1err, "Could not open strong-lens model file");
-    sprintf(c2err, " '%s' ", MODEL_FILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    xxxxxxxxxxx */
-
   }
 
   INPUTS_STRONGLENS.USE_FLAG = 1;
@@ -360,7 +352,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   // ---------------- BEGIN ---------------
 
   // always burn random
-  FlatRan = FlatRan1(2);   // flat between 0 and 1
+  FlatRan = getRan_Flat1(2);   // flat between 0 and 1
 
   
   *NIMG = 0 ;

@@ -57,8 +57,7 @@ void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
-void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
-		  double *magSmear) ;
+void get_genSmear(double *parList, int NLam, double *Lam, double *magSmear) ;
 
 int  repeat_genSmear(double Trest, int NLam, double *Lam);
 void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
@@ -66,7 +65,7 @@ void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
 void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
 void update_genSmear_COVLAM_debug(double *magSmear);
 
-double get_genSmear_SCALE(double c, double x1);
+double get_genSmear_SCALE(double *parList);
 
 void  get_genSmear_USRFUN(double Trest, int NLam, double *Lam, 
 			  double *magSmear ) ;
@@ -138,10 +137,6 @@ struct GENSMEAR {
   double SHAPE, COLOR ; // allows more complex magSmear models
   double REDSHIFT ;       // allows for redshift evolution (Jan 2014)
   double ZPOW[10];  // store powers of redshift for faster calculations.
-
-  // xxxx mark delete Mar 22 2020: moved below to GENSMEAR_SCALE
-  // xxx   double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
-  // xxxxxxxxxxxxx end mark xxxxxxxxx
 
   int    MSKOPT ; // generic opt-mask
 
@@ -229,7 +224,6 @@ struct GENSMEAR_SALT2 {
 struct GENSMEAR_C11 {
   int USE ;
   CHOLESKY_DECOMP_DEF DECOMP ;
-  // xxx mark delete  double Cholesky[NBAND_C11][NBAND_C11] ;
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
@@ -277,7 +271,7 @@ struct GENSMEAR_COVSED {
 
   // COVSED and binning read from FITS file
   int     NBIN_WAVE, NBIN_EPOCH, NBIN_WAVExEPOCH, NBIN_COVMAT ;
-  double  *WAVE, *EPOCH; // xxx mark delete *COVMAT1D ;
+  double  *WAVE, *EPOCH; 
 
   // matrix used to generate correlated randoms
   CHOLESKY_DECOMP_DEF DECOMP;
@@ -385,7 +379,6 @@ struct {
   double  BINSIZE ;
   double  RANGE[2] ;  // min & max phase to store COVMAT
   double *GRID_PHASE ;      // phase value at each grid point
-  // xxx mark delete  double **Cholesky ;     // fixed matrix for GRID
   double *GRID_MAGSMEAR ; // for each event
   double *RANGauss_LIST ; // new randoms for each event
   int    CID_LAST ;       // used to identify new event

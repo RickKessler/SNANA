@@ -234,9 +234,10 @@ c
 c Note that EPLIST_FIT is used in FCN to loop over only
 c the epochs to be fit.
 c
+c Oct 15 2021: add IEP_CCDNUN, IEP_IMGNUM
 
       INTEGER MXVAR_R4, MXVAR_I4
-      PARAMETER ( MXVAR_R4=60, MXVAR_I4=10 )
+      PARAMETER ( MXVAR_R4=60, MXVAR_I4=12 )
       
       REAL*4 
      &   R4EP_ALL(MXFIT_DATA,MXVAR_R4) !vs. absolute epoch; fixed each iter
@@ -263,6 +264,7 @@ c variable indices for I4EP_
      &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
      &  ,IEP_REJECT, IEP_REJECT2
+     &  ,IEP_CCDNUM, IEP_IMGNUM
 
 c variable indices for R4EP_
       INTEGER   
@@ -296,6 +298,8 @@ c for I4EP_XXX
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
      &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
+     &  ,IEP_CCDNUM          = 10 ! CCD number
+     &  ,IEP_IMGNUM          = 11 ! image number (e..g, EXPNUM, VISIT_ID)
 c
 c for R4EP_XXX
      &  ,JEP_MJD              = 1
@@ -559,6 +563,9 @@ c namelist input variables.
      &   ,LKCOR_STRETCH     ! T=> get Kcor from stretched template
      &   ,LKCOR_AVWARP      ! T=> get Kcor from color-warped template
      &   ,USE_MODEL_MAGERR  ! T=> use mag error from model
+     &   ,ENABLE_MAGSHIFT_SALT2  ! T=> enable magshifts from training
+     &   ,ENABLE_WAVESHIFT_SALT2 ! T=> enable magshifts from training
+     &   ,ALLOW_NEGFLUX_SALT2    ! T=> alow Flam < 0; otherwise force Flam=0
      &   ,ADD_SALT2ERR_FROMz ! T=> add SALT2 param errors from zerr
      &   ,USESIM_COLOR      ! T=> use simulated color (AV,c ...)
      &   ,USESIM_AV         ! T => use sim. AV in fit (only if LSIM=T)
@@ -577,7 +584,6 @@ c namelist input variables.
      &   ,LPLOTCHI2         ! T=> plot chi2 vs. each fitpar & filter
      &   ,DOCHI2_SIGMA      ! T=> add chi2 from model-error
      &   ,CHECK_CRAZYFITERR ! T=> check for crazy fit errors (default)
-     &   ,DUMB_DEBUG        ! T=> internal debugging such as restore bug
 
 c option to compute Zmax/Vmax for 1/Vmax method (Jun 2013)
       CHARACTER MAGLIM_VMAX*60   ! e.g., 'r 21.5  i 22.0'
@@ -642,6 +648,9 @@ c
      &  ,INIVAL_SHIFT_ERRFRAC ! after 1st iter, INIVAL += FITERR*ERRFRAC
      &  ,FRACERRDIF_REPEATFIT ! repeat fit with MINOS if FRACERRDIF > thius
 c
+     &  ,INIVAL_GRIDSEARCH_DPEAKMJD(3)  ! min,max w.r.t. t0_approx, binsize
+     &  ,INIVAL_GRIDSEARCH_COLOR(3)  ! min,max,binsize
+c
      &  ,PRIOR_AVEXP(2)   ! 2 exp slopes for AV prior
      &  ,PRIOR_AVWGT(2)   ! 2 exp wgts for AV prior
      &  ,PRIOR_AVRES      ! gaussian resolution-smearing on exponential prior
@@ -653,12 +662,11 @@ c
      &  ,PRIOR_LUMIPAR_RANGE(2)  ! idem, legacy variable
      &  ,PRIOR_LUMIPAR_SIGMA     ! idem, legacy variable
      &  ,PRIOR_DELTA_PROFILE(4)  ! DELTA-prior pars: sig(low,up) & min
+c
      &  ,FUDGE_COVAR      ! fudge normalized covariances (0=> no fudge)
      &  ,SCALE_COVAR      ! scale entire covariance matrix by this factor
      &  ,LANDOLT_COLOR_SHIFT(10)  ! shifts in color terms (if OPT_LANDOLT>0)
      &  ,ZSCALE_SIMEFF     ! scale redshift for SIMEFF call.
-     &  ,FITRES_ADDERR_DLMAG  ! add to DLMAG error for fitres file only
-     &  ,FITRES_ADDERR_REDSHIFT  ! idem for redshift
      &  ,TREST_PEAKRENORM(2)   ! Trest-range to renorm peakFlux for FPKRAT
      &  ,TREST_DMPFUN(2)       ! Trest-range for FILTLIST_DMPFUN
      &  ,SCALE_PLOTCHI2        ! for HFUNMIN
@@ -751,7 +759,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
       COMMON / FITINP / 
      &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
-     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
+     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
@@ -762,6 +770,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
      &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
+     &   ,ENABLE_MAGSHIFT_SALT2, ENABLE_WAVESHIFT_SALT2
+     &   ,ALLOW_NEGFLUX_SALT2
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
@@ -783,6 +793,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
+     &   ,INIVAL_GRIDSEARCH_DPEAKMJD, INIVAL_GRIDSEARCH_COLOR
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
@@ -808,7 +819,6 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FUDGEALL_MAXFRAC, FUDGEALL_ITER1_MAXFRAC
      &   ,FUDGE_DATAERR_SCALE, FUDGE_MODELERR_SCALE
      &   ,FITCOVAR_FILE
-     &   ,FITRES_ADDERR_DLMAG, FITRES_ADDERR_REDSHIFT
      &   ,TREST_PEAKRENORM
      &   ,SALT2alpha, SALT2beta, OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
@@ -820,7 +830,7 @@ c ------
       NAMELIST / FITINP / 
      &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
-     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
+     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
@@ -830,6 +840,8 @@ c ------
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
      &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
+     &   ,ENABLE_MAGSHIFT_SALT2, ENABLE_WAVESHIFT_SALT2
+     &   ,ALLOW_NEGFLUX_SALT2
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
@@ -852,6 +864,7 @@ c ------
      &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
+     &   ,INIVAL_GRIDSEARCH_DPEAKMJD, INIVAL_GRIDSEARCH_COLOR
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
@@ -877,7 +890,6 @@ c ------
      &   ,FUDGEALL_MAXFRAC, FUDGEALL_ITER1_MAXFRAC
      &   ,FUDGE_DATAERR_SCALE, FUDGE_MODELERR_SCALE
      &   ,FITCOVAR_FILE
-     &   ,FITRES_ADDERR_DLMAG, FITRES_ADDERR_REDSHIFT
      &   ,TREST_PEAKRENORM
      &   ,SALT2alpha, SALT2beta , OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
@@ -922,10 +934,11 @@ c variables to define subset of fitted bands;
 
 c variables for SPECTRA table (Nov 2016)
       INTEGER    MXLAM_TBLSPEC, NBLAM_TBLSPEC, TBLSPEC_IFILTOBS
+      INTEGER    TBLSPEC_CCDNUM, TBLSPEC_IMGNUM  ! Oct 2021
       PARAMETER ( MXLAM_TBLSPEC = 1000 )
       CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
       REAL  
-     &   TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
+     &   TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
      &  ,TBLSPEC_LAMLIST(MXLAM_TBLSPEC)
@@ -942,7 +955,9 @@ c
      &  ,SURVEY_FILTERS_TABLE
 c
      &  ,NBLAM_TBLSPEC, TBLSPEC_IFILTOBS, TBLSPEC_FIELD
+     &  ,TBLSPEC_CCDNUM, TBLSPEC_IMGNUM
      &  ,TBLSPEC_CFILT, TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS
+     &  ,TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
      &  ,TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST
@@ -1358,7 +1373,6 @@ c set FITMODEL_INDEX, FITMODEL_PATH and FITMODEL_VERSION
       LEN_VERS = INDEX(FITMODEL_VERSION, ' ' ) - 1
       LEN_NAME = INDEX(FITMODEL_NAME,' ') - 1
 
-cc xxx mark delete      tmpName  = FITMODEL_VERSION(1:LEN_VERS) // char(0)
       tmpName  = FITMODEL_NAME(1:LEN_NAME) // char(0)
       
 c set rest-frame filter ranges.
@@ -2213,6 +2227,9 @@ c   DELCHI2_REJECT are set. Fixes long-standing bug.
 c
 c Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
 c              correct CUTFLAG_SNANA shows up in FITRES table.
+c
+c May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -2236,7 +2253,7 @@ c local var
      &  ,OPT, hid, i, IERR_MARG
 
       LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
-      LOGICAL LMAXFRAC, LCHI2REJ
+      LOGICAL LMAXFRAC, LCHI2REJ, CRAZY
       REAL FRACERRDIF
       character sdir*20, chis*40, ccid*(MXCHAR_CCID)
 
@@ -2317,9 +2334,14 @@ c check optional IDEAL fit with FLUX=TRUEFLUX (Aug 2017)
 
 
 c -------------------------------------------------
-c check for crazy errors, unless the plotchi2-debugger is on
+c check for crazy errors, unless:
+c   + plotchi2-debugger is on, or
+c   + OPT_SNCID_LIST is set
 
-      IF ( CRAZYFITERR(isn,iter) .and. .not. LPLOTCHI2 ) THEN
+      CRAZY = CRAZYFITERR(isn,iter) .and. 
+     &    (.not. LPLOTCHI2 .and. OPT_SNCID_LIST==0)
+
+      IF ( CRAZY ) THEN
         write(6,222) CCID(1:LCID)
 222     format(T15,'CRAZY ERROR for CID=', A,' ==> SKIP ' )
         ERRFLAG = ERRFLAG_FIT_CRAZYERR
@@ -2505,7 +2527,7 @@ c checking crazy error
          RETURN
       endif
 
-c check for NaN on every fit iteratio
+c check for NaN on every fit iteration
       LNAN = .FALSE.
       if ( ISNAN(ERR_COLOR) ) LNAN = .TRUE.
       if ( ISNAN(ERR_SHAPE) ) LNAN = .TRUE.
@@ -3079,6 +3101,7 @@ c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
 c 
 c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
+c
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -3097,8 +3120,8 @@ c local var
 +CDE,SNLCINP.
 
       INTEGER 
-     &   IFILT_OBS, IFILT, ILAM
-     &  ,LEN1, LEN_NAME, ISTAT, NLAM, OPTMASK
+     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY
+     &  ,LEN1, LEN2, LEN_NAME, ISTAT, NLAM, OPTMASK
      &  ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
       REAL*8  
@@ -3110,11 +3133,10 @@ c local var
 
       CHARACTER 
      &   tmpname*20
-cc xxxx     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+     &  ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)
+c     &  ,SURVEY_NAME_LOCAL*(MXCHAR_SURVEY)
      &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
-     &  ,BLANK*8
-     &  ,CFILT1*2
-     &  ,cfilt*(MXFILT_ALL)
+     &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
       LOGICAL LBX
 
@@ -3140,8 +3162,18 @@ c functions
 C ------------------- BEGIN ---------------
 
       IERR = 0
-      LEN_NAME = INDEX(FITMODEL_NAME,' ') - 1
-      
+      LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
+
+c xxxxxxxx mark delete xxxxxxx
+c Nov 11 2020: get SURVEY name, or SUBSURVEY name
+c      IF ( SUBSURVEY_NAME .EQ. '' ) THEN
+c        SURVEY_NAME_LOCAL = SURVEY_NAME
+c      ELSE
+c        SURVEY_NAME_LOCAL = SUBSURVEY_NAME
+c      ENDIF
+c      LEN_SURVEY = INDEX(SURVEY_NAME_LOCAL,  ' ') - 1
+c xxxxxxxxx end mark xxxxxxxxxxxx
+
 c reset SEDMODEL to init and/or erase previous instance
       ISTAT = RESET_SEDMODEL()
 
@@ -3195,12 +3227,15 @@ c now init each filter.
 c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
 
-         CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, CFILT, MAGPRIM, 
-     &                      NLAM, lam, VALa, VALb)
+         CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, SURVEY_NAME_FILTER,
+     &            CFILT, MAGPRIM, NLAM, lam, VALa, VALb)
 
          LEN1  = INDEX(cfilt,' ' ) - 1
-         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt, 
-     &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT, LEN1)
+         LEN2  = INDEX(SURVEY_NAME_FILTER,' ') - 1
+         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
+     &              SURVEY_NAME_FILTER,
+     &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
+     &              LEN1, LEN2 )
 
       CALL FLUSH(6)
 
@@ -3223,9 +3258,13 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
         OPTMASK = 0
-        IF ( REQUIRE_DOCANA > 0 ) OPTMASK = 2  ! Sep 4 2020
+        IF ( REQUIRE_DOCANA > 0 )           OPTMASK = OPTMASK + 2
+        IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
+        IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
+	IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
+
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
-     &            LEN_NAME, 0 )
+     &            LEN_NAME, 40 )
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
@@ -4425,14 +4464,12 @@ c set local dump logicals = namelist flag .and. (debug option)
      &           .and. LFITDATA 
 
 c dumpe header just once per filter.
-
-cc xxx mark delete Oct 2020   if ( LDMPFCN_LOC .and. FIRSTFILT ) then      
-         if ( LDMPFCN_LOC ) then
+         if(LDMPFCN_LOC .and. FIRSTFILT ) then
 
               print*,' '
               print*,' -------------------------------------- '
               write(6,602) SNLC_CCID,  ITER, IFLAG
-602           format(T5,'PREPARE TO DUMP FCNSNLC for SN ', A8, 
+602           format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16, 
      &              3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' ) 
 
 c print  fit-pars to see crazy values.
@@ -4449,7 +4486,7 @@ c print  fit-pars to see crazy values.
               write(6,603) 'SHAPE', SHAPEPAR(1)
               write(6,603)  PARNAME_STORE(IPAR_DLMAG)(1:6), DISTPAR
 
-603           format(T7, A, T17,'= ', G14.4 )
+603           format(T7, A, T17,'= ', G14.6 )
 604           format(T7, A, T17,'= ', F12.4 )
 
 c print non-zero chi2prior contributions
@@ -5243,8 +5280,8 @@ c     &  ,FILTINDX
      &  ,GALextinct    ! returns approx MW extinction
      &  ,KCORFUN8
      &  ,DLMAG8_REF
-     &  ,SALT2x0calc
-     &  ,SALT2xx1, SALT2zz
+     &  ,SALT2x0calc, SALT2xx1, SALT2zz
+     &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
 c ------------- BEGIN ------------
 
@@ -5519,15 +5556,22 @@ c translate fit-params into SALT2 language
 c loop over all needed obs-filters;
 c multiple filters are needed for Landolot color transf.
 
+          RVDUM = 0.0 ; AVDUM=0.0  ! cannot fit for Mandel's extinc params
+          PARLIST_SN(1) = SALT2x0
+          PARLIST_SN(2) = SALT2x1
+          PARLIST_SN(3) = SALT2c
+          PARLIST_SN(4) = xx1
+	  PARLIST_HOST(1) = RVDUM
+          PARLIST_HOST(2) = AVDUM
+	  PARLIST_HOST(3) = -9.0   ! logMass
+
           DO ifilt2 = 1, NFTMP
              ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)
              mag_obs_tmp(ifilt2_obs) = 0.0
              LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
-             RVDUM = 0.0 ; AVDUM=0.0  ! cannot fit for Mandel's extinc params
-             if ( LTMP ) then              
+             if ( LTMP ) then              	       
                CALL genmag_salt2( MSKSALT2, ifilt2_obs
-     &          , SALT2x0, SALT2x1, xx1, SALT2c
-     &          , MWEBV_MODEL, RVDUM, AVDUM
+     &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN,ZZ, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt2_obs)       ! return arg
      &          , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg 
@@ -6335,6 +6379,33 @@ c with EXTRACT_MODELNAME, then set it here to default path.
       RETURN
       END   ! end FITMODEL_INI
 
+C ========================
++DECK,GET_FITFLUX.
+      SUBROUTINE GET_FITFLUX(ep, FIT_FLUXCAL, FIT_FLUXCAL_ERR, REJECT)
+
+c Created Mar 17 2021
+c Interface for snana to fetch fitted FLUXCAL and error;
+c e.g., for OUTLIER table.
+
+      IMPLICIT NONE
+      INTEGER EP                         ! (I) epoch index
+      REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and erro
+      LOGICAL  REJECT                    ! (O) T -> epoch rejected
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.    public snana.car
++CDE,SNFITCOM.    local fitter info
+C  -------------- BEGIN ------------
+      FIT_FLUXCAL       = R4EP_ALL(ep,JEP_MODELFLUX)
+      FIT_FLUXCAL_ERR   = R4EP_ALL(ep,JEP_MODELFLUX_ERR)
+
+      REJECT = 
+     &  ( I4EP_ALL(ep,IEP_REJECT)  > 0 ) .or.
+     &  ( I4EP_ALL(ep,IEP_REJECT2) > 0 )
+
+      RETURN
+      END     ! end GET_FITFLUX
+
 C ========================================================
 +DECK,GET_FLUX_FITFUN.
       DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN 
@@ -6779,14 +6850,9 @@ C ------------------- BEGIN ---------------------
       LPLOTCHI2 = .FALSE.
       IPAR_PLOTCHI2 = 0
 
-      DUMB_DEBUG = .FALSE.
-
 c init namelist defaults
 
       FITMODEL_NAME       = ' '
-
-      FITRES_ADDERR_DLMAG    = 0.0
-      FITRES_ADDERR_REDSHIFT = 0.0
 
       RESTLAMBDA_FITRANGE(1) =     0.0
       RESTLAMBDA_FITRANGE(2) = 25000.0
@@ -6842,13 +6908,13 @@ c set defgaults to no rejected epochs at 2nd iteration
 
 c hard-wire a few very loose cuts on SALT2-fitted errors
 c to reject crazy fits
-        FITWIN_COV_OFFDIAG(1)   = -8.0
-        FITWIN_COV_OFFDIAG(2)   = +8.0
-        FITWIN_MB_ERR(2)        = +1.0 
+      FITWIN_COV_OFFDIAG(1)   = -8.0
+      FITWIN_COV_OFFDIAG(2)   = +8.0
+      FITWIN_MB_ERR(2)        = +1.0 
 
       SNMAGRMS_for_PHOTOZ = 0.12
 
-      INISTP_PEAKMJD   = 2.0    ! 1-day bin
+      INISTP_PEAKMJD   = 2.0  
       INISTP_AV        = 0.2
       INISTP_COLOR     = 0.03   ! Mar 17 2018 (was 0.2)
       INISTP_RV        = 0.0
@@ -6872,6 +6938,15 @@ c to reject crazy fits
       INIVAL_PHOTOZ    = NULLVAL
       INIVAL_SHIFT_ERRFRAC = 0.0
       FRACERRDIF_REPEATFIT = 1.0E9
+
+c setup default grid w.r.t. peakmjd-estimate
+      INIVAL_GRIDSEARCH_DPEAKMJD(1) = -4.0  ! min MJD - PEAKMJD_APPROX (days)
+      INIVAL_GRIDSEARCH_DPEAKMJD(2) = +4.0  ! max 
+      INIVAL_GRIDSEARCH_DPEAKMJD(3) = +2.0  ! bin size , days
+      INIVAL_GRIDSEARCH_COLOR(1)   = 0.0
+      INIVAL_GRIDSEARCH_COLOR(2)   = 0.0
+      INIVAL_GRIDSEARCH_COLOR(3)   = 0.0
+      
 
       USESIM_AV       = .FALSE.
       USESIM_COLOR    = .FALSE.
@@ -6966,7 +7041,10 @@ c scale covariance matrix.
 
       USE_MODEL_MAGERR = .TRUE.
 
-      ADD_SALT2ERR_FROMz = .FALSE.
+      ADD_SALT2ERR_FROMz     = .FALSE.
+      ENABLE_MAGSHIFT_SALT2  = .TRUE.
+      ENABLE_WAVESHIFT_SALT2 = .TRUE.
+      ALLOW_NEGFLUX_SALT2    = .TRUE.  ! default: allow UV Flam<0
 
 c set default Landolt option OFF 
       OPT_LANDOLT = 0
@@ -7286,8 +7364,10 @@ c  skip DUMP options after 20 filters
              CALL MADABORT(FNAM, c1err, c2err)
            endif
            if ( LPLOTCHI2 ) then
+              ! either plot ...
               LDMPFCN_PLOTCHI2(ifilt) = .TRUE.
            else
+              ! or stdout dump ...
               LDMPFCN(ifilt) = .TRUE.
               LDMPFCN(0)     = .TRUE.
            endif
@@ -7334,8 +7414,10 @@ C ========================================
       INTEGER IERR ! (O) 0 => OK
 
 c local var
-
+      CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       INTEGER i, LL, ilast, iuse
+
+      LOGICAL MATCH_NMLKEY
 
 C -------------- BEGIN --------------
 
@@ -7344,546 +7426,504 @@ C -------------- BEGIN --------------
       i = 2
       ilast = 2
 
-      DO WHILE ( i .LT. NLINE_ARGS )
+      DO WHILE ( i .LE. NLINE_ARGS )
 
-        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
+        CALL GETARG(i,ARG)
+        LL = INDEX ( ARG, ' ' ) - 1
 
-         if ( LINE_ARGS(i) .EQ. 'FITMODEL_NAME' ) then
-            i = i + 1 ; FITMODEL_NAME = LINE_ARGS(i)
+        if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
+            FITMODEL_NAME = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'STRETCH_TEMPLATE_FILE' ) then
-            i = i + 1 ; STRETCH_TEMPLATE_FILE = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('SALT2alpha', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SALT2alpha
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2_DICTFILE' ) then
-            i = i + 1 ; SALT2_DICTFILE = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('SALT2beta', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SALT2beta
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2alpha' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SALT2alpha
+        else if ( MATCH_NMLKEY('OPT_SALT2FIT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) OPT_SALT2FIT
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2beta' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SALT2beta
+        else if ( MATCH_NMLKEY('FILTLAM_SHIFT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) FILTLAM_SHIFT 
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SALT2FIT' ) then
-            i = i + 1; READ(LINE_ARGS(i),*) OPT_SALT2FIT
-c -----
+        else if ( MATCH_NMLKEY('SIMEFF_FILE', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SIMEFF_FILE
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLAM_SHIFT' ) then
-            i = i + 1 ; FILTLAM_SHIFT = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('TREST_PEAKRENORM', 2,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) TREST_PEAKRENORM(1)
+            READ(ARGLIST(2),*) TREST_PEAKRENORM(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITRES_ADDERR_DLMAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITRES_ADDERR_DLMAG
+        else if ( MATCH_NMLKEY('DELCHI2_REJECT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) DELCHI2_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'FITRES_ADDERR_REDSHIFT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITRES_ADDERR_REDSHIFT
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMEFF_FILE' ) then
-            i = i + 1 ; SIMEFF_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'TREST_PEAKRENORM' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_PEAKRENORM(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_PEAKRENORM(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'DELCHI2_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) DELCHI2_REJECT
-
-         else if ( LINE_ARGS(i) .EQ. 'SIGNOISE_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIGNOISE_REJECT
+        else if ( MATCH_NMLKEY('SIGNOISE_REJECT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SIGNOISE_REJECT
 
 c --- keep legacy variables TREST_REJECT and MJD_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'TREST_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_REJECT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_REJECT(2)
+        else if ( MATCH_NMLKEY('TREST_REJECT', 2,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) TREST_REJECT(1)
+            READ(ARGLIST(2),*) TREST_REJECT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'MJD_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MJD_REJECT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) MJD_REJECT(2)
-c ----------------
+        else if ( MATCH_NMLKEY('MJD_REJECT', 2, i,ARGLIST) ) then
+            READ(ARGLIST(1),*) MJD_REJECT(1)
+            READ(ARGLIST(2),*) MJD_REJECT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST_FILTER' ) then
-            i = i + 1 ; FITWIN_TREST_FILTER = LINE_ARGS(i) 
+        else if (MATCH_NMLKEY('FITWIN_TREST_FILTER',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST_FILTER
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(2)
+        else if ( MATCH_NMLKEY('FITWIN_TREST', 2, i, ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST(1)
+            READ(ARGLIST(2),*) FITWIN_TREST(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MJD(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MJD(2)
+        else if ( MATCH_NMLKEY('FITWIN_MJD', 2, i, ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MJD(1)
+            READ(ARGLIST(2),*) FITWIN_MJD(2)
 
-c --------------
+        else if ( MATCH_NMLKEY('ADD_SALT2ERR_FROMZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) ADD_SALT2ERR_FROMz
 
-         else if ( LINE_ARGS(i) .EQ. 'ADD_SALT2ERR_FROMZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ADD_SALT2ERR_FROMz
+        else if ( MATCH_NMLKEY('ENABLE_MAGSHIFT_SALT2',
+     &            1, i, ARGLIST)) then
+            READ(ARGLIST(1),*) ENABLE_MAGSHIFT_SALT2
+        else if ( MATCH_NMLKEY('ENABLE_WAVESHIFT_SALT2', 
+     &            1, i, ARGLIST)) then
+            READ(ARGLIST(1),*) ENABLE_WAVESHIFT_SALT2
 
-         else if ( LINE_ARGS(i) .EQ. 'USE_MODEL_MAGERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USE_MODEL_MAGERR
+        else if ( MATCH_NMLKEY('ALLOW_NEGFLUX_SALT2', 
+     &            1, i, ARGLIST)) then
+            READ(ARGLIST(1),*) ALLOW_NEGFLUX_SALT2
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MAGERR_MODEL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_MAGERR_MODEL
+        else if ( MATCH_NMLKEY('USE_MODEL_MAGERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USE_MODEL_MAGERR
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_DATAERR_SCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_DATAERR_SCALE
+        else if ( MATCH_NMLKEY('FUDGE_MAGERR_MODEL', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_MAGERR_MODEL
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MODELERR_SCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_MODELERR_SCALE
+        else if ( MATCH_NMLKEY('FUDGE_DATAERR_SCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_DATAERR_SCALE
 
-c ----
+        else if (MATCH_NMLKEY('FUDGE_MODELERR_SCALE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_MODELERR_SCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_MAXFRAC
+        else if (MATCH_NMLKEY('FUDGE_FITERR_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_MAXFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(4)
+        else if (MATCH_NMLKEY('FUDGE_FITERR_TREST', 4,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_TREST(1)
+            READ(ARGLIST(2),*) FUDGE_FITERR_TREST(2)
+            READ(ARGLIST(3),*) FUDGE_FITERR_TREST(3)
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_RESTLAM' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_RESTLAM(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_RESTLAM(2)
+        else if (MATCH_NMLKEY('FUDGE_FITERR_RESTLAM', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_RESTLAM(1)
+            READ(ARGLIST(2),*) FUDGE_FITERR_RESTLAM(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_PASSBANDS' ) then
-            i = i + 1 ; FUDGE_FITERR_PASSBANDS = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('FUDGE_FITERR_PASSBANDS',1,i,ARGLIST)) then
+            FUDGE_FITERR_PASSBANDS = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGEALL_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGEALL_MAXFRAC
+        else if(MATCH_NMLKEY('FUDGEALL_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGEALL_MAXFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGEALL_ITER1_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGEALL_ITER1_MAXFRAC
+        else if(MATCH_NMLKEY('FUDGEALL_ITER1_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGEALL_ITER1_MAXFRAC
 
-c --------------
+        else if(MATCH_NMLKEY('MAX_INTEGPDF',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MAX_INTEGPDF
 
-         else if ( LINE_ARGS(i) .EQ. 'MAX_INTEGPDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MAX_INTEGPDF
+        else if ( MATCH_NMLKEY('FITWIN_PROB', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PROB(1)
+            READ(ARGLIST(2),*) FITWIN_PROB(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PROB' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_PROB(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_PROB(2)
+        else if ( MATCH_NMLKEY('FITWIN_NOMARG_PROB',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_NOMARG_PROB(1)
+            READ(ARGLIST(2),*) FITWIN_NOMARG_PROB(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_NOMARG_PROB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_NOMARG_PROB(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_NOMARG_PROB(2)
+        else if ( MATCH_NMLKEY('FITWIN_CHI2SIGMA', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_CHI2SIGMA(1)
+            READ(ARGLIST(2),*) FITWIN_CHI2SIGMA(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_CHI2SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_CHI2SIGMA(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_CHI2SIGMA(2)
+        else if ( MATCH_NMLKEY('FITWIN_TREST', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST(1)
+            READ(ARGLIST(2),*) FITWIN_TREST(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(2)
+        else if ( MATCH_NMLKEY('FITWIN_MJD', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MJD(1)
+            READ(ARGLIST(2),*) FITWIN_MJD(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MJD' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_MJD(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_MJD(2)
+        else if ( MATCH_NMLKEY('FITWIN_ZPULL', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_ZPULL(1)
+            READ(ARGLIST(2),*) FITWIN_ZPULL(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_ZPULL' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPULL(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPULL(2)
+        else if ( MATCH_NMLKEY('FITWIN_ZPHOT', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_ZPHOT(1)
+            READ(ARGLIST(2),*) FITWIN_ZPHOT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_ZPHOT' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPHOT(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPHOT(2)
+        else if ( MATCH_NMLKEY('FITWIN_SHAPE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_SHAPE(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_SHAPE(2)
+        else if ( MATCH_NMLKEY('FITWIN_COLOR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_COLOR(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_COLOR(2)
+        else if ( MATCH_NMLKEY('FITWIN_COV_OFFDIAG',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COV_OFFDIAG(1)
+            READ(ARGLIST(2),*) FITWIN_COV_OFFDIAG(2)
 
-c - - - -
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COV_OFFDIAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COV_OFFDIAG(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COV_OFFDIAG(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PEAKMJD_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MB_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERR(2)
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PEAKMJD_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MB_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERRz1(2)
-
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_ZERRSCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_ZERRSCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_MUERRSCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MUERRSCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_MNSTAT_COV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_MNSTAT_COV
+        else if ( MATCH_NMLKEY('FITWIN_PEAKMJD_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PEAKMJD_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_PEAKMJD_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PRIOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PRIOR
+        else if ( MATCH_NMLKEY('FITWIN_MB_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MB_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_MB_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PRIOR_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PRIOR_AV
+        else if ( MATCH_NMLKEY('FITWIN_SHAPE_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PHOTOZ
+        else if ( MATCH_NMLKEY('FITWIN_COLOR_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTODZ_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTODZ_REJECT
+        else if (MATCH_NMLKEY('FITWIN_PEAKMJD_ERRz1',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PEAKMJD_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_PEAKMJD_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTODZ1Z_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTODZ1Z_REJECT
+        else if (MATCH_NMLKEY('FITWIN_MB_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MB_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_MB_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTOZ_ITER1_LAMRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_ITER1_LAMRANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_ITER1_LAMRANGE(2)
+        else if (MATCH_NMLKEY('FITWIN_SHAPE_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTOZ_BOUND' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_BOUND(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_BOUND(2)
+        else if (MATCH_NMLKEY('FITWIN_COLOR_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'ISCALE_COURSEBIN_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ISCALE_COURSEBIN_PHOTOZ
+        else if (MATCH_NMLKEY('PRIOR_ZERRSCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_ZERRSCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'PARLIST_MCMC_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(4)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(5)
+        else if (MATCH_NMLKEY('PRIOR_MUERRSCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_MUERRSCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_MJDSIG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MJDSIG
+        else if (MATCH_NMLKEY('OPT_MNSTAT_COV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_MNSTAT_COV
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVEXP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVEXP(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVEXP(2)
+        else if (MATCH_NMLKEY('OPT_PRIOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PRIOR
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVWGT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVWGT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVWGT(2)
+        else if (MATCH_NMLKEY('OPT_PRIOR_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PRIOR_AV
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVRES' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVRES
+        else if (MATCH_NMLKEY('OPT_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PHOTOZ
 
-c --- legacy ----
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_LUMIPAR_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_RANGE(2)
+        else if (MATCH_NMLKEY('PHOTODZ_REJECT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTODZ_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_LUMIPAR_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_SIGMA
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_SHAPE_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_RANGE(2)
+        else if (MATCH_NMLKEY('PHOTODZ1Z_REJECT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTODZ1Z_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_SHAPE_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_SIGMA
+        else if (MATCH_NMLKEY('PHOTOZ_ITER1_LAMRANGE',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTOZ_ITER1_LAMRANGE(1)
+            READ(ARGLIST(2),*) PHOTOZ_ITER1_LAMRANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_DELTA_PROFILE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(4)
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_COLOR_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_RANGE(2)
+        else if (MATCH_NMLKEY('PHOTOZ_BOUND', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTOZ_BOUND(1)
+            READ(ARGLIST(2),*) PHOTOZ_BOUND(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_COLOR_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_SIGMA
-c - - - -
+        else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',
+     &              1, i, ARGLIST) ) then
+            READ(ARGLIST(1),*) ISCALE_COURSEBIN_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'NGRID_PDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) NGRID_PDF
+        else if (MATCH_NMLKEY('PARLIST_MCMC_PHOTOZ',5,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PARLIST_MCMC_PHOTOZ(1)
+            READ(ARGLIST(2),*) PARLIST_MCMC_PHOTOZ(2)
+            READ(ARGLIST(3),*) PARLIST_MCMC_PHOTOZ(3)
+            READ(ARGLIST(4),*) PARLIST_MCMC_PHOTOZ(4)
+            READ(ARGLIST(5),*) PARLIST_MCMC_PHOTOZ(5)
 
-         else if ( LINE_ARGS(i) .EQ. 'NSIGMA_PDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) NSIGMA_PDF
+        else if (MATCH_NMLKEY('PRIOR_MJDSIG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_MJDSIG
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_FLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_FLUX
+        else if (MATCH_NMLKEY('PRIOR_AVEXP', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVEXP(1)
+            READ(ARGLIST(2),*) PRIOR_AVEXP(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_LCFIT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_LCFIT
+        else if (MATCH_NMLKEY('PRIOR_AVWGT', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVWGT(1)
+            READ(ARGLIST(2),*) PRIOR_AVWGT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_MWXTERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_MWXTERR
+        else if (MATCH_NMLKEY('PRIOR_AVRES', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVRES
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_XTMW_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_XTMW_ERR  ! legacy variable
+c -------- legacy --------
+        else if (MATCH_NMLKEY('PRIOR_LUMIPAR_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_LUMIPAR_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_LUMIPAR_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'SCALE_COVAR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SCALE_COVAR
+        else if (MATCH_NMLKEY('PRIOR_LUMIPAR_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_LUMIPAR_SIGMA
+c -------------------------
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SNXT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SNXT
+        else if (MATCH_NMLKEY('PRIOR_SHAPE_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_SHAPE_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_NEARFILT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_NEARFILT
+        else if (MATCH_NMLKEY('PRIOR_SHAPE_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_KCORERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_KCORERR
+        else if (MATCH_NMLKEY('PRIOR_DELTA_PROFILE', 4,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_DELTA_PROFILE(1)
+            READ(ARGLIST(2),*) PRIOR_DELTA_PROFILE(2)
+            READ(ARGLIST(3),*) PRIOR_DELTA_PROFILE(3)
+            READ(ARGLIST(4),*) PRIOR_DELTA_PROFILE(4)
 
-         else if ( LINE_ARGS(i) .EQ. 'ZSCALE_SIMEFF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ZSCALE_SIMEFF
+        else if (MATCH_NMLKEY('PRIOR_COLOR_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_COLOR_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_COLOR_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'LKCOR_AVWARP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LKCOR_AVWARP
+        else if (MATCH_NMLKEY('PRIOR_COLOR_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_COLOR_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_LANDOLT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_LANDOLT
+        else if (MATCH_NMLKEY('NGRID_PDF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) NGRID_PDF
 
-         else if ( LINE_ARGS(i) .EQ. 'UCOR_BXB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) UCOR_BXB
+        else if (MATCH_NMLKEY('NSIGMA_PDF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) NSIGMA_PDF
 
-         else if ( LINE_ARGS(i) .EQ. 'RESTLAMBDA_FITRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(2)
+        else if (MATCH_NMLKEY('OPT_COVAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR
 
-         else if ( LINE_ARGS(i) .EQ. 'UVLAM_EXTRAPFLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) UVLAM_EXTRAPFLUX
+        else if (MATCH_NMLKEY('OPT_COVAR_FLUX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_FLUX
 
-         else if ( LINE_ARGS(i) .EQ. 'SIMFIT_IDEAL_PRESCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIMFIT_IDEAL_PRESCALE
+        else if (MATCH_NMLKEY('OPT_COVAR_LCFIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_LCFIT
 
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_COLOR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_COLOR
+        else if (MATCH_NMLKEY('OPT_COVAR_MWXTERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_MWXTERR
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_AV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_AV
+        else if (MATCH_NMLKEY('OPT_XTMW_ERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_XTMW_ERR    ! legacy variable
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_RV
+        else if (MATCH_NMLKEY('SCALE_COVAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SCALE_COVAR
+
+        else if (MATCH_NMLKEY('OPT_SNXT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_SNXT
+
+        else if (MATCH_NMLKEY('OPT_NEARFILT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_NEARFILT
+
+        else if (MATCH_NMLKEY('OPT_KCORERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_KCORERR
+
+        else if (MATCH_NMLKEY('ZSCALE_SIMEFF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) ZSCALE_SIMEFF
+
+        else if (MATCH_NMLKEY('LKCOR_AVWARP', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LKCOR_AVWARP
+
+        else if (MATCH_NMLKEY('OPT_LANDOLT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_LANDOLT
+
+        else if (MATCH_NMLKEY('UCOR_BXB', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) UCOR_BXB
+
+        else if (MATCH_NMLKEY('RESTLAMBDA_FITRANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) RESTLAMBDA_FITRANGE(1)
+            READ(ARGLIST(2),*) RESTLAMBDA_FITRANGE(2)
+
+        else if (MATCH_NMLKEY('UVLAM_EXTRAPFLUX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) UVLAM_EXTRAPFLUX
+
+        else if(MATCH_NMLKEY('SIMFIT_IDEAL_PRESCALE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SIMFIT_IDEAL_PRESCALE
+
+        else if(MATCH_NMLKEY('USESIM_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_COLOR
+
+        else if(MATCH_NMLKEY('USESIM_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_AV
+
+        else if(MATCH_NMLKEY('USESIM_RV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_RV
 
 c ------------- legacy variable
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_LUMIPAR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_LUMIPAR
-c ------------
+        else if(MATCH_NMLKEY('USESIM_LUMIPAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_LUMIPAR
+c -------------
+        else if(MATCH_NMLKEY('USESIM_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_SHAPE' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_SHAPE
+        else if(MATCH_NMLKEY('USESIM_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_PEAKMJD
+        else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_DLMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_DLMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_DLMAG
+        else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_RV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_RV
+        else if(MATCH_NMLKEY('INIVAL_AVRV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_AVRV
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_RV
+        else if(MATCH_NMLKEY('INISTP_AVRV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_AVRV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_AVRV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_AVRV
+        else if(MATCH_NMLKEY('INISTP_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_AVRV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_AVRV
+        else if(MATCH_NMLKEY('INIVAL_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_PEAKMJD
+        else if(MATCH_NMLKEY('INIVAL_PEAKMJD_SHIFT',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PEAKMJD_SHIFT
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD
+        else if(MATCH_NMLKEY('INISTP_SHAPE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD_SHIFT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD_SHIFT
+        else if(MATCH_NMLKEY('INISTP_DLMAG',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_DLMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_SHAPE
+        else if(MATCH_NMLKEY('INISTP_X0',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_X0
+c
+        else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_DPEAKMJD', 
+     &             3,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_DPEAKMJD(1)
+            READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_DPEAKMJD(2)
+            READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_DLMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_DLMAG
+        else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_COLOR',
+     &            3,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_COLOR(1)
+            READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_COLOR(2)
+            READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_COLOR(3)
+c
+        else if(MATCH_NMLKEY('LANDOLT_COLOR_SHIFT',5,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LANDOLT_COLOR_SHIFT(1)  ! k0
+            READ(ARGLIST(2),*) LANDOLT_COLOR_SHIFT(2)  ! k1
+            READ(ARGLIST(3),*) LANDOLT_COLOR_SHIFT(3)  ! k2
+            READ(ARGLIST(4),*) LANDOLT_COLOR_SHIFT(4)  ! k3
+            READ(ARGLIST(5),*) LANDOLT_COLOR_SHIFT(5)  ! k4
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_X0' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_X0
+        else if(MATCH_NMLKEY('CHECK_CRAZYFITERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) CHECK_CRAZYFITERR
 
-c ----------------
+        else if(MATCH_NMLKEY('DOFIT_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DOFIT_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'LANDOLT_COLOR_SHIFT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(1)  ! k0
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(2)  ! k1
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(3)  ! k2
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(4)  ! k3
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(5)  ! k4
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'CHECK_CRAZYFITERR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) CHECK_CRAZYFITERR
+        else if(MATCH_NMLKEY('SKIP_PHOTOZ_INIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SKIP_PHOTOZ_INIT
 
-c ---------------
-         else if ( LINE_ARGS(i) .EQ. 'DOFIT_PHOTOZ' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DOFIT_PHOTOZ
+        else if(MATCH_NMLKEY('LDMP_PHOTOZ_DROPFILTER',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LDMP_PHOTOZ_DROPFILTER
 
-         else if ( LINE_ARGS(i) .EQ. 'SKIP_PHOTOZ_INIT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) SKIP_PHOTOZ_INIT
+        else if(MATCH_NMLKEY('DOCHI2_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DOCHI2_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'LDMP_PHOTOZ_DROPFILTER' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LDMP_PHOTOZ_DROPFILTER
+        else if(MATCH_NMLKEY('LAMREST_MODEL_SMOOTH',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LAMREST_MODEL_SMOOTH
 
-         else if ( LINE_ARGS(i) .EQ. 'DUMB_DEBUG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DUMB_DEBUG
+        else if(MATCH_NMLKEY('FILTER_FITMAGDIF',1,i,ARGLIST)) then
+            FILTER_FITMAGDIF = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'DOCHI2_SIGMA' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DOCHI2_SIGMA
+        else if(MATCH_NMLKEY('FILTLIST_FITRESTMAG',1,i,ARGLIST)) then
+            FILTLIST_FITRESTMAG = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'LAMREST_MODEL_SMOOTH' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LAMREST_MODEL_SMOOTH
+        else if(MATCH_NMLKEY('LUMIFIX_FITRESTMAG',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LUMIFIX_FITRESTMAG   ! legacy
 
-c --------------
-         else if ( LINE_ARGS(i) .EQ. 'FILTER_FITMAGDIF' ) then
-            i = i + 1
-            FILTER_FITMAGDIF = LINE_ARGS(i)
-c --------------
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FITRESTMAG' ) then
-            i = i + 1
-            FILTLIST_FITRESTMAG = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('SHAPEFIX_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SHAPEFIX_FITRESTMAG 
 
-         else if ( LINE_ARGS(i) .EQ. 'LUMIFIX_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  LUMIFIX_FITRESTMAG 
+        else if(MATCH_NMLKEY('LAMEXTRAP_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LAMEXTRAP_FITRESTMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'SHAPEFIX_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  SHAPEFIX_FITRESTMAG 
+        else if(MATCH_NMLKEY('DLAMTOL_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DLAMTOL_FITRESTMAG 
 
-         else if ( LINE_ARGS(i) .EQ. 'LAMEXTRAP_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  LAMEXTRAP_FITRESTMAG 
+        else if(MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST)) then
+            FILTLIST_FIT = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'DLAMTOL_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DLAMTOL_FITRESTMAG 
+        else if(MATCH_NMLKEY('FILTLIST_DMPFCN', 1,i,ARGLIST)) then
+            FILTLIST_DMPFCN = ARGLIST(1)
 
-c --------
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FIT' ) then
-            i = i + 1 ; FILTLIST_FIT = LINE_ARGS(i)
-c ----
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_DMPFCN' ) then
-            i = i + 1 ; FILTLIST_DMPFCN = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('FILTLIST_DMPFUN', 1,i,ARGLIST)) then
+            FILTLIST_DMPFUN = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_DMPFUN' ) then
-            i = i + 1 ; FILTLIST_DMPFUN = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('TREST_DMPFUN', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) TREST_DMPFUN(1) 
+            READ(ARGLIST(2),*) TREST_DMPFUN(2) 
 
-         else if ( LINE_ARGS(i) .EQ. 'TREST_DMPFUN' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) TREST_DMPFUN(1) 
-            i = i + 1
-            READ(LINE_ARGS(i),*) TREST_DMPFUN(2) 
+        else if(MATCH_NMLKEY('NEARFILT_IGNORE_REST',1,i,ARGLIST)) then
+            NEARFILT_IGNORE_REST = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'NEARFILT_IGNORE_REST' ) then
-            i = i + 1 ; NEARFILT_IGNORE_REST = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('LTRACE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LTRACE
 
-         else if ( LINE_ARGS(i) .EQ. 'LTRACE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTRACE
+        else if(MATCH_NMLKEY('LFIXPAR_ALL',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LFIXPAR_ALL
 
-         else if ( LINE_ARGS(i) .EQ. 'LFIXPAR_ALL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LFIXPAR_ALL
+        else if(MATCH_NMLKEY('LFIXPAR_ADJUST',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LFIXPAR_ADJUST
 
-         else if ( LINE_ARGS(i) .EQ. 'LFIXPAR_ADJUST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LFIXPAR_ADJUST
+        else if(MATCH_NMLKEY('LPLOTCHI2',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LPLOTCHI2
 
-         else if ( LINE_ARGS(i) .EQ. 'LPLOTCHI2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LPLOTCHI2
+        else if(MATCH_NMLKEY('IPAR_PLOTCHI2',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) IPAR_PLOTCHI2
 
-         else if ( LINE_ARGS(i) .EQ. 'IPAR_PLOTCHI2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) IPAR_PLOTCHI2
+        else if(MATCH_NMLKEY('MINOS_ERRMAX_BAD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MINOS_ERRMAX_BAD
 
-         else if ( LINE_ARGS(i) .EQ. 'MINOS_ERRMAX_BAD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MINOS_ERRMAX_BAD
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_SHAPE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_SHAPE
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_SHAPE
+        else if(MATCH_NMLKEY('INIVAL_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_SHIFT_ERRFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_SHIFT_ERRFRAC
+        else if(MATCH_NMLKEY('INISTP_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'FRACERRDIF_REPEATFIT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FRACERRDIF_REPEATFIT
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_AV
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_AV
-c --
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_COLOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_COLOR
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_COLOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_COLOR
+        else if(MATCH_NMLKEY('INIVAL_SHIFT_ERRFRAC', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_SHIFT_ERRFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_X0' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_X0
+        else if(MATCH_NMLKEY('FRACERRDIF_REPEATFIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FRACERRDIF_REPEATFIT
 
-c --
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_DLMAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_DLMAG
+        else if(MATCH_NMLKEY('INIVAL_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_AV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_PHOTOZ
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_PHOTOZ
+        else if(MATCH_NMLKEY('INISTP_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_AV
+
+        else if(MATCH_NMLKEY('INIVAL_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_COLOR
+
+        else if(MATCH_NMLKEY('INISTP_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_COLOR
+
+        else if(MATCH_NMLKEY('INIVAL_X0', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_X0
+
+        else if(MATCH_NMLKEY('INIVAL_DLMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_DLMAG
+
+        else if(MATCH_NMLKEY('INIVAL_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PHOTOZ
+
+        else if(MATCH_NMLKEY('INISTP_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_PHOTOZ
 
 c --- Vmax
-         else if ( LINE_ARGS(i) .EQ. 'MAGLIM_VMAX' ) then
-            i = i + 1 ; MAGLIM_VMAX = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'OPT_VMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_VMAX
+
+        else if(MATCH_NMLKEY('MAGLIM_VMAX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MAGLIM_VMAX
+
+        else if(MATCH_NMLKEY('OPT_VMAX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_VMAX
 
          endif
 
@@ -7919,6 +7959,7 @@ c
 c Aug 29 2017: check DOFIT_IDEAL
 c
 c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
+c Jun 04 2021: if USESIM_REDSHIFT, set z errors to 1.0E-4
 c
 c ----------------------------------------
 
@@ -8020,8 +8061,15 @@ c continue below on 1st iteration only.
       PEAKMJD         =  SNLC_SEARCH_PEAKMJD    ! approx peak MJD
       INIVAL(IPAR)    =  PEAKMJD - MJDOFF
       INISTP(IPAR)    =  INISTP_PEAKMJD         ! initial step size, days
+
+
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
+
+      IF ( DEBUG_FLAG == 30 ) THEN
+         INIBND(1,IPAR)  =  INIVAL(IPAR) - 30.0
+         INIBND(2,IPAR)  =  INIVAL(IPAR) + 30.0
+      ENDIF
       FITVAL(IPAR,0)  =  INIVAL(IPAR) 
 
       ipar            =  IPAR_DLMAG
@@ -8032,8 +8080,13 @@ c continue below on 1st iteration only.
 
       if ( USESIM_REDSHIFT ) THEN
          SNLC_REDSHIFT = SIM_REDSHIFT_HELIO
-         SNLC_ZCMB     = SIM_REDSHIFT_HELIO
          SNLC_ZHELIO   = SIM_REDSHIFT_HELIO
+         SNLC_ZCMB     = SIM_REDSHIFT_CMB   ! Dec 15 2020
+
+c  Jun 2021: set tiny z errors too
+         SNLC_REDSHIFT_ERR = 1.0E-4
+         SNLC_ZHELIO_ERR   = 1.0E-4
+         SNLC_ZCMB_ERR     = 1.0E-4
       endif
 
       ipar            =  IPAR_zPHOT
@@ -8164,9 +8217,11 @@ c make sure that alpha & beta are defined for photoZ fit.
 c set bounds on color and stretch
 c Mar 24, 2012: reduce range from +-2
 c Dec 5 2013: reduce max color frmo +2 to +1.
+c Aug 30 2021: max color -> 2 to fit redder events
 
          INIBND(1,IPAR_COLOR) = -1.6  ! c
-         INIBND(2,IPAR_COLOR) = +1.0 
+cc         INIBND(2,IPAR_COLOR) = +1.0 
+         INIBND(2,IPAR_COLOR) = +2.0 
 
          INIBND(1,IPAR_SHAPE) = -5.0  ! x1
          INIBND(2,IPAR_SHAPE) = +5.0
@@ -8268,7 +8323,7 @@ c now check if want to fix a parameter with the simulated value.
       ENDIF  ! end LSIM_SNANA
 
 c set FITVAL on 1st interation since this array
-c are used in the ADJUST & FITINI_XXXX routines.
+c is used in the ADJUST & FITINI_XXXX routines.
 c (exception for option that fixes parameters)
 
         do ipar = 1, IPAR_MAX
@@ -8419,6 +8474,13 @@ c set initial value and step size.
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
 
+c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
+        if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
+        PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
+        PHOTOZ_ITER1_LAMRANGE(1) =  2000. 
+
+        goto 777        ! Jan 2021
+
       ELSE IF ( BTEST(OPT_PHOTOZ,0) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
@@ -8497,6 +8559,7 @@ c update x0-bound for SALT2
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
+777   CONTINUE
       if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
 
       CALL FLUSH(6)
@@ -9014,6 +9077,9 @@ c
 c Mar 4 2020
 c  + modify PKMJD sweep from -2, 2 in 1 day bins, to -4 to +4 in 2 day bins.
 c  + remove CHI2TEST on 5*NEPOCH
+c
+c Aug 4 2021
+c  + add optional color grid search with INIVAL_GRIDSEARCH_COLOR - D. Jones
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -9031,35 +9097,28 @@ c local var
 
       INTEGER 
      &   CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar
-     &  ,IPAR_ADJUST, NF, NZ, LCHAR
+     &  ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
 
       LOGICAL LDMP / .TRUE. /
-      LOGICAL LZFIT, FIRST_ITER
-      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*12
+      LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
+      CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
 
       REAL
-     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG
-     &  ,rflux, CHI2, Xsig, ZTMP
-     &  ,PEAKMJD_INI, PEAKMJD_SAVE, PEAKMJD_STP
+     &   RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2, Xsig, ZTMP
+     &  ,PEAKMJD_INI, PEAKMJD_SAVE
+     &  ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD
+     &  ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR
      &  ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP
-     &  ,INIVAL_START(IPAR_MAX)  ! starting initial values
-     &  ,RTMP(MXFILT_ALL)
+     &  ,INIVAL_START(IPAR_MAX), RTMP(MXFILT_ALL)
 
       REAL*8  T8, Z8
 
-c functions
-
-      REAL  DATA_MODEL_RATIO
-
 c FCNSNLC args
-
       INTEGER IFLAG
-      REAL*8 
-     &    GRAD(MXFITPAR)
-     &  , CHI8INI, CHI8END, CHI8MIN, CHI8
-     &  , CHI8TEST
+      REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8, CHI8TEST
 
 c functions
+      REAL  DATA_MODEL_RATIO
       REAL*8  USRFUN
       EXTERNAL USRFUN
       LOGICAL  FIRST_ITERATION
@@ -9126,43 +9185,93 @@ c Now check PEAKMJD by testing 1/2-sigma steps
 
       PEAKMJD_INI  = INIVAL(IPAR_PEAKMJD)
       PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+      DIFMJD_MIN   = INIVAL_GRIDSEARCH_DPEAKMJD(1)
+      DIFMJD_MAX   = INIVAL_GRIDSEARCH_DPEAKMJD(2)
+      DIFMJD_BIN   = INIVAL_GRIDSEARCH_DPEAKMJD(3)
+
+c     D. Jones color grid search
+      COLOR_INI  = INIVAL(IPAR_COLOR)
+      COLOR_SAVE = INIVAL(IPAR_COLOR)
+      COLOR_MIN   = INIVAL_GRIDSEARCH_COLOR(1)
+      COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
+      COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
+
+      DO_PEAKMJD = (INISTP_PEAKMJD > 0.0 .and. DIFMJD_BIN > 0.0001)
+      DO_COLOR   = (INISTP_COLOR   > 0.0 .and. COLOR_BIN  > 0.0001)
+
+      IF ( .not. DO_COLOR ) THEN 
+        COLOR_MIN = COLOR_INI
+        COLOR_MAX = COLOR_INI
+	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
+      ENDIF
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
-      IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
+      if ( .not. DO_PEAKMJD ) GOTO 444
+c xxx mark delet Aug 7 2021  IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
-ccc xxx mark delete     DO i = -2, 2
-      DO i = -4, 4, 2   ! Mar 4 2020
-        Xsig                 = 0.5 * float(i)
-        PEAKMJD_STP          = Xsig * INISTP(IPAR_PEAKMJD) 
-        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_STP
+      COLOR   = COLOR_MIN
+
+      DO 300 WHILE ( COLOR < COLOR_MAX+0.0001 ) 
+        INIVAL(IPAR_COLOR) = COLOR
+        DIFMJD = DIFMJD_MIN
+      DO 400 WHILE ( DIFMJD < DIFMJD_MAX+0.001 ) 
+        INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + DIFMJD
+
         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
         if ( CHI8 .LT. CHI8MIN ) then
             chi8min = chi8
             PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+            COLOR_SAVE = INIVAL(IPAR_COLOR)
         endif
-      ENDDO
+        DIFMJD = DIFMJD + DIFMJD_BIN
+400   CONTINUE
+        COLOR = COLOR + COLOR_BIN
+300   CONTINUE
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 5")
 
 c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
 
       IF ( CHI8MIN < CHI8INI ) THEN
-        INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE  ! save new PEAKMJD
+       ! save new initial values at min chi2 on very course grid
+        INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE 
+        INIVAL(IPAR_COLOR) = COLOR_SAVE
       ELSE
+       ! restore original values
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI
         PEAKMJD_SAVE         = PEAKMJD_INI
+        INIVAL(IPAR_COLOR)   = COLOR_INI
+        COLOR_SAVE           = COLOR_INI
       ENDIF
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 6")
 
+c - - - - -
       if ( LDMP ) then
-         write(6,44) PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
-44       format(T10,'Adjust PEAKMJD=',F9.3, ' ==> ', F9.3,
-     &      2x, '(CHI2=',F10.2,')'  )
+         LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
+         LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
+	 IF ( DO_COLOR ) THEN
+           write(6,42) 
+     &         PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &         PARNAME_STORE(IPAR_COLOR)(1:LCHAR2),
+     &         PEAKMJD_INI, COLOR_INI,
+     &         INIVAL(IPAR_PEAKMJD), INIVAL(IPAR_COLOR), CHI8
+	 ELSE
+           write(6,41) PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
+     &               PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
+	 ENDIF
+
+41       format(T10,'Adjust ',A,'=',F9.3, ' ==> ', F9.3,
+     &             2x, '(CHI2=',F10.2,')'  )
+
+42       format(T6,'Adjust ',A,'/',A, '=', 
+     &        F9.3,'/',F6.3, ' ==> ', F9.3,'/',F6.3,
+     &        2x, '(CHI2=',F10.2,')'  )
+
       endif
 
 444   CONTINUE
@@ -9627,15 +9736,8 @@ c MSKOPT: bit 1 => print  info to stdout
 c ITER = 1, 2, ... = fit iteration.
 c
 c
-c
-c Jan 25, 2014: update with new R4EP_ALL and I4EP_ALL arrays
-c
-c Feb 23 2015: call COVFUDGE_DATA.
-c              Rename RHOFUDGE() -> RHOFUDGE_MODEL().
-c
-c July 2016:  pass x0, RV & AV arg to gencovar_SALT2()
-c
 c Feb 2020: add OPT_COVAR_MWXT==2 option to include only DIAG part.
+c May 2021: pass param lists to gencovar_SALT2
 c 
 c ----------------------------------------------------------
 
@@ -9668,6 +9770,7 @@ c local var
      &  ,SQMAGERR, SQFLUXERR, FF
      &  ,R1, R2, F1, F2, ERR1, ERR2, FUDGE_SQERR, ERRSCALE
      &  ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP
+     &  ,PARLIST_SN(10), PARLIST_HOST(10)
 
       LOGICAL 
      &  LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV
@@ -9681,7 +9784,7 @@ c functions
      &  ,gencovar_SALT2
      
       LOGICAL FIRST_ITERATION
-      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA, RVDUM, AVDUM
+      REAL*8 RHOFUDGE_MODEL, COVFUDGE_DATA
 
       EXTERNAL INVERTMATRIX
 
@@ -9842,14 +9945,17 @@ c This is the model-covariance only.
 
            Z        = REDSHIFT_FIT
            MWEBV    = SNLC_MWEBV
-           RVDUM = 0.0;  AVDUM=0.0;  ! cannot fit for these values
+	   PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
+	   PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
+	   PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
+	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
+	   PARLIST_HOST(2) = 0.0  ! cannot fit AV
+	   PARLIST_HOST(3) = -9.0 ! cannot fit logMass
+
            ISTAT = gencovar_SALT2(NFITDATA, IFILT_COV, TOBS, Z
-     &             ,FITPAR(IPAR_x0   )     ! (I) x0-amplitude
-     &             ,FITPAR(IPAR_SHAPE)     ! (I) x1/stretch
-     &             ,FITPAR(IPAR_COLOR)     ! (I) color
-     &             ,MWEBV                  ! (I) MW extinction
-     &             ,RVDUM,AVDUM            ! (I) host params (July 2016)
-     &             ,COVMAT1 )      ! <== returned array, MAGERR^2
+     &             ,PARLIST_SN, PARLIST_HOST  ! (I)
+     &             ,MWEBV                     ! (I) MW extinction
+     &             ,COVMAT1 )         ! <== returned array, MAGERR^2
 
         ELSE
           C1ERR = 'No covariance model for FITMODEL=' 
@@ -10188,6 +10294,8 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
         I4EP_ALL(ep,IEP_IDTEL)       = ISNLC_IDTEL(ep)
+	I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+	I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
 c Get nearest and 2nd nearest rest filter
@@ -10256,7 +10364,7 @@ c set error on MilkyWay Galactic extinction
 
          R4EP_ALL(ep,JEP_LAMREST)     = LAMREST
          R4EP_ALL(ep,JEP_PSF)         = SNLC_PSF_SIG1(ep)
-         R4EP_ALL(ep,JEP_NEA)         = SNLC_AREA_NOISE(ep) 
+         R4EP_ALL(ep,JEP_NEA)         = SNLC_PSF_NEA(ep) 
          R4EP_ALL(ep,JEP_SKYSIG)      = SNLC_SKYSIG(ep)
          R4EP_ALL(ep,JEP_SKYSIG_T)    = SNLC_SKYSIG_T(ep)
          R4EP_ALL(ep,JEP_ZP)          = SNLC_ZEROPT(ep)
@@ -10988,6 +11096,8 @@ c               avoid discontinuity in CHI2_PRIOR.
 c
 c Apr 2 2018: check PRIOR_COLOR_RANGE
 c
+c Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
+c 
 c ------------------------
 
       IMPLICIT NONE
@@ -11017,7 +11127,7 @@ c ------------------------
 
       character comment_prior*60
       LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
-      LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT
+      LOGICAL IS_SALT2, IS_SHAPE, IS_COLOR, IS_zPHOT, IS_SNOOPY
 
 C -------------- BEGIN ---------------
 
@@ -11026,7 +11136,8 @@ C -------------- BEGIN ---------------
       LFLAT = .TRUE.  ! default is flat between Guass-rolls
 
       IS_SALT2 = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
-      IS_COLOR = ( IPAR .EQ. IPAR_COLOR )
+      IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
+      IS_COLOR = ( IPAR .EQ. IPAR_COLOR ) ! SALT2 c or AV
       IS_SHAPE = ( IPAR .EQ. IPAR_SHAPE )
       IS_zPHOT = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
 
@@ -11046,7 +11157,7 @@ C -------------- BEGIN ---------------
             LFLAT = .FALSE.
           endif
 
-      ELSE IF ( IS_COLOR .and. IS_SALT2 ) THEN  ! Apr 2 2018
+      ELSE IF ( IS_COLOR .and. (IS_SALT2 .or. IS_SNOOPY) ) THEN  ! Apr 2 2018
           RANGE(1) = PRIOR_COLOR_RANGE(1)
           RANGE(2) = PRIOR_COLOR_RANGE(2)
           SIGMA    = PRIOR_COLOR_SIGMA
@@ -12050,7 +12161,7 @@ cc         print*,'  Will use exact CCM89 law with AV = XTMAG(5495 A)'
       END
 
 C ===================================================
-+DECK,FANA_CUTS.
++DECK,FITANA_CUTS.
       SUBROUTINE FITANA_CUTS(isn, LCUTS )
 c
 c Apply quality cuts to fit results AFTER all fit-iterations
@@ -12072,16 +12183,12 @@ c  * SNRMAX & SNRMAX2
 c  * SIGMACHI2
 c  * FitPar and covariances
 c
-c Feb 8 2014: fix VBOSE bug.
-c   When  LVBOSE-> F (after 500 fits), LCUTS was always true 
-c   resulting in failed fits getting into the ntuple and fitres files. 
-c   Applying cuts in the ntuple gives the right results.
-c
-c Feb 10, 2014:  suppress FITWIN_TREST check for photo-z fits
 c
 c Sep 17 2016: cut on fitted covariances; see CUTWIN_FITCOV
 c
 c Mar 10 2017: cut on CUTWIN_FITERRz1
+c
+c Jan 4 2021: check OPT_SNCID_LIST option to accept everything.
 c
 c ------------------------------------------------
 
@@ -12135,6 +12242,16 @@ C ----------------- BEGIN ----------------
       CALL PRBANNER(BANNER)
 
       LCUTS = .TRUE.  ! init output argument
+
+c Jan 4 2021
+c check option to use SNCID list and skip cuts ... but always
+c reject events that are pegged to the edge of the shape prior range
+      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+         xval = LCVAL_STORE(ipar_shape)
+         if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
+         if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
+         RETURN
+      endif
 
       DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
 
@@ -13157,7 +13274,7 @@ c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
 c Mar 24 2020: fix logic using local DOFIT_zFIX; needed for FITRESTMAG.
-c   .xyz
+c  
 c ---------------------
       IMPLICIT NONE
 
@@ -14502,7 +14619,6 @@ c translate user string MAGLIM_VMAX
       RETURN
       END      ! end of VMAX_INI
 
-
 C ==================================================
 +DECK,DMPVMAX.
       SUBROUTINE DMPVMAX(CCID,CFILT,NITER,ZMAX,MAGDIF,MAG)
@@ -15803,13 +15919,11 @@ c selected by snana, not just the ones in FILTLIST_FIT.
 c Use EPCUT_SNRMIN to reject extra filters.
 
          LAMTMP = LAMREST(itry)
-         IF ( OPT_DEBUG == 1000 ) then
-            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
-         else
+
 c new default, Mar 28 2020
-            NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
-     &             IFILTOBS_BRACKET) ! <== returned
-         endif
+          NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
+     &            IFILTOBS_BRACKET) ! <== returned
+
          IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
          IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
 
@@ -16352,7 +16466,7 @@ c local args
      &  ,x0, x1, xx1, c, MWEBV, PKMJD
      &  ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR
      &  ,KCOR, MAGOBS, MAGREST, FLUX_REST, ARG
-     &  ,RV, AV
+     &  ,RV, AV,  PARLIST_SN(10), PARLIST_HOST(10)
 
       LOGICAL LDMP 
 C ----------------- BEGIN -----------------
@@ -16392,6 +16506,15 @@ C Note that the rest-frame filter is defined as an obs-filter.
       PKMJD    = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
       RV=0.0 ;   AV=0.0
 
+      PARLIST_SN(1) = x0
+      PARLIST_SN(2) = x1
+      PARLIST_SN(3) = xx1
+      PARLIST_SN(4) = c
+
+      PARLIST_HOST(1) = RV
+      PARLIST_HOST(2) = AV
+      PARLIST_HOST(3) = -9.0 ! logmass
+
       DO 101 IMJD      = 1, ISNLC_NEWMJD_STORE
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD)
@@ -16407,14 +16530,14 @@ c start with obs-frame
          Trest   = TOBS/z1
 
          ZSN     = REDSHIFT_FIT
-         CALL genmag_salt2( MSKSALT2, IFILTOBS, 
-     &        x0, x1,x1, c, MWEBV,RV,AV, ZSN,ZSN,  NEP, Tobs,
+         CALL genmag_salt2( MSKSALT2, IFILTOBS,
+     &        PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN,  NEP, Tobs,
      &        MAGOBS_MODEL, MAGERR )     ! return arg
 
 c now the rest-frame
          ZSN     = 1.0E-6
          CALL genmag_salt2( MSKSALT2, IFILTREST, 
-     &        x0, x1,x1, c, MWEBV, RV,AV, ZSN,ZSN, NEP, Trest,
+     &        PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN, NEP, Trest,
      &        MAGREST_MODEL, MAGERR )     ! return arg
 
          KCOR    = MAGREST_MODEL - MAGOBS_MODEL
@@ -18734,9 +18857,11 @@ c      CALL SNTABLE_ADDCOL(ID,CBLK, BANDEP_FIT(1),
 c     &      VARNAME, 0, LENB, LENV)
 c xxxxxxxxxxxxxxxxxxxxxx
 
-      VARNAME = 'IDTEL(NPTFIT):I' // char(0)   ! telescope/survey ID
-      CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IDTEL), 
-     &       VARNAME, 0, LENB,LENV)
+c xxxx remove IDTEL Nov 30 2020 xxxxxxx
+c      VARNAME = 'IDTEL(NPTFIT):I' // char(0)   ! telescope/survey ID
+c      CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IDTEL), 
+c     &       VARNAME, 0, LENB,LENV)
+cv xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       VARNAME = 'FLUXCAL_DATA(NPTFIT):F' // char(0)  ! FLUXCAL, data
       CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_DATAFLUX), 
@@ -19123,7 +19248,10 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
           TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST) 
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
+          TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST) 
           TBLSPEC_IFILTOBS          = IFILTOBS
+          TBLSPEC_CCDNUM            = I4EP_ALL(ep,IEP_CCDNUM) 
+          TBLSPEC_IMGNUM            = I4EP_ALL(ep,IEP_IMGNUM)
           TBLSPEC_FLUXCAL_DATA      = R4EP_ALL(ep,JEP_DATAFLUX)
           TBLSPEC_FLUXCAL_DATA_ERR  = R4EP_ALL(ep,JEP_DATAFLUX_ERR)
           TBLSPEC_FLUXCAL_MODEL     = R4EP_ALL(ep,JEP_MODELFLUX)
@@ -19222,7 +19350,6 @@ C ---------------- BEGIN ------------
       CBLOCK   = BLOCK(1:LENBLOCK) // char(0)
 
 c - - - - 
-
       VARNAME = 'CCID:C*20' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARNAME, 1,
      &                   LENBLOCK, 20 )
@@ -19235,13 +19362,17 @@ c - - - -
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_CFILT, VARNAME, 1,
      &                   LENBLOCK, 4 )
 
+      VARNAME = 'CCDNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_CCDNUM, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'IMGNUM:I' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_IMGNUM, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
       VARNAME = 'IFILTOBS:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_IFILTOBS, VARNAME, 1,
      &                   LENBLOCK, 20 )
-
-c      VARNAME = 'MJD:F' // char(0)
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_MJD, VARNAME, 1,
-c     &                   LENBLOCK, 20 )
 
       VARNAME = 'MJD:D' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC8_MJD, VARNAME, 1,
@@ -19249,6 +19380,10 @@ c     &                   LENBLOCK, 20 )
 
       VARNAME = 'TREST:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_TREST, VARNAME, 1,
+     &                   LENBLOCK, 20 )
+
+      VARNAME = 'LAMREST:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_LAMREST, VARNAME, 1,
      &                   LENBLOCK, 20 )
 
       VARNAME = 'FLUXCAL_DATA:F' // char(0)
@@ -19606,7 +19741,8 @@ c hard-wire  a few things
       PARAMETER ( 
      &    HOFF      = 2000  ! hbook offset
      &   ,NFITSIG   = 10    ! go out +-NSIG sigma from central value
-     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
+     &   ,NBFITPAR  = 100   ! Number of fitpar bins to compute chi2
+c     &   ,NBFITPAR  = 500   ! Number of fitpar bins to compute chi2
      &      )
 
 
@@ -19620,7 +19756,7 @@ c hard-wire  a few things
       CHARACTER chis*80
 
       INTEGER 
-     &   hid, NBx, NBf, NHB(2), ipar, ix, LL
+     &   hid, NBx, NBf, NHB(2), ipar, ix, i, LL, LF
      &  ,ifilt, ifilt_obs, NFUSE
      &  ,IPAR_LOOP1, IPAR_LOOP2
      &  ,NDIM1, NDIM2
@@ -19696,8 +19832,9 @@ C ------------------- BEGIN ---------------------
 c book chi2 vs. par - par(at min) vs. filter
  
         LL = INDEX(PARNAME_STORE(ipar),' ' ) - 1
+        LF = INDEX(FILTLIST_FIT_USE,   ' ' ) - 1
         chis = 'FUN-chi2  vs.  [D]' // PARNAME_STORE(ipar)(1:LL) // 
-     &    ' and filters ' // FILTLIST_FIT_USE // char(0)
+     &    ' and filters ' // FILTLIST_FIT_USE(1:LF) // char(0)
 
         hid      = HOFF + ipar
         NHB(1)   = NBX  ; NHB(2)   = NBF
@@ -19710,7 +19847,7 @@ c book chi2 vs. par - par(at min) vs. filter
          DO ix = 1, NBx
 
              LDMPCHECK = ( IPAR .EQ. IPAR_PLOTCHI2 )
-     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
+cc     &          .and.    ( abs(xtmp-xcen) .LE. 10.*xbin )
 
              FCN_FITCHI2(0) = 0.0
              do ifilt = 1, NFILTDEF_SURVEY
@@ -19721,6 +19858,7 @@ c check for filters to dump near the minimum
                if ( LDMPCHECK ) then
                  LDMPFCN(ifilt_obs) = LDMPFCN_PLOTCHI2(ifilt_obs)
                  LDMPFUN(ifilt_obs) = LDMPFUN_PLOTCHI2(ifilt_obs)
+                 LDMPFCN(0)         = .true. ! xxx ?? 9.30.2021
                else
                  LDMPFCN(ifilt_obs) = .FALSE.
                  LDMPFUN(ifilt_obs) = .FALSE.

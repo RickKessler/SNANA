@@ -707,7 +707,7 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
 
   //  TREE_INFO_READ.tree->Scan(scanString) ;
 
-  int    Nfield, Nrow, irow, i, istat, ICAST ;
+  int    Nfield, Nrow, irow, i, istat, ICAST, OPT ;
   char   LINE[MXCHAR_VARLIST] ;
   char   valStore[MXVAR_TABLE][40];
   double DVAL, DARRAY[MXVAR_TABLE] ;
@@ -753,6 +753,9 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
       IVAR_TOT = READTABLE_POINTERS.PTRINDEX[i] ;
       ICAST    = TREE_INFO_READ.ICAST[IVAR_TOT] ;
       DVAL     = -99999. ;
+      ptrVar   = READTABLE_POINTERS.VARNAME[IVAR_TOT] ; // 3/14/2021
+      OPT      = 0 ;
+      if ( ISTABLEVAR_IFILT(ptrVar) ) { OPT=1; }
 
       // load local DVAL 
       if ( ICAST != ICAST_C ) {	sscanf( tmpString, "%le", &DVAL );  }
@@ -762,11 +765,11 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
       if( LREAD )   { 
 	load_READTABLE_POINTER(irow+IROW_MIN, i, DVAL, tmpString); 
       }
-      else if ( LDUMP )  { 
+      else if ( LDUMP )  {
 	if ( ICAST == ICAST_C ) 
-	  { sprintf(LINE,"%s %s", LINE, tmpString); }
+	  { load_DUMPLINE_STR(LINE,tmpString); }
 	else
-	  { load_DUMPLINE(LINE,DVAL); }        // .xyz
+	  { load_DUMPLINE(OPT,LINE,DVAL); }  
       }
 
       if ( i < Nfield-1 ) { strcat(LINE,SEPKEY); }  // June 20 2019

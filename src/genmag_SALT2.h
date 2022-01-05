@@ -28,9 +28,19 @@
 #define SALT2_INTERP_LINEAR 1
 #define SALT2_INTERP_SPLINE 2
 
+// user OPTMASK passed via sim-input 
+//  GENMODEL_MSKOPT: <MSKOPT>
+#define OPTMASK_SALT2_REQUIRE_DOCANA OPENMASK_REQUIRE_DOCANA  // =2
+#define OPTMASK_SALT2_DISABLE_MAGSHIFT    4  // disable MAGSHIFT keys
+#define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
+#define OPTMASK_SALT2_NONEGFLUX          16  // flux<0 -> 0 (as in DC2)
+#define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
+
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
+int  IMODEL_SALT ; // 2 or 3
 bool ISMODEL_SALT2, ISMODEL_SALT3 ;
+bool ALLOW_NEGFLUX_SALT2;
 
 /**********************************************
   Init Information
@@ -40,6 +50,7 @@ char SALT2_MODELPATH[MXPATHLEN] ;
 char SALT2_INFO_FILE[20]     ;
 char SALT2_VERSION[100];  // store version passed to init_genmag_SALT2
 char SALT2_PREFIX_FILENAME[20]; // e.g., "salt2", "salt3", etc ...
+// xxx char SALT2_SURVEY[60];          // store name of survey (Nov 2020)
 
 double RVMW_SALT2 ;
 
@@ -50,16 +61,6 @@ double RVMW_SALT2 ;
 #define INDEX_ERRMAP_SCAL     3
 #define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
 
-
-/* xxxx mark delete xxxxxx
-// Sep 2020: define color law params for python-trained SALT3
-typedef struct {
-  double REFLAM_CL0 ; // lam where CL=0  a.k.a B_WAVE
-  double REFLAM_CL1 ; // lam where CL=1  a.k.a V_WAVE
-  GENPOLY_DEF LAMPOLY_CL; // color law poly fun vs. wave
-  double LAMCEN_RANGE[2]; // min, max wave (rest-frame) of filt-mean
-} SALT3_COLORPAR_DEF ;
-xxxxxx end mark xxxxxxxxx */
 
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
@@ -78,6 +79,16 @@ struct SALT2_ERRMAP {
   double  RANGE_VALID[2] ;  // valid range for each map
   double  RANGE_FOUND[2] ;  // actual min/max for each map
 } SALT2_ERRMAP[NERRMAP]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
+
+#define CALIB_SALT2_MAGSHIFT  1
+#define CALIB_SALT2_WAVESHIFT 2
+#define MXSHIFT_CALIB_SALT2 100
+typedef struct {
+  int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
+  char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
+  char   BAND[2];
+  double SHIFT ;  
+} SHIFT_CALIB_SALT2_DEF ;
 
 
 struct INPUT_SALT2_INFO {
@@ -106,6 +117,9 @@ struct INPUT_SALT2_INFO {
 
   // option to force g-band flux to zero at high redshift (Oct 2015)
   double RESTLAM_FORCEZEROFLUX[2];
+
+  int NSHIFT_CALIB;
+  SHIFT_CALIB_SALT2_DEF SHIFT_CALIB[MXSHIFT_CALIB_SALT2];
 
 } INPUT_SALT2_INFO ;
 
@@ -201,12 +215,9 @@ struct SALT2_TABLE {
 int  init_genmag_SALT2(char *model_version, char *model_extrap_latetime, 
 		       int OPTMASK );
 
-void genmag_SALT2(int OPTMASK, int ifilt, double x0, 
-		  double x1, double x1_forErr,
-		  double c, double mwebv, 
-		  double RV_host, double AV_host,  // added July 2016
-		  double z, double z_forErr,
-		  int nobs, double *Tobs_list, 
+void genmag_SALT2(int OPTMASK, int ifilt, 
+		  double *parList_SN, double *parList_HOST, double mwebv,
+		  double z, double z_forErr, int nobs, double *Tobs_list, 
 		  double *magobs_list, double *magerr_list );
 
 void init_extrap_latetime_SALT2(void);
@@ -232,8 +243,10 @@ double SALT2magerr(double Trest, double lamRest,  double z,
 
 double SALT2colorDisp(double lam, char *callFun);
 
+void   setFlags_ISMODEL_SALT2(char *version);
+
 void getFileName_SALT2colorDisp(char *fileName) ;
-void read_SALT2_INFO_FILE(int REQUIRE_DOCANA);
+void read_SALT2_INFO_FILE(int OPTMASK);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 
@@ -253,31 +266,39 @@ double magerrFudge_SALT2(double magerr,
 
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
+void  init_calib_shift_SALT2train(void) ;
+bool  match_SALT2train(char *survey_calib, char *band_calib, int ifilt) ;
+int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
+			    double **transREF) ;
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
-		      double x0, double x1, double c,
-		      double RV_host, double AV_host,
+		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec );
 
 int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
+		   double z, double *parList_SN, double *parList_HOST, 
+		   double mwebv, double *covar );
+
+/* xxxxxxx
+int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
 		   double z, double x0, double x1, double c, double mwebv, 
 		   double RV_host, double AV_host, double *covar );
-
+		  xxxxxxxxx */
 
 // ----------------------------------------------------
 // ---------- SPECTROGRAPH FUNCTIONS ------------------
 // ----------------------------------------------------
 
 // function to generate spectrum for SPECTROGRAPH option in simulation.
-void genSpec_SALT2(double x0, double x1, double c, double mwebv,
-		   double RV_host, double AV_host,  double z, double Tobs, 
+void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
+		   double z, double Tobs, 
 		   double *GENFLUX_LIST,     // (O)
 		   double *GENMAG_LIST 	);   // (O)
 
 // function called by analysis program to return spectrum over band.
-// Note tha tall I/O is float instead of double.
+// Note that all I/O is float instead of double.
 int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
 		       float x0, float x1, float c, float mwebv,
 		       float *LAMLIST, float *FLUXLIST);

@@ -1,7 +1,7 @@
 /*******************************************************
-     Created Jan 2005 by R.Kessler 
+     Created Jan 2005 by R.Kessler
 
-     Defines: 
+     Defines:
       - Generic tools to read input from file
       - error handling routines
       - physical constants.
@@ -27,16 +27,22 @@
                so that it is more accessible. Also define function
                get_SNANA_VERSION.
 
-  May 30 2020: 
-    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
+  May 30 2020:
+    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle
     data files with lots of spectra.
 
-  Jul 30 2020: 
+  Jul 30 2020:
     + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
       stream for Mac compilation. Default is still 2 streams.
 
-  Jul 31 2020: 
+  Jul 31 2020:
     + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
+
+  Nov 12 2020:
+    + Adding glob utility
+
+  Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
+  Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
 
 ********************************************************/
 
@@ -49,12 +55,15 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
+#include <glob.h>
 
 #include "sndata.h"
+
+#include "sntools_gridmap.h"
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_79"                                       
+#define  SNANA_VERSION_CURRENT  "v11_04f"  
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -62,55 +71,59 @@
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile
 #define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
+#define OPENMASK_IGNORE_DOCANA  4  // see snana_openTextFile
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
-#define OMEGA_MATTER_DEFAULT   0.315 
-#define OMEGA_LAMBDA_DEFAULT   0.685 
+#define OMEGA_MATTER_DEFAULT   0.315
+#define OMEGA_LAMBDA_DEFAULT   0.685
 #define w0_DEFAULT            -1.0
 #define wa_DEFAULT             0.0
-#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
-#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_SALT2            70.0    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65.0    // km/s/Mpc : tied to MLCS training
 #define H0_Planck          67.4   // 1807.06209 (Planck 2018)
 #define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
 
-#define LIGHT_km  2.99792458e5      // speed of light (km/s) 
-#define LIGHT_A   2.99792458e18     // speed of light (A/s) 
-#define PLANCK    6.6260755e-27     // Planck constant (erg s) 
+#define LIGHT_km  2.99792458e5      // speed of light (km/s)
+#define LIGHT_A   2.99792458e18     // speed of light (A/s)
+#define PLANCK    6.6260755e-27     // Planck constant (erg s)
 #define hc        LIGHT_A * PLANCK
 #define PC_km     3.085678e13       // parsec (km)
 #define TWOPI     6.28318530718
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
-#define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
+#define ZMAX_SNANA   4.0        // max snana redshift, Dec 26 2016
+#define PSFMAX_SNANA 5.0        // max allowed PSF, FWHM, arcsec (Mar 2021)
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings
 #define PERCENT    "%"              // idem for %-sep strings
 #define PLUS       "+"
+#define STAR       "*"
+#define DOT        "."
 
 // from Planck 2018 (installed June 8 2020)
-#define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
-#define  CMBapex_b  (double)48.253     // deg (DEC)
+#define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)
+#define  CMBapex_b  (double)48.253     // deg
 #define  CMBapex_v  (double)369.82    // km/sec
 
-#define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
-#define TEN        (double)10.0 
+#define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian
+#define TEN        (double)10.0
 #define LNTEN      (double)2.30259  // ln(10)
 
-#define REJECT_FLAG    -1  
+#define REJECT_FLAG    -1
 #define ACCEPT_FLAG    +1
-#define ERROR     -1  // use these as return args for int functions
-#define SUCCESS   +1
-#define NULLINT    -9 
-#define NULLFLOAT  -9.0 
-#define NULLDOUBLE (double)-9.0 
-#define NULLSTRING "NULL"
-#define NODOUBLE      (double)1.7777E14
-#define NOFLOAT       (float)1.7777E14
-#define NOINT         555444333
+#define ERROR          -1  // use these as return args for int functions
+#define SUCCESS        +1
+#define NULLINT        -9
+#define NULLFLOAT      -9.0
+#define NULLDOUBLE     (double)-9.0
+#define NULLSTRING     "NULL"
+#define NODOUBLE       (double)1.7777E14
+#define NOFLOAT        (float)1.7777E14
+#define NOINT          555444333
 #define BLANK_STRING   ""
 #define NOTSET_STRING  "NOTSET" // init str pointers to avoid compile error
-
 #define NULLTYPE    0   // SN type with no TYPE in data base.
+#define FIELD_NONAME  "VOID"  // avoid using 'NULL' to avoid python problem.
 
 #define INDEX_NOTSATURATE 0
 #define INDEX_SATURATE    1
@@ -120,7 +133,7 @@
 #define MAG_NEGFLUX   128.0   // fluctuation results in flux < 0
 #define MAG_UNDEFINED 666.0   // model mag wave-range doesn't cover filter
 #define MAGERR_UNDEFINED 9.0
-#define FLUX_UNDEFINED  -9.0  // undefined model flux 
+#define FLUX_UNDEFINED  -9.0  // undefined model flux
 
 #define MODEL_STRETCH  1 // single-stretch (use rise/fall fudges for 2-stretch)
 #define MODEL_MLCS2k2  3  // MLCS2k2 (Riess, Suarab, Hubert)
@@ -131,6 +144,7 @@
 #define MODEL_SIMSED   7  // set of SED sequences (e.g., sim-explosion models)
 #define MODEL_BYOSED   8  // build-your-own SED model
 #define MODEL_SNEMO    9  // SNEMO from SNFactory (Sep 2020)
+#define MODEL_BAYESN    13  // BayeSN (Nov 2021)
 #define MODEL_NON1ASED   10  // obs-frame NONIA from SED
 #define MODEL_NON1AGRID  11  // obs-frame NONIA from mag-grid (Mar 2016)
 #define MODEL_LCLIB      12  // light curve library (July 2017)
@@ -141,15 +155,18 @@
 #define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
 
 
+#define KEYSOURCE_FILE 1 // moved from snlc_sim.h on June 24th 2021
+#define KEYSOURCE_ARG  2
+
 // keep this in sync with the fortran FILTDEF_STRING
 // Oct 22 2015: add 27 special chars to hack an IFU
 #define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx &"
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
-#define PARNAME_EBV "EBV" 
-#define PARNAME_AV  "AV" 
-#define PARNAME_RV  "RV" 
+#define PARNAME_EBV "EBV"
+#define PARNAME_AV  "AV"
+#define PARNAME_RV  "RV"
 
 char FILTERSTRING[100] ;
 
@@ -189,16 +206,15 @@ struct {
 } GENRAN_INFO ;
 
 
-// errmsg parameters 
-char c1err[200];   // for kcorerr utility 
-char c2err[200];   // for kcorerr utility 
+// errmsg parameters
+char c1err[200];   // for kcorerr utility
+char c2err[200];   // for kcorerr utility
 char BANNER[200];
 int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
 #define MXARGV 100
 int  NARGV_LIST;
 char *ARGV_LIST[MXARGV];
-// xxx mark delete Jul 2020 char ARGV_LIST[MXARGV][200];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.
 
 // ---------
@@ -221,7 +237,7 @@ struct {
 
 } DUMP_STRING_INFO ;
 
-// Store GaussIntegrals from 0 to x 
+// Store GaussIntegrals from 0 to x
 struct {
   int    INIT_FLAG;
   int    NBIN_XMAX ;
@@ -246,57 +262,21 @@ int OFFSET_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 int NPT_PERDIM_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 
 
-typedef struct GRIDMAP {
-  int     ID;        // 
-  int     NDIM;     // Number of dimensions
-  int    *NBIN;     // Number of bins in each dimension
-  double *VALMIN;   // min value in each dimension
-  double *VALMAX;   // max value in each dimension
-  double *VALBIN;   // binsize in each dimension
-  double *RANGE;    // max-min in each dimension
+// Feb 2021; define structure to enable python-like dictionary
+typedef struct STRING_DICT_DEF {
+  char STRING[100];     // original string to parse
+  char NAME[60] ;       // name of dictionary
+  int  N_ITEM;          // number of items to store
+  int  MAX_ITEM;        // max number of items
+  char **STRING_LIST ;  // list of string-item names
+  double *VALUE_LIST ;  // double value for each string
 
-  int    NFUN ;        // Number of stored functions
-  double **FUNVAL ;    // function value at each grid point 
-  double  *FUNMIN ;    // min fun-val per function
-  double  *FUNMAX ;    // max fun-val per function
-  int    *INVMAP;      // covert multi-D indices into 1D index
-  int  NROW;          // number or rows read from file 
-  int  OPT_EXTRAP;   // 1=>snap outside values to edge
-  char VARLIST[80]; // comma-sep list of variables (optional to fill)
-} GRIDMAP ;
+  // if string is same as LAST_STRING, return LAST_VALUE;
+  // this avoids looping thru lists of string-matching.
+  char   LAST_STRING[60] ;
+  double LAST_VALUE ;
 
-typedef struct GRIDMAP1D {
-  int NBIN ;
-  double  *XVAL, *YVAL ;
-} GRIDMAP1D ;
-
-#define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior
-#define IDGRIDMAP_HOSTLIB_WGTMAP        20  // HOSTLIB weight map
-#define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap
-#define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap
-#define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap
-#define IDGRIDMAP_GENPDF                60  // Jun 2020
-#define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap
-
-// simeff 
-#define MXGENVAR_SIMEFFMAP   10
-
-struct SIMEFFMAP_DEF {
-  int NGENVAR ; // number of variables to specify map
-  char   VARNAME[MXGENVAR_SIMEFFMAP][20] ;  // variable name
-  char   VARSCALE[MXGENVAR_SIMEFFMAP][8] ;  // LIN, LOG or INV
-  int    IFLAGSCALE[MXGENVAR_SIMEFFMAP];    // 1  , 10,    -1
-  int    NBINTOT;
-  int    NBIN[MXGENVAR_SIMEFFMAP];
-  double VARMIN[MXGENVAR_SIMEFFMAP] ;
-  double VARMAX[MXGENVAR_SIMEFFMAP] ;
-  double EFFMAX ; // max efficiency in map 
-
-  double **TMPVAL ; // temp memory to read effic. map
-  double  *TMPEFF ; // idem
-} SIMEFFMAP ;
-
-struct GRIDMAP  SIMEFF_GRIDMAP ;
+} STRING_DICT_DEF ;
 
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
@@ -328,7 +308,7 @@ struct  {
 } FILTER_REMAP  ;
 
 
-// structure to hold warnings for old/obsolete inputs that should 
+// structure to hold warnings for old/obsolete inputs that should
 // be replaced.
 struct {
   int  NWARN ;
@@ -341,7 +321,7 @@ struct {
 #define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line
-#define MXWORDFILE_PARSE_WORDS 1000000   // max words to parse in a file
+#define MXWORDFILE_PARSE_WORDS 2000000   // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED
@@ -349,8 +329,9 @@ struct {
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA    4  // parse blank space; ignore comma
-#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore after comment char
 #define MSKOPT_PARSE_WORDS_FIRSTLINE     16  // read only 1st line only
+#define LANGFLAG_PARSE_WORDS_C  0  // PARSE_WORDS language flag for C
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -370,11 +351,11 @@ struct {
   char STRING[MXLIST_STRING_UNIQUE][60];  // list of uniqe strings
   int  NFOUND_STRING[MXLIST_STRING_UNIQUE];  // number of times each str found
 
-  
+
   bool DUMPKEY_FLAG ;
   int  NKEY; // number of unique keys stored for dump
   char *KEY[MXLIST_KEY_UNIQUE] ;
-  
+
 } STRING_UNIQUE ;
 
 struct {
@@ -388,7 +369,6 @@ struct {
 #define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method, wgt=1 per obs
 #define OPTMASK_SETPKMJD_FLUXMAX3 32 // idem, with wgt=log(SNR) per obs
 #define OPTMASK_SETPKMJD_TRIGGER  64 // return MJD_TRIGGER
-// xxx mark delete 9/2020 #define OPTMASK_SETPKMJD_TRIGGER 32 //return MJD_TRIGGER
 
 struct {
   int    OPTMASK;
@@ -429,6 +409,8 @@ struct {
 
 } WRITE_EPOCH_LIST ;
 
+
+
 // ##############################################################
 //
 //     functions
@@ -448,8 +430,11 @@ void write_epoch_list_summary__(void);
 void catVarList_with_comma(char *varList, char *addVarName);
 
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
-void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
-		  double *RanList_noCorr, double *RanList_corr);
+void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+		      double *RanList_noCorr, double *RanList_corr);
+
+// xxx void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+// xxx		  double *RanList_noCorr, double *RanList_corr);
 
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );
@@ -460,17 +445,17 @@ int  check_snana_dump__(char *FUNNAME, char *CCID, char *BAND, double *MJD);
 void abort_snana_dump__(void);
 
 // ---- utility to REMAP filters for tables -----
-void FILTER_REMAP_INIT(char *remapString, char *VALID_FILTERLIST, 
-		       int *NFILT_REMAP, 
+void FILTER_REMAP_INIT(char *remapString, char *VALID_FILTERLIST,
+		       int *NFILT_REMAP,
 		       int *IFILTLIST_REMAP, char *FILTLIST_REMAP);
-void FILTER_REMAP_FETCH(int IFILTOBS_ORIG, 
+void FILTER_REMAP_FETCH(int IFILTOBS_ORIG,
 			int *IFILTOBS_REMAP, int *IFILT_REMAP);
 
-void filter_remap_init__(char *remapString, char *VALID_FILTERLIST, 
+void filter_remap_init__(char *remapString, char *VALID_FILTERLIST,
 			 int *NFILT_REMAP,
 			 int *IFILTLIST_REMAP, char *FILTLIST_REMAP);
 
-void filter_remap_fetch(int *IFILTOBS_ORIG, 
+void filter_remap_fetch(int *IFILTOBS_ORIG,
 			int *IFILTOBS_REMAP, int *IFILT_REMAP);
 
 int intrac_() ;  // needed by fortran minuit
@@ -478,12 +463,37 @@ int intrac_() ;  // needed by fortran minuit
 void get_SNANA_VERSION(char *snana_version); // Dec 2017
 void get_snana_version__(char *snana_version);
 
+float get_SNANA_VERSION_FLOAT(char *snana_version); // Oct 2020
+float get_snana_version_float__(char *snana_version);
 
+bool correct_sign_vpec_data(char *snana_version_data);
+bool correct_sign_vpec_data__(char *snana_version_data);
+
+void print_full_command(FILE *fp, int argc, char** argv);
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
-void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) ;
+
 void set_FILTERSTRING(char *FILTERSTRING) ;
-void set_EXIT_ERRCODE(int ERRCODE); 
+void set_EXIT_ERRCODE(int ERRCODE);
 void set_exit_errcode__(int *ERRCODE);
+
+/* xxxxxxxx mark delete Dec 10 2021 xxxxxxxxx
+void copy_SNDATA_GLOBAL(int copyFlag, char *key,
+			int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_HEAD(int copyFlag, char *key,
+		      int NVAL, char *stringVal, double *parVal);
+void copy_SNDATA_OBS(int copyFlag, char *key,
+		     int NVAL,char *stringVal, double *parVal);
+int select_MJD_SNDATA(double *CUTWIN_MJD);
+
+void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
+
+void copy_int(int copyFlag, double *DVAL0, int    *IVAL1) ;
+void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
+void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
+void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
+void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
+//void copy_void(int copyFlag, double *DVAL0, void   *VAL1) ;
+xxxxxxxxxxxxxx end mark xxxxxxxxxxx */
 
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
@@ -493,9 +503,14 @@ int strcmp_ignoreCase(char *str1, char *str2) ;
 
 // data functions
 void clr_VERSION ( char *version, int prompt );  // remove old *version files
-int init_VERSION ( char *version);  // init VERSION_INFO struct 
+int init_VERSION ( char *version);  // init VERSION_INFO struct
 int init_SNPATH(void);
-int init_SNDATA ( void ) ;  // init SNDATA struct
+int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
+int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
+void set_SNDATA_FILTER(char *filter_list);
+
+void init_GENSPEC_GLOBAL(void) ;
+void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
 
 void ld_null(float *ptr, float value);
 
@@ -513,7 +528,7 @@ int rd_sedFlux( char *sedFile, char *sedcomment,
 int  PARSE_FILTLIST(char *filtlist_string, int *filtlist_array );
 
 void update_covMatrix(char *name, int OPTMASK, int MATSIZE,
-		      double (*covMat)[MATSIZE], double EIGMIN, int *istat_cov); 
+		      double (*covMat)[MATSIZE], double EIGMIN, int *istat_cov);
 void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 			double (*covMat)[*MATSIZE], double *EIGMIN,
 			int *istat_cov ) ;
@@ -521,21 +536,40 @@ void update_covmatrix__(char *name, int *OPTMASK, int *MATSIZE,
 int  store_PARSE_WORDS(int OPT, char *FILENAME);
 void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
+void get_PARSE_WORD_INT(int langFlag, int iwd, int   *i_val);
+void get_PARSE_WORD_FLT(int langFlag, int iwd, float *f_val);
+void get_PARSE_WORD_NFLT(int langFlag, int NFLT, int iwd, float *f_val);
+void get_PARSE_WORD_NFILTDEF(int langFlag, int iwd, float *f_val);
 
-void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *stringPoly, char *varName, 
-		   GENPOLY_DEF *GENPOLY, char *callFun );
+void get_PARSE_WORD_DBL(int langFlag, int iwd, double *d_val);
+void get_parse_word__(int *langFlag, int *iwd, char  *word );
+void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
+void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
+void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
+
+int  match_cidlist_init(char *fileName, int *OPTMASK);
+int  match_cidlist_init__(char *fileName, int *OPTMASK);
+bool match_cidlist_exec(char *cid);
+bool match_cidlist_exec__(char *cid);
+
+void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
+void   parse_GENPOLY(char *stringPoly, char *varName,
+		     GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
+void   copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT);
+
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);
+void check_arg_len(char *keyName, char *arg, int MXLEN) ;
+void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) ;
 
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);
 
-double modelmag_extrap(double T, double Tref, 
+double modelmag_extrap(double T, double Tref,
 		       double magref, double magslope, int LDMP);
-double modelflux_extrap(double T, double Tref, 
+double modelflux_extrap(double T, double Tref,
 			double fluxref, double fluxslope, int LDMP);
 
 int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
@@ -544,46 +578,35 @@ double asinhinv(double mag, int ifilt);
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 
+/* xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
 int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
-
 void  wr_HOSTGAL(FILE *fp);
-
-void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ; 
-
-int  wr_filtband_int   ( FILE *fp, char *keyword, 
+void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ;
+int  wr_filtband_int   ( FILE *fp, char *keyword,
 			 int NINT, int *iptr, char *comment, int opt );
-int  wr_filtband_float ( FILE *fp, char *keyword, 
+int  wr_filtband_float ( FILE *fp, char *keyword,
 			 int NFLOAT, float *fptr, char *comment, int idec );
-
 int  header_merge(FILE *fp, char *auxheader_file);
-
-int sort_epochs_bymjd(void);
-
+int  sort_epochs_bymjd(void);
 int   WRSTAT ( int wrflag, float value ) ;
+xxxxxxxxxxxxxxxxxxxxx */
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
 int   Landolt_convert(int opt, double *mag_in, double *mag_out);
 int   landolt_convert__(int *opt, double *mag_in, double *mag_out);
 
-// simeff utilities (include mangled functions for fortran)
-int    init_SIMEFFMAP(char *file, char *varnamesList);
-double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS);
-void   malloc_SIMEFFMAP(int flag);
-
-int    init_simeffmap__(char *file, char *varnamesList);
-double get_simeff__(int *OPTMASK, int *NVAR, double *GRIDVALS);
-
-
-// errmsg" utilities 
+// errmsg" utilities
 void  tabs_ABORT(int NTAB, char *fileName, char *callFun);
 void  missingKey_ABORT(char *key, char *file, char *callFun) ;
 void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
 
-void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
+void  errlog ( FILE *fp, int  isev, char *fnam, char *msg1, char *msg2 );
+void  errmsg ( int  isev, int iprompt, char *fnam, char *msg1, char *msg2 );
 void  errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 );
+
 void  prompt(char *msg) ;
-void  madend(int flag);           // indicates bad end of program
+void  madend(FILE *fp, int flag);   // indicates bad end of program
 void  happyend(void) ;    // happy end of program
 void  parse_err ( char *infile, int NEWMJD, char *keyword );
 void  print_preAbort_banner(char *fnam);
@@ -592,20 +615,20 @@ void  print_preabort_banner__(char *fnam);
 void  warn_oldInputs(char *varName_old, char *varName_new);
 void  warn_oldinputs__(char *varName_old, char* varName_new) ;
 
-void  checkval_I(char *varname, int nval, 
+void  checkval_I(char *varname, int nval,
 		 int *iptr, int imin, int imax );
-void  checkval_F(char *varname, int nval, 
+void  checkval_F(char *varname, int nval,
 		 float *fptr, float fmin, float fmax );
-void  checkval_D(char *varname, int nval, 
+void  checkval_D(char *varname, int nval,
 		 double *dptr, double dmin, double dmax );
 
-void  checkval_i__(char *varname, int *nval, 
+void  checkval_i__(char *varname, int *nval,
 		   int *iptr, int *imin, int *imax );
 
 
-void  checkArrayBound(int i, int MIN, int MAX, 
+void  checkArrayBound(int i, int MIN, int MAX,
 		      char *varName, char *comment, char *funName);
-void  checkArrayBound_(int *i, int *MIN, int *MAX, 
+void  checkArrayBound_(int *i, int *MIN, int *MAX,
 		       char *varName, char *comment, char *funName);
 
 void  check_magUndefined(double mag, char *varName, char *callFun );
@@ -614,11 +637,14 @@ bool  NstringMatch(int MAX, char *string, char *key);
 bool  uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key, char *keySuffix_optional);
+bool  keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
 void  dumpUniqueKey(char *key) ;
 
 int   ivar_matchList(char *varName, int NVAR, char **varList);
+int   match_cid_hash(char *cid, int ilist, int isn);
+int   match_cid_hash__(char *cid, int *ilist, int *isn);
 
-void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
+void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
 
 unsigned int *CIDMASK_LIST;  int  MXCIDMASK, NCIDMASK_LIST ;
@@ -626,11 +652,11 @@ int  exec_cidmask(int mode, int CID);
 int  exec_cidmask__(int *mode, int *CID);
 void test_cidmask(void) ;
 
-// parameters for errmsg utility 
-#define SEV_INFO   1  // severity flag => give info     
-#define SEV_WARN   2  // severity flag => give warning  
-#define SEV_ERROR  3  // severity flag => error         
-#define SEV_FATAL  4  // severity flag => abort program 
+// parameters for errmsg utility
+#define SEV_INFO   1  // severity flag => give info
+#define SEV_WARN   2  // severity flag => give warning
+#define SEV_ERROR  3  // severity flag => error
+#define SEV_FATAL  4  // severity flag => abort program
 #define EXIT_ERRCODE_KCOR           10
 #define EXIT_ERRCODE_SIM            11
 #define EXIT_ERRCODE_SALT2mu        12
@@ -641,7 +667,7 @@ void test_cidmask(void) ;
 #define EXIT_ERRCODE_merge_hbook    17
 #define EXIT_ERRCODE_UNKNOWN        99
 
-// define old useful functions for reading/parsing input file 
+// define old useful functions for reading/parsing input file
 void  readint(FILE *fp, int nint, int *list) ;
 void  readlong(FILE *fp, int nint, long long *list) ;
 void  readfloat(FILE *fp, int nint, float *list);
@@ -662,37 +688,27 @@ int    INTFILTER ( char *cfilt );  // convert filter name into index
 
 
 // miscellaneous
-				  
+
 double MAGLIMIT_calculator(double ZPT, double PSF, double SKYMAG, double SNR);
 double SNR_calculator(double ZPT, double PSF, double SKYMAG, double MAG,
 		      double *FLUX_and_ERR ) ;
 
-int getInfo_PHOTOMETRY_VERSION(char *VERSION,  char *DATADIR, 
+int getInfo_PHOTOMETRY_VERSION(char *VERSION,  char *DATADIR,
 			       char *LISTFILE, char *READMEFILE);
-int getinfo_photometry_version__(char *VERSION,  char *DATADIR, 
+int getinfo_photometry_version__(char *VERSION,  char *DATADIR,
 				 char *LISTFILE, char *READMEFILE);
 
 int file_timeDif(char *file1, char *file2);
 
-void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
-			 int OPT_EXTRAP, 
-			 double **GRIDMAP_INPUT, double **GRIDFUN_INPUT,
-			 GRIDMAP *gridmap );
-
-int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
-
-void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
-		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
-		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
 void warn_NVAR_KEY(char *fileName);
 
-void fillbins(int OPT, char *name, int NBIN, float *RANGE, 
+void fillbins(int OPT, char *name, int NBIN, float *RANGE,
 	      float *BINSIZE, float *GRIDVAL);
 
 int commentchar(char *str);
-int rd2columnFile(char *file, int MXROW, int *Nrow, 
+int rd2columnFile(char *file, int MXROW, int *Nrow,
 		   double *column1, double *column2 );
-int rd2columnfile_(char *file, int *MXROW, int *Nrow, 
+int rd2columnfile_(char *file, int *MXROW, int *Nrow,
 		   double *column1, double *column2 );
 
 int nrow_read(char *file, char *callFun) ;
@@ -704,14 +720,14 @@ double interp_SINFUN(double VAL, double *VALREF, double *FUNREF,
 #define OPT_INTERP_LINEAR    1
 #define OPT_INTERP_QUADRATIC 2
 double interp_1DFUN(int opt, double val, int NBIN,
-		    double *VAL_LIST, double *FUN_LIST, 
+		    double *VAL_LIST, double *FUN_LIST,
 		    char *abort_comment );
 
 double interp_1dfun__(int *opt, double *val, int *NBIN,
-		      double *VAL_LIST, double *FUN_LIST, 
+		      double *VAL_LIST, double *FUN_LIST,
 		      char *abort_comment );
 
-int quickBinSearch(double VAL, int NBIN, double *VAL_LIST, 
+int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 		   char *abort_comment);
 double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 		    char *abort_comment );
@@ -720,11 +736,15 @@ double polyEval(int N, double *coef, double x);
 
 void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
 void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
-double RMSfromSUMS(int N, double SUM, double SQSUM);
+void test_arrayStat(void);
+double STD_from_SUMS(int N, double SUM, double SQSUM);
+double sigint_muresid_list(int N, double *MURES_LIST, double *MUCOV_LIST,
+			   int OPTMASK, char *callFun );
+
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
 
-void splitString(char *string, char *sep, int MXsplit, 
+void splitString(char *string, char *sep, int MXsplit,
 		 int *Nsplit, char **ptrSplit);
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
@@ -738,12 +758,13 @@ void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 
 void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
 			int *n_item, char ***arrayList );
+int  index_charString(char *c, char *s);
 
 double PROB_Chi2Ndof(double chi2, int Ndof); // replace CERNLIB's PROB function
 double prob_chi2ndof__(double *chi2, int *Ndof);
 
 // pixel-distance to nearest edge
-float edgedist(float XPIX, float YPIX,  int NXPIX, int NYPIX);  
+float edgedist(float XPIX, float YPIX,  int NXPIX, int NYPIX);
 
 void print_banner ( const char *banner ) ;
 void fprint_banner (FILE *FP, const char *banner ) ;
@@ -752,53 +773,30 @@ void fprint_banner (FILE *FP, const char *banner ) ;
 void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *callFun);
 
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
-			  char *fullName, int *gzipFlag ); 
+FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
+			  char *fullName, int *gzipFlag );
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
-void abort_openTextFile(char *keyName, char *PATH_LIST, 
+void abort_openTextFile(char *keyName, char *PATH_LIST,
 			char *fileName, char *funCall);
-void check_openFile_docana(FILE *fp, char *fileName); // check file already open
-void check_file_docana(char *fileName);           // open file and check
-void abort_missing_docana(char *fileName);
-void abort_missing_docana__(char *fileName);
+bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open
+void check_file_docana(int optmask, char *fileName);   // open file and check
+void check_file_docana__(int *optmask, char *fileName);
+
+bool key_in_file(char *file, char *key, int nwd_check);
+int  colnum_in_table(char *fileName, char *varName);
+
+void react_missing_docana(bool FOUND_DOCANA, char *fileName);
+void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
-void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
-// cosmology functions
-
-/* xxx mark delete Oct 2020 xxxxx
-double SFR_integral( double H0, double OM, double OL, double W, double Z );
-double SFRfun(double H0, double z) ;
-double SFRfun_MD14(double z, double *params);
-
-double dVdz_integral ( double H0, double OM, double OL, double W, 
-		       double Zmax, int wgtopt ) ;
-
-double dvdz_integral__ ( double *H0, double *OM, double *OL, double *W, 
-			 double *Zmax, int *wgtopt ) ;
-
-double dVdz ( double H0, double OM, double OL, double W, double Z ) ;
-double Hzinv_integral ( double H0, double OM, double OL, double W, 
-			double Zmin, double Zmax ) ;
-
-double Hainv_integral ( double H0, double OM, double OL, double W, 
-			double amin, double amax ) ;
-
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) ;
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) ;
-
-double zcmb_dLmag_invert(double H0, double OM, double OL, double W, double MU);
-
-double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
-			       char *coordSys, int OPT ) ;
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
-				 char *coordSys, int *OPT ) ;
-
-xxxxx end mark xxxxxxxxxx*/
+void  init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM);
+void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val);
+double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT);
+void  dump_string_dict(STRING_DICT_DEF *DICT);
+void  parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT);
 
 // SLALIB functions translated by D. Cinabro
 void slaEqgal ( double dr, double dd, double *dl, double *db );
@@ -808,7 +806,7 @@ void slaDcc2s ( double v[3], double *a, double *b );
 double slaDrange ( double angle );
 double slaDranrm ( double angle );
 
-// - - - - - 
+// - - - - -
 
 double angSep( double RA1,double DEC1,
 	       double RA2,double DEC2, double  scale);
@@ -818,62 +816,68 @@ double angSep( double RA1,double DEC1,
 void   init_random_seed(int ISEED, int NSTREAM);
 void   fill_RANLISTs(void);
 void   sumstat_RANLISTs(int FLAG);
-double unix_random(int istream) ;
-double unix_GaussRan(int istream);
-double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]
-double FlatRan1(int ilist);          // return 0 < random  < 1
-double GaussRan(int ilist);          // returns gaussian random number
-double GaussRanClip(int ilist, double ranGmin, double ranGmax);
+// xxx double unix_random(int istream) ;
+// xxx double unix_GaussRan(int istream);
+
+double unix_getRan_Flat1(int istream) ;
+double unix_getRan_Gauss(int istream);
+
+double getRan_Flat(int ilist, double *range);  //return rnmd on range[0-1]
+double getRan_Flat1(int ilist);          // return 0 < random  < 1
+double getRan_Gauss(int ilist);   // return Gauss randon (sigma=1)
+double getRan_GaussClip(int ilist, double ranGmin, double ranGmax);
+double getRan_GaussAsym(double siglo, double sighi, double peakinterval);
 int    getRan_Poisson(double mean);
-//void   FlatRan_correlated(int NDIM, double *COVRED, double *outRanList);
 
 // mangled functions for fortran
 double unix_random__(int *istream) ;
-double flatran1_(int *ilist) ;          // for fortran
-double gaussran_(int *ilist);         // for fortran
+double getran_flat1__(int *ilist) ;          // for fortran
+double getran_gauss__(int *ilist);         // for fortran
 
-// asymmetric gaussians
-double biGaussRan(double siglo, double sighi);  // rndm from bivariate guass
+double biGaussRan_LEGACY(double siglo, double sighi);
 
-double skewGaussRan(double rmin, double rmax, 
-		    double siglo, double sighi, double skewlo, double skewhi);
+double getRan_skewGauss(double rmin, double rmax, double siglo, double sighi,
+			double skewlo, double skewhi);
 
-double skewGauss(double x, double siglo,double sighi, 
-		 double skewlo, double skewhi) ;
+double funVal_skewGauss(double x, double siglo,double sighi,
+			double skewlo, double skewhi) ;
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
 
-// ------ index mapping
-void clear_1DINDEX(int ID);
-void  init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM );
-int    get_1DINDEX(int ID, int NDIM, int *indx );
+/* xxxxxxxxx mark delete Dec 10 2021 xxxxxxxxxx
+void copy_sndata_global__(int *copyFlag, char *key,
+			  int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_head__(int *copyFlag, char *key,
+			int *NVAL, char *stringVal,double *parVal);
+void copy_sndata_obs__(int *copyFlag, char *key,
+		       int *NVAL,char *stringVal,double *parVal);
+int  select_mjd_sndata__(double *MJD_WINDOW);
 
-// mangled functions for fortran
-void clear_1dindex__(int *ID);
-void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
-int  get_1dindex__ (int *ID, int *NDIM, int *indx );
-void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) ;
+void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
+xxxxxxxxx end mark xxxxxxxxxx */
+
+
 
 // ------ sorting --------
 
-void sortDouble(int NSORT, double *ARRAY, int ORDER, 
+void sortDouble(int NSORT, double *ARRAY, int ORDER,
 		int *INDEX_SORT) ;
-void sortFloat(int NSORT, float *ARRAY, int ORDER, 
+void sortFloat(int NSORT, float *ARRAY, int ORDER,
 	       int *INDEX_SORT) ;
-void sortInt(int NSORT, int *ARRAY, int ORDER, 
+void sortInt(int NSORT, int *ARRAY, int ORDER,
 	     int *INDEX_SORT) ;
-void sortLong(int NSORT, long long *ARRAY, int ORDER, 
+void sortLong(int NSORT, long long *ARRAY, int ORDER,
 	     int *INDEX_SORT) ;
 void reverse_INDEX_SORT(int NSORT, int *INDEX_SORT) ;
 
 
 // mangled fortran functions
-void sortdouble_(int *NSORT, double *ARRAY, int *ORDER, 
+void sortdouble_(int *NSORT, double *ARRAY, int *ORDER,
 		 int *INDEX_SORT);
-void sortfloat_(int *NSORT, float *ARRAY, int *ORDER, 
+void sortfloat_(int *NSORT, float *ARRAY, int *ORDER,
 		int *INDEX_SORT);
-void sortint_(int *NSORT, int *ARRAY, int *ORDER, 
+void sortint_(int *NSORT, int *ARRAY, int *ORDER,
 	      int *INDEX_SORT);
 
 // invert matrix to replace CERNLIB functions
@@ -889,20 +893,38 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode);
 
 // generic LC width util (for simulation)
 void   init_lightCurveWidth(void);
-double get_lightCurveWidth(int OPTMASK, int NOBS, double *TLIST, 
+double get_lightCurveWidth(int OPTMASK, int NOBS, double *TLIST,
 			   double *MAGLIST, int *ERRFLAG, char *FUNCALL ) ;
 
 void   init_lightcurvewidth__(void);
-double get_lightcurvewidth__(int *OPTMASK, int *NOBS, double *TLIST, 
+double get_lightcurvewidth__(int *OPTMASK, int *NOBS, double *TLIST,
 			   double *MAGLIST, int *ERRFLAG, char *FUNCALL ) ;
 
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE);
-void get_obs_atFLUXMAX(char *CCID, int NOBS, float *FLUX, float *FLUXERR, 
+void get_obs_atFLUXMAX(char *CCID, int NOBS, float *FLUX, float *FLUXERR,
 		       double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
 
 void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 
-void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR, 
+void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+int glob_file_list(char *wildcard, char ***file_list);
+
+// multi-D malloc functions (copied from SALT2mu.c, July 2021)
+
+void  print_debug_malloc(int opt, char *comment);
+float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
+float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
+                      double ****array3D );
+float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+                      double *****array4D );
+float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3,
+                     float ****array3D );
+
+float malloc_shortint2D(int opt, int LEN1, int LEN2,
+			short int ***array2D );
+float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
+			short int *****array4D );
 
 // ============== END OF FILE =============

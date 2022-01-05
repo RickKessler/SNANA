@@ -36,6 +36,8 @@
  Aug 27 2017: 
    + few updates to allow using only NON1A templates without SNIA templates.
 
+ Oct 23 2020: call init_HzFUN_INFO
+
 ========================================= */
 
 
@@ -50,13 +52,14 @@
 #include <sys/stat.h>
 #include <gsl/gsl_sf_gamma.h>
 
-#include "sntools.h"      // general snana stuff
+#include "sntools.h"            // general snana stuff
+#include "sntools_cosmology.h"  // cosmology functions (10.2020)
 #include "MWgaldust.h"    // GALextinct is here
 
-#define SNGRIDREAD // use only the read utilities in sngridtools.c
+#define MODELGRID_READ // use only the read utilities in sngridtools.c
+
 #include "fitsio.h"
-#include "sntools_grid.h"
-// #include "sntools_grid.c"
+#include "sntools_modelgrid.h"
 
 #include "psnid_tools.h"  // psnid tools (after including sngrindtools)
 
@@ -67,8 +70,8 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   // Receive input values, then strip them off and load
   // PSNID_INPUTS structure in psnid_tools.h.
 
-  int ivar, i, NWD, iwd, OPT, iter ;
-  double dval ;
+  int ivar, i, NWD, iwd, OPT, iter, VBOSE ;
+  double dval, cosPar[10] ;
   char *ptrtok, cwd[60][200] ;
   char fnam[] = "PSNID_USER_INPUT" ;
 
@@ -88,8 +91,17 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   ivar++ ; dval = input_array[ivar];
   PSNID_INPUTS.W0 = dval ;
 
+  // Oct 2020: create HzFUN_INFO struct
+  cosPar[ICOSPAR_HzFUN_H0] = PSNID_INPUTS.H0 ;
+  cosPar[ICOSPAR_HzFUN_OM] = PSNID_INPUTS.OMAT ;
+  cosPar[ICOSPAR_HzFUN_OL] = PSNID_INPUTS.OLAM ;
+  cosPar[ICOSPAR_HzFUN_w0] = PSNID_INPUTS.W0 ;
+  cosPar[ICOSPAR_HzFUN_wa] = 0.0 ;
+  VBOSE = 1;
+  init_HzFUN_INFO(VBOSE, cosPar, "", &PSNID_INPUTS.HzFUN_INFO);
+
   ivar++ ; dval = input_array[ivar];
-  PSNID_INPUTS.OPT_DEBUG = (int)dval ;
+  PSNID_INPUTS.DEBUG_FLAG = (int)dval ;
 
   // load &PSNIDINP doubles ...
   ivar++ ; dval = input_array[ivar];
@@ -1257,7 +1269,7 @@ void psnid_dumpInput_data(char *CCID, int NOBS, int *IFILTOBS,
 // and use DATA_PSNID_DOFIT struct filled in psnid_store_data().
 
 {
-  int i, iobs, ifiltobs;
+  int i, iobs, ifiltobs ;
   char cfilt[2];
 
   //  char fnam[] = "psnid_dumpInput_data" ;
@@ -1280,12 +1292,12 @@ void psnid_dumpInput_data(char *CCID, int NOBS, int *IFILTOBS,
   for ( iobs=0; iobs < NOBS; iobs++ ) {
     ifiltobs = IFILTOBS[iobs] ;
     //    sprintf(cfilt,"%c", FILTERSTRING[ifiltobs] ) ;
-    sprintf(cfilt,"%c", PSNID_INPUTS.CFILTLIST[IFILTOBS[iobs]]) ;
+    sprintf(cfilt,"%c", PSNID_INPUTS.CFILTLIST[ifiltobs]) ;
 
     printf("\t xxx iobs=%3d  CFILTLIST[IFILTOBS[iobs]]=%s  "
 	      "IFILTOBS[iobs]=%d  IFILTLIST[IFILTOBS[iobs]]=%d  "
 	   "MJD=%9.3f   FLUX=%8.3f +- %8.3f    S/N = %8.3f\n",
-	   iobs, cfilt, IFILTOBS[iobs], PSNID_INPUTS.IFILTLIST[IFILTOBS[iobs]],
+	   iobs, cfilt, IFILTOBS[iobs], PSNID_INPUTS.IFILTLIST[ifiltobs],
 	   MJD[iobs], FLUX[iobs], FLUXERR[iobs],
 	   FLUX[iobs]/FLUXERR[iobs]);
     fflush(stdout);

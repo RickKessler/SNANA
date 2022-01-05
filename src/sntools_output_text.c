@@ -57,6 +57,9 @@
 // Jun 03 2020: if MARZ option is set, remove [z=xxx] from CCID
 //              in TEXT SPECPLOT table.
 //
+// Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
+// Sep 07 2021: abort if found too few variables (SNTABLE_READ_EXEC_TEXT)
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -64,7 +67,7 @@ char FILEPREFIX_TEXT[100];
 #define MXTABLE_TEXT 10 
 #define MXVAR_TEXT   MXVAR_TABLE
 #define MXEPVAR_TEXT 50   // for light curve epoch
-#define MXCHAR_LINE  2500
+#define MXCHAR_LINE  3200 
 
 #define OPT_FORMAT_KEY   1
 #define OPT_FORMAT_CSV   2
@@ -175,7 +178,6 @@ extern"C" {
   void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
-  // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
 
   int count_varnames_TEXT();
   int get_varname_TEXT(int ivar, char *varName );
@@ -472,7 +474,7 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
   xxxxx */
 
   if ( strstr(VARNAME,"MJD") != NULL ) {
-    sprintf(VALSTRING, "%.3f", VAL); // some kind of MJD
+    sprintf(VALSTRING, "%.4f", VAL); // some kind of MJD
   }
 
   else if ( strstr(VARNAME,"RA") != NULL && ABSVAL<400 ) {
@@ -524,7 +526,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   int ITAB, NFILL, NVAR, IVAR, ICAST, OPT_FORMAT ;
 
   FILE *FP ;
-  char ROW[2000], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
+  char ROW[MXCHAR_LINE], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
   char fnam[] = "SNTABLE_FILL_TEXT" ;
 
   // ------------- BEGIN ------------
@@ -1012,7 +1014,7 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
   //  printf(" xxx %s: LENF=%d FILENAME=%s \n", fnam, LENF, FILENAME);
 
   if ( LENF > 0 )  { 
-    fclose(fp); 
+    if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
   }
   else {
     snana_rewind(fp, FILENAME_TEXT, GZIPFLAG_TEXT);
@@ -1136,9 +1138,6 @@ int  SNTABLE_READPREP_TEXT(void) {
   // reset NVARTOT_FITRES to exclude CID
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
 
-  // rewind, but do not close file.
-  // xxx mark delete  rewind(FP);
-
   // close file and re-open because rewind does not work on
   // gzipped files 
   fclose(PTRFILE_TEXT);
@@ -1158,7 +1157,11 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   //
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
+  // Jun  29 2021; check GZIPFLAG_TEXT for using pclose or fclose
+  // Sep  07 2021: abort if ivar < NVAR_TOT 
+  //    (e.g., if split jobs with different NVAR are merged)
   //
+
   int NROW = 0 ;
   int i, ivar, isn, ICAST, nptr;
 
@@ -1209,7 +1212,6 @@ int SNTABLE_READ_EXEC_TEXT(void) {
     NROW++ ;   
 
     ptrtok = strtok(NULL," " ); ivar=0 ;
-    //  xxx mark delete while ( ptrtok != NULL && ptrtok != '\0' && ivar < NVAR_TOT) { 
     while ( ptrtok != NULL && ivar < NVAR_TOT) { 
 
       // Dec 20 2017: extract only variables on READ-list
@@ -1222,6 +1224,12 @@ int SNTABLE_READ_EXEC_TEXT(void) {
       ivar++ ;
     }
             
+    if ( NROW>1 && ivar < NVAR_TOT ) {
+      sprintf(MSGERR1,"Exepcted %d values, but found %d", NVAR_TOT, ivar);
+      sprintf(MSGERR2,"Check CID = %s", CVAR[0]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+    }
+
     if ( fmodf( (float)(NROW), 100000. ) == 0 && NROW > 0 )  { 
       printf("\t Reading table row %d  (%s=%s) \n", 
 	     NROW, KEYNAME_ID, CVAR[0] );  fflush(stdout);
@@ -1280,7 +1288,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   } // end fscanf 
   
-  fclose(FP);
+
+  if ( GZIPFLAG_TEXT ) { pclose(FP); } else { fclose(FP); }
 
   // May 2 2019: reset flags to allow opening another file.
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
@@ -1294,6 +1303,8 @@ void SNTABLE_CLOSE_TEXT(void) {
   // May 2020
   // can call this function after SNTABLE_NEVT
   // so that there is no need to read entire file.
+
+  fclose(PTRFILE_TEXT); // Feb 13 2021
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
   USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
 } 
@@ -1361,6 +1372,8 @@ int ICAST_for_textVar(char *varName) {
     { return ICAST_C; }
 
   if ( strcmp_ignoreCase(varName,(char*)"IAUC_NAME" ) == 0 ) 
+    { return ICAST_C;}
+  if ( strcmp_ignoreCase(varName,(char*)"IAUC" ) == 0 ) 
     { return ICAST_C;}
 
   if ( strcmp_ignoreCase(varName,(char*)"CATALOG" )   == 0 ) 

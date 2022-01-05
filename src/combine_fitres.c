@@ -46,6 +46,9 @@
 
   >  combine_fitres.exe <fitres1>  -mxrow 50000
 
+  >  combine_fitres.exe <fitres1>  -varnames zHD,c,x1,SIM_DLMAG
+          [select only these varnames (along with CID)]
+
   >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
          [cut on zHD]
 
@@ -117,6 +120,18 @@
      no value.
    + allow 1 or 2 dashes in front of input args to allow pythonic structure.
 
+ Oct 27 2020: fix a few warnings from -Wall flag 
+
+ Nov 18 2020: allow comma-sep list of space-sep list of fitres files.
+              See new function parse_FFILE(arg).
+
+ Dec 09 2020: new -varnames arg to select subset of variables to write out.
+
+ Jan 4 2021: add print_stats() for NEVT, NEVT_MISSING, NEVT_COMMON
+
+ Jun 08 2021: switch to using match_cid_hash  utility in sntools.c
+                (matchflag=5).
+   
 ******************************/
 
 #include <stdio.h>
@@ -139,15 +154,20 @@
 
 
 void  PARSE_ARGV(int argc, char **argv);
+void  parse_FFILE(char *arg);
+
+void  init_misc(void);
 void  INIT_TABLEVAR(void);
 void  ADD_FITRES(int ifile);
 int   match_CID_orig(int ifile, int isn2);
-int   match_CID_hash(int ifile, int isn2);
+int   match_CID_hash_local(int ifile, int isn2);
 void  ADD_FITRES_VARLIST(int ifile, int isn, int isn2);
 
 int   NMATCH_VARNAME(char *ctag , int ntlist ) ;
 int   maxlen_varString(char *varName);
 int   SKIP_VARNAME(int file, int ivar) ;
+
+void  print_stats(void);
 
 void  WRITE_SNTABLE(void); // output table in selected format
 void  outFile_text_override(char *outFile, int *GZIPFLAG);
@@ -157,6 +177,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN);
 void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN); 
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
+void malloc_NMATCH_PER_EVT(int N);
 
 // ================================
 // Global variables
@@ -167,11 +188,6 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
-
-/* xxx mark delete Sep 2020 
-#define INIVAL_COMBINE_FLT  -888.0 // default float value
-#define INIVAL_COMBINE_STR  "NULL" // default string value
-xxxxxxx  end mark xxxx */
 
 #define DEFAULT_NULLVAL_FLOAT  -888.0 // default float value
 #define DEFAULT_NULLVAL_STRING  "NULL" // default string value
@@ -200,8 +216,9 @@ int NWRITE_SNTABLE ;
 #define  TABLEID_COMBINE   TABLEID_FITRES
 #define  TABLENAME_COMBINE TABLENAME_FITRES
 
-#define MATCHFLAG_ORIG     1 // original slow CID-matching
-#define MATCHFLAG_HASH     3 // use hash table recommended by Sam
+#define MATCHFLAG_ORIG       1 // original slow CID-matching
+#define MATCHFLAG_HASH_LOCAL 3 // use hash table recommended by Sam
+#define MATCHFLAG_HASH_UTIL  5 // generical utility in sntools (Jun 2021)
 
 // inputs
 struct INPUTS {
@@ -214,6 +231,10 @@ struct INPUTS {
   double CUTWIN_zHD[2];
   int    DOzCUT;
   float  NULLVAL_FLOAT ; // Sep 2020
+
+  int  NVARNAMES_KEEP ;
+  char **VARNAMES_KEEP; // select and save only these varnames
+  char VARLIST_KEEP[MXPATHLEN];
 } INPUTS ;
 
 
@@ -277,6 +298,11 @@ struct hash_table {
 
 struct hash_table *users = NULL; 
 
+char *NMATCH_PER_EVT ; // just 1 byte each to save memory
+int  NEVT_COMMON;   // number of events common to all FITRES files
+int  NEVT_READ[MXFFILE];    // NEVT read from each file
+int  NEVT_MISSING[MXFFILE]; // NEVT missing w.r.t. 1st FITRES file
+
 // =========================================
 int main(int argc, char **argv) {
 
@@ -290,6 +316,44 @@ int main(int argc, char **argv) {
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_combine_fitres);
 
+  init_misc();
+
+  PARSE_ARGV(argc,argv);
+
+  INIT_TABLEVAR();
+
+  print_banner("Begin Reading Fitres Files.\n");
+
+  TABLEFILE_INIT(); // Oct 27 2014
+
+  for ( ifile = 0; ifile < INPUTS.NFFILE; ifile++ ) {
+    ADD_FITRES(ifile);
+  }
+
+  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) 
+    { match_CID_hash_local(-1,0); } // remove hash table
+
+  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) 
+    { match_cid_hash("", -1,0); } // remove hash table
+
+  // ---------------
+
+  WRITE_SNTABLE() ;
+
+  printf("   Done writing %d events. \n", NWRITE_SNTABLE );
+  fflush(stdout);
+
+  print_stats();
+
+  return(0);
+
+} // end of main
+
+
+// ===============================
+void  init_misc(void) {
+
+  int i;
   // set default output to hbook if both root and hbook are compiled
   // (specified by order of inits below)
 #ifdef USE_ROOT  
@@ -304,33 +368,11 @@ int main(int argc, char **argv) {
   CREATEFILE_TEXT = 1;
 #endif
 
-  PARSE_ARGV(argc,argv);
+  NEVT_COMMON = 0 ;
+  for(i=0; i < MXFFILE; i++ )  
+    { NEVT_MISSING[i] = NEVT_READ[i] = 0; }
 
-  INIT_TABLEVAR();
-
-  print_banner("Begin Reading Fitres Files.\n");
-
-  TABLEFILE_INIT(); // Oct 27 2014
-
-  for ( ifile = 0; ifile < INPUTS.NFFILE; ifile++ ) {
-    ADD_FITRES(ifile);
-  }
-
-  if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH ) 
-    { match_CID_hash(-1,0); } // remove hash table
-
-  // ---------------
-
-  WRITE_SNTABLE() ;
-
-  printf("   Done writing %d events. \n", NWRITE_SNTABLE );
-  fflush(stdout);
-
-  return(0);
-
-} // end of main
-
-
+} // end init_misc
 
 // ===============================
 void  PARSE_ARGV(int argc, char **argv) {
@@ -344,13 +386,17 @@ void  PARSE_ARGV(int argc, char **argv) {
 
   INPUTS.NFFILE       = 0;
   INPUTS.MXROW_READ   = 1000000000 ;
-  INPUTS.MATCHFLAG    = MATCHFLAG_HASH ; // MATCHFLAG_ORIG;
+
+  INPUTS.MATCHFLAG    = MATCHFLAG_HASH_UTIL ;  // Jun 2021  
+
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
   INPUTS.CUTWIN_zHD[0] = -9.0 ;  
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
   sprintf(INPUTS.OUTPREFIX_COMBINE, "combine_fitres" );
-  INPUTS.NULLVAL_FLOAT =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NULLVAL_FLOAT   =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NVARNAMES_KEEP  = 0 ;
+  INPUTS.VARLIST_KEEP[0] = 0 ;
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
@@ -377,6 +423,14 @@ void  PARSE_ARGV(int argc, char **argv) {
     if ( strcmp(argv[i],"-mxrow") == 0 || 
 	 strcmp(argv[i],"--mxrow") == 0  ) {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
+      continue ;
+    }
+
+    if ( strcmp(argv[i],"-varnames") == 0 || 
+	 strcmp(argv[i],"--varnames") == 0  ) {
+      i++ ; sscanf(argv[i], "%s", INPUTS.VARLIST_KEEP);
+      parse_commaSepList("VARNAMES_KEEP", INPUTS.VARLIST_KEEP, MXVAR_TOT,
+			 40, &INPUTS.NVARNAMES_KEEP, &INPUTS.VARNAMES_KEEP);
       continue ;
     }
 
@@ -409,6 +463,7 @@ void  PARSE_ARGV(int argc, char **argv) {
 
     if ( strcmp_ignoreCase(argv[i],"t") == 0 ) { 
       CREATEFILE_HBOOK = 0 ; 
+      CREATEFILE_ROOT  = 0 ; 
       if ( strcmp(argv[i],"T")==0) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
     }
@@ -418,10 +473,8 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
-    sprintf( INPUTS.FFILE[NFFILE], "%s", argv[i] );
-    printf("  Will combine fitres file: %s \n", 
-	   INPUTS.FFILE[NFFILE] );
-    NFFILE++ ;
+    // parse FITRES file(s) and add to INPUTS.FFILE list
+    parse_FFILE(argv[i]);
 
   } // end loop over arg list
   
@@ -429,12 +482,14 @@ void  PARSE_ARGV(int argc, char **argv) {
   if ( INPUTS.MATCHFLAG == MATCHFLAG_ORIG ) {
     printf("   CID-match method: brute force loop over each file.\n");
   }
-  else {
-    printf("   CID-match method: hash table.\n");
+  else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
+    printf("   CID-match method: hash table with local util.\n");
+  }
+  else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
+    printf("   CID-match method: hash table with sntools util.\n");
   }
 
-  INPUTS.NFFILE = NFFILE ;
-  if ( NFFILE <= 0 ) {
+  if ( INPUTS.NFFILE <= 0 ) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
     sprintf(c2err, "  combine_fitres.exe <fitresFile List> ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -459,10 +514,39 @@ void  PARSE_ARGV(int argc, char **argv) {
   }
 #endif
 
+  return;
 
 } // end of PARSE_ARGV
 
+// ====================================
+void parse_FFILE(char *arg) {
 
+  // Created Nov 18 2020
+  // add arg to INPUTS.FFILE list ... if arg is comma-sep list,
+  // split each item and add each item to list. This allows
+  // both space-separated and comma-separated file list.
+
+  int ifile, nfile_add=0, NFFILE = INPUTS.NFFILE;
+  char **file_list;
+  char fnam[] = "parse_FFILE" ;
+  
+  // ----------- BEGIN -------------
+
+  parse_commaSepList("FITRES_FILE_LIST", arg, 10, MXPATHLEN,
+		     &nfile_add, &file_list );
+
+  for(ifile=0; ifile < nfile_add; ifile++ ) {
+    sprintf( INPUTS.FFILE[NFFILE], "%s", file_list[ifile] );
+    printf("  Will combine fitres file: %s \n", 
+	   INPUTS.FFILE[NFFILE] );
+    NFFILE++ ;
+    free(file_list[ifile]);
+  }
+
+  INPUTS.NFFILE = NFFILE ;
+  free(file_list);
+
+} // end parse_FFILE
 
 // ==========================
 void INIT_TABLEVAR(void) {
@@ -500,15 +584,13 @@ void ADD_FITRES(int ifile) {
   //         fast when both files have exactly the same CIDs.
   //
 
-  int 
-    ivar, ivarstr, j, isn, isn2
-    ,NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST
-    ,index, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
-    ;
+  int  ivar, ivarstr, j, isn, isn2, NMATCH2 ;
+  int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
+  int  index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
 
   char 
     *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME]
-    ,*ptr_CTAG
+    ,*ptr_CTAG, ccid[60]
     ,fnam[] = "ADD_FITRES"
     ;
 
@@ -650,8 +732,12 @@ void ADD_FITRES(int ifile) {
 
   // read everything and close file.
   NLIST = SNTABLE_READ_EXEC();
+  NEVT_READ[ifile] = NLIST;
 
-  if ( ifile == 0 ) { NLIST_FIRST_FITRES  = NLIST ; }
+  if ( ifile == 0 ) {
+    NLIST_FIRST_FITRES  = NLIST ; 
+    malloc_NMATCH_PER_EVT(NLIST);
+  }
 
   // always fill 2nd NLIST2
   NLIST2_FITRES = NLIST ;
@@ -663,17 +749,29 @@ void ADD_FITRES(int ifile) {
   if ( ifile > 0 ) 
     { printf("\t begin CID matching ... \n"); fflush(stdout); }
 
+  NMATCH2 = 0 ;
+
   for(isn2=0; isn2 < NLIST2_FITRES; isn2++ ) {
     
-    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH ) 
-      { isn = match_CID_hash(ifile,isn2);  } // isn is for ifile=0
+    if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_LOCAL ) {
+      isn = match_CID_hash_local(ifile,isn2);   // isn is for ifile=0
+    }
+    else if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
+      sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2]);
+      isn = match_cid_hash(ccid,ifile,isn2);   // isn is for ifile=0
+    }
     else 
       { isn = match_CID_orig(ifile,isn2);  }
 
-    if ( isn >= 0 ) 
-      { ADD_FITRES_VARLIST(ifile,isn,isn2); }
+    if ( isn >= 0 ) { 
+      ADD_FITRES_VARLIST(ifile,isn,isn2);   
+      NMATCH2++ ;
+      NMATCH_PER_EVT[isn]++ ; 
+    }
 
   }
+
+  NEVT_MISSING[ifile] = NLIST_FIRST_FITRES - NMATCH2 ;
 
   fflush(stdout);
 
@@ -731,7 +829,7 @@ int match_CID_orig(int ifile, int isn2) {
 } // end if match_CID_orig
 
 // =====================================
-int match_CID_hash(int ifile, int isn2) {
+int match_CID_hash_local(int ifile, int isn2) {
 
   // Created Oct 7 2019
   // Use hash table to speed matching.
@@ -744,11 +842,9 @@ int match_CID_hash(int ifile, int isn2) {
   int   isn;
   char  ccid[MXSTRLEN_CID];
   struct hash_table *s, *tmp;
-  //  char fnam[] = "match_CID_hash" ;
+  //  char fnam[] = "match_CID_hash_local" ;
 
   // ----------- BEGIN ------------
-
-  // .xyz
 
   if ( ifile < 0 ) {
     /* free the hash table contents */
@@ -784,11 +880,10 @@ int match_CID_hash(int ifile, int isn2) {
     return(-9);
   }
   
-  // .xyz
 
   return(-9);
 
-} // end if match_CID_hash
+} // end if match_CID_hash_local
 
 
 // =============================
@@ -798,7 +893,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
   int  LTMP = 0 ;
   int  MXUPDATE = 50;
   int  ivarstr, IVARSTR, IVARTOT, ivar, ICAST, TMPMOD ;
-  char ccid2[MXSTRLEN_CID], *VARNAME ;
+  char ccid2[MXSTRLEN_CID];
   char fnam[] = "ADD_FITRES_VARLIST" ;
 
   // --------- BEGIN ------------
@@ -811,7 +906,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
   if ( isn2 == NLIST_FIRST_FITRES-1)    { LTMP = 1; } 
   if ( isn2 == NLIST_FIRST_FITRES  )    { LTMP = 1; }
 
-  if ( ifile <= 1 && LTMP == 1 ) {
+  if ( ifile <= 1 && LTMP  ) {
     sprintf(ccid2, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2] ); 
     printf("\t %s = '%12s'  ->  isn = %6d   \n", 
 	   VARNAME_COMBINE[0], ccid2, isn2 );  fflush(stdout);
@@ -826,7 +921,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
 
     if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
 
-    VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+    // VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
     if ( ICAST != ICAST_C )  {   // not a string
@@ -863,17 +958,27 @@ int SKIP_VARNAME(int ifile, int ivar) {
 
   // Dec 8 2014
   // Return 1 if this variable should be ignored.
-  
-  char *VARNAME ;
-  int  j;
+  // Dec 2020: check KEEP_VARNAMES 
 
+  char *VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+  bool KEEP = false;
+  int  j, k ;
+
+  // -------- BEGIN ------------
+
+  // check option to keep only use-selected list of varnames
+  for ( k=0; k < INPUTS.NVARNAMES_KEEP; k++ ) {
+    if ( strcmp(VARNAME,INPUTS.VARNAMES_KEEP[k]) == 0 ) { KEEP=true;}
+  }
+  if ( ivar>0 && INPUTS.NVARNAMES_KEEP > 0 && !KEEP ) { return(1); }
+
+  // - - - - - -
   // no SNANA file yet
   if ( IFILE_FIRST_SNANA < 0 ) { return(0); } 
 
-  // don't skip 1st SNANA file.
+  // never skip 1st SNANA file.
   if ( ifile == IFILE_FIRST_SNANA ) { return(0) ; }  
 
-  VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
   for(j=0; j < NVARNAME_1ONLY; j++ ) {
     if ( strcmp(VARNAME,VARNAME_1ONLY[j]) == 0 ) { return(1) ; }
   }
@@ -920,7 +1025,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   // NVAR is the number of variables to read from this fitres file.
   // MAXLEN is an estimate of the max array length to allocate.
 
-  int ivar, isn, IVAR_ALL, NTOT, MEMF, MEMD ;
+  int ivar, isn, IVAR_ALL, NTOT, MEMF ;
   //  char fnam[] = "fitres_malloc_flt" ;
 
   // ---------- BEGIN ------------
@@ -930,7 +1035,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
   // redo malloc on TMP arrays for each fitres file
   MEMF      = (NVAR+1) * sizeof(float*) ;
-  MEMD      = (NVAR+1) * sizeof(double*) ;
   FITRES_VALUES.FLT_TMP = (float **)malloc(MEMF) ;
 
   // -----------------------------------
@@ -946,7 +1050,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   for ( ivar=0; ivar < NVAR; ivar++ ) {
 
     MEMF = sizeof(float  ) * MAXLEN ;
-    MEMD = sizeof(double ) * MAXLEN ;
     IVAR_ALL = NVARALL_FITRES + ivar ;
 
     FITRES_VALUES.FLT_TMP[ivar]     = (float  *)malloc(MEMF);
@@ -1021,6 +1124,12 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
 
 } // end of fitres_malloc_str
 
+// ===================================
+void malloc_NMATCH_PER_EVT(int N) {
+  int i;
+  NMATCH_PER_EVT = (char*) malloc( N * sizeof(char) );
+  for(i=0; i < N; i++ ) { NMATCH_PER_EVT[i] = 0 ; }
+} 
 
 // ===================================
 int NMATCH_VARNAME(char *ctag , int ntlist ) {
@@ -1034,7 +1143,6 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
   NMATCH = 0;
 
   for ( i=0; i < ntlist; i++ ) {
-    // xxx mark delete   OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
     OVP    = strcmp_ignoreCase(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }
@@ -1044,6 +1152,51 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
 } // end of NMATCH_VARNAME
 
 
+// =========================================
+void  print_stats(void) {
+
+  // Created Jan 4 2021
+  // print summary as follows
+
+  //   ifile  NEVT_READ  NEVT_MISSING 
+  //
+  // and then
+  //   NEVT_COMMON: 
+  //
+
+  int NFFILE = INPUTS.NFFILE ;
+  int ifile, isn ;
+  char key_grep[] = "SUMMARY:" ;
+
+  // ------------ BEGIN ------------
+
+  sprintf(BANNER,"FILE_STATISTICS %s", key_grep );
+  print_banner(BANNER);
+
+  printf("%s \n", key_grep);
+  printf("%s   ifile   NEVT_READ   NEVT_MISSING \n", key_grep);
+  printf("%s  ------------------------------------\n", key_grep);
+  for(ifile=0; ifile < NFFILE; ifile++ ) {
+    printf("%s   %2d    %8d   %8d \n",
+	   key_grep, ifile,  NEVT_READ[ifile], NEVT_MISSING[ifile] );
+    fflush(stdout);
+  }
+  printf("%s  ------------------------------------\n", key_grep);
+
+
+  if ( NFFILE > 1 ) {
+    for(isn=0; isn < NLIST_FIRST_FITRES; isn++ ) {
+      if ( NMATCH_PER_EVT[isn] == NFFILE ) { NEVT_COMMON++; }
+    }
+    printf("%s NEVT_COMMON: %d  (%d missing in at least one file)\n\n", 
+	   key_grep, NEVT_COMMON, NEVT_READ[0]-NEVT_COMMON );
+    fflush(stdout);
+  }
+
+  //.xyz
+  return;
+
+} // end print_stats
 
 // =========================================
 void WRITE_SNTABLE(void) {
@@ -1067,13 +1220,12 @@ void WRITE_SNTABLE(void) {
 
   double zHD;
   int GZIPFLAG = 0 ;
-  int ivar, ivarstr, isn, IERR, ICAST, CIDint ;
+  int ivar, ivarstr, isn, ICAST, CIDint ;
   int IFILETYPE, NOUT, out, SKIP ;
 
-  // char  fnam[] = "WRITE_SNTABLE" ;
+  char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
-  IERR = -9 ;
   NOUT = 0 ;
   OUTFILE[NOUT][0] = 0 ;
   NWRITE_SNTABLE = 0 ;
@@ -1212,6 +1364,16 @@ void WRITE_SNTABLE(void) {
       else
 	{ TABLEROW_VALUES.FLT[ivar] = FITRES_VALUES.FLT_ALL[ivar][isn];  }
       
+      /*
+      float VAL = TABLEROW_VALUES.FLT[ivar];
+      if ( ivar == 54 && VAL < 0.0 ) {
+	printf(" xxx %s: CID=%d  %s = %le \n", 
+	       fnam, CIDint,  VARNAME_COMBINE[ivar], 
+	       TABLEROW_VALUES.FLT[ivar] );
+	fflush(stdout);
+	}  */
+
+
     } // ivar
 
     SKIP = 0 ;
@@ -1225,7 +1387,7 @@ void WRITE_SNTABLE(void) {
     NWRITE_SNTABLE++ ;
     SNTABLE_FILL(TABLEID_COMBINE);
 
-    // Jan 2020: stop of -mxrow
+    // Jan 2020: stop if -mxrow
     if ( isn >= INPUTS.MXROW_READ-1 ) {
       printf("\n\t STOP AFTER WRITING %d ROWS. \n\n", isn);
       fflush(stdout);  goto DONE_FILL ;
@@ -1241,7 +1403,7 @@ void WRITE_SNTABLE(void) {
 
   // check gzip option
   if ( GZIPFLAG )  { 
-    char cmd[200];
+    char cmd[400];
     sprintf(cmd,"gzip %s", INPUTS.OUTFILE_TEXT);
     system(cmd); 
   }
@@ -1296,7 +1458,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
   STORE_TABLEFILE_COMMENT(comment) ;
 
   for(ifile=0; ifile < INPUTS.NFFILE; ifile++ ) {
-    sprintf(comment,"\t + %s", INPUTS.FFILE[ifile] );
+    sprintf(comment,"   + %s", INPUTS.FFILE[ifile] );
     STORE_TABLEFILE_COMMENT(comment) ;
   }
 

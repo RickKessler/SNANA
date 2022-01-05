@@ -34,7 +34,7 @@
 
 
 // define flags for software packages
-#define USE_HBOOK  
+#define USE_HBOOK       
 #define USE_ROOT     
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
@@ -78,6 +78,7 @@ char STRING_TABLEFILE_OPENFLAG[MXOPENFLAG][12] ;
 
 char STRING_IDTABLE_SNANA[MXTABLEFILETYPE][12] ;
 char STRING_IDTABLE_FITRES[MXTABLEFILETYPE][12] ;
+char STRING_IDTABLE_OUTLIER[MXTABLEFILETYPE][12] ; // Mar 2021
 
 int  CALLED_TABLEFILE_INIT ;  // flag to ensure call to TABLEFILE_INIT
 
@@ -293,14 +294,17 @@ struct SPECPAK_OUTPUT {
 
 
 // special struct for outlier option (8.03.2014)
-#define  INDX_OUTLIER_NPTFIT  0   // sparse index for NPTFIT
+#define  INDX_OUTLIER_NPTFIT  0   // sparse index for NPTFIT in FITRES+RESID
+#define  INDX_OUTLIER_NOBS    0   // oidem for SNANA+EPOCHS table
 #define  INDX_OUTLIER_IFILT   1   // sparse index for IFILTOBS
 #define  INDX_OUTLIER_CHI2    2   // sparse index for CHI2FLUX
 #define  NVAR_OUTLIER_DECODE  3
 
 #define  OUTLIER_VARNAME_NPTFIT    "NPTFIT"
+#define  OUTLIER_VARNAME_NOBS      "NOBS"
 #define  OUTLIER_VARNAME_IFILT     "IFILTOBS"  
 #define  OUTLIER_VARNAME_CHI2      "CHI2FLUX" 
+#define  VARNAME_CUTFLAG_SNANA     "CUTFLAG_SNANA" 
 
 // read-flags
 #define OPT_SNTABLE_READ_forARRAY      1   // read to fill array in memory
@@ -350,7 +354,7 @@ struct LASTREAD_AUTOSTORE  {
 } LASTREAD_AUTOSTORE ;
 
 // generic strings for errmsg 
-char MSGERR1[80], MSGERR2[80] ;
+char MSGERR1[200], MSGERR2[200] ;
 char SNANA_VERSION[20] ;
 
 // -------------------------------------------------
@@ -368,7 +372,7 @@ extern"C" {
   void  print_preAbort_banner(char *fnam);
   void  trim_blank_spaces(char *string) ;
   int   strcmp_ignoreCase(char *str1, char *str2) ;
-
+  void  debugexit(char *string);
   void catVarList_with_comma(char *varList, char *addVarName);
 
   void  checkval_I(char *varname,int nval,int   *iptr, int imin, int imax );
@@ -405,16 +409,18 @@ extern"C" {
   void SNTABLE_DUMP_VARNAMES(char *FILENAME, char *TABLENAME); 
 
   int  SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME, 
-			   int NVAR, char **VARLIST, FILE *FP_OUTFILE,
+			   int NVAR, char **VARLIST, int IVAR_NPT, 
+			   FILE *FP_OUTFILE,
 			   char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
 
   int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME, 
-			     int NVAR, char **VARLIST, float *OUTLIER_NSIGMA,
-			     FILE *FP_OUTFILE, 
+			     int NVAR, char **VARLIST, int IVAR_NPT,
+			     float *OUTLIER_NSIGMA, FILE *FP_OUTFILE, 
 			     char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
   void SNTABLE_SUMMARY_OUTLIERS(void);
+  bool ISTABLEVAR_IFILT(char *VARNAME);
 
   int  SNTABLE_NEVT  (char *FILENAME, char *TABLENAME); 
   int  sntable_nevt__(char *FILENAME, char *TABLENAME);
@@ -452,7 +458,8 @@ extern"C" {
 
   int  IVAR_READTABLE_POINTER(char *varName) ;
   void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) ;
-  void load_DUMPLINE(char *LINE, double DVAL) ;
+  void load_DUMPLINE(int OPT, char *LINE, double DVAL) ;
+  void load_DUMPLINE_STR(char *LINE, char *STRING) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
   int  ICAST_for_textVar(char *varName) ;
@@ -468,9 +475,13 @@ extern"C" {
   void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 				double *DVAL, char *CVAL);  // output value
   
+  void fetch_autostore_ccid(int ifile, int isn, char *ccid);
+  void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
+
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
 
 
+  int IVAR_VARNAME_AUTOSTORE(char *varName);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);
 

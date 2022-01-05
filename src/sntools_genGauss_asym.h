@@ -11,6 +11,7 @@ typedef struct  {
   bool   USE;       // T -> values are set (Jun 11 2020)  
   char   NAME[80];  // name of variable  
   double PEAK ;     // peak prob
+  double PEAKRANGE[2]; // Range where PEAKPROB = 1 
   double SIGMA[2] ; // asymmetric Gaussian sigmas
   double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK|
   double RANGE[2] ; // allows truncation  
@@ -22,6 +23,10 @@ typedef struct  {
   double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index
   double RMS;  // RMS of asym Gaussian 
+
+  int KEYSOURCE ; // 1=FILE, 2=ARG; used for prioritization
+  int INDEX; // Generic index for internal use (not part of function)
+
 } GENGAUSS_ASYM_DEF ;
 
 GENGAUSS_ASYM_DEF  GENGAUSS_ASYM_LIST[MXGENGAUSS] ; 
@@ -30,7 +35,8 @@ GENGAUSS_ASYM_DEF  GENGAUSS_ASYM_LIST[MXGENGAUSS] ;
 // ========= FUNCTION PROTOTYPES ==================
 
 void   init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL );
-double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
+double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
+double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss);
 void   copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
                           GENGAUSS_ASYM_DEF *genGauss2) ;
 void   dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
@@ -43,5 +49,14 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss );
 // function prototypes for skewNormal.c (moved here Jan 11 2017)
 void  init_skewNormal(int seed); // one-time init
 double skewNormalRan(int seed, double loc, double scale, double skew) ;
+
+
+void checkVal_GENGAUSS(char *varName, double *val, char *fromFun );
+int  parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
+                            GENGAUSS_ASYM_DEF *genGauss );
+
+void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS, char *MAPNAME, int IDMAP,
+                              int OPT_EXTRAP, int NBIN, double *RANGE,
+                              char *callFun, GRIDMAP *GRIDMAP_LOAD);
 
 // == END ==

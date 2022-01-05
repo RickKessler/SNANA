@@ -50,7 +50,15 @@
      MAGSYSTEM: AB
      MAGSYSTEM: BD17
      MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB
-    
+
+     # associate each filter set with survey(s) from SURVEY.DEF
+     SURYEY: SDSS
+     SURVEYS: FOUNDATION,PS1MD
+
+     # optional ZPOFF file to override default ZPOFF.DAT (Jan 2021)
+     ZPOFF_FILE: ZPOFF_UPDATED.DAT
+       (if no slash in file name, check FILTPATH)
+
      FILTSYSTEM: COUNT    # most moder systems are count
      FILTSYSTEM: ENERGY   # older Bessell system may be energy
 
@@ -182,6 +190,21 @@
    + write input file name and filter paths into output FITS header ...
      can be used later to chase down DOCANA notes.
 
+ Nov 15 2020
+   + read optional list of surveys for each MAGSYSTEM, and write
+     SURVEY=%s as part of each filter comment in kcor header.
+
+ Dec 07 2020:
+    + alow multiple FILTPATH keys
+
+ Jan 15 2021: new ZPOFF_FILE input key (for each FILTPATH) to override
+              default ZPOFF.DAT
+
+ Nov 3 2021:
+   For spectrograph, extend stored wavelength range of SEDs to that
+   of spectraograph. See new function set_store_lambda_range().
+   Goal is to enable simulated spectra to go beyond wave range of filters.
+
 ****************************************************/
 
 
@@ -229,25 +252,26 @@ int main(int argc, char **argv) {
   
   // -----------------------------------------
 
+  // read survey name <-> integer map (Nov 2020)
+  read_SURVEYDEF();
+
   // read user input file for directions
-  if ( rd_input() != SUCCESS ) { madend(1) ; }
+  if ( rd_input() != SUCCESS ) { madend(stdout,1) ; }
 
   // read SN spectra and filter responses
-  if ( kcor_ini() != SUCCESS ) { madend(1) ;  }
-
-  //  debugexit("main"); // xxx REMOVE
+  if ( kcor_ini() != SUCCESS ) { madend(stdout,1) ;  }
 
   // allocate memory for multi-dimensional arrays.
-  if ( malloc_ini() != SUCCESS ) { madend(1) ; }
+  if ( malloc_ini() != SUCCESS ) { madend(stdout,1) ; }
 
   // determine SN color mag vs. day for each filter 
-  if ( snmag() != SUCCESS ) { madend(1) ; }
+  if ( snmag() != SUCCESS ) { madend(stdout,1) ; }
 
   //  do K-cor grid vs. redshifts, and days 
-  if ( kcor_grid() != SUCCESS ) { madend(1) ;  }
+  if ( kcor_grid() != SUCCESS ) { madend(stdout,1) ;  }
 
   // write output 
-  if ( kcor_out() != SUCCESS ) { madend(1) ; }
+  if ( kcor_out() != SUCCESS ) { madend(stdout,1) ; }
 
   // end it all 
   
@@ -314,7 +338,7 @@ int rd_input(void) {
 
   INPUTS.AV_OPTION     = 2;
 
-  //  INPUTS.LEAKAGE_CUT = 1.0E-4 ; // Mar 27 2017: NOT IMPLEMENTED
+  INPUTS.LEAKAGE_CUT = 0.0 ; // May 20 2021
 
   INPUTS.IRD_ZPOFF = 1; // read ZPOFF.DAT file by default
 
@@ -454,12 +478,10 @@ int rd_input(void) {
     if ( strcmp(c_get,"SN_MAGOFF:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.SN_MAGOFF );
     }  
-
-    /* xxxx
+   
     if ( strcmp(c_get,"LEAKAGE_CUT:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.LEAKAGE_CUT );
     }  
-    xxxxx */
 
     if ( strcmp(c_get,"DUPLICATE_LAMSHIFT_GLOBAL:")==0 )  {
       readdouble ( fp_input, 1, &INPUTS.LAMSHIFT_GLOBAL );
@@ -531,12 +553,6 @@ int rd_input(void) {
       readchar ( fp_input,  MAGSYSTEM_TMP );
       parse_MAGSYSTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
 
-      /* xxxxx mark delete 
-      printf(" xxx %s: MAGSYSTEM->NAME(%s) = %s -> '%s' (DO_TR=%d)\n",
-	     fnam, MAGSYSTEM_TMP, MAGSYSTEM.NAME_INPUT, MAGSYSTEM.NAME,
-	     MAGSYSTEM.DO_TRANSFORM );
-	     xxxx */
-
       // check for command-line override
       if ( strcmp(MAGSYSTEM.NAME,INPUTS.MAGSYSTEM_REPLACE1) == 0 ) 
 	{ sprintf(MAGSYSTEM.NAME,"%s", INPUTS.MAGSYSTEM_REPLACE2); }
@@ -546,15 +562,14 @@ int rd_input(void) {
       else
 	{ FILTER_IGNORE = 0 ; }
 
-
-      INDX_INPUT = index_primary(MAGSYSTEM.NAME_INPUT); 
-      INDX       = index_primary(MAGSYSTEM.NAME);
+      INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT); 
+      INDX         = index_primary(MAGSYSTEM.NAME);
       MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
       MAGSYSTEM.INDX       = INDX ;
       PRIMARYSED[INDX_INPUT].USE = 1; 
       PRIMARYSED[INDX].USE       = 1; 
-      MAGSYSTEM.OFFSET_INPUT = 2.5 * log10 ( FNU_AB );
-      MAGSYSTEM.OFFSET       = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET_INPUT     = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET           = 2.5 * log10 ( FNU_AB );
 
       PRIMARYSED[INDX].IS_AB       = (strcmp(MAGSYSTEM.NAME,"AB")==0) ;
       PRIMARYSED[INDX_INPUT].IS_AB = (strcmp(MAGSYSTEM.NAME_INPUT,"AB")==0) ;
@@ -562,8 +577,18 @@ int rd_input(void) {
       printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f (INDX=%d->%d)\n",
 	     MAGSYSTEM_TMP, MAGSYSTEM.OFFSET,
 	     MAGSYSTEM.INDX_INPUT, MAGSYSTEM.INDX );
+      sprintf(MAGSYSTEM.SURVEY_NAMES, "NONE" );
+      sprintf(MAGSYSTEM.ZPOFF_FILE,   "NONE" );
     }  
 
+    if ( strcmp(c_get,"SURVEY:") == 0 || strcmp(c_get,"SURVEYS:") == 0 ) {
+      readchar(fp_input, MAGSYSTEM.SURVEY_NAMES);  // Nov 2020
+      check_valid_survey_names(MAGSYSTEM.SURVEY_NAMES);
+    }
+
+    if ( strcmp(c_get,"ZPOFF_FILE:") == 0 ) {
+      readchar(fp_input, MAGSYSTEM.ZPOFF_FILE);  // Jan 2021
+    }
 
     if ( strcmp(c_get,"FILTPATH:")==0 && (FILTER_IGNORE == 0) )  {
 
@@ -575,21 +600,10 @@ int rd_input(void) {
       if ( strcmp(INPUTS.FILTPATH,INPUTS.FILTPATH_replace1) == 0 ) 
 	{  sprintf(INPUTS.FILTPATH,"%s", INPUTS.FILTPATH_replace2 ); }
 
-      rd_ZPOFF(INPUTS.FILTPATH);
+      rd_ZPOFF(INPUTS.FILTPATH, MAGSYSTEM.ZPOFF_FILE);  
 
       // store filter path to check for duplicates
       sprintf(FILTPATH_LIST[NFILTPATH], "%s", INPUTS.FILTPATH);
-
-      // 5/03/2011: abort if FILTPATH is repeated
-      for ( itmp=1; itmp < NFILTPATH; itmp++ ) {
-	ptr_tmp = FILTPATH_LIST[itmp] ;
-	if ( strcmp(INPUTS.FILTPATH,ptr_tmp) == 0 ) {
-	  sprintf(c1err,"Found duplicate  FILTPATH: %s", ptr_tmp);
-	  sprintf(c2err,"Remove extra '%s' or use MAGSYSTEM_IGNORE option.",
-		  ptr_tmp );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-	}
-      } // itmp
 
     }
 
@@ -789,7 +803,8 @@ int rd_input(void) {
     char *inFile = INPUTS.inFile_spectrograph ;
     FILE *fp ;
 
-    fp = snana_openTextFile(1,INPUTS.FILTPATH, inFile,
+    int OPENMASK = OPENMASK_VERBOSE;
+    fp = snana_openTextFile(OPENMASK, INPUTS.FILTPATH, inFile,
 			    SPECTRO_FILENAME, &gzipFlag );
 
     if ( !fp ) {
@@ -850,6 +865,10 @@ int rd_input(void) {
   printf("\t User SN Trest range from %6.0f to %6.0f days \n",
 	 SNSED.TREST_MIN, SNSED.TREST_MAX );
 
+  if ( INPUTS.LEAKAGE_CUT > 1.0E-12 ) {
+    printf("\t Reject out-of-band (OOB) leakage with "
+	   "Trans/TransMax < %9.2le\n", INPUTS.LEAKAGE_CUT );
+  }
 
   // ==================================================
   // ==================================================
@@ -870,8 +889,38 @@ int rd_input(void) {
 }  // end of rd_input
 
 
+// *********************************************************
+void  check_valid_survey_names(char *SURVEYS) {
 
-// ****************************
+  // Created Nov 23 2020
+  // Check each survey in comma-sep list of *SURVEYS;
+  // abort if any survey name is invalid.
+
+  int  n_survey, i, ID ;
+  char **survey_list, *survey ;
+  char fnam[] = "check_valid_survey_names" ;
+
+  // ------------- BEGIN ---------------
+
+  parse_commaSepList("SURVEYS", SURVEYS, 10, MXCHAR_FILENAME,
+		     &n_survey, &survey_list );
+
+  for(i=0; i < n_survey; i++ ) {
+    survey = survey_list[i];
+    ID = get_IDSURVEY(survey);
+    if ( ID < 0 ) {
+      sprintf(c1err, "Invalid survey = '%s'  "
+	      "(check SURVEY keys in kcor-input).", survey);
+      sprintf(c2err, "SURVEY name must exist in $SNDATA_ROOT/SURVEY.DEF");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
+  return ;
+
+} // end check_valid_survey_names
+
+// *********************************************************
 void parse_OOB(char *bandList, double *LAMRANGE, double RATIO) {
 
   // Parse OOB info and store it in structure.
@@ -1023,6 +1072,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   int  INDX_INPUT  = MAGSYSTEM->INDX_INPUT ;
   char *NAME       = MAGSYSTEM->NAME;
   char *NAME_INPUT = MAGSYSTEM->NAME_INPUT ;
+  char *SURVEY     = MAGSYSTEM->SURVEY_NAMES ; // Nov 2020
+  char *ZPOFF_FILE = MAGSYSTEM->ZPOFF_FILE;    // Jan 2021
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
@@ -1032,7 +1083,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
   // strip inputs into local variables
   char *filtName = INPUT_FILTER->FILTNAME ;
-  char *fileName = INPUT_FILTER->FILENAME ;
+  char *fileName = INPUT_FILTER->FILENAME ;  
   double magRef  = INPUT_FILTER->MAGREF ;
   
   // ------------- BEGIN -----------------
@@ -1096,7 +1147,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(FILTER[NF].FILTSYSTEM_NAME,"%s", FILTSYSTEM->NAME ) ;
   sprintf(FILTER[NF].PATH,     "%s", INPUTS.FILTPATH ) ;
   sprintf(FILTER[NFILTPATH].PATH_ORIG,"%s", INPUTS.FILTPATH_ORIG ) ;  
-  FILTER[NF].IPATH = NFILTPATH ;  // Dec 2012
+  FILTER[NF].IPATH = NFILTPATH ;  
   
   FILTER[NF].MAGFILTER_ZPOFF  = get_ZPOFF(filtName,NFILTPATH) ;
 
@@ -1112,6 +1163,15 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%s", NAME_INPUT ) ;
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
+
+  if ( REQUIRE_SURVEY_KCOR && IGNOREFILE(SURVEY) ) {
+    sprintf(c1err,"Must associate SURVEY with filter %s", filtName);
+    sprintf(c2err,"Add  'SURVEY: <surveyList>' in kcor-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY);     // Nov 2020
+  sprintf(FILTER[NF].ZPOFF_FILE,   "%s", ZPOFF_FILE); // Jan 2021
 
   if ( IFLAG_SYN ) {
     double L0 = INPUT_FILTER->LAMRANGE_SYN[0] ;
@@ -1220,9 +1280,10 @@ void kcor_input_override(int OPT) {
   //
   //
   // Feb 2019: read FILTER_OOB
+  // Jan 15 2021: check ZPOFF_FILE
 
   int i, ilast, iuse ;
-  char tmpName[60], tmpFile[200] ;
+  char tmpName[60], tmpFile[MXPATHLEN] ;
 
   // ------------ BEGIN -----------
 
@@ -1404,7 +1465,7 @@ void  primary_override(char *primName, char *fileName) {
   // Overwrite array PRIMARY array with command-line override.
 
   int  iprim, IPRIM  ;
-  char oldFile[200], *ptrFile ;
+  char oldFile[MXPATHLEN], *ptrFile ;
 
   IPRIM = -9 ;
 
@@ -1449,11 +1510,14 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
   // *indx_ARGV is the index of the FILTER_LAMSHIFT key.
   // Note that *indx_ARGV is incremented here so that the
   // main parsing function can continue.
+  //
+  // Jan 28 2021: fix index bugs
 
   int i, ifilt, NBAND ;
+  int LDMP = 0 ;
   double lamshift ;
   char *cfilt ;
-  //  char fnam[] = "parse_FILTER_LAMSHIFT" ;
+  char fnam[] = "parse_FILTER_LAMSHIFT" ;
 
   // ------------ BEGIN --------------
 
@@ -1461,19 +1525,31 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
 
   NBAND = 0 ;
 
-  while ( i > 0 ) {
+  while ( i > 0  && i < NARGV_LIST-1) {
+
+    if ( LDMP ) {
+      printf(" xxx ------------------------------ \n");
+      printf(" 1. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
 
     i++ ; 
     cfilt = ARGV_LIST[i];   
     ifilt = INTFILTER_kcor(cfilt);
 
-    if ( ifilt > 0 ) {
+    if ( LDMP ) {
+      printf(" 2. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
+
+    if ( ifilt > 0  ) {
       NBAND++ ;
       i++ ; sscanf( ARGV_LIST[i] , "%le", &lamshift ); 
       INPUTS.FILTER_LAMSHIFT[ifilt] = lamshift ;
       INPUTS.NFILTER_LAMSHIFT++ ;
     }
     else   {
+      i-- ; 
       // bail when we get a string that is clearly not a filter name
       goto DONE ; 
     }
@@ -1484,8 +1560,9 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
     fflush(stdout);
   }
 
+
  DONE:
-  *indx_ARGV = i-1 ;
+  *indx_ARGV = i ;
 
 } // end of parse_FILTER_LAMSHIFT
 
@@ -1505,6 +1582,7 @@ int INTFILTER_kcor(char *filterName) {
   char fnam[] = "INTFILTER_kcor" ;
   // ------------- BEGIN -------------
   
+
   NMATCH = 0;  IFILT = -9 ;
   for(ifilt=1; ifilt <= NFILTDEF; ifilt++ ) {
     if ( strcmp(filterName,FILTER[ifilt].name) == 0  )
@@ -1538,34 +1616,55 @@ int INTFILTER_kcor(char *filterName) {
 } // end of INTFILTER_kcor
 
 // ********************************
-void rd_ZPOFF(char *sdir) {
+void rd_ZPOFF(char *sdir, char *zpoff_file_override) {
 
   // Created Mar 25,  2010 by R.Kessler
   // Read ZPOFF.DAT file from *sdir and store AB offsets.
-  // If file does not exist, just return since this
-  // file is optional.
+  // If zpoff_file_override is set, read this instead of ZPOFF.DAT
+  // If ZPOFF.DAT does not exist, just return since this file is optional.
   //
+  // Jan 2021; pass option zpoff_file_override
 
   double zpoff;
   FILE *fp;
-  int gzipFlag;
-  char 
-    cfilt[40]
-    ,zpoff_File[100]
-    ,ZPOFF_FILE[200]
-    //    ,fnam[] = "rd_ZPOFF" 
-    ;
+  int gzipFlag, REQUIRE_ZPOFF_FILE ;
+  char  cfilt[40], zpoff_File[MXPATHLEN], ZPOFF_FILE[MXPATHLEN] ;
+  char  fnam[] = "rd_ZPOFF"     ;
 
   // ------------- BEGIN ------------
 
-  sprintf(zpoff_File,"%s/ZPOFF.DAT",  sdir);
-  fp = snana_openTextFile(0,PATH_SNDATA_FILTER, zpoff_File, 
+  if ( IGNOREFILE(zpoff_file_override) ) {
+    REQUIRE_ZPOFF_FILE = 0;
+    sprintf(zpoff_File,"%s/%s",  sdir, ZPOFF_FILE_DEFAULT);
+  }
+  else {
+    // check user-define ZPOFF file (Jan 2021)
+    REQUIRE_ZPOFF_FILE = 1 ; 
+    // if there is a slash in the file name, assume it has full path.
+    // Otherwise, glue on sdir to name.
+    if ( strchr(zpoff_file_override,'/') == NULL ) 
+      { sprintf(zpoff_File,"%s/%s",  sdir, zpoff_file_override); }
+    else
+      { sprintf(zpoff_File,"%s",  zpoff_file_override); }
+  }
+
+
+  fp = snana_openTextFile(0, PATH_SNDATA_FILTER, zpoff_File, 
 			  ZPOFF_FILE, &gzipFlag );
 
-
+  // if file does not exist ...
   if ( fp == NULL ) {
-    printf("\t Could not find %s => no ZP offsets. \n", zpoff_File);
-    return ;
+    if ( REQUIRE_ZPOFF_FILE ) {
+      print_preAbort_banner(fnam);
+      printf("\t Tried to open ZPOFF_FILE = \n %s\n", ZPOFF_FILE);
+      sprintf(c1err,"User-requested ZPOFF file does not exist.");
+      sprintf(c2err,"Check ZPOFF_FILE key");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    else {
+      printf("\t Could not find default %s => no ZP offsets. \n", zpoff_File);
+      return ;
+    }
   }
 
   // file exists, so read it. 
@@ -1746,8 +1845,9 @@ int kcor_ini(void) {
          istat = rd_filter(i);
    }
    fflush(stdout);
-   printf("\n Global range of all filters: %d to %d A \n",
-	  (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+   // set min/max wavelength range to store SEDs
+   set_store_lambda_range();
 
    if ( rd_snsed() != SUCCESS ) { return ERROR; }
 
@@ -1829,6 +1929,52 @@ int kcor_ini(void) {
    return SUCCESS;
 }
 
+// ***************************************************
+void  set_store_lambda_range(void) {
+
+  // Created Nov 3 2021 by R.Kessler
+  // Set wave range to store SEDs.
+  // Default is min/max wavelength of bluest/reddest filters.
+  // If spectrograph goes bluer/redder than filters, store
+  // extended wvae range.
+  //
+  // Output is global STORE_LAMBDA_MIN and STORE_LAMBDA_MAX
+  //
+  // TEMP: code still uses FILTER_LAMBDA_MIN[MAX] until new
+  //      STORE_LAMBDA_MIN[MAX] are verified.
+  //
+
+  int  LEGACY = 0;  // set True to restore using FILTER_LAMBDA_MIN[MAX]
+  char fnam[] = "set_store_lambda_range" ;
+
+  // ------------ BEGIN ------------
+
+  printf("\n");
+  printf(" Global wave range of all filters: %d to %d A \n",
+	 (int)FILTER_LAMBDA_MIN, (int)FILTER_LAMBDA_MAX );
+
+  STORE_LAMBDA_MIN = FILTER_LAMBDA_MIN;
+  STORE_LAMBDA_MAX = FILTER_LAMBDA_MAX;
+
+  if ( SPECTROGRAPH_USEFLAG && !LEGACY ) {
+    printf(" Global wave range of spectrograph: %d to %d A\n",
+	   (int)INPUTS_SPECTRO.LAM_MIN, (int)INPUTS_SPECTRO.LAM_MAX);
+
+    if ( INPUTS_SPECTRO.LAM_MIN < STORE_LAMBDA_MIN ) 
+      { STORE_LAMBDA_MIN = INPUTS_SPECTRO.LAM_MIN; }
+
+    if ( INPUTS_SPECTRO.LAM_MAX > STORE_LAMBDA_MAX ) 
+      { STORE_LAMBDA_MAX = INPUTS_SPECTRO.LAM_MAX; }
+  }
+  
+  printf(" Final wavelength storage range: %d to %d A \n",
+	 (int)STORE_LAMBDA_MIN, (int)STORE_LAMBDA_MAX );
+  
+  fflush(stdout);
+
+  return;
+
+} // end set_store_lambda_range
 
 // ***************************************************
 void set_kcorFile_format(void) {
@@ -2089,6 +2235,7 @@ int rd_filter ( int ifilt ) {
    - Open filter transmission file corresponding to "ifilt"
    - Read filter response from FILE.
    - File must have two columns: wavelen (A) and transmission
+   - binning can be non-uniform
    - Load FILTER structure.
 
    - compute LAMAVG (Feb 15, 2006)
@@ -2144,7 +2291,8 @@ int rd_filter ( int ifilt ) {
    }
    else {
      // read 2-column ascii file
-     fp = snana_openTextFile(1,PATH_SNDATA_FILTER, ptr_file, 
+     int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+     fp = snana_openTextFile(OPENMASK,PATH_SNDATA_FILTER, ptr_file, 
 			     FILTFILE_FULLNAME, &gzipFlag );
    
      // if we get here, abort because file cannot be found.
@@ -2178,6 +2326,12 @@ int rd_filter ( int ifilt ) {
      NBIN = FILTER[ifilt].NBIN_LAMBDA ;
    }
 
+   // May 20 2021: check option to remove OOB
+   if ( INPUTS.LEAKAGE_CUT > 1.0E-12 ) {
+     cutOOBTrans_filter(ifilt);
+     NBIN = FILTER[ifilt].NBIN_LAMBDA ;
+   }
+
    tsum = 0.0;
    wtsum = 0.0;
    dlam_last = 0.0 ;
@@ -2190,10 +2344,6 @@ int rd_filter ( int ifilt ) {
 
    // - - - -
    for ( ilam = 1; ilam <= NBIN; ilam++ ) {
-
-     /* xxx mark delete May 7 2020 xxxxxxx
-       FILTER[ifilt].LAMBDA[ilam] += INPUTS.FILTER_LAMSHIFT[ifilt] ; 
-     xxxxxxxxxxx */
 
      lambda = FILTER[ifilt].LAMBDA[ilam];
      trans  = FILTER[ifilt].TRANS[ilam] ;
@@ -2256,7 +2406,7 @@ int rd_filter ( int ifilt ) {
 }  // end of rd_filter function
 
 
-// *************************************
+ // *************************************
 void addOOBTrans_filter(int ifilt) {
 
   // Feb 2019
@@ -2292,8 +2442,6 @@ void addOOBTrans_filter(int ifilt) {
     LAM_ORIG[ilam]   = lam;
     TRANS_ORIG[ilam] = trans ;
   }
-
-  OOB_TRANS = OOB_RATIO * TransMax ;
 
   // get lam binsize on blue edge
   LAMBIN_BLUE = FILTER[ifilt].LAMBDA[2] - FILTER[ifilt].LAMBDA[1] ;
@@ -2362,7 +2510,7 @@ void addOOBTrans_filter(int ifilt) {
   FILTER[ifilt].NBIN_LAMBDA = NBIN_LAM_NEW ;
 
   // write out filter trans file for crosschecks
-  char filterFile[200];
+  char filterFile[MXPATHLEN];
   FILE *fp ;
   sprintf(filterFile, "%s+OOB.dat", NAME);  
   fp = fopen(filterFile, "wt") ;
@@ -2377,6 +2525,92 @@ void addOOBTrans_filter(int ifilt) {
   return;
 
 } // end addOOBTrans_filter
+
+
+// *************************************
+void cutOOBTrans_filter(int ifilt) {
+
+  // May 2021
+  // Remove OOB usage input LEAKAGE_CUT << 1.
+  // LEAKAGE_CUT is applied to trans/Transmax.
+  //
+  // It's a bit tricky because the wave-range is reduced
+  // and uniformity must be preserved.
+
+  double LEAKAGE_CUT   = INPUTS.LEAKAGE_CUT ;
+  char  *NAME          = FILTER[ifilt].name; 
+  int    NBIN_LAM_ORIG = FILTER[ifilt].NBIN_LAMBDA ;
+  double MINLAM_ORIG   = FILTER[ifilt].LAMBDA[1] ;
+  double MAXLAM_ORIG   = FILTER[ifilt].LAMBDA[NBIN_LAM_ORIG] ;
+  double LAM_ORIG[MXLAM_FILT], TRANS_ORIG[MXLAM_FILT];
+
+  double TransMax = 0.0 ;
+  double trans, lam, OOB_TRANS, xlam;
+  double MINLAM_NEW, MAXLAM_NEW ;
+  int    NBIN_LAM_NEW, ilam, ilam_new, ilam_orig, NBINCUT_BLUE, NBINCUT_RED ;
+  bool   LCUT, FOUND_TRANSMAX=false;
+  char fnam[] = "cutOOBTrans_filter" ;
+  int LDMP = 0 ; 
+
+  // ----------- BEGIN ------------
+
+  if ( LEAKAGE_CUT == 0.0 ) { return; }
+
+  // first find max trans
+  for(ilam=1; ilam <= NBIN_LAM_ORIG; ilam++ ) {
+    lam   = FILTER[ifilt].LAMBDA[ilam];
+    trans = FILTER[ifilt].TRANS[ilam];
+    if ( trans > TransMax ) { TransMax = trans; }
+    LAM_ORIG[ilam]   = lam;
+    TRANS_ORIG[ilam] = trans ;
+  }
+
+  ilam_new=0;
+
+  NBINCUT_BLUE = NBINCUT_RED = 0 ;
+  MINLAM_NEW   = 9.0E9; MAXLAM_NEW = 0.0 ;
+
+  for(ilam_orig=1; ilam_orig <= NBIN_LAM_ORIG; ilam_orig++ ) {
+
+    trans = TRANS_ORIG[ilam_orig] / TransMax ;
+    lam   = LAM_ORIG[ilam_orig] ;
+
+    // xxx    if ( trans > 0.999 ) { FOUND_TRANSMAX = true ; }
+    LCUT = ( trans < LEAKAGE_CUT );
+    if ( LCUT ) { continue; }
+
+    ilam_new++ ;
+    FILTER[ifilt].LAMBDA[ilam_new] = lam ;
+    FILTER[ifilt].TRANS[ilam_new]  = trans ;
+
+    if ( lam < MINLAM_NEW ) { MINLAM_NEW = lam; }
+    if ( lam > MAXLAM_NEW ) { MAXLAM_NEW = lam; }
+
+  } // end ilam loop
+
+  NBIN_LAM_NEW = ilam_new;
+  FILTER[ifilt].NBIN_LAMBDA = NBIN_LAM_NEW ;
+
+  printf("  Remove %s OOB leakage: WAVE-RANGE = [%.1f,%.1f] -> [%.1f,%.1f]\n",
+	 NAME, MINLAM_ORIG, MAXLAM_ORIG, MINLAM_NEW, MAXLAM_NEW);
+
+  /* xxxx
+  // write out filter trans file for crosschecks
+  char filterFile[MXPATHLEN];
+  FILE *fp ;
+  sprintf(filterFile, "TMP_%s-OOB.dat", NAME);  
+  fp = fopen(filterFile, "wt") ;
+  printf("\t Write trans-file: %s \n", filterFile);
+  for(ilam=1; ilam <= NBIN_LAM_NEW; ilam++ ) {
+    fprintf(fp,"%9.2f  %.4le\n", 
+	    FILTER[ifilt].LAMBDA[ilam], FILTER[ifilt].TRANS[ilam] ) ;
+  }
+  fclose(fp);
+  xxxxxx */
+  
+  return;
+
+} // end cutOOBTrans_filter
 
 
 // ****************************************************
@@ -2407,7 +2641,7 @@ int rd_snsed ( void ) {
 
    int NDAY, NLAM,ilam0, iep0, jflux0, ilam1, iep1, ifilt, ilam, iep  ;
    int FOUND_SNSEDFILE ;
-   char sedFile[200], sedcomment[40], SNPATH[200] ;
+   char sedFile[MXPATHLEN], sedcomment[40], SNPATH[MXPATHLEN] ;
    char fnam[] = "rd_snsed" ;
 
    //   --------------------- BEGIN --------------------------
@@ -2701,6 +2935,9 @@ int rd_primary ( int INDX, char *subdir ) {
     which is then re-binned to have same bins as SN 
     for global structure.
 
+   Nov 10 2021: replace FILTER_LAMBDA_MAX -> STORE_LAMBDA_MAX
+                to store primary SED out to max of filter or spectrograph.
+
   ****************/
 
    FILE  *fp;
@@ -2731,7 +2968,9 @@ int rd_primary ( int INDX, char *subdir ) {
 	  refName, INDX );
  
    sprintf(SNPATH, "%s/%s", PATH_SNDATA_ROOT, subdir );
-   fp = snana_openTextFile (0,SNPATH, sedFile, fullName, &gzipFlag );
+
+   int OPENMASK = OPENMASK_IGNORE_DOCANA ;
+   fp = snana_openTextFile (OPENMASK,SNPATH, sedFile, fullName, &gzipFlag );
 
    if ( fp == NULL ) {
      sprintf(c1err,"%s", "Could not open file");
@@ -2752,7 +2991,7 @@ int rd_primary ( int INDX, char *subdir ) {
 
    while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
 
-     if ( lambda < FILTER_LAMBDA_MAX + 200. ) {
+     if ( lambda < STORE_LAMBDA_MAX + 20. ) {
 
        ilam++;  NRAW=ilam;
   
@@ -2977,20 +3216,23 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
     Use linear interpolation for lam_in values closest
     to SNSED.LAMBDA grid point.
 
+    Nov 3 2021: replace FILTER_LAMBDA_MIN[MAX] with STORE_LAMBDA_MIN[MAX]
+             (to allow for spectrograph with broader wave range)
   ****/
 
   int NBLAM, ilam, idump=0;
   double  DLAM, LAM, LAM0,  LAM1, F0, F1, slope, FLUX_OUT  ;
-  
+  char fnam[] = "rebin_primary" ;
+
   /* ---------------------------- BEGIN -------------------- */
 
   DLAM = 10.0 ;  //hard-wire lambda binning to 10 A
   LAM  = LAM0 = LAM1 = F0 = F1 = 0.0 ; 
   NBLAM = 0 ;
 
-  while ( LAM < FILTER_LAMBDA_MAX ) {
+  while ( LAM < STORE_LAMBDA_MAX ) {
     LAM += DLAM ;
-    if ( LAM < FILTER_LAMBDA_MIN ) continue ;
+    if ( LAM < STORE_LAMBDA_MIN ) continue ;
 
     NBLAM++ ;
 
@@ -3994,7 +4236,6 @@ int snmag(void) {
        // if filtsum_check (integral over SED-lambda range)
        // does not match integral over entire filter range (to within 20%),
        // set MAG_UNDEFINED to flag problem
-       // xxx mark delete if(fabs(filter_check)>0.2) {mag=MAG_UNDEFINED;}
        if ( fabs(filter_check) > 0.05  ) { 
 	 printf(" WARNING(%s): filter_check(%s) = %.3f  ep=%d\n",
 		fnam, FILTER[ifilt].name, filter_check, iepoch );
@@ -4171,13 +4412,6 @@ void primarymag_zp(int iprim ) {
       // since AB mags are zero
       if ( !PRIMARYSED[iprim].IS_AB ) 
 	{ FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; }
-
-      /* xxxxxxxxxxxxxxx mark delet Apr 11 2020 xxxxxxx
-      name = INPUTS.name_PRIMARY[iprim] ;
-      if ( strcmp(name,"AB" ) != 0 ) {
-	FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; 
-      }
-      xxxxxxxxxx */
 
    }  // end of 'ifilt' loop
 
@@ -4362,15 +4596,12 @@ void wr_fits(char *ptrFile) {
   long  NAXIS = 1, NAXES = 0    ;
   fitsfile *fp ;
 
-  char 
-    clobberFile[200]
-    ,fnam[] = "wr_fits" 
-    ;
+  char  clobberFile[MXPATHLEN];
+  char fnam[] = "wr_fits"  ;
 
   // ------------- BEGIN --------------
 
-  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n", 
-         fnam, ptrFile);
+  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n",  fnam, ptrFile);
   fflush(stdout);
   
   sprintf(clobberFile, "!%s", ptrFile);
@@ -4415,8 +4646,10 @@ void wr_fits(char *ptrFile) {
 // =====================================
 void wr_fits_HEAD(fitsfile *fp) {
 
+  // Nov 15 2020: write SURVEY=%s in comment field for each filter.
+
   int istat, iprim, ifilt, ikcor, N, jbinsize, IVER ;
-  char  KEYNAME[40], KEYVAL[80] ;
+  char  KEYNAME[40], KEYVAL[80], MSG[200] ;
   char  fnam[] = "wr_fits_HEAD" ;
 
   // ------------ BEGIN -----------
@@ -4485,8 +4718,10 @@ void wr_fits_HEAD(fitsfile *fp) {
     sprintf(KEYNAME,"FILT%3.3d", ifilt);
   
     istat = 0 ;
+    // xxxx sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
+    sprintf(MSG,"name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
-		    "Filter name", &istat );    
+		    MSG, &istat );    
    }
 
   if ( NKCOR > 0 ) {
@@ -4541,8 +4776,8 @@ void wr_fits_HEAD(fitsfile *fp) {
   // --- Trest (Epoch)------
 
   NBIN = SNSED.NEPOCH ;
-  FMIN = SNSED.TREST_MIN;  // xxx mark delete  SNSED.EPOCH[1]
-  FMAX = SNSED.TREST_MAX;  // xxx mark delete  SNSED.EPOCH[NBIN]
+  FMIN = SNSED.TREST_MIN;  
+  FMAX = SNSED.TREST_MAX; 
   FBIN = (FMAX-FMIN)/(float)(NBIN-1) ;
 
   fits_update_key(fp, TINT, "NBT", &NBIN,
@@ -4920,7 +5155,6 @@ void wr_fits_PRIMARY(fitsfile *fp) {
 
   ncol = NPRIM+1 ;  istat = 0;
   for(iprim = 0; iprim <= NPRIM; iprim++ ) {
-    // xxx mark delete Mar 2019 NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
     NAME = INPUTS.name_PRIMARY[iprim];
 
     if ( iprim == 0 ) 
@@ -5599,17 +5833,14 @@ void wr_fits_SPECTROGRAPH(fitsfile *fp) {
 
 // ==================================================
 void wr_fits_errorCheck(char *comment, int status) {
+  // Print out cfitsio error messages and exit program
   char fnam[] = "wr_fits_errorCheck" ;
-  /*****************************************************/
-  /* Print out cfitsio error messages and exit program */
-  /*****************************************************/
-
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, "Check cfitsio routines." ); 
   }
   return;
-}
+}  // wr_fits_errorCheck
 
 
 // ********************************

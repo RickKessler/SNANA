@@ -27,27 +27,19 @@
 
 ****************************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <string.h>
-*/
-
 #include <sys/stat.h>
 
 #include "sntools.h" 
 #include "sntools_cosmology.h" 
 #include "fitsio.h"
-#include "sntools_grid.h"
+#include "sntools_modelgrid.h"
 #include "snlc_sim.h"      // need the typedefs only
 
 #include "MWgaldust.h"
 #include "genmag_NON1ASED.h"
 #include "genmag_SEDtools.h"
 
-#define SNGRIDGEN
+#define MODELGRID_GEN
 
 // *************************************
 void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
@@ -404,7 +396,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     if ( isp == NINDEX  || NGENTMP > NGENTOT ) 
       { NGENTMP = NGENTOT - NGENSUM ;  }
 
-#ifdef SNGRIDGEN
+#ifdef MODELGRID_GEN
     if ( DO_GENGRID ) { 
       NGENTMP  = 1;
       NGENTMP *= SNGRID_WRITE.NBIN[IPAR_GRIDGEN_LOGZ] ;

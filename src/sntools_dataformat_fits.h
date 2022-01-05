@@ -1,36 +1,17 @@
 /*************************************************
   May 2011, R.Kessler
 
-
   Parameters and declarations for snfitsio.c .
 
     HISTORY
 
-  Feb 15, 2013: 
-      MXPAR_SNFITSIO  -> 200  (was 100) to handle 56 JPAS filters
-
-  May 16, 2013
-      MXPAR_SNFITSIO  -> 400  (was 200) to handle 56 JPAS filters
-      with HOSTLIB
-
-  Feb 2014:
-   - define  SNFITSIO_CODE_IVERSION
-   - SNFITSIO_PATH    -> SNFITSIO_DATA_PATH
-   - SNFITSIO_VERSION -> SNFITSIO_PHOT_VERSION
-
-
-  Apr 30 2014: MXFILE_SNFITSIO -> 50 (was 20)
-
-  Aug 6 2014: SNFITSIO_SIMFLAG -> SNFITSIO_SIMFLAG_SNANA 
-              and add SNFITSIO_SIMFLAG_MAGOBS
-
-  Aug 2 2016: 
-   + define SNFITSIO_SIMFLAG_SPECTROGRAPH
-   + define MXTYPE_SNFITSIO and all dimention [2] -> [MXTYPE_SNFITSIO]
-
   July 25 2017: MXFILE_SNFITSIO -> 100 (was 50) 
   Mar  23 2019: MXFILE_SNFITSIO -> 300 (was 100) 
-
+  Apr  12 2021: MXFILE_SNFITSIO -> 500 (was 300)
+  Apr  28 2021: MXPAR_SNFITSIO -> 600 (was 400)
+  Oct  08 2021: split fp_snfitsFile into fp_wr[rd]_snfitsio
+                to allow translating FITS -> FITS .
+                
 **************************************************/
 
 // ==================================
@@ -43,20 +24,35 @@
 #define ITYPE_SNFITSIO_SPECTMP   3  // temp flux table
 #define MXTYPE_SNFITSIO          4
 
-#define MXFILE_SNFITSIO     300  // max number of fits-files to read
-#define MXPAR_SNFITSIO      400  // max number of header variables
+#define OPTMASK_SNFITSIO_HEAD    2  // matches snana.car
+#define OPTMASK_SNFITSIO_PHOT    4
+#define OPTMASK_SNFITSIO_SPEC    8
+
+#define MXFILE_SNFITSIO     500  // max number of fits-files to read
+#define MXPAR_SNFITSIO      600  // max number of header variables
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 
+#define OPTMASK_WR_SNFITSIO    1
+#define OPTMASK_RD_SNFITSIO    2
+#define OPTMASK_ABORT_SNFITSIO 4
 
-fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
+// Dec 20 2021: define OPTMASK bits for WR_SNFITSIO_END
+#define OPTMASK_SNFITSIO_END_GZIP 1
+
+fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
+fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
+// xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
 #define  snfitsType  (char*[MXTYPE_SNFITSIO]) { "HEAD", "PHOT", "SPEC", "SPECTMP"  }
 
 // name of FITS file without/with path
-char  snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN];   
-char  snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN]; 
+char  *rd_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
+char  *rd_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN]; 
+char  *wr_snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; // [MXPATHLEN];   
+char  *wr_snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO]; //[MXPATHLEN]; 
 
-int   SNFITSIO_CODE_IVERSION ; // internal: for back-compatibility
+int   SNFITSIO_CODE_IVERSION  ; // internal: for back-compatibility
+
 char  SNFITSIO_DATA_PATH[MXPATHLEN];
 char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
 char  SNFITSIO_LISTFILE[MXPATHLEN];   // for read-back only
@@ -71,7 +67,11 @@ int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
 int NFILE_SNFITSIO ;     // number of fits files
 int IFILE_SNFITSIO ;     // current fits-file index
 int ISNFIRST_SNFITSIO ;  // first ISN in file
-int NPAR_SNFITSIO[MXTYPE_SNFITSIO] ;  // Npar (i.e., columns) for each fits-file type
+
+// Npar (i.e., columns) for each fits-file type
+int NPAR_WR_SNFITSIO[MXTYPE_SNFITSIO] ;  
+int NPAR_RD_SNFITSIO[MXTYPE_SNFITSIO] ;  
+
 int MXOBS_SNFITSIO ;     // max NOBS among SNe (to allocate memory)
 
 int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
@@ -84,15 +84,13 @@ bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
+bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
+bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
 
-char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name
-
-int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
+// xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
-char SNFITSIO_DATATYPE[20] ;
 
-
-struct TABLEDEF {
+typedef struct {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
   char  name[MXPAR_SNFITSIO][40] ;
   char *ptrName[MXPAR_SNFITSIO] ;
@@ -106,10 +104,12 @@ struct TABLEDEF {
 
   int iform[MXPAR_SNFITSIO] ;
 
-} SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO] ;  // index is itype
+} SNFITSIO_TABLEDEF ;
 
+SNFITSIO_TABLEDEF RD_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
+SNFITSIO_TABLEDEF WR_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
 
-struct WR_TABLEVAL_DEF {
+struct { 
   // temp values to fill Header table
   char          *value_A  ;  // ascii/text
   float          value_1E ;  // 4-byte float
@@ -145,7 +145,7 @@ struct WR_TABLEVAL_DEF {
 #define NULL_1K     (long long)-9
 
 
-struct RD_TABLEVAL_DEF {
+struct  {
   int    NPAR[MXFORM_SNFITSIO] ;
   int    IPAR[MXFORM_SNFITSIO][MXPAR_SNFITSIO] ;    // absolute IPAR/column
   int    IPARINV[MXFORM_SNFITSIO][MXPAR_SNFITSIO] ; // inverse of above
@@ -166,6 +166,7 @@ int IPAR_SNFITSIO_FAKE ;
 int IPAR_SNFITSIO_NOBS ;
 int IPAR_SNFITSIO_PTROBS_MIN ;
 int IPAR_SNFITSIO_PTROBS_MAX ;
+// xxx int IPAR_SNFITSIO_NXPIX, IPAR_SNFITSIO_NYPIX;
 
 #define  stringBlank " " ;
 
@@ -174,6 +175,12 @@ int IPAR_SNFITSIO_PTROBS_MAX ;
 // with some epochs masked out.
 int NEP_RDMASK_SNFITSIO_PARVAL ;
 int RDMASK_SNFITSIO_PARVAL[MXEPOCH] ;
+
+
+// define indices to speed up param lookup
+int SNFITSIO_READINDX_HEAD[MXPAR_SNFITSIO];
+int SNFITSIO_READINDX_PHOT[MXPAR_SNFITSIO];
+int SNFITSIO_READINDX_SPEC[MXPAR_SNFITSIO];
 
 
 // define RDSPEC structures to read back SPEC info (April 2019) 
@@ -200,13 +207,14 @@ struct {
 // wr_snfitsio_xxx are called internally.
 
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
-		      int simFlag, int Nsubsample_mark, char *headFile);
+		      int writeFlag, int Nsubsample_mark, char *headFile);
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
+void wr_snfitsio_init_spec_legacy(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
 
 void WR_SNFITSIO_UPDATE(void);
@@ -215,16 +223,24 @@ void wr_snfitsio_update_phot(int ep);
 void wr_snfitsio_update_spec(int imjd);
 void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
 
-void WR_SNFITSIO_END(void);
+void WR_SNFITSIO_END(int OPTMASK);
 
-void snfitsio_close(int ifile, int itype);
+void rd_snfitsFile_close(int ifile, int itype);
+void wr_snfitsFile_close(int ifile, int itype);
+
 void snfitsio_errorCheck(char *comment, int status);
 int  IPAR_SNFITSIO(int OPT, char *parName, int itype );
 int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
 
+void malloc_wr_snfitsFiles(int opt, int ifile);
+void malloc_rd_snfitsFiles(int opt, int ifile);
+
 // Now the readback routines
-int   RD_SNFITSIO_INIT(int MSKOPT, char *PATH, char *version);
+void  RD_SNFITSIO_INIT(int init_num);
+int   RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version);
 int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
+int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
+
 void  RD_SNFITSIO_CLOSE(char *version);
 void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD, 
 			char *FILENAME_PHOT, int *IFILE );
@@ -241,6 +257,7 @@ void  rd_snfitsio_tblpar(int ifile, int itype);
 void  rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow);
 
 void  rd_snfitsio_specFile(int ifile); 
+void  rd_snfitsio_specLam_legacy(int ifile, fitsfile *fp);
 void  rd_snfitsio_mallocSpec(int opt);
 
 int RD_SNFITSIO_PARVAL(int isn, char *parName, 
@@ -251,20 +268,25 @@ int RD_SNFITSIO_INT(int isn, char *parName, int    *parList, int *ipar);
 int RD_SNFITSIO_SHT(int isn, char *parName, short int *parList, int *ipar);
 int RD_SNFITSIO_FLT(int isn, char *parName, float  *parList, int *ipar);
 int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar);
-void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
-void RD_SNFITSIO_SPECDATA(int irow, double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR);
+int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
+void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
+			  double *FLAM, double *FLAMERR, double *GENFLAM);
 
-void  check_required_headkeys(void) ;
+void RD_SNFITSIO_SPECDATA_LEGACY(int irow, double *METADATA, int *NLAMBIN,
+				 double *LAMMIN, double *LAMMAX, 
+				 double *FLAM, double *FLAMERR);
+
+void  check_required_headkeys(int OPTMASK) ; 
 int   formIndex_snfitsio(char *form) ;
 
 void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 
 // ------- mangled RD functions for snana/fortran -----------
 
-int  rd_snfitsio_init__(int *MSKOPT, char *PATH,  char *version) ;
+void rd_snfitsio_init__(int *init_num);
+int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version) ;
 int  rd_snfitsio_global__(char *parName, char *parString) ;
+int  rd_snfitsio_event__(int *OPT, int *isn);
 void rd_snfitsio_close__(char *version) ;
 
 void get_snfitsio_info__(char *VERSION, char *FILENAME_HEAD, 
@@ -281,10 +303,9 @@ int rd_snfitsio_dbl__(int *isn,  char *parName, double *parLIST, int *iptr) ;
 
 void set_rdmask_snfitsio__(int *N, int *mask) ;
 void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX );
-void rd_snfitsio_specdata(int *irow, double *METADATA, int *NLAMBIN,
-			  double *LAMMIN, double *LAMMAX, 
-			  double *FLAM, double *FLAMERR);
-
+void rd_snfitsio_specdata_legacy__(int *irow, double *METADATA, int *NLAMBIN,
+				   double *LAMMIN, double *LAMMAX, 
+				   double *FLAM, double *FLAMERR);
 // mangled write funs
 
 void wr_snfitsio_update__(void) ;
@@ -292,7 +313,7 @@ void wr_snfitsio_update__(void) ;
 void wr_snfitsio_init__(char *path, char *version, char *prefix, 
 			int *simFlag, int *Nsubsample_mark, char *headFile ) ;
 
-void wr_snfitsio_end__(void) ;
+void wr_snfitsio_end__(int *OPTMASK) ;
 
 
 // ========= END ============

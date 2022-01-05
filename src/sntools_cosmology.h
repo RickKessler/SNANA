@@ -50,6 +50,9 @@ double Hzfun_wCDM ( double z, HzFUN_INFO_DEF *HzFUN_INFO);
 double Hzfun_interp ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
 double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO); 
 
+double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
+                     double *OM, double *OL, double *w0, double *wa);
+
 double zcmb_dLmag_invert(double MU, HzFUN_INFO_DEF *HzFUN_INFO); 
 
 double zhelio_zcmb_translator(double z_input, double RA, double DECL, 

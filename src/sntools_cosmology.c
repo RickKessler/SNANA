@@ -86,6 +86,12 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
       printf("\t H0         = %.2f      # km/s/Mpc \n",  H0);
       printf("\t OM, OL, Ok = %7.5f, %7.5f, %7.5f \n", OM, OL, Ok );
       printf("\t w0, wa     = %6.3f, %6.3f \n", w0, wa);
+
+      checkval_D("H0", 1, &H0,  30.0, 100.0 );
+      checkval_D("OM", 1, &OM,  0.0,  1.0 );
+      checkval_D("OL", 1, &OM,  0.0,  1.0 );
+      checkval_D("wa", 1, &wa, -3.0,  1.0 );
+
       fflush(stdout) ;
     }
 
@@ -299,7 +305,6 @@ double dVdz_integral(int OPT, double zmax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
     wz = 1.0;
     if ( OPT == 1 ) { wz = ztmp; }
-    // xxx mark delete     wz = pow(ztmp,(double)OPT);
 
     sum += wz * tmp;
 
@@ -400,7 +405,8 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
 
   int ia, Nabin ;
-  double da, Hz, xa, atmp, ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  double da, Hz, xa, atmp, ztmp, tmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  char fnam[] = "Hainv_integral";
 
   // ------ return integral c*r(z) = int c*dz/H(z) -------------
   // Note that D_L = (1+z)*Hzinv_integral
@@ -416,7 +422,8 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
     atmp = amin + da * (xa + 0.5) ;
     ztmp = 1./atmp - 1.0 ;
     Hz   = Hzfun (ztmp, HzFUN_INFO);
-    sum += 1.0/( Hz * atmp * atmp) ;
+    tmp  = 1.0/( Hz * atmp * atmp) ;
+    sum += tmp ;
   }
 
   // remove H0 factor from inetgral before checking curvature.
@@ -469,21 +476,28 @@ double Hzfun_wCDM(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   // Created Oct 2020
   // Refactor using HzFUN_INFO struct, and also use wa.
+  //
+  // July 26 2021: fix awful bug for wa; initially I had assumed
+  //    that integral inside exponent was evaluated numerically,
+  //    but it's not. Include analytic integral.
 
   double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0] ; // km/s/Mpc
   double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM] ;
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL] ;
   double w0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
   double wa = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
-  double Hz, sqHz, w, a, ZZ, Z2, Z3, ZL, WW, KAPPA ;
+  double Hz, sqHz, a, ZZ, Z2, Z3, ZL, KAPPA ;
+  double argpow, argexp ;
     
   KAPPA = 1.0 - OM - OL ;  // curvature
   ZZ    = 1.0 + zCMB ;    Z2=ZZ*ZZ ;   Z3=Z2*ZZ ; 
   a     = 1.0/ZZ;
-  w     = w0 + wa*(1.0-a);
-  WW    = 3.0 * (1.0 + w) ;
-  ZL    = pow(ZZ,WW) ;
-  sqHz  = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
+
+  argpow    =  3.0 * (1.0 + w0 + wa) ;
+  argexp    = -3.0 * wa * zCMB * a ;
+  ZL        = pow(ZZ,argpow) * exp(argexp);
+
+  sqHz  = OM*Z3  + KAPPA*Z2 + OL*ZL;
   Hz    = H0 * sqrt ( sqHz ) ;
   return(Hz);
 
@@ -516,10 +530,41 @@ double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO) {
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
   dl     = ( 1.0 + zHEL ) * rz ;
-  arg    = (double)10.0 * PC_km / dl ;
-  mu     = -5.0 * log10( arg );
+  arg    = dl / (10.0 * PC_km);
+  mu     = 5.0 * log10( arg );
   return mu ;
 }  // end of dLmag
+
+
+// ******************************************
+double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
+		     double *OM, double *OL, double *w0, double *wa) {
+	       	     
+  // C interface to fortran;
+  // returns luminosity distance in mags:   dLmag = 5 * log10(DL/10pc)
+  //
+  double mu;
+  HzFUN_INFO_DEF HzFUN_INFO ;
+  // ----------- BEGIN -----------
+
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_H0] = *H0 ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_OM] = *OM ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_OL] = *OL ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_w0] = *w0 ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_wa] = *wa ;
+  HzFUN_INFO.USE_MAP = false ;
+
+  mu = dLmag(*zCMB, *zHEL, &HzFUN_INFO);
+
+  /* xxx
+  printf(" xxx dlmag_fortc: z=%.3f/%.3f,  H0=%.2f OM,OL=%.3f,%.3f \n",
+	 *zCMB, *zHEL, *H0, *OM, *OL); fflush(stdout);
+	printf(" xxx dlmag_fortc: mu = %f \n", mu);
+	 xxx */
+
+  return mu ;
+
+}  // end of dlmag_fort__
 
 
 double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO) {
@@ -603,11 +648,7 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
 
  ****************/
 
-  double 
-     ra_gal, dec_gal
-    ,ss, ccc, c1, c2, c3, vdotn, z_out
-    ;
-
+  double  ra_gal, dec_gal, ss, ccc, c1, c2, c3, vdotn, z_out  ;
   char fnam[] = "zhelio_zcmb_translator" ;
 
   // --------------- BEGIN ------------
@@ -657,14 +698,12 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
    
   return(z_out) ;
 
-
 } // end of zhelio_zcmb_translator 
-
 
 double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DEC,
                                  char *coordSys, int *OPT ) {
   return zhelio_zcmb_translator(*z_input, *RA, *DEC, coordSys, *OPT) ;
 }
 
-
+// end:
 

@@ -6,9 +6,276 @@
 
 import os, sys, yaml, shutil, glob, math, ntpath
 import logging, coloredlogs, subprocess
+import pandas as pd
 from   submit_params import *
 
 # =================================================
+
+def combine_csv_files(wildcard, combined_file, remove_flag=False):
+
+    # Created Nov 18 2021
+    # combine csv files from wildcard -> 
+    # output combined_file includes contents from all wildcard files.
+    # Nov 30 2021: return if there are no files with wildcard.
+
+    csv_file_list = sorted(glob.glob(wildcard))
+
+    n_csv = len(csv_file_list)
+    logging.info(f"  Combine {n_csv} csv truth tables for\n\t {wildcard}")
+    if n_csv ==0 : return
+
+    # read table contents as strings to avoid modifying float format 
+    # in the combined csv.            
+    combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
+                              for f in csv_file_list ] )
+
+    # write it all out in one combined file                                 
+    combined_csv.to_csv(combined_file, index=False)
+
+    # remove original csv files 
+    if remove_flag :
+        cmd_rm = f"rm {wildcard}"
+        os.system(cmd_rm)
+
+    # end combine_csv_files
+
+def get_wfit_values(wfit_yaml):
+
+    # Created Aug 9 2021
+    # parse yaml for wfit values, allowing for legacy and 
+    # refactored (Aug 2021) wfit. 
+    # Also check for wsig_marg vs. wsig_lo/wsig_hi
+    # Sep 28 2021: check for wa and its uncertainty
+    # Oct 23 2021: check for Rho
+
+    key_list = [ 'w', 'w0' ]
+    for key in key_list:
+        if  key in wfit_yaml:
+            w  = wfit_yaml[key]  
+
+    key_list = [ 'w_sig', 'wsig_marg', 'wsig_lo', 
+                 'w0sig_marg', 'w0sig_lo' ]
+    w_sig    = -9.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            w_sig = wfit_yaml[key]
+            if key == 'wsig_lo' :
+                w_sig_lo = wfit_yaml['wsig_lo'] 
+                w_sig_hi = wfit_yaml['wsig_hi'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+            if key == 'w0sig_lo' :
+                w_sig_lo = wfit_yaml['w0sig_lo'] 
+                w_sig_hi = wfit_yaml['w0sig_hi'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+
+
+    # - - - repeat for optoinal wa
+    key_list = [ 'wa' ]
+    wa       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            wa  = wfit_yaml[key]  
+
+    key_list = [ 'wasig_marg', 'wasig_lo' ]
+    wa_sig   = 0.0
+    for key in key_list:
+        if key in wfit_yaml: 
+            wa_sig = wfit_yaml[key]
+            if key == 'wasig_lo' :
+                wa_sig_lo = wfit_yaml['wasig_lo'] 
+                wa_sig_hi = wfit_yaml['wasig_hi'] 
+                wa_sig    = 0.5*(wa_sig_lo + wa_sig_hi)
+
+    # - - - OM - - - -
+    key_list = [ 'omm', 'OM' ]
+    OM = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm  = wfit_yaml[key]  
+
+    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg' ]
+    omm_sig = -9.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            omm_sig  = wfit_yaml[key]  
+
+    # - - - repeat for FoM (for w0wa fit)
+    key_list = [ 'FoM' ]
+    FoM       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            FoM  = wfit_yaml[key]  
+
+    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
+    key_list = [ 'Rho' ]
+    Rho       = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            Rho  = wfit_yaml[key]  
+
+    # - - - misc - - - - 
+    chi2    = wfit_yaml['chi2'] 
+    sigint  = wfit_yaml['sigint']
+
+    key_list = [ 'wrand', 'wran', 'w0ran' ]
+    w_ran = -9.0 
+    for key in key_list:
+        if key in wfit_yaml:
+            w_ran   = wfit_yaml[key]
+
+    key_list = [ 'warand', 'waran' ]
+    wa_ran   = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            wa_ran   = wfit_yaml[key]
+
+    key_list = [ 'ommrand', 'ommran', 'OMran' ]
+    omm_ran = -9.0
+    for key in key_list:
+        if key in wfit_yaml:
+            omm_ran   = wfit_yaml[key]
+
+    key_list = [ 'BLIND', 'blind' ]
+    blind    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            blind = wfit_yaml[key]
+
+    wfit_values_dict = {
+        'w'        : w ,
+        'w_sig'    : w_sig ,
+        'omm'      : omm ,
+        'omm_sig'  : omm_sig ,
+        'chi2'     : chi2 ,
+        'sigint'   : sigint ,
+        'w_ran'    : w_ran,
+        'omm_ran'  : omm_ran,
+        'blind'    : blind ,
+        # optional below
+        'wa'       : wa,
+        'wa_sig'   : wa_sig,
+        'wa_ran'   : wa_ran,
+        'FoM'      : FoM,
+        'Rho'      : Rho
+    }
+
+    return wfit_values_dict
+
+    # end get_wfit_values
+
+def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
+
+    # Created Jan 23 2021
+    # Generic utility to strip args from config_rows and return
+    # dictionary of arg_list, num_list, label_list.
+    # The args are from FITOPT key for FIT, MUOPT key for BBC,
+    # TRAINOPT key for training ... Each jobopt can include
+    # a label surrounding by slashes; e.g., /LABEL_THIS/
+    #
+    # Inputs:
+    #   config_rows = CONFIG[string_jobopt] passed from user input file
+    #   string_jobopt = 'FITOPT' or'MUOPT'or 'TRAINOPT' ...
+    #   key_arg_file = optional key for file name containing args
+
+    jobopt_dict = {} # init output dictionary
+    n_jobopt          = 1
+    jobopt_ARG_list   = [ '' ] # original user arg
+    jobopt_arg_list   = [ '' ] # expanded args used by script
+    jobopt_num_list   = [ f"{string_jobopt}000" ] 
+    jobopt_label_list = [ None ]
+    jobopt_file_list  = [ None ]   
+    use_arg_file      = False
+
+    if 'WFIT' in string_jobopt :  # no default 000 job for wfit 
+        n_jobopt = 0
+        jobopt_ARG_list = [] 
+        jobopt_arg_list = []
+        jobopt_num_list = []
+        jobopt_label_list = []
+        jobopt_file_list  = []
+
+    for jobopt_raw in config_rows :    # might include label
+        num = (f"{string_jobopt}{n_jobopt:03d}")
+
+        # separate  label and ARG in
+        #    jobopt_string: /label/ ARG
+        label, ARG = separate_label_from_arg(jobopt_raw)
+
+        # if arg points to an arg_file, read and return args from file
+        arg, arg_file  = read_arg_file(ARG,key_arg_file)
+        if arg_file is not None:  use_arg_file = True
+
+        # uopdate jobopt lists
+        jobopt_arg_list.append(arg)
+        jobopt_ARG_list.append(ARG)
+        jobopt_num_list.append(num)
+        jobopt_label_list.append(label)
+        jobopt_file_list.append(arg_file)
+        n_jobopt += 1
+     
+    # - - - -
+    jobopt_dict = {
+        'jobopt_arg_list'   : jobopt_arg_list ,
+        'jobopt_ARG_list'   : jobopt_ARG_list ,
+        'jobopt_num_list'   : jobopt_num_list ,
+        'jobopt_label_list' : jobopt_label_list ,
+        'jobopt_file_list'  : jobopt_file_list ,
+        'n_jobopt'          : n_jobopt,
+        'use_arg_file'      : use_arg_file
+    }
+
+    return jobopt_dict
+
+    # end prep_jobopt_list
+
+def read_arg_file(ARG, KEY_ARG_FILE):
+
+    # if ARG starts with KEY_ARG_FILE, the return arg is equal
+    # to the contents of arg_file; otherwise return arg = ARG.
+    # Motivation is that user can build long list of arguments
+    # (e.g., random calib variations for training)
+    # and store each set of args in a separate file.
+
+    arg      = ARG   # init return arg to input ARG
+    arg_file = None  # init return arg_file
+
+    if KEY_ARG_FILE is None :
+        return arg, arg_file
+    
+    # - - - - -
+    word_list = ""
+    arg_list = ARG.split()
+
+    if arg_list[0] == KEY_ARG_FILE :
+        arg_file = arg_list[1]
+        with open(arg_file,"rt") as f:
+            for line in f:
+                if is_comment_line(line) : continue
+                word_list += line.replace("\n"," ")
+            arg = word_list
+    # - - - -
+    return arg, arg_file
+    # end read_arg_file
+
+
+def protect_parentheses(arg):
+    # Created Dec 10 2020
+    # if arg = abc(option), returns abc\(option\).
+    # If arg = abc, returns abc (no change)
+    # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
+    arg_protect = arg.replace('(','\(').replace(')','\)')
+    return arg_protect
+    # end protect_parentheses
+
+def is_comment_line(line):
+    if len(line) == 0  : return True
+    if line[0] == '#'  : return True
+    if line[0] == '@'  : return True
+    if line[0] == '%'  : return True
+    if line[0] == '!'  : return True
+    if line[0] == '\n' : return True
+
+    return False
 
 def fix_partial_path(file_list):
 
@@ -25,26 +292,27 @@ def fix_partial_path(file_list):
     return out_file_list
     # end fix_partial_path
         
-def separate_label_from_arg(input_arg_list):
+def separate_label_from_arg(input_arg_string):
 
-    # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
+    # If input_arg_string = /LABEL/ x1min=-2.0 nzbin=20
     # then return
     #   label = LABEL
-    #   arg_list = x1min=-2.0 nzbin=20
+    #   arg_string = x1min=-2.0 nzbin=20
     #
     #  If there is no label, return label = None
 
     # init output for no label
-    label = None ;   arg_list = input_arg_list
+    label = None ;   arg_string = input_arg_string
     
-    if len(input_arg_list) > 0 :
-        word_list = input_arg_list.split()
+    if len(input_arg_string) > 0 :
+        word_list = input_arg_string.split()
         has_label = word_list[0][0] == '/'
         if has_label :
-            label      = word_list[0].strip('/') 
-            arg_list   = " ".join(word_list[1:])
-            
-    return label,arg_list
+            label        = word_list[0].strip('/') 
+            arg_string   = " ".join(word_list[1:])
+            arg_string   = protect_parentheses(arg_string)
+
+    return label, arg_string
     # end separate_label_from_arg
 
 def standardise_path(path,cwd):
@@ -163,6 +431,7 @@ def merge_table_reset(merge_file, table_name, colnum_state, colnum_zero_list):
         'header_line' : comment_lines[0],
         'row_list'    : row_reset_list   
     }
+
     f = open(merge_file, 'w') 
     write_merge_file(f, INFO_MERGE, [] ) 
     f.close()
@@ -244,13 +513,14 @@ def compress_subdir(flag,dir_name):
         cmd_gzip   = (f"gzip {tar_file}")
         cmd_rmdir  = (f"rm -rf {subdir_name}")
         cmd_all    = (f"{cddir} ; {cmd_tar}; {cmd_gzip} ; {cmd_rmdir}")
-    else:  # uncompress
-        cmd_unpack = (f"tar -xzf {targz_file}")
-        cmd_rmgz   = (f"rm {targz_file}")
-        cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
-
-    #logging.info(f" xxxx {cmd_all}")
-    os.system(cmd_all)
+        os.system(cmd_all)
+    else:  # uncompress if tar file exists
+        exist_tar = os.path.exists(f"{topdir_name}/{targz_file}")
+        if exist_tar :
+            cmd_unpack = (f"tar -xzf {targz_file}")
+            cmd_rmgz   = (f"rm {targz_file}")
+            cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
+            os.system(cmd_all)
 
     # end compress_subdir
 
@@ -273,6 +543,9 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
     #  done_list = [ F1.DONE, None,   F3.DONE, None ]
     #  yaml_list = [ None,    None,   F3.YAML, None ]
     #
+    # Mar 25 2021: find last dot (with .rindex) instead of first dot
+    #              to allow for dot in version name.
+    #
 
     # search .LOG first to define list.
     search_log = (f"{search_wildcard}.LOG")
@@ -282,7 +555,8 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
 
     # for each log file, check for DONE and .YAML                          
     for log_file in log_list :
-        jdot      = log_file.index(".")
+        # xxx mark delete jdot      = log_file.index(".")
+        jdot      = log_file.rindex(".")
         prefix    = log_file[0:jdot]
         done_file = (f"{prefix}.DONE")
         DONE_FILE = (f"{search_dir}/{done_file}")
@@ -513,9 +787,12 @@ def write_merge_file(f, MERGE_INFO, comment_lines ):
 
     f.write(f"#{header_line} \n")
     f.write(f"{primary_key}: \n")
-    for row in row_list :  f.write(f"  - {row}\n")
+    for row in row_list : 
+        f.write(f"  - {row}\n")
+
     f.write("\n")
     for comment in comment_lines :  f.write(f"#{comment}\n")
+
     # end write_merge_file
 
 def backup_merge_file(merge_file):
@@ -552,7 +829,8 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
 def write_job_info(f,JOB_INFO,icpu):
 
     # write job program plus arguemnts to file pointer f.
-    # All job-info are passed via JOB_INFO.
+    # All job-info params are passed via JOB_INFO dictionary.
+    # Jan 8 2021: check optional wait_file
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
@@ -560,13 +838,20 @@ def write_job_info(f,JOB_INFO,icpu):
     log_file     = JOB_INFO['log_file']   # pipe stdout here
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
+    msgerr       = []
+    check_abort = JOB_INFO.get(arg_check_abort,False)
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
-    CHECK_CODE_EXISTS = True
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
+    CHECK_CODE_EXISTS = '.exe' in program and not check_abort
+
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
+                        'kill_on_fail'  in JOB_INFO  and \
+                        not check_abort
+
+    CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 
@@ -574,7 +859,7 @@ def write_job_info(f,JOB_INFO,icpu):
         all_done_file = JOB_INFO['all_done_file']  # exists only on failure
         kill_on_fail  = JOB_INFO['kill_on_fail']
         f.write(f"if [ -f {all_done_file} ] ; then \n")
-        msg_echo = (f"Found pre-mature {DEFAULT_DONE_FILE} -> something FAILED.")
+        msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
         if kill_on_fail :
             msg_echo = (f"Kill all remaining jobs.")
@@ -591,13 +876,33 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if CHECK_CODE_EXISTS :
         # wait for program to appear in case SNANA make is in progress
-        program_plus_path = shutil.which(program)
+
+        program_plus_path = find_program(program)
+
         wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo {program} exists. \n\n")
+        f.write(f"echo '{program} exists -> continue' \n\n")
 
+    if CHECK_WAIT_FILE:
+        wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
+        wait_for_file = (f"while [ ! -f {wait_file} ]; " \
+                         f"do sleep 10; done" )
+        f.write(f"echo 'Wait for {wait_file}'\n")
+        f.write(f"{wait_for_file}\n")
+        f.write(f"echo '{wait_file} exists -> continue' \n\n")
+
+    if check_abort:  # leave human readable marker for each job
+        f.write("echo '# ======================================= '\n")
+
+    # check optional ENV to set before running program
+    if 'setenv' in JOB_INFO :
+        f.write(f"{JOB_INFO['setenv']} \n")
+
+    # check optional start-file stamp (alternate way to get CPU time)
+    if 'start_file' in JOB_INFO :
+        f.write(f"touch {JOB_INFO['start_file']} \n")
     # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing
@@ -605,10 +910,12 @@ def write_job_info(f,JOB_INFO,icpu):
         if arg != '' :
             f.write(f"   {arg} \\\n")
 
-    f.write(f"   >  {log_file} \n" )
+    #f.write(f"   >  {log_file} \n" )  # write to stdout only
+    f.write(f"  &>  {log_file} \n" )   # write to stdout and stderr
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
+        f.write(f"echo 'Finished {program} -> create {done_file}' \n")
 
     f.write(f"\n")
 
@@ -621,17 +928,54 @@ def write_job_info(f,JOB_INFO,icpu):
 
     # end write_job_info
 
+def find_program(program):
+
+    # Created Oct 11 2021 by R.Kessler
+    # use unix "which" to find program. If not found, keep searching
+    # every 5 seconds in case code update/make is in progress.
+    # If program is not found after very long time -> abort.
+    # Function returns full name of program including path.
+
+    t_next        = 5    # check for program this often (sec)
+    t_abort       = 300  # abort after this many seconds of searching
+    t_sum         = 0    # total time searching for program (sec)
+
+    found_program = False
+    while not found_program :
+        program_plus_path = shutil.which(program)
+        if program_plus_path is None: 
+            time_now        = datetime.datetime.now()
+            tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+            print(f" Cannot find program {program} at {tstr}; " \
+                  f"will try again in {t_next} sec.")
+            t_sum += t_next
+            if t_sum > t_abort :
+                msgerr.append(f"Cannot find program {program}")
+                msgerr.append(f"after {t_sum} seconds.");  
+                log_assert(False, msgerr) 
+            
+            time.sleep(t_next)
+        else:
+            found_program = True                
+
+    return program_plus_path
+    # end find_program
+
 def write_jobmerge_info(f,JOB_INFO,icpu):
     # write merge task 
     merge_input_file = JOB_INFO['merge_input_file']
     merge_arg_list   = JOB_INFO['merge_arg_list']
+    check_abort      = JOB_INFO.get(arg_check_abort,False)
     match_cpu    = icpu <= NCPU_MERGE_DISTRIBUTE
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
+    
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
+        f.write(f"echo Run merge_driver monitor task. \n")
         f.write(f"{merge_task} \n")
-        f.write(f"echo $?")
+        if not check_abort: 
+            f.write(f"echo $?")
         f.write(f"\n")
 
     # end write_jobmerge_info
@@ -667,36 +1011,17 @@ def get_survey_info(yaml_path):
     # If yaml_path is a directory, read first file in glob list;
     # if yaml_path is a file, read this particular file.
 
-    if '.' in yaml_path :
+    if  os.path.isfile(yaml_path) :
         yaml_file = yaml_path
     else :
+        # it's a directory
         yaml_list = glob.glob(f"{yaml_path}/*.YAML")
         yaml_file = yaml_list[0]
 
-    yaml_info = extract_yaml(yaml_file)    
+    yaml_info = extract_yaml(yaml_file, None, None )    
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
-def kill_jobs(config_prep):
-
-    # kill jobs and exit 
-    submit_mode = config_prep['submit_mode']
-    n_core      = config_prep['n_core']
-
-    if ( submit_mode == SUBMIT_MODE_SSH ) :
-        # BEWARE: need to check for unique SSH nodes ???
-        nodelist = config_prep['nodelist']
-        for node in nodelist.split() :
-            cmd_kill = ("ssh -x %s 'kill -KILL -1' " % node )
-            print('\t %s ' % cmd_kill )
-            #            os.system(cmd_kill)
-
-    elif (submit_mode == SUBMIT_MODE_BATCH ):
-        pass
-
-    msg = (f"\n Done killing {submit_mode} jobs.")
-    sys.exit(msg)
-    return
 
 # ---------------------------------------------------
 # MESSAGING
@@ -787,23 +1112,41 @@ def log_assert(condition, message):
 
         logging.exception(message)
         assert condition, msg_abort_face
-#        assert condition, message
+        # end log_assert
 
+def extract_yaml(input_file, key_start, key_end):
 
-def extract_yaml(input_file):
+    # Jan 2021: ignore everything before key_start and after key_end.
+    #           if either key is None, ignore the key
+
     msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
     exist  = os.path.isfile(input_file)
-    # xxx mark delete log_assert(os.path.exists(input_file), 
     log_assert(exist,msgerr)
                
-    lines = []
+    line_list = []
+    FLAG_START = key_start is None
+    FLAG_END   = False
+
     with open(input_file, "r") as f:
         for line in f:
-            if line.startswith("#END_YAML"):
-                break
-            lines.append(line)
-    config = yaml.safe_load("\n".join(lines))
+            if key_start is not None:
+                if line.startswith(key_start) : FLAG_START = True
+
+            if key_end is not None:
+                if line.startswith(key_end) : FLAG_END = True
+
+            #print(f"\t xxx FLAG(START,END) = {FLAG_START} {FLAG_END} " \
+            #      f" for line={line}")
+
+            if not FLAG_START : continue
+            if FLAG_END: break
+
+            # xxx mark delete if line.startswith("#END_YAML"): break
+            line_list.append(line)
+
+    config = yaml.safe_load("\n".join(line_list))
 
     #logging.info(f" YAML config loaded successfully from {input_file}")
     return config
+    # end extract_yaml
 

@@ -16,9 +16,14 @@
 
   Apr 10 2020: MXKCOR -> 200 (was 100)
 
+  Nov 15 2020: IVERSION_KCOR -> 4 (was 3) for reading SURVEY key
+
 ********************************************************/
 
-#define VERSION_KCOR 3    // internal version
+bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input 
+
+//#define VERSION_KCOR 3    // internal version
+#define VERSION_KCOR 4    // internal version
 #define MXFILTDEF   100    // max number of defined filters 
 #define MXLAM_SN    4000  // max number of lambda bins 
 #define MXLAM_PRIMARY  5000  // max number of lambda bins 
@@ -33,12 +38,13 @@
 
 #define MXSED  MXLAM_SN*MXEP
 
+#define ZPOFF_FILE_DEFAULT "ZPOFF.DAT"
+
 // define interpolation options: 1=linear, 2=quadratic 
 #define OPT_INTERP_FILTER   1    // for filter transmission
 #define OPT_INTERP_VEGAFLUX 1    // for Vega flux
 #define OPT_INTERP_SNFLUX   1    // for SN flux
 #define NLAMBIN_INTERP      3    // number of lambda bins to interpolate
-
 
 #define FILTSYSTEM_COUNT        1
 #define FILTSYSTEM_ENERGY       2
@@ -89,8 +95,6 @@ struct INPUTS {
   char MAGSYSTEM_REPLACE1[40] ;
   char MAGSYSTEM_REPLACE2[40] ;
   char MAGSYSTEM_IGNORE[40]   ;
-
-  // xxx  char MAGSYSTEM_INPUT[40]; // e.g., VEGA->AB where VEGA is input magsys
 
   // filter lam shifts ... entered via command-line override only
   int    NFILTER_LAMSHIFT ; // number of non-zero LAMSHIFTs
@@ -146,6 +150,8 @@ typedef struct {
   int    INDX_INPUT, INDX ;
   double OFFSET_INPUT, OFFSET ;
   int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
+  char   SURVEY_NAMES[200]; // optional assoication with survey names
+  char   ZPOFF_FILE[MXPATHLEN];
 } MAGSYSTEM_DEF ;
 
 typedef struct {
@@ -313,10 +319,12 @@ struct  FILTER
 
   int    IPATH ;                   // integer index to PATH
   char   PATH[200] ;              // subdir in $SNDATA_ROOT/filters/
-  char   PATH_ORIG[200];          // idem, before ENVreplace
+  char   PATH_ORIG[MXPATHLEN];    // idem, before ENVreplace
   char   FILTSYSTEM_NAME[20] ;    // (I) energy or count
   int    FILTSYSTEM_INDX ;        // energy or count
-
+  char   SURVEY_NAMES[200];       // comma-sep list of surveys (Nov 2020)
+  char   ZPOFF_FILE[MXPATHLEN];   // optional ZPOFF file name (Jan 2021)
+ 
   double SNMAG0_CHECK_VALUE ;     // external reference for check 
   char   SNMAG0_CHECK_NAME[40] ;  // comment on origin of refernece
 
@@ -327,9 +335,10 @@ struct  FILTER
 } FILTER[MXFILTDEF] ;
 
 
-double FILTER_LAMBDA_MAX; // max lambda among all filters
-double FILTER_LAMBDA_MIN; // min lambda ...
-
+double FILTER_LAMBDA_MAX ; // max lambda among all filters
+double FILTER_LAMBDA_MIN ; // min lambda ...
+double STORE_LAMBDA_MAX ;
+double STORE_LAMBDA_MIN ;
 
 struct R4KCOR_GRID {
   float ****VALUE ;
@@ -373,12 +382,15 @@ struct STRFITS {
 // =====================================================
 
 int   rd_input(void) ;
+void  check_valid_survey_names(char *SURVEYS);
 void  get_NZBIN(void);
 void  get_NAVBIN(void);
 void  kcor_input_override(int OPT);
 void  primary_override(char *primName, char *fileName);
 int   kcor_ini(void) ;
 void  set_kcorFile_format(void) ;
+void  set_store_lambda_range(void);
+
 int   malloc_ini(void);
 int   kcor_out(void) ;
 int   kcor_grid(void) ;
@@ -395,8 +407,9 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) ;
 void  parse_MAGSYSTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
 void  parse_OOB(char *bandList, double *LAMRANGE, double RATIO);
 void  addOOBTrans_filter(int ifilt);
+void  cutOOBTrans_filter(int ifilt);
 
-void  rd_ZPOFF(char *sdir);     // read optional ZPOFF.DAT file
+void  rd_ZPOFF(char *sdir, char *zpoff_file_override);  
 int   rd_snsed(void);           // read SN template spectra from file 
 void  hardWire_snsed_bins(void) ; // in case SN SED is not defined.
 void check_snsed_bins(void) ;

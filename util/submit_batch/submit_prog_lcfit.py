@@ -8,6 +8,22 @@
 #  + error results in killing all other jobs
 #  + options to force failure ... to check how Pippin reacts
 #  + CPU diagnostics added to MERGE.LOG
+#
+# Jan 8 2021:  
+#  add OPT_SNCID_LIST option to use events from FITOPT000. To ensure
+#  that all of the FITOPT000 are processed first, the iver,fitopt loop
+#  was switched to fitopt,iver.
+#
+# Mar 17 2021: replace sntable_dump.pl with sntable_dump.py (perl->python)
+# Apr 07 2021: better error message when appending TEXT table fails.
+# Apr 17 2021: write PRIVATE_DATA_PATH to SUBMIT.INFO 
+# Apr 25 2021: pass command to nevt_table_check and print command on failure.
+# May 13 2021: fix bug setting NOREJECT and OPT_SNCID_LIST option
+#
+# May 19 2021: if OPT_SNCID_LIST>0 then
+#     + set n_job_split = n_core to quickly process FITOPT000
+#     + write NEVT_COMMON  to MERGE.LOG
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -15,6 +31,7 @@ import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
 import submit_util as util
+import pandas as pd
 
 from   submit_params import *
 from   submit_prog_base import Program
@@ -65,14 +82,26 @@ KEY_APPEND_TABLE_TEXTFILE = "APPEND_TABLE_TEXTFILE"
 PREFIX_TEMP_SNANA = "TEMP_SNANA"
 
 # define script to dump number of events in table (for hbook & root)
-SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"  # ?? convert to python ??
+#SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"
+SCRIPT_SNTABLE_DUMP    = "sntable_dump.py"   # Mar 17 2021
 
 # define program to merge text-fitres files
 PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
+NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
 
 # flags for debug utility to force table-merge failure
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
 FLAG_FORCE_MERGE_TABLE_CORRUPT = 2
+
+FITOPT_STRING = "FITOPT"
+
+# optional part of FITOPT label to exclude from BBC reject list
+# and to exclude from using CID list from FITOPT000
+FITOPT_STRING_NOREJECT = "NOREJECT" 
+
+# key to use FITOPT000 sample for all other FITOPTs; for CONFIG and snlc_fit
+#                        pippin/submit key       snlc_fit key name
+KEY_OPT_SNCID_LIST  = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -82,7 +111,7 @@ class LightCurveFit(Program):
     def __init__(self, config_yaml):
 
         config_prep = {}
-        config_prep['program'] = PROGRAM_NAME_FIT
+        config_prep['program'] = PROGRAM_NAME_LCFIT
         super().__init__(config_yaml, config_prep)
 
     def set_output_dir_name(self):
@@ -96,7 +125,7 @@ class LightCurveFit(Program):
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        return output_dir_name,SUBDIR_SCRIPTS_FIT
+        return output_dir_name,SUBDIR_SCRIPTS_LCFIT
         # end set_output_dir_name
 
     def submit_prepare_driver(self):
@@ -129,9 +158,53 @@ class LightCurveFit(Program):
         # copy supplemental input files that don't have a path
         self.fit_prep_copy_files()
 
+        # check OPT_SNCID_LIST option to use same SNe as in FITOPT000
+        self.fit_prep_same_sncid()
+
         # end submit_prepare_driver
 
     # - - - - - - - - - 
+
+    def fit_prep_same_sncid(self):
+
+        # Created Jan 8 2021
+        # if user sets OPT_SNCID_LIST in CONFIG, then use FITOPT000.FITRES
+        # as event mask for all successive FITOPTs so that all 
+        # re-analyses use the same events. However, if NOREJECT
+        # is part of FITOPT label, ignore OPT_SNCID_LIST.
+
+        CONFIG   = self.config_yaml['CONFIG']
+        opt_sncid_list = self.config_prep['opt_sncid_list']  
+
+        KEY_OPT  = KEY_OPT_SNCID_LIST[1]   # key for snlc_fit
+        KEY_FILE = 'SNCID_LIST_FILE'       # key for snlc_fit
+        argdict_same_sncid = {}
+
+        if opt_sncid_list > 0 :         
+            # make list of reference FITOPT000.FITRES file for each 
+            # data version
+            print(f"\n  PREPARE {KEY_OPT} to USE SAME EVENTS " \
+                  f"FOR ALL FITOPTs\n")
+            arg_opt       = f"{KEY_OPT} {opt_sncid_list}"
+            arg_file_list = []
+            output_dir    = self.config_prep['output_dir']
+            version_list  = self.config_prep['version_list']   
+            for version in version_list :
+                #sncid_file = f"{output_dir}/{version}/FITOPT000.FITRES"
+                sncid_file = f"../{version}/FITOPT000.FITRES"
+                arg_file_list.append(f"{KEY_FILE} {sncid_file}")
+
+            argdict_same_sncid['arg_opt']        = arg_opt
+            argdict_same_sncid['arg_file_list']  = arg_file_list
+
+        #print(f" xxx opt_sncid_list = {opt_sncid_list} ")
+        #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
+
+        # load the goodies
+        self.config_prep['argdict_same_sncid'] = argdict_same_sncid
+
+        # end fit_prep_same_scnid
+
 
     def fit_prep_copy_files(self):
 
@@ -172,7 +245,7 @@ class LightCurveFit(Program):
                     copy_list_string += (f"{infile} ")
 
         if len(copy_list_string) > 0 :
-            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_FIT}:\n" \
+            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
                    f"   {copy_list_string} \n")
             logging.info(msg)
             os.system(f"cp {copy_list_string} {script_dir}/")
@@ -212,7 +285,9 @@ class LightCurveFit(Program):
         path_check_list.append(path_sim_default)
 
         key = 'private_data_path'
+        self.config_prep[key] = None
         if key in snlcinp :
+            self.config_prep[key] = snlcinp[key] # store before expanding ENV
             path = os.path.expandvars(snlcinp[key])
             skip_path = False 
             if path == path_data_default: skip_path=True # allow user mistake
@@ -225,7 +300,7 @@ class LightCurveFit(Program):
                 
         #print(f" xxx path_check_list = {path_check_list} ")
 
-        self.config_prep['path_check_list'] = path_check_list
+        self.config_prep['path_check_list']   = path_check_list
         # end fit_prep_path_list
 
     def fit_prep_VERSION(self):        
@@ -368,13 +443,14 @@ class LightCurveFit(Program):
 
     def fit_validate2_VERSION(self, path, version):
 
-        # Stron validation method:
+        # Strong validation method:
         # run short snana.exe job on input  version and create
         # YAML file; if NEVT_TOT=0, or YAML file is not produced,
         # return False. If NEVT_TOT > 0, return True
         # Also return comment string; SUCCESS for True,
         # and error msg for False.
 
+        snana_dir       = self.config_yaml['args'].snana_dir
         output_dir      = self.config_prep['output_dir']
         cddir           = (f"cd {output_dir}")
         key_nevt        = 'NEVT_TOT'
@@ -384,7 +460,12 @@ class LightCurveFit(Program):
         textfile_prefix = (f"{PREFIX_TEMP_SNANA}_{version}")
         log_file        = (f"{textfile_prefix}.LOG")
         yaml_file       = (f"{textfile_prefix}.YAML")
-        cmd_snana = "snana.exe NOFILE  "
+
+        if snana_dir is None :
+            cmd_snana = f"snana.exe NOFILE  "
+        else:
+            cmd_snana = f"{snana_dir}/bin/snana.exe NOFILE  "
+
         cmd_snana += (f"VERSION_PHOTOMETRY {version}  ")
         cmd_snana += (f"MXEVT_PROCESS {nevt_proc}  ")
         cmd_snana += (f"JOBSPLIT 1 1  ")
@@ -398,7 +479,7 @@ class LightCurveFit(Program):
         string_status = "Validate SUCCESS"  # default status
 
         if os.path.isfile(YAML_FILE) :
-            snana_yaml = util.extract_yaml(YAML_FILE)
+            snana_yaml = util.extract_yaml(YAML_FILE, None, None )
             nevt       = snana_yaml[key_nevt]
             if nevt == 0 :
                 validate      = False
@@ -418,6 +499,64 @@ class LightCurveFit(Program):
         # to create file names.
         # If there is a lable in /LABEL/, strip it out and store it
         # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
+        #
+        # Jan 24 2021: refactor using prep_jobopt_list utility
+
+        output_dir        = self.config_prep['output_dir']
+        CONFIG            = self.config_yaml['CONFIG']
+        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+
+        if ignore_fitopt: 
+            # user option to ignore FITOPTs
+            fitopt_rows = []
+        else:
+            # default: read FITOPT info
+            KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+            fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
+
+        # check for OPT_SNCID_LIST ... just store it here for later
+        # Check multiple key-options
+        opt_sncid_list = 0
+        for key in KEY_OPT_SNCID_LIST:
+            if key in CONFIG :  opt_sncid_list = CONFIG[key]
+            
+        # - - - - - -
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
+
+        fitopt_arg_list   = fitopt_dict['jobopt_arg_list']
+        fitopt_num_list   = fitopt_dict['jobopt_num_list']
+        fitopt_label_list = fitopt_dict['jobopt_label_list']
+        n_fitopt          = fitopt_dict['n_jobopt']
+
+        # - - - - - - - - - 
+        # update list for symbolic links to FITOPT000 [DEFAULT]
+        link_FITOPT000_list = []
+        for arg,num in zip(fitopt_arg_list,fitopt_num_list) :
+            if self.is_sym_link(arg) :
+                link_FITOPT000_list.append(num)
+
+        # - - - - - - - -
+        logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
+        logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
+
+        self.config_prep['n_fitopt']            = n_fitopt
+        self.config_prep['fitopt_num_list']     = fitopt_num_list
+        self.config_prep['fitopt_arg_list']     = fitopt_arg_list
+        self.config_prep['fitopt_label_list']   = fitopt_label_list
+        self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
+        self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
+        self.config_prep['opt_sncid_list']      = opt_sncid_list
+
+        # end fit_prep_FITOPT
+
+
+    def fit_prep_FITOPT_OBSOLETE(self) :
+
+        # read/store list of FITOPT options, along with 'fitnums'
+        # FITOPT000, FITOPT001, etc ... These fitnums are used 
+        # to create file names.
+        # If there is a lable in /LABEL/, strip it out and store it
+        # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
 
         output_dir        = self.config_prep['output_dir']
         CONFIG            = self.config_yaml['CONFIG']
@@ -425,6 +564,7 @@ class LightCurveFit(Program):
         KEYLIST           = [ 'FITOPT' ]    # key under CONFIG
         fitopt_arg_list   = [ '' ]  # FITOPT000 is always blank
 
+        #    **** OBSOLETE ****
         if not ignore_fitopt: 
             fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
         n_fitopt          = len(fitopt_arg_list)
@@ -432,10 +572,11 @@ class LightCurveFit(Program):
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
         link_FITOPT000_list = []
 
-        print(f" xxx ")
+        #    **** OBSOLETE ****
+
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
-            fitopt_num_list[i] = (f"FITOPT{i:03d}")
+            fitopt_num_list[i] = (f"{FITOPT_STRING}{i:03d}")
 
             # extract optional label
             if i > 0 :
@@ -444,24 +585,12 @@ class LightCurveFit(Program):
                 fitopt_label_list[i] = label
                 fitopt_arg_list[i]   = arg_list
 
-            # xxxxxxxxxxx mark delete xxxxxxxxx
-            #word_list          = fitopt_arg_list[i].split()
-            #if len(word_list) > 0 :
-            #    has_label =  word_list[0][0] == '/'
-            #    if has_label :
-            #        label = word_list[0].strip('/')                    
-            #        fitopt_label_list[i] = label
-            #        fitopt_arg_list[i]   = " ".join(word_list[1:])
-            #    else :
-            #        fitopt_label_list[i] = 'None' 
-            #        fitopt_arg_list[i]   = " ".join(word_list)
-            # xxxxxxxxxx end mark xxxxxxxx
-
             # update list for symbolic links to FITOPT000 [DEFAULT]
             if self.is_sym_link(fitopt_arg_list[i]) :
                 link_FITOPT000_list.append(fitopt_num_list[i])
 
-        # - - - 
+
+        #    **** OBSOLETE ****
 
         logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
         logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
@@ -475,7 +604,7 @@ class LightCurveFit(Program):
 
         self.write_legacy_FITOPT_README()
 
-        # end fit_prep_FITOPT
+        # end fit_prep_FITOPT_OBSOLETE
 
 
     def fit_prep_index_lists(self):
@@ -499,13 +628,25 @@ class LightCurveFit(Program):
         version_list     = self.config_prep['version_list']
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         n_core           = self.config_prep['n_core']
+        opt_sncid_list   = self.config_prep['opt_sncid_list']
         do_dump = True
 
         # first figure out how many split jobs
         n_fitopt_tmp = n_fitopt_tot - n_fitopt_link # number of FITOPTs to process
         n_job_tmp    = n_version * n_fitopt_tmp  # N_job if no splitting
         n_job_split  = int(n_core/n_job_tmp)
+
+        # - - - - - - -
+        # check special cases to alter n_job_split
+
+        # require at least 1 job
         if n_job_split == 0 : n_job_split = 1
+
+        # if waiting for FITOPT000, distribute over all cores to avoid
+        # long wait for FITOPT000. But no more than 100 splits
+        if opt_sncid_list > 0 :
+            n_job_split = n_core
+            if n_job_split > 100: n_job_split = 100
 
         # note that n_job_tot does NOT include symbolic links
         n_job_tot = n_job_split * n_job_tmp
@@ -520,8 +661,11 @@ class LightCurveFit(Program):
         # create sparse index lists that include sym links
         iver_list=[] ;  iopt_list=[];   isplit_list=[]
         size_sparse_list = 0
-        for iver in range(0,n_version):
-            for iopt in range(0,n_fitopt_tot):
+
+        # Loop over iopt (fitopt) first to ensure that all FITOPT000
+        # are processed first ... matters when using OPT_SNCID_LIST.
+        for iopt in range(0,n_fitopt_tot):
+            for iver in range(0,n_version):
                 for isplit in range(0,n_job_split):
                     iver_list.append(iver)
                     iopt_list.append(iopt)
@@ -529,7 +673,7 @@ class LightCurveFit(Program):
                     size_sparse_list += 1  # n_job(proc+links)
 
         self.config_prep['size_sparse_list'] = size_sparse_list
-        self.config_prep['n_job_tot']     = n_job_tot  # does NOT include symLinks
+        self.config_prep['n_job_tot']     = n_job_tot  # excluded symLinks
         self.config_prep['n_done_tot']    = size_sparse_list # proc+links
         self.config_prep['n_job_split']   = n_job_split
         self.config_prep['iver_list']     = iver_list
@@ -597,26 +741,32 @@ class LightCurveFit(Program):
         # and that it has a full path.
         key = KEY_APPEND_TABLE_TEXTFILE
         if key in CONFIG :
-            text_file = os.path.expandvars(CONFIG[key])
-            msg = (f"  Every output FITRES file will be appended with: \n"\
-                   f"    {text_file} ")
-            logging.info(msg)
+            delim = None
+            if ',' in CONFIG[key]: delim=','
+            for text_file in CONFIG[key].split(delim):
+                text_file = os.path.expandvars(text_file)
+                msg = (f"  Every output FITRES file will be appended with: \n"\
+                       f"    {text_file} ")
+                logging.info(msg)
 
-            if not os.path.isfile(text_file):
-                msgerr.append(f"{text_file} does not exist.")
-                msgerr.append(f"Check {key} argument under CONFIG block.")
-                self.log_assert(False,msgerr)
+                if not os.path.isfile(text_file):
+                    msgerr.append(f"{text_file} does not exist.")
+                    msgerr.append(f"Check {key} argument under CONFIG block.")
+                    self.log_assert(False,msgerr)
 
-            if '/' not in text_file :
-                shutil.copy(text_file,script_dir)
+                if '/' not in text_file :
+                    shutil.copy(text_file,script_dir)
 
-        logging.info("")
+            logging.info("")
 
         # end fit_prep_table_options
 
 
-    def write_command_file(self,icpu,COMMAND_FILE):
-        
+    def write_command_file(self,icpu,f):
+        # For this icpu, write full set of sim commands to
+        # already-opened command file with pointer f. 
+        # Function returns number of jobs for this cpu 
+
         # loop over version, fitopt
         size_sparse_list = self.config_prep['size_sparse_list'] 
         n_job_tot        = self.config_prep['n_job_tot']  # does NOT include symlinks
@@ -630,20 +780,14 @@ class LightCurveFit(Program):
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         fitopt_num_list  = self.config_prep['fitopt_num_list']
         n_core           = self.config_prep['n_core']
+        n_job_cpu        = 0
 
         # open CMD file for this icpu
-        f = open(COMMAND_FILE, 'a') 
+        # xxx mark delete f = open(COMMAND_FILE, 'a') 
 
         n_job_local = 0 ;   n_job_real=0 
 
         for iver,iopt,isplit in zip(iver_list,iopt_list,isplit_list):
-
-        # xxxx mark delete xxxxxx
-        #for job in range(0,size_sparse_list):  # n_job(proc+links)
-            #iver   = iver_list[job]
-            #iopt   = iopt_list[job]
-            #isplit = isplit_list[job]
-            # xxxxx end mark xxxxxxxx
 
             index_dict = {
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
@@ -655,6 +799,8 @@ class LightCurveFit(Program):
             #if ( (n_job_local-1) % n_core ) == icpu :
             if ( (n_job_real-1) % n_core ) == icpu :
 
+                n_job_cpu += 1
+
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
@@ -662,19 +808,22 @@ class LightCurveFit(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
+
         if n_job_real != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
             msgerr.append(f"but found {n_job_local} jobs.")
             self.log_assert(False,msgerr)
 
+        return n_job_cpu
+
         # end write_command_file
 
     def is_sym_link(self,fitopt_arg):
         # for input fitopt argument, return True if it means
         # symbolic link to FITOPT000.
-        if fitopt_arg == 'FITOPT000'    : return True
-        if fitopt_arg == 'DEFAULT'      : return True
+        if fitopt_arg == f"{FITOPT_STRING}000"    : return True
+        if fitopt_arg == 'DEFAULT'                : return True
         return False
 
     def prep_JOB_INFO_fit(self,index_dict):
@@ -686,29 +835,32 @@ class LightCurveFit(Program):
         # Inputs
         #   index_dict = dictionary of indices for this job
         #
+        # May 13 2021: fix bug setting NOREJECT and OPT_SNCID_LIST option
 
         # strip off indices from input dictionary
-        iver   = index_dict['iver']
-        iopt   = index_dict['iopt']
+        iver   = index_dict['iver']  # version index for data or sim
+        iopt   = index_dict['iopt']  # FITOPT index
         isplit = index_dict['isplit']+1  # fortran like index for file names
-        icpu   = index_dict['icpu']
+        icpu   = index_dict['icpu']      # cpu index
 
-        input_file    = self.config_yaml['args'].input_file 
-        kill_on_fail  = self.config_yaml['args'].kill_on_fail
+        args          = self.config_yaml['args']
+        input_file    = args.input_file 
+        kill_on_fail  = args.kill_on_fail
+        check_abort   = args.check_abort
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
         version       = self.config_prep['version_list'][iver]
         fitopt_arg    = self.config_prep['fitopt_arg_list'][iopt]
         fitopt_num    = self.config_prep['fitopt_num_list'][iopt]
+        fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
         use_table_format = self.config_prep['use_table_format']
-        #n_job_tot     = self.config_prep['n_job_tot']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = (f"SPLIT{isplit:03d}")
         prefix        = (f"{version}_{fitopt_num}_{split_num}")
         done_file     = (f"{prefix}.DONE")
         log_file      = (f"{prefix}.LOG")
-        yaml_file     = (f"{prefix}.YAML")
+        yaml_file     = (f"{prefix}.YAML") 
         arg_list      = []
         JOB_INFO      = {}
 
@@ -719,16 +871,17 @@ class LightCurveFit(Program):
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['check_abort']   = check_abort
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")
         arg_list.append(f"  JOBSPLIT {isplit} {n_job_split}")
 
         # check fast option to prescale sims by 10 (data never pre-scaled)
-        if self.config_yaml['args'].fast :
+        if args.fast :
             arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
 
-        if self.config_yaml['args'].require_docana :
+        if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")
 
         # tack on outFile for each table format. For TEXT, do NOT
@@ -742,9 +895,32 @@ class LightCurveFit(Program):
                     arg += (f".{suffix}")
                 arg_list.append(f"  {arg}")
 
-        # finally, the user-define FITOPT options. 
+        
+        # user-define FITOPT options. 
         arg_list.append(f"{fitopt_arg}")
 
+        # Jan 8, 2021: option to use CID list from FITOPT000
+        opt_sncid_list = self.config_prep['opt_sncid_list']
+
+        if args.check_abort: 
+            arg_list.append("MXEVT_CUTS 1")
+            opt_sncid_list = 0  # disable event-sync feature
+
+        if fitopt_label is None:
+            NOREJECT = None
+        else:
+            NOREJECT = FITOPT_STRING_NOREJECT in fitopt_label
+
+        if iopt > 0 and opt_sncid_list > 0  and NOREJECT is False :
+            argdict_same_sncid = self.config_prep['argdict_same_sncid']
+            arg_opt   = argdict_same_sncid['arg_opt']             # KEY OPT
+            arg_file  = argdict_same_sncid['arg_file_list'][iver] # KEY FILE
+            wait_file = arg_file.split()[1]  # just the FILE name
+            arg_list.append(f"{arg_file}")
+            arg_list.append(f"{arg_opt}")
+            JOB_INFO['wait_file']  = wait_file
+
+        # - - - 
         JOB_INFO['arg_list']   = arg_list
 
         # - - - - - - - - 
@@ -817,7 +993,7 @@ class LightCurveFit(Program):
                 else:
                     legacy_label = (f"[{label}]")
                 arg   = fitopt_arg_list[i]
-                f.write(f"FITOPT: {num[6:]} {legacy_label} {arg} \n")
+                f.write(f"{FITOPT_STRING}: {num[6:]} {legacy_label} {arg} \n")
 
         # end write_legacy_FITOPT_README
 
@@ -828,8 +1004,6 @@ class LightCurveFit(Program):
         # downstream scripts.
 
         CONFIG            = self.config_yaml['CONFIG']
-        #n_job_tot         = self.config_prep['n_job_tot']
-        #n_job_split       = self.config_prep['n_job_split']
         n_job_link        = self.config_prep['n_job_link']
         output_dir        = self.config_prep['output_dir']
         n_fitopt          = self.config_prep['n_fitopt']
@@ -840,6 +1014,8 @@ class LightCurveFit(Program):
         link_FITOPT000_list = self.config_prep['link_FITOPT000_list']
         use_table_format  = self.config_prep['use_table_format']
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        private_data_path = self.config_prep['private_data_path']
+        opt_sncid_list    = self.config_prep['opt_sncid_list']
 
         f.write(f"\n# Fit info\n")
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
@@ -848,6 +1024,9 @@ class LightCurveFit(Program):
         f.write(f"TABLE_FORMATS:       {TABLE_SUFFIX_LIST} \n")
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
+        f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
+        f.write(f"{KEY_OPT_SNCID_LIST[0]}:   {opt_sncid_list}   " \
+                "# >0 -> FITOPT>0 uses events from FITOPT000\n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]
         for key in key_misc_list :
@@ -884,7 +1063,7 @@ class LightCurveFit(Program):
         # Required element of submit process. Before submitting jobs,
         # create initial merge file with all WAIT states.
         # This file is read and updated frequently by merge
-        # process invoked by -m argument to submit_batch_jobs.py.
+        # process invoked by -m argument to submit_batch_jobs.sh
         # A locally defined MERGE_INFO structure is passed to 
         # a generic write_MERGE_INFO function to create MERGE.LOG/
         # Uses YAML format, and for human-readability there is a 
@@ -1014,7 +1193,13 @@ class LightCurveFit(Program):
 
         # first return arg (row_split) is null since there is 
         # no need for a SPLIT table
-        return [], row_list_merge_new, n_state_change
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+        return row_list_dict, n_state_change
+        # xxx mark return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
 
@@ -1119,7 +1304,7 @@ class LightCurveFit(Program):
         create_links        = False  # init return function arg
 
         if fitopt_num in link_FITOPT000_list :
-            fitopt_ref = 'FITOPT000'
+            fitopt_ref = f"{FITOPT_STRING}000"
             cmd_link_all = ''
 
             for itab in range(0,NTABLE_FORMAT):
@@ -1192,7 +1377,8 @@ class LightCurveFit(Program):
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
-            os.system(f"{cddir}; {cmd_cat} ; {cmd_awk}")
+            cmd_all = f"{cmd_cat} ; {cmd_awk}"
+            os.system(f"{cddir} ; {cmd_all}")
 
         OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
         self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
@@ -1205,7 +1391,8 @@ class LightCurveFit(Program):
         if table_name == SUFFIX_FITRES :
             OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
             nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
-            self.nevt_table_check(nevt_expect, nevt_find, out_table_file)
+            self.nevt_table_check(nevt_expect, nevt_find, out_table_file,
+                                  cmd_all)
             self.config_prep['merge_table_file_list'][itable] = out_table_file
 
             # check options to append FITRES file
@@ -1222,6 +1409,8 @@ class LightCurveFit(Program):
         # and append TEXT-FITRES file.
         # See CONFIG key APPEND_TABLE_VARLIST
         #
+
+        CONFIG                = self.config_yaml['CONFIG']
         submit_info_yaml      = self.config_prep['submit_info_yaml']
         merge_table_file_list = self.config_prep['merge_table_file_list']
         script_dir            = submit_info_yaml['SCRIPT_DIR']
@@ -1229,11 +1418,18 @@ class LightCurveFit(Program):
         version_fitopt        = version_fitopt_dict['version_fitopt']
         nevt_expect           = version_fitopt_dict['nevt_expect']
         
+        # use CONFIG from input file (rather than SUBMIT.INFO) in case
+        # user fixes APPEND_TABLE_VARLIST after jobs ran.
         key  = KEY_APPEND_TABLE_VARLIST
-        if key in submit_info_yaml :
-            varlist_append = submit_info_yaml[key]
+        if key in CONFIG:
+             varlist_append = CONFIG[key]
         else:
             return
+
+        #if key in submit_info_yaml :
+        #    varlist_append = submit_info_yaml[key]
+        #else:
+        #    return
 
         msgerr = []
 
@@ -1257,9 +1453,16 @@ class LightCurveFit(Program):
 
         cddir = (f"cd {script_dir}")
         cmd_append = (f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
-                      f"-v {varlist_append} " \
+                      f"--VERBOSE " \
+                      f"-v '{varlist_append}' " \
                       f"-a {text_table_file} > {append_log_file} 2>/dev/null")
-        os.system(f"{cddir} ; {cmd_append} ")
+        istat = os.system(f"{cddir} ; {cmd_append} ")
+
+        if istat != 0 :
+            msgerr.append(f"Failed to apppend variables with command")
+            msgerr.append(f"   {cmd_append}")
+            msgerr.append(f"See {append_log_file}")
+            self.log_assert(False,msgerr) 
 
         # replace FITRES file with append file, 
         # and remove sntable* junk files
@@ -1279,7 +1482,8 @@ class LightCurveFit(Program):
         # finally, make sure that the number of rows still matches nevt_expect
         OUT_TABLE_FILE = (f"{script_dir}/{text_table_file}")
         nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
-        self.nevt_table_check(nevt_expect, nevt_find, text_table_file)
+        self.nevt_table_check(nevt_expect, nevt_find, text_table_file,
+                              cmd_append )
                   
         # end append_table_varlist
 
@@ -1297,7 +1501,7 @@ class LightCurveFit(Program):
         
         key  = KEY_APPEND_TABLE_TEXTFILE
         if key in submit_info_yaml :
-            external_file = submit_info_yaml[key]
+            external_file_list = submit_info_yaml[key]
         else:
             return
 
@@ -1305,18 +1509,21 @@ class LightCurveFit(Program):
         out_file  = "TEMP_" + orig_file
         log_file  = "TEMP_COMBINE.LOG"
 
-        cddir = (f"cd {script_dir}")
-        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file} " \
-                 f"-outfile_text {out_file} >& {log_file}" )
-        cmd2  = (f"mv {out_file} {orig_file}")
-        cmd3  = (f"rm {log_file}")
-        cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
-        os.system(cmd)
+        cddir = f"cd {script_dir}"
+        cmd1  = f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} "\
+                f"-outfile_text {out_file} " \
+                f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
+                f">& {log_file} " 
+        cmd2  = f"mv {out_file} {orig_file}"
+        cmd3  = f"rm {log_file}"
+        cmd   = f"{cmd1} ; {cmd2} ; {cmd3}"
+        # xxx cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
+        os.system(f"{cddir} ; {cmd}" )
 
         # finally, make sure that the number of rows still matches nevt_expect
         ORIG_FILE = (f"{script_dir}/{orig_file}")
         nevt_find = util.nrow_table_TEXT(ORIG_FILE,"SN:")
-        self.nevt_table_check(nevt_expect, nevt_find, orig_file)
+        self.nevt_table_check(nevt_expect, nevt_find, orig_file, cmd)
 
         #sys.exit('\n xxx DEBUG DIE xxxx ')
 
@@ -1354,10 +1561,10 @@ class LightCurveFit(Program):
             f_list += (f" XXX_FORCE_CORRUPT.{suffix}")
 
         cmd_merge       = (f"{program_merge} {f_list} {out_table_file} ")
-        cmd             = (f"{cddir} ; {cmd_merge} > {log_table_file}  ")
+        cmd             = (f"{cmd_merge} > {log_table_file}  ")
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
-            os.system(cmd)
+            os.system(f"{cddir}; {cmd}" )
 
         OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
         self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
@@ -1392,7 +1599,7 @@ class LightCurveFit(Program):
             logging.warning(msg)
 
         # abort if nevt_find != nevt_expect
-        self.nevt_table_check(nevt_expect, nevt_find, out_table_file)
+        self.nevt_table_check(nevt_expect, nevt_find, out_table_file, cmd)
 
         # store merge table file for append_table_text()
         merge_table_file_list =  self.config_prep['merge_table_file_list']
@@ -1407,12 +1614,16 @@ class LightCurveFit(Program):
         # Script prints "NEVT:  <nevt>", so parse the 2nd element.
 
         script   = SCRIPT_SNTABLE_DUMP
-        cmd_nevt = (f"{script} {table_file} FITRES NEVT " \
+        arg_NEVT = "--NEVT"
+        if '.pl' in script:  arg_NEVT = "NEVT" # legacy perl arg
+        
+        cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
                     f" | grep 'NEVT:' ")
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')
             nevt_find   = int(result_line.split()[1])
+            # nevt_find = 0 # xxx REMOVE
             return nevt_find
         except :
             return -9
@@ -1448,13 +1659,15 @@ class LightCurveFit(Program):
 
         # end move_merge_table_files
 
-    def nevt_table_check(self, nevt_expect, nevt_find, out_file):
+    def nevt_table_check(self, nevt_expect, nevt_find, out_file, cmd):
         # abort if nevt_expect != nevt_find
+        # Apr 25 2021: pass command {cmd} and print it on error.
         if nevt_expect != nevt_find :
             msgerr = []
             msgerr.append(f"Found {nevt_find} events in merged {out_file}")
-            msgerr.append(f"but expected {nevt_expect} from summing YAML files.")
-            msgerr.append(f"Table merge has a problem.")
+            msgerr.append(f"but expected {nevt_expect} from summing YAML files.")            
+            msgerr.append(f"Table merge has a problem. Check command")
+            msgerr.append(f"  {cmd}")
             self.log_assert(False,msgerr)
     # end nevt_table_check
 
@@ -1475,7 +1688,7 @@ class LightCurveFit(Program):
         use_table_format    = submit_info_yaml['USE_TABLE_FORMAT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
-        subdir         = SUBDIR_SCRIPTS_FIT
+        subdir         = SUBDIR_SCRIPTS_LCFIT
         tar_file       = (f"{subdir}.tar")
 
         logging.info(f" FIT cleanup: check if all merged tables exist.")
@@ -1536,6 +1749,7 @@ class LightCurveFit(Program):
         # end merge_cleanup_final
 
     def merge_reset(self,output_dir):
+
         # remove all merge products to allow re-doing the merge with -m option.
         # Renders output_dir as if --nomerge option had been given with
         # original submit command.
@@ -1545,7 +1759,9 @@ class LightCurveFit(Program):
         #  + unpack SPLIT_JOBS_LCFIT
         #  + remove merged table files: [VERSION]/FITOPT* files
         #  + remove all-done file
-        
+        #
+        # Apr 23 2021: check that file/subdir exists before removing it.
+
         submit_info_yaml = self.config_prep['submit_info_yaml']
         version_list     = submit_info_yaml['VERSION_LIST']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1565,29 +1781,46 @@ class LightCurveFit(Program):
         # loop over each version and clean out FITOPT* files 
         logging.info(f"  {fnam}: remove FITOPT* from version subdirs")
         for version in version_list :
-            v_dir = (f"{output_dir}/{version}")
-            cmd_rm = (f"cd {v_dir} ; rm FITOPT* 2>/dev/null")
+            v_dir  = (f"{output_dir}/{version}")
+            cmd_rm = (f"rm {v_dir}/FITOPT* 2>/dev/null")
             os.system(cmd_rm)
 
-
         # if script_dir is tarred & gzipped, unpack it
-        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_FIT}")
+        logging.info(f"  {fnam}: unapck {SUBDIR_SCRIPTS_LCFIT}")
         util.compress_subdir(-1, script_dir)
 
-        # untar and unzip file inside SUBDIR_SCRIPTS_FIT
-        cmd_unzip = (f"cd {script_dir}; cat BACKUP*.tar.gz | tar xzf - -i ; " \
-                     f"rm BACKUP*.gz")
-        os.system(cmd_unzip)
+        # untar and unzip file inside SUBDIR_SCRIPTS_LCFIT
+        backup_list = glob.glob1(script_dir, "BACKUP*")
+        if len(backup_list) > 0 :
+            cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
+            cmd_all   = f"cd {script_dir}; {cmd_unzip} ; rm BACKUP*.gz ; "\
+                        f"cd {CWD}"
+            os.system(cmd_all)
 
         # remove lingering temp files in SPLIT_JOBS_LCFIT.
         # Also remove MERGE.LOG_{Nsec} backups, and DONE file
-        logging.info(f"  {fnam}: remove misc junk files from {SUBDIR_SCRIPTS_FIT}")
-        cmd_rm1 = (f"cd {script_dir} ; rm {PREFIX_MERGE}* sntable* 2>/dev/null")
-        cmd_rm2 = (f"cd {output_dir} ; rm {MERGE_LOG_FILE}_*  *.DONE 2>/dev/null")
-        os.system(cmd_rm1)
-        os.system(cmd_rm2)
-        #print(f" cmd_rm1 = {cmd_rm1}")
-        #print(f" cmd_rm2 = {cmd_rm2}")
+
+        # define list of wildcards to remove under script_dir and output_dir
+        wildcard_script_dir = [ f"{PREFIX_MERGE}*", "sntable*" ]
+        wildcard_output_dir = [ f"{MERGE_LOG_FILE}_*", "*.DONE", "BUSY*" ]
+
+        logging.info(f"  {fnam}: remove misc junk files from " \
+                     f"{SUBDIR_SCRIPTS_LCFIT}")
+        for wildcard in wildcard_script_dir :
+            if len(wildcard) < 2: continue  # avoid accidental rm *
+            if len(glob.glob1(script_dir,wildcard)) > 0 :
+                   cmd_rm = f"rm {script_dir}/{wildcard}"
+                   print(f"\t Remove {wildcard} ")
+                   os.system(cmd_rm)
+
+        output_base = os.path.basename(output_dir)
+        logging.info(f"  {fnam}: remove misc junk files from {output_base}")
+        for wildcard in wildcard_output_dir :
+            if len(wildcard) < 2: continue  # avoid accidental rm *
+            if len(glob.glob1(output_dir,wildcard)) > 0 :
+                cmd_rm = f"rm {output_dir}/{wildcard}"
+                print(f"\t Remove {wildcard}  ")
+                os.system(cmd_rm)
 
         # end merge_reset
 
@@ -1635,14 +1868,58 @@ class LightCurveFit(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
+
+        opt_sncid_list = 0 
+        for key in KEY_OPT_SNCID_LIST :
+            if key in submit_info_yaml :
+                opt_sncid_list = submit_info_yaml[key]
+
         survey,idsurvey  = util.get_survey_info(script_dir)
 
         info_lines  = []
         info_lines.append(f"SURVEY:         {survey}")
         info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        # May 19 2021: count number of common events for option to 
+        # use FITOPT000 events in all FITOPTs
+        if opt_sncid_list > 0 :
+            version = submit_info_yaml['VERSION_LIST'][0]
+            nevt_common = self.get_nevt_common(version)
+            info_lines.append(f"NEVT_COMMON:    {nevt_common}     " \
+                              f"# among FITOPTs in {version}")
+
         return info_lines
         # end get_misc_merge_info    
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_FIT_MERGE_CPU
+
+    def get_nevt_common(self,version):
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        FITOPT_LIST      = submit_info_yaml['FITOPT_LIST']
+        
+        fitres_dir = f"{output_dir}/{version}"
+        combined   = None
+
+        for row in FITOPT_LIST:
+            num   = row[0]  # e.g., FITOPT001
+            label = row[1]  
+            fitres_file = f"{num}.{SUFFIX_FITRES}"
+            FITRES_FILE = f"{fitres_dir}/{fitres_file}"
+            NOREJECT    = FITOPT_STRING_NOREJECT in label
+            if NOREJECT : continue
+            #print(f" xxx process {FITRES_FILE}")
+            df = pd.read_csv(FITRES_FILE, delim_whitespace=True, comment="#")
+            if combined is None:
+                combined = df.index
+            else:
+                combined = combined.intersection(df.index)
+
+        nevt_common = combined.shape[0]
+        
+        #sys.exit('\n xxx DEBUG DIE xxxx ')
+        return nevt_common
+        # end get_nevt_common
+
 

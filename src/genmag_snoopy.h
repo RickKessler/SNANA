@@ -4,19 +4,6 @@
 #define IFILT_SNOOPY_MIN  0  //  xxx1
 #define IFILT_SNOOPY_MAX  8  //  xxx9
 
-/* xxx mark delete Jan 2020
-#define IFILT_SNOOPY_B   1
-#define IFILT_SNOOPY_V   2
-#define IFILT_SNOOPY_u   3
-#define IFILT_SNOOPY_g   4
-#define IFILT_SNOOPY_r   5
-#define IFILT_SNOOPY_i   6
-#define IFILT_SNOOPY_Y   7
-#define IFILT_SNOOPY_J   8
-#define IFILT_SNOOPY_H   9 
-#define IFILT_SNOOPY_K  -999  // undefined
-xxxxxxxx end mark xxxxxxxxx */
-
 #define MINLAM_SNOOPY   2900.0  // blue edge of u
 #define MAXLAM_SNOOPY  20000.0  // H band
 

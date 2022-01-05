@@ -21,18 +21,18 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   
   //  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
   
-  gen_EXP_HALFGAUSS->USE = false;
-
-  gen_EXP_HALFGAUSS->NAME[0] = 0;
-
-  gen_EXP_HALFGAUSS->PEAK = VAL;
-  gen_EXP_HALFGAUSS->SIGMA = VAL;
-  gen_EXP_HALFGAUSS->EXP_TAU = VAL;
+  gen_EXP_HALFGAUSS->USE       = false;
+  gen_EXP_HALFGAUSS->NAME[0]   = 0;
+  gen_EXP_HALFGAUSS->PEAK      = VAL;
+  gen_EXP_HALFGAUSS->SIGMA     = VAL;
+  gen_EXP_HALFGAUSS->EXP_TAU   = VAL;
   gen_EXP_HALFGAUSS->RANGE[0]  = VAL ;
   gen_EXP_HALFGAUSS->RANGE[1]  = VAL ;
-  gen_EXP_HALFGAUSS->RATIO = 0;
+  gen_EXP_HALFGAUSS->RATIO     = 0;
+  gen_EXP_HALFGAUSS->INDEX     = -999;
+  gen_EXP_HALFGAUSS->KEYSOURCE = -9;
 
-}
+} //  end init_GEN_EXP_HALFGAUSS
 
 void set_GEN_EXPON(double tau, double *range,
 		   GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS) {
@@ -62,6 +62,8 @@ void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, GEN_EXP_HA
   out_EXP_HALFGAUSS->RANGE[0] = inp_EXP_HALFGAUSS->RANGE[0];
   out_EXP_HALFGAUSS->RANGE[1] = inp_EXP_HALFGAUSS->RANGE[1];
   out_EXP_HALFGAUSS->RATIO    = inp_EXP_HALFGAUSS->RATIO;
+  out_EXP_HALFGAUSS->INDEX    = inp_EXP_HALFGAUSS->INDEX;
+  out_EXP_HALFGAUSS->KEYSOURCE = inp_EXP_HALFGAUSS->KEYSOURCE;
 }
 
 
@@ -71,53 +73,65 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
   // and sets USE flag accordingly.
   // also sets NAME if not null
 
-  char fnam[] = "setUseFlag_GEN_EXP_HALFGAUSS";
-
   double valmax = gen_EXP_HALFGAUSS->RANGE[1] ;
-  double sigma = gen_EXP_HALFGAUSS->SIGMA ;
+  double sigma  = gen_EXP_HALFGAUSS->SIGMA ;
   double exptau = gen_EXP_HALFGAUSS->EXP_TAU ;
+  double ratio  = gen_EXP_HALFGAUSS->RATIO ;
 
   bool DO_PROFILE = (sigma > 1.0E-9 || exptau > 1.0E-9 );
-  bool DO_RANGE = (valmax > 1.0E-9) ;
+  bool DO_RANGE   = (valmax > 1.0E-9) ;
+  bool DO_RATIO   = ratio > 0.0 ;
+  char fnam[] = "setUseFlag_GEN_EXP_HALFGAUSS";
 
-  if (DO_PROFILE && !DO_RANGE) { 
-    print_preAbort_banner(fnam);
-    printf("SIGMA = %f \n",sigma); printf("EXP_TAU = %f \n",exptau); printf("RANGE[1] = %f \n",valmax);
+  // ------------ BEGIN --------------
 
-    sprintf ( c1err, "INVALID PROFILE FOR %s .", name );
-    sprintf ( c2err, "CHECK SIM INPUT FILE. RANGE MIGHT NOT BE SET.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  if (DO_RANGE && DO_PROFILE){
+  if (DO_RANGE || DO_PROFILE || DO_RATIO ){
     gen_EXP_HALFGAUSS->USE = true ;
   }
-
   
-
-
-  if (strlen(name)>0){
+  if ( strlen(name) > 0 ){
     sprintf(gen_EXP_HALFGAUSS->NAME,"%s",name);
   } 
 
-}
+} // end setUseFlag_GEN_EXP_HALFGAUSS
+
+// ************************************************************
+double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
+
+  //WARNING!! Half Gaussian not yet coded!
+  double tau = gen_EXP_HALFGAUSS->EXP_TAU ;
+  double funVal = NULLDOUBLE ;
+  double sigma = gen_EXP_HALFGAUSS->SIGMA ; 
+  char fnam[] = "funVal_GEN_EXP_HALFGAUSS";
+
+  if (sigma > 0.) {
+    sprintf(c1err,"Half Gaussian not yet implemented!");
+    sprintf(c2err,"TAU = %f, SIGMA = %f", tau, sigma);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+  }
+
+  funVal = exp(-x/tau) ; 
 
 
+  return funVal;
 
-double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
+} // end funVal_GEN_EXP_HALFGAUSS
+
+// ************************************************************
+double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   // March 20 2020
   // generate a random value following profile consisting of 
   // EXP & Half Gaussian
   // TO DO: z dependence of parameters.
 
-  char fnam[] = "exec_GEN_EXP_HALFGAUSS";
+  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";
   
-  double sig   = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
-  double peak  = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
-  double tau   = gen_EXP_HALFGAUSS->EXP_TAU;//exponential
-  double ratio = gen_EXP_HALFGAUSS->RATIO;//ratio GAUSS/EXP at zero
+  double sig    = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
+  double peak   = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
+  double tau    = gen_EXP_HALFGAUSS->EXP_TAU;//exponential
+  double ratio  = gen_EXP_HALFGAUSS->RATIO;//ratio GAUSS/EXP at zero
   double *range = gen_EXP_HALFGAUSS->RANGE;//generate random within this range
-  char *name   = gen_EXP_HALFGAUSS->NAME;
+  char *name    = gen_EXP_HALFGAUSS->NAME;
 
   bool LDMP = false;
   
@@ -125,9 +139,9 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   bool DOFUN_GAUSS = false;
 
   // always burn randoms to stay synced.                                                                                        
-  double ran_EXPON = FlatRan1(1) ;                                 
-  double ran_GAUSS = GaussRan(1);
-  double ran_WGT   = FlatRan1(1) ;  
+  double ran_EXPON = getRan_Flat1(1) ;                                 
+  double ran_GAUSS = getRan_Gauss(1);
+  double ran_WGT   = getRan_Flat1(1) ;  
   double epsilon = 1.0E-14;
   double ranval = -9.0 ; //output random value
 
@@ -205,7 +219,7 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
         sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
-      if ( itry  > 1 ) { ran_GAUSS = GaussRan(1); }
+      if ( itry  > 1 ) { ran_GAUSS = getRan_Gauss(1); }
       if (peak > 0.0001 )
         { ranval = sig * ran_GAUSS + peak; }
       else
@@ -224,4 +238,66 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
  DONE:
   return(ranval) ;
 
-} // end of exec_GEN_EXP_HALFGAUSS()
+} // end of getRan_GEN_EXP_HALFGAUSS()
+
+
+int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
+                              GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS ) {
+
+  // Created Jul 2021
+  // Utility to read gen_EXP_HALFGAUSS structure.
+
+  int N = 0 ;
+  char KEYNAME[60];
+  char fnam[] = "parse_input_EXP_HALFGAUSS" ;
+
+  // -------------- BEGIN --------------
+
+  // first make sure that VARNAME is contained in WORDS[0] 
+  if ( strstr(WORDS[0],VARNAME) == NULL ) { return(N); }
+
+ 
+  // check Gauss core params
+  sprintf(KEYNAME, "GENGAUPEAK_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->PEAK );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
+  }
+
+  sprintf(KEYNAME, "GENSIG_%s GENSIGMA_%s",  VARNAME, VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->SIGMA );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
+  }
+
+  // check Exponential param
+  sprintf(KEYNAME, "GENTAU_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->EXP_TAU );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
+  }
+
+
+  // Gauss(0)/EXP(0)
+  sprintf(KEYNAME, "GENRATIO_%s GENRATIO_%s0",  VARNAME, VARNAME );
+  if ( strcmp(VARNAME,"EBV_HOST") ==0 ) 
+    { strcat(KEYNAME," EBV0_HOST"); } // back-compatible
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RATIO );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
+  }
+
+  sprintf(KEYNAME, "GENRANGE_%s",  VARNAME );
+  if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RANGE[0] );
+    N++; sscanf(WORDS[N], "%le", &gen_EXP_HALFGAUSS->RANGE[1] );
+    gen_EXP_HALFGAUSS->KEYSOURCE = keySource;
+  }
+
+  // set NAME and USE flag
+  if ( N > 0 ) 
+    {  setUseFlag_GEN_EXP_HALFGAUSS(gen_EXP_HALFGAUSS,VARNAME); }
+
+  return N ;
+
+} // end parse_input_EXP_HALFGAUSS

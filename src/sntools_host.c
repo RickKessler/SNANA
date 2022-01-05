@@ -5197,7 +5197,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // select min GALID using dztol from user
 
   // begin with approx calculation using IZPTR grid
-  z=ZGEN ;  ztol=z-dztol ; 
   if ( IZ_CEN >= HOSTLIB.MAXiz ) 
     { igal_start = HOSTLIB.NGAL_STORE-1; }
   else {
@@ -5207,10 +5206,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // loop every IGAL_JUMP galaxy to get refined range
   igal_start_init = igal_start;
+  z = get_ZTRUE_HOSTLIB(igal_start) ;  ztol=ZGEN-dztol ; 
   if ( REFAC ) {
     while ( z > ztol && igal_start > IGAL_JUMP ) {
       igal_start -= IGAL_JUMP ; 
-      // xxx mark delete  if ( igal_start < 1 ) { igal_start=1; }
       z  = get_ZTRUE_HOSTLIB(igal_start);  
     }
 
@@ -5224,7 +5223,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // - - - - - - - - - 
   // select max GALID using dztol from user
-  z = ZGEN ; ztol = z+dztol ;
   if ( IZ_CEN < HOSTLIB.MINiz ) 
     { igal_end = 0; }
   else { 
@@ -5233,10 +5231,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   }
 
   igal_end_init = igal_end;
+  z = get_ZTRUE_HOSTLIB(igal_end) ; ztol = ZGEN+dztol ;
   if ( REFAC ) {
     while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-IGAL_JUMP ) { 
       igal_end += IGAL_JUMP ; 
-      // xxx mark if(igal_end>HOSTLIB.NGAL_STORE-1) {igal_end=HOSTLIB.NGAL_STORE-1;}
       z = get_ZTRUE_HOSTLIB(igal_end);  
     }
 
@@ -5244,6 +5242,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       igal_end -= IGAL_JUMP; 
       z = get_ZTRUE_HOSTLIB(igal_end);
     }
+
   }
   while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) 
     { igal_end++ ; z = get_ZTRUE_HOSTLIB(igal_end);  }

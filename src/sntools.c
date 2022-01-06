@@ -4277,15 +4277,15 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 			       ) {
 
   // Created Mar 4, 2011 by R.Kessler
-  // For input photometry VERSION, returns 
-  // DATADIR:     SNANA data directory 
-  // LISTFILE:    file with list of data files in DATADIR
-  // READMEFILE:  file describing data sample
+  // For input photometry VERSION, function returns 
+  //   DATADIR:     SNANA data directory 
+  //   LISTFILE:    file with list of data files in DATADIR
+  //   READMEFILE:  file describing data sample
   //
   // If DATADIR is non-null, then it is passed from PRIVATE_DATA_PATH,
   // so use this directory to  determine LISTFILE and READMEFILE.
   // Do NOT change DATADIR in this case. If DATADIR=='', then set
-  // to default $SNDATA_ROOT/lcmerge.
+  // to default $SNDATA_ROOT/lcmerge or path in PATH_SNDATA_SIM.DAT
   //
   // Function return argument is SUCCESS or ERROR
   // 

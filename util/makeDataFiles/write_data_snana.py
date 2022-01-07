@@ -271,16 +271,12 @@ def write_aux_files_snana(name, args, config_data):
     prefix        = config_data['data_folder_prefix']
     readme_stats_list = config_data['readme_stats_list']
 
-    print(f"")
-    sys.stdout.flush()
-
     folder_out  = output_data_folder_name(config_data, name, True)
     index_unit  = name_list.index(name)
 
     msg = f" Create aux files for {folder_out} and gzip " \
           f"{TEXTFILE_SUFFIX} files."
     logging.info(msg)
-    sys.stdout.flush()
 
     data_dir      = f"{outdir}/{folder_out}"
     search_string = f"{prefix}*{TEXTFILE_SUFFIX}"
@@ -377,8 +373,12 @@ def convert2fits_snana(args, config_data):
 
         # - - - - -
         # clean up
+
+        # xxxxxxxxx Jan 6 mark delete since translate code does gzip
         # gzip FITS files and make compressed tar file from TEXT dir
-        cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
+        ### cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
+        ### os.system(cmd_gzip_fits)
+        # xxxxxxxxxxxxx end mark xxxxxxxxxx
 
         tar_file = f"{folder_text}.tar"
         cmd_tar_text  = f"cd {outdir} ; " \
@@ -386,7 +386,6 @@ def convert2fits_snana(args, config_data):
                         f"gzip {tar_file} ; " \
                         f"rm -r {folder_text} "
 
-        os.system(cmd_gzip_fits)
         if not text:
             os.system(cmd_tar_text)
 

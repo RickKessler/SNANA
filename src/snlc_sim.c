@@ -620,7 +620,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.USE_README_LEGACY = 1 ; // Dec 22 2021
+  INPUTS.USE_README_LEGACY = 0 ; 
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -5338,7 +5338,8 @@ void prep_user_input(void) {
 
   if (INPUTS.DEBUG_FLAG == -1024) { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0; }
 
-  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
+  // xxx mark  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
+  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG == -1222 );
 
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  

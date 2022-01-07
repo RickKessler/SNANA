@@ -20693,11 +20693,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
          ***** IMPORTANT(v11_04f) ***** 
 
    sntools_host.c:
-     + Imorve IGAL search algorithm to improve speed. With few million
-       galaxies in HOSTLIB, overall sim speed up is x2 to x3.
+     + Improve IGAL search algorithm to improve speed. With few million
+       galaxies in HOSTLIB, overall sim speed up is ~ x5.
+
+   sim: release README refactor with all-yaml DOCUMENTATION block; see manual.
+      (recover legacy readme with DEBUG_FLAG -1222)
 
          ***** USEFUL(v11_04f) ***** 
 
          ***** MISCELLANEOUS(v11_04f) ***** 
+
 
 END: 

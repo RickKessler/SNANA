@@ -33,7 +33,7 @@ def select_subsample(args, var_dict):
 
     # random split cut. Be careful that isplitran = 1 to N
     # (not 0 to N-1)
-    if nsplitran > 1 :
+    if nsplitran > 1 and isplitran_select>=0 :
         isplitran = (SNID % nsplitran) + 1
         if isplitran != isplitran_select:  return False
 
@@ -153,6 +153,7 @@ def write_yaml(file_name, yaml_contents):
 def get_survey_snana(snana_folder):
     # for input snana_folder, run snana.exe GETINFO folder
     # and extract survey
+
     cmd = f"{PROGRAM_SNANA} GETINFO {snana_folder}"
     ret = subprocess.run( [cmd], shell=True,
                           capture_output=True, text=True )

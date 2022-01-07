@@ -1,26 +1,49 @@
-# Base class Program
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  makeDataFiles_base.py
+#
+#  Copyright 2021 R. Kessler
 
-import os, sys, shutil, yaml
-import logging   # , coloredlogs
-import datetime, time, subprocess
-import getpass, ntpath, glob
+"""Base meta-class Program, built to include the basic infrastructre for more
+general data file parsers.
+"""
+
+import datetime
+#import getpass
+#import glob
+import logging  # , coloredlogs
+#import ntpath
+import os
+#import shutil
+#import subprocess
+import sys
+#import time
+
 
 import numpy as np
+import yaml
+
+from abc import ABC, abstractmethod
+
 import makeDataFiles_util as util
-import write_data_snana   as snana
+import write_data_snana as snana
 
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
     pass
 
-from   makeDataFiles_params  import *
+#from makeDataFiles_params import *
+import makeDataFiles_params as gpar
 
-import numpy as np
-from   abc import ABC, abstractmethod
 
 # ======================================
 class Program:
+    """Structural base meta-Class. This is the bare bones logic for the
+    makedatafiles framework
+    """
+
     def __init__(self, config_inputs, config_data):
 
         self.config_inputs = config_inputs
@@ -36,7 +59,11 @@ class Program:
         self.init_data_unit(config_inputs, config_data)
 
         # create top-level outdir
-        outdir_list = [ args.outdir_snana, args.outdir_lsst_alert ]
+        outdir_list = [
+            args.outdir_snana,
+            args.outdir_lsst_alert
+        ]
+
         for outdir in outdir_list :
             if outdir is None: continue
             if not os.path.exists(outdir):
@@ -52,8 +79,8 @@ class Program:
 
         # for lsst alert, add extra NOBS_ALERT column to readme_stats
         if args.outdir_lsst_alert:
-            global KEYLIST_README_STATS
-            KEYLIST_README_STATS += [KEYNAME_NOBS_ALERT]
+            #global KEYLIST_README_STATS
+            gpar.KEYLIST_README_STATS += [gpar.KEYNAME_NOBS_ALERT]
 
         # end Program __init__
 
@@ -73,7 +100,7 @@ class Program:
         peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
         outdir_lsst_alert  = args.outdir_lsst_alert
-        n_season           = MXSEASON
+        n_season           = gpar.MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
         # no explicit season breakdown
@@ -145,11 +172,11 @@ class Program:
 
         name = f"{survey}"
 
-        if field != FIELD_VOID : name += f"_{field}"
+        if field != gpar.FIELD_VOID : name += f"_{field}"
 
-        if iseason >= 0 : name += f"_{PREFIX_SEASON}{iseason:02d}"
+        if iseason >= 0 : name += f"_{gpar.PREFIX_SEASON}{iseason:02d}"
 
-        if iran > 0:  name += f"_{PREFIX_SPLIT}{iran:03d}"
+        if iran > 0:  name += f"_{gpar.PREFIX_SPLIT}{iran:03d}"
 
         return name
         # end assign_data_unit_name
@@ -172,16 +199,16 @@ class Program:
         d_raw    = data_dict['head_raw']
         d_calc   = data_dict['head_calc']
 
-        SNID       = d_raw[DATAKEY_SNID]
-        RA         = d_raw[DATAKEY_RA]
-        DEC        = d_raw[DATAKEY_DEC]
-        FIELD      = d_raw[DATAKEY_FIELD]
-        PEAKMJD    = d_calc[DATAKEY_PEAKMJD]
-        MJD_DETECT = d_calc[DATAKEY_MJD_DETECT_FIRST]
+        SNID       = d_raw[gpar.DATAKEY_SNID]
+        RA         = d_raw[gpar.DATAKEY_RA]
+        DEC        = d_raw[gpar.DATAKEY_DEC]
+        FIELD      = d_raw[gpar.DATAKEY_FIELD]
+        PEAKMJD    = d_calc[gpar.DATAKEY_PEAKMJD]
+        MJD_DETECT = d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
 
         # - - - - - - - - - - - - - - - - -
         # check match for field
-        if field_select == FIELD_VOID :
+        if field_select == gpar.FIELD_VOID :
             match_field = True  # no --field arg
         else:
             match_field = False
@@ -243,15 +270,18 @@ class Program:
         # HOSTGAL keys.
 
         survey   = config_inputs['args'].survey
-        filters  = list(SURVEY_INFO['FILTERS'][survey])
+        filters  = list(gpar.SURVEY_INFO['FILTERS'][survey])
 
-        global DATAKEY_LIST_RAW
-        prefix_list = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
-                        HOSTKEY_PREFIX_SB ]
+        #global DATAKEY_LIST_RAW
+        prefix_list = [
+            gpar.HOSTKEY_PREFIX_MAG,
+            gpar.HOSTKEY_PREFIX_MAGERR,
+            gpar.HOSTKEY_PREFIX_SB
+        ]
         for prefix in prefix_list :
             for band in filters:
                 datakey = f"{prefix}_{band}"
-                DATAKEY_LIST_RAW.append(datakey)
+                gpar.DATAKEY_LIST_RAW.append(datakey)
 
         # end load_HOSTKEY_band
 
@@ -260,17 +290,17 @@ class Program:
         # for fakes, tack on true mag to list of variables per obs
         fake      = config_inputs['args'].fake
         survey    = config_inputs['args'].survey
-        varnames  = VARNAMES_OBS
-        varfmt    = VARNAMES_FMT
-        val_undef = VAL_UNDEFINED_LIST
+        varnames  = gpar.VARNAMES_OBS
+        varfmt    = gpar.VARNAMES_FMT
+        val_undef = gpar.VAL_UNDEFINED_LIST
 
-        # xxxx mark delete Nov 14 2021 
+        # xxxx mark delete Nov 14 2021
         #if fake :
         #    varnames   += f" {VARNAME_TRUEMAG}"
         #    varfmt     += f" 8.4f"
         #    val_undef  += VAL_NULL
         # xxxxxxxxx end mark xxxxxxxxx
-        
+
         # convert space-sep string list into python list
         varlist_obs   = varnames.split()
         varlist_fmt   = varfmt.split()    # format per var
@@ -296,20 +326,20 @@ class Program:
         # end store_varlist_obs
 
     def append_truemag_obs(self):
-        
+
         # add true mag variable to list of variables in PHOT table
         # (called by read function of true mag exists; e.g. ,sim or fakes)
 
-        logging.info(f"\t Append {VARNAME_TRUEMAG} to PHOT table")
-        
-        self.config_data['vallist_undef']  += [ VAL_NULL ]
-        self.config_data['varlist_fmt']    += [ "8.4f"   ]
-        self.config_data['varlist_obs']    += [ VARNAME_TRUEMAG ]
+        logging.info(f"\t Append {gpar.VARNAME_TRUEMAG} to PHOT table")
+
+        self.config_data['vallist_undef']  += [gpar.VAL_NULL]
+        self.config_data['varlist_fmt']    += ["8.4f"]
+        self.config_data['varlist_obs']    += [gpar.VARNAME_TRUEMAG]
         self.config_data['nvar_obs']       += 1
-        
+
         return
     # end add_truemag_obs
-        
+
     def exclude_varlist_obs(self):
         # return optional list of phot columns to exclude from the
         # output text data files; default is exclude nothing and
@@ -329,16 +359,16 @@ class Program:
         d_raw    = data_event_dict['head_raw']
         d_calc   = data_event_dict['head_calc']
 
-        snid     = d_raw[DATAKEY_SNID]
-        zhel     = d_raw[DATAKEY_zHEL]
-        zhel_err = d_raw[DATAKEY_zHEL_ERR]
-        ra       = d_raw[DATAKEY_RA]
-        dec      = d_raw[DATAKEY_DEC]
+        snid     = d_raw[gpar.DATAKEY_SNID]
+        zhel     = d_raw[gpar.DATAKEY_zHEL]
+        zhel_err = d_raw[gpar.DATAKEY_zHEL_ERR]
+        ra       = d_raw[gpar.DATAKEY_RA]
+        dec      = d_raw[gpar.DATAKEY_DEC]
 
         if fake :
-            snana_flag_fake = SNANA_FLAG_FAKE
+            snana_flag_fake = gpar.SNANA_FLAG_FAKE
         else:
-            snana_flag_fake = SNANA_FLAG_DATA
+            snana_flag_fake = gpar.SNANA_FLAG_DATA
 
         zcmb      = util.helio_to_cmb(zhel, ra, dec)
 
@@ -346,9 +376,9 @@ class Program:
         # computes and stores MWEBV. However, if we want correct MWEBV
         # in the TEXT files, need to compute it here:
 
-        if DATAKEY_MWEBV in d_calc:
-            mwebv     = d_calc[DATAKEY_MWEBV]
-            mwebv_err = d_calc[DATAKEY_MWEBV_ERR]
+        if gpar.DATAKEY_MWEBV in d_calc:
+            mwebv     = d_calc[gpar.DATAKEY_MWEBV]
+            mwebv_err = d_calc[gpar.DATAKEY_MWEBV_ERR]
         else:
             mwebv     = -9.0
             mwebv_err = -9.0
@@ -359,12 +389,12 @@ class Program:
             print(f" xxx ------------------------------")
             print(f" xxx DUMP for compute_data_event")
             print(f" xxx SNID={snid}   RA={ra}  DEC={dec}  zhel={zhel:8.5f}")
-            if DATAKEY_zCMB in d_calc:
-                zcmb_deja = d_calc[DATAKEY_zCMB]
+            if gpar.DATAKEY_zCMB in d_calc:
+                zcmb_deja = d_calc[gpar.DATAKEY_zCMB]
                 print(f"\t already existing zcmb = {zcmb_deja:8.5f}")
-            if DATAKEY_MWEBV in d_calc:
-                mwebv_deja     = d_calc[DATAKEY_MWEBV]
-                mwebv_deja_err = d_calc[DATAKEY_MWEBV_ERR]
+            if gpar.DATAKEY_MWEBV in d_calc:
+                mwebv_deja     = d_calc[gpar.DATAKEY_MWEBV]
+                mwebv_deja_err = d_calc[gpar.DATAKEY_MWEBV_ERR]
                 print(f"\t already existing mwebv = " \
                       f"{mwebv_deja:8.5f} +_ {mwebv_deja_err:8.5f} ")
 
@@ -374,31 +404,31 @@ class Program:
 
         # - - - - - - -
         # load goodies
-        d_raw[DATAKEY_SURVEY]      = survey
-        d_raw[DATAKEY_FAKE]        = snana_flag_fake
+        d_raw[gpar.DATAKEY_SURVEY]      = survey
+        d_raw[gpar.DATAKEY_FAKE]        = snana_flag_fake
 
-        if survey not in SURVEY_INFO['FILTERS']:
+        if survey not in gpar.SURVEY_INFO['FILTERS']:
             msgerr.append(f"{survey} filters not defined")
             msgerr.append(f"Check SURVEY_INFO dictionary in " \
                           f"makeDataFiles_params.py")
             util.log_assert(False,msgerr)
         else:
-            d_raw[DATAKEY_FILTERS]     = SURVEY_INFO['FILTERS'][survey]
+            d_raw[gpar.DATAKEY_FILTERS]     = gpar.SURVEY_INFO['FILTERS'][survey]
 
-        if survey in SURVEY_INFO['CCD']:
-            d_raw[DATAKEY_NXPIX]   = SURVEY_INFO['CCD'][survey][0]
-            d_raw[DATAKEY_NYPIX]   = SURVEY_INFO['CCD'][survey][1]
-            d_raw[DATAKEY_PIXSIZE] = SURVEY_INFO['CCD'][survey][2]
+        if survey in gpar.SURVEY_INFO['CCD']:
+            d_raw[gpar.DATAKEY_NXPIX]   = gpar.SURVEY_INFO['CCD'][survey][0]
+            d_raw[gpar.DATAKEY_NYPIX]   = gpar.SURVEY_INFO['CCD'][survey][1]
+            d_raw[gpar.DATAKEY_PIXSIZE] = gpar.SURVEY_INFO['CCD'][survey][2]
 
-        d_calc[DATAKEY_zCMB]      = zcmb
-        d_calc[DATAKEY_zCMB_ERR]  = zhel_err
-        d_calc[DATAKEY_MWEBV]     = mwebv
-        d_calc[DATAKEY_MWEBV_ERR] = mwebv_err
+        d_calc[gpar.DATAKEY_zCMB]      = zcmb
+        d_calc[gpar.DATAKEY_zCMB_ERR]  = zhel_err
+        d_calc[gpar.DATAKEY_MWEBV]     = mwebv
+        d_calc[gpar.DATAKEY_MWEBV_ERR] = mwebv_err
 
         # if there is no VPEC, tack on default
-        if DATAKEY_VPEC not in d_calc :
-            d_calc[DATAKEY_VPEC]     = VPEC_DEFAULT[0]
-            d_calc[DATAKEY_VPEC_ERR] = VPEC_DEFAULT[1]
+        if gpar.DATAKEY_VPEC not in d_calc :
+            d_calc[gpar.DATAKEY_VPEC]     = gpar.VPEC_DEFAULT[0]
+            d_calc[gpar.DATAKEY_VPEC_ERR] = gpar.VPEC_DEFAULT[1]
 
         # check if there are spectra
         if 'spec_raw' in data_event_dict :
@@ -424,18 +454,18 @@ class Program:
         d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
 
-        SNID_raw = d_raw[DATAKEY_SNID]
+        SNID_raw = d_raw[gpar.DATAKEY_SNID]
         if SNID_raw.isdigit() :
             SNID = int(SNID_raw)
         else:
             SNID = SNID_raw
 
         var_dict = {
-            DATAKEY_SNID       : SNID,
-            DATAKEY_RA         : d_raw[DATAKEY_RA],
-            DATAKEY_DEC        : d_raw[DATAKEY_DEC],
-            DATAKEY_PEAKMJD    : d_calc[DATAKEY_PEAKMJD],
-            DATAKEY_MJD_DETECT : d_calc[DATAKEY_MJD_DETECT_FIRST]
+            gpar.DATAKEY_SNID       : SNID,
+            gpar.DATAKEY_RA         : d_raw[gpar.DATAKEY_RA],
+            gpar.DATAKEY_DEC        : d_raw[gpar.DATAKEY_DEC],
+            gpar.DATAKEY_PEAKMJD    : d_calc[gpar.DATAKEY_PEAKMJD],
+            gpar.DATAKEY_MJD_DETECT : d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
         }
         sel = util.select_subsample(args, var_dict)
 
@@ -507,7 +537,7 @@ class Program:
 
         if evt == 0 : return
 
-        rmd = evt % NEVT_SCREEN_UPDATE
+        rmd = evt % gpar.NEVT_SCREEN_UPDATE
         if rmd == 0 or evt == NEVT_TOT-1 :
             time_0   = self.config_data['time_0']
             time_now = datetime.datetime.now()
@@ -637,12 +667,12 @@ class Program:
             n_alert = 0
             if key in self.config_data:
                 n_alert = self.config_data[key]
-            readme_stats[KEYNAME_NOBS_ALERT] = n_alert
+            readme_stats[gpar.KEYNAME_NOBS_ALERT] = n_alert
 
         readme_dict = {
             'readme_file'  : args.output_yaml_file,
             'readme_stats' : readme_stats,
-            'data_format'  : FORMAT_TEXT,
+            'data_format'  : gpar.FORMAT_TEXT,
             'docana_flag'  : False       # no DOCUMENTATION block
         }
         util.write_readme(args,readme_dict, t_proc )
@@ -668,15 +698,15 @@ class Program:
         raw_dict  = {}
         calc_dict = {}
         sim_dict  = {}
-        
-        for key in DATAKEY_LIST_RAW :
+
+        for key in gpar.DATAKEY_LIST_RAW :
             raw_dict[key] = -9
 
-        for key in DATAKEY_LIST_CALC :
+        for key in gpar.DATAKEY_LIST_CALC :
             calc_dict[key] = -9
 
-        for key in DATAKEY_LIST_SIM :
-            sim_dict[key] = -9  
+        for key in gpar.DATAKEY_LIST_SIM :
+            sim_dict[key] = -9
 
         return raw_dict, calc_dict, sim_dict
 
@@ -691,8 +721,10 @@ class Program:
 
         # update stats that will eventually written to README file
         specz = -9.0;  photoz = -9.0
-        if HOSTKEY_SPECZ  in head_raw:   specz   = head_raw[HOSTKEY_SPECZ]
-        if HOSTKEY_PHOTOZ in head_calc:  photoz  = head_calc[HOSTKEY_PHOTOZ]
+        if gpar.HOSTKEY_SPECZ  in head_raw:
+            specz  = head_raw[gpar.HOSTKEY_SPECZ]
+        if gpar.HOSTKEY_PHOTOZ in head_calc:
+            photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
 
         readme_stats = self.config_data['readme_stats_list'][index_unit]
 

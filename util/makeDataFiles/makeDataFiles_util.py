@@ -1,12 +1,20 @@
 # Generic Utilities for makeDataFiles.
 #
 
-import os, sys, yaml, shutil, glob, math
-import logging, subprocess  # ,coloredlogs
+import glob
+import logging  # ,coloredlogs
+import math
+import os
+import shutil
+import subprocess
+import sys
 
 import numpy as np
-from   astropy.table import Table
-from   makeDataFiles_params    import *
+import yaml
+from astropy.table import Table
+
+from makeDataFiles_params import *
+
 ASTROPLAN_EXISTS = False
 try:
     from astroplan import Observer
@@ -14,6 +22,7 @@ try:
 except ImportError as e:
     pass
 from astropy.time import Time
+
 
 # =======================================
 def select_subsample(args, var_dict):

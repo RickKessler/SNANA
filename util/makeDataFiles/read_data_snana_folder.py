@@ -13,13 +13,17 @@ from   makeDataFiles_base    import Program
 from   astropy.io import fits
 
 
-# - - - - - - - - - - - - - - - - - - -     -
+
+#- - - - - - - - - - - - - - - - - -     -
+#TODO turn this into a utility. This is more general behavior.
 class data_snana_folder(Program):
     def __init__(self, config_inputs) :
         config_data = {}
         print(" Init data_snana_folder class.")
         super().__init__(config_inputs,config_data)
 
+
+    #TODO: rename init_read_snana_data
     def init_read_data(self):
         args = self.config_inputs['args']  # command line args
 
@@ -45,7 +49,7 @@ class data_snana_folder(Program):
     def prep_read_data_subgroup(self, i_subgroup):
 
         n_HEAD_file      = self.config_data['n_HEAD_file']
-        
+
         if i_subgroup == n_HEAD_file  :
             return 0 # done reading
 
@@ -61,7 +65,7 @@ class data_snana_folder(Program):
 
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
         sys.stdout.flush()
-        
+
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
 
@@ -71,7 +75,7 @@ class data_snana_folder(Program):
         # on first subgroup, check for true mag in PHOT table
         if i_subgroup == 0 and  VARNAME_TRUEMAG in phot_names:
             self.append_truemag_obs()
-        
+
         table_dict = {
             'head_file'  : HEAD_file_base,
             'table_head' : table_head,
@@ -203,10 +207,10 @@ class data_snana_folder(Program):
         # check for true sim type (sim or fakes), Nov 14 2021
         if SIMKEY_TYPE_INDEX in head_names:
             head_sim[SIMKEY_TYPE_INDEX] = table_head[SIMKEY_TYPE_INDEX][evt]
- 
+
         # - - - - - - - - - - -
         # get pointers to PHOT table.
-        # Beware that PTROBS pointers start at 1 instead of 0, 
+        # Beware that PTROBS pointers start at 1 instead of 0,
         # so subtract 1 here to have python indexing.
         ROWMIN = table_head.PTROBS_MIN[evt] - 1
         ROWMAX = table_head.PTROBS_MAX[evt] - 1
@@ -253,7 +257,7 @@ class data_snana_folder(Program):
         }
         if len(head_sim) > 0:
             data_dict['head_sim'] =  head_sim
-            
+
         if apply_select :
             data_dict['select'] = True
 

@@ -298,11 +298,9 @@ def write_aux_files_snana(name, args, config_data):
     }
     util.write_readme(args, readme_dict)
 
-    # xxx mark delete Jan 6 2022 since TEXT->FITS does the gzip
     # gzip data files
-    ### cmd = f"cd {data_dir} ; gzip {search_string}"
-    ### os.system(cmd)
-    # xxxx 
+    cmd = f"cd {data_dir} ; gzip {search_string}"
+    os.system(cmd)
 
     # end write_aux_files_snana
 
@@ -375,8 +373,12 @@ def convert2fits_snana(args, config_data):
 
         # - - - - -
         # clean up
+
+        # xxxxxxxxx Jan 6 mark delete since translate code does gzip
         # gzip FITS files and make compressed tar file from TEXT dir
-        cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
+        ### cmd_gzip_fits = f"cd {outdir_fits} ; gzip *.FITS"
+        ### os.system(cmd_gzip_fits)
+        # xxxxxxxxxxxxx end mark xxxxxxxxxx
 
         tar_file = f"{folder_text}.tar"
         cmd_tar_text  = f"cd {outdir} ; " \
@@ -384,7 +386,6 @@ def convert2fits_snana(args, config_data):
                         f"gzip {tar_file} ; " \
                         f"rm -r {folder_text} "
 
-        os.system(cmd_gzip_fits)
         if not text:
             os.system(cmd_tar_text)
 

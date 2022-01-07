@@ -33,7 +33,7 @@ def select_subsample(args, var_dict):
 
     # random split cut. Be careful that isplitran = 1 to N
     # (not 0 to N-1)
-    if nsplitran > 1 :
+    if nsplitran > 1 and isplitran_select>=0 :
         isplitran = (SNID % nsplitran) + 1
         if isplitran != isplitran_select:  return False
 

@@ -271,16 +271,12 @@ def write_aux_files_snana(name, args, config_data):
     prefix        = config_data['data_folder_prefix']
     readme_stats_list = config_data['readme_stats_list']
 
-    print(f"")
-    sys.stdout.flush()
-
     folder_out  = output_data_folder_name(config_data, name, True)
     index_unit  = name_list.index(name)
 
     msg = f" Create aux files for {folder_out} and gzip " \
           f"{TEXTFILE_SUFFIX} files."
     logging.info(msg)
-    sys.stdout.flush()
 
     data_dir      = f"{outdir}/{folder_out}"
     search_string = f"{prefix}*{TEXTFILE_SUFFIX}"
@@ -302,9 +298,11 @@ def write_aux_files_snana(name, args, config_data):
     }
     util.write_readme(args, readme_dict)
 
+    # xxx mark delete Jan 6 2022 since TEXT->FITS does the gzip
     # gzip data files
-    cmd = f"cd {data_dir} ; gzip {search_string}"
-    os.system(cmd)
+    ### cmd = f"cd {data_dir} ; gzip {search_string}"
+    ### os.system(cmd)
+    # xxxx 
 
     # end write_aux_files_snana
 

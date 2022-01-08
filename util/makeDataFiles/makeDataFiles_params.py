@@ -117,15 +117,10 @@ PROGRAM_SNANA = "snana.exe"
 #  + define MWEBV from SFD98
 #  + estimate PEAKMJD from fmax-clump method
 
-<<<<<<< HEAD
 OPTIONS_TEXT2FITS_SNANA = \
         "OPT_YAML 1  OPT_MWEBV 3  OPT_SETPKMJD 20"
 OPTION_TEXT2FITS_SPECTRA_SNANA =  \
         "OPT_REFORMAT_FITS 128"
-=======
-OPTIONS_TEXT2FITS_SNANA = "OPT_YAML 1  OPT_MWEBV 2  OPT_SETPKMJD 20"
-OPTION_TEXT2FITS_SPECTRA_SNANA =  "OPT_REFORMAT_FITS 128"
->>>>>>> 9d26b0c829c4b72920034cb48c5f4bba8892dadc
 
 # -----------------------------------------------------------------------------
 # for writing events, update screen after this many

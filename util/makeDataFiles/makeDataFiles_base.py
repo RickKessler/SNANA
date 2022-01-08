@@ -367,7 +367,6 @@ class Program:
         ra       = d_raw[gpar.DATAKEY_RA]
         dec      = d_raw[gpar.DATAKEY_DEC]
 
-<<<<<<< HEAD
         snana_flag_fake = gpar.SNANA_FLAG_DATA
 
         # is SIM_MAGOBS columm exists, label data type as FAKE
@@ -383,12 +382,6 @@ class Program:
         #else:
         #    snana_flag_fake = SNANA_FLAG_DATA
         # xxxxxxxxx end mark xxxxxxx
-=======
-        if fake :
-            snana_flag_fake = gpar.SNANA_FLAG_FAKE
-        else:
-            snana_flag_fake = gpar.SNANA_FLAG_DATA
->>>>>>> 9d26b0c829c4b72920034cb48c5f4bba8892dadc
 
         zcmb      = util.helio_to_cmb(zhel, ra, dec)
 

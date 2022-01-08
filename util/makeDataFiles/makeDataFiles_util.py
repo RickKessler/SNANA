@@ -59,7 +59,7 @@ def select_subsample(args, var_dict):
         if MJD_DETECT_FIRST >= args.nite_detect_range[1]+1.: return False
 
         # TODO - pass site into select_subsample
-        NITE = get_sunset_mjd(gpar.MJD_DETECT_FIRST, site='CTIO')
+        NITE = get_sunset_mjd(MJD_DETECT_FIRST, site='CTIO')
 
         # make exact cut for MJD using NITE
         if NITE <  args.nite_detect_range[0]: return False

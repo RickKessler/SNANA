@@ -26,16 +26,19 @@ import yaml
 
 from abc import ABC, abstractmethod
 
+
+#from makeDataFiles_params import *
+import makeDataFiles_params as gpar
+
 import makeDataFiles_util as util
 import write_data_snana as snana
 
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
+    #raise
+    #print('IMPORT ERROR - LSST STACK NOT FOUND')
     pass
-
-#from makeDataFiles_params import *
-import makeDataFiles_params as gpar
 
 
 # ======================================

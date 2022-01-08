@@ -1364,7 +1364,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"PHOTPROB") == 0 ) 
       { IVAROBS_SNTEXTIO.PHOTPROB = ivar; }  
 
-    else if ( strcmp(varName,"PSF") == 0 ) 
+    else if ( strcmp(varName,"PSF")      == 0 ||
+	      strcmp(varName,"PSF_SIG1") == 0     )  // sim key
       { IVAROBS_SNTEXTIO.PSF_SIG = ivar; }    // sigma, pixels
 
     else if ( strcmp(varName,"FWHM") == 0 ) 
@@ -1374,6 +1375,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.NEA = ivar; SNDATA.NEA_PSF_UNIT=true; }   
 
     else if ( strcmp(varName,"ZPFLUX") == 0 ||
+	      strcmp(varName,"ZEROPT") == 0 ||  // for simulation
 	      strcmp(varName,"ZPT")    == 0 ||
 	      strcmp(varName,"Zpt")    == 0 ) 
       { IVAROBS_SNTEXTIO.ZPFLUX = ivar; }  

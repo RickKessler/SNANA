@@ -53,13 +53,12 @@ class Program:
         self.config_data   = config_data
         args = config_inputs['args']
 
-        print("  Base init")
-        sys.stdout.flush()
+        logging.info("  Base init")
 
         self.config_data['t_start'] = datetime.datetime.now()
 
         # init all possible data units
-        self.init_data_unit(config_inputs, config_data)
+        self.init_data_unit()
 
         # create top-level outdir
         outdir_list = [
@@ -75,10 +74,10 @@ class Program:
                 os.mkdir(outdir)
 
         # - - - - - - - -
-        self.extend_DATAKEY_LIST(config_inputs)
+        self.extend_DATAKEY_LIST()
 
         # store info for phot varnames
-        self.store_varlist_obs(config_inputs, config_data)
+        self.store_varlist_obs()
 
         # for lsst alert, add extra NOBS_ALERT column to readme_stats
         if args.outdir_lsst_alert:
@@ -87,7 +86,7 @@ class Program:
 
         # end Program __init__
 
-    def init_data_unit(self, config_inputs, config_data ):
+    def init_data_unit(self):
 
         # define every possible data unit here and store them in list.
         # Only units with data will have a directory created.
@@ -157,17 +156,17 @@ class Program:
 
         unit_nevent_list = [ 0 ] * n_data_unit
 
-        config_data['data_folder_prefix']      = survey
-        config_data['data_unit_name_list']     = unit_name_list
-        config_data['data_unit_nevent_list']   = unit_nevent_list
-        config_data['n_season']                = n_season
+        self.config_data['data_folder_prefix']      = survey
+        self.config_data['data_unit_name_list']     = unit_name_list
+        self.config_data['data_unit_nevent_list']   = unit_nevent_list
+        self.config_data['n_season']                = n_season
 
         readme_stats_list = []
         for i in range(0,n_data_unit):
             readme_stats_list.append(util.init_readme_stats())
 
-        config_data['readme_stats_list'] = readme_stats_list
-        config_data['NEVT_SPECTRA']      = 0
+        self.config_data['readme_stats_list'] = readme_stats_list
+        self.config_data['NEVT_SPECTRA']      = 0
         return
         # end init_data_unit
 
@@ -267,12 +266,12 @@ class Program:
         return data_unit_name
         # end which_data_unit
 
-    def extend_DATAKEY_LIST(self,config_inputs):
+    def extend_DATAKEY_LIST(self):
 
         # expand global DATAKEY_LIST_RAW to include filter-dependent
         # HOSTGAL keys.
 
-        survey   = config_inputs['args'].survey
+        survey   = self.config_inputs['args'].survey
         filters  = list(gpar.SURVEY_INFO['FILTERS'][survey])
 
         #global DATAKEY_LIST_RAW
@@ -288,21 +287,14 @@ class Program:
 
         # end load_HOSTKEY_band
 
-    def store_varlist_obs(self, config_inputs, config_data):
+    def store_varlist_obs(self):
 
         # for fakes, tack on true mag to list of variables per obs
-        fake      = config_inputs['args'].fake
-        survey    = config_inputs['args'].survey
+        fake      = self.config_inputs['args'].fake
+        survey    = self.config_inputs['args'].survey
         varnames  = gpar.VARNAMES_OBS
         varfmt    = gpar.VARNAMES_FMT
         val_undef = gpar.VAL_UNDEFINED_LIST
-
-        # xxxx mark delete Nov 14 2021
-        #if fake :
-        #    varnames   += f" {VARNAME_TRUEMAG}"
-        #    varfmt     += f" 8.4f"
-        #    val_undef  += VAL_NULL
-        # xxxxxxxxx end mark xxxxxxxxx
 
         # convert space-sep string list into python list
         varlist_obs   = varnames.split()
@@ -317,10 +309,10 @@ class Program:
             temp_undef = vallist_undef.pop(k)
 
         nvar    = len(varlist_obs)
-        config_data['vallist_undef']  = vallist_undef
-        config_data['varlist_fmt']   = varlist_fmt
-        config_data['varlist_obs']   = varlist_obs
-        config_data['nvar_obs']      = nvar
+        self.config_data['vallist_undef']  = vallist_undef
+        self.config_data['varlist_fmt']   = varlist_fmt
+        self.config_data['varlist_obs']   = varlist_obs
+        self.config_data['nvar_obs']      = nvar
 
         #print(f" xxx nvar={nvar}  varlist = {varlist}")
 

@@ -20,24 +20,26 @@ import numpy as np
 import yaml
 from fastavro import reader, writer
 
+import makeDataFiles_params as gpar
 import makeDataFiles_util as util
-from makeDataFiles_params import *
+#from makeDataFiles_params import *
+
 
 # map dictionary(SNANA) varName to alert varName
 lc = "lc"  # instruction to take lower case of dict value
 VARNAME_HEADER_MAP = {
-    DATAKEY_SNID            : 'diaObjectId',
-    DATAKEY_RA              : lc,
-    DATAKEY_DEC             : 'decl',
-    DATAKEY_MWEBV           : lc,
-    DATAKEY_MWEBV_ERR       : lc,
-    DATAKEY_zHEL            : 'z_final' ,
-    DATAKEY_zHEL_ERR        : 'z_final_err',
-    DATAKEY_NOBS            : lc,       # in phot_raw, not header
+    gpar.DATAKEY_SNID            : 'diaObjectId',
+    gpar.DATAKEY_RA              : lc,
+    gpar.DATAKEY_DEC             : 'decl',
+    gpar.DATAKEY_MWEBV           : lc,
+    gpar.DATAKEY_MWEBV_ERR       : lc,
+    gpar.DATAKEY_zHEL            : 'z_final' ,
+    gpar.DATAKEY_zHEL_ERR        : 'z_final_err',
+    gpar.DATAKEY_NOBS            : lc,       # in phot_raw, not header
     #
-    HOSTKEY_SNSEP           : lc,
-    HOSTKEY_SPECZ           : 'hostgal_z',
-    HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
+    gpar.HOSTKEY_SNSEP           : lc,
+    gpar.HOSTKEY_SPECZ           : 'hostgal_z',
+    gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
 #HOSTKEY_OBJID         = "HOSTGAL_OBJID"
@@ -46,7 +48,7 @@ VARNAME_HEADER_MAP = {
 #HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
 
 for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
-    for band in list(SURVEY_INFO['FILTERS']['LSST']):
+    for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
         key = f"{prefix}_{band}"
         VARNAME_HEADER_MAP[key] = lc
 
@@ -60,7 +62,7 @@ VARNAME_OBS_MAP = {
 LSST_ZP_nJy     = 31.4   # report calibrated flux in this unit
 
 # FLXUCAL(ALERT) = FLUXCAL(SNANA)*SCALE_FLUXCAL
-ARG_ZPDIF       = 0.4*(LSST_ZP_nJy-SNANA_ZP)
+ARG_ZPDIF       = 0.4*(LSST_ZP_nJy-gpar.SNANA_ZP)
 SCALE_FLUXCAL   = math.pow(10.0,ARG_ZPDIF)
 KEYNAME_SUBSTRING_FLUXCAL = 'FLUXCAL'  # scale variables with this substring
 
@@ -123,8 +125,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if KEYNAME_SUBSTRING_FLUXCAL in key:
             phot_raw[key] = [f*SCALE_FLUXCAL for f in phot_raw[key] ]
 
-    SNID      = int(head_raw[DATAKEY_SNID]) # to compare sourceID
-    NOBS      = phot_raw[DATAKEY_NOBS]
+    SNID      = int(head_raw[gpar.DATAKEY_SNID]) # to compare sourceID
+    NOBS      = phot_raw[gpar.DATAKEY_NOBS]
 
     # strip off number of processed events; init stuff on nevent=0
     data_unit_name        = data_event_dict['data_unit_name']
@@ -172,7 +174,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     # translate snana header and create diasrc dictionary for lsst alert
     my_diasrc = diasrc #{}
     translate_dict_diasrc(-1, data_event_dict, my_diasrc)
-    true_gentype = data_event_dict['head_sim'][SIMKEY_TYPE_INDEX]
+    true_gentype = data_event_dict['head_sim'][gpar.SIMKEY_TYPE_INDEX]
 
     alert['diaSource']              = my_diasrc
     alert_first_detect['diaSource'] = my_diasrc
@@ -185,19 +187,19 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     nobs_keep    = 0 # nobs_detect + nobs_forcePhoto
 
     if args.nite_detect_range:
-        MJD_REF  = head_calc[DATAKEY_MJD_DETECT_FIRST]
-        MJD_LAST = head_calc[DATAKEY_MJD_DETECT_LAST]
+        MJD_REF  = head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+        MJD_LAST = head_calc[gpar.DATAKEY_MJD_DETECT_LAST]
         TIME_BACK_FORCE  = 30   #Ndays before MJD_REF to include forced phot.
         TIME_FORWARD_FORCE = MJD_LAST - MJD_REF + 0.1
     elif args.peakmjd_range:
-        MJD_REF = head_calc[DATAKEY_PEAKMJD]
+        MJD_REF = head_calc[gpar.DATAKEY_PEAKMJD]
         TIME_BACK_FORCE  = 50   #Ndays before MJD_REF to include forced phot.
         TIME_FORWARD_FORCE = 100
 
     # compute things for each obs
     mjd_list         = data_event_dict['phot_raw']['MJD']
     photflag_list    = data_event_dict['phot_raw']['PHOTFLAG']
-    true_genmag_list = data_event_dict['phot_raw'][VARNAME_TRUEMAG]
+    true_genmag_list = data_event_dict['phot_raw'][gpar.VARNAME_TRUEMAG]
 
     # get boolean list of obs within TIME_BACK_FORCE from 1st detect
     # and up to last detection
@@ -344,7 +346,7 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
             if varName_inp in head_raw:
-                if varName_inp == DATAKEY_SNID: # convert str to int
+                if varName_inp == gpar.DATAKEY_SNID: # convert str to int
                     diasrc[varName_avro] = int(head_raw[varName_inp])
                 else:
                     diasrc[varName_avro] = head_raw[varName_inp]

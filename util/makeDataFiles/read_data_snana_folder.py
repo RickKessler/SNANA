@@ -3,15 +3,18 @@
 # Nov 30 2021: fix bug to account for PTROBS starting at 1 instead of 0.
 # Dec 20 2021: fix dumb bug to read last HEAD & PHOT file.
 
-import os,sys,glob,yaml,shutil
-import logging # , coloredlogs
+import glob
+import logging  # , coloredlogs
+import os
+import shutil
+import sys
 
-import makeDataFiles_util  as    util
+import yaml
+from astropy.io import fits
 
-from   makeDataFiles_params  import *
-from   makeDataFiles_base    import Program
-from   astropy.io import fits
-
+import makeDataFiles_params as gpar
+import makeDataFiles_util as util
+from makeDataFiles_base import Program
 
 
 #- - - - - - - - - - - - - - - - - -     -
@@ -73,7 +76,7 @@ class data_snana_folder(Program):
         phot_names = table_phot.columns.names
 
         # on first subgroup, check for true mag in PHOT table
-        if i_subgroup == 0 and  VARNAME_TRUEMAG in phot_names:
+        if i_subgroup == 0 and gpar.VARNAME_TRUEMAG in phot_names:
             self.append_truemag_obs()
 
         table_dict = {
@@ -144,27 +147,27 @@ class data_snana_folder(Program):
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
         except:
             SNID = table_head.SNID[evt]
-        head_raw[DATAKEY_SNID]  = SNID
+        head_raw[gpar.DATAKEY_SNID]  = SNID
 
-        head_raw[DATAKEY_RA]    = table_head.RA[evt]
+        head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
 
         # check 'DEC' and legacy column name 'DECL'
-        head_raw[DATAKEY_DEC] = \
+        head_raw[gpar.DATAKEY_DEC] = \
             self.get_table_value(['DEC','DECL'],evt,table_head)
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
-        head_calc[DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
+        head_calc[gpar.DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
 
-        if DATAKEY_MJD_DETECT_FIRST in head_names:
-            head_calc[DATAKEY_MJD_DETECT_FIRST] = \
+        if gpar.DATAKEY_MJD_DETECT_FIRST in head_names:
+            head_calc[gpar.DATAKEY_MJD_DETECT_FIRST] = \
                 table_head.MJD_DETECT_FIRST[evt]
-            head_calc[DATAKEY_MJD_DETECT_LAST] = \
+            head_calc[gpar.DATAKEY_MJD_DETECT_LAST] = \
                 table_head.MJD_DETECT_LAST[evt]
         else:
             if args.nite_detect_range is not None:
                 msgerr.append(f"Cannot implement args.nite_detect_range = " \
                               f"{args.nite_detect_range}")
-                msgerr.append(f"Because {DATAKEY_MJD_DETECT_FIRST} is not in "\
+                msgerr.append(f"Because {gpar.DATAKEY_MJD_DETECT_FIRST} is not in "\
                               f"data header")
                 util.log_assert(False,msgerr)
 
@@ -174,11 +177,11 @@ class data_snana_folder(Program):
         apply_select = True
         if apply_select :
             var_dict = {
-                DATAKEY_SNID       : int(SNID),
-                DATAKEY_RA         : head_raw[DATAKEY_RA],
-                DATAKEY_DEC        : head_raw[DATAKEY_DEC],
-                DATAKEY_PEAKMJD    : head_calc[DATAKEY_PEAKMJD],
-                DATAKEY_MJD_DETECT_FIRST : head_calc[DATAKEY_MJD_DETECT_FIRST]
+                gpar.DATAKEY_SNID       : int(SNID),
+                gpar.DATAKEY_RA         : head_raw[gpar.DATAKEY_RA],
+                gpar.DATAKEY_DEC        : head_raw[gpar.DATAKEY_DEC],
+                gpar.DATAKEY_PEAKMJD    : head_calc[gpar.DATAKEY_PEAKMJD],
+                gpar.DATAKEY_MJD_DETECT_FIRST : head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
             }
             sel = util.select_subsample(args,var_dict)
             if sel is False :
@@ -190,23 +193,23 @@ class data_snana_folder(Program):
                 return data_dict
 
         # - - - - - - -
-        head_raw[DATAKEY_zHEL]       = table_head.REDSHIFT_HELIO[evt]
-        head_raw[DATAKEY_zHEL_ERR]   = table_head.REDSHIFT_HELIO_ERR[evt]
+        head_raw[gpar.DATAKEY_zHEL]       = table_head.REDSHIFT_HELIO[evt]
+        head_raw[gpar.DATAKEY_zHEL_ERR]   = table_head.REDSHIFT_HELIO_ERR[evt]
 
         # strip off calculated values
-        head_calc[DATAKEY_zCMB]          = table_head.REDSHIFT_FINAL[evt]
-        head_calc[DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
-        head_calc[DATAKEY_MWEBV]         = table_head.MWEBV[evt]
-        head_calc[DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
+        head_calc[gpar.DATAKEY_zCMB]          = table_head.REDSHIFT_FINAL[evt]
+        head_calc[gpar.DATAKEY_zCMB_ERR]      = table_head.REDSHIFT_FINAL_ERR[evt]
+        head_calc[gpar.DATAKEY_MWEBV]         = table_head.MWEBV[evt]
+        head_calc[gpar.DATAKEY_MWEBV_ERR]     = table_head.MWEBV_ERR[evt]
 
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
-        self.store_hostgal(DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
-        self.store_hostgal(DATAKEY_LIST_CALC, evt, head_calc)
+        self.store_hostgal(gpar.DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
+        self.store_hostgal(gpar.DATAKEY_LIST_CALC, evt, head_calc)
 
         # check for true sim type (sim or fakes), Nov 14 2021
-        if SIMKEY_TYPE_INDEX in head_names:
-            head_sim[SIMKEY_TYPE_INDEX] = table_head[SIMKEY_TYPE_INDEX][evt]
+        if gpar.SIMKEY_TYPE_INDEX in head_names:
+            head_sim[gpar.SIMKEY_TYPE_INDEX] = table_head[gpar.SIMKEY_TYPE_INDEX][evt]
 
         # - - - - - - - - - - -
         # get pointers to PHOT table.
@@ -237,12 +240,12 @@ class data_snana_folder(Program):
         # - - - - -
         # get field from from first observation,
         # Beware that event can overlap multiple fields.
-        field = phot_raw[DATAKEY_FIELD][0]
-        missing_field = (field == FIELD_NULL or field == FIELD_VOID )
+        field = phot_raw[gpar.DATAKEY_FIELD][0]
+        missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
         if missing_field  and args.survey == 'LSST' :
             field = self.field_plasticc_hack(table_dict['head_file'])
 
-        head_raw[DATAKEY_FIELD] = field
+        head_raw[gpar.DATAKEY_FIELD] = field
 
         # - - - -
         spec_raw = {}
@@ -274,11 +277,12 @@ class data_snana_folder(Program):
         table_head = table_dict['table_head']
         head_names = table_dict['head_names']
 
-        len_base = len(HOSTKEY_BASE)
+        len_base = len(gpar.HOSTKEY_BASE)
         for key in datakey_list:
-            if HOSTKEY_BASE not in key: continue
-            key2 = HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
-            key3 = HOSTKEY_BASE + '3' + key[len_base:]
+            if gpar.HOSTKEY_BASE not in key:
+                continue
+            key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
+            key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
             key_list = [ key, key2, key3]
             for k in key_list:
                 if k in head_names :
@@ -309,10 +313,10 @@ class data_snana_folder(Program):
         # ugly/embarassing hack to get field (DDF or WFD) from filename
         # because original plasticc data didn't store field.
 
-        if FIELD_DDF in head_file_name:
-            field = FIELD_DDF
-        elif FIELD_WFD in head_file_name:
-            field = FIELD_WFD
+        if gpar.FIELD_DDF in head_file_name:
+            field = gpar.FIELD_DDF
+        elif gpar.FIELD_WFD in head_file_name:
+            field = gpar.FIELD_WFD
         else:
             msgerr.append(f"Unable to determine FIELD for")
             msgerr.append(f"{head_file_name}")
@@ -327,5 +331,4 @@ class data_snana_folder(Program):
         dump_flag = False # isn<200 and zhel < 0.25
         return dump_flag
         # set_dump_flag
-
 

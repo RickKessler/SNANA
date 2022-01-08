@@ -22,22 +22,31 @@
 
 # ============================================
 
-import sys, yaml, argparse, subprocess, logging, glob
-import makeDataFiles_util    as util
-import write_data_snana      as snana
+import argparse
+import glob
+import logging
+import subprocess
+import sys
+
+import yaml
+
+#from makeDataFiles_params import *
+import makeDataFiles_params as gpar
+import makeDataFiles_util as util
+import write_data_snana as snana
 
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
     pass
 
-from   makeDataFiles_params    import *
-from   read_data_lsst_ap       import data_lsst_ap
-from   read_data_lsst_drp      import data_lsst_drp
-from   read_data_sirah_folder  import data_sirah_folder
-from   read_data_des_folder    import data_des_folder
-from   read_data_ztf           import data_ztf_folder
-from   read_data_snana_folder  import data_snana_folder
+from read_data_des_folder import data_des_folder
+from read_data_lsst_ap import data_lsst_ap
+from read_data_lsst_drp import data_lsst_drp
+from read_data_sirah_folder import data_sirah_folder
+from read_data_snana_folder import data_snana_folder
+from read_data_ztf import data_ztf_folder
+
 
 # =====================================
 def get_args():
@@ -62,7 +71,7 @@ def get_args():
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
 
     msg = "field name (e.g., SHALLOW, DEEP, etc ..)"
-    parser.add_argument("--field", help=msg, type=str, default=FIELD_VOID )
+    parser.add_argument("--field", help=msg, type=str, default=gpar.FIELD_VOID )
 
     msg = "output SNANA format: top-directory for data"
     parser.add_argument("--outdir_snana",
@@ -79,7 +88,7 @@ def get_args():
     parser.add_argument("--outfile_alert_truth",
                         help=msg, type=str, default=None )
     # - - - - - - - -
-    
+
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
 
@@ -178,7 +187,7 @@ def which_read_class(args):
             folder      = glob.glob1(outdir, f"[!_TEXT]*" )[0]
             readme_file = f"{outdir}/{folder}/{folder}.README"
             readme_yaml = util.read_yaml(readme_file)
-            restore_args_from_readme(args,readme_yaml[DOCANA_KEY])
+            restore_args_from_readme(args,readme_yaml[gpar.DOCANA_KEY])
         elif args.outdir_lsst_alert:
             outdir   = args.outdir_lsst_alert
 

@@ -1,12 +1,22 @@
 # Created Oct 2021 [move utils out of base]
 # utilities to write data in snana format
 
-import os, sys, yaml, shutil, glob, math
-import logging, subprocess  
+import datetime
+import glob
+import logging
+import math
+import os
+import shutil
+import subprocess
+import sys
 
 import numpy as np
-from   makeDataFiles_params    import *
-import makeDataFiles_util  as util
+import yaml
+
+import makeDataFiles_params as gpar
+import makeDataFiles_util as util
+
+#from makeDataFiles_params import *
 
 # ====================================================
 
@@ -64,7 +74,7 @@ def write_event_text_snana(args, config_data, data_event_dict):
     phot_raw  = data_event_dict['phot_raw']
     spec_raw  = data_event_dict['spec_raw']
 
-    SNID      = head_raw[DATAKEY_SNID]
+    SNID      = head_raw[gpar.DATAKEY_SNID]
 
     str_SNID     = SNID
     if SNID.isdigit(): str_SNID = f"{int(SNID):010d}"
@@ -102,7 +112,7 @@ def write_header_snana(f, data_head):
 
     # init filter-dependent list of hostgal values
     hostgal_string_vals = {}
-    for prefix  in HOSTKEY_PREFIX_LIST:
+    for prefix  in gpar.HOSTKEY_PREFIX_LIST:
         hostgal_string_vals[prefix] = ""
 
     n_hostkey = 0
@@ -115,7 +125,7 @@ def write_header_snana(f, data_head):
         val            = data_head[key]
         string_val     = f"{val}"
 
-        if val == VAL_NULL : continue
+        if val == gpar.VAL_NULL : continue
 
         if "HOSTGAL" in key:
             n_hostkey += 1
@@ -123,7 +133,7 @@ def write_header_snana(f, data_head):
 
         # increment mag-dependent host strings
         skip_hostkey = False
-        for prefix  in HOSTKEY_PREFIX_LIST:
+        for prefix  in gpar.HOSTKEY_PREFIX_LIST:
             if prefix in key:
                 skip_hostkey = True
                 hostgal_string_vals[prefix] += f"{val} "
@@ -138,7 +148,7 @@ def write_header_snana(f, data_head):
     # - - - - - -
     # write mag-dependent host info where are n_filter values
     # are written on one line.
-    for prefix in HOSTKEY_PREFIX_LIST:
+    for prefix in gpar.HOSTKEY_PREFIX_LIST:
         string_vals = hostgal_string_vals[prefix]
         if len(string_vals) > 0:
             f.write(f"{prefix}: {string_vals}\n")
@@ -158,9 +168,9 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
     vallist_undef = config_data['vallist_undef']
     varstring_obs = ' '.join(varlist_obs)
     msgerr   = []
-    SNID     = head_raw[DATAKEY_SNID]
-    FILTERS  = head_raw[DATAKEY_FILTERS]
-    NOBS     = phot_raw[DATAKEY_NOBS]
+    SNID     = head_raw[gpar.DATAKEY_SNID]
+    FILTERS  = head_raw[gpar.DATAKEY_FILTERS]
+    NOBS     = phot_raw[gpar.DATAKEY_NOBS]
 
     f.write(f"\n# -------------------------------------- \n" \
             f"# obs info\n")
@@ -173,7 +183,7 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
             zip(varlist_obs,varlist_fmt,vallist_undef):
             val = phot_raw[varname][obs]
             if val == None:  val = val_undef
-            if val == VAL_ABORT :
+            if val == gpar.VAL_ABORT :
                 msgerr.append(f"Missing required PHOT column {varname}")
                 msgerr.append(f"Check SNID = {SNID}")
                 util.log_assert(False,msgerr)
@@ -197,7 +207,7 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
 
 
 def write_spec_snana(f, head_raw, spec_raw):
-    SNID     = head_raw[DATAKEY_SNID]
+    SNID     = head_raw[gpar.DATAKEY_SNID]
 
     NSPEC = len(spec_raw)
     if NSPEC == 0 : return
@@ -249,12 +259,13 @@ def output_data_folder_name(config_data, data_unit_name, ISTEXT):
         msgerr = []
         msgerr.append(f" Invalid data unit '{data_unit_name}")
         msgerr.append(f" Valid data units are : ")
-        msgerr.append(f"   {data_unit_list}")
+        msgerr.append(f"   {data_unit_name_list}")  # <<< I assume this is correct
+        #msgerr.append(f"   {data_unit_list}")      # <<< instead of this
         util.log_assert(False,msgerr)
 
     folder = f"{data_unit_name}"
     if ISTEXT:
-        folder = f"{FORMAT_TEXT}_{folder}"
+        folder = f"{gpar.FORMAT_TEXT}_{folder}"
 
     return folder
 
@@ -275,11 +286,11 @@ def write_aux_files_snana(name, args, config_data):
     index_unit  = name_list.index(name)
 
     msg = f" Create aux files for {folder_out} and gzip " \
-          f"{TEXTFILE_SUFFIX} files."
+          f"{gpar.TEXTFILE_SUFFIX} files."
     logging.info(msg)
 
     data_dir      = f"{outdir}/{folder_out}"
-    search_string = f"{prefix}*{TEXTFILE_SUFFIX}"
+    search_string = f"{prefix}*{gpar.TEXTFILE_SUFFIX}"
 
     data_file_list = glob.glob1(data_dir, f"{search_string}" )
     list_file      = f"{data_dir}/{folder_out}.LIST"
@@ -293,7 +304,7 @@ def write_aux_files_snana(name, args, config_data):
     readme_dict = {
         'readme_file'  : readme_file,
         'readme_stats' : readme_stats_list[index_unit],
-        'data_format'  : FORMAT_TEXT,
+        'data_format'  : gpar.FORMAT_TEXT,
         'docana_flag'  : True
     }
     util.write_readme(args, readme_dict)
@@ -319,9 +330,9 @@ def convert2fits_snana(args, config_data):
     NEVT_SPECTRA  = config_data['NEVT_SPECTRA']
     write_spectra = False
 
-    opt_snana = OPTIONS_TEXT2FITS_SNANA
+    opt_snana = gpar.OPTIONS_TEXT2FITS_SNANA
     if NEVT_SPECTRA > 0 :  # global counter over all data units
-        opt_snana += f"  {OPTION_TEXT2FITS_SPECTRA_SNANA}"
+        opt_snana += f"  {gpar.OPTION_TEXT2FITS_SPECTRA_SNANA}"
         write_spectra = True
 
     print(f"")
@@ -350,7 +361,7 @@ def convert2fits_snana(args, config_data):
             cmd_rm = f"cd {outdir} ; rm -r {folder_fits}"
             os.system(cmd_rm)
 
-        cmd_snana   = f"{PROGRAM_SNANA} NOFILE " \
+        cmd_snana   = f"{gpar.PROGRAM_SNANA} NOFILE " \
                       f"PRIVATE_DATA_PATH ./ " \
                       f"VERSION_PHOTOMETRY    {folder_text} " \
                       f"VERSION_REFORMAT_FITS {folder_fits} " \
@@ -398,7 +409,7 @@ def convert2fits_snana(args, config_data):
         readme_dict = {
             'readme_file'  : readme_file,
             'readme_stats' : readme_stats_list[index_unit],
-            'data_format'  : FORMAT_FITS,
+            'data_format'  : gpar.FORMAT_FITS,
             'docana_flag'  : True
         }
         util.write_readme(args, readme_dict)
@@ -436,21 +447,21 @@ def merge_snana_driver(args):
 
     # merge SPLIT folders; get all prefixes by scooping up all SPLIT001 job
 
-    search_string = f"{survey}*{PREFIX_SPLIT}001"
+    search_string = f"{survey}*{gpar.PREFIX_SPLIT}001"
     split_dir_list = sorted(glob.glob1(outdir, search_string ))
     for split_dir in split_dir_list:
         # if split_dir = LSST_WFDY01_SPLIT001, base_name=LSST_WFDY01
-        merge_folder = split_dir.split(f"_{PREFIX_SPLIT}")[0]
-        search_string = f"{merge_folder}_{PREFIX_SPLIT}*"
-        merge_snana_folders(MODE_MERGE_MOVE,
+        merge_folder = split_dir.split(f"_{gpar.PREFIX_SPLIT}")[0]
+        search_string = f"{merge_folder}_{gpar.PREFIX_SPLIT}*"
+        merge_snana_folders(gpar.MODE_MERGE_MOVE,
                             outdir, search_string, merge_folder)
 
 
     # merge Y## folders into folder with all seasons
-    search_string = f"{survey}_*{PREFIX_SEASON}*"
+    search_string = f"{survey}_*{gpar.PREFIX_SEASON}*"
     year_dir_list = sorted(glob.glob1(outdir, search_string ))
-    merge_folder  = year_dir_list[0].split(f"_{PREFIX_SEASON}")[0]
-    merge_snana_folders(MODE_MERGE_LINK,
+    merge_folder  = year_dir_list[0].split(f"_{gpar.PREFIX_SEASON}")[0]
+    merge_snana_folders(gpar.MODE_MERGE_LINK,
                         outdir, search_string, merge_folder)
 
     # archive TEXT versions
@@ -484,14 +495,14 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
     n_move = 0
     statsum_dict = {}
-    for key in KEYLIST_README_STATS:   statsum_dict[key] = 0
+    for key in gpar.KEYLIST_README_STATS:   statsum_dict[key] = 0
 
     folder_list = glob.glob1(outdir, f"{folder_list_string}" )
     for folder in folder_list :
         n_move += 1
         FOLDER = f"{outdir}/{folder}"
 
-        if MODE == MODE_MERGE_MOVE :
+        if MODE == gpar.MODE_MERGE_MOVE :
             mv_string = f"*.FITS.gz"
             cmd_mv = f"mv {mv_string} ../{merge_folder}"
             cmd    = f"cd {FOLDER}; {cmd_mv}"
@@ -510,21 +521,21 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
         # increment sum stats from readme
         README_file  = f"{FOLDER}/{folder}.README"
         README_yaml  = util.read_yaml(README_file)
-        for key in KEYLIST_README_STATS:
-            NEVT  = README_yaml[DOCANA_KEY][key]
+        for key in gpar.KEYLIST_README_STATS:
+            NEVT  = README_yaml[gpar.DOCANA_KEY][key]
             statsum_dict[key] += NEVT
 
     # - - - - - - - -
     # update sum stats and re-write readme
     README_file = f"{merge_folder_full}/{merge_folder}.README"
-    for key in KEYLIST_README_STATS:
+    for key in gpar.KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
-        README_yaml[DOCANA_KEY][key] = statsum_dict[key]
+        README_yaml[gpar.DOCANA_KEY][key] = statsum_dict[key]
         util.write_yaml(README_file,README_yaml)
 
     # - - - -
     # remove original folders
-    if MODE == MODE_MERGE_MOVE:
+    if MODE == gpar.MODE_MERGE_MOVE:
         cmd_rm = f"rm -r {folder_list_string}"
         cmd    = f"cd {outdir}; {cmd_rm}"
         os.system(cmd)

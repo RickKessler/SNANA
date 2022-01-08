@@ -147,8 +147,10 @@ class data_snana_folder(Program):
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
         except:
             SNID = table_head.SNID[evt]
-        head_raw[gpar.DATAKEY_SNID]  = SNID
+        head_raw[gpar.DATAKEY_SNID]    = SNID
 
+        head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
+        
         head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
 
         # check 'DEC' and legacy column name 'DECL'

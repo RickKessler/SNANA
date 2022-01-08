@@ -72,7 +72,8 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 # define list of variable names for each observation;
 VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
                "XPIX YPIX CCDNUM GAIN " \
-               "FLUXCAL FLUXCALERR ZPFLUX NEA SKYSIG "
+               "FLUXCAL FLUXCALERR PSF_SIG1 ZEROPT SKY_SIG"
+# xxx mark ZPFLUX NEA SKYSIG "
 
 # -----------------------------------------------------------------------------
 # define text format for each VARNAMES_OBS

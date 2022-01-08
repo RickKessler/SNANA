@@ -324,7 +324,6 @@ class Program:
         # Also count how many spectra and append to data_event_dict
 
         msgerr   = []
-        fake     = self.config_inputs['args'].fake
         survey   = self.config_inputs['args'].survey
         d_raw    = data_event_dict['head_raw']
         d_calc   = data_event_dict['head_calc']
@@ -335,10 +334,21 @@ class Program:
         ra       = d_raw[DATAKEY_RA]
         dec      = d_raw[DATAKEY_DEC]
 
-        if fake :
-            snana_flag_fake = SNANA_FLAG_FAKE
-        else:
-            snana_flag_fake = SNANA_FLAG_DATA
+        snana_flag_fake = gpar.SNANA_FLAG_DATA
+
+        # is SIM_MAGOBS columm exists, label data type as FAKE
+        # Note that SIMs get labeled as FAKE.
+        d_phot = data_event_dict['phot_raw']
+        if gpar.VARNAME_TRUEMAG in d_phot:
+            snana_flag_fake = gpar.SNANA_FLAG_FAKE
+
+        # xxxx mark delete Jan 7 2022 xxxxxxx
+        #fake     = self.config_inputs['args'].fake
+        #if fake :
+        #    snana_flag_fake = SNANA_FLAG_FAKE
+        #else:
+        #    snana_flag_fake = SNANA_FLAG_DATA
+        # xxxxxxxxx end mark xxxxxxx
 
         zcmb      = util.helio_to_cmb(zhel, ra, dec)
 

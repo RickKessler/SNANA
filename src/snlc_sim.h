@@ -1231,7 +1231,8 @@ struct GENLC {
   int NTYPE_SPEC_CUTS; // # spec-tags after cuts
   int NTYPE_PHOT;      // number of photometric events
   int NTYPE_PHOT_CUTS; // idem after cuts
-  int NTYPE_PHOT_WRONGHOST; // idem with wrong host (4.2019)
+  int NTYPE_PHOT_WRONGHOST;  // idem with wrong host (4.2019)
+  float FRAC_PHOT_WRONGHOST; // true fraction with wrong host
 
   // misc.
   int   STOPGEN_FLAG;

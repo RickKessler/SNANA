@@ -7731,6 +7731,8 @@ void init_simvar(void) {
   GENLC.NTYPE_SPEC      = 0 ;
   GENLC.NTYPE_PHOT_CUTS = 0;
   GENLC.NTYPE_PHOT      = 0 ;
+  GENLC.NTYPE_PHOT_WRONGHOST = 0;
+  GENLC.FRAC_PHOT_WRONGHOST  = 0.0 ;
 
   GENLC.NON1ASED.ISPARSE    = -9 ;  //  (non1a sparse index: 1-NINDEX)
 
@@ -25853,7 +25855,7 @@ void update_accept_counters(void) {
   // Most code moved from main for cleanup.
 
   int isp ;
-  //  char fnam[] = "update_accept_counters" ;
+  char fnam[] = "update_accept_counters" ;
 
   // -------------- BEGIN ---------------
 
@@ -25864,9 +25866,16 @@ void update_accept_counters(void) {
   // increment stats based on typing method
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_SPEC )    
     { GENLC.NTYPE_SPEC_CUTS++ ; }   // spec-tags after cuts
+
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_PHOT ) { 
     GENLC.NTYPE_PHOT_CUTS++ ;    // phot-tags after cuts   
-    if ( !GENLC.CORRECT_HOSTMATCH ) { GENLC.NTYPE_PHOT_WRONGHOST++; }
+    if ( !GENLC.CORRECT_HOSTMATCH ) { 
+      GENLC.NTYPE_PHOT_WRONGHOST++; 
+      float XN1 = (float)GENLC.NTYPE_PHOT_WRONGHOST;
+      float XN0 = (float)NGENLC_WRITE ;
+      GENLC.FRAC_PHOT_WRONGHOST = XN1/XN0 ;
+    }
+
   }
   // check screen update
   if ( INPUTS.NGEN_LC > 0 )  { screen_update(); }

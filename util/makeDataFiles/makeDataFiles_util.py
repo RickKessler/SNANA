@@ -1,12 +1,21 @@
 # Generic Utilities for makeDataFiles.
 #
 
-import os, sys, yaml, shutil, glob, math
-import logging, subprocess  # ,coloredlogs
+import glob
+import logging  # ,coloredlogs
+import math
+import os
+import shutil
+import subprocess
+import sys
 
 import numpy as np
-from   astropy.table import Table
-from   makeDataFiles_params    import *
+import yaml
+#from astropy.table import Table
+
+#from makeDataFiles_params import *
+import makeDataFiles_params as gpar
+
 ASTROPLAN_EXISTS = False
 try:
     from astroplan import Observer
@@ -14,6 +23,7 @@ try:
 except ImportError as e:
     pass
 from astropy.time import Time
+
 
 # =======================================
 def select_subsample(args, var_dict):
@@ -24,9 +34,9 @@ def select_subsample(args, var_dict):
     # The selection here is intened to be a CPU sub-sample
     # rather than a traditional cut.
 
-    SNID       = var_dict[DATAKEY_SNID]    # int
-    PEAKMJD    = var_dict[DATAKEY_PEAKMJD] # float
-    MJD_DETECT_FIRST = var_dict[DATAKEY_MJD_DETECT_FIRST] # float
+    SNID       = var_dict[gpar.DATAKEY_SNID]    # int
+    PEAKMJD    = var_dict[gpar.DATAKEY_PEAKMJD] # float
+    MJD_DETECT_FIRST = var_dict[gpar.DATAKEY_MJD_DETECT_FIRST] # float
 
     nsplitran         = args.nsplitran  # from command line input
     isplitran_select  = args.isplitran
@@ -75,10 +85,11 @@ def get_sunset_mjd(mjd, site='CTIO'):
 
 def init_readme_stats():
     readme_stats = {}
-    for key in KEYLIST_README_STATS:   readme_stats[key] = 0
+    for key in gpar.KEYLIST_README_STATS:
+        readme_stats[key] = 0
     return readme_stats
 
-def write_readme(args, readme_dict, walltime = -1.0):
+def write_readme(args, readme_dict, walltime=-1.0):
 
     # input args are the user-command line args.
     # input readme_dict is prepared by write_data_xxx module.
@@ -112,11 +123,11 @@ def write_readme(args, readme_dict, walltime = -1.0):
     line_list.append(f"FIELD:            {args.field} ")
     line_list.append(f"FORMAT:           {data_format} ")
     line_list.append(f"SCRIPT_COMMAND:   {script_command} ")
-    line_list.append(f"USERNAME:         {USERNAME} ")
-    line_list.append(f"HOSTNAME:         {HOSTNAME}")
+    line_list.append(f"USERNAME:         {gpar.USERNAME} ")
+    line_list.append(f"HOSTNAME:         {gpar.HOSTNAME}")
 
     n_list = []
-    for key in KEYLIST_README_STATS:
+    for key in gpar.KEYLIST_README_STATS:
         key_plus_colon = f"{key}:"
         n = readme_stats[key]
         n_list.append(n)
@@ -133,14 +144,14 @@ def write_readme(args, readme_dict, walltime = -1.0):
     # - - - - - - - -
     with open(readme_file,"wt") as f:
         if docana_flag:
-            f.write(f"{DOCANA_KEY}: \n")
+            f.write(f"{gpar.DOCANA_KEY}: \n")
             indent_str = '  '
 
         for line in line_list:
             f.write(f"{indent_str}{line}\n")
 
         if docana_flag:
-            f.write(f"{DOCANA_KEY_END}: \n")
+            f.write(f"{gpar.DOCANA_KEY_END}: \n")
 
     return
     # end write_readme
@@ -154,7 +165,7 @@ def get_survey_snana(snana_folder):
     # for input snana_folder, run snana.exe GETINFO folder
     # and extract survey
 
-    cmd = f"{PROGRAM_SNANA} GETINFO {snana_folder}"
+    cmd = f"{gpar.PROGRAM_SNANA} GETINFO {snana_folder}"
     ret = subprocess.run( [cmd], shell=True,
                           capture_output=True, text=True )
     ret_stdout = ret.stdout.split()

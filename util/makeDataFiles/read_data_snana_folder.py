@@ -27,14 +27,14 @@ class data_snana_folder(Program):
 
         args    = config_inputs['args']
 
-        if args.refac :
+        if args.refac == gpar.REFAC_READ_SNANA_FOLDER :
             READER = util.READ_SNANA_FOLDER(args.snana_folder) # run __init__
             config_data['READER'] = READER
 
     def init_read_data(self):
         args = self.config_inputs['args']  # command line args
 
-        if args.refac: 
+        if args.refac == gpar.REFAC_READ_SNANA_FOLDER : 
             return
 
         # below is legacy and may become obsolete
@@ -60,7 +60,7 @@ class data_snana_folder(Program):
 
         args = self.config_inputs['args']  # command line args
 
-        if args.refac :
+        if args.refac == gpar.REFAC_READ_SNANA_FOLDER :
             READER = self.config_data['READER']
             nevt = READER.exec_read(i_subgroup)
             return nevt
@@ -145,19 +145,20 @@ class data_snana_folder(Program):
     # xxxx END OBSOLETE xxxxxxxxxx
     # end open_snana_fits
 
-    def read_event(self, evt ):
+    def read_event(self,evt):
 
-        msgerr     = []
-        table_dict = self.config_data['table_dict']
         args       = self.config_inputs['args']  # command line args
 
-        if args.refac :
+        if args.refac == gpar.REFAC_READ_SNANA_FOLDER:
             READER = self.config_data['READER']
-            data_dict = READER.get_event(evt)
+            data_dict = READER.get_data_dict(args,evt)
             return data_dict
 
         # - - - - - - - - - - - - - 
         # xxx below is legacy code xxxxx
+
+        msgerr     = []
+        table_dict = self.config_data['table_dict']
 
         # read and store one event for row "evt" and return data_dict.
         varlist_obs = self.config_data['varlist_obs']
@@ -183,7 +184,7 @@ class data_snana_folder(Program):
 
         # check 'DEC' and legacy column name 'DECL'
         head_raw[gpar.DATAKEY_DEC] = \
-            self.get_table_value(['DEC','DECL'],evt,table_head)
+            util.get_snana_table_value(['DEC','DECL'],evt,table_head)
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[gpar.DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
@@ -234,8 +235,10 @@ class data_snana_folder(Program):
 
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
-        self.store_hostgal(gpar.DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
-        self.store_hostgal(gpar.DATAKEY_LIST_CALC, evt, head_calc)
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
+                                 head_raw )
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict, 
+                                 head_calc)
 
         # check for true sim type (sim or fakes), Nov 14 2021
         if gpar.SIMKEY_TYPE_INDEX in head_names:
@@ -297,46 +300,6 @@ class data_snana_folder(Program):
         return data_dict
 
         # end read_event
-
-    def store_hostgal(self, datakey_list, evt, head_store):
-
-        # store hostgal info in head_store dictionary.
-        # Note that input head_store is modified here.
-
-        table_dict = self.config_data['table_dict']
-        table_head = table_dict['table_head']
-        head_names = table_dict['head_names']
-
-        len_base = len(gpar.HOSTKEY_BASE)
-        for key in datakey_list:
-            if gpar.HOSTKEY_BASE not in key:
-                continue
-            key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
-            key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
-            key_list = [ key, key2, key3]
-            for k in key_list:
-                if k in head_names :
-                    head_store[k] = table_head[k][evt]
-
-        # end store_hostgal
-
-
-    def get_table_value(self, varlist, irow, table):
-
-        # return "irow" table value for varlist,
-        # where varlist = ['NAME1', 'NAME2', etccc]
-        # will sequentially check NAME1, NAME2, etc ...
-
-        value = None
-        for varname in varlist:
-            try:
-                value = table[varname][irow]
-                return value
-            except:
-                pass  # just try next varname
-
-        return value
-        # end get_table_value
 
     def field_plasticc_hack(self,head_file_name):
 

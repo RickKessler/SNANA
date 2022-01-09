@@ -152,7 +152,7 @@ class data_des_folder(Program):
 
         # check 'DEC' and legacy column name 'DECL'
         head_raw[gpar.DATAKEY_DEC] = \
-            self.get_table_value(['DEC','DECL'],evt,table_head)
+            util.get_snana_table_value(['DEC','DECL'],evt,table_head)
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
@@ -289,22 +289,6 @@ class data_des_folder(Program):
         # end store_hostgal
 
 
-    def get_table_value(self, varlist, irow, table):
-
-        # return "irow" table value for varlist,
-        # where varlist = ['NAME1', 'NAME2', etccc]
-        # will sequentially check NAME1, NAME2, etc ...
-
-        value = None
-        for varname in varlist:
-            try:
-                value = table[varname][irow]
-                return value
-            except:
-                pass  # just try next varname
-
-        return value
-        # end get_table_value
 
     def field_plasticc_hack(self,head_file_name):
 

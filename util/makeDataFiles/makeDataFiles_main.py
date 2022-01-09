@@ -122,8 +122,8 @@ def get_args():
     msg = "merge/postprocess output files (after jobs finish)"
     parser.add_argument("--merge", help=msg, action="store_true")
 
-    msg = "debug/test a refactor"
-    parser.add_argument("--refac", help=msg, action="store_true")
+    msg = "Developer Refactor index (pos=refac, neg=legacy)"
+    parser.add_argument("--refac", help=msg, type=int, default=0)
 
     # - - - -
     args = parser.parse_args()

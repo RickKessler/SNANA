@@ -220,3 +220,10 @@ DATAKEY_LIST_SIM = [SIMKEY_TYPE_INDEX]
 MODE_MERGE_MOVE = "MERGE_MOVE"  # move files, then remove original folder
 MODE_MERGE_LINK = "MERGE_LINK"  # merge with sym links; keep orig folder
 
+
+# developer REFAC/LEGACY flags
+REFAC_READ_SNANA_FOLDER  = 110  # remember as jan 10
+LEGACY_READ_SNANA_FOLDER = -1 * REFAC_READ_SNANA_FOLDER
+
+# == END ===
+

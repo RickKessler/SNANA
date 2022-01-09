@@ -354,6 +354,7 @@ def open_fits(file_name):
 
 def reset_data_event_dict():
 
+    # Util for reading SNANA FITS format.
     # reset all data values to -9 to ensure that every 
     # key gets written to data files, even if read_event
     # code fails to set a value. 
@@ -375,6 +376,54 @@ def reset_data_event_dict():
     return raw_dict, calc_dict, sim_dict
     # end reset_data_event_dict
 
+def get_snana_table_value(varlist, irow, table):
+
+    # Util for reading SNANA FITS format.
+    # Read "irow" of SNANA FITS table for varlist, and return value.
+    # Varlist = ['NAME1', 'NAME2', etc] is a list of column names to check. 
+    # This allows reading older legacy  names;
+    # E.g., varlist = ['DEC', 'DECL'] returns value if either key is present.
+
+    value = None
+    for varname in varlist:
+        try:
+            value = table[varname][irow]
+            return value
+        except:
+            pass  # just try next varname                                   
+    return value
+
+    # end get_snana_table_value
+
+def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
+
+    # store hostgal info in head_store dictionary.
+    # Note that input head_store is modified here.
+    #
+    # Inputs:
+    #  datakey_list:   list of keys to load
+    #  evt:            event number/row number of table
+    #  table_dict      fits table info
+    #
+    # Output:
+    #   head_store:   output dictionary
+
+    table_head = table_dict['table_head']
+    head_names = table_dict['head_names']
+
+    len_base = len(gpar.HOSTKEY_BASE)
+    for key in datakey_list:
+        if gpar.HOSTKEY_BASE not in key:
+            continue
+        key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
+        key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
+        key_list = [ key, key2, key3]
+        for k in key_list:
+            if k in head_names :
+                head_store[k] = table_head[k][evt]
+
+    # end store_hostgal
+        
 # -----------------------------------
 #   read SNANA folder ?? .xyz
 # -----------------------------------
@@ -466,8 +515,17 @@ class READ_SNANA_FOLDER:
         return nevt
         # end exec_read
 
-    def get_data_dict(self):
+    def get_data_dict(self, args, evt):
+
+        # Inputs:
+        #   args:  input command line args
+        #   evt:   event/row number to get data_dict
+        #
+        # Outut:
+        #   Return data_dict for this 'evt'
+
         msgerr     = []
+
         table_dict = self.snana_folder_dict['table_dict']
 
         # define local pointers to head and phot tables from FITS file
@@ -476,6 +534,96 @@ class READ_SNANA_FOLDER:
         head_names = table_dict['head_names']
         phot_names = table_dict['phot_names']
 
+        # init output dictionaries
+        head_raw, head_calc, head_sim = reset_data_event_dict()
+
+        # read and store SNID
+        try:
+            SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
+        except:
+            SNID = table_head.SNID[evt]
+        head_raw[gpar.DATAKEY_SNID]    = SNID
+
+        # read and store SNTYPE (typically this is spectroscopic type or 0)
+        head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
+        
+        # read and store coords; allow DEC or legacy DECL name
+        head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
+        head_raw[gpar.DATAKEY_DEC] = \
+            get_snana_table_value(['DEC','DECL'],evt,table_head)
+
+
+        # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
+        head_calc[gpar.DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
+
+        KEY0 = gpar.DATAKEY_MJD_DETECT_FIRST
+        KEY1 = gpar.DATAKEY_MJD_DETECT_LAST
+        if gpar.DATAKEY_MJD_DETECT_FIRST in head_names:
+            head_calc[KEY0] =  table_head.MJD_DETECT_FIRST[evt]
+            head_calc[KEY1] =  table_head.MJD_DETECT_LAST[evt]
+        else:
+            # data does not have [MJD_DETECT_FIRST,LAST], so abort if
+            # if nite-range selection is requsted
+            nite_range = args.nite_detect_range
+            if nite_range is not None:
+                msgerr.append(f"Cannot implement nite_detect_range = " \
+                              f"{nite_range}")
+                msgerr.append(f"Because {KEY0} is not in data header")
+                log_assert(False,msgerr)
+
+        # - - - - - - - 
+        # check user sub-sample selection here to avoid reading
+        # remainder of header and photometry for rejected events.
+        apply_select = True
+        if apply_select :
+            var_dict = {
+                gpar.DATAKEY_SNID       : int(SNID),
+                gpar.DATAKEY_RA         : head_raw[gpar.DATAKEY_RA],
+                gpar.DATAKEY_DEC        : head_raw[gpar.DATAKEY_DEC],
+                gpar.DATAKEY_PEAKMJD    : head_calc[gpar.DATAKEY_PEAKMJD],
+                gpar.DATAKEY_MJD_DETECT_FIRST : \
+                head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+            }
+            sel = select_subsample(args,var_dict)
+            if sel is False :
+                data_dict = {
+                    'head_raw'  : head_raw,
+                    'head_calc' : head_calc,
+                    'select'    : False
+                }
+                return data_dict
+
+        # - - - - - - -
+        # load helio redshift info
+        head_raw[gpar.DATAKEY_zHEL]      = table_head.REDSHIFT_HELIO[evt]
+        head_raw[gpar.DATAKEY_zHEL_ERR]  = table_head.REDSHIFT_HELIO_ERR[evt]
+
+        # strip off calculated zCMB redshfit 
+        head_calc[gpar.DATAKEY_zCMB]       = table_head.REDSHIFT_FINAL[evt]
+        head_calc[gpar.DATAKEY_zCMB_ERR]   = table_head.REDSHIFT_FINAL_ERR[evt]
+
+        # Galactic extinction
+        head_calc[gpar.DATAKEY_MWEBV]      = table_head.MWEBV[evt]
+        head_calc[gpar.DATAKEY_MWEBV_ERR]  = table_head.MWEBV_ERR[evt]
+
+        # - - - - - -
+        # store HOSTGAL and HOSTGAL2 keys in head_raw[calc].
+        # head_[raw,calc] is both input and output of store_snana_hostgal
+        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
+                            head_raw ) 
+        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
+                            head_calc)
+
+        sys.exit("\n xxx BYE BYE\n")
+
+        # check for true sim type (sim or fakes), Nov 14 2021
+        if gpar.SIMKEY_TYPE_INDEX in head_names:
+            head_sim[gpar.SIMKEY_TYPE_INDEX] = table_head[gpar.SIMKEY_TYPE_INDEX
+][evt]
+
+        data_dict = {}
+
+        return data_dict
         # end get_data_dict
 
     def end_read(self):

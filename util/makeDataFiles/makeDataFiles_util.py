@@ -331,6 +331,13 @@ def cmb_to_helio(z, ra, dec):
     return one_plus_z_helio - 1.
 
 
+# ========================================
+#  Jan 10 2022:
+#  These snana-reader utilities are outside the READ_SNANA_FOLDER class 
+#  so that legacy option works in same code version as --refac 110. 
+#  After legacy code is removed, these snana-reader utilities should be 
+#  moved inside the READ_SNANA_FOLDER class.
+#  
 def open_fits(file_name):
     # check file_name and file_name.gz, and open the file that exists.
     # Function returns hdu pointer and number of rows in table.
@@ -445,25 +452,9 @@ def field_plasticc_hack(field, head_file_name):
     return field
     # end field_plasticc_hack
         
-# -----------------------------------
-#   read SNANA folder ?? .xyz
-# -----------------------------------
-#  def init_read_snana_folder(folder, snana_folder_dict) 
-#      store goodies in snana_folder_dict
-#      return 
-#
-#  def exec_read_snana_folder(ifile,snana_folder_dict)
-#      scoop up contents of HEAD and PHOT for ifile
-#      perform actions of prep_read_data_subgroup
-#
-#  def end_read_snana_folder(snana_folder_dict)
-#     close hdus
-#
-#  def open_snana_fits
-#      return hdul
-#
-#  def get_event_snana_folder(evt, snana_folder_dict)
-#     return data_dict for evt
+# ====================================================
+# utility class to read SNANA folder in FITS format
+# ====================================================
 
 class READ_SNANA_FOLDER:
 

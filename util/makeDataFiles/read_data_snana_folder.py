@@ -25,70 +25,82 @@ class data_snana_folder(Program):
         print(" Init data_snana_folder class.")
         super().__init__(config_inputs,config_data)
 
-        args    = config_inputs['args']
+        args          = self.config_inputs['args']  # command line args
+        refac, legacy = self.snana_refac_legacy()
 
-        if args.refac == gpar.REFAC_READ_SNANA_FOLDER :
-            READER = util.READ_SNANA_FOLDER(args.snana_folder) # run __init__
-            config_data['READER'] = READER
+        if refac:
+            # run __init__ in snana-reader class
+            snana_folder = args.snana_folder
+            SNANA_READER = util.READ_SNANA_FOLDER(snana_folder) 
+            config_data['SNANA_READER'] = SNANA_READER
 
     def init_read_data(self):
-        args = self.config_inputs['args']  # command line args
 
-        if args.refac == gpar.REFAC_READ_SNANA_FOLDER : 
+        refac, legacy = self.snana_refac_legacy()
+
+        if refac: 
             return
 
-        # below is legacy and may become obsolete
+        if legacy:
+            self.init_read_data_legacy()
+
+        return
+
+        # end init_read_data
+
+    def init_read_data_legacy(self):
+        args         = self.config_inputs['args']  # command line args
         data_folder  = os.path.expandvars(args.snana_folder)
         version      = os.path.basename(data_folder)
         list_file    = f"{data_folder}/{version}.LIST"
-
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_foler = {data_folder}")
-
         # scoop up contents of LIST file
         with open(list_file, 'r') as f:
             HEAD_file_list = f.read().replace('\n', ' ').split()
-
         self.config_data['HEAD_file_list'] = HEAD_file_list
         self.config_data['n_HEAD_file']    = len(HEAD_file_list)
         self.config_data['version']        = version
         self.config_data['data_folder']    = data_folder
+        return
+        # end init_read_data_legacy
 
-        # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):
 
-        args = self.config_inputs['args']  # command line args
+        refac, legacy = self.snana_refac_legacy()
 
-        if args.refac == gpar.REFAC_READ_SNANA_FOLDER :
-            READER = self.config_data['READER']
-            nevt = READER.exec_read(i_subgroup)
-            return nevt
+        if refac :
+            SNANA_READER = self.config_data['SNANA_READER']
+            nevt = SNANA_READER.exec_read(i_subgroup)
 
-        # - - - - - - -
-        # below is legacy code that will soon be obsolete
+        if legacy:
+            nevt = self.prep_read_data_legacy(i_subgroup)
+
+        # - - - -
+        return nevt
+
+        #end prep_read_data_subgroup
+
+    def prep_read_data_legacy(self, i_subgroup):
+
         n_HEAD_file      = self.config_data['n_HEAD_file']
-
-        if i_subgroup == n_HEAD_file  :
-            return 0 # done reading
+        if i_subgroup == n_HEAD_file  :  return 0 # done reading
 
         data_folder      = self.config_data['data_folder']
         HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
-        # xxx nevt, hdu_head  = self.open_snana_fits(HEAD_file)
         nevt, hdu_head  = util.open_fits(HEAD_file)
 
         PHOT_file_base  = hdu_head[0].header['PHOTFILE']
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
-        # xxx NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
         NROW, hdu_phot  = util.open_fits(PHOT_file)
 
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
 
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
-
         head_names = table_head.columns.names
         phot_names = table_phot.columns.names
 
@@ -110,55 +122,51 @@ class data_snana_folder(Program):
         self.config_data['hdu_head']   = hdu_head
         self.config_data['hdu_phot']   = hdu_phot
 
+        # - - - -
         return nevt
 
-        #end prep_read_data_subgroup
+        #end prep_read_data_legacy
 
     def end_read_data_subgroup(self):
-        self.config_data['hdu_head'].close()
-        self.config_data['hdu_phot'].close()
+        
+        refac, legacy = self.snana_refac_legacy()
+
+        if refac:
+            SNANA_READER = self.config_data['SNANA_READER']
+            SNANA_READER.end_read()
+
+        if legacy:
+            self.config_data['hdu_head'].close()
+            self.config_data['hdu_phot'].close()
+
+        # end end_read_data_subgroup
 
     def end_read_data(self):
         # global end for reading data
         pass
 
-    def open_snana_fits(self,file_name):
-       # xxxxx MARK OBSOLETE JAN 9 2022 xxxxxxxxxxx 
-
-       # check file_name and file_name.gz, and open the file that exists.
-       # Function returns hdu pointer and number of rows in table.
-
-        msgerr = []
-        file_namegz = f"{file_name}.gz"
-        if os.path.exists(file_namegz) :
-            hdul = fits.open(file_namegz)
-        elif os.path.exists(file_name):
-            hdul = fits.open(file_name)
-        else:
-            msgerr.append(f"Cannot find fits file")
-            msgerr.append(f" {file_name}   not")
-            msgerr.append(f" {file_namegz} ")
-            util.log_assert(False,msgerr)
-
-        NROW = hdul[1].header['NAXIS2']
-        return NROW, hdul
-    # xxxx END OBSOLETE xxxxxxxxxx
-    # end open_snana_fits
-
     def read_event(self,evt):
 
-        args       = self.config_inputs['args']  # command line args
+        args          = self.config_inputs['args']  # command line args
+        refac, legacy = self.snana_refac_legacy()
 
-        if args.refac == gpar.REFAC_READ_SNANA_FOLDER:
-            READER = self.config_data['READER']
-            data_dict = READER.get_data_dict(args,evt)
-            return data_dict
+        if refac: 
+            SNANA_READER = self.config_data['SNANA_READER']
+            data_dict = SNANA_READER.get_data_dict(args,evt)
 
-        # - - - - - - - - - - - - - 
-        # xxx below is legacy code xxxxx
+        if legacy:
+            data_dict = self.read_event_legacy(evt)
+
+        return data_dict
+
+        # end read_event
+
+
+    def read_event_legacy(self,evt):
 
         msgerr     = []
         table_dict = self.config_data['table_dict']
+        args       = self.config_inputs['args']  # command line args
 
         # read and store one event for row "evt" and return data_dict.
         varlist_obs = self.config_data['varlist_obs']
@@ -274,9 +282,8 @@ class data_snana_folder(Program):
         # get field from from first observation,
         # Beware that event can overlap multiple fields.
         field = phot_raw[gpar.DATAKEY_FIELD][0]
-        missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
-        if missing_field  and args.survey == 'LSST' :
-            field = self.field_plasticc_hack(table_dict['head_file'])
+        if args.survey == 'LSST' :
+            field = util.field_plasticc_hack(field,table_dict['head_file'])
 
         head_raw[gpar.DATAKEY_FIELD] = field
 
@@ -299,24 +306,7 @@ class data_snana_folder(Program):
 
         return data_dict
 
-        # end read_event
-
-    def field_plasticc_hack(self,head_file_name):
-
-        # ugly/embarassing hack to get field (DDF or WFD) from filename
-        # because original plasticc data didn't store field.
-
-        if gpar.FIELD_DDF in head_file_name:
-            field = gpar.FIELD_DDF
-        elif gpar.FIELD_WFD in head_file_name:
-            field = gpar.FIELD_WFD
-        else:
-            msgerr.append(f"Unable to determine FIELD for")
-            msgerr.append(f"{head_file_name}")
-            util.log_assert(False,msgerr)
-
-        return field
-        # end field_plasticc_hack
+        # end read_event_legacy
 
     def set_dump_flag(self, isn, data_event_dict):
         d_raw = data_event_dict['head_raw']
@@ -325,3 +315,9 @@ class data_snana_folder(Program):
         return dump_flag
         # set_dump_flag
 
+    def snana_refac_legacy(self):
+        args   = self.config_inputs['args']  # command line args
+        refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER 
+        legacy = not refac
+        return refac, legacy
+        # end refac_legacy

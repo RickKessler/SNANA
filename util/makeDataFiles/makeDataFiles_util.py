@@ -423,6 +423,27 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
                 head_store[k] = table_head[k][evt]
 
     # end store_hostgal
+
+def field_plasticc_hack(field, head_file_name):
+
+    # ugly/embarassing hack to get field (DDF or WFD) from filename
+    # because original plasticc data didn't store field.
+    # If input field is NULL or VOID, set it based on head_file_name.
+
+    missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
+    if not missing_field : return
+
+    if gpar.FIELD_DDF in head_file_name:
+        field = gpar.FIELD_DDF
+    elif gpar.FIELD_WFD in head_file_name:
+        field = gpar.FIELD_WFD
+    else:
+        msgerr.append(f"Unable to determine FIELD for")
+        msgerr.append(f"{head_file_name}")
+        log_assert(False,msgerr)
+
+    return field
+    # end field_plasticc_hack
         
 # -----------------------------------
 #   read SNANA folder ?? .xyz
@@ -445,6 +466,26 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
 #     return data_dict for evt
 
 class READ_SNANA_FOLDER:
+
+
+    """
+    Created Jan 8 2022 by R.Kessler
+    Tools to read SNANA data files in FITS format.
+
+    __init__ " read LIST file and store list of HEAD-FITS files
+
+    Loop over ifile until nevt=0:
+       nevt = exec_read(ifile):  
+           read and store contents of HEAD and PHOT for file index ifile
+
+       data_dict = get_data_dict(args, evt):
+         Return data_dict for input args(cuts) and event/row 'evt'.
+         This is the standard data_dict that is written to output.
+
+       end_read(): close HEAD and PHOT fits file
+
+    """
+
     def __init__(self, data_folder):
 
         # Created Jan 8 2022 by R.Kessler
@@ -518,7 +559,7 @@ class READ_SNANA_FOLDER:
     def get_data_dict(self, args, evt):
 
         # Inputs:
-        #   args:  input command line args
+        #   args:  input command line args to implement user cuts
         #   evt:   event/row number to get data_dict
         #
         # Outut:
@@ -614,16 +655,69 @@ class READ_SNANA_FOLDER:
         store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
                             head_calc)
 
-        sys.exit("\n xxx BYE BYE\n")
-
         # check for true sim type (sim or fakes), Nov 14 2021
-        if gpar.SIMKEY_TYPE_INDEX in head_names:
-            head_sim[gpar.SIMKEY_TYPE_INDEX] = table_head[gpar.SIMKEY_TYPE_INDEX
-][evt]
+        KEY = gpar.SIMKEY_TYPE_INDEX
+        if KEY in head_names:   head_sim[KEY] = table_head[KEY][evt]
 
-        data_dict = {}
+
+        # - - - - - - - - - - -
+        # get pointers to PHOT table.
+        # Beware that PTROBS pointers start at 1 instead of 0,
+        # so subtract 1 here to have python indexing.
+        ROWMIN = table_head.PTROBS_MIN[evt] - 1
+        ROWMAX = table_head.PTROBS_MAX[evt] - 1
+        NOBS   = ROWMAX - ROWMIN + 1
+
+        phot_raw   = {}
+        phot_raw['NOBS'] = NOBS
+
+        table_column_names = table_phot.columns.names
+
+        # check for reading legacy FLT column name (instead of BAND).
+        # Note that data_dict loads 'BAND' even if the input column is FLT.
+        LEGACY_FLT = False
+        if 'FLT' in table_column_names:  LEGACY_FLT = True 
+
+        for varname in gpar.VARNAMES_OBS_LIST:
+            phot_raw[varname] = [ None ] * NOBS
+            varname_table = varname
+            if LEGACY_FLT:  
+                if varname == 'BAND' : varname_table = 'FLT'
+
+            if varname_table in table_column_names :
+                phot_raw[varname] = \
+                    table_phot[varname_table][ROWMIN:ROWMAX+1].copy()
+
+        # - - - - -
+        # get field from from first observation,
+        # Beware that light curve can overlap multiple fields.
+        field = phot_raw[gpar.DATAKEY_FIELD][0]
+        if args.survey == 'LSST' :
+            field = field_plasticc_hack(field,table_dict['head_file'])
+        head_raw[gpar.DATAKEY_FIELD] = field
+
+        # - - - -
+        # load blank dictionary for spectra ... to be filled later.
+        spec_raw = {}
+
+        # - - - - -
+        # load output dictionary
+        data_dict = {
+            'head_raw'  : head_raw,
+            'head_calc' : head_calc,
+            'phot_raw'  : phot_raw,
+            'spec_raw'  : spec_raw
+        }
+
+        # check optional dictionary items to append
+        if len(head_sim) > 0:
+            data_dict['head_sim'] =  head_sim
+
+        if apply_select :
+            data_dict['select'] = True
 
         return data_dict
+
         # end get_data_dict
 
     def end_read(self):

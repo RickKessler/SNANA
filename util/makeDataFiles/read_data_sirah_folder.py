@@ -100,7 +100,7 @@ class data_sirah_folder(Program):
         MW_EBV   = pkl_phot.meta['MW_EBV']
 
         # init output dictionaries
-        head_raw, head_calc = self.reset_data_event_dict()
+        head_raw, head_calc, head_sim = util.reset_data_event_dict()
         head_raw[DATAKEY_SNID]        = SNID
         head_raw[DATAKEY_RA]          = RA
         head_raw[DATAKEY_DEC]         = DEC

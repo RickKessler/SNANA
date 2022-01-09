@@ -73,13 +73,15 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
                "XPIX YPIX CCDNUM GAIN " \
                "FLUXCAL FLUXCALERR PSF_SIG1 ZEROPT SKY_SIG"
-# xxx mark ZPFLUX NEA SKYSIG "
+
+VARNAMES_OBS_LIST = VARNAMES_OBS.split()
 
 # -----------------------------------------------------------------------------
 # define text format for each VARNAMES_OBS
 VARNAMES_FMT = "10.4f 2s   8s    4d      6.1f 6.1f  4d     6.3f "\
                "12.4e    12.4e    8.4f  6.3f 6.2f "
 
+VARNAMES_FMT_LIST = VARNAMES_FMT.split()
 # -----------------------------------------------------------------------------
 # define values for undefined variables
 # value set to VAL_ABORT will trigger abort because it is required.

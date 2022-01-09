@@ -25,18 +25,25 @@ class data_snana_folder(Program):
         print(" Init data_snana_folder class.")
         super().__init__(config_inputs,config_data)
 
+        args    = config_inputs['args']
 
-    #TODO: rename init_read_snana_data
+        if args.refac :
+            READER = util.READ_SNANA_FOLDER(args.snana_folder) # run __init__
+            config_data['READER'] = READER
+
     def init_read_data(self):
         args = self.config_inputs['args']  # command line args
 
+        if args.refac: 
+            return
+
+        # below is legacy and may become obsolete
         data_folder  = os.path.expandvars(args.snana_folder)
         version      = os.path.basename(data_folder)
         list_file    = f"{data_folder}/{version}.LIST"
 
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_foler = {data_folder}")
-        sys.stdout.flush()
 
         # scoop up contents of LIST file
         with open(list_file, 'r') as f:
@@ -51,6 +58,15 @@ class data_snana_folder(Program):
 
     def prep_read_data_subgroup(self, i_subgroup):
 
+        args = self.config_inputs['args']  # command line args
+
+        if args.refac :
+            READER = self.config_data['READER']
+            nevt = READER.exec_read(i_subgroup)
+            return nevt
+
+        # - - - - - - -
+        # below is legacy code that will soon be obsolete
         n_HEAD_file      = self.config_data['n_HEAD_file']
 
         if i_subgroup == n_HEAD_file  :
@@ -60,14 +76,15 @@ class data_snana_folder(Program):
         HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
-        nevt, hdu_head  = self.open_snana_fits(HEAD_file)
+        # xxx nevt, hdu_head  = self.open_snana_fits(HEAD_file)
+        nevt, hdu_head  = util.open_fits(HEAD_file)
 
         PHOT_file_base  = hdu_head[0].header['PHOTFILE']
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
-        NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
+        # xxx NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
+        NROW, hdu_phot  = util.open_fits(PHOT_file)
 
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
-        sys.stdout.flush()
 
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
@@ -76,6 +93,7 @@ class data_snana_folder(Program):
         phot_names = table_phot.columns.names
 
         # on first subgroup, check for true mag in PHOT table
+        # e.g., fakes overlaid on images or sim
         if i_subgroup == 0 and gpar.VARNAME_TRUEMAG in phot_names:
             self.append_truemag_obs()
 
@@ -105,6 +123,8 @@ class data_snana_folder(Program):
         pass
 
     def open_snana_fits(self,file_name):
+       # xxxxx MARK OBSOLETE JAN 9 2022 xxxxxxxxxxx 
+
        # check file_name and file_name.gz, and open the file that exists.
        # Function returns hdu pointer and number of rows in table.
 
@@ -122,7 +142,7 @@ class data_snana_folder(Program):
 
         NROW = hdul[1].header['NAXIS2']
         return NROW, hdul
-
+    # xxxx END OBSOLETE xxxxxxxxxx
     # end open_snana_fits
 
     def read_event(self, evt ):
@@ -130,6 +150,14 @@ class data_snana_folder(Program):
         msgerr     = []
         table_dict = self.config_data['table_dict']
         args       = self.config_inputs['args']  # command line args
+
+        if args.refac :
+            READER = self.config_data['READER']
+            data_dict = READER.get_event(evt)
+            return data_dict
+
+        # - - - - - - - - - - - - - 
+        # xxx below is legacy code xxxxx
 
         # read and store one event for row "evt" and return data_dict.
         varlist_obs = self.config_data['varlist_obs']
@@ -141,7 +169,7 @@ class data_snana_folder(Program):
         phot_names = table_dict['phot_names']
 
         # init output dictionaries
-        head_raw, head_calc, head_sim = self.reset_data_event_dict()
+        head_raw, head_calc, head_sim = util.reset_data_event_dict()
 
         try:
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')

@@ -290,18 +290,13 @@ class Program:
     def store_varlist_obs(self):
 
         # for fakes, tack on true mag to list of variables per obs
-        fake      = self.config_inputs['args'].fake
         survey    = self.config_inputs['args'].survey
-        varnames  = gpar.VARNAMES_OBS
-        varfmt    = gpar.VARNAMES_FMT
-        val_undef = gpar.VAL_UNDEFINED_LIST
 
-        # convert space-sep string list into python list
-        varlist_obs   = varnames.split()
-        varlist_fmt   = varfmt.split()    # format per var
-        vallist_undef = val_undef         # already a list
+        varlist_obs   = gpar.VARNAMES_OBS_LIST    # var names
+        varlist_fmt   = gpar.VARNAMES_FMT_LIST    # format per var
+        vallist_undef = gpar.VAL_UNDEFINED_LIST   # value for undefined
 
-        # check for unfilled PHOT columns to exclude
+        # check for unfilled PHOT columns to exclude in output
         for var in self.exclude_varlist_obs() :
             k          = varlist_obs.index(var)
             temp_obs   = varlist_obs.pop(k)
@@ -310,9 +305,9 @@ class Program:
 
         nvar    = len(varlist_obs)
         self.config_data['vallist_undef']  = vallist_undef
-        self.config_data['varlist_fmt']   = varlist_fmt
-        self.config_data['varlist_obs']   = varlist_obs
-        self.config_data['nvar_obs']      = nvar
+        self.config_data['varlist_fmt']    = varlist_fmt
+        self.config_data['varlist_obs']    = varlist_obs
+        self.config_data['nvar_obs']       = nvar
 
         #print(f" xxx nvar={nvar}  varlist = {varlist}")
 
@@ -693,29 +688,6 @@ class Program:
         self.config_data['t_proc']     = t_dif_sec
         return
         # end walltime_read_data
-
-    def reset_data_event_dict(self):
-
-        # reset all data values to -9 to ensure that every
-        # key gets written to data files, even if read_event
-        # code fails to set a value.
-
-        raw_dict  = {}
-        calc_dict = {}
-        sim_dict  = {}
-
-        for key in gpar.DATAKEY_LIST_RAW :
-            raw_dict[key] = -9
-
-        for key in gpar.DATAKEY_LIST_CALC :
-            calc_dict[key] = -9
-
-        for key in gpar.DATAKEY_LIST_SIM :
-            sim_dict[key] = -9
-
-        return raw_dict, calc_dict, sim_dict
-
-        # end reset_data_event_dict
 
     def update_readme_stats(self, data_event_dict):
 

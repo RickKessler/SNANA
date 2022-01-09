@@ -140,7 +140,7 @@ class data_des_folder(Program):
         phot_names = table_dict['phot_names']
 
         # init output dictionaries
-        head_raw, head_calc, head_sim = self.reset_data_event_dict()
+        head_raw, head_calc, head_sim = util.reset_data_event_dict()
 
         try:
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')

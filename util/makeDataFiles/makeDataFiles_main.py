@@ -122,8 +122,8 @@ def get_args():
     msg = "merge/postprocess output files (after jobs finish)"
     parser.add_argument("--merge", help=msg, action="store_true")
 
-    msg = "process fakes (default is real data)"
-    parser.add_argument("--fake", help=msg, action="store_true")
+    msg = "debug/test a refactor"
+    parser.add_argument("--refac", help=msg, action="store_true")
 
     # - - - -
     args = parser.parse_args()

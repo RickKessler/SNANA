@@ -11,6 +11,8 @@ import sys
 
 import numpy as np
 import yaml
+from astropy.io import fits
+
 #from astropy.table import Table
 
 #from makeDataFiles_params import *
@@ -328,7 +330,160 @@ def cmb_to_helio(z, ra, dec):
 
     return one_plus_z_helio - 1.
 
-# ---------------------------------------------------
+
+def open_fits(file_name):
+    # check file_name and file_name.gz, and open the file that exists.
+    # Function returns hdu pointer and number of rows in table.
+
+    msgerr = []
+    file_namegz = f"{file_name}.gz"
+    if os.path.exists(file_namegz) :
+        hdul = fits.open(file_namegz)
+    elif os.path.exists(file_name):
+        hdul = fits.open(file_name)
+    else:
+        msgerr.append(f"Cannot find fits file")
+        msgerr.append(f" {file_name}   not")
+        msgerr.append(f" {file_namegz} ")
+        log_assert(False,msgerr)
+
+    NROW = hdul[1].header['NAXIS2']
+    return NROW, hdul
+
+    # end open_fits
+
+def reset_data_event_dict():
+
+    # reset all data values to -9 to ensure that every 
+    # key gets written to data files, even if read_event
+    # code fails to set a value. 
+    # Jan 8 2022: move this function out of base.
+
+    raw_dict  = {}
+    calc_dict = {}
+    sim_dict  = {}
+
+    for key in gpar.DATAKEY_LIST_RAW :
+        raw_dict[key] = -9
+
+    for key in gpar.DATAKEY_LIST_CALC :
+        calc_dict[key] = -9
+
+    for key in gpar.DATAKEY_LIST_SIM :
+        sim_dict[key] = -9
+
+    return raw_dict, calc_dict, sim_dict
+    # end reset_data_event_dict
+
+# -----------------------------------
+#   read SNANA folder ?? .xyz
+# -----------------------------------
+#  def init_read_snana_folder(folder, snana_folder_dict) 
+#      store goodies in snana_folder_dict
+#      return 
+#
+#  def exec_read_snana_folder(ifile,snana_folder_dict)
+#      scoop up contents of HEAD and PHOT for ifile
+#      perform actions of prep_read_data_subgroup
+#
+#  def end_read_snana_folder(snana_folder_dict)
+#     close hdus
+#
+#  def open_snana_fits
+#      return hdul
+#
+#  def get_event_snana_folder(evt, snana_folder_dict)
+#     return data_dict for evt
+
+class READ_SNANA_FOLDER:
+    def __init__(self, data_folder):
+
+        # Created Jan 8 2022 by R.Kessler
+
+        version      = os.path.basename(data_folder)
+        list_file    = f"{data_folder}/{version}.LIST"
+    
+        # scoop up contents of LIST file  
+        with open(list_file, 'r') as f:
+            HEAD_file_list = f.read().replace('\n', ' ').split()
+   
+        n_HEAD_file = len(HEAD_file_list)
+
+        logging.info(f" Read data version = {version}")
+        logging.info(f" from data_folder = {data_folder}")
+        logging.info(f" Found {n_HEAD_file} FITS-HEAD files.")    
+     
+        self.snana_folder_dict  = {}
+        self.snana_folder_dict['data_folder']     = data_folder
+        self.snana_folder_dict['version']         = version
+        self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
+        self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
+
+    def exec_read(self, ifile):
+
+        n_HEAD_file      = self.snana_folder_dict['n_HEAD_file']
+        if ifile >= n_HEAD_file  :
+            return 0 # done reading
+
+        data_folder      = self.snana_folder_dict['data_folder']
+        HEAD_file_base   = self.snana_folder_dict['HEAD_file_list'][ifile]
+
+        HEAD_file       = f"{data_folder}/{HEAD_file_base}"
+        nevt, hdu_head  = open_fits(HEAD_file)
+
+        PHOT_file_base  = hdu_head[0].header['PHOTFILE']
+        PHOT_file       = f"{data_folder}/{PHOT_file_base}"
+        NROW, hdu_phot  = open_fits(PHOT_file)
+
+        logging.info(f"   Read {nevt} events from {HEAD_file_base}")
+
+        table_head = hdu_head[1].data
+        table_phot = hdu_phot[1].data
+
+        head_names = table_head.columns.names
+        phot_names = table_phot.columns.names
+
+        # on first subgroup, check for true mag in PHOT table
+        # e.g., fakes overlaid on images or sim
+        if ifile == 0 and gpar.VARNAME_TRUEMAG in phot_names:
+            gpar.VAL_UNDEFINED_LIST   += [gpar.VAL_NULL]
+            gpar.VARNAMES_FMT_LIST    += ["8.4f"]
+            gpar.VARNAMES_OBS_LIST    += [gpar.VARNAME_TRUEMAG]
+
+        table_dict = {
+            'head_file'  : HEAD_file_base,
+            'table_head' : table_head,
+            'table_phot' : table_phot,
+            'head_names' : head_names,
+            'phot_names' : phot_names
+        }
+
+        self.snana_folder_dict['nevt_subgroup'] = nevt
+        self.snana_folder_dict['table_dict'] = table_dict
+        self.snana_folder_dict['hdu_head']   = hdu_head
+        self.snana_folder_dict['hdu_phot']   = hdu_phot
+
+        return nevt
+        # end exec_read
+
+    def get_data_dict(self):
+        msgerr     = []
+        table_dict = self.snana_folder_dict['table_dict']
+
+        # define local pointers to head and phot tables from FITS file
+        table_head = table_dict['table_head']
+        table_phot = table_dict['table_phot']
+        head_names = table_dict['head_names']
+        phot_names = table_dict['phot_names']
+
+        # end get_data_dict
+
+    def end_read(self):
+        self.snana_folder_dict['hdu_head'].close()
+        self.snana_folder_dict['hdu_phot'].close()
+
+
+# -----------------------
 # MESSAGING
 # ------------------------
 class MessageStore(logging.Handler):

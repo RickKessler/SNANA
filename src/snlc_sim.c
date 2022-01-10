@@ -21493,7 +21493,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //   + Fill nbr dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
 
 
-  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m ;
+  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
   char fnam[] = "hostgal_to_SNDATA" ;
@@ -21581,6 +21581,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
+      SNDATA.HOSTGAL_NZPHOT_QP = HOSTLIB.NZPHOT_QP;
+      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
+      	SNDATA.HOSTGAL_ZPHOT_QP[m][j] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_QP[j] ;
+      }
 
     }
     

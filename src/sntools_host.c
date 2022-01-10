@@ -6886,7 +6886,7 @@ void SORT_SNHOST_byDDLR(void) {
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
-  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs ;
+  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, j ;
   int  NNBR_DDLRCUT = 0 ;
   double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
   double DMUCOR = 0.0 ;
@@ -6973,6 +6973,14 @@ void SORT_SNHOST_byDDLR(void) {
     else {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT     = -9.0 ;
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
+    }
+    
+    int IVAR_QP0 = HOSTLIB.IVAR_ZPHOT_QP0;
+    if ( IVAR_QP0 > 0 ) {
+	    for (j = 0; j < HOSTLIB.NZPHOT_QP; j++){
+		int IVAR_QP = IVAR_QP0 + j;
+		SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[j] = get_VALUE_HOSTLIB(IVAR_QP,IGAL) ;
+	    }
     }
 
     /* xxx

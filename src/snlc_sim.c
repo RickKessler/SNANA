@@ -21579,6 +21579,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_ELLIPTICITY[m]  = SNHOSTGAL_DDLR_SORT[m].ELLIPTICITY;
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
+
+      // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
+
     }
     
   

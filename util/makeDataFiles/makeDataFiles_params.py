@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  makeDataFiles_base.py
+#  makeDataFiles_params.py
 #
 #  Copyright July 2021 R. Kessler
 
 """Constant definitions for makeDatafile framework.
 Relevant configuration gets loaded here.
 """
-
 
 # import datetime
 # import time

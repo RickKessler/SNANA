@@ -13,8 +13,6 @@ import makeDataFiles_params as gpar
 import makeDataFiles_util as util
 from makeDataFiles_base import Program
 
-#from makeDataFiles_params import *
-
 # - - - - - - - - - - - - - - - - - - -     -
 class data_des_folder(Program):
     def __init__(self, config_inputs) :
@@ -63,32 +61,19 @@ class data_des_folder(Program):
         # global end for reading data
         pass
 
-    def open_snana_fits(self,file_name):
-       # check file_name and file_name.gz, and open the file that exists.
-       # Function returns hdu pointer and number of rows in table.
-
-        msgerr = []
-        file_namegz = f"{file_name}.gz"
-        if os.path.exists(file_namegz) :
-            hdul = fits.open(file_namegz)
-        elif os.path.exists(file_name):
-            hdul = fits.open(file_name)
-        else:
-            msgerr.append(f"Cannot find fits file")
-            msgerr.append(f" {file_name}   not")
-            msgerr.append(f" {file_namegz} ")
-            util.log_assert(False,msgerr)
-
-        NROW = hdul[1].header['NAXIS2']
-        return NROW, hdul
-
-    # end open_snana_fits
-
     def read_event(self, evt ):
 
         args         = self.config_inputs['args']  # command line args
         SNANA_READER = self.config_data['SNANA_READER']
-        data_dict = SNANA_READER.get_data_dict(args,evt)
+        data_dict    = SNANA_READER.get_data_dict(args,evt)
+
+        # MJD_trigger is a private variable, so move it to 
+        # nominal SNANA variable. .xyz
+        key_private_list = [ 'PRIVATE(DES_mjd_trigger)' ]
+        key_head_list    = [ gpar.DATAKEY_MJD_DETECT_FIRST ]
+        head_calc        = data_dict['head_calc']
+        for key_private, key_head in zip(key_private_list,key_head_list):
+            head_calc[key_head] = SNANA_READER.get_data_val(key_private,evt)
 
         return data_dict
 

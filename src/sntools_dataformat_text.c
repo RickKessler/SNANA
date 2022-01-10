@@ -151,6 +151,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp, "\n");
   wr_dataformat_text_HOSTGAL(fp);
 
+  // write PRIVATE keys if they exist (Jan 2022)
+  wr_dataformat_text_PRIVATE(fp);
+
   // --------------------------------------------------
   // write optional AUXHEADER_LINES (June 2012)
   // at end of header, but before the SIM_XXX keys
@@ -602,6 +605,40 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   return;
 
 } // end wr_dataformat_text_HOSTGAL
+
+
+// ===================================
+void wr_dataformat_text_PRIVATE(FILE *fp) {
+
+  // Created Jan 10 2022
+  // Write PRIVATE variables ... was forgotten in last I/O refactor.
+
+  int NVAR_PRIVATE = SNDATA.NVAR_PRIVATE ;
+  int ivar, IVAL ;
+  double DVAL, DTMP;
+  char *KEY ;
+  char fnam[] = "wr_dataformat_text_PRIVATE" ;
+
+  // ------------- BEGIN ------------
+
+  if ( NVAR_PRIVATE <= 0 ) { return; }
+
+  fprintf(fp, "\nNPRIVATE: %d \n", NVAR_PRIVATE);
+
+  for(ivar=1; ivar <= NVAR_PRIVATE; ivar++ ) {   
+    KEY   = SNDATA.PRIVATE_KEYWORD[ivar];
+    DVAL  = SNDATA.PRIVATE_VALUE[ivar];
+    IVAL  = (int)DVAL ;
+
+    // check if int or float for human readability
+    if ( DVAL == (double)IVAL ) 
+      { fprintf(fp, "%s:  %d \n", KEY, IVAL); }
+    else
+      { fprintf(fp, "%s:  %f \n", KEY, DVAL); }
+  }
+
+  return;
+} // end wr_dataformat_text_PRIVATE
 
 
 // =====================================================

@@ -126,8 +126,8 @@
 #define HOSTLIB_VARNAME_ELLIPTICITY  "ellipticity" // Sept 2021 Alex Gagliano
 #define HOSTLIB_VARNAME_GALID2       "GALID2"
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
-#define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
-#define HOSTLIB_MAGOBS_ERR_SUFFIX    "_obs_err"     // key = [filt]$SUFFIX
+#define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
+#define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 #define HOSTLIB_IGAL_UNDEFINED -9999
 

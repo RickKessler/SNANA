@@ -20703,5 +20703,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** MISCELLANEOUS(v11_04f) ***** 
 
+    sntools_dataformat_text.c:
+      + few fixes to read TEXT files extracted from FITS created by sim
+  
+    makeDataFiles/
+     + fix a few bugs introduced during devel of lsst_alerts
+     + refactor global params (Bruno)
+ 
+   sntools_dataformat_text.c:
+     + write out private variables (forgot in last I/O refactor)
 
 END: 

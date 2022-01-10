@@ -1961,10 +1961,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // -  VARNAMES_WGTMAP:  <NVAR_WGTMAP names>
   // -  WGT: %f %f ... repeated NVAR_WGTMAP+2 times
   //
-  // Jan 2014: add logic for SNPAR
-  //
-  // Feb 15 2018: fix bug to allow SNMAGSHIFT in wgtmap for MSKOPT&64
-  // Dec 20 2018: use snana_rewind to allow for gzipped library
+
   // Mar 15 2019: ignore NVAR key, and parse entire line after VARNAMES
   // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
   // Nov 11 2019: set HOSTLIB.IVAR_NBR_LIST
@@ -2004,7 +2001,9 @@ void read_head_HOSTLIB(FILE *fp) {
 
     // stop reading when first GAL: key is reached.
     if ( strcmp(c_get,"GAL:") == 0 )  {
-      // not working snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
+      // rewind doesn't work for gzip file
+      // xxxx snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
+
       fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
       goto VARCHECK ; 
     }
@@ -2072,12 +2071,11 @@ void read_head_HOSTLIB(FILE *fp) {
 	  if( match_varname_HOSTLIB(c_var,cptr)  ) {
 	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
 	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
-	    if ( HOSTLIB.IS_SNPAR_OPTIONAL[i] )  
-	      { 
-		HOSTLIB.FOUND_SNPAR_OPTIONAL[i] = 1 ;
-		NVAR_STORE_SNPAR++ ; 
-		HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
-	      }
+	    if ( HOSTLIB.IS_SNPAR_OPTIONAL[i] ) { 
+	      HOSTLIB.FOUND_SNPAR_OPTIONAL[i] = 1 ;
+	      NVAR_STORE_SNPAR++ ; 
+	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
+	    }
 	    HOSTLIB.NVAR_STORE++ ;   
 	  }
 	}   // i       
@@ -2759,8 +2757,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
       // check option to force override for gal mags (May 2021)
       if ( ABMAG_FORCE > -8.0 ) {	
 	int lenvar = strlen(varName);
-	int lensuf = strlen(HOSTLIB_MAGOBS_SUFFIX);
-	bool MATCHMAG = ( strstr(varName,HOSTLIB_MAGOBS_SUFFIX) != NULL );
+	int lensuf = strlen(HOSTLIB_SUFFIX_MAGOBS);
+	bool MATCHMAG = ( strstr(varName,HOSTLIB_SUFFIX_MAGOBS) != NULL );
 	if ( MATCHMAG && lenvar == lensuf+1 ) 
 	  { VALUES[ival] = ABMAG_FORCE ; }
       }
@@ -3733,7 +3731,7 @@ void init_GALMAG_HOSTLIB(void) {
   if ( NMAGOBS <= 0 ) {
     sprintf(c1err, "%s" , "Galaxy mags under SN requested, but no mags are");
     sprintf(c2err, "given in HOSTLIB. Need [filt]%s keys.", 
-	    HOSTLIB_MAGOBS_SUFFIX );
+	    HOSTLIB_SUFFIX_MAGOBS );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -3923,8 +3921,8 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
 
 // ======================================
 void magkey_HOSTLIB(int ifilt_obs, char *key, char *key_err) {
-  sprintf(key,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_MAGOBS_SUFFIX );
-  sprintf(key_err,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_MAGOBS_ERR_SUFFIX );
+  sprintf(key,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_SUFFIX_MAGOBS );
+  sprintf(key_err,"%c%s", FILTERSTRING[ifilt_obs], HOSTLIB_SUFFIX_MAGOBS_ERR);
 
 } // end of magkey_HOSTLIB
 

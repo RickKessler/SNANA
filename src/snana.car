@@ -3900,6 +3900,7 @@ c Refactored Feb 2021 to use SNDATA struct in sndata.h.
 c  (previous name was RDPRIVATE_FITS)
 c Read/parse names of PRIVATE keys from header if NVAR_PRIVATE > 0
 c
+
       IMPLICIT NONE
 
       INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
@@ -3918,6 +3919,8 @@ C -------------- BEGIN ---------------
       CALL FETCH_SNDATA_WRAPPER("NVAR_PRIVATE", 
      &     ONE, DUMSTRING, DARRAY, OPT)
       NVAR_PRIVATE = int(DARRAY(1))
+
+cc      print*,' xxx OPT, NVAR_PRIVATE = ', OPT, NVAR_PRIVATE
 
       IF ( NVAR_PRIVATE .LE. 0 ) RETURN
 
@@ -5546,7 +5549,7 @@ c Created Aug 29 2019
 c dump path and format for VERSION_PHOTOMETRY; then quit.
 c
 c Apr 2021: pass VERSION_ARG and dump more info
-c
+c Jan 10 2022: write NVAR_PRIVATE
 
       IMPLICIT NONE
       CHARACTER VERSION_ARG*(*)  ! VERSION or PATH/VERSION
@@ -5554,6 +5557,7 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
 +CDE,FILTCOM.
++CDE,PRIVCOM.
 
 c local var
       CHARACTER VERSION*(MXCHAR_FILENAME), COMMENT*40
@@ -5615,6 +5619,8 @@ c - - - - - - - - - - - -
          COMMENT='# Fakes overlaid on images'
       ENDIF
       write(6,20) 'DATATYPE: ',  DATATYPE, COMMENT
+
+      write(6,21) 'NVAR_PRIVATE: ',  NVAR_PRIVATE, ' '
 
       CALL FLUSH(6)
       CALL EXIT(0)

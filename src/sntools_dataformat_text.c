@@ -456,7 +456,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   // Created Feb 6 2021
   // Copy from wr_HOSTGAL() in sntools.c so that wr_HOSTGAL can be removed.
 
-  int ifilt, ifilt_obs, NTMP, igal, NGAL ;
+  int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
  
@@ -487,6 +487,14 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
 	    SNDATA.HOSTGAL_PHOTOZ[igal], 
 	    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
+
+    if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
+            fprintf(fp, "%s_ZPHOT_QP: ");
+	    for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_QP; j++){
+                 fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_QP[igal][j]);
+	    }
+	    fprintf(fp, "\n");
+    }
 
     fprintf(fp, "%s_SPECZ:       %.4f  +- %.4f \n", PREFIX,
 	    SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 

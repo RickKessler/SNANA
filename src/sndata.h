@@ -55,6 +55,7 @@
 #define MXVAR_PRIVATE 40 // max number of private variables
 #define MXHOSTGAL      2 // max number of matched hosts to write out
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
+#define MXBIN_ZPHOT_QP 20 // max number of quantile percent bins
 
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
@@ -284,6 +285,8 @@ struct SNDATA {
   double  HOSTGAL_DEC[MXHOSTGAL];
   float   HOSTGAL_CONFUSION ;         // note: does NOT depend on each host
   float   HOSTGAL_PHOTOZ[MXHOSTGAL] ;
+  float   HOSTGAL_ZPHOT_QP[MXHOSTGAL][MXBIN_ZPHOT_QP];
+  int     HOSTGAL_NZPHOT_QP;
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;

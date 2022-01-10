@@ -2,6 +2,7 @@
 
 #include "sntools.h"
 #include "sntools_spectrograph.h" // Feb 2021
+//#include "sntools_host.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -7233,6 +7234,7 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
+  SNDATA.HOSTGAL_NZPHOT_QP    = 0;
 
   return(SUCCESS);
 
@@ -7247,7 +7249,7 @@ int init_SNDATA_EVENT(void) {
   // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
   //              not in data files.
   //
-  int i_epoch, ifilt, i, igal ;
+  int i_epoch, ifilt, i, igal, j ;
   char fnam[] = "init_SNDATA_EVENT" ;
   // --------- BEGIN -----------------
 
@@ -7321,9 +7323,11 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
+      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
+          SNDATA.HOSTGAL_ZPHOT_QP[igal][j] = -9.0;
+  	}
   }
   // xxx mark delete (move to global init)  SNDATA.HOSTGAL_USEMASK = 0 ;
-
 
   // init SEARCH parameters
   SNDATA.SEARCH_TYPE      = NULLINT ;

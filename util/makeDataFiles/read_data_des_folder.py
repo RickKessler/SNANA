@@ -41,7 +41,11 @@ class data_des_folder(Program):
 
         SNANA_READER = self.config_data['SNANA_READER']
         SNANA_READER.init_private_dict(private_dict)
-        
+
+        # .xyz initialize SMP; read master list ....
+        # e.g., check $DES_SMP; else abort.
+        # self.config_data['smp_master_list'] = master_list
+
         # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):
@@ -74,6 +78,13 @@ class data_des_folder(Program):
         head_calc        = data_dict['head_calc']
         for key_private, key_head in zip(key_private_list,key_head_list):
             head_calc[key_head] = SNANA_READER.get_data_val(key_private,evt)
+
+        # .xyz read SMP for this SNID and overwrite FLUXCAL[ERR]
+        # tricky part: DIFFIMG has ~500 epochs spanning 5 years,
+        # but SMP has ~100 epochs spanning 1 season. So need to
+        # copy epoch meta-data (SKY,GAIN,ZP,PSF) from original
+        # diffimg phot array to final smp array,
+
 
         return data_dict
 

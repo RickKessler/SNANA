@@ -95,16 +95,21 @@ def get_args():
 
 # SIMLIB_OUT ...
 
-    #msg = "comma-sep list of CIDs (for list args)"
-    #parser.add_argument("--c", help=msg, type=str, default="")
-
-    #msg = "Use each SN instead of BBC binning"
-    #parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
 
-    if len(sys.argv) == 1:  parser.print_help(); sys.exit()
+    if len(sys.argv) == 1:  
+        parser.print_help(); sys.exit()
 
     args = parser.parse_args()
+
+    # - - - - - - - - - - - - - - - 
+    # if version includes full path, separate here into version
+    # and private path args
+    if args.version:
+        v = args.version
+        if '/' in v:
+            args.version = os.path.basename(v)
+            args.path    = os.path.dirname(v)
 
     return args
 

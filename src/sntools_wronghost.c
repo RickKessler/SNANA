@@ -205,6 +205,8 @@ void INIT_WRONGHOST(char *inFile, double ZMIN, double ZMAX) {
   free(tmpZMATCH);
   free(INDEX_SORT);
 
+  return;
+
 } // end init_WRONGHOST
 
 

@@ -4088,7 +4088,7 @@ void rd_snfitsio_private(void) {
   fitsfile *fp ;
   int itype, istat, NVAR, ivar ;
   char keyname[60], comment[200], *cptr ;
-  //  char fnam[] = "rd_snfitsio_private" ;
+  char fnam[] = "rd_snfitsio_private" ;
 
   // ------------ BEGIN ------------
 

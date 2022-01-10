@@ -52,13 +52,12 @@ class Program:
         self.config_data = config_data
         args = config_inputs['args']
 
-        print("  Base init")
-        sys.stdout.flush()
+        logging.info("  Base init")
 
         self.config_data['t_start'] = datetime.datetime.now()
 
         # init all possible data units
-        self.init_data_unit(config_inputs, config_data)
+        self.init_data_unit()
 
         # create top-level outdir
         outdir_list = [
@@ -75,11 +74,11 @@ class Program:
                 sys.stdout.flush()
                 os.mkdir(outdir)
 
-        #
-        self.extend_DATAKEY_LIST(config_inputs)
+
+        self.extend_DATAKEY_LIST()
 
         # store info for phot varnames
-        self.store_varlist_obs(config_inputs, config_data)
+        self.store_varlist_obs()
 
         # for lsst alert, add extra NOBS_ALERT column to readme_stats
         if args.outdir_lsst_alert:
@@ -87,7 +86,7 @@ class Program:
 
         # end Program __init__
 
-    def init_data_unit(self, config_inputs, config_data):
+    def init_data_unit(self):
 
         # define every possible data unit here and store them in list.
         # Only units with data will have a directory created.
@@ -163,17 +162,17 @@ class Program:
 
         unit_nevent_list = [ 0 ] * n_data_unit
 
-        config_data['data_folder_prefix'] = survey
-        config_data['data_unit_name_list'] = unit_name_list
-        config_data['data_unit_nevent_list'] = unit_nevent_list
-        config_data['n_season'] = n_season
+        self.config_data['data_folder_prefix']      = survey
+        self.config_data['data_unit_name_list']     = unit_name_list
+        self.config_data['data_unit_nevent_list']   = unit_nevent_list
+        self.config_data['n_season']                = n_season
 
         readme_stats_list = []
         for i in range(0, n_data_unit):
             readme_stats_list.append(util.init_readme_stats())
 
-        config_data['readme_stats_list'] = readme_stats_list
-        config_data['NEVT_SPECTRA'] = 0
+        self.config_data['readme_stats_list'] = readme_stats_list
+        self.config_data['NEVT_SPECTRA']      = 0
         return
         # end init_data_unit
 
@@ -284,60 +283,42 @@ class Program:
         return data_unit_name
         # end which_data_unit
 
-    def extend_DATAKEY_LIST(self,config_inputs):
+    def extend_DATAKEY_LIST(self):
 
         # expand global DATAKEY_LIST_RAW to include filter-dependent
         # HOSTGAL keys.
 
-        survey   = config_inputs['args'].survey
+        survey   = self.config_inputs['args'].survey
         filters  = list(gpar.SURVEY_INFO['FILTERS'][survey])
 
-        #global DATAKEY_LIST_RAW
-        prefix_list = [
-            gpar.HOSTKEY_PREFIX_MAG,
-            gpar.HOSTKEY_PREFIX_MAGERR,
-            gpar.HOSTKEY_PREFIX_SB
-        ]
-        for prefix in prefix_list:
+        for prefix in gpar.HOSTKEY_PREFIX_LIST :
             for band in filters:
                 datakey = f"{prefix}_{band}"
                 gpar.DATAKEY_LIST_RAW.append(datakey)
 
         # end load_HOSTKEY_band
 
-    def store_varlist_obs(self, config_inputs, config_data):
+    def store_varlist_obs(self):
 
         # for fakes, tack on true mag to list of variables per obs
-        fake      = config_inputs['args'].fake
-        survey    = config_inputs['args'].survey
-        varnames  = gpar.VARNAMES_OBS
-        varfmt    = gpar.VARNAMES_FMT
-        val_undef = gpar.VAL_UNDEFINED_LIST
+        survey    = self.config_inputs['args'].survey
 
-        # xxxx mark delete Nov 14 2021
-        #if fake :
-        #    varnames   += f" {VARNAME_TRUEMAG}"
-        #    varfmt     += f" 8.4f"
-        #    val_undef  += VAL_NULL
-        # xxxxxxxxx end mark xxxxxxxxx
+        varlist_obs   = gpar.VARNAMES_OBS_LIST    # var names
+        varlist_fmt   = gpar.VARNAMES_FMT_LIST    # format per var
+        vallist_undef = gpar.VAL_UNDEFINED_LIST   # value for undefined
 
-        # convert space-sep string list into python list
-        varlist_obs   = varnames.split()
-        varlist_fmt   = varfmt.split()    # format per var
-        vallist_undef = val_undef         # already a list
-
-        # check for unfilled PHOT columns to exclude
-        for var in self.exclude_varlist_obs():
+        # check for unfilled PHOT columns to exclude in output
+        for var in self.exclude_varlist_obs() :
             k          = varlist_obs.index(var)
             temp_obs   = varlist_obs.pop(k)
             temp_fmt   = varlist_fmt.pop(k)
             temp_undef = vallist_undef.pop(k)
 
-        nvar = len(varlist_obs)
-        config_data['vallist_undef']  = vallist_undef
-        config_data['varlist_fmt']   = varlist_fmt
-        config_data['varlist_obs']   = varlist_obs
-        config_data['nvar_obs']      = nvar
+        nvar    = len(varlist_obs)
+        self.config_data['vallist_undef']  = vallist_undef
+        self.config_data['varlist_fmt']    = varlist_fmt
+        self.config_data['varlist_obs']    = varlist_obs
+        self.config_data['nvar_obs']       = nvar
 
         #print(f" xxx nvar={nvar}  varlist = {varlist}")
 
@@ -374,7 +355,6 @@ class Program:
         # Also count how many spectra and append to data_event_dict
 
         msgerr   = []
-        fake     = self.config_inputs['args'].fake
         survey   = self.config_inputs['args'].survey
         d_raw    = data_event_dict['head_raw']
         d_calc   = data_event_dict['head_calc']
@@ -385,14 +365,18 @@ class Program:
         ra       = d_raw[gpar.DATAKEY_RA]
         dec      = d_raw[gpar.DATAKEY_DEC]
 
-        # if fake:
-        #     snana_flag_fake = gpar.SNANA_FLAG_FAKE
-        # else:
-        #     snana_flag_fake = gpar.SNANA_FLAG_DATA
+        snana_flag_fake = gpar.SNANA_FLAG_DATA
 
-        snana_flag_fake = gpar.SNANA_FLAG_FAKE if fake else gpar.SNANA_FLAG_DATA
+        # is SIM_MAGOBS columm exists, label data type as FAKE
+        # Note that SIMs get labeled as FAKE.
+        d_phot = data_event_dict['phot_raw']
+        if gpar.VARNAME_TRUEMAG in d_phot:
+            snana_flag_fake = gpar.SNANA_FLAG_FAKE
 
-        zcmb = util.helio_to_cmb(zhel, ra, dec)
+        if zhel > 0.0:
+            zcmb      = util.helio_to_cmb(zhel, ra, dec)
+        else:
+            zcmb = gpar.VAL_NULL
 
         # no urgency for loading MWEBV because TEXT->FITS translator
         # computes and stores MWEBV. However, if we want correct MWEBV
@@ -715,29 +699,6 @@ class Program:
         self.config_data['t_proc']     = t_dif_sec
         return
         # end walltime_read_data
-
-    def reset_data_event_dict(self):
-
-        # reset all data values to -9 to ensure that every
-        # key gets written to data files, even if read_event
-        # code fails to set a value.
-
-        raw_dict  = {}
-        calc_dict = {}
-        sim_dict  = {}
-
-        for key in gpar.DATAKEY_LIST_RAW:
-            raw_dict[key] = -9
-
-        for key in gpar.DATAKEY_LIST_CALC:
-            calc_dict[key] = -9
-
-        for key in gpar.DATAKEY_LIST_SIM:
-            sim_dict[key] = -9
-
-        return raw_dict, calc_dict, sim_dict
-
-        # end reset_data_event_dict
 
     def update_readme_stats(self, data_event_dict):
 

@@ -71,18 +71,22 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 # define list of variable names for each observation;
 VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
                "XPIX YPIX CCDNUM GAIN " \
-               "FLUXCAL FLUXCALERR ZPFLUX NEA SKYSIG "
+               "FLUXCAL FLUXCALERR PSF_SIG1 ZEROPT SKY_SIG"
+
+VARNAMES_OBS_LIST = VARNAMES_OBS.split()
 
 # -----------------------------------------------------------------------------
 # define text format for each VARNAMES_OBS
 VARNAMES_FMT = "10.4f 2s   8s    4d      6.1f 6.1f  4d     6.3f "\
                "12.4e    12.4e    8.4f  6.3f 6.2f "
 
+VARNAMES_FMT_LIST = VARNAMES_FMT.split()
 # -----------------------------------------------------------------------------
 # define values for undefined variables
 # value set to VAL_ABORT will trigger abort because it is required.
-VAL_ABORT    = 666
-VAL_NULL     = -9
+VAL_ABORT     = 666
+VAL_NULL      = -9
+VAL_NULL_LIST = [ -9, -99, -999 ] # any of these is treated as no value
 VAL_UNDEFINED_LIST = [
     VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
     VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL,
@@ -116,8 +120,10 @@ PROGRAM_SNANA = "snana.exe"
 #  + define MWEBV from SFD98
 #  + estimate PEAKMJD from fmax-clump method
 
-OPTIONS_TEXT2FITS_SNANA = "OPT_YAML 1  OPT_MWEBV 2  OPT_SETPKMJD 20"
-OPTION_TEXT2FITS_SPECTRA_SNANA =  "OPT_REFORMAT_FITS 128"
+OPTIONS_TEXT2FITS_SNANA = \
+        "OPT_YAML 1  OPT_MWEBV 3  OPT_SETPKMJD 20"
+OPTION_TEXT2FITS_SPECTRA_SNANA =  \
+        "OPT_REFORMAT_FITS 128"
 
 # -----------------------------------------------------------------------------
 # for writing events, update screen after this many
@@ -145,6 +151,7 @@ DATAKEY_NYPIX       = "NYPIX"
 DATAKEY_PIXSIZE     = "PIXSIZE"
 
 DATAKEY_SNID        = "SNID"
+DATAKEY_SNTYPE      = "SNTYPE"
 DATAKEY_FAKE        = "FAKE"
 DATAKEY_RA          = "RA"
 DATAKEY_DEC         = "DEC"
@@ -164,36 +171,46 @@ DATAKEY_FIELD       = "FIELD"
 DATAKEY_NOBS        = "NOBS"
 
 HOSTKEY_BASE          = "HOSTGAL"
+HOSTKEY_NMATCH        = "HOSTGAL_NMATCH"
+HOSTKEY_NMATCH2       = "HOSTGAL_NMATCH2"
 HOSTKEY_OBJID         = "HOSTGAL_OBJID"
 HOSTKEY_PHOTOZ        = "HOSTGAL_PHOTOZ"
 HOSTKEY_PHOTOZ_ERR    = "HOSTGAL_PHOTOZ_ERR"
 HOSTKEY_SPECZ         = "HOSTGAL_SPECZ"
 HOSTKEY_SPECZ_ERR     = "HOSTGAL_SPECZ_ERR"
 HOSTKEY_SNSEP         = "HOSTGAL_SNSEP"
+HOSTKEY_DDLR          = "HOSTGAL_DDLR"
 HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
 HOSTKEY_ELLIP         = "HOSTGAL_ELLIPTICITY"
 HOSTKEY_SQRADIUS      = "HOSTGAL_SQRADIUS"
-HOSTKEY_PREFIX_MAG    = "HOSTGAL_MAG"         # band-dependent
-HOSTKEY_PREFIX_MAGERR = "HOSTGAL_MAGERR"      # idem
-HOSTKEY_PREFIX_SB     = "HOSTGAL_SB_FLUXCAL"  # idem
+
+# define prefix for filter-dependent quantities
+HOSTKEY_PREFIX_MAG     = "HOSTGAL_MAG"         # band-dependent
+HOSTKEY_PREFIX_MAGERR  = "HOSTGAL_MAGERR"      # idem
+HOSTKEY2_PREFIX_MAG    = "HOSTGAL2_MAG"
+HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"
+HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
+
 
 # =============================================================================
 # LISTS
 # =============================================================================
 # -----------------------------------------------------------------------------
-HOSTKEY_PREFIX_LIST = [
-    HOSTKEY_PREFIX_MAG,
-    HOSTKEY_PREFIX_MAGERR,
-    HOSTKEY_PREFIX_SB
-]
+
+HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
+                        HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR,
+                        HOSTKEY_PREFIX_SB ]
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_RAW = [
-    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_FAKE, DATAKEY_FILTERS,
+    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_SNTYPE, DATAKEY_FAKE,
+    DATAKEY_FILTERS,
     DATAKEY_NXPIX, DATAKEY_NYPIX, DATAKEY_PIXSIZE,
     DATAKEY_RA, DATAKEY_DEC,
     DATAKEY_zHEL, DATAKEY_zHEL_ERR, DATAKEY_FIELD,
-    HOSTKEY_OBJID, HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR, HOSTKEY_SNSEP,
+    HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID,
+    HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR,
+    HOSTKEY_SNSEP,  HOSTKEY_DDLR,
     HOSTKEY_ELLIP, HOSTKEY_SQRADIUS
 ]
 
@@ -204,6 +221,8 @@ DATAKEY_LIST_CALC = [
     HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
 ]
 
+DATAKEY_LIST_PRIVATE = [] # filled if private variables exist
+
 # -----------------------------------------------------------------------------
 SIMKEY_TYPE_INDEX = "SIM_TYPE_INDEX"
 DATAKEY_LIST_SIM = [SIMKEY_TYPE_INDEX]
@@ -211,4 +230,11 @@ DATAKEY_LIST_SIM = [SIMKEY_TYPE_INDEX]
 # -----------------------------------------------------------------------------
 MODE_MERGE_MOVE = "MERGE_MOVE"  # move files, then remove original folder
 MODE_MERGE_LINK = "MERGE_LINK"  # merge with sym links; keep orig folder
+
+
+# developer REFAC/LEGACY flags
+REFAC_READ_SNANA_FOLDER  = 110  # remember as jan 10
+LEGACY_READ_SNANA_FOLDER = -1 * REFAC_READ_SNANA_FOLDER
+
+# == END ===
 

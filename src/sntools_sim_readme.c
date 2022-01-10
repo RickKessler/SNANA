@@ -370,17 +370,19 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 	  NGEN_REJECT.CUTWIN,
 	  (int)INPUTS.CUTWIN_NEPOCH[0] ) ;
 
-  /*
-  // spectroscopic tags ; do we still need this ???
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Spectroscopic-type: %d -> %d (before -> after cuts)\n",
-	  GENLC.NTYPE_SPEC, GENLC.NTYPE_SPEC_CUTS);
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  Photometric-type:   %d -> %d (before -> after cuts)\n",
-	  GENLC.NTYPE_PHOT, GENLC.NTYPE_PHOT_CUTS);
-  */
+  // check for wrong host info
+  if ( !IGNOREFILE(INPUTS.WRONGHOST_FILE) ) {
+    int N_WRONGHOST=0 ;  float FRAC=0.0 ;
 
-  //.xyz
+    N_WRONGHOST = GENLC.NTYPE_PHOT_WRONGHOST;
+    if ( NGENLC_WRITE>0 ) { FRAC = (float)N_WRONGHOST/ (float)NGENLC_WRITE; }
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNWRONGHOST_WRITE:   %d  "
+	    "  # frac = %.4f",  pad, N_WRONGHOST, FRAC );
+  }
+
+
   *iline = i;
   return;
 

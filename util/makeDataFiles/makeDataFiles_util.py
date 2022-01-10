@@ -11,6 +11,8 @@ import sys
 
 import numpy as np
 import yaml
+from astropy.io import fits
+
 #from astropy.table import Table
 
 #from makeDataFiles_params import *
@@ -227,7 +229,16 @@ def iyear_LSST(event_dict):
 
 # - - - - -
 def iyear_DES(event_dict):
-    return -1
+
+    # DES year/season starts at 1.
+    # SV is technically year 0, but there is no SV data in 
+    # final DES-SN data.
+
+    mjd       = event_dict['peakmjd']
+    mjd_start = 56500.0  # July 27 2013 -> start of Y1
+
+    iyear = int((mjd - mjd_start)/365.0) + 1
+    return iyear
 
 # ==============================================
 #  Utilities to transform coords and redshifts from
@@ -328,7 +339,467 @@ def cmb_to_helio(z, ra, dec):
 
     return one_plus_z_helio - 1.
 
-# ---------------------------------------------------
+
+# ========================================
+#  Jan 10 2022:
+#  These snana-reader utilities are outside the READ_SNANA_FOLDER class 
+#  so that legacy option works in same code version as --refac 110. 
+#  After legacy code is removed, these snana-reader utilities should be 
+#  moved inside the READ_SNANA_FOLDER class.
+#  
+def open_fits(file_name):
+    # check file_name and file_name.gz, and open the file that exists.
+    # Function returns hdu pointer and number of rows in table.
+
+    msgerr = []
+    file_namegz = f"{file_name}.gz"
+    if os.path.exists(file_namegz) :
+        hdul = fits.open(file_namegz)
+    elif os.path.exists(file_name):
+        hdul = fits.open(file_name)
+    else:
+        msgerr.append(f"Cannot find fits file")
+        msgerr.append(f" {file_name}   not")
+        msgerr.append(f" {file_namegz} ")
+        log_assert(False,msgerr)
+
+    NROW = hdul[1].header['NAXIS2']
+    return NROW, hdul
+
+    # end open_fits
+
+def reset_data_event_dict():
+
+    # Util for reading SNANA FITS format.
+    # reset all data values to -9 to ensure that every 
+    # key gets written to data files, even if read_event
+    # code fails to set a value. 
+    # Jan 8 2022: move this function out of base.
+
+    raw_dict  = {}
+    calc_dict = {}
+    sim_dict  = {}
+
+    for key in gpar.DATAKEY_LIST_RAW :
+        raw_dict[key] = -9
+
+    for key in gpar.DATAKEY_LIST_CALC :
+        calc_dict[key] = -9
+
+    for key in gpar.DATAKEY_LIST_SIM :
+        sim_dict[key] = -9
+
+    return raw_dict, calc_dict, sim_dict
+    # end reset_data_event_dict
+
+def get_snana_table_value(varlist, irow, table):
+
+    # Util for reading SNANA FITS format.
+    # Read "irow" of SNANA FITS table for varlist, and return value.
+    # Varlist = ['NAME1', 'NAME2', etc] is a list of column names to check. 
+    # This allows reading older legacy  names;
+    # E.g., varlist = ['DEC', 'DECL'] returns value if either key is present.
+
+    value = None
+    for varname in varlist:
+        try:
+            value = table[varname][irow]
+            return value
+        except:
+            pass  # just try next varname                                   
+    return value
+
+    # end get_snana_table_value
+
+def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
+
+    # store hostgal values in head_store dictionary.
+    # Note that input head_store is modified here.
+    #
+    # Inputs:
+    #  datakey_list:   list of keys to load
+    #  evt:            event number/row number of table
+    #  table_dict      fits table info
+    #
+    # Output:
+    #   head_store:   output dictionary
+    #
+    # If HOSTGAL_SPECZ[PHOTOZ] < 0, set values to VAL_NULL for clarity.
+
+    table_head = table_dict['table_head']
+    head_names = table_dict['head_names']
+
+    len_base = len(gpar.HOSTKEY_BASE)
+    for key in datakey_list:
+        if gpar.HOSTKEY_BASE not in key:
+            continue
+
+        is_z = gpar.HOSTKEY_SPECZ in key or gpar.HOSTKEY_PHOTOZ in key
+        key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
+        key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
+        key_list = [ key, key2, key3]
+        for k in key_list:
+            if k in head_names :
+                val = table_head[k][evt]
+                if is_z and val < 0.0 : val = gpar.VAL_NULL
+                head_store[k] = val
+
+    # end store_snana_hostgal
+
+def store_snana_private(datakey_list, evt, table_dict):
+
+    # store private values in head_store dictionary.
+    #
+    # Inputs:
+    #  datakey_list:   list of keys to load
+    #  evt:            event number/row number of table
+    #  table_dict      fits table info
+    #
+    # function output:
+    #   head_store:   output dictionary
+    #
+    # If HOSTGAL_SPECZ[PHOTOZ] < 0, set values to VAL_NULL for clarity.
+
+    table_head = table_dict['table_head']
+    head_names = table_dict['head_names']
+    head_private = {}
+
+    for key in datakey_list:
+        head_private[key] = table_head[key][evt]
+
+    return head_private
+
+    # end store_snana_private
+
+def field_plasticc_hack(field, head_file_name):
+
+    # ugly/embarassing hack to get field (DDF or WFD) from filename
+    # because original plasticc data didn't store field.
+    # If input field is NULL or VOID, set it based on head_file_name.
+
+    missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
+    if not missing_field : return
+
+    if gpar.FIELD_DDF in head_file_name:
+        field = gpar.FIELD_DDF
+    elif gpar.FIELD_WFD in head_file_name:
+        field = gpar.FIELD_WFD
+    else:
+        msgerr.append(f"Unable to determine FIELD for")
+        msgerr.append(f"{head_file_name}")
+        log_assert(False,msgerr)
+
+    return field
+    # end field_plasticc_hack
+        
+# ====================================================
+# utility class to read SNANA folder in FITS format
+# ====================================================
+
+class READ_SNANA_FOLDER:
+
+    """
+    Created Jan 8 2022 by R.Kessler
+    Tools to read SNANA data files in FITS format.
+
+    __init__ " read LIST file and store list of HEAD-FITS files
+
+    Loop over ifile until nevt=0:
+       nevt = exec_read(ifile):  
+           read and store contents of HEAD and PHOT for file index ifile
+
+       data_dict = get_data_dict(args, evt):
+         Return data_dict for input args(cuts) and event/row 'evt'.
+         This is the standard data_dict that is written to output.
+
+       end_read(): close HEAD and PHOT fits file
+
+    """
+
+    def __init__(self, data_folder):
+
+        # Created Jan 8 2022 by R.Kessler
+
+        version      = os.path.basename(data_folder)
+        list_file    = f"{data_folder}/{version}.LIST"
+    
+        # scoop up contents of LIST file  
+        with open(list_file, 'r') as f:
+            HEAD_file_list = f.read().replace('\n', ' ').split()
+   
+        n_HEAD_file = len(HEAD_file_list)
+
+        logging.info(f" Read data version = {version}")
+        logging.info(f" from data_folder = {data_folder}")
+        logging.info(f" Found {n_HEAD_file} FITS-HEAD files.")    
+     
+        self.snana_folder_dict  = {}
+        self.snana_folder_dict['data_folder']     = data_folder
+        self.snana_folder_dict['version']         = version
+        self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
+        self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
+        self.snana_folder_dict['private_dict']    = {}
+
+    def exec_read(self, ifile):
+
+        n_HEAD_file      = self.snana_folder_dict['n_HEAD_file']
+        if ifile >= n_HEAD_file  :
+            return 0 # done reading
+
+        data_folder      = self.snana_folder_dict['data_folder']
+        HEAD_file_base   = self.snana_folder_dict['HEAD_file_list'][ifile]
+
+        HEAD_file       = f"{data_folder}/{HEAD_file_base}"
+        nevt, hdu_head  = open_fits(HEAD_file)
+
+        PHOT_file_base  = hdu_head[0].header['PHOTFILE']
+        PHOT_file       = f"{data_folder}/{PHOT_file_base}"
+        NROW, hdu_phot  = open_fits(PHOT_file)
+
+        logging.info(f"   Read {nevt} events from {HEAD_file_base}")
+
+        table_head = hdu_head[1].data
+        table_phot = hdu_phot[1].data
+
+        head_names = table_head.columns.names
+        phot_names = table_phot.columns.names
+
+        table_dict = {
+            'head_file'  : HEAD_file_base,
+            'table_head' : table_head,
+            'table_phot' : table_phot,
+            'head_names' : head_names,
+            'phot_names' : phot_names
+        }
+
+        self.snana_folder_dict['nevt_subgroup'] = nevt
+        self.snana_folder_dict['table_dict'] = table_dict
+        self.snana_folder_dict['hdu_head']   = hdu_head
+        self.snana_folder_dict['hdu_phot']   = hdu_phot
+
+        if ifile == 0:
+            self.init_first_file()
+
+        return nevt
+        # end exec_read
+
+    def init_first_file(self):
+
+        # init a few things after opening first fits file
+
+        table_dict   = self.snana_folder_dict['table_dict']
+        private_dict = self.snana_folder_dict['private_dict']
+
+        head_names = table_dict['head_names']
+        phot_names = table_dict['phot_names']
+
+        # check for true mag in PHOT table
+        # e.g., fakes overlaid on images or sim
+        if gpar.VARNAME_TRUEMAG in phot_names:
+            gpar.VAL_UNDEFINED_LIST   += [gpar.VAL_NULL]
+            gpar.VARNAMES_FMT_LIST    += ["8.4f"]
+            gpar.VARNAMES_OBS_LIST    += [gpar.VARNAME_TRUEMAG]
+
+        # if there are PRIVATE variables, add them to list to read/store
+        # If no private variables are specified in private_dict,
+        # then keep them all. Note that key = 'PRIVATE(subkey)'
+        n_private_keep = len(private_dict)
+        for key in head_names:
+            if key[0:7] != "PRIVATE" : continue
+            keep = True
+            if n_private_keep > 0 :
+                subkey = key.split('(')[1][:-1]
+                keep = subkey in private_dict
+                #print(f" xxx key={key}  subkey={subkey}  keep={keep}")
+
+            if keep :
+                gpar.DATAKEY_LIST_PRIVATE  += [ key ]
+                
+        # end init_first_file
+
+    def init_private_dict(self, private_dict):
+        # store dictionary of private variables to keep
+        # If this function isn't called, then all private variables
+        # are kept by default.
+        self.snana_folder_dict['private_dict']   = private_dict
+        # end init_private_dict
+
+    def get_data_dict(self, args, evt):
+
+        # Inputs:
+        #   args:  input command line args to implement user cuts
+        #   evt:   event/row number to get data_dict
+        #
+        # Outut:
+        #   Return data_dict for this 'evt'
+
+        msgerr     = []
+
+        table_dict = self.snana_folder_dict['table_dict']
+
+        # define local pointers to head and phot tables from FITS file
+        table_head = table_dict['table_head']
+        table_phot = table_dict['table_phot']
+        head_names = table_dict['head_names']
+        phot_names = table_dict['phot_names']
+
+        # init output dictionaries
+        head_raw, head_calc, head_sim = reset_data_event_dict()
+
+        # read and store SNID
+        try:
+            SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
+        except:
+            SNID = table_head.SNID[evt]
+        head_raw[gpar.DATAKEY_SNID]    = SNID
+
+        # read and store SNTYPE (typically this is spectroscopic type or 0)
+        head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
+        
+        # read and store coords; allow DEC or legacy DECL name
+        head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
+        head_raw[gpar.DATAKEY_DEC] = \
+            get_snana_table_value(['DEC','DECL'],evt,table_head)
+
+
+        # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
+        head_calc[gpar.DATAKEY_PEAKMJD]   = table_head.PEAKMJD[evt]
+
+        KEY0 = gpar.DATAKEY_MJD_DETECT_FIRST
+        KEY1 = gpar.DATAKEY_MJD_DETECT_LAST
+        if gpar.DATAKEY_MJD_DETECT_FIRST in head_names:
+            head_calc[KEY0] =  table_head.MJD_DETECT_FIRST[evt]
+            head_calc[KEY1] =  table_head.MJD_DETECT_LAST[evt]
+        else:
+            # data does not have [MJD_DETECT_FIRST,LAST], so abort if
+            # if nite-range selection is requsted
+            nite_range = args.nite_detect_range
+            if nite_range is not None:
+                msgerr.append(f"Cannot implement nite_detect_range = " \
+                              f"{nite_range}")
+                msgerr.append(f"Because {KEY0} is not in data header")
+                log_assert(False,msgerr)
+
+        # - - - - - - - 
+        # check user sub-sample selection here to avoid reading
+        # remainder of header and photometry for rejected events.
+        apply_select = True
+        if apply_select :
+            var_dict = {
+                gpar.DATAKEY_SNID       : int(SNID),
+                gpar.DATAKEY_RA         : head_raw[gpar.DATAKEY_RA],
+                gpar.DATAKEY_DEC        : head_raw[gpar.DATAKEY_DEC],
+                gpar.DATAKEY_PEAKMJD    : head_calc[gpar.DATAKEY_PEAKMJD],
+                gpar.DATAKEY_MJD_DETECT_FIRST : \
+                head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+            }
+            sel = select_subsample(args,var_dict)
+            if sel is False :
+                data_dict = {
+                    'head_raw'  : head_raw,
+                    'head_calc' : head_calc,
+                    'select'    : False
+                }
+                return data_dict
+
+        # - - - - - - -
+        # load helio redshift info
+        head_raw[gpar.DATAKEY_zHEL]      = table_head.REDSHIFT_HELIO[evt]
+        head_raw[gpar.DATAKEY_zHEL_ERR]  = table_head.REDSHIFT_HELIO_ERR[evt]
+
+        # strip off calculated zCMB redshfit 
+        head_calc[gpar.DATAKEY_zCMB]       = table_head.REDSHIFT_FINAL[evt]
+        head_calc[gpar.DATAKEY_zCMB_ERR]   = table_head.REDSHIFT_FINAL_ERR[evt]
+
+
+        # Galactic extinction
+        head_calc[gpar.DATAKEY_MWEBV]      = table_head.MWEBV[evt]
+        head_calc[gpar.DATAKEY_MWEBV_ERR]  = table_head.MWEBV_ERR[evt]
+
+        # - - - - - -
+        # store HOSTGAL and HOSTGAL2 keys in head_raw[calc].
+        # head_[raw,calc] is both input and output of store_snana_hostgal
+        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
+                            head_raw ) 
+        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
+                            head_calc)
+
+        # - - - - - 
+        # store optional PRIVATE variables
+        head_private = \
+            store_snana_private(gpar.DATAKEY_LIST_PRIVATE, evt, table_dict)
+
+        # check for true sim type (sim or fakes), Nov 14 2021
+        KEY = gpar.SIMKEY_TYPE_INDEX
+        if KEY in head_names:   head_sim[KEY] = table_head[KEY][evt]
+
+        # - - - - - - - - - - -
+        # get pointers to PHOT table.
+        # Beware that PTROBS pointers start at 1 instead of 0,
+        # so subtract 1 here to have python indexing.
+        ROWMIN = table_head.PTROBS_MIN[evt] - 1
+        ROWMAX = table_head.PTROBS_MAX[evt] - 1
+        NOBS   = ROWMAX - ROWMIN + 1
+
+        phot_raw   = {}
+        phot_raw['NOBS'] = NOBS
+
+        table_column_names = table_phot.columns.names
+
+        # check for reading legacy FLT column name (instead of BAND).
+        # Note that data_dict loads 'BAND' even if the input column is FLT.
+        LEGACY_FLT = False
+        if 'FLT' in table_column_names:  LEGACY_FLT = True 
+
+        for varname in gpar.VARNAMES_OBS_LIST:
+            phot_raw[varname] = [ None ] * NOBS
+            varname_table = varname
+            if LEGACY_FLT:  
+                if varname == 'BAND' : varname_table = 'FLT'
+
+            if varname_table in table_column_names :
+                phot_raw[varname] = \
+                    table_phot[varname_table][ROWMIN:ROWMAX+1].copy()
+
+        # - - - - -
+        # get field from from first observation,
+        # Beware that light curve can overlap multiple fields.
+        field = phot_raw[gpar.DATAKEY_FIELD][0]
+        if args.survey == 'LSST' :
+            field = field_plasticc_hack(field,table_dict['head_file'])
+        head_raw[gpar.DATAKEY_FIELD] = field
+
+        # - - - -
+        # load blank dictionary for spectra ... to be filled later.
+        spec_raw = {}
+
+        # - - - - -
+        # load output dictionary
+        data_dict = {
+            'head_raw'     : head_raw,
+            'head_calc'    : head_calc,
+            'head_private' : head_private,
+            'phot_raw'     : phot_raw,
+            'spec_raw'     : spec_raw
+        }
+
+        # check optional dictionary items to append
+        if len(head_sim) > 0:
+            data_dict['head_sim'] =  head_sim
+
+        if apply_select :
+            data_dict['select'] = True
+
+        return data_dict
+
+        # end get_data_dict
+
+    def end_read(self):
+        self.snana_folder_dict['hdu_head'].close()
+        self.snana_folder_dict['hdu_phot'].close()
+
+
+# -----------------------
 # MESSAGING
 # ------------------------
 class MessageStore(logging.Handler):

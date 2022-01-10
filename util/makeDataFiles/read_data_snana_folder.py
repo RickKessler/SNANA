@@ -25,57 +25,87 @@ class data_snana_folder(Program):
         print(" Init data_snana_folder class.")
         super().__init__(config_inputs,config_data)
 
+        args          = self.config_inputs['args']  # command line args
+        refac, legacy = self.snana_refac_legacy()
 
-    #TODO: rename init_read_snana_data
+        if refac:
+            # run __init__ in snana-reader class
+            snana_folder = args.snana_folder
+            SNANA_READER = util.READ_SNANA_FOLDER(snana_folder) 
+            config_data['SNANA_READER'] = SNANA_READER
+
     def init_read_data(self):
-        args = self.config_inputs['args']  # command line args
 
+        refac, legacy = self.snana_refac_legacy()
+
+        if refac: 
+            return
+
+        if legacy:
+            self.init_read_data_legacy()
+
+        return
+
+        # end init_read_data
+
+    def init_read_data_legacy(self):
+        args         = self.config_inputs['args']  # command line args
         data_folder  = os.path.expandvars(args.snana_folder)
         version      = os.path.basename(data_folder)
         list_file    = f"{data_folder}/{version}.LIST"
-
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_foler = {data_folder}")
-        sys.stdout.flush()
-
         # scoop up contents of LIST file
         with open(list_file, 'r') as f:
             HEAD_file_list = f.read().replace('\n', ' ').split()
-
         self.config_data['HEAD_file_list'] = HEAD_file_list
         self.config_data['n_HEAD_file']    = len(HEAD_file_list)
         self.config_data['version']        = version
         self.config_data['data_folder']    = data_folder
+        return
+        # end init_read_data_legacy
 
-        # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):
 
-        n_HEAD_file      = self.config_data['n_HEAD_file']
+        refac, legacy = self.snana_refac_legacy()
 
-        if i_subgroup == n_HEAD_file  :
-            return 0 # done reading
+        if refac :
+            SNANA_READER = self.config_data['SNANA_READER']
+            nevt = SNANA_READER.exec_read(i_subgroup)
+
+        if legacy:
+            nevt = self.prep_read_data_legacy(i_subgroup)
+
+        # - - - -
+        return nevt
+
+        #end prep_read_data_subgroup
+
+    def prep_read_data_legacy(self, i_subgroup):
+
+        n_HEAD_file      = self.config_data['n_HEAD_file']
+        if i_subgroup == n_HEAD_file  :  return 0 # done reading
 
         data_folder      = self.config_data['data_folder']
         HEAD_file_base   = self.config_data['HEAD_file_list'][i_subgroup]
 
         HEAD_file       = f"{data_folder}/{HEAD_file_base}"
-        nevt, hdu_head  = self.open_snana_fits(HEAD_file)
+        nevt, hdu_head  = util.open_fits(HEAD_file)
 
         PHOT_file_base  = hdu_head[0].header['PHOTFILE']
         PHOT_file       = f"{data_folder}/{PHOT_file_base}"
-        NROW, hdu_phot  = self.open_snana_fits(PHOT_file)
+        NROW, hdu_phot  = util.open_fits(PHOT_file)
 
         logging.info(f"   Read {nevt} events from {HEAD_file_base}")
-        sys.stdout.flush()
 
         table_head = hdu_head[1].data
         table_phot = hdu_phot[1].data
-
         head_names = table_head.columns.names
         phot_names = table_phot.columns.names
 
         # on first subgroup, check for true mag in PHOT table
+        # e.g., fakes overlaid on images or sim
         if i_subgroup == 0 and gpar.VARNAME_TRUEMAG in phot_names:
             self.append_truemag_obs()
 
@@ -92,40 +122,47 @@ class data_snana_folder(Program):
         self.config_data['hdu_head']   = hdu_head
         self.config_data['hdu_phot']   = hdu_phot
 
+        # - - - -
         return nevt
 
-        #end prep_read_data_subgroup
+        #end prep_read_data_legacy
 
     def end_read_data_subgroup(self):
-        self.config_data['hdu_head'].close()
-        self.config_data['hdu_phot'].close()
+        
+        refac, legacy = self.snana_refac_legacy()
+
+        if refac:
+            SNANA_READER = self.config_data['SNANA_READER']
+            SNANA_READER.end_read()
+
+        if legacy:
+            self.config_data['hdu_head'].close()
+            self.config_data['hdu_phot'].close()
+
+        # end end_read_data_subgroup
 
     def end_read_data(self):
         # global end for reading data
         pass
 
-    def open_snana_fits(self,file_name):
-       # check file_name and file_name.gz, and open the file that exists.
-       # Function returns hdu pointer and number of rows in table.
+    def read_event(self,evt):
 
-        msgerr = []
-        file_namegz = f"{file_name}.gz"
-        if os.path.exists(file_namegz) :
-            hdul = fits.open(file_namegz)
-        elif os.path.exists(file_name):
-            hdul = fits.open(file_name)
-        else:
-            msgerr.append(f"Cannot find fits file")
-            msgerr.append(f" {file_name}   not")
-            msgerr.append(f" {file_namegz} ")
-            util.log_assert(False,msgerr)
+        args          = self.config_inputs['args']  # command line args
+        refac, legacy = self.snana_refac_legacy()
 
-        NROW = hdul[1].header['NAXIS2']
-        return NROW, hdul
+        if refac: 
+            SNANA_READER = self.config_data['SNANA_READER']
+            data_dict = SNANA_READER.get_data_dict(args,evt)
 
-    # end open_snana_fits
+        if legacy:
+            data_dict = self.read_event_legacy(evt)
 
-    def read_event(self, evt ):
+        return data_dict
+
+        # end read_event
+
+
+    def read_event_legacy(self,evt):
 
         msgerr     = []
         table_dict = self.config_data['table_dict']
@@ -141,19 +178,21 @@ class data_snana_folder(Program):
         phot_names = table_dict['phot_names']
 
         # init output dictionaries
-        head_raw, head_calc, head_sim = self.reset_data_event_dict()
+        head_raw, head_calc, head_sim = util.reset_data_event_dict()
 
         try:
             SNID = table_head.SNID[evt].decode('utf-8').replace(' ','')
         except:
             SNID = table_head.SNID[evt]
-        head_raw[gpar.DATAKEY_SNID]  = SNID
+        head_raw[gpar.DATAKEY_SNID]    = SNID
 
+        head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
+        
         head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
 
         # check 'DEC' and legacy column name 'DECL'
         head_raw[gpar.DATAKEY_DEC] = \
-            self.get_table_value(['DEC','DECL'],evt,table_head)
+            util.get_snana_table_value(['DEC','DECL'],evt,table_head)
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[gpar.DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
@@ -204,8 +243,10 @@ class data_snana_folder(Program):
 
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
-        self.store_hostgal(gpar.DATAKEY_LIST_RAW,  evt, head_raw ) # return head_raw
-        self.store_hostgal(gpar.DATAKEY_LIST_CALC, evt, head_calc)
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
+                                 head_raw )
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict, 
+                                 head_calc)
 
         # check for true sim type (sim or fakes), Nov 14 2021
         if gpar.SIMKEY_TYPE_INDEX in head_names:
@@ -241,9 +282,8 @@ class data_snana_folder(Program):
         # get field from from first observation,
         # Beware that event can overlap multiple fields.
         field = phot_raw[gpar.DATAKEY_FIELD][0]
-        missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
-        if missing_field  and args.survey == 'LSST' :
-            field = self.field_plasticc_hack(table_dict['head_file'])
+        if args.survey == 'LSST' :
+            field = util.field_plasticc_hack(field,table_dict['head_file'])
 
         head_raw[gpar.DATAKEY_FIELD] = field
 
@@ -266,64 +306,7 @@ class data_snana_folder(Program):
 
         return data_dict
 
-        # end read_event
-
-    def store_hostgal(self, datakey_list, evt, head_store):
-
-        # store hostgal info in head_store dictionary.
-        # Note that input head_store is modified here.
-
-        table_dict = self.config_data['table_dict']
-        table_head = table_dict['table_head']
-        head_names = table_dict['head_names']
-
-        len_base = len(gpar.HOSTKEY_BASE)
-        for key in datakey_list:
-            if gpar.HOSTKEY_BASE not in key:
-                continue
-            key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
-            key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
-            key_list = [ key, key2, key3]
-            for k in key_list:
-                if k in head_names :
-                    head_store[k] = table_head[k][evt]
-
-        # end store_hostgal
-
-
-    def get_table_value(self, varlist, irow, table):
-
-        # return "irow" table value for varlist,
-        # where varlist = ['NAME1', 'NAME2', etccc]
-        # will sequentially check NAME1, NAME2, etc ...
-
-        value = None
-        for varname in varlist:
-            try:
-                value = table[varname][irow]
-                return value
-            except:
-                pass  # just try next varname
-
-        return value
-        # end get_table_value
-
-    def field_plasticc_hack(self,head_file_name):
-
-        # ugly/embarassing hack to get field (DDF or WFD) from filename
-        # because original plasticc data didn't store field.
-
-        if gpar.FIELD_DDF in head_file_name:
-            field = gpar.FIELD_DDF
-        elif gpar.FIELD_WFD in head_file_name:
-            field = gpar.FIELD_WFD
-        else:
-            msgerr.append(f"Unable to determine FIELD for")
-            msgerr.append(f"{head_file_name}")
-            util.log_assert(False,msgerr)
-
-        return field
-        # end field_plasticc_hack
+        # end read_event_legacy
 
     def set_dump_flag(self, isn, data_event_dict):
         d_raw = data_event_dict['head_raw']
@@ -332,3 +315,17 @@ class data_snana_folder(Program):
         return dump_flag
         # set_dump_flag
 
+    def snana_refac_legacy(self):
+
+        args   = self.config_inputs['args']  # command line args
+
+        # default is legacy unless refac=110
+        #refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER 
+        #legacy = not refac
+
+        # default is refac unless refac=-110
+        legacy  = args.refac == gpar.LEGACY_READ_SNANA_FOLDER 
+        refac   = not legacy
+
+        return refac, legacy
+        # end refac_legacy

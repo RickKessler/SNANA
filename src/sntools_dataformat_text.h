@@ -72,6 +72,8 @@ void wr_sntextio_datafile__(char *OUTFILE);
 
 void wr_dataformat_text_HEADER(FILE *fp ) ;
 void wr_dataformat_text_HOSTGAL(FILE *fp) ;
+void wr_dataformat_text_PRIVATE(FILE *fp) ;
+
 void wr_dataformat_text_SIMPAR(FILE *fp ) ;
 void wr_dataformat_text_SNPHOT(FILE *fp ) ;
 void wr_dataformat_text_SNSPEC(FILE *fp ) ;

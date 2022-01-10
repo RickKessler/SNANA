@@ -274,13 +274,7 @@ class Program:
         survey   = self.config_inputs['args'].survey
         filters  = list(gpar.SURVEY_INFO['FILTERS'][survey])
 
-        #global DATAKEY_LIST_RAW
-        prefix_list = [
-            gpar.HOSTKEY_PREFIX_MAG,
-            gpar.HOSTKEY_PREFIX_MAGERR,
-            gpar.HOSTKEY_PREFIX_SB
-        ]
-        for prefix in prefix_list :
+        for prefix in gpar.HOSTKEY_PREFIX_LIST :
             for band in filters:
                 datakey = f"{prefix}_{band}"
                 gpar.DATAKEY_LIST_RAW.append(datakey)
@@ -362,15 +356,10 @@ class Program:
         if gpar.VARNAME_TRUEMAG in d_phot:
             snana_flag_fake = gpar.SNANA_FLAG_FAKE
 
-        # xxxx mark delete Jan 7 2022 xxxxxxx
-        #fake     = self.config_inputs['args'].fake
-        #if fake :
-        #    snana_flag_fake = SNANA_FLAG_FAKE
-        #else:
-        #    snana_flag_fake = SNANA_FLAG_DATA
-        # xxxxxxxxx end mark xxxxxxx
-
-        zcmb      = util.helio_to_cmb(zhel, ra, dec)
+        if zhel > 0.0:
+            zcmb      = util.helio_to_cmb(zhel, ra, dec)
+        else:
+            zcmb = gpar.VAL_NULL
 
         # no urgency for loading MWEBV because TEXT->FITS translator
         # computes and stores MWEBV. However, if we want correct MWEBV

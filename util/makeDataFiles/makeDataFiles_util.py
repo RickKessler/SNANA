@@ -229,7 +229,16 @@ def iyear_LSST(event_dict):
 
 # - - - - -
 def iyear_DES(event_dict):
-    return -1
+
+    # DES year/season starts at 1.
+    # SV is technically year 0, but there is no SV data in 
+    # final DES-SN data.
+
+    mjd       = event_dict['peakmjd']
+    mjd_start = 56500.0  # July 27 2013 -> start of Y1
+
+    iyear = int((mjd - mjd_start)/365.0) + 1
+    return iyear
 
 # ==============================================
 #  Utilities to transform coords and redshifts from
@@ -404,7 +413,7 @@ def get_snana_table_value(varlist, irow, table):
 
 def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
 
-    # store hostgal info in head_store dictionary.
+    # store hostgal values in head_store dictionary.
     # Note that input head_store is modified here.
     #
     # Inputs:
@@ -414,6 +423,8 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
     #
     # Output:
     #   head_store:   output dictionary
+    #
+    # If HOSTGAL_SPECZ[PHOTOZ] < 0, set values to VAL_NULL for clarity.
 
     table_head = table_dict['table_head']
     head_names = table_dict['head_names']
@@ -422,14 +433,43 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
     for key in datakey_list:
         if gpar.HOSTKEY_BASE not in key:
             continue
+
+        is_z = gpar.HOSTKEY_SPECZ in key or gpar.HOSTKEY_PHOTOZ in key
         key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
         key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
         key_list = [ key, key2, key3]
         for k in key_list:
             if k in head_names :
-                head_store[k] = table_head[k][evt]
+                val = table_head[k][evt]
+                if is_z and val < 0.0 : val = gpar.VAL_NULL
+                head_store[k] = val
 
-    # end store_hostgal
+    # end store_snana_hostgal
+
+def store_snana_private(datakey_list, evt, table_dict):
+
+    # store private values in head_store dictionary.
+    #
+    # Inputs:
+    #  datakey_list:   list of keys to load
+    #  evt:            event number/row number of table
+    #  table_dict      fits table info
+    #
+    # function output:
+    #   head_store:   output dictionary
+    #
+    # If HOSTGAL_SPECZ[PHOTOZ] < 0, set values to VAL_NULL for clarity.
+
+    table_head = table_dict['table_head']
+    head_names = table_dict['head_names']
+    head_private = {}
+
+    for key in datakey_list:
+        head_private[key] = table_head[key][evt]
+
+    return head_private
+
+    # end store_snana_private
 
 def field_plasticc_hack(field, head_file_name):
 
@@ -457,7 +497,6 @@ def field_plasticc_hack(field, head_file_name):
 # ====================================================
 
 class READ_SNANA_FOLDER:
-
 
     """
     Created Jan 8 2022 by R.Kessler
@@ -499,6 +538,7 @@ class READ_SNANA_FOLDER:
         self.snana_folder_dict['version']         = version
         self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
+        self.snana_folder_dict['private_dict']    = {}
 
     def exec_read(self, ifile):
 
@@ -524,13 +564,6 @@ class READ_SNANA_FOLDER:
         head_names = table_head.columns.names
         phot_names = table_phot.columns.names
 
-        # on first subgroup, check for true mag in PHOT table
-        # e.g., fakes overlaid on images or sim
-        if ifile == 0 and gpar.VARNAME_TRUEMAG in phot_names:
-            gpar.VAL_UNDEFINED_LIST   += [gpar.VAL_NULL]
-            gpar.VARNAMES_FMT_LIST    += ["8.4f"]
-            gpar.VARNAMES_OBS_LIST    += [gpar.VARNAME_TRUEMAG]
-
         table_dict = {
             'head_file'  : HEAD_file_base,
             'table_head' : table_head,
@@ -544,8 +577,52 @@ class READ_SNANA_FOLDER:
         self.snana_folder_dict['hdu_head']   = hdu_head
         self.snana_folder_dict['hdu_phot']   = hdu_phot
 
+        if ifile == 0:
+            self.init_first_file()
+
         return nevt
         # end exec_read
+
+    def init_first_file(self):
+
+        # init a few things after opening first fits file
+
+        table_dict   = self.snana_folder_dict['table_dict']
+        private_dict = self.snana_folder_dict['private_dict']
+
+        head_names = table_dict['head_names']
+        phot_names = table_dict['phot_names']
+
+        # check for true mag in PHOT table
+        # e.g., fakes overlaid on images or sim
+        if gpar.VARNAME_TRUEMAG in phot_names:
+            gpar.VAL_UNDEFINED_LIST   += [gpar.VAL_NULL]
+            gpar.VARNAMES_FMT_LIST    += ["8.4f"]
+            gpar.VARNAMES_OBS_LIST    += [gpar.VARNAME_TRUEMAG]
+
+        # if there are PRIVATE variables, add them to list to read/store
+        # If no private variables are specified in private_dict,
+        # then keep them all. Note that key = 'PRIVATE(subkey)'
+        n_private_keep = len(private_dict)
+        for key in head_names:
+            if key[0:7] != "PRIVATE" : continue
+            keep = True
+            if n_private_keep > 0 :
+                subkey = key.split('(')[1][:-1]
+                keep = subkey in private_dict
+                #print(f" xxx key={key}  subkey={subkey}  keep={keep}")
+
+            if keep :
+                gpar.DATAKEY_LIST_PRIVATE  += [ key ]
+                
+        # end init_first_file
+
+    def init_private_dict(self, private_dict):
+        # store dictionary of private variables to keep
+        # If this function isn't called, then all private variables
+        # are kept by default.
+        self.snana_folder_dict['private_dict']   = private_dict
+        # end init_private_dict
 
     def get_data_dict(self, args, evt):
 
@@ -586,7 +663,7 @@ class READ_SNANA_FOLDER:
 
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
-        head_calc[gpar.DATAKEY_PEAKMJD]   = int(table_head.PEAKMJD[evt])
+        head_calc[gpar.DATAKEY_PEAKMJD]   = table_head.PEAKMJD[evt]
 
         KEY0 = gpar.DATAKEY_MJD_DETECT_FIRST
         KEY1 = gpar.DATAKEY_MJD_DETECT_LAST
@@ -634,6 +711,7 @@ class READ_SNANA_FOLDER:
         head_calc[gpar.DATAKEY_zCMB]       = table_head.REDSHIFT_FINAL[evt]
         head_calc[gpar.DATAKEY_zCMB_ERR]   = table_head.REDSHIFT_FINAL_ERR[evt]
 
+
         # Galactic extinction
         head_calc[gpar.DATAKEY_MWEBV]      = table_head.MWEBV[evt]
         head_calc[gpar.DATAKEY_MWEBV_ERR]  = table_head.MWEBV_ERR[evt]
@@ -646,10 +724,14 @@ class READ_SNANA_FOLDER:
         store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
                             head_calc)
 
+        # - - - - - 
+        # store optional PRIVATE variables
+        head_private = \
+            store_snana_private(gpar.DATAKEY_LIST_PRIVATE, evt, table_dict)
+
         # check for true sim type (sim or fakes), Nov 14 2021
         KEY = gpar.SIMKEY_TYPE_INDEX
         if KEY in head_names:   head_sim[KEY] = table_head[KEY][evt]
-
 
         # - - - - - - - - - - -
         # get pointers to PHOT table.
@@ -694,10 +776,11 @@ class READ_SNANA_FOLDER:
         # - - - - -
         # load output dictionary
         data_dict = {
-            'head_raw'  : head_raw,
-            'head_calc' : head_calc,
-            'phot_raw'  : phot_raw,
-            'spec_raw'  : spec_raw
+            'head_raw'     : head_raw,
+            'head_calc'    : head_calc,
+            'head_private' : head_private,
+            'phot_raw'     : phot_raw,
+            'spec_raw'     : spec_raw
         }
 
         # check optional dictionary items to append

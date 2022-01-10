@@ -66,10 +66,14 @@ def write_event_text_snana(args, config_data, data_event_dict):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
 
+    # check optional pieces of header
+    head_private = None
+    if 'head_private' in data_event_dict :
+        head_private = data_event_dict['head_private']
+
+    head_sim     = None
     if 'head_sim' in data_event_dict :
         head_sim  = data_event_dict['head_sim']
-    else:
-        head_sim = None
 
     phot_raw  = data_event_dict['phot_raw']
     spec_raw  = data_event_dict['spec_raw']
@@ -88,6 +92,10 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
         f.write("\n# computed quantities \n")
         write_header_snana(f,head_calc)
+
+        if head_private :
+            f.write("\n# PRIVATE (non-standard) variables \n")
+            write_header_snana(f,head_private)
 
         if head_sim :
             f.write("\n# sim/truth quantities \n")
@@ -109,6 +117,9 @@ def write_header_snana(f, data_head):
     # Be careful for HOSTGAL_XXX keys that are filter dependent;
     # filter-dependent values are written on same line as key,
     # not separate line per filter.
+    #
+    # Some tricks are used for human-readability;
+    # e.g,, -1.00000 is written as -1, etc ...
 
     # init filter-dependent list of hostgal values
     hostgal_string_vals = {}
@@ -123,25 +134,42 @@ def write_header_snana(f, data_head):
         key_plus_err   = f"{key}_ERR"
         key_plus_colon = f"{key}:"
         val            = data_head[key]
+
         string_val     = f"{val}"
+        if isinstance(val,float):  
+            ival = int(val)
+            if val == ival : string_val = f"{ival}"
 
-        if val == gpar.VAL_NULL : continue
+        is_redshift    = "REDSHIFT" in key
+        is_private     = "PRIVATE"  in key
+        is_hostgal     = "HOSTGAL"  in key
 
-        if "HOSTGAL" in key:
+        # skip keys with NULL value, except for keys with REDSHIFT ...
+        # must always write REDSHIFT.
+        skip = False
+        if not (is_redshift or is_private) :
+            skip = val in gpar.VAL_NULL_LIST
+        if skip: continue
+
+        if is_hostgal:
             n_hostkey += 1
             if n_hostkey == 1: f.write(f"\n")
 
         # increment mag-dependent host strings
         skip_hostkey = False
         for prefix  in gpar.HOSTKEY_PREFIX_LIST:
-            if prefix in key:
+            prefix_ = prefix + "_"
+            if prefix_ in key:
                 skip_hostkey = True
-                hostgal_string_vals[prefix] += f"{val} "
+                hostgal_string_vals[prefix] += f"{val:.3f} "
         if skip_hostkey : continue
 
         if key_plus_err in data_head:
             err  = data_head[key_plus_err]
-            string_val = f"{val:9.6f} +- {err:9.6f}"
+            if err > 0.0:
+                string_val = f"{val:9.6f} +- {err:9.6f}"
+            else:
+                string_val = f"{int(val)} +- {int(err)}"  # -9 +_ -9
 
         f.write(f"{key_plus_colon:<20s}  {string_val} \n")
 
@@ -183,7 +211,8 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
             zip(varlist_obs,varlist_fmt,vallist_undef):
             val = phot_raw[varname][obs]
             if val == None:  val = val_undef
-            if val == gpar.VAL_ABORT :
+
+            if val == 12345.333 :  # gpar.VAL_ABORT :  # problem for DES??
                 msgerr.append(f"Missing required PHOT column {varname}")
                 msgerr.append(f"Check SNID = {SNID}")
                 util.log_assert(False,msgerr)

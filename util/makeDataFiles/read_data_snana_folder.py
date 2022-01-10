@@ -316,8 +316,16 @@ class data_snana_folder(Program):
         # set_dump_flag
 
     def snana_refac_legacy(self):
+
         args   = self.config_inputs['args']  # command line args
-        refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER 
-        legacy = not refac
+
+        # default is legacy unless refac=110
+        #refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER 
+        #legacy = not refac
+
+        # default is refac unless refac=-110
+        legacy  = args.refac == gpar.LEGACY_READ_SNANA_FOLDER 
+        refac   = not legacy
+
         return refac, legacy
         # end refac_legacy

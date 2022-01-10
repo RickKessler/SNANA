@@ -85,8 +85,9 @@ VARNAMES_FMT_LIST = VARNAMES_FMT.split()
 # -----------------------------------------------------------------------------
 # define values for undefined variables
 # value set to VAL_ABORT will trigger abort because it is required.
-VAL_ABORT    = 666
-VAL_NULL     = -9
+VAL_ABORT     = 666
+VAL_NULL      = -9
+VAL_NULL_LIST = [ -9, -99, -999 ] # any of these is treated as no value
 VAL_UNDEFINED_LIST = [
     VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
     VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL,
@@ -171,28 +172,35 @@ DATAKEY_FIELD       = "FIELD"
 DATAKEY_NOBS        = "NOBS"
 
 HOSTKEY_BASE          = "HOSTGAL"
+HOSTKEY_NMATCH        = "HOSTGAL_NMATCH"
+HOSTKEY_NMATCH2       = "HOSTGAL_NMATCH2"
 HOSTKEY_OBJID         = "HOSTGAL_OBJID"
 HOSTKEY_PHOTOZ        = "HOSTGAL_PHOTOZ"
 HOSTKEY_PHOTOZ_ERR    = "HOSTGAL_PHOTOZ_ERR"
 HOSTKEY_SPECZ         = "HOSTGAL_SPECZ"
 HOSTKEY_SPECZ_ERR     = "HOSTGAL_SPECZ_ERR"
 HOSTKEY_SNSEP         = "HOSTGAL_SNSEP"
+HOSTKEY_DDLR          = "HOSTGAL_DDLR"
 HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
 HOSTKEY_ELLIP         = "HOSTGAL_ELLIPTICITY"
 HOSTKEY_SQRADIUS      = "HOSTGAL_SQRADIUS"
-HOSTKEY_PREFIX_MAG    = "HOSTGAL_MAG"         # band-dependent
-HOSTKEY_PREFIX_MAGERR = "HOSTGAL_MAGERR"      # idem
-HOSTKEY_PREFIX_SB     = "HOSTGAL_SB_FLUXCAL"  # idem
+
+# define prefix for filter-dependent quantities
+HOSTKEY_PREFIX_MAG     = "HOSTGAL_MAG"         # band-dependent
+HOSTKEY_PREFIX_MAGERR  = "HOSTGAL_MAGERR"      # idem
+HOSTKEY2_PREFIX_MAG    = "HOSTGAL2_MAG"       
+HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"    
+HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
+
 
 # =============================================================================
 # LISTS
 # =============================================================================
 # -----------------------------------------------------------------------------
-HOSTKEY_PREFIX_LIST = [
-    HOSTKEY_PREFIX_MAG,
-    HOSTKEY_PREFIX_MAGERR,
-    HOSTKEY_PREFIX_SB
-]
+
+HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
+                        HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR,
+                        HOSTKEY_PREFIX_SB ]
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_RAW = [
@@ -201,7 +209,9 @@ DATAKEY_LIST_RAW = [
     DATAKEY_NXPIX, DATAKEY_NYPIX, DATAKEY_PIXSIZE,
     DATAKEY_RA, DATAKEY_DEC,
     DATAKEY_zHEL, DATAKEY_zHEL_ERR, DATAKEY_FIELD,
-    HOSTKEY_OBJID, HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR, HOSTKEY_SNSEP,
+    HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID, 
+    HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR, 
+    HOSTKEY_SNSEP,  HOSTKEY_DDLR,
     HOSTKEY_ELLIP, HOSTKEY_SQRADIUS
 ]
 
@@ -211,6 +221,8 @@ DATAKEY_LIST_CALC = [
     DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_LAST,
     HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
 ]
+
+DATAKEY_LIST_PRIVATE = [] # filled if private variables exist
 
 # -----------------------------------------------------------------------------
 SIMKEY_TYPE_INDEX = "SIM_TYPE_INDEX"

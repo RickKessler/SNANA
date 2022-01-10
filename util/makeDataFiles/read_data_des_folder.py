@@ -29,7 +29,21 @@ class data_des_folder(Program):
         config_data['SNANA_READER'] = SNANA_READER
 
     def init_read_data(self):
-        pass
+
+        # init which private variables to keep, along with
+        # comment for TEXT file
+        private_dict = {
+            'DES_numepochs_ml_Y1' : 'Ndetect in Y1 passing autoscan',
+            'DES_numepochs_ml_Y2' : 'Ndetect in Y2 passing autoscan',
+            'DES_numepochs_ml_Y3' : 'Ndetect in Y3 passing autoscan',
+            'DES_numepochs_ml_Y4' : 'Ndetect in Y4 passing autoscan',
+            'DES_numepochs_ml_Y5' : 'Ndetect in Y5 passing autoscan',
+            'AGN_SCAN'            : 'reject on value = 2'
+        }
+
+        SNANA_READER = self.config_data['SNANA_READER']
+        SNANA_READER.init_private_dict(private_dict)
+        
         # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):

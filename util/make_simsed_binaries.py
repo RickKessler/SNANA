@@ -9,6 +9,8 @@
 #
 # A separate configFile is needed for each survey.
 #
+# Jan 11 2022 RK - if summary file exists, add -2 extension to avoid clobber
+#
 # ============================================
 
 import os, argparse, logging, shutil, time
@@ -321,17 +323,25 @@ def monitor_sims(info_dict):
 
 def make_summary(info_dict):
     logging.info(r'Creating summary.')
-    success_list = info_dict['success_list']
-    n_model = info_dict['n_model']
-    model_logfile_list = info_dict['model_logfile_list']
-    yaml_list = info_dict['yaml_list']
+    success_list        = info_dict['success_list']
+    n_model             = info_dict['n_model']
+    model_logfile_list  = info_dict['model_logfile_list']
+    yaml_list           = info_dict['yaml_list']
     model_basename_list = info_dict['model_basename_list']
+
     summary_file = f'{BASH_PREFIX}_SUMMARY.INFO' 
-    summary_header = f'# CREATION_DATE:  {time.strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime())}\n'
+    if os.path.exists(summary_file):
+        summary_file += '-2'  # avoid clobbering existing summary
+
+    summary_header = f'# CREATION_DATE:  ' \
+                     f'{time.strftime("%a, %d %b %Y %H:%M:%S ",time.gmtime())}\n'
     summary_header += f'# USERNAME:    {os.environ["USER"]}\n'
     summary_header += f'# HOST:    {os.environ["HOSTNAME"]}\n'
     summary_header += f'# CWD:     {os.getcwd()}\n# \n'
-    summary_header += f'{"ROW:":<5}{"MODEL":<20} {"zmin":<7} {"zmax":<7} {"zmax(SNR>5)":<15} {"size(MB)":<10}\n'
+    summary_header += f'{"ROW:":<5}{"MODEL":<20} ' \
+                      f'{"zmin":<7} {"zmax":<7} {"zmax(SNR>5)":<15} '\
+                      f'{"size(MB)":<10}\n'
+
     with open(summary_file, 'wt') as sum:
         sum.write(summary_header)
         for yml,model_basename,index,success in \
@@ -340,11 +350,14 @@ def make_summary(info_dict):
             if success:
                 yml_content = yaml.load(open(yml), Loader=yaml.FullLoader)
                 [zmin,zmax] = yml_content['REDSHIFT_RANGE_FLUXTABLE'].split()
-                zmax_snr = yml_content['REDSHIFT_MAX_SNR5']
-                size = yml_content['SIZE_SIMSED_FLUXTABLE']
-                sum.write(f'{index:<5}{model_basename:<20} {zmin:<7} {zmax:<7} {zmax_snr:<15} {size:<10}\n')
+                zmax_snr    = yml_content['REDSHIFT_MAX_SNR5']
+                size        = yml_content['SIZE_SIMSED_FLUXTABLE']
+                sum.write(f'{index:<5}{model_basename:<20} ' \
+                          f'{zmin:<7} {zmax:<7} {zmax_snr:<15} {size:<10}\n')
             else:
-                sum.write(f'{index:<5}{model_basename:<20} {"FAIL":<7} {"FAIL":<7} {"FAIL":<15} {"FAIL":<10}\n')
+                sum.write(f'{index:<5}{model_basename:<20} ' \
+                          f'{"FAIL":<7} {"FAIL":<7} {"FAIL":<15} {"FAIL":<10}\n')
+
     logging.info(f'Summary created in {summary_file}')
     return
 

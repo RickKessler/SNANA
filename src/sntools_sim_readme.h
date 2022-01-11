@@ -61,7 +61,7 @@ void  readme_docana_searcheff(int *iline, char *pad);
 void  readme_docana_mwebv(int *iline, char *pad);
 void  readme_docana_misc(int *iline, char *pad);
 
-char *onoff_readme_docana(int FLAG);
+void onoff_readme_docana(int FLAG, char *onoff);
 
 void  readme_docana_comment(int *iline, char *comment); // write # <comment> 
 

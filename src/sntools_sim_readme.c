@@ -210,7 +210,7 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
 
 void README_DOCANA_INPUT_NOTES(int *iline) {
   int  OVP, j, i = *iline;
-  char *cptr, *onoff, pad[] = "  ", dash[]="  -";
+  char *cptr, onoff[8], pad[] = "  ", dash[]="  -";
 
   // ----------- BEGIN ------------
 
@@ -220,7 +220,7 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
   sprintf(cptr,"%s%s:", pad, DOCANA_INPUT_NOTES );  
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  onoff = onoff_readme_docana(INPUTS.SMEARFLAG_FLUX);
+  onoff_readme_docana(INPUTS.SMEARFLAG_FLUX,onoff);
   sprintf(cptr, "%s Poisson noise is %s ", dash, onoff);
 
   
@@ -235,7 +235,7 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_IMAGE ; 
-  onoff = onoff_readme_docana(OVP);
+  onoff_readme_docana(OVP,onoff);
   sprintf(cptr, "%s SB-dependent flux scatter is %s",dash, onoff);
 
   for ( j=0; j < NLINE_RATE_INFO; j++ ) {
@@ -390,13 +390,15 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
 
 // ========================================
-char *onoff_readme_docana(int FLAG) {
-  char STR_ON[] = "ON";
+void onoff_readme_docana(int FLAG, char *onoff) {
+  char STR_ON[]  = "ON";
   char STR_OFF[] = "OFF";
-  char *STR;
-  if ( FLAG == 0 )     { STR = STR_OFF ; }
+  char *STR ;
+  if ( FLAG == 0 )     { STR = STR_OFF; }
   else                 { STR = STR_ON ; }    
-  return STR;
+
+  sprintf(onoff,"%s", STR);
+  return;
 
 } // end onoff_readme_docana
 

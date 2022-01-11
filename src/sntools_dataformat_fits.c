@@ -1192,7 +1192,7 @@ void wr_snfitsio_create(int itype ) {
     istat = 0 ;
     fits_update_key(fp, TINT, "NZPHOT_QP", &SNDATA.HOSTGAL_NZPHOT_QP,
                   "number of QP zphot quantiles", &istat );
-    sprintf(c1err,"Write SIMOPT_MWEBV") ;
+    sprintf(c1err,"Write NZPHOT_QP") ;
     snfitsio_errorCheck(c1err, istat) ;
   }
 
@@ -2868,10 +2868,13 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
     sprintf(tmpString,"%s", SNDATA.DATATYPE );
   }
   else if ( strcmp(parName,"CODE_IVERSION") == 0 ) {
-    sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); // Dec 26 2018
+    sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); 
   }
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
-    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION ); // Feb 2021
+    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION );
+  }
+  else if ( strcmp(parName,"NZPHOT_QP") == 0  ) {
+    sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_QP ); 
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -3792,9 +3795,10 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
+  // Jan 11, 2022: read optional NZPHOT_QP A. Gagliano
 
   fitsfile *fp ;
-  int istat, itype, istat_spec, hdutype, nrow, nmove = 1  ;
+  int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
   char keyname[60], comment[200], *ptrFile ;
   char fnam[] = "rd_snfitsio_open" ;
 
@@ -3906,6 +3910,14 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
+
+  // check optional NZPHOT_QP key
+    istat = 0;
+    sprintf(keyname, "%s", "NZPHOT_QP" );
+    fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
+    if (istat == 0){
+    	SNDATA.HOSTGAL_NZPHOT_QP = NVAR ;
+    }
 
   if ( SNFITSIO_SIMFLAG_SNANA ) {
 

@@ -243,7 +243,7 @@ void wr_snfitsio_init_head(void) {
   // Oct 13, 2021: add IMGNUM  (mimic CCDNUM)
 
   long  NROW = 0 ;
-  int itype, ncol, istat, ivar, ipar ;
+  int itype, ncol, istat, ivar, ipar, iqp;
   int ifilt, ifilt_obs;
 
   fitsfile *fp;
@@ -320,6 +320,11 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
+    // add QP posteriors
+ for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+    sprintf(parName,"HOSTGAL_ZPHOT_QP%i", iqp);
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
 
   // add HOSTGAL mags 
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -376,6 +381,12 @@ void wr_snfitsio_init_head(void) {
       sprintf(parName,"HOSTGAL2_MAGERR_%c", FILTERSTRING[ifilt_obs] );
       wr_snfitsio_addCol( "1E", parName, itype );
     }
+
+    // add QP posteriors
+ for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+    sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
  
   }  // end of 2nd-HOSTGAL block
 
@@ -1176,6 +1187,15 @@ void wr_snfitsio_create(int itype ) {
   sprintf(c1err,"Write SIMOPT_MWEBV") ;
   snfitsio_errorCheck(c1err, istat) ;
 
+  //write number of QP quantiles
+  if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
+    istat = 0 ;
+    fits_update_key(fp, TINT, "NZPHOT_QP", &SNDATA.HOSTGAL_NZPHOT_QP,
+                  "number of QP zphot quantiles", &istat );
+    sprintf(c1err,"Write SIMOPT_MWEBV") ;
+    snfitsio_errorCheck(c1err, istat) ;
+  }
+
   // write option to fudge flux errors (Oct 30 2015)
   istat = 0 ;
   fits_update_key(fp, TINT, "SIMOPT_FLUXERR", &SNDATA.SIMOPT_FLUXERR, 
@@ -1372,7 +1392,7 @@ void wr_snfitsio_update_head(void) {
 
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
 
-  int itype, LOC ,*ptrColnum, ipar, ivar, igal    ;
+  int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iqp ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80];
@@ -1637,6 +1657,15 @@ void wr_snfitsio_update_head(void) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = 
 	SNDATA.HOSTGAL_MAGERR[igal][ifilt] ;
+      wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    }
+
+    // HOSTGAL QP PARAMS (Jan 2022)
+    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+      sprintf(parName,"%s_ZPHOT_QP%i", PREFIX, iqp );
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E =
+        SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
@@ -3005,7 +3034,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
   int  NFILT    = SNDATA_FILTER.NDEF;
 
-  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar ;
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iqp, NQP ;
   char PREFIX[20], KEY[40]; 
   double D_OBJID;
 
@@ -3217,6 +3246,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				     &SNDATA.HOSTGAL_MAGERR[igal][ifilt],
 				     &SNFITSIO_READINDX_HEAD[j] ) ;  
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 2; }
+      }
+
+      NQP = SNDATA.HOSTGAL_NZPHOT_QP;
+      for(iqp=0; iqp < NQP; iqp++ ) {
+        sprintf(KEY,"%s_ZPHOT_QP%i", PREFIX, iqp);
+        j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
+				     &SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp],
+                                     &SNFITSIO_READINDX_HEAD[j] ) ;
       }
       
 
@@ -4618,7 +4655,7 @@ void check_required_headkeys(int OPTMASK) {
   // abort if any required keys are missing.
   if ( NERR > 0 ) {
     sprintf(c1err,"Missing %d required headers keys.", NERR );
-    sprintf(c2err,"%s", "See list printed avove.");
+    sprintf(c2err,"%s", "See list printed above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

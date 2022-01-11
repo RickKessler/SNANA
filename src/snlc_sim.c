@@ -21522,6 +21522,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     SNDATA.SIM_HOSTLIB_MSKOPT = 
       INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
+    SNDATA.HOSTGAL_NZPHOT_QP = HOSTLIB.NZPHOT_QP;
+
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
     for(ipar=0; ipar < NPAR ; ipar++ ) {
@@ -21581,7 +21583,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
-      SNDATA.HOSTGAL_NZPHOT_QP = HOSTLIB.NZPHOT_QP;
       for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
       	SNDATA.HOSTGAL_ZPHOT_QP[m][j] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_QP[j] ;
       }

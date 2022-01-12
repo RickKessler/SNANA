@@ -10823,6 +10823,7 @@ void gen_random_coord_shift(void) {
   // BEWARE: MXRADIUS is assumed to be very small (<<1 deg)
   //   and thus MWEBV and zCMB(zHEL) are NOT updated !!!
   //
+  // Jan 12 2022: increase tolerance from 0.001 to 0.003 (for ELASTICC)
 
   double MXRADIUS = (double)INPUTS.MXRADIUS_RANDOM_SHIFT;
   if ( MXRADIUS < 1.0E-12 ) { return ; }
@@ -10872,7 +10873,7 @@ void gen_random_coord_shift(void) {
     ANGSEP = angSep(GENLC.RA,GENLC.DEC,  RA,DEC, (double)1.0 ) ;
     double ratio = ANGSEP/r;
     double dif_arcsec = 3600.0*(ANGSEP-r);
-    if ( fabs(ratio-1.0) > 1.0E-3 ) {
+    if ( fabs(ratio-1.0) > 3.0E-3 ) {
       print_preAbort_banner(fnam);
       printf(" CID = %d \n", GENLC.CID);
       printf(" Original RA,DEC = %.3f, %.3f deg \n", RA, DEC);

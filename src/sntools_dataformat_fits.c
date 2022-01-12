@@ -2716,7 +2716,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   //
   // PATH = optional user-path to data; 
   //        if PATH="", use default SNDATA_ROOT/lcmerge
-
+  //
 
   int istat, ifile, ep ;
   char fnam[] = "RD_SNFITSIO_PREP" ;
@@ -2751,7 +2751,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
 
-    malloc_rd_snfitsFiles(-1, 1); // args: -1 -> free, 1=ifile
+    malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
 
     return istat ; 
   }
@@ -2800,7 +2800,6 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     rd_snfitsio_file(IFILE_SNFITSIO);
     rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
   }
-
 
   // Feb 2021: init lookup indices for faster read
   int i;
@@ -3791,7 +3790,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Note that fitsFile pointers fp_rd_snfitsio[itype]
   // are both opened for reading.
   //
-  // Dec 27, 2015: read SIMLIB_MSKOPT
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
@@ -3898,13 +3896,11 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 		rd_snfitsFile[ifile][itype], comment, &istat_spec );
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
-    // xxx mark    SNFITSIO_SIMFLAG_SPECTROGRAPH = true ;
     sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
 	    SNFITSIO_DATA_PATH, rd_snfitsFile[ifile][itype] );
   }
   else {
     SNFITSIO_SPECTRA_FLAG = false ;
-    // xxx mark delete SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
 
@@ -3912,12 +3908,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   rd_snfitsio_private();
 
   // check optional NZPHOT_QP key
-    istat = 0;
-    sprintf(keyname, "%s", "NZPHOT_QP" );
-    fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
-    if (istat == 0){
-    	SNDATA.HOSTGAL_NZPHOT_QP = NVAR ;
-    }
+  istat = 0;
+  sprintf(keyname, "%s", "NZPHOT_QP" );
+  fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
+  if (istat == 0) {SNDATA.HOSTGAL_NZPHOT_QP = NVAR ;  }
+
+
+  // - - - - - - - - - - -
 
   if ( SNFITSIO_SIMFLAG_SNANA ) {
 
@@ -3972,7 +3969,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     // check optional SIM header keys.
     rd_snfitsio_simkeys();
 
-  }
+  } // end read sim keys
 
   // ---------------------------
   // Now open the PHOT file.  
@@ -4009,10 +4006,10 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
   
-  if ( vbose ) {  nrow = (int)NROW;
+  if ( vbose ) { 
+    nrow = (int)NROW;
     printf("   SURVEY=%s    FILTERS=%s   N(SNe)=%d  \n", 
-	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );
-    fflush(stdout);
+	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );   fflush(stdout);
   }
 
   NSNLC_SNFITSIO[ifile] = NROW ; // store globally

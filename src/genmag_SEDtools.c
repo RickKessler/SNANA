@@ -442,6 +442,10 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
 
   // Nov 2010: optional function to set redshift range of SED grid
   // Jul 2017: fill REDSHIFT_SEDMODEL.ZTABLE[iz]
+  // Jan 11 2022: 
+  //    Fix bug so that last bin is at zmax, not zmax-zbin
+  //    For z > zmax-zbin, flux was based on SED(zmax-zbin) + MU
+  //
 
   char fnam[] = "init_redshift_SEDMODEL";
 
@@ -460,18 +464,20 @@ void init_redshift_SEDMODEL(int NZbin, double Zmin, double Zmax) {
   REDSHIFT_SEDMODEL.LOGZMIN  = log10(Zmin)  ;
   REDSHIFT_SEDMODEL.LOGZMAX  = log10(Zmax)  ;
 
-  // setup table
-  double LOGZMIN = log10(Zmin);
-  double LOGZMAX = log10(Zmax);
-  double LOGZBIN = (LOGZMAX-LOGZMIN) / (double)NZbin ;
+  // setup table. 
+  double LOGZMIN, LOGZMAX, LOGZBIN, logz, z;
   int iz;
-  double logz, z;
+  LOGZMIN = log10(Zmin);
+  LOGZMAX = log10(Zmax);
+  // xxx mark delete Jan 11 2022 LOGZBIN = (LOGZMAX-LOGZMIN) / (double)NZbin ;
+  LOGZBIN = (LOGZMAX-LOGZMIN) / (double)(NZbin-1) ;
+  logz, z;
   for( iz = 0; iz <= NZbin ; iz++ ) { 
     if ( iz == 0 )  
       { z = 0.0; logz = -999. ; } 
     else {                                                                     
       logz = LOGZMIN + LOGZBIN * (double)(iz-1) ;
-      z = pow(10.0 , logz); 
+      z    = pow(10.0 , logz); 
     }
     REDSHIFT_SEDMODEL.ZTABLE[iz]    = z ; 
     REDSHIFT_SEDMODEL.LOGZTABLE[iz] = logz ; 
@@ -565,7 +571,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   printf("\t Table bins include %3d DAYs. \n",    NDAY);
   printf("\t Table bins include %3d FILTERs. \n", NFILT);
   printf("\t Table bins include %3d SEDs. \n",    NSED);
-  printf("\t Table bins include %3d log10(Z): %5.3f <= Z <= %5.3f .\n"
+  printf("\t Table bins include %3d log10(Z): %.5f <= Z <= %.5f .\n"
 	 ,REDSHIFT_SEDMODEL.NZBIN
 	 ,REDSHIFT_SEDMODEL.ZMIN
 	 ,REDSHIFT_SEDMODEL.ZMAX );

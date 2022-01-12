@@ -1,7 +1,7 @@
 # $Source: /cvs/sdss/snana/src/Makefile,v $
 # $Revision: 1.500 $    Last Modified: $Date: 2019/05/02 20:24:47 $
 #
-#  R.Kessler    
+#  R.Kessler 
 #
 #  HISTORY 
 # -----------------------------------

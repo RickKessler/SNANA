@@ -571,11 +571,13 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
 	 ,REDSHIFT_SEDMODEL.ZMAX );
 
   // print few z-bins at low and high end
-  int iz;  double z;
+  int iz;  double z, logz ;
   for(iz=1; iz <= NZBIN; iz++ ) {
     if ( iz <= 3 || iz >= NZBIN-3 ) {
-      z = REDSHIFT_SEDMODEL.ZTABLE[iz] ;
-      printf("\t\t ZTABLE[%3d] = %8.5f \n", iz, z ); 
+      z    = REDSHIFT_SEDMODEL.ZTABLE[iz] ;
+      logz = REDSHIFT_SEDMODEL.LOGZTABLE[iz] ;
+      printf("\t\t ZTABLE[%3d] = %8.5f   (LOGZ=%.4f)\n", 
+	     iz, z,  logz ); 
     }
   }
 

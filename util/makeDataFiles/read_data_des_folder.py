@@ -16,17 +16,17 @@ from makeDataFiles_base import Program
 #from makeDataFiles_params import *
 
 # - - - - - - - - - - - - - - - - - - -     -
-class data_des_folder(Program):
+class DataFolderDES(Program):
     def __init__(self, config_inputs) :
         config_data = {}
-        print(" Init data_des_folder class.")
-        super().__init__(config_inputs,config_data)
+        logging.info(" Init DataFolderDES class.")
+        super().__init__(config_inputs, config_data)
 
         args          = self.config_inputs['args']  # command line args
 
         des_folder    = args.des_folder
-        SNANA_READER  = util.READ_SNANA_FOLDER(des_folder) 
-        config_data['SNANA_READER'] = SNANA_READER
+        SNANA_READER  = util.SNANA_FolderReader(des_folder)
+        self.config_data['SNANA_READER'] = SNANA_READER
 
     def init_read_data(self):
 
@@ -40,10 +40,8 @@ class data_des_folder(Program):
             'DES_numepochs_ml_Y5' : 'Ndetect in Y5 passing autoscan',
             'AGN_SCAN'            : 'reject on value = 2'
         }
+        self.config_data['SNANA_READER'].init_private_dict(private_dict)
 
-        SNANA_READER = self.config_data['SNANA_READER']
-        SNANA_READER.init_private_dict(private_dict)
-        
         # end init_read_data
 
     def prep_read_data_subgroup(self, i_subgroup):
@@ -84,7 +82,7 @@ class data_des_folder(Program):
 
     # end open_snana_fits
 
-    def read_event(self, evt ):
+    def read_event(self, evt):
 
         args         = self.config_inputs['args']  # command line args
         SNANA_READER = self.config_data['SNANA_READER']

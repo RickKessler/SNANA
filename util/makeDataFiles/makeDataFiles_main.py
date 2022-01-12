@@ -47,7 +47,7 @@ try:
 except ImportError:
     pass
 
-from read_data_des_folder import data_des_folder
+from read_data_des_folder import DataFolderDES
 from read_data_lsst_ap import data_lsst_ap
 from read_data_lsst_drp import data_lsst_drp
 from read_data_sirah_folder import data_sirah_folder
@@ -84,7 +84,7 @@ def get_args():
     parser.add_argument("--outdir_snana",
                         help=msg, type=str, default=None )
 
-    # - - - - specialized args teo create fake lsst alerts - - - - - -
+    # - - - - specialized args to create fake lsst alerts - - - - - -
     msg = "output LSST-ALERT format: top-directory for data"
     parser.add_argument("--outdir_lsst_alert",
                         help=msg, type=str, default=None )
@@ -143,7 +143,7 @@ def get_args():
 
     # end get_args
 
-def restore_args_from_readme(args,readme_yaml):
+def restore_args_from_readme(args, readme_yaml):
 
     # restore user args from readme_yaml that was read from README file.
 
@@ -209,7 +209,7 @@ def which_read_class(args):
         read_class = data_sirah_folder
         args.survey = "SIRAH"
     elif args.des_folder is not None:
-        read_class = data_des_folder
+        read_class = DataFolderDES
         args.survey = "DES"
     elif args.ztf_folder is not None:
         read_class = data_ztf_folder
@@ -230,7 +230,7 @@ def which_read_class(args):
 if __name__ == "__main__":
 
     args  = get_args()
-    store = util.setup_logging(args)
+    logger_store = util.setup_logging(args)
 
     # determine which program class (AP, DRP, test data)
     read_class  = which_read_class(args)

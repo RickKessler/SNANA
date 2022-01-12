@@ -236,5 +236,21 @@ MODE_MERGE_LINK = "MERGE_LINK"  # merge with sym links; keep orig folder
 REFAC_READ_SNANA_FOLDER  = 110  # remember as jan 10
 LEGACY_READ_SNANA_FOLDER = -1 * REFAC_READ_SNANA_FOLDER
 
+# =============================================================================
+# ERROR MESSAGES
+# =============================================================================
+ABORT_FACE_MSSG = (
+    f"\n\n"
+    f"\n   `|```````|`    "
+    f"\n   <| o\\ /o |>   "
+    f"\n    | ' ; ' |     "
+    f"\n    |  ___  |     ABORT makeDataFiles on Fatal Error. "
+    f"\n    | |' '| |     "
+    f"\n    | `---' |     "
+    f"\n    \\_______/    "
+    f"\n"
+    f"\nFATAL ERROR ABORT : "
+)
+
 # == END ===
 

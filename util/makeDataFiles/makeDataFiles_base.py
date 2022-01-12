@@ -35,7 +35,8 @@ import write_data_snana as snana
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
-    pass
+    util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
+    raise
 
 
 # =============================================================================
@@ -48,9 +49,9 @@ class Program:
 
     def __init__(self, config_inputs, config_data):
 
+        args = config_inputs['args']
         self.config_inputs = config_inputs
         self.config_data = config_data
-        args = config_inputs['args']
 
         logging.info("  Base init")
 
@@ -339,7 +340,6 @@ class Program:
         self.config_data['nvar_obs']       += 1
 
         return
-    # end add_truemag_obs
 
     def exclude_varlist_obs(self):
         # return optional list of phot columns to exclude from the
@@ -481,7 +481,7 @@ class Program:
 
         # end select_subsample
 
-    def init_phot_dict(self,NOBS):
+    def init_phot_dict(self, NOBS):
 
         # The read_event function for each source should call this
         # function before reading event photometry.
@@ -558,8 +558,6 @@ class Program:
             sys.stdout.flush()
 
         return
-
-    # end screen_update
 
     def read_data_driver(self):
 

@@ -243,7 +243,7 @@ void wr_snfitsio_init_head(void) {
   // Oct 13, 2021: add IMGNUM  (mimic CCDNUM)
 
   long  NROW = 0 ;
-  int itype, ncol, istat, ivar, ipar ;
+  int itype, ncol, istat, ivar, ipar, iqp;
   int ifilt, ifilt_obs;
 
   fitsfile *fp;
@@ -320,6 +320,11 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
+    // add QP posteriors
+ for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+    sprintf(parName,"HOSTGAL_ZPHOT_QP%i", iqp);
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
 
   // add HOSTGAL mags 
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -376,6 +381,12 @@ void wr_snfitsio_init_head(void) {
       sprintf(parName,"HOSTGAL2_MAGERR_%c", FILTERSTRING[ifilt_obs] );
       wr_snfitsio_addCol( "1E", parName, itype );
     }
+
+    // add QP posteriors
+ for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+    sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
  
   }  // end of 2nd-HOSTGAL block
 
@@ -1176,6 +1187,15 @@ void wr_snfitsio_create(int itype ) {
   sprintf(c1err,"Write SIMOPT_MWEBV") ;
   snfitsio_errorCheck(c1err, istat) ;
 
+  //write number of QP quantiles
+  if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
+    istat = 0 ;
+    fits_update_key(fp, TINT, "NZPHOT_QP", &SNDATA.HOSTGAL_NZPHOT_QP,
+                  "number of QP zphot quantiles", &istat );
+    sprintf(c1err,"Write NZPHOT_QP") ;
+    snfitsio_errorCheck(c1err, istat) ;
+  }
+
   // write option to fudge flux errors (Oct 30 2015)
   istat = 0 ;
   fits_update_key(fp, TINT, "SIMOPT_FLUXERR", &SNDATA.SIMOPT_FLUXERR, 
@@ -1372,7 +1392,7 @@ void wr_snfitsio_update_head(void) {
 
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
 
-  int itype, LOC ,*ptrColnum, ipar, ivar, igal    ;
+  int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iqp ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80];
@@ -1637,6 +1657,15 @@ void wr_snfitsio_update_head(void) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E = 
 	SNDATA.HOSTGAL_MAGERR[igal][ifilt] ;
+      wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    }
+
+    // HOSTGAL QP PARAMS (Jan 2022)
+    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+      sprintf(parName,"%s_ZPHOT_QP%i", PREFIX, iqp );
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E =
+        SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
@@ -2687,7 +2716,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   //
   // PATH = optional user-path to data; 
   //        if PATH="", use default SNDATA_ROOT/lcmerge
-
+  //
 
   int istat, ifile, ep ;
   char fnam[] = "RD_SNFITSIO_PREP" ;
@@ -2722,7 +2751,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
 
-    malloc_rd_snfitsFiles(-1, 1); // args: -1 -> free, 1=ifile
+    malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
 
     return istat ; 
   }
@@ -2771,7 +2800,6 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     rd_snfitsio_file(IFILE_SNFITSIO);
     rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
   }
-
 
   // Feb 2021: init lookup indices for faster read
   int i;
@@ -2839,10 +2867,13 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
     sprintf(tmpString,"%s", SNDATA.DATATYPE );
   }
   else if ( strcmp(parName,"CODE_IVERSION") == 0 ) {
-    sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); // Dec 26 2018
+    sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); 
   }
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
-    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION ); // Feb 2021
+    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION );
+  }
+  else if ( strcmp(parName,"NZPHOT_QP") == 0  ) {
+    sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_QP ); 
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -3005,7 +3036,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
   int  NFILT    = SNDATA_FILTER.NDEF;
 
-  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar ;
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iqp, NQP ;
   char PREFIX[20], KEY[40]; 
   double D_OBJID;
 
@@ -3217,6 +3248,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				     &SNDATA.HOSTGAL_MAGERR[igal][ifilt],
 				     &SNFITSIO_READINDX_HEAD[j] ) ;  
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 2; }
+      }
+
+      NQP = SNDATA.HOSTGAL_NZPHOT_QP;
+      for(iqp=0; iqp < NQP; iqp++ ) {
+        sprintf(KEY,"%s_ZPHOT_QP%i", PREFIX, iqp);
+        j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
+				     &SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp],
+                                     &SNFITSIO_READINDX_HEAD[j] ) ;
       }
       
 
@@ -3751,13 +3790,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Note that fitsFile pointers fp_rd_snfitsio[itype]
   // are both opened for reading.
   //
-  // Dec 27, 2015: read SIMLIB_MSKOPT
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
+  // Jan 11, 2022: read optional NZPHOT_QP A. Gagliano
 
   fitsfile *fp ;
-  int istat, itype, istat_spec, hdutype, nrow, nmove = 1  ;
+  int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
   char keyname[60], comment[200], *ptrFile ;
   char fnam[] = "rd_snfitsio_open" ;
 
@@ -3857,18 +3896,25 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 		rd_snfitsFile[ifile][itype], comment, &istat_spec );
   if ( istat_spec == 0 ) {
     SNFITSIO_SPECTRA_FLAG = true ;
-    // xxx mark    SNFITSIO_SIMFLAG_SPECTROGRAPH = true ;
     sprintf(rd_snfitsFile_plusPath[ifile][itype], "%s/%s", 
 	    SNFITSIO_DATA_PATH, rd_snfitsFile[ifile][itype] );
   }
   else {
     SNFITSIO_SPECTRA_FLAG = false ;
-    // xxx mark delete SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
+
+  // check optional NZPHOT_QP key
+  istat = 0;
+  sprintf(keyname, "%s", "NZPHOT_QP" );
+  fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
+  if (istat == 0) {SNDATA.HOSTGAL_NZPHOT_QP = NVAR ;  }
+
+
+  // - - - - - - - - - - -
 
   if ( SNFITSIO_SIMFLAG_SNANA ) {
 
@@ -3923,7 +3969,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     // check optional SIM header keys.
     rd_snfitsio_simkeys();
 
-  }
+  } // end read sim keys
 
   // ---------------------------
   // Now open the PHOT file.  
@@ -3960,10 +4006,10 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
   
-  if ( vbose ) {  nrow = (int)NROW;
+  if ( vbose ) { 
+    nrow = (int)NROW;
     printf("   SURVEY=%s    FILTERS=%s   N(SNe)=%d  \n", 
-	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );
-    fflush(stdout);
+	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );   fflush(stdout);
   }
 
   NSNLC_SNFITSIO[ifile] = NROW ; // store globally
@@ -4618,7 +4664,7 @@ void check_required_headkeys(int OPTMASK) {
   // abort if any required keys are missing.
   if ( NERR > 0 ) {
     sprintf(c1err,"Missing %d required headers keys.", NERR );
-    sprintf(c2err,"%s", "See list printed avove.");
+    sprintf(c2err,"%s", "See list printed above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

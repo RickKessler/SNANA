@@ -9,6 +9,10 @@
 #
 # A separate configFile is needed for each survey.
 #
+# Jan 11 2022 RK - 
+#   + if summary file exists, add -2 extension to avoid clobber
+#   + add clobber_sed_binary()  util
+#
 # ============================================
 
 import os, argparse, logging, shutil, time
@@ -27,6 +31,10 @@ USE_BINARY        = 4
 KEYNAME_SIM_KEYS      = "SIM_KEYS"
 KEYNANE_SIMSED_MODELS = "SIMSED_MODELS"
 KEYNAME_NJOB_PARALLEL = "NJOB_PARALLEL"
+
+# standard file names for binary and info file under [model] dir.
+MODEL_FILE_SEDBINARY = "SED.BINARY"
+MODEL_FILE_SEDINFO   = "SED.INFO"
 
 # ============================
 def setup_logging():
@@ -127,9 +135,11 @@ def check_paths(info_dict):
     return
 
 def parse_models(info_dict):
-    logging.info('Parse simsed models')
-    SIMSED_MODELS=info_dict['config'][KEYNANE_SIMSED_MODELS]
-    survey=info_dict['survey']
+    logging.info('Parse info for simsed models')
+
+    SIMSED_MODELS = info_dict['config'][KEYNANE_SIMSED_MODELS]
+    survey        = info_dict['survey']
+
     model_path_list=[]
     model_zmin_list=[]
     model_zmax_list=[]
@@ -150,16 +160,21 @@ def parse_models(info_dict):
         model_logfile_list.append(f'{version_prefix}.LOG')
         genversion_list.append(f'{version_prefix}')
         yaml_list.append(f'{version_prefix}.YAML')
-    info_dict['model_path_list']=model_path_list
-    info_dict['model_zmin_list']=model_zmin_list
-    info_dict['model_zmax_list']=model_zmax_list
-    info_dict['model_basename_list']=model_basename_list
-    info_dict['model_logfile_list']=model_logfile_list
-    info_dict['n_model']=len(model_path_list)
-    info_dict['genversion_list']=genversion_list
-    info_dict['yaml_list']=yaml_list
-    return
 
+    # - - - - -
+    n_model = len(model_path_list)
+    info_dict['model_path_list']     =  model_path_list
+    info_dict['model_zmin_list']     =  model_zmin_list
+    info_dict['model_zmax_list']     =  model_zmax_list
+    info_dict['model_basename_list'] = model_basename_list
+    info_dict['model_logfile_list']  = model_logfile_list
+    info_dict['n_model']             = n_model
+    info_dict['genversion_list']     = genversion_list
+    info_dict['yaml_list']           = yaml_list
+
+    logging.info(f'\t Found {n_model} models to process')
+    return
+    # end {sim_input_file_name}
 
 def get_simlib_info(info_dict):
     logging.info(f'Extracting info from simlib')
@@ -183,13 +198,16 @@ def get_simlib_info(info_dict):
 
 
 def create_simgen_file(info_dict):
-    logging.info(f'Creating simulations input file')
-    survey = info_dict['survey']
-    args=info_dict['args']
-    genversion=f'{GENVERSION_PREFIX}_{survey}'
-    sim_input_file_name= f"SIMGEN_TEMPLATE_{survey}.input"
-    SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
+    survey           = info_dict['survey']
+    args             = info_dict['args']
+    SIM_KEYS         = info_dict['config'][KEYNAME_SIM_KEYS]
     GENRANGE_PEAKMJD = info_dict['GENRANGE_PEAKMJD']
+
+    genversion          = f'{GENVERSION_PREFIX}_{survey}'
+    sim_input_file_name = f"SIMGEN_TEMPLATE_{survey}.input"
+
+    logging.info(f'Create sim input file: {sim_input_file_name}')
+
     with open(sim_input_file_name, 'wt') as f:
         f.write(f"# Input keys passed from {args.input_file}\n")
         for k,v in SIM_KEYS.items():
@@ -200,7 +218,8 @@ def create_simgen_file(info_dict):
         f.write(f'SIMSED_GRIDONLY:   SEQUENTIAL  \n')
         f.write(f'GENSOURCE:   RANDOM\n')
         f.write(f'GENRANGE_PEAKMJD: {GENRANGE_PEAKMJD}\n')
-        f.write(f'#\n# auto-generated keys to prevent abort (values do not matter)\n')
+        f.write(f'#\n# auto-generated keys to prevent abort '\
+                f'(values do not matter)\n')
         f.write(f'NGENTOT_LC: 300\n')
         f.write(f'RANSEED: 12945\n')
         f.write(f'GENRANGE_TREST:  -40  100\n') 
@@ -210,7 +229,8 @@ def create_simgen_file(info_dict):
     # load item in the dictionary
     info_dict['GENVERSION']=genversion
     info_dict['sim_input_file']=sim_input_file_name
-    logging.info(f'Simgen input file created: {sim_input_file_name}')
+
+    return
 
     #end create_simgen_file
 
@@ -228,31 +248,81 @@ def create_bash_script(info_dict):
 
     bash_name           = f'{BASH_PREFIX}_{survey}.sh'
 
+    logging.info(f'Create bash script: {bash_name}')
+
     if KEYNAME_NJOB_PARALLEL in config:
         njobs = config[KEYNAME_NJOB_PARALLEL]
     else:
         njobs = 1
 
+    # - - - - -
     with open(bash_name, 'wt') as b:
         for index, model, zmin, zmax, model_base, logfile, genversion\
             in zip(range(n_model), model_path_list,
                    model_zmin_list, model_zmax_list, 
                    model_basename_list, model_logfile_list, genversion_list):
-            arg_string  = f'GENMODEL {model} '
-            arg_string += f'GENRANGE_REDSHIFT {zmin} {zmax} '
-            arg_string += f'GENVERSION {genversion} '
 
-            output_line  = f'{JOB_NAME} {sim_input_file} {arg_string} '
-       	    output_line	+= f' > {logfile} '
-            if (index+1)%njobs!=0: 
-                output_line +=' & '
-            b.write(f'{output_line}\n')
+            pad = '   '
+            cmd_list  = []
+            cmd_list.append(f'{JOB_NAME} {sim_input_file} \\')
+            cmd_list.append(f'{pad}GENMODEL {model} \\')
+            cmd_list.append(f'{pad}GENRANGE_REDSHIFT {zmin} {zmax} \\')
+            cmd_list.append(f'{pad}GENVERSION {genversion} \\')
+            cmd_list.append(f'{pad}  > {logfile}')            
+
+            if (index+1) % njobs != 0: 
+                cmd_list[-1] += ' & '
+
+            if clobber_sed_binary(model):
+                clobber_line = f'rm {model}/{MODEL_FILE_SEDBINARY}'
+                log_line     = f'   add clobber for ' \
+                               f'{model_base}/{MODEL_FILE_SEDBINARY}'
+                logging.info(f'{log_line}')
+                b.write(f'{clobber_line}\n')
+
+            for cmd in cmd_list:   b.write(f'{cmd}\n')
+            b.write('\n')
+
+    # - - - -  
+    # give exec privilege to bash script
     cmd = f'chmod +x {bash_name}'
     os.system(cmd)        
-    info_dict['bash_name']=bash_name
+
+    info_dict['bash_name'] = bash_name
+    return
+    # end create_bash_script
+
+def clobber_sed_binary(model):
+
+    # Created Jan 12 2022 by R.Kesser
+    # If SED.INFO file was modified after existing SED.BINARY file,
+    # return true as a flag to clobber SED.BINARY file so that it
+    # gets remade.
+
+    model_expand = os.path.expandvars(model)
+    model_base   = os.path.basename(model)
+
+    model_file_binary = f'{model_expand}/{MODEL_FILE_SEDBINARY}'
+    model_file_info   = f'{model_expand}/{MODEL_FILE_SEDINFO}'
+
+    # if there is no SED.BINARY, return False since there is nothing 
+    # to clobber
+    if not os.path.exists(model_file_binary) :
+        return False
+
+    tmod_binary = os.path.getmtime(model_file_binary)
+    tmod_info   = os.path.getmtime(model_file_info)
+    tmod_dif    = tmod_binary - tmod_info
+
+    if tmod_info < tmod_binary :
+        return False
+    else:
+        return True # info file was updated after BINARY -> clobber binary
+
+    # end clobber_sed_binary
 
 def cleanup(info_dict):
-    logging.info(f'Cleaning up old LOG files')
+    logging.info(f'Purge old LOG & YAML files')
     model_logfile_list = info_dict['model_logfile_list']
     yaml_list = info_dict['yaml_list']
     for log,yml in zip(model_logfile_list, yaml_list):
@@ -275,23 +345,27 @@ def submit_bash(info_dict):
     return
 
 def monitor_sims(info_dict):
-    logging.info('Monitoring sims:')
-    sleep_time = 3
-    n_model = info_dict['n_model']
-    model_logfile_list = info_dict['model_logfile_list']
-    yaml_list = info_dict['yaml_list']
-    model_basename_list=info_dict['model_basename_list']
+    logging.info('Begin Monitoring sims:')
+    sleep_time = 5
+    n_model              = info_dict['n_model']
+    model_logfile_list   = info_dict['model_logfile_list']
+    yaml_list            = info_dict['yaml_list']
+    model_basename_list  = info_dict['model_basename_list']
 
-    n_done=0
-    t_last_update_list = [0.0]*n_model # times
-    done_list = [False]*n_model # times
+    n_done = 0
+    t_last_update_list = [0.0]   * n_model 
+    done_list          = [False] * n_model 
+
     while n_done<n_model:
         time.sleep(sleep_time)
-        for yml, log, index in zip(yaml_list, model_logfile_list, range(n_model)):
+        for yml, log, index in \
+            zip(yaml_list, model_logfile_list, range(n_model)):
+
              if done_list[index]: 
                  continue
              if not os.path.exists(log): 
                  continue
+
              t_last_update = os.path.getmtime(log)
              if t_last_update_list[index]==t_last_update:
                  n_done += 1
@@ -299,39 +373,56 @@ def monitor_sims(info_dict):
                  logging.info(f'\t Done LOG file {log}')
              else:
                  t_last_update_list[index]=t_last_update
-    logging.info(f'\t {n_done} LOG files are done. Checking for output YAML')
+
+    # - - - - -
+    logging.info(f'\t {n_done} LOG files are done. Check output YAML')
     
-    success_list=[False]*n_model
-    all_success=True
-    for yml,model_basename,log,index in zip(yaml_list, model_basename_list,\
-                                            model_logfile_list, range(n_model)):
+    success_list = [False] * n_model
+    all_success  = True
+    for yml,model_basename,log,index in \
+        zip(yaml_list, model_basename_list,\
+            model_logfile_list, range(n_model)):
+
         if not os.path.exists(yml):
-            logging.warning(f'\t Did not find YAML file for model {model_basename}.')
+            logging.warning(f'\t Did not find YAML file for model ' \
+                            f'{model_basename}.')
             logging.warning(f'\t Check {log} log file.')
-            success_list[index]=False
-            all_success=False
+            success_list[index] = False
+            all_success         = False
         else:
-            success_list[index]=True
+            success_list[index] = True
+
+    # - - - - 
     if not all_success:
-        logging.warning(f'One or more sims were unsuccessful.')
+        logging.warning(f'One or more sims failed.')
     else:
         logging.info(f'\t All YAMLs found.')
-    info_dict['success_list']=success_list
+
+    info_dict['success_list'] = success_list
     return 
+    # end monitor_sims
 
 def make_summary(info_dict):
-    logging.info(r'Creating summary.')
-    success_list = info_dict['success_list']
-    n_model = info_dict['n_model']
-    model_logfile_list = info_dict['model_logfile_list']
-    yaml_list = info_dict['yaml_list']
+    logging.info(r'Create summary.')
+    success_list        = info_dict['success_list']
+    n_model             = info_dict['n_model']
+    model_logfile_list  = info_dict['model_logfile_list']
+    yaml_list           = info_dict['yaml_list']
     model_basename_list = info_dict['model_basename_list']
+
     summary_file = f'{BASH_PREFIX}_SUMMARY.INFO' 
-    summary_header = f'# CREATION_DATE:  {time.strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime())}\n'
+    if os.path.exists(summary_file):
+        summary_file += '-2'  # avoid clobbering existing summary
+
+    summary_header = f'# CREATION_DATE:  ' \
+                     f'{time.strftime("%a, %d %b %Y %H:%M:%S ",time.gmtime())}\n'
     summary_header += f'# USERNAME:    {os.environ["USER"]}\n'
     summary_header += f'# HOST:    {os.environ["HOSTNAME"]}\n'
     summary_header += f'# CWD:     {os.getcwd()}\n# \n'
-    summary_header += f'{"ROW:":<5}{"MODEL":<20} {"zmin":<7} {"zmax":<7} {"zmax(SNR>5)":<15} {"size(MB)":<10}\n'
+    summary_header += f'{"ROW:":<5}{"MODEL":<20} ' \
+                      f'{"zmin":<7} {"zmax":<7} {"zmax(SNR>5)":<15} '\
+                      f'{"size(MB)":<10}\n'
+
     with open(summary_file, 'wt') as sum:
         sum.write(summary_header)
         for yml,model_basename,index,success in \
@@ -340,11 +431,14 @@ def make_summary(info_dict):
             if success:
                 yml_content = yaml.load(open(yml), Loader=yaml.FullLoader)
                 [zmin,zmax] = yml_content['REDSHIFT_RANGE_FLUXTABLE'].split()
-                zmax_snr = yml_content['REDSHIFT_MAX_SNR5']
-                size = yml_content['SIZE_SIMSED_FLUXTABLE']
-                sum.write(f'{index:<5}{model_basename:<20} {zmin:<7} {zmax:<7} {zmax_snr:<15} {size:<10}\n')
+                zmax_snr    = yml_content['REDSHIFT_MAX_SNR5']
+                size        = yml_content['SIZE_SIMSED_FLUXTABLE']
+                sum.write(f'{index:<5}{model_basename:<20} ' \
+                          f'{zmin:<7} {zmax:<7} {zmax_snr:<15} {size:<10}\n')
             else:
-                sum.write(f'{index:<5}{model_basename:<20} {"FAIL":<7} {"FAIL":<7} {"FAIL":<15} {"FAIL":<10}\n')
+                sum.write(f'{index:<5}{model_basename:<20} ' \
+                          f'{"FAIL":<7} {"FAIL":<7} {"FAIL":<15} {"FAIL":<10}\n')
+
     logging.info(f'Summary created in {summary_file}')
     return
 
@@ -355,11 +449,12 @@ if __name__ == "__main__":
         logging.info("# ========== BEGIN make_simsed_binaries ===============")
         args   = get_args() 
         config = read_yaml(args.input_file)
-        # print(f"xxxx config = {config}")        
+
         info_dict = {"args":args, "config":config}
         
         # extract survey name and approx MJD range from simlib
         get_simlib_info(info_dict)
+
         # parse list of models, paths and redshift ranges
         parse_models(info_dict) 
         
@@ -369,22 +464,25 @@ if __name__ == "__main__":
         # create minimal sim input file
         create_simgen_file(info_dict)
 
-        # create bash script with snslc.exe commands
+        # create bash script with snlc_sim.exe commands
         create_bash_script(info_dict) 
 
-        # cleaning up old LOG/YAML files. 
-        # This is necessary for monitoring the status of the sims
+        # cleaning up old LOG/YAML files; needed to monitor sim status.
         cleanup(info_dict)
-        
-        if args.nosubmit: sys.exit('Exiting without submitting bash script')
+
+        # test/debug option to skip submit
+        if args.nosubmit: 
+            sys.exit('Exit without submitting bash script')
+
         # run bash script
         submit_bash(info_dict)        
 
         # monitor sim status
         monitor_sims(info_dict)
         
-        # print out summary
+        # print summary to summary file
         make_summary(info_dict)
+
         logging.info("# ========== END make_simsed_binaries ===============")
 
     except Exception as e:

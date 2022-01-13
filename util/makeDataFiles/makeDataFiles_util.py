@@ -616,6 +616,11 @@ class SNANA_FolderReader:
         self.snana_folder_dict['private_dict']   = private_dict
         # end init_private_dict
 
+    def get_data_val(self, key, evt):
+        # return value for key and evt=row
+        table_head = self.snana_folder_dict['table_dict']['table_head']
+        return table_head[key][evt]
+
     def get_data_dict(self, args, evt):
 
         # Inputs:

@@ -4,7 +4,7 @@
              Feb 2009: add nonIa option
              Oct 2010: add GRID option (for psnid)
              Mar 2011: install snhost package
-             May 2011: install snfitsio (default sim-> fits format)
+             May 2011: install snfitsio (default sim-> fits format) 
              Apr 2012: use wavelength-dependent intrinsic smear in 
                        genSmear_models.c
              Jan 2014: separate trigger code into sntools_trigger.c[h]
@@ -1522,18 +1522,18 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - -
   else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
-    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
-    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
 
   else if ( keyMatchSim(1, "FLUXERRMODEL_REDCOV", WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], 200);
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
-    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
     strcat(STR_REDCOV," ");         // blank space 
     strcat(STR_REDCOV,ctmp );   // store argument
@@ -1543,7 +1543,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
-    README_KEYPLUSARGS_load(10,1, WORDS, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
@@ -1747,12 +1747,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_RA", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[1] );
-    README_KEYPLUSARGS_load(10, 2, WORDS, &README_KEYS_SKY, fnam) ;
+    README_KEYPLUSARGS_load(10, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
   else if ( keyMatchSim(1,"GENRANGE_DEC GENRANGE_DECL", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[1] );
-    README_KEYPLUSARGS_load(10, 2, WORDS, &README_KEYS_SKY, fnam) ;
+    README_KEYPLUSARGS_load(10, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
 
   else if ( keyMatchSim(1,"MXRADIUS_RANDOM_SHIFT", WORDS[0],keySource) ) {
@@ -1769,7 +1769,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     // if command-line arg value is negative, skip updating value.
     // -> allows global overring for only zmin or zmax.
 
-    bool FULL_UPDATE = ( TMPVAL[0] > 0.0 && TMPVAL[1] > 0.0 );
+    bool FULL_UPDATE = ( TMPVAL[0] >= 0.0 && TMPVAL[1] >= 0.0 );
     if ( FULL_UPDATE ) {
       // set zmin and zmax
       for(j=0; j < 2; j++ ) { INPUTS.GENRANGE_REDSHIFT[j] = TMPVAL[j]; }
@@ -1860,7 +1860,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			      &INPUTS.GENGAUSS_SIMSED[ITMP] );
     INPUTS.GENGAUSS_SIMSED[ITMP].FUNINDEX = ITMP ;
 
-    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, 
+    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, keySource, 
 			    &README_KEYS_SIMSED, fnam) ;
   }
   // - - - - - - - - - - 
@@ -2036,7 +2036,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     char ckey[40];    sprintf(ckey,"%s", WORDS[0] );
     N++ ; sscanf(WORDS[N], "%s", ctmp);
     PARSE_COVMAT_SCATTER(ckey,ctmp) ;
-    README_KEYPLUSARGS_load(10, 2, WORDS, 
+    README_KEYPLUSARGS_load(10, 2, WORDS, keySource,
 			    &README_KEYS_COVMAT_SCATTER, fnam) ;
   }
   // - - - filters - - - -
@@ -2072,31 +2072,31 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //  - - - - - cosmology params - - - - - - 
   else if ( keyMatchSim(1, "OMEGA_MATTER", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_MATTER );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
-    README_KEYPLUSARGS_load(20, 1, WORDS, &README_KEYS_COSMO, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   // - - - - - - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
@@ -2450,7 +2450,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   // - - - -  load README info - - - - -
   if ( FOUND_PRIMARY_KEY && N > 0 ) {
-    README_KEYPLUSARGS_load(MXRATEPAR_ZRANGE, N, WORDS, 
+    README_KEYPLUSARGS_load(MXRATEPAR_ZRANGE, N, WORDS, keySource,
 			    &README_KEYS_RATEMODEL, fnam) ;
   }
 
@@ -2811,7 +2811,7 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
 
  README_LOAD:
   if ( N > 0 ) { 
-    README_KEYPLUSARGS_load(MXNON1A_TYPE, N, WORDS, 
+    README_KEYPLUSARGS_load(MXNON1A_TYPE, N, WORDS, keySource,
 			    &README_KEYS_NON1ASED, fnam);
   }
 
@@ -2907,7 +2907,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 
  README_LOAD:
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(MXFILTINDX, N, WORDS, 
+    README_KEYPLUSARGS_load(MXFILTINDX, N, WORDS, keySource,
     			    &README_KEYS_FILTER, fnam) ;
   }
 
@@ -3003,7 +3003,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(100, N, WORDS, 
+    README_KEYPLUSARGS_load(100, N, WORDS, keySource,
 			    &README_KEYS_SIMLIB, fnam );      
   }
 
@@ -3199,7 +3199,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
 
   if ( N > 0  && N < FLAG_NWD_ZERO ) {
-    README_KEYPLUSARGS_load(100, N, WORDS, 
+    README_KEYPLUSARGS_load(100, N, WORDS, keySource,
 			    &README_KEYS_HOSTLIB, fnam );   
   }
 
@@ -3244,7 +3244,7 @@ int  parse_input_LCLIB(char **WORDS, int keySource ) {
   }
 
   if( N > 0 ) {
-    README_KEYPLUSARGS_load(MXPAR_LCLIB, N, WORDS, 
+    README_KEYPLUSARGS_load(MXPAR_LCLIB, N, WORDS, keySource,
 			    &README_KEYS_LCLIB, fnam );
   }
 
@@ -3282,7 +3282,7 @@ int parse_input_LENS(char **WORDS, int keySource) {
 
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(20, N, WORDS, 
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource,
 			    &README_KEYS_LENS, fnam );
   }
 
@@ -3404,7 +3404,7 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
  // load CUTWIN in README string for readme/docana file (Dec 2021).
  if ( N > 0 ) {
    INPUTS.NCUTWIN_TOT++ ; 
-   README_KEYPLUSARGS_load(MXCUTWIN, N, WORDS, 
+   README_KEYPLUSARGS_load(MXCUTWIN, N, WORDS, keySource,
 			   &README_KEYS_CUTWIN, fnam );
  }
 
@@ -3452,7 +3452,7 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
   }
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(20, N, WORDS, 
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource,
 			    &README_KEYS_GRIDGEN, fnam) ;
   }
 
@@ -3528,7 +3528,7 @@ int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
   */
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(10, N, WORDS, 
+    README_KEYPLUSARGS_load(10, N, WORDS, keySource,
 			    &README_KEYS_SKY, fnam) ;
   }
 
@@ -3570,7 +3570,7 @@ int parse_input_ZVARIATION(char **WORDS, int keySource) {
     }
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(MXPAR_ZVAR, N, WORDS, 
+    README_KEYPLUSARGS_load(MXPAR_ZVAR, N, WORDS, keySource,
 			    &README_KEYS_ZVARIATION,fnam) ;
   }
 
@@ -3719,7 +3719,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 
   if ( N > 0 ) {  
     INPUTS.RANSYSTPAR.USE = 1; 
-    README_KEYPLUSARGS_load(100, N, WORDS, 
+    README_KEYPLUSARGS_load(100, N, WORDS, keySource, 
 			    &README_KEYS_RANSYSTPAR, fnam) ;
   }
 
@@ -3845,7 +3845,7 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
  README_LOAD:
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(20, N, WORDS, 
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource,
 			    &README_KEYS_GENMODEL, fnam) ;
   }
   
@@ -3971,7 +3971,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
  README_LOAD:
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(10, N, WORDS, 
+    README_KEYPLUSARGS_load(10, N, WORDS, keySource,
     			    &README_KEYS_SIMGEN_DUMP, fnam) ;
   }
 
@@ -4036,7 +4036,7 @@ int parse_input_MWEBV(char **WORDS, int keySource ) {
 
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(20, N, WORDS, 
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource, 
 			    &README_KEYS_MWEBV, fnam) ;
   }
 
@@ -4086,7 +4086,7 @@ int parse_input_GENMAG_OFF(char **WORDS, int keySource ) {
 
   // load README 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(100, N, WORDS, 
+    README_KEYPLUSARGS_load(100, N, WORDS, keySource, 
 			    &README_KEYS_GENMAG_OFF, fnam) ;
   }
 
@@ -4154,7 +4154,7 @@ int parse_input_GENMAG_SMEAR(char **WORDS, int keySource ) {
 
   // load README 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(100, N, WORDS, 
+    README_KEYPLUSARGS_load(100, N, WORDS, keySource, 
 			    &README_KEYS_GENMAG_SMEAR, fnam) ;
   }
 
@@ -4322,7 +4322,7 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
 
   // load README
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(MXSPECTRA, N, WORDS, 
+    README_KEYPLUSARGS_load(MXSPECTRA, N, WORDS, keySource,
 			    &README_KEYS_TAKE_SPECTRUM, fnam) ;
   }
 
@@ -4803,7 +4803,7 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   }
 
   if ( N > 0 ) {
-    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, 
+    README_KEYPLUSARGS_load(MXPAR_SEDMODEL, N, WORDS, keySource,
 			    &README_KEYS_SIMSED, fnam) ;
   }
 
@@ -10823,6 +10823,7 @@ void gen_random_coord_shift(void) {
   // BEWARE: MXRADIUS is assumed to be very small (<<1 deg)
   //   and thus MWEBV and zCMB(zHEL) are NOT updated !!!
   //
+  // Jan 12 2022: increase tolerance from 0.001 to 0.003 (for ELASTICC)
 
   double MXRADIUS = (double)INPUTS.MXRADIUS_RANDOM_SHIFT;
   if ( MXRADIUS < 1.0E-12 ) { return ; }
@@ -10872,7 +10873,7 @@ void gen_random_coord_shift(void) {
     ANGSEP = angSep(GENLC.RA,GENLC.DEC,  RA,DEC, (double)1.0 ) ;
     double ratio = ANGSEP/r;
     double dif_arcsec = 3600.0*(ANGSEP-r);
-    if ( fabs(ratio-1.0) > 1.0E-3 ) {
+    if ( fabs(ratio-1.0) > 3.0E-3 ) {
       print_preAbort_banner(fnam);
       printf(" CID = %d \n", GENLC.CID);
       printf(" Original RA,DEC = %.3f, %.3f deg \n", RA, DEC);
@@ -21493,7 +21494,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //   + Fill nbr dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
 
 
-  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m ;
+  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
   char fnam[] = "hostgal_to_SNDATA" ;
@@ -21521,6 +21522,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.SIM_HOSTLIB_MSKOPT = 
       INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
+
+    SNDATA.HOSTGAL_NZPHOT_QP = HOSTLIB.NZPHOT_QP;
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -21579,6 +21582,12 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_ELLIPTICITY[m]  = SNHOSTGAL_DDLR_SORT[m].ELLIPTICITY;
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
+
+      // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
+      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
+      	SNDATA.HOSTGAL_ZPHOT_QP[m][j] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_QP[j] ;
+      }
+
     }
     
   

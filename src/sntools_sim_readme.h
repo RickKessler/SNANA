@@ -61,7 +61,7 @@ void  readme_docana_searcheff(int *iline, char *pad);
 void  readme_docana_mwebv(int *iline, char *pad);
 void  readme_docana_misc(int *iline, char *pad);
 
-char *onoff_readme_docana(int FLAG);
+void onoff_readme_docana(int FLAG, char *onoff);
 
 void  readme_docana_comment(int *iline, char *comment); // write # <comment> 
 
@@ -71,7 +71,7 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName, char *comment,
                        int nval, double *val, double valmin, double valmax,
                        double val_noprint ) ;
 
-void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
+void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     README_KEYPLUSARGS_DEF *README_KEYS, 
 			     char *callFun);
 

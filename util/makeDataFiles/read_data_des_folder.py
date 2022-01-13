@@ -13,8 +13,6 @@ import makeDataFiles_params as gpar
 import makeDataFiles_util as util
 from makeDataFiles_base import Program
 
-#from makeDataFiles_params import *
-
 # - - - - - - - - - - - - - - - - - - -     -
 class DataFolderDES(Program):
     def __init__(self, config_inputs) :
@@ -40,7 +38,13 @@ class DataFolderDES(Program):
             'DES_numepochs_ml_Y5' : 'Ndetect in Y5 passing autoscan',
             'AGN_SCAN'            : 'reject on value = 2'
         }
-        self.config_data['SNANA_READER'].init_private_dict(private_dict)
+
+        SNANA_READER = self.config_data['SNANA_READER']
+        SNANA_READER.init_private_dict(private_dict)
+
+        # .xyz initialize SMP; read master list ....
+        # e.g., check $DES_SMP; else abort.
+        # self.config_data['smp_master_list'] = master_list
 
         # end init_read_data
 
@@ -61,32 +65,26 @@ class DataFolderDES(Program):
         # global end for reading data
         pass
 
-    def open_snana_fits(self,file_name):
-       # check file_name and file_name.gz, and open the file that exists.
-       # Function returns hdu pointer and number of rows in table.
-
-        msgerr = []
-        file_namegz = f"{file_name}.gz"
-        if os.path.exists(file_namegz) :
-            hdul = fits.open(file_namegz)
-        elif os.path.exists(file_name):
-            hdul = fits.open(file_name)
-        else:
-            msgerr.append(f"Cannot find fits file")
-            msgerr.append(f" {file_name}   not")
-            msgerr.append(f" {file_namegz} ")
-            util.log_assert(False,msgerr)
-
-        NROW = hdul[1].header['NAXIS2']
-        return NROW, hdul
-
-    # end open_snana_fits
-
-    def read_event(self, evt):
+    def read_event(self, evt ):
 
         args         = self.config_inputs['args']  # command line args
         SNANA_READER = self.config_data['SNANA_READER']
-        data_dict = SNANA_READER.get_data_dict(args,evt)
+        data_dict    = SNANA_READER.get_data_dict(args,evt)
+
+        # MJD_trigger is a private variable, so move it to 
+        # nominal SNANA variable. .xyz
+        key_private_list = [ 'PRIVATE(DES_mjd_trigger)' ]
+        key_head_list    = [ gpar.DATAKEY_MJD_DETECT_FIRST ]
+        head_calc        = data_dict['head_calc']
+        for key_private, key_head in zip(key_private_list,key_head_list):
+            head_calc[key_head] = SNANA_READER.get_data_val(key_private,evt)
+
+        # .xyz read SMP for this SNID and overwrite FLUXCAL[ERR]
+        # tricky part: DIFFIMG has ~500 epochs spanning 5 years,
+        # but SMP has ~100 epochs spanning 1 season. So need to
+        # copy epoch meta-data (SKY,GAIN,ZP,PSF) from original
+        # diffimg phot array to final smp array,
+
 
         return data_dict
 

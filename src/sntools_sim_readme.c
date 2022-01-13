@@ -1,7 +1,7 @@
 /******************************************************
   
    Created Dec 22 2021 [code moved out of snlc_sim]
-   Write DOCUMENTATION block to [VERSION].README
+   Write DOCUMENTATION block to [VERSION].README  
 
 ******************************************************/
 
@@ -210,7 +210,7 @@ void  README_DOCANA_INPUT_KEYS(int *iline) {
 
 void README_DOCANA_INPUT_NOTES(int *iline) {
   int  OVP, j, i = *iline;
-  char *cptr, *onoff, pad[] = "  ", dash[]="  -";
+  char *cptr, onoff[8], pad[] = "  ", dash[]="  -";
 
   // ----------- BEGIN ------------
 
@@ -220,7 +220,7 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
   sprintf(cptr,"%s%s:", pad, DOCANA_INPUT_NOTES );  
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  onoff = onoff_readme_docana(INPUTS.SMEARFLAG_FLUX);
+  onoff_readme_docana(INPUTS.SMEARFLAG_FLUX,onoff);
   sprintf(cptr, "%s Poisson noise is %s ", dash, onoff);
 
   
@@ -235,7 +235,7 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_IMAGE ; 
-  onoff = onoff_readme_docana(OVP);
+  onoff_readme_docana(OVP,onoff);
   sprintf(cptr, "%s SB-dependent flux scatter is %s",dash, onoff);
 
   for ( j=0; j < NLINE_RATE_INFO; j++ ) {
@@ -390,13 +390,15 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 
 
 // ========================================
-char *onoff_readme_docana(int FLAG) {
-  char STR_ON[] = "ON";
+void onoff_readme_docana(int FLAG, char *onoff) {
+  char STR_ON[]  = "ON";
   char STR_OFF[] = "OFF";
-  char *STR;
-  if ( FLAG == 0 )     { STR = STR_OFF ; }
+  char *STR ;
+  if ( FLAG == 0 )     { STR = STR_OFF; }
   else                 { STR = STR_ON ; }    
-  return STR;
+
+  sprintf(onoff,"%s", STR);
+  return;
 
 } // end onoff_readme_docana
 
@@ -707,7 +709,7 @@ void readme_docana_rate(int *iline, char *pad) {
 void readme_docana_cutwin(int *iline, char *pad) {
 
   int i = *iline;
-  int icut, NCUTWIN = INPUTS.NCUTWIN_TOT;
+  int icut, NCUTWIN = README_KEYS_CUTWIN.NKEY ;
   int nval1=1, nval2=2, lenkey=24 ;
   char *cptr, noComment[]="" ;
   double *dptr, dval;
@@ -1217,7 +1219,7 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName,  char *comment,
 } // end VERSION_INFO_load
 
 // =============================================================
-void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
+void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     README_KEYPLUSARGS_DEF *README_KEYS,
 			     char *callFun ) {
 
@@ -1231,12 +1233,17 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   // Output:
   //   README_KEYS : structure to load
   //
-
+  // Jan 11 2022: pass keySource arg, and check override only for
+  //              command-line override.
+  //
   int NKEY = README_KEYS->NKEY;
   int MEMC1 = MXKEY * sizeof(char*);
   int MEMC_KEY, MEMC_ARG;
-  int iwd, lenkey, LENWORDS_SUM=0 ;
-  char *KEY, *ARG;
+  int iwd, lenkey, k, LENWORDS_SUM=0 ;
+  char *KEY, *ARG, *ARG_TMP, *KEY_TMP ;
+  char BLANK[] = " ";
+  char fnam[] = "README_KEYPLUSARGS_load" ;
+
   // ------------ BEGIN ----------
 
   if ( NKEY == 0 ) {
@@ -1251,29 +1258,47 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS,
   MEMC_KEY = ( strlen(WORDS[0])   + 10 ) * sizeof(char);
   MEMC_ARG = ( LENWORDS_SUM + NWD + 10 ) * sizeof(char);
 
-  // allocate 100 chars for this key
+  KEY_TMP = (char*) malloc(MEMC_KEY); ; KEY_TMP[0]=0;
+  ARG_TMP = (char*) malloc(MEMC_ARG); ; ARG_TMP[0]=0;
+
+  // Store key in local/temp variable.
+  // if there is no colon after key, add it to work for command-line
+  // overrides without colon
+  sprintf(KEY_TMP, "%s", WORDS[0]);
+  if ( strchr(KEY_TMP,':') == NULL ) {
+    lenkey = strlen(KEY_TMP);
+    KEY_TMP[lenkey] = ':'  ;
+  }
+  
+  // load args into local/temp string
+  for(iwd=1; iwd<=NWD; iwd++ )  { strcat(ARG_TMP,WORDS[iwd]); strcat(ARG_TMP,BLANK);  }
+
+  // For command-line override, check previous keys to override.
+  if ( keySource == KEYSOURCE_ARG ) {
+    for(k=0; k < NKEY; k++ ) {
+      KEY = README_KEYS->KEY_LIST[k];
+      ARG = README_KEYS->ARG_LIST[k];
+      if ( strcmp(KEY,KEY_TMP) == 0 ) {
+	sprintf(ARG,"%s", ARG_TMP);
+	free(KEY_TMP); free(ARG_TMP);
+	return ;
+      }
+    } // end k
+  }
+
+  // ---- store new KEY and ARG
+
+  // allocate mem for this key and arg
   README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC_KEY);
   README_KEYS->ARG_LIST[NKEY] = (char*) malloc(MEMC_ARG);
 
-  KEY = README_KEYS->KEY_LIST[NKEY];  KEY[0]=0;
-  ARG = README_KEYS->ARG_LIST[NKEY];  ARG[0]=0;
-
-  sprintf(KEY, "%s", WORDS[0]);
-
-  // if there is no colon after key, add it to work for command-line
-  // overrides that have no colon
-  if ( strchr(KEY,':') == NULL ) {
-    lenkey = strlen(KEY);
-    KEY[lenkey] = ':'  ;
-  }
-
-  // load args
-  char BLANK[] = " ";
-  for(iwd=1; iwd<=NWD; iwd++ ) 
-    { strcat(ARG,WORDS[iwd]); strcat(ARG,BLANK);  }
+  sprintf(README_KEYS->KEY_LIST[NKEY], "%s", KEY_TMP);
+  sprintf(README_KEYS->ARG_LIST[NKEY], "%s", ARG_TMP);
 
   // increment number of stored keys in this structure.
   README_KEYS->NKEY++ ;
+
+  free(KEY_TMP); free(ARG_TMP);
 
   return;
 

@@ -5515,10 +5515,12 @@ void init_SNHOSTGAL(void) {
   }
 
   for ( i=0; i < MXNBR_LIST ; i++ ) {
-	  SNHOSTGAL.IGAL_NBR_LIST[i] = HOSTLIB_IGAL_UNDEFINED ; //
-	  SNHOSTGAL.DDLR_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
-	  SNHOSTGAL.SNSEP_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
+    SNHOSTGAL.IGAL_NBR_LIST[i]  = HOSTLIB_IGAL_UNDEFINED ; //
+    SNHOSTGAL.DDLR_NBR_LIST[i]  = HOSTLIB_SNPAR_UNDEFINED ;
+    SNHOSTGAL.SNSEP_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
   }
+
+  return ;
 
 } // end init_SNHOSTGAL
 
@@ -5649,11 +5651,12 @@ void FREEHOST_GALID(int IGAL) {
   // If generated event is rejected, and host galaxies are re-used
   // with MJD-separation, this function frees  up the host so that 
   // it can be used again.
+  //
+  // Jan 12 2022: check that NUSE > 0 before NUSE--.
 
   if ( IGAL < 0 ) { return ; }
 
-  if ( SAMEHOST.REUSE_FLAG == 2 ) {
-
+  if ( SAMEHOST.REUSE_FLAG == 2 && SAMEHOST.NUSE[IGAL] > 0 ) {
     SAMEHOST.NUSE[IGAL]-- ;
   }
 

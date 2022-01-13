@@ -15856,7 +15856,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       wd0[0] = wd1[0] = 0;
       sprintf(wd0,"%s", WDLIST[iwd] );
-      if ( NWD > 1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
+      // xxx mark delete if ( NWD > 1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
+      if ( NWD > iwd+1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
 
       if ( strcmp(wd0,"LIBID:") == 0 ) {
 	sscanf(wd1, "%d", &ID ); 

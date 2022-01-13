@@ -488,7 +488,7 @@ def field_plasticc_hack(field, head_file_name):
 # utility class to read SNANA folder in FITS format
 # ====================================================
 
-class SNANA_FolderReader:
+class READ_SNANA_FOLDER:
 
     """
     Created Jan 8 2022 by R.Kessler
@@ -531,6 +531,7 @@ class SNANA_FolderReader:
         self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
         self.snana_folder_dict['private_dict']    = {}
+
 
     def exec_read(self, ifile):
 
@@ -672,9 +673,8 @@ class SNANA_FolderReader:
             # if nite-range selection is requsted
             nite_range = args.nite_detect_range
             if nite_range is not None:
-                msgerr.append(f"Cannot implement nite_detect_range = " \
-                              f"{nite_range}")
-                msgerr.append(f"Because {KEY0} is not in data header")
+                msgerr.append(f"Cannot implement nite_detect_range={nite_range}")
+                msgerr.append(f"because {KEY0} is not in data header")
                 log_assert(False,msgerr)
 
         # - - - - - - -
@@ -716,10 +716,8 @@ class SNANA_FolderReader:
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc].
         # head_[raw,calc] is both input and output of store_snana_hostgal
-        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict,
-                            head_raw )
-        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
-                            head_calc)
+        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, head_raw)
+        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict, head_calc)
 
         # - - - - -
         # store optional PRIVATE variables
@@ -763,7 +761,7 @@ class SNANA_FolderReader:
         # Beware that light curve can overlap multiple fields.
         field = phot_raw[gpar.DATAKEY_FIELD][0]
         if args.survey == 'LSST' :
-            field = field_plasticc_hack(field,table_dict['head_file'])
+            field = field_plasticc_hack(field, table_dict['head_file'])
         head_raw[gpar.DATAKEY_FIELD] = field
 
         # - - - -
@@ -782,10 +780,11 @@ class SNANA_FolderReader:
 
         # check optional dictionary items to append
         if len(head_sim) > 0:
-            data_dict['head_sim'] =  head_sim
+            data_dict['head_sim'] = head_sim
 
-        if apply_select :
-            data_dict['select'] = True
+        #if apply_select :
+        #    data_dict['select'] = True
+        data_dict['select'] = apply_select
 
         return data_dict
 

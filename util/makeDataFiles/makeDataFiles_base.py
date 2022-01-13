@@ -35,8 +35,9 @@ import write_data_snana as snana
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
-    util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
-    raise
+    #util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
+    #raise
+    pass
 
 
 # =============================================================================

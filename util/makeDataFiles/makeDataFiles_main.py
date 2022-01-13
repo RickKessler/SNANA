@@ -47,7 +47,7 @@ try:
 except ImportError:
     pass
 
-from read_data_des_folder import DataFolderDES
+from read_data_des_folder import data_des_folder
 from read_data_lsst_ap import data_lsst_ap
 from read_data_lsst_drp import data_lsst_drp
 from read_data_sirah_folder import data_sirah_folder
@@ -194,7 +194,7 @@ def which_read_class(args):
             folder      = glob.glob1(outdir, f"[!_TEXT]*")[0]
             readme_file = f"{outdir}/{folder}/{folder}.README"
             readme_yaml = util.read_yaml(readme_file)
-            restore_args_from_readme(args,readme_yaml[gpar.DOCANA_KEY])
+            restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
         elif args.outdir_lsst_alert:
             outdir   = args.outdir_lsst_alert
 
@@ -209,7 +209,7 @@ def which_read_class(args):
         read_class = data_sirah_folder
         args.survey = "SIRAH"
     elif args.des_folder is not None:
-        read_class = DataFolderDES
+        read_class = data_des_folder
         args.survey = "DES"
     elif args.ztf_folder is not None:
         read_class = data_ztf_folder

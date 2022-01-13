@@ -5537,7 +5537,7 @@ int USEHOST_GALID(int IGAL) {
 
   int retCode,  NUSE_PRIOR, NUSE, use;
   int MJD_STORE[MXUSE_SAMEGAL], BLOCK_STORE[MXUSE_SAMEGAL], BLOCKSUM;
-  int DAY, DAYDIF, ABSDIF;
+  int DAY, DAYDIF, ABSDIF, PEAKDAY ;
   int DAYDIF_STORE[MXUSE_SAMEGAL], MINDAYSEP ;
   int LDMP, MJD;
   char fnam[] = "USEHOST_GALID" ;
@@ -5557,35 +5557,33 @@ int USEHOST_GALID(int IGAL) {
   }
   else if ( SAMEHOST.REUSE_FLAG == 1 ) {
     // option for arbitrary re-use of host regardless of PEAKMJD
-
     // don't increment past 1 to avoid array-bound overflow.
-    if ( SAMEHOST.NUSE[IGAL] == 0 ) 
-      { SAMEHOST.NUSE[IGAL]++ ; } 
+    if ( SAMEHOST.NUSE[IGAL] == 0 )  { SAMEHOST.NUSE[IGAL]++ ; } 
     retCode = 1 ;
   }
   else if ( SAMEHOST.REUSE_FLAG == 2 ) {
+    // Jan 2022 RK - there is a rare bug causing NUSE=0 ??
     // option for re-use of host with PEAKMD-sep constraint
     BLOCKSUM = 0 ;
     MINDAYSEP = INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
     DAY = (int)SNHOSTGAL.PEAKMJD - SAMEHOST.PEAKMJD_STORE_OFFSET ;
+
     // allocate memory for this IGAL on first usage
+    // Problem: if this IGAL is rejected, then malloc might happen again later??
     if ( NUSE_PRIOR == 0 ) {
       SAMEHOST.PEAKDAY_STORE[IGAL] = 
 	(unsigned short*)malloc( MXUSE_SAMEGAL*sizeof(unsigned short) ) ;
  
       for(use=0; use < MXUSE_SAMEGAL; use++ )  // Jan 12 2022
         { SAMEHOST.PEAKDAY_STORE[IGAL][use] = 0 ; }
- 
     }
 
-    // check if any previously generated PEAKMJD on this host 
-    // is too close in time.
+    // check if a previous PEAKMJD on this host is too close in time.
     for ( use=0; use < NUSE_PRIOR; use++ )  {
-      DAYDIF = DAY - SAMEHOST.PEAKDAY_STORE[IGAL][use] ;
-      if ( DAYDIF >= 0 ) { ABSDIF=DAYDIF; } else { ABSDIF = -DAYDIF; }
-      MJD  = 
-	SAMEHOST.PEAKDAY_STORE[IGAL][use] + 
-	SAMEHOST.PEAKMJD_STORE_OFFSET ;
+      PEAKDAY =  SAMEHOST.PEAKDAY_STORE[IGAL][use] ;
+      MJD     =  PEAKDAY + SAMEHOST.PEAKMJD_STORE_OFFSET ;
+      DAYDIF  =  DAY - PEAKDAY ;
+      if ( DAYDIF >= 0 ) { ABSDIF=DAYDIF; }    else { ABSDIF = -DAYDIF; }
       BLOCK_STORE[use] = 0 ;
       if ( ABSDIF < MINDAYSEP ) { BLOCKSUM = 1; BLOCK_STORE[use]=1; }
 
@@ -5595,9 +5593,9 @@ int USEHOST_GALID(int IGAL) {
     
     // if current PEAKMJD was not blocked, then use this host [again]
     if ( BLOCKSUM == 0 ) {
+      NUSE  = SAMEHOST.NUSE[IGAL] ;
+      SAMEHOST.PEAKDAY_STORE[IGAL][NUSE] = DAY ;
       SAMEHOST.NUSE[IGAL]++ ;
-      NUSE = SAMEHOST.NUSE[IGAL] ;
-      SAMEHOST.PEAKDAY_STORE[IGAL][NUSE-1] = DAY ;
       retCode = 1 ;
     }
   }
@@ -5653,7 +5651,9 @@ void FREEHOST_GALID(int IGAL) {
   // it can be used again.
   //
   // Jan 12 2022: check that NUSE > 0 before NUSE--.
-
+  //     Beware that there may still be an underlying bug
+  //     that rarely caused NUSE=0 -> NUSE = -1
+  //
   if ( IGAL < 0 ) { return ; }
 
   if ( SAMEHOST.REUSE_FLAG == 2 && SAMEHOST.NUSE[IGAL] > 0 ) {

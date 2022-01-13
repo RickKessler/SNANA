@@ -4192,7 +4192,6 @@ void rd_snfitsio_file(int ifile) {
 
   // allocate lightcurve [PHOT] memory after reading header.
   rd_snfitsio_malloc( ifile, ITYPE_SNFITSIO_PHOT, MXOBS_SNFITSIO );  
-
   
 } // end of rd_snfitsio_file
 
@@ -5177,7 +5176,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // header has changed.
 
   
-  if ( isn == ISNFIRST_SNFITSIO ) { *iptr = -9 ; } // May 5 2014
+  if ( isn == ISNFIRST_SNFITSIO ) { *iptr = -9 ; } 
 
   iptr_local = *iptr ;
 

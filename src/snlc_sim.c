@@ -1747,16 +1747,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_RA", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_RA[1] );
-    README_KEYPLUSARGS_load(10, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
+    README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
   else if ( keyMatchSim(1,"GENRANGE_DEC GENRANGE_DECL", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[1] );
-    README_KEYPLUSARGS_load(10, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
+    README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
 
   else if ( keyMatchSim(1,"MXRADIUS_RANDOM_SHIFT", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.MXRADIUS_RANDOM_SHIFT );
+    README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
 
   else if ( strstr(WORDS[0],"SOLID_ANGLE") != NULL ) {
@@ -10814,17 +10815,23 @@ void override_modelPar_from_SNHOST(void) {
 void gen_random_coord_shift(void) {
 
   // Created Apr 26 2021
-  // Check option to randomly shift RA,DEC within a circle of MXRADIUS
+  // Check option to randomly shift RA,DEC within a circle of 
+  //     MXRADIUS_RANDOM_SHIFT (deg)
   // of original coordinate. Make sure to shift SN and all host galaxy 
-  // candidates. Units in degrees.
+  // candidates. 
   // Initial motivation is to avoid spatial duplicates for
   // testing alert brokers in LSST.
   //
-  // BEWARE: MXRADIUS is assumed to be very small (<<1 deg)
-  //   and thus MWEBV and zCMB(zHEL) are NOT updated !!!
+  // BEWARE: 
+  //   + MXRADIUS is assumed to be very small (<<1 deg)
+  //     and thus MWEBV and zCMB(zHEL) are NOT updated !!!
+  //   + RA and DEC shifts are approximations
   //
-  // Jan 12 2022: increase tolerance from 0.001 to 0.003 (for ELASTICC)
+  // Jan 12 2022: 
+  //   + switch for tolerance on angle-ratio to DIF_ARCSEC_TOL
+  //
 
+  double DIF_ARCSEC_TOL = 10.0; 
   double MXRADIUS = (double)INPUTS.MXRADIUS_RANDOM_SHIFT;
   if ( MXRADIUS < 1.0E-12 ) { return ; }
 
@@ -10871,9 +10878,9 @@ void gen_random_coord_shift(void) {
 
   if ( CHECK_ANGSEP ) {
     ANGSEP = angSep(GENLC.RA,GENLC.DEC,  RA,DEC, (double)1.0 ) ;
-    double ratio = ANGSEP/r;
+    double ratio      = ANGSEP/r;
     double dif_arcsec = 3600.0*(ANGSEP-r);
-    if ( fabs(ratio-1.0) > 3.0E-3 ) {
+    if ( dif_arcsec > DIF_ARCSEC_TOL ) {
       print_preAbort_banner(fnam);
       printf(" CID = %d \n", GENLC.CID);
       printf(" Original RA,DEC = %.3f, %.3f deg \n", RA, DEC);

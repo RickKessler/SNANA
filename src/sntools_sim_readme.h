@@ -14,6 +14,7 @@ char  ORIG_FILE_README[MXPATHLEN]; // temp space to restore original filenames
 // arguments, or that can have duplicate keys.
 typedef struct {
   int NKEY;
+  bool MALLOC1;
   char **KEY_LIST, **ARG_LIST;
 } README_KEYPLUSARGS_DEF ;
 
@@ -74,6 +75,7 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName, char *comment,
 void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     README_KEYPLUSARGS_DEF *README_KEYS, 
 			     char *callFun);
+void README_KEYPLUSARGS_init(README_KEYPLUSARGS_DEF *README_KEYS) ;
 
 void  readme_docana_load_list(int *iline, char *pad,
 			      README_KEYPLUSARGS_DEF *README_KEYS);

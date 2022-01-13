@@ -5570,6 +5570,10 @@ int USEHOST_GALID(int IGAL) {
     if ( NUSE_PRIOR == 0 ) {
       SAMEHOST.PEAKDAY_STORE[IGAL] = 
 	(unsigned short*)malloc( MXUSE_SAMEGAL*sizeof(unsigned short) ) ;
+ 
+      for(use=0; use < MXUSE_SAMEGAL; use++ )  // Jan 12 2022
+        { SAMEHOST.PEAKDAY_STORE[IGAL][use] = 0 ; }
+ 
     }
 
     // check if any previously generated PEAKMJD on this host 

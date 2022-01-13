@@ -1,7 +1,7 @@
 /******************************************************
   
    Created Dec 22 2021 [code moved out of snlc_sim]
-   Write DOCUMENTATION block to [VERSION].README  
+   Write DOCUMENTATION block to [VERSION].README    
 
 ******************************************************/
 
@@ -48,28 +48,28 @@ void README_DOCANA_DRIVER(int iflag_readme) {
     VERSION_INFO.NLINE_README      = 0;
     VERSION_INFO.NLINE_README_INIT = 0;
 
-    README_KEYS_COSMO.NKEY             = 0 ;
-    README_KEYS_GENMODEL.NKEY          = 0 ;
-    README_KEYS_SIMLIB.NKEY            = 0 ;
-    README_KEYS_HOSTLIB.NKEY           = 0 ;
-    README_KEYS_RATEMODEL.NKEY         = 0 ;
-    README_KEYS_LENS.NKEY              = 0 ;
-    README_KEYS_SKY.NKEY               = 0 ;
-    README_KEYS_MWEBV.NKEY             = 0 ;
-    README_KEYS_NON1ASED.NKEY          = 0 ;
-    README_KEYS_SIMSED.NKEY            = 0 ;
-    README_KEYS_LCLIB.NKEY             = 0 ;
-    README_KEYS_FILTER.NKEY            = 0 ; // keys with _FILTER
-    README_KEYS_FLUXERRMODEL.NKEY      = 0 ;
-    README_KEYS_GENMAG_OFF.NKEY        = 0 ;
-    README_KEYS_GENMAG_SMEAR.NKEY      = 0 ;
-    README_KEYS_TAKE_SPECTRUM.NKEY     = 0 ;
-    README_KEYS_RANSYSTPAR.NKEY        = 0 ;
-    README_KEYS_ZVARIATION.NKEY        = 0 ;
-    README_KEYS_GRIDGEN.NKEY           = 0 ;
-    README_KEYS_CUTWIN.NKEY            = 0 ;
-    README_KEYS_COVMAT_SCATTER.NKEY    = 0 ;
-    README_KEYS_SIMGEN_DUMP.NKEY       = 0 ;
+    README_KEYPLUSARGS_init(&README_KEYS_COSMO);
+    README_KEYPLUSARGS_init(&README_KEYS_GENMODEL);
+    README_KEYPLUSARGS_init(&README_KEYS_SIMLIB);
+    README_KEYPLUSARGS_init(&README_KEYS_HOSTLIB);
+    README_KEYPLUSARGS_init(&README_KEYS_RATEMODEL);
+    README_KEYPLUSARGS_init(&README_KEYS_LENS);
+    README_KEYPLUSARGS_init(&README_KEYS_SKY);
+    README_KEYPLUSARGS_init(&README_KEYS_MWEBV);
+    README_KEYPLUSARGS_init(&README_KEYS_NON1ASED);
+    README_KEYPLUSARGS_init(&README_KEYS_SIMSED);
+    README_KEYPLUSARGS_init(&README_KEYS_LCLIB);
+    README_KEYPLUSARGS_init(&README_KEYS_FILTER);
+    README_KEYPLUSARGS_init(&README_KEYS_FLUXERRMODEL);
+    README_KEYPLUSARGS_init(&README_KEYS_GENMAG_OFF);
+    README_KEYPLUSARGS_init(&README_KEYS_GENMAG_SMEAR);
+    README_KEYPLUSARGS_init(&README_KEYS_TAKE_SPECTRUM);
+    README_KEYPLUSARGS_init(&README_KEYS_RANSYSTPAR);
+    README_KEYPLUSARGS_init(&README_KEYS_ZVARIATION);
+    README_KEYPLUSARGS_init(&README_KEYS_GRIDGEN);
+    README_KEYPLUSARGS_init(&README_KEYS_CUTWIN);
+    README_KEYPLUSARGS_init(&README_KEYS_COVMAT_SCATTER);
+    README_KEYPLUSARGS_init(&README_KEYS_SIMGEN_DUMP);
     return;
   }
 
@@ -1218,6 +1218,12 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName,  char *comment,
   return ;
 } // end VERSION_INFO_load
 
+
+void README_KEYPLUSARGS_init(README_KEYPLUSARGS_DEF *README_KEYS) {
+  README_KEYS->NKEY = 0;
+  README_KEYS->MALLOC1 = false;
+}
+
 // =============================================================
 void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     README_KEYPLUSARGS_DEF *README_KEYS,
@@ -1226,7 +1232,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   // Store NWD WORDS in README_KEYS strut.
   // Inputs:
   //   MXKEY : max number of keys to store
-  //   NWD   : number of words past 
+  //   NWD   : number of words 
   //   WORDS : list of words;  KEY=WORDS[0], ARGS=WORDS[1:N]
   //   callFun: calling function, for error message
   //
@@ -1236,51 +1242,62 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   // Jan 11 2022: pass keySource arg, and check override only for
   //              command-line override.
   //
-  int NKEY = README_KEYS->NKEY;
-  int MEMC1 = MXKEY * sizeof(char*);
-  int MEMC_KEY, MEMC_ARG;
-  int iwd, lenkey, k, LENWORDS_SUM=0 ;
+
+  bool MALLOC1 = README_KEYS->MALLOC1 ;
+  int  NKEY    = README_KEYS->NKEY;  
+  int  MEMC1   = MXKEY * sizeof(char*);
+  int  MEMC_KEY, MEMC_ARG;
+  int iwd, lenkey, k, LENKEY=0, LENARG=0 ;
   char *KEY, *ARG, *ARG_TMP, *KEY_TMP ;
   char BLANK[] = " ";
-  char fnam[] = "README_KEYPLUSARGS_load" ;
+  char fnam[] = "README_KEYPLUSARGS_load" ; 
 
   // ------------ BEGIN ----------
 
-  if ( NKEY == 0 ) {
+  if ( NKEY == 0 && !MALLOC1 ) {
     // allocate pointer for all MXKEY possible keys
     README_KEYS->KEY_LIST = (char**) malloc(MEMC1);
     README_KEYS->ARG_LIST = (char**) malloc(MEMC1);
+    README_KEYS->MALLOC1 = true;
   }
 
-  // compute lenth of string needed to store the WORDS
-  for(iwd=1; iwd<=NWD; iwd++ )  { LENWORDS_SUM += strlen(WORDS[iwd]) ; } 
+  // compute lenth of string needed to store KEY and  WORDS
+  LENKEY = strlen(WORDS[0]) + 10;
 
-  MEMC_KEY = ( strlen(WORDS[0])   + 10 ) * sizeof(char);
-  MEMC_ARG = ( LENWORDS_SUM + NWD + 10 ) * sizeof(char);
+  LENARG = NWD + 10 ;
+  for(iwd=1; iwd<=NWD; iwd++ )  { LENARG += strlen(WORDS[iwd]) ; } 
 
-  KEY_TMP = (char*) malloc(MEMC_KEY); ; KEY_TMP[0]=0;
-  ARG_TMP = (char*) malloc(MEMC_ARG); ; ARG_TMP[0]=0;
+  MEMC_KEY = ( LENKEY ) * sizeof(char);
+  MEMC_ARG = ( LENARG ) * sizeof(char);
 
-  // Store key in local/temp variable.
+  KEY = (char*) malloc(MEMC_KEY); ;  KEY[0]=0;
+  ARG = (char*) malloc(MEMC_ARG); ;  ARG[0]=0;
+
+  // Store key in local variable
   // if there is no colon after key, add it to work for command-line
   // overrides without colon
-  sprintf(KEY_TMP, "%s", WORDS[0]);
-  if ( strchr(KEY_TMP,':') == NULL ) {
-    lenkey = strlen(KEY_TMP);
-    KEY_TMP[lenkey] = ':'  ;
-  }
+  sprintf(KEY, "%s", WORDS[0]);
+  if ( strchr(KEY,':') == NULL ) { strcat(KEY,COLON); }
   
-  // load args into local/temp string
-  for(iwd=1; iwd<=NWD; iwd++ )  { strcat(ARG_TMP,WORDS[iwd]); strcat(ARG_TMP,BLANK);  }
+  // load args into local string
+  for(iwd=1; iwd<=NWD; iwd++ )  { strcat(ARG,WORDS[iwd]); strcat(ARG,BLANK);  }
+
+  // printf(" xxx %s: check '%s' = '%s' \n", fnam, KEY, ARG); fflush(stdout);
 
   // For command-line override, check previous keys to override.
   if ( keySource == KEYSOURCE_ARG ) {
     for(k=0; k < NKEY; k++ ) {
-      KEY = README_KEYS->KEY_LIST[k];
-      ARG = README_KEYS->ARG_LIST[k];
+      KEY_TMP = README_KEYS->KEY_LIST[k];
+      ARG_TMP = README_KEYS->ARG_LIST[k];
+
       if ( strcmp(KEY,KEY_TMP) == 0 ) {
-	sprintf(ARG,"%s", ARG_TMP);
-	free(KEY_TMP); free(ARG_TMP);
+	// check if the arg override needs more memory than original key
+	if ( LENARG > strlen(ARG_TMP) ) {
+	  README_KEYS->ARG_LIST[k] = (char *)realloc(README_KEYS->ARG_LIST[k],MEMC_ARG);
+	  ARG_TMP = README_KEYS->ARG_LIST[k];
+	}
+	sprintf(ARG_TMP,"%s", ARG);
+	free(KEY); free(ARG);
 	return ;
       }
     } // end k
@@ -1292,13 +1309,13 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   README_KEYS->KEY_LIST[NKEY] = (char*) malloc(MEMC_KEY);
   README_KEYS->ARG_LIST[NKEY] = (char*) malloc(MEMC_ARG);
 
-  sprintf(README_KEYS->KEY_LIST[NKEY], "%s", KEY_TMP);
-  sprintf(README_KEYS->ARG_LIST[NKEY], "%s", ARG_TMP);
+  sprintf(README_KEYS->KEY_LIST[NKEY], "%s", KEY);
+  sprintf(README_KEYS->ARG_LIST[NKEY], "%s", ARG);
 
   // increment number of stored keys in this structure.
   README_KEYS->NKEY++ ;
 
-  free(KEY_TMP); free(ARG_TMP);
+  free(KEY); free(ARG);
 
   return;
 

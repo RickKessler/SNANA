@@ -33,7 +33,7 @@ class data_snana_folder(Program):
         if refac:
             # run __init__ in snana-reader class
             snana_folder = args.snana_folder
-            SNANA_READER = util.SNANA_FolderReader(snana_folder)
+            SNANA_READER = util.READ_SNANA_FOLDER(snana_folder)
             config_data['SNANA_READER'] = SNANA_READER
 
     def init_read_data(self):

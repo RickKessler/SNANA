@@ -570,7 +570,7 @@ void get_user_input(void) {
   // is added to INPUTS.INPUT_FILE_LIST.
   for(ifile=0; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
     if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
-       read_input_file(INPUTS.INPUT_FILE_LIST[ifile] ); 
+      read_input_file(INPUTS.INPUT_FILE_LIST[ifile], KEYSOURCE_FILE ); 
     }
   }
 
@@ -582,7 +582,7 @@ void get_user_input(void) {
     FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE", COLON)  );
     if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
       char *include_file = ARGV_LIST[i+1] ;
-      read_input_file(include_file);
+      read_input_file(include_file, KEYSOURCE_ARG );
     }
   } 
 
@@ -1331,7 +1331,7 @@ void set_user_defaults_RANSYSTPAR(void) {
 
 
 // ***********************************
-int read_input_file(char *input_file) {
+int read_input_file(char *input_file, int keySource ) {
 
   // Created Jul 2020 by R.Kessler
   //
@@ -1343,6 +1343,7 @@ int read_input_file(char *input_file) {
   int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT ;
   int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING, NTRY=0 ;
   FILE *fp;
+  bool DO_STRINGMATCH_INIT;
   char tmpWord[MXPATHLEN];  
   char stringSource[] = "sim-input file" ;
   char fnam[] = "read_input_file" ;
@@ -1362,7 +1363,22 @@ int read_input_file(char *input_file) {
   printf(" --------------------------------------------------------\n");
   INIT_FLAG_STRING = 0 ;
   if ( INPUTS.KEYNAME_DUMPFLAG ) { INIT_FLAG_STRING = -1; }   
-  NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); 
+
+  // for include files inside primary input, do NOT init string match
+  // so that duplicate keys cause abort. For INCLUDE on command line,
+  // init string match to avoid abort.
+  bool REFAC = false ;
+  if ( REFAC ) { // refac
+    DO_STRINGMATCH_INIT =
+      (INPUTS.NREAD_INPUT_FILE==1)  || // always init first file
+      (keySource == KEYSOURCE_ARG)  ;  // init INCLUDE passed as command arg
+  }
+  else {
+    DO_STRINGMATCH_INIT = true ; // Legacy
+  }
+
+  if ( DO_STRINGMATCH_INIT ) 
+    { NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); }
 
  READ_FILE:
   NTRY++ ;
@@ -1473,13 +1489,36 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 		
 
   ISKEY_INCLUDE = 
-    ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
-      keyMatchSim(2, "INPUT_INCLUDE_FILE", WORDS[0], keySource) );
+    ( keyMatchSim(MXINPUT_FILE_SIM-1, "INPUT_FILE_INCLUDE", 
+		  WORDS[0], keySource) ||
+      keyMatchSim(MXINPUT_FILE_SIM-1, "INPUT_INCLUDE_FILE",
+		  WORDS[0], keySource)    );
 
   // - - - - - - -
 
   if ( ISKEY_INCLUDE ) {
+
+    // command-line INCLUDE files are read elsewhere
     if ( keySource == KEYSOURCE_ARG ) { N++; return(N); }
+
+    int inc; bool LOAD_INCLUDE = false, IS_NULL;
+    for(inc=1; inc < MXINPUT_FILE_SIM; inc++ ) { // skip inc=0 = primary inp
+      IS_NULL = (strlen(INPUTS.INPUT_FILE_LIST[inc]) == 0);
+      if ( !LOAD_INCLUDE && IS_NULL ) {
+	 N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[inc]); 
+	 LOAD_INCLUDE = true;
+      }
+    }
+
+    if ( N == 0 ) {
+      sprintf(c1err,"Cannot specify %d or more INPUT_INCLUDE_FILE keys",
+	      MXINPUT_FILE_SIM );
+      sprintf(c2err,"%d or fewer INCLUDE files allowed.",
+	      MXINPUT_FILE_SIM-1 ) ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    /* xxxx mark delete Jan 14 2022 xxxx
     if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
       { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[1]); }
     else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file
@@ -1493,6 +1532,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 	      MXINPUT_FILE_SIM-1 ) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }    
+    xxxxxxxxx end mark xxxxx */
+
   }
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
@@ -5337,11 +5378,6 @@ void prep_user_input(void) {
   // ---------- BEGIN ----------
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
-
-  if (INPUTS.DEBUG_FLAG == -1024) { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0; }
-
-  // xxx mark  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG != 1222 );
-  INPUTS.USE_README_LEGACY = (INPUTS.DEBUG_FLAG == -1222 );
 
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  

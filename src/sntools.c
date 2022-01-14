@@ -1446,9 +1446,8 @@ int uniqueOverlap (char *string,char *key ) {
 void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
 
   // Apr 2019
-  // Utility to store strings and check that if input *string
-  // is unique. If *string used more than N times, 
-  // abort with error message.
+  // Utility to store strings and check if input *string is unique. 
+  // If *string used more than MAX times,  abort with error message.
   //
   // Inputs:
   //   MAX       : max number of times string allowed to repeat
@@ -1505,7 +1504,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    // even of NFOUND > 0 , return to avoid storing same string 
+    // even if NFOUND > 0 , return to avoid storing same string 
     // more than onece.
     if ( NFOUND > 0 ) { return ; }
   }

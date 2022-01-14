@@ -27,7 +27,7 @@ import makeDataFiles_util as util
 
 # map dictionary(SNANA) varName to alert varName
 lc = "lc"  # instruction to take lower case of dict value
-VARNAME_HEADER_MAP = {
+VARNAME_DIASRC_MAP = {
     gpar.DATAKEY_SNID            : 'diaObjectId',
     gpar.DATAKEY_RA              : lc,
     gpar.DATAKEY_DEC             : 'decl',
@@ -42,6 +42,12 @@ VARNAME_HEADER_MAP = {
     gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
+VARNAME_DIAOBJ_MAP = {
+    gpar.DATAKEY_SNID            : 'diaObjectId',
+    gpar.DATAKEY_RA              : lc,
+    gpar.DATAKEY_DEC             : 'decl'
+}
+
 #HOSTKEY_OBJID         = "HOSTGAL_OBJID"
 #HOSTKEY_PHOTOZ        = "HOSTGAL_PHOTOZ"
 #HOSTKEY_PHOTOZ_ERR    = "HOSTGAL_PHOTOZ_ERR"
@@ -50,7 +56,7 @@ VARNAME_HEADER_MAP = {
 for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
     for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
         key = f"{prefix}_{band}"
-        VARNAME_HEADER_MAP[key] = lc
+        VARNAME_DIASRC_MAP[key] = lc
 
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
@@ -90,6 +96,11 @@ def init_schema_lsst_alert(schema_file):
 
     print('')
     sys.stdout.flush()
+
+    # HACK HACK HACK
+    #import pdb
+    #pdb.set_trace()
+    #print('alert_data:', alert_data, 'xxx')
 
     return schema, alert_data
 
@@ -161,6 +172,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
     # copy structure of original sample alert to local diasrc
     prvDiaSources = alert_data_orig['prvDiaSources']
+    diaObject = alert_data_orig['diaObject']
     diasrc = prvDiaSources[0]
 
     # # print this out for testing
@@ -172,14 +184,24 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
     # - - - - - -
     # translate snana header and create diasrc dictionary for lsst alert
-    my_diasrc = diasrc #{}
-    translate_dict_diasrc(-1, data_event_dict, my_diasrc)
+    my_diasrc = diasrc #{not actually empty - has default quantities from schema}
+    my_diaobj = diaObject #{not actually empty - has default quantites from schema}
+
+    translate_dict_alert(-1, data_event_dict, my_diasrc, my_diaobj)
     true_gentype = data_event_dict['head_sim'][gpar.SIMKEY_TYPE_INDEX]
 
     alert['diaSource']              = my_diasrc
+    alert['diaObject']              = my_diaobj
     alert_first_detect['diaSource'] = my_diasrc
 
-    diaObjectId = my_diasrc['diaObjectId'] # same as SNID in snana sim file
+    diaObjectId = my_diaobj['diaObjectId'] # same as SNID in snana sim file
+    check_ObjID = my_diasrc['diaObjectId'] # should be same as above
+    if diaObjectId != check_ObjID:
+        print('diaObjectId', diaObjectId, 'XXX')
+        print('check_ObjID', check_ObjID, 'XXX')
+        message = 'Object IDs between diaObject and diaSource:diaObjectID do not match'
+        raise ValueError(message)
+
 
     config_data['n_event_write'] += 1
     FIRST_OBS    = True
@@ -234,14 +256,19 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
+        my_alert = diaSourceId # not sure if alertID and sourceID should match but OK for ELAsTiCC
+        my_l1dbId = 0 # we don't know what this is
         my_diasrc['diaSourceId'] = diaSourceId
 
         # update my_diasrc with this obs
-        translate_dict_diasrc(o, data_event_dict, my_diasrc)
+        translate_dict_alert(o, data_event_dict, my_diasrc, my_diaobj)
 
         if FIRST_OBS  :
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diasrc
+            alert['diaObject'] = my_diaobj
+            alert['alertID']   = my_alert
+            alert['l1dbId']    = my_l1dbId
             FIRST_OBS = False
 
         # serialize the alert
@@ -304,8 +331,9 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         sys.stdout.flush()
 
         o = 0
-        translate_dict_diasrc(o, data_event_dict, my_diasrc)
+        translate_dict_alert(o, data_event_dict, my_diasrc, my_diaobj)
         alert['diaSource'] = my_diasrc
+        alert['alertID']   = my_alert
         alert['prvDiaSources'].append(alert['diaSource'])
 
     return
@@ -330,7 +358,7 @@ def make_outdir_nite(outdir,mjd):
 # end make_outdir_nite
 
 
-def translate_dict_diasrc(obs, data_event_dict, diasrc):
+def translate_dict_alert(obs, data_event_dict, diasrc, diaobj):
 
     # obs = -1 -> translate header info in data_event_dict to diasrc
     # obs >= 0 -> translate obs in data_event_dict to diasrc
@@ -339,10 +367,10 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
 
-    if obs < 0 :
+    if obs < 0 : # load the header info
         # xxx for key in diasrc.keys():    print(key)
-        for varName_inp in VARNAME_HEADER_MAP:
-            varName_avro = VARNAME_HEADER_MAP[varName_inp]
+        for varName_inp in VARNAME_DIASRC_MAP:
+            varName_avro = VARNAME_DIASRC_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
             if varName_inp in head_raw:
@@ -356,14 +384,30 @@ def translate_dict_diasrc(obs, data_event_dict, diasrc):
             else:
                 diasrc[varName_avro] = phot_raw[varName_inp]
 
+        for varName_inp in VARNAME_DIAOBJ_MAP:
+            varName_avro = VARNAME_DIAOBJ_MAP[varName_inp]
+            if varName_avro == lc:  varName_avro = varName_inp.lower()
+
+            if varName_inp in head_raw:
+                if varName_inp == gpar.DATAKEY_SNID: # convert str to int
+                    diaobj[varName_avro] = int(head_raw[varName_inp])
+                else:
+                    diaobj[varName_avro] = head_raw[varName_inp]
+
+            elif varName_inp in head_calc :
+                diaobj[varName_avro] = head_calc[varName_inp]
+            else:
+                diaobj[varName_avro] = phot_raw[varName_inp]
+
+
             #print(f" xxx {varName_inp} -> {varName_avro} ")
-    else:
+    else: # load the observations
         for varName_inp in VARNAME_OBS_MAP:
             varName_avro = VARNAME_OBS_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
             diasrc[varName_avro] = phot_raw[varName_inp][obs]
 
-    # end translate_dict_diasrc
+    # end translate_dict_alert
 
 def print_alert_stats(config_data, done_flag=False):
 

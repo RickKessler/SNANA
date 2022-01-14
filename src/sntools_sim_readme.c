@@ -107,6 +107,8 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 void README_DOCANA_OVERVIEW(int *iline) {
   int i = *iline;
   char pad[] = "    ", *cptr, cwd[MXPATHLEN] ;
+  char *SURVEY         = GENLC.SURVEY_NAME;
+  char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST ;
 
   // ----------- BEGIN ------------
 
@@ -114,13 +116,18 @@ void README_DOCANA_OVERVIEW(int *iline) {
   sprintf(cptr,"  %s:", DOCANA_OVERVIEW ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sSURVEY:       %s",  pad, GENLC.SURVEY_NAME);
+  sprintf(cptr,"%sSURVEY:       %s",  pad, SURVEY);
+
+  if ( !IGNOREFILE(SUBSURVEY_LIST)  ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sSUBSURVEY_LIST:  %s",  pad, SUBSURVEY_LIST);
+  }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sGENMODEL:     %s", pad, INPUTS.GENMODEL);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sHOST_MACHINE: %s", pad, getenv("HOST") );
+  sprintf(cptr,"%sHOST_MACHINE: %s", pad, getenv("HOSTNAME") );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sUSERNAME:     %s",  pad, getenv("USER") );
@@ -282,6 +289,8 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   int  OVP, j, i = *iline;
   char *cptr, *onoff, pad[] = "    ", dash[]="    -";
+  char comment[60];
+  char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST; // comma-sep list
   double XN, XNERR;
   double NGEN_PER_SEASON=0.0, NACC_PER_SEASON=0.0, NACCERR_PER_SEASON=0.0;
   // ------------- BEGIN ------------
@@ -324,9 +333,35 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
 	  pad, NGENLC_TOT, R_gen );
 
+  
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
 	  pad, NGENLC_WRITE, R_write );
+
+  // Jan 2022
+  // if there are sub-surveys (see global SIMLIB header), then 
+  // write stats for each sub-survey
+  if ( !IGNOREFILE(SUBSURVEY_LIST) ) {
+    int NTOT, NWR, ID, n_subsurvey;  
+    char **subsurvey_tmpList, *s, skey[60];
+    parse_commaSepList("SUBSURVEY_LIST", SUBSURVEY_LIST, MXIDSURVEY,60,
+		       &n_subsurvey, &subsurvey_tmpList);
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNGENLC_SUBSURVEY:", pad);
+    for(j=0; j < n_subsurvey; j++ ) {
+      comment[0] = 0;
+      if(j==0) { sprintf(comment,"# NTOT NWRITE"); }
+      s    = subsurvey_tmpList[j] ;
+      sprintf(skey, "%s:", s) ; // e.g., 'CSP:'
+      ID   = get_IDSURVEY(s);  // int index in $SNDATA_ROOT/SURVEY.DEF
+      NTOT = NGENLC_TOT_SUBSURVEY[ID];
+      NWR  = NGENLC_WRITE_SUBSURVEY[ID];
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"%s  %-12s  %5d %5d   %s", 
+	      pad, skey, NTOT, NWR, comment);   
+    }
+  }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENSPEC_WRITE:    %d  ", 

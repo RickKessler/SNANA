@@ -240,6 +240,7 @@ int main(int argc, char **argv) {
 
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) 
       { fill_RANLISTs(); }      // init list of random numbers for each SN    
+
     gen_event_driver(ilc); 
 
     if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
@@ -7694,7 +7695,7 @@ void init_simvar(void) {
   // One-time init of sim-variables; mostly counters.
   // Nov 24, 2017: init GENLC.MWEBV[_ERR] here instead of in init_GENLC().
 
-  int ifilt, type, N ;
+  int ifilt, type, N, i ;
   float xmb ;
   char fnam[] = "init_simvar";
 
@@ -7716,6 +7717,9 @@ void init_simvar(void) {
   //  sprintf(FILTERSTRING,"%s", FILTERSTRING_DEFAULT );
 
   NGENLC_TOT = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
+  for(i=0; i < MXIDSURVEY; i++ ) 
+    { NGENLC_TOT_SUBSURVEY[i] = NGENLC_WRITE_SUBSURVEY[i] = 0; }
+
   NGENFLUX_DRIVER = 0 ;
 
   NGEN_REJECT.GENRANGE  = 0;
@@ -14804,7 +14808,7 @@ void SIMLIB_initGlobalHeader(void) {
   // initialize global SIMLIB header arrays.
 
   SIMLIB_GLOBAL_HEADER.SURVEY_NAME[0]     = 0 ;
-  SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME[0]  = 0 ;
+  SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST[0]  = 0 ;
   SIMLIB_GLOBAL_HEADER.FILTERS[0]         = 0 ;
   SIMLIB_GLOBAL_HEADER.USERNAME[0]        = 0 ;
   SIMLIB_GLOBAL_HEADER.PIXSIZE            = 0.0 ;
@@ -14895,7 +14899,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
       
     }
     else if ( strcmp(c_get,"SUBSURVEY_LIST:")==0  ) {
-      readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME );
+      readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST );
     }
     else if ( strcmp(c_get,"TELESCOPE:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.TELESCOPE );
@@ -15004,20 +15008,19 @@ void SIMLIB_prepGlobalHeader(void) {
 
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL, *FIELD ;
-  char *SURVEY, *SUBSURVEY ;
+  char *SURVEY, *SUBSURVEY_LIST ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
 
   // -------------- BEGIN ------------
 
   print_banner(fnam);
 
-  SURVEY    = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
-  SUBSURVEY = SIMLIB_GLOBAL_HEADER.SUBSURVEY_NAME ;
+  SURVEY         = SIMLIB_GLOBAL_HEADER.SURVEY_NAME ;
+  SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST ;
   
   sprintf(GENLC.SURVEY_NAME,    "%s", SURVEY);
-  sprintf(GENLC.SUBSURVEY_NAME, "%s", SUBSURVEY);
-  if ( !IGNOREFILE(SUBSURVEY) ) 
-    { sprintf(GENLC.SUBSURVEY_NAME,"%s",SURVEY); }
+  if ( IGNOREFILE(SUBSURVEY_LIST) ) 
+    { sprintf(GENLC.SUBSURVEY_NAME,"%s", SURVEY); }
   printf("\t SIMLIB Survey    : %s \n", SURVEY );
 
   // get integer IDSURVEY from SURVEY string
@@ -15884,8 +15887,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( strcmp(wd0,"DECL:") == 0 ) 
 	{ sscanf(wd1, "%le", &SIMLIB_HEADER.DEC ); iwd++ ; continue; }
       
-      else if ( strcmp(wd0,"SUBSURVEY:")==0 ) 
-	{ sscanf(wd1,"%s",SIMLIB_HEADER.SUBSURVEY_NAME); iwd++; continue;}
+      else if ( strcmp(wd0,"SUBSURVEY:")==0 )  { 
+	sscanf(wd1,"%s",SIMLIB_HEADER.SUBSURVEY_NAME); iwd++; 	continue;
+      }
       
       else if ( strcmp(wd0,"FIELD:") == 0  )  { 
 
@@ -16587,6 +16591,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Feb 22 2020: fetch SCALE_SKYSIG_T for template noise scale.
   // Dec 08 2020: increase max PSF limit fro 9.9 to 20 (for LSST)
   // Feb 28 2021: check PSF_UNIT for NEA 
+  // Jan 14 2022: transfer SUBSURVEY info to GENLC; compute SUBSURVEY_ID
 
   int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
@@ -16594,7 +16599,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], TREST ;
   double z1       = 1.0 + GENLC.REDSHIFT_CMB ;
   bool IS_SPECTRO, BAD_MJD;
-  char *UNIT, *BAND ;  
+  char *UNIT, *BAND, *SUBSURVEY ;  
   char fnam[] = "SIMLIB_prepCadence" ;
 
   // --------------- BEGIN ----------------
@@ -16618,6 +16623,17 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   sprintf(GENLC.FIELDNAME[0], "%s", SIMLIB_HEADER.FIELD);
   sprintf(GENLC.TELESCOPE[0], "%s", SIMLIB_HEADER.TELESCOPE);
+
+  // load  optionalsubsurvey info (Jan 2022)
+  SUBSURVEY = SIMLIB_HEADER.SUBSURVEY_NAME;
+  if ( IGNOREFILE(SUBSURVEY) ) {
+    GENLC.SUBSURVEY_ID = GENLC.IDSURVEY;
+  }
+  else {
+    sprintf(GENLC.SUBSURVEY_NAME, "%s", SUBSURVEY);
+    GENLC.SUBSURVEY_ID = get_IDSURVEY(SUBSURVEY);
+  }
+  NGENLC_TOT_SUBSURVEY[GENLC.SUBSURVEY_ID]++ ; 
 
   // --------------------------------------------------------------
   // do a few things for a NEW cadence, 
@@ -17865,7 +17881,6 @@ void init_SIMLIB_HEADER(void) {
 
   SIMLIB_HEADER.NFIELD_OVP = 0 ;
   SIMLIB_HEADER.SUBSURVEY_NAME[0] = 0 ;
-  // doesn't work  sprintf(SIMLIB_HEADER.SUBSURVEY_NAME, "NULL" );
 
   SIMLIB_HEADER.NSEASON = 1 ;
   for(i=0; i < MXSEASON_SIMLIB; i++ ) { SIMLIB_HEADER.USE_SEASON[i] = 0;}
@@ -25878,8 +25893,10 @@ void update_accept_counters(void) {
 
   // increment number of generated SN that are written
   NGENLC_WRITE++ ;
-  NGENSPEC_WRITE += GENSPEC.NMJD_PROC ; // Jan 14 2021
+  NGENSPEC_WRITE += GENSPEC.NMJD_PROC ; 
   
+  NGENLC_WRITE_SUBSURVEY[GENLC.SUBSURVEY_ID]++ ; // Jan 2022
+
   // increment stats based on typing method
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_SPEC )    
     { GENLC.NTYPE_SPEC_CUTS++ ; }   // spec-tags after cuts

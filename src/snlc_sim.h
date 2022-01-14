@@ -911,7 +911,8 @@ struct INPUTS {
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // subsuryve; e.g,, CFA3 is subsurvey for LOWZ
+  char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
+  int  SUBSURVEY_ID;       // IDSURVEY for SUBSURVEY
   int  IDSURVEY ;
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
@@ -1277,9 +1278,10 @@ struct GENFILT {
 } GENFILT ;
 
 
-
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
+int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
+int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
 
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
@@ -1300,8 +1302,6 @@ struct NGEN_REJECT {
 double ZVALID_FILTER[2][MXFILTINDX] ;
 int    NSKIP_FILTER[MXFILTINDX]; // number of times obs-filter is skipped
 int    NGEN_ALLSKIP ;
-
-
 
   // define SIMLIB_DUMP struct vs. SIMLIB  entry
 int NREAD_SIMLIB ;
@@ -1341,7 +1341,7 @@ struct SIMLIB_GLOBAL_HEADER {
 
   // stuff read from global SIMLIB header
   char SURVEY_NAME[60];
-  char SUBSURVEY_NAME[40];
+  char SUBSURVEY_LIST[40];
   char FILTERS[MXFILTINDX];  // global list of all filters
   char FIELD[60];            // Nov 2021
   char TELESCOPE[60];
@@ -1377,7 +1377,7 @@ struct SIMLIB_HEADER {
 
   // required
   char   LIBNAME[20];        // LIB[LIBID] (for SNTABLE)
-  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, LOWZ_COMBINED)
+  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, CFA3)
   int    NOBS, LIBID, NWRAP ;
   int    NOBS_APPEND ;  // these obs are not MJD-sorted (Jan 2018)
   int    NOBS_SIM_MAGOBS; // NOBS with SIM_MAGOBS<99

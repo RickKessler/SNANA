@@ -70,7 +70,6 @@ def select_subsample(args, var_dict):
     return True
     # end select_subsample
 
-
 def get_sunset_mjd(mjd, site='CTIO'):
     '''
     Returns an MJD of sunset prior to input mjd as float - not a Time Object
@@ -83,7 +82,6 @@ def get_sunset_mjd(mjd, site='CTIO'):
     else:
         NITE = mjd
     return NITE
-
 
 def init_readme_stats():
     readme_stats = {}
@@ -227,11 +225,10 @@ def iyear_LSST(event_dict):
 
     return iyear
 
-# - - - - -
 def iyear_DES(event_dict):
 
     # DES year/season starts at 1.
-    # SV is technically year 0, but there is no SV data in 
+    # SV is technically year 0, but there is no SV data in
     # final DES-SN data.
 
     mjd       = event_dict['peakmjd']
@@ -254,11 +251,9 @@ def sxhr_to_deg(s):
     h, m, s = s.split(':')
     return hms_to_deg(int(h), int(m), float(s))
 
-
 def sdms_to_deg(sign, d, m, s):
     sign = 1. - 2. * (sign == '-')
     return sign * (d + m / 60. + s / 3600.)
-
 
 def sx_to_deg(s):
     """sexagesimal to degrees. Sign must be the first character"""
@@ -266,10 +261,8 @@ def sx_to_deg(s):
     d, m, s = s.split(':')
     return sdms_to_deg(sign, abs(int(d)), int(m), float(s))
 
-
 def jd_to_mjd(t):
     return t - 2400000.5
-
 
 def mag_to_flux(m, me, zp):
     """Convert magnitude and magnitude error to flux, given a zeropoint."""
@@ -285,7 +278,6 @@ def radec_to_xyz(ra, dec):
     z = math.sin(np.deg2rad(dec))
 
     return np.array([x, y, z], dtype=np.float64)
-
 
 def cmb_dz(ra, dec):
     """See http://arxiv.org/pdf/astro-ph/9609034
@@ -342,11 +334,11 @@ def cmb_to_helio(z, ra, dec):
 
 # ========================================
 #  Jan 10 2022:
-#  These snana-reader utilities are outside the READ_SNANA_FOLDER class 
-#  so that legacy option works in same code version as --refac 110. 
-#  After legacy code is removed, these snana-reader utilities should be 
+#  These snana-reader utilities are outside the READ_SNANA_FOLDER class
+#  so that legacy option works in same code version as --refac 110.
+#  After legacy code is removed, these snana-reader utilities should be
 #  moved inside the READ_SNANA_FOLDER class.
-#  
+#
 def open_fits(file_name):
     # check file_name and file_name.gz, and open the file that exists.
     # Function returns hdu pointer and number of rows in table.
@@ -361,7 +353,7 @@ def open_fits(file_name):
         msgerr.append(f"Cannot find fits file")
         msgerr.append(f" {file_name}   not")
         msgerr.append(f" {file_namegz} ")
-        log_assert(False,msgerr)
+        log_assert(False, msgerr)
 
     NROW = hdul[1].header['NAXIS2']
     return NROW, hdul
@@ -371,9 +363,9 @@ def open_fits(file_name):
 def reset_data_event_dict():
 
     # Util for reading SNANA FITS format.
-    # reset all data values to -9 to ensure that every 
+    # reset all data values to -9 to ensure that every
     # key gets written to data files, even if read_event
-    # code fails to set a value. 
+    # code fails to set a value.
     # Jan 8 2022: move this function out of base.
 
     raw_dict  = {}
@@ -396,7 +388,7 @@ def get_snana_table_value(varlist, irow, table):
 
     # Util for reading SNANA FITS format.
     # Read "irow" of SNANA FITS table for varlist, and return value.
-    # Varlist = ['NAME1', 'NAME2', etc] is a list of column names to check. 
+    # Varlist = ['NAME1', 'NAME2', etc] is a list of column names to check.
     # This allows reading older legacy  names;
     # E.g., varlist = ['DEC', 'DECL'] returns value if either key is present.
 
@@ -406,7 +398,7 @@ def get_snana_table_value(varlist, irow, table):
             value = table[varname][irow]
             return value
         except:
-            pass  # just try next varname                                   
+            pass  # just try next varname
     return value
 
     # end get_snana_table_value
@@ -491,7 +483,7 @@ def field_plasticc_hack(field, head_file_name):
 
     return field
     # end field_plasticc_hack
-        
+
 # ====================================================
 # utility class to read SNANA folder in FITS format
 # ====================================================
@@ -505,7 +497,7 @@ class READ_SNANA_FOLDER:
     __init__ " read LIST file and store list of HEAD-FITS files
 
     Loop over ifile until nevt=0:
-       nevt = exec_read(ifile):  
+       nevt = exec_read(ifile):
            read and store contents of HEAD and PHOT for file index ifile
 
        data_dict = get_data_dict(args, evt):
@@ -522,23 +514,24 @@ class READ_SNANA_FOLDER:
 
         version      = os.path.basename(data_folder)
         list_file    = f"{data_folder}/{version}.LIST"
-    
-        # scoop up contents of LIST file  
+
+        # scoop up contents of LIST file
         with open(list_file, 'r') as f:
             HEAD_file_list = f.read().replace('\n', ' ').split()
-   
+
         n_HEAD_file = len(HEAD_file_list)
 
         logging.info(f" Read data version = {version}")
         logging.info(f" from data_folder = {data_folder}")
-        logging.info(f" Found {n_HEAD_file} FITS-HEAD files.")    
-     
+        logging.info(f" Found {n_HEAD_file} FITS-HEAD files.")
+
         self.snana_folder_dict  = {}
         self.snana_folder_dict['data_folder']     = data_folder
         self.snana_folder_dict['version']         = version
         self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
         self.snana_folder_dict['private_dict']    = {}
+
 
     def exec_read(self, ifile):
 
@@ -614,7 +607,7 @@ class READ_SNANA_FOLDER:
 
             if keep :
                 gpar.DATAKEY_LIST_PRIVATE  += [ key ]
-                
+
         # end init_first_file
 
     def init_private_dict(self, private_dict):
@@ -660,7 +653,7 @@ class READ_SNANA_FOLDER:
 
         # read and store SNTYPE (typically this is spectroscopic type or 0)
         head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
-        
+
         # read and store coords; allow DEC or legacy DECL name
         head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
         head_raw[gpar.DATAKEY_DEC] = \
@@ -680,12 +673,11 @@ class READ_SNANA_FOLDER:
             # if nite-range selection is requsted
             nite_range = args.nite_detect_range
             if nite_range is not None:
-                msgerr.append(f"Cannot implement nite_detect_range = " \
-                              f"{nite_range}")
-                msgerr.append(f"Because {KEY0} is not in data header")
+                msgerr.append(f"Cannot implement nite_detect_range={nite_range}")
+                msgerr.append(f"because {KEY0} is not in data header")
                 log_assert(False,msgerr)
 
-        # - - - - - - - 
+        # - - - - - - -
         # check user sub-sample selection here to avoid reading
         # remainder of header and photometry for rejected events.
         apply_select = True
@@ -712,7 +704,7 @@ class READ_SNANA_FOLDER:
         head_raw[gpar.DATAKEY_zHEL]      = table_head.REDSHIFT_HELIO[evt]
         head_raw[gpar.DATAKEY_zHEL_ERR]  = table_head.REDSHIFT_HELIO_ERR[evt]
 
-        # strip off calculated zCMB redshfit 
+        # strip off calculated zCMB redshfit
         head_calc[gpar.DATAKEY_zCMB]       = table_head.REDSHIFT_FINAL[evt]
         head_calc[gpar.DATAKEY_zCMB_ERR]   = table_head.REDSHIFT_FINAL_ERR[evt]
 
@@ -724,12 +716,10 @@ class READ_SNANA_FOLDER:
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc].
         # head_[raw,calc] is both input and output of store_snana_hostgal
-        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
-                            head_raw ) 
-        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
-                            head_calc)
+        store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, head_raw)
+        store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict, head_calc)
 
-        # - - - - - 
+        # - - - - -
         # store optional PRIVATE variables
         head_private = \
             store_snana_private(gpar.DATAKEY_LIST_PRIVATE, evt, table_dict)
@@ -754,12 +744,12 @@ class READ_SNANA_FOLDER:
         # check for reading legacy FLT column name (instead of BAND).
         # Note that data_dict loads 'BAND' even if the input column is FLT.
         LEGACY_FLT = False
-        if 'FLT' in table_column_names:  LEGACY_FLT = True 
+        if 'FLT' in table_column_names:  LEGACY_FLT = True
 
         for varname in gpar.VARNAMES_OBS_LIST:
             phot_raw[varname] = [ None ] * NOBS
             varname_table = varname
-            if LEGACY_FLT:  
+            if LEGACY_FLT:
                 if varname == 'BAND' : varname_table = 'FLT'
 
             if varname_table in table_column_names :
@@ -771,7 +761,7 @@ class READ_SNANA_FOLDER:
         # Beware that light curve can overlap multiple fields.
         field = phot_raw[gpar.DATAKEY_FIELD][0]
         if args.survey == 'LSST' :
-            field = field_plasticc_hack(field,table_dict['head_file'])
+            field = field_plasticc_hack(field, table_dict['head_file'])
         head_raw[gpar.DATAKEY_FIELD] = field
 
         # - - - -
@@ -790,10 +780,11 @@ class READ_SNANA_FOLDER:
 
         # check optional dictionary items to append
         if len(head_sim) > 0:
-            data_dict['head_sim'] =  head_sim
+            data_dict['head_sim'] = head_sim
 
-        if apply_select :
-            data_dict['select'] = True
+        #if apply_select :
+        #    data_dict['select'] = True
+        data_dict['select'] = apply_select
 
         return data_dict
 
@@ -805,9 +796,9 @@ class READ_SNANA_FOLDER:
 
 
 # -----------------------
-# MESSAGING
+# LOG MESSAGING
 # ------------------------
-class MessageStore(logging.Handler):
+class MessageStoreLogger(logging.Handler):
     store = None
 
     def __init__(self, *args, **kwargs):
@@ -824,7 +815,8 @@ class MessageStore(logging.Handler):
         return self.store.get("WARNING", []) + []
 
     def get_errors(self):
-        return self.store.get("CRITICAL", []) + self.store.get("ERROR", []) + self.store.get("EXCEPTION", []) + []
+        return self.store.get("CRITICAL", []) + self.store.get("ERROR", []) + \
+                self.store.get("EXCEPTION", []) + []
 
     def print_warnings(self):
         items = self.get_warnings()
@@ -849,7 +841,7 @@ def setup_logging(args):
     level = logging.DEBUG if args.verbose else logging.INFO
 
     # Adding notice level for more important lines that arent warning
-    message_store = MessageStore()
+    message_store = MessageStoreLogger()
     message_store.setLevel(logging.WARNING)
     notice_level = 25
     logging.addLevelName(notice_level, "NOTICE")
@@ -869,30 +861,18 @@ def setup_logging(args):
     handlers[0].setLevel(level)
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
 
-#    coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
-#                        level_styles=coloredlogs.parse_encoded_styles("debug=8#;notice=green;warning=yellow;error=red,bold;critical=red,inverse"),)
+    # coloredlogs.install(level=level, fmt=fmt, reconfigure=True,
+    #                     level_styles=coloredlogs.parse_encoded_styles(
+    # "debug=8#;notice=green;warning=yellow;error=red,bold;critical=red,inverse"
+    # ),)
     return message_store
 
 
 def log_assert(condition, message):
     if not condition:
-
-        msg_abort_face = (
-            f"\n\n"
-            f"\n   `|```````|`    "
-            f"\n   <| o\\ /o |>   "
-            f"\n    | ' ; ' |     "
-            f"\n    |  ___  |     ABORT makeDataFiles on Fatal Error. "
-            f"\n    | |' '| |     "
-            f"\n    | `---' |     "
-            f"\n    \\_______/    "
-            f"\n"
-            f"\nFATAL ERROR ABORT : "
-        )
-
         for item in message :
-            msg_abort_face += f"\n   {item}"
+            gpar.ABORT_FACE_MSSG += f"\n   {item}"
 
         logging.exception(message)
-        assert condition, msg_abort_face
+        assert condition, gpar.ABORT_FACE_MSSG
         # end log_assert

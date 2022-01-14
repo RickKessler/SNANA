@@ -20,10 +20,12 @@ from makeDataFiles_base import Program
 #- - - - - - - - - - - - - - - - - -     -
 #TODO turn this into a utility. This is more general behavior.
 class data_snana_folder(Program):
+
     def __init__(self, config_inputs) :
+
         config_data = {}
         print(" Init data_snana_folder class.")
-        super().__init__(config_inputs,config_data)
+        super().__init__(config_inputs, config_data)
 
         args          = self.config_inputs['args']  # command line args
         refac, legacy = self.snana_refac_legacy()
@@ -31,14 +33,14 @@ class data_snana_folder(Program):
         if refac:
             # run __init__ in snana-reader class
             snana_folder = args.snana_folder
-            SNANA_READER = util.READ_SNANA_FOLDER(snana_folder) 
+            SNANA_READER = util.SNANA_FolderReader(snana_folder)
             config_data['SNANA_READER'] = SNANA_READER
 
     def init_read_data(self):
 
         refac, legacy = self.snana_refac_legacy()
 
-        if refac: 
+        if refac:
             return
 
         if legacy:
@@ -128,7 +130,7 @@ class data_snana_folder(Program):
         #end prep_read_data_legacy
 
     def end_read_data_subgroup(self):
-        
+
         refac, legacy = self.snana_refac_legacy()
 
         if refac:
@@ -145,12 +147,12 @@ class data_snana_folder(Program):
         # global end for reading data
         pass
 
-    def read_event(self,evt):
+    def read_event(self, evt):
 
         args          = self.config_inputs['args']  # command line args
         refac, legacy = self.snana_refac_legacy()
 
-        if refac: 
+        if refac:
             SNANA_READER = self.config_data['SNANA_READER']
             data_dict = SNANA_READER.get_data_dict(args,evt)
 
@@ -187,7 +189,7 @@ class data_snana_folder(Program):
         head_raw[gpar.DATAKEY_SNID]    = SNID
 
         head_raw[gpar.DATAKEY_SNTYPE]  = table_head.SNTYPE[evt]
-        
+
         head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
 
         # check 'DEC' and legacy column name 'DECL'
@@ -243,9 +245,9 @@ class data_snana_folder(Program):
 
         # - - - - - -
         # store HOSTGAL and HOSTGAL2 keys in head_raw[calc]
-        util.store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict, 
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_RAW,  evt, table_dict,
                                  head_raw )
-        util.store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict, 
+        util.store_snana_hostgal(gpar.DATAKEY_LIST_CALC, evt, table_dict,
                                  head_calc)
 
         # check for true sim type (sim or fakes), Nov 14 2021
@@ -320,11 +322,11 @@ class data_snana_folder(Program):
         args   = self.config_inputs['args']  # command line args
 
         # default is legacy unless refac=110
-        #refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER 
+        #refac  = args.refac == gpar.REFAC_READ_SNANA_FOLDER
         #legacy = not refac
 
         # default is refac unless refac=-110
-        legacy  = args.refac == gpar.LEGACY_READ_SNANA_FOLDER 
+        legacy  = args.refac == gpar.LEGACY_READ_SNANA_FOLDER
         refac   = not legacy
 
         return refac, legacy

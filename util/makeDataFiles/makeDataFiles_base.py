@@ -9,49 +9,50 @@
 general data file parsers.
 """
 
-import datetime
-#import getpass
-#import glob
-import logging  # , coloredlogs
-#import ntpath
+# import getpass
+# import glob
+# import ntpath
+# import shutil
+# import subprocess
+# import time
+
 import os
-#import shutil
-#import subprocess
 import sys
-#import time
+import logging
+import datetime
+
+# import numpy as np
+# import yaml
+
+# from abc import ABC
+from abc import abstractmethod
 
 
-import numpy as np
-import yaml
-
-from abc import ABC, abstractmethod
-
-
-#from makeDataFiles_params import *
 import makeDataFiles_params as gpar
-
 import makeDataFiles_util as util
 import write_data_snana as snana
 
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
+    #util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
     #raise
-    #print('IMPORT ERROR - LSST STACK NOT FOUND')
     pass
 
 
-# ======================================
+# =============================================================================
+#  Main Meta-Class Program
+# =============================================================================
 class Program:
-    """Structural base meta-Class. This is the bare bones logic for the
-    makedatafiles framework
+    """Structural base meta-Class.
+    This is the bare bones logic for the makedatafiles framework
     """
 
     def __init__(self, config_inputs, config_data):
 
-        self.config_inputs = config_inputs
-        self.config_data   = config_data
         args = config_inputs['args']
+        self.config_inputs = config_inputs
+        self.config_data = config_data
 
         logging.info("  Base init")
 
@@ -66,14 +67,16 @@ class Program:
             args.outdir_lsst_alert
         ]
 
-        for outdir in outdir_list :
-            if outdir is None: continue
+        for outdir in outdir_list:
+            if outdir is None:
+                continue
+
             if not os.path.exists(outdir):
                 logging.info(f" Create top-dir for light curves: {outdir}")
                 sys.stdout.flush()
                 os.mkdir(outdir)
 
-        # - - - - - - - -
+
         self.extend_DATAKEY_LIST()
 
         # store info for phot varnames
@@ -81,7 +84,6 @@ class Program:
 
         # for lsst alert, add extra NOBS_ALERT column to readme_stats
         if args.outdir_lsst_alert:
-            #global KEYLIST_README_STATS
             gpar.KEYLIST_README_STATS += [gpar.KEYNAME_NOBS_ALERT]
 
         # end Program __init__
@@ -93,21 +95,24 @@ class Program:
         # The name in each list is a name that will be part of the
         # folder name.
 
-        args          = self.config_inputs['args'] # user command line args
+        args          = self.config_inputs['args']  # user command line args
         nsplit        = args.nsplitran
-        isplit_select = args.isplitran # 1 to nsplit, or -1 for all
-        iyear_select  = args.year      # 1-NYEAR, or -1 for all
+        isplit_select = args.isplitran  # 1 to nsplit, or -1 for all
+        iyear_select  = args.year       # 1-NYEAR, or -1 for all
         field_select  = args.field
         survey        = args.survey
         peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
         outdir_lsst_alert  = args.outdir_lsst_alert
+
         n_season           = gpar.MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
         # no explicit season breakdown
-        if peakmjd_range    is not None: n_season = 1
-        if nite_detect_range is not None: n_season = 1
+        if peakmjd_range is not None:
+            n_season = 1
+        if nite_detect_range is not None:
+            n_season = 1
 
         unit_name_list   = []
         unit_nevent_list = []
@@ -120,31 +125,34 @@ class Program:
             util.log_assert(False,msgerr)
 
         # - - - - - -
-        for iseason in range(0,n_season):
+        for iseason in range(0, n_season):
             iyear  = iseason + 1    # starts at 1
-            if iyear_select > 0 and iyear != iyear_select :
+            if iyear_select > 0 and iyear != iyear_select:
                 continue
 
             for isplit in range(0,nsplit):
                 ISPLIT  = -9
-                if nsplit > 1 : ISPLIT = isplit + 1
+                if nsplit > 1:
+                    ISPLIT = isplit + 1
 
-                if isplit_select > 0 and ISPLIT != isplit_select :
-                    continue ;
+                if isplit_select > 0 and ISPLIT != isplit_select:
+                    continue
 
-                do_all_seasons = (isplit == 0 or isplit_select>0) \
-                                 and iseason==0
+                do_all_seasons = (isplit == 0 or isplit_select>0) and iseason==0
                 do_one_season  = (not outdir_lsst_alert)
 
                 # define unit name for all seasons combined
-                if do_all_seasons :
-                    unit_name = \
-                        self.assign_data_unit_name(survey, field_select,
-                                                   -1, ISPLIT)
+                if do_all_seasons:
+                    unit_name = self.assign_data_unit_name(
+                        survey,
+                        field_select,
+                        -1,
+                        ISPLIT
+                    )
                     unit_name_list.append(unit_name)
 
                 # define unit name for this season/iyear
-                if do_one_season :
+                if do_one_season:
                     unit_name = \
                         self.assign_data_unit_name(survey, field_select,
                                                    iyear, ISPLIT)
@@ -162,7 +170,7 @@ class Program:
         self.config_data['n_season']                = n_season
 
         readme_stats_list = []
-        for i in range(0,n_data_unit):
+        for i in range(0, n_data_unit):
             readme_stats_list.append(util.init_readme_stats())
 
         self.config_data['readme_stats_list'] = readme_stats_list
@@ -174,11 +182,14 @@ class Program:
 
         name = f"{survey}"
 
-        if field != gpar.FIELD_VOID : name += f"_{field}"
+        if field != gpar.FIELD_VOID:
+            name += f"_{field}"
 
-        if iseason >= 0 : name += f"_{gpar.PREFIX_SEASON}{iseason:02d}"
+        if iseason >= 0:
+            name += f"_{gpar.PREFIX_SEASON}{iseason:02d}"
 
-        if iran > 0:  name += f"_{gpar.PREFIX_SPLIT}{iran:03d}"
+        if iran > 0:
+            name += f"_{gpar.PREFIX_SPLIT}{iran:03d}"
 
         return name
         # end assign_data_unit_name
@@ -188,7 +199,7 @@ class Program:
         # use data header info to figure out which data unit.
         # If no data unit is matched, return None
         n_season      = self.config_data['n_season']
-        args          = self.config_inputs['args'] # user command line args
+        args          = self.config_inputs['args']  # user command line args
         nsplit        = args.nsplitran
         isplit_select = args.isplitran  # 1 to nsplit, or -1 for all
         iyear_select  = args.year       # 1 to nyear, or -1 for all
@@ -210,11 +221,12 @@ class Program:
 
         # - - - - - - - - - - - - - - - - -
         # check match for field
-        if field_select == gpar.FIELD_VOID :
+        if field_select == gpar.FIELD_VOID:
             match_field = True  # no --field arg
         else:
             match_field = False
-            if field_select == FIELD  : match_field = True
+            if field_select == FIELD:
+                match_field = True
 
         if not match_field :
             return None
@@ -225,42 +237,49 @@ class Program:
         YY = -1  # no explicit season dependence
         if n_season > 1:
         # create dictionary needed to determine iyear
-            small_event_dict = { 'peakmjd':PEAKMJD,  'mjd_detect':MJD_DETECT,
-                                 'ra':RA,  'dec':DEC,  'field':FIELD }
+            small_event_dict = {
+                'peakmjd':PEAKMJD,
+                'mjd_detect':MJD_DETECT,
+                'ra':RA,
+                'dec':DEC,
+                'field':FIELD
+            }
             YY = util.iyear_survey(survey, small_event_dict)
 
         match_year = True
-        if iyear_select > 0 :
+        if iyear_select > 0:
             match_year = (YY == iyear_select)
 
-        if not match_year :
+        if not match_year:
             return None
 
         # - - - - - - - - - - - - -
         # check match for split job
-        match_split = True ; ISPLIT = -9
-        if nsplit > 1 :
+        match_split = True
+        ISPLIT = -9
+        if nsplit > 1:
             iSNID  = int(SNID)
             isplit = iSNID % nsplit       # counter starts at 0
             ISPLIT = isplit + 1           # counter starts at 1
-            if isplit_select > 0 :
+            if isplit_select > 0:
                 match_split = (ISPLIT == isplit_select)
-        if not match_split : return None
+        if not match_split:
+            return None
 
         # - - - - - - - -
-        data_unit_name  =  \
+        data_unit_name  = \
             self.assign_data_unit_name(survey, field_select, YY, ISPLIT)
         data_unit_name_list = \
             self.config_data['data_unit_name_list']
 
-        if data_unit_name not in data_unit_name_list :
+        if data_unit_name not in data_unit_name_list:
             msgerr = []
             msgerr.append(f"Invalid data_unit_name = {data_unit_name}")
             msgerr.append(f"for SNID = {SNID} .")
             msgerr.append(f"RA={RA}  DEC={DEC}  PEAKMJD={PEAKMJD}")
             msgerr.append(f"Valid data_unit_name_list = ")
             msgerr.append(f"    {data_unit_name_list}")
-            util.log_assert(False,msgerr)
+            util.log_assert(False, msgerr)
 
         # - - - - -
         return data_unit_name
@@ -322,7 +341,6 @@ class Program:
         self.config_data['nvar_obs']       += 1
 
         return
-    # end add_truemag_obs
 
     def exclude_varlist_obs(self):
         # return optional list of phot columns to exclude from the
@@ -374,7 +392,7 @@ class Program:
 
         # - - - -
         dump_flag = False
-        if dump_flag :
+        if dump_flag:
             print(f" xxx ------------------------------")
             print(f" xxx DUMP for compute_data_event")
             print(f" xxx SNID={snid}   RA={ra}  DEC={dec}  zhel={zhel:8.5f}")
@@ -393,16 +411,16 @@ class Program:
 
         # - - - - - - -
         # load goodies
-        d_raw[gpar.DATAKEY_SURVEY]      = survey
-        d_raw[gpar.DATAKEY_FAKE]        = snana_flag_fake
+        d_raw[gpar.DATAKEY_SURVEY] = survey
+        d_raw[gpar.DATAKEY_FAKE] = snana_flag_fake
 
         if survey not in gpar.SURVEY_INFO['FILTERS']:
             msgerr.append(f"{survey} filters not defined")
             msgerr.append(f"Check SURVEY_INFO dictionary in " \
                           f"makeDataFiles_params.py")
-            util.log_assert(False,msgerr)
+            util.log_assert(False, msgerr)
         else:
-            d_raw[gpar.DATAKEY_FILTERS]     = gpar.SURVEY_INFO['FILTERS'][survey]
+            d_raw[gpar.DATAKEY_FILTERS] = gpar.SURVEY_INFO['FILTERS'][survey]
 
         if survey in gpar.SURVEY_INFO['CCD']:
             d_raw[gpar.DATAKEY_NXPIX]   = gpar.SURVEY_INFO['CCD'][survey][0]
@@ -420,7 +438,7 @@ class Program:
             d_calc[gpar.DATAKEY_VPEC_ERR] = gpar.VPEC_DEFAULT[1]
 
         # check if there are spectra
-        if 'spec_raw' in data_event_dict :
+        if 'spec_raw' in data_event_dict:
             spec_raw    = data_event_dict['spec_raw']
             n_spectra   = len(spec_raw)
         else:
@@ -434,7 +452,7 @@ class Program:
         return
         # compute_data_event
 
-    def select_subsample(self,data_event_dict):
+    def select_subsample(self, data_event_dict):
 
         # Apply optional subsample selection from command line
         # Return sel = True of False.
@@ -444,10 +462,12 @@ class Program:
         d_calc        = data_event_dict['head_calc']
 
         SNID_raw = d_raw[gpar.DATAKEY_SNID]
-        if SNID_raw.isdigit() :
-            SNID = int(SNID_raw)
-        else:
-            SNID = SNID_raw
+        # if SNID_raw.isdigit():
+        #     SNID = int(SNID_raw)
+        # else:
+        #     SNID = SNID_raw
+
+        SNID = int(SNID_raw) if SNID_raw.isdigit() else SNID_raw
 
         var_dict = {
             gpar.DATAKEY_SNID       : SNID,
@@ -462,7 +482,7 @@ class Program:
 
         # end select_subsample
 
-    def init_phot_dict(self,NOBS):
+    def init_phot_dict(self, NOBS):
 
         # The read_event function for each source should call this
         # function before reading event photometry.
@@ -517,17 +537,19 @@ class Program:
 
         # end final_summary
 
-    def screen_update(self,evt,NEVT_TOT):
+    def screen_update(self, evt, NEVT_TOT):
 
-        if evt < 0 :
-            time_0  = datetime.datetime.now()
-            self.config_data['time_0'] =  time_0
+        if evt == 0:
             return
 
-        if evt == 0 : return
+        if evt < 0:
+            #time_0  = datetime.datetime.now()
+            #self.config_data['time_0'] =  time_0
+            self.config_data['time_0'] = datetime.datetime.now()
+            return
 
         rmd = evt % gpar.NEVT_SCREEN_UPDATE
-        if rmd == 0 or evt == NEVT_TOT-1 :
+        if rmd == 0 or evt == NEVT_TOT-1:
             time_0   = self.config_data['time_0']
             time_now = datetime.datetime.now()
             time_dif = (time_now - time_0).total_seconds()
@@ -537,8 +559,6 @@ class Program:
             sys.stdout.flush()
 
         return
-
-    # end screen_update
 
     def read_data_driver(self):
 
@@ -554,14 +574,15 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        while nevent_subgroup > 0 :
+        while nevent_subgroup > 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
-            if nevent_subgroup == 0 : break
+            if nevent_subgroup == 0:
+                break
 
             self.screen_update(-1,0)  # init clock for rate monitor
 
-            for evt in range(0,nevent_subgroup):
+            for evt in range(0, nevent_subgroup):
 
                 NEVT_READ += 1
 
@@ -570,7 +591,7 @@ class Program:
 
                 # check optional subsample selection defined by reader;
                 # if selection is not evaluated by reader, evaluate here.
-                if 'select' in data_event_dict :
+                if 'select' in data_event_dict:
                     sel = data_event_dict['select']
                 else:
                     # read_event did not select subsample, so do it here.
@@ -581,7 +602,7 @@ class Program:
 
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
-                if data_unit_name is None :
+                if data_unit_name is None:
                     continue
 
                 # add computed variables; e.g., zCMB, MWEBV ...
@@ -592,7 +613,7 @@ class Program:
                 data_event_dict['data_unit_name'] = data_unit_name
                 data_event_dict['index_unit']     = index_unit
 
-                if args.outdir_snana is not None :
+                if args.outdir_snana is not None:
                     snana.write_event_text_snana(args, self.config_data,
                                                  data_event_dict)
                 if args.outdir_lsst_alert is not None:
@@ -686,7 +707,9 @@ class Program:
         index_unit = data_event_dict['index_unit']
 
         # update stats that will eventually written to README file
-        specz = -9.0;  photoz = -9.0
+        specz = -9.0
+        photoz = -9.0
+
         if gpar.HOSTKEY_SPECZ  in head_raw:
             specz  = head_raw[gpar.HOSTKEY_SPECZ]
         if gpar.HOSTKEY_PHOTOZ in head_calc:
@@ -696,16 +719,16 @@ class Program:
 
         readme_stats['NEVT_ALL'] += 1
 
-        if specz > 0.0 :
+        if specz > 0.0:
             readme_stats['NEVT_HOSTGAL_SPECZ'] += 1
 
-        if photoz > 0.0 :
+        if photoz > 0.0:
             readme_stats['NEVT_HOSTGAL_PHOTOZ'] += 1
 
-        if n_spectra > 0 :
+        if n_spectra > 0:
             key = 'NEVT_SPECTRA'
-            readme_stats[key]      += 1  # increment this data unit
-            self.config_data[key]  += 1  # sum over all data units
+            readme_stats[key] += 1  # increment this data unit
+            self.config_data[key] += 1  # sum over all data units
 
         # end update_readme_stats
 
@@ -731,6 +754,6 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod
-    def iyear_data(self,MJD,RA,DEC,FIELD):
+    def iyear_data(self, MJD, RA, DEC, FIELD):
         raise NotImplementedError()
 

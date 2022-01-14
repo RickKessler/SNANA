@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  makeDataFiles_base.py
+#  makeDataFiles_params.py
 #
 #  Copyright July 2021 R. Kessler
 
 """Constant definitions for makeDatafile framework.
 Relevant configuration gets loaded here.
 """
-
 
 # import datetime
 # import time
@@ -188,8 +187,8 @@ HOSTKEY_SQRADIUS      = "HOSTGAL_SQRADIUS"
 # define prefix for filter-dependent quantities
 HOSTKEY_PREFIX_MAG     = "HOSTGAL_MAG"         # band-dependent
 HOSTKEY_PREFIX_MAGERR  = "HOSTGAL_MAGERR"      # idem
-HOSTKEY2_PREFIX_MAG    = "HOSTGAL2_MAG"       
-HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"    
+HOSTKEY2_PREFIX_MAG    = "HOSTGAL2_MAG"
+HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"
 HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
 
 
@@ -204,13 +203,13 @@ HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_RAW = [
-    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_SNTYPE, DATAKEY_FAKE, 
+    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_SNTYPE, DATAKEY_FAKE,
     DATAKEY_FILTERS,
     DATAKEY_NXPIX, DATAKEY_NYPIX, DATAKEY_PIXSIZE,
     DATAKEY_RA, DATAKEY_DEC,
     DATAKEY_zHEL, DATAKEY_zHEL_ERR, DATAKEY_FIELD,
-    HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID, 
-    HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR, 
+    HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID,
+    HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR,
     HOSTKEY_SNSEP,  HOSTKEY_DDLR,
     HOSTKEY_ELLIP, HOSTKEY_SQRADIUS
 ]
@@ -236,6 +235,22 @@ MODE_MERGE_LINK = "MERGE_LINK"  # merge with sym links; keep orig folder
 # developer REFAC/LEGACY flags
 REFAC_READ_SNANA_FOLDER  = 110  # remember as jan 10
 LEGACY_READ_SNANA_FOLDER = -1 * REFAC_READ_SNANA_FOLDER
+
+# =============================================================================
+# ERROR MESSAGES
+# =============================================================================
+ABORT_FACE_MSSG = (
+    f"\n\n"
+    f"\n   `|```````|`    "
+    f"\n   <| o\\ /o |>   "
+    f"\n    | ' ; ' |     "
+    f"\n    |  ___  |     ABORT makeDataFiles on Fatal Error. "
+    f"\n    | |' '| |     "
+    f"\n    | `---' |     "
+    f"\n    \\_______/    "
+    f"\n"
+    f"\nFATAL ERROR ABORT : "
+)
 
 # == END ===
 

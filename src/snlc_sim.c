@@ -1367,8 +1367,8 @@ int read_input_file(char *input_file, int keySource ) {
   // for include files inside primary input, do NOT init string match
   // so that duplicate keys cause abort. For INCLUDE on command line,
   // init string match to avoid abort.
-  bool REFAC = false ;
-  if ( REFAC ) { // refac
+  bool REFAC = true ; // set True Jan 15 2022, 17:00
+  if ( REFAC ) {        // refac
     DO_STRINGMATCH_INIT =
       (INPUTS.NREAD_INPUT_FILE==1)  || // always init first file
       (keySource == KEYSOURCE_ARG)  ;  // init INCLUDE passed as command arg

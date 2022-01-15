@@ -554,7 +554,7 @@ class Program:
             time_now = datetime.datetime.now()
             time_dif = (time_now - time_0).total_seconds()
             rate     = int(float(evt)/float(time_dif))
-            logging.info(f"\t\t Process evt={evt+1:6d} of {NEVT_TOT} "
+            logging.info(f"\t\t Read evt={evt+1:6d} of {NEVT_TOT} "
                          f" ({rate}/sec)")
             sys.stdout.flush()
 

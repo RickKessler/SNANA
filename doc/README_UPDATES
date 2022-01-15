@@ -20688,7 +20688,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04f (  ) 
+         v11_04f (Jan 15 2022) 
 
          ***** IMPORTANT(v11_04f) ***** 
 
@@ -20699,18 +20699,43 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sim: release README refactor with all-yaml DOCUMENTATION block; see manual.
       (recover legacy readme with DEBUG_FLAG -1222)
 
+   sim: update abort on duplidate keys in input files
+           https://github.com/RickKessler/SNANA/issues/781
+
+   sim: optional ZPHOT_QP[0,1,2...] to describe zPHOT PDF with quantiles.
+
+   sntools_SEDtools.c:
+     + fix subtle bug setting up logz bins for SIMSED model;
+       see https://github.com/RickKessler/SNANA/issues/776
+
          ***** USEFUL(v11_04f) ***** 
 
          ***** MISCELLANEOUS(v11_04f) ***** 
 
+    snlc_sim.c
+      + see IMPORTANT updates avove
+      + write NGEN(TOT,WRITE) for each SUBSURVEY into README 
+      + add local REFAC flag (default=false) to abort on 
+          duplicates in INCLUDE file
+
     sntools_dataformat_text.c:
       + few fixes to read TEXT files extracted from FITS created by sim
+      + write out private variables (forgot in last I/O refactor)
   
     makeDataFiles/
      + fix a few bugs introduced during devel of lsst_alerts
      + refactor global params (Bruno)
  
-   sntools_dataformat_text.c:
-     + write out private variables (forgot in last I/O refactor)
+   sntools_dataformat_fits.c:
+     + read/write ZPHOT_QP* so that FITS -> TEXT conversion works.
+
+   sntools_host:
+     + protect NUSE in FREEHOST_GALID()
+
+   ZPHOT_QP: longer term plan is to
+     - read ZPHOT_QP into snana/snlc_fit
+     - unpack ZPHOT_ZP into zPHOT(PDF)
+     - use in photo-z LCFIT
 
 END: 
+

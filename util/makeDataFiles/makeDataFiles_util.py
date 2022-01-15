@@ -470,7 +470,7 @@ def field_plasticc_hack(field, head_file_name):
     # If input field is NULL or VOID, set it based on head_file_name.
 
     missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
-    if not missing_field : return
+    if not missing_field : return field
 
     if gpar.FIELD_DDF in head_file_name:
         field = gpar.FIELD_DDF
@@ -775,16 +775,13 @@ class READ_SNANA_FOLDER:
             'head_calc'    : head_calc,
             'head_private' : head_private,
             'phot_raw'     : phot_raw,
-            'spec_raw'     : spec_raw
+            'spec_raw'     : spec_raw,
+            'select'       : True
         }
 
         # check optional dictionary items to append
         if len(head_sim) > 0:
             data_dict['head_sim'] = head_sim
-
-        #if apply_select :
-        #    data_dict['select'] = True
-        data_dict['select'] = apply_select
 
         return data_dict
 

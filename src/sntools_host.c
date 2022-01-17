@@ -5045,7 +5045,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   // always burn random numbers to stay synced.
   ilist = 1 ; 
-  SNHOSTGAL.FlatRan1_GALID     = getRan_Flat1(ilist) ; // random GAL in smal z-bin
+  SNHOSTGAL.FlatRan1_GALID     = getRan_Flat1(ilist) ; // random GAL in z-bin
   SNHOSTGAL.FlatRan1_radius[0] = getRan_Flat1(ilist) ; // ran Sersic profile
   SNHOSTGAL.FlatRan1_radius[1] = getRan_Flat1(ilist) ; // random integral
   SNHOSTGAL.FlatRan1_phi       = getRan_Flat1(ilist) ;  // relative to major axis
@@ -6202,6 +6202,9 @@ void GEN_SNHOST_POS(int IGAL) {
   //  + move IVAR_ANGLE<0 abort trap up to before get_Sersic_info()
   //    so that we get clean abort instead of seg fault.
   //
+  // Jan 17 2022
+  //   if RanInteg=0, set reduced_R=0 explicitly (e.g., AGN)
+  //
 
   // strip off user options passed via sim-input file
   int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
@@ -6328,24 +6331,32 @@ void GEN_SNHOST_POS(int IGAL) {
   // 'MXINTFLUX_SNPOS' of the integrated flux is used to
   // determine the reduced radius.
   //
-  //XXX DELETE RanInteg    = Ran1 * INPUTS.HOSTLIB_MXINTFLUX_SNPOS ;
-  //GN - added min int flux to allow min offset from host center
-  RanInteg    = INPUTS.HOSTLIB_MNINTFLUX_SNPOS + Ran1 * (INPUTS.HOSTLIB_MXINTFLUX_SNPOS - INPUTS.HOSTLIB_MNINTFLUX_SNPOS) ;
-  ptr_r       = SERSIC_TABLE.reduced_logR ;  
-  ptr_integ0  = SERSIC_TABLE.INTEG_CUM[k_table] ;
-  ptr_integ1  = SERSIC_TABLE.INTEG_CUM[k_table+1] ;
-  NBIN        = NBIN_RADIUS_SERSIC + 1 ;
+  //G.Narayan - added min int flux to allow min offset from host center
 
-  reduced_logR0  = interp_1DFUN(1, RanInteg, NBIN, ptr_integ0, ptr_r, 
-				"reduced_logR0" );
-  reduced_logR1  = interp_1DFUN(1, RanInteg, NBIN, ptr_integ1, ptr_r, 
-				"reduced_logR1" );
+  float MNINTFLUX = INPUTS.HOSTLIB_MNINTFLUX_SNPOS; 
+  float MXINTFLUX = INPUTS.HOSTLIB_MXINTFLUX_SNPOS;
+  RanInteg    = MNINTFLUX +  Ran1 * (MXINTFLUX - MNINTFLUX) ;
 
-  // interpolate integral tables in 1/n space
-  dif  = inv_n -  1./SERSIC_TABLE.n[k_table] ;
-  fbin = dif/bin ;		
-  reduced_logR = reduced_logR0 + fbin*(reduced_logR1 - reduced_logR0);
-  reduced_R    = pow(10.0,reduced_logR);
+  if ( RanInteg > 0.0 ) {
+    ptr_r       = SERSIC_TABLE.reduced_logR ;  
+    ptr_integ0  = SERSIC_TABLE.INTEG_CUM[k_table] ;
+    ptr_integ1  = SERSIC_TABLE.INTEG_CUM[k_table+1] ;
+    NBIN        = NBIN_RADIUS_SERSIC + 1 ;
+
+    reduced_logR0  = interp_1DFUN(1, RanInteg, NBIN, ptr_integ0, ptr_r, 
+				  "reduced_logR0" );
+    reduced_logR1  = interp_1DFUN(1, RanInteg, NBIN, ptr_integ1, ptr_r, 
+				  "reduced_logR1" );
+    // interpolate integral tables in 1/n space
+    dif  = inv_n -  1./SERSIC_TABLE.n[k_table] ;
+    fbin = dif/bin ;		
+    reduced_logR = reduced_logR0 + fbin*(reduced_logR1 - reduced_logR0);
+    reduced_R    = pow(10.0,reduced_logR);
+  }
+  else {
+    reduced_R = 0.0 ; // Jan 17 2022 RK
+  }
+
 
   /*
   printf(" ---------------------------------------------------- \n");
@@ -6758,8 +6769,10 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   bottom = sqrt(a_half*a_half*sqsin + b_half*b_half*sqcos ) ;   
   DLR    = top/bottom; 
 
-  //  DLR  = sqrt(a_half*b_half); // xxxx dummy calc; FIX LATER 
-  DDLR = SNSEP/DLR ;
+  if ( DLR > 0.0 ) 
+    {  DDLR = SNSEP/DLR ; }
+  else
+    { DDLR = 0.0 ; }
 
   // store in global to be analyzed later
   SNHOSTGAL.DDLR_NBR_LIST[i_nbr]  = DDLR;
@@ -7053,9 +7066,12 @@ void SORT_SNHOST_byDDLR(void) {
       }
     }
 
-    if ( LDMP ) {
-      printf("\t xxx %s: i=%d unsort=%d  DDLR=%6.2f  SEP=%8.1f\n",
-	     fnam, i, unsort, DDLR, SNSEP ); 
+    if ( LDMP ) { 
+      printf("\t xxx %s: i=%d unsort=%d  NNBR_DDLRCUT=%d \n",
+	     fnam, i, unsort, NNBR_DDLRCUT);
+      printf("\t xxx %s: DDLR=%6.2f  SEP=%8.1f\n",
+	     fnam,SNHOSTGAL_DDLR_SORT[i].DDLR, SNHOSTGAL_DDLR_SORT[i].SNSEP);
+	     // xxx DDLR, SNSEP ); 
       printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
       printf("\t xxx %s: LOGMASS = %f \n",

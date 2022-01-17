@@ -4276,12 +4276,6 @@ int parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource ) {
     { N++; sscanf(WORDS[N],"%le", &tmpList[j] ); } // read tmpList 
   store_genSmear_override(parName,NVAL,tmpList);
 
-  /* xxx mark delete 
-  // Store info for readme/docana.
-  README_KEYPLUSARGS_load(MXSMEARPAR_OVERRIDE, N, WORDS, 
-			  &README_KEYS_SMEARPAR_OVERRIDE, fnam) ;
-  */
-
   return(N);
 } // end parse_input_GENMAG_SMEARPAR_OVERRIDE
 
@@ -11646,15 +11640,11 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
     GENLC.SALT2alpha =    // Nov 3 2021
       get_random_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR );
-    // xxx mark delete   GENLC.SALT2alpha = 
-    // xxx mark delete   getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
     GENLC.SALT2beta =    // Nov 3 2021
       get_random_genPDF("SALT2BETA", &GENGAUSS_ZVAR );
-    // xxx mark delete    GENLC.SALT2beta = 
-    // xxx mark delete getRan_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools
@@ -15842,7 +15832,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       wd0[0] = wd1[0] = 0;
       sprintf(wd0,"%s", WDLIST[iwd] );
-      // xxx mark delete if ( NWD > 1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
       if ( NWD > iwd+1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
 
       if ( strcmp(wd0,"LIBID:") == 0 ) {
@@ -15972,7 +15961,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       if ( OPTLINE && OPTLINE_REJECT )  {    
 	// xxx MJD line in already rejected LIBID --> read rest of line 
-	// xxx mark delete	fgets(cline, 180, fp_SIMLIB) ;
 	if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
@@ -17724,16 +17712,6 @@ void SIMLIB_sortbyMJD(void) {
 
   // ------------- BEGIN --------------
 
-  /* xxx mark delete Sep 3 2021; 
-     NOBS==0 is allowed with MDJRANGE cut while reading SIMLIB
-  if ( NOBS_SORT < 1 ) {
-    sprintf(c1err,"Invalid NOBS_SORT=%d for LIBID=%d CID=%d", 
-	    NOBS_SORT, SIMLIB_HEADER.LIBID, GENLC.CID );
-    sprintf(c2err,"NOBS_RAW=%d  NOBS_APPEND=%d", 
-	    NOBS_RAW, NOBS_APPEND);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
-  xxxx*/
 
   if ( NOBS_SORT > 0 ) {
     sortDouble( NOBS_SORT, SIMLIB_LIST_forSORT.MJD, ORDER_SORT, 
@@ -17852,7 +17830,6 @@ void init_SIMLIB_HEADER(void) {
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2x1, (double)999. ) ;
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2c,  (double)999. ) ;  
 
-  // xxx mark delete  sprintf(SIMLIB_HEADER.FIELD,"%s", FIELD_NONAME );
   sprintf(SIMLIB_HEADER.FIELD,"%s", SIMLIB_GLOBAL_HEADER.FIELD);
 
   SIMLIB_HEADER.NFIELD_OVP = 0 ;
@@ -19353,10 +19330,6 @@ void init_CIDRAN(void) {
 	if ( i >= CIDRAN_OFF ) 
 	  { INPUTS.CIDRAN_LIST[i-CIDRAN_OFF] = CIDADD ;  }
 
-	/* xxxxxxxxxxxxx mark delete Jul 21 2021 xxxx
-	if ( i >= INPUTS.CIDOFF ) 
-	  { INPUTS.CIDRAN_LIST[i-INPUTS.CIDOFF] = CIDADD ; }
-	xxxxxxxxx */
 
 	USED = 0 ;
       }
@@ -21047,7 +21020,6 @@ void snlc_to_SNDATA(int FLAG) {
   // #####################################
 
   VERSION_INFO.N_SNLC       = NGENLC_WRITE ;
-  // xxx mark delete Dec 2021  VERSION_INFO.GENFRAME_SIM = GENFRAME_OPT ;
 
 
   // do smearing up front to see what's going on.
@@ -21491,7 +21463,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Jan 29 2020: USE_REFACTOR -> true to get multiple hosts
   // Sep 09 2021: 
   //   + Fill nbr dimension of SNDATA.SIM_HOSTLIB_PARVAL Alex Gagliano
-
+  // Jan 17 2022: return on LCLIB only if z=0; otherwise process everything
+  //              so that AGN has all host properties loaded.
+  //
 
   int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
@@ -21500,8 +21474,12 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   // --------------- BEGIN ------------
 
+  // bail on LCLIB model with no redshift -> Galactic model
+  if ( LCLIB_INFO.IPAR_REDSHIFT < 0 && INDEX_GENMODEL==MODEL_LCLIB ) 
+    { return; }
+
+  /* xxxxxxxx mark delete Jan 17 2022 xxxxxxxx
   // for LCLIB, load photo-z info and return
-  // .xyz BUG here truncates AGN info ... try removing this snippet
   if ( ifilt_obs == 0 &&  INDEX_GENMODEL==MODEL_LCLIB ) {
     SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
     SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
@@ -21509,7 +21487,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     SNDATA.HOSTGAL_PHOTOZ_ERR[0]     = SNHOSTGAL.ZPHOT_ERR ;
     return ;
   }
-
+  xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxx */
 
   if ( INPUTS.HOSTLIB_USE == 0 ) { return ; }
 
@@ -21617,7 +21595,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
-    // xxx mark delete     SNDATA.HOSTGAL_USEMASK |= 4 ; 
     psfsig   = 1./2.355 ;     // typical PSF in arcsec
     mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
@@ -22559,7 +22536,6 @@ void init_kcor_legacy(char *kcorFile) {
     GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt] = 0 ;
   }
 
-  // xxx mark delete  if ( ISMODEL_FIXMAG ) { return ; } // 4.24.2019
   if ( ISMODEL_SIMLIB ) { return ; } // 11.22.2019
 
   // init MW extinction (moved from end of init_genmodel on Aug 30 2010)
@@ -25561,42 +25537,6 @@ void INIT_COVMAT_SCATTER( void )
       errmsg( SEV_FATAL,0 , fnam, c1err, c2err);
     }
   }
-
-  /* xxxxxxx mark delete Dec 22 2021 xxxxxxxxxxxxx
-  int N = -1;
-  char *cptr ;
-  N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
-  sprintf(cptr,"%s", "\t Cov matrix:");
-
-
-  N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
-  sprintf(cptr,"\t\t %8s(%d) %8s(%d) %8s(%d) "
-	  ,GENLC.COVMAT_SCATTER_NAME[0], 0
-	  ,GENLC.COVMAT_SCATTER_NAME[1], 1
-	  ,GENLC.COVMAT_SCATTER_NAME[2], 2 );
-
-  N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
-  sprintf(cptr,"%s", "\t -----------------------------------------------");
-  
-  
-  for (m = 0 ; m < 3 ; m++){
-    N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
-    sprintf(cptr,"\t %-4s(%d) :  %10.6f  %10.6f  %10.6f"
-	    ,GENLC.COVMAT_SCATTER_NAME[m], m
-	    ,INPUTS.COVMAT_SCATTER[m][0]
-	    ,INPUTS.COVMAT_SCATTER[m][1]
-	    ,INPUTS.COVMAT_SCATTER[m][2]  );
-
-  }
-  
-  N++ ; cptr = README_KEYPLUSARGS.COVMAT_SCATTER[N] ;
-  cptr[0] = 0 ;
-	
-  for ( i=0; i <= N; i++ ) {
-    printf("%s\n", README_KEYPLUSARGS.COVMAT_SCATTER[i] );
-  }
-
-  xxxxxxxxxx end mark xxxxxxxxxx */
 
 
   //printvals();

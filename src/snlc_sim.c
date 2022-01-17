@@ -7239,15 +7239,6 @@ void genperfect_override(void) {
   GENPERFECT.partype[NVAR]   = 2 ;
 
 
-/* xxx mark delete
-  NVAR++ ;  iptr = &INPUTS.HOSTLIB_USE ;
-  sprintf(GENPERFECT.parnam[NVAR], "HOSTLIB_USE" );
-  GENPERFECT.parval[NVAR][0] = (float)*iptr ;
-  *iptr = 0 ;
-  GENPERFECT.parval[NVAR][1] = (float)*iptr ;
-  GENPERFECT.partype[NVAR]   = 1 ;
-*/
-
   NVAR++ ;  fptr = &INPUTS.GENSIGMA_PEAKMJD ;
   sprintf(GENPERFECT.parnam[NVAR], "GENSIGMA_PEAKMJD" ) ;
   GENPERFECT.parval[NVAR][0] = *fptr ;
@@ -11544,14 +11535,6 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   // If x1 is from HOSTLIB, SKIP only if SALT2x1 asymGauss is NOT defined
   // in order to preserve random sync.
 
-  /* xxx mark delete 2021 xxxxxxx
-  bool SHAPE_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
-  bool SHAPE_HOSTLIB = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  bool SKIP_SHAPE     = SHAPE_SIMLIB || (SHAPE_HOSTLIB && !SHAPE_ASYMGAUSS );
-  bool DOSHAPE = !( SKIP_SHAPE || ISMODEL_SIMSED || ISMODEL_NON1A || 
-		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
-  xxxxxxx end mark xxxxx*/
-
   bool SHAPE_SIMLIB = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
   bool DOSHAPE      = INPUTS.DOGEN_SHAPE && !SHAPE_SIMLIB ; // Aug 11 2021
 
@@ -13852,7 +13835,7 @@ void gen_redshift_LCLIB(void) {
   double DEC       = GENLC.DEC ;
   double ZCMB_TRUE = LCLIB_EVENT.REDSHIFT;  // see genmag_LCLIB.c
   double ZHEL_TRUE = zhelio_zcmb_translator(ZCMB_TRUE, RA,DEC, "eq", -1);
-  //  char fnam[] = "gen_redshift_LCLIB" ;
+  char fnam[] = "gen_redshift_LCLIB" ;
 
   // --------------- BEGIN --------------
 
@@ -13932,7 +13915,7 @@ void gen_zsmear(double zerr) {
   // ---------- BEGIN ----------
 
   if ( INDEX_GENMODEL == MODEL_LCLIB ) { 
-    // set all redshift info to zero
+    // set all redshift info to zero 
     GENLC.REDSHIFT_CMB_SMEAR    = GENLC.REDSHIFT_CMB    = 0.0 ;
     GENLC.REDSHIFT_HELIO_SMEAR  = GENLC.REDSHIFT_HELIO  = 0.0 ;
     GENLC.REDSHIFT_SMEAR_ERR    = 0 ;
@@ -21518,6 +21501,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // --------------- BEGIN ------------
 
   // for LCLIB, load photo-z info and return
+  // .xyz BUG here truncates AGN info ... try removing this snippet
   if ( ifilt_obs == 0 &&  INDEX_GENMODEL==MODEL_LCLIB ) {
     SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
     SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;

@@ -2,11 +2,15 @@
 # Point to directory created by "create_covariance.py"
 # and run wfit on hubble_diagram with all covsys_* files
 # and with all user-specified WFITOPT options.
- 
+#
+# Jan 17 2022 M.Vincenzi - add option to make wgt averages
+#                          See KEYNAME_WEIGHT_AVG
+#
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time
 import submit_util as util
+import numpy as np
 
 from submit_params    import *
 from submit_prog_base import Program
@@ -30,6 +34,7 @@ COLNUM_WFIT_MERGE_CPU          = 5
 KEYNAME_WFITOPT    = "WFITOPT"
 KEYNAME_BLIND_DATA = "BLIND_DATA"
 KEYNAME_BLIND_SIM  = "BLIND_SIM"
+KEYNAME_WEIGHT_AVG  = "WEIGHT_AVG"
 
 BLIND_DATA_DEFAULT = True
 BLIND_SIM_DEFAULT  = False
@@ -37,7 +42,7 @@ BLIND_SIM_DEFAULT  = False
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 
 WFIT_SUMMARY_FILE     = "WFIT_SUMMARY.FITRES"
-
+WFIT_SUMMARY_AVG_FILE = "WFIT_SUMMARY_AVG.FITRES"
 # - - - - - - - - - - - - - - - - - - -  -
 class wFit(Program):
     def __init__(self, config_yaml):
@@ -75,6 +80,9 @@ class wFit(Program):
         # prepare index list for inpdir/covsys/wfitopt to simplify
         # 3D loops
         self.wfit_prep_index_lists()
+
+        # prepare weight avg
+        self.wfit_prep_weight_avg()
 
         # copy input file to outdir
         input_file    = self.config_yaml['args'].input_file
@@ -160,6 +168,41 @@ class wFit(Program):
         #print(f" isdata_list = {isdata_list}")
 
         # end wfit_prep_input_list
+
+    def wfit_prep_weight_avg(self):
+        # parse weight_avg XYZ
+        # Only error checking at this point, no computation
+        # The execution is done at the MERGE state
+        CONFIG     = self.config_yaml['CONFIG']
+        inpdir_list = self.config_prep['inpdir_list']
+
+        if KEYNAME_WEIGHT_AVG not in CONFIG:
+            pass
+        # check that each wildcard corresponds to at least 1 input directory
+        for weight_avg in CONFIG[KEYNAME_WEIGHT_AVG]:
+            weight_avg_dirs = weight_avg.replace(' ','').split('-')
+            for wildcard in weight_avg_dirs:
+                matches = [f for f in inpdir_list if wildcard in f]
+                if len(matches)<1:
+                    msgerr=[f'Found no matches for widlcard {wildcard}']
+                    self.log_assert(False, msgerr)
+
+            if len(weight_avg_dirs)==2:
+                # check that both dirs have the same structure
+                wildcard1 = weight_avg_dirs[0]
+                wildcard2 = weight_avg_dirs[1]
+                suffixes1 = [f.replace(wildcard1,'*') for f in inpdir_list if wildcard1 in f]
+                suffixes2 = [f.replace(wildcard2,'*') for f in inpdir_list if wildcard2 in f]
+                if suffixes1==suffixes2:
+                    print (f"Found matching number/names of dirs for wildcards {wildcard1} and {wildcard2}")
+                else:
+                    msgerr =[]
+                    msgerr.append(f"Number/names of dirs for wildcards {wildcard1} and {wildcard2} are not matching")
+                    msgerr.append(f"There are {len(suffixes1)} dirs associated with wlidcard {wildcard1}")
+                    msgerr.append(f"{suffixes1}")
+                    msgerr.append(f"and there are {len(suffixes2)} dirs associated with wlidcard {wildcard2}")
+                    msgerr.append(f"{suffixes2}")
+                    self.log_assert(False, msgerr)
 
     def wfit_error_check_input_list(self):
         # loop over each inpdir and abort on problems such as
@@ -439,7 +482,6 @@ class wFit(Program):
 
         elif icov >= 0 and idir < 0 and ifit < 0 :
             string = f"COVOPT{icov:03d}"
-
         elif ifit >= 0 and idir < 0 and icov < 0 :
             string = f"WFITOPT{ifit:03d}"
 
@@ -680,6 +722,8 @@ class wFit(Program):
         script_subdir    = SUBDIR_SCRIPTS_WFIT
 
         self.make_wfit_summary()
+        # self.make_weight_avg_lists()
+        self.make_weight_avg_summary()
 
         logging.info(f"  wfit cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
@@ -703,6 +747,7 @@ class wFit(Program):
         WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
 
         SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
+        logging.info(f"\t Writing wfit summary to {WFIT_SUMMARY_FILE}")
         f = open(SUMMARYF_FILE,"w") 
 
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
@@ -710,7 +755,7 @@ class wFit(Program):
                 util.read_merge_file(MERGE_LOG_PATHFILE)
 
         dirnum_last = "xyz"
-
+        wfit_summary_table = {}
         nrow = 0 
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
@@ -730,7 +775,7 @@ class wFit(Program):
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             blind   = wfit_values_dict['blind']
-         
+            
             # extract user labels for cov and wfit
             str_diropt  = 'DIROPT' + dirnum
             str_covopt  = 'COVOPT' + covnum
@@ -738,6 +783,7 @@ class wFit(Program):
             covopt_dict = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
             wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
+            
             if wfitopt_label == "None" : wfitopt_label = "NoLabel"
 
             if use_wa:
@@ -745,7 +791,23 @@ class wFit(Program):
                 wa_sig  = wfit_values_dict['wa_sig']
                 FoM     = wfit_values_dict['FoM']
                 Rho     = wfit_values_dict['Rho']
-                
+            else:
+                wa = 0
+                wa_sig = 0
+            
+            # load table for weighted avg (the table is not used here)
+            local_dict = {'dirnum': dirnum, 
+                          'covnum': covnum, 
+                          'wfitnum': wfitnum, 
+                          'w':w, 'w_sig':w_sig, 
+                          'omm':omm, 'omm_sig':omm_sig, 
+                          'wa':wa, 'wa_sig':wa_sig,
+                          'covopt_label':covopt_label,
+                          'wfitopt_label':wfitopt_label}
+
+            unique_key=dir_name+'_'+covnum+'_'+wfitnum 
+            wfit_summary_table[unique_key] = local_dict
+            
             if nrow == 1:
                 self.write_wfit_summary_header(f,wfit_values_dict)
 
@@ -769,7 +831,10 @@ class wFit(Program):
             dirnum_last = dirnum
 
         f.close()
+        
+        self.config_prep['wfit_summary_table'] = wfit_summary_table
         # end make_wfit_summary
+
 
     def write_wfit_summary_header(self,f,wfit_values_dict):
         # write header info and VARNAMES for wfit-summary file
@@ -804,5 +869,175 @@ class wFit(Program):
 
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column
+
+    def make_weight_avg_lists(self):
+        # XXXX Maybe obsolete
+        CONFIG           = self.config_yaml['CONFIG']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
+
+        inpdirs_full_paths = [INPDIR_LIST[k] for k in INPDIR_LIST.keys() if k.startswith('DIROPT')]
+        weight_avg_list = {}
+        for weight_avg in CONFIG[KEYNAME_WEIGHT_AVG]:
+            weight_avg_dirs = weight_avg.replace(' ','').split('-')
+            if len(weight_avg_dirs)==1:
+                wildcard = weight_avg_dirs[0]
+                weight_avg_list[weight_avg] = {'avg_type':'AVG_SINGLE',
+                                               'wildcard':wildcard,
+                                               'dirslist_fullpath':[f for f in inpdirs_full_paths if wildcard in f]}
+            if len(weight_avg_dirs)==2:
+                # check first that dirs match                                                                                                             
+                wildcard1 = weight_avg_dirs[0]
+                wildcard2 = weight_avg_dirs[1]
+                dirslist_fullpath1 = [f for f in inpdirs_full_paths if wildcard1 in f]
+                dirslist_fullpath2 = [f for f in inpdirs_full_paths if wildcard2 in f]
+                weight_avg_list[weight_avg] = {'avg_type':'AVG_DIFF', 
+                                               'wildcard1':wildcard1,
+                                               'wildcard2':wildcard2,
+                                               'dirslist_fullpath1':dirslist_fullpath1,
+                                               'dirslist_fullpath2':dirslist_fullpath2}
+        self.config_prep['weight_avg_list'] = weight_avg_list
+
+
+    def compute_average(self, fit_list, fiterr_list):
+        fit_array = np.array(fit_list)
+        fiterr_array = np.array(fiterr_list)
+        weights = 1./fiterr_array**2
+
+        # compute weighted error
+        avg,sum_of_weights = np.average(fit_array, weights=weights, returned=True)
+        N = len(fit_array)
+        
+        # compute weighted std on the mean
+        avg_std = np.sqrt(1/sum_of_weights)/np.sqrt(N-1)
+
+        return avg,avg_std
+
+
+    def make_weight_avg_summary(self):
+        # Driver utility to compute weighted avgs among directories
+        # See WEIGHT_AVG key in input CONFIG file
+
+        CONFIG           = self.config_yaml['CONFIG']
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        use_wa           = submit_info_yaml['USE_wa']
+        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
+        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
+        wfit_summary_table  = self.config_prep['wfit_summary_table']
+        
+        # load lists of files needed to comput avgs
+        self.make_weight_avg_lists()
+        weight_avg_list  = self.config_prep['weight_avg_list']
+        
+        logging.info(f"\t Writing weighted avg summary to {WFIT_SUMMARY_AVG_FILE}")
+
+        AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
+        f = open(AVG_FILE,"w")
+        nrow = 0
+        VARNAMES_STRING = \
+            f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig   "  \
+            f"<omm> <omm>_sig N_DIRs COVOPT WFITOPT"
+        f.write(f"VARNAMES: {VARNAMES_STRING} \n")
+        
+        avg_dict = {'AVG_SINGLE':' (weighted average of fitted values)',
+                    'AVG_DIFF':' (weighted average of differences in fitted values)'}
+        for weight_avg in weight_avg_list:
+            # compute averages for single set of sims
+            if weight_avg_list[weight_avg]['avg_type']=='AVG_SINGLE':
+                # use the first directory in the list to find the set of unique covopts and unique wfitopts
+                dir_0 = weight_avg_list[weight_avg]['dirslist_fullpath'][0]
+                unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
+                                                     for f in wfit_summary_table.keys()\
+                                                     if f[:-8]==dir_0])
+                unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
+                                                     for f in wfit_summary_table.keys()\
+                                                      if f[:-8]==dir_0])
+                f.write(f"#\n# Weighted avg for option: {weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                for covnum in unique_matching_covopts:
+                    for wfitnum in unique_matching_wfitopts:
+                        omm_list = []; w_list = []; wa_list = []
+                        omm_sig_list = []; w_sig_list = []; wa_sig_list = []
+                        for dir_ in weight_avg_list[weight_avg]['dirslist_fullpath']:
+                            unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
+                            omm_list.append(wfit_summary_table[unique_key]['omm'])
+                            omm_sig_list.append(wfit_summary_table[unique_key]['omm_sig'])
+                            w_list.append(wfit_summary_table[unique_key]['w'])
+                            w_sig_list.append(wfit_summary_table[unique_key]['w_sig'])
+                            wa_list.append(wfit_summary_table[unique_key]['wa'])
+                            wa_sig_list.append(wfit_summary_table[unique_key]['wa_sig'])
+                        covopt_label = wfit_summary_table[unique_key]['covopt_label']
+                        wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
+
+                        ##compute weigthed avg
+                        omm_avg, omm_avg_std = self.compute_average(omm_list, omm_sig_list)
+                        w_avg, w_avg_std = self.compute_average(w_list, w_sig_list)
+                        if use_wa:
+                            wa_avg, wa_avg_std = self.compute_average(wa_list, wa_sig_list)
+                        else:
+                            wa_avg, wa_avg_std = 0.0,0.0
+
+                        str_nums    = f"{covnum} {wfitnum} "
+                        str_results = f"{w_avg:.4f} {w_avg_std:.4f} "
+                        str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
+                        str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
+                        str_misc    = f"{len(w_list)}"
+                        str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+                        nrow +=1
+                        f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
+                                f"{str_misc} {str_labels}\n")
+
+            # compute averages of differences on a pair of sets of sims                                                                           
+            if weight_avg_list[weight_avg]['avg_type']=='AVG_DIFF':
+                # use the first directory in the list to find the set of unique covopts and unique wfitopts    
+                dir_0=weight_avg_list[weight_avg]['dirslist_fullpath1'][0]
+                unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
+                                                     for f in wfit_summary_table.keys()\
+                                                     if f[:-8]==dir_0])
+                unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
+                                                      for f in wfit_summary_table.keys()\
+                                                      if f[:-8]==dir_0])
+                f.write(f"#\n# Weighted avg for {weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                for covnum in unique_matching_covopts:
+                    for wfitnum in unique_matching_wfitopts:
+                        omm_difflist = []; w_difflist = []; wa_difflist = []
+                        omm_sig_difflist = []; w_sig_difflist = []; wa_sig_difflist = []
+                        for dir1_,dir2_ in zip(weight_avg_list[weight_avg]['dirslist_fullpath1'],
+                                               weight_avg_list[weight_avg]['dirslist_fullpath2']):
+                            unique_key1 = dir1_+'_%s_%s'%(covnum,wfitnum)
+                            unique_key2 = dir2_+'_%s_%s'%(covnum,wfitnum)
+                            omm_difflist.append(wfit_summary_table[unique_key1]['omm'] - wfit_summary_table[unique_key2]['omm'])
+                            omm_sig_difflist.append( (wfit_summary_table[unique_key1]['omm_sig']**2 + wfit_summary_table[unique_key2]['omm_sig']**2)**0.5 )
+                            w_difflist.append(wfit_summary_table[unique_key1]['w'] - wfit_summary_table[unique_key2]['w'])
+                            w_sig_difflist.append( (wfit_summary_table[unique_key1]['w_sig']**2 + wfit_summary_table[unique_key2]['w_sig']**2)**0.5 )
+                            wa_difflist.append(wfit_summary_table[unique_key1]['wa'] - wfit_summary_table[unique_key2]['wa'])
+                            wa_sig_difflist.append( (wfit_summary_table[unique_key1]['wa_sig']**2 + wfit_summary_table[unique_key2]['wa_sig']**2)**0.5 )
+                        covopt_label = wfit_summary_table[unique_key1]['covopt_label']
+                        wfitopt_label = wfit_summary_table[unique_key1]['wfitopt_label']
+                        
+                        ##compute weigthed avg                                                                                                         
+                        omm_avg, omm_avg_std = self.compute_average(omm_difflist, omm_sig_difflist)
+                        w_avg, w_avg_std = self.compute_average(w_difflist, w_sig_difflist)
+                        if use_wa:
+                            wa_avg, wa_avg_std = self.compute_average(a_difflist, wa_sig_difflist)
+                        else:
+                            wa_avg, wa_avg_std = 0.0,0.0
+
+                        str_nums    = f"{covnum} {wfitnum} "
+                        str_results = f"{w_avg:.5f} {w_avg_std:.5f} "
+                        if use_wa:
+                            str_results += f"{wa_avg:7.5f} {wa_avg_std:7.5f} "
+                        else:
+                            str_results += f"{wa_avg:7.1f} {wa_avg_std:7.1f}  "
+                        str_results += f"{omm_avg:7.4f} {omm_avg_std:7.4f}  "
+                        str_misc    = f"{len(w_difflist)}"
+                        str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+                        nrow +=1
+                        f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
+                                f"{str_misc} {str_labels}\n")
+
+        f.close()
+
 
     # === END: ===

@@ -723,7 +723,6 @@ class wFit(Program):
         script_subdir    = SUBDIR_SCRIPTS_WFIT
 
         self.make_wfit_summary()
-        # self.make_weight_avg_lists()
         self.make_weight_avg_summary()
 
         logging.info(f"  wfit cleanup: compress {JOB_SUFFIX_TAR_LIST}")
@@ -928,6 +927,8 @@ class wFit(Program):
         WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
         wfit_summary_table  = self.config_prep['wfit_summary_table']
         
+        if KEYNAME_WEIGHT_AVG not in CONFIG: return
+
         # load lists of files needed to comput avgs
         self.make_weight_avg_lists()
         weight_avg_list  = self.config_prep['weight_avg_list']

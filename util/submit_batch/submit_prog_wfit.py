@@ -177,7 +177,8 @@ class wFit(Program):
         inpdir_list = self.config_prep['inpdir_list']
 
         if KEYNAME_WEIGHT_AVG not in CONFIG:
-            pass
+            return
+
         # check that each wildcard corresponds to at least 1 input directory
         for weight_avg in CONFIG[KEYNAME_WEIGHT_AVG]:
             weight_avg_dirs = weight_avg.replace(' ','').split('-')

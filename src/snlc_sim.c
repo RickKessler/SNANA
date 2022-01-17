@@ -621,7 +621,6 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.USE_README_LEGACY = 0 ; 
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -7422,43 +7421,6 @@ void init_DNDZ_Rate(void) {
   }
 
   // -----------------------------------------------------
-  // store info in LINE_RATE_INFO array so that it can
-  // be printed to screen and also to README file.
-
-  i = -1 ;
-
-  if ( INPUTS.USE_README_LEGACY ) {
-    i++; sprintf(LINE_RATE_INFO[i], 
-		 "\n *********************************** " );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 " SIMULATED VOLUME, TIME, RATE(%s)", 
-		 INPUTS.RATEPAR.NAME );
-
-    i++; sprintf(LINE_RATE_INFO[i], 
-		 "\t Survey dOmega  = %8.4e steradians  (%8.5f PI) ", 
-		 dOmega, 2.0*dOmega/TWOPI );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Redshift range = %7.4f - %7.4f", Z0, Z1 );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t <redsfhit>     = %7.4f  (volume-weighted) ", Z_AVG ) ;
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, cH0 );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Survey Time    = %7.4f  years/season ", Tyear );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Co-moving Time = %7.4f  years/season  [ T/(1+<z>) ] ", 
-		 Tcomoving );
-
-    i++; sprintf(LINE_RATE_INFO[i],
-		 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", 
-		 VT, cH0 );
-  } // end README_LEGACY
 
   int  DNDZFLAG = 0;
   char ctmp_z[80], ctmp[100], ctmp_pec1a[80], *NAME;
@@ -7488,6 +7450,8 @@ void init_DNDZ_Rate(void) {
   IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER > 0 ) ;
 
   // ----------------------------
+
+  i=-1;
 
   if ( IMODEL_AB ) {
     DNDZFLAG = 1;
@@ -7644,7 +7608,6 @@ void init_DNDZ_Rate(void) {
     set_screen_update(INPUTS.NGENTOT_LC) ;
   }
 
-  // xxx mark  i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
 
@@ -7671,10 +7634,6 @@ void init_DNDB_Rate(void) {
 
   i = -1 ;
 
-  if ( INPUTS.USE_README_LEGACY ) {
-    i++; sprintf(LINE_RATE_INFO[i], 
-		 "\n *********************************** " );
-  }
 
   i++; sprintf(LINE_RATE_INFO[i],
 	       "   SIMULATED RATE(%s)",  INPUTS.RATEPAR.NAME );
@@ -7712,8 +7671,6 @@ void init_DNDB_Rate(void) {
   i++; sprintf(LINE_RATE_INFO[i],
 	       " Calculated Number of EVENTS per season = %d  (NGENTOT_LC)", 
 	       INPUTS.NGENTOT_LC );
-
-  // xxx mark  i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
 
@@ -7829,7 +7786,7 @@ void init_simvar(void) {
   init_string_dict(&INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE, 
 		   "SPECTRUM_FIELDLIST_PRESCALES", 2*MXFIELD_OVP);
 
-  if ( !INPUTS.USE_README_LEGACY )  { README_DOCANA_DRIVER(0); }
+  README_DOCANA_DRIVER(0);
 
   return ;
 
@@ -25995,14 +25952,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ------------ BEGIN -------------
 
-  // always construct readme lines
-  if ( INPUTS.USE_README_LEGACY ) 
-    { readme_doc_legacy(1); }
-  else
-    { README_DOCANA_DRIVER(1); }
+  README_DOCANA_DRIVER(1);
   
-
-
   // init DUMP file regardless of SNDATA file status
 
   if ( INPUTS.FORMAT_MASK <= 0 ) {
@@ -26189,12 +26140,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   iter_summary_genPDF();
 
-  // fill post-sim part of readme
-  if ( INPUTS.USE_README_LEGACY ) 
-    { readme_doc_legacy(2); }
-  else
-    { README_DOCANA_DRIVER(2); }
-
+  README_DOCANA_DRIVER(2);
 
   // always dump entire readme contents to screen
   print_banner("DUMP README CONTENTS TO SCREEN\n");

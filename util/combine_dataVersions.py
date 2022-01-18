@@ -24,8 +24,9 @@
 #   combine_dataVersions.py <inFile>
 #
 # where <inFile> contains
-#   PRIVATE_DATA_PATH:  <path>   # this is optional
-#   SURVEY_OUT:  <name of combined survey>
+#   PRIVATE_DATA_PATH:  <path>   # optional path to data
+#   KCOR_PATH:          <path>   # optional path to kcor files
+#   SURVEY_OUT:  <name of combined survey>  # required
 #   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
 #   MAGSYSTEM_FINAL:    <system>  # needed if there are multiple systems
 #   CHANGE_FILTER_CHAR: False     # optional preserve filter char names
@@ -65,6 +66,10 @@
 #  * NOT DONE: when merging SN with same name, check spectra
 #         (this might work, but didn't check it)
 #
+# Jan 18 2022 RK - few fixes for Pantheon+
+#    + addd new KCOR_PATH arg
+#    + all comment lines in [VERSION].LIST
+#
 # ====================================
 
 import os, sys
@@ -94,6 +99,7 @@ KEYNAME_VERSION        = "VERSION_LIST"     # for input data versions
 KEYNAME_SURVEY_OUT     = "SURVEY_OUT"       # name of combined data version
 KEYNAME_VPEC_FILE      = "VPEC_FILE"        # table file with VPEC and VPEC_ERR
 KEYNAME_PRIVATE        = "PRIVATE_DATA_PATH"   # location of data
+KEYNAME_KCOR_PATH      = "KCOR_PATH"
 KEYNAME_CHANGE_CHAR    = "CHANGE_FILTER_CHAR"  # True or False
 KEYNAME_KEYLIST_REMOVE = "KEYLIST_REMOVE"      # e.g., PRIVATE VERSION_PHOTOMETRY
 KEYNAME_MAGSYS_FINAL   = "MAGSYSTEM_FINAL"     # e.g., pick AB or BD17 if both exist
@@ -394,6 +400,27 @@ class VERSION_INFO:
 
         input_config = yaml.safe_load("\n".join(line_list))
 
+        # - - - -
+        # load a few defaults if not specified in input config file
+        if KEYNAME_PRIVATE not in input_config:
+            input_config[KEYNAME_PRIVATE] = ""
+
+        if KEYNAME_KCOR_PATH not in input_config:
+            input_config[KEYNAME_KCOR_PATH] = None
+
+        if KEYNAME_CHANGE_CHAR not in input_config:
+            input_config[KEYNAME_CHANGE_CHAR] = True
+
+        if KEYNAME_VPEC_FILE not in input_config:
+            input_config[KEYNAME_VPEC_FILE] = ""
+        
+        if KEYNAME_KEYLIST_REMOVE not in input_config:
+            input_config[KEYNAME_KEYLIST_REMOVE] = ""
+
+        if KEYNAME_MAGSYS_FINAL not in input_config:
+            input_config[KEYNAME_MAGSYS_FINAL] = None
+
+        # - - - - - - 
         SOUT   = input_config[KEYNAME_SURVEY_OUT]
         self.SURVEY_OUT         = SOUT
         self.VERSION_OUT_TEXT   = SOUT + '_TEXT'
@@ -417,29 +444,15 @@ class VERSION_INFO:
         
         self.NAME = []
         self.INFILE_KCOR = []
+        KCOR_PATH  = input_config[KEYNAME_KCOR_PATH]
         for tmpLine in input_config[KEYNAME_VERSION]:
             name        = tmpLine.split()[0]
             infile_kcor = tmpLine.split()[1]
+            if KCOR_PATH is not None:
+                infile_kcor = f"{KCOR_PATH}/{infile_kcor}"
             self.NAME.append(name)
             self.INFILE_KCOR.append(infile_kcor)
-        
-        # - - - -
-        # load a few defaults if not specified in input config file
-        if KEYNAME_PRIVATE not in input_config:
-            input_config[KEYNAME_PRIVATE] = ""
-
-        if KEYNAME_CHANGE_CHAR not in input_config:
-            input_config[KEYNAME_CHANGE_CHAR] = True
-
-        if KEYNAME_VPEC_FILE not in input_config:
-            input_config[KEYNAME_VPEC_FILE] = ""
-        
-        if KEYNAME_KEYLIST_REMOVE not in input_config:
-            input_config[KEYNAME_KEYLIST_REMOVE] = ""
-
-        if KEYNAME_MAGSYS_FINAL not in input_config:
-            input_config[KEYNAME_MAGSYS_FINAL] = None
-        
+                
         # get survey name with snana job
         print(f"")
         self.SURVEY_INP = []
@@ -602,12 +615,13 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     
     # read list file
     LISTFILE_IN  = dataDir + '/' + VIN + '.LIST'
-    LISTFILE_OUT = VOUT_TEXT + '/' + versionInfo.AUXFILE_LIST
+    LISTFILE_OUT = VOUT_TEXT + '/' + versionInfo.AUXFILE_LIST    
     PTR_L        = open(LISTFILE_IN,"rt")
     fileList     = PTR_L.readlines()
     PTR_L.close
 
     # read contents of first file
+    fileList[0] = fileList[0].strip()
     first_fileName = dataDir + '/' + fileList[0]
     first_fileName = first_fileName.replace("\n", "")
     first_fileName_gz = first_fileName + ".gz"
@@ -678,6 +692,8 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # loop over all files and run 'sedcmd' 
     nfile = 0
     for infile in fileList:
+        if infile[0] == '#' : continue 
+        infile      = infile.strip()
         infile_base = infile.replace("\n", "")
         infile_copy = infile_base 
         if gz_flag: 

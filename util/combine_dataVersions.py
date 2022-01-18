@@ -25,11 +25,14 @@
 #
 # where <inFile> contains
 #   PRIVATE_DATA_PATH:  <path>   # this is optional
+#   SURVEY_OUT:  <name of combined survey>
+#   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
+#   MAGSYSTEM_FINAL:    <system>  # needed if there are multiple systems
+#   CHANGE_FILTER_CHAR: False     # optional preserve filter char names
+#
 #   VERSION:  <ver1>  <kcor_inFile1>
 #   VERSION:  <ver2>  <kcor_inFile2>
 #     etc ...
-#   SURVEY_OUT:  <name of combined survey>
-#   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
 #
 # Outputs:
 #    <SURVEY_OUT>_TEXT/       ! combined data directory, TEXT format
@@ -38,10 +41,6 @@
 #    <SURVEY_OUT>.SIMLIB      ! combined SIMLIB file
 #
 #      History
-#  Apr 12 2017: D.Scolnic added key SIMLIB_ZPERR_LIST
-#
-#  Oct 25 2017: RK comment out all SIMLIB_ZPERR_LIST code since it
-#               causes code to crash.
 #
 #  Dec 8 2017: S.Hinton - merge duplicates
 #  Jan 8 2018: RK - add VPEC_FILE option

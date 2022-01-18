@@ -20699,8 +20699,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sim: release README refactor with all-yaml DOCUMENTATION block; see manual.
       (recover legacy readme with DEBUG_FLAG -1222)
 
-   sim: update abort on duplidate keys in input files
-           https://github.com/RickKessler/SNANA/issues/781
+   sim: prepare abort fix on duplidate keys in input files (but not released)
 
    sim: optional ZPHOT_QP[0,1,2...] to describe zPHOT PDF with quantiles.
 
@@ -20737,5 +20736,22 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      - unpack ZPHOT_ZP into zPHOT(PDF)
      - use in photo-z LCFIT
 
-END: 
 
+
+# ======================================================================= 
+         v11_04g (  ) 
+
+         ***** IMPORTANT(v11_04g) ***** 
+
+  snlc_sim: release refactor to abort on duplicate keys in 
+             different input files.
+            https://github.com/RickKessler/SNANA/issues/781
+
+         ***** USEFUL(v11_04g) ***** 
+
+         ***** MISCELLANEOUS(v11_04g) ***** 
+ 
+   snlc_sim.c: remove lefacy readme_doc_xxx functions
+
+  
+END: 

@@ -93,7 +93,7 @@ LSST_SITE_NAME    = "CTIO"
 # Flag to remove ssObject dictionary
 COMPRESS_ALERT_ssObject = True   
 
-# flag to store hostgal ONLY on first detect that has valid info;
+# flag to hostgal store some keysl ONLY on first detect that has valid info;
 # no hostgal info stored for Galactic events.
 COMPRESS_ALERT_HOSTGAL  = False  
 

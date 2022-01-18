@@ -981,7 +981,7 @@ class wFit(Program):
                             wa_avg, wa_avg_std = 0.0,0.0
 
                         str_nums    = f"{covnum} {wfitnum} "
-                        str_results = f"{w_avg:.4f} {w_avg_std:.4f} "
+                        str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                         str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                         str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
                         str_misc    = f"{len(w_list)}"

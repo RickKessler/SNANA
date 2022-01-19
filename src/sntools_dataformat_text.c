@@ -1771,10 +1771,10 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   int  iwd0      = *iwd_file ; // never changes
   int  iwd       = *iwd_file ; // iwd increments
-  int  igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs, NRD, len_word0 ;
+  int  igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs, NRD, NRD_ERR, len_word0 ;
   int    IVAL;
   float  FVAL, FVAL_ERR ;
-  double DVAL, DVAL_ERR; 
+  double DVAL=-9.0, DVAL_ERR=-9.0; 
   bool   IS_PRIVATE, PLUS_MINUS = false ;
 
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
@@ -1817,24 +1817,21 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   len_word0 = strlen(word0);
   sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
   sprintf(KEY_ERR, "%s_ERR", KEY);
-  NRD = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY, &DVAL);  // return DVAL
-  if ( NRD > 0 ) {  sprintf(word1_val, "%le", DVAL); }
+  NRD     = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY,     &DVAL);      // return DVAL
+  NRD_ERR = RD_OVERRIDE_FETCH(SNDATA.CCID, KEY_ERR, &DVAL_ERR);  
+  if ( NRD     > 0 ) { sprintf(word1_val, "%le", DVAL); }
+  if ( NRD_ERR > 0 ) { sprintf(word3_err, "%le", DVAL_ERR); PLUS_MINUS=true; }
 
   // strip off double value 
   DVAL     = atof(word1_val);  // 0.00 for strings; else double val
-  DVAL_ERR = -9.0 ;
-  if ( PLUS_MINUS ) {
-    NRD = 0; // HEADER_OVERRIDE(KEY_ERR, SNDATA.CCID, &DVAL_ERR);
-    if ( NRD > 0 ) {  sprintf(word3_err, "%le", &DVAL_ERR); }
-    DVAL_ERR = atof(word3_err) ; 
-  }
+  if ( PLUS_MINUS ) { DVAL_ERR = atof(word3_err);  }
 
-  
-  /* 
-  if ( strcmp(SNDATA.CCID,"2005am") == 0 ) {
-    printf(" xxx %s: CCID=%s word0= '%s'   [DVAL=%.3f +_ %.3f]\n",
-	   fnam, SNDATA.CCID, word0, DVAL, DVAL_ERR ); fflush(stdout);
-	   } */
+  /* xxxx mark delete xxxx
+  if ( strstr(word0,"MWEBV") != NULL ) {
+    printf(" xxx %s: CID=%s MWEBV = %f +_ %f \n",
+	   fnam, SNDATA.CCID, DVAL, DVAL_ERR);
+  }
+  xxxxxxxxx */
 
   // set int and float values for casting below
   IVAL  = (int)DVAL;  FVAL=(float)DVAL;  FVAL_ERR=(float)DVAL_ERR;

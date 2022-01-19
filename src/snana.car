@@ -3376,7 +3376,7 @@ c read global info and store in SNDATA struct in sndata.h
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
-         if ( DEBUG_FLAG == 1210 ) OPTRD = OPTRD + 256 ! debug flag
+         if ( .not. LEGACY_HEADER_OVERRIDE ) OPTRD = OPTRD + 256 ! debug flag
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)
@@ -17009,6 +17009,8 @@ C ========================================================
 +DECK,EXEC_HEADER_OVERRIDE.
       SUBROUTINE EXEC_HEADER_OVERRIDE()
 
+c xxxxxxxx mark obsolete xxxxxxx
+c
 c Created Nov 29 2016 by R.Kessler
 c Execute header override.
 c

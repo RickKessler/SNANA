@@ -9955,6 +9955,9 @@ c Create Feb 7 2021;
 c Update reformat output:
 c  + append FITS files for FITS output
 c  + write new TEXT file for TEXT output
+c
+c Jan 20 2022: move copy_SNDATA_MISC() to work for either TEXT for FITS.
+c -------------
 
       IMPLICIT NONE
 
@@ -9977,11 +9980,9 @@ C ---------- BEGIN ----------
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
       ENDIF
 
+      CALL copy_SNDATA_MISC() ! update SNDATA structure 
+
       IF ( OPT_REFORMAT_FITS > 0 )  THEN
-
-c  allow updating a few variables for FITS format
-         CALL copy_SNDATA_MISC()
-
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
 

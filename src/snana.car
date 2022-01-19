@@ -3248,7 +3248,8 @@ c (SURVEY, FILTERS ..) needed for initialization
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
-      IF ( .not. LSIM_SNANA .and. DEBUG_FLAG == 1210 ) THEN  
+cc xxx mark delete      IF ( .not. LSIM_SNANA .and. DEBUG_FLAG == 1210 ) THEN  
+      IF ( .not. (LSIM_SNANA .or. LEGACY_HEADER_OVERRIDE) ) THEN  
         CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
       ENDIF
 
@@ -6031,7 +6032,7 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
 
-      LEGACY_HEADER_OVERRIDE = (DEBUG_FLAG .NE. 1210) ! Dec 2021
+      LEGACY_HEADER_OVERRIDE = (DEBUG_FLAG .EQ. -1210) 
 
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN

@@ -20655,6 +20655,8 @@ void  setz_unconfirmed(void) {
   double ZPHOT     = SNHOSTGAL.ZPHOT ;
   double ZPHOT_ERR = SNHOSTGAL.ZPHOT_ERR ;
   double ZCMB_ORIG = GENLC.REDSHIFT_CMB_SMEAR ;
+  double ZHEL;
+
   int    FOUND_zHOST ;
   int LDMP = 0 ;
   char eq[]   = "eq" ;
@@ -20674,24 +20676,26 @@ void  setz_unconfirmed(void) {
 
     GENLC.REDSHIFT_FLAG = REDSHIFT_FLAG_HOSTSPEC ; 
 
-    // update only if we have the wrong host
+    // update redshift only if we have the wrong host
     if ( !GENLC.CORRECT_HOSTMATCH  ) {
+
+      ZHEL = zHEL_WRONGHOST();  
       GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_WRONGHOST ; 
-      GENLC.REDSHIFT_HELIO_SMEAR = SNHOSTGAL.ZSPEC ;  
+      GENLC.REDSHIFT_HELIO_SMEAR = ZHEL ;  
 
       if ( INPUTS.VEL_CMBAPEX > 1.0 ) {
 	GENLC.REDSHIFT_CMB_SMEAR =  
-	  zhelio_zcmb_translator(SNHOSTGAL.ZSPEC, RA,DEC,eq, +1);
+	  zhelio_zcmb_translator(ZHEL, RA,DEC,eq, +1);
       }
       else {
-	GENLC.REDSHIFT_CMB_SMEAR = SNHOSTGAL.ZSPEC ;
+	GENLC.REDSHIFT_CMB_SMEAR = ZHEL;
       }
 
       if ( LDMP ) {
 	printf(" xxx zcmb = %.3f(SN) -> %.3f(WRONGHOST) \n", 
 	       ZCMB_ORIG, GENLC.REDSHIFT_CMB_SMEAR); fflush(stdout);
       }
-    }
+    } // end Not correct host match
     
   }
   else {
@@ -20718,7 +20722,37 @@ void  setz_unconfirmed(void) {
 
 } // end of  setz_unconfirmed
 
+// *******************************
+double zHEL_WRONGHOST(void) {
 
+  // Created Jan 20 2022 by R.Kessler
+  // Called if GENLC.CORRECT_HOSTMATCH is false;
+  // Set zHEL based on which wronghost model is used:
+  //  Legacy model using map
+  //  First-principls model using NBR_LIST column of HOSTLIB
+
+  bool WRONGHOST_MODEL_LEGACY  = (WRONGHOST.NLIST > 0); 
+  bool WRONGHOST_MODEL_HOSTLIB = (HOSTLIB.IVAR_NBR_LIST > 0 );
+  double zHEL = -9.0 ;
+  char fnam[] = "setz_WRONGHOST";
+
+  // -------------- BEGIN -------------
+
+  if ( WRONGHOST_MODEL_LEGACY ) { 
+    zHEL = SNHOSTGAL.ZSPEC; 
+  }
+  else if ( WRONGHOST_MODEL_HOSTLIB ) {
+    zHEL = SNHOSTGAL_DDLR_SORT[0].ZSPEC ; // 0 is closest DDLR match
+  }
+  else {
+    sprintf(c1err,"CORRECT_HOSTMATCH = %d ", GENLC.CORRECT_HOSTMATCH);
+    sprintf(c2err,"but neither WRONGHOST model is set ???");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  return zHEL;
+
+} // end setz_WRONGHOST
 
 // **********************************
 int gen_smearMag ( int epoch, int VBOSE) {
@@ -21447,7 +21481,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Mar 2012
   
   // IFLAG = 0 --> nominal loading
-  // IFLAG = 1 --> load header info only (for FITS-file init)
+  // IFLAG = 1 --> load global header info only (for FITS-file init)
 
   // Compute global hostgal properties (i.e., epoch-independent)
   // and load SNDATA structure,
@@ -21525,6 +21559,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     return ;
   }  // end IFLAG==1
 
+
+  // - - - - - - - - - - - 
 
   NMATCH = SNHOSTGAL.NNBR ;
   if ( NMATCH > MXHOSTGAL ) { NMATCH = MXHOSTGAL; }

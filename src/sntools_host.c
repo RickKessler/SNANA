@@ -6893,6 +6893,7 @@ void SORT_SNHOST_byDDLR(void) {
   // May 20 2020: bug fix for LSN2GAL
   // Oct 25 2021: compute optional GALID_UNIQUE (for LSST broker test)
   // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
+  // Jan 22 2022: set GENLC.CORRECT_HOSTMATCH=False for wrong host match
 
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
@@ -6959,6 +6960,7 @@ void SORT_SNHOST_byDDLR(void) {
     if ( unsort == 0 ) { // first element of unsorted array is true host
        SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; 
        SNHOSTGAL.IMATCH_TRUE = i;
+       if ( i != 0 ) { GENLC.CORRECT_HOSTMATCH = false; } // Jan 20 2022
        if ( LDMP ) { printf("\t xxx %s: IMATCH_TRUE = %d \n", fnam, i); }
     }
 

@@ -1930,6 +1930,7 @@ void   LOAD_SEARCHEFF_DATA_LEGACY(void);
 void   gen_spectype(void);
 
 void   setz_unconfirmed(void);
+double zHEL_WRONGHOST(void);
 
 
 int    gen_cutwin(void);

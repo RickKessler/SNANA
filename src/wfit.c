@@ -39,8 +39,11 @@
      Lasker   2019 (1811.02380)  w-syst with Chromatic corr
      Popovic  2019 (1910.05228)  w-syst from host association in SDSS
      Popovic  2021 (2102.01776)  w-syst from SN-host correlations
-     Vincenzi 2021 (in prep)     w-syst for SNCC contamination in DES
-     Sanchez  2021 (in prep)     cosmology result for LSST-DC2-SNIa analysis
+     Vincenzi 2021 (2111.10382)  w-syst for SNCC contamination in DES
+     Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
+     Brout    2022 (in prep)     Pantheon+ systematics
+     Dai      2022 (in prep)     SALT3 training syst
+     Mitra    2022 (in prep)     SNIa cosmology with photo-z/PLASTICC
 
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.

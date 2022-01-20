@@ -72,6 +72,7 @@
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile
 #define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
 #define OPENMASK_IGNORE_DOCANA  4  // see snana_openTextFile
+#define MXLINE_DOCANA         500  // max number of DOCANA lines
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315
@@ -787,6 +788,8 @@ int  colnum_in_table(char *fileName, char *varName);
 
 void react_missing_docana(bool FOUND_DOCANA, char *fileName);
 void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
+void abort_docana_tooLong(char *file, char *callFun);
+
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);

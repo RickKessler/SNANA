@@ -8840,6 +8840,14 @@ void react_missing_docana__(bool *REQUIRE_DOCANA, char *fileName)
 void check_file_docana__(int *optmask, char *fileName) 
 { check_file_docana(*optmask, fileName); }
 
+
+// **********************************
+void abort_docana_tooLong(char *fileName, char *callFun) {
+  sprintf(c1err,"Could not find %s",  KEYNAME2_DOCANA_REQUIRED);
+  sprintf(c2err,"in %s", fileName );
+  errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
+} // end abort_docana_tooLong
+
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,
                         char *fileName, char *funCall) {

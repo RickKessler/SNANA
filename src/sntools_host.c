@@ -8142,8 +8142,8 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  printf("\n");
-  printf("  Created '%s' \n", HLIB_NEW);
+  printf("\n  Created '%s' \n", HLIB_NEW);
+  fflush(stdout);
 
   // - - - - - - - -
   // transfer DOCANA block (July 2021)
@@ -8155,6 +8155,10 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     while ( !DOCANA_END ) {
       fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
       fprintf(FP_NEW,"%s", LINE); NLINE_DOCANA++ ;
+
+      if ( NLINE_DOCANA > MXLINE_DOCANA ) 
+	{ abort_docana_tooLong(HLIB_ORIG, fnam);  } 
+
       if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) 
 	{ DOCANA_END = true; fprintf(FP_NEW,"\n"); }
     }

@@ -783,6 +783,8 @@ def merge_duplicates(versionInfo):
     # Merge "OBS:" lines into one file, keeping header of first file.
     # Update NOBS key-value and make sure that "END:" is at the end
     # Move duplicates into /DUPLICATES subDir
+    #
+    # Jan 21 2022 RK - skip END_PHOTOMETRY keys (used in PPLUS)
 
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
 
@@ -825,8 +827,8 @@ def merge_duplicates(versionInfo):
         buf = [] 
         with open(files[0]) as scaffold:
             for line in scaffold:
-                if line.startswith("END:"):
-                    continue
+                if line.startswith("END:"):             continue
+                if line.startswith("END_PHOTOMETRY:"):  continue
                 buf.append(line)
         for f in files[1:]:
             with open(f) as obs:

@@ -639,6 +639,7 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # read FILTER string from first data file
     FILTERSTRING_OLD = parseLines(fileContents, 'FILTERS:', 1, 0)
     SURVEY           = parseLines(fileContents, 'SURVEY:',  1, 0)
+    VARLIST          = parseLines(fileContents, 'VARLIST:', 1, 0) # ??
 
     # get full filter lists from kcor file
     FILTERLIST_OLD = kcorInfo.FILTER_CHARLIST_OLD     # only this version

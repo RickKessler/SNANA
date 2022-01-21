@@ -134,7 +134,6 @@ def get_outdir_list(config):
             else:
                 CONFIG     = input_yaml  # for create_cov input
 
-            CONFIG     = input_yaml['CONFIG']
             outdir = None 
             if 'OUTDIR' in CONFIG :
                 outdir = CONFIG['OUTDIR']

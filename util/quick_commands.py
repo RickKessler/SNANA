@@ -10,7 +10,8 @@ import os, sys, argparse, subprocess, yaml
 import pandas as pd
 
 # ----------------
-snana_program = "snana.exe"
+snana_program          = "snana.exe"
+combine_fitres_program = "combine_fitres.exe"
 
 LOG_FILE = "quick_command.log"
 
@@ -47,7 +48,13 @@ HELP_COMMANDS = f"""
 # extract info about SNANA code
   quick_commands.py --get_info_code
 
+# analyze stat differences (z,mB,x1,c) between two fitres files
+# run on same events (e.g., to validate updated data set);
+# Computes mean diff, RMS(diff), max outliers ...
+  quick_commands.py --diff_fitres lcfit_ref.fitres lcfit_test.fitres
+
 """
+
 # =============================
 
 
@@ -93,9 +100,11 @@ def get_args():
     msg = "extract sim-input file from sim VERSION.README"
     parser.add_argument("--extract_sim_input", help=msg, action="store_true")
 
+    msg = "two fitres files to analyse stat difference for SALT2 fit params"
+    parser.add_argument("-d", "--diff_fitres", nargs='+', 
+                        help=msg, type=str,default=None)
+
 # SIMLIB_OUT ...
-
-
 
     if len(sys.argv) == 1:  
         parser.print_help(); sys.exit()
@@ -400,6 +409,19 @@ def extract_sim_input_file(args):
 
     # end extract_sim_input_file
 
+def analyze_diff_fitres(args):
+
+    ff_ref  = os.path.expandvars(args.diff_fitres[0])
+    ff_test = os.path.expandvars(args.diff_fitres[1])
+
+    print(f"\n Analyze statistical differences between")
+    print(f"\t Ref  fitres file: {ff_ref}")
+    print(f"\t Test fitres file: {ff_test}")
+
+    cmd = f"{combine_fitres_program} "
+
+    # end analyze_diff_fitres
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -447,4 +469,8 @@ if __name__ == "__main__":
     if args.extract_sim_input :
         extract_sim_input_file(args)
 
-    # END
+    if args.diff_fitres :
+        analyze_diff_fitres(args)
+
+    # END main
+

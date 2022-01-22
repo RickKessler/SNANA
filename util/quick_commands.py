@@ -4,6 +4,8 @@
 # Use "quick_commands.py -H" to get explicit examples on how to combine 
 # arguments to perform specific tasks.
 #
+# Jan 22 2022: add --diff_fitres option 
+#
 # =========================
 
 import os, sys, argparse, subprocess, yaml
@@ -51,7 +53,7 @@ HELP_COMMANDS = f"""
 # analyze stat differences (z,mB,x1,c) between two fitres files
 # run on same events (e.g., to validate updated data set);
 # Computes mean diff, RMS(diff), max outliers ...
-  quick_commands.py --diff_fitres lcfit_ref.fitres lcfit_test.fitres
+  quick_commands.py --diff_fitres  lcfit_ref.fitres  lcfit_test.fitres
 
 """
 
@@ -417,9 +419,27 @@ def analyze_diff_fitres(args):
     print(f"\n Analyze statistical differences between")
     print(f"\t Ref  fitres file: {ff_ref}")
     print(f"\t Test fitres file: {ff_test}")
+    sys.stdout.flush()
 
     cmd = f"{combine_fitres_program} "
+    cmd += f"{ff_ref} {ff_test} "
+    cmd += f"t "    # only text output; no HBOOK or ROOT
 
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+
+    fitres_combine_file = "combine_fitres.text"
+    if not os.path.exists(fitres_combine_file):
+        msgerr = f"Could not find combined fitres file: {fitres_combine_file}"
+        assert False, msgerr
+
+    df  = pd.read_csv(fitres_combine_file, comment="#", delim_whitespace=True)
+    df["CID"] = df["CID"].astype(str)
+    print(f"\n xxx df = \n{df}")
+
+    # define ref variables to check; test var name is {var}_2
+    var_check_list = [ 'zHD', 'mB', 'x1', 'c' ]  
+    
     # end analyze_diff_fitres
 
 def print_HELP():

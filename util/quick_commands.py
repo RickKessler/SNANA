@@ -295,14 +295,13 @@ def translate_simgen_dump_file(args):
     df  = pd.read_csv(simgen_dump_file, comment="#", delim_whitespace=True)
     df["CID"] = df["CID"].astype(str)
 
-    FOUND_SIM_mB  = ("SIM_mB" in df)
-    FOUND_SIM_x0  = ("SIM_x0" in df)
+    FOUND_SIM_mB       = ("SIM_mB" in df)
+    FOUND_SIM_x0       = ("SIM_x0" in df)
     FOUND_MAGSMEAR_COH = ("MAGSMEAR_COH" in df)
     FOUND_gammaDM      = ("SALT2gammaDM" in df)
 
     VARNAMES_STRING = f"CID IDSURVEY zHD zHDERR mB mBERR " \
                       f"x0 x0ERR x1 x1ERR c cERR  COVx0x COVx0c COVx1c"
-
 
     nrow = 0 
     with open(out_table_file,"wt") as o:
@@ -413,6 +412,7 @@ def extract_sim_input_file(args):
 
 def analyze_diff_fitres(args):
 
+    pd.options.mode.chained_assignment = None 
     ff_ref  = os.path.expandvars(args.diff_fitres[0])
     ff_test = os.path.expandvars(args.diff_fitres[1])
 
@@ -435,11 +435,30 @@ def analyze_diff_fitres(args):
 
     df  = pd.read_csv(fitres_combine_file, comment="#", delim_whitespace=True)
     df["CID"] = df["CID"].astype(str)
-    print(f"\n xxx df = \n{df}")
 
     # define ref variables to check; test var name is {var}_2
     var_check_list = [ 'zHD', 'mB', 'x1', 'c' ]  
+
+    # define dfsel = table rows where both ref and test are defined
+    #dfsel        = df.loc[df['c_2']>-8.0]
+    dfsel        = df[df['c_2']>-8.0]
     
+    print("")
+    print("               avg        median        ")
+    print("   quantity    diff       diff       std       min       max")
+    print("# -------------------------------------------------------------- ")
+    for var in var_check_list:
+        var_2 = f"{var}_2"
+        var_dif = f"dif_{var}"
+        dfsel[var_dif] = dfsel[var_2] - dfsel[var]
+        mean = dfsel[var_dif].mean()
+        med  = dfsel[var_dif].median()
+        std  = dfsel[var_dif].std()
+        mn   = dfsel[var_dif].min()
+        mx   = dfsel[var_dif].max()
+        print(f"  {var_dif:10} {mean:8.5f}  {med:9.5f}   {std:8.5f}  " \
+              f"{mx:8.5}  {mn:8.5}")
+
     # end analyze_diff_fitres
 
 def print_HELP():

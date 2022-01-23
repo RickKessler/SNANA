@@ -455,8 +455,7 @@ def analyze_diff_fitres(args):
     print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
 
     print("")
-    print("               avg       median        ")
-    print("   quantity    diff      diff        std          " \
+    print("   quantity    avg       median      std          " \
           f"min/max      CIDmin/CIDmax")
     print("# --------------------------------------------------" \
           "--------------------------- ")

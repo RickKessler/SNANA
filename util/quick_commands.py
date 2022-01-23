@@ -412,13 +412,16 @@ def extract_sim_input_file(args):
 
 def analyze_diff_fitres(args):
 
+    # suppress strange pandas warnings
     pd.options.mode.chained_assignment = None 
+
+    # local variables with names of fitres files
     ff_ref  = os.path.expandvars(args.diff_fitres[0])
     ff_test = os.path.expandvars(args.diff_fitres[1])
 
     print(f"\n Analyze statistical differences between")
-    print(f"\t Ref  fitres file: {ff_ref}")
-    print(f"\t Test fitres file: {ff_test}")
+    print(f"\t REF  fitres file: {ff_ref}")
+    print(f"\t TEST fitres file: {ff_test}")
     sys.stdout.flush()
 
     cmd = f"{combine_fitres_program} "
@@ -441,12 +444,21 @@ def analyze_diff_fitres(args):
 
     # define dfsel = table rows where both ref and test are defined
     #dfsel        = df.loc[df['c_2']>-8.0]
-    dfsel        = df[df['c_2']>-8.0]
-    
+    dfsel        = df.loc[df['c_2']>-8.0]
+    dfcut        = df.loc[df['c_2']<-8.0]
+
+    len_tot = len(df)
+    len_sel = len(dfsel)
+    CID_lost_list = dfcut['CID'].to_numpy()
+
+    print(f" TEST table contains {len_sel} of {len_tot} REF events ")
+    print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
+
     print("")
     print("               avg        median        ")
-    print("   quantity    diff       diff       std       min       max")
-    print("# -------------------------------------------------------------- ")
+    print("   quantity    diff       diff       std           " \
+          f"min/max     CIDmin/CIDmax")
+    print("# --------------------------------------------------------------------- ")
     for var in var_check_list:
         var_2 = f"{var}_2"
         var_dif = f"dif_{var}"
@@ -456,9 +468,15 @@ def analyze_diff_fitres(args):
         std  = dfsel[var_dif].std()
         mn   = dfsel[var_dif].min()
         mx   = dfsel[var_dif].max()
-        print(f"  {var_dif:10} {mean:8.5f}  {med:9.5f}   {std:8.5f}  " \
-              f"{mx:8.5}  {mn:8.5}")
 
+        CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
+        CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
+
+        print(f"  {var_dif:10} {mean:8.5f}  {med:9.5f}   {std:8.5f}  " \
+              f" {mn:8.5}/{mx:8.5}  {CIDmin}/{CIDmax}")
+        sys.stdout.flush()
+
+    return
     # end analyze_diff_fitres
 
 def print_HELP():

@@ -20747,11 +20747,28 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
              different input files.
             https://github.com/RickKessler/SNANA/issues/781
 
+  snlc_sim: fix bug setting REDSHIFT_FINAL for wrong host;
+        https://github.com/RickKessler/SNANA/issues/778
+
          ***** USEFUL(v11_04g) ***** 
+
+   New uncombine_dataVersions.py script.
 
          ***** MISCELLANEOUS(v11_04g) ***** 
  
    snlc_sim.c: remove lefacy readme_doc_xxx functions
 
-  
+   snana.car: release refactored HEADER_OVERRIDE 
+           DEBUG_FLAG = -1210 -> LEGACY_HEADER_OVERRIDE
+
+   submit_prog_bbc.py:
+      + fix writing REJECT_FRAC_BIASCOR to BBC_SUMMARY_FITPAR.YAML
+ 
+   SALT2mu.c
+     + fix bug in SUBPROCESS reading sim-input reference file.
+
+   quick_commands.py:
+     + new option --diff_fitres to analyze stats on difference
+       betweeen two fitres files:   avg, median, std, min/max
+
 END: 

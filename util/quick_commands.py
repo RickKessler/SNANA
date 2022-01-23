@@ -469,8 +469,11 @@ def analyze_diff_fitres(args):
         mn   = dfsel[var_dif].min()
         mx   = dfsel[var_dif].max()
 
-        CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
-        CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
+        CIDmin = None ; CIDmax=None
+        if mn < 0.0 :
+            CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
+        if mx > 0.0 :
+            CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
 
         print(f"  {var_dif:10} {mean:8.5f}  {med:9.5f}   {std:8.5f}  " \
               f" {mn:8.5}/{mx:8.5}  {CIDmin}/{CIDmax}")

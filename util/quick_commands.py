@@ -455,10 +455,11 @@ def analyze_diff_fitres(args):
     print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
 
     print("")
-    print("               avg        median        ")
-    print("   quantity    diff       diff       std           " \
-          f"min/max     CIDmin/CIDmax")
-    print("# --------------------------------------------------------------------- ")
+    print("               avg       median        ")
+    print("   quantity    diff      diff        std          " \
+          f"min/max      CIDmin/CIDmax")
+    print("# --------------------------------------------------" \
+          "--------------------------- ")
     for var in var_check_list:
         var_2 = f"{var}_2"
         var_dif = f"dif_{var}"
@@ -475,8 +476,8 @@ def analyze_diff_fitres(args):
         if mx > 0.0 :
             CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
 
-        print(f"  {var_dif:10} {mean:8.5f}  {med:9.5f}   {std:8.5f}  " \
-              f" {mn:8.5}/{mx:8.5}  {CIDmin}/{CIDmax}")
+        print(f"  {var_dif:10} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
+              f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
         sys.stdout.flush()
 
     return

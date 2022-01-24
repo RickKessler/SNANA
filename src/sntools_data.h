@@ -22,7 +22,9 @@ struct {
 
 #define FORMAT_SNDATA_FITS 32
 #define FORMAT_SNDATA_TEXT  2
-int FORMAT_SNDATA ;
+
+int FORMAT_SNDATA_READ ;
+int FORMAT_SNDATA_WRITE ;
 
 // ======== function prototypes =============
 

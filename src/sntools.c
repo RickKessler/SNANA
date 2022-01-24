@@ -2,7 +2,7 @@
 
 #include "sntools.h"
 #include "sntools_spectrograph.h" // Feb 2021
-//#include "sntools_host.h"
+#include "sntools_data.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -7198,6 +7198,9 @@ int init_SNDATA_GLOBAL(void) {
 
   printf("\n  %s: \n", fnam); fflush(stdout);
 
+  FORMAT_SNDATA_READ  = 0; 
+  FORMAT_SNDATA_WRITE = 0;
+
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
   SNDATA.VARNAME_SNRMON[0] =  0 ;
@@ -7271,8 +7274,8 @@ int init_SNDATA_EVENT(void) {
   SNDATA.DEC    = NULLFLOAT ;
   SNDATA.FAKE   = NULLINT ;
   SNDATA.MWEBV  = NULLFLOAT ;
-  SNDATA.WRFLAG_BLINDTEST = false ; 
-  SNDATA.WRFLAG_PHOTPROB  = false ;
+  SNDATA.WRFLAG_BLINDTEST     = false ; 
+  SNDATA.WRFLAG_PHOTPROB      = false ;
   SNDATA.SNTYPE = 0 ;
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
@@ -7452,8 +7455,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.FLUXCAL_ERRTOT[i_epoch]  = NULLFLOAT ;
 
     SNDATA.MAG[i_epoch]           = NULLFLOAT ;
-    SNDATA.MAG_ERRPLUS[i_epoch]   = NULLFLOAT ;
-    SNDATA.MAG_ERRMINUS[i_epoch]  = NULLFLOAT ;
+    SNDATA.MAG_ERR[i_epoch]       = NULLFLOAT ;
 
     SNDATA.SKYSUB_ERR[i_epoch]    = NULLFLOAT ;
     SNDATA.GALSUB_ERR[i_epoch]    = NULLFLOAT ;

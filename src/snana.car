@@ -430,7 +430,8 @@ c
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
      &  ,REFORMAT_SAVE_BADEPOCHS ! if bit2 is set on any OPT_REFORMAT
-     &  ,REFORMAT_SPECTRA        ! if 128-bit is set (Oct 2021)    
+     &  ,REFORMAT_SPECTRA        ! if 128-bit is set (Oct 2021)
+     &  ,REFORMAT_PRIVATE        ! T-> include private variables (Jan 2022)
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
@@ -525,7 +526,7 @@ c global survey info
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
-     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA
+     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
      &    ,REFORMAT_SAVE_BADEPOCHS
      &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
@@ -5681,6 +5682,7 @@ c set namelist defaults
       OPT_REFORMAT_FITS     = 0 ! +=1 => write fits; +=2 =>save bad epochs
       REFORMAT_SAVE_BADEPOCHS = .FALSE.
       REFORMAT_SPECTRA        = .FALSE.
+      REFORMAT_PRIVATE        = .TRUE.
       REFORMAT_KEYS     = 'NULL'
 
       NONSURVEY_FILTERS = ''
@@ -6185,6 +6187,9 @@ c init some INIXXX parameter for fit
       ENDIF 
 
 c ---------------------------
++SELF,IF=XXXREMOVE.
+c xxxx move to INIT_REFORMAT Jan 23 2022 xxxxxxxx
+
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
@@ -6207,6 +6212,8 @@ c
      &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
          REFORMAT_SPECTRA = .TRUE.
       ENDIF
+c xxxxxxxxxxxxx
++SELF.
 
 c - - - - -
       IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT
@@ -9550,6 +9557,38 @@ C ------------- BEGIN -------------
       FNAM = 'INIT_REFORMAT'
       REFORMAT       = .FALSE.  ! any reformat option
 
+c - - - - - - - - - 
+c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
+
+      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+        OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
+      ENDIF
+      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+        OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
+      ENDIF
+
+c check option to save bad epochs for OPT_REFORMAT
+      IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
+         REFORMAT_SAVE_BADEPOCHS = .TRUE.
+      ENDIF
+
+c check option to suppress PRIVATE variables: MASK+=64 or bit 6
+      IF ( BTEST(OPT_REFORMAT_FITS,6) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,6) ) THEN 
+         REFORMAT_PRIVATE = .FALSE.
+      ENDIF
+
+c check option to reformat spectra: note that for TEXT -> FITS,
+c spectra may not appear in 1st text file, so user must explicitly
+c request reformatting spectra. MASK=128 -> bit 7
+c 
+      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
+         REFORMAT_SPECTRA = .TRUE.
+      ENDIF
+
+c - - - - - - - - - - - - - - - - - -
 c check for reformat option using SNANA format
       REFORMAT_SNANA = (OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0)
 
@@ -10028,12 +10067,12 @@ c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
 c   + REDSHIFT_HELIO[_ERR]
 c   + VPEC[_ERR]
+c   + NPRIVATE               set to 0 OPT_REFORMAT_PRIVATE=F (Jan 2022)
 c   + HOSTGAL_LOGMASS[_ERR]  ??? TO DO (how to handle mutliple hosts?)
 c   + HOSTGAL_sSFR[_ERR]     ??? TO DO (idem)
 c
 c   + FLUXCAL      # if MAGCOR_INFILE is set  (Dec 2021)
 c   + FLUXCALERR   # if FLUXMODELERR_FILE is set (Dec 2021)
-c  
 
 c -------------
 
@@ -10041,6 +10080,7 @@ c -------------
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,PRIVCOM.
 
       INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
       REAL*8 DVAL(MXEPOCH)
@@ -10110,6 +10150,15 @@ c VPEC
       DVAL(1)  = DBLE(SNLC_VPEC_ERR)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+c check option to excluded PRIVATE variables from output.
+c Do NOT modify NVAR_PRIVATE.
+      IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
+        cKEY     = "NVAR_PRIVATE"  // char(0)        
+        DVAL(1)  = -1.0   ! -1 means disable to avoid abort on changin NVAR
+        CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, 
+     &          cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
 
 c ----
 c update logmass and sSFR

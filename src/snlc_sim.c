@@ -21365,8 +21365,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.FLUX_ERRTEMPLATE[epoch]  = GENLC.template_err[epoch] ;
 
     SNDATA.MAG[epoch]          = GENLC.mag[epoch];
-    SNDATA.MAG_ERRPLUS[epoch]  = GENLC.mag_err[epoch];
-    SNDATA.MAG_ERRMINUS[epoch] = GENLC.mag_err[epoch];
+    SNDATA.MAG_ERR[epoch]      = GENLC.mag_err[epoch];
 
     SNDATA.SIMEPOCH_WARPCOLVAL[epoch]  = GENLC.warpcolval8[epoch] ;
 

@@ -53,6 +53,8 @@
       FITS -> FITS with header overrides.
     + set HOSTGAL_USEMASK bit if NRD>0 for reading host mags[err] and SB[err]
 
+  Jan 23 2022: set new globals FORMAT_SNDATA_[READ,WRITE] 
+
 **************************************************/
 
 #include "fitsio.h"
@@ -100,7 +102,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   print_banner(fnam);  
 
-  FORMAT_SNDATA = FORMAT_SNDATA_FITS ;
+  FORMAT_SNDATA_WRITE = FORMAT_SNDATA_FITS ;
 
   // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
@@ -216,7 +218,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   }
 
-
+  return ;
 } // end of  WR_SNFITSIO_INIT
 
 void wr_snfitsio_init__(char *path, char *version, char *prefix, 
@@ -2741,6 +2743,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     return istat ;  
   }
 
+  FORMAT_SNDATA_READ  = FORMAT_SNDATA_FITS ;
 
   // read list of fits files.
   istat = rd_snfitsio_list();

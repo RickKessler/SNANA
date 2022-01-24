@@ -116,8 +116,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX );  }
 
   else if ( ISKEY_PRIVATE  ) {
-    if ( strcmp(key,"NVAR_PRIVATE") == 0 ) 
-      { copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  }
+    if ( strcmp(key,"NVAR_PRIVATE") == 0 ) { 
+      copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  
+    }
     else {
       sscanf(&key[7], "%d", &ivar);  // PRIVATEnn
       copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
@@ -1087,7 +1088,7 @@ void RD_OVERRIDE_POSTPROC(void) {
 
   // for text format, check for variables that are not in
   // the data files and thus header_override is an addition.
-  if ( FORMAT_SNDATA == FORMAT_SNDATA_TEXT ) 
+  if ( FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT ) 
     { rd_override_append(); }
 
   // check for redshift_helio update that forces zcmb to also change.

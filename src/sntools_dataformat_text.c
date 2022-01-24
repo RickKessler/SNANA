@@ -23,6 +23,12 @@
 
   Dec 10 2021: refactor parse_SNTEXTIO_HEAD() to enable header_override.
 
+  Jan 23 2022 RK -
+    + if reading real data in TEXT format, and writing output TEXT format 
+      (e.g., with HEADER_OVERRIDES), suppress IVAROBS_SNTEXTIO.XXX from output
+       that are not read on input -> avoids clutter for older data sets.
+    + set new globals FORMAT_SNDATA_[READ,WRITE]
+
 *************************************************/
 
 #include  "sntools.h"
@@ -51,6 +57,8 @@ void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
     sprintf(c2err,"%s", OUTFILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  FORMAT_SNDATA_WRITE = FORMAT_SNDATA_TEXT ;
 
   wr_dataformat_text_HEADER(fp);
 
@@ -84,6 +92,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   // ------------ BEGIN -----------
 
+  // For real data, write only valid value to avoid clutter. (Jan 23 2022)
+  WRITE_VALID_SNTEXTIO = ( SNDATA.FAKE == FAKEFLAG_DATA  );
+
   // write either "SURVEY: SURVEY" or "SURVEY: SURVEY(SUBSAMPLE)"
   int LENS = strlen(SNDATA.SUBSURVEY_NAME);
   int OVP  = strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME);
@@ -101,7 +112,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp,"RA:       %.6f  # deg\n", SNDATA.RA);
   fprintf(fp,"DEC:      %.6f  # deg\n", SNDATA.DEC);
   fprintf(fp,"FILTERS:  %s\n", SNDATA_FILTER.LIST);
-  fprintf(fp,"PIXSIZE:  %.4f  # arcsec \n", SNDATA.PIXSIZE);
+
+  if ( SNDATA.PIXSIZE > 0.0 ) 
+    { fprintf(fp,"PIXSIZE:  %.4f  # arcsec \n", SNDATA.PIXSIZE); }
 
   int FAKE = SNDATA.FAKE ;
   if ( FAKE < 0 ) {
@@ -121,7 +134,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp, "PEAKMJD:  %9.3f     # estimate for LC fit codes\n", 
 	  SNDATA.SEARCH_PEAKMJD ); 
 
-  // Oct 18 2021: write mjds related to detections
+  // Oct 18 2021: write mjds related to detections, but only if valid values
   float MJD_TMP;
   MJD_TMP = SNDATA.MJD_TRIGGER;
   if ( MJD_TMP > 0.0 && MJD_TMP < 1.0E6 ) 
@@ -172,6 +185,17 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   return ;
 } // end wr_dataformat_text_HEADER
+
+
+bool is_valid_SNTEXTIO(float VAL_MIN, float VAL) {
+  // Created Jan 24 2022
+  // Return false of WRITE_VALID_SNTEXTIO flag is set and VAL < VAL_MIN.
+  // Used to write only valid items to data file (avoids clutter)
+  if ( WRITE_VALID_SNTEXTIO && VAL < VAL_MIN) 
+    { return false ;}
+  else
+    { return true; }
+} // end IS_VALID_SNTEXTIO
 
 // ========================================= 
 void wr_dataformat_text_SIMPAR(FILE *fp) {
@@ -455,7 +479,9 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
   // Created Feb 6 2021
   // Copy from wr_HOSTGAL() in sntools.c so that wr_HOSTGAL can be removed.
+  // Jan 23 2022: if reading text, only write physical values
 
+  bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
   int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
@@ -483,32 +509,38 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     fprintf(fp, "%s_FLAG:        %d  \n",  
 	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );
-
-    fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
-	    SNDATA.HOSTGAL_PHOTOZ[igal], 
-	    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
-
-    if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
-            fprintf(fp, "%s_ZPHOT_QP: ", PREFIX);
-	    for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_QP; j++){
-                 fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_QP[igal][j]);
-	    }
-	    fprintf(fp, "\n");
+    
+    if ( !RDTEXT || SNDATA.HOSTGAL_PHOTOZ[igal] > 0.0 ) {
+      fprintf(fp, "%s_PHOTOZ:      %.4f  +- %.4f \n", PREFIX,
+	      SNDATA.HOSTGAL_PHOTOZ[igal], 
+	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
 
-    fprintf(fp, "%s_SPECZ:       %.4f  +- %.4f \n", PREFIX,
-	    SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
+    if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
+      fprintf(fp, "%s_ZPHOT_QP: ", PREFIX);
+      for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_QP; j++){
+	fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_QP[igal][j]);
+      }
+      fprintf(fp, "\n");
+    }
 
-    fprintf(fp, "%s_RA:          %.6f    # deg \n", 
-	    PREFIX, SNDATA.HOSTGAL_RA[igal] );
-    fprintf(fp, "%s_DEC:         %.6f    # deg \n", 
-	    PREFIX, SNDATA.HOSTGAL_DEC[igal] );
+    if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
+      fprintf(fp, "%s_SPECZ:       %.4f  +- %.4f \n", PREFIX,
+	      SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
+    }
 
-    fprintf(fp, "%s_SNSEP:       %.3f       # arcsec \n", 
-	    PREFIX, SNDATA.HOSTGAL_SNSEP[igal] );
-    fprintf(fp, "%s_DDLR:        %.3f       # SNSEP/DLR  \n", 
-	    PREFIX, SNDATA.HOSTGAL_DDLR[igal] );
-    
+    if ( !RDTEXT || SNDATA.HOSTGAL_RA[igal] > -400.0 ) {
+      fprintf(fp, "%s_RA:          %.6f    # deg \n", 
+	      PREFIX, SNDATA.HOSTGAL_RA[igal] );
+      fprintf(fp, "%s_DEC:         %.6f    # deg \n", 
+	      PREFIX, SNDATA.HOSTGAL_DEC[igal] );
+      
+      fprintf(fp, "%s_SNSEP:       %.3f       # arcsec \n", 
+	      PREFIX, SNDATA.HOSTGAL_SNSEP[igal] );
+      fprintf(fp, "%s_DDLR:        %.3f       # SNSEP/DLR  \n", 
+	      PREFIX, SNDATA.HOSTGAL_DDLR[igal] );
+    }
+
     if ( igal==0 ) {
       fprintf(fp, "HOSTGAL_CONFUSION:  %6.3f  \n", 
 	      SNDATA.HOSTGAL_CONFUSION );
@@ -655,6 +687,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   // Created Feb 2021
   // write photometry rows
   // Oct 2021: add IMGNUM
+  // Jan 23 2022: write MAG[ERR] for real data
 
   char OBSKEY[] = "OBS:" ;
   bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
@@ -668,13 +701,37 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   bool WRFLAG_CCDNUM     = (SNDATA.CCDNUM[1] >= 0);
   bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1] >= 0);
+  bool WRFLAG_METADATA   = true;
+  bool WRFLAG_MAG        = false; 
 
+  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
+  bool RDFITS  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_FITS);
+  bool FOUND_METADATA ;
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
   char VARLIST[200], cvar[40], cval[40], LINE_EPOCH[200] ;
   char fnam[] = "wr_dataformat_text_SNPHOT" ;
 
   // ------------ BEGIN -----------
+
+  // check things to suppress/enable for reading real data in text format
+  if ( IS_DATA && RDTEXT ) {
+    FOUND_METADATA = ( IVAROBS_SNTEXTIO.GAIN     > 0 ||
+		       IVAROBS_SNTEXTIO.ZPFLUX   > 0 ||
+		       IVAROBS_SNTEXTIO.PSF_SIG  > 0 ||
+		       IVAROBS_SNTEXTIO.PSF_FWHM > 0 ||
+		       IVAROBS_SNTEXTIO.NEA      > 0 ||
+		       IVAROBS_SNTEXTIO.SKYSIG   > 0 
+		       );
+    if ( !FOUND_METADATA )                { WRFLAG_METADATA = false; }
+    if ( IVAROBS_SNTEXTIO.PHOTFLAG < 0 )  { WRFLAG_PHOTFLAG = false; }
+
+    if ( IVAROBS_SNTEXTIO.MAG      > 0 )  { WRFLAG_MAG      = true; }
+  }
+
+  printf(" xxx %s: IS_DATA=%d  RDTEXT=%d  FOUND_META=%d\n",
+	 fnam, IS_DATA, RDTEXT, WRFLAG_METADATA );
 
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  
@@ -686,27 +743,32 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   NVAR++ ;  strcat(VARLIST,"FLUXCAL ");
   NVAR++ ;  strcat(VARLIST,"FLUXCALERR ");
 
+  if ( WRFLAG_MAG ) { NVAR += 2 ; strcat(VARLIST,"MAG MAGERR ");   }
+
   if ( WRFLAG_PHOTFLAG )  { NVAR++ ;  strcat(VARLIST,"PHOTFLAG "); }
   if ( WRFLAG_PHOTPROB )  { NVAR++ ;  strcat(VARLIST,"PHOTPROB "); }
 
-  NVAR++ ;  strcat(VARLIST,"GAIN ");
-  NVAR++ ;  strcat(VARLIST,"ZPT ");
+  if ( WRFLAG_METADATA ) {
+    NVAR++ ;  strcat(VARLIST,"GAIN ");
+    NVAR++ ;  strcat(VARLIST,"ZPT ");
 
-  if ( SNDATA.NEA_PSF_UNIT ) 
-    { NVAR++ ;  strcat(VARLIST,"NEA "); }
-  else
-    { NVAR++ ;  strcat(VARLIST,"PSF "); }
+    if ( SNDATA.NEA_PSF_UNIT ) 
+      { NVAR++ ;  strcat(VARLIST,"NEA "); }
+    else
+      { NVAR++ ;  strcat(VARLIST,"PSF "); }
+    
+    NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
+    if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
+    
+    if ( WRFLAG_SIM_MAGOBS )
+      { NVAR++ ;  strcat(VARLIST,"SIM_MAGOBS "); }
 
-  NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
-  if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
+    if ( SNDATA.MAGMONITOR_SNR  ) {
+      sprintf(cvar, "SIM_SNRMAG%2.2d", SNDATA.MAGMONITOR_SNR );
+      NVAR++ ;  strcat(VARLIST," " );   strcat(VARLIST,cvar);
+    }
+  } // end WRFLAG_METADATA
 
-  if ( WRFLAG_SIM_MAGOBS )
-    { NVAR++ ;  strcat(VARLIST,"SIM_MAGOBS "); }
-
-  if ( SNDATA.MAGMONITOR_SNR  ) {
-    sprintf(cvar, "SIM_SNRMAG%2.2d", SNDATA.MAGMONITOR_SNR );
-    NVAR++ ;  strcat(VARLIST," " );   strcat(VARLIST,cvar);
-  }
 
   /* xxx maybe later ???
   if ( APPEND_MAGREST )
@@ -752,6 +814,12 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval, "%10.3le ",  SNDATA.FLUXCAL_ERRTOT[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
+    if ( WRFLAG_MAG ) { 
+      sprintf(cval, "%.3f ", SNDATA.MAG[ep]     ); strcat(LINE_EPOCH,cval);
+      sprintf(cval, "%.3f ", SNDATA.MAG_ERR[ep] ); strcat(LINE_EPOCH,cval);
+      NVAR_WRITE += 2;
+    }
+
     if ( WRFLAG_PHOTFLAG ) {
       sprintf(cval, "%4d ",  SNDATA.PHOTFLAG[ep] ); 
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
@@ -761,37 +829,39 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
     }
 
-    sprintf(cval, "%6.3f ",  SNDATA.GAIN[ep] ); 
-    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-
-    sprintf(cval, "%6.3f ",  SNDATA.ZEROPT[ep] ); 
-    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-
-    // write PSF in units of pixels
-    if ( SNDATA.NEA_PSF_UNIT ) 
-      { sprintf(cval, "%6.2f ",  SNDATA.PSF_NEA[ep] ); }  // Feb 28 2021
-    else
-      { sprintf(cval, "%5.2f ",  SNDATA.PSF_SIG1[ep] ); } 
-
-    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-
-    sprintf(cval, "%.3le ",  SNDATA.SKY_SIG[ep] ); 
-    NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-
-    if ( WRFLAG_SKYSIG_T ) {
-      sprintf(cval, "%.3le ",  SNDATA.SKY_SIG_T[ep] ); 
+    if ( WRFLAG_METADATA ) {
+      sprintf(cval, "%6.3f ",  SNDATA.GAIN[ep] ); 
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-    }
 
-    if ( WRFLAG_SIM_MAGOBS ) {
-      sprintf(cval, "%8.4f ",  SNDATA.SIMEPOCH_MAG[ep] ); 
+      sprintf(cval, "%6.3f ",  SNDATA.ZEROPT[ep] ); 
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-    }
 
-    if ( SNDATA.MAGMONITOR_SNR  ) { 
-      sprintf(cval, "%6.1f ",  SNDATA.SIMEPOCH_SNRMON[ep] ); 
+      // write PSF in units of pixels
+      if ( SNDATA.NEA_PSF_UNIT ) 
+	{ sprintf(cval, "%6.2f ",  SNDATA.PSF_NEA[ep] ); }  // Feb 28 2021
+      else
+	{ sprintf(cval, "%5.2f ",  SNDATA.PSF_SIG1[ep] ); } 
+
       NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
-    }
+
+      sprintf(cval, "%.3le ",  SNDATA.SKY_SIG[ep] ); 
+      NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+
+      if ( WRFLAG_SKYSIG_T ) {
+	sprintf(cval, "%.3le ",  SNDATA.SKY_SIG_T[ep] ); 
+	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+      }
+
+      if ( WRFLAG_SIM_MAGOBS ) {
+	sprintf(cval, "%8.4f ",  SNDATA.SIMEPOCH_MAG[ep] ); 
+	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+      }
+
+      if ( SNDATA.MAGMONITOR_SNR  ) { 
+	sprintf(cval, "%6.1f ",  SNDATA.SIMEPOCH_SNRMON[ep] ); 
+	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+      }
+    } // end WRFLAG_METADATA
 
     /* xxx ??? maybe someday 
     if ( APPEND_MAGREST ) {    }
@@ -990,7 +1060,7 @@ void RD_SNTEXTIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
   //        so avoid re-mallocing strings.
 
-  FORMAT_SNDATA = FORMAT_SNDATA_TEXT;
+  char fnam[] = "RD_SNTEXTIO_INIT" ;
 
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
@@ -1032,6 +1102,8 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 	  fnam, VERSION);
   print_banner(BANNER);
 
+  FORMAT_SNDATA_READ = FORMAT_SNDATA_TEXT; 
+
   if ( (MSKOPT & 256) > 0 ) { 
     DEBUG_FLAG_SNTEXTIO = true; 
     printf("\t set DEBUG flag for RD_SNTEXTIO \n"); fflush(stdout);
@@ -1064,7 +1136,7 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
   // read/store global info from first file
   if ( SNTEXTIO_VERSION_INFO.NVERSION == 0 ) 
-    { rd_sntextio_global(); }
+    { rd_sntextio_global();  }
 
   SNTEXTIO_VERSION_INFO.NVERSION++ ; 
 
@@ -2970,9 +3042,11 @@ void check_head_sntextio(int OPT) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
     }
 
+    // for PRIVATE var, NVAR_PRIVATE < 0 is a flag to disable
+    // in output data files, so just skip check.
     int NVAR_EXPECT = SNDATA.NVAR_PRIVATE ;
     int NVAR_FOUND  = SNTEXTIO_FILE_INFO.NVAR_PRIVATE_READ ;
-    if ( NVAR_FOUND != NVAR_EXPECT ) {
+    if ( NVAR_EXPECT >= 0 && NVAR_FOUND != NVAR_EXPECT ) {
       sprintf(c1err,"Found %d PRIVATE variables in CID=%s", 
 	      NVAR_FOUND, CCID );
       sprintf(c2err,"but expected %d from first data file", NVAR_EXPECT);
@@ -3062,7 +3136,10 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
     if ( IVAROBS_SNTEXTIO.MAG >= 0 ) {
       dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.MAG, ep);
-      SNDATA.MAG[ep] = (float)dval ;
+      SNDATA.MAG[ep] = (float)dval ;  
+
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.MAGERR, ep);
+      SNDATA.MAG_ERR[ep] = (float)dval ;  
     }
 
     if ( IVAROBS_SNTEXTIO.PHOTFLAG >= 0 ) {

@@ -1,4 +1,3 @@
-
 /*****************************************************
  Created Mar 7, 2006 by R.Kessler
 
@@ -156,6 +155,7 @@ struct SNDATA {
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;
+
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
   char  VARNAME_SNRMON[40];
@@ -247,8 +247,7 @@ struct SNDATA {
   float FLUXCAL_ERRTEMPLATE[MXEPOCH] ;  // correlated template error
 
   float MAG[MXEPOCH] ;            // magnitude (per filter/epoch)
-  float MAG_ERRPLUS[MXEPOCH] ;    // magnitude error (per filter/epoch)
-  float MAG_ERRMINUS[MXEPOCH] ;   // magnitude error (per filter/epoch)
+  float MAG_ERR[MXEPOCH] ;    // magnitude error (per filter/epoch)
   float ZEROPT[MXEPOCH] ;         // zero point for template 
   float ZEROPT_ERR[MXEPOCH] ;     // zero point error on mean
   float ZEROPT_SIG[MXEPOCH] ;     // zero point sigma

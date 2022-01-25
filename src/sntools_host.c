@@ -316,6 +316,8 @@ void initvar_HOSTLIB(void) {
     SERSIC_TABLE.bn[j]    = 999. ;
   }
 
+  HOSTLIB.IVAR_a_DLR  = -9 ;
+  HOSTLIB.IVAR_b_DLR  = -9 ;
   // ------------------------
   // set array of required and optional keys
   init_REQUIRED_HOSTVAR();
@@ -448,6 +450,10 @@ void init_OPTIONAL_HOSTVAR(void) {
     sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_QP, j);    // index 
   }
 
+  cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
+  sprintf(cptr, "%s", HOSTLIB_VARNAME_A_DLR);    // index 
+  cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
+  sprintf(cptr, "%s", HOSTLIB_VARNAME_B_DLR);    // index 
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
   sprintf(cptr,"%s", HOSTLIB_VARNAME_ANGLE );
@@ -2213,6 +2219,8 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_GALID2       = IVAR_HOSTLIB(HOSTLIB_VARNAME_GALID2,0) ;
   HOSTLIB.IVAR_SQRADIUS     = IVAR_HOSTLIB(HOSTLIB_VARNAME_SQRADIUS,0) ;
   HOSTLIB.IVAR_NBR_LIST     = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
+  HOSTLIB.IVAR_a_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_A_DLR, 0) ; 
+  HOSTLIB.IVAR_b_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_B_DLR, 0) ; 
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -6734,6 +6742,12 @@ void GEN_SNHOST_DDLR(int i_nbr) {
     a_half += w*a;    b_half += w*b;
   }
   a_half /= WTOT;  b_half /= WTOT;
+
+  // check option to use specialized a_DLR, b_DLR for DLR calculation (Helen Qu, 1/25/2022)
+  if (HOSTLIB.IVAR_a_DLR > 0) {
+    a_half = HOSTLIB.VALUE_ZSORTED[HOSTLIB.IVAR_a_DLR][IGAL]; 
+    b_half = HOSTLIB.VALUE_ZSORTED[HOSTLIB.IVAR_b_DLR][IGAL]; 
+  }
 
   a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA
 

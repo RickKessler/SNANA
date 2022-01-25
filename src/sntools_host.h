@@ -131,6 +131,8 @@
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
 #define HOSTLIB_PREFIX_ZPHOT_QP      "ZPHOT_QP"
 #define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_QP0"
+#define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
+#define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 #define HOSTLIB_IGAL_UNDEFINED -9999
 
@@ -225,6 +227,8 @@ struct HOSTLIB_DEF {
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
+  int IVAR_a_DLR;   // to measure DLR: e.g. a_IMAGE from sextractor
+  int IVAR_b_DLR;   // to measure DLR
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
   int IVAR_MAGOBS_ERR[MXFILTINDX] ;     // pointer to observer-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]

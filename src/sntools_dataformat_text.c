@@ -730,8 +730,6 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     if ( IVAROBS_SNTEXTIO.MAG      > 0 )  { WRFLAG_MAG      = true; }
   }
 
-  printf(" xxx %s: IS_DATA=%d  RDTEXT=%d  FOUND_META=%d\n",
-	 fnam, IS_DATA, RDTEXT, WRFLAG_METADATA );
 
   VARLIST[0] = NVAR = 0;
   NVAR++ ;  strcat(VARLIST,"MJD ");  

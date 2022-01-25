@@ -6187,33 +6187,12 @@ c init some INIXXX parameter for fit
       ENDIF 
 
 c ---------------------------
-+SELF,IF=XXXREMOVE.
-c xxxx move to INIT_REFORMAT Jan 23 2022 xxxxxxxx
-
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-
       IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
-
-c check option to save bad epochs for OPT_REFORMAT
-      IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
-         REFORMAT_SAVE_BADEPOCHS = .TRUE.
-      ENDIF
-
-c check option to reformat spectra: note that for TEXT -> FITS,
-c spectra may not appear in 1st text file, so user must explicitly
-c request reformatting spectra. MASK=128 -> bit 7
-c 
-      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
-         REFORMAT_SPECTRA = .TRUE.
-      ENDIF
-c xxxxxxxxxxxxx
-+SELF.
 
 c - - - - -
       IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT

@@ -422,6 +422,7 @@ def analyze_diff_fitres(args):
     print(f"\n Analyze statistical differences between")
     print(f"\t REF  fitres file: {ff_ref}")
     print(f"\t TEST fitres file: {ff_test}")
+    print(f"\t Definition: dif_X = X(TEST) - X(REF)")
     sys.stdout.flush()
 
     cmd = f"{combine_fitres_program} "

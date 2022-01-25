@@ -1580,7 +1580,7 @@ class Simulation(Program):
             arg_list.append(f"    {str1}    {str2}    {str3}")
 
         arg_list.append(f"    JOBID {isplit1}     NJOBTOT {n_job_split}")
-        arg_list.append(f"    WRFLAG_MODELPAR 0") # disable model-par output
+        arg_list.append(f"    WRFLAG_MODELPAR  0") # disable model-par output
         arg_list.append(f"    WRFLAG_YAML_FILE 1") # enable YAML output
 
         # check for user-option to require DOCANA

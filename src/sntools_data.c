@@ -623,7 +623,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     }
   }
 
-  else if ( strncmp(key,"LCLIB_PARAM",11) == 0 ) {
+  else if ( strncmp(key,"LCLIB_PARAM",11) == 0 || 
+	    strncmp(key,"LCLIB(",6) == 0 ) {    // read legacy PLASTICC data from 2018
     for(ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) { 
       sprintf(KEY_TEST, "%s", SNDATA.LCLIB_KEYWORD[ipar]) ;
       if ( strcmp(key,KEY_TEST) == 0 ) 

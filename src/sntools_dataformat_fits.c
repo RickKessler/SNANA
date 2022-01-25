@@ -636,63 +636,54 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
   wr_snfitsio_addCol( "2A",  "BAND"        , itype ) ; 
-
-  wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
   
-  if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
-    { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
+  if (WRFULL ){
+   wr_snfitsio_addCol( "1I",  "CCDNUM"      , itype ) ;  // Mar 2021 shortint
+  
+   if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
+     { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
 
-  wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
+   wr_snfitsio_addCol( "12A", "FIELD"       , itype ) ; 
 
-  wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
-  wr_snfitsio_addCol( "1E",  "PHOTPROB"    , itype ) ; 
+   wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
+   wr_snfitsio_addCol( "1E",  "PHOTPROB"    , itype ) ; 
+  }
 
   wr_snfitsio_addCol( "1E" , "FLUXCAL"     , itype ) ;  
   wr_snfitsio_addCol( "1E" , "FLUXCALERR"  , itype ) ;
 
-  if ( SNDATA.NEA_PSF_UNIT ) {
-    // Noise Equiv Area, pixels
-    wr_snfitsio_addCol( "1E" , "PSF_NEA"   , itype ) ;  // Feb 28 2021
-  }
-  else {
-    // traditional PSF params
-    wr_snfitsio_addCol( "1E" , "PSF_SIG1"   , itype ) ; 
-    wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; 
-    wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ;   
-  }
+  if ( WRFULL ){
+ 	 if ( SNDATA.NEA_PSF_UNIT ) {
+ 	   // Noise Equiv Area, pixels
+ 	   wr_snfitsio_addCol( "1E" , "PSF_NEA"   , itype ) ;  // Feb 28 2021
+ 	 }
+ 	 else {
+ 	   // traditional PSF params
+ 	   wr_snfitsio_addCol( "1E" , "PSF_SIG1"   , itype ) ; 
+ 	   wr_snfitsio_addCol( "1E" , "PSF_SIG2"   , itype ) ; 
+ 	   wr_snfitsio_addCol( "1E" , "PSF_RATIO"  , itype ) ;   
+ 	 }
 
-  wr_snfitsio_addCol( "1E" , "SKY_SIG"    , itype ) ; 
+ 	 wr_snfitsio_addCol( "1E" , "SKY_SIG"    , itype ) ; 
 
-  if( WRFULL ) {
-    wr_snfitsio_addCol( "1E" , "SKY_SIG_T"  , itype ) ; // OPTIONAL
-    wr_snfitsio_addCol( "1E" , "RDNOISE"    , itype ) ; // OPTIONAL e- per pix
-  }
-  wr_snfitsio_addCol( "1E" , "ZEROPT"     , itype ) ; // REQUIRED
-  if( WRFULL ) {
-    wr_snfitsio_addCol( "1E" , "ZEROPT_ERR" , itype ) ; // OPTIONAL
-    wr_snfitsio_addCol( "1E" , "GAIN"       , itype ) ; // OPTIONAL
-  }
+   wr_snfitsio_addCol( "1E" , "SKY_SIG_T"  , itype ) ; // OPTIONAL
+   wr_snfitsio_addCol( "1E" , "RDNOISE"    , itype ) ; // OPTIONAL e- per pix
+   wr_snfitsio_addCol( "1E" , "ZEROPT"     , itype ) ; // REQUIRED
+   wr_snfitsio_addCol( "1E" , "ZEROPT_ERR" , itype ) ; // OPTIONAL
+   wr_snfitsio_addCol( "1E" , "GAIN"       , itype ) ; // OPTIONAL
 
+ 	 wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
+ 	 wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
 
-  /* xxx  Dec 2021
-     NXPIX and NYPIX are not read until after REFORMAT file
-     is initialize,. so instead always include XPIX and YPIX
-  if ( SNDATA.NXPIX > 0 ) {
-    wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
-    wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
-    } xxxxxxxx */
+   if ( SNFITSIO_SIMFLAG_SNANA ) {
+     wr_snfitsio_addCol( "1E" , "SIM_FLUXCAL_HOSTERR" , itype ) ;
+   }
 
-  wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
-  wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
+	}//end WRFULL
 
-
-  if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS ) {
-    wr_snfitsio_addCol( "1E" , "SIM_MAGOBS"  , itype ) ;
-  }
-
-  if ( SNFITSIO_SIMFLAG_SNANA && WRFULL ) {
-    wr_snfitsio_addCol( "1E" , "SIM_FLUXCAL_HOSTERR" , itype ) ;
-  }
+ 	 if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS ) {
+ 	   wr_snfitsio_addCol( "1E" , "SIM_MAGOBS"  , itype ) ;
+ 	 }
 
   if ( SNFITSIO_SIMFLAG_SNRMON ) {
     wr_snfitsio_addCol( "1E" , SNDATA.VARNAME_SNRMON, itype ) ; 
@@ -2165,31 +2156,33 @@ void wr_snfitsio_update_phot(int ep) {
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FILTCHAR[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
 
-  // CCDNUM (Mar 2021)
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
+  if ( WRFULL ){
+   // CCDNUM (Mar 2021)
+   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+   WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.CCDNUM[ep] ;
+   wr_snfitsio_fillTable ( ptrColnum, "CCDNUM", itype );
 
-  // IMGNUM (Oct 2021)
-  if ( !SNFITSIO_SIMFLAG_SNANA ) {
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.IMGNUM[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
-  }
+   // IMGNUM (Oct 2021)
+   if ( !SNFITSIO_SIMFLAG_SNANA ) {
+     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+     WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.IMGNUM[ep] ;
+     wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
+   }
 
-  // FIELD
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FIELDNAME[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "FIELD", itype );
+   // FIELD
+   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.FIELDNAME[ep] ;
+   wr_snfitsio_fillTable ( ptrColnum, "FIELD", itype );
 
-  // PHOTFLAG & PHOTPROB
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.PHOTFLAG[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "PHOTFLAG", itype );
+   // PHOTFLAG & PHOTPROB
+   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+   WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.PHOTFLAG[ep] ;
+   wr_snfitsio_fillTable ( ptrColnum, "PHOTFLAG", itype );
 
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PHOTPROB[ep] ;
-  wr_snfitsio_fillTable ( ptrColnum, "PHOTPROB", itype );
+   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PHOTPROB[ep] ;
+   wr_snfitsio_fillTable ( ptrColnum, "PHOTPROB", itype );
+  } // end WRFULL
 
   // FLUXCAL and its error
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2200,6 +2193,7 @@ void wr_snfitsio_update_phot(int ep) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL_ERRTOT[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "FLUXCALERR", itype );
 
+  if ( WRFULL ){
   if ( SNDATA.NEA_PSF_UNIT ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_NEA[ep] ;
@@ -2227,7 +2221,6 @@ void wr_snfitsio_update_phot(int ep) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SKY_SIG[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "SKY_SIG", itype );
 
-  if ( WRFULL ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SKY_SIG_T[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "SKY_SIG_T", itype );
@@ -2235,7 +2228,6 @@ void wr_snfitsio_update_phot(int ep) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.READNOISE[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "RDNOISE", itype );
-  }
 
   // zeropt and it error and the GAIN (e- per ADU)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2243,7 +2235,6 @@ void wr_snfitsio_update_phot(int ep) {
   wr_snfitsio_fillTable ( ptrColnum, "ZEROPT", itype );
 
 
-  if ( WRFULL ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT_ERR[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "ZEROPT_ERR", itype );
@@ -2251,7 +2242,6 @@ void wr_snfitsio_update_phot(int ep) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.GAIN[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "GAIN", itype );
-  }
 
   // xxx mark delete Dec 7 2021  if ( SNDATA.NXPIX > 0 ) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2263,6 +2253,15 @@ void wr_snfitsio_update_phot(int ep) {
   wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
   // xxx }
 
+  if ( SNFITSIO_SIMFLAG_SNANA ) {  
+    LOC++ ; 
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep];
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_FLUXCAL_HOSTERR", itype );
+  }
+
+  } // end WRFULL
+
   // check for sim-mag
 
   if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS ) { 
@@ -2270,14 +2269,6 @@ void wr_snfitsio_update_phot(int ep) {
     ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_MAG[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGOBS", itype );
-  }
-
-
-  if ( SNFITSIO_SIMFLAG_SNANA && WRFULL ) { 
-    LOC++ ; 
-    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[ep];
-    wr_snfitsio_fillTable ( ptrColnum, "SIM_FLUXCAL_HOSTERR", itype );
   }
 
   if ( SNFITSIO_SIMFLAG_SNRMON ) {  // Mar 28 2018

@@ -34,7 +34,7 @@
 
 
 // define flags for software packages
-#define USE_HBOOKxxx         
+#define USE_HBOOK          
 #define USE_ROOT     
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on

@@ -117,35 +117,44 @@ class MakeDataFiles(Program):
         '''
         Prepare input arguments from config file
         '''
-        CONFIG        = self.config_yaml['CONFIG']
-        inputs_list   = CONFIG.get('MAKEDATAFILE_INPUTS', None)
-        input_source  = CONFIG.get('MAKEDATAFILE_SOURCE', None)
-        nevt          = CONFIG.get('NEVT', None)
+        CONFIG            = self.config_yaml['CONFIG']
+        inputs_list_orig  = CONFIG.get('MAKEDATAFILE_INPUTS', None)
+        input_source      = CONFIG.get('MAKEDATAFILE_SOURCE', None)
+        nevt              = CONFIG.get('NEVT', None)
 
         input_file    = self.config_yaml['args'].input_file  # for msgerr
         msgerr        = []
 
-        if inputs_list is None:
+        if inputs_list_orig is None:
             msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
 
         # if input_list includes a wildcard, scoop up files with glob.
-        inputs_list_temp = inputs_list
-        found_wildcard = False
-        for inp in inputs_list_temp :
+        inputs_list      = []
+        n_wildcard       = 0
+        n_inp_wildcard   = 0
+        for inp in inputs_list_orig :
             if '*' in inp:
-                inp = os.path.expandvars(inp)
-                inputs_list = sorted(glob.glob(inp))
-                found_wildcard = True
-
-        if found_wildcard:
+                inp          = os.path.expandvars(inp)
+                tmp_list     = sorted(glob.glob(inp))
+                inputs_list += tmp_list
+                n_wildcard  += 1
+                n_inp_wildcard += len(tmp_list)
+            else:
+                inputs_list.append(inp)
+        
+        if n_wildcard > 0:
             n = len(inputs_list)
-            print(f"\n  Load {n} inputs from wildcard:")
-            for inp in inputs_list:
-                print(f"    Resolved {inp}")
-            print('')
-            
+            print(f"\n  Found {n_inp_wildcard} input dirs from " \
+                  f"{n_wildcard} wildcards.")
+
+        # reload config input list as if user has expanded all the wildcards
+        CONFIG['MAKEDATAFILE_INPUTS'] = inputs_list
+                
+        n_inp_tot = len(inputs_list)
+        print(f"  Found {n_inp_tot} total input dirs.")
+
         # select the SPLIT_MJD option
         # abort if more than one SPLIT_MJD option is specified
         n_mjd_split_opts   = 0

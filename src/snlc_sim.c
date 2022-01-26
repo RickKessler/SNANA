@@ -1440,6 +1440,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //
   // Oct 06 2021: read missing "WV07_REWGT_EXPAV" 
   //
+  // Jan 26 2022: Fix MXRADIUS_RANDOM_SHIFT NWD from 2 to 1
+  //              (A. Gagliano)
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
@@ -1798,7 +1800,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1,"MXRADIUS_RANDOM_SHIFT", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.MXRADIUS_RANDOM_SHIFT );
-    README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
+    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
 
   else if ( strstr(WORDS[0],"SOLID_ANGLE") != NULL ) {

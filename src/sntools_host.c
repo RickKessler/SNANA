@@ -7016,6 +7016,10 @@ void SORT_SNHOST_byDDLR(void) {
 	    for (j = 0; j < HOSTLIB.NZPHOT_QP; j++){
 		int IVAR_QP = IVAR_QP0 + j;
 		SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[j] = get_VALUE_HOSTLIB(IVAR_QP,IGAL) ;
+
+		//new code -- shift ZQP parameters based on the new redshift of the galaxy
+		//(which been moved to the redshift of the transient)
+		SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[j] += SNHOSTGAL.ZDIF;
 	    }
     }
 

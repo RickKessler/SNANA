@@ -146,14 +146,14 @@ class MakeDataFiles(Program):
         
         if n_wildcard > 0:
             n = len(inputs_list)
-            print(f"\n  Found {n_inp_wildcard} input dirs from " \
-                  f"{n_wildcard} wildcards.")
+            logging.info(f"\n  Found {n_inp_wildcard} input dirs from " \
+                         f"{n_wildcard} wildcards.")
 
         # reload config input list as if user has expanded all the wildcards
         CONFIG['MAKEDATAFILE_INPUTS'] = inputs_list
                 
         n_inp_tot = len(inputs_list)
-        print(f"  Found {n_inp_tot} total input dirs.")
+        logging.info(f"  Found {n_inp_tot} total input dirs.")
 
         # select the SPLIT_MJD option
         # abort if more than one SPLIT_MJD option is specified

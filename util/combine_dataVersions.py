@@ -88,6 +88,7 @@ tnow        = datetime.datetime.now()
 TSTAMP      = f"{tnow.year:04d}-{tnow.month:02d}-{tnow.day:02d}"
 MXFILTERS   = 62
 TOPDIR_DATA = SNDATA_ROOT + '/lcmerge'
+SUBDIR_DUPLICATES = "DUPLICATES"
 
 # define list of new characters for combined data
 FILTER_CHARLIST = 'abcdefghijklmnopqrstuvwxyz' + \
@@ -812,7 +813,8 @@ def merge_duplicates(versionInfo):
     for sn in duplicates :
         print(f"    {sn} {d[sn]} ") 
 
-    dup_dir = VOUT_TEXT + "/DUPLICATES"
+    
+    dup_dir = VOUT_TEXT + f"/{SUBDIR_DUPLICATES}"
     logging.info("Merging into %s" % dup_dir)
     if not os.path.exists(dup_dir):
         logging.debug("Creating directory %s" % dup_dir)
@@ -848,6 +850,12 @@ def merge_duplicates(versionInfo):
         for f in files:
             shutil.move(f, "%s/%s" % (dup_dir, os.path.basename(f)))
 
+    # compress  duplicate dir (Jan 25 2022)
+    cmd_tar = f"cd {VOUT_TEXT} ; " \
+              f"tar -czf {SUBDIR_DUPLICATES}.tar.gz {SUBDIR_DUPLICATES}; " \
+              f"rm -r {SUBDIR_DUPLICATES}"
+    os.system(cmd_tar)
+
     # Update list
     list_file = f"{VOUT_TEXT}/{VOUT_TEXT}.LIST"
     with open(list_file) as f:
@@ -877,7 +885,11 @@ def merge_duplicates(versionInfo):
 
 def gzip_newVersion(versionInfo):
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
-    print(f" gzip files in {VOUT_TEXT}")
+    
+    file_list = glob.glob1(VOUT_TEXT,"*.gz")
+    n_file    = len(file_list)
+
+    print(f" gzip {n_file} files in {VOUT_TEXT}")
     sys.stdout.flush() 
 
     cmd = f"cd {VOUT_TEXT}; gzip *dat *.DAT 2>/dev/null"

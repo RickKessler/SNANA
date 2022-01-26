@@ -1269,7 +1269,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   // Store NWD WORDS in README_KEYS strut.
   // Inputs:
   //   MXKEY : max number of keys to store
-  //   NWD   : number of words 
+  //   NWD   : number of args after key
   //   WORDS : list of words;  KEY=WORDS[0], ARGS=WORDS[1:N]
   //   callFun: calling function, for error message
   //

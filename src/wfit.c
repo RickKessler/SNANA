@@ -78,6 +78,8 @@
 
  Dec 03 2021 RK : new input option -lcdm to fit for OM with w=-1
 
+ Jan 26 2022 RK - fix speed_trick to set nsig = nsig(orig) * 30 instead of 30.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -157,6 +159,8 @@ struct  {
 
   int    Ndof, Ndof_prior, Ndof_data;
   double sig_chi2min_naive; // sqrt(2*Ndof)
+  double nsig_chi2min_skip; // skip off-diag of chi2diag > this value (Jan 26 2022)
+
   double snchi_min, extchi_min ;
   double snprobtot, snprobmax, extprobtot, extprobmax;
   double w0_atchimin, wa_atchimin,  omm_atchimin, chi2atmin;
@@ -260,7 +264,7 @@ double ZERO      = 0.0;
 double SIG_MUOFF ;  // computed from H0 and H0SIG
 double SQSIG_MUOFF ;
 
-double NSIG_CHI2_SKIP = 30.0; // skip off-diag if chi2_diag > this val
+double NSIG_CHI2MIN_SAFETY = 30.0; // skip off-diag if chi2_diag - chi2min > 30
 
 // define cosmo varnames used for consistent output names
 char varname_w[4];          // either w for wCDM or w0 for w0wa model
@@ -1889,6 +1893,7 @@ void wfit_minimize(void) {
 
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
+  int    speed_flag        = INPUTS.speed_flag_chi2;
   Cosparam cpar;
   double snchi_tmp, extchi_tmp, muoff_tmp;
   int  i, kk, j;
@@ -1898,13 +1903,13 @@ void wfit_minimize(void) {
   // ---------- BEGIN --------------
 
   printf("\n# ======================================= \n");
-  printf(" Get Mimimized values (speed_flag_chi2=%d) \n",
-	 INPUTS.speed_flag_chi2 );
+  printf(" Get Mimimized values (speed_flag_chi2=%d) \n", speed_flag );
   fflush(stdout);
 
   // Get approximate expected minimum chi2 (= NSN - 3 dof),
   // used to keep numbers small in the chi2 loop. 
     
+  INPUTS.speed_flag_chi2 = 0; // disable speed flag for approx chi2 
 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -1932,7 +1937,9 @@ void wfit_minimize(void) {
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
-  
+
+
+  INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
   double extchi_min = WORKSPACE.extchi_min;
   double snchi_min  = WORKSPACE.snchi_min ;
 
@@ -1941,19 +1948,31 @@ void wfit_minimize(void) {
   // compute nsig_chi2 above naive chi2min=Ndof and compare
   // with nsig_chi2_skip used for speed trick
   double nsig = (extchi_min - (double)Ndof) / sig_chi2min_naive;
-
   printf("   Approx chi2min(SNonly, SN+prior): %.1f , %.1f \n", 
 	 snchi_min, extchi_min );
-  printf("\t nsig(naive) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n", 
-	 nsig);
 
-  if ( INPUTS.use_mucov ) {
+  printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  nsig);
+
+  if ( INPUTS.use_mucov && INPUTS.speed_flag_chi2 ) {
+    double nsig_chi2min_skip;
+    double NSIG_MULTIPLIER = 30.0 ;
+    if ( nsig < 1.0 )
+      { nsig_chi2min_skip = NSIG_MULTIPLIER; } 
+    else
+      { nsig_chi2min_skip = nsig * NSIG_MULTIPLIER ; } // Jan 26 2026
+    WORKSPACE.nsig_chi2min_skip = nsig_chi2min_skip;
+
     printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
-	   NSIG_CHI2_SKIP );
+	  nsig_chi2min_skip );
+    // xxx mark NSIG_CHI2_SKIP );
+
+    /* xxx mark delete Jan 26 2022 xxxx
     if ( nsig > NSIG_CHI2_SKIP - 5.0 ) {
       printf("  WARNING: nsig(naive) is large -> "
 	     "check off-diag speed-trick in get_chi2wOM\n");
     }
+    xxxxxx */
+
   }
 
 
@@ -2496,7 +2515,7 @@ void wfit_final(void) {
   // ----------- BEGIN -----------
 
   printf("# =================================== \n");
-  printf(" Extract final cosmolofy quantities \n");
+  printf(" Extract final cosmology quantities \n");
   fflush(stdout);
 
   // load final cosmology parameters based on marg or minimize option
@@ -2701,6 +2720,7 @@ void get_chi2wOM (
   int NSN       = HD.NSN;
   int Ndof      = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
+  double nsig_chi2min_skip = WORKSPACE.nsig_chi2min_skip;
   double chi_hat_naive     = Ndof;
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
@@ -2752,7 +2772,8 @@ void get_chi2wOM (
   if ( use_mucov ) {
     if ( INPUTS.speed_flag_chi2 ) {
       nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
-      do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ; 
+      // xxx mark delete Jan 26  do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ; 
+      do_offdiag = nsig_chi2 < nsig_chi2min_skip;
     }
     else {
       do_offdiag = true ; 

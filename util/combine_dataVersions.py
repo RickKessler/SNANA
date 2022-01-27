@@ -74,7 +74,7 @@
 
 import os, sys
 import numpy as np
-import time, string, getpass, yaml, gzip
+import time, string, getpass, yaml, gzip, glob
 import subprocess, shutil, logging, datetime
 
 
@@ -737,12 +737,8 @@ def write_readme(versionInfo, kcorInfo_list):
     f.write(f"  PURPOSE:  combined data set for analysis\n")    
     f.write(f"  USAGE_KEY: VERSION_PHOTOMETRY\n")    
     f.write(f"  USAGE_CODE: snlc_fit.exe\n")    
-    f.write(f"  NOTES:\n")    
 
-    cmd = ' '.join(sys.argv)
-    f.write(f"  - created with command {cmd}\n") 
-    if len(VPEC_FILE) > 1:
-        f.write(f"  - VPEC included from {VPEC_FILE}\n")
+    f.write(f"  FILTERMAP:  # VERSION_ORIG  FILT_ORIG FILT_NEW  NDATA \n")
 
     k = 0
     for vname, ndata_file in   zip(versionInfo.NAME, versionInfo.NDATA_FILE ):
@@ -750,13 +746,15 @@ def write_readme(versionInfo, kcorInfo_list):
         OLD       = kcorInfo.FILTER_CHARLIST_OLD 
         NEW       = kcorInfo.FILTER_CHARLIST_NEW 
         k += 1
+        if not CHANGE_FILTER_CHAR: NEW = OLD
+        f.write(f"  - {vname:<28} {OLD} {NEW}   {ndata_file}\n")
 
-        txt1  = f"{ndata_file:3d} data files from {vname:>28}"        
-        if CHANGE_FILTER_CHAR:
-            txt2  = f"{OLD} -> {NEW}"
-        else:
-            txt2 = ""
-        f.write(f"  - {txt1} {txt2}\n")
+    # - - - - - - - - 
+    f.write(f"  NOTES:\n")    
+    cmd = ' '.join(sys.argv)
+    f.write(f"  - created with command {cmd}\n") 
+    if len(VPEC_FILE) > 1:
+        f.write(f"  - VPEC included from {VPEC_FILE}\n")
 
     nfile_orig  = versionInfo.NFILE_ORIG
     nfile_final = versionInfo.NFILE_FINAL
@@ -886,13 +884,18 @@ def merge_duplicates(versionInfo):
 def gzip_newVersion(versionInfo):
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
     
-    file_list = glob.glob1(VOUT_TEXT,"*.gz")
-    n_file    = len(file_list)
+    wildcard_list  = [ "*.DAT", "*.dat" ]
+    wildcard_str   = " ".join(wildcard_list)
+
+    n_file = 0
+    for w in wildcard_list :
+        file_list = glob.glob1(VOUT_TEXT,w)
+        n_file   += len(file_list)
 
     print(f" gzip {n_file} files in {VOUT_TEXT}")
     sys.stdout.flush() 
 
-    cmd = f"cd {VOUT_TEXT}; gzip *dat *.DAT 2>/dev/null"
+    cmd = f"cd {VOUT_TEXT}; gzip {wildcard_str} 2>/dev/null"
     os.system(cmd)
     return
     # end gzip_newVersion

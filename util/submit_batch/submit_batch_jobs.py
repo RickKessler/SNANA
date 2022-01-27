@@ -393,7 +393,8 @@ def purge_old_submit_output():
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
-    print(f"{HELP_MENU[args.HELP]}")
+    HELP_upcase = (args.HELP).upper()
+    print(f"{HELP_MENU[HELP_upcase]}")
     sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
 
 def run_merge_driver(program,args):

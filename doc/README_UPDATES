@@ -20737,7 +20737,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      - use in photo-z LCFIT
 
 
-
 # ======================================================================= 
          v11_04g (  ) 
 
@@ -20756,7 +20755,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** MISCELLANEOUS(v11_04g) ***** 
  
-   snlc_sim.c: remove lefacy readme_doc_xxx functions
+   snlc_sim.c: 
+     + remove lefacy readme_doc_xxx functions
+     + ZPHOT_QP += (ZSN-ZGAL) 
 
    snana.car: release refactored HEADER_OVERRIDE 
            DEBUG_FLAG = -1210 -> LEGACY_HEADER_OVERRIDE
@@ -20770,5 +20771,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    quick_commands.py:
      + new option --diff_fitres to analyze stats on difference
        betweeen two fitres files:   avg, median, std, min/max
+
+   wfit: fix speed trick to work for Pantheon that has chi2 > Ndof.
+
+   submit_prog_wfit.py
+      + new config key WEIGHT_AVG to specify computation of wgted 
+        averages;  submit_batch_jobs.sh -H WFIT
 
 END: 

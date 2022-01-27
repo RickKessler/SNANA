@@ -78,7 +78,10 @@
 
  Dec 03 2021 RK : new input option -lcdm to fit for OM with w=-1
 
- Jan 26 2022 RK - fix speed_trick to set nsig = nsig(orig) * 30 instead of 30.
+ Jan 26 2022 RK 
+  + fix speed_trick to set nsig = nsig(orig) * 30 instead of 30.
+  + write "COSPAR: <results>" to stdout so that regression test
+     can scoop up w, werr om, omerr on one line.
 
 *****************************************************************************/
 
@@ -3545,25 +3548,31 @@ void write_output_cospar(void) {
   // now write them out based on format option;
   // csv-like or YAML
 
-  if ( format == 1 ) {
-    // legacy format in csv-like format with default sep=" "
-    LINE_STRING[0] = 0;
-    sprintf(LINE_STRING,"# ");
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      strcat(LINE_STRING, VARNAMES_LIST[ivar] );
-      strcat(LINE_STRING, sep );
-    }
-    fprintf(fp,"%s\n", LINE_STRING);  // write VARNAMES
 
-    // now print values
-    LINE_STRING[0] = 0;
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      strcat(LINE_STRING, VALUES_LIST[ivar] );
-      strcat(LINE_STRING, sep );
-    }
-    fprintf(fp,"%s\n", LINE_STRING); // write values
+  // legacy format in csv-like format with default sep=" "
+  // Always write this to stdout; write to file if format==1.
+
+  LINE_STRING[0] = 0;
+  sprintf(LINE_STRING,"# ");
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    strcat(LINE_STRING, VARNAMES_LIST[ivar] );
+    strcat(LINE_STRING, sep );
   }
-  else {
+  if ( format == 1 ) { fprintf(fp,"%s\n", LINE_STRING); }  // write VARNAMES
+  printf("COSPAR:  %s\n", &LINE_STRING[1]);  // write VARNAMES
+    
+  // now print values
+  LINE_STRING[0] = 0;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    strcat(LINE_STRING, VALUES_LIST[ivar] );
+    strcat(LINE_STRING, sep );
+  }
+  if ( format == 1 ) {fprintf(fp,"%s\n", LINE_STRING); } // write values
+  printf("COSPAR:  %s\n", LINE_STRING); // write values
+ 
+
+  // - - --  - check YAML format - - - - 
+  if ( format == 2 ) {
     // YAML format
     for(ivar=0; ivar < NVAR; ivar++ ) {
       sprintf(ckey, "%s:",  VARNAMES_LIST[ivar]);
@@ -3802,8 +3811,9 @@ void CPU_summary(void) {
 
   // ----------- BEGIN -----------
 
-  printf("  CPU summary for init/fit: %.2f / %.2f minutes \n",
-	 dt_init, dt_fit);
+  printf("# =================================== \n");
+  printf(" CPU Summary \n");
+  printf("\t init/fit: %.2f / %.2f minutes \n",	 dt_init, dt_fit);
   fflush(stdout);
 
   return;

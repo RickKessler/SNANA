@@ -590,6 +590,7 @@ class Simulation(Program):
 
         # Jan 4 2021: move this test here from sim_prep_FORMAT_MASK
         if do_cidran and ngentot_sum == 0 :
+            msgerr = []
             msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
                           f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
             msgerr.append(f"Try one of the following:")

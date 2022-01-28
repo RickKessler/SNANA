@@ -21917,6 +21917,7 @@ int NEPFILT_GENLC(
   // loads epochs in order for each filter so that epoch-array
   // can be passed to genmag_xxx functions.
 
+  bool ISFRAME_REST =   ( GENFRAME_OPT  == GENFRAME_REST  );
   int  epoch, ifilt_tmp, NEP ;
   double Trest1, Trest2, Tdif;
 
@@ -21946,18 +21947,17 @@ int NEPFILT_GENLC(
 	GENFILT.Tobs[ifilt_obs][NEP]    = GENLC.epoch_obs[epoch];
 
 	GENFILT.genmag_obs[ifilt_obs][NEP]    = GENLC.genmag_obs[epoch];
-	GENFILT.genmag_rest[ifilt_obs][NEP]   = GENLC.genmag_rest[epoch];
-	GENFILT.genmag_rest2[ifilt_obs][NEP]  = GENLC.genmag_rest2[epoch];
-	GENFILT.genmag_rest3[ifilt_obs][NEP]  = GENLC.genmag_rest3[epoch];
-
 	GENFILT.genmag_smear[ifilt_obs][NEP]  = GENLC.magsmear8[epoch];
-
 	GENFILT.generr_obs[ifilt_obs][NEP]    = GENLC.generr_obs[epoch];
-	GENFILT.generr_rest[ifilt_obs][NEP]   = GENLC.generr_rest[epoch];
-	GENFILT.generr_rest2[ifilt_obs][NEP]  = GENLC.generr_rest2[epoch];
 
-	//printf(" xxx load Trest(%c=%d) = %f at  epoch=%d,  FILTEPOCH=%d \n", 
-	// FILTERSTRING[ifilt_obs], ifilt_obs, GENLC.epoch_rest[epoch], epoch,NEP);
+	if ( ISFRAME_REST ) {
+	  GENFILT.genmag_rest[ifilt_obs][NEP]   = GENLC.genmag_rest[epoch];
+	  GENFILT.genmag_rest2[ifilt_obs][NEP]  = GENLC.genmag_rest2[epoch];
+	  GENFILT.genmag_rest3[ifilt_obs][NEP]  = GENLC.genmag_rest3[epoch];
+	  GENFILT.generr_rest[ifilt_obs][NEP]   = GENLC.generr_rest[epoch];
+	  GENFILT.generr_rest2[ifilt_obs][NEP]  = GENLC.generr_rest2[epoch];
+	}
+
       }
       else if ( opt == -1 ) {
 
@@ -21975,15 +21975,16 @@ int NEPFILT_GENLC(
 	}
 
 	GENLC.genmag_obs[epoch]   = GENFILT.genmag_obs[ifilt_obs][NEP] ;
-	GENLC.genmag_rest[epoch]  = GENFILT.genmag_rest[ifilt_obs][NEP] ; 
-	GENLC.genmag_rest2[epoch] = GENFILT.genmag_rest2[ifilt_obs][NEP] ; 
-	GENLC.genmag_rest3[epoch] = GENFILT.genmag_rest3[ifilt_obs][NEP] ; 
-
-	GENLC.magsmear8[epoch]   = GENFILT.genmag_smear[ifilt_obs][NEP] ;
-
 	GENLC.generr_obs[epoch]   = GENFILT.generr_obs[ifilt_obs][NEP] ;
-	GENLC.generr_rest[epoch]  = GENFILT.generr_rest[ifilt_obs][NEP] ;
-	GENLC.generr_rest2[epoch] = GENFILT.generr_rest2[ifilt_obs][NEP] ;
+	GENLC.magsmear8[epoch]    = GENFILT.genmag_smear[ifilt_obs][NEP] ;
+
+	if ( ISFRAME_REST ) {
+	  GENLC.genmag_rest[epoch]  = GENFILT.genmag_rest[ifilt_obs][NEP] ; 
+	  GENLC.genmag_rest2[epoch] = GENFILT.genmag_rest2[ifilt_obs][NEP] ; 
+	  GENLC.genmag_rest3[epoch] = GENFILT.genmag_rest3[ifilt_obs][NEP] ; 
+	  GENLC.generr_rest[epoch]  = GENFILT.generr_rest[ifilt_obs][NEP] ;
+	  GENLC.generr_rest2[epoch] = GENFILT.generr_rest2[ifilt_obs][NEP] ;
+	}
       }
     }
 
@@ -22236,6 +22237,7 @@ void init_genmodel(void) {
 
   }
 
+  // - - - - - - - - - - - -
   if ( LGEN_SNIA ) 
     { GENLC.SIMTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
 
@@ -22244,11 +22246,47 @@ void init_genmodel(void) {
  
   prep_dustFlags();
 
+  malloc_GENFILT(); // Jan 28 2022
 
   return ;
 
 }  // end of init_genmodel
 
+
+// ============================
+void malloc_GENFILT(void) {
+
+  // Created Jan 28 2022
+
+  int ifilt, ifilt_obs;
+  int MEMD = MXEPSIM_PERFILT * sizeof(double) ;
+  char fnam[] = "malloc_GENFILT";
+
+  // -------------- BEGIN ------------
+
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt] ;
+
+    GENFILT.Trest[ifilt_obs] = (double*)malloc(MEMD);
+    GENFILT.Tobs[ifilt_obs]  = (double*)malloc(MEMD);
+
+    GENFILT.genmag_obs[ifilt_obs]  = (double*)malloc(MEMD);
+    GENFILT.generr_obs[ifilt_obs]  = (double*)malloc(MEMD);
+    GENFILT.genmag_smear[ifilt_obs] = (double*)malloc(MEMD);
+
+    if ( GENFRAME_OPT == GENFRAME_REST ) {
+      GENFILT.genmag_rest[ifilt_obs]   = (double*)malloc(MEMD);
+      GENFILT.genmag_rest2[ifilt_obs]  = (double*)malloc(MEMD);
+      GENFILT.genmag_rest3[ifilt_obs]  = (double*)malloc(MEMD);
+
+      GENFILT.generr_rest[ifilt_obs]   = (double*)malloc(MEMD);
+      GENFILT.generr_rest2[ifilt_obs]  = (double*)malloc(MEMD);
+      GENFILT.generr_rest3[ifilt_obs]  = (double*)malloc(MEMD);
+    }
+  }
+
+  return;
+} // end malloc_GENFILT 
 
 // *********************************
 void init_genSEDMODEL(void) {

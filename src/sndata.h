@@ -36,7 +36,7 @@
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
   May 27 2021: MXSPECTRA -> 300 (was 200)
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
-
+  # not yet ... Jan 28 2022: MXFILTINX -> 80 (was 100)
 *****************************************************/
 
 #define MXEPOCH  5000     // max number of epochs per SN
@@ -44,7 +44,7 @@
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)
 #define MXFILT_COVAR  9  // max number of filters per obs.
-#define MXFILTINDX 100   // max filter index
+#define MXFILTINDX  100  // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
 #define MXSPECTRA  300   // max number of spectra in data files
 

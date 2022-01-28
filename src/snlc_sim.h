@@ -33,6 +33,8 @@
     + MXOBS_SIMLIB -> 15,000 (was 10k) for Roman synthetic bands
 
  Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
+ Jan 28 2022: MXEPSIM -> 15k (was 10k)
+
 ********************************************/
 
 
@@ -41,7 +43,7 @@
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  2000       //
-#define  MXEPSIM       10000  // really big for sntools_grid
+#define  MXEPSIM       15000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
@@ -1260,21 +1262,22 @@ struct GENSL {
 
 
 // temp structure used by NEPFILT_GENLC
+// Jan 28 2022: define pointers to be malloced (save memory)
 struct GENFILT {
-  // 5 MB as of Aug 10 2017
-  double Trest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double Tobs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
+  
+  double *Trest[MXFILTINDX]; 
+  double *Tobs[MXFILTINDX]; 
+  double *genmag_obs[MXFILTINDX];  
+  double *genmag_smear[MXFILTINDX];
 
-  double genmag_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *genmag_rest[MXFILTINDX]; 
+  double *genmag_rest2[MXFILTINDX];
+  double *genmag_rest3[MXFILTINDX];
 
-  double generr_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *generr_obs[MXFILTINDX]; 
+  double *generr_rest[MXFILTINDX];
+  double *generr_rest2[MXFILTINDX];
+  double *generr_rest3[MXFILTINDX];
 } GENFILT ;
 
 
@@ -1949,6 +1952,8 @@ void   init_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);
+void   malloc_GENFILT(void);
+
 void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;

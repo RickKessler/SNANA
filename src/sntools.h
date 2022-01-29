@@ -63,7 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04g"   
+#define  SNANA_VERSION_CURRENT  "v11_04h"    
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -169,7 +169,7 @@
 #define PARNAME_AV  "AV"
 #define PARNAME_RV  "RV"
 
-char FILTERSTRING[100] ;
+char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
 #define MXLIST_RAN      4  // max number of lists for stream0

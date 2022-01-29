@@ -41,7 +41,7 @@
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  2000       //
-#define  MXEPSIM       13000  // really big for sntools_grid - expanded from 10k to 13k (A. Gagliano)
+#define  MXEPSIM       10000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts

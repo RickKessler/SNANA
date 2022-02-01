@@ -4,6 +4,7 @@
 #
 # Jan 14 2022 G.Narayan - fix diaObject bug found by Rob K.
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
+# Jan 31 2022 RK^2 fix bug setting alert_first_detect
 
 import datetime
 import glob
@@ -93,10 +94,6 @@ LSST_SITE_NAME    = "CTIO"
 # Flag to remove ssObject dictionary
 COMPRESS_ALERT_ssObject = True   
 
-# flag to hostgal store some keysl ONLY on first detect that has valid info;
-# no hostgal info stored for Galactic events.
-COMPRESS_ALERT_HOSTGAL  = False  
-
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
 
@@ -112,7 +109,6 @@ def init_schema_lsst_alert(schema_file):
         alert_data = json.load(f)
 
     logging.info(f"\t COMPRESS_ALERT_ssObject = {COMPRESS_ALERT_ssObject}")
-    logging.info(f"\t COMPRESS_ALERT_HOSTGAL  = {COMPRESS_ALERT_HOSTGAL}")
     logging.info(f"")
 
     if COMPRESS_ALERT_ssObject:
@@ -206,7 +202,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     #    print(f" xxx found original alert key: {key}")
 
     alert['prvDiaSources'].clear() # clear out all the past histories
-    alert_first_detect['prvDiaSources'].clear()
+    alert_first_detect['prvDiaSources'].clear() # clear out all the past histories
 
     # - - - - - -
     my_diaSource = diaSource    # not empty - has default quantities from schema
@@ -215,12 +211,6 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     # translate snana header and create diaSource[Object] dictionaries for lsst alert
     translate_dict_alert(-1, data_event_dict,           # <== I
                          my_diaSource, my_diaObject)    # <== I/O
-
-    alert_first_detect['diaSource'] = copy(my_diaSource)
-    if COMPRESS_ALERT_HOSTGAL: 
-        for key in alert_first_detect['diaSource']: 
-            for prefix in HOSTKEY_BASE_DIASRC :
-                if prefix in key:  my_diaSource.pop(key)
 
     alert['diaSource']              = my_diaSource
     alert['diaObject']              = my_diaObject
@@ -335,6 +325,10 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
                                mode='wb', compresslevel=9) as f:
                 if nobs_detect == 1 :
                     # store only 1st detection; no force photo yet.
+                    alert_first_detect['diaSource'] = copy(my_diaSource)
+                    alert_first_detect['diaObject'] = copy(my_diaObject)
+                    alert_first_detect['prvDiaSources'].clear()
+
                     avro_bytes = schema.serialize(alert_first_detect)
                     messg      = schema.deserialize(avro_bytes)
                     schema.store_alerts(f, [alert_first_detect] )

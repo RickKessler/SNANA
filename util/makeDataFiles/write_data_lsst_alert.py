@@ -88,6 +88,8 @@ LSST_SITE_NAME    = "CTIO"
 
 #'alertId', 'l1dbId', 'diaSource', 'prvDiaSources', 'diaObject', 'ssObject']
 
+TIME_WAIT_FORCEPHOTO = 0.9  # wait this long for previous sources
+
 # - - - - - - - - - - - 
 # Flags to reduce output
 
@@ -320,10 +322,16 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             mjd_file  = f"{outdir_nite}/" \
                         f"alert_{str_day}_{str_obj}_{str_src}.avro"
 
+            delta_t = mjd - MJD_REF  # elapsed time since 1st detect
             gzip_mjd_file = mjd_file + '.gz'
             with gzip.GzipFile(filename=gzip_mjd_file,
                                mode='wb', compresslevel=9) as f:
-                if nobs_detect == 1 :
+
+                # xxx mark delete if nobs_detect == 1 :
+                # ignore previous sources within ~1day of 1st detection
+                # because it takes 24 hr to run forcePhoto
+
+                if delta_t < TIME_WAIT_FORCEPHOTO :
                     # store only 1st detection; no force photo yet.
                     alert_first_detect['diaSource'] = copy(my_diaSource)
                     alert_first_detect['diaObject'] = copy(my_diaObject)
@@ -390,49 +398,20 @@ def translate_dict_alert(obs, data_event_dict, diaSource, diaObject):
         # e.g., host info should never be set for Galactic transients.
         head_raw       = data_event_dict['head_raw']
         HOSTGAL_NMATCH = head_raw[gpar.HOSTKEY_NMATCH]
-        SKIP_HOSTGAL   = HOSTGAL_NMATCH <= 0  and  COMPRESS_ALERT_HOSTGAL
 
         for varName_inp in VARNAME_DIASRC_MAP:  # loop over SNANA keys
             varName_avro = VARNAME_DIASRC_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
-            # check option to skip HOST keys if there is no host (to reduce disk output)
-            isvar_hostgal = gpar.HOSTKEY_BASE in varName_inp # check SNANA key
-            if isvar_hostgal and SKIP_HOSTGAL: 
-                continue
-                
-            diaSource[varName_avro] = get_data_alert_value(data_event_dict, varName_inp)
-
-            # xxxxx mark delete 
-            #if varName_inp in head_raw:
-            #    if varName_inp == gpar.DATAKEY_SNID: # convert str to int
-            #        diaSource[varName_avro] = int(head_raw[varName_inp])
-            #    else:
-            #        diaSource[varName_avro] = head_raw[varName_inp]
-            # elif varName_inp in head_calc :
-            #    diaSource[varName_avro] = head_calc[varName_inp]
-            #else:
-            #    diaSource[varName_avro] = phot_raw[varName_inp]
-            # xxxxxxxxx 
+            diaSource[varName_avro] = \
+                get_data_alert_value(data_event_dict, varName_inp)
 
         for varName_inp in VARNAME_DIAOBJ_MAP:
             varName_avro = VARNAME_DIAOBJ_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
-            diaObject[varName_avro] = get_data_alert_value(data_event_dict, varName_inp)
-
-            # xxxxx mark delete 
-            #if varName_inp in head_raw:
-            #    if varName_inp == gpar.DATAKEY_SNID: # convert str to int
-            #        diaObject[varName_avro] = int(head_raw[varName_inp])
-            #    else:
-            #        diaObject[varName_avro] = head_raw[varName_inp]
-            #
-            #elif varName_inp in head_calc :
-            #    diaObject[varName_avro] = head_calc[varName_inp]
-            #else:
-            #    diaObject[varName_avro] = phot_raw[varName_inp]
-            # xxxxxxxxxxxx
+            diaObject[varName_avro] = \
+                get_data_alert_value(data_event_dict, varName_inp)
 
             #print(f" xxx {varName_inp} -> {varName_avro} ")
 

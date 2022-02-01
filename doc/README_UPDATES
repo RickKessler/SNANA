@@ -20738,7 +20738,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04g (  ) 
+         v11_04g (Jan 27 2022) 
 
          ***** IMPORTANT(v11_04g) ***** 
 
@@ -20777,5 +20777,21 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_prog_wfit.py
       + new config key WEIGHT_AVG to specify computation of wgted 
         averages;  submit_batch_jobs.sh -H WFIT
+
+
+# ======================================================================= 
+         v11_04h (  ) 
+
+         ***** IMPORTANT(v11_04h) ***** 
+
+         ***** USEFUL(v11_04h) ***** 
+
+         ***** MISCELLANEOUS(v11_04h) ***** 
+  
+    snlc_sim.c
+     + GENFILT struct changed from 2D array to 1D array of pointers
+     + new function malloc_GENFILT() 
+     + MXEPSIM -> 15k (was 10k) for SCOTCH generation
+     + MXEPSIM_PERFILT -> 2500 (was 2000)
 
 END: 

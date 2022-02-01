@@ -89,7 +89,7 @@ def get_args():
     msg = "kill jobs if FAIL is detected"
     parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
-    msg = "check for abort using interactive job for 1 event"
+    msg = f"check for abort using interactive job for 300 events"
     parser.add_argument("--check_abort", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \

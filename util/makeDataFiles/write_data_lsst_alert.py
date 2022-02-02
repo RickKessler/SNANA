@@ -67,8 +67,10 @@ for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
     'BAND'       : 'filterName',
-    'FLUXCAL'    : 'apFlux',
-    'FLUXCALERR' : 'apFluxErr'
+    'FLUXCAL'    : 'psFlux',
+    'FLUXCALERR' : 'psFluxErr'
+    # xxx mark delete Feb 2 2022 'FLUXCAL'    : 'apFlux',
+    # xxx mark delete FLUXCALERR' : 'apFluxErr'
 }
 
 LSST_ZP_nJy     = 31.4   # report calibrated flux in this unit

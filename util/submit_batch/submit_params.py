@@ -20,7 +20,8 @@ NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
 KEEP_EVERY_MERGELOG = False
 
 # --fast option prescales by this factor
-FASTFAC = 10
+FASTFAC   = 10    # for --fast
+FASTFAC2 = 100    # for --faster
 
 # - - - - - -
 SNANA_DIR        = os.environ['SNANA_DIR']

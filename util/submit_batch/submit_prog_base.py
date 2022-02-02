@@ -538,7 +538,7 @@ class Program:
         t_stamp        = seconds_since_midnight
         cpunum         = 0
 
-        if args.fast:
+        if args.prescale > 1 :
             t_sleep = 20  # sleep time between checking merge
         else:
             t_sleep = 100
@@ -730,7 +730,7 @@ class Program:
         # Write FAST if set.
 
         args             = self.config_yaml['args']
-        fast             = self.config_yaml['args'].fast
+        prescale         = self.config_yaml['args'].prescale
         CONFIG           = self.config_yaml['CONFIG']
         n_job_tot        = self.config_prep['n_job_tot']
         n_done_tot       = self.config_prep['n_done_tot']
@@ -795,9 +795,9 @@ class Program:
         comment = "n_core with jobs"
         f.write(f"N_CORE_WITH_JOBS: {n_core_with_jobs}   # {comment} \n")
 
-        if fast :
-            f.write(f"FAST:             {FASTFAC}    " \
-                    f"# process 1/{FASTFAC} of request\n")
+        if prescale > 1 :
+            f.write(f"FAST:             {prescale}    " \
+                    f"# process 1/{prescale} of request\n")
 
         force_crash_prep  = self.config_yaml['args'].force_crash_prep
         force_crash_merge = self.config_yaml['args'].force_crash_merge

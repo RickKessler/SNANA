@@ -878,8 +878,8 @@ class LightCurveFit(Program):
         arg_list.append(f"  JOBSPLIT {isplit} {n_job_split}")
 
         # check fast option to prescale sims by 10 (data never pre-scaled)
-        if args.fast :
-            arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
+        if args.prescale > 1 :
+            arg_list.append(f"  SIM_PRESCALE {args.prescale}")
 
         if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")

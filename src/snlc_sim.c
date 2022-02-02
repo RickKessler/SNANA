@@ -3811,7 +3811,9 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   if ( N > 0 ) { goto README_LOAD; }
 
   // if not GENMODEL key, skip.
-  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+  // Feb 2 2022 RK - allow up to 2 GENMODEL keys to avoid Pippin abort.
+  // xxx  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+  if ( !keyMatchSim(2, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
 
   // - - - -
   // Everything below is for GENMODEL key

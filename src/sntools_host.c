@@ -2385,11 +2385,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
 
-  /* xxxx
-  if ( strcmp(varName,"HOST_LOGMASS") == 0 )  // Aug 2021
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
-  xxx */
-
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
 
@@ -6167,11 +6162,11 @@ void GEN_SNHOST_LOGMASS(void) {
       LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
     } 
     else {
-	 LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
-	 LOGMASS_OBS = LOGMASS_TRUE;
-         //sprintf(c1err,"Cannot determine LOGMASS_OBS");
-   	 //sprintf(c2err,"HOSTLIB needs LOGMASS_OBS or LOGMASS_ERR column");
-  	 //errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
+      LOGMASS_OBS = LOGMASS_TRUE;
+      //sprintf(c1err,"Cannot determine LOGMASS_OBS");
+      //sprintf(c2err,"HOSTLIB needs LOGMASS_OBS or LOGMASS_ERR column");
+      //errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = LOGMASS_OBS;

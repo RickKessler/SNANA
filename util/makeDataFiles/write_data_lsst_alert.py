@@ -35,21 +35,21 @@ VARNAME_DIASRC_MAP = {
     gpar.DATAKEY_SNID            : 'diaObjectId',
     gpar.DATAKEY_RA              : lc,
     gpar.DATAKEY_DEC             : 'decl',
-    gpar.DATAKEY_MWEBV           : lc,
-    gpar.DATAKEY_MWEBV_ERR       : lc,
     gpar.DATAKEY_zHEL            : 'z_final' ,
     gpar.DATAKEY_zHEL_ERR        : 'z_final_err',
-    gpar.DATAKEY_NOBS            : lc,       # in phot_raw, not header
+    gpar.DATAKEY_NOBS            : lc       # in phot_raw, not header
     #
-    gpar.HOSTKEY_SNSEP           : lc,
-    gpar.HOSTKEY_SPECZ           : 'hostgal_z',
-    gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
 VARNAME_DIAOBJ_MAP = {
     gpar.DATAKEY_SNID            : 'diaObjectId',
     gpar.DATAKEY_RA              : lc,
-    gpar.DATAKEY_DEC             : 'decl'
+    gpar.DATAKEY_DEC             : 'decl',
+    gpar.DATAKEY_MWEBV           : lc,
+    gpar.DATAKEY_MWEBV_ERR       : lc,
+    gpar.HOSTKEY_SNSEP           : lc,
+    gpar.HOSTKEY_SPECZ           : 'hostgal_z',
+    gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
 HOSTKEY_BASE_DIASRC = [ 'hostgal_', 'hostgal2_' ]
@@ -61,8 +61,9 @@ HOSTKEY_BASE_DIASRC = [ 'hostgal_', 'hostgal2_' ]
 
 for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
     for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
-        key = f"{prefix}_{band}"
-        VARNAME_DIASRC_MAP[key] = lc
+        key_snana = f"{prefix}_{band}"
+        key_alert = f"{prefix.lower()}_{band}"
+        VARNAME_DIAOBJ_MAP[key_snana] = key_alert
 
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
@@ -90,13 +91,7 @@ LSST_SITE_NAME    = "CTIO"
 
 #'alertId', 'l1dbId', 'diaSource', 'prvDiaSources', 'diaObject', 'ssObject']
 
-TIME_WAIT_FORCEPHOTO = 0.9  # wait this long for previous sources
-
-# - - - - - - - - - - - 
-# Flags to reduce output
-
-# Flag to remove ssObject dictionary
-COMPRESS_ALERT_ssObject = True   
+TIME_WAIT_FORCEPHOTO = 0.9  # days,  wait this long for previous sources
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -112,12 +107,8 @@ def init_schema_lsst_alert(schema_file):
     with open(json_file) as f:
         alert_data = json.load(f)
 
-    logging.info(f"\t COMPRESS_ALERT_ssObject = {COMPRESS_ALERT_ssObject}")
     logging.info(f"")
 
-    if COMPRESS_ALERT_ssObject:
-        alert_data.pop('ssObject')
-        #sys.exit(f" xxx kkeys = {alert_data.keys()} ")
 
     # HACK HACK HACK
     #import pdb
@@ -159,7 +150,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if KEYNAME_SUBSTRING_FLUXCAL in key:
             phot_raw[key] = [f*SCALE_FLUXCAL for f in phot_raw[key] ]
 
-    # - - - - 
+    # - - - -
     SNID         = int(head_raw[gpar.DATAKEY_SNID]) # to compare sourceID
     NOBS         = phot_raw[gpar.DATAKEY_NOBS]
     true_gentype  = head_sim[gpar.SIMKEY_TYPE_INDEX]
@@ -433,7 +424,7 @@ def get_data_alert_value(data_event_dict, varName):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
-    value     = None 
+    value     = None
 
     if varName in head_raw:
         if varName == gpar.DATAKEY_SNID: # convert str to int

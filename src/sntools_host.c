@@ -150,6 +150,9 @@ void INIT_HOSTLIB(void) {
   FILE *fp_hostlib ;
   char fnam[] = "INIT_HOSTLIB" ;
 
+  // M. Vincenzi Feb 2022
+  REFAC_HOSTLIB = ( INPUTS.DEBUG_FLAG == 203 );
+
   // ---------------- BEGIN -------------
 
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE) ;
@@ -276,6 +279,11 @@ void initvar_HOSTLIB(void) {
     HOSTLIB.IS_SNPAR_STORE[ivar]    = 0 ;
   }
 
+  sprintf (HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME, "LOGMASS");
+  sprintf (HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME, "LOGSFR");
+  sprintf (HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME, "LOGsSFR");
+  sprintf (HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME, "COLOR");
+
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
   HOSTLIB.Z_ATGAPMAX[1] = -9. ;
@@ -324,7 +332,6 @@ void initvar_HOSTLIB(void) {
 
   // now the optional keys
   init_OPTIONAL_HOSTVAR();
-
 
   HOSTLIB_WGTMAP.GRIDMAP.NDIM = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NFUN = 0;
@@ -408,13 +415,21 @@ void init_OPTIONAL_HOSTVAR(void) {
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_NBR_LIST ); 
 
-  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE );
-  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
-  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
+  if (REFAC_HOSTLIB){
+    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME, &NVAR);
+    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME, &NVAR);
+    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME, &NVAR);
+    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME, &NVAR);
+  }
 
+  else {  //legacy
+    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; 
+    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE );
+    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
+    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
+  }
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
 
@@ -464,7 +479,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     magkey_HOSTLIB(ifilt_obs,varName,varName_err); // returns varname
-    cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++;  
+    cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++; 
     sprintf(cptr,"%s", varName);
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; NVAR++;
     sprintf(cptr,"%s", varName_err);
@@ -511,8 +526,31 @@ void init_OPTIONAL_HOSTVAR(void) {
   }
 
   HOSTLIB.NVAR_OPTIONAL = NVAR ; // load global NVAR_OPTIONAL
-
+  return ;
 } // end of init_OPTIONAL_HOSTVAR
+
+void init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) {
+#define N_SUFFIX_PROP 3 
+  char fnam[]="init_OPTIONAL_HOSTVAR_PROPERTY";
+  int NVAR = *NVAR_PROPERTY;
+  char suffix_list[N_SUFFIX_PROP][20] = {"TRUE", "OBS", "ERR"};
+  char *cptr ;
+
+  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+  sprintf(cptr,"%s", basename);
+
+  int i;
+  for (i=0; i<N_SUFFIX_PROP; i++){
+    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+    char *suffix=suffix_list[i];
+    sprintf(cptr,"%s_%s", basename, suffix);
+
+    printf("xxx %s cptr=%s \n", fnam, cptr);
+  }
+
+  *NVAR_PROPERTY = NVAR;
+  return ;
+} //end of init_OPTIONAL_HOSTVAR_PROPERTY
 
 
 // ==========================================
@@ -742,7 +780,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   // in the WGTMAP.
   //
   // Feb 01 2020: 
-  //  + call checkAlternateVarNames so that LOGMASS -> LOGMASS_TRUE.
+  //  + call checkAlternateVarnames so that LOGMASS -> LOGMASS_TRUE.
   // Jun 02 2021: abort if strlen(HOSTLIB_STOREPAR_LIST) is too long
 
   int   NVAR_STOREPAR, NVAR_OUT, NVAR_REQ, LOAD, ivar, ivar2, ISDUPL ;
@@ -2371,6 +2409,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   // reset varName to the official name.
   // Note that the input argument is modified !
 
+  char *BASENAME;
+
   // --------- BEGIN ---------
 
   if ( strcmp(varName,"ZERR") == 0 ) 
@@ -2382,9 +2422,25 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"VPECERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
-  if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
+  if (REFAC_HOSTLIB){
+  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME;
+  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
 
+  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME;
+  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
+
+  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME;
+  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
+
+  BASENAME= HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME;
+  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
+}
+
+  else{
+    if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
+      { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
+  }
+  
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
 

@@ -20797,4 +20797,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     submit_batch_jobs: 
       + new --faster arg to process 1% (--fast still does 10%)
 
+    Remove util/sntools.pm
+
 END: 

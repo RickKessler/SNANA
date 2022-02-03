@@ -5167,15 +5167,14 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double ztol, dztol, z, z_start, z_end ;
 
   int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
-  bool REFAC  = (INPUTS.DEBUG_FLAG != -1229); // -1229 -> legacy
   char fnam[] = "GEN_SNHOST_GALID" ;
-
+  bool REFAC;
   // ---------- BEGIN ------------
 
   IGAL_SELECT = -9 ; 
-
+  
   // compute zSN-zGAL tolerance for this ZGEN = zSN
-  dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
+  dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
     
   // find start zbin 
   LOGZGEN    = log10(ZGEN);
@@ -5210,22 +5209,21 @@ void GEN_SNHOST_GALID(double ZGEN) {
   if ( IZ_CEN >= HOSTLIB.MAXiz ) 
     { igal_start = HOSTLIB.NGAL_STORE-1; }
   else {
-     igal_start = HOSTLIB.IZPTR[IZ_CEN+1]; 
-     if ( REFAC ) { igal_start = HOSTLIB.IZPTR[IZ_TOLMIN+1]; }
+    // xxx mark delete igal_start = HOSTLIB.IZPTR[IZ_CEN+1]; 
+    igal_start = HOSTLIB.IZPTR[IZ_TOLMIN+1];
   }
 
   // loop every IGAL_JUMP galaxy to get refined range
   igal_start_init = igal_start;
   z = get_ZTRUE_HOSTLIB(igal_start) ;  ztol=ZGEN-dztol ; 
-  if ( REFAC ) {
-    while ( z > ztol && igal_start > IGAL_JUMP ) {
-      igal_start -= IGAL_JUMP ; 
-      z  = get_ZTRUE_HOSTLIB(igal_start);  
-    }
-
-    if ( igal_start != igal_start_init ) 
-      { igal_start += IGAL_JUMP ;  z = get_ZTRUE_HOSTLIB(igal_start); }
+  while ( z > ztol && igal_start > IGAL_JUMP ) {
+    igal_start -= IGAL_JUMP ; 
+    z  = get_ZTRUE_HOSTLIB(igal_start);  
   }
+
+  if ( igal_start != igal_start_init ) 
+    { igal_start += IGAL_JUMP ;  z = get_ZTRUE_HOSTLIB(igal_start); }
+
 
   // final loop one galaxy at a time to find exact igal at z < ztol
   while ( z > ztol && igal_start > 1 )  
@@ -5236,24 +5234,23 @@ void GEN_SNHOST_GALID(double ZGEN) {
   if ( IZ_CEN < HOSTLIB.MINiz ) 
     { igal_end = 0; }
   else { 
-    igal_end = HOSTLIB.IZPTR[IZ_CEN-1]; 
-    if ( REFAC ) { igal_end = HOSTLIB.IZPTR[IZ_TOLMAX-1]; }
+    // xxx mark    igal_end = HOSTLIB.IZPTR[IZ_CEN-1]; 
+    igal_end = HOSTLIB.IZPTR[IZ_TOLMAX-1]; 
   }
 
   igal_end_init = igal_end;
   z = get_ZTRUE_HOSTLIB(igal_end) ; ztol = ZGEN+dztol ;
-  if ( REFAC ) {
-    while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-IGAL_JUMP ) { 
-      igal_end += IGAL_JUMP ; 
-      z = get_ZTRUE_HOSTLIB(igal_end);  
-    }
 
-    if ( igal_end != igal_end_init )  { 
-      igal_end -= IGAL_JUMP; 
-      z = get_ZTRUE_HOSTLIB(igal_end);
-    }
-
+  while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-IGAL_JUMP ) { 
+    igal_end += IGAL_JUMP ; 
+    z = get_ZTRUE_HOSTLIB(igal_end);  
   }
+  
+  if ( igal_end != igal_end_init )  { 
+    igal_end -= IGAL_JUMP; 
+    z = get_ZTRUE_HOSTLIB(igal_end);
+  }
+
   while ( z < ztol && igal_end < HOSTLIB.NGAL_STORE-1 ) 
     { igal_end++ ; z = get_ZTRUE_HOSTLIB(igal_end);  }
 
@@ -5350,55 +5347,51 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------------------------------------------------
 
-  if ( REFAC  ) {
-    // perform binary search to restrict igal range to within a few galaxies.
-    bool CONVERGE = false;
-    igal0 = igal_start;
-    igal1 = igal_end;    
+
+  // perform binary search to restrict igal range to within a few galaxies.
+  bool CONVERGE = false;
+  igal0 = igal_start;
+  igal1 = igal_end;    
+  igal_middle = (int)( (igal0 + igal1)/2 );
+  
+  while ( !CONVERGE ) {
+    WGT = ptrWGT[igal_middle] ;
+    NGAL_CHECK++ ;
+    if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
+      print_preAbort_banner(fnam);
+      printf("\t CID=%d  ZGEN=%f\n", GENLC.CID, ZGEN);
+      printf("\t WGT_select=%le   current WGT=%le\n", WGT_select, WGT);
+      printf("\t igal[start,end]=%d,%d  igal[0,middle,1]=%d,%d,%d\n",
+	     igal_start, igal_end,   igal0, igal_middle, igal1);
+      sprintf(c1err,"Cannot converge finding igal range.");
+      sprintf(c2err,"NGAL_CHECK=%d", NGAL_CHECK );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    }
+    if ( WGT < WGT_select )
+      {  igal0 = igal_middle ;  } // select upper half for next iter
+    else 
+      {  igal1 = igal_middle ;   } // lower half for next iter
+
     igal_middle = (int)( (igal0 + igal1)/2 );
+    CONVERGE = (igal1 - igal0) < IGAL_RANGE_CONVERGE ;
     
-    while ( !CONVERGE ) {
-      WGT = ptrWGT[igal_middle] ;
-      NGAL_CHECK++ ;
-      if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
-	print_preAbort_banner(fnam);
-	printf("\t CID=%d  ZGEN=%f\n", GENLC.CID, ZGEN);
-	printf("\t WGT_select=%le   current WGT=%le\n", WGT_select, WGT);
-	printf("\t igal[start,end]=%d,%d  igal[0,middle,1]=%d,%d,%d\n",
-	       igal_start, igal_end,   igal0, igal_middle, igal1);
-	sprintf(c1err,"Cannot converge finding igal range.");
-	sprintf(c2err,"NGAL_CHECK=%d", NGAL_CHECK );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
-      }
-      if ( WGT < WGT_select )
-	{  igal0 = igal_middle ;  } // select upper half for next iter
-      else 
-	{  igal1 = igal_middle ;   } // lower half for next iter
-
-      igal_middle = (int)( (igal0 + igal1)/2 );
-      CONVERGE = (igal1 - igal0) < IGAL_RANGE_CONVERGE ;
-
-      if ( LDMP ) {
-	double WGT_ratio = (WGT-WGT_start) / ( WGT_select-WGT_start);
-	printf(" xxx igal[0,m,1] = %d, %d, %d   CONVERGE=%d "
-	       "WGT_ratio=%.4f \n",
-	       igal0, igal_middle, igal1, CONVERGE, WGT_ratio);
-      }
-
-    } // end while not CONVERGE
+    if ( LDMP ) {
+      double WGT_ratio = (WGT-WGT_start) / ( WGT_select-WGT_start);
+      printf(" xxx igal[0,m,1] = %d, %d, %d   CONVERGE=%d "
+	     "WGT_ratio=%.4f \n",
+	     igal0, igal_middle, igal1, CONVERGE, WGT_ratio);
+    }
+    
+  } // end while not CONVERGE
 
     // reset igal_start[end] for brute-force search below.
-    igal_start = igal0;
-    if ( !USEONCE ) { igal_end = igal1; }
-
-  } // end REFAC
-
+  igal_start = igal0;
+  if ( !USEONCE ) { igal_end = igal1; }
 
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
 
   for ( igal = igal_start; igal <= igal_end; igal++ ) {
-
     NGAL_CHECK++ ;
     WGT = ptrWGT[igal];
 
@@ -6164,9 +6157,6 @@ void GEN_SNHOST_LOGMASS(void) {
     else {
       LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
       LOGMASS_OBS = LOGMASS_TRUE;
-      //sprintf(c1err,"Cannot determine LOGMASS_OBS");
-      //sprintf(c2err,"HOSTLIB needs LOGMASS_OBS or LOGMASS_ERR column");
-      //errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = LOGMASS_OBS;
@@ -7041,6 +7031,7 @@ void SORT_SNHOST_byDDLR(void) {
     if ( IVAR > 0 )
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL); }
 
+    // - - - - -
     IVAR = HOSTLIB.IVAR_GALID2;
     if ( IVAR > 0 ) 
       { SNHOSTGAL_DDLR_SORT[i].GALID2 = get_VALUE_HOSTLIB(IVAR,IGAL); } 

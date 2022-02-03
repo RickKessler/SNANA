@@ -386,10 +386,10 @@ void wr_snfitsio_init_head(void) {
     }
 
     // add QP posteriors
- for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
-    sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
-    wr_snfitsio_addCol( "1E", parName, itype );
-  }
+    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+      sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
+      wr_snfitsio_addCol( "1E", parName, itype );
+    }
  
   }  // end of 2nd-HOSTGAL block
 
@@ -401,7 +401,7 @@ void wr_snfitsio_init_head(void) {
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
     wr_snfitsio_addCol( "1E", parName, itype );
   }
-   
+ 
 
   // -----------------
 

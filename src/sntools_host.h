@@ -155,6 +155,20 @@ char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
 int OPTMASK_OPENFILE_HOSTLIB ;
 
+//for developers only
+bool REFAC_HOSTLIB;
+
+// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
+typedef struct {
+  double VAL_TRUE,VAL_OBS, VAL_ERR;
+} HOSTGAL_PROPERTY_VALUE_DEF;
+
+typedef struct {
+  int IVAR_TRUE, IVAR_OBS, IVAR_ERR;
+  char BASENAME[100];
+} HOSTGAL_PROPERTY_IVAR_DEF;
+
+
 struct HOSTLIB_DEF {
   char FILENAME[MXPATHLEN] ; // full file name of HOSTLIB
   int  GZIPFLAG;
@@ -211,9 +225,13 @@ struct HOSTLIB_DEF {
   int NZPHOT_QP;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
-  int IVAR_LOGMASS_TRUE ;
-  int IVAR_LOGMASS_ERR ;
-  int IVAR_LOGMASS_OBS ;
+  int IVAR_LOGMASS_TRUE ; // legacy 
+  int IVAR_LOGMASS_ERR ; // legacy 
+  int IVAR_LOGMASS_OBS ;  // legacy
+  HOSTGAL_PROPERTY_IVAR_DEF IVAR_PROPERTY_LOGMASS ;
+  HOSTGAL_PROPERTY_IVAR_DEF IVAR_PROPERTY_LOGSFR ;
+  HOSTGAL_PROPERTY_IVAR_DEF IVAR_PROPERTY_LOGsSFR ;
+  HOSTGAL_PROPERTY_IVAR_DEF IVAR_PROPERTY_COLOR ;
   int IVAR_RA ;
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
@@ -453,7 +471,11 @@ typedef struct {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
   double RA, DEC, SNSEP, DLR, DDLR ;
-  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
+  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  HOSTGAL_PROPERTY_VALUE_DEF VALUE_PROPERTY_LOGMASS ;
+  HOSTGAL_PROPERTY_VALUE_DEF VALUE_PROPERTY_LOGSFR ;
+  HOSTGAL_PROPERTY_VALUE_DEF VALUE_PROPERTY_LOGsSFR ;
+  HOSTGAL_PROPERTY_VALUE_DEF VALUE_PROPERTY_COLOR ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
   double ZPHOT_QP[MXBIN_ZPHOT_QP];
@@ -635,6 +657,8 @@ void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
+void   init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) ;
+
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);

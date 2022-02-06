@@ -551,11 +551,24 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      PREFIX, 
 	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
-
-      fprintf(fp, "%s_sSFR:        %.3e +- %.3e  # specific SFR\n",
+    }
+    if ( SNDATA.HOSTGAL_LOGSFR_OBS[igal] > -900. ) {
+      fprintf(fp, "%s_LOGSFR:        %.3e +- %.3e  # SFR\n",
+              PREFIX,
+              SNDATA.HOSTGAL_LOGSFR_OBS[igal],
+              SNDATA.HOSTGAL_LOGSFR_ERR[igal] );
+    }
+    if ( SNDATA.HOSTGAL_LOGsSFR_OBS[igal] > -900. ) {
+      fprintf(fp, "%s_LOGsSFR:        %.3e +- %.3e  # specific SFR\n",
 	      PREFIX, 
-	      SNDATA.HOSTGAL_sSFR[igal], 
-	      SNDATA.HOSTGAL_sSFR_ERR[igal] );
+	      SNDATA.HOSTGAL_LOGsSFR_OBS[igal], 
+	      SNDATA.HOSTGAL_LOGsSFR_ERR[igal] );
+    }
+    if ( SNDATA.HOSTGAL_COLOR_OBS[igal] > -900. ) {
+      fprintf(fp, "%s_COLOR:        %.3e +- %.3e  # COLOR (e.g. U-R)\n",
+              PREFIX,
+              SNDATA.HOSTGAL_COLOR_OBS[igal],
+              SNDATA.HOSTGAL_COLOR_ERR[igal] );
     }
 
     // Added for LSST but may be of more general use
@@ -2094,8 +2107,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       }
       sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
-	SNDATA.HOSTGAL_sSFR[igal] = FVAL;
-	if(PLUS_MINUS) { SNDATA.HOSTGAL_sSFR_ERR[igal] = FVAL_ERR; }
+	SNDATA.HOSTGAL_LOGsSFR_OBS[igal] = FVAL;
+	if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGsSFR_ERR[igal] = FVAL_ERR; }
       }
 
       sprintf(KEY_TEST,"%s_MAG:", PREFIX); 
@@ -2613,8 +2626,8 @@ bool parse_SNTEXTIO_HEAD_legacy(int *iwd_file) {
       sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
 	parse_plusminus_sntextio(word0, KEY_TEST, &iwd, 
-				 &SNDATA.HOSTGAL_sSFR[igal], 
-				 &SNDATA.HOSTGAL_sSFR_ERR[igal] );
+				 &SNDATA.HOSTGAL_LOGsSFR_OBS[igal], 
+				 &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] );
       }
 
       sprintf(KEY_TEST,"%s_MAG:", PREFIX); 

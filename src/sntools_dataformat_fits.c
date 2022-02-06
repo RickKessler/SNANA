@@ -314,8 +314,13 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
   wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS" ,    itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS_ERR", itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR" ,       itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR_ERR",    itype ); 
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR" ,       itype ); 
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR_ERR",    itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR" ,       itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR_ERR",    itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR" ,       itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR_ERR",    itype );
+
   wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_SQRADIUS",    itype );
@@ -363,8 +368,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR" ,       itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR_ERR",    itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR" ,       itype ); 
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR",    itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
@@ -1603,13 +1608,13 @@ void wr_snfitsio_update_head(void) {
 
     // host sSFR
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_sSFR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_sSFR[igal] ;
+    sprintf(parName,"%s_LOGsSFR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_sSFR_ERR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_sSFR_ERR[igal] ;
+    sprintf(parName,"%s_LOGsSFR_ERR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3211,12 +3216,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_sSFR", PREFIX);
-      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR[igal],
+      sprintf(KEY,"%s_LOGsSFR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_sSFR_ERR", PREFIX);
-      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR_ERR[igal],
+      sprintf(KEY,"%s_LOGsSFR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {

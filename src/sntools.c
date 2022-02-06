@@ -7319,8 +7319,17 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9.0 ;
     SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.0 ;
     SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]         = -99.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -99.0 ;
+
+    SNDATA.HOSTGAL_LOGSFR_TRUE[igal]  = -999.0 ;
+    SNDATA.HOSTGAL_LOGSFR_OBS[igal]   = -999.0 ;
+    SNDATA.HOSTGAL_LOGSFR_ERR[igal]   = -999.0 ;
+    SNDATA.HOSTGAL_LOGsSFR_TRUE[igal] = -999.0 ;
+    SNDATA.HOSTGAL_LOGsSFR_OBS[igal]  = -999.0 ;
+    SNDATA.HOSTGAL_LOGsSFR_ERR[igal]  = -999.0 ;
+    SNDATA.HOSTGAL_COLOR_TRUE[igal]   = -999.0 ;
+    SNDATA.HOSTGAL_COLOR_OBS[igal]    = -999.0 ;
+    SNDATA.HOSTGAL_COLOR_ERR[igal]    = -999.0 ;
+
     SNDATA.HOSTGAL_SQRADIUS[igal]     = -99.0 ;
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;

@@ -396,10 +396,10 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR[igal] ); } 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ); } 
       sprintf(KEY_TEST,"%s_sSFR_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR_ERR[igal] ); } 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ); } 
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];

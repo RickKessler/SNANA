@@ -278,11 +278,10 @@ void initvar_HOSTLIB(void) {
     HOSTLIB.IS_SNPAR_OPTIONAL[ivar] = 0 ;
     HOSTLIB.IS_SNPAR_STORE[ivar]    = 0 ;
   }
-
-  sprintf (HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME, "LOGMASS");
-  sprintf (HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME, "LOGSFR");
-  sprintf (HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME, "LOGsSFR");
-  sprintf (HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME, "COLOR");
+  
+  if (REFAC_HOSTLIB){
+    malloc_HOSTGAL_PROPERTY();
+  }
 
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
@@ -367,6 +366,33 @@ void initvar_HOSTLIB(void) {
 
 } // end of initvar_HOSTLIB
 
+void malloc_HOSTGAL_PROPERTY(void) {
+  char fnam[] = "malloc_HOSTGAL_PROPERTY";
+  int N_PROP;
+  int MEM, i;
+  char *varName;
+  // XYZ
+  N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_LIST);
+  // setting a global variable 
+  N_HOSTGAL_PROPERTY = N_PROP;
+
+  MEM = N_PROP * sizeof(HOSTGAL_PROPERTY_IVAR_DEF);
+  HOSTLIB.HOSTGAL_PROPERTY_IVAR = (HOSTGAL_PROPERTY_IVAR_DEF*) malloc(MEM);
+  
+  MEM = N_PROP * sizeof(HOSTGAL_PROPERTY_VALUE_DEF);
+  for (i=0; i<MXNBR_LIST; i++) {
+    SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE = (HOSTGAL_PROPERTY_VALUE_DEF*) malloc(MEM);
+  }
+
+  for (i=0; i<N_PROP; i++){
+    varName = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
+    get_PARSE_WORD(0,i,varName);
+  } 
+  return;
+ 
+} // end of malloc_HOSTGAL_PROPERTY
+
+
 // ==========================================
 void init_OPTIONAL_HOSTVAR(void) {
 
@@ -416,10 +442,9 @@ void init_OPTIONAL_HOSTVAR(void) {
   sprintf(cptr,"%s", HOSTLIB_VARNAME_NBR_LIST ); 
 
   if (REFAC_HOSTLIB){
-    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME, &NVAR);
-    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME, &NVAR);
-    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME, &NVAR);
-    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME, &NVAR);
+    for (j=0; j<N_HOSTGAL_PROPERTY; j++){
+      init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
+    }
   }
 
   else {  //legacy
@@ -2410,6 +2435,8 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   // Note that the input argument is modified !
 
   char *BASENAME;
+  int j;
+  char fnam[] = "checkAlternateVarNames_HOSTLIB";
 
   // --------- BEGIN ---------
 
@@ -2423,18 +2450,11 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
   if (REFAC_HOSTLIB){
-  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGMASS.BASENAME;
-  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-
-  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGSFR.BASENAME;
-  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-
-  BASENAME= HOSTLIB.IVAR_PROPERTY_LOGsSFR.BASENAME;
-  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-
-  BASENAME= HOSTLIB.IVAR_PROPERTY_COLOR.BASENAME;
-  if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-}
+    for (j=0; j<N_HOSTGAL_PROPERTY; j++){
+      BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
+      if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
+    }
+  }
 
   else{
     if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)

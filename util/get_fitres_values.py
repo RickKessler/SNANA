@@ -13,7 +13,8 @@
 #              count DOCANA rows to skip
 #
 # Nov 22 2021: fix to work with gzip files
-#
+# Feb 07 2022: fix bug skipping comment lines before VARNAMES (see nrow_skip)
+
 import os, sys, argparse, gzip
 import pandas as pd
 
@@ -114,7 +115,8 @@ def read_fitres_file(info_fitres):
  
     print(f"\n Read {ff}")
 
-    nskip_row = 0
+    nrow_skip   = 0
+    nrow_docana = 0
     isrow_docana = False
 
     if ".gz" in ff:
@@ -130,18 +132,26 @@ def read_fitres_file(info_fitres):
     for line in f:       
         wdlist = line.split()
         if len(wdlist) < 1 : 
-            nskip_row += 1
+            nrow_skip += 1
+            continue
+
+        if line[0] == '#' :
+            nrow_skip += 1
             continue
 
         if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
         if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
         if isrow_docana : 
-            nskip_row += 1
+            nrow_skip   += 1
+            nrow_docana += 1
             continue
 
         if wdlist[0] == 'VARNAMES:' : 
             keyname_id = wdlist[1]
             print(f" Found keyname_id = {keyname_id}")
+            if nrow_docana > 0:
+                print(f"\t (skipped {nrow_docana} DOCANA rows)")
+
             info_fitres['keyname_id'] = keyname_id
             break
 
@@ -150,7 +160,7 @@ def read_fitres_file(info_fitres):
 
     var_list_local =  [ keyname_id ] + var_list
     df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                      skiprows=nskip_row,
+                      skiprows=nrow_skip,
                       usecols=var_list_local)
 
     df[keyname_id] = df[keyname_id].astype(str)

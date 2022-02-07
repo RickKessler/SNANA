@@ -4379,11 +4379,14 @@ void *MNCHI2FUN(void *thread) {
 
     // compute distance modulus from cosmology params
     if ( INPUTS.FLOAT_COSPAR ) {
+      // not tested, so beware !!!
       dl       = cosmodl_forFit(z, z, cosPar) ;
       mumodel  = 5.0*log10(dl) + 25.0 ;
     }
-    else 
-      { mumodel = mumodel_store ; }
+    else {
+      // intended use for BBC
+      mumodel = mumodel_store ; 
+    }
 
 
     optmask_muerrsq = 0;

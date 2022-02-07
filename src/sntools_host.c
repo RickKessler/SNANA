@@ -1,3 +1,4 @@
+
 /* =================================================
 
   March, 2011  R.Kessler
@@ -393,6 +394,25 @@ void malloc_HOSTGAL_PROPERTY(void) {
 } // end of malloc_HOSTGAL_PROPERTY
 
 
+int getindex_HOSTGAL_PROPERTY(char *PROPERTY){
+  // created Febr 2022 by M. Vincenzi 
+  // for input hostgal property return index to HOSTGAL_PROPERTY_IVAR
+  // return -9 is there's no match to input property
+  //  
+  char fnam[] = "getindex_HOSTGAL_PROPERTY";
+  int index=-9;
+  int N_PROP=N_HOSTGAL_PROPERTY;
+  char *BASENAME;
+  int i;
+
+  for (i=0; i<N_PROP; i++){
+    BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
+    if (strcmp(BASENAME, PROPERTY)==0){ index=i; };
+  }
+  
+  return index;
+}  // end of getindex_HOSTGAL_PROPERTY
+
 // ==========================================
 void init_OPTIONAL_HOSTVAR(void) {
 
@@ -569,8 +589,6 @@ void init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) {
     NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
     char *suffix=suffix_list[i];
     sprintf(cptr,"%s_%s", basename, suffix);
-
-    printf("xxx %s cptr=%s \n", fnam, cptr);
   }
 
   *NVAR_PROPERTY = NVAR;
@@ -2058,7 +2076,8 @@ void read_head_HOSTLIB(FILE *fp) {
   int ivar2, NDUPL;
   bool FOUND_VARNAMES, FOUND_VPECERR;
   int NCHAR;
-  char  key[40], c_get[40], c_var[40], ctmp[80], wd[20], *cptr, *cptr2 ;
+  char  key[40], c_get[40], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
+  char *basename;
   char  LINE[MXCHAR_LINE_HOSTLIB];
   char  fnam[] = "read_head_HOSTLIB" ;
 
@@ -2276,6 +2295,22 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_LOGMASS_TRUE = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_TRUE, 0) ; 
   HOSTLIB.IVAR_LOGMASS_OBS  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_OBS,  0) ; 
   HOSTLIB.IVAR_LOGMASS_ERR  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_ERR,  0);
+
+  if (REFAC_HOSTLIB){
+    for (ivar=0;ivar<N_HOSTGAL_PROPERTY;ivar++){
+      basename = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].BASENAME;
+    
+      sprintf(c_var, "%s_TRUE", basename);
+      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE = IVAR_HOSTLIB(c_var, 0);
+      
+      sprintf(c_var, "%s_OBS", basename);
+      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS = IVAR_HOSTLIB(c_var, 0);
+      
+      sprintf(c_var, "%s_ERR", basename);
+      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR = IVAR_HOSTLIB(c_var, 0);  
+    }
+  }
+
   HOSTLIB.IVAR_ANGLE        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
   HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
   HOSTLIB.IVAR_ELLIPTICITY  = IVAR_HOSTLIB(HOSTLIB_VARNAME_ELLIPTICITY,0) ;
@@ -5185,8 +5220,16 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // check if redshift needs to be updated (Apr 8 2019)
   TRANSFER_SNHOST_REDSHIFT(IGAL);
 
-  // check on host logmass for each possible host match (Feb 2020)
-  GEN_SNHOST_LOGMASS();
+  // check on host properties for each possible host match (Feb 2020)
+  if (REFAC_HOSTLIB){
+    int ivar_property;
+    for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++){
+      GEN_SNHOST_PROPERTY(ivar_property);
+    }
+  }
+  else { 
+    GEN_SNHOST_LOGMASS(); //legacy
+  } 
 
   // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
@@ -6194,6 +6237,7 @@ void  GEN_SNHOST_VPEC(int IGAL) {
 // =========================================
 void GEN_SNHOST_LOGMASS(void) {
 
+  // *** legacy function as of Feb 2022 ***
   // Created Feb 2020
   // If LOGMASS_OBS is defined in HOSTLIB, do nothing.
   // Otherwise, use LOGMASS_TRUE and LOGMASS_ERR to determine 
@@ -6242,6 +6286,56 @@ void GEN_SNHOST_LOGMASS(void) {
   return ;
 
 } // end GEN_SNHOST_LOGMASS
+
+
+// =========================================    
+void GEN_SNHOST_PROPERTY(int ivar_property) {
+
+  // Created on Feb 2022 by M. Vincenzi and R. Kessler
+  // For input ivar property, [property]_TRUE and [property]_ERR are used to generate [property]_OBS prop if [property]_OBS is not already in the HOSTLIB
+  // If [property]_OBS is in the Hostlib, do nothing
+  // [property] can be LOGMASS, LOGSFR, LOGsSFR, COLOR
+
+  int  NNBR       = SNHOSTGAL.NNBR;
+  int  IVAR_TRUE  = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_TRUE ;
+  int  IVAR_OBS   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_OBS;
+  int  IVAR_ERR   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_ERR;
+  double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR; //need to generalize, for now same SCALE applied to all gal prop ??????
+  int i;
+  double VAL_TRUE, VAL_OBS, VAL_ERR, GauRan ;
+  double rmin=-3.0, rmax=3.0 ;
+  char fnam[] = "GEN_SNHOST_PROPERTY" ;
+
+  // ---------- BEGIN -----------                                                                                                                                             
+
+  if ( IVAR_TRUE < 0 ) { return; }
+
+  for(i=0; i < NNBR; i++ ) {
+
+    VAL_OBS = -9.0 ;
+
+    if ( IVAR_OBS > 0 ) {
+      VAL_OBS = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_OBS ;
+    }
+    else if ( IVAR_TRUE > 0 && IVAR_ERR > 0 ) {
+      VAL_TRUE = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_TRUE ;
+      VAL_ERR  = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_ERR ;
+      VAL_ERR *= SCALE ;
+      GauRan = getRan_GaussClip(1,rmin,rmax);
+      VAL_OBS = VAL_TRUE + GauRan*VAL_ERR ;
+    }
+    else {
+      VAL_TRUE = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_TRUE ;
+      VAL_OBS = VAL_TRUE;
+    }
+
+    SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_OBS = VAL_OBS;
+    //    printf("xxxxx %s: i=%d, ivar_property=%d, VAL_TRUE=%f VAL_OBS=%f VAL_ERR=%f\n", fnam,i,ivar_property, VAL_TRUE, VAL_OBS, VAL_ERR);
+  }
+  return ;
+} // end GEN_SNHOST_PROPERTY
+
+ 
 
 // =======================================
 void GEN_SNHOST_POS(int IGAL) {
@@ -6982,7 +7076,7 @@ void SORT_SNHOST_byDDLR(void) {
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
-  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, j ;
+  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, j ,ivar;
   int  NNBR_DDLRCUT = 0 ;
   double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
   double DMUCOR = 0.0 ;
@@ -7090,7 +7184,7 @@ void SORT_SNHOST_byDDLR(void) {
 	   SNHOSTGAL_DDLR_SORT[i].ZPHOT,
 	   SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR
     */
-
+    // legacy LOGMASS
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = -9.0;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.0;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR  = -9.0;
@@ -7106,6 +7200,19 @@ void SORT_SNHOST_byDDLR(void) {
     IVAR = HOSTLIB.IVAR_LOGMASS_ERR; 
     if ( IVAR > 0 )
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL); }
+
+    if (REFAC_HOSTLIB){
+      for (ivar=0; ivar<N_HOSTGAL_PROPERTY; ivar++){
+	IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE;
+	if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_TRUE = get_VALUE_HOSTLIB(IVAR,IGAL);}
+
+	IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS;
+        if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_OBS = get_VALUE_HOSTLIB(IVAR,IGAL);}
+
+        IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR;
+        if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);}
+      }
+    }
 
     // - - - - -
     IVAR = HOSTLIB.IVAR_GALID2;

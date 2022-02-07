@@ -176,7 +176,7 @@ CC   = gcc
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -
-#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)

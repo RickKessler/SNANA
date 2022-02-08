@@ -388,7 +388,34 @@ void malloc_HOSTGAL_PROPERTY(void) {
   for (i=0; i<N_PROP; i++){
     varName = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
     get_PARSE_WORD(0,i,varName);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 1.0; //default
   } 
+
+  //check for user input error scale
+  char *str_error = INPUTS.HOSTLIB_SCALE_PROPERTY_ERR;
+  if (!IGNOREFILE(str_error)){
+    char **tmp_item_list;
+    int N_item;
+    char item[40];
+    double scale;
+    char basename[40];
+    int index;
+    parse_commaSepList("Host property error", str_error, 100, 40,
+		       &N_item, &tmp_item_list ); // this is returned 
+    for (i=0; i<N_item; i++){
+      sprintf(item, "%s",tmp_item_list[i]); // presevre original tmp_item_list 
+      extractStringOpt(item, basename);  // beaware that item is altered
+      sscanf(item, "%le", &scale ) ; //convert string item to double scale
+      index = getindex_HOSTGAL_PROPERTY(basename);
+      if (index<0){
+	sprintf(c1err, "INVALID basename = %s", basename ) ;
+	sprintf(c2err, "Check key=HOSTLIB_SCALE_PROPERTY_ERR, item=%s", tmp_item_list[i] ) ;
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+      HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
+      printf("\t Scaling %s error by %.2f\n", basename, scale);
+    } 
+  } // end of if SCALE_PROPERTY_ERR given
   return;
  
 } // end of malloc_HOSTGAL_PROPERTY
@@ -6300,7 +6327,8 @@ void GEN_SNHOST_PROPERTY(int ivar_property) {
   int  IVAR_TRUE  = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_TRUE ;
   int  IVAR_OBS   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_OBS;
   int  IVAR_ERR   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_ERR;
-  double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR; //need to generalize, for now same SCALE applied to all gal prop ??????
+  // xxxx double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR; //need to generalize, for now same SCALE applied to all gal prop
+  double SCALE = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].SCALE_ERR;
   int i;
   double VAL_TRUE, VAL_OBS, VAL_ERR, GauRan ;
   double rmin=-3.0, rmax=3.0 ;
@@ -6321,6 +6349,7 @@ void GEN_SNHOST_PROPERTY(int ivar_property) {
       VAL_TRUE = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_TRUE ;
       VAL_ERR  = SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_ERR ;
       VAL_ERR *= SCALE ;
+      SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar_property].VAL_ERR = VAL_ERR;
       GauRan = getRan_GaussClip(1,rmin,rmax);
       VAL_OBS = VAL_TRUE + GauRan*VAL_ERR ;
     }

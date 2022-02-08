@@ -174,6 +174,7 @@ typedef struct {
 typedef struct {
   int IVAR_TRUE, IVAR_OBS, IVAR_ERR;
   char BASENAME[100];
+  double SCALE_ERR;
 } HOSTGAL_PROPERTY_IVAR_DEF;
 
 

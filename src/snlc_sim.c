@@ -1022,6 +1022,7 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL  = 9999999;  // default is never re-use host
   INPUTS.HOSTLIB_SCALE_SERSIC_SIZE  = 1.0 ;
   INPUTS.HOSTLIB_SCALE_LOGMASS_ERR  = 1.0 ;
+  INPUTS.HOSTLIB_SCALE_PROPERTY_ERR[0] = 0;
 
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] = -9.0 ;
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] = -9.0 ;
@@ -3173,6 +3174,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_LOGMASS_ERR",WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ) ;   
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SCALE_PROPERTY_ERR",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%se", INPUTS.HOSTLIB_SCALE_PROPERTY_ERR ) ;
   }
   else if ( keyMatchSim(1, "HOSTLIB_STOREVAR  HOSTLIB_STOREPAR",
 			WORDS[0],keySource) ) {

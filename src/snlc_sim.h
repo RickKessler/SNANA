@@ -505,6 +505,7 @@ struct INPUTS {
   GENPOLY_DEF HOSTLIB_GENPOLY_DZTOL; // zSN-zGAL tol vs zPOLY
 
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
+  char   HOSTLIB_SCALE_PROPERTY_ERR[200] ; // e.g. '0.8(LOGMASS),0.0(LOGSFR),0.1(LOGsSFR)' , default is 1.0 for every host prop  
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[2*MXPATHLEN]; // (I) comma-sep list
 

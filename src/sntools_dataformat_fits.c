@@ -3247,6 +3247,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
+      sprintf(KEY,"%s_LOGSFR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_OBS[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_LOGSFR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_ERR[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
       sprintf(KEY,"%s_LOGsSFR", PREFIX);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3254,6 +3262,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       sprintf(KEY,"%s_LOGsSFR_ERR", PREFIX);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
+
+      sprintf(KEY,"%s_COLOR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_OBS[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_COLOR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_ERR[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];

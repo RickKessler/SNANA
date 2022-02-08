@@ -370,7 +370,7 @@ void initvar_HOSTLIB(void) {
 void malloc_HOSTGAL_PROPERTY(void) {
   char fnam[] = "malloc_HOSTGAL_PROPERTY";
   int N_PROP;
-  int MEM, i;
+  int MEM, i, index;
   char *varName;
   // XYZ
   N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_LIST);
@@ -391,7 +391,12 @@ void malloc_HOSTGAL_PROPERTY(void) {
     HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 1.0; //default
   } 
 
-  //check for user input error scale
+  // check legacy input that works only for LOGMASS
+  if (INPUTS.HOSTLIB_SCALE_LOGMASS_ERR!= 1.0){
+    i = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
+  }
+  // check for user input error scale for arbitrary property
   char *str_error = INPUTS.HOSTLIB_SCALE_PROPERTY_ERR;
   if (!IGNOREFILE(str_error)){
     char **tmp_item_list;
@@ -399,7 +404,11 @@ void malloc_HOSTGAL_PROPERTY(void) {
     char item[40];
     double scale;
     char basename[40];
-    int index;
+    if (INPUTS.HOSTLIB_SCALE_LOGMASS_ERR != 1.0) {
+      sprintf(c1err, "Do not specify both HOSTLIB_SCALE_LOGMASS_ERR and HOSTLIB_SCALE_PROPERTY_ERR" ) ;
+      sprintf(c2err, "Pick one or the other") ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
     parse_commaSepList("Host property error", str_error, 100, 40,
 		       &N_item, &tmp_item_list ); // this is returned 
     for (i=0; i<N_item; i++){

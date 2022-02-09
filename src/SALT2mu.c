@@ -8599,14 +8599,18 @@ void sort_IDSAMPLE_biasCor(void) {
   //  Reason is that order of data determines order of IDSAMPLE,
   //  and it is thus random.
   //
+  // Feb 9 2022: fix bug to allow [SURVEY] fieldgroups and also allow
+  //             [SURVEY] in surveygroup_biascor. See new DO_COPY bool.
 
   int NSAMPLE = NSAMPLE_BIASCOR ;
   int debug_malloc = INPUTS.debug_malloc ;
   int ID, ID2, IDSURVEY, NSORT=0  ;
   int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
   int igrp, NGRP_USR,  FLAG ; 
-  char *s0, *s1, *s2, *NAME ;
+  char *s0, *s1, *s2, *f0, *f2, *NAME ;
   SAMPLE_INFO_DEF *SAMPLE_BIASCOR_TEMP ;
+  bool ISGRP0, ISGRP2, SMATCH, NOGRP, DO_COPY ;
+  bool LOGIC_FIX_FEB09 = true;
   int LDMP = 0 ;
   char fnam[] = "sort_IDSAMPLE_biasCor" ;
   // ---------------- BEGIN ---------------
@@ -8619,8 +8623,6 @@ void sort_IDSAMPLE_biasCor(void) {
   // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
   //           and some events are not.
   //   e..g, if DES and DES(C3+X3) are defined, ABORT.
-  bool ISGRP0, ISGRP2, SMATCH ;
-  char *f0, *f2;
   for(ID=0; ID < NSAMPLE; ID++ ) {
     for(ID2=0; ID2<NSAMPLE; ID2++ ) {
       if ( ID == ID2 ) { continue ; } 
@@ -8674,9 +8676,15 @@ void sort_IDSAMPLE_biasCor(void) {
   for(igrp=0; igrp < NGRP_USR; igrp++ ) {
     s1 = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[igrp];
     for(ID=0; ID < NSAMPLE; ID++ ) {
-      s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
-      NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
-      if ( strcmp(s1,s2)==0 ) {
+      s2      = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
+      NAME    = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+      f0      = SAMPLE_BIASCOR_TEMP[ID].NAME_FIELDGROUP;  
+      SMATCH  = strcmp(s1,s2)==0;
+      NOGRP   = IGNOREFILE(f0);
+      DO_COPY = SMATCH && NOGRP;
+      if ( !LOGIC_FIX_FEB09 ) { DO_COPY = SMATCH; } // only for emergency
+
+      if ( DO_COPY ) {
 	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
 			      &SAMPLE_BIASCOR[NSORT]);
 	

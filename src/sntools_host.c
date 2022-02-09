@@ -300,7 +300,7 @@ void initvar_HOSTLIB(void) {
   SERSIC_TABLE.TABLEMEMORY    = 0 ;
 
   HOSTLIB.NFILT_MAGOBS = 0;
-  HOSTLIB.NZPHOT_QP = 0;
+  HOSTLIB.NZPHOT_Q = 0;
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )     {
     HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;
   }
@@ -567,9 +567,9 @@ void init_OPTIONAL_HOSTVAR(void) {
     sprintf(cptr, "%s", nnam );    // index 
 
   }
-  for (j=0; j < MXBIN_ZPHOT_QP; j++){
+  for (j=0; j < MXBIN_ZPHOT_Q; j++){
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_QP, j);    // index 
+    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);    // index 
   }
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
@@ -2231,8 +2231,8 @@ void read_head_HOSTLIB(FILE *fp) {
 	      NVAR_STORE_SNPAR++ ; 
 	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
 	    }
-            if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_QP) != NULL ) {
-              HOSTLIB.NZPHOT_QP++ ;
+            if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
+              HOSTLIB.NZPHOT_Q++ ;
             }
 	    HOSTLIB.NVAR_STORE++ ;   
 	  }
@@ -2351,7 +2351,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // optional
   HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT,   0) ; 
   HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_ERR,0);
-  HOSTLIB.IVAR_ZPHOT_QP0    = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_QP0, 0) ;
+  //HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_Q0, 0) ; //.xyz Fix this!
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC,    0) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC_ERR,0);
   HOSTLIB.IVAR_LOGMASS_TRUE = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_TRUE, 0) ; 
@@ -7020,7 +7020,7 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
 
   SNHOSTGAL.NNBR = 0;
-  int i, ifilt, qp;
+  int i, ifilt, q;
   for(i=0; i < MAXNBR; i++ ) {    
     SNHOSTGAL_DDLR_SORT[i].GALID = -9 ;
     SNHOSTGAL_DDLR_SORT[i].SNSEP = -9.0 ;
@@ -7036,8 +7036,8 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
       SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]      = -9.0 ;
       SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt]  = -9.0 ;
     }
-    for(qp=0; qp < MXBIN_ZPHOT_QP; qp++){
-      SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[qp] = -9.0;
+    for(q=0; q < MXBIN_ZPHOT_Q; q++){
+      SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[q] = -9.0;
     }
   }
 
@@ -7230,15 +7230,15 @@ void SORT_SNHOST_byDDLR(void) {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
     }
     
-    int IVAR_QP0 = HOSTLIB.IVAR_ZPHOT_QP0;
-    if ( IVAR_QP0 > 0 ) {
-	    for (j = 0; j < HOSTLIB.NZPHOT_QP; j++){
-		int IVAR_QP = IVAR_QP0 + j;
-		SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[j] = get_VALUE_HOSTLIB(IVAR_QP,IGAL) ;
+    int IVAR_Q0 = HOSTLIB.IVAR_ZPHOT_Q0;
+    if ( IVAR_Q0 > 0 ) {
+	    for (j = 0; j < HOSTLIB.NZPHOT_Q; j++){
+		int IVAR_Q = IVAR_Q0 + j;
+		SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
 
 		//new code -- shift ZQP parameters based on the new redshift of the galaxy
 		//(which been moved to the redshift of the transient)
-		SNHOSTGAL_DDLR_SORT[i].ZPHOT_QP[j] += SNHOSTGAL.ZDIF;
+		SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] += SNHOSTGAL.ZDIF;
 	    }
     }
 

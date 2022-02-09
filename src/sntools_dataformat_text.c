@@ -516,10 +516,10 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
 
-    if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
-      fprintf(fp, "%s_ZPHOT_QP: ", PREFIX);
-      for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_QP; j++){
-	fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_QP[igal][j]);
+    if (SNDATA.HOSTGAL_NZPHOT_Q > 0){
+      fprintf(fp, "%s_ZPHOT_Q: ", PREFIX);
+      for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_Q; j++){
+	fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_Q[igal][j]);
       }
       fprintf(fp, "\n");
     }

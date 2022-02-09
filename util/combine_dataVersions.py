@@ -2,14 +2,6 @@
 #
 # Created Feb 2017 by R.Kessler
 # Nov 10 2021: Major update/refactor (see history below)
-#  
-#
-# @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
-#
-#  WARNING: Bug in SUBSURVEY_LIST key in output SIMLIB  file 
-#
-# @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
-#
 #
 # Combine multiple data versions into a single data version.
 # Also produced combined kcor file and simLib file, and convert

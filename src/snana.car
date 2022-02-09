@@ -17650,6 +17650,7 @@ c
 c Feb 08 2020: apply PSF, ZPERR, PHOTPROB cuts here so that USEFLAG is set.
 c Feb 12 2020: check MWEBV_FORCE
 c Nov 30 2020: compute SIM_EPCHI2FLUX for SNANA+EPOCHS table
+c Feb 9  2022: fix bug setting SUBSURVEY_NAME_LIST
 c -------------------------------------------
 
       IMPLICIT NONE
@@ -17663,7 +17664,7 @@ c -------------------------------------------
 c local var
 
       INTEGER 
-     &   newmjd, ifilt, ifilt_obs, LENLIST, INDEX_OVP
+     &   newmjd, ifilt, ifilt_obs, LENLIST, LENNAME, INDEX_OVP
      &  ,NBAND_SNRMAX, NBAND_SNRMAX2
      &  ,EPMIN, EPMAX, ep, isort, PHOTFLAG
      &  ,ORDER, INDEX_SORT(MXFILT_OBS)  ! SORT args
@@ -17692,9 +17693,10 @@ c function
 C ------------------ BEGIN -----------------
 
 c check to increment SUBSURVEY_LIST
- 
+c WARNING: If CFA follows CFA3, the code will think that CFA already exists as a survey  
       IF ( IDSURVEY .ne. IDSUBSURVEY ) THEN
-        INDEX_OVP = INDEX(SUBSURVEY_NAME_LIST,SUBSURVEY_NAME) 
+        LENNAME = INDEX(SUBSURVEY_NAME,' ') - 1
+        INDEX_OVP = INDEX(SUBSURVEY_NAME_LIST,SUBSURVEY_NAME(1:LENNAME)) 
         IF ( INDEX_OVP<=0 ) THEN
           LENLIST = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
           if ( LENLIST == 0 ) then  
@@ -19679,10 +19681,11 @@ c        print*,' xxx SEDCMD = ', SEDCMD
 
 c if SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
+c fixed key SUBSURVEY_LIST to be printed after SURVEY key (M. Vincenzi Feb 2022)
          IF ( SUBSURVEY_NAME_LIST .NE. '' ) THEN
             LEN1   = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
             LEN2   = INDEX(SIMLIB_OUTFILE,' ') - 1
-            SEDCMD = "sed -i '1i SUBSURVEY_LIST: " 
+            SEDCMD = "sed -i '/SURVEY:/a  SUBSURVEY_LIST: " 
      &          // SUBSURVEY_NAME_LIST(1:LEN1) // "' " 
      &          // SIMLIB_OUTFILE(1:LEN2)
             CALL SYSTEM(SEDCMD)

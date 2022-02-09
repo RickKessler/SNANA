@@ -4361,6 +4361,7 @@ c
 c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
 c May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
 c May 21 2021: read HOSTGAL_FLAG
+c Feb 08 2022: read new hostgal properties: SFR, sSFR, COLOR
 
       IMPLICIT NONE
 
@@ -4464,6 +4465,8 @@ c - - -
 
 
 c - - - - - - - - - - - -  -
+c read generic HOSTGAL PROPERTIES ; -999 -> does not exist,
+c so EXIST requires value > -900.0
 
       KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
@@ -4473,7 +4476,7 @@ c - - - - - - - - - - - -  -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
 
-      if ( SNHOST_LOGMASS(igal) > 0.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
+      if ( SNHOST_LOGMASS(igal) > -900.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
 
 c - - - -
 
@@ -4485,7 +4488,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGSFR_ERR(igal)     = SNGL(DARRAY(1))
 
-      IF ( SNHOST_LOGSFR(igal) > -90.0 ) EXIST_SNHOST_LOGSFR = .TRUE.
+      IF ( SNHOST_LOGSFR(igal) > -900.0 ) EXIST_SNHOST_LOGSFR = .TRUE.
 
 c - - - -
 
@@ -4497,7 +4500,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGsSFR_ERR(igal)     = SNGL(DARRAY(1))
  
-      IF ( SNHOST_LOGsSFR(igal) > -90.0 ) EXIST_SNHOST_LOGsSFR = .TRUE.
+      IF ( SNHOST_LOGsSFR(igal) > -900.0 ) EXIST_SNHOST_LOGsSFR = .TRUE.
 
 c - - - -
 
@@ -4509,7 +4512,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_COLOR_ERR(igal)     = SNGL(DARRAY(1))
 
-      IF ( SNHOST_COLOR(igal) > -90.0 ) EXIST_SNHOST_COLOR = .TRUE.
+      IF ( SNHOST_COLOR(igal) > -900.0 ) EXIST_SNHOST_COLOR = .TRUE.
 
 c - - - 
       KEY_PREFIX = PREFIX(1:LENPRE) // "_MAG"
@@ -23970,34 +23973,43 @@ c  * sntable_dump extraction will write real*8 as integer.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
-c always write LOGMASS and SFR
-      VARLIST =  'HOST_LOGMASS:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
-     &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+c write hostgal properties: LOGMASS, SFR, sSFR, COLOR
 
-      VARLIST =  'HOST_LOGSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGMASS ) THEN
+        VARLIST =  'HOST_LOGMASS:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
      &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_LOGsSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGSFR ) THEN
+        VARLIST =  'HOST_LOGSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_COLOR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGsSFR ) THEN
+        VARLIST =  'HOST_LOGsSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_COLOR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_COLOR ) THEN
+        VARLIST =  'HOST_COLOR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_COLOR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,

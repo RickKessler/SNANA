@@ -368,91 +368,65 @@ void initvar_HOSTLIB(void) {
 } // end of initvar_HOSTLIB
 
 void malloc_HOSTGAL_PROPERTY(void) {
-
-  // Created Feb 2022 by M.Vincenzi and R.Kessler
-  // Parse hard-wired list of properties to gte N_PROPERTY,
-  // and then malloc HOSTGAL_PROPERTY_XXX structures.
-
-  int MEM, nbr, i, ivar, N_PROP;
-  char *BASENAME ;
   char fnam[] = "malloc_HOSTGAL_PROPERTY";
-
-  // ----------- BEGIN ---------------
-
+  int N_PROP;
+  int MEM, i, index;
+  char *varName;
+  // XYZ
   N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_LIST);
-  N_HOSTGAL_PROPERTY = N_PROP; // set global 
+  // setting a global variable 
+  N_HOSTGAL_PROPERTY = N_PROP;
 
   MEM = N_PROP * sizeof(HOSTGAL_PROPERTY_IVAR_DEF);
   HOSTLIB.HOSTGAL_PROPERTY_IVAR = (HOSTGAL_PROPERTY_IVAR_DEF*) malloc(MEM);
   
   MEM = N_PROP * sizeof(HOSTGAL_PROPERTY_VALUE_DEF);
-  for (nbr=0; nbr<MXNBR_LIST; nbr++) {
-    SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE = 
-      (HOSTGAL_PROPERTY_VALUE_DEF*) malloc(MEM);
-
-    // init all values to undefined in case they are not in HOSTLIB
-    for (ivar=0; ivar<N_PROP; ivar++) {
-      SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE[ivar].VAL_TRUE = 
-	HOSTGAL_PROPERTY_UNDEFINED ;
-      SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE[ivar].VAL_OBS = 
-	HOSTGAL_PROPERTY_UNDEFINED ;
-      SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE[ivar].VAL_ERR = 
-	HOSTGAL_PROPERTY_UNDEFINED ;
-    }
+  for (i=0; i<MXNBR_LIST; i++) {
+    SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE = (HOSTGAL_PROPERTY_VALUE_DEF*) malloc(MEM);
   }
 
-  // set default error scales to 1
-  for (ivar=0; ivar<N_PROP; ivar++){
-    BASENAME = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].BASENAME;
-    get_PARSE_WORD(0,ivar,BASENAME);
-    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].SCALE_ERR = 1.0; //default
+  for (i=0; i<N_PROP; i++){
+    varName = HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].BASENAME;
+    get_PARSE_WORD(0,i,varName);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 1.0; //default
   } 
-
 
   // check legacy input that works only for LOGMASS
   if (INPUTS.HOSTLIB_SCALE_LOGMASS_ERR!= 1.0){
     i = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
-    HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = 
-      INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[i].SCALE_ERR = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
   }
-
   // check for user input error scale for arbitrary property
   char *str_error = INPUTS.HOSTLIB_SCALE_PROPERTY_ERR;
-
-  if ( !IGNOREFILE(str_error) ){
-
-    int  N_item, ivar, index ;
-    char item[40], basename[40], **tmp_item_list;
+  if (!IGNOREFILE(str_error)){
+    char **tmp_item_list;
+    int N_item;
+    char item[40];
     double scale;
-
+    char basename[40];
     if (INPUTS.HOSTLIB_SCALE_LOGMASS_ERR != 1.0) {
-      sprintf(c1err, "Cannot specify both HOSTLIB_SCALE_LOGMASS_ERR "
-	      "and HOSTLIB_SCALE_PROPERTY_ERR" ) ;
+      sprintf(c1err, "Do not specify both HOSTLIB_SCALE_LOGMASS_ERR and HOSTLIB_SCALE_PROPERTY_ERR" ) ;
       sprintf(c2err, "Pick one or the other") ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
-
     parse_commaSepList("Host property error", str_error, 100, 40,
-		       &N_item, &tmp_item_list ); // <== returned 
-
+		       &N_item, &tmp_item_list ); // this is returned 
     for (i=0; i<N_item; i++){
       sprintf(item, "%s",tmp_item_list[i]); // presevre original tmp_item_list 
       extractStringOpt(item, basename);  // beaware that item is altered
       sscanf(item, "%le", &scale ) ; //convert string item to double scale
       index = getindex_HOSTGAL_PROPERTY(basename);
-      if (index < 0){
+      if (index<0){
 	sprintf(c1err, "INVALID basename = %s", basename ) ;
-	sprintf(c2err, "Check key=HOSTLIB_SCALE_PROPERTY_ERR, item=%s", 
-		tmp_item_list[i] ) ;
+	sprintf(c2err, "Check key=HOSTLIB_SCALE_PROPERTY_ERR, item=%s", tmp_item_list[i] ) ;
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
       HOSTLIB.HOSTGAL_PROPERTY_IVAR[index].SCALE_ERR = scale;
       printf("\t Scaling %s error by %.2f\n", basename, scale);
     } 
   } // end of if SCALE_PROPERTY_ERR given
-
   return;
-  
+ 
 } // end of malloc_HOSTGAL_PROPERTY
 
 

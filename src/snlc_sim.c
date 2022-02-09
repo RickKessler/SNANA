@@ -69,9 +69,8 @@
 int main(int argc, char **argv) {
 
   int ilc, istat, i  ;
-
   // define local structures
-  SIMFILE_AUX_DEF  SIMFILE_AUX ;
+  SIMFILE_AUX_DEF SIMFILE_AUX ;
   FILE *FP;
   char fnam[] = "main"; 
 
@@ -1023,6 +1022,7 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL  = 9999999;  // default is never re-use host
   INPUTS.HOSTLIB_SCALE_SERSIC_SIZE  = 1.0 ;
   INPUTS.HOSTLIB_SCALE_LOGMASS_ERR  = 1.0 ;
+  INPUTS.HOSTLIB_SCALE_PROPERTY_ERR[0] = 0;
 
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] = -9.0 ;
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] = -9.0 ;
@@ -3175,6 +3175,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_LOGMASS_ERR",WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ) ;   
   }
+  else if ( keyMatchSim(1, "HOSTLIB_SCALE_PROPERTY_ERR",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%se", INPUTS.HOSTLIB_SCALE_PROPERTY_ERR ) ;
+  }
   else if ( keyMatchSim(1, "HOSTLIB_STOREVAR  HOSTLIB_STOREPAR",
 			WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
@@ -3811,7 +3814,9 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   if ( N > 0 ) { goto README_LOAD; }
 
   // if not GENMODEL key, skip.
-  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+  // Feb 2 2022 RK - allow up to 2 GENMODEL keys to avoid Pippin abort.
+  // xxx  if ( !keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
+  if ( !keyMatchSim(2, "GENMODEL",  WORDS[0],keySource) ) { return 0;}
 
   // - - - -
   // Everything below is for GENMODEL key
@@ -15807,6 +15812,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
       // note that splitString2 is fast, but destroys cline
       splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
+      if (NWD==0) { WDLIST[0][0]=0 ; } // avoid stupid valgrind error if cline is blank
       
       // check end of file, or end of simlib keywork -> rewind
       FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
@@ -21513,17 +21519,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   if ( LCLIB_INFO.IPAR_REDSHIFT < 0 && INDEX_GENMODEL==MODEL_LCLIB ) 
     { return; }
 
-  /* xxxxxxxx mark delete Jan 17 2022 xxxxxxxx
-  // for LCLIB, load photo-z info and return
-  if ( ifilt_obs == 0 &&  INDEX_GENMODEL==MODEL_LCLIB ) {
-    SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
-    SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
-    SNDATA.HOSTGAL_PHOTOZ[0]         = SNHOSTGAL.ZPHOT ;
-    SNDATA.HOSTGAL_PHOTOZ_ERR[0]     = SNHOSTGAL.ZPHOT_ERR ;
-    return ;
-  }
-  xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxx */
-
   if ( INPUTS.HOSTLIB_USE == 0 ) { return ; }
 
   ifilt = GENLC.IFILTINVMAP_OBS[ifilt_obs] ; // sparse index
@@ -21591,6 +21586,29 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
       SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
+ 
+      if (REFAC_HOSTLIB){
+        j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
+	SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
+	SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+
+	j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGSFR);
+	// printf("xxxxx %s j=%d for LOGSFR=%f\n",fnam,j,SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS);
+	SNDATA.HOSTGAL_LOGSFR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.HOSTGAL_LOGSFR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
+	SNDATA.HOSTGAL_LOGSFR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR ;
+
+        j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
+	SNDATA.HOSTGAL_LOGsSFR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.HOSTGAL_LOGsSFR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
+	SNDATA.HOSTGAL_LOGsSFR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+
+        j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_COLOR);
+	SNDATA.HOSTGAL_COLOR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.HOSTGAL_COLOR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
+	SNDATA.HOSTGAL_COLOR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+	}
 
       // Added for LSST but may be of more general use; Alex Gagliano 09/2021
       SNDATA.HOSTGAL_OBJID2[m]       = SNHOSTGAL_DDLR_SORT[m].GALID2;

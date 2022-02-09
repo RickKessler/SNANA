@@ -106,8 +106,8 @@ char * asciifile_read_line
 #define min(a,b) ( ((a) < (b)) ? (a) : (b) )
 #define max(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define SIGN(a)  ( ((a) >= 0.0) ? (1.0) : (-1.0) )
-#define TRUE  1
-#define FALSE 0
+#define TRUE_MWDUST  1
+#define FALSE_MWDUST 0
 
 #if 0
 static float minarg1,minarg2;

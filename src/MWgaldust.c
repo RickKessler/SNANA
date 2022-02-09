@@ -980,7 +980,7 @@ void lambert_lb2fpix
 
       q1 = fits_get_card_rval_(&cdelt1, label_cdelt1, &nHead, &pHead);
       q2 = fits_get_card_rval_(&cdelt2, label_cdelt2, &nHead, &pHead);
-      if (q1 == TRUE && q2 == TRUE) {
+      if (q1 == TRUE_MWDUST && q2 == TRUE_MWDUST) {
           cd1_1 = cdelt1;
           cd1_2 = 0.0;
           cd2_1 = 0.0;
@@ -992,7 +992,7 @@ void lambert_lb2fpix
          fits_get_card_rval_(&cd2_2, label_cd2_2, &nHead, &pHead);
       }
       q1 = fits_get_card_rval_(&lonpole, label_lonpole, &nHead, &pHead);
-      if (q1 == FALSE) lonpole = 180.0; /* default value */
+      if (q1 == FALSE_MWDUST) lonpole = 180.0; /* default value */
 
       /* ROTATION */
       /* Equn (4) - degenerate case */
@@ -1139,7 +1139,7 @@ int ivector_maximum
  * a column as a vector that is contiguous in memory.
  * If the data array is empty, it should be passed with the value ppData = NULL.
  *
- * Return IO_GOOD if the file exists, and IO_FALSE otherwise.
+ * Return IO_GOOD if the file exists, and IO_FALSE_MWDUST otherwise.
  */
 int asciifile_read_colmajor
   (char     pFileName[],
@@ -1322,8 +1322,8 @@ char * asciifile_read_line
 
 #define min(a,b) ( ((a) < (b)) ? (a) : (b) )
 #define max(a,b) ( ((a) > (b)) ? (a) : (b) )
-#define TRUE  1
-#define FALSE 0
+#define TRUE_MWDUST  1
+#define FALSE_MWDUST 0
 
 char Datum_zero[]    = "\0\0\0\0";
 char Label_airmass[] = "AIRMASS ";
@@ -1659,11 +1659,11 @@ DSIZE fits_read_subimg_
    } else {
       /* Get the scaling parameters from the header */
       if (fits_get_card_rval_(&bscale, (uchar *)Label_bscale, &nHead, &pHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bscale = 1.0;  /* Default value for BSCALE */
       }
       if (fits_get_card_rval_(&bzero , (uchar *)Label_bzero , &nHead, &pHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bzero = 0.0;  /* Default value for BZERO */
       }
  
@@ -1803,11 +1803,11 @@ DSIZE fits_read_point_
    } else {
       /* Get the scaling parameters from the header */
       if (fits_get_card_rval_(&bscale, (uchar *)Label_bscale, &nHead, &pHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bscale = 1.0;  /* Default value for BSCALE */
       }
       if (fits_get_card_rval_(&bzero , (uchar *)Label_bzero , &nHead, &pHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bzero = 0.0;  /* Default value for BZERO */
       }
 
@@ -2177,7 +2177,7 @@ void fits_add_required_cards_
    DSIZE *  pNaxis;
    uchar    pLabel_temp[9]; /* Must be long enough for 8 chars + NULL */
 
-   if (fits_get_card_ival_(&naxis, label_naxis, pNHead, ppHead) == FALSE) {
+   if (fits_get_card_ival_(&naxis, label_naxis, pNHead, ppHead) == FALSE_MWDUST) {
       naxis = 0; /* default to no data axes */
       fits_change_card_ival_(&naxis, label_naxis, pNHead, ppHead);
    }
@@ -2192,7 +2192,7 @@ void fits_add_required_cards_
        */
 
       sprintf((char *)pLabel_temp, "NAXIS%-3d", iAxis+1);
-      if (fits_get_card_ival_(&naxisX, pLabel_temp, pNHead, ppHead) == FALSE) {
+      if (fits_get_card_ival_(&naxisX, pLabel_temp, pNHead, ppHead) == FALSE_MWDUST) {
          naxisX = 1; /* default to 1 */
          fits_change_card_ival_(&naxisX, pLabel_temp, pNHead, ppHead);
          printf("Adding a card %s\n", pLabel_temp);
@@ -2200,21 +2200,21 @@ void fits_add_required_cards_
 
 #if 0
       sprintf(pLabel_temp, "CRPIX%-3d  ", iAxis+1);
-      if (fits_get_card_ival_(&crpixX, pLabel_temp, pNHead, ppHead) == FALSE) {
+      if (fits_get_card_ival_(&crpixX, pLabel_temp, pNHead, ppHead) == FALSE_MWDUST) {
          crpixX = 1; /* default to start numbering at the first pixel */
          fits_change_card_ival_(&crpixX, pLabel_temp, pNHead, ppHead);
          printf("Adding a card %s\n", pLabel_temp);
       }
 
       sprintf(pLabel_temp, "CRVAL%-3d  ", iAxis+1);
-      if (fits_get_card_rval_(&crvalX, pLabel_temp, pNHead, ppHead) == FALSE) {
+      if (fits_get_card_rval_(&crvalX, pLabel_temp, pNHead, ppHead) == FALSE_MWDUST) {
          crvalX = 0.0; /* default to the first pixel value to be zero */
          fits_change_card_rval_(&crvalX, pLabel_temp, pNHead, ppHead);
          printf("Adding a card %s\n", pLabel_temp);
       }
 
       sprintf(pLabel_temp, "CDELT%-3d  ", iAxis+1);
-      if (fits_get_card_rval_(&cdeltX, pLabel_temp, pNHead, ppHead) == FALSE) {
+      if (fits_get_card_rval_(&cdeltX, pLabel_temp, pNHead, ppHead) == FALSE_MWDUST) {
          cdeltX = 1.0; /* default to spacing each pixel by a value of 1 */
          fits_change_card_rval_(&cdeltX, pLabel_temp, pNHead, ppHead);
          printf("Adding a card %s\n", pLabel_temp);
@@ -2367,7 +2367,7 @@ void fits_create_fits_data_
 /******************************************************************************/
 /*
  * Free the memory allocated for the header and data arrays.
- * Return TRUE if both arrays existed and were freed, and FALSE otherwise.
+ * Return TRUE_MWDUST if both arrays existed and were freed, and FALSE_MWDUST otherwise.
  */
 int fits_dispose_header_and_data_
   (uchar ** ppHead,
@@ -2382,17 +2382,17 @@ int fits_dispose_header_and_data_
 /******************************************************************************/
 /*
  * Free the memory allocated for a FITS header or data array.
- * Return TRUE if the array existed and was freed, and FALSE otherwise.
+ * Return TRUE_MWDUST if the array existed and was freed, and FALSE_MWDUST otherwise.
  */
 int fits_dispose_array_
   (uchar ** ppHeadOrData)
 {
    int      retval;
 
-   retval = FALSE;
+   retval = FALSE_MWDUST;
    if (*ppHeadOrData != NULL) {
       ccfree_((void **)ppHeadOrData);
-      retval = TRUE;
+      retval = TRUE_MWDUST;
    }
    return retval;
 }
@@ -2580,11 +2580,11 @@ void fits_data_to_r4_
 
       /* Get the scaling parameters from the header */
       if (fits_get_card_rval_(&bscale, (uchar *)Label_bscale, pNHead, ppHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bscale = 1.0;  /* Default value for BSCALE */
       }
       if (fits_get_card_rval_(&bzero , (uchar *)Label_bzero , pNHead, ppHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bzero = 0.0;  /* Default value for BZERO */
       }
 
@@ -2657,11 +2657,11 @@ void fits_data_to_i2_
 
       /* Get the scaling parameters from the header */
       if (fits_get_card_rval_(&bscale, (uchar *)Label_bscale, pNHead, ppHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bscale = 1.0;  /* Default value for BSCALE */
       }
       if (fits_get_card_rval_(&bzero , (uchar *)Label_bzero , pNHead, ppHead)
-       == FALSE) {
+       == FALSE_MWDUST) {
          bzero = 0.0;  /* Default value for BZERO */
       }
 
@@ -3020,7 +3020,7 @@ void fits_swap_cards_rval_
 /*
  * Find the 1st header card whose label matches the label passed,
  * and return the integer value of the argument after the label.
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  */
 int fits_get_card_ival_
   (int   *  pIval,
@@ -3042,10 +3042,10 @@ int fits_get_card_ival_
      memmove(pTemp, &pHead[iCard*80+10], 20);
      pTemp[20] = '\0';
      sscanf(pTemp, "%d", pIval);
-     iret = TRUE;
+     iret = TRUE_MWDUST;
    }
    else {
-     iret = FALSE;
+     iret = FALSE_MWDUST;
    }
    return iret;
 }
@@ -3054,7 +3054,7 @@ int fits_get_card_ival_
 /*
  * Find the 1st header card whose label matches the label passed,
  * and return the real (float) value of the argument after the label.
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  */
 int fits_get_card_rval_
   (float *  pRval,
@@ -3077,10 +3077,10 @@ int fits_get_card_rval_
      memmove(pTemp, &pHead[iCard*80+10], 20);
      pTemp[20] = '\0';
      sscanf(pTemp, "%f", pRval);
-     iret = TRUE;
+     iret = TRUE_MWDUST;
    }
    else {
-     iret = FALSE;
+     iret = FALSE_MWDUST;
    }
    return iret;
 }
@@ -3088,7 +3088,7 @@ int fits_get_card_rval_
 #if 0
 /******************************************************************************/
 /*
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  */
 int fits_get_julian_date_
   (float *  pJulianDate,
@@ -3104,9 +3104,9 @@ int fits_get_julian_date_
    float    time;
 
    if (iret=fits_get_card_date_(month,date,year,pLabelDate,pNHead,ppHead)
-    == TRUE) {
+    == TRUE_MWDUST) {
       *pJulianDate=...
-      if (fits_get_card_time_(&time,pLabelTime,pNHead,ppHead) == TRUE) {
+      if (fits_get_card_time_(&time,pLabelTime,pNHead,ppHead) == TRUE_MWDUST) {
          *pJulianDate+=...
       }
    } else {
@@ -3120,7 +3120,7 @@ int fits_get_julian_date_
 /*
  * Find the 1st header card whose label matches the label passed,
  * and return the date as three integers month, date and year.
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  */
 int fits_get_card_date_
   (int   *  pMonth,
@@ -3134,7 +3134,7 @@ int fits_get_card_date_
    char  *  pStringVal;
 
    iret = fits_get_card_string_(&pStringVal, pLabelDate, pNHead, ppHead);
-   if (iret == TRUE) {
+   if (iret == TRUE_MWDUST) {
       sscanf(pStringVal, "%d/%d/%d", pMonth, pDate, pYear);
       if (*pYear < 1900) *pYear += 1900;
       /* Free the memory used for the string value of this card */
@@ -3150,7 +3150,7 @@ int fits_get_card_date_
  * to a real value.  Typically, this is used with TIME, RA or HA
  * to return a value in hours, or it is used with DEC to return a
  * value in degrees.
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  */
 int fits_get_card_time_
   (float *  pTime,
@@ -3165,7 +3165,7 @@ int fits_get_card_time_
    char  *  pStringVal;
 
    iret = fits_get_card_string_(&pStringVal, pLabelTime, pNHead, ppHead);
-   if (iret == TRUE) {
+   if (iret == TRUE_MWDUST) {
       sscanf(pStringVal, "%d:%d:%f", &timeHour, &timeMin, &timeSec);
       *pTime=abs(timeHour) + timeMin/60.0 + timeSec/3600.0;
       /* Make the returned value negative if a minus sign is in the string */
@@ -3183,7 +3183,7 @@ int fits_get_card_time_
  * Find the 1st header card whose label matches the label passed,
  * and return a pointer to the string argument after the label.
  * Memory is dynamically allocated for the string argument.
- * Return TRUE if there is a match, and FALSE if there is none.
+ * Return TRUE_MWDUST if there is a match, and FALSE_MWDUST if there is none.
  * If there is not match, then create and return the string pStringUnknown.
  */
 int fits_get_card_string_
@@ -3221,12 +3221,12 @@ int fits_get_card_string_
      iChar = strlen(pTemp);
      while (iChar>0 && pTemp[--iChar]==' ') pTemp[iChar]='\0';
 
-     iret = TRUE;
+     iret = TRUE_MWDUST;
    }
    else {
      strcpy(pTemp, pStringUnknown);
 
-     iret = FALSE;
+     iret = FALSE_MWDUST;
    }
 
    *ppStringVal=pTemp;
@@ -3349,11 +3349,11 @@ void fits_string_to_card_
    /* Search for a NULL or CR in the card, and replace that character and
     * all following characters with a space.
     */
-   qNull = FALSE;
+   qNull = FALSE_MWDUST;
    iChar = 0;
    while (iChar < 80) {
-      if (pCard[iChar] == '\0' || pCard[iChar] == '\n') qNull = TRUE;
-      if (qNull == TRUE) pCard[iChar] = ' ';
+      if (pCard[iChar] == '\0' || pCard[iChar] == '\n') qNull = TRUE_MWDUST;
+      if (qNull == TRUE_MWDUST) pCard[iChar] = ' ';
       iChar++;
    }
 
@@ -3476,8 +3476,8 @@ void fits_put_rval_
  * to the value specified by the BLANK card.  This test is performed WITHOUT
  * first rescaling the data.  Pass the blank value as
  * a real variable, even if it was originally integer.  For a 2-dimensional
- * array, set iloc=x+y*naxis1.  Return TRUE (iq!=0) if the pixel is
- * BLANK, or FALSE (iq==0) if it is not.
+ * array, set iloc=x+y*naxis1.  Return TRUE_MWDUST (iq!=0) if the pixel is
+ * BLANK, or FALSE_MWDUST (iq==0) if it is not.
  * The value blankval must be found first and passed to this routine.
  * Several unconventional values for bitpix are supported: 32, 8, -8.
  */
@@ -3500,7 +3500,7 @@ int fits_qblankval_
    else if (*pBitpix ==-64) iq = ( pRdata64[*pIloc] == (*pBlankval) );
    else if (*pBitpix ==  8) iq = ( pIdata8 [*pIloc] == (*pBlankval) );
    else if (*pBitpix == -8) iq = ( pIdata8 [*pIloc] == (*pBlankval) );
-   else                     iq = FALSE; /* Invalid BITPIX! */
+   else                     iq = FALSE_MWDUST; /* Invalid BITPIX! */
 
    return iq;
 }
@@ -3565,7 +3565,7 @@ int fits_get_next_card_
 
 /******************************************************************************/
 /*
- * Write passed card to open file.  Return FALSE for a write error.
+ * Write passed card to open file.  Return FALSE_MWDUST for a write error.
  */
 int fits_put_next_card_
   (int   *  pFilenum,
@@ -3574,9 +3574,9 @@ int fits_put_next_card_
    int      iChar;
    int      retval;
 
-   retval = TRUE;
+   retval = TRUE_MWDUST;
    for (iChar=0; iChar < 80; iChar++) {
-      if (fputc(pCard[iChar], pFILEfits[*pFilenum]) == EOF) retval = FALSE;
+      if (fputc(pCard[iChar], pFILEfits[*pFilenum]) == EOF) retval = FALSE_MWDUST;
    }
    return retval;
 }

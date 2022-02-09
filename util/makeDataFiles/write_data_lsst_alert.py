@@ -4,6 +4,7 @@
 #
 # Jan 14 2022 G.Narayan - fix diaObject bug found by Rob K.
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
+# Jan 31 2022 RK^2 fix bug setting alert_first_detect
 
 import datetime
 import glob
@@ -34,21 +35,21 @@ VARNAME_DIASRC_MAP = {
     gpar.DATAKEY_SNID            : 'diaObjectId',
     gpar.DATAKEY_RA              : lc,
     gpar.DATAKEY_DEC             : 'decl',
-    gpar.DATAKEY_MWEBV           : lc,
-    gpar.DATAKEY_MWEBV_ERR       : lc,
     gpar.DATAKEY_zHEL            : 'z_final' ,
     gpar.DATAKEY_zHEL_ERR        : 'z_final_err',
-    gpar.DATAKEY_NOBS            : lc,       # in phot_raw, not header
+    gpar.DATAKEY_NOBS            : lc       # in phot_raw, not header
     #
-    gpar.HOSTKEY_SNSEP           : lc,
-    gpar.HOSTKEY_SPECZ           : 'hostgal_z',
-    gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
 VARNAME_DIAOBJ_MAP = {
     gpar.DATAKEY_SNID            : 'diaObjectId',
     gpar.DATAKEY_RA              : lc,
-    gpar.DATAKEY_DEC             : 'decl'
+    gpar.DATAKEY_DEC             : 'decl',
+    gpar.DATAKEY_MWEBV           : lc,
+    gpar.DATAKEY_MWEBV_ERR       : lc,
+    gpar.HOSTKEY_SNSEP           : lc,
+    gpar.HOSTKEY_SPECZ           : 'hostgal_z',
+    gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
 HOSTKEY_BASE_DIASRC = [ 'hostgal_', 'hostgal2_' ]
@@ -60,14 +61,17 @@ HOSTKEY_BASE_DIASRC = [ 'hostgal_', 'hostgal2_' ]
 
 for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
     for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
-        key = f"{prefix}_{band}"
-        VARNAME_DIASRC_MAP[key] = lc
+        key_snana = f"{prefix}_{band}"
+        key_alert = f"{prefix.lower()}_{band}"
+        VARNAME_DIAOBJ_MAP[key_snana] = key_alert
 
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
     'BAND'       : 'filterName',
-    'FLUXCAL'    : 'apFlux',
-    'FLUXCALERR' : 'apFluxErr'
+    'FLUXCAL'    : 'psFlux',
+    'FLUXCALERR' : 'psFluxErr'
+    # xxx mark delete Feb 2 2022 'FLUXCAL'    : 'apFlux',
+    # xxx mark delete FLUXCALERR' : 'apFluxErr'
 }
 
 LSST_ZP_nJy     = 31.4   # report calibrated flux in this unit
@@ -87,15 +91,7 @@ LSST_SITE_NAME    = "CTIO"
 
 #'alertId', 'l1dbId', 'diaSource', 'prvDiaSources', 'diaObject', 'ssObject']
 
-# - - - - - - - - - - - 
-# Flags to reduce output
-
-# Flag to remove ssObject dictionary
-COMPRESS_ALERT_ssObject = True   
-
-# flag to hostgal store some keysl ONLY on first detect that has valid info;
-# no hostgal info stored for Galactic events.
-COMPRESS_ALERT_HOSTGAL  = False  
+TIME_WAIT_FORCEPHOTO = 0.9  # days,  wait this long for previous sources
 
 # ===============================================================
 def init_schema_lsst_alert(schema_file):
@@ -111,13 +107,8 @@ def init_schema_lsst_alert(schema_file):
     with open(json_file) as f:
         alert_data = json.load(f)
 
-    logging.info(f"\t COMPRESS_ALERT_ssObject = {COMPRESS_ALERT_ssObject}")
-    logging.info(f"\t COMPRESS_ALERT_HOSTGAL  = {COMPRESS_ALERT_HOSTGAL}")
     logging.info(f"")
 
-    if COMPRESS_ALERT_ssObject:
-        alert_data.pop('ssObject')
-        #sys.exit(f" xxx kkeys = {alert_data.keys()} ")
 
     # HACK HACK HACK
     #import pdb
@@ -159,7 +150,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         if KEYNAME_SUBSTRING_FLUXCAL in key:
             phot_raw[key] = [f*SCALE_FLUXCAL for f in phot_raw[key] ]
 
-    # - - - - 
+    # - - - -
     SNID         = int(head_raw[gpar.DATAKEY_SNID]) # to compare sourceID
     NOBS         = phot_raw[gpar.DATAKEY_NOBS]
     true_gentype  = head_sim[gpar.SIMKEY_TYPE_INDEX]
@@ -206,7 +197,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     #    print(f" xxx found original alert key: {key}")
 
     alert['prvDiaSources'].clear() # clear out all the past histories
-    alert_first_detect['prvDiaSources'].clear()
+    alert_first_detect['prvDiaSources'].clear() # clear out all the past histories
 
     # - - - - - -
     my_diaSource = diaSource    # not empty - has default quantities from schema
@@ -215,12 +206,6 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     # translate snana header and create diaSource[Object] dictionaries for lsst alert
     translate_dict_alert(-1, data_event_dict,           # <== I
                          my_diaSource, my_diaObject)    # <== I/O
-
-    alert_first_detect['diaSource'] = copy(my_diaSource)
-    if COMPRESS_ALERT_HOSTGAL: 
-        for key in alert_first_detect['diaSource']: 
-            for prefix in HOSTKEY_BASE_DIASRC :
-                if prefix in key:  my_diaSource.pop(key)
 
     alert['diaSource']              = my_diaSource
     alert['diaObject']              = my_diaObject
@@ -330,11 +315,21 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             mjd_file  = f"{outdir_nite}/" \
                         f"alert_{str_day}_{str_obj}_{str_src}.avro"
 
+            delta_t = mjd - MJD_REF  # elapsed time since 1st detect
             gzip_mjd_file = mjd_file + '.gz'
             with gzip.GzipFile(filename=gzip_mjd_file,
                                mode='wb', compresslevel=9) as f:
-                if nobs_detect == 1 :
+
+                # xxx mark delete if nobs_detect == 1 :
+                # ignore previous sources within ~1day of 1st detection
+                # because it takes 24 hr to run forcePhoto
+
+                if delta_t < TIME_WAIT_FORCEPHOTO :
                     # store only 1st detection; no force photo yet.
+                    alert_first_detect['diaSource'] = copy(my_diaSource)
+                    alert_first_detect['diaObject'] = copy(my_diaObject)
+                    alert_first_detect['prvDiaSources'].clear()
+
                     avro_bytes = schema.serialize(alert_first_detect)
                     messg      = schema.deserialize(avro_bytes)
                     schema.store_alerts(f, [alert_first_detect] )
@@ -396,49 +391,20 @@ def translate_dict_alert(obs, data_event_dict, diaSource, diaObject):
         # e.g., host info should never be set for Galactic transients.
         head_raw       = data_event_dict['head_raw']
         HOSTGAL_NMATCH = head_raw[gpar.HOSTKEY_NMATCH]
-        SKIP_HOSTGAL   = HOSTGAL_NMATCH <= 0  and  COMPRESS_ALERT_HOSTGAL
 
         for varName_inp in VARNAME_DIASRC_MAP:  # loop over SNANA keys
             varName_avro = VARNAME_DIASRC_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
-            # check option to skip HOST keys if there is no host (to reduce disk output)
-            isvar_hostgal = gpar.HOSTKEY_BASE in varName_inp # check SNANA key
-            if isvar_hostgal and SKIP_HOSTGAL: 
-                continue
-                
-            diaSource[varName_avro] = get_data_alert_value(data_event_dict, varName_inp)
-
-            # xxxxx mark delete 
-            #if varName_inp in head_raw:
-            #    if varName_inp == gpar.DATAKEY_SNID: # convert str to int
-            #        diaSource[varName_avro] = int(head_raw[varName_inp])
-            #    else:
-            #        diaSource[varName_avro] = head_raw[varName_inp]
-            # elif varName_inp in head_calc :
-            #    diaSource[varName_avro] = head_calc[varName_inp]
-            #else:
-            #    diaSource[varName_avro] = phot_raw[varName_inp]
-            # xxxxxxxxx 
+            diaSource[varName_avro] = \
+                get_data_alert_value(data_event_dict, varName_inp)
 
         for varName_inp in VARNAME_DIAOBJ_MAP:
             varName_avro = VARNAME_DIAOBJ_MAP[varName_inp]
             if varName_avro == lc:  varName_avro = varName_inp.lower()
 
-            diaObject[varName_avro] = get_data_alert_value(data_event_dict, varName_inp)
-
-            # xxxxx mark delete 
-            #if varName_inp in head_raw:
-            #    if varName_inp == gpar.DATAKEY_SNID: # convert str to int
-            #        diaObject[varName_avro] = int(head_raw[varName_inp])
-            #    else:
-            #        diaObject[varName_avro] = head_raw[varName_inp]
-            #
-            #elif varName_inp in head_calc :
-            #    diaObject[varName_avro] = head_calc[varName_inp]
-            #else:
-            #    diaObject[varName_avro] = phot_raw[varName_inp]
-            # xxxxxxxxxxxx
+            diaObject[varName_avro] = \
+                get_data_alert_value(data_event_dict, varName_inp)
 
             #print(f" xxx {varName_inp} -> {varName_avro} ")
 
@@ -458,7 +424,7 @@ def get_data_alert_value(data_event_dict, varName):
     head_raw  = data_event_dict['head_raw']
     head_calc = data_event_dict['head_calc']
     phot_raw  = data_event_dict['phot_raw']
-    value     = None 
+    value     = None
 
     if varName in head_raw:
         if varName == gpar.DATAKEY_SNID: # convert str to int

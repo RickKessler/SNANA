@@ -13,6 +13,7 @@
 #   + if summary file exists, add -2 extension to avoid clobber
 #   + add clobber_sed_binary()  util
 #
+# Feb 05 2022 RK - USE_BINARY -> 6 (force remake of both binaries)
 # ============================================
 
 import os, argparse, logging, shutil, time
@@ -25,7 +26,8 @@ LOG_PREFIX        = GENVERSION_PREFIX           # prefix for log files
 JOB_NAME          = 'snlc_sim.exe'              # sim executable name in snana
 
 # 2=force new SED.BINARY, 4=force new fluxTable binary, 6=force both
-USE_BINARY        = 4  
+# The 'force' implementation is in sntools_SIMSED.c, not here.
+USE_BINARY        = 6  
 
 # define key names for input config file
 KEYNAME_SIM_KEYS      = "SIM_KEYS"

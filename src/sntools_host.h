@@ -133,8 +133,9 @@
 #define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_QP0"
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
-#define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
-#define HOSTLIB_IGAL_UNDEFINED -9999
+#define HOSTLIB_SNPAR_UNDEFINED     -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED      -9999
+#define HOSTGAL_PROPERTY_UNDEFINED  -999.0
 
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
@@ -154,6 +155,29 @@ char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
 int OPTMASK_OPENFILE_HOSTLIB ;
+
+//for developers only
+bool REFAC_HOSTLIB;
+
+// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
+#define HOSTGAL_PROPERTY_BASENAME_LOGMASS "LOGMASS"
+#define HOSTGAL_PROPERTY_BASENAME_LOGSFR "LOGSFR"
+#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR "LOGsSFR"
+#define HOSTGAL_PROPERTY_BASENAME_COLOR "COLOR"
+
+#define HOSTGAL_PROPERTY_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
+int N_HOSTGAL_PROPERTY;
+
+typedef struct {
+  double VAL_TRUE,VAL_OBS, VAL_ERR;
+} HOSTGAL_PROPERTY_VALUE_DEF;
+
+typedef struct {
+  int IVAR_TRUE, IVAR_OBS, IVAR_ERR;
+  char BASENAME[100];
+  double SCALE_ERR;
+} HOSTGAL_PROPERTY_IVAR_DEF;
+
 
 struct HOSTLIB_DEF {
   char FILENAME[MXPATHLEN] ; // full file name of HOSTLIB
@@ -211,9 +235,10 @@ struct HOSTLIB_DEF {
   int NZPHOT_QP;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
-  int IVAR_LOGMASS_TRUE ;
-  int IVAR_LOGMASS_ERR ;
-  int IVAR_LOGMASS_OBS ;
+  int IVAR_LOGMASS_TRUE ; // legacy 
+  int IVAR_LOGMASS_ERR ; // legacy 
+  int IVAR_LOGMASS_OBS ;  // legacy
+  HOSTGAL_PROPERTY_IVAR_DEF *HOSTGAL_PROPERTY_IVAR ;
   int IVAR_RA ;
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
@@ -453,7 +478,8 @@ typedef struct {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
   double RA, DEC, SNSEP, DLR, DDLR ;
-  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
+  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
   double ZPHOT_QP[MXBIN_ZPHOT_QP];
@@ -624,6 +650,7 @@ void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
+void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;
 void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
@@ -635,6 +662,8 @@ void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
+void   init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) ;
+
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
@@ -647,6 +676,9 @@ int    read_VARNAMES_WGTMAP(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
+void   malloc_HOSTGAL_PROPERTY(void);
+int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
+
 // xxxvoid   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init

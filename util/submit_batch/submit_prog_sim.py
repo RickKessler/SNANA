@@ -547,7 +547,7 @@ class Simulation(Program):
     def sim_prep_NGENTOT_LC(self):
 
         CONFIG        = self.config_yaml['CONFIG']
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         n_genversion  = self.config_prep['n_genversion']
         infile_list2d = self.config_prep['infile_list2d']
         INFILE_KEYS   = self.config_prep['INFILE_KEYS']
@@ -576,8 +576,9 @@ class Simulation(Program):
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
 
-                # finally, check for fast option to divide by 10
-                if fast:  ngentot = int(ngentot/FASTFAC)
+                # finally, check for fast option to divide by 10 or 100
+                if prescale > 1 :  
+                    ngentot = int(ngentot/prescale)
 
                 ngentot_list.append(ngentot) # append ifile dimension
                 ngentot_sum += ngentot

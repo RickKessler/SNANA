@@ -13,7 +13,7 @@
 # Oct 12 2021: implement --check_abort for lcfit
 # Oct 20 2021: add makeDataFiles
 # Dec 04 2021: new input --merge_background
-#
+# Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # - - - - - - - - - -
 
 #import os
@@ -67,6 +67,9 @@ def get_args():
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
 
+    msg = "process x100 fewer events"
+    parser.add_argument("--faster", help=msg, action="store_true")
+
     msg = "ignore FITOPT (LC & BBC fits)"
     parser.add_argument("--ignore_fitopt", help=msg, action="store_true")
 
@@ -89,7 +92,7 @@ def get_args():
     msg = "kill jobs if FAIL is detected"
     parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
-    msg = "check for abort using interactive job for 1 event"
+    msg = f"check for abort using interactive job for 300 events"
     parser.add_argument("--check_abort", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
@@ -141,11 +144,16 @@ def get_args():
 
     args = parser.parse_args()
 
+    # internally set prescale arg
+    args.prescale = 1
+    if args.fast   : args.prescale = FASTFAC
+    if args.faster : args.prescale = FASTFAC2
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()
 
-    return parser.parse_args()
+    return args
 
     # end get_args
 
@@ -345,8 +353,9 @@ def print_submit_messages(config_yaml):
     elif args.nomerge :
         print(f" REMEMBER: you disabled the merge process.")
 
-    if args.fast :
-        print(f" REMEMBER: fast option will process 1/{FASTFAC} of request.")
+    if args.prescale > 1 :
+        print(f" REMEMBER: fast option will process " \
+              f"1/{args.prescale} of request.")
 
     if args.force_crash_merge :
         print(f" REMEMBER: there is a forced crash in MERGE process.")

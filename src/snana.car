@@ -1402,7 +1402,9 @@ c logical flags for output tables
      &  ,EXIST_SNHOST_CONFUSION
      &  ,EXIST_SNHOST_ZPHOT
      &  ,EXIST_SNHOST_LOGMASS
-     &  ,EXIST_SNHOST_sSFR
+     &  ,EXIST_SNHOST_LOGSFR
+     &  ,EXIST_SNHOST_LOGsSFR
+     &  ,EXIST_SNHOST_COLOR
      &  ,EXIST_SNHOST_MAGOBS
      &  ,EXIST_SNHOST_SB
 
@@ -1417,8 +1419,12 @@ c logical flags for output tables
      &  ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)
      &  ,SNHOST_LOGMASS(MXSNHOST)
      &  ,SNHOST_LOGMASS_ERR(MXSNHOST)
-     &  ,SNHOST_sSFR(MXSNHOST)
-     &  ,SNHOST_sSFR_ERR(MXSNHOST)
+     &  ,SNHOST_LOGSFR(MXSNHOST)
+     &  ,SNHOST_LOGSFR_ERR(MXSNHOST)
+     &  ,SNHOST_LOGsSFR(MXSNHOST)
+     &  ,SNHOST_LOGsSFR_ERR(MXSNHOST)
+     &  ,SNHOST_COLOR(MXSNHOST)
+     &  ,SNHOST_COLOR_ERR(MXSNHOST)
      &  ,SNHOST_SBFLUXCAL(MXFILT_ALL)  ! surface brightness FLUXCAL /asec^2
      &  ,SNHOST_MAGOBS(MXFILT_ALL,(MXSNHOST))       ! observer-frame mags
      &  ,SNHOST_MAGOBS_ERR(MXFILT_ALL,(MXSNHOST))   ! error on above
@@ -1439,7 +1445,8 @@ c quantites which do not depend on which host
 
       COMMON / SNHOSTCOM / 
      &   EXIST_SNHOST_ANGSEP, EXIST_SNHOST_DDLR, EXIST_SNHOST_CONFUSION
-     &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_sSFR
+     &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_LOGSFR
+     &  ,EXIST_SNHOST_LOGsSFR, EXIST_SNHOST_COLOR
      &  ,EXIST_SNHOST_MAGOBS, EXIST_SNHOST_SB
 c
      &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
@@ -1447,7 +1454,9 @@ c
      &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR 
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
      &  ,SNHOST_LOGMASS, SNHOST_LOGMASS_ERR
-     &  ,SNHOST_sSFR,    SNHOST_sSFR_ERR
+     &  ,SNHOST_LOGSFR, SNHOST_LOGSFR_ERR
+     &  ,SNHOST_LOGsSFR,    SNHOST_LOGsSFR_ERR
+     &  ,SNHOST_COLOR,    SNHOST_COLOR_ERR
      &  ,SNHOST_SBFLUXCAL, SNHOST_SBFLUXCAL_ERR, SNHOST_SBMAG
      &  ,SNHOST_MAGOBS, SNHOST_MAGOBS_ERR
 
@@ -4352,6 +4361,7 @@ c
 c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
 c May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
 c May 21 2021: read HOSTGAL_FLAG
+c Feb 08 2022: read new hostgal properties: SFR, sSFR, COLOR
 
       IMPLICIT NONE
 
@@ -4455,6 +4465,8 @@ c - - -
 
 
 c - - - - - - - - - - - -  -
+c read generic HOSTGAL PROPERTIES ; -999 -> does not exist,
+c so EXIST requires value > -900.0
 
       KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
@@ -4464,19 +4476,43 @@ c - - - - - - - - - - - -  -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
 
-      if ( SNHOST_LOGMASS(igal) > 0.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
+      if ( SNHOST_LOGMASS(igal) > -900.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
 
 c - - - -
 
-      KEY    = PREFIX(1:LENPRE)//'_sSFR' ;   
+      KEY    = PREFIX(1:LENPRE)//'_LOGSFR' ;
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-      SNHOST_sSFR(igal)     = SNGL(DARRAY(1))
+      SNHOST_LOGSFR(igal)     = SNGL(DARRAY(1))
 
-      KEY    = PREFIX(1:LENPRE)//'_sSFR_ERR' ;   
+      KEY    = PREFIX(1:LENPRE)//'_LOGSFR_ERR' ;
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-      SNHOST_sSFR_ERR(igal)     = SNGL(DARRAY(1))
+      SNHOST_LOGSFR_ERR(igal)     = SNGL(DARRAY(1))
+
+      IF ( SNHOST_LOGSFR(igal) > -900.0 ) EXIST_SNHOST_LOGSFR = .TRUE.
+
+c - - - -
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGsSFR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGsSFR(igal)     = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGsSFR_ERR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGsSFR_ERR(igal)     = SNGL(DARRAY(1))
  
-      IF ( SNHOST_sSFR(igal) > -90.0 ) EXIST_SNHOST_sSFR = .TRUE.
+      IF ( SNHOST_LOGsSFR(igal) > -900.0 ) EXIST_SNHOST_LOGsSFR = .TRUE.
+
+c - - - -
+
+      KEY    = PREFIX(1:LENPRE)//'_COLOR' ;
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_COLOR(igal)     = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_COLOR_ERR' ;
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_COLOR_ERR(igal)     = SNGL(DARRAY(1))
+
+      IF ( SNHOST_COLOR(igal) > -900.0 ) EXIST_SNHOST_COLOR = .TRUE.
 
 c - - - 
       KEY_PREFIX = PREFIX(1:LENPRE) // "_MAG"
@@ -11028,7 +11064,9 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
 c init HOST logicals
       EXIST_SNHOST_ZPHOT    = .FALSE.
       EXIST_SNHOST_LOGMASS  = .FALSE.
-      EXIST_SNHOST_sSFR     = .FALSE.
+      EXIST_SNHOST_LOGSFR   = .FALSE.
+      EXIST_SNHOST_LOGsSFR  = .FALSE.
+      EXIST_SNHOST_COLOR    = .FALSE.
       EXIST_SNHOST_MAGOBS   = .FALSE.
       EXIST_SNHOST_SB       = .FALSE.
       EXIST_SNHOST_ANGSEP   = .FALSE.
@@ -15367,10 +15405,14 @@ c init a few SNHOST arrays
          SNHOST_ZPHOT_ERR(igal)   = -9.0
          SNHOST_ZSPEC(igal)       = -9.0
          SNHOST_ZSPEC_ERR(igal)   = -9.0
-         SNHOST_LOGMASS(igal)     = -9.0
-         SNHOST_LOGMASS_ERR(igal) = -9.0
-         SNHOST_sSFR(igal)        = -9.0
-         SNHOST_sSFR_ERR(igal)    = -9.0
+         SNHOST_LOGMASS(igal)     = -999.0
+         SNHOST_LOGMASS_ERR(igal) = -999.0
+         SNHOST_LOGSFR(igal)        = -999.0
+         SNHOST_LOGSFR_ERR(igal)    = -999.0
+         SNHOST_LOGsSFR(igal)        = -999.0
+         SNHOST_LOGsSFR_ERR(igal)    = -999.0
+         SNHOST_COLOR(igal)       = -999.0
+         SNHOST_COLOR_ERR(igal)   = -999.0
       enddo
 c --------
       
@@ -17136,10 +17178,10 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_DDLR' ) THEN
           SNHOST_DDLR(1) = sngl(DVAL)   ! Dec 10, 2019
 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR' ) THEN
-          SNHOST_sSFR(1) = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR_ERR' ) THEN
-          SNHOST_sSFR_ERR(1) = sngl(DVAL)
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGsSFR' ) THEN
+          SNHOST_LOGsSFR(1) = sngl(DVAL)
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGsSFR_ERR' ) THEN
+          SNHOST_LOGsSFR_ERR(1) = sngl(DVAL)
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_PHOTOZ' ) THEN
           SNHOST_ZPHOT(1)     = sngl(DVAL)
@@ -23931,21 +23973,43 @@ c  * sntable_dump extraction will write real*8 as integer.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
-c always write LOGMASS and SFR
-      VARLIST =  'HOST_LOGMASS:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
-     &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+c write hostgal properties: LOGMASS, SFR, sSFR, COLOR
 
+      IF ( EXIST_SNHOST_LOGMASS ) THEN
+        VARLIST =  'HOST_LOGMASS:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
+     &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_sSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGSFR ) THEN
+        VARLIST =  'HOST_LOGSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_sSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_LOGsSFR ) THEN
+        VARLIST =  'HOST_LOGsSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_COLOR ) THEN
+        VARLIST =  'HOST_COLOR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_COLOR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,

@@ -1365,7 +1365,7 @@ class BBC(Program):
             #flush=True)
 
         input_file    = self.config_yaml['args'].input_file 
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         kill_on_fail  = self.config_yaml['args'].kill_on_fail
         iter2         = self.config_yaml['args'].iter2
         iter1         = not iter2
@@ -1426,8 +1426,8 @@ class BBC(Program):
 
         # check command line input --fast option to prescale by 10
         # Only sim is pre-scaled; don't pre-scale data.
-        if fast:
-            arg_list.append(f"prescale_simdata={FASTFAC}")
+        if prescale > 1 :
+            arg_list.append(f"prescale_simdata={prescale}")
 
         # - - - - - -
         # check option to use FITOPT000 events for all syst.

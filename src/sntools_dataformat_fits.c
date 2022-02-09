@@ -244,6 +244,7 @@ void wr_snfitsio_init_head(void) {
   // Feb 27, 2020: add SIM_HOSTLIB_GALID
   // May 14, 2020: add REDSHIFT_QUALITYFLAG
   // Oct 13, 2021: add IMGNUM  (mimic CCDNUM)
+  // Feb 7, 2022: add SFR, sSFR, COLOR
 
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar, iqp;
@@ -298,6 +299,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
 
   // ---------- HOST ----------
+  
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH" ,     itype ); 
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH2" ,    itype ); 
 
@@ -314,8 +316,13 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
   wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS" ,    itype ); 
   wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS_ERR", itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR" ,       itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_sSFR_ERR",    itype ); 
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR" ,       itype ); 
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR_ERR",    itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR" ,       itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR_ERR",    itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR" ,       itype );
+  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR_ERR",    itype );
+
   wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
   wr_snfitsio_addCol( "1E", "HOSTGAL_SQRADIUS",    itype );
@@ -363,8 +370,12 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR" ,       itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_sSFR_ERR",    itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR" ,     itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR_ERR",  itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR" ,    itype ); 
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR", itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR" ,      itype );
+    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR_ERR",   itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
@@ -386,10 +397,10 @@ void wr_snfitsio_init_head(void) {
     }
 
     // add QP posteriors
- for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
-    sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
-    wr_snfitsio_addCol( "1E", parName, itype );
-  }
+    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
+      sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
+      wr_snfitsio_addCol( "1E", parName, itype );
+    }
  
   }  // end of 2nd-HOSTGAL block
 
@@ -401,7 +412,7 @@ void wr_snfitsio_init_head(void) {
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
     wr_snfitsio_addCol( "1E", parName, itype );
   }
-   
+ 
 
   // -----------------
 
@@ -1590,7 +1601,8 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_DDLR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
    
-    // host mass
+    // host properties 
+    // host logmass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_LOGMASS", PREFIX);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
@@ -1601,16 +1613,40 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
-    // host sSFR
+    if (REFAC_HOSTLIB){
+    // host sfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_sSFR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_sSFR[igal] ;
+    sprintf(parName,"%s_LOGSFR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_OBS[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_LOGSFR_ERR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_ERR[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    // host ssfr
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_LOGsSFR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_sSFR_ERR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_sSFR_ERR[igal] ;
+    sprintf(parName,"%s_LOGsSFR_ERR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    // host color                                                                                           
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_COLOR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_OBS[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    sprintf(parName,"%s_COLOR_ERR", PREFIX);
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    } // end of host properties
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_ELLIPTICITY", PREFIX);
@@ -3211,13 +3247,29 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_sSFR", PREFIX);
-      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR[igal],
+      sprintf(KEY,"%s_LOGSFR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_OBS[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_LOGSFR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_ERR[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_LOGsSFR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_sSFR_ERR", PREFIX);
-      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR_ERR[igal],
+      sprintf(KEY,"%s_LOGsSFR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
+
+      sprintf(KEY,"%s_COLOR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_OBS[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_COLOR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_ERR[igal],
+                                   &SNFITSIO_READINDX_HEAD[j] ) ;
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];

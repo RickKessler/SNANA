@@ -3986,7 +3986,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
    HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
-   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0
+   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0 (Legacy key)
+   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   # default= 1.0 for all prop
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -4150,6 +4151,8 @@ to make the galaxy sizes bigger or smaller.
 
 {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales the {\tt LOGMASS} \unc.
 
+{\tt HOSTLIB\_SCALE\_PROPERTY\_ERR} scales the error of the property in parenthesis as illustrated above.
+
 %\clearpage
 The {\tt HOSTLIB\_MSKOPT} options can be 
 viewed with the grep-command
@@ -4214,6 +4217,29 @@ viewed with the grep-command
 Options can be combined, such as {\tt HOSTLIB\_MSKOPT}=10
 will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
+
+% ------------------------------------                                                                                                                       %\clearpage                                                                                                                                                   
+\subsubsection{Hostgal properties}
+\label{sss:hostgal_properties}
+In the Hostlib you can define true, observed and error for up to four properties;
+\begin{verbatim}
+LOGMASS LOGMASS_TRUE LOGMASS_OBS LOGMASS_ERR 
+LOGSFR  LOGSFR_TRUE  LOGSFR_OBS  LOGSFR_ERR
+LOGsSFR LOGsSFR_TRUE LOGsSFR_OBS LOGsSFR_ERR
+COLOR   COLOR_TRUE   COLOR_OBS   COLOR_ERR
+\end{verbatim}
+
+Items in the left columns are the BASENAME, and BASENAME alone will be interpreted as BASENAME\_TRUE.
+If BASENAME\_ERR is specified, BASENAME\_OBS is computed as Gauss(BASENAME\_TRUE, BASENAME\_ERR).
+Non gaussian errors can be simulated by specifing BASENAME\_OBS and not BASENAME\_ERR.
+BASENAME\_ERR can be rescaled by using the sim-input key 
+\begin{verbatim}                                                                                                                                             
+HOSTLIB_SCALE_PROPERTY_ERR: 0.0(LOGMASS),0.0(LOGSFR) # set errors to zero
+HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.5(LOGsSFR)  # scale each error differently
+\end{verbatim}
+
+These values are automatically propagated to the simulated data files, and aftyer light-curve fitting they are propagated to output tables (e.g. SNANA, FITRES).
+% ------------------------------------                                                                                                                        
 
 
 % ------------------------------------

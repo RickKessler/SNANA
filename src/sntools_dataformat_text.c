@@ -2105,10 +2105,20 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	SNDATA.HOSTGAL_LOGMASS_OBS[igal] =  FVAL;
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGMASS_ERR[igal] = FVAL_ERR; }
       }
-      sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
+      sprintf(KEY_TEST,"%s_LOGSFR", PREFIX);
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+        SNDATA.HOSTGAL_LOGSFR_OBS[igal] =  FVAL;
+        if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGSFR_ERR[igal] = FVAL_ERR; }
+      }
+      sprintf(KEY_TEST,"%s_LOGsSFR", PREFIX); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
 	SNDATA.HOSTGAL_LOGsSFR_OBS[igal] = FVAL;
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGsSFR_ERR[igal] = FVAL_ERR; }
+      }
+      sprintf(KEY_TEST,"%s_COLOR", PREFIX);
+      if ( strstr(word0,KEY_TEST) != NULL ) {
+        SNDATA.HOSTGAL_COLOR_OBS[igal] =  FVAL;
+        if(PLUS_MINUS) { SNDATA.HOSTGAL_COLOR_ERR[igal] = FVAL_ERR; }
       }
 
       sprintf(KEY_TEST,"%s_MAG:", PREFIX); 

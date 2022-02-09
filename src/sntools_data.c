@@ -393,13 +393,24 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       sprintf(KEY_TEST,"%s_LOGMASS_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGMASS_ERR[igal] ); } 
-
-      sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
+      sprintf(KEY_TEST,"%s_LOGSFR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ); } 
-      sprintf(KEY_TEST,"%s_sSFR_ERR", PREFIX); 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_OBS[igal] ); } 
+      sprintf(KEY_TEST,"%s_LOGSFR_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ); } 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_ERR[igal] ); } 
+      sprintf(KEY_TEST,"%s_LOGsSFR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ); }
+      sprintf(KEY_TEST,"%s_LOGsSFR_ERR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ); }
+      sprintf(KEY_TEST,"%s_COLOR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_COLOR_OBS[igal] ); }
+      sprintf(KEY_TEST,"%s_COLOR_ERR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_COLOR_ERR[igal] ); }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];

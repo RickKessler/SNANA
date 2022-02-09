@@ -13380,14 +13380,15 @@ void  get_BININFO_biasCor_abg(char *varName,
   // Jul 16 2019: allow for gammaDM
   // Mar 31 2020: store min/max per IDSURVEY (since IDSAMPLE not yet known)
   // Jul 03 2020: if ipar[IPAR_ABG] == 3, force one bin
-
+  // Feb 09 2022: fix to work for fixed param; e.g. ipar[IPAR_ABG]=0
+  //
   double valmin_loc, valmax_loc, valbin_loc;
   double val, val_last, val1st, val2nd ;
   double valmin_sample[MXIDSURVEY], valmax_sample[MXIDSURVEY];
   float  *ptrVal_f = NULL;
   short int *ptrVal_index, *ptr_IDSURVEY ;
   bool   FORCE_ONEBIN = false ; 
-  int    irow, unsort, NVAL, NBMAX, IPAR_ABG=-9 ;
+  int    irow, unsort, NVAL, NBMAX, ipar, IPAR_ABG=-9 ;
   int    NROW, IDSURVEY, NONIA_INDEX ;
   int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "get_BININFO_biasCor_abg" ;
@@ -13455,19 +13456,23 @@ void  get_BININFO_biasCor_abg(char *varName,
     if ( val > valmax_sample[IDSURVEY] ) { valmax_sample[IDSURVEY]=val; }
   }
 
+  // if there is continuous gamma distribution, force 1 bing
   if ( IPAR_ABG==IPAR_GAMMA0 && NVAL > 5 ) { FORCE_ONEBIN = true ; }
-  if ( INPUTS.ipar[IPAR_ABG] == 3 )        { FORCE_ONEBIN = true ; }
 
+  // if user input u[#] = 0 or 3, then force 1 bin (any parameter)
+  ipar = INPUTS.ipar[IPAR_ABG];
+  if ( ipar==0 || ipar == 3 )  { FORCE_ONEBIN = true ; }
+
+  // implement FORCE_ONEBIN
   if ( FORCE_ONEBIN ) { NVAL = 1; val2nd = val_last; }
 
-  // add error check on number of a,b bins (Apr 28 2017)
-  if ( NVAL > NBMAX ) {
+  // if floated param, add error check on number bins
+  if ( NVAL > NBMAX && ipar > 0 ) {
     sprintf(c1err,"%d %s values exceeds bound of %d",
 	    NVAL, varName, NBMAX);
     sprintf(c2err,"Check biasCor sample.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
-
 
   // ---------------------------
   if ( NVAL < 3 ) { 

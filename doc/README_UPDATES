@@ -20809,6 +20809,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + subtle bug fix in sort_IDSAMPLE_biasCor() to allow survey
         in surveygroup and also allow survey's fields to be in a
         fieldgroup.
+      + fix bug to enable fixing beta (u2=0)
 
     Remove util/sntools.pm
 

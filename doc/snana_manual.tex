@@ -4221,24 +4221,37 @@ the galaxy, and compute the galaxy noise.
 % ------------------------------------                                                                                                                       %\clearpage                                                                                                                                                   
 \subsubsection{Hostgal properties}
 \label{sss:hostgal_properties}
-In the Hostlib you can define true, observed and error for up to four properties;
+In the {\tt HOSTLIB} columns you can define true, observed, and error 
+for up to four properties;
 \begin{verbatim}
-LOGMASS LOGMASS_TRUE LOGMASS_OBS LOGMASS_ERR 
-LOGSFR  LOGSFR_TRUE  LOGSFR_OBS  LOGSFR_ERR
-LOGsSFR LOGsSFR_TRUE LOGsSFR_OBS LOGsSFR_ERR
-COLOR   COLOR_TRUE   COLOR_OBS   COLOR_ERR
+   LOGMASS  LOGMASS_TRUE  LOGMASS_OBS  LOGMASS_ERR 
+   LOGSFR   LOGSFR_TRUE   LOGSFR_OBS   LOGSFR_ERR
+   LOGsSFR  LOGsSFR_TRUE  LOGsSFR_OBS  LOGsSFR_ERR
+   COLOR    COLOR_TRUE    COLOR_OBS    COLOR_ERR
 \end{verbatim}
-
-Items in the left columns are the BASENAME, and BASENAME alone will be interpreted as BASENAME\_TRUE.
-If BASENAME\_ERR is specified, BASENAME\_OBS is computed as Gauss(BASENAME\_TRUE, BASENAME\_ERR).
-Non gaussian errors can be simulated by specifing BASENAME\_OBS and not BASENAME\_ERR.
-BASENAME\_ERR can be rescaled by using the sim-input key 
-\begin{verbatim}                                                                                                                                             
+%
+Item in the left column is the ``{\tt BASENAME},'' and defining a {\tt HOSTLIB}
+column as {\tt BASENAME} is interpreted as {\tt BASENAME\_TRUE}.
+If {\tt BASENAME\_ERR} is specified, {\tt BASENAME\_OBS} is computed as \\
+%
+{\tt Gauss(BASENAME\_TRUE,BASENAME\_ERR)}.
+%
+Non gaussian errors can be simulated with {\tt BASENAME\_OBS} 
+instead of {\tt BASENAME\_ERR}.
+{\tt BASENAME\_ERR} can be rescaled using the sim-input key 
+\begin{verbatim}    
 HOSTLIB_SCALE_PROPERTY_ERR: 0.0(LOGMASS),0.0(LOGSFR) # set errors to zero
-HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.5(LOGsSFR)  # scale each error differently
+    or
+HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.5(LOGsSFR)  
 \end{verbatim}
+%
+where the first example sets errors to zero so that observed property 
+equals the true value, and second example scales the error on 3 properties.
+%
+These host-property values are automatically propagated to the simulated data 
+files, and after light-curve fitting they are propagated to output tables 
+(e.g. {\tt SNANA}, {\tt FITRES}).
 
-These values are automatically propagated to the simulated data files, and aftyer light-curve fitting they are propagated to output tables (e.g. SNANA, FITRES).
 % ------------------------------------                                                                                                                        
 
 

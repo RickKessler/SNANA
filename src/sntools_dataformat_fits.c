@@ -247,7 +247,7 @@ void wr_snfitsio_init_head(void) {
   // Feb 7, 2022: add SFR, sSFR, COLOR
 
   long  NROW = 0 ;
-  int itype, ncol, istat, ivar, ipar, iqp;
+  int itype, ncol, istat, ivar, ipar, iq;
   int ifilt, ifilt_obs;
 
   fitsfile *fp;
@@ -330,9 +330,9 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
-    // add QP posteriors
- for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
-    sprintf(parName,"HOSTGAL_ZPHOT_QP%i", iqp);
+    // add Q posteriors
+ for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+    sprintf(parName,"HOSTGAL_ZPHOT_Q%i", iq);
     wr_snfitsio_addCol( "1E", parName, itype );
   }
 
@@ -396,9 +396,9 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
 
-    // add QP posteriors
-    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
-      sprintf(parName,"HOSTGAL2_ZPHOT_QP%i", iqp);
+    // add Q posteriors
+    for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+      sprintf(parName,"HOSTGAL2_ZPHOT_Q%i", iq);
       wr_snfitsio_addCol( "1E", parName, itype );
     }
  
@@ -1190,12 +1190,12 @@ void wr_snfitsio_create(int itype ) {
   sprintf(c1err,"Write SIMOPT_MWEBV") ;
   snfitsio_errorCheck(c1err, istat) ;
 
-  //write number of QP quantiles
-  if (SNDATA.HOSTGAL_NZPHOT_QP > 0){
+  //write number of Q quantiles
+  if (SNDATA.HOSTGAL_NZPHOT_Q > 0){
     istat = 0 ;
-    fits_update_key(fp, TINT, "NZPHOT_QP", &SNDATA.HOSTGAL_NZPHOT_QP,
-                  "number of QP zphot quantiles", &istat );
-    sprintf(c1err,"Write NZPHOT_QP") ;
+    fits_update_key(fp, TINT, "NZPHOT_Q", &SNDATA.HOSTGAL_NZPHOT_Q,
+                  "number of Q zphot quantiles", &istat );
+    sprintf(c1err,"Write NZPHOT_Q") ;
     snfitsio_errorCheck(c1err, istat) ;
   }
 
@@ -1395,7 +1395,7 @@ void wr_snfitsio_update_head(void) {
 
   // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
 
-  int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iqp ;
+  int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iq ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80];
@@ -1688,12 +1688,12 @@ void wr_snfitsio_update_head(void) {
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
-    // HOSTGAL QP PARAMS (Jan 2022)
-    for ( iqp=0; iqp < SNDATA.HOSTGAL_NZPHOT_QP; iqp++ ) {
-      sprintf(parName,"%s_ZPHOT_QP%i", PREFIX, iqp );
+    // HOSTGAL Q PARAMS (Jan 2022)
+    for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+      sprintf(parName,"%s_ZPHOT_Q%i", PREFIX, iq );
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E =
-        SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp] ;
+        SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
@@ -2898,8 +2898,8 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
     sprintf(tmpString,"%s", SNDATA.SNANA_VERSION );
   }
-  else if ( strcmp(parName,"NZPHOT_QP") == 0  ) {
-    sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_QP ); 
+  else if ( strcmp(parName,"NZPHOT_Q") == 0  ) {
+    sprintf(tmpString,"%s", SNDATA.HOSTGAL_NZPHOT_Q ); 
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -3062,7 +3062,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
   int  NFILT    = SNDATA_FILTER.NDEF;
 
-  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iqp, NQP ;
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, NQ ;
   char PREFIX[20], KEY[40]; 
   double D_OBJID;
 
@@ -3292,11 +3292,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 2; }
       }
 
-      NQP = SNDATA.HOSTGAL_NZPHOT_QP;
-      for(iqp=0; iqp < NQP; iqp++ ) {
-        sprintf(KEY,"%s_ZPHOT_QP%i", PREFIX, iqp);
+      NQ = SNDATA.HOSTGAL_NZPHOT_Q;
+      for(iq=0; iq < NQ; iq++ ) {
+        sprintf(KEY,"%s_ZPHOT_Q%i", PREFIX, iq);
         j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
-				     &SNDATA.HOSTGAL_ZPHOT_QP[igal][iqp],
+				     &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq],
                                      &SNFITSIO_READINDX_HEAD[j] ) ;
       }
       
@@ -3835,7 +3835,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
-  // Jan 11, 2022: read optional NZPHOT_QP A. Gagliano
+  // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
 
   fitsfile *fp ;
   int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
@@ -3949,11 +3949,11 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
 
-  // check optional NZPHOT_QP key
+  // check optional NZPHOT_Q key
   istat = 0;
-  sprintf(keyname, "%s", "NZPHOT_QP" );
+  sprintf(keyname, "%s", "NZPHOT_Q" );
   fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
-  if (istat == 0) {SNDATA.HOSTGAL_NZPHOT_QP = NVAR ;  }
+  if (istat == 0) {SNDATA.HOSTGAL_NZPHOT_Q = NVAR ;  }
 
 
   // - - - - - - - - - - -

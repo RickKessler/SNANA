@@ -7236,7 +7236,7 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
-  SNDATA.HOSTGAL_NZPHOT_QP    = 0;
+  SNDATA.HOSTGAL_NZPHOT_Q    = 0;
 
   return(SUCCESS);
 
@@ -7334,8 +7334,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
-      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
-          SNDATA.HOSTGAL_ZPHOT_QP[igal][j] = -9.0;
+      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++){
+          SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0;
   	}
   }
   // xxx mark delete (move to global init)  SNDATA.HOSTGAL_USEMASK = 0 ;

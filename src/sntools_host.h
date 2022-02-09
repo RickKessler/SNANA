@@ -74,7 +74,6 @@
 #define MXGauss2dTable     200   // max length of Gauss2d table
 #define NVAR_Gauss2d       3     // Number of variables in Gauss2d table
 #define MXBIN_ZPHOTEFF     100   // 
-//#define MXBIN_ZPHOT_QP 20 // max number of quantile percent bins
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
@@ -129,8 +128,8 @@
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
-#define HOSTLIB_PREFIX_ZPHOT_QP      "ZPHOT_QP"
-#define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_QP0"
+#define HOSTLIB_PREFIX_ZPHOT_Q      "ZPHOT_Q"
+//xxx#define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_Q10"
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
@@ -230,8 +229,8 @@ struct HOSTLIB_DEF {
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
-  int IVAR_ZPHOT_QP0;
-  int NZPHOT_QP;
+  int IVAR_ZPHOT_Q0; // location of first ZPHOT_Q (not necessarily 0th quantile)
+  int NZPHOT_Q;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
   int IVAR_LOGMASS_TRUE ; // legacy 
@@ -481,7 +480,7 @@ typedef struct {
   HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
-  double ZPHOT_QP[MXBIN_ZPHOT_QP];
+  double ZPHOT_Q[MXBIN_ZPHOT_Q];
   bool   TRUE_MATCH ;
   // Added for LSST but maybe of more general utility
   // Alex Gagliano 09/2021
@@ -511,7 +510,7 @@ struct SNHOSTGAL {
   double ZTRUE ;     // host galaxy redshift 
   double ZDIF ;      // zSN(orig) - zGAL, Nov 2015
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
-  double ZPHOT_QP[MXBIN_ZPHOT_QP];
+  double ZPHOT_Q[MXBIN_ZPHOT_Q];
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double VPEC,  VPEC_ERR  ;     // peculiar velocity
   double PEAKMJD ;

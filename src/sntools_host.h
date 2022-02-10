@@ -40,6 +40,9 @@
  Jul 1 2021
    + MXWGT_HOSTLIB -> 20 million (was 500,000) for GHOST [tested by AG]
 
+ Feb 9 2022: MXVAR_HOSTLIB -> 300 (was 200) to allow for up to
+             100 zPHOT quantiles
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -64,7 +67,7 @@
 
 #define MXCHAR_LINE_HOSTLIB 800  // max number of chars per HOSTLIB line
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
-#define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
+#define MXVAR_HOSTLIB       300  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
 #define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021

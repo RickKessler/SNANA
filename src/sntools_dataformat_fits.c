@@ -332,7 +332,7 @@ void wr_snfitsio_init_head(void) {
 
     // add Q posteriors
  for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-    sprintf(parName,"HOSTGAL_ZPHOT_Q%i", iq);
+    sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
     wr_snfitsio_addCol( "1E", parName, itype );
   }
 
@@ -398,7 +398,7 @@ void wr_snfitsio_init_head(void) {
 
     // add Q posteriors
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      sprintf(parName,"HOSTGAL2_ZPHOT_Q%i", iq);
+      sprintf(parName,"HOSTGAL2_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
       wr_snfitsio_addCol( "1E", parName, itype );
     }
  
@@ -1690,7 +1690,7 @@ void wr_snfitsio_update_head(void) {
 
     // HOSTGAL Q PARAMS (Jan 2022)
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      sprintf(parName,"%s_ZPHOT_Q%i", PREFIX, iq );
+      sprintf(parName,"%s_%s", PREFIX, HOSTLIB.VARNAME_ZPHOT_Q[iq]);
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_1E =
         SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
@@ -3294,7 +3294,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
       NQ = SNDATA.HOSTGAL_NZPHOT_Q;
       for(iq=0; iq < NQ; iq++ ) {
-        sprintf(KEY,"%s_ZPHOT_Q%i", PREFIX, iq);
+        sprintf(KEY,"%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]); // .xyz This won't work (yet)
         j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
 				     &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq],
                                      &SNFITSIO_READINDX_HEAD[j] ) ;

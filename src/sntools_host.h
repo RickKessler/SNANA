@@ -262,6 +262,7 @@ struct HOSTLIB_DEF {
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
   char filterList[MXFILTINDX]; // filter list for gal-mag
+  char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
 
   // redshift information
   double ZMIN,ZMAX ;         // helio
@@ -718,6 +719,7 @@ bool   QstringMatch(char *varName0, char *varName1);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
+int    IVAR_HOSTLIB_PREFIX(char *prefix, int ABORTFLAG);
 bool   ISCHAR_HOSTLIB(int IVAR);
 
 long long get_GALID_HOSTLIB(int igal);

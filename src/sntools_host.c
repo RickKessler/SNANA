@@ -2206,6 +2206,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
 	    }
             if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
+	      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[HOSTLIB.NZPHOT_Q], "%s", c_var);
               HOSTLIB.NZPHOT_Q++ ;
             }
 	    HOSTLIB.NVAR_STORE++ ;   
@@ -2325,7 +2326,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // optional
   HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT,   0) ; 
   HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_ERR,0);
-  //HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_Q0, 0) ; //.xyz Fix this!
+  HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB_PREFIX(HOSTLIB_PREFIX_ZPHOT_Q, 0);
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC,    0) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC_ERR,0);
   HOSTLIB.IVAR_LOGMASS_TRUE = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_TRUE, 0) ; 
@@ -5109,6 +5110,44 @@ int IVAR_HOSTLIB(char *varname, int FLAG) {
   }
 
 } // end of IVAR_HOSTLIB
+
+
+// ========================================
+int IVAR_HOSTLIB_PREFIX(char *prefix, int FLAG) {
+
+  // Feb 10, 2022
+  // For input prefix return 'IVAR' index
+  // of first instance containing that prefix
+  // to be used  the array HOSTLIB.VALUE_ZSORTED[ivar].
+  // Comparisons are case-sensitive. 
+  //
+  // FLAG += 1  : abort if key not found; else return -9
+  //
+  int ivar, NVAR, ICMP ;
+  bool ABORTFLAG = ( FLAG & 1 ) ;
+  bool CASE      = ( FLAG & 2 ) ;
+  char fnam[] = "IVAR_HOSTLIB_PREFIX" ;
+
+  // ---------- BEGIN ----------
+
+  NVAR = HOSTLIB.NVAR_STORE ;
+  for ( ivar = 0; ivar < NVAR; ivar++ ) {
+        if (strstr(HOSTLIB.VARNAME_STORE[ivar],prefix)  != NULL){
+	      return(ivar);
+      }
+  }
+
+  // if we get here, abort
+  if ( ABORTFLAG ) {
+    sprintf(c1err,"Could not find IVAR index for prefix='%s'", prefix);
+    sprintf(c2err,"Check VARNAMES keys in HOSTLIB file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    return(-9) ;
+  }
+  else  {
+    return(-9) ;
+  }
+} // end of IVAR_HOSTLIB_PREFIX
 
 bool ISCHAR_HOSTLIB(int IVAR) {
   // Feb 25 2020

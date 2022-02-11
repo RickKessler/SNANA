@@ -191,6 +191,11 @@ HOSTKEY2_PREFIX_MAG    = "HOSTGAL2_MAG"
 HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"
 HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
 
+# define prefix for photo-z quantiles
+HOSTKEY_PREFIX_ZPHOT_Q = "HOSTGAL_ZPHOT_Q"
+HOSTKEY2_PREFIX_ZPHOT_Q = "HOSTGAL2_ZPHOT_Q"
+PERCENTILE_ZPHOT_LIST = [10, 20, 30, 40, 50, 60, 70, 80, 90, 99] ### HACK HACK HACK - FIX SOON
+
 
 # =============================================================================
 # LISTS
@@ -220,6 +225,12 @@ DATAKEY_LIST_CALC = [
     DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_LAST,
     HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
 ]
+for qp in PERCENTILE_ZPHOT_LIST:
+    host_key = f'{HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
+    host2_key = f'{HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
+    DATAKEY_LIST_CALC.append(host_key)
+    DATAKEY_LIST_CALC.append(host2_key)
+
 
 DATAKEY_LIST_PRIVATE = [] # filled if private variables exist
 

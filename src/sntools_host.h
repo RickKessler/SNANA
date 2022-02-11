@@ -131,8 +131,7 @@
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
-#define HOSTLIB_PREFIX_ZPHOT_Q      "ZPHOT_Q"
-//xxx#define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_Q10"
+#define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
@@ -232,7 +231,7 @@ struct HOSTLIB_DEF {
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
-  int IVAR_ZPHOT_Q0; // location of first ZPHOT_Q (not necessarily 0th quantile)
+  int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)
   int NZPHOT_Q;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
@@ -256,13 +255,14 @@ struct HOSTLIB_DEF {
   int IVAR_a_DLR;   // to measure DLR: e.g. a_IMAGE from sextractor
   int IVAR_b_DLR;   // to measure DLR
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
-  int IVAR_MAGOBS_ERR[MXFILTINDX] ;     // pointer to observer-mag errs (Aug 6 2021)
+  int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
   char filterList[MXFILTINDX]; // filter list for gal-mag
   char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
+  int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
 
   // redshift information
   double ZMIN,ZMAX ;         // helio

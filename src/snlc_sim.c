@@ -21508,7 +21508,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //              so that AGN has all host properties loaded.
   //
 
-  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j ;
+  int    N_Q = HOSTLIB.NZPHOT_Q;
+  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j, PCT ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
   char fnam[] = "hostgal_to_SNDATA" ;
@@ -21531,7 +21532,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     SNDATA.SIM_HOSTLIB_MSKOPT = 
       INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
-    SNDATA.HOSTGAL_NZPHOT_Q = HOSTLIB.NZPHOT_Q;
+    SNDATA.HOSTGAL_NZPHOT_Q = N_Q;
+    for(ipar=0; ipar < N_Q; ipar++ ) { 
+      PCT  = HOSTLIB.PERCENTILE_ZPHOT_Q[ipar]; // e.g, 10 -> 10th percentile
+      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;
+      //      printf(" xxx %s: PERCENTILE_ZPHOT_Q[%d] = %d \n", 
+      //     fnam,ipar,PCT); fflush(stdout);
+    }
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;

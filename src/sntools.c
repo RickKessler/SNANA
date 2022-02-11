@@ -7191,7 +7191,7 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt, ep ;
+  int ifilt, ep, j ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGIN -------------
@@ -7237,6 +7237,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
   SNDATA.HOSTGAL_NZPHOT_Q    = 0;
+  for(j=0; j < MXBIN_ZPHOT_Q; j++)
+    { SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -9.0;  }
 
   return(SUCCESS);
 
@@ -7334,11 +7336,10 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
-      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++){
-          SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0;
-  	}
+    for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
+      { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
   }
-  // xxx mark delete (move to global init)  SNDATA.HOSTGAL_USEMASK = 0 ;
+
 
   // init SEARCH parameters
   SNDATA.SEARCH_TYPE      = NULLINT ;

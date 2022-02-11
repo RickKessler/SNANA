@@ -89,7 +89,9 @@
 
 #define MXPATHLEN 300 // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
-#define MXLEN_VERSION_PREFIX  52  // max length of prefix in data or sim version
+#define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
+
+#define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
@@ -284,11 +286,13 @@ struct SNDATA {
   double  HOSTGAL_DEC[MXHOSTGAL];
   float   HOSTGAL_CONFUSION ;         // note: does NOT depend on each host
   float   HOSTGAL_PHOTOZ[MXHOSTGAL] ;
-  float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q];
-  int     HOSTGAL_NZPHOT_Q;
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
+
+  float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
+  int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
+  int     HOSTGAL_NZPHOT_Q ;
 
   float   HOSTGAL_LOGMASS_TRUE[MXHOSTGAL] ;
   float   HOSTGAL_LOGMASS_OBS[MXHOSTGAL] ;  

@@ -997,9 +997,7 @@ void wr_snfitsio_create(int itype ) {
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
-
   fitsfile  *fp ;
-
   char *ptrFile, *ptrType ;
   char KEYNAME[60], PARNAME[80] ;
   char fnam[] = "wr_snfitsio_create" ;
@@ -1124,6 +1122,9 @@ void wr_snfitsio_create(int itype ) {
 
   fits_update_key(fp, TSTRING, "DATATYPE", datatype, comment, &istat ); 
 
+  //write number of Q quantiles
+  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {wr_snfitsio_zphot_q(fp); }
+
 
   // --------------------------------------------
   // simulation info (optional)
@@ -1140,8 +1141,6 @@ void wr_snfitsio_create(int itype ) {
   istat=0;
   fits_write_key_longstr(fp, "SIMLIB_FILE", SNDATA.SIMLIB_FILE, 
 			 "SIMLIB Cadence/conditions File", &istat );  
-  //xxx  fits_update_key(fp, TSTRING, "SIMLIB_FILE", SNDATA.SIMLIB_FILE, 
-  //xxx		  "SIMLIB Cadence/conditions File", &istat );  
   sprintf(c1err,"Write SIMLIB file name") ;
   snfitsio_errorCheck(c1err, istat) ;
 
@@ -1149,8 +1148,6 @@ void wr_snfitsio_create(int itype ) {
   istat = 0;
   fits_write_key_longstr(fp, "KCOR_FILE", SNDATA.KCOR_FILE,
 			 "KCOR/calibration file", &istat );
-  //xx  fits_update_key(fp, TSTRING, "KCOR_FILE", SNDATA.KCOR_FILE, 
-  //xxx		  "KCOR/calibration file", &istat );  
   sprintf(c1err,"Write KCOR file name") ;
   snfitsio_errorCheck(c1err, istat) ;
 
@@ -1190,14 +1187,6 @@ void wr_snfitsio_create(int itype ) {
   sprintf(c1err,"Write SIMOPT_MWEBV") ;
   snfitsio_errorCheck(c1err, istat) ;
 
-  //write number of Q quantiles
-  if (SNDATA.HOSTGAL_NZPHOT_Q > 0){
-    istat = 0 ;
-    fits_update_key(fp, TINT, "NZPHOT_Q", &SNDATA.HOSTGAL_NZPHOT_Q,
-                  "number of Q zphot quantiles", &istat );
-    sprintf(c1err,"Write NZPHOT_Q") ;
-    snfitsio_errorCheck(c1err, istat) ;
-  }
 
   // write option to fudge flux errors (Oct 30 2015)
   istat = 0 ;
@@ -1260,7 +1249,6 @@ void wr_snfitsio_create(int itype ) {
   }  // PySEDMODEL
 
 
-
   // idem for LCLIB params (Sep 8 2017)
   NPAR = SNDATA.NPAR_LCLIB ;  
   if ( NPAR > 0 && SNFITSIO_SIMFLAG_MODELPAR ) {
@@ -1315,6 +1303,43 @@ void wr_snfitsio_create(int itype ) {
 
 } // end of wr_snfitsio_create
 
+
+// ====================================
+void wr_snfitsio_zphot_q(fitsfile *fp) {
+
+  // Created Feb 10 2022
+  // write zphot quantile column names
+  
+  int  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+  int  istat, ipar ; 
+  char KEYNAME[60], PARNAME[60];
+  char fnam[] = "wr_snfitsio_zphot_q" ;
+
+  // --------- BEGIN ----------
+
+  if ( N_Q > 0 ) {   
+    istat = 0 ;
+    fits_update_key(fp, TINT, "NZPHOT_Q", &N_Q,
+                  "number of Q zphot quantiles", &istat );
+    sprintf(c1err,"Write NZPHOT_Q") ;
+    snfitsio_errorCheck(c1err, istat) ;
+
+    /* xxxxxxxxxxxxxxxx
+    for(ipar=0; ipar < N_Q; ipar++ ) { 
+      sprintf(KEYNAME,"VARNAME_ZPHOT_Q%2.2d", ipar );
+      sprintf(PARNAME,"%s%d",  // e.g., 'ZPHOT_Z10'
+	      PREFIX_ZPHOT_Q, SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] );
+      istat=0;
+      fits_update_key(fp, TSTRING, KEYNAME, PARNAME, PARNAME, &istat );  
+      sprintf(c1err,"Write %s file name", PARNAME) ;
+      snfitsio_errorCheck(c1err, istat) ;
+    }
+    xxxxxxxxx */
+
+  } // end N_Q > 0
+
+  return;
+} // end wr_snfitsio_zphot_q
 
 
 // ==================================
@@ -2874,7 +2899,6 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
   // --------------- BEGIN ----------------
 
-
   sprintf(tmpString,"NULL");
 
   if ( strcmp(parName,"SURVEY") == 0 ) {
@@ -3062,7 +3086,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
   int  NFILT    = SNDATA_FILTER.NDEF;
 
-  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, NQ ;
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, N_Q ;
   char PREFIX[20], KEY[40]; 
   double D_OBJID;
 
@@ -3292,12 +3316,20 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 2; }
       }
 
-      NQ = SNDATA.HOSTGAL_NZPHOT_Q;
-      for(iq=0; iq < NQ; iq++ ) {
-        sprintf(KEY,"%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]); // .xyz This won't work (yet)
+
+      // .xyz reading won't work until HOSTLIB.VARNAME_ZPHOT_Q is set
+      //  when header is read.
+      N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+      for(iq=0; iq < N_Q; iq++ ) {
+	int PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+        sprintf(KEY,"%s%d", PREFIX_ZPHOT_Q, PCT); 
         j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
 				     &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq],
                                      &SNFITSIO_READINDX_HEAD[j] ) ;
+
+	printf(" xxx %s: read zphot_q=%.4f for PCT=%d \n",
+	       fnam, SNDATA.HOSTGAL_ZPHOT_Q[igal][iq], PCT); fflush(stdout);
+
       }
       
 
@@ -3875,7 +3907,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   if ( istat ) { sprintf(SNDATA.SNANA_VERSION,"UNKNOWN"); } 
   istat = 0;  // reset in case SNANA_VERSION key does not exist.
 
-
   // - - - - - - - - - - -
   // read name of survey from HEADER file
   sprintf(keyname, "%s", "SURVEY" );  
@@ -3892,7 +3923,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   if ( istat != 0 ) { SNDATA.SUBSURVEY_FLAG = 0 ; }
   istat = 0 ;
 
-
   // read list of filters
   char filter_list[MXFILTINDX];
   sprintf(keyname, "%s", "FILTERS" );
@@ -3901,9 +3931,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
 
-  // restore SNDATA_FILTER struct
-  set_SNDATA_FILTER(filter_list);  // Feb 15 2021
-
+  // restore SNDATA_FILTER struct, including SNDATA_FILTER.MAP
+  set_SNDATA_FILTER(filter_list);  // Feb 15 2021 
 
   // read data type
   sprintf(keyname, "%s", "DATATYPE" );
@@ -3916,7 +3945,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   SNFITSIO_DATAFLAG       = (strcmp(DTYPE, DATATYPE_DATA      ) == 0 );
   SNFITSIO_SIMFLAG_SNANA  = (strcmp(DTYPE, DATATYPE_SIM_SNANA ) == 0 );
   SNFITSIO_SIMFLAG_MAGOBS = (strcmp(DTYPE, DATATYPE_SIM_MAGOBS) == 0 );
-
 
   // read name of PHOTOMETRY file from HEADER file
   itype = ITYPE_SNFITSIO_PHOT ;  
@@ -3949,12 +3977,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
 
-  // check optional NZPHOT_Q key
-  istat = 0;
-  sprintf(keyname, "%s", "NZPHOT_Q" );
-  fits_read_key(fp, TINT, keyname, &NVAR, comment, &istat );
-  if (istat == 0) {SNDATA.HOSTGAL_NZPHOT_Q = NVAR ;  }
-
+  // check optional NZPHOT_Q key (Feb 2022)
+  rd_snfitsio_zphot_q();
 
   // - - - - - - - - - - -
 
@@ -4169,6 +4193,55 @@ void rd_snfitsio_simkeys(void) {
 
 } // end of  rd_snfitsio_simkeys
 
+
+// ==========================
+void rd_snfitsio_zphot_q(void) {
+
+  // Created Feb 10 2022
+  // read optional zphot quantile percentiles.
+
+  fitsfile *fp ;
+  int itype, istat, N_Q, NFIND_KEY=0, pct, PCT ;
+  int LDMP = 1 ;
+  char keyname[60], comment[200], *cptr ;
+  char fnam[] = "rd_snfitsio_zphot_q" ;
+
+  // --------- BEGIN ----------
+
+  itype   = ITYPE_SNFITSIO_HEAD ;
+  fp      = fp_rd_snfitsio[itype] ;
+  SNDATA.HOSTGAL_NZPHOT_Q = 0 ;
+
+  istat = 0;
+  sprintf(keyname, "%s", "NZPHOT_Q" );
+  sprintf(comment,"Read %s", keyname);
+  fits_read_key(fp, TINT, keyname, &N_Q, comment, &istat );
+
+  if (istat == 0) { 
+    SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
+
+    if( LDMP ) { printf(" xxx %s: read NPHOT_Q = %d\n", fnam, N_Q); }
+
+    // check for every possible percentile key of the form
+    // ZPHOT_Q[pct] .xyz
+    for(pct=0; pct <= MXBIN_ZPHOT_Q; pct++ ) {
+      sprintf(keyname,"%s%d", PREFIX_ZPHOT_Q, pct);
+      istat = 0 ;
+      sprintf(comment,"Read %s", keyname);
+      fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
+      
+      if ( istat == 0 ) {
+	SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT;
+	printf(" xxx %s: found key = %s = %d \n",
+	       fnam, keyname, PCT); fflush(stdout);
+	NFIND_KEY++ ;
+      }
+    }
+
+  }
+
+  return;
+} // end rd_snfitsio_zphot_q
 
 // ==========================
 void rd_snfitsio_private(void) {

@@ -211,6 +211,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);
+void wr_snfitsio_zphot_q(fitsfile *fp);
+
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
@@ -248,6 +250,7 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
 int   rd_snfitsio_list(void);
 void  rd_snfitsio_open(int ifile, int photflag_open, int vbose ); 
 void  rd_snfitsio_file(int ifile);          // open and read everything
+void  rd_snfitsio_zphot_q(void);            // read optional zphot_q
 void  rd_snfitsio_simkeys(void);            // read optional SIMSED pars
 void  rd_snfitsio_private(void);            // read optional PRIVATE vars
 void  rd_snfitsio_free(int ifile, int itype);

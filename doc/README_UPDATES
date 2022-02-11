@@ -20788,12 +20788,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** MISCELLANEOUS(v11_04h) ***** 
   
+    ZPHOT_Q (quantiles) devel for sim read it from hostlib
+      and reading it from data files.
+
     snlc_sim.c
      + GENFILT struct changed from 2D array to 1D array of pointers
      + new function malloc_GENFILT() 
      + MXEPSIM -> 15k (was 10k) for SCOTCH generation
      + MXEPSIM_PERFILT -> 2500 (was 2000)
-
+    
     submit_batch_jobs: 
       + new --faster arg to process 1% (--fast still does 10%)
 

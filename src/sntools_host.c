@@ -1,4 +1,3 @@
-
 /* =================================================
 
   March, 2011  R.Kessler
@@ -2106,6 +2105,7 @@ void read_head_HOSTLIB(FILE *fp) {
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
   bool CHECK_DUPLICATE_COLUMNS = false; // set True after GHOSTLIBS are fixed
+  int  LEN_PREFIX_ZPHOT_Q = strlen(HOSTLIB_PREFIX_ZPHOT_Q);
 
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR, USE, IS_SNPAR, VBOSE ;
@@ -2205,10 +2205,16 @@ void read_head_HOSTLIB(FILE *fp) {
 	      NVAR_STORE_SNPAR++ ; 
 	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
 	    }
+
             if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
-	      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[HOSTLIB.NZPHOT_Q], "%s", c_var);
+	      int   percentile, N_Q = HOSTLIB.NZPHOT_Q;
+	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
+	      sscanf(&c_var[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
+	      sprintf(VARNAME, "%s", c_var);
+	      HOSTLIB.PERCENTILE_ZPHOT_Q[N_Q] = percentile ;
               HOSTLIB.NZPHOT_Q++ ;
             }
+
 	    HOSTLIB.NVAR_STORE++ ;   
 	  }
 	}   // i       

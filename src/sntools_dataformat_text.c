@@ -482,6 +482,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   // Jan 23 2022: if reading text, only write physical values
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
+  int N_Q      = SNDATA.HOSTGAL_NZPHOT_Q;
   int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
@@ -516,12 +517,20 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
 
-    if (SNDATA.HOSTGAL_NZPHOT_Q > 0){
-      fprintf(fp, "%s_ZPHOT_Q: ", PREFIX);
-      for (j = 0; j < SNDATA.HOSTGAL_NZPHOT_Q; j++){
-	fprintf(fp, "%.4f ", SNDATA.HOSTGAL_ZPHOT_Q[igal][j]);
+
+    if ( N_Q > 0) {
+      float *zq = SNDATA.HOSTGAL_ZPHOT_Q[igal];
+      int   *p  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q ;
+
+      if ( igal == 0 ) {
+	fprintf(fp, "%s_PERCENTILE_ZPHOT_Q: ", PREFIX);
+	for (j = 0; j < N_Q; j++)  { fprintf(fp, "%d ", p[j]); }
+	fprintf(fp, "\n");
       }
+      fprintf(fp, "%s_ZPHOT_Q: ", PREFIX);
+      for (j = 0; j < N_Q; j++)  { fprintf(fp, "%.4f ", zq[j]); }
       fprintf(fp, "\n");
+      fflush(fp);
     }
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {

@@ -530,11 +530,11 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
       int   *p  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q ;
 
       if ( igal == 0 ) {
-	fprintf(fp, "%s_PERCENTILE_ZPHOT_Q: ", PREFIX);
+	fprintf(fp, "%s_PERCENTILE_%s: ", PREFIX, PREFIX_ZPHOT_Q);
 	for (j = 0; j < N_Q; j++)  { fprintf(fp, "%d ", p[j]); }
 	fprintf(fp, "\n");
       }
-      fprintf(fp, "%s_ZPHOT_Q: ", PREFIX);
+      fprintf(fp, "%s_%s: ", PREFIX, PREFIX_ZPHOT_Q);
       for (j = 0; j < N_Q; j++)  { fprintf(fp, "%.4f ", zq[j]); }
       fprintf(fp, "\n");
       fflush(fp);
@@ -1833,13 +1833,15 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     }
   }     // end LRD_SPEC
 
+
+
   // - - - - - 
   // temp code to check reading of ZPHOT quantiles
-  int LDMP_Q = 1;
-  if ( LDMP_Q ) {
+  int LDMP_Q = 0 ;
+  if ( LDMP_Q && SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
     int ivar, pct;  float zq;
     printf(" xxx ------------------------------- \n");
-    printf(" xxx %s: ZPHOT_Q DUMP for CID=%d \n", fnam, SNDATA.CCID);
+    printf(" xxx %s: ZPHOT_Q DUMP for CID=%s \n", fnam, SNDATA.CCID);
     for(ivar=0; ivar < SNDATA.HOSTGAL_NZPHOT_Q; ivar++ ) {
       zq  = SNDATA.HOSTGAL_ZPHOT_Q[0][ivar];
       pct = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar];
@@ -2107,7 +2109,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_SPECZ_ERR[igal]=FVAL_ERR; }	
       }
 
-      sprintf(KEY_TEST,"%s_ZPHOT_Q", PREFIX); 
+      sprintf(KEY_TEST,"%s_%s:", PREFIX, PREFIX_ZPHOT_Q); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
 	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
 	get_PARSE_WORD_NFLT(langC,N_Q,iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q[igal]);

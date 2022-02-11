@@ -3254,6 +3254,10 @@ c (SURVEY, FILTERS ..) needed for initialization
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
+      IF ( .not. LSIM_SNANA  ) THEN
+        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
+      ENDIF
+
       RETURN
       END    ! end INIT_READ_DATA
  
@@ -4463,7 +4467,7 @@ c - - - - - - - - - - - -  -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
 
-      if ( SNHOST_LOGMASS(igal) > 0.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
+      if(SNHOST_LOGMASS(igal) > -9000.) EXIST_SNHOST_LOGMASS = .TRUE.
 
 c - - - -
 
@@ -4475,7 +4479,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGSFR_ERR(igal)     = SNGL(DARRAY(1))
 
-      IF ( SNHOST_LOGSFR(igal) > -90.0 ) EXIST_SNHOST_LOGSFR = .TRUE.
+      IF(SNHOST_LOGSFR(igal) > -9000.0) EXIST_SNHOST_LOGSFR = .TRUE.
 
 c - - - -
 
@@ -4487,7 +4491,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGsSFR_ERR(igal)     = SNGL(DARRAY(1))
  
-      IF ( SNHOST_LOGsSFR(igal) > -90.0 ) EXIST_SNHOST_LOGsSFR = .TRUE.
+      IF(SNHOST_LOGsSFR(igal) > -9000.0) EXIST_SNHOST_LOGsSFR = .TRUE.
 
 c - - - -
 
@@ -4499,7 +4503,7 @@ c - - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_COLOR_ERR(igal)     = SNGL(DARRAY(1))
 
-      IF ( SNHOST_COLOR(igal) > -90.0 ) EXIST_SNHOST_COLOR = .TRUE.
+      IF(SNHOST_COLOR(igal) > -9000.0) EXIST_SNHOST_COLOR = .TRUE.
 
 c - - - 
       KEY_PREFIX = PREFIX(1:LENPRE) // "_MAG"
@@ -15387,14 +15391,15 @@ c init a few SNHOST arrays
          SNHOST_ZPHOT_ERR(igal)   = -9.0
          SNHOST_ZSPEC(igal)       = -9.0
          SNHOST_ZSPEC_ERR(igal)   = -9.0
-         SNHOST_LOGMASS(igal)     = -999.0
-         SNHOST_LOGMASS_ERR(igal) = -999.0
-         SNHOST_LOGSFR(igal)        = -999.0
-         SNHOST_LOGSFR_ERR(igal)    = -999.0
-         SNHOST_LOGsSFR(igal)        = -999.0
-         SNHOST_LOGsSFR_ERR(igal)    = -999.0
-         SNHOST_COLOR(igal)       = -999.0
-         SNHOST_COLOR_ERR(igal)   = -999.0
+
+         SNHOST_LOGMASS(igal)       = -9999.0
+         SNHOST_LOGMASS_ERR(igal)   = -9999.0
+         SNHOST_LOGSFR(igal)        = -9999.0
+         SNHOST_LOGSFR_ERR(igal)    = -9999.0
+         SNHOST_LOGsSFR(igal)       = -9999.0
+         SNHOST_LOGsSFR_ERR(igal)   = -9999.0
+         SNHOST_COLOR(igal)         = -9999.0
+         SNHOST_COLOR_ERR(igal)     = -9999.0
       enddo
 c --------
       
@@ -17353,7 +17358,7 @@ c Note that MWEBV and MWEBV_ERR are modified if OPT_MWEBV > 0
          SNLC_MWEBV = MWEBV_FORCE
          SNLC_MWEBV_ERR = 0.0
       ENDIF
-
+ 
 c compute Galactic extinction in each band
 c (Oct 11 2013: code moved from MAIN to here)
       CALL MWEBV_FLUXCOR()
@@ -23573,33 +23578,41 @@ c  * sntable_dump extraction will write real*8 as integer.
      &     LENBLOCK, 20 )
 
 c always write LOGMASS and SFR
-      VARLIST =  'HOST_LOGMASS:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
+      IF ( EXIST_SNHOST_LOGMASS ) THEN
+        VARLIST =  'HOST_LOGMASS:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
+        VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
      &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_LOGSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGSFR ) THEN
+        VARLIST =  'HOST_LOGSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_LOGsSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGsSFR ) THEN
+        VARLIST =  'HOST_LOGsSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_COLOR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
+      IF ( EXIST_SNHOST_COLOR ) THEN
+        VARLIST =  'HOST_COLOR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_COLOR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_COLOR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,

@@ -1779,7 +1779,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     // run header sanity checks to catch common user mistakes
     // when making text formatted data files.
     check_head_sntextio(2);
-
+    
   } // end LRD_HEAD
 
 
@@ -1833,6 +1833,21 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
     }
   }     // end LRD_SPEC
 
+  // - - - - - 
+  // temp code to check reading of ZPHOT quantiles
+  int LDMP_Q = 1;
+  if ( LDMP_Q ) {
+    int ivar, pct;  float zq;
+    printf(" xxx ------------------------------- \n");
+    printf(" xxx %s: ZPHOT_Q DUMP for CID=%d \n", fnam, SNDATA.CCID);
+    for(ivar=0; ivar < SNDATA.HOSTGAL_NZPHOT_Q; ivar++ ) {
+      zq  = SNDATA.HOSTGAL_ZPHOT_Q[0][ivar];
+      pct = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar];
+      printf(" xxx %s: ZPHOT_Q[%d] = %.4f \n", fnam, pct, zq);
+      fflush(stdout);
+    }
+  }
+
   //  debugexit(fnam); // xxx REMOVE
 
   return;
@@ -1874,7 +1889,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   int    IVAL;
   float  FVAL, FVAL_ERR ;
   double DVAL=-9.0, DVAL_ERR=-9.0; 
-  bool   IS_PRIVATE, PLUS_MINUS = false ;
+  bool   IS_PRIVATE, PLUS_MINUS = false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
   char PREFIX[40], KEY[80], KEY_ERR[80], KEY_TEST[80], ARG_TMP[80];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
@@ -2095,7 +2110,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       sprintf(KEY_TEST,"%s_ZPHOT_Q", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
 	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	get_PARSE_WORD_NFLT(langC, N_Q, iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q);
+	get_PARSE_WORD_NFLT(langC,N_Q,iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q[igal]);
       }
 
       sprintf(KEY_TEST,"%s_RA:", PREFIX); 

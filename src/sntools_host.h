@@ -134,8 +134,9 @@
 #define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
-#define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
-#define HOSTLIB_IGAL_UNDEFINED -9999
+#define HOSTLIB_SNPAR_UNDEFINED    -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED     -9999
+#define HOSTLIB_PROPERTY_UNDEFINED -9999.0 // Feb 10 2022
 
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.

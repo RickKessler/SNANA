@@ -65,6 +65,15 @@ for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
         key_alert = f"{prefix.lower()}_{band}"
         VARNAME_DIAOBJ_MAP[key_snana] = key_alert
 
+
+for qp in gpar.PERCENTILE_ZPHOT_LIST:
+    key_snana = f'{gpar.HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
+    key_alert = lc
+    key2_snana = f'{gpar.HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
+    key2_alert = lc
+    VARNAME_DIAOBJ_MAP[key_snana] = key_alert
+    VARNAME_DIAOBJ_MAP[key2_snana] = key2_alert
+
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
     'BAND'       : 'filterName',

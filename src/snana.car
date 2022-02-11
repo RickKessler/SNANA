@@ -497,7 +497,6 @@ c global survey info
      &   ,FOUND_SURVEY
      &   ,FORMAT_TEXT    ! ascii/txt for input data
      &   ,FORMAT_FITS    ! snfitsio for input data.
-     &   ,LEGACY_HEADER_OVERRIDE
 
       INTEGER N_SNLC_PLOT
       LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
@@ -539,7 +538,7 @@ c global survey info
 c logical *1 stuff
 
       COMMON / SNDATCOM1 / EXIST_FILT, FOUND_SURVEY
-     &    ,FORMAT_TEXT, FORMAT_FITS, LEGACY_HEADER_OVERRIDE
+     &    ,FORMAT_TEXT, FORMAT_FITS
 
 c SNTABLE control variables (May 2014)
       LOGICAL
@@ -3044,9 +3043,6 @@ c check for SN,MJD list from file ... used for interpolation
 c read optional tags
       CALL RDFILE_USERTAGS()
 
-c read optional header-override (can include vpec) 
-      CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
-
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
@@ -3258,11 +3254,6 @@ c (SURVEY, FILTERS ..) needed for initialization
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
-cc xxx mark delete      IF ( .not. LSIM_SNANA .and. DEBUG_FLAG == 1210 ) THEN  
-      IF ( .not. (LSIM_SNANA .or. LEGACY_HEADER_OVERRIDE) ) THEN  
-        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
-      ENDIF
-
       RETURN
       END    ! end INIT_READ_DATA
  
@@ -3386,7 +3377,6 @@ c read global info and store in SNDATA struct in sndata.h
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
-         if ( .not. LEGACY_HEADER_OVERRIDE ) OPTRD = OPTRD + 256 ! debug flag
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)
@@ -6066,8 +6056,6 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(1) = 4.9
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
-
-      LEGACY_HEADER_OVERRIDE = (DEBUG_FLAG .EQ. -1210) 
 
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN
@@ -9149,9 +9137,6 @@ c Apr 2019: special NNtrain option to pick only EVEN CID
             if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
          endif
       endif
-
-c check option to override header values (Nov 29 2016)
-      CALL EXEC_HEADER_OVERRIDE()
 
 c - - - - - - - - - - - 
       NCALL_SNANA_DRIVER  = NCALL_SNANA_DRIVER  + 1
@@ -16831,392 +16816,6 @@ c store absolute filter indices in sparse list
       RETURN
       END         ! end PARSE_REQUIRE_EPOCHS_STRING
 
-C ========================================================
-+DECK,INIT_HEADER_OVERRIDE.
-      SUBROUTINE INIT_HEADER_OVERRIDE()
-
-c Created Nov 29 2016 by R.Kessler
-c Read optional list of header variables from file(s),
-c to override values in data files. Useful for systematics,
-c and for development of things like host Masses and
-c peculiar velocities that may take several iterations
-c before deciding final values for the data files.
-c Also note that the CID in the HEADER_OVERRIDE file
-c can be either the SNID or IAUC name.
-c
-c &SNLCINP input HEADER_OVERRIDE_FILE is a comma-seperated list
-c allowing multiple tables to each specify different variables
-c and different CIDs.
-c
-c Jun 09 2020: for SIM, leave message and return 
-c Jul 21 2020: refactor to allow comma-sep list of header-override files.
-c Oct 10 2020: abort if NFILE > MXFILE_LIST 
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-      INTEGER iwd, NWD, LENV, LENF, LEN_ALL
-      INTEGER NVAR_ALL, NVAR, ivar
-      INTEGER NFILE, ifile, OPTMASK_STORE
-      CHARACTER FNAM*24, cFILE*(4*MXCHAR_FILENAME), cVARLIST*400 
-      CHARACTER VARNAME*60
-      CHARACTER*(MXCHAR_FILENAME) FILE_LIST(MXFILE_LIST)
-
-c functions
-
-      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
-      EXTERNAL STORE_PARSE_WORDS, IGNOREFILE
-C ------------ BEGIN -------------
-
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      NVAR_HEADER_OVERRIDE = 0
-
-      LENF   = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      cFILE  = HEADER_OVERRIDE_FILE(1:LENF) // char(0)
-      if ( IGNOREFILE(cFILE,LENF) .NE. 0 ) RETURN
-
-      IF ( LSIM_SNANA ) THEN
-        print*,' '
-        print*,
-     &     ' ##########################################################'
-        print*,
-     &     ' !!!! IGNORE HEADER_OVERRIDE_FILE for SNANA SIMULATION !!!!'
-        print*,
-     &     ' ##########################################################'
-        print*,' '
-        CALL FLUSH(6)
-
-        HEADER_OVERRIDE_FILE = ''
-        RETURN
-      ENDIF
-
-      CALL RD_VPEC_FILE(-1)  ! abort if using obsolete VPEC_FILE (Jun 2020)
-
-      FNAM = 'INIT_HEADER_OVERRIDE'
-
-      LEN_ALL = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
-      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN_ALL) // char(0)
-
-c -------------------
-c check option to list HEADER variable names that can be overwritten
-      IF ( HEADER_OVERRIDE_FILE .EQ. 'LIST' ) THEN
-        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cVARLIST,400)
-        print*,' '
-        print*,' Dump List of available HEADER-Override variables: '
-        DO 11 iwd     = 1, NWD
-          CALL get_PARSE_WORD_fortran(iwd,VARNAME,LENV)
-          print*,'    ', VARNAME
-11      CONTINUE
-        print*,'  Done with list --> STOP. '
-        CALL FLUSH(6)
-        CALL EXIT(EXIT_ERRCODE)
-      ENDIF
-c -------------------
-      CALL PRBANNER('INIT_HEADER_OVERRIDE')
-
-c break comma-separated list (cFILE). Store local list
-c of files so that STORE_PARSE_WORDS can be used on VARLIST
-c for each file
-      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
-      NFILE = STORE_PARSE_WORDS(OPTMASK_STORE,cFILE,LENF)
-      if ( NFILE > MXFILE_LIST ) then
-        write(c1err,51) NFILE, MXFILE_LIST
-51      format('NFILE=',I2,' exceeds bound of MXFILE_LIST=',I2)
-        C2ERR = 'Increase MXFILE_LIST in snana.car, or reduce NFILE'
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      endif
-
-      DO ifile = 1, NFILE
-        call get_PARSE_WORD_fortran(ifile,FILE_LIST(ifile),LENF)
-      ENDDO
-      
-c - - - 
-      
-      DO 900 ifile = 1, NFILE
-        CALL READ_HEADER_OVERRIDE_FILE(FILE_LIST(ifile))
- 900  CONTINUE
-
-      print*,' '
-      print*,' HEADER_OVERRIDE SUMMARY:'
-      DO ivar = 1, NVAR_HEADER_OVERRIDE
-          write(6,110) VARLIST_HEADER_OVERRIDE(ivar)
-110       format(T10,'--> Override header variable: ', A)
-      END DO
-      CALL FLUSH(6)
-
-c check array bound
-      NVAR = NVAR_HEADER_OVERRIDE 
-      IF ( NVAR > MXVAR_HEADER_OVERRIDE ) THEN
-        write(c1err,61) NVAR
-61      format(I3,' override variables exceeds bound.' )
-        write(c2err,62) MXVAR_HEADER_OVERRIDE
-62      format('Bound is MXVAR_HEADER_OVERRIDE = ', I3 )
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-      print*,' ' 
-      CALL FLUSH(6)
-
-      RETURN
-      END  ! INIT_HEADER_OVERRIDE
-
-C =====================================
-+DECK,READ_HEADER_OVERRIDE.
-      SUBROUTINE READ_HEADER_OVERRIDE_FILE(FILENAME)
-
-c Created Jul 21 2020
-c Read FILENAME with SNTABLE_AUTOSTORE
-c
-c Aug 27 2020: check REQUIRE_DOCANA
-c Oct 27 2020: if no variables found, print list as part of abort message.
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-c subroutine arg
-      CHARACTER FILENAME*(*) ! (I) name of file to read char(0)?
-
-c local var
-      CHARACTER 
-     &   VARNAME*60, cVARNAME*60, cVARLIST*400
-     &  ,cFILE*(MXCHAR_FILENAME), cTABLE*40, FNAM*28
-
-      INTEGER 
-     &   NROW, NVAR, NVAR_ALL, LEN1, LEN2, LEN3, iwd, EXIST_VAR
-     &  ,OPTMASK_STORE, OPTMASK_SNTABLE, LENV
-
-c functions
-      INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-      EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS, CHECK_FILE_DOCANA
-
-C ------------- BEGIN -----------
-     
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      FNAM = 'READ_HEADER_OVERRIDE_FILE'
-      CALL ENVreplace(FILENAME) 
-
-      LEN1 = INDEX(FILENAME,' ') - 1
-      cFILE = FILENAME(1:LEN1) // char(0)
-
-      cTABLE = 'OVERRIDE' // char(0) 
-      LEN2   = INDEX(cTABLE,' ') - 1
-
-      LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
-      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
-
-c - - - - - -  -
-      CALL CHECK_FILE_DOCANA(REQUIRE_DOCANA, cFILE,LEN1)  ! C function
-c - - - - - -  -
-
-      OPTMASK_SNTABLE = 
-     &     4    ! 4 -> append next file
-cc xxx mark delete      &     2 +  ! 2 -> abort if no var matches
-cc xxx because later SIMLIB_OUT checks for optional x1 and c
-
-      NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &        OPTMASK_SNTABLE,  LEN1, LEN2, LEN3 )
-
-      write(6,20) NROW
- 20   format(T4,'Stored ', I8, ' rows of header-override data ')
-
-      IF ( NROW == 0 ) THEN
-        C1ERR = 'NROW = 0 in HEADER_OVERRIDE_FILE'
-        C2ERR = 'Check ' // FILENAME(1:LEN1)
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF 
-
-c check which header variables exist in the user file
-      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
-      NVAR_ALL = STORE_PARSE_WORDS(OPTMASK_STORE,cVARLIST,400)      
-      NVAR     = 0  ! xxx mark delete NVAR_HEADER_OVERRIDE 
-
-      DO 10 iwd     = 1, NVAR_ALL
-          call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
-          cVARNAME  = VARNAME(1:LENV) // char(0)
-          EXIST_VAR = EXIST_VARNAME_AUTOSTORE(cVARNAME,LENV)
-          if ( EXIST_VAR > 0 ) then
-            NVAR = NVAR + 1
-            if ( NVAR .LE. MXVAR_HEADER_OVERRIDE ) then
-              VARLIST_HEADER_OVERRIDE(NVAR) = VARNAME(1:40)
-            endif
-          endif
- 10   CONTINUE
-      NVAR_HEADER_OVERRIDE = NVAR
-      call flush(6)
-
-c - - - - - - - - 
-      IF ( NVAR == 0 ) THEN
-         CALL PRINT_PREABORT_BANNER(FNAM(1:28)//char(0),28)
-         write(6,166) NVAR_ALL
- 166     format(T3,'List of ',I4,' valid HEADER_OVERRIDE variables:')
-         DO 16 iwd     = 1, NVAR_ALL
-           call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
-           print*,'     ', VARNAME(1:LENV) 
-           call flush(6)
- 16      CONTINUE
-         c1err = 'Found no valid variables in HEADER_OVERRIDE_FILE.' 
-         c2err = 'Check valid HEADER_OVERRIDE variables list above.'
-         CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-      RETURN
-      END    ! end READ_HEADER_OVERRIDE_FILE
-
-C ========================================================
-+DECK,EXEC_HEADER_OVERRIDE.
-      SUBROUTINE EXEC_HEADER_OVERRIDE()
-
-c xxxxxxxx mark obsolete xxxxxxx
-c
-c Created Nov 29 2016 by R.Kessler
-c Execute header override.
-c
-c Aug  7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
-c Nov 22 2019: check for HOSTGAL_OBJID, SIM_SALT2x1[c]
-c May 14 2020: check for REDSHIFT_QUALITYFLAG
-c Oct 27 2020: add REDSHIFT_CMB_ERR, REDSHIFT_HELIO[_ERR] to list
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-      INTEGER ivar, L, LENV, ISTAT
-      REAL*8  DVAL
-      REAL*4  z, zerr
-      CHARACTER cVARNAME*40, VARNAME*40, cDUM*20
-      CHARACTER CCID_SNID*(MXCHAR_CCID), CCID_IAUC*(MXCHAR_CCID)
-      CHARACTER FNAM*24
-      LOGICAL    MAKE_SIMLIB_OUT
-c functions
-      EXTERNAL SNTABLE_AUTOSTORE_READ
-C ------------ BEGIN ------------
-
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      IF ( NVAR_HEADER_OVERRIDE <= 0 ) RETURN
-
-      MAKE_SIMLIB_OUT = ( SIMLIB_OUTFILE .NE. '' ) 
-
-      FNAM = 'EXEC_HEADER_OVERRIDE'
-
-      L = INDEX(SNLC_CCID,' ') - 1
-      CCID_SNID = SNLC_CCID(1:L) // char(0)
-
-      L = INDEX(SNLC_IAUC,' ') - 1
-      CCID_IAUC = SNLC_IAUC(1:L) // char(0)
-
-      DO 100 ivar = 1, NVAR_HEADER_OVERRIDE
-        VARNAME   = VARLIST_HEADER_OVERRIDE(ivar)
-        LENV      = INDEX(VARNAME,' ' ) - 1
-        cVARNAME  = VARNAME(1:LENV) // char(0)
-        CALL SNTABLE_AUTOSTORE_READ(CCID_SNID,cVARNAME,ISTAT,
-     &          DVAL,cDUM,    MXCHAR_CCID, LENV, 20)
-
-        IF ( ISTAT .NE. 0 ) THEN  ! try IAUC name
-          CALL SNTABLE_AUTOSTORE_READ(CCID_IAUC,cVARNAME,ISTAT,
-     &               DVAL,cDUM,     MXCHAR_CCID, LENV, 20)
-        ENDIF
-        
-        IF ( ISTAT .NE. 0 ) GOTO 100
-
-c brute-force check each possible header variable 
-
-        IF ( VARNAME(1:LENV) .EQ. 'VPEC' ) THEN
-          SNLC_VPEC = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'VPEC_ERR' ) THEN
-          SNLC_VPEC_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' .or. 
-     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB'  ) THEN
-          z            = sngl(DVAL)
-          SNLC_ZCMB    = z; 
-          SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
-          CALL SET_ZHELIO()  ! compute zHEL from zCMB  (7.30.2020)
-          SNLC_REDSHIFT = SNLC_ZHELIO
-	  IF(RESTORE_OVERRIDE_ZBUG) SNLC_REDSHIFT = z
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' .or.
-     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB_ERR' ) THEN
-          zerr = sngl(DVAL)
-          SNLC_ZCMB_ERR     = zerr    ! bugfix z 
-          SNLC_ZHELIO_ERR   = zerr
-          SNLC_REDSHIFT_ERR = zerr
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO' ) THEN
-          SNLC_ZHELIO = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO_ERR' ) THEN
-          SNLC_ZHELIO_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_QUALITYFLAG' ) THEN
-           ISNLC_zFLAG = int(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'zFLAG' ) THEN
-           ISNLC_zFLAG = int(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_OBJID' ) THEN
-          SNHOST_OBJID(1) = int(DVAL)   ! Nov 22 2019
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS' ) THEN
-          SNHOST_LOGMASS(1) = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS_ERR' ) THEN
-          SNHOST_LOGMASS_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_DDLR' ) THEN
-          SNHOST_DDLR(1) = sngl(DVAL)   ! Dec 10, 2019
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGsSFR' ) THEN
-          SNHOST_LOGsSFR(1) = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGsSFR_ERR' ) THEN
-          SNHOST_LOGsSFR_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_PHOTOZ' ) THEN
-          SNHOST_ZPHOT(1)     = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_PHOTOZ_ERR' ) THEN
-          SNHOST_ZPHOT_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'MWEBV' ) THEN
-          SNLC_MWEBV = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'MWEBV_ERR' ) THEN
-          SNLC_MWEBV_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2x1' ) THEN ! Nov 24 2019
-          SIM_SHAPEPAR = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_x1' ) THEN
-          SIM_SHAPEPAR = sngl(DVAL) 
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2c' ) THEN ! Nov 24 2019
-          SIM_COLORPAR = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_c' ) THEN ! Nov 24 2019
-          SIM_COLORPAR = sngl(DVAL) 
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJD' ) THEN ! Nov 24 2019
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PKMJDINI' ) THEN
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJDINI' ) THEN  ! same
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL)
-
-        ELSE IF ( .NOT. MAKE_SIMLIB_OUT ) THEN           
-           C1ERR = 'Unknown VARNAME = '// VARNAME(1:LENV)
-           C2ERR = 'Check VARLIST_ALL_HEADER_OVERRIDE in snana.car' 
-           CALL MADABORT(FNAM, c1err, c2err )
-        ENDIF
-
-100   CONTINUE
-
-      RETURN
-      END      ! end EXEC_HEADER_OVERRIDE
 
 
 C ========================================================

@@ -1087,20 +1087,16 @@ void wr_snfitsio_create(int itype ) {
   }
 
   // ----------------------------------
-  // check for private header variables
+  // check for optional things like private header variables
+  // and NZPHOT_Q
   if ( itype == ITYPE_SNFITSIO_HEAD ) {
-    NVAR = SNDATA.NVAR_PRIVATE; 
 
-    sprintf(KEYNAME,"NPRIVATE");
-    fits_update_key(fp, TINT, KEYNAME, &NVAR,
-		      "Number of private variables", &istat );
+    // write private variables
+    wr_snfitsio_global_private(fp);
 
-    for ( ivar=1; ivar <= NVAR; ivar++ ) {
-      sprintf(PARNAME,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );
-      sprintf(KEYNAME, "PRIVATE%d", ivar);
-      fits_update_key(fp, TSTRING, KEYNAME, PARNAME,
-		      "name of private variable", &istat );
-    }
+    //write number of Q quantiles
+    wr_snfitsio_global_zphot_q(fp);
+
   }
 
   // ----------------------------------
@@ -1122,8 +1118,6 @@ void wr_snfitsio_create(int itype ) {
 
   fits_update_key(fp, TSTRING, "DATATYPE", datatype, comment, &istat ); 
 
-  //write number of Q quantiles
-  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {wr_snfitsio_zphot_q(fp); }
 
 
   // --------------------------------------------
@@ -1304,39 +1298,71 @@ void wr_snfitsio_create(int itype ) {
 } // end of wr_snfitsio_create
 
 
-// ====================================
-void wr_snfitsio_zphot_q(fitsfile *fp) {
+// =================================================
+void wr_snfitsio_global_private(fitsfile *fp) {
+
+  // Created Feb 10 2022
+  // [code moved from wr_snfitsio_create to here]
+
+  int ivar, NVAR, istat ;
+  char KEYNAME[60], PARNAME[60];
+
+  // ------------- BEGIN -----------
+  
+  NVAR = SNDATA.NVAR_PRIVATE; 
+
+  sprintf(KEYNAME,"NPRIVATE");
+  fits_update_key(fp, TINT, KEYNAME, &NVAR,
+		  "Number of private variables", &istat );
+
+  if ( NVAR == 0 ) { return; }
+
+  for ( ivar=1; ivar <= NVAR; ivar++ ) {
+    sprintf(PARNAME,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );
+    sprintf(KEYNAME, "PRIVATE%d", ivar);
+    fits_update_key(fp, TSTRING, KEYNAME, PARNAME,
+		    "name of private variable", &istat );
+  }
+  
+  return;
+
+} // end wr_snfitsio_global_private
+
+// =================================================
+void wr_snfitsio_global_zphot_q(fitsfile *fp) {
 
   // Created Feb 10 2022
   // write zphot quantile column names
   
   int  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-  int  istat, ipar ; 
+  int  istat, ipar, PCT ; 
   char KEYNAME[60], PARNAME[60];
   char fnam[] = "wr_snfitsio_zphot_q" ;
 
   // --------- BEGIN ----------
 
-  if ( N_Q > 0 ) {   
-    istat = 0 ;
-    fits_update_key(fp, TINT, "NZPHOT_Q", &N_Q,
+  istat = 0 ;
+  fits_update_key(fp, TINT, "NZPHOT_Q", &N_Q,
                   "number of Q zphot quantiles", &istat );
-    sprintf(c1err,"Write NZPHOT_Q") ;
+  sprintf(c1err,"Write NZPHOT_Q") ;
+  snfitsio_errorCheck(c1err, istat) ;
+
+  if ( N_Q == 0 ) { return ; }
+
+  // - - - - - - 
+  
+  for(ipar=0; ipar < N_Q; ipar++ ) { 
+    PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar];
+
+    sprintf(KEYNAME,"PERCENTILE_%s%2.2d", 
+	    PREFIX_ZPHOT_Q, ipar);  // e.g., 'PERCENTILE_ZPHOT_Q00'
+
+    istat=0;
+    fits_update_key(fp, TINT, KEYNAME, &PCT, KEYNAME, &istat );  
+    sprintf(c1err,"Write %s quantile key", KEYNAME) ;
     snfitsio_errorCheck(c1err, istat) ;
+  }
 
-    /* xxxxxxxxxxxxxxxx
-    for(ipar=0; ipar < N_Q; ipar++ ) { 
-      sprintf(KEYNAME,"VARNAME_ZPHOT_Q%2.2d", ipar );
-      sprintf(PARNAME,"%s%d",  // e.g., 'ZPHOT_Z10'
-	      PREFIX_ZPHOT_Q, SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] );
-      istat=0;
-      fits_update_key(fp, TSTRING, KEYNAME, PARNAME, PARNAME, &istat );  
-      sprintf(c1err,"Write %s file name", PARNAME) ;
-      snfitsio_errorCheck(c1err, istat) ;
-    }
-    xxxxxxxxx */
-
-  } // end N_Q > 0
 
   return;
 } // end wr_snfitsio_zphot_q
@@ -3317,19 +3343,16 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       }
 
 
-      // .xyz reading won't work until HOSTLIB.VARNAME_ZPHOT_Q is set
-      //  when header is read.
+      // read optional zphot quantiles
       N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
       for(iq=0; iq < N_Q; iq++ ) {
-	int PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-        sprintf(KEY,"%s%d", PREFIX_ZPHOT_Q, PCT); 
-        j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY,
-				     &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq],
-                                     &SNFITSIO_READINDX_HEAD[j] ) ;
+	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+	float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
+        sprintf(KEY,"%s_%s%d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
+        j++ ; NRD=RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 
-	printf(" xxx %s: read zphot_q=%.4f for PCT=%d \n",
-	       fnam, SNDATA.HOSTGAL_ZPHOT_Q[igal][iq], PCT); fflush(stdout);
-
+	printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
+	       fnam, KEY, zq, PCT); fflush(stdout);
       }
       
 
@@ -4198,10 +4221,10 @@ void rd_snfitsio_simkeys(void) {
 void rd_snfitsio_zphot_q(void) {
 
   // Created Feb 10 2022
-  // read optional zphot quantile percentiles.
+  // read optional zphot quantile percentiles from global header.
 
   fitsfile *fp ;
-  int itype, istat, N_Q, NFIND_KEY=0, pct, PCT ;
+  int itype, istat, N_Q, NFIND_KEY=0, ivar, PCT ;
   int LDMP = 1 ;
   char keyname[60], comment[200], *cptr ;
   char fnam[] = "rd_snfitsio_zphot_q" ;
@@ -4217,27 +4240,30 @@ void rd_snfitsio_zphot_q(void) {
   sprintf(comment,"Read %s", keyname);
   fits_read_key(fp, TINT, keyname, &N_Q, comment, &istat );
 
-  if (istat == 0) { 
-    SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
+  if (istat != 0) { return ; }
 
-    if( LDMP ) { printf(" xxx %s: read NPHOT_Q = %d\n", fnam, N_Q); }
+  // - - - - - -
+  SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
 
-    // check for every possible percentile key of the form
-    // ZPHOT_Q[pct] .xyz
-    for(pct=0; pct <= MXBIN_ZPHOT_Q; pct++ ) {
-      sprintf(keyname,"%s%d", PREFIX_ZPHOT_Q, pct);
-      istat = 0 ;
-      sprintf(comment,"Read %s", keyname);
-      fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
-      
-      if ( istat == 0 ) {
-	SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT;
-	printf(" xxx %s: found key = %s = %d \n",
-	       fnam, keyname, PCT); fflush(stdout);
-	NFIND_KEY++ ;
-      }
+  // read list of percentiles from keys of the form
+  // PERCENTILE_ZPHOT_Q## .xyz
+  for(ivar=0; ivar < N_Q; ivar++ ) {
+    sprintf(keyname,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ivar);
+    
+    istat = 0 ;
+    sprintf(comment,"Read %s", keyname);
+    fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
+    
+    if ( istat == 0 ) {
+      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT ;
+      NFIND_KEY++ ;
     }
+  }
 
+  if ( NFIND_KEY != N_Q ) {
+    sprintf(c1err,"Found %d PERCENTILE_ZPHOT_Q* keys", NFIND_KEY);
+    sprintf(c2err,"but expected to fid NZPHOT_Q = %d", N_Q);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   return;

@@ -211,7 +211,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);
-void wr_snfitsio_zphot_q(fitsfile *fp);
+void wr_snfitsio_global_private(fitsfile *fp);
+void wr_snfitsio_global_zphot_q(fitsfile *fp);
 
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);

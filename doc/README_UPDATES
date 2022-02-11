@@ -20784,6 +20784,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04h) ***** 
 
+   Finalize ZPHOT_Q notation for sim and real data.
+   Reading ZPHOT quantile info works for fits format up to 
+   loading SNDATA struct; still need to pass info to snana.car.
+
          ***** USEFUL(v11_04h) ***** 
 
          ***** MISCELLANEOUS(v11_04h) ***** 

@@ -5,6 +5,7 @@
 # Jan 14 2022 G.Narayan - fix diaObject bug found by Rob K.
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
 # Jan 31 2022 RK^2 fix bug setting alert_first_detect
+# Feb 22 2022 RK - integreate ZPHOT_Q and check for 2nd hostgal
 
 import datetime
 import glob
@@ -52,35 +53,12 @@ VARNAME_DIAOBJ_MAP = {
     gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_z_err'
 }
 
-HOSTKEY_BASE_DIASRC = [ 'hostgal_', 'hostgal2_' ]
-
-#HOSTKEY_OBJID         = "HOSTGAL_OBJID"
-#HOSTKEY_PHOTOZ        = "HOSTGAL_PHOTOZ"
-#HOSTKEY_PHOTOZ_ERR    = "HOSTGAL_PHOTOZ_ERR"
-#HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
-
-for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
-    for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
-        key_snana = f"{prefix}_{band}"
-        key_alert = f"{prefix.lower()}_{band}"
-        VARNAME_DIAOBJ_MAP[key_snana] = key_alert
-
-
-for qp in gpar.PERCENTILE_ZPHOT_LIST:
-    key_snana = f'{gpar.HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
-    key_alert = lc
-    key2_snana = f'{gpar.HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
-    key2_alert = lc
-    VARNAME_DIAOBJ_MAP[key_snana] = key_alert
-    VARNAME_DIAOBJ_MAP[key2_snana] = key2_alert
 
 VARNAME_OBS_MAP = {
     'MJD'        : 'midPointTai',
     'BAND'       : 'filterName',
     'FLUXCAL'    : 'psFlux',
     'FLUXCALERR' : 'psFluxErr'
-    # xxx mark delete Feb 2 2022 'FLUXCAL'    : 'apFlux',
-    # xxx mark delete FLUXCALERR' : 'apFluxErr'
 }
 
 LSST_ZP_nJy     = 31.4   # report calibrated flux in this unit
@@ -103,13 +81,44 @@ LSST_SITE_NAME    = "CTIO"
 TIME_WAIT_FORCEPHOTO = 0.9  # days,  wait this long for previous sources
 
 # ===============================================================
+def append_HOSTGAL_DIAOBJ_MAP():
+
+    # Created Feb 11 2022 by R.Kessler
+    # After reading columm names, add more hostgal variables to
+    # global VARNAME_DIAOBJ_MAP
+    
+    for prefix in ['HOSTGAL_MAG', 'HOSTGAL_MAGERR'] :
+        for band in list(gpar.SURVEY_INFO['FILTERS']['LSST']):
+            key_snana = f"{prefix}_{band}"
+            key_alert = f"{prefix.lower()}_{band}"
+            VARNAME_DIAOBJ_MAP[key_snana] = key_alert
+
+    for key in gpar.DATAKEY_LIST_ZPHOT_Q :
+        if 'HOSTGAL2' in key: continue  # 2nd host treated elsewhere
+        key_snana = key
+        key_alert = lc
+        VARNAME_DIAOBJ_MAP[key_snana] = key_alert
+
+    # for each HOSTGAL_XXX key, add another key with HOSTGAL2_XXX
+    TMP_MAP = VARNAME_DIAOBJ_MAP.copy()
+    for key_snana, key_alert in TMP_MAP.items() :
+        if gpar.HOSTKEY_BASE in key_snana :
+            key2_snana = util.key_hostgal_nbr(key_snana,2)
+            key2_alert = util.key_hostgal_nbr(key_alert,2)
+            VARNAME_DIAOBJ_MAP[key2_snana] = key2_alert
+
+    #sys.exit(f"\n VARNAME_DIAOBJ_MAP = \n{VARNAME_DIAOBJ_MAP}")
+    
+    # end append_HOSTGAL_DIAOBJ_MAP
+    
 def init_schema_lsst_alert(schema_file):
 
     schema     = lsst.alert.packet.Schema.from_file(filename=schema_file)
     schema_dir = os.path.dirname(schema_file)
     json_file  = f"{schema_dir}/sample_data/plasticc.json"  # too much hard coding
 
-    logging.info(f"\n Init alert schema based on\n\t schema_file={schema_file}\n" \
+    logging.info(f"\n Init alert schema based on\n" \
+                 f"\t schema_file={schema_file}\n" \
                  f"\t jon_file={json_file} ")
 
     # Load an example json alert, and clear the numberical input
@@ -173,6 +182,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     outdir        = args.outdir_lsst_alert
 
     if nevent == 0 :
+        append_HOSTGAL_DIAOBJ_MAP()
+        
         schema, alert_data  = \
             init_schema_lsst_alert(args.lsst_alert_schema)
         alert_data_orig     = alert_data.copy()

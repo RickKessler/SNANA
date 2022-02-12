@@ -1,5 +1,4 @@
 # Read data from already existing folder in SNANA-FITS format.
-# Intended only for testing makeDataFiles; not for production.
 # Nov 30 2021: fix bug to account for PTROBS starting at 1 instead of 0.
 # Dec 20 2021: fix dumb bug to read last HEAD & PHOT file.
 # Feb 03 2022: integrate refac code; remove legacy (snana-reader util)
@@ -65,7 +64,6 @@ class data_snana_folder(Program):
         data_dict = SNANA_READER.get_data_dict(args,evt)
         return data_dict
         # end read_event
-
 
     def set_dump_flag(self, isn, data_event_dict):
         d_raw = data_event_dict['head_raw']

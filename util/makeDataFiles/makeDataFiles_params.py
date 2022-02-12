@@ -192,10 +192,7 @@ HOSTKEY2_PREFIX_MAGERR = "HOSTGAL2_MAGERR"
 HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
 
 # define prefix for photo-z quantiles
-HOSTKEY_PREFIX_ZPHOT_Q = "HOSTGAL_ZPHOT_Q"
-HOSTKEY2_PREFIX_ZPHOT_Q = "HOSTGAL2_ZPHOT_Q"
-PERCENTILE_ZPHOT_LIST = [10, 20, 30, 40, 50, 60, 70, 80, 90, 99] ### HACK HACK HACK - FIX SOON
-
+HOSTKEY_PREFIX_ZPHOT_Q       = "HOSTGAL_ZPHOT_Q"
 
 # =============================================================================
 # LISTS
@@ -203,7 +200,7 @@ PERCENTILE_ZPHOT_LIST = [10, 20, 30, 40, 50, 60, 70, 80, 90, 99] ### HACK HACK H
 # -----------------------------------------------------------------------------
 
 HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
-                        HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR,
+# xxx mark                       HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR,
                         HOSTKEY_PREFIX_SB ]
 
 # -----------------------------------------------------------------------------
@@ -214,9 +211,9 @@ DATAKEY_LIST_RAW = [
     DATAKEY_RA, DATAKEY_DEC,
     DATAKEY_zHEL, DATAKEY_zHEL_ERR, DATAKEY_FIELD,
     HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID,
-    HOSTKEY_SPECZ, HOSTKEY_SPECZ_ERR,
+    HOSTKEY_SPECZ,  HOSTKEY_SPECZ_ERR,
     HOSTKEY_SNSEP,  HOSTKEY_DDLR,
-    HOSTKEY_ELLIP, HOSTKEY_SQRADIUS
+    HOSTKEY_ELLIP,  HOSTKEY_SQRADIUS
 ]
 
 # -----------------------------------------------------------------------------
@@ -225,14 +222,19 @@ DATAKEY_LIST_CALC = [
     DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_LAST,
     HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
 ]
-for qp in PERCENTILE_ZPHOT_LIST:
-    host_key = f'{HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
-    host2_key = f'{HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
-    DATAKEY_LIST_CALC.append(host_key)
-    DATAKEY_LIST_CALC.append(host2_key)
 
 
+#for qp in PERCENTILE_ZPHOT_LIST:
+#    host_key = f'{HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
+#    host2_key = f'{HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
+#    DATAKEY_LIST_CALC.append(host_key)
+#    DATAKEY_LIST_CALC.append(host2_key)
+
+
+# define null lists for optional variables whose names are specified
+# in global header and thus cannot be specified here.
 DATAKEY_LIST_PRIVATE = [] # filled if private variables exist
+DATAKEY_LIST_ZPHOT_Q = [] # filled of ZPHOT_Qnn variables exist (Feb 11 2022)
 
 # -----------------------------------------------------------------------------
 SIMKEY_TYPE_INDEX = "SIM_TYPE_INDEX"

@@ -815,12 +815,12 @@ class wFit(Program):
                 f.write(f"#\n# {str_diropt}={dir_name}\n")
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
             if use_wa : 
-                str_results  = f"{w:.4f} {w_sig:.4f} "
-                str_results += f"{wa:7.4f} {wa_sig:7.4f} "
+                str_results  = f"{w:.5f} {w_sig:.5f} "
+                str_results += f"{wa:7.5f} {wa_sig:7.5f} "
                 str_results += f"{FoM:5.1f} {Rho:6.3f} "
                 str_results += f"{omm:.3f} {omm_sig:.3f}  "
             else:
-                str_results  = f"{w:.5f} {w_sig:.5f}  "
+                str_results  = f"{w:.6f} {w_sig:.6f}  "
                 str_results += f"{omm:.5f} {omm_sig:.5f}  "
 
             str_misc    = f"{chi2:4.1f} {blind} "
@@ -900,18 +900,16 @@ class wFit(Program):
 
 
     def compute_average(self, fit_list, fiterr_list):
+        # compute weighted avg as described in "An Introduction to Error Analysis" by Taylor, John R., Chapter 7, eq 7.10-7.12
         fit_array = np.array(fit_list)
         fiterr_array = np.array(fiterr_list)
         weights = 1./fiterr_array**2
 
-        # compute weighted error
-        avg,sum_of_weights = np.average(fit_array, weights=weights, returned=True)
-        N = len(fit_array)
-        
-        # compute weighted std on the mean
-        avg_std = np.sqrt(1/sum_of_weights)/np.sqrt(N-1)
+        sum_weights = weights.sum(0)
+        w_mean = np.dot(fit_array, weights) / sum_weights
+        std_wmean = np.sqrt(1/sum_weights)
 
-        return avg,avg_std
+        return w_mean, std_wmean
 
 
     def make_weight_avg_summary(self):

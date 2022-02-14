@@ -151,7 +151,8 @@ void INIT_HOSTLIB(void) {
   char fnam[] = "INIT_HOSTLIB" ;
 
   // M. Vincenzi Feb 2022
-  REFAC_HOSTLIB = ( INPUTS.DEBUG_FLAG == 203 );
+  //  REFAC_HOSTLIB = ( INPUTS.DEBUG_FLAG == 203 );
+  REFAC_HOSTLIB = false;
 
   // ---------------- BEGIN -------------
 
@@ -279,9 +280,9 @@ void initvar_HOSTLIB(void) {
     HOSTLIB.IS_SNPAR_STORE[ivar]    = 0 ;
   }
   
-  if (REFAC_HOSTLIB){
-    malloc_HOSTGAL_PROPERTY();
-  }
+  
+  malloc_HOSTGAL_PROPERTY();
+
 
   HOSTLIB.ZGAPMAX       = -9. ;
   HOSTLIB.Z_ATGAPMAX[0] = -9. ;
@@ -515,13 +516,12 @@ void init_OPTIONAL_HOSTVAR(void) {
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_NBR_LIST ); 
 
-  if (REFAC_HOSTLIB){
-    for (j=0; j<N_HOSTGAL_PROPERTY; j++){
-      init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
+  for (j=0; j<N_HOSTGAL_PROPERTY; j++){
+    init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
     }
-  }
 
-  else {  //legacy
+  /* xxx Mark delete Febr 2022 after implementing more generic Host properties
+     else {  //legacy
     NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; 
     sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE );
     NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
@@ -529,6 +529,8 @@ void init_OPTIONAL_HOSTVAR(void) {
     NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
     sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
   }
+  xxx */
+
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
 
@@ -2354,24 +2356,25 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB_PREFIX(HOSTLIB_PREFIX_ZPHOT_Q, 0);
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC,    0) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB(HOSTLIB_VARNAME_VPEC_ERR,0);
+
+  /* xxx Mark delete Febr 2022
   HOSTLIB.IVAR_LOGMASS_TRUE = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_TRUE, 0) ; 
   HOSTLIB.IVAR_LOGMASS_OBS  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_OBS,  0) ; 
   HOSTLIB.IVAR_LOGMASS_ERR  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_ERR,  0);
+  xxx */
 
-  if (REFAC_HOSTLIB){
-    for (ivar=0;ivar<N_HOSTGAL_PROPERTY;ivar++){
-      basename = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].BASENAME;
+  for (ivar=0;ivar<N_HOSTGAL_PROPERTY;ivar++){
+    basename = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].BASENAME;
     
-      sprintf(c_var, "%s_TRUE", basename);
-      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE = IVAR_HOSTLIB(c_var, 0);
+    sprintf(c_var, "%s_TRUE", basename);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE = IVAR_HOSTLIB(c_var, 0);
+    
+    sprintf(c_var, "%s_OBS", basename);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS = IVAR_HOSTLIB(c_var, 0);
       
-      sprintf(c_var, "%s_OBS", basename);
-      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS = IVAR_HOSTLIB(c_var, 0);
-      
-      sprintf(c_var, "%s_ERR", basename);
-      HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR = IVAR_HOSTLIB(c_var, 0);  
+    sprintf(c_var, "%s_ERR", basename);
+    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR = IVAR_HOSTLIB(c_var, 0);  
     }
-  }
 
   HOSTLIB.IVAR_ANGLE        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
   HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
@@ -2546,17 +2549,19 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
   if ( strcmp(varName,"VPECERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_VPEC_ERR); }
 
-  if (REFAC_HOSTLIB){
-    for (j=0; j<N_HOSTGAL_PROPERTY; j++){
-      BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
-      if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
-    }
+  for (j=0; j<N_HOSTGAL_PROPERTY; j++){
+    BASENAME= HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME;
+    // printf ("xxxx 1  %s varName=%s \n",fnam, varName);
+    if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
+    // printf ("xxxx 2  %s varName=%s \n",fnam, varName);
   }
 
-  else{
+  /* xxx Mark delete on Febr 2022
+     else{
     if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
       { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
-  }
+      } 
+  xxx */
   
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
@@ -5321,15 +5326,16 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   TRANSFER_SNHOST_REDSHIFT(IGAL);
 
   // check on host properties for each possible host match (Feb 2020)
-  if (REFAC_HOSTLIB){
-    int ivar_property;
-    for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++){
-      GEN_SNHOST_PROPERTY(ivar_property);
-    }
+  int ivar_property;
+  for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++){
+    GEN_SNHOST_PROPERTY(ivar_property);
   }
-  else { 
+
+  /* xxx Mark delete Febr 2022
+     else { 
     GEN_SNHOST_LOGMASS(); //legacy
-  } 
+    } 
+    xxx */ 
 
   // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
@@ -7286,7 +7292,8 @@ void SORT_SNHOST_byDDLR(void) {
 	   SNHOSTGAL_DDLR_SORT[i].ZPHOT,
 	   SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR
     */
-    // legacy LOGMASS
+
+    /* xxx Mark deleted Febr 2022 - legacy LOGMASS
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = -9.0;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.0;
     SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR  = -9.0;
@@ -7302,18 +7309,17 @@ void SORT_SNHOST_byDDLR(void) {
     IVAR = HOSTLIB.IVAR_LOGMASS_ERR; 
     if ( IVAR > 0 )
       { SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL); }
+      xxx */
 
-    if (REFAC_HOSTLIB){
-      for (ivar=0; ivar<N_HOSTGAL_PROPERTY; ivar++){
-	IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE;
-	if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_TRUE = get_VALUE_HOSTLIB(IVAR,IGAL);}
+    for (ivar=0; ivar<N_HOSTGAL_PROPERTY; ivar++){
+      IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE;
+      if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_TRUE = get_VALUE_HOSTLIB(IVAR,IGAL);}
 
-	IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS;
-        if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_OBS = get_VALUE_HOSTLIB(IVAR,IGAL);}
-
-        IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR;
-        if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);}
-      }
+      IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS;
+      if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_OBS = get_VALUE_HOSTLIB(IVAR,IGAL);}
+      
+      IVAR = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR;
+      if ( IVAR > 0 ) {SNHOSTGAL_DDLR_SORT[i].HOSTGAL_PROPERTY_VALUE[ivar].VAL_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);}
     }
 
     // - - - - -

@@ -1652,7 +1652,7 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_DDLR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
    
-    // host properties 
+    // start host properties 
     // host logmass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_LOGMASS", PREFIX);
@@ -1664,7 +1664,6 @@ void wr_snfitsio_update_head(void) {
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
-    if (REFAC_HOSTLIB){
     // host sfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_LOGSFR", PREFIX);
@@ -1697,7 +1696,7 @@ void wr_snfitsio_update_head(void) {
     sprintf(parName,"%s_COLOR_ERR", PREFIX);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-    } // end of host properties
+    // end of host properties
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_ELLIPTICITY", PREFIX);

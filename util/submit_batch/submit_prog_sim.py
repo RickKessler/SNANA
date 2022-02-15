@@ -224,6 +224,7 @@ class Simulation(Program):
 
         # there is a separate GENOPT_GLOBAL for SIMnorm jobs
         # to simplify debugging if needed.
+        # M. Vincenzi Febr 2022: added protect_parenthesis in keys and values
 
         IGNORE_SIMnorm = GENOPT_GLOBAL_IGNORE_SIMnorm
 
@@ -233,8 +234,10 @@ class Simulation(Program):
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
-                GENOPT_GLOBAL_STRING += (f"{key} {value}  ")
-
+                key_protect = util.protect_parentheses(key)
+                value_protect = util.protect_parentheses(value)
+                GENOPT_GLOBAL_STRING += (f"{key_protect} {value_protect}  ")
+                
                 SKIP_SIMnorm = \
                     any(substring in key for substring in IGNORE_SIMnorm)
                 if not SKIP_SIMnorm :
@@ -294,7 +297,9 @@ class Simulation(Program):
                     for key2,value2 in value.items():
                         # if key includes (), replace with \( \)
                         key2_protect = util.protect_parentheses(key2)
-                        genopt = (f"{key2_protect} {value2}     ")
+                        value2_protect = util.protect_parentheses(value2)
+                        # xx mark delete genopt = (f"{key2_protect} {value2}     ")
+                        genopt = (f"{key2_protect} {value2_protect}     ") 
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
                         genarg_list.append(genarg)

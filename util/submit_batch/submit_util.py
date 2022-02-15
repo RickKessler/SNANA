@@ -263,7 +263,11 @@ def protect_parentheses(arg):
     # if arg = abc(option), returns abc\(option\).
     # If arg = abc, returns abc (no change)
     # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
-    arg_protect = arg.replace('(','\(').replace(')','\)')
+    # M. Vincenzi Febr 2022: only protects strings to avoid error on int/float
+    if isinstance(arg,str):
+        arg_protect = arg.replace('(','\(').replace(')','\)')
+    else: 
+        arg_protect = arg
     return arg_protect
     # end protect_parentheses
 

@@ -12369,6 +12369,10 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   Apr 25 2021: fix bug by exiting after PREP_SIMGEN_DUMP(0).
 
+  Feb 14 2022: M.Vinceniz, R.Kessler
+    call checkAlternateVarNames_HOSTLIB here (after INIT_HOSTLIB) instead 
+    of in parse_input_SIMGEN_DUMP (before INIT_HOSTLIB).
+    
   ****/
 
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
@@ -12395,11 +12399,10 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   }
 
   NVAR = INPUTS.NVAR_SIMGEN_DUMP ; // load global 
-
   for(ivar=0; ivar < NVAR; ivar++ ) {                          
-    varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;                                                                                          
+    varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;          
     checkAlternateVarNames_HOSTLIB(varName);
-  }                                                                                                                                                         
+  } 
 
   ptrFile = SIMFILE_AUX->DUMP ;
 

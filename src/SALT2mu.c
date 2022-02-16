@@ -2736,7 +2736,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 #endif
 
   CPU_SUMMARY();
-
+  
   
   return(FLAG_EXEC_STOP);
 

@@ -1765,7 +1765,6 @@ class BBC(Program):
             'row_extra_list' : []
         }
         return row_list_dict, n_state_change
-        # xxx mar return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
         
@@ -1889,12 +1888,10 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
-        # xxx cid_list = []
-        # xxx mark delete n_file   = 0
-
         
         first_fitres = VOUT+"/"+fitres_list[0]
-        first_fitres_cids = pd.read_csv(first_fitres, comment="#", delim_whitespace=True)['CID']
+        first_fitres_cids = pd.read_csv(first_fitres, 
+                            comment="#", delim_whitespace=True)['CID']
         counts = np.unique(first_fitres_cids, return_counts=True)[1]
         has_duplicates = len(counts[counts>1])>0
         if has_duplicates:

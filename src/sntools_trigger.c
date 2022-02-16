@@ -2005,6 +2005,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   // Mar 7 2018: refactor to use new SEARCHEFF_DETECT struct.
   // Sep   2018: fix logic when NMAP_FOUND=0. Effects SDSS u & z bands
   //             which don't have efficiency maps, whild gri do.
+  // Feb 15 2022: add more info for isnan abort.
 
   double
     MAG, SNR, MJD, EFF, FIX_EFF
@@ -2066,13 +2067,24 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
 
   if ( isnan(SNR) ) {
+    print_preAbort_banner(fnam);
+
     double PEAKMJD = SEARCHEFF_DATA.PEAKMJD ;
     double z       = SEARCHEFF_DATA.REDSHIFT ;
     double Trest   = (MJD-PEAKMJD)/(1.0+z);
+    double FLUX    = SEARCHEFF_DATA.FLUX[obs];
+    double FLUXERR = SEARCHEFF_DATA.FLUXERR[obs];
+
+    printf("\t MAG=%.3f  MJD=%.3f  PEAKMJD=%.3f  Trest=%.3f  z=%.3f\n", 
+	   MAG, MJD, PEAKMJD, Trest, z );
+    printf("\t NPE_SAT   = %d\n", NPE_SAT);
+    printf("\t FLUX(ADU) = %f +_ %f \n",  FLUX, FLUXERR);
+    printf("\t MWEBV = %.3f \n",   SEARCHEFF_DATA.MWEBV);
+    printf("\t LIBID     = %d \n", SEARCHEFF_DATA.SIMLIB_ID );
+
     sprintf(c1err,"Invalid SNR=isNan for CID=%d, ifilt_obs=%d(%s)",
 	    CID, ifilt_obs, cfilt );
-    sprintf(c2err,"MAG=%.3f  MJD=%.3f  Trest=%.3f",
-	    MAG, MJD, Trest);
+    sprintf(c2err,"See info above in pre-abort dump.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
   

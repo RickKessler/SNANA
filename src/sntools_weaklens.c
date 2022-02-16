@@ -216,7 +216,7 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 
 
 // ============================================
-double gen_lensDMU( double z, double ran1 ) {
+double gen_lensDMU( double z, double ran1, int DUMP_FLAG ) {
   // Created Apr 2017 
   // Return DMU from random lensing magnification.
   // DMU = -2.5*log10(magnification)
@@ -224,6 +224,8 @@ double gen_lensDMU( double z, double ran1 ) {
   // Inputs:
   //  z = redshift
   //  ran1 = random number from 0 to 1
+  //
+  // Feb 16 2022; pass DUMP_FLAG arg
 
   double lensDMU = 0.0 ;  // default  
   double zMIN = LENSING_PROBMAP.zMIN ;
@@ -233,6 +235,7 @@ double gen_lensDMU( double z, double ran1 ) {
 
   int OPT_INTERP = OPT_INTERP_LINEAR ;
   double ztmp, z0, z1, zScale = 0.0 ;
+  double DMU0=-9.0, DMU1=-9.0, zFac=-9.0 ;
   int    iz, iz0, iz1;
   char fnam[] = "gen_lensDMU" ;
 
@@ -285,7 +288,6 @@ double gen_lensDMU( double z, double ran1 ) {
   }
   else {
     // interpolate lensDMU between two z bins
-    double DMU0, DMU1, zFac ;
     DMU0 = interp_1DFUN(OPT_INTERP, ran1, NBIN_dmu,
 			ptrPROB[0], ptrDMU[0], fnam );
     DMU1 = interp_1DFUN(OPT_INTERP, ran1, NBIN_dmu,
@@ -293,6 +295,21 @@ double gen_lensDMU( double z, double ran1 ) {
 
     zFac    = (z - z0)/(z1-z0);
     lensDMU = DMU0 + (DMU1-DMU0)*zFac ;
+  }
+
+  if ( DUMP_FLAG ) {
+    printf(" xxx ------------------------------ \n");
+    printf(" xxx %s: dump for z=%f and ran1=%f \n", 
+	   fnam, z, ran1);
+    printf(" xxx %s: NBIN_dmu=%d  zMIN,zMAX = %f %f \n", 
+	   fnam, NBIN_dmu, zMIN, zMAX);
+    printf(" xxx %s: zScale = %f \n", 
+	   fnam, zScale);
+    printf(" xxx %s: z=%f z0=%f z1=%f zFac=%f \n", 
+	   fnam, z, z0, z1, zFac);
+    printf(" xxx %s: DMU0=%f  DMU1=%f  lensDMU = %f \n", 
+	   fnam, DMU0, DMU1, lensDMU );
+    fflush(stdout);
   }
 
   return(lensDMU) ; 

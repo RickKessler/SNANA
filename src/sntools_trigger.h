@@ -246,7 +246,8 @@ struct {
 
   // scalars
   int    CID ;
-  double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX ;
+  double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX, MWEBV ;
+  int    SIMLIB_ID;
 
   char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
@@ -261,6 +262,8 @@ struct {
   double MJD[MXOBS_TRIGGER];
   double MAG[MXOBS_TRIGGER];  // mag for each obs
   double SNR[MXOBS_TRIGGER];  // signal-to-noise for each obs
+  double FLUX[MXOBS_TRIGGER]; // flux in ADU, or errmsg only
+  double FLUXERR[MXOBS_TRIGGER];
   int    IFILTOBS[MXOBS_TRIGGER];  // absolute filter index. each obs
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)
   int detectFlag[MXOBS_TRIGGER]; // detection flag for each obs (not trigger)

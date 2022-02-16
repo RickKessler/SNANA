@@ -7896,8 +7896,10 @@ void  init_GENLC(void) {
   SEARCHEFF_DATA.NOBS        =  0 ;
   SEARCHEFF_DATA.REDSHIFT    = -9.0 ;
   SEARCHEFF_DATA.PEAKMJD     = -9.0 ;
+  SEARCHEFF_DATA.MWEBV       = -9.0 ;
   SEARCHEFF_DATA.DTPEAK_MIN  = -9.0 ;
   SEARCHEFF_DATA.SALT2mB     = -9.0 ;
+  SEARCHEFF_DATA.SIMLIB_ID   = -9 ;
 
   //  for(obs=0; obs < MXOBS_TRIGGER; obs++ ) {
   for(obs=0; obs < NEP_RESET; obs++ ) {
@@ -7905,6 +7907,8 @@ void  init_GENLC(void) {
     SEARCHEFF_DATA.MJD[obs]         = -9.0 ;
     SEARCHEFF_DATA.MAG[obs]         =  MAG_UNDEFINED ;
     SEARCHEFF_DATA.SNR[obs]         = -9.0 ;
+    SEARCHEFF_DATA.FLUX[obs]        = -999.0 ;
+    SEARCHEFF_DATA.FLUXERR[obs]     = -999.0 ;
     SEARCHEFF_DATA.detectFlag[obs]  =  0   ;
     SEARCHEFF_DATA.PHOTPROB[obs]    =  -9.0 ; 
     SEARCHEFF_RANDOMS.FLAT_PIPELINE[obs] = -9.0 ;
@@ -14046,23 +14050,28 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   //    + return true MU instead of corrected MU
   //
   // Jan 5 2018: pass new arg zHEL
+  // Feb 16 2022: don't allow ran1=0.0, otherwise dmuLens = NaN
   //
 
   double lensDMU, ran1 ;
-  //  char fnam[] = "gen_distanceMag" ;
+  int DUMP_FLAG = (GENLC.CID == -9999);
+  char fnam[] = "gen_distanceMag" ;
 
   // -------------- BEGIN ------------
 
 
-  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) 
-    { ran1 = 0.5; } // no randoms for GRID mode
-  else
-    { ran1 = getRan_Flat1(2); }  // normal gen: always burn random: May 7 2017
+  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
+    ran1 = 0.5;  // no randoms for GRID mode
+  }
+  else {
+    ran1 = getRan_Flat1(2);   // normal gen: always burn random: May 7 2017
+    if ( ran1 == 0.0 ) { ran1 = 1.0E-8; } // Feb 2022
+  }
 
   if ( IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE) ) 
     { lensDMU = 0.0 ; }
   else 
-    { lensDMU = gen_lensDMU(zCMB,ran1);  }
+    { lensDMU = gen_lensDMU(zCMB,ran1,DUMP_FLAG);  }
 
 
   if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
@@ -20474,10 +20483,11 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.DTPEAK_MIN = GENLC.DTPEAK_MIN ; // closest T-Tpeak
   SEARCHEFF_DATA.SALT2mB    = GENLC.SALT2mB ;
   SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
+  SEARCHEFF_DATA.SIMLIB_ID  = GENLC.SIMLIB_ID;
+  SEARCHEFF_DATA.MWEBV      = GENLC.MWEBV ;
 
   // load field(s) and be careful about overlaps (e.g., X1+X3)
 
-  // xxx  sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", GENLC.FIELDNAME[0] );
   int ifield, NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
   sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", SIMLIB_HEADER.FIELD );
   SEARCHEFF_DATA.NFIELD_OVP = NFIELD_OVP ;
@@ -20510,6 +20520,8 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.MJD[NOBS]       = GENLC.MJD[ep] ;
     SEARCHEFF_DATA.MAG[NOBS]       = GENLC.genmag_obs[ep] ; 
     SEARCHEFF_DATA.SNR[NOBS]       = SNR ;
+    SEARCHEFF_DATA.FLUX[NOBS]      = flux ;
+    SEARCHEFF_DATA.FLUXERR[NOBS]   = flux_err ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
     
     oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;

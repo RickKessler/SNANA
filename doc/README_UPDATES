@@ -20800,6 +20800,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new function malloc_GENFILT() 
      + MXEPSIM -> 15k (was 10k) for SCOTCH generation
      + MXEPSIM_PERFILT -> 2500 (was 2000)
+     + avoid passing ran[0,1]=0.00 to weak-lens function; see
+          https://github.com/RickKessler/SNANA/issues/819
 
     submit_batch_jobs: 
       + new --faster arg to process 1% (--fast still does 10%)

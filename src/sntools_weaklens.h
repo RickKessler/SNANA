@@ -15,4 +15,4 @@ struct {
 } LENSING_PROBMAP ;
 
 void   init_lensDMU(char *mapFileName, float dsigma_dz) ;
-double gen_lensDMU(double z, double ran1);
+double gen_lensDMU(double z, double ran1, int DUMP_FLAG);

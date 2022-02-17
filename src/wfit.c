@@ -1964,7 +1964,8 @@ void wfit_minimize(void) {
   printf("   Approx chi2min(SNonly, SN+prior): %.1f , %.1f \n", 
 	 snchi_min, extchi_min );
 
-  printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  nsig);
+  printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  
+	 nsig);
 
   if ( INPUTS.use_mucov && INPUTS.speed_flag_chi2 ) {
     double nsig_chi2min_skip;
@@ -1979,7 +1980,6 @@ void wfit_minimize(void) {
 	  nsig_chi2min_skip );
 
   }
-
 
   fflush(stdout);
 

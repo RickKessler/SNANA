@@ -981,7 +981,7 @@ with append_varname_missing,
  Nov 24 2021: new input key prescale_simIa
  Dec 28 2021: few tweaks so that prescale works with HOSTLIB
 
- Jan 22 2021
+ Jan 22 2022
     + fix SUBPROCESS bug reading ref sim-input file
     + integrate REFAC_SUBPROC_STD to be default (no more debug_flag=930) 
 
@@ -2182,7 +2182,6 @@ int   ISBLIND_FIXPAR(int ipar);
 void  printmsg_fitStart(FILE *fp); 
 void  printmsg_repeatFit(char *msg) ;
 void  print_eventStats(int event_type);
-void  print_eventStats_legacy(int event_type);
 
 void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
@@ -5742,6 +5741,8 @@ void read_data(void) {
   }
 
   if ( NPASS == 0 ) {
+    print_preAbort_banner(fnam);
+    print_eventStats(EVENT_TYPE_DATA);
     sprintf(c1err,"All DATA events fail cuts");
     sprintf(c2err,"Check cut-windows in SALT2mu input file.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
@@ -15073,114 +15074,6 @@ void print_eventStats(int event_type) {
   return ;
 
 } // end  print_eventStats
-
-
-// =========================================
-void print_eventStats_legacy(int event_type) {
-
-  // Created Jun 1 2019
-  // for input "event_type" (DATA,BIASCOR, or CCPRIOR),
-  // Print number of events: total, pass, reject.
-  // Note that NPASS is computed and stored here/
-  // 
-  // Tricky part is counting how many events are rejected by
-  // a single cut ... and to to it efficiently.
-  //
-  // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
-  // Feb 25 2021: abort on missing biasCor only if it is required.
-
-  char *STRTYPE     = STRING_EVENT_TYPE[event_type];
-  int  NSN_TOT, *CUTMASK_PTR ;
-  int  NSN_REJ, *NSN_PASS, *NBIT, bit, isn, cutmask, NCUT ;
-  int  NCUT_SOLO[MXCUTBIT];
-  char fnam[] = "print_eventStats_legacy" ;
-
-  // ---------- BEGIN ------------
-
-  NSN_TOT      = *NALL_CUTMASK_POINTER[event_type];
-  NSN_REJ      = *NREJECT_CUTMASK_POINTER[event_type];
-  NSN_PASS     =  NPASS_CUTMASK_POINTER[event_type]; // pointer filled below
-  CUTMASK_PTR  =  CUTMASK_POINTER[event_type];
-  NBIT         =  &NSTORE_CUTBIT[event_type][0];
-
-  // loop over all events and for each cutbit, count how many
-  // events were cut by ONLY this one cut (i.e.. passed all other cuts)
-  for(bit=0; bit < MXCUTBIT; bit++ ) { NCUT_SOLO[bit]=0; }
-
-  for(isn=0; isn < NSN_TOT; isn++ ) {
-    cutmask = CUTMASK_PTR[isn];
-    if ( cutmask ==0 ) { continue; }
-    // check if one and only 1 bit is set
-    if ( (cutmask & (cutmask-1) ) == 0 ) {
-      for(bit=0; bit < MXCUTBIT; bit++ ) {
-	if ( cutmask & CUTMASK_LIST[bit] ) 
-	  { NCUT_SOLO[bit]++; bit=MXCUTBIT+1; }
-      }
-    }
-  }
-
-  // ----------------------------
-  *NSN_PASS = NSN_TOT - NSN_REJ ;
-
-  fprintf(FP_STDOUT, 
-	  "\n#%s\n", dashLine);
-  fprintf(FP_STDOUT,"\t LEGACY %s\n", fnam);
-  fprintf(FP_STDOUT, 
-	  " %s STAT SUMMARY: %d(TOTAL) = %d(ACCEPT) + %d(REJECT) \n",
-	 STRTYPE, NSN_TOT, *NSN_PASS, NSN_REJ);
-
-  for(bit=0; bit < MXCUTBIT; bit++ ) {
-    NCUT = NBIT[bit] ;
-    if ( NCUT > 0 ) {
-      fprintf(FP_STDOUT, " %s NCUT[2**%2.2d=%5d] = "
-	      "%6d(ALL) %6d(onlyCut)   [%s] \n",
-	      STRTYPE, bit, CUTMASK_LIST[bit], 
-	      NCUT, NCUT_SOLO[bit], CUTSTRING_LIST[bit] );
-    }
-  }
-
-  if ( *NSN_PASS == 0 ) {
-    sprintf(c1err,"All %s events fail cuts.", STRTYPE);
-    sprintf(c2err,"Check NCUT vs. cut listed above.");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-  fprintf(FP_STDOUT, "#%s\n\n", dashLine);
-  fflush(FP_STDOUT);
-
-
-  // July 1 2020:
-  // Abort if BIASCOR sample is missing for any IDSAMPLE.
-  int NMISSING = 0 ;
-  if ( event_type == EVENT_TYPE_BIASCOR ) {
-    int  NSAMPLE = NSAMPLE_BIASCOR ;
-    int idsample, NSN ;      char *NAME;
-    bool IS_PHOTOZ ;
-    for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
-      if ( SAMPLE_BIASCOR[idsample].DOFLAG_BIASCOR==0 ) { continue ; } 
-      NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
-      IS_PHOTOZ  = SAMPLE_BIASCOR[idsample].IS_PHOTOZ ;
-      NAME       = SAMPLE_BIASCOR[idsample].NAME ;
-      if ( NSN == 0 ) {
-	NMISSING++ ;
-	printf(" WARNING: No BIASCOR events for %s [IDSAMPLE=%d]\n", 
-	       NAME, idsample);
-	printf("\t IS_PHOTOZ(data) = %d for %s \n", IS_PHOTOZ, NAME );
-	fflush(stdout);
-      }
-    }
-
-    if ( NMISSING > 0 ) {
-      sprintf(c1err,"%d missing biasCor samples; see WARNINGS above.", 
-	      NMISSING);
-      sprintf(c2err,"Check data and biasCor samples for mis-match.") ; 
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
-    }
-  }
-
-  return ;
-
-} // end  print_eventStats_legacy
 
 
 // ==================================================

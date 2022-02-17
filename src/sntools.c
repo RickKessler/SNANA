@@ -7318,10 +7318,10 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_RA[igal]           = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]         =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9.0 ;
 
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9999.0 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9999.0 ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9999.0 ;
     SNDATA.HOSTGAL_LOGSFR_TRUE[igal]  = -9999.0 ;
     SNDATA.HOSTGAL_LOGSFR_OBS[igal]   = -9999.0 ;
     SNDATA.HOSTGAL_LOGSFR_ERR[igal]   = -9999.0 ;

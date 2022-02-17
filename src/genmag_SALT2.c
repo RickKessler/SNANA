@@ -1274,7 +1274,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
       INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
       readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
 
-      // if band is SDSS-r, just strip off last character 'r'
+      // e.g., if band is SDSS-r, just strip off last character 'r'
       readchar(fp, ctmp );  LEN = strlen(ctmp) ;
       sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND, "%c", ctmp[LEN-1] );
 
@@ -2031,6 +2031,8 @@ bool match_SALT2train(char *survey_calib, char *band_calib, int ifilt) {
   MATCH_SURVEY = ( strcmp(survey_calib,survey_filt) == 0 ) ;
   if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }
 
+  // get band_filt from filter_name.
+  // E.g., filter_name = CFA3K-B/q -> band_filt = B (not q)
   j_band       = strlen(filter_name) - 1 ;
   j_slash      = index_charString("/", filter_name) ;
   if ( j_slash > 0 ) { j_band = j_slash - 1; }

@@ -569,19 +569,19 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_LOGSFR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_LOGSFR:        %.3e +- %.3e  # SFR\n",
+      fprintf(fp, "%s_LOGSFR:      %.3e +- %.3e  # SFR\n",
               PREFIX,
               SNDATA.HOSTGAL_LOGSFR_OBS[igal],
               SNDATA.HOSTGAL_LOGSFR_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_LOGsSFR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_LOGsSFR:        %.3e +- %.3e  # specific SFR\n",
+      fprintf(fp, "%s_LOGsSFR:     %.3e +- %.3e  # specific SFR\n",
 	      PREFIX, 
 	      SNDATA.HOSTGAL_LOGsSFR_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGsSFR_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_COLOR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_COLOR:        %.3e +- %.3e  # COLOR (e.g. U-R)\n",
+      fprintf(fp, "%s_COLOR:       %.3e +- %.3e  # COLOR (e.g. U-R)\n",
               PREFIX,
               SNDATA.HOSTGAL_COLOR_OBS[igal],
               SNDATA.HOSTGAL_COLOR_ERR[igal] );

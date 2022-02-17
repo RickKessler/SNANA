@@ -83,6 +83,8 @@
   + write "COSPAR: <results>" to stdout so that regression test
      can scoop up w, werr om, omerr on one line.
 
+ Feb 18 2022 RK - print status updates inside chi2 min loop
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -1906,13 +1908,16 @@ void wfit_minimize(void) {
   // ---------- BEGIN --------------
 
   printf("\n# ======================================= \n");
-  printf(" Get Mimimized values (speed_flag_chi2=%d) \n", speed_flag );
+  printf(" Get approx mimimized values:  \n" );
   fflush(stdout);
 
   // Get approximate expected minimum chi2 (= NSN - 3 dof),
   // used to keep numbers small in the chi2 loop. 
     
   INPUTS.speed_flag_chi2 = 0; // disable speed flag for approx chi2 
+
+  int NBTOT = INPUTS.w0_steps * INPUTS.wa_steps * INPUTS.omm_steps;
+  int NB=0;
 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -1937,6 +1942,12 @@ void wfit_minimize(void) {
 	  imin=i; jmin=j; kmin=kk; 
 	}
 
+	NB++;
+	if ( NB % 10000 == 0 ) {
+	  printf("\t finished chi2 bin %8d of %8d \n",
+		 NB, NBTOT); fflush(stdout) ;
+	}
+
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
@@ -1945,7 +1956,6 @@ void wfit_minimize(void) {
   INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
   double extchi_min = WORKSPACE.extchi_min;
   double snchi_min  = WORKSPACE.snchi_min ;
-
 
   // - - - - -
   // compute nsig_chi2 above naive chi2min=Ndof and compare
@@ -1967,14 +1977,6 @@ void wfit_minimize(void) {
 
     printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
 	  nsig_chi2min_skip );
-    // xxx mark NSIG_CHI2_SKIP );
-
-    /* xxx mark delete Jan 26 2022 xxxx
-    if ( nsig > NSIG_CHI2_SKIP - 5.0 ) {
-      printf("  WARNING: nsig(naive) is large -> "
-	     "check off-diag speed-trick in get_chi2wOM\n");
-    }
-    xxxxxx */
 
   }
 
@@ -2063,7 +2065,8 @@ void wfit_marginalize(void) {
   // ----------- BEGIN ------------
 
   printf("\n# ======================================= \n");
-  printf(" Get Marginalized values: \n");
+  printf(" Get Marginalized values (speed_flag_chi2=%d): \n", 
+	 INPUTS.speed_flag_chi2);
   fflush(stdout);
 
   WORKSPACE.w0_probsum = WORKSPACE.wa_probsum = WORKSPACE.omm_probsum = 0.0 ;

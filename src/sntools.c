@@ -1965,6 +1965,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Jul 31 2020: add abort trap on too-long string length
   // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
   // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
+  // Feb 18 2022: read 2 lines for FIRSTLINE
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
@@ -2045,6 +2046,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     }
     NWD = PARSE_WORDS.NWD = nline = LINE[0] = 0 ;
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
+      if ( strlen(LINE) == 0 ) { continue; }
       nline++ ;
       malloc_PARSE_WORDS();
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
@@ -2063,7 +2065,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	NWD = NWD_TMP; // reset NWD to ignore comments
       }
       PARSE_WORDS.NWD += NWD;
-      if ( FIRSTLINE && nline > 5 ) { break; }
+      if ( FIRSTLINE && nline > 2 ) { break; }
     } // end while
     NWD = PARSE_WORDS.NWD ;
 

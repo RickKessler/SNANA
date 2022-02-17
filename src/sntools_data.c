@@ -393,18 +393,21 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       sprintf(KEY_TEST,"%s_LOGMASS_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGMASS_ERR[igal] ); } 
+
       sprintf(KEY_TEST,"%s_LOGSFR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_OBS[igal] ); } 
       sprintf(KEY_TEST,"%s_LOGSFR_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_ERR[igal] ); } 
+
       sprintf(KEY_TEST,"%s_LOGsSFR", PREFIX);
       if ( strcmp(key,KEY_TEST) == 0 )
         { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ); }
       sprintf(KEY_TEST,"%s_LOGsSFR_ERR", PREFIX);
       if ( strcmp(key,KEY_TEST) == 0 )
         { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ); }
+
       sprintf(KEY_TEST,"%s_COLOR", PREFIX);
       if ( strcmp(key,KEY_TEST) == 0 )
         { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_COLOR_OBS[igal] ); }
@@ -1116,21 +1119,27 @@ void rd_override_append(void) {
   // Called only for TEXT format that might be missing
   // some variables.
 
-#define NVAR_OVERRIDE_CHECK 10
+#define NVAR_OVERRIDE_CHECK 16
 
   char VARNAME_CHECK[NVAR_OVERRIDE_CHECK][40] = {
     "VPEC", "VPEC_ERR", 
     "REDSHIFT_HELIO",  "REDSHIFT_HELIO_ERR",
     "REDSHIFT_FINAL",  "REDSHIFT_FINAL_ERR",
     "REDSHIFT_CMB",    "REDSHIFT_CMB_ERR",
-    "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR"
+    "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR", 
+    "HOSTGAL_LOGSFR",  "HOSTGAL_LOGSFR_ERR", 
+    "HOSTGAL_LOGsSFR", "HOSTGAL_LOGsSFR_ERR", 
+    "HOSTGAL_COLOR",   "HOSTGAL_COLOR_ERR"
   };
   float *ptr_SNDATA[NVAR_OVERRIDE_CHECK] = {
-    &SNDATA.VPEC, &SNDATA.VPEC_ERR, 
-    &SNDATA.REDSHIFT_HELIO, &SNDATA.REDSHIFT_HELIO_ERR,
-    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
-    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
-    &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0]
+    &SNDATA.VPEC,            &SNDATA.VPEC_ERR, 
+    &SNDATA.REDSHIFT_HELIO,  &SNDATA.REDSHIFT_HELIO_ERR,
+    &SNDATA.REDSHIFT_FINAL,  &SNDATA.REDSHIFT_FINAL_ERR,
+    &SNDATA.REDSHIFT_FINAL,  &SNDATA.REDSHIFT_FINAL_ERR,
+    &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0],
+    &SNDATA.HOSTGAL_LOGSFR_OBS[0],  &SNDATA.HOSTGAL_LOGSFR_ERR[0],
+    &SNDATA.HOSTGAL_LOGsSFR_OBS[0], &SNDATA.HOSTGAL_LOGsSFR_ERR[0],
+    &SNDATA.HOSTGAL_COLOR_OBS[0],   &SNDATA.HOSTGAL_COLOR_ERR[0]
   } ;
 
   int ivar;

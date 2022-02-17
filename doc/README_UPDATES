@@ -20809,6 +20809,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     sntools_host.c[h]
       + read 4 generic hostgal properties (LOGMASS, LOGSFR, LOGsSFR, COLOR)
         from HOSTLIB and write to data files.
+    sntools_data.c
+      + process overrides for above hostgal properties.
 
     snana.car
       + read 4 generic hostgal properties and write existing ones

@@ -20826,6 +20826,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     sntools.c
       + fix bug initialize HOST_LOGMASS_XXX to -9999 instead of -9.
 
+    genmag_SALT2.c
+      + modify MAGSHIFT matching logic to use base name of filter
+        so that different LOWz combinations can be used compared
+        to traning. E.g., suppose CFA3K-B/q is used for training
+        with systematic MAGSHIFT, but CFA3K-B/n is used in light 
+        curve fit. New matching logic only compares the CFA3K-B
+        part (before the slash).
+
     Remove util/sntools.pm
 
 END: 

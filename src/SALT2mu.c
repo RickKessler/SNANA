@@ -15128,6 +15128,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
   c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
   logmass   =  (double)TABLEVAR->logmass[isn];
+
+  // undo temporary bug that wrote logmass values of -9999 (Feb 2022)
+  if ( logmass < -9990.0 ) 
+    { TABLEVAR->logmass[isn] = logmass = -9.0; }
+
   x0err     =  (double)TABLEVAR->x0err[isn] ;
   mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_mB][isn] ;
   x1err     =  (double)TABLEVAR->fitpar_err[INDEX_x1][isn] ;

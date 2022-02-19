@@ -4481,7 +4481,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
-    if ( SERSIC->a[j] < 1.0E-9 && SERSIC->b[j] < 1.0E-9 ) 
+    if ( SERSIC->a[j] < 1.0E-9 || SERSIC->b[j] < 1.0E-9 ) 
       { NPROF_ab0++ ; }
 
   } // end NPROF

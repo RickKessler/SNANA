@@ -4429,7 +4429,8 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   double FIXANG    = INPUTS.HOSTLIB_FIXSERSIC[3];
 
   int j, NPROF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
-  double WGT, WGTSUM, WTOT, n, wsum_last ;
+  int NPROF_ab0 = 0;
+  double WGT, WGTSUM, WTOT, n, wsum_last, a, b ;
   char fnam[] = "get_Sersic_info" ;
 
   // -------------- BEGIN -------------
@@ -4479,8 +4480,22 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 	      SNHOSTGAL.GALID, SNHOSTGAL.ZTRUE );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
+
+    if ( SERSIC->a[j] < 1.0E-9 && SERSIC->b[j] < 1.0E-9 ) 
+      { NPROF_ab0++ ; }
+
+  } // end NPROF
+
+
+  // - - - - - - - - - - - - - - -
+  // abort if all profile sizes are zero
+  if ( NPROF_ab0 == NPROF ) {
+    sprintf(c1err,"Profile size is zero for GALID=%lld", SNHOSTGAL.GALID);
+    sprintf(c2err,"Check Sersic params.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  // -----------------------------------
   // Now the weights:
   // check how many weights are defined, and track the sum.
   
@@ -4510,7 +4525,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 
 
   if ( NWGT < NPROF - 1 ) {
-    sprintf(c1err,"%s", "Inadequate Sersic weights.");
+    sprintf(c1err,"Inadequate Sersic weights.");
     sprintf(c2err,"%d Sersic terms, but only %d weights defined.",
 	    NPROF, NWGT );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);

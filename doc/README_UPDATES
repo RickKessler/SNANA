@@ -20809,6 +20809,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     sntools_host.c[h]
       + read 4 generic hostgal properties (LOGMASS, LOGSFR, LOGsSFR, COLOR)
         from HOSTLIB and write to data files.
+      + abort if Sersic profile size is zero.
+
     sntools_data.c
       + process overrides for above hostgal properties.
 

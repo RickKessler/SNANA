@@ -607,13 +607,15 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
       // make sure that igrid_var is valid
       NBIN = gridmap->NBIN[ivar] ;   g = igrid_var[ivar];
       if ( g < 0 || g >= NBIN  ) {
-	//	TMPVAL  = *(data+ivar-1) ;
 	TMPVAL  = data[ivar] ;
 	TMPMIN  = gridmap->VALMIN[ivar] ;
 	TMPMAX  = gridmap->VALMAX[ivar] ;
-	sprintf(c1err,
-		"Invalid igrid_var[ivar=%d]=%d  (NBIN=%d  cell=%d icorner=%d)",
-		ivar, g, NBIN, igrid_cell[ivar], icorner ) ;
+
+	print_preAbort_banner(fnam);
+	printf("\t ID=%d  NBIN=%d  cell=%d icorner=%d\n",
+	       ID, NBIN, igrid_cell[ivar], icorner);
+	printf("\t grep IDGRIDMAP $SNANA_DIR/src/sntools_gridmap.h");
+	sprintf(c1err, "Invalid igrid_var[ivar=%d]=%d", ivar, g);
 	sprintf(c2err, "VAL=%f  VALMIN/MAX = %f / %f", 
 		TMPVAL, TMPMIN, TMPMAX);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

@@ -179,7 +179,8 @@ int main(int argc, char **argv) {
 
   // init trigger
   bool IS_GENGRID = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID);
-  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
+  //  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
+  if ( ! IS_GENGRID ) { 
     init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
 

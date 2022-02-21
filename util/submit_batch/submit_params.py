@@ -457,10 +457,11 @@ HELP_CONFIG_WFIT = f"""
 
   OUTDIR:  [outdir]              # all output goes here
 
-# Otional weighted avg computation of cosmology parameters or 
-# differences. X-Y means compute the average differences for w_X-w_Y and
-# any other fitted cosmology parameters. Note that each entry is a sub-string
-# of the directory and sometimes /X is needed to ensure uniqueness.
+# Otional weighted avg calculation of cosmology parameters or 
+# differences.  X-Y means compute the average differences for 
+# w_X-w_Y and any other fitted cosmology parameters. Note that 
+# each entry is a sub-string of the directory under 7_CREATE_COV,
+# and sometimes /X is needed to ensure uniqueness.
 # 
   WEIGHT_AVG:
   - /BIN5YR_5YR_OnlyIa - /BIN5YR_5YR_IaCC   # w diff

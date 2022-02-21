@@ -20790,6 +20790,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04h) ***** 
 
+   sim: New README argument to print README file and quit.
+        Designed for Pippin to quickly extract GENMODEL & GENTYPE info.
+
          ***** MISCELLANEOUS(v11_04h) ***** 
   
     ZPHOT_Q (quantiles) devel for sim read it from hostlib
@@ -20802,7 +20805,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + MXEPSIM_PERFILT -> 2500 (was 2000)
      + avoid passing ran[0,1]=0.00 to weak-lens function; see
           https://github.com/RickKessler/SNANA/issues/819
-
+          
     submit_batch_jobs: 
       + new --faster arg to process 1% (--fast still does 10%)
 

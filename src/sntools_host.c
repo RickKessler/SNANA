@@ -151,16 +151,17 @@ void INIT_HOSTLIB(void) {
   char fnam[] = "INIT_HOSTLIB" ;
 
   // M. Vincenzi Feb 2022
-  //  REFAC_HOSTLIB = ( INPUTS.DEBUG_FLAG == 203 );
-  REFAC_HOSTLIB = false;
+  REFAC_HOSTLIB = false; // ( INPUTS.DEBUG_FLAG == 203 );
 
   // ---------------- BEGIN -------------
 
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE) ;
   if ( USE == 0 ) 
-    {  checkAbort_noHOSTLIB() ;    return ;  }
+    {  checkAbort_noHOSTLIB() ;  return ;  }
   else
     { checkAbort_HOSTLIB(); }
+
+  if ( INPUTS.README_DUMPFLAG ) { return; } // Feb 21 2022
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
 

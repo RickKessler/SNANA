@@ -407,8 +407,9 @@ struct INPUTS {
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply
 
-  bool DASHBOARD_DUMPFLAG ;
-  bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
+  bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
+  bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
+  bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
 
   // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names

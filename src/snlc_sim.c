@@ -177,9 +177,9 @@ int main(int argc, char **argv) {
   // init user-specified z-dependence of sim parameters
   init_zvariation();
 
-  // test triger init here ...
-  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
-    // init search efficiency
+  // init trigger
+  bool IS_GENGRID = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID);
+  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
     init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
 
@@ -188,7 +188,6 @@ int main(int argc, char **argv) {
   // initialize model that generates magnitudes.
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
-
 
   init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
 	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
@@ -622,6 +621,7 @@ void set_user_defaults(void) {
   INPUTS.USE_KCOR_LEGACY   = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
+  INPUTS.README_DUMPFLAG    = false ;
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
@@ -1542,7 +1542,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "DASHBOARD", WORDS[0], keySource) ) {
     INPUTS.DASHBOARD_DUMPFLAG = true ; // restore, Mar 9 2021
-    N++ ; // no argument, but increment word count to avoid command-line abort
+    N++ ; // no arg, but increment word count to avoid command-line abort
+  }
+  else if ( keyMatchSim(1, "README", WORDS[0], keySource) ) {
+    INPUTS.README_DUMPFLAG = true ;
+    N++ ; // no arg, but increment word count to avoid command-line abort
   }
 
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
@@ -8209,6 +8213,8 @@ void init_modelSmear(void) {
 
   // --------- BEGIN ----------
 
+  if ( INPUTS.README_DUMPFLAG ) { return; }
+
   sprintf(BANNER,"%s: init intrinsic SN smearing with model=%s",
 	  fnam, INPUTS.GENMAG_SMEAR_MODELNAME);
   print_banner(BANNER);
@@ -8517,6 +8523,7 @@ void  init_genSpec(void) {
 
   // -------------- BEGIN ----------------
 
+  if ( INPUTS.README_DUMPFLAG ) { return; }
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 1 ;
 
@@ -22067,6 +22074,10 @@ void init_genmodel(void) {
 
  Nov 23 2020: pass SURVEY arg to init_genmag_SALT2.
 
+ Feb 21 2022: minor refactor to set LGEN_SNIA and GENLC.SIMTYPE
+              before the MODEL if-block so that README_DUMPFLAG
+              can return without time-consuming model init.
+
   ************/
 
   char *GENMODEL        = INPUTS.GENMODEL;
@@ -22079,6 +22090,7 @@ void init_genmodel(void) {
 
   //--------- BEGIN --------
 
+  
   // init a few things
   for ( ifilt_obs=0; ifilt_obs < MXFILTINDX; ifilt_obs++ ) {
     NSKIP_FILTER[ifilt_obs] = 0;
@@ -22092,14 +22104,24 @@ void init_genmodel(void) {
   // default is to generate intrinsic smearing at center of filter only
   IFLAG_GENSMEAR = IFLAG_GENSMEAR_FILT ;
 
-  LGEN_SNIA = 0 ;
+  LGEN_SNIA = 
+    (INDEX_GENMODEL == MODEL_STRETCH ) ||
+    (INDEX_GENMODEL == MODEL_SALT2   ) ||
+    (INDEX_GENMODEL == MODEL_MLCS2k2 ) ||
+    (INDEX_GENMODEL == MODEL_SNOOPY  ) ||
+    (INDEX_GENMODEL == MODEL_S11DM15 ) ;
+
+  // - - - - - - - - - - - -
+  if ( LGEN_SNIA )  { GENLC.SIMTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
+  if ( INPUTS.GENTYPE_SPEC > 0 )  { GENLC.SIMTYPE  = INPUTS.GENTYPE_SPEC ; }
+
+  if ( INPUTS.README_DUMPFLAG ) { return; }
 
   // =========================
 
   if ( INDEX_GENMODEL == MODEL_STRETCH ) {
 
     init_genmag_stretch2(GENMODEL, GENLC.FILTLIST_REST );
-    LGEN_SNIA = 1 ;
   }
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
@@ -22114,7 +22136,6 @@ void init_genmodel(void) {
     istat = init_genmag_mlcs2k2(GENMODEL, covFile, scale_covar_flt, 
 				GENLC.FILTLIST_REST );
     get_LAMRANGE_mlcs2k2(&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );
-    LGEN_SNIA = 1 ;
   }
 
   else if ( INDEX_GENMODEL == MODEL_SNOOPY ) {
@@ -22123,7 +22144,6 @@ void init_genmodel(void) {
     init_genmag_snoopy(GENMODEL, OPTMASK, GENLC.FILTLIST_REST );
 
     get_LAMRANGE_snoopy(&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );
-    LGEN_SNIA = 1 ;
   }
 
   else if ( INDEX_GENMODEL == MODEL_S11DM15 ) {
@@ -22133,7 +22153,6 @@ void init_genmodel(void) {
 
     OPTMASK = 0 ;
     istat = init_genmag_S11DM15(GENMODEL,OPTMASK);
-    LGEN_SNIA = 1 ;
   }
 
   else if ( INDEX_GENMODEL == MODEL_SALT2 ) {
@@ -22142,15 +22161,9 @@ void init_genmodel(void) {
     init_genSEDMODEL();
 
     // model-specific init
-    // xxxx    OPTMASK = 0;
     OPTMASK = INPUTS.GENMODEL_MSKOPT; 
 
-    /* NOT_YET
-    if ( INPUTS.REQUIRE_DOCANA  ) { OPTMASK |= OPENMASK_REQUIRE_DOCANA; }
-    */
-
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
-
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
 
     if ( istat != 0 ) {
@@ -22161,7 +22174,6 @@ void init_genmodel(void) {
     // set flag to generate intrinsic smear vs. wavelength
     // (inside genmag_SALT2).
     IFLAG_GENSMEAR = IFLAG_GENSMEAR_LAM ;
-    LGEN_SNIA = 1 ;
   }
 
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
@@ -22190,7 +22202,6 @@ void init_genmodel(void) {
     // check that SIMSED parameters in sim-input file match
     // those in the SIMSED model.
     checkpar_SIMSED();
-    LGEN_SNIA = 0 ;  // July 2017
   }
 
   else if ( IS_PySEDMODEL ) {
@@ -22291,12 +22302,14 @@ void init_genmodel(void) {
   }
 
   // - - - - - - - - - - - -
+  /* xxxx mark delerte xxxx
   if ( LGEN_SNIA ) 
     { GENLC.SIMTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
 
   if ( INPUTS.GENTYPE_SPEC > 0 ) 
     { GENLC.SIMTYPE  = INPUTS.GENTYPE_SPEC ; }
- 
+  xxxxxxxx end mark xxxxxx */
+
   prep_dustFlags();
 
   malloc_GENFILT(); // Jan 28 2022
@@ -26005,7 +26018,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ------------ BEGIN -------------
 
   README_DOCANA_DRIVER(1);
-  
+
   // init DUMP file regardless of SNDATA file status
 
   if ( INPUTS.FORMAT_MASK <= 0 ) {
@@ -26047,10 +26060,11 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // dump out the README file
   for ( i = 1; i <= VERSION_INFO.NLINE_README_INIT; i++ ) {
-    fprintf(SIMFILE_AUX->FP_README, "%s\n",VERSION_INFO.README_DOC[i] ) ;
+    fprintf(SIMFILE_AUX->FP_README, "%s\n", VERSION_INFO.README_DOC[i] ) ;
   }
 
   fflush(SIMFILE_AUX->FP_README);
+  if ( INPUTS.README_DUMPFLAG ) { debugexit(fnam); }
 
   // if FITRES DUMP-file is requested, open and init header
   wr_SIMGEN_DUMP(1,SIMFILE_AUX);

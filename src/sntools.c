@@ -1400,8 +1400,7 @@ bool NstringMatch(int MAX, char *string, char *key) {
     STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
     STRING_UNIQUE.DUMPKEY_FLAG = false ;
     if ( MAX < 0 ) { STRING_UNIQUE.DUMPKEY_FLAG = true; } 
-
-    return(0);
+        return(0);
   }
 
   // check option to print EVERY key

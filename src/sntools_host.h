@@ -217,6 +217,7 @@ struct HOSTLIB_DEF {
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
+  int   *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
@@ -243,7 +244,7 @@ struct HOSTLIB_DEF {
   int IVAR_RA ;
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
-  int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
+  int IVAR_FIELD ;                // optional FIELD key
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_GALID2;                // AG 09/2021

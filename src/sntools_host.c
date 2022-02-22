@@ -5347,12 +5347,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
     GEN_SNHOST_PROPERTY(ivar_property);
   }
 
-  /* xxx Mark delete Febr 2022
-     else { 
-    GEN_SNHOST_LOGMASS(); //legacy
-    } 
-    xxx */ 
-
   // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
 
@@ -8054,6 +8048,8 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
   // -----------------------------------------------------------
   // Sep 16 2015
   // set GENLC.FIELDNAME if FIELD column is present in hostlib
+
+  /* xxxxx mark delete Feb 21 2022 xxxxxxxxx
   int   ep ;
   char *FIELD ;
   if ( HOSTLIB.IVAR_FIELD > 0 ) {
@@ -8068,6 +8064,7 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
       sprintf(GENLC.FIELDNAME[ep], "%s", FIELD);
     }
   }
+  xxxxxxxxxxx end mark xxxxxxxxxxxx */
 
   return ;
 

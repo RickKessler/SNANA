@@ -20793,6 +20793,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sim: New README argument to print README file and quit.
         Designed for Pippin to quickly extract GENMODEL & GENTYPE info.
 
+   wfit: fix speed trick bug (had left out analytic H0 marg)      
+
          ***** MISCELLANEOUS(v11_04h) ***** 
   
     ZPHOT_Q (quantiles) devel for sim read it from hostlib

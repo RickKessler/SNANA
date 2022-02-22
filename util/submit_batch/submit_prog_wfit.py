@@ -6,6 +6,10 @@
 # Jan 17 2022 M.Vincenzi - add option to make wgt averages
 #                          See KEYNAME_WEIGHT_AVG
 #
+# Feb 22 2022 RK - write nwarn column (read from yaml file from wfit)
+#
+# =================================================================
+
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time
@@ -775,7 +779,8 @@ class wFit(Program):
             chi2    = wfit_values_dict['chi2'] 
             sigint  = wfit_values_dict['sigint']
             blind   = wfit_values_dict['blind']
-            
+            nwarn   = wfit_values_dict['nwarn']
+
             # extract user labels for cov and wfit
             str_diropt  = 'DIROPT' + dirnum
             str_covopt  = 'COVOPT' + covnum
@@ -823,9 +828,9 @@ class wFit(Program):
                 str_results  = f"{w:.6f} {w_sig:.6f}  "
                 str_results += f"{omm:.5f} {omm_sig:.5f}  "
 
-            str_misc    = f"{chi2:4.1f} {blind} "
+            str_misc    = f"{chi2:6.1f} {blind} {nwarn} "
             str_labels  = f"{covopt_label:<10} {wfitopt_label}"
-            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
+            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}" \
                     f"{str_misc} {str_labels}\n")
 
             dirnum_last = dirnum
@@ -846,7 +851,7 @@ class wFit(Program):
         if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM Rho"
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
-            f"omm omm_sig  chi2 blind  COVOPT WFITOPT"
+            f"omm omm_sig  chi2 blind nwarn COVOPT WFITOPT"
 
         w_ran   = int(wfit_values_dict['w_ran']) 
         wa_ran  = int(wfit_values_dict['wa_ran'])

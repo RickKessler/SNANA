@@ -41,10 +41,10 @@
      Popovic  2021 (2102.01776)  w-syst from SN-host correlations
      Vincenzi 2021 (2111.10382)  w-syst for SNCC contamination in DES
      Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
-     Brout    2022 (in prep)     Pantheon+ systematics
+     Brout    2022 (2202.04077)  Pantheon+ systematics
      Dai      2022 (in prep)     SALT3 training syst
      Mitra    2022 (in prep)     SNIa cosmology with photo-z/PLASTICC
-
+     
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model
@@ -85,8 +85,10 @@
 
  Feb 18 2022 RK - print status updates inside chi2 min loop
 
- Feb 21 2022 RK - fix subtle bug with speed_trick; affects Pantheon
-                  where MU = mB without 19.3 offset.
+ Feb 21 2022 RK 
+    + fix subtle bug with speed_trick; apply analytic H0 marg to 
+       handle Pantheon distances that are missing M0.
+    + inside chi2-min loop, add screen updates with timing info.
 
 *****************************************************************************/
 

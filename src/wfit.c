@@ -1907,6 +1907,7 @@ void wfit_minimize(void) {
   Cosparam cpar;
   Cosparam cpar_fixed;
   double snchi_tmp, extchi_tmp, muoff_tmp;
+  bool UPDATE_STDOUT;
   int  i, kk, j;
   int  imin = -9, kmin = -9, jmin = -9;
   char fnam[] = "wfit_minimize" ;
@@ -1936,6 +1937,8 @@ void wfit_minimize(void) {
     prep_speed_trick(extchi_tmp);
   }
 
+  time_t t0 = time(NULL);
+
   // - - - - - - - - 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -1961,9 +1964,16 @@ void wfit_minimize(void) {
 	}
 
 	NB++;
-	if ( NB % 10000 == 0 ) {
-	  printf("\t finished chi2 bin %8d of %8d \n",
-		 NB, NBTOT); fflush(stdout) ;
+	if ( NB < 10000 ) 
+	  { UPDATE_STDOUT = ( NB % 1000 == 0 ); }
+	else
+	  { UPDATE_STDOUT = ( NB % 10000 == 0 ); }
+
+	if ( UPDATE_STDOUT ) {
+	  time_t t_update = time(NULL);
+	  double dt = t_update - t0;
+	  printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
+		 NB, NBTOT, dt); fflush(stdout) ;
 	}
 
       } // j loop

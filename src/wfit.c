@@ -1937,9 +1937,9 @@ void wfit_minimize(void) {
     prep_speed_trick(extchi_tmp);
   }
 
-  time_t t0 = time(NULL);
-
   // - - - - - - - - 
+  time_t t0 = time(NULL);  // monitor time to build prob grid
+
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
     for( kk=0; kk < INPUTS.wa_steps; kk++){    
@@ -1963,6 +1963,7 @@ void wfit_minimize(void) {
 	  imin=i; jmin=j; kmin=kk; 
 	}
 
+	// stdout update with timing information
 	NB++;
 	if ( NB < 10000 ) 
 	  { UPDATE_STDOUT = ( NB % 1000 == 0 ); }
@@ -1971,10 +1972,11 @@ void wfit_minimize(void) {
 
 	if ( UPDATE_STDOUT ) {
 	  time_t t_update = time(NULL);
-	  double dt = t_update - t0;
+	  double dt = t_update - t0 ;
 	  printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
 		 NB, NBTOT, dt); fflush(stdout) ;
 	}
+
 
       } // j loop
     }  // end of k-loop

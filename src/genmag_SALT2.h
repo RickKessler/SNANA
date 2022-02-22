@@ -35,9 +35,9 @@
 #define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
 #define OPTMASK_SALT2_NONEGFLUX          16  // flux<0 -> 0 (as in DC2)
 #define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
-#define OPTMASK_SALT2_REFAC     1024  // Refactor for developer only                                                                        
+#define OPTMASK_SALT2_DEBUG     1024  // Refactor for developer only                                                                        
 
-int  REFAC_SALT2;
+int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
 int  IMODEL_SALT ; // 2 or 3

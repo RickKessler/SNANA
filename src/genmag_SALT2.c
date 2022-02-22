@@ -171,7 +171,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
  Apr 27 2021: minor refactor to set default SALT2 or SALT3 model location.
 
- Feb 17 2022: set REFAC_SALT2 with OPTMASK += 1024
+ Feb 22 2022: set DEBUG_SALT2 with OPTMASK += 1024
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -208,7 +208,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     ALLOW_NEGFLUX_SALT2 = false ;    
     printf("\t OPTMASK=%d -> Force neg Flam to Flam=0\n", OPTMASK);
   }
-  REFAC_SALT2 = ( OPTMASK & OPTMASK_SALT2_REFAC );
+  DEBUG_SALT2 = ( OPTMASK & OPTMASK_SALT2_DEBUG );
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -1947,11 +1947,11 @@ void init_calib_shift_SALT2train(void) {
       
       for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
       
-	if ( REFAC_SALT2 ) {
-	  MATCH  = match_SALT2train(survey_calib, filter_calib, ifilt);
+	if ( DEBUG_SALT2 ) {
+	  MATCH  = match_SALT2train_legacy(survey_calib,band_calib,ifilt);
 	}
 	else {
-	  MATCH  = match_SALT2train_legacy(survey_calib,band_calib,ifilt);
+	  MATCH  = match_SALT2train(survey_calib, filter_calib, ifilt);
 	}
 	if ( !MATCH ) { continue; }
 	// store current filter trans in separate array so that
@@ -1984,8 +1984,6 @@ void init_calib_shift_SALT2train(void) {
 	 NSHIFT_APPLY, NSHIFT_TOT );  fflush(stdout);
 
   if ( NSHIFT_APPLY > 0 ) {  filtdump_SEDMODEL(); }
-
-  //   if (REFAC_SALT2){ debugexit(fnam); } // xxx REMOVE
 
   return ;
 

@@ -89,6 +89,7 @@
     + fix subtle bug with speed_trick; apply analytic H0 marg to 
        handle Pantheon distances that are missing M0.
     + inside chi2-min loop, add screen updates with timing info.
+    + write NWARNINGS to yaml output
 
 *****************************************************************************/
 
@@ -191,6 +192,9 @@ struct  {
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
   double sigmu_int, muoff_final, FoM_final ;
+
+  int NWARN;
+
 } WORKSPACE ;
 
 
@@ -554,7 +558,8 @@ void init_stuff(void) {
   WORKSPACE.wa_atchimin =  0.0 ;
   WORKSPACE.omm_atchimin =  0.0 ;
   WORKSPACE.chi2atmin   =  0.0 ;
-  
+  WORKSPACE.NWARN = 0 ;
+
   return ;
 
 } // end init_stuff
@@ -2420,12 +2425,14 @@ void wfit_uncertainty(void) {
   if(i==0){
     printf("WARNING: lower 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
+    WORKSPACE.NWARN++ ;
   }
   
   if ( INPUTS.dofit_w0wa ) {
     if(kk==0){
       printf("WARNING: lower 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;
+      WORKSPACE.NWARN++ ;
     }
   }
 
@@ -2433,12 +2440,14 @@ void wfit_uncertainty(void) {
     printf("WARNING: 1. w0 grid is too coarse to resolve "
 	   "lower 1-sigma limit\n");
     WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
+    WORKSPACE.NWARN++ ;
   }
   if (INPUTS.dofit_w0wa){
     if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
       printf("WARNING: 1. wa grid is too coarse to resolve "
 	     "lower 1-sigma limit\n");
       WORKSPACE.wa_sig_lower = INPUTS.wa_stepsize;
+      WORKSPACE.NWARN++ ;
     }
   }
 
@@ -2468,6 +2477,7 @@ void wfit_uncertainty(void) {
   if(i==(INPUTS.w0_steps-1)){
     printf("WARNING: upper 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
+    WORKSPACE.NWARN++ ;
   } 
   
 
@@ -2476,18 +2486,21 @@ void wfit_uncertainty(void) {
 	   "upper 1-sigma limit\n %f, %f\n", 
 	   WORKSPACE.w0_sig_upper, INPUTS.w0_stepsize);
     WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
+    WORKSPACE.NWARN++ ;
   }
 
   if ( INPUTS.dofit_w0wa ) {
     if(kk==(INPUTS.wa_steps-1)){
       printf("WARNING: upper 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;	
+      WORKSPACE.NWARN++ ;
     }
     if (WORKSPACE.wa_sig_upper <= INPUTS.wa_stepsize){
       printf("WARNING: 2. wa grid is too coarse to resolve "
 	     "upper 1-sigma limit\n %f, %f\n", 
 	     WORKSPACE.wa_sig_upper, INPUTS.wa_stepsize);
       WORKSPACE.wa_sig_upper = INPUTS.wa_stepsize;
+      WORKSPACE.NWARN++ ;
     }
   }    
 
@@ -3673,6 +3686,7 @@ void write_output_cospar(void) {
       sprintf(cval, "%s",   VALUES_LIST[ivar]);
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
+    fprintf(fp,"NWARNINGS:      %d \n", WORKSPACE.NWARN);
     fprintf(fp,"ABORT_IF_ZERO:  %d   # same as Ndof \n", WORKSPACE.Ndof);
     fprintf(fp,"CPU_MINUTES:    %.2f \n", dt_fit);
     fprintf(fp,"BLIND:          %d \n", blind);

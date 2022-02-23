@@ -134,7 +134,9 @@ int main(int argc, char **argv) {
 
 
   // abort on NGEN=0 after printing N per season (init_Rate above)
-  if ( INPUTS.NGEN_LC <= 0 && INPUTS.NGENTOT_LC <= 0 ) {
+  // INPUTS.README_DUMPFLAG
+  bool ZERO_LC = (INPUTS.NGEN_LC <= 0 && INPUTS.NGENTOT_LC <= 0 );
+  if ( ZERO_LC && !INPUTS.README_DUMPFLAG ) {
     sprintf(c1err,"NGEN_LC=0 & NGENTOT_LC=0" );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
@@ -5410,9 +5412,16 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.GENPDF_FILE,fnam,1);
 
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
-    add_PATH_SNDATA_SIM(INPUTS.PATH_SNDATA_SIM);
-    ENVreplace(INPUTS.PATH_SNDATA_SIM,fnam,1);
-    sprintf(PATH_SNDATA_SIM, "%s", INPUTS.PATH_SNDATA_SIM);
+
+    if ( INPUTS.README_DUMPFLAG ) {
+      // for readme dump, only write to $SNDATA_ROOT/SIM
+      INPUTS.PATH_SNDATA_SIM[0] = 0 ;
+    }
+    else {
+      add_PATH_SNDATA_SIM(INPUTS.PATH_SNDATA_SIM);
+      ENVreplace(INPUTS.PATH_SNDATA_SIM,fnam,1);
+      sprintf(PATH_SNDATA_SIM, "%s", INPUTS.PATH_SNDATA_SIM);
+    }
   }
 
   ENVreplace(INPUTS_SEARCHEFF.USER_SPEC_FILE,fnam,1);

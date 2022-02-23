@@ -7,6 +7,7 @@
 #                          See KEYNAME_WEIGHT_AVG
 #
 # Feb 22 2022 RK - write nwarn column (read from yaml file from wfit)
+# Feb 23 2022 RK - allow WFITOPT or WFITOPTS key
 #
 # =================================================================
 
@@ -19,26 +20,27 @@ import numpy as np
 from submit_params    import *
 from submit_prog_base import Program
 
+# ------------------------------------------------
 PREFIX_wfit   = "wfit"
 
 # define names of files produced by create_covariance.py
-PREFIX_covsys = "covsys"
-HD_FILENAME   = "hubble_diagram.txt"  #
+PREFIX_covsys     = "covsys"
+HD_FILENAME       = "hubble_diagram.txt"
 COV_INFO_FILENAME = "INFO.YML"        # contains ISREAL_DATA flag
 KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
 
-# define columns for MERGE.LOG
-# column 0 is always for STATE
+# define columns for MERGE.LOG;  column 0 is always for STATE
 COLNUM_WFIT_MERGE_DIROPT       = 1
 COLNUM_WFIT_MERGE_COVOPT       = 2
 COLNUM_WFIT_MERGE_WFITOPT      = 3
-COLNUM_WFIT_MERGE_NDOF         = 4   # Ndof
+COLNUM_WFIT_MERGE_NDOF         = 4 
 COLNUM_WFIT_MERGE_CPU          = 5
 
-KEYNAME_WFITOPT    = "WFITOPT"
-KEYNAME_BLIND_DATA = "BLIND_DATA"
-KEYNAME_BLIND_SIM  = "BLIND_SIM"
-KEYNAME_WEIGHT_AVG  = "WEIGHT_AVG"
+# define key names
+KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
+KEYNAME_BLIND_DATA    = "BLIND_DATA"
+KEYNAME_BLIND_SIM     = "BLIND_SIM"
+KEYNAME_WEIGHT_AVG    = "WEIGHT_AVG"
 
 BLIND_DATA_DEFAULT = True
 BLIND_SIM_DEFAULT  = False
@@ -47,6 +49,7 @@ JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 
 WFIT_SUMMARY_FILE     = "WFIT_SUMMARY.FITRES"
 WFIT_SUMMARY_AVG_FILE = "WFIT_SUMMARY_AVG.FITRES"
+
 # - - - - - - - - - - - - - - - - - - -  -
 class wFit(Program):
     def __init__(self, config_yaml):
@@ -262,18 +265,17 @@ class wFit(Program):
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
-        key             = KEYNAME_WFITOPT
+        wfitopt_rows    = None
 
-        if key not in CONFIG:
-            msgerr.append(f"Missing required {key} key in CONFIG block")
-            msgerr.append(f"Check {input_file}")
+        for key in KEYNAME_WFITOPT_LIST:
+            if key in CONFIG:
+                wfitopt_rows = CONFIG[key]
+
+        if wfitopt_rows is None:
+            msgerr.append(f"Missing required CONFIG key ")
+            msgerr.append(f"   {KEYNAME_WFITOPT_LIST} ")
+            msgerr.append(f"One of these keys must be in {input_file}")
             self.log_assert(False, msgerr)
-        else:
-            wfitopt_rows = CONFIG[key]
-            if wfitopt_rows is None:
-                msgerr.append(f"{key} is empty.")
-                msgerr.append(f"Check {input_file}")
-                self.log_assert(False, msgerr)                
 
         wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key, None)
 
@@ -291,10 +293,11 @@ class wFit(Program):
         self.config_prep['wfitopt_label_list'] = wfitopt_label_list
 
         # check for global wfitopt
-        key   = f"{KEYNAME_WFITOPT}_GLOBAL"
         wfitopt_global = ""
-        if key in CONFIG :
-            wfitopt_global = CONFIG[key]
+        for key_base in KEYNAME_WFITOPT_LIST:
+            key   = f"{key_base}_GLOBAL"            
+            if key in CONFIG :
+                wfitopt_global = CONFIG[key]
         
         self.config_prep['wfitopt_global'] = wfitopt_global
 

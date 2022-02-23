@@ -142,7 +142,7 @@ def get_wfit_values(wfit_yaml):
         if key in wfit_yaml:
             blind = wfit_yaml[key]
 
-    key_list = [ 'NWARINGS' ]
+    key_list = [ 'NWARNINGS' ]
     nwarn    = 0
     for key in key_list:
         if key in wfit_yaml:

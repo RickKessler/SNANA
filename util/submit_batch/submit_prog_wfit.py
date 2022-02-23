@@ -752,7 +752,7 @@ class wFit(Program):
 
         SUMMARYF_FILE    = f"{output_dir}/{WFIT_SUMMARY_FILE}"
         logging.info(f"\t Writing wfit summary to {WFIT_SUMMARY_FILE}")
-        f = open(SUMMARYF_FILE,"w") 
+        out_lines_list = []
 
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS,comment_lines = \
@@ -760,7 +760,7 @@ class wFit(Program):
 
         dirnum_last = "xyz"
         wfit_summary_table = {}
-        nrow = 0 
+        nrow = 0 ; nrow_warn = 0
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
             dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:] # e.g., 000
@@ -780,6 +780,7 @@ class wFit(Program):
             sigint  = wfit_values_dict['sigint']
             blind   = wfit_values_dict['blind']
             nwarn   = wfit_values_dict['nwarn']
+            if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
             str_diropt  = 'DIROPT' + dirnum
@@ -814,10 +815,12 @@ class wFit(Program):
             wfit_summary_table[unique_key] = local_dict
             
             if nrow == 1:
-                self.write_wfit_summary_header(f,wfit_values_dict)
-
+                out_lines_list += \
+                    self.write_wfit_summary_header(wfit_values_dict)
+                
             if dirnum != dirnum_last:
-                f.write(f"#\n# {str_diropt}={dir_name}\n")
+                out_lines_list.append(f"#\n# {str_diropt}={dir_name}")
+
             str_nums    = f"{dirnum} {covnum} {wfitnum}"
             if use_wa : 
                 str_results  = f"{w:.5f} {w_sig:.5f} "
@@ -830,19 +833,26 @@ class wFit(Program):
 
             str_misc    = f"{chi2:6.1f} {blind} {nwarn} "
             str_labels  = f"{covopt_label:<10} {wfitopt_label}"
-            f.write(f"ROW: {nrow:3d} {str_nums} {str_results}" \
-                    f"{str_misc} {str_labels}\n")
-
+            line = f"ROW: {nrow:3d} {str_nums} {str_results}" \
+                                  f"{str_misc} {str_labels}"
+            out_lines_list.append(f"{line}")
             dirnum_last = dirnum
 
-        f.close()
+        # - - - - - - - -
+        with open(SUMMARYF_FILE,"w") as f:
+            if nrow_warn > 0:
+                text_warn = f"WARNING: {nrow_warn} of {nrow} fits have warnings;"\
+                            f" check nwarn column."
+                f.write(f"# {text_warn}\n\n")
+            for line in out_lines_list:  f.write(f"{line}\n")
         
         self.config_prep['wfit_summary_table'] = wfit_summary_table
         # end make_wfit_summary
 
 
-    def write_wfit_summary_header(self,f,wfit_values_dict):
-        # write header info and VARNAMES for wfit-summary file
+    def write_wfit_summary_header(self,wfit_values_dict):
+
+        # return lines with header info and VARNAMES for wfit-summary file
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         use_wa           = submit_info_yaml['USE_wa']
@@ -857,12 +867,15 @@ class wFit(Program):
         wa_ran  = int(wfit_values_dict['wa_ran'])
         omm_ran = int(wfit_values_dict['omm_ran'])
 
+        lines_list = []
         if w_ran > 0 : 
-            f.write(f"#  blind=1 ==> w0,wa,omm += " \
-                    f"sin({w_ran},{wa_ran},{omm_ran}) \n")
-            f.write(f"\n")
+            lines_list.append(f"#  blind=1 ==> w0,wa,omm += " \
+                              f"sin({w_ran},{wa_ran},{omm_ran}) ")
+            lines_list.append("")
                              
-        f.write(f"VARNAMES: {VARNAMES_STRING} \n")
+        lines_list.append(f"VARNAMES: {VARNAMES_STRING} ")
+        return lines_list
+
         # write_wfit_summary_header
 
     def get_misc_merge_info(self):
@@ -946,12 +959,16 @@ class wFit(Program):
             f"<omm> <omm>_sig N_DIRs COVOPT WFITOPT"
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
         
-        avg_dict = {'AVG_SINGLE':' (weighted average of fitted values)',
-                    'AVG_DIFF':' (weighted average of differences in fitted values)'}
+        avg_dict = {
+            'AVG_SINGLE' : ' (weighted average of fitted values)',
+            'AVG_DIFF'   : ' (weighted average of differences in fitted values)'
+        }
+
         for weight_avg in weight_avg_list:
             # compute averages for single set of sims
             if weight_avg_list[weight_avg]['avg_type']=='AVG_SINGLE':
-                # use the first directory in the list to find the set of unique covopts and unique wfitopts
+                # use the first directory in the list to find the set of 
+                # unique covopts and unique wfitopts
                 dir_0 = weight_avg_list[weight_avg]['dirslist_fullpath'][0]
                 unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
                                                      for f in wfit_summary_table.keys()\
@@ -959,7 +976,8 @@ class wFit(Program):
                 unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
                                                      for f in wfit_summary_table.keys()\
                                                       if f[:-8]==dir_0])
-                f.write(f"#\n# Weighted avg for option: {weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                f.write(f"#\n# Weighted avg for option: " \
+                        f"{weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
                 for covnum in unique_matching_covopts:
                     for wfitnum in unique_matching_wfitopts:
                         omm_list = []; w_list = []; wa_list = []
@@ -995,7 +1013,8 @@ class wFit(Program):
 
             # compute averages of differences on a pair of sets of sims                                                                           
             if weight_avg_list[weight_avg]['avg_type']=='AVG_DIFF':
-                # use the first directory in the list to find the set of unique covopts and unique wfitopts    
+                # use the first directory in the list to find the set of 
+                #  unique covopts and unique wfitopts    
                 dir_0=weight_avg_list[weight_avg]['dirslist_fullpath1'][0]
                 unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
                                                      for f in wfit_summary_table.keys()\
@@ -1003,7 +1022,8 @@ class wFit(Program):
                 unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
                                                       for f in wfit_summary_table.keys()\
                                                       if f[:-8]==dir_0])
-                f.write(f"#\n# Weighted avg for {weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                f.write(f"#\n# Weighted avg for {weight_avg} " \
+                        f"{avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
                 for covnum in unique_matching_covopts:
                     for wfitnum in unique_matching_wfitopts:
                         omm_difflist = []; w_difflist = []; wa_difflist = []
@@ -1012,12 +1032,31 @@ class wFit(Program):
                                                weight_avg_list[weight_avg]['dirslist_fullpath2']):
                             unique_key1 = dir1_+'_%s_%s'%(covnum,wfitnum)
                             unique_key2 = dir2_+'_%s_%s'%(covnum,wfitnum)
-                            omm_difflist.append(wfit_summary_table[unique_key1]['omm'] - wfit_summary_table[unique_key2]['omm'])
-                            omm_sig_difflist.append( (wfit_summary_table[unique_key1]['omm_sig']**2 + wfit_summary_table[unique_key2]['omm_sig']**2)**0.5 )
-                            w_difflist.append(wfit_summary_table[unique_key1]['w'] - wfit_summary_table[unique_key2]['w'])
-                            w_sig_difflist.append( (wfit_summary_table[unique_key1]['w_sig']**2 + wfit_summary_table[unique_key2]['w_sig']**2)**0.5 )
-                            wa_difflist.append(wfit_summary_table[unique_key1]['wa'] - wfit_summary_table[unique_key2]['wa'])
-                            wa_sig_difflist.append( (wfit_summary_table[unique_key1]['wa_sig']**2 + wfit_summary_table[unique_key2]['wa_sig']**2)**0.5 )
+
+                            omm_diff = wfit_summary_table[unique_key1]['omm'] - \
+                                       wfit_summary_table[unique_key2]['omm']
+                            omm_difflist.append(omm_diff)  # RK
+
+                            omm_sig_diff = (wfit_summary_table[unique_key1]['omm_sig']**2 + \
+                                            wfit_summary_table[unique_key2]['omm_sig']**2)**0.5
+                            omm_sig_difflist.append(omm_sig_diff)
+
+                            w_diff = wfit_summary_table[unique_key1]['w'] - \
+                                     wfit_summary_table[unique_key2]['w']
+                            w_difflist.append(w_diff)
+
+                            w_sig_diff = (wfit_summary_table[unique_key1]['w_sig']**2 + \
+                                          wfit_summary_table[unique_key2]['w_sig']**2)**0.5 
+                            w_sig_difflist.append(w_sig_diff)
+
+                            wa_diff = wfit_summary_table[unique_key1]['wa'] - \
+                                      wfit_summary_table[unique_key2]['wa']
+                            wa_difflist.append(wa_diff)
+
+                            wa_sig_diff = (wfit_summary_table[unique_key1]['wa_sig']**2 + \
+                                           wfit_summary_table[unique_key2]['wa_sig']**2)**0.5 
+                            wa_sig_difflist.append(wa_sig_diff)
+
                         covopt_label = wfit_summary_table[unique_key1]['covopt_label']
                         wfitopt_label = wfit_summary_table[unique_key1]['wfitopt_label']
                         

@@ -809,9 +809,11 @@ class wFit(Program):
                           'omm':omm, 'omm_sig':omm_sig, 
                           'wa':wa, 'wa_sig':wa_sig,
                           'covopt_label':covopt_label,
-                          'wfitopt_label':wfitopt_label}
+                          'wfitopt_label':wfitopt_label,
+                          'nwarn' : nwarn  # R.Kessler Feb 23 2022
+            }
 
-            unique_key=dir_name+'_'+covnum+'_'+wfitnum 
+            unique_key = dir_name + '_' + covnum + '_' + wfitnum 
             wfit_summary_table[unique_key] = local_dict
             
             if nrow == 1:

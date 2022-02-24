@@ -38,6 +38,7 @@ COLNUM_WFIT_MERGE_CPU          = 5
 
 # define key names
 KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
+KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
 KEYNAME_WEIGHT_AVG    = "WEIGHT_AVG"
@@ -138,6 +139,14 @@ class wFit(Program):
         covsys_list2d = [] # file list per inpdir
         covinfo_list  = [] # list of yaml info per inpdir
 
+
+        cov_select_list = None # Select All cov by default
+
+        for key in KEYNAME_COVOPT_LIST:
+            if key in CONFIG:
+               cov_select_list = CONFIG[key].split()
+               print(f"XXX Cov select list =  {cov_select_list}")
+
         for inpdir in inpdir_list:
 
             if not os.path.exists(inpdir) :
@@ -148,10 +157,31 @@ class wFit(Program):
                 
             covsys_list  = sorted(glob.glob1(inpdir,wildcard))
             n_covsys     = len(covsys_list)
-            covsys_list2d.append(covsys_list)
-
-            # read ISDATA_REAL flag from INFO.YML file
             isdata, yaml_info = self.read_isdata(inpdir)
+            yaml_new_info = yaml_info.copy()
+
+
+            if cov_select_list is not None :
+                COVOPT_DICT = yaml_info["COVOPTS"].copy()
+                i = 0 
+                covsys_new_list = []
+                for key, item in COVOPT_DICT.items():
+                    if item in cov_select_list:
+                        covsys = covsys_list[i]
+                        covsys_new_list.append(covsys)
+                    else:
+                        yaml_new_info["COVOPTS"].pop(key)
+                        pass
+                    i+=1
+                covsys_list = covsys_new_list
+                yaml_info = yaml_new_info
+        
+
+
+            covsys_list2d.append(covsys_list)
+            #print(f" xxx {covsys_list}")
+            #print(f" xxx yaml info = {yaml_info}")
+            # read ISDATA_REAL flag from INFO.YML file
             isdata_list.append(isdata)
             covinfo_list.append(yaml_info)
 

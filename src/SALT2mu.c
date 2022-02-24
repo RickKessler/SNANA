@@ -984,6 +984,7 @@ with append_varname_missing,
  Jan 22 2022
     + fix SUBPROCESS bug reading ref sim-input file
     + integrate REFAC_SUBPROC_STD to be default (no more debug_flag=930) 
+    + increase DROPLIST array size to avoid overwrite bug
 
  ******************************************************/
 
@@ -1938,7 +1939,7 @@ struct {
   char *LIST[MXVAR_TABLE];   // output array of varnames
 
   int  NVAR_DROP;
-  char DROPLIST[MXCHAR_FILENAME]; // list of dropped colums (for comment)
+  char DROPLIST[MXCHAR_VARLIST]; // list of dropped colums (for comment)
 
   bool PERFECT_COLUMN_MATCH ;  // true if all columns match
 } OUTPUT_VARNAMES ;

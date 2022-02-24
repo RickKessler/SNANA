@@ -20840,6 +20840,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
         with systematic MAGSHIFT, but CFA3K-B/n is used in light 
         curve fit. New matching logic only compares the CFA3K-B
         part (before the slash).
+   
+    SALT2mu.c:
+      + increase DROPLIST array size to fix memory overwrite bug
 
     Remove util/sntools.pm
 

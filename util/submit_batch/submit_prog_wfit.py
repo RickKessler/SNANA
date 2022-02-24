@@ -8,6 +8,7 @@
 #
 # Feb 22 2022 RK - write nwarn column (read from yaml file from wfit)
 # Feb 23 2022 RK - allow WFITOPT or WFITOPTS key
+# Feb 24 2022 RK,A.Mitra: new COVOPTS key to select subset
 #
 # =================================================================
 
@@ -134,56 +135,63 @@ class wFit(Program):
             inpdir_list += tmp_list
 
         # - - - - -
-        wildcard      = f"{PREFIX_covsys}*"
-        isdata_list   = []
-        covsys_list2d = [] # file list per inpdir
-        covinfo_list  = [] # list of yaml info per inpdir
+        wildcard           = f"{PREFIX_covsys}*"
+        isdata_list        = []
+        covsys_file_list2d = [] # file list per inpdir
+        covindx_list2d     = [] # cov index list per inpdir (Feb 24 2022)
+        covinfo_list       = [] # list of yaml info per inpdir
 
-
-        cov_select_list = None # Select All cov by default
-
+        covsys_select_list = None # Select All cov by default
         for key in KEYNAME_COVOPT_LIST:
             if key in CONFIG:
-               cov_select_list = CONFIG[key].split()
-               print(f"XXX Cov select list =  {cov_select_list}")
+               covsys_select_list = CONFIG[key].split()
 
         for inpdir in inpdir_list:
 
             if not os.path.exists(inpdir) :
                 msgerr.append(f"Cannot find input directory")
                 msgerr.append(f"  {inpdir}")       
-                #if inpdir != inpdir_orig : msgerr.append(f"  {inpdir}")
-                self.log_assert(False, msgerr)
-                
-            covsys_list  = sorted(glob.glob1(inpdir,wildcard))
-            n_covsys     = len(covsys_list)
+                self.log_assert(False, msgerr)            
+
             isdata, yaml_info = self.read_isdata(inpdir)
-            yaml_new_info = yaml_info.copy()
-
-
-            if cov_select_list is not None :
-                COVOPT_DICT = yaml_info["COVOPTS"].copy()
-                i = 0 
-                covsys_new_list = []
-                for key, item in COVOPT_DICT.items():
-                    if item in cov_select_list:
-                        covsys = covsys_list[i]
-                        covsys_new_list.append(covsys)
-                    else:
-                        yaml_new_info["COVOPTS"].pop(key)
-                        pass
-                    i+=1
-                covsys_list = covsys_new_list
-                yaml_info = yaml_new_info
-        
-
-
-            covsys_list2d.append(covsys_list)
-            #print(f" xxx {covsys_list}")
-            #print(f" xxx yaml info = {yaml_info}")
-            # read ISDATA_REAL flag from INFO.YML file
             isdata_list.append(isdata)
+                
+            # scoop up covsys_[nnn].txt files
+            # beware of cov indices. 'covindx' is the original index,
+            # and 'icov' is a sparse index used later.
+            covsys_file_list  = sorted(glob.glob1(inpdir,wildcard))
+            n_covsys          = len(covsys_file_list)
+            covindx_list      = list(range(n_covsys))  # 0,1,2 ... 
+
+            # - - - - - - -
+            # check user subset of COV option to process (Feb 2022)
+            if covsys_select_list is not None :
+                COVOPT_DICT              = yaml_info["COVOPTS"].copy()
+                yaml_info_select         = yaml_info.copy()
+                covsys_file_list_select  = []
+                covindx_list_select      = []
+                for covindx_tmp, covsys_file_tmp in \
+                    zip(COVOPT_DICT, covsys_file_list):
+                    covsys_name_tmp = COVOPT_DICT[covindx_tmp]
+
+                    if covsys_name_tmp in covsys_select_list:
+                        covsys_file_list_select.append(covsys_file_tmp)
+                        covindx_list_select.append(covindx_tmp)
+                    else:
+                        yaml_info_select["COVOPTS"].pop(covindx_tmp)
+
+                # update lists to include only the user-requsted subset
+                covsys_file_list = covsys_file_list_select
+                covindx_list     = covindx_list_select
+                yaml_info        = yaml_info_select
+        
+            covsys_file_list2d.append(covsys_file_list)
+            covindx_list2d.append(covindx_list)
             covinfo_list.append(yaml_info)
+            n_covsys = len(covsys_file_list)
+
+            #print(f" xxx {covsys_file_list}")
+            #print(f" xxx yaml info = {yaml_info}")
 
             print(f" Found {inpdir} \n" \
                   f" \t with {n_covsys} {PREFIX_covsys} files and " \
@@ -194,11 +202,12 @@ class wFit(Program):
         #print(f" xxx covsys_list = {covsys_list} ")
         # - - - - - -
         #self.config_prep['inpdir_list_orig']  = inpdir_list_orig
-        self.config_prep['inpdir_list']       = inpdir_list
-        self.config_prep['n_inpdir']          = len(inpdir_list)
-        self.config_prep['covsys_list2d']     = covsys_list2d
-        self.config_prep['isdata_list']       = isdata_list
-        self.config_prep['covinfo_list']      = covinfo_list
+        self.config_prep['inpdir_list']        = inpdir_list
+        self.config_prep['n_inpdir']           = len(inpdir_list)
+        self.config_prep['covsys_file_list2d'] = covsys_file_list2d
+        self.config_prep['covindx_list2d']     = covindx_list2d
+        self.config_prep['isdata_list']        = isdata_list
+        self.config_prep['covinfo_list']       = covinfo_list
 
         self.wfit_error_check_input_list()
 
@@ -243,21 +252,22 @@ class wFit(Program):
                     self.log_assert(False, msgerr)
 
     def wfit_error_check_input_list(self):
+
         # loop over each inpdir and abort on problems such as
         # non-existing inpdir, n_covsys=0, etc ...
         # Print all ERRORS before aborting.
 
         #inpdir_list_orig = self.config_prep['inpdir_list_orig']
         inpdir_list      = self.config_prep['inpdir_list'] 
-        covsys_list2d    = self.config_prep['covsys_list2d']
+        covsys_file_list2d = self.config_prep['covsys_file_list2d']
         nerr = 0
         msgerr = []
 
-        for inpdir, covsys_list in \
-            zip(inpdir_list, covsys_list2d):
+        for inpdir, covsys_file_list in \
+            zip(inpdir_list, covsys_file_list2d):
 
             hd_file    = f"{inpdir}/{HD_FILENAME}"
-            n_covsys   = len(covsys_list)
+            n_covsys   = len(covsys_file_list)
             if n_covsys == 0 :            
                 nerr += 1
                 msgerr.append(f"ERROR: cannot find {PREFIX_covsys}* files in")
@@ -394,10 +404,11 @@ class wFit(Program):
     def wfit_prep_index_lists(self):
 
         # prepare internal index lists for efficient looping
-        CONFIG           = self.config_yaml['CONFIG']
-        inpdir_list      = self.config_prep['inpdir_list']  
-        covsys_list2d    = self.config_prep['covsys_list2d']
-        wfitopt_list     = self.config_prep['wfitopt_arg_list']
+        CONFIG             = self.config_yaml['CONFIG']
+        inpdir_list        = self.config_prep['inpdir_list']  
+        covsys_file_list2d = self.config_prep['covsys_file_list2d']
+        covindx_list2d     = self.config_prep['covindx_list2d']
+        wfitopt_list       = self.config_prep['wfitopt_arg_list']
 
         n_inpdir         = self.config_prep['n_inpdir']
         n_wfitopt        = self.config_prep['n_wfitopt']        
@@ -408,8 +419,8 @@ class wFit(Program):
         idir_list3 = [];  ifit_list3 = [];   icov_list3 = []
 
         for idir in range(0,n_inpdir):
-            covsys_list = covsys_list2d[idir]
-            n_covsys    = len(covsys_list)
+            covsys_file_list = covsys_file_list2d[idir]
+            n_covsys         = len(covsys_file_list)
             for icov in range(0,n_covsys):
                 for ifit in range(0,n_wfitopt):
                     n_job_tot += 1
@@ -429,11 +440,11 @@ class wFit(Program):
 
     def write_command_file(self, icpu, f):
 
-        input_file      = self.config_yaml['args'].input_file 
-        inpdir_list     = self.config_prep['inpdir_list']  
-        covsys_list2d   = self.config_prep['covsys_list2d']
-        wfitopt_list    = self.config_prep['wfitopt_arg_list']
-        n_core          = self.config_prep['n_core']
+        input_file         = self.config_yaml['args'].input_file 
+        inpdir_list        = self.config_prep['inpdir_list']  
+        covsys_file_list2d = self.config_prep['covsys_file_list2d']
+        wfitopt_list       = self.config_prep['wfitopt_arg_list']
+        n_core             = self.config_prep['n_core']
 
         idir_list3 = self.config_prep['idir_list3'] 
         icov_list3 = self.config_prep['icov_list3']
@@ -476,7 +487,7 @@ class wFit(Program):
         arg_blind   = self.config_prep['arg_blind_list'][idir]
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
-        tmpcov_file = self.config_prep['covsys_list2d'][idir][icov]
+        tmpcov_file = self.config_prep['covsys_file_list2d'][idir][icov]
 
         prefix = self.wfit_num_string(idir,icov,ifit)
 
@@ -537,9 +548,9 @@ class wFit(Program):
     def wfit_prefix(self,row):
         # parse input row passed from MERGE.LOG and construct
         # prefix for output files
-        dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]
-        covnum  = row[COLNUM_WFIT_MERGE_COVOPT]
-        wfitnum = row[COLNUM_WFIT_MERGE_WFITOPT]
+        dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]  # e.g, DIROPT003
+        covnum  = row[COLNUM_WFIT_MERGE_COVOPT]  # e.g, COVOPT002
+        wfitnum = row[COLNUM_WFIT_MERGE_WFITOPT] # e.g  WFITOPT001
         prefix = f"{dirnum}_{covnum}_{wfitnum}"
         return prefix
 
@@ -575,13 +586,16 @@ class wFit(Program):
             f.write(f"  {diropt_num}: {inpdir} \n")
             #f.write(f"  - {row} \n")
 
-            COVOPTS = covinfo['COVOPTS']
-            
+            COVOPTS      = covinfo['COVOPTS']
+            COVOPTS_keys = list(COVOPTS.keys())
+
             n_covopt = len(COVOPTS)
             f.write(f"  COVOPTS({diropt_num}): \n")
             for icov in range(0,n_covopt):
-                covopt_num  = self.wfit_num_string(-1,icov,-1)
-                covopt      = COVOPTS[icov]
+                covopt_num  = self.wfit_num_string(-1,icov,-1) 
+                # xxx mark delete covopt      = COVOPTS[icov]
+                covindx     = COVOPTS_keys[icov]  # original index
+                covopt      = COVOPTS[covindx]
                 f.write(f"    {covopt_num}: {covopt} \n")
 
         f.write("\n")
@@ -796,8 +810,8 @@ class wFit(Program):
         nrow = 0 ; nrow_warn = 0
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
-            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:] # e.g., 000
-            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., 001
+            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:] # e.g., DIROPT000
+            covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
             prefix     = self.wfit_prefix(row)
             YAML_FILE  = f"{script_dir}/{prefix}.YAML"
@@ -816,14 +830,15 @@ class wFit(Program):
             if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
-            str_diropt  = 'DIROPT' + dirnum
-            str_covopt  = 'COVOPT' + covnum
-            dir_name    = INPDIR_LIST[str_diropt]  # create_cov dir
-            covopt_dict = INPDIR_LIST[f'COVOPTS({str_diropt})']
+            str_diropt    = 'DIROPT' + dirnum
+            str_covopt    = 'COVOPT' + covnum
+            dir_name      = INPDIR_LIST[str_diropt]  # create_cov dir
+            covopt_dict   = INPDIR_LIST[f'COVOPTS({str_diropt})']
             covopt_label  = covopt_dict[str_covopt]
             wfitopt_label = WFITOPT_LIST[int(wfitnum)][1]
             
-            if wfitopt_label == "None" : wfitopt_label = "NoLabel"
+            if wfitopt_label == "None" : 
+                wfitopt_label = "NoLabel"
 
             if use_wa:
                 wa      = wfit_values_dict['wa']    

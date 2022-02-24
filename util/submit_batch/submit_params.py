@@ -445,6 +445,8 @@ HELP_CONFIG_WFIT = f"""
   - /CMB+BAO/   -cmb_sim -sigma_Rcmb 0.007 -bao_sim
   - /w0wa+CMB/  -wa -wasteps 51 -w0steps 51 -cmb_sim -sigma_Rcmb 0.007
 
+  COVOPT:  ALL NOSYS  # select subset of cov systematics options
+
 # optional global wfit options appended to each WFITOPT above
   WFITOPT_GLOBAL: "-hsteps 61 -wsteps 101 -omsteps 81"
 

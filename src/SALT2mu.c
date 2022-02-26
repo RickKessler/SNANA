@@ -89,9 +89,9 @@ surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data
         [GROUPNAME]-zSPEC and [GROUPNAME]-zPHOT groups. 
         OPT_PHOTOZ is from &SNCLINP input SNTABLE_LIST='FITRES NOZPHOT'
 zspec_errmax_idsample=0.002  ! default=0
-   ! IS_SPECZ = OPT_PHOTOZ==0 || zerr < zspec_errmax_idsample
+   ! IS_SPECZ = OPT_PHOTOZ==0 || zhelerr < zspec_errmax_idsample
    ! Thus if all events have OPT_PHOTOZ=2, user input
-   ! zspec_errmax_idsample defined zSpec IDSAMPLE
+   ! zspec_errmax_idsample  defines zSpec IDSAMPLE
 
 idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
@@ -985,6 +985,10 @@ with append_varname_missing,
     + fix SUBPROCESS bug reading ref sim-input file
     + integrate REFAC_SUBPROC_STD to be default (no more debug_flag=930) 
     + increase DROPLIST array size to avoid overwrite bug
+
+ Feb 26 2022 RK
+    + tweak zspec_errmax_idsample to operate on zhelerr rather than zhderr
+      because the latter includes VPECERR.
 
  ******************************************************/
 
@@ -6172,18 +6176,6 @@ void read_data_override(void) {
     NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
   }
 
-  /* xxx mark delete Nov 18 2021 xxxxxxxxxx
-  // if zHEL is on override list, add shifted zHD
-  if ( IVAR_OVER_zHEL >= 0 ) {     
-    IVAR_OVER_zHD = NVAR_OVER ;
-    NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
-  }
-  if ( IVAR_OVER_zHELERR >= 0 )  {
-    IVAR_OVER_zHDERR = NVAR_OVER ; 
-    NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
-  }
-  xxxxxxxxx end mark xxxxxxxxxx */
-
 
   INFO_DATA.NVAR_OVERRIDE = NVAR_OVER;
 
@@ -7295,7 +7287,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double zhd       = (double)TABLEVAR->zhd[ISN];
   double zhderr    = (double)TABLEVAR->zhderr[ISN];
   double vpec      = (double)TABLEVAR->vpec[ISN];
-  double zhel      = (double)TABLEVAR->zhel[ISN]; // Dec 11 2020
+  double zhel      = (double)TABLEVAR->zhel[ISN];   
+  double zhelerr   = (double)TABLEVAR->zhelerr[ISN];   
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
   double COV_x0x1  = (double)TABLEVAR->COV_x0x1[ISN];
   double COV_x0c   = (double)TABLEVAR->COV_x0c[ISN];
@@ -7473,7 +7466,11 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
-  IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhderr < INPUTS.zspec_errmax_idsample);
+  /* xxxxxxxxx mark delete Feb 26 2022 xxxxxxxx
+     IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhderr < INPUTS.zspec_errmax_idsample);
+  xxxxxxxx */
+
+  IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhelerr < INPUTS.zspec_errmax_idsample);
   IS_PHOTOZ = !IS_SPECZ ;
   TABLEVAR->IS_PHOTOZ[ISN] = IS_PHOTOZ;
 

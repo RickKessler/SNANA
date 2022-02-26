@@ -11867,7 +11867,6 @@ C ------------ BEGIN -------------
       endif
 
 c protect against error=0
-c xxx mark delete Mar 16 2018    ZERR = SQRT(ZERR*ZERR + 0.0005*0.0005)
       ZERR = SQRT(ZERR*ZERR + 1.0E-10)
 
       if ( ZERR .LE. 1.0E-7 ) then

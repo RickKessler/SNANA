@@ -4,7 +4,7 @@
 # and with all user-specified WFITOPT options.
 #
 # Jan 17 2022 M.Vincenzi - add option to make wgt averages
-#                          See KEYNAME_WEIGHT_AVG
+#                          See KEYNAME_MEAN_STDERRMEAN
 #
 # Feb 22 2022 RK - write nwarn column (read from yaml file from wfit)
 # Feb 23 2022 RK - allow WFITOPT or WFITOPTS key
@@ -42,7 +42,7 @@ KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
-KEYNAME_WEIGHT_AVG    = "WEIGHT_AVG"
+KEYNAME_MEAN_STDERRMEAN    = "WEIGHT_AVG"
 
 BLIND_DATA_DEFAULT = True
 BLIND_SIM_DEFAULT  = False
@@ -90,8 +90,8 @@ class wFit(Program):
         # 3D loops
         self.wfit_prep_index_lists()
 
-        # prepare weight avg
-        self.wfit_prep_weight_avg()
+        # prepare mean and std err on mean
+        self.wfit_prep_mean_stderrmean()
 
         # copy input file to outdir
         input_file    = self.config_yaml['args'].input_file
@@ -144,7 +144,7 @@ class wFit(Program):
         covsys_select_list = None # Select All cov by default
         for key in KEYNAME_COVOPT_LIST:
             if key in CONFIG:
-               covsys_select_list = CONFIG[key].split()
+                covsys_select_list = CONFIG[key].split()
 
         for inpdir in inpdir_list:
 
@@ -215,29 +215,29 @@ class wFit(Program):
 
         # end wfit_prep_input_list
 
-    def wfit_prep_weight_avg(self):
-        # parse weight_avg XYZ
+    def wfit_prep_mean_stderrmean(self):
+        # parse mean_stderrmean XYZ
         # Only error checking at this point, no computation
         # The execution is done at the MERGE state
         CONFIG     = self.config_yaml['CONFIG']
         inpdir_list = self.config_prep['inpdir_list']
 
-        if KEYNAME_WEIGHT_AVG not in CONFIG:
+        if KEYNAME_MEAN_STDERRMEAN not in CONFIG:
             return
 
         # check that each wildcard corresponds to at least 1 input directory
-        for weight_avg in CONFIG[KEYNAME_WEIGHT_AVG]:
-            weight_avg_dirs = weight_avg.replace(' ','').split('-')
-            for wildcard in weight_avg_dirs:
+        for mean_stderrmean in CONFIG[KEYNAME_MEAN_STDERRMEAN]:
+            mean_stderrmean_dirs = mean_stderrmean.replace(' ','').split('-')
+            for wildcard in mean_stderrmean_dirs:
                 matches = [f for f in inpdir_list if wildcard in f]
                 if len(matches)<1:
                     msgerr=[f'Found no matches for widlcard {wildcard}']
                     self.log_assert(False, msgerr)
 
-            if len(weight_avg_dirs)==2:
+            if len(mean_stderrmean_dirs)==2:
                 # check that both dirs have the same structure
-                wildcard1 = weight_avg_dirs[0]
-                wildcard2 = weight_avg_dirs[1]
+                wildcard1 = mean_stderrmean_dirs[0]
+                wildcard2 = mean_stderrmean_dirs[1]
                 suffixes1 = [f.replace(wildcard1,'*') for f in inpdir_list if wildcard1 in f]
                 suffixes2 = [f.replace(wildcard2,'*') for f in inpdir_list if wildcard2 in f]
                 if suffixes1==suffixes2:
@@ -774,7 +774,7 @@ class wFit(Program):
         script_subdir    = SUBDIR_SCRIPTS_WFIT
 
         self.make_wfit_summary()
-        self.make_weight_avg_summary()
+        self.make_mean_stderrmean_summary()
 
         logging.info(f"  wfit cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
@@ -849,7 +849,7 @@ class wFit(Program):
                 wa = 0
                 wa_sig = 0
             
-            # load table for weighted avg (the table is not used here)
+            # load table for mean and std err on mean (the table is not used here)
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
                           'wfitnum': wfitnum, 
@@ -938,51 +938,47 @@ class wFit(Program):
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column
 
-    def make_weight_avg_lists(self):
+    def make_mean_stderrmean_lists(self):
         # XXXX Maybe obsolete
         CONFIG           = self.config_yaml['CONFIG']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
 
         inpdirs_full_paths = [INPDIR_LIST[k] for k in INPDIR_LIST.keys() if k.startswith('DIROPT')]
-        weight_avg_list = {}
-        for weight_avg in CONFIG[KEYNAME_WEIGHT_AVG]:
-            weight_avg_dirs = weight_avg.replace(' ','').split('-')
-            if len(weight_avg_dirs)==1:
-                wildcard = weight_avg_dirs[0]
-                weight_avg_list[weight_avg] = {'avg_type':'AVG_SINGLE',
+        mean_stderrmean_list = {}
+        for mean_stderrmean in CONFIG[KEYNAME_MEAN_STDERRMEAN]:
+            mean_stderrmean_dirs = mean_stderrmean.replace(' ','').split('-')
+            if len(mean_stderrmean_dirs)==1:
+                wildcard = mean_stderrmean_dirs[0]
+                mean_stderrmean_list[mean_stderrmean] = {'avg_type':'AVG_SINGLE',
                                                'wildcard':wildcard,
                                                'dirslist_fullpath':[f for f in inpdirs_full_paths if wildcard in f]}
-            if len(weight_avg_dirs)==2:
+            if len(mean_stderrmean_dirs)==2:
                 # check first that dirs match                                                                                                             
-                wildcard1 = weight_avg_dirs[0]
-                wildcard2 = weight_avg_dirs[1]
+                wildcard1 = mean_stderrmean_dirs[0]
+                wildcard2 = mean_stderrmean_dirs[1]
                 dirslist_fullpath1 = [f for f in inpdirs_full_paths if wildcard1 in f]
                 dirslist_fullpath2 = [f for f in inpdirs_full_paths if wildcard2 in f]
-                weight_avg_list[weight_avg] = {'avg_type':'AVG_DIFF', 
+                mean_stderrmean_list[mean_stderrmean] = {'avg_type':'AVG_DIFF', 
                                                'wildcard1':wildcard1,
                                                'wildcard2':wildcard2,
                                                'dirslist_fullpath1':dirslist_fullpath1,
                                                'dirslist_fullpath2':dirslist_fullpath2}
-        self.config_prep['weight_avg_list'] = weight_avg_list
+        self.config_prep['mean_stderrmean_list'] = mean_stderrmean_list
 
 
-    def compute_average(self, fit_list, fiterr_list):
-        # compute weighted avg as described in "An Introduction to Error Analysis" by Taylor, John R., Chapter 7, eq 7.10-7.12
+    def compute_average(self, fit_list):
         fit_array = np.array(fit_list)
-        fiterr_array = np.array(fiterr_list)
-        weights = 1./fiterr_array**2
-
-        sum_weights = weights.sum(0)
-        w_mean = np.dot(fit_array, weights) / sum_weights
-        std_wmean = np.sqrt(1/sum_weights)
-
-        return w_mean, std_wmean
+        
+        mean = np.mean(fit_array)
+        std_of_mean = np.std(fit_array)/np.sqrt(len(fit_list))
+        print ("computing new average")
+        return mean, std_of_mean
 
 
-    def make_weight_avg_summary(self):
-        # Driver utility to compute weighted avgs among directories
-        # See WEIGHT_AVG key in input CONFIG file
+    def make_mean_stderrmean_summary(self):
+        # Driver utility to compute means and std err on mean among directories
+        # See MEAN_STDERRMEAN key in input CONFIG file
 
         CONFIG           = self.config_yaml['CONFIG']
         output_dir       = self.config_prep['output_dir']
@@ -993,13 +989,13 @@ class wFit(Program):
         WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
         wfit_summary_table  = self.config_prep['wfit_summary_table']
         
-        if KEYNAME_WEIGHT_AVG not in CONFIG: return
+        if KEYNAME_MEAN_STDERRMEAN not in CONFIG: return
 
         # load lists of files needed to comput avgs
-        self.make_weight_avg_lists()
-        weight_avg_list  = self.config_prep['weight_avg_list']
+        self.make_mean_stderrmean_lists()
+        mean_stderrmean_list  = self.config_prep['mean_stderrmean_list']
         
-        logging.info(f"\t Writing weighted avg summary to {WFIT_SUMMARY_AVG_FILE}")
+        logging.info(f"\t Writing means summary to {WFIT_SUMMARY_AVG_FILE}")
 
         AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
         f = open(AVG_FILE,"w")
@@ -1010,29 +1006,29 @@ class wFit(Program):
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
         
         avg_dict = {
-            'AVG_SINGLE' : ' (weighted average of fitted values)',
-            'AVG_DIFF'   : ' (weighted average of differences in fitted values)'
+            'AVG_SINGLE' : ' (mean and std err on mean of fitted values)',
+            'AVG_DIFF'   : ' (mean and std err on mean of differences in fitted values)'
         }
 
-        for weight_avg in weight_avg_list:
+        for mean_stderrmean in mean_stderrmean_list:
             # compute averages for single set of sims
-            if weight_avg_list[weight_avg]['avg_type']=='AVG_SINGLE':
+            if mean_stderrmean_list[mean_stderrmean]['avg_type']=='AVG_SINGLE':
                 # use the first directory in the list to find the set of 
                 # unique covopts and unique wfitopts
-                dir_0 = weight_avg_list[weight_avg]['dirslist_fullpath'][0]
+                dir_0 = mean_stderrmean_list[mean_stderrmean]['dirslist_fullpath'][0]
                 unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
                                                      for f in wfit_summary_table.keys()\
                                                      if f[:-8]==dir_0])
                 unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
                                                      for f in wfit_summary_table.keys()\
                                                       if f[:-8]==dir_0])
-                f.write(f"#\n# Weighted avg for option: " \
-                        f"{weight_avg} {avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                f.write(f"#\n# Mean and std err on mean for option: " \
+                        f"{mean_stderrmean} {avg_dict[mean_stderrmean_list[mean_stderrmean]['avg_type']]}\n")
                 for covnum in unique_matching_covopts:
                     for wfitnum in unique_matching_wfitopts:
                         omm_list = []; w_list = []; wa_list = []
                         omm_sig_list = []; w_sig_list = []; wa_sig_list = []
-                        for dir_ in weight_avg_list[weight_avg]['dirslist_fullpath']:
+                        for dir_ in mean_stderrmean_list[mean_stderrmean]['dirslist_fullpath']:
                             unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
                             omm_list.append(wfit_summary_table[unique_key]['omm'])
                             omm_sig_list.append(wfit_summary_table[unique_key]['omm_sig'])
@@ -1043,11 +1039,13 @@ class wFit(Program):
                         covopt_label = wfit_summary_table[unique_key]['covopt_label']
                         wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
 
-                        ##compute weigthed avg
-                        omm_avg, omm_avg_std = self.compute_average(omm_list, omm_sig_list)
-                        w_avg, w_avg_std = self.compute_average(w_list, w_sig_list)
+                        ##compute mean and std err on mean
+                        omm_avg, omm_avg_std = self.compute_average(omm_list)
+                        w_avg, w_avg_std = self.compute_average(w_list)
                         if use_wa:
-                            wa_avg, wa_avg_std = self.compute_average(wa_list, wa_sig_list)
+                            wa_avg, wa_avg_std = self.compute_average(wa_list)
+                            if np.isnan(wa_avg): # this is useful for when mix of wCDM and w0waCMD fits are run
+                                wa_avg, wa_avg_std = 0.0,0.0
                         else:
                             wa_avg, wa_avg_std = 0.0,0.0
 
@@ -1062,24 +1060,24 @@ class wFit(Program):
                                 f"{str_misc} {str_labels}\n")
 
             # compute averages of differences on a pair of sets of sims                                                                           
-            if weight_avg_list[weight_avg]['avg_type']=='AVG_DIFF':
+            if mean_stderrmean_list[mean_stderrmean]['avg_type']=='AVG_DIFF':
                 # use the first directory in the list to find the set of 
                 #  unique covopts and unique wfitopts    
-                dir_0=weight_avg_list[weight_avg]['dirslist_fullpath1'][0]
+                dir_0=mean_stderrmean_list[mean_stderrmean]['dirslist_fullpath1'][0]
                 unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
                                                      for f in wfit_summary_table.keys()\
                                                      if f[:-8]==dir_0])
                 unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
                                                       for f in wfit_summary_table.keys()\
                                                       if f[:-8]==dir_0])
-                f.write(f"#\n# Weighted avg for {weight_avg} " \
-                        f"{avg_dict[weight_avg_list[weight_avg]['avg_type']]}\n")
+                f.write(f"#\n# Mean and std err on mean for {mean_stderrmean} " \
+                        f"{avg_dict[mean_stderrmean_list[mean_stderrmean]['avg_type']]}\n")
                 for covnum in unique_matching_covopts:
                     for wfitnum in unique_matching_wfitopts:
                         omm_difflist = []; w_difflist = []; wa_difflist = []
                         omm_sig_difflist = []; w_sig_difflist = []; wa_sig_difflist = []
-                        for dir1_,dir2_ in zip(weight_avg_list[weight_avg]['dirslist_fullpath1'],
-                                               weight_avg_list[weight_avg]['dirslist_fullpath2']):
+                        for dir1_,dir2_ in zip(mean_stderrmean_list[mean_stderrmean]['dirslist_fullpath1'],
+                                               mean_stderrmean_list[mean_stderrmean]['dirslist_fullpath2']):
                             unique_key1 = dir1_+'_%s_%s'%(covnum,wfitnum)
                             unique_key2 = dir2_+'_%s_%s'%(covnum,wfitnum)
 
@@ -1110,11 +1108,13 @@ class wFit(Program):
                         covopt_label = wfit_summary_table[unique_key1]['covopt_label']
                         wfitopt_label = wfit_summary_table[unique_key1]['wfitopt_label']
                         
-                        ##compute weigthed avg                                                                                                         
-                        omm_avg, omm_avg_std = self.compute_average(omm_difflist, omm_sig_difflist)
-                        w_avg, w_avg_std = self.compute_average(w_difflist, w_sig_difflist)
+                        ##compute mean and std err on mean                                    
+                        omm_avg, omm_avg_std = self.compute_average(omm_difflist)
+                        w_avg, w_avg_std = self.compute_average(w_difflist)
                         if use_wa:
-                            wa_avg, wa_avg_std = self.compute_average(a_difflist, wa_sig_difflist)
+                            wa_avg, wa_avg_std = self.compute_average(wa_difflist)
+                            if np.isnan(wa_avg): # this is useful for when mix of wCDM and w0waCMD fits are run
+                                wa_avg, wa_avg_std = 0.0,0.0
                         else:
                             wa_avg, wa_avg_std = 0.0,0.0
 

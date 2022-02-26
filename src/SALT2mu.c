@@ -8036,7 +8036,7 @@ void prepare_IDSAMPLE_biasCor(void) {
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
   bool IS_SPECZ, IS_PHOTOZ ;
-  double z, zerr;
+  double z, zhderr, zhelerr;
   char FIELD_TMP[MXCHAR_CCID],  FIELDGROUP[100],  *FIELDDEF=NULL;
   char SURVEYGROUP[100], SURVEYDEF[MXCHAR_CCID], zGROUP[20];
   char *NAME_SN,  *NAME_SAMPLE, STRINGOPT[40]  ;
@@ -8130,7 +8130,8 @@ void prepare_IDSAMPLE_biasCor(void) {
     IDSURVEY   = INFO_DATA.TABLEVAR.IDSURVEY[isn];
     OPT_PHOTOZ = INFO_DATA.TABLEVAR.OPT_PHOTOZ[isn];
     NAME_SN    = INFO_DATA.TABLEVAR.name[isn];
-    zerr       = INFO_DATA.TABLEVAR.zhderr[isn];
+    zhderr     = INFO_DATA.TABLEVAR.zhderr[isn];
+    zhelerr    = INFO_DATA.TABLEVAR.zhelerr[isn];
     z          = INFO_DATA.TABLEVAR.zhd[isn];
 
     if(USE_FIELDGROUP) { FIELDDEF = INFO_DATA.TABLEVAR.field[isn]; }
@@ -8163,7 +8164,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 			SURVEYGROUP, STRINGOPT ); // (O)
     }	
 
-    IS_SPECZ = ( OPT_PHOTOZ == 0 || zerr < INPUTS.zspec_errmax_idsample );
+    IS_SPECZ = ( OPT_PHOTOZ == 0 || zhelerr < INPUTS.zspec_errmax_idsample );
     IS_PHOTOZ = !IS_SPECZ ;
 
     if ( IS_SPECZ ) 

@@ -20846,4 +20846,16 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
     Remove util/sntools.pm
 
+
+# ======================================================================= 
+         v11_04i (  ) 
+
+         ***** IMPORTANT(v11_04i) ***** 
+
+         ***** USEFUL(v11_04i) ***** 
+
+         ***** MISCELLANEOUS(v11_04i) ***** 
+ 
+   remove util/split_version.pl
+
 END: 

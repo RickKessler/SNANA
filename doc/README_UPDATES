@@ -20857,5 +20857,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
          ***** MISCELLANEOUS(v11_04i) ***** 
  
    remove util/split_version.pl
-
+   
+   SALT2mu.c
+     + fix bug in prepNextFit() related to sigma_int=0
+ 
 END: 

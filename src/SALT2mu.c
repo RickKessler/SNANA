@@ -2204,9 +2204,7 @@ int keep_cutmask(int errcode) ;
 
 int     prepNextFit(void);
 
-// JLM AUG 15 2012 for fitflag_sigmb
 void    conflict_check(void);
-// xxx double  get_sigint_calc(double rchi2resid, double orig_sigint);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
 
@@ -3955,13 +3953,15 @@ int prepNextFit(void) {
   // July 5 2018: stop if input sigint_fix is set; see STOP_COVFIX
   // Sep 7 2019: STOP if INPUTS.fixpar_all is set.
   // Sep 3 2021: REPEAT fit msg incldues alpha,beta,redchi2.
+  // Feb 22 2022: fix bug to recalc_dataCov if sigint=0
 
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
+  double COVINT_PARAM_MIN = 0.0 ;
   int STOP_TOL, STOP_MXFIT, STOP_COV0, retCode, USE_CCPRIOR ;
   int NFIT_ITER = FITRESULT.NFIT_ITER ;
   char msg[100];
-  //  char fnam[] = "prepNextFit" ;
+  char fnam[] = "prepNextFit" ;
 
   // ----------------- BEGIN -------------
 
@@ -3982,7 +3982,8 @@ int prepNextFit(void) {
   // check reasons to stop fitting
   STOP_TOL    = ( fabs(redchi2-1.0) < INPUTS.redchi2_tol ) ;
   STOP_MXFIT  = ( NFIT_ITER == MAXFITITER-1 || INPUTS.fixpar_all ) ;
-  STOP_COV0   = ( NFIT_ITER > 0 && FITINP.COVINT_PARAM_FIX == 0.0)  ;
+  STOP_COV0   = ( NFIT_ITER > 0 && 
+		  FITINP.COVINT_PARAM_FIX <= COVINT_PARAM_MIN ) ;
   
   // for CC prior, require at least 2 iterations
   if ( USE_CCPRIOR > 0 && NFIT_ITER == 0 ) { STOP_TOL = 0 ; }
@@ -4018,12 +4019,19 @@ int prepNextFit(void) {
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
 
-    if ( FITINP.COVINT_PARAM_FIX < 0 ) {
-      FITINP.COVINT_PARAM_FIX = 0.0 ;
+    /* xxxxx mark delete Feb 28 2022 RK xxxxxxx
+    if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) {
+      FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ;
     } 
     else {
       recalc_dataCov();
     }
+    xxxxxxxxx end mark xxxxxx*/
+
+    if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) 
+      {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; } 
+    recalc_dataCov();
+
     retCode = FITFLAG_CHI2 ;
 
     /* 
@@ -11645,7 +11653,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   int  MINEVT_SIGINT_COMPUTE = 50; // abort if fewer events in ia,ib,ig bin
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int  NROW_TOT, NROW_malloc, istat_cov, NCOVFIX, MEMD, cutmask ;
   int  i, ia, ib, ig ;

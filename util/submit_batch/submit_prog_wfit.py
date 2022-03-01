@@ -978,7 +978,7 @@ class wFit(Program):
         wfitavg_list = {}
         for wfitavg in CONFIG[KEYNAME_WFITAVG]:
             wfitavg_dirs = wfitavg.replace(' ','').split('-')
-            if len(wfitavg_dirs)==1: # XYZ load first dir and set the second to nan
+            if len(wfitavg_dirs)==1: 
                 wildcard = wfitavg_dirs[0]
                 dirslist_fullpath = [f for f in inpdirs_full_paths if wildcard in f]
                 wfitavg_list[wfitavg] = {
@@ -987,7 +987,7 @@ class wFit(Program):
                     'dirslist_fullpath' : dirslist_fullpath
                 }
 
-            if len(wfitavg_dirs)==2: # XYZ check if there's another dir and replace it
+            if len(wfitavg_dirs)==2: 
                 # check first that dirs match                                                                                                             
                 wildcard1 = wfitavg_dirs[0]
                 wildcard2 = wfitavg_dirs[1]
@@ -1257,8 +1257,6 @@ class wFit(Program):
         }
 
         for wfitavg in wfitavg_list:
-            # compute averages for single set of sims
-#            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_SINGLE:
             # use the first directory in the list to find the set of 
             # unique covopts and unique wfitopts
             dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath1'][0]
@@ -1289,7 +1287,7 @@ class wFit(Program):
                             omm_list2.append(wfit_summary_table[unique_key]['omm'])
                             w_list2.append(wfit_summary_table[unique_key]['w'])
                             wa_list2.append(wfit_summary_table[unique_key]['wa'])
-                    else:
+                    else: # if theres no second set of dirs, it mean this is not a difference so just set x_list2 to zero 
                         omm_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
                         w_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
                         wa_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))

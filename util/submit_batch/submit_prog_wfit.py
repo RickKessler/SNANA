@@ -964,7 +964,7 @@ class wFit(Program):
         return keyname
         # end get_keyname_wfit
 
-    def make_wfitavg_lists(self):
+    def make_wfitavg_lists_legacy(self):
         # XXXX Maybe obsolete
         CONFIG           = self.config_yaml['CONFIG']
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -978,7 +978,7 @@ class wFit(Program):
         wfitavg_list = {}
         for wfitavg in CONFIG[KEYNAME_WFITAVG]:
             wfitavg_dirs = wfitavg.replace(' ','').split('-')
-            if len(wfitavg_dirs)==1:
+            if len(wfitavg_dirs)==1: # XYZ load first dir and set the second to nan
                 wildcard = wfitavg_dirs[0]
                 dirslist_fullpath = [f for f in inpdirs_full_paths if wildcard in f]
                 wfitavg_list[wfitavg] = {
@@ -987,7 +987,7 @@ class wFit(Program):
                     'dirslist_fullpath' : dirslist_fullpath
                 }
 
-            if len(wfitavg_dirs)==2:
+            if len(wfitavg_dirs)==2: # XYZ check if there's another dir and replace it
                 # check first that dirs match                                                                                                             
                 wildcard1 = wfitavg_dirs[0]
                 wildcard2 = wfitavg_dirs[1]
@@ -1005,7 +1005,43 @@ class wFit(Program):
                 }
         self.config_prep['wfitavg_list'] = wfitavg_list
 
-        # end make_wfitavg_lists
+        # end make_wfitavg_lists_legacy
+
+
+    def make_wfitavg_lists(self):
+
+        CONFIG           = self.config_yaml['CONFIG']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
+
+        inpdirs_full_paths = [INPDIR_LIST[k] \
+                            for k in INPDIR_LIST.keys() if k.startswith('DIROPT')]
+
+        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
+
+        wfitavg_list = {}
+        for wfitavg in CONFIG[KEYNAME_WFITAVG]:
+            wfitavg_dirs = wfitavg.replace(' ','').split('-')
+            wildcard = wfitavg_dirs[0]
+            dirslist_fullpath = [f for f in inpdirs_full_paths if wildcard in f]
+            wfitavg_list[wfitavg] = {
+                    'avg_type' : WFIT_AVGTYPE_SINGLE,
+                    'wildcard1' : wildcard,
+                    'wildcard2' : None,
+                    'dirslist_fullpath1' : dirslist_fullpath,
+                    'dirslist_fullpath2': None
+            }
+            if len(wfitavg_dirs)==2: 
+                # check first that dirs match
+                wildcard2 = wfitavg_dirs[1]
+                dirslist_fullpath2 = [f for f in inpdirs_full_paths if wildcard2 in f]
+                wfitavg_list[wfitavg]['avg_type'] = WFIT_AVGTYPE_DIFF
+                wfitavg_list[wfitavg]['wildcard2'] = wildcard2
+                wfitavg_list[wfitavg]['dirslist_fullpath2'] = dirslist_fullpath2
+
+        self.config_prep['wfitavg_list'] = wfitavg_list
+
+        # end make_wfitavg_lists                                                                                                                              
 
     def compute_average(self, fit_list):
         fit_array = np.array(fit_list)
@@ -1020,10 +1056,8 @@ class wFit(Program):
         return mean, std_of_mean
         # end compute_average
         
-    def make_wfitavg_summary(self):
-
-        # Driver utility to compute means and std err on mean among directories
-        # See MEAN_STDERRMEAN key in input CONFIG file
+    def make_wfitavg_summary_legacy(self): 
+        # xxx obsolete, see function make_wfitavg_summary()
 
         CONFIG           = self.config_yaml['CONFIG']
         output_dir       = self.config_prep['output_dir']
@@ -1058,7 +1092,7 @@ class wFit(Program):
 
         for wfitavg in wfitavg_list:
             # compute averages for single set of sims
-            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_SINGLE:
+            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_SINGLE: 
                 # use the first directory in the list to find the set of 
                 # unique covopts and unique wfitopts
                 dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath'][0]
@@ -1180,6 +1214,106 @@ class wFit(Program):
                         str_labels  = f"{covopt_label:<10} {wfitopt_label}"
                         nrow +=1
                         f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
+                                f"{str_misc} {str_labels}\n")
+
+        f.close()
+
+    # end make_wfitavg_summary_legacy
+
+    def make_wfitavg_summary(self):
+
+        # Driver utility to compute means and std err on mean among directories
+        # See MEAN_STDERRMEAN key in input CONFIG file
+
+        CONFIG           = self.config_yaml['CONFIG']
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        use_wa           = submit_info_yaml['USE_wa']
+        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
+        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
+        wfit_summary_table  = self.config_prep['wfit_summary_table']
+
+        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
+        if KEYNAME_WFITAVG is None: return
+
+        # load lists of files needed to comput avgs
+        self.make_wfitavg_lists()
+        wfitavg_list  = self.config_prep['wfitavg_list']
+        
+        logging.info(f"\t Writing means summary to {WFIT_SUMMARY_AVG_FILE}")
+
+        AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
+        f = open(AVG_FILE,"w")
+        nrow = 0
+        VARNAMES_STRING = \
+            f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig   "  \
+            f"<omm> <omm>_sig N_DIRs COVOPT WFITOPT"
+        f.write(f"VARNAMES: {VARNAMES_STRING} \n")
+        
+        avg_comment_dict = {
+            WFIT_AVGTYPE_SINGLE : ' (mean and std err on fitted values)',
+            WFIT_AVGTYPE_DIFF   : ' (mean and std err on differences in fitted values)'
+        }
+
+        for wfitavg in wfitavg_list:
+            # compute averages for single set of sims
+#            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_SINGLE:
+            # use the first directory in the list to find the set of 
+            # unique covopts and unique wfitopts
+            dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath1'][0]
+            unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
+                                                 for f in wfit_summary_table.keys()\
+                                                 if f[:-8]==dir_0])
+            unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
+                                                  for f in wfit_summary_table.keys()\
+                                                  if f[:-8]==dir_0])
+            f.write(f"#\n# Mean and std err on mean for option: " \
+                    f"{wfitavg} {avg_comment_dict[wfitavg_list[wfitavg]['avg_type']]}\n")
+
+            for covnum in unique_matching_covopts:
+                for wfitnum in unique_matching_wfitopts:
+                    omm_list = []; w_list = []; wa_list = []
+                    for dir_ in wfitavg_list[wfitavg]['dirslist_fullpath1']:
+                        unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
+                        omm_list.append(wfit_summary_table[unique_key]['omm'])
+                        w_list.append(wfit_summary_table[unique_key]['w'])
+                        wa_list.append(wfit_summary_table[unique_key]['wa'])
+                    covopt_label  = wfit_summary_table[unique_key]['covopt_label']
+                    wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
+
+                    if wfitavg_list[wfitavg]['dirslist_fullpath2'] is not None:
+                        omm_list2 = []; w_list2 = []; wa_list2 = []
+                        for dir2_ in wfitavg_list[wfitavg]['dirslist_fullpath2']:
+                            unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
+                            omm_list2.append(wfit_summary_table[unique_key]['omm'])
+                            w_list2.append(wfit_summary_table[unique_key]['w'])
+                            wa_list2.append(wfit_summary_table[unique_key]['wa'])
+                    else:
+                        omm_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
+                        w_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
+                        wa_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
+                    
+                    ##compute mean and std err on mean
+                    print(f"\t Compute averages for '{wfitopt_label}' " \
+                          f"with COVOPT={covopt_label}")
+                    sys.stdout.flush()
+
+                    omm_avg, omm_avg_std = self.compute_average(omm_list-omm_list2)
+                    w_avg, w_avg_std     = self.compute_average(w_list-w_list2)
+                    if use_wa:
+                        wa_avg, wa_avg_std = self.compute_average(wa_list-wa_list2)
+                    else:
+                        wa_avg, wa_avg_std = 0.0, 0.0
+
+                    str_nums    = f"{covnum} {wfitnum} "
+                    str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
+                    str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
+                    str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
+                    str_misc    = f"{len(w_list)}"
+                    str_labels  = f"{covopt_label:<10} {wfitopt_label}"
+                    nrow +=1
+                    f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
                                 f"{str_misc} {str_labels}\n")
 
         f.close()

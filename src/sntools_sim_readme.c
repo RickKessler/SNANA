@@ -795,7 +795,7 @@ void readme_docana_epoch(int *iline, char *pad) {
 void readme_docana_misc(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
+  char *cptr, noComment[]="", *ptrFile, fileName_orig[MXPATHLEN] ;
   double *dptr, dval, dval_list[10];
 
   // ----------- BEGIN ------------
@@ -804,6 +804,24 @@ void readme_docana_misc(int *iline, char *pad) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENSOURCE:", INPUTS.GENSOURCE);
+
+
+  ptrFile = PATH_USER_INPUT;
+  if ( !IGNOREFILE(ptrFile) ) {
+    ENVrestore(ptrFile,fileName_orig);
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_USER_INPUT:", 
+	    fileName_orig);
+  }
+
+
+  ptrFile = INPUTS.PATH_SNDATA_SIM;
+  if ( !IGNOREFILE(ptrFile) ) {
+    ENVrestore(ptrFile,fileName_orig);
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_SNDATA_SIM:", 
+	    fileName_orig);
+  }
 
   dval = (double)INPUTS.ISEED_ORIG ;
   VERSION_INFO_load(&i, pad, "RANSEED:", noComment, 

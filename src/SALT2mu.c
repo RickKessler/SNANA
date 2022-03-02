@@ -5773,9 +5773,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   // Created July 28 2021 by Dillon Brout
   // Compute CELLINFO bins and malloc arrays.
   // Used later for adjusting muErr based on RMS from sim.
+  // Input opt not used,.
   // Sep 14 2021: malloc USE element
-
-  char fnam[] = "malloc_MUCOV";
 
   int debug_malloc = INPUTS.debug_malloc ;
   bool DO_MAD      = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
@@ -5791,6 +5790,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   int ic,im,i1d;
 
   int NPERCELL_REALLOC=2000;
+  char fnam[] = "malloc_MUCOV";
 
   // ------------- BEGIN --------------
 
@@ -5826,7 +5826,9 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 
   // ---------------------------------------------
   // malloc global struct to store CELLINFO
-  fprintf(FP_STDOUT, "\t Malloc CELL-INFO arrays with size=%d \n", NCELL);
+  fprintf(FP_STDOUT, "\t Malloc CELL-INFO arrays with size=%d "
+	  "(IDSAMPLE=%d)\n", NCELL, IDSAMPLE);
+
   int MEMD     = NCELL   * sizeof(double);
   int MEMI     = NCELL   * sizeof(int);
   int MEMB     = NCELL   * sizeof(bool);
@@ -10858,10 +10860,10 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     SIG_PULL_STD[i1d] = sqrt(SQSTD);
 
-    if (DO_MAD) {
-      // beware that only MAD is meaningfill for |PULL|; ignore AVG and STD
+    if ( DO_MAD ) {
+      // beware that MAD is meaningfill only for |PULL|; ignore AVG and STD
       arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
-      SIG_PULL_MAD[i1d]   = 1.48*MAD;
+      SIG_PULL_MAD[i1d]   = 1.48 * MAD;
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
     } 
     else {
@@ -10905,7 +10907,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   if ( LPRINT ) {
 
     double zlo, zhi ;  
-    printf("NUMBER OF MASS BINS %d\n",NBINm);
+    //    printf("NUMBER OF MASS BINS %d\n",NBINm);
     printf("\n");
     if ( DO_COVADD ){
       printf("                            "

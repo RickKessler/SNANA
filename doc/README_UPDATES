@@ -20861,4 +20861,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c
      + fix bug in prepNextFit() related to sigma_int=0
  
+   genmag_SIMSED.c
+     + fix UVLAM_EXTRAP to work reading binary and text files.
+
 END: 

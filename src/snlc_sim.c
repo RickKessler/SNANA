@@ -1724,15 +1724,19 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "GENPDF_FILE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FILE );
     KEYSOURCE_GENPDF = keySource ; // for prioritization w.r.t. asymGauss
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_IGNORE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_IGNORE );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_FLAT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FLAT );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1, "GENPDF_OPTMASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPDF_OPTMASK );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   // - - - - - PATHs  - - - -
   else if ( keyMatchSim(1, "PATH_USER_INPUT",  WORDS[0],keySource) ) {
@@ -1763,22 +1767,25 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       { INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE=0; }
     INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
     INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
+    README_KEYPLUSARGS_load(20,2,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1,"OPTMASK_T0SHIFT_EXPLODE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1,"UVLAM_EXTRAPFLUX", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   else if ( keyMatchSim(1,"MINSLOPE_EXTRAPMAG_LATE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE );
+    README_KEYPLUSARGS_load(20,1,WORDS,keySource,&README_KEYS_GENMODEL,fnam);
   }
   // - - - -
   else if ( keyMatchSim(1,"RANSEED", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);
     INPUTS.ISEED      = ITMP; // set unsigned int
     INPUTS.ISEED_ORIG = ITMP; // store original SEED in case it is altered.
-    
   }
   else if ( keyMatchSim(1,"NSTREAM_RAN", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NSTREAM_RAN );
@@ -12846,6 +12853,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"ZHELIO");  // true ZHELIO
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_HELIO ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"ZHELIO_ERR");  // ZHELIO uncertainty
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_SMEAR_ERR ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;

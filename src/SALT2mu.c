@@ -990,6 +990,12 @@ with append_varname_missing,
     + tweak zspec_errmax_idsample to operate on zhelerr rather than zhderr
       because the latter includes VPECERR.
 
+ Mar 02 2022 RK 
+    + read zPRIOR[ERR] from data files if zspec_errmax_idsample>0
+      so that zSPEC vs zPHOT is determined from originak zSPEC err
+      and not from fitted zSPEC err.
+    + new IS_SPECZ_TABLEVAR function to determine if event is specz or photoz.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1253,8 +1259,8 @@ typedef struct {
   char   **name, **field ; 
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
-  float  *zhd,    *zcmb,    *zhel,    *vpec ;
-  float  *zhderr, *zcmberr, *zhelerr, *vpecerr, *zmuerr  ;
+  float  *zhd,    *zcmb,    *zhel,    *zprior,    *vpec ;
+  float  *zhderr, *zcmberr, *zhelerr, *zpriorerr, *vpecerr, *zmuerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   bool   *IS_PHOTOZ;
@@ -1273,6 +1279,7 @@ typedef struct {
   int    ICUTWIN_GAMMA;           // CUTWIN index for gamma-variable
   int    ICUTWIN_VARNAME_PIA ;      // CUTWIN index for varname_pIa
   int    IVAR_VPEC, IVAR_SIM_VPEC, IVAR_OPT_PHOTOZ ; // logicals
+  int    IVAR_ZPRIOR;
   int    IVAR_SNTYPE, IVAR_SIM_GAMMADM;
   int    IVAR_pIa[MXFILE_DATA]; // track this variable for each file 
 
@@ -2047,6 +2054,7 @@ void  SNTABLE_READPREP_TABLEVAR(int ifile, int ISTART, int LEN,
 				TABLEVAR_DEF *TABLEVAR);
 void  SNTABLE_CLOSE_TEXT(void) ;
 void  compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
+bool  IS_SPECZ_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
 void  compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR );
 void  compute_more_INFO_DATA(void);
 void  prepare_IDSAMPLE_biasCor(void); 
@@ -6652,6 +6660,12 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->zcmberr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhel          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhelerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
+
+    if ( INPUTS.zspec_errmax_idsample > 0.0 ) {
+      TABLEVAR->zprior      = (float *) malloc(MEMF); MEMTOT+=MEMF;
+      TABLEVAR->zpriorerr   = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    }
+
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
@@ -6724,6 +6738,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->zmuerr);
     free(TABLEVAR->snrmax);
 
+    if ( INPUTS.zspec_errmax_idsample > 0.0 ) 
+      { free(TABLEVAR->zprior); free(TABLEVAR->zpriorerr); }
 
     free(TABLEVAR->COV_x0x1);
     free(TABLEVAR->COV_x0c);
@@ -6914,6 +6930,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  Dec 11 2020: read zhel and zhelerr
   //  Jan 28 2021: read peakmjd for duplicate check (data only)
   //  Jun 16 2021: read explicit logmass rather than thru CUTWIN
+  //  Mar 02 2022: read zPRIOR[ERR]
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6947,6 +6964,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IVAR_OPT_PHOTOZ   = -9 ;
     TABLEVAR->IVAR_SNTYPE       = -9 ;
     TABLEVAR->IVAR_SIM_GAMMADM  = -9 ;
+    TABLEVAR->IVAR_ZPRIOR       = -9 ;
 
     for(icut=0; icut < MXCUTBIT; icut++ ) 
       { TABLEVAR->NSN_CUTBIT[icut] = 0 ; }    
@@ -6984,6 +7002,9 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->logmass[irow]    = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
     TABLEVAR->warnCov[irow]    =  false ;
+
+    if ( INPUTS.zspec_errmax_idsample > 0.0 ) 
+      { TABLEVAR->zprior[irow]  = TABLEVAR->zpriorerr[irow]  = -9.0 ; }
 
     TABLEVAR->SIM_NONIA_INDEX[irow]  = -9 ;
     TABLEVAR->SIM_X0[irow]           = -9.0 ;
@@ -7053,6 +7074,16 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   sprintf(vartmp,"zHELERR:F"); 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhelerr[ISTART], 
 			  LEN, VBOSE);
+
+  if ( INPUTS.zspec_errmax_idsample > 0.0 ) {
+    sprintf(vartmp,"zPRIOR:F"); 
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zprior[ISTART], 
+				   LEN, VBOSE);
+    sprintf(vartmp,"zPRIORERR:F"); 
+    ivar2 = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zpriorerr[ISTART], 
+				    LEN, VBOSE);
+    if ( ivar > 0 && ivar2>0 ) { TABLEVAR->IVAR_ZPRIOR = ivar; }
+  }
 
   sprintf(vartmp,"VPEC:F" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->vpec[ISTART], 
@@ -7298,7 +7329,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double zhderr    = (double)TABLEVAR->zhderr[ISN];
   double vpec      = (double)TABLEVAR->vpec[ISN];
   double zhel      = (double)TABLEVAR->zhel[ISN];   
-  double zhelerr   = (double)TABLEVAR->zhelerr[ISN];   
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
   double COV_x0x1  = (double)TABLEVAR->COV_x0x1[ISN];
   double COV_x0c   = (double)TABLEVAR->COV_x0c[ISN];
@@ -7476,11 +7506,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
-  /* xxxxxxxxx mark delete Feb 26 2022 xxxxxxxx
-     IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhderr < INPUTS.zspec_errmax_idsample);
-  xxxxxxxx */
-
-  IS_SPECZ  = ( OPT_PHOTOZ == 0 || zhelerr < INPUTS.zspec_errmax_idsample);
+  IS_SPECZ  = IS_SPECZ_TABLEVAR(ISN,TABLEVAR); 
   IS_PHOTOZ = !IS_SPECZ ;
   TABLEVAR->IS_PHOTOZ[ISN] = IS_PHOTOZ;
 
@@ -7584,6 +7610,40 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   return ;
 
 } // end compute_more_TABLEVAR
+
+
+// ***********************************************
+bool IS_SPECZ_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) {
+
+  // Created Mar 2 2022 by R.Kessler
+  // Function returns True if this event (ISN index) has a
+  // spectroscopic redshift base on either
+  //  + is not a photo-z fit (OPT_PHOTOZ=0) or
+  //  + has accurate zpriorerr < INPUTS.zspec_errmax_idsample
+  //
+
+  int  OPT_PHOTOZ  = (int)TABLEVAR->OPT_PHOTOZ[ISN];
+  bool IS_SPECZ = false;
+  double zerr;
+  char fnam[] = "IS_SPECZ_TABLEVAR" ;
+
+  // ------------ BEGIN ------------
+
+  if ( TABLEVAR->IVAR_ZPRIOR > 0 ) {
+    // use original zhelio uncertainty for redshift prior in LC fit
+    zerr = (double)TABLEVAR->zpriorerr[ISN];   
+  }
+  else {
+    // try using zhelio uncertainty, but it might be inflated
+    // from photo-z fit
+    zerr = (double)TABLEVAR->zhelerr[ISN];   
+  }
+
+  IS_SPECZ  = ( OPT_PHOTOZ == 0 || zerr < INPUTS.zspec_errmax_idsample);
+
+  return IS_SPECZ;
+
+} // end IS_SPECZ_TABLEVAR
 
 // ***********************************************
 void compute_CUTMASK(int ISN, TABLEVAR_DEF *TABLEVAR ) {
@@ -8046,7 +8106,7 @@ void prepare_IDSAMPLE_biasCor(void) {
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
   bool IS_SPECZ, IS_PHOTOZ ;
-  double z, zhderr, zhelerr;
+  double zhd ;
   char FIELD_TMP[MXCHAR_CCID],  FIELDGROUP[100],  *FIELDDEF=NULL;
   char SURVEYGROUP[100], SURVEYDEF[MXCHAR_CCID], zGROUP[20];
   char *NAME_SN,  *NAME_SAMPLE, STRINGOPT[40]  ;
@@ -8140,9 +8200,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     IDSURVEY   = INFO_DATA.TABLEVAR.IDSURVEY[isn];
     OPT_PHOTOZ = INFO_DATA.TABLEVAR.OPT_PHOTOZ[isn];
     NAME_SN    = INFO_DATA.TABLEVAR.name[isn];
-    zhderr     = INFO_DATA.TABLEVAR.zhderr[isn];
-    zhelerr    = INFO_DATA.TABLEVAR.zhelerr[isn];
-    z          = INFO_DATA.TABLEVAR.zhd[isn];
+    zhd        = INFO_DATA.TABLEVAR.zhd[isn];
 
     if(USE_FIELDGROUP) { FIELDDEF = INFO_DATA.TABLEVAR.field[isn]; }
 
@@ -8174,7 +8232,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 			SURVEYGROUP, STRINGOPT ); // (O)
     }	
 
-    IS_SPECZ = ( OPT_PHOTOZ == 0 || zhelerr < INPUTS.zspec_errmax_idsample );
+    IS_SPECZ  = IS_SPECZ_TABLEVAR(isn,&INFO_DATA.TABLEVAR);
     IS_PHOTOZ = !IS_SPECZ ;
 
     if ( IS_SPECZ ) 
@@ -8243,10 +8301,10 @@ void prepare_IDSAMPLE_biasCor(void) {
 
     // keep track of min/max redshift for each sample
 
-    if( z < SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA ) 
-      { SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA = z; }
-    if( z > SAMPLE_BIASCOR[IDSAMPLE].zMAX_DATA ) 
-      { SAMPLE_BIASCOR[IDSAMPLE].zMAX_DATA = z; }
+    if( zhd < SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA ) 
+      { SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA = zhd; }
+    if( zhd > SAMPLE_BIASCOR[IDSAMPLE].zMAX_DATA ) 
+      { SAMPLE_BIASCOR[IDSAMPLE].zMAX_DATA = zhd; }
 
     // check user option to skip biasCor for this sample
     if ( strstr(INPUTS.surveyList_noBiasCor,SURVEYDEF) != NULL ) 

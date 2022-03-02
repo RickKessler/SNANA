@@ -18680,11 +18680,8 @@ c - - - - - -   PHOTOZ - - - - -
 
       IF ( DOFIT_PHOTOZ ) THEN
 
-        VARLIST = 'zPRIOR:F' // char(0)
+        VARLIST = 'zPRIOR:F,zPRIORERR:F' // char(0)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, PRIOR_PHOTOZ, VARLIST,1,
-     &                   LENBLOCK, LENLIST)
-        VARLIST = 'zPRIOR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, PRIOR_PHOTOZ_ERR,VARLIST,1,
      &                   LENBLOCK, LENLIST)
 
         VARLIST = 'ZPULL:F' // char(0)

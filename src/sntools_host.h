@@ -80,7 +80,8 @@
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
-#define SERSIC_INDEX_MAX   8.00    // increase from 5 (6/24/2015)
+//#define SERSIC_INDEX_MAX   8.00    // increase from 5 (6/24/2015)
+#define SERSIC_INDEX_MAX  11.00    // increase from 8 (Mar 2 2022)
 #define MXSERSIC_HOSTLIB      9    // max number of summed profiles per host
 #define NBIN_RADIUS_SERSIC  200    // Number of R/Re bins to store integrals
 #define MAXRADIUS_SERSIC   100.0   // max R/Re value for integ table

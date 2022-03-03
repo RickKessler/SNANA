@@ -20868,4 +20868,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snlc_fit.car:
      + for photo-z fit, write zPRIOR and zPRIOR_ERR to output tables.
   
+   sntools_host.h
+     + increase SERSIC_INDEX_MAX->11 (was 8)
+
 END: 

@@ -1080,7 +1080,7 @@ void  read_HOSTLIB_WGTMAP(void) {
 
   FILE *fp ;
   int  gzipFlag ;
-  char *ptrFile, fileName_full[MXPATHLEN], c_get[40] ;
+  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
   char fnam[] = "read_HOSTLIB_WGTMAP"  ;
 
   // ------------- BEGIN --------------
@@ -2134,7 +2134,7 @@ void read_head_HOSTLIB(FILE *fp) {
   int ivar2, NDUPL;
   bool FOUND_VARNAMES, FOUND_VPECERR;
   int NCHAR;
-  char  key[40], c_get[40], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
+  char  key[40], c_get[200], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
   char *basename;
   char  LINE[MXCHAR_LINE_HOSTLIB];
   char  fnam[] = "read_head_HOSTLIB" ;
@@ -2626,7 +2626,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   int  IVAR_ZTRUE    = HOSTLIB.IVAR_ZTRUE ;
   int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
   int  IVAR_NBR_LIST = HOSTLIB.IVAR_NBR_LIST ;
-  char c_get[40], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
+  char c_get[200], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
   char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;

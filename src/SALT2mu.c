@@ -997,6 +997,8 @@ with append_varname_missing,
     + improve debug_mucovscale to write two files: info vs. bin and 
         info vs. biasCor event.
 
+ Mar 04 2022 - see new DUST_FLAG
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1462,6 +1464,7 @@ struct {
 
   int  NDIM;     // number of dimensions for biasCor e.g., 1, 5, 7
   char STRING_PARLIST[20]; // e.g., z,x1,c,a,b
+  bool DUST_FLAG ;  // True for dust-based model using nbin_beta=1
 
   // alpha,beta,z binning
   int8_t  *IA, *IB, *IG; // store alpha,beta,gamma index for each event
@@ -7598,7 +7601,13 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     //   and override the intrinsic beta. Needed in muerrsq_biasCor.
     //   Still need to define a true Tripp-Beta for BS21 model
     //   This fix helps fix the anomalously low chi2.
-    INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ;
+
+    int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
+    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 ) 
+      { INFO_BIASCOR.DUST_FLAG=true; }
+
+    if ( INFO_BIASCOR.DUST_FLAG ) 
+      { INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ; }
 
     /*
     if ( ISN < -20 ) {

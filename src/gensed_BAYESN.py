@@ -134,6 +134,13 @@ class gensed_BAYESN:
             newSN=False
         else:
             newSN=True
+            # double or assymetric gaussian
+            # genPDF map - generic multi-D map - captures correlations between parameters
+            # can be any function
+            # SNANA - sec 4.3.2
+            # snlc_sim.c has header
+            # get_random_genPDF
+
             self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
 
         #ST: Three lines originally from GSN

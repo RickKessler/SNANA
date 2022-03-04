@@ -46,9 +46,6 @@ class gensed_BAYESN:
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
-            print('PARAMS FILE:')
-            print(self.params_file_contents)
-
             SNDATA_PATH = os.getenv('SNDATA_ROOT')
             if SNDATA_PATH is None:
                 raise RuntimeError('SNDATA_ROOT is not defined! Check env!')
@@ -63,7 +60,7 @@ class gensed_BAYESN:
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX']
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX', 'REDSHIFT']
             self.parameter_values = {key:-9. for key in self.parameter_names}
 
         except Exception as e:
@@ -140,8 +137,14 @@ class gensed_BAYESN:
             # SNANA - sec 4.3.2
             # snlc_sim.c has header
             # get_random_genPDF
+            print(self.host_param_names)
+            print(hostpars)
+            useful_pars = {x:hostpars[i] for i, x in enumerate(self.host_param_names)}
+            print(useful_pars, 'kwargs')
+            self.setParVals_BAYESN(**useful_pars)
+            print(self.parameter_values)
 
-            self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
+            #self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
 
         #ST: Three lines originally from GSN
         ind =  np.abs(self.phase - trest).argmin()
@@ -184,7 +187,6 @@ class gensed_BAYESN:
         flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
-        print(self.parameter_values, 'fetchSED')
         return list(flux)
 
 
@@ -192,6 +194,7 @@ class gensed_BAYESN:
         """
         Sets the values of parameter names
         """
+        print(kwargs, 'set')
         keynames = kwargs.keys()
         for key in keynames:
             if key not in self.parameter_names:

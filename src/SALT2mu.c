@@ -12034,6 +12034,13 @@ void  makeSparseList_biasCor(void) {
     SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS++ ;
   }
 
+  // - - - - -
+  for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+    printf("\t NBIASCOR_CUTS = %7d for IDSAMPLE=%d \n",
+           SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS, idsample);
+  }
+  fflush(stdout);
+
 
   return;
 

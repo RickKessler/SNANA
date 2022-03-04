@@ -7582,6 +7582,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
 
+    int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
+    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 ) 
+      { INFO_BIASCOR.DUST_FLAG=true; }
+
     // Mainly for BS21 model:
     // Prepare option to bias-correct MU instead of correcting mB,x1,c 
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
@@ -7601,13 +7605,19 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     //   and override the intrinsic beta. Needed in muerrsq_biasCor.
     //   Still need to define a true Tripp-Beta for BS21 model
     //   This fix helps fix the anomalously low chi2.
-
-    int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
-    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 ) 
-      { INFO_BIASCOR.DUST_FLAG=true; }
-
-    if ( INFO_BIASCOR.DUST_FLAG ) 
-      { INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ; }
+    if ( INFO_BIASCOR.DUST_FLAG ) { 
+      // intended for for BS21 model
+      Alpha   = INPUTS.parval[IPAR_ALPHA0]; 
+      Beta    = INPUTS.parval[IPAR_BETA0]; 
+      GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
+      INFO_BIASCOR.TABLEVAR.SIM_BETA[ISN]  = Beta ; // overwrite !!!
+    }
+    else {
+      // non-BS21 models with single color law
+      Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
+      Beta    = TABLEVAR->SIM_BETA[ISN] ;
+      GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
+    }
 
     /*
     if ( ISN < -20 ) {

@@ -52,6 +52,7 @@
 # Nov 17 2021: add list protection in def make_fitpar_summary()
 # Nov 24 2021: write OLAM_REF and w_REF to submit info
 # Jan 18 2022: fix writing REJECT_FRAC_BIASCOR to yaml file.
+# Mar 03 2022: add zPRIOR* to append_varname_missing 
 #
 # - - - - - - - - - -
 
@@ -1122,7 +1123,7 @@ class BBC(Program):
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
-                  f"append_varname_missing='PROB*'  " \
+                  f"append_varname_missing='PROB*,zPRIOR*'  " \
                   f"catfile_out={cat_file_out}  " \
                   f" &> {cat_file_log}"
 

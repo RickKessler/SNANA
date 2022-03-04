@@ -9266,6 +9266,8 @@ void prepare_biasCor(void) {
   INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS  = 0 ;
   INFO_BIASCOR.TABLEVAR.NSN_REJECT    = 0 ;
   INFO_BIASCOR.GAMMADM_OFFSET         = 0.0 ;
+  INFO_BIASCOR.DUST_FLAG          = false ;
+
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
 
   if (DOCOR_MUCOVADD) { // link MAD with MUCOVADD; doesnt work without MAD

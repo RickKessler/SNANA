@@ -722,9 +722,9 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   //  int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
   int IDMAP, istat, isp, imap, NVAR, IVAR, ivar, MASK_APPLY ;
-  int LDMP = 0 ;
+  int LDMP = (OPT & 512) ;
   double FLUXERR_TMP, errModelVal, parList[MXPAR_FLUXERRMAP] ;
-  char *tmpString ;
+  char *VARNAMES, tmpString[40], cparList[200] ;
   char fnam[] = "get_FLUXERRMODEL";
 
   // ----------- BEGIN -------------
@@ -769,21 +769,28 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   // errModelVal is the error scale from map
   IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
   load_parList_FLUXERRMAP(imap, PARLIST, parList);
-  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
-  
-  if ( LDMP || istat<0 ) {
-    char cparList[100] ;  cparList[0] = 0 ;
+
+  if ( LDMP ) {
+    cparList[0] = 0 ;
     NVAR      = FLUXERRMAP[imap].NVAR ;
     for(ivar=0; ivar < NVAR-1; ivar++ ) { 
       IVAR      = FLUXERRMAP[imap].IVARLIST[ivar] ;
-      tmpString = FLUXERRMAP[imap].VARNAMES[ivar] ;
-      sprintf(cparList,"%s %s=%.3f", cparList, tmpString, parList[ivar] ); 
+      VARNAMES  = FLUXERRMAP[imap].VARNAMES[ivar] ;
+      sprintf(tmpString,"%s=%.3f ",  VARNAMES, parList[ivar] ); 
+      strcat(cparList,tmpString);
+      // xxx sprintf(cparList,"%s %s=%.3f", cparList,VARNAMES,parList[ivar]); 
     }
     printf(" xxx imap=%2d  %s(%s-%s)  MJD=%.3f  FLUXERR_IN=%.3f\n", 
 	   imap, FLUXERRMAP[imap].NAME, FIELD, BAND,
 	   PARLIST[IPAR_FLUXERRMAP_MJD],  FLUXERR_IN) ;
-    printf(" xxx     %s  :  errModelVal=%.3f\n", 
-	   cparList, errModelVal);
+    fflush(stdout) ;
+
+  }
+
+  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
+  
+  if ( LDMP || istat<0 ) {
+    printf(" xxx     %s  :  errModelVal=%.3f\n",  cparList, errModelVal);
     fflush(stdout) ;
   }
   

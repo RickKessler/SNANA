@@ -12775,19 +12775,26 @@ to whatever the simulation generates.
 % --------------------------------------
 
 % --------------------------------------
-  \subsubsection{{\tt DASHBOARD} Utility}
+  \subsubsection{{\tt README} and {\tt DASHBOARD} Utilities}
   \label{sss:sim_dashboard}
 % --------------------------------------
 
-There are well over a dozen possible input files to the simulation,
-and keeping track can be difficult, especially with include files
-and command-line overrides. A brief summary of every input file
-can be displayed with
 \begin{verbatim}
-   snlc_sim.exe mysim.input DASHBOARD
+   snlc_sim.exe mysim.input README     # write README file and quit
+   snlc_sim.exe mysim.input DASHBOARD  # print all map and library file names
 \end{verbatim}
-which will print a file summary and then quit. 
-Higher-level pipelines can use this feature to better summarize the inputs.
+%
+The {\tt README} argument forces the sim to write the standard 
+{\tt README} ouptut file with the
+{\tt OVERVIEW}, {\tt INPUT\_KEYS} and {\tt INPUT\_NOTES} yaml blocks,
+and then the sim quits. For speed, most initializations are skipped such
+as for {\tt HOSTLIB} and transient model.
+
+There are well over a dozen possible input files (maps, libraries ...)
+to the simulation, and keeping track can be difficult, 
+especially with include files and command-line overrides. 
+A brief summary of every input file can be displayed with the
+{\tt DASHBOARD} command. Unused files are labeled NONE.
 
 
 % --------------------------------------

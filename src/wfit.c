@@ -41,10 +41,10 @@
      Popovic  2021 (2102.01776)  w-syst from SN-host correlations
      Vincenzi 2021 (2111.10382)  w-syst for SNCC contamination in DES
      Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
-     Brout    2022 (in prep)     Pantheon+ systematics
+     Brout    2022 (2202.04077)  Pantheon+ systematics
      Dai      2022 (in prep)     SALT3 training syst
      Mitra    2022 (in prep)     SNIa cosmology with photo-z/PLASTICC
-
+     
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.
     + include option to float wa in w0waCDM model
@@ -84,6 +84,12 @@
      can scoop up w, werr om, omerr on one line.
 
  Feb 18 2022 RK - print status updates inside chi2 min loop
+
+ Feb 21 2022 RK 
+    + fix subtle bug with speed_trick; apply analytic H0 marg to 
+       handle Pantheon distances that are missing M0.
+    + inside chi2-min loop, add screen updates with timing info.
+    + write NWARNINGS to yaml output
 
 *****************************************************************************/
 
@@ -186,6 +192,9 @@ struct  {
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
   double sigmu_int, muoff_final, FoM_final ;
+
+  int NWARN;
+
 } WORKSPACE ;
 
 
@@ -310,6 +319,7 @@ void set_Ndof(void);
 void check_refit(void);
 
 void wfit_minimize(void);
+void prep_speed_trick(double extchi_tmp);
 void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
@@ -548,7 +558,8 @@ void init_stuff(void) {
   WORKSPACE.wa_atchimin =  0.0 ;
   WORKSPACE.omm_atchimin =  0.0 ;
   WORKSPACE.chi2atmin   =  0.0 ;
-  
+  WORKSPACE.NWARN = 0 ;
+
   return ;
 
 } // end init_stuff
@@ -1899,25 +1910,42 @@ void wfit_minimize(void) {
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
   int    speed_flag        = INPUTS.speed_flag_chi2;
+  int    use_mucov         = INPUTS.use_mucov;
   Cosparam cpar;
+  Cosparam cpar_fixed;
   double snchi_tmp, extchi_tmp, muoff_tmp;
+  bool UPDATE_STDOUT;
   int  i, kk, j;
   int  imin = -9, kmin = -9, jmin = -9;
   char fnam[] = "wfit_minimize" ;
 
   // ---------- BEGIN --------------
 
-  printf("\n# ======================================= \n");
-  printf(" Get approx mimimized values:  \n" );
-  fflush(stdout);
-
-  // Get approximate expected minimum chi2 (= NSN - 3 dof),
-  // used to keep numbers small in the chi2 loop. 
-    
-  INPUTS.speed_flag_chi2 = 0; // disable speed flag for approx chi2 
-
   int NBTOT = INPUTS.w0_steps * INPUTS.wa_steps * INPUTS.omm_steps;
   int NB=0;
+
+  printf("\n# ======================================= \n");
+  printf(" Get prob at %d grid points, and approx mimimized values: \n", 
+	 NBTOT );
+  fflush(stdout);
+    
+  // prep speed trick
+  if ( use_mucov && speed_flag ) {
+    printf("   Prepare speed trick to reduce off-diagonal calculation\n");
+    INPUTS.speed_flag_chi2 = 0; // disable speed flag for approx min chi2 
+    cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
+    get_chi2wOM(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
+		&muoff_tmp, &snchi_tmp, &extchi_tmp ); 
+    printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
+	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
+    fflush(stdout);
+    
+    INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
+    prep_speed_trick(extchi_tmp);
+  }
+
+  // - - - - - - - - 
+  time_t t0 = time(NULL);  // monitor time to build prob grid
 
   for( i=0; i < INPUTS.w0_steps; i++){
     cpar.w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -1927,7 +1955,7 @@ void wfit_minimize(void) {
 	cpar.omm = INPUTS.omm_min + j*INPUTS.omm_stepsize; 
 	cpar.ome = 1 - cpar.omm;
 	
-	get_chi2wOM ( cpar.w0,cpar.wa, cpar.omm, INPUTS.sqsnrms, 
+	get_chi2wOM ( cpar.w0, cpar.wa, cpar.omm, INPUTS.sqsnrms, 
 		      &muoff_tmp, &snchi_tmp, &extchi_tmp ); 
 
 	WORKSPACE.snchi3d[i][kk][j]  = snchi_tmp ; 
@@ -1942,17 +1970,27 @@ void wfit_minimize(void) {
 	  imin=i; jmin=j; kmin=kk; 
 	}
 
+	// stdout update with timing information
 	NB++;
-	if ( NB % 10000 == 0 ) {
-	  printf("\t finished chi2 bin %8d of %8d \n",
-		 NB, NBTOT); fflush(stdout) ;
+	if ( NB < 10000 ) 
+	  { UPDATE_STDOUT = ( NB % 1000 == 0 ); }
+	else
+	  { UPDATE_STDOUT = ( NB % 10000 == 0 ); }
+
+	if ( UPDATE_STDOUT ) {
+	  time_t t_update = time(NULL);
+	  double dt = t_update - t0 ;
+	  printf("\t finished chi2 bin %8d of %8d  (%.0f sec)\n",
+		 NB, NBTOT, dt); fflush(stdout) ;
 	}
+
 
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
 
 
+  /* xxxxx mark delete Feb 21 2022 xxxxxxx
   INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
   double extchi_min = WORKSPACE.extchi_min;
   double snchi_min  = WORKSPACE.snchi_min ;
@@ -1980,8 +2018,9 @@ void wfit_minimize(void) {
 	  nsig_chi2min_skip );
 
   }
-
   fflush(stdout);
+  xxxxxxxxxxx end mark xxxxxxx */
+
 
   // get w,OM at min chi2 by using more refined grid
   // Pass approx w,OM,  then return w,OM at true min
@@ -2004,6 +2043,49 @@ void wfit_minimize(void) {
 
 } // end wfit_minimize
 
+// =============================
+void prep_speed_trick(double chi2min_approx) {
+
+  // Prepare speed trick for computing chi2 by ignoring 
+  // off-diagonal terms when diagonal sum is greater than threshold.
+  // Input is appriximate chi2min.
+
+  int Ndof                 = WORKSPACE.Ndof;
+  double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
+
+  double nsig, Xdof=(double)Ndof;
+  char fnam[] = "prep_speed_trick";
+
+  // -------------- BEGIN -----------
+
+  if ( !INPUTS.speed_flag_chi2 ) { return; }
+
+  // compute nsig_chi2 above naive chi2min=Ndof and compare
+  // with nsig_chi2_skip used for speed trick
+  nsig = (chi2min_approx - Xdof) / sig_chi2min_naive;
+
+  printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  
+	 nsig);
+  
+  if ( INPUTS.use_mucov && INPUTS.speed_flag_chi2 ) {
+    double nsig_chi2min_skip;
+    double NSIG_MULTIPLIER = 10.0 ;
+    if ( nsig < 1.0 )
+      { nsig_chi2min_skip = NSIG_MULTIPLIER; } 
+    else
+      { nsig_chi2min_skip = nsig * NSIG_MULTIPLIER ; } // Jan 26 2026
+
+    WORKSPACE.nsig_chi2min_skip = nsig_chi2min_skip;
+
+    printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
+	  nsig_chi2min_skip );
+
+  }
+  fflush(stdout);
+
+  return;
+
+} // end prep_speed_trick
 
 // ==================================
 void wfit_normalize(void) {
@@ -2343,12 +2425,14 @@ void wfit_uncertainty(void) {
   if(i==0){
     printf("WARNING: lower 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
+    WORKSPACE.NWARN++ ;
   }
   
   if ( INPUTS.dofit_w0wa ) {
     if(kk==0){
       printf("WARNING: lower 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;
+      WORKSPACE.NWARN++ ;
     }
   }
 
@@ -2356,12 +2440,14 @@ void wfit_uncertainty(void) {
     printf("WARNING: 1. w0 grid is too coarse to resolve "
 	   "lower 1-sigma limit\n");
     WORKSPACE.w0_sig_lower = INPUTS.w0_stepsize;
+    WORKSPACE.NWARN++ ;
   }
   if (INPUTS.dofit_w0wa){
     if (WORKSPACE.wa_sig_lower <= INPUTS.wa_stepsize) {  
       printf("WARNING: 1. wa grid is too coarse to resolve "
 	     "lower 1-sigma limit\n");
       WORKSPACE.wa_sig_lower = INPUTS.wa_stepsize;
+      WORKSPACE.NWARN++ ;
     }
   }
 
@@ -2391,6 +2477,7 @@ void wfit_uncertainty(void) {
   if(i==(INPUTS.w0_steps-1)){
     printf("WARNING: upper 1-sigma limit outside range explored\n");
     WORKSPACE.w0_sig_lower = 100;
+    WORKSPACE.NWARN++ ;
   } 
   
 
@@ -2399,18 +2486,21 @@ void wfit_uncertainty(void) {
 	   "upper 1-sigma limit\n %f, %f\n", 
 	   WORKSPACE.w0_sig_upper, INPUTS.w0_stepsize);
     WORKSPACE.w0_sig_upper = INPUTS.w0_stepsize; 
+    WORKSPACE.NWARN++ ;
   }
 
   if ( INPUTS.dofit_w0wa ) {
     if(kk==(INPUTS.wa_steps-1)){
       printf("WARNING: upper 1-sigma limit outside range explored\n");
       WORKSPACE.wa_sig_lower = 100;	
+      WORKSPACE.NWARN++ ;
     }
     if (WORKSPACE.wa_sig_upper <= INPUTS.wa_stepsize){
       printf("WARNING: 2. wa grid is too coarse to resolve "
 	     "upper 1-sigma limit\n %f, %f\n", 
 	     WORKSPACE.wa_sig_upper, INPUTS.wa_stepsize);
       WORKSPACE.wa_sig_upper = INPUTS.wa_stepsize;
+      WORKSPACE.NWARN++ ;
     }
   }    
 
@@ -2700,6 +2790,7 @@ void invert_mucovar(double sqmurms_add) {
   if ( INPUTS.use_mucov) {
     invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
   }
+  fflush(stdout);
 
   return ;
 
@@ -2727,7 +2818,7 @@ void get_chi2wOM (
   int Ndof      = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
   double nsig_chi2min_skip = WORKSPACE.nsig_chi2min_skip;
-  double chi_hat_naive     = Ndof;
+  double chi_hat_naive     = (double)Ndof;
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
   double nsig_chi2, chi_hat, chi_tmp ;
@@ -2767,6 +2858,7 @@ void get_chi2wOM (
     Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
     Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
     chi_hat    += sqmusiginv * dmu*dmu ;
+
   } // end k
 
   
@@ -2777,9 +2869,21 @@ void get_chi2wOM (
   bool do_offdiag = false;
   if ( use_mucov ) {
     if ( INPUTS.speed_flag_chi2 ) {
-      nsig_chi2  = (chi_hat - chi_hat_naive ) / sig_chi2min_naive ;
-      // xxx mark delete Jan 26  do_offdiag = nsig_chi2 < NSIG_CHI2_SKIP ; 
-      do_offdiag = nsig_chi2 < nsig_chi2min_skip;
+      chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
+      nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
+      do_offdiag = nsig_chi2 < nsig_chi2min_skip ;
+
+      /* xxxx
+      if ( fabs(w0+1.0) < 0.06  &&  fabs(OM-0.3)<0.02 ) {
+	printf(" xxx %s: ------------------------------ \n", fnam);
+	printf(" xxx %s: w0=%f  wa=%f  OM=%f \n",
+	       fnam, w0, wa, OM);
+	printf(" xxx %s: nsig=%.1f chi(hat,naive)=%.1f,%.1f  "
+	       "sig_naive=%.1f \n",
+	       fnam, nsig_chi2, chi_tmp, chi_hat_naive, sig_chi2min_naive);
+	debugexit(fnam); // xxxx remove
+	} xxxxx*/
+
     }
     else {
       do_offdiag = true ; 
@@ -3582,6 +3686,7 @@ void write_output_cospar(void) {
       sprintf(cval, "%s",   VALUES_LIST[ivar]);
       fprintf(fp, "%-14s  %s \n", ckey, cval);
     }
+    fprintf(fp,"NWARNINGS:      %d \n", WORKSPACE.NWARN);
     fprintf(fp,"ABORT_IF_ZERO:  %d   # same as Ndof \n", WORKSPACE.Ndof);
     fprintf(fp,"CPU_MINUTES:    %.2f \n", dt_fit);
     fprintf(fp,"BLIND:          %d \n", blind);

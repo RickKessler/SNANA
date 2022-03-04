@@ -107,10 +107,15 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 
 
 void README_DOCANA_OVERVIEW(int *iline) {
+
+  // Prepare OVERVIEW block for README.
+  // Feb 21 2022: write SNIA flag as True or False
+
   int i = *iline;
-  char pad[] = "    ", *cptr, cwd[MXPATHLEN] ;
+  char pad[] = "    ", *cptr, cwd[MXPATHLEN], TF[12] ;
   char *SURVEY         = GENLC.SURVEY_NAME;
   char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST ;
+  char fnam[] = "README_DOCANA_OVERVIEW";
 
   // ----------- BEGIN ------------
 
@@ -127,6 +132,11 @@ void README_DOCANA_OVERVIEW(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sGENMODEL:     %s", pad, INPUTS.GENMODEL);
+
+  // Feb 21 2022: write python True or False logical for SNIA (or not
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  if ( LGEN_SNIA ) { sprintf(TF,"True"); }  else{sprintf(TF,"False"); }
+  sprintf(cptr,"%sSNIA:         %s", pad, TF); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sHOST_MACHINE: %s", pad, getenv("HOSTNAME") );
@@ -154,6 +164,7 @@ void README_DOCANA_OVERVIEW(int *iline) {
   sprintf(cptr,"%sINPUT_FILE:", pad );
   for(ifile=0; ifile < INPUTS.NREAD_INPUT_FILE; ifile++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
+    // printf(" xxx %s: inpfile='%s'\n", fnam,INPUTS.INPUT_FILE_LIST[ifile]);
     ENVrestore(INPUTS.INPUT_FILE_LIST[ifile], ORIG_FILE_README);
     sprintf(cptr,"%s- %s", pad, ORIG_FILE_README );
   }
@@ -519,76 +530,6 @@ void readme_docana_instr(int *iline, char *pad) {
 
   readme_docana_load_list(&i, pad, &README_KEYS_SIMLIB);
 
-  /* xxxx mark delete 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  ENVrestore(INPUTS.SIMLIB_FILE, ORIG_FILE_README);
-  sprintf(cptr,"%s%-*s %s", 
-	  pad, lenkey, "SIMLIB_FILE:", ORIG_FILE_README);
-
-
-  dval = (double)INPUTS.SIMLIB_MSKOPT ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_MSKOPT:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,1.E12, -1.0); 
-
-  dval = (double)INPUTS.SIMLIB_NREPEAT ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_NREPEAT:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,100.0, -9.0); 
-
-  if ( strcmp(INPUTS.SIMLIB_FIELDLIST,"ALL") != 0  ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%s%-*s %s", 
-	    pad, lenkey, "SIMLIB_FIELDLIST:", INPUTS.SIMLIB_FIELDLIST);
-  }
-
-  dval = (double)INPUTS.SIMLIB_IDSTART ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_IDSTART:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1.0E9, -9.0); 
-
-  dval = (double)INPUTS.SIMLIB_IDLOCK ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_IDLOCK:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1.0E9, -9.0); 
-
-  dval = (double)INPUTS.SIMLIB_MAXRANSTART ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_MAXRANSTART:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1.0E9, -9.0); 
-
-  dval = (double)INPUTS.SIMLIB_MINOBS ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_MINOBS:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,100.0, -9.0); 
-
-  dval = (double)INPUTS.SIMLIB_MINSEASON ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_MINSEASON:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1.0E9, -9.0); 
-
-  dval = (double)INPUTS.SIMLIB_NSKIPMJD ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_NSKIPMJD:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1000.0, -9.0); 
-  
-  dval = (double)INPUTS.SIMLIB_DUMP ;
-  VERSION_INFO_load(&i, pad, "SIMLIB_DUMP:", noComment,
-		    lenkey, true, nval1, &dval, 0.5,1000.0, -9.0); 
-
-  dval = (double)INPUTS.USE_SIMLIB_REDSHIFT ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_REDSHIFT:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-  dval = (double)INPUTS.USE_SIMLIB_PEAKMJD ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_PEAKMJD:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-  dval = (double)INPUTS.USE_SIMLIB_DISTANCE ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_DISTANCE:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-  dval = (double)INPUTS.USE_SIMLIB_MAGOBS ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_MAGOBS:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-  dval = (double)INPUTS.USE_SIMLIB_SPECTRA ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_SPECTRA:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-  dval = (double)INPUTS.USE_SIMLIB_SALT2 ;
-  VERSION_INFO_load(&i, pad, "USE_SIMLIB_SALT2:", noComment,
-		    lenkey, true, nval1, &dval, 0.0,9.0, 0.0); 
-
-  xxxxxxxx end mark xxxxxxxx */
-
   dval = (double)INPUTS.SMEARFLAG_FLUX ;
   VERSION_INFO_load(&i, pad, "SMEARFLAG_FLUX:", "1->add Poisson noise",
 		    lenkey, true, nval1, &dval, 0.0,100.0, -9.0); 
@@ -854,7 +795,7 @@ void readme_docana_epoch(int *iline, char *pad) {
 void readme_docana_misc(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
+  char *cptr, noComment[]="", *ptrFile, fileName_orig[MXPATHLEN] ;
   double *dptr, dval, dval_list[10];
 
   // ----------- BEGIN ------------
@@ -863,6 +804,24 @@ void readme_docana_misc(int *iline, char *pad) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s%-*s %s", pad, lenkey, "GENSOURCE:", INPUTS.GENSOURCE);
+
+
+  ptrFile = PATH_USER_INPUT;
+  if ( !IGNOREFILE(ptrFile) ) {
+    ENVrestore(ptrFile,fileName_orig);
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_USER_INPUT:", 
+	    fileName_orig);
+  }
+
+
+  ptrFile = INPUTS.PATH_SNDATA_SIM;
+  if ( !IGNOREFILE(ptrFile) ) {
+    ENVrestore(ptrFile,fileName_orig);
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_SNDATA_SIM:", 
+	    fileName_orig);
+  }
 
   dval = (double)INPUTS.ISEED_ORIG ;
   VERSION_INFO_load(&i, pad, "RANSEED:", noComment, 

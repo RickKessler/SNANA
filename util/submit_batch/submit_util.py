@@ -47,6 +47,7 @@ def get_wfit_values(wfit_yaml):
     # Also check for wsig_marg vs. wsig_lo/wsig_hi
     # Sep 28 2021: check for wa and its uncertainty
     # Oct 23 2021: check for Rho
+    # Feb 22 2022: check for NWARNINGS
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -141,6 +142,12 @@ def get_wfit_values(wfit_yaml):
         if key in wfit_yaml:
             blind = wfit_yaml[key]
 
+    key_list = [ 'NWARNINGS' ]
+    nwarn    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            nwarn = wfit_yaml[key]
+
     wfit_values_dict = {
         'w'        : w ,
         'w_sig'    : w_sig ,
@@ -151,6 +158,7 @@ def get_wfit_values(wfit_yaml):
         'w_ran'    : w_ran,
         'omm_ran'  : omm_ran,
         'blind'    : blind ,
+        'nwarn'    : nwarn ,
         # optional below
         'wa'       : wa,
         'wa_sig'   : wa_sig,

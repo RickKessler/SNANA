@@ -1304,22 +1304,22 @@ void wr_snfitsio_global_private(fitsfile *fp) {
   // Created Feb 10 2022
   // [code moved from wr_snfitsio_create to here]
 
-  int ivar, NVAR, istat ;
+  int ivar, NVAR, istat=0 ;
   char KEYNAME[60], PARNAME[60];
 
   // ------------- BEGIN -----------
-  
-  NVAR = SNDATA.NVAR_PRIVATE; 
-
+ 
   sprintf(KEYNAME,"NPRIVATE");
-  fits_update_key(fp, TINT, KEYNAME, &NVAR,
+  fits_update_key(fp, TINT, KEYNAME, &SNDATA.NVAR_PRIVATE,
 		  "Number of private variables", &istat );
 
+  NVAR = SNDATA.NVAR_PRIVATE; 
   if ( NVAR == 0 ) { return; }
 
   for ( ivar=1; ivar <= NVAR; ivar++ ) {
     sprintf(PARNAME,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );
     sprintf(KEYNAME, "PRIVATE%d", ivar);
+    istat = 0 ;
     fits_update_key(fp, TSTRING, KEYNAME, PARNAME,
 		    "name of private variable", &istat );
   }
@@ -1335,14 +1335,13 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
   // write zphot quantile column names
   
   int  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-  int  istat, ipar, PCT ; 
+  int  istat=0, ipar, PCT ; 
   char KEYNAME[60], PARNAME[60];
-  char fnam[] = "wr_snfitsio_zphot_q" ;
+  char fnam[] = "wr_snfitsio_global_zphot_q" ;
 
   // --------- BEGIN ----------
 
-  istat = 0 ;
-  fits_update_key(fp, TINT, "NZPHOT_Q", &N_Q,
+  fits_update_key(fp, TINT, "NZPHOT_Q", &SNDATA.HOSTGAL_NZPHOT_Q,
                   "number of Q zphot quantiles", &istat );
   sprintf(c1err,"Write NZPHOT_Q") ;
   snfitsio_errorCheck(c1err, istat) ;

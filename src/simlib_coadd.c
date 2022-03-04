@@ -994,7 +994,6 @@ void SIMLIB_coadd(void) {
   cfilt      = SIMLIB_INPUT.FILTNAME[obs] ;
   cfilt_last = SIMLIB_INPUT.FILTNAME[obs] ;
 
-
   for ( obs=1; obs <= NOBS_IN; obs++ ) {
     MJD     = SIMLIB_INPUT.MJD[obs] ;
     MJD_DIF = fabs(MJD - MJD_LAST);
@@ -1039,7 +1038,7 @@ void SIMLIB_coadd(void) {
     // init output INFO array  
     SIMLIB_OUTPUT.MJD[i] = 0.0 ;
     for ( ipar=0; ipar < NPAR_MJD; ipar++ ) 
-      *(PTR_INFO_OUTPUT + ipar) = 0.0 ;
+      { PTR_INFO_OUTPUT[ipar] = 0.0 ; }
 
     // take sums or sums-of-squares over INPUT 'obs' observations
 

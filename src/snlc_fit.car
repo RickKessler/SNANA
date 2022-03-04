@@ -475,6 +475,7 @@ c define photoZ variables for photoZ fit.
      &  ,PHOTOZ_ERR_SNHOST   ! photoZ error from host gal
      &  ,PHOTOZ_ERR_SNMAG    ! photoZ error from intrinsic SN mag error
      &  ,PHOTOZ_ERR_ZPULL    ! photoZdif(SN-host) / error
+     &  ,PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR ! actual z prior used in fit
 c
      &  ,PHOTOZ_DROPFILTER_MIN(MXFILT_ALL)  ! min valid Z
      &  ,PHOTOZ_DROPFILTER_MAX(MXFILT_ALL)  ! max valid Z
@@ -495,6 +496,7 @@ c
      &   DOFIT_PHOTOZ_HOST, DOFIT_PHOTOZ_noHOST, DOFIT_PHOTOZ_CHEAT
      &  ,PHOTOZ_ERR_SNFIT, PHOTOZ_ERR_SNHOST, PHOTOZ_ERR_SNMAG 
      &  ,PHOTOZ_ERR_ZPULL
+     &  ,PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR  ! Feb 2022
      &  ,PHOTOZ_DROPFILTER_MIN, PHOTOZ_DROPFILTER_MAX
      &  ,PHOTOZ_DROPFILTER, PHOTOZ_ADDFILTER
      &  ,PHOTODZ_MIN, PHOTODZ1Z_MIN, IFILT_NEARDROP
@@ -3262,7 +3264,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
         IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
         IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
 	IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
-        IF ( DEBUG_FLAG==217 ) OPTMASK = OPTMASK + 1024 ! Feb 2022
+        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
 
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
      &            LEN_NAME, 40 )
@@ -11828,6 +11830,8 @@ c
 c Jan 27 2018: 
 c  + use DOFIT_PHOTOZ_HOST to determine LPULL
 c
+c Mar 02 2022: load global PRIOR_PHOTOZ[_ERR]
+c
 c ------------------------------------------------
 
       IMPLICIT NONE
@@ -11842,7 +11846,7 @@ c local
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
 
-      REAL*8  Zerr, Zhost, Zpull, Zdif, Zsig
+      REAL*8  zPRIOR_err, zPRIOR, sqerr, Zpull, Zdif, Zsig
       LOGICAL LPULL
 
 C ------------ BEGIN -------------
@@ -11851,14 +11855,14 @@ C ------------ BEGIN -------------
       LPULL  = .FALSE.
   
       if ( BTEST(OPT_PHOTOZ,0) ) then  ! use host photo z
-         Zhost = SNHOST_ZPHOT(1)
-         Zerr  = SNHOST_ZPHOT_ERR(1)
-         LPULL = Zerr .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
+         zPRIOR     = SNHOST_ZPHOT(1)
+         zPRIOR_err = SNHOST_ZPHOT_ERR(1)
+         LPULL = zPRIOR_err .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
 
       else if ( BTEST(OPT_PHOTOZ,1) ) then  ! use final redshift
-         Zhost = SNLC_REDSHIFT
-         Zerr  = SNLC_REDSHIFT_ERR
-         LPULL = .TRUE.
+         zPRIOR      = SNLC_REDSHIFT
+         zPRIOR_err  = SNLC_REDSHIFT_ERR
+         LPULL       = .TRUE.
       else
         write(c1err,662) OPT_PHOTOZ
 662     format('Invalid OPT_PHOTOZ = ', I5 )
@@ -11867,18 +11871,18 @@ C ------------ BEGIN -------------
       endif
 
 c protect against error=0
-c xxx mark delete Mar 16 2018    ZERR = SQRT(ZERR*ZERR + 0.0005*0.0005)
-      ZERR = SQRT(ZERR*ZERR + 1.0E-10)
+      sqerr = zPRIOR_ERR*zPRIOR_ERR
+      zPRIOR_ERR = SQRT(sqerr + 1.0E-10)
 
-      if ( ZERR .LE. 1.0E-7 ) then
-        write(c1err,666) ZERR, SNLC_CCID
-666     format('ZERR=',G10.3,'  for CID=',A)
+      if ( zPRIOR_ERR .LE. 1.0E-7 ) then
+        write(c1err,666) zPRIOR_ERR, SNLC_CCID
+666     format('zPRIOR_ERR=',G10.3,'  for CID=',A)
         c2err = 'Check REDSHIFT_FINAL' 
         CALL MADABORT ( "PRIOR_ZPULL", c1err, c2err ) 
       endif
 
       if ( LPULL ) then
-         Zpull = (ZSN - Zhost)/ (Zerr*PRIOR_ZERRSCALE)
+         Zpull = (ZSN - zPRIOR )/ (zPRIOR_err*PRIOR_ZERRSCALE)
       else
          Zdif = ZSN - Zrange_KCOR(2) 
          Zsig = 0.2
@@ -11889,7 +11893,9 @@ c xxx mark delete Mar 16 2018    ZERR = SQRT(ZERR*ZERR + 0.0005*0.0005)
          endif
       endif
      
-      PRIOR_ZPULL = Zpull
+      PRIOR_ZPULL      =  Zpull  ! function return
+      PRIOR_PHOTOZ     =  sngl(zPRIOR)       ! global
+      PRIOR_PHOTOZ_ERR =  sngl(zPRIOR_ERR)   ! global
 
       RETURN
       END  ! end of PRIOR_ZPULL
@@ -13408,8 +13414,10 @@ c ---------------- BEGIN ---------------
 
       REDSHIFT_FIT = SNLC_REDSHIFT  ! start with "best" Z
 
-c .xyz add option for using HOSTGAL_PHOTOZ ...
+      PRIOR_PHOTOZ     = -9.0
+      PRIOR_PHOTOZ_ERR = -9.0
 
+c .xyz add option for using HOSTGAL_PHOTOZ ...
 
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
@@ -18496,7 +18504,9 @@ c
 c Nov 11 2019:
 c  Protect adding non-PKMJD covariance columns if there aren't any
 c  when stretch and color are both fixed instead of floated.
-
+c
+c Mar 02 2022: add zPRIOR and zPRIOR_ERR
+c
 c --------------
 
       IMPLICIT NONE
@@ -18669,6 +18679,10 @@ c - - - - - -   PHOTOZ - - - - -
       LENLIST = LEN(VARLIST)
 
       IF ( DOFIT_PHOTOZ ) THEN
+
+        VARLIST = 'zPRIOR:F,zPRIORERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, PRIOR_PHOTOZ, VARLIST,1,
+     &                   LENBLOCK, LENLIST)
 
         VARLIST = 'ZPULL:F' // char(0)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, PHOTOZ_ERR_ZPULL, VARLIST,0,

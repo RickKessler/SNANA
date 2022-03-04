@@ -20780,7 +20780,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04h (  ) 
+         v11_04h (Feb 27 2022) 
 
          ***** IMPORTANT(v11_04h) ***** 
 
@@ -20789,6 +20789,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    still need to pass quantile info to snana.car.
 
          ***** USEFUL(v11_04h) ***** 
+
+   sim: New README argument to print README file and quit.
+        Designed for Pippin to quickly extract GENMODEL & GENTYPE info.
+
+   wfit: fix speed trick bug (had left out analytic H0 marg)      
 
          ***** MISCELLANEOUS(v11_04h) ***** 
   
@@ -20802,13 +20807,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + MXEPSIM_PERFILT -> 2500 (was 2000)
      + avoid passing ran[0,1]=0.00 to weak-lens function; see
           https://github.com/RickKessler/SNANA/issues/819
-
+          
     submit_batch_jobs: 
       + new --faster arg to process 1% (--fast still does 10%)
 
     sntools_host.c[h]
       + read 4 generic hostgal properties (LOGMASS, LOGSFR, LOGsSFR, COLOR)
         from HOSTLIB and write to data files.
+      + abort if Sersic profile size is zero.
+
     sntools_data.c
       + process overrides for above hostgal properties.
 
@@ -20826,6 +20833,42 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     sntools.c
       + fix bug initialize HOST_LOGMASS_XXX to -9999 instead of -9.
 
+    genmag_SALT2.c
+      + modify MAGSHIFT matching logic to use base name of filter
+        so that different LOWz combinations can be used compared
+        to traning. E.g., suppose CFA3K-B/q is used for training
+        with systematic MAGSHIFT, but CFA3K-B/n is used in light 
+        curve fit. New matching logic only compares the CFA3K-B
+        part (before the slash).
+   
+    SALT2mu.c:
+      + increase DROPLIST array size to fix memory overwrite bug
+
     Remove util/sntools.pm
+
+
+# ======================================================================= 
+         v11_04i (  ) 
+
+         ***** IMPORTANT(v11_04i) ***** 
+
+         ***** USEFUL(v11_04i) ***** 
+
+         ***** MISCELLANEOUS(v11_04i) ***** 
+ 
+   remove util/split_version.pl
+   
+   SALT2mu.c
+     + fix bug in prepNextFit() related to sigma_int=0
+     + read and use zprior[err] if zspec_errmax is set
+
+   genmag_SIMSED.c
+     + fix UVLAM_EXTRAP to work reading binary and text files.
+
+   snlc_fit.car:
+     + for photo-z fit, write zPRIOR and zPRIOR_ERR to output tables.
+  
+   sntools_host.h
+     + increase SERSIC_INDEX_MAX->11 (was 8)
 
 END: 

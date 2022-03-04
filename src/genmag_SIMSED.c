@@ -53,6 +53,9 @@
  Dec 14 2021: check new OPTMASK options to force creation of binaries.
               See FORCE_SEDBINARY and FORCE_TABBINARY
 
+ Mar 02 2022: fix bug so that UVLAM_EXTRAP works when reading binary file
+              or original text files.
+
 *************************************/
 
 #include  <stdio.h> 
@@ -145,6 +148,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   //
   // Aug 18 2020: check kcor file with .gz
   // Dec 14 2021: new OPTMASK 2 and 4
+  // Mar 02 2022: check UVLAM_EXTRAP
 
   int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat;
   int retval = SUCCESS ;
@@ -357,6 +361,10 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       }
     }
 
+
+    double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
+    if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
+
     // check array bounds
     if ( TEMP_SEDMODEL.NDAY > SEDMODEL.MXDAY ) {
       sprintf(c1err,"NDAY=%d exceeds expected bound of %d",
@@ -548,6 +556,8 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   //
   // Aug 12 2017: replace SEDMODEL.FLUX_ERRFLAG argument with OPTMASK
   //
+  char fnam[] = "read_SIMSED_flux";
+
   // -------------- BEGIN -----------------
 
   printf("# - - - - - - - - - - - - - - - - - - - - - - - - - \n");
@@ -566,9 +576,10 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   TEMP_SEDMODEL.LAMMIN = TEMP_SEDMODEL.LAM[0];
   TEMP_SEDMODEL.LAMMAX = TEMP_SEDMODEL.LAM[NLAM-1];
 
-
+  /* xxxxxxx mark delete Mar 2 2022 xxxxxxx
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
   if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
+  xxxxxxxxxx */
 
 } // end of read_SIMSED_flux
 

@@ -151,16 +151,17 @@ void INIT_HOSTLIB(void) {
   char fnam[] = "INIT_HOSTLIB" ;
 
   // M. Vincenzi Feb 2022
-  //  REFAC_HOSTLIB = ( INPUTS.DEBUG_FLAG == 203 );
-  REFAC_HOSTLIB = false;
+  REFAC_HOSTLIB = false; // ( INPUTS.DEBUG_FLAG == 203 );
 
   // ---------------- BEGIN -------------
 
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE) ;
   if ( USE == 0 ) 
-    {  checkAbort_noHOSTLIB() ;    return ;  }
+    {  checkAbort_noHOSTLIB() ;  return ;  }
   else
     { checkAbort_HOSTLIB(); }
+
+  if ( INPUTS.README_DUMPFLAG ) { return; } // Feb 21 2022
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
 
@@ -1079,7 +1080,7 @@ void  read_HOSTLIB_WGTMAP(void) {
 
   FILE *fp ;
   int  gzipFlag ;
-  char *ptrFile, fileName_full[MXPATHLEN], c_get[40] ;
+  char *ptrFile, fileName_full[MXPATHLEN], c_get[200] ;
   char fnam[] = "read_HOSTLIB_WGTMAP"  ;
 
   // ------------- BEGIN --------------
@@ -2133,7 +2134,7 @@ void read_head_HOSTLIB(FILE *fp) {
   int ivar2, NDUPL;
   bool FOUND_VARNAMES, FOUND_VPECERR;
   int NCHAR;
-  char  key[40], c_get[40], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
+  char  key[40], c_get[200], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
   char *basename;
   char  LINE[MXCHAR_LINE_HOSTLIB];
   char  fnam[] = "read_head_HOSTLIB" ;
@@ -2625,7 +2626,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   int  IVAR_ZTRUE    = HOSTLIB.IVAR_ZTRUE ;
   int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
   int  IVAR_NBR_LIST = HOSTLIB.IVAR_NBR_LIST ;
-  char c_get[40], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
+  char c_get[200], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
   char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;
@@ -4429,7 +4430,8 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   double FIXANG    = INPUTS.HOSTLIB_FIXSERSIC[3];
 
   int j, NPROF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
-  double WGT, WGTSUM, WTOT, n, wsum_last ;
+  int NPROF_ab0 = 0;
+  double WGT, WGTSUM, WTOT, n, wsum_last, a, b ;
   char fnam[] = "get_Sersic_info" ;
 
   // -------------- BEGIN -------------
@@ -4479,8 +4481,22 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 	      SNHOSTGAL.GALID, SNHOSTGAL.ZTRUE );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
+
+    if ( SERSIC->a[j] < 1.0E-9 || SERSIC->b[j] < 1.0E-9 ) 
+      { NPROF_ab0++ ; }
+
+  } // end NPROF
+
+
+  // - - - - - - - - - - - - - - -
+  // abort if all profile sizes are zero
+  if ( NPROF_ab0 == NPROF ) {
+    sprintf(c1err,"Profile size is zero for GALID=%lld", SNHOSTGAL.GALID);
+    sprintf(c2err,"Check Sersic params.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  // -----------------------------------
   // Now the weights:
   // check how many weights are defined, and track the sum.
   
@@ -4510,7 +4526,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 
 
   if ( NWGT < NPROF - 1 ) {
-    sprintf(c1err,"%s", "Inadequate Sersic weights.");
+    sprintf(c1err,"Inadequate Sersic weights.");
     sprintf(c2err,"%d Sersic terms, but only %d weights defined.",
 	    NPROF, NWGT );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
@@ -5330,12 +5346,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++){
     GEN_SNHOST_PROPERTY(ivar_property);
   }
-
-  /* xxx Mark delete Febr 2022
-     else { 
-    GEN_SNHOST_LOGMASS(); //legacy
-    } 
-    xxx */ 
 
   // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
@@ -8038,6 +8048,8 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
   // -----------------------------------------------------------
   // Sep 16 2015
   // set GENLC.FIELDNAME if FIELD column is present in hostlib
+
+  /* xxxxx mark delete Feb 21 2022 xxxxxxxxx
   int   ep ;
   char *FIELD ;
   if ( HOSTLIB.IVAR_FIELD > 0 ) {
@@ -8052,6 +8064,7 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
       sprintf(GENLC.FIELDNAME[ep], "%s", FIELD);
     }
   }
+  xxxxxxxxxxx end mark xxxxxxxxxxxx */
 
   return ;
 

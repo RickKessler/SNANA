@@ -1779,6 +1779,7 @@ struct INPUTS {
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
+  int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   char cidlist_debug_biascor[100];
 
   // set internal LEGACY and REFAC flags for development
@@ -5599,6 +5600,7 @@ void set_defaults(void) {
   INPUTS.debug_flag        = 0 ;
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
+  INPUTS.nbinc_mucovscale  = 3 ;
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_mucovscale_bug = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
@@ -5821,8 +5823,9 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 
   // setup color bins that are coarser than those for muBias.
   // Note that other bins (a,b,z) are same for muCOVscale and muBias.
-  // Beware hard-wired values here.
-  NBINc=3; cmin=-0.3; cmax=+0.3; cbin=0.2;
+  NBINc=INPUTS.nbinc_mucovscale; // user input instead of hard-wired (March 2022 MVincenzi)
+  cmin=INPUTS.cmin; cmax=INPUTS.cmax;
+  cbin=(cmax-cmin)/(double)NBINc;
 
   // Jun 11 2021: include logmass bins.
   NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
@@ -16437,6 +16440,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"debug_mucovscale=")) 
     { sscanf(&item[17],"%d", &INPUTS.debug_mucovscale); return(1); }
+  if ( uniqueOverlap(item,"nbinc_mucovscale="))
+    { sscanf(&item[17],"%d", &INPUTS.nbinc_mucovscale); return(1); }
   if ( uniqueOverlap(item,"cidlist_debug_biascor=")) 
     { sscanf(&item[22],"%s", INPUTS.cidlist_debug_biascor); return(1); }
 

@@ -347,8 +347,9 @@ void simlib_add_mjd(
     + SKYSIG ABORT = 1000 -> 2000 (for LSST-DDF)
     + add MJD argument
 
-  Mar 2022: INFO -> double (was float) and absorb MJD
-
+  Mar 2022: 
+     + INFO -> double (was float) and absorb MJD
+     + remove MJD arg from function
   *****/
 
 
@@ -363,12 +364,12 @@ void simlib_add_mjd(
   // unpack *INFO array
   MJD      = INFO[IPAR_MJD];
   CCDGAIN  = INFO[IPAR_CCDGAIN] ;  // electrons per ADU
-  CCDNOISE = INFO[IPAR_CCDNOISE] ;  // CCD read noise in electrons
+  CCDNOISE = INFO[IPAR_CCDNOISE]; // CCD read noise in electrons
   SKYSIG   = INFO[IPAR_SKYSIG] ;  // skynoise in ADU per pixel
-  PSF[0]   = INFO[IPAR_PSF0] ;  // PSF-sigma (pixels) for inner Gaussian
+  PSF[0]   = INFO[IPAR_PSF0]   ;  // PSF-sigma (pixels) for inner Gaussian
   PSF[1]   = INFO[IPAR_PSF0+1] ;  // PSF-sigma (pixels) for outer Gaussian
   PSF[2]   = INFO[IPAR_PSF0+2] ;  // PSF(outer)/PSF(inner) ratio at origin
-  ZPT[0]   = INFO[IPAR_ZPT0] ;  // zero point
+  ZPT[0]   = INFO[IPAR_ZPT0]   ;  // zero point
   ZPT[1]   = INFO[IPAR_ZPT0+1] ;  // zero point error, or spread
   MAGOBS   = INFO[IPAR_MAG] ;  // model of observed mag (optional)
 
@@ -383,12 +384,11 @@ void simlib_add_mjd(
     if ( strcmp(STRINGID,SIMLIB_TOOLS.STRINGID_LAST) != 0 ) 
       { ISNEWID = 1; }
 
-    if ( ISNEWMJD == 1  || ISNEWID )  {
-      SIMLIB_TOOLS.NOBS_FOUND++ ;
-    }
+    if ( ISNEWMJD == 1  || ISNEWID )  
+      { SIMLIB_TOOLS.NOBS_FOUND++ ;  }
 
     SIMLIB_TOOLS.MJD_LAST = MJD ;
-    sprintf(SIMLIB_TOOLS.CFILT_LAST,"%s", FILTNAME);
+    sprintf(SIMLIB_TOOLS.CFILT_LAST,    "%s", FILTNAME);
     sprintf(SIMLIB_TOOLS.STRINGID_LAST, "%s", STRINGID);
   }
   else if ( opt == 2 ) 
@@ -401,9 +401,9 @@ void simlib_add_mjd(
 
 
   if ( PSF[1] < -900.0 ) 
-    { sprintf(string_psf,"%6.3f ", PSF[0]); } // write NEA
+    { sprintf(string_psf, "%6.3f ", PSF[0]); } // write NEA
   else
-    { sprintf(string_psf,"%4.2f %4.2f %5.3f ", 
+    { sprintf(string_psf, "%4.2f %4.2f %5.3f ", 
 	      PSF[0], PSF[1], PSF[2] ); 
     } // write PSF params
 
@@ -414,7 +414,6 @@ void simlib_add_mjd(
 	  "%6.2f %6.3f"
 	  , key
 	  , MJD, STRINGID, FILTNAME, CCDGAIN, CCDNOISE, SKYSIG
-	  //	  , PSF[0], PSF[1], PSF[2]
 	  , string_psf
 	  , ZPT[0], ZPT[1]
 	  );

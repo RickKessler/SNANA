@@ -719,7 +719,7 @@ void SIMLIB_read(int *RDSTAT) {
   int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID, iwd, NWD    ;
 
   double MJD, CCDGAIN, CCDNOISE, SKYSIG, NEA, PSF[3], ZPT[2] ;
-  double MAG, RA, DECL, XMW[20], MWEBV    ;
+  double MAG, RA, DEC, XMW[20], MWEBV    ;
 
   char  fnam[] = "SIMLIB_read"  ;
 
@@ -756,7 +756,7 @@ void SIMLIB_read(int *RDSTAT) {
     }
 
     if ( strcmp(c_get,"RA:") == 0 ) 
-      {readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ); }
+      { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ); }
 
     if ( strcmp(c_get,"DECL:") == 0 || strcmp(c_get,"DEC")==0 ) 
       { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ); }
@@ -808,14 +808,14 @@ void SIMLIB_read(int *RDSTAT) {
 
       if ( OPTLINE == 1 ) {
 	readdouble ( fp_simlib_input, 1, &MAG );
-	if ( MAG < 5.0 ) MAG = 99.0 ;
+	if ( MAG < 5.0 ) { MAG = 99.0 ; }
       }
-      else
-	{ MAG = 99.0 ; } 
+      else {
+	MAG = 99.0 ; 
+      } 
 
       NOBS_ACCEPT++ ;
       SIMLIB_INPUT.NOBS_ACCEPT = NOBS_ACCEPT ;
-      // xxx mark      NOBS  = NOBS_ACCEPT ;
       o = NOBS_ACCEPT-1;  // o index starts at zero (Mar 7 2022)
 
       if ( NOBS_ACCEPT >= MXMJD ) {
@@ -857,7 +857,6 @@ void SIMLIB_read(int *RDSTAT) {
 	SIMLIB_INPUT.NOBS_ACCEPT = NOBS_ACCEPT ;
       }
 
-
     } // end of OPTLINE if-block
 
 
@@ -893,8 +892,8 @@ void SIMLIB_read(int *RDSTAT) {
       // check option to compute MWEBV from Schlagel maps
       if ( INPUTS.OPT_MWEBV > 0 ) {
 	RA   = SIMLIB_INPUT.INFO_HEAD[IPAR_RA] ;
-	DECL = SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ;
-	MWgaldust(RA, DECL, &XMW[1], &MWEBV );  // returns XMW & MWEBV
+	DEC  = SIMLIB_INPUT.INFO_HEAD[IPAR_DEC] ;
+	MWgaldust(RA, DEC, &XMW[1], &MWEBV );  // returns XMW & MWEBV
 	SIMLIB_INPUT.INFO_HEAD[IPAR_MWEBV] = (float)MWEBV ;
       }
 
@@ -1078,17 +1077,17 @@ void SIMLIB_coadd(void) {
 
       // - - - -
       for( j=0; j < 3; j++ ) {
-	XIN = PTR_INFO_INPUT[IPAR_PSF0 + j] ;
+	XIN = PTR_INFO_INPUT[IPAR_PSF0+j] ;
 	PTR_INFO_OUTPUT[IPAR_PSF0+j] += XIN ;
       }
 
       // - - - 
 
-      XIN = PTR_INFO_INPUT[IPAR_ZPT0 + 0] ;
+      XIN = PTR_INFO_INPUT[IPAR_ZPT0] ;
       ARG = 0.4 * (XIN - 25.0) ;
-      PTR_INFO_OUTPUT[IPAR_ZPT0+0] += powf(TEN,ARG); 
+      PTR_INFO_OUTPUT[IPAR_ZPT0] += powf(TEN,ARG); 
 
-      XIN = PTR_INFO_INPUT[IPAR_ZPT0 + 1] ;
+      XIN = PTR_INFO_INPUT[IPAR_ZPT0+1] ;
       PTR_INFO_OUTPUT[IPAR_ZPT0+1] += XIN ;
 
       XIN = PTR_INFO_INPUT[IPAR_MAG] ;
@@ -1108,9 +1107,9 @@ void SIMLIB_coadd(void) {
     sprintf(SIMLIB_OUTPUT.STRING_IDEXPT[i], "%d*%d", IDEXPT, NEXPOSE);
 
     if ( INPUTS.OPT_SUM > 0 ) 
-      XNOPT = 1 ;
+      { XNOPT = 1.0 ; }
     else
-      XNOPT = XN ;
+      { XNOPT = XN ; }
 
     SIMLIB_OUTPUT.INFO_OBS[i][IPAR_MJD] /= XN ;
 
@@ -1125,15 +1124,15 @@ void SIMLIB_coadd(void) {
     for(j=0; j < 3; j++ ) 
       { PTR_INFO_OUTPUT[IPAR_PSF0+j] /= XN ; }
 
-    XSUM = PTR_INFO_OUTPUT[IPAR_ZPT0+0] ;
-    PTR_INFO_OUTPUT[IPAR_ZPT0+0] = 2.5 * log10f(XSUM/XNOPT) + 25.0 ;
+    XSUM = PTR_INFO_OUTPUT[IPAR_ZPT0] ;
+    PTR_INFO_OUTPUT[IPAR_ZPT0] = 2.5 * log10f(XSUM/XNOPT) + 25.0 ;
 
     PTR_INFO_OUTPUT[IPAR_ZPT0+1] /= XN ;
     
     if ( INPUTS.OPT_SNLS == 1 ) {
       ZPTOFF = ZPTOFF_SNLS(cfilt);
       PTR_INFO_OUTPUT[IPAR_ZPT0+0] += ZPTOFF;
-      PTR_INFO_OUTPUT[IPAR_SKYSIG] *=1.5 ;
+      PTR_INFO_OUTPUT[IPAR_SKYSIG] *= 1.5 ;
     }
 
 

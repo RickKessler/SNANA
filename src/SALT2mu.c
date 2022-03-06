@@ -21085,7 +21085,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //    of GENPDF varNames and load SUBPROCESS.VARNAMES_GENPDF[ivar].
   //  + malloc arrays for GENPDF VARNAMES
   //  + call SNTABLE_READPREP_VARDEF to prep table read.
-  //
+  // 
   // GENPDF varnames are read & stored here regardless of whether
   // they have already been read for SALT2mu fit. Reading is done
   // only for sim-data, so doesn't take much extra memory if a few
@@ -21095,11 +21095,11 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
   int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
-  int debug_malloc = INPUTS.debug_malloc ;
+  int  debug_malloc     = INPUTS.debug_malloc ;
   int  MEMF             = LEN_MALLOC*sizeof(float) ;
   char *ptrVarAll[MXVAR_GENPDF], *varName, varCast[60] ;
   char *VARLIST_READ = (char*) malloc(100*sizeof(char));
-  int  VBOSE  = 3; // print each var; abort on missing var
+  int  VBOSE  = 3;         // print each var; abort on missing var
   int  ivar, ivar2, IVAR_TABLE, NVAR_GENPDF, NVAR_ALL ;
   bool SKIP;
   char fnam[] = "SUBPROCESS_READPREP_TABLEVAR" ;
@@ -21129,7 +21129,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   // - - - -- 
   // if SIM_EBV is on list, add AV and RV. Don't worry about
-  //  duplicates since duplidates are checked below.
+  //  duplicates since duplicates are checked below.
   int ivar_ebv_tmp    = -9 ;
   SUBPROCESS.IVAR_EBV = -9 ;
   for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
@@ -21138,6 +21138,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
       ivar_ebv_tmp = ivar;
     }
   }
+
   if ( ivar_ebv_tmp >= 0 ) {
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_AV); NVAR_ALL++ ;
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_RV); NVAR_ALL++ ;
@@ -21881,6 +21882,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   //     SUBPROCESS.OUTPUT_TABLE[ITABLE][IVAR]
   // with all info related to this VARDEF.
   //
+  // Mar 7 2022: fix to check non-standard BBC variables (e.g. HOST_COLOR)
 
   int debug_malloc = INPUTS.debug_malloc ;
   bool LDMP = false ;
@@ -21953,8 +21955,14 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   // on column name and column index.
 
   float *PTRVAL ; 
+  int IVAR_TABLE = SUBPROCESS_IVAR_TABLE(VARNAME);
 
-  if ( strcmp(VARNAME,"x1") == 0  ) 
+  if ( IVAR_TABLE >= 0 ) {
+    // Mar 7 2022: load value from supplemental table 
+    PTRVAL = SUBPROCESS.TABLEVAR[IVAR_TABLE];
+  }
+  // below, check for standard SALT2mu table variables
+  else if ( strcmp(VARNAME,"x1") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
   else if ( strcmp(VARNAME,"c") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_c];   }
@@ -21966,6 +21974,8 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ||
 	    strcmp(VARNAME,"LOGMASS") == 0   ) 
     { PTRVAL = INFO_DATA.TABLEVAR.logmass;  }
+
+  // .xyz Mar 2022: need to add HOST_LOGsSFR, HOST_LOGSFR, HOST_COLOR ...
 
   else {
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);

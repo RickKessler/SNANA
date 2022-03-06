@@ -926,7 +926,7 @@ void SIMLIB_sort_band(void) {
   SIMLIB_CONTENTS_DEF SIMLIB_INPUT_TEMP;
   int  NOBS_orig = SIMLIB_INPUT.NOBS;
   int  ifilt, NFILT, o, NOBS_copy=0 ;
-  int  LDMP = 1;
+  int  LDMP = 0;
   char band[2];
   char fnam[] = "SIMLIB_sort_band" ;
 

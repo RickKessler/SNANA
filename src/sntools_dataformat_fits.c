@@ -2689,10 +2689,11 @@ void WR_SNFITSIO_END(int OPTMASK) {
     isys = system( cmd );
   }
 
-  // Dec 2021:check option go gzip FITS files
+  // Dec 2021:check option to gzip FITS files
   if ( DO_GZIP ) {  
-    sprintf(cmd,"cd %s ; gzip *.FITS", SNFITSIO_DATA_PATH);
-    printf("\t gzip FITS files.\n"); fflush(stdout);
+    sprintf(cmd,"cd %s ; gzip *.FITS",    SNFITSIO_DATA_PATH);
+    printf("\t gzip FITS files in %s.\n", SNFITSIO_DATA_PATH); 
+    fflush(stdout);
     isys = system( cmd );
   }
 

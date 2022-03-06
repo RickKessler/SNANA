@@ -5809,7 +5809,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       DO i = 1, MXLISTNML
          SNTYPE_LIST(i)    = 0
-         SNTYPE_IGNORE(i)  = 0
+         SNTYPE_IGNORE(i)  = -9  ! note that type=0(no type) can be ignored
          CCDNUM_LIST(i)    = 0 
          SNCID_LIST(i)     = 0
          SNCID_IGNORE(i)   = 0
@@ -6134,7 +6134,7 @@ c then use survey name by default
       END DO
 
       i = 1 ; NSNTYPE_IGNORE=0
-      DO WHILE ( SNTYPE_IGNORE(i) .GE. MNTYPE ) 
+      DO WHILE ( SNTYPE_IGNORE(i) .GE. 0 ) 
           NSNTYPE_IGNORE = NSNTYPE_IGNORE + 1
           i = i + 1
       END DO
@@ -8940,7 +8940,7 @@ c print table header
 
         DO 888 ICUT = 1, NCUTBIT_SNLC 
 
-           if ( .NOT. LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
+           if(.NOT.LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
 
 c print line if any entry has a change in NPASSCUT
            LPRIN = .FALSE.
@@ -10221,6 +10221,8 @@ c Jul 6 2021: don't write anything else to README so that
 c             original DOCUMENTATION block appears at the top.
 c             (maybe later, call function to append yaml format)
 c
+c Mar 7 2022: do explicit gzip 
+c
 c -------------
       IMPLICIT NONE
 
@@ -10237,8 +10239,16 @@ C ----------------- BEGIN ----------------
 
 c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 ) THEN
-         OPTMASK = 1  ! gzip flag (Dec 2020)
+         OPTMASK = 0  ! don't gzip because gzip logic doesn't work
          CALL wr_snfitsio_end(OPTMASK)
+
+         LEN_VERS  = INDEX(VERSION_REFORMAT_FITS,' ' ) - 1
+         CMD = 'cd ' // VERSION_REFORMAT_FITS(1:LEN_VERS) // 
+     &        ' ; gzip *.FITS'
+         print*,'   gzip output FITS files in ', 
+     &        VERSION_REFORMAT_FITS(1:LEN_VERS)
+         call flush(6)
+         CALL SYSTEM(CMD)
       ENDIF  
 
 

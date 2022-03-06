@@ -20875,4 +20875,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    simlib_coadd.c/simlib_tools.c[h]
      + refactor and add SORT_BAND option to co-add non-sequential bands
 
+   snana.car
+     + fix SNTYPE_IGNORE to work with 0 so that only spec-confirmed
+       events are selected.
 END: 

@@ -20872,4 +20872,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_host.h
      + increase SERSIC_INDEX_MAX->11 (was 8)
 
+   simlib_coadd.c/simlib_tools.c[h]
+     + refactor and add SORT_BAND option to co-add non-sequential bands
+
 END: 

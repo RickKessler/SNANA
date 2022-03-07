@@ -1120,7 +1120,6 @@ int     BIASCOR_MINSUM           = 10 ; // at least this many summed in 3x3x3
 double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
 
-
 /* Number of "cosmological" and "SN" parameters  */
 #define MXCOSPAR 24  // 22->24 (July 9 2018)
 
@@ -1211,6 +1210,20 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define USERFLAG_FIELDGROUP_SAMPLE   2
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
 #define USERFLAG_IGNORE_SAMPLE       6  // ignore this sample
+
+// define FITRES var names for misc variables
+#define VARNAME_VPEC       "VPEC"
+#define VARNAME_VPECERR    "VPECERR" 
+#define VARNAME_VPECERR2   "VPEC_ERR"
+#define VARNAME_zHD        "zHD"
+#define VARNAME_zHDERR     "zHDERR"
+#define VARNAME_zHEL       "zHEL"
+#define VARNAME_zHELERR    "zHELERR"
+#define VARNAME_zCMB       "zCMB"
+#define VARNAME_LOGMASS    "HOST_LOGMASS"
+#define VARNAME_LOGSFR     "HOST_LOGSFR"
+#define VARNAME_LOGsSFR    "HOST_LOGsSFR"
+#define VARNAME_COLOR      "HOST_COLOR"
 
 // ---------------------
 double LOGTEN  ;
@@ -2064,6 +2077,9 @@ bool  exist_varname(int ifile,char *varName, TABLEVAR_DEF *TABLEVAR);
 void  get_zString(char *str_z, char *str_zerr, char *cast) ;
 void  SNTABLE_READPREP_TABLEVAR(int ifile, int ISTART, int LEN, 
 				TABLEVAR_DEF *TABLEVAR);
+int   SNTABLE_READPREP_HOST(char *VARNAME, int ISTART, int LEN, 
+			    TABLEVAR_DEF *TABLEVAR );
+
 void  SNTABLE_CLOSE_TEXT(void) ;
 void  compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
 bool  IS_SPECZ_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
@@ -2317,6 +2333,8 @@ void  malloc_INFO_DATA(int opt, int LEN_MALLOC);
 void  malloc_INFO_BIASCOR(int opt, int LEN_MALLOC);
 void  malloc_INFO_CCPRIOR(int opt, int LEN_MALLOC, int LEN_MALLOC_CUTS);
 float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR);
+int   malloc_TABLEVAR_HOST(int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR, 
+			   char *VARNAME);
 int   malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut, 
 			     TABLEVAR_DEF *TABLEVAR ) ;
 float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC, 
@@ -5633,7 +5651,7 @@ void set_defaults(void) {
   INPUTS.blind_cosinePar[IPAR_w0][0] = 0.20 ; 
   INPUTS.blind_cosinePar[IPAR_w0][1] = 8430. ;
 
-  sprintf(INPUTS.varname_gamma,"HOST_LOGMASS");
+  sprintf(INPUTS.varname_gamma,VARNAME_LOGMASS);
   INPUTS.USE_GAMMA0  = 0 ;
 
   INPUTS.LCUTWIN_DISABLE = false;
@@ -6087,6 +6105,8 @@ void read_data_override(void) {
   //   + avoid double-counting zHD override if zHEL and VPEC are both
   //      on override list. Same for zHDERR with ZHELERR and VPECERR.
   //
+
+  /* xxx mark delete Mar 7 2022 xxxxxx
   char VARNAME_VPEC[]     = "VPEC";
   char VARNAME_VPECERR[]  = "VPECERR";
   char VARNAME_VPECERR2[] = "VPEC_ERR";
@@ -6096,6 +6116,7 @@ void read_data_override(void) {
   char VARNAME_zHELERR[]  = "zHELERR";
   char VARNAME_zCMB[]     = "zCMB";
   char VARNAME_LOGMASS[]  = "HOST_LOGMASS" ;
+  xxxxxxxxx end mark xxxxxxxxxxx */
 
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
@@ -6699,9 +6720,10 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
-    TABLEVAR->host_logmass  = (float *) malloc(MEMF); MEMTOT+=MEMF; 
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF; 
+
+    MEMTOT += malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME_LOGMASS);
 
     TABLEVAR->IDSURVEY      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->IDSAMPLE      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
@@ -6813,6 +6835,76 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   return(0.0) ;
 
 } // end malloc_TABLEVAR
+
+
+// ***************************************************
+int malloc_TABLEVAR_HOST(int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR, 
+			   char *VARNAME) {
+
+  int MEMF    = LEN_MALLOC  * sizeof(float);
+  int MEMTOT  = 0 ;
+  if ( strcmp(VARNAME_LOGMASS,VARNAME)== 0 )  {
+    TABLEVAR->host_logmass = (float*) malloc(MEMF);
+    MEMTOT += MEMF;
+  }
+  else if ( strcmp(VARNAME_LOGSFR,VARNAME)== 0 ) {
+    TABLEVAR->host_logsfr = (float*) malloc(MEMF);
+    MEMTOT += MEMF;
+  }
+  else if ( strcmp(VARNAME_LOGsSFR,VARNAME)== 0 ) {
+    TABLEVAR->host_logssfr = (float*) malloc(MEMF);
+    MEMTOT += MEMF;
+  }
+  else if ( strcmp(VARNAME_COLOR,VARNAME)== 0 ) {
+    TABLEVAR->host_color = (float*) malloc(MEMF);
+    MEMTOT += MEMF;
+  }
+
+  return MEMTOT ;
+
+} // end malloc_TABLEVAR_HOST
+
+// *************************************************
+int SNTABLE_READPREP_HOST(char *VARNAME, int ISTART, int LEN, 
+			  TABLEVAR_DEF *TABLEVAR) {
+
+  // Created Mar 7 2022
+  // Call SNTABLE_READPREP_VARDEF for appropriate TABLEVAR pointer
+  // to host variable based on input VARNAME.
+  //
+  // Inputs:
+  //   *VARNAME   name of host variable in FITRES file
+  //   ISTART     start index for TABLEVAR array
+  //   LEN        length of TABLEVAR array
+  //   TABLEVAR   structure with host_xxx arrays.
+
+  int  ivar = -9, VBOSE = 1;
+  char varCast[80];
+  char fnam[] = "SNTABLE_READPREP_HOST";
+  
+  // ----------- BEGIN ------------
+
+  sprintf(varCast,"%s:F", VARNAME);
+
+  if ( strcmp(VARNAME,VARNAME_LOGMASS) == 0 ) {
+      ivar = SNTABLE_READPREP_VARDEF(varCast, &TABLEVAR->host_logmass[ISTART], 
+				     LEN, VBOSE);
+  }
+  else if ( strcmp(VARNAME,VARNAME_LOGSFR) == 0 ) {
+      ivar = SNTABLE_READPREP_VARDEF(varCast, &TABLEVAR->host_logsfr[ISTART], 
+				     LEN, VBOSE);
+  }
+  else if ( strcmp(VARNAME,VARNAME_LOGsSFR) == 0 ) {
+      ivar = SNTABLE_READPREP_VARDEF(varCast, &TABLEVAR->host_logssfr[ISTART], 
+				     LEN, VBOSE);
+  }
+  else if ( strcmp(VARNAME,VARNAME_COLOR) == 0 ) {
+      ivar = SNTABLE_READPREP_VARDEF(varCast, &TABLEVAR->host_color[ISTART], 
+				     LEN, VBOSE);
+  }
+
+  return ivar ;
+} // end SNTABLE_READPREP_HOST
 
 
 // ***************************************************
@@ -7172,8 +7264,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
   }
 
-  // Jun 16 2021:  read logmass to avoid tricky logic of only reading
-  //               logmass when it's needed.
   char *varname_gamma = INPUTS.varname_gamma ;
   if ( strlen(varname_gamma) > 0 ) {
     sprintf(vartmp,"%s:F", varname_gamma);
@@ -7219,7 +7309,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( ivar >=0 ) 
     { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1; }
   else
-    { TABLEVAR->IS_DATA = true;   return ; }
+    { TABLEVAR->IS_DATA = true;   goto CHECK_SUBPROCESS ; }
 
 
   // --------------------------------------
@@ -7289,6 +7379,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 
 
+ CHECK_SUBPROCESS:
 #ifdef USE_SUBPROCESS  
   if ( SUBPROCESS.USE ) { 
     SUBPROCESS_READPREP_TABLEVAR(IFILE, ISTART, LEN, TABLEVAR); 
@@ -21118,15 +21209,54 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
   int  debug_malloc     = INPUTS.debug_malloc ;
   int  MEMF             = LEN_MALLOC*sizeof(float) ;
+  int  N_TABLE          = SUBPROCESS.N_OUTPUT_TABLE ;
+  
   char *ptrVarAll[MXVAR_GENPDF], *varName, varCast[60] ;
   char *VARLIST_READ = (char*) malloc(100*sizeof(char));
+  char VARNAME[60], *OUTPUT_TABLE;
   int  VBOSE  = 3;         // print each var; abort on missing var
-  int  ivar, ivar2, IVAR_TABLE, NVAR_GENPDF, NVAR_ALL ;
-  bool SKIP;
+  int  ivar, ivar2, IVAR_TABLE, NVAR_GENPDF, NVAR_ALL, i, itab, MEM=0 ;
+  bool SKIP, MATCH ;
   char fnam[] = "SUBPROCESS_READPREP_TABLEVAR" ;
 
   // ---------- BEGIN -----------
 
+  // start by adding optional HOST_XXX TABLEVAR columns for both data and sim.
+  // logmass is already read by default, so ignore logmass here.
+#define  NVAR_HOST 3
+  char VARNAMES_HOST[NVAR_HOST][40] = 
+    { VARNAME_LOGSFR, VARNAME_LOGsSFR, VARNAME_COLOR } ;
+
+  for(i=0; i < NVAR_HOST; i++ ) {
+    sprintf(VARNAME,"%s", VARNAMES_HOST[i] );
+    MATCH = false;
+
+    // check if VARNAME appears in any output table
+    for(itab=0; itab < N_TABLE; itab++ ) {
+      OUTPUT_TABLE = SUBPROCESS.INPUT_OUTPUT_TABLE[itab];
+      if ( strstr(OUTPUT_TABLE,VARNAME) != NULL )  { MATCH = true; }
+    }
+
+    // if varname appears, read it
+    if ( MATCH ) {
+      MEM = malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME);
+      ivar = SNTABLE_READPREP_HOST(VARNAME, ISTART, LEN, TABLEVAR);
+      if ( ivar < 0 ) {
+	sprintf(c1err,"Output table includes VARNAME=%s", VARNAME);
+	sprintf(c2err,"but %s is not in %s FITRES file", 
+		VARNAME, STRING_EVENT_TYPE[EVENT_TYPE] );
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+      }
+    } // end MATCH
+
+  } // end ivar loop over HOST_xxx columns
+
+  if ( TABLEVAR->IS_DATA ) { return; } // return on REAL data
+
+
+
+  // - - - - - - - - - 
+  // Below is for SIM data only
   if ( EVENT_TYPE != EVENT_TYPE_DATA ) { return; }
 
   SUBPROCESS.NVAR_GENPDF =  0;
@@ -21146,7 +21276,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
 
   splitString(VARNAMES_STRING, COMMA, MXVAR_GENPDF,    // inputs
-	      &NVAR_ALL, ptrVarAll );              // outputs
+	      &NVAR_ALL, ptrVarAll );                  // outputs
 
   // - - - -- 
   // if SIM_EBV is on list, add AV and RV. Don't worry about
@@ -21178,7 +21308,6 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     varName = ptrVarAll[ivar] ;
 
     sprintf(varCast, "%s:F", varName);
-    // xx IVAR_TABLE=IVAR_READTABLE_POINTER(varName); // check if already read?
     
     // skip  if duplicate
     SKIP = false;
@@ -21903,7 +22032,8 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   //     SUBPROCESS.OUTPUT_TABLE[ITABLE][IVAR]
   // with all info related to this VARDEF.
   //
-  // Mar 7 2022: fix to check non-standard BBC variables (e.g. HOST_COLOR)
+  // Mar 7 2022: 
+  //  fix to check non-standard BBC host variables (e.g. HOST_COLOR)
 
   int debug_malloc = INPUTS.debug_malloc ;
   bool LDMP = false ;
@@ -21995,8 +22125,15 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ||
 	    strcmp(VARNAME,"LOGMASS") == 0   ) 
     { PTRVAL = INFO_DATA.TABLEVAR.host_logmass;  }
-
-  // .xyz Mar 2022: need to add HOST_LOGsSFR, HOST_LOGSFR, HOST_COLOR ...
+  else if ( strcmp(VARNAME,"HOST_LOGSFR") == 0  ||
+	    strcmp(VARNAME,"LOGSFR") == 0   ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.host_logsfr;  }
+  else if ( strcmp(VARNAME,"HOST_LOGsSFR") == 0  ||
+	    strcmp(VARNAME,"LOGsSFR") == 0   ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.host_logssfr;  }
+  else if ( strcmp(VARNAME,"HOST_COLOR") == 0  ||
+	    strcmp(VARNAME,"COLOR") == 0   ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.host_color;  }
 
   else {
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);

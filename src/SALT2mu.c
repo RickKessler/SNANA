@@ -1262,9 +1262,10 @@ typedef struct {
   char   **name, **field ; 
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
-  float  *zhd,    *zcmb,    *zhel,    *zprior,    *vpec ;
-  float  *zhderr, *zcmberr, *zhelerr, *zpriorerr, *vpecerr, *zmuerr  ;
-  float  *logmass, *pIa, *snrmax ;
+  float  *zhd,     *zcmb,    *zhel,    *zprior,    *vpec ;
+  float  *zhderr,  *zcmberr, *zhelerr, *zpriorerr, *vpecerr, *zmuerr  ;
+  float  *host_logmass, *host_logsfr, *host_logssfr, *host_color ;
+  float  *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   bool   *IS_PHOTOZ;
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
@@ -1309,7 +1310,7 @@ typedef struct { double VAL[NLCPAR][NLCPAR]; } COV_DEF ;
 
 typedef struct {
   // parameters used for bias correction
-  double z, logmass, alpha, beta, gammadm, FITPAR[NLCPAR+1];
+  double z, host_logmass, alpha, beta, gammadm, FITPAR[NLCPAR+1];
   int idsample ;  //specifies SURVEY/FIELDGROUP
 } BIASCORLIST_DEF ;
 
@@ -4332,7 +4333,7 @@ void *MNCHI2FUN(void *thread) {
     name     = INFO_DATA.TABLEVAR.name[n] ;
     idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n] ;
     z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
-    logmass  = (double)INFO_DATA.TABLEVAR.logmass[n];
+    logmass  = (double)INFO_DATA.TABLEVAR.host_logmass[n];
     zmuerr   = (double)INFO_DATA.TABLEVAR.zmuerr[n] ; // for muerr calc
     mb       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][n] ;
     x1       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][n] ;
@@ -4425,12 +4426,12 @@ void *MNCHI2FUN(void *thread) {
 
     // --------------------------------
     // Compute bias from biasCor sample
-    BIASCORLIST.z           = z;
-    BIASCORLIST.logmass     = logmass;
-    BIASCORLIST.alpha       = alpha ;
-    BIASCORLIST.beta        = beta ;
-    BIASCORLIST.gammadm     = gammaDM ;
-    BIASCORLIST.idsample    = idsample;
+    BIASCORLIST.z            = z;
+    BIASCORLIST.host_logmass = logmass;
+    BIASCORLIST.alpha        = alpha ;
+    BIASCORLIST.beta         = beta ;
+    BIASCORLIST.gammadm      = gammaDM ;
+    BIASCORLIST.idsample     = idsample;
     BIASCORLIST.FITPAR[INDEX_mB] = mb ;
     BIASCORLIST.FITPAR[INDEX_x1] = x1 ;
     BIASCORLIST.FITPAR[INDEX_c]  = c ;
@@ -5455,10 +5456,11 @@ void set_defaults(void) {
 
   // ---------------------
   // keep obsolete input parameters (4/24/2012 RK)
-  INPUTS.x1min = -6.0;
-  INPUTS.x1max = +6.0;
-  INPUTS.cmin  = -6.0; 
-  INPUTS.cmax  = +6.0;
+  // Mar 2022: update to use nominal SALT2 cuts
+  INPUTS.x1min = -3.0;
+  INPUTS.x1max = +3.0;
+  INPUTS.cmin  = -0.3; 
+  INPUTS.cmax  = +0.3;
 
   INPUTS.logmass_min  = -20.0 ;
   INPUTS.logmass_max  = +20.0 ;
@@ -6241,7 +6243,8 @@ void read_data_override(void) {
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr; }  
 
     else if ( strcmp(varName,"HOST_LOGMASS") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.logmass ;  }
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = 
+	  INFO_DATA.TABLEVAR.host_logmass ;  }
 
     else if ( strcmp(varName,"zHD") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhd ;  }
@@ -6678,7 +6681,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
-    TABLEVAR->logmass       = (float *) malloc(MEMF); MEMTOT+=MEMF; 
+    TABLEVAR->host_logmass  = (float *) malloc(MEMF); MEMTOT+=MEMF; 
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF; 
 
@@ -7008,7 +7011,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->zcmberr[irow]    = -9.0 ;
     TABLEVAR->zhel[irow]       = -9.0 ;
     TABLEVAR->zhelerr[irow]    = -9.0 ;
-    TABLEVAR->logmass[irow]    = -9.0 ;
+    TABLEVAR->host_logmass[irow] = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
     TABLEVAR->warnCov[irow]    =  false ;
 
@@ -7156,7 +7159,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   char *varname_gamma = INPUTS.varname_gamma ;
   if ( strlen(varname_gamma) > 0 ) {
     sprintf(vartmp,"%s:F", varname_gamma);
-    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->logmass[ISTART],
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->host_logmass[ISTART],
                                    LEN, VBOSE );
   }
 
@@ -10382,7 +10385,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   // check for logmass contribution
   int NBINm  = CELLINFO_BIASCOR[idsample].BININFO_m.nbin ;
   if ( NBINm > 1 && INPUTS.interp_biascor_logmass ) {
-    m          = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt] ;
+    m          = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt] ;
     binSize_m  = CELLINFO_BIASCOR[idsample].BININFO_m.binSize ;
     Dm         = (m  - CELLINFO_BIASCOR[idsample].AVG_m[J1D])/binSize_m ;
     SQD       += (Dm*Dm);
@@ -10421,7 +10424,7 @@ int J1D_biasCor(int ievt, char *msg ) {
   b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
   g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
-  m        = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
+  m        = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
   x1       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_x1][ievt] ;
   c        = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt] ;
   name     = INFO_BIASCOR.TABLEVAR.name[ievt];
@@ -10779,7 +10782,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     }
     
     z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
-    m    = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
+    m    = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
     a    = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt];
     b    = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt];
     gDM  = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt];
@@ -10809,12 +10812,12 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     // ---------------------------------------------------
     // need bias corrected distance to compute pull
 
-    BIASCORLIST.z           = z ;
-    BIASCORLIST.logmass     = m ;
-    BIASCORLIST.alpha       = a ;
-    BIASCORLIST.beta        = b ;
-    BIASCORLIST.gammadm     = gDM ;
-    BIASCORLIST.idsample    = IDSAMPLE ;
+    BIASCORLIST.z            = z ;
+    BIASCORLIST.host_logmass = m ;
+    BIASCORLIST.alpha        = a ;
+    BIASCORLIST.beta         = b ;
+    BIASCORLIST.gammadm      = gDM ;
+    BIASCORLIST.idsample     = IDSAMPLE ;
 
     istat_bias = 
       get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
@@ -11204,7 +11207,7 @@ double muresid_biasCor(int ievt ) {
 
   //  g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
-  logmass  = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
+  logmass  = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
   mB       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_mB][ievt] ; 
   x1       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_x1][ievt] ;
   c        = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt] ;
@@ -12093,7 +12096,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
   // --------------- BEGIN ---------------
 
   ptr_z  = INFO_BIASCOR.TABLEVAR.zhd ;
-  ptr_m  = INFO_BIASCOR.TABLEVAR.logmass ; 
+  ptr_m  = INFO_BIASCOR.TABLEVAR.host_logmass ; 
 
   for(ipar=0; ipar < NLCPAR; ipar++ ) 
     { ptr_fitPar[ipar]  = INFO_BIASCOR.TABLEVAR.fitpar[ipar] ; }  
@@ -12422,7 +12425,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
   name        = INFO_DATA.TABLEVAR.name[n];
   idsample    = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n];
   z           = (double)INFO_DATA.TABLEVAR.zhd[n];
-  m           = (double)INFO_DATA.TABLEVAR.logmass[n];
+  m           = (double)INFO_DATA.TABLEVAR.host_logmass[n];
 
   if ( DUMPFLAG ) {
     printf("\n");
@@ -12435,9 +12438,9 @@ int  storeDataBias(int n, int DUMPFLAG) {
 
   if ( SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { return(0); }
 
-  BIASCORLIST.idsample = idsample;
-  BIASCORLIST.z        = z ;
-  BIASCORLIST.logmass  = m ;
+  BIASCORLIST.idsample      = idsample;
+  BIASCORLIST.z             = z ;
+  BIASCORLIST.host_logmass  = m ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) 
     { BIASCORLIST.FITPAR[ipar] = INFO_DATA.TABLEVAR.fitpar[ipar][n]; }
@@ -12530,8 +12533,8 @@ int  storeBias_CCprior(int n) {
   BIASCORLIST.z = 
     INFO_CCPRIOR.TABLEVAR.zhd[n];
 
-  BIASCORLIST.logmass = 
-    INFO_CCPRIOR.TABLEVAR.logmass[n];
+  BIASCORLIST.host_logmass = 
+    INFO_CCPRIOR.TABLEVAR.host_logmass[n];
 
   BIASCORLIST.FITPAR[INDEX_mB] = 
     INFO_CCPRIOR.TABLEVAR.fitpar[INDEX_mB][n];
@@ -12624,7 +12627,7 @@ int get_fitParBias(char *cid,
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
   double z   = BIASCORLIST->z ;
-  double m   = BIASCORLIST->logmass ;
+  double m   = BIASCORLIST->host_logmass ;
   double mB  = BIASCORLIST->FITPAR[INDEX_mB];
   double x1  = BIASCORLIST->FITPAR[INDEX_x1];
   double c   = BIASCORLIST->FITPAR[INDEX_c];
@@ -13074,7 +13077,7 @@ int get_muCOVcorr(char *cid,
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
   double z  = BIASCORLIST->z ;
-  double m  = BIASCORLIST->logmass ;
+  double m  = BIASCORLIST->host_logmass ;
   double c  = BIASCORLIST->FITPAR[INDEX_c];
   double a  = BIASCORLIST->alpha ;
   double b  = BIASCORLIST->beta ;
@@ -15350,11 +15353,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   z         =  (double)TABLEVAR->zhd[isn];
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
   c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
-  logmass   =  (double)TABLEVAR->logmass[isn];
+  logmass   =  (double)TABLEVAR->host_logmass[isn];
 
   // undo temporary bug that wrote logmass values of -9999 (Feb 2022)
   if ( logmass < -9990.0 ) 
-    { TABLEVAR->logmass[isn] = logmass = -9.0; }
+    { TABLEVAR->host_logmass[isn] = logmass = -9.0; }
 
   x0err     =  (double)TABLEVAR->x0err[isn] ;
   mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_mB][isn] ;
@@ -21973,7 +21976,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
   else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ||
 	    strcmp(VARNAME,"LOGMASS") == 0   ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.logmass;  }
+    { PTRVAL = INFO_DATA.TABLEVAR.host_logmass;  }
 
   // .xyz Mar 2022: need to add HOST_LOGsSFR, HOST_LOGSFR, HOST_COLOR ...
 

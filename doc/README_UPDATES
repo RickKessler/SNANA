@@ -20890,4 +20890,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_util.py
      + replace -f with -x to check that program exists and is executable.
        Hopefully fixes problem of running code on partial exe during make.
+
+   sntools_dataformat_fits.c
+     + write/read SIM_MODEL_INDEX to global header so that rewriting
+       FITS -> FITS can work.
+
 END: 

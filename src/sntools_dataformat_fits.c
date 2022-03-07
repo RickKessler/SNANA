@@ -55,6 +55,7 @@
 
   Jan 23 2022: set new globals FORMAT_SNDATA_[READ,WRITE] 
   Jan 25 2022: more meta data under _COMPACT flag
+  Mar 07 2022: write/read SIM_MODEL_INDEX in global header.
 
 **************************************************/
 
@@ -594,10 +595,15 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   char fnam[] = "wr_snfitsio_addCol"     ;
 
   // ------------- BEGIN -------------------
-
+	 
   // increment global parameter counter
   NPAR_WR_SNFITSIO[itype]++ ;
   NPAR = NPAR_WR_SNFITSIO[itype] ;
+
+  /*
+  printf(" xxx %s:  IPAR=%3d  itype=%d  name=%s   MODEL_INDEX=%d\n",
+	 fnam, NPAR, itype, name, SNDATA.SIM_MODEL_INDEX ); fflush(stdout);
+  */
 
   if ( NPAR >= MXPAR_SNFITSIO ) {
     sprintf(c1err,"NPAR_WR_SNFITSIO[%s] = %d exceeds bound", 
@@ -1162,6 +1168,14 @@ void wr_snfitsio_create(int itype ) {
     snfitsio_errorCheck(c1err, istat) ;   
   }
 
+
+  // Mar 2022: write SIM_MODEL_INDEX to header
+  istat = 0 ;
+  fits_update_key(fp, TINT, "SIM_MODEL_INDEX", &SNDATA.SIM_MODEL_INDEX, 
+		  "SIM MODEL index", &istat );
+  sprintf(c1err,"Write SIM_MODEL_INDEX") ;
+  snfitsio_errorCheck(c1err, istat) ;
+  
   // Sep 2013 - write MWEBV options for color law and MWEBV-modification
   istat = 0 ;
   fits_update_key(fp, TINT, "SIMOPT_MWCOLORLAW", &SNDATA.SIMOPT_MWCOLORLAW, 
@@ -2578,12 +2592,19 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   // if we get here then abort or return -9. 
 
   if ( FLAG_ABORT_ON_NOPAR ) {
-    sprintf(c1err, "Could not find IPAR for parName='%s'  "
-	    "FLAG_[RD,WR]=%d,%d", 
-	    parName, FLAG_RD, FLAG_WR );
-    sprintf(c2err, "Check par names in IFILE=%d %s ", 
-	    IFILE_WR_SNFITSIO, 
-	    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]); 
+    print_preAbort_banner(fnam);
+    printf("\t FLAG_[RD,WR]=%d,%d  NPAR_[RD,WR]=%d,%d  "
+	   "IFILE_[RD,WR]=%d,%d \n",
+	   FLAG_RD, FLAG_WR, 
+	   NPAR_RD_SNFITSIO[itype], NPAR_WR_SNFITSIO[itype],
+	   IFILE_RD_SNFITSIO, IFILE_WR_SNFITSIO  );
+
+    printf("\t itype = %d\n", itype);
+    printf("\t wr_snfitsFile = %s \n", 
+	   wr_snfitsFile[IFILE_WR_SNFITSIO][itype]);
+
+    sprintf(c1err, "Could not find IPAR for parName='%s'", parName); 
+    sprintf(c2err, "Check par names " );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
   }
@@ -2970,6 +2991,9 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"SIMLIB_MSKOPT") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIMLIB_MSKOPT );
+  }
+  else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
+    sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
   }
   else if ( strcmp(parName,"SIMOPT_MWCOLORLAW") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIMOPT_MWCOLORLAW );
@@ -4027,6 +4051,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(c1err, "read %s key", keyname);
     //  snfitsio_errorCheck(c1err, istat);    
 
+    // Mar 2022: read model index
+    istat = 0 ;
+    sprintf(keyname, "%s", "SIM_MODEL_INDEX" );
+    fits_read_key(fp, TINT, keyname, 
+		  &SNDATA.SIM_MODEL_INDEX, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    snfitsio_errorCheck(c1err, istat);    
 
     // read global info for Galactic extinction
     istat = 0 ;

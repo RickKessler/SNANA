@@ -997,8 +997,12 @@ with append_varname_missing,
     + improve debug_mucovscale to write two files: info vs. bin and 
         info vs. biasCor event.
 
- Mar 04 2022 - see new DUST_FLAG
+ Mar 04 2022 :  see new DUST_FLAG
 
+ Mar 07 2022 M.Vincenzi and R.Kessler
+    + set default INPUTS.cmin/cmax/x1min/x1max to nominal SALT2 cuts,
+      and add input nbinc_mucovscale with default=3 bins.
+      
  ******************************************************/
 
 #include "sntools.h" 
@@ -1782,6 +1786,8 @@ struct INPUTS {
   int debug_mucovscale; //write mucovscale info for every biascor event
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   char cidlist_debug_biascor[100];
+
+  bool LEGACY_NBINc;
 
   // set internal LEGACY and REFAC flags for development
 
@@ -5373,6 +5379,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
 void set_defaults(void) {
 
   int isurvey, order, ipar, N ;
+  char fnam[] = "set_defaults";
 
   // ---------------- BEGIN -----------------
   
@@ -5461,6 +5468,15 @@ void set_defaults(void) {
   INPUTS.x1max = +3.0;
   INPUTS.cmin  = -0.3; 
   INPUTS.cmax  = +0.3;
+
+  INPUTS.LEGACY_NBINc = false ;
+  if ( INPUTS.LEGACY_NBINc ) {
+    printf("\n xxx %s: BEWARE LEGACY_NBINc = True !! \n\n", fnam );
+    INPUTS.x1min = -6.0;
+    INPUTS.x1max = +6.0;
+    INPUTS.cmin  = -0.6; 
+    INPUTS.cmax  = +0.6;    
+  }
 
   INPUTS.logmass_min  = -20.0 ;
   INPUTS.logmass_max  = +20.0 ;
@@ -5828,6 +5844,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   NBINc=INPUTS.nbinc_mucovscale; // user input instead of hard-wired (March 2022 MVincenzi)
   cmin=INPUTS.cmin; cmax=INPUTS.cmax;
   cbin=(cmax-cmin)/(double)NBINc;
+
+  if ( INPUTS.LEGACY_NBINc ) { NBINc=3; cmin = -0.3; cmax=0.3; cbin=0.2; }
 
   // Jun 11 2021: include logmass bins.
   NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;

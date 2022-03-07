@@ -20862,6 +20862,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug in prepNextFit() related to sigma_int=0
      + read and use zprior[err] if zspec_errmax is set
      + fix SUBPROCESS bug to use non-standard BBC variables in GENPDF table.
+     + set default INPUTS.cmin/cmax/x1min/x1max to nominal defaults of
+       +_0.3 and +_3.0 -> slight change for 2 BBC jobs in regression test.
+     + Add user input nbinc_mucovscale (default=3)
 
    genmag_SIMSED.c
      + fix UVLAM_EXTRAP to work reading binary and text files.

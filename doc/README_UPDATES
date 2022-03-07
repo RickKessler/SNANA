@@ -20881,6 +20881,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    submit_prog_sim.py
      + fix bug so that sim-input files are no longer copied for
-       each merge task.
+       each merge task. Hopefully fixes the rare and mysterious abort
+       from sim-batch jobs reading zero words from sim-input file.
 
+   submit_util.py
+     + replace -f with -x to check that program exists and is executable.
+       Hopefully fixes problem of running code on partial exe during make.
 END: 

@@ -20878,4 +20878,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snana.car
      + fix SNTYPE_IGNORE to work with 0 so that only spec-confirmed
        events are selected.
+
+   submit_prog_sim.py
+     + fix bug so that sim-input files are no longer copied for
+       each merge task.
+
 END: 

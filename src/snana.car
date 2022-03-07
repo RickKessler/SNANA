@@ -1733,6 +1733,7 @@ c define namelist cuts
      &  ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)
      &  ,cutwin_var(2,NCUTBIT)   
      &  ,cutwin_cid(2)           ! candidate id
+     &  ,cutwin_sntype(2)        ! Mar 2022
      &  ,cutwin_redshift(2)
      &  ,cutwin_redshift_err(2)
      &  ,cutwin_ra(2)
@@ -1911,6 +1912,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
 
       EQUIVALENCE 
      &    ( cutwin_var(1,cutbit_cid),       cutwin_cid )
+     &   ,( cutwin_var(1,cutbit_sntype),    cutwin_sntype )
      &   ,( cutwin_var(1,cutbit_redshift),  cutwin_redshift )
      &   ,( cutwin_var(1,cutbit_redshift_err),cutwin_redshift_err )
      &   ,( cutwin_var(1,cutbit_ra),        cutwin_ra )
@@ -7585,6 +7587,11 @@ c - - - -
      &            2, iArg, ARGLIST) ) then
              READ(ARGLIST(1),*) CUTWIN_CID(1)
              READ(ARGLIST(2),*) CUTWIN_CID(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_SNTYPE',
+     &            2, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) CUTWIN_SNTYPE(1)
+             READ(ARGLIST(2),*) CUTWIN_SNTYPE(2)
 
 c - - - -
          else if ( MATCH_NMLKEY('SNTYPE_LIST',
@@ -15783,6 +15790,7 @@ C -------------- BEGIN -------------------
 c hard-wire names of cut variables (maxchar = 28)
 
       cutvar_name(CUTBIT_CID)          = 'CID:'
+      cutvar_name(CUTBIT_SNTYPE)       = 'TYPE:'
       cutvar_name(CUTBIT_RA)           = 'RA:'
       cutvar_name(CUTBIT_DEC)          = 'DEC:'
       cutvar_name(CUTBIT_HOSTSEP)      = 'HOST-SN sep:'
@@ -21168,6 +21176,9 @@ c so that NEWMJD_CUTS can be evaluated correctly.
 
          SNLC_CUTVAR(CUTBIT_CID)       = 
      &        float ( SNLC_CID )
+
+         SNLC_CUTVAR(CUTBIT_SNTYPE)     = 
+     &        float ( ISNLC_TYPE )
 
          SNLC_CUTVAR(CUTBIT_REDSHIFT)  = 
      &       SNLC_REDSHIFT

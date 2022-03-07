@@ -11,7 +11,10 @@
   Apr  28 2021: MXPAR_SNFITSIO -> 600 (was 400)
   Oct  08 2021: split fp_snfitsFile into fp_wr[rd]_snfitsio
                 to allow translating FITS -> FITS .
-                
+  Mar 07 2022: 
+    split IFILE_SNFITSIO into IFILE_RD_SNFITSIO and IFILE_WR_SNFITSIO;
+    Same for NFILE_SNFITSIO.
+
 **************************************************/
 
 // ==================================
@@ -64,8 +67,11 @@ int NSNLC_SNFITSIO[MXFILE_SNFITSIO];     // Number of SNe per file
 int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
 
 
-int NFILE_SNFITSIO ;     // number of fits files
-int IFILE_SNFITSIO ;     // current fits-file index
+int NFILE_RD_SNFITSIO ;     // number of fits files
+int IFILE_RD_SNFITSIO ;     // current fits-file index
+int NFILE_WR_SNFITSIO ;     // number of fits files
+int IFILE_WR_SNFITSIO ;     // current fits-file index
+
 int ISNFIRST_SNFITSIO ;  // first ISN in file
 
 // Npar (i.e., columns) for each fits-file type

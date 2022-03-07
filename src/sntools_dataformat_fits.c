@@ -154,7 +154,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   OVP = ( writeFlag & WRITE_MASK_SIM_MODELPAR ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
 
-  IFILE_SNFITSIO = 1; // only one file written here.
+  IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
   // store path and VERSION in globals 
   sprintf(SNFITSIO_DATA_PATH,    "%s", path );
@@ -167,10 +167,10 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
     ptrType = snfitsType[itype] ;
 
     // malloc each file name - Oct 8 2021
-    wr_snfitsFile[IFILE_SNFITSIO][itype]          = (char*)malloc(MEMC);
-    wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] = (char*)malloc(MEMC);
+    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]       = (char*)malloc(MEMC);
+    wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] = (char*)malloc(MEMC);
 
-    ptrFile = wr_snfitsFile[IFILE_SNFITSIO][itype] ; // short fileName
+    ptrFile = wr_snfitsFile[IFILE_WR_SNFITSIO][itype] ; // short fileName
     sprintf(ptrFile, "%s_%s.FITS", prefix, ptrType );
 
     // check length of file name (Aug 2019)
@@ -185,13 +185,14 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    ptrFile2 = wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] ; // path/fileName
+    ptrFile2 = wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] ;
     sprintf(ptrFile2, "%s/%s", path, ptrFile );
    
   }
 
   // load output argument: name of header file
-  sprintf(headFile, "%s", wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
+  sprintf(headFile, "%s", 
+	  wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
 
   // misc inits
 
@@ -1004,7 +1005,7 @@ void wr_snfitsio_create(int itype ) {
     
   // -------------- BEGIN --------------
 
-  ptrFile = wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] ;
+  ptrFile = wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] ;
   ptrType = snfitsType[itype] ;
 	 
   // create file
@@ -1076,13 +1077,13 @@ void wr_snfitsio_create(int itype ) {
 
   // photometry fits filename
   fits_update_key(fp, TSTRING, "PHOTFILE",
-                  wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_PHOT],
+                  wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_PHOT],
 		  "Photometry FITS file", &istat );
 
   // optional: name of spectrograph file
   if( SNFITSIO_SPECTRA_FLAG ) {
     fits_update_key(fp, TSTRING, "SPECFILE",
-		    wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_SPEC],
+		    wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_SPEC],
 		    "Spectra FITS file", &istat );
   }
 
@@ -2540,7 +2541,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
-  bool LDMP = false; // ( strstr(parName,"PIX") != NULL );
+  bool LDMP   = false; // ( strcmp(parName,"SIM_SALT2x0") == 0 );
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------
@@ -2566,7 +2567,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
     }
     
     
-    if ( LDMP ) {
+    if ( LDMP && strstr(ptrTmp,"SIMxxx_SALT2") != NULL ) {
       printf(" xxx %s: ipar=%2d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
 	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD );  fflush(stdout);
     }
@@ -2578,9 +2579,11 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
 
   if ( FLAG_ABORT_ON_NOPAR ) {
     sprintf(c1err, "Could not find IPAR for parName='%s'  "
-	    "FLAG_[RD,WR]=%d,%d", parName, FLAG_RD, FLAG_WR);
-    sprintf(c2err, "Check parameter names in %s ", 
-	    wr_snfitsFile[IFILE_SNFITSIO][itype]); 
+	    "FLAG_[RD,WR]=%d,%d", 
+	    parName, FLAG_RD, FLAG_WR );
+    sprintf(c2err, "Check par names in IFILE=%d %s ", 
+	    IFILE_WR_SNFITSIO, 
+	    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
   }
@@ -2631,7 +2634,7 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
     sprintf(c1err, "Could not find IPAR(iform=%d) for parName='%s'", 
 	    iform, parName);
     sprintf(c2err, "Check parameter names in %s ", 
-	    wr_snfitsFile[IFILE_SNFITSIO][itype]);
+	    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
   }
@@ -2683,7 +2686,7 @@ void WR_SNFITSIO_END(int OPTMASK) {
   if ( SNFITSIO_SPECTRA_FLAG ) {
     // remove SPECTMP file after its table has been
     // append to SPEC file with summary table.
-    ifile = IFILE_SNFITSIO ;
+    ifile = IFILE_WR_SNFITSIO ;
     itype = ITYPE_SNFITSIO_SPECTMP ;
     sprintf(cmd,"rm %s", wr_snfitsFile_plusPath[ifile][itype] );
     isys = system( cmd );
@@ -2759,7 +2762,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   // init_num = 1 --> first init --> init everything  
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
 
-  NFILE_SNFITSIO           = 0 ;
+  NFILE_RD_SNFITSIO        = 0 ;
   NSNLC_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
@@ -2842,7 +2845,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   printf("  ###################################################### \n");
   fflush(stdout);
 
-  IFILE_SNFITSIO = 0 ;
+  IFILE_RD_SNFITSIO = 0 ;
   NSNLC_SNFITSIO_TOT = 0 ;
   for ( ifile=0; ifile < MXFILE_SNFITSIO; ifile++ )  { 
     NSNLC_SNFITSIO[ifile]     = 0 ; 
@@ -2859,7 +2862,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // Close each file after reading the NAXIS2 key.
 
   int photflag_open=0,  vbose=0;
-  for (ifile = 1; ifile <= NFILE_SNFITSIO; ifile++ ) {
+  for (ifile = 1; ifile <= NFILE_RD_SNFITSIO; ifile++ ) {
 
     rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
 
@@ -2871,10 +2874,10 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 
   // open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  
-    IFILE_SNFITSIO    = 1 ;
-    ISNFIRST_SNFITSIO = 1 ;               // first ISN in file
-    rd_snfitsio_file(IFILE_SNFITSIO);
-    rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
+    IFILE_RD_SNFITSIO    = 1 ;
+    ISNFIRST_SNFITSIO    = 1 ;               // first ISN in file
+    rd_snfitsio_file(IFILE_RD_SNFITSIO);
+    rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
   }
 
   // Feb 2021: init lookup indices for faster read
@@ -3712,15 +3715,15 @@ void RD_SNFITSIO_CLOSE(char *version) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_HEAD );
-  rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_PHOT );   
+  rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
+  rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );   
 
   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )
-    { rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_SPEC );}
+    { rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_SPEC );}
 
   // free memory
-  rd_snfitsio_free(IFILE_SNFITSIO, ITYPE_SNFITSIO_HEAD );
-  rd_snfitsio_free(IFILE_SNFITSIO, ITYPE_SNFITSIO_PHOT );
+  rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
+  rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );
   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { ; } // nothing to free
 
 } // end of RD_SNFITSIO_CLOSE
@@ -3738,13 +3741,13 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
   // ------------- BEGIN ------------------
 
   sprintf(VERSION,"%s", SNFITSIO_PHOT_VERSION );
-  *IFILE = IFILE_SNFITSIO ;
+  *IFILE = IFILE_RD_SNFITSIO ;
 
   sprintf(FILENAME_HEAD, "%s",
-	  rd_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
+	  rd_snfitsFile[IFILE_RD_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
 
   sprintf(FILENAME_PHOT, "%s",
-	  rd_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_PHOT] );
+	  rd_snfitsFile[IFILE_RD_SNFITSIO][ITYPE_SNFITSIO_PHOT] );
 
   return ;
 
@@ -3782,12 +3785,12 @@ int rd_snfitsio_list(void) {
   }
 
   itype = ITYPE_SNFITSIO_HEAD ;
-  NFILE_SNFITSIO = 0;
+  NFILE_RD_SNFITSIO = 0;
   while( (fscanf(fp, "%s", tmpFile)) != EOF) {
-    NFILE_SNFITSIO++ ;
+    NFILE_RD_SNFITSIO++ ;
 
-    if ( NFILE_SNFITSIO >= MXFILE_SNFITSIO ) { continue ; }
-    N = NFILE_SNFITSIO ;
+    if ( NFILE_RD_SNFITSIO >= MXFILE_SNFITSIO ) { continue ; }
+    N = NFILE_RD_SNFITSIO ;
     malloc_rd_snfitsFiles(+1, N); // Oct 8 2021
 
     ptrTmp = rd_snfitsFile[N][itype] ;
@@ -3802,13 +3805,14 @@ int rd_snfitsio_list(void) {
 
   fclose(fp);  
 
-  if ( NFILE_SNFITSIO >= MXFILE_SNFITSIO ) {
-    sprintf(c1err,"NFILE_SNFITSIO = %d exceeds bound of MXFILE_SNFITSIO=%d", 
-	    NFILE_SNFITSIO, MXFILE_SNFITSIO );
+  if ( NFILE_RD_SNFITSIO >= MXFILE_SNFITSIO ) {
+    sprintf(c1err,"NFILE_RD_SNFITSIO = %d exceeds bound of "
+	    "MXFILE_SNFITSIO=%d", 
+	    NFILE_RD_SNFITSIO, MXFILE_SNFITSIO );
     sprintf(c2err,"Check %s", SNFITSIO_LISTFILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  else if ( NFILE_SNFITSIO > 0 ) 
+  else if ( NFILE_RD_SNFITSIO > 0 ) 
     { return SUCCESS ; }
   else {
     sprintf(c1err,"Found no files in");
@@ -5283,24 +5287,24 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   ifile = -9 ;
 
   // check if we read current fits file, or need to open the next one.
-  for ( itmp = 1; itmp <= NFILE_SNFITSIO; itmp++ ) {
+  for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
     if ( isn >  NSNLC_SNFITSIO_SUM[itmp-1] &&
 	 isn <= NSNLC_SNFITSIO_SUM[itmp] ) 
       { ifile = itmp ; }
   }
 
 
-  if ( ifile != IFILE_SNFITSIO ) {
+  if ( ifile != IFILE_RD_SNFITSIO ) {
     RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ;
-    IFILE_SNFITSIO    = ifile ;           // update global file index
+    IFILE_RD_SNFITSIO = ifile ;           // update global file index
     ISNFIRST_SNFITSIO = isn ;             // first ISN in file
-    rd_snfitsio_file(IFILE_SNFITSIO);     // open next fits file.
-    rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
+    rd_snfitsio_file(IFILE_RD_SNFITSIO);  // open next fits file.
+    rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
   }
 
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
-  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_SNFITSIO-1];
+  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
 
   // Dec 2021:
   // if there is a header override, load value here and return
@@ -5356,8 +5360,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 	   parName, icol, itype, iform, ipar );
     printf(" xxxx iptr_local=%d  isn=%d  ISNFIRST=%d \n",
 	   iptr_local, isn, ISNFIRST_SNFITSIO ) ;
-    printf(" xxxx ifile=%d  IFILE_SNFITSIO=%d \n",
-	   ifile, IFILE_SNFITSIO );
+    printf(" xxxx ifile=%d  IFILE_RD_SNFITSIO=%d \n",
+	   ifile, IFILE_RD_SNFITSIO );
 
     fflush(stdout);
   }

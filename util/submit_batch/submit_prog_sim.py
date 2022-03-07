@@ -37,6 +37,10 @@
 #                (see is_comment_line)
 # Dec 08 2021: write NLC_GEN[WRITE]_SUM to MERGE.LOG via get_misc_merge_info()
 #
+# Mar 07 2022: 
+#  copy sim-input files of not merge_flag ... hopefully fixes rare problem
+#  of sim jobs reading zero words from sim-input file and then aborting.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -179,7 +183,6 @@ class Simulation(Program):
         self.sim_prep_NGENTOT_LC()
 
         # determine CIDRAN parameters to ensure unique randoms
-        # xxx self.sim_prep_FORMAT_MASK()
         self.sim_prep_CIDRAN()
 
         # abort on conflicts
@@ -1114,7 +1117,9 @@ class Simulation(Program):
         self.log_assert(nerr==0,msgerr)
 
         # copy input files to outdir/simlogs directory
-        self.sim_prep_SIMGEN_INFILE_copy()
+        merge_flag        = self.config_yaml['args'].merge_flag
+        if not merge_flag:
+            self.sim_prep_SIMGEN_INFILE_copy()
 
         # end sim_prep_SIMGEN_INFILE
 
@@ -1219,6 +1224,10 @@ class Simulation(Program):
         # unique and avoid duplicates
         for infile in include_file_list_unique :
             infile_copy_list.append(infile)
+
+        n_copy = len(infile_copy_list)
+        base_dir = os.path.basename(output_dir)
+        logging.info(f"\t Copy {n_copy} sim-input files to {base_dir}")
 
         util.copy_input_files(infile_copy_list, output_dir,
                               SIMGEN_INPUT_LISTFILE )
@@ -1803,7 +1812,7 @@ class Simulation(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
 
         self.config_prep['path_sndata_sim']     = \
-                            submit_info_yaml['PATH_SNDATA_SIM']
+                        submit_info_yaml['PATH_SNDATA_SIM']
         self.config_prep['output_dir']     = output_dir 
 
         self.sim_prep_GENOPT_GLOBAL()

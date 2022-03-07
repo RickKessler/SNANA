@@ -1391,22 +1391,23 @@ int read_input_file(char *input_file, int keySource ) {
     fflush(stdout);
 
   // Dec 28 2021: try to fix issue on Cori where file isn't read properly
-  if ( NWD_FILE==0 && NTRY <= 1 ) { 
+  if ( NWD_FILE==0 && NTRY <= 2 ) { 
     int N = store_PARSE_WORDS(-1,""); // re-init everything
     sleep(3.0);  // wait few seconds before trying to read file again
     printf("\t (try reading file again after 3 second delay)\n");
-    fflush(stdout);
+    fflush(stdout) ;
     goto READ_FILE; 
   }
 
   // Mar 3 2022
-  // abort on empty file ... likely a file system problem reading the file
+  // abort on empty file ... likely a file system problem
   if ( NWD_FILE == 0 ) {
     sprintf(c1err,"Found zero words (NTRY=%d) in input file ", NTRY);
     sprintf(c2err," '%s' ", input_file);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
+  // - - - - - - - - 
   // copy input file contents to another [WORDLIST] buffer because
   // store_PARSE_WORDS may be used later to parse some of the input
   INPUTS.NWORDLIST = NWD_FILE ;

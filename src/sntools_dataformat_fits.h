@@ -43,6 +43,8 @@
 // Dec 20 2021: define OPTMASK bits for WR_SNFITSIO_END
 #define OPTMASK_SNFITSIO_END_GZIP 1
 
+#define OPTMASK_SNFITSIO_IGNORESIM 256 // flag to treat sim like real data
+
 fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
 fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
 // xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
@@ -92,6 +94,7 @@ bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
 bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
+bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 
 // xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples

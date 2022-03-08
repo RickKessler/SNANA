@@ -600,10 +600,10 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   NPAR_WR_SNFITSIO[itype]++ ;
   NPAR = NPAR_WR_SNFITSIO[itype] ;
 
-  /*
-  printf(" xxx %s:  IPAR=%3d  itype=%d  name=%s   MODEL_INDEX=%d\n",
-	 fnam, NPAR, itype, name, SNDATA.SIM_MODEL_INDEX ); fflush(stdout);
-  */
+ 
+  printf(" xxx %s:  IPAR=%3d  itype=%d  name=%s   \n",
+	 fnam, NPAR, itype, name ); fflush(stdout);
+  
 
   if ( NPAR >= MXPAR_SNFITSIO ) {
     sprintf(c1err,"NPAR_WR_SNFITSIO[%s] = %d exceeds bound", 
@@ -1001,6 +1001,7 @@ void wr_snfitsio_create(int itype ) {
   // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
   // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
+  // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
@@ -1062,10 +1063,12 @@ void wr_snfitsio_create(int itype ) {
 
   // check for sub-survey (only for data)
   SNDATA.SUBSURVEY_FLAG = 0;
-  if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
-    { SNDATA.SUBSURVEY_FLAG = 1;}
+  if ( strlen(SNDATA.SUBSURVEY_NAME) > 0 ) {
+    if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
+      { SNDATA.SUBSURVEY_FLAG = 1 ; }
+  }
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
-                  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
+		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
   // July 21 2018
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",
@@ -2555,7 +2558,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
-  bool LDMP   = false; // ( strcmp(parName,"SIM_SALT2x0") == 0 );
+  bool LDMP   = ( strcmp(SNDATA.CCID,"2118533") == 0 );
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------
@@ -2565,6 +2568,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   else 
     { NPAR = NPAR_WR_SNFITSIO[itype] ; }
 
+  
   if ( LDMP ) {
     printf(" xxx ------------------------------------------- \n");
     printf(" xxx %s: set dump for parName='%s'  NPAR=%d \n",
@@ -2581,9 +2585,10 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
     }
     
     
-    if ( LDMP && strstr(ptrTmp,"SIMxxx_SALT2") != NULL ) {
-      printf(" xxx %s: ipar=%2d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
+    if ( LDMP ) { // && strstr(parName,"SURVEY") != NULL ) {
+      printf(" xxx %s: ipar=%2d ptrTmp = '%s'  FLAG_[WR,RD]=%d,%d\n",
 	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD );  fflush(stdout);
+      fflush(stdout);
     }
 
     if ( strcmp(ptrTmp,parName) == 0 )   { return ipar ; }
@@ -2593,6 +2598,12 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
 
   if ( FLAG_ABORT_ON_NOPAR ) {
     print_preAbort_banner(fnam);
+    printf("\t SNID = %s  \n",	SNDATA.CCID );
+
+    printf("\t SURVEY='%s'  SUBSURVEY[NAME,FLAG] = '%s' , %d\n", 
+	   SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME, 
+	   SNDATA.SUBSURVEY_FLAG );
+
     printf("\t FLAG_[RD,WR]=%d,%d  NPAR_[RD,WR]=%d,%d  "
 	   "IFILE_[RD,WR]=%d,%d \n",
 	   FLAG_RD, FLAG_WR, 
@@ -2813,6 +2824,8 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   //
   // MSKOPT & 2 : read header only; do NOT open first PHOT file
   //
+  // MSKOPT & 256 : ignore sim-truth; treat like real data  (Mar 2022)
+  //
   // PATH = optional user-path to data; 
   //        if PATH="", use default SNDATA_ROOT/lcmerge
   //
@@ -2845,14 +2858,13 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // read list of fits files.
   istat = rd_snfitsio_list();
 
-  if ( istat < 0 ) { return istat ; } // not in FITS format
+  if ( istat < 0 ) 
+    { return istat ; } // not in FITS format
 
   if ( (MSKOPT & 1) > 0 ) { // check if FITS format; don't read
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
-
     malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
-
     return istat ; 
   }
 
@@ -2878,6 +2890,9 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   NEP_RDMASK_SNFITSIO_PARVAL = 0;
   for ( ep=0; ep < MXEPOCH; ep++ ) 
     {  RDMASK_SNFITSIO_PARVAL[ep] = 1 ; }
+
+  // Mar 2022: check option to treat sim like real data
+  SNFITSIO_noSIMFLAG_SNANA = ( (MSKOPT & 256) > 0) ;
 
   // loop over all header files to get total number of SN.
   // Close each file after reading the NAXIS2 key.
@@ -3996,6 +4011,17 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   SNFITSIO_SIMFLAG_SNANA  = (strcmp(DTYPE, DATATYPE_SIM_SNANA ) == 0 );
   SNFITSIO_SIMFLAG_MAGOBS = (strcmp(DTYPE, DATATYPE_SIM_MAGOBS) == 0 );
 
+  // check option to treat sim like real data
+  if ( SNFITSIO_SIMFLAG_SNANA && SNFITSIO_noSIMFLAG_SNANA ) {
+    sprintf(DTYPE,"%s", DATATYPE_DATA);
+    SNFITSIO_DATAFLAG       = true;
+    SNFITSIO_SIMFLAG_SNANA  = false;
+    SNFITSIO_SIMFLAG_MAGOBS = false;
+    if ( ifile == 1 && photflag_open == 0 ) {
+      printf("\t %s: treat SIM like DATA\n", fnam); fflush(stdout);
+    }
+  }
+
   // read name of PHOTOMETRY file from HEADER file
   itype = ITYPE_SNFITSIO_PHOT ;  
   sprintf(keyname, "%s", "PHOTFILE" );
@@ -4344,7 +4370,7 @@ void rd_snfitsio_private(void) {
 // =================================================
 void rd_snfitsio_file(int ifile) {
 
-  int photflag_open=1;
+  int photflag_open = 1;
   int vbose=0;
   char fnam[] = "rd_snfitsio_file" ;
 

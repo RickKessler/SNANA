@@ -429,9 +429,10 @@ c
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
-     &  ,REFORMAT_SAVE_BADEPOCHS ! if bit2 is set on any OPT_REFORMAT
-     &  ,REFORMAT_SPECTRA        ! if 128-bit is set (Oct 2021)
-     &  ,REFORMAT_PRIVATE        ! T-> include private variables (Jan 2022)
+     &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
+     &  ,REFORMAT_SPECTRA        ! include spectra (default=F)
+     &  ,REFORMAT_PRIVATE      ! T-> include private variables (default=T)
+     &  ,REFORMAT_SIMTRUTH     ! T -> include SIM truth (default=T)
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
@@ -526,7 +527,7 @@ c global survey info
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
      &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
-     &    ,REFORMAT_SAVE_BADEPOCHS
+     &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
@@ -3048,6 +3049,9 @@ c read optional tags
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
+c check reformat options
+      CALL INIT_REFORMAT() ! .xyz
+
 c -----------------------------------------------
 c prepare reading data; determine FITS or TEXT; read global info ...
       CALL INIT_READ_DATA()
@@ -3172,7 +3176,7 @@ cc      IF ( LTEST_INTERP ) CALL TEST_INTERP(INTERP_OPT)
 +SELF.
 
 c initialize optional format translations
-      CALL INIT_REFORMAT()
+c xxx mark      CALL INIT_REFORMAT()
 
 c ######################################################
 c
@@ -3379,7 +3383,8 @@ c get version and private data path for this version
 c read global info and store in SNDATA struct in sndata.h
       OPTRD = 0   ;   
       IF ( FORMAT_FITS ) THEN       
-         IF ( LRDFLAG_GLOBAL ) OPTRD = 2
+         IF ( LRDFLAG_GLOBAL )          OPTRD = OPTRD + 2
+	 IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
@@ -3709,6 +3714,12 @@ c     &     + OPTMASK_SNDATA_DUMP
         C1err = 'Unrecognized DATATYPE = ' // DATATYPE
         C2err = 'Check DATATYPE key in FITS header.'
         CALL MADABORT("RDGLOBAL", c1err, c2err )
+      ENDIF
+
+c Mar 2022: check option to re-write sims to look like real data
+      IF ( LSIM_SNANA .and. .not. REFORMAT_SIMTRUTH ) then
+          LSIM_SNANA = .FALSE.
+          DATATYPE   = 'DATA'
       ENDIF
 
       ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
@@ -5708,10 +5719,11 @@ c set namelist defaults
       OPT_YAML              = 0
       OPT_REFORMAT_SALT2    = 0 
       OPT_REFORMAT_TEXT     = 0
-      OPT_REFORMAT_FITS     = 0 ! +=1 => write fits; +=2 =>save bad epochs
+      OPT_REFORMAT_FITS     = 0 
       REFORMAT_SAVE_BADEPOCHS = .FALSE.
       REFORMAT_SPECTRA        = .FALSE.
       REFORMAT_PRIVATE        = .TRUE.
+      REFORMAT_SIMTRUTH       = .TRUE.
       REFORMAT_KEYS     = 'NULL'
 
       NONSURVEY_FILTERS = ''
@@ -9549,7 +9561,19 @@ C =============================
 c
 c Create Feb 7 2021;
 c Initialize option to reformat data
-
+c OPT_REFORMAT bits:
+c  lsb   mask  comment
+c   0     1    write fits; 
+c   1     2    include rejected epochs
+c   2     4     SPARE
+c   3     8     SPARE
+c   4    16     SPARE
+c   5    32     SPARE
+c   6    64    exclude private variables
+c   7   128    include spectra
+c   8   256    exclude SIM-truth so that output looks like real data
+c   9   512     SPARE
+c  
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
@@ -9581,7 +9605,7 @@ c check option to save bad epochs for OPT_REFORMAT
          REFORMAT_SAVE_BADEPOCHS = .TRUE.
       ENDIF
 
-c check option to suppress PRIVATE variables: MASK+=64 or bit 6
+c check option to suppress PRIVATE variables: MASK+=64 or bit 6 (lsb=0)
       IF ( BTEST(OPT_REFORMAT_FITS,6) .or. 
      &     BTEST(OPT_REFORMAT_TEXT,6) ) THEN 
          REFORMAT_PRIVATE = .FALSE.
@@ -9594,6 +9618,12 @@ c
       IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
      &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
          REFORMAT_SPECTRA = .TRUE.
+      ENDIF
+
+c check option to exclude SIM truth; MASK += 256
+      IF ( BTEST(OPT_REFORMAT_FITS,8) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,8) ) THEN 
+         REFORMAT_SIMTRUTH = .FALSE.
       ENDIF
 
 c - - - - - - - - - - - - - - - - - -
@@ -9646,6 +9676,19 @@ c open aux files and leave them open
          REFORMAT = .TRUE.
       ENDIF
 
+c - - - - -
+c print info 
+      IF ( REFORMAT ) THEN
+         print*,'   INIT_REFORMAT options: '
+	 print*,'     OPT_REFORMAT_[FITS,TEXT] = ',
+     &              OPT_REFORMAT_FITS, OPT_REFORMAT_TEXT
+	 print*,'     REFORMAT_BADEPOCHS    = ', REFORMAT_SAVE_BADEPOCHS
+	 print*,'     REFORMAT_SPECTRA      = ', REFORMAT_SPECTRA
+	 print*,'     REFORMAT_PRIVATE      = ', REFORMAT_PRIVATE         
+	 print*,'     REFORMAT_SIMTRUTH     = ', REFORMAT_SIMTRUTH
+         call flush(6)
+      ENDIF
+
       RETURN
       END     ! end INIT_REFORMAT
 
@@ -9693,10 +9736,11 @@ c to see flags in C code, "grep WRITE_MASK sndata.h"
          WRITE_FLAG = 8   ! Jan 23 2018
       ELSE IF ( LSIM_SNANA ) THEN 
          WRITE_FLAG = 4   ! Jan 23 2018
+         if ( .NOT. REFORMAT_SIMTRUTH ) WRITE_FLAG = 2 + 256 ! Mar 2022
       ELSE
          WRITE_FLAG = 2
       ENDIF
-
+      
       if ( REFORMAT_SPECTRA ) WRITE_FLAG = WRITE_FLAG + 128
 
 c -----------------------
@@ -10163,7 +10207,7 @@ c check option to excluded PRIVATE variables from output.
 c Do NOT modify NVAR_PRIVATE.
       IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
         cKEY     = "NVAR_PRIVATE"  // char(0)        
-        DVAL(1)  = -1.0   ! -1 means disable to avoid abort on changin NVAR
+        DVAL(1)  = -1.0   ! -1 means disable to avoid abort on NVAR change
         CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, 
      &          cSTRING, DVAL, LEN_KEY, LEN_STR)
       ENDIF

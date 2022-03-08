@@ -13237,6 +13237,16 @@ where an explicit CID list or snana selection criteria can
 be applied. To avoid file-count quota issues, 
 a max limit of 20 data files can be extracted.
 
+\medskip
+Additional reformat options can be specified using {\tt SNLCINP} input mask
+{\tt OPT\_REFORMAT\_FITS} or {\tt OPT\_REFORMAT\_TEXT}
+\begin{verbatim}  
+    OPT_REFORMAT_FITS = 2   ! include rejected epochs
+    OPT_REFORMAT_FITS = 64  ! exclude private variables
+    OPT_REFORMAT_FITS = 128 ! include spectra
+    OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+\end{verbatim}
+% 
 % --------------------------------------
   \clearpage
   \subsubsection{Re-write Data Files with Flux Fudges}

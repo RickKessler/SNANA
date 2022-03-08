@@ -20852,20 +20852,31 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04i) ***** 
 
+   + SALT2mu: if 1 beta bin, set DUST_FLAG and set SIM_BETA = p2
+       (initial beta) -> fixes BS21-model problem of chi2_red well 
+       below unity from computing MUERR with SIM_BETA ~ 2 instead of 3.
+
          ***** USEFUL(v11_04i) ***** 
+
+   + New option to re-write sim data without sim-truth so that it looks
+     like real data; see OPT_REFORMAT_FITS = 256
+
+   + Hopefully fixed two causes of rare batch-job aborts for sims;
+     1) reading zero words from inputs and 2) running code during make.
 
          ***** MISCELLANEOUS(v11_04i) ***** 
  
    remove util/split_version.pl
    
    SALT2mu.c
+     + compute internal DUST_FLAG for BS21 model (see above)
      + fix bug in prepNextFit() related to sigma_int=0
      + read and use zprior[err] if zspec_errmax is set
      + fix SUBPROCESS bug to use non-standard BBC variables in GENPDF table.
      + set default INPUTS.cmin/cmax/x1min/x1max to nominal defaults of
        +_0.3 and +_3.0 -> slight change for 2 BBC jobs in regression test.
      + Add user input nbinc_mucovscale (default=3)
-
+   
    genmag_SIMSED.c
      + fix UVLAM_EXTRAP to work reading binary and text files.
 
@@ -20881,6 +20892,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snana.car
      + fix SNTYPE_IGNORE to work with 0 so that only spec-confirmed
        events are selected.
+     + OPT_REFORMAT_FITS[TEXT] = 256  -> re-write data files without
+       sim-truth so that it looks like real data
 
    submit_prog_sim.py
      + fix bug so that sim-input files are no longer copied for
@@ -20894,5 +20907,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_dataformat_fits.c
      + write/read SIM_MODEL_INDEX to global header so that rewriting
        FITS -> FITS can work.
-
+     + implement MSKOPT&256 -> suppress sim-truth from output.
+    
 END: 

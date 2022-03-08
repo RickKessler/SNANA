@@ -2628,7 +2628,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
 // ==================================
 int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
 
-  // same as IPAR_SNFITSIOT, but search subset with form (1J,1E,1D ...)
+  // same as IPAR_SNFITSIO, but search subset with form (1J,1E,1D ...)
   // specified by the input index 'iform'.
   //
   // Input OPT -> see OPTMASK_XXX_SNFITSIO in sntools_dataformat_fits.h

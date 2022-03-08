@@ -20,7 +20,6 @@
 // ==================================
 // global variables
 
-
 #define ITYPE_SNFITSIO_HEAD      0
 #define ITYPE_SNFITSIO_PHOT      1
 #define ITYPE_SNFITSIO_SPEC      2  // SPEC summary & fluxes tables
@@ -63,11 +62,9 @@ char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
 char  SNFITSIO_LISTFILE[MXPATHLEN];   // for read-back only
 char  SNFITSIO_READMEFILE[MXPATHLEN]; // for read-back only
 
-
-int NSNLC_SNFITSIO_TOT ;    // total number of SNe over all files.
+int NSNLC_SNFITSIO_TOT ;                 // total number of SNe over all files.
 int NSNLC_SNFITSIO[MXFILE_SNFITSIO];     // Number of SNe per file
 int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
-
 
 int NFILE_RD_SNFITSIO ;     // number of fits files
 int IFILE_RD_SNFITSIO ;     // current fits-file index

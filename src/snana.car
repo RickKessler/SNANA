@@ -3049,18 +3049,17 @@ c read optional tags
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
-c check reformat options
-      CALL INIT_REFORMAT() ! .xyz
-
 c -----------------------------------------------
 c prepare reading data; determine FITS or TEXT; read global info ...
       CALL INIT_READ_DATA()
+
+c check reformat options
+      CALL INIT_REFORMAT()
 
 c continue with initialization that may depend on SURVEY and FILTERS.
 
 c process namelist strings after we know
 c the filters and survey 
-
       CALL PROCSNNML(IERR) 
         IF ( IERR .NE. 0 ) GOTO 666 
 
@@ -9679,6 +9678,7 @@ c open aux files and leave them open
 c - - - - -
 c print info 
       IF ( REFORMAT ) THEN
+         print*,' '
          print*,'   INIT_REFORMAT options: '
 	 print*,'     OPT_REFORMAT_[FITS,TEXT] = ',
      &              OPT_REFORMAT_FITS, OPT_REFORMAT_TEXT

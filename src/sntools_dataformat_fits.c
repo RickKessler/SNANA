@@ -600,10 +600,10 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   NPAR_WR_SNFITSIO[itype]++ ;
   NPAR = NPAR_WR_SNFITSIO[itype] ;
 
- 
+  /*
   printf(" xxx %s:  IPAR=%3d  itype=%d  name=%s   \n",
 	 fnam, NPAR, itype, name ); fflush(stdout);
-  
+  */
 
   if ( NPAR >= MXPAR_SNFITSIO ) {
     sprintf(c1err,"NPAR_WR_SNFITSIO[%s] = %d exceeds bound", 
@@ -2558,7 +2558,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
-  bool LDMP   = ( strcmp(SNDATA.CCID,"2118533") == 0 );
+  bool LDMP   = 0; // ( strcmp(SNDATA.CCID,"2118533") == 0 );
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------

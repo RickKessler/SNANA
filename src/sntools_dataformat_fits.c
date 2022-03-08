@@ -4077,13 +4077,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(c1err, "read %s key", keyname);
     //  snfitsio_errorCheck(c1err, istat);    
 
-    // Mar 2022: read model index
+    // Mar 2022: read model index if it's there.
     istat = 0 ;
     sprintf(keyname, "%s", "SIM_MODEL_INDEX" );
     fits_read_key(fp, TINT, keyname, 
 		  &SNDATA.SIM_MODEL_INDEX, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
-    snfitsio_errorCheck(c1err, istat);    
+    //     snfitsio_errorCheck(c1err, istat);    
 
     // read global info for Galactic extinction
     istat = 0 ;

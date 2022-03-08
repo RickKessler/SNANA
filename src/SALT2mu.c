@@ -15,14 +15,8 @@ Program to take output from the SALT fitter dict files and
     file=file.fitres bins=10 zmin=0.02 zmax=1.02 u0=1 u1=1 u2=0 u3=0
     prefix=SALT2mu sigmB=0.0 sigx1=0.0 sigc=.1  p9=.73 
 
-The 'file' argument is required, and it is usually the 
-FITRES_DMPFILE argument in the &FITINP namelist that is
-input to the snlc_fit.exe program. So if you have the
-following namelist for the snlc_fit.exe program,
-    &FITINP
-       FITRES_DMPFILE = 'mySN.fitres'
-    &END
-then for the SALT2mu input   file='mySN.fitres'
+The 'datafile=' argument (or file=) is required, and it is usually the 
+FITRES table output from snlc_fit.exe of submit_batch_jobs.sh.
 
 Additional arguments below are optional:
 

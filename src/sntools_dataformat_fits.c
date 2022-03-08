@@ -54,8 +54,12 @@
     + set HOSTGAL_USEMASK bit if NRD>0 for reading host mags[err] and SB[err]
 
   Jan 23 2022: set new globals FORMAT_SNDATA_[READ,WRITE] 
+
   Jan 25 2022: more meta data under _COMPACT flag
-  Mar 07 2022: write/read SIM_MODEL_INDEX in global header.
+
+  Mar 07 2022: 
+    + write/read SIM_MODEL_INDEX in global header.
+    + enable re-writing sim events without SIM truth (CODE_IVERSION->21)
 
 **************************************************/
 
@@ -1041,11 +1045,18 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
   //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
+  /* xxx
   if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
     { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
   else
     { SNFITSIO_CODE_IVERSION = 20 ; } // identify refactored FITS format
- 
+  xxx */
+
+  // Mar 08 2022:
+  //  + write SIM_MODEL_INDEX to header  
+  //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
+  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
 
@@ -4400,9 +4411,13 @@ void rd_snfitsio_file(int ifile) {
 // =================================================
 void rd_snfitsio_tblpar(int ifile, int itype) {
 
-  long NCOLUMN ;
-  int  istat, icol, iform, npar, ncol  ;
+  // Read and store info for each column.
+  // Mar 2022: if noSIM option, ignore column names begining with SIM
+
+  long NCOLUMN, NCOLUMN_USE ;
+  int  istat, icol, iform, npar, ncol ;
   int  LDMP = 1 ;
+  bool IS_KEYSIM ;
   fitsfile *fp ;
 
   char  keyname[100], comment[200], *ptrTmp  ;
@@ -4416,7 +4431,6 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
-  NPAR_RD_SNFITSIO[itype] = (int)NCOLUMN ;
   
   if ( LDMP ) { 
     ncol = (int)NCOLUMN ;
@@ -4429,6 +4443,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   // loop over colum TTYPE[1-NFIELD] and count how many
   // float, double, int ...  Also store column name
+  NCOLUMN_USE = 0 ;
 
   for ( icol = 1; icol <= NCOLUMN; icol++ ) {
 
@@ -4438,6 +4453,11 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     fits_read_key(fp, TSTRING, keyname,  ptrTmp, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
     snfitsio_errorCheck(c1err, istat);
+
+    IS_KEYSIM = IS_SIMKEY_SNDATA(ptrTmp);
+    // if(IS_KEYSIM) { printf(" xxx %s: IS_KEYSIM for %s\n", fnam, ptrTmp);}
+    if ( SNFITSIO_noSIMFLAG_SNANA && IS_KEYSIM ) { continue; }
+    NCOLUMN_USE++ ;
 
     istat = 0 ;
     sprintf(keyname,"TFORM%d", icol );
@@ -4465,10 +4485,13 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   } // icol loop
 
-
+  NPAR_RD_SNFITSIO[itype] = (int)NCOLUMN_USE
+ ;
   // make sure that required keys exist.
   if ( itype == ITYPE_SNFITSIO_HEAD ) 
     {  check_required_headkeys(OPTMASK_RD_SNFITSIO); }
+
+  return;
 
 } // end of function rd_snfitsio_tblpar
 

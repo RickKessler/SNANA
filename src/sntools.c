@@ -496,10 +496,73 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
 
 } // end parse_string_prescales 
 
+
+// =================================================
+int store_glob_file_list(char *wildcard) {
+
+  // Created Mar 8 2022
+  // Utility to store files based on wildcard;
+  // use fetch_glob_file_list to retreive 1 at a time.
+  // Includes fortran interface.
+  char fnam[] = "store_glob_file_list";
+  // --------- BEGIN -----------
+  GLOB_LIST.NFILE = glob_file_list(wildcard, &GLOB_LIST.FILE_NAMES);
+  return GLOB_LIST.NFILE;
+
+} // end store_glob_file_list
+
+int  store_glob_file_list__(char *wildcard) 
+{ return store_glob_file_list(wildcard); }
+
+void get_glob_file(int langFlag, int ifile, char *file_name) {
+
+  // Created Mar 2022
+  // Inputs:
+  //   langFlag=0 ==> called by C code  ==> do NOT leave pad space
+  //   langFlag=1 ==> called by fortran ==> leave pad space
+  //   ifile      ==> file index to retrieve
+  // Output:
+  //   file_name 
+
+  int NFILE = GLOB_LIST.NFILE;
+  char fnam[] = "get_glob_file";
+
+  // ----------- BEGIN -------------
+
+  if ( ifile >= NFILE ) { 
+    sprintf(c1err,"ifile=%d too large; NFILE=%d", ifile, NFILE);
+    sprintf(c2err,"ifile must be < %d", NFILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(file_name, "%s", GLOB_LIST.FILE_NAMES[ifile]);
+  if ( langFlag==0 ) 
+    {     ; }
+  else
+    { strcat(file_name," "); }     // extra space for fortran
+  return;
+} // end get_glob_file
+
+void get_glob_file__(int *langFlag, int *ifile, char *file_name) 
+{ get_glob_file(*langFlag, *ifile,file_name); }
+
+void reset_glob_file_list(void) {
+  int ifile;
+  for(ifile=0; ifile < GLOB_LIST.NFILE; ifile++ ) 
+    { free(GLOB_LIST.FILE_NAMES[ifile]) ; }
+  free(GLOB_LIST.FILE_NAMES);
+
+  GLOB_LIST.NFILE = 0 ;
+
+} // reset_glob_file_list
+
+void reset_glob_file_list__(void) 
+{ reset_glob_file_list(); }
+
 // =================================================
 int glob_file_list(char *wildcard, char ***file_list) {
 
-  // Created by P.Armstron and R.Kessler, 2020
+  // Created by P.Armstrong and R.Kessler, 2020
   //  + abort if n_file > MXFILE_LIST
 
   int    i, n_file = 0; 
@@ -524,6 +587,8 @@ int glob_file_list(char *wildcard, char ***file_list) {
   return n_file; 
 }   // end glob_file_list
 
+
+// ===============================================
 void write_epoch_list_init(char *outFile) {
 
   // July 11 2020

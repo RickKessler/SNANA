@@ -44,6 +44,7 @@ void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 
+bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE);
 int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);

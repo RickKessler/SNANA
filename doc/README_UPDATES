@@ -20894,6 +20894,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        events are selected.
      + OPT_REFORMAT_FITS[TEXT] = 256  -> re-write data files without
        sim-truth so that it looks like real data
+     + increase MXVERS from 12 -> 50 to handle all of ELASTICC
+         for selecting training subset.
 
    submit_prog_sim.py
      + fix bug so that sim-input files are no longer copied for

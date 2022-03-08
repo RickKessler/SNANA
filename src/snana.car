@@ -113,7 +113,7 @@ c
 
       PARAMETER (                   ! BEGIN SNANA PARAMS
      &   SNTABLE_LIST_DEFAULT = 'SNANA  FITRES  LCPLOT'
-     &  ,MXVERS        = 12         ! max number of versions to read
+     &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
@@ -2001,6 +2001,7 @@ c
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! SN versions to read
+     &  ,VERSION_PHOTOMETRY_WILDCARD*(MXCHAR_FILENAME)  ! get list from glob
      &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! TEXT -> FITS
      &  ,VERSION_REFORMAT_TEXT*(MXCHAR_VERSION)   ! FITS -> TEXT
 
@@ -2126,8 +2127,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
       CHARACTER SIMVAR_CUTWIN_LIST(MXCUT_PRIVATE)*40      
 
       COMMON   / SNLCINP /  
-     &      NLINE_ARGS, USE_LINE_ARGS, nmlfile  ! xxx LINE_ARGS, 
-     &    , VERSION_PHOTOMETRY
+     &      NLINE_ARGS, USE_LINE_ARGS, nmlfile 
+     &    , VERSION_PHOTOMETRY, VERSION_PHOTOMETRY_WILDCARD
      &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
@@ -2178,7 +2179,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
 
       NAMELIST / SNLCINP / 
-     &      VERSION_PHOTOMETRY
+     &      VERSION_PHOTOMETRY, VERSION_PHOTOMETRY_WILDCARD
      &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
@@ -2225,7 +2226,8 @@ c
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
-     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT, cutwin_cid
+     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT
+     &   ,cutwin_cid, cutwin_sntype
      &   ,cutwin_redshift, cutwin_redshift_err
      &   ,cutwin_ra, cutwin_dec
      &   ,cutwin_hostsep,   cutwin_Nepoch
@@ -3049,12 +3051,15 @@ c read optional tags
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
+c check reformat options
+      CALL INIT_REFORMAT(1)
+
 c -----------------------------------------------
 c prepare reading data; determine FITS or TEXT; read global info ...
       CALL INIT_READ_DATA()
 
 c check reformat options
-      CALL INIT_REFORMAT()
+      CALL INIT_REFORMAT(2)
 
 c continue with initialization that may depend on SURVEY and FILTERS.
 
@@ -5707,6 +5712,7 @@ C -------------- BEGIN -----------
 c ----------------------------------------
 c set namelist defaults
 
+      VERSION_PHOTOMETRY_WILDCARD = 'NULL'
       DO i = 1, MXVERS
         VERSION_PHOTOMETRY(i) = 'NULL'
       ENDDO
@@ -6159,17 +6165,7 @@ c then use survey name by default
 c ------------------------
 c count number of photometry versions
 
-      i = 1
-      DO WHILE ( VERSION_PHOTOMETRY(i) .NE. 'NULL' )           
-          N_VERSION = i
-          if ( N_VERSION .GT. MXVERS ) then
-            print*,'  ERROR: N_VERSION = ', N_VERSION,
-     &                   ' exceeds array bound.'
-            print*,'  ***** ABORT **** '
-          CALL EXIT(EXIT_ERRCODE)
-          endif
-          i = i + 1
-      END DO
+      CALL PREP_VERSION_PHOTOMETRY()
 
 c Feb 27 2018: check ZP cut
       NZPCUT = 0
@@ -6289,6 +6285,81 @@ C #################################################
       RETURN
       END  ! end of RDSNNML
 
+C =======================================
++DECK,PREP_VERSION_PHOT.
+      SUBROUTINE PREP_VERSION_PHOTOMETRY()
+
+c Created Mar 2022 by R.Kessler
+c Check wildcard option to get photometry folders using glob.
+c Abort if too many versions.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
+      INTEGER i, index_C, LENV, LENF, JSLASH, IGNORE, NVERS, langFlag
+      CHARACTER 
+     &   FNAM*24
+     &  ,cSTRING*(MXCHAR_FILENAME), cFILE*(MXCHAR_FILENAME)
+
+      INTEGER  IGNOREFILE, STORE_GLOB_FILE_LIST
+      EXTERNAL IGNOREFILE, STORE_GLOB_FILE_LIST
+      EXTERNAL GET_GLOB_FILE, RESET_GLOB_FILE_LIST
+
+c ---------- BEGIN -------------
+
+      FNAM = 'PREP_VERSION_PHOTOMETRY'
+
+c check for wild card; e.g., 
+c  VERSION_PHOTOMETRY_WILDCARD = '$SNDATA_ROOT/SIM/ELASTICC_*'
+
+      CALL ENVreplace(VERSION_PHOTOMETRY_WILDCARD)
+      LENV    = INDEX(VERSION_PHOTOMETRY_WILDCARD,' ') - 1
+      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
+      IGNORE  = IGNOREFILE(cSTRING,LENV)
+      IF ( IGNORE == 0 ) THEN
+         print*,' '
+         print*,' Use glob to find data folders for'
+	 print*,'     ', VERSION_PHOTOMETRY_WILDCARD(1:LENV)
+	 call flush(6)
+
+         NVERS = STORE_GLOB_FILE_LIST(cSTRING,LENV)
+         langFlag = 1 ! fortran
+         DO i = 1, NVERS
+            index_C = i - 1  ! C index
+            CALL GET_GLOB_FILE(langFlag, index_C, cFILE, LENF)
+
+c  strip off base name after last slash
+            JSLASH = INDEX(cFILE,'/', BACK=.TRUE.)  	    
+	    LENF   = INDEX(cFILE,' ') - 1
+	    VERSION_PHOTOMETRY(i) = cFILE(JSLASH+1:LENF)
+
+            LENV = INDEX(VERSION_PHOTOMETRY(i),' ') - 1
+	    print*,' Found ', VERSION_PHOTOMETRY(i)(1:LENV)
+         ENDDO
+         call flush(6)
+         CALL RESET_GLOB_FILE_LIST()
+c           STOP ! xxx
+      ENDIF
+
+c - - - - -
+c Count number of versions 
+
+      i = 1
+      DO WHILE ( VERSION_PHOTOMETRY(i) .NE. 'NULL' )           
+        N_VERSION = i
+        if ( N_VERSION .GT. MXVERS ) then
+	  write(C1ERR,61) N_VERSION, MXVERS
+61        format('N_VERSION=',I3,' exceeds MXVERS=',I3)
+	  C2ERR = 'Reduce number of data versions or increase MXVERS'
+          CALL  MADABORT(FNAM, C1ERR, C2ERR )
+        endif
+        i = i + 1
+      END DO
+
+      RETURN
+      END   ! end PREP_VERSION_PHOTOMETRY
 
 C ======================================
 +DECK,CHKBOUND.
@@ -7227,6 +7298,9 @@ c ------------- BEGIN -------------
             CALL PARSE_COMMASEP_LIST('VERSION_PHOTOMETRY',
      &                                 ARGLIST(1))
 
+         else if(MATCH_NMLKEY('VERSION_PHOTOMETRY_WILDCARD',
+     &                1, iArg, ARGLIST) ) then
+            VERSION_PHOTOMETRY_WILDCARD = ARGLIST(1)(1:MXCHAR_VERSION)
          else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
      &                1, iArg, ARGLIST) ) then
             VERSION_REFORMAT_FITS = ARGLIST(1)(1:MXCHAR_VERSION)
@@ -9556,10 +9630,13 @@ C ------------- BEGIN --------------
 
 C =============================
 +DECK,INIT_REFORMAT.
-      SUBROUTINE INIT_REFORMAT()
+      SUBROUTINE INIT_REFORMAT(OPT)
 c
 c Create Feb 7 2021;
 c Initialize option to reformat data
+c Input OPT=1 -> set bits
+c Input OPT=2 -> call INIT_REFORMAT_[FITS,TEXT]
+c
 c OPT_REFORMAT bits:
 c  lsb   mask  comment
 c   0     1    write fits; 
@@ -9572,10 +9649,13 @@ c   6    64    exclude private variables
 c   7   128    include spectra
 c   8   256    exclude SIM-truth so that output looks like real data
 c   9   512     SPARE
-c  
+c
+c -------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
+
+      INTEGER OPT
 
       INTEGER LEN_VER
       LOGICAL LEXIST
@@ -9588,6 +9668,7 @@ C ------------- BEGIN -------------
       FNAM = 'INIT_REFORMAT'
       REFORMAT       = .FALSE.  ! any reformat option
 
+      IF ( OPT == 2 ) GOTO 500
 c - - - - - - - - - 
 c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
 
@@ -9660,23 +9741,11 @@ c open aux files and leave them open
          NEPOCH_IGNORE_WRFITS = 0
       ENDIF
 
-      IF ( OPT_REFORMAT_FITS  >  0 ) THEN
-         CALL INIT_REFORMAT_FITS()
-         REFORMAT  = .TRUE.
-      ENDIF
-
-      IF ( OPT_REFORMAT_TEXT  > 0 ) THEN 
-         CALL INIT_REFORMAT_TEXT()
-         REFORMAT  = .TRUE.
-      ENDIF        
-
-      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-         CALL INIT_REFORMAT_SALT2
-         REFORMAT = .TRUE.
-      ENDIF
-
+      REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0 
+     &      .or. OPT_REFORMAT_SALT2>0
 c - - - - -
 c print info 
+    
       IF ( REFORMAT ) THEN
          print*,' '
          print*,'   INIT_REFORMAT options: '
@@ -9690,10 +9759,27 @@ c print info
       ENDIF
 
       RETURN
+c - - - - - - - - - -
+
+500   CONTINUE
+
+      IF ( OPT_REFORMAT_FITS  >  0 ) THEN
+         CALL INIT_REFORMAT_FITS()
+      ENDIF
+
+      IF ( OPT_REFORMAT_TEXT  > 0 ) THEN 
+         CALL INIT_REFORMAT_TEXT()
+      ENDIF        
+
+      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
+         CALL INIT_REFORMAT_SALT2
+      ENDIF
+
+      RETURN
       END     ! end INIT_REFORMAT
 
 C ============================================
-+DECK,INIT_WRFITS.
++DECK,INIT_REFORMAT_FITS.
       SUBROUTINE INIT_REFORMAT_FITS
 
 c Prepare for translating text file format into FITS format.
@@ -9759,7 +9845,7 @@ c --- write name of HEAD file to already-opend LIST file
       END  ! end  INIT_REFORMAT_FITS
 
 C ===============================
-+DECK,INIT_WRTEXT.
++DECK,INIT_REFORMAT_TEXT.
       SUBROUTINE INIT_REFORMAT_TEXT()
       IMPLICIT NONE
 cc      print*,'  INI_WRTEXT: placeholder -> do nothing ... yet'
@@ -9767,7 +9853,7 @@ cc      print*,'  INI_WRTEXT: placeholder -> do nothing ... yet'
       END
 
 C ====================================
-+DECK,INI_WRSALT2.
++DECK,INIT_REFORMAT_SALT2.
       SUBROUTINE INIT_REFORMAT_SALT2
 c -----------------------------------------------
 c Nov 2011 R.Kessler
@@ -12036,7 +12122,7 @@ c local args
 
 C ------------- BEGIN -----------
       iwd_C = iwd-1
-      CALL GET_PARSE_WORD(ONE, iwd_C,WORD_C,LEN)
+      CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C, LEN)
       LEN  = INDEX(WORD_C, ' ' ) - 1
       WORD = WORD_C(1:LEN)
       RETURN

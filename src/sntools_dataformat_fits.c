@@ -60,6 +60,8 @@
   Mar 07 2022: 
     + write/read SIM_MODEL_INDEX in global header.
     + enable re-writing sim events without SIM truth (CODE_IVERSION->21)
+    + always write HOSTGAL2 info, even for Galactics, so that data
+       files have same keys.
 
 **************************************************/
 
@@ -118,7 +120,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
   SNFITSIO_SIMFLAG_SNRMON       = false ;
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
-  SNFITSIO_SIMFLAG_NBR_LIST     = false ; 
+  SNFITSIO_HOSTGAL2_FLAG        = true  ; // include HOSTGAL2 info
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
@@ -357,13 +359,7 @@ void wr_snfitsio_init_head(void) {
   }
 
 
-  // Feb 7 2019: store 2nd HOSTGAL for 
-  //  1) data or 2) sim with NBR_LIST in HOSTLIB
-
-  SNFITSIO_SIMFLAG_NBR_LIST = 
-    ( !SNFITSIO_SIMFLAG_SNANA || HOSTLIB.IVAR_NBR_LIST > 0 ) ;
-
-  if ( SNFITSIO_SIMFLAG_NBR_LIST ) {
+  if ( SNFITSIO_HOSTGAL2_FLAG ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
     wr_snfitsio_addCol( "1I", "HOSTGAL2_FLAG" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ" ,     itype );
@@ -1609,7 +1605,7 @@ void wr_snfitsio_update_head(void) {
 
   // ---------- HOST --------------
   int NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
-  if ( SNFITSIO_SIMFLAG_NBR_LIST ) { NHOSTGAL = MXHOSTGAL; }
+  if ( SNFITSIO_HOSTGAL2_FLAG ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH", PREFIX);

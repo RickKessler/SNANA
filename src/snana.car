@@ -13490,6 +13490,7 @@ c Returns True if ITYPE passes cuts; returns false otherwise.
 c Also increments global NACCEPT_TYPE if ITYPE is valid.
 c
 c Jul 12 2021: abort if ITYPE < 0
+c Mar 08 2022: apply CUTWIN_SNTYPE
 c
 c -------------------------
 
@@ -13507,6 +13508,7 @@ c local args
       CHARACTER FNAM*12
       INTEGER i
       LOGICAL LTYPE
+      REAL RTYPE
 
 C -------------- BEGIN --------------
 
@@ -13527,6 +13529,10 @@ C -------------- BEGIN --------------
            RETURN
         endif
       enddo
+
+      RTYPE = float(ITYPE)
+      IF ( RTYPE < CUTWIN_SNTYPE(1) ) RETURN
+      IF ( RTYPE > CUTWIN_SNTYPE(2) ) RETURN
 
       IF ( NSNTYPE_LIST .LE. 0 ) THEN  
          ! don't check  anything

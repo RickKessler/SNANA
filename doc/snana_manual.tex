@@ -13252,15 +13252,24 @@ sample that has no truth information:
 \begin{verbatim}    
 snana.exe NOFILE \
   VERSION_PHOTOMETRY     CHALLENGE_SNIa  \
-  VERSION_REFORMAT_FITS  CHALLENGE_SNIa_TRAIN \
+  VERSION_REFORMAT_FITS  CHALLENGE_SNIa_TRAIN \ # output data folder
   OPT_REFORMAT_FITS      256 \
   CUTWIN_SNTYPE 1 99
+
+or the wildcard feature:
+
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY_WILDCARD  'CHALLENGE_*'  \
+  VERSION_REFORMAT_FITS  CHALLENGE_TRAIN \   # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
 \end{verbatim}     
 %
 The last input {\tt CUTWIN\_SNTYPE} selects all 
 spectroscopically-confirmed tags, and other {\tt CUTWIN} 
-options can be used as well. The output data folder
-{\tt CHALLENGE\_SNIa\_TRAIN} contains no sim-truth which
+options can be used as well. 
+The output data folder contains no sim-truth which
 is useful for i) data challenges, and ii) test analysis codes
 to ensure they don't cheat using sim-truth.
 

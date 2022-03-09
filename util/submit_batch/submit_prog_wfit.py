@@ -253,7 +253,7 @@ class wFit(Program):
                 text_wildcard = f"wildcards {wildcard1} and {wildcard2}"
 
                 if suffixes1 == suffixes2:
-                    print(f"Found matching number/names of dirs for {tet_wildcard}")
+                    print(f"Found matching number/names of dirs for {text_wildcard}")
                 else:
                     msgerr = []
                     len1 = len(suffixes1) ; len2=len(suffixes2)

@@ -1297,10 +1297,10 @@ class wFit(Program):
                           f"with COVOPT={covopt_label}")
                     sys.stdout.flush()
 
-                    omm_avg, omm_avg_std = self.compute_average(omm_list-omm_list2)
-                    w_avg, w_avg_std     = self.compute_average(w_list-w_list2)
+                    omm_avg, omm_avg_std = self.compute_average(np.array(omm_list)-np.array(omm_list2))
+                    w_avg, w_avg_std     = self.compute_average(np.array(w_list)-np.array(w_list2))
                     if use_wa:
-                        wa_avg, wa_avg_std = self.compute_average(wa_list-wa_list2)
+                        wa_avg, wa_avg_std = self.compute_average(np.array(wa_list)-np.array(wa_list2))
                     else:
                         wa_avg, wa_avg_std = 0.0, 0.0
 

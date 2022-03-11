@@ -20910,5 +20910,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + write/read SIM_MODEL_INDEX to global header so that rewriting
        FITS -> FITS can work.
      + implement MSKOPT&256 -> suppress sim-truth from output.
-    
+   
+   wfit.c:
+     + fix bug causing -bao_sim to be the same as -bao.
+
 END: 

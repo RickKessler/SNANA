@@ -4467,7 +4467,7 @@ void *MNCHI2FUN(void *thread) {
 		 &muBias,        // (O) interp bias on mu
 		 &muBiasErr,     // (O) stat-error on above
 		 &muCOVscale,   // (O) scale bias on muCOV  
-		 &muCOVadd );  // (O) add bias on muCOV     
+		 &muCOVadd );   // (O) add bias on muCOV     
     }
     else if ( NDIM_BIASCOR == 1 ) {
       muBias  = muBias_zinterp ; 
@@ -11080,7 +11080,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	      IDSAMPLE);
       OPTMASK = 1;  // 1 --> do NOT abort if sigInt < 0
 
-
       if ( i1d == INPUTS.debug_mucovscale ) {
 	OPTMASK += 64;
 	printf(" xxx %s: ========================================= \n", fnam);
@@ -13943,7 +13942,7 @@ void get_muBias(char *NAME,
   double muCOVadd_local = 0.0 ;
 
   bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
 
   double VAL, ERR, SQERR ;
   double WGTabg, WGTpar, WGTpar_SUM[NLCPAR+1];

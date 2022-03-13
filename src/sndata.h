@@ -152,8 +152,9 @@ struct SNDATA {
   // name of SURVEY and SUBSURVEY
   char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
   char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  char SUBSURVEY_LIST[MXPATHLEN] ; // optional list in global simlib header
   int  SUBSURVEY_FLAG ;
-
+  
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;

@@ -1346,7 +1346,7 @@ struct SIMLIB_GLOBAL_HEADER {
 
   // stuff read from global SIMLIB header
   char SURVEY_NAME[60];
-  char SUBSURVEY_LIST[40];
+  char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
   char FIELD[60];            // Nov 2021
   char TELESCOPE[60];

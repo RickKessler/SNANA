@@ -7245,6 +7245,7 @@ int  init_SNPATH(void) {
   sprintf(PATH_SNDATA_SIM,        "%s/SIM",        PATH_SNDATA_ROOT);
   SNDATA.SURVEY_NAME[0]=0;
   SNDATA.SUBSURVEY_NAME[0] = 0 ;
+  SNDATA.SUBSURVEY_LIST[0] = 0 ;
 
   PATH_USER_INPUT[0] = 0 ; 
 

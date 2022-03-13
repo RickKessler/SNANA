@@ -1068,12 +1068,8 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TSTRING, "SURVEY",
                   SNDATA.SURVEY_NAME, "Survey", &istat );
 
-  // check for sub-survey (only for data)
-  SNDATA.SUBSURVEY_FLAG = 0;
-  if ( strlen(SNDATA.SUBSURVEY_NAME) > 0 ) {
-    if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
-      { SNDATA.SUBSURVEY_FLAG = 1 ; }
-  }
+  // check for sub-survey 
+  wr_snfitsio_SET_SUBSURVEY_FLAG();
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
 		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
@@ -1322,6 +1318,41 @@ void wr_snfitsio_create(int itype ) {
 
 } // end of wr_snfitsio_create
 
+
+// ====================================
+void wr_snfitsio_SET_SUBSURVEY_FLAG(void) {
+
+  // Created Mar 12 2022
+  // set SNDATA.SUBSURVEY_FLAG (data or sim)
+
+  char fnam[] = "wr_snfitsio_SET_SUBSURVEY_FLAG";
+
+  // ------------- BEGIN -------------
+
+  SNDATA.SUBSURVEY_FLAG = 0;
+
+  // check for list of sub-surveys read from global SIMLIB header
+  if ( strlen(SNDATA.SUBSURVEY_LIST) > 0 ) 
+    { SNDATA.SUBSURVEY_FLAG = 1 ; }
+
+  // for data, check of SUBSURVEY_NAME is different than SURVEY.
+  if ( strlen(SNDATA.SUBSURVEY_NAME) > 0 ) {
+    if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
+      { SNDATA.SUBSURVEY_FLAG = 1 ; }
+  }
+
+  int LDMP=1;
+  if ( LDMP ) {
+    printf("\n xxx %s DUMP\n", fnam );
+    printf(" xxx SUBSURVEY_NAME = '%s' \n", SNDATA.SUBSURVEY_NAME);
+    printf(" xxx SUBSURVEY_LIST = '%s' \n", SNDATA.SUBSURVEY_LIST);
+    printf(" xxx SUBSURVEY_FLAG = %d \n", SNDATA.SUBSURVEY_FLAG);
+    fflush(stdout);
+  }
+
+  return ; 
+
+} // end wr_snfitsio_SET_SUBSURVEY_FLAG
 
 // =================================================
 void wr_snfitsio_global_private(fitsfile *fp) {

@@ -94,7 +94,6 @@ bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
 bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 
-// xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
 typedef struct {
@@ -220,6 +219,7 @@ int  is_fits(char *file);
 void wr_snfitsio_create(int itype);
 void wr_snfitsio_global_private(fitsfile *fp);
 void wr_snfitsio_global_zphot_q(fitsfile *fp);
+void wr_snfitsio_SET_SUBSURVEY_FLAG(void);
 
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);

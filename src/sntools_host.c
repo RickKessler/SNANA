@@ -368,6 +368,7 @@ void initvar_HOSTLIB(void) {
 
 } // end of initvar_HOSTLIB
 
+// ===================================================
 void malloc_HOSTGAL_PROPERTY(void) {
 
   // Created Feb 2022 by M.Vincenzi and R.Kessler
@@ -390,7 +391,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
     SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE = 
       (HOSTGAL_PROPERTY_VALUE_DEF*) malloc(MEM);
 
-    for (i=0; i<N_PROP; i++) {
+    for (i=0; i < N_PROP; i++) {
       SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE[i].VAL_TRUE =
 	  HOSTLIB_PROPERTY_UNDEFINED;
       SNHOSTGAL_DDLR_SORT[nbr].HOSTGAL_PROPERTY_VALUE[i].VAL_OBS =
@@ -449,7 +450,7 @@ void malloc_HOSTGAL_PROPERTY(void) {
  
 } // end of malloc_HOSTGAL_PROPERTY
 
-
+// ==================================================
 int getindex_HOSTGAL_PROPERTY(char *PROPERTY){
   // created Febr 2022 by M. Vincenzi 
   // for input hostgal property return index to HOSTGAL_PROPERTY_IVAR
@@ -6408,7 +6409,8 @@ void GEN_SNHOST_LOGMASS(void) {
 void GEN_SNHOST_PROPERTY(int ivar_property) {
 
   // Created on Feb 2022 by M. Vincenzi and R. Kessler
-  // For input ivar property, [property]_TRUE and [property]_ERR are used to generate [property]_OBS prop if [property]_OBS is not already in the HOSTLIB
+  // For input ivar property, [property]_TRUE and [property]_ERR are used to generate 
+  // [property]_OBS prop if [property]_OBS is not already in the HOSTLIB
   // If [property]_OBS is in the Hostlib, do nothing
   // [property] can be LOGMASS, LOGSFR, LOGsSFR, COLOR
 
@@ -6416,14 +6418,12 @@ void GEN_SNHOST_PROPERTY(int ivar_property) {
   int  IVAR_TRUE  = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_TRUE ;
   int  IVAR_OBS   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_OBS;
   int  IVAR_ERR   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_ERR;
-  // xxxx double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR; //need to generalize, for now same SCALE applied to all gal prop
   double SCALE = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].SCALE_ERR;
   int i;
   double VAL_TRUE, VAL_OBS, VAL_ERR, GauRan ;
   double rmin=-3.0, rmax=3.0 ;
   char fnam[] = "GEN_SNHOST_PROPERTY" ;
-
-  // ---------- BEGIN -----------                                                                                                                                             
+  // ---------- BEGIN -----------  
 
   if ( IVAR_TRUE < 0 ) { return; }
 

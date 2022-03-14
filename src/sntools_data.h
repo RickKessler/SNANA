@@ -34,7 +34,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key,
                       int NVAL, char *stringVal, double *parVal);
 void copy_SNDATA_OBS(int copyFlag, char *key,
                      int NVAL,char *stringVal, double *parVal);
-int select_MJD_SNDATA(double *CUTWIN_MJD);
+int  select_MJD_SNDATA(double *CUTWIN_MJD);
+void host_property_list_sndata(char *HOST_PROPERTY_LIST);
 
 void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
 
@@ -60,6 +61,7 @@ void copy_sndata_head__(int *copyFlag, char *key,
 void copy_sndata_obs__(int *copyFlag, char *key,
                        int *NVAL,char *stringVal,double *parVal);
 int  select_mjd_sndata__(double *MJD_WINDOW);
+void host_property_list_sndata__(char *HOST_PROPERTY_LIST);
 
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 

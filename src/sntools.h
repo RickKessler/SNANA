@@ -135,6 +135,9 @@
 #define MAG_UNDEFINED 666.0   // model mag wave-range doesn't cover filter
 #define MAGERR_UNDEFINED 9.0
 #define FLUX_UNDEFINED  -9.0  // undefined model flux
+#define HOSTLIB_SNPAR_UNDEFINED    -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED     -9999
+#define HOSTLIB_PROPERTY_UNDEFINED -9999.0    // Feb 10 2022
 
 #define MODEL_STRETCH  1 // single-stretch (use rise/fall fudges for 2-stretch)
 #define MODEL_MLCS2k2  3  // MLCS2k2 (Riess, Suarab, Hubert)

@@ -4365,7 +4365,7 @@ C ============================================
 +DECK,RDHEAD_HOSTGAL.
       SUBROUTINE RDHEAD_HOSTGAL(OPT,igal)
 
-C created Feb 9 2021 [refactored from PARSE_HOSTGAL]
+C Created Feb 9 2021 [refactored from PARSE_HOSTGAL]
 c Transfer HOSTGAL info from SNDATA struct (sndata.h)
 c to common block variable.s
 c
@@ -4382,6 +4382,7 @@ c May 21 2021: read HOSTGAL_FLAG
 +CDE,FILTCOM.
       INTEGER   LENPRE, ifilt, ifilt_obs
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60, BAND*2
+      CHARACTER HOST_PROPERTY_LIST*(MXCHAR_FILENAME)
       REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 C -------------- BEGIN ----------
@@ -4473,8 +4474,8 @@ c - - -
       SNHOST_DDLR(igal) = SNGL(DARRAY(1))
       IF ( SNHOST_DDLR(igal) > 0.0 )  EXIST_SNHOST_DDLR = .TRUE.
 
-
 c - - - - - - - - - - - -  -
+c ??? maybe ?? CALL HOST_PROPERTY_LIST_SNDATA(HOST_PROPERTY_LIST,MXCHAR_FILENAME)
 
       KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)

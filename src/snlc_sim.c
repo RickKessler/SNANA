@@ -21575,10 +21575,18 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Jan 17 2022: return on LCLIB only if z=0; otherwise process everything
   //              so that AGN has all host properties loaded.
   //
+  // Mar 14 2022; 
+  //  + use SNDATA.PTR_HOSTGAL_PROPERTY_XXX pointers.
+  //  + if no DDLR matches, set OBS and ERR values for true properties.
+  //
+
 
   int    N_Q = HOSTLIB.NZPHOT_Q;
+  int    IMATCH_TRUE = SNHOSTGAL.IMATCH_TRUE;
+
   int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j, PCT ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
+  float  VAL_TRUE ;
   char  *name ;
   char fnam[] = "hostgal_to_SNDATA" ;
 
@@ -21627,7 +21635,29 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     if ( OVP ) 
       { SNDATA.HOSTGAL_USEMASK |= 4; } // flat to write SB Dec 2021
 
+    // Mar 14 2022; setup pointers to HOSTGAL properties ... to simplify loading later.
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGMASS_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGMASS_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGMASS_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGSFR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGSFR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGSFR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGSFR_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGsSFR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGsSFR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGsSFR_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_COLOR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_COLOR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_COLOR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_COLOR_ERR ;
+
     return ;
+
   }  // end IFLAG==1
 
 
@@ -21640,6 +21670,20 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
     SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
+
+    // if there are no DDLR matches, then for each true property set the
+    // associated OBS and ERR to -99 so that analysis codes aren't fooled
+    // into ignoring the property.
+    if ( m == 0 && IMATCH_TRUE >= 0 ) { // .xyz
+      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
+	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {
+	  SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = -99.0;
+	  SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m] = -99.0;
+	}
+      }
+    }   
+
     for(m=0; m < NMATCH; m++ ) {
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
       SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
@@ -21659,14 +21703,18 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
       SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
 
+      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {   //.xyz
+	SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j][m] = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m]  = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
+	SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m]  = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+      }
 
-      /* xxx Mark delete Febr 2022 after implementing more generic Host properties
-      SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
-      SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
-      SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
-      xxx */
 
 
+      /* xxx mark delete Mar 14 2022 xxxxxxx
       j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
@@ -21687,6 +21735,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_COLOR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
       SNDATA.HOSTGAL_COLOR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
       SNDATA.HOSTGAL_COLOR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+      xxxxxxxxx end mark xxxxxxxxxx */
+
+
 
       // Added for LSST but may be of more general use; Alex Gagliano 09/2021
       SNDATA.HOSTGAL_OBJID2[m]       = SNHOSTGAL_DDLR_SORT[m].GALID2;
@@ -24699,8 +24750,6 @@ void genmodel(
 
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
- 
-    ptr_generr[0] = 4.44; // xxx REMOVE
 
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options

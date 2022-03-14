@@ -19,7 +19,7 @@
 #include  "sntools_cosmology.h"
 
 //#include  "sntools_dataformat_text.h"
-//#include  "sntools_host.h" 
+#include  "sntools_host.h" 
 //#include  "sntools_trigger.h" 
 
 
@@ -717,6 +717,40 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
 
 int select_mjd_sndata__(double *MJD_WINDOW) 
   {  return select_MJD_SNDATA(MJD_WINDOW); }
+
+// = = = = = = = = = = = = = = = = = = = = = = = =
+void host_property_list_sndata(char *HOST_PROPERTY_LIST) {
+  // Created Mar 14 2022
+  // Return list of stored host property strings based on
+  // true values, e.g,
+  //   'LOGMASS,LOGsSFR'
+  // Original intent is to tell analysis codes which properties
+  // to store in output tables.
+
+  double NOVAR = HOSTLIB_PROPERTY_UNDEFINED + 1.0;
+  char fnam[] = "host_property_list_sndata";
+  char TMPLIST[MXPATHLEN];
+  HOST_PROPERTY_LIST[0] = TMPLIST[0] = 0 ;
+
+  if ( SNDATA.HOSTGAL_LOGMASS_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGMASS); }
+
+  if ( SNDATA.HOSTGAL_LOGSFR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGSFR); }
+
+  if ( SNDATA.HOSTGAL_LOGsSFR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGsSFR); }
+
+  if ( SNDATA.HOSTGAL_COLOR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_COLOR); }
+
+  sprintf(HOST_PROPERTY_LIST,"%s", TMPLIST);
+
+  return;
+} // end host_property_list_sndata
+
+void host_property_list_sndata__(char *HOST_PROPERTY_LIST) 
+{ host_property_list_sndata(HOST_PROPERTY_LIST); }
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
 void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL, 

@@ -1787,7 +1787,7 @@ struct INPUTS {
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
-
+  int restore_mucovadd_bug ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
@@ -4498,9 +4498,13 @@ void *MNCHI2FUN(void *thread) {
     // zero out muBiasErr after storing it, since adding this
     // would contradict the muCOVscale correction.
     muBiasErr = 0.0 ; 
-                 
-    APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
 
+    APPLY_COVADD = ( DO_COVADD && muCOVadd > 0.0  );
+                 
+    bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&2)>0;
+    if (restore_mucovadd_bug){
+      APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );}
+    
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
@@ -5633,6 +5637,7 @@ void set_defaults(void) {
   INPUTS.nbinc_mucovscale  = 3 ;
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_mucovscale_bug = 0 ;
+  INPUTS.restore_mucovadd_bug = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
   INPUTS.cidlist_debug_biascor[0] = 0 ;
@@ -7690,10 +7695,12 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
  
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
-
     int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
-    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 ) 
+    if ( SIM_NONIA_INDEX == 0 && NBINb == 1 )
       { INFO_BIASCOR.DUST_FLAG=true; }
+
+    bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&1)>0;
+    if (restore_mucovadd_bug){ INFO_BIASCOR.DUST_FLAG=false; }
 
     // Mainly for BS21 model:
     // Prepare option to bias-correct MU instead of correcting mB,x1,c 
@@ -16531,7 +16538,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"restore_mucovscale_bug=")) 
     { sscanf(&item[23],"%d", &INPUTS.restore_mucovscale_bug); return(1); }
-
+  if ( uniqueOverlap(item,"restore_mucovadd_bug="))
+    { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
     return(1); 
@@ -18224,8 +18232,15 @@ void prep_debug_flag(void) {
     printf("\n RESTORE mucovscale bug \n");
     fflush(stdout);
   }
-
-
+  if ( INPUTS.restore_mucovadd_bug ) {
+    printf("\n RESTORE mucovadd bug (set to %d)\n", INPUTS.restore_mucovadd_bug);
+    fflush(stdout);
+  }
+  
+  if ( INPUTS.debug_flag!=0) {
+    printf("\n debug flag set to %d\n", INPUTS.debug_flag);
+    fflush(stdout);
+  }
   fflush(FP_STDOUT);
 
 }  // end prep_debug_flag

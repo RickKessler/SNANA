@@ -21676,6 +21676,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     // than -9999 for "not exist" -> so that analysis codes aren't fooled
     // into ignoring the property.
     if ( NMATCH == 0 && IMATCH_TRUE >= 0 ) { 
+      m = 0 ;
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
 	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
 	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {

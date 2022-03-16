@@ -21672,9 +21672,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
 
     // if there are no DDLR matches, then for each true property set the
-    // associated OBS and ERR to -99 so that analysis codes aren't fooled
+    // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather
+    // than -9999 for "not exist" -> so that analysis codes aren't fooled
     // into ignoring the property.
-    if ( m == 0 && IMATCH_TRUE >= 0 ) { // .xyz
+    if ( NMATCH == 0 && IMATCH_TRUE >= 0 ) { 
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
 	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
 	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {
@@ -21704,7 +21705,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
       SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
 
-      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {   //.xyz
+      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {
 	SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j][m] = 
 	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
 	SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m]  = 

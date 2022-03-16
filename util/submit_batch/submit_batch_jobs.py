@@ -181,6 +181,9 @@ def which_program_class(config):
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
 
+    elif "JACOBIAN_MATRIX" in CONFIG :
+        program_class = train_SALT2 # Patrick Armstrong - 17 Mar 22
+
     elif "SALT3_CONFIG_FILE" in CONFIG :
         program_class = train_SALT3  # saltshaker from D'Arcy & David
 

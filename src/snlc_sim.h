@@ -632,11 +632,15 @@ struct INPUTS {
 
   char  STRETCH_TEMPLATE_FILE[200];
 
+  /* xxxxx mark delete Mar 17 2022 xxxxxxxxxx
+     [use struct in sntools_genExpHalfGauss.h]
   double GENRANGE_AV[2];      // host extinction range
   double GENEXPTAU_AV ;       // define exponential distribution of AV
   double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
   double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
   double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
+  xxxxxxxxxxx end mark xxxxxxx */
+
   int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
   bool   DOGEN_SHAPE, DOGEN_COLOR ; // generate with function or GENPDF

@@ -997,6 +997,8 @@ with append_varname_missing,
     + set default INPUTS.cmin/cmax/x1min/x1max to nominal SALT2 cuts,
       and add input nbinc_mucovscale with default=3 bins.
       
+ Mar 17 2022: few fixes for sigint_fix 
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -2579,6 +2581,8 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // check for user-constraint on nmax (July 2017) AFTER prepare_biasCor 
   applyCut_nmax();
 
+  //  recalc_dataCov(); // xxx REMOVE ??
+
   // check option to turn SALT2mu into a subprocess
 #ifdef USE_SUBPROCESS
   SUBPROCESS_INIT();
@@ -3992,7 +3996,7 @@ int prepNextFit(void) {
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
   double COVINT_PARAM_MIN = 0.0 ;
-  int STOP_TOL, STOP_MXFIT, STOP_COV0, retCode, USE_CCPRIOR ;
+  int STOP_TOL, STOP_MXFIT, STOP_COV0, STOP_COVFIX, retCode, USE_CCPRIOR ;
   int NFIT_ITER = FITRESULT.NFIT_ITER ;
   char msg[100];
   char fnam[] = "prepNextFit" ;
@@ -4019,6 +4023,8 @@ int prepNextFit(void) {
   STOP_COV0   = ( NFIT_ITER > 0 && 
 		  FITINP.COVINT_PARAM_FIX <= COVINT_PARAM_MIN ) ;
   
+  STOP_COVFIX = ( strlen(INPUTS.sigint_fix) > 0);
+
   // for CC prior, require at least 2 iterations
   if ( USE_CCPRIOR > 0 && NFIT_ITER == 0 ) { STOP_TOL = 0 ; }
 
@@ -4035,7 +4041,7 @@ int prepNextFit(void) {
   */
 
   
-  if ( STOP_TOL || STOP_MXFIT || STOP_COV0 ) {
+  if ( STOP_TOL || STOP_MXFIT || STOP_COV0 || STOP_COVFIX ) {
 
     retCode = FITFLAG_DONE ; 
     fprintf(FP_STDOUT, "\t Final %s value = %0.3f  for chi2(Ia)/dof=%.4f\n",
@@ -4052,16 +4058,6 @@ int prepNextFit(void) {
 
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
-
-    /* xxxxx mark delete Feb 28 2022 RK xxxxxxx
-    if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) {
-      FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ;
-    } 
-    else {
-      recalc_dataCov();
-    }
-    xxxxxxxxx end mark xxxxxx*/
-
     if ( FITINP.COVINT_PARAM_FIX < COVINT_PARAM_MIN ) 
       {  FITINP.COVINT_PARAM_FIX = COVINT_PARAM_MIN ; } 
     recalc_dataCov();
@@ -16326,7 +16322,7 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"sigint_fix="))  { 
     s = INPUTS.sigint_fix ;
     sscanf(&item[11],"%s", INPUTS.sigint_fix);  remove_quote(s); 
-    INPUTS.fitflag_sigmb=0;
+    // xxx mark delete Mar 17 2022    INPUTS.fitflag_sigmb=0;
     return(1); 
   }
 
@@ -17088,7 +17084,7 @@ void parse_sigint_fix(char *item) {
   //   item  = '0.106,0.988,0.904 
   //      --> 3 sigint_fix values for 3 IDSAMPLEs
   //
-
+  // Mar 17 2022; sigmB -> sigint_fix (not 0)
 
   int  NSAMPLE = NSAMPLE_BIASCOR ;
   int  idsample, Nsigint, i ;
@@ -17107,6 +17103,7 @@ void parse_sigint_fix(char *item) {
     sscanf(item, "%le", &sigint) ;
     for(idsample=0; idsample<NSAMPLE; idsample++ ) 
       { SNDATA_INFO.sigint_fix[idsample] = sigint; }
+    INPUTS.sigmB = sigint; 
   }
   else {
     // strip sigint for each IDSAMPLE
@@ -17124,14 +17121,14 @@ void parse_sigint_fix(char *item) {
       sscanf(strSIG[idsample], "%le", &sigint) ;
       SNDATA_INFO.sigint_fix[idsample] = sigint; 
     }
-
+    INPUTS.sigmB = SNDATA_INFO.sigint_fix[0]; 
     
   }
 
 
   // - - - - -
   // turn off other sigint inputs
-  INPUTS.sigmB = 0.0 ;  
+  // xxx mark delete  INPUTS.sigmB = 0.0 ;  
   
   // ----------
   // print sigint_fix for each IDSAMPLE, and compute sqsigint_fix
@@ -17934,7 +17931,7 @@ void prep_input_driver(void) {
   NSIMIa = NSIMCC = NSIMDATA = 0 ;
   NJOB_SPLITRAN = 0;
 
-  if ( strlen(INPUTS.sigint_fix) > 0 ) { INPUTS.sigmB = 0.0 ; }
+  // xxx mark delete 3.17.2022 if ( strlen(INPUTS.sigint_fix)>0) {INPUTS.sigmB=0.0;}
   
   FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; // Mar 2016
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
@@ -18703,7 +18700,7 @@ void recalc_dataCov(void) {
   double a   = FITRESULT.ALPHA ; // ??? replace
   double b   = FITRESULT.BETA ;
   double g   = 0.0 ; 
-  //  char fnam[] = "recalc_dataCov";
+  char fnam[] = "recalc_dataCov";
 
   // ------------ BEGIN --------------
 

@@ -754,12 +754,16 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
   INPUTS.DOGEN_AV       = 0 ;
+
+  /* xxxxxxxx mark delete Mar 17 2022 xxxxxxxx
   INPUTS.GENRANGE_AV[0] = 0.0 ;
   INPUTS.GENRANGE_AV[1] = 0.0 ;
   INPUTS.GENEXPTAU_AV   = 0.0 ;
   INPUTS.GENGAUSIG_AV   = 0.0 ;
   INPUTS.GENGAUPEAK_AV  = 0.0 ;
   INPUTS.GENRATIO_AV0   = 0.0 ;
+  xxxxxxxxxx end mark xxxxxx */
+
   INPUTS.WV07_GENAV_FLAG    =  0;
   INPUTS.WV07_REWGT_EXPAV   = -9.0;
 
@@ -768,7 +772,7 @@ void set_user_defaults(void) {
   INPUTS.GENGAUSS_RV.RANGE[1] = 5.0;  // 4.1 ;
   INPUTS.GENGAUSS_RV.PEAK     = RV_MWDUST ; // for SN host
 
-  init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV, (double)-9.0 );
+  init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV,       (double)-9.0 );
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_EBV_HOST, (double)-9.0 );
 
   // init SALT2 gen ranges
@@ -5983,7 +5987,9 @@ void prep_user_input(void) {
 	 INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] );
 
   printf("\t Gen-Range for AV  : %4.2f to %4.2f  (dN/dAv = exp(-AV/%4.2f) \n", 
-	 INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1], INPUTS.GENEXPTAU_AV );
+	 INPUTS.GENPROFILE_AV.RANGE[0], 
+	 INPUTS.GENPROFILE_AV.RANGE[1],
+	 INPUTS.GENPROFILE_AV.EXP_TAU );
 
   printf("\t Gen-Mean  for RV  : %4.2f  \n", INPUTS.GENGAUSS_RV.PEAK );
   printf("\t Gen-sigma for RV  : %4.2f , %4.2f (lower , upper ) \n",
@@ -7204,23 +7210,23 @@ void genperfect_override(void) {
   OVP = MASK & (1 <<  BITPERFECT_AV ) ;
   if ( OVP > 0 ) {
 
-    NVAR++ ;  dptr = &INPUTS.GENEXPTAU_AV ;
+    // xxxx mark    NVAR++ ;  dptr = &INPUTS.GENEXPTAU_AV ;
+    NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.EXP_TAU ;
     sprintf(GENPERFECT.parnam[NVAR], "GENEXPTAU_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
     *dptr = 0.0 ;
     GENPERFECT.parval[NVAR][1] = *dptr ;
     GENPERFECT.partype[NVAR]   = 2 ;
 
-    NVAR++ ;  dptr = &INPUTS.GENGAUSIG_AV ;
+    // xxx mark    NVAR++ ;  dptr = &INPUTS.GENGAUSIG_AV ;
+    NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.SIGMA ;
     sprintf(GENPERFECT.parnam[NVAR], "GENGAUSIG_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
     *dptr = 0.0 ;
     GENPERFECT.parval[NVAR][1] = *dptr ;
     GENPERFECT.partype[NVAR]   = 2 ;
 
-    INPUTS.GENRANGE_AV[0] = 0.0 ;  // do this just to be safe
-    INPUTS.GENRANGE_AV[1] = 0.0 ;
-
+    INPUTS.GENPROFILE_AV.RANGE[0] = INPUTS.GENPROFILE_AV.RANGE[1] = 0.0 ;
   }
 
 
@@ -14670,13 +14676,17 @@ double gen_AV(void) {
   if ( INPUTS.GENPROFILE_AV.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,&GENLC.GENPROFILE_AV);
 
+    /* xxxxxx mark delete Mar 17 2022 xxxxxx
     GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENEXPTAU_AV 
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");// legacy
+    xxxx */
     GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENPROFILE_AV.EXP_TAU
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_AV");
 
+    /* xxx mark delete xxx
     GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENGAUSIG_AV
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");// legacy
+    xxxx */
     GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENPROFILE_AV.SIGMA
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENSIG_AV");
 
@@ -14738,11 +14748,16 @@ double GENAV_WV07(void) {
   // Apr 2018: 
   //   + expf -> exp
   //   + check REWGT_EXPAV option
+  //
+  // Mar 17 2022: 
+  //  + fix bug that has resulted in all AV=0; 
+  //    use INPUTS.GENPROFILE_AV.RANGE instead of obsolete INPUTS.GENRANGE_AV
 
   double AV ;
   double tau = 0.4, sqsigma=0.01;
   double REWGT_AEXP = INPUTS.WV07_REWGT_EXPAV ;
   double AEXP, BEXP, arg_A, arg_B, W0, W;
+  char fnam[] = "GENAV_WV07" ;
 
   // ----------- BEGIN -----------
 
@@ -14756,7 +14771,8 @@ double GENAV_WV07(void) {
   // pick random AV on defined interval
 
  PICKAV:
-  AV = getRan_Flat ( 1 ,INPUTS.GENRANGE_AV );
+  // xxx mark delete Mar 17 2022  AV = getRan_Flat(1,INPUTS.GENRANGE_AV);
+  AV = getRan_Flat ( 1 , INPUTS.GENPROFILE_AV.RANGE );
 
   // compute relative wgt
   arg_A = -AV/tau ;                  // broad exponential
@@ -14766,6 +14782,8 @@ double GENAV_WV07(void) {
   W /= W0;
 
   if ( W < getRan_Flat1(1) ) { goto PICKAV ; }
+
+  //   printf(" xxx %s: AV = %f \n", fnam, AV);
 
   return(AV) ;
 

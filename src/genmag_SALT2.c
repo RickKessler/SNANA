@@ -2531,7 +2531,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
 
   /* xxxxxxxxxx mark delete Oct 1 2021 xxxxx
-  if ( fracerr_TOT > .999 ) 
+  if ( fracerr_TOT > .999 )
     { magerr_model = 5.0 ; } // .xyz causes fit discontinuity ?
   else  { 
     magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact

@@ -13437,7 +13437,6 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
       if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
 
       name = INFO_BIASCOR.TABLEVAR.name[ievt];
-      //.xyz
       sprintf(line,"SN: "
 	      "%8s %4d  "         // name bin 
 	      "%5.3f %6.3f "      // zHD, c
@@ -22410,7 +22409,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
     if ( ibin_per_var[IVAR] < 0 ) { VALID = false; }
   } // end ivar      
 
-  // bail if any event is outside bin range .xyz
+  // bail if any event is outside bin range 
 
   
   if ( !VALID ) { 

@@ -220,8 +220,14 @@ void init0_GRIDsource(void) {
 
   else {
     // mlcs, snoopy ...
+
+    /* xxx mark delete Mar 17 2022 xxxxx
     GENRANGE_LOCAL[IPAR][0]  = INPUTS.GENRANGE_AV[0];
-    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENRANGE_AV[1];
+    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENRANGE_AV[1]; 
+    xxxxxxxxx end mark xxxxxx*/
+
+    GENRANGE_LOCAL[IPAR][0]  = INPUTS.GENPROFILE_AV.RANGE[0] ;
+    GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENPROFILE_AV.RANGE[1] ;
     GENRANGE_LOCAL[IPAR2][0] = INPUTS.GENGAUSS_RV.RANGE[0] ;
     GENRANGE_LOCAL[IPAR2][1] = INPUTS.GENGAUSS_RV.RANGE[1] ;
 

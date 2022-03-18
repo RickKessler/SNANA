@@ -13237,6 +13237,42 @@ where an explicit CID list or snana selection criteria can
 be applied. To avoid file-count quota issues, 
 a max limit of 20 data files can be extracted.
 
+\medskip
+Additional reformat options can be specified using {\tt SNLCINP} input mask
+{\tt OPT\_REFORMAT\_FITS} or {\tt OPT\_REFORMAT\_TEXT}
+\begin{verbatim}  
+    OPT_REFORMAT_FITS = 2   ! include rejected epochs
+    OPT_REFORMAT_FITS = 64  ! exclude private variables
+    OPT_REFORMAT_FITS = 128 ! include spectra
+    OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+\end{verbatim}
+%
+Here is an example command to convert a simulation into a data-like
+sample that has no truth information:
+\begin{verbatim}    
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY     CHALLENGE_SNIa  \
+  VERSION_REFORMAT_FITS  CHALLENGE_SNIa_TRAIN \ # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+or the wildcard feature:
+
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY_WILDCARD  'CHALLENGE_*'  \
+  VERSION_REFORMAT_FITS  CHALLENGE_TRAIN \   # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+\end{verbatim}     
+%
+The last input {\tt CUTWIN\_SNTYPE} selects all 
+spectroscopically-confirmed tags, and other {\tt CUTWIN} 
+options can be used as well. 
+The output data folder contains no sim-truth which
+is useful for i) data challenges, and ii) test analysis codes
+to ensure they don't cheat using sim-truth.
+
 % --------------------------------------
   \clearpage
   \subsubsection{Re-write Data Files with Flux Fudges}

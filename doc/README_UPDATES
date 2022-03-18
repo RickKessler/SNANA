@@ -20848,19 +20848,33 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04i (  ) 
+         v11_04i (Mar 18 2022) 
 
          ***** IMPORTANT(v11_04i) ***** 
 
+   + SALT2mu: if 1 beta bin, set DUST_FLAG and set SIM_BETA = p2
+       (initial beta) -> fixes BS21-model problem of chi2_red well 
+       below unity from computing MUERR with SIM_BETA ~ 2 instead of 3.
+
          ***** USEFUL(v11_04i) ***** 
 
+   + New option to re-write sim data without sim-truth so that it looks
+     like real data; see OPT_REFORMAT_FITS = 256
+
+   + Hopefully fixed two causes of rare batch-job aborts for sims;
+     1) reading zero words from inputs and 2) running code during make.
+
          ***** MISCELLANEOUS(v11_04i) ***** 
- 
-   remove util/split_version.pl
    
    SALT2mu.c
+     + compute internal DUST_FLAG for BS21 model (see above)
      + fix bug in prepNextFit() related to sigma_int=0
      + read and use zprior[err] if zspec_errmax is set
+     + fix SUBPROCESS bug to use non-standard BBC variables in GENPDF table.
+     + set default INPUTS.cmin/cmax/x1min/x1max to nominal defaults of
+       +_0.3 and +_3.0 -> slight change for 2 BBC jobs in regression test.
+     + Add user input nbinc_mucovscale (default=3)
+     + fix bugs related to sigint_fix
 
    genmag_SIMSED.c
      + fix UVLAM_EXTRAP to work reading binary and text files.
@@ -20870,5 +20884,46 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   
    sntools_host.h
      + increase SERSIC_INDEX_MAX->11 (was 8)
+
+   simlib_coadd.c/simlib_tools.c[h]
+     + refactor and add SORT_BAND option to co-add non-sequential bands
+
+   snana.car
+     + fix SNTYPE_IGNORE to work with 0 so that only spec-confirmed
+       events are selected.
+     + OPT_REFORMAT_FITS[TEXT] = 256  -> re-write data files without
+       sim-truth so that it looks like real data
+     + increase MXVERS from 12 -> 50 to handle all of ELASTICC
+         for selecting training subset.
+
+   submit_prog_sim.py
+     + fix bug so that sim-input files are no longer copied for
+       each merge task. Hopefully fixes the rare and mysterious abort
+       from sim-batch jobs reading zero words from sim-input file.
+
+   submit_util.py
+     + replace -f with -x to check that program exists and is executable.
+       Hopefully fixes problem of running code on partial exe during make.
+
+   submit_train_SALT2.py
+     + begin adding option to use Patrick's Jacobian method to perturb
+       SALT2 surface as an approximation to re-training with calibration
+       shifts.
+
+   sntools_dataformat_fits.c
+     + write/read SIM_MODEL_INDEX to global header so that rewriting
+       FITS -> FITS can work.
+     + implement MSKOPT&256 -> suppress sim-truth from output.
+   
+   wfit.c:
+     + fix bug causing -bao_sim to be the same as -bao.
+
+   snlc_sim.c
+     + fix bug setting AV for GENAV_WV07 option (all AV were zero);
+       bug found by C.Alves trying to reproduce original plasticc.
+     + remove obsolete AV variables and use only the newer
+        INPUTS.GENPROFILE_AV
+
+   remove util/split_version.pl
 
 END: 

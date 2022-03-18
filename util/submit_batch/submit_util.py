@@ -2,6 +2,10 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # generic utilites for submit  script
+#
+# Mar 7 2022: use -x instead of -f to check for program ...
+#             hope to avoid running .exe during make.
+#
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
@@ -891,7 +895,9 @@ def write_job_info(f,JOB_INFO,icpu):
 
         program_plus_path = find_program(program)
 
-        wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+        #wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+        #                 f"do sleep 5; done" )
+        wait_for_code = (f"while [ ! -x {program_plus_path} ]; " \
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")

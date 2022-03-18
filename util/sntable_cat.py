@@ -31,7 +31,7 @@ def parse_args():
 
     msg = 'list of column names to append if missing'
     parser.add_option('-a',help=msg,action='store',type='string',
-                      dest='append_varname_missing',default='PROB*')
+                      dest='append_varname_missing',default='PROB*,zPRIOR*')
 
     msg = 'optional integer prescale'
     parser.add_option('-p',help=msg,action='store',type='int',

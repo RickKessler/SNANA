@@ -754,12 +754,16 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
   INPUTS.DOGEN_AV       = 0 ;
+
+  /* xxxxxxxx mark delete Mar 17 2022 xxxxxxxx
   INPUTS.GENRANGE_AV[0] = 0.0 ;
   INPUTS.GENRANGE_AV[1] = 0.0 ;
   INPUTS.GENEXPTAU_AV   = 0.0 ;
   INPUTS.GENGAUSIG_AV   = 0.0 ;
   INPUTS.GENGAUPEAK_AV  = 0.0 ;
   INPUTS.GENRATIO_AV0   = 0.0 ;
+  xxxxxxxxxx end mark xxxxxx */
+
   INPUTS.WV07_GENAV_FLAG    =  0;
   INPUTS.WV07_REWGT_EXPAV   = -9.0;
 
@@ -768,7 +772,7 @@ void set_user_defaults(void) {
   INPUTS.GENGAUSS_RV.RANGE[1] = 5.0;  // 4.1 ;
   INPUTS.GENGAUSS_RV.PEAK     = RV_MWDUST ; // for SN host
 
-  init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV, (double)-9.0 );
+  init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV,       (double)-9.0 );
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_EBV_HOST, (double)-9.0 );
 
   // init SALT2 gen ranges
@@ -1391,22 +1395,23 @@ int read_input_file(char *input_file, int keySource ) {
     fflush(stdout);
 
   // Dec 28 2021: try to fix issue on Cori where file isn't read properly
-  if ( NWD_FILE==0 && NTRY <= 1 ) { 
+  if ( NWD_FILE==0 && NTRY <= 2 ) { 
     int N = store_PARSE_WORDS(-1,""); // re-init everything
     sleep(3.0);  // wait few seconds before trying to read file again
     printf("\t (try reading file again after 3 second delay)\n");
-    fflush(stdout);
+    fflush(stdout) ;
     goto READ_FILE; 
   }
 
   // Mar 3 2022
-  // abort on empty file ... likely a file system problem reading the file
+  // abort on empty file ... likely a file system problem
   if ( NWD_FILE == 0 ) {
     sprintf(c1err,"Found zero words (NTRY=%d) in input file ", NTRY);
     sprintf(c2err," '%s' ", input_file);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
+  // - - - - - - - - 
   // copy input file contents to another [WORDLIST] buffer because
   // store_PARSE_WORDS may be used later to parse some of the input
   INPUTS.NWORDLIST = NWD_FILE ;
@@ -5982,7 +5987,9 @@ void prep_user_input(void) {
 	 INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] );
 
   printf("\t Gen-Range for AV  : %4.2f to %4.2f  (dN/dAv = exp(-AV/%4.2f) \n", 
-	 INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1], INPUTS.GENEXPTAU_AV );
+	 INPUTS.GENPROFILE_AV.RANGE[0], 
+	 INPUTS.GENPROFILE_AV.RANGE[1],
+	 INPUTS.GENPROFILE_AV.EXP_TAU );
 
   printf("\t Gen-Mean  for RV  : %4.2f  \n", INPUTS.GENGAUSS_RV.PEAK );
   printf("\t Gen-sigma for RV  : %4.2f , %4.2f (lower , upper ) \n",
@@ -7203,23 +7210,23 @@ void genperfect_override(void) {
   OVP = MASK & (1 <<  BITPERFECT_AV ) ;
   if ( OVP > 0 ) {
 
-    NVAR++ ;  dptr = &INPUTS.GENEXPTAU_AV ;
+    // xxxx mark    NVAR++ ;  dptr = &INPUTS.GENEXPTAU_AV ;
+    NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.EXP_TAU ;
     sprintf(GENPERFECT.parnam[NVAR], "GENEXPTAU_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
     *dptr = 0.0 ;
     GENPERFECT.parval[NVAR][1] = *dptr ;
     GENPERFECT.partype[NVAR]   = 2 ;
 
-    NVAR++ ;  dptr = &INPUTS.GENGAUSIG_AV ;
+    // xxx mark    NVAR++ ;  dptr = &INPUTS.GENGAUSIG_AV ;
+    NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.SIGMA ;
     sprintf(GENPERFECT.parnam[NVAR], "GENGAUSIG_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
     *dptr = 0.0 ;
     GENPERFECT.parval[NVAR][1] = *dptr ;
     GENPERFECT.partype[NVAR]   = 2 ;
 
-    INPUTS.GENRANGE_AV[0] = 0.0 ;  // do this just to be safe
-    INPUTS.GENRANGE_AV[1] = 0.0 ;
-
+    INPUTS.GENPROFILE_AV.RANGE[0] = INPUTS.GENPROFILE_AV.RANGE[1] = 0.0 ;
   }
 
 
@@ -14669,13 +14676,17 @@ double gen_AV(void) {
   if ( INPUTS.GENPROFILE_AV.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,&GENLC.GENPROFILE_AV);
 
+    /* xxxxxx mark delete Mar 17 2022 xxxxxx
     GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENEXPTAU_AV 
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");// legacy
+    xxxx */
     GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENPROFILE_AV.EXP_TAU
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_AV");
 
+    /* xxx mark delete xxx
     GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENGAUSIG_AV
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");// legacy
+    xxxx */
     GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENPROFILE_AV.SIGMA
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENSIG_AV");
 
@@ -14737,11 +14748,16 @@ double GENAV_WV07(void) {
   // Apr 2018: 
   //   + expf -> exp
   //   + check REWGT_EXPAV option
+  //
+  // Mar 17 2022: 
+  //  + fix bug that has resulted in all AV=0; 
+  //    use INPUTS.GENPROFILE_AV.RANGE instead of obsolete INPUTS.GENRANGE_AV
 
   double AV ;
   double tau = 0.4, sqsigma=0.01;
   double REWGT_AEXP = INPUTS.WV07_REWGT_EXPAV ;
   double AEXP, BEXP, arg_A, arg_B, W0, W;
+  char fnam[] = "GENAV_WV07" ;
 
   // ----------- BEGIN -----------
 
@@ -14755,7 +14771,8 @@ double GENAV_WV07(void) {
   // pick random AV on defined interval
 
  PICKAV:
-  AV = getRan_Flat ( 1 ,INPUTS.GENRANGE_AV );
+  // xxx mark delete Mar 17 2022  AV = getRan_Flat(1,INPUTS.GENRANGE_AV);
+  AV = getRan_Flat ( 1 , INPUTS.GENPROFILE_AV.RANGE );
 
   // compute relative wgt
   arg_A = -AV/tau ;                  // broad exponential
@@ -14765,6 +14782,8 @@ double GENAV_WV07(void) {
   W /= W0;
 
   if ( W < getRan_Flat1(1) ) { goto PICKAV ; }
+
+  //   printf(" xxx %s: AV = %f \n", fnam, AV);
 
   return(AV) ;
 
@@ -21004,10 +21023,11 @@ void snlc_to_SNDATA(int FLAG) {
   // always start with header info
 
   
-  sprintf(SNDATA.SNANA_VERSION, "%s", SNANA_VERSION_CURRENT);
-  sprintf(SNDATA.SURVEY_NAME,   "%s", SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
-  sprintf(SNDATA.SUBSURVEY_NAME,"%s", SIMLIB_HEADER.SUBSURVEY_NAME );  
-  sprintf(SNDATA.DATATYPE,      "%s", DATATYPE_SIM_SNANA);
+  sprintf(SNDATA.SNANA_VERSION,  "%s", SNANA_VERSION_CURRENT);
+  sprintf(SNDATA.SURVEY_NAME,    "%s", SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
+  sprintf(SNDATA.SUBSURVEY_NAME, "%s", SIMLIB_HEADER.SUBSURVEY_NAME );  
+  sprintf(SNDATA.SUBSURVEY_LIST, "%s", SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST);
+  sprintf(SNDATA.DATATYPE,       "%s", DATATYPE_SIM_SNANA);
 
   SNDATA.SIMLIB_MSKOPT  = INPUTS.SIMLIB_MSKOPT ;
   sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );
@@ -21573,10 +21593,18 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Jan 17 2022: return on LCLIB only if z=0; otherwise process everything
   //              so that AGN has all host properties loaded.
   //
+  // Mar 14 2022; 
+  //  + use SNDATA.PTR_HOSTGAL_PROPERTY_XXX pointers.
+  //  + if no DDLR matches, set OBS and ERR values for true properties.
+  //
+
 
   int    N_Q = HOSTLIB.NZPHOT_Q;
+  int    IMATCH_TRUE = SNHOSTGAL.IMATCH_TRUE;
+
   int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j, PCT ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
+  float  VAL_TRUE ;
   char  *name ;
   char fnam[] = "hostgal_to_SNDATA" ;
 
@@ -21625,7 +21653,29 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     if ( OVP ) 
       { SNDATA.HOSTGAL_USEMASK |= 4; } // flat to write SB Dec 2021
 
+    // Mar 14 2022; setup pointers to HOSTGAL properties ... to simplify loading later.
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGMASS_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGMASS_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGMASS_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGSFR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGSFR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGSFR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGSFR_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_LOGsSFR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_LOGsSFR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_LOGsSFR_ERR ;
+
+    j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_COLOR);
+    SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j] = SNDATA.HOSTGAL_COLOR_TRUE ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j]  = SNDATA.HOSTGAL_COLOR_OBS ;
+    SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j]  = SNDATA.HOSTGAL_COLOR_ERR ;
+
     return ;
+
   }  // end IFLAG==1
 
 
@@ -21638,6 +21688,23 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
     SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
+
+    // if there are no DDLR matches, then for each true property set the
+    // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather
+    // than -9999 for "not exist" -> so that analysis codes aren't fooled
+    // into ignoring the property.
+    if ( NMATCH == 0 && IMATCH_TRUE >= 0 ) { 
+      m = 0 ;
+      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
+	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {
+	  // xxx mark SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = -99.0;
+	  SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = HOSTLESS_PROPERTY_VALUE_LIST[j];
+	  SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m] = -9.0 ;
+	}
+      }
+    }   
+
     for(m=0; m < NMATCH; m++ ) {
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
       SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
@@ -21657,14 +21724,18 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
       SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
 
+      for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {
+	SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j][m] = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m]  = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
+	SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m]  = 
+	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+      }
 
-      /* xxx Mark delete Febr 2022 after implementing more generic Host properties
-      SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
-      SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
-      SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
-      xxx */
 
 
+      /* xxx mark delete Mar 14 2022 xxxxxxx
       j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
@@ -21685,6 +21756,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_COLOR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
       SNDATA.HOSTGAL_COLOR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
       SNDATA.HOSTGAL_COLOR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
+      xxxxxxxxx end mark xxxxxxxxxx */
+
+
 
       // Added for LSST but may be of more general use; Alex Gagliano 09/2021
       SNDATA.HOSTGAL_OBJID2[m]       = SNHOSTGAL_DDLR_SORT[m].GALID2;
@@ -24697,8 +24771,6 @@ void genmodel(
 
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
- 
-    ptr_generr[0] = 4.44; // xxx REMOVE
 
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options

@@ -54,7 +54,14 @@
     + set HOSTGAL_USEMASK bit if NRD>0 for reading host mags[err] and SB[err]
 
   Jan 23 2022: set new globals FORMAT_SNDATA_[READ,WRITE] 
+
   Jan 25 2022: more meta data under _COMPACT flag
+
+  Mar 07 2022: 
+    + write/read SIM_MODEL_INDEX in global header.
+    + enable re-writing sim events without SIM truth (CODE_IVERSION->21)
+    + always write HOSTGAL2 info, even for Galactics, so that data
+       files have same keys.
 
 **************************************************/
 
@@ -113,7 +120,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
   SNFITSIO_SIMFLAG_SNRMON       = false ;
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
-  SNFITSIO_SIMFLAG_NBR_LIST     = false ; 
+  SNFITSIO_HOSTGAL2_FLAG        = true  ; // include HOSTGAL2 info
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
@@ -154,7 +161,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   OVP = ( writeFlag & WRITE_MASK_SIM_MODELPAR ) ;
   if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
 
-  IFILE_SNFITSIO = 1; // only one file written here.
+  IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
   // store path and VERSION in globals 
   sprintf(SNFITSIO_DATA_PATH,    "%s", path );
@@ -167,10 +174,10 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
     ptrType = snfitsType[itype] ;
 
     // malloc each file name - Oct 8 2021
-    wr_snfitsFile[IFILE_SNFITSIO][itype]          = (char*)malloc(MEMC);
-    wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] = (char*)malloc(MEMC);
+    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]       = (char*)malloc(MEMC);
+    wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] = (char*)malloc(MEMC);
 
-    ptrFile = wr_snfitsFile[IFILE_SNFITSIO][itype] ; // short fileName
+    ptrFile = wr_snfitsFile[IFILE_WR_SNFITSIO][itype] ; // short fileName
     sprintf(ptrFile, "%s_%s.FITS", prefix, ptrType );
 
     // check length of file name (Aug 2019)
@@ -185,13 +192,14 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    ptrFile2 = wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] ; // path/fileName
+    ptrFile2 = wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] ;
     sprintf(ptrFile2, "%s/%s", path, ptrFile );
    
   }
 
   // load output argument: name of header file
-  sprintf(headFile, "%s", wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
+  sprintf(headFile, "%s", 
+	  wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
 
   // misc inits
 
@@ -351,13 +359,7 @@ void wr_snfitsio_init_head(void) {
   }
 
 
-  // Feb 7 2019: store 2nd HOSTGAL for 
-  //  1) data or 2) sim with NBR_LIST in HOSTLIB
-
-  SNFITSIO_SIMFLAG_NBR_LIST = 
-    ( !SNFITSIO_SIMFLAG_SNANA || HOSTLIB.IVAR_NBR_LIST > 0 ) ;
-
-  if ( SNFITSIO_SIMFLAG_NBR_LIST ) {
+  if ( SNFITSIO_HOSTGAL2_FLAG ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
     wr_snfitsio_addCol( "1I", "HOSTGAL2_FLAG" ,       itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ" ,     itype );
@@ -593,10 +595,15 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   char fnam[] = "wr_snfitsio_addCol"     ;
 
   // ------------- BEGIN -------------------
-
+	 
   // increment global parameter counter
   NPAR_WR_SNFITSIO[itype]++ ;
   NPAR = NPAR_WR_SNFITSIO[itype] ;
+
+  /*
+  printf(" xxx %s:  IPAR=%3d  itype=%d  name=%s   \n",
+	 fnam, NPAR, itype, name ); fflush(stdout);
+  */
 
   if ( NPAR >= MXPAR_SNFITSIO ) {
     sprintf(c1err,"NPAR_WR_SNFITSIO[%s] = %d exceeds bound", 
@@ -994,6 +1001,7 @@ void wr_snfitsio_create(int itype ) {
   // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
   // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
+  // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
 
   int istat, ipar, ivar, NVAR ;
   long NAXIS = 1, NAXES = 0    ;
@@ -1004,7 +1012,7 @@ void wr_snfitsio_create(int itype ) {
     
   // -------------- BEGIN --------------
 
-  ptrFile = wr_snfitsFile_plusPath[IFILE_SNFITSIO][itype] ;
+  ptrFile = wr_snfitsFile_plusPath[IFILE_WR_SNFITSIO][itype] ;
   ptrType = snfitsType[itype] ;
 	 
   // create file
@@ -1033,11 +1041,18 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
   //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
+  /* xxx
   if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
     { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
   else
     { SNFITSIO_CODE_IVERSION = 20 ; } // identify refactored FITS format
- 
+  xxx */
+
+  // Mar 08 2022:
+  //  + write SIM_MODEL_INDEX to header  
+  //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
+  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
 
@@ -1053,12 +1068,10 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TSTRING, "SURVEY",
                   SNDATA.SURVEY_NAME, "Survey", &istat );
 
-  // check for sub-survey (only for data)
-  SNDATA.SUBSURVEY_FLAG = 0;
-  if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
-    { SNDATA.SUBSURVEY_FLAG = 1;}
+  // check for sub-survey 
+  wr_snfitsio_SET_SUBSURVEY_FLAG();
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
-                  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
+		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
   // July 21 2018
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",
@@ -1076,13 +1089,13 @@ void wr_snfitsio_create(int itype ) {
 
   // photometry fits filename
   fits_update_key(fp, TSTRING, "PHOTFILE",
-                  wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_PHOT],
+                  wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_PHOT],
 		  "Photometry FITS file", &istat );
 
   // optional: name of spectrograph file
   if( SNFITSIO_SPECTRA_FLAG ) {
     fits_update_key(fp, TSTRING, "SPECFILE",
-		    wr_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_SPEC],
+		    wr_snfitsFile[IFILE_WR_SNFITSIO][ITYPE_SNFITSIO_SPEC],
 		    "Spectra FITS file", &istat );
   }
 
@@ -1161,6 +1174,14 @@ void wr_snfitsio_create(int itype ) {
     snfitsio_errorCheck(c1err, istat) ;   
   }
 
+
+  // Mar 2022: write SIM_MODEL_INDEX to header
+  istat = 0 ;
+  fits_update_key(fp, TINT, "SIM_MODEL_INDEX", &SNDATA.SIM_MODEL_INDEX, 
+		  "SIM MODEL index", &istat );
+  sprintf(c1err,"Write SIM_MODEL_INDEX") ;
+  snfitsio_errorCheck(c1err, istat) ;
+  
   // Sep 2013 - write MWEBV options for color law and MWEBV-modification
   istat = 0 ;
   fits_update_key(fp, TINT, "SIMOPT_MWCOLORLAW", &SNDATA.SIMOPT_MWCOLORLAW, 
@@ -1297,6 +1318,41 @@ void wr_snfitsio_create(int itype ) {
 
 } // end of wr_snfitsio_create
 
+
+// ====================================
+void wr_snfitsio_SET_SUBSURVEY_FLAG(void) {
+
+  // Created Mar 12 2022
+  // set SNDATA.SUBSURVEY_FLAG (data or sim)
+
+  char fnam[] = "wr_snfitsio_SET_SUBSURVEY_FLAG";
+
+  // ------------- BEGIN -------------
+
+  SNDATA.SUBSURVEY_FLAG = 0;
+
+  // check for list of sub-surveys read from global SIMLIB header
+  if ( strlen(SNDATA.SUBSURVEY_LIST) > 0 ) 
+    { SNDATA.SUBSURVEY_FLAG = 1 ; }
+
+  // for data, check of SUBSURVEY_NAME is different than SURVEY.
+  if ( strlen(SNDATA.SUBSURVEY_NAME) > 0 ) {
+    if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) != 0 )
+      { SNDATA.SUBSURVEY_FLAG = 1 ; }
+  }
+
+  int LDMP=1;
+  if ( LDMP ) {
+    printf("\n xxx %s DUMP\n", fnam );
+    printf(" xxx SUBSURVEY_NAME = '%s' \n", SNDATA.SUBSURVEY_NAME);
+    printf(" xxx SUBSURVEY_LIST = '%s' \n", SNDATA.SUBSURVEY_LIST);
+    printf(" xxx SUBSURVEY_FLAG = %d \n", SNDATA.SUBSURVEY_FLAG);
+    fflush(stdout);
+  }
+
+  return ; 
+
+} // end wr_snfitsio_SET_SUBSURVEY_FLAG
 
 // =================================================
 void wr_snfitsio_global_private(fitsfile *fp) {
@@ -1580,7 +1636,7 @@ void wr_snfitsio_update_head(void) {
 
   // ---------- HOST --------------
   int NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
-  if ( SNFITSIO_SIMFLAG_NBR_LIST ) { NHOSTGAL = MXHOSTGAL; }
+  if ( SNFITSIO_HOSTGAL2_FLAG ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH", PREFIX);
@@ -2540,7 +2596,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
-  bool LDMP = false; // ( strstr(parName,"PIX") != NULL );
+  bool LDMP   = 0; // ( strcmp(SNDATA.CCID,"2118533") == 0 );
   char fnam[] = "IPAR_SNFITSIO" ;
 
   // ------------ BEGIN -----------
@@ -2550,6 +2606,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   else 
     { NPAR = NPAR_WR_SNFITSIO[itype] ; }
 
+  
   if ( LDMP ) {
     printf(" xxx ------------------------------------------- \n");
     printf(" xxx %s: set dump for parName='%s'  NPAR=%d \n",
@@ -2566,9 +2623,10 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
     }
     
     
-    if ( LDMP ) {
-      printf(" xxx %s: ipar=%2d pTRTMP = '%s'  FLAG_[WR,RD]=%d,%d\n",
+    if ( LDMP ) { // && strstr(parName,"SURVEY") != NULL ) {
+      printf(" xxx %s: ipar=%2d ptrTmp = '%s'  FLAG_[WR,RD]=%d,%d\n",
 	     fnam, ipar, ptrTmp, FLAG_WR, FLAG_RD );  fflush(stdout);
+      fflush(stdout);
     }
 
     if ( strcmp(ptrTmp,parName) == 0 )   { return ipar ; }
@@ -2577,10 +2635,25 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
   // if we get here then abort or return -9. 
 
   if ( FLAG_ABORT_ON_NOPAR ) {
-    sprintf(c1err, "Could not find IPAR for parName='%s'  "
-	    "FLAG_[RD,WR]=%d,%d", parName, FLAG_RD, FLAG_WR);
-    sprintf(c2err, "Check parameter names in %s ", 
-	    wr_snfitsFile[IFILE_SNFITSIO][itype]); 
+    print_preAbort_banner(fnam);
+    printf("\t SNID = %s  \n",	SNDATA.CCID );
+
+    printf("\t SURVEY='%s'  SUBSURVEY[NAME,FLAG] = '%s' , %d\n", 
+	   SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME, 
+	   SNDATA.SUBSURVEY_FLAG );
+
+    printf("\t FLAG_[RD,WR]=%d,%d  NPAR_[RD,WR]=%d,%d  "
+	   "IFILE_[RD,WR]=%d,%d \n",
+	   FLAG_RD, FLAG_WR, 
+	   NPAR_RD_SNFITSIO[itype], NPAR_WR_SNFITSIO[itype],
+	   IFILE_RD_SNFITSIO, IFILE_WR_SNFITSIO  );
+
+    printf("\t itype = %d\n", itype);
+    printf("\t wr_snfitsFile = %s \n", 
+	   wr_snfitsFile[IFILE_WR_SNFITSIO][itype]);
+
+    sprintf(c1err, "Could not find IPAR for parName='%s'", parName); 
+    sprintf(c2err, "Check par names " );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
   }
@@ -2593,7 +2666,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype) {
 // ==================================
 int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
 
-  // same as IPAR_SNFITSIOT, but search subset with form (1J,1E,1D ...)
+  // same as IPAR_SNFITSIO, but search subset with form (1J,1E,1D ...)
   // specified by the input index 'iform'.
   //
   // Input OPT -> see OPTMASK_XXX_SNFITSIO in sntools_dataformat_fits.h
@@ -2631,7 +2704,7 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
     sprintf(c1err, "Could not find IPAR(iform=%d) for parName='%s'", 
 	    iform, parName);
     sprintf(c2err, "Check parameter names in %s ", 
-	    wr_snfitsFile[IFILE_SNFITSIO][itype]);
+	    wr_snfitsFile[IFILE_WR_SNFITSIO][itype]);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     return -9 ;
   }
@@ -2683,16 +2756,17 @@ void WR_SNFITSIO_END(int OPTMASK) {
   if ( SNFITSIO_SPECTRA_FLAG ) {
     // remove SPECTMP file after its table has been
     // append to SPEC file with summary table.
-    ifile = IFILE_SNFITSIO ;
+    ifile = IFILE_WR_SNFITSIO ;
     itype = ITYPE_SNFITSIO_SPECTMP ;
     sprintf(cmd,"rm %s", wr_snfitsFile_plusPath[ifile][itype] );
     isys = system( cmd );
   }
 
-  // Dec 2021:check option go gzip FITS files
+  // Dec 2021:check option to gzip FITS files
   if ( DO_GZIP ) {  
-    sprintf(cmd,"cd %s ; gzip *.FITS", SNFITSIO_DATA_PATH);
-    printf("\t gzip FITS files.\n"); fflush(stdout);
+    sprintf(cmd,"cd %s ; gzip *.FITS",    SNFITSIO_DATA_PATH);
+    printf("\t gzip FITS files in %s.\n", SNFITSIO_DATA_PATH); 
+    fflush(stdout);
     isys = system( cmd );
   }
 
@@ -2758,7 +2832,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   // init_num = 1 --> first init --> init everything  
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
 
-  NFILE_SNFITSIO           = 0 ;
+  NFILE_RD_SNFITSIO        = 0 ;
   NSNLC_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
@@ -2787,6 +2861,8 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   //              ==> don't open/read the tables
   //
   // MSKOPT & 2 : read header only; do NOT open first PHOT file
+  //
+  // MSKOPT & 256 : ignore sim-truth; treat like real data  (Mar 2022)
   //
   // PATH = optional user-path to data; 
   //        if PATH="", use default SNDATA_ROOT/lcmerge
@@ -2820,14 +2896,13 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // read list of fits files.
   istat = rd_snfitsio_list();
 
-  if ( istat < 0 ) { return istat ; } // not in FITS format
+  if ( istat < 0 ) 
+    { return istat ; } // not in FITS format
 
   if ( (MSKOPT & 1) > 0 ) { // check if FITS format; don't read
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_HEAD] = 0 ;
     MALLOC_LEN_SNFITSIO[ITYPE_SNFITSIO_PHOT] = 0 ;
-
     malloc_rd_snfitsFiles(-1, 1); // args:   -1 -> free , 1=ifile
-
     return istat ; 
   }
 
@@ -2841,7 +2916,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   printf("  ###################################################### \n");
   fflush(stdout);
 
-  IFILE_SNFITSIO = 0 ;
+  IFILE_RD_SNFITSIO = 0 ;
   NSNLC_SNFITSIO_TOT = 0 ;
   for ( ifile=0; ifile < MXFILE_SNFITSIO; ifile++ )  { 
     NSNLC_SNFITSIO[ifile]     = 0 ; 
@@ -2854,11 +2929,14 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   for ( ep=0; ep < MXEPOCH; ep++ ) 
     {  RDMASK_SNFITSIO_PARVAL[ep] = 1 ; }
 
+  // Mar 2022: check option to treat sim like real data
+  SNFITSIO_noSIMFLAG_SNANA = ( (MSKOPT & 256) > 0) ;
+
   // loop over all header files to get total number of SN.
   // Close each file after reading the NAXIS2 key.
 
   int photflag_open=0,  vbose=0;
-  for (ifile = 1; ifile <= NFILE_SNFITSIO; ifile++ ) {
+  for (ifile = 1; ifile <= NFILE_RD_SNFITSIO; ifile++ ) {
 
     rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
 
@@ -2870,10 +2948,10 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 
   // open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  
-    IFILE_SNFITSIO    = 1 ;
-    ISNFIRST_SNFITSIO = 1 ;               // first ISN in file
-    rd_snfitsio_file(IFILE_SNFITSIO);
-    rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
+    IFILE_RD_SNFITSIO    = 1 ;
+    ISNFIRST_SNFITSIO    = 1 ;               // first ISN in file
+    rd_snfitsio_file(IFILE_RD_SNFITSIO);
+    rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
   }
 
   // Feb 2021: init lookup indices for faster read
@@ -2966,6 +3044,9 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"SIMLIB_MSKOPT") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIMLIB_MSKOPT );
+  }
+  else if ( strcmp(parName,"SIM_MODEL_INDEX") == 0 ) {
+    sprintf(tmpString,"%d", SNDATA.SIM_MODEL_INDEX );
   }
   else if ( strcmp(parName,"SIMOPT_MWCOLORLAW") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.SIMOPT_MWCOLORLAW );
@@ -3711,15 +3792,15 @@ void RD_SNFITSIO_CLOSE(char *version) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_HEAD );
-  rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_PHOT );   
+  rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
+  rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );   
 
   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH )
-    { rd_snfitsFile_close(IFILE_SNFITSIO, ITYPE_SNFITSIO_SPEC );}
+    { rd_snfitsFile_close(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_SPEC );}
 
   // free memory
-  rd_snfitsio_free(IFILE_SNFITSIO, ITYPE_SNFITSIO_HEAD );
-  rd_snfitsio_free(IFILE_SNFITSIO, ITYPE_SNFITSIO_PHOT );
+  rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_HEAD );
+  rd_snfitsio_free(IFILE_RD_SNFITSIO, ITYPE_SNFITSIO_PHOT );
   if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) { ; } // nothing to free
 
 } // end of RD_SNFITSIO_CLOSE
@@ -3737,13 +3818,13 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
   // ------------- BEGIN ------------------
 
   sprintf(VERSION,"%s", SNFITSIO_PHOT_VERSION );
-  *IFILE = IFILE_SNFITSIO ;
+  *IFILE = IFILE_RD_SNFITSIO ;
 
   sprintf(FILENAME_HEAD, "%s",
-	  rd_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
+	  rd_snfitsFile[IFILE_RD_SNFITSIO][ITYPE_SNFITSIO_HEAD] );
 
   sprintf(FILENAME_PHOT, "%s",
-	  rd_snfitsFile[IFILE_SNFITSIO][ITYPE_SNFITSIO_PHOT] );
+	  rd_snfitsFile[IFILE_RD_SNFITSIO][ITYPE_SNFITSIO_PHOT] );
 
   return ;
 
@@ -3781,12 +3862,12 @@ int rd_snfitsio_list(void) {
   }
 
   itype = ITYPE_SNFITSIO_HEAD ;
-  NFILE_SNFITSIO = 0;
+  NFILE_RD_SNFITSIO = 0;
   while( (fscanf(fp, "%s", tmpFile)) != EOF) {
-    NFILE_SNFITSIO++ ;
+    NFILE_RD_SNFITSIO++ ;
 
-    if ( NFILE_SNFITSIO >= MXFILE_SNFITSIO ) { continue ; }
-    N = NFILE_SNFITSIO ;
+    if ( NFILE_RD_SNFITSIO >= MXFILE_SNFITSIO ) { continue ; }
+    N = NFILE_RD_SNFITSIO ;
     malloc_rd_snfitsFiles(+1, N); // Oct 8 2021
 
     ptrTmp = rd_snfitsFile[N][itype] ;
@@ -3801,13 +3882,14 @@ int rd_snfitsio_list(void) {
 
   fclose(fp);  
 
-  if ( NFILE_SNFITSIO >= MXFILE_SNFITSIO ) {
-    sprintf(c1err,"NFILE_SNFITSIO = %d exceeds bound of MXFILE_SNFITSIO=%d", 
-	    NFILE_SNFITSIO, MXFILE_SNFITSIO );
+  if ( NFILE_RD_SNFITSIO >= MXFILE_SNFITSIO ) {
+    sprintf(c1err,"NFILE_RD_SNFITSIO = %d exceeds bound of "
+	    "MXFILE_SNFITSIO=%d", 
+	    NFILE_RD_SNFITSIO, MXFILE_SNFITSIO );
     sprintf(c2err,"Check %s", SNFITSIO_LISTFILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  else if ( NFILE_SNFITSIO > 0 ) 
+  else if ( NFILE_RD_SNFITSIO > 0 ) 
     { return SUCCESS ; }
   else {
     sprintf(c1err,"Found no files in");
@@ -3967,6 +4049,17 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   SNFITSIO_SIMFLAG_SNANA  = (strcmp(DTYPE, DATATYPE_SIM_SNANA ) == 0 );
   SNFITSIO_SIMFLAG_MAGOBS = (strcmp(DTYPE, DATATYPE_SIM_MAGOBS) == 0 );
 
+  // check option to treat sim like real data
+  if ( SNFITSIO_SIMFLAG_SNANA && SNFITSIO_noSIMFLAG_SNANA ) {
+    sprintf(DTYPE,"%s", DATATYPE_DATA);
+    SNFITSIO_DATAFLAG       = true;
+    SNFITSIO_SIMFLAG_SNANA  = false;
+    SNFITSIO_SIMFLAG_MAGOBS = false;
+    if ( ifile == 1 && photflag_open == 0 ) {
+      printf("\t %s: treat SIM like DATA\n", fnam); fflush(stdout);
+    }
+  }
+
   // read name of PHOTOMETRY file from HEADER file
   itype = ITYPE_SNFITSIO_PHOT ;  
   sprintf(keyname, "%s", "PHOTFILE" );
@@ -4022,6 +4115,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(c1err, "read %s key", keyname);
     //  snfitsio_errorCheck(c1err, istat);    
 
+    // Mar 2022: read model index if it's there.
+    istat = 0 ;
+    sprintf(keyname, "%s", "SIM_MODEL_INDEX" );
+    fits_read_key(fp, TINT, keyname, 
+		  &SNDATA.SIM_MODEL_INDEX, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    //     snfitsio_errorCheck(c1err, istat);    
 
     // read global info for Galactic extinction
     istat = 0 ;
@@ -4308,7 +4408,7 @@ void rd_snfitsio_private(void) {
 // =================================================
 void rd_snfitsio_file(int ifile) {
 
-  int photflag_open=1;
+  int photflag_open = 1;
   int vbose=0;
   char fnam[] = "rd_snfitsio_file" ;
 
@@ -4338,9 +4438,13 @@ void rd_snfitsio_file(int ifile) {
 // =================================================
 void rd_snfitsio_tblpar(int ifile, int itype) {
 
-  long NCOLUMN ;
-  int  istat, icol, iform, npar, ncol  ;
+  // Read and store info for each column.
+  // Mar 2022: if noSIM option, ignore column names begining with SIM
+
+  long NCOLUMN, NCOLUMN_USE ;
+  int  istat, icol, iform, npar, ncol ;
   int  LDMP = 1 ;
+  bool IS_KEYSIM ;
   fitsfile *fp ;
 
   char  keyname[100], comment[200], *ptrTmp  ;
@@ -4354,7 +4458,6 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
-  NPAR_RD_SNFITSIO[itype] = (int)NCOLUMN ;
   
   if ( LDMP ) { 
     ncol = (int)NCOLUMN ;
@@ -4367,6 +4470,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   // loop over colum TTYPE[1-NFIELD] and count how many
   // float, double, int ...  Also store column name
+  NCOLUMN_USE = 0 ;
 
   for ( icol = 1; icol <= NCOLUMN; icol++ ) {
 
@@ -4376,6 +4480,11 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     fits_read_key(fp, TSTRING, keyname,  ptrTmp, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
     snfitsio_errorCheck(c1err, istat);
+
+    IS_KEYSIM = IS_SIMKEY_SNDATA(ptrTmp);
+    // if(IS_KEYSIM) { printf(" xxx %s: IS_KEYSIM for %s\n", fnam, ptrTmp);}
+    if ( SNFITSIO_noSIMFLAG_SNANA && IS_KEYSIM ) { continue; }
+    NCOLUMN_USE++ ;
 
     istat = 0 ;
     sprintf(keyname,"TFORM%d", icol );
@@ -4403,10 +4512,13 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   } // icol loop
 
-
+  NPAR_RD_SNFITSIO[itype] = (int)NCOLUMN_USE
+ ;
   // make sure that required keys exist.
   if ( itype == ITYPE_SNFITSIO_HEAD ) 
     {  check_required_headkeys(OPTMASK_RD_SNFITSIO); }
+
+  return;
 
 } // end of function rd_snfitsio_tblpar
 
@@ -5282,24 +5394,24 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   ifile = -9 ;
 
   // check if we read current fits file, or need to open the next one.
-  for ( itmp = 1; itmp <= NFILE_SNFITSIO; itmp++ ) {
+  for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
     if ( isn >  NSNLC_SNFITSIO_SUM[itmp-1] &&
 	 isn <= NSNLC_SNFITSIO_SUM[itmp] ) 
       { ifile = itmp ; }
   }
 
 
-  if ( ifile != IFILE_SNFITSIO ) {
+  if ( ifile != IFILE_RD_SNFITSIO ) {
     RD_SNFITSIO_CLOSE(SNFITSIO_PHOT_VERSION) ;
-    IFILE_SNFITSIO    = ifile ;           // update global file index
+    IFILE_RD_SNFITSIO = ifile ;           // update global file index
     ISNFIRST_SNFITSIO = isn ;             // first ISN in file
-    rd_snfitsio_file(IFILE_SNFITSIO);     // open next fits file.
-    rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
+    rd_snfitsio_file(IFILE_RD_SNFITSIO);  // open next fits file.
+    rd_snfitsio_specFile(IFILE_RD_SNFITSIO); // check for spectra (4.2019)
   }
 
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
-  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_SNFITSIO-1];
+  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
 
   // Dec 2021:
   // if there is a header override, load value here and return
@@ -5355,8 +5467,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 	   parName, icol, itype, iform, ipar );
     printf(" xxxx iptr_local=%d  isn=%d  ISNFIRST=%d \n",
 	   iptr_local, isn, ISNFIRST_SNFITSIO ) ;
-    printf(" xxxx ifile=%d  IFILE_SNFITSIO=%d \n",
-	   ifile, IFILE_SNFITSIO );
+    printf(" xxxx ifile=%d  IFILE_RD_SNFITSIO=%d \n",
+	   ifile, IFILE_RD_SNFITSIO );
 
     fflush(stdout);
   }

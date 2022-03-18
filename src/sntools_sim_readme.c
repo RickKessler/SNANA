@@ -629,6 +629,13 @@ void readme_docana_modelPar(int *iline, char *pad) {
     readme_docana_load_asymGauss(&i, pad, &INPUTS.GENGAUSS_STRETCH);
   }
 
+
+  int GENAV_WV07 = INPUTS.WV07_GENAV_FLAG ;
+  if ( GENAV_WV07 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sGENAV_WV07:  %d ", pad, GENAV_WV07);
+  }
+
   readme_docana_load_expHalfGauss(&i, pad, &INPUTS.GENPROFILE_AV);
   readme_docana_load_expHalfGauss(&i, pad, &INPUTS.GENPROFILE_EBV_HOST);
   readme_docana_load_asymGauss   (&i, pad, &INPUTS.GENGAUSS_RV );

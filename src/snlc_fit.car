@@ -943,6 +943,8 @@ c variables for SPECTRA table (Nov 2016)
      &   TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
+     &  ,TBLSPEC_MAG_MODEL(MXFILT_OBS)
+     &  ,TBLSPEC_MAG_MODEL_ERR(MXFILT_OBS)
      &  ,TBLSPEC_LAMLIST(MXLAM_TBLSPEC)
      &  ,TBLSPEC_FLUXLIST(MXLAM_TBLSPEC)
       REAL*8 TBLSPEC8_MJD
@@ -962,6 +964,7 @@ c
      &  ,TBLSPEC_LAMREST
      &  ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR
      &  ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR
+     &  ,TBLSPEC_MAG_MODEL, TBLSPEC_MAG_MODEL_ERR
      &  ,TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST
 
       COMMON / TABLEVARCOM8 / TBLSPEC8_MJD
@@ -17677,8 +17680,6 @@ c get observer mags,flux,kcor at this MJD
 
           endif
         ENDDO
-
-
 c -------------------------
 c write results to output file.
 
@@ -19207,9 +19208,10 @@ C ===================================================
 c
 c Prepare table for SALT2 spectra computed from LC fit params.
 c 
-c 
+c Mar 21 2022: compute TBLSPEC_MAG_MODEL[_ERR] for each band and MJD
+c
+c -------------------------------
       IMPLICIT NONE
-
       INTEGER   ISN   ! 0->init, otherwise fill
 
 c local var
@@ -19220,8 +19222,10 @@ c local var
 +CDE,FILTCOM.
 +CDE,TABLEVARCOM.
 
-      INTEGER ID, i, ep, LENNAME, LENFMT, IFILTOBS
+      INTEGER ID, i, ep, LENNAME, LENFMT
+      INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
       REAL    Tobs, z, x0, x1, c, MWEBV
+      REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
       CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
 
 c function
@@ -19275,6 +19279,15 @@ c   terminate strings for C table-functions (snana.car routine)
           TBLSPEC_CFILT             = 
      &        filtdef_string(IFILTOBS:IFILTOBS) // char(0)
 
+c Mar21 2022: compute model mag for every band at every MJD
+          DO ifilt = 1, NFILTDEF_SURVEY
+            ifiltobs_tmp = IFILTDEF_MAP_SURVEY(ifilt)
+            CALL MODELMAG_CALC(IFILTOBS_TMP, 'OBS', TBLSPEC8_MJD,            
+     &          FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8 )
+            TBLSPEC_MAG_MODEL(ifiltobs_tmp)     = sngl(MAG8)
+            TBLSPEC_MAG_MODEL_ERR(ifiltobs_tmp) = sngl(MAGERR8)
+          ENDDO
+
           Tobs  = TBLSPEC_TOBS
           z     = SNLC_REDSHIFT
           x0    = LCVAL_STORE(IPAR_x0)
@@ -19324,13 +19337,15 @@ c Created Nov 18 2016
 c
 c Initialize variables to store SALT2 spectrum for each epoch.
 c Store epoch variables as scalars; e.g., MJD, TOBS, FLUXCAL.
-c Store spectrum as array: LAMLIST and FLUXLIST.
+c Store spectrum as vector array: LAMLIST and FLUXLIST.
 c
 c Initial use is that spectra are needed for chromatic 
 c corrections for each epoch (for DES).
 c
 c Call generic function SNTABLE_ADDCOL() that loads a table 
 c for each selected format: CERNLIB, ROOT, HDF5 ...
+c
+c Mar 21 2022: load all model mags for each obs.
 c
 c --------------
 
@@ -19353,7 +19368,7 @@ c local var
      &    IFILT, IFILT_OBS, USE4TEXT
      &   ,LENLIST, LENNAME, LENBLOCK, LENPACK
 
-      CHARACTER VARNAME*60, CBLOCK*40, CNFIT*20
+      CHARACTER VARNAME*60, CBLOCK*40, CNFIT*20, CFILT*2
 
 C ---------------- BEGIN ------------
 
@@ -19417,6 +19432,29 @@ c - - - -
       CALL SNTABLE_ADDCOL(ID, CBLOCK, TBLSPEC_FLUXCAL_MODEL_ERR, 
      &            VARNAME, 1, LENBLOCK, 20 )
 
+c - - - - -
+c Mar 21 2022: write model mag for all bands at each obs
+c   initial use is for DCR correction in DES.   .xyz
+
+      DO 20 ifilt  = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         cfilt     = FILTDEF_STRING(ifilt_obs:ifilt_obs)   
+         VARNAME   = 'MAG_MODEL_' // cfilt(1:1) // ':F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, 
+     &       TBLSPEC_MAG_MODEL(ifilt_obs), 
+     &       VARNAME, 1, LENBLOCK, 20 )
+20    CONTINUE
+
+      DO 21 ifilt  = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         cfilt     = FILTDEF_STRING(ifilt_obs:ifilt_obs)   
+         VARNAME   = 'MAG_MODEL_ERR_' // cfilt(1:1) // ':F'//char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, 
+     &       TBLSPEC_MAG_MODEL_ERR(ifilt_obs), 
+     &       VARNAME, 1, LENBLOCK, 20 )
+21    CONTINUE
+
+c - - - - - 
       write(CNFIT,15) MXLAM_TBLSPEC
 15    format('NBLAM[',I4.4,']' )  ! no spaces or commas in string
       VARNAME = CNFIT(1:11)  // char(0)  ! Num lambda bins

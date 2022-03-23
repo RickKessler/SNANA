@@ -124,6 +124,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
+  NSNLC_WR_SNFITSIO_TOT = 0 ;
+  NSPEC_WR_SNFITSIO_TOT = 0 ;
+
   // - - - -
   // Check option to write spectra
   OVP = ( writeFlag & WRITE_MASK_SPECTRA );
@@ -1433,6 +1436,7 @@ void WR_SNFITSIO_UPDATE(void) {
 
   // --------------- BEGIN --------------
 
+  NSNLC_WR_SNFITSIO_TOT++ ;
 
   // ----------- START WITH HEADER --------------
   wr_snfitsio_update_head() ;
@@ -1483,8 +1487,10 @@ void WR_SNFITSIO_UPDATE(void) {
   // (e.g., Trest outside sim-model range can't create spectra)
   int imjd;
   if ( SNFITSIO_SPECTRA_FLAG ) {
-    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) 
-      { wr_snfitsio_update_spec(imjd) ; }
+    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ )  { 
+      wr_snfitsio_update_spec(imjd) ; 
+      NSPEC_WR_SNFITSIO_TOT++ ;
+    }
   }
 
   return ;
@@ -2728,11 +2734,14 @@ void WR_SNFITSIO_END(int OPTMASK) {
 
   // ------------ BEGIN -------------
 
+  printf(" %s: finished writing %d events and %d spectra to FITS format\n",
+	 fnam, NSNLC_WR_SNFITSIO_TOT, NSPEC_WR_SNFITSIO_TOT);
+  fflush(stdout);
+
   NTYPE = 2 ; // defult is HEAD + PHOT
 
   if ( SNFITSIO_SPECTRA_FLAG ) {
-    NTYPE += 2 ; 
-        
+    NTYPE += 2 ;         
     // append flux-table after summary table so that it's
     // all in one file. Then delete SPECTMP flux-table.
     extver = istat=0;
@@ -2833,7 +2842,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
 
   NFILE_RD_SNFITSIO        = 0 ;
-  NSNLC_SNFITSIO_TOT       = 0 ;
+  NSNLC_RD_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
@@ -2917,10 +2926,10 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   fflush(stdout);
 
   IFILE_RD_SNFITSIO = 0 ;
-  NSNLC_SNFITSIO_TOT = 0 ;
+  NSNLC_RD_SNFITSIO_TOT = 0 ;
   for ( ifile=0; ifile < MXFILE_SNFITSIO; ifile++ )  { 
-    NSNLC_SNFITSIO[ifile]     = 0 ; 
-    NSNLC_SNFITSIO_SUM[ifile] = 0 ; 
+    NSNLC_RD_SNFITSIO[ifile]     = 0 ; 
+    NSNLC_RD_SNFITSIO_SUM[ifile] = 0 ; 
   }
 
 
@@ -2940,8 +2949,8 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 
     rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
 
-    NSNLC_SNFITSIO_TOT       += NSNLC_SNFITSIO[ifile] ; // increment total
-    NSNLC_SNFITSIO_SUM[ifile] = NSNLC_SNFITSIO_TOT ;
+    NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
+    NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
 
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
@@ -2962,7 +2971,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     SNFITSIO_READINDX_SPEC[i] = -9 ;
   }
 
-  return(NSNLC_SNFITSIO_TOT) ;
+  return(NSNLC_RD_SNFITSIO_TOT) ;
 
 } // end of RD_SNFITSIO_PREP
 
@@ -3962,7 +3971,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Next read name of optional SPEC file from HEAD file.
   // Next open the PHOT file IF photflag_open=1.
   // 
-  // Finally, set NSNLC_SNFITSIO[ifile] = NROW ; 
+  // Finally, set NSNLC_RD_SNFITSIO[ifile] = NROW ; 
   //
   // Note that fitsFile pointers fp_rd_snfitsio[itype]
   // are both opened for reading.
@@ -4199,7 +4208,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );   fflush(stdout);
   }
 
-  NSNLC_SNFITSIO[ifile] = NROW ; // store globally
+  NSNLC_RD_SNFITSIO[ifile] = NROW ; // store globally
 
   return ;
 
@@ -4424,7 +4433,7 @@ void rd_snfitsio_file(int ifile) {
   rd_snfitsio_tblpar( ifile, ITYPE_SNFITSIO_PHOT );
 
   // allocate memory for header 
-  rd_snfitsio_malloc( ifile, ITYPE_SNFITSIO_HEAD, NSNLC_SNFITSIO[ifile] );
+  rd_snfitsio_malloc( ifile, ITYPE_SNFITSIO_HEAD, NSNLC_RD_SNFITSIO[ifile] );
 
   // read/store header info for each SN
   rd_snfitsio_head(ifile);
@@ -4830,7 +4839,7 @@ void rd_snfitsio_head(int ifile) {
 
   // ------------ BEGIN --------------
 
-  NSNLC = NSNLC_SNFITSIO[ifile] ; 
+  NSNLC = NSNLC_RD_SNFITSIO[ifile] ; 
   itype = ITYPE_SNFITSIO_HEAD ;
   fp    = fp_rd_snfitsio[itype] ;
 
@@ -5395,8 +5404,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
   // check if we read current fits file, or need to open the next one.
   for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
-    if ( isn >  NSNLC_SNFITSIO_SUM[itmp-1] &&
-	 isn <= NSNLC_SNFITSIO_SUM[itmp] ) 
+    if ( isn >  NSNLC_RD_SNFITSIO_SUM[itmp-1] &&
+	 isn <= NSNLC_RD_SNFITSIO_SUM[itmp] ) 
       { ifile = itmp ; }
   }
 
@@ -5411,7 +5420,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
-  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
+  isn_file = isn - NSNLC_RD_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
 
   // Dec 2021:
   // if there is a header override, load value here and return

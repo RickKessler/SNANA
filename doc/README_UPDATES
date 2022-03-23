@@ -20940,4 +20940,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + for MODELSPEC table, include model mags for each band at each MJD;
         for calib corrections that need color.
 
+    snana.car
+      + fix bug in INIT_REFORMAT
+ 
+    sntools_dataformat_fits.c[h]
+      + count number of written events and spectra;
+        WR_SNFITSIO_END prints actual number of written events at end of job.
+  
 END: 

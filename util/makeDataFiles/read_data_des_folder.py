@@ -8,6 +8,7 @@ import sys
 import tarfile
 
 import yaml
+import numpy as np
 import pandas as pd
 
 from astropy.io import fits
@@ -74,40 +75,42 @@ class data_des_folder(Program):
 
         self.masterlistpath = os.path.join(PATH_DES_SMP, SMP_MASTERLIST_FILE)
         self.smp_master_list = pd.read_csv(self.masterlistpath)
-
+    
         self.n_smp_files = np.max(self.smp_master_list.tar_id)
         logging.info(f"Masterlist shows {self.n_smp_files} files")
 
         # end init_read_data
 
-    def _get_phot_table(self, evt_id):
+    def _get_phot_table(self, snid):
 
-        if not str(evt_id) in self.file_cache.keys():
-            phot_info = self.smp_master_list.query(f"cid=={evt_id}").iloc[0]
+        if not str(snid) in self.file_cache.keys():
+            phot_info = self.smp_master_list.query(f"cid=={snid}").iloc[0]
 
-            self.file_cache[str(evt_id)] = dict(phot_info)
+            self.file_cache[str(snid)] = dict(phot_info)
             tarball = self._get_tarball(phot_info.tar_id)
 
             lc_table_basename = os.path.join(
                 os.path.dirname(phot_info.tar_path),
-                f"csvfiles/phot_{evt_id}.csv"
+                f"csvfiles/phot_{snid}.csv"
             )
             lctab = pd.read_csv(tarball.extractfile(lc_table_basename))
-            self.file_cache[str(evt_id)]['lctab'] = lctab
+            self.file_cache[str(snid)]['lctab'] = lctab
 
             return lctab
 
-        return self.file_cache[str(evt_id)]['lctab']
+        return self.file_cache[str(snid)]['lctab']
 
 
     def _get_tarball(self, tar_id):
         
         if not str(tar_id) in self.file_cache['tarballs'].keys():
-            phot_table_basename = f"phot_{str(tar_id).zfill(2)}.tar.gz"
-            if tarfile.is_tarfile(phot_table_basename):
-                tarball_file = tarfile.open(phot_table_basename, "r:gz")
+            phot_table_path = os.path.join(
+                PATH_DES_SMP, f"phot_{tar_id:02d}.tar.gz"
+            )
+            if tarfile.is_tarfile(phot_table_path):
+                tarball_file = tarfile.open(phot_table_path, "r:gz")
             else:
-                raise IOError(f"File {phot_table_basename} not found")
+                raise IOError(f"File {phot_table_path} not found")
 
             self.file_cache['tarballs'][str(tar_id)] = tarball_file
         
@@ -131,17 +134,26 @@ class data_des_folder(Program):
         """Teardown method for closing open files and clearing cache."""
 
         # close open tarballs
-        for tar_id, afile in self.file_cache['tarballs'].iteritems():
+        for tar_id, afile in self.file_cache['tarballs'].items():
             afile.close()
 
         return
 
     def read_event(self, evt):
-
+        """This function modifies the SNANA_READER data_dict. First it loads 
+            everything into the variables """
         args         = self.config_inputs['args']  # command line args
         SNANA_READER = self.config_data['SNANA_READER']
         data_dict    = SNANA_READER.get_data_dict(args, evt)
+        snid         = int(data_dict['head_raw']['SNID'])
 
+        if snid not in self.smp_master_list.cid.values:
+            data_dict['select'] = False
+            #logging.info(f"Skipping SNID={snid}, not in SMP masterlist")
+            return data_dict
+        else:
+            logging.info(f"Working on SNID={snid}, in SMP masterlist")
+        
         # MJD_trigger is a private variable, so move it to 
         # nominal SNANA variable. .xyz
         key_private_list = [ 'PRIVATE(DES_mjd_trigger)' ]
@@ -154,10 +166,41 @@ class data_des_folder(Program):
         # tricky part: DIFFIMG has ~500 epochs spanning 5 years,
         # but SMP has ~100 epochs spanning 1 season. So need to
         # copy epoch meta-data (SKY,GAIN,ZP,PSF) from original
-        # diffimg phot array to final smp array,
+        # diffimg phot array to final smp array,  
+        smp_lc = self._get_phot_table(snid)
+        smp_lc['FLUXCALERR'] = smp_lc['FLUXCAL_ERR']
+        smp_lc.drop(columns=['FIELD', ], inplace=True)
 
-        smp_lc = self._get_phot_table(evt)
-        
+        scalars = {}
+        phot_raw_df = pd.DataFrame()
+        for datacol in data_dict['phot_raw'].keys():
+            #print(datacol)
+            if datacol=='NOBS': 
+                scalars[datacol] = data_dict['phot_raw'][datacol]
+                continue
+            if datacol=='SKY_SIG':
+                phot_raw_df[datacol] = data_dict['phot_raw'][
+                    datacol].byteswap().newbyteorder().astype(np.float32)
+            elif datacol=='CCDNUM':
+                phot_raw_df[datacol] = data_dict['phot_raw'][
+                    datacol].astype(np.int32)
+            elif datacol=='BAND':
+                phot_raw_df[datacol] = data_dict['phot_raw'][datacol]
+            else:
+                phot_raw_df[datacol] = data_dict['phot_raw'][datacol
+                ].byteswap().newbyteorder()
+
+    
+        merged_smp = pd.merge(left=smp_lc, right=phot_raw_df,
+            on='IMGNUM', how='inner', suffixes=('', '_diffimg')
+        )
+
+        new_phot_raw = merged_smp.to_dict(orient='list')
+        new_phot_raw['NOBS_diffimg'] = scalars['NOBS']
+        new_phot_raw['NOBS'] = len(merged_smp)
+        new_phot_raw['BAND'] = [val.strip() for val in new_phot_raw['BAND']]
+        #new_phot_raw['FIELD'] = [str(val) for val in new_phot_raw['FIELD']]
+        data_dict['phot_raw'] = new_phot_raw
 
         return data_dict
 

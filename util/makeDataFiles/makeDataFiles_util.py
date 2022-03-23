@@ -691,7 +691,8 @@ class READ_SNANA_FOLDER:
                 head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
             }
             sel = select_subsample(args,var_dict)
-            if sel is False :
+            # If this event is not selected, just return and skip reading phot
+            if not sel:
                 data_dict = {
                     'head_raw'  : head_raw,
                     'head_calc' : head_calc,

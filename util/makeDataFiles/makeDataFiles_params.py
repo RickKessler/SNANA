@@ -70,14 +70,14 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 # -----------------------------------------------------------------------------
 # define list of variable names for each observation;
 VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
-               "XPIX YPIX CCDNUM GAIN " \
+               "XPIX YPIX CCDNUM IMGNUM GAIN " \
                "FLUXCAL FLUXCALERR PSF_SIG1 ZEROPT SKY_SIG"
 
 VARNAMES_OBS_LIST = VARNAMES_OBS.split()
 
 # -----------------------------------------------------------------------------
 # define text format for each VARNAMES_OBS
-VARNAMES_FMT = "10.4f 2s   8s    4d      6.1f 6.1f  4d     6.3f "\
+VARNAMES_FMT = "10.4f 2s   8s    5d      6.1f 6.1f  4d  6d   6.3f "\
                "12.4e    12.4e    8.4f  6.3f 6.2f "
 
 VARNAMES_FMT_LIST = VARNAMES_FMT.split()
@@ -89,7 +89,7 @@ VAL_NULL      = -9
 VAL_NULL_LIST = [ -9, -99, -999 ] # any of these is treated as no value
 VAL_UNDEFINED_LIST = [
     VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
-    VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL,
+    VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
     VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL
 ]
 

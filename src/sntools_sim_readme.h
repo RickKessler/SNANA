@@ -14,6 +14,7 @@ char  ORIG_FILE_README[MXPATHLEN]; // temp space to restore original filenames
 // arguments, or that can have duplicate keys.
 typedef struct {
   int NKEY;
+  bool MALLOC1;
   char **KEY_LIST, **ARG_LIST;
 } README_KEYPLUSARGS_DEF ;
 
@@ -74,6 +75,7 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName, char *comment,
 void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
 			     README_KEYPLUSARGS_DEF *README_KEYS, 
 			     char *callFun);
+void README_KEYPLUSARGS_init(README_KEYPLUSARGS_DEF *README_KEYS) ;
 
 void  readme_docana_load_list(int *iline, char *pad,
 			      README_KEYPLUSARGS_DEF *README_KEYS);
@@ -84,25 +86,4 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
 void readme_docana_load_expHalfGauss(int *iline, char *pad, 
 				     GEN_EXP_HALFGAUSS_DEF *EXP_HALFGAUASS);
 
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-//    legacy readme functions below
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-void   readme_doc_legacy(int iflag_readme);
-void   readme_doc_SIMLIB(int *iline) ;
-void   readme_doc_filterWarn(int *iline);
-void   readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) ;
-void   readme_doc_MWXT(int *iline);
-void   readme_doc_NON1ASED(int *iline);
-void   readme_doc_SIMSED(int *iline);
-void   readme_doc_magSmear(int *iline);
-void   readme_doc_nonLin(int *iline);
-void   readme_doc_SALT2params(int *iline ) ;
-void   readme_doc_GENPDF(int *iline ) ;
-void   readme_doc_FIXMAG(int *iline ) ;
-void   readme_doc_GENPERFECT(int *iline ) ;
-void   readme_doc_FUDGES(int *iline) ;
-void   readme_doc_mapFileList(int *iline) ;
-void   readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) ;
-void   readme_doc_CUTWIN(int *iline) ;
-void   readme_doc_TAKE_SPECTRUM(int *iline);
+// === END ===

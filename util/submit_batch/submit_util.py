@@ -2,6 +2,10 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # generic utilites for submit  script
+#
+# Mar 7 2022: use -x instead of -f to check for program ...
+#             hope to avoid running .exe during make.
+#
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
@@ -47,6 +51,7 @@ def get_wfit_values(wfit_yaml):
     # Also check for wsig_marg vs. wsig_lo/wsig_hi
     # Sep 28 2021: check for wa and its uncertainty
     # Oct 23 2021: check for Rho
+    # Feb 22 2022: check for NWARNINGS
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -141,6 +146,12 @@ def get_wfit_values(wfit_yaml):
         if key in wfit_yaml:
             blind = wfit_yaml[key]
 
+    key_list = [ 'NWARNINGS' ]
+    nwarn    = 0
+    for key in key_list:
+        if key in wfit_yaml:
+            nwarn = wfit_yaml[key]
+
     wfit_values_dict = {
         'w'        : w ,
         'w_sig'    : w_sig ,
@@ -151,6 +162,7 @@ def get_wfit_values(wfit_yaml):
         'w_ran'    : w_ran,
         'omm_ran'  : omm_ran,
         'blind'    : blind ,
+        'nwarn'    : nwarn ,
         # optional below
         'wa'       : wa,
         'wa_sig'   : wa_sig,
@@ -263,7 +275,11 @@ def protect_parentheses(arg):
     # if arg = abc(option), returns abc\(option\).
     # If arg = abc, returns abc (no change)
     # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
-    arg_protect = arg.replace('(','\(').replace(')','\)')
+    # M. Vincenzi Febr 2022: only protects strings to avoid error on int/float
+    if isinstance(arg,str):
+        arg_protect = arg.replace('(','\(').replace(')','\)')
+    else: 
+        arg_protect = arg
     return arg_protect
     # end protect_parentheses
 
@@ -879,7 +895,9 @@ def write_job_info(f,JOB_INFO,icpu):
 
         program_plus_path = find_program(program)
 
-        wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+        #wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+        #                 f"do sleep 5; done" )
+        wait_for_code = (f"while [ ! -x {program_plus_path} ]; " \
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")

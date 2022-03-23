@@ -33,6 +33,8 @@
     + MXOBS_SIMLIB -> 15,000 (was 10k) for Roman synthetic bands
 
  Jun 25 2021: MXINPUT_FILE_SIM -> 4 (was 3)
+ Jan 28 2022: MXEPSIM -> 15k (was 10k)
+
 ********************************************/
 
 
@@ -40,8 +42,8 @@
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
-#define  MXEPSIM_PERFILT  2000       //
-#define  MXEPSIM       10000  // really big for sntools_grid
+#define  MXEPSIM_PERFILT  2500       //
+#define  MXEPSIM       15000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN       20
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts
@@ -404,13 +406,14 @@ struct INPUTS {
 
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply
-  int USE_README_LEGACY; 
 
-  bool DASHBOARD_DUMPFLAG ;
-  bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
+  bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
+  bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
+  bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
 
   // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
+
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
   int  NWORDLIST ;      // number of words read from input file
@@ -503,6 +506,7 @@ struct INPUTS {
   GENPOLY_DEF HOSTLIB_GENPOLY_DZTOL; // zSN-zGAL tol vs zPOLY
 
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
+  char   HOSTLIB_SCALE_PROPERTY_ERR[200] ; // e.g. '0.8(LOGMASS),0.0(LOGSFR),0.1(LOGsSFR)' , default is 1.0 for every host prop  
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[2*MXPATHLEN]; // (I) comma-sep list
 
@@ -628,11 +632,15 @@ struct INPUTS {
 
   char  STRETCH_TEMPLATE_FILE[200];
 
+  /* xxxxx mark delete Mar 17 2022 xxxxxxxxxx
+     [use struct in sntools_genExpHalfGauss.h]
   double GENRANGE_AV[2];      // host extinction range
   double GENEXPTAU_AV ;       // define exponential distribution of AV
   double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
   double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
   double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
+  xxxxxxxxxxx end mark xxxxxxx */
+
   int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
   bool   DOGEN_SHAPE, DOGEN_COLOR ; // generate with function or GENPDF
@@ -911,7 +919,8 @@ struct INPUTS {
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // subsuryve; e.g,, CFA3 is subsurvey for LOWZ
+  char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
+  int  SUBSURVEY_ID;       // IDSURVEY for SUBSURVEY
   int  IDSURVEY ;
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
@@ -1259,27 +1268,29 @@ struct GENSL {
 
 
 // temp structure used by NEPFILT_GENLC
+// Jan 28 2022: define pointers to be malloced (save memory)
 struct GENFILT {
-  // 5 MB as of Aug 10 2017
-  double Trest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double Tobs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
+  
+  double *Trest[MXFILTINDX]; 
+  double *Tobs[MXFILTINDX]; 
+  double *genmag_obs[MXFILTINDX];  
+  double *genmag_smear[MXFILTINDX];
 
-  double genmag_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *genmag_rest[MXFILTINDX]; 
+  double *genmag_rest2[MXFILTINDX];
+  double *genmag_rest3[MXFILTINDX];
 
-  double generr_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double *generr_obs[MXFILTINDX]; 
+  double *generr_rest[MXFILTINDX];
+  double *generr_rest2[MXFILTINDX];
+  double *generr_rest3[MXFILTINDX];
 } GENFILT ;
-
 
 
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
+int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
+int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
 
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
@@ -1300,8 +1311,6 @@ struct NGEN_REJECT {
 double ZVALID_FILTER[2][MXFILTINDX] ;
 int    NSKIP_FILTER[MXFILTINDX]; // number of times obs-filter is skipped
 int    NGEN_ALLSKIP ;
-
-
 
   // define SIMLIB_DUMP struct vs. SIMLIB  entry
 int NREAD_SIMLIB ;
@@ -1341,7 +1350,7 @@ struct SIMLIB_GLOBAL_HEADER {
 
   // stuff read from global SIMLIB header
   char SURVEY_NAME[60];
-  char SUBSURVEY_NAME[40];
+  char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
   char FIELD[60];            // Nov 2021
   char TELESCOPE[60];
@@ -1377,7 +1386,7 @@ struct SIMLIB_HEADER {
 
   // required
   char   LIBNAME[20];        // LIB[LIBID] (for SNTABLE)
-  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, LOWZ_COMBINED)
+  char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, CFA3)
   int    NOBS, LIBID, NWRAP ;
   int    NOBS_APPEND ;  // these obs are not MJD-sorted (Jan 2018)
   int    NOBS_SIM_MAGOBS; // NOBS with SIM_MAGOBS<99
@@ -1721,7 +1730,7 @@ void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);
 void   set_user_defaults_RANSYSTPAR(void);
 void   set_GENMODEL_NAME(void);
-int    read_input_file(char *inFile);          // parse this inFile
+int    read_input_file(char *inFile, int keySource);    
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
@@ -1930,6 +1939,7 @@ void   LOAD_SEARCHEFF_DATA_LEGACY(void);
 void   gen_spectype(void);
 
 void   setz_unconfirmed(void);
+double zHEL_WRONGHOST(void);
 
 
 int    gen_cutwin(void);
@@ -1948,6 +1958,8 @@ void   init_GENLC(void);
 int    fudge_SNR(void);
 
 int    NEPFILT_GENLC(int opt, int ifilt_obs);
+void   malloc_GENFILT(void);
+
 void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;

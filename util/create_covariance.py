@@ -45,6 +45,8 @@
 #   + for unbinned replace MUERR -> MUERR_RENORM
 #   + rebin working, but <z> still not quite right.
 #
+# Jan 20 2022: fix to work if there is no SYS_SCALE_FILE input
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -88,6 +90,8 @@ VARNAME_NEVT_BIN = 'NEVT'
 
 SUBDIR_COSMOMC = "cosmomc"
 KEYNAME_ISDATA = 'ISDATA_REAL'   # key in fitres of M0DIF file from SALT2mu
+
+KEYNAME_SYS_SCALE_FILE = "SYS_SCALE_FILE"
 
 m_REF = 0  # MUOPT reference number for cov
 f_REF = 0  # FITOPT reference number for cov
@@ -172,7 +176,7 @@ def get_args():
     # end get_args
 
 def print_help_menu():
-    menu = """
+    menu = f"""
 
    HELP MENU for create_covariance input file
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -180,7 +184,7 @@ def print_help_menu():
 INPUT_DIR:  <BBC output dir from submit_batch_jobs or from Pippin>
 VERSION:    <subDir under INPUT_DIR>  
 
-SYS_SCALE_FILE: <optional yaml file with systematic scales>
+{KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales>
   [allows legacy key SYSFILE: ]
 
 #  [CosmoMC-label]  [FITOPT-label, MUOPT-label]
@@ -192,7 +196,7 @@ COVOPTS:
 - '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
 
-MUOPT_SCALES:  # replace scales in SYS_SCALE_FILE
+MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   CLAS_SNIRF:  1.0
   SCATTER_C11: 1.0
 
@@ -646,6 +650,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
             fitopt_scale = 1.0
         else:
             fitopt_label, fitopt_scale = fitopt_scales[f]
+
         muopt_label = muopt_labels[m] if m else "DEFAULT"
         muopt_scale = muopt_scales.get(muopt_label, 1.0)
 
@@ -1124,13 +1129,19 @@ def create_covariance(config, args):
     input_dir       = Path(config["INPUT_DIR"])
     version         = config["VERSION"]
     data_dir        = input_dir / version
-    sys_scale_file  = Path(config["SYS_SCALE_FILE"])
     extra_covs      = config.get("EXTRA_COVS",[])
     use_cosmomc     = config['use_cosmomc']
 
     # Read in all the needed data
     submit_info   = read_yaml(input_dir / "SUBMIT.INFO")
-    sys_scale     = read_yaml(sys_scale_file)
+
+    # read optional sys scales 
+    if KEYNAME_SYS_SCALE_FILE in config:
+        sys_scale_file  = Path(config[KEYNAME_SYS_SCALE_FILE])
+        sys_scale     = read_yaml(sys_scale_file)
+    else:
+        sys_scale = {0: (None,1.0) }
+
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
 
     # Also need to get the MUOPT labels from the original LCFIT directory
@@ -1152,7 +1163,7 @@ def create_covariance(config, args):
     if 'MUOPT_SCALES' in config:
         muopt_scales = config["MUOPT_SCALES"]
     else:
-        muopt_scales = { "DEFAULT", 1.0 }
+        muopt_scales = { "DEFAULT" : 1.0 }
 
     for extra in extra_covs:
         muopt_scales[extra.split()[0]] = extra.split()[1]

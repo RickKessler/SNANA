@@ -37,6 +37,10 @@
 #                (see is_comment_line)
 # Dec 08 2021: write NLC_GEN[WRITE]_SUM to MERGE.LOG via get_misc_merge_info()
 #
+# Mar 07 2022: 
+#  copy sim-input files of not merge_flag ... hopefully fixes rare problem
+#  of sim jobs reading zero words from sim-input file and then aborting.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -179,7 +183,6 @@ class Simulation(Program):
         self.sim_prep_NGENTOT_LC()
 
         # determine CIDRAN parameters to ensure unique randoms
-        # xxx self.sim_prep_FORMAT_MASK()
         self.sim_prep_CIDRAN()
 
         # abort on conflicts
@@ -224,6 +227,7 @@ class Simulation(Program):
 
         # there is a separate GENOPT_GLOBAL for SIMnorm jobs
         # to simplify debugging if needed.
+        # M. Vincenzi Febr 2022: added protect_parenthesis in keys and values
 
         IGNORE_SIMnorm = GENOPT_GLOBAL_IGNORE_SIMnorm
 
@@ -233,8 +237,10 @@ class Simulation(Program):
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
-                GENOPT_GLOBAL_STRING += (f"{key} {value}  ")
-
+                key_protect = util.protect_parentheses(key)
+                value_protect = util.protect_parentheses(value)
+                GENOPT_GLOBAL_STRING += (f"{key_protect} {value_protect}  ")
+                
                 SKIP_SIMnorm = \
                     any(substring in key for substring in IGNORE_SIMnorm)
                 if not SKIP_SIMnorm :
@@ -294,7 +300,9 @@ class Simulation(Program):
                     for key2,value2 in value.items():
                         # if key includes (), replace with \( \)
                         key2_protect = util.protect_parentheses(key2)
-                        genopt = (f"{key2_protect} {value2}     ")
+                        value2_protect = util.protect_parentheses(value2)
+                        # xx mark delete genopt = (f"{key2_protect} {value2}     ")
+                        genopt = (f"{key2_protect} {value2_protect}     ") 
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
                         genarg_list.append(genarg)
@@ -547,7 +555,7 @@ class Simulation(Program):
     def sim_prep_NGENTOT_LC(self):
 
         CONFIG        = self.config_yaml['CONFIG']
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         n_genversion  = self.config_prep['n_genversion']
         infile_list2d = self.config_prep['infile_list2d']
         INFILE_KEYS   = self.config_prep['INFILE_KEYS']
@@ -576,8 +584,9 @@ class Simulation(Program):
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
 
-                # finally, check for fast option to divide by 10
-                if fast:  ngentot = int(ngentot/FASTFAC)
+                # finally, check for fast option to divide by 10 or 100
+                if prescale > 1 :  
+                    ngentot = int(ngentot/prescale)
 
                 ngentot_list.append(ngentot) # append ifile dimension
                 ngentot_sum += ngentot
@@ -590,6 +599,7 @@ class Simulation(Program):
 
         # Jan 4 2021: move this test here from sim_prep_FORMAT_MASK
         if do_cidran and ngentot_sum == 0 :
+            msgerr = []
             msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
                           f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
             msgerr.append(f"Try one of the following:")
@@ -1107,7 +1117,9 @@ class Simulation(Program):
         self.log_assert(nerr==0,msgerr)
 
         # copy input files to outdir/simlogs directory
-        self.sim_prep_SIMGEN_INFILE_copy()
+        merge_flag        = self.config_yaml['args'].merge_flag
+        if not merge_flag:
+            self.sim_prep_SIMGEN_INFILE_copy()
 
         # end sim_prep_SIMGEN_INFILE
 
@@ -1212,6 +1224,10 @@ class Simulation(Program):
         # unique and avoid duplicates
         for infile in include_file_list_unique :
             infile_copy_list.append(infile)
+
+        n_copy = len(infile_copy_list)
+        base_dir = os.path.basename(output_dir)
+        logging.info(f"\t Copy {n_copy} sim-input files to {base_dir}")
 
         util.copy_input_files(infile_copy_list, output_dir,
                               SIMGEN_INPUT_LISTFILE )
@@ -1580,7 +1596,7 @@ class Simulation(Program):
             arg_list.append(f"    {str1}    {str2}    {str3}")
 
         arg_list.append(f"    JOBID {isplit1}     NJOBTOT {n_job_split}")
-        arg_list.append(f"    WRFLAG_MODELPAR 0") # disable model-par output
+        arg_list.append(f"    WRFLAG_MODELPAR  0") # disable model-par output
         arg_list.append(f"    WRFLAG_YAML_FILE 1") # enable YAML output
 
         # check for user-option to require DOCANA
@@ -1796,7 +1812,7 @@ class Simulation(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
 
         self.config_prep['path_sndata_sim']     = \
-                            submit_info_yaml['PATH_SNDATA_SIM']
+                        submit_info_yaml['PATH_SNDATA_SIM']
         self.config_prep['output_dir']     = output_dir 
 
         self.sim_prep_GENOPT_GLOBAL()

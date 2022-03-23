@@ -2,8 +2,10 @@ import sys
 import os
 import yaml
 import astropy.table as at
+import extinction
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+import matplotlib.pyplot as plt
 from SNmodel import spline_utils
 
 
@@ -13,6 +15,8 @@ ALLOWED_BAYESN_MODEL=['M20', 'T21']
 PRODUCTS_DIR = os.getenv('PRODUCTS')
 BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'bayesn', 'SNmodel', 'model_files')
 BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
+#ST: Computes a stupid nuisance factor
+GAMMA = np.log(10)/2.5
 
 
 def print_err():
@@ -77,6 +81,14 @@ class gensed_BAYESN:
         bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'{BAYESN_MODEL}_model')
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir, f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
 
+        #ST: Computes spline invrse KD matrices.
+        self.KD_t = spline_utils.invKD_irr(self._bayesn_components["tau_knots"])
+        self.KD_l = spline_utils.invKD_irr(self._bayesn_components["l_knots"])
+        self.J_l = spline_utils.spline_coeffs_irr(self.wave, self._bayesn_components["l_knots"], self.KD_l)
+
+        #ST: Extracts the M0 parameter (this is kind of horrible)
+        self.M0 = self._bayesn_components["M0_sigma0_RV_tauA"][0]
+
         return
 
 
@@ -94,7 +106,7 @@ class gensed_BAYESN:
         return list(self.wave)
 
 
-    def fetchSED_BAYESN(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
+    def fetchSED_BAYESN(self, trest, maxlam=5000, external_id=1, new_event=1, hostpars=''):
         """
         Returns the flux at every wavelength, for a given phase.
 
@@ -124,14 +136,62 @@ class gensed_BAYESN:
             newSN=True
             self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
 
-		#Matrix needed for wavelength spline
-        # KD_l = spline_utils.invKD_irr(self.l_k)
-
+        #ST: Three lines originally from GSN
         ind =  np.abs(self.phase - trest).argmin()
         ind_flux = ind*self.wavelen
         flux = self.flux[ind_flux:ind_flux+self.wavelen]
+
+        ########## NEW CODE FROM ST BELOW HERE (FOR GUIDANCE) ##########
+
+
+        #ST: Computes matrices that do interpolation
+        #    Probably can't be precomputed
+        #    Assumes that `trest` is a float, and `self.wave` is a 1D
+        #    list or numpy array of rest frame wavelengths
+        J_t = spline_utils.spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
+
+        #ST: Computes host extinction
+        #    This assumes we can use the Kyle Barbary extinction.py package
+        #    If we can't, I have the necessary code for this
+        #    Note: This may need `self.wave` to be converted to a numpy
+        #    array, if it is a list.
+        R_host = extinction.fitzpatrick99(self.wave, self.parameter_values["AV"], self.parameter_values["RV"])
+
+
+        #ST: Computes the spline knots
+        W = self._bayesn_components["W0"] + self.parameter_values["THETA1"]*self._bayesn_components["W1"] + self.parameter_values["EPSILON"]
+
+        #ST: Interpolates to `trest` and `self.wave`
+        #    If we have done this right, this should be the same length
+        #    as `flux`
+        JWJ = np.linalg.multi_dot([self.J_l, W, J_t]).squeeze()
+
+
+        #ST: Multiplies correction into Hsiao fluxes
+        #    Stilde is essentially the host-dust-extinguished
+        #    rest-frame SED, without the M0 and DELTAM normalisation
+        #    factors
+        S_tilde = flux*np.exp(-GAMMA*(JWJ + R_host))
+
+        #ST: Applies the constant (in time and wavelength) factors
+        flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
+
+        ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
+        print(self.parameter_values, 'fetchSED')
         return list(flux)
 
+
+    def setParVals_BAYESN(self, **kwargs):
+        """
+        Sets the values of parameter names
+        """
+        keynames = kwargs.keys()
+        for key in keynames:
+            if key not in self.parameter_names:
+                message = f'Unknown parameter {key}'
+                print(message)
+                print_err()
+        self.parameter_values.update(kwargs)
 
 
     def fetchParNames_BAYESN(self):
@@ -161,7 +221,46 @@ class gensed_BAYESN:
 
 
 def main():
-  mySED=gensed_BAYESN('$WFIRST_USERS/jpierel/pySED_test/SNEMO.P20/',2,[],'z,AGE,ZCMB,METALLICITY')
+    mySED=gensed_BAYESN('$SNANA_LSST_USERS/gnarayan/bayesn/',2,[],'z,AGE,ZCMB,METALLICITY')
+
+    fig = plt.figure(figsize=(10, 5))
+    ax1 = fig.add_subplot(111)
+    mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    ax1.plot(mySED.wave, np.array(flux), 'g-')
+
+    mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    ax1.plot(mySED.wave, np.array(flux), 'r-')
+
+    mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , EPSILON=0. , TMAX=0.)
+    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    ax1.plot(mySED.wave, np.array(flux), 'b-')
+
+    ax1.plot(mySED.wave, np.array(flux))
+    fig.savefig('test.png')
+
+    fig2 = plt.figure(figsize=(10, 20))
+    ax2 = fig2.add_subplot(111)
+    ind = (mySED.wave >= 3000) & (mySED.wave <= 7000)
+    for trest in np.linspace(-10, 40, 20):
+
+        mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'b-')
+
+        mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'g-')
+
+        mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
+    fig2.savefig('phase_sequence.png')
+
+
+
+
 
 
 if __name__=='__main__':

@@ -35,7 +35,9 @@
 #define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
 #define OPTMASK_SALT2_NONEGFLUX          16  // flux<0 -> 0 (as in DC2)
 #define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
+#define OPTMASK_SALT2_DEBUG     1024  // Refactor for developer only                                                                        
 
+int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
 int  IMODEL_SALT ; // 2 or 3
@@ -86,7 +88,8 @@ struct SALT2_ERRMAP {
 typedef struct {
   int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
   char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
-  char   BAND[2];
+  char   BAND[2];            // e.g.  'r'
+  char   FILTER_STRING[60];  //e.g. 'SDSS-r'
   double SHIFT ;  
 } SHIFT_CALIB_SALT2_DEF ;
 
@@ -267,7 +270,8 @@ double magerrFudge_SALT2(double magerr,
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
 void  init_calib_shift_SALT2train(void) ;
-bool  match_SALT2train(char *survey_calib, char *band_calib, int ifilt) ;
+bool  match_SALT2train_legacy(char *survey_calib, char *band_calib, int ifilt) ;
+bool  match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) ;
 int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
 			    double **transREF) ;
 

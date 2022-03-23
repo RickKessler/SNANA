@@ -42,6 +42,11 @@ KEY_MAGSHIFT       = "MAGSHIFT"
 KEY_WAVESHIFT      = "WAVESHIFT"
 KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 
+KEY_JACOBIAN_MATRIX = "JACOBIAN_MATRIX"
+KEY_JACOBIAN_BASE_SURFACE = "JACOBIAN_BASE_SURFACE"
+JACOBIAN_FLAG = False
+TRAIN_SALT2_FLAG = True
+
 # Define suffix for output model used by LC fitters.
 # Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
 MODEL_SUFFIX_DEFAULT = "MODEL"        
@@ -114,19 +119,48 @@ class train_SALT2(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
-        # read survey map to magSys and Instruments
-        self.train_prep_survey_map()
+        self.set_jacobian_flag()
+
+        if TRAIN_SALT2_FLAG:
+            # read survey map to magSys and Instruments
+            self.train_prep_survey_map()
 
         # scoop up TRAINOPT list from user CONFIG
         self.train_prep_trainopt_list()
 
-        # foreach training, prepare output paths
-        self.train_prep_paths()
+        if TRAIN_SALT2_FLAG:
+            # foreach training, prepare output paths
+            self.train_prep_paths()
 
-        # check for duplicate shifts and flag erorrs/warnings
-        self.train_prep_error_checks()
+            # check for duplicate shifts and flag erorrs/warnings
+            self.train_prep_error_checks()
+
+        else:
+            # foreach training, prepare output paths
+            self.train_prep_paths()
+
+            self.submit_prep_jacobian()
 
         # end submit_prepare_driver
+        return
+    
+    def submit_prep_jacobian(self):
+        # Patrick Armstrong 17 Mar 2022
+        self.config_prep['model_suffix']  = MODEL_SUFFIX_DEFAULT 
+        # end submit_prep_driver
+        return
+
+    def set_jacobian_flag(self):
+        global JACOBIAN_FLAG
+        global TRAIN_SALT2_FLAG
+        CONFIG       = self.config_yaml['CONFIG']
+        JACOBIAN_FLAG = KEY_JACOBIAN_MATRIX in CONFIG
+        TRAIN_SALT2_FLAG = not JACOBIAN_FLAG
+        if JACOBIAN_FLAG:
+            logging.info("Using Jacobian method for TRAINOPT variations")
+        else:
+            logging.info("Using explicit SALT2 training")
+        return
 
     def train_prep_survey_map(self):
 
@@ -139,7 +173,6 @@ class train_SALT2(Program):
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
         PATH_EXPAND      = os.path.expandvars(PATH_INPUT_CALIB)
         msgerr = []
-
         if not os.path.exists(PATH_EXPAND):
             msgerr.append(f"Cannot find path for")
             msgerr.append(f"  {PATH_INPUT_CALIB}")
@@ -271,6 +304,9 @@ class train_SALT2(Program):
         # the SUBMIT_INFO file to enable humans to trace changes.
         # Note that calib_updates is strictly for diagnostics and
         # not used here internally.
+
+        if JACOBIAN_FLAG:
+            return None
 
         CONFIG           = self.config_yaml['CONFIG']
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
@@ -659,7 +695,7 @@ class train_SALT2(Program):
         # end train_prep_error_checks
 
     def write_command_file(self, icpu, f):
-        # For this icpu, write full set of sim commands to
+        # For this icpu, write full set of training commands to
         # already-opened command file with pointer f. 
         # Function returns number of jobs for this cpu
 
@@ -682,7 +718,10 @@ class train_SALT2(Program):
             if ( (n_job_local-1) % n_core ) == icpu :
 
                 n_job_cpu += 1
-                job_info_train   = self.prep_JOB_INFO_train(itrain)
+                if TRAIN_SALT2_FLAG:
+                    job_info_train   = self.prep_JOB_INFO_train(itrain)
+                else:
+                    job_info_train = self.prep_JOB_INFO_jacobian(itrain)
                 util.write_job_info(f, job_info_train, icpu)
     
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
@@ -691,6 +730,52 @@ class train_SALT2(Program):
         return n_job_cpu
 
         # end write_command_file
+
+    def prep_JOB_INFO_jacobian(self,itrain):
+    # Patrick Armstrong 17 Mar 2022
+
+        CONFIG            = self.config_yaml['CONFIG']
+        input_file        = self.config_yaml['args'].input_file 
+        program           = self.config_prep['program']
+        script_dir        = self.config_prep['script_dir']
+        kill_on_fail      = self.config_yaml['args'].kill_on_fail
+
+        output_dir        = self.config_prep['output_dir']
+        trainopt_num_list = self.config_prep['trainopt_num_list']
+        trainopt_arg_list = self.config_prep['trainopt_arg_list']
+        outdir_model_list    = self.config_prep['outdir_model_list']
+        outdir_train_list    = self.config_prep['outdir_train_list']
+        prefix            = trainopt_num_list[itrain]
+        
+        outdir_model = outdir_model_list[itrain]
+        outdir_train = outdir_train_list[itrain]
+        trainopt_arg = trainopt_arg_list[itrain]
+        jacobian_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_MATRIX])
+        base_surface_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_BASE_SURFACE])
+
+        arg_list = []
+        arg_list.append(f"--jacobian {jacobian_path}")
+        arg_list.append(f"--base {base_surface_path}")
+        arg_list.append(f"--trainopt \"{trainopt_arg}\"")
+        arg_list.append(f"--output {outdir_train}")
+        arg_list.append(f"--yaml {prefix}.YAML") # Tell script not to log and instead to produce a yaml output file.
+
+
+        JOB_INFO = {}
+        JOB_INFO['program']       = (f"{program}")
+        JOB_INFO['input_file']    = "" 
+        JOB_INFO['job_dir']       = script_dir
+        JOB_INFO['log_file']      = (f"{prefix}.LOG")
+        JOB_INFO['done_file']     = (f"{prefix}.DONE")
+        JOB_INFO['start_file']    = (f"{prefix}.START")
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['arg_list']      = arg_list
+        
+        return JOB_INFO
+
+        # end prep_JOB_INFO_jacobian
+
 
     def prep_JOB_INFO_train(self,itrain):
 
@@ -806,14 +891,15 @@ class train_SALT2(Program):
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
         model_suffix = self.config_prep['model_suffix']
-        survey_map_file = self.config_prep['survey_map_file'] 
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
         f.write(f"MODEL_SUFFIX: {model_suffix}   " \
                 f"# -> create SALT2.{model_suffix}nnn/ \n")
 
-        f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
+        if TRAIN_SALT2_FLAG:
+            survey_map_file = self.config_prep['survey_map_file'] 
+            f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
 
         f.write(f"\n")
 
@@ -832,7 +918,12 @@ class train_SALT2(Program):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
+        if TRAIN_SALT2_FLAG:
+            self.append_calib_info(f)
+        return
+        # end append_info_file
         
+    def append_calib_info(self, f):
         # write which calib files were modified for systematics 
         # (human readable)
         update_calib_info = self.config_prep['update_calib_info' ]
@@ -862,8 +953,9 @@ class train_SALT2(Program):
                 if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
                 f.write(f"  - {item} \n")
         f.write("\n")
+        return
+        # end append_calib_info
 
-        # end append_info_file
 
     def get_SNANA_INFO(self,info_list):
 

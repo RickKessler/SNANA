@@ -2,7 +2,7 @@
 
 #include "sntools.h"
 #include "sntools_spectrograph.h" // Feb 2021
-//#include "sntools_host.h"
+#include "sntools_data.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -496,10 +496,73 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
 
 } // end parse_string_prescales 
 
+
+// =================================================
+int store_glob_file_list(char *wildcard) {
+
+  // Created Mar 8 2022
+  // Utility to store files based on wildcard;
+  // use fetch_glob_file_list to retreive 1 at a time.
+  // Includes fortran interface.
+  char fnam[] = "store_glob_file_list";
+  // --------- BEGIN -----------
+  GLOB_LIST.NFILE = glob_file_list(wildcard, &GLOB_LIST.FILE_NAMES);
+  return GLOB_LIST.NFILE;
+
+} // end store_glob_file_list
+
+int  store_glob_file_list__(char *wildcard) 
+{ return store_glob_file_list(wildcard); }
+
+void get_glob_file(int langFlag, int ifile, char *file_name) {
+
+  // Created Mar 2022
+  // Inputs:
+  //   langFlag=0 ==> called by C code  ==> do NOT leave pad space
+  //   langFlag=1 ==> called by fortran ==> leave pad space
+  //   ifile      ==> file index to retrieve
+  // Output:
+  //   file_name 
+
+  int NFILE = GLOB_LIST.NFILE;
+  char fnam[] = "get_glob_file";
+
+  // ----------- BEGIN -------------
+
+  if ( ifile >= NFILE ) { 
+    sprintf(c1err,"ifile=%d too large; NFILE=%d", ifile, NFILE);
+    sprintf(c2err,"ifile must be < %d", NFILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(file_name, "%s", GLOB_LIST.FILE_NAMES[ifile]);
+  if ( langFlag==0 ) 
+    {     ; }
+  else
+    { strcat(file_name," "); }     // extra space for fortran
+  return;
+} // end get_glob_file
+
+void get_glob_file__(int *langFlag, int *ifile, char *file_name) 
+{ get_glob_file(*langFlag, *ifile,file_name); }
+
+void reset_glob_file_list(void) {
+  int ifile;
+  for(ifile=0; ifile < GLOB_LIST.NFILE; ifile++ ) 
+    { free(GLOB_LIST.FILE_NAMES[ifile]) ; }
+  free(GLOB_LIST.FILE_NAMES);
+
+  GLOB_LIST.NFILE = 0 ;
+
+} // reset_glob_file_list
+
+void reset_glob_file_list__(void) 
+{ reset_glob_file_list(); }
+
 // =================================================
 int glob_file_list(char *wildcard, char ***file_list) {
 
-  // Created by P.Armstron and R.Kessler, 2020
+  // Created by P.Armstrong and R.Kessler, 2020
   //  + abort if n_file > MXFILE_LIST
 
   int    i, n_file = 0; 
@@ -524,6 +587,8 @@ int glob_file_list(char *wildcard, char ***file_list) {
   return n_file; 
 }   // end glob_file_list
 
+
+// ===============================================
 void write_epoch_list_init(char *outFile) {
 
   // July 11 2020
@@ -1400,8 +1465,7 @@ bool NstringMatch(int MAX, char *string, char *key) {
     STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
     STRING_UNIQUE.DUMPKEY_FLAG = false ;
     if ( MAX < 0 ) { STRING_UNIQUE.DUMPKEY_FLAG = true; } 
-
-    return(0);
+        return(0);
   }
 
   // check option to print EVERY key
@@ -1446,9 +1510,8 @@ int uniqueOverlap (char *string,char *key ) {
 void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
 
   // Apr 2019
-  // Utility to store strings and check that if input *string
-  // is unique. If *string used more than N times, 
-  // abort with error message.
+  // Utility to store strings and check if input *string is unique. 
+  // If *string used more than MAX times,  abort with error message.
   //
   // Inputs:
   //   MAX       : max number of times string allowed to repeat
@@ -1505,7 +1568,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    // even of NFOUND > 0 , return to avoid storing same string 
+    // even if NFOUND > 0 , return to avoid storing same string 
     // more than onece.
     if ( NFOUND > 0 ) { return ; }
   }
@@ -1966,6 +2029,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Jul 31 2020: add abort trap on too-long string length
   // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
   // Feb 26 2021: for FIRSTLINE, read 5 lines for safety.
+  // Feb 18 2022: read 2 lines for FIRSTLINE
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
@@ -2046,6 +2110,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     }
     NWD = PARSE_WORDS.NWD = nline = LINE[0] = 0 ;
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
+      if ( strlen(LINE) == 0 ) { continue; }
       nline++ ;
       malloc_PARSE_WORDS();
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
@@ -2064,7 +2129,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	NWD = NWD_TMP; // reset NWD to ignore comments
       }
       PARSE_WORDS.NWD += NWD;
-      if ( FIRSTLINE && nline > 5 ) { break; }
+      if ( FIRSTLINE && nline > 2 ) { break; }
     } // end while
     NWD = PARSE_WORDS.NWD ;
 
@@ -7180,6 +7245,7 @@ int  init_SNPATH(void) {
   sprintf(PATH_SNDATA_SIM,        "%s/SIM",        PATH_SNDATA_ROOT);
   SNDATA.SURVEY_NAME[0]=0;
   SNDATA.SUBSURVEY_NAME[0] = 0 ;
+  SNDATA.SUBSURVEY_LIST[0] = 0 ;
 
   PATH_USER_INPUT[0] = 0 ; 
 
@@ -7192,12 +7258,15 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt, ep ;
+  int ifilt, ep, j ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGIN -------------
 
   printf("\n  %s: \n", fnam); fflush(stdout);
+
+  FORMAT_SNDATA_READ  = 0; 
+  FORMAT_SNDATA_WRITE = 0;
 
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
@@ -7234,7 +7303,9 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
-  SNDATA.HOSTGAL_NZPHOT_QP    = 0;
+  SNDATA.HOSTGAL_NZPHOT_Q    = 0;
+  for(j=0; j < MXBIN_ZPHOT_Q; j++)
+    { SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -9.0;  }
 
   return(SUCCESS);
 
@@ -7272,8 +7343,8 @@ int init_SNDATA_EVENT(void) {
   SNDATA.DEC    = NULLFLOAT ;
   SNDATA.FAKE   = NULLINT ;
   SNDATA.MWEBV  = NULLFLOAT ;
-  SNDATA.WRFLAG_BLINDTEST = false ; 
-  SNDATA.WRFLAG_PHOTPROB  = false ;
+  SNDATA.WRFLAG_BLINDTEST     = false ; 
+  SNDATA.WRFLAG_PHOTPROB      = false ;
   SNDATA.SNTYPE = 0 ;
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
@@ -7314,20 +7385,28 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_RA[igal]           = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]         =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]         = -99.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -99.0 ;
-    SNDATA.HOSTGAL_SQRADIUS[igal]     = -99.0 ;
-    SNDATA.HOSTGAL_ELLIPTICITY[igal]  = -99.0 ;
+
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGSFR_TRUE[igal]  =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGSFR_OBS[igal]   =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGSFR_ERR[igal]   =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGsSFR_TRUE[igal] =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGsSFR_OBS[igal]  =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_LOGsSFR_ERR[igal]  =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_COLOR_TRUE[igal]   =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_COLOR_OBS[igal]    =  HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_COLOR_ERR[igal]    =  HOSTLIB_PROPERTY_UNDEFINED ;
+
+    SNDATA.HOSTGAL_SQRADIUS[igal]     = HOSTLIB_PROPERTY_UNDEFINED ;
+    SNDATA.HOSTGAL_ELLIPTICITY[igal]  = HOSTLIB_PROPERTY_UNDEFINED ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
-      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_QP; j++){
-          SNDATA.HOSTGAL_ZPHOT_QP[igal][j] = -9.0;
-  	}
+    for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
+      { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
   }
-  // xxx mark delete (move to global init)  SNDATA.HOSTGAL_USEMASK = 0 ;
+
 
   // init SEARCH parameters
   SNDATA.SEARCH_TYPE      = NULLINT ;
@@ -7453,8 +7532,7 @@ int init_SNDATA_EVENT(void) {
     SNDATA.FLUXCAL_ERRTOT[i_epoch]  = NULLFLOAT ;
 
     SNDATA.MAG[i_epoch]           = NULLFLOAT ;
-    SNDATA.MAG_ERRPLUS[i_epoch]   = NULLFLOAT ;
-    SNDATA.MAG_ERRMINUS[i_epoch]  = NULLFLOAT ;
+    SNDATA.MAG_ERR[i_epoch]       = NULLFLOAT ;
 
     SNDATA.SKYSUB_ERR[i_epoch]    = NULLFLOAT ;
     SNDATA.GALSUB_ERR[i_epoch]    = NULLFLOAT ;
@@ -8840,6 +8918,14 @@ void react_missing_docana__(bool *REQUIRE_DOCANA, char *fileName)
 { react_missing_docana(*REQUIRE_DOCANA,fileName); }
 void check_file_docana__(int *optmask, char *fileName) 
 { check_file_docana(*optmask, fileName); }
+
+
+// **********************************
+void abort_docana_tooLong(char *fileName, char *callFun) {
+  sprintf(c1err,"Could not find %s",  KEYNAME2_DOCANA_REQUIRED);
+  sprintf(c2err,"in %s", fileName );
+  errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
+} // end abort_docana_tooLong
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

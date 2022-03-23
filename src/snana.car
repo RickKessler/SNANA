@@ -113,7 +113,7 @@ c
 
       PARAMETER (                   ! BEGIN SNANA PARAMS
      &   SNTABLE_LIST_DEFAULT = 'SNANA  FITRES  LCPLOT'
-     &  ,MXVERS        = 12         ! max number of versions to read
+     &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
@@ -429,8 +429,10 @@ c
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
-     &  ,REFORMAT_SAVE_BADEPOCHS ! if bit2 is set on any OPT_REFORMAT
-     &  ,REFORMAT_SPECTRA        ! if 128-bit is set (Oct 2021)    
+     &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
+     &  ,REFORMAT_SPECTRA        ! include spectra (default=F)
+     &  ,REFORMAT_PRIVATE      ! T-> include private variables (default=T)
+     &  ,REFORMAT_SIMTRUTH     ! T -> include SIM truth (default=T)
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
@@ -496,7 +498,6 @@ c global survey info
      &   ,FOUND_SURVEY
      &   ,FORMAT_TEXT    ! ascii/txt for input data
      &   ,FORMAT_FITS    ! snfitsio for input data.
-     &   ,LEGACY_HEADER_OVERRIDE
 
       INTEGER N_SNLC_PLOT
       LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
@@ -525,8 +526,8 @@ c global survey info
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,ABSO_OFFSET, ABSO_INDEX
-     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA
-     &    ,REFORMAT_SAVE_BADEPOCHS
+     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
+     &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
      &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
@@ -538,7 +539,7 @@ c global survey info
 c logical *1 stuff
 
       COMMON / SNDATCOM1 / EXIST_FILT, FOUND_SURVEY
-     &    ,FORMAT_TEXT, FORMAT_FITS, LEGACY_HEADER_OVERRIDE
+     &    ,FORMAT_TEXT, FORMAT_FITS
 
 c SNTABLE control variables (May 2014)
       LOGICAL
@@ -1401,7 +1402,9 @@ c logical flags for output tables
      &  ,EXIST_SNHOST_CONFUSION
      &  ,EXIST_SNHOST_ZPHOT
      &  ,EXIST_SNHOST_LOGMASS
-     &  ,EXIST_SNHOST_sSFR
+     &  ,EXIST_SNHOST_LOGSFR
+     &  ,EXIST_SNHOST_LOGsSFR
+     &  ,EXIST_SNHOST_COLOR
      &  ,EXIST_SNHOST_MAGOBS
      &  ,EXIST_SNHOST_SB
 
@@ -1416,8 +1419,12 @@ c logical flags for output tables
      &  ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)
      &  ,SNHOST_LOGMASS(MXSNHOST)
      &  ,SNHOST_LOGMASS_ERR(MXSNHOST)
-     &  ,SNHOST_sSFR(MXSNHOST)
-     &  ,SNHOST_sSFR_ERR(MXSNHOST)
+     &  ,SNHOST_LOGSFR(MXSNHOST)
+     &  ,SNHOST_LOGSFR_ERR(MXSNHOST)
+     &  ,SNHOST_LOGsSFR(MXSNHOST)
+     &  ,SNHOST_LOGsSFR_ERR(MXSNHOST)
+     &  ,SNHOST_COLOR(MXSNHOST)
+     &  ,SNHOST_COLOR_ERR(MXSNHOST)
      &  ,SNHOST_SBFLUXCAL(MXFILT_ALL)  ! surface brightness FLUXCAL /asec^2
      &  ,SNHOST_MAGOBS(MXFILT_ALL,(MXSNHOST))       ! observer-frame mags
      &  ,SNHOST_MAGOBS_ERR(MXFILT_ALL,(MXSNHOST))   ! error on above
@@ -1438,7 +1445,8 @@ c quantites which do not depend on which host
 
       COMMON / SNHOSTCOM / 
      &   EXIST_SNHOST_ANGSEP, EXIST_SNHOST_DDLR, EXIST_SNHOST_CONFUSION
-     &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_sSFR
+     &  ,EXIST_SNHOST_ZPHOT,  EXIST_SNHOST_LOGMASS, EXIST_SNHOST_LOGSFR
+     &  ,EXIST_SNHOST_LOGsSFR, EXIST_SNHOST_COLOR
      &  ,EXIST_SNHOST_MAGOBS, EXIST_SNHOST_SB
 c
      &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
@@ -1446,7 +1454,9 @@ c
      &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR 
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
      &  ,SNHOST_LOGMASS, SNHOST_LOGMASS_ERR
-     &  ,SNHOST_sSFR,    SNHOST_sSFR_ERR
+     &  ,SNHOST_LOGSFR, SNHOST_LOGSFR_ERR
+     &  ,SNHOST_LOGsSFR,    SNHOST_LOGsSFR_ERR
+     &  ,SNHOST_COLOR,    SNHOST_COLOR_ERR
      &  ,SNHOST_SBFLUXCAL, SNHOST_SBFLUXCAL_ERR, SNHOST_SBMAG
      &  ,SNHOST_MAGOBS, SNHOST_MAGOBS_ERR
 
@@ -1724,6 +1734,7 @@ c define namelist cuts
      &  ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)
      &  ,cutwin_var(2,NCUTBIT)   
      &  ,cutwin_cid(2)           ! candidate id
+     &  ,cutwin_sntype(2)        ! Mar 2022
      &  ,cutwin_redshift(2)
      &  ,cutwin_redshift_err(2)
      &  ,cutwin_ra(2)
@@ -1902,6 +1913,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
 
       EQUIVALENCE 
      &    ( cutwin_var(1,cutbit_cid),       cutwin_cid )
+     &   ,( cutwin_var(1,cutbit_sntype),    cutwin_sntype )
      &   ,( cutwin_var(1,cutbit_redshift),  cutwin_redshift )
      &   ,( cutwin_var(1,cutbit_redshift_err),cutwin_redshift_err )
      &   ,( cutwin_var(1,cutbit_ra),        cutwin_ra )
@@ -1989,6 +2001,7 @@ c
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! SN versions to read
+     &  ,VERSION_PHOTOMETRY_WILDCARD*(MXCHAR_FILENAME)  ! get list from glob
      &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! TEXT -> FITS
      &  ,VERSION_REFORMAT_TEXT*(MXCHAR_VERSION)   ! FITS -> TEXT
 
@@ -2114,8 +2127,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
       CHARACTER SIMVAR_CUTWIN_LIST(MXCUT_PRIVATE)*40      
 
       COMMON   / SNLCINP /  
-     &      NLINE_ARGS, USE_LINE_ARGS, nmlfile  ! xxx LINE_ARGS, 
-     &    , VERSION_PHOTOMETRY
+     &      NLINE_ARGS, USE_LINE_ARGS, nmlfile 
+     &    , VERSION_PHOTOMETRY, VERSION_PHOTOMETRY_WILDCARD
      &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
@@ -2166,7 +2179,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
 
       NAMELIST / SNLCINP / 
-     &      VERSION_PHOTOMETRY
+     &      VERSION_PHOTOMETRY, VERSION_PHOTOMETRY_WILDCARD
      &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
@@ -2213,7 +2226,8 @@ c
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
-     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT, cutwin_cid
+     &   ,PHOTFLAG_MSKREJ, PHOTFLAG_BITLIST_REJECT
+     &   ,cutwin_cid, cutwin_sntype
      &   ,cutwin_redshift, cutwin_redshift_err
      &   ,cutwin_ra, cutwin_dec
      &   ,cutwin_hostsep,   cutwin_Nepoch
@@ -3034,21 +3048,23 @@ c check for SN,MJD list from file ... used for interpolation
 c read optional tags
       CALL RDFILE_USERTAGS()
 
-c read optional header-override (can include vpec) 
-      CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
-
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
+
+c check reformat options
+      CALL INIT_REFORMAT(1)
 
 c -----------------------------------------------
 c prepare reading data; determine FITS or TEXT; read global info ...
       CALL INIT_READ_DATA()
 
+c check reformat options
+      CALL INIT_REFORMAT(2)
+
 c continue with initialization that may depend on SURVEY and FILTERS.
 
 c process namelist strings after we know
 c the filters and survey 
-
       CALL PROCSNNML(IERR) 
         IF ( IERR .NE. 0 ) GOTO 666 
 
@@ -3164,7 +3180,7 @@ cc      IF ( LTEST_INTERP ) CALL TEST_INTERP(INTERP_OPT)
 +SELF.
 
 c initialize optional format translations
-      CALL INIT_REFORMAT()
+c xxx mark      CALL INIT_REFORMAT()
 
 c ######################################################
 c
@@ -3237,8 +3253,6 @@ c one-time init for both FITS and TEXT (since we don't know format yet)
       INIT_NUM = INIT_NUM+1
       CALL RD_SNTEXTIO_INIT(INIT_NUM)
 
-      LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-
 c set flag to read header of 1st light curve to get global info
 c (SURVEY, FILTERS ..) needed for initialization
 
@@ -3248,8 +3262,16 @@ c (SURVEY, FILTERS ..) needed for initialization
 
       CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL) 
 
-      IF ( .not. LSIM_SNANA .and. DEBUG_FLAG == 1210 ) THEN  
-        CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0) )
+c check header override option
+      LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
+      IF ( LENF > 0 ) THEN
+        IF ( LSIM_SNANA ) THEN
+          c1err = 'HEADER_OVERRIDE_FILE is only for data;'
+          c2err = 'not for simulations'
+          CALL MADABORT('INIT_READ_DATA', c1err, c2err )
+        ELSE
+          CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0))
+        ENDIF
       ENDIF
 
       RETURN
@@ -3371,11 +3393,11 @@ c get version and private data path for this version
 c read global info and store in SNDATA struct in sndata.h
       OPTRD = 0   ;   
       IF ( FORMAT_FITS ) THEN       
-         IF ( LRDFLAG_GLOBAL ) OPTRD = 2
+         IF ( LRDFLAG_GLOBAL )          OPTRD = OPTRD + 2
+	 IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
-         if ( DEBUG_FLAG == 1210 ) OPTRD = OPTRD + 256 ! debug flag
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)
@@ -3702,6 +3724,12 @@ c     &     + OPTMASK_SNDATA_DUMP
         C1err = 'Unrecognized DATATYPE = ' // DATATYPE
         C2err = 'Check DATATYPE key in FITS header.'
         CALL MADABORT("RDGLOBAL", c1err, c2err )
+      ENDIF
+
+c Mar 2022: check option to re-write sims to look like real data
+      IF ( LSIM_SNANA .and. .not. REFORMAT_SIMTRUTH ) then
+          LSIM_SNANA = .FALSE.
+          DATATYPE   = 'DATA'
       ENDIF
 
       ISJOB_SIM = (LSIM_SNANA .or. LSIM_MAGOBS)
@@ -4343,7 +4371,7 @@ C ============================================
 +DECK,RDHEAD_HOSTGAL.
       SUBROUTINE RDHEAD_HOSTGAL(OPT,igal)
 
-C created Feb 9 2021 [refactored from PARSE_HOSTGAL]
+C Created Feb 9 2021 [refactored from PARSE_HOSTGAL]
 c Transfer HOSTGAL info from SNDATA struct (sndata.h)
 c to common block variable.s
 c
@@ -4360,6 +4388,7 @@ c May 21 2021: read HOSTGAL_FLAG
 +CDE,FILTCOM.
       INTEGER   LENPRE, ifilt, ifilt_obs
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60, BAND*2
+      CHARACTER HOST_PROPERTY_LIST*(MXCHAR_FILENAME)
       REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 C -------------- BEGIN ----------
@@ -4451,8 +4480,8 @@ c - - -
       SNHOST_DDLR(igal) = SNGL(DARRAY(1))
       IF ( SNHOST_DDLR(igal) > 0.0 )  EXIST_SNHOST_DDLR = .TRUE.
 
-
 c - - - - - - - - - - - -  -
+c ??? maybe ?? CALL HOST_PROPERTY_LIST_SNDATA(HOST_PROPERTY_LIST,MXCHAR_FILENAME)
 
       KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
@@ -4462,19 +4491,43 @@ c - - - - - - - - - - - -  -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_LOGMASS_ERR(igal)   = SNGL(DARRAY(1))
 
-      if ( SNHOST_LOGMASS(igal) > 0.0 ) EXIST_SNHOST_LOGMASS = .TRUE.
+      if(SNHOST_LOGMASS(igal) > -9000.) EXIST_SNHOST_LOGMASS = .TRUE.
 
 c - - - -
 
-      KEY    = PREFIX(1:LENPRE)//'_sSFR' ;   
+      KEY    = PREFIX(1:LENPRE)//'_LOGSFR' ;
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-      SNHOST_sSFR(igal)     = SNGL(DARRAY(1))
+      SNHOST_LOGSFR(igal)     = SNGL(DARRAY(1))
 
-      KEY    = PREFIX(1:LENPRE)//'_sSFR_ERR' ;   
+      KEY    = PREFIX(1:LENPRE)//'_LOGSFR_ERR' ;
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-      SNHOST_sSFR_ERR(igal)     = SNGL(DARRAY(1))
+      SNHOST_LOGSFR_ERR(igal)     = SNGL(DARRAY(1))
+
+      IF(SNHOST_LOGSFR(igal) > -9000.0) EXIST_SNHOST_LOGSFR = .TRUE.
+
+c - - - -
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGsSFR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGsSFR(igal)     = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_LOGsSFR_ERR' ;   
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_LOGsSFR_ERR(igal)     = SNGL(DARRAY(1))
  
-      IF ( SNHOST_sSFR(igal) > -90.0 ) EXIST_SNHOST_sSFR = .TRUE.
+      IF(SNHOST_LOGsSFR(igal) > -9000.0) EXIST_SNHOST_LOGsSFR = .TRUE.
+
+c - - - -
+
+      KEY    = PREFIX(1:LENPRE)//'_COLOR' ;
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_COLOR(igal)     = SNGL(DARRAY(1))
+
+      KEY    = PREFIX(1:LENPRE)//'_COLOR_ERR' ;
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      SNHOST_COLOR_ERR(igal)     = SNGL(DARRAY(1))
+
+      IF(SNHOST_COLOR(igal) > -9000.0) EXIST_SNHOST_COLOR = .TRUE.
 
 c - - - 
       KEY_PREFIX = PREFIX(1:LENPRE) // "_MAG"
@@ -5666,6 +5719,7 @@ C -------------- BEGIN -----------
 c ----------------------------------------
 c set namelist defaults
 
+      VERSION_PHOTOMETRY_WILDCARD = 'NULL'
       DO i = 1, MXVERS
         VERSION_PHOTOMETRY(i) = 'NULL'
       ENDDO
@@ -5677,9 +5731,11 @@ c set namelist defaults
       OPT_YAML              = 0
       OPT_REFORMAT_SALT2    = 0 
       OPT_REFORMAT_TEXT     = 0
-      OPT_REFORMAT_FITS     = 0 ! +=1 => write fits; +=2 =>save bad epochs
+      OPT_REFORMAT_FITS     = 0 
       REFORMAT_SAVE_BADEPOCHS = .FALSE.
       REFORMAT_SPECTRA        = .FALSE.
+      REFORMAT_PRIVATE        = .TRUE.
+      REFORMAT_SIMTRUTH       = .TRUE.
       REFORMAT_KEYS     = 'NULL'
 
       NONSURVEY_FILTERS = ''
@@ -5779,7 +5835,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       DO i = 1, MXLISTNML
          SNTYPE_LIST(i)    = 0
-         SNTYPE_IGNORE(i)  = 0
+         SNTYPE_IGNORE(i)  = -9  ! note that type=0(no type) can be ignored
          CCDNUM_LIST(i)    = 0 
          SNCID_LIST(i)     = 0
          SNCID_IGNORE(i)   = 0
@@ -6031,8 +6087,6 @@ c bits 1 & 2 are set.
         cutwin_searcheff_mask(2) = 5.1
       ENDIF
 
-      LEGACY_HEADER_OVERRIDE = (DEBUG_FLAG .NE. 1210) ! Dec 2021
-
 c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       IF ( PHOTFLAG_BITLIST_REJECT(1) .GE. 0 ) THEN
          PHOTFLAG_MSKREJ(1) = 0
@@ -6106,7 +6160,7 @@ c then use survey name by default
       END DO
 
       i = 1 ; NSNTYPE_IGNORE=0
-      DO WHILE ( SNTYPE_IGNORE(i) .GE. MNTYPE ) 
+      DO WHILE ( SNTYPE_IGNORE(i) .GE. 0 ) 
           NSNTYPE_IGNORE = NSNTYPE_IGNORE + 1
           i = i + 1
       END DO
@@ -6118,17 +6172,7 @@ c then use survey name by default
 c ------------------------
 c count number of photometry versions
 
-      i = 1
-      DO WHILE ( VERSION_PHOTOMETRY(i) .NE. 'NULL' )           
-          N_VERSION = i
-          if ( N_VERSION .GT. MXVERS ) then
-            print*,'  ERROR: N_VERSION = ', N_VERSION,
-     &                   ' exceeds array bound.'
-            print*,'  ***** ABORT **** '
-          CALL EXIT(EXIT_ERRCODE)
-          endif
-          i = i + 1
-      END DO
+      CALL PREP_VERSION_PHOTOMETRY()
 
 c Feb 27 2018: check ZP cut
       NZPCUT = 0
@@ -6187,24 +6231,8 @@ c ---------------------------
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-
       IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
-      ENDIF
-
-c check option to save bad epochs for OPT_REFORMAT
-      IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
-         REFORMAT_SAVE_BADEPOCHS = .TRUE.
-      ENDIF
-
-c check option to reformat spectra: note that for TEXT -> FITS,
-c spectra may not appear in 1st text file, so user must explicitly
-c request reformatting spectra. MASK=128 -> bit 7
-c 
-      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
-     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
-         REFORMAT_SPECTRA = .TRUE.
       ENDIF
 
 c - - - - -
@@ -6264,6 +6292,81 @@ C #################################################
       RETURN
       END  ! end of RDSNNML
 
+C =======================================
++DECK,PREP_VERSION_PHOT.
+      SUBROUTINE PREP_VERSION_PHOTOMETRY()
+
+c Created Mar 2022 by R.Kessler
+c Check wildcard option to get photometry folders using glob.
+c Abort if too many versions.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNLCINP.
+
+      INTEGER i, index_C, LENV, LENF, JSLASH, IGNORE, NVERS, langFlag
+      CHARACTER 
+     &   FNAM*24
+     &  ,cSTRING*(MXCHAR_FILENAME), cFILE*(MXCHAR_FILENAME)
+
+      INTEGER  IGNOREFILE, STORE_GLOB_FILE_LIST
+      EXTERNAL IGNOREFILE, STORE_GLOB_FILE_LIST
+      EXTERNAL GET_GLOB_FILE, RESET_GLOB_FILE_LIST
+
+c ---------- BEGIN -------------
+
+      FNAM = 'PREP_VERSION_PHOTOMETRY'
+
+c check for wild card; e.g., 
+c  VERSION_PHOTOMETRY_WILDCARD = '$SNDATA_ROOT/SIM/ELASTICC_*'
+
+      CALL ENVreplace(VERSION_PHOTOMETRY_WILDCARD)
+      LENV    = INDEX(VERSION_PHOTOMETRY_WILDCARD,' ') - 1
+      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
+      IGNORE  = IGNOREFILE(cSTRING,LENV)
+      IF ( IGNORE == 0 ) THEN
+         print*,' '
+         print*,' Use glob to find data folders for'
+	 print*,'     ', VERSION_PHOTOMETRY_WILDCARD(1:LENV)
+	 call flush(6)
+
+         NVERS = STORE_GLOB_FILE_LIST(cSTRING,LENV)
+         langFlag = 1 ! fortran
+         DO i = 1, NVERS
+            index_C = i - 1  ! C index
+            CALL GET_GLOB_FILE(langFlag, index_C, cFILE, LENF)
+
+c  strip off base name after last slash
+            JSLASH = INDEX(cFILE,'/', BACK=.TRUE.)  	    
+	    LENF   = INDEX(cFILE,' ') - 1
+	    VERSION_PHOTOMETRY(i) = cFILE(JSLASH+1:LENF)
+
+            LENV = INDEX(VERSION_PHOTOMETRY(i),' ') - 1
+	    print*,' Found ', VERSION_PHOTOMETRY(i)(1:LENV)
+         ENDDO
+         call flush(6)
+         CALL RESET_GLOB_FILE_LIST()
+c           STOP ! xxx
+      ENDIF
+
+c - - - - -
+c Count number of versions 
+
+      i = 1
+      DO WHILE ( VERSION_PHOTOMETRY(i) .NE. 'NULL' )           
+        N_VERSION = i
+        if ( N_VERSION .GT. MXVERS ) then
+	  write(C1ERR,61) N_VERSION, MXVERS
+61        format('N_VERSION=',I3,' exceeds MXVERS=',I3)
+	  C2ERR = 'Reduce number of data versions or increase MXVERS'
+          CALL  MADABORT(FNAM, C1ERR, C2ERR )
+        endif
+        i = i + 1
+      END DO
+
+      RETURN
+      END   ! end PREP_VERSION_PHOTOMETRY
 
 C ======================================
 +DECK,CHKBOUND.
@@ -7202,6 +7305,9 @@ c ------------- BEGIN -------------
             CALL PARSE_COMMASEP_LIST('VERSION_PHOTOMETRY',
      &                                 ARGLIST(1))
 
+         else if(MATCH_NMLKEY('VERSION_PHOTOMETRY_WILDCARD',
+     &                1, iArg, ARGLIST) ) then
+            VERSION_PHOTOMETRY_WILDCARD = ARGLIST(1)(1:MXCHAR_VERSION)
          else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
      &                1, iArg, ARGLIST) ) then
             VERSION_REFORMAT_FITS = ARGLIST(1)(1:MXCHAR_VERSION)
@@ -7573,6 +7679,11 @@ c - - - -
      &            2, iArg, ARGLIST) ) then
              READ(ARGLIST(1),*) CUTWIN_CID(1)
              READ(ARGLIST(2),*) CUTWIN_CID(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_SNTYPE',
+     &            2, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) CUTWIN_SNTYPE(1)
+             READ(ARGLIST(2),*) CUTWIN_SNTYPE(2)
 
 c - - - -
          else if ( MATCH_NMLKEY('SNTYPE_LIST',
@@ -8928,7 +9039,7 @@ c print table header
 
         DO 888 ICUT = 1, NCUTBIT_SNLC 
 
-           if ( .NOT. LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
+           if(.NOT.LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
 
 c print line if any entry has a change in NPASSCUT
            LPRIN = .FALSE.
@@ -9129,9 +9240,6 @@ c Apr 2019: special NNtrain option to pick only EVEN CID
             if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
          endif
       endif
-
-c check option to override header values (Nov 29 2016)
-      CALL EXEC_HEADER_OVERRIDE()
 
 c - - - - - - - - - - - 
       NCALL_SNANA_DRIVER  = NCALL_SNANA_DRIVER  + 1
@@ -9529,14 +9637,32 @@ C ------------- BEGIN --------------
 
 C =============================
 +DECK,INIT_REFORMAT.
-      SUBROUTINE INIT_REFORMAT()
+      SUBROUTINE INIT_REFORMAT(OPT)
 c
 c Create Feb 7 2021;
 c Initialize option to reformat data
-
+c Input OPT=1 -> set bits
+c Input OPT=2 -> call INIT_REFORMAT_[FITS,TEXT]
+c
+c OPT_REFORMAT bits:
+c  lsb   mask  comment
+c   0     1    write fits; 
+c   1     2    include rejected epochs
+c   2     4     SPARE
+c   3     8     SPARE
+c   4    16     SPARE
+c   5    32     SPARE
+c   6    64    exclude private variables
+c   7   128    include spectra
+c   8   256    exclude SIM-truth so that output looks like real data
+c   9   512     SPARE
+c
+c -------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.      
+
+      INTEGER OPT
 
       INTEGER LEN_VER
       LOGICAL LEXIST
@@ -9549,6 +9675,45 @@ C ------------- BEGIN -------------
       FNAM = 'INIT_REFORMAT'
       REFORMAT       = .FALSE.  ! any reformat option
 
+      IF ( OPT == 2 ) GOTO 500
+c - - - - - - - - - 
+c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
+
+      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+        OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
+      ENDIF
+      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+        OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
+      ENDIF
+
+c check option to save bad epochs for OPT_REFORMAT
+      IF ( BTEST(OPT_REFORMAT_FITS,1) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,1) ) THEN 
+         REFORMAT_SAVE_BADEPOCHS = .TRUE.
+      ENDIF
+
+c check option to suppress PRIVATE variables: MASK+=64 or bit 6 (lsb=0)
+      IF ( BTEST(OPT_REFORMAT_FITS,6) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,6) ) THEN 
+         REFORMAT_PRIVATE = .FALSE.
+      ENDIF
+
+c check option to reformat spectra: note that for TEXT -> FITS,
+c spectra may not appear in 1st text file, so user must explicitly
+c request reformatting spectra. MASK=128 -> bit 7
+c 
+      IF ( BTEST(OPT_REFORMAT_FITS,7) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,7) ) THEN 
+         REFORMAT_SPECTRA = .TRUE.
+      ENDIF
+
+c check option to exclude SIM truth; MASK += 256
+      IF ( BTEST(OPT_REFORMAT_FITS,8) .or. 
+     &     BTEST(OPT_REFORMAT_TEXT,8) ) THEN 
+         REFORMAT_SIMTRUTH = .FALSE.
+      ENDIF
+
+c - - - - - - - - - - - - - - - - - -
 c check for reformat option using SNANA format
       REFORMAT_SNANA = (OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0)
 
@@ -9583,26 +9748,45 @@ c open aux files and leave them open
          NEPOCH_IGNORE_WRFITS = 0
       ENDIF
 
+      REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0 
+     &      .or. OPT_REFORMAT_SALT2>0
+c - - - - -
+c print info 
+    
+      IF ( REFORMAT ) THEN
+         print*,' '
+         print*,'   INIT_REFORMAT options: '
+	 print*,'     OPT_REFORMAT_[FITS,TEXT] = ',
+     &              OPT_REFORMAT_FITS, OPT_REFORMAT_TEXT
+	 print*,'     REFORMAT_BADEPOCHS    = ', REFORMAT_SAVE_BADEPOCHS
+	 print*,'     REFORMAT_SPECTRA      = ', REFORMAT_SPECTRA
+	 print*,'     REFORMAT_PRIVATE      = ', REFORMAT_PRIVATE         
+	 print*,'     REFORMAT_SIMTRUTH     = ', REFORMAT_SIMTRUTH
+         call flush(6)
+      ENDIF
+
+      RETURN
+c - - - - - - - - - -
+
+500   CONTINUE
+
       IF ( OPT_REFORMAT_FITS  >  0 ) THEN
          CALL INIT_REFORMAT_FITS()
-         REFORMAT  = .TRUE.
       ENDIF
 
       IF ( OPT_REFORMAT_TEXT  > 0 ) THEN 
          CALL INIT_REFORMAT_TEXT()
-         REFORMAT  = .TRUE.
       ENDIF        
 
       IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
          CALL INIT_REFORMAT_SALT2
-         REFORMAT = .TRUE.
       ENDIF
 
       RETURN
       END     ! end INIT_REFORMAT
 
 C ============================================
-+DECK,INIT_WRFITS.
++DECK,INIT_REFORMAT_FITS.
       SUBROUTINE INIT_REFORMAT_FITS
 
 c Prepare for translating text file format into FITS format.
@@ -9645,10 +9829,11 @@ c to see flags in C code, "grep WRITE_MASK sndata.h"
          WRITE_FLAG = 8   ! Jan 23 2018
       ELSE IF ( LSIM_SNANA ) THEN 
          WRITE_FLAG = 4   ! Jan 23 2018
+         if ( .NOT. REFORMAT_SIMTRUTH ) WRITE_FLAG = 2 + 256 ! Mar 2022
       ELSE
          WRITE_FLAG = 2
       ENDIF
-
+      
       if ( REFORMAT_SPECTRA ) WRITE_FLAG = WRITE_FLAG + 128
 
 c -----------------------
@@ -9667,7 +9852,7 @@ c --- write name of HEAD file to already-opend LIST file
       END  ! end  INIT_REFORMAT_FITS
 
 C ===============================
-+DECK,INIT_WRTEXT.
++DECK,INIT_REFORMAT_TEXT.
       SUBROUTINE INIT_REFORMAT_TEXT()
       IMPLICIT NONE
 cc      print*,'  INI_WRTEXT: placeholder -> do nothing ... yet'
@@ -9675,7 +9860,7 @@ cc      print*,'  INI_WRTEXT: placeholder -> do nothing ... yet'
       END
 
 C ====================================
-+DECK,INI_WRSALT2.
++DECK,INIT_REFORMAT_SALT2.
       SUBROUTINE INIT_REFORMAT_SALT2
 c -----------------------------------------------
 c Nov 2011 R.Kessler
@@ -9954,6 +10139,9 @@ c Create Feb 7 2021;
 c Update reformat output:
 c  + append FITS files for FITS output
 c  + write new TEXT file for TEXT output
+c
+c Jan 20 2022: move copy_SNDATA_MISC() to work for either TEXT for FITS.
+c -------------
 
       IMPLICIT NONE
 
@@ -9976,11 +10164,9 @@ C ---------- BEGIN ----------
          CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
       ENDIF
 
+      CALL copy_SNDATA_MISC() ! update SNDATA structure 
+
       IF ( OPT_REFORMAT_FITS > 0 )  THEN
-
-c  allow updating a few variables for FITS format
-         CALL copy_SNDATA_MISC()
-
          CALL WR_SNFITSIO_UPDATE() 
       ENDIF
 
@@ -10026,12 +10212,12 @@ c   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 c   + REDSHIFT_CMB[_ERR]
 c   + REDSHIFT_HELIO[_ERR]
 c   + VPEC[_ERR]
+c   + NPRIVATE               set to 0 OPT_REFORMAT_PRIVATE=F (Jan 2022)
 c   + HOSTGAL_LOGMASS[_ERR]  ??? TO DO (how to handle mutliple hosts?)
 c   + HOSTGAL_sSFR[_ERR]     ??? TO DO (idem)
 c
 c   + FLUXCAL      # if MAGCOR_INFILE is set  (Dec 2021)
 c   + FLUXCALERR   # if FLUXMODELERR_FILE is set (Dec 2021)
-c  
 
 c -------------
 
@@ -10039,6 +10225,7 @@ c -------------
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,PRIVCOM.
 
       INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
       REAL*8 DVAL(MXEPOCH)
@@ -10109,6 +10296,15 @@ c VPEC
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, 
      &        cSTRING, DVAL, LEN_KEY, LEN_STR)
 
+c check option to excluded PRIVATE variables from output.
+c Do NOT modify NVAR_PRIVATE.
+      IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
+        cKEY     = "NVAR_PRIVATE"  // char(0)        
+        DVAL(1)  = -1.0   ! -1 means disable to avoid abort on NVAR change
+        CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, 
+     &          cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ENDIF
+
 c ----
 c update logmass and sSFR
 c ------
@@ -10169,6 +10365,8 @@ c Jul 6 2021: don't write anything else to README so that
 c             original DOCUMENTATION block appears at the top.
 c             (maybe later, call function to append yaml format)
 c
+c Mar 7 2022: do explicit gzip 
+c
 c -------------
       IMPLICIT NONE
 
@@ -10185,8 +10383,16 @@ C ----------------- BEGIN ----------------
 
 c call C function to close out the FITS files.
       IF ( OPT_REFORMAT_FITS > 0 ) THEN
-         OPTMASK = 1  ! gzip flag (Dec 2020)
+         OPTMASK = 0  ! don't gzip because gzip logic doesn't work
          CALL wr_snfitsio_end(OPTMASK)
+
+         LEN_VERS  = INDEX(VERSION_REFORMAT_FITS,' ' ) - 1
+         CMD = 'cd ' // VERSION_REFORMAT_FITS(1:LEN_VERS) // 
+     &        ' ; gzip *.FITS'
+         print*,'   gzip output FITS files in ', 
+     &        VERSION_REFORMAT_FITS(1:LEN_VERS)
+         call flush(6)
+         CALL SYSTEM(CMD)
       ENDIF  
 
 
@@ -10998,7 +11204,9 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
 c init HOST logicals
       EXIST_SNHOST_ZPHOT    = .FALSE.
       EXIST_SNHOST_LOGMASS  = .FALSE.
-      EXIST_SNHOST_sSFR     = .FALSE.
+      EXIST_SNHOST_LOGSFR   = .FALSE.
+      EXIST_SNHOST_LOGsSFR  = .FALSE.
+      EXIST_SNHOST_COLOR    = .FALSE.
       EXIST_SNHOST_MAGOBS   = .FALSE.
       EXIST_SNHOST_SB       = .FALSE.
       EXIST_SNHOST_ANGSEP   = .FALSE.
@@ -11921,7 +12129,7 @@ c local args
 
 C ------------- BEGIN -----------
       iwd_C = iwd-1
-      CALL GET_PARSE_WORD(ONE, iwd_C,WORD_C,LEN)
+      CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C, LEN)
       LEN  = INDEX(WORD_C, ' ' ) - 1
       WORD = WORD_C(1:LEN)
       RETURN
@@ -13289,6 +13497,7 @@ c Returns True if ITYPE passes cuts; returns false otherwise.
 c Also increments global NACCEPT_TYPE if ITYPE is valid.
 c
 c Jul 12 2021: abort if ITYPE < 0
+c Mar 08 2022: apply CUTWIN_SNTYPE
 c
 c -------------------------
 
@@ -13306,6 +13515,7 @@ c local args
       CHARACTER FNAM*12
       INTEGER i
       LOGICAL LTYPE
+      REAL RTYPE
 
 C -------------- BEGIN --------------
 
@@ -13326,6 +13536,10 @@ C -------------- BEGIN --------------
            RETURN
         endif
       enddo
+
+      RTYPE = float(ITYPE)
+      IF ( RTYPE < CUTWIN_SNTYPE(1) ) RETURN
+      IF ( RTYPE > CUTWIN_SNTYPE(2) ) RETURN
 
       IF ( NSNTYPE_LIST .LE. 0 ) THEN  
          ! don't check  anything
@@ -15337,10 +15551,15 @@ c init a few SNHOST arrays
          SNHOST_ZPHOT_ERR(igal)   = -9.0
          SNHOST_ZSPEC(igal)       = -9.0
          SNHOST_ZSPEC_ERR(igal)   = -9.0
-         SNHOST_LOGMASS(igal)     = -9.0
-         SNHOST_LOGMASS_ERR(igal) = -9.0
-         SNHOST_sSFR(igal)        = -9.0
-         SNHOST_sSFR_ERR(igal)    = -9.0
+
+         SNHOST_LOGMASS(igal)       = -9999.0
+         SNHOST_LOGMASS_ERR(igal)   = -9999.0
+         SNHOST_LOGSFR(igal)        = -9999.0
+         SNHOST_LOGSFR_ERR(igal)    = -9999.0
+         SNHOST_LOGsSFR(igal)       = -9999.0
+         SNHOST_LOGsSFR_ERR(igal)   = -9999.0
+         SNHOST_COLOR(igal)         = -9999.0
+         SNHOST_COLOR_ERR(igal)     = -9999.0
       enddo
 c --------
       
@@ -15714,6 +15933,7 @@ C -------------- BEGIN -------------------
 c hard-wire names of cut variables (maxchar = 28)
 
       cutvar_name(CUTBIT_CID)          = 'CID:'
+      cutvar_name(CUTBIT_SNTYPE)       = 'TYPE:'
       cutvar_name(CUTBIT_RA)           = 'RA:'
       cutvar_name(CUTBIT_DEC)          = 'DEC:'
       cutvar_name(CUTBIT_HOSTSEP)      = 'HOST-SN sep:'
@@ -16762,390 +16982,6 @@ c store absolute filter indices in sparse list
       RETURN
       END         ! end PARSE_REQUIRE_EPOCHS_STRING
 
-C ========================================================
-+DECK,INIT_HEADER_OVERRIDE.
-      SUBROUTINE INIT_HEADER_OVERRIDE()
-
-c Created Nov 29 2016 by R.Kessler
-c Read optional list of header variables from file(s),
-c to override values in data files. Useful for systematics,
-c and for development of things like host Masses and
-c peculiar velocities that may take several iterations
-c before deciding final values for the data files.
-c Also note that the CID in the HEADER_OVERRIDE file
-c can be either the SNID or IAUC name.
-c
-c &SNLCINP input HEADER_OVERRIDE_FILE is a comma-seperated list
-c allowing multiple tables to each specify different variables
-c and different CIDs.
-c
-c Jun 09 2020: for SIM, leave message and return 
-c Jul 21 2020: refactor to allow comma-sep list of header-override files.
-c Oct 10 2020: abort if NFILE > MXFILE_LIST 
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-      INTEGER iwd, NWD, LENV, LENF, LEN_ALL
-      INTEGER NVAR_ALL, NVAR, ivar
-      INTEGER NFILE, ifile, OPTMASK_STORE
-      CHARACTER FNAM*24, cFILE*(4*MXCHAR_FILENAME), cVARLIST*400 
-      CHARACTER VARNAME*60
-      CHARACTER*(MXCHAR_FILENAME) FILE_LIST(MXFILE_LIST)
-
-c functions
-
-      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
-      EXTERNAL STORE_PARSE_WORDS, IGNOREFILE
-C ------------ BEGIN -------------
-
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      NVAR_HEADER_OVERRIDE = 0
-
-      LENF   = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      cFILE  = HEADER_OVERRIDE_FILE(1:LENF) // char(0)
-      if ( IGNOREFILE(cFILE,LENF) .NE. 0 ) RETURN
-
-      IF ( LSIM_SNANA ) THEN
-        print*,' '
-        print*,
-     &     ' ##########################################################'
-        print*,
-     &     ' !!!! IGNORE HEADER_OVERRIDE_FILE for SNANA SIMULATION !!!!'
-        print*,
-     &     ' ##########################################################'
-        print*,' '
-        CALL FLUSH(6)
-
-        HEADER_OVERRIDE_FILE = ''
-        RETURN
-      ENDIF
-
-      CALL RD_VPEC_FILE(-1)  ! abort if using obsolete VPEC_FILE (Jun 2020)
-
-      FNAM = 'INIT_HEADER_OVERRIDE'
-
-      LEN_ALL = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
-      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN_ALL) // char(0)
-
-c -------------------
-c check option to list HEADER variable names that can be overwritten
-      IF ( HEADER_OVERRIDE_FILE .EQ. 'LIST' ) THEN
-        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cVARLIST,400)
-        print*,' '
-        print*,' Dump List of available HEADER-Override variables: '
-        DO 11 iwd     = 1, NWD
-          CALL get_PARSE_WORD_fortran(iwd,VARNAME,LENV)
-          print*,'    ', VARNAME
-11      CONTINUE
-        print*,'  Done with list --> STOP. '
-        CALL FLUSH(6)
-        CALL EXIT(EXIT_ERRCODE)
-      ENDIF
-c -------------------
-      CALL PRBANNER('INIT_HEADER_OVERRIDE')
-
-c break comma-separated list (cFILE). Store local list
-c of files so that STORE_PARSE_WORDS can be used on VARLIST
-c for each file
-      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
-      NFILE = STORE_PARSE_WORDS(OPTMASK_STORE,cFILE,LENF)
-      if ( NFILE > MXFILE_LIST ) then
-        write(c1err,51) NFILE, MXFILE_LIST
-51      format('NFILE=',I2,' exceeds bound of MXFILE_LIST=',I2)
-        C2ERR = 'Increase MXFILE_LIST in snana.car, or reduce NFILE'
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      endif
-
-      DO ifile = 1, NFILE
-        call get_PARSE_WORD_fortran(ifile,FILE_LIST(ifile),LENF)
-      ENDDO
-      
-c - - - 
-      
-      DO 900 ifile = 1, NFILE
-        CALL READ_HEADER_OVERRIDE_FILE(FILE_LIST(ifile))
- 900  CONTINUE
-
-      print*,' '
-      print*,' HEADER_OVERRIDE SUMMARY:'
-      DO ivar = 1, NVAR_HEADER_OVERRIDE
-          write(6,110) VARLIST_HEADER_OVERRIDE(ivar)
-110       format(T10,'--> Override header variable: ', A)
-      END DO
-      CALL FLUSH(6)
-
-c check array bound
-      NVAR = NVAR_HEADER_OVERRIDE 
-      IF ( NVAR > MXVAR_HEADER_OVERRIDE ) THEN
-        write(c1err,61) NVAR
-61      format(I3,' override variables exceeds bound.' )
-        write(c2err,62) MXVAR_HEADER_OVERRIDE
-62      format('Bound is MXVAR_HEADER_OVERRIDE = ', I3 )
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-      print*,' ' 
-      CALL FLUSH(6)
-
-      RETURN
-      END  ! INIT_HEADER_OVERRIDE
-
-C =====================================
-+DECK,READ_HEADER_OVERRIDE.
-      SUBROUTINE READ_HEADER_OVERRIDE_FILE(FILENAME)
-
-c Created Jul 21 2020
-c Read FILENAME with SNTABLE_AUTOSTORE
-c
-c Aug 27 2020: check REQUIRE_DOCANA
-c Oct 27 2020: if no variables found, print list as part of abort message.
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-c subroutine arg
-      CHARACTER FILENAME*(*) ! (I) name of file to read char(0)?
-
-c local var
-      CHARACTER 
-     &   VARNAME*60, cVARNAME*60, cVARLIST*400
-     &  ,cFILE*(MXCHAR_FILENAME), cTABLE*40, FNAM*28
-
-      INTEGER 
-     &   NROW, NVAR, NVAR_ALL, LEN1, LEN2, LEN3, iwd, EXIST_VAR
-     &  ,OPTMASK_STORE, OPTMASK_SNTABLE, LENV
-
-c functions
-      INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-      EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS, CHECK_FILE_DOCANA
-
-C ------------- BEGIN -----------
-     
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      FNAM = 'READ_HEADER_OVERRIDE_FILE'
-      CALL ENVreplace(FILENAME) 
-
-      LEN1 = INDEX(FILENAME,' ') - 1
-      cFILE = FILENAME(1:LEN1) // char(0)
-
-      cTABLE = 'OVERRIDE' // char(0) 
-      LEN2   = INDEX(cTABLE,' ') - 1
-
-      LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
-      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
-
-c - - - - - -  -
-      CALL CHECK_FILE_DOCANA(REQUIRE_DOCANA, cFILE,LEN1)  ! C function
-c - - - - - -  -
-
-      OPTMASK_SNTABLE = 
-     &     4    ! 4 -> append next file
-cc xxx mark delete      &     2 +  ! 2 -> abort if no var matches
-cc xxx because later SIMLIB_OUT checks for optional x1 and c
-
-      NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &        OPTMASK_SNTABLE,  LEN1, LEN2, LEN3 )
-
-      write(6,20) NROW
- 20   format(T4,'Stored ', I8, ' rows of header-override data ')
-
-      IF ( NROW == 0 ) THEN
-        C1ERR = 'NROW = 0 in HEADER_OVERRIDE_FILE'
-        C2ERR = 'Check ' // FILENAME(1:LEN1)
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF 
-
-c check which header variables exist in the user file
-      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
-      NVAR_ALL = STORE_PARSE_WORDS(OPTMASK_STORE,cVARLIST,400)      
-      NVAR     = 0  ! xxx mark delete NVAR_HEADER_OVERRIDE 
-
-      DO 10 iwd     = 1, NVAR_ALL
-          call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
-          cVARNAME  = VARNAME(1:LENV) // char(0)
-          EXIST_VAR = EXIST_VARNAME_AUTOSTORE(cVARNAME,LENV)
-          if ( EXIST_VAR > 0 ) then
-            NVAR = NVAR + 1
-            if ( NVAR .LE. MXVAR_HEADER_OVERRIDE ) then
-              VARLIST_HEADER_OVERRIDE(NVAR) = VARNAME(1:40)
-            endif
-          endif
- 10   CONTINUE
-      NVAR_HEADER_OVERRIDE = NVAR
-      call flush(6)
-
-c - - - - - - - - 
-      IF ( NVAR == 0 ) THEN
-         CALL PRINT_PREABORT_BANNER(FNAM(1:28)//char(0),28)
-         write(6,166) NVAR_ALL
- 166     format(T3,'List of ',I4,' valid HEADER_OVERRIDE variables:')
-         DO 16 iwd     = 1, NVAR_ALL
-           call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
-           print*,'     ', VARNAME(1:LENV) 
-           call flush(6)
- 16      CONTINUE
-         c1err = 'Found no valid variables in HEADER_OVERRIDE_FILE.' 
-         c2err = 'Check valid HEADER_OVERRIDE variables list above.'
-         CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-      RETURN
-      END    ! end READ_HEADER_OVERRIDE_FILE
-
-C ========================================================
-+DECK,EXEC_HEADER_OVERRIDE.
-      SUBROUTINE EXEC_HEADER_OVERRIDE()
-
-c Created Nov 29 2016 by R.Kessler
-c Execute header override.
-c
-c Aug  7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
-c Nov 22 2019: check for HOSTGAL_OBJID, SIM_SALT2x1[c]
-c May 14 2020: check for REDSHIFT_QUALITYFLAG
-c Oct 27 2020: add REDSHIFT_CMB_ERR, REDSHIFT_HELIO[_ERR] to list
-
-      IMPLICIT NONE
-    
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,OVRIDECOM.
-
-      INTEGER ivar, L, LENV, ISTAT
-      REAL*8  DVAL
-      REAL*4  z, zerr
-      CHARACTER cVARNAME*40, VARNAME*40, cDUM*20
-      CHARACTER CCID_SNID*(MXCHAR_CCID), CCID_IAUC*(MXCHAR_CCID)
-      CHARACTER FNAM*24
-      LOGICAL    MAKE_SIMLIB_OUT
-c functions
-      EXTERNAL SNTABLE_AUTOSTORE_READ
-C ------------ BEGIN ------------
-
-      if ( .not. LEGACY_HEADER_OVERRIDE ) RETURN
-
-      IF ( NVAR_HEADER_OVERRIDE <= 0 ) RETURN
-
-      MAKE_SIMLIB_OUT = ( SIMLIB_OUTFILE .NE. '' ) 
-
-      FNAM = 'EXEC_HEADER_OVERRIDE'
-
-      L = INDEX(SNLC_CCID,' ') - 1
-      CCID_SNID = SNLC_CCID(1:L) // char(0)
-
-      L = INDEX(SNLC_IAUC,' ') - 1
-      CCID_IAUC = SNLC_IAUC(1:L) // char(0)
-
-      DO 100 ivar = 1, NVAR_HEADER_OVERRIDE
-        VARNAME   = VARLIST_HEADER_OVERRIDE(ivar)
-        LENV      = INDEX(VARNAME,' ' ) - 1
-        cVARNAME  = VARNAME(1:LENV) // char(0)
-        CALL SNTABLE_AUTOSTORE_READ(CCID_SNID,cVARNAME,ISTAT,
-     &          DVAL,cDUM,    MXCHAR_CCID, LENV, 20)
-
-        IF ( ISTAT .NE. 0 ) THEN  ! try IAUC name
-          CALL SNTABLE_AUTOSTORE_READ(CCID_IAUC,cVARNAME,ISTAT,
-     &               DVAL,cDUM,     MXCHAR_CCID, LENV, 20)
-        ENDIF
-        
-        IF ( ISTAT .NE. 0 ) GOTO 100
-
-c brute-force check each possible header variable 
-
-        IF ( VARNAME(1:LENV) .EQ. 'VPEC' ) THEN
-          SNLC_VPEC = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'VPEC_ERR' ) THEN
-          SNLC_VPEC_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' .or. 
-     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB'  ) THEN
-          z            = sngl(DVAL)
-          SNLC_ZCMB    = z; 
-          SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
-          CALL SET_ZHELIO()  ! compute zHEL from zCMB  (7.30.2020)
-          SNLC_REDSHIFT = SNLC_ZHELIO
-	  IF(RESTORE_OVERRIDE_ZBUG) SNLC_REDSHIFT = z
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' .or.
-     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB_ERR' ) THEN
-          zerr = sngl(DVAL)
-          SNLC_ZCMB_ERR     = zerr    ! bugfix z 
-          SNLC_ZHELIO_ERR   = zerr
-          SNLC_REDSHIFT_ERR = zerr
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO' ) THEN
-          SNLC_ZHELIO = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO_ERR' ) THEN
-          SNLC_ZHELIO_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_QUALITYFLAG' ) THEN
-           ISNLC_zFLAG = int(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'zFLAG' ) THEN
-           ISNLC_zFLAG = int(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_OBJID' ) THEN
-          SNHOST_OBJID(1) = int(DVAL)   ! Nov 22 2019
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS' ) THEN
-          SNHOST_LOGMASS(1) = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS_ERR' ) THEN
-          SNHOST_LOGMASS_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_DDLR' ) THEN
-          SNHOST_DDLR(1) = sngl(DVAL)   ! Dec 10, 2019
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR' ) THEN
-          SNHOST_sSFR(1) = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR_ERR' ) THEN
-          SNHOST_sSFR_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_PHOTOZ' ) THEN
-          SNHOST_ZPHOT(1)     = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_PHOTOZ_ERR' ) THEN
-          SNHOST_ZPHOT_ERR(1) = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'MWEBV' ) THEN
-          SNLC_MWEBV = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'MWEBV_ERR' ) THEN
-          SNLC_MWEBV_ERR = sngl(DVAL)
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2x1' ) THEN ! Nov 24 2019
-          SIM_SHAPEPAR = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_x1' ) THEN
-          SIM_SHAPEPAR = sngl(DVAL) 
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2c' ) THEN ! Nov 24 2019
-          SIM_COLORPAR = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_c' ) THEN ! Nov 24 2019
-          SIM_COLORPAR = sngl(DVAL) 
-
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJD' ) THEN ! Nov 24 2019
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL) 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PKMJDINI' ) THEN
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL)
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJDINI' ) THEN  ! same
-          SNLC_SEARCH_PEAKMJD = sngl(DVAL)
-
-        ELSE IF ( .NOT. MAKE_SIMLIB_OUT ) THEN           
-           C1ERR = 'Unknown VARNAME = '// VARNAME(1:LENV)
-           C2ERR = 'Check VARLIST_ALL_HEADER_OVERRIDE in snana.car' 
-           CALL MADABORT(FNAM, c1err, c2err )
-        ENDIF
-
-100   CONTINUE
-
-      RETURN
-      END      ! end EXEC_HEADER_OVERRIDE
 
 
 C ========================================================
@@ -17579,6 +17415,7 @@ c
 c Feb 08 2020: apply PSF, ZPERR, PHOTPROB cuts here so that USEFLAG is set.
 c Feb 12 2020: check MWEBV_FORCE
 c Nov 30 2020: compute SIM_EPCHI2FLUX for SNANA+EPOCHS table
+c Feb 9  2022: fix bug setting SUBSURVEY_NAME_LIST
 c -------------------------------------------
 
       IMPLICIT NONE
@@ -17592,7 +17429,7 @@ c -------------------------------------------
 c local var
 
       INTEGER 
-     &   newmjd, ifilt, ifilt_obs, LENLIST, INDEX_OVP
+     &   newmjd, ifilt, ifilt_obs, LENLIST, LENNAME, INDEX_OVP
      &  ,NBAND_SNRMAX, NBAND_SNRMAX2
      &  ,EPMIN, EPMAX, ep, isort, PHOTFLAG
      &  ,ORDER, INDEX_SORT(MXFILT_OBS)  ! SORT args
@@ -17621,9 +17458,10 @@ c function
 C ------------------ BEGIN -----------------
 
 c check to increment SUBSURVEY_LIST
- 
+c WARNING: If CFA follows CFA3, the code will think that CFA already exists as a survey  
       IF ( IDSURVEY .ne. IDSUBSURVEY ) THEN
-        INDEX_OVP = INDEX(SUBSURVEY_NAME_LIST,SUBSURVEY_NAME) 
+        LENNAME = INDEX(SUBSURVEY_NAME,' ') - 1
+        INDEX_OVP = INDEX(SUBSURVEY_NAME_LIST,SUBSURVEY_NAME(1:LENNAME)) 
         IF ( INDEX_OVP<=0 ) THEN
           LENLIST = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
           if ( LENLIST == 0 ) then  
@@ -17681,7 +17519,7 @@ c Note that MWEBV and MWEBV_ERR are modified if OPT_MWEBV > 0
          SNLC_MWEBV = MWEBV_FORCE
          SNLC_MWEBV_ERR = 0.0
       ENDIF
-
+ 
 c compute Galactic extinction in each band
 c (Oct 11 2013: code moved from MAIN to here)
       CALL MWEBV_FLUXCOR()
@@ -19608,10 +19446,11 @@ c        print*,' xxx SEDCMD = ', SEDCMD
 
 c if SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
+c fixed key SUBSURVEY_LIST to be printed after SURVEY key (M. Vincenzi Feb 2022)
          IF ( SUBSURVEY_NAME_LIST .NE. '' ) THEN
             LEN1   = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
             LEN2   = INDEX(SIMLIB_OUTFILE,' ') - 1
-            SEDCMD = "sed -i '1i SUBSURVEY_LIST: " 
+            SEDCMD = "sed -i '/SURVEY:/a  SUBSURVEY_LIST: " 
      &          // SUBSURVEY_NAME_LIST(1:LEN1) // "' " 
      &          // SIMLIB_OUTFILE(1:LEN2)
             CALL SYSTEM(SEDCMD)
@@ -21480,6 +21319,9 @@ c so that NEWMJD_CUTS can be evaluated correctly.
 
          SNLC_CUTVAR(CUTBIT_CID)       = 
      &        float ( SNLC_CID )
+
+         SNLC_CUTVAR(CUTBIT_SNTYPE)     = 
+     &        float ( ISNLC_TYPE )
 
          SNLC_CUTVAR(CUTBIT_REDSHIFT)  = 
      &       SNLC_REDSHIFT
@@ -23900,20 +23742,41 @@ c  * sntable_dump extraction will write real*8 as integer.
      &     LENBLOCK, 20 )
 
 c always write LOGMASS and SFR
-      VARLIST =  'HOST_LOGMASS:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
+      IF ( EXIST_SNHOST_LOGMASS ) THEN
+        VARLIST =  'HOST_LOGMASS:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
+        VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
      &         LENBLOCK, 40 )
+      ENDIF
 
+      IF ( EXIST_SNHOST_LOGSFR ) THEN
+        VARLIST =  'HOST_LOGSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      ENDIF
 
-      VARLIST =  'HOST_sSFR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR, VARLIST, 1,
+      IF ( EXIST_SNHOST_LOGsSFR ) THEN
+        VARLIST =  'HOST_LOGsSFR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
      &         LENBLOCK, 40 )
-      VARLIST =  'HOST_sSFR_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR_ERR, VARLIST, 1,
+        VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
+      ENDIF
+
+      IF ( EXIST_SNHOST_COLOR ) THEN
+        VARLIST =  'HOST_COLOR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+        VARLIST =  'HOST_COLOR_ERR:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,

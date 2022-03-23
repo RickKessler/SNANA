@@ -2,14 +2,6 @@
 #
 # Created Feb 2017 by R.Kessler
 # Nov 10 2021: Major update/refactor (see history below)
-#  
-#
-# @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
-#
-#  WARNING: Bug in SUBSURVEY_LIST key in output SIMLIB  file 
-#
-# @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
-#
 #
 # Combine multiple data versions into a single data version.
 # Also produced combined kcor file and simLib file, and convert
@@ -24,12 +16,16 @@
 #   combine_dataVersions.py <inFile>
 #
 # where <inFile> contains
-#   PRIVATE_DATA_PATH:  <path>   # this is optional
+#   PRIVATE_DATA_PATH:  <path>   # optional path to data
+#   KCOR_PATH:          <path>   # optional path to kcor files
+#   SURVEY_OUT:  <name of combined survey>  # required
+#   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
+#   MAGSYSTEM_FINAL:    <system>  # needed if there are multiple systems
+#   CHANGE_FILTER_CHAR: False     # optional preserve filter char names
+#
 #   VERSION:  <ver1>  <kcor_inFile1>
 #   VERSION:  <ver2>  <kcor_inFile2>
 #     etc ...
-#   SURVEY_OUT:  <name of combined survey>
-#   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
 #
 # Outputs:
 #    <SURVEY_OUT>_TEXT/       ! combined data directory, TEXT format
@@ -38,10 +34,6 @@
 #    <SURVEY_OUT>.SIMLIB      ! combined SIMLIB file
 #
 #      History
-#  Apr 12 2017: D.Scolnic added key SIMLIB_ZPERR_LIST
-#
-#  Oct 25 2017: RK comment out all SIMLIB_ZPERR_LIST code since it
-#               causes code to crash.
 #
 #  Dec 8 2017: S.Hinton - merge duplicates
 #  Jan 8 2018: RK - add VPEC_FILE option
@@ -66,11 +58,15 @@
 #  * NOT DONE: when merging SN with same name, check spectra
 #         (this might work, but didn't check it)
 #
+# Jan 18 2022 RK - few fixes for Pantheon+
+#    + addd new KCOR_PATH arg
+#    + all comment lines in [VERSION].LIST
+#
 # ====================================
 
 import os, sys
 import numpy as np
-import time, string, getpass, yaml, gzip
+import time, string, getpass, yaml, gzip, glob
 import subprocess, shutil, logging, datetime
 
 
@@ -84,6 +80,7 @@ tnow        = datetime.datetime.now()
 TSTAMP      = f"{tnow.year:04d}-{tnow.month:02d}-{tnow.day:02d}"
 MXFILTERS   = 62
 TOPDIR_DATA = SNDATA_ROOT + '/lcmerge'
+SUBDIR_DUPLICATES = "DUPLICATES"
 
 # define list of new characters for combined data
 FILTER_CHARLIST = 'abcdefghijklmnopqrstuvwxyz' + \
@@ -95,6 +92,7 @@ KEYNAME_VERSION        = "VERSION_LIST"     # for input data versions
 KEYNAME_SURVEY_OUT     = "SURVEY_OUT"       # name of combined data version
 KEYNAME_VPEC_FILE      = "VPEC_FILE"        # table file with VPEC and VPEC_ERR
 KEYNAME_PRIVATE        = "PRIVATE_DATA_PATH"   # location of data
+KEYNAME_KCOR_PATH      = "KCOR_PATH"
 KEYNAME_CHANGE_CHAR    = "CHANGE_FILTER_CHAR"  # True or False
 KEYNAME_KEYLIST_REMOVE = "KEYLIST_REMOVE"      # e.g., PRIVATE VERSION_PHOTOMETRY
 KEYNAME_MAGSYS_FINAL   = "MAGSYSTEM_FINAL"     # e.g., pick AB or BD17 if both exist
@@ -395,6 +393,27 @@ class VERSION_INFO:
 
         input_config = yaml.safe_load("\n".join(line_list))
 
+        # - - - -
+        # load a few defaults if not specified in input config file
+        if KEYNAME_PRIVATE not in input_config:
+            input_config[KEYNAME_PRIVATE] = ""
+
+        if KEYNAME_KCOR_PATH not in input_config:
+            input_config[KEYNAME_KCOR_PATH] = None
+
+        if KEYNAME_CHANGE_CHAR not in input_config:
+            input_config[KEYNAME_CHANGE_CHAR] = True
+
+        if KEYNAME_VPEC_FILE not in input_config:
+            input_config[KEYNAME_VPEC_FILE] = ""
+        
+        if KEYNAME_KEYLIST_REMOVE not in input_config:
+            input_config[KEYNAME_KEYLIST_REMOVE] = ""
+
+        if KEYNAME_MAGSYS_FINAL not in input_config:
+            input_config[KEYNAME_MAGSYS_FINAL] = None
+
+        # - - - - - - 
         SOUT   = input_config[KEYNAME_SURVEY_OUT]
         self.SURVEY_OUT         = SOUT
         self.VERSION_OUT_TEXT   = SOUT + '_TEXT'
@@ -418,29 +437,15 @@ class VERSION_INFO:
         
         self.NAME = []
         self.INFILE_KCOR = []
+        KCOR_PATH  = input_config[KEYNAME_KCOR_PATH]
         for tmpLine in input_config[KEYNAME_VERSION]:
             name        = tmpLine.split()[0]
             infile_kcor = tmpLine.split()[1]
+            if KCOR_PATH is not None:
+                infile_kcor = f"{KCOR_PATH}/{infile_kcor}"
             self.NAME.append(name)
             self.INFILE_KCOR.append(infile_kcor)
-        
-        # - - - -
-        # load a few defaults if not specified in input config file
-        if KEYNAME_PRIVATE not in input_config:
-            input_config[KEYNAME_PRIVATE] = ""
-
-        if KEYNAME_CHANGE_CHAR not in input_config:
-            input_config[KEYNAME_CHANGE_CHAR] = True
-
-        if KEYNAME_VPEC_FILE not in input_config:
-            input_config[KEYNAME_VPEC_FILE] = ""
-        
-        if KEYNAME_KEYLIST_REMOVE not in input_config:
-            input_config[KEYNAME_KEYLIST_REMOVE] = ""
-
-        if KEYNAME_MAGSYS_FINAL not in input_config:
-            input_config[KEYNAME_MAGSYS_FINAL] = None
-        
+                
         # get survey name with snana job
         print(f"")
         self.SURVEY_INP = []
@@ -603,12 +608,13 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     
     # read list file
     LISTFILE_IN  = dataDir + '/' + VIN + '.LIST'
-    LISTFILE_OUT = VOUT_TEXT + '/' + versionInfo.AUXFILE_LIST
+    LISTFILE_OUT = VOUT_TEXT + '/' + versionInfo.AUXFILE_LIST    
     PTR_L        = open(LISTFILE_IN,"rt")
     fileList     = PTR_L.readlines()
     PTR_L.close
 
     # read contents of first file
+    fileList[0] = fileList[0].strip()
     first_fileName = dataDir + '/' + fileList[0]
     first_fileName = first_fileName.replace("\n", "")
     first_fileName_gz = first_fileName + ".gz"
@@ -626,6 +632,7 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # read FILTER string from first data file
     FILTERSTRING_OLD = parseLines(fileContents, 'FILTERS:', 1, 0)
     SURVEY           = parseLines(fileContents, 'SURVEY:',  1, 0)
+    VARLIST          = parseLines(fileContents, 'VARLIST:', 1, 0) # ??
 
     # get full filter lists from kcor file
     FILTERLIST_OLD = kcorInfo.FILTER_CHARLIST_OLD     # only this version
@@ -679,6 +686,8 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # loop over all files and run 'sedcmd' 
     nfile = 0
     for infile in fileList:
+        if infile[0] == '#' : continue 
+        infile      = infile.strip()
         infile_base = infile.replace("\n", "")
         infile_copy = infile_base 
         if gz_flag: 
@@ -720,12 +729,8 @@ def write_readme(versionInfo, kcorInfo_list):
     f.write(f"  PURPOSE:  combined data set for analysis\n")    
     f.write(f"  USAGE_KEY: VERSION_PHOTOMETRY\n")    
     f.write(f"  USAGE_CODE: snlc_fit.exe\n")    
-    f.write(f"  NOTES:\n")    
 
-    cmd = ' '.join(sys.argv)
-    f.write(f"  - created with command {cmd}\n") 
-    if len(VPEC_FILE) > 1:
-        f.write(f"  - VPEC included from {VPEC_FILE}\n")
+    f.write(f"  FILTERMAP:  # VERSION_ORIG  FILT_ORIG FILT_NEW  NDATA \n")
 
     k = 0
     for vname, ndata_file in   zip(versionInfo.NAME, versionInfo.NDATA_FILE ):
@@ -733,13 +738,15 @@ def write_readme(versionInfo, kcorInfo_list):
         OLD       = kcorInfo.FILTER_CHARLIST_OLD 
         NEW       = kcorInfo.FILTER_CHARLIST_NEW 
         k += 1
+        if not CHANGE_FILTER_CHAR: NEW = OLD
+        f.write(f"  - {vname:<28} {OLD} {NEW}   {ndata_file}\n")
 
-        txt1  = f"{ndata_file:3d} data files from {vname:>28}"        
-        if CHANGE_FILTER_CHAR:
-            txt2  = f"{OLD} -> {NEW}"
-        else:
-            txt2 = ""
-        f.write(f"  - {txt1} {txt2}\n")
+    # - - - - - - - - 
+    f.write(f"  NOTES:\n")    
+    cmd = ' '.join(sys.argv)
+    f.write(f"  - created with command {cmd}\n") 
+    if len(VPEC_FILE) > 1:
+        f.write(f"  - VPEC included from {VPEC_FILE}\n")
 
     nfile_orig  = versionInfo.NFILE_ORIG
     nfile_final = versionInfo.NFILE_FINAL
@@ -767,6 +774,8 @@ def merge_duplicates(versionInfo):
     # Merge "OBS:" lines into one file, keeping header of first file.
     # Update NOBS key-value and make sure that "END:" is at the end
     # Move duplicates into /DUPLICATES subDir
+    #
+    # Jan 21 2022 RK - skip END_PHOTOMETRY keys (used in PPLUS)
 
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
 
@@ -794,7 +803,8 @@ def merge_duplicates(versionInfo):
     for sn in duplicates :
         print(f"    {sn} {d[sn]} ") 
 
-    dup_dir = VOUT_TEXT + "/DUPLICATES"
+    
+    dup_dir = VOUT_TEXT + f"/{SUBDIR_DUPLICATES}"
     logging.info("Merging into %s" % dup_dir)
     if not os.path.exists(dup_dir):
         logging.debug("Creating directory %s" % dup_dir)
@@ -809,8 +819,8 @@ def merge_duplicates(versionInfo):
         buf = [] 
         with open(files[0]) as scaffold:
             for line in scaffold:
-                if line.startswith("END:"):
-                    continue
+                if line.startswith("END:"):             continue
+                if line.startswith("END_PHOTOMETRY:"):  continue
                 buf.append(line)
         for f in files[1:]:
             with open(f) as obs:
@@ -829,6 +839,12 @@ def merge_duplicates(versionInfo):
                 output.write(line)
         for f in files:
             shutil.move(f, "%s/%s" % (dup_dir, os.path.basename(f)))
+
+    # compress  duplicate dir (Jan 25 2022)
+    cmd_tar = f"cd {VOUT_TEXT} ; " \
+              f"tar -czf {SUBDIR_DUPLICATES}.tar.gz {SUBDIR_DUPLICATES}; " \
+              f"rm -r {SUBDIR_DUPLICATES}"
+    os.system(cmd_tar)
 
     # Update list
     list_file = f"{VOUT_TEXT}/{VOUT_TEXT}.LIST"
@@ -859,10 +875,19 @@ def merge_duplicates(versionInfo):
 
 def gzip_newVersion(versionInfo):
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
-    print(f" gzip files in {VOUT_TEXT}")
+    
+    wildcard_list  = [ "*.DAT", "*.dat" ]
+    wildcard_str   = " ".join(wildcard_list)
+
+    n_file = 0
+    for w in wildcard_list :
+        file_list = glob.glob1(VOUT_TEXT,w)
+        n_file   += len(file_list)
+
+    print(f" gzip {n_file} files in {VOUT_TEXT}")
     sys.stdout.flush() 
 
-    cmd = f"cd {VOUT_TEXT}; gzip *dat *.DAT 2>/dev/null"
+    cmd = f"cd {VOUT_TEXT}; gzip {wildcard_str} 2>/dev/null"
     os.system(cmd)
     return
     # end gzip_newVersion

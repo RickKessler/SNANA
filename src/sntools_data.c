@@ -19,12 +19,30 @@
 #include  "sntools_cosmology.h"
 
 //#include  "sntools_dataformat_text.h"
-//#include  "sntools_host.h" 
+#include  "sntools_host.h" 
 //#include  "sntools_trigger.h" 
 
 
 // =======================================================
+bool IS_SIMKEY_SNDATA(char *key) {
 
+  // Created Mar 8 2022
+  // Return true if input *key is from simulation,
+  // where key is a data key in either FITS or TEXT format.
+
+  bool IS_KEYSIM = false;
+  // ----------- BEGIN ------------
+
+  if ( strncmp(key,"SIM",3)  ==   0 ) { IS_KEYSIM = true; }
+  if ( strstr(key,"SIMSED") != NULL ) { IS_KEYSIM = true; }
+  if ( strstr(key,"LCLIB" ) != NULL ) { IS_KEYSIM = true; }
+
+  return IS_KEYSIM ;
+
+} // end IS_SIMKEY_SNDATA
+
+
+// ******************************************
 void copy_int(int copyFlag, double *DVAL0, int *IVAL1) {
   if   ( copyFlag > 0)  { *IVAL1 = (int)(*DVAL0);  }  
   else                  { *DVAL0 = (double)(*IVAL1);  }
@@ -116,8 +134,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
     { copy_int(copyFlag, parVal, &SNDATA.NYPIX );  }
 
   else if ( ISKEY_PRIVATE  ) {
-    if ( strcmp(key,"NVAR_PRIVATE") == 0 ) 
-      { copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  }
+    if ( strcmp(key,"NVAR_PRIVATE") == 0 ) { 
+      copy_int(copyFlag, parVal, &SNDATA.NVAR_PRIVATE );  
+    }
     else {
       sscanf(&key[7], "%d", &ivar);  // PRIVATEnn
       copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
@@ -393,12 +412,26 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGMASS_ERR[igal] ); } 
 
-      sprintf(KEY_TEST,"%s_sSFR", PREFIX); 
+      sprintf(KEY_TEST,"%s_LOGSFR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR[igal] ); } 
-      sprintf(KEY_TEST,"%s_sSFR_ERR", PREFIX); 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_OBS[igal] ); } 
+      sprintf(KEY_TEST,"%s_LOGSFR_ERR", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_sSFR_ERR[igal] ); } 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGSFR_ERR[igal] ); } 
+
+      sprintf(KEY_TEST,"%s_LOGsSFR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ); }
+      sprintf(KEY_TEST,"%s_LOGsSFR_ERR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ); }
+
+      sprintf(KEY_TEST,"%s_COLOR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_COLOR_OBS[igal] ); }
+      sprintf(KEY_TEST,"%s_COLOR_ERR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 )
+        { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_COLOR_ERR[igal] ); }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
 	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
@@ -622,7 +655,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     }
   }
 
-  else if ( strncmp(key,"LCLIB_PARAM",11) == 0 ) {
+  else if ( strncmp(key,"LCLIB_PARAM",11) == 0 || 
+	    strncmp(key,"LCLIB(",6) == 0 ) {    // read legacy PLASTICC data from 2018
     for(ipar=0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) { 
       sprintf(KEY_TEST, "%s", SNDATA.LCLIB_KEYWORD[ipar]) ;
       if ( strcmp(key,KEY_TEST) == 0 ) 
@@ -683,6 +717,40 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
 
 int select_mjd_sndata__(double *MJD_WINDOW) 
   {  return select_MJD_SNDATA(MJD_WINDOW); }
+
+// = = = = = = = = = = = = = = = = = = = = = = = =
+void host_property_list_sndata(char *HOST_PROPERTY_LIST) {
+  // Created Mar 14 2022
+  // Return list of stored host property strings based on
+  // true values, e.g,
+  //   'LOGMASS,LOGsSFR'
+  // Original intent is to tell analysis codes which properties
+  // to store in output tables.
+
+  double NOVAR = HOSTLIB_PROPERTY_UNDEFINED + 1.0;
+  char fnam[] = "host_property_list_sndata";
+  char TMPLIST[MXPATHLEN];
+  HOST_PROPERTY_LIST[0] = TMPLIST[0] = 0 ;
+
+  if ( SNDATA.HOSTGAL_LOGMASS_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGMASS); }
+
+  if ( SNDATA.HOSTGAL_LOGSFR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGSFR); }
+
+  if ( SNDATA.HOSTGAL_LOGsSFR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_LOGsSFR); }
+
+  if ( SNDATA.HOSTGAL_COLOR_TRUE[0] > NOVAR ) 
+    { catVarList_with_comma(TMPLIST,HOSTGAL_PROPERTY_BASENAME_COLOR); }
+
+  sprintf(HOST_PROPERTY_LIST,"%s", TMPLIST);
+
+  return;
+} // end host_property_list_sndata
+
+void host_property_list_sndata__(char *HOST_PROPERTY_LIST) 
+{ host_property_list_sndata(HOST_PROPERTY_LIST); }
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
 void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL, 
@@ -1087,7 +1155,7 @@ void RD_OVERRIDE_POSTPROC(void) {
 
   // for text format, check for variables that are not in
   // the data files and thus header_override is an addition.
-  if ( FORMAT_SNDATA == FORMAT_SNDATA_TEXT ) 
+  if ( FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT ) 
     { rd_override_append(); }
 
   // check for redshift_helio update that forces zcmb to also change.
@@ -1103,21 +1171,27 @@ void rd_override_append(void) {
   // Called only for TEXT format that might be missing
   // some variables.
 
-#define NVAR_OVERRIDE_CHECK 10
+#define NVAR_OVERRIDE_CHECK 16
 
   char VARNAME_CHECK[NVAR_OVERRIDE_CHECK][40] = {
     "VPEC", "VPEC_ERR", 
     "REDSHIFT_HELIO",  "REDSHIFT_HELIO_ERR",
     "REDSHIFT_FINAL",  "REDSHIFT_FINAL_ERR",
     "REDSHIFT_CMB",    "REDSHIFT_CMB_ERR",
-    "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR"
+    "HOSTGAL_LOGMASS", "HOSTGAL_LOGMASS_ERR", 
+    "HOSTGAL_LOGSFR",  "HOSTGAL_LOGSFR_ERR", 
+    "HOSTGAL_LOGsSFR", "HOSTGAL_LOGsSFR_ERR", 
+    "HOSTGAL_COLOR",   "HOSTGAL_COLOR_ERR"
   };
   float *ptr_SNDATA[NVAR_OVERRIDE_CHECK] = {
-    &SNDATA.VPEC, &SNDATA.VPEC_ERR, 
-    &SNDATA.REDSHIFT_HELIO, &SNDATA.REDSHIFT_HELIO_ERR,
-    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
-    &SNDATA.REDSHIFT_FINAL, &SNDATA.REDSHIFT_FINAL_ERR,
-    &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0]
+    &SNDATA.VPEC,            &SNDATA.VPEC_ERR, 
+    &SNDATA.REDSHIFT_HELIO,  &SNDATA.REDSHIFT_HELIO_ERR,
+    &SNDATA.REDSHIFT_FINAL,  &SNDATA.REDSHIFT_FINAL_ERR,
+    &SNDATA.REDSHIFT_FINAL,  &SNDATA.REDSHIFT_FINAL_ERR,
+    &SNDATA.HOSTGAL_LOGMASS_OBS[0], &SNDATA.HOSTGAL_LOGMASS_ERR[0],
+    &SNDATA.HOSTGAL_LOGSFR_OBS[0],  &SNDATA.HOSTGAL_LOGSFR_ERR[0],
+    &SNDATA.HOSTGAL_LOGsSFR_OBS[0], &SNDATA.HOSTGAL_LOGsSFR_ERR[0],
+    &SNDATA.HOSTGAL_COLOR_OBS[0],   &SNDATA.HOSTGAL_COLOR_ERR[0]
   } ;
 
   int ivar;

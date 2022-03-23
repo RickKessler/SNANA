@@ -11,12 +11,14 @@
   Apr  28 2021: MXPAR_SNFITSIO -> 600 (was 400)
   Oct  08 2021: split fp_snfitsFile into fp_wr[rd]_snfitsio
                 to allow translating FITS -> FITS .
-                
+  Mar 07 2022: 
+    split IFILE_SNFITSIO into IFILE_RD_SNFITSIO and IFILE_WR_SNFITSIO;
+    Same for NFILE_SNFITSIO.
+
 **************************************************/
 
 // ==================================
 // global variables
-
 
 #define ITYPE_SNFITSIO_HEAD      0
 #define ITYPE_SNFITSIO_PHOT      1
@@ -40,6 +42,8 @@
 // Dec 20 2021: define OPTMASK bits for WR_SNFITSIO_END
 #define OPTMASK_SNFITSIO_END_GZIP 1
 
+#define OPTMASK_SNFITSIO_IGNORESIM 256 // flag to treat sim like real data
+
 fitsfile  *fp_rd_snfitsio[MXTYPE_SNFITSIO] ;
 fitsfile  *fp_wr_snfitsio[MXTYPE_SNFITSIO] ;
 // xxx mark delete fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
@@ -58,14 +62,15 @@ char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
 char  SNFITSIO_LISTFILE[MXPATHLEN];   // for read-back only
 char  SNFITSIO_READMEFILE[MXPATHLEN]; // for read-back only
 
-
-int NSNLC_SNFITSIO_TOT ;    // total number of SNe over all files.
+int NSNLC_SNFITSIO_TOT ;                 // total number of SNe over all files.
 int NSNLC_SNFITSIO[MXFILE_SNFITSIO];     // Number of SNe per file
 int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
 
+int NFILE_RD_SNFITSIO ;     // number of fits files
+int IFILE_RD_SNFITSIO ;     // current fits-file index
+int NFILE_WR_SNFITSIO ;     // number of fits files
+int IFILE_WR_SNFITSIO ;     // current fits-file index
 
-int NFILE_SNFITSIO ;     // number of fits files
-int IFILE_SNFITSIO ;     // current fits-file index
 int ISNFIRST_SNFITSIO ;  // first ISN in file
 
 // Npar (i.e., columns) for each fits-file type
@@ -82,12 +87,13 @@ bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
 bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
-bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
+// xxx bool  SNFITSIO_SIMFLAG_NBR_LIST;  // HOSTLIB has NBR_LIST (Feb 2020)
+bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 bool  SNFITSIO_SPECTRA_FLAG ;    // write spectra, Oct 2021
 bool  SNFITSIO_SPECTRA_FLAG_LEGACY ;  // legacy format using LAMINDEX
+bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 
-// xxx int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
 typedef struct {
@@ -211,6 +217,10 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);
+void wr_snfitsio_global_private(fitsfile *fp);
+void wr_snfitsio_global_zphot_q(fitsfile *fp);
+void wr_snfitsio_SET_SUBSURVEY_FLAG(void);
+
 void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
@@ -248,6 +258,7 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
 int   rd_snfitsio_list(void);
 void  rd_snfitsio_open(int ifile, int photflag_open, int vbose ); 
 void  rd_snfitsio_file(int ifile);          // open and read everything
+void  rd_snfitsio_zphot_q(void);            // read optional zphot_q
 void  rd_snfitsio_simkeys(void);            // read optional SIMSED pars
 void  rd_snfitsio_private(void);            // read optional PRIVATE vars
 void  rd_snfitsio_free(int ifile, int itype);

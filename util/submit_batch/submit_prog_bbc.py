@@ -17,7 +17,7 @@
 #  + NSPLITRAN runs on all FITOPT & MUOPT ... beware of large N_JOB_TOT
 #
 #  + new FITOPTxMUOPT input to select subset of FITOPTxMUOPT matrix.
-#     (see help with -H BBC args)
+#     (see help with -H BBC arg)
 #
 #  + Automatically creates summary files:
 #     BBC_REJECT_SUMMRY.LIST      -> SN rejected by some FITOPT/MUOPT
@@ -51,6 +51,8 @@
 #                dedicated wfit class can use it too.
 # Nov 17 2021: add list protection in def make_fitpar_summary()
 # Nov 24 2021: write OLAM_REF and w_REF to submit info
+# Jan 18 2022: fix writing REJECT_FRAC_BIASCOR to yaml file.
+# Mar 03 2022: add zPRIOR* to append_varname_missing 
 #
 # - - - - - - - - - -
 
@@ -1121,7 +1123,7 @@ class BBC(Program):
         cmd_cat = f"{code_name}  " \
                   f"cat_only  "    \
                   f"datafile={cat_list}  " \
-                  f"append_varname_missing='PROB*'  " \
+                  f"append_varname_missing='PROB*,zPRIOR*'  " \
                   f"catfile_out={cat_file_out}  " \
                   f" &> {cat_file_log}"
 
@@ -1364,7 +1366,7 @@ class BBC(Program):
             #flush=True)
 
         input_file    = self.config_yaml['args'].input_file 
-        fast          = self.config_yaml['args'].fast
+        prescale      = self.config_yaml['args'].prescale
         kill_on_fail  = self.config_yaml['args'].kill_on_fail
         iter2         = self.config_yaml['args'].iter2
         iter1         = not iter2
@@ -1425,8 +1427,8 @@ class BBC(Program):
 
         # check command line input --fast option to prescale by 10
         # Only sim is pre-scaled; don't pre-scale data.
-        if fast:
-            arg_list.append(f"prescale_simdata={FASTFAC}")
+        if prescale > 1 :
+            arg_list.append(f"prescale_simdata={prescale}")
 
         # - - - - - -
         # check option to use FITOPT000 events for all syst.
@@ -1529,6 +1531,7 @@ class BBC(Program):
         input_file_dict   = self.config_prep['input_file_dict']
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        iter2             = self.config_yaml['args'].iter2
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
@@ -1553,6 +1556,7 @@ class BBC(Program):
         f.write(f"OLAM_REF:  {olam_ref} \n")
         f.write(f"w_REF:     {w_ref}  \n")
         
+        f.write(f"ITER2:          {iter2}   # False, True -> ITER1, ITER2 \n")
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
         if use_wfit :
@@ -1762,7 +1766,6 @@ class BBC(Program):
             'row_extra_list' : []
         }
         return row_list_dict, n_state_change
-        # xxx mar return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
         
@@ -1886,12 +1889,10 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
-        # xxx cid_list = []
-        # xxx mark delete n_file   = 0
-
         
         first_fitres = VOUT+"/"+fitres_list[0]
-        first_fitres_cids = pd.read_csv(first_fitres, comment="#", delim_whitespace=True)['CID']
+        first_fitres_cids = pd.read_csv(first_fitres, 
+                            comment="#", delim_whitespace=True)['CID']
         counts = np.unique(first_fitres_cids, return_counts=True)[1]
         has_duplicates = len(counts[counts>1])>0
         if has_duplicates:
@@ -2080,11 +2081,12 @@ class BBC(Program):
         
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
+        iter2            = submit_info_yaml['ITER2']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
         FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
         MUOPT_LIST       = submit_info_yaml['MUOPT_OUT_LIST']
-
+        
         if n_splitran > 1 : return
 
         # read the whole MERGE.LOG file to figure out where things are
@@ -2174,9 +2176,22 @@ class BBC(Program):
                     f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
 
             # - - - - -
-            f.write(f"    REJECT_FRAC_BIASCOR:" 
-                    f"  # {NEVT_REJECT_BIASCOR} evts have no biasCor\n")
+            nrej = NEVT_REJECT_BIASCOR
+            if iter2:
+                comment = f"{nrej} evts have no biasCor at ITER2; check ITER1"
+            else:
+                comment = f"{nrej} evts have no biasCor "
+            f.write(f"    REJECT_FRAC_BIASCOR: {frac_reject:.4f}    # {comment}\n")
 
+# - - - - - - - fix YAML output before doing frac-by-sample - - - - - 
+#            f.write(f"    REJECT_FRAC_BIASCOR_bySAMPLE:\n"
+# XYZ            for sample,ndata,nbias,ncc in zip(SAMPLE_LIST,
+#                                                  NEVT_DATA_bySAMPLE,
+#                                                  NEVT_BIASCOR_bySAMPLE,
+#                                                  NEVT_CCPRIOR_bySAMPLE) :
+#                    key = f"{sample}:"
+#                    f.write(f"      {key:<20} {ndata:>5s}, {nbias:>7s}, {ncc:>4s}\n")
+# - - - - - - - - - - - 
 
             # - - - - 
             for result in BBCFIT_RESULTS:

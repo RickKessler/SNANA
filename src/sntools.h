@@ -63,7 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04f"  
+#define  SNANA_VERSION_CURRENT  "v11_04j"      
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -72,6 +72,7 @@
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile
 #define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
 #define OPENMASK_IGNORE_DOCANA  4  // see snana_openTextFile
+#define MXLINE_DOCANA         500  // max number of DOCANA lines
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315
@@ -134,6 +135,9 @@
 #define MAG_UNDEFINED 666.0   // model mag wave-range doesn't cover filter
 #define MAGERR_UNDEFINED 9.0
 #define FLUX_UNDEFINED  -9.0  // undefined model flux
+#define HOSTLIB_SNPAR_UNDEFINED    -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED     -9999
+#define HOSTLIB_PROPERTY_UNDEFINED -9999.0    // Feb 10 2022
 
 #define MODEL_STRETCH  1 // single-stretch (use rise/fall fudges for 2-stretch)
 #define MODEL_MLCS2k2  3  // MLCS2k2 (Riess, Suarab, Hubert)
@@ -168,7 +172,7 @@
 #define PARNAME_AV  "AV"
 #define PARNAME_RV  "RV"
 
-char FILTERSTRING[100] ;
+char FILTERSTRING[MXFILTINDX] ;
 
 // define variables for random number list
 #define MXLIST_RAN      4  // max number of lists for stream0
@@ -340,6 +344,11 @@ struct {
   char **WDLIST;
 } PARSE_WORDS ;
 
+
+struct {
+  int NFILE;
+  char **FILE_NAMES;
+} GLOB_LIST;
 
 #define MXLIST_STRING_UNIQUE  200
 #define MXLIST_KEY_UNIQUE    1000  // for key-dump only
@@ -787,6 +796,8 @@ int  colnum_in_table(char *fileName, char *varName);
 
 void react_missing_docana(bool FOUND_DOCANA, char *fileName);
 void react_missing_docana__(bool *FOUND_DOCANA, char *fileName);
+void abort_docana_tooLong(char *file, char *callFun);
+
 void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
@@ -845,19 +856,6 @@ double funVal_skewGauss(double x, double siglo,double sighi,
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
 
-/* xxxxxxxxx mark delete Dec 10 2021 xxxxxxxxxx
-void copy_sndata_global__(int *copyFlag, char *key,
-			  int *NVAL, char *stringVal,double *parVal);
-void copy_sndata_head__(int *copyFlag, char *key,
-			int *NVAL, char *stringVal,double *parVal);
-void copy_sndata_obs__(int *copyFlag, char *key,
-		       int *NVAL,char *stringVal,double *parVal);
-int  select_mjd_sndata__(double *MJD_WINDOW);
-
-void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
-xxxxxxxxx end mark xxxxxxxxxx */
-
-
 
 // ------ sorting --------
 
@@ -909,7 +907,14 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
 
-int glob_file_list(char *wildcard, char ***file_list);
+// glob functions
+int  glob_file_list(char *wildcard, char ***file_list); // underlying util
+int  store_glob_file_list(char *wildcard) ; 
+int  store_glob_file_list__(char *wildcard) ;
+void fetch_glob_file(int lang_flag, int ifile, char *file_name);
+void fetch_glob_file__(int *lang_flag, int *ifile, char *file_name); 
+void reset_glob_file_list(void);
+void reset_glob_file_list__(void);
 
 // multi-D malloc functions (copied from SALT2mu.c, July 2021)
 

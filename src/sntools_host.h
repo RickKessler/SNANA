@@ -40,6 +40,9 @@
  Jul 1 2021
    + MXWGT_HOSTLIB -> 20 million (was 500,000) for GHOST [tested by AG]
 
+ Feb 9 2022: MXVAR_HOSTLIB -> 300 (was 200) to allow for up to
+             100 zPHOT quantiles
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -64,7 +67,7 @@
 
 #define MXCHAR_LINE_HOSTLIB 800  // max number of chars per HOSTLIB line
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
-#define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
+#define MXVAR_HOSTLIB       300  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
 #define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021
@@ -74,11 +77,11 @@
 #define MXGauss2dTable     200   // max length of Gauss2d table
 #define NVAR_Gauss2d       3     // Number of variables in Gauss2d table
 #define MXBIN_ZPHOTEFF     100   // 
-//#define MXBIN_ZPHOT_QP 20 // max number of quantile percent bins
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
-#define SERSIC_INDEX_MAX   8.00    // increase from 5 (6/24/2015)
+//#define SERSIC_INDEX_MAX   8.00    // increase from 5 (6/24/2015)
+#define SERSIC_INDEX_MAX  11.00    // increase from 8 (Mar 2 2022)
 #define MXSERSIC_HOSTLIB      9    // max number of summed profiles per host
 #define NBIN_RADIUS_SERSIC  200    // Number of R/Re bins to store integrals
 #define MAXRADIUS_SERSIC   100.0   // max R/Re value for integ table
@@ -129,11 +132,15 @@
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
-#define HOSTLIB_PREFIX_ZPHOT_QP      "ZPHOT_QP"
-#define HOSTLIB_VARNAME_ZPHOT_QP0    "ZPHOT_QP0"
-#define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
-#define HOSTLIB_IGAL_UNDEFINED -9999
+#define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
+#define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
+#define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 
+/* xxxx mark delete Mar 14 2022 (moved to sntools.h)
+#define HOSTLIB_SNPAR_UNDEFINED    -9999.0 
+#define HOSTLIB_IGAL_UNDEFINED     -9999
+#define HOSTLIB_PROPERTY_UNDEFINED -9999.0 // Feb 10 2022
+xxxxxxxxx end mark xxxx */
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
 // To save storage memory, SNMAGSHIFT is stored as 2 byte short int 
@@ -152,6 +159,35 @@ char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
 int OPTMASK_OPENFILE_HOSTLIB ;
+
+//for developers only
+bool REFAC_HOSTLIB;
+
+// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
+#define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
+#define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
+#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR  "LOGsSFR"
+#define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
+
+#define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
+
+// Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
+// the other hostless values are -9 as before.
+#define HOSTLESS_PROPERTY_VALUE_LIST (float[]){ -9.0, -9.0, -99.0, -9.0 }
+
+int N_HOSTGAL_PROPERTY;
+
+
+typedef struct {
+  double VAL_TRUE, VAL_OBS, VAL_ERR;
+} HOSTGAL_PROPERTY_VALUE_DEF;
+
+typedef struct {
+  int IVAR_TRUE, IVAR_OBS, IVAR_ERR;
+  char BASENAME[100];
+  double SCALE_ERR;
+} HOSTGAL_PROPERTY_IVAR_DEF;
+
 
 struct HOSTLIB_DEF {
   char FILENAME[MXPATHLEN] ; // full file name of HOSTLIB
@@ -190,6 +226,7 @@ struct HOSTLIB_DEF {
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
+  int   *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
@@ -205,17 +242,18 @@ struct HOSTLIB_DEF {
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
-  int IVAR_ZPHOT_QP0;
-  int NZPHOT_QP;
+  int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)
+  int NZPHOT_Q;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
-  int IVAR_LOGMASS_TRUE ;
-  int IVAR_LOGMASS_ERR ;
-  int IVAR_LOGMASS_OBS ;
+  int IVAR_LOGMASS_TRUE ; // legacy 
+  int IVAR_LOGMASS_ERR ; // legacy 
+  int IVAR_LOGMASS_OBS ;  // legacy
+  HOSTGAL_PROPERTY_IVAR_DEF *HOSTGAL_PROPERTY_IVAR ;
   int IVAR_RA ;
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
-  int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
+  int IVAR_FIELD ;                // optional FIELD key
   int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IGAL_NBR_LIST;              // AG 08/2021
   int IVAR_GALID2;                // AG 09/2021
@@ -225,13 +263,17 @@ struct HOSTLIB_DEF {
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
+  int IVAR_a_DLR;   // to measure DLR: e.g. a_IMAGE from sextractor
+  int IVAR_b_DLR;   // to measure DLR
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
-  int IVAR_MAGOBS_ERR[MXFILTINDX] ;     // pointer to observer-mag errs (Aug 6 2021)
+  int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
   char filterList[MXFILTINDX]; // filter list for gal-mag
+  char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
+  int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
 
   // redshift information
   double ZMIN,ZMAX ;         // helio
@@ -449,10 +491,11 @@ typedef struct {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
   double RA, DEC, SNSEP, DLR, DDLR ;
-  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
+  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ; // legacy
+  HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
-  double ZPHOT_QP[MXBIN_ZPHOT_QP];
+  double ZPHOT_Q[MXBIN_ZPHOT_Q];
   bool   TRUE_MATCH ;
   // Added for LSST but maybe of more general utility
   // Alex Gagliano 09/2021
@@ -482,7 +525,7 @@ struct SNHOSTGAL {
   double ZTRUE ;     // host galaxy redshift 
   double ZDIF ;      // zSN(orig) - zGAL, Nov 2015
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
-  double ZPHOT_QP[MXBIN_ZPHOT_QP];
+  double ZPHOT_Q[MXBIN_ZPHOT_Q];
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double VPEC,  VPEC_ERR  ;     // peculiar velocity
   double PEAKMJD ;
@@ -620,6 +663,7 @@ void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
+void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;
 void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
@@ -631,6 +675,8 @@ void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
+void   init_OPTIONAL_HOSTVAR_PROPERTY(char *basename, int *NVAR_PROPERTY) ;
+
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
@@ -643,6 +689,9 @@ int    read_VARNAMES_WGTMAP(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
+void   malloc_HOSTGAL_PROPERTY(void);
+int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
+
 // xxxvoid   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init
@@ -681,6 +730,7 @@ bool   QstringMatch(char *varName0, char *varName1);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
+int    IVAR_HOSTLIB_PREFIX(char *prefix, int ABORTFLAG);
 bool   ISCHAR_HOSTLIB(int IVAR);
 
 long long get_GALID_HOSTLIB(int igal);

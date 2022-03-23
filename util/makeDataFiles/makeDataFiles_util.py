@@ -421,14 +421,16 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
     table_head = table_dict['table_head']
     head_names = table_dict['head_names']
 
-    len_base = len(gpar.HOSTKEY_BASE)
+#    len_base = len(gpar.HOSTKEY_BASE)
     for key in datakey_list:
         if gpar.HOSTKEY_BASE not in key:
             continue
 
         is_z = gpar.HOSTKEY_SPECZ in key or gpar.HOSTKEY_PHOTOZ in key
-        key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
-        key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
+        key2 = key_hostgal_nbr(key,2)
+        key3 = key_hostgal_nbr(key,3)
+# xxx mark key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
+# xxx mark key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
         key_list = [ key, key2, key3]
         for k in key_list:
             if k in head_names :
@@ -437,6 +439,22 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
                 head_store[k] = val
 
     # end store_snana_hostgal
+
+def key_hostgal_nbr(key,n):
+    # if key = HOSTGAL_XXX and n=2, return HOSTGAL2_XXX
+
+    len_base = len(gpar.HOSTKEY_BASE)
+    BASE     = gpar.HOSTKEY_BASE
+    base     = BASE.lower()
+    if BASE in key:
+        key_nbr  = BASE + str(n) + key[len_base:]
+    elif base in key:
+        key_nbr  = base + str(n) + key[len_base:]        
+    else:
+        key_nbr  = key
+        
+    return key_nbr
+    # end key_hostgal_nbr
 
 def store_snana_private(datakey_list, evt, table_dict):
 
@@ -450,7 +468,6 @@ def store_snana_private(datakey_list, evt, table_dict):
     # function output:
     #   head_store:   output dictionary
     #
-    # If HOSTGAL_SPECZ[PHOTOZ] < 0, set values to VAL_NULL for clarity.
 
     table_head = table_dict['table_head']
     head_names = table_dict['head_names']
@@ -470,7 +487,7 @@ def field_plasticc_hack(field, head_file_name):
     # If input field is NULL or VOID, set it based on head_file_name.
 
     missing_field = (field == gpar.FIELD_NULL or field == gpar.FIELD_VOID )
-    if not missing_field : return
+    if not missing_field : return field
 
     if gpar.FIELD_DDF in head_file_name:
         field = gpar.FIELD_DDF
@@ -531,6 +548,7 @@ class READ_SNANA_FOLDER:
         self.snana_folder_dict['HEAD_file_list']  = HEAD_file_list
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
         self.snana_folder_dict['private_dict']    = {}
+        self.snana_folder_dict['zphot_q_dict']    = {} # photo-z quantiles
 
 
     def exec_read(self, ifile):
@@ -602,12 +620,20 @@ class READ_SNANA_FOLDER:
             keep = True
             if n_private_keep > 0 :
                 subkey = key.split('(')[1][:-1]
-                keep = subkey in private_dict
+                keep   = subkey in private_dict
                 #print(f" xxx key={key}  subkey={subkey}  keep={keep}")
-
             if keep :
                 gpar.DATAKEY_LIST_PRIVATE  += [ key ]
 
+        # Feb 11 2022 check for zphot quantiles in global header
+        #    avoid catching NZPHOT_Q
+        for key in head_names:
+            if '_ZPHOT_Q' in key:   # fragile alert
+                gpar.DATAKEY_LIST_ZPHOT_Q  += [ key ]
+
+        if len(gpar.DATAKEY_LIST_ZPHOT_Q) > 0:
+            gpar.DATAKEY_LIST_CALC += gpar.DATAKEY_LIST_ZPHOT_Q
+        
         # end init_first_file
 
     def init_private_dict(self, private_dict):
@@ -724,7 +750,7 @@ class READ_SNANA_FOLDER:
         # store optional PRIVATE variables
         head_private = \
             store_snana_private(gpar.DATAKEY_LIST_PRIVATE, evt, table_dict)
-
+        
         # check for true sim type (sim or fakes), Nov 14 2021
         KEY = gpar.SIMKEY_TYPE_INDEX
         if KEY in head_names:   head_sim[KEY] = table_head[KEY][evt]
@@ -776,16 +802,13 @@ class READ_SNANA_FOLDER:
             'head_calc'    : head_calc,
             'head_private' : head_private,
             'phot_raw'     : phot_raw,
-            'spec_raw'     : spec_raw
+            'spec_raw'     : spec_raw,
+            'select'       : True
         }
 
         # check optional dictionary items to append
         if len(head_sim) > 0:
             data_dict['head_sim'] = head_sim
-
-        #if apply_select :
-        #    data_dict['select'] = True
-        data_dict['select'] = apply_select
 
         return data_dict
 

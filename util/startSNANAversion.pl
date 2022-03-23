@@ -14,6 +14,7 @@
 #
 # Dec 10 2017: replace snana.car with sntools.h to update snana version.
 # May 04 2019: little cleanup to prepare for git.
+# Feb 27 2022: remove sntools.pm since it isn't needed.
 #
 # =======================================
 
@@ -21,7 +22,7 @@ use IO::Handle;
 use List::Util qw(min max);
 use FindBin qw($Bin);
 use lib "$Bin";
-use sntools ;
+#use sntools ;
 use strict ;
 
 

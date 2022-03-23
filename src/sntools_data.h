@@ -22,7 +22,9 @@ struct {
 
 #define FORMAT_SNDATA_FITS 32
 #define FORMAT_SNDATA_TEXT  2
-int FORMAT_SNDATA ;
+
+int FORMAT_SNDATA_READ ;
+int FORMAT_SNDATA_WRITE ;
 
 // ======== function prototypes =============
 
@@ -32,7 +34,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key,
                       int NVAL, char *stringVal, double *parVal);
 void copy_SNDATA_OBS(int copyFlag, char *key,
                      int NVAL,char *stringVal, double *parVal);
-int select_MJD_SNDATA(double *CUTWIN_MJD);
+int  select_MJD_SNDATA(double *CUTWIN_MJD);
+void host_property_list_sndata(char *HOST_PROPERTY_LIST);
 
 void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
 
@@ -42,6 +45,7 @@ void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 
+bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE);
 int  RD_OVERRIDE_FETCH(char *CCID, char *VARNAME, double *DVAL);
@@ -57,6 +61,7 @@ void copy_sndata_head__(int *copyFlag, char *key,
 void copy_sndata_obs__(int *copyFlag, char *key,
                        int *NVAL,char *stringVal,double *parVal);
 int  select_mjd_sndata__(double *MJD_WINDOW);
+void host_property_list_sndata__(char *HOST_PROPERTY_LIST);
 
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 

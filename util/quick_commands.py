@@ -4,13 +4,16 @@
 # Use "quick_commands.py -H" to get explicit examples on how to combine 
 # arguments to perform specific tasks.
 #
+# Jan 22 2022: add --diff_fitres option 
+#
 # =========================
 
 import os, sys, argparse, subprocess, yaml
 import pandas as pd
 
 # ----------------
-snana_program = "snana.exe"
+snana_program          = "snana.exe"
+combine_fitres_program = "combine_fitres.exe"
 
 LOG_FILE = "quick_command.log"
 
@@ -47,7 +50,13 @@ HELP_COMMANDS = f"""
 # extract info about SNANA code
   quick_commands.py --get_info_code
 
+# analyze stat differences (z,mB,x1,c) between two fitres files
+# run on same events (e.g., to validate updated data set);
+# Computes mean diff, RMS(diff), max outliers ...
+  quick_commands.py --diff_fitres  lcfit_ref.fitres  lcfit_test.fitres
+
 """
+
 # =============================
 
 
@@ -93,9 +102,11 @@ def get_args():
     msg = "extract sim-input file from sim VERSION.README"
     parser.add_argument("--extract_sim_input", help=msg, action="store_true")
 
+    msg = "two fitres files to analyse stat difference for SALT2 fit params"
+    parser.add_argument("-d", "--diff_fitres", nargs='+', 
+                        help=msg, type=str,default=None)
+
 # SIMLIB_OUT ...
-
-
 
     if len(sys.argv) == 1:  
         parser.print_help(); sys.exit()
@@ -284,14 +295,13 @@ def translate_simgen_dump_file(args):
     df  = pd.read_csv(simgen_dump_file, comment="#", delim_whitespace=True)
     df["CID"] = df["CID"].astype(str)
 
-    FOUND_SIM_mB  = ("SIM_mB" in df)
-    FOUND_SIM_x0  = ("SIM_x0" in df)
+    FOUND_SIM_mB       = ("SIM_mB" in df)
+    FOUND_SIM_x0       = ("SIM_x0" in df)
     FOUND_MAGSMEAR_COH = ("MAGSMEAR_COH" in df)
     FOUND_gammaDM      = ("SALT2gammaDM" in df)
 
     VARNAMES_STRING = f"CID IDSURVEY zHD zHDERR mB mBERR " \
                       f"x0 x0ERR x1 x1ERR c cERR  COVx0x COVx0c COVx1c"
-
 
     nrow = 0 
     with open(out_table_file,"wt") as o:
@@ -400,6 +410,79 @@ def extract_sim_input_file(args):
 
     # end extract_sim_input_file
 
+def analyze_diff_fitres(args):
+
+    # suppress strange pandas warnings
+    pd.options.mode.chained_assignment = None 
+
+    # local variables with names of fitres files
+    ff_ref  = os.path.expandvars(args.diff_fitres[0])
+    ff_test = os.path.expandvars(args.diff_fitres[1])
+
+    print(f"\n Analyze statistical differences between")
+    print(f"\t REF  fitres file: {ff_ref}")
+    print(f"\t TEST fitres file: {ff_test}")
+    print(f"\t Definition: dif_X = X(TEST) - X(REF)")
+    sys.stdout.flush()
+
+    cmd = f"{combine_fitres_program} "
+    cmd += f"{ff_ref} {ff_test} "
+    cmd += f"t "    # only text output; no HBOOK or ROOT
+
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                          shell=True, capture_output=True, text=True )
+
+    fitres_combine_file = "combine_fitres.text"
+    if not os.path.exists(fitres_combine_file):
+        msgerr = f"Could not find combined fitres file: {fitres_combine_file}"
+        assert False, msgerr
+
+    df  = pd.read_csv(fitres_combine_file, comment="#", delim_whitespace=True)
+    df["CID"] = df["CID"].astype(str)
+
+    # define ref variables to check; test var name is {var}_2
+    var_check_list = [ 'zHD', 'mB', 'x1', 'c' ]  
+
+    # define dfsel = table rows where both ref and test are defined
+    #dfsel        = df.loc[df['c_2']>-8.0]
+    dfsel        = df.loc[df['c_2']>-8.0]
+    dfcut        = df.loc[df['c_2']<-8.0]
+
+    len_tot = len(df)
+    len_sel = len(dfsel)
+    CID_lost_list = dfcut['CID'].to_numpy()
+
+    print(f" TEST table contains {len_sel} of {len_tot} REF events ")
+    print(f" CIDs missing in TEST: {CID_lost_list[0:10]}")
+
+    print("")
+    print("   quantity    avg       median      std          " \
+          f"min/max      CIDmin/CIDmax")
+    print("# --------------------------------------------------" \
+          "--------------------------- ")
+    for var in var_check_list:
+        var_2 = f"{var}_2"
+        var_dif = f"dif_{var}"
+        dfsel[var_dif] = dfsel[var_2] - dfsel[var]
+        mean = dfsel[var_dif].mean()
+        med  = dfsel[var_dif].median()
+        std  = dfsel[var_dif].std()
+        mn   = dfsel[var_dif].min()
+        mx   = dfsel[var_dif].max()
+
+        CIDmin = None ; CIDmax=None
+        if mn < 0.0 :
+            CIDmin = dfsel.loc[dfsel[var_dif].idxmin()]['CID']
+        if mx > 0.0 :
+            CIDmax = dfsel.loc[dfsel[var_dif].idxmax()]['CID']
+
+        print(f"  {var_dif:10} {mean:8.5f}  {med:8.5f}   {std:8.5f}  " \
+              f" {mn:8.5f}/{mx:8.5f}  {CIDmin}/{CIDmax}")
+        sys.stdout.flush()
+
+    return
+    # end analyze_diff_fitres
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -447,4 +530,8 @@ if __name__ == "__main__":
     if args.extract_sim_input :
         extract_sim_input_file(args)
 
-    # END
+    if args.diff_fitres :
+        analyze_diff_fitres(args)
+
+    # END main
+

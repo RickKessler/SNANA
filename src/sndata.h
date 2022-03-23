@@ -1,4 +1,3 @@
-
 /*****************************************************
  Created Mar 7, 2006 by R.Kessler
 
@@ -37,7 +36,7 @@
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
   May 27 2021: MXSPECTRA -> 300 (was 200)
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
-
+  # not yet ... Jan 28 2022: MXFILTINX -> 80 (was 100)
 *****************************************************/
 
 #define MXEPOCH  5000     // max number of epochs per SN
@@ -45,7 +44,7 @@
 
 #define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)
 #define MXFILT_COVAR  9  // max number of filters per obs.
-#define MXFILTINDX 100   // max filter index
+#define MXFILTINDX  100  // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
 #define MXSPECTRA  300   // max number of spectra in data files
 
@@ -54,8 +53,9 @@
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables
 #define MXHOSTGAL      2 // max number of matched hosts to write out
+#define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-#define MXBIN_ZPHOT_QP 20 // max number of quantile percent bins
+#define MXBIN_ZPHOT_Q 100 // max number of quantile percent bins
 
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
@@ -90,7 +90,9 @@
 
 #define MXPATHLEN 300 // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
-#define MXLEN_VERSION_PREFIX  52  // max length of prefix in data or sim version
+#define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
+
+#define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
@@ -151,11 +153,13 @@ struct SNDATA {
   // name of SURVEY and SUBSURVEY
   char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
   char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  char SUBSURVEY_LIST[MXPATHLEN] ; // optional list in global simlib header
   int  SUBSURVEY_FLAG ;
-
+  
   bool  WRFLAG_BLINDTEST ;  
   bool  WRFLAG_PHOTPROB ;
   bool  WRFLAG_SKYSIG_T ;
+
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
   char  VARNAME_SNRMON[40];
@@ -247,8 +251,7 @@ struct SNDATA {
   float FLUXCAL_ERRTEMPLATE[MXEPOCH] ;  // correlated template error
 
   float MAG[MXEPOCH] ;            // magnitude (per filter/epoch)
-  float MAG_ERRPLUS[MXEPOCH] ;    // magnitude error (per filter/epoch)
-  float MAG_ERRMINUS[MXEPOCH] ;   // magnitude error (per filter/epoch)
+  float MAG_ERR[MXEPOCH] ;    // magnitude error (per filter/epoch)
   float ZEROPT[MXEPOCH] ;         // zero point for template 
   float ZEROPT_ERR[MXEPOCH] ;     // zero point error on mean
   float ZEROPT_SIG[MXEPOCH] ;     // zero point sigma
@@ -285,16 +288,30 @@ struct SNDATA {
   double  HOSTGAL_DEC[MXHOSTGAL];
   float   HOSTGAL_CONFUSION ;         // note: does NOT depend on each host
   float   HOSTGAL_PHOTOZ[MXHOSTGAL] ;
-  float   HOSTGAL_ZPHOT_QP[MXHOSTGAL][MXBIN_ZPHOT_QP];
-  int     HOSTGAL_NZPHOT_QP;
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
+
+  float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
+  int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
+  int     HOSTGAL_NZPHOT_Q ;
+
+  float  *PTR_HOSTGAL_PROPERTY_TRUE[MXHOSTGAL_PROPERTY];
+  float  *PTR_HOSTGAL_PROPERTY_OBS[MXHOSTGAL_PROPERTY];
+  float  *PTR_HOSTGAL_PROPERTY_ERR[MXHOSTGAL_PROPERTY];
   float   HOSTGAL_LOGMASS_TRUE[MXHOSTGAL] ;
   float   HOSTGAL_LOGMASS_OBS[MXHOSTGAL] ;  
   float   HOSTGAL_LOGMASS_ERR[MXHOSTGAL] ;
-  float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
-  float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
+  float   HOSTGAL_LOGSFR_TRUE[MXHOSTGAL] ;
+  float   HOSTGAL_LOGSFR_OBS[MXHOSTGAL] ;
+  float   HOSTGAL_LOGSFR_ERR[MXHOSTGAL] ;
+  float   HOSTGAL_LOGsSFR_TRUE[MXHOSTGAL] ;  
+  float   HOSTGAL_LOGsSFR_OBS[MXHOSTGAL] ;                 
+  float   HOSTGAL_LOGsSFR_ERR[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_TRUE[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_OBS[MXHOSTGAL] ;
+  float   HOSTGAL_COLOR_ERR[MXHOSTGAL] ;
+
   long long HOSTGAL_OBJID2[MXHOSTGAL] ;
   long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
   float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;

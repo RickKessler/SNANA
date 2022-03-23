@@ -145,7 +145,8 @@
 
 % ========================================
 \title{ \snana\ User's Manual: \\ 
-         Simulation, Lightcurve Fitters \& Cosmology Fitters}
+         Simulation, Lightcurve Fits, BBC, 
+         Create-Covariance, Batch Utilities}
 
 \author{Richard Kessler \\ University of Chicago \\ 
     Kavli Institute for Cosmological Physics \\
@@ -3985,7 +3986,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
    HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
-   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0
+   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0 (Legacy key)
+   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   # default= 1.0 for all prop
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -4149,6 +4151,8 @@ to make the galaxy sizes bigger or smaller.
 
 {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales the {\tt LOGMASS} \unc.
 
+{\tt HOSTLIB\_SCALE\_PROPERTY\_ERR} scales the error of the property in parenthesis as illustrated above.
+
 %\clearpage
 The {\tt HOSTLIB\_MSKOPT} options can be 
 viewed with the grep-command
@@ -4213,6 +4217,42 @@ viewed with the grep-command
 Options can be combined, such as {\tt HOSTLIB\_MSKOPT}=10
 will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
+
+% ------------------------------------                                                                                                                       %\clearpage                                                                                                                                                   
+\subsubsection{Hostgal properties}
+\label{sss:hostgal_properties}
+In the {\tt HOSTLIB} columns you can define true, observed, and error 
+for up to four properties;
+\begin{verbatim}
+   LOGMASS  LOGMASS_TRUE  LOGMASS_OBS  LOGMASS_ERR 
+   LOGSFR   LOGSFR_TRUE   LOGSFR_OBS   LOGSFR_ERR
+   LOGsSFR  LOGsSFR_TRUE  LOGsSFR_OBS  LOGsSFR_ERR
+   COLOR    COLOR_TRUE    COLOR_OBS    COLOR_ERR
+\end{verbatim}
+%
+Item in the left column is the ``{\tt BASENAME},'' and defining a {\tt HOSTLIB}
+column as {\tt BASENAME} is interpreted as {\tt BASENAME\_TRUE}.
+If {\tt BASENAME\_ERR} is specified, {\tt BASENAME\_OBS} is computed as \\
+%
+{\tt Gauss(BASENAME\_TRUE,BASENAME\_ERR)}.
+%
+Non gaussian errors can be simulated with {\tt BASENAME\_OBS} 
+instead of {\tt BASENAME\_ERR}.
+{\tt BASENAME\_ERR} can be rescaled using the sim-input key 
+\begin{verbatim}    
+HOSTLIB_SCALE_PROPERTY_ERR: 0.0(LOGMASS),0.0(LOGSFR) # set errors to zero
+    or
+HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.5(LOGsSFR)  
+\end{verbatim}
+%
+where the first example sets errors to zero so that observed property 
+equals the true value, and second example scales the error on 3 properties.
+%
+These host-property values are automatically propagated to the simulated data 
+files, and after light-curve fitting they are propagated to output tables 
+(e.g. {\tt SNANA}, {\tt FITRES}).
+
+% ------------------------------------                                                                                                                        
 
 
 % ------------------------------------
@@ -10760,7 +10800,7 @@ etc ...
 Users prepare the {\tt SED.INFO} file, along with each
 SED time-series file with format
 \begin{verbatim}
-   epoch(days)   wavelength(A)   flux(erg/cm^2/s/A) .
+   epoch(days)   wavelength(A)   flux(erg/cm^2/s/A at 10pc) .
 \end{verbatim}
 The wavelength binning must be uniform, but the epoch binning
 can be non-uniform.
@@ -11716,51 +11756,65 @@ If the {BBC\_VERSION} key is not included, set {\tt BBC\_VERSION=1}.
 
 % ##########################################
    \clearpage
-   \section{Cosmology Fitters}
+   \section{Cosmology Fitting}
    \label{sec:wfit}
 % ###########################################
 
-There are currently two cosmology fitters available.
-First is {\tt wfit.exe}, which fits for $w$ and $\OM$
-assuming a flat universe. Typing the {\tt wfit.exe} 
-command with no arguments lists the options. 
-The BAO and CMB priors are currently hard-wired, 
-but a more flexible method to specify priors may be added later.
-An example command is as follows,
-\begin{verbatim}
-  wfit.exe <fitresFile> -zmin .02 -zerr .001 -snrms .15 -bao -cmb 
-\end{verbatim}
-%
-where the fitres-file is output from the {\tt SALT2mu.exe} program.
-The arguments specify 
-using SNe with $z>0.02$, 
-adding a peculiar-velocity uncertainty of 300~km/s 
-   (i.e, the ``{\tt zerr}'' arg is $v_{\rm pec}/c$),
-adding an anomalous distance-uncertainty of 0.15 mag (``{\tt snrms}'' arg),
-and using the BAO \& CMB priors. 
-Peculiar-velocity covariances can also be used as explained below in 
-\S\ref{subsec:mucovar}.
+\newcommand{\wfit}{{\tt wfit.exe}}
+\newcommand{\de}{{$w_0w_a$CDM}}
 
-The second program, {\tt sncosmo\_mcmc.exe},
-is a more general cosmology fitter based on Monte Carlo
-Markov chains. This fitter handles more diverse cosmologies
-such as time-dependent $w$ and non-zero curvature.
-Sample inputs files are in 
+State-of-the-art cosmology fitting tools include CosmoMC and CosmoSIS
+that are not included in \snana. 
+Within \snana, \wfit\ is a fast cosmology fitting program that
+is not nearly as sohopisticated as CosmoSIS, but is useful for 
+systematics tests and forecasts. 
+\wfit\ models $w$CDM ($w$, $\OM$) and CPL $w_0w_a$CDM model,
+both assuming a flat universe. 
+The CMB prior is based the $R$ parametrization using simulated cosmology parameters
+and $\sigma_R=0.007$ to reproduce the DES3YR uncertainties. 
+The BAO prior is based on Alam 2020.
+Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon values using
 %
 \begin{verbatim}
-  $SNDATA_ROOT/sample_input_files/sncosmo_mcmc/
+   wfit.exe  [HubbleDiagram] -cmb_sim -sigma_Rcmb 0.007   -wsteps 101 -omsteps 101 \
+             -mucov_file [mucov_file]  \
+             -bao_sim               # only for DES w0waCDM only
 \end{verbatim}
-%
-Both of these cosmology fitters read self-documented ``fitres'' files
-(\S\ref{sss:combine_fitres}) that contain
-a redshift, distance modulus and survey index
-(other parameters in the fitres file are ignored).
+where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
 
-Beware that These cosmology fitters are not state-of-the-art, and are thus
-useful for rapid testing or systematics studies.
+\begin{table}[h!]
+\centering
+\begin{tabular}{l|lllllll}
+& $\Omega_m$ & $\sigma (\Omega_m)$ & $w_0$ & $\sigma(w_0)$  & $w_a$ & $\sigma(w_a)$ &FoM \\
+ \hline
+     DES3YR  $w$CDM  SN+CMB &$0.321$&  $\pm0.018$ & $-0.978$ & $\pm0.059$ &  & &  \\
+     \wfit\ &$0.326$& $\pm0.018$ & $-0.964$ & $\pm0.059$ &  & &  \\ \\
+                         
+     Pantheon  $w$CDM  SN+CMB&$0.307$&$\pm0.012$  & $-1.026$ &$\pm0.041$  &  &  & \\
+     \wfit\ &$0.308$&$\pm0.012$  & $-1.029$ &$\pm0.041$  &  &  & \\ \\
+     DES3YR  \de\ SN+CMB+BAO &$0.316$& $\pm0.011$ & $-0.885$ &$\pm0.114$  & $-0.387$ & $\pm0.430$ & $46$ \\
+     \wfit\ &$0.309$&$\pm0.012$  &$-0.965$  & $\pm0.092$ & $-0.354$ & $\pm0.442$ & $64$\\ \\
+                         
+    Pantheon \de\  SN+CMB &$0.308$&$\pm0.018$  &$-1.009$  &$\pm0.159$  & $-0.129$ &$\pm0.755$  & $31$ \\
+    \wfit\ &$0.305$& $\pm0.015$ & $-0.981$ &$\pm0.159$  &$-0.302$  &  $\pm0.725$&$32$ \\ \\
+\end{tabular}
+\caption{Comparison of published cosmology parameters to those obtained with \wfit.
+  DES3YR results are from Table 2 in 
+     \url{https://arxiv.org/pdf/1811.02374.pdf}. 
+  Pantheon results are from Table $12$ and $13$  of 
+     \url{https://arxiv.org/pdf/1710.00845.pdf}. 
+  CMB prior in published results is from Planck 2016, and used in all four cases. 
+  CMB prior in \wfit\ uses $R$-parameter with $\sigma_R=0.007$ tuned to match 
+     DES3YR $w$-uncertainty. 
+  The \wfit \ BAO is based on \url{https://arxiv.org/abs/2007.08991}~.
+  All fits use redshift binned data.
+  }
+\label{tab:wfit}
+\end{table}
+
 
 % -----------------------------------------------
-%   \clearpage
+   \clearpage
    \subsection{Interpreting Redshift Variables in SNANA Tables}
    \label{subsec:zdefine}
 % -----------------------------------------------
@@ -12721,19 +12775,26 @@ to whatever the simulation generates.
 % --------------------------------------
 
 % --------------------------------------
-  \subsubsection{{\tt DASHBOARD} Utility}
+  \subsubsection{{\tt README} and {\tt DASHBOARD} Utilities}
   \label{sss:sim_dashboard}
 % --------------------------------------
 
-There are well over a dozen possible input files to the simulation,
-and keeping track can be difficult, especially with include files
-and command-line overrides. A brief summary of every input file
-can be displayed with
 \begin{verbatim}
-   snlc_sim.exe mysim.input DASHBOARD
+   snlc_sim.exe mysim.input README     # write README file and quit
+   snlc_sim.exe mysim.input DASHBOARD  # print all map and library file names
 \end{verbatim}
-which will print a file summary and then quit. 
-Higher-level pipelines can use this feature to better summarize the inputs.
+%
+The {\tt README} argument forces the sim to write the standard 
+{\tt README} ouptut file with the
+{\tt OVERVIEW}, {\tt INPUT\_KEYS} and {\tt INPUT\_NOTES} yaml blocks,
+and then the sim quits. For speed, most initializations are skipped such
+as for {\tt HOSTLIB} and transient model.
+
+There are well over a dozen possible input files (maps, libraries ...)
+to the simulation, and keeping track can be difficult, 
+especially with include files and command-line overrides. 
+A brief summary of every input file can be displayed with the
+{\tt DASHBOARD} command. Unused files are labeled NONE.
 
 
 % --------------------------------------
@@ -13175,6 +13236,42 @@ data files can be extracted from FITS-formatted files
 where an explicit CID list or snana selection criteria can 
 be applied. To avoid file-count quota issues, 
 a max limit of 20 data files can be extracted.
+
+\medskip
+Additional reformat options can be specified using {\tt SNLCINP} input mask
+{\tt OPT\_REFORMAT\_FITS} or {\tt OPT\_REFORMAT\_TEXT}
+\begin{verbatim}  
+    OPT_REFORMAT_FITS = 2   ! include rejected epochs
+    OPT_REFORMAT_FITS = 64  ! exclude private variables
+    OPT_REFORMAT_FITS = 128 ! include spectra
+    OPT_REFORMAT_FITS = 256 ! exclude SIM truth to look like real data
+\end{verbatim}
+%
+Here is an example command to convert a simulation into a data-like
+sample that has no truth information:
+\begin{verbatim}    
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY     CHALLENGE_SNIa  \
+  VERSION_REFORMAT_FITS  CHALLENGE_SNIa_TRAIN \ # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+or the wildcard feature:
+
+snana.exe NOFILE \
+  VERSION_PHOTOMETRY_WILDCARD  'CHALLENGE_*'  \
+  VERSION_REFORMAT_FITS  CHALLENGE_TRAIN \   # output data folder
+  OPT_REFORMAT_FITS      256 \
+  CUTWIN_SNTYPE 1 99
+
+\end{verbatim}     
+%
+The last input {\tt CUTWIN\_SNTYPE} selects all 
+spectroscopically-confirmed tags, and other {\tt CUTWIN} 
+options can be used as well. 
+The output data folder contains no sim-truth which
+is useful for i) data challenges, and ii) test analysis codes
+to ensure they don't cheat using sim-truth.
 
 % --------------------------------------
   \clearpage

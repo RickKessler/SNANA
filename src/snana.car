@@ -3179,8 +3179,6 @@ c pak global survey info after all initialization (Mar 24 2013)
 cc      IF ( LTEST_INTERP ) CALL TEST_INTERP(INTERP_OPT)
 +SELF.
 
-c initialize optional format translations
-c xxx mark      CALL INIT_REFORMAT()
 
 c ######################################################
 c
@@ -9673,9 +9671,10 @@ c -------------------------
 C ------------- BEGIN -------------
 
       FNAM = 'INIT_REFORMAT'
-      REFORMAT       = .FALSE.  ! any reformat option
 
       IF ( OPT == 2 ) GOTO 500
+
+      REFORMAT       = .FALSE.  ! any reformat option
 c - - - - - - - - - 
 c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
 

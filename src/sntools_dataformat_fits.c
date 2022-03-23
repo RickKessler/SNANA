@@ -1341,7 +1341,7 @@ void wr_snfitsio_SET_SUBSURVEY_FLAG(void) {
       { SNDATA.SUBSURVEY_FLAG = 1 ; }
   }
 
-  int LDMP=1;
+  int LDMP = 0 ;
   if ( LDMP ) {
     printf("\n xxx %s DUMP\n", fnam );
     printf(" xxx SUBSURVEY_NAME = '%s' \n", SNDATA.SUBSURVEY_NAME);

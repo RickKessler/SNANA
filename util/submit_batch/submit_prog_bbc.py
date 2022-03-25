@@ -141,7 +141,7 @@ class BBC(Program):
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
     def submit_prepare_driver(self):
-        print("")
+        logging.info("")
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
@@ -723,14 +723,14 @@ class BBC(Program):
         # - - - - - - - - - 
         print(f"\n Prepare output FITOPT list:")
         for survey,n in zip(survey_inplist,n_fitopt_inplist):
-            print(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
+            logging.info(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
 
         if IS_FITOPT_MAP :
-            print(f"   Found {BLOCKNAME_FITOPT_MAP}  ")
+            logging.info(f"   Found {BLOCKNAME_FITOPT_MAP}  ")
         else :
-            print(f"   Did not find {BLOCKNAME_FITOPT_MAP}  ")
+            logging.info(f"   Did not find {BLOCKNAME_FITOPT_MAP}  ")
 
-        print(f"   --> {n_fitopt} output FITOPTs")            
+        logging.info(f"   --> {n_fitopt} output FITOPTs")            
 
         # store *outlist arrays
         self.config_prep['n_fitopt']               = n_fitopt
@@ -771,7 +771,7 @@ class BBC(Program):
         for fitopt_num_out in fitopt_num_list:            
 
             if dump_flag :
-                print(" xxx ---------------------------------------- ")
+                logging.info(" xxx ---------------------------------------- ")
             # check if this FITOPT is global, or specific to one survey
             fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
 
@@ -1269,7 +1269,7 @@ class BBC(Program):
         output_subdir          = os.path.basename(output_dir)
         override_output_subdir = os.path.basename(override_output_dir)
 
-        print(f"\n\t move  {output_subdir} -> {override_output_subdir}")
+        logging.info(f"\n\t move  {output_subdir} -> {override_output_subdir}")
 
         # remove target dir if it already  exists
         if  os.path.exists(override_output_dir) : 
@@ -1896,7 +1896,7 @@ class BBC(Program):
         counts = np.unique(first_fitres_cids, return_counts=True)[1]
         has_duplicates = len(counts[counts>1])>0
         if has_duplicates:
-            print('Detected duplicates in first fitres! Using duplicate logic...')
+            logging.info('Detected duplicates in first fitres! Using duplicate logic...')
             cid_dict = self.get_cid_list_duplicates(fitres_list, VOUT)
             unique_dict = cid_dict['unique_dict']
         else:

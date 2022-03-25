@@ -980,19 +980,19 @@ class Program:
         if submit_iter != 1 : return
 
         line = "# ============================================="
-        print(f"")
-        print(f"{line}")
-        print(f"{line}")
-        print(f"{line}")
+        logging.info(f"")
+        logging.info(f"{line}")
+        logging.info(f"{line}")
+        logging.info(f"{line}")
 
         for t in range(3,0,-1):
-            print(f"\t Will auto-submit 2nd iteration in {t} seconds ...")
+            logging.info(f"\t Will auto-submit 2nd iteration in {t} seconds ...")
             time.sleep(1)
 
         arg_list   = sys.argv 
         arg_list.append('--iter2')
         arg_string = " ".join(arg_list) 
-        print(f"\n submit_iter2 with \n  {arg_string}\n")
+        logging.info(f"\n submit_iter2 with \n  {arg_string}\n")
 
         ret  = subprocess.call( arg_list )
 
@@ -1295,7 +1295,7 @@ class Program:
 
         # check option to force crash (to test higher level pipelines)
         if submit_info_yaml['FORCE_CRASH_MERGE']  :
-            print(f" xxx force merge crash with C-like printf xxx \n")
+            logging.info(f" xxx force merge crash with C-like printf xxx \n")
             printf(" xxx force merge crash with C-like printf xxx \n")
 
         # check option to force abort (to test higher level pipelines)

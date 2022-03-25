@@ -2734,7 +2734,7 @@ void WR_SNFITSIO_END(int OPTMASK) {
 
   // ------------ BEGIN -------------
 
-  printf(" %s: finished writing %d events and %d spectra to FITS format\n",
+  printf(" %s: wrote %d events and %d spectra to FITS format\n",
 	 fnam, NSNLC_WR_SNFITSIO_TOT, NSPEC_WR_SNFITSIO_TOT);
   fflush(stdout);
 

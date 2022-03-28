@@ -758,8 +758,8 @@ class train_SALT2(Program):
         arg_list.append(f"--base {base_surface_path}")
         arg_list.append(f"--trainopt \"{trainopt_arg}\"")
         arg_list.append(f"--output {outdir_train}")
-        arg_list.append(f"--yaml {prefix}.YAML") # Tell script not to log and instead to produce a yaml output file.
-
+        arg_list.append(f"--batch")
+        arg_list.append(f"--yaml {prefix}.YAML")
 
         JOB_INFO = {}
         JOB_INFO['program']       = (f"{program}")

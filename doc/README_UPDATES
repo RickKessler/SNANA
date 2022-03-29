@@ -20951,4 +20951,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
        in systematics involving z-shift.
 
+   snlc_sim.c
+     + fix bug reading SALT2ALPHA[BETA] asymGauss params from
+       GENPDF_FILE passed as command-line arg;
+        https://github.com/RickKessler/SNANA/issues/864
+
 END: 

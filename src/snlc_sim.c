@@ -192,11 +192,15 @@ int main(int argc, char **argv) {
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
+  // - - - - -
+  // init option to generate populations from PDF
+  if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
+    { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
   init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
 	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
-
   prioritize_genPDF_ASYMGAUSS();
 
+  // - - - - 
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -894,7 +898,7 @@ void set_user_defaults(void) {
   INPUTS.GENMODEL[0] = 0 ;
   INPUTS.MODELPATH[0] = 0 ;
 
-  INPUTS.GENPDF_FILE[0] = 0 ;
+  INPUTS.GENPDF_FILE[0]   = 0 ;
   INPUTS.GENPDF_IGNORE[0] = 0 ;
   INPUTS.GENPDF_FLAT[0]   = 0 ;
   INPUTS.GENPDF_OPTMASK   = 0;
@@ -6875,6 +6879,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
 
   sprintf(randomFile, "%s", genmodel_list[ifile]);  
 
+  /* xxxxxxx mark delete Mar 29 2022 xxxxxxxxx
   // for GENPDF wildcard, set GENPDF_OPTMASK to tell init_genPDF
   // that the source is command-line arg instead of file.
   // This allows the command-line arg to override sim-inputs.
@@ -6882,6 +6887,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
     if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
       { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
   }
+  xxxxxxxxx end mark xxxxxxxxx */
 
 // - - - - - -
   for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }

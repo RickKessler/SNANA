@@ -613,8 +613,9 @@ void readme_docana_modelPar(int *iline, char *pad) {
 
   s = INPUTS.GENPDF_FILE;
   if ( !IGNOREFILE(s) ) {
+    ENVrestore(s,ORIG_FILE_README);
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%sGENPDF_FILE:  %s \n", pad, s);
+    sprintf(cptr,"%sGENPDF_FILE:  %s ", pad, ORIG_FILE_README);
   }
 
   if ( INDEX_GENMODEL == MODEL_SALT2 ) {
@@ -802,7 +803,7 @@ void readme_docana_epoch(int *iline, char *pad) {
 void readme_docana_misc(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="", *ptrFile, fileName_orig[MXPATHLEN] ;
+  char *cptr, noComment[]="", *ptrFile ;
   double *dptr, dval, dval_list[10];
 
   // ----------- BEGIN ------------
@@ -815,19 +816,19 @@ void readme_docana_misc(int *iline, char *pad) {
 
   ptrFile = PATH_USER_INPUT;
   if ( !IGNOREFILE(ptrFile) ) {
-    ENVrestore(ptrFile,fileName_orig);
+    ENVrestore(ptrFile,ORIG_FILE_README);
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_USER_INPUT:", 
-	    fileName_orig);
+	    ORIG_FILE_README);
   }
 
 
   ptrFile = INPUTS.PATH_SNDATA_SIM;
   if ( !IGNOREFILE(ptrFile) ) {
-    ENVrestore(ptrFile,fileName_orig);
+    ENVrestore(ptrFile,ORIG_FILE_README);
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s%-*s %s", pad, lenkey, "PATH_SNDATA_SIM:", 
-	    fileName_orig);
+	    ORIG_FILE_README);
   }
 
   dval = (double)INPUTS.ISEED_ORIG ;

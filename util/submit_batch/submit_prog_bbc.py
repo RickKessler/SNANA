@@ -1892,24 +1892,36 @@ class BBC(Program):
         n_ff     = len(fitres_list) # number of FITRES files
         
         first_fitres_file = VOUT + "/" + fitres_list[0]
+
+        # check for duplicates from 
+        # same data light curve measured by multiple surveys, or
+        # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
+
         df_first  = pd.read_csv(first_fitres_file, 
                                 comment="#", delim_whitespace=True)
-        df_first_cids  = df_first['CID']
-        df_first_izbin = df_first['IZBIN']
-        counts = np.unique(df_first_cids, return_counts=True)[1]
-        has_duplicates = len(counts[counts>1]) > 0
+        first_cids  = df_first['CID']
+        first_cids_unique, counts = np.unique(first_cids,return_counts=True)
+        n_dupl   = len(counts[counts>1])
+        has_dupl = n_dupl > 0
 
-        if has_duplicates:
-            logging.info('\t Detected duplicates in first fitres.')
+        dump_dupl = False 
+        if dump_dupl:
+            for cid,cnt in zip(first_cids_unique,counts) :
+                if cnt > 1:
+                    print(f" xxx duplicate cid={cid} has cnt={cnt}")
+                
+        # - - - - - - - - 
+        if has_dupl :
+            logging.info(f"\t {n_dupl} duplicates found in first fitres.")
             cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
             unique_dict = cid_dict['unique_dict']
         else:
             cid_dict = self.get_cid_list(fitres_list, VOUT)
 
-        cid_list     = cid_dict['cid_list']
-        cid_unique   = cid_dict['cid_unique']
-        n_count      = cid_dict['n_count']
-        n_reject     = cid_dict['n_reject']
+        cid_list        = cid_dict['cid_list']
+        cid_unique      = cid_dict['cid_unique']
+        n_count         = cid_dict['n_count']
+        n_reject        = cid_dict['n_reject']
                     
         cid_all_pass    = cid_unique[n_count == n_ff]
         cid_some_fail   = cid_unique[n_count <  n_ff]
@@ -1932,7 +1944,7 @@ class BBC(Program):
             f.write(f"# These CIDs are rejected in {PROGRAM_NAME_BBC} with\n")
             f.write(f"#    reject_list_file={reject_file} \n")
             f.write(f"\n")
-            if has_duplicates:
+            if has_dupl :
                 f.write(f"# Beware of Duplicate CIDs "
                         f"(each CID + IDSURVEY is unique) \n")
                 f.write(f"{KEYVAR}: CID IDSURVEY NJOB_REJECT \n")
@@ -1959,7 +1971,7 @@ class BBC(Program):
             f.write(f"# These CIDs are selected in {PROGRAM_NAME_BBC} with\n")
             f.write(f"#    accept_list_file={accept_file} \n")
             f.write(f"\n")
-            if has_duplicates:
+            if has_dupl :
                 f.write(f"# Beware of Duplicate CIDs " \
                         f"(each CID + IDSURVEY is unique) \n")
                 f.write(f"{KEYVAR}: CID IDSURVEY IZBIN\n")
@@ -1971,8 +1983,10 @@ class BBC(Program):
                         f.write(f"SN:  {cid:<12} {idsurv}  {izbin}\n")
             else:
                 f.write(f"{KEYVAR}: CID  IZBIN\n")
-                izbin_unique = cid_dict['izbin_unique']
-                for cid,izbin,nrej in zip(cid_unique,izbin_unique,n_reject) :
+                izbin_unique      = cid_dict['izbin_unique']
+
+                for cid, izbin, nrej in \
+                    zip(cid_unique,izbin_unique,n_reject) :
                     if nrej==0: 
                         f.write(f"SN:  {cid:<12}  {izbin}\n")
 
@@ -1989,9 +2003,9 @@ class BBC(Program):
         n_ff       = len(fitres_list)
         cid_list   = []
         izbin_list = []
-        jff = 0
+        jff        = 0
         for ff in fitres_list:
-            FF       = (f"{VOUT}/{ff}")
+            FF       = f"{VOUT}/{ff}"
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
             cid_list = np.concatenate((cid_list, df.CID.astype(str)))
 
@@ -2016,23 +2030,18 @@ class BBC(Program):
         # Mar 28 2022: fetch list of izbin 
         devel_flag = self.config_yaml['args'].devel_flag
         if devel_flag == -20 :
-            df_cid_unique = pd.DataFrame(cid_unique,columns=['CID'])
-            df_merged     = df_cid_unique.merge(df0, how='inner', on='CID')
-            izbin_unique  = df_merged['IZBIN']
-            
-            #sys.exit(f"\n xxx izbin_unique = \n{izbin_unique}\n")
-            #izbin_unique = df0.loc[df0.CID.isin(cid_unique)].IZBIN.values
-            cid_dict['izbin_unique']  = list(map(int,izbin_unique))
+            izbin_unique = []
+            for cid in cid_unique:
+                izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
+                izbin = -9
+                if len(izbin_tmplist) > 0 :
+                    izbin = izbin_tmplist[0]
+                izbin_unique.append(izbin)
+            cid_dict['izbin_unique']  = izbin_unique
         else:
             # remove this when above is default
             ntmp = len(cid_unique)
             cid_dict['izbin_unique'] = [-9] * ntmp
-
-        # xxx from R.Morgan ...
-        # cid_list = ...
-        # systematics_df = ...
-        # cid_df = pd.DataFrame(cid_list, columns=['CID'])
-        # merged_df = cid_df.merge(systematics_df, on='CID', how='inner')
 
         return cid_dict
         # end of get_cid_list
@@ -2066,22 +2075,18 @@ class BBC(Program):
         for ucid in cid_unique:
             unique_dict[ucid] = {}
             cid      = str(ucid.split("__")[0])
-            idsurvey = ucid.split("__")[1]
+            idsurvey = int(ucid.split("__")[1])
             izbin    = -9
 
-            if devel_flag == -20:
-                #izbin_list = df0.loc[df0.CID.isin([cid])].IZBIN.values
-                izbin_list = df0.loc[df0['CID']==cid]['IZBIN']
+            if devel_flag == -20 :
+                izbin_list = df0.loc[(df0['CID']==cid) & \
+                                     (df0['IDSURVEY']==idsurvey)]['IZBIN'].values
                 if len(izbin_list) > 0 :
-                    izbin = izbin_list[0]
-
-
-            #print(f"\t xxx cid={cid}  izbin={izbin} | ")
+                    izbin = int(izbin_list[0])
+                    
             unique_dict[ucid]['CID']      = cid
             unique_dict[ucid]['IDSURVEY'] = idsurvey
-            unique_dict[ucid]['IZBIN']    = int(izbin)
-
-        #xx izbin_unique = df0.loc[df0.CID.isin(cid_unique)].IZBIN.values
+            unique_dict[ucid]['IZBIN']    = izbin
 
         # number of times each CID does not appear in a fitres file
         n_reject        = n_ff - n_count

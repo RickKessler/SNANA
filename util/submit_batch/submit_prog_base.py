@@ -659,7 +659,7 @@ class Program:
 
         args                = self.config_yaml['args']
         input_file          = args.input_file
-        no_merge            = args.nomerge
+        nomerge             = args.nomerge
         output_dir_override = args.outdir 
         devel_flag          = args.devel_flag
         check_abort         = args.check_abort
@@ -674,13 +674,7 @@ class Program:
         last_job_cpu  = (n_job_tot - ijob) < n_core
 
         # if check_abort, skip merge except for last job
-        skip_merge = check_abort and not last_job_cpu
-
-        # xxx mark delete if no_merge or skip_merge :
-        if no_merge :
-            JOB_INFO['merge_input_file'] = ""
-            JOB_INFO['merge_arg_list']   = ""
-            return JOB_INFO
+        # xxx skip_merge = check_abort and not last_job_cpu
 
         # - - - - 
  
@@ -691,6 +685,11 @@ class Program:
         else:
             # last merge is after last job, regardless of cpunum (default)
             last_merge =  ijob == n_job_tot
+
+        if nomerge and not last_merge :
+            JOB_INFO['merge_input_file'] = ""
+            JOB_INFO['merge_arg_list']   = ""
+            return JOB_INFO
 
         m_arg = "-m"
         if last_merge :  m_arg = "-M" 
@@ -708,6 +707,10 @@ class Program:
         # check for devel flag
         if devel_flag != 0 :
             arg_list += f" --devel_flag {devel_flag}"
+
+        # check for nomerge (Mar 28 2022)
+        if nomerge :
+            arg_list += f" --nomerge"
 
         JOB_INFO['merge_input_file']  = input_file
         JOB_INFO['merge_arg_list']    = arg_list
@@ -996,7 +999,6 @@ class Program:
 
         ret  = subprocess.call( arg_list )
 
-        # .xyz
         # end launch_jobs_iter2
 
     def fetch_slurm_pid_list(self):
@@ -1074,6 +1076,7 @@ class Program:
 
         args         = self.config_yaml['args']
         MERGE_LAST   = args.MERGE_LAST
+        nomerge      = args.nomerge
         cpunum       = args.cpunum[0]
         check_abort  = args.check_abort 
         verbose_flag = not check_abort
@@ -1111,7 +1114,11 @@ class Program:
 
         # if last merge call (-M), then must wait for all of the done
         # files since there will be no more chances to merge.
-        if MERGE_LAST : self.merge_last_wait()
+        if MERGE_LAST : 
+            self.merge_last_wait()
+            if nomerge :
+                self.nomerge_last()
+                exit(0)
 
         # set busy lock file to prevent a simultaneous  merge task
         self.set_merge_busy_lock(+1)
@@ -1334,6 +1341,52 @@ class Program:
             n_busy,busy_list = self.get_busy_list()
 
         # end merge_last_wait
+
+    def nomerge_last(self):
+
+        # Created Mar 28 2022
+        # for --nomerge option, cerate RUN_MERGE_[inputFile] script and
+        # create tar file of outdir. The output RUN_MERGE script is a
+        # debug tool to quickly run the merge process interactively.
+
+        output_dir          = self.config_prep['output_dir'] 
+        args                = self.config_yaml['args']
+        input_file          = args.input_file
+
+        output_dir_base = os.path.basename(output_dir)
+        input_file_base = os.path.basename(input_file.split('.')[0])
+
+        merge_script   = "RUN_MERGE_" + input_file_base
+        program_submit = sys.argv[0]  # $path/submit_batch_jobs
+
+        logging.info(f"\n Create {merge_script} ")
+        with open(merge_script,"wt") as s:
+            s.write(f"# test merge process interactively. \n")
+            s.write(f"rm -r   {output_dir_base}\n")
+            s.write(f"tar -xf {output_dir_base}.tar\n")
+            s.write(f"\n")
+            s.write(f"{program_submit} \\\n")
+            s.write(f"  {input_file}   \\\n")
+            s.write(f"  -M \n")
+
+        cmd = f"chmod +x {merge_script}"
+        os.system(cmd)
+
+        # - - - - - - - - - - - - 
+        # create tar file of output dir
+        tar_file = f"{output_dir_base}.tar"
+
+        # remove old tar file if it exists
+        if os.path.exists(tar_file):  os.remove(tar_file)
+
+        cmd = f"tar -cf {tar_file} {output_dir_base}"
+        os.system(cmd)
+        
+        logging.info(f" Create {tar_file}")
+        logging.info(f" Done.")
+
+        return
+        # end nomerge_last
 
     def merge_cleanup_script_dir(self):
         # Tar of CPU* files, then tar+gzip script_dir

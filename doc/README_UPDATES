@@ -20947,4 +20947,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + count number of written events and spectra;
         WR_SNFITSIO_END prints actual number of written events at end of job.
   
+   submit_prog_bbc.py
+     + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
+       in systematics involving z-shift.
+
 END: 

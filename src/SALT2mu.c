@@ -22550,6 +22550,8 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f  #Beware, value > 1 violates bounding function \n",
           tmpName, SUBPROCESS.MAXPROB_RATIO); 
 
+  // .xyz write dchi2red_dsigint here ... for Brodie
+
   fflush(FP_OUT);
 
   // - - - - - - 

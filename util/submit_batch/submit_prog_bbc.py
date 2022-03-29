@@ -115,8 +115,6 @@ FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
 OUTDIR_ITER1_SUFFIX    = "_ITER1"
 
-# internal development flags
-DEVEL_SYNC_EVT = True
 
 KEYNAME_VARNAMES = "VARNAMES"
 
@@ -146,11 +144,6 @@ class BBC(Program):
 
         # check for devel flag(s)
         devel_flag = self.config_yaml['args'].devel_flag
-
-        # xxxx should remove this soon ... May 30 2021
-        global DEVEL_SYNC_EVT ; 
-        if devel_flag == -20 :  DEVEL_SYNC_EVT = False
-        # xxxxxxxxxxxx
 
         # - - - - - - -
         # read C code inputs (not YAML block)
@@ -224,6 +217,7 @@ class BBC(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
+        devel_flag      = self.config_yaml['args'].devel_flag
         IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
         
@@ -331,6 +325,8 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key]
                     KEY_SYNC_EVT   = key
 
+            if devel_flag == -20: sync_evt = 0 # disable event sync
+
             # - - - 
             n_fitopt       = len(fitopt_table)
 
@@ -362,7 +358,7 @@ class BBC(Program):
         # - - - - - -
         # abort if sync_evt is different for any INPDIR
         SAME = len(set(sync_evt_list)) == 1
-        if not SAME and DEVEL_SYNC_EVT :
+        if not SAME :
             msgerr = []
             msgerr.append(f"Mis-match for {KEY_SYNC_EVT} flag; ")
             for path,sync in zip(inpdir_list_orig,sync_evt_list) :
@@ -1242,8 +1238,6 @@ class BBC(Program):
 
     def change_outdir_iter1(self):
 
-        if not DEVEL_SYNC_EVT : return
-
         output_dir   = self.config_prep['output_dir']  
         sync_evt     = self.config_prep['sync_evt_list'][0]
         iter2        = self.config_yaml['args'].iter2
@@ -1434,7 +1428,7 @@ class BBC(Program):
         # - - - - - -
         # check option to use FITOPT000 events for all syst.
 
-        if DEVEL_SYNC_EVT and sync_evt : 
+        if sync_evt : 
             FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST']
             label       = FITOPT_OUT_LIST[ifit][COLNUM_FITOPT_LABEL]
             skip_sync   = FITOPT_STRING_NOREJECT in label
@@ -1912,7 +1906,7 @@ class BBC(Program):
                 
         # - - - - - - - - 
         if has_dupl :
-            logging.info(f"\t {n_dupl} duplicates found in first fitres.")
+            logging.info(f"\t {n_dupl} duplicates found in first fitres file.")
             cid_dict    = self.get_cid_list_duplicates(fitres_list, VOUT)
             unique_dict = cid_dict['unique_dict']
         else:
@@ -2003,16 +1997,17 @@ class BBC(Program):
         n_ff       = len(fitres_list)
         cid_list   = []
         izbin_list = []
-        jff        = 0
+        found_first_file = False
+
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
             cid_list = np.concatenate((cid_list, df.CID.astype(str)))
 
-            if jff==0: 
+            if not found_first_file: 
                 df0 = df.copy()
                 df0['CID'] = df0['CID'].astype(str)
-            jff += 1
+                found_first_file = True
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
@@ -2028,20 +2023,15 @@ class BBC(Program):
         cid_dict['n_reject']   = n_reject
 
         # Mar 28 2022: fetch list of izbin 
-        devel_flag = self.config_yaml['args'].devel_flag
-        if devel_flag == -20 :
-            izbin_unique = []
-            for cid in cid_unique:
-                izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
-                izbin = -9
-                if len(izbin_tmplist) > 0 :
-                    izbin = izbin_tmplist[0]
-                izbin_unique.append(izbin)
-            cid_dict['izbin_unique']  = izbin_unique
-        else:
-            # remove this when above is default
-            ntmp = len(cid_unique)
-            cid_dict['izbin_unique'] = [-9] * ntmp
+
+        izbin_unique = []
+        for cid in cid_unique:
+            izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
+            izbin = -9
+            if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
+            izbin_unique.append(izbin)
+
+        cid_dict['izbin_unique']  = izbin_unique
 
         return cid_dict
         # end of get_cid_list
@@ -2056,34 +2046,37 @@ class BBC(Program):
         n_ff        = len(fitres_list)
         unique_dict = {}
         ucid_list   = []
-        jff=0
+        found_first_file = False
+
         for ff in fitres_list:
             FF       = (f"{VOUT}/{ff}")
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
             ucid_list = np.concatenate((ucid_list, 
                                         df.CID.astype(str)+"__"+df.IDSURVEY.astype(str)))
 
-            if jff== 0 : 
+            if not found_first_file:
                 df0 = df.copy()
                 df0['CID'] = df0['CID'].astype(str)
+                found_first_file = True
 
-            jff += 1
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
+
         cid_unique, n_count = np.unique(ucid_list, return_counts=True)
 
         for ucid in cid_unique:
             unique_dict[ucid] = {}
             cid      = str(ucid.split("__")[0])
             idsurvey = int(ucid.split("__")[1])
-            izbin    = -9
 
-            if devel_flag == -20 :
-                izbin_list = df0.loc[(df0['CID']==cid) & \
-                                     (df0['IDSURVEY']==idsurvey)]['IZBIN'].values
-                if len(izbin_list) > 0 :
-                    izbin = int(izbin_list[0])
-                    
+            izbin_list = df0.loc[(df0['CID']==cid) & \
+                                 (df0['IDSURVEY']==idsurvey)]['IZBIN'].values
+
+            if len(izbin_list) > 0 :
+                izbin = int(izbin_list[0])
+            else:
+                izbin = -9
+
             unique_dict[ucid]['CID']      = cid
             unique_dict[ucid]['IDSURVEY'] = idsurvey
             unique_dict[ucid]['IZBIN']    = izbin

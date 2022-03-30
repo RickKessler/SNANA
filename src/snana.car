@@ -3264,9 +3264,11 @@ c check header override option
       LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
       IF ( LENF > 0 ) THEN
         IF ( LSIM_SNANA ) THEN
-          c1err = 'HEADER_OVERRIDE_FILE is only for data;'
-          c2err = 'not for simulations'
-          CALL MADABORT('INIT_READ_DATA', c1err, c2err )
+          print*,' '
+          print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
+	  print*,'    WARNING: HEADER_OVERRIDE_FILE ignored for sim'
+          print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
+          print*,' '
         ELSE
           CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0))
         ENDIF

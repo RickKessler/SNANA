@@ -6,7 +6,9 @@
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
 # Jan 31 2022 RK^2 fix bug setting alert_first_detect
 # Feb 22 2022 RK - integreate ZPHOT_Q and check for 2nd hostgal
-
+# Mar 30 2022 RK - fix setting alertId (not alertID) for all epochs
+#                   (not just for FIRST_OBS)
+#
 import datetime
 import glob
 import gzip
@@ -293,7 +295,6 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
-        my_alert    = diaSourceId                 # just a guess here ?
         my_l1dbId   = 0                           # we don't know what this is
         my_diaSource['diaSourceId'] = diaSourceId
 
@@ -304,10 +305,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diaSource
             alert['diaObject'] = my_diaObject
-            alert['alertID']   = my_alert
             alert['l1dbId']    = my_l1dbId
             FIRST_OBS = False
 
+        alert['alertId']   = diaSourceId
+        
         # serialize the alert
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
@@ -375,7 +377,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         o = 0
         translate_dict_alert(o, data_event_dict, my_diaSource, my_diaObject)
         alert['diaSource'] = my_diaSource
-        alert['alertID']   = my_alert
+        alert['alertId']   = my_diaSource
         alert['prvDiaSources'].append(alert['diaSource'])
 
     return

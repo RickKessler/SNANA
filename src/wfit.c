@@ -245,6 +245,8 @@ double DHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] =
   { 24.89, 22.43, 19.78, 19.60, 13.23, 8.93, 9.08 };   
 double sigDHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   {  0.58,  0.48,  0.46,  2.10,  0.47, 0.28, 0.34 } ;
+double COV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2]; 
+double COVINV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2];
 
 struct {
 
@@ -342,6 +344,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
+void   init_bao_cov(void);
 double rd_bao_prior(Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
@@ -1434,12 +1437,18 @@ void init_bao_prior(int OPT) {
     }
     sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
   }
-
+  init_bao_cov();
   return ;
 
 } // end init_bao_prior
 
+void init_bao_cov(void){
+  char fnam[] = "init_bao_cov";
 
+
+  return;
+
+}
 double rd_bao_prior( Cosparam *cpar) {
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.

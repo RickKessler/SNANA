@@ -20958,4 +20958,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
         https://github.com/RickKessler/SNANA/issues/864
      + write TIME_START to output README
 
+   sntools_sim_readme.c
+     + write TIME_START
+
 END: 

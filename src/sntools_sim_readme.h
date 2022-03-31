@@ -66,6 +66,7 @@ void onoff_readme_docana(int FLAG, char *onoff);
 
 void  readme_docana_comment(int *iline, char *comment); // write # <comment> 
 
+void get_TIME_START_readme_docana(char *TIME_START);
 
 void VERSION_INFO_load(int *iline, char *pad, char *keyName, char *comment,
                        int lenkey, bool isint,

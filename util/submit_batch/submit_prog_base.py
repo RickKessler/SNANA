@@ -446,8 +446,14 @@ class Program:
                 # format so that python merge process can read it back
                 # and measure time pending in batch queue.
                 f.write(f"#!/usr/bin/env bash \n")
+
+                # print actual start time for this batch job
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+                # set ENV for global/uniform start time that propagates
+                # into all sim-output READMEs. 
+                f.write(f"export SNANA_TIME_START='{time_submit_start}'\n")
 
                 f.write(f"echo 'Sleep {delay} sec " \
                         f"(wait for remaining batch-submits)' \n")
@@ -745,7 +751,7 @@ class Program:
         done_stamp_list  = self.config_prep['done_stamp_list']
         submit_mode      = self.config_prep['submit_mode']
         Nsec             = seconds_since_midnight
-        time_now         = datetime.datetime.now()
+        time_now         = time_submit_start
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :

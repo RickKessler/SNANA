@@ -413,6 +413,7 @@ struct INPUTS {
 
   // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
+  char TIME_START[100];  // override start time for batch uniformity 
 
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 

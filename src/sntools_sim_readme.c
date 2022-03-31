@@ -113,7 +113,8 @@ void README_DOCANA_OVERVIEW(int *iline) {
   // Mar 31 2022: write TIME_START (UT)
 
   int i = *iline;
-  char pad[] = "    ", *cptr, cwd[MXPATHLEN], TF[12] ;
+  char pad[] = "    ", *cptr, cwd[MXPATHLEN], TF[12];
+  char TIME_START[100] ;
   char *SURVEY         = GENLC.SURVEY_NAME;
   char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST ;
   char fnam[] = "README_DOCANA_OVERVIEW";
@@ -123,18 +124,10 @@ void README_DOCANA_OVERVIEW(int *iline) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  %s:", DOCANA_OVERVIEW ); 
 
-  // write start time (note that month is 0-11, so add 1)
-  char ctkey[100] ;
-  time_t tkey ;
-  struct tm * ptm;
-  time(&tkey);
-  ptm = gmtime ( &tkey );
-  sprintf(ctkey,"%4.4d-%2.2d-%2.2d  %2.2d:%2.2d  # UT",
-          1900+ptm->tm_year, ptm->tm_mon+1, ptm->tm_mday ,
-          ptm->tm_hour, ptm->tm_min );
+  get_TIME_START_readme_docana(TIME_START);
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sTIME_START:   %s",  pad, ctkey);  
-
+  sprintf(cptr,"%sTIME_START:   %s",  pad, TIME_START);  
+    
   // - - - - -
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sSURVEY:       %s",  pad, SURVEY);
@@ -186,6 +179,37 @@ void README_DOCANA_OVERVIEW(int *iline) {
   *iline = i;
   return ;
 } // end README_DOCANA_OVERVIEW
+
+
+void get_TIME_START_readme_docana(char *TIME_START) {
+
+  // Created Mar 31 2022
+  // return TIME_START string with either
+  //  + override valude from $TIME_START env
+  //  + actual current time
+
+  char *tptr = getenv("SNANA_TIME_START");
+
+  if ( tptr != NULL ) {
+    // use ENV to sync times for many jobs
+    sprintf(TIME_START, "%s", tptr );
+  }
+  else if ( strlen(INPUTS.TIME_START) > 0 ) {
+    sprintf(TIME_START,"%s", INPUTS.TIME_START);
+  }
+  else {
+    // compute actual current time
+    // note that month is 0-11, so add 1 to tm_mon
+    time_t tkey ;    struct tm * ptm;
+    time(&tkey);     ptm = gmtime ( &tkey );
+    sprintf(TIME_START,"%4.4d-%2.2d-%2.2d  %2.2d:%2.2d  # UT",
+	    1900+ptm->tm_year, ptm->tm_mon+1, ptm->tm_mday ,
+	    ptm->tm_hour, ptm->tm_min );
+  }
+
+  return ;
+
+} // end get_TIME_START_readme_docana
 
 
 void  README_DOCANA_INPUT_KEYS(int *iline) {

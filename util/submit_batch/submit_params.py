@@ -74,6 +74,10 @@ today = datetime.date.today()
 
 seconds_since_midnight = int(time.time() - time.mktime(today.timetuple()))
 
+# define current time (e.g, 2022-03-21 04:54:12) and use rsplit
+# to remove decimal places for seconds
+time_submit_start = str(datetime.datetime.now()).rsplit('.',1)[0]
+
 SUFFIX_FITRES = "FITRES"
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_COV    = "COV"

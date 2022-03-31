@@ -12,29 +12,21 @@
 # TO-DO: write simVersion =
 #    sim[date]_cadence[Cadence]_snana[ver]_elasticc[ver]
 #
-import datetime
-import glob
-import gzip
-import json
-import logging
-import math
-import os
-import shutil
-import subprocess
-import sys
+
+import os, sys, glob, gzip, math, yaml, json
+import datetime, logging, shutil, subprocess
 from copy import copy
 from pathlib import Path
 
 import lsst.alert.packet
 import numpy as np
-import yaml
 from fastavro import reader, writer
 
 import makeDataFiles_params as gpar
 import makeDataFiles_util as util
 #from makeDataFiles_params import *
 
-
+# ========================================================
 # map dictionary(SNANA) varName to alert varName
 lc = "lc"  # instruction to take lower case of dict value
 VARNAME_DIASRC_MAP = {
@@ -116,29 +108,49 @@ def append_HOSTGAL_DIAOBJ_MAP():
     
     # end append_HOSTGAL_DIAOBJ_MAP
     
-def init_schema_lsst_alert(schema_file):
+def init_schema_lsst_alert(schema_file, snana_folder):
 
     schema     = lsst.alert.packet.Schema.from_file(filename=schema_file)
     schema_dir = os.path.dirname(schema_file)
-    json_file  = f"{schema_dir}/sample_data/plasticc.json"  # too much hard coding
+
+    # beware: too much hard coding
+    json_file  = f"{schema_dir}/sample_data/plasticc.json"  
 
     logging.info(f"\n Init alert schema based on\n" \
                  f"\t schema_file={schema_file}\n" \
                  f"\t jon_file={json_file} ")
 
     # Load an example json alert, and clear the numberical input
-    with open(json_file) as f:
+    with open(json_file,'r') as f:
         alert_data = json.load(f)
 
-    logging.info(f"")
+    # - - - - - - - - - - - - - 
+    # Mar 30 2022: construct simVersion string
+    key_list   = ['TIME_START', 'SNANA_VERSION', 'SIMLIB_FILE' ]
+    value_dict = util.extract_sim_readme_info(snana_folder, key_list);
+    
+    #print(f" xxx key_list = {key_list} ") 
+    #print(f" xxx val_dict = {value_dict} ") 
 
+    TIME_START    = value_dict['TIME_START']
+    SNANA_VERSION = value_dict['SNANA_VERSION']
+    SIMLIB_FILE   = value_dict['SIMLIB_FILE']
+    base          = os.path.basename(SIMLIB_FILE)
+    cadence       = base.rsplit('.',1)[0]
 
-    # HACK HACK HACK
-    #import pdb
-    #pdb.set_trace()
-    #print('alert_data:', alert_data, 'xxx')
+    # get schema version
+    with open(schema_file,'r') as s:
+        content        = json.load(s)
+        schema_version = content['namespace'].split('.')[-1]
 
-    return schema, alert_data
+    simVersion = f"date({TIME_START})_" \
+                 f"snana({SNANA_VERSION})_" \
+                 f"cadence({cadence})_" \
+                 f"schema({schema_version})"
+      
+    logging.info(f" simVersion = {simVersion}\n")
+
+    return schema, alert_data, simVersion
 
     # end init_schema_lsst_alert
 
@@ -189,8 +201,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     if nevent == 0 :
         append_HOSTGAL_DIAOBJ_MAP()
         
-        schema, alert_data  = \
-            init_schema_lsst_alert(args.lsst_alert_schema)
+        schema, alert_data, simVersion  = \
+            init_schema_lsst_alert(args.lsst_alert_schema,args.snana_folder)
         alert_data_orig     = alert_data.copy()
         config_data['schema']          = schema
         config_data['alert_data_orig'] = alert_data_orig
@@ -198,7 +210,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         config_data['n_alert_write']   = 0
         config_data['n_event_write']   = 0
         config_data['t_start_alert']   = datetime.datetime.now()
-
+        config_data['simVersion']      = simVersion
+        
         outfile = args.outfile_alert_truth
         if outfile :
             config_data['truth_dict'] = init_truth_dict(outfile)

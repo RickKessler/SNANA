@@ -1,16 +1,11 @@
 # Generic Utilities for makeDataFiles.
 #
+# Mar 30 2022: add extract_sim_readme_info(...)
 
-import glob
-import logging  # ,coloredlogs
-import math
-import os
-import shutil
-import subprocess
-import sys
+import os, sys, glob, math, yaml, tarfile
+import logging, shutil, subprocess
 
 import numpy as np
-import yaml
 from astropy.io import fits
 
 #from astropy.table import Table
@@ -25,6 +20,93 @@ try:
 except ImportError as e:
     pass
 from astropy.time import Time
+
+# =============================
+def extract_sim_readme_info(path_sim,key_list):
+
+    # Created Mar 31 2022
+    # parse README file from path_sim and read yaml keys in key_list. 
+    # Return dictionary of values corresponding to key_list.
+    # Checks for README inside misc.tar.gz from submit_batch_jobs, 
+    # and also checks for [GENVERSION].README from interactive job.
+
+    value_dict = {}
+    genversion = os.path.basename(path_sim)
+    
+    misc_tar_file = "misc.tar.gz"
+    readme_file   = f"{genversion}.README"
+
+    path_sim_expand = os.path.expandvars(path_sim)
+    misc_tar_path = f"{path_sim_expand}/{misc_tar_file}"
+    readme_path   = f"{path_sim_expand}/{readme_file}"
+
+    # check of path_sim contains misc.tar (from submit_batch_jobs)
+    # or README file (from interactive job)
+    found_misc   = False
+    found_readme = False
+    if os.path.exists(misc_tar_path):
+        found_misc = True
+    elif os.path.exists(readme_path):
+        found_readme = True
+    else:
+        msgerr = []
+        msgerr.append(f"Could not find {misc_tar_file} nor {readme_file}")
+        msgerr.append(f"Something not right in path_sim")
+        msgerr.append(f"  {path_sim}")
+        log_assert(False,msgerr)
+
+    # - - - - - 
+    if found_misc :
+        # get list of files/members inside tar file
+        tar = tarfile.open(misc_tar_path)
+        misc_file_list   = tar.getnames()
+        misc_member_list = tar.getmembers()
+
+        # find first README file
+        for fnam, member in zip(misc_file_list, misc_member_list):
+            if "README" in fnam:
+                readme_file   = fnam
+                readme_member = member
+                break
+
+        # read README inside tar file
+        f = tar.extractfile(readme_member)
+    else:
+        f = open(readme_path,"rt")
+
+    # - - - -
+    line_list = []
+    for line_tmp in f:
+        try:
+            line = line_tmp.decode('utf-8')
+        except:
+            line = line_tmp
+
+        line_list.append(line)
+
+    # - - - - - - - - -
+    if found_misc:
+        tar.close()
+    else:
+        f.close()
+
+    # - - - 
+    readme_yaml = yaml.safe_load("\n".join(line_list))
+
+    # get list of DOC yaml blocks to check since input key_list could
+    # be under any yaml block
+    DOC              = readme_yaml['DOCUMENTATION']
+    DOC_BLOCK_LIST   = DOC.keys()  # e.g., OVERVIEW, INPUT_KEYS, INPUT_NOTES
+
+    for key in key_list:
+        value = None
+        for block in DOC_BLOCK_LIST:
+            if key in DOC[block]:
+                value = DOC[block][key]
+        value_dict[key] = value
+
+    return value_dict
+    # end extract_sim_readme_info
 
 
 # =======================================

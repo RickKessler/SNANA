@@ -9,6 +9,9 @@
 # Mar 30 2022 RK - fix setting alertId (not alertID) for all epochs
 #                   (not just for FIRST_OBS)
 #
+# TO-DO: write simVersion =
+#    sim[date]_cadence[Cadence]_snana[ver]_elasticc[ver]
+#
 import datetime
 import glob
 import gzip

@@ -20956,5 +20956,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug reading SALT2ALPHA[BETA] asymGauss params from
        GENPDF_FILE passed as command-line arg;
         https://github.com/RickKessler/SNANA/issues/864
+     + write TIME_START to output README
 
 END: 

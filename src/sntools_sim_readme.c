@@ -110,6 +110,7 @@ void README_DOCANA_OVERVIEW(int *iline) {
 
   // Prepare OVERVIEW block for README.
   // Feb 21 2022: write SNIA flag as True or False
+  // Mar 31 2022: write TIME_START (UT)
 
   int i = *iline;
   char pad[] = "    ", *cptr, cwd[MXPATHLEN], TF[12] ;
@@ -122,6 +123,19 @@ void README_DOCANA_OVERVIEW(int *iline) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  %s:", DOCANA_OVERVIEW ); 
 
+  // write start time (note that month is 0-11, so add 1)
+  char ctkey[100] ;
+  time_t tkey ;
+  struct tm * ptm;
+  time(&tkey);
+  ptm = gmtime ( &tkey );
+  sprintf(ctkey,"%4.4d-%2.2d-%2.2d  %2.2d:%2.2d  # UT",
+          1900+ptm->tm_year, ptm->tm_mon+1, ptm->tm_mday ,
+          ptm->tm_hour, ptm->tm_min );
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sTIME_START:   %s",  pad, ctkey);  
+
+  // - - - - -
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sSURVEY:       %s",  pad, SURVEY);
 

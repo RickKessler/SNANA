@@ -152,6 +152,8 @@
 # Jul 17 2021: make sntools_gridmap.o
 # Dec 10 2021: incorporate sntools_data.o
 # Dec 22 2021: incorporate sntools_sim_readme.c[h]
+# Apr 03 2022: link SIMSED_xxx programs to sntools_output because 
+#              sntools.c util now calls AUTOSTORE util.
 #
 # ---------------------------------------------------------------------
 
@@ -1100,9 +1102,10 @@ $(BIN)/simlib_coadd.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/simlib_coadd.o  \
 	$(OBJ)/sntools.o \
+	$(OBJ)/sntools_output.o \
 	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/MWgaldust.o \
-	$(LGSL) 
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm simlib_coadd.o )
 
 # ---------------------------------------
@@ -1183,10 +1186,11 @@ $(BIN)/SIMSED_extractSpec.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_extractSpec.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_extractSpec.o )
 
 # -------------
@@ -1202,10 +1206,11 @@ $(BIN)/SIMSED_rebin.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_rebin.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_rebin.o )
 
 # -------------
@@ -1221,11 +1226,12 @@ $(BIN)/SIMSED_check.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_check.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_output.o  \
 	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/genmag_SIMSED.o  \
-	-lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm SIMSED_check.o )
 
 # -------------
@@ -1240,7 +1246,7 @@ $(BIN)/atmosphere_sim.exe : \
 	$(OBJ)/atmosphere_sim.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LCERN) $(LROOT)  -lm $(LGSL)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN) $(LROOT) $(CPPLIB)
 	(cd $(OBJ); rm atmosphere_sim.o )
 
 # -------------

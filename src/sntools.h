@@ -558,6 +558,10 @@ void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
 int  match_cidlist_init(char *fileName, int *OPTMASK);
 int  match_cidlist_init__(char *fileName, int *OPTMASK);
+
+int  match_cidlist_init_legacy(char *fileName, int *OPTMASK);
+int  match_cidlist_init_legacy__(char *fileName, int *OPTMASK);
+
 bool match_cidlist_exec(char *cid);
 bool match_cidlist_exec__(char *cid);
 

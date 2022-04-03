@@ -132,7 +132,7 @@ def init_schema_lsst_alert(schema_file, snana_folder):
     #print(f" xxx key_list = {key_list} ") 
     #print(f" xxx val_dict = {value_dict} ") 
 
-    TIME_START    = value_dict['TIME_START']
+    TIME_START    = value_dict['TIME_START'].split()[0]
     SNANA_VERSION = value_dict['SNANA_VERSION']
     SIMLIB_FILE   = value_dict['SIMLIB_FILE']
     base          = os.path.basename(SIMLIB_FILE)

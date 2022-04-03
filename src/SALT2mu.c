@@ -16661,15 +16661,17 @@ void parse_simfile_CCprior(char *item) {
 
 } // parse_simfile_CCprior
 
+
 // **************************************************     
 void parse_cidFile_data(int OPT, char *fileName) {
 
-  // Created Sep 23 2020 
+  // Refactored April 2022 to read IZBIN.
   // Read inpt fileName for list of CIDs to accept or reject 
   // based on
   //
   //    OPT > 0 -> list to accept
   //    OPT < 0 -> list to reject
+  //
 
   int  ncidList_data = INPUTS.ncidList_data  ;
   int  ncid ;
@@ -16679,18 +16681,19 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // ------------- BEGIN ------------
 
-  // NOTE: OPTMASK_MATCH will be set to zero in this function if IDSURVEY column doesnt exist
+  // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
+  if ( INPUTS.debug_flag==401 ) { OPTMASK_MATCH += 64; }
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
 
-  // DB Jun 2021
+  // D.Brout Jun 2021
   if ( (OPTMASK_MATCH & 1) == 0) {
     INPUTS.match_on_cid_idsurvey = false;
-    INPUTS.match_on_cid_only = true;
+    INPUTS.match_on_cid_only     = true;
     sprintf(id_name,"CID");
   }
   else {
     INPUTS.match_on_cid_idsurvey = true;
-    INPUTS.match_on_cid_only = false;
+    INPUTS.match_on_cid_only     = false;
     sprintf(id_name,"CID_IDSURVEY");
   }
 
@@ -18166,9 +18169,12 @@ void prep_input_driver(void) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
     OPTMASK = 0;
+    if ( INPUTS.debug_flag==401 ) { OPTMASK += 64; }
+
     match_cidlist_init("", &OPTMASK);    // init hash table 
-    for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
-      { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
+    for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ )  { 
+      parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] ); 
+    }
     printf("\n"); fflush(stdout);
   }
 

@@ -1477,6 +1477,7 @@ struct {
 
   bool USE_IZBIN_from_CIDFILE ;
   int *IZBIN_from_CIDFILE; // Apri 2022
+  int  NCHANGE_IZBIN;  // Number of events with IZBIN change
 
 } INFO_DATA;
 
@@ -3207,6 +3208,7 @@ void setup_zbins_fit(void) {
 
   int nzbin = INPUTS.nzbin ;
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int NSN_CUTS = 0 ;
   int n, nz, izbin, iztmp, NZFLOAT, CUTMASK ;
   double z;
   char fnam[] = "setup_zbins_fit";
@@ -3225,12 +3227,17 @@ void setup_zbins_fit(void) {
     CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[n];
     if ( CUTMASK ) { continue; }
 
+    NSN_CUTS++ ;
+
     z     = INFO_DATA.TABLEVAR.zhd[n] ;
     izbin = IBINFUN(z, &INPUTS.BININFO_z, 0, fnam);
 
     if ( INFO_DATA.USE_IZBIN_from_CIDFILE ) { 
       iztmp = INFO_DATA.TABLEVAR.IZBIN[n]; 
-      if ( iztmp >= 0 ) { izbin = iztmp; }
+      if ( iztmp >= 0 ) { 
+	if ( iztmp != izbin ) { INFO_DATA.NCHANGE_IZBIN++ ; }
+	izbin = iztmp; 
+      }
     } 
 
     INFO_DATA.TABLEVAR.IZBIN[n] = izbin;
@@ -3268,6 +3275,12 @@ void setup_zbins_fit(void) {
   FITINP.NFITPAR_FLOAT_z = NZFLOAT ;
   fprintf(FP_STDOUT," --> Use %d of %d z-bins in fit.\n", NZFLOAT, nzbin );
 
+  if ( INFO_DATA.NCHANGE_IZBIN > 0 ) {
+    fprintf(FP_STDOUT,"   ALERT: %d of %d events change IZBIN to "
+	    "match cid_select_file\n",
+	    INFO_DATA.NCHANGE_IZBIN, NSN_CUTS );   
+  }
+
   // Flag SN in z-bins with fewer thann MINBIN;
   // i.e, Flag SN which are not in a valid zbin
   for (n=0; n< NSN_DATA; ++n)  {
@@ -3287,7 +3300,7 @@ void setup_zbins_fit(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-
+  fprintf(FP_STDOUT,"\n");
   fflush(FP_STDOUT);
   return ;
 
@@ -18212,6 +18225,7 @@ void prep_input_driver(void) {
   prep_input_nmax(INPUTS.nmaxString);
 
   INFO_DATA.USE_IZBIN_from_CIDFILE = false;
+  INFO_DATA.NCHANGE_IZBIN = 0;
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;

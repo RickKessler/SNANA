@@ -21585,13 +21585,13 @@ c input function args
 +CDE,INTERPCM.
 +CDE,SNLCCOM.
    
-      INTEGER i, LEN, LENCCID, LENIAUC
+      INTEGER i, LEN, LENCCID, LENIAUC, ISN_MATCH
       REAL XCID     
       CHARACTER CCIDTMP*(MXCHAR_CCID)
-      LOGICAL MATCH
 
 c functions
-      LOGICAL   MATCH_CIDLIST_EXEC, STRINGMATCH
+      LOGICAL   STRINGMATCH
+      INTEGER   MATCH_CIDLIST_EXEC
       EXTERNAL  MATCH_CIDLIST_EXEC
 c ------------------ BEGIN ---------------
 
@@ -21636,15 +21636,16 @@ c Since  integer list is small, use brute-force looping.
 c use hash table to check list of CID strings since this list
 c can be quite large.
       CCIDTMP = CCID(1:LENCCID) // char(0)
-      MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
-      if ( .NOT. MATCH ) then   ! try IAUC name
+      ISN_MATCH = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
+      if ( ISN_MATCH  < 0 ) then   ! try IAUC name
          LENIAUC = INDEX(IAUC,' ') - 1
          CCIDTMP = IAUC(1:LENIAUC) // char(0)
-         MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
-         if ( MATCH ) CCID = IAUC ! write IAUC to output table            
+         ISN_MATCH  = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
+         if ( ISN_MATCH .GE. 0 ) CCID = IAUC ! write IAUC to output table 
       endif
-      LCIDSELECT = MATCH
-      if ( MATCH ) GOTO 800
+      LCIDSELECT = (ISN_MATCH .GE. 0)
+      if ( LCIDSELECT ) GOTO 800
+
 c - - - - - 
 c finally, check list of CIDs on the MJD-interpolation list;
 c see &SNLCINP namelist input SNMJD_LIST_FILE 

@@ -3,6 +3,7 @@
 #include "sntools.h"
 #include "sntools_spectrograph.h" // Feb 2021
 #include "sntools_data.h"
+#include "sntools_output.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -170,14 +171,26 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
 
   // - - - - - - - - - - - 
   if ( FORMAT_TABLE ) {
-    OPT_AUTOSTORE = 1; // 1=print each var
+    OPT_AUTOSTORE = 1+4; // 1=print each var; 4=append next file
     NCID = SNTABLE_AUTOSTORE_INIT(fileName,"CIDLIST", "ALL", OPT_AUTOSTORE);
 
-    IFILE = 0 ;
+    int ifile, IVAR_IDSURVEY=-9, ISNOFF = 0;
+
+    // get isn offset to allow for multiple cid_select files
+    for(ifile=0; ifile < NFILE_AUTOSTORE-1; ifile++ ) 
+      { ISNOFF += SNTABLE_AUTOSTORE[ifile].NROW; }
+
+    // current IFILE file index
+    IFILE = NFILE_AUTOSTORE-1 ;
+
+    // get column index for IDSURVEY
+    if ( USE_IDSURVEY ) 
+      { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY); }
+
     for(isn=0; isn < NCID; isn++ ) {
-      fetch_autostore_ccid(IFILE, isn, CCID); // returns CCID
+      sprintf(CCID,"%s", SNTABLE_AUTOSTORE[IFILE].CCID[isn]);
       if ( USE_IDSURVEY ) {
-	SNTABLE_AUTOSTORE_READ(CCID, VARNAME_IDSURVEY, &ISTAT, &DVAL, CVAL);
+	DVAL     = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IDSURVEY][isn];
 	IDSURVEY = (int)DVAL;
 	sprintf(STRINGID,"%s_%d", CCID, IDSURVEY); 
       }
@@ -185,7 +198,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK) {
 	sprintf(STRINGID,"%s", CCID); 
       }
 
-      match_cid_hash(STRINGID, ILIST, isn);
+      match_cid_hash(STRINGID, ILIST, ISNOFF+isn);
 
     } // end isn loop over sn
 
@@ -381,18 +394,19 @@ int match_cidlist_init_legacy(char *fileName, int *OPTMASK) {
 } // end match_cidlist_init_legacy
 
 
-bool match_cidlist_exec(char *cid) {
+int match_cidlist_exec(char *cid) {
   // Created June 2021
-  // Return true if input cid is on ILIST=0 that was
+  // Return isn0 index if input cid is on ILIST=0 that was
   // read in match_cidlist_init().
-  bool match = false;
+  // Apr 03 2022: replace function bool with int to return isn0
+  //        instead of returning bool match=(isn0>0);
+  
   int  isn0, ILIST = 1;
   char fnam[] = "match_cidlist_exec";
   // ------------- BEGIN --------------
   isn0  = match_cid_hash(cid, ILIST, -1);
-  match = (isn0 >= 0 ) ;
   // printf(" xxx %s: cid=%s -> isn0 = %d \n", fnam, cid, isn0 );
-  return match ;
+  return isn0 ;
 } // end match_cidlist_exec
 
 
@@ -402,7 +416,7 @@ int match_cidlist_init__(char *fileName, int *OPTMASK)
 int match_cidlist_init_legacy__(char *fileName, int *OPTMASK) 
 { return match_cidlist_init_legacy(fileName, OPTMASK); }
 
-bool match_cidlist_exec__(char *cid) 
+int match_cidlist_exec__(char *cid) 
 { return match_cidlist_exec(cid); }
 
 // ******************************************

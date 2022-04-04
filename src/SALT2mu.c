@@ -1226,6 +1226,8 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define VARNAME_LOGsSFR    "HOST_LOGsSFR"
 #define VARNAME_COLOR      "HOST_COLOR"
 
+#define VARNAME_IZBIN    "IZBIN"
+
 // ---------------------
 double LOGTEN  ;
 
@@ -1472,6 +1474,9 @@ struct {
   char **VARNAMES_OVERRIDE ;           // list of override varnames
   float *PTRVAL_OVERRIDE[MXVAR_OVERRIDE]; // pointers to override values
   int  *IVAR_OUTPUT_INVMAP;  // map ivar_out to ivar_over
+
+  bool USE_IZBIN_from_CIDFILE ;
+  int *IZBIN_from_CIDFILE; // Apri 2022
 
 } INFO_DATA;
 
@@ -2207,7 +2212,7 @@ int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
-int selectCID_data(char *cid, int IDSURVEY); 
+int selectCID_data(char *cid, int IDSURVEY, int *IZBIN); 
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -3202,7 +3207,7 @@ void setup_zbins_fit(void) {
 
   int nzbin = INPUTS.nzbin ;
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int n, nz, izbin, NZFLOAT, CUTMASK ;
+  int n, nz, izbin, iztmp, NZFLOAT, CUTMASK ;
   double z;
   char fnam[] = "setup_zbins_fit";
 
@@ -3220,8 +3225,14 @@ void setup_zbins_fit(void) {
     CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[n];
     if ( CUTMASK ) { continue; }
 
-    z     = INFO_DATA.TABLEVAR.zhd[n] ;    
+    z     = INFO_DATA.TABLEVAR.zhd[n] ;
     izbin = IBINFUN(z, &INPUTS.BININFO_z, 0, fnam);
+
+    if ( INFO_DATA.USE_IZBIN_from_CIDFILE ) { 
+      iztmp = INFO_DATA.TABLEVAR.IZBIN[n]; 
+      if ( iztmp >= 0 ) { izbin = iztmp; }
+    } 
+
     INFO_DATA.TABLEVAR.IZBIN[n] = izbin;
 
       
@@ -15441,7 +15452,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
-  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey ;
+  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey, IZBIN ;
   bool BADERR=false, BADCOV=false ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
@@ -15580,9 +15591,12 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
     // djb we only want to apply the cid list for the data                 
-    ACCEPT = selectCID_data(name, idsurvey);
+    ACCEPT = selectCID_data(name, idsurvey, &IZBIN);
     if ( !ACCEPT )
       { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); } //the mask is in tablevar
+
+    if ( INFO_DATA.USE_IZBIN_from_CIDFILE ) 
+      { INFO_DATA.TABLEVAR.IZBIN[isn] = IZBIN; }
 
   }
   else if ( IS_BIASCOR ) { 
@@ -15674,7 +15688,7 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 
 // ===========================================
-int selectCID_data(char *cid, int IDSURVEY){
+int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
 
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
@@ -15682,17 +15696,21 @@ int selectCID_data(char *cid, int IDSURVEY){
   // Sep 2020 RK - Refactor to accept or reject based on user input.
   // Jun 2021 RK - use match_cidlist_exec util based on hash table.
   // Jun 2021 DB - added boolean logic to match on IDSURVERY
+  // Apr 2022 RK - return IZBIN if it is part of cid_select table
 
+  
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
   bool match_on_cid_idsurvey = INPUTS.match_on_cid_idsurvey;
   bool match_on_cid_only = INPUTS.match_on_cid_only;
-  int ACCEPT = 1, REJECT = 0, i, isn0 ;
+  int ACCEPT = 1, REJECT = 0, i, isn_match ;
   bool MATCH ;
   char *tmpCID, STRINGID[60];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
+
+  *IZBIN = -9 ;
 
   if ( ncidList == 0 ) { return ACCEPT ; }
 
@@ -15708,7 +15726,11 @@ int selectCID_data(char *cid, int IDSURVEY){
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  MATCH = match_cidlist_exec(STRINGID);
+  isn_match = match_cidlist_exec(STRINGID);
+  MATCH     = (isn_match >= 0);
+  if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
+    *IZBIN = INFO_DATA.IZBIN_from_CIDFILE[isn_match];
+  }
 
   /* xxx
   if ( strstr(STRINGID,"9159") != NULL ) {
@@ -16672,19 +16694,43 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //    OPT > 0 -> list to accept
   //    OPT < 0 -> list to reject
   //
+  // If IDSURVEY column exists, match by CID_SURVEY
+  // If IZBIN column exists, store it for use with event syncing (Apr 2022)
 
   int  ncidList_data = INPUTS.ncidList_data  ;
-  int  ncid ;
+  int  ncid, isn, ISNOFF=0, IZBIN, ISTAT, IVAR_IZBIN, IFILE, ifile ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
+  double DVAL;
+  char id_name[20], CCID[MXCHAR_CCID], CVAL[12] ;
   char fnam[] = "parse_cidFile_data" ;
-  char id_name[20];
 
+  bool REFAC = ( INPUTS.debug_flag==401 ); // 4.01.2022
   // ------------- BEGIN ------------
 
   // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
-  if ( INPUTS.debug_flag==401 ) { OPTMASK_MATCH += 64; }
+  if ( REFAC ) { OPTMASK_MATCH += 64; }
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
 
+  // Apr 3 2022: if IZBIN exists in cid table, store it for later use.
+  if ( REFAC ) {
+    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
+
+    if ( IVAR_IZBIN > 0 ) {
+      INFO_DATA.IZBIN_from_CIDFILE = (int*) malloc( ncid * sizeof(int) ) ;
+      INFO_DATA.USE_IZBIN_from_CIDFILE = true;
+      IFILE = NFILE_AUTOSTORE-1;
+      for(ifile=0; ifile < NFILE_AUTOSTORE-1; ifile++ ) 
+	{ ISNOFF += SNTABLE_AUTOSTORE[ifile].NROW; }
+      for ( isn=0; isn < ncid; isn++ ) {
+	DVAL = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IZBIN][isn];
+	IZBIN = (int)DVAL ;
+	INFO_DATA.IZBIN_from_CIDFILE[ISNOFF+isn] = IZBIN ;
+      }    
+    } // end IVAR_IZBIN>0
+
+  } // end REFAC
+
+  // - - - - - - - - 
   // D.Brout Jun 2021
   if ( (OPTMASK_MATCH & 1) == 0) {
     INPUTS.match_on_cid_idsurvey = false;
@@ -18165,6 +18211,7 @@ void prep_input_driver(void) {
 
   prep_input_nmax(INPUTS.nmaxString);
 
+  INFO_DATA.USE_IZBIN_from_CIDFILE = false;
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
@@ -19835,7 +19882,7 @@ void define_varnames_append(void) {
       sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_muCOVADD");   NVAR_APPEND++ ;
     }
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IDSAMPLE");          NVAR_APPEND++ ;  
-    sprintf(VARNAMES_APPEND[NVAR_APPEND],"IZBIN");             NVAR_APPEND++ ;  
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],VARNAME_IZBIN);    NVAR_APPEND++ ;  
 
   }
 

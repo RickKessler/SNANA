@@ -20961,4 +20961,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_sim_readme.c
      + write TIME_START
 
+   sntools.c[h], SALT2mu.c
+     + refactor cid-matching util to enable BBC to use optional IZBIN
+       column in cid_select_file.
 END: 

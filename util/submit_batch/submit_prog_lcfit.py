@@ -24,6 +24,9 @@
 #     + set n_job_split = n_core to quickly process FITOPT000
 #     + write NEVT_COMMON  to MERGE.LOG
 #
+# Apr 04 2022: wait for merge_root.exe/merge_hbook.exe to exist in case
+#              SNANA build is in progress.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1551,7 +1554,8 @@ class LightCurveFit(Program):
         logging.info(f"   merge {n_job_split} {suffix} table files.")
         
         # get name of program
-        program_merge = (f"merge_{suffix.lower()}.exe")
+        program_merge = f"merge_{suffix.lower()}.exe"
+        self.check_program_merge_table_CERN(program_merge)
 
         cddir           = (f"cd {script_dir}")
         out_table_file  = (f"{prefix}_{version_fitopt}.{suffix}") 
@@ -1606,6 +1610,30 @@ class LightCurveFit(Program):
         merge_table_file_list[itable] = out_table_file
 
         # end merge_table_CERN
+
+    def check_program_merge_table_CERN(self,program_merge):
+        # Created Apr 2022 by R.Kessler
+        # wait for program_merge to exist as executable.
+        # Abort if wait is too long.
+
+        program_path  = shutil.which(program_merge)  # resolve full path
+        t_wait        = 10   # wait this long before checking again
+        t_wait_abort  = 300  # abort after this total time
+        t_wait_tot    = 0
+        msgerr = []
+
+        while os.access(program_path, os.X_OK) is False:
+            t_now   = datetime.datetime.now()
+            logging.info(f"\t wait for {program_path} to exist ({t_now})")
+            time.sleep(t_wait)
+            t_wait_tot += t_wait
+            if t_wait_tot > t_wait_abort :
+                msgerr.append(f"Could not find {program_path}")
+                msgerr.append(f"after waiting {t_wait_tot} seconds.")
+                self.log_assert(False,msgerr)
+
+        return
+        # end check_program_merge_table_CERN
 
     def nrow_table_CERN(self,table_file):
         # return number of table rows in CERN file that

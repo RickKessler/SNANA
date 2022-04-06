@@ -123,33 +123,34 @@ def init_schema_lsst_alert(schema_file, snana_folder):
     # Load an example json alert, and clear the numberical input
     with open(json_file,'r') as f:
         alert_data = json.load(f)
-
+    
     # - - - - - - - - - - - - - 
     # Mar 30 2022: construct simVersion string
     key_list   = ['TIME_START', 'SNANA_VERSION', 'SIMLIB_FILE' ]
     value_dict = util.extract_sim_readme_info(snana_folder, key_list);
     
-    #print(f" xxx key_list = {key_list} ") 
-    #print(f" xxx val_dict = {value_dict} ") 
-
-    TIME_START    = value_dict['TIME_START'].split()[0]
+    TIME_START    = value_dict['TIME_START']
     SNANA_VERSION = value_dict['SNANA_VERSION']
     SIMLIB_FILE   = value_dict['SIMLIB_FILE']
+
     base          = os.path.basename(SIMLIB_FILE)
     cadence       = base.rsplit('.',1)[0]
-
+    t_start       = str(TIME_START).split()[0] # just date; leave out hr:min:sec
+    
     # get schema version
     with open(schema_file,'r') as s:
         content        = json.load(s)
         schema_version = content['namespace'].split('.')[-1]
 
-    simVersion = f"date({TIME_START})_" \
+    simVersion = f"date({t_start})_" \
                  f"snana({SNANA_VERSION})_" \
                  f"cadence({cadence})_" \
                  f"schema({schema_version})"
       
     logging.info(f" simVersion = {simVersion}\n")
 
+    alert_data['diaObject']['simVersion'] = simVersion
+    
     return schema, alert_data, simVersion
 
     # end init_schema_lsst_alert
@@ -241,10 +242,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     my_diaSource = diaSource    # not empty - has default quantities from schema
     my_diaObject = diaObject    # not empty - has default quantites from schema
 
+    
     # translate snana header and create diaSource[Object] dictionaries for lsst alert
     translate_dict_alert(-1, data_event_dict,           # <== I
                          my_diaSource, my_diaObject)    # <== I/O
-
+    
     alert['diaSource']              = my_diaSource
     alert['diaObject']              = my_diaObject
 
@@ -475,8 +477,15 @@ def get_data_alert_value(data_event_dict, varName):
     else:
         value = phot_raw[varName]
 
+    # - - - - - - 
+    # format with fewer digits to reduce size of output files (Apr 6 2022)
+    # Use SNANA key names (not avro keys)
+    #if 'HOSTGAL_MAG' in varName or 'REDxSHIFT' in varName:
+    #    ival   = int(1.0E4 * value + 0.5)
+    #    value  = float(ival) * 1.0E-4  # doesn't work ?????
+        
     return value
-    # end get_data_value
+    # end get_data_alert_value
 
 def print_alert_stats(config_data, done_flag=False):
 

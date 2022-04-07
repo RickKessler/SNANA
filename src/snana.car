@@ -5696,6 +5696,7 @@ c             and jump to SNLCINP_OVERRIDE. Allows running snana
 c             with only command-line options and no nml file.
 c
 c Feb 27 2018: check CUTWIN_ZP
+c Apr 07 2022; use function VALIDFILENAME
 c
 c ---------------
 
@@ -5708,6 +5709,7 @@ c local ars
 
 c function
       INTEGER PARSE_NML_STRINGLIST
+      LOGICAL VALIDFILENAME
 
 C -------------- BEGIN -----------
       IERR = 0
@@ -6228,10 +6230,10 @@ c init some INIXXX parameter for fit
       ENDIF 
 
 c ---------------------------
-      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+      IF ( VALIDFILENAME(VERSION_REFORMAT_FITS) ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+      IF ( VALIDFILENAME(VERSION_REFORMAT_TEXT) ) THEN    ! Feb 2021
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
 
@@ -11745,14 +11747,16 @@ c this match utility uses hash table for faster access.
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
       LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
 
-      INTEGER  IGNOREFILE, MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
-      EXTERNAL IGNOREFILE, MATCH_CIDLIST_INIT
+      LOGICAL  VALIDFILENAME
+      INTEGER  MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
+      EXTERNAL MATCH_CIDLIST_INIT
 
 C ----------- BEGIN ------------     
 
       LENF    = INDEX(SNCID_LIST_FILE,' ') - 1
       cFILE   = SNCID_LIST_FILE(1:LENF) // char(0)
-      IS_FILE = ( IGNOREFILE(cFILE,LENF) == 0 )
+
+      IS_FILE = VALIDFILENAME(SNCID_LIST_FILE)
 
       NCID_LIST = 0; NCCID_LIST = 0; NCCID_FILE = 0
 
@@ -12102,6 +12106,46 @@ C -------------- BEGIN -------------
 
       RETURN
       END     ! end of ENVreplace
+
+C ==============================
++DECK,IGNOREFILE_fortran.
+      LOGICAL FUNCTION IGNOREFILE_fortran(fileName)
+
+c Created Apri 2022
+c Wrapper to call IGNOREFILE C-utility to return True if
+c file = 'NULL' or 'NONE' or 'BLANK' or ''
+
++CDE,SNPAR.
+      CHARACTER FILENAME*(*), cFILE*(MXCHAR_FILENAME)
+      INTEGER LENF, IGNORE
+
+      INTEGER  IGNOREFILE
+      EXTERNAL IGNOREFILE
+C --------- BEGIN -------------
+
+      LENF = INDEX(FILENAME//' ',' ') - 1
+      cFILE = FILENAME(1:LENF) // char(0)
+      IGNORE = IGNOREFILE(cFILE,LENF) 
+
+c xxxxxxxx
+c      print*,' xxx ------------------------------- '
+c      print*,' xxx FILENAME = ', FILENAME(1:LENF)
+c      print*,' xxx LENF = ', LENF
+c      print*,' xxx IGNORE = ', IGNORE
+c xxxxxxxxxx
+
+      IGNOREFILE_fortran = (IGNORE .NE. 0 )
+
+      RETURN
+      END  ! end of IGNOREFILE_fortran
+
++DECK,VALIDFILENAME.
+      LOGICAL FUNCTION VALIDFILENAME(fileName)
+      CHARACTER FILENAME*(*)
+      LOGICAL   IGNOREFILE_fortran
+      VALIDFILENAME = ( .NOT. IGNOREFILE_fortran(FILENAME) ) 
+      RETURN
+      END
 
 C =======================================
 +DECK,get_PARSE_WORD_fortran.
@@ -18362,7 +18406,6 @@ c Apr 15 2018: mass OPTMASK argument to INIT_FLUXERRMODEL
 
 c function in sntools.c
       INTEGER IGNOREFILE
-
 C --------------- BEGIN ----------------
 
       IERR = 0 
@@ -18822,13 +18865,14 @@ c - - - - - -
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
       INTEGER iwd, NWD, LENFILE,MSKOPT
 
-      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
+      LOGICAL  IGNOREFILE_fortran
+      INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
 C ---------------- BEGIN --------------
 
-      if ( INFILE .EQ. ''  ) RETURN
-cc      if ( IGNOREFILE(INFILE,) > 0 ) RETURN
+cc       if ( INFILE .EQ. ''  ) RETURN
+      if ( IGNOREFILE_fortran(INFILE) ) RETURN  ! Apr 7 2022
 
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space
@@ -24138,7 +24182,7 @@ c local var
       LOGICAL  IGNORE
 
       EXTERNAL SNTABLE_ADDCOL
-      INTEGER  IGNOREFILE
+      LOGICAL  IGNOREFILE_fortran
 
 C --------------- BEGIN -------------
 
@@ -24246,7 +24290,7 @@ c xxx mark          VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0)
 
 c include SNR_MAG[mag] if it exists.
       LENTMP  = INDEX(SIMNAME_SNRMON,' ')-1
-      IGNORE  = ( IGNOREFILE(SIMNAME_SNRMON,LENTMP) > 0 ) 
+      IGNORE  = ( IGNOREFILE_fortran(SIMNAME_SNRMON) ) 
       IF ( LSIM_SNANA .and. (.not.IGNORE)  ) THEN
          VARNAME = SIMNAME_SNRMON(1:LENTMP)// '(NOBS):F' // char(0)
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPSNRMON,
@@ -24283,7 +24327,6 @@ c local var
       CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
       EXTERNAL SNTABLE_ADDCOL
-      INTEGER  IGNOREFILE
 
 C --------------- BEGIN -------------
 
@@ -25309,16 +25352,15 @@ c local var
 +CDE,SNPAR.
 +CDE,KCORCOM.
 
-      INTEGER J0, J1, KLEN
+      INTEGER J0, J1
       CHARACTER C1ERR*76, C2ERR*76
 
 c function
-      INTEGER IGNOREFILE
+      LOGICAL IGNOREFILE_fortran
 C --------------- BEGIN --------------
 
       CALL RDKCOR_INIT()
-      KLEN = INDEX(KCORFILE,' ') - 1
-      if ( IGNOREFILE(KCORFILE,KLEN) > 0 ) then
+      if ( IGNOREFILE_fortran(KCORFILE) ) then
         C1ERR = 'Must specifiy kcor/calib file with KCOR_FILE key'
         C2ERR = 'KCOR_FILE contains filter trans, primary ref,' // 
      &             ' AB off, etc'

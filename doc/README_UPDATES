@@ -20943,6 +20943,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     snana.car
       + fix bug in INIT_REFORMAT
       + HEADER_OVERRIDE_FILE for sim data gives warning instead of abort.
+      + new functions IGNOREFILE_fortran() and VALIDFILENAME
+      + fix VERSION_REFORMAT_FITS[TEXT] to use VALIDFILENAME
 
     sntools_dataformat_fits.c[h]
       + count number of written events and spectra;

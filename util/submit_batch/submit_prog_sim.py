@@ -41,6 +41,10 @@
 #  copy sim-input files of not merge_flag ... hopefully fixes rare problem
 #  of sim jobs reading zero words from sim-input file and then aborting.
 #
+# Apr 7 2022
+#   leave SUBMIT.INFO outside SIMLOGS.tar, and create BACKUP_*.tar.gz files
+#   before SIMLOGS.tar (better organized) 
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -2170,7 +2174,7 @@ class Simulation(Program):
 
     def merge_job_wrapup(self,iver_all,MERGE_INFO_CONTENTS):
 
-        # MERGERD GENVERSION index iver_all is done, so perform 
+        # GENVERSION index iver_all is done, so perform 
         # wrap up tasks:
         #    + write to README
         #    + create misc/ subdir; move & copy files to misc/
@@ -2335,9 +2339,63 @@ class Simulation(Program):
 
     def merge_cleanup_final(self) :
 
+        # Called after all tasks have complete (see -M arg);
         # tar & gzip most of the contents of SIMLOGS;
-        # leave MERGE.LOG and ALL.DONE outside tar file so that 
-        # they are always visible.
+        # leave the following files outside tar file so that 
+        # they are always visible:
+        #    MERGE.LOG  SUBMIT.INFO  ALL.DONE
+        # Everything that gets tarred is also removed; therefore
+        # specify each item in tar_list and be careful wild cards.
+        #
+        # Apr 7 2022:
+        #  + leave SUBMIT.INFO out of SIMLOGS.tar
+        #  + construct several BACKUP*.tar.gz files before SIMLOGS.tar
+
+        submit_info_yaml   = self.config_prep['submit_info_yaml']
+        ngen_unit          = submit_info_yaml['NGEN_UNIT']
+        simlog_dir         = submit_info_yaml['SIMLOG_DIR']
+        
+        msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
+        logging.info(msg)
+
+        # - - - -
+        input_list = f"{SIMGEN_INPUT_LISTFILE} "
+        # read list of sim-input files fom list file
+        list_file = f"{simlog_dir}/{SIMGEN_INPUT_LISTFILE}"
+        with open(list_file,"r") as f:
+            for infile in f.read().split():
+                infile.strip("\n")
+                input_list += f"{infile} "
+        
+        # - - - -
+        util.compress_files(+1, simlog_dir, "TMP_*.LOG",  "TMP-LOG",   "" )
+        util.compress_files(+1, simlog_dir, "TMP_*.DONE", "TMP-DONE",  "" )
+        util.compress_files(+1, simlog_dir, "TMP_*.YAML", "TMP-YAML",  "" )     
+        util.compress_files(+1, simlog_dir, "CPU*",       "CPU",   "" ) 
+        util.compress_files(+1, simlog_dir, input_list,   "INPUTS","" ) 
+        if ngen_unit > 0 :
+            util.compress_files(+1, simlog_dir, "SIMnorm*",  "SIMnorm",  "" ) 
+
+        # combine all of the BACKUP*.tar.gz files into one tar file
+        tar_file   = "SIMLOGS.tar"
+        tar_list   = "BACKUP_*.tar.gz"
+        cd_log     = f"cd {simlog_dir}"
+        cmd_tar    = f"tar -cf {tar_file} {tar_list}"
+        cmd_rm     = f"rm -rf {tar_list}"
+        CMD        = f"{cd_log}; {cmd_tar}; {cmd_rm} "
+        os.system(CMD)
+
+        return
+
+    # end merge_cleanup_final
+
+    def merge_cleanup_final_legacy(self) :
+
+        # Called after all tasks have complete (see -M arg);
+        # tar & gzip most of the contents of SIMLOGS;
+        # leave the following files outside tar file so that 
+        # they are always visible:
+        #    MERGE.LOG  SUBMIT.INFO  ALL.DONE
         # Everything that gets tarred is also removed; therefore
         # specify each item in tar_list and be careful wild cards.
 
@@ -2354,7 +2412,7 @@ class Simulation(Program):
         if ngen_unit > 0 : tar_list += "SIMnorm* "
 
         tar_list += f"{SIMGEN_INPUT_LISTFILE} "
-        tar_list += f"{SUBMIT_INFO_FILE} "
+        # xxx mark tar_list += f"{SUBMIT_INFO_FILE} "
 
         if KEEP_EVERY_MERGELOG :
             tar_list += f"{MERGE_LOG_FILE}_* "
@@ -2365,7 +2423,7 @@ class Simulation(Program):
             for infile in f.read().split():
                 infile.strip("\n")
                 tar_list += f"{infile} "
-                                
+     
         tar_file   = "SIMLOGS.tar"
         cd_log     = f"cd {simlog_dir}"
         cmd_tar    = f"tar -cf {tar_file} {tar_list}"
@@ -2374,8 +2432,9 @@ class Simulation(Program):
         CMD        = f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} "
         os.system(CMD)
 
+        return
 
-    # end merge_cleanup_final
+    # end merge_cleanup_final_legacy
 
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file.

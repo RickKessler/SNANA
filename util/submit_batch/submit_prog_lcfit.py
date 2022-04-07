@@ -245,11 +245,11 @@ class LightCurveFit(Program):
                                       f"{key_infile} = '{infile}'")
                         msgerr.append(f"Check &SNLCINP in {input_file}")
                         self.log_assert(False,msgerr)
-                    copy_list_string += (f"{infile} ")
+                    copy_list_string += f"{infile} "
 
         if len(copy_list_string) > 0 :
-            msg = (f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
-                   f"   {copy_list_string} \n")
+            msg = f" Copy these input files to {SUBDIR_SCRIPTS_LCFIT}:\n" \
+                  f"   {copy_list_string} \n"
             logging.info(msg)
             os.system(f"cp {copy_list_string} {script_dir}/")
 
@@ -264,7 +264,7 @@ class LightCurveFit(Program):
         key_list_invalid = ""
         for key in ABORT_ON_SNLCINP_INPUTS :
             if key in snlcinp :
-                key_list_invalid += (f"{key} ")
+                key_list_invalid += f"{key} "
         
         if len(key_list_invalid) > 0 :
             msgerr = []
@@ -279,9 +279,9 @@ class LightCurveFit(Program):
         # find all possible paths where data or sim could be
         # Store array path_check_list
         snlcinp             = self.config_prep['snlcinp']
-        path_sim_default    = (f"{SNDATA_ROOT}/SIM") 
-        path_data_default   = (f"{SNDATA_ROOT}/lcmerge") 
-        path_sim_list_file  = (f"{path_sim_default}/PATH_SNDATA_SIM.LIST")
+        path_sim_default    = f"{SNDATA_ROOT}/SIM"
+        path_data_default   = f"{SNDATA_ROOT}/lcmerge"
+        path_sim_list_file  = f"{path_sim_default}/PATH_SNDATA_SIM.LIST"
         path_check_list = []
         
         path_check_list.append(path_data_default)
@@ -348,7 +348,7 @@ class LightCurveFit(Program):
 
                     validate,msg_status = \
                         self.fit_validate_VERSION(opt_validate,path,version)
-                    msg = (f"   Found VERSION {version}    {msg_status}")
+                    msg = f"   Found VERSION {version}    {msg_status}"
                     logging.info(f"{msg}")
                     if validate is False :
                         nerr_validate += 1  # store all errors before abort
@@ -389,13 +389,13 @@ class LightCurveFit(Program):
             msgerr += msg_list
             self.log_assert(False,msgerr)
         else :
-            cmd = (f"cd {output_dir}; rm {PREFIX_TEMP_SNANA}* 2>/dev/null")
+            cmd = f"cd {output_dir}; rm {PREFIX_TEMP_SNANA}* 2>/dev/null"
             os.system(cmd)
             #print(f" xxxx cmd to remove TEMP_SNANA, \n {cmd} ")
 
         # finally, create subdir for each version
         for v in version_list :
-            v_dir = (f"{output_dir}/{v}")
+            v_dir = f"{output_dir}/{v}"
             os.mkdir(v_dir)
 
         # load lists for version and path_version
@@ -426,7 +426,7 @@ class LightCurveFit(Program):
 
         validate      = True  # default is validation success
         string_status = ""    # no string needed for success
-        readme_file = (f"{path}/{version}/{version}.README")
+        readme_file = f"{path}/{version}/{version}.README"
         
         # if no README file, it's a no-brainer failure
         if os.path.isfile(readme_file) is False :
@@ -455,30 +455,30 @@ class LightCurveFit(Program):
 
         snana_dir       = self.config_yaml['args'].snana_dir
         output_dir      = self.config_prep['output_dir']
-        cddir           = (f"cd {output_dir}")
+        cddir           = f"cd {output_dir}"
         key_nevt        = 'NEVT_TOT'
         nevt_proc       = 10  # process this many to validate
         validate        = True 
 
-        textfile_prefix = (f"{PREFIX_TEMP_SNANA}_{version}")
-        log_file        = (f"{textfile_prefix}.LOG")
-        yaml_file       = (f"{textfile_prefix}.YAML")
+        textfile_prefix = f"{PREFIX_TEMP_SNANA}_{version}"
+        log_file        = f"{textfile_prefix}.LOG"
+        yaml_file       = f"{textfile_prefix}.YAML"
 
         if snana_dir is None :
             cmd_snana = f"snana.exe NOFILE  "
         else:
             cmd_snana = f"{snana_dir}/bin/snana.exe NOFILE  "
 
-        cmd_snana += (f"VERSION_PHOTOMETRY {version}  ")
-        cmd_snana += (f"MXEVT_PROCESS {nevt_proc}  ")
-        cmd_snana += (f"JOBSPLIT 1 1  ")
-        cmd_snana += (f"TEXTFILE_PREFIX {textfile_prefix}  " \
-                          f"SNTABLE_LIST '' " )
+        cmd_snana += f"VERSION_PHOTOMETRY {version}  "
+        cmd_snana += f"MXEVT_PROCESS {nevt_proc}  "
+        cmd_snana += f"JOBSPLIT 1 1  "
+        cmd_snana += f"TEXTFILE_PREFIX {textfile_prefix}  " \
+                     f"SNTABLE_LIST '' " 
 
         os.system(f"{cddir} ; {cmd_snana} > {log_file} ")
 
         # read and parse yaml file
-        YAML_FILE = (f"{output_dir}/{yaml_file}")
+        YAML_FILE = f"{output_dir}/{yaml_file}"
         string_status = "Validate SUCCESS"  # default status
 
         if os.path.isfile(YAML_FILE) :
@@ -486,10 +486,10 @@ class LightCurveFit(Program):
             nevt       = snana_yaml[key_nevt]
             if nevt == 0 :
                 validate      = False
-                string_status = (f"Validate ERROR: NEVT=0")
+                string_status = f"Validate ERROR: NEVT=0"
         else:
             validate      = False
-            string_status = (f"Validate ERROR: cannot analyze with snana")
+            string_status = f"Validate ERROR: cannot analyze with snana"
 
         return validate, string_status
 
@@ -579,7 +579,7 @@ class LightCurveFit(Program):
 
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
-            fitopt_num_list[i] = (f"{FITOPT_STRING}{i:03d}")
+            fitopt_num_list[i] = f"{FITOPT_STRING}{i:03d}"
 
             # extract optional label
             if i > 0 :
@@ -748,8 +748,8 @@ class LightCurveFit(Program):
             if ',' in CONFIG[key]: delim=','
             for text_file in CONFIG[key].split(delim):
                 text_file = os.path.expandvars(text_file)
-                msg = (f"  Every output FITRES file will be appended with: \n"\
-                       f"    {text_file} ")
+                msg = f"  Every output FITRES file will be appended with: \n"\
+                      f"    {text_file} "
                 logging.info(msg)
 
                 if not os.path.isfile(text_file):
@@ -859,11 +859,11 @@ class LightCurveFit(Program):
         fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
         use_table_format = self.config_prep['use_table_format']
         n_job_split   = self.config_prep['n_job_split']
-        split_num     = (f"SPLIT{isplit:03d}")
-        prefix        = (f"{version}_{fitopt_num}_{split_num}")
-        done_file     = (f"{prefix}.DONE")
-        log_file      = (f"{prefix}.LOG")
-        yaml_file     = (f"{prefix}.YAML") 
+        split_num     = f"SPLIT{isplit:03d}"
+        prefix        = f"{version}_{fitopt_num}_{split_num}"
+        done_file     = f"{prefix}.DONE"
+        log_file      = f"{prefix}.LOG"
+        yaml_file     = f"{prefix}.YAML"
         arg_list      = []
         JOB_INFO      = {}
 
@@ -872,7 +872,7 @@ class LightCurveFit(Program):
         JOB_INFO['input_file']  = input_file
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
-        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['kill_on_fail']  = kill_on_fail
         JOB_INFO['check_abort']   = check_abort
 
@@ -893,9 +893,9 @@ class LightCurveFit(Program):
             if use_table_format[itab] :
                 key    = TABLE_SNLCINP_LIST[itab].upper()
                 suffix = TABLE_SUFFIX_LIST[itab]
-                arg    = (f"{key:<16} {prefix}")
+                arg    = f"{key:<16} {prefix}"
                 if suffix != TABLE_SUFFIX_LIST[ITABLE_TEXT] :
-                    arg += (f".{suffix}")
+                    arg += f".{suffix}"
                 arg_list.append(f"  {arg}")
 
         
@@ -964,9 +964,9 @@ class LightCurveFit(Program):
         for fitopt_link in link_FITOPT000_list : # e.g., FITOPT003
             prefix_link  = prefix_file.replace(fitopt_num,fitopt_link)
             for suffix in suffix_link_list :
-                orig_file   = (f"{prefix_file}.{suffix}") # with FITOPT000
-                link_file   = (f"{prefix_link}.{suffix}") # with FITOPTnnn
-                sym_link    = (f"ln -s {orig_file} {link_file}")
+                orig_file   = f"{prefix_file}.{suffix}" # with FITOPT000
+                link_file   = f"{prefix_link}.{suffix}" # with FITOPTnnn
+                sym_link    = f"ln -s {orig_file} {link_file}"
                 sym_link_list.append(sym_link)
 
         return sym_link_list
@@ -984,7 +984,7 @@ class LightCurveFit(Program):
         fitopt_num_list   = self.config_prep['fitopt_num_list']
         fitopt_label_list = self.config_prep['fitopt_label_list']
 
-        legacy_readme_file = (f"{output_dir}/FITOPT.README")
+        legacy_readme_file = f"{output_dir}/FITOPT.README"
         with open(legacy_readme_file,"w") as f:
             f.write(f"Legacy file for back-compatibility; " \
                     f"please switch to using {SUBMIT_INFO_FILE}\n")
@@ -994,7 +994,7 @@ class LightCurveFit(Program):
                 if label == 'None' :
                     legacy_label = ''
                 else:
-                    legacy_label = (f"[{label}]")
+                    legacy_label = f"[{label}]"
                 arg   = fitopt_arg_list[i]
                 f.write(f"{FITOPT_STRING}: {num[6:]} {legacy_label} {arg} \n")
 
@@ -1150,7 +1150,7 @@ class LightCurveFit(Program):
             STATE       = row[COLNUM_STATE]
             version     = row[COLNUM_VERS]
             fitopt_num  = row[COLNUM_FITOPT]
-            search_wildcard = (f"{version}_{fitopt_num}_SPLIT*")
+            search_wildcard = f"{version}_{fitopt_num}_SPLIT*"
 
             # check if DONE or FAIL ; i.e., if Finished
             Finished = (STATE == SUBMIT_STATE_DONE) or \
@@ -1229,7 +1229,7 @@ class LightCurveFit(Program):
         use_table_format = submit_info_yaml['USE_TABLE_FORMAT']
         msgerr           = []
 
-        version_fitopt = (f"{version}_{fitopt_num}")
+        version_fitopt = f"{version}_{fitopt_num}"
 
         # start with idiot check to make sure that state is DONE.
         if state != SUBMIT_STATE_DONE :
@@ -1249,9 +1249,9 @@ class LightCurveFit(Program):
         for itable in range(0,NTABLE_FORMAT):
             suffix         =  TABLE_SUFFIX_LIST[itable]
             if itable == ITABLE_TEXT :
-                suffix = (f"{SUFFIX_FITRES}.{suffix}")  # special case for TEXT
+                suffix = f"{SUFFIX_FITRES}.{suffix}"  # special case for TEXT
             use_format     =  use_table_format[itable] 
-            f_wildcard     =  (f"{script_dir}/{version_fitopt}*{suffix}")
+            f_wildcard     =  f"{script_dir}/{version_fitopt}*{suffix}"
             if use_format :
                 util.check_file_count(n_job_split, f_wildcard )
 
@@ -1303,7 +1303,7 @@ class LightCurveFit(Program):
 
         use_table_format    = submit_info_yaml['USE_TABLE_FORMAT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
-        cdv                 = (f"cd {output_dir}/{version}")
+        cdv                 = f"cd {output_dir}/{version}"
         create_links        = False  # init return function arg
 
         if fitopt_num in link_FITOPT000_list :
@@ -1315,13 +1315,13 @@ class LightCurveFit(Program):
 
                 suf   =  TABLE_SUFFIX_LIST[itab]
                 if itab == ITABLE_TEXT :
-                    suf  = (f"{SUFFIX_FITRES}")  # special case
+                    suf  = f"{SUFFIX_FITRES}"  # special case
 
                 suf += '.gz'
-                cmd_link = (f"ln -s {fitopt_ref}.{suf} {fitopt_num}.{suf} ; ")
+                cmd_link = f"ln -s {fitopt_ref}.{suf} {fitopt_num}.{suf} ; "
                 cmd_link_all += cmd_link
                 logging.info(f"   create sym-link to {fitopt_ref}.{suf}")
-            cmd = (f"{cdv} ; {cmd_link_all}")
+            cmd = f"{cdv} ; {cmd_link_all}"
             create_links = True
             os.system(cmd)
         
@@ -1349,7 +1349,7 @@ class LightCurveFit(Program):
         itable           = ITABLE_TEXT
         suffix           = TABLE_SUFFIX_LIST[itable]
         prefix           = PREFIX_MERGE  
-        table_wildcard  = (f"{version_fitopt}*{table_name}.TEXT")
+        table_wildcard  = f"{version_fitopt}*{table_name}.TEXT"
 
         # check debug option to force merge-table failure
         flag_force_fail = \
@@ -1367,23 +1367,23 @@ class LightCurveFit(Program):
         # and then a special awk command to remove all VARNAMES
         # lines EXCEPT for the first VARNAMES line.
         # Note that output extension is table name, not TEXT
-        cddir           = (f"cd {script_dir}")
-        out_table_file  = (f"{prefix}_{version_fitopt}.{table_name}")
-        out_table_file2 = (f"{prefix}2_{version_fitopt}.{table_name}")# for awk
+        cddir           = f"cd {script_dir}"
+        out_table_file  = f"{prefix}_{version_fitopt}.{table_name}"
+        out_table_file2 = f"{prefix}2_{version_fitopt}.{table_name}" # for awk
 
-        cmd_cat  = (f"cat {table_wildcard} > {out_table_file}")
-        cmd_awk  = (f"awk '!/^VARNAMES/ || ++n <= 1' {out_table_file} > " \
-                    f"{out_table_file2} ; " \
-                    f"mv {out_table_file2} {out_table_file}")
+        cmd_cat  = f"cat {table_wildcard} > {out_table_file}"
+        cmd_awk  = f"awk '!/^VARNAMES/ || ++n <= 1' {out_table_file} > " \
+                   f"{out_table_file2} ; " \
+                   f"mv {out_table_file2} {out_table_file}"
 
-        msg = (f"   merge {n_job_split} {suffix}-{table_name} table files.")
+        msg = f"   merge {n_job_split} {suffix}-{table_name} table files."
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
             cmd_all = f"{cmd_cat} ; {cmd_awk}"
             os.system(f"{cddir} ; {cmd_all}")
 
-        OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
+        OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
 
         # - - - - - -
@@ -1392,7 +1392,7 @@ class LightCurveFit(Program):
         # append variables to table.
 
         if table_name == SUFFIX_FITRES :
-            OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
+            OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
             nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
             self.nevt_table_check(nevt_expect, nevt_find, out_table_file,
                                   cmd_all)
@@ -1446,19 +1446,16 @@ class LightCurveFit(Program):
             msgerr.append("Must define HBOOK or ROOT to append TEXT table")
             self.log_assert(False,msgerr) 
 
-        #FULL_TABLE_FILE = (f"{script_dir}/{full_table_file}")
-        #TEXT_TABLE_FILE = (f"{script_dir}/{text_table_file}")
-
-        append_log_file = (f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.log")
-        append_out_file = (f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.text")
+        append_log_file = f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.log"
+        append_out_file = f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.text"
 
         logging.info(f"\t Append TEXT table from {full_table_file} ")
 
-        cddir = (f"cd {script_dir}")
-        cmd_append = (f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
-                      f"--VERBOSE " \
-                      f"-v '{varlist_append}' " \
-                      f"-a {text_table_file} > {append_log_file} 2>/dev/null")
+        cddir = f"cd {script_dir}"
+        cmd_append = f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
+                     f"--VERBOSE " \
+                     f"-v '{varlist_append}' " \
+                     f"-a {text_table_file} > {append_log_file} 2>/dev/null"
         istat = os.system(f"{cddir} ; {cmd_append} ")
 
         if istat != 0 :
@@ -1471,9 +1468,9 @@ class LightCurveFit(Program):
         # and remove sntable* junk files
 
         if os.path.isfile(f"{script_dir}/{append_out_file}") :
-            cmd_mv = (f"mv {append_out_file} {text_table_file}")
-            cmd_rm = (f"rm sntable_*")
-            cmd    = (f"{cddir}; {cmd_mv} ; {cmd_rm}")
+            cmd_mv = f"mv {append_out_file} {text_table_file}"
+            cmd_rm = f"rm sntable_*"
+            cmd    = f"{cddir}; {cmd_mv} ; {cmd_rm}"
             os.system(cmd)
         else : 
             msgerr.append(f"Append FITRES table failed with command")
@@ -1483,7 +1480,7 @@ class LightCurveFit(Program):
             self.log_assert(False,msgerr) 
 
         # finally, make sure that the number of rows still matches nevt_expect
-        OUT_TABLE_FILE = (f"{script_dir}/{text_table_file}")
+        OUT_TABLE_FILE = f"{script_dir}/{text_table_file}"
         nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
         self.nevt_table_check(nevt_expect, nevt_find, text_table_file,
                               cmd_append )
@@ -1520,11 +1517,10 @@ class LightCurveFit(Program):
         cmd2  = f"mv {out_file} {orig_file}"
         cmd3  = f"rm {log_file}"
         cmd   = f"{cmd1} ; {cmd2} ; {cmd3}"
-        # xxx cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
         os.system(f"{cddir} ; {cmd}" )
 
         # finally, make sure that the number of rows still matches nevt_expect
-        ORIG_FILE = (f"{script_dir}/{orig_file}")
+        ORIG_FILE = f"{script_dir}/{orig_file}"
         nevt_find = util.nrow_table_TEXT(ORIG_FILE,"SN:")
         self.nevt_table_check(nevt_expect, nevt_find, orig_file, cmd)
 
@@ -1557,26 +1553,26 @@ class LightCurveFit(Program):
         program_merge = f"merge_{suffix.lower()}.exe"
         self.check_program_merge_table_CERN(program_merge)
 
-        cddir           = (f"cd {script_dir}")
-        out_table_file  = (f"{prefix}_{version_fitopt}.{suffix}") 
-        log_table_file  = (f"{prefix}_{version_fitopt}_{suffix}.LOG") 
-        f_list          = (f"{version_fitopt}*{suffix}")
+        cddir           = f"cd {script_dir}"
+        out_table_file  = f"{prefix}_{version_fitopt}.{suffix}"
+        log_table_file  = f"{prefix}_{version_fitopt}_{suffix}.LOG"
+        f_list          = f"{version_fitopt}*{suffix}"
         if flag_force_fail == FLAG_FORCE_MERGE_TABLE_CORRUPT :
-            f_list += (f" XXX_FORCE_CORRUPT.{suffix}")
+            f_list += f" XXX_FORCE_CORRUPT.{suffix}"
 
-        cmd_merge       = (f"{program_merge} {f_list} {out_table_file} ")
-        cmd             = (f"{cmd_merge} > {log_table_file}  ")
+        cmd_merge       = f"{program_merge} {f_list} {out_table_file} "
+        cmd             = f"{cmd_merge} > {log_table_file}  "
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
             os.system(f"{cddir}; {cmd}" )
 
-        OUT_TABLE_FILE = (f"{script_dir}/{out_table_file}")
+        OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
 
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :
             cmd_clean_log = \
-                (f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET") 
+                f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
             os.system(cmd_clean_log)
 
         # ?? check log file for success message ??
@@ -1616,11 +1612,16 @@ class LightCurveFit(Program):
         # wait for program_merge to exist as executable.
         # Abort if wait is too long.
 
-        program_path  = shutil.which(program_merge)  # resolve full path
+        snana_dir       = self.config_yaml['args'].snana_dir    
         t_wait        = 10   # wait this long before checking again
         t_wait_abort  = 300  # abort after this total time
         t_wait_tot    = 0
         msgerr = []
+
+        if snana_dir is None:
+            program_path  = f"{SNANA_DIR}/bin/{program_merge}" # default code
+        else:
+            program_path  = f"{snana_dir}/bin/{program_merge}" # user code
 
         while os.access(program_path, os.X_OK) is False:
             t_now   = datetime.datetime.now()
@@ -1645,8 +1646,8 @@ class LightCurveFit(Program):
         arg_NEVT = "--NEVT"
         if '.pl' in script:  arg_NEVT = "NEVT" # legacy perl arg
         
-        cmd_nevt = (f"{script} {table_file} FITRES {arg_NEVT} " \
-                    f" | grep 'NEVT:' ")
+        cmd_nevt = f"{script} {table_file} FITRES {arg_NEVT} " \
+                   f" | grep 'NEVT:' "
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')
@@ -1670,18 +1671,18 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        table_wildcard   = (f"{PREFIX_MERGE}_*")
+        table_wildcard   = f"{PREFIX_MERGE}_*"
         table_list       = glob.glob1(script_dir,table_wildcard)
 
-        cmd = (f"cd {script_dir} ; ")
+        cmd = f"cd {script_dir} ; "
         for tfile in table_list :
             jdot   = tfile.index('.')
             suffix = tfile[jdot+1:]
             if suffix == 'LOG' :
-                cmd += (f"rm {tfile} ; ")
+                cmd += f"rm {tfile} ; "
             else:
-                move_file = (f"../{version}/{fitopt}.{suffix}")
-                cmd      += (f"mv {tfile} {move_file} ; ")
+                move_file = f"../{version}/{fitopt}.{suffix}"
+                cmd      += f"mv {tfile} {move_file} ; "
 
         os.system(cmd)
 
@@ -1717,13 +1718,13 @@ class LightCurveFit(Program):
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         script_dir          = submit_info_yaml['SCRIPT_DIR']
         subdir         = SUBDIR_SCRIPTS_LCFIT
-        tar_file       = (f"{subdir}.tar")
+        tar_file       = f"{subdir}.tar"
 
         logging.info(f" FIT cleanup: check if all merged tables exist.")
 
         # check that every expected merged table file exits;
         # read status from MERGE file to get list of version & fitopts
-        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
@@ -1740,8 +1741,8 @@ class LightCurveFit(Program):
                 suffix = TABLE_SUFFIX_LIST[itable]
                 if itable == ITABLE_TEXT:
                     suffix = SUFFIX_FITRES  # special case here
-                table_file = (f"{version}/{fitopt}.{suffix}")
-                TABLE_FILE = (f"{output_dir}/{table_file}")
+                table_file = f"{version}/{fitopt}.{suffix}"
+                TABLE_FILE = f"{output_dir}/{table_file}"
                 if use and not os.path.isfile(TABLE_FILE):
                     nerr += 1
                     msgerr.append(f"    Missing expected {table_file}")
@@ -1762,12 +1763,12 @@ class LightCurveFit(Program):
             use    = use_table_format[itable]
             suffix = TABLE_SUFFIX_LIST[itable]
             if use :
-                wildcard = (f"*SPLIT*.{suffix}")
+                wildcard = f"*SPLIT*.{suffix}"
                 util.compress_files(+1, script_dir, wildcard, suffix, "" )
                 # ?? at some point, should delete these since merged table is there ??
 
         logging.info(f" FIT cleanup: gzip merged tables.")
-        cmd_gzip = (f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null")
+        cmd_gzip = f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null"
         os.system(cmd_gzip)
 
         self.merge_cleanup_script_dir() 
@@ -1797,7 +1798,7 @@ class LightCurveFit(Program):
         fnam = "merge_reset"
 
         # read status from MERGE file          
-        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         colnum_zero_list    = [ COLNUM_FIT_MERGE_NEVT_ALL, 
                                 COLNUM_FIT_MERGE_NEVT_SNANA_CUTS,
                                 COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS,
@@ -1809,8 +1810,8 @@ class LightCurveFit(Program):
         # loop over each version and clean out FITOPT* files 
         logging.info(f"  {fnam}: remove FITOPT* from version subdirs")
         for version in version_list :
-            v_dir  = (f"{output_dir}/{version}")
-            cmd_rm = (f"rm {v_dir}/FITOPT* 2>/dev/null")
+            v_dir  = f"{output_dir}/{version}"
+            cmd_rm = f"rm {v_dir}/FITOPT* 2>/dev/null"
             os.system(cmd_rm)
 
         # if script_dir is tarred & gzipped, unpack it
@@ -1870,8 +1871,8 @@ class LightCurveFit(Program):
 
         suffix = TABLE_SUFFIX_LIST[itable]
 
-        key_list = [ (f"FORCE_MERGE_TABLE_MISSING({suffix})"), 
-                     (f"FORCE_MERGE_TABLE_CORRUPT({suffix})") ]
+        key_list = [ f"FORCE_MERGE_TABLE_MISSING({suffix}", 
+                     f"FORCE_MERGE_TABLE_CORRUPT({suffix}" ]
         flag_list = [ FLAG_FORCE_MERGE_TABLE_MISSING , 
                       FLAG_FORCE_MERGE_TABLE_CORRUPT  ]
 
@@ -1884,7 +1885,7 @@ class LightCurveFit(Program):
                 for item in CONFIG[tmp_key] :
                     if item == version_fitopt:
                         flag = tmp_flag
-                        msg = (f"force {suffix}-table fail for {version_fitopt}")
+                        msg = f"force {suffix}-table fail for {version_fitopt}"
                         logging.info(msg)
         return flag
         # end force_merge_table_fail

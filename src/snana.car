@@ -9667,7 +9667,7 @@ c -------------------------
       INTEGER OPT
 
       INTEGER LEN_VER
-      LOGICAL LEXIST
+      LOGICAL LEXIST, VALIDFILENAME
       CHARACTER 
      &   FNAM*14
      &  ,LIST_FILE*(MXCHAR_FILENAME), IGNORE_FILE*(MXCHAR_FILENAME)
@@ -9682,10 +9682,10 @@ C ------------- BEGIN -------------
 c - - - - - - - - - 
 c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
 
-      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+      IF ( VALIDFILENAME(VERSION_REFORMAT_FITS) ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+      IF ( VALIDFILENAME(VERSION_REFORMAT_TEXT) ) THEN  
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
 

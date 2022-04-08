@@ -20953,6 +20953,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_prog_bbc.py
      + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
        in systematics involving z-shift.
+     + try to make sync_evt logic more robust:
+         https://github.com/RickKessler/SNANA/issues/874
 
    submit_prog_lcfit.py
      + wait for merge_root.exe to exists in case of SNANA build.

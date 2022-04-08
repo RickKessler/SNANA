@@ -807,7 +807,8 @@ class LightCurveFit(Program):
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_real) 
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_real,False) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 

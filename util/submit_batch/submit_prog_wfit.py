@@ -478,7 +478,8 @@ class wFit(Program):
             job_info_wfit   = self.prep_JOB_INFO_wfit(index_dict)
             util.write_job_info(f, job_info_wfit, icpu)
 
-            job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+            job_info_merge = \
+                self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
             util.write_jobmerge_info(f, job_info_merge, icpu)
 
         return n_job_cpu

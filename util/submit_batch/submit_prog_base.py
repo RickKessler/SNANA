@@ -559,8 +559,14 @@ class Program:
         cpu_merge_log     =  f"{script_dir}/{base_name}.LOG"
         
         merge_script     = sys.argv[0]  # $path/submit_batch_jobs
-        merge_args       = f"{input_file} -m  -t {t_stamp} --cpunum {cpunum}"
-        merge_args_final = f"{input_file} -M  -t {t_stamp} --cpunum {cpunum}"
+
+        arg_cpu = f"--cpunum {cpunum}"
+        arg_t   = f"-t {t_stamp}"
+        arg_m   = f"--merge"
+        arg_M   = f"--MERGE_LAST"
+
+        merge_args       = f"{input_file} {arg_m} {arg_t} {arg_cpu}"
+        merge_args_final = f"{input_file} {arg_M} {arg_t} {arg_cpu}"
         wildcard = "CPU*DONE"
         wildcard_echo = "CPU\*DONE"
 
@@ -652,21 +658,24 @@ class Program:
 
         # end write_batch_file
 
-    def prep_JOB_INFO_merge(self,icpu,ijob):
+    def prep_JOB_INFO_merge(self,icpu,ijob,merge_force):
         # Return JOB_INFO dictionary of strings to run merge process.
         # Inputs:
         #   icpu = 0 to n_core-1
         #   ijob = 1 to n_job_tot
+        #   merge_force = True => pass --merge_force instead of default --merge
         #
         # Merge task must is the form
         #   python <thisScript> <inputFile> arg_list
         # arg_list includes
-        #  -m -> merge and quit or
-        #  -M -> wait for all DONE files to appear, then merge it all.
+        #  --merge      -> merge and quit or
+        #  --MERGE_LAST -> wait for all DONE files to appear, 
+        #                   then merge it all.
         #  -t <Nsec>   time stamp to verify merge and submit jobs
         #  --cpunum <cpunum>  in case specific CPU needs to be identified    
         #
         #  May 24 2021: check outdir override from command line
+        #  Apr 08 2022: pass merge_force arg
 
         args                = self.config_yaml['args']
         input_file          = args.input_file
@@ -693,7 +702,7 @@ class Program:
         if NCPU_MERGE_DISTRIBUTE == 0 :
             # cpu=0 has last merge process 
             last_merge =  last_job_cpu and icpu == 0
-        else:
+        else :
             # last merge is after last job, regardless of cpunum (default)
             last_merge =  ijob == n_job_tot
 
@@ -702,8 +711,9 @@ class Program:
             JOB_INFO['merge_arg_list']   = ""
             return JOB_INFO
 
-        m_arg = "-m"
-        if last_merge :  m_arg = "-M" 
+        m_arg = "--merge"
+        if merge_force:  m_arg = "--merge_force"
+        if last_merge :  m_arg = "--MERGE_LAST" 
 
         arg_list = f"{m_arg} -t {Nsec} --cpunum {icpu}"
         
@@ -1427,27 +1437,39 @@ class Program:
         t_msg = f"T_midnight={Nsec}"
         output_dir   = self.config_prep['output_dir']
         args         = self.config_yaml['args']
+        check_abort  = args.check_abort
+        merge_force  = args.merge_force  # wait for BUSY to clear
+
+        merge_normal = not merge_force # exit if BUSY elsewhere
         verbose_flag = not args.check_abort
+        fnam = "merge_driver"
 
         if self.config_yaml['args'].cpunum :
             cpunum = self.config_yaml['args'].cpunum[0] # passed from script
         else:
             return 
-            #cpunum = 0  # interactive debug
 
         busy_file     = f"{BUSY_FILE_PREFIX}{cpunum:04d}.{BUSY_FILE_SUFFIX}"
         BUSY_FILE     = f"{output_dir}/{busy_file}"
-        # xxx busy_wildcard = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
+        n_busy,busy_list = self.get_busy_list()
 
         if flag > 0 :
             # check for other busy files to avoid conflict
-            n_busy,busy_list = self.get_busy_list()
-            if n_busy > 0 :
-                msg = f"\n# merge_driver: Found existing " \
+            if merge_normal and n_busy > 0 :
+                msg = f"\n# {fnam}: Found existing " \
                       f"{busy_list[0]} --> exit merge process."
                 sys.exit(msg)  
             else: 
-                msg = f"# merge_driver: \t Create {busy_file} for {t_msg}"
+                if merge_force :
+                    while n_busy > 0:
+                        t_now = datetime.datetime.now()
+                        msg = f"# {fnam}: \t merge_force -> " \
+                              f"wait for BUSY to clear ({t_now})."
+                        logging.info(msg)
+                        time.sleep(1)
+                        n_busy, busy_list = self.get_busy_list()
+
+                msg = f"# {fnam}: \t Create {busy_file} for {t_msg}"
                 if verbose_flag: logging.info(msg)
                 with open(BUSY_FILE,"w") as f:
                     f.write(f"{Nsec}\n")  # maybe useful for debug situation
@@ -1459,13 +1481,13 @@ class Program:
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = f"rm {BUSY_FILE}"
                     os.system(cmd_rm)
-                    msg = f"\n# merge_driver: Found simultaneous " \
+                    msg = f"\n# {fnam}: Found simultaneous " \
                           f"{busy_list[0]} --> exit merge process."
                     sys.exit(msg)  
 
         elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
             if verbose_flag:
-                logging.info(f"# merge_driver: " \
+                logging.info(f"# {fnam}: " \
                              f"\t Remove {busy_file} for {t_msg}")
             cmd_rm = f"rm {BUSY_FILE}"
             os.system(cmd_rm)

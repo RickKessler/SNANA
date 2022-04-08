@@ -14,6 +14,7 @@
 # Oct 20 2021: add makeDataFiles
 # Dec 04 2021: new input --merge_background
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
+# Apr 08 2022: add --merge_force arg for sync_evt option
 # - - - - - - - - - -
 
 #import os
@@ -126,11 +127,14 @@ def get_args():
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
 
     # args passed internally from command files
-    msg = "INTERNAL:  merge process"
+    msg = "INTERNAL:  merge process (if no BUSY file)"
     parser.add_argument("-m", "--merge", help=msg, action="store_true")
 
     msg = "INTERNAL: last merge process when all done files exist"
     parser.add_argument("-M", "--MERGE_LAST", help=msg, action="store_true")
+
+    msg = "INTERNAL:  force merge process (wait for BUSY files to disappear)"
+    parser.add_argument("--merge_force", help=msg, action="store_true")
 
     msg = "INTERNAL: time stamp (Nsec since midnight) to verify" \
            " merge process examines correct output_dir"
@@ -203,7 +207,8 @@ def set_merge_flag(config):
 
     args = config['args']
     merge_flag = args.merge  or \
-                 args.MERGE_LAST  or \
+                 args.MERGE_LAST   or \
+                 args.merge_force  or \
                  args.merge_reset
 
     set_cpunum0 = args.merge_reset or args.MERGE_LAST

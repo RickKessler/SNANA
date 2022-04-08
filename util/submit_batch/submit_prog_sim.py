@@ -1480,7 +1480,8 @@ class Simulation(Program):
                 job_info_sim   = self.prep_JOB_INFO_sim(index_dict)
                 util.write_job_info(f, job_info_sim, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
                 # store TMP_VERSION for later

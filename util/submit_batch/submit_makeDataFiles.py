@@ -363,7 +363,8 @@ class MakeDataFiles(Program):
                 job_info_data_unit   = self.prep_JOB_INFO_mkdata(index_dict)
                 util.write_job_info(f, job_info_data_unit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local)
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False)
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         #print(f" xxx n_core={n_core}   n_job_cpu = {n_job_cpu}  " \

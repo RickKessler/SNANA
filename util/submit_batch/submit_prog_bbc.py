@@ -54,6 +54,7 @@
 # Jan 18 2022: fix writing REJECT_FRAC_BIASCOR to yaml file.
 # Mar 03 2022: add zPRIOR* to append_varname_missing 
 # Mar 28 2022: write IZBIN to BBC_ACCEPT summary file
+# Apr 08 2022: fix missing-IZBIN bug for M11-style fit without biasCor.
 # - - - - - - - - - -
 
 
@@ -117,6 +118,9 @@ OUTDIR_ITER1_SUFFIX    = "_ITER1"
 
 
 KEYNAME_VARNAMES = "VARNAMES"
+TABLE_VARNAME_CID      = "CID"
+TABLE_VARNAME_IDSURVEY = "IDSURVEY"
+TABLE_VARNAME_IZBIN    = "IZBIN"
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -1893,7 +1897,7 @@ class BBC(Program):
 
         df_first  = pd.read_csv(first_fitres_file, 
                                 comment="#", delim_whitespace=True)
-        first_cids  = df_first['CID']
+        first_cids  = df_first[TABLE_VARNAME_CID]
         first_cids_unique, counts = np.unique(first_cids,return_counts=True)
         n_dupl   = len(counts[counts>1])
         has_dupl = n_dupl > 0
@@ -1943,8 +1947,8 @@ class BBC(Program):
                         f"(each CID + IDSURVEY is unique) \n")
                 f.write(f"{KEYVAR}: CID IDSURVEY NJOB_REJECT \n")
                 for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid]['CID']
-                    idsurv = unique_dict[ucid]['IDSURVEY']
+                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
                     if nrej>0: 
                         f.write(f"SN:  {cid:<12} {idsurv}  {nrej:3d} \n")
             else:
@@ -1968,15 +1972,17 @@ class BBC(Program):
             if has_dupl :
                 f.write(f"# Beware of Duplicate CIDs " \
                         f"(each CID + IDSURVEY is unique) \n")
-                f.write(f"{KEYVAR}: CID IDSURVEY IZBIN\n")
+                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} " \
+                        f"{TABLE_VARNAME_IDSURVEY} {TABLE_VARNAME_IZBIN}\n")
                 for ucid,nrej in zip(cid_unique,n_reject) :
-                    cid    = unique_dict[ucid]['CID']
-                    idsurv = unique_dict[ucid]['IDSURVEY']
-                    izbin  = unique_dict[ucid]['IZBIN']
+                    cid    = unique_dict[ucid][TABLE_VARNAME_CID]
+                    idsurv = unique_dict[ucid][TABLE_VARNAME_IDSURVEY]
+                    izbin  = unique_dict[ucid][TABLE_VARNAME_IZBIN]
                     if nrej==0: 
                         f.write(f"SN:  {cid:<12} {idsurv}  {izbin}\n")
             else:
-                f.write(f"{KEYVAR}: CID  IZBIN\n")
+                f.write(f"{KEYVAR}: {TABLE_VARNAME_CID} "\
+                        f" {TABLE_VARNAME_IZBIN}\n")
                 izbin_unique      = cid_dict['izbin_unique']
 
                 for cid, izbin, nrej in \
@@ -2006,7 +2012,7 @@ class BBC(Program):
 
             if not found_first_file: 
                 df0 = df.copy()
-                df0['CID'] = df0['CID'].astype(str)
+                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
 
         # - - - - - - - - - - - - -
@@ -2023,13 +2029,16 @@ class BBC(Program):
         cid_dict['n_reject']   = n_reject
 
         # Mar 28 2022: fetch list of izbin 
-        izbin_unique = []
-        if 'IZBIN' in df0:
+        if TABLE_VARNAME_IZBIN in df0:
+            izbin_unique = []
             for cid in cid_unique:
-                izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
+                izbin_tmplist = df0.loc[df0[TABLE_VARNAME_CID]==cid][TABLE_VARNAME_IZBIN].values
                 izbin = -9
                 if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
                 izbin_unique.append(izbin)
+        else:
+            ncid         = len(cid_unique)
+            izbin_unique = [ -9 ] * ncid
 
         cid_dict['izbin_unique']  = izbin_unique
 
@@ -2056,30 +2065,34 @@ class BBC(Program):
 
             if not found_first_file:
                 df0 = df.copy()
-                df0['CID'] = df0['CID'].astype(str)
+                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
                 found_first_file = True
 
         # - - - - - - - - - - - - -
         # get list of unique CIDs, and how many times each CID appears
 
         cid_unique, n_count = np.unique(ucid_list, return_counts=True)
+        HAS_IZBIN = TABLE_VARNAME_IZBIN in df0
 
         for ucid in cid_unique:
             unique_dict[ucid] = {}
             cid      = str(ucid.split("__")[0])
             idsurvey = int(ucid.split("__")[1])
 
-            izbin_list = df0.loc[(df0['CID']==cid) & \
-                                 (df0['IDSURVEY']==idsurvey)]['IZBIN'].values
+            if HAS_IZBIN:
+                izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
+                                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey)][TABLE_VARNAME_IZBIN].values
+            else:
+                izbin_list = []
 
             if len(izbin_list) > 0 :
                 izbin = int(izbin_list[0])
             else:
                 izbin = -9
 
-            unique_dict[ucid]['CID']      = cid
-            unique_dict[ucid]['IDSURVEY'] = idsurvey
-            unique_dict[ucid]['IZBIN']    = izbin
+            unique_dict[ucid][TABLE_VARNAME_CID]      = cid
+            unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
+            unique_dict[ucid][TABLE_VARNAME_IZBIN]    = izbin
 
         # number of times each CID does not appear in a fitres file
         n_reject        = n_ff - n_count

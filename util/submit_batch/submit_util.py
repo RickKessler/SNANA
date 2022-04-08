@@ -207,7 +207,7 @@ def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
         jobopt_file_list  = []
 
     for jobopt_raw in config_rows :    # might include label
-        num = (f"{string_jobopt}{n_jobopt:03d}")
+        num = f"{string_jobopt}{n_jobopt:03d}"
 
         # separate  label and ARG in
         #    jobopt_string: /label/ ARG
@@ -302,7 +302,7 @@ def fix_partial_path(file_list):
     out_file_list = [] 
     for f0 in file_list :
         f1 = os.path.expandvars(f0)
-        if '/' in f1 and f1[0] != '/' :  f1 = (f"{CWD}/{f0}")
+        if '/' in f1 and f1[0] != '/' :  f1 = f"{CWD}/{f0}"
         out_file_list.append(f1)
 
     return out_file_list
@@ -360,7 +360,7 @@ def find_and_remove(find_arg):
     
     remove_list = []
     remove_size = []
-    cmd_find     = (f"find . -name {find_arg}") + " -exec du -mc {} +"
+    cmd_find     = f"find . -name {find_arg}" + " -exec du -mc {} +"
     find_list    = subprocess.check_output(cmd_find, shell=True)
     find_list    = (find_list.rstrip()).decode('utf-8')
     find_list    = find_list.split()
@@ -386,7 +386,7 @@ def find_and_remove(find_arg):
         print(f"\t Removing {n_file} files ... ")
         for i in range(0,n_file):
             remove_file = remove_list[i]
-            cmd_rm = (f"rm -r {remove_file}")
+            cmd_rm = f"rm -r {remove_file}"
             os.system(cmd_rm)
     else:
         print(f"\t Do not remove {find_arg} files")
@@ -466,34 +466,34 @@ def compress_files(flag, dir_name, wildcard, name_backup, wildcard_keep ):
     #  wildcard_keep -> do NOT remove these files
     #
 
-    tar_file   = (f"BACKUP_{name_backup}.tar")
-    targz_file = (f"{tar_file}.gz")
-    cddir      = (f"cd {dir_name}")
+    tar_file   = f"BACKUP_{name_backup}.tar"
+    targz_file = f"{tar_file}.gz"
+    cddir      = f"cd {dir_name}"
 
     # be careful if wildcard string is too short; don't want rm *
     if len(wildcard) < 3 :
         msgerr = []
-        msgerr = (f"wildcard = '{wildcard}' is dangerously short string")
-        msgerr = (f"that could result in removing too much.")
-        msgerr = (f"Provide longer wildcard string.")
+        msgerr = f"wildcard = '{wildcard}' is dangerously short string"
+        msgerr = f"that could result in removing too much."
+        msgerr = f"Provide longer wildcard string."
         log_assert(False,msgerr)
 
     if flag > 0 :
-        cmd_tar  = (f"tar -cf {tar_file} {wildcard} ")
-        cmd_gzip = (f"gzip {tar_file}")
+        cmd_tar  = f"tar -cf {tar_file} {wildcard} "
+        cmd_gzip = f"gzip {tar_file}"
 
         if len(wildcard_keep) == 0 :
-            cmd_rm   = (f"rm {wildcard}")
+            cmd_rm   = f"rm {wildcard}"
         else:
             # remove all wildcard files EXCEPT for wildcard_keep
-            cmd_rm = (f"find {wildcard} ! -name '{wildcard_keep}' ") + \
-                      "-type f -exec rm {} +"
+            cmd_rm = f"find {wildcard} ! -name '{wildcard_keep}' " + \
+                     "-type f -exec rm {} +"
 
-        cmd_all  = (f"{cddir} ; {cmd_tar} ; {cmd_gzip} ; {cmd_rm} ")
+        cmd_all  = f"{cddir} ; {cmd_tar} ; {cmd_gzip} ; {cmd_rm} "
     else:
-        cmd_unpack = (f"tar -xzf {targz_file}")
-        cmd_rm     = (f"rm {targz_file}")
-        cmd_all    = (f"{cddir} ; {cmd_unpack} ; {cmd_rm} ")
+        cmd_unpack = f"tar -xzf {targz_file}"
+        cmd_rm     = f"rm {targz_file}"
+        cmd_all    = f"{cddir} ; {cmd_unpack} ; {cmd_rm} "
 
     #logging.info(f"\n xxx cmd_all = {cmd_all}\n")
     os.system(cmd_all)
@@ -520,22 +520,22 @@ def compress_subdir(flag,dir_name):
     #logging.info(f" xxx topdir_name = {topdir_name}")
     #logging.info(f" xxx subdir_name = {subdir_name}")
 
-    cddir        = (f"cd {topdir_name}")
-    tar_file     = (f"{subdir_name}.tar")
-    targz_file   = (f"{tar_file}.gz")
+    cddir        = f"cd {topdir_name}"
+    tar_file     = f"{subdir_name}.tar"
+    targz_file   = f"{tar_file}.gz"
 
     if flag > 0:  # compress
-        cmd_tar    = (f"tar -cf {tar_file} {subdir_name}")
-        cmd_gzip   = (f"gzip {tar_file}")
-        cmd_rmdir  = (f"rm -rf {subdir_name}")
-        cmd_all    = (f"{cddir} ; {cmd_tar}; {cmd_gzip} ; {cmd_rmdir}")
+        cmd_tar    = f"tar -cf {tar_file} {subdir_name}"
+        cmd_gzip   = f"gzip {tar_file}"
+        cmd_rmdir  = f"rm -rf {subdir_name}"
+        cmd_all    = f"{cddir} ; {cmd_tar}; {cmd_gzip} ; {cmd_rmdir}"
         os.system(cmd_all)
     else:  # uncompress if tar file exists
         exist_tar = os.path.exists(f"{topdir_name}/{targz_file}")
         if exist_tar :
-            cmd_unpack = (f"tar -xzf {targz_file}")
-            cmd_rmgz   = (f"rm {targz_file}")
-            cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
+            cmd_unpack = f"tar -xzf {targz_file}"
+            cmd_rmgz   = f"rm {targz_file}"
+            cmd_all    = f"{cddir} ; {cmd_unpack}; {cmd_rmgz} "
             os.system(cmd_all)
 
     # end compress_subdir
@@ -564,7 +564,7 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
     #
 
     # search .LOG first to define list.
-    search_log = (f"{search_wildcard}.LOG")
+    search_log = f"{search_wildcard}.LOG"
     log_list   = sorted(glob.glob1(search_dir, f"{search_log}") )
     done_list = []
     yaml_list = []
@@ -574,11 +574,11 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
         # xxx mark delete jdot      = log_file.index(".")
         jdot      = log_file.rindex(".")
         prefix    = log_file[0:jdot]
-        done_file = (f"{prefix}.DONE")
-        DONE_FILE = (f"{search_dir}/{done_file}")
+        done_file = f"{prefix}.DONE"
+        DONE_FILE = f"{search_dir}/{done_file}"
 
-        yaml_file = (f"{prefix}.YAML")
-        YAML_FILE = (f"{search_dir}/{yaml_file}")
+        yaml_file = f"{prefix}.YAML"
+        YAML_FILE = f"{search_dir}/{yaml_file}"
         if not os.path.isfile(DONE_FILE) :
             done_file = None
         if not os.path.isfile(YAML_FILE) :
@@ -595,7 +595,7 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
 def nrow_table_TEXT(table_file, row_key):
     # For input TEXT file, return number rows with 'row_key'
     nrow        = 0
-    cmd_grep    = (f"grep '{row_key}' {table_file} | wc " )
+    cmd_grep    = f"grep '{row_key}' {table_file} | wc "
     result_line = subprocess.check_output(cmd_grep,shell=True).rstrip()
     result_line = result_line.decode('utf-8')
     nrow        = int(result_line.split()[0])
@@ -712,7 +712,7 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
     # the merge process will delete the input file from $PATH.
 
     if list_file != '' :
-        LIST_FILE = (f"{output_dir}/{list_file}")
+        LIST_FILE = f"{output_dir}/{list_file}"
         with open(LIST_FILE, 'w') as f : 
             for infile in done_copy_list:
                 infile_base = os.path.basename(infile) # exclude path           
@@ -755,7 +755,7 @@ def check_file_exists(file_name,msg_user):
     # abort if file does not exist
     exist = os.path.isfile(file_name)
     if not exist:
-        msgerr = [ (f"Cannot find file:"), (f"\t {file_name}") ]
+        msgerr = [ f"Cannot find file:", f"\t {file_name}" ]
         for msg in msg_user:
             msgerr.append(msg)
         log_assert(exist, msgerr)
@@ -781,7 +781,7 @@ def write_done_stamp(output_dir,done_stamp_list,string):
     # output_dir is used if there is no slash in done_file.
     for done_file in done_stamp_list :
         if '/' not in done_file :
-            DONE_FILE = (f"{output_dir}/{done_file}" )
+            DONE_FILE = f"{output_dir}/{done_file}"
         else:
             DONE_FILE = done_file
 
@@ -790,7 +790,7 @@ def write_done_stamp(output_dir,done_stamp_list,string):
             # if file has SUCCESS, no point in re-writing same value.
             pass
         else :
-            msg = (f"\n Write {string} to done stamp file: \n\t {done_file}")
+            msg = f"\n Write {string} to done stamp file: \n\t {done_file}"
             logging.info(msg)
             with open(DONE_FILE,"w") as f :
                 f.write(f"{string}\n") 
@@ -815,7 +815,7 @@ def backup_merge_file(merge_file):
     # Util to debug sequence of updating MERGE.LOG file
     # Input merge_file should include full path.
     Nsec = seconds_since_midnight  # current Nsec, not from submit info
-    merge_file_save = (f"{merge_file}_{Nsec}")
+    merge_file_save = f"{merge_file}_{Nsec}"
     shutil.copyfile(merge_file, merge_file_save )
     # end backup_merge_file
 
@@ -837,7 +837,7 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
         n_file_exist    = len(wait_file_list)
         time_now        = datetime.datetime.now()
         tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
-        msg = (f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
+        msg = f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})"
         logging.info(msg)
 
     # end wait_for_file
@@ -878,10 +878,10 @@ def write_job_info(f,JOB_INFO,icpu):
         msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
         if kill_on_fail :
-            msg_echo = (f"Kill all remaining jobs.")
-            cmd_kill = (f"  cd {CWD}\n"\
-                        f"  {sys.argv[0]} \\\n" \
-                        f"     {sys.argv[1]} --cpunum {icpu} -k " )
+            msg_echo = f"Kill all remaining jobs."
+            cmd_kill = f"  cd {CWD}\n"\
+                       f"  {sys.argv[0]} \\\n" \
+                       f"     {sys.argv[1]} --cpunum {icpu} -k "
                         # f"  exit")
         else:
             msg_echo = "Continue with next job."
@@ -895,18 +895,16 @@ def write_job_info(f,JOB_INFO,icpu):
 
         program_plus_path = find_program(program)
 
-        #wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
-        #                 f"do sleep 5; done" )
-        wait_for_code = (f"while [ ! -x {program_plus_path} ]; " \
-                         f"do sleep 5; done" )
+        wait_for_code = f"while [ ! -x {program_plus_path} ]; " \
+                        f"do sleep 5; done"
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
         f.write(f"echo '{program} exists -> continue' \n\n")
 
     if CHECK_WAIT_FILE:
         wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
-        wait_for_file = (f"while [ ! -f {wait_file} ]; " \
-                         f"do sleep 10; done" )
+        wait_for_file = f"while [ ! -f {wait_file} ]; " \
+                        f"do sleep 10; done"
         f.write(f"echo 'Wait for {wait_file}'\n")
         f.write(f"{wait_for_file}\n")
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
@@ -988,7 +986,7 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
     
     if match_cpu and do_merge :
-        merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
+        merge_task = f"{sys.argv[0]} {merge_input_file} {merge_arg_list}"
         f.write(f"cd {CWD} \n")
         f.write(f"echo Run merge_driver monitor task. \n")
         f.write(f"{merge_task} \n")

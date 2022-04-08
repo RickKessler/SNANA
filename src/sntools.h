@@ -63,7 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04i"     
+#define  SNANA_VERSION_CURRENT  "v11_04j"      
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -558,8 +558,12 @@ void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
 int  match_cidlist_init(char *fileName, int *OPTMASK);
 int  match_cidlist_init__(char *fileName, int *OPTMASK);
-bool match_cidlist_exec(char *cid);
-bool match_cidlist_exec__(char *cid);
+
+int  match_cidlist_init_legacy(char *fileName, int *OPTMASK);
+int  match_cidlist_init_legacy__(char *fileName, int *OPTMASK);
+
+int  match_cidlist_exec(char *cid);
+int  match_cidlist_exec__(char *cid);
 
 void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void   parse_GENPOLY(char *stringPoly, char *varName,

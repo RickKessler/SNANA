@@ -121,9 +121,8 @@ class train_SALT2(Program):
 
         self.set_jacobian_flag()
 
-        if TRAIN_SALT2_FLAG:
-            # read survey map to magSys and Instruments
-            self.train_prep_survey_map()
+        # read survey map to magSys and Instruments
+        self.train_prep_survey_map()
 
         # scoop up TRAINOPT list from user CONFIG
         self.train_prep_trainopt_list()
@@ -136,6 +135,9 @@ class train_SALT2(Program):
             self.train_prep_error_checks()
 
         else:
+            # foreach training, prepare output paths
+            self.train_prep_paths()
+
             self.submit_prep_jacobian()
 
         # end submit_prepare_driver
@@ -143,12 +145,8 @@ class train_SALT2(Program):
     
     def submit_prep_jacobian(self):
         # Patrick Armstrong 17 Mar 2022
-        script_dir        = self.config_prep['script_dir']
-        input_file   = self.config_yaml['args'].input_file 
         self.config_prep['model_suffix']  = MODEL_SUFFIX_DEFAULT 
-        target_file = f"{script_dir}/{os.path.basename(input_file)}"
-        shutil.copyfile(input_file, target_file)
-        # end submit_prep_driver
+        # end submit_prep_jacobian
         return
 
     def set_jacobian_flag(self):
@@ -162,6 +160,7 @@ class train_SALT2(Program):
         else:
             logging.info("Using explicit SALT2 training")
         return
+        # end set_jacobian_flag
 
     def train_prep_survey_map(self):
 
@@ -741,19 +740,28 @@ class train_SALT2(Program):
         output_dir        = self.config_prep['output_dir']
         trainopt_num_list = self.config_prep['trainopt_num_list']
         trainopt_arg_list = self.config_prep['trainopt_arg_list']
+        outdir_model_list    = self.config_prep['outdir_model_list']
+        outdir_train_list    = self.config_prep['outdir_train_list']
         prefix            = trainopt_num_list[itrain]
+        nthreads          = self.config_prep['nthreads']
         
-        arg_list = []
-        arg_list.append(f"-j {CONFIG[KEY_JACOBIAN_MATRIX]}")
-        arg_list.append(f"-b {CONFIG[KEY_JACOBIAN_BASE_SURFACE]}")
-        #arg_list.append(f"--yaml {prefix}.YAML") # Tell script not to log and instead to produce a yaml output file.
+        outdir_model = outdir_model_list[itrain]
+        outdir_train = outdir_train_list[itrain]
+        trainopt_arg = trainopt_arg_list[itrain]
+        jacobian_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_MATRIX])
+        base_surface_path = os.path.expandvars(CONFIG[KEY_JACOBIAN_BASE_SURFACE])
 
-        #trainDir_file  = (f"{prefix}.CONFIG")
-        #self.create_trainDir_file(itrain,trainDir_file)
+        arg_list = []
+        arg_list.append(f"--jacobian {jacobian_path}")
+        arg_list.append(f"--base {base_surface_path}")
+        arg_list.append(f"--trainopt \"{trainopt_arg}\"")
+        arg_list.append(f"--output {outdir_model}")
+        arg_list.append(f"--batch")
+        arg_list.append(f"--yaml {prefix}.YAML")
 
         JOB_INFO = {}
         JOB_INFO['program']       = (f"{program}")
-        JOB_INFO['input_file']    = input_file 
+        JOB_INFO['input_file']    = "" 
         JOB_INFO['job_dir']       = script_dir
         JOB_INFO['log_file']      = (f"{prefix}.LOG")
         JOB_INFO['done_file']     = (f"{prefix}.DONE")
@@ -761,6 +769,7 @@ class train_SALT2(Program):
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
         JOB_INFO['arg_list']      = arg_list
+        JOB_INFO['setenv']        = f"export JULIA_NUM_THREADS={nthreads}"
         
         return JOB_INFO
 
@@ -908,8 +917,7 @@ class train_SALT2(Program):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
-        if TRAIN_SALT2_FLAG:
-            self.append_calib_info(f)
+        self.append_calib_info(f)
         return
         # end append_info_file
         
@@ -982,6 +990,7 @@ class train_SALT2(Program):
         self.config_prep['output_dir']     = output_dir 
         self.config_prep['script_dir']     = script_dir 
         self.config_prep['model_suffix']   = model_suffix
+        self.set_jacobian_flag()
         # end merge_config_prep
 
     def merge_update_state(self, MERGE_INFO_CONTENTS):
@@ -1086,11 +1095,18 @@ class train_SALT2(Program):
         tstart     = os.path.getmtime(start_file)
         tproc      = int((tdone - tstart)/60.0)
 
+        # If gz files are found, unzip them all.
+        gz_list = glob.glob1(model_dir, "*.gz")
+        if len(gz_list) > 0:
+            for gz_file in gz_list:
+                cmd = f"cd {model_dir}; gunzip {gz_file}"
+                os.system(cmd)
+
         # check for existence of SALT2 model files
         nerr = 0
         for check_file in CHECK_FILE_LIST:
-            CHECK_FILE = (f"{model_dir}/{check_file}")
-            if os.path.exists(CHECK_FILE) : 
+            CHECK_FILE = f"{model_dir}/{check_file}"
+            if os.path.exists(CHECK_FILE): 
                 # make sure each file has something in it
                 num_lines = sum(1 for line in open(CHECK_FILE))
                 if num_lines < 3 : 
@@ -1119,19 +1135,19 @@ class train_SALT2(Program):
         model_dir  = self.get_path_trainopt("MODEL",trainopt)
         train_dir  = self.get_path_trainopt(SUBDIR_OUTPUT_TRAIN,trainopt)
         calib_dir  = self.get_path_trainopt(SUBDIR_CALIB_TRAIN,trainopt)
-
         logging.info(f"    Compress output for {trainopt} :")
 
         # make tar file from CALIB/TRAINOPTnnn  (aka SALTPATH)
         logging.info(f"\t Compress {SUBDIR_CALIB_TRAIN}/{trainopt}")
         util.compress_subdir(+1,calib_dir)
 
-        # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
-        logging.info(f"\t Compress {SUBDIR_OUTPUT_TRAIN}/{trainopt}")
-        cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
-        os.system(cmd_clean)
-        util.compress_subdir(+1,train_dir)
-
+        if TRAIN_SALT2_FLAG:
+            # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
+            logging.info(f"\t Compress {SUBDIR_OUTPUT_TRAIN}/{trainopt}")
+            cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
+            os.system(cmd_clean)
+            util.compress_subdir(+1,train_dir)
+        # -----
         # gzip contents of MODEL, leave directory intact for LC fitter
         logging.info(f"\t gzip contents of {model_dir}")
         cmd = (f"cd {model_dir}; gzip salt2*.dat")

@@ -105,7 +105,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   NMAP_GENPDF = NCALL_GENPDF = 0;
   if ( IGNOREFILE(fileName) ) { return; }
 
-  print_banner(fnam);
+  sprintf(BANNER,"%s with OPTMASK=%d", fnam, OPTMASK);
+  print_banner(BANNER);
 
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );

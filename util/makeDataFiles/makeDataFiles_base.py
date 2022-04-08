@@ -221,6 +221,16 @@ class Program:
 
         # - - - - - - - - - - - - - - - - -
         # check match for field
+        #
+        ### Could this block be just??:
+        ### define the match_field and break:
+        ## match_field = (field_select == gpar.FIELD_VOID) or (field_select == FIELD)
+        ## if not match_field: return None
+        
+        ### or just
+        ## if field_select!=gpar.FIELD_VOID and field_select != FIELD:
+        ##    return None
+
         if field_select == gpar.FIELD_VOID:
             match_field = True  # no --field arg
         else:

@@ -20756,7 +20756,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
          ***** MISCELLANEOUS(v11_04g) ***** 
  
    snlc_sim.c: 
-     + remove lefacy readme_doc_xxx functions
+     + remove legacy readme_doc_xxx functions
      + ZPHOT_QP += (ZSN-ZGAL) 
 
    snana.car: release refactored HEADER_OVERRIDE 
@@ -20784,7 +20784,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04h) ***** 
 
-   Finalize [PERCETILE]_ZPHOT_Q notation for sim and real data.
+   Finalize [PERCENTILE]_ZPHOT_Q notation for sim and real data.
    Analysis codes reads ZPHOT quantile info and fills SNDATA struct; 
    still need to pass quantile info to snana.car.
 
@@ -20926,4 +20926,50 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    remove util/split_version.pl
 
+
+# ======================================================================= 
+         v11_04j (  ) 
+
+         ***** IMPORTANT(v11_04j) ***** 
+
+         ***** USEFUL(v11_04j) ***** 
+
+         ***** MISCELLANEOUS(v11_04j) ***** 
+
+    snlc_fit.car
+      + for MODELSPEC table, include model mags for each band at each MJD;
+        for calib corrections that need color.
+
+    snana.car
+      + fix bug in INIT_REFORMAT
+      + HEADER_OVERRIDE_FILE for sim data gives warning instead of abort.
+      + new functions IGNOREFILE_fortran() and VALIDFILENAME
+      + fix VERSION_REFORMAT_FITS[TEXT] to use VALIDFILENAME
+
+    sntools_dataformat_fits.c[h]
+      + count number of written events and spectra;
+        WR_SNFITSIO_END prints actual number of written events at end of job.
+  
+   submit_prog_bbc.py
+     + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
+       in systematics involving z-shift.
+
+   submit_prog_lcfit.py
+     + wait for merge_root.exe to exists in case of SNANA build.
+
+   submit_prog_sim.py
+     + leave SUBMIT.INFO outside SIMLOGS.tar
+
+   snlc_sim.c
+     + fix bug reading SALT2ALPHA[BETA] asymGauss params from
+       GENPDF_FILE passed as command-line arg;
+        https://github.com/RickKessler/SNANA/issues/864
+     + write TIME_START to output README
+
+   sntools_sim_readme.c
+     + write TIME_START
+
+   sntools.c[h], SALT2mu.c
+     + refactor cid-matching util to enable BBC to use optional IZBIN
+       column in cid_select_file.
 END: 

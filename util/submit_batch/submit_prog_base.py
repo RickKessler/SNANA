@@ -210,6 +210,7 @@ class Program:
         memory        = BATCH_MEM_DEFAULT
         maxjob        = BATCH_MAXJOB_DEFAULT
         walltime      = BATCH_WALLTIME_DEFAULT
+        nthreads      = BATCH_NTHREADS_DEFAULT
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
@@ -260,6 +261,9 @@ class Program:
         if 'BATCH_WALLTIME' in CONFIG :
             walltime = CONFIG['BATCH_WALLTIME']
 
+        if 'BATCH_NTHREADS' in CONFIG :
+            nthreads = CONFIG['BATCH_NTHREADS']
+
         # check optional maxjob
         # ?? if 'BATCH_MAXJOB' in CONFIG :
         # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
@@ -272,6 +276,7 @@ class Program:
         config_prep['memory']      = memory
         config_prep['walltime']    = walltime
         config_prep['maxjob']      = maxjob
+        config_prep['nthreads']    = nthreads
     
     # end parse_batch_info
 
@@ -609,6 +614,7 @@ class Program:
         script_dir       = self.config_prep['script_dir']
         replace_memory   = self.config_prep['memory']
         replace_walltime = self.config_prep['walltime']
+        replace_cpus_per_task = self.config_prep['nthreads'] # 08/apr/2022
 
         BATCH_FILE      = f"{script_dir}/{batch_file}"
 
@@ -623,7 +629,7 @@ class Program:
         # Jan 6 2021: add few more replace keys that can be modified
         # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
         replace_ntask        = 1
-        replace_cpu_per_task = 1
+        #replace_cpu_per_task = 1
 
         # - - - define list of strings to replace - - - - 
 
@@ -634,7 +640,7 @@ class Program:
             'REPLACE_JOB'           : replace_job_cmd,
             'REPLACE_WALLTIME'      : replace_walltime,
             'REPLACE_NTASK'         : replace_ntask,
-            'REPLACE_CPU_PER_TASK'  : replace_cpu_per_task
+            'REPLACE_CPUS_PER_TASK'  : replace_cpus_per_task
         }
         batch_lines = open(BATCH_TEMPLATE,'r').read()
         for KEY,VALUE in REPLACE_KEY_DICT.items():

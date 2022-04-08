@@ -2023,13 +2023,13 @@ class BBC(Program):
         cid_dict['n_reject']   = n_reject
 
         # Mar 28 2022: fetch list of izbin 
-
         izbin_unique = []
-        for cid in cid_unique:
-            izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
-            izbin = -9
-            if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
-            izbin_unique.append(izbin)
+        if 'IZBIN' in df0:
+            for cid in cid_unique:
+                izbin_tmplist = df0.loc[df0['CID']==cid]['IZBIN'].values
+                izbin = -9
+                if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
+                izbin_unique.append(izbin)
 
         cid_dict['izbin_unique']  = izbin_unique
 

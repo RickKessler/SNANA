@@ -1,6 +1,6 @@
 # Created Oct 22, 2021
 # write data in lsst-alert format for broker test.
-# [R.Hlozek, R.Kessler ...]
+# [R.Kessler, G. Narayan, R.Hlozek, ]
 #
 # Jan 14 2022 G.Narayan - fix diaObject bug found by Rob K.
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
@@ -8,11 +8,14 @@
 # Feb 22 2022 RK - integreate ZPHOT_Q and check for 2nd hostgal
 # Mar 30 2022 RK - fix setting alertId (not alertID) for all epochs
 #                   (not just for FIRST_OBS)
+# Mar 20 2022 RK - create & write simVersion string
+# 
+# Apr 09 2022 RK - few updates to run x10 faster:
+#   + for sunset-MJD, replace astroplan call with grid search on
+#       pre-computed list of sunset-MJDs at CTIO (x5 faster)
+#   + use os.mkdir to create nite-dir instead os is.system (x2 faster)
 #
-# Apr 09 2022 RK
-#   + create & write simVersion string
-#   + use os.mkdir to create nite-dir ... much faster than os.system call
-#
+# ==================================================
 
 import os, sys, glob, gzip, math, yaml, json
 import datetime, logging, shutil, subprocess

@@ -685,8 +685,8 @@ class READ_SNANA_FOLDER:
     def exec_read(self, ifile):
 
         n_HEAD_file      = self.snana_folder_dict['n_HEAD_file']
-        if ifile >= n_HEAD_file  :
-            return 0 # done reading
+        if ifile >= n_HEAD_file :
+            return -1 # done reading
 
         data_folder      = self.snana_folder_dict['data_folder']
         HEAD_file_base   = self.snana_folder_dict['HEAD_file_list'][ifile]

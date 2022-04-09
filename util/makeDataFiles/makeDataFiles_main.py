@@ -91,6 +91,9 @@ def get_args():
     msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
     parser.add_argument("--lsst_alert_schema",
                         help=msg, type=str, default=None )
+    msg = "file with list of MJD(sunset) to avoid slow astroplan calls"
+    parser.add_argument("--mjd_sunset_file",
+                        help=msg, type=str, default=None )
     msg = "out file with truth info for each alert"
     parser.add_argument("--outfile_alert_truth",
                         help=msg, type=str, default=None )

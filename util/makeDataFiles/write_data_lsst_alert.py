@@ -9,8 +9,9 @@
 # Mar 30 2022 RK - fix setting alertId (not alertID) for all epochs
 #                   (not just for FIRST_OBS)
 #
-# TO-DO: write simVersion =
-#    sim[date]_cadence[Cadence]_snana[ver]_elasticc[ver]
+# Apr 09 2022 RK
+#   + create & write simVersion string
+#   + use os.mkdir to create nite-dir ... much faster than os.system call
 #
 
 import os, sys, glob, gzip, math, yaml, json
@@ -219,6 +220,14 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         else:
             config_data['truth_dict'] = None
 
+        # check for file with pre-computed list of sunset MJDs (Apr 9 2022)
+        mjd_sunset_file = args.mjd_sunset_file
+        if mjd_sunset_file :
+            mjd_sunset_dict = { 'mjd_file' : mjd_sunset_file }
+        else:
+            mjd_sunset_dict = {}
+        config_data['mjd_sunset_dict'] = mjd_sunset_dict
+        
     # - - - - -
     schema             = config_data['schema']
     diaSourceId        = config_data['diaSourceId']
@@ -348,7 +357,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             nobs_detect += 1
 
             # construct name of avro file using mjd, objid, srcid
-            outdir_nite  = make_outdir_nite(outdir,mjd)
+            mjd_sunset_dict = config_data['mjd_sunset_dict']
+            outdir_nite  = make_outdir_nite(outdir, mjd, mjd_sunset_dict)
             str_day = f"mjd{mjd:.4f}"
             str_obj = f"obj{diaObjectId}"
             str_src = f"src{diaSourceId}"
@@ -402,18 +412,19 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
 # end write_event_lsst_alert
 
-def make_outdir_nite(outdir,mjd):
+def make_outdir_nite(outdir,mjd, mjd_sunset_dict):
 
     # + construct name of mjd-specific outdir for this outdir and mjd
     # + create outdir_nite if it does not already exit
-
-    nite   = util.get_sunset_mjd(mjd, site=LSST_SITE_NAME)
+    
+    nite   = util.get_sunset_mjd(mjd, LSST_SITE_NAME, mjd_sunset_dict )
     niteint = int(nite)
     outdir_nite = outdir + '/' + f"{ALERT_DAY_NAME}" + str(niteint)
     if not os.path.exists(outdir_nite) :
-        cmd = f"mkdir {outdir_nite}"
-        #print(f"\t Create {outdir_nite}")
-        os.system(cmd)
+        os.mkdir(outdir_nite)
+
+        # xxx mark cmd = f"mkdir {outdir_nite}"
+        # xxx mark os.system(cmd)
 
     return outdir_nite
 # end make_outdir_nite

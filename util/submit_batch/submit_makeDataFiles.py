@@ -416,6 +416,12 @@ class MakeDataFiles(Program):
             truth_file  = f"{prefix}.csv"
             arg_list.append(f"--lsst_alert_schema   {schema_file}")
             arg_list.append(f"--outfile_alert_truth {truth_file}")
+        
+        if 'MJD_SUNSET_FILE' in CONFIG:  # Apr 9 2022
+            # read list of sunset-MJD values from file to avoid slow
+            # astroplan method to compute sunset-MJD
+            mjd_sunset_file = CONFIG['MJD_SUNSET_FILE']
+            arg_list.append(f"--mjd_sunset_file {mjd_sunset_file}")
 
         if nevt is not None:
             arg_list.append(f"--nevt {nevt}")

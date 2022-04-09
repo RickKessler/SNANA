@@ -17,6 +17,7 @@ ASTROPLAN_EXISTS = False
 try:
     from astroplan import Observer
     ASTROPLAN_EXISTS = True
+#    CTIO_OBSERVER    = Observer.at_site('CTIO')
 except ImportError as e:
     pass
 from astropy.time import Time
@@ -142,28 +143,76 @@ def select_subsample(args, var_dict):
         if MJD_DETECT_FIRST <  args.nite_detect_range[0]-1.: return False
         if MJD_DETECT_FIRST >= args.nite_detect_range[1]+1.: return False
 
-        # TODO - pass site into select_subsample
-        NITE = get_sunset_mjd(MJD_DETECT_FIRST, site='CTIO')
+        # compute extact NITE = MJD at sunset. Use brute force (slow)
+        # calculation since it is rarely computed.
+        mjd_sunset_dict = {}
+        NITE = get_sunset_mjd(MJD_DETECT_FIRST, 'CTIO', mjd_sunset_dict )
 
-        # make exact cut for MJD using NITE
+        # make NITE cut
         if NITE <  args.nite_detect_range[0]: return False
         if NITE >= args.nite_detect_range[1]: return False
 
     return True
     # end select_subsample
 
-def get_sunset_mjd(mjd, site='CTIO'):
+def get_sunset_mjd(mjd, site_name, sunset_dict):
     '''
-    Returns an MJD of sunset prior to input mjd as float - not a Time Object
+    Returns an MJD of sunset prior to input mjd as float - not a Time Object.
+    If sunset_dict is passed with mjd_file, read it and store contents
+    in same dictionary that gets passed back on future calls. Sunset_dict
+    is much faster than brute-force astroplan calls.
     '''
-    if ASTROPLAN_EXISTS:
-        ctio = Observer.at_site(site)
+
+    keydict_mjd_file        = 'mjd_file'
+    keydict_mjd_sunset_list = 'mjd_sunset_list'
+
+    if keydict_mjd_file in sunset_dict :
+        if keydict_mjd_sunset_list not in sunset_dict:
+            mjd_file = os.path.expandvars(sunset_dict[keydict_mjd_file])
+            mjd_sunset_list = []
+            with open(mjd_file,"rt") as f:
+                for word in f:
+                    mjd_sunset_list.append(float(word))
+            sunset_dict[keydict_mjd_sunset_list] = np.array(mjd_sunset_list)
+            n_mjd   = len(mjd_sunset_list)
+            mjd_min = mjd_sunset_list[0]
+            mjd_max = mjd_sunset_list[-1]
+            msg = f" Read list of {site_name} sunset-MJD from\n   {mjd_file}\n" \
+                  f" Found {n_mjd} {site_name} sunset-MJDs from {mjd_min} to {mjd_max}\n"            
+            logging.info(msg)
+            #sys.exit(f"\n xxx mjd_sunset_list = \n{mjd_sunset_list[0:100]}")
+        # - - - - - -
+        # use mjd-sunset list to find NITE
+        mjd_sunset_list = sunset_dict[keydict_mjd_sunset_list]
+        idx  = (np.abs(mjd_sunset_list-mjd)).argmin()
+        NITE = mjd_sunset_list[idx]  # nearest sunset
+        if NITE > mjd:
+            NITE = mjd_sunset_list[idx-1]  # nearest sunset before mjd
+            
+        DEBUG_NITE = False
+        if DEBUG_NITE:
+            site        = Observer.at_site(site_name)
+            detect_time = Time(mjd, format='mjd')
+            sun_set     = site.sun_set_time(detect_time, which='previous').mjd
+            NITE_ASTROPLAN = sun_set
+            if abs(NITE-NITE_ASTROPLAN) > 0.01 :
+                sys.exit(f"\n ERROR: NITE[GRID,ASTROPLAN] = " \
+                         f"[{NITE:.4f} , {NITE_ASTROPLAN:.4f}]" \
+                         f" for mjd={mjd:.4f}")      
+        #sys.exit(f"\n xxxx mjd={mjd} idx={idx} NITE={NITE}")
+                
+    elif ASTROPLAN_EXISTS:
+        site        = Observer.at_site(site_name)
         detect_time = Time(mjd, format='mjd')
-        sun_set = ctio.sun_set_time(detect_time, which='previous').mjd
-        NITE = sun_set
+        sun_set     = site.sun_set_time(detect_time, which='previous').mjd
+        NITE        = sun_set
+
     else:
+        # for debug only ; should probably flag error?
         NITE = mjd
+        
     return NITE
+    # end get_sunset_mjd
 
 def init_readme_stats():
     readme_stats = {}

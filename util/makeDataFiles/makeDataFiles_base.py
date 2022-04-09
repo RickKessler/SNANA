@@ -588,11 +588,11 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        while nevent_subgroup > 0:
+        while nevent_subgroup >= 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
-            if nevent_subgroup < 0:
-                break
+
+            if nevent_subgroup <  0:    break
 
             self.screen_update(-1,0)  # init clock for rate monitor
 

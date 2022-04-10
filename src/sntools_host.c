@@ -814,6 +814,7 @@ void append_HOSTLIB_STOREPAR(void) {
   // If zHOST_FILE exists,  copy variables from zHOST efficiency map to 
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
+
   fp = open_zHOST_FILE(-1);
   if ( fp != NULL ) { 
     read_VARNAMES_zHOST(fp); fclose(fp);
@@ -845,10 +846,10 @@ void append_HOSTLIB_STOREPAR(void) {
       if ( UNIQUE[ivar] ) 
 	{ catVarList_with_comma(STOREPAR,ptrVarName); }
 
-      /*
-      printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
+      
+     /* printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
 	     fnam, ivar, VARNAMES[ivar], UNIQUE[ivar]); fflush(stdout);
-      */
+     */
 
     }
     fclose(fp);

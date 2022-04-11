@@ -20974,4 +20974,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools.c[h], SALT2mu.c
      + refactor cid-matching util to enable BBC to use optional IZBIN
        column in cid_select_file.
+
+   genmag_SALT2.h
+     + MXBIN_VAR_SALT2 -> 200k (was 120k) for IR modeling.
+
 END: 

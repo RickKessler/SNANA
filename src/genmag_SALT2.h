@@ -5,7 +5,8 @@
 #define X0SCALE_SALT2   1.0E-12        // arbitrary normalization
 
 // define bounds for filter and SED arrays
-#define MXBIN_VAR_SALT2   120000 // Jul 5 2013 -> 120k (was 20k)
+// xxx #define MXBIN_VAR_SALT2   120000 // Jul 5 2013 -> 120k (was 20k)
+#define MXBIN_VAR_SALT2   200000 // Apr 2022 -> 200k for IR (was 120k)
 
 // wavelengths used for color correction
 

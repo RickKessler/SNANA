@@ -16656,11 +16656,13 @@ void parse_simfile_CCprior(char *item) {
   //
   // Use item_local instead of item, so that we don't overwrite
   // input item and clobber other arguments.
+  // 
+  // Apr 11 2022: fix memory-overwrite bug related to MEMC value
 
   int ifile;
   int debug_malloc = INPUTS.debug_malloc ;
-  int MEMC     = MXCHAR_FILENAME*sizeof(char);
-  char *item_local = (char*) malloc(MEMC);
+  int MEMC;
+  char *item_local;
   char fnam[]  = "parse_simfile_CCprior" ;
 
   // ------------------ BEGIN -----------------
@@ -16669,10 +16671,14 @@ void parse_simfile_CCprior(char *item) {
 
   // 9.28.2020:check "same" option
   if ( strcmp(item,"same") == 0 ) {
+    MEMC        = sizeof(char) * (strlen(INPUTS.simFile_biasCor_arg)+10);
+    item_local  = (char*) malloc(MEMC);
     sprintf(item_local, "%s",  INPUTS.simFile_biasCor_arg); 
     INPUTS.sameFile_flag_CCprior = true; 
   }
   else {
+    MEMC       = sizeof(char) * (strlen(item)+10);
+    item_local = (char*) malloc(MEMC);
     sprintf(item_local, "%s", item); 
   }
 

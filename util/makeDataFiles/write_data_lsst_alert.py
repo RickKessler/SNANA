@@ -379,6 +379,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
                 if delta_t < TIME_WAIT_FORCEPHOTO :
                     # store only 1st detection; no force photo yet.
+                    alert_first_detect['alertId']   = diaSourceId
                     alert_first_detect['diaSource'] = copy(my_diaSource)
                     alert_first_detect['diaObject'] = copy(my_diaObject)
                     alert_first_detect['prvDiaSources'].clear()

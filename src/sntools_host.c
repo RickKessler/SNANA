@@ -6905,6 +6905,13 @@ void GEN_SNHOST_NBR(int IGAL) {
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
+    if ( rowNum > HOSTLIB.NGAL_READ ) {
+      sprintf(c1err,"rowNum=%d exceeds NGAL_READ=%d",
+	      rowNum, HOSTLIB.NGAL_READ);
+      sprintf(c2err,"CID=%d  GALID=%lld", GENLC.CID, GALID);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    }
+
     // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
     // Use two layers of  indexing to get the desired z-sorted IGAL
     IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];

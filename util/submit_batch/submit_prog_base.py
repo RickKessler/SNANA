@@ -1164,7 +1164,8 @@ class Program:
 
         args         = self.config_yaml['args']
         MERGE_LAST   = args.MERGE_LAST
-        nomerge      = args.nomerge
+        nomerge          = args.nomerge
+        merge_background = args.merge_background
         cpunum       = args.cpunum[0]
         check_abort  = args.check_abort 
         verbose_flag = not check_abort
@@ -1204,7 +1205,7 @@ class Program:
         # files since there will be no more chances to merge.
         if MERGE_LAST : 
             self.merge_last_wait()
-            if nomerge :
+            if nomerge and not merge_background :
                 self.nomerge_last()
                 exit(0)
 
@@ -1433,7 +1434,7 @@ class Program:
     def nomerge_last(self):
 
         # Created Mar 28 2022
-        # for --nomerge option, cerate RUN_MERGE_[inputFile] script and
+        # for --nomerge option, create RUN_MERGE_[inputFile] script and
         # create tar file of outdir. The output RUN_MERGE script is a
         # debug tool to quickly run the merge process interactively.
 

@@ -291,6 +291,7 @@ class Program:
         # check for docker image in sbatch-template file
 
         use_docker_image    = False
+        ENV_HOST            = None
         command_docker      = None
         SNANA_SETUP_COMMAND = None
         msgerr           = []
@@ -299,20 +300,31 @@ class Program:
         if "--image" in batch_lines:
             use_docker_image = True
 
-        # if using docker, set appropriate lab version or abort
-        # if not recognized by this cluster
+        
+        # Beware hard-wired hack:
+        # Since docker has security issues, labs develop their own implementation
+        # of docker with a different name. The "docker_command_dict" below maps 
+        # ENV_HOST into the docker command to launch jobs.
+        # For example NERSC machines define ENV_HOST:  $NERSC_HOST = Cori,
+        # and they user shifter to launch jobs.
+        docker_command_dict = {
+            #  ENV_HOST      docker-command
+            'NERSC_HOST'  : 'shifter' ,
+            'SLAC_HOST'   : 'singularity'  # ?? check if we ever use SLAC cluster
+        }
+
         if use_docker_image:
-            IS_NERSC = os.getenv("NERSC_HOST",None) is not None
-            IS_SLAC  = None
-            IS_FNAL  = None
-            if IS_NERSC:
-                command_docker = "shifter"
-            elif IS_FNAL:
-                pass
-            elif IS_SLAC:
-                pass
-            else:
+            for ENV_tmp, cmd_tmp in docker_command_dict.items():
+                ENV_VAL_tmp = os.getenv(ENV_tmp,None)
+                if ENV_VAL_tmp is not None:
+                    ENV_HOST       = ENV_tmp
+                    ENV_HOST_VAL   = ENV_VAL_tmp
+                    command_docker = cmd_tmp
+                
+            if command_docker is None:
                 msgerr.append("Cannot use docker image on this machine.")
+                msgerr.append("Known docker machines are")
+                msgerr.append("  {docker_command_dict}")
                 util.log_assert(False,msgerr)
 
             # also check ENV for command to setup snana
@@ -323,7 +335,8 @@ class Program:
                 msgerr.append(f"but it is not set.")
                 util.log_assert(False,msgerr)
                 
-            logging.info(f"\t Found docker image: use {command_docker}")
+            logging.info(f"\t Found docker image: " \
+                         f"use {command_docker} for ${ENV_HOST}={ENV_HOST_VAL}")
 
         # - - - - -
         # load output

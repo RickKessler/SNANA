@@ -24,7 +24,7 @@
 # Oct 29 2021: add optional TABLE_EXTRA to MERGE.LOG file
 # Oct 30 2021: new ENV_REQUIRE key for any task.
 # Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
-#
+# Apr 12 2022: check for docker image in sbatch-file; if there, use shifter
 # ============================================
 
 #import argparse
@@ -241,13 +241,16 @@ class Program:
             else:
                 n_core = n_core_arg  # command-line override
 
+            self.check_docker_image(template)
+                
             node_list   = [HOSTNAME] * n_core  # used for script file name
             submit_mode = SUBMIT_MODE_BATCH
             config_prep['batch_command']  = command
             config_prep['BATCH_TEMPLATE'] = template  # all caps -> full path
-            logging.info(f"\t Batch command:  {command}" )
-            logging.info(f"\t Batch template: {template}" )
-            logging.info(f"\t Batch n_core:   {n_core}" )
+
+            logging.info(f"\t Batch command:    {command}" )
+            logging.info(f"\t Batch template:   {template}" )
+            logging.info(f"\t Batch n_core:     {n_core}" )
         else :
             msgerr.append(f"Could not find BATCH_INFO or NODELIST.")
             msgerr.append(f"Check CONFIG block in the input file.")
@@ -278,7 +281,57 @@ class Program:
         config_prep['maxjob']      = maxjob
         config_prep['nthreads']    = nthreads
     
+        return
+
     # end parse_batch_info
+
+    def check_docker_image(self,sbatch_template):
+        
+        # Created Apr 12 2022
+        # check for docker image in sbatch-template file
+
+        use_docker_image    = False
+        command_docker      = None
+        SNANA_SETUP_COMMAND = None
+        msgerr           = []
+
+        batch_lines = open(sbatch_template,'r').read()
+        if "--image" in batch_lines:
+            use_docker_image = True
+
+        # if using docker, set appropriate lab version or abort
+        # if not recognized by this cluster
+        if use_docker_image:
+            IS_NERSC = os.getenv("NERSC_HOST",None) is not None
+            IS_SLAC  = None
+            IS_FNAL  = None
+            if IS_NERSC:
+                command_docker = "shifter"
+            elif IS_FNAL:
+                pass
+            elif IS_SLAC:
+                pass
+            else:
+                msgerr.append("Cannot use docker image on this machine.")
+                util.log_assert(False,msgerr)
+
+            # also check ENV for command to setup snana
+            SNANA_SETUP_COMMAND = os.getenv(ENV_SNANA_SETUP_COMMAND,None)
+            if SNANA_SETUP_COMMAND is None:
+                msgerr.append(f"Using docker image requires ENV")
+                msgerr.append(f"  ${ENV_SNANA_SETUP_COMMAND}")
+                msgerr.append(f"but it is not set.")
+                util.log_assert(False,msgerr)
+                
+            logging.info(f"\t Found docker image: use {command_docker}")
+
+        # - - - - -
+        # load output
+        self.config_prep['command_docker']        = command_docker
+        self.config_prep[ENV_SNANA_SETUP_COMMAND] = SNANA_SETUP_COMMAND
+
+        return
+        #end check_docker_image
 
     def kill_jobs(self):
 
@@ -393,6 +446,8 @@ class Program:
         script_dir  = self.config_prep['script_dir']
         n_core      = self.config_prep['n_core']
         submit_mode = self.config_prep['submit_mode']
+        command_docker = self.config_prep['command_docker']
+
         node_list   = self.config_prep['node_list']
         program     = self.config_prep['program']
         submit_iter = self.config_prep['submit_iter']
@@ -463,6 +518,13 @@ class Program:
                 f.write(f"echo 'Sleep {delay} sec " \
                         f"(wait for remaining batch-submits)' \n")
                 f.write(f"sleep {delay} \n")
+
+                if command_docker is not None:
+                    f.write(f"echo ' ' \n")
+                    f.write(f"echo 'Setup SNANA for docker' \n")
+                    SNANA_SETUP_COMMAND = \
+                        self.config_prep[ENV_SNANA_SETUP_COMMAND]
+                    f.write(f"{SNANA_SETUP_COMMAND}\n")
 
                 f.write(f"echo ' ' \n")
 
@@ -615,9 +677,12 @@ class Program:
         # with job-specific info.
         # Note that lower-case xxx_file has no path; 
         # upper case XXX_FILE includes full path
+        #
+        # Apr 12 2022: check for docker command (e.g., 'shifter')
 
         BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
         script_dir       = self.config_prep['script_dir']
+        command_docker   = self.config_prep['command_docker']
         replace_memory   = self.config_prep['memory']
         replace_walltime = self.config_prep['walltime']
         replace_cpus_per_task = self.config_prep['nthreads'] # 08/apr/2022
@@ -630,7 +695,9 @@ class Program:
         # nothing to change for log file
         replace_log_file   = log_file  
 
-        replace_job_cmd = f"cd {script_dir} \nsh {command_file}"
+        sh = 'sh'
+        if command_docker is not None: sh = f"{command_docker} sh"
+        replace_job_cmd = f"cd {script_dir} \n{sh} {command_file}"
 
         # Jan 6 2021: add few more replace keys that can be modified
         # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)

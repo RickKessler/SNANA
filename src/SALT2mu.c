@@ -21301,6 +21301,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // only for sim-data, so doesn't take much extra memory if a few
   // duplicate colummns are read.
   //
+  // Apr 18 2022: set better abort trap for NVAR_ALL
 
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
@@ -21389,6 +21390,20 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 
   if ( ivar_ebv_tmp >= 0 ) {
+    int NVAR_ADD = 2;
+    if ( NVAR_ALL > MXVAR_GENPDF-NVAR_ADD ) {
+
+      print_preAbort_banner(fnam);
+      for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
+	printf("\t Host var[%2d] = %s\n", ivar, ptrVarAll[ivar]);
+	fflush(stdout);
+      }
+      sprintf(c1err,"Cannot add %s and %s because", 
+	      VARNAME_SIM_AV, VARNAME_SIM_RV);
+      sprintf(c2err,"NVAR_ALL+%d=%d and MXVAR_GENPDF=%d",
+	      NVAR_ADD, NVAR_ALL+NVAR_ADD, MXVAR_GENPDF);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);      
+    }
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_AV); NVAR_ALL++ ;
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_RV); NVAR_ALL++ ;
   }

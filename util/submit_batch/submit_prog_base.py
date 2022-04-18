@@ -216,6 +216,8 @@ class Program:
         msgerr        = []
         config_prep['nodelist']       = ''
         config_prep['batch_command']  = ''
+        config_prep['command_docker']        = None
+        config_prep[ENV_SNANA_SETUP_COMMAND] = None
 
         CONFIG = config_yaml['CONFIG']
 

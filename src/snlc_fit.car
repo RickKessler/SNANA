@@ -1141,13 +1141,6 @@ c
 c One time initialize BEFORE fitting and USRANA begins.
 c
 c
-c Sep 17 2016: set cuts on fitted cov; see FITWIN_FITCOV
-c
-c Mar 10 2017: set CUTWIN_FITERRz1 to cut on sigma(fitPar)/(1+z)
-c
-c Feb 1 2018: call ABORT_ON_CUTWIN_TREST only if OPT_PHOTO==1.
-c             Not needed for OPT_PHOTOZ=2.
-c
 c Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
 c 
 c Aug 2 2019: pass full model name (including path) to INIT_GENMAG_SNOOPY,
@@ -1677,7 +1670,6 @@ c check for file with interpolated MAGS at specified MJDs.
          CALL DMP_SNMJD_INTERP(0,0)
       ENDIF
 
-
 c check for option to compuare Zmax/Vmax
       CALL VMAX_INI()
 
@@ -1734,7 +1726,7 @@ c not yet been filled.
         if (INISTP_DLMAG  .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
 
       IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
-         CALL TABLE_SNFIT(0)
+         CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_INI) 
       ENDIF
 
       IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
@@ -2462,7 +2454,7 @@ c check for NN-analysis (Apr 2014) after CDTOPDIR_OUTPUT
 c check tables to fill
       IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
           CALL PREP_FITRES_TABLEVAR()
-          CALL TABLE_SNFIT(isn)
+          CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
       ENDIF
 
       IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
@@ -18396,36 +18388,43 @@ c routines need to create fitres table and NN table
 
 C ========================================
 +DECK,TABLE_SNFIT.
-      SUBROUTINE TABLE_SNFIT(isn)
+      SUBROUTINE TABLE_SNFIT(ID,IFLAG)
 
 C Created Feb 1, 2013
 C Book and load table.
 c
+c ID    = table identifier
+c IFLAG = IFLAG_INI or IFLAG_ANA
+c
+c
+c     HISTORY
 c July 19 2016: call TABLE_STRING_TERMINATION(+1/-1)
 c               to protect strings for ROOT.
 c
+c Apr 18 2022: pass ID and IFLAG args
 c -----------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER isn  ! (I) SN index
+      INTEGER ID, IFLAG
 
 c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
 
-      INTEGER ID, i, LENNAME, LENFMT
+      INTEGER i, LENNAME, LENFMT
       CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+      LOGICAL CREATE_FILE
 
 c ----------------- BEGIN ------------------------
       
-      ID = IDTABLE_FITRES
+cc xxxx      ID = IDTABLE_FITRES
 
 c ----------------------------------
-
-      IF ( ISN .EQ. 0 ) THEN
-
+      
+      IF ( IFLAG == IFLAG_INI ) THEN
+         
          NAME    = 'FITRES' // char(0)
          LENNAME  = INDEX(NAME,   ' ') - 1
 
@@ -18435,32 +18434,34 @@ c ----------------------------------
 
          CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
 
-         CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
-         CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
+           CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
+           CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
 
-c optional epoch-dependent par
-        IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
-           CALL INIT_TABLE_SNFITEP(ID, 'SNFITEP')
-        ENDIF
+c         optional epoch-dependent par
+          IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
+             CALL INIT_TABLE_SNFITEP(ID, 'SNFITEP')
+          ENDIF
 
-c for sims ...
-        IF ( LSIM_SNANA ) THEN
-           CALL INIT_TABLE_SIMVAR(ID, 'SIMVAR')
-        ENDIF
+c       for sims ...
+          IF ( LSIM_SNANA ) THEN
+            CALL INIT_TABLE_SIMVAR(ID, 'SIMVAR')
+          ENDIF
 
         RETURN
       ENDIF
 
-
 c ------------------------------------
 c  fill table
 
+      IF ( IFLAG == IFLAG_ANA ) THEN
+
 c   terminate strings for C table-functions (snana.car routine)
-      CALL TABLE_STRING_TERMINATION(+1)
+        CALL TABLE_STRING_TERMINATION(+1)
 
-      CALL SNTABLE_FILL(ID)  ! generic C function
+        CALL SNTABLE_FILL(ID)  ! generic C function
 
-      CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+        CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+      END IF
 
 c ------------------------------------
 

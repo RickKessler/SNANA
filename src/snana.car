@@ -9522,8 +9522,6 @@ c
 
 c ----------------- BEGIN -------------
 
-c      CALL PRINT_SNSTATS
-
 c -----------------------------
 
 +SELF,IF=SNFIT.
@@ -9550,6 +9548,10 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
       ENDIF
 
       IF ( USE_TABLEFILE_TEXT ) THEN  ! April 2019
+
+c Apr 18 2022: if no events were processed then there are no text files.      
+c      In this case, create blank text-table file for each table
+         IF ( N_SNLC_PROC == 0 ) CALL SNTABLE_CREATE_TEXT_EMPTY()
          CALL TABLEFILE_CLOSE("NULL"//char(0),10)
       ENDIF
 
@@ -9587,6 +9589,77 @@ c - - - - - -
 
       RETURN
       END    ! end of SNANA_END
+
+
+C ======================================
++DECK,SNTABLE_CREATE_EMPTY.
+      SUBROUTINE SNTABLE_CREATE_TEXT_EMPTY()
+c
+c Created Apr 18 2022 by R.Kessler
+c Goofy routine called at end of job if no events have been read;
+c create empty TEXT table so that submit_batch_jobs finds all of
+c the expected TEXT-table files. The underlying problem is that
+c TEXT table file is not created until after 1st event is read ...
+c so if there is no 1st event then there is no text table file.
+c For ROOT and HBOOK, the file is created regardless of 1st event
+c because these table formats hold multiple tables in one file.
+c --------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SNANAFIT.
+
+      INTEGER NTABLE_CHECK
+      PARAMETER (NTABLE_CHECK = 2)
+      INTEGER 
+     &   ITABLE_LIST(NTABLE_CHECK)
+     &  ,IDTABLE_LIST(NTABLE_CHECK)
+     &  ,itab, ITABLE, IDTABLE, LENNAM, LENFMT
+      CHARACTER 
+     &    TBNAME_LIST(NTABLE_CHECK)*40
+     &   ,TBNAME*40, TXTFMT*20
+     &   ,cTBNAME*40, cTXTFMT*20
+
+      EXTERNAL SNTABLE_CREATE_TEXT
+
+c --------- BEGIN ----------
+
+      write(6,20)
+20    format(/,T3,'No events read -> create empty text-table file:')
+      call flush(6)
+
+c hard-wire list of table info to check
+
+      ITABLE_LIST(1)  = ITABLE_SNANA
+      ITABLE_LIST(2)  = ITABLE_FITRES
+
+      IDTABLE_LIST(1) = IDTABLE_SNANA
+      IDTABLE_LIST(2) = IDTABLE_FITRES
+
+      TBNAME_LIST(1)  = 'SNANA'
+      TBNAME_LIST(2)  = 'FITRES'
+
+c - - - - - -
+      DO 100 itab =1, NTABLE_CHECK
+        ITABLE  = ITABLE_LIST(itab) 
+	IDTABLE = IDTABLE_LIST(itab)
+	TBNAME  = TBNAME_LIST(itab)
+        TXTFMT  = 'key'
+
+        IF ( OPT_TABLE(ITABLE) > 0 ) THEN
+ 	  LENNAM  = INDEX(TBNAME,' ') - 1
+          LENFMT  = INDEX(TXTFMT,' ') -1
+          cTBNAME = TBNAME(1:LENNAM) // char(0)
+	  cTXTFMT = TXTFMT(1:LENFMT) // char(0)
+          CALL SNTABLE_CREATE_TEXT(IDTABLE, cTBNAME, cTXTFMT, 40,20)
+        ENDIF
+100   CONTINUE
+
+c .xyz
+
+      RETURN
+      END
 
 C ======================================
 +DECK,FORCLOSE.

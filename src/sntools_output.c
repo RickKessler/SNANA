@@ -509,7 +509,7 @@ void TABLEFILE_CLOSE(char *FILENAME) {
   char fnam[] = "TABLEFILE_CLOSE" ;
 
   // --------------- BEGIN ---------------
-  
+
   // get open & type info for FILENAME by string-matching to 
   // store list of opened files.
 

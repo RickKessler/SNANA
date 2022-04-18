@@ -20984,4 +20984,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    genmag_SALT2.h
      + MXBIN_VAR_SALT2 -> 200k (was 120k) for IR modeling.
 
+   snana.car
+     + if no events are read, create empty table text-files so that
+       submit_batch does not hang.
+
 END: 

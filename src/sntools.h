@@ -216,7 +216,7 @@ char c2err[200];   // for kcorerr utility
 char BANNER[200];
 int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
-#define MXARGV 100
+#define MXARGV 200  // 100->200 Apr 18 2022
 int  NARGV_LIST;
 char *ARGV_LIST[MXARGV];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.

@@ -20971,6 +20971,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        GENPDF_FILE passed as command-line arg;
         https://github.com/RickKessler/SNANA/issues/864
      + write TIME_START to output README
+     + MXARGV -> 200 (was 100) to allow for many SIMGEN_DUMP args
+     + change SEV_WARN to SEV_FATAL of NARG > MXARGV
 
    sntools_sim_readme.c
      + write TIME_START

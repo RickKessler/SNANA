@@ -442,7 +442,7 @@ void init_commandLine_simargs(int argc, char **argv) {
       sprintf(c1err,"%d command line args exceeds MXARGV=%d", 
 	      NARGV_LIST, MXARGV);
       sprintf(c2err,"Either reduce number of args, or increase MXARGV");
-      errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     for ( i = 0; i < NARGV_LIST ; i++ ) {

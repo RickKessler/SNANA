@@ -12866,6 +12866,7 @@ The {\tt snana.exe} program can create such a
 \simlib\ via the {\tt \&SNLCINP} input key(s)
 %
 \begin{verbatim}
+ &SNLCINP
     SIMLIB_OUT = 'mydata.simlib'
 
   ! for sims, or fake data with SIM_MAGOBS :
@@ -12880,6 +12881,12 @@ The {\tt snana.exe} program can create such a
    HEADER_OVERRIDE_FILE = '[fileName with c and x1 colums]'
 \end{verbatim}
 %
+and the {\tt NOFILE} feature can be used, e.g.,
+\begin{verbatim}
+   snana.exe NOFILE VERSION_PHOTOMETRY [version] SIMLIB_OUT mydata.simlib
+\end{verbatim}
+
+
 If the light curve data include meta data (PSF,SKY,ZP)
 for each epoch, these values are written out to the \simlib.
 If the meta data are not available (e.g., low-z samples),

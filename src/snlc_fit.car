@@ -7259,8 +7259,11 @@ c depending on type of fit.
 
 c dump namelist to std out
 
-      WRITE ( 6 , NML = FITINP )
-      CALL FLUSH(6)
+      IF ( JOBSPLIT(1) < 2 ) THEN
+        WRITE ( 6 , NML = FITINP )
+        CALL FLUSH(6)
+      ENDIF
+
       RETURN
 
 c ---------------------------------------------------

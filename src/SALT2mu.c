@@ -39,6 +39,8 @@ cid_select_file=<file with CID 'accept-only' list
 cid_reject_file=<file with CID reject list 
       (FITRES or unkeyed format)>
 
+izbin_from_cid_file=1 ! use izbin in cid_selecr_file
+
 uzsim=1                  ! cheat and use true zCMB for redshift
 
 sigint_fix=0.11            ! fix sigint=0.11 for all data
@@ -1004,6 +1006,8 @@ with append_varname_missing,
     + new input dchi2red_dsigint to specify slope so that fewer
       fit-iterations are needed.
 
+ Apr 18 2022: new input izbin_from_cid_file=1 (same as debug_flag=401)
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1734,7 +1738,8 @@ struct INPUTS {
   // CID select or reject for data only (data can be real or sim)
   int   ncidFile_data;  // number of cid-select files in comma-sep list
   char  **cidFile_data ; // list of cidFiles
-  
+  int   izbin_from_cidFile;
+
   int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
   bool  match_on_cid_idsurvey, match_on_cid_only ; 
@@ -5542,6 +5547,7 @@ void set_defaults(void) {
   INPUTS.ncidFile_data   = 0;
   INPUTS.ncidList_data   = 0;
   INPUTS.acceptFlag_cidFile_data = 0 ;
+  INPUTS.izbin_from_cidFile = 0;
 
   INPUTS.nmax_tot = 999888777 ;
   for(isurvey=0; isurvey<MXIDSURVEY; isurvey++ ) 
@@ -16411,6 +16417,9 @@ int ppar(char* item) {
     INPUTS.acceptFlag_cidFile_data = +1;   return(1); 
   }
 
+  if ( uniqueOverlap(item,"izbin_from_cid_file=") ) 
+    { sscanf(&item[19], "%d", &INPUTS.izbin_from_cidFile );  return(1); } 
+
   if ( uniqueOverlap(item,"cid_reject_file=") ) {
     parse_commaSepList("CID_REJECT_FILE", &item[16], 6, MXCHAR_FILENAME, 
 		       &INPUTS.ncidFile_data, &INPUTS.cidFile_data );
@@ -16584,8 +16593,10 @@ int ppar(char* item) {
     { sscanf(&item[23],"%d", &INPUTS.restore_mucovscale_bug); return(1); }
   if ( uniqueOverlap(item,"restore_mucovadd_bug="))
     { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
+
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
+    if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
     return(1); 
   }
 
@@ -16723,15 +16734,16 @@ void parse_cidFile_data(int OPT, char *fileName) {
   char id_name[20], CCID[MXCHAR_CCID], CVAL[12] ;
   char fnam[] = "parse_cidFile_data" ;
 
-  bool REFAC = ( INPUTS.debug_flag==401 ); // 4.01.2022
+  int use_izbin = INPUTS.izbin_from_cidFile ;
+  // xxxx  bool REFAC = ( INPUTS.debug_flag==401 ); // 4.01.2022
   // ------------- BEGIN ------------
 
   // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
-  if ( REFAC ) { OPTMASK_MATCH += 64; }
+  if ( use_izbin ) { OPTMASK_MATCH += 64; }
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
 
   // Apr 3 2022: if IZBIN exists in cid table, store it for later use.
-  if ( REFAC ) {
+  if ( use_izbin ) {
     IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
 
     if ( IVAR_IZBIN > 0 ) {
@@ -16747,7 +16759,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
       }    
     } // end IVAR_IZBIN>0
 
-  } // end REFAC
+  } // end use_izbin
 
   // - - - - - - - - 
   // D.Brout Jun 2021
@@ -18236,7 +18248,7 @@ void prep_input_driver(void) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
     OPTMASK = 0;
-    if ( INPUTS.debug_flag==401 ) { OPTMASK += 64; }
+    if ( INPUTS.izbin_from_cidFile ) { OPTMASK += 64; }
 
     match_cidlist_init("", &OPTMASK);    // init hash table 
     for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ )  { 

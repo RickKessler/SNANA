@@ -7730,7 +7730,6 @@ void init_simvar(void) {
   set_GENMODEL_NAME();
 
   init_GaussIntegral();
-  // xxx mark   ENVreplace("init", fnam, 1);
 
   GENLC.STOPGEN_FLAG = 0 ;
   GENLC.ACCEPTFLAG   = GENLC.ACCEPTFLAG_LAST = 0 ;

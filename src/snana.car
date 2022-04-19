@@ -5926,7 +5926,7 @@ c default is to reject nothing (accept everything)
       USE_MINOS      = .FALSE.  ! change from T to F, Jan 27 2017
 
       MXLC_FIT         = 999888777 
-      MXLC_PLOT        = 100
+      MXLC_PLOT        = 5    ! 100->5  (Apr 19 2022)
       NCCID_PLOT       = 0
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
  

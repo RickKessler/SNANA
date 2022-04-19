@@ -3530,13 +3530,6 @@ double GaussIntegral(double nsig1, double nsig2) {
     SUM   = xsign2*GINT2 - xsign1*GINT1;
   }
 
-  /*
-    if ( xsign1 > 0.0 && xsign2 > 0.0 ) {
-    printf(" xxx SUM2/SUM = %f/%f = %f \n",
-    SUM2, SUM, SUM2/SUM ); 
-    debugexit(fnam); // xxxx
-    }*/
-
   return(SUM) ;
 
 } // end GaussIntegral

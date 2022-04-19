@@ -4211,13 +4211,17 @@ viewed with the grep-command
 \item {\tt MSKOPT} += 1024~: detailed screen dump
         for each event (for small tests only)
 %
+\item {\tt MSKOPT} += 32768~: force Gaussian PDF (debug test) for quantiles with
+        mean,sigma = {\tt ZPHOT,ZPHOTERR}. Overwrite quantile values in 
+        {\tt HOSTLIB}, or force 10 quantile redshifts.
+%
 \end{itemize}
 %
 Options can be combined, such as {\tt HOSTLIB\_MSKOPT}=10
 will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
 
-% ------------------------------------                                                                                                                       %\clearpage                                                                                                                                                   
+% ------------------------------------ 
 \subsubsection{Hostgal properties}
 \label{sss:hostgal_properties}
 In the {\tt HOSTLIB} columns you can define true, observed, and error 

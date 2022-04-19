@@ -20988,4 +20988,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + if no events are read, create empty table text-files so that
        submit_batch does not hang.
 
+   steps to reduce wasteful/large output:
+     + default MXLC_PLOT=5 (instead of 100) in &SNLCINP namelist for LC fitting.
+
 END: 

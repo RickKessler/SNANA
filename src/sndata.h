@@ -384,6 +384,7 @@ struct SNDATA {
   float SIM_HOSTLIB_PARVAL[MXVAR_HOSTGAL][MXHOSTGAL];      // host param values per neighbor
 
   long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
+  //  float     SIM_HOSTLIB_DDLR  ; // true DDLR
 
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model

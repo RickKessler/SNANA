@@ -216,6 +216,9 @@ void INIT_HOSTLIB(void) {
   // read optional EFF(zPHOT) vs. ZTRUE (Aug 2015)
   init_HOSTLIB_ZPHOTEFF();
 
+  // check for zphot quantiles (Apr 2022)
+  init_HOSTLIB_ZPHOT_QUANTILE();
+
   // prepare integral tables for Sersic profile(s).
   init_Sersic_VARNAMES();
   init_Sersic_HOSTLIB();
@@ -565,7 +568,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   }
   for (j=0; j < MXBIN_ZPHOT_Q; j++){
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);    // index 
+    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);  // index 
   }
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
@@ -3817,6 +3820,110 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID) {
   return(snmagshift);
 
 } // end snmagshift_salt2gamma_HOSTLIB
+
+
+// =======================================
+void init_HOSTLIB_ZPHOT_QUANTILE(void) {
+
+  // Created Apr 19 2022 by R.Kess;er
+  // For nominal usage of zphot quantiles in HOSTLIB, this function
+  // only prints information to stdout.
+  // If force-Gauss option is set, this function initializes
+  // Gaussian integrals at percentile values.
+
+  int  N_Q        = HOSTLIB.NZPHOT_Q ;
+  int  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
+  int  q, qbin, percentile;
+  char fnam[] = "init_HOSTLIB_ZPHOT_QUANTILE" ;
+
+  // ------------ BEGIN ------------
+
+  // if Gaussian quantile is requested without any quantiles in the
+  // HOSTLIB, force 10 quantiles.
+  if ( USE_QGAUSS && N_Q == 0 ) {
+    N_Q = HOSTLIB.NZPHOT_Q = 10;
+    qbin = 100/N_Q;
+    for(q=0; q<N_Q; q++ ) {
+      percentile = (q+1) * qbin; // skip 0 percentile
+      if ( percentile == 100 ) { percentile = 99; }
+      HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
+    }
+  }
+
+  if ( N_Q == 0 ) { return; }
+
+  // check option to force Gaussian quantiles using Gaussian defined by
+  // mean=ZPHOT and sigma=ZPHOT_ERR. Here define quantile values for 
+  // unit Gaussian
+
+  // .xyz
+  if ( USE_QGAUSS ) {
+    printf("\t Force %d Gaussian quantiles\n", N_Q ); fflush(stdout);
+
+    int IVAR_ZPHOT     = HOSTLIB.IVAR_ZPHOT;
+    int IVAR_ZPHOT_ERR = HOSTLIB.IVAR_ZPHOT_ERR;
+    if ( IVAR_ZPHOT < 0 || IVAR_ZPHOT_ERR < 0 ) {
+      sprintf(c1err,"Cannot compute forced Gaussian quantiles with");
+      sprintf(c2err,"IVAR_ZPHOT=%d and IVAR_ZPHOT_ERR=%d",
+	      IVAR_ZPHOT, IVAR_ZPHOT_ERR);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+    }
+
+    double *xsig_store = (double*)malloc( sizeof(double) * N_Q ) ;
+    double *xdif_store = (double*)malloc( sizeof(double) * N_Q ) ;
+    double xsigmin = -6.0, xsigmax=6.0, xsigstep=0.001, xsig, xdif ;
+    double gint, gint_target;
+
+    for (q=0; q < N_Q; q++ )  { xdif_store[q] = xsig_store[q] = 999.0; }
+
+    for(xsig=xsigmin; xsig < xsigmax; xsig += xsigstep) {
+      gint = GaussIntegral(xsigmin,xsig);
+
+      //  printf(" xxx %s: xsig = %8.5f, gint = %8.5f \n", fnam, xsig, gint);
+      for ( q=0; q < N_Q; q++ ) {
+	gint_target =  (double)HOSTLIB.PERCENTILE_ZPHOT_Q[q]/100.0 ;
+	xdif = fabs(gint - gint_target);
+	if ( xdif < xdif_store[q] ) {
+	  xdif_store[q] = xdif ;
+	  xsig_store[q] = xsig ;
+	}
+      }
+    } // end xsig loop
+
+    // store Nsigma values in global struct.
+    for ( q=0; q < N_Q; q++ ) { HOSTLIB.SIGMA_QGAUSS[q] = xsig_store[q]; }
+
+    int LDMP_QGAUSS = 0 ;
+    if ( LDMP_QGAUSS ) {
+      for ( q=0; q < N_Q; q++ ) {
+	percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q];
+	xsig       = xsig_store[q];
+	gint = GaussIntegral(xsigmin,xsig);
+	printf(" xxxx Gauss percentile =%3d -> NSIGMA = %8.5f  "
+	       "(exact GaussInt=%6.4f)\n", 
+	       percentile, xsig, gint); fflush(stdout);
+      }
+      debugexit(fnam);
+    }
+
+  }  // end USE_QGAUSS
+
+
+  // list zphot quantiles
+  char STRING_Q[200], str_q[40];
+  sprintf(STRING_Q,"ZPHOT_QUANTILES: ");
+  for(q=0; q<N_Q; q++ ) {
+    percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q] ;
+    sprintf(str_q,"%d ", percentile);
+    strcat(STRING_Q, str_q);
+  }
+
+  printf("\t %s\n", STRING_Q);
+  fflush(stdout);
+
+  return;
+
+} // init_HOSTLIB_ZPHOT_QUANTILE
 
 // =======================================
 void init_HOSTLIB_ZPHOTEFF(void) {
@@ -7193,18 +7300,20 @@ void SORT_SNHOST_byDDLR(void) {
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
   bool LSN2GAL_RADEC    = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  int  USE_QGAUSS      =  (MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS);
   int  NNBR             = SNHOSTGAL.NNBR ;
   int  IVAR_RA          = HOSTLIB.IVAR_RA;
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
   int  IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
+  int  IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
   int  ORDER_SORT       = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
-  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, j ,ivar;
+  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, q ,ivar, IVAR_Q;
   int  NNBR_DDLRCUT = 0 ;
-  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
+  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL, zq ;
   double DMUCOR = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
@@ -7292,15 +7401,11 @@ void SORT_SNHOST_byDDLR(void) {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
     }
     
-    int IVAR_Q0 = HOSTLIB.IVAR_ZPHOT_Q0;
-    if ( IVAR_Q0 > 0 ) {
-      for (j = 0; j < HOSTLIB.NZPHOT_Q; j++){
-	int IVAR_Q = IVAR_Q0 + j;
-	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
-
-	//shift ZQP parameters based on the redshift of the galaxy
-	//(which has been moved to the redshift of the transient)
-	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] += SNHOSTGAL.ZDIF;
+    // - - - - - - -
+    if ( IVAR_Q0 > 0 || USE_QGAUSS ) {
+      for (q = 0; q < HOSTLIB.NZPHOT_Q; q++) {
+	zq = GEN_SNHOST_ZPHOT_QUANTILE(IGAL,q);
+	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[q] = zq; 
       }
     }
 
@@ -7376,6 +7481,53 @@ void SORT_SNHOST_byDDLR(void) {
   return ;
 
 } // SORT_SNHOST_byDDLR
+
+// ==========================================
+double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
+
+  // Created Apr 19 2022
+  // For sparse zphot-quantile index q, return zPHOT value.
+  // Default method is to return value from HOSTLIB.
+  // If HOSTLIB_MSKOPT_ZPHOT_QGAUSS bit of HOSTLIB_MSKOPT is set,
+  // then compute quantile from Gaussian using sigma=ZPHOT_ERR .
+
+  int   USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
+  int   IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
+  int   IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
+  int   IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
+  int   IVAR_Q;
+  double ZPHOT, ZPHOT_ERR, SIGMA_QGAUSS;
+  double zq = 0.0 ;
+  char fnam[] = "GEN_SNHOST_ZPHOT_QUANTILE";
+
+  // ------ BEGIN -------
+
+  if ( USE_QGAUSS ) {
+    // test feature to use Gauss approx 
+
+    ZPHOT     = get_VALUE_HOSTLIB(IVAR_ZPHOT,    IGAL);
+    ZPHOT_ERR = get_VALUE_HOSTLIB(IVAR_ZPHOT_ERR,IGAL);
+
+    SIGMA_QGAUSS = HOSTLIB.SIGMA_QGAUSS[q]; // Nsigma from mean at this quantile
+    zq           = ZPHOT + ZPHOT_ERR * SIGMA_QGAUSS;
+
+    /* 
+    printf(" xxx %s: q=%d SIGMA_QGAUSS=%.4f  ZPHOT=%.3f +_ %.3f  zq=%.3f \n",
+	   fnam, q, SIGMA_QGAUSS, ZPHOT, ZPHOT_ERR, zq); fflush(stdout);
+    //    debugexit(fnam);
+    */
+  } 
+  else {
+    // default quantiles from HOSTLIB
+    IVAR_Q = IVAR_Q0 + q;
+    zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
+  }
+
+  zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
+
+  return zq;
+
+} // end GEN_SNHOST_ZPHOT_QUANTILE
 
 // ================================= 
 void set_GALID_UNIQUE(int i){

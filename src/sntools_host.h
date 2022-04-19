@@ -62,6 +62,7 @@
 #define HOSTLIB_MSKOPT_APPEND     4096  // append columns from file
 #define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & write host mags from host spectra
 #define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
+#define HOSTLIB_MSKOPT_ZPHOT_QGAUSS 32768  // write Gauss quantiles for zPHOT
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
@@ -274,6 +275,7 @@ struct HOSTLIB_DEF {
   char filterList[MXFILTINDX]; // filter list for gal-mag
   char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
   int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
+  double SIGMA_QGAUSS[MXBIN_ZPHOTEFF];   // for forced Gauss quantiles
 
   // redshift information
   double ZMIN,ZMAX ;         // helio
@@ -661,6 +663,7 @@ void   reset_SNHOSTGAL_DDLR_SORT(int MAXNBR);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
+double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
@@ -710,10 +713,10 @@ void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
 void   init_HOSTLIB_ZPHOTEFF(void);
+void   init_HOSTLIB_ZPHOT_QUANTILE(void);
 void   init_GALMAG_HOSTLIB(void);
 void   init_Gauss2d_Overlap(void);
 void   init_SAMEHOST(void);
-
 void   init_Sersic_VARNAMES(void);
 void   init_Sersic_HOSTLIB(void);
 void   init_Sersic_integrals(int j);

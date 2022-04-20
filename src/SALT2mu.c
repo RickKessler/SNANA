@@ -9652,11 +9652,14 @@ void prepare_biasCor(void) {
 
 
   int DUMPFLAG = 0 ;
+  int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
 
+  /* xxxx mark delete Apr 20 2022 xxxxxxxxxx
   // user input ndump_nobiasCor is number of noBiasCor events to dump;
   // however, dump at least 10 if user uses this input as a logic flag.
   int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
   if ( ndump_nobiasCor>0 && ndump_nobiasCor < 10 ) { ndump_nobiasCor=10; }
+  xxxxxxx end mark xxxxxx */
 
   for (n=0; n < NSN_DATA; ++n) {
 

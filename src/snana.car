@@ -6702,6 +6702,8 @@ c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
 c Jul 13 2020: no default SNTABLEs if writing rejected epochs
 c Mar 17 2021: begin OUTLIER table
 c Apr 25 2021: OUTLIER table is automatically disabled for large BIASCOR sim
+c Apr 19 2022: disable LCPLOT table for sims in batch mode
+c                (to avoid excessive output)
 c
 c -------------------
       IMPLICIT NONE
@@ -6717,7 +6719,7 @@ c -------------------
       CHARACTER USERSTRING*60, locase_STRING*60, TBNAME*60
       CHARACTER COPT_LIST(10)*20, COPT*40, FNAM*22, C_ARG*100
       CHARACTER cTMPOPT*60
-      LOGICAL   MATCH, USEOPT, DO_SNTABLE
+      LOGICAL   MATCH, USEOPT, DO_SNTABLE, DISABLE
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -6855,9 +6857,15 @@ c           OUTLIER table is automatically disabled for large BIASCOR sim
               SBMAGCUT_OUTLIER  = 999.  ! default is no SBMAG cut (Aug 2021)
             endif
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
-            ITAB = ITABLE_SNLCPAK
-            OPT_TABLE(ITAB) = 1
-
+            DISABLE = ( ISJOB_BATCH .and. ISJOB_SIM ) 
+            IF ( DISABLE ) THEN
+	       print*,
+     &           '  WARNING: disable LCPLOT table for sim-data in batch'
+	       call flush(6)
+            ELSE
+               ITAB = ITABLE_SNLCPAK
+               OPT_TABLE(ITAB) = 1
+            ENDIF
          else if ( TBname(1:8) .EQ. 'specplot' ) then  
             ITAB = ITABLE_SPECPAK  ! spectra in the data files
             OPT_TABLE(ITAB) = 1
@@ -9655,8 +9663,6 @@ c - - - - - -
           CALL SNTABLE_CREATE_TEXT(IDTABLE, cTBNAME, cTXTFMT, 40,20)
         ENDIF
 100   CONTINUE
-
-c .xyz
 
       RETURN
       END
@@ -22960,7 +22966,7 @@ c   terminate strings for C table-functions (snana.car routine)
            if ( ISJOB_SNANA ) then
               NSIG   = abs(SIM_EPPULL(ep))
               FTRUE  = SIM_EPFLUXCAL(ep)
-              SBMAG  = SNHOST_SBMAG(ifilt) ! Aug 2021 .xyz
+              SBMAG  = SNHOST_SBMAG(ifilt) 
            else
 +SELF,IF=SNFIT.
               NSIG   = NSIG_OUTLIER_FIT(ep)

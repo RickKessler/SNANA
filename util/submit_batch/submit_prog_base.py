@@ -290,7 +290,7 @@ class Program:
     def check_docker_image(self,sbatch_template):
         
         # Created Apr 12 2022
-        # check for docker image in sbatch-template file
+        # check for docker image key "--image" in sbatch-template file
 
         use_docker_image    = False
         ENV_HOST            = None
@@ -302,7 +302,6 @@ class Program:
         if "--image" in batch_lines:
             use_docker_image = True
 
-        
         # Beware hard-wired hack:
         # Since docker has security issues, labs develop their own implementation
         # of docker with a different name. The "docker_command_dict" below maps 
@@ -694,7 +693,7 @@ class Program:
         # upper case XXX_FILE includes full path
         #
         # Apr 12 2022: check for docker command (e.g., 'shifter')
-
+        
         BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
         script_dir       = self.config_prep['script_dir']
         command_docker   = self.config_prep['command_docker']
@@ -710,8 +709,11 @@ class Program:
         # nothing to change for log file
         replace_log_file   = log_file  
 
+        use_docker = (command_docker is not None)
+
         sh = 'sh'
-        if command_docker is not None: sh = f"{command_docker} sh"
+        if use_docker :  sh = f"{command_docker} sh"
+
         replace_job_cmd = f"cd {script_dir} \n{sh} {command_file}"
 
         # Jan 6 2021: add few more replace keys that can be modified
@@ -728,8 +730,19 @@ class Program:
             'REPLACE_JOB'           : replace_job_cmd,
             'REPLACE_WALLTIME'      : replace_walltime,
             'REPLACE_NTASK'         : replace_ntask,
-            'REPLACE_CPUS_PER_TASK'  : replace_cpus_per_task
+            'REPLACE_CPUS_PER_TASK'  : replace_cpus_per_task,
         }
+
+        if use_docker: 
+            ENV_name = ENV_SNANA_IMAGE_DOCKER
+            replace_image_docker = os.getenv(ENV_name,None)
+            if replace_image_docker is None:
+                msgerr = []
+                msgerr.append(f"Missing required ${ENV_name}")
+                msgerr.append(f"for --image argument in batch file.")
+                self.log_assert(False, msgerr)
+            REPLACE_KEY_DICT['REPLACE_IMAGE_DOCKER'] = replace_image_docker
+
         batch_lines = open(BATCH_TEMPLATE,'r').read()
         for KEY,VALUE in REPLACE_KEY_DICT.items():
             batch_lines = batch_lines.replace(KEY,str(VALUE))

@@ -1513,6 +1513,7 @@ class LightCurveFit(Program):
         cddir = f"cd {script_dir}"
         cmd1  = f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} "\
                 f"-outfile_text {out_file} " \
+                f"t " \
                 f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
                 f">& {log_file} " 
         cmd2  = f"mv {out_file} {orig_file}"

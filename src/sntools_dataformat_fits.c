@@ -4452,7 +4452,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   long NCOLUMN, NCOLUMN_USE ;
   int  istat, icol, iform, npar, ncol ;
-  int  LDMP = 1 ;
+  int  LPRINT_UPDATE = (ifile == 0 ) ; // Apr 2022
   bool IS_KEYSIM ;
   fitsfile *fp ;
 
@@ -4468,7 +4468,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
   
-  if ( LDMP ) { 
+  if ( LPRINT_UPDATE ) { 
     ncol = (int)NCOLUMN ;
     printf("   %s contains %d columns. \n", 
 	   rd_snfitsFile[ifile][itype], ncol );
@@ -4511,7 +4511,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][npar]    = icol ;
     RD_SNFITSIO_TABLEVAL[itype].IPARINV[iform][icol] = npar ;
 
-    if ( LDMP ) {
+    if ( LPRINT_UPDATE ) {
       printf("\t  Found %s-Param[%2d] = %s (form = %s)\n"
 	     ,snfitsType[itype], icol
 	     ,RD_SNFITSIO_TABLEDEF[itype].name[icol]

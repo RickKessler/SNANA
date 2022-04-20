@@ -116,7 +116,7 @@ c
      &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
-     &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
+     &  ,NFIT_VERBOSE  = 20         ! Number of fits for verbose printouts
      &  ,MXSNLC        = 5000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
@@ -427,6 +427,7 @@ c
      &  ,ISJOB_PSNID
      &  ,ISJOB_SIM    ! either SNANA sim or fakes (LSIM_SNANA or LSIM_MAGOBS)
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
+     &  ,REDUCE_STDOUT_BATCH   ! T => suppress stdout for JOBSPLIT(1)>1
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
      &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
@@ -511,6 +512,7 @@ c global survey info
      &    ,SURVEY_FILTERS
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
      &    ,ISJOB_SNANA, ISJOB_SNFIT, ISJOB_PSNID, ISJOB_SIM, ISJOB_BATCH
+     &    ,REDUCE_STDOUT_BATCH
      &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
@@ -528,7 +530,7 @@ c global survey info
      &    ,ABSO_OFFSET, ABSO_INDEX
      &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
-     &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
+     &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
@@ -3476,10 +3478,10 @@ c transfer variables from C struct to fortran global variables
 
 c ---------------------------------------------------------------
 
-         call PRINT_RDSN()      ! print one-line summary
-
          IF ( ISTAT .EQ. 0 ) THEN
             N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
+            call PRINT_RDSN()      ! print one-line summary
+
             CALL SNANA_DRIVER(N_SNLC_PROC)
          ENDIF
 
@@ -6105,7 +6107,7 @@ c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       NFIT_ITERATION = 0
 +SELF.
 
-      IF ( JOBSPLIT(1) < 2 ) THEN
+      IF ( .not. REDUCE_STDOUT_BATCH ) THEN
         WRITE ( 6 , NML = SNLCINP )
         CALL FLUSH(6)
       ENDIF
@@ -7668,6 +7670,8 @@ c - - - -
            READ(ARGLIST(1),*) JOBSPLIT(1)
            READ(ARGLIST(2),*) JOBSPLIT(2)
            ISJOB_BATCH = .TRUE.
+           REDUCE_STDOUT_BATCH = ( JOBSPLIT(1) .GT. 1 )
+
          else if ( MATCH_NMLKEY('JOBSPLIT_EXTERNAL',
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) JOBSPLIT_EXTERNAL(1)
@@ -8779,10 +8783,11 @@ C ====================================
 +DECK,PRBANNER.
       SUBROUTINE PRBANNER ( banner )
       IMPLICIT NONE
-
++CDE,SNPAR.
++CDE,CTRLCOM.
       character banner*(*)
 
-      print*,' '
+      if ( .NOT. REDUCE_STDOUT_BATCH ) print*,' '
       print*,
      &   ' ######################################################## '
       print*,'   ', BANNER
@@ -8790,7 +8795,7 @@ C ====================================
       print*,
      &   ' ######################################################## '
 
-      print*,' '
+      if ( .NOT. REDUCE_STDOUT_BATCH ) print*,' '
       CALL FLUSH(6)
 
       RETURN
@@ -9188,14 +9193,6 @@ c Analysis driver for SN with sparse index ISN.
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
 c
-c Nov 29 2016: 
-c   + remove function call to PRIVATE_CHECK.
-c   + add call to EXEC_HEADER_OVERRIDE.
-c          
-c Dec 9 2017: 
-c   + call REJECT_PRESCALE() here so that we don't do Bazin/PEAKMJD fit
-c     for every prescale-rejected event.
-c
 c Jun 21 2018:
 c   if ERRFLAG_FIT > 0 on any iteraton, REJECT fit immediately
 c   See REJECT_FIT logical.
@@ -9342,13 +9339,13 @@ c do the fit
             GOTO 410          ! bad init => skip fit-iteration
           endif
 
-          write(6,43)
-          WRITE(6,44) ISN, SNLC_CCID(1:ISNLC_LENCCID), 
+          if ( STDOUT_UPDATE ) THEN
+            WRITE(GLOBAL_BANNER,44) ISN, SNLC_CCID(1:ISNLC_LENCCID), 
      &           NFITPAR_MN, ITER
-44        format(T5,'CALL MNFIT_DRIVER for ISN=',I5,
-     &         3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
-          write(6,43)
-43        FORMAT(/,T2, 60('#'), / )
+            CALL PRBANNER(GLOBAL_BANNER)
+44          format(T5,'CALL MNFIT_DRIVER for ISN=',I5,
+     &           3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
+          endif
 
 c call main driver for fitter. 
 c Note that all returned output from MNFIT_DRIVER goes to common blocks.
@@ -9395,9 +9392,12 @@ c check ERRFLAG_FIT
  
 410     CONTINUE  ! end of iteration loop
 
-        print*,'    Finished fitting CID = ', 
-     &               SNLC_CCID(1:ISNLC_LENCCID)
-        print*,' ' 
+        if ( STDOUT_UPDATE ) THEN
+          print*,'    Finished fitting CID = ',
+     &         SNLC_CCID(1:ISNLC_LENCCID)
+          print*,' ' 
+          call flush(6)
+        endif
 +SELF.
 
 +SELF,IF=PSNID.
@@ -13249,7 +13249,7 @@ c and skip down to over-write part.
 
         IGNORE = .TRUE.
 
-        IF ( STDOUT_UPDATE) THEN
+        IF ( STDOUT_UPDATE ) THEN
           write(6,101) CCID, MJD8, cfilt
         ENDIF
 101     format(T8,'IGNORE EPOCH FOR: CID=',A8, 
@@ -13855,27 +13855,41 @@ C ==================================
 +DECK,PRINT_RDSN.
       SUBROUTINE PRINT_RDSN()
 
-C print one-line summary of SN that has been read/parsed.
-C Apr 26, 2017: set STDOUT_UDPATE logical to suppress std output
-C               for BIG jobs.
+C Called before SNANA_DRIVER, print one-line summary of SN that has 
+c been read/parsed.
+C
+C Apr 19 2022: replace REJECT_PRESCALE with MOD function to have
+c              more predictable prints.
 C
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      REAL*8  PS_UPDATE
+      INTEGER N_UPDATE_PS1, N_UPDATE_PS10, PS_UPDATE
+c xxx      REAL*8  PS_UPDATE
       LOGICAL REJECT_PRESCALE  ! function
 C ------------- BEGIN -----------
 
 c determine STDOUT_UPDATE logical to dump info
 
-      IF ( N_SNLC_PROC <  200 ) THEN
-         PS_UPDATE = 1.0
+      N_UPDATE_PS1  = 50 ! update first 50 events
+      N_UPDATE_PS10 = 300
+      if ( REDUCE_STDOUT_BATCH ) then
+         N_UPDATE_PS1  = 5
+         N_UPDATE_PS10 = 100
+      endif
+
+      IF ( N_SNLC_PROC < N_UPDATE_PS1 ) THEN
+         PS_UPDATE = 1
+      ELSE IF ( N_SNLC_PROC < N_UPDATE_PS10 ) THEN
+         PS_UPDATE = 10
       ELSE
-         PS_UPDATE = 100.
+         PS_UPDATE = 100
       ENDIF
-      STDOUT_UPDATE = (.NOT. REJECT_PRESCALE(N_SNLC_PROC,PS_UPDATE) )
+
+c xxx mark del STDOUT_UPDATE = (.NOT. REJECT_PRESCALE(N_SNLC_PROC,PS_UPDATE) )
+      STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
 
       if ( .NOT. STDOUT_UPDATE ) RETURN
 
@@ -35317,7 +35331,10 @@ c check option to use MJD at max-flux or at TRIGGER
          ENDIF
 
          SNLC_SEARCH_PEAKMJD    = PKMJD
-         write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+         IF ( STDOUT_UPDATE ) then
+            write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+         ENDIF
+
          RETURN
       ENDIF
 
@@ -35484,8 +35501,9 @@ c Finally, take PKMJD-wgted average of remaining filters.
       PKMJD    = PKMJDAVG
 
       if ( STDOUT_UPDATE ) THEN
-        write(6,50) CCID(1:ISNLC_LENCCID), PKMJD,METHOD
+        write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
 50      format(T8,'SET_PEAKMJD(',A,') --> ', F9.3, 3x, A )
+        call flush(6)
       endif
 
 c -----------------------------------------------
@@ -36528,6 +36546,7 @@ c
 c May 21, 2012: set print level using SNLCINP namelist MINUIT_PRINT_LEVEL
 c
 c Jan 03 2016: pass new output arg MNSTAT_COV
+c Apr 19 2022: set DO_PRINT for printing to suppress STDOUT for batch jobs
 c
 c -------------------------------------------------
 
@@ -36556,6 +36575,7 @@ c arguments
 c local var
 
 +CDE,SNPAR.
++CDE,CTRLCOM.
 +CDE,SNCONTCM.
 
       EXTERNAL FCNSNLC, USRFUN
@@ -36577,7 +36597,7 @@ c local var
      &  ,FEDM, ERRDEF
      &  ,ERRSYM      ! local SYMMMETRIC fiterr
 
-      LOGICAL LFIX
+      LOGICAL LFIX, DO_PRINT
 
 C Unit numbers for input and output
 
@@ -36586,12 +36606,12 @@ C Unit numbers for input and output
       DATA IUOUT/6/
       DATA IUWRI/7/
 
-C
 C -------------------- BEGIN -------------------------
 
       IERR = 0
       NFIXPAR = 0
       FITCHI2 = 0.0
+      DO_PRINT = STDOUT_UPDATE
 C  
 C Initialize MINUIT, input unit, output unit, save unit
 C
@@ -36661,7 +36681,10 @@ C Set Strategy 2 for more accurate derivative calculation
 
       NARG = 1
       STRATEGY = DBLE(2.0)   ! 1=default,  2 => better results 
-      print*,'  Set MINUIT STRATEGY = ', int(STRATEGY)
+
+      IF ( DO_PRINT ) THEN
+        print*,'  Set MINUIT STRATEGY = ', int(STRATEGY)
+      ENDIF
 
 +SELF,IF=MINUIT.
       CALL MNEXCM(FCNSNLC,'SET STR', STRATEGY, NARG, IERR, USRFUN )
@@ -36670,34 +36693,37 @@ C Set Strategy 2 for more accurate derivative calculation
 
 C Actually do the fit
 
-      PRINT *,' '
-      PRINT *,' ------------------------------------------------ '
- 
+      IF ( DO_PRINT ) THEN
+        PRINT *,' '
+        PRINT *,' ------------------------------------------------ '
+      ENDIF
+
 +SELF,IF=MINUIT.
       IF ( USE_MINOS ) THEN
-        PRINT *,' '
-        PRINT *,'   MNFIT_DRIVER: fit with MINOS '
-          CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
-        PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
+        CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
+        IF ( DO_PRINT ) THEN
+          PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
+        ENDIF
       ELSE
-
-cc      PRINT *,'   MNFIT_DRIVER: begin fit with MIGRAD '
-cc      CALL MNEXCM(FCNSNLC, 'MIGRAD', MAXCALLS, NARG, IERR, USRFUN)
-
-        PRINT *,'   MNFIT_DRIVER: begin fit with MINIMIZE '
         CALL MNEXCM(FCNSNLC, 'MINIMIZE', MAXCALLS, 0, IERR, USRFUN)
-        PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
+        IF ( DO_PRINT ) THEN
+          PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
+        ENDIF
       ENDIF
 +SELF.
 
-      PRINT *,' ------------------------------------------------ '
+      IF ( DO_PRINT ) THEN
+         PRINT *,' ------------------------------------------------ '
+      ENDIF
 
 c -------------------------------------------
 c get the fit result
   
-      PRINT *,' ' 
-      PRINT *,'   MNFIT_DRIVER: extract fit parameters with MNPOUT' 
-      CALL FLUSH(6)
+      IF ( DO_PRINT ) THEN
+        PRINT *,' ' 
+        PRINT *,'   MNFIT_DRIVER: extract fit parameters with MNPOUT' 
+        CALL FLUSH(6)
+      ENDIF
 
       DO 44 IPAR = 1, NFITPAR
 
@@ -36771,12 +36797,14 @@ c Stop fit and make LAST call to function
 +SELF,IF=MINUIT.
       CALL MNEXCM(FCNSNLC, 'EXIT',  dble(0.0), 0, IERR, USRFUN )
 +SELF.
-      PRINT *,'  MNFIT_DRIVER: EXIT returns IERR = ', IERR
-      CALL FLUSH(6)
+      IF ( DO_PRINT ) THEN
+        PRINT *,'  MNFIT_DRIVER: EXIT returns IERR = ', IERR
+        CALL FLUSH(6)
+      ENDIF
 
 c ---------------------------------
       RETURN
-      END
+      END  ! end MNFIT_DRIVER
 
 C ===========================
 +DECK,MNFIT_STOREPAR.
@@ -37084,8 +37112,10 @@ c function
 
 C --------------- BEGIN -------------
 
-      LQUIET = ( N_SNLC_FIT >  NFIT_VERBOSE )
-      IF ( LQUIET .and. ITER < NFIT_ITERATION ) RETURN
+      LQUIET = .NOT. STDOUT_UPDATE
+
+c xxx mark      IF ( LQUIET .and. ITER < NFIT_ITERATION ) RETURN
+      IF ( LQUIET ) RETURN
       
       IF ( type .EQ. 'fit' ) then
         VAL = FITVAL(ipar,iter)

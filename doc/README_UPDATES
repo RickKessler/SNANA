@@ -20991,5 +20991,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    steps to reduce wasteful/large output:
      + default MXLC_PLOT=5 (instead of 100) in &SNLCINP namelist for LC fitting.
      + use STDOUT_UPDATE in many places; less printout if JOBSPLIT(1)>1
-     + new util remove_minuit_stdout.py
+     + new util remove_minuit_stdout.py used in CPU*.CMD files for snlc_fit.
+
 END: 

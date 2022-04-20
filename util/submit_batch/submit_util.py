@@ -925,9 +925,12 @@ def write_job_info(f,JOB_INFO,icpu):
     for arg in arg_list :  
         if arg != '' :
             f.write(f"   {arg} \\\n")
-
-    #f.write(f"   >  {log_file} \n" )  # write to stdout only
+        
     f.write(f"  &>  {log_file} \n" )   # write to stdout and stderr
+
+    # Apr 2022: for lcfit program, remove minuit stdout from log file
+    if PROGRAM_NAME_LCFIT in program:
+        f.write(f"remove_minuit_stdout.py {log_file}\n")
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")

@@ -20987,10 +20987,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snana.car
      + if no events are read, create empty table text-files so that
        submit_batch does not hang.
-
+     + include SBMAG table column if EITHER SBMAG or host-mag exists.
+       
    steps to reduce wasteful/large output:
      + default MXLC_PLOT=5 (instead of 100) in &SNLCINP namelist for LC fitting.
      + use STDOUT_UPDATE in many places; less printout if JOBSPLIT(1)>1
      + new util remove_minuit_stdout.py used in CPU*.CMD files for snlc_fit.
+
+    sntools_genSmear.c
+      + abort if lam-range in color_dispersion file does not cover
+        wave range in salt2_template file.
 
 END: 

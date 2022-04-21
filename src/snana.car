@@ -4429,6 +4429,13 @@ c i.e., do not depend on host-match.
             if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE. 
          ENDDO
 
+         KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
+         CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
+         DO ifilt = 1, NFILTDEF_READ
+            SB = SNHOST_SBFLUXCAL(ifilt)
+            if ( SB > -998.0 ) EXIST_SNHOST_SB = .TRUE.
+         ENDDO
+        
       ENDIF  ! end IGAL=1
 
 c - - - - - - - - 
@@ -23924,7 +23931,14 @@ c always write LOGMASS and SFR
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
-      IF ( EXIST_SNHOST_SB ) THEN    ! host surface brightness
+c Apr 2022
+c store host surface brightness if SB exists or host-mag exists.
+c The host-mag check is a safety feature in case SB is undefined.
+c E.g., DES event 1248110 has SBFLUX=-999 even though host mags are
+c all in the 21-22 range. Likely a subtle problem measuring SBFLUX
+c on the template image.
+
+      IF ( EXIST_SNHOST_SB .OR. EXIST_SNHOST_MAGOBS) THEN 
 c        HOST_SB -> HOST_SBFLUXCAL
         CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)

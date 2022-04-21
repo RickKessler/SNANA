@@ -1563,7 +1563,8 @@ class LightCurveFit(Program):
             f_list += f" XXX_FORCE_CORRUPT.{suffix}"
 
         cmd_merge       = f"{program_merge} {f_list} {out_table_file} "
-        cmd             = f"{cmd_merge} > {log_table_file}  "
+        # xxx mark cmd             = f"{cmd_merge} > {log_table_file}  "
+        cmd             = f"{cmd_merge} &> {log_table_file}  "
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
             os.system(f"{cddir}; {cmd}" )

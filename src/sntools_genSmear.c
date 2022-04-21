@@ -1230,8 +1230,9 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // Apr 2022
   // make sure that lam-range in salt2_color_dispersion.dat covers
-  // lam-range of SED template.
-  if ( MINLAM > SED_LAMMIN || MAXLAM < SED_LAMMAX ) {
+  // lam-range of SED template. Beware UV extrap cause failure on blue side.
+  //  if ( MINLAM > SED_LAMMIN || MAXLAM < SED_LAMMAX ) {
+  if (  MAXLAM < SED_LAMMAX ) {
     print_preAbort_banner(fnam);
     char cdisp_file[] = "salt2_color_dispersion.dat";
     printf("  %s MINLAM / MAXLAM = %.2f / %.2f\n", 

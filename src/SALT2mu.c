@@ -2651,8 +2651,6 @@ void SALT2mu_DRIVER_EXEC(void) {
     prep_input_repeat();  // re-initialize a few things (May 2019)
   }
 
-  // xxx setup_zbins_fit();    // set z-bins for data and biasCor
-
   FITRESULT.NCALL_FCN = 0 ;
   mninit_(&inf,&outf,&savef);
 
@@ -3551,7 +3549,11 @@ void applyCut_chi2max(void) {
   } // end n loop over SN
 
 
-  if ( NREJ > 0 ) { setup_zbins_fit(); }    // set z-bins
+  if ( NREJ > 0 ) { 
+    printf("\n Setup z-bins again after chi2max cut:");
+    fflush(stdout);
+    setup_zbins_fit(); 
+  }  
 
   fflush(FP_STDOUT);
  

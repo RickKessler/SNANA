@@ -46,6 +46,9 @@
 #   + rebin working, but <z> still not quite right.
 #
 # Jan 20 2022: fix to work if there is no SYS_SCALE_FILE input
+# Apr 22 2022: write standard cov matrix gzipped.
+#              Cov for cosmomc still unzipped until somebody shows
+#              that cosmomc can read gzip file.
 #
 # ===============================================
 
@@ -798,7 +801,9 @@ def write_standard_output(config, unbinned, covs, base):
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
     for i, (label, cov) in enumerate(covs):
-        covsys_file = outdir / f"{PREFIX_COVSYS}_{i:03d}.txt" 
+        base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
+        base_file  += '.gz'  # force gzip file, Apr 22 2022
+        covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
 
     # end write_standard_output
@@ -1014,20 +1019,26 @@ def write_covariance(path, cov, opt_cov):
     # Write out the matrix
     nwr = 0 ; rownum = -1; colnum=-1
 
-    with open(path, "wt") as f:
-        f.write(f"{nrow}\n")
-        for c in cov.flatten():
-            nwr += 1
-            is_new_row = False
-            if (nwr-1) % nrow == 0 : 
-                is_new_row = True ; rownum += 1 ; colnum = -1
-            colnum += 1
+    if '.gz' in str(path):
+        f = gzip.open(path,"wt")
+    else:
+        f = open(path,"wt") 
 
-            label = ""
-            if add_labels:
-                label = f"# ({rownum},{colnum})"
-                if colnum == 0 : label += " ------ "
-            f.write(f"{c:12.8f}  {label}\n")
+    f.write(f"{nrow}\n")
+    for c in cov.flatten():
+        nwr += 1
+        is_new_row = False
+        if (nwr-1) % nrow == 0 : 
+            is_new_row = True ; rownum += 1 ; colnum = -1
+        colnum += 1
+
+        label = ""
+        if add_labels:
+            label = f"# ({rownum},{colnum})"
+            if colnum == 0 : label += " ------ "
+        f.write(f"{c:12.8f}  {label}\n")
+
+    f.close()
 
     # end write_covariance
 

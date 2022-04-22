@@ -19233,6 +19233,8 @@ void  write_M0_fitres(char *fileName) {
   //
   // Oct 13 2019: check bad bins to write MUDIFERR_ZERO[EMPTY]
   // Dec 02 2020: write redshift with %.5f instad of %.4f
+  // Apr 22 2022: write %.5f format for distances/error instead of %.4f
+  //               (for high-precision consistency tests)
   //
   int iz, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
@@ -19329,7 +19331,7 @@ void  write_M0_fitres(char *fileName) {
 
     fprintf(fp, "ROW:     "
 	    "%2d  %7.5f %7.5f %7.5f  "
-	    "%9.4f %9.4f  %.4f %4d\n",
+	    "%9.5f %9.5f  %.5f %4d\n",
 	    irow, zMIN, zMAX, z, 
 	    VAL, ERR, MUREF, NFIT );
     fflush(fp);
@@ -20293,7 +20295,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // May 13 2020: write to char line, then single fprintf for entire line.
   // Nov 12 2020: write muerr_vpec for Dan.
   // Dec 02 2020: write izbin
-
+  // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
+  //              Might be needed later for high-precision tests.
+  //
   bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
@@ -20355,9 +20359,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   
   NWR=0;  line[0] = 0 ;
   sprintf(word, "%d ",    cutmask);       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mu     );       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mumodel);       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mu     );       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mumodel);       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", muerr  );       NWR++ ; strcat(line,word);
 
   if ( !SUBPROCESS.USE ) {
     // Jun 21 2021: beware that muerr_renorm is not malloced or filled

@@ -20998,4 +20998,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       + abort if lam-range in color_dispersion file does not cover
         wave range in salt2_template file.
 
+    SALT2mu.c:
+      + write distances and errors with 5 digits after decimals instead of 4.
+
 END: 

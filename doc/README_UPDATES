@@ -20928,11 +20928,22 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04j (  ) 
+         v11_04j (Apr 23 2022) 
 
          ***** IMPORTANT(v11_04j) ***** 
 
+    + LCFIT stdout greatly reduced for batch jobs.
+    + create_covariance cov-matrix output is gzipped.
+
          ***** USEFUL(v11_04j) ***** 
+
+    SALT2mu: new input flag izbin_from_cid_file=1 to force same izbin
+             among all FITOPT/MUOPT
+
+    SALT2mu output distances & errors written as %.5f instead %.4f
+
+    submit_batch recognizes --image in sbatch template 
+             (to use shifter at NERSC)
 
          ***** MISCELLANEOUS(v11_04j) ***** 
 
@@ -20990,7 +21001,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + include SBMAG table column if EITHER SBMAG or host-mag exists.
        
    steps to reduce wasteful/large output:
-     + default MXLC_PLOT=5 (instead of 100) in &SNLCINP namelist for LC fitting.
+     + default MXLC_PLOT=5 (was 100) in &SNLCINP namelist for LC fitting.
      + use STDOUT_UPDATE in many places; less printout if JOBSPLIT(1)>1
      + new util remove_minuit_stdout.py used in CPU*.CMD files for snlc_fit.
 
@@ -21001,7 +21012,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     SALT2mu.c:
       + write distances and errors with 5 digits after decimals instead of 4.
       + new defaults: minos=0 (was 1) and sigint_step=0.01 (was 0.05)
+      + new flag izbin_from_cid_file=1 to sync izbin
 
     create_covariancy.py
-      + write cov matrices gzipped.
+      + write standard cov matrices gzipped. 
+        Cosmomc matrix are not zipped [yet?]
+
 END: 

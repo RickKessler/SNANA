@@ -20934,6 +20934,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
     + LCFIT stdout greatly reduced for batch jobs.
     + create_covariance cov-matrix output is gzipped.
+    + wfit.c runs x5 faster with unbinned data and cov-matrix.
 
          ***** USEFUL(v11_04j) ***** 
 
@@ -21017,5 +21018,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     create_covariancy.py
       + write standard cov matrices gzipped. 
         Cosmomc matrix are not zipped [yet?]
+
+    wfit: reduce number of log10 calls in cov-matrix loop
+           -> runs x5 faster for unbinned data.
 
 END: 

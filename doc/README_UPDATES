@@ -20935,6 +20935,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     + LCFIT stdout greatly reduced for batch jobs.
     + create_covariance cov-matrix output is gzipped.
     + wfit.c runs x5 faster with unbinned data and cov-matrix.
+    + SALT2mu default updates: 
+         minos->0 (was 1) and sigint_step1->0.01 (was 0.05)
 
          ***** USEFUL(v11_04j) ***** 
 

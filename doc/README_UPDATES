@@ -21000,6 +21000,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
     SALT2mu.c:
       + write distances and errors with 5 digits after decimals instead of 4.
+      + new defaults: minos=0 (was 1) and sigint_step=0.01 (was 0.05)
 
     create_covariancy.py
       + write cov matrices gzipped.

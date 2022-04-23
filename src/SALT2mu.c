@@ -1007,6 +1007,8 @@ with append_varname_missing,
       fit-iterations are needed.
 
  Apr 18 2022: new input izbin_from_cid_file=1 (same as debug_flag=401)
+ Apr 22 2022: default minos=0 (was 1) and sigint_step1=0.01 (was .05)
+               --> faster fitting
 
  ******************************************************/
 
@@ -5445,7 +5447,7 @@ void set_defaults(void) {
   INPUTS.write_yaml = 0 ;
   INPUTS.write_csv  = 0 ;
 
-  INPUTS.minos      = 1 ;
+  INPUTS.minos      = 0 ; // disable default minos, Apr 22 2022
   INPUTS.nfile_data = 0 ;
   INPUTS.nfile_data_override = 0 ;
   sprintf(INPUTS.PREFIX,     "NONE" );
@@ -5606,7 +5608,7 @@ void set_defaults(void) {
 
   INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
-  INPUTS.sigint_step1        = 0.05 ; // size of 1st step for sigMB, OR ...
+  INPUTS.sigint_step1        = 0.01 ; // size of 1st sigint step 
   INPUTS.dchi2red_dsigint    = 0.0 ;
   INPUTS.scale_covint_step1  = 0.04 ; // for scale_covint
 

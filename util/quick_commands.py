@@ -446,6 +446,7 @@ def analyze_diff_fitres(args):
     # Apr 22 2022: add MU if it's there (e.g., output of BBC)
     if 'MU' in df:
         var_check_list.append('MU')
+        var_check_list.append('MUERR')
 
     # define dfsel = table rows where both ref and test are defined
     #dfsel        = df.loc[df['c_2']>-8.0]

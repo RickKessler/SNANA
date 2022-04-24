@@ -6864,13 +6864,14 @@ c           OUTLIER table is automatically disabled for large BIASCOR sim
               SBMAGCUT_OUTLIER  = 999.  ! default is no SBMAG cut (Aug 2021)
             endif
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
+            ITAB = ITABLE_SNLCPAK
             DISABLE = ( ISJOB_BATCH .and. ISJOB_SIM ) 
             IF ( DISABLE ) THEN
+	       NOPT = 0 
 	       print*,
      &           '  WARNING: disable LCPLOT table for sim-data in batch'
 	       call flush(6)
             ELSE
-               ITAB = ITABLE_SNLCPAK
                OPT_TABLE(ITAB) = 1
             ENDIF
          else if ( TBname(1:8) .EQ. 'specplot' ) then  

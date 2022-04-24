@@ -21024,4 +21024,18 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
     wfit: reduce number of log10 calls in cov-matrix loop
            -> runs x5 faster for unbinned data.
 
+
+# ======================================================================= 
+         v11_04k (  ) 
+
+         ***** IMPORTANT(v11_04k) ***** 
+
+         ***** USEFUL(v11_04k) ***** 
+
+         ***** MISCELLANEOUS(v11_04k) ***** 
+
+   snana.car
+     + fix bug from suppressing LCPLOT table in batch; it's CSV
+       attribute was mistakenly passed to FITRES table.
+
 END: 

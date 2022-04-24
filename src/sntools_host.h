@@ -164,6 +164,7 @@ int OPTMASK_OPENFILE_HOSTLIB ;
 //for developers only
 bool REFAC_HOSTLIB;
 
+/* xxx mark delete Apr 24 2022 
 // define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
 #define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
 #define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
@@ -171,6 +172,7 @@ bool REFAC_HOSTLIB;
 #define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
 
 #define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
+xxxxxx end mark xxxxx */
 
 // Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
 // the other hostless values are -9 as before.

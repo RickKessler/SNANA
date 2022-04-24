@@ -563,26 +563,26 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     }
 
     if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
-      fprintf(fp, "%s_LOGMASS:     %.3f +- %.3f   # log10(Mgal/Msolar)\n", 
-	      PREFIX, 
+      fprintf(fp, "%s_%s:     %.3f +- %.3f   # log10(Mgal/Msolar)\n", 
+	      PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS,
 	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_LOGSFR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_LOGSFR:      %.3e +- %.3e  # SFR\n",
-              PREFIX,
+      fprintf(fp, "%s_%s:      %.3e +- %.3e  # SFR\n",
+              PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR,
               SNDATA.HOSTGAL_LOGSFR_OBS[igal],
               SNDATA.HOSTGAL_LOGSFR_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_LOGsSFR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_LOGsSFR:     %.3e +- %.3e  # specific SFR\n",
-	      PREFIX, 
+      fprintf(fp, "%s_%s:     %.3e +- %.3e  # specific SFR\n",
+	      PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR,
 	      SNDATA.HOSTGAL_LOGsSFR_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGsSFR_ERR[igal] );
     }
     if ( SNDATA.HOSTGAL_COLOR_OBS[igal] > -900. ) {
-      fprintf(fp, "%s_COLOR:       %.3e +- %.3e  # COLOR (e.g. U-R)\n",
-              PREFIX,
+      fprintf(fp, "%s_%s:       %.3e +- %.3e  # COLOR (e.g. U-R)\n",
+              PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR,
               SNDATA.HOSTGAL_COLOR_OBS[igal],
               SNDATA.HOSTGAL_COLOR_ERR[igal] );
     }
@@ -2142,22 +2142,22 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	SNDATA.HOSTGAL_SQRADIUS[igal] = FVAL;
       }
 
-      sprintf(KEY_TEST,"%s_LOGMASS", PREFIX); 
+      sprintf(KEY_TEST,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
 	SNDATA.HOSTGAL_LOGMASS_OBS[igal] =  FVAL;
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGMASS_ERR[igal] = FVAL_ERR; }
       }
-      sprintf(KEY_TEST,"%s_LOGSFR", PREFIX);
+      sprintf(KEY_TEST,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
       if ( strstr(word0,KEY_TEST) != NULL ) {
         SNDATA.HOSTGAL_LOGSFR_OBS[igal] =  FVAL;
         if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGSFR_ERR[igal] = FVAL_ERR; }
       }
-      sprintf(KEY_TEST,"%s_LOGsSFR", PREFIX); 
+      sprintf(KEY_TEST,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR); 
       if ( strstr(word0,KEY_TEST) != NULL ) {
 	SNDATA.HOSTGAL_LOGsSFR_OBS[igal] = FVAL;
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_LOGsSFR_ERR[igal] = FVAL_ERR; }
       }
-      sprintf(KEY_TEST,"%s_COLOR", PREFIX);
+      sprintf(KEY_TEST,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
       if ( strstr(word0,KEY_TEST) != NULL ) {
         SNDATA.HOSTGAL_COLOR_OBS[igal] =  FVAL;
         if(PLUS_MINUS) { SNDATA.HOSTGAL_COLOR_ERR[igal] = FVAL_ERR; }

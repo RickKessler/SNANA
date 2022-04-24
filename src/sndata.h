@@ -36,7 +36,8 @@
   Apr 05 2021: MXSPECTRA -> 200 (was 40)
   May 27 2021: MXSPECTRA -> 300 (was 200)
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
-  # not yet ... Jan 28 2022: MXFILTINX -> 80 (was 100)
+  Apr 24 2022: define HOSTGAL_PROPERTY_xxx [moved from sntools_host.h]
+
 *****************************************************/
 
 #define MXEPOCH  5000     // max number of epochs per SN
@@ -83,6 +84,14 @@
 #define DATATYPE_SIM_MAGOBS  "SIM_MAGOBS" // e.g., fakes
 
 #define RV_MWDUST 3.1               // RV for MilkyWay
+
+// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...                                
+#define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
+#define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
+#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR  "LOGsSFR"
+#define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
+
+#define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
 
 // ------------------------------------------
 

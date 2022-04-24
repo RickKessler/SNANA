@@ -6145,18 +6145,6 @@ void read_data_override(void) {
   //      on override list. Same for zHDERR with ZHELERR and VPECERR.
   //
 
-  /* xxx mark delete Mar 7 2022 xxxxxx
-  char VARNAME_VPEC[]     = "VPEC";
-  char VARNAME_VPECERR[]  = "VPECERR";
-  char VARNAME_VPECERR2[] = "VPEC_ERR";
-  char VARNAME_zHD[]      = "zHD";
-  char VARNAME_zHDERR[]   = "zHDERR";
-  char VARNAME_zHEL[]     = "zHEL";
-  char VARNAME_zHELERR[]  = "zHELERR";
-  char VARNAME_zCMB[]     = "zCMB";
-  char VARNAME_LOGMASS[]  = "HOST_LOGMASS" ;
-  xxxxxxxxx end mark xxxxxxxxxxx */
-
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
   int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
@@ -21260,7 +21248,7 @@ void  SUBPROCESS_INIT(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    printf("%s  Opened output file   (fit info): %s\n", 
+    printf("%s  Opened output file (fit info): %s\n", 
 	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.OUTFILE );
     fflush(stdout);
   }
@@ -21273,7 +21261,7 @@ void  SUBPROCESS_INIT(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    printf("%s  Opened STDOUT file (standard out): %s\n", 
+    printf("%s  Opened STDOUT file (stdout): %s\n", 
 	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE );
     fflush(stdout);
   }
@@ -22243,11 +22231,57 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
   float *PTRVAL ; 
   int IVAR_TABLE = SUBPROCESS_IVAR_TABLE(VARNAME);
+  int ivar, NVAR_VALID=0 ;
+  bool MATCH     = false;
+
+  // define space separated list of valid varnames for output table
+  char VARNAME_VALID_LIST[] = "x1 c zHD "				\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGMASS " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGSFR  " " HOSTGAL_PROPERTY_BASENAME_LOGSFR  " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_COLOR   " " HOSTGAL_PROPERTY_BASENAME_COLOR   " "\
+      ; 
+
+  // define list of pointers corresponding to VARNAME_VALID_LIST
+  float *PTRVAL_VALID_LIST[] = {
+    INFO_DATA.TABLEVAR.fitpar[INDEX_x1],
+    INFO_DATA.TABLEVAR.fitpar[INDEX_c],
+    INFO_DATA.TABLEVAR.zhd,
+    INFO_DATA.TABLEVAR.host_logmass, INFO_DATA.TABLEVAR.host_logmass,
+    INFO_DATA.TABLEVAR.host_logsfr,  INFO_DATA.TABLEVAR.host_logsfr,
+    INFO_DATA.TABLEVAR.host_logssfr, INFO_DATA.TABLEVAR.host_logssfr,
+    INFO_DATA.TABLEVAR.host_color,   INFO_DATA.TABLEVAR.host_color
+  } ;
 
   if ( IVAR_TABLE >= 0 ) {
     // Mar 7 2022: load value from supplemental table 
     PTRVAL = SUBPROCESS.TABLEVAR[IVAR_TABLE];
+    MATCH  = true;
   }
+  else {
+    //    debugexit(VARNAME_VALID_LIST);
+    char VARNAME_VALID_TMP[60];
+    NVAR_VALID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARNAME_VALID_LIST);
+    for(ivar=0; ivar < NVAR_VALID; ivar++ ) {
+      get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP);
+      if ( strcmp(VARNAME,VARNAME_VALID_TMP) == 0  ) 
+	{ PTRVAL = PTRVAL_VALID_LIST[ivar];  MATCH=true; }
+    } 
+  }
+
+  // - - - - - -
+  if ( !MATCH ) {
+    print_preAbort_banner(fnam);    
+    printf("%s See fatal error message in %s\n", 
+	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
+
+    fprintf(FP_STDOUT,"   Valid varnames for output table:\n  %s\n", VARNAME_VALID_LIST);
+    sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
+    sprintf(c2err,"Check valid varnames above.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  /* xxx mark delete xxxxxx
   // below, check for standard SALT2mu table variables
   else if ( strcmp(VARNAME,"x1") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
@@ -22276,6 +22310,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
+  xxxxxx end mark xxxxx */
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
@@ -22747,7 +22782,11 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 
 // ===============================
 void SUBPROCESS_EXIT(void) {
-  printf("\n%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
+  printf("\n");
+  printf("%s STDOUT file reminder: %s\n", 
+	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
+  printf("%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
+  fflush(stdout);
   exit(0);
 }
 

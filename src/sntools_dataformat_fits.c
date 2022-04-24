@@ -325,14 +325,8 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_SNSEP" ,      itype );  
   wr_snfitsio_addCol( "1E", "HOSTGAL_DDLR" ,       itype );  // Jan 29 2019
   wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS" ,    itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS_ERR", itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR" ,       itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR_ERR",    itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR" ,       itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR_ERR",    itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR" ,       itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR_ERR",    itype );
+
+  wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL", itype);
 
   wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
@@ -373,6 +367,10 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1D", "HOSTGAL2_DEC" ,        itype );  
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SNSEP" ,      itype );  
     wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
+
+    wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL2", itype);
+
+    /* xxx mark delete 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR" ,     itype );
@@ -381,6 +379,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR", itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR" ,      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR_ERR",   itype );
+    xxxx end mark xxx*/
+
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
@@ -630,9 +630,38 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // set unit to blank
   WR_SNFITSIO_TABLEDEF[itype].ptrUnit[NPAR] = stringBlank ;
 
+  return;
 
 } // end of wr_snfitsio_addCol
 
+// =============================
+void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
+
+  // Created Apr 24 2022
+  // Call wr_snfitsio_addCol for each host PROPERTY and its uncertainty;
+  // *PREFIX_HOSTGAL = "HOSTGAL" or "HOSTGAL2"
+  // For host property = LOGMASS, call addColl for 
+  // HOSTGAL_LOGMASS and HOSTGALL_LOGMASS_ERR.
+  //
+
+  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_NAME_LIST);
+  int i;
+  char KEY[80], KEY_ERR[80], PROPERTY[40] ;
+  // -------------- BEGIN ------------
+
+  for(i=0; i < N_PROP; i++ ) {
+    get_PARSE_WORD(0,i,PROPERTY);
+    sprintf(KEY,     "%s_%s",     PREFIX_HOSTGAL, PROPERTY);
+    sprintf(KEY_ERR, "%s_%s_ERR", PREFIX_HOSTGAL, PROPERTY);
+
+    //    printf(" xxx addCol(%s, %s)\n", KEY, KEY_ERR);  fflush(stdout);
+    wr_snfitsio_addCol( "1E", KEY ,     itype ); 
+    wr_snfitsio_addCol( "1E", KEY_ERR , itype ); 
+  }
+
+  return;
+
+} // end wr_snfitsio_addCol_HOSTGAL_PROERTIES
 
 // ========================================
 void wr_snfitsio_init_phot(void) {
@@ -1716,45 +1745,45 @@ void wr_snfitsio_update_head(void) {
     // start host properties 
     // host logmass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGMASS", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGMASS_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host sfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGSFR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGSFR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host ssfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGsSFR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGsSFR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR );
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host color                                                                                           
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_COLOR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_COLOR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     // end of host properties
@@ -3377,35 +3406,35 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_DDLR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGMASS", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGMASS_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGSFR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_OBS[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGSFR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_ERR[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGsSFR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGsSFR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
 
-      sprintf(KEY,"%s_COLOR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR );
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_OBS[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_COLOR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_ERR[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 

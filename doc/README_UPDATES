@@ -21038,4 +21038,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug from suppressing LCPLOT table in batch; it's CSV
        attribute was mistakenly passed to FITRES table.
 
+   sndata.h
+     + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
+
+   sntools_dataformat_[fits,text].c
+     + use HOSTGAL_PROPERTY_BASENAME_XXX instead of hard-coded names.
+
+   SALT2mu.c:
+     + refactor so that invalid varname to output tables results in
+       printing list of valid varnames for SUBPROCESS.
+
 END: 

@@ -2388,6 +2388,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
 void SUBPROCESS_COMPUTE_STD(int ITABLE) ;
 
 void SUBPROCESS_EXIT(void);
+void SUBPROCESS_REMIND_STDOUT(void) ;
 
 void SUBPROCESS_STORE_BININFO(int itable, int ivar, char *string);
 void SUBPROCESS_MAP1D_BININFO(int itable);
@@ -21231,6 +21232,7 @@ void  SUBPROCESS_INIT(void) {
     if ( !SUBPROCESS.FP_INP ) {
       sprintf(c1err,"Could not open input GENPDF file to read:" );
       sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
+      SUBPROCESS_REMIND_STDOUT();
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     else {
@@ -21245,6 +21247,7 @@ void  SUBPROCESS_INIT(void) {
   if ( !SUBPROCESS.FP_OUT ) {
     sprintf(c1err,"Could not open output file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.OUTFILE) ;
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
@@ -21258,6 +21261,7 @@ void  SUBPROCESS_INIT(void) {
   if ( !FP_STDOUT ) {
     sprintf(c1err,"Could not open STDOUT file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.STDOUT_FILE) ;
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
@@ -21355,6 +21359,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 	sprintf(c1err,"Output table includes VARNAME=%s", VARNAME);
 	sprintf(c2err,"but %s is not in %s FITRES file", 
 		VARNAME, STRING_EVENT_TYPE[EVENT_TYPE] );
+	SUBPROCESS_REMIND_STDOUT();
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
       }
     } // end MATCH
@@ -21376,6 +21381,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( ISDATA_REAL ) {
     sprintf(c1err,"Woah! Cannot process real data here.");
     sprintf(c2err,"Only SIM data allowed here.");
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -21413,6 +21419,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 	      VARNAME_SIM_AV, VARNAME_SIM_RV);
       sprintf(c2err,"NVAR_ALL+%d=%d and MXVAR_GENPDF=%d",
 	      NVAR_ADD, NVAR_ALL+NVAR_ADD, MXVAR_GENPDF);
+      SUBPROCESS_REMIND_STDOUT();
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);      
     }
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_AV); NVAR_ALL++ ;
@@ -21566,6 +21573,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
   finp  = open_TEXTgz(input_simref_file, "rt", &GZIPFLAG);
   if (!finp) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Could not open input simref file:");
     sprintf(c2err,"%s", input_simref_file);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -21679,6 +21687,7 @@ void SUBPROCESS_STORE_EBV(void) {
   }
 
   if ( ivar_av < 0 || ivar_rv < 0 ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Invalid ivar_[av,rv] = %d, %d", ivar_av, ivar_rv);
     sprintf(c2err,"Cannot compute EBV column");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -21772,6 +21781,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // matches ITER_EXPECT entered on command line.
 
   if ( ITER_FOUND < 0 ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Could not find required '%s' key in", 
 	    KEYNAME_SUBPROCESS_ITERATION_BEGIN);
     sprintf(c2err,"file %s", INPFILE );
@@ -21779,6 +21789,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   }
 
   if ( ITER_EXPECT != ITER_FOUND ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Found ITERATION=%d in PDF file %s",
 	    ITER_FOUND, INPFILE);
     sprintf(c2err,"But expected ITERATION=%d passed via std input", 
@@ -21971,12 +21982,14 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   }
   
   else {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Did not find bounding functions for '%s'", VARNAME) ;
     sprintf(c2err,"Bounding func must be specified for all variables or none!") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   if ( PROB_SIMREF < 0.) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Invalid PROB_SIMREF=%f for VARNAME=%s", PROB_SIMREF, VARNAME) ;
     sprintf(c2err,"ITER = %d, imap=%d, XVAL=%f", ITER, imap, XVAL) ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
@@ -22185,6 +22198,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   sscanf(ptrSplit[0], "%d", &nbin);
 
   if ( nbin >= MXz ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"NBIN(%s) = %d exceeds bound of %d", VARNAME, nbin, MXz) ;
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -22272,9 +22286,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   // - - - - - -
   if ( !MATCH ) {
     print_preAbort_banner(fnam);    
-    printf("%s See fatal error message in %s\n", 
-	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
-
+    SUBPROCESS_REMIND_STDOUT();
     fprintf(FP_STDOUT,"   Valid varnames for output table:\n  %s\n", VARNAME_VALID_LIST);
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
     sprintf(c2err,"Check valid varnames above.");
@@ -22780,11 +22792,18 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 } //  end SUBPROCESS_OUTPUT_TABLE_WRITE
 
 
+// =======================================
+void SUBPROCESS_REMIND_STDOUT(void) {
+  printf("\n");
+  printf("%s STDOUT/FATAL reminder: %s\n", 
+	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
+  fflush(stdout);
+}
+
 // ===============================
 void SUBPROCESS_EXIT(void) {
-  printf("\n");
-  printf("%s STDOUT file reminder: %s\n", 
-	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
+
+  SUBPROCESS_REMIND_STDOUT();
   printf("%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
   fflush(stdout);
   exit(0);

@@ -8993,6 +8993,10 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   print_banner(fnam);
 
+  printf("Append up to %d host neighbors within %.1f'' radius.",
+	  HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, HOSTLIB_NBR_WRITE.SEPNBR_MAX );
+  fflush(stdout);
+
   if ( strstr(HOSTLIB_FILE,SUFFIX_HOSTNBR) != NULL ) {
     sprintf(c1err,"HOSTLIB already has NBR_LIST");
     sprintf(c2err,"Check HOSTLIB_FILE='%s'", HOSTLIB_FILE);

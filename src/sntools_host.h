@@ -321,7 +321,7 @@ struct HOSTLIB_DEF {
 } HOSTLIB ;
 
 
-#define MXCHAR_NBR_LIST 100
+#define MXCHAR_NBR_LIST 200 // Apr 25 2022 -> 200 (was 100)
 #define MXNBR_LIST       50
 
 struct {

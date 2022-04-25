@@ -21048,4 +21048,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + refactor so that invalid varname to output tables results in
        printing list of valid varnames for SUBPROCESS.
 
+   +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
+
 END: 

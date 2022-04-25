@@ -8592,29 +8592,60 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // - - - - - - - -
   // transfer DOCANA block (July 2021)
+  bool DOCANA_END = false ;
+  int  iline, NLINE_DOCANA = 0, ipad, NPAD=0 ;
+  char *str_tmp, PAD_YAML[12]="";
+  char KEY_DOCANA_PADCHECK[] = "PURPOSE:"; // key to measure pad space
+
   if ( INPUTS.REQUIRE_DOCANA ) {
-    bool DOCANA_END = false ;
-    int  NLINE_DOCANA = 0 ;
 
     // keep re-writing HOSTLIB lines until reaching DOCUMENTATION_END key
     while ( !DOCANA_END ) {
       fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
-      fprintf(FP_NEW,"%s", LINE); NLINE_DOCANA++ ;
+
+      // get yaml pad spacing
+      str_tmp = strstr(LINE,KEY_DOCANA_PADCHECK);
+      if ( str_tmp != NULL ) {
+	NPAD = (str_tmp - LINE);
+	for(ipad=0; ipad<NPAD; ipad++ ) { strcat(PAD_YAML," "); }
+	// printf("\n xxx %s: NPAD=%d  PAD='%s' \n", fnam, NPAD, PAD_YAML);
+      }
+      // add new comments just before DOCANA end key
+      if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) { 
+	DOCANA_END = true; 
+
+	if ( NPAD == 0 ) {
+	  char line_warn[] = "@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-" ;
+	  printf("\n%s\n", line_warn);
+	  printf(" WARNING: unable to measure yaml pad spacing\n");
+	  printf("\t because %s key is missing.\n", KEY_DOCANA_PADCHECK);
+	  printf("\t Add HOSTNBR_APPEND_NOTES to DOCANA yaml with "
+		 "3 pad spaces as a guess.\n");
+	  printf("%s\n\n", line_warn);
+	  fflush(stdout);
+	  sprintf(PAD_YAML,"   ");
+	}
+	fprintf(FP_NEW,"\n%sHOSTNBR_APPEND_NOTES:\n", PAD_YAML);
+	for(iline=0; iline < NLINE_COMMENT; iline++ ) { 
+	  fprintf(FP_NEW,"%s- %s\n",PAD_YAML,HOSTLIB_APPEND->COMMENT[iline]);
+	}
+      }
+
+      fprintf(FP_NEW,"%s", LINE); 
+      if ( DOCANA_END ) { fprintf(FP_NEW,"\n");  }
+
+      NLINE_DOCANA++ ;
 
       if ( NLINE_DOCANA > MXLINE_DOCANA ) 
 	{ abort_docana_tooLong(HLIB_ORIG, fnam);  } 
 
-      if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) 
-	{ DOCANA_END = true; fprintf(FP_NEW,"\n"); }
     }
+
     printf("  Wrote %d DOCANA lines to new HOSTLIB\n", NLINE_DOCANA);
   } // end REQUIRE_DOCANA
 
 
   // - - - - - 
-  int iline;
-  for(iline=0; iline < NLINE_COMMENT; iline++ ) 
-    { fprintf(FP_NEW,"# %s\n", HOSTLIB_APPEND->COMMENT[iline] ); }
 
   // - - - - - - - - - - - - - - - - - 
   // read each original line
@@ -8713,7 +8744,8 @@ void addComment_HOSTLIB_APPEND(char *COMMENT,
 			       HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   int NL   = HOSTLIB_APPEND->NLINE_COMMENT;
-  int MEMC = 120 * sizeof(char);
+  int LENC = strlen(COMMENT) + 10;
+  int MEMC = LENC * sizeof(char);
   
   HOSTLIB_APPEND->COMMENT[NL] = (char*) malloc(MEMC);
   sprintf(HOSTLIB_APPEND->COMMENT[NL],"%s", COMMENT);
@@ -9384,6 +9416,8 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
  
+  free(LINE_APPEND);
+
   if ( NMISSING > 0 ) {
     printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
 	   NMISSING, varList ); 

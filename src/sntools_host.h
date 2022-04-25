@@ -295,7 +295,7 @@ struct HOSTLIB_DEF {
   int   MINiz, MAXiz ;    // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;
-  char COMMENT[MXCOMMENT_HOSTLIB][80] ; // comment lines for README file.
+  char COMMENT[MXCOMMENT_HOSTLIB][120] ; // comment lines for README file.
 
   // PSF-aperture info
   double Aperture_Radius[NMAGPSF_HOSTLIB+1]; // integ. radius for each PSF

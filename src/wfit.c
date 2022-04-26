@@ -95,6 +95,10 @@
     + fix chi2_bao_prior to use BAO_PRIOR structure rather than DEFAULTs;
       fixes bug in which -bao_sim was same as -bao.
 
+ Apr 26 2022 RK
+    + speed_flag_chi2  +=1 -> offDiag trick
+                       +=2 -> interpolation trick
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -115,6 +119,11 @@
 #define MXSN 100000 // max number of SN to read & fit
 #define MEMC_FILENAME 1000*sizeof(char)
 
+// bit-mask options for speed_flag_chio2
+#define SPEED_MASK_OFFDIAG 1  // skip off-diag calc if chi2(diag)>threshold
+#define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
+#define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG
+
 // ======== global structures ==========
 
 struct INPUTS {
@@ -123,7 +132,11 @@ struct INPUTS {
   int fitsflag ;
   int blind;  // blind cosmology results by adding sin(big number) 
   int debug_flag ;
-  int speed_flag_chi2; // default = 1; set to 0 to disable
+
+  int   speed_flag_chi2; // default = 1; set to 0 to disable
+  bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
+  bool  USE_SPEED_INTERP;  // internal: intero r(z) and mu(z)
+
   int fitnumber;   // default=1; legacy for iterative fit after sigint calc
 
   char infile[1000];          // input hubble diagram in fitres format
@@ -167,10 +180,10 @@ struct INPUTS {
 struct  {
 
   // define variables interpolate rz for large samples
-  int    INTERP_FLAG_RZ;
-  int     n_logz_interp;
+  int     n_exec_interp; // number of interpolate calls for r(z) and mu_cos(z)
+  int     n_logz_interp; // number of logz bins for interpolation
   double *logz_list_interp, *z_list_interp, logz_bin_interp; 
-  double *rz_list_interp, *dmu_list_interp;
+  double *rz_list_interp, *mucos_list_interp;
   double  rz_dif_max ;
 
   // - - - -
@@ -335,7 +348,7 @@ void exec_rz_interp(int k, Cosparam *cospar, double *rz, double *dmu);
 void check_refit(void);
 
 void wfit_minimize(void);
-void prep_speed_trick(double extchi_tmp);
+void prep_speed_offdiag(double extchi_tmp);
 void wfit_normalize(void);
 void wfit_marginalize(void);
 void wfit_uncertainty(void);
@@ -348,7 +361,8 @@ void get_chi2wOM(double w0, double wa, double OM, double sqmurms_add,
 		   double *mu_off, double *chi2sn, double *chi2tot );
 void getname(char *basename, char *tempname, int nrun);
 
-double get_DMU_chi2wOM(int k, double rz); // Ayan Mitra OCT, 2021
+double get_DMU_chi2wOM(double z, double rz, double mu); 
+double get_mu_cos(double z, double rz) ;
 
 double get_minwOM( double *w0_atchimin, double *wa_atchimin, 
 		   double *OM_atchimin ); 
@@ -508,14 +522,14 @@ int main(int argc,char *argv[]){
 
 // ================================
 void init_stuff(void) {
-
   
   char fnam[] = "init_stuff" ;
 
   // ------------ BEGIN -----------
 
   INPUTS.blind = INPUTS.fitsflag = INPUTS.debug_flag = 0;
-  INPUTS.speed_flag_chi2 = 1; // enable speed trick by default
+
+  INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
   INPUTS.OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
 
@@ -578,6 +592,7 @@ void init_stuff(void) {
   WORKSPACE.chi2atmin   =  0.0 ;
   WORKSPACE.NWARN = 0 ;
 
+
   return ;
 
 } // end init_stuff
@@ -618,8 +633,8 @@ void print_help(void) {
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -mucovar\t\t [Legacy key for previous]",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
-    "   -speed_flag_chi2\t 0 -> disable speed trick (remove cut on chi2 diag.)",
-    "",
+    "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick"
+    "\n",
     " Grid spacing:",
     " wCDM Fit:",
     "   -hmin/-hmax/-hsteps\t\tH0 grid [40,100,121]",
@@ -812,8 +827,8 @@ void parse_args(int argc, char **argv) {
       else if (strcasecmp(argv[iarg]+1,"debug_flag")==0)  
 	{ INPUTS.debug_flag = atoi(argv[++iarg]);  } 
 
-      else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)  
-	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]);  }        
+      else if (strcasecmp(argv[iarg]+1,"speed_flag_chi2")==0)
+	{ INPUTS.speed_flag_chi2 = atoi(argv[++iarg]); }      
 
       else {
 	printf("Bad arg: %s\n", argv[iarg]);
@@ -826,6 +841,8 @@ void parse_args(int argc, char **argv) {
   // - - - - - - 
   char var_w[20], str_marg_min[20];
 	   
+  INPUTS.USE_SPEED_OFFDIAG = (INPUTS.speed_flag_chi2 & SPEED_MASK_OFFDIAG)>0;
+
   printf(" ****************************************\n");
   if ( INPUTS.dofit_w0wa )  { 
     printf("   Fit w0waCDM  model:  w(z) = w0 + wa(1-a) \n"); 
@@ -1617,13 +1634,15 @@ void init_rz_interp(void) {
 
   // ----------- BEGIN ------------
 
-  WORKSPACE.INTERP_FLAG_RZ = 0 ;
+  WORKSPACE.n_exec_interp = 0;
 
-  if ( INPUTS.debug_flag != 422 ) { return; }
+  if ( NSN > 1000 ) 
+    { INPUTS.USE_SPEED_INTERP  = (INPUTS.speed_flag_chi2 & SPEED_MASK_INTERP )>0; }
+  else
+    { INPUTS.USE_SPEED_INTERP = false; }
 
-  if ( NSN < 1000 ) { return; }
+  if ( !INPUTS.USE_SPEED_INTERP ) { return; }
 
-  WORKSPACE.INTERP_FLAG_RZ = 1 ;
   logz_min = log10(zmin);
   logz_max = log10(zmax);
 
@@ -1631,12 +1650,12 @@ void init_rz_interp(void) {
   logz_bin = ( logz_max - logz_min ) / (double)(n_logz-1) ;
   MEMD     = n_logz * sizeof(double);
 
-  WORKSPACE.n_logz_interp    = n_logz;
-  WORKSPACE.logz_bin_interp  = logz_bin ;
-  WORKSPACE.logz_list_interp = (double*)malloc(MEMD);
-  WORKSPACE.z_list_interp    = (double*)malloc(MEMD);
-  WORKSPACE.rz_list_interp   = (double*)malloc(MEMD);
-  WORKSPACE.dmu_list_interp  = (double*)malloc(MEMD);
+  WORKSPACE.n_logz_interp     = n_logz;
+  WORKSPACE.logz_bin_interp   = logz_bin ;
+  WORKSPACE.logz_list_interp  = (double*)malloc(MEMD);
+  WORKSPACE.z_list_interp     = (double*)malloc(MEMD);
+  WORKSPACE.rz_list_interp    = (double*)malloc(MEMD);
+  WORKSPACE.mucos_list_interp = (double*)malloc(MEMD);
   
   printf("\n# ========================================================= \n");
   printf(" load %d logz bins (%.5f <= z <= %.5f) to interpolate rz(z)\n", 
@@ -1659,7 +1678,7 @@ void init_rz_interp(void) {
 
 } // end init_rz_interp
 
-void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *dmu) {
+void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *mucos) {
 
   // Created Apr 22 2022
   // return interpolated rz and dmu for SN index k
@@ -1669,8 +1688,8 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *dmu) {
   double logz_min = WORKSPACE.logz_list_interp[0];
   double logz_bin = WORKSPACE.logz_bin_interp;
 
-  double logz, rz0, rz1, frac, rz_dif, rz_exact ;
-  double rz_loc, dmu_loc;
+  double logz, rz0, rz1, frac, mucos0, mucos1, rz_dif, rz_exact ;
+  double rz_loc, mucos_loc;
   int  iz;
   char fnam[] = "exec_rz_interp";
 
@@ -1686,19 +1705,29 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *dmu) {
   }
 
   if ( iz < n_logz-1 ) {
-    rz0  = WORKSPACE.rz_list_interp[iz];
-    rz1  = WORKSPACE.rz_list_interp[iz+1];
     frac = (logz - WORKSPACE.logz_list_interp[iz])/logz_bin;
-    rz_loc   = rz0 + frac*(rz1-rz0); 
+
+    rz0    = WORKSPACE.rz_list_interp[iz];
+    rz1    = WORKSPACE.rz_list_interp[iz+1];
+    rz_loc = rz0 + frac*(rz1-rz0); 
+
+    mucos0    = WORKSPACE.mucos_list_interp[iz];
+    mucos1    = WORKSPACE.mucos_list_interp[iz+1];
+    mucos_loc = mucos0 + frac*(mucos1-mucos0); 
   }
   else {
-    rz_loc = WORKSPACE.rz_list_interp[iz]; // last z-bin
+    rz_loc    = WORKSPACE.rz_list_interp[iz]; // last z-bin
+    mucos_loc = WORKSPACE.mucos_list_interp[iz]; // last z-bin
   }
   
-  *rz = rz_loc;
+  // load output function args
+  *rz    = rz_loc;
+  *mucos = mucos_loc;
+
+  if ( k == HD.NSN-1 ) { WORKSPACE.n_exec_interp++ ; }
 
   // print diagnostic for first few events.
-  int LDMP = (WORKSPACE.INTERP_FLAG_RZ < 5) ;
+  int LDMP = (WORKSPACE.n_exec_interp < 5) ;
   if ( LDMP ) {
     if ( k==0 ) { WORKSPACE.rz_dif_max = 0.0 ; }    
     rz_exact   = codist(HD.z[k], cparloc);
@@ -1708,12 +1737,9 @@ void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *dmu) {
 
     if ( k == HD.NSN-1 ) {
       printf("\t    Diagnostic: max|rz(interp)/rz(exact) - 1| "
-	     "= %8.2le \n", 
-	     fnam, WORKSPACE.rz_dif_max); fflush(stdout);
-      WORKSPACE.INTERP_FLAG_RZ++ ;
+	     "= %8.2le \n",  fnam, WORKSPACE.rz_dif_max); fflush(stdout);
     }
   }
-  
 
   return;
 } // end exec_rz_interp
@@ -1755,7 +1781,8 @@ void wfit_minimize(void) {
 
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
-  int    speed_flag        = INPUTS.speed_flag_chi2;
+  bool   USE_SPEED_OFFDIAG = INPUTS.USE_SPEED_OFFDIAG ;
+  
   int    use_mucov         = INPUTS.use_mucov;
   Cosparam cpar;
   Cosparam cpar_fixed;
@@ -1776,18 +1803,19 @@ void wfit_minimize(void) {
   fflush(stdout);
     
   // prep speed trick
-  if ( use_mucov && speed_flag ) {
+  if ( use_mucov && USE_SPEED_OFFDIAG ) {
     printf("   Prepare speed trick to reduce off-diagonal calculation\n");
-    INPUTS.speed_flag_chi2 = 0; // disable speed flag for approx min chi2 
+
+    INPUTS.USE_SPEED_OFFDIAG = false; // disable speed flag for approx min chi2 
     cpar_fixed.w0 = -1.0; cpar_fixed.wa=0.0; cpar_fixed.omm=0.3; 
     get_chi2wOM(cpar_fixed.w0,cpar_fixed.wa, cpar_fixed.omm, INPUTS.sqsnrms, 
 		&muoff_tmp, &snchi_tmp, &extchi_tmp ); 
     printf("    Very approx chi2min(SNonly,SN+prior: w0=-1,wa=0,omm=0.3) "
 	   "= %.1f %.1f \n", snchi_tmp, extchi_tmp);
     fflush(stdout);
-    
-    INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
-    prep_speed_trick(extchi_tmp);
+
+    INPUTS.USE_SPEED_OFFDIAG = true ; // restore speed flag
+    prep_speed_offdiag(extchi_tmp);
   }
 
   // - - - - - - - - 
@@ -1860,21 +1888,22 @@ void wfit_minimize(void) {
 } // end wfit_minimize
 
 // =============================
-void prep_speed_trick(double chi2min_approx) {
+void prep_speed_offdiag(double chi2min_approx) {
 
   // Prepare speed trick for computing chi2 by ignoring 
   // off-diagonal terms when diagonal sum is greater than threshold.
   // Input is appriximate chi2min.
 
+  bool USE_SPEED_OFFDIAG   = INPUTS.USE_SPEED_OFFDIAG ;
   int Ndof                 = WORKSPACE.Ndof;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive ;
 
   double nsig, Xdof=(double)Ndof;
-  char fnam[] = "prep_speed_trick";
+  char fnam[] = "prep_speed_offdiag";
 
   // -------------- BEGIN -----------
 
-  if ( !INPUTS.speed_flag_chi2 ) { return; }
+  if ( !USE_SPEED_OFFDIAG ) { return; }
 
   // compute nsig_chi2 above naive chi2min=Ndof and compare
   // with nsig_chi2_skip used for speed trick
@@ -1883,7 +1912,7 @@ void prep_speed_trick(double chi2min_approx) {
   printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  
 	 nsig);
   
-  if ( INPUTS.use_mucov && INPUTS.speed_flag_chi2 ) {
+  if ( INPUTS.use_mucov ) {
     double nsig_chi2min_skip;
     double NSIG_MULTIPLIER = 10.0 ;
     if ( nsig < 1.0 )
@@ -1901,7 +1930,7 @@ void prep_speed_trick(double chi2min_approx) {
 
   return;
 
-} // end prep_speed_trick
+} // end prep_speed_offdiag
 
 // ==================================
 void wfit_normalize(void) {
@@ -1962,9 +1991,11 @@ void wfit_marginalize(void) {
 
   // ----------- BEGIN ------------
 
-  printf("\n# ======================================= \n");
+  printf("\n# =================================================== \n");
   printf(" Get Marginalized values (speed_flag_chi2=%d): \n", 
-	 INPUTS.speed_flag_chi2);
+	 INPUTS.speed_flag_chi2) ;
+  printf("\t USE_SPEED_OFFDIAG = %d \n", INPUTS.USE_SPEED_OFFDIAG);
+  printf("\t USE_SPEED_INTERP  = %d \n", INPUTS.USE_SPEED_INTERP);
   fflush(stdout);
 
   WORKSPACE.w0_probsum = WORKSPACE.wa_probsum = WORKSPACE.omm_probsum = 0.0 ;
@@ -2637,16 +2668,18 @@ void get_chi2wOM (
   //   + use dmu_list to avoid redundant log10 calculations in get_DMU_chi2wOM
   //   + implement rz-interpolation option
 
-  int use_mucov = INPUTS.use_mucov ;
-  int NSN       = HD.NSN;
-  int Ndof      = WORKSPACE.Ndof;
+  bool USE_SPEED_OFFDIAG = INPUTS.USE_SPEED_OFFDIAG ;
+  bool USE_SPEED_INTERP  = INPUTS.USE_SPEED_INTERP ;
+  int  use_mucov = INPUTS.use_mucov ;
+  int  NSN       = HD.NSN;
+  int  Ndof      = WORKSPACE.Ndof ;
   double sig_chi2min_naive = WORKSPACE.sig_chi2min_naive;
-  double nsig_chi2min_skip = WORKSPACE.nsig_chi2min_skip;
+  double nsig_chi2min_skip = WORKSPACE.nsig_chi2min_skip;  
   double chi_hat_naive     = (double)Ndof;
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
   double nsig_chi2, chi_hat, chi_tmp ;
-  double dmu, dmu0, dmu1  ;
+  double dmu, dmu0, dmu1, mu_cos  ;
     
   double  chi2_prior = 0.0 ;
   double *rz_list  = (double*) malloc(NSN * sizeof(double) );
@@ -2671,14 +2704,14 @@ void get_chi2wOM (
   Bsum = Csum = chi_hat = 0.0 ;
 
   // Apr 2022: check option to interpolate rz(z) [speed trick]
-  if ( WORKSPACE.INTERP_FLAG_RZ ) {
+  if ( USE_SPEED_INTERP ) {
     n_logz   = WORKSPACE.n_logz_interp;
     for(iz=0; iz < n_logz; iz++ ) {
-      z = WORKSPACE.z_list_interp[iz];
-      rz = codist(z, &cparloc); 
-      dmu = get_DMU_chi2wOM(k,rz);
-      WORKSPACE.rz_list_interp[iz]  = rz;
-      WORKSPACE.dmu_list_interp[iz] = dmu ;
+      z   = WORKSPACE.z_list_interp[iz];
+      rz  = codist(z, &cparloc); 
+      mu_cos = get_mu_cos(z,rz);  // theory mu
+      WORKSPACE.rz_list_interp[iz]    = rz;
+      WORKSPACE.mucos_list_interp[iz] = mu_cos ;
     }
   }
 
@@ -2686,15 +2719,16 @@ void get_chi2wOM (
   // avoid redundant calculations when using covariance matrix.
   for(k=0; k < NSN; k++ )  { 
 
-    if ( WORKSPACE.INTERP_FLAG_RZ )  { 
-      exec_rz_interp(k, &cparloc, &rz, &dmu); 
-      rz_list[k]  = rz; 
-      dmu_list[k] = dmu;
+    if ( USE_SPEED_INTERP )  { 
+      exec_rz_interp(k, &cparloc, &rz, &mu_cos); 
     }
     else { 
-      rz_list[k]  = codist(HD.z[k], &cparloc); 
-      dmu_list[k] = get_DMU_chi2wOM(k, rz_list[k] );
+      rz     = codist(HD.z[k], &cparloc);
+      mu_cos = get_mu_cos(HD.z[k], rz) ;
     }
+
+    rz_list[k]  = rz ;
+    dmu_list[k] = HD.mu[k] - mu_cos;
 
     n_count++ ;
     if ( use_mucov ) {
@@ -2702,7 +2736,7 @@ void get_chi2wOM (
     }
     else {
       sqmusig     = HD.mu_sqsig[k] + sqmurms_add ;
-      sqmusiginv  = 1./sqmusig ; 
+      sqmusiginv  = 1.0 / sqmusig ;
     }
 
     dmu         = dmu_list[k] ;
@@ -2719,7 +2753,7 @@ void get_chi2wOM (
   // skip off-diag computation to save time.
   bool do_offdiag = false;
   if ( use_mucov ) {
-    if ( INPUTS.speed_flag_chi2 ) {
+    if ( USE_SPEED_OFFDIAG ) {
       chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
       nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
       do_offdiag = nsig_chi2 < nsig_chi2min_skip ;
@@ -2749,16 +2783,16 @@ void get_chi2wOM (
 	k = k0*NSN + k1;
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
 
-	/* xxxx mark delete of slow log10 calls .... Apr 22 2022
-	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
-	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
-	xxxxxxxxx end mark xxxxxx xxxx */
-
 	dmu0     = dmu_list[k0];
 	dmu1     = dmu_list[k1];
 
 	chi_tmp  = (sqmusiginv * dmu0 * dmu1 );
 
+	Bsum    += sqmusiginv*(dmu0+dmu1); // Eq. A.11 of Goliath 2001  
+	Csum    += (2.0*sqmusiginv);       // Eq. A.12 of Goliath 2001
+	chi_hat += (2.0*chi_tmp);
+
+	/* xxxx
 	Bsum    += (sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
 	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
 	chi_hat += chi_tmp ;
@@ -2766,6 +2800,7 @@ void get_chi2wOM (
 	Bsum    += (sqmusiginv * dmu1) ;
 	Csum    += sqmusiginv ;
 	chi_hat += chi_tmp ; 
+	xxxx */
 
 	n_count++ ;
 
@@ -2914,27 +2949,50 @@ double chi2_bao_prior(Cosparam *cpar) {
 } // end chi2_bao_prior
 
 // ===============================================
-double get_DMU_chi2wOM(int k, double rz)  {
+double get_DMU_chi2wOM(double z, double rz, double mu)  {
 
   // Created oct, 2021. Mitra, Kessler.
   // For the chi sq. function to evaluate the Hubble residual.
   // Inputs :
-  //   k  : Index of HUbble diagram array
+  //   z  : redshift
   //   rz : codist
+  //   mu : HD.mu[k]
   // Output :
-  //   Function returns mu_obs-mu_theory for k-th observation.
+  //   Function returns mu_obs-mu_theory 
   
-  double z      = HD.z[k];
-  double mu_obs = HD.mu[k] ;
+  //  double z      = HD.z[k];
+  //  double mu_obs = HD.mu[k] ;
   double H0     = H0_SALT2 ;
   double ld_cos, mu_cos, dmu;
   
   ld_cos      = (1.0 + z) *  rz * c_light / H0;
   mu_cos      = 5.0 * log10(ld_cos) + 25. ;
-  dmu         = mu_cos - mu_obs ;
+  dmu         = mu_cos - mu ;
   return dmu ;
 
 }  // end get_DMU_chi2wOM
+
+// ===============================================
+double get_mu_cos(double z, double rz)  {
+
+  // Created oct, 2021. Mitra, Kessler.
+  // For the chi sq. function to evaluate the Hubble residual.
+  // Inputs :
+  //   z  : redshift
+  //   rz : codist
+  // Output :
+  //   Function returns mu_cos
+  
+  //  double z      = HD.z[k];
+  //  double mu_obs = HD.mu[k] ;
+  double H0     = H0_SALT2 ;
+  double ld_cos, mu_cos ;
+  
+  ld_cos      = (1.0 + z) *  rz * c_light / H0;
+  mu_cos      = 5.0 * log10(ld_cos) + 25. ;
+  return mu_cos ;
+
+}  // end get_mu_cos
 
 
 // ==============================================

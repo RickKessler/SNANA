@@ -21050,4 +21050,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
 
+   wfit.c:
+     add another speed trick; see input -speed_flag_chi2.
+
 END: 

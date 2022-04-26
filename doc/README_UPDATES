@@ -20928,16 +20928,126 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04j (  ) 
+         v11_04j (Apr 23 2022) 
 
          ***** IMPORTANT(v11_04j) ***** 
 
+    + LCFIT stdout greatly reduced for batch jobs.
+    + create_covariance cov-matrix output is gzipped.
+    + wfit.c runs x5 faster with unbinned data and cov-matrix.
+    + SALT2mu default updates: 
+         minos->0 (was 1) and sigint_step1->0.01 (was 0.05)
+
          ***** USEFUL(v11_04j) ***** 
+
+    SALT2mu: new input flag izbin_from_cid_file=1 to force same izbin
+             among all FITOPT/MUOPT
+
+    SALT2mu output distances & errors written as %.5f instead %.4f
+
+    submit_batch recognizes --image in sbatch template 
+             (to use shifter at NERSC)
 
          ***** MISCELLANEOUS(v11_04j) ***** 
 
     snlc_fit.car
       + for MODELSPEC table, include model mags for each band at each MJD;
         for calib corrections that need color.
+
+    snana.car
+      + fix bug in INIT_REFORMAT
+      + HEADER_OVERRIDE_FILE for sim data gives warning instead of abort.
+      + new functions IGNOREFILE_fortran() and VALIDFILENAME
+      + fix VERSION_REFORMAT_FITS[TEXT] to use VALIDFILENAME
+
+    sntools_dataformat_fits.c[h]
+      + count number of written events and spectra;
+        WR_SNFITSIO_END prints actual number of written events at end of job.
+  
+   submit_prog_base.py
+     + if --image is found in sbatch-template, check for docker
+       command such as shifter.
+
+   submit_prog_bbc.py
+     + write IZBIN to BBC_ACCEPT summary file; needed to preserve IZBIN
+       in systematics involving z-shift.
+     + try to make sync_evt logic more robust:
+         https://github.com/RickKessler/SNANA/issues/874
+
+   submit_prog_lcfit.py
+     + wait for merge_root.exe to exists in case of SNANA build.
+
+   submit_prog_sim.py
+     + leave SUBMIT.INFO outside SIMLOGS.tar
+
+   snlc_sim.c
+     + fix bug reading SALT2ALPHA[BETA] asymGauss params from
+       GENPDF_FILE passed as command-line arg;
+        https://github.com/RickKessler/SNANA/issues/864
+     + write TIME_START to output README
+     + MXARGV -> 200 (was 100) to allow for many SIMGEN_DUMP args
+     + change SEV_WARN to SEV_FATAL of NARG > MXARGV
+
+   sntools_sim_readme.c
+     + write TIME_START
+
+   sntools.c[h], SALT2mu.c
+     + refactor cid-matching util to enable BBC to use optional IZBIN
+       column in cid_select_file.
+
+   genmag_SALT2.h
+     + MXBIN_VAR_SALT2 -> 200k (was 120k) for IR modeling.
+
+   snana.car
+     + if no events are read, create empty table text-files so that
+       submit_batch does not hang.
+     + include SBMAG table column if EITHER SBMAG or host-mag exists.
+       
+   steps to reduce wasteful/large output:
+     + default MXLC_PLOT=5 (was 100) in &SNLCINP namelist for LC fitting.
+     + use STDOUT_UPDATE in many places; less printout if JOBSPLIT(1)>1
+     + new util remove_minuit_stdout.py used in CPU*.CMD files for snlc_fit.
+
+    sntools_genSmear.c
+      + abort if lam-range in color_dispersion file does not cover
+        wave range in salt2_template file.
+
+    SALT2mu.c:
+      + write distances and errors with 5 digits after decimals instead of 4.
+      + new defaults: minos=0 (was 1) and sigint_step=0.01 (was 0.05)
+      + new flag izbin_from_cid_file=1 to sync izbin
+
+    create_covariancy.py
+      + write standard cov matrices gzipped. 
+        Cosmomc matrix are not zipped [yet?]
+
+    wfit: reduce number of log10 calls in cov-matrix loop
+           -> runs x5 faster for unbinned data.
+
+
+# ======================================================================= 
+         v11_04k (  ) 
+
+         ***** IMPORTANT(v11_04k) ***** 
+
+         ***** USEFUL(v11_04k) ***** 
+
+         ***** MISCELLANEOUS(v11_04k) ***** 
+
+   snana.car
+     + fix bug from suppressing LCPLOT table in batch; it's CSV
+       attribute was mistakenly passed to FITRES table.
+
+   sndata.h
+     + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
+
+   sntools_dataformat_[fits,text].c
+     + use HOSTGAL_PROPERTY_BASENAME_XXX instead of hard-coded names.
+
+   SALT2mu.c:
+     + refactor so that invalid varname to output tables results in
+       printing list of valid varnames for SUBPROCESS.
+
+   +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
 
 END: 

@@ -413,6 +413,7 @@ struct INPUTS {
 
   // input file list includes nominal, plus up to few INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
+  char TIME_START[100];  // override start time for batch uniformity 
 
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
@@ -485,7 +486,7 @@ struct INPUTS {
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
   int  HOSTLIB_GALID_PRIORITY[2] ;  // preferentially select this GALID range
-  int  HOSTLIB_GALID_UNIQUE;    // flag for unique galid
+  int  HOSTLIB_GALID_UNIQUE;         // flag to force unique galid
   int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal
   float  HOSTLIB_MNINTFLUX_SNPOS; // gen SNPOS greater than this flux-fraction (.00)
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)

@@ -1,5 +1,5 @@
 /***************************************************************************** 
-   wfit [refactored release, Oct 4 2021]
+   wfit [refactored release, Oct 4 2021] 
 
    Read Hubble diagram in SNANA's "FITRES" format with VARNAMES key,
    and optionally read cov_syst matrix from create_covariance;
@@ -166,6 +166,14 @@ struct INPUTS {
 // define workspace
 struct  {
 
+  // define variables interpolate rz for large samples
+  int    INTERP_FLAG_RZ;
+  int     n_logz_interp;
+  double *logz_list_interp, *z_list_interp, logz_bin_interp; 
+  double *rz_list_interp, *dmu_list_interp;
+  double  rz_dif_max ;
+
+  // - - - -
   double *w0_prob, *wa_prob, *omm_prob;
   double *w0_sort, *wa_sort;
 
@@ -207,8 +215,9 @@ struct {
   int    NSN, NSN_ORIG ; // NSN after cuts, before cuts
   char   **cid;
   bool   *pass_cut;
-  double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig ;
-  int    *nfit_perbin;
+  double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
+  int    *nfit_perbin;  
+  double zmin, zmax;
 } HD;
 
 
@@ -245,6 +254,8 @@ double DHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] =
   { 24.89, 22.43, 19.78, 19.60, 13.23, 8.93, 9.08 };   
 double sigDHrd_sdss4_DEFAULT[NZBIN_BAO_SDSS4] = 
   {  0.58,  0.48,  0.46,  2.10,  0.47, 0.28, 0.34 } ;
+double COV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2]; 
+double COVINV_BAO_SDSS4[NZBIN_BAO_SDSS4*2][NZBIN_BAO_SDSS4*2];
 
 struct {
 
@@ -319,6 +330,8 @@ void dump_MUCOV(char *comment);
 void invert_mucovar(double sqmurms_add);
 void set_stepsizes(void);
 void set_Ndof(void);
+void init_rz_interp(void);
+void exec_rz_interp(int k, Cosparam *cospar, double *rz, double *dmu);
 void check_refit(void);
 
 void wfit_minimize(void);
@@ -342,6 +355,7 @@ double get_minwOM( double *w0_atchimin, double *wa_atchimin,
 
 void   set_priors(void);
 void   init_bao_prior(int OPT) ;
+void   init_bao_cov(void);
 double rd_bao_prior(Cosparam *cpar) ;
 double DM_bao_prior(double z, Cosparam *cpar);
 double DH_bao_prior(double z, Cosparam *cpar);
@@ -416,7 +430,7 @@ int main(int argc,char *argv[]){
 
   malloc_workspace(+1);
 
-  printf(" =============================================== \n");
+  printf("# =============================================== \n");
   printf(" SNANA_DIR = %s \n", getenv("SNANA_DIR") );
 
   while (INPUTS.fitnumber <= 1) {
@@ -426,6 +440,9 @@ int main(int argc,char *argv[]){
     /************************/
     
     read_fitres(INPUTS.infile); 
+
+    // for large samples, setup logz grid to interpolate rz(z)
+    init_rz_interp();
 
     // Set BAO and CMB priors
     set_priors();
@@ -438,6 +455,7 @@ int main(int argc,char *argv[]){
 
     // compute number of degrees of freedom
     set_Ndof(); 
+
 
     t_end_init = time(NULL);
  
@@ -929,6 +947,7 @@ void  malloc_HDarrays(int opt, int NSN) {
     HD.mu_ref      = (double *)calloc(NSN,sizeof(double));
     HD.mu_sqsig    = (double *)calloc(NSN,sizeof(double));   
     HD.z           = (double *)calloc(NSN,sizeof(double));
+    HD.logz        = (double *)calloc(NSN,sizeof(double));
     HD.z_sig       = (double *)calloc(NSN,sizeof(double));
     HD.nfit_perbin = (int*) calloc(NSN,sizeof(int));
   }
@@ -939,6 +958,7 @@ void  malloc_HDarrays(int opt, int NSN) {
     free(HD.mu_ref); 
     free(HD.mu_sqsig); 
     free(HD.z); 
+    free(HD.logz); 
     free(HD.z_sig); 
     free(HD.nfit_perbin); 
     for(i=0; i < NSN; i++ ) { free(HD.cid[i]); } 
@@ -1020,8 +1040,10 @@ void read_fitres(char *inFile) {
 
   // - - - - - -
 
-  int    PASSCUTS,  NFIT, NROW2=0 ;
+  int    PASSCUTS,  NFIT, NROW2=0 ;  
   double ztmp;
+  HD.zmin = 99999.0;  HD.zmax = -9999.90 ;
+
   for(irow=0; irow < NROW; irow++ ) {
 
     NFIT = 999;
@@ -1039,13 +1061,14 @@ void read_fitres(char *inFile) {
       sprintf(HD.cid[NROW2], "%s", HD.cid[irow] );
       HD.mu[NROW2]       = HD.mu[irow];
       HD.mu_sig[NROW2]   = HD.mu_sig[irow];
-      HD.z[NROW2]        = HD.z[irow];
+      HD.z[NROW2]        = ztmp;
+      HD.logz[NROW2]     = log10(ztmp); // Apr 22 2022
       HD.z_sig[NROW2]    = HD.z_sig[irow];
       HD.mu_sqsig[NROW2] = HD.mu_sig[irow]*HD.mu_sig[irow];
-
+      if ( ztmp < HD.zmin ) { HD.zmin = ztmp; }
+      if ( ztmp > HD.zmax ) { HD.zmax = ztmp; }
 
       NROW2++ ;
-
 
     } // end PASSCUTS
   } // end irow
@@ -1255,7 +1278,8 @@ void set_priors(void) {
   // - - - - - - - - - - - -
   // Report priors to stdout
 
-  printf("\n PRIOR(s): \n");
+  printf("\n# ============================================ \n");
+  printf(" PRIOR(s): \n");
   // - - - -
   if ( H0SIG < 100. ) {
     printf("\t Fit with H0 prior: sigH0/H0=%4.1f/%4.1f  "
@@ -1434,12 +1458,18 @@ void init_bao_prior(int OPT) {
     }
     sprintf(comment,"BAO prior from SDSS-IV using sim cosmology" );
   }
-
+  init_bao_cov();
   return ;
 
 } // end init_bao_prior
 
+void init_bao_cov(void){
+  char fnam[] = "init_bao_cov";
 
+
+  return;
+
+}
 double rd_bao_prior( Cosparam *cpar) {
   // rd ~ 150 Mpc                  Pg. 9, Aubourg et al. [1411.1074]
   // rd = int_0^inf [c_s /H(z)];                       Eq. 13, Alam 2020.
@@ -1574,6 +1604,121 @@ void set_Ndof(void) {
 
 
 // ==================================
+void init_rz_interp(void) {
+
+  // Created Apr 22 2022
+  // For large SN sample, initialize lists to interpolate rz(z) in chi2 fun.
+  double zmin = HD.zmin;
+  double zmax = HD.zmax;
+  int    NSN  = HD.NSN;
+  int MEMD, n_logz=0, nz_check=0;
+  double logz_bin, logz_min, logz_max, logz, z ;
+  char fnam[] = "init_rz_interp";
+
+  // ----------- BEGIN ------------
+
+  WORKSPACE.INTERP_FLAG_RZ = 0 ;
+
+  if ( INPUTS.debug_flag != 422 ) { return; }
+
+  if ( NSN < 1000 ) { return; }
+
+  WORKSPACE.INTERP_FLAG_RZ = 1 ;
+  logz_min = log10(zmin);
+  logz_max = log10(zmax);
+
+  n_logz   = (int)(200.0 * (zmax - zmin));
+  logz_bin = ( logz_max - logz_min ) / (double)(n_logz-1) ;
+  MEMD     = n_logz * sizeof(double);
+
+  WORKSPACE.n_logz_interp    = n_logz;
+  WORKSPACE.logz_bin_interp  = logz_bin ;
+  WORKSPACE.logz_list_interp = (double*)malloc(MEMD);
+  WORKSPACE.z_list_interp    = (double*)malloc(MEMD);
+  WORKSPACE.rz_list_interp   = (double*)malloc(MEMD);
+  WORKSPACE.dmu_list_interp  = (double*)malloc(MEMD);
+  
+  printf("\n# ========================================================= \n");
+  printf(" load %d logz bins (%.5f <= z <= %.5f) to interpolate rz(z)\n", 
+	 n_logz, zmin, zmax);
+  fflush(stdout);
+  
+  for(logz=logz_min; logz <= logz_max+1.0E-6; logz += logz_bin ) {
+    WORKSPACE.logz_list_interp[nz_check] = logz;
+    WORKSPACE.z_list_interp[nz_check]    = pow(10.0,logz);
+    nz_check++ ;
+  }
+
+  if ( nz_check != n_logz ) {
+    sprintf(c1err,"Expected to load %d logz bins", n_logz);
+    sprintf(c2err,"but loaded %d logz bins", nz_check);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return;
+
+} // end init_rz_interp
+
+void exec_rz_interp(int k, Cosparam *cparloc, double *rz, double *dmu) {
+
+  // Created Apr 22 2022
+  // return interpolated rz and dmu for SN index k
+  // cparloc is used only as a diagnostic for first few chi2 loops.
+
+  int    n_logz   = WORKSPACE.n_logz_interp;
+  double logz_min = WORKSPACE.logz_list_interp[0];
+  double logz_bin = WORKSPACE.logz_bin_interp;
+
+  double logz, rz0, rz1, frac, rz_dif, rz_exact ;
+  double rz_loc, dmu_loc;
+  int  iz;
+  char fnam[] = "exec_rz_interp";
+
+  // ----------------- BEGIN --------------
+
+  logz = HD.logz[k];
+  iz   = (int)((logz - logz_min)/logz_bin );
+  if ( iz < 0 || iz >= n_logz ) {
+    sprintf(c1err,"Invalid iz=%d (range is 0 to %d)", iz, n_logz);
+    sprintf(c2err,"z=%f  logz=%f  for CID=%s", 
+	    HD.z[k], HD.logz[k], HD.cid[k] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  if ( iz < n_logz-1 ) {
+    rz0  = WORKSPACE.rz_list_interp[iz];
+    rz1  = WORKSPACE.rz_list_interp[iz+1];
+    frac = (logz - WORKSPACE.logz_list_interp[iz])/logz_bin;
+    rz_loc   = rz0 + frac*(rz1-rz0); 
+  }
+  else {
+    rz_loc = WORKSPACE.rz_list_interp[iz]; // last z-bin
+  }
+  
+  *rz = rz_loc;
+
+  // print diagnostic for first few events.
+  int LDMP = (WORKSPACE.INTERP_FLAG_RZ < 5) ;
+  if ( LDMP ) {
+    if ( k==0 ) { WORKSPACE.rz_dif_max = 0.0 ; }    
+    rz_exact   = codist(HD.z[k], cparloc);
+    rz_dif     = fabs(rz_loc / rz_exact - 1.0);
+    if ( rz_dif > WORKSPACE.rz_dif_max ) 
+      { WORKSPACE.rz_dif_max = rz_dif; }  
+
+    if ( k == HD.NSN-1 ) {
+      printf("\t    Diagnostic: max|rz(interp)/rz(exact) - 1| "
+	     "= %8.2le \n", 
+	     fnam, WORKSPACE.rz_dif_max); fflush(stdout);
+      WORKSPACE.INTERP_FLAG_RZ++ ;
+    }
+  }
+  
+
+  return;
+} // end exec_rz_interp
+
+// ==================================
 void check_refit(void) {
   
   // Created Oct 6 2021
@@ -1673,7 +1818,9 @@ void wfit_minimize(void) {
 
 	// stdout update with timing information
 	NB++;
-	if ( NB < 10000 ) 
+	if ( NB < 1000 ) 
+	  { UPDATE_STDOUT = ( NB % 100 == 0 ); }
+	else if ( NB < 10000 ) 
 	  { UPDATE_STDOUT = ( NB % 1000 == 0 ); }
 	else
 	  { UPDATE_STDOUT = ( NB % 10000 == 0 ); }
@@ -1689,38 +1836,6 @@ void wfit_minimize(void) {
       } // j loop
     }  // end of k-loop
   }  // end of i-loop
-
-
-  /* xxxxx mark delete Feb 21 2022 xxxxxxx
-  INPUTS.speed_flag_chi2 = speed_flag; // restore speed flag  
-  double extchi_min = WORKSPACE.extchi_min;
-  double snchi_min  = WORKSPACE.snchi_min ;
-
-  // - - - - -
-  // compute nsig_chi2 above naive chi2min=Ndof and compare
-  // with nsig_chi2_skip used for speed trick
-  double nsig = (extchi_min - (double)Ndof) / sig_chi2min_naive;
-  printf("   Approx chi2min(SNonly, SN+prior): %.1f , %.1f \n", 
-	 snchi_min, extchi_min );
-
-  printf("\t Naive nsig(chi2min) = %.1f  # (chi2min-Ndof)/sqrt(2*Ndof)\n",  
-	 nsig);
-
-  if ( INPUTS.use_mucov && INPUTS.speed_flag_chi2 ) {
-    double nsig_chi2min_skip;
-    double NSIG_MULTIPLIER = 30.0 ;
-    if ( nsig < 1.0 )
-      { nsig_chi2min_skip = NSIG_MULTIPLIER; } 
-    else
-      { nsig_chi2min_skip = nsig * NSIG_MULTIPLIER ; } // Jan 26 2026
-    WORKSPACE.nsig_chi2min_skip = nsig_chi2min_skip;
-
-    printf("\t Skip off-diag chi2-calc if nsig(diag) > %.1f\n", 
-	  nsig_chi2min_skip );
-
-  }
-  fflush(stdout);
-  xxxxxxxxxxx end mark xxxxxxx */
 
 
   // get w,OM at min chi2 by using more refined grid
@@ -2477,7 +2592,7 @@ void invert_mucovar(double sqmurms_add) {
   // add diagonal elements to covariance matrix, then invert.
   //
   int NSN = HD.NSN;
-
+  time_t t0, t1;
   // =================================
 
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
@@ -2489,7 +2604,11 @@ void invert_mucovar(double sqmurms_add) {
   fflush(stdout);
 
   if ( INPUTS.use_mucov) {
+    t0 = time(NULL);
     invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
+    t1 = time(NULL);
+    double t_invert = (t1-t0);
+    printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
   }
   fflush(stdout);
 
@@ -2513,6 +2632,10 @@ void get_chi2wOM (
   // Jul 10, 2021: Return chi2 at this w0, wa, OM and z value
   // Oct     2021: refactor using new cov matrix formalism
   // Dec 01  2021: enable speed trick using nsig_chi2_skip (R.Kessler)
+  // 
+  // Apr 22 2022:
+  //   + use dmu_list to avoid redundant log10 calculations in get_DMU_chi2wOM
+  //   + implement rz-interpolation option
 
   int use_mucov = INPUTS.use_mucov ;
   int NSN       = HD.NSN;
@@ -2523,13 +2646,18 @@ void get_chi2wOM (
 
   double OE, rz, sqmusig, sqmusiginv, Bsum, Csum ;
   double nsig_chi2, chi_hat, chi_tmp ;
-  double dmu, dmu0, dmu1 ;
+  double dmu, dmu0, dmu1  ;
     
   double  chi2_prior = 0.0 ;
-  double *rz_list = (double*) malloc(NSN * sizeof(double) );
+  double *rz_list  = (double*) malloc(NSN * sizeof(double) );
+  double *dmu_list = (double*) malloc(NSN * sizeof(double) );
   Cosparam cparloc;
-  int k, k0, k1, N0, N1, k1min ;
+  int k, k0, k1, N0, N1, k1min, n_count=0 ;
   
+  // rz-interp variables
+  int n_logz, iz;
+  double z ;
+
   char fnam[] = "get_chi2wOM";
 
   // --------- BEGIN --------
@@ -2542,11 +2670,33 @@ void get_chi2wOM (
 
   Bsum = Csum = chi_hat = 0.0 ;
 
+  // Apr 2022: check option to interpolate rz(z) [speed trick]
+  if ( WORKSPACE.INTERP_FLAG_RZ ) {
+    n_logz   = WORKSPACE.n_logz_interp;
+    for(iz=0; iz < n_logz; iz++ ) {
+      z = WORKSPACE.z_list_interp[iz];
+      rz = codist(z, &cparloc); 
+      dmu = get_DMU_chi2wOM(k,rz);
+      WORKSPACE.rz_list_interp[iz]  = rz;
+      WORKSPACE.dmu_list_interp[iz] = dmu ;
+    }
+  }
+
   // Compute diag part first and precompute rz in each z bin to 
   // avoid redundant calculations when using covariance matrix.
   for(k=0; k < NSN; k++ )  { 
-    rz_list[k]  = codist(HD.z[k], &cparloc);
 
+    if ( WORKSPACE.INTERP_FLAG_RZ )  { 
+      exec_rz_interp(k, &cparloc, &rz, &dmu); 
+      rz_list[k]  = rz; 
+      dmu_list[k] = dmu;
+    }
+    else { 
+      rz_list[k]  = codist(HD.z[k], &cparloc); 
+      dmu_list[k] = get_DMU_chi2wOM(k, rz_list[k] );
+    }
+
+    n_count++ ;
     if ( use_mucov ) {
       sqmusiginv = WORKSPACE.MUCOV[k*(NSN+1)]; 
     }
@@ -2555,7 +2705,7 @@ void get_chi2wOM (
       sqmusiginv  = 1./sqmusig ; 
     }
 
-    dmu         = get_DMU_chi2wOM(k, rz_list[k] );
+    dmu         = dmu_list[k] ;
     Bsum       += sqmusiginv * dmu ;       // Eq. A.11 of Goliath 2001
     Csum       += sqmusiginv ;             // Eq. A.12 of Goliath 2001
     chi_hat    += sqmusiginv * dmu*dmu ;
@@ -2563,7 +2713,7 @@ void get_chi2wOM (
   } // end k
 
   
-  // - - - - -  -
+  // - - - - - -
   // check for adding off-diagonal terms from cov matrix.
   // If chi_hat(diag) is already > 10 sigma above naive chi2 -> 
   // skip off-diag computation to save time.
@@ -2595,12 +2745,18 @@ void get_chi2wOM (
   if ( do_offdiag ) {
     for ( k0=0; k0 < NSN-1; k0++) {
       k1min = k0 + 1;
-
       for ( k1=k1min; k1 < NSN; k1++)  {
 	k = k0*NSN + k1;
 	sqmusiginv = WORKSPACE.MUCOV[k]; // Inverse of the matrix 
+
+	/* xxxx mark delete of slow log10 calls .... Apr 22 2022
 	dmu0     = get_DMU_chi2wOM(k0, rz_list[k0] );
 	dmu1     = get_DMU_chi2wOM(k1, rz_list[k1] );
+	xxxxxxxxx end mark xxxxxx xxxx */
+
+	dmu0     = dmu_list[k0];
+	dmu1     = dmu_list[k1];
+
 	chi_tmp  = (sqmusiginv * dmu0 * dmu1 );
 
 	Bsum    += (sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
@@ -2610,6 +2766,8 @@ void get_chi2wOM (
 	Bsum    += (sqmusiginv * dmu1) ;
 	Csum    += sqmusiginv ;
 	chi_hat += chi_tmp ; 
+
+	n_count++ ;
 
       } // end k1
     } // end k0
@@ -2652,6 +2810,7 @@ void get_chi2wOM (
   *chi2tot += chi2_prior;
 
   free(rz_list);
+  free(dmu_list);
 
   return ;
 
@@ -2754,6 +2913,7 @@ double chi2_bao_prior(Cosparam *cpar) {
 
 } // end chi2_bao_prior
 
+// ===============================================
 double get_DMU_chi2wOM(int k, double rz)  {
 
   // Created oct, 2021. Mitra, Kessler.
@@ -2770,7 +2930,7 @@ double get_DMU_chi2wOM(int k, double rz)  {
   double ld_cos, mu_cos, dmu;
   
   ld_cos      = (1.0 + z) *  rz * c_light / H0;
-  mu_cos      =  5.*log10(ld_cos) + 25. ;
+  mu_cos      = 5.0 * log10(ld_cos) + 25. ;
   dmu         = mu_cos - mu_obs ;
   return dmu ;
 

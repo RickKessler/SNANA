@@ -5,7 +5,7 @@
 # arguments to perform specific tasks.
 #
 # Jan 22 2022: add --diff_fitres option 
-#
+# Apr 22 2022: for -d option, include 'MU' if it exists
 # =========================
 
 import os, sys, argparse, subprocess, yaml
@@ -443,6 +443,11 @@ def analyze_diff_fitres(args):
     # define ref variables to check; test var name is {var}_2
     var_check_list = [ 'zHD', 'mB', 'x1', 'c' ]  
 
+    # Apr 22 2022: add MU if it's there (e.g., output of BBC)
+    if 'MU' in df:
+        var_check_list.append('MU')
+        var_check_list.append('MUERR')
+
     # define dfsel = table rows where both ref and test are defined
     #dfsel        = df.loc[df['c_2']>-8.0]
     dfsel        = df.loc[df['c_2']>-8.0]
@@ -461,14 +466,14 @@ def analyze_diff_fitres(args):
     print("# --------------------------------------------------" \
           "--------------------------- ")
     for var in var_check_list:
-        var_2 = f"{var}_2"
+        var_2   = f"{var}_2"
         var_dif = f"dif_{var}"
         dfsel[var_dif] = dfsel[var_2] - dfsel[var]
-        mean = dfsel[var_dif].mean()
-        med  = dfsel[var_dif].median()
-        std  = dfsel[var_dif].std()
-        mn   = dfsel[var_dif].min()
-        mx   = dfsel[var_dif].max()
+        mean  = dfsel[var_dif].mean()
+        med   = dfsel[var_dif].median()
+        std   = dfsel[var_dif].std()
+        mn    = dfsel[var_dif].min()
+        mx    = dfsel[var_dif].max()
 
         CIDmin = None ; CIDmax=None
         if mn < 0.0 :

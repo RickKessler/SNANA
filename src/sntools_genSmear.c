@@ -1086,7 +1086,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //
   // Dec 28 2020: check for SALT3
 
-  //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
+  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
   double zmin = GENRANGE_REDSHIFT[0];
   char dispFile[MXPATHLEN] ;  
@@ -1227,6 +1227,23 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   MINLAM = GENSMEAR_SALT2.MINLAM ;
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   MAXLAM_LOOP = MAXLAM + DLAM ; 
+
+  // Apr 2022
+  // make sure that lam-range in salt2_color_dispersion.dat covers
+  // lam-range of SED template. Beware UV extrap cause failure on blue side.
+  //  if ( MINLAM > SED_LAMMIN || MAXLAM < SED_LAMMAX ) {
+  if (  MAXLAM < SED_LAMMAX ) {
+    print_preAbort_banner(fnam);
+    char cdisp_file[] = "salt2_color_dispersion.dat";
+    printf("  %s MINLAM / MAXLAM = %.2f / %.2f\n", 
+	   cdisp_file, MINLAM, MAXLAM);
+    printf("  SALT2 SED MINLAM / MAXLAM = %.2f / %.2f\n", 
+	   SED_LAMMIN, SED_LAMMAX);
+
+    sprintf(c1err,"wave-range for %s is too small;", cdisp_file); 
+    sprintf(c2err,"Check MINLAM/MAXLAM ranges above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
 
   for ( LAM = MINLAM ; LAM <= MAXLAM; LAM+=DLAM ) {
 

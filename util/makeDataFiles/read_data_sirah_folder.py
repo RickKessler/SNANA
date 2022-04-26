@@ -67,7 +67,7 @@ class data_sirah_folder(Program):
         if i_subgroup == 0:
             return nevt
         else:
-            return 0
+            return -1
         # end prep_read_data_subgroup
         
     def end_read_data_subgroup(self):

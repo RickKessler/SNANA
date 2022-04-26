@@ -39,20 +39,20 @@ import yaml
 
 #from makeDataFiles_params import *
 import makeDataFiles_params as gpar
-import makeDataFiles_util as util
-import write_data_snana as snana
+import makeDataFiles_util   as util
+import write_data_snana     as snana
 
 try:
     import write_data_lsst_alert as lsst_alert
 except ImportError:
     pass
 
-from read_data_des_folder import data_des_folder
-from read_data_lsst_ap import data_lsst_ap
-from read_data_lsst_drp import data_lsst_drp
-from read_data_sirah_folder import data_sirah_folder
-from read_data_snana_folder import data_snana_folder
-from read_data_ztf import data_ztf_folder
+from read_data_des_folder    import data_des_folder
+from read_data_lsst_ap       import data_lsst_ap
+from read_data_lsst_drp      import data_lsst_drp
+from read_data_sirah_folder  import data_sirah_folder
+from read_data_snana_folder  import data_snana_folder
+from read_data_ztf           import data_ztf_folder
 
 
 # =====================================
@@ -90,6 +90,9 @@ def get_args():
                         help=msg, type=str, default=None )
     msg = "file with LSST-ALERT schema (required with --outdir_lsst_alert)"
     parser.add_argument("--lsst_alert_schema",
+                        help=msg, type=str, default=None )
+    msg = "file with list of MJD(sunset) to avoid slow astroplan calls"
+    parser.add_argument("--mjd_sunset_file",
                         help=msg, type=str, default=None )
     msg = "out file with truth info for each alert"
     parser.add_argument("--outfile_alert_truth",
@@ -231,6 +234,8 @@ if __name__ == "__main__":
 
     args  = get_args()
     logger_store = util.setup_logging(args)
+
+    logging.info("Begin makeDataFiles")
 
     # determine which program class (AP, DRP, test data)
     read_class  = which_read_class(args)

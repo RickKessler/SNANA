@@ -4,7 +4,11 @@
 #  makeDataFiles_base.py
 #
 #  Copyright 2021 R. Kessler
-
+#
+# April 9 2022 RK
+#   Continue on nevt=0 and stop on nevt < 0 ; allows small samples
+#   in which some of the FITS files have zero events.
+#
 """Base meta-class Program, built to include the basic infrastructre for more
 general data file parsers.
 """
@@ -584,11 +588,11 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        while nevent_subgroup > 0:
+        while nevent_subgroup >= 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
-            if nevent_subgroup == 0:
-                break
+
+            if nevent_subgroup <  0:    break
 
             self.screen_update(-1,0)  # init clock for rate monitor
 

@@ -786,8 +786,10 @@ c check for command-line overrides
 
 c dump namelist params to std out
 
-      WRITE ( 6 , NML = PSNIDINP )
-      CALL FLUSH(6)
+      IF ( .not. REDUCE_STDOUT_BATCH ) THEN
+        WRITE ( 6 , NML = PSNIDINP )
+        CALL FLUSH(6)
+      ENDIF
 
 c -----------------------------------------------------
 c compute number of filters to fit and load IFILTMAP_PSNID

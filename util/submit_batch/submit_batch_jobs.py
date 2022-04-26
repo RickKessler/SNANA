@@ -14,6 +14,7 @@
 # Oct 20 2021: add makeDataFiles
 # Dec 04 2021: new input --merge_background
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
+# Apr 08 2022: add --merge_force arg for sync_evt option
 # - - - - - - - - - -
 
 #import os
@@ -92,7 +93,7 @@ def get_args():
     msg = "kill jobs if FAIL is detected"
     parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
-    msg = f"check for abort using interactive job for 300 events"
+    msg = "check for abort using interactive job for 300 events"
     parser.add_argument("--check_abort", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
@@ -126,11 +127,14 @@ def get_args():
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )
 
     # args passed internally from command files
-    msg = "INTERNAL:  merge process"
+    msg = "INTERNAL:  merge process (if no BUSY file)"
     parser.add_argument("-m", "--merge", help=msg, action="store_true")
 
     msg = "INTERNAL: last merge process when all done files exist"
     parser.add_argument("-M", "--MERGE_LAST", help=msg, action="store_true")
+
+    msg = "INTERNAL:  force merge process (wait for BUSY files to disappear)"
+    parser.add_argument("--merge_force", help=msg, action="store_true")
 
     msg = "INTERNAL: time stamp (Nsec since midnight) to verify" \
            " merge process examines correct output_dir"
@@ -203,7 +207,8 @@ def set_merge_flag(config):
 
     args = config['args']
     merge_flag = args.merge  or \
-                 args.MERGE_LAST  or \
+                 args.MERGE_LAST   or \
+                 args.merge_force  or \
                  args.merge_reset
 
     set_cpunum0 = args.merge_reset or args.MERGE_LAST
@@ -344,27 +349,27 @@ def print_submit_messages(config_yaml):
     CONFIG = config_yaml['CONFIG']
     args   = config_yaml['args']
 
-    print(f" Done launching jobs. Sit back and relax.")
+    logging.info(f" Done launching jobs. Sit back and relax.")
 
     if 'OUTDIR' in CONFIG :
         OUTDIR = CONFIG['OUTDIR']
         MERGE_LOG = (f"{OUTDIR}/{MERGE_LOG_FILE}")
-        print(f" Check status in {MERGE_LOG} ")
+        logging.info(f" Check status in {MERGE_LOG} ")
 
     if args.merge_background :
-        print(f" REMEMBER: merge is background process (view with ps -f).")
+        logging.info(f" REMEMBER: merge is background process (view with ps -f).")
     elif args.nomerge :
-        print(f" REMEMBER: you disabled the merge process.")
+        logging.info(f" REMEMBER: you disabled the merge process.")
 
     if args.prescale > 1 :
-        print(f" REMEMBER: fast option will process " \
-              f"1/{args.prescale} of request.")
+        logging.info(f" REMEMBER: fast option will process " \
+                     f"1/{args.prescale} of request.")
 
     if args.force_crash_merge :
-        print(f" REMEMBER: there is a forced crash in MERGE process.")
+        logging.info(f" REMEMBER: there is a forced crash in MERGE process.")
 
     if args.force_abort_merge :
-        print(f" REMEMBER: there is a forced abort in MERGE process.")
+        logging.info(f" REMEMBER: there is a forced abort in MERGE process.")
 
     return
 
@@ -374,9 +379,9 @@ def print_nosubmit_messages(config_yaml):
     # print final info to screen for user
     CONFIG = config_yaml['CONFIG']
     if 'OUTDIR' in CONFIG :
-        print(f"\n Check job preparation in {CONFIG['OUTDIR']}/ ")
+        logging.info(f"\n Check job preparation in {CONFIG['OUTDIR']}/ ")
 
-    print(f" Jobs NOT sumbitted. Bye Bye.")
+    logging.info(f" Jobs NOT sumbitted. Bye Bye.")
 
     # end print_nosubmit_messages
 
@@ -471,7 +476,7 @@ if __name__ == "__main__":
     # check option to kill jobs
     if args.kill :
         program.kill_jobs()
-        print('  Done killing jobs -> exit Main.')
+        logging.info('  Done killing jobs -> exit Main.')
         exit(0) 
 
     # - - - - - -

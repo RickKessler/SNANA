@@ -135,6 +135,7 @@ extern"C" {
   void INIT_TEXTFILES(char *PREFIX) ;  // analog of OPEN_ROOTFILE[HFILE]
 
   void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT);
+  void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT);
 
   void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR, 
 			   SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) ;
@@ -263,7 +264,8 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
   printf("  %s: init %s TEXT-table in %s format. \n", 
 	 fnam, TBNAME, TEXT_FORMAT); fflush(stdout);
- 
+  fflush(stdout);
+
   // construct file name from stored prefix and table name.
 
   sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT,TBNAME,SUFFIX_TEXT);
@@ -337,6 +339,9 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
 } // end of SNTABLE_CREATE_TEXT
 
+void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
+  SNTABLE_CREATE_TEXT(*IDTABLE, TBNAME, TEXT_FORMAT);
+}
 
 
 // =============================================
@@ -787,7 +792,7 @@ void CLOSE_TEXTFILE(void) {
   int itab;
   char *FNAM;
   FILE *FP;
-  //  char fnam[] = "CLOSE_TEXTFILE" ;
+  char fnam[] = "CLOSE_TEXTFILE" ;
 
   // ------------- BEGIN -------------
 
@@ -795,7 +800,6 @@ void CLOSE_TEXTFILE(void) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
       FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
       if ( FP != NULL ) {
-	printf("   Close %s \n", FNAM); fflush(stdout);
 	fclose(FP);
       }
   }

@@ -192,11 +192,15 @@ int main(int argc, char **argv) {
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
+  // - - - - -
+  // init option to generate populations from PDF
+  if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
+    { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
   init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
 	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
-
   prioritize_genPDF_ASYMGAUSS();
 
+  // - - - - 
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -438,7 +442,7 @@ void init_commandLine_simargs(int argc, char **argv) {
       sprintf(c1err,"%d command line args exceeds MXARGV=%d", 
 	      NARGV_LIST, MXARGV);
       sprintf(c2err,"Either reduce number of args, or increase MXARGV");
-      errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     for ( i = 0; i < NARGV_LIST ; i++ ) {
@@ -635,6 +639,8 @@ void set_user_defaults(void) {
   //INPUTS.RESTORE_WRONG_VPEC   = true ; // Oct 26, 2020 (keep wrong VPEC sign)
   INPUTS.RESTORE_WRONG_VPEC   = false ; // Nov 2, 2020 (fix VPEC sign)
   NLINE_RATE_INFO   = 0;
+
+  INPUTS.TIME_START[0] = 0 ;
 
   // don't init zero'th input file since that is the main input file
   for(i=1; i < MXINPUT_FILE_SIM; i++ ) { INPUTS.INPUT_FILE_LIST[i][0] = 0 ; }
@@ -894,7 +900,7 @@ void set_user_defaults(void) {
   INPUTS.GENMODEL[0] = 0 ;
   INPUTS.MODELPATH[0] = 0 ;
 
-  INPUTS.GENPDF_FILE[0] = 0 ;
+  INPUTS.GENPDF_FILE[0]   = 0 ;
   INPUTS.GENPDF_IGNORE[0] = 0 ;
   INPUTS.GENPDF_FLAT[0]   = 0 ;
   INPUTS.GENPDF_OPTMASK   = 0;
@@ -1539,22 +1545,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    /* xxxx mark delete Jan 14 2022 xxxx
-    if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
-      { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[1]); }
-    else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file
-      { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[2] ); }
-    else if ( strlen(INPUTS.INPUT_FILE_LIST[3])==0 )  // 3rd include file
-      { N++; sscanf(WORDS[N], "%s", INPUTS.INPUT_FILE_LIST[3] ); }
-    else {
-      sprintf(c1err,"Cannot specify %d INPUT_INCLUDE_FILE keys",
-	      MXINPUT_FILE_SIM );
-      sprintf(c2err,"%d or fewer INCLUDE files allowed.",
-	      MXINPUT_FILE_SIM-1 ) ;
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }    
-    xxxxxxxxx end mark xxxxx */
-
   }
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
@@ -1569,6 +1559,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; // no arg, but increment word count to avoid command-line abort
   }
 
+  else if ( keyMatchSim(1, "TIME_START", WORDS[0], keySource) ) {
+    N++;  sprintf(INPUTS.TIME_START, "%s", WORDS[N] ) ;
+  }
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
   }
@@ -1589,7 +1582,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - -
   else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
   }
   else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
@@ -1600,7 +1594,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], 200);
     char *STR_REDCOV = INPUTS.FLUXERRMODEL_REDCOV;
     N++; sscanf(WORDS[N], "%s", ctmp);
-    README_KEYPLUSARGS_load(10,1, WORDS, keySource, &README_KEYS_FLUXERRMODEL,fnam) ;
+    README_KEYPLUSARGS_load(10,1, WORDS, keySource, 
+			    &README_KEYS_FLUXERRMODEL,fnam) ;
     strcat(STR_REDCOV,WORDS[0] );   // store key name 
     strcat(STR_REDCOV," ");         // blank space 
     strcat(STR_REDCOV,ctmp );   // store argument
@@ -6875,6 +6870,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
 
   sprintf(randomFile, "%s", genmodel_list[ifile]);  
 
+  /* xxxxxxx mark delete Mar 29 2022 xxxxxxxxx
   // for GENPDF wildcard, set GENPDF_OPTMASK to tell init_genPDF
   // that the source is command-line arg instead of file.
   // This allows the command-line arg to override sim-inputs.
@@ -6882,6 +6878,7 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
     if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
       { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
   }
+  xxxxxxxxx end mark xxxxxxxxx */
 
 // - - - - - -
   for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }
@@ -7733,7 +7730,6 @@ void init_simvar(void) {
   set_GENMODEL_NAME();
 
   init_GaussIntegral();
-  // xxx mark   ENVreplace("init", fnam, 1);
 
   GENLC.STOPGEN_FLAG = 0 ;
   GENLC.ACCEPTFLAG   = GENLC.ACCEPTFLAG_LAST = 0 ;

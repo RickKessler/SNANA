@@ -87,7 +87,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   int gzipFlag,  NDIM, NFUN, i ;
   int NMAP=0, NVAR=0, NITEM=0, NWD=0, ivar, imap=-9, IDMAP=0;
   bool IGNORE_MAP ;
-  char c_get[60], fileName_full[MXPATHLEN];
+  char c_get[200], fileName_full[MXPATHLEN];
   char LINE[200], TMPLINE[200], varName[60];
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
@@ -105,7 +105,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   NMAP_GENPDF = NCALL_GENPDF = 0;
   if ( IGNOREFILE(fileName) ) { return; }
 
-  print_banner(fnam);
+  sprintf(BANNER,"%s with OPTMASK=%d", fnam, OPTMASK);
+  print_banner(BANNER);
 
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
@@ -167,9 +168,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
     // check for asymmetric gaussian for alpha,beta
     //if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
-    fgets(LINE,100,fp);
+    fgets(LINE,200,fp);
     sprintf(TMPLINE,"%s %s", c_get, LINE);
-    splitString(TMPLINE, " ", 100,          // inputs             
+    splitString(TMPLINE, " ", 200,          // inputs             
 		&NITEM, ptr_ITEMLIST );  // outputs
 
     IS_VARNAMES = (strcmp(c_get,"VARNAMES:") == 0 );

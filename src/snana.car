@@ -116,7 +116,7 @@ c
      &  ,MXVERS        = 50         ! max number of versions to read
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
-     &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
+     &  ,NFIT_VERBOSE  = 20         ! Number of fits for verbose printouts
      &  ,MXSNLC        = 5000000    ! max number of SNe (fits format)
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
@@ -427,6 +427,7 @@ c
      &  ,ISJOB_PSNID
      &  ,ISJOB_SIM    ! either SNANA sim or fakes (LSIM_SNANA or LSIM_MAGOBS)
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
+     &  ,REDUCE_STDOUT_BATCH   ! T => suppress stdout for JOBSPLIT(1)>1
      &  ,REFORMAT              ! T => a reformat option has been set
      &  ,REFORMAT_SNANA        ! T => reformat SNANA format
      &  ,REFORMAT_SAVE_BADEPOCHS ! include reject epochs (default=F)
@@ -511,6 +512,7 @@ c global survey info
      &    ,SURVEY_FILTERS
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
      &    ,ISJOB_SNANA, ISJOB_SNFIT, ISJOB_PSNID, ISJOB_SIM, ISJOB_BATCH
+     &    ,REDUCE_STDOUT_BATCH
      &    ,ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
@@ -528,7 +530,7 @@ c global survey info
      &    ,ABSO_OFFSET, ABSO_INDEX
      &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SPECTRA, REFORMAT_PRIVATE
      &    ,REFORMAT_SAVE_BADEPOCHS, REFORMAT_SIMTRUTH
-     &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
+     &    ,STDOUT_UPDATE, ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,DOzSHIFT
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
@@ -3179,8 +3181,6 @@ c pak global survey info after all initialization (Mar 24 2013)
 cc      IF ( LTEST_INTERP ) CALL TEST_INTERP(INTERP_OPT)
 +SELF.
 
-c initialize optional format translations
-c xxx mark      CALL INIT_REFORMAT()
 
 c ######################################################
 c
@@ -3266,9 +3266,11 @@ c check header override option
       LENF = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
       IF ( LENF > 0 ) THEN
         IF ( LSIM_SNANA ) THEN
-          c1err = 'HEADER_OVERRIDE_FILE is only for data;'
-          c2err = 'not for simulations'
-          CALL MADABORT('INIT_READ_DATA', c1err, c2err )
+          print*,' '
+          print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
+	  print*,'    WARNING: HEADER_OVERRIDE_FILE ignored for sim'
+          print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
+          print*,' '
         ELSE
           CALL RD_OVERRIDE_INIT(HEADER_OVERRIDE_FILE(1:LENF)//char(0))
         ENDIF
@@ -3476,10 +3478,10 @@ c transfer variables from C struct to fortran global variables
 
 c ---------------------------------------------------------------
 
-         call PRINT_RDSN()      ! print one-line summary
-
          IF ( ISTAT .EQ. 0 ) THEN
             N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
+            call PRINT_RDSN()      ! print one-line summary
+
             CALL SNANA_DRIVER(N_SNLC_PROC)
          ENDIF
 
@@ -4427,6 +4429,13 @@ c i.e., do not depend on host-match.
             if ( MAG > -998.0 ) EXIST_SNHOST_MAGOBS = .TRUE. 
          ENDDO
 
+         KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
+         CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
+         DO ifilt = 1, NFILTDEF_READ
+            SB = SNHOST_SBFLUXCAL(ifilt)
+            if ( SB > -998.0 ) EXIST_SNHOST_SB = .TRUE.
+         ENDDO
+        
       ENDIF  ! end IGAL=1
 
 c - - - - - - - - 
@@ -5696,6 +5705,7 @@ c             and jump to SNLCINP_OVERRIDE. Allows running snana
 c             with only command-line options and no nml file.
 c
 c Feb 27 2018: check CUTWIN_ZP
+c Apr 07 2022; use function VALIDFILENAME
 c
 c ---------------
 
@@ -5708,6 +5718,7 @@ c local ars
 
 c function
       INTEGER PARSE_NML_STRINGLIST
+      LOGICAL VALIDFILENAME
 
 C -------------- BEGIN -----------
       IERR = 0
@@ -5924,7 +5935,7 @@ c default is to reject nothing (accept everything)
       USE_MINOS      = .FALSE.  ! change from T to F, Jan 27 2017
 
       MXLC_FIT         = 999888777 
-      MXLC_PLOT        = 100
+      MXLC_PLOT        = 5    ! 100->5  (Apr 19 2022)
       NCCID_PLOT       = 0
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
  
@@ -6103,7 +6114,7 @@ c Mar 31 2021: check PHOTFLAG_BITLIST (LSB=0) and compute PHOTFLAG_MSKREJ
       NFIT_ITERATION = 0
 +SELF.
 
-      IF ( JOBSPLIT(1) < 2 ) THEN
+      IF ( .not. REDUCE_STDOUT_BATCH ) THEN
         WRITE ( 6 , NML = SNLCINP )
         CALL FLUSH(6)
       ENDIF
@@ -6228,10 +6239,10 @@ c init some INIXXX parameter for fit
       ENDIF 
 
 c ---------------------------
-      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+      IF ( VALIDFILENAME(VERSION_REFORMAT_FITS) ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+      IF ( VALIDFILENAME(VERSION_REFORMAT_TEXT) ) THEN    ! Feb 2021
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
 
@@ -6698,6 +6709,8 @@ c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
 c Jul 13 2020: no default SNTABLEs if writing rejected epochs
 c Mar 17 2021: begin OUTLIER table
 c Apr 25 2021: OUTLIER table is automatically disabled for large BIASCOR sim
+c Apr 19 2022: disable LCPLOT table for sims in batch mode
+c                (to avoid excessive output)
 c
 c -------------------
       IMPLICIT NONE
@@ -6713,7 +6726,7 @@ c -------------------
       CHARACTER USERSTRING*60, locase_STRING*60, TBNAME*60
       CHARACTER COPT_LIST(10)*20, COPT*40, FNAM*22, C_ARG*100
       CHARACTER cTMPOPT*60
-      LOGICAL   MATCH, USEOPT, DO_SNTABLE
+      LOGICAL   MATCH, USEOPT, DO_SNTABLE, DISABLE
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -6852,8 +6865,15 @@ c           OUTLIER table is automatically disabled for large BIASCOR sim
             endif
          else if ( TBname(1:6) .EQ. 'lcplot' ) then 
             ITAB = ITABLE_SNLCPAK
-            OPT_TABLE(ITAB) = 1
-
+            DISABLE = ( ISJOB_BATCH .and. ISJOB_SIM ) 
+            IF ( DISABLE ) THEN
+	       NOPT = 0 
+	       print*,
+     &           '  WARNING: disable LCPLOT table for sim-data in batch'
+	       call flush(6)
+            ELSE
+               OPT_TABLE(ITAB) = 1
+            ENDIF
          else if ( TBname(1:8) .EQ. 'specplot' ) then  
             ITAB = ITABLE_SPECPAK  ! spectra in the data files
             OPT_TABLE(ITAB) = 1
@@ -7666,6 +7686,8 @@ c - - - -
            READ(ARGLIST(1),*) JOBSPLIT(1)
            READ(ARGLIST(2),*) JOBSPLIT(2)
            ISJOB_BATCH = .TRUE.
+           REDUCE_STDOUT_BATCH = ( JOBSPLIT(1) .GT. 1 )
+
          else if ( MATCH_NMLKEY('JOBSPLIT_EXTERNAL',
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) JOBSPLIT_EXTERNAL(1)
@@ -8777,10 +8799,11 @@ C ====================================
 +DECK,PRBANNER.
       SUBROUTINE PRBANNER ( banner )
       IMPLICIT NONE
-
++CDE,SNPAR.
++CDE,CTRLCOM.
       character banner*(*)
 
-      print*,' '
+      if ( .NOT. REDUCE_STDOUT_BATCH ) print*,' '
       print*,
      &   ' ######################################################## '
       print*,'   ', BANNER
@@ -8788,7 +8811,7 @@ C ====================================
       print*,
      &   ' ######################################################## '
 
-      print*,' '
+      if ( .NOT. REDUCE_STDOUT_BATCH ) print*,' '
       CALL FLUSH(6)
 
       RETURN
@@ -9186,14 +9209,6 @@ c Analysis driver for SN with sparse index ISN.
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
 c
-c Nov 29 2016: 
-c   + remove function call to PRIVATE_CHECK.
-c   + add call to EXEC_HEADER_OVERRIDE.
-c          
-c Dec 9 2017: 
-c   + call REJECT_PRESCALE() here so that we don't do Bazin/PEAKMJD fit
-c     for every prescale-rejected event.
-c
 c Jun 21 2018:
 c   if ERRFLAG_FIT > 0 on any iteraton, REJECT fit immediately
 c   See REJECT_FIT logical.
@@ -9340,13 +9355,13 @@ c do the fit
             GOTO 410          ! bad init => skip fit-iteration
           endif
 
-          write(6,43)
-          WRITE(6,44) ISN, SNLC_CCID(1:ISNLC_LENCCID), 
+          if ( STDOUT_UPDATE ) THEN
+            WRITE(GLOBAL_BANNER,44) ISN, SNLC_CCID(1:ISNLC_LENCCID), 
      &           NFITPAR_MN, ITER
-44        format(T5,'CALL MNFIT_DRIVER for ISN=',I5,
-     &         3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
-          write(6,43)
-43        FORMAT(/,T2, 60('#'), / )
+            CALL PRBANNER(GLOBAL_BANNER)
+44          format(T5,'CALL MNFIT_DRIVER for ISN=',I5,
+     &           3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
+          endif
 
 c call main driver for fitter. 
 c Note that all returned output from MNFIT_DRIVER goes to common blocks.
@@ -9393,9 +9408,12 @@ c check ERRFLAG_FIT
  
 410     CONTINUE  ! end of iteration loop
 
-        print*,'    Finished fitting CID = ', 
-     &               SNLC_CCID(1:ISNLC_LENCCID)
-        print*,' ' 
+        if ( STDOUT_UPDATE ) THEN
+          print*,'    Finished fitting CID = ',
+     &         SNLC_CCID(1:ISNLC_LENCCID)
+          print*,' ' 
+          call flush(6)
+        endif
 +SELF.
 
 +SELF,IF=PSNID.
@@ -9520,8 +9538,6 @@ c
 
 c ----------------- BEGIN -------------
 
-c      CALL PRINT_SNSTATS
-
 c -----------------------------
 
 +SELF,IF=SNFIT.
@@ -9548,6 +9564,10 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
       ENDIF
 
       IF ( USE_TABLEFILE_TEXT ) THEN  ! April 2019
+
+c Apr 18 2022: if no events were processed then there are no text files.      
+c      In this case, create blank text-table file for each table
+         IF ( N_SNLC_PROC == 0 ) CALL SNTABLE_CREATE_TEXT_EMPTY()
          CALL TABLEFILE_CLOSE("NULL"//char(0),10)
       ENDIF
 
@@ -9585,6 +9605,75 @@ c - - - - - -
 
       RETURN
       END    ! end of SNANA_END
+
+
+C ======================================
++DECK,SNTABLE_CREATE_EMPTY.
+      SUBROUTINE SNTABLE_CREATE_TEXT_EMPTY()
+c
+c Created Apr 18 2022 by R.Kessler
+c Goofy routine called at end of job if no events have been read;
+c create empty TEXT table so that submit_batch_jobs finds all of
+c the expected TEXT-table files. The underlying problem is that
+c TEXT table file is not created until after 1st event is read ...
+c so if there is no 1st event then there is no text table file.
+c For ROOT and HBOOK, the file is created regardless of 1st event
+c because these table formats hold multiple tables in one file.
+c --------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SNANAFIT.
+
+      INTEGER NTABLE_CHECK
+      PARAMETER (NTABLE_CHECK = 2)
+      INTEGER 
+     &   ITABLE_LIST(NTABLE_CHECK)
+     &  ,IDTABLE_LIST(NTABLE_CHECK)
+     &  ,itab, ITABLE, IDTABLE, LENNAM, LENFMT
+      CHARACTER 
+     &    TBNAME_LIST(NTABLE_CHECK)*40
+     &   ,TBNAME*40, TXTFMT*20
+     &   ,cTBNAME*40, cTXTFMT*20
+
+      EXTERNAL SNTABLE_CREATE_TEXT
+
+c --------- BEGIN ----------
+
+      write(6,20)
+20    format(/,T3,'No events read -> create empty text-table file:')
+      call flush(6)
+
+c hard-wire list of table info to check
+
+      ITABLE_LIST(1)  = ITABLE_SNANA
+      ITABLE_LIST(2)  = ITABLE_FITRES
+
+      IDTABLE_LIST(1) = IDTABLE_SNANA
+      IDTABLE_LIST(2) = IDTABLE_FITRES
+
+      TBNAME_LIST(1)  = 'SNANA'
+      TBNAME_LIST(2)  = 'FITRES'
+
+c - - - - - -
+      DO 100 itab =1, NTABLE_CHECK
+        ITABLE  = ITABLE_LIST(itab) 
+	IDTABLE = IDTABLE_LIST(itab)
+	TBNAME  = TBNAME_LIST(itab)
+        TXTFMT  = 'key'
+
+        IF ( OPT_TABLE(ITABLE) > 0 ) THEN
+ 	  LENNAM  = INDEX(TBNAME,' ') - 1
+          LENFMT  = INDEX(TXTFMT,' ') -1
+          cTBNAME = TBNAME(1:LENNAM) // char(0)
+	  cTXTFMT = TXTFMT(1:LENFMT) // char(0)
+          CALL SNTABLE_CREATE_TEXT(IDTABLE, cTBNAME, cTXTFMT, 40,20)
+        ENDIF
+100   CONTINUE
+
+      RETURN
+      END
 
 C ======================================
 +DECK,FORCLOSE.
@@ -9665,7 +9754,7 @@ c -------------------------
       INTEGER OPT
 
       INTEGER LEN_VER
-      LOGICAL LEXIST
+      LOGICAL LEXIST, VALIDFILENAME
       CHARACTER 
      &   FNAM*14
      &  ,LIST_FILE*(MXCHAR_FILENAME), IGNORE_FILE*(MXCHAR_FILENAME)
@@ -9673,16 +9762,17 @@ c -------------------------
 C ------------- BEGIN -------------
 
       FNAM = 'INIT_REFORMAT'
-      REFORMAT       = .FALSE.  ! any reformat option
 
       IF ( OPT == 2 ) GOTO 500
+
+      REFORMAT       = .FALSE.  ! any reformat option
 c - - - - - - - - - 
 c convert &SNLCINP strings and OPT_REFORMAT_TEXT[FITS] into logicals
 
-      IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
+      IF ( VALIDFILENAME(VERSION_REFORMAT_FITS) ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
       ENDIF
-      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+      IF ( VALIDFILENAME(VERSION_REFORMAT_TEXT) ) THEN  
         OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
 
@@ -11744,14 +11834,16 @@ c this match utility uses hash table for faster access.
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
       LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
 
-      INTEGER  IGNOREFILE, MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
-      EXTERNAL IGNOREFILE, MATCH_CIDLIST_INIT
+      LOGICAL  VALIDFILENAME
+      INTEGER  MATCH_CIDLIST_INIT, PARSE_NML_STRINGLIST
+      EXTERNAL MATCH_CIDLIST_INIT
 
 C ----------- BEGIN ------------     
 
       LENF    = INDEX(SNCID_LIST_FILE,' ') - 1
       cFILE   = SNCID_LIST_FILE(1:LENF) // char(0)
-      IS_FILE = ( IGNOREFILE(cFILE,LENF) == 0 )
+
+      IS_FILE = VALIDFILENAME(SNCID_LIST_FILE)
 
       NCID_LIST = 0; NCCID_LIST = 0; NCCID_FILE = 0
 
@@ -12101,6 +12193,46 @@ C -------------- BEGIN -------------
 
       RETURN
       END     ! end of ENVreplace
+
+C ==============================
++DECK,IGNOREFILE_fortran.
+      LOGICAL FUNCTION IGNOREFILE_fortran(fileName)
+
+c Created Apri 2022
+c Wrapper to call IGNOREFILE C-utility to return True if
+c file = 'NULL' or 'NONE' or 'BLANK' or ''
+
++CDE,SNPAR.
+      CHARACTER FILENAME*(*), cFILE*(MXCHAR_FILENAME)
+      INTEGER LENF, IGNORE
+
+      INTEGER  IGNOREFILE
+      EXTERNAL IGNOREFILE
+C --------- BEGIN -------------
+
+      LENF = INDEX(FILENAME//' ',' ') - 1
+      cFILE = FILENAME(1:LENF) // char(0)
+      IGNORE = IGNOREFILE(cFILE,LENF) 
+
+c xxxxxxxx
+c      print*,' xxx ------------------------------- '
+c      print*,' xxx FILENAME = ', FILENAME(1:LENF)
+c      print*,' xxx LENF = ', LENF
+c      print*,' xxx IGNORE = ', IGNORE
+c xxxxxxxxxx
+
+      IGNOREFILE_fortran = (IGNORE .NE. 0 )
+
+      RETURN
+      END  ! end of IGNOREFILE_fortran
+
++DECK,VALIDFILENAME.
+      LOGICAL FUNCTION VALIDFILENAME(fileName)
+      CHARACTER FILENAME*(*)
+      LOGICAL   IGNOREFILE_fortran
+      VALIDFILENAME = ( .NOT. IGNOREFILE_fortran(FILENAME) ) 
+      RETURN
+      END
 
 C =======================================
 +DECK,get_PARSE_WORD_fortran.
@@ -13131,7 +13263,7 @@ c and skip down to over-write part.
 
         IGNORE = .TRUE.
 
-        IF ( STDOUT_UPDATE) THEN
+        IF ( STDOUT_UPDATE ) THEN
           write(6,101) CCID, MJD8, cfilt
         ENDIF
 101     format(T8,'IGNORE EPOCH FOR: CID=',A8, 
@@ -13737,27 +13869,41 @@ C ==================================
 +DECK,PRINT_RDSN.
       SUBROUTINE PRINT_RDSN()
 
-C print one-line summary of SN that has been read/parsed.
-C Apr 26, 2017: set STDOUT_UDPATE logical to suppress std output
-C               for BIG jobs.
+C Called before SNANA_DRIVER, print one-line summary of SN that has 
+c been read/parsed.
+C
+C Apr 19 2022: replace REJECT_PRESCALE with MOD function to have
+c              more predictable prints.
 C
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      REAL*8  PS_UPDATE
+      INTEGER N_UPDATE_PS1, N_UPDATE_PS10, PS_UPDATE
+c xxx      REAL*8  PS_UPDATE
       LOGICAL REJECT_PRESCALE  ! function
 C ------------- BEGIN -----------
 
 c determine STDOUT_UPDATE logical to dump info
 
-      IF ( N_SNLC_PROC <  200 ) THEN
-         PS_UPDATE = 1.0
+      N_UPDATE_PS1  = 50 ! update first 50 events
+      N_UPDATE_PS10 = 300
+      if ( REDUCE_STDOUT_BATCH ) then
+         N_UPDATE_PS1  = 5
+         N_UPDATE_PS10 = 100
+      endif
+
+      IF ( N_SNLC_PROC < N_UPDATE_PS1 ) THEN
+         PS_UPDATE = 1
+      ELSE IF ( N_SNLC_PROC < N_UPDATE_PS10 ) THEN
+         PS_UPDATE = 10
       ELSE
-         PS_UPDATE = 100.
+         PS_UPDATE = 100
       ENDIF
-      STDOUT_UPDATE = (.NOT. REJECT_PRESCALE(N_SNLC_PROC,PS_UPDATE) )
+
+c xxx mark del STDOUT_UPDATE = (.NOT. REJECT_PRESCALE(N_SNLC_PROC,PS_UPDATE) )
+      STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
 
       if ( .NOT. STDOUT_UPDATE ) RETURN
 
@@ -18361,7 +18507,6 @@ c Apr 15 2018: mass OPTMASK argument to INIT_FLUXERRMODEL
 
 c function in sntools.c
       INTEGER IGNOREFILE
-
 C --------------- BEGIN ----------------
 
       IERR = 0 
@@ -18821,13 +18966,14 @@ c - - - - - -
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
       INTEGER iwd, NWD, LENFILE,MSKOPT
 
-      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
+      LOGICAL  IGNOREFILE_fortran
+      INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
 C ---------------- BEGIN --------------
 
-      if ( INFILE .EQ. ''  ) RETURN
-cc      if ( IGNOREFILE(INFILE,) > 0 ) RETURN
+cc       if ( INFILE .EQ. ''  ) RETURN
+      if ( IGNOREFILE_fortran(INFILE) ) RETURN  ! Apr 7 2022
 
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space
@@ -21584,13 +21730,13 @@ c input function args
 +CDE,INTERPCM.
 +CDE,SNLCCOM.
    
-      INTEGER i, LEN, LENCCID, LENIAUC
+      INTEGER i, LEN, LENCCID, LENIAUC, ISN_MATCH
       REAL XCID     
       CHARACTER CCIDTMP*(MXCHAR_CCID)
-      LOGICAL MATCH
 
 c functions
-      LOGICAL   MATCH_CIDLIST_EXEC, STRINGMATCH
+      LOGICAL   STRINGMATCH
+      INTEGER   MATCH_CIDLIST_EXEC
       EXTERNAL  MATCH_CIDLIST_EXEC
 c ------------------ BEGIN ---------------
 
@@ -21635,15 +21781,16 @@ c Since  integer list is small, use brute-force looping.
 c use hash table to check list of CID strings since this list
 c can be quite large.
       CCIDTMP = CCID(1:LENCCID) // char(0)
-      MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
-      if ( .NOT. MATCH ) then   ! try IAUC name
+      ISN_MATCH = MATCH_CIDLIST_EXEC(CCIDTMP,LENCCID)
+      if ( ISN_MATCH  < 0 ) then   ! try IAUC name
          LENIAUC = INDEX(IAUC,' ') - 1
          CCIDTMP = IAUC(1:LENIAUC) // char(0)
-         MATCH   = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
-         if ( MATCH ) CCID = IAUC ! write IAUC to output table            
+         ISN_MATCH  = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
+         if ( ISN_MATCH .GE. 0 ) CCID = IAUC ! write IAUC to output table 
       endif
-      LCIDSELECT = MATCH
-      if ( MATCH ) GOTO 800
+      LCIDSELECT = (ISN_MATCH .GE. 0)
+      if ( LCIDSELECT ) GOTO 800
+
 c - - - - - 
 c finally, check list of CIDs on the MJD-interpolation list;
 c see &SNLCINP namelist input SNMJD_LIST_FILE 
@@ -22827,7 +22974,7 @@ c   terminate strings for C table-functions (snana.car routine)
            if ( ISJOB_SNANA ) then
               NSIG   = abs(SIM_EPPULL(ep))
               FTRUE  = SIM_EPFLUXCAL(ep)
-              SBMAG  = SNHOST_SBMAG(ifilt) ! Aug 2021 .xyz
+              SBMAG  = SNHOST_SBMAG(ifilt) 
            else
 +SELF,IF=SNFIT.
               NSIG   = NSIG_OUTLIER_FIT(ep)
@@ -23785,7 +23932,14 @@ c always write LOGMASS and SFR
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
-      IF ( EXIST_SNHOST_SB ) THEN    ! host surface brightness
+c Apr 2022
+c store host surface brightness if SB exists or host-mag exists.
+c The host-mag check is a safety feature in case SB is undefined.
+c E.g., DES event 1248110 has SBFLUX=-999 even though host mags are
+c all in the 21-22 range. Likely a subtle problem measuring SBFLUX
+c on the template image.
+
+      IF ( EXIST_SNHOST_SB .OR. EXIST_SNHOST_MAGOBS) THEN 
 c        HOST_SB -> HOST_SBFLUXCAL
         CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
@@ -24136,7 +24290,7 @@ c local var
       LOGICAL  IGNORE
 
       EXTERNAL SNTABLE_ADDCOL
-      INTEGER  IGNOREFILE
+      LOGICAL  IGNOREFILE_fortran
 
 C --------------- BEGIN -------------
 
@@ -24244,7 +24398,7 @@ c xxx mark          VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0)
 
 c include SNR_MAG[mag] if it exists.
       LENTMP  = INDEX(SIMNAME_SNRMON,' ')-1
-      IGNORE  = ( IGNOREFILE(SIMNAME_SNRMON,LENTMP) > 0 ) 
+      IGNORE  = ( IGNOREFILE_fortran(SIMNAME_SNRMON) ) 
       IF ( LSIM_SNANA .and. (.not.IGNORE)  ) THEN
          VARNAME = SIMNAME_SNRMON(1:LENTMP)// '(NOBS):F' // char(0)
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPSNRMON,
@@ -24281,7 +24435,6 @@ c local var
       CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
       EXTERNAL SNTABLE_ADDCOL
-      INTEGER  IGNOREFILE
 
 C --------------- BEGIN -------------
 
@@ -25307,16 +25460,15 @@ c local var
 +CDE,SNPAR.
 +CDE,KCORCOM.
 
-      INTEGER J0, J1, KLEN
+      INTEGER J0, J1
       CHARACTER C1ERR*76, C2ERR*76
 
 c function
-      INTEGER IGNOREFILE
+      LOGICAL IGNOREFILE_fortran
 C --------------- BEGIN --------------
 
       CALL RDKCOR_INIT()
-      KLEN = INDEX(KCORFILE,' ') - 1
-      if ( IGNOREFILE(KCORFILE,KLEN) > 0 ) then
+      if ( IGNOREFILE_fortran(KCORFILE) ) then
         C1ERR = 'Must specifiy kcor/calib file with KCOR_FILE key'
         C2ERR = 'KCOR_FILE contains filter trans, primary ref,' // 
      &             ' AB off, etc'
@@ -35200,7 +35352,10 @@ c check option to use MJD at max-flux or at TRIGGER
          ENDIF
 
          SNLC_SEARCH_PEAKMJD    = PKMJD
-         write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+         IF ( STDOUT_UPDATE ) then
+            write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
+         ENDIF
+
          RETURN
       ENDIF
 
@@ -35367,8 +35522,9 @@ c Finally, take PKMJD-wgted average of remaining filters.
       PKMJD    = PKMJDAVG
 
       if ( STDOUT_UPDATE ) THEN
-        write(6,50) CCID(1:ISNLC_LENCCID), PKMJD,METHOD
+        write(6,50) CCID(1:ISNLC_LENCCID), PKMJD, METHOD
 50      format(T8,'SET_PEAKMJD(',A,') --> ', F9.3, 3x, A )
+        call flush(6)
       endif
 
 c -----------------------------------------------
@@ -36411,6 +36567,7 @@ c
 c May 21, 2012: set print level using SNLCINP namelist MINUIT_PRINT_LEVEL
 c
 c Jan 03 2016: pass new output arg MNSTAT_COV
+c Apr 19 2022: set DO_PRINT for printing to suppress STDOUT for batch jobs
 c
 c -------------------------------------------------
 
@@ -36439,6 +36596,7 @@ c arguments
 c local var
 
 +CDE,SNPAR.
++CDE,CTRLCOM.
 +CDE,SNCONTCM.
 
       EXTERNAL FCNSNLC, USRFUN
@@ -36460,7 +36618,7 @@ c local var
      &  ,FEDM, ERRDEF
      &  ,ERRSYM      ! local SYMMMETRIC fiterr
 
-      LOGICAL LFIX
+      LOGICAL LFIX, DO_PRINT
 
 C Unit numbers for input and output
 
@@ -36469,12 +36627,12 @@ C Unit numbers for input and output
       DATA IUOUT/6/
       DATA IUWRI/7/
 
-C
 C -------------------- BEGIN -------------------------
 
       IERR = 0
       NFIXPAR = 0
       FITCHI2 = 0.0
+      DO_PRINT = STDOUT_UPDATE
 C  
 C Initialize MINUIT, input unit, output unit, save unit
 C
@@ -36544,7 +36702,10 @@ C Set Strategy 2 for more accurate derivative calculation
 
       NARG = 1
       STRATEGY = DBLE(2.0)   ! 1=default,  2 => better results 
-      print*,'  Set MINUIT STRATEGY = ', int(STRATEGY)
+
+      IF ( DO_PRINT ) THEN
+        print*,'  Set MINUIT STRATEGY = ', int(STRATEGY)
+      ENDIF
 
 +SELF,IF=MINUIT.
       CALL MNEXCM(FCNSNLC,'SET STR', STRATEGY, NARG, IERR, USRFUN )
@@ -36553,34 +36714,37 @@ C Set Strategy 2 for more accurate derivative calculation
 
 C Actually do the fit
 
-      PRINT *,' '
-      PRINT *,' ------------------------------------------------ '
- 
+      IF ( DO_PRINT ) THEN
+        PRINT *,' '
+        PRINT *,' ------------------------------------------------ '
+      ENDIF
+
 +SELF,IF=MINUIT.
       IF ( USE_MINOS ) THEN
-        PRINT *,' '
-        PRINT *,'   MNFIT_DRIVER: fit with MINOS '
-          CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
-        PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
+        CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
+        IF ( DO_PRINT ) THEN
+          PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
+        ENDIF
       ELSE
-
-cc      PRINT *,'   MNFIT_DRIVER: begin fit with MIGRAD '
-cc      CALL MNEXCM(FCNSNLC, 'MIGRAD', MAXCALLS, NARG, IERR, USRFUN)
-
-        PRINT *,'   MNFIT_DRIVER: begin fit with MINIMIZE '
         CALL MNEXCM(FCNSNLC, 'MINIMIZE', MAXCALLS, 0, IERR, USRFUN)
-        PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
+        IF ( DO_PRINT ) THEN
+          PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
+        ENDIF
       ENDIF
 +SELF.
 
-      PRINT *,' ------------------------------------------------ '
+      IF ( DO_PRINT ) THEN
+         PRINT *,' ------------------------------------------------ '
+      ENDIF
 
 c -------------------------------------------
 c get the fit result
   
-      PRINT *,' ' 
-      PRINT *,'   MNFIT_DRIVER: extract fit parameters with MNPOUT' 
-      CALL FLUSH(6)
+      IF ( DO_PRINT ) THEN
+        PRINT *,' ' 
+        PRINT *,'   MNFIT_DRIVER: extract fit parameters with MNPOUT' 
+        CALL FLUSH(6)
+      ENDIF
 
       DO 44 IPAR = 1, NFITPAR
 
@@ -36654,12 +36818,14 @@ c Stop fit and make LAST call to function
 +SELF,IF=MINUIT.
       CALL MNEXCM(FCNSNLC, 'EXIT',  dble(0.0), 0, IERR, USRFUN )
 +SELF.
-      PRINT *,'  MNFIT_DRIVER: EXIT returns IERR = ', IERR
-      CALL FLUSH(6)
+      IF ( DO_PRINT ) THEN
+        PRINT *,'  MNFIT_DRIVER: EXIT returns IERR = ', IERR
+        CALL FLUSH(6)
+      ENDIF
 
 c ---------------------------------
       RETURN
-      END
+      END  ! end MNFIT_DRIVER
 
 C ===========================
 +DECK,MNFIT_STOREPAR.
@@ -36967,8 +37133,10 @@ c function
 
 C --------------- BEGIN -------------
 
-      LQUIET = ( N_SNLC_FIT >  NFIT_VERBOSE )
-      IF ( LQUIET .and. ITER < NFIT_ITERATION ) RETURN
+      LQUIET = .NOT. STDOUT_UPDATE
+
+c xxx mark      IF ( LQUIET .and. ITER < NFIT_ITERATION ) RETURN
+      IF ( LQUIET ) RETURN
       
       IF ( type .EQ. 'fit' ) then
         VAL = FITVAL(ipar,iter)

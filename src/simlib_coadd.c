@@ -31,7 +31,7 @@
    CCD noise -> sqrt (sum of squares) / N
    SKYSIG    -> sqrt (sum of squares) / N
    PSF1      -> average PSF
-   ZPTAVG    -> 2.5 * log10 [ \sum 10^(0.4*ZPT_i) ] / N
+   ZPT       -> 2.5 * log10 [ \sum 10^(0.4*ZPT_i) ] # coadd
    ZPTSIG    -> average ZPTSIG
 
 

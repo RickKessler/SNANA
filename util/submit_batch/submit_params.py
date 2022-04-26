@@ -64,6 +64,7 @@ HOSTNAME = os.uname()[1].split('.')[0]
 BATCH_MEM_DEFAULT      = "2000"      # default memory request is 2GB
 BATCH_WALLTIME_DEFAULT = '24:00:00'  # default wall time is 24hr
 BATCH_MAXJOB_DEFAULT   = 500         # max number of jobs allowed in queue
+BATCH_NTHREADS_DEFAULT = 1           # number of threads per job 08/apr/2022
 
 USERNAME = getpass.getuser()
 USER4    = USERNAME[0:4]
@@ -73,6 +74,10 @@ CWD      = os.getcwd()
 today = datetime.date.today()
 
 seconds_since_midnight = int(time.time() - time.mktime(today.timetuple()))
+
+# define current time (e.g, 2022-03-21 04:54:12) and use rsplit
+# to remove decimal places for seconds
+time_submit_start = str(datetime.datetime.now()).rsplit('.',1)[0]
 
 SUFFIX_FITRES = "FITRES"
 SUFFIX_M0DIF  = "M0DIF"
@@ -121,6 +126,8 @@ CONFIG_KEYLIST_DONE_FILE = [ 'DONE_STAMP', 'DONE_STAMP_FILE' ]
 DEFAULT_DONE_FILE = "ALL.DONE"  # default if DONE_STAMP not in CONFIG
 
 CONFIG_KEYNAME_ENV_REQUIRE  = "ENV_REQUIRE"  # name of key with required ENV
+ENV_SNANA_SETUP_COMMAND     = "SNANA_SETUP_COMMAND"
+ENV_SNANA_IMAGE_DOCKER      = "SNANA_IMAGE_DOCKER"
 
 # lok file for merge process
 BUSY_FILE_PREFIX = "BUSY_MERGE_CPU"

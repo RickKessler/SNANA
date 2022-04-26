@@ -1,35 +1,36 @@
 # Created Oct 22, 2021
 # write data in lsst-alert format for broker test.
-# [R.Hlozek, R.Kessler ...]
+# [R.Kessler, G. Narayan, R.Hlozek, ]
 #
 # Jan 14 2022 G.Narayan - fix diaObject bug found by Rob K.
 # Jan 15 2022 R.Kessler - minor cleanup; start working on reducing output
 # Jan 31 2022 RK^2 fix bug setting alert_first_detect
 # Feb 22 2022 RK - integreate ZPHOT_Q and check for 2nd hostgal
+# Mar 30 2022 RK - fix setting alertId (not alertID) for all epochs
+#                   (not just for FIRST_OBS)
+# Mar 20 2022 RK - create & write simVersion string
+# 
+# Apr 09 2022 RK - few updates to run x10 faster:
+#   + for sunset-MJD, replace astroplan call with grid search on
+#       pre-computed list of sunset-MJDs at CTIO (x5 faster)
+#   + use os.mkdir to create nite-dir instead os is.system (x2 faster)
+#
+# ==================================================
 
-import datetime
-import glob
-import gzip
-import json
-import logging
-import math
-import os
-import shutil
-import subprocess
-import sys
+import os, sys, glob, gzip, math, yaml, json
+import datetime, logging, shutil, subprocess
 from copy import copy
 from pathlib import Path
 
 import lsst.alert.packet
 import numpy as np
-import yaml
 from fastavro import reader, writer
 
 import makeDataFiles_params as gpar
 import makeDataFiles_util as util
 #from makeDataFiles_params import *
 
-
+# ========================================================
 # map dictionary(SNANA) varName to alert varName
 lc = "lc"  # instruction to take lower case of dict value
 VARNAME_DIASRC_MAP = {
@@ -111,29 +112,50 @@ def append_HOSTGAL_DIAOBJ_MAP():
     
     # end append_HOSTGAL_DIAOBJ_MAP
     
-def init_schema_lsst_alert(schema_file):
+def init_schema_lsst_alert(schema_file, snana_folder):
 
     schema     = lsst.alert.packet.Schema.from_file(filename=schema_file)
     schema_dir = os.path.dirname(schema_file)
-    json_file  = f"{schema_dir}/sample_data/plasticc.json"  # too much hard coding
+
+    # beware: too much hard coding
+    json_file  = f"{schema_dir}/sample_data/plasticc.json"  
 
     logging.info(f"\n Init alert schema based on\n" \
                  f"\t schema_file={schema_file}\n" \
                  f"\t jon_file={json_file} ")
 
     # Load an example json alert, and clear the numberical input
-    with open(json_file) as f:
+    with open(json_file,'r') as f:
         alert_data = json.load(f)
+    
+    # - - - - - - - - - - - - - 
+    # Mar 30 2022: construct simVersion string
+    key_list   = ['TIME_START', 'SNANA_VERSION', 'SIMLIB_FILE' ]
+    value_dict = util.extract_sim_readme_info(snana_folder, key_list);
+    
+    TIME_START    = value_dict['TIME_START']
+    SNANA_VERSION = value_dict['SNANA_VERSION']
+    SIMLIB_FILE   = value_dict['SIMLIB_FILE']
 
-    logging.info(f"")
+    base          = os.path.basename(SIMLIB_FILE)
+    cadence       = base.rsplit('.',1)[0]
+    t_start       = str(TIME_START).split()[0] # just date; leave out hr:min:sec
+    
+    # get schema version
+    with open(schema_file,'r') as s:
+        content        = json.load(s)
+        schema_version = content['namespace'].split('.')[-1]
 
+    simVersion = f"date({t_start})_" \
+                 f"snana({SNANA_VERSION})_" \
+                 f"cadence({cadence})_" \
+                 f"schema({schema_version})"
+      
+    logging.info(f" simVersion = {simVersion}\n")
 
-    # HACK HACK HACK
-    #import pdb
-    #pdb.set_trace()
-    #print('alert_data:', alert_data, 'xxx')
-
-    return schema, alert_data
+    alert_data['diaObject']['simVersion'] = simVersion
+    
+    return schema, alert_data, simVersion
 
     # end init_schema_lsst_alert
 
@@ -184,8 +206,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     if nevent == 0 :
         append_HOSTGAL_DIAOBJ_MAP()
         
-        schema, alert_data  = \
-            init_schema_lsst_alert(args.lsst_alert_schema)
+        schema, alert_data, simVersion  = \
+            init_schema_lsst_alert(args.lsst_alert_schema,args.snana_folder)
         alert_data_orig     = alert_data.copy()
         config_data['schema']          = schema
         config_data['alert_data_orig'] = alert_data_orig
@@ -193,13 +215,22 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         config_data['n_alert_write']   = 0
         config_data['n_event_write']   = 0
         config_data['t_start_alert']   = datetime.datetime.now()
-
+        config_data['simVersion']      = simVersion
+        
         outfile = args.outfile_alert_truth
         if outfile :
             config_data['truth_dict'] = init_truth_dict(outfile)
         else:
             config_data['truth_dict'] = None
 
+        # check for file with pre-computed list of sunset MJDs (Apr 9 2022)
+        mjd_sunset_file = args.mjd_sunset_file
+        if mjd_sunset_file :
+            mjd_sunset_dict = { 'mjd_file' : mjd_sunset_file }
+        else:
+            mjd_sunset_dict = {}
+        config_data['mjd_sunset_dict'] = mjd_sunset_dict
+        
     # - - - - -
     schema             = config_data['schema']
     diaSourceId        = config_data['diaSourceId']
@@ -223,10 +254,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
     my_diaSource = diaSource    # not empty - has default quantities from schema
     my_diaObject = diaObject    # not empty - has default quantites from schema
 
+    
     # translate snana header and create diaSource[Object] dictionaries for lsst alert
     translate_dict_alert(-1, data_event_dict,           # <== I
                          my_diaSource, my_diaObject)    # <== I/O
-
+    
     alert['diaSource']              = my_diaSource
     alert['diaObject']              = my_diaObject
 
@@ -293,7 +325,6 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
         # compute UNIQUE diaSource from already unique SNID
         diaSourceId = NOBS_ALERT_MAX*SNID + o
-        my_alert    = diaSourceId                 # just a guess here ?
         my_l1dbId   = 0                           # we don't know what this is
         my_diaSource['diaSourceId'] = diaSourceId
 
@@ -304,10 +335,11 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             # Save my_diasrc info on 1st observation
             alert['diaSource'] = my_diaSource
             alert['diaObject'] = my_diaObject
-            alert['alertID']   = my_alert
             alert['l1dbId']    = my_l1dbId
             FIRST_OBS = False
 
+        alert['alertId']   = diaSourceId
+        
         # serialize the alert
         avro_bytes = schema.serialize(alert)
         messg      = schema.deserialize(avro_bytes)
@@ -328,7 +360,8 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
             nobs_detect += 1
 
             # construct name of avro file using mjd, objid, srcid
-            outdir_nite  = make_outdir_nite(outdir,mjd)
+            mjd_sunset_dict = config_data['mjd_sunset_dict']
+            outdir_nite  = make_outdir_nite(outdir, mjd, mjd_sunset_dict)
             str_day = f"mjd{mjd:.4f}"
             str_obj = f"obj{diaObjectId}"
             str_src = f"src{diaSourceId}"
@@ -346,6 +379,7 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
 
                 if delta_t < TIME_WAIT_FORCEPHOTO :
                     # store only 1st detection; no force photo yet.
+                    alert_first_detect['alertId']   = diaSourceId
                     alert_first_detect['diaSource'] = copy(my_diaSource)
                     alert_first_detect['diaObject'] = copy(my_diaObject)
                     alert_first_detect['prvDiaSources'].clear()
@@ -375,25 +409,26 @@ def write_event_lsst_alert(args, config_data, data_event_dict):
         o = 0
         translate_dict_alert(o, data_event_dict, my_diaSource, my_diaObject)
         alert['diaSource'] = my_diaSource
-        alert['alertID']   = my_alert
+        alert['alertId']   = my_diaSource
         alert['prvDiaSources'].append(alert['diaSource'])
 
     return
 
 # end write_event_lsst_alert
 
-def make_outdir_nite(outdir,mjd):
+def make_outdir_nite(outdir,mjd, mjd_sunset_dict):
 
     # + construct name of mjd-specific outdir for this outdir and mjd
     # + create outdir_nite if it does not already exit
-
-    nite   = util.get_sunset_mjd(mjd, site=LSST_SITE_NAME)
+    
+    nite   = util.get_sunset_mjd(mjd, LSST_SITE_NAME, mjd_sunset_dict )
     niteint = int(nite)
     outdir_nite = outdir + '/' + f"{ALERT_DAY_NAME}" + str(niteint)
     if not os.path.exists(outdir_nite) :
-        cmd = f"mkdir {outdir_nite}"
-        #print(f"\t Create {outdir_nite}")
-        os.system(cmd)
+        os.mkdir(outdir_nite)
+
+        # xxx mark cmd = f"mkdir {outdir_nite}"
+        # xxx mark os.system(cmd)
 
     return outdir_nite
 # end make_outdir_nite
@@ -457,8 +492,15 @@ def get_data_alert_value(data_event_dict, varName):
     else:
         value = phot_raw[varName]
 
+    # - - - - - - 
+    # format with fewer digits to reduce size of output files (Apr 6 2022)
+    # Use SNANA key names (not avro keys)
+    #if 'HOSTGAL_MAG' in varName or 'REDxSHIFT' in varName:
+    #    ival   = int(1.0E4 * value + 0.5)
+    #    value  = float(ival) * 1.0E-4  # doesn't work ?????
+        
     return value
-    # end get_data_value
+    # end get_data_alert_value
 
 def print_alert_stats(config_data, done_flag=False):
 

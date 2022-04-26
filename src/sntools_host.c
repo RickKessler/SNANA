@@ -216,6 +216,9 @@ void INIT_HOSTLIB(void) {
   // read optional EFF(zPHOT) vs. ZTRUE (Aug 2015)
   init_HOSTLIB_ZPHOTEFF();
 
+  // check for zphot quantiles (Apr 2022)
+  init_HOSTLIB_ZPHOT_QUANTILE();
+
   // prepare integral tables for Sersic profile(s).
   init_Sersic_VARNAMES();
   init_Sersic_HOSTLIB();
@@ -565,7 +568,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   }
   for (j=0; j < MXBIN_ZPHOT_Q; j++){
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);    // index 
+    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);  // index 
   }
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
@@ -814,6 +817,7 @@ void append_HOSTLIB_STOREPAR(void) {
   // If zHOST_FILE exists,  copy variables from zHOST efficiency map to 
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
+
   fp = open_zHOST_FILE(-1);
   if ( fp != NULL ) { 
     read_VARNAMES_zHOST(fp); fclose(fp);
@@ -845,10 +849,10 @@ void append_HOSTLIB_STOREPAR(void) {
       if ( UNIQUE[ivar] ) 
 	{ catVarList_with_comma(STOREPAR,ptrVarName); }
 
-      /*
-      printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
+      
+     /* printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
 	     fnam, ivar, VARNAMES[ivar], UNIQUE[ivar]); fflush(stdout);
-      */
+     */
 
     }
     fclose(fp);
@@ -3816,6 +3820,110 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID) {
   return(snmagshift);
 
 } // end snmagshift_salt2gamma_HOSTLIB
+
+
+// =======================================
+void init_HOSTLIB_ZPHOT_QUANTILE(void) {
+
+  // Created Apr 19 2022 by R.Kess;er
+  // For nominal usage of zphot quantiles in HOSTLIB, this function
+  // only prints information to stdout.
+  // If force-Gauss option is set, this function initializes
+  // Gaussian integrals at percentile values.
+
+  int  N_Q        = HOSTLIB.NZPHOT_Q ;
+  int  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
+  int  q, qbin, percentile;
+  char fnam[] = "init_HOSTLIB_ZPHOT_QUANTILE" ;
+
+  // ------------ BEGIN ------------
+
+  // if Gaussian quantile is requested without any quantiles in the
+  // HOSTLIB, force 10 quantiles.
+  if ( USE_QGAUSS && N_Q == 0 ) {
+    N_Q = HOSTLIB.NZPHOT_Q = 10;
+    qbin = 100/N_Q;
+    for(q=0; q<N_Q; q++ ) {
+      percentile = (q+1) * qbin; // skip 0 percentile
+      if ( percentile == 100 ) { percentile = 99; }
+      HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
+    }
+  }
+
+  if ( N_Q == 0 ) { return; }
+
+  // check option to force Gaussian quantiles using Gaussian defined by
+  // mean=ZPHOT and sigma=ZPHOT_ERR. Here define quantile values for 
+  // unit Gaussian
+
+  // .xyz
+  if ( USE_QGAUSS ) {
+    printf("\t Force %d Gaussian quantiles\n", N_Q ); fflush(stdout);
+
+    int IVAR_ZPHOT     = HOSTLIB.IVAR_ZPHOT;
+    int IVAR_ZPHOT_ERR = HOSTLIB.IVAR_ZPHOT_ERR;
+    if ( IVAR_ZPHOT < 0 || IVAR_ZPHOT_ERR < 0 ) {
+      sprintf(c1err,"Cannot compute forced Gaussian quantiles with");
+      sprintf(c2err,"IVAR_ZPHOT=%d and IVAR_ZPHOT_ERR=%d",
+	      IVAR_ZPHOT, IVAR_ZPHOT_ERR);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+    }
+
+    double *xsig_store = (double*)malloc( sizeof(double) * N_Q ) ;
+    double *xdif_store = (double*)malloc( sizeof(double) * N_Q ) ;
+    double xsigmin = -6.0, xsigmax=6.0, xsigstep=0.001, xsig, xdif ;
+    double gint, gint_target;
+
+    for (q=0; q < N_Q; q++ )  { xdif_store[q] = xsig_store[q] = 999.0; }
+
+    for(xsig=xsigmin; xsig < xsigmax; xsig += xsigstep) {
+      gint = GaussIntegral(xsigmin,xsig);
+
+      //  printf(" xxx %s: xsig = %8.5f, gint = %8.5f \n", fnam, xsig, gint);
+      for ( q=0; q < N_Q; q++ ) {
+	gint_target =  (double)HOSTLIB.PERCENTILE_ZPHOT_Q[q]/100.0 ;
+	xdif = fabs(gint - gint_target);
+	if ( xdif < xdif_store[q] ) {
+	  xdif_store[q] = xdif ;
+	  xsig_store[q] = xsig ;
+	}
+      }
+    } // end xsig loop
+
+    // store Nsigma values in global struct.
+    for ( q=0; q < N_Q; q++ ) { HOSTLIB.SIGMA_QGAUSS[q] = xsig_store[q]; }
+
+    int LDMP_QGAUSS = 0 ;
+    if ( LDMP_QGAUSS ) {
+      for ( q=0; q < N_Q; q++ ) {
+	percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q];
+	xsig       = xsig_store[q];
+	gint = GaussIntegral(xsigmin,xsig);
+	printf(" xxxx Gauss percentile =%3d -> NSIGMA = %8.5f  "
+	       "(exact GaussInt=%6.4f)\n", 
+	       percentile, xsig, gint); fflush(stdout);
+      }
+      debugexit(fnam);
+    }
+
+  }  // end USE_QGAUSS
+
+
+  // list zphot quantiles
+  char STRING_Q[200], str_q[40];
+  sprintf(STRING_Q,"ZPHOT_QUANTILES: ");
+  for(q=0; q<N_Q; q++ ) {
+    percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q] ;
+    sprintf(str_q,"%d ", percentile);
+    strcat(STRING_Q, str_q);
+  }
+
+  printf("\t %s\n", STRING_Q);
+  fflush(stdout);
+
+  return;
+
+} // init_HOSTLIB_ZPHOT_QUANTILE
 
 // =======================================
 void init_HOSTLIB_ZPHOTEFF(void) {
@@ -6904,6 +7012,13 @@ void GEN_SNHOST_NBR(int IGAL) {
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
+    if ( rowNum > HOSTLIB.NGAL_READ ) {
+      sprintf(c1err,"rowNum=%d exceeds NGAL_READ=%d",
+	      rowNum, HOSTLIB.NGAL_READ);
+      sprintf(c2err,"CID=%d  GALID=%lld", GENLC.CID, GALID);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    }
+
     // Jun 2021 rowNum is no longer a fortran index due to other refactoring.
     // Use two layers of  indexing to get the desired z-sorted IGAL
     IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
@@ -7185,18 +7300,20 @@ void SORT_SNHOST_byDDLR(void) {
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
   bool LSN2GAL_RADEC    = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  int  USE_QGAUSS      =  (MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS);
   int  NNBR             = SNHOSTGAL.NNBR ;
   int  IVAR_RA          = HOSTLIB.IVAR_RA;
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
   int  IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
+  int  IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
   int  ORDER_SORT       = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
-  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, j ,ivar;
+  int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, q ,ivar, IVAR_Q;
   int  NNBR_DDLRCUT = 0 ;
-  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL ;
+  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL, zq ;
   double DMUCOR = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
@@ -7284,15 +7401,11 @@ void SORT_SNHOST_byDDLR(void) {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
     }
     
-    int IVAR_Q0 = HOSTLIB.IVAR_ZPHOT_Q0;
-    if ( IVAR_Q0 > 0 ) {
-      for (j = 0; j < HOSTLIB.NZPHOT_Q; j++){
-	int IVAR_Q = IVAR_Q0 + j;
-	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
-
-	//shift ZQP parameters based on the redshift of the galaxy
-	//(which has been moved to the redshift of the transient)
-	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[j] += SNHOSTGAL.ZDIF;
+    // - - - - - - -
+    if ( IVAR_Q0 > 0 || USE_QGAUSS ) {
+      for (q = 0; q < HOSTLIB.NZPHOT_Q; q++) {
+	zq = GEN_SNHOST_ZPHOT_QUANTILE(IGAL,q);
+	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[q] = zq; 
       }
     }
 
@@ -7368,6 +7481,53 @@ void SORT_SNHOST_byDDLR(void) {
   return ;
 
 } // SORT_SNHOST_byDDLR
+
+// ==========================================
+double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
+
+  // Created Apr 19 2022
+  // For sparse zphot-quantile index q, return zPHOT value.
+  // Default method is to return value from HOSTLIB.
+  // If HOSTLIB_MSKOPT_ZPHOT_QGAUSS bit of HOSTLIB_MSKOPT is set,
+  // then compute quantile from Gaussian using sigma=ZPHOT_ERR .
+
+  int   USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
+  int   IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
+  int   IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
+  int   IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
+  int   IVAR_Q;
+  double ZPHOT, ZPHOT_ERR, SIGMA_QGAUSS;
+  double zq = 0.0 ;
+  char fnam[] = "GEN_SNHOST_ZPHOT_QUANTILE";
+
+  // ------ BEGIN -------
+
+  if ( USE_QGAUSS ) {
+    // test feature to use Gauss approx 
+
+    ZPHOT     = get_VALUE_HOSTLIB(IVAR_ZPHOT,    IGAL);
+    ZPHOT_ERR = get_VALUE_HOSTLIB(IVAR_ZPHOT_ERR,IGAL);
+
+    SIGMA_QGAUSS = HOSTLIB.SIGMA_QGAUSS[q]; // Nsigma from mean at this quantile
+    zq           = ZPHOT + ZPHOT_ERR * SIGMA_QGAUSS;
+
+    /* 
+    printf(" xxx %s: q=%d SIGMA_QGAUSS=%.4f  ZPHOT=%.3f +_ %.3f  zq=%.3f \n",
+	   fnam, q, SIGMA_QGAUSS, ZPHOT, ZPHOT_ERR, zq); fflush(stdout);
+    //    debugexit(fnam);
+    */
+  } 
+  else {
+    // default quantiles from HOSTLIB
+    IVAR_Q = IVAR_Q0 + q;
+    zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
+  }
+
+  zq += SNHOSTGAL.ZDIF; // shift is  zSN - zGAL
+
+  return zq;
+
+} // end GEN_SNHOST_ZPHOT_QUANTILE
 
 // ================================= 
 void set_GALID_UNIQUE(int i){
@@ -8432,29 +8592,60 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // - - - - - - - -
   // transfer DOCANA block (July 2021)
+  bool DOCANA_END = false ;
+  int  iline, NLINE_DOCANA = 0, ipad, NPAD=0 ;
+  char *str_tmp, PAD_YAML[12]="";
+  char KEY_DOCANA_PADCHECK[] = "PURPOSE:"; // key to measure pad space
+
   if ( INPUTS.REQUIRE_DOCANA ) {
-    bool DOCANA_END = false ;
-    int  NLINE_DOCANA = 0 ;
 
     // keep re-writing HOSTLIB lines until reaching DOCUMENTATION_END key
     while ( !DOCANA_END ) {
       fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
-      fprintf(FP_NEW,"%s", LINE); NLINE_DOCANA++ ;
+
+      // get yaml pad spacing
+      str_tmp = strstr(LINE,KEY_DOCANA_PADCHECK);
+      if ( str_tmp != NULL ) {
+	NPAD = (str_tmp - LINE);
+	for(ipad=0; ipad<NPAD; ipad++ ) { strcat(PAD_YAML," "); }
+	// printf("\n xxx %s: NPAD=%d  PAD='%s' \n", fnam, NPAD, PAD_YAML);
+      }
+      // add new comments just before DOCANA end key
+      if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) { 
+	DOCANA_END = true; 
+
+	if ( NPAD == 0 ) {
+	  char line_warn[] = "@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-" ;
+	  printf("\n%s\n", line_warn);
+	  printf(" WARNING: unable to measure yaml pad spacing\n");
+	  printf("\t because %s key is missing.\n", KEY_DOCANA_PADCHECK);
+	  printf("\t Add HOSTNBR_APPEND_NOTES to DOCANA yaml with "
+		 "3 pad spaces as a guess.\n");
+	  printf("%s\n\n", line_warn);
+	  fflush(stdout);
+	  sprintf(PAD_YAML,"   ");
+	}
+	fprintf(FP_NEW,"\n%sHOSTNBR_APPEND_NOTES:\n", PAD_YAML);
+	for(iline=0; iline < NLINE_COMMENT; iline++ ) { 
+	  fprintf(FP_NEW,"%s- %s\n",PAD_YAML,HOSTLIB_APPEND->COMMENT[iline]);
+	}
+      }
+
+      fprintf(FP_NEW,"%s", LINE); 
+      if ( DOCANA_END ) { fprintf(FP_NEW,"\n");  }
+
+      NLINE_DOCANA++ ;
 
       if ( NLINE_DOCANA > MXLINE_DOCANA ) 
 	{ abort_docana_tooLong(HLIB_ORIG, fnam);  } 
 
-      if ( strstr(LINE,KEYNAME2_DOCANA_REQUIRED) != NULL ) 
-	{ DOCANA_END = true; fprintf(FP_NEW,"\n"); }
     }
+
     printf("  Wrote %d DOCANA lines to new HOSTLIB\n", NLINE_DOCANA);
   } // end REQUIRE_DOCANA
 
 
   // - - - - - 
-  int iline;
-  for(iline=0; iline < NLINE_COMMENT; iline++ ) 
-    { fprintf(FP_NEW,"# %s\n", HOSTLIB_APPEND->COMMENT[iline] ); }
 
   // - - - - - - - - - - - - - - - - - 
   // read each original line
@@ -8553,7 +8744,8 @@ void addComment_HOSTLIB_APPEND(char *COMMENT,
 			       HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   int NL   = HOSTLIB_APPEND->NLINE_COMMENT;
-  int MEMC = 120 * sizeof(char);
+  int LENC = strlen(COMMENT) + 10;
+  int MEMC = LENC * sizeof(char);
   
   HOSTLIB_APPEND->COMMENT[NL] = (char*) malloc(MEMC);
   sprintf(HOSTLIB_APPEND->COMMENT[NL],"%s", COMMENT);
@@ -8832,6 +9024,10 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // --------------- BEGIN ---------------
 
   print_banner(fnam);
+
+  printf("Append up to %d host neighbors within %.1f'' radius.",
+	  HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, HOSTLIB_NBR_WRITE.SEPNBR_MAX );
+  fflush(stdout);
 
   if ( strstr(HOSTLIB_FILE,SUFFIX_HOSTNBR) != NULL ) {
     sprintf(c1err,"HOSTLIB already has NBR_LIST");
@@ -9220,6 +9416,8 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
  
+  free(LINE_APPEND);
+
   if ( NMISSING > 0 ) {
     printf("\t WARNING: Missing %5d GALIDs (wrote -9 for %s)\n",
 	   NMISSING, varList ); 

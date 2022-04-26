@@ -62,9 +62,12 @@ char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
 char  SNFITSIO_LISTFILE[MXPATHLEN];   // for read-back only
 char  SNFITSIO_READMEFILE[MXPATHLEN]; // for read-back only
 
-int NSNLC_SNFITSIO_TOT ;                 // total number of SNe over all files.
-int NSNLC_SNFITSIO[MXFILE_SNFITSIO];     // Number of SNe per file
-int NSNLC_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
+int NSNLC_RD_SNFITSIO_TOT ;                 // total number of SNe over all files.
+int NSNLC_RD_SNFITSIO[MXFILE_SNFITSIO];     // Number of SNe per file
+int NSNLC_RD_SNFITSIO_SUM[MXFILE_SNFITSIO]; // cumulative number
+
+int NSNLC_WR_SNFITSIO_TOT ;
+int NSPEC_WR_SNFITSIO_TOT ;
 
 int NFILE_RD_SNFITSIO ;     // number of fits files
 int IFILE_RD_SNFITSIO ;     // current fits-file index
@@ -226,6 +229,7 @@ void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
 void wr_snfitsio_init_spec_legacy(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
+void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
 
 void WR_SNFITSIO_UPDATE(void);
 void wr_snfitsio_update_head(void);

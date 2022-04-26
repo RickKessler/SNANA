@@ -1141,13 +1141,6 @@ c
 c One time initialize BEFORE fitting and USRANA begins.
 c
 c
-c Sep 17 2016: set cuts on fitted cov; see FITWIN_FITCOV
-c
-c Mar 10 2017: set CUTWIN_FITERRz1 to cut on sigma(fitPar)/(1+z)
-c
-c Feb 1 2018: call ABORT_ON_CUTWIN_TREST only if OPT_PHOTO==1.
-c             Not needed for OPT_PHOTOZ=2.
-c
 c Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
 c 
 c Aug 2 2019: pass full model name (including path) to INIT_GENMAG_SNOOPY,
@@ -1677,7 +1670,6 @@ c check for file with interpolated MAGS at specified MJDs.
          CALL DMP_SNMJD_INTERP(0,0)
       ENDIF
 
-
 c check for option to compuare Zmax/Vmax
       CALL VMAX_INI()
 
@@ -1734,7 +1726,7 @@ c not yet been filled.
         if (INISTP_DLMAG  .EQ. 0.0 ) FLOATPAR(IPAR) = .FALSE.
 
       IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
-         CALL TABLE_SNFIT(0)
+         CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_INI) 
       ENDIF
 
       IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
@@ -1845,7 +1837,7 @@ c local var
 
       LOGICAL 
      &   USE_FILT_ITER1(MXFILT_ALL)
-     &  ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL
+     &  ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT
 
 c functions
      
@@ -1858,6 +1850,7 @@ c functions
 C ---------- BEGIN -------------
 
       IERR = 0  ! init to OK
+      LPRINT = STDOUT_UPDATE
 
       FIRST_ITER = FIRST_ITERATION(ITER) .and. (.not. LREPEAT_ITER)
 
@@ -1902,13 +1895,14 @@ c init Trest-related variables that are set after fit
 
 c print global banner
 
-      ctmp = ''
-      if ( LREPEAT_ITER ) CTMP = '(again)'
-      write(global_banner,400) ITER, CCID(1:LCHAR), CTMP
-400   format('FITPAR_PREP: Begin FIT-ITERATION ', I2, 
-     &       ' for CID ', A, 3x, A )
-      CALL PRBANNER( global_banner(1:68) )
-
+      IF ( LPRINT ) THEN
+        ctmp = ''
+        if ( LREPEAT_ITER ) CTMP = '(again)'      
+        write(global_banner,400) ITER, CCID(1:LCHAR), CTMP
+400     format('FITPAR_PREP: Begin FIT-ITERATION ', I2, 
+     &         ' for CID ', A, 3x, A )
+        CALL PRBANNER( global_banner(1:68) )
+      ENDIF
       
 c load redshift to use in spec-z fit
 
@@ -2046,7 +2040,7 @@ c print message if observer-filter is dropped or added on 2nd iteration
 c set range of observer filters to evaluate for each obs filter.
 c This is needed for the color transformation and for U -> U-BX+B
 
-      CALL SET_IFILT_OBS()
+      CALL SET_IFILT_OBS(LPRINT)
 
       IF ( NFILT_FIT .EQ. 0 ) THEN
          print*,' '
@@ -2462,7 +2456,7 @@ c check for NN-analysis (Apr 2014) after CDTOPDIR_OUTPUT
 c check tables to fill
       IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
           CALL PREP_FITRES_TABLEVAR()
-          CALL TABLE_SNFIT(isn)
+          CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
       ENDIF
 
       IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
@@ -7267,8 +7261,11 @@ c depending on type of fit.
 
 c dump namelist to std out
 
-      WRITE ( 6 , NML = FITINP )
-      CALL FLUSH(6)
+      IF ( .not. REDUCE_STDOUT_BATCH ) THEN
+        WRITE ( 6 , NML = FITINP )
+        CALL FLUSH(6)
+      ENDIF
+
       RETURN
 
 c ---------------------------------------------------
@@ -8386,7 +8383,7 @@ c local var
       INTEGER  IPAR, NZBIN, NCBIN, NSBIN
       LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2
       REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
-      LOGICAL LPRINT / .TRUE. /
+      LOGICAL LPRINT
       CHARACTER BANNER*60, CZTMP*20
 
 c FCNSNLC args
@@ -8401,6 +8398,8 @@ c FCNSNLC args
       EXTERNAL USRFUN
 
 C --------------- BEGIN -----------------
+
+      LPRINT = STDOUT_UPDATE
 
       IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
@@ -8967,7 +8966,7 @@ c reduce step size, and move to current values with min chi2
             ENDDO
          endif
 
-            if ( LDMP ) then
+            if ( LDMP ) then 
                print*,' xxx --------------------------------------- '
                write(6,665) z, s, c, t0
                write(6,666) itry, CHI2,CHI2_LAST, PROB, MOVE
@@ -9105,7 +9104,7 @@ c local var
      &   CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar
      &  ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
 
-      LOGICAL LDMP / .TRUE. /
+      LOGICAL LPRINT
       LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
       CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
 
@@ -9144,6 +9143,8 @@ c process only 1st fit iteration
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
+      LPRINT = STDOUT_UPDATE
+
 c init everything to zero
 
       DO ifilt_obs = 1, MXFILT_ALL
@@ -9156,7 +9157,7 @@ c init everything to zero
 
       IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
 
-      IF ( LDMP ) THEN
+      IF ( LPRINT ) THEN
          LCHAR = ISNLC_LENCCID
          write(BANNER,10) cid, SNLC_CCID(1:LCHAR)
 10       format('FITINI_ADJUST for CID=',I8, 3x, '(',A,')'   )
@@ -9178,7 +9179,7 @@ c This is needed to check initial data/model normalization.
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8INI,INIVAL,IFLAG,USRFUN)
 
-      if ( LDMP ) then
+      if ( LPRINT ) then
         write(6,56) 'BEFORE', chi8INI, NEPOCH_ALL(0)
       endif
 
@@ -9257,7 +9258,7 @@ c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 6")
 
 c - - - - -
-      if ( LDMP ) then
+      if ( LPRINT ) then
          LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
          LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
 	 IF ( DO_COLOR ) THEN
@@ -9333,7 +9334,7 @@ c an estimator for peakmag(data)-peakmag(model).
 
 c #########################################
  
-      if ( LDMP ) then
+      if ( LPRINT ) then
          
          NF = 0
          CFILT = ' '
@@ -9378,7 +9379,7 @@ c check chi2 at end of adjustment
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8END,INIVAL,IFLAG,USRFUN)
    
-      if ( LDMP ) then
+      if ( LPRINT ) then
         write(6,56) 'AFTER ', chi8end,  NEPOCH_ALL(0)
       endif
 
@@ -9800,7 +9801,8 @@ C ------------------- BEGIN ---------------
 
       FIRST_ITER = FIRST_ITERATION(ITER)
 
-      LPRINT = BTEST(MSKOPT,0) .and. (N_SNLC_FIT .LE. NFIT_VERBOSE)
+      LPRINT = BTEST(MSKOPT,0) .and. STDOUT_UPDATE
+
       CCID   = SNLC_CCID
       LCCID  = ISNLC_LENCCID
 
@@ -13785,7 +13787,7 @@ c print chi2 and prob for 1:TOTAL,  2:DATA,  3:PRIOR,   4:SIGMA
       NTMP = 3
       IF ( DOCHI2_SIGMA ) NTMP=4
       DO i = 1, NTMP
-         write(6,781) 'MINUIT MINIMUM ', CCID(1:KK)
+         write(6,781) 'FIT MINIMUM ', CCID(1:KK)
      &    ,CCHI2(i)
      &    ,FITCHI2_STORE(i), NDOF_STORE(i)
      &    ,FITPROBCHI2_STORE(i)
@@ -16993,7 +16995,7 @@ c --------
 
 C ====================================
 +DECK,SETFILTOBS.
-      SUBROUTINE SET_IFILT_OBS()
+      SUBROUTINE SET_IFILT_OBS(LPRINT)
 c
 c Sets up appropriate observer-filter ranges before fit begins
 c so that USRFUN need not compute filter ranges during each
@@ -17006,18 +17008,12 @@ c  Example: U-band needs to evaluate obs U,B,V,BX
 c   => IFILT_OBS_EVAL_MASK(IFILT_BESS_U) = bits 6,7,8,11 
 c
 c
-c Aug 12, 2009: always print FILTLIST_FIT_USE list;
-c               print line-by-line obs-list if MULTIFILT=T
-c
-c Feb 08, 2010: remove obsolete IFILT_OBS_EVAL_LOOP.
-c               Print BX filter if LBESS_OBS=T
-c
-c Apr 14 2013: include NON-SURVEY filter(s); see LFILTDEF_NONSURVEY
-c
+c Apr 22 2022: pass LPRINT logical flag as input argument
 c --------------------------------------
 
       IMPLICIT NONE
 
+      LOGICAL  LPRINT  ! (I)
 
 +CDE,SNDATCOM.  from snana.car
 c +CDE,SNANAFIT.  from snana.car
@@ -17135,21 +17131,20 @@ c --- I
      &                IFILT_BESS_I)
 
 c --- BX
-
          CALL FILTBSET(IFILT_OBS_EVAL_MASK(1,IFILT_BESS_BX),
      &                IFILT_BESS_BX)
 
-
       ENDIF
-
 
 c ----------
 c write list of filters to fit
 c  
       NFUSE = INDEX(FILTLIST_FIT_USE,' ') - 1
-      write(6,44) SNLC_CCID(1:LL), FILTLIST_FIT_USE(1:NFUSE)
-44    format(T5,'CID ',A,' : FIT OBSERVER FILTERS ', A )
 
+      IF ( LPRINT ) THEN
+        write(6,44) SNLC_CCID(1:LL), FILTLIST_FIT_USE(1:NFUSE)
+44      format(T5,'CID ',A,' : FIT OBSERVER FILTERS ', A )
+      ENDIF
 c ----------------------------------------
 c  print obs filters for each filter when mutliple filters
 c  are needed per band, such as for the Landolt correction
@@ -17157,7 +17152,7 @@ c  are needed per band, such as for the Landolt correction
       LTMP = (N_SNLC_FITCUTS .LT. 20) .and. MULTIFILT
 
       IF ( LTMP ) THEN
-        print*,' '
+        if ( LPRINT ) print*,' '
 
         DO 29 ifilt = 1, NFILTDEF_SURVEY
 
@@ -17176,17 +17171,17 @@ c  are needed per band, such as for the Landolt correction
             ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)
             cfilt2 = filtdef_string(ifilt2_obs:ifilt2_obs)
             LTMP = FILTBTEST(MSKTMP8,ifilt2_obs)
-            if ( LTMP ) write(6,21) cfilt2(1:1)
+            if ( LTMP .and. LPRINT ) write(6,21) cfilt2(1:1)
 21          format(A1, $)
          ENDDO
-         print*, '  (ifilt=', ifilt, ')'
+	 if ( LPRINT ) print*, '  (ifilt=', ifilt, ')'
 
 29      CONTINUE ! end of IFILT loop
 
       ENDIF    ! end of LTMP if-block
 
       RETURN
-      END
+      END     ! end SET_IFILT_OBS
 
 
 C ===================================
@@ -18396,36 +18391,43 @@ c routines need to create fitres table and NN table
 
 C ========================================
 +DECK,TABLE_SNFIT.
-      SUBROUTINE TABLE_SNFIT(isn)
+      SUBROUTINE TABLE_SNFIT(ID,IFLAG)
 
 C Created Feb 1, 2013
 C Book and load table.
 c
+c ID    = table identifier
+c IFLAG = IFLAG_INI or IFLAG_ANA
+c
+c
+c     HISTORY
 c July 19 2016: call TABLE_STRING_TERMINATION(+1/-1)
 c               to protect strings for ROOT.
 c
+c Apr 18 2022: pass ID and IFLAG args
 c -----------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER isn  ! (I) SN index
+      INTEGER ID, IFLAG
 
 c local var
 
 +CDE,SNDATCOM.
 +CDE,SNFITCOM.
 
-      INTEGER ID, i, LENNAME, LENFMT
+      INTEGER i, LENNAME, LENFMT
       CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+      LOGICAL CREATE_FILE
 
 c ----------------- BEGIN ------------------------
       
-      ID = IDTABLE_FITRES
+cc xxxx      ID = IDTABLE_FITRES
 
 c ----------------------------------
-
-      IF ( ISN .EQ. 0 ) THEN
-
+      
+      IF ( IFLAG == IFLAG_INI ) THEN
+         
          NAME    = 'FITRES' // char(0)
          LENNAME  = INDEX(NAME,   ' ') - 1
 
@@ -18435,32 +18437,34 @@ c ----------------------------------
 
          CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
 
-         CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
-         CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
+           CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
+           CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
 
-c optional epoch-dependent par
-        IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
-           CALL INIT_TABLE_SNFITEP(ID, 'SNFITEP')
-        ENDIF
+c         optional epoch-dependent par
+          IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
+             CALL INIT_TABLE_SNFITEP(ID, 'SNFITEP')
+          ENDIF
 
-c for sims ...
-        IF ( LSIM_SNANA ) THEN
-           CALL INIT_TABLE_SIMVAR(ID, 'SIMVAR')
-        ENDIF
+c       for sims ...
+          IF ( LSIM_SNANA ) THEN
+            CALL INIT_TABLE_SIMVAR(ID, 'SIMVAR')
+          ENDIF
 
         RETURN
       ENDIF
 
-
 c ------------------------------------
 c  fill table
 
+      IF ( IFLAG == IFLAG_ANA ) THEN
+
 c   terminate strings for C table-functions (snana.car routine)
-      CALL TABLE_STRING_TERMINATION(+1)
+        CALL TABLE_STRING_TERMINATION(+1)
 
-      CALL SNTABLE_FILL(ID)  ! generic C function
+        CALL SNTABLE_FILL(ID)  ! generic C function
 
-      CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+        CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+      END IF
 
 c ------------------------------------
 

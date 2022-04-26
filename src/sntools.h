@@ -63,7 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04j"      
+#define  SNANA_VERSION_CURRENT  "v11_04k"       
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -216,7 +216,7 @@ char c2err[200];   // for kcorerr utility
 char BANNER[200];
 int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
-#define MXARGV 100
+#define MXARGV 200  // 100->200 Apr 18 2022
 int  NARGV_LIST;
 char *ARGV_LIST[MXARGV];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.
@@ -558,8 +558,12 @@ void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
 int  match_cidlist_init(char *fileName, int *OPTMASK);
 int  match_cidlist_init__(char *fileName, int *OPTMASK);
-bool match_cidlist_exec(char *cid);
-bool match_cidlist_exec__(char *cid);
+
+int  match_cidlist_init_legacy(char *fileName, int *OPTMASK);
+int  match_cidlist_init_legacy__(char *fileName, int *OPTMASK);
+
+int  match_cidlist_exec(char *cid);
+int  match_cidlist_exec__(char *cid);
 
 void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void   parse_GENPOLY(char *stringPoly, char *varName,

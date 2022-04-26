@@ -124,6 +124,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_COMPACT_FLAG         = false ; 
   SNFITSIO_SPECTRA_FLAG         = false ; // Oct 14, 2021
 
+  NSNLC_WR_SNFITSIO_TOT = 0 ;
+  NSPEC_WR_SNFITSIO_TOT = 0 ;
+
   // - - - -
   // Check option to write spectra
   OVP = ( writeFlag & WRITE_MASK_SPECTRA );
@@ -322,14 +325,8 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_SNSEP" ,      itype );  
   wr_snfitsio_addCol( "1E", "HOSTGAL_DDLR" ,       itype );  // Jan 29 2019
   wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS" ,    itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGMASS_ERR", itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR" ,       itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGSFR_ERR",    itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR" ,       itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_LOGsSFR_ERR",    itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR" ,       itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_COLOR_ERR",    itype );
+
+  wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL", itype);
 
   wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
@@ -370,6 +367,10 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1D", "HOSTGAL2_DEC" ,        itype );  
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SNSEP" ,      itype );  
     wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
+
+    wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL2", itype);
+
+    /* xxx mark delete 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR" ,     itype );
@@ -378,6 +379,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR", itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR" ,      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR_ERR",   itype );
+    xxxx end mark xxx*/
+
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
@@ -627,9 +630,38 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // set unit to blank
   WR_SNFITSIO_TABLEDEF[itype].ptrUnit[NPAR] = stringBlank ;
 
+  return;
 
 } // end of wr_snfitsio_addCol
 
+// =============================
+void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL, int itype) {
+
+  // Created Apr 24 2022
+  // Call wr_snfitsio_addCol for each host PROPERTY and its uncertainty;
+  // *PREFIX_HOSTGAL = "HOSTGAL" or "HOSTGAL2"
+  // For host property = LOGMASS, call addColl for 
+  // HOSTGAL_LOGMASS and HOSTGALL_LOGMASS_ERR.
+  //
+
+  int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, HOSTGAL_PROPERTY_NAME_LIST);
+  int i;
+  char KEY[80], KEY_ERR[80], PROPERTY[40] ;
+  // -------------- BEGIN ------------
+
+  for(i=0; i < N_PROP; i++ ) {
+    get_PARSE_WORD(0,i,PROPERTY);
+    sprintf(KEY,     "%s_%s",     PREFIX_HOSTGAL, PROPERTY);
+    sprintf(KEY_ERR, "%s_%s_ERR", PREFIX_HOSTGAL, PROPERTY);
+
+    //    printf(" xxx addCol(%s, %s)\n", KEY, KEY_ERR);  fflush(stdout);
+    wr_snfitsio_addCol( "1E", KEY ,     itype ); 
+    wr_snfitsio_addCol( "1E", KEY_ERR , itype ); 
+  }
+
+  return;
+
+} // end wr_snfitsio_addCol_HOSTGAL_PROERTIES
 
 // ========================================
 void wr_snfitsio_init_phot(void) {
@@ -1341,7 +1373,7 @@ void wr_snfitsio_SET_SUBSURVEY_FLAG(void) {
       { SNDATA.SUBSURVEY_FLAG = 1 ; }
   }
 
-  int LDMP=1;
+  int LDMP = 0 ;
   if ( LDMP ) {
     printf("\n xxx %s DUMP\n", fnam );
     printf(" xxx SUBSURVEY_NAME = '%s' \n", SNDATA.SUBSURVEY_NAME);
@@ -1433,6 +1465,7 @@ void WR_SNFITSIO_UPDATE(void) {
 
   // --------------- BEGIN --------------
 
+  NSNLC_WR_SNFITSIO_TOT++ ;
 
   // ----------- START WITH HEADER --------------
   wr_snfitsio_update_head() ;
@@ -1483,8 +1516,10 @@ void WR_SNFITSIO_UPDATE(void) {
   // (e.g., Trest outside sim-model range can't create spectra)
   int imjd;
   if ( SNFITSIO_SPECTRA_FLAG ) {
-    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) 
-      { wr_snfitsio_update_spec(imjd) ; }
+    for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ )  { 
+      wr_snfitsio_update_spec(imjd) ; 
+      NSPEC_WR_SNFITSIO_TOT++ ;
+    }
   }
 
   return ;
@@ -1710,45 +1745,45 @@ void wr_snfitsio_update_head(void) {
     // start host properties 
     // host logmass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGMASS", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGMASS_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host sfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGSFR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGSFR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host ssfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGsSFR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_LOGsSFR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR );
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host color                                                                                           
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_COLOR", PREFIX);
+    sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    sprintf(parName,"%s_COLOR_ERR", PREFIX);
+    sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     // end of host properties
@@ -2728,11 +2763,14 @@ void WR_SNFITSIO_END(int OPTMASK) {
 
   // ------------ BEGIN -------------
 
+  printf(" %s: wrote %d events and %d spectra to FITS format\n",
+	 fnam, NSNLC_WR_SNFITSIO_TOT, NSPEC_WR_SNFITSIO_TOT);
+  fflush(stdout);
+
   NTYPE = 2 ; // defult is HEAD + PHOT
 
   if ( SNFITSIO_SPECTRA_FLAG ) {
-    NTYPE += 2 ; 
-        
+    NTYPE += 2 ;         
     // append flux-table after summary table so that it's
     // all in one file. Then delete SPECTMP flux-table.
     extver = istat=0;
@@ -2833,7 +2871,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called 
 
   NFILE_RD_SNFITSIO        = 0 ;
-  NSNLC_SNFITSIO_TOT       = 0 ;
+  NSNLC_RD_SNFITSIO_TOT       = 0 ;
   SNFITSIO_PHOT_VERSION[0] = 0 ;
   SNFITSIO_DATA_PATH[0]    = 0 ;
 
@@ -2917,10 +2955,10 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   fflush(stdout);
 
   IFILE_RD_SNFITSIO = 0 ;
-  NSNLC_SNFITSIO_TOT = 0 ;
+  NSNLC_RD_SNFITSIO_TOT = 0 ;
   for ( ifile=0; ifile < MXFILE_SNFITSIO; ifile++ )  { 
-    NSNLC_SNFITSIO[ifile]     = 0 ; 
-    NSNLC_SNFITSIO_SUM[ifile] = 0 ; 
+    NSNLC_RD_SNFITSIO[ifile]     = 0 ; 
+    NSNLC_RD_SNFITSIO_SUM[ifile] = 0 ; 
   }
 
 
@@ -2940,8 +2978,8 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
 
     rd_snfitsio_open(ifile,photflag_open,vbose); // open and read 
 
-    NSNLC_SNFITSIO_TOT       += NSNLC_SNFITSIO[ifile] ; // increment total
-    NSNLC_SNFITSIO_SUM[ifile] = NSNLC_SNFITSIO_TOT ;
+    NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
+    NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
 
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
@@ -2962,7 +3000,7 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
     SNFITSIO_READINDX_SPEC[i] = -9 ;
   }
 
-  return(NSNLC_SNFITSIO_TOT) ;
+  return(NSNLC_RD_SNFITSIO_TOT) ;
 
 } // end of RD_SNFITSIO_PREP
 
@@ -3368,35 +3406,35 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_DDLR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGMASS", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGMASS_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGSFR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_OBS[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGSFR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGSFR_ERR[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGsSFR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_OBS[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_LOGsSFR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGsSFR_ERR[igal],
 				   &SNFITSIO_READINDX_HEAD[j] ) ;      
 
-      sprintf(KEY,"%s_COLOR", PREFIX);
+      sprintf(KEY,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR );
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_OBS[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
-      sprintf(KEY,"%s_COLOR_ERR", PREFIX);
+      sprintf(KEY,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
       j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_COLOR_ERR[igal],
                                    &SNFITSIO_READINDX_HEAD[j] ) ;
 
@@ -3962,7 +4000,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Next read name of optional SPEC file from HEAD file.
   // Next open the PHOT file IF photflag_open=1.
   // 
-  // Finally, set NSNLC_SNFITSIO[ifile] = NROW ; 
+  // Finally, set NSNLC_RD_SNFITSIO[ifile] = NROW ; 
   //
   // Note that fitsFile pointers fp_rd_snfitsio[itype]
   // are both opened for reading.
@@ -4199,7 +4237,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 	   SNDATA.SURVEY_NAME, SNDATA_FILTER.LIST, nrow  );   fflush(stdout);
   }
 
-  NSNLC_SNFITSIO[ifile] = NROW ; // store globally
+  NSNLC_RD_SNFITSIO[ifile] = NROW ; // store globally
 
   return ;
 
@@ -4424,7 +4462,7 @@ void rd_snfitsio_file(int ifile) {
   rd_snfitsio_tblpar( ifile, ITYPE_SNFITSIO_PHOT );
 
   // allocate memory for header 
-  rd_snfitsio_malloc( ifile, ITYPE_SNFITSIO_HEAD, NSNLC_SNFITSIO[ifile] );
+  rd_snfitsio_malloc( ifile, ITYPE_SNFITSIO_HEAD, NSNLC_RD_SNFITSIO[ifile] );
 
   // read/store header info for each SN
   rd_snfitsio_head(ifile);
@@ -4443,7 +4481,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
 
   long NCOLUMN, NCOLUMN_USE ;
   int  istat, icol, iform, npar, ncol ;
-  int  LDMP = 1 ;
+  int  LPRINT_UPDATE = (ifile == 0 ) ; // Apr 2022
   bool IS_KEYSIM ;
   fitsfile *fp ;
 
@@ -4459,7 +4497,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
   
-  if ( LDMP ) { 
+  if ( LPRINT_UPDATE ) { 
     ncol = (int)NCOLUMN ;
     printf("   %s contains %d columns. \n", 
 	   rd_snfitsFile[ifile][itype], ncol );
@@ -4502,7 +4540,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][npar]    = icol ;
     RD_SNFITSIO_TABLEVAL[itype].IPARINV[iform][icol] = npar ;
 
-    if ( LDMP ) {
+    if ( LPRINT_UPDATE ) {
       printf("\t  Found %s-Param[%2d] = %s (form = %s)\n"
 	     ,snfitsType[itype], icol
 	     ,RD_SNFITSIO_TABLEDEF[itype].name[icol]
@@ -4830,7 +4868,7 @@ void rd_snfitsio_head(int ifile) {
 
   // ------------ BEGIN --------------
 
-  NSNLC = NSNLC_SNFITSIO[ifile] ; 
+  NSNLC = NSNLC_RD_SNFITSIO[ifile] ; 
   itype = ITYPE_SNFITSIO_HEAD ;
   fp    = fp_rd_snfitsio[itype] ;
 
@@ -5395,8 +5433,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
   // check if we read current fits file, or need to open the next one.
   for ( itmp = 1; itmp <= NFILE_RD_SNFITSIO; itmp++ ) {
-    if ( isn >  NSNLC_SNFITSIO_SUM[itmp-1] &&
-	 isn <= NSNLC_SNFITSIO_SUM[itmp] ) 
+    if ( isn >  NSNLC_RD_SNFITSIO_SUM[itmp-1] &&
+	 isn <= NSNLC_RD_SNFITSIO_SUM[itmp] ) 
       { ifile = itmp ; }
   }
 
@@ -5411,7 +5449,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 
   // get local 'isn_file' index within this file;
   // Note that 'isn' is an absolute index over all files.
-  isn_file = isn - NSNLC_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
+  isn_file = isn - NSNLC_RD_SNFITSIO_SUM[IFILE_RD_SNFITSIO-1];
 
   // Dec 2021:
   // if there is a header override, load value here and return

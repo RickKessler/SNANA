@@ -62,6 +62,7 @@
 #define HOSTLIB_MSKOPT_APPEND     4096  // append columns from file
 #define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & write host mags from host spectra
 #define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
+#define HOSTLIB_MSKOPT_ZPHOT_QGAUSS 32768  // write Gauss quantiles for zPHOT
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
@@ -163,6 +164,7 @@ int OPTMASK_OPENFILE_HOSTLIB ;
 //for developers only
 bool REFAC_HOSTLIB;
 
+/* xxx mark delete Apr 24 2022 
 // define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
 #define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
 #define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
@@ -170,6 +172,7 @@ bool REFAC_HOSTLIB;
 #define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
 
 #define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
+xxxxxx end mark xxxxx */
 
 // Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
 // the other hostless values are -9 as before.
@@ -274,6 +277,7 @@ struct HOSTLIB_DEF {
   char filterList[MXFILTINDX]; // filter list for gal-mag
   char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
   int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
+  double SIGMA_QGAUSS[MXBIN_ZPHOTEFF];   // for forced Gauss quantiles
 
   // redshift information
   double ZMIN,ZMAX ;         // helio
@@ -291,7 +295,7 @@ struct HOSTLIB_DEF {
   int   MINiz, MAXiz ;    // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;
-  char COMMENT[MXCOMMENT_HOSTLIB][80] ; // comment lines for README file.
+  char COMMENT[MXCOMMENT_HOSTLIB][120] ; // comment lines for README file.
 
   // PSF-aperture info
   double Aperture_Radius[NMAGPSF_HOSTLIB+1]; // integ. radius for each PSF
@@ -317,7 +321,7 @@ struct HOSTLIB_DEF {
 } HOSTLIB ;
 
 
-#define MXCHAR_NBR_LIST 100
+#define MXCHAR_NBR_LIST 200 // Apr 25 2022 -> 200 (was 100)
 #define MXNBR_LIST       50
 
 struct {
@@ -661,6 +665,7 @@ void   reset_SNHOSTGAL_DDLR_SORT(int MAXNBR);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
+double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
@@ -710,10 +715,10 @@ void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
 void   init_HOSTLIB_ZPHOTEFF(void);
+void   init_HOSTLIB_ZPHOT_QUANTILE(void);
 void   init_GALMAG_HOSTLIB(void);
 void   init_Gauss2d_Overlap(void);
 void   init_SAMEHOST(void);
-
 void   init_Sersic_VARNAMES(void);
 void   init_Sersic_HOSTLIB(void);
 void   init_Sersic_integrals(int j);

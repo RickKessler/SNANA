@@ -363,7 +363,8 @@ class MakeDataFiles(Program):
                 job_info_data_unit   = self.prep_JOB_INFO_mkdata(index_dict)
                 util.write_job_info(f, job_info_data_unit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local)
+                job_info_merge = \
+                    self.prep_JOB_INFO_merge(icpu,n_job_local,False)
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         #print(f" xxx n_core={n_core}   n_job_cpu = {n_job_cpu}  " \
@@ -415,6 +416,12 @@ class MakeDataFiles(Program):
             truth_file  = f"{prefix}.csv"
             arg_list.append(f"--lsst_alert_schema   {schema_file}")
             arg_list.append(f"--outfile_alert_truth {truth_file}")
+        
+        if 'MJD_SUNSET_FILE' in CONFIG:  # Apr 9 2022
+            # read list of sunset-MJD values from file to avoid slow
+            # astroplan method to compute sunset-MJD
+            mjd_sunset_file = CONFIG['MJD_SUNSET_FILE']
+            arg_list.append(f"--mjd_sunset_file {mjd_sunset_file}")
 
         if nevt is not None:
             arg_list.append(f"--nevt {nevt}")

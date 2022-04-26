@@ -1,16 +1,11 @@
 # Generic Utilities for makeDataFiles.
 #
+# Mar 30 2022: add extract_sim_readme_info(...)
 
-import glob
-import logging  # ,coloredlogs
-import math
-import os
-import shutil
-import subprocess
-import sys
+import os, sys, glob, math, yaml, tarfile
+import logging, shutil, subprocess
 
 import numpy as np
-import yaml
 from astropy.io import fits
 
 #from astropy.table import Table
@@ -22,9 +17,97 @@ ASTROPLAN_EXISTS = False
 try:
     from astroplan import Observer
     ASTROPLAN_EXISTS = True
+#    CTIO_OBSERVER    = Observer.at_site('CTIO')
 except ImportError as e:
     pass
 from astropy.time import Time
+
+# =============================
+def extract_sim_readme_info(path_sim,key_list):
+
+    # Created Mar 31 2022
+    # parse README file from path_sim and read yaml keys in key_list. 
+    # Return dictionary of values corresponding to key_list.
+    # Checks for README inside misc.tar.gz from submit_batch_jobs, 
+    # and also checks for [GENVERSION].README from interactive job.
+
+    value_dict = {}
+    genversion = os.path.basename(path_sim)
+    
+    misc_tar_file = "misc.tar.gz"
+    readme_file   = f"{genversion}.README"
+
+    path_sim_expand = os.path.expandvars(path_sim)
+    misc_tar_path = f"{path_sim_expand}/{misc_tar_file}"
+    readme_path   = f"{path_sim_expand}/{readme_file}"
+
+    # check of path_sim contains misc.tar (from submit_batch_jobs)
+    # or README file (from interactive job)
+    found_misc   = False
+    found_readme = False
+    if os.path.exists(misc_tar_path):
+        found_misc = True
+    elif os.path.exists(readme_path):
+        found_readme = True
+    else:
+        msgerr = []
+        msgerr.append(f"Could not find {misc_tar_file} nor {readme_file}")
+        msgerr.append(f"Something not right in path_sim")
+        msgerr.append(f"  {path_sim}")
+        log_assert(False,msgerr)
+
+    # - - - - - 
+    if found_misc :
+        # get list of files/members inside tar file
+        tar = tarfile.open(misc_tar_path)
+        misc_file_list   = tar.getnames()
+        misc_member_list = tar.getmembers()
+
+        # find first README file
+        for fnam, member in zip(misc_file_list, misc_member_list):
+            if "README" in fnam:
+                readme_file   = fnam
+                readme_member = member
+                break
+
+        # read README inside tar file
+        f = tar.extractfile(readme_member)
+    else:
+        f = open(readme_path,"rt")
+
+    # - - - -
+    line_list = []
+    for line_tmp in f:
+        try:
+            line = line_tmp.decode('utf-8')
+        except:
+            line = line_tmp
+
+        line_list.append(line)
+
+    # - - - - - - - - -
+    if found_misc:
+        tar.close()
+    else:
+        f.close()
+
+    # - - - 
+    readme_yaml = yaml.safe_load("\n".join(line_list))
+
+    # get list of DOC yaml blocks to check since input key_list could
+    # be under any yaml block
+    DOC              = readme_yaml['DOCUMENTATION']
+    DOC_BLOCK_LIST   = DOC.keys()  # e.g., OVERVIEW, INPUT_KEYS, INPUT_NOTES
+
+    for key in key_list:
+        value = None
+        for block in DOC_BLOCK_LIST:
+            if key in DOC[block]:
+                value = DOC[block][key]
+        value_dict[key] = value
+
+    return value_dict
+    # end extract_sim_readme_info
 
 
 # =======================================
@@ -60,28 +143,76 @@ def select_subsample(args, var_dict):
         if MJD_DETECT_FIRST <  args.nite_detect_range[0]-1.: return False
         if MJD_DETECT_FIRST >= args.nite_detect_range[1]+1.: return False
 
-        # TODO - pass site into select_subsample
-        NITE = get_sunset_mjd(MJD_DETECT_FIRST, site='CTIO')
+        # compute extact NITE = MJD at sunset. Use brute force (slow)
+        # calculation since it is rarely computed.
+        mjd_sunset_dict = {}
+        NITE = get_sunset_mjd(MJD_DETECT_FIRST, 'CTIO', mjd_sunset_dict )
 
-        # make exact cut for MJD using NITE
+        # make NITE cut
         if NITE <  args.nite_detect_range[0]: return False
         if NITE >= args.nite_detect_range[1]: return False
 
     return True
     # end select_subsample
 
-def get_sunset_mjd(mjd, site='CTIO'):
+def get_sunset_mjd(mjd, site_name, sunset_dict):
     '''
-    Returns an MJD of sunset prior to input mjd as float - not a Time Object
+    Returns an MJD of sunset prior to input mjd as float - not a Time Object.
+    If sunset_dict is passed with mjd_file, read it and store contents
+    in same dictionary that gets passed back on future calls. Sunset_dict
+    is much faster than brute-force astroplan calls.
     '''
-    if ASTROPLAN_EXISTS:
-        ctio = Observer.at_site(site)
+
+    keydict_mjd_file        = 'mjd_file'
+    keydict_mjd_sunset_list = 'mjd_sunset_list'
+
+    if keydict_mjd_file in sunset_dict :
+        if keydict_mjd_sunset_list not in sunset_dict:
+            mjd_file = os.path.expandvars(sunset_dict[keydict_mjd_file])
+            mjd_sunset_list = []
+            with open(mjd_file,"rt") as f:
+                for word in f:
+                    mjd_sunset_list.append(float(word))
+            sunset_dict[keydict_mjd_sunset_list] = np.array(mjd_sunset_list)
+            n_mjd   = len(mjd_sunset_list)
+            mjd_min = mjd_sunset_list[0]
+            mjd_max = mjd_sunset_list[-1]
+            msg = f" Read list of {site_name} sunset-MJD from\n   {mjd_file}\n" \
+                  f" Found {n_mjd} {site_name} sunset-MJDs from {mjd_min} to {mjd_max}\n"            
+            logging.info(msg)
+            #sys.exit(f"\n xxx mjd_sunset_list = \n{mjd_sunset_list[0:100]}")
+        # - - - - - -
+        # use mjd-sunset list to find NITE
+        mjd_sunset_list = sunset_dict[keydict_mjd_sunset_list]
+        idx  = (np.abs(mjd_sunset_list-mjd)).argmin()
+        NITE = mjd_sunset_list[idx]  # nearest sunset
+        if NITE > mjd:
+            NITE = mjd_sunset_list[idx-1]  # nearest sunset before mjd
+            
+        DEBUG_NITE = False
+        if DEBUG_NITE:
+            site        = Observer.at_site(site_name)
+            detect_time = Time(mjd, format='mjd')
+            sun_set     = site.sun_set_time(detect_time, which='previous').mjd
+            NITE_ASTROPLAN = sun_set
+            if abs(NITE-NITE_ASTROPLAN) > 0.01 :
+                sys.exit(f"\n ERROR: NITE[GRID,ASTROPLAN] = " \
+                         f"[{NITE:.4f} , {NITE_ASTROPLAN:.4f}]" \
+                         f" for mjd={mjd:.4f}")      
+        #sys.exit(f"\n xxxx mjd={mjd} idx={idx} NITE={NITE}")
+                
+    elif ASTROPLAN_EXISTS:
+        site        = Observer.at_site(site_name)
         detect_time = Time(mjd, format='mjd')
-        sun_set = ctio.sun_set_time(detect_time, which='previous').mjd
-        NITE = sun_set
+        sun_set     = site.sun_set_time(detect_time, which='previous').mjd
+        NITE        = sun_set
+
     else:
+        # for debug only ; should probably flag error?
         NITE = mjd
+        
     return NITE
+    # end get_sunset_mjd
 
 def init_readme_stats():
     readme_stats = {}
@@ -554,8 +685,8 @@ class READ_SNANA_FOLDER:
     def exec_read(self, ifile):
 
         n_HEAD_file      = self.snana_folder_dict['n_HEAD_file']
-        if ifile >= n_HEAD_file  :
-            return 0 # done reading
+        if ifile >= n_HEAD_file :
+            return -1 # done reading
 
         data_folder      = self.snana_folder_dict['data_folder']
         HEAD_file_base   = self.snana_folder_dict['HEAD_file_list'][ifile]

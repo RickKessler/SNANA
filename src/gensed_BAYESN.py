@@ -1,9 +1,11 @@
 import sys
 import os
+import re
 import yaml
 import astropy.table as at
 import extinction
 import numpy as np
+import scipy.stats as st
 from scipy.interpolate import RegularGridInterpolator
 import matplotlib.pyplot as plt
 from SNmodel import spline_utils
@@ -12,6 +14,8 @@ from SNmodel import spline_utils
 mask_bit_locations = {'verbose':1,'dump':2}
 DEFAULT_BAYESN_MODEL='M20'
 ALLOWED_BAYESN_MODEL=['M20', 'T21']
+ALLOWED_BAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
+ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
 PRODUCTS_DIR = os.getenv('PRODUCTS')
 BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'bayesn', 'SNmodel', 'model_files')
 BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
@@ -46,9 +50,6 @@ class gensed_BAYESN:
             self.params_file_contents = yaml.load(open(self.paramfile),
                                                   Loader=yaml.FullLoader)
 
-            print('PARAMS FILE:')
-            print(self.params_file_contents)
-
             SNDATA_PATH = os.getenv('SNDATA_ROOT')
             if SNDATA_PATH is None:
                 raise RuntimeError('SNDATA_ROOT is not defined! Check env!')
@@ -63,8 +64,14 @@ class gensed_BAYESN:
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX']
-            self.parameter_values = {key:-9. for key in self.parameter_names}
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX', 'REDSHIFT']
+            self.parameter_values = {key:0. for key in self.parameter_names}
+            self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
+
+            ### SETUP THE BAYESN PARAMETER DISTRIBUTIONS
+            ### THESE WILL BE SAMPLED TO UPDATE parameter_values AS NEEDED
+            self.parse_bayesn_param_keys()
+            self.setup_bayesn_param_distributions()
 
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -79,7 +86,8 @@ class gensed_BAYESN:
             print_err()
 
         bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'{BAYESN_MODEL}_model')
-        self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir, f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
+        self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
+                                    f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
 
         #ST: Computes spline invrse KD matrices.
         self.KD_t = spline_utils.invKD_irr(self._bayesn_components["tau_knots"])
@@ -90,6 +98,168 @@ class gensed_BAYESN:
         self.M0 = self._bayesn_components["M0_sigma0_RV_tauA"][0]
 
         return
+
+
+    def parse_bayesn_param_keys(self, arglist=None):
+        """
+        We allow users to override the default BayeSN parameter
+        ranges by specifying the ARGLIST variable in the SNANA
+        input file, but we have to parse that single string
+
+        The keys in the string must  mirror those in bayesn.params
+        (where they can mercifully be specified as separate lines)
+        and must obey SNANA conventions
+        i.e. the keys must be in the form:
+        GEN[RANGE|PEAK|SIGMA]_<PARAM_NAME>: scalar or space-separated list
+
+        Sets a dictionary bayesn_distrib_params with the mapping of
+        key:value with value parsed as a scalar or list of floats
+
+        and a dictionary bayesn_param_config with the mapping of
+        PARAM_NAME: list of SNANA keys set (RANGE|PEAK|SIGMA)
+        """
+
+        # the pattern is YAML format - key: val pairs
+        # however, unlike YAML, we get all the args in
+        # a single arglist
+        if arglist is not None:
+            keyvals = re.split('(\w+):', arglist)[1:]
+            # key vals come in pairs - even indices are keys
+            # odd indices are vals
+            keys = keyvals[::2]
+            vals = keyvals[1::2]
+            self.bayesn_distrib_params.update(dict(zip(keys, vals)))
+        else:
+            self.bayesn_distrib_params = {key:val for key,val in self.params_file_contents.items()
+                                                if key.startswith('GEN')}
+
+        self.bayesn_param_config = {}
+        # we need to do some input validating
+        for key, val in self.bayesn_distrib_params.items():
+
+            # check the keywords are valid
+            if not key.startswith('GEN'):
+                message = f'Do not recognize key {key} in ARGLIST. Keys must begin with GEN'
+                raise RuntimeError(message)
+            keysuffix, paramname = key.replace('GEN','').split('_')
+
+            # looks like distributions in SNANA have to be PEAK/SIGMA/RANGE/SKEW
+            # I don't understand how SKEW is implemented so skipping that for now
+            if keysuffix not in ALLOWED_SNANA_DISTRIBUTION_KEYS:
+                message = f'Do not recognize key {key} in ARGLIST.\n'
+                message += f'Keys must contain f{ALLOWED_SNANA_DISTRIBUTION_KEYS}.'
+                raise RuntimeError(message)
+
+            # next, the parameters have to be valid BAYESN params
+            if paramname not in ALLOWED_BAYESN_PARAMS:
+                message = f'Do not recognize key {key} in ARGLIST.\n'
+                message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_BAYESN_PARAMS}.'
+                raise RuntimeError(message)
+
+            # we need to keep a track of which distribution parameters are set
+            temp = self.bayesn_param_config.get(paramname, None)
+            if temp is None:
+                temp = []
+            temp.append(keysuffix)
+            self.bayesn_param_config[paramname] = temp
+
+            # finally you either get a single float or a sequence of floats
+            # to specify the distributions for each parameter
+            try:
+                temp = float(val)
+                if paramname == 'RANGE':
+                    message = f'Key {key} specified but only found a single value.'
+                    raise RuntimeError(message)
+            except ValueError:
+                temp = [float(v) for v in val.split()]
+                if keysuffix != 'RANGE':
+                    message = f'Key {key} specified and has multiple values, but only accepts a single value.'
+                    raise RuntimeError(message)
+                if len(temp) !=2 :
+                    message = f'Range key {key} specified but can only have two values.'
+                    raise RuntimeError(message)
+                if temp[0] >= temp[1]:
+                    message = f'Range key {key} specified but lower limit is >= uppler limit.'
+                    raise RuntimeError(message)
+            self.bayesn_distrib_params[key] = temp
+        print('Parsed the following BayeSN distribution parameters')
+        print(self.bayesn_distrib_params)
+
+
+    def setup_bayesn_param_distributions(self):
+        """
+        Parse the BayeSN parameter distributions specified in
+        bayesn.params or as a string in the ARGLIST in the SNANA .INPUT
+        file and configure distribution objects
+
+        These distribution objects are sampled to draw parameters for
+        generating the light curves
+
+        Currently the options are
+        set a scalar (PEAK or PEAK and RANGE),
+        set a Uniform distribution  (RANGE, but no PEAK or SIGMA)
+        set a Gaussian (PEAK AND SIGMA)
+        or set a truncated Gaussian (PEAK, SIGMA and RANGE)
+
+        Distributions are saved as objects in the dictionary
+        bayesn_distribs as
+        <PARAM>: <function object that can be called>
+        """
+        self.bayesn_distribs = {}
+        for param, param_distrib_names in self.bayesn_param_config.items():
+            if len(param_distrib_names) == 1:
+                # if only one parameter is specified then
+                # it had better be peak or range
+                    distrib_name = param_distrib_names[0]
+                    key = f'GEN{distrib_name}_{param}'
+                    val = self.bayesn_distrib_params[key]
+                    if distrib_name == 'RANGE':
+                        # We have a range, so set a random uniform distribution
+                        llim, ulim = val
+                        scale = ulim - llim
+                        distrib = st.uniform(loc=llim, scale=scale)
+                        self.bayesn_distribs[param] = distrib
+
+                    elif distrib_name == 'PEAK':
+                        # we have only a peak - just set this as a scalar
+                        self.setParVals_BAYESN(param=float(val))
+            else:
+                # if we have more than one parameter specified
+                # then we are specifying a Gaussian of some sort
+                peak  = self.bayesn_distrib_params.get(f'GENPEAK_{param}', None)
+                sigma = self.bayesn_distrib_params.get(f'GENSIGMA_{param}', None)
+                llim, ulim  = self.bayesn_distrib_params.get(f'GENRANGE_{param}', (None, None))
+
+                # if it's PEAK AND RANGE - OK IF PEAK WITHIN RANGE
+                if llim is not None and ulim is not None:
+                    if peak is not None:
+                        if llim >= peak and peak >= ulim:
+                            message = f'{param} range {llim}--{ulim} peak {peak} specified but peak is outside range'
+                            raise RuntimeError(message)
+
+                # if it's SIGMA AND RANGE - NOT OK
+                if peak is None and sigma is not None:
+                        message = f'{param} peak {peak} not specified but sigma {sigma} is specified - invalid'
+                        raise RuntimeError(message)
+
+                # if peak is specified and sigma is not, we've either got a range and checked
+                # or we've not got a range and whatever - it's still a valid fixed value
+                if sigma is None and peak is not None:
+                    self.setParVals_BAYESN(param=float(peak))
+
+                if peak is not None and sigma is not None:
+                    if llim is not None and ulim is not None:
+                        # if it's all three - OK IF PEAK WITHIN RANGE
+                        # we've check that already
+                        a, b =  (llim - peak) / sigma, (ulim - peak) / sigma
+                        distrib = st.truncnorm(a, b, loc=peak, scale=sigma)
+                    else:
+                        # if it's PEAK AND SIGMA - OK
+                        distrib = st.norm(loc=peak, scale=sigma)
+                    self.bayesn_distribs[param] = distrib
+            # end logic for number of parameters set
+        # end loop over parameters
+        print(self.bayesn_distribs)
 
 
     def fetchSED_NLAM(self):
@@ -134,7 +304,19 @@ class gensed_BAYESN:
             newSN=False
         else:
             newSN=True
-            self.parameter_values = {key:0.+0.1*external_id for key in self.parameter_names}
+            # double or assymetric gaussian
+            # genPDF map - generic multi-D map - captures correlations between parameters
+            # can be any function
+            # SNANA - sec 4.3.2
+            # snlc_sim.c has header
+            # get_random_genPDF
+            useful_pars = {x:hostpars[i] for i, x in enumerate(self.host_param_names)}
+            for param, distrib in self.bayesn_distribs.items():
+                useful_pars[param] = distrib.rvs()
+            print(useful_pars, 'set')
+
+            self.setParVals_BAYESN(**useful_pars)
+
 
         #ST: Three lines originally from GSN
         ind =  np.abs(self.phase - trest).argmin()
@@ -177,7 +359,6 @@ class gensed_BAYESN:
         flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
-        print(self.parameter_values, 'fetchSED')
         return list(flux)
 
 

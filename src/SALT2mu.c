@@ -39,6 +39,8 @@ cid_select_file=<file with CID 'accept-only' list
 cid_reject_file=<file with CID reject list 
       (FITRES or unkeyed format)>
 
+izbin_from_cid_file=1 ! use izbin in cid_selecr_file
+
 uzsim=1                  ! cheat and use true zCMB for redshift
 
 sigint_fix=0.11            ! fix sigint=0.11 for all data
@@ -999,6 +1001,15 @@ with append_varname_missing,
       
  Mar 17 2022: few fixes for sigint_fix 
 
+ Mar 25 2022:
+    + fix bug and read input sigint_step1
+    + new input dchi2red_dsigint to specify slope so that fewer
+      fit-iterations are needed.
+
+ Apr 18 2022: new input izbin_from_cid_file=1 (same as debug_flag=401)
+ Apr 22 2022: default minos=0 (was 1) and sigint_step1=0.01 (was .05)
+               --> faster fitting
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1220,6 +1231,8 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define VARNAME_LOGSFR     "HOST_LOGSFR"
 #define VARNAME_LOGsSFR    "HOST_LOGsSFR"
 #define VARNAME_COLOR      "HOST_COLOR"
+
+#define VARNAME_IZBIN    "IZBIN"
 
 // ---------------------
 double LOGTEN  ;
@@ -1468,6 +1481,10 @@ struct {
   float *PTRVAL_OVERRIDE[MXVAR_OVERRIDE]; // pointers to override values
   int  *IVAR_OUTPUT_INVMAP;  // map ivar_out to ivar_over
 
+  bool USE_IZBIN_from_CIDFILE ;
+  int *IZBIN_from_CIDFILE; // Apri 2022
+  int  NCHANGE_IZBIN;  // Number of events with IZBIN change
+
 } INFO_DATA;
 
 
@@ -1679,7 +1696,9 @@ struct INPUTS {
 
   int    fitflag_sigmb ;  // flag to fit for sigMb that gives chi2/dof=1
   double redchi2_tol ;    // tolerance in red chi2 (was sig1tol)
-  double sigmb_step1 ;        // size of first sigMB step, OR ...
+
+  double dchi2red_dsigint;    // option to input slope instead of computing it
+  double sigint_step1 ;        // size of first sigint step, OR ...
   double scale_covint_step1;  // size of first scale_covint step
   double covint_param_step1;  // one of the above
 
@@ -1721,7 +1740,8 @@ struct INPUTS {
   // CID select or reject for data only (data can be real or sim)
   int   ncidFile_data;  // number of cid-select files in comma-sep list
   char  **cidFile_data ; // list of cidFiles
-  
+  int   izbin_from_cidFile;
+
   int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
   bool  match_on_cid_idsurvey, match_on_cid_only ; 
@@ -1855,9 +1875,10 @@ struct {
   int    NSNTOT ;            // total number of SN read
   int    NPASS, NREJECT ;     // temporary during refactor
   double COVINT_PARAM_FIX ;  //  sigint OR SCALE_COVINT
+  double DCHI2RED_DSIGINT;   // Mar 25 2022
   double COVINT_PARAM_LAST; 
   char   COVINT_PARAM_NAME[20];
-
+  
   double ZPOLY_COVMAT[3][3];   // z-dependent scatter matrix
 
   int NZBIN_TOT[MXz]; // total number before cuts
@@ -2199,7 +2220,7 @@ int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
 
-int selectCID_data(char *cid, int IDSURVEY); 
+int selectCID_data(char *cid, int IDSURVEY, int *IZBIN); 
 
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -2367,6 +2388,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
 void SUBPROCESS_COMPUTE_STD(int ITABLE) ;
 
 void SUBPROCESS_EXIT(void);
+void SUBPROCESS_REMIND_STDOUT(void) ;
 
 void SUBPROCESS_STORE_BININFO(int itable, int ivar, char *string);
 void SUBPROCESS_MAP1D_BININFO(int itable);
@@ -2631,8 +2653,6 @@ void SALT2mu_DRIVER_EXEC(void) {
     SPLITRAN_cutmask();     // check for random sub-samples
     prep_input_repeat();  // re-initialize a few things (May 2019)
   }
-
-  // xxx setup_zbins_fit();    // set z-bins for data and biasCor
 
   FITRESULT.NCALL_FCN = 0 ;
   mninit_(&inf,&outf,&savef);
@@ -3194,7 +3214,8 @@ void setup_zbins_fit(void) {
 
   int nzbin = INPUTS.nzbin ;
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int n, nz, izbin, NZFLOAT, CUTMASK ;
+  int NSN_CUTS = 0 ;
+  int n, nz, izbin, iztmp, NZFLOAT, CUTMASK ;
   double z;
   char fnam[] = "setup_zbins_fit";
 
@@ -3212,8 +3233,19 @@ void setup_zbins_fit(void) {
     CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[n];
     if ( CUTMASK ) { continue; }
 
-    z     = INFO_DATA.TABLEVAR.zhd[n] ;    
+    NSN_CUTS++ ;
+
+    z     = INFO_DATA.TABLEVAR.zhd[n] ;
     izbin = IBINFUN(z, &INPUTS.BININFO_z, 0, fnam);
+
+    if ( INFO_DATA.USE_IZBIN_from_CIDFILE ) { 
+      iztmp = INFO_DATA.TABLEVAR.IZBIN[n]; 
+      if ( iztmp >= 0 ) { 
+	if ( iztmp != izbin ) { INFO_DATA.NCHANGE_IZBIN++ ; }
+	izbin = iztmp; 
+      }
+    } 
+
     INFO_DATA.TABLEVAR.IZBIN[n] = izbin;
 
       
@@ -3249,6 +3281,12 @@ void setup_zbins_fit(void) {
   FITINP.NFITPAR_FLOAT_z = NZFLOAT ;
   fprintf(FP_STDOUT," --> Use %d of %d z-bins in fit.\n", NZFLOAT, nzbin );
 
+  if ( INFO_DATA.NCHANGE_IZBIN > 0 ) {
+    fprintf(FP_STDOUT,"   ALERT: %d of %d events change IZBIN to "
+	    "match cid_select_file\n",
+	    INFO_DATA.NCHANGE_IZBIN, NSN_CUTS );   
+  }
+
   // Flag SN in z-bins with fewer thann MINBIN;
   // i.e, Flag SN which are not in a valid zbin
   for (n=0; n< NSN_DATA; ++n)  {
@@ -3268,7 +3306,7 @@ void setup_zbins_fit(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-
+  fprintf(FP_STDOUT,"\n");
   fflush(FP_STDOUT);
   return ;
 
@@ -3514,7 +3552,11 @@ void applyCut_chi2max(void) {
   } // end n loop over SN
 
 
-  if ( NREJ > 0 ) { setup_zbins_fit(); }    // set z-bins
+  if ( NREJ > 0 ) { 
+    printf("\n Setup z-bins again after chi2max cut:");
+    fflush(stdout);
+    setup_zbins_fit(); 
+  }  
 
   fflush(FP_STDOUT);
  
@@ -4054,7 +4096,8 @@ int prepNextFit(void) {
   } 
   else {
     // Try another covParam 
-    // On 2nd iteration, use linear fit to estimate next covParam
+    // On 2nd iteration, use linear approx and dchi2red/dsigint 
+    // to estimate next covParam
 
     covParam = FITINP.COVINT_PARAM_FIX ;
     FITINP.COVINT_PARAM_FIX = next_covFitPar(redchi2,covParam,step1); 
@@ -5405,7 +5448,7 @@ void set_defaults(void) {
   INPUTS.write_yaml = 0 ;
   INPUTS.write_csv  = 0 ;
 
-  INPUTS.minos      = 1 ;
+  INPUTS.minos      = 0 ; // disable default minos, Apr 22 2022
   INPUTS.nfile_data = 0 ;
   INPUTS.nfile_data_override = 0 ;
   sprintf(INPUTS.PREFIX,     "NONE" );
@@ -5509,6 +5552,7 @@ void set_defaults(void) {
   INPUTS.ncidFile_data   = 0;
   INPUTS.ncidList_data   = 0;
   INPUTS.acceptFlag_cidFile_data = 0 ;
+  INPUTS.izbin_from_cidFile = 0;
 
   INPUTS.nmax_tot = 999888777 ;
   for(isurvey=0; isurvey<MXIDSURVEY; isurvey++ ) 
@@ -5565,7 +5609,8 @@ void set_defaults(void) {
 
   INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
-  INPUTS.sigmb_step1         = 0.05 ; // size of 1st step for sigMB, OR ...
+  INPUTS.sigint_step1        = 0.01 ; // size of 1st sigint step 
+  INPUTS.dchi2red_dsigint    = 0.0 ;
   INPUTS.scale_covint_step1  = 0.04 ; // for scale_covint
 
   INPUTS.prescale_simData  = 1.0 ; // include all simData by default
@@ -6100,18 +6145,6 @@ void read_data_override(void) {
   //   + avoid double-counting zHD override if zHEL and VPEC are both
   //      on override list. Same for zHDERR with ZHELERR and VPECERR.
   //
-
-  /* xxx mark delete Mar 7 2022 xxxxxx
-  char VARNAME_VPEC[]     = "VPEC";
-  char VARNAME_VPECERR[]  = "VPECERR";
-  char VARNAME_VPECERR2[] = "VPEC_ERR";
-  char VARNAME_zHD[]      = "zHD";
-  char VARNAME_zHDERR[]   = "zHDERR";
-  char VARNAME_zHEL[]     = "zHEL";
-  char VARNAME_zHELERR[]  = "zHELERR";
-  char VARNAME_zCMB[]     = "zCMB";
-  char VARNAME_LOGMASS[]  = "HOST_LOGMASS" ;
-  xxxxxxxxx end mark xxxxxxxxxxx */
 
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
@@ -9612,11 +9645,14 @@ void prepare_biasCor(void) {
 
 
   int DUMPFLAG = 0 ;
+  int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
 
+  /* xxxx mark delete Apr 20 2022 xxxxxxxxxx
   // user input ndump_nobiasCor is number of noBiasCor events to dump;
   // however, dump at least 10 if user uses this input as a logic flag.
   int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
   if ( ndump_nobiasCor>0 && ndump_nobiasCor < 10 ) { ndump_nobiasCor=10; }
+  xxxxxxx end mark xxxxxx */
 
   for (n=0; n < NSN_DATA; ++n) {
 
@@ -15431,7 +15467,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
-  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey ;
+  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey, IZBIN ;
   bool BADERR=false, BADCOV=false ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
@@ -15570,9 +15606,12 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
     // djb we only want to apply the cid list for the data                 
-    ACCEPT = selectCID_data(name, idsurvey);
+    ACCEPT = selectCID_data(name, idsurvey, &IZBIN);
     if ( !ACCEPT )
       { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); } //the mask is in tablevar
+
+    if ( INFO_DATA.USE_IZBIN_from_CIDFILE ) 
+      { INFO_DATA.TABLEVAR.IZBIN[isn] = IZBIN; }
 
   }
   else if ( IS_BIASCOR ) { 
@@ -15664,7 +15703,7 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 
 // ===========================================
-int selectCID_data(char *cid, int IDSURVEY){
+int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
 
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
@@ -15672,17 +15711,21 @@ int selectCID_data(char *cid, int IDSURVEY){
   // Sep 2020 RK - Refactor to accept or reject based on user input.
   // Jun 2021 RK - use match_cidlist_exec util based on hash table.
   // Jun 2021 DB - added boolean logic to match on IDSURVERY
+  // Apr 2022 RK - return IZBIN if it is part of cid_select table
 
+  
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
   bool match_on_cid_idsurvey = INPUTS.match_on_cid_idsurvey;
   bool match_on_cid_only = INPUTS.match_on_cid_only;
-  int ACCEPT = 1, REJECT = 0, i, isn0 ;
+  int ACCEPT = 1, REJECT = 0, i, isn_match ;
   bool MATCH ;
   char *tmpCID, STRINGID[60];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
+
+  *IZBIN = -9 ;
 
   if ( ncidList == 0 ) { return ACCEPT ; }
 
@@ -15698,7 +15741,11 @@ int selectCID_data(char *cid, int IDSURVEY){
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  MATCH = match_cidlist_exec(STRINGID);
+  isn_match = match_cidlist_exec(STRINGID);
+  MATCH     = (isn_match >= 0);
+  if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
+    *IZBIN = INFO_DATA.IZBIN_from_CIDFILE[isn_match];
+  }
 
   /* xxx
   if ( strstr(STRINGID,"9159") != NULL ) {
@@ -16321,7 +16368,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"sigint_fix="))  { 
     s = INPUTS.sigint_fix ;
     sscanf(&item[11],"%s", INPUTS.sigint_fix);  remove_quote(s); 
-    // xxx mark delete Mar 17 2022    INPUTS.fitflag_sigmb=0;
     return(1); 
   }
 
@@ -16329,6 +16375,11 @@ int ppar(char* item) {
     { sscanf(&item[6],"%lf",&INPUTS.sigmB); return(1); }
   if ( uniqueOverlap(item,"sigmb=")) 
     { sscanf(&item[6],"%lf",&INPUTS.sigmB); return(1); }
+
+  if ( uniqueOverlap(item,"sigint_step1=")) 
+    { sscanf(&item[13],"%lf",&INPUTS.sigint_step1); return(1); }
+  if ( uniqueOverlap(item,"dchi2red_dsigint=")) 
+    { sscanf(&item[17],"%lf",&INPUTS.dchi2red_dsigint); return(1); }
 
   if ( uniqueOverlap(item,"sigx1=")) 
     { sscanf(&item[5],"%lf",&INPUTS.sigx1); return(1); }
@@ -16361,6 +16412,9 @@ int ppar(char* item) {
 		       &INPUTS.ncidFile_data, &INPUTS.cidFile_data );
     INPUTS.acceptFlag_cidFile_data = +1;   return(1); 
   }
+
+  if ( uniqueOverlap(item,"izbin_from_cid_file=") ) 
+    { sscanf(&item[19], "%d", &INPUTS.izbin_from_cidFile );  return(1); } 
 
   if ( uniqueOverlap(item,"cid_reject_file=") ) {
     parse_commaSepList("CID_REJECT_FILE", &item[16], 6, MXCHAR_FILENAME, 
@@ -16535,8 +16589,10 @@ int ppar(char* item) {
     { sscanf(&item[23],"%d", &INPUTS.restore_mucovscale_bug); return(1); }
   if ( uniqueOverlap(item,"restore_mucovadd_bug="))
     { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
+
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
+    if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
     return(1); 
   }
 
@@ -16607,11 +16663,13 @@ void parse_simfile_CCprior(char *item) {
   //
   // Use item_local instead of item, so that we don't overwrite
   // input item and clobber other arguments.
+  // 
+  // Apr 11 2022: fix memory-overwrite bug related to MEMC value
 
   int ifile;
   int debug_malloc = INPUTS.debug_malloc ;
-  int MEMC     = MXCHAR_FILENAME*sizeof(char);
-  char *item_local = (char*) malloc(MEMC);
+  int MEMC;
+  char *item_local;
   char fnam[]  = "parse_simfile_CCprior" ;
 
   // ------------------ BEGIN -----------------
@@ -16620,10 +16678,14 @@ void parse_simfile_CCprior(char *item) {
 
   // 9.28.2020:check "same" option
   if ( strcmp(item,"same") == 0 ) {
+    MEMC        = sizeof(char) * (strlen(INPUTS.simFile_biasCor_arg)+10);
+    item_local  = (char*) malloc(MEMC);
     sprintf(item_local, "%s",  INPUTS.simFile_biasCor_arg); 
     INPUTS.sameFile_flag_CCprior = true; 
   }
   else {
+    MEMC       = sizeof(char) * (strlen(item)+10);
+    item_local = (char*) malloc(MEMC);
     sprintf(item_local, "%s", item); 
   }
 
@@ -16647,36 +16709,64 @@ void parse_simfile_CCprior(char *item) {
 
 } // parse_simfile_CCprior
 
+
 // **************************************************     
 void parse_cidFile_data(int OPT, char *fileName) {
 
-  // Created Sep 23 2020 
+  // Refactored April 2022 to read IZBIN.
   // Read inpt fileName for list of CIDs to accept or reject 
   // based on
   //
   //    OPT > 0 -> list to accept
   //    OPT < 0 -> list to reject
+  //
+  // If IDSURVEY column exists, match by CID_SURVEY
+  // If IZBIN column exists, store it for use with event syncing (Apr 2022)
 
   int  ncidList_data = INPUTS.ncidList_data  ;
-  int  ncid ;
+  int  ncid, isn, ISNOFF=0, IZBIN, ISTAT, IVAR_IZBIN, IFILE, ifile ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
+  double DVAL;
+  char id_name[20], CCID[MXCHAR_CCID], CVAL[12] ;
   char fnam[] = "parse_cidFile_data" ;
-  char id_name[20];
 
+  int use_izbin = INPUTS.izbin_from_cidFile ;
+  // xxxx  bool REFAC = ( INPUTS.debug_flag==401 ); // 4.01.2022
   // ------------- BEGIN ------------
 
-  // NOTE: OPTMASK_MATCH will be set to zero in this function if IDSURVEY column doesnt exist
+  // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
+  if ( use_izbin ) { OPTMASK_MATCH += 64; }
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
 
-  // DB Jun 2021
+  // Apr 3 2022: if IZBIN exists in cid table, store it for later use.
+  if ( use_izbin ) {
+    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
+
+    if ( IVAR_IZBIN > 0 ) {
+      INFO_DATA.IZBIN_from_CIDFILE = (int*) malloc( ncid * sizeof(int) ) ;
+      INFO_DATA.USE_IZBIN_from_CIDFILE = true;
+      IFILE = NFILE_AUTOSTORE-1;
+      for(ifile=0; ifile < NFILE_AUTOSTORE-1; ifile++ ) 
+	{ ISNOFF += SNTABLE_AUTOSTORE[ifile].NROW; }
+      for ( isn=0; isn < ncid; isn++ ) {
+	DVAL = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IZBIN][isn];
+	IZBIN = (int)DVAL ;
+	INFO_DATA.IZBIN_from_CIDFILE[ISNOFF+isn] = IZBIN ;
+      }    
+    } // end IVAR_IZBIN>0
+
+  } // end use_izbin
+
+  // - - - - - - - - 
+  // D.Brout Jun 2021
   if ( (OPTMASK_MATCH & 1) == 0) {
     INPUTS.match_on_cid_idsurvey = false;
-    INPUTS.match_on_cid_only = true;
+    INPUTS.match_on_cid_only     = true;
     sprintf(id_name,"CID");
   }
   else {
     INPUTS.match_on_cid_idsurvey = true;
-    INPUTS.match_on_cid_only = false;
+    INPUTS.match_on_cid_only     = false;
     sprintf(id_name,"CID_IDSURVEY");
   }
 
@@ -17560,7 +17650,7 @@ void prep_input_repeat(void) {
 
   FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; 
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
-  INPUTS.covint_param_step1 = INPUTS.sigmb_step1 ; // default COVINT param
+  INPUTS.covint_param_step1 = INPUTS.sigint_step1 ; // default COVINT param
 
   if ( strlen(INPUTS.sigint_fix) > 0 ) {
     sprintf(FITPARNAMES_DEFAULT[IPAR_COVINT_PARAM], "scale_covint"); 
@@ -17929,12 +18019,11 @@ void prep_input_driver(void) {
 
   NSIMIa = NSIMCC = NSIMDATA = 0 ;
   NJOB_SPLITRAN = 0;
-
-  // xxx mark delete 3.17.2022 if ( strlen(INPUTS.sigint_fix)>0) {INPUTS.sigmB=0.0;}
   
-  FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; // Mar 2016
+  FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ;
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
-  INPUTS.covint_param_step1 = INPUTS.sigmb_step1 ; // default COVINT param
+  FITINP.DCHI2RED_DSIGINT   = INPUTS.dchi2red_dsigint; // Mar 25 2022
+  INPUTS.covint_param_step1 = INPUTS.sigint_step1 ; // default COVINT param
 
   // Oct 9 2018: for sigInt(IDSAMPLE), vary global COV scale instead
   //             of varying sigInt.
@@ -18149,13 +18238,18 @@ void prep_input_driver(void) {
 
   prep_input_nmax(INPUTS.nmaxString);
 
+  INFO_DATA.USE_IZBIN_from_CIDFILE = false;
+  INFO_DATA.NCHANGE_IZBIN = 0;
   if ( INPUTS.ncidFile_data > 0 ) {
     printf("\n");
     OPT = INPUTS.acceptFlag_cidFile_data;
     OPTMASK = 0;
+    if ( INPUTS.izbin_from_cidFile ) { OPTMASK += 64; }
+
     match_cidlist_init("", &OPTMASK);    // init hash table 
-    for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
-      { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
+    for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ )  { 
+      parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] ); 
+    }
     printf("\n"); fflush(stdout);
   }
 
@@ -18755,21 +18849,26 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
 
   // Created Jan 26 2018
   // Returns next covFitPar; either sigmB or covScale.
+  // Mar 25 2022: check user input INPUTS.dchi2red_dsigint
 
   double parval_next;
-  double step, slope=0.0, num=0.0, denom=0.0 ;
+  double step, slope=0.0, numer=0.0, denom=0.0 ;
+  double slope_user = INPUTS.dchi2red_dsigint;
   int NFIT_ITER = FITRESULT.NFIT_ITER ;
   char fnam[] = "next_covFitPar" ;
 
   // ------------- BEGIN ------------
-
 
   parval_next = parval_orig; // init
 
   FITRESULT.CHI2RED_LIST[NFIT_ITER] = redchi2 ;
   FITRESULT.SIGINT_LIST[NFIT_ITER]  = parval_orig ;
 
-  if ( NFIT_ITER == 0 ){
+  if ( slope_user != 0.0  ) {
+    parval_next = parval_orig - (redchi2-1.0)/slope_user ;
+    slope = slope_user ;
+  }
+  else if ( NFIT_ITER == 0 ){
     // decide if sigint needs to be larger or smaller
     if (redchi2 > 1.0) 
       { step = +parval_step ; } 
@@ -18778,24 +18877,23 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
     // calculate new sigint
     parval_next = parval_orig + step;
 
-  } else { 
-
-    num   = 
+  } 
+  else { 
+    numer = 
       FITRESULT.CHI2RED_LIST[NFIT_ITER] - 
       FITRESULT.CHI2RED_LIST[NFIT_ITER-1] ;
-
     denom = 
       FITRESULT.SIGINT_LIST[NFIT_ITER] - 
       FITRESULT.SIGINT_LIST[NFIT_ITER-1] ;
-
-    slope = num/denom ;
+    slope = numer/denom ;
     parval_next = parval_orig - (redchi2-1.0)/slope ;
   }
 
+  // - - - - - - - - - - - 
   if ( parval_next > 100. ) {
     print_preAbort_banner(fnam);
     if ( NFIT_ITER > 0 ) {
-      printf("\t slope = %f/%f = %f \n", num, denom, slope);
+      printf("\t slope = %f/%f = %f \n", numer, denom, slope);
       printf("\t SIGINT_LIST[iter=%d,%d] = %f, %f \n",
 	     NFIT_ITER, NFIT_ITER-1,
 	     FITRESULT.SIGINT_LIST[NFIT_ITER],
@@ -18813,6 +18911,7 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
+  FITINP.DCHI2RED_DSIGINT = slope ;
   return(parval_next);
 
 } // end next_covFitPar
@@ -19103,6 +19202,7 @@ void write_yaml_info(char *fileName) {
     fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
   }
 
+
   fclose(fp);
 
   return;
@@ -19126,6 +19226,8 @@ void  write_M0_fitres(char *fileName) {
   //
   // Oct 13 2019: check bad bins to write MUDIFERR_ZERO[EMPTY]
   // Dec 02 2020: write redshift with %.5f instad of %.4f
+  // Apr 22 2022: write %.5f format for distances/error instead of %.4f
+  //               (for high-precision consistency tests)
   //
   int iz, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
@@ -19222,7 +19324,7 @@ void  write_M0_fitres(char *fileName) {
 
     fprintf(fp, "ROW:     "
 	    "%2d  %7.5f %7.5f %7.5f  "
-	    "%9.4f %9.4f  %.4f %4d\n",
+	    "%9.5f %9.5f  %.5f %4d\n",
 	    irow, zMIN, zMAX, z, 
 	    VAL, ERR, MUREF, NFIT );
     fflush(fp);
@@ -19810,7 +19912,7 @@ void define_varnames_append(void) {
       sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasCor_muCOVADD");   NVAR_APPEND++ ;
     }
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IDSAMPLE");          NVAR_APPEND++ ;  
-    sprintf(VARNAMES_APPEND[NVAR_APPEND],"IZBIN");             NVAR_APPEND++ ;  
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],VARNAME_IZBIN);    NVAR_APPEND++ ;  
 
   }
 
@@ -20041,10 +20143,12 @@ void write_fitres_misc(FILE *fout) {
 
   fprintf(fout,"#  -2log(L)     = %.2f \n", FITRESULT.CHI2SUM_MIN );
 
+  fprintf(fout,"#  dchi2red/dsigint = %.3f\n",
+	  FITINP.DCHI2RED_DSIGINT);
+
   fprintf(fout,"#  chi2(Ia)/dof = %.2f/%i = %.3f  \n",
 	  chi2min, NDOF, chi2red );
-      
-
+  
   fflush(fout);
   return ;
 
@@ -20184,7 +20288,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // May 13 2020: write to char line, then single fprintf for entire line.
   // Nov 12 2020: write muerr_vpec for Dan.
   // Dec 02 2020: write izbin
-
+  // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
+  //              Might be needed later for high-precision tests.
+  //
   bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
@@ -20246,9 +20352,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   
   NWR=0;  line[0] = 0 ;
   sprintf(word, "%d ",    cutmask);       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mu     );       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mumodel);       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mu     );       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mumodel);       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", muerr  );       NWR++ ; strcat(line,word);
 
   if ( !SUBPROCESS.USE ) {
     // Jun 21 2021: beware that muerr_renorm is not malloced or filled
@@ -21126,6 +21232,7 @@ void  SUBPROCESS_INIT(void) {
     if ( !SUBPROCESS.FP_INP ) {
       sprintf(c1err,"Could not open input GENPDF file to read:" );
       sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
+      SUBPROCESS_REMIND_STDOUT();
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
     else {
@@ -21140,10 +21247,11 @@ void  SUBPROCESS_INIT(void) {
   if ( !SUBPROCESS.FP_OUT ) {
     sprintf(c1err,"Could not open output file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.OUTFILE) ;
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    printf("%s  Opened output file   (fit info): %s\n", 
+    printf("%s  Opened output file (fit info): %s\n", 
 	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.OUTFILE );
     fflush(stdout);
   }
@@ -21153,10 +21261,11 @@ void  SUBPROCESS_INIT(void) {
   if ( !FP_STDOUT ) {
     sprintf(c1err,"Could not open STDOUT file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.STDOUT_FILE) ;
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    printf("%s  Opened STDOUT file (standard out): %s\n", 
+    printf("%s  Opened STDOUT file (stdout): %s\n", 
 	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE );
     fflush(stdout);
   }
@@ -21207,6 +21316,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // only for sim-data, so doesn't take much extra memory if a few
   // duplicate colummns are read.
   //
+  // Apr 18 2022: set better abort trap for NVAR_ALL
 
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
@@ -21249,6 +21359,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 	sprintf(c1err,"Output table includes VARNAME=%s", VARNAME);
 	sprintf(c2err,"but %s is not in %s FITRES file", 
 		VARNAME, STRING_EVENT_TYPE[EVENT_TYPE] );
+	SUBPROCESS_REMIND_STDOUT();
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
       }
     } // end MATCH
@@ -21270,6 +21381,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( ISDATA_REAL ) {
     sprintf(c1err,"Woah! Cannot process real data here.");
     sprintf(c2err,"Only SIM data allowed here.");
+    SUBPROCESS_REMIND_STDOUT();
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -21295,6 +21407,21 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   }
 
   if ( ivar_ebv_tmp >= 0 ) {
+    int NVAR_ADD = 2;
+    if ( NVAR_ALL > MXVAR_GENPDF-NVAR_ADD ) {
+
+      print_preAbort_banner(fnam);
+      for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
+	printf("\t Host var[%2d] = %s\n", ivar, ptrVarAll[ivar]);
+	fflush(stdout);
+      }
+      sprintf(c1err,"Cannot add %s and %s because", 
+	      VARNAME_SIM_AV, VARNAME_SIM_RV);
+      sprintf(c2err,"NVAR_ALL+%d=%d and MXVAR_GENPDF=%d",
+	      NVAR_ADD, NVAR_ALL+NVAR_ADD, MXVAR_GENPDF);
+      SUBPROCESS_REMIND_STDOUT();
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);      
+    }
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_AV); NVAR_ALL++ ;
     sprintf(ptrVarAll[NVAR_ALL], "%s", VARNAME_SIM_RV); NVAR_ALL++ ;
   }
@@ -21446,6 +21573,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
 
   finp  = open_TEXTgz(input_simref_file, "rt", &GZIPFLAG);
   if (!finp) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Could not open input simref file:");
     sprintf(c2err,"%s", input_simref_file);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -21559,6 +21687,7 @@ void SUBPROCESS_STORE_EBV(void) {
   }
 
   if ( ivar_av < 0 || ivar_rv < 0 ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Invalid ivar_[av,rv] = %d, %d", ivar_av, ivar_rv);
     sprintf(c2err,"Cannot compute EBV column");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -21652,6 +21781,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // matches ITER_EXPECT entered on command line.
 
   if ( ITER_FOUND < 0 ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Could not find required '%s' key in", 
 	    KEYNAME_SUBPROCESS_ITERATION_BEGIN);
     sprintf(c2err,"file %s", INPFILE );
@@ -21659,6 +21789,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   }
 
   if ( ITER_EXPECT != ITER_FOUND ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Found ITERATION=%d in PDF file %s",
 	    ITER_FOUND, INPFILE);
     sprintf(c2err,"But expected ITERATION=%d passed via std input", 
@@ -21851,12 +21982,14 @@ double SUBPROCESS_PROB_SIMREF(int ITER, int imap, double XVAL) {
   }
   
   else {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Did not find bounding functions for '%s'", VARNAME) ;
     sprintf(c2err,"Bounding func must be specified for all variables or none!") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
   if ( PROB_SIMREF < 0.) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"Invalid PROB_SIMREF=%f for VARNAME=%s", PROB_SIMREF, VARNAME) ;
     sprintf(c2err,"ITER = %d, imap=%d, XVAL=%f", ITER, imap, XVAL) ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
@@ -22065,6 +22198,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   sscanf(ptrSplit[0], "%d", &nbin);
 
   if ( nbin >= MXz ) {
+    SUBPROCESS_REMIND_STDOUT();
     sprintf(c1err,"NBIN(%s) = %d exceeds bound of %d", VARNAME, nbin, MXz) ;
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args") ;
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -22111,11 +22245,55 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
   float *PTRVAL ; 
   int IVAR_TABLE = SUBPROCESS_IVAR_TABLE(VARNAME);
+  int ivar, NVAR_VALID=0 ;
+  bool MATCH     = false;
+
+  // define space separated list of valid varnames for output table
+  char VARNAME_VALID_LIST[] = "x1 c zHD "				\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGMASS " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGSFR  " " HOSTGAL_PROPERTY_BASENAME_LOGSFR  " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " "\
+    "HOST_"HOSTGAL_PROPERTY_BASENAME_COLOR   " " HOSTGAL_PROPERTY_BASENAME_COLOR   " "\
+      ; 
+
+  // define list of pointers corresponding to VARNAME_VALID_LIST
+  float *PTRVAL_VALID_LIST[] = {
+    INFO_DATA.TABLEVAR.fitpar[INDEX_x1],
+    INFO_DATA.TABLEVAR.fitpar[INDEX_c],
+    INFO_DATA.TABLEVAR.zhd,
+    INFO_DATA.TABLEVAR.host_logmass, INFO_DATA.TABLEVAR.host_logmass,
+    INFO_DATA.TABLEVAR.host_logsfr,  INFO_DATA.TABLEVAR.host_logsfr,
+    INFO_DATA.TABLEVAR.host_logssfr, INFO_DATA.TABLEVAR.host_logssfr,
+    INFO_DATA.TABLEVAR.host_color,   INFO_DATA.TABLEVAR.host_color
+  } ;
 
   if ( IVAR_TABLE >= 0 ) {
     // Mar 7 2022: load value from supplemental table 
     PTRVAL = SUBPROCESS.TABLEVAR[IVAR_TABLE];
+    MATCH  = true;
   }
+  else {
+    //    debugexit(VARNAME_VALID_LIST);
+    char VARNAME_VALID_TMP[60];
+    NVAR_VALID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, VARNAME_VALID_LIST);
+    for(ivar=0; ivar < NVAR_VALID; ivar++ ) {
+      get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP);
+      if ( strcmp(VARNAME,VARNAME_VALID_TMP) == 0  ) 
+	{ PTRVAL = PTRVAL_VALID_LIST[ivar];  MATCH=true; }
+    } 
+  }
+
+  // - - - - - -
+  if ( !MATCH ) {
+    print_preAbort_banner(fnam);    
+    SUBPROCESS_REMIND_STDOUT();
+    fprintf(FP_STDOUT,"   Valid varnames for output table:\n  %s\n", VARNAME_VALID_LIST);
+    sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
+    sprintf(c2err,"Check valid varnames above.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  /* xxx mark delete xxxxxx
   // below, check for standard SALT2mu table variables
   else if ( strcmp(VARNAME,"x1") == 0  ) 
     { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
@@ -22144,6 +22322,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
+  xxxxxx end mark xxxxx */
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
@@ -22529,6 +22708,8 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f  #Beware, value > 1 violates bounding function \n",
           tmpName, SUBPROCESS.MAXPROB_RATIO); 
 
+  // .xyz write dchi2red_dsigint here ... for Brodie
+
   fflush(FP_OUT);
 
   // - - - - - - 
@@ -22611,9 +22792,20 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 } //  end SUBPROCESS_OUTPUT_TABLE_WRITE
 
 
+// =======================================
+void SUBPROCESS_REMIND_STDOUT(void) {
+  printf("\n");
+  printf("%s STDOUT/FATAL reminder: %s\n", 
+	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE);
+  fflush(stdout);
+}
+
 // ===============================
 void SUBPROCESS_EXIT(void) {
-  printf("\n%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
+
+  SUBPROCESS_REMIND_STDOUT();
+  printf("%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
+  fflush(stdout);
   exit(0);
 }
 

@@ -170,7 +170,8 @@ class data_des_folder(Program):
         smp_lc = self._get_phot_table(snid)
         smp_lc['FLUXCALERR'] = smp_lc['FLUXCAL_ERR']
         smp_lc.drop(columns=['FIELD', ], inplace=True)
-
+        smp_lc['ZEROPT'] = smp_lc['ZPT']
+        smp_lc.drop(columns=['ZPT'], inplace=True)
         scalars = {}
         phot_raw_df = pd.DataFrame()
         for datacol in data_dict['phot_raw'].keys():
@@ -190,11 +191,12 @@ class data_des_folder(Program):
                 phot_raw_df[datacol] = data_dict['phot_raw'][datacol
                 ].byteswap().newbyteorder()
 
-    
+        #if snid=='1934120':
+        #    import ipdb; ipdb.set_trace()
         merged_smp = pd.merge(left=smp_lc, right=phot_raw_df,
             on='IMGNUM', how='inner', suffixes=('', '_diffimg')
         )
-
+        
         new_phot_raw = merged_smp.to_dict(orient='list')
         new_phot_raw['NOBS_diffimg'] = scalars['NOBS']
         new_phot_raw['NOBS'] = len(merged_smp)
@@ -202,6 +204,8 @@ class data_des_folder(Program):
         #new_phot_raw['FIELD'] = [str(val) for val in new_phot_raw['FIELD']]
         data_dict['phot_raw'] = new_phot_raw
 
+        if len(merged_smp) == 0:
+            data_dict['select'] = False
         return data_dict
 
         # end read_event

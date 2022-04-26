@@ -250,6 +250,9 @@ def write_readme(args, readme_dict, walltime=-1.0):
     if args.snana_folder is not None:
         line_list.append(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")
 
+    if args.des_folder is not None:
+        line_list.append(f"SOURCE_DES_FOLDER:  {args.des_folder}")
+
     line_list.append(f"SURVEY:           {args.survey}")
     line_list.append(f"FIELD:            {args.field} ")
     line_list.append(f"FORMAT:           {data_format} ")

@@ -138,18 +138,22 @@ def get_args():
     # - - - -
     args = parser.parse_args()
 
+    if args.outdir_snana:
+        args.outdir_snana = os.path.expandvars(args.outdir_snana)
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()
 
-    return parser.parse_args()
+    return args
 
     # end get_args
 
 def restore_args_from_readme(args, readme_yaml):
 
-    # restore user args from readme_yaml that was read from README file.
-
+    # restore user args from readme_yaml that was 
+    # read from README file.
+    
     args.lsst_ap      = False
     args.lsst_drp     = False
     args.sirah_folder = None

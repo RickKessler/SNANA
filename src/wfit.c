@@ -98,6 +98,7 @@
  Apr 26 2022 RK
     + speed_flag_chi2  +=1 -> offDiag trick
                        +=2 -> interpolation trick
+      set default speed_flag_chi2=3 [use both speed tricks]
 
 *****************************************************************************/
 
@@ -122,7 +123,7 @@
 // bit-mask options for speed_flag_chio2
 #define SPEED_MASK_OFFDIAG 1  // skip off-diag calc if chi2(diag)>threshold
 #define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
-#define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG
+#define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG + SPEED_MASK_INTERP
 
 // ======== global structures ==========
 
@@ -1647,6 +1648,9 @@ void init_rz_interp(void) {
   logz_max = log10(zmax);
 
   n_logz   = (int)(200.0 * (zmax - zmin));
+
+  if ( n_logz > NSN/2 ) { INPUTS.USE_SPEED_INTERP=false; return; }
+
   logz_bin = ( logz_max - logz_min ) / (double)(n_logz-1) ;
   MEMD     = n_logz * sizeof(double);
 

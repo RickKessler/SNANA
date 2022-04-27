@@ -1483,7 +1483,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
   ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
-		   strstr(WORDS[0],"NBR"     ) != NULL );
+		   strstr(WORDS[0],"NBR"     ) != NULL ||
+		   strstr(WORDS[0],"HOSTAPPEND" ) != NULL );
 
   ISKEY_SIMLIB    = (strstr(WORDS[0],"SIMLIB_" ) != NULL );
 
@@ -3166,6 +3167,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim( 1, "+HOSTAPPEND", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ;
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_APPEND_FILE );
+    printf(" xxx %s: read %s\n", fnam, INPUTS.HOSTLIB_APPEND_FILE);
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);

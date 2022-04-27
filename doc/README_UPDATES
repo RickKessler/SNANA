@@ -21056,4 +21056,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    create_covariancy.py
      + reduce output labels to only new row and daig; reduce file size by 50%.
 
+   snlc_sim.c
+     + fix parsing bug for +HOSTAPPEND, and verify that it works if GALIDs
+       in the append file are in a different order than in the original HOSTLIB.
+
 END: 

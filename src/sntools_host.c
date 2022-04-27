@@ -8619,13 +8619,13 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 	  printf("\n%s\n", line_warn);
 	  printf(" WARNING: unable to measure yaml pad spacing\n");
 	  printf("\t because %s key is missing.\n", KEY_DOCANA_PADCHECK);
-	  printf("\t Add HOSTNBR_APPEND_NOTES to DOCANA yaml with "
+	  printf("\t Add HOSTLIB_APPEND_NOTES to DOCANA yaml with "
 		 "3 pad spaces as a guess.\n");
 	  printf("%s\n\n", line_warn);
 	  fflush(stdout);
 	  sprintf(PAD_YAML,"   ");
 	}
-	fprintf(FP_NEW,"\n%sHOSTNBR_APPEND_NOTES:\n", PAD_YAML);
+	fprintf(FP_NEW,"\n%sHOSTLIB_APPEND_NOTES:\n", PAD_YAML);
 	for(iline=0; iline < NLINE_COMMENT; iline++ ) { 
 	  fprintf(FP_NEW,"%s- %s\n",PAD_YAML,HOSTLIB_APPEND->COMMENT[iline]);
 	}
@@ -9011,7 +9011,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   int   igal_unsort, igal_zsort, igal_DECsort  ;
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
-  char  *LINE_APPEND, MSG[100] ;
+  char  *LINE_APPEND, MSG[200] ;
 
   // internal debug
   int  NGAL_DEBUG  = INPUTS.HOSTLIB_MAXREAD ;
@@ -9313,7 +9313,7 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   int NGAL        = HOSTLIB.NGAL_STORE;
   int nnbr, NGAL_TMP;
   float frac;
-  char MSG[100];
+  char MSG[200];
   char fnam[] = "monitor_HOSTLIB_plusNbr";
   // ------------ BEGIN -------------
 
@@ -9412,6 +9412,14 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
   } // end igal
 
+
+  char MSG[200]; // .xyz
+  sprintf(MSG,"%s apended %d variables (%s)", 
+	  getenv("USER"), NVAR_APPEND, varList);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"Apend file is %s", append_file);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
   // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);

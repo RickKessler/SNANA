@@ -9414,11 +9414,14 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
 
 
   char MSG[200]; // .xyz
-  sprintf(MSG,"%s apended %d variables (%s)", 
+  sprintf(MSG,"%s appended %d variables (%s)", 
 	  getenv("USER"), NVAR_APPEND, varList);
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
-  sprintf(MSG,"Apend file is %s", append_file);
+  sprintf(MSG,"Append file is %s", append_file);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"Missing %d GALIDs in append file.", NMISSING);
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
   // execute re-write

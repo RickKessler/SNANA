@@ -50,6 +50,9 @@
 #              Cov for cosmomc still unzipped until somebody shows
 #              that cosmomc can read gzip file.
 #
+# Apr 27 2022: reduce cov labels to new row and diag only -> 
+#               reduce output file size by ~50%
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -1004,7 +1007,7 @@ def write_HD_unbinned(path, base):
 
 def write_covariance(path, cov, opt_cov):
 
-    add_labels     = (opt_cov == 1) # label each element in comment field
+    add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
     covdet         = np.linalg.det(cov)
     nrow           = cov.shape[0]
@@ -1033,9 +1036,9 @@ def write_covariance(path, cov, opt_cov):
         colnum += 1
 
         label = ""
-        if add_labels:
-            label = f"# ({rownum},{colnum})"
-            if colnum == 0 : label += " ------ "
+        if add_labels:            
+            if colnum == 0 or colnum == rownum : 
+                label = f"# ({rownum},{colnum})"
         f.write(f"{c:12.8f}  {label}\n")
 
     f.close()

@@ -21053,4 +21053,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    wfit.c:
      add another speed trick; see input -speed_flag_chi2.
 
+   create_covariancy.py
+     + reduce output labels to only new row and daig; reduce file size by 50%.
+
 END: 

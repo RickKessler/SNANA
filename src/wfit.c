@@ -1810,6 +1810,8 @@ void wfit_minimize(void) {
   printf("\n# ======================================= \n");
   printf(" Get prob at %d grid points, and approx mimimized values: \n", 
 	 NBTOT );
+  printf("\t USE_SPEED_OFFDIAG = %d \n", INPUTS.USE_SPEED_OFFDIAG);
+  printf("\t USE_SPEED_INTERP  = %d \n", INPUTS.USE_SPEED_INTERP);
   fflush(stdout);
     
   // prep speed trick
@@ -2004,8 +2006,6 @@ void wfit_marginalize(void) {
   printf("\n# =================================================== \n");
   printf(" Get Marginalized values (speed_flag_chi2=%d): \n", 
 	 INPUTS.speed_flag_chi2) ;
-  printf("\t USE_SPEED_OFFDIAG = %d \n", INPUTS.USE_SPEED_OFFDIAG);
-  printf("\t USE_SPEED_INTERP  = %d \n", INPUTS.USE_SPEED_INTERP);
   fflush(stdout);
 
   WORKSPACE.w0_probsum = WORKSPACE.wa_probsum = WORKSPACE.omm_probsum = 0.0 ;

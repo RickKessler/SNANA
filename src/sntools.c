@@ -2115,7 +2115,6 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   // Find eigenvalues and eigenvectors, convention below
   // err[j][i]*eigvec[0][j] = eigval[0]*eigvec[0][i]
-  // xxx rs_(&nm,&nm, &covMat[0][0], eigval, &matz, &eigvec[0][0], fv1,fv2, &ierr);
 
   if(LDMP){ printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
 

@@ -2,15 +2,10 @@
   Jun 23, 2009 by R.Kessler
  
   ------------
-  Re-written in C to use utilities that allow
-  arbitrary-length fitres file. Current fortran
-  version is memory limited because it reads the
-  entire file as char strings.
   
-  Combine multiple fitres contents into a
-  single ntuple. Designed to study correlations
-  between different fitres outputs for the same
-  set of SN.
+  Combine multiple fitres contents into a single table in 
+  TEXT/ROOT/HBOOK format. Designed to study correlations
+  between different fitres outputs for the same set of SN.
 
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...
@@ -22,18 +17,22 @@
       combine_fitres.root   (root tree)
       combine_fitres.txt    (combined fitres text-file)
 
- Option:
-  >  combine_fitres.exe <fitres1> <fitres2> -outprefix <outprefix>
+ Options below accept python like args, but with no dashs, 1 dash
+ or 2 dashes. I.e., outprefix, -outprefix, --outprefix are all 
+ accepted.
+
+  >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
     produces output files <outprefix>.hbook and  <outprefix>.text
 
-  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile>
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
        (text outpout name is <outfile>)
 
-  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile.gz>
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
        (produce gzipped outfile.gz)
 
-  >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 
-  >  combine_fitres.exe <fitres1>  r      ! .root extension
+  >  combine_fitres.exe <fitres1>   R      ! .ROOT extension 
+  >  combine_fitres.exe <fitres1>  -R      ! same with python syntax
+  >  combine_fitres.exe <fitres1>   r      ! .root extension
        (create root file instead of hbook file)
 
   >  combine_fitres.exe <fitres1>  H      ! .HBOOK extension
@@ -44,19 +43,20 @@
   >  combine_fitres.exe <fitres1>  H R
       (create both hbook and root files)
 
-  >  combine_fitres.exe <fitres1>  -mxrow 50000
+  >  combine_fitres.exe <fitres1>  --mxrow 50000
 
-  >  combine_fitres.exe <fitres1>  -varnames zHD,c,x1,SIM_DLMAG
+  >  combine_fitres.exe <fitres1>  --varnames zHD,c,x1,SIM_DLMAG
           [select only these varnames (along with CID)]
 
-  >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
+  >  combine_fitres.exe  <fitres1> --zcut <zmin> <zmax>
          [cut on zHD]
 
-  >  combine_fitres.exe <fitres1> <fitres2> .. T   ! [outPrefix].TEXT
-  >  combine_fitres.exe <fitres1> <fitres2> .. t   ! [outPrefix].text
+  >  combine_fitres.exe <fitres1> <fitres2> ..  T   ! [outPrefix].TEXT
+  >  combine_fitres.exe <fitres1> <fitres2> .. -T   ! same in python syntax
+  >  combine_fitres.exe <fitres1> <fitres2> ..  t   ! [outPrefix].text
       (create only text output; disable default hbook output)
 
-  >  combine_fitres.exe  <fitres1> <fitres2> ... -nullval_float -12345
+  >  combine_fitres.exe  <fitres1> <fitres2> ... --nullval_float -12345
          (override default nullval_float = -888)
 
  WARNINGS/NOTES:
@@ -132,6 +132,13 @@
  Jun 08 2021: switch to using match_cid_hash  utility in sntools.c
                 (matchflag=5).
    
+ Apr 27 2022: 
+   + print full command to stdout.
+   + new parsing util keyarg_match to allow args with no dashes, 
+     1 dash, or 2 dashes ... to allow python-like inputs.
+     All previous args should still work; this update allows
+     more variations of inputs.
+
 ******************************/
 
 #include <stdio.h>
@@ -154,6 +161,7 @@
 
 
 void  PARSE_ARGV(int argc, char **argv);
+bool  keyarg_match(char *arg, char *keyname_base);
 void  parse_FFILE(char *arg);
 
 void  init_misc(void);
@@ -398,77 +406,78 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.NVARNAMES_KEEP  = 0 ;
   INPUTS.VARLIST_KEEP[0] = 0 ;
 
+  
+  printf("\n Full command: ");
+  for ( i = 0; i < NARGV_LIST ; i++ ) {  printf("%s ", argv[i]);   }
+  printf("\n\n"); fflush(stdout);
+
+  // - - - - -
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
     // check for optional args
 
-    if ( strcmp(argv[i],"--outprefix") == 0 || 
-	 strcmp(argv[i],"-outprefix") == 0  ) {
+    if ( keyarg_match(argv[i],"outprefix"))  {
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
 
+    /* xxx mark delete xxxxx
     if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
+    xxxxxxx */
 
-
-    if ( strcmp(argv[i],"-outfile_text") == 0 || 
-	 strcmp(argv[i],"--outfile_text") == 0 ) { 
+    if ( keyarg_match(argv[i],"outfile_text"))  {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-mxrow") == 0 || 
-	 strcmp(argv[i],"--mxrow") == 0  ) {
+    if ( keyarg_match(argv[i],"mxrow"))  {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-varnames") == 0 || 
-	 strcmp(argv[i],"--varnames") == 0  ) {
+    if ( keyarg_match(argv[i],"varnames"))  {
       i++ ; sscanf(argv[i], "%s", INPUTS.VARLIST_KEEP);
       parse_commaSepList("VARNAMES_KEEP", INPUTS.VARLIST_KEEP, MXVAR_TOT,
 			 40, &INPUTS.NVARNAMES_KEEP, &INPUTS.VARNAMES_KEEP);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-zcut") == 0 || 
-	 strcmp(argv[i],"--zcut") == 0  ) {
+    if ( keyarg_match(argv[i],"zcut"))  {
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[0] );
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[1] );
       INPUTS.DOzCUT = 1; 
       continue ;
     }
 
-    if ( strcmp(argv[i],"-nullval_float") == 0 ||
-	 strcmp(argv[i],"--nullval_float") == 0   ) {
+    if ( keyarg_match(argv[i],"nullval_float"))  {
       i++ ; sscanf(argv[i], "%f", &INPUTS.NULLVAL_FLOAT);
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"r") == 0 ) { 
+    if ( keyarg_match(argv[i],"r") )  {
       CREATEFILE_ROOT = 1;
       if (CREATEFILE_HBOOK==1) {CREATEFILE_HBOOK=0;}  // root on, hbook off
-      if ( strcmp(argv[i],"R")==0 ) { ptrSuffix_root = SUFFIX_ROOT ; }
+      if ( strstr(argv[i],"R")!=NULL ) { ptrSuffix_root = SUFFIX_ROOT ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"h") == 0 ) { 
+    if ( keyarg_match(argv[i],"h") )  {
       CREATEFILE_HBOOK = 2 ;  // turn hbook back on and leave it on
-      if ( strcmp(argv[i],"H")==0) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
+      if ( strstr(argv[i],"H") !=NULL ) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"t") == 0 ) { 
+    if ( keyarg_match(argv[i],"t") )  {
       CREATEFILE_HBOOK = 0 ; 
       CREATEFILE_ROOT  = 0 ; 
-      if ( strcmp(argv[i],"T")==0) { ptrSuffix_text = SUFFIX_TEXT ; }
+      if ( strstr(argv[i],"T") !=NULL ) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
     }
 
-    if ( strcmp_ignoreCase(argv[i],"-matchflag") == 0 ) {
+    if ( keyarg_match(argv[i],"matchflag") )  {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MATCHFLAG);
       continue ;
     }
@@ -517,6 +526,37 @@ void  PARSE_ARGV(int argc, char **argv) {
   return;
 
 } // end of PARSE_ARGV
+
+// ===============================================
+bool keyarg_match(char *arg, char *keyname_base) {
+
+  // return true if
+  // arg == keyname_base  OR
+  // arg == -keyname_base OR
+  // arg == --keyname_base
+  //
+  // This allows python-like args, and also allows
+  // SNANA style without dashes.
+
+#define NKEY_CHECK 3
+  bool match = false;
+  int  k;
+  char key_list[NKEY_CHECK][80];
+  char fnam[] = "keyarg_match";
+
+  // ------------- BEGIN -------------
+
+  sprintf(key_list[0],"%s", keyname_base);
+  sprintf(key_list[1],"-%s", keyname_base);
+  sprintf(key_list[2],"--%s", keyname_base);
+
+  for(k=0; k < NKEY_CHECK; k++ ) {
+    if ( strcmp_ignoreCase(arg,key_list[k]) == 0 ) { match = true; }
+  }
+
+  return match;
+
+} // end keyarg_match
 
 // ====================================
 void parse_FFILE(char *arg) {

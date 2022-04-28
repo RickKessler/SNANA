@@ -146,6 +146,7 @@ struct INPUTS {
   char outFile_chi2grid[1000];
   char mucov_file[1000] ;  // input cov matrix; e.g., from create_covariance
   char label_cospar[40]  ;   // string label for cospar file.
+  int  ndump_mucov ; // dump this many column/rows
 
   // grid ranges and steps
   int    h_steps, omm_steps, w0_steps, wa_steps ;
@@ -535,6 +536,7 @@ void init_stuff(void) {
   INPUTS.OMEGA_MATTER_SIM = OMEGA_MATTER_DEFAULT ;
 
   INPUTS.mucov_file[0]       = 0 ;
+  INPUTS.ndump_mucov         = 0 ;
   INPUTS.outFile_cospar[0]   = 0 ;
   INPUTS.outFile_resid[0]    = 0 ;
   INPUTS.outFile_chi2grid[0] = 0 ;
@@ -632,6 +634,7 @@ void print_help(void) {
     "   -blind\tIf set, results are obscured with sin(large random) ",
     "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
+    "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -mucovar\t\t [Legacy key for previous]",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick"
@@ -758,6 +761,9 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"mucovar")==0) {    // legacy key
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
 	INPUTS.use_mucov =1 ;
+       
+      } else if (strcasecmp(argv[iarg]+1,"ndump_mucov")==0 ) { 
+	INPUTS.ndump_mucov = atoi(argv[++iarg]);      
 
       /* Change H0 grid parameters? */
       } else if (strcasecmp(argv[iarg]+1,"hmin")==0) {   
@@ -1229,7 +1235,7 @@ void read_mucov_sys(char *inFile){
     WORKSPACE.MUCOV[kk] += COV_STAT ;
   }
 
-  int LDMP_MUCOV = 0 ;
+  int LDMP_MUCOV = (INPUTS.ndump_mucov>0);
   if ( LDMP_MUCOV ) { dump_MUCOV("MUCOV"); }
   
   // - - - - -
@@ -1248,7 +1254,7 @@ void dump_MUCOV(char *comment ) {
 
   char fnam[]="dump_MUCOV";
   int i0, i1, NROW, kk ;
-  int MAX_ROW = 20;
+  int MAX_ROW = INPUTS.ndump_mucov ;
   if(HD.NSN < MAX_ROW){NROW = HD.NSN;}
   else{NROW= MAX_ROW;}
   
@@ -1258,7 +1264,7 @@ void dump_MUCOV(char *comment ) {
   for (i0=0; i0 < NROW; i0++)  {
       for(i1=0; i1 < NROW; i1++) {
 	kk = i0*NROW + i1;
-	printf("%8.4f ", WORKSPACE.MUCOV[kk] );
+	printf("%9.5f ", WORKSPACE.MUCOV[kk] );
       }
       printf("\n");
   }

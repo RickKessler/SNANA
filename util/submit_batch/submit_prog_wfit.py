@@ -319,10 +319,12 @@ class wFit(Program):
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
         wfitopt_rows    = None
+        key_found       = None
 
         for key in KEYNAME_WFITOPT_LIST:
             if key in CONFIG:
                 wfitopt_rows = CONFIG[key]
+                key_found    = key
 
         if wfitopt_rows is None:
             msgerr.append(f"Missing required CONFIG key ")
@@ -330,7 +332,7 @@ class wFit(Program):
             msgerr.append(f"One of these keys must be in {input_file}")
             self.log_assert(False, msgerr)
 
-        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key, None)
+        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key_found, None)
 
         n_wfitopt          = wfitopt_dict['n_jobopt']
         wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']
@@ -338,7 +340,7 @@ class wFit(Program):
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
 
         logging.info(f"\n Store {n_wfitopt} wfit options from " \
-                     f"{key} keys" )
+                     f"{key_found} keys" )
 
         self.config_prep['n_wfitopt']          = n_wfitopt
         self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list

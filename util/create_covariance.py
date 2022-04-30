@@ -53,6 +53,9 @@
 # Apr 27 2022: reduce cov labels to new row and diag only -> 
 #               reduce output file size by ~50%
 #
+# Apr 30 2022: write MUERR_SYS = sqrt(COVSYS_DIAG) to hubble diagram
+#              (diagnostic only; not used in cosmology fit)
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -87,6 +90,8 @@ VARNAME_MURES        = "MURES"
 VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
 VARNAME_MUERR_RENORM = "MUERR_RENORM"
+VARNAME_MUERR_SYS    = "MUERR_SYS"
+
 VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
@@ -796,10 +801,14 @@ def write_standard_output(config, unbinned, covs, base):
 
     data_file = outdir / HD_FILENAME
 
+    # Apr 30 2022: get array of muerr_sys(ALL) for output
+    muerr_sys_list = get_muerr_sys(covs)
+            
+    # - - - -
     if unbinned :
-        write_HD_unbinned(data_file, base)
+        write_HD_unbinned(data_file, base, muerr_sys_list)
     else:
-        write_HD_binned(data_file, base)
+        write_HD_binned(data_file, base, muerr_sys_list)
 
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
@@ -809,7 +818,29 @@ def write_standard_output(config, unbinned, covs, base):
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
 
+    return
+
     # end write_standard_output
+
+def get_muerr_sys(covs):
+
+    # Created April 30 2022
+    # return array of muerr_sys = sqrt(COVSYS_diag)
+    # to indicate size of syst. error for each HD entry.
+
+    muerr_sys_list = None
+
+    covsys_all = None
+    for i, (label, cov) in enumerate(covs):
+        if label == "ALL":
+            covsys_all = cov
+        
+    if covsys_all is not None :
+        covdiag_list = covsys_all.diagonal()
+        muerr_sys_list = np.sqrt(covdiag_list)
+
+    return muerr_sys_list
+    # end get_muerr_sys
 
 # =====================================
 # cosmomc utilities
@@ -919,17 +950,19 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 # ========= end cosmomc utils ====================
 
 
-def write_HD_binned(path, base):
+def write_HD_binned(path, base, muerr_sys_list):
 
     # Dec 2020
     # Write standard binned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
-    
+    # Apr 30 3022: check muerr_sys_list
+
     #if "CID" in df.columns:
 
     logging.info(f"Write binned HD to {path}")
 
-    wrflag_nevt = (VARNAME_NEVT_BIN in base)
+    wrflag_nevt   = (VARNAME_NEVT_BIN in base)
+    wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
     varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
@@ -945,23 +978,33 @@ def write_HD_binned(path, base):
     else:
         nevt_list = muerr_list  # anything to allow for loop with zip
 
+    if wrflag_syserr:
+        varlist += f" {VARNAME_MUERR_SYS}"
+        syserr_list = muerr_sys_list
+    else:
+        syserr_list = muerr_list # anything to allow zip loop
+
     with open(path, "w") as f:
+        write_HD_comments(f,wrflag_syserr)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, z, mu, muerr, nevt) in \
-            zip(name_list, z_list, mu_list, muerr_list, nevt_list):
+        for (name, z, mu, muerr, nevt, syserr) in \
+            zip(name_list, z_list, mu_list, muerr_list, 
+                nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
             if wrflag_nevt: val_list += f" {nevt} "
-
+            if wrflag_syserr: val_list += f" {syserr:8.5f}"
             f.write(f"{keyname_row} {val_list}\n")
+    return
 
     # end write_HD_binned
 
-def write_HD_unbinned(path, base):
+def write_HD_unbinned(path, base, muerr_sys_list):
 
     # Dec 2020
     # Write standard unbinned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
-    
+    # Apr 30 2022: pass muerr_sys_list
+
     #if "CID" in df.columns:
 
     logging.info(f"Write unbinned HD to {path}")
@@ -983,27 +1026,49 @@ def write_HD_unbinned(path, base):
 
     # check for optional quantities that may not exist in older files
     found_muerr_vpec = VARNAME_MUERR_VPEC in base
+    found_muerr_sys  = muerr_sys_list is not None
+
     if found_muerr_vpec :   
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
     else:
         muerr2_list = muerr_list # anything for zip command
 
+    if found_muerr_sys:
+        varlist += f" {VARNAME_MUERR_SYS}"
+        syserr_list = muerr_sys_list
+    else:
+        syserr_list = muerr_list # anything for zip command
+
     # - - - - - - -
-    # .xyz
     with open(path, "w") as f:
+        write_HD_comments(f,found_muerr_sys)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, z, mu, muerr, muerr2) in \
+        for (name, idsurv, z, mu, muerr, muerr2, syserr) in \
             zip(name_list, idsurv_list, z_list, 
-                mu_list, muerr_list, muerr2_list ):
+                mu_list, muerr_list, muerr2_list, syserr_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
                        f"{z:6.5f} {z:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
+            if found_muerr_sys:  val_list += f" {syserr:8.5f}"
 
             f.write(f"{keyname_row} {val_list}\n")
-
+    return
     # end write_HD_unbinned
+
+def write_HD_comments(f,wrflag_syserr):
+    f.write(f"# MU        = distance modulus corrected for bias and " \
+            "contamination\n")
+    f.write(f"# MUERR     = stat-uncertainty on MU \n")
+
+    if wrflag_syserr:
+        f.write(f"# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys " \
+                "(diagnostic)\n")
+
+    f.write(f"#\n")
+    return
+    # end write_HD_comments
 
 def write_covariance(path, cov, opt_cov):
 

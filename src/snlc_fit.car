@@ -1803,8 +1803,6 @@ c Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
 c can make the same approx MilkyWay correction that was
 c applied to data.
 c
-c
-c
 c Aug 28, 2012: remove ISN arg from FITINI_ADJUST call
 c Dec 05, 2013: remove ISN arg from subroutine
 c ----------------------------------------
@@ -2067,6 +2065,9 @@ c check for photoZ fit (after FITINI_COV)
 
 c adjust fitpar based on initial Fdata/Fmodel ratios.
       CALL FITINI_ADJUST(iter)
+
+c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
+      CALL FITINI_LIST_FILE(iter)
 
       IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN 
         CALL FITINI_PRKCOR()   ! print Kcor info
@@ -9404,7 +9405,88 @@ c and minimized PEAKMJD
       CALL FLUSH(6)
 
       RETURN
-      END
+      END  ! end FITINI_ADJUST
+
+C ==========================
++DECK,FITINI_LIST_FILE.
+      SUBROUTINE FITINI_LIST_FILE(iter)
+
+C Created Apr 29 2022 by R.Kessler
+c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
+c values to use as INIVAL when iter=1.
+
+      IMPLICIT NONE
+
+      INTEGER ITER ! (I) fit iteration
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
+      INTEGER IPAR_LIST(20), NPAR, i, ipar 
+      INTEGER ABORT_FLAG, LENV
+      LOGICAL USE_FITPAR_LIST_FILE
+      REAL*8  DVAL
+      CHARACTER cVAR*40
+      LOGICAL LDMP 
+
+      REAL*8   MATCH_CIDLIST_PARVAL
+      EXTERNAL MATCH_CIDLIST_PARVAL
+
+C ----------- BEGIN ----------
+
+      IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
+
+      USE_FITPAR_LIST_FILE = BTEST(OPT_SNCID_LIST,1)
+      IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
+
+c construct list of params to check in SNCID_LIST file
+
+      NPAR = 0
+
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_PEAKMJD
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_X0
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_SHAPE
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_COLOR
+
+      IF ( DOFIT_PHOTOZ ) THEN
+        NPAR = NPAR + 1
+        IPAR_LIST(NPAR) = IPAR_zPHOT
+      ENDIF
+      
+      ABORT_FLAG = 0 ! do not abort on missing variable.
+
+      LDMP = STDOUT_UPDATE 
+
+      DO i = 1, NPAR
+         IPAR = IPAR_LIST(i)
+         LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
+         cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
+         if ( IPAR == IPAR_zPHOT ) cVAR = 'zHD' // char(0)
+
+         DVAL = 
+     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,40)
+         if ( DVAL > -999.0 ) THEN
+             INIVAL(IPAR) = DVAL
+             if ( LDMP ) then
+               write(6,44) PARNAME_STORE(IPAR), DVAL, SNLC_CCID
+ 44            format(T8, 'INIVAL ', A8,' -> ', G12.5, 
+     &             ' from list file: CID=',A12)
+             endif
+         ENDIF
+
+      ENDDO
+
+      CALL FLUSH(6)
+c .xyz
+
+      RETURN
+      END  ! end FITINI_LIST_FILE
 
 C =====================================
 +DECK,FITINI_TABLEVAR.
@@ -13569,17 +13651,19 @@ c store errors in common block
 c ----------------------------------------------
 c print PHOTOZ info
 
-      write(6,20) SNLC_CID, ZFIT
+      IF ( STDOUT_UPDATE ) THEN
+        write(6,20) SNLC_CID, ZFIT
      &   , PHOTOZ_ERR_SNFIT
      &   , PHOTOZ_ERR_SNMAG
+
+        write(6,30) SNLC_CID, CZPRIOR, ZHOST
+     &   , PHOTOZ_ERR_SNHOST
+     &   , PHOTOZ_ERR_ZPULL
+      ENDIF
 
 20    format(T8,'CID',I8,' PHOTOZ(SNFIT) = ', F6.4
      &         , ' +- ',F5.4,'(stat)'
      &         , ' +- ',F5.4,'(snmag)'  )
-
-      write(6,30) SNLC_CID, CZPRIOR, ZHOST
-     &   , PHOTOZ_ERR_SNHOST
-     &   , PHOTOZ_ERR_ZPULL
 
 30    format(T8,'CID',I8,' ZPRIOR(',A,') = ', F6.4
      &         , ' +- ',F5.4, 5x,'ZPULL=',F6.2 )

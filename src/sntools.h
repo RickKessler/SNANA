@@ -283,6 +283,13 @@ typedef struct STRING_DICT_DEF {
 } STRING_DICT_DEF ;
 
 
+// define table info corresponding to hash storage
+struct {
+  int  NVAR, *IVAR_TABLE;
+  char   **VARNAME_LIST; // table var name vs. ivar
+  double **VAL_LIST;     // table value vs. ivar and isn
+} HASH_STORAGE;
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
@@ -556,14 +563,15 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
-int  match_cidlist_init(char *fileName, int *OPTMASK);
-int  match_cidlist_init__(char *fileName, int *OPTMASK);
-
-int  match_cidlist_init_legacy(char *fileName, int *OPTMASK);
-int  match_cidlist_init_legacy__(char *fileName, int *OPTMASK);
+int  match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store);
+int  match_cidlist_init__(char *fileName, int *OPTMASK, char *varList_store);
 
 int  match_cidlist_exec(char *cid);
 int  match_cidlist_exec__(char *cid);
+
+double  match_cidlist_parval(int isn_match, char *varName, int abort_flag);
+double  match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag);
+
 
 void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void   parse_GENPOLY(char *stringPoly, char *varName,

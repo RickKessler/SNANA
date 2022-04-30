@@ -763,7 +763,8 @@ c Main common block variables for light curves and
 c analysis-related variables.    
 
       INTEGER
-     &   SNLC_CID               ! integer CID 
+     &   SNLC_CID                  ! integer CID 
+     &  ,INDEX_CID_MATCH           ! ISN index from SNCID_LIST_FILE
      &  ,ISNLC_SNRECON_USE(MXEPOCH)  ! 1 -> epoch used in SNRECON
      &  ,ISNLC_PHOTFLAG(MXEPOCH)     ! photomety flags
      &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020), data only
@@ -916,6 +917,7 @@ c
 
       COMMON / SNLCCOM /
      &     SNLC_CID, SNLC_CCID,  SNLC_CASTCID, SNLC_IAUC
+     &    ,INDEX_CID_MATCH
      &    ,SNLC_FIELD, SNLC_FIELD_OVPLIST, SNLC_FIELDLIST
      &    ,SNLC_SNANAFIT_PEAKMJD
      &    ,SNLC_SNANAFIT_PEAKMJD_FITPAR
@@ -11832,6 +11834,7 @@ c this match utility uses hash table for faster access.
       INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
       CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
       CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
+      CHARACTER cBLANK*4, cVARLIST_STORE*60
       LOGICAL IS_CCID_LIST, IS_CIDINT_LIST, IS_FILE
 
       LOGICAL  VALIDFILENAME
@@ -11839,6 +11842,8 @@ c this match utility uses hash table for faster access.
       EXTERNAL MATCH_CIDLIST_INIT
 
 C ----------- BEGIN ------------     
+
+      cBLANK = ""//char(0)
 
       LENF    = INDEX(SNCID_LIST_FILE,' ') - 1
       cFILE   = SNCID_LIST_FILE(1:LENF) // char(0)
@@ -11880,22 +11885,29 @@ c check integer lists the old way
 
       IF ( IS_CCID_LIST ) THEN
       	 OPTMASK = 0
-         NCCID_TMP = MATCH_CIDLIST_INIT(""//char(0) , OPTMASK, 4)
-         
+         NCCID_TMP = MATCH_CIDLIST_INIT(cBLANK,OPTMASK,cBLANK, 4,4)
+     
 c  check SNCCID_LIST in &SNLCINP ... 
          i = 1; CCID = SNCCID_LIST(i) 
          DO WHILE( CCID .NE. ' ' )
             CALL NMLCHECK_SNCCID("SNCCID_LIST",CCID)
             LENC = INDEX(CCID,' ') - 1
             cCCID = CCID(1:LENC) // char(0)
-            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,OPTMASK,LENC)
+            NCCID_TMP = MATCH_CIDLIST_INIT(cCCID,OPTMASK,cBLANK,LENC,4)
             i = i + 1 ; CCID = SNCCID_LIST(i)
          END DO
          NCCID_LIST = i - 1
 
 c check CIDs from separate file (table format, or unformatted)
          IF ( IS_FILE ) THEN
-            NCCID_FILE   = MATCH_CIDLIST_INIT(cFILE,OPTMASK,LENF)
+            if ( NFIT_ITERATION > 0 ) then
+           ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
+   	      cVARLIST_STORE = 'zHD,PKMJD,x0,x1,c' // char(0) 
+            else
+              cVARLIST_STORE = cBLANK
+            endif
+            NCCID_FILE = 
+     &        MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF,20)
          ENDIF
 
          write(6,31) NCCID_LIST, 'SNCCID_LIST'
@@ -13902,8 +13914,11 @@ c determine STDOUT_UPDATE logical to dump info
          PS_UPDATE = 100
       ENDIF
 
-c xxx mark del STDOUT_UPDATE = (.NOT. REJECT_PRESCALE(N_SNLC_PROC,PS_UPDATE) )
       STDOUT_UPDATE = (MOD(N_SNLC_PROC,PS_UPDATE) .EQ. 0)
+
+      IF ( DEBUG_FLAG == 100 ) THEN
+         STDOUT_UPDATE = (N_SNLC_PROC < 100) ! xxx REMOVE
+      ENDIF
 
       if ( .NOT. STDOUT_UPDATE ) RETURN
 
@@ -21742,7 +21757,7 @@ c ------------------ BEGIN ---------------
 
       LCIDSELECT = .FALSE.
       LENCCID = INDEX(CCID//' ' , ' ') - 1
-
+      INDEX_CID_MATCH = -9
 c ----------------------------
 c first check IGNORE Lists
 
@@ -21788,6 +21803,7 @@ c can be quite large.
          ISN_MATCH  = MATCH_CIDLIST_EXEC(CCIDTMP,LENIAUC) ! use hash table
          if ( ISN_MATCH .GE. 0 ) CCID = IAUC ! write IAUC to output table 
       endif
+      INDEX_CID_MATCH = ISN_MATCH     ! load global 
       LCIDSELECT = (ISN_MATCH .GE. 0)
       if ( LCIDSELECT ) GOTO 800
 
@@ -23979,7 +23995,6 @@ c     &     LENBLOCK_L, 20 )
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 1                       ! default is no TEXT output ...
-cc xxx mark delete IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )
@@ -35158,7 +35173,7 @@ C ---------------- BEGIN ----------------
       if ( OPT_SETPKMJD <= 0 ) RETURN
 
 c Jan 4 2021: bail if option is set to use PKMJDINI from SNCID_LIST_FILE
-      if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
+c xxx mark obsolete  if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
 
       FNAM = 'SET_PEAKMJD'
       CCID = SNLC_CCID
@@ -37135,7 +37150,6 @@ C --------------- BEGIN -------------
 
       LQUIET = .NOT. STDOUT_UPDATE
 
-c xxx mark      IF ( LQUIET .and. ITER < NFIT_ITERATION ) RETURN
       IF ( LQUIET ) RETURN
       
       IF ( type .EQ. 'fit' ) then

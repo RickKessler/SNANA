@@ -1817,7 +1817,7 @@ struct INPUTS {
   char cidlist_debug_biascor[100];
 
   bool LEGACY_NBINc;
-
+  bool LEGACY_IZBIN;
   // set internal LEGACY and REFAC flags for development
 
 } INPUTS ;
@@ -15744,7 +15744,18 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   isn_match = match_cidlist_exec(STRINGID);
   MATCH     = (isn_match >= 0);
   if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
-    *IZBIN = INFO_DATA.IZBIN_from_CIDFILE[isn_match];
+    *IZBIN = match_cidlist_parval(isn_match, VARNAME_IZBIN, 1);
+
+    if ( INPUTS.LEGACY_IZBIN ) {
+      int IZBIN_old = INFO_DATA.IZBIN_from_CIDFILE[isn_match];
+      if ( IZBIN_old != *IZBIN ) {
+	sprintf(c1err,"IZBIN(old,new) = %d, %d for CID=%s",
+		IZBIN_old, *IZBIN, cid);
+	sprintf(c2err,"something wrong with new IZBIN");
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+      }
+    } // end LEGACY_IZBIN
+
   }
 
   /* xxx
@@ -16727,22 +16738,29 @@ void parse_cidFile_data(int OPT, char *fileName) {
   int  ncid, isn, ISNOFF=0, IZBIN, ISTAT, IVAR_IZBIN, IFILE, ifile ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
   double DVAL;
-  char id_name[20], CCID[MXCHAR_CCID], CVAL[12] ;
+  char id_name[20], CCID[MXCHAR_CCID], CVAL[12], VARLIST_STORE[40]="" ;
   char fnam[] = "parse_cidFile_data" ;
 
   int use_izbin = INPUTS.izbin_from_cidFile ;
-  // xxxx  bool REFAC = ( INPUTS.debug_flag==401 ); // 4.01.2022
+  INPUTS.LEGACY_IZBIN = false;
+
   // ------------- BEGIN ------------
 
   // NOTE: OPTMASK_MATCH->0 in this function if IDSURVEY column doesnt exist
-  if ( use_izbin ) { OPTMASK_MATCH += 64; }
-  ncid = match_cidlist_init(fileName, &OPTMASK_MATCH); 
+  if ( use_izbin ) { sprintf(VARLIST_STORE,"%s", VARNAME_IZBIN);  }
 
-  // Apr 3 2022: if IZBIN exists in cid table, store it for later use.
+  ncid = match_cidlist_init(fileName, &OPTMASK_MATCH, VARLIST_STORE); 
+
+  // set logical if IZBIN was found.
   if ( use_izbin ) {
     IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
+    if ( IVAR_IZBIN >=0 ) { INFO_DATA.USE_IZBIN_from_CIDFILE = true; }
+  }
 
-    if ( IVAR_IZBIN > 0 ) {
+  // xxxx prepare to delete LEGACY_IZBIN ...
+  if ( INPUTS.LEGACY_IZBIN && use_izbin ) {
+    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
+    if ( IVAR_IZBIN >= 0 ) { 
       INFO_DATA.IZBIN_from_CIDFILE = (int*) malloc( ncid * sizeof(int) ) ;
       INFO_DATA.USE_IZBIN_from_CIDFILE = true;
       IFILE = NFILE_AUTOSTORE-1;
@@ -16754,8 +16772,9 @@ void parse_cidFile_data(int OPT, char *fileName) {
 	INFO_DATA.IZBIN_from_CIDFILE[ISNOFF+isn] = IZBIN ;
       }    
     } // end IVAR_IZBIN>0
-
   } // end use_izbin
+  // xxxx end prep delete  xxxxxxxxxxxxxxx
+
 
   // - - - - - - - - 
   // D.Brout Jun 2021
@@ -18246,7 +18265,8 @@ void prep_input_driver(void) {
     OPTMASK = 0;
     if ( INPUTS.izbin_from_cidFile ) { OPTMASK += 64; }
 
-    match_cidlist_init("", &OPTMASK);    // init hash table 
+    // init hash table 
+    match_cidlist_init(BLANK_STRING, &OPTMASK, BLANK_STRING); 
     for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ )  { 
       parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] ); 
     }

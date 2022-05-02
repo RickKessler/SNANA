@@ -768,6 +768,31 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         # First just try and invert it to catch singular matrix errors
         precision = np.linalg.inv(effective_cov)
 
+
+        # ------------------------AM                                                                                                 
+        # Silly hack to test if Unitary condition is met                                                                              
+        # Check that the matrix * inv_matrix  = Unitary                                                                               
+        # AM MAY, 2022                                                                                                                                         
+        def is_unitary(matrix: np.ndarray) -> bool:
+            #print(matrix)                                                                                                                                     
+            unitary = True
+            n = len(matrix)
+            error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
+            #print(error)                                                                                                                   
+            if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
+                unitary = False
+            return unitary
+
+        pr = np.dot(effective_cov,precision)
+        pr = np.round(pr,decimals=3)
+        flag = is_unitary(np.round(pr,decimals=2))
+        if flag == False :
+            print('Matrix is NOT UNITARY')
+        else :
+            print('Matrix is UNITARY')
+        assert flag == True, "Cov * Cov.T != Unitary"
+	#-----------------------AM
+        
         # Then check that the matrix is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
         cond = np.linalg.cond(effective_cov)

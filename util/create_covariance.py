@@ -787,11 +787,23 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         pr = np.round(pr,decimals=3)
         flag = is_unitary(np.round(pr,decimals=2))
         if flag == False :
-            print('Matrix is NOT UNITARY')
+            print('%s Matrix is NOT UNITARY'%label)
         else :
-            print('Matrix is UNITARY')
-        assert flag == True, "Cov * Cov.T != Unitary"
+            print('%s Matrix is UNITARY'%label)
+        #assert flag == True, "Cov * Cov.T != Unitary"
 	#-----------------------AM
+
+        # Postive Definite Case Check AM 2022
+        def is_pos_def(x):
+            return np.all(np.linalg.eigvals(x) > 0)
+
+        flag2 = is_pos_def(np.round(effective_cov,decimals=3))
+        if flag == False :
+            print('%s Matrix is NOT + DEFINITIVE'%label)
+        else :
+            print('%s Matrix is + DEFINITIVE'%label)
+        print("--------")    
+        #-----------------------AM  
         
         # Then check that the matrix is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon

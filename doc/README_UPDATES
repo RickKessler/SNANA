@@ -21066,4 +21066,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        goal is to read SALT2 params for event sync, and use
        previous SALT2 params as initial values in systematics fit.
 
+   submit_prog_sim:
+     + protect wildcard args (e.g., /bla/xyz*) by adding quotes if
+       there are no quotes.
+
 END: 

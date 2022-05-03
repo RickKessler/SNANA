@@ -56,6 +56,8 @@
 # Apr 30 2022: write MUERR_SYS = sqrt(COVSYS_DIAG) to hubble diagram
 #              (diagnostic only; not used in cosmology fit)
 #
+# May 2 2022 A.Mitra: check for unitary matrix and pos-definite.
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -768,53 +770,34 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         # First just try and invert it to catch singular matrix errors
         precision = np.linalg.inv(effective_cov)
 
-
-        # ------------------------AM                                                                                                 
-        # Silly hack to test if Unitary condition is met                                                                              
-        # Check that the matrix * inv_matrix  = Unitary                                                                               
-        # AM MAY, 2022                                                                                                                                         
-        def is_unitary(matrix: np.ndarray) -> bool:
-            #print(matrix)                                                                                                                                     
-            unitary = True
-            n = len(matrix)
-            error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
-            #print(error)                                                                                                                   
-            if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
-                unitary = False
-            return unitary
-
+        # A.Mitra, May 2022
+        # Check if matrix is unitary and pos-definite.
         pr = np.dot(effective_cov,precision)
         pr = np.round(pr,decimals=3)
         flag = is_unitary(np.round(pr,decimals=2))
-        if flag == False :
-            print('%s Matrix is NOT UNITARY'%label)
+        if flag :
+            logging.info(f"{label} Matrix is UNITARY")
         else :
-            print('%s Matrix is UNITARY'%label)
-        #assert flag == True, "Cov * Cov.T != Unitary"
-	#-----------------------AM
-
-        # Postive Definite Case Check AM 2022
-        def is_pos_def(x):
-            return np.all(np.linalg.eigvals(x) > 0)
+            logging.info(f"WARNING: {label} Matrix is not UNITARY")
 
         flag2 = is_pos_def(np.round(effective_cov,decimals=3))
-        if flag == False :
-            print('%s Matrix is NOT + DEFINITIVE'%label)
+        if flag2:
+            logging.info(f"{label} Matrix is Positive-Definite")
         else :
-            print('%s Matrix is + DEFINITIVE'%label)
-        print("--------")    
-        #-----------------------AM  
+            logging.info(f"WARNING: {label} Matrix is not Positive-Definite")
         
-        # Then check that the matrix is well conditioned to deal with float precision
+        # check that COV is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
         cond = np.linalg.cond(effective_cov)
         assert cond < 1 / epsilon, "Cov matrix is ill-conditioned and cannot be inverted"
         logging.info(f"Covar condition for COVOPT {label} is {cond:.3f}")
 
+        # May 2 2022 R.Kessler - mark delete here to save time re-inverting.
         # Finally, re-invert the precision matrix and ensure its within 
         # tolerance of the original covariance
-        cov2 = np.linalg.inv(precision)
-        assert np.all(np.isclose(effective_cov, cov2)), "Double inversion does not give original covariance, matrix is unstable"
+        # xxx mark delete cov2 = np.linalg.inv(precision)
+        # xxx mark delete assert np.all(np.isclose(effective_cov, cov2)), 
+        # xxx mark delete "Double inversion does not give original covariance, matrix is unstable"
 
     except np.linalg.LinAlgError as ex:
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
@@ -822,6 +805,22 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     return label, final_cov
 
+def is_unitary(matrix: np.ndarray) -> bool:
+    # Created May 2022 by A.Mitra
+    # Return true if input matrix is unitary
+    unitary = True
+    n = len(matrix)
+    error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
+    if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
+        unitary = False
+    return unitary
+    # end is_unitary
+
+def is_pos_def(x):
+    # Created May 2022 by A.Mitra
+    # return True of input matrix x is Postive Definite
+    return np.all(np.linalg.eigvals(x) > 0)
+    # end is_pos_def
 
 def write_standard_output(config, unbinned, covs, base):
     # Created 9.22.2021 by R.Kessler

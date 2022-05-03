@@ -270,6 +270,20 @@ def read_arg_file(ARG, KEY_ARG_FILE):
     # end read_arg_file
 
 
+def protect_wildcard(arg):
+    # Created May 2022 by R.Kessler
+    # if arg = abc*, return 'abc*'
+    # if arg = 'abc*', return 'abc*' [no change]
+
+    arg_protect = arg
+    if isinstance(arg,str):
+        has_quote = '\'' in arg  or  '"' in arg
+        if '*' in arg and not has_quote:
+            arg_protect = f"'{arg}'"
+
+    return arg_protect
+    # end protect_wildcard
+
 def protect_parentheses(arg):
     # Created Dec 10 2020
     # if arg = abc(option), returns abc\(option\).

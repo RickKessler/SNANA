@@ -1469,6 +1469,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //
   // Jan 26 2022: Fix MXRADIUS_RANDOM_SHIFT NWD from 2 to 1
   //              (A. Gagliano)
+  //
+  // May 3 2022: avoid conflict between MWEBV and RANSYSTPAR
 
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
@@ -1476,6 +1478,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE, SKIP ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
+  bool ISKEY_RANSYSTPAR;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
@@ -1506,9 +1509,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 		strstr(WORDS[0],"STRONGLENS")  != NULL ||
 		strstr(WORDS[0],"LENSING")     != NULL );
 
+  ISKEY_RANSYSTPAR = (strstr(WORDS[0],"RANSYSTPAR") != NULL);
+
   ISKEY_MWEBV = 
-    (strstr(WORDS[0],"MWEBV")      != NULL ||
-     strstr(WORDS[0],"MWCOLORLAW") != NULL )     && !ISKEY_CUTWIN ;
+    (strstr(WORDS[0],"MWEBV") != NULL || 
+     strstr(WORDS[0],"MWCOLORLAW") != NULL )  
+    && !(ISKEY_CUTWIN || ISKEY_RANSYSTPAR);
 		 
   ISKEY_GENMAG_OFF   = (strstr(WORDS[0],"GENMAG_OFF")    != NULL );
   ISKEY_GENMAG_SMEAR = (strstr(WORDS[0],"GENMAG_SMEAR")  != NULL );
@@ -2241,7 +2247,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 				     INPUTS.MJD_TEMPLATE_FILTER);
   }
   // - - - - - - - - 
-  else if ( strstr(WORDS[0], "RANSYSTPAR") != NULL ) {  
+  else if ( ISKEY_RANSYSTPAR ) {
     N += parse_input_RANSYSTPAR(WORDS, keySource );
   }
   // - - - 

@@ -45,6 +45,7 @@
 #   leave SUBMIT.INFO outside SIMLOGS.tar, and create BACKUP_*.tar.gz files
 #   before SIMLOGS.tar (better organized) 
 #
+# May 3 2022: protect arg wildcards by adding quotes; see util.protect_wildcard
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -241,8 +242,10 @@ class Simulation(Program):
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
-                key_protect = util.protect_parentheses(key)
+                key_protect   = util.protect_parentheses(key)
                 value_protect = util.protect_parentheses(value)
+                value_protect = util.protect_wildcard(value_protect)
+
                 GENOPT_GLOBAL_STRING += f"{key_protect} {value_protect}  "
                 
                 SKIP_SIMnorm = \
@@ -305,6 +308,7 @@ class Simulation(Program):
                         # if key includes (), replace with \( \)
                         key2_protect = util.protect_parentheses(key2)
                         value2_protect = util.protect_parentheses(value2)
+                        value2_protect = util.protect_wildcard(value2_protect)
                         genopt = f"{key2_protect} {value2_protect}     "
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)

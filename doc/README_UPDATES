@@ -21070,4 +21070,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + protect wildcard args (e.g., /bla/xyz*) by adding quotes if
        there are no quotes.
 
+   sntools_host.c[h]
+     + read optional TRUE column of HOSTLIB so that a subset is used
+       for TRUE hosts while the entire library is used for DLR matching.
+         [need to update manual]
+
 END: 

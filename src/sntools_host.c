@@ -3500,9 +3500,10 @@ void zptr_HOSTLIB(void) {
 void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   // Wgt map is already read and redshift-sorted.
-  // do some inits, allocate memory and make sanity checks.
+  // Do some inits, allocate memory and make sanity checks.
   //
   // Inputs:
+  //   OPT_INIT   : not used
   //   IGAL_START : first IGAL to compute wgt
   //   IGAL_END   : last IGAL to compute wgt
   //
@@ -3512,16 +3513,17 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // 
   // Jun 18 2019: if interp_GRIDMAP fails, print more PRE-ABORT info.
   // Jun 25 2019: check GAMMA_GRID option
-  //
+  // May 03 2022: check new HOSTLIB feature for TRUE column (IVAR_TRUE_MATCH)
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NFUN, NROW, ibin, istat ;
-  int  NGAL, igal, isparse ;
+  int  NGAL, igal, isparse, IVAL ;
   short int I2MAG;
   bool VBOSE, LDMPWGT ;
 
-  int N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR ;
-  int NBTOT_SNVAR = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
+  int N_SNVAR         = HOSTLIB_WGTMAP.N_SNVAR ;
+  int NBTOT_SNVAR     = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
+  int IVAR_TRUE_MATCH = HOSTLIB.IVAR_TRUE_MATCH;
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
@@ -3627,6 +3629,15 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       // convert mag shift to 2-byte int to reduce memory
       I2MAG = (short int)(SNMAGSHIFT*I2MAGSCALE_HOSTLIB);
 
+      // May 2022: 
+      // if TRUE column exists in HOSTLIB, set WGT=0.0 for TRUE_MATCH=0
+      // so that these excluded hosts are used only for DLR-matching
+      // and not for true-host matches.
+      if ( IVAR_TRUE_MATCH > 0 ) {     //.xyz
+	IVAL  = get_VALUE_HOSTLIB(IVAR_TRUE_MATCH,igal); 
+	if ( IVAL == 0 ) { WGT = 0.0; }
+      }
+
       // local sum
       WGTSUM = WGTSUM_LAST + WGT;
       
@@ -3639,12 +3650,10 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	
       // load global array for each sum            
       if ( N_SNVAR > 0 ) {
-	// xxx	HOSTLIB_WGTMAP.WGT_SNVAR[ibin][igal]        = WGT    ;
 	HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal]     = WGTSUM ;
 	HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin][igal] = I2MAG ;
       }
       else {
-	// xxx HOSTLIB_WGTMAP.WGT[igal]        = WGT    ;
 	HOSTLIB_WGTMAP.WGTSUM[igal]     = WGTSUM ;
 	HOSTLIB_WGTMAP.I2SNMAGSHIFT[igal] = I2MAG ;
       }
@@ -3709,12 +3718,10 @@ void malloc_HOSTLIB_WGTMAP(void) {
   
   if ( N_SNVAR > 0 ) { 
 
-    // xxx    HOSTLIB_WGTMAP.WGT_SNVAR          = (double**) malloc(MEMDD);
     HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double**) malloc(MEMDD);
     HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR = (short int **) malloc(MEMSS);
 
     for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) {
-      // xxxx      HOSTLIB_WGTMAP.WGT_SNVAR[ibin]  = (double*) malloc(MEMD2);
       HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double*) malloc(MEMD2);
       HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin] = (short int*) malloc(MEMS2);
       MEMTOT += (double)(MEMD2 + MEMS2);
@@ -3722,7 +3729,6 @@ void malloc_HOSTLIB_WGTMAP(void) {
   }
   else {
     // HOSTLIB vars only
-    // xxxx    HOSTLIB_WGTMAP.WGT          = (double *)malloc(MEMD2);
     HOSTLIB_WGTMAP.WGTSUM       = (double *)malloc(MEMD2);
     HOSTLIB_WGTMAP.I2SNMAGSHIFT = (short int *)malloc(MEMS2);
     MEMTOT += (double)(MEMD2 + MEMS2) ;
@@ -3746,7 +3752,7 @@ void runCheck_HOSTLIB_WGTMAP(void) {
   long long GALID; 
   double WDIF, WDIF_SUM, WDIF_MAX, WDIF_RMS, WDIF_AVG, SQWDIF_SUM ;
   double XN, SQTMP, WGT_EXACT, WGT_INTERP ;
-  //  char fnam[] = "runCheck_HOSTLIB_WGTMAP" ;
+  char fnam[] = "runCheck_HOSTLIB_WGTMAP" ;
 
   // ----------- BEGIN ------------
 
@@ -3854,7 +3860,6 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
   // mean=ZPHOT and sigma=ZPHOT_ERR. Here define quantile values for 
   // unit Gaussian
 
-  // .xyz
   if ( USE_QGAUSS ) {
     printf("\t Force %d Gaussian quantiles\n", N_Q ); fflush(stdout);
 
@@ -5639,13 +5644,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
     ptrWGT     = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR];
-    // xxx WGT_start  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_start];
-    // xxx WGT_end    = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][igal_end];
   }
   else {
     ptrWGT     = HOSTLIB_WGTMAP.WGTSUM;
-    // xxx    WGT_start  = HOSTLIB_WGTMAP.WGTSUM[igal_start];
-    // xxx    WGT_end    = HOSTLIB_WGTMAP.WGTSUM[igal_end];
   }
 
   WGT_start  = ptrWGT[igal_start];

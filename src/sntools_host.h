@@ -112,6 +112,7 @@
 #define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
 
 // define optional keys
+#define HOSTLIB_VARNAME_TRUE_MATCH   "TRUE"
 #define HOSTLIB_VARNAME_ZPHOT        "ZPHOT"
 #define HOSTLIB_VARNAME_ZPHOT_ERR    "ZPHOT_ERR" 
 #define HOSTLIB_VARNAME_VPEC         "VPEC"         
@@ -137,11 +138,6 @@
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 
-/* xxxx mark delete Mar 14 2022 (moved to sntools.h)
-#define HOSTLIB_SNPAR_UNDEFINED    -9999.0 
-#define HOSTLIB_IGAL_UNDEFINED     -9999
-#define HOSTLIB_PROPERTY_UNDEFINED -9999.0 // Feb 10 2022
-xxxxxxxxx end mark xxxx */
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
 // To save storage memory, SNMAGSHIFT is stored as 2 byte short int 
@@ -186,7 +182,7 @@ typedef struct {
 } HOSTGAL_PROPERTY_VALUE_DEF;
 
 typedef struct {
-  int IVAR_TRUE, IVAR_OBS, IVAR_ERR;
+  int  IVAR_TRUE, IVAR_OBS, IVAR_ERR;
   char BASENAME[100];
   double SCALE_ERR;
 } HOSTGAL_PROPERTY_IVAR_DEF;
@@ -242,6 +238,7 @@ struct HOSTLIB_DEF {
 
   // pointers to stored variables
   int IVAR_GALID ;
+  int IVAR_TRUE_MATCH ;  // optional column: 1->use for true match
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;

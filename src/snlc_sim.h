@@ -239,7 +239,8 @@ typedef struct {
   float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors
   float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
   float SIGSHIFT_MWRV;       // shift RV
-  float SIGSHIFT_REDSHIFT;   // shift redshift PA 2020
+  float SIGSHIFT_REDSHIFT;   // shift measured redshift PA 2020
+  float SIGSHIFT_zPHOT_HOST; // shift in host photo-z, May 2022
   char GENMODEL_WILDCARD[MXPATHLEN]; // choose between wildcard models PA 2020
   char GENPDF_FILE_WILDCARD[MXPATHLEN]; // choose between wildcard GENPDF_FILEs
 

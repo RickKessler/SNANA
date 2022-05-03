@@ -21055,6 +21055,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    create_covariancy.py
      + reduce output labels to only new row and daig; reduce file size by 50%.
+     + write MUERR_SYS to hubble diagram as diagnostic
 
    snlc_sim.c
      + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 

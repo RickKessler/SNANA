@@ -1320,6 +1320,7 @@ void set_user_defaults_RANSYSTPAR(void) {
   INPUTS.RANSYSTPAR.SIGSCALE_MWEBV    = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_MWRV     = 0.0 ;
 
+  INPUTS.RANSYSTPAR.SIGSHIFT_zPHOT_HOST = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT = 0.0 ; // PA 2020
   INPUTS.RANSYSTPAR.GENMODEL_WILDCARD[0] = 0; // PA 2020
   INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD[0] = 0; // Nov 2021
@@ -3706,6 +3707,10 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
 
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_zPHOT_HOST",
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_zPHOT_HOST );
+  }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", // P.Armstrong, 2020
 			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT );
@@ -6039,9 +6044,9 @@ void prep_user_input(void) {
     INPUTS.GENMAG_SMEAR[1]    = 0.0;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE");
 
-    INPUTS.GENSIGMA_REDSHIFT = 0.0 ; // no redshift smearing
-    INPUTS.GENBIAS_REDSHIFT  = 0.0 ;
-    INPUTS.VEL_CMBAPEX       = 0.0 ;
+    INPUTS.GENSIGMA_REDSHIFT  = 0.0 ; // no redshift smearing
+    INPUTS.GENBIAS_REDSHIFT   = 0.0 ;
+    INPUTS.VEL_CMBAPEX        = 0.0 ;
 
     INPUTS.HOSTLIB_USE = INPUTS.HOSTLIB_MSKOPT = 0 ;
     sprintf(INPUTS.HOSTLIB_FILE,  "NONE" );  // no HOSTLIB
@@ -6691,6 +6696,16 @@ void  prep_RANSYSTPAR(void) {
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
   
+  // host photo-z, R.Kessler May 2 2022
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_zPHOT_HOST;
+  if ( tmpSigma != 0.0 ) {
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.HOSTLIB_GENZPHOT_BIAS[0] = tmp;
+    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
+    printf("\t HOSTLIB_GENZPHOT_BIAS  = %f \n", tmp );
+  }
+
+
   // Redshift P.Armstrong 2020
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
   if ( tmpSigma != 0.0 ) {

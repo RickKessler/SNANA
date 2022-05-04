@@ -6724,11 +6724,11 @@ void  prep_RANSYSTPAR(void) {
   // check wild card files
   wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD; 
   if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard,INPUTS.GENMODEL); }
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENMODEL_WILDCARD", INPUTS.GENMODEL); }
 
   wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
   if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard,INPUTS.GENPDF_FILE); }
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENPDF_FILE_WILDCARD", INPUTS.GENPDF_FILE); }
 
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
@@ -6851,29 +6851,32 @@ void  prep_RANSYSTPAR(void) {
 } // end prep_RANSYSTPAR
 
 // *********************************************
-void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
+void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile) {
 
   // Created Nov 2 2021 by R.kessler
   // For input *wildcard, get list of files and select a random file.
   // Load random file name into ouput arg *randomFile.
   // 
+  // Input keyName is used only for diagnostic message.
 
   int   ILIST_RAN=1;
   int   NJOBTOT = INPUTS.NJOBTOT ; // >0 for batch job
-  int   JOBID   = INPUTS.JOBID   ; // for batch job
+  int   JOBID   = INPUTS.JOBID   ; // for batch job   
+  bool  IS_BATCH = (NJOBTOT > 0 ) ;
+
   int i, n_files, ifile;
   double rand_num ;
-  char **genmodel_list ;
+  char **genFile_list ;
   char fnam[] = "pick_RANSYSTFILE_WILDCARD";
   // ------------- BEGIN ----------
 
   randomFile[0] = 0;
 
   ENVreplace(wildcard,fnam,1);
-  n_files = glob_file_list(wildcard, &genmodel_list);
+  n_files = glob_file_list(wildcard, &genFile_list);
 
   // pick sequential ifile for batch job; else random file
-  if ( NJOBTOT > 0 ) {
+  if ( IS_BATCH ) {
     ifile = JOBID-1;  // batch job; JOBID starts at 1; ifile starts at 0
   }
   else {
@@ -6882,30 +6885,27 @@ void pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile) {
     ifile    = (int)(rand_num * (double)n_files); 
   }
 
-  printf("\t* Select GENPDF_FILE %d of %d from\n\t %s \n", 
-	 ifile, n_files, wildcard);
+  printf("\t* Select %s %d of %d from\n\t %s \n", 
+	 keyName, ifile, n_files, wildcard);
 
   if ( ifile < 0 || ifile >= n_files ) {
-    sprintf(c1err,"Invalid ifile = %d for GENPDF_FILE_WILDCARD", ifile );
-    sprintf(c2err,"Expected ifile between 0 and %d", n_files-1);
+
+    if ( IS_BATCH && NJOBTOT > n_files) {
+      print_preAbort_banner(fnam);
+      printf("\t NJOBTOT(BATCH) = %d > %d available wildcard options.\n", 
+	     NJOBTOT, n_files);
+      printf("\t Need to create more %s files.\n", keyName);
+    }
+    sprintf(c1err,"Invalid ifile = %d for %s", ifile, keyName );
+    sprintf(c2err,"but expected ifile between 0 and %d", n_files-1);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  sprintf(randomFile, "%s", genmodel_list[ifile]);  
-
-  /* xxxxxxx mark delete Mar 29 2022 xxxxxxxxx
-  // for GENPDF wildcard, set GENPDF_OPTMASK to tell init_genPDF
-  // that the source is command-line arg instead of file.
-  // This allows the command-line arg to override sim-inputs.
-  if ( strstr(wildcard,"GENPDF") != NULL ) {
-    if ( KEYSOURCE_GENPDF == KEYSOURCE_ARG ) 
-      { INPUTS.GENPDF_OPTMASK += OPTMASK_GENPDF_KEYSOURCE_ARG; }
-  }
-  xxxxxxxxx end mark xxxxxxxxx */
+  sprintf(randomFile, "%s", genFile_list[ifile]);  
 
 // - - - - - -
-  for(i=0; i < n_files; i++ ) { free(genmodel_list[i]); }
-  free(genmodel_list);
+  for(i=0; i < n_files; i++ ) { free(genFile_list[i]); }
+  free(genFile_list);
 
   return;
 

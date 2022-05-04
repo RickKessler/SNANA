@@ -1794,7 +1794,7 @@ void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input
-void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile);
+void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);

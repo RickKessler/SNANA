@@ -3575,6 +3575,15 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       if ( NROW == 0 ) 
 	{  WGT = 1.0 ;  SNMAGSHIFT = 0.0 ;  goto WGTSUM ;    }
       
+      // May 2022: 
+      // if TRUE column exists in HOSTLIB, set WGT=0.0 for TRUE_MATCH=0
+      // so that these excluded hosts are used only for DLR-matching
+      // and not for true-host matches.
+      if ( IVAR_TRUE_MATCH > 0 ) { 
+	IVAL  = get_VALUE_HOSTLIB(IVAR_TRUE_MATCH,igal); 
+	if ( IVAL == 0 ) { WGT = SNMAGSHIFT = 0.0; goto WGTSUM; }
+      }
+
       // strip off variables used for weighting
       for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
 	IS_SNVAR     = HOSTLIB_WGTMAP.IS_SNVAR[ivar]; 
@@ -3628,15 +3637,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
       // convert mag shift to 2-byte int to reduce memory
       I2MAG = (short int)(SNMAGSHIFT*I2MAGSCALE_HOSTLIB);
-
-      // May 2022: 
-      // if TRUE column exists in HOSTLIB, set WGT=0.0 for TRUE_MATCH=0
-      // so that these excluded hosts are used only for DLR-matching
-      // and not for true-host matches.
-      if ( IVAR_TRUE_MATCH > 0 ) {     //.xyz
-	IVAL  = get_VALUE_HOSTLIB(IVAR_TRUE_MATCH,igal); 
-	if ( IVAL == 0 ) { WGT = 0.0; }
-      }
 
       // local sum
       WGTSUM = WGTSUM_LAST + WGT;

@@ -193,7 +193,7 @@ void malloc_NMATCH_PER_EVT(int N);
 
 
 #define MXFFILE  20       // max number of fitres files to combine
-#define MXSN     5000000   // max SN to read per fitres file
+#define MXSN     10000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 

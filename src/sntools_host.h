@@ -43,6 +43,8 @@
  Feb 9 2022: MXVAR_HOSTLIB -> 300 (was 200) to allow for up to
              100 zPHOT quantiles
 
+ May 5 2022: MXCHAR_LINE_HOSTLIB->900
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -66,7 +68,7 @@
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
-#define MXCHAR_LINE_HOSTLIB 800  // max number of chars per HOSTLIB line
+#define MXCHAR_LINE_HOSTLIB 900  // max number of chars per HOSTLIB line
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       300  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables

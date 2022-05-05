@@ -21075,4 +21075,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        for TRUE hosts while the entire library is used for DLR matching.
          [need to update manual]
 
+   sim_SNgrid.pl: fix a few bugs.
+
 END: 

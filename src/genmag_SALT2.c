@@ -446,7 +446,9 @@ void fill_SALT2_TABLE_SED(int ISED) {
   // Jun 9, 2011: load SEDMODEL.LAMMIN[ISED] and SEDMODEL.LAMMAX[ISED]
   // Dec 30, 2013: add PRE-ABORT dump when FRATIO is too large.
   // Jul 30, 2016: call check_uniform_bins( ... )
-  
+  // May 05 2022: add abort protection when  F_orig=0.0 
+  //          (for SALT2 surfaces computed with Jacobian method)
+  //
 #define N1DBIN_SPLINE 3
 
   int 
@@ -654,7 +656,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
       if ( RELAX_IDIOT_CHECK_SALT2 && F_orig < 1.0E-25 ) { continue; } 
 
-      if ( FSUM > 0.0 ) 
+      if ( FSUM > 0.0 && F_orig != 0.0 ) 
 	{ FRATIO = FDIF / FSUM ; }
       else
 	{ FRATIO = 0.0 ; }

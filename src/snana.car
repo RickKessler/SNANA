@@ -11883,8 +11883,9 @@ c check integer lists the old way
  21      format(T5,'Store ',I6,' integer CIDs from SNCID_LIST')
       ENDIF
 
+      OPTMASK = 0
+
       IF ( IS_CCID_LIST ) THEN
-      	 OPTMASK = 0
          NCCID_TMP = MATCH_CIDLIST_INIT(cBLANK,OPTMASK,cBLANK, 4,4)
      
 c  check SNCCID_LIST in &SNLCINP ... 
@@ -11906,6 +11907,7 @@ c check CIDs from separate file (table format, or unformatted)
             else
               cVARLIST_STORE = cBLANK
             endif
+            OPTMASK = 8 ! send reset for AUTOSTORE
             NCCID_FILE = 
      &        MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF,20)
          ENDIF

@@ -1061,6 +1061,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
 		     &NFILE, &file_list ); // <== returned
   
+  SNTABLE_AUTOSTORE_RESET(); // May 2022
   for(ifile=0; ifile < NFILE; ifile++ ) {
     ptrFile = file_list[ifile] ;
     ENVreplace(ptrFile, fnam, 1);

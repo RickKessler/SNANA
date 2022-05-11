@@ -21060,6 +21060,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snlc_sim.c
      + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 
        append file that are in different order than in original HOSTLIB.
+     + move INIT_HOSTLIB call inside "not LCLIB" if block
 
    sntools.c[h]
      + add varList_store arg to match_cidList_init ...

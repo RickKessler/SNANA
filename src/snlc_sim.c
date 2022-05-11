@@ -150,11 +150,12 @@ int main(int argc, char **argv) {
   // skip to optional SIMLIB_DUMP after random number init.
   if ( INPUTS.SIMLIB_DUMP >= 0 ) { goto SIMLIB_DUMP ; }
 
-  // init host-galaxy model (in sntools_host.c)
-  INIT_HOSTLIB();  
-
-  // init weak and strong lensing 
+  // extraGalactic inits only
   if ( INDEX_GENMODEL != MODEL_LCLIB )  { 
+    // init host-galaxy model (in sntools_host.c)
+    INIT_HOSTLIB();
+    
+    // init weak and strong lensing 
     init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
     init_stronglens(INPUTS.STRONGLENS_FILE);
   }
@@ -5550,7 +5551,7 @@ void prep_user_input(void) {
 
 
   // check HOSTLIB_GENZPHOT options
-  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) {
+  if ( !IGNOREFILE(INPUTS.HOSTLIB_FILE) ) {
     int USE = 0 ;
     if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] > 0.0 ) { USE=1; }
     if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] > 0.0 ) { USE=1; }

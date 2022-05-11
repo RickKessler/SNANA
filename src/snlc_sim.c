@@ -1479,7 +1479,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE, SKIP ;
-  bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_SPEC, ISKEY_LENS ;
+  bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   bool ISKEY_RANSYSTPAR;
   char strPoly[60], ctmp[60], *parName ;
@@ -1504,6 +1504,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   ISKEY_EBV     = (strstr(WORDS[0],"_EBV") != NULL );
 
   ISKEY_AV      = (strstr(WORDS[0],"_AV" ) != NULL );
+  ISKEY_RV      = (strstr(WORDS[0],"_RV" ) != NULL );
 
   ISKEY_RATE    = (strstr(WORDS[0],"DNDZ") != NULL || 
 		   strstr(WORDS[0],"DNDB") != NULL  ) ;
@@ -2044,19 +2045,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     parse_GENPOLY(strPoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
   }
   // - - - - - host RV and AV  - - - -
-  else if ( strstr(WORDS[0],PARNAME_RV) != NULL ) {
+  else if ( ISKEY_RV ) {
     N += parse_input_GENGAUSS(PARNAME_RV, WORDS, keySource,
 			      &INPUTS.GENGAUSS_RV );  
   }
 
   // - - - - EBV for HOST - - - - 
-
   else if ( ISKEY_EBV ) {
     N += parse_input_EXP_HALFGAUSS("EBV", WORDS, keySource,
 				   &INPUTS.GENPROFILE_EBV_HOST );
     N += parse_input_EXP_HALFGAUSS("EBV_HOST", WORDS, keySource,
 				   &INPUTS.GENPROFILE_EBV_HOST );
-
   }
   else if ( ISKEY_AV ) {
     N += parse_input_EXP_HALFGAUSS("AV", WORDS, keySource,

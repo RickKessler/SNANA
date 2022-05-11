@@ -18,7 +18,8 @@ c parameters used by snana code
      &   MXVERS, MXSURVEY, MXSNLC,MXCID, MXCID_CHECK,MXEPOCH, MXITER
      &  ,MXFILT_ALL, MXFILT_OBS, MXFILT_REST, ONE
      &  ,MXFILT_KCOR, MXFILT_SNRMAX, MXEP_MODELGRID
-     &  ,MXIDTEL, MXIDFIELD, MXFIELD_OVP, MXSEASON, MXSNHOST
+     &  ,MXIDTEL, MXIDFIELD, MXFIELD_OVP, MXSEASON
+     &  ,MXSNHOST, MXZPHOT_Q
      &  ,MXTABLE1D_KCOR,MXTABLE1D_LCMAG,MXTABLE1D_MWXT,MXTABLE1D_AVWARP
      &  ,MXZBIN_KCOR, MXTBIN_KCOR, MXAVBIN_KCOR, MXCBIN_AVWARP
      &  ,MNTYPE, MXTYPE, MXLISTNML, MXIGNORE_LIST
@@ -128,6 +129,7 @@ c
      &  ,MXFIELD_OVP = 12         ! max number of overlapping fields
      &  ,MXSEASON    = 100        ! max number of seasons
      &  ,MXSNHOST    = 2          ! max number of host matches to read/write
+     &  ,MXZPHOT_Q   = 20         ! max number of zphot quantiles (May 2022)
      &  ,MXVAR_PRIVATE = 40       ! max number of private variables
      &  ,MXCUT_PRIVATE = 10        ! max number of cuts on private var
      &  ,MXVAR_TERSE   = 30       ! max number of text-data  columms
@@ -1420,6 +1422,7 @@ c logical flags for output tables
      &  ,SNHOST_DDLR(MXSNHOST)        ! SNSEP/DLR
      &  ,SNHOST_CONFUSION             ! HC analog from Gupta 2016
      &  ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)
+     &  ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)
      &  ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)
      &  ,SNHOST_LOGMASS(MXSNHOST)
      &  ,SNHOST_LOGMASS_ERR(MXSNHOST)
@@ -1455,7 +1458,7 @@ c quantites which do not depend on which host
 c
      &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
      &  ,SNHOST_ANGSEP, SNHOST_DDLR, SNHOST_CONFUSION
-     &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR 
+     &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR, SNHOST_ZPHOT_Q
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
      &  ,SNHOST_LOGMASS, SNHOST_LOGMASS_ERR
      &  ,SNHOST_LOGSFR, SNHOST_LOGSFR_ERR
@@ -4459,6 +4462,8 @@ c - - -
       KEY    = PREFIX(1:LENPRE)//'_PHOTOZ_ERR'
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
+
+c .xyz read ZPHOT_Q
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
 c - - - -

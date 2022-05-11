@@ -5550,15 +5550,17 @@ void prep_user_input(void) {
 
 
   // check HOSTLIB_GENZPHOT options
-  int USE = 0 ;
-  if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] > 0.0 ) { USE=1; }
-  if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] > 0.0 ) { USE=1; }
-  for(i=0; i<5; i++) { 
-    if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] >  0.0 ) { USE=1; }
-    if ( INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     != 0.0 ) { USE=1; }
+  if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) {
+    int USE = 0 ;
+    if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] > 0.0 ) { USE=1; }
+    if ( INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] > 0.0 ) { USE=1; }
+    for(i=0; i<5; i++) { 
+      if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[i] >  0.0 ) { USE=1; }
+      if ( INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     != 0.0 ) { USE=1; }
+    }
+    if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN > 0 ) { USE=1; }
+    INPUTS.USE_HOSTLIB_GENZPHOT = USE ;
   }
-  if ( INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN > 0 ) { USE=1; }
-  INPUTS.USE_HOSTLIB_GENZPHOT = USE ;
 
   // -----------------------------------------------
   // load generic "LUMIPAR" variables based on model

@@ -6798,7 +6798,15 @@ Here are examples of available options for the sim-input file:
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
-   RANSYSTPAR_RANSEED_GEN: 12345  
+  RANSYSTPAR_RANSEED_GEN: 12345  
+
+  # use this random to select sytematic shifts; then switch back to
+  # user-define RANSEED, or RANSEED_GEN above.
+  RANSYSTPAR_RANSEED_SYST: 12345      
+
+  # if different surveys use same instrument, force the same 
+  # IDSURVEY-dependent randoms for systematics such as ZP and FilterWave.
+  RANSYSTPAR_IDSURVEY: 15 # e.g, same shifts for Found and PS1
 \end{Verbatim}
 %
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.

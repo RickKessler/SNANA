@@ -102,6 +102,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_SIMSED  = ( strncmp(key,"SIMSED",6)  == 0 ) ;
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
+  bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ;
 
   int ivar, NVAR, ipar ;
   char fnam[] = "copy_SNDATA_GLOBAL" ;
@@ -141,6 +142,10 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       sscanf(&key[7], "%d", &ivar);  // PRIVATEnn
       copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
     }
+  }
+
+  else if ( ISKEY_ZPHOT_Q ) {
+    // .xyz
   }
   else if ( ISKEY_SIMSED  ) {
 

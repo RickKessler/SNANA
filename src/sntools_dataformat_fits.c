@@ -335,8 +335,8 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
-    // add Q posteriors
- for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+  // add zPHOT quantiles
+  for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
     sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
     wr_snfitsio_addCol( "1E", parName, itype );
   }
@@ -401,7 +401,7 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
 
-    // add Q posteriors
+    // add zPHOT quantiles
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
       sprintf(parName,"HOSTGAL2_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
       wr_snfitsio_addCol( "1E", parName, itype );

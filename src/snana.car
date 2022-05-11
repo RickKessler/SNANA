@@ -1423,6 +1423,7 @@ c logical flags for output tables
      &  ,SNHOST_CONFUSION             ! HC analog from Gupta 2016
      &  ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)
      &  ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)
+     &  ,SNHOST_ZPHOT_PERCENTILE(MXZPHOT_Q)
      &  ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)
      &  ,SNHOST_LOGMASS(MXSNHOST)
      &  ,SNHOST_LOGMASS_ERR(MXSNHOST)
@@ -1444,6 +1445,7 @@ c quantites which do not depend on which host
       INTEGER*4 
      &    SNHOST_NMATCH   ! number of host matches, e.g., d_DLR<4
      &   ,SNHOST_NMATCH2  ! number of host matches, e.g., d_DLR<7
+     &   ,SNHOST_NZPHOT_Q        ! Ma 2022: number of zphot quantiles
      &   ,SNHOST_FLAG(MXSNHOST)  ! May 21 2021: indicate problems with host
 
       REAL
@@ -1458,7 +1460,8 @@ c quantites which do not depend on which host
 c
      &  ,SNHOST_NMATCH, SNHOST_NMATCH2, SNHOST_FLAG
      &  ,SNHOST_ANGSEP, SNHOST_DDLR, SNHOST_CONFUSION
-     &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR, SNHOST_ZPHOT_Q
+     &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR
+     &  ,SNHOST_ZPHOT_Q, SNHOST_ZPHOT_PERCENTILE, SNHOST_NZPHOT_Q
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
      &  ,SNHOST_LOGMASS, SNHOST_LOGMASS_ERR
      &  ,SNHOST_LOGSFR, SNHOST_LOGSFR_ERR
@@ -4385,6 +4388,7 @@ c
 c Mar 25 2021: fix bug setting EXIST_SNHOST_SB
 c May 11 2021: read HOSTGAL_MAG (forgotten in I/O refactor)
 c May 21 2021: read HOSTGAL_FLAG
+c May 11 2022: read ZPHOT_Q
 
       IMPLICIT NONE
 
@@ -4393,7 +4397,7 @@ c May 21 2021: read HOSTGAL_FLAG
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
-      INTEGER   LENPRE, ifilt, ifilt_obs
+      INTEGER   LENPRE, ifilt, ifilt_obs, q
       CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60, BAND*2
       CHARACTER HOST_PROPERTY_LIST*(MXCHAR_FILENAME)
       REAL*8    DARRAY(MXFILT_OBS), SB, MAG
@@ -4414,6 +4418,10 @@ c i.e., do not depend on host-match.
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH2", 
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NZPHOT_Q", 
+     &        ONE, STRING, DARRAY, OPT)
+         SNHOST_NZPHOT_Q = INT(DARRAY(1))
 
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
      &        ONE, STRING, DARRAY, OPT)
@@ -4463,7 +4471,15 @@ c - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
-c .xyz read ZPHOT_Q
+c .xyz read ZPHOT_Q (May 2022)
+      if ( SNHOST_NZPHOT_Q > 0 ) then
+        KEY    = PREFIX(1:LENPRE)//'_ZPHOT_Q'
+        CALL FETCH_SNDATA_WRAPPER(KEY, SNHOST_NZPHOT_Q, 
+     &              STRING, DARRAY, OPT)
+        DO q = 1, SNHOST_NZPHOT_Q
+          SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(q))
+        ENDDO
+      endif
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
 c - - - -

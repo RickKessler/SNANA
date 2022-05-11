@@ -3851,6 +3851,8 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
       percentile = (q+1) * qbin; // skip 0 percentile
       if ( percentile == 100 ) { percentile = 99; }
       HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
+      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q],"%s%d", 
+	      PREFIX_ZPHOT_Q, percentile);
     }
   }
 

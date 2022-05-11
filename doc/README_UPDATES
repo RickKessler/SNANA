@@ -21061,6 +21061,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 
        append file that are in different order than in original HOSTLIB.
      + move INIT_HOSTLIB call inside "not LCLIB" if block
+     + new input keyes RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
 
    sntools.c[h]
      + add varList_store arg to match_cidList_init ...

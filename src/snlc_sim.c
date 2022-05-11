@@ -1313,7 +1313,9 @@ void set_user_defaults_RANSYSTPAR(void) {
 
   INPUTS.RANSYSTPAR.USE = 0 ;
 
-  INPUTS.RANSYSTPAR.RANSEED_GEN = 0 ;
+  INPUTS.RANSYSTPAR.IDSURVEY     = -9;
+  INPUTS.RANSYSTPAR.RANSEED_SYST = 0 ;
+  INPUTS.RANSYSTPAR.RANSEED_GEN  = 0 ;
   
   // coherent (all bands) scale of flux-errors
   INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  = 0.0 ; // true & measured 
@@ -3672,6 +3674,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
   // Oct 30 2020: 
   //   + check for filter list in parentheses for SIGZP and SIGLAMFILT.
   //
+  // May 2022: read RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
 
   int  NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   int  N = 0 ;
@@ -3693,10 +3696,20 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 
   // - - - - - - 
 
-  if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_GEN", 
+  if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_SYST", 
+		   KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.RANSEED_SYST );
+  }
+  else if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_GEN", 
 		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.RANSEED_GEN );
   }
+
+  else if ( keyMatchSim(1, "RANSYSTPAR_IDSURVEY", 
+		   KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.IDSURVEY );
+  }
+
   else if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
 		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR );
@@ -6665,8 +6678,13 @@ void  prep_RANSYSTPAR(void) {
   // Do NOT try to sync randoms here; burn randoms only if required.
   //
   // Nov 9 2020: refactor filter-dependent RANSYSTPAR (see manual)
+  // May 11 2022: minor refactor to use new RANSYSTPAR.RANSEED_SYST
+  
+  int   ISEED_SYST   = INPUTS.RANSYSTPAR.RANSEED_SYST ;
+  int   ISEED_GEN    = INPUTS.RANSYSTPAR.RANSEED_GEN ;
+  int   ISEED_ORIG   = INPUTS.ISEED;
 
-  int   ifilt, ifilt_obs, NSET=0; 
+  int   ifilt, ifilt_obs, NSET=0, ISEED; 
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
@@ -6679,6 +6697,9 @@ void  prep_RANSYSTPAR(void) {
 
   if ( INPUTS.RANSYSTPAR.USE == 0 ) { return ; }
 
+  // DEBUG_FLAG=511 to use refactor code ... for now 
+  if ( INPUTS.DEBUG_FLAG != 511 ) { prep_RANSYSTPAR_LEGACY(); return; }
+
   sprintf(BANNER,"%s: Prepare Random set of Systematic Errors", fnam );
   print_banner(BANNER);
 
@@ -6687,6 +6708,11 @@ void  prep_RANSYSTPAR(void) {
   //   (e.g., among separate simulation for each survey)
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+  if ( ISEED_SYST > 0 ) {
+    INPUTS.ISEED = ISEED_SYST ;
+    printf("   Re-init randoms with RANSEED = %d\n", INPUTS.ISEED ) ;
+    init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN); 
+  }
   printf("\t* First Sync-Syst Random : %f \n", getRan_Flat1(ILIST_RAN) );
 
   // Galactic extinction
@@ -6695,7 +6721,7 @@ void  prep_RANSYSTPAR(void) {
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
-    printf("\t FUDGESCALE_MWEBV  = %.2f \n", tmp );
+    printf("\t FUDGESCALE_MWEBV  = %.4f \n", tmp );
   }
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ;
@@ -6775,9 +6801,15 @@ void  prep_RANSYSTPAR(void) {
   // need to unsync the randoms among surveys. Add 137*IDSURVEY
   // to ISEED and then re-init the randoms with new SEED.
 
-  int IDUM      = GENLC.IDSURVEY ;
-  int ISEED_OLD = INPUTS.ISEED ;
-  int ISEED_NEW = ISEED_OLD + 137*IDUM ;
+  int IDUM, ISEED_OLD, ISEED_NEW;
+
+  if ( INPUTS.RANSYSTPAR.IDSURVEY > 0 ) 
+    { IDUM = INPUTS.RANSYSTPAR.IDSURVEY; } // e.g. FOUND and PS1 are the same
+  else
+    { IDUM = GENLC.IDSURVEY ; }
+
+  ISEED_OLD = INPUTS.ISEED ;
+  ISEED_NEW = ISEED_OLD + 137*IDUM ;
   INPUTS.ISEED  = ISEED_NEW ;
   init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
   printf("\t* ISEED = %d --> %d \n", ISEED_OLD, ISEED_NEW );
@@ -6838,16 +6870,16 @@ void  prep_RANSYSTPAR(void) {
   printf("   %d Systematic Errors have been set. \n", NSET);
 
   // - - - - - - - - - - - -
-  // check option to reset randoms with fixed random seed
-  // so that there are no stat fluctuations between
-  // GENVERSIONs with different systematics.
-  int RANSEED_GEN = INPUTS.RANSYSTPAR.RANSEED_GEN;
-  if ( RANSEED_GEN > 0 ) {
-    printf("   Re-init randoms with RANSEED = %d\n", RANSEED_GEN ) ;
-    init_random_seed(RANSEED_GEN, INPUTS.NSTREAM_RAN); 
-  }
+  if ( ISEED_GEN > 0 ) 
+    { INPUTS.ISEED = ISEED_GEN ; } // user override of nominal RANSEED
+  else
+    { INPUTS.ISEED = ISEED_ORIG; }
+
+  printf("   Re-init randoms with RANSEED = %d\n", INPUTS.ISEED ) ;
+  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN); 
 
   printf("\n");
+  fflush(stdout);
 
   return ;
 
@@ -28184,3 +28216,203 @@ void test_igm(void) {
   exit(1);
 
 } // end test_igm 
+
+// **************************************
+void  prep_RANSYSTPAR_LEGACY(void) {
+
+  // Created Jun 2017
+  // Prepare optional systematic offsets using random numbers.
+  // This allows user to specify one set of Gaussian sigmas
+  // (using RANSYSTPAR_XXX params) and then changing RANSEED
+  // results in random set of systematic offsets.
+  //
+  // Do NOT try to sync randoms here; burn randoms only if required.
+  //
+  // Nov 9 2020: refactor filter-dependent RANSYSTPAR (see manual)
+
+  int   ifilt, ifilt_obs, NSET=0; 
+  int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
+  int   ILIST_RAN=1;
+  float tmp, tmpSigma, *tmpRange, Range ;
+  float SIGSCALE_MIN = -1.0E-6, SIGSCALE_MAX = 0.2 ;
+  double gmin = -3.0, gmax=+3.0; // Gaussian clip params
+  char cfilt[2], *wildcard ;
+  char fnam[] = "prep_RANSYSTPAR_LEGACY" ;
+
+  // ---------- BEGIN -----------
+
+  if ( INPUTS.RANSYSTPAR.USE == 0 ) { return ; }
+
+  sprintf(BANNER,"%s: Prepare Random set of Systematic Errors", fnam );
+  print_banner(BANNER);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //   Start with variations that are synched among sub-samples
+  //   (e.g., among separate simulation for each survey)
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  printf("\t* First Sync-Syst Random : %f \n", getRan_Flat1(ILIST_RAN) );
+
+  // Galactic extinction
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
+  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  if ( tmpSigma != 0.0 ) {   
+    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.MWEBV_SCALE = tmp;
+    printf("\t FUDGESCALE_MWEBV  = %.2f \n", tmp );
+  }
+
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.RV_MWCOLORLAW += tmp ;
+    printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
+  }
+  
+  // host photo-z, R.Kessler May 2 2022
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_zPHOT_HOST;
+  if ( tmpSigma != 0.0 ) {
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.HOSTLIB_GENZPHOT_BIAS[0] = tmp;
+    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
+    printf("\t HOSTLIB_GENZPHOT_BIAS  = %f \n", tmp );
+  }
+
+
+  // Redshift P.Armstrong 2020
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
+  if ( tmpSigma != 0.0 ) {
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.GENBIAS_REDSHIFT = tmp ;
+    printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
+   }
+
+  // - - - - - 
+  // check wild card files
+  wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD; 
+  if ( strlen(wildcard) > 0 ) 
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENMODEL_WILDCARD", INPUTS.GENMODEL); }
+
+  wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
+  if ( strlen(wildcard) > 0 ) 
+    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENPDF_FILE_WILDCARD", INPUTS.GENPDF_FILE); }
+
+  // cosmology params (Aug 2019)
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.OMEGA_MATTER += tmp ;
+    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
+  }
+
+  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER ;
+  if ( tmpRange[1] > tmpRange[0] ) { 
+    NSET++; Range = tmpRange[1] - tmpRange[0];
+    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
+    INPUTS.OMEGA_MATTER += tmp ;
+    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
+  }
+
+
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
+  }
+
+  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
+  if ( tmpRange[1] > tmpRange[0] ) { 
+    NSET++; Range = tmpRange[1] - tmpRange[0];
+    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
+  }
+
+  printf("\t* Last  Sync-Syst Random : %f "
+	 "(should be same each survey)\n", getRan_Flat1(ILIST_RAN) );
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //     Now the unsynched variations
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // need to unsync the randoms among surveys. Add 137*IDSURVEY
+  // to ISEED and then re-init the randoms with new SEED.
+
+  int IDUM      = GENLC.IDSURVEY ;
+  int ISEED_OLD = INPUTS.ISEED ;
+  int ISEED_NEW = ISEED_OLD + 137*IDUM ;
+  INPUTS.ISEED  = ISEED_NEW ;
+  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
+  printf("\t* ISEED = %d --> %d \n", ISEED_OLD, ISEED_NEW );
+
+  printf("\t* First Unsync-Syst Random : %f "
+	 "(should differ each survey)\n", getRan_Flat1(ILIST_RAN) );
+
+  // start with fluxerr fudging; SIGSCALE is sigma on fractional change
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
+  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  if ( tmpSigma != 0.0 ) {   
+    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.FUDGESCALE_FLUXERR = tmp;
+    printf("\t FUDGESCALE_FLUXERR(true&measured) = %.3f \n", tmp );
+    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+      { INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt] = tmp; }
+  }
+
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
+  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  if ( tmpSigma != 0.0 ) {   
+    NSET=1; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+    INPUTS.FUDGESCALE_FLUXERR2 = tmp;
+    printf("\t FUDGESCALE_FLUXERR2(measured) = %.3f \n", tmp );
+    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+      { INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt] = tmp; }
+  }
+
+  // ZP error
+  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt];
+    if ( tmpSigma != 0.0 ) {
+      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+      INPUTS.TMPOFF_ZP[ifilt]         = tmp;
+      INPUTS.GENMAG_OFF_ZP[ifilt_obs] = tmp ;
+      printf("\t ZPerr(%s) = %7.4f  (SIG=%.3f) \n", 
+	     cfilt, tmp, tmpSigma );
+    }
+  }
+
+  // LAMshift error
+  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt];
+    if ( tmpSigma != 0 ) {
+      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
+      INPUTS.FUDGESHIFT_LAM_FILTER[ifilt_obs] = tmp ;
+      INPUTS.TMPOFF_LAMFILT[ifilt]            = tmp ;
+      printf("\t LAMSHIFT(%s) = %6.2f A  (SIG=%.1f A)\n", 
+	     cfilt, tmp, tmpSigma );
+    }
+  }
+
+
+  printf("   %d Systematic Errors have been set. \n", NSET);
+
+  // - - - - - - - - - - - -
+  // check option to reset randoms with fixed random seed
+  // so that there are no stat fluctuations between
+  // GENVERSIONs with different systematics.
+  int RANSEED_GEN = INPUTS.RANSYSTPAR.RANSEED_GEN;
+  if ( RANSEED_GEN > 0 ) {
+    printf("   Re-init randoms with RANSEED = %d\n", RANSEED_GEN ) ;
+    init_random_seed(RANSEED_GEN, INPUTS.NSTREAM_RAN); 
+  }
+
+  printf("\n");
+
+  return ;
+
+} // end prep_RANSYSTPAR_LEGACY

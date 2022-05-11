@@ -232,7 +232,11 @@ typedef struct {
 typedef struct {
   int   USE ;
 
-  int   RANSEED_GEN;         // fix ranseed for generation AFTER picking syst params
+  int  IDSURVEY;    // override true IDSURVEY for survey-dependent randoms
+
+  int  RANSEED_SYST; // RANSEED for picking syst variations (if >0)
+  int  RANSEED_GEN;  // ranseed for AFTER picking syst params (if >0)
+
   float SIGSHIFT_ZP[MXFILTINDX];
   float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang
   float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG
@@ -1793,7 +1797,8 @@ void   prep_dustFlags(void);
 void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
-void   prep_RANSYSTPAR(void); // called after reading user input
+void   prep_RANSYSTPAR(void); 
+void   prep_RANSYSTPAR_LEGACY(void); 
 void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);

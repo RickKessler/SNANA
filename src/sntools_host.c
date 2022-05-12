@@ -3855,10 +3855,10 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
   // if Gaussian quantile is requested without any quantiles in the
   // HOSTLIB, force 10 quantiles.
   if ( USE_QGAUSS && N_Q == 0 ) {
-    N_Q = HOSTLIB.NZPHOT_Q = 10;
-    qbin = 100/N_Q;
-    for(q=0; q<N_Q; q++ ) {
-      percentile = (q+1) * qbin; // skip 0 percentile
+    N_Q = HOSTLIB.NZPHOT_Q = 11; // 0, 10, 20 ..... 100
+    qbin = 100/(N_Q - 1);
+    for(q=0; q < N_Q; q++ ) {
+      percentile = q * qbin;
       HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
       sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q],"%s%3.3d", 
 	      PREFIX_ZPHOT_Q, percentile);
@@ -3896,6 +3896,9 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
       //  printf(" xxx %s: xsig = %8.5f, gint = %8.5f \n", fnam, xsig, gint);
       for ( q=0; q < N_Q; q++ ) {
 	gint_target =  (double)HOSTLIB.PERCENTILE_ZPHOT_Q[q]/100.0 ;
+	if ( gint_target == 0.0 ) { gint_target = 0.001; }
+	if ( gint_target == 1.0 ) { gint_target = 0.999; }
+
 	xdif = fabs(gint - gint_target);
 	if ( xdif < xdif_store[q] ) {
 	  xdif_store[q] = xdif ;
@@ -7514,7 +7517,6 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
 
   if ( USE_QGAUSS ) {
     // test feature to use Gauss approx 
-
     ZPHOT     = get_VALUE_HOSTLIB(IVAR_ZPHOT,    IGAL);
     ZPHOT_ERR = get_VALUE_HOSTLIB(IVAR_ZPHOT_ERR,IGAL);
 

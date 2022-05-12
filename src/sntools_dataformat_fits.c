@@ -3033,7 +3033,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   // Feb 10, 2021: check for SIM_SL_FLAG (strong lens)
   //
 
-  int ipar, ivar ;
+  int ipar, ivar, q ;
   char key[60], tmpString[60];
   char fnam[] = "RD_SNFITSIO_GLOBAL" ;
 
@@ -3141,6 +3141,15 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
       sprintf(key,"PRIVATE%d", ivar);
       if ( strcmp(parName,key) == 0 ) 
 	{  sprintf(tmpString,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );  }
+    }
+  }
+
+  // check optional PERCENTILES for photo-z quantiles
+  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
+    for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
+      sprintf(key,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, q);
+      if ( strcmp(parName,key) == 0 ) 
+	{ sprintf(tmpString,"%s", SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ); }
     }
   }
 
@@ -4390,6 +4399,9 @@ void rd_snfitsio_zphot_q(void) {
     sprintf(comment,"Read %s", keyname);
     fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
     
+    //    printf(" xxx %s: PCT=%d for ivar=%d (istat=%d)\n", 
+    //	   fnam, PCT, ivar, istat );
+
     if ( istat == 0 ) {
       SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT ;
       NFIND_KEY++ ;

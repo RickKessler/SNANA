@@ -1416,6 +1416,7 @@ c logical flags for output tables
 
       INTEGER*8  SNHOST_OBJID(MXSNHOST)    ! int id
       REAL*8    DSNHOST_OBJID(MXSNHOST)   ! for tables only
+      CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40
 
       REAL
      &   SNHOST_ANGSEP(MXSNHOST)      ! SN-host sep, arcsec
@@ -1462,6 +1463,7 @@ c
      &  ,SNHOST_ANGSEP, SNHOST_DDLR, SNHOST_CONFUSION
      &  ,SNHOST_ZPHOT,   SNHOST_ZPHOT_ERR
      &  ,SNHOST_ZPHOT_Q, SNHOST_ZPHOT_PERCENTILE, SNHOST_NZPHOT_Q
+     &  ,VARNAME_ZPHOT_Q
      &  ,SNHOST_ZSPEC,   SNHOST_ZSPEC_ERR 
      &  ,SNHOST_LOGMASS, SNHOST_LOGMASS_ERR
      &  ,SNHOST_LOGSFR, SNHOST_LOGSFR_ERR
@@ -3752,6 +3754,8 @@ c Mar 2022: check option to re-write sims to look like real data
 
       CALL RDGLOBAL_PRIVATE(OPT)
 
+      CALL RDGLOBAL_ZPHOT_Q(OPT)  ! May 2022
+
       IF ( LSIM_SNANA ) THEN
          CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", 
      &        ONE, SIMLIB_FILENAME, DARRAY, OPT)
@@ -3991,6 +3995,71 @@ c ----------------------------------------------
 
       RETURN
       END  ! end of RDGLOBAL_PRIVATE
+
+C =================================
++DECK,RDGLOB_ZPHOT_Q.
+      SUBROUTINE RDGLOBAL_ZPHOT_Q(OPT)
+
+c Created May 12 2022
+c Read/parse names host galaxy photo-z quantiles that determine
+c column names. E.g., percentile 20 means HOSTGAL_ZPHOT_Q020 exists.
+c
+
+      IMPLICIT NONE
+
+      INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,PRIVCOM.
+
+      INTEGER   IVAR, q, PCT, LENKEY
+      REAL*8    DARRAY(MXZPHOT_Q)
+      CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
+
+C -------------- BEGIN ---------------
+
+      CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q", 
+     &     ONE, DUMSTRING, DARRAY, OPT)
+      SNHOST_NZPHOT_Q = int(DARRAY(1))
+
+      print*,' xxx OPT, NZPHOT_Q = ', OPT, SNHOST_NZPHOT_Q
+
+      IF ( SNHOST_NZPHOT_Q .LE. 0 ) RETURN
+
+      IF( SNHOST_NZPHOT_Q > MXZPHOT_Q ) THEN
+         write(C1ERR,61) SNHOST_NZPHOT_Q, MXZPHOT_Q
+ 61      format('NZPHOT_Q=',I4,' exceeds MXZPHOT_Q=',I4 )
+         C2ERR = 'Check XXX_HEAD.FITS file'
+         CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
+      ENDIF
+c ----------------------------------------------
+
+      DO 100 ivar = 1, SNHOST_NZPHOT_Q 
+
+        q = ivar - 1 ! C index 0 to N-1
+        write(cnum, '(I2.2)') q
+        KEYNAME = "PERCENTILE_ZPHOT_Q" // CNUM
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME, 
+     &     ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )
+
+        PCT = INT(DARRAY(1))
+        SNHOST_ZPHOT_PERCENTILE(ivar) = DARRAY(1)
+
+c load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
+        write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT
+        write(VARNAME_ZPHOT_Q(2,ivar),102) 'HOSTGAL2', PCT
+102     format(A,'_ZPHOT_Q', I3.3)
+
+100   CONTINUE
+
+      print*,' xxx SNHOST_ZPHOT_PERCENTILE = ', 
+     &      SNHOST_ZPHOT_PERCENTILE(1:12)
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of RDGLOBAL_ZPHOT_Q
 
 C =======================================
 +DECK,RDGLOB_SIMSED.
@@ -4419,9 +4488,11 @@ c i.e., do not depend on host-match.
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
 
-         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NZPHOT_Q", 
-     &        ONE, STRING, DARRAY, OPT)
-         SNHOST_NZPHOT_Q = INT(DARRAY(1))
+c xxxxxxxxxxxxx mark delete xxxxxx
+c         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NZPHOT_Q", 
+c     &        ONE, STRING, DARRAY, OPT)
+c         SNHOST_NZPHOT_Q = INT(DARRAY(1))
+c xxxxxxxxxx end mark xxxxxxxxxxxxxxxxxxxxx
 
          CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
      &        ONE, STRING, DARRAY, OPT)
@@ -4471,14 +4542,16 @@ c - - -
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
-c .xyz read ZPHOT_Q (May 2022)
+c read ZPHOT_Q (May 2022)
       if ( SNHOST_NZPHOT_Q > 0 ) then
-        KEY    = PREFIX(1:LENPRE)//'_ZPHOT_Q'
-        CALL FETCH_SNDATA_WRAPPER(KEY, SNHOST_NZPHOT_Q, 
-     &              STRING, DARRAY, OPT)
         DO q = 1, SNHOST_NZPHOT_Q
-          SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(q))
+          KEY = VARNAME_ZPHOT_Q(igal,q)
+          CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+          SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
         ENDDO
+c          print*,' xxx ------------------------------------------- '
+c          print*,' xxx CID ,igal = ', SNLC_CCID, igal
+c          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
       endif
 
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
@@ -4513,7 +4586,6 @@ c - - -
       IF ( SNHOST_DDLR(igal) > 0.0 )  EXIST_SNHOST_DDLR = .TRUE.
 
 c - - - - - - - - - - - -  -
-c ??? maybe ?? CALL HOST_PROPERTY_LIST_SNDATA(HOST_PROPERTY_LIST,MXCHAR_FILENAME)
 
       KEY    = PREFIX(1:LENPRE)//'_LOGMASS' ;   
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)

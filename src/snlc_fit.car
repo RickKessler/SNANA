@@ -10667,15 +10667,10 @@ c ------------------------
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER 
-     &   ibin
-     &  ,ipar
-     &  ,HOFF, hid
-     &  ,NPRIOR
+      INTEGER  ibin, ipar, NPRIOR
 
       REAL*8
-     &   tmp
-     &  ,prob, chi2, arg
+     &   tmp, prob, chi2, arg
      &  ,xmin, xmax, xbin, x , wgt
 
       LOGICAL LSTAT
@@ -10683,7 +10678,7 @@ c ------------------------
 c hbook args
 
       REAL x4min, x4max, x4, w4, x4bin
-      INTEGER nb, LL, NDIM, LCHIS
+      INTEGER nb, LL, NDIM, LCHIS, HOFF, hid
       CHARACTER chis*80
 
 c function
@@ -10699,7 +10694,6 @@ c initalize all chi2-prior to zero.
           PRIOR_CHI2GRID(ibin,ipar) = 0.0
           PRIOR_PROBGRID(ibin,ipar) = 0.0
           PRIOR_GRID(ibin,ipar)     = 0.0
-
       ENDDO
       ENDDO
 
@@ -10736,6 +10730,7 @@ c check OPT_PRIOR after MJD prior is set.
 
       IF ( OPT_PRIOR .EQ. 0  ) GOTO 900
 
+c - - - - - - -  -
 c Set PhotoZ PRIOR for SN-photoZ fit.
 c
       IF ( DOFIT_PHOTOZ ) THEN
@@ -10753,6 +10748,7 @@ c
 
       ENDIF
 
+c - - - - - -  -
 c now turn on prior(s) specific to model
 
       IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 .or. 
@@ -10882,18 +10878,11 @@ c ------------------------
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER
-     &   IPAR
-     &  ,IZ
+      INTEGER IPAR, IZ
 
       REAL*8
-     &   tmp
-     &  ,Zpull_BINSIZE
-     &  ,Zpull, XZ
-     &  ,CHI2, PROB
-     &  ,SQSIG
-     &  ,SQDIF
-     &  ,GNORM
+     &   tmp, Zpull_BINSIZE, Zpull, XZ
+     &  ,CHI2, PROB, SQSIG, SQDIF, GNORM
 
 C -------------- BEGIN ---------------
 

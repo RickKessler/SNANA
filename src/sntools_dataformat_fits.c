@@ -3465,11 +3465,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       for(iq=0; iq < N_Q; iq++ ) {
 	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
 	float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
-        sprintf(KEY,"%s_%s%d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
+        sprintf(KEY,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
         j++ ; NRD=RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 
-	printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
-	       fnam, KEY, zq, PCT); fflush(stdout);
+	//printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
+	//     fnam, KEY, zq, PCT); fflush(stdout);
       }
       
 

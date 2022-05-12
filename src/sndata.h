@@ -56,7 +56,7 @@
 #define MXHOSTGAL      2 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-#define MXBIN_ZPHOT_Q 100 // max number of quantile percent bins
+#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
 
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 

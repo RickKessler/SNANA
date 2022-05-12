@@ -571,7 +571,13 @@ void init_OPTIONAL_HOSTVAR(void) {
   }
   for (j=0; j < MXBIN_ZPHOT_Q; j++){
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "%s%d", HOSTLIB_PREFIX_ZPHOT_Q, j);  // index 
+    sprintf(cptr, "%s%d",    HOSTLIB_PREFIX_ZPHOT_Q, j); 
+
+    // allow zero-padding ; e.g. ZPHOT_Q020
+    if ( j < 100 ) {
+      cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
+      sprintf(cptr, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, j); 
+    }
   }
 
   cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
@@ -2240,7 +2246,11 @@ void read_head_HOSTLIB(FILE *fp) {
 	      int   percentile, N_Q = HOSTLIB.NZPHOT_Q;
 	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
 	      sscanf(&c_var[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
-	      sprintf(VARNAME, "%s", c_var);
+	      // xxx mark delete sprintf(VARNAME, "%s", c_var);
+
+	      // HOSTLIB ZPHOT_Qnn may not include pad zeros, but outpu
+	      // VARNAME must include pad zeros.
+	      sprintf(VARNAME, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, percentile);
 	      HOSTLIB.PERCENTILE_ZPHOT_Q[N_Q] = percentile ;
               HOSTLIB.NZPHOT_Q++ ;
             }
@@ -3849,9 +3859,8 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
     qbin = 100/N_Q;
     for(q=0; q<N_Q; q++ ) {
       percentile = (q+1) * qbin; // skip 0 percentile
-      if ( percentile == 100 ) { percentile = 99; }
       HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
-      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q],"%s%d", 
+      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q],"%s%3.3d", 
 	      PREFIX_ZPHOT_Q, percentile);
     }
   }

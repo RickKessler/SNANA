@@ -5012,8 +5012,15 @@ c -----------------------------------------
 c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
-        pull   = PRIOR_ZPULL(isn,ZSN)
-        CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+
+        if ( SNHOST_NZPHOT_Q > 0 ) then
+	  ! .xyz 
+          ! SNHOST_ZPHOT_PERCENTILE(q)
+          ! SNHOST_ZPHOT_Q(igal,q)
+        else
+          pull   = PRIOR_ZPULL(ZSN)
+          CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+        endif
 
         pull   = PRIOR_MUPULL(isn,ZSN,MU)
         CHI2PRIOR(IPAR_DLMAG) = CHI2PRIOR(IPAR_DLMAG) +
@@ -11891,7 +11898,7 @@ c xxxxxxxxxxxxxxxx
 
 C =================================
 +DECK,PRIOR_ZPULL.
-      DOUBLE PRECISION FUNCTION PRIOR_ZPULL(isn,ZSN)
+      DOUBLE PRECISION FUNCTION PRIOR_ZPULL(ZSN)
 c
 c Created April 20, 2007 by R.Kessler
 c
@@ -11912,7 +11919,6 @@ c ------------------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER isn  ! (I) SN index
       REAL*8  ZSN  ! (I) redshift in fit
 
 c local

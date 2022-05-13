@@ -4023,8 +4023,6 @@ C -------------- BEGIN ---------------
      &     ONE, DUMSTRING, DARRAY, OPT)
       SNHOST_NZPHOT_Q = int(DARRAY(1))
 
-      print*,' xxx OPT, NZPHOT_Q = ', OPT, SNHOST_NZPHOT_Q
-
       IF ( SNHOST_NZPHOT_Q .LE. 0 ) RETURN
 
       IF( SNHOST_NZPHOT_Q > MXZPHOT_Q ) THEN
@@ -4053,8 +4051,7 @@ c load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
 
 100   CONTINUE
 
-      print*,' xxx SNHOST_ZPHOT_PERCENTILE = ', 
-     &      SNHOST_ZPHOT_PERCENTILE(1:12)
+cc      print*,' xxx ZPHOT_PERCENTILE = ', SNHOST_ZPHOT_PERCENTILE(1:12)
 
       CALL FLUSH(6)
 

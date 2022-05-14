@@ -5015,7 +5015,7 @@ c Prior on photoZ
 
         if ( SNHOST_NZPHOT_Q > 0 ) then
 	  ! .xyz 
-          ! SNHOST_ZPHOT_PERCENTILE(q)
+          ! SNHOST_ZPHOT_PERCENTILE(q)  ! cumulative CDF
           ! SNHOST_ZPHOT_Q(igal,q)
         else
           pull   = PRIOR_ZPULL(ZSN)

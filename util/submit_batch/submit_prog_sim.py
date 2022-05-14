@@ -46,6 +46,10 @@
 #   before SIMLOGS.tar (better organized) 
 #
 # May 3 2022: protect arg wildcards by adding quotes; see util.protect_wildcard
+#
+# May 14 2022: if RANSYSTPAR_RANSEED_SYST is set in genopt, sync the 
+#               ranseed_syst args among isplit.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -1620,12 +1624,16 @@ class Simulation(Program):
         if key not in INFILE_KEYS[iver][ifile] :
             arg_list.append(f"    {key} {CWD}")
 
+        # May 2022: check option to sync ransystpar random seeds
+        #   Note that genopt may be modified.
+        genopt = self.sync_ransystpar_ranseed_syst(genopt,isplit1)
+        #sys.exit(f"\n genopt= {genopt}")
+
         arg_list.append(f"{genopt}")         # user args by version
         arg_list.append(f"{genopt_global}")     # user global args
         if IS_CHANGE and n_include_files > 0:
             input_include_file = self.config_prep['include_list'][isplit]
             arg_list.append(f"INPUT_INCLUDE_FILE {input_include_file}")
-
 
         JOB_INFO['input_file']    = infile
         JOB_INFO['log_file']      = log_file
@@ -1649,6 +1657,33 @@ class Simulation(Program):
     def genversion_split_suffix(self,isplit,Nsec):
         suffix = f"{isplit:04d}_{Nsec}"
         return suffix
+
+    def sync_ransystpar_ranseed_syst(self,genopt,isplit1):
+
+        # if genopt contains "RANSYSTPAR_RANSEED_SYST <ranseed>",
+        # then replace ranseed with value that depends on isplit1
+        # so that all ISPLIT=1 have same seed, all ISPLIT=2 have same
+        # seed, etc ... Goal is to sync correlated systematics among
+        # samples; e.g., galactic extinction, cosmology params ...
+        # Note that argument genopt is modified.
+
+        key = "RANSYSTPAR_RANSEED_SYST"
+        genopt_out = genopt  
+        if key in genopt:
+            genopt_list   = genopt.split()
+            j             = genopt_list.index(key)
+            ranseed_orig  = int(genopt_list[j+1])
+            ranseed_split = ranseed_orig*7 + isplit1*41 
+
+            str_orig      = str(ranseed_orig)
+            str_split     = str(ranseed_split)
+            genopt_out    = genopt.replace(str_orig,str_split)
+            print(f"\t ransystpar_ranseed_syst -> {ranseed_split}" \
+                  f" for ISPLIT={isplit1}")
+            
+        return genopt_out
+        
+        # end sync_ransystpar_ranseed_syst
 
     def append_info_file(self,f):
 
@@ -2106,7 +2141,7 @@ class Simulation(Program):
 
         cmd     = f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz} "
 
-        # gzip FITS files if not already gzipped. .xyz
+        # gzip FITS files if not already gzipped. 
         fits_list = glob.glob1(target_dir,"*.FITS")
         if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
 

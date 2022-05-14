@@ -70,7 +70,7 @@
 
 #define MXCHAR_LINE_HOSTLIB 900  // max number of chars per HOSTLIB line
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
-#define MXVAR_HOSTLIB       300  // max number of variables (NVAR:) in HOSTLIB
+#define MXVAR_HOSTLIB       400  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
 #define MXROW_HOSTLIB     10000000  // 10 million, Alex Gagliano 09/2021

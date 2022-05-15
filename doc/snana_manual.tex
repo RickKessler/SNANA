@@ -6754,7 +6754,7 @@ for all tables formats.
    \label{ssec:RANSYSTPAR}
 % ------------------------------------
 
-While systematic variations are typically done in the analysis stage,
+While systematic variations are typically evaluated in the analysis stage,
 it may be useful to simulate a large number of data-sized samples,
 each with a different random set of systematic errors applied.
 In principle, one can define each set of variations in a brute-force manner:
@@ -6763,14 +6763,12 @@ and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
 {\tt GENVERSION} (see \S\ref{sss:submit_batch}).
 
 Instead of the brute-force apporach, it is simpler to use the 
-{\tt RANSYSTPAR\_XXX} input parameters so that the user need 
-only change {\tt RANSEED} and the simulation picks random errors.
+{\tt RANSYSTPAR\_XXX} input parameters so that 
+the simulation picks random errors.
 Here are examples of available options for the sim-input file:
 %
 \begin{Verbatim}[frame=single]
-   GENFILTERS:  griz
-   RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
-   RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
+#       systematics that are 100 percent correlated among samples
    RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
    RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
    RANSYSTPAR_SIGSHIFT_REDSHIFT: 1E-4     # shift measured redshift
@@ -6787,6 +6785,15 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_GENPDF_FILE_WILDCARD: "/path/to/genpdf_files*" 
            # pick random GENPDF_FILE out of globbed list
 
+\end{Verbatim}
+
+\bigskip
+
+\begin{Verbatim}[frame=single]
+#             systematics that depend on survey
+  GENFILTERS:  griz
+  RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
+  RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
   # filter-dependent variants:
   RANSYSTPAR_SIGSHIFT_ZP:           .01 .02 -0.01 .03      # sigma per band
   RANSYSTPAR_SIGSHIFT_ZP(g,r,i,z):  .01 .02 -0.01 .03      # idem
@@ -6795,20 +6802,28 @@ Here are examples of available options for the sim-input file:
 
   RANSYSTPAR_SIGSHIFT_LAMFILT:          8 7 19 9   # sigma per band
   RANSYSTPAR_SIGSHIFT_LAMFILT(g,r,i,z): 8 7 10 9   # idem
+\end{Verbatim}
+
+\clearpage
+
+\begin{Verbatim}[frame=single]
+  # misc control parameters
+
+  # use this random to select sytematic shifts; then switch back to
+  # user-define RANSEED, or RANSEED_GEN above. submut_batch_jobs uses
+  # this key to define correlated syst for each of the N samples.
+  RANSYSTPAR_RANSEED_SYST: 12345      
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
   RANSYSTPAR_RANSEED_GEN: 12345  
 
-  # use this random to select sytematic shifts; then switch back to
-  # user-define RANSEED, or RANSEED_GEN above.
-  RANSYSTPAR_RANSEED_SYST: 12345      
-
   # if different surveys use same instrument, force the same 
   # IDSURVEY-dependent randoms for systematics such as ZP and FilterWave.
   RANSYSTPAR_IDSURVEY: 15 # e.g, same shifts for Found and PS1
 \end{Verbatim}
-%
+%  .xyz
+
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.
 A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
 and then a random Gaussian number, $r$, is picked. 
@@ -6839,6 +6854,12 @@ of shifts.
 %
   \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
           to each filter bandpass.
+%
+  \item {\tt RANSYSTPAR\_RANSEED\_SYST} is a flag for 
+      {\tt submit\_batch\_jobs.sh} to select the same random for each
+      split job. For exampe, consider 50 random data samples for LOWZ,PS1,DES.
+      Split-sample 1 gets the same {\tt RANSYSTPAR\_RANSEED\_SYST} value
+      for each survey,  split-sample 2 gets a different value, etc...
 %
   \item {\tt RANSYSTPAR\_RANSEED\_GEN} allows fixing the generation seed
         after systematic variations are selected. This removes statistical

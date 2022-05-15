@@ -6697,7 +6697,7 @@ void  prep_RANSYSTPAR(void) {
   if ( INPUTS.RANSYSTPAR.USE == 0 ) { return ; }
 
   // DEBUG_FLAG=511 to use refactor code ... for now 
-  if ( INPUTS.DEBUG_FLAG != 511 ) { prep_RANSYSTPAR_LEGACY(); return; }
+  //xxx mark if(INPUTS.DEBUG_FLAG!=511) { prep_RANSYSTPAR_LEGACY(); return; }
 
   sprintf(BANNER,"%s: Prepare Random set of Systematic Errors", fnam );
   print_banner(BANNER);

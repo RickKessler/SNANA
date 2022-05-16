@@ -267,7 +267,6 @@ class gensed_BAYESN:
                     self.bayesn_distribs[param] = distrib
             # end logic for number of parameters set
         # end loop over parameters
-        print(self.bayesn_distribs)
 
 
     def fetchSED_NLAM(self):
@@ -325,7 +324,8 @@ class gensed_BAYESN:
             eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
             epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
             useful_pars['EPSILON'] = list(epsilon_vec)
-            print(useful_pars, 'set')
+            if self.verbose:
+                print(useful_pars, 'set')
 
             self.setParVals_BAYESN(**useful_pars)
 
@@ -418,6 +418,7 @@ class gensed_BAYESN:
             return self.parameter_values[varname][0]
         return self.parameter_values[varname]
 
+
 def invKD_irr(x):
 	"""
 	Compute K^{-1}D for a set of spline knots.
@@ -446,6 +447,7 @@ def invKD_irr(x):
 	K[0,0:2] = [(x[2] - x[0])/3, (x[2] - x[1])/6]
 	K[-1, -2:n-2] = [(x[n-2] - x[n-3])/6, (x[n-1] - x[n-3])/3]
 
+    # should be able to vectorize this - GN 05/16/22
 	for j in np.arange(2,n-2):
 		row = j - 1
 		K[row, row-1:row+2] = [(x[j] - x[j-1])/6, (x[j+1] - x[j-1])/3, (x[j+1] - x[j])/6]
@@ -456,6 +458,7 @@ def invKD_irr(x):
 	M = np.zeros((n,n))
 	M[1:-1, :] = np.linalg.solve(K,D)
 	return M
+
 
 def cartesian_prod(x, y):
 	"""
@@ -476,6 +479,7 @@ def cartesian_prod(x, y):
 	n_x = len(x)
 	n_y = len(y)
 	return np.array([np.repeat(x,n_y),np.tile(y,n_x)]).T
+
 
 def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
 	"""
@@ -548,6 +552,7 @@ def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
 
 	return X
 
+
 def main():
     mySED=gensed_BAYESN('$SNANA_LSST_USERS/gnarayan/bayesn/',2,[],'z,AGE,ZCMB,METALLICITY')
 
@@ -585,10 +590,6 @@ def main():
         flux = mySED.fetchSED_BAYESN(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
     fig2.savefig('phase_sequence.png')
-
-
-
-
 
 
 if __name__=='__main__':

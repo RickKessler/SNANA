@@ -8,7 +8,6 @@ import numpy as np
 import scipy.stats as st
 from scipy.interpolate import RegularGridInterpolator
 import matplotlib.pyplot as plt
-from SNmodel import spline_utils
 
 
 mask_bit_locations = {'verbose':1,'dump':2}
@@ -16,8 +15,8 @@ DEFAULT_BAYESN_MODEL='M20'
 ALLOWED_BAYESN_MODEL=['M20', 'T21']
 ALLOWED_BAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
 ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
-PRODUCTS_DIR = os.getenv('PRODUCTS')
-BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'bayesn', 'SNmodel', 'model_files')
+PRODUCTS_DIR = os.getenv('SNDATA_ROOT')
+BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
 BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
 #ST: Computes a stupid nuisance factor
 GAMMA = np.log(10)/2.5
@@ -85,14 +84,14 @@ class gensed_BAYESN:
             print(f'gensed_BAYESN.py: INVALID BAYESN_MODEL {BAYESN_MODEL} - must be one of {ALLOWED_BAYESN_MODEL}')
             print_err()
 
-        bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'{BAYESN_MODEL}_model')
+        bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'BAYESN.{BAYESN_MODEL}')
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
                                     f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
 
         #ST: Computes spline invrse KD matrices.
-        self.KD_t = spline_utils.invKD_irr(self._bayesn_components["tau_knots"])
-        self.KD_l = spline_utils.invKD_irr(self._bayesn_components["l_knots"])
-        self.J_l = spline_utils.spline_coeffs_irr(self.wave, self._bayesn_components["l_knots"], self.KD_l)
+        self.KD_t = invKD_irr(self._bayesn_components["tau_knots"])
+        self.KD_l = invKD_irr(self._bayesn_components["l_knots"])
+        self.J_l =  spline_coeffs_irr(self.wave, self._bayesn_components["l_knots"], self.KD_l)
 
         #ST: Extracts the M0 parameter (this is kind of horrible)
         self.M0 = self._bayesn_components["M0_sigma0_RV_tauA"][0]
@@ -330,7 +329,7 @@ class gensed_BAYESN:
         #    Probably can't be precomputed
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
-        J_t = spline_utils.spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
+        J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
@@ -400,6 +399,135 @@ class gensed_BAYESN:
         """
         return self.parameter_values[varname]
 
+def invKD_irr(x):
+	"""
+	Compute K^{-1}D for a set of spline knots.
+
+	For knots y at locations x, the vector, y'' of non-zero second
+	derivatives is constructed from y'' = K^{-1}Dy, where K^{-1}D
+	is independent of y, meaning it can be precomputed and reused for
+	arbitrary y to compute the second derivatives of y.
+
+	Parameters
+	----------
+	x : :py:class:`numpy.array`
+		Numpy array containing the locations of the cubic spline knots.
+
+	Returns
+	-------
+	KD : :py:class:`numpy.array`
+		y independednt matrix whose product can be taken with y to
+		obtain a vector of second derivatives of y.
+	"""
+	n = len(x)
+
+	K = np.zeros((n-2,n-2))
+	D = np.zeros((n-2,n))
+
+	K[0,0:2] = [(x[2] - x[0])/3, (x[2] - x[1])/6]
+	K[-1, -2:n-2] = [(x[n-2] - x[n-3])/6, (x[n-1] - x[n-3])/3]
+
+	for j in np.arange(2,n-2):
+		row = j - 1
+		K[row, row-1:row+2] = [(x[j] - x[j-1])/6, (x[j+1] - x[j-1])/3, (x[j+1] - x[j])/6]
+	for j in np.arange(1,n-1):
+		row = j - 1
+		D[row, row:row+3] = [1./(x[j] - x[j-1]), -(1./(x[j+1] - x[j]) + 1./(x[j] - x[j-1])), 1./(x[j+1] - x[j])]
+
+	M = np.zeros((n,n))
+	M[1:-1, :] = np.linalg.solve(K,D)
+	return M
+
+def cartesian_prod(x, y):
+	"""
+	Compute cartesian product of two vectors.
+
+	Parameters
+	----------
+	x : :py:class:`numpy.array`
+		First vector.
+	x : :py:class:`numpy.array`
+		Second vector.
+
+	Returns
+	-------
+	z : :py:class:`numpy.array`
+		Cartesian product of x and y.
+	"""
+	n_x = len(x)
+	n_y = len(y)
+	return np.array([np.repeat(x,n_y),np.tile(y,n_x)]).T
+
+def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
+	"""
+	Compute a matrix of spline coefficients.
+
+	Given a set of knots at x, with values y, compute a matrix, J, which
+	can be multiplied into y to evaluate the cubic spline at points
+	x_int.
+
+	Parameters
+	----------
+	x_int : :py:class:`numpy.array`
+		Numpy array containing the locations which the output matrix will
+		interpolate the spline to.
+	x : :py:class:`numpy.array`
+		Numpy array containing the locations of the spline knots.
+	invkd : :py:class:`numpy.array`
+		Precomputed matrix for generating second derivatives. Can be obtained
+		from the output of ``invKD_irr``.
+	allow_extrap : bool
+		Flag permitting extrapolation. If True, the returned matrix will be
+		configured to extrapolate linearly beyond the outer knots. If False,
+		values which fall out of bounds will raise ValueError.
+
+	Returns
+	-------
+	J : :py:class:`numpy.array`
+		y independednt matrix whose product can be taken with y to evaluate
+		the spline at x_int.
+	"""
+	n_x_int = len(x_int)
+	n_x = len(x)
+	X = np.zeros((n_x_int,n_x))
+
+	if not allow_extrap and ((max(x_int) > max(x)) or (min(x_int) < min(x))):
+		raise ValueError("Interpolation point out of bounds! " +
+			"Ensure all points are within bounds, or set allow_extrap=True.")
+
+	for i in range(n_x_int):
+		x_now = x_int[i]
+		if x_now > max(x):
+			h = x[-1] - x[-2]
+			a = (x[-1] - x_now)/h
+			b = 1 - a
+			f = (x_now - x[-1])*h/6.0
+
+			X[i,-2] = a
+			X[i,-1] = b
+			X[i,:] = X[i,:] + f*invkd[-2,:]
+		elif x_now < min(x):
+			h = x[1] - x[0]
+			b = (x_now - x[0])/h
+			a = 1 - b
+			f = (x_now - x[0])*h/6.0
+
+			X[i,0] = a
+			X[i,1] = b
+			X[i,:] = X[i,:] - f*invkd[1,:]
+		else:
+			q = np.where(x[0:-1] <= x_now)[0][-1]
+			h = x[q+1] - x[q]
+			a = (x[q+1] - x_now)/h
+			b = 1 - a
+			c = ((a**3 - a)/6)*h**2
+			d = ((b**3 - b)/6)*h**2
+
+			X[i,q] = a
+			X[i,q+1] = b
+			X[i,:] = X[i,:] + c*invkd[q,:] + d*invkd[q+1,:]
+
+	return X
 
 def main():
     mySED=gensed_BAYESN('$SNANA_LSST_USERS/gnarayan/bayesn/',2,[],'z,AGE,ZCMB,METALLICITY')

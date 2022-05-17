@@ -22395,6 +22395,10 @@ void init_genmodel(void) {
 
     init_genSEDMODEL();       // pass filters and primary ref
     init_genmag_NON1ASED(-9,&INPUTS.NON1ASED); // do one-time inits for SEDs
+
+    // May 2022:
+    get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );
+
   }
   else if ( INDEX_GENMODEL == MODEL_NON1AGRID ) {
     double FRAC_PEC1A = INPUTS.RATEPAR_PEC1A.SEASON_FRAC ;

@@ -21062,6 +21062,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        append file that are in different order than in original HOSTLIB.
      + move INIT_HOSTLIB call inside "not LCLIB" if block
      + new input keyes RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
+     + call get_lamrange_SEDMODEL for NON1ASED model ...
+        to get u-band at high-z.
 
    sntools.c[h]
      + add varList_store arg to match_cidList_init ...
@@ -21076,6 +21078,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + read optional TRUE column of HOSTLIB so that a subset is used
        for TRUE hosts while the entire library is used for DLR matching.
          [need to update manual]
+     + fix char memory bug reading NBR_LIST
 
    sim_SNgrid.pl: fix a few bugs.
 

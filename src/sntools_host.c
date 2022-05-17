@@ -359,7 +359,7 @@ void initvar_HOSTLIB(void) {
    
   // malloc temp string pointers for splitString function
   for(ivar=0; ivar < MXTMPWORD_HOSTLIB; ivar++ ) 
-    { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 40*sizeof(char) ); }
+    { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 100*sizeof(char) ); }
 
   reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
 
@@ -2877,12 +2877,15 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   //   + count NaN values (NERR_NAN)
   //   + check user override of GALMAG (ABMAG_FORCE)
   //
+  // May 16 2022; fix bug reading too-short char.
+  //              Replace WDLIST with global TMPWORD_HOSTLIB.
+  //
 
   int MXCHAR         = MXCHAR_LINE_HOSTLIB;
   double ABMAG_FORCE = INPUTS.HOSTLIB_ABMAG_FORCE;
   int MXWD = NVAL;
   int ival_FIELD, ival_NBR_LIST, ival, NWD=0, len, NCHAR ;
-  char WDLIST[MXVAR_HOSTLIB][40], *ptrWDLIST[MXVAR_HOSTLIB] ;
+  // xxx char WDLIST[MXVAR_HOSTLIB][100], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
   char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos, *varName ;
   char fnam[] = "read_galRow_HOSTLIB" ;
@@ -2904,8 +2907,9 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   if ( (pos=strchr(tmpLine,'\n') ) != NULL )  { *pos = '\0' ; }
 
   // split string into words
-  for(ival=0; ival < NVAL; ival++ ) { ptrWDLIST[ival] = WDLIST[ival]; }
-  splitString2(tmpLine, sepKey, MXWD, &NWD, ptrWDLIST);
+  //xx  for(ival=0; ival < NVAL; ival++ ) { ptrWDLIST[ival] = WDLIST[ival]; }
+  //xx  splitString2(tmpLine, sepKey, MXWD, &NWD, ptrWDLIST);
+  splitString2(tmpLine, sepKey, MXWD, &NWD, TMPWORD_HOSTLIB);
 
   // abort if too few columns, but allow extra columns
   // (e..g, comment or catenated files with extra columns)
@@ -2913,7 +2917,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
     print_preAbort_banner(fnam);
     printf("\t NGAL_READ = %d \n",  HOSTLIB.NGAL_READ );
     printf("\t LINE = '%s %s %s  ... ' \n", 
-	   WDLIST[0], WDLIST[1], WDLIST[2] );
+	   TMPWORD_HOSTLIB[0], TMPWORD_HOSTLIB[1], TMPWORD_HOSTLIB[2] );
     sprintf(c1err,"Found %d words after GAL key", NWD);
     sprintf(c2err,"but expected %d words.", NVAL );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -2927,13 +2931,13 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   if ( HOSTLIB.IVAR_NBR_LIST > 0 ) 
     { ival_NBR_LIST = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_NBR_LIST] ;  }
 
-
   for(ival=0; ival < NVAL; ival++ ) {
     VALUES[ival] = -9.0 ; 
     varName      = HOSTLIB.VARNAME_ALL[ival] ;
 
     if ( ival == ival_FIELD )  { 
-      sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
+      sprintf(tmpWORD, "%s", TMPWORD_HOSTLIB[ival] );
+      len = strlen(tmpWORD);
       if ( len > MXCHAR_FIELDNAME ) {
 	sprintf(c1err,"strlen(FIELD=%s) = %d exceeds storage array of %d",
 		tmpWORD, len, MXCHAR_FIELDNAME);
@@ -2944,7 +2948,8 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
     }
 
     else if ( ival == ival_NBR_LIST )  { 
-      sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
+      sprintf(tmpWORD, "%s", TMPWORD_HOSTLIB[ival] );
+      len = strlen(tmpWORD);
       if ( len > MXCHAR_NBR_LIST ) {
 	sprintf(c1err,"strlen(NBR_LIST=%s) = %d exceeds storage array of %d",
 		tmpWORD, len, MXCHAR_NBR_LIST);
@@ -2952,11 +2957,19 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(tmpWORD, "%s", NBR_LIST ); 
+
+      if ( strstr(NBR_LIST,".") != NULL ) {
+	long long  GALID = (long long)VALUES[0];
+	//	print_preAbort_banner(fnam);
+	sprintf(c1err,"Invalid NBR_LIST='%s'", NBR_LIST);
+	sprintf(c2err,"No decimals allowed; GALID=%lld", GALID);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
     }
 
     else {
       // float or int (non-string) value
-      sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
+      sscanf(TMPWORD_HOSTLIB[ival], "%le", &VALUES[ival] ); 
 
       // check option to force override for gal mags (May 2021)
       if ( ABMAG_FORCE > -8.0 ) {	
@@ -7028,7 +7041,14 @@ void GEN_SNHOST_NBR(int IGAL) {
     if ( rowNum > HOSTLIB.NGAL_READ ) {
       sprintf(c1err,"rowNum=%d exceeds NGAL_READ=%d",
 	      rowNum, HOSTLIB.NGAL_READ);
-      sprintf(c2err,"CID=%d  GALID=%lld", GENLC.CID, GALID);
+      sprintf(c2err,"CID=%d  GALID=%lld NBR_LIST=%s", 
+	      GENLC.CID, GALID, HOSTLIB.NBR_ZSORTED[IGAL]);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    }
+    if ( rowNum < 0 ) {
+      sprintf(c1err,"Invalid rowNum=%d i=%d of %d", rowNum, i, NNBR_READ);
+      sprintf(c2err,"CID=%d  GALID=%lld NBR_LIST=%s", 
+	      GENLC.CID, GALID, HOSTLIB.NBR_ZSORTED[IGAL]);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
     }
 

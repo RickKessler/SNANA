@@ -6086,33 +6086,38 @@ and the sub-sections below give more details.
    \label{sss:fits_format}
 % ------------------------------------
 ``{\tt\bf FORMAT\_MASK:  32}'' 
-uses the more compact binary-FITS format 
-that is processed using the {\tt cfitsio} library. 
+uses the compact binary-FITS format that is processed using the 
+{\tt cfitsio} library. 
 The advantage of this format is that there are very few files
 to manage, reading is much faster compared to the TEXT options, 
-the compact binary files are portable to any computing platform,
+FITS files are portable to any computing platform,
 and there are public fits-viewing utilities such as ``fv.''
 
-
-Two fits files are created by the simulation.
-First is a HEAD file with a one-row summary for each SN.
-The summary info includes the SNID, sky coordinates,
-Galactic extinction, and many other quantities.
-The HEAD file also contains the name of the second 
-``PHOT'' file which contains the photometric light curves.
-All of the light curves are written sequentially into one
-PHOT-table, and pointers from the HEAD file 
+For data version {\tt VVV}, the file {\tt VVV.LIST} points 
+a set of {\tt HEAD} files with a one-row summary for each SN.
+The summary info includes the SNID, sky coordinates, redshift,
+Galactic extinction, host-galaxy information, and many other quantities.
+Each {\tt HEAD} file also contains the name of the second 
+``{\tt PHOT}'' file which contains the photometric light curves.
+All of the light curves are written sequentially to the
+{\tt PHOT}-tables, and pointers in the {\tt HEAD} file 
 (see {\tt PTROBS\_MIN} and {\tt PTROBS\_MAX}) 
-are used to select the appropriate rows from the PHOT table.
-For a given SN-data version, the {\tt [VERSION].LIST} file
-contains a list of HEAD fits-files. Usually there is only
-one such fits-file, but several can be combined into one version,
-such as combining files from different seasons.
+are used to select the appropriate rows from the {\tt PHOT} table.
+To help catch pointer mistakes, {\tt MJD = -777} is written
+after each light curve to clearly indicate the end of the light curve.
 
-The  {\tt PHOT} table columns are:
+
+If {\tt submit\_batch\_jobs} is used to generate simulations on mutiple cores,
+there will be one {\tt HEAD} and one {\tt PHOT} file per core, all gzipped. 
+Reading a gzipped FITS file requires the memory of the entire unzipped FITS
+file; therefore the FITS files are not merged to reduce memory.
+For example, 40 1GB FITS files requires only 1GB of memory to read,
+while merging into one file would require 40 GB memory.
+
+The {\tt PHOT} table columns are:
 \begin{Verbatim}[frame=single]
   TTYPE1  = 'MJD     '           / MJD
-  TTYPE2  = 'FLT     '           / single-char band label
+  TTYPE2  = 'BAND    '           / single-char band label
   TTYPE3  = 'FIELD   '           / name of FIELD
   TTYPE5  = 'PHOTFLAG'           / bit-mask from photometry pipeline
   TTYPE6  = 'PHOTPROB'           / float FoM from photometry pipeline
@@ -6123,12 +6128,12 @@ The  {\tt PHOT} table columns are:
   TTYPE13 = 'PSF_RATIO'          / PSF2/PSF1 at origin
   TTYPE14 = 'SKY_SIG '           / Search image sky sigma (ADU/pixel) 
   TTYPE15 = 'SKY_SIG_T'          / Template sky sigma (ADU per pixel)
-  TTYPE16 = 'RDNOISE '           / read noise (pe/pixel)
-  TTYPE17 = 'ZEROPT  '           / zero point (ADU)
+  TTYPE16 = 'RDNOISE '           / image read noise (pe/pixel)
+  TTYPE17 = 'ZEROPT  '           / image zero point (ADU)
   TTYPE18 = 'ZEROPT_ERR'         / error on above
   TTYPE19 = 'GAIN    '           / ADU per pe
+  TTYPE21 = 'SIM_MAGOBS'         / True model mag (sim only)
 \end{Verbatim}
-
 
 % ------------------------------------
 %   \clearpage

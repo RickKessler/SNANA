@@ -6735,7 +6735,7 @@ void  prep_RANSYSTPAR(void) {
   if ( tmpSigma != 0.0 ) {
     NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.HOSTLIB_GENZPHOT_BIAS[0] = tmp;
-    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
+    // xxx mark delete May 21 2022    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
     printf("\t HOSTLIB_GENZPHOT_BIAS  = %f \n", tmp );
   }
 

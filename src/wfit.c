@@ -100,6 +100,8 @@
                        +=2 -> interpolation trick
       set default speed_flag_chi2=3 [use both speed tricks]
 
+ May 19 2022 RK - check COV*COVINV if "-debug_flag 1000"
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -343,6 +345,7 @@ void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile);
 void dump_MUCOV(char *comment);
 void invert_mucovar(double sqmurms_add);
+double check_invertMatrix(int N, double *COV, double *COVINV );
 void set_stepsizes(void);
 void set_Ndof(void);
 void init_rz_interp(void);
@@ -2632,9 +2635,12 @@ void invert_mucovar(double sqmurms_add) {
   // May 20, 2009 + 04 OCt, 2021
   // add diagonal elements to covariance matrix, then invert.
   //
-  int NSN = HD.NSN;
+  int  i, NSN = HD.NSN;
   time_t t0, t1;
-  // =================================
+  bool check_inverse = (INPUTS.debug_flag == 1000);
+  double *MUCOV_ORIG ;
+
+  // ---------------- BEGIN --------------
 
   printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
 	 NSN, NSN, sqmurms_add);
@@ -2646,10 +2652,21 @@ void invert_mucovar(double sqmurms_add) {
 
   if ( INPUTS.use_mucov) {
     t0 = time(NULL);
+
+    if ( check_inverse ) {
+      int MEMD = NSN * NSN * sizeof(double);
+      MUCOV_ORIG = (double*) malloc(MEMD);
+      for(i=0; i < NSN*NSN; i++ ) { MUCOV_ORIG[i] = WORKSPACE.MUCOV[i]; }
+    }
+
     invertMatrix( NSN, NSN, WORKSPACE.MUCOV ) ;
     t1 = time(NULL);
     double t_invert = (t1-t0);
     printf("\t Time to invert mucov matrix: %.1f seconds.\n", t_invert);
+
+    if ( check_inverse ) 
+      { check_invertMatrix(NSN,MUCOV_ORIG,WORKSPACE.MUCOV); }
+
   }
   fflush(stdout);
 
@@ -2658,6 +2675,42 @@ void invert_mucovar(double sqmurms_add) {
 } // end of invert_mucovar
 
 
+// =========================================
+double check_invertMatrix(int N, double *COV, double *COVINV ) {
+
+  int i, j, k;
+  double val, valinv;
+  double prod, absprod, prodmax_offdiag=0.0, prodmax_diag=0.0 ;
+  double *ptr_prodmax;
+  char fnam[] = "check_invertMatrix" ;
+
+  // ---------- BEGIN -----------
+
+  for(i=0; i < N; i++ ) {
+    for(j=0; j < N; j++ ) {
+      prod = 0.0 ;
+      for(k=0; k < N; k++ ) {
+	val    = COV[i*N+k] ; 
+	valinv = COVINV[k*N+j] ; 
+	prod  += val * valinv;
+	//c[i][j]+=a[i][k]*b[k][j];
+      } // end k
+
+      if ( i==j ) 
+	{ absprod = fabs(prod-1.0); ptr_prodmax = &prodmax_diag; }
+      else
+	{ absprod = fabs(prod);     ptr_prodmax = &prodmax_offdiag; }
+      
+      if ( absprod > *ptr_prodmax ) { *ptr_prodmax = absprod; }
+    }
+  }
+
+  printf("\t max[diag-1  C*Cinv] = %le\n", prodmax_diag);
+  printf("\t max[offdiag C*Cinv] = %le\n", prodmax_offdiag);
+  fflush(stdout);
+
+  return;
+} // end check_invertMatrix
 
 // ===========================
 void get_chi2wOM ( 

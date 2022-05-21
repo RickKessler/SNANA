@@ -237,6 +237,7 @@ struct HOSTLIB_DEF {
   int *LIBINDEX_READ; // map between read index (no cuts) and unsorted
 
   int MALLOCSIZE_D, MALLOCSIZE_I, MALLOCSIZE_Cp ;
+  int NGAL_STORE_MALLOC ;
 
   // pointers to stored variables
   int IVAR_GALID ;

@@ -3082,6 +3082,8 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
     HOSTLIB.MALLOCSIZE_I  += (I4  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
 
+    HOSTLIB.NGAL_STORE_MALLOC = 0;
+
     // allocate memory for each variable to store
     for ( ivar = 0; ivar < HOSTLIB.NVAR_STORE; ivar++ ) {
       HOSTLIB.VALUE_UNSORTED[ivar] = (double*)malloc(HOSTLIB.MALLOCSIZE_D);
@@ -3111,9 +3113,11 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   // --------------------------------------------------
   int UPD = ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 );
-  if ( UPD && NGAL_STORE > 0 ) {    
+  // xxx mark delete  if ( UPD && NGAL_STORE > 0 ) {    
+  if ( UPD && NGAL_STORE > HOSTLIB.NGAL_STORE_MALLOC ) {    
     HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.NGAL_STORE_MALLOC = NGAL_STORE; // May 2022
 
     if  ( LDMP )  { 
       printf("\t xxx Extend HOSTLIB malloc at NGAL_STORE=%d \n", 

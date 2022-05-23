@@ -69,7 +69,7 @@ class gensed_BAYESN:
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX', 'REDSHIFT']
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','TMAX', 'REDSHIFT']
             self.parameter_values = {key:0. for key in self.parameter_names if key !='EPSILON'}
             self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
 
@@ -94,8 +94,14 @@ class gensed_BAYESN:
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
                                     f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
 
+        self._nepsilon = len(self._bayesn_components["L_Sigma_epsilon"])
+
         # GN - initalize the epsilon vector
-        self.parameter_values['EPSILON'] = np.zeros(len(self._bayesn_components['L_Sigma_epsilon']))
+        self.parameter_names += [f'EPSILON{i:02d}' for i in range(self._nepsilon)]
+        print(self.parameter_names, 'test')
+        for i in range(self._nepsilon):
+            self.parameter_values[f'EPSILON{i:02d}'] = 0.
+        print(self.parameter_values, 'test')
 
         #ST: Computes spline invrse KD matrices.
         self.KD_t = invKD_irr(self._bayesn_components["tau_knots"])
@@ -323,7 +329,8 @@ class gensed_BAYESN:
 
             eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
             epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
-            useful_pars['EPSILON'] = list(epsilon_vec)
+            for i in range(self._nepsilon):
+                useful_pars[f'EPSILON{i:02d}'] = epsilon_vec[i]
             if self.verbose:
                 print(useful_pars, 'set')
 

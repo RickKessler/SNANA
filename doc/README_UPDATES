@@ -21083,4 +21083,5 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sim_SNgrid.pl: fix a few bugs.
 
+   psnic_BEST.c: allow for Ic-BL
 END: 

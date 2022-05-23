@@ -69,8 +69,8 @@ class gensed_BAYESN:
             self.wave = np.unique(self._hsiao['wave'])
             self.wavelen = len(self.wave)
             self.flux = self._hsiao['flux']
-            self.parameter_names = ['THETA1','AV','RV','DELTAM','EPSILON','TMAX', 'REDSHIFT']
-            self.parameter_values = {key:0. for key in self.parameter_names if key !='EPSILON'}
+            self.parameter_names = ['THETA1','AV','RV','DELTAM','TMAX', 'REDSHIFT']
+            self.parameter_values = {key:0. for key in self.parameter_names}
             self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
 
             ### SETUP THE BAYESN PARAMETER DISTRIBUTIONS
@@ -94,8 +94,12 @@ class gensed_BAYESN:
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
                                     f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
 
+        self._nepsilon = len(self._bayesn_components["L_Sigma_epsilon"])
+
         # GN - initalize the epsilon vector
-        self.parameter_values['EPSILON'] = np.zeros(len(self._bayesn_components['L_Sigma_epsilon']))
+        self.parameter_names += [f'EPSILON{i:02d}' for i in range(self._nepsilon)]
+        for i in range(self._nepsilon):
+            self.parameter_values[f'EPSILON{i:02d}'] = 0.
 
         #ST: Computes spline invrse KD matrices.
         self.KD_t = invKD_irr(self._bayesn_components["tau_knots"])
@@ -323,7 +327,8 @@ class gensed_BAYESN:
 
             eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
             epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
-            useful_pars['EPSILON'] = list(epsilon_vec)
+            for i in range(self._nepsilon):
+                useful_pars[f'EPSILON{i:02d}'] = epsilon_vec[i]
             if self.verbose:
                 print(useful_pars, 'set')
 
@@ -354,7 +359,8 @@ class gensed_BAYESN:
 
         #ST: Computes the spline knots
         epsilon_matrix = np.zeros(self._bayesn_components["W0"].shape)
-        epsilon_matrix[1:-1,:] = np.reshape(self.parameter_values["EPSILON"], epsilon_matrix[1:-1,:].shape, order="F")
+        epsilon_vector = [self.parameter_values[f'EPSILON{i:02d}'] for i in range(self._nepsilon)]
+        epsilon_matrix[1:-1,:] = np.reshape(epsilon_vector, epsilon_matrix[1:-1,:].shape, order="F")
         W = self._bayesn_components["W0"] + self.parameter_values["THETA1"]*self._bayesn_components["W1"] + epsilon_matrix
 
         #ST: Interpolates to `trest` and `self.wave`
@@ -412,10 +418,6 @@ class gensed_BAYESN:
         varname : str
              A parameter name from self.parameter_names
         """
-        #### HACK HACK HACK - need a way to return a vector - hopefully not with n_vec separate variables
-        ### Talk with RK about this. 05/16/22
-        if varname == 'EPSILON':
-            return self.parameter_values[varname][0]
         return self.parameter_values[varname]
 
 
@@ -554,19 +556,19 @@ def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
 
 
 def main():
-    mySED=gensed_BAYESN('$SNANA_LSST_USERS/gnarayan/bayesn/',2,[],'z,AGE,ZCMB,METALLICITY')
+    mySED=gensed_BAYESN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
 
     fig = plt.figure(figsize=(10, 5))
     ax1 = fig.add_subplot(111)
-    mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+    mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED_BAYESN(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'g-')
 
-    mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+    mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
     flux = mySED.fetchSED_BAYESN(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'r-')
 
-    mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , EPSILON=0. , TMAX=0.)
+    mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
     flux = mySED.fetchSED_BAYESN(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'b-')
 
@@ -578,15 +580,15 @@ def main():
     ind = (mySED.wave >= 3000) & (mySED.wave <= 7000)
     for trest in np.linspace(-10, 40, 20):
 
-        mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
         flux = mySED.fetchSED_BAYESN(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'b-')
 
-        mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED_BAYESN(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'g-')
 
-        mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , EPSILON=0. , TMAX=0.)
+        mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
         flux = mySED.fetchSED_BAYESN(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
     fig2.savefig('phase_sequence.png')

@@ -21038,6 +21038,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug from suppressing LCPLOT table in batch; it's CSV
        attribute was mistakenly passed to FITRES table.
 
+   snlc_fit.car: new &FITINP input USESIM_INIVAL
+
    sndata.h
      + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
 

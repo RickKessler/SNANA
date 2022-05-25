@@ -577,6 +577,7 @@ c namelist input variables.
      &   ,USESIM_PEAKMJD    ! T => use sim peakMJD 
      &   ,USESIM_DLMAG      ! T => use sim DLMAG
      &   ,USESIM_REDSHIFT   ! T => use sim redshift in fit
+     &   ,USESIM_INIVAL     ! T => use sim params as initial values
      &   ,MINOS_ERR_DLMAG   ! T=> require valid MINOS error for DLMAG
      &   ,MINOS_ERR_REQALL0 ! T=> require all MINOS errors to be valid   
      &   ,MINOS_ERR_REQALL1 ! T=> require all but 1 MINOS errors to be valid
@@ -787,7 +788,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,SNMAGRMS_for_PHOTOZ
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -858,7 +859,7 @@ c ------
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -6964,6 +6965,7 @@ c setup default grid w.r.t. peakmjd-estimate
       USESIM_PEAKMJD  = .FALSE.
       USESIM_DLMAG    = .FALSE.
       USESIM_REDSHIFT = .FALSE.
+      USESIM_INIVAL   = .FALSE.
 
       LKCOR_AVWARP  = .TRUE.
       LKCOR_STRETCH = .FALSE.
@@ -7809,6 +7811,9 @@ c
             READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_DPEAKMJD(2)
             READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
+        else if(MATCH_NMLKEY('USESIM_INIVAL', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_INIVAL
+
         else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_COLOR',
      &            3,i,ARGLIST)) then
             READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_COLOR(1)
@@ -8073,7 +8078,6 @@ c continue below on 1st iteration only.
       INIVAL(IPAR)    =  PEAKMJD - MJDOFF
       INISTP(IPAR)    =  INISTP_PEAKMJD         ! initial step size, days
 
-
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
 
@@ -8296,6 +8300,20 @@ c so allow one or the other.
       IF ( INIVAL_X0 .GT. NULLVAL ) 
      &     INIVAL(IPAR_X0) = INIVAL_X0
 
+c May 2022: check option to set all of the INIVAL to sim-values
+c    Note that fit floats all params
+
+      IF ( USESIM_INIVAL ) THEN
+         if ( STDOUT_UPDATE ) then
+	    print*,'   Set INIVAL = SIM value'
+            call flush(6)
+         endif
+         INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
+         INIVAL(IPAR_X0)       = SIM_SALT2X0
+         INIVAL(IPAR_SHAPE)    = SIM_SHAPEPAR
+         INIVAL(IPAR_COLOR)    = SIM_COLORPAR
+         INIVAL(IPAR_zPHOT)    = SIM_REDSHIFT_HELIO
+      ENDIF
 c --------------------------------------------
 c store SIMVAL and check option to use sim values
 c in fit.
@@ -9148,10 +9166,12 @@ c process only 1st fit iteration
 
       IF ( .NOT. FIRST_ITER ) RETURN  
       IF ( LFIXPAR_ALL      ) RETURN  
+      IF ( USESIM_INIVAL    ) RETURN ! May 2022
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
       LPRINT = STDOUT_UPDATE
+
 
 c init everything to zero
 

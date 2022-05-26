@@ -155,7 +155,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       // loop over words on this line     
       for ( iwd = 0; iwd < NWD; iwd++ ) {
 	get_PARSE_WORD(langC, iwd, CCID);
-	match_cid_hash(STRINGID, ILIST, NCID);
+	// xxx mark delete May 26 2022 match_cid_hash(STRINGID, ILIST, NCID);
+	match_cid_hash(CCID, ILIST, NCID);
 	NCID++ ;
         if ( strstr(CCID,COMMA) != NULL || strstr(CCID,COLON) != NULL ||
              strstr(CCID,"=")   != NULL )   {

@@ -996,8 +996,8 @@ class MakeDataFiles(Program):
             wildcard_base = f"{BASE_PREFIX}*.csv.gz"
         
             wildcard      = f"{script_dir}/{wildcard_base}"
-            # xxx mark delete combined_file = f"{output_dir}/ALERTS_TRUTH.csv.gz"
-            combine_file  = f"{output_dir}/{TRUTH_ALERTS_FILENAME}.gz"
+            # xxx mark delete combined_file=f"{output_dir}/ALERTS_TRUTH.csv.gz"
+            combined_file  = f"{output_dir}/{TRUTH_ALERTS_FILENAME}.gz"
             util.combine_csv_files(wildcard, combined_file, True)
 
         else:

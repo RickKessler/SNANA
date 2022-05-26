@@ -1678,7 +1678,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   *****/
 
   int  LFIND1_PIPELINE, LFIND2_SPEC, LFIND3_zHOST, MASK ;
-  //  char fnam[]  = "gen_SEARCHEFF" ;
+  char fnam[]  = "gen_SEARCHEFF" ;
 
   // ----------------- BEGIN -------------
 
@@ -1783,7 +1783,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   double  PHOTPROB, CUTVAL ;
   char CFILT[4];
   int LDMP  = (ID == -39 ); 
-  //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
+  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
 
@@ -1811,6 +1811,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
     OBSMARKER_DETECT[obs] = 0 ;
     MAG  = SEARCHEFF_DATA.MAG[obs] ;
     MJD  = SEARCHEFF_DATA.MJD[obs] ;
+
     if ( MAG == MAG_UNDEFINED ) { continue ; }
     if ( !FIRST ) {  FIRST=1; obsLast=obs; MJD_LAST= MJD; continue;  }       
     MJD_DIF     = fabs(MJD-MJD_LAST);

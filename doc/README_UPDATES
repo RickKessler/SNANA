@@ -21066,6 +21066,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new input keyes RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
      + call get_lamrange_SEDMODEL for NON1ASED model ...
         to get u-band at high-z.
+     + for LCLIB-Galactic, set redshifts to -9 for "host-less"
 
    sntools.c[h]
      + add varList_store arg to match_cidList_init ...
@@ -21086,4 +21087,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sim_SNgrid.pl: fix a few bugs.
 
    psnic_BEST.c: allow for Ic-BL
+
+  
 END: 

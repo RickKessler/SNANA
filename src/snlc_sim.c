@@ -11460,6 +11460,7 @@ void gen_filtmap(int ilc) {
   // ------------- BEGIN ----------
 
   z   = GENLC.REDSHIFT_HELIO ;
+  if ( INDEX_GENMODEL == MODEL_LCLIB ) { z = 0.0; }
   z4  = (float)z;
   colopt  = INPUTS.KCORFLAG_COLOR;
   colopt += 8; // flag to NOT ABORT if nearest-filt is not found.
@@ -13368,6 +13369,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.SNTYPE ;
   NVAR_SIMGEN_DUMP++ ;
 
+  // - - - - - -
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"NON1A_INDEX") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
@@ -13378,6 +13380,12 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
   NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SIM_TEMPLATE_INDEX") ; // matches data file key
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  // - - - - -
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"NOBS") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.NOBS ;
@@ -13943,6 +13951,7 @@ void gen_redshift_LCLIB(void) {
   // for LCLIB model with REDSHIFT, store redshift and MU.
   // Also check for HOSTLIB photo-z
   //
+  // May 2022: return if ZTRUE=0 (no host)
 
   int LDMP =  0 ;
   double granz, ZERR;
@@ -13956,10 +13965,13 @@ void gen_redshift_LCLIB(void) {
 
   if ( INDEX_GENMODEL != MODEL_LCLIB ) { return ; }
 
+  // xxx mark delete May 2022  GENLC.TEMPLATE_INDEX  x= LCLIB_EVENT.ID ; 
+  if ( ZCMB_TRUE <= 1.0E-9 ) { return; } // May 2022 .xyz
+
   if ( LDMP ) {
     printf("    xxx ------------------------------------- \n");
-    printf(" 0. xxx ZCMB_TRUE = %.4f  (CID=%d) \n", 
-	   ZCMB_TRUE, GENLC.CID ) ;
+    printf(" 0. xxx ZTRUE[HEL,CMB] = %.4f, %.4f  (CID=%d) \n", 
+	   ZHEL_TRUE, ZCMB_TRUE, GENLC.CID ) ;
     printf(" 1. xxx  ZPHOT(Gauss .05) = %.4f += %.4f \n",
 	   SNHOSTGAL.ZPHOT, SNHOSTGAL.ZPHOT_ERR ); 
   }
@@ -13976,16 +13988,16 @@ void gen_redshift_LCLIB(void) {
 	   SNHOSTGAL.ZPHOT, SNHOSTGAL.ZPHOT_ERR ); 
   }
 
+  SNHOSTGAL.SNSEP             = 0.0 ;
+
   granz = getRan_GaussClip(1, (double)-3.0, (double)+3.0) ;
   ZERR  = INPUTS.GENSIGMA_REDSHIFT ;
   SNHOSTGAL.ZSPEC             = ZHEL_TRUE ;
   SNHOSTGAL.ZSPEC_ERR         = ZERR ;
-  GENLC.TEMPLATE_INDEX        = LCLIB_EVENT.ID ; 
   GENLC.REDSHIFT_HOST         = ZHEL_TRUE ;
   GENLC.REDSHIFT_CMB_SMEAR    = ZCMB_TRUE + ZERR*granz ; 
   GENLC.REDSHIFT_HELIO_SMEAR  = ZHEL_TRUE + ZERR*granz ; 
   GENLC.REDSHIFT_SMEAR_ERR    = ZERR ;
-  SNHOSTGAL.SNSEP             = 0.0 ;
 
   // get update DLMU and LENSDMU; these quantities are NOT
   // used for anything, so this is just to avoid crazy
@@ -14020,6 +14032,7 @@ void gen_zsmear(double zerr) {
   // Jan 05 2018:  compute GENLC.VPEC_SMEAR
   // Apr 20 2018:  bail for FIXMAG model where z=zerr=0
   // Oct 26 2020:  implement RESTORE_WRONG_VPEC logic
+  // May 25 2022:  for LCLIB, set redshifts to -9 instead of zero.
 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
@@ -14031,9 +14044,11 @@ void gen_zsmear(double zerr) {
 
   if ( INDEX_GENMODEL == MODEL_LCLIB ) { 
     // set all redshift info to zero 
-    GENLC.REDSHIFT_CMB_SMEAR    = GENLC.REDSHIFT_CMB    = 0.0 ;
-    GENLC.REDSHIFT_HELIO_SMEAR  = GENLC.REDSHIFT_HELIO  = 0.0 ;
-    GENLC.REDSHIFT_SMEAR_ERR    = 0 ;
+    GENLC.REDSHIFT_CMB_SMEAR    = -9.0 ;
+    GENLC.REDSHIFT_CMB          = -9.0 ;
+    GENLC.REDSHIFT_HELIO_SMEAR  = -9.0 ;
+    GENLC.REDSHIFT_HELIO        = -9.0 ;
+    GENLC.REDSHIFT_SMEAR_ERR    = -9.0 ;
     return ; 
   }
 
@@ -20586,7 +20601,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
   int ep, NOBS,  NRANTMP=0;
   double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan ;
-  //  char fnam[] = "LOAD_SEARCHEFF_DATA";
+  char fnam[] = "LOAD_SEARCHEFF_DATA";
 
   // --------------- BEGIN ----------------
 
@@ -20711,7 +20726,7 @@ void gen_spectype(void) {
   // Jun 2 2018: if IFLAG_SPEC_EFFZERO, then set PHOTID flag
 
   int L_PHOTID, ispgen ;
-  //  char fnam[] = "gen_spectype" ;
+  char fnam[] = "gen_spectype" ;
 
   // ---------- BEGIN --------------
 
@@ -20729,7 +20744,6 @@ void gen_spectype(void) {
 
   ispgen = GENLC.NON1ASED.ISPARSE ;
   
-
   // set SNTYPE 
 
   if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
@@ -21257,6 +21271,7 @@ void snlc_to_SNDATA(int FLAG) {
 
   SNDATA.REDSHIFT_FINAL      = GENLC.REDSHIFT_CMB_SMEAR ;
   SNDATA.REDSHIFT_HELIO      = GENLC.REDSHIFT_HELIO_SMEAR ;
+
   SNDATA.REDSHIFT_FINAL_ERR  = GENLC.REDSHIFT_SMEAR_ERR ;
   SNDATA.REDSHIFT_HELIO_ERR  = GENLC.REDSHIFT_SMEAR_ERR ;
   SNDATA.VPEC                = GENLC.VPEC_SMEAR;
@@ -23124,7 +23139,7 @@ void GENMAG_DRIVER(void) {
   // Aut 17 2017: call get_lightCurveWidth
 
   int ifilt, ifilt_obs, DOFILT ;
-  //  char fnam[] = "GENMAG_DRIVER" ;
+  char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
 
@@ -24996,6 +25011,7 @@ void genmodel(
       GENLC.PEAKMJD  = INPUTS.GENRANGE_PEAKMJD[0] + TobsPeak ;
     }
 
+    GENLC.TEMPLATE_INDEX   = LCLIB_EVENT.ID ; 
     /*
     printf(" xxx genmag_LCLIB returns zphot = %.3f +- %.3f  (ztrue=%.3f)\n",
 	   SNHOSTGAL.ZPHOT, SNHOSTGAL.ZPHOT_ERR, GENLC.REDSHIFT_CMB );

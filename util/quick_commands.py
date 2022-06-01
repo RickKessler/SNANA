@@ -441,7 +441,7 @@ def analyze_diff_fitres(args):
     df["CID"] = df["CID"].astype(str)
 
     # define ref variables to check; test var name is {var}_2
-    var_check_list = [ 'zHD', 'mB', 'x1', 'c' ]  
+    var_check_list = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
 
     # Apr 22 2022: add MU if it's there (e.g., output of BBC)
     if 'MU' in df:

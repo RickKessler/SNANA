@@ -21049,6 +21049,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c:
      + refactor so that invalid varname to output tables results in
        printing list of valid varnames for SUBPROCESS.
+     + improve stdout dump for events with no biasCor.
 
    +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
 

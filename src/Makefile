@@ -427,6 +427,7 @@ OBJ_SNFIT	 = 		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o    \
+	$(OBJ)/sntools_zPDF_spline.o \
 	$(OBJ_GENMAG_FIT)
 
 OBJ_PSNID	=  		\
@@ -945,6 +946,13 @@ $(OBJ)/inoue_igm.o : $(SRC)/inoue_igm.c  $(SRC)/inoue_igm.h
 $(OBJ)/sntools_wronghost.o : $(SRC)/sntools_wronghost.c  $(SRC)/sntools_wronghost.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_wronghost.c )
+
+# -------------------------------------------------
+# compile sntools_wronghost (.o only)
+
+$(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c 
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_zPDF_spline.c )
 
 
 # -------------------------------------------------

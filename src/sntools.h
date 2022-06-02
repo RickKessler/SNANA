@@ -44,7 +44,6 @@
   Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
   Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
   
-  Jun 2 2022: add functions for photo-z PDF
 ********************************************************/
 
 
@@ -64,6 +63,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
+// --------------------------------------------------
 #define  SNANA_VERSION_CURRENT  "v11_04k"       
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
@@ -210,11 +210,6 @@ struct {
 
 } GENRAN_INFO ;
 
-struct{
-gsl_interp_accel *acc;
-gsl_spline *spline;
-
-}zPDF_spline;
 
 // errmsg parameters
 char c1err[200];   // for kcorerr utility
@@ -950,10 +945,4 @@ float malloc_shortint2D(int opt, int LEN1, int LEN2,
 float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 			short int *****array4D );
 
-// photo-z interpolation functions
-void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list);
-double eval_zPDF_spline(double z);
-
-void init_zpdf_spline__(int *N_Q, double* percentile_list, double* zphot_q_list);
-double eval_zpdf_spline__(double *z);
 // ============== END OF FILE =============

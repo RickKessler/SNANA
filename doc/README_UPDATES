@@ -21089,5 +21089,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    psnic_BEST.c: allow for Ic-BL
 
-  
+   new utility sntools_zPDF_spline.c[h]
+
 END: 

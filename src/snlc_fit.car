@@ -4874,6 +4874,8 @@ c               because INIBND is not set for these parameters.
 c
 c Apr 3 2018: include color-prior chi2
 c
+c Jun 2022: check option to use zphot quantiles
+c
 c --------------
 
       IMPLICIT NONE
@@ -4889,12 +4891,13 @@ c function args
 
 c local args
 
-      INTEGER  IPAR, ISN, IERR, IPAR_DIST
+      INTEGER  IPAR, ISN, IERR, IPAR_DIST, q
 
       REAL*8
      &   CHI2INI, CHI2TMP
      &  ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN
      &  ,arg_tmp, DIF, pull, EFF, SQSIG
+     &  ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PERCENTILE(MXZPHOT_Q)
 
       LOGICAL LTMP, LBADVAL
 
@@ -4916,6 +4919,8 @@ c functions
      &  ,PRIOR_MUPULL
      &  ,GET_RV8
      &  ,SNLC_FIT_SIMEFF
+
+      EXTERNAL init_zPDF_spline
 
 c ------------- BEGIN --------------
 
@@ -5015,9 +5020,13 @@ c Prior on photoZ
       IF ( DOFIT_PHOTOZ ) THEN
 
         if ( SNHOST_NZPHOT_Q > 0 ) then
-	  ! .xyz 
-          ! SNHOST_ZPHOT_PERCENTILE(q)  ! cumulative CDF
-          ! SNHOST_ZPHOT_Q(igal,q)
+          ! strip off quantile arrays. 
+	  do q = 1, SNHOST_NZPHOT_Q
+            ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
+            ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
+          enddo
+          CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
+     &                          ZPHOT_PERCENTILE, ZPHOT_Q)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)

@@ -2066,7 +2066,6 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   MJD       = SEARCHEFF_DATA.MJD[obs] ;
   NPE_SAT   = SEARCHEFF_DATA.NPE_SAT[obs] ; // Npe above saturation
 
-
   if ( isnan(SNR) ) {
     print_preAbort_banner(fnam);
 
@@ -2103,6 +2102,20 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   EFF_atmin = SEARCHEFF_DETECT[IMAP].EFF[0] ;
   VAL_atmax = SEARCHEFF_DETECT[IMAP].VAL[NBIN_EFF-1] ;
   VAL_atmin = SEARCHEFF_DETECT[IMAP].VAL[0] ;
+
+  // - - - - - - - - - - - - - -
+  // NOTES FOR FUTURE OPTION TO TRIGGER ON SINGLE-IMAGE DETECTIONS
+  // Jun 2 2022 .xyz 
+  // for option to simulated single-exposure detections, 
+  // strip off NEXPOSE here and SNR -> SNR / sqrt(NEXPOSE). 
+  // For NEXPOSE chances to get a detection, 
+  //    EFF -> 1-(1-EFF_1)^NEXPOSE
+  // E.g., NEXPOSE=10 and EFF_1 = 0.02 -> EFF = 1 - 0.98^10 = 0.183
+  // E.g., NEXPOSE=10 and EFF_1 = 0.05 -> EFF = 1 - 0.95^10 = 0.401
+  // E.g., NEXPOSE=10 and EFF_1 = 0.50 -> EFF = 1 - 0.50^10 = 0.999
+  // Above assumes stat-independent detection prob .... but is this
+  // correct, or are the probabilities correlated?
+  // - - - - - - - - - - - - - -
 
   if ( SEARCHEFF_FLAG == FLAG_EFFSNR_DETECT ) {
     VAL = SNR ;

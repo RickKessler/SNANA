@@ -173,6 +173,20 @@ c
      &    )
 
 
+c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
+      INTEGER
+     &   BIT_PHOTOZ_GAUSS  ! use <zPhot> and RMS in Gauss approx
+     &  ,BIT_BESTZ_GAUSS   ! idem, but with best redshift (e.g., zSpec)
+     &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
+     &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
+
+      PARAMETER (
+     &   BIT_PHOTOZ_GAUSS      = 0  ! OPT_PHOTOZ += 1
+     &  ,BIT_BESTZ_GAUSS       = 1  ! OPT_PHOTOZ += 2
+     &  ,BIT_PHOTOZ_QUANTILES  = 2  ! OPT_PHOTOZ += 4
+     &  ,BIT_PHOTOZ_CHEAT      = 4  ! OPT_PHOTOZ += 16
+     &    )
+
 +KEEP,SIMEFFCM.
 
       INTEGER
@@ -202,7 +216,6 @@ c              be added to RESIDUAL part of FITRES table.
 
       INTEGER MXFIT_DATA
       PARAMETER ( MXFIT_DATA = 1500 )
-c xxx mark delete  PARAMETER ( MXFIT_DATA = MXEPOCH/2 )
 
 c variables used in fit.
 
@@ -712,6 +725,7 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
       INTEGER 
      &   OPT_PHOTOZ  ! bit 0 (1 ) => use host-galaxy ZPRIOR; 
                      ! bit 1 (2 ) => use spectro Z-prior
+                     ! bit 2 (4 ) => use zPhot quantiles
                      ! bit 4 (16) => cheat: start with Zspec and correct filt
      &  ,ISCALE_COURSEBIN_PHOTOZ  ! scale number of course-grid bins for init
      &  ,NEVAL_MCMC_PHOTOZ
@@ -3464,9 +3478,9 @@ c ------------------ BEGIN --------------
 
 c check for cheater flag.  
       IF ( IFLAG .EQ. 0 .and. ITER .EQ. 0 ) THEN
-        IF ( BTEST(OPT_PHOTOZ,4) ) THEN
+        IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_CHEAT) ) THEN
            DOFIT_PHOTOZ_CHEAT = .TRUE.       ! set global flag
-           OPT_PHOTOZ = IBSET(OPT_PHOTOZ,0)  ! set host-prior bit to be safe
+           OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)  ! set host-prior bit to be safe
         ELSE
            DOFIT_PHOTOZ_CHEAT = .FALSE.
         ENDIF
@@ -5020,7 +5034,7 @@ c Prior on photoZ
       IF ( DOFIT_PHOTOZ ) THEN
 
         if ( SNHOST_NZPHOT_Q > 0 ) then
-          ! strip off quantile arrays. 
+          ! strip off quantile arrays. This init is in the WRONG place
 	  do q = 1, SNHOST_NZPHOT_Q
             ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
             ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
@@ -7255,12 +7269,14 @@ c check PHOTOZ stuff.
 
 c first, allow user to set integer option or logical flag.
 
-      if ( OPT_PHOTOZ .GT. 0 ) then
+      if ( OPT_PHOTOZ > 0 ) then
          DOFIT_PHOTOZ = .TRUE.
       endif
       if ( DOFIT_PHOTOZ .and. OPT_PHOTOZ .LE. 0 ) then
-         OPT_PHOTOZ = 1   ! use host-galaxy prior by default.
-                          ! But note PRIOR_ZERRSCALE=1000 by default
+   ! use host-galaxy prior by default.
+   ! But note PRIOR_ZERRSCALE=1000 by default
+        ! xxx mark delete  OPT_PHOTOZ = 1
+         OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) 
       endif
 
 c Set non-zero step-size for PHOTOZ or DLMAG,
@@ -8409,6 +8425,7 @@ c --------------------------------------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITRESTCOM.
+c+CDE,SNFITPAR.
 
       INTEGER 
      &   iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
@@ -8509,7 +8526,7 @@ c set initial value and step size.
       Zhost     =  SNHOST_ZPHOT(1)
       LZDONE    = .FALSE.
 
-      IF ( BTEST(OPT_PHOTOZ,1) ) THEN  ! Zspec prior
+      IF ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
@@ -8521,7 +8538,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
 
         goto 777        ! Jan 2021
 
-      ELSE IF ( BTEST(OPT_PHOTOZ,0) ) THEN  ! Zhost prior (1)
+      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = Zhost
@@ -10925,9 +10942,9 @@ C -------------- BEGIN ---------------
       LSTAT    = .FALSE.
       IPAR     = IPAR_zPHOT  ! local variable
 
-      if ( BTEST(OPT_PHOTOZ,0) ) then
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
          write(global_banner,21) PRIOR_ZERRSCALE
-      else if ( BTEST(OPT_PHOTOZ,1) ) then
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
          write(global_banner,22) PRIOR_ZERRSCALE
       else
         write(c1err,662) OPT_PHOTOZ
@@ -11965,12 +11982,12 @@ C ------------ BEGIN -------------
       PRIOR_ZPULL = 0.0
       LPULL  = .FALSE.
   
-      if ( BTEST(OPT_PHOTOZ,0) ) then  ! use host photo z
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then  ! use host photo z
          zPRIOR     = SNHOST_ZPHOT(1)
          zPRIOR_err = SNHOST_ZPHOT_ERR(1)
          LPULL = zPRIOR_err .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
 
-      else if ( BTEST(OPT_PHOTOZ,1) ) then  ! use final redshift
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then  ! use final redshift
          zPRIOR      = SNLC_REDSHIFT
          zPRIOR_err  = SNLC_REDSHIFT_ERR
          LPULL       = .TRUE.
@@ -13621,12 +13638,12 @@ c extract fit photoZ and determine total error.
       zfit    = LCVAL_STORE(IPAR_zPHOT) 
       zfiterr = LCERR_STORE(IPAR_zPHOT) 
          
-      if ( BTEST(OPT_PHOTOZ,0) ) then 
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then 
         zhost    =  SNHOST_ZPHOT(1)
         zhosterr =  SNHOST_ZPHOT_ERR(1)
         czprior  = 'SNGAL'   ! for screen dump comment
 
-      else if ( BTEST(OPT_PHOTOZ,1) ) then
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
         zhost    = SNLC_REDSHIFT     ! for testing only
         zhosterr = SNLC_REDSHIFT_ERR
         czprior  = 'SPECZ'   ! for screen dump comment

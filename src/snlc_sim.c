@@ -11436,8 +11436,9 @@ double gen_MWEBV(double RA, double DEC) {
   // Jun 3 2022
   // if MWEBV is already applied in galactic model, 
   // set true MWEBV_SMEAR=0 here, but still report MWEBV.
-  if ( LCLIB_INFO.IPAR_MWEBV >= 0 ) 
-    { GENLC.MWEBV_SMEAR = 0.0 ; }
+  if ( INDEX_GENMODEL == MODEL_LCLIB ) {
+    if ( LCLIB_INFO.IPAR_MWEBV >= 0 )  { GENLC.MWEBV_SMEAR = 0.0 ; }
+  }
 
   return(GENLC.MWEBV_SMEAR) ;
 
@@ -11975,8 +11976,7 @@ double pick_gridval_SIMSED(int ipar_model) {
     PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
   }
   else { 
-    // pick random sed. Use GENGAUSS struct to enable 
-    // selecting parameter range.
+    // pick random sed from asymGauss params.
     PARVAL_TMP = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
     PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
   }
@@ -20137,10 +20137,17 @@ int gen_cutwin(void) {
 
   LZTRUE = ( ZTRUE >= INPUTS.CUTWIN_REDSHIFT_TRUE[0] && 
 	     ZTRUE <= INPUTS.CUTWIN_REDSHIFT_TRUE[1] ) ;
+
   LZFINAL = ( ZFINAL >= INPUTS.CUTWIN_REDSHIFT_FINAL[0] && 
 	      ZFINAL <= INPUTS.CUTWIN_REDSHIFT_FINAL[1] ) ;
-  LZPHOT  = ( ZPHOT >= INPUTS.CUTWIN_HOST_ZPHOT[0] && 
-	      ZPHOT <= INPUTS.CUTWIN_HOST_ZPHOT[1] ) ;
+
+  if ( INPUTS.HOSTLIB_USE ) {
+    LZPHOT  = ( ZPHOT >= INPUTS.CUTWIN_HOST_ZPHOT[0] && 
+		ZPHOT <= INPUTS.CUTWIN_HOST_ZPHOT[1] ) ;
+  }
+  else {
+    LZPHOT = 1; // allow cut to pass if HOSTLIB is disabled (June 2022)
+  }
 
   if ( LZTRUE && LZFINAL && LZPHOT ) 
     { GENLC.CUTBIT_MASK |= (1 << CUTBIT_REDSHIFT); }

@@ -576,11 +576,6 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   TEMP_SEDMODEL.LAMMIN = TEMP_SEDMODEL.LAM[0];
   TEMP_SEDMODEL.LAMMAX = TEMP_SEDMODEL.LAM[NLAM-1];
 
-  /* xxxxxxx mark delete Mar 2 2022 xxxxxxx
-  double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
-  if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
-  xxxxxxxxxx */
-
 } // end of read_SIMSED_flux
 
 // ****************************************************************
@@ -1449,6 +1444,11 @@ double interp_flux_SIMSED(
      fix bug from v10_63g (July 2018). For GRIDONLY option, 
      make sure to load  *lumipar.
 
+   Jun 3 2022: 
+     + fix index bug computing range
+     + fix index bug loading *lumipar ... before it worked only if
+       selected model params were in same order is in SED.INFO file
+
   -------------------------------------------------- */
 
   /*
@@ -1537,8 +1537,9 @@ double interp_flux_SIMSED(
       NMATCH = 0 ;
       for(j=0; j < NPAR; j++ ) {
 	if ( pars_baggage[j] ) { continue ; } // skip baggage	     
-	range      = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
+	// xxx mark delete range  = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
 	ipar_model = iparmap[j];
+        range      = SEDMODEL.PARVAL_MAX[ipar_model] - SEDMODEL.PARVAL_MIN[ipar_model] ;
 	parval     = SEDMODEL.PARVAL[ISED][ipar_model];
 	diff       = (parval - lumipar[j]) / range ;
 	
@@ -1555,8 +1556,11 @@ double interp_flux_SIMSED(
 	ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
 
 	// load *lumipar array
-	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) 
-	  { lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  }
+	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+	  ipar_model = iparmap[ipar];
+	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
+	  // xxx mark delete lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  
+	}
 
 	return(Sinterp) ;
       }
@@ -1565,7 +1569,8 @@ double interp_flux_SIMSED(
 
     // if we get here abort on error.
     sprintf(c1err, "Could not find GRIDONLY match for %d params", NGRIDONLY);
-    sprintf(c2err, "z=%f Trest=%f NMATCH=%d", z, Trest, NMATCH );
+    sprintf(c2err, "z=%f Trest=%f ifilt_obs=%d  NMATCH=%d",
+	    z, Trest, ifilt_obs, NMATCH );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
 
   } // end of NGRIDONLY

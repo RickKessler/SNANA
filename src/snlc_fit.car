@@ -495,6 +495,7 @@ c
      &  ,PHOTODZ_MIN(MXITER)    ! min | PHOTOZ-Zvalid(model) |
      &  ,PHOTODZ1Z_MIN(MXITER)  ! idem ind dZ/(1+z) space
 c 
+c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
 
       LOGICAL  
      &   DOFIT_PHOTOZ_HOST      ! T=> include host-photoz 
@@ -4910,8 +4911,7 @@ c local args
       REAL*8
      &   CHI2INI, CHI2TMP
      &  ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN
-     &  ,arg_tmp, DIF, pull, EFF, SQSIG
-     &  ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PERCENTILE(MXZPHOT_Q)
+     &  ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ 
 
       LOGICAL LTMP, LBADVAL
 
@@ -4933,8 +4933,9 @@ c functions
      &  ,PRIOR_MUPULL
      &  ,GET_RV8
      &  ,SNLC_FIT_SIMEFF
+     &  ,eval_zPDF_spline
 
-      EXTERNAL init_zPDF_spline
+      EXTERNAL eval_zPDF_spline
 
 c ------------- BEGIN --------------
 
@@ -5033,14 +5034,11 @@ c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
 
-        if ( SNHOST_NZPHOT_Q > 0 ) then
-          ! strip off quantile arrays. This init is in the WRONG place
-	  do q = 1, SNHOST_NZPHOT_Q
-            ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
-            ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
-          enddo
-          CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
-     &                          ZPHOT_PERCENTILE, ZPHOT_Q)
+        if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
+          ! get the probability at this redshift
+          PROBZ = eval_zPDF_spline(ZSN)
+          if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
+          CHI2PRIOR(IPAR_zPHOT) = -2.0*LOG10(PROBZ)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
@@ -8440,14 +8438,14 @@ c local var
 
 c FCNSNLC args
 
-      INTEGER IFLAG
+      INTEGER IFLAG, q
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
-
+     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PERCENTILE(MXZPHOT_Q)
       CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
-      EXTERNAL USRFUN
+      EXTERNAL USRFUN, init_zPDF_spline
 
 C --------------- BEGIN -----------------
 
@@ -8549,6 +8547,22 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            INIVAL(IPAR) = (PHOTOZ_BOUND(2) + PHOTOZ_BOUND(1))/2.0 
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
         endif
+      
+      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R. Chen Jun 2022 .xyz
+        if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
+            c1err = 'zPDF quantiles requested for photo-z fit'
+            c2err = 'but there are no zPDF quantiles in the data.'
+            CALL MADABORT("FITINI_PHOTOZ", c1err, c2err)
+        endif
+        do q = 1, SNHOST_NZPHOT_Q
+            ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
+            ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
+        enddo
+          CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
+     &                          ZPHOT_PERCENTILE, ZPHOT_Q) 
+          INIVAL(ipar) = Zhost
+          LZDONE       = .TRUE.
+          CZTMP        = 'Zhost'
       ENDIF
 
 c check cheat option (4/30/2012)
@@ -8558,12 +8572,6 @@ c check cheat option (4/30/2012)
         LZDONE       = .TRUE.
       ENDIF
 
-c xxx mark delete Jul 12 2019 xxxxxxx
-c      LZ = INDEX(CZTMP,' ') - 1
-c      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
-c11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
-c      call flush(6)
-c xxx end mark xxxxxxxx
 
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
@@ -9536,7 +9544,6 @@ c construct list of params to check in SNCID_LIST file
       ENDDO
 
       CALL FLUSH(6)
-c .xyz
 
       RETURN
       END  ! end FITINI_LIST_FILE
@@ -19563,7 +19570,7 @@ c - - - -
 
 c - - - - -
 c Mar 21 2022: write model mag for all bands at each obs
-c   initial use is for DCR correction in DES.   .xyz
+c   initial use is for DCR correction in DES.   
 
       DO 20 ifilt  = 1, NFILTDEF_SURVEY
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)

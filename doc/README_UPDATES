@@ -21034,6 +21034,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
     snlc_fit: OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
 
+    snlc_sim: if MWEBV is LCLIB parmaeter, sim sets SIM_MWEBV=0
+              but still reports MWEBV; see Manual section
+              9.10.5 Special MODEL_PARNAMES Features
+
          ***** MISCELLANEOUS(v11_04k) ***** 
 
    snana.car

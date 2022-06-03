@@ -234,6 +234,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   LCLIB_INFO.GENRANGE_DIFMAG[1] = 0.0 ;
 
   LCLIB_INFO.IPAR_REDSHIFT = -9;
+  LCLIB_INFO.IPAR_MWEBV    = -9;
   LCLIB_INFO.REDSHIFT_RANGE[0] = 0.0 ; 
   LCLIB_INFO.REDSHIFT_RANGE[1] = 0.0 ;
 
@@ -407,9 +408,14 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
       sprintf(c2err,"hash (#) not allowed");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
-    // to delete if ( strcmp(parName,"redshift")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
-    // to delete if ( strcmp(parName,"REDSHIFT")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
-    if (strcmp_ignoreCase(parName, PARNAME_REDSHIFT_LCLIB) == 0){ LCLIB_INFO.IPAR_REDSHIFT=ipar;}
+
+    if (strcmp_ignoreCase(parName, PARNAME_REDSHIFT_LCLIB) == 0) 
+      { LCLIB_INFO.IPAR_REDSHIFT = ipar;}
+
+    if (strcmp_ignoreCase(parName, PARNAME_MWEBV_LCLIB) == 0) { 
+      LCLIB_INFO.IPAR_MWEBV    = ipar;
+      sprintf(parName,"%s_LCLIB", PARNAME_MWEBV_LCLIB); // avoid name conflict 
+    }
   }
   
   return ;

@@ -1,3 +1,4 @@
+
 /*******************************************
   snlc_sim:  Mar 2006: Created by R.Kessler
              Apr 2007: Remove SQL dependencies for public usage. 
@@ -11430,6 +11431,13 @@ double gen_MWEBV(double RA, double DEC) {
       }
     }
   }
+
+  // - - - - - - - - - - - 
+  // Jun 3 2022
+  // if MWEBV is already applied in galactic model, 
+  // set true MWEBV_SMEAR=0 here, but still report MWEBV.
+  if ( LCLIB_INFO.IPAR_MWEBV >= 0 ) 
+    { GENLC.MWEBV_SMEAR = 0.0 ; }
 
   return(GENLC.MWEBV_SMEAR) ;
 

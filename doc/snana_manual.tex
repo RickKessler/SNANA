@@ -11548,6 +11548,30 @@ END_EVENT:  <ID1>
      (and {\tt GENMODEL\_MSKOPT=0}).
 \end{itemize}
 
+% ----------------------------------------------       
+\clearpage
+\subsubsection{Special {\tt MODEL\_PARNAMES} Features}
+\label{sss:LCLIB_parnames}
+
+The {\tt MODEL\_PARNAMES} are read and passed to output data files 
+and simgen-dump file. These parameters are not used to generate events,
+except for two special features:
+
+\begin{itemize}
+  \item {\tt\bf MWEBV (mwebv):} indicates that MWEBV has been computed
+     and applied to the model light curves, perhaps using a 3D dust model.
+     The simulation reports MWEBV based on {\tt OPT\_MWEBV} (e.g., SFD98),
+     but does not make a redundant MWEBV correction to the true
+     magnitudes ({\tt SIM\_MWEBV=0}). To avoid a MWEBV-naming conflict,
+     the LCLIB-MWEBV is renamed {\tt MWEBV\_LCLIB} for the data files
+     and simgen-dump file.
+  \item {\tt\bf REDSHIFT (redshift):}
+     indicates a true non-zero redshift for the model light curve
+     (default LCLIB redshift is $z=0$), 
+     and can be used with a {\tt HOSTLIB}. 
+     This feature may be convenient for extraGalactic models such as AGN.
+\end{itemize}
+
 
 % -----------------------------------------
 \clearpage

@@ -21032,13 +21032,18 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04k) ***** 
 
+    snlc_fit: OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
+
          ***** MISCELLANEOUS(v11_04k) ***** 
 
    snana.car
      + fix bug from suppressing LCPLOT table in batch; it's CSV
        attribute was mistakenly passed to FITRES table.
+     + MXSNLC -> 8 million (was 5 million)
 
-   snlc_fit.car: new &FITINP input USESIM_INIVAL
+   snlc_fit.car: 
+     + new &FITINP input USESIM_INIVAL
+     + OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
 
    sndata.h
      + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
@@ -21057,14 +21062,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      add another speed trick; see input -speed_flag_chi2.
 
    create_covariancy.py
-     + reduce output labels to only new row and daig; reduce file size by 50%.
+     + reduce output labels to only new row and diag; reduce file size by 50%.
      + write MUERR_SYS to hubble diagram as diagnostic
 
    snlc_sim.c
      + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 
        append file that are in different order than in original HOSTLIB.
      + move INIT_HOSTLIB call inside "not LCLIB" if block
-     + new input keyes RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
+     + new input keys RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
      + call get_lamrange_SEDMODEL for NON1ASED model ...
         to get u-band at high-z.
      + for LCLIB-Galactic, set redshifts to -9 for "host-less"
@@ -21089,6 +21094,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    psnic_BEST.c: allow for Ic-BL
 
-   new utility sntools_zPDF_spline.c[h]
+   sntools_zPDF_spline.c[h]: new utility used by snlc_fit.
 
 END: 

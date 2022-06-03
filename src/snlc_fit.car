@@ -5036,9 +5036,12 @@ c Prior on photoZ
 
         if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
           ! get the probability at this redshift
+          Print *, 'Evaluating spline at ', ZSN
           PROBZ = eval_zPDF_spline(ZSN)
+          Print *, 'Probability is ', PROBZ
           if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
-          CHI2PRIOR(IPAR_zPHOT) = -2.0*LOG10(PROBZ)
+          CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
+          Print *, 'Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
@@ -8549,6 +8552,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         endif
       
       ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R. Chen Jun 2022 .xyz
+        Print *, 'Start of quantiles code'
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
@@ -8557,9 +8561,13 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         do q = 1, SNHOST_NZPHOT_Q
             ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
             ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
+            Print *, ZPHOT_PERCENTILE(q)
+            Print *, ZPHOT_Q(q)
         enddo
+          Print *, 'Calling init_zPDF_spline'
           CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
-     &                          ZPHOT_PERCENTILE, ZPHOT_Q) 
+     &                          ZPHOT_PERCENTILE, ZPHOT_Q)
+          Print *, 'Spline initialized successfully' 
           INIVAL(ipar) = Zhost
           LZDONE       = .TRUE.
           CZTMP        = 'Zhost'
@@ -10953,6 +10961,8 @@ C -------------- BEGIN ---------------
          write(global_banner,21) PRIOR_ZERRSCALE
       else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
          write(global_banner,22) PRIOR_ZERRSCALE
+      else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
+         write(global_banner,23) PRIOR_ZERRSCALE
       else
         write(c1err,662) OPT_PHOTOZ
 662     format('Invalid OPT_PHOTOZ = ', I5 )
@@ -10963,6 +10973,8 @@ C -------------- BEGIN ---------------
 21    format('INIT Gaussian HOST-PHOTOZ PRIOR  with error-scale=',
      &         F7.2 )
 22    format('INIT Gaussian SPEC-Z PRIOR with error-scale=',
+     &         F7.2 )
+23    format('INIT quantiles HOST-PHOTOZ PRIOR with error-scale=',
      &         F7.2 )
 
       CALL PRBANNER(global_banner(1:60))

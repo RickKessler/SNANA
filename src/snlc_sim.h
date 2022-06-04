@@ -1559,12 +1559,10 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 #define CUTBIT_MWEBV        7   // (128) galactic extinction
 #define CUTBIT_REDSHIFT     8   // (256) redshift
 #define CUTBIT_PEAKMAG      9   // (512) peak mag
-#define CUTBIT_TIME_ABOVE  10   // (1023) time above SNRMIN
-#define CUTBIT_SATURATE    11   // (2047) saturation cuts
+#define CUTBIT_TIME_ABOVE  10   // (1024) time above SNRMIN
+#define CUTBIT_SATURATE    11   // (2048) saturation cuts
 
 #define ALLBIT_CUTMASK    4095   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   2047   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   1023   // 2^(maxbit+1)-1
 
 // define strings to contain info about simulated volume & time
 int  NLINE_RATE_INFO;

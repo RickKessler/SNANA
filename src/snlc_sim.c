@@ -5711,6 +5711,7 @@ void prep_user_input(void) {
     INPUTS.GENSIGMA_VPEC = INPUTS.VPEC_ERR = INPUTS.VEL_CMBAPEX = 0.0 ;
     INPUTS.MJD_EXPLODE   = 0.0 ;
     INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = -9 ;
+    sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
 
     for(j=0; j<2; j++ ) {
       INPUTS.GENRANGE_REDSHIFT[j] = 0.0 ;
@@ -14059,7 +14060,9 @@ void gen_zsmear(double zerr) {
   // Jan 05 2018:  compute GENLC.VPEC_SMEAR
   // Apr 20 2018:  bail for FIXMAG model where z=zerr=0
   // Oct 26 2020:  implement RESTORE_WRONG_VPEC logic
-  // May 25 2022:  for LCLIB, set redshifts to -9 instead of zero.
+  // May 25 2022:  for LCLIB, set measured redshifts to -9 instead of zero.
+  //                  [true redshifts still set to zero]
+  //
 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
@@ -14072,9 +14075,9 @@ void gen_zsmear(double zerr) {
   if ( INDEX_GENMODEL == MODEL_LCLIB ) { 
     // set all redshift info to zero 
     GENLC.REDSHIFT_CMB_SMEAR    = -9.0 ;
-    GENLC.REDSHIFT_CMB          = -9.0 ;
+    GENLC.REDSHIFT_CMB          =  0.0 ;
     GENLC.REDSHIFT_HELIO_SMEAR  = -9.0 ;
-    GENLC.REDSHIFT_HELIO        = -9.0 ;
+    GENLC.REDSHIFT_HELIO        =  0.0 ;
     GENLC.REDSHIFT_SMEAR_ERR    = -9.0 ;
     return ; 
   }

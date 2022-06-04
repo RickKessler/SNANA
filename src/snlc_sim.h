@@ -1817,7 +1817,7 @@ void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);
 void   gen_modelPar_SALT2(int OPT_FRAME);
 void   gen_modelPar_SIMSED(int OPT_FRAME);
-double pick_gridval_SIMSED(int ipar);
+double pick_gridval_SIMSED(int ipar, int ipar_model);
 void   gen_modelPar_dust(int OPT_FRAME);
 double gen_MWEBV(double RA, double DEC);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;

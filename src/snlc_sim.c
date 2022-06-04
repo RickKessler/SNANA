@@ -11914,7 +11914,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     if ( opt_interp ) {
 
       if (  opt_gridonly ) {
-	parVal = pick_gridval_SIMSED(ipar_model); 
+	parVal = pick_gridval_SIMSED(ipar, ipar_model); 
       }
       else if ( irow_COV >= 0 ) {
 	// correlated random, Gaussian only
@@ -11946,17 +11946,24 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 } // end gen_modelPar_SIMSED
 
 // ***********************************
-double pick_gridval_SIMSED(int ipar_model) {
+double pick_gridval_SIMSED(int ipar, int ipar_model) {
 
   // Created Oct 23 2020
   // pick SIMSED value from grid using 1 of 2 options:
   //  1) default option is pick random SED within GENRANGE_XXX
   //  2) select from user-specified indices
+  //
+  // Inputs:
+  //   ipar        : original parameter index in SED.INFO file
+  //   ipar_model  : sparse index of params used select SED
+  //
+  // Jun 3 2022: fix index bug using ipar instead of ipar_model
 
   bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
   int  nsed=0, ised_ran=-9, itmp=-9 ;
   double flatRan  = getRan_Flat1(2); // random between 0-1
   double PARVAL, PARVAL_TMP ;
+  GENGAUSS_ASYM_DEF  *GENGAUSS_SIMSED ;
   int    LDMP = 0 ;
   char fnam[]  = "pick_gridval_SIMSED" ;
 
@@ -11977,7 +11984,9 @@ double pick_gridval_SIMSED(int ipar_model) {
   }
   else { 
     // pick random sed from asymGauss params.
-    PARVAL_TMP = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
+    GENGAUSS_SIMSED = &INPUTS.GENGAUSS_SIMSED[ipar];
+    // xxx mark  PARVAL_TMP = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
+    PARVAL_TMP = getRan_GENGAUSS_ASYM(GENGAUSS_SIMSED);
     PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
   }
 

@@ -2,6 +2,7 @@
 struct{
   gsl_interp_accel *acc;
   gsl_spline       *spline;
+  double zmin, zmax;
 } zPDF_spline ;
 
 

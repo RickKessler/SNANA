@@ -5036,12 +5036,12 @@ c Prior on photoZ
 
         if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
           ! get the probability at this redshift
-          Print *, 'Evaluating spline at ', ZSN
+c          Print *, 'xxx Evaluating spline at ', ZSN
           PROBZ = eval_zPDF_spline(ZSN)
-          Print *, 'Probability is ', PROBZ
+c          Print *, 'xxx Probability is ', PROBZ
           if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
           CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
-          Print *, 'Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
+c          Print *, 'xxx Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
@@ -8445,7 +8445,7 @@ c FCNSNLC args
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
-     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PERCENTILE(MXZPHOT_Q)
+     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q)
       CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN, init_zPDF_spline
@@ -8552,22 +8552,22 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
         endif
       
       ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R. Chen Jun 2022 .xyz
-        Print *, 'Start of quantiles code'
+c        Print *, 'xxx Start of quantiles code'
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
             c2err = 'but there are no zPDF quantiles in the data.'
             CALL MADABORT("FITINI_PHOTOZ", c1err, c2err)
         endif
         do q = 1, SNHOST_NZPHOT_Q
-            ZPHOT_PERCENTILE(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))
+            ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
             ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
-            Print *, ZPHOT_PERCENTILE(q)
-            Print *, ZPHOT_Q(q)
+c            Print *, ZPHOT_PROB(q)
+c            Print *, ZPHOT_Q(q)
         enddo
-          Print *, 'Calling init_zPDF_spline'
+c          Print *, 'xxx Calling init_zPDF_spline'
           CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
-     &                          ZPHOT_PERCENTILE, ZPHOT_Q)
-          Print *, 'Spline initialized successfully' 
+     &                          ZPHOT_PROB, ZPHOT_Q)
+c          Print *, 'xxx Spline initialized successfully' 
           INIVAL(ipar) = Zhost
           LZDONE       = .TRUE.
           CZTMP        = 'Zhost'

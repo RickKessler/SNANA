@@ -10737,16 +10737,13 @@ c ------------------------
 
       INTEGER  ibin, ipar, NPRIOR
 
-      REAL*8
-     &   tmp, prob, chi2, arg
-     &  ,xmin, xmax, xbin, x , wgt
+      REAL*8 tmp(2), prob, chi2, arg, xmin(2), xmax(2), xbin, x , wgt 
 
       LOGICAL LSTAT
 
-c hbook args
+c histogram args
 
-      REAL x4min, x4max, x4, w4, x4bin
-      INTEGER nb, LL, NDIM, LCHIS, HOFF, hid
+      INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid
       CHARACTER chis*80
 
 c function
@@ -10873,14 +10870,11 @@ c use CHI2_PRIOR function
 59       format( A,' from ',A,'-prior vs. ', A )
 
 c make plot with very fine binning to check interpolation
-         xbin = 0.2*PRIOR_BINSIZE(ipar)
-         xmin = PRIOR_RANGE(1,IPAR) - xbin/2.0
-         xmax = PRIOR_RANGE(2,IPAR) + xbin/2.0
-         nb   = int( (xmax - xmin + 0.1*xbin)/xbin )
+         xbin    = 0.2*PRIOR_BINSIZE(ipar)
+         xmin(1) = PRIOR_RANGE(1,IPAR) - xbin/2.0
+         xmax(1) = PRIOR_RANGE(2,IPAR) + xbin/2.0
+         nb(1)   = int( (xmax(1) - xmin(1) + 0.1*xbin)/xbin )
 
-         x4bin = sngl(xbin)
-         x4min = sngl(xmin)
-         x4max = sngl(xmax)
 
          LL = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
          LCHIS = 25+2*LL
@@ -10897,20 +10891,17 @@ c make plot with very fine binning to check interpolation
          chis = chis(1:LCHIS) // char(0)
          CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
 
-      DO 51 ibin = 1, NB
-           tmp   = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1) 
-           x4    = sngl(tmp)
-           chi2  = CHI2_PRIOR(ipar,tmp)
-           arg   = min(40.0,chi2/2.0)
-           prob  = dexp(-arg)
+      DO 51 ibin = 1, NB(1)
+           tmp(1)  = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1) 
+           chi2    = CHI2_PRIOR(ipar,tmp(1))
+           arg     = min(40.0,chi2/2.0)
+           prob    = dexp(-arg)
            
-
            HID = HOFF +  0 + ipar
            CALL SNHIST_FILL ( NDIM, HID, tmp, prob)
 
            HID = HOFF + 10 + ipar
            CALL SNHIST_FILL ( NDIM, HID, tmp, chi2 )
-
 
 51    CONTINUE
 50    CONTINUE

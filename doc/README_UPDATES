@@ -21100,4 +21100,14 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sntools_zPDF_spline.c[h]: new utility used by snlc_fit.
 
+
+# ======================================================================= 
+         v11_04l (  ) 
+
+         ***** IMPORTANT(v11_04l) ***** 
+
+         ***** USEFUL(v11_04l) ***** 
+
+         ***** MISCELLANEOUS(v11_04l) ***** 
+
 END: 

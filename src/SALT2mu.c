@@ -10771,6 +10771,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Jun 29 2021: fix bug setting im index for logmass.
   // Sep 14 2021: little cleanup/refac 
   // Sep 16 2021: add dump utils; see i1d_dump_mucovscale and OPTMASK
+  // Jun 05 2022: write SALT2 fit params in abort msg for crazy muErr
 
   int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
@@ -10989,6 +10990,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	     z, a, b, gDM);
       printf("\t ia,ib,ig = %d, %d, %d \n", ia, ib, ig);
       printf("\t istat_cov = %d \n", istat_cov);
+
+      for(ipar=0; ipar < NLCPAR; ipar++ ) { 
+	char *name = BIASCOR_NAME_LCFIT[ipar];
+	float val  = INFO_BIASCOR.TABLEVAR.fitpar[ipar][ievt]; 
+	float err  = INFO_BIASCOR.TABLEVAR.fitpar_err[ipar][ievt]; 
+	printf("\t %3s = %f +_ %f \n", name, val, err); 
+	fflush(stdout);
+      }
 
       sprintf(c1err,"Invalid muErrsq=%f for ievt=%d (SNID=%s)", 
 	      muErrsq, ievt, name );
@@ -22743,10 +22752,9 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
 	  tmpName, sigint, ERR );
 
   sprintf(tmpName, "MAXPROB_RATIO") ;
-  fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f  #Beware, value > 1 violates bounding function \n",
+  fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f  "
+	  "#Beware, value > 1 violates bounding function \n",
           tmpName, SUBPROCESS.MAXPROB_RATIO); 
-
-  // .xyz write dchi2red_dsigint here ... for Brodie
 
   fflush(FP_OUT);
 

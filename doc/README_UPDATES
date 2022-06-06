@@ -21106,8 +21106,24 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04l) ***** 
 
+   snlc_sim:
+      Fixed aweful index bug reading SED.BINARY for SIMSED model.
+      For NDAY x NLAM SED flux-space, all fluxes read from binary
+      were off by 1 in the index jflux = ilam+iday+NDAY.
+      Bug was introduced in SNANA v10_60b (Aug 12 2018), and was thus
+      part of PLASTICC. Bug only affects SIMSED models; does NOT impact
+      SNIa-SALT2, SNIa-SNoopy, NON1ASED (i.e., V19 CC models).
+
+      I checked SNIax for LSST at z=0.1:
+        PEAKMAG[ugriz]: 22.53  20.87  20.46  20.44  20.44  20.47  # bug
+        PEAKMAG[ugriz]: 22.48  20.88  20.47  20.45  20.44  20.48  # fixed
+      -> u-band change is .05 mag, and other bands are within 0.01 mag.
+      Note that implementing fix requires re-making SIMSED binaries
+      (preferably with make_simsed_binaries.py)
+
          ***** USEFUL(v11_04l) ***** 
 
          ***** MISCELLANEOUS(v11_04l) ***** 
+
 
 END: 

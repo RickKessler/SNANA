@@ -292,12 +292,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   read_SIMSED_INFO(SIMSED_PATHMODEL);
   dump_SIMSED_INFO();
 
-
-
   // - - - - - - - - - - - - - - - - - - - - 
   if ( USE_TESTMODE ) { return(retval); } // July 28 2018
   // - - - - - - - - - - - - - - - - - - - - 
-
 
 
   // determine SEDMODEL.MXDAY from ASCII or binary file
@@ -405,14 +402,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
 
-    printf("\t Trest: %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n"
-	   ,TEMP_SEDMODEL.DAYMIN
-	   ,TEMP_SEDMODEL.DAYMAX
-	   ,TEMP_SEDMODEL.LAMMIN
-	   ,TEMP_SEDMODEL.LAMMAX
-	   );
-    
-    fflush(stdout) ;
+    print_ranges_SEDMODEL(&TEMP_SEDMODEL);
 
   }    //  end loop over ised templates
 
@@ -738,8 +728,9 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   //
   // Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
   //
+  // Jun 6 2022: if PARVAL range > 1E6, write %le format
 
-  char *ptrFile, c_get[80], *ptr_parval, tmpName[60] ;
+  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[80] ;
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
 
@@ -869,8 +860,14 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     else
       { SEDMODEL.PARVAL_BIN[ipar]  = 0.0 ; }
 
-    printf("\t Found '%12s' with %2d bins from %8.3f to %8.3f\n",
-	   tmpName, NBPAR, PARLIM[0], PARLIM[1] );
+
+    if ( PARLIM[1] < 1.0E6 ) 
+      { sprintf(c_parval,"%8.3f to %8.3f", PARLIM[0], PARLIM[1]); }
+    else
+      { sprintf(c_parval,"%10.3le to %10.3le", PARLIM[0], PARLIM[1]); }
+    printf("    Found '%16s' with %2d bins from %s\n",
+	   tmpName, NBPAR, c_parval );
+
   }
 
   // -------
@@ -947,12 +944,13 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   //                  
   // Aug 10 2017: SEDMODEL.MXDAY = NDAY  and not NDAY+10
   // Dec 29 2017: check sedFile and gzipped file too.
+  // Jun 06 2022: MXDAY += 5 in case of very close file sizes.
 
   int NSED = SEDMODEL.NSURFACE ;
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
   char sedFile[MXPATHLEN], sedFile_gz[MXPATHLEN], comment[60] ;
   struct stat statbuf ; 
-  //  char fnam[] = "set_SIMSED_MXDAY";
+  char fnam[] = "set_SIMSED_MXDAY";
 
   // ---------------- BEGIN -----------------
 
@@ -979,18 +977,13 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   /*
   printf("\t NDAY(largest file)=%d  => allocate %d epochs in SEDMODEL \n", 
   	 NDAY, SEDMODEL.MXDAY );
-
-  // shift peak Day ... can't remember why we need this here
-  // since it gets shifted later for each SED.
-  if ( TEMP_SEDMODEL.NDAY > 0 && TEMP_SEDMODEL.DAY[0] >= 0.0 ) 
-    { shiftPeakDay_SEDMODEL(1); }
   */
 
   if ( RDFLAG_BINARY ) {
     fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
   }
   else {
-    SEDMODEL.MXDAY = NDAY  ;
+    SEDMODEL.MXDAY = NDAY + 5 ; // leave a little slop in file sizes
     if ( WRFLAG_BINARY ) 
       { fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); }
   }

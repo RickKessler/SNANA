@@ -18160,6 +18160,7 @@ c   + if SNLC_HELIO[CMB] are both given in data file, make
 c     crosscheck here using zTOL_HELIO2CMB test on dz/z
 c 
 c Mar 15 2021: if zCMB < 0 for text format, use computed value.
+c Jun 07 2022: do not abort on bad tolerance if REFORMAT_SNANA=T
 c
 c ---------
 
@@ -18171,6 +18172,7 @@ c ---------
       INTEGER OPT
       CHARACTER EQ*4, FNAM*12
       REAL*8  ZHEL8, ZCMB8, DZ8, zRATIO8
+      LOGICAL BADz
 
       REAL*8 zhelio_zcmb_translator ! function
 
@@ -18203,7 +18205,8 @@ c allows quick/sloppy makeDataFiles with real data.
          zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
          DZ8     = abs(1.0 - zRATIO8)
 
-         if ( SNLC_zCMB > 0.0 .and. DZ8 > zTOL_HELIO2CMB ) then
+         BADz = ( SNLC_zCMB > 0.0 .and. DZ8 > zTOL_HELIO2CMB )
+         if ( BADz .and. .NOT.REFORMAT_SNANA ) THEN
             CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),12)
             print*,' zHEL(dataFile) = ', SNLC_ZHELIO
             print*,' zCMB(dataFile) = ', SNLC_ZCMB

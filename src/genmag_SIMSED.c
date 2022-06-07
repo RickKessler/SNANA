@@ -140,8 +140,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
 
-  // OPTMASK +=  1 --> create binary file
-  // OPTMASK +=  2 --> force creation of SED.INFO
+  // OPTMASK +=  1 --> create binary file if it doesn't exist
+  // OPTMASK +=  2 --> force creation of SED.BINARY
   // OPTMASK +=  4 --> force creaton of flux-table binary
   // OPTMASK += 64 --> test mode only, no binary, no time-stamp checks
   // OPTMASK += 128 -> batch mode, thus abort on stale binary

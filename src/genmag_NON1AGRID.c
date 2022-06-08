@@ -162,7 +162,6 @@ void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
 	   ifilt_obs, z, meanlam_obs);
   }
 
-  // xyz
   // -------------------------------------------------------
   for(obs=0; obs < NOBS;  obs++ ) {
     Tobs = TobsList[obs];

@@ -4391,7 +4391,7 @@ void rd_snfitsio_zphot_q(void) {
   SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
 
   // read list of percentiles from keys of the form
-  // PERCENTILE_ZPHOT_Q## .xyz
+  // PERCENTILE_ZPHOT_Q## 
   for(ivar=0; ivar < N_Q; ivar++ ) {
     sprintf(keyname,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ivar);
     

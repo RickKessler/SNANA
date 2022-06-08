@@ -496,9 +496,6 @@ void  set_outlier_varnames(void) {
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "MJD" );   
   NVAR++ ;
 
-  // including BAND results in core dump; don't know why ??  .xyz
-  //  sprintf(INPUTS.VARNAMES[NVAR],"%s", "BAND" );   
-  //  NVAR++ ;
 
   sprintf(INPUTS.VARNAMES[NVAR],"%s", "IFILTOBS" );   
   NVAR++ ;

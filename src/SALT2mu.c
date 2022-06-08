@@ -12273,7 +12273,7 @@ void  makeMap_binavg_biasCor(int IDSAMPLE) {
   }
 
 
-  // loop over biasCor sample ... xyz
+  // loop over biasCor sample ...
   for(isp=0; isp < NROW; isp++ ) {
 
     irow = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
@@ -22651,10 +22651,10 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
 
 
-  int MEMD, LEN_REALLOC = 100; // increase to 1000 after valgrind debug xyzz
+  int MEMD, LEN_REALLOC = 100; // increase to 1000 after valgrind debug 
   NEVT       = OUTPUT_TABLE->NEVT[IBIN1D];
   if ( NEVT == 0 ) {
-    // malloc before any events are stored xyzz
+    // malloc before any events are stored 
     MEMD = LEN_REALLOC * sizeof(double);
     OUTPUT_TABLE->MURES_LIST[IBIN1D] = (double*) malloc(MEMD); 
     if ( LPRINT_MALLOC ) {

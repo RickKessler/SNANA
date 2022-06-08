@@ -945,7 +945,6 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
 
     OPT=0;  if ( ISTABLEVAR_IFILT(VARNAME) ) { OPT=1; }
 
-    // .xyz 
     if ( ICAST_READ == ICAST_I ) { 
       ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_DUMP][ICAST_I];
       VAL_I  = HBOOK_CWNT_READROW.VAL_I[ivarcast][IFIT] ;

@@ -378,7 +378,7 @@ void nearnbr_apply_exec(int ievt) {
   // -----------------------------------
   // convert to NN_PROB_Ia and update outFile . . . .
 
-  // .xyz ACCOUNT FOR SCALE_NON1A !!!
+  // ACCOUNT FOR SCALE_NON1A !!!
   int NCELL_TOT=0, NCELL_1A=0, i;
   for(i=0; i < NTYPE; i++ ) {
     NCELL_TOT += NCELL_TRAIN_LIST[i];

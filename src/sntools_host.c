@@ -9449,7 +9449,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   } // end igal
 
 
-  char MSG[200]; // .xyz
+  char MSG[200]; 
   sprintf(MSG,"%s appended %d variables (%s)", 
 	  getenv("USER"), NVAR_APPEND, varList);
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);

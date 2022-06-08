@@ -548,24 +548,9 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   } // end genPDF 
 
   // - - - - - -
-  // check explicit asymGauss function .xyz
+  // check explicit asymGauss function 
   DO_GENGAUSS = GENGAUSS->USE ;
 
-  /* xxx mark delete Aug 11 2021 xxxxxx
-  // if GENPDF has higher priority than GENGAUSS,  then turn off GENGAUSS. 
-  // This allows GENPDF on command line to override GENGAUSS ...
-  // and vice-versa.
-  if ( matchVar && KEYSOURCE_GENGAUSS < KEYSOURCE_GENPDF)
-    { DO_GENGAUSS = false; }
-
-  // abort if GENGAUSS and GENPDF have equal priority
-  if ( matchVar && KEYSOURCE_GENGAUSS == KEYSOURCE_GENPDF) { 
-      sprintf(c1err,"Ambiguous method to generate %s", VARNAME);
-      sprintf(c2err,"KEYSOURCE(GENGAUSS,GENPDF) = %d, %d ",
-	      KEYSOURCE_GENGAUSS, KEYSOURCE_GENPDF );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-  xxxxxxxxxx */
 
   if  ( DO_GENGAUSS ) {   
     N_EVAL++ ;

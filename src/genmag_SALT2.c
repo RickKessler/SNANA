@@ -2060,7 +2060,6 @@ bool match_SALT2train_legacy(char *survey_calib, char *band_calib, int ifilt) {
   // matching band requires:
   // 1) survey name is part of full filter name (FRAGILE ALERT !!!)
   // 2) band_calib is last character, or last char before slash
-  // .xyz FRAGILE ALERT: need to include SURVEY in kcor file
   MATCH_BAND = 
     ( strstr(filter_name,survey_filt) != NULL ) && 
     ( strcmp(band_filt,band_calib) == 0 ) ;
@@ -2531,14 +2530,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
 
   // get total fractional  error.
   fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
-
-  /* xxxxxxxxxx mark delete Oct 1 2021 xxxxx
-  if ( fracerr_TOT > .999 )
-    { magerr_model = 5.0 ; } // .xyz causes fit discontinuity ?
-  else  { 
-    magerr_model  = (2.5/LNTEN) * fracerr_TOT ;  // exact
-  }
-  xxxxxxxxxxxx end mark xxxxxx */ 
 
   // convert frac-error to mag-error, and load return array
   magerr_model  = (2.5/LNTEN) * fracerr_TOT ;   // exact

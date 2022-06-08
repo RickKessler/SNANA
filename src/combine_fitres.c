@@ -1233,7 +1233,6 @@ void  print_stats(void) {
     fflush(stdout);
   }
 
-  //.xyz
   return;
 
 } // end print_stats

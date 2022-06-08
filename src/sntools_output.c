@@ -2033,7 +2033,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   }
 
 
-  // abort if no variables are found .xyz
+  // abort if no variables are found 
   if ( ABORT_FLAG && NVAR_USR == 0 ) {
     print_preAbort_banner(fnam);
 

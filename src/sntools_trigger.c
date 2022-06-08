@@ -2659,7 +2659,6 @@ double interp_SEARCHEFF_zHOST(void) {
   // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
   EFF = 1.0 - Pnoz ;
 
-  // .xyz
   if ( NMATCH == 0 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );

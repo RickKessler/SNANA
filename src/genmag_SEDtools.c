@@ -2787,7 +2787,6 @@ void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX) {
   }
 
   // get bolometric flux at edges and peak
-  // .xyz
   
   IDAY_LIST[0] = IDAY_PEAK;
   IDAY_LIST[1] = IDAY_EDGE_MIN;

@@ -2031,7 +2031,6 @@ void addTemplateRows_NONRECUR(void) {
     } 
   }
 
-  // .xyz
   if ( NFERR > 0 ) {
     sprintf(c1err,"Invalid NONRECUR EVENT (ID=%lld)", LCLIB_EVENT.ID );
     sprintf(c2err,"First and Last mags do not match");
@@ -2450,7 +2449,6 @@ double magSearch_LCLIB(int ifilt, double Tobs) {
     //    (beware that mag_T is not necessarily quiescent mag)
     // After  LCLIB epoch range. set mag_S = last [quiescent] mag
     // (i.e., the quiescent value)
-    // .xyz
 
     if ( DAY_LCLIB <= DAYMIN_S ) { return(mag_T) ; }
     if ( DAY_LCLIB >= DAYMAX_S ) { DAY_LCLIB = DAYMAX_S - 1.0E-5 ; }

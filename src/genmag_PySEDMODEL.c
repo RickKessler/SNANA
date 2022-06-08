@@ -591,7 +591,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
 
   // xxx  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			  "fetchSED_BYOSED"); // .xyz
+  // xxx			  "fetchSED_BYOSED"); //
 
   plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
   pnlammeth = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_NLAM");

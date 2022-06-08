@@ -14007,7 +14007,7 @@ void gen_redshift_LCLIB(void) {
   if ( INDEX_GENMODEL != MODEL_LCLIB ) { return ; }
 
   // xxx mark delete May 2022  GENLC.TEMPLATE_INDEX  x= LCLIB_EVENT.ID ; 
-  if ( ZCMB_TRUE <= 1.0E-9 ) { return; } // May 2022 .xyz
+  if ( ZCMB_TRUE <= 1.0E-9 ) { return; } // May 2022 
 
   if ( LDMP ) {
     printf("    xxx ------------------------------------- \n");

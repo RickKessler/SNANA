@@ -8692,7 +8692,6 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
     //    printf(" xxx istat=%3d for '%s' \n", istat_gzip,  gzipFile);
     //    printf(" xxx istat=%3d for '%s' \n", istat_unzip, unzipFile);
 
-    // .xyz
     bool FOUND_2FILES = ( istat_gzip==0 && istat_unzip==0 );
     if ( FOUND_2FILES && N_ITER==1 ) { 
       printf("\t found gzip and unzip file ... try again in 5 sec... \n");

@@ -2256,7 +2256,7 @@ void psnid_best_grid_compare(int itype, int zpind, int nobs,
       for (u = minu; u <= maxu; u = u + ustep) {      // dmu
 	chisqlozu = PSNID_BIGN;
 	ushift = u_grid[u];
-	// .xyz for Ia opton, set ushift=0 (9/15/2017)
+	// for Ia opton, set ushift=0 (9/15/2017)
 
 	for (d = mind; d <= maxd; d = d + dstep) {    // shapepar
 

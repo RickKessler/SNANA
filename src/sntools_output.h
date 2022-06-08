@@ -34,7 +34,7 @@
 
 
 // define flags for software packages
-#define USE_HBOOK             
+#define USE_HBOOKxxx             
 #define USE_ROOT     
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
@@ -327,6 +327,7 @@ struct OUTLIER_INFO {
 
 #define MXFILE_AUTOSTORE 10   // max files to autoStore (Jan 2017)
 int NFILE_AUTOSTORE ;
+int NREAD_AUTOSTORE ;
 struct SNTABLE_AUTOSTORE {
   int     NVAR ;
   int     IVARMAP[MXVAR_TABLE]; 
@@ -463,6 +464,9 @@ extern"C" {
   int  ICAST_for_textVar(char *varName) ;
 
   // - - - autoStore utility functions - - - - 
+  void SNTABLE_AUTOSTORE_RESET(void);
+  void sntable_autostore_reset__(void);
+
   int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 
 			     char *varList, int optMask);
   int sntable_autostore_init__(char *fileName, char *tableName, 
@@ -477,7 +481,7 @@ extern"C" {
   void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
 
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
-
+  
 
   int IVAR_VARNAME_AUTOSTORE(char *varName);
   int EXIST_VARNAME_AUTOSTORE(char *varName);

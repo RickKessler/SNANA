@@ -20646,6 +20646,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
   //    more efficiency, and beware change of random sync.
   //
   // Feb 05 2021: load each overlap field and NFIELD_OVP
+  // Jun 08 2022: Load NEXPOSE. 
 
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
@@ -20664,6 +20665,8 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
   SEARCHEFF_DATA.SIMLIB_ID  = GENLC.SIMLIB_ID;
   SEARCHEFF_DATA.MWEBV      = GENLC.MWEBV ;
+
+
 
   // load field(s) and be careful about overlaps (e.g., X1+X3)
 
@@ -20702,6 +20705,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.FLUX[NOBS]      = flux ;
     SEARCHEFF_DATA.FLUXERR[NOBS]   = flux_err ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
+    SEARCHEFF_DATA.NEXPOSE[NOBS]   = -9 ; // XYZ FINISH this AM
     
     oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;
     if ( oldRan < -0.001 ) 

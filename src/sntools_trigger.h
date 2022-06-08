@@ -249,6 +249,7 @@ struct {
   double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX, MWEBV ;
   int    SIMLIB_ID;
 
+
   char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
   int  NFIELD_OVP;   // number of overlap fields
@@ -268,7 +269,7 @@ struct {
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)
   int detectFlag[MXOBS_TRIGGER]; // detection flag for each obs (not trigger)
   double PHOTPROB[MXOBS_TRIGGER];  // Mar 13 2018
-
+  int    NEXPOSE[MXOBS_TRIGGER]; // Number of Exposures in CO-ADD. 08/06/2022 
 } SEARCHEFF_DATA ;
 
 

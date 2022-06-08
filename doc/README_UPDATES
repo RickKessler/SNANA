@@ -21132,4 +21132,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snlc_sim.c
      + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
 
+   wfit.c:
+     + new input varname_muerr to replace MUERR with something else.
+     + refactor using VARLIST_DEFAULT_XXX parameter names.
+
 END: 

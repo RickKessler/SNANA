@@ -127,10 +127,15 @@
 #define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
 #define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG + SPEED_MASK_INTERP
 
-// define variable names in hubble diagram
-#define VARNAME_DEFAULT_MUERR "MUERR" 
-// #define VARNAME_DEFAULT_MU "MU"
-// #define VARNAME_DEFAULT_REDSHIFT "zHD"
+// Define variable names to read in hubble diagram file.
+// VARLIST_DEFAULT_XXX means that any variable is valid for XXX.
+#define  VARLIST_DEFAULT_CID     "CID:C*20 ROW:C*20"
+#define  VARLIST_DEFAULT_MUERR   "MUERR:D DLMAGERR:D MUDIFERR:D"
+#define  VARLIST_DEFAULT_MU      "MU:D DLMAG:D MUDIF:D"
+#define  VARLIST_DEFAULT_zHD     "zHD:D zCMB:D z:D Z:D"
+#define  VARLIST_DEFAULT_zHDERR  "zHDERR:D zCMBERR:D zERR:D ZERR:D"
+#define  VARLIST_DEFAULT_MUREF   "MUREF:D"
+#define  VARLIST_DEFAULT_NFIT    "NFIT:I"
 
 // ======== global structures ==========
 
@@ -553,7 +558,7 @@ void init_stuff(void) {
   sprintf(INPUTS.label_cospar,"none");
   INPUTS.format_cospar = 1; // csv like format
   INPUTS.fitnumber = 1;
-  sprintf(INPUTS.varname_muerr, VARNAME_DEFAULT_MUERR);
+  INPUTS.varname_muerr[0] = 0 ;
 
   // Gauss OM params
   INPUTS.omm_prior        = OMEGA_MATTER_DEFAULT ;  // mean
@@ -1029,19 +1034,18 @@ void read_fitres(char *inFile) {
 
   malloc_HDarrays(+1,NROW); 
 
-  IVAR_ROW   = SNTABLE_READPREP_VARDEF("CID:C*20 ROW:C*20",
+  IVAR_ROW   = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_CID,
 				       HD.cid, NROW, VBOSE);
 
-  IVAR_MU    = SNTABLE_READPREP_VARDEF("MU:D DLMAG:D MUDIF:D",    
+  IVAR_MU    = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_MU, 
 				       HD.mu,     NROW, VBOSE) ;
 
   char STRING_MUERR[100] ;
-  if (strcmp(INPUTS.varname_muerr, VARNAME_DEFAULT_MUERR)==0){
-    sprintf(STRING_MUERR,"MUERR:D DLMAGERR:D MUDIFERR:D") ;
-  }
-  else{
-    sprintf(STRING_MUERR,"%s:D",INPUTS.varname_muerr);
-  }
+  if ( strlen(INPUTS.varname_muerr) > 0 )  // command line override
+    { sprintf(STRING_MUERR,"%s:D",INPUTS.varname_muerr); }
+  else
+    { sprintf(STRING_MUERR,"%s", VARLIST_DEFAULT_MUERR) ;  }
+
   IVAR_MUERR = SNTABLE_READPREP_VARDEF(STRING_MUERR,
                                        HD.mu_sig, NROW, VBOSE) ;
   /* xxx mark delete
@@ -1049,14 +1053,14 @@ void read_fitres(char *inFile) {
 				       HD.mu_sig, NROW, VBOSE) ;
   */
   
-  IVAR_MUREF = SNTABLE_READPREP_VARDEF("MUREF:D", 
+  IVAR_MUREF = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_MUREF,
 				       HD.mu_ref, NROW, VBOSE);
-  IVAR_NFIT  = SNTABLE_READPREP_VARDEF("NFIT:I", 
+  IVAR_NFIT  = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_NFIT,
 				       HD.nfit_perbin, NROW, VBOSE );
   // - - - -
-  IVAR_zHD    = SNTABLE_READPREP_VARDEF("zHD:D zCMB:D z:D Z:D",    
+  IVAR_zHD    = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_zHD, 
 					HD.z,     NROW, VBOSE) ;
-  IVAR_zHDERR = SNTABLE_READPREP_VARDEF("zHDERR:D zCMBERR:D zERR:D ZERR:D", 
+  IVAR_zHDERR = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_zHDERR,
 					HD.z_sig, NROW, VBOSE) ;
 
   // check for required elements

@@ -21129,4 +21129,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** MISCELLANEOUS(v11_04l) ***** 
 
+   snlc_sim.c
+     + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
+
 END: 

@@ -898,6 +898,7 @@ struct INPUTS {
 
   int  NVAR_SIMGEN_DUMP;  // number of SIMGEN variables to write to fitres file
   char VARNAME_SIMGEN_DUMP[MXSIMGEN_DUMP][40] ; // var-names
+  bool IS_SIMSED_SIMGEN_DUMP[MXSIMGEN_DUMP];
   int  IFLAG_SIMGEN_DUMPALL ;  // 1 -> dump every generated SN
   int  PRESCALE_SIMGEN_DUMP ;  // prescale on writing to SIMGEN_DUMP file
 

@@ -3553,7 +3553,7 @@ void applyCut_chi2max(void) {
 
 
   if ( NREJ > 0 ) { 
-    printf("\n Setup z-bins again after chi2max cut:");
+    printf("\n Setup z-bins again after chi2max cut: \n");
     fflush(stdout);
     setup_zbins_fit(); 
   }  

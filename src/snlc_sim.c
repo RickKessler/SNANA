@@ -4022,6 +4022,11 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   if ( !LRD ) { goto README_LOAD ; }
 
+  for(ivar=0; ivar < MXSIMGEN_DUMP; ivar++ ) {
+    INPUTS.VARNAME_SIMGEN_DUMP[ivar][0] = 0 ;
+    INPUTS.IS_SIMSED_SIMGEN_DUMP[ivar]  = false ;
+  }
+
   // check of comma sep or space-sep format.
   if ( strstr(WORDS[N+1],COMMA) != NULL ) 
     { LRD_COMMA_SEP = true;  }
@@ -12492,6 +12497,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     call checkAlternateVarNames_HOSTLIB here (after INIT_HOSTLIB) instead 
     of in parse_input_SIMGEN_DUMP (before INIT_HOSTLIB).
     
+  Jun 7 2022: protect SIMSED variables from checkAlternateVarNames_HOSTLIB.
+
   ****/
 
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
@@ -12502,6 +12509,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   double r8 ;
   char  *ptrFile, *pvar, *str  ;
   char *varName ;
+  bool  IS_SIMSED;
 
   FILE *fp ;
   char cval[40] ;
@@ -12509,7 +12517,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // --------------- BEGIN ----------
 
-  if ( INPUTS.NVAR_SIMGEN_DUMP < 0 ) return ;
+  if ( INPUTS.NVAR_SIMGEN_DUMP < 0 ) { return ; }
 
   if ( OPT_DUMP < 1 || OPT_DUMP > 3 ) {
     sprintf ( c1err, "Invalid OPT_DUMP = %d ", OPT_DUMP );
@@ -12517,11 +12525,16 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  NVAR = INPUTS.NVAR_SIMGEN_DUMP ; // load global 
-  for(ivar=0; ivar < NVAR; ivar++ ) {                          
-    varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;          
-    checkAlternateVarNames_HOSTLIB(varName);
-  } 
+  // check for alternate varNames, but never change
+  // name of SIMSED variable.
+  NVAR = INPUTS.NVAR_SIMGEN_DUMP ; 
+  for(ivar=0; ivar < NVAR; ivar++ ) { 
+    IS_SIMSED = INPUTS.IS_SIMSED_SIMGEN_DUMP[ivar] ;
+    if ( !IS_SIMSED ) {
+      varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;          
+      checkAlternateVarNames_HOSTLIB(varName);
+    } 
+  }
 
   ptrFile = SIMFILE_AUX->DUMP ;
 
@@ -13598,7 +13611,7 @@ void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void) {
   int NVAR_SIMGEN_DUMP_START = NVAR_SIMGEN_DUMP ;
   int NVAR_SIMGEN_DUMP_END   = NVAR_SIMGEN_DUMP ;
   char PREFIX[12], *cptr ;
-  //  char fnam[] = "PREP_SIMGEN_DUMP_TAKE_SPECTRUM" ;
+  char fnam[] = "PREP_SIMGEN_DUMP_TAKE_SPECTRUM" ;
 
   // ------------- BEGIN ----------
 
@@ -19830,6 +19843,7 @@ void checkpar_SIMSED(void) {
     // Now load all SIMSED params onto SIMGEN_DUMP list
     for ( ipar = 0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
       idump = INPUTS.NVAR_SIMGEN_DUMP ;
+      INPUTS.IS_SIMSED_SIMGEN_DUMP[idump]  = true ;
       ptrDumpVar    = INPUTS.VARNAME_SIMGEN_DUMP[idump] ;
       ptrSIMSEDVar  = INPUTS.PARNAME_SIMSED[ipar] ;
       sprintf(ptrDumpVar,"%s", ptrSIMSEDVar );     

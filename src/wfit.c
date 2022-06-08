@@ -127,6 +127,11 @@
 #define SPEED_MASK_INTERP  2  // interplate r(z) and mu_cos(z)
 #define SPEED_FLAG_CHI2_DEFAULT  SPEED_MASK_OFFDIAG + SPEED_MASK_INTERP
 
+// define variable names in hubble diagram
+#define VARNAME_DEFAULT_MUERR "MUERR" 
+// #define VARNAME_DEFAULT_MU "MU"
+// #define VARNAME_DEFAULT_REDSHIFT "zHD"
+
 // ======== global structures ==========
 
 struct INPUTS {
@@ -149,6 +154,7 @@ struct INPUTS {
   char mucov_file[1000] ;  // input cov matrix; e.g., from create_covariance
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
+  char varname_muerr[40] ; // name of muerr variable, default MUERR
 
   // grid ranges and steps
   int    h_steps, omm_steps, w0_steps, wa_steps ;
@@ -345,7 +351,7 @@ void parse_VARLIST(FILE *fp);
 void read_mucov_sys(char *inFile);
 void dump_MUCOV(char *comment);
 void invert_mucovar(double sqmurms_add);
-double check_invertMatrix(int N, double *COV, double *COVINV );
+void check_invertMatrix(int N, double *COV, double *COVINV );
 void set_stepsizes(void);
 void set_Ndof(void);
 void init_rz_interp(void);
@@ -547,6 +553,7 @@ void init_stuff(void) {
   sprintf(INPUTS.label_cospar,"none");
   INPUTS.format_cospar = 1; // csv like format
   INPUTS.fitnumber = 1;
+  sprintf(INPUTS.varname_muerr, VARNAME_DEFAULT_MUERR);
 
   // Gauss OM params
   INPUTS.omm_prior        = OMEGA_MATTER_DEFAULT ;  // mean
@@ -639,6 +646,7 @@ void print_help(void) {
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -mucovar\t\t [Legacy key for previous]",
+    "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
     "   -speed_flag_chi2   +=1->offdiag trick, +=2->interp trick"
     "\n",
@@ -764,6 +772,8 @@ void parse_args(int argc, char **argv) {
       } else if (strcasecmp(argv[iarg]+1,"mucovar")==0) {    // legacy key
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
 	INPUTS.use_mucov =1 ;
+      } else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
+        strcpy(INPUTS.varname_muerr,argv[++iarg]);
        
       } else if (strcasecmp(argv[iarg]+1,"ndump_mucov")==0 ) { 
 	INPUTS.ndump_mucov = atoi(argv[++iarg]);      
@@ -1024,8 +1034,20 @@ void read_fitres(char *inFile) {
 
   IVAR_MU    = SNTABLE_READPREP_VARDEF("MU:D DLMAG:D MUDIF:D",    
 				       HD.mu,     NROW, VBOSE) ;
+
+  char STRING_MUERR[100] ;
+  if (strcmp(INPUTS.varname_muerr, VARNAME_DEFAULT_MUERR)==0){
+    sprintf(STRING_MUERR,"MUERR:D DLMAGERR:D MUDIFERR:D") ;
+  }
+  else{
+    sprintf(STRING_MUERR,"%s:D",INPUTS.varname_muerr);
+  }
+  IVAR_MUERR = SNTABLE_READPREP_VARDEF(STRING_MUERR,
+                                       HD.mu_sig, NROW, VBOSE) ;
+  /* xxx mark delete
   IVAR_MUERR = SNTABLE_READPREP_VARDEF("MUERR:D DLMAGERR:D MUDIFERR:D", 
 				       HD.mu_sig, NROW, VBOSE) ;
+  */
   
   IVAR_MUREF = SNTABLE_READPREP_VARDEF("MUREF:D", 
 				       HD.mu_ref, NROW, VBOSE);
@@ -2676,7 +2698,10 @@ void invert_mucovar(double sqmurms_add) {
 
 
 // =========================================
-double check_invertMatrix(int N, double *COV, double *COVINV ) {
+void check_invertMatrix(int N, double *COV, double *COVINV ) {
+  // compute C*C_inverse and compute maximum deviations from 1 on diagonal 
+  // and max deviations from 0 on off-diagonal
+  // print deviations to stdout
 
   int i, j, k;
   double val, valinv;

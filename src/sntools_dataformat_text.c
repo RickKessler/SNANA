@@ -2783,17 +2783,27 @@ double get_dbl_sntextio_obs(int IVAROBS, int ep) {
   //    Function return double precision value
   //
   // If value is NaN, increment global NaN counter.
-  //
+  // 
+  // Jun 9 2022: for MAG, convert NaN -> MAG_NEGFLUX and don't abort
+  
 
   char *str     = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS] ;
   char *varName = SNTEXTIO_FILE_INFO.VARNAME_OBS_LIST[IVAROBS] ;
   double dval;
 
   sscanf(str, "%le", &dval );
+
   if ( isnan(dval) ) { 
-    printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
-	   varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
-    SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+
+    if ( strcmp(varName,"MAG") == 0 ) {
+      dval = MAG_NEGFLUX ;
+      sscanf(str, "%le", &dval );
+    }
+    else {
+      printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
+	     varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
+      SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+    }
   }
 
   return (dval);

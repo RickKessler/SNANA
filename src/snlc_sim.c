@@ -2341,7 +2341,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   // Oct 16 2020: abort on multiple rate models. Note that same model
   //              key name can appear more than once; e.g., POWERLAW2.
   // Dec 22 2021: load README contents.
-
+  // Jun 09 2022: read optional rate-scale for PISN; e.g, 0.3*PISN_PKL12
+  
   bool  IS_NOMINAL = (strcmp(WHAT,"NOMINAL") == 0 ) ;
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
@@ -2451,14 +2452,24 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_CCS15, &TMPVAL);
-      sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_CCS15); // strip off scale
+      sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_CCS15); // strip off name only
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_CCS15 ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
       RATEPAR->MODEL_PARLIST[1][0] = TMPVAL; // rate-scale
     }
-    else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_PISN) == 0 ) {
+    else if ( strstr(RATEPAR->NAME,RATEMODELNAME_PISN) != NULL ) {
+
+      /* xxx mark delete Jun 9 2022 xxxx
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_PISN ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
+      xxx end mark xxx */ 
+
+      parse_multiplier(RATEPAR->NAME,RATEMODELNAME_PISN, &TMPVAL);
+      sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_PISN); // strip off name only
+      RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_PISN ;
+      RATEPAR->NMODEL_ZRANGE = 1 ;
+      RATEPAR->MODEL_PARLIST[1][0] = TMPVAL; // rate-scale
+      
     }
     else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_TDE) == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_TDE ;
@@ -14673,6 +14684,7 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     z2=z*z; z3=z*z2; z4=z*z3; z5=z*z4; 
     rate = 1.98 + 6.38*z + 6.558*z2 - 4.42*z3 + 0.8312*z4 - 0.0508*z5;
     rate /= 1.0E9;  // convert Gpc^3 to Mpc^3
+    rate *= RATEPAR->MODEL_PARLIST[1][0] ; // user-defined scale (Jun 2022)
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_TDE ) {
     R0   = RATEPAR->MODEL_PARLIST[1][0] ; // user-define rate at z=0

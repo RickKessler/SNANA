@@ -13,7 +13,8 @@
 #              official SNANA install.
 #
 # Sep 10 2020: minor refactor with BYOSED -> PySEDMODEL
-
+# Jun 10 2022: check VERSION_LIBPYTHON instead of SNANA_PYTHON_DIR
+#
 import os
 import sys 
 
@@ -23,8 +24,8 @@ INCFILE_OUTPUT     = '../src/sntools_output.h'
 INCFILE_PySEDMODEL = '../src/genmag_PySEDMODEL.h'
 
 LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
-#LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_PySEDMODEL' ] 
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ] 
+# xxx mark LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ]
+LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'VERSION_LIBPYTHON' ] 
 LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL ]
 NCFLAG         = len(LIST_CFLAG)
 

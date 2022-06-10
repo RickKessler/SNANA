@@ -21127,6 +21127,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04l) ***** 
 
+  sim: For C-python interface (BYOSED), use ENV VERSION_LIBPYTHON instead 
+       of $SNANA_PYTHON_DIR to communicate with Makefile. Solves problem 
+       of different libpython versions on RCC and Cori. 
+       Modified files: src/Makefile and util/set_Cpreproc_flags.py
+
          ***** MISCELLANEOUS(v11_04l) ***** 
 
    snlc_sim.c

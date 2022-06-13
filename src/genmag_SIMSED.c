@@ -990,7 +990,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   if ( RDFLAG_BINARY ) {
     fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
-    if ( IVERSION_SIMSED_BINARY >=4 ) { SEDMODEL.MXDAY += NDAY_PAD ; }
+    // xxx mark if ( IVERSION_SIMSED_BINARY >=4 ) { SEDMODEL.MXDAY += NDAY_PAD ; }
   }
   else {
     SEDMODEL.MXDAY = NDAY + NDAY_PAD ; // leave a little slop in file sizes

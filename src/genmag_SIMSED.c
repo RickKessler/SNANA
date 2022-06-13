@@ -481,20 +481,22 @@ void open_SEDBINARY(char *binFile, bool force_create,
     // re-open in write mode
     *fpbin = fopen(binFile,"wb") ;
     printf("\n Create SED-BINARY file for quicker init: \n");
-    printf("  %s\n\n", binFile ); 
+    printf("  %s\n", binFile ); 
     printf("\t (write SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
+    printf("\n");
     fflush(stdout);
     fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
   }
   else {
     *RDFLAG = true ;
     printf("\n Read SED-BINARY file for quicker init: \n");
-    printf("  %s\n\n", binFile );
+    printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
     fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
     printf("\t (read SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
+    printf("\n");
     fflush(stdout);
   }
 

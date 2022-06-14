@@ -17,6 +17,9 @@
 #define MODEL_NAME_SNEMO    "SNEMO"
 #define MODEL_NAME_BAYESN    "BAYESN"
 #define NCHOICE_PySEDMODEL  3
+
+#define OPTMASK_ALLOW_C_ONLY 4096 // allow running C-code without python
+
 char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][12] ;
 
 // store inputs from init_genmag_PySEDMODEL

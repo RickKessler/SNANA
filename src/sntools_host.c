@@ -7135,7 +7135,8 @@ bool snr_detect_HOSTLIB(int IGAL) {
   int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
   int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt, NBAND_EXIST = 0;
   char cfilt[2];
-  double MAG_LIST[MXFILTINDX], MAG_ERR_LIST[MXFILTINDX], SNR_LIST[MXFILTINDX]; // .xyz convert to list
+  double MAG, MAG_ERR, SNR ;
+  double MAG_LIST[MXFILTINDX], MAG_ERR_LIST[MXFILTINDX], SNR_LIST[MXFILTINDX];
   bool detect = true;
   char fnam[] = "snr_detect_HOSTLIB";
 
@@ -7147,22 +7148,29 @@ bool snr_detect_HOSTLIB(int IGAL) {
     IVAR_MAG       = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
     IVAR_MAGERR    = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
 
-    // do we allow a missing MAG in HOSTLIB, and instead
-    // require at least NBAND host bands to allow cut on
-    // NBAND bands ?
     if (( IVAR_MAG > 0 ) & (IVAR_MAGERR > 0)) {
-        MAG_LIST[NBAND_EXIST]      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
-        MAG_ERR_LIST[NBAND_EXIST]  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
-        SNR_LIST[NBAND_EXIST] = 1.086/MAG_ERR_LIST[NBAND_EXIST]; // approximate SNR - fix formula later
+        MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
+        MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
+
+	if ( MAG_ERR > 0.0 ) 
+	  { SNR  = 1.086/MAG_ERR; } // approximate SNR - fix formula later
+	else
+	  { SNR = 0.0; }
+
+        MAG_LIST[NBAND_EXIST]      = MAG ;
+	MAG_ERR_LIST[NBAND_EXIST]  = MAG_ERR ;
+	SNR_LIST[NBAND_EXIST]      = SNR ;
         NBAND_EXIST++;
     }
   }
 
-  // - - - - 
-  if (NBAND_EXIST < NBAND_SNR_DETECT) {
+  // - - - -
+  // abort if there are fewer bands than needed to apply the SNR cut
+  if ( NBAND_EXIST < NBAND_SNR_DETECT ) {
     sprintf(c1err,"NBAND_EXIST = %d but NBAND_SNR_EXIST==%d", 
 	    NBAND_EXIST, NBAND_SNR_DETECT);
-    sprintf(c2err,"CHECK <BAND>_OBS IN HOSTLIB, AND SIM INPUT HOSTLIB_SNR_DETECT.");
+    sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
+	    "and sim-input HOSTLIB_SNR_DETECT.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
  }
 

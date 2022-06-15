@@ -2167,7 +2167,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
-  int LDMP =  0 ;  
+  int LDMP =  0 ;   // .xyz
   // ------------- BEGIN --------------------
 
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
@@ -2181,8 +2181,17 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   if ( LDMP ) {
     printf(" xxx %s: -----------------------------------------------\n",
 	   fnam );
-    printf(" xxx %s: OPT=%2d  BUFSIZE=%d    FILENAME='%s'\n", 
-	   fnam, OPT, PARSE_WORDS.BUFSIZE, FILENAME ); fflush(stdout);
+    printf(" xxx %s: OPT=%2d  BUFSIZE=%d  LEN(FILENAME)=%d  \n", 
+	   fnam, OPT, PARSE_WORDS.BUFSIZE, LENF ); 
+    printf(" xxx %s: FILENAME='%s'\n", 	
+	   fnam, FILENAME ); 
+
+    printf(" xxx %s: DO[STRING,FILE]=%d,%d  CHECK_COMMA=%d \n",
+	   fnam, DO_STRING, DO_FILE, CHECK_COMMA);
+    printf(" xxx %s: IGNORE_COMMENTS=%d  FIRSTLINE=%d \n",
+	   fnam, IGNORE_COMMENTS, FIRSTLINE);
+
+    fflush(stdout);
   }
 
   if ( OPT < 0 ) {
@@ -2296,6 +2305,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
   if ( LDMP ) {
     printf(" xxx %s: NWD_STORE = %d \n", fnam, NWD);
+    printf("\n");
     fflush(stdout);
   }
 
@@ -2362,9 +2372,10 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
   int NWD = PARSE_WORDS.NWD ;
   char fnam[] = "get_PARSE_WORD" ;
 
+  // ----------- BEGIN ---------
   if ( iwd >= NWD ) {
     sprintf(c1err,"iwd=%d exceeds NWD_STORE=%d", iwd, NWD);
-    sprintf(c2err,"Check '%s' ", PARSE_WORDS.FILENAME);
+    sprintf(c2err,"Check FILENAME = '%s' ", PARSE_WORDS.FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   

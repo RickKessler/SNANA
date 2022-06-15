@@ -19527,6 +19527,8 @@ void write_fitres_driver(char* fileName) {
 
   //  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   //  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
+  
+  // Jun 15 2022: set IGNORECOMMA for store_PARSE_WORDS
 
   bool  cat_only         = INPUTS.cat_only ;
   int   IWD_KEY  = 0;
@@ -19536,7 +19538,7 @@ void write_fitres_driver(char* fileName) {
   FILE  *fout, *finp;
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, NLINE, ISFLOAT, iz, GZIPFLAG ;
-  int idsample, NSN_DATA, nfile, ifile ;
+  int idsample, NSN_DATA, nfile, ifile, MSKOPT_PARSE_WORDS;
   bool VALID_ROWKEY;
   char  line[MXCHAR_LINE], tmpName[60], *ptrFile ;
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
@@ -19718,7 +19720,7 @@ void write_fitres_driver(char* fileName) {
   int NZwrite = 4; // include this many zM0 bins in COV dump
   printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite);
 
-  indx = NWR  = NLINE = 0;
+  // xxx mark delete   indx = NWR  = NLINE = 0;
   fflush(fout);
 
   // print contamination tables if CC prior is used
@@ -19738,6 +19740,13 @@ void write_fitres_driver(char* fileName) {
 
  WRITE_TABLE_ROWS:
 
+  // ignore comma in case sntable_cat.py utility is used for HOSTLIB
+  // that can have commas in the NBR_LIST column.
+  MSKOPT_PARSE_WORDS = 
+    MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
+
+  indx = NWR  = NLINE = 0;
+
   nfile = INPUTS.nfile_data;
   for(ifile=0; ifile < nfile; ifile++ ) {
 
@@ -19750,7 +19759,7 @@ void write_fitres_driver(char* fileName) {
       if ( strlen(line) < 3  ) { continue ; }
       if ( commentchar(line) ) { continue; }
 
-      store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,line);
+      store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line);
 
       // skip if first wd of line is not a valid row key
       get_PARSE_WORD(0, IWD_KEY, KEY);

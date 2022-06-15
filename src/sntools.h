@@ -43,7 +43,9 @@
 
   Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
   Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
-  
+  Jun 15 2022: MXCHARWORD_PARSE_WORDS -> MXPATHLEN + 200 
+             (for long rows in FITRES or HOSTLIB)
+
 ********************************************************/
 
 
@@ -330,7 +332,7 @@ struct {
 
 
 #define ADDBUF_PARSE_WORDS 10000
-#define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
+#define MXCHARWORD_PARSE_WORDS MXPATHLEN+200 // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line
 #define MXWORDFILE_PARSE_WORDS 2000000   // max words to parse in a file

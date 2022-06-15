@@ -7131,10 +7131,13 @@ bool snr_detect_HOSTLIB(int IGAL) {
   //  [band]_obs and [band]_obs_err
   // Abort if either HOSTLIB column is missing.
 
-  int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt ;
+
+  int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
+  int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt, NBAND_EXIST = 0;
   char cfilt[2];
-  double MAG, MAG_ERR; // .xyz convert to list
+  double MAG_LIST[MXFILTINDX], MAG_ERR_LIST[MXFILTINDX], SNR_LIST[MXFILTINDX]; // .xyz convert to list
   bool detect = true;
+  char fnam[] = "snr_detect_HOSTLIB";
 
   // ------------ BEGIN ----------
 
@@ -7147,23 +7150,48 @@ bool snr_detect_HOSTLIB(int IGAL) {
     // do we allow a missing MAG in HOSTLIB, and instead
     // require at least NBAND host bands to allow cut on
     // NBAND bands ?
-    if ( IVAR_MAG < 0 ) {
-
+    if (( IVAR_MAG > 0 ) & (IVAR_MAGERR > 0)) {
+        MAG_LIST[NBAND_EXIST]      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
+        MAG_ERR_LIST[NBAND_EXIST]  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
+        SNR_LIST[NBAND_EXIST] = 1.086/MAG_ERR_LIST[NBAND_EXIST]; // approximate SNR - fix formula later
+        NBAND_EXIST++;
     }
-    if ( IVAR_MAGERR < 0 ) {
-
-    }
-
-    MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
-    MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
   }
 
   // - - - - 
-  // sort HOST mags by SNR, in decreasing order
+  if (NBAND_EXIST < NBAND_SNR_DETECT) {
+    sprintf(c1err,"NBAND_EXIST = %d but NBAND_SNR_EXIST==%d", 
+	    NBAND_EXIST, NBAND_SNR_DETECT);
+    sprintf(c2err,"CHECK <BAND>_OBS IN HOSTLIB, AND SIM INPUT HOSTLIB_SNR_DETECT.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+ }
 
+  // sort HOST mags by SNR, in decreasing order
+  int ORDER_SORT=-1;
+  int INDEX_SORT[MXFILTINDX];
+  sortDouble( NBAND_EXIST, SNR_LIST, ORDER_SORT, INDEX_SORT ) ;
 
   // loop over SNR cut values and apply SNR cut in sorted space.
+  int icut, isort; 
+  for(icut=0; icut < NBAND_SNR_DETECT; icut++){
+      isort = INDEX_SORT[icut];
+      if(SNR_LIST[isort] < INPUTS.HOSTLIB_SNR_DETECT[icut]){
+        detect = false;
+      }
+  }
 
+  int LDMP=1;
+  if(LDMP){
+      long long GALID = get_GALID_HOSTLIB(IGAL);
+      printf("XXX: DUMP FOR %s GALID = %lld \n",fnam, GALID);
+      printf("XXX: SNR_LIST = ");
+      int i;
+      for(i=0; i < NBAND_EXIST; i++){
+      printf("%.3f  ",SNR_LIST[i]);
+      }
+      printf("\nXXX: detect = %d\n",detect);
+      fflush(stdout);
+  }
   
   return detect ;
 

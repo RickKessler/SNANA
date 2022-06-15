@@ -7180,17 +7180,16 @@ bool snr_detect_HOSTLIB(int IGAL) {
       }
   }
 
-  int LDMP=1;
-  if(LDMP){
-      long long GALID = get_GALID_HOSTLIB(IGAL);
-      printf("XXX: DUMP FOR %s GALID = %lld \n",fnam, GALID);
-      printf("XXX: SNR_LIST = ");
-      int i;
-      for(i=0; i < NBAND_EXIST; i++){
-      printf("%.3f  ",SNR_LIST[i]);
-      }
-      printf("\nXXX: detect = %d\n",detect);
-      fflush(stdout);
+  int i, LDMP=1;
+  if(LDMP) {
+    long long GALID = get_GALID_HOSTLIB(IGAL);
+    printf("XXX: ----------------------------------- \n");
+    printf("XXX: %s DUMP for CID=%s  GALID = %lld \n",
+	   fnam, GENLC.CID, GALID);
+    printf("XXX: SNR_LIST = ");
+    for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ",SNR_LIST[i]); }
+    printf("\nXXX: detect = %d\n", detect);
+    fflush(stdout);
   }
   
   return detect ;

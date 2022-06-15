@@ -183,6 +183,8 @@ HOSTKEY_DDLR          = "HOSTGAL_DDLR"
 HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
 HOSTKEY_ELLIP         = "HOSTGAL_ELLIPTICITY"
 HOSTKEY_SQRADIUS      = "HOSTGAL_SQRADIUS"
+HOSTKEY_RA            = "HOSTGAL_RA"
+HOSTKEY_DEC           = "HOSTGAL_DEC"
 
 # define prefix for filter-dependent quantities
 HOSTKEY_PREFIX_MAG     = "HOSTGAL_MAG"         # band-dependent

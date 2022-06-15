@@ -18,6 +18,8 @@
 # May 12 2022 RK - hostgal_z[_err] -> hostgal_zspec[_err] and add
 #                  hostgal_zphot[_err]
 #
+# Jun 15 2022 RK - add HOSTKEY_RA[DEC] to list
+
 # ==================================================
 
 import os, sys, glob, gzip, math, yaml, json
@@ -53,6 +55,8 @@ VARNAME_DIAOBJ_MAP = {
     gpar.DATAKEY_MWEBV           : lc,
     gpar.DATAKEY_MWEBV_ERR       : lc,
     gpar.HOSTKEY_SNSEP           : lc,
+    gpar.HOSTKEY_RA              : lc,
+    gpar.HOSTKEY_DEC             : lc,
     gpar.HOSTKEY_SPECZ           : 'hostgal_zspec',
     gpar.HOSTKEY_SPECZ_ERR       : 'hostgal_zspec_err',
     gpar.HOSTKEY_PHOTOZ          : 'hostgal_zphot',

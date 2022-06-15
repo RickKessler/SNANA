@@ -74,8 +74,8 @@
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
-\newcommand{\simeffsub}{\epsilon_{subtr}}
-\newcommand{\simeffspec}{\epsilon_{spec}}
+\newcommand{\simeffsub}{\epsilon_{\rm subtr}}
+\newcommand{\simeffspec}{\epsilon_{\rm spec}}
 \newcommand{\magdim}{{\mathcal M}_{\rm dim}}
 
 \newcommand{\spec}{spectroscopic}
@@ -3458,6 +3458,36 @@ If {\tt PHOTPROB} values are included in the data files,
 {\tt CUTWIN\_PHOTPROB} can be used to reject poor-quality 
 observations. For simulations, default {\tt PHOTPROB=1},
 or a {\tt PHOTPROB} map can be defined (Fig.~\ref{fig:pipeline_maps}).
+
+% ------------------------------------
+%   \clearpage
+   \subsubsection{Trigger on Single-Detections instead of Coadd}
+   \label{sssec:detect_single}
+
+{\simlib} cadences are typically co-added within a night to achieve
+optimal search depth. If the ID column of the \simlib\ includes
+the number of exposures that were co-added 
+(see {\tt NEXPOSE} in \S\ref{sssec:saturation}),
+there is a sim-input flag to trigger on single detections instead
+of the coadd,
+\begin{verbatim}
+   APPLY_DETECT_SINGLE: 1
+\end{verbatim}
+This flag results in the following changes in the pipeline-detection:
+\begin{itemize}
+   \item ${\rm SNR} \to {\rm SNR}/\sqrt{\rm NEXPOSE}$ is used to
+      determine the detection efficiency ($\simeffsub$) 
+      from the efficiency-vs-SNR map
+      (\S\ref{sss:eff_pipeline})
+   \item While SNR is reduced in each exposure, there are {\tt NEXPOSE}
+      opportunities for detection; thus the final detection efficiency
+      is re-computed as
+  \begin{equation}
+     \simeffsub \to 1 - (1-\simeffsub)^{\rm NEXPOSE}
+  \end{equation}
+\end{itemize}
+
+% ------------------------------------
 
 % ------------------------------------
    \clearpage

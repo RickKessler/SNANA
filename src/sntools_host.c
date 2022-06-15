@@ -7004,13 +7004,12 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
 
-  SNHOSTGAL.NNBR = 1; // true host sets default at 1
+  SNHOSTGAL.NNBR = 1;   // true host sets default at 1
   SNHOSTGAL.IGAL_NBR_LIST[0] = IGAL;
 
   // set default DDLR and SNSEP to that of true host
   SNHOSTGAL_DDLR_SORT[0].SNSEP = SNHOSTGAL.SNSEP ;
   SNHOSTGAL_DDLR_SORT[0].DDLR  = SNHOSTGAL.DDLR ;
-
 
   // bail if there is no NBR list
   if ( HOSTLIB.IVAR_NBR_LIST < 0 ) { return ; }
@@ -7066,7 +7065,6 @@ void GEN_SNHOST_NBR(int IGAL) {
 
     ii = NNBR_STORE; NNBR_STORE++ ;
     SNHOSTGAL.IGAL_NBR_LIST[ii] = IGAL_ZSORT;
-    //HOSTLIB.IGAL_NBR_LIST = IGAL_ZSORT; // AG 09/2021 Need to fix later
 
     ROWNUM_LIST[ii] = rowNum; // for dump
     if( LDMP == 6 ) {
@@ -7074,8 +7072,29 @@ void GEN_SNHOST_NBR(int IGAL) {
       fflush(stdout);
     }
 
-  }
+  } // end i loop over NNBR_READ
+
   
+  // - - - - - - - - - - - - - 
+  // Jun 2022 .xyz
+  // check SNR_DETECT for each NBR ... drop those which are not found
+  int  NBAND = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
+  int  NNBR_DETECT=0, IGAL_NBR;
+  bool DETECT;
+  ii = 0 ;
+  if ( NBAND > 0 ) { 
+    for(i=0; i < NNBR_STORE; i++ ) {
+      IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i] ;
+      DETECT   = snr_detect_HOSTLIB(IGAL_NBR);
+      if ( DETECT ) { 
+	SNHOSTGAL.IGAL_NBR_LIST[NNBR_DETECT] = IGAL_NBR ;
+	NNBR_DETECT++ ;
+      }
+    }
+    SNHOSTGAL.NNBR = NNBR_DETECT ;
+  } // end check for host-galaxy detections
+
+  // - - - - - - - - - 
   SNHOSTGAL.NNBR = NNBR_STORE ;
 
   if ( LDMP ) {
@@ -7101,6 +7120,54 @@ void GEN_SNHOST_NBR(int IGAL) {
 
 } // end GEN_SNHOST_NBR
 
+
+// ==================================
+bool snr_detect_HOSTLIB(int IGAL) {
+
+  // Created Jun 2022
+  // Return True if this IGAL is detected based in SNR cuts from
+  // sim-input HOSTLIB_SNR_DETECT.
+  // Galaxy mag and error are needed in HOSTLIB;
+  //  [band]_obs and [band]_obs_err
+  // Abort if either HOSTLIB column is missing.
+
+  int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt ;
+  char cfilt[2];
+  double MAG, MAG_ERR; // .xyz convert to list
+  bool detect = true;
+
+  // ------------ BEGIN ----------
+
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+    IVAR_MAG       = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+    IVAR_MAGERR    = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
+
+    // do we allow a missing MAG in HOSTLIB, and instead
+    // require at least NBAND host bands to allow cut on
+    // NBAND bands ?
+    if ( IVAR_MAG < 0 ) {
+
+    }
+    if ( IVAR_MAGERR < 0 ) {
+
+    }
+
+    MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
+    MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
+  }
+
+  // - - - - 
+  // sort HOST mags by SNR, in decreasing order
+
+
+  // loop over SNR cut values and apply SNR cut in sorted space.
+
+  
+  return detect ;
+
+} // end snr_detect_HOSTLIB
 
 // ==================================
 void GEN_SNHOST_DDLR(int i_nbr) {
@@ -7333,6 +7400,7 @@ void SORT_SNHOST_byDDLR(void) {
   // Oct 25 2021: compute optional GALID_UNIQUE (for LSST broker test)
   // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
   // Jan 22 2022: set GENLC.CORRECT_HOSTMATCH=False for wrong host match
+  // Jun 14 2022: protect host mag fluctuations from crazy MAG_ERR
 
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
@@ -7491,10 +7559,13 @@ void SORT_SNHOST_byDDLR(void) {
 
       if ( INPUTS.HOSTLIB_GALID_UNIQUE && IVAR_ERR > 0 ) {
 	// for unique GALIDs, fluctuate mags to avoid duplicate mags
-	double GauRan, rmin=-3., rmax=3.;
+	double GauRan, rmin=-3.0 , rmax=3.0 ;
 	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
-	GauRan = getRan_GaussClip(1,rmin,rmax);
-	SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;
+	bool DO_RANMAG = ( MAG_ERR > 0.0 && MAG_ERR < 3.0 ) ;
+	if ( DO_RANMAG ) {
+	  GauRan = getRan_GaussClip(1,rmin,rmax);
+	  SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;
+	}
       }
     }
 
@@ -9166,6 +9237,8 @@ void rewrite_HOSTLIB_plusNbr(void) {
 // ==============================
 void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
+  // Return LINE_APPEND = original line for igal_unsort plus list of
+  // neighbors.
 
 #define MXNNBR_STORE 100         // max number of neighbors to track
   double SEPNBR_MAX      = HOSTLIB_NBR_WRITE.SEPNBR_MAX ;

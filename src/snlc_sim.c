@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
   bool IS_GENGRID = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID);
   //  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
   if ( ! IS_GENGRID ) { 
-    init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
+    init_SEARCHEFF(GENLC.SURVEY_NAME, INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
 
   DASHBOARD_DRIVER();
@@ -1052,6 +1052,10 @@ void set_user_defaults(void) {
 
   INPUTS.HOSTLIB_MAXDDLR = 4.0 ;   // cut on SN-host separation
 
+  INPUTS.HOSTLIB_SNR_DETECT_STRING[0] = 0 ;
+  INPUTS.HOSTLIB_NBAND_SNR_DETECT     = 0;
+  for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_DETECT[i] = 0.0 ; }
+
   HOSTLIB_NBR_WRITE.SEPNBR_MAX = 10.0; // +HOSTNBR keeps neighbors within 10''
   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
@@ -1112,8 +1116,7 @@ void set_user_defaults(void) {
     INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt] = 1.0 ;
   }
 
-  INPUTS.APPLY_SEARCHEFF_OPT    = 0 ;  // evaluate, but NOT apply
-
+  INPUTS.APPLY_SEARCHEFF_OPT    = 0 ;  // evaluate, but NOT applys
   INPUTS.EFFERR_STOPGEN         = 0.0002 ; // stop when effic error <= this
 
   // ------
@@ -1127,6 +1130,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.NMAP_SPEC        = 0 ;
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF = 0.0 ;
+  INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
@@ -2285,6 +2289,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
   }
+  else if ( keyMatchSim(1, "APPLY_DETECT_SINGLE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE );
+  }
   else if ( keyMatchSim(1, "MINOBS_SEARCH",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.MINOBS );
   }
@@ -2654,6 +2661,71 @@ void parse_input_FIXMAG(char *string) {
   return ;
 
 } // end parse_input_FIXMAG
+
+// =========================================
+void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
+
+  // Created Jun 2022 
+  // parse STRING of the form, e.g., 
+  //   5   -> one band with SNR>5
+  //   5,5 -> two bands with SNR>5
+  //   5,4 -> one band with SNR>5, another with SNR>4
+  //
+  // and store NBAND and list of SNR_DETECT in INPUTS struct.
+  // Store SNR_DETECT as sorted list starting with max SNR requirement.
+  // Thus if user input is
+  //   HOSTLIB_SNR_DETECT: 5,10,3
+  // the SNR_DETECT list is stored as 10,5,3
+  //
+
+  int i, NBAND;
+  int MXBAND=10, MXCHAR=8;
+  float SNR, SNR_LIST[10];
+  char **str_list;
+  char fnam[] = "parse_input_HOSTLIB_SNR_DETECT";
+
+  // .xyz
+  // ---------- BEGIN -----------
+
+  sprintf(INPUTS.HOSTLIB_SNR_DETECT_STRING,"%s", STRING);
+
+  parse_commaSepList(fnam, STRING, MXBAND, MXCHAR, &NBAND, &str_list);
+
+  INPUTS.HOSTLIB_NBAND_SNR_DETECT = NBAND;
+
+  for(i=0; i < NBAND; i++ ) 
+    { sscanf(str_list[i], "%f", &SNR);     SNR_LIST[i] = SNR;  }
+
+  // sort list to be increasing order
+  if ( NBAND == 1 ) {
+    // 1 item, so nothing to sort
+    INPUTS.HOSTLIB_SNR_DETECT[0] = SNR_LIST[0];
+  }
+  else {
+    int ORDER_SORT = -1; // decreasing order
+    int INDEX_SORT[10], isort;
+    sortFloat(NBAND, SNR_LIST, ORDER_SORT, INDEX_SORT );
+    for(i=0; i < NBAND; i++ )  {  
+      isort = INDEX_SORT[i]; 
+      INPUTS.HOSTLIB_SNR_DETECT[i] = SNR_LIST[isort];  
+    }
+
+  }
+
+  // - - - - - - - -
+  int LDMP = 0 ;
+  if ( LDMP ) {
+    for(i=0; i < NBAND; i++ )  {  
+      printf(" xxx %s: store SNR_DETECT[%d] = %.2f \n",
+	     fnam, i, INPUTS.HOSTLIB_SNR_DETECT[i] );
+    }
+    
+    debugexit(fnam);
+  }
+
+  return ;
+
+} // end parse_input_HOSTLIB_SNR_DETECT
 
 // ===============================================
 void parse_input_GENZPHOT_FUEGEMAP(char *string) {
@@ -3164,7 +3236,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
-    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ; // add synth mags
     N += FLAG_NWD_ZERO; // flag that key has no argument 
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
@@ -3172,7 +3244,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim( 1, "+HOSTNBR", WORDS[0], keySource ) ) {
-    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ; // add NBR_LIST
     N += FLAG_NWD_ZERO; // flag that key has no argument
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
@@ -3186,9 +3258,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
 
   else if ( keyMatchSim( 1, "+HOSTAPPEND", WORDS[0], keySource ) ) {
-    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ;
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_APPEND ; // append info
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_APPEND_FILE );
-    printf(" xxx %s: read %s\n", fnam, INPUTS.HOSTLIB_APPEND_FILE);
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     INPUTS.HOSTLIB_USE = 2; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
@@ -3270,6 +3341,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SNR_DETECT", WORDS[0],keySource) ) {
+    N++;  parse_input_HOSTLIB_SNR_DETECT(WORDS[N]);
   }
   else if ( keyMatchSim(1, "HOSTLIB_SBRADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SBRADIUS );
@@ -3837,6 +3911,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
   return(N) ;
 
 } // end  parse_input_RANSYSTPAR
+
 
 // ==============================================================
 int parse_input_GENMODEL(char **WORDS, int keySource) {
@@ -6164,7 +6239,6 @@ void prep_user_input(void) {
       { INPUTS.HOSTLIB_MSKOPT -= HOSTLIB_MSKOPT_GALMAG ; }
   }
 
-  // Feb 2012:
   // make sure smear-INTERP filters (SMEAR = -1) 
   // are at the end of the list.
   float SMEAR_F ;
@@ -8154,7 +8228,8 @@ void  init_GENLC(void) {
 
     sprintf(GENLC.FIELDNAME[epoch],"%s", FIELD_NONAME );
 
-    GENLC.MJD[epoch]          = NULLFLOAT ;
+    GENLC.NEXPOSE[epoch]     = 1 ; 
+    GENLC.MJD[epoch]         = NULLFLOAT ;
     GENLC.epoch_obs[epoch]   = NULLFLOAT ;
     GENLC.epoch_rest[epoch]  = NULLFLOAT ;
     GENLC.epoch_obs_range[0] = +999999.0 ;
@@ -17007,6 +17082,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.IFILT_OBS[NEP]     = IFILT_OBS;
     GENLC.genmag_obs[NEP]    = MAG ;
     GENLC.MJD[NEP]           = MJD ;
+    GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
     sprintf( GENLC.TELESCOPE[NEP], "%s", TEL   );
 
@@ -20717,7 +20793,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.FLUX[NOBS]      = flux ;
     SEARCHEFF_DATA.FLUXERR[NOBS]   = flux_err ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
-    SEARCHEFF_DATA.NEXPOSE[NOBS]   = -9 ; // XYZ FINISH this AM
+    SEARCHEFF_DATA.NEXPOSE[NOBS]   = GENLC.NEXPOSE[ep];
     
     oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;
     if ( oldRan < -0.001 ) 
@@ -21833,7 +21909,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
 	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
 	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {
-	  // xxx mark SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = -99.0;
 	  SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = HOSTLESS_PROPERTY_VALUE_LIST[j];
 	  SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m] = -9.0 ;
 	}

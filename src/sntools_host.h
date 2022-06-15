@@ -62,7 +62,7 @@
 #define HOSTLIB_MSKOPT_DUMPROW    2048 // DUMP 1 row per host for parsing
 
 #define HOSTLIB_MSKOPT_APPEND     4096  // append columns from file
-#define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & write host mags from host spectra
+#define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & add host mags from SED
 #define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
 #define HOSTLIB_MSKOPT_ZPHOT_QGAUSS 32768  // write Gauss quantiles for zPHOT
 
@@ -697,7 +697,6 @@ void   malloc_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTGAL_PROPERTY(void);
 int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
 
-// xxxvoid   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init
 int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
@@ -759,6 +758,8 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
 
 void   set_GALID_UNIQUE(int i);
+
+bool snr_detect_HOSTLIB(int IGAL);
 
 // SPECBASIS functions
 void   read_specTable_HOSTLIB(void);

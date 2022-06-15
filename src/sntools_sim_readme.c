@@ -310,8 +310,13 @@ void README_DOCANA_INPUT_NOTES(int *iline) {
 	  dash, INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
 	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%s %s ", dash, COMMENT_README_SEARCHEFF);
+  for(j=0; j < 2; j++ )  {
+    char *COMMENT = COMMENT_README_SEARCHEFF[j];
+    if ( strlen(COMMENT) > 0 ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"%s %s ", dash, COMMENT);
+    }
+  }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s PIPELINE requires %d detections among %s "

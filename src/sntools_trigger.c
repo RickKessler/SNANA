@@ -81,11 +81,14 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
    
   Mar 06 2018: 
     + new input argument APPLYMASK_SEARCHEFF
+  Jun 15 2022: 
+    + check option for single detections from sim-input
+       APPLY_SEARCHEFF_SINGLE
 
   *************/
 
-  //  char  fnam[] = "init_SEARCHEFF"  ;
   int  NMAP=0 ;
+  char  fnam[] = "init_SEARCHEFF"  ;
   
   // ------------- BEGIN ----------
 
@@ -148,7 +151,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // July 6 2018: fix bug related to "ZERO" option for spec efficiency.
   // Sep 4 2019: write COMMENT_README_SEARCHEFF
 
-  int  APPLYMASK_ALLOWED, OVP ;
+  int  APPLYMASK_ALLOWED=0 , OVP ;
   int  IFLAG_SPEC_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO;
   int  NMAP_SPEC          = INPUTS_SEARCHEFF.NMAP_SPEC ;
   int  LSPEC              = IFLAG_SPEC_EFFZERO || NMAP_SPEC>0 ;
@@ -158,7 +161,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // ---------- BEGIN --------------
 
   // pipeline detection always allowed.
-  APPLYMASK_ALLOWED = APPLYMASK_SEARCHEFF_PIPELINE ;
+  APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_PIPELINE ;
 
   if ( NONZERO_SEARCHEFF_SPEC ) 
     { APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_SPEC ; }
@@ -167,7 +170,6 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
     { APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_zHOST; }
 
   OVP = ( APPLYMASK_ALLOWED & APPLYMASK_SEARCHEFF_USER) ;
-
 
   if ( OVP != APPLYMASK_SEARCHEFF_USER) {
     print_preAbort_banner(fnam);
@@ -192,7 +194,10 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // - - - - - - 
   // Sep 4 2019: prepare README comment for trigger.
 
-  sprintf(COMMENT_README_SEARCHEFF, "APPLY_SEARCHEFF_OPT=%d --> ",
+  COMMENT_README_SEARCHEFF[0][0] = 0;
+  COMMENT_README_SEARCHEFF[1][0] = 0;
+
+  sprintf(COMMENT_README_SEARCHEFF[0], "APPLY_SEARCHEFF_OPT=%d --> ",
 	  APPLYMASK_SEARCHEFF_USER);
 
   int REQ_PIPE, REQ_SPEC, REQ_zHOST, NUSE=0;
@@ -219,8 +224,13 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   else
     { sprintf(ctmp,"No trigger requirements"); }
 
-  strcat(COMMENT_README_SEARCHEFF,ctmp);
+  strcat(COMMENT_README_SEARCHEFF[0],ctmp);
 
+  if ( INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE ) {
+    sprintf(COMMENT_README_SEARCHEFF[1],
+	    "SPECIAL OPTION: "
+	    "EFF(PIPE) applied to single-exposures instead of co-add");
+  }
   
   return ;
 
@@ -2007,15 +2017,17 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   // Sep   2018: fix logic when NMAP_FOUND=0. Effects SDSS u & z bands
   //             which don't have efficiency maps, whild gri do.
   // Feb 15 2022: add more info for isnan abort.
+  // Jun 15 2022: check opt for single-exposure detections instead of coadd
+
+  int NMAP                = INPUTS_SEARCHEFF.NMAP_DETECT ;
+  int APPLY_DETECT_SINGLE = INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE ;
 
   double
-    MAG, SNR, MJD, EFF, FIX_EFF
+    MAG, SNR, MJD, EFF, FIX_EFF, XNEXPOSE
     ,EFF_atmax, EFF_atmin, VAL_atmax, VAL_atmin, VAL
     ,ZERO = 0.0
     ,ONE  = 1.0
     ;
-
-  int NMAP = INPUTS_SEARCHEFF.NMAP_DETECT ;
 
   int 
     CID, ifilt_obs, NPE_SAT
@@ -2065,6 +2077,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   MAG       = SEARCHEFF_DATA.MAG[obs] ;
   MJD       = SEARCHEFF_DATA.MJD[obs] ;
   NPE_SAT   = SEARCHEFF_DATA.NPE_SAT[obs] ; // Npe above saturation
+  XNEXPOSE  = (double)SEARCHEFF_DATA.NEXPOSE[obs] ; 
 
   if ( isnan(SNR) ) {
     print_preAbort_banner(fnam);
@@ -2104,30 +2117,9 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   VAL_atmin = SEARCHEFF_DETECT[IMAP].VAL[0] ;
 
   // - - - - - - - - - - - - - -
-  // NOTES FOR FUTURE OPTION TO TRIGGER ON SINGLE-IMAGE DETECTIONS
-  // Jun 2 2022 .xyz 
-  // for option to simulated single-exposure detections, 
-  // strip off NEXPOSE here and SNR -> SNR / sqrt(NEXPOSE). 
-  // For NEXPOSE chances to get a detection, 
-  //    EFF -> 1-(1-EFF_1)^NEXPOSE
-  // E.g., NEXPOSE=10 and EFF_1 = 0.02 -> EFF = 1 - 0.98^10 = 0.183
-  // E.g., NEXPOSE=10 and EFF_1 = 0.05 -> EFF = 1 - 0.95^10 = 0.401
-  // E.g., NEXPOSE=10 and EFF_1 = 0.50 -> EFF = 1 - 0.50^10 = 0.999
-  // Above assumes stat-independent detection prob .... but is this
-  // correct, or are the probabilities correlated?
-  // - - - - - - - - - - - - - -
-
-  /*   
-
-   bool LDETCT_SINGLE = TRUE;
-   if LDETECT_SINGLE{
-    SNR *= 1.0/(double) NEXPOSE; 
-
-}
-
-
- */
-
+  // Check option to trigger on single-exposures instead of coadd.
+  // Note assumption that each exposure has same SNR.
+  if ( APPLY_DETECT_SINGLE ) { SNR  /= sqrt(XNEXPOSE); }
 
   if ( SEARCHEFF_FLAG == FLAG_EFFSNR_DETECT ) {
     VAL = SNR ;
@@ -2146,6 +2138,16 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   EFF = interp_1DFUN (OPT_INTERP, VAL, NBIN_EFF, 
 		      SEARCHEFF_DETECT[IMAP].VAL,
 		      SEARCHEFF_DETECT[IMAP].EFF, fnam);
+
+  // - - - - - 
+  if ( APPLY_DETECT_SINGLE && XNEXPOSE > 1.0 ) {
+    // EFF -> 1 - (1-EFF_1)^NEXPOSE
+    // E.g., NEXPOSE=10 and EFF_1 = 0.02 -> EFF = 1 - 0.98^10 = 0.183
+    // E.g., NEXPOSE=10 and EFF_1 = 0.05 -> EFF = 1 - 0.95^10 = 0.401
+    // E.g., NEXPOSE=10 and EFF_1 = 0.50 -> EFF = 1 - 0.50^10 = 0.999
+    double EFF_1 = EFF, INEFF_1 = 1.0-EFF_1 ;
+    EFF = 1.0 - pow(INEFF_1,XNEXPOSE);
+  }
 
   // printf(" xxxx EFF(VAL=%f) = %f   (inear = %d) \n", VAL, EFF, inear );
 

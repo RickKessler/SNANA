@@ -497,6 +497,11 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
+
+  char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
+  int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
+  float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
 
   HOSTLIB_GENZPHOT_FUDGEMAP_DEF HOSTLIB_GENZPHOT_FUDGEMAP;
@@ -814,7 +819,7 @@ struct INPUTS {
   int   FUDGEOPT_FLUXERR;      // option passed to model of flux-err fudge
 
   int GENPERFECT;   // 1 => perfect lightcurves with x1000 photostats
-  int APPLY_SEARCHEFF_OPT ;      // bit 0,1,2 => trigger, spec, zhost
+  int APPLY_SEARCHEFF_OPT ;   // bit 0,1,2 => trigger, spec, zhost
 
   // define Gaussian sigmas to assign random syst error(s) during init stage
   INPUTS_RANSYSTPAR_DEF RANSYSTPAR ;
@@ -1187,6 +1192,8 @@ struct GENLC {
   double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
   double  peakmag_rest3[MXFILTINDX] ;
 
+  int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
+
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
 
@@ -1204,11 +1211,6 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
-  // Jan 19 2020:
-  //   ISPEAK    -> OBSFLAG_PEAK
-  //   ISOBS     -> OBSFLAG_GEN
-  //   USE_EPOCH -> OBSFLAG_WRITE
-  //   ISTEMPLATE -> OBSFLAG_TEMPLATE
   bool OBSFLAG_GEN[MXEPSIM];     // flag to generate mags & flux
   bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
@@ -1739,6 +1741,7 @@ int    read_input_file(char *inFile, int keySource);
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
+void   parse_input_HOSTLIB_SNR_DETECT(char *string);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);

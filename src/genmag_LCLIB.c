@@ -212,7 +212,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   int MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   bool IS_DOCANA = false, IS_COMMENT=false;
   FILE *fp = LCLIB_INFO.FP;
-  char wd0[80], wd1[80], wd2[80], LINE[200], tmpString[60], comment[60] ;
+  char wd0[200], wd1[200], wd2[200], LINE[200], tmpString[200], comment[200] ;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
 
   // -------------- BEGIN ---------------

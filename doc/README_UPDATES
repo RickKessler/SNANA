@@ -21136,6 +21136,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    snlc_sim.c
      + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
+     + new sim-input APPLY_DETECT_SINGLE
 
    genmag_SIMSED.c
      + fix bug reading MXDAY with NDAY_PAD to account for recent
@@ -21145,4 +21146,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new input varname_muerr to replace MUERR with something else.
      + refactor using VARLIST_DEFAULT_XXX parameter names.
 
+   sntools_trigger.c
+     + check option for single detections instead of coadd.
+
+   sntools_host.c[h]
+     + process new sim-input HOSTLIB_SNR_DETECT
 END: 

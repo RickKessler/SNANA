@@ -37,7 +37,6 @@
   May 27 2021: MXSPECTRA -> 300 (was 200)
   Jun 04 2021: MXEPOCH -> 5000 (was 2000)
   Apr 24 2022: define HOSTGAL_PROPERTY_xxx [moved from sntools_host.h]
-  Jun 15 2022: MXPATHLEN -> 400 (was 300)
 
 *****************************************************/
 
@@ -98,7 +97,7 @@
 
 //  disk pointers defined in init_SNDATA
 
-#define MXPATHLEN 400 // max length of path of full file-name
+#define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 

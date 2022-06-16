@@ -633,14 +633,14 @@ def get_cov_from_covfile(data, covfile, scale):
     covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
     covout = np.zeros((len(data),len(data)))
     for i,row in covindf.iterrows():
-        if len(np.argwhere(data['CIDstr'] == row['CID1'])) == 0:
+        if len(np.argwhere(data['CIDstr'].array == row['CID1'])) == 0:
             print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
             continue
-        if len(np.argwhere(data['CIDstr'] == row['CID2'])) == 0:
+        if len(np.argwhere(data['CIDstr'].array == row['CID2'])) == 0:
             print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
             continue
-        ww1 = np.argwhere(data['CIDstr'] == row['CID1'])[0][0]
-        ww2 = np.argwhere(data['CIDstr'] == row['CID2'])[0][0]
+        ww1 = np.argwhere(data['CIDstr'].array == row['CID1'])[0][0]
+        ww2 = np.argwhere(data['CIDstr'].array == row['CID2'])[0][0]
         #if ww1 == ww2:
         #    print('skipping, not doing same SN diagonals')
         #    continue

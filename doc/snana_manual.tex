@@ -4002,6 +4002,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MNINTFLUX_SNPOS: .20       # default=0.0
    HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
+   HOSTLIB_SNR_DETECT:   xxx          # default=0 SNR>xxx (see below)
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
@@ -4016,7 +4017,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
    HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
    HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0 (Legacy key)
-   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   # default= 1.0 for all prop
+   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   
+                                      # default= 1.0 for all properties
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -4051,7 +4053,17 @@ into the SNTABLEs  and ascii fitres file.
 {\tt GENPDF\_FILE}, and
 {\tt WGTMAP}
 are automatically included in the {\tt HOSTLIB\_STOREPAR} list.
-%
+
+
+{\tt HOSTLIB\_SNR\_DETECT} works only if both mags and mag-uncertainties
+are defined in the \hostlib\ as {\tt [band]\_obs} and {\tt [band]\_obs\_err}.
+Setting ``{\tt HOSTLIB\_SNR\_DETECT: 5}'' requires at least one band with
+SNR>5; an argument of '5,5' requires two bands to satsify SNR>5;
+'5,5,3' requires at least two bands with SNR>5 and a 3rd band with SNR>3.
+If the true host fails the SNR cut, the event will either be host-less
+(no matches), or matched to a different nearby galaxy that
+passes SNR cut.
+
 {\tt HOSTLIB\_MINDAYSEP\_SAMEGAL} specifies the minimum
 {\tt PEAKMJD} separation (in days) for re-using a galaxy.
 This option can be useful, for example, in multi-year surveys 
@@ -4132,7 +4144,7 @@ The reported {\tt ZPHOTERR} is $\sigma_1$, and thus G2
 introduces non-Gaussian outliers which are not described
 by the reported \unc.
 
-\clearpage
+%\clearpage
 \newcommand{\sigplus}{\sigma_{+}}
 \newcommand{\sigminus}{\sigma_{-}}
 \newcommand{\zpeak}{z_{\rm peak}}

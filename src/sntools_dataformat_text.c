@@ -481,6 +481,9 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   // Copy from wr_HOSTGAL() in sntools.c so that wr_HOSTGAL can be removed.
   // Jan 23 2022: if reading text, only write physical values
   // Feb 10 2022: write photo-z quantiles
+  // Jun 17 2022: for incorrect DDLR match, write WRONG MATCH comment 
+  //     next to HOSTGAL_OBJID (for visual debug; not read by snana codes)
+  //
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
   int N_Q      = SNDATA.HOSTGAL_NZPHOT_Q;
@@ -513,8 +516,13 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
 
-    fprintf(fp, "%s_OBJID:       %lld  \n",  
-	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
+    // SNDATA.SIM_HOSTLIB_GALID .xyz
+    ctmp[0] = 0;
+    if ( igal==0 && SNDATA.SIM_HOSTLIB_GALID != SNDATA.HOSTGAL_OBJID[igal] )
+      { sprintf(ctmp,"# WRONG MATCH") ; }
+
+    fprintf(fp, "%s_OBJID:       %lld     %s\n",  
+	    PREFIX, SNDATA.HOSTGAL_OBJID[igal], ctmp );
 
     fprintf(fp, "%s_FLAG:        %d  \n",  
 	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );

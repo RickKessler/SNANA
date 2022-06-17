@@ -7191,15 +7191,16 @@ bool snr_detect_HOSTLIB(int IGAL) {
   }
 
   int i, LDMP=1;
-  if ( LDMP ) {
+  int NNBR_ORIG = SNHOSTGAL.NNBR;
+  if ( LDMP && NNBR_ORIG > 1 ) {
     long long GALID = get_GALID_HOSTLIB(IGAL);
     printf("XXX: ----------------------------------- \n");
     printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
 	   fnam, GENLC.CID, GALID);
     printf("XXX: SNR_LIST = ");
     for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ",SNR_LIST[i]); }
-    printf("\nXXX: detect = %d  (CID=%d, z=%.3f)\n", 
-	   detect, GENLC.CID, GENLC.REDSHIFT_CMB );
+    printf("\nXXX: detect = %d  (CID=%d, zSN=%.3f  NNBR_ORIG=%d)\n", 
+	   detect, GENLC.CID, GENLC.REDSHIFT_CMB, NNBR_ORIG );
     fflush(stdout);
   }
   
@@ -7599,7 +7600,7 @@ void SORT_SNHOST_byDDLR(void) {
 	// for unique GALIDs, fluctuate mags to avoid duplicate mags
 	double GauRan, rmin=-3.0 , rmax=3.0 ;
 	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
-	bool DO_RANMAG = ( MAG_ERR > 0.0 && MAG_ERR < 3.0 ) ;
+	bool DO_RANMAG = ( MAG_ERR > 0.0 && MAG_ERR < 3.0 && MAG < 98.0) ;
 	if ( DO_RANMAG ) {
 	  GauRan = getRan_GaussClip(1,rmin,rmax);
 	  SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] += MAG_ERR*GauRan;

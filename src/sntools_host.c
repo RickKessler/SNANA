@@ -6992,8 +6992,9 @@ void GEN_SNHOST_NBR(int IGAL) {
   //
   // Jun 29 2021: change rownum-1 to rownum to fix index bug.
 
+  int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
   int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
-  int  i, ii, NNBR_READ, NNBR_STORE, rowNum, IGAL_STORE, IGAL_ZSORT ;
+  int  i, ii, NNBR_READ, NNBR_STORE=1, rowNum, IGAL_STORE, IGAL_ZSORT ;
   int  ROWNUM_LIST[MXNBR_LIST];
   long long GALID ;
   char NBR_LIST[MXCHAR_NBR_LIST] ;
@@ -7012,13 +7013,13 @@ void GEN_SNHOST_NBR(int IGAL) {
   SNHOSTGAL_DDLR_SORT[0].DDLR  = SNHOSTGAL.DDLR ;
 
   // bail if there is no NBR list
-  if ( HOSTLIB.IVAR_NBR_LIST < 0 ) { return ; }
+  if ( HOSTLIB.IVAR_NBR_LIST < 0 ) { goto SNR_DETECT ; }
 
   sprintf(NBR_LIST, "%s", HOSTLIB.NBR_ZSORTED[IGAL] );
   GALID      = get_GALID_HOSTLIB(IGAL);
 
   // bail if this GAL has no NBR
-  if ( strcmp(NBR_LIST,NO_NBR) == 0 ) { return ; }
+  if ( strcmp(NBR_LIST,NO_NBR) == 0 ) { goto SNR_DETECT ; }
 
   if ( LDMP ) {
     printf(" xxx ----------------------------------------- \n");
@@ -7035,7 +7036,6 @@ void GEN_SNHOST_NBR(int IGAL) {
   splitString2(NBR_LIST, COMMA, MXNBR_LIST , &NNBR_READ, &TMPWORD_HOSTLIB[1]);
 
   NNBR_READ++;    // include true host
-  NNBR_STORE = 1; // start counter on stored neighbors
 
   ROWNUM_LIST[0] = -9;
   for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
@@ -7074,15 +7074,18 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   } // end i loop over NNBR_READ
 
-  
+  // - - - - - - - - - 
+  SNHOSTGAL.NNBR = NNBR_STORE ;
+ 
   // - - - - - - - - - - - - - 
-  // Jun 2022 .xyz
+  // Jun 2022 
   // check SNR_DETECT for each NBR ... drop those which are not found
-  int  NBAND = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
-  int  NNBR_DETECT=0, IGAL_NBR;
-  bool DETECT;
-  ii = 0 ;
-  if ( NBAND > 0 ) { 
+
+ SNR_DETECT:
+
+  if ( NBAND_SNR_DETECT > 0 ) { 
+    int  NNBR_DETECT=0, IGAL_NBR;
+    bool DETECT;
     for(i=0; i < NNBR_STORE; i++ ) {
       IGAL_NBR = SNHOSTGAL.IGAL_NBR_LIST[i] ;
       DETECT   = snr_detect_HOSTLIB(IGAL_NBR);
@@ -7094,9 +7097,8 @@ void GEN_SNHOST_NBR(int IGAL) {
     SNHOSTGAL.NNBR = NNBR_DETECT ;
   } // end check for host-galaxy detections
 
-  // - - - - - - - - - 
-  SNHOSTGAL.NNBR = NNBR_STORE ;
 
+  // - - - - - - - - - - - -  -
   if ( LDMP ) {
     int  IVAR_RA     = HOSTLIB.IVAR_RA ;
     int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
@@ -7175,28 +7177,29 @@ bool snr_detect_HOSTLIB(int IGAL) {
  }
 
   // sort HOST mags by SNR, in decreasing order
-  int ORDER_SORT=-1;
+  int ORDER_SORT = -1; // decreasing order
   int INDEX_SORT[MXFILTINDX];
   sortDouble( NBAND_EXIST, SNR_LIST, ORDER_SORT, INDEX_SORT ) ;
 
   // loop over SNR cut values and apply SNR cut in sorted space.
   int icut, isort; 
   for(icut=0; icut < NBAND_SNR_DETECT; icut++){
-      isort = INDEX_SORT[icut];
-      if(SNR_LIST[isort] < INPUTS.HOSTLIB_SNR_DETECT[icut]){
-        detect = false;
-      }
+    isort = INDEX_SORT[icut];
+    if ( SNR_LIST[isort] < INPUTS.HOSTLIB_SNR_DETECT[icut] ) {
+      detect = false;
+    }
   }
 
   int i, LDMP=1;
-  if(LDMP) {
+  if ( LDMP ) {
     long long GALID = get_GALID_HOSTLIB(IGAL);
     printf("XXX: ----------------------------------- \n");
-    printf("XXX: %s DUMP for CID=%s  GALID = %lld \n",
+    printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
 	   fnam, GENLC.CID, GALID);
     printf("XXX: SNR_LIST = ");
     for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ",SNR_LIST[i]); }
-    printf("\nXXX: detect = %d\n", detect);
+    printf("\nXXX: detect = %d  (CID=%d, z=%.3f)\n", 
+	   detect, GENLC.CID, GENLC.REDSHIFT_CMB );
     fflush(stdout);
   }
   

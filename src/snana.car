@@ -4377,6 +4377,7 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       CALL FETCH_SNDATA_WRAPPER("SNTYPE", ONE, STRING, DARRAY, OPT)
       ISNLC_TYPE = INT(DARRAY(1))
+      IF ( ISNLC_TYPE == -9 ) ISNLC_TYPE = 0 ! Jun 17 2022
       IF ( .NOT. PASS_SNTYPE(ISNLC_TYPE) ) THEN
          ISTAT = ISTAT_SKIP;  RETURN
       ENDIF
@@ -13734,7 +13735,6 @@ c Also increments global NACCEPT_TYPE if ITYPE is valid.
 c
 c Jul 12 2021: abort if ITYPE < 0
 c Mar 08 2022: apply CUTWIN_SNTYPE
-c
 c -------------------------
 
       IMPLICIT NONE
@@ -13756,6 +13756,8 @@ c local args
 C -------------- BEGIN --------------
 
       FNAM = 'PASS_SNTYPE'
+      PASS_SNTYPE = .FALSE.
+
       IF ( ITYPE < 0 ) THEN 
          write(c1err,61) ITYPE, SNLC_CCID
          write(c2err,62) MXTYPE
@@ -13763,8 +13765,6 @@ C -------------- BEGIN --------------
 62       format('Valid TYPE range is 0 to ', I5)
          CALL MADABORT(FNAM, c1err, c2err)
       ENDIF
-
-      PASS_SNTYPE = .FALSE.
 
       do i = 1, NSNTYPE_IGNORE
         if ( SNTYPE_IGNORE(i) .EQ. ITYPE ) then

@@ -21151,4 +21151,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sntools_host.c[h]
      + process new sim-input HOSTLIB_SNR_DETECT
+
+   snana.car
+     + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0
+        (fix is needed to process Pantheon HST sample)
+
 END: 

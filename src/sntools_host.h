@@ -522,7 +522,8 @@ struct SNHOSTGAL {
   int   IGAL_SELECT_RANGE[2] ; // range to select random IGAL
 
   long long GALID ;   // Galaxy ID from library
-  int  IMATCH_TRUE ; // true index for SNHOSTGAL_DDLR_SORT
+  int  IMATCH_TRUE_SORT ;  // true-host index for SNHOSTGAL_DDLR_SORT
+  int  IMATCH_TRUE_UNSORT; // either 0 or -9 if true host is too faint
 
   // redshift info
   double ZGEN  ;     // saved ZSN passed to driver

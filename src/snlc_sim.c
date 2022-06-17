@@ -8589,7 +8589,7 @@ void dump_modelSmearSigma(void) {
   // Nov 23 2013
   // determine magSmear sigma in wavelength bins, and print to screen.
 
-  int m = SNHOSTGAL.IMATCH_TRUE;
+  int m = SNHOSTGAL.IMATCH_TRUE_SORT;
   int NLAM, NRANGEN, igen, ilam ;
   double LAMMIN, LAMMAX, LAMBIN, LAMARRAY[100], LAM, TREST, LOGMASS;
   double **MAGSMEAR, MAGARRAY[100], AVG, RMS, MEDIAN ;
@@ -21811,7 +21811,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
 
   int    N_Q = HOSTLIB.NZPHOT_Q;
-  int    IMATCH_TRUE = SNHOSTGAL.IMATCH_TRUE;
+  int    IMATCH_TRUE_SORT = SNHOSTGAL.IMATCH_TRUE_SORT;
 
   int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j, PCT ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
@@ -21904,10 +21904,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather
     // than -9999 for "not exist" -> so that analysis codes aren't fooled
     // into ignoring the property.
-    if ( NMATCH == 0 && IMATCH_TRUE >= 0 ) { 
+    if ( NMATCH == 0 && IMATCH_TRUE_SORT >= 0 ) { 
       m = 0 ;
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
-	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
+	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE_SORT].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
 	if ( VAL_TRUE > HOSTLIB_PROPERTY_UNDEFINED ) {
 	  SNDATA.PTR_HOSTGAL_PROPERTY_OBS[j][m] = HOSTLESS_PROPERTY_VALUE_LIST[j];
 	  SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m] = -9.0 ;
@@ -24980,7 +24980,7 @@ void genmodel(
     S2c  = GENLC.SALT2c  + GENLC.COVMAT_SCATTER[2] ;
     tmp  = -0.4 * GENLC.COVMAT_SCATTER[0] ;
     S2x0 = GENLC.SALT2x0 * pow(10.0,tmp);
-    int m = SNHOSTGAL.IMATCH_TRUE;
+    int m = SNHOSTGAL.IMATCH_TRUE_SORT;
     if ( m >= 0 ) { logMass = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE; }
 
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;

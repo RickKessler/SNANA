@@ -21124,14 +21124,22 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       Implementing this fix requires re-making SIMSED binaries
       (preferably with make_simsed_binaries.py)
 
+      For C-python interface (BYOSED), use ENV VERSION_LIBPYTHON instead 
+      of $SNANA_PYTHON_DIR to communicate with Makefile. Solves problem 
+      of different libpython versions on RCC and Cori. 
+      Modified files: src/Makefile and util/set_Cpreproc_flags.py
+
 
          ***** USEFUL(v11_04l) ***** 
 
-  sim: For C-python interface (BYOSED), use ENV VERSION_LIBPYTHON instead 
-       of $SNANA_PYTHON_DIR to communicate with Makefile. Solves problem 
-       of different libpython versions on RCC and Cori. 
-       Modified files: src/Makefile and util/set_Cpreproc_flags.py
+   new sim-input HOSTLIB_SNR_DETECT (see manual) to apply SNR cut
+    for host detections.
 
+   Fix subtle mistake for mis-matched host photo-z:
+   mis-matched photo-z now includes same ZGEN-ZTRUE offset as
+   for the true host because mis-matched hosts are often in the
+   same galaxy group/cluster as the true host.
+ 
          ***** MISCELLANEOUS(v11_04l) ***** 
 
    snlc_sim.c

@@ -6062,7 +6062,7 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   // ----------- BEGIN ----------
 
   // Compte user-specified bias
-  ZBIAS = 0 ;
+  ZBIAS = 0.0 ;
   for(j=0; j < 4; j++ ) {
     tmp = (double)INPUTS.HOSTLIB_GENZPHOT_BIAS[j];
     if ( tmp != 0.0 )  { ZBIAS += tmp * pow(ZTRUE, (double)j );  }
@@ -6079,7 +6079,7 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   }
 
 
-  // final ZPHOT is from host with closest match (Jan 31 2020)
+  // final reported ZPHOT is from host with closest match (Jan 31 2020)
   SNHOSTGAL.ZPHOT     = SNHOSTGAL_DDLR_SORT[0].ZPHOT;
   SNHOSTGAL.ZPHOT_ERR = SNHOSTGAL_DDLR_SORT[0].ZPHOT_ERR ;
 
@@ -6440,12 +6440,17 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
   IVAR_ZPHOT_ERR = HOSTLIB.IVAR_ZPHOT_ERR ;
   if ( IVAR_ZPHOT < 0 ) { return ; }
 
+  /* xxxx mark delete Jun 17 2022 xxxxxx
   ZDIF = 0.0 ;
   if ( GENLC.CORRECT_HOSTMATCH ) {
-    // from legacy wrong-host map
     ZTRUE = SNHOSTGAL_DDLR_SORT[INBR].ZSPEC ; // ZTRUE from hostlib
     ZDIF = ZGEN - ZTRUE ; 
   }
+  xxxxxxxx end mark xxxxxxx */
+
+  // always apply ZDIF shift based on true host because
+  // mis-matched hosts may be in a group with very similar redshifts.
+  ZDIF = ZGEN - SNHOSTGAL.ZTRUE; 
 
   zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
   zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
@@ -6995,6 +7000,7 @@ void GEN_SNHOST_NBR(int IGAL) {
   int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
   int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
   int  i, ii, NNBR_READ, NNBR_STORE=1, rowNum, IGAL_STORE, IGAL_ZSORT ;
+  int  unsort_true = 0; // index for unsorted DDLR
   int  ROWNUM_LIST[MXNBR_LIST];
   long long GALID ;
   char NBR_LIST[MXCHAR_NBR_LIST] ;
@@ -7006,7 +7012,8 @@ void GEN_SNHOST_NBR(int IGAL) {
   reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
 
   SNHOSTGAL.NNBR = 1;   // true host sets default at 1
-  SNHOSTGAL.IGAL_NBR_LIST[0] = IGAL;
+  SNHOSTGAL.IGAL_NBR_LIST[unsort_true] = IGAL;
+  SNHOSTGAL.IMATCH_TRUE_UNSORT         = unsort_true ;
 
   // set default DDLR and SNSEP to that of true host
   SNHOSTGAL_DDLR_SORT[0].SNSEP = SNHOSTGAL.SNSEP ;
@@ -7092,6 +7099,12 @@ void GEN_SNHOST_NBR(int IGAL) {
       if ( DETECT ) { 
 	SNHOSTGAL.IGAL_NBR_LIST[NNBR_DETECT] = IGAL_NBR ;
 	NNBR_DETECT++ ;
+      }
+      else {
+	// if true host is not detected, 
+	// set the true unsorted index to -9
+	if ( SNHOSTGAL.IMATCH_TRUE_UNSORT == i ) 
+	  { SNHOSTGAL.IMATCH_TRUE_UNSORT = -9 ; }	
       }
     }
     SNHOSTGAL.NNBR = NNBR_DETECT ;
@@ -7353,7 +7366,7 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
     }
   }
 
-  SNHOSTGAL.IMATCH_TRUE = -9 ;   // May 31 2021
+  SNHOSTGAL.IMATCH_TRUE_SORT = -9 ;   // May 31 2021
 
 } // end reset_SNHOSTGAL_DDLR_SORT
 
@@ -7503,13 +7516,16 @@ void SORT_SNHOST_byDDLR(void) {
       DEC_GAL += (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) ;
     }
 
-    // load logical for true host
+    // load logical for true host.
+    // Jun 17 2022: if true host fails SNR_DETECT cut, it won't be 
+    //              in DDLR_SORT 
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
-    if ( unsort == 0 ) { // first element of unsorted array is true host
+    // xxx mark if ( unsort == 0 ) { // first unsorted element is true host
+    if ( unsort == SNHOSTGAL.IMATCH_TRUE_UNSORT ) {
        SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; 
-       SNHOSTGAL.IMATCH_TRUE = i;
+       SNHOSTGAL.IMATCH_TRUE_SORT = i;
        if ( i != 0 ) { GENLC.CORRECT_HOSTMATCH = false; } // Jan 20 2022
-       if ( LDMP ) { printf("\t xxx %s: IMATCH_TRUE = %d \n", fnam, i); }
+       if ( LDMP ) { printf("\t xxx %s: IMATCH_TRUE_SORT = %d \n", fnam, i); }
     }
 
     // load global struct
@@ -7621,7 +7637,12 @@ void SORT_SNHOST_byDDLR(void) {
       fflush(stdout);      
     }
   }
-  
+
+  // - - - - - - - -
+  // if true host fails SNR cut, set CORRECT_HOSTMATCH=F
+  if ( SNHOSTGAL.IMATCH_TRUE_UNSORT < 0 ) 
+    { GENLC.CORRECT_HOSTMATCH = false; }
+
   // truncate list to those satisfying DDLR cut (Feb 2020)
   SNHOSTGAL.NNBR = NNBR_DDLRCUT ;
 

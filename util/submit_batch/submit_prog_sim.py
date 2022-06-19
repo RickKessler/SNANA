@@ -50,6 +50,9 @@
 # May 14 2022: if RANSYSTPAR_RANSEED_SYST is set in genopt, sync the 
 #               ranseed_syst args among isplit.
 #
+# Jun 20 2022: for RESET_CIDOFF=2 (unique CID among all versions),
+#          cidran_max *= 1.1 to prevent hang-up for CIDRAN_MAX ~ 100 million.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -930,7 +933,6 @@ class Simulation(Program):
             cidoff_list3d[iver][ifile][isplit] = cidoff
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
-            # xxx ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
                 cidadd       = int(ngentot*1.1)+1000   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
@@ -944,7 +946,10 @@ class Simulation(Program):
         # for unique CIDs everywhere, cidran_max must be the
         # same for all jobs
         if reset_cidoff == 2 :
+            cidran_safety  = int(0.1*cidran_max)
+            cidran_max    += cidran_safety # safety for very large CIDRAN
             cidran_max_list = [cidran_max] * n_genversion
+
 
         # store info
         self.config_prep['reset_cidoff']      = reset_cidoff

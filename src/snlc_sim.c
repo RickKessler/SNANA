@@ -19461,6 +19461,7 @@ void init_CIDRAN(void) {
   //   + fix bug implementing CIDRAN_MIN (see CIDRAN_OFF)
   //   + abort if CIDOFF < CIDRAN_MIN
   //
+  // Jun 20 2022: restrict NPICKRAN_ABORT to 1 million
 
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
@@ -19547,9 +19548,11 @@ void init_CIDRAN(void) {
   else
     { XNUPD8 = 5.0E6 ; }
 
-  // set abort to 5% of NSTORE (Apr 10 1017)
+  // set abort to 5% of NSTORE (Apr 10 2017)
+  // NPICKRAN_ABORT must be at least 100, and no more than 1 million
   NPICKRAN_ABORT = (NSTORE_ALL/20);
-  if ( NPICKRAN_ABORT < 100 ) { NPICKRAN_ABORT = 100; }
+  if ( NPICKRAN_ABORT < 100     ) { NPICKRAN_ABORT = 100; }
+  if ( NPICKRAN_ABORT > 1000000 ) { NPICKRAN_ABORT = 1000000; }
 
   // - - - - - - - - - - - - - - - - - - 
 

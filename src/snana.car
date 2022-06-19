@@ -7909,6 +7909,11 @@ c - - - -
           READ(ARGLIST(1),*) CUTWIN_REDSHIFT_ERR(1)
           READ(ARGLIST(2),*) CUTWIN_REDSHIFT_ERR(2)
 
+        else if ( MATCH_NMLKEY('CUTWIN_HOSTSEP',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_HOSTSEP(1)
+          READ(ARGLIST(2),*) CUTWIN_HOSTSEP(2)
+
         else if ( MATCH_NMLKEY('CUTWIN_NFILT_TRESTMIN',
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_NFILT_TRESTMIN(1)
@@ -21590,13 +21595,13 @@ c so that NEWMJD_CUTS can be evaluated correctly.
          SNLC_CUTVAR(CUTBIT_DEC)  = 
      &       SNLC8_DEC
 
-         SNLC_CUTVAR(CUTBIT_HOSTSEP)  = 0.0 ! xx
+         SNLC_CUTVAR(CUTBIT_HOSTSEP)  = SNHOST_ANGSEP(1)
 
          SNLC_CUTVAR(CUTBIT_PEAKMJD)  = 
      &       SNLC_SEARCH_PEAKMJD
 
          SNLC_CUTVAR(CUTBIT_NMJD_INCLUDE)  = 
-     &       float ( ISNLC_NMJD_INCLUDE )  ! Aug 11 2015
+     &       float ( ISNLC_NMJD_INCLUDE )  
 
          SNLC_CUTVAR(CUTBIT_SNRMAX)  = 
      &       SNLC_SNRMAX_FILT(0)

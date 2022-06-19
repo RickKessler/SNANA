@@ -7226,7 +7226,7 @@ bool snr_detect_HOSTLIB(int IGAL) {
     }
   }
 
-  int i, LDMP=1;
+  int i, LDMP = 0;
   int NNBR_ORIG = SNHOSTGAL.NNBR;
   if ( LDMP && NNBR_ORIG > 1 ) {
     long long GALID = get_GALID_HOSTLIB(IGAL);

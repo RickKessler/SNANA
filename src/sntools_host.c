@@ -304,9 +304,8 @@ void initvar_HOSTLIB(void) {
 
   HOSTLIB.NFILT_MAGOBS = 0;
   HOSTLIB.NZPHOT_Q = 0;
-  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )     {
-    HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;
-  }
+  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  
+    { HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;  }
   sprintf(HOSTLIB.filterList, "%s", "" );
 
 
@@ -3541,6 +3540,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // Jun 18 2019: if interp_GRIDMAP fails, print more PRE-ABORT info.
   // Jun 25 2019: check GAMMA_GRID option
   // May 03 2022: check new HOSTLIB feature for TRUE column (IVAR_TRUE_MATCH)
+  // Jun 19 2022: if [band]_obs==99, set to VALMAX-0.001 to avoid abort.
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NFUN, NROW, ibin, istat ;
@@ -3588,6 +3588,20 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
     fflush(stdout);
   }
 
+
+  // figure out which variables have _obs; store logical flag per ivar
+  bool ISVAR_MAGOBS[MXVAR_HOSTLIB];
+  for ( ivar=0; ivar < NDIM; ivar++ ) {  
+    ISVAR_MAGOBS[ivar] = false;
+    ivar_STORE   = HOSTLIB.IVAR_STORE[ivar];
+    varName      = HOSTLIB.VARNAME_STORE[ivar_STORE] ;
+    if ( strstr(varName,HOSTLIB_SUFFIX_MAGOBS) != NULL ) 
+      { ISVAR_MAGOBS[ivar] = true; }
+  }
+
+
+
+  // - - - - - - - -
   for(ibin=0; ibin < NBTOT_SNVAR ; ibin++ ) {
 
     if ( N_SNVAR > 0 )  // fetch SN grid values
@@ -3625,6 +3639,15 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	  isparse =  HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar] ;
 	  VAL     =  VAL_SNVAR[isparse];
 	}
+
+	// Jun 19 2022 RK - if [band]_obs=99, replace value with 
+	//     max value to avoid abort below.
+	if ( VAL >= MAG_ZEROFLUX && ISVAR_MAGOBS[ivar] ) {
+	  VALMAX       = HOSTLIB_WGTMAP.GRIDMAP.VALMAX[ivar];
+	  VAL = VALMAX - 0.001; 
+	}
+
+
 	VAL_WGTMAP[ivar] = VAL ;
 
       } // end ivar loop
@@ -3640,7 +3663,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
 	  IS_SNVAR     = HOSTLIB_WGTMAP.IS_SNVAR[ivar]; 
 	  if ( IS_SNVAR ) { continue; }
-	  ivar_STORE   = HOSTLIB.IVAR_STORE[ivar];
+ 	  ivar_STORE   = HOSTLIB.IVAR_STORE[ivar];
 	  varName      = HOSTLIB.VARNAME_STORE[ivar_STORE] ;
 	  VAL          = HOSTLIB.VALUE_ZSORTED[ivar_STORE][igal] ;
 	  VALMIN       = HOSTLIB_WGTMAP.GRIDMAP.VALMIN[ivar];

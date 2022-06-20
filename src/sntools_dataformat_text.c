@@ -570,7 +570,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_CONFUSION );
     }
 
-    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
+    // always write LOGMASS regardless of value; to help human debug
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > -1.0E9 ) {
       fprintf(fp, "%s_%s:     %.3f +- %.3f   # log10(Mgal/Msolar)\n", 
 	      PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS,
 	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 

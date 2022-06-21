@@ -166,6 +166,12 @@ def read_fitres_file(info_fitres):
     df[keyname_id] = df[keyname_id].astype(str)
     df             = df.set_index(keyname_id, drop=False)
 
+    # other columns to print as string to avoid int->float roundoff
+    keyname_str_list = [ 'SIM_HOSTLIB_GALID', 'HOST_OBJID' ]
+    for k in keyname_str_list:
+        if k in df:
+            df[k] = df[k].astype(str)
+
     # load data frame
     info_fitres['df'] = df
     return

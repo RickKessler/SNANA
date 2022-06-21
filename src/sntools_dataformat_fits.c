@@ -370,17 +370,6 @@ void wr_snfitsio_init_head(void) {
 
     wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL2", itype);
 
-    /* xxx mark delete 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR" ,     itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR_ERR",  itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR" ,    itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR" ,      itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR_ERR",   itype );
-    xxxx end mark xxx*/
-
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );

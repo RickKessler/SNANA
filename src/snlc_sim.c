@@ -1050,7 +1050,8 @@ void set_user_defaults(void) {
 
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
-  INPUTS.HOSTLIB_MAXDDLR = 4.0 ;   // cut on SN-host separation
+  INPUTS.HOSTLIB_MAXDDLR      = 4.0 ;   // cut on SN-host separation
+  INPUTS.HOSTLIB_SMEAR_SERSIC = 0.0 ;   // arcsec
 
   INPUTS.HOSTLIB_SNR_DETECT_STRING[0] = 0 ;
   INPUTS.HOSTLIB_NBAND_SNR_DETECT     = 0;
@@ -3341,6 +3342,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SMEAR_SERSIC", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_SMEAR_SERSIC );
   }
   else if ( keyMatchSim(1, "HOSTLIB_SNR_DETECT", WORDS[0],keySource) ) {
     N++;  parse_input_HOSTLIB_SNR_DETECT(WORDS[N]);

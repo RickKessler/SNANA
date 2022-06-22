@@ -5490,7 +5490,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // check for neighbors
   GEN_SNHOST_NBR(IGAL);
     
-  // determine DLR and ordered list
+  // determine DDLR and ordered list
   for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
     { GEN_SNHOST_DDLR(ilist); }
 
@@ -6635,6 +6635,7 @@ void GEN_SNHOST_POS(int IGAL) {
   //
   // if ( LSN2GAL  ) then call gen_MWEBV with new SN coords.
   // 
+  //
   // Nov 12 2015: make a few cos(DEC) fixes ; bugs found by Ravi @ANL
   // Nov 16 2015: use exact angSep function to compute SN-host sep.
   //
@@ -6919,13 +6920,21 @@ void GEN_SNHOST_POS(int IGAL) {
   if ( LDMP ) {
     printf(" xxx %s: RA,DEC(SN) = %f, %f \n",
 	   fnam, GENLC.RA, GENLC.DEC);
+
     printf(" xxx %s: RA,DEC(GAL)= %f, %f \n", 
 	   fnam, SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG );
+
     printf(" xxx %s: Ran0,Ran1 = %.4f, %.4f \n", fnam, Ran0, Ran1);
+
     printf(" xxx %s: a,b(half)=%.3f,%.3f n=%.3f a_rot=%.3f \n",
 	   fnam, a_half, b_half, n, a_rot);
-    printf(" xxx %s: a=%.4f b=%.4f  r=%.4f  phi=%.4f  DLR=%.4f \n",
-	   fnam, a, b, reduced_R, phi, DLR);
+
+    printf(" xxx %s: a=%.4f b=%.4f  r=%.4f  phi=%.4f  DLR=%.4f SNSEP=%.3f/\n",
+	   fnam, a, b, reduced_R, phi, DLR, SNSEP);
+
+    printf(" xxx %s: INTFLUX(MIN,MAX)=%.3f,%.3f  RanInteg=%.3f \n",
+	   fnam, MNINTFLUX, MXINTFLUX, RanInteg);
+
     printf(" xxx %s: JPROF=%d IGAL=%d \n", fnam, JPROF, IGAL);
     fflush(stdout);
   }
@@ -7310,10 +7319,20 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   }
   a_half /= WTOT;  b_half /= WTOT;
 
-  // check option to use specialized a_DLR, b_DLR for DLR calculation (Helen Qu, 1/25/2022)
+  // check option to use specialized a_DLR, b_DLR for DLR calculation 
+  // (Helen Qu, 1/25/2022)
   if (HOSTLIB.IVAR_a_DLR > 0) {
     a_half = HOSTLIB.VALUE_ZSORTED[HOSTLIB.IVAR_a_DLR][IGAL]; 
     b_half = HOSTLIB.VALUE_ZSORTED[HOSTLIB.IVAR_b_DLR][IGAL]; 
+  }
+
+  // Jun 21 2022 RK - check option to PSF-smear a,b 
+  if ( INPUTS.HOSTLIB_SMEAR_SERSIC > 0.0 ) {
+    // SMEAR_SERSIC is FWHM, so divide by 2 to sort'of match a and b
+    // half-light radii
+    double ab_smear = (double)INPUTS.HOSTLIB_SMEAR_SERSIC/2.0 ;
+    a_half = sqrt(a_half*a_half + ab_smear*ab_smear);
+    b_half = sqrt(b_half*b_half + ab_smear*ab_smear);
   }
 
   a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA

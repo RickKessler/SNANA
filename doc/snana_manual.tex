@@ -4408,6 +4408,36 @@ terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
 the z-norm term. 
 
 
+% - - - - - - - -  -
+\subsubsection{Computation of DDLR (SNSEP/DLR) }
+\label{sss:hostlib_ddlr}
+
+The Sersic parameters in the \hostlib\ are assumed to represent
+the true galaxy profile, without PSF smearing, and this profile
+is used to overlay a true SN location near the host galaxy. 
+To compute {\tt DDLR=SNSEP/DLR}, a default DLR is computed from the 
+true Sersic profile, which does not account for PSF smearing.
+There are two approximate methods to account for PSF smearing
+in the DLR computation:
+%
+\newcommand{\absmear}{ab_{\rm smear}}
+\begin{enumerate}
+   \item define \hostlib\ columns {\tt a\_DLR} and {\tt b\_DLR} based
+       on measured half-light radii. These quanitieis are used only
+       to compute DLR, but are not used to overlay a true SN location.
+%
+   \item Use sim-input ``{\tt HOSTLIB\_SMEAR\_SERSIC: 1.0}'' which
+     is loosely interpreted as a FWMH (arcsec) for average PSF.
+     This parameter has no impact on placement of SN near galaxy,
+     but it affects the DLR calculation as with
+       \begin{eqnarray}
+         \absmear & \equiv & {\tt HOSTLIB\_SMEAR\_SERSIC}/2 \\
+         a & \to & \sqrt{a^2 + \absmear^2} \\
+         b & \to & \sqrt{b^2 + \absmear^2}
+       \end{eqnarray}
+     where $a,b$ are the semimajor/minor half-light radii.
+\end{enumerate}
+
 % ------------------------------------
 \clearpage
 \subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}

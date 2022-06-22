@@ -497,7 +497,7 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
-
+  float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
   char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
   float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect

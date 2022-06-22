@@ -21159,6 +21159,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    sntools_host.c[h]
      + process new sim-input HOSTLIB_SNR_DETECT
+     + pricess new sim-input HOSTLIB_SMEAR_SERSIC
 
    snana.car
      + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0

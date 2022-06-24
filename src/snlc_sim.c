@@ -72,7 +72,6 @@ int main(int argc, char **argv) {
   int ilc, istat, i  ;
   // define local structures
   SIMFILE_AUX_DEF SIMFILE_AUX ;
-  FILE *FP;
   char fnam[] = "main"; 
 
   // ------------- BEGIN --------------
@@ -1484,7 +1483,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   double TMPVAL[2];
-  bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE, SKIP ;
+  bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   bool ISKEY_RANSYSTPAR;
@@ -1876,12 +1875,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    /* xxx mark xxx
-    for(j=0; j < 2; j++ ) {
-      SKIP = ( IS_ARG && TMPVAL[j] < 0.0 );
-      if ( !SKIP ) { INPUTS.GENRANGE_REDSHIFT[j] =  TMPVAL[j] ; }
-    }
-    xxxx */
   }
   else if ( keyMatchSim(1,"GENSIGMA_REDSHIFT", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENSIGMA_REDSHIFT );
@@ -1900,7 +1893,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1,"WRONGHOST_FILE", WORDS[0],keySource) ) {
     // wrong host -> wrong redshift
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.WRONGHOST_FILE);
+    N++;  sscanf(WORDS[N], "%s", INPUTS.WRONGHOST_FILE);
   }
   else if ( keyMatchSim(1,"GENRANGE_PEAKMAG", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[0] );
@@ -2358,7 +2351,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   int  N=0, m, n, j, NLOCAL, nread, NMODEL_LIST, N_MODELPAR ;
   int  MEMC = 100*sizeof(char);
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
-  char KEYNAME[40], TMPNAME[60], *README ;
+  char KEYNAME[40], TMPNAME[60] ;
   char fnam[] = "parse_input_RATEPAR" ;
 
   // ------------ BEGIN ------------
@@ -2573,7 +2566,7 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
   //
   // Jul 21 2020: use keyMatchSim(...) and keySource
 
-  bool FROM_FILE = ( keySource == KEYSOURCE_FILE ) ;
+  // xxx marl delete   bool FROM_FILE = ( keySource == KEYSOURCE_FILE ) ;
   int  ISNOMINAL = strcmp(WHAT,"NOMINAL") == 0 ;
   int  ISPEC1A   = strcmp(WHAT,"PEC1A"  ) == 0 ;
   char PRIMARY_KEYLIST[10][20], KEYTEST[20] ;
@@ -2766,7 +2759,7 @@ void parse_input_GENZPHOT_FUEGEMAP(char *string) {
     INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.RMS_LIST[iz] = rms;
 
     if ( VERBOSE ) {
-      printf("\t z=%.3f, rms(zPhot-zTrue) = %.3f  \n", 
+      printf("\t string=%s  z=%.3f, rms(zPhot-zTrue) = %.3f  \n", 
 	     split_string[iz], z, rms ); fflush(stdout);
     }
   }
@@ -3123,7 +3116,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINOBS );
   }
   else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINSEASON );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MINSEASON );
   }
   else if ( keyMatchSim(1, "SIMLIB_DUMP",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_DUMP );
@@ -3437,12 +3430,12 @@ int parse_input_LENS(char **WORDS, int keySource) {
 
   if ( keyMatchSim(1, "STRONGLENS_FILE",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.STRONGLENS_FILE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.STRONGLENS_FILE );
   }
   else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
 			WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.WEAKLENS_PROBMAP_FILE );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.WEAKLENS_PROBMAP_FILE );
   }
   else if ( keyMatchSim(1, "WEAKLENS_DMUSCALE  LENSING_DMUSCALE",
 			WORDS[0],keySource) ) {
@@ -4183,7 +4176,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 // =====================================================
 int parse_input_MWEBV(char **WORDS, int keySource ) {
 
-  int ITMP, N=0;
+  int ITMP=0, N=0;
   char fnam[] = "parse_input_MWEBV" ;
   // ------------- BEGIN -------------
 
@@ -4339,7 +4332,7 @@ int parse_input_GENMAG_SMEAR(char **WORDS, int keySource ) {
   else if ( keyMatchSim(4, "GENMAG_SMEAR_FILTER", WORDS[0],keySource) ) {
     char filterList[50];  float smear;  int ifilt;
     N++ ; sscanf(WORDS[N] , "%s", filterList );
-    N++ ; sscanf(WORDS[N] , "%f", smear );
+    N++ ; sscanf(WORDS[N] , "%f", &smear );
     NFILT = INPUTS.NFILT_SMEAR ; 
       INPUTS.NFILT_SMEAR += 
 	PARSE_FILTLIST(filterList,&INPUTS.IFILT_SMEAR[NFILT+1]);
@@ -9099,7 +9092,7 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
   int  OPT_FRAME = INPUTS.TAKE_SPECTRUM[INDX].OPT_FRAME_EPOCH ;
   int  ILIST_RAN = ILIST_RANDOM_SPECTROGRAPH ;
   double z1     = 1.0 + z ;
-  double EPOCH_RANGE[2], EPOCH, MJD, Tobs, Trest ;
+  double EPOCH_RANGE[2], EPOCH, MJD, Tobs=0.0, Trest=0.0 ;
   char fnam[] = "GENSPEC_PICKMJD" ;
 
   // ------------ BEGIN ------------
@@ -9956,7 +9949,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   double  TEXPOSE_S  = GENSPEC.TEXPOSE_LIST[imjd] ;
   double  TEXPOSE_T  = GENSPEC.TEXPOSE_TEMPLATE ;
   double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
-  double  SNR_SPEC ;
+  double  SNR_SPEC = 0.0 ;
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
@@ -14820,7 +14813,7 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
   // May 25 2018: Fix order of l,b arguments.
   // Sep 30 2020: switch to using polyEval or eval_GENPOLY
 
-  double Rate=0.0, b_val ;
+  double Rate=0.0, b_val = 0.0 ;
   double BPOW[MXPOLY_GALRATE+1], COSBPOW[MXPOLY_GALRATE+1], Rtest=0.0 ;
   int i;
   char fnam[] = "GALrate_model" ;
@@ -16036,7 +16029,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0 ;
   int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, iwd, IWD ;
-  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NTMP, NFIELD ;
+  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NTMP, NFIELD=0 ;
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
@@ -28009,10 +28002,8 @@ void DUMP_GENMAG_DRIVER(void) {
     ,DM15_CALC[MXFILTINDX][MXSHAPEPAR]
     ;
 
-  int 
-    epoch, ifilt_rest, ifilt_obs, ifilt, NROW
-    ,N, NSHAPEPAR, ishape, irank, colopt
-    ;
+  int  epoch, ifilt_rest, ifilt_obs, ifilt, NROW ;
+  int N, NSHAPEPAR, ishape, irank, colopt  ;
 
   double 
     mag8, *ptr_genmag8, MU8, ARG8, z8
@@ -28285,7 +28276,7 @@ void test_fortran(void) {
 void test_zcmb_dLmag_invert(void) {
 
   char fnam[] = "test_zcmb_dLmag_invert" ;
-  double MU, zCMB;
+  double MU, zCMB=0.0 ;
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
     zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO);

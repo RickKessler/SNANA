@@ -5504,6 +5504,9 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // check for vpec
   GEN_SNHOST_VPEC(IGAL);
 
+  // check for weak lens DMU (June 2022)
+  // .xyz  GEN_SNHOST_WEAKLENS_DMU(IGAL);
+  
   // check if redshift needs to be updated (Apr 8 2019)
   TRANSFER_SNHOST_REDSHIFT(IGAL);
 
@@ -6498,7 +6501,7 @@ void  GEN_SNHOST_VPEC(int IGAL) {
   int  IVAR_VPEC     = HOSTLIB.IVAR_VPEC ;
   int  IVAR_VPEC_ERR = HOSTLIB.IVAR_VPEC_ERR ;
   double VPEC        = 0.0, ERR = -999.9 ;
-  //  char fnam[]        = "GEN_SNHOST_VPEC" ;
+  char fnam[]        = "GEN_SNHOST_VPEC" ;
 
   // ------------ BEGIN ----------
 
@@ -7199,10 +7202,12 @@ bool snr_detect_HOSTLIB(int IGAL) {
         MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
         MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
 
-	if ( MAG_ERR > 0.0 ) 
-	  { SNR  = 1.086/MAG_ERR; } // approximate SNR - fix formula later
-	else
-	  { SNR = 0.0; }
+	if ( MAG_ERR > 0.0 ) {
+	  SNR  = (2.5/LNTEN) / MAG_ERR ;
+	}
+	else {
+	  SNR = 0.0; 
+	}
 
         MAG_LIST[NBAND_EXIST]      = MAG ;
 	MAG_ERR_LIST[NBAND_EXIST]  = MAG_ERR ;
@@ -8387,28 +8392,6 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
       { VAL = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL]; }
     SNHOSTGAL.WGTMAP_VALUES[ivar] = VAL ;
   }
-
-
-  // -----------------------------------------------------------
-  // Sep 16 2015
-  // set GENLC.FIELDNAME if FIELD column is present in hostlib
-
-  /* xxxxx mark delete Feb 21 2022 xxxxxxxxx
-  int   ep ;
-  char *FIELD ;
-  if ( HOSTLIB.IVAR_FIELD > 0 ) {
-    FIELD = HOSTLIB.FIELD_ZSORTED[IGAL] ;
-    if ( strlen(FIELD) == 0 ) {
-      sprintf(c1err,"FIELD='' for IGAL=%d  GALID=%lld", 
-	      IGAL, get_GALID_HOSTLIB(IGAL) ) ;
-      sprintf(c2err,"Check HOSTLIB");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-    for(ep=0; ep < MXEPSIM; ep++ ) {    
-      sprintf(GENLC.FIELDNAME[ep], "%s", FIELD);
-    }
-  }
-  xxxxxxxxxxx end mark xxxxxxxxxxxx */
 
   return ;
 

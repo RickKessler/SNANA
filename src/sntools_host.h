@@ -533,7 +533,10 @@ struct SNHOSTGAL {
   double ZPHOT_Q[MXBIN_ZPHOT_Q];
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double VPEC,  VPEC_ERR  ;     // peculiar velocity
+
+  // misc info
   double PEAKMJD ;
+ 
 
   int    NNBR;    // number of nearby galaxies
   int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
@@ -543,7 +546,6 @@ struct SNHOSTGAL {
   SERSIC_DEF SERSIC ; // Nov 2019
 
   // coordinate info
-
   double reduced_R ;     // reduced R/Re (randomly chosen)
   double phi ;           // randomly chosen azim. angle, radians  
 
@@ -564,7 +566,6 @@ struct SNHOSTGAL {
   double SB_MAG[MXFILTINDX] ;  // surface brightness mag in 1 sq-arcsec
   double SB_FLUXCAL[MXFILTINDX] ;
 
-  // xxx delete Jan 31 2020  double GALMAG_TOT[MXFILTINDX];  
   double GALMAG[MXFILTINDX][NMAGPSF_HOSTLIB+1] ; // mag per PSF bin
   double GALFRAC[NMAGPSF_HOSTLIB+1]; // true gal light-frac in each aperture
   double GALFRAC_SBRADIUS[NMAGPSF_HOSTLIB+1]; // gal light-frac in SB radius

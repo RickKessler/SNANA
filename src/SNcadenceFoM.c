@@ -470,7 +470,6 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
     ,M5SIG_AVG_t     // Temp variable for M5SIG_AVG
     ,M5SIG_RMS_t     // Temp variable for M5SIG_RMS
     ,QUALITY_t       // Temp variable for QUALITY
-    ,MJDGAP_IGNORE_t
     ,mjd_array[MAXRAN_MJDARRAY]
     ,mjd_rand_array[MAXRAN_MJDARRAY]
     ,m5sig_array[MAXRAN_MJDARRAY]
@@ -547,7 +546,6 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
     M5SIG_AVG_t     = *(parList+IPAR_cadence_M5SIG_AVG ) ;
     M5SIG_RMS_t     = *(parList+IPAR_cadence_M5SIG_RMS ) ;
     QUALITY_t       = *(parList+IPAR_cadence_QUALITY   ) ;
-    MJDGAP_IGNORE_t = *(parList+IPAR_cadence_MJDGAP_IGNORE ) ;
 
     CUTOFF_DIFMJD = *(parList+IPAR_cadence_CUTOFF_DIFMJD ) ; 
     CUTOFF_FRAC   = *(parList+IPAR_cadence_CUTOFF_FRAC ) ;
@@ -561,10 +559,8 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
 
     NRAN_t          = DEFAULT_cadence_NRAN_MJDARRAY ;
     QUALITY_t       = DEFAULT_cadence_QUALITY ;
-    MJDGAP_IGNORE_t = DEFAULT_cadence_MJDGAP_IGNORE ;
     CUTOFF_FRAC     = DEFAULT_cadence_CUTOFF_FRAC ;
     CUTOFF_t        = CUTOFF_FRAC * DIFMJD_AVG ;
-    MJDGAP_IGNORE_t = DEFAULT_cadence_MJDGAP_IGNORE ;
     CUTOFF_DIFMJD   = DEFAULT_cadence_CUTOFF_DIFMJD ; // not used
   }
 

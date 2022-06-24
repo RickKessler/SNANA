@@ -436,7 +436,6 @@ c define covariance matrices for SN model correlations (NOT for fit)
      &  ,COVMAT2(MXFIT_DATA,MXFIT_DATA)  ! 2-dim matrix to invert
      &  ,COVMAT_MIN    ! min value among all elements
      &  ,COVMAT_MAX    ! max value ...
-     &  ,DETERM_COVMAT2 ! determinant
 
       CHARACTER 
      &   FITMODEL_PATH*(MXCHAR_PATH)          ! path for model params 
@@ -3277,7 +3276,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
         IF ( REQUIRE_DOCANA > 0 )           OPTMASK = OPTMASK + 2
         IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
         IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
-	IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
+        IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
         IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
 
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
@@ -3303,8 +3302,8 @@ cc         ISTAT = INIT_GENMAG_SIMSED( TMP_FITMODEL, LEN_NAME )
       LKCOR_AVWARP  = .FALSE.
       OPTMASK = 1
       CALL GET_LAMRANGE_SEDMODEL(OPTMASK,LAMRANGE(1),LAMRANGE(2))
-      RESTLAMBDA_MODEL(1) = LAMRANGE(1)
-      RESTLAMBDA_MODEL(2) = LAMRANGE(2)
+      RESTLAMBDA_MODEL(1) = SNGL(LAMRANGE(1))
+      RESTLAMBDA_MODEL(2) = SNGL(LAMRANGE(2))
 
       CALL FLUSH(6)
       RETURN
@@ -5474,7 +5473,7 @@ c get MAG_REST1 = magnitude in rest frame for closest filter
 c     MAG_REST1 = mag in rest-frame for 2nd closest filter (for color)
 c Use "genmag_xxx" function that are used in simulation.
 
-500   CONTINUE
+c xxx mark delete 500   CONTINUE
 
       IF ( FITMODEL_INDEX .EQ. MODEL_STRETCH ) THEN
 
@@ -5594,15 +5593,15 @@ c multiple filters are needed for Landolot color transf.
           PARLIST_SN(2) = SALT2x1
           PARLIST_SN(3) = SALT2c
           PARLIST_SN(4) = xx1
-	  PARLIST_HOST(1) = RVDUM
+          PARLIST_HOST(1) = RVDUM
           PARLIST_HOST(2) = AVDUM
-	  PARLIST_HOST(3) = -9.0   ! logMass
+          PARLIST_HOST(3) = -9.0   ! logMass
 
           DO ifilt2 = 1, NFTMP
              ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)
              mag_obs_tmp(ifilt2_obs) = 0.0
              LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
-             if ( LTMP ) then              	       
+             if ( LTMP ) then
                CALL genmag_salt2( MSKSALT2, ifilt2_obs
      &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN,ZZ, Nepoch, Tobs
@@ -5792,7 +5791,7 @@ c save AVwarp
         AVwarp_tmp(ifilt2_obs) = AVwarp  ! save in case of dump
 
         KCORERR_TMP(ifilt2_obs) = GET_KCORERR8 ( OPT_KCORERR,
-     &        ifilt_rest_tmp(1), ifilt2_obs, Trest, ZSN, AVwarp) 
+     &        ifilt2_obs, ZSN ) 
 
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
@@ -5886,7 +5885,7 @@ c
      &    .and. SHAPE(1)     .LT. PRIOR_SHAPE_RANGE(2) 
      &    .and. abs(AVHOST)  .LT. 10.0 ) then
 
-	   CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
+           CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
            cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
            print*,' Filter = ', cfilt,' : '
            print*,' MAG(LANDOLT)-MAG(BESSELL) = ',
@@ -8331,7 +8330,7 @@ c    Note that fit floats all params
 
       IF ( USESIM_INIVAL ) THEN
          if ( STDOUT_UPDATE ) then
-	    print*,'   Set INIVAL = SIM value'
+            print*,'   Set INIVAL = SIM value'
             call flush(6)
          endif
          INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
@@ -9279,7 +9278,7 @@ c     D. Jones color grid search
       IF ( .not. DO_COLOR ) THEN 
         COLOR_MIN = COLOR_INI
         COLOR_MAX = COLOR_INI
-	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
+        COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
       ENDIF
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
@@ -9331,16 +9330,16 @@ c - - - - -
       if ( LPRINT ) then
          LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
          LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
-	 IF ( DO_COLOR ) THEN
+         IF ( DO_COLOR ) THEN
            write(6,42) 
      &         PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
      &         PARNAME_STORE(IPAR_COLOR)(1:LCHAR2),
      &         PEAKMJD_INI, COLOR_INI,
      &         INIVAL(IPAR_PEAKMJD), INIVAL(IPAR_COLOR), CHI8
-	 ELSE
+         ELSE
            write(6,41) PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
      &               PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
-	 ENDIF
+         ENDIF
 
 41       format(T10,'Adjust ',A,'=',F9.3, ' ==> ', F9.3,
      &             2x, '(CHI2=',F10.2,')'  )
@@ -10103,12 +10102,12 @@ c This is the model-covariance only.
 
            Z        = REDSHIFT_FIT
            MWEBV    = SNLC_MWEBV
-	   PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
-	   PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
-	   PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
-	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
-	   PARLIST_HOST(2) = 0.0  ! cannot fit AV
-	   PARLIST_HOST(3) = -9.0 ! cannot fit logMass
+           PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
+           PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
+           PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
+           PARLIST_HOST(1) = 0.0  ! cannot fit RV
+           PARLIST_HOST(2) = 0.0  ! cannot fit AV
+           PARLIST_HOST(3) = -9.0 ! cannot fit logMass
 
            ISTAT = gencovar_SALT2(NFITDATA, IFILT_COV, TOBS, Z
      &             ,PARLIST_SN, PARLIST_HOST  ! (I)
@@ -10300,7 +10299,7 @@ c local var
      &   Z, Z1, TREST, MAXFRAC, LAMDIF_MIN, LAMREST
      &  ,FLUX_DATA, FLUXERR_STAT, FLUXERR_DATA, FLUX_SIM
      &  ,FLUX_MODEL, FLUXERR_MODEL, FLUXERR_TOT
-     &  ,ERR_TRUE, ERR_CALC, ARG, TOBS, ERR_TMP
+     &  ,ERR_TRUE, ERR_CALC, ARG, TOBS, ERR_TMP, ZP
      &  ,SQDIF, SQERR
 
       REAL*8 FTMP8, MAGERR8, MJD8
@@ -10329,6 +10328,8 @@ C ----------------- BEGIN ----------------
 
       Z = REDSHIFT_FIT
       Z1 = 1. + z
+   
+      ZP = SNGL(ZEROPOINT_FLUXCAL_DEFAULT)
 
 c -------------------------------
 c save previous R4ALL values in R4_LAST array in case 
@@ -10452,8 +10453,8 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
         I4EP_ALL(ep,IEP_IDTEL)       = ISNLC_IDTEL(ep)
-	I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
-	I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
+        I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+        I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
 c Get nearest and 2nd nearest rest filter
@@ -10468,7 +10469,7 @@ c Also subtract index offsets
           I4EP_ALL(ep,IEP_IFILT_REST1) = IF1
           I4EP_ALL(ep,IEP_IFILT_REST2) = IF2
 
-          ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGREST(ep))
+          ARG   = 0.4*(ZP - SIM_EPMAGREST(ep))
           R4EP_ALL(ep,JEP_SIM_FLUXREST) = 10.0**(ARG)
           R4EP_ALL(ep,JEP_SIM_MAGREST) = SIM_EPMAGREST(ep) 
 
@@ -10476,12 +10477,12 @@ c Also subtract index offsets
 
          R4EP_ALL(ep,JEP_SIM_FLUXCAL) = 0.0
          IF ( LSIM_MAGOBS .or. LSIM_SNANA ) THEN
-            ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGOBS(ep))
+            ARG   = 0.4*(ZP - SIM_EPMAGOBS(ep))
             FLUX_SIM = 10.0**(ARG)
             SQDIF    = (FLUX_SIM - FLUX_DATA)**2
             SQERR    = FLUXERR_DATA*FLUXERR_DATA
 
-cc	    print*,' xxxx ', ep, FLUX_SIM
+cc          print*,' xxxx ', ep, FLUX_SIM
             R4EP_ALL(ep,JEP_SIM_FLUXCAL) = FLUX_SIM
             IF ( FLUXERR_DATA > 0 ) THEN
                R4EP_ALL(ep,JEP_SIM_DELCHI2) = SQDIF/SQERR
@@ -10517,8 +10518,8 @@ c all plots.
 c set error on MilkyWay Galactic extinction
          MAGERR8 = SNLC_MWXT_MAGERR(ifilt)
          FTMP8   = 1.0 - 10**(-0.4*MAGERR8)
-         R4EP_ALL(ep,JEP_MWXT_MAGERR)  =  MAGERR8  
-         R4EP_ALL(ep,JEP_MWXT_FLUXERR) =  FTMP8 * FLUX_MODEL 
+         R4EP_ALL(ep,JEP_MWXT_MAGERR)  =  SNGL(MAGERR8)
+         R4EP_ALL(ep,JEP_MWXT_FLUXERR) =  SNGL(FTMP8) * FLUX_MODEL 
 
          R4EP_ALL(ep,JEP_LAMREST)     = LAMREST
          R4EP_ALL(ep,JEP_PSF)         = SNLC_PSF_SIG1(ep)
@@ -10537,7 +10538,7 @@ c set error on MilkyWay Galactic extinction
 
          ERR_TRUE  = SNLC_FLUXCAL_ERRTOT(ep)  
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
+         ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
 
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
@@ -14495,15 +14496,15 @@ c get reference fluxes to computer deriviates below.
 c change fitpar values by +1 sigma and re-evaluate Flux.
 
          LCVAL_STORE(ipar_k) = 
-     &   LCVAL_STORE(ipar_k) + ERRPAR_k
+     &   LCVAL_STORE(ipar_k) + SNGL(ERRPAR_k)
          Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, OPT )
-         LCVAL_STORE(ipar_k) = SAVEVAL_k
+         LCVAL_STORE(ipar_k) = SNGL(SAVEVAL_k)
 
 c repeat for 2nd fitpar ...
          LCVAL_STORE(ipar_l) = 
-     &   LCVAL_STORE(ipar_l) + ERRPAR_l
+     &   LCVAL_STORE(ipar_l) + SNGL(ERRPAR_l)
          Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, OPT )
-         LCVAL_STORE(ipar_l) = SAVEVAL_l
+         LCVAL_STORE(ipar_l) = SNGL(SAVEVAL_l)
 
 c make sure that errors are non-zero before dividing.
 
@@ -17309,7 +17310,7 @@ c  are needed per band, such as for the Landolt correction
             if ( LTMP .and. LPRINT ) write(6,21) cfilt2(1:1)
 21          format(A1, $)
          ENDDO
-	 if ( LPRINT ) print*, '  (ifilt=', ifilt, ')'
+         if ( LPRINT ) print*, '  (ifilt=', ifilt, ')'
 
 29      CONTINUE ! end of IFILT loop
 
@@ -19402,7 +19403,7 @@ c   terminate strings for C table-functions (snana.car routine)
           ep   = EPLIST_FIT(i)
           IFILTOBS = I4EP_ALL(ep,IEP_IFILT_OBS) 
 
-          TBLSPEC_MJD               = R4EP_ALL(ep,JEP_MJD) + MJDOFF    
+          TBLSPEC_MJD         = R4EP_ALL(ep,JEP_MJD) + SNGL(MJDOFF)
           TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
           TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST) 
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
@@ -19862,7 +19863,7 @@ c      check FITRESTMAG variables
             CALL MADABORT(FNAM, c1err, c2err )  
          endif
       ELSE
-	 CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
+         CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
          print*,'   LENPAR, LENLOC, ISERR = ', LENPAR, LENLOC, ISERR
          print*,'   VARNAME = ', VARNAME(1:20)
          print*,'   VARNAME(LENPAR-3:LENPAR) = ',

@@ -263,7 +263,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
   bool IS_LOGPARAM;
-  int  ivar_hostlib, imap_tmp ;
+  int  ivar_hostlib, imap, imap_tmp ;
   int  ABORTFLAG = 0 ;
   char *VARNAME;
   for(imap=0; imap < NMAP; imap++ ) {

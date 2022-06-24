@@ -82,7 +82,7 @@ FFC  = gfortran
 #CC   = cc
 CC   = gcc
 
-  EXTRA_FLAGS = -O1  # -ftree-vectorize -ftree-vectorizer-verbose=2
+  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -

@@ -3489,7 +3489,7 @@ void applyCut_chi2max(void) {
   int  IFLAG_APPLY    = DOFLAG_CUTWIN_APPLY ;
   int  IFLAG_FITWGT0  = DOFLAG_CUTWIN_FITWGT0 ;
   int  IFLAG_GLOBAL   = 4 ;
-  int  IFLAG_SURVEY   = 8 ;
+  //   int  IFLAG_SURVEY   = 8 ;
 
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
   bool DOCUT_FITWGT0 = (iflag_chi2max & IFLAG_FITWGT0) > 0 ;
@@ -3680,7 +3680,7 @@ void check_zhel(void) {
 
   int  NSN_ALL  = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  isn;
-  double zhd, zhderr, zhel, zhelerr;
+  double zhd, zhel ;
   char fnam[] = "check_zhel" ;
 
   // ------------- BEGIN ------------
@@ -3719,7 +3719,7 @@ void check_duplicate_SNID(void) {
 
   int  isn, isn2, nsn, MEMD, MEMI, MEMB;
   int  unsort, unsort2, *unsortList, ORDER_SORT   ;
-  bool IS_SIM, LDMP ;
+  bool IS_SIM ;
   double *zList ;
   bool   *IS_DUPL;
   char fnam[] = "check_duplicate_SNID" ;
@@ -3752,7 +3752,7 @@ void check_duplicate_SNID(void) {
   ORDER_SORT = + 1 ; // increasing order
   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
 
-  bool SAME, SAME_z, SAME_SNID, FOUND_DUPL ;
+  bool  SAME_SNID, FOUND_DUPL ;
   int   NTMP, idup ;
   double z, z2 ;
   char *snid, *snid2 ;
@@ -4559,7 +4559,7 @@ void *MNCHI2FUN(void *thread) {
 	dump_muCOVcorr(n);
 	
 	sprintf(c1err,"Insane muerrsq = %.5f for snid=%s (muerrsq_orig=%.5f)", 
-		muerrsq, muerrsq_orig, name);
+		muerrsq, name, muerrsq_orig );
 	sprintf(c2err,"muCOV[scale,add] = %.5f,%.5f ", 
 		muCOVscale, muCOVadd );
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);  
@@ -6342,7 +6342,7 @@ void read_data_override(void) {
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
   int istat, isn;
   bool  override_zhd, override_zhderr;
-  float *fval ;   double dval;    char *name, *cval ;
+  double dval;    char *name, cval[20] ;
   double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
 
   for(isn=0; isn < NSN_DATA; isn++ ) { 
@@ -6358,9 +6358,7 @@ void read_data_override(void) {
 
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
-      SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval ); 
-      
-      // xxx mark delete override_zhd = false;
+      SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval );      
 
       // xxxxxxx
       if ( istat == -99990 ) {
@@ -6678,7 +6676,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   long long MEMTOT=0;
   float f_MEMTOT, f_MEM ;
-  int  i, isn, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
+  int  i, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
   int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "malloc_TABLEVAR" ;
 
@@ -7487,7 +7485,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   int    SIM_NONIA_INDEX;
 
   double mB, mBerr, mB_orig, x1, c, sf, x0_ideal, mB_ideal ;
-  double zpec, zpecerr, zcmb, zMIN, zMAX, zhderr_tmp, logmass;
+  double zpec, zpecerr, zcmb, zMIN, zMAX, zhderr_tmp ;
   double dl_hd, dl_sim, dl, dl_ratio, dmu ;
   double covmat8_fit[NLCPAR][NLCPAR], covmat8_int[NLCPAR][NLCPAR];
   double covmat8_tot[NLCPAR][NLCPAR], covtmp8 ;
@@ -7703,7 +7701,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   if ( IS_DATA && ISN < -10 ) {
     double zmuerr = TABLEVAR->zmuerr[ISN] ;
-    double dmuz  = fcn_muerrz(1, zhd, zmuerr );
+    // xxx double dmuz  = fcn_muerrz(1, zhd, zmuerr );
     printf(" xxx %s: DATA ISN=%d(%s)  z=%5.3f  zmuerr=%.4f  (vpecerr=%.1f)\n",
            fnam, ISN, name, zhd, zmuerr, vpecerr );
     fflush(stdout);
@@ -11907,7 +11905,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   int  i, ia, ib, ig ;
   int  LDMP = 0 ;
 
-  double muErrsq, muErr, muDif, SNRMAX, sigInt ;
+  double muErrsq,  muDif, SNRMAX, sigInt ;
   int    NSNRCUT, NTMP, NBINa, NBINb, NBINg, USEMASK, DOPRINT ;
   int        *ptr_CUTMASK ;
   short int  *ptr_IDSAMPLE ;
@@ -13102,7 +13100,7 @@ int get_fitParBias(char *cid,
     printf("\n") ;
     printf(" xxx\t SUM_WGT = %le  \n", 	SUM_WGT );
     printf(" xxx\t NCELL_INTERP_USE=%d of %d --> %s CUT>=%d\n", 
-	   SUM_WGT, NCELL_INTERP_USE, NCELL_INTERP_TOT, 
+	   NCELL_INTERP_USE, NCELL_INTERP_TOT, 
 	   passfail, NCELL_INTERP_MIN );
     fflush(stdout);
   }
@@ -15745,9 +15743,9 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
   bool match_on_cid_idsurvey = INPUTS.match_on_cid_idsurvey;
   bool match_on_cid_only = INPUTS.match_on_cid_only;
-  int ACCEPT = 1, REJECT = 0, i, isn_match ;
+  int ACCEPT = 1, REJECT = 0,   isn_match ;
   bool MATCH ;
-  char *tmpCID, STRINGID[60];
+  char STRINGID[60];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
@@ -16704,7 +16702,6 @@ void parse_simfile_CCprior(char *item) {
   // 
   // Apr 11 2022: fix memory-overwrite bug related to MEMC value
 
-  int ifile;
   int debug_malloc = INPUTS.debug_malloc ;
   int MEMC;
   char *item_local;
@@ -16762,10 +16759,10 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // If IZBIN column exists, store it for use with event syncing (Apr 2022)
 
   int  ncidList_data = INPUTS.ncidList_data  ;
-  int  ncid, isn, ISNOFF=0, IZBIN, ISTAT, IVAR_IZBIN, IFILE, ifile ;
+  int  ncid, isn, ISNOFF=0, IZBIN, IVAR_IZBIN, IFILE, ifile ;
   int  OPTMASK_MATCH=1; //match CID_IDSURVEY
   double DVAL;
-  char id_name[20], CCID[MXCHAR_CCID], CVAL[12], VARLIST_STORE[40]="" ;
+  char id_name[20], VARLIST_STORE[40]="" ;
   char fnam[] = "parse_cidFile_data" ;
 
   int use_izbin = INPUTS.izbin_from_cidFile ;
@@ -17998,7 +17995,7 @@ void prep_input_driver(void) {
   int i, icut;
   int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
   int  OPTMASK;
-  char usage[10], *tmpName ;
+  char usage[10];
   char fnam[] = "prep_input_driver";
 
   // ------------ BEGIN -----------
@@ -19027,8 +19024,6 @@ void outFile_driver(void) {
   // Jun 24 2020: remove SPLIT[nnn] from NSPLITRAN file names.
   // Dec 04 2020: check option to write_M0_csv().
 
-  int  JOBID     = INPUTS.JOBID_SPLITRAN ;
-  int  NSPLITRAN = INPUTS.NSPLITRAN ;
   char *prefix   = INPUTS.PREFIX ;
 
   char tmpFile1[200], tmpFile2[200], tmpFile3[200], tmpFile[200];
@@ -19135,7 +19130,6 @@ void write_yaml_info(char *fileName) {
 
   FILE *fp;
   int  NSN_PASS, NSN_PASS_LIST[10], evtype, idsample ;
-  bool USE; 
   char KEY[60], ctmp[100], *str ;
   char fnam[] = "write_yaml_info" ;
 
@@ -19822,7 +19816,7 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
   int  ivar_tot, ivar_file, ivar_word ;
-  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE], *varName ;
+  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;
   char blank[] = " ";
   char fnam[] = "write_fitres_line" ;
   int  LDMP = 0 ;
@@ -20712,7 +20706,7 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   // Dec 9 2019: avoid truncating FITRESULTS.PARNAME to 10 chars.
   // Dec 2 2020: move mnemat_ call to exec_mnpout_mnerrs.
 
-  int num, iMN, jMN, i, j ;
+  int    iMN, jMN, i, j ;
   double cov, cov_diag, terr[MAXPAR], corr ;
   char tmpName[MXCHAR_VARNAME], msg[100];
 
@@ -22230,7 +22224,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
   int debug_malloc = INPUTS.debug_malloc ;
   bool LDMP = false ;
-  int    NSPLIT, nbin, i, IVAR_FITRES ;
+  int    NSPLIT, nbin, i ;
   double xmin, xmax, lo, hi, binSize ;
   char VARNAME[40], stringOpt[40], *ptrSplit[2], *ptrRange[2] ;
   char fnam[] = "SUBPROCESS_STORE_BININFO" ;
@@ -22504,7 +22498,6 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  N_TABLE       = SUBPROCESS.N_OUTPUT_TABLE;
   int  isn, ITABLE, cutmask; 
-  char *TABLE_NAME ;
   char fnam[] = "SUBPROCESS_OUTPUT_LOAD" ;
 
   // ---------- BEGIN ----------
@@ -22790,7 +22783,7 @@ void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
 
   int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
   double MURES_SUM, MURES_SQSUM, SUM_WGT, MURES_SUM_WGT, STD, STD_ROBUST ;
-  char cLINE[200], cVAL0[100], cVAL1[100];
+  char cLINE[200], cVAL0[100] ;
   char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
 
   // ----------- BEGIN ------------

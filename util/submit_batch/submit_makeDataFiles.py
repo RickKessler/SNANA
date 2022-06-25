@@ -1004,16 +1004,28 @@ class MakeDataFiles(Program):
             msgerr.append(f"Unknown format '{output_format}" )
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        #print(ret,' debugging')
+        # - - - - - - - 
+        # break up tar files into pieces based on suffix
+        wildcard_list = [ 'MAKEDATA*.LOG',  'MAKEDATA*.DONE',
+                          'MAKEDATA*.YAML', 'MAKEDATA*.START', 'CPU*',  ]
+        suffix_list   = [ 'LOG', 'DONE', 'YAML', 'START', 'CPU' ]
 
-        wildcard_list = [ 'MAKEDATA', 'CPU',  ]
-        for w in wildcard_list :
-            wstar = f"{w}*"
-            tmp_list = glob.glob1(script_dir,wstar)
+        for w,suf in zip(wildcard_list,suffix_list):
+            tmp_list = glob.glob1(script_dir,w)
             if len(tmp_list) == 0 : continue
-            print(f"\t Compress {wstar}")
-            sys.stdout.flush()
-            util.compress_files(+1, script_dir, wstar, w, "" )
+            logging.info(f"\t Compress {w}")
+            util.compress_files(+1, script_dir, w, suf, "" )
+            
+        # xxx mark delete Jun 26 2022 
+        # xxx wildcard_list = [ 'MAKEDATA', 'CPU',  ]
+#        for w in wildcard_list :
+#            wstar = f"{w}*"
+#            tmp_list = glob.glob1(script_dir,wstar)
+#            if len(tmp_list) == 0 : continue
+#            print(f"\t Compress {wstar}")
+#            sys.stdout.flush()
+#            util.compress_files(+1, script_dir, wstar, w, "" )
+        # xxxxxxx
 
         # - - - -
         # tar up entire script dir

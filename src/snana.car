@@ -17240,8 +17240,14 @@ C ========================================================
 
 c Created Dec 7 2016 by R.Kessler
 c Read optional list of mag-correction vs. epoch from ASCII file.
-c The file syntax is
-c
+c The file syntax is a FITRES-formatted file containing
+c    VARNAMES:  ROW  MAGCOR EXTRA1 EXTRA2 ...
+c    SN: [CID]-[MJD]-[BAND]  [MAGCOR] [EXTRA1] [EXTRA2]
+c    etc ..
+c and see snana manual section  "Epoch-Dependent Mag Corrections".
+c Here we read only ROW and MAGCOR, and ignore all other variables.
+c ROW must be first column, but MAGCOR can be in any column.
+c 
 c If there is a minus sign in front of the file name,
 c     MAGCOR_INFILE = '-/BLA/BLA/MAGCOR.DAT'
 c then subtract MAGCOR instead of adding.

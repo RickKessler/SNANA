@@ -486,8 +486,12 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   //
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
+  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  bool IS_SIM  = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
+
   int N_Q      = SNDATA.HOSTGAL_NZPHOT_Q;
   int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
+
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
  
@@ -518,7 +522,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     // SNDATA.SIM_HOSTLIB_GALID .xyz
     ctmp[0] = 0;
-    if ( igal==0 && SNDATA.SIM_HOSTLIB_GALID != SNDATA.HOSTGAL_OBJID[igal] )
+    if ( igal==0 && IS_SIM &&
+	 SNDATA.SIM_HOSTLIB_GALID != SNDATA.HOSTGAL_OBJID[igal] )
       { sprintf(ctmp,"# WRONG MATCH") ; }
 
     fprintf(fp, "%s_OBJID:       %lld     %s\n",  
@@ -1323,15 +1328,8 @@ void  rd_sntextio_global(void) {
     }
     else if ( strcmp(word0,"SURVEY:") == 0 ) {
       iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME );
-
       // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
       extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
-
-      /* xxxxxxx
-      if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) 
-	{ sprintf(SNDATA.SUBSURVEY_NAME,"%s", SNDATA.SURVEY_NAME); }
-      xxxx */
-
     }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {

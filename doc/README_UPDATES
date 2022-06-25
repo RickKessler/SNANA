@@ -21129,6 +21129,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       of different libpython versions on RCC and Cori. 
       Modified files: src/Makefile and util/set_Cpreproc_flags.py
 
+    sntools_dataformat_fit.c:
+       snana.exe and snlc_fit.exe now abort if both _HEAD.FITS and
+       _HEAD.FITS.gz exist.
 
          ***** USEFUL(v11_04l) ***** 
 

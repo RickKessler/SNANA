@@ -73,6 +73,8 @@
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
 
+#include <sys/stat.h>
+
 // ======================================================================
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag, 
 		      int Nsubsample_mark,
@@ -4007,6 +4009,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
+  // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
+  //                unzip and gzip files exist.
 
   fitsfile *fp ;
   int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
@@ -4017,9 +4021,14 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   init_SNDATA_EVENT();
 
+
   istat = 0;
   itype   = ITYPE_SNFITSIO_HEAD ;
   ptrFile = rd_snfitsFile_plusPath[ifile][itype];
+
+  // Jun 2022 RK - abort if both zip and unzip file exists
+  if ( photflag_open == 0 ) { rd_snfitsio_check_gzip(ptrFile); }
+
   fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
   sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err, istat);
@@ -4241,6 +4250,34 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
 } // end of rd_snfitsio_open
 
+// ==========================
+void rd_snfitsio_check_gzip(char *fileName) {
+
+  // Created Jun 24 2022 by R.Kessler
+  // Abort if fileName and fileName.gz both exist.
+  int lenf          = strlen(fileName);
+  char *fileName_gz = (char*)malloc( sizeof(char) * (lenf+10) );
+  int jstat, jstat_gz;
+  struct stat statbuf, statbuf_gz;
+  char fnam[] = "rd_snfitsio_check_gzip" ;
+  // -------------- BEGIN -------------
+
+  sprintf(fileName_gz, "%s.gz", fileName);
+  jstat    = stat(fileName,    &statbuf);    // returns 0 if file exists
+  jstat_gz = stat(fileName_gz, &statbuf_gz); 
+
+  if ( jstat == 0 && jstat_gz == 0 ) {    
+    print_preAbort_banner(fnam);
+    printf("   Found unzip file:\n\t %s\n", fileName);
+    printf("   Found gzip  file:\n\t %s\n", fileName_gz);
+    sprintf(c1err,"Cannot process both gzipped and unzipped data file");
+    sprintf(c2err,"Keep one set of FITS files.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+  }
+  free(fileName_gz);
+
+  return ;
+} // rd_snfitsio_check_gzip
 
 // ==========================
 void rd_snfitsio_simkeys(void) {

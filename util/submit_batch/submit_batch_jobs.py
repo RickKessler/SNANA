@@ -15,6 +15,9 @@
 # Dec 04 2021: new input --merge_background
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # Apr 08 2022: add --merge_force arg for sync_evt option
+# Jun 27 2022: write FAIL to ALL.DONE file if prep stage fails.
+#               (see call to write_done_stamp)
+#
 # - - - - - - - - - -
 
 #import os
@@ -502,6 +505,8 @@ if __name__ == "__main__":
         logging.exception(e, exc_info=True)
         msg    = [ e, "Crashed while preparing batch jobs.",
                    "Check Traceback" ]
+        output_dir = program.get_output_dir_name()
+        util.write_done_stamp(output_dir, [ DEFAULT_DONE_FILE] , STRING_FAIL)
         program.log_assert(False, msg )
 
     # - - - - - -

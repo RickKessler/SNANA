@@ -269,10 +269,6 @@ class Program:
         if 'BATCH_NTHREADS' in CONFIG :
             nthreads = CONFIG['BATCH_NTHREADS']
 
-        # check optional maxjob
-        # ?? if 'BATCH_MAXJOB' in CONFIG :
-        # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
-
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 
@@ -982,6 +978,10 @@ class Program:
             
         # end create_output_dir
 
+    def get_output_dir_name(self):
+        return  self.config_prep['output_dir']
+        # end
+
     def override_output_dir_name(self,output_dir):
     
         output_dir_override = self.config_yaml['args'].outdir
@@ -1095,6 +1095,7 @@ class Program:
         # one iteration in which submit_iter = None and this
         # function does nothing. Action here is only when submit_iter==1.
 
+        args        = self.config_yaml['args']
         submit_iter = self.config_prep['submit_iter']
         if submit_iter != 1 : return
 
@@ -1108,8 +1109,11 @@ class Program:
             logging.info(f"\t Will auto-submit 2nd iteration in {t} seconds ...")
             time.sleep(1)
 
+
         arg_list   = sys.argv 
+        if not args.kill_on_fail: arg_list.append('--kill_on_fail')  # Jun 27 2022
         arg_list.append('--iter2')
+
         arg_string = " ".join(arg_list) 
         logging.info(f"\n submit_iter2 with \n  {arg_string}\n")
 

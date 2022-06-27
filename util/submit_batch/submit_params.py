@@ -141,8 +141,9 @@ SUBMIT_STATE_DONE = "DONE"
 SUBMIT_STATE_FAIL = "FAIL"
 SUBMIT_STATE_BUSY = "BUSY"
 
-arg_check_abort = "check_abort"
-
+arg_check_abort  = "check_abort"
+arg_kill_on_fail = "kill_on_fail"
+ 
 # column ids for FITOPT_LIST written by fit job and read by BBC
 COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
 COLNUM_FITOPT_LABEL = 1   # optional user label

@@ -872,7 +872,10 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
     msgerr       = []
-    check_abort = JOB_INFO.get(arg_check_abort,False)
+
+    check_abort    = JOB_INFO.get(arg_check_abort,False)
+    kill_on_fail   = JOB_INFO.get(arg_kill_on_fail,False)
+    all_done_file  = JOB_INFO.get('all_done_file',None)
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
@@ -880,26 +883,29 @@ def write_job_info(f,JOB_INFO,icpu):
 
     CHECK_CODE_EXISTS = '.exe' in program and not check_abort
 
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
-                        'kill_on_fail'  in JOB_INFO  and \
-                        not check_abort
+    CHECK_ALL_DONE = all_done_file is not None and kill_on_fail and \
+                     not check_abort
+
+    # xxx mark delete Ju 27 2022 xxxxxxxxxxxxxxxxx
+    #CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
+    #                    'kill_on_fail'  in JOB_INFO  and \
+    #                    not check_abort
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 
         # so no point in continuing.
-        all_done_file = JOB_INFO['all_done_file']  # exists only on failure
-        kill_on_fail  = JOB_INFO['kill_on_fail']
         f.write(f"if [ -f {all_done_file} ] ; then \n")
         msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
+
         if kill_on_fail :
             msg_echo = f"Kill all remaining jobs."
             cmd_kill = f"  cd {CWD}\n"\
                        f"  {sys.argv[0]} \\\n" \
                        f"     {sys.argv[1]} --cpunum {icpu} -k "
-                        # f"  exit")
         else:
             msg_echo = "Continue with next job."
 
@@ -940,6 +946,7 @@ def write_job_info(f,JOB_INFO,icpu):
             f.write(f"  echo 'Did not find required {str_require} string " \
                     f" in {wait_file} -> exit' \n")
             f.write(f"  exit 1 \n")
+            # problem; need to create ALL.DONE file with FAIL ???
             f.write(f"fi \n\n")
 
         f.write(f"echo '{wait_file} exists -> continue' \n\n")

@@ -1486,7 +1486,8 @@ class BBC(Program):
             elif iter2 :
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
-                wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
+                wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}" \
+                               f" {STRING_SUCCESS}" # require SUCCESS in file
                 select_file  = f"{outdir_iter1}/{version}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :

@@ -861,6 +861,9 @@ def write_job_info(f,JOB_INFO,icpu):
     # write job program plus arguemnts to file pointer f.
     # All job-info params are passed via JOB_INFO dictionary.
     # Jan 8 2021: check optional wait_file
+    # Jun 27 2022: check optional 2nd arg in wait_file which is string
+    #              to require. E.g., requre SUCCESS in ALL.DONE file.
+    #
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
@@ -916,11 +919,29 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"echo '{program} exists -> continue' \n\n")
 
     if CHECK_WAIT_FILE:
-        wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
+        # wait_file = abc.dat -> wait for abc.dat to exist
+        # wait_file = "abc.dat SUCCESS" -> wait for abc.dat to exist;
+        #               exit if SUCCESS is not in file.
+        
+        tmp_list      = JOB_INFO['wait_file'].split()
+
+        wait_file     = tmp_list[0]  # wait for this file to exist
         wait_for_file = f"while [ ! -f {wait_file} ]; " \
                         f"do sleep 10; done"
         f.write(f"echo 'Wait for {wait_file}'\n")
         f.write(f"{wait_for_file}\n")
+
+        # Jun 2022 - check for optional string to require in wait_file
+        if len(tmp_list) > 1 :
+            str_require = tmp_list[1]
+            f.write(f"if ! grep -q {str_require} {wait_file}\n")
+            f.write(f"then\n")
+            f.write(f"  echo ' '  \n")
+            f.write(f"  echo 'Did not find required {str_require} string " \
+                    f" in {wait_file} -> exit' \n")
+            f.write(f"  exit 1 \n")
+            f.write(f"fi \n\n")
+
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
     if check_abort:  # leave human readable marker for each job

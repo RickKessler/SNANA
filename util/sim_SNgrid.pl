@@ -51,6 +51,7 @@
 #   snlc_sim.exe.
 #
 # Sep 15 2017: allow ENV
+# May 05 2022: fix a few bugs after a few years of rust.
 #
 # --------------------------------------
 
@@ -58,6 +59,7 @@ use FindBin qw($Bin);
 use lib "$Bin" ;
 use sntools ;
 use strict ;
+use File::Basename;
 
 
 my $OPT_ABORT = 0 ;  # flag to abort if key is missing in file
@@ -69,7 +71,7 @@ my $SIMJOB        = "snlc_sim.exe" ;
 my $SCRIPTNAME    = "$0" ; 
 
 my (@INFILE_LIST, @SURVEY_LIST, @GENMODEL_LIST, @PREFIX_LIST);
-my (@GENVERSION_LIST, @GRIDFILE_LIST, @INCFILE_LIST );
+my (@GENVERSION_LIST, @GRIDFILE_LIST, @GRIDFILE_BASE_LIST, @INCFILE_LIST );
 my ($FORMAT, $OPT_PARALLEL, @MSGERR);
 
 my ($NJOB, $ijob, $inFile);
@@ -128,7 +130,8 @@ else {
 
 
 my (@bla,$NOK);
-@bla = qx(grep Wrote  $OUTDIR/*.LOG);
+# xxx mark delete @bla = qx(grep Wrote  $OUTDIR/*.LOG);
+@bla = qx(grep NGENLC_WRITE  $OUTDIR/*.LOG); # May 5, 2022
 $NOK = scalar(@bla);
 
 print " Output is in  ${OUTDIR}/ \n";
@@ -192,7 +195,7 @@ sub prep_simInput_Files {
 
     my (@tmp, $KEY, $SIMLIB_FILE, $KCOR_FILE, $KCOR_SYMLINK, $ORIG );
     my ($SURVEY, $GENMODEL, $genmodel, $PREFIX, $GENVERSION );
-    my ($GRIDFILE, $INCFILE ) ;
+    my ($GRIDFILE, $GRIDFILE_BASE, $INCFILE ) ;
 
     print " -------------------------------------- \n";
     print " Prepare sim-input file: $inFile \n" ;
@@ -235,16 +238,21 @@ sub prep_simInput_Files {
     }
 
     # ---------------
+    # xxxxxx mark delete May 5 2022 xxxxxxxxxx
+    #
     # if KCOR_FILE is local, then make symbolic link in OUTDIR
-    $KEY  = "KCOR_FILE:" ;
-    @tmp  = sntools::parse_line($inFile, 1, $KEY, $OPT_ABORT ) ;
-    $KCOR_FILE = "$tmp[0]" ;
-    $KCOR_FILE = qx(echo $KCOR_FILE); # unpack ENV
-    $KCOR_FILE =~ s/\s+$// ;   # trim trailing whitespace  
+    #$KEY  = "KCOR_FILE:" ;
+    #@tmp  = sntools::parse_line($inFile, 1, $KEY, $OPT_ABORT ) ;
+    #$KCOR_FILE = "$tmp[0]" ;
+    #$KCOR_FILE = qx(echo $KCOR_FILE); # unpack ENV
+    #$KCOR_FILE =~ s/\s+$// ;   # trim trailing whitespace  
 
-    $KCOR_SYMLINK = "$OUTDIR/$KCOR_FILE" ;
-    if ( (-e $KCOR_FILE) &&  !(-e $KCOR_SYMLINK ) )
-    { qx(cd $OUTDIR ; ln -s ../$KCOR_FILE $KCOR_FILE); } 
+    #$KCOR_SYMLINK = "$OUTDIR/$KCOR_FILE" ;
+    #if ( (-e $KCOR_FILE) &&  !(-e $KCOR_SYMLINK ) )
+    #{ qx(cd $OUTDIR ; ln -s ../$KCOR_FILE $KCOR_FILE); } 
+    #
+    # xxxxxxxxx end mark xxxxxxxx
+
 
     # -------------------
     $KEY  = "SURVEY:" ;
@@ -277,7 +285,8 @@ sub prep_simInput_Files {
 	$PREFIX = "$tmp[0]" ;
     }
     else {
-	$PREFIX = "GRID_${SURVEY}_${genmodel}" ;
+	my $genmodel_base = basename($genmodel) ;
+	$PREFIX = "GRID_${SURVEY}_${genmodel_base}" ;
     }
 
 
@@ -293,7 +302,8 @@ sub prep_simInput_Files {
 
     # --------
     $GRIDFILE  = "${PREFIX}.$FORMAT" ;
-
+    $GRIDFILE_BASE = basename($GRIDFILE) ;
+	
     print "\t SURVEY   = $SURVEY \n";
     print "\t GENMODEL = $GENMODEL \n";
     print "\t GRIDFILE = $GRIDFILE \n" ;
@@ -306,6 +316,7 @@ sub prep_simInput_Files {
     @GENVERSION_LIST = (@GENVERSION_LIST , "$GENVERSION" );
     @PREFIX_LIST     = (@PREFIX_LIST ,     "$PREFIX"     );
     @GRIDFILE_LIST   = (@GRIDFILE_LIST ,   "$GRIDFILE"   );
+    @GRIDFILE_BASE_LIST  = (@GRIDFILE_BASE_LIST , "$GRIDFILE_BASE"   );
     @INCFILE_LIST    = (@INCFILE_LIST  ,   "$INCFILE"    );
 
 } # end of  prep_simInput_Files 
@@ -332,7 +343,7 @@ sub genGrid {
 
     my ($PREFIX, $INFILE, $GRIDFILE, $LOGFILE, $VERS );
     my ($CMD_SIM, $SIMARGS, $CMD_COPY, $GENGRID_FILE );
-    my ($logFile, $gridFile, $gengridFile, $incFile );
+    my ($logFile, $gridFile, $gengridFile, $incFile, $gridFile_base );
     my (@tmp, $KEY);
 
 
@@ -342,8 +353,9 @@ sub genGrid {
     $PREFIX   = $PREFIX_LIST[$ijob] ;
     $VERS     = $GENVERSION_LIST[$ijob] ;
 
-    $gridFile = "$GRIDFILE_LIST[$ijob]" ;
-    $GRIDFILE = "$OUTDIR/$gridFile" ;
+    $gridFile      = "$GRIDFILE_LIST[$ijob]" ;
+    $gridFile_base = "$GRIDFILE_BASE_LIST[$ijob]" ;
+    $GRIDFILE = "$OUTDIR/$gridFile_base" ;
 
     $logFile  = "${INFILE}.LOG" ;
     $LOGFILE  = "$OUTDIR/${logFile}" ;
@@ -368,11 +380,11 @@ sub genGrid {
 
     $SIMARGS  = "$INFILE  GRID_FORMAT $FORMAT" ;
     $CMD_SIM  = "$SIMJOB  $SIMARGS" ;
-    $CMD_COPY = "cp  $GENGRID_FILE $gridFile" ;
+    $CMD_COPY = "cp  $GENGRID_FILE $gridFile_base" ;
 
     print "\t Sim-job:  $CMD_SIM  \n" ;
     print "\t copy \$SNDATA_ROOT/SIM/$gengridFile \n" ;
-    print "\t  --> $gridFile \n";
+    print "\t  --> $gridFile_base \n";
 
     # open log file and put global info up top
 

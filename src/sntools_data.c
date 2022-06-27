@@ -102,8 +102,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_SIMSED  = ( strncmp(key,"SIMSED",6)  == 0 ) ;
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
+  bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ;
 
-  int ivar, NVAR, ipar ;
+  int ivar, NVAR, ipar, PCT ;
   char fnam[] = "copy_SNDATA_GLOBAL" ;
 
   // --------------- BEGIN --------------
@@ -142,6 +143,20 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
     }
   }
+
+  else if ( ISKEY_ZPHOT_Q ) {
+
+    if ( strcmp(key,"NZPHOT_Q") == 0 ) {
+      copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NZPHOT_Q );
+    }
+    else if ( strstr(key,"PERCENTILE_ZPHOT_Q") != NULL ) {
+      int lentmp = strlen(key) - 2 ; // PERCENTILE_ZPHOT_Qnn
+      sscanf(&key[lentmp], "%d", &ivar); 
+      PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar] ;
+      copy_int(copyFlag, parVal, &PCT ); 
+    }
+  }
+
   else if ( ISKEY_SIMSED  ) {
 
     if ( strcmp(key,"SIMSED_NPAR") == 0 ) 
@@ -269,7 +284,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ; // BYOSED or SNEMO
   int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
   int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
-  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar;
+  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar, q, PCT;
   double DVAL;
   char PREFIX[40], KEY_TEST[60], cfilt[2] ;
   char fnam[] = "copy_SNDATA_HEAD" ;
@@ -438,6 +453,15 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	sprintf(KEY_TEST,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs]); 
 	if ( strcmp(key,KEY_TEST) == 0 ) 
 	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAG[igal][ifilt]); } 
+      }
+
+      if ( strstr(key,PREFIX_ZPHOT_Q) != NULL ) {
+	for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
+	  PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ;
+	  sprintf(KEY_TEST,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT);
+	  if ( strcmp(key,KEY_TEST) == 0 ) 
+	    { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_ZPHOT_Q[igal][q]);  } 
+	}
       }
 
     } // end igal
@@ -1061,6 +1085,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE) {
   parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
 		     &NFILE, &file_list ); // <== returned
   
+  SNTABLE_AUTOSTORE_RESET(); // May 2022
   for(ifile=0; ifile < NFILE; ifile++ ) {
     ptrFile = file_list[ifile] ;
     ENVreplace(ptrFile, fnam, 1);

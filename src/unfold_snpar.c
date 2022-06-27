@@ -945,7 +945,7 @@ void fill_TABLE(int itype) {
     if ( isn < INPUTS.NREAD_RANGE[itype][0] ) { continue ; }
     if ( isn > INPUTS.NREAD_RANGE[itype][1] ) { continue ; }
 
-    // check for CC contamination: .xyz later need CC subtraction 
+    // check for CC contamination: later need CC subtraction 
     ISTRUE_NONIA = ARRAY[itype].ISTRUE_NONIA[isn] ;
     if ( ISTRUE_NONIA ) { continue; }
 

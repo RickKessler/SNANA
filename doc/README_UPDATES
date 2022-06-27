@@ -21026,17 +21026,28 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04k (  ) 
+         v11_04k (Jun 5 2022) 
 
          ***** IMPORTANT(v11_04k) ***** 
 
          ***** USEFUL(v11_04k) ***** 
+
+    snlc_fit: OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
+
+    snlc_sim: if MWEBV is LCLIB parmaeter, sim sets SIM_MWEBV=0
+              but still reports MWEBV; see Manual section
+              9.10.5 Special MODEL_PARNAMES Features
 
          ***** MISCELLANEOUS(v11_04k) ***** 
 
    snana.car
      + fix bug from suppressing LCPLOT table in batch; it's CSV
        attribute was mistakenly passed to FITRES table.
+     + MXSNLC -> 8 million (was 5 million)
+
+   snlc_fit.car: 
+     + new &FITINP input USESIM_INIVAL
+     + OPT_PHOTOZ += 4 -> use zPDF quantiles for prior
 
    sndata.h
      + move  HOSTGAL_PROPERTY_BASENAME_XXX from sntools_host.h to sndata.h
@@ -21047,7 +21058,119 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c:
      + refactor so that invalid varname to output tables results in
        printing list of valid varnames for SUBPROCESS.
+     + improve stdout dump for events with no biasCor.
 
    +HOSTNBR fixes; see https://github.com/RickKessler/SNANA/issues/893
+
+   wfit.c:
+     add another speed trick; see input -speed_flag_chi2.
+
+   create_covariancy.py
+     + reduce output labels to only new row and diag; reduce file size by 50%.
+     + write MUERR_SYS to hubble diagram as diagnostic
+
+   snlc_sim.c
+     + fix parsing bug for +HOSTAPPEND, and verify for GALIDs in the 
+       append file that are in different order than in original HOSTLIB.
+     + move INIT_HOSTLIB call inside "not LCLIB" if block
+     + new input keys RANSYSTPAR_RANSEED_SYST and RANSYSTPAR_IDSURVEY
+     + call get_lamrange_SEDMODEL for NON1ASED model ...
+        to get u-band at high-z.
+     + for LCLIB-Galactic, set redshifts to -9 for "host-less"
+
+   sntools.c[h]
+     + add varList_store arg to match_cidList_init ...
+       goal is to read SALT2 params for event sync, and use
+       previous SALT2 params as initial values in systematics fit.
+
+   submit_prog_sim:
+     + protect wildcard args (e.g., /bla/xyz*) by adding quotes if
+       there are no quotes.
+
+   sntools_host.c[h]
+     + read optional TRUE column of HOSTLIB so that a subset is used
+       for TRUE hosts while the entire library is used for DLR matching.
+         [need to update manual]
+     + fix char memory bug reading NBR_LIST
+     + fix subtle realloc bug in malloc_HOSTLIB
+
+   sim_SNgrid.pl: fix a few bugs.
+
+   psnic_BEST.c: allow for Ic-BL
+
+   sntools_zPDF_spline.c[h]: new utility used by snlc_fit.
+
+
+# ======================================================================= 
+         v11_04l (  ) 
+
+         ***** IMPORTANT(v11_04l) ***** 
+
+   snlc_sim:
+      Fixed aweful index bug reading SED.BINARY for SIMSED model.
+      For NDAY x NLAM SED flux-space, all fluxes read from binary
+      were off by 1 in the index jflux = ilam+iday+NDAY.
+      Bug was introduced in SNANA v10_60b (Aug 12 2018), and was perhaps
+      part of PLASTICC. Bug only affects SIMSED models; does NOT impact
+      SNIa-SALT2, SNIa-SNoopy, NON1ASED (i.e., V19 CC models).
+      Bug takes affect if reading SED.BINARY to make flux-table,
+      but NOT if creating both binaries simultaneously; thus it's
+      not clear if/when the bug took effect.
+
+      I checked SNIax for LSST at z=0.1:
+        PEAKMAG[ugriz]: 22.53  20.87  20.46  20.44  20.44  20.47  # bug
+        PEAKMAG[ugriz]: 22.48  20.88  20.47  20.45  20.44  20.48  # fixed
+      -> u-band change is .05 mag, and other bands are within 0.01 mag.
+      Implementing this fix requires re-making SIMSED binaries
+      (preferably with make_simsed_binaries.py)
+
+      For C-python interface (BYOSED), use ENV VERSION_LIBPYTHON instead 
+      of $SNANA_PYTHON_DIR to communicate with Makefile. Solves problem 
+      of different libpython versions on RCC and Cori. 
+      Modified files: src/Makefile and util/set_Cpreproc_flags.py
+
+    sntools_dataformat_fit.c:
+       snana.exe and snlc_fit.exe now abort if both _HEAD.FITS and
+       _HEAD.FITS.gz exist.
+
+         ***** USEFUL(v11_04l) ***** 
+
+   new sim-input HOSTLIB_SNR_DETECT (see manual) to apply SNR cut
+    for host detections.
+
+   Fix subtle mistake for mis-matched host photo-z:
+   mis-matched photo-z now includes same ZGEN-ZTRUE offset as
+   for the true host because mis-matched hosts are often in the
+   same galaxy group/cluster as the true host.
+ 
+         ***** MISCELLANEOUS(v11_04l) ***** 
+
+   snlc_sim.c
+     + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
+     + new sim-input APPLY_DETECT_SINGLE
+
+   genmag_SIMSED.c
+     + fix bug reading MXDAY with NDAY_PAD to account for recent
+       5 day pad added when reading original files.
+
+   wfit.c:
+     + new input varname_muerr to replace MUERR with something else.
+     + refactor using VARLIST_DEFAULT_XXX parameter names.
+
+   sntools_trigger.c
+     + check option for single detections instead of coadd.
+
+   sntools_host.c[h]
+     + process new sim-input HOSTLIB_SNR_DETECT
+     + pricess new sim-input HOSTLIB_SMEAR_SERSIC
+
+   snana.car
+     + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0
+        (fix is needed to process Pantheon HST sample)
+
+   use -Wall in compilation and fix a lot of warnings
+   for snana.car, snlc_fit.car, snlc_sim.c .
+   There was one fix with 1-byte string declaration that
+   may have been harmful.
 
 END: 

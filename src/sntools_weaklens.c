@@ -1,6 +1,12 @@
 /******************
  May 2017
- Implement weak lensing effects on distance modulus.
+ Implement weak lensing effects on distance modulus
+ using map defined by sim-input 
+   WEAKLENS_PROBMAP_FILE:  <file with: z deltaMU prob>
+
+ HOSTLIB-WEAKLENS_DMU is treated elsewhere (not here).
+ The map in WEAKLENS_PROBMAP_FILE overrides optional 
+ HOSTLIB-WEAKLENS_DMU.
 
  Oct 2021: require DOCANA at top of weak lensing map file.
 

@@ -51,6 +51,7 @@
 #define APPLYMASK_SEARCHEFF_PIPELINE    1  // pipeline detection
 #define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
 #define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
+// xxxx #define APPLYMASK_SEARCHEFF_SINGLE  8 // pipe detect on single detect
 
 #define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
@@ -66,7 +67,7 @@
 #define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
 #define MXDEF_VARNAMES_PHOTPROB    5
 
-char COMMENT_README_SEARCHEFF[200];
+char COMMENT_README_SEARCHEFF[2][200];
 
 char VARDEF_SEARCHEFF_PHOTPROB[MXDEF_VARNAMES_PHOTPROB][20] ;
 
@@ -93,6 +94,8 @@ struct  {
   int    IFLAG_zHOST_EFFZERO;      // flag to set EFF_zHOST=0
   int    IFLAG_SPEC_EFFZERO;       // flag to set EFF_SPEC=0
   int    IVERSION_zHOST;           // 1=legacy, 2=multi-D
+
+  int    APPLY_DETECT_SINGLE;    // check EFF(pipe) on each exposure, not coadd
 
   double USER_SPECEFF_SCALE; // default=1.0
   double CUTWIN_SNRMAX_zHOST[2]; // extra requirement for zHOST
@@ -234,7 +237,7 @@ struct {
 } SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
 
 
-// Oct 2021 - definine MJDs associated with pipeline detections
+// Oct 2021 - definw MJDs associated with pipeline detections
 typedef struct {
   double TRIGGER, FIRST, LAST;
 } MJD_DETECT_DEF ;
@@ -248,6 +251,7 @@ struct {
   int    CID ;
   double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX, MWEBV ;
   int    SIMLIB_ID;
+
 
   char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
@@ -268,11 +272,11 @@ struct {
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)
   int detectFlag[MXOBS_TRIGGER]; // detection flag for each obs (not trigger)
   double PHOTPROB[MXOBS_TRIGGER];  // Mar 13 2018
-
+  int    NEXPOSE[MXOBS_TRIGGER]; // Number of Exposures in CO-ADD. 08/06/2022 
 } SEARCHEFF_DATA ;
 
 
-  // randoms
+// randoms
 struct {
   double FLAT_PIPELINE[MXOBS_TRIGGER];     // flat ran for each obs [0,1]
   double FLAT_PHOTPROB[MXOBS_TRIGGER];     // flat ran for each detection

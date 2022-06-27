@@ -84,18 +84,18 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // -----------
 
   FILE *fp;
-  int gzipFlag,  NDIM, NFUN, i ;
-  int NMAP=0, NVAR=0, NITEM=0, NWD=0, ivar, imap=-9, IDMAP=0;
+  int gzipFlag,  NDIM, NFUN, i, NWD=0 ;
+  int NMAP=0, NVAR=0, NITEM=0, ivar, IDMAP=0;
   bool IGNORE_MAP ;
   char c_get[200], fileName_full[MXPATHLEN];
-  char LINE[200], TMPLINE[200], varName[60];
+  char LINE[200], TMPLINE[200] ;
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
   char fnam[]     = "init_genPDF";
 
   GENGAUSS_ASYM_DEF  gengauss_SALT2ALPHA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
-  char **ptr_ITEMLIST, *NAME ;
+  char **ptr_ITEMLIST;
   int KEYSOURCE = 1; // default source is from file
   
   // ------------- BEGIN -------------
@@ -239,8 +239,6 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // - - - - - - -
   if ( gengauss_SALT2ALPHA.USE || gengauss_SALT2BETA.USE ) {
 
-    double RANGE[2];
-
     if ( gengauss_SALT2ALPHA.USE ) {
       init_genPDF_from_GenGauss(NMAP, &gengauss_SALT2ALPHA) ; 
       NMAP++ ; 
@@ -265,7 +263,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
   bool IS_LOGPARAM;
-  int  ivar_hostlib, imap_tmp ;
+  int  ivar_hostlib, imap, imap_tmp ;
   int  ABORTFLAG = 0 ;
   char *VARNAME;
   for(imap=0; imap < NMAP; imap++ ) {
@@ -548,24 +546,9 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   } // end genPDF 
 
   // - - - - - -
-  // check explicit asymGauss function .xyz
+  // check explicit asymGauss function 
   DO_GENGAUSS = GENGAUSS->USE ;
 
-  /* xxx mark delete Aug 11 2021 xxxxxx
-  // if GENPDF has higher priority than GENGAUSS,  then turn off GENGAUSS. 
-  // This allows GENPDF on command line to override GENGAUSS ...
-  // and vice-versa.
-  if ( matchVar && KEYSOURCE_GENGAUSS < KEYSOURCE_GENPDF)
-    { DO_GENGAUSS = false; }
-
-  // abort if GENGAUSS and GENPDF have equal priority
-  if ( matchVar && KEYSOURCE_GENGAUSS == KEYSOURCE_GENPDF) { 
-      sprintf(c1err,"Ambiguous method to generate %s", VARNAME);
-      sprintf(c2err,"KEYSOURCE(GENGAUSS,GENPDF) = %d, %d ",
-	      KEYSOURCE_GENGAUSS, KEYSOURCE_GENPDF );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-  xxxxxxxxxx */
 
   if  ( DO_GENGAUSS ) {   
     N_EVAL++ ;

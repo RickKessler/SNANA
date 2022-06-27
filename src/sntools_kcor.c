@@ -1536,8 +1536,7 @@ void read_kcor_primarysed(void) {
   sprintf(c1err,"read flux array for primary = '%s'", NAME);
   snfitsio_errorCheck(c1err, istat);
 
-
-  // .xyz
+  // 
   /*   
 c read lambda array.
        ICOL      = 1
@@ -1561,6 +1560,7 @@ c read flux array
       CALL RDKCOR_ABORT(FNAM, ERRMSG, ISTAT) ! error check
 
    */
+
 
   return ;
 

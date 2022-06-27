@@ -136,7 +136,7 @@ void TABLEFILE_INIT(void) {
   CALLED_TABLEFILE_INIT = 740 ; // anything but 0
   NOPEN_TABLEFILE = 0 ;
   NFILE_AUTOSTORE = 0 ;
-
+  NREAD_AUTOSTORE = 0 ;
   // -------------------------------
 
   // ------ misc inits -------
@@ -1895,6 +1895,12 @@ void SNTABLE_SUMMARY_OUTLIERS(void) {
 
 } // end of  SNTABLE_SUMMARY_OUTLIERS
 
+void SNTABLE_AUTOSTORE_RESET(void) {
+  NFILE_AUTOSTORE = 0 ;
+}
+
+void sntable_autostore_reset__(void)
+{ SNTABLE_AUTOSTORE_RESET(); }
 
 // =====================================================
 int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 
@@ -1963,6 +1969,10 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   if ( CALLED_TABLEFILE_INIT != 740 ) { TABLEFILE_INIT();  }
   printf("   %s\n", fnam); fflush(stdout);
 
+  // May 2022:
+  // after reading autostore, reset NFILE for different autostore usage
+  if ( NREAD_AUTOSTORE > 0 ) { NFILE_AUTOSTORE = NREAD_AUTOSTORE = 0; } 
+
   // check option to store multiple files
   ABORT_FLAG  = ( optMask & 2 ) ;
   APPEND_FLAG = ( optMask & 4 ) ; // append more variables
@@ -2023,7 +2033,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   }
 
 
-  // abort if no variables are found .xyz
+  // abort if no variables are found 
   if ( ABORT_FLAG && NVAR_USR == 0 ) {
     print_preAbort_banner(fnam);
 
@@ -2355,6 +2365,7 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   *ISTAT = -1 ;       // default is that CCID is not found.
   IVAR_READ = IFILE_READ = IROW = -9 ;
+  NREAD_AUTOSTORE++ ;
 
   // search file and variable indices
   for(i=0; i < NFILE_AUTOSTORE; i++ ) {

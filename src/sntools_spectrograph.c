@@ -864,7 +864,7 @@ void get_FILTERtrans_spectrograph(double *LAMFILT_MIN, double *LAMFILT_MAX,
 
   } // end lambda loop
   
-  // -------------------- xyz
+  // --------------------
   if ( FLUX_MAX < 1.0E-9 ) {
     sprintf(c1err,"Synthetic FLUX_MAX=%f ", FLUX_MAX);	   
     sprintf(c2err,"LAMFILT_MIN/MAX=%.1f/%.2f  NBL_TRANS=%d", 
@@ -1290,8 +1290,6 @@ void extend_spectrograph_lambins(void) {
   INPUTS_SPECTRO.NBIN_LAM = NLAM_NEW ;
 
   dump_INPUTS_SPECTRO(4,"+extended wave bins");
-
-  //  debugexit(fnam); // xxx REMOVE  .xyz
 
   return ;
 

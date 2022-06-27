@@ -156,6 +156,10 @@
    + add SORT_BAND option to sort by filter so that non-sequential bands
      within a night are co-added.
 
+ Jun 24 2022
+   + fix bug computing min/max MJD for in update_summary_info();
+     no impact on SIMLIB contents.
+
 ***************************************/
 
 #include <stdio.h>
@@ -256,7 +260,7 @@ void  SIMLIB_coadd(void);
 void  insert_NLIBID(void);
 
 void  init_summary_info(void);
-void  update_summary_info(void);
+void  update_summary_info(int obs);
 void  print_summary_info(void);
 
 void dmp_trace_main(char *string);
@@ -346,17 +350,16 @@ int main(int argc, char **argv) {
 
     sprintf(BANNER,"Loop 05: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
-
-    update_summary_info();
     
-    for ( obs=0; obs < SIMLIB_OUTPUT.NOBS; obs++ ) 
+    for ( obs=0; obs < SIMLIB_OUTPUT.NOBS; obs++ ) {
+      update_summary_info(obs);
       simlib_add_mjd(
 		     1            // 1=>search info;  2=> template info
 		     ,SIMLIB_OUTPUT.INFO_OBS[obs]
 		     ,SIMLIB_OUTPUT.STRING_IDEXPT[obs]
 		     ,SIMLIB_OUTPUT.BAND[obs]
 		     );
-
+    }
     
     sprintf(BANNER,"Loop 06: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
@@ -1225,18 +1228,24 @@ void init_summary_info(void) {
 } // end init_var
 
 // ***********************************
-void update_summary_info(void) {
+void update_summary_info(int obs) {
+
+  // Jun 23 2022;
+  // pass obs argument to check all observations for min/max MJD
+  // rather than assuming that the first/last obs is min/max MJD.
+  // This fix only impacts the printed MJD range; does NOT impact
+  // the SIMLIB contents.
 
   int NOBS = SIMLIB_OUTPUT.NOBS;
   double MJD ;
-  
-  if ( NOBS < SUMMARY_INFO.NOBS_MIN ) { SUMMARY_INFO.NOBS_MIN=NOBS; }
-  if ( NOBS > SUMMARY_INFO.NOBS_MAX ) { SUMMARY_INFO.NOBS_MAX=NOBS; }
 
-  MJD = SIMLIB_OUTPUT.INFO_OBS[0][IPAR_MJD];
+  if ( obs == 0 ) {
+    if ( NOBS < SUMMARY_INFO.NOBS_MIN ) { SUMMARY_INFO.NOBS_MIN=NOBS; }
+    if ( NOBS > SUMMARY_INFO.NOBS_MAX ) { SUMMARY_INFO.NOBS_MAX=NOBS; }
+  }
+
+  MJD = SIMLIB_OUTPUT.INFO_OBS[obs][IPAR_MJD];
   if ( MJD < SUMMARY_INFO.MJD_MIN ) { SUMMARY_INFO.MJD_MIN = MJD; }
-
-  MJD = SIMLIB_OUTPUT.INFO_OBS[NOBS-1][IPAR_MJD];
   if ( MJD > SUMMARY_INFO.MJD_MAX ) { SUMMARY_INFO.MJD_MAX = MJD; }
     
   return;

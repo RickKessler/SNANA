@@ -234,7 +234,8 @@ struct FIRSTBIN_SEDMODEL  {
 
 
 //#define   IVERSION_SEDBINARY 2          // Apr 12 2018
-#define   IVERSION_SEDBINARY 3          // Apr 30 2018
+//#define   IVERSION_SEDBINARY 3          // Apr 30 2018
+#define   IVERSION_SEDBINARY 4          // Jun 12 2022
 #define   PADWORD_SEDBINARY  77777.     // pad-word after header (4.12.2018)
 #define   ZEROWORD_SEDBINARY 909090909. // indicates list of zeros to follow
 #define   MINZEROLIST_SEDBINARY 10      // at least this many to compress
@@ -371,6 +372,8 @@ void T0shiftExplode_SEDMODEL(int OPTMASK, SEDMODEL_FLUX_DEF *SEDFLUX,
 
 void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX);
 void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN);
+
+void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX);
 
 void FLUX_SCALE_SEDMODEL(double SCALE, SEDMODEL_FLUX_DEF *SEDFLUX);
 

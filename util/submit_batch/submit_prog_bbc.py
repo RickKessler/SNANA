@@ -386,6 +386,12 @@ class BBC(Program):
         self.config_prep['fitopt_table_list2d'] = fitopt_table_list2d
         self.config_prep['sync_evt_list']       = sync_evt_list
 
+        # Jun 27 2022; for sync_evt, force the kill_on_fail option
+        #    since the output is useless if any task fails.
+        sync_evt = sync_evt_list[0]
+        if sync_evt:
+            self.config_yaml['args'].kill_on_fail = True
+
         return;
 
         # end bbc_prep_version_list
@@ -1487,6 +1493,7 @@ class BBC(Program):
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
+                # xxx?? f" {STRING_SUCCESS}" # require SUCCESS in file
                 select_file  = f"{outdir_iter1}/{version}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :

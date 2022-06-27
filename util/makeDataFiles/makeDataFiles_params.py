@@ -4,6 +4,8 @@
 #  makeDataFiles_params.py
 #
 #  Copyright July 2021 R. Kessler
+#
+#  Jun 24 2022 R.Kessler - add HOSTGAL_LOGMASS_ERR
 
 """Constant definitions for makeDatafile framework.
 Relevant configuration gets loaded here.
@@ -86,7 +88,7 @@ VARNAMES_FMT_LIST = VARNAMES_FMT.split()
 # value set to VAL_ABORT will trigger abort because it is required.
 VAL_ABORT     = 666
 VAL_NULL      = -9
-VAL_NULL_LIST = [ -9, -99, -999 ] # any of these is treated as no value
+VAL_NULL_LIST = [ -9, -99, -999, 999 ] # any of these is treated as no value
 VAL_UNDEFINED_LIST = [
     VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
     VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
@@ -181,8 +183,11 @@ HOSTKEY_SPECZ_ERR     = "HOSTGAL_SPECZ_ERR"
 HOSTKEY_SNSEP         = "HOSTGAL_SNSEP"
 HOSTKEY_DDLR          = "HOSTGAL_DDLR"
 HOSTKEY_LOGMASS       = "HOSTGAL_LOGMASS"
+HOSTKEY_LOGMASS_ERR   = "HOSTGAL_LOGMASS_ERR"
 HOSTKEY_ELLIP         = "HOSTGAL_ELLIPTICITY"
 HOSTKEY_SQRADIUS      = "HOSTGAL_SQRADIUS"
+HOSTKEY_RA            = "HOSTGAL_RA"
+HOSTKEY_DEC           = "HOSTGAL_DEC"
 
 # define prefix for filter-dependent quantities
 HOSTKEY_PREFIX_MAG     = "HOSTGAL_MAG"         # band-dependent
@@ -200,7 +205,7 @@ HOSTKEY_PREFIX_ZPHOT_Q       = "HOSTGAL_ZPHOT_Q"
 # -----------------------------------------------------------------------------
 
 HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
-# xxx mark                       HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR,
+                        HOSTKEY2_PREFIX_MAG, HOSTKEY2_PREFIX_MAGERR, # restore
                         HOSTKEY_PREFIX_SB ]
 
 # -----------------------------------------------------------------------------
@@ -213,6 +218,7 @@ DATAKEY_LIST_RAW = [
     HOSTKEY_NMATCH, HOSTKEY_NMATCH2, HOSTKEY_OBJID,
     HOSTKEY_SPECZ,  HOSTKEY_SPECZ_ERR,
     HOSTKEY_SNSEP,  HOSTKEY_DDLR,
+    HOSTKEY_RA,     HOSTKEY_DEC,
     HOSTKEY_ELLIP,  HOSTKEY_SQRADIUS
 ]
 
@@ -220,15 +226,9 @@ DATAKEY_LIST_RAW = [
 DATAKEY_LIST_CALC = [
     DATAKEY_zCMB, DATAKEY_zCMB_ERR, DATAKEY_MWEBV, DATAKEY_MWEBV_ERR,
     DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_LAST,
-    HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, HOSTKEY_LOGMASS
+    HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, 
+    HOSTKEY_LOGMASS, HOSTKEY_LOGMASS_ERR
 ]
-
-
-#for qp in PERCENTILE_ZPHOT_LIST:
-#    host_key = f'{HOSTKEY_PREFIX_ZPHOT_Q}{qp}'
-#    host2_key = f'{HOSTKEY2_PREFIX_ZPHOT_Q}{qp}'
-#    DATAKEY_LIST_CALC.append(host_key)
-#    DATAKEY_LIST_CALC.append(host2_key)
 
 
 # define null lists for optional variables whose names are specified

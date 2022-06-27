@@ -173,6 +173,20 @@ c
      &    )
 
 
+c  OPT_PHOTOZ mask options for redshift prior (Jun 3 2022)
+      INTEGER
+     &   BIT_PHOTOZ_GAUSS  ! use <zPhot> and RMS in Gauss approx
+     &  ,BIT_BESTZ_GAUSS   ! idem, but with best redshift (e.g., zSpec)
+     &  ,BIT_PHOTOZ_QUANTILES ! use photo-z quantiles for prior
+     &  ,BIT_PHOTOZ_CHEAT  ! use correct redshift and filters
+
+      PARAMETER (
+     &   BIT_PHOTOZ_GAUSS      = 0  ! OPT_PHOTOZ += 1
+     &  ,BIT_BESTZ_GAUSS       = 1  ! OPT_PHOTOZ += 2
+     &  ,BIT_PHOTOZ_QUANTILES  = 2  ! OPT_PHOTOZ += 4
+     &  ,BIT_PHOTOZ_CHEAT      = 4  ! OPT_PHOTOZ += 16
+     &    )
+
 +KEEP,SIMEFFCM.
 
       INTEGER
@@ -202,7 +216,6 @@ c              be added to RESIDUAL part of FITRES table.
 
       INTEGER MXFIT_DATA
       PARAMETER ( MXFIT_DATA = 1500 )
-c xxx mark delete  PARAMETER ( MXFIT_DATA = MXEPOCH/2 )
 
 c variables used in fit.
 
@@ -423,7 +436,6 @@ c define covariance matrices for SN model correlations (NOT for fit)
      &  ,COVMAT2(MXFIT_DATA,MXFIT_DATA)  ! 2-dim matrix to invert
      &  ,COVMAT_MIN    ! min value among all elements
      &  ,COVMAT_MAX    ! max value ...
-     &  ,DETERM_COVMAT2 ! determinant
 
       CHARACTER 
      &   FITMODEL_PATH*(MXCHAR_PATH)          ! path for model params 
@@ -482,6 +494,7 @@ c
      &  ,PHOTODZ_MIN(MXITER)    ! min | PHOTOZ-Zvalid(model) |
      &  ,PHOTODZ1Z_MIN(MXITER)  ! idem ind dZ/(1+z) space
 c 
+c ? DOFIT_PHOTOZ_HOST=> DOFIT_PHOTOZ_GAUSS
 
       LOGICAL  
      &   DOFIT_PHOTOZ_HOST      ! T=> include host-photoz 
@@ -577,6 +590,7 @@ c namelist input variables.
      &   ,USESIM_PEAKMJD    ! T => use sim peakMJD 
      &   ,USESIM_DLMAG      ! T => use sim DLMAG
      &   ,USESIM_REDSHIFT   ! T => use sim redshift in fit
+     &   ,USESIM_INIVAL     ! T => use sim params as initial values
      &   ,MINOS_ERR_DLMAG   ! T=> require valid MINOS error for DLMAG
      &   ,MINOS_ERR_REQALL0 ! T=> require all MINOS errors to be valid   
      &   ,MINOS_ERR_REQALL1 ! T=> require all but 1 MINOS errors to be valid
@@ -711,6 +725,7 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
       INTEGER 
      &   OPT_PHOTOZ  ! bit 0 (1 ) => use host-galaxy ZPRIOR; 
                      ! bit 1 (2 ) => use spectro Z-prior
+                     ! bit 2 (4 ) => use zPhot quantiles
                      ! bit 4 (16) => cheat: start with Zspec and correct filt
      &  ,ISCALE_COURSEBIN_PHOTOZ  ! scale number of course-grid bins for init
      &  ,NEVAL_MCMC_PHOTOZ
@@ -787,7 +802,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,SNMAGRMS_for_PHOTOZ
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -858,7 +873,7 @@ c ------
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
-     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT
+     &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT, USESIM_INIVAL
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
@@ -1803,8 +1818,6 @@ c Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
 c can make the same approx MilkyWay correction that was
 c applied to data.
 c
-c
-c
 c Aug 28, 2012: remove ISN arg from FITINI_ADJUST call
 c Dec 05, 2013: remove ISN arg from subroutine
 c ----------------------------------------
@@ -2067,6 +2080,9 @@ c check for photoZ fit (after FITINI_COV)
 
 c adjust fitpar based on initial Fdata/Fmodel ratios.
       CALL FITINI_ADJUST(iter)
+
+c Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
+      CALL FITINI_LIST_FILE(iter)
 
       IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN 
         CALL FITINI_PRKCOR()   ! print Kcor info
@@ -3260,7 +3276,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
         IF ( REQUIRE_DOCANA > 0 )           OPTMASK = OPTMASK + 2
         IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
         IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
-	IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
+        IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
         IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
 
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
@@ -3286,8 +3302,8 @@ cc         ISTAT = INIT_GENMAG_SIMSED( TMP_FITMODEL, LEN_NAME )
       LKCOR_AVWARP  = .FALSE.
       OPTMASK = 1
       CALL GET_LAMRANGE_SEDMODEL(OPTMASK,LAMRANGE(1),LAMRANGE(2))
-      RESTLAMBDA_MODEL(1) = LAMRANGE(1)
-      RESTLAMBDA_MODEL(2) = LAMRANGE(2)
+      RESTLAMBDA_MODEL(1) = SNGL(LAMRANGE(1))
+      RESTLAMBDA_MODEL(2) = SNGL(LAMRANGE(2))
 
       CALL FLUSH(6)
       RETURN
@@ -3462,9 +3478,9 @@ c ------------------ BEGIN --------------
 
 c check for cheater flag.  
       IF ( IFLAG .EQ. 0 .and. ITER .EQ. 0 ) THEN
-        IF ( BTEST(OPT_PHOTOZ,4) ) THEN
+        IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_CHEAT) ) THEN
            DOFIT_PHOTOZ_CHEAT = .TRUE.       ! set global flag
-           OPT_PHOTOZ = IBSET(OPT_PHOTOZ,0)  ! set host-prior bit to be safe
+           OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)  ! set host-prior bit to be safe
         ELSE
            DOFIT_PHOTOZ_CHEAT = .FALSE.
         ENDIF
@@ -4872,6 +4888,8 @@ c               because INIBND is not set for these parameters.
 c
 c Apr 3 2018: include color-prior chi2
 c
+c Jun 2022: check option to use zphot quantiles
+c
 c --------------
 
       IMPLICIT NONE
@@ -4887,12 +4905,12 @@ c function args
 
 c local args
 
-      INTEGER  IPAR, ISN, IERR, IPAR_DIST
+      INTEGER  IPAR, ISN, IERR, IPAR_DIST, q
 
       REAL*8
      &   CHI2INI, CHI2TMP
      &  ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN
-     &  ,arg_tmp, DIF, pull, EFF, SQSIG
+     &  ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ 
 
       LOGICAL LTMP, LBADVAL
 
@@ -4914,6 +4932,9 @@ c functions
      &  ,PRIOR_MUPULL
      &  ,GET_RV8
      &  ,SNLC_FIT_SIMEFF
+     &  ,eval_zPDF_spline
+
+      EXTERNAL eval_zPDF_spline
 
 c ------------- BEGIN --------------
 
@@ -5011,8 +5032,19 @@ c -----------------------------------------
 c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
-        pull   = PRIOR_ZPULL(isn,ZSN)
-        CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+
+        if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
+          ! get the probability at this redshift
+c          Print *, 'xxx Evaluating spline at ', ZSN
+          PROBZ = eval_zPDF_spline(ZSN)
+c          Print *, 'xxx Probability is ', PROBZ
+          if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
+          CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
+c          Print *, 'xxx Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
+        else
+          pull   = PRIOR_ZPULL(ZSN)
+          CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+        endif
 
         pull   = PRIOR_MUPULL(isn,ZSN,MU)
         CHI2PRIOR(IPAR_DLMAG) = CHI2PRIOR(IPAR_DLMAG) +
@@ -5441,7 +5473,7 @@ c get MAG_REST1 = magnitude in rest frame for closest filter
 c     MAG_REST1 = mag in rest-frame for 2nd closest filter (for color)
 c Use "genmag_xxx" function that are used in simulation.
 
-500   CONTINUE
+c xxx mark delete 500   CONTINUE
 
       IF ( FITMODEL_INDEX .EQ. MODEL_STRETCH ) THEN
 
@@ -5561,15 +5593,15 @@ c multiple filters are needed for Landolot color transf.
           PARLIST_SN(2) = SALT2x1
           PARLIST_SN(3) = SALT2c
           PARLIST_SN(4) = xx1
-	  PARLIST_HOST(1) = RVDUM
+          PARLIST_HOST(1) = RVDUM
           PARLIST_HOST(2) = AVDUM
-	  PARLIST_HOST(3) = -9.0   ! logMass
+          PARLIST_HOST(3) = -9.0   ! logMass
 
           DO ifilt2 = 1, NFTMP
              ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)
              mag_obs_tmp(ifilt2_obs) = 0.0
              LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
-             if ( LTMP ) then              	       
+             if ( LTMP ) then
                CALL genmag_salt2( MSKSALT2, ifilt2_obs
      &          , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL
      &          , ZSN,ZZ, Nepoch, Tobs
@@ -5759,7 +5791,7 @@ c save AVwarp
         AVwarp_tmp(ifilt2_obs) = AVwarp  ! save in case of dump
 
         KCORERR_TMP(ifilt2_obs) = GET_KCORERR8 ( OPT_KCORERR,
-     &        ifilt_rest_tmp(1), ifilt2_obs, Trest, ZSN, AVwarp) 
+     &        ifilt2_obs, ZSN ) 
 
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
@@ -5853,7 +5885,7 @@ c
      &    .and. SHAPE(1)     .LT. PRIOR_SHAPE_RANGE(2) 
      &    .and. abs(AVHOST)  .LT. 10.0 ) then
 
-	   CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
+           CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
            cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
            print*,' Filter = ', cfilt,' : '
            print*,' MAG(LANDOLT)-MAG(BESSELL) = ',
@@ -6956,6 +6988,7 @@ c setup default grid w.r.t. peakmjd-estimate
       USESIM_PEAKMJD  = .FALSE.
       USESIM_DLMAG    = .FALSE.
       USESIM_REDSHIFT = .FALSE.
+      USESIM_INIVAL   = .FALSE.
 
       LKCOR_AVWARP  = .TRUE.
       LKCOR_STRETCH = .FALSE.
@@ -7236,12 +7269,14 @@ c check PHOTOZ stuff.
 
 c first, allow user to set integer option or logical flag.
 
-      if ( OPT_PHOTOZ .GT. 0 ) then
+      if ( OPT_PHOTOZ > 0 ) then
          DOFIT_PHOTOZ = .TRUE.
       endif
       if ( DOFIT_PHOTOZ .and. OPT_PHOTOZ .LE. 0 ) then
-         OPT_PHOTOZ = 1   ! use host-galaxy prior by default.
-                          ! But note PRIOR_ZERRSCALE=1000 by default
+   ! use host-galaxy prior by default.
+   ! But note PRIOR_ZERRSCALE=1000 by default
+        ! xxx mark delete  OPT_PHOTOZ = 1
+         OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) 
       endif
 
 c Set non-zero step-size for PHOTOZ or DLMAG,
@@ -7801,6 +7836,9 @@ c
             READ(ARGLIST(2),*) INIVAL_GRIDSEARCH_DPEAKMJD(2)
             READ(ARGLIST(3),*) INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
+        else if(MATCH_NMLKEY('USESIM_INIVAL', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_INIVAL
+
         else if(MATCH_NMLKEY('INIVAL_GRIDSEARCH_COLOR',
      &            3,i,ARGLIST)) then
             READ(ARGLIST(1),*) INIVAL_GRIDSEARCH_COLOR(1)
@@ -8065,7 +8103,6 @@ c continue below on 1st iteration only.
       INIVAL(IPAR)    =  PEAKMJD - MJDOFF
       INISTP(IPAR)    =  INISTP_PEAKMJD         ! initial step size, days
 
-
       INIBND(1,IPAR)  =  INIVAL(IPAR) - 100.0
       INIBND(2,IPAR)  =  INIVAL(IPAR) + 100.0
 
@@ -8288,6 +8325,20 @@ c so allow one or the other.
       IF ( INIVAL_X0 .GT. NULLVAL ) 
      &     INIVAL(IPAR_X0) = INIVAL_X0
 
+c May 2022: check option to set all of the INIVAL to sim-values
+c    Note that fit floats all params
+
+      IF ( USESIM_INIVAL ) THEN
+         if ( STDOUT_UPDATE ) then
+            print*,'   Set INIVAL = SIM value'
+            call flush(6)
+         endif
+         INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
+         INIVAL(IPAR_X0)       = SIM_SALT2X0
+         INIVAL(IPAR_SHAPE)    = SIM_SHAPEPAR
+         INIVAL(IPAR_COLOR)    = SIM_COLORPAR
+         INIVAL(IPAR_zPHOT)    = SIM_REDSHIFT_HELIO
+      ENDIF
 c --------------------------------------------
 c store SIMVAL and check option to use sim values
 c in fit.
@@ -8374,6 +8425,7 @@ c --------------------------------------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITRESTCOM.
+c+CDE,SNFITPAR.
 
       INTEGER 
      &   iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
@@ -8388,14 +8440,14 @@ c local var
 
 c FCNSNLC args
 
-      INTEGER IFLAG
+      INTEGER IFLAG, q
       REAL*8 
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
-
+     &   ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q)
       CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
-      EXTERNAL USRFUN
+      EXTERNAL USRFUN, init_zPDF_spline
 
 C --------------- BEGIN -----------------
 
@@ -8474,7 +8526,7 @@ c set initial value and step size.
       Zhost     =  SNHOST_ZPHOT(1)
       LZDONE    = .FALSE.
 
-      IF ( BTEST(OPT_PHOTOZ,1) ) THEN  ! Zspec prior
+      IF ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
         INIVAL(ipar) = SNLC_REDSHIFT
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
@@ -8486,7 +8538,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
 
         goto 777        ! Jan 2021
 
-      ELSE IF ( BTEST(OPT_PHOTOZ,0) ) THEN  ! Zhost prior (1)
+      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
            INIVAL(ipar) = Zhost
@@ -8497,6 +8549,27 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            INIVAL(IPAR) = (PHOTOZ_BOUND(2) + PHOTOZ_BOUND(1))/2.0 
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
         endif
+      
+      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R. Chen Jun 2022 .xyz
+c        Print *, 'xxx Start of quantiles code'
+        if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
+            c1err = 'zPDF quantiles requested for photo-z fit'
+            c2err = 'but there are no zPDF quantiles in the data.'
+            CALL MADABORT("FITINI_PHOTOZ", c1err, c2err)
+        endif
+        do q = 1, SNHOST_NZPHOT_Q
+            ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
+            ZPHOT_Q(q)          = DBLE(SNHOST_ZPHOT_Q(1,q))
+c            Print *, ZPHOT_PROB(q)
+c            Print *, ZPHOT_Q(q)
+        enddo
+c          Print *, 'xxx Calling init_zPDF_spline'
+          CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
+     &                          ZPHOT_PROB, ZPHOT_Q)
+c          Print *, 'xxx Spline initialized successfully' 
+          INIVAL(ipar) = Zhost
+          LZDONE       = .TRUE.
+          CZTMP        = 'Zhost'
       ENDIF
 
 c check cheat option (4/30/2012)
@@ -8506,12 +8579,6 @@ c check cheat option (4/30/2012)
         LZDONE       = .TRUE.
       ENDIF
 
-c xxx mark delete Jul 12 2019 xxxxxxx
-c      LZ = INDEX(CZTMP,' ') - 1
-c      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
-c11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
-c      call flush(6)
-c xxx end mark xxxxxxxx
 
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
@@ -9140,10 +9207,12 @@ c process only 1st fit iteration
 
       IF ( .NOT. FIRST_ITER ) RETURN  
       IF ( LFIXPAR_ALL      ) RETURN  
+      IF ( USESIM_INIVAL    ) RETURN ! May 2022
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
 
       LPRINT = STDOUT_UPDATE
+
 
 c init everything to zero
 
@@ -9209,7 +9278,7 @@ c     D. Jones color grid search
       IF ( .not. DO_COLOR ) THEN 
         COLOR_MIN = COLOR_INI
         COLOR_MAX = COLOR_INI
-	COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
+        COLOR_BIN = 999.0   ! avoid infinite loop if no color bins
       ENDIF
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
@@ -9261,16 +9330,16 @@ c - - - - -
       if ( LPRINT ) then
          LCHAR  = INDEX(PARNAME_STORE(IPAR_PEAKMJD),' ') - 1
          LCHAR2 = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ') - 1
-	 IF ( DO_COLOR ) THEN
+         IF ( DO_COLOR ) THEN
            write(6,42) 
      &         PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
      &         PARNAME_STORE(IPAR_COLOR)(1:LCHAR2),
      &         PEAKMJD_INI, COLOR_INI,
      &         INIVAL(IPAR_PEAKMJD), INIVAL(IPAR_COLOR), CHI8
-	 ELSE
+         ELSE
            write(6,41) PARNAME_STORE(IPAR_PEAKMJD)(1:LCHAR),
      &               PEAKMJD_INI, INIVAL(IPAR_PEAKMJD), CHI8
-	 ENDIF
+         ENDIF
 
 41       format(T10,'Adjust ',A,'=',F9.3, ' ==> ', F9.3,
      &             2x, '(CHI2=',F10.2,')'  )
@@ -9404,7 +9473,87 @@ c and minimized PEAKMJD
       CALL FLUSH(6)
 
       RETURN
-      END
+      END  ! end FITINI_ADJUST
+
+C ==========================
++DECK,FITINI_LIST_FILE.
+      SUBROUTINE FITINI_LIST_FILE(iter)
+
+C Created Apr 29 2022 by R.Kessler
+c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
+c values to use as INIVAL when iter=1.
+
+      IMPLICIT NONE
+
+      INTEGER ITER ! (I) fit iteration
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,SNLCINP.
+
+      INTEGER IPAR_LIST(20), NPAR, i, ipar 
+      INTEGER ABORT_FLAG, LENV
+      LOGICAL USE_FITPAR_LIST_FILE
+      REAL*8  DVAL
+      CHARACTER cVAR*40
+      LOGICAL LDMP 
+
+      REAL*8   MATCH_CIDLIST_PARVAL
+      EXTERNAL MATCH_CIDLIST_PARVAL
+
+C ----------- BEGIN ----------
+
+      IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
+
+      USE_FITPAR_LIST_FILE = BTEST(OPT_SNCID_LIST,1)
+      IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
+
+c construct list of params to check in SNCID_LIST file
+
+      NPAR = 0
+
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_PEAKMJD
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_X0
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_SHAPE
+      NPAR = NPAR + 1
+      IPAR_LIST(NPAR) = IPAR_COLOR
+
+      IF ( DOFIT_PHOTOZ ) THEN
+        NPAR = NPAR + 1
+        IPAR_LIST(NPAR) = IPAR_zPHOT
+      ENDIF
+      
+      ABORT_FLAG = 0 ! do not abort on missing variable.
+
+      LDMP = STDOUT_UPDATE 
+
+      DO i = 1, NPAR
+         IPAR = IPAR_LIST(i)
+         LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
+         cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
+         if ( IPAR == IPAR_zPHOT ) cVAR = 'zHD' // char(0)
+
+         DVAL = 
+     &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,40)
+         if ( DVAL > -999.0 ) THEN
+             INIVAL(IPAR) = DVAL
+             if ( LDMP ) then
+               write(6,44) PARNAME_STORE(IPAR), DVAL, SNLC_CCID
+ 44            format(T8, 'INIVAL ', A8,' -> ', G12.5, 
+     &             ' from list file: CID=',A12)
+             endif
+         ENDIF
+
+      ENDDO
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end FITINI_LIST_FILE
 
 C =====================================
 +DECK,FITINI_TABLEVAR.
@@ -9953,12 +10102,12 @@ c This is the model-covariance only.
 
            Z        = REDSHIFT_FIT
            MWEBV    = SNLC_MWEBV
-	   PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
-	   PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
-	   PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
-	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
-	   PARLIST_HOST(2) = 0.0  ! cannot fit AV
-	   PARLIST_HOST(3) = -9.0 ! cannot fit logMass
+           PARLIST_SN(1) = FITPAR(IPAR_x0   ) 
+           PARLIST_SN(2) = FITPAR(IPAR_SHAPE) 
+           PARLIST_SN(3) = FITPAR(IPAR_COLOR) 
+           PARLIST_HOST(1) = 0.0  ! cannot fit RV
+           PARLIST_HOST(2) = 0.0  ! cannot fit AV
+           PARLIST_HOST(3) = -9.0 ! cannot fit logMass
 
            ISTAT = gencovar_SALT2(NFITDATA, IFILT_COV, TOBS, Z
      &             ,PARLIST_SN, PARLIST_HOST  ! (I)
@@ -10150,7 +10299,7 @@ c local var
      &   Z, Z1, TREST, MAXFRAC, LAMDIF_MIN, LAMREST
      &  ,FLUX_DATA, FLUXERR_STAT, FLUXERR_DATA, FLUX_SIM
      &  ,FLUX_MODEL, FLUXERR_MODEL, FLUXERR_TOT
-     &  ,ERR_TRUE, ERR_CALC, ARG, TOBS, ERR_TMP
+     &  ,ERR_TRUE, ERR_CALC, ARG, TOBS, ERR_TMP, ZP
      &  ,SQDIF, SQERR
 
       REAL*8 FTMP8, MAGERR8, MJD8
@@ -10179,6 +10328,8 @@ C ----------------- BEGIN ----------------
 
       Z = REDSHIFT_FIT
       Z1 = 1. + z
+   
+      ZP = SNGL(ZEROPOINT_FLUXCAL_DEFAULT)
 
 c -------------------------------
 c save previous R4ALL values in R4_LAST array in case 
@@ -10302,8 +10453,8 @@ c load FITCOV arrays
         I4EP_ALL(ep,IEP_IFILT_OBS)   = IFILT_OBS
         I4EP_ALL(ep,IEP_IMJD)        = IMJD
         I4EP_ALL(ep,IEP_IDTEL)       = ISNLC_IDTEL(ep)
-	I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
-	I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
+        I4EP_ALL(ep,IEP_CCDNUM)      = ISNLC_CCDNUM(ep)
+        I4EP_ALL(ep,IEP_IMGNUM)      = ISNLC_IMGNUM(ep)
         BANDEP_ALL(ep) = FILTDEF_STRING(IFILT_OBS:IFILT_OBS)
 
 c Get nearest and 2nd nearest rest filter
@@ -10318,7 +10469,7 @@ c Also subtract index offsets
           I4EP_ALL(ep,IEP_IFILT_REST1) = IF1
           I4EP_ALL(ep,IEP_IFILT_REST2) = IF2
 
-          ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGREST(ep))
+          ARG   = 0.4*(ZP - SIM_EPMAGREST(ep))
           R4EP_ALL(ep,JEP_SIM_FLUXREST) = 10.0**(ARG)
           R4EP_ALL(ep,JEP_SIM_MAGREST) = SIM_EPMAGREST(ep) 
 
@@ -10326,12 +10477,12 @@ c Also subtract index offsets
 
          R4EP_ALL(ep,JEP_SIM_FLUXCAL) = 0.0
          IF ( LSIM_MAGOBS .or. LSIM_SNANA ) THEN
-            ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGOBS(ep))
+            ARG   = 0.4*(ZP - SIM_EPMAGOBS(ep))
             FLUX_SIM = 10.0**(ARG)
             SQDIF    = (FLUX_SIM - FLUX_DATA)**2
             SQERR    = FLUXERR_DATA*FLUXERR_DATA
 
-cc	    print*,' xxxx ', ep, FLUX_SIM
+cc          print*,' xxxx ', ep, FLUX_SIM
             R4EP_ALL(ep,JEP_SIM_FLUXCAL) = FLUX_SIM
             IF ( FLUXERR_DATA > 0 ) THEN
                R4EP_ALL(ep,JEP_SIM_DELCHI2) = SQDIF/SQERR
@@ -10367,8 +10518,8 @@ c all plots.
 c set error on MilkyWay Galactic extinction
          MAGERR8 = SNLC_MWXT_MAGERR(ifilt)
          FTMP8   = 1.0 - 10**(-0.4*MAGERR8)
-         R4EP_ALL(ep,JEP_MWXT_MAGERR)  =  MAGERR8  
-         R4EP_ALL(ep,JEP_MWXT_FLUXERR) =  FTMP8 * FLUX_MODEL 
+         R4EP_ALL(ep,JEP_MWXT_MAGERR)  =  SNGL(MAGERR8)
+         R4EP_ALL(ep,JEP_MWXT_FLUXERR) =  SNGL(FTMP8) * FLUX_MODEL 
 
          R4EP_ALL(ep,JEP_LAMREST)     = LAMREST
          R4EP_ALL(ep,JEP_PSF)         = SNLC_PSF_SIG1(ep)
@@ -10387,7 +10538,7 @@ c set error on MilkyWay Galactic extinction
 
          ERR_TRUE  = SNLC_FLUXCAL_ERRTOT(ep)  
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
+         ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
 
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
@@ -10585,23 +10736,15 @@ c ------------------------
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER 
-     &   ibin
-     &  ,ipar
-     &  ,HOFF, hid
-     &  ,NPRIOR
+      INTEGER  ibin, ipar, NPRIOR
 
-      REAL*8
-     &   tmp
-     &  ,prob, chi2, arg
-     &  ,xmin, xmax, xbin, x , wgt
+      REAL*8 tmp(2), prob, chi2, arg, xmin(2), xmax(2), xbin, x , wgt 
 
       LOGICAL LSTAT
 
-c hbook args
+c histogram args
 
-      REAL x4min, x4max, x4, w4, x4bin
-      INTEGER nb, LL, NDIM, LCHIS
+      INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid
       CHARACTER chis*80
 
 c function
@@ -10617,7 +10760,6 @@ c initalize all chi2-prior to zero.
           PRIOR_CHI2GRID(ibin,ipar) = 0.0
           PRIOR_PROBGRID(ibin,ipar) = 0.0
           PRIOR_GRID(ibin,ipar)     = 0.0
-
       ENDDO
       ENDDO
 
@@ -10654,6 +10796,7 @@ c check OPT_PRIOR after MJD prior is set.
 
       IF ( OPT_PRIOR .EQ. 0  ) GOTO 900
 
+c - - - - - - -  -
 c Set PhotoZ PRIOR for SN-photoZ fit.
 c
       IF ( DOFIT_PHOTOZ ) THEN
@@ -10671,6 +10814,7 @@ c
 
       ENDIF
 
+c - - - - - -  -
 c now turn on prior(s) specific to model
 
       IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 .or. 
@@ -10727,14 +10871,11 @@ c use CHI2_PRIOR function
 59       format( A,' from ',A,'-prior vs. ', A )
 
 c make plot with very fine binning to check interpolation
-         xbin = 0.2*PRIOR_BINSIZE(ipar)
-         xmin = PRIOR_RANGE(1,IPAR) - xbin/2.0
-         xmax = PRIOR_RANGE(2,IPAR) + xbin/2.0
-         nb   = int( (xmax - xmin + 0.1*xbin)/xbin )
+         xbin    = 0.2*PRIOR_BINSIZE(ipar)
+         xmin(1) = PRIOR_RANGE(1,IPAR) - xbin/2.0
+         xmax(1) = PRIOR_RANGE(2,IPAR) + xbin/2.0
+         nb(1)   = int( (xmax(1) - xmin(1) + 0.1*xbin)/xbin )
 
-         x4bin = sngl(xbin)
-         x4min = sngl(xmin)
-         x4max = sngl(xmax)
 
          LL = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
          LCHIS = 25+2*LL
@@ -10751,20 +10892,17 @@ c make plot with very fine binning to check interpolation
          chis = chis(1:LCHIS) // char(0)
          CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
 
-      DO 51 ibin = 1, NB
-           tmp   = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1) 
-           x4    = sngl(tmp)
-           chi2  = CHI2_PRIOR(ipar,tmp)
-           arg   = min(40.0,chi2/2.0)
-           prob  = dexp(-arg)
+      DO 51 ibin = 1, NB(1)
+           tmp(1)  = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1) 
+           chi2    = CHI2_PRIOR(ipar,tmp(1))
+           arg     = min(40.0,chi2/2.0)
+           prob    = dexp(-arg)
            
-
            HID = HOFF +  0 + ipar
            CALL SNHIST_FILL ( NDIM, HID, tmp, prob)
 
            HID = HOFF + 10 + ipar
            CALL SNHIST_FILL ( NDIM, HID, tmp, chi2 )
-
 
 51    CONTINUE
 50    CONTINUE
@@ -10800,28 +10938,23 @@ c ------------------------
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER
-     &   IPAR
-     &  ,IZ
+      INTEGER IPAR, IZ
 
       REAL*8
-     &   tmp
-     &  ,Zpull_BINSIZE
-     &  ,Zpull, XZ
-     &  ,CHI2, PROB
-     &  ,SQSIG
-     &  ,SQDIF
-     &  ,GNORM
+     &   tmp, Zpull_BINSIZE, Zpull, XZ
+     &  ,CHI2, PROB, SQSIG, SQDIF, GNORM
 
 C -------------- BEGIN ---------------
 
       LSTAT    = .FALSE.
       IPAR     = IPAR_zPHOT  ! local variable
 
-      if ( BTEST(OPT_PHOTOZ,0) ) then
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
          write(global_banner,21) PRIOR_ZERRSCALE
-      else if ( BTEST(OPT_PHOTOZ,1) ) then
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
          write(global_banner,22) PRIOR_ZERRSCALE
+      else if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
+         write(global_banner,23) PRIOR_ZERRSCALE
       else
         write(c1err,662) OPT_PHOTOZ
 662     format('Invalid OPT_PHOTOZ = ', I5 )
@@ -10832,6 +10965,8 @@ C -------------- BEGIN ---------------
 21    format('INIT Gaussian HOST-PHOTOZ PRIOR  with error-scale=',
      &         F7.2 )
 22    format('INIT Gaussian SPEC-Z PRIOR with error-scale=',
+     &         F7.2 )
+23    format('INIT quantiles HOST-PHOTOZ PRIOR with error-scale=',
      &         F7.2 )
 
       CALL PRBANNER(global_banner(1:60))
@@ -11820,7 +11955,7 @@ c xxxxxxxxxxxxxxxx
 
 C =================================
 +DECK,PRIOR_ZPULL.
-      DOUBLE PRECISION FUNCTION PRIOR_ZPULL(isn,ZSN)
+      DOUBLE PRECISION FUNCTION PRIOR_ZPULL(ZSN)
 c
 c Created April 20, 2007 by R.Kessler
 c
@@ -11841,7 +11976,6 @@ c ------------------------------------------------
 
       IMPLICIT NONE
 
-      INTEGER isn  ! (I) SN index
       REAL*8  ZSN  ! (I) redshift in fit
 
 c local
@@ -11859,12 +11993,12 @@ C ------------ BEGIN -------------
       PRIOR_ZPULL = 0.0
       LPULL  = .FALSE.
   
-      if ( BTEST(OPT_PHOTOZ,0) ) then  ! use host photo z
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then  ! use host photo z
          zPRIOR     = SNHOST_ZPHOT(1)
          zPRIOR_err = SNHOST_ZPHOT_ERR(1)
          LPULL = zPRIOR_err .GT. 0.005 .and. DOFIT_PHOTOZ_HOST
 
-      else if ( BTEST(OPT_PHOTOZ,1) ) then  ! use final redshift
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then  ! use final redshift
          zPRIOR      = SNLC_REDSHIFT
          zPRIOR_err  = SNLC_REDSHIFT_ERR
          LPULL       = .TRUE.
@@ -13515,12 +13649,12 @@ c extract fit photoZ and determine total error.
       zfit    = LCVAL_STORE(IPAR_zPHOT) 
       zfiterr = LCERR_STORE(IPAR_zPHOT) 
          
-      if ( BTEST(OPT_PHOTOZ,0) ) then 
+      if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then 
         zhost    =  SNHOST_ZPHOT(1)
         zhosterr =  SNHOST_ZPHOT_ERR(1)
         czprior  = 'SNGAL'   ! for screen dump comment
 
-      else if ( BTEST(OPT_PHOTOZ,1) ) then
+      else if ( BTEST(OPT_PHOTOZ,BIT_BESTZ_GAUSS) ) then
         zhost    = SNLC_REDSHIFT     ! for testing only
         zhosterr = SNLC_REDSHIFT_ERR
         czprior  = 'SPECZ'   ! for screen dump comment
@@ -13569,17 +13703,19 @@ c store errors in common block
 c ----------------------------------------------
 c print PHOTOZ info
 
-      write(6,20) SNLC_CID, ZFIT
+      IF ( STDOUT_UPDATE ) THEN
+        write(6,20) SNLC_CID, ZFIT
      &   , PHOTOZ_ERR_SNFIT
      &   , PHOTOZ_ERR_SNMAG
+
+        write(6,30) SNLC_CID, CZPRIOR, ZHOST
+     &   , PHOTOZ_ERR_SNHOST
+     &   , PHOTOZ_ERR_ZPULL
+      ENDIF
 
 20    format(T8,'CID',I8,' PHOTOZ(SNFIT) = ', F6.4
      &         , ' +- ',F5.4,'(stat)'
      &         , ' +- ',F5.4,'(snmag)'  )
-
-      write(6,30) SNLC_CID, CZPRIOR, ZHOST
-     &   , PHOTOZ_ERR_SNHOST
-     &   , PHOTOZ_ERR_ZPULL
 
 30    format(T8,'CID',I8,' ZPRIOR(',A,') = ', F6.4
      &         , ' +- ',F5.4, 5x,'ZPULL=',F6.2 )
@@ -14360,15 +14496,15 @@ c get reference fluxes to computer deriviates below.
 c change fitpar values by +1 sigma and re-evaluate Flux.
 
          LCVAL_STORE(ipar_k) = 
-     &   LCVAL_STORE(ipar_k) + ERRPAR_k
+     &   LCVAL_STORE(ipar_k) + SNGL(ERRPAR_k)
          Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, OPT )
-         LCVAL_STORE(ipar_k) = SAVEVAL_k
+         LCVAL_STORE(ipar_k) = SNGL(SAVEVAL_k)
 
 c repeat for 2nd fitpar ...
          LCVAL_STORE(ipar_l) = 
-     &   LCVAL_STORE(ipar_l) + ERRPAR_l
+     &   LCVAL_STORE(ipar_l) + SNGL(ERRPAR_l)
          Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, OPT )
-         LCVAL_STORE(ipar_l) = SAVEVAL_l
+         LCVAL_STORE(ipar_l) = SNGL(SAVEVAL_l)
 
 c make sure that errors are non-zero before dividing.
 
@@ -17174,7 +17310,7 @@ c  are needed per band, such as for the Landolt correction
             if ( LTMP .and. LPRINT ) write(6,21) cfilt2(1:1)
 21          format(A1, $)
          ENDDO
-	 if ( LPRINT ) print*, '  (ifilt=', ifilt, ')'
+         if ( LPRINT ) print*, '  (ifilt=', ifilt, ')'
 
 29      CONTINUE ! end of IFILT loop
 
@@ -19267,7 +19403,7 @@ c   terminate strings for C table-functions (snana.car routine)
           ep   = EPLIST_FIT(i)
           IFILTOBS = I4EP_ALL(ep,IEP_IFILT_OBS) 
 
-          TBLSPEC_MJD               = R4EP_ALL(ep,JEP_MJD) + MJDOFF    
+          TBLSPEC_MJD         = R4EP_ALL(ep,JEP_MJD) + SNGL(MJDOFF)
           TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
           TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST) 
           TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS) 
@@ -19438,7 +19574,7 @@ c - - - -
 
 c - - - - -
 c Mar 21 2022: write model mag for all bands at each obs
-c   initial use is for DCR correction in DES.   .xyz
+c   initial use is for DCR correction in DES.   
 
       DO 20 ifilt  = 1, NFILTDEF_SURVEY
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
@@ -19727,7 +19863,7 @@ c      check FITRESTMAG variables
             CALL MADABORT(FNAM, c1err, c2err )  
          endif
       ELSE
-	 CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
+         CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
          print*,'   LENPAR, LENLOC, ISERR = ', LENPAR, LENLOC, ISERR
          print*,'   VARNAME = ', VARNAME(1:20)
          print*,'   VARNAME(LENPAR-3:LENPAR) = ',

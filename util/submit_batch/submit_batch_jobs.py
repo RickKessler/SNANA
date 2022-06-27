@@ -15,6 +15,7 @@
 # Dec 04 2021: new input --merge_background
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # Apr 08 2022: add --merge_force arg for sync_evt option
+#
 # - - - - - - - - - -
 
 #import os

@@ -261,6 +261,8 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
 
 int   rd_snfitsio_list(void);
 void  rd_snfitsio_open(int ifile, int photflag_open, int vbose ); 
+void  rd_snfitsio_check_gzip(char *fileName);
+
 void  rd_snfitsio_file(int ifile);          // open and read everything
 void  rd_snfitsio_zphot_q(void);            // read optional zphot_q
 void  rd_snfitsio_simkeys(void);            // read optional SIMSED pars

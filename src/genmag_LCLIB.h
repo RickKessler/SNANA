@@ -22,7 +22,9 @@
 
 #define DAYBACK_TEMPLATE_LCLIB 30.0 // used in forceTemplateRows
 #define MODEL_RANMAG_LCLIB  "RANMAG" 
-#define PARNAME_REDSHIFT_LCLIB "REDSHIFT"
+
+#define PARNAME_REDSHIFT_LCLIB  "REDSHIFT"
+#define PARNAME_MWEBV_LCLIB     "MWEBV"
 
 int LDUMP_EVENT_LCLIB ;
 
@@ -53,6 +55,7 @@ struct {
 
   char   PARNAME_MODEL[MXPAR_LCLIB][40] ; // list of modelPar names
   int    IPAR_REDSHIFT;    // non-zero for PARNAME=REDSHIFT
+  int    IPAR_MWEBV ;      // non-zero of MWEBV is a model param
   double ZPHOTZ1ERR ;        // if REDSHIFT, Err[zphot/(1+z)] = 0.05
 
   // variables needed for setting photo-z

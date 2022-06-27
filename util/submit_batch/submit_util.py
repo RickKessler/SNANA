@@ -270,6 +270,20 @@ def read_arg_file(ARG, KEY_ARG_FILE):
     # end read_arg_file
 
 
+def protect_wildcard(arg):
+    # Created May 2022 by R.Kessler
+    # if arg = abc*, return 'abc*'
+    # if arg = 'abc*', return 'abc*' [no change]
+
+    arg_protect = arg
+    if isinstance(arg,str):
+        has_quote = '\'' in arg  or  '"' in arg
+        if '*' in arg and not has_quote:
+            arg_protect = f"'{arg}'"
+
+    return arg_protect
+    # end protect_wildcard
+
 def protect_parentheses(arg):
     # Created Dec 10 2020
     # if arg = abc(option), returns abc\(option\).
@@ -847,6 +861,9 @@ def write_job_info(f,JOB_INFO,icpu):
     # write job program plus arguemnts to file pointer f.
     # All job-info params are passed via JOB_INFO dictionary.
     # Jan 8 2021: check optional wait_file
+    # Jun 27 2022: check optional 2nd arg in wait_file which is string
+    #              to require. E.g., requre SUCCESS in ALL.DONE file.
+    #
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
@@ -855,7 +872,10 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
     msgerr       = []
-    check_abort = JOB_INFO.get(arg_check_abort,False)
+
+    check_abort    = JOB_INFO.get(arg_check_abort,False)
+    kill_on_fail   = JOB_INFO.get(arg_kill_on_fail,False)
+    all_done_file  = JOB_INFO.get('all_done_file',None)
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
@@ -863,26 +883,29 @@ def write_job_info(f,JOB_INFO,icpu):
 
     CHECK_CODE_EXISTS = '.exe' in program and not check_abort
 
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
-                        'kill_on_fail'  in JOB_INFO  and \
-                        not check_abort
+    CHECK_ALL_DONE = all_done_file is not None and kill_on_fail and \
+                     not check_abort
+
+    # xxx mark delete Ju 27 2022 xxxxxxxxxxxxxxxxx
+    #CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
+    #                    'kill_on_fail'  in JOB_INFO  and \
+    #                    not check_abort
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 
         # so no point in continuing.
-        all_done_file = JOB_INFO['all_done_file']  # exists only on failure
-        kill_on_fail  = JOB_INFO['kill_on_fail']
         f.write(f"if [ -f {all_done_file} ] ; then \n")
         msg_echo = f"Found unexpected {DEFAULT_DONE_FILE} -> something FAILED."
         f.write(f"  echo '  {msg_echo}' \n")
+
         if kill_on_fail :
             msg_echo = f"Kill all remaining jobs."
             cmd_kill = f"  cd {CWD}\n"\
                        f"  {sys.argv[0]} \\\n" \
                        f"     {sys.argv[1]} --cpunum {icpu} -k "
-                        # f"  exit")
         else:
             msg_echo = "Continue with next job."
 
@@ -902,11 +925,30 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"echo '{program} exists -> continue' \n\n")
 
     if CHECK_WAIT_FILE:
-        wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
+        # wait_file = abc.dat -> wait for abc.dat to exist
+        # wait_file = "abc.dat SUCCESS" -> wait for abc.dat to exist;
+        #               exit if SUCCESS is not in file.
+        
+        tmp_list      = JOB_INFO['wait_file'].split()
+
+        wait_file     = tmp_list[0]  # wait for this file to exist
         wait_for_file = f"while [ ! -f {wait_file} ]; " \
                         f"do sleep 10; done"
         f.write(f"echo 'Wait for {wait_file}'\n")
         f.write(f"{wait_for_file}\n")
+
+        # Jun 2022 - check for optional string to require in wait_file
+        if len(tmp_list) > 1 :
+            str_require = tmp_list[1]
+            f.write(f"if ! grep -q {str_require} {wait_file}\n")
+            f.write(f"then\n")
+            f.write(f"  echo ' '  \n")
+            f.write(f"  echo 'Did not find required {str_require} string " \
+                    f" in {wait_file} -> exit' \n")
+            f.write(f"  exit 1 \n")
+            # problem; need to create ALL.DONE file with FAIL ???
+            f.write(f"fi \n\n")
+
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 
     if check_abort:  # leave human readable marker for each job

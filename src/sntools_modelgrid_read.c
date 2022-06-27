@@ -294,7 +294,7 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
 
       // Mar 2016: load IFILTOBS
       char band[2];
-      for(ifilt=0 ; ifilt <= NROW; ifilt++ )  {
+      for(ifilt=0 ; ifilt < NROW; ifilt++ )  {
 	sprintf(band, "%c", SNGRID->FILTERS[ifilt] );
 	SNGRID->IFILTOBS[ifilt] = INTFILTER(band); 
       }

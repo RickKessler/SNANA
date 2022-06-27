@@ -289,6 +289,10 @@
   May 22 2020: + added error model of H20 templates (S13_H20)
   Oct 23 2020: use HzFUN_INFO and new sntools_cosmology.c[h]
 
+  May 23 2022 RK 
+    + add Ic-BL for V19 templates
+    + abort if a type is undefined
+
  ================================================================ */
 
 #include <stdio.h>
@@ -405,10 +409,11 @@ extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 // Jan 27, 2013 RK - define char-lists here in the header
 //                   instead of hard-wired in the code
 // Feb 13 2017 RK - add IIb to list (for Jones 2017 paper)
+// May 23 2022 RK - add Ic-BL to handle V19 templates
 char PSNID_CHARTYPE_LISTS[PSNID_NTYPES][80] =   
   { 
     "Ia" ,                          // itype = PSNID_ITYPE_SNIA 
-    "Ib  Ic   Ibc" ,                // itype = PSNID_ITYPE_SNIBC
+    "Ib  Ic   Ibc Ic-BL" ,          // itype = PSNID_ITYPE_SNIBC
     "II  IIP  IIL  IIn  IIN IIb",   // itype = PSNID_ITYPE_SNII
     "PEC1A-Iabg",                   // itype = PSNID_ITYPE_PEC1A
     "MODEL1" ,     // generic MODEL 1
@@ -1143,11 +1148,12 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
 
   Aug 28 2017: check for MODEL1, MODEL2, etc ...
 
+  May 2022 RK - abort if any type is not defined; see NERR
  ***/
   
 /**********************************************************************/
 {
-  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE ;
+  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE, NERR=0 ;
   int nmodel[PSNID_NTYPES], nmodel_sum=0 ;
   char *CTYPE ;
   char fnam[] = "psnid_best_split_nonia_types";
@@ -1157,6 +1163,8 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
   for(i=0; i<PSNID_NTYPES; i++ ) { nmodel[i]=0; }
   
   for (i=1; i <= PSNID_MAXNL_NONIA; i++) {
+
+    types[i-1] = -9 ;
 
     // define local vars (RK Jan 2013)
     ITYPE = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].NON1A_ITYPE_AUTO[i] ;
@@ -1236,16 +1244,19 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     else {  // ITYPE <= 0
       types[i-1] = ITYPE;
       nignore = nignore + 1;
-
       if (optdebug == 1) {
 	printf("\t xxx index = %2d is ignored            itype=%d\n",
-	       i, ITYPE);
-      }
-
+	       i, ITYPE);  }
     }
+
+    if ( types[i-1] < 0 )  {
+      printf(" ERROR: unknown type for '%s'(%d) \n", CTYPE,ITYPE);
+      NERR++ ;
+    }
+
   }
 
-  if (optdebug == 1) {
+  if (NERR > 0 || optdebug == 1) {
     printf("\t There are %2d Ibc   templates\n", nibc);
     printf("\t There are %2d II    templates\n", nii);
     printf("\t There are %2d PEC1A templates\n", npec1a);
@@ -1257,7 +1268,12 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     printf("\t There are %2d  templates ignored\n\n", nignore);
   }
 
-  
+  if ( NERR > 0 ) {
+    sprintf(c1err,"%d templates with unknown types", NERR);
+    sprintf(c2err,"Check ERROR messages above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+  }
+
   PSNID_NGRID[PSNID_ITYPE_SNIA]  =
     USEFLAG_TEMPLATES_PSNID[TYPEINDX_SNIA_PSNID];
   PSNID_NGRID[PSNID_ITYPE_SNIBC] = nibc ;
@@ -2240,7 +2256,7 @@ void psnid_best_grid_compare(int itype, int zpind, int nobs,
       for (u = minu; u <= maxu; u = u + ustep) {      // dmu
 	chisqlozu = PSNID_BIGN;
 	ushift = u_grid[u];
-	// .xyz for Ia opton, set ushift=0 (9/15/2017)
+	// for Ia opton, set ushift=0 (9/15/2017)
 
 	for (d = mind; d <= maxd; d = d + dstep) {    // shapepar
 

@@ -212,7 +212,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   int MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   bool IS_DOCANA = false, IS_COMMENT=false;
   FILE *fp = LCLIB_INFO.FP;
-  char wd0[80], wd1[80], wd2[80], LINE[200], tmpString[60], comment[60] ;
+  char wd0[200], wd1[200], wd2[200], LINE[200], tmpString[200], comment[200] ;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
 
   // -------------- BEGIN ---------------
@@ -234,6 +234,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   LCLIB_INFO.GENRANGE_DIFMAG[1] = 0.0 ;
 
   LCLIB_INFO.IPAR_REDSHIFT = -9;
+  LCLIB_INFO.IPAR_MWEBV    = -9;
   LCLIB_INFO.REDSHIFT_RANGE[0] = 0.0 ; 
   LCLIB_INFO.REDSHIFT_RANGE[1] = 0.0 ;
 
@@ -407,9 +408,14 @@ void parse_PARNAMES_LCLIB(char *parNameString) {
       sprintf(c2err,"hash (#) not allowed");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
-    // to delete if ( strcmp(parName,"redshift")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
-    // to delete if ( strcmp(parName,"REDSHIFT")==0 ) { LCLIB_INFO.IPAR_REDSHIFT=ipar; }
-    if (strcmp_ignoreCase(parName, PARNAME_REDSHIFT_LCLIB) == 0){ LCLIB_INFO.IPAR_REDSHIFT=ipar;}
+
+    if (strcmp_ignoreCase(parName, PARNAME_REDSHIFT_LCLIB) == 0) 
+      { LCLIB_INFO.IPAR_REDSHIFT = ipar;}
+
+    if (strcmp_ignoreCase(parName, PARNAME_MWEBV_LCLIB) == 0) { 
+      LCLIB_INFO.IPAR_MWEBV    = ipar;
+      sprintf(parName,"%s_LCLIB", PARNAME_MWEBV_LCLIB); // avoid name conflict 
+    }
   }
   
   return ;
@@ -2025,7 +2031,6 @@ void addTemplateRows_NONRECUR(void) {
     } 
   }
 
-  // .xyz
   if ( NFERR > 0 ) {
     sprintf(c1err,"Invalid NONRECUR EVENT (ID=%lld)", LCLIB_EVENT.ID );
     sprintf(c2err,"First and Last mags do not match");
@@ -2444,7 +2449,6 @@ double magSearch_LCLIB(int ifilt, double Tobs) {
     //    (beware that mag_T is not necessarily quiescent mag)
     // After  LCLIB epoch range. set mag_S = last [quiescent] mag
     // (i.e., the quiescent value)
-    // .xyz
 
     if ( DAY_LCLIB <= DAYMIN_S ) { return(mag_T) ; }
     if ( DAY_LCLIB >= DAYMAX_S ) { DAY_LCLIB = DAYMAX_S - 1.0E-5 ; }

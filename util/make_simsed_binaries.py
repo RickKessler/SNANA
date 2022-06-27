@@ -14,6 +14,9 @@
 #   + add clobber_sed_binary()  util
 #
 # Feb 05 2022 RK - USE_BINARY -> 6 (force remake of both binaries)
+# Jun 06 2022 RK - add GENPREFIX: [survey] to avoid error from 
+#                  too-long string from default genprefix=genversion /
+#
 # ============================================
 
 import os, argparse, logging, shutil, time
@@ -206,6 +209,7 @@ def create_simgen_file(info_dict):
     GENRANGE_PEAKMJD = info_dict['GENRANGE_PEAKMJD']
 
     genversion          = f'{GENVERSION_PREFIX}_{survey}'
+    genprefix           = f'{survey}'   # Jun 2022 R.Kessler
     sim_input_file_name = f"SIMGEN_TEMPLATE_{survey}.input"
 
     logging.info(f'Create sim input file: {sim_input_file_name}')
@@ -216,6 +220,7 @@ def create_simgen_file(info_dict):
             f.write(f'{k}: {v}\n')
         f.write(f'#\n# auto-generated keys with required values\n')
         f.write(f'GENVERSION: {genversion}\n')
+        f.write(f'GENPREFIX:  {genprefix}\n')
         f.write(f'SIMSED_USE_BINARY: {USE_BINARY}\n')
         f.write(f'SIMSED_GRIDONLY:   SEQUENTIAL  \n')
         f.write(f'GENSOURCE:   RANDOM\n')
@@ -270,6 +275,7 @@ def create_bash_script(info_dict):
             cmd_list.append(f'{pad}GENMODEL {model} \\')
             cmd_list.append(f'{pad}GENRANGE_REDSHIFT {zmin} {zmax} \\')
             cmd_list.append(f'{pad}GENVERSION {genversion} \\')
+            cmd_list.append(f'{pad}GENPREFIX  {survey} \\')
             cmd_list.append(f'{pad}  > {logfile}')            
 
             if (index+1) % njobs != 0: 

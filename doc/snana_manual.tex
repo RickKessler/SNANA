@@ -74,8 +74,8 @@
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
-\newcommand{\simeffsub}{\epsilon_{subtr}}
-\newcommand{\simeffspec}{\epsilon_{spec}}
+\newcommand{\simeffsub}{\epsilon_{\rm subtr}}
+\newcommand{\simeffspec}{\epsilon_{\rm spec}}
 \newcommand{\magdim}{{\mathcal M}_{\rm dim}}
 
 \newcommand{\spec}{spectroscopic}
@@ -3460,6 +3460,36 @@ observations. For simulations, default {\tt PHOTPROB=1},
 or a {\tt PHOTPROB} map can be defined (Fig.~\ref{fig:pipeline_maps}).
 
 % ------------------------------------
+%   \clearpage
+   \subsubsection{Trigger on Single-Detections instead of Coadd}
+   \label{sssec:detect_single}
+
+{\simlib} cadences are typically co-added within a night to achieve
+optimal search depth. If the ID column of the \simlib\ includes
+the number of exposures that were co-added 
+(see {\tt NEXPOSE} in \S\ref{sssec:saturation}),
+there is a sim-input flag to trigger on single detections instead
+of the coadd,
+\begin{verbatim}
+   APPLY_DETECT_SINGLE: 1
+\end{verbatim}
+This flag results in the following changes in the pipeline-detection:
+\begin{itemize}
+   \item ${\rm SNR} \to {\rm SNR}/\sqrt{\rm NEXPOSE}$ is used to
+      determine the detection efficiency ($\simeffsub$) 
+      from the efficiency-vs-SNR map
+      (\S\ref{sss:eff_pipeline})
+   \item While SNR is reduced in each exposure, there are {\tt NEXPOSE}
+      opportunities for detection; thus the final detection efficiency
+      is re-computed as
+  \begin{equation}
+     \simeffsub \to 1 - (1-\simeffsub)^{\rm NEXPOSE}
+  \end{equation}
+\end{itemize}
+
+% ------------------------------------
+
+% ------------------------------------
    \clearpage
    \subsection{Selection Cuts }
    \label{subsec:simcuts}
@@ -3972,6 +4002,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MNINTFLUX_SNPOS: .20       # default=0.0
    HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
+   HOSTLIB_SNR_DETECT:   xxx          # default=0 SNR>xxx (see below)
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
@@ -3986,7 +4017,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
    HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
    HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0 (Legacy key)
-   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   # default= 1.0 for all prop
+   HOSTLIB_SCALE_PROPERTY_ERR: 0.8(LOGMASS),0.9(LOGSFR),0.1(LOGsSFR)   
+                                      # default= 1.0 for all properties
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -4021,7 +4053,17 @@ into the SNTABLEs  and ascii fitres file.
 {\tt GENPDF\_FILE}, and
 {\tt WGTMAP}
 are automatically included in the {\tt HOSTLIB\_STOREPAR} list.
-%
+
+
+{\tt HOSTLIB\_SNR\_DETECT} works only if both mags and mag-uncertainties
+are defined in the \hostlib\ as {\tt [band]\_obs} and {\tt [band]\_obs\_err}.
+Setting ``{\tt HOSTLIB\_SNR\_DETECT: 5}'' requires at least one band with
+SNR>5; an argument of '5,5' requires two bands to satsify SNR>5;
+'5,5,3' requires at least two bands with SNR>5 and a 3rd band with SNR>3.
+If the true host fails the SNR cut, the event will either be host-less
+(no matches), or matched to a different nearby galaxy that
+passes SNR cut.
+
 {\tt HOSTLIB\_MINDAYSEP\_SAMEGAL} specifies the minimum
 {\tt PEAKMJD} separation (in days) for re-using a galaxy.
 This option can be useful, for example, in multi-year surveys 
@@ -4102,7 +4144,7 @@ The reported {\tt ZPHOTERR} is $\sigma_1$, and thus G2
 introduces non-Gaussian outliers which are not described
 by the reported \unc.
 
-\clearpage
+%\clearpage
 \newcommand{\sigplus}{\sigma_{+}}
 \newcommand{\sigminus}{\sigma_{-}}
 \newcommand{\zpeak}{z_{\rm peak}}
@@ -4365,6 +4407,36 @@ is multiplied by {\tt coeff\_specbasis[nn]}, and all of the spec-basis
 terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
 the z-norm term. 
 
+
+% - - - - - - - -  -
+\subsubsection{Computation of DDLR (SNSEP/DLR) }
+\label{sss:hostlib_ddlr}
+
+The Sersic parameters in the \hostlib\ are assumed to represent
+the true galaxy profile, without PSF smearing, and this profile
+is used to overlay a true SN location near the host galaxy. 
+To compute {\tt DDLR=SNSEP/DLR}, a default DLR is computed from the 
+true Sersic profile, which does not account for PSF smearing.
+There are two approximate methods to account for PSF smearing
+in the DLR computation:
+%
+\newcommand{\absmear}{ab_{\rm smear}}
+\begin{enumerate}
+   \item define \hostlib\ columns {\tt a\_DLR} and {\tt b\_DLR} based
+       on measured half-light radii. These quanitieis are used only
+       to compute DLR, but are not used to overlay a true SN location.
+%
+   \item Use sim-input ``{\tt HOSTLIB\_SMEAR\_SERSIC: 1.0}'' which
+     is loosely interpreted as a FWMH (arcsec) for average PSF.
+     This parameter has no impact on placement of SN near galaxy,
+     but it affects the DLR calculation as with
+       \begin{eqnarray}
+         \absmear & \equiv & {\tt HOSTLIB\_SMEAR\_SERSIC}/2 \\
+         a & \to & \sqrt{a^2 + \absmear^2} \\
+         b & \to & \sqrt{b^2 + \absmear^2}
+       \end{eqnarray}
+     where $a,b$ are the semimajor/minor half-light radii.
+\end{enumerate}
 
 % ------------------------------------
 \clearpage
@@ -6086,33 +6158,38 @@ and the sub-sections below give more details.
    \label{sss:fits_format}
 % ------------------------------------
 ``{\tt\bf FORMAT\_MASK:  32}'' 
-uses the more compact binary-FITS format 
-that is processed using the {\tt cfitsio} library. 
+uses the compact binary-FITS format that is processed using the 
+{\tt cfitsio} library. 
 The advantage of this format is that there are very few files
 to manage, reading is much faster compared to the TEXT options, 
-the compact binary files are portable to any computing platform,
+FITS files are portable to any computing platform,
 and there are public fits-viewing utilities such as ``fv.''
 
-
-Two fits files are created by the simulation.
-First is a HEAD file with a one-row summary for each SN.
-The summary info includes the SNID, sky coordinates,
-Galactic extinction, and many other quantities.
-The HEAD file also contains the name of the second 
-``PHOT'' file which contains the photometric light curves.
-All of the light curves are written sequentially into one
-PHOT-table, and pointers from the HEAD file 
+For data version {\tt VVV}, the file {\tt VVV.LIST} points 
+a set of {\tt HEAD} files with a one-row summary for each SN.
+The summary info includes the SNID, sky coordinates, redshift,
+Galactic extinction, host-galaxy information, and many other quantities.
+Each {\tt HEAD} file also contains the name of the second 
+``{\tt PHOT}'' file which contains the photometric light curves.
+All of the light curves are written sequentially to the
+{\tt PHOT}-tables, and pointers in the {\tt HEAD} file 
 (see {\tt PTROBS\_MIN} and {\tt PTROBS\_MAX}) 
-are used to select the appropriate rows from the PHOT table.
-For a given SN-data version, the {\tt [VERSION].LIST} file
-contains a list of HEAD fits-files. Usually there is only
-one such fits-file, but several can be combined into one version,
-such as combining files from different seasons.
+are used to select the appropriate rows from the {\tt PHOT} table.
+To help catch pointer mistakes, {\tt MJD = -777} is written
+after each light curve to clearly indicate the end of the light curve.
 
-The  {\tt PHOT} table columns are:
+
+If {\tt submit\_batch\_jobs} is used to generate simulations on mutiple cores,
+there will be one {\tt HEAD} and one {\tt PHOT} file per core, all gzipped. 
+Reading a gzipped FITS file requires the memory of the entire unzipped FITS
+file; therefore the FITS files are not merged to reduce memory.
+For example, 40 1GB FITS files requires only 1GB of memory to read,
+while merging into one file would require 40 GB memory.
+
+The {\tt PHOT} table columns are:
 \begin{Verbatim}[frame=single]
   TTYPE1  = 'MJD     '           / MJD
-  TTYPE2  = 'FLT     '           / single-char band label
+  TTYPE2  = 'BAND    '           / single-char band label
   TTYPE3  = 'FIELD   '           / name of FIELD
   TTYPE5  = 'PHOTFLAG'           / bit-mask from photometry pipeline
   TTYPE6  = 'PHOTPROB'           / float FoM from photometry pipeline
@@ -6123,12 +6200,12 @@ The  {\tt PHOT} table columns are:
   TTYPE13 = 'PSF_RATIO'          / PSF2/PSF1 at origin
   TTYPE14 = 'SKY_SIG '           / Search image sky sigma (ADU/pixel) 
   TTYPE15 = 'SKY_SIG_T'          / Template sky sigma (ADU per pixel)
-  TTYPE16 = 'RDNOISE '           / read noise (pe/pixel)
-  TTYPE17 = 'ZEROPT  '           / zero point (ADU)
+  TTYPE16 = 'RDNOISE '           / image read noise (pe/pixel)
+  TTYPE17 = 'ZEROPT  '           / image zero point (ADU)
   TTYPE18 = 'ZEROPT_ERR'         / error on above
   TTYPE19 = 'GAIN    '           / ADU per pe
+  TTYPE21 = 'SIM_MAGOBS'         / True model mag (sim only)
 \end{Verbatim}
-
 
 % ------------------------------------
 %   \clearpage
@@ -6754,7 +6831,7 @@ for all tables formats.
    \label{ssec:RANSYSTPAR}
 % ------------------------------------
 
-While systematic variations are typically done in the analysis stage,
+While systematic variations are typically evaluated in the analysis stage,
 it may be useful to simulate a large number of data-sized samples,
 each with a different random set of systematic errors applied.
 In principle, one can define each set of variations in a brute-force manner:
@@ -6763,17 +6840,16 @@ and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
 {\tt GENVERSION} (see \S\ref{sss:submit_batch}).
 
 Instead of the brute-force apporach, it is simpler to use the 
-{\tt RANSYSTPAR\_XXX} input parameters so that the user need 
-only change {\tt RANSEED} and the simulation picks random errors.
+{\tt RANSYSTPAR\_XXX} input parameters so that 
+the simulation picks random errors.
 Here are examples of available options for the sim-input file:
 %
 \begin{Verbatim}[frame=single]
-   GENFILTERS:  griz
-   RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
-   RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
+#       systematics that are 100 percent correlated among samples
    RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
    RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
    RANSYSTPAR_SIGSHIFT_REDSHIFT: 1E-4     # shift measured redshift
+   RANSYSTPAR_SIGSHIFT_zPHOT_HOST: 0.01   # shift zPHOT of host galaxy
    RANSYSTPAR_SIGSHIFT_W0:           0.1  # shift w
    RANSYSTPAR_SIGSHIFT_OMEGA_MATTER: 0.1  # shift OM
 
@@ -6786,6 +6862,15 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_GENPDF_FILE_WILDCARD: "/path/to/genpdf_files*" 
            # pick random GENPDF_FILE out of globbed list
 
+\end{Verbatim}
+
+\bigskip
+
+\begin{Verbatim}[frame=single]
+#             systematics that depend on survey
+  GENFILTERS:  griz
+  RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
+  RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
   # filter-dependent variants:
   RANSYSTPAR_SIGSHIFT_ZP:           .01 .02 -0.01 .03      # sigma per band
   RANSYSTPAR_SIGSHIFT_ZP(g,r,i,z):  .01 .02 -0.01 .03      # idem
@@ -6794,12 +6879,28 @@ Here are examples of available options for the sim-input file:
 
   RANSYSTPAR_SIGSHIFT_LAMFILT:          8 7 19 9   # sigma per band
   RANSYSTPAR_SIGSHIFT_LAMFILT(g,r,i,z): 8 7 10 9   # idem
+\end{Verbatim}
+
+\clearpage
+
+\begin{Verbatim}[frame=single]
+  # misc control parameters
+
+  # use this random to select sytematic shifts; then switch back to
+  # user-define RANSEED, or RANSEED_GEN above. submut_batch_jobs uses
+  # this key to define correlated syst for each of the N samples.
+  RANSYSTPAR_RANSEED_SYST: 12345      
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
-   RANSYSTPAR_RANSEED_GEN: 12345  
+  RANSYSTPAR_RANSEED_GEN: 12345  
+
+  # if different surveys use same instrument, force the same 
+  # IDSURVEY-dependent randoms for systematics such as ZP and FilterWave.
+  RANSYSTPAR_IDSURVEY: 15 # e.g, same shifts for Found and PS1
 \end{Verbatim}
-%
+%  .xyz
+
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.
 A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
 and then a random Gaussian number, $r$, is picked. 
@@ -6830,6 +6931,12 @@ of shifts.
 %
   \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
           to each filter bandpass.
+%
+  \item {\tt RANSYSTPAR\_RANSEED\_SYST} is a flag for 
+      {\tt submit\_batch\_jobs.sh} to select the same random for each
+      split job. For exampe, consider 50 random data samples for LOWZ,PS1,DES.
+      Split-sample 1 gets the same {\tt RANSYSTPAR\_RANSEED\_SYST} value
+      for each survey,  split-sample 2 gets a different value, etc...
 %
   \item {\tt RANSYSTPAR\_RANSEED\_GEN} allows fixing the generation seed
         after systematic variations are selected. This removes statistical
@@ -11511,6 +11618,30 @@ END_EVENT:  <ID1>
      Note that a more accurate strategy is to create a 
      SIMLIB cadence library with the correct RA,DEC distribution
      (and {\tt GENMODEL\_MSKOPT=0}).
+\end{itemize}
+
+% ----------------------------------------------       
+\clearpage
+\subsubsection{Special {\tt MODEL\_PARNAMES} Features}
+\label{sss:LCLIB_parnames}
+
+The {\tt MODEL\_PARNAMES} are read and passed to output data files 
+and simgen-dump file. These parameters are not used to generate events,
+except for two special features:
+
+\begin{itemize}
+  \item {\tt\bf MWEBV (mwebv):} indicates that MWEBV has been computed
+     and applied to the model light curves, perhaps using a 3D dust model.
+     The simulation reports MWEBV based on {\tt OPT\_MWEBV} (e.g., SFD98),
+     but does not make a redundant MWEBV correction to the true
+     magnitudes ({\tt SIM\_MWEBV=0}). To avoid a MWEBV-naming conflict,
+     the LCLIB-MWEBV is renamed {\tt MWEBV\_LCLIB} for the data files
+     and simgen-dump file.
+  \item {\tt\bf REDSHIFT (redshift):}
+     indicates a true non-zero redshift for the model light curve
+     (default LCLIB redshift is $z=0$), 
+     and can be used with a {\tt HOSTLIB}. 
+     This feature may be convenient for extraGalactic models such as AGN.
 \end{itemize}
 
 

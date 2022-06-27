@@ -37,6 +37,9 @@
                mag = 666 (instead of 99) to instruct sim NOT to write this
                invalid flux to data file.
 
+  Jun 13 2022 RK - if no python code, abort by default unless
+                   GENMODEL_MSKOPT = 4096
+
  *****************************************/
 
 #include  <stdio.h>
@@ -179,10 +182,22 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   SEDMODEL_HOSTXT_LAST.z  = -999.   ;
 
 #ifndef USE_PYTHON
-  printf("\n no python ==> read SALT2 template with C code. \n");
-  // read M0 surface of SALT2 model, corresponding to x1=c=0.
-  // This is for debug-comparisons with SALT2 model where x1=c=0.
-  read_SALT2_template0();
+
+  bool ALLOW_C_ONLY = ( OPTMASK & OPTMASK_ALLOW_C_ONLY ) > 0;
+
+  if ( ALLOW_C_ONLY ) {
+    printf("\n no python ==> read SALT2 template with C code. \n");
+    // read M0 surface of SALT2 model, corresponding to x1=c=0.
+    // This is for debug-comparisons with SALT2 model where x1=c=0.
+    
+    read_SALT2_template0();
+  }
+  else {
+    sprintf(c1err,"SNANA is not linked to Python-model code.");
+    sprintf(c2err,"Pass GENMODEL_MSKOPT += %d to debug with C code and SALT2", 
+	    OPTMASK_ALLOW_C_ONLY);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
 #endif
 
@@ -591,7 +606,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
 
   // xxx  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			  "fetchSED_BYOSED"); // .xyz
+  // xxx			  "fetchSED_BYOSED"); //
 
   plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
   pnlammeth = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_NLAM");

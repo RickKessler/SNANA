@@ -1,6 +1,8 @@
 # Created Oct 2021 [move utils out of base]
 # utilities to write data in snana format
-
+#
+# Jun 24 2022 RK - avoid writing HOSTGAL2_MAG[ERR] of there is no 2nd host.
+#
 import datetime
 import glob
 import logging
@@ -91,6 +93,7 @@ def write_event_text_snana(args, config_data, data_event_dict):
         write_header_snana(f,head_raw)
 
         f.write("\n# computed quantities \n")
+
         write_header_snana(f,head_calc)
 
         if head_private :
@@ -138,24 +141,30 @@ def write_header_snana(f, data_head):
         string_val     = f"{val}"
         if isinstance(val,float):  
             ival = int(val)
-            if val == ival : string_val = f"{ival}"
+            if val == ival : 
+                string_val = f"{ival}"
+            else:
+                string_val = f"{val:.6f}" # Jun 24 2022 RK doesn't work??
 
         is_redshift    = "REDSHIFT" in key
         is_private     = "PRIVATE"  in key
         is_hostgal     = "HOSTGAL"  in key
 
-        # skip keys with NULL value, except for keys with REDSHIFT ...
-        # must always write REDSHIFT.
+        # skip keys with NULL value, except for private keys and 
+        # keys with REDSHIFT ... must always write REDSHIFT.
         skip = False
-        if not (is_redshift or is_private) :
+        force_write = is_redshift or is_private
+        if not force_write:
             skip = val in gpar.VAL_NULL_LIST
+
         if skip: continue
 
+        # write blank line before host info (for visual aid)
         if is_hostgal:
             n_hostkey += 1
             if n_hostkey == 1: f.write(f"\n")
 
-        # increment mag-dependent host strings
+        # increment filter-dependent host strings
         skip_hostkey = False
         for prefix  in gpar.HOSTKEY_PREFIX_LIST:
             prefix_ = prefix + "_"
@@ -174,7 +183,7 @@ def write_header_snana(f, data_head):
         f.write(f"{key_plus_colon:<20s}  {string_val} \n")
 
     # - - - - - -
-    # write mag-dependent host info where are n_filter values
+    # write mag-dependent host info where n_filter values
     # are written on one line.
     for prefix in gpar.HOSTKEY_PREFIX_LIST:
         string_vals = hostgal_string_vals[prefix]

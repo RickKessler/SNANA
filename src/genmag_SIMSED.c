@@ -140,8 +140,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,int OPTMASK       // bit-mask of options
 		       ) {   
 
-  // OPTMASK +=  1 --> create binary file
-  // OPTMASK +=  2 --> force creation of SED.INFO
+  // OPTMASK +=  1 --> create binary file if it doesn't exist
+  // OPTMASK +=  2 --> force creation of SED.BINARY
   // OPTMASK +=  4 --> force creaton of flux-table binary
   // OPTMASK += 64 --> test mode only, no binary, no time-stamp checks
   // OPTMASK += 128 -> batch mode, thus abort on stale binary
@@ -292,12 +292,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   read_SIMSED_INFO(SIMSED_PATHMODEL);
   dump_SIMSED_INFO();
 
-
-
   // - - - - - - - - - - - - - - - - - - - - 
   if ( USE_TESTMODE ) { return(retval); } // July 28 2018
   // - - - - - - - - - - - - - - - - - - - - 
-
 
 
   // determine SEDMODEL.MXDAY from ASCII or binary file
@@ -405,14 +402,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
 
-    printf("\t Trest: %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n"
-	   ,TEMP_SEDMODEL.DAYMIN
-	   ,TEMP_SEDMODEL.DAYMAX
-	   ,TEMP_SEDMODEL.LAMMIN
-	   ,TEMP_SEDMODEL.LAMMAX
-	   );
-    
-    fflush(stdout) ;
+    print_ranges_SEDMODEL(&TEMP_SEDMODEL);
 
   }    //  end loop over ised templates
 
@@ -490,16 +480,24 @@ void open_SEDBINARY(char *binFile, bool force_create,
     *WRFLAG = true ;
     // re-open in write mode
     *fpbin = fopen(binFile,"wb") ;
-    printf("\n Create SED-BINARY file for quicker initialization: \n");
-    printf("  %s\n\n", binFile ); fflush(stdout);
+    printf("\n Create SED-BINARY file for quicker init: \n");
+    printf("  %s\n", binFile ); 
+    printf("\t (write SED-binary format version=%d)\n", 
+	   IVERSION_SIMSED_BINARY);
+    printf("\n");
+    fflush(stdout);
     fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
   }
   else {
     *RDFLAG = true ;
-    printf("\n Read SED-BINARY file for quicker initialization: \n");
-    printf("  %s\n\n", binFile );
+    printf("\n Read SED-BINARY file for quicker init: \n");
+    printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
     fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
+    printf("\t (read SED-binary format version=%d)\n", 
+	   IVERSION_SIMSED_BINARY);
+    printf("\n");
+    fflush(stdout);
   }
 
   fflush(stdout);
@@ -575,11 +573,6 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   TEMP_SEDMODEL.DAYMAX = TEMP_SEDMODEL.DAY[NDAY-1];
   TEMP_SEDMODEL.LAMMIN = TEMP_SEDMODEL.LAM[0];
   TEMP_SEDMODEL.LAMMAX = TEMP_SEDMODEL.LAM[NLAM-1];
-
-  /* xxxxxxx mark delete Mar 2 2022 xxxxxxx
-  double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
-  if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
-  xxxxxxxxxx */
 
 } // end of read_SIMSED_flux
 
@@ -743,8 +736,9 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   //
   // Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
   //
+  // Jun 6 2022: if PARVAL range > 1E6, write %le format
 
-  char *ptrFile, c_get[80], *ptr_parval, tmpName[60] ;
+  char *ptrFile, c_get[80], *ptr_parval, tmpName[60], c_parval[80] ;
   double PARLIM[2], DIF, XN;
   int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
 
@@ -874,8 +868,14 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     else
       { SEDMODEL.PARVAL_BIN[ipar]  = 0.0 ; }
 
-    printf("\t Found '%12s' with %2d bins from %8.3f to %8.3f\n",
-	   tmpName, NBPAR, PARLIM[0], PARLIM[1] );
+
+    if ( PARLIM[1] < 1.0E6 ) 
+      { sprintf(c_parval,"%8.3f to %8.3f", PARLIM[0], PARLIM[1]); }
+    else
+      { sprintf(c_parval,"%10.3le to %10.3le", PARLIM[0], PARLIM[1]); }
+    printf("    Found '%16s' with %2d bins from %s\n",
+	   tmpName, NBPAR, c_parval );
+
   }
 
   // -------
@@ -952,12 +952,13 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   //                  
   // Aug 10 2017: SEDMODEL.MXDAY = NDAY  and not NDAY+10
   // Dec 29 2017: check sedFile and gzipped file too.
+  // Jun 06 2022: MXDAY += 5 in case of very close file sizes.
 
   int NSED = SEDMODEL.NSURFACE ;
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
   char sedFile[MXPATHLEN], sedFile_gz[MXPATHLEN], comment[60] ;
   struct stat statbuf ; 
-  //  char fnam[] = "set_SIMSED_MXDAY";
+  char fnam[] = "set_SIMSED_MXDAY";
 
   // ---------------- BEGIN -----------------
 
@@ -984,18 +985,15 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   /*
   printf("\t NDAY(largest file)=%d  => allocate %d epochs in SEDMODEL \n", 
   	 NDAY, SEDMODEL.MXDAY );
-
-  // shift peak Day ... can't remember why we need this here
-  // since it gets shifted later for each SED.
-  if ( TEMP_SEDMODEL.NDAY > 0 && TEMP_SEDMODEL.DAY[0] >= 0.0 ) 
-    { shiftPeakDay_SEDMODEL(1); }
   */
 
+  int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   if ( RDFLAG_BINARY ) {
     fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
+    // xxx mark if ( IVERSION_SIMSED_BINARY >=4 ) { SEDMODEL.MXDAY += NDAY_PAD ; }
   }
   else {
-    SEDMODEL.MXDAY = NDAY  ;
+    SEDMODEL.MXDAY = NDAY + NDAY_PAD ; // leave a little slop in file sizes
     if ( WRFLAG_BINARY ) 
       { fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); }
   }
@@ -1449,6 +1447,11 @@ double interp_flux_SIMSED(
      fix bug from v10_63g (July 2018). For GRIDONLY option, 
      make sure to load  *lumipar.
 
+   Jun 3 2022: 
+     + fix index bug computing range
+     + fix index bug loading *lumipar ... before it worked only if
+       selected model params were in same order is in SED.INFO file
+
   -------------------------------------------------- */
 
   /*
@@ -1537,8 +1540,9 @@ double interp_flux_SIMSED(
       NMATCH = 0 ;
       for(j=0; j < NPAR; j++ ) {
 	if ( pars_baggage[j] ) { continue ; } // skip baggage	     
-	range      = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
+	// xxx mark delete range  = SEDMODEL.PARVAL_MAX[j] - SEDMODEL.PARVAL_MIN[j] ;
 	ipar_model = iparmap[j];
+        range      = SEDMODEL.PARVAL_MAX[ipar_model] - SEDMODEL.PARVAL_MIN[ipar_model] ;
 	parval     = SEDMODEL.PARVAL[ISED][ipar_model];
 	diff       = (parval - lumipar[j]) / range ;
 	
@@ -1555,8 +1559,11 @@ double interp_flux_SIMSED(
 	ISED_SEDMODEL = ISED; // set globa, Mar 6 2017
 
 	// load *lumipar array
-	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) 
-	  { lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  }
+	for ( ipar=0; ipar < SEDMODEL.NPAR ; ipar++ ) {
+	  ipar_model = iparmap[ipar];
+	  lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar_model];
+	  // xxx mark delete lumipar[ipar] = SEDMODEL.PARVAL[ISED][ipar];  
+	}
 
 	return(Sinterp) ;
       }
@@ -1565,7 +1572,8 @@ double interp_flux_SIMSED(
 
     // if we get here abort on error.
     sprintf(c1err, "Could not find GRIDONLY match for %d params", NGRIDONLY);
-    sprintf(c2err, "z=%f Trest=%f NMATCH=%d", z, Trest, NMATCH );
+    sprintf(c2err, "z=%f Trest=%f ifilt_obs=%d  NMATCH=%d",
+	    z, Trest, ifilt_obs, NMATCH );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
 
   } // end of NGRIDONLY

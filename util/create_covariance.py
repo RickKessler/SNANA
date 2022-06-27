@@ -50,6 +50,14 @@
 #              Cov for cosmomc still unzipped until somebody shows
 #              that cosmomc can read gzip file.
 #
+# Apr 27 2022: reduce cov labels to new row and diag only -> 
+#               reduce output file size by ~50%
+#
+# Apr 30 2022: write MUERR_SYS = sqrt(COVSYS_DIAG) to hubble diagram
+#              (diagnostic only; not used in cosmology fit)
+#
+# May 2 2022 A.Mitra: check for unitary matrix and pos-definite.
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -84,6 +92,8 @@ VARNAME_MURES        = "MURES"
 VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
 VARNAME_MUERR_RENORM = "MUERR_RENORM"
+VARNAME_MUERR_SYS    = "MUERR_SYS"
+
 VARNAME_iz     = "IZBIN"
 VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
@@ -623,14 +633,14 @@ def get_cov_from_covfile(data, covfile, scale):
     covindf['CID2'] = covindf['CID2'].astype(str)+"_"+covindf['IDSURVEY2'].astype(str)
     covout = np.zeros((len(data),len(data)))
     for i,row in covindf.iterrows():
-        if len(np.argwhere(data['CIDstr'] == row['CID1'])) == 0:
+        if len(np.argwhere(data['CIDstr'].array == row['CID1'])) == 0:
             print(row['CID1'],'1 missing from output/cosmomc/data_wCID.txt')
             continue
-        if len(np.argwhere(data['CIDstr'] == row['CID2'])) == 0:
+        if len(np.argwhere(data['CIDstr'].array == row['CID2'])) == 0:
             print(row['CID2'],'2 missing from output/cosmomc/data_wCID.txt')
             continue
-        ww1 = np.argwhere(data['CIDstr'] == row['CID1'])[0][0]
-        ww2 = np.argwhere(data['CIDstr'] == row['CID2'])[0][0]
+        ww1 = np.argwhere(data['CIDstr'].array == row['CID1'])[0][0]
+        ww2 = np.argwhere(data['CIDstr'].array == row['CID2'])[0][0]
         #if ww1 == ww2:
         #    print('skipping, not doing same SN diagonals')
         #    continue
@@ -760,16 +770,34 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         # First just try and invert it to catch singular matrix errors
         precision = np.linalg.inv(effective_cov)
 
-        # Then check that the matrix is well conditioned to deal with float precision
+        # A.Mitra, May 2022
+        # Check if matrix is unitary and pos-definite.
+        pr = np.dot(effective_cov,precision)
+        pr = np.round(pr,decimals=3)
+        flag = is_unitary(np.round(pr,decimals=2))
+        if flag :
+            logging.info(f"{label} Matrix is UNITARY")
+        else :
+            logging.info(f"WARNING: {label} Matrix is not UNITARY")
+
+        flag2 = is_pos_def(np.round(effective_cov,decimals=3))
+        if flag2:
+            logging.info(f"{label} Matrix is Positive-Definite")
+        else :
+            logging.info(f"WARNING: {label} Matrix is not Positive-Definite")
+        
+        # check that COV is well conditioned to deal with float precision
         epsilon = sys.float_info.epsilon
         cond = np.linalg.cond(effective_cov)
         assert cond < 1 / epsilon, "Cov matrix is ill-conditioned and cannot be inverted"
         logging.info(f"Covar condition for COVOPT {label} is {cond:.3f}")
 
+        # May 2 2022 R.Kessler - mark delete here to save time re-inverting.
         # Finally, re-invert the precision matrix and ensure its within 
         # tolerance of the original covariance
-        cov2 = np.linalg.inv(precision)
-        assert np.all(np.isclose(effective_cov, cov2)), "Double inversion does not give original covariance, matrix is unstable"
+        # xxx mark delete cov2 = np.linalg.inv(precision)
+        # xxx mark delete assert np.all(np.isclose(effective_cov, cov2)), 
+        # xxx mark delete "Double inversion does not give original covariance, matrix is unstable"
 
     except np.linalg.LinAlgError as ex:
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
@@ -777,6 +805,22 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     return label, final_cov
 
+def is_unitary(matrix: np.ndarray) -> bool:
+    # Created May 2022 by A.Mitra
+    # Return true if input matrix is unitary
+    unitary = True
+    n = len(matrix)
+    error = np.linalg.norm(np.eye(n) - matrix.dot( matrix.transpose().conjugate()))
+    if not(error < np.finfo(matrix.dtype).eps * 10.0 *n):
+        unitary = False
+    return unitary
+    # end is_unitary
+
+def is_pos_def(x):
+    # Created May 2022 by A.Mitra
+    # return True of input matrix x is Postive Definite
+    return np.all(np.linalg.eigvals(x) > 0)
+    # end is_pos_def
 
 def write_standard_output(config, unbinned, covs, base):
     # Created 9.22.2021 by R.Kessler
@@ -793,10 +837,14 @@ def write_standard_output(config, unbinned, covs, base):
 
     data_file = outdir / HD_FILENAME
 
+    # Apr 30 2022: get array of muerr_sys(ALL) for output
+    muerr_sys_list = get_muerr_sys(covs)
+            
+    # - - - -
     if unbinned :
-        write_HD_unbinned(data_file, base)
+        write_HD_unbinned(data_file, base, muerr_sys_list)
     else:
-        write_HD_binned(data_file, base)
+        write_HD_binned(data_file, base, muerr_sys_list)
 
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
@@ -806,7 +854,29 @@ def write_standard_output(config, unbinned, covs, base):
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
 
+    return
+
     # end write_standard_output
+
+def get_muerr_sys(covs):
+
+    # Created April 30 2022
+    # return array of muerr_sys = sqrt(COVSYS_diag)
+    # to indicate size of syst. error for each HD entry.
+
+    muerr_sys_list = None
+
+    covsys_all = None
+    for i, (label, cov) in enumerate(covs):
+        if label == "ALL":
+            covsys_all = cov
+        
+    if covsys_all is not None :
+        covdiag_list = covsys_all.diagonal()
+        muerr_sys_list = np.sqrt(covdiag_list)
+
+    return muerr_sys_list
+    # end get_muerr_sys
 
 # =====================================
 # cosmomc utilities
@@ -916,17 +986,19 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 # ========= end cosmomc utils ====================
 
 
-def write_HD_binned(path, base):
+def write_HD_binned(path, base, muerr_sys_list):
 
     # Dec 2020
     # Write standard binned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
-    
+    # Apr 30 3022: check muerr_sys_list
+
     #if "CID" in df.columns:
 
     logging.info(f"Write binned HD to {path}")
 
-    wrflag_nevt = (VARNAME_NEVT_BIN in base)
+    wrflag_nevt   = (VARNAME_NEVT_BIN in base)
+    wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
     varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
@@ -942,23 +1014,33 @@ def write_HD_binned(path, base):
     else:
         nevt_list = muerr_list  # anything to allow for loop with zip
 
+    if wrflag_syserr:
+        varlist += f" {VARNAME_MUERR_SYS}"
+        syserr_list = muerr_sys_list
+    else:
+        syserr_list = muerr_list # anything to allow zip loop
+
     with open(path, "w") as f:
+        write_HD_comments(f,wrflag_syserr)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, z, mu, muerr, nevt) in \
-            zip(name_list, z_list, mu_list, muerr_list, nevt_list):
+        for (name, z, mu, muerr, nevt, syserr) in \
+            zip(name_list, z_list, mu_list, muerr_list, 
+                nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
             if wrflag_nevt: val_list += f" {nevt} "
-
+            if wrflag_syserr: val_list += f" {syserr:8.5f}"
             f.write(f"{keyname_row} {val_list}\n")
+    return
 
     # end write_HD_binned
 
-def write_HD_unbinned(path, base):
+def write_HD_unbinned(path, base, muerr_sys_list):
 
     # Dec 2020
     # Write standard unbinned HD format for BBC method
     # Sep 30 2021: replace csv format with SNANA fitres format
-    
+    # Apr 30 2022: pass muerr_sys_list
+
     #if "CID" in df.columns:
 
     logging.info(f"Write unbinned HD to {path}")
@@ -980,31 +1062,53 @@ def write_HD_unbinned(path, base):
 
     # check for optional quantities that may not exist in older files
     found_muerr_vpec = VARNAME_MUERR_VPEC in base
+    found_muerr_sys  = muerr_sys_list is not None
+
     if found_muerr_vpec :   
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
     else:
         muerr2_list = muerr_list # anything for zip command
 
+    if found_muerr_sys:
+        varlist += f" {VARNAME_MUERR_SYS}"
+        syserr_list = muerr_sys_list
+    else:
+        syserr_list = muerr_list # anything for zip command
+
     # - - - - - - -
-    # .xyz
     with open(path, "w") as f:
+        write_HD_comments(f,found_muerr_sys)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, z, mu, muerr, muerr2) in \
+        for (name, idsurv, z, mu, muerr, muerr2, syserr) in \
             zip(name_list, idsurv_list, z_list, 
-                mu_list, muerr_list, muerr2_list ):
+                mu_list, muerr_list, muerr2_list, syserr_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
                        f"{z:6.5f} {z:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
+            if found_muerr_sys:  val_list += f" {syserr:8.5f}"
 
             f.write(f"{keyname_row} {val_list}\n")
-
+    return
     # end write_HD_unbinned
+
+def write_HD_comments(f,wrflag_syserr):
+    f.write(f"# MU        = distance modulus corrected for bias and " \
+            "contamination\n")
+    f.write(f"# MUERR     = stat-uncertainty on MU \n")
+
+    if wrflag_syserr:
+        f.write(f"# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys " \
+                "(diagnostic)\n")
+
+    f.write(f"#\n")
+    return
+    # end write_HD_comments
 
 def write_covariance(path, cov, opt_cov):
 
-    add_labels     = (opt_cov == 1) # label each element in comment field
+    add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
     covdet         = np.linalg.det(cov)
     nrow           = cov.shape[0]
@@ -1033,9 +1137,9 @@ def write_covariance(path, cov, opt_cov):
         colnum += 1
 
         label = ""
-        if add_labels:
-            label = f"# ({rownum},{colnum})"
-            if colnum == 0 : label += " ------ "
+        if add_labels:            
+            if colnum == 0 or colnum == rownum : 
+                label = f"# ({rownum},{colnum})"
         f.write(f"{c:12.8f}  {label}\n")
 
     f.close()

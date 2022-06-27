@@ -555,7 +555,6 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
     table_head = table_dict['table_head']
     head_names = table_dict['head_names']
 
-#    len_base = len(gpar.HOSTKEY_BASE)
     for key in datakey_list:
         if gpar.HOSTKEY_BASE not in key:
             continue
@@ -563,14 +562,14 @@ def store_snana_hostgal(datakey_list, evt, table_dict, head_store):
         is_z = gpar.HOSTKEY_SPECZ in key or gpar.HOSTKEY_PHOTOZ in key
         key2 = key_hostgal_nbr(key,2)
         key3 = key_hostgal_nbr(key,3)
-# xxx mark key2 = gpar.HOSTKEY_BASE + '2' + key[len_base:] # neighbor host
-# xxx mark key3 = gpar.HOSTKEY_BASE + '3' + key[len_base:]
         key_list = [ key, key2, key3]
         for k in key_list:
             if k in head_names :
                 val = table_head[k][evt]
                 if is_z and val < 0.0 : val = gpar.VAL_NULL
                 head_store[k] = val
+
+    #print(f" xxx store_hostgal: {key} = {head_store[key]}")
 
     # end store_snana_hostgal
 
@@ -818,7 +817,6 @@ class READ_SNANA_FOLDER:
         head_raw[gpar.DATAKEY_RA]    = table_head.RA[evt]
         head_raw[gpar.DATAKEY_DEC] = \
             get_snana_table_value(['DEC','DECL'],evt,table_head)
-
 
         # lightcurve-MJD info. Note that MJD_DETECT_FIRST is optional
         head_calc[gpar.DATAKEY_PEAKMJD]   = table_head.PEAKMJD[evt]

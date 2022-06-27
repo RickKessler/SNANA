@@ -232,14 +232,19 @@ typedef struct {
 typedef struct {
   int   USE ;
 
-  int   RANSEED_GEN;         // fix ranseed for generation AFTER picking syst params
+  int  IDSURVEY;    // override true IDSURVEY for survey-dependent randoms
+
+  int  RANSEED_SYST; // RANSEED for picking syst variations (if >0)
+  int  RANSEED_GEN;  // ranseed for AFTER picking syst params (if >0)
+
   float SIGSHIFT_ZP[MXFILTINDX];
   float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang
   float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG
   float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors
   float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
   float SIGSHIFT_MWRV;       // shift RV
-  float SIGSHIFT_REDSHIFT;   // shift redshift PA 2020
+  float SIGSHIFT_REDSHIFT;   // shift measured redshift PA 2020
+  float SIGSHIFT_zPHOT_HOST; // shift in host photo-z, May 2022
   char GENMODEL_WILDCARD[MXPATHLEN]; // choose between wildcard models PA 2020
   char GENPDF_FILE_WILDCARD[MXPATHLEN]; // choose between wildcard GENPDF_FILEs
 
@@ -492,6 +497,11 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
+  float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
+  char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
+  int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
+  float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
 
   HOSTLIB_GENZPHOT_FUDGEMAP_DEF HOSTLIB_GENZPHOT_FUDGEMAP;
@@ -809,7 +819,7 @@ struct INPUTS {
   int   FUDGEOPT_FLUXERR;      // option passed to model of flux-err fudge
 
   int GENPERFECT;   // 1 => perfect lightcurves with x1000 photostats
-  int APPLY_SEARCHEFF_OPT ;      // bit 0,1,2 => trigger, spec, zhost
+  int APPLY_SEARCHEFF_OPT ;   // bit 0,1,2 => trigger, spec, zhost
 
   // define Gaussian sigmas to assign random syst error(s) during init stage
   INPUTS_RANSYSTPAR_DEF RANSYSTPAR ;
@@ -893,6 +903,7 @@ struct INPUTS {
 
   int  NVAR_SIMGEN_DUMP;  // number of SIMGEN variables to write to fitres file
   char VARNAME_SIMGEN_DUMP[MXSIMGEN_DUMP][40] ; // var-names
+  bool IS_SIMSED_SIMGEN_DUMP[MXSIMGEN_DUMP];
   int  IFLAG_SIMGEN_DUMPALL ;  // 1 -> dump every generated SN
   int  PRESCALE_SIMGEN_DUMP ;  // prescale on writing to SIMGEN_DUMP file
 
@@ -1181,6 +1192,8 @@ struct GENLC {
   double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
   double  peakmag_rest3[MXFILTINDX] ;
 
+  int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
+
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
 
@@ -1198,11 +1211,6 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
-  // Jan 19 2020:
-  //   ISPEAK    -> OBSFLAG_PEAK
-  //   ISOBS     -> OBSFLAG_GEN
-  //   USE_EPOCH -> OBSFLAG_WRITE
-  //   ISTEMPLATE -> OBSFLAG_TEMPLATE
   bool OBSFLAG_GEN[MXEPSIM];     // flag to generate mags & flux
   bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
@@ -1554,12 +1562,10 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 #define CUTBIT_MWEBV        7   // (128) galactic extinction
 #define CUTBIT_REDSHIFT     8   // (256) redshift
 #define CUTBIT_PEAKMAG      9   // (512) peak mag
-#define CUTBIT_TIME_ABOVE  10   // (1023) time above SNRMIN
-#define CUTBIT_SATURATE    11   // (2047) saturation cuts
+#define CUTBIT_TIME_ABOVE  10   // (1024) time above SNRMIN
+#define CUTBIT_SATURATE    11   // (2048) saturation cuts
 
 #define ALLBIT_CUTMASK    4095   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   2047   // 2^(maxbit+1)-1
-//#define ALLBIT_CUTMASK   1023   // 2^(maxbit+1)-1
 
 // define strings to contain info about simulated volume & time
 int  NLINE_RATE_INFO;
@@ -1735,6 +1741,7 @@ int    read_input_file(char *inFile, int keySource);
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
+void   parse_input_HOSTLIB_SNR_DETECT(char *string);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);
@@ -1792,8 +1799,9 @@ void   prep_dustFlags(void);
 void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
-void   prep_RANSYSTPAR(void); // called after reading user input
-void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *randomFile);
+void   prep_RANSYSTPAR(void); 
+void   prep_RANSYSTPAR_LEGACY(void); 
+void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
@@ -1811,7 +1819,7 @@ void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);
 void   gen_modelPar_SALT2(int OPT_FRAME);
 void   gen_modelPar_SIMSED(int OPT_FRAME);
-double pick_gridval_SIMSED(int ipar);
+double pick_gridval_SIMSED(int ipar, int ipar_model);
 void   gen_modelPar_dust(int OPT_FRAME);
 double gen_MWEBV(double RA, double DEC);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;

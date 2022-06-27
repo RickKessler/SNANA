@@ -1,7 +1,9 @@
 # Oct 20 2021
 # MakeDataFiles.py batch code
 # - Gautham Narayan and Rick Kessler (LSST DESC)
-
+# 
+# May 25 2022: for alerts, catenate SIMGEN-dump files to object-truth table.
+#
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs, tarfile
@@ -44,6 +46,8 @@ COLNUM_COMPRESS_NMJD_DIR  = 3  # number of day directories
 COLNUM_COMPRESS_TIME      = 4  # Nsec
 COLNUM_COMPRESS_RATE      = 5  # Ndir/sec
 
+TRUTH_ALERTS_FILENAME  = "TRUTH_ALERTS.csv"
+TRUTH_OBJECTS_FILENAME = "TRUTH_OBJECTS.csv"
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -201,6 +205,44 @@ class MakeDataFiles(Program):
 
         # end prepare_input_args
 
+    def write_truth_object_table(self):
+        # Created May 25 2022
+        # catenate the SIMGEN-DUMP files into a single csv file with
+        # truth info per object.
+
+        logging.info(f"\n Write object-truth table from SIMGEN-DUMP files " )
+        #.xyz
+        output_dir  = self.config_prep['output_dir']
+        inputs_list = self.config_prep['inputs_list']
+        df_all = {}
+        for inp in inputs_list:  # folder
+            genversion = os.path.basename(inp)
+            dump_file  = f"{genversion}.DUMP"
+            simgen_truth_file = os.path.expandvars(f"{inp}/{dump_file}")
+            logging.info(f"\t Append {dump_file}")
+            df  = pd.read_csv(simgen_truth_file, 
+                              comment="#", delim_whitespace=True)
+            if len(df_all) == 0:
+                df_all = df
+            else:
+                df_all = pd.concat([df_all,df])
+
+        # - - - - - - - - - - 
+        del df_all["VARNAMES:"]
+
+        varname_replace_dict = {
+            'CID'          : 'SNID',
+            'NON1A_INDEX'  : 'SIM_TEMPLATE_INDEX'
+        }
+        df_all.rename( columns = varname_replace_dict, inplace=True )        
+
+        object_truth_file  = f"{output_dir}/{TRUTH_OBJECTS_FILENAME}.gz"
+        df_all.to_csv(object_truth_file, index=False)
+        #sys.exit(f"\n xxx debug die from write_truth_object_table: \n{df_all}")
+        
+        return
+        # end write_truth_object_table
+        
     def prepare_data_units(self):
         CONFIG      = self.config_yaml['CONFIG']
         output_args = self.config_prep['output_args']
@@ -316,6 +358,7 @@ class MakeDataFiles(Program):
 
         self.prepare_output_args()
         self.prepare_input_args()
+        self.write_truth_object_table()
         self.prepare_data_units()
 
         # copy input config file to script-dir
@@ -953,28 +996,36 @@ class MakeDataFiles(Program):
             wildcard_base = f"{BASE_PREFIX}*.csv.gz"
         
             wildcard      = f"{script_dir}/{wildcard_base}"
-            combined_file = f"{output_dir}/ALERTS_TRUTH.csv.gz"
+            # xxx mark delete combined_file=f"{output_dir}/ALERTS_TRUTH.csv.gz"
+            combined_file  = f"{output_dir}/{TRUTH_ALERTS_FILENAME}.gz"
             util.combine_csv_files(wildcard, combined_file, True)
-
-            # xxx nothing to compress after combining csv files
-            #print(f"\t Compress {wildcard_base}")
-            #sys.stdout.flush()
-            #util.compress_files(+1, script_dir, wildcard_base, "csv", "" )
 
         else:
             msgerr.append(f"Unknown format '{output_format}" )
             util.log_assert(False,msgerr) # just abort, no done stamp
 
-        #print(ret,' debugging')
+        # - - - - - - - 
+        # break up tar files into pieces based on suffix
+        wildcard_list = [ 'MAKEDATA*.LOG',  'MAKEDATA*.DONE',
+                          'MAKEDATA*.YAML', 'MAKEDATA*.START', 'CPU*',  ]
+        suffix_list   = [ 'LOG', 'DONE', 'YAML', 'START', 'CPU' ]
 
-        wildcard_list = [ 'MAKEDATA', 'CPU',  ]
-        for w in wildcard_list :
-            wstar = f"{w}*"
-            tmp_list = glob.glob1(script_dir,wstar)
+        for w,suf in zip(wildcard_list,suffix_list):
+            tmp_list = glob.glob1(script_dir,w)
             if len(tmp_list) == 0 : continue
-            print(f"\t Compress {wstar}")
-            sys.stdout.flush()
-            util.compress_files(+1, script_dir, wstar, w, "" )
+            logging.info(f"\t Compress {w}")
+            util.compress_files(+1, script_dir, w, suf, "" )
+            
+        # xxx mark delete Jun 26 2022 
+        # xxx wildcard_list = [ 'MAKEDATA', 'CPU',  ]
+#        for w in wildcard_list :
+#            wstar = f"{w}*"
+#            tmp_list = glob.glob1(script_dir,wstar)
+#            if len(tmp_list) == 0 : continue
+#            print(f"\t Compress {wstar}")
+#            sys.stdout.flush()
+#            util.compress_files(+1, script_dir, wstar, w, "" )
+        # xxxxxxx
 
         # - - - -
         # tar up entire script dir

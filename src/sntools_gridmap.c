@@ -77,7 +77,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
   int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
-  char  LINE[200], word[40] ;
+  char  LINE[200], word[80] ;
   char fnam[] = "read_GRIDMAP" ;
  
   // ----------- BEGIN -------------
@@ -229,8 +229,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
 
 // ==============================================================
-void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE) {
-
+void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
   // Created May 26 2021
   // OPT > 0 -> malloc
   // OPT < 0 -> free
@@ -239,7 +238,7 @@ void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE) 
   int I4  = sizeof(int) ;
   int I8  = sizeof(double) ;
   int I8p = sizeof(double*) ;
-  char string[12];
+  char string[40];
   char fnam[] = "malloc_GRIDMAP";
 
   // ---------------- BEGIN ----------- 

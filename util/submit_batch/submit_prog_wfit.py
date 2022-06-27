@@ -319,10 +319,12 @@ class wFit(Program):
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
         wfitopt_rows    = None
+        key_found       = None
 
         for key in KEYNAME_WFITOPT_LIST:
             if key in CONFIG:
                 wfitopt_rows = CONFIG[key]
+                key_found    = key
 
         if wfitopt_rows is None:
             msgerr.append(f"Missing required CONFIG key ")
@@ -330,7 +332,7 @@ class wFit(Program):
             msgerr.append(f"One of these keys must be in {input_file}")
             self.log_assert(False, msgerr)
 
-        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key, None)
+        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key_found, None)
 
         n_wfitopt          = wfitopt_dict['n_jobopt']
         wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']
@@ -338,7 +340,7 @@ class wFit(Program):
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
 
         logging.info(f"\n Store {n_wfitopt} wfit options from " \
-                     f"{key} keys" )
+                     f"{key_found} keys" )
 
         self.config_prep['n_wfitopt']          = n_wfitopt
         self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list
@@ -541,7 +543,7 @@ class wFit(Program):
     def wfit_num_string(self,idir,icov,ifit):
 
         if idir >= 0 and icov < 0 and ifit < 0:
-            string = f"DIROPT{idir:03d}"
+            string = f"DIROPT{idir:05d}"
 
         elif icov >= 0 and idir < 0 and ifit < 0 :
             string = f"COVOPT{icov:03d}"
@@ -552,7 +554,7 @@ class wFit(Program):
             string = f"COVOPT{icov:03d}_WFITOPT{ifit:03d}"
 
         elif idir >= 0 and ifit>=0 and icov>=0 :
-            string = f"DIROPT{idir:03d}_COVOPT{icov:03d}_WFITOPT{ifit:03d}"
+            string = f"DIROPT{idir:05d}_COVOPT{icov:03d}_WFITOPT{ifit:03d}"
         else:
             string = "ERROR"
 
@@ -562,7 +564,7 @@ class wFit(Program):
     def wfit_prefix(self,row):
         # parse input row passed from MERGE.LOG and construct
         # prefix for output files
-        dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]  # e.g, DIROPT003
+        dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]  # e.g, DIROPT00003
         covnum  = row[COLNUM_WFIT_MERGE_COVOPT]  # e.g, COVOPT002
         wfitnum = row[COLNUM_WFIT_MERGE_WFITOPT] # e.g  WFITOPT001
         prefix = f"{dirnum}_{covnum}_{wfitnum}"
@@ -824,7 +826,7 @@ class wFit(Program):
         nrow = 0 ; nrow_warn = 0
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             nrow += 1
-            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-3:] # e.g., DIROPT000
+            dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-5:] # e.g., DIROPT00000
             covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
             prefix     = self.wfit_prefix(row)

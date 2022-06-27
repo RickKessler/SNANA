@@ -5,100 +5,6 @@
 #
 #  HISTORY 
 # -----------------------------------
-# Apr 07, 2012: add genSmear_models.c[.o]
-#
-# Jun 18, 2012: add public psnid based on pnsid.cra (with snana interface)
-#
-# Jul 25, 2012: added $PSNID_OBJECTS
-#               Remove *.f90 from list
-#
-# Oct 18, 2012: psnid.cra -> psnid.cra and psnid.car  to have same
-#               structre and snana and snlc_fit.
-#
-# Oct 23, 2012: remove SDSS_xxx programs from Make
-#
-# Dec 19, 2012: 
-#    - for FNAL, use BITNESS to determine 32- or 64-bit version of
-#      libraries. For non-FNAL use $(PRODUCT)/lib
-#    - General cleanup and organization
-#    - Fix 'make ../bin/psnid.exe' to work after 'make clean'
-#
-# Jan 09, 2013: add -lpthread link flag.
-#
-# Jan 31, 2013:  
-#      snfitsio -> sntools_fitsio
-#      remove $(OBJ)/human_search_eff.o 
-#
-# Feb 2, 2013: 
-#   - compile and link to sntools_output
-#   - remove 'make_resids.exe', which is broken anyway
-#   - link combine_fitres.exe to sntools_output.o
-#
-# Feb 20, 2013: lots of tweaks to prepare for CC = c++ .
-#
-# Apr  2, 2013: require LMINUIT for linking snana.exe and snlc_fit.exe
-# Apr 15, 2013: add sntools_nearnbr
-# Apr 20, 2013: add sntable_dump.exe
-# Apr 26, 2013: eigen.f -> sntools_eigen.F
-# May 02, 2013: add merge_hboook.exe (eventually to replace hmerge.exe)
-# May 07, 2013: remove hmerge
-# Sep 21, 2013: link a few more program to MWgaldust.o since 
-#                GALextinct is there.
-#
-# Jan 17, 2014: compile sntools_trigger.o
-# Feb  2, 2014: fix psnid dependencies to allow 
-#                    "make clean ; make ../psnid.exe"
-# Mar  2, 2014: add a few needed 'sndata.h' dependences.
-#
-# Apr 17, 2014: 
-#   - add fcasplit from cernlib (from D.Cinabro) and use
-#     $(SNANA_DIR//bin/fcasplit rather than CERNLIB's fcasplit.
-#   - use local ypatchy.pl instead of CERNLIB's ypatchy.
-#
-# Apr 27 2014:
-#   Define OBJ_OUTPUT = sntools_output.o + libsnana.a, where the latter
-#   contains wrapper FORCLOSE(LUN) called by CLOSE_HFILE. This is needed
-#   only to close a read-only file before the end of a program.
-#
-# May 27 2014: m64 is default instead of m64
-#
-# Aug 20 2014: compile with sntools_imageNoiseModels.c
-#
-# Sep 30 2014: add $(LROOT) to a few more programs since all of the
-#              fitres-ascii code is uner sntools_output_text.c
-#
-# Dec 17 2014: 
-#  check CERN_DIR and ROOT_DIR to internally set  USE_HBOOK and USE_ROOT.
-#  Also call defineOutputFlags.pl to set C pre-processor flags.
-#  User no longer has to manually edit files to select HBOOK,ROOT.
-#
-# Feb 19, 2015: remove SNANA_DIR dependence so that make works 
-#               without SNANA_DIR defined.
-#
-#               Replace LMINUIT with $(OBJ)/minuit.o (see minuit.F)
-#               so that we don't need the external MINUIT lib.
-#
-# Oct 28 2015: compile/link  sntools_fluxErrModel
-#
-# Mar 14 2016: compile genmag_NON1AGRID.o for simulation.
-#              Separate OBJ_GENMAGS -> OBJ_GENMAG_FIT and OBJ_GENMAG_SIM.  
-#
-# Apr 26 2016: compile sntools_nonlinearity.c
-#
-# Jul 2 2016: add sntools_spectrograph
-# Sep 2 2016: 
-#   + add sntools_genGauss_asym.o  
-#   + define USE_PYTHON based on $SNANA_PYTHON_DIR 
-#         [E.Jennings figured out how to call python from C]
-#
-# Jan 6 2017: add sntable_combine.c
-#
-# Apr 15 2017: add sntools_lensing.o to simulation
-# Aug 17 2017: add sntools_devel.o for simulation
-#
-# Feb 12 2018: 
-#  + remove sntools_imageNoiseModels
-#  + add sntools_fluxErrModels_legacy
 #
 # May 31 2018: add SIMSED_rebin
 # Jul 28 2018: remove SIMSED_prep.exe, and add SIMSED_check.exe
@@ -155,6 +61,8 @@
 # Apr 03 2022: link SIMSED_xxx programs to sntools_output because 
 #              sntools.c util now calls AUTOSTORE util.
 #
+# Jun 10 2022: for deciding C-python interace, check $VERSION_LIBPYTHON
+#    instead of $SNANA_PYTHON_DIR. 
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -174,7 +82,7 @@ FFC  = gfortran
 #CC   = cc
 CC   = gcc
 
-  EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
+  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -
@@ -274,12 +182,13 @@ endif
 #echo " LIBINT_ROOT5 = $(LIBCINT_ROOT5) " ;
 
 # Apr 2019: check for python codes
-ifndef SNANA_PYTHON_DIR
+# Jun 2022: use VERSION_LIBPYTHON to decide on C-python interface
+ifndef VERSION_LIBPYTHON
   IPY = 
   LPY = 
 else
-  IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
+  IPY = -I/$(CONDA_PREFIX)/include/python$(VERSION_LIBPYTHON)
+  LPY = -L$(CONDA_PREFIX)/lib -ldl  -lutil -Wl,-rpath,$(CONDA_PREFIX)/lib -lpython$(VERSION_LIBPYTHON)
 endif
 
 
@@ -427,6 +336,7 @@ OBJ_SNFIT	 = 		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/sntools_devel.o    \
+	$(OBJ)/sntools_zPDF_spline.o \
 	$(OBJ_GENMAG_FIT)
 
 OBJ_PSNID	=  		\
@@ -945,6 +855,13 @@ $(OBJ)/inoue_igm.o : $(SRC)/inoue_igm.c  $(SRC)/inoue_igm.h
 $(OBJ)/sntools_wronghost.o : $(SRC)/sntools_wronghost.c  $(SRC)/sntools_wronghost.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_wronghost.c )
+
+# -------------------------------------------------
+# compile sntools_wronghost (.o only)
+
+$(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c 
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_zPDF_spline.c )
 
 
 # -------------------------------------------------

@@ -97,6 +97,10 @@ def get_args():
     msg = "out file with truth info for each alert"
     parser.add_argument("--outfile_alert_truth",
                         help=msg, type=str, default=None )
+
+    #msg = "out file with truth info for each object"
+    #parser.add_argument("--outfile_object_truth",
+    #                    help=msg, type=str, default=None )
     # - - - - - - - -
 
     msg = "number of random sub-samples (default=1)"

@@ -481,10 +481,17 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   // Copy from wr_HOSTGAL() in sntools.c so that wr_HOSTGAL can be removed.
   // Jan 23 2022: if reading text, only write physical values
   // Feb 10 2022: write photo-z quantiles
+  // Jun 17 2022: for incorrect DDLR match, write WRONG MATCH comment 
+  //     next to HOSTGAL_OBJID (for visual debug; not read by snana codes)
+  //
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
+  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  bool IS_SIM  = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
+
   int N_Q      = SNDATA.HOSTGAL_NZPHOT_Q;
   int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
+
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
  
@@ -513,8 +520,14 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
 
-    fprintf(fp, "%s_OBJID:       %lld  \n",  
-	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
+    // SNDATA.SIM_HOSTLIB_GALID .xyz
+    ctmp[0] = 0;
+    if ( igal==0 && IS_SIM &&
+	 SNDATA.SIM_HOSTLIB_GALID != SNDATA.HOSTGAL_OBJID[igal] )
+      { sprintf(ctmp,"# WRONG MATCH") ; }
+
+    fprintf(fp, "%s_OBJID:       %lld     %s\n",  
+	    PREFIX, SNDATA.HOSTGAL_OBJID[igal], ctmp );
 
     fprintf(fp, "%s_FLAG:        %d  \n",  
 	    PREFIX, SNDATA.HOSTGAL_FLAG[igal] );
@@ -562,7 +575,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_CONFUSION );
     }
 
-    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
+    // always write LOGMASS regardless of value; to help human debug
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > -1.0E9 ) {
       fprintf(fp, "%s_%s:     %.3f +- %.3f   # log10(Mgal/Msolar)\n", 
 	      PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS,
 	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
@@ -1314,15 +1328,8 @@ void  rd_sntextio_global(void) {
     }
     else if ( strcmp(word0,"SURVEY:") == 0 ) {
       iwd++; get_PARSE_WORD(langC, iwd, SNDATA.SURVEY_NAME );
-
       // check for SURVEY(SUBSURVEY); e.g., LOWZ_COMBINED(CFA3)
       extractStringOpt(SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME); 
-
-      /* xxxxxxx
-      if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) 
-	{ sprintf(SNDATA.SUBSURVEY_NAME,"%s", SNDATA.SURVEY_NAME); }
-      xxxx */
-
     }
 
     else if( strcmp(word0,"FILTERS:") == 0 ) {
@@ -2783,17 +2790,27 @@ double get_dbl_sntextio_obs(int IVAROBS, int ep) {
   //    Function return double precision value
   //
   // If value is NaN, increment global NaN counter.
-  //
+  // 
+  // Jun 9 2022: for MAG, convert NaN -> MAG_NEGFLUX and don't abort
+  
 
   char *str     = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS] ;
   char *varName = SNTEXTIO_FILE_INFO.VARNAME_OBS_LIST[IVAROBS] ;
   double dval;
 
   sscanf(str, "%le", &dval );
+
   if ( isnan(dval) ) { 
-    printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
-	   varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
-    SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+
+    if ( strcmp(varName,"MAG") == 0 ) {
+      dval = MAG_NEGFLUX ;
+      sscanf(str, "%le", &dval );
+    }
+    else {
+      printf(" ERROR: %s = NaN for CID=%s  MJD=%.4f  BAND=%s\n", 
+	     varName, SNDATA.CCID, SNDATA.MJD[ep], SNDATA.FILTCHAR[ep] );
+      SNTEXTIO_FILE_INFO.NOBS_NaN++ ;
+    }
   }
 
   return (dval);

@@ -73,6 +73,8 @@
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
 
+#include <sys/stat.h>
+
 // ======================================================================
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag, 
 		      int Nsubsample_mark,
@@ -335,8 +337,8 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
-    // add Q posteriors
- for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+  // add zPHOT quantiles
+  for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
     sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
     wr_snfitsio_addCol( "1E", parName, itype );
   }
@@ -370,17 +372,6 @@ void wr_snfitsio_init_head(void) {
 
     wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL2", itype);
 
-    /* xxx mark delete 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS" ,    itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGMASS_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR" ,     itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGSFR_ERR",  itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR" ,    itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_LOGsSFR_ERR", itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR" ,      itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_COLOR_ERR",   itype );
-    xxxx end mark xxx*/
-
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
@@ -401,7 +392,7 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
 
-    // add Q posteriors
+    // add zPHOT quantiles
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
       sprintf(parName,"HOSTGAL2_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
       wr_snfitsio_addCol( "1E", parName, itype );
@@ -3033,7 +3024,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   // Feb 10, 2021: check for SIM_SL_FLAG (strong lens)
   //
 
-  int ipar, ivar ;
+  int ipar, ivar, q ;
   char key[60], tmpString[60];
   char fnam[] = "RD_SNFITSIO_GLOBAL" ;
 
@@ -3141,6 +3132,15 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
       sprintf(key,"PRIVATE%d", ivar);
       if ( strcmp(parName,key) == 0 ) 
 	{  sprintf(tmpString,"%s", SNDATA.PRIVATE_KEYWORD[ivar] );  }
+    }
+  }
+
+  // check optional PERCENTILES for photo-z quantiles
+  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
+    for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
+      sprintf(key,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, q);
+      if ( strcmp(parName,key) == 0 ) 
+	{ sprintf(tmpString,"%s", SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ); }
     }
   }
 
@@ -3465,11 +3465,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       for(iq=0; iq < N_Q; iq++ ) {
 	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
 	float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
-        sprintf(KEY,"%s_%s%d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
+        sprintf(KEY,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
         j++ ; NRD=RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 
-	printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
-	       fnam, KEY, zq, PCT); fflush(stdout);
+	//printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
+	//     fnam, KEY, zq, PCT); fflush(stdout);
       }
       
 
@@ -4009,6 +4009,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Apr 15, 2019: check for optional SPEC file
   // Oct 26, 2020: read SNANA_VERSION in fits header
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
+  // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
+  //                unzip and gzip files exist.
 
   fitsfile *fp ;
   int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1  ;
@@ -4019,9 +4021,14 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   init_SNDATA_EVENT();
 
+
   istat = 0;
   itype   = ITYPE_SNFITSIO_HEAD ;
   ptrFile = rd_snfitsFile_plusPath[ifile][itype];
+
+  // Jun 2022 RK - abort if both zip and unzip file exists
+  if ( photflag_open == 0 ) { rd_snfitsio_check_gzip(ptrFile); }
+
   fits_open_file(&fp_rd_snfitsio[itype], ptrFile, READONLY, &istat );
   sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err, istat);
@@ -4243,6 +4250,34 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
 } // end of rd_snfitsio_open
 
+// ==========================
+void rd_snfitsio_check_gzip(char *fileName) {
+
+  // Created Jun 24 2022 by R.Kessler
+  // Abort if fileName and fileName.gz both exist.
+  int lenf          = strlen(fileName);
+  char *fileName_gz = (char*)malloc( sizeof(char) * (lenf+10) );
+  int jstat, jstat_gz;
+  struct stat statbuf, statbuf_gz;
+  char fnam[] = "rd_snfitsio_check_gzip" ;
+  // -------------- BEGIN -------------
+
+  sprintf(fileName_gz, "%s.gz", fileName);
+  jstat    = stat(fileName,    &statbuf);    // returns 0 if file exists
+  jstat_gz = stat(fileName_gz, &statbuf_gz); 
+
+  if ( jstat == 0 && jstat_gz == 0 ) {    
+    print_preAbort_banner(fnam);
+    printf("   Found unzip file:\n\t %s\n", fileName);
+    printf("   Found gzip  file:\n\t %s\n", fileName_gz);
+    sprintf(c1err,"Cannot process both gzipped and unzipped data file");
+    sprintf(c2err,"Keep one set of FITS files.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);      
+  }
+  free(fileName_gz);
+
+  return ;
+} // rd_snfitsio_check_gzip
 
 // ==========================
 void rd_snfitsio_simkeys(void) {
@@ -4382,7 +4417,7 @@ void rd_snfitsio_zphot_q(void) {
   SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
 
   // read list of percentiles from keys of the form
-  // PERCENTILE_ZPHOT_Q## .xyz
+  // PERCENTILE_ZPHOT_Q## 
   for(ivar=0; ivar < N_Q; ivar++ ) {
     sprintf(keyname,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ivar);
     
@@ -4390,6 +4425,9 @@ void rd_snfitsio_zphot_q(void) {
     sprintf(comment,"Read %s", keyname);
     fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
     
+    //    printf(" xxx %s: PCT=%d for ivar=%d (istat=%d)\n", 
+    //	   fnam, PCT, ivar, istat );
+
     if ( istat == 0 ) {
       SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT ;
       NFIND_KEY++ ;

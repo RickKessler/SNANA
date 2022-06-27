@@ -1864,7 +1864,7 @@ void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC) {
   }
   else {
     // find where DAY lands in SEDMODEL.DAY array
-    IDAY_LOCAL = quickBinSearch(DAY, NDAY,SEDMODEL.DAY[ISED], fnam);
+    IDAY_LOCAL = quickBinSearch(DAY, NDAY, SEDMODEL.DAY[ISED], fnam);
     DAYREF0    = SEDMODEL.DAY[ISED][IDAY_LOCAL];
     DAYREF1    = SEDMODEL.DAY[ISED][IDAY_LOCAL+1];
     DAYSTEP    = DAYREF1-DAYREF0 ;
@@ -1948,6 +1948,9 @@ void pack_SEDBINARY(int OPT) {
   //
   // April 30 2018
   //   + compress long list of zeros using ZEROLIST_SEDBINARY
+  //
+  // Jun 6 2022: fix aweful index bug restoring flux from SEDBINARY
+  //           (N++ was after instead of before)
 
   int N, NZLEN, NZLEN_LAST, NFLUX, j, IVERSION ;
   double tmpFlux, FLUXSCALE_LOCAL, PADWORD ;
@@ -1974,27 +1977,12 @@ void pack_SEDBINARY(int OPT) {
     for ( j=0; j < TEMP_SEDMODEL.NLAM; j++ )
       { N++;  SEDBINARY[N] = TEMP_SEDMODEL.LAM[j]; }
 
-    // ZEROWORD_SEDBINARY 909090909.
-    // MINZEROLIST_SEDBINARY
-
     NZLEN = NZLEN_LAST = 0; // number of consecutive zeros
     NFLUX = TEMP_SEDMODEL.NDAY * TEMP_SEDMODEL.NLAM ;
     for ( j=0; j<NFLUX; j++ ) { 
       tmpFlux = (TEMP_SEDMODEL.FLUX[j]*SEDMODEL.FLUXSCALE); 
       if ( tmpFlux < 0.0 ) { tmpFlux = 0.0 ; }
       if ( fabs(tmpFlux) < 1.0E-30 ) { tmpFlux=0.0; }
-
-      /* 
-      if ( tmpFlux == 0.0 ) { NZLEN++; } else { NZLEN_LAST=NZLEN; NZLEN=0; }
-      UPD_ZERO = ( NZLEN==0 || j == NFLUX-1 ) ;
-      if ( NZLEN_LAST > MINZEROLIST_SEDBINARY && UPD_ZERO ) {
-	N -= NZLEN_LAST;
-	N++; SEDBINARY[N] = ZEROWORD_SEDBINARY; // key for removed zeros
-	N++; SEDBINARY[N] = ZEROWORD_SEDBINARY; // again, to be darn sure
-	N++; SEDBINARY[N] = (float)NZLEN_LAST;  // number of removed zeros
-      }
-      */
-
       N++ ; SEDBINARY[N] = (float)tmpFlux;
     } 
 
@@ -2036,9 +2024,11 @@ void pack_SEDBINARY(int OPT) {
 
     NFLUX = TEMP_SEDMODEL.NDAY * TEMP_SEDMODEL.NLAM ;
     for ( j=0; j<NFLUX; j++ ) { 
+      N++; // bug fix, Jun 2022
       tmpFlux = (double)SEDBINARY[N];
       // apply 1/flux-scale to return to originally stored flux
-      N++ ; TEMP_SEDMODEL.FLUX[j] = tmpFlux/FLUXSCALE_LOCAL ; 
+      // xxx mark delete N++ ; 
+      TEMP_SEDMODEL.FLUX[j] = tmpFlux/FLUXSCALE_LOCAL ; 
     } 
 
     if ( N != NSEDBINARY ) {
@@ -2048,6 +2038,7 @@ void pack_SEDBINARY(int OPT) {
     }
   }
 
+  return ;
 
 } // end of pack_SEDBINARY
 
@@ -2558,20 +2549,14 @@ void T0shiftPeak_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX, int vboseFlag) {
       jflux      = NLAM*iday + ilam ;
       FLUXTMP    = SEDFLUX->FLUX[jflux];
       FLUXSUM += FLUXTMP ;
-    } // end ilam                                                               
+    } // end ilam           
 
     if ( FLUXSUM > FLUXSUM_MAX ) {
       FLUXSUM_MAX = FLUXSUM ;
       IDAY_PEAK   = iday ;
     }
-  } // end iday                                                                 
+  } // end iday 
 
-  /* xxxxxxxxxx temp delete Aug 13  2018 xxxxxxxxxx
-  if ( IDAY_PEAK < 0 ) {
-    sprintf(c1err,"Invalid IDAY_PEAK=%d", IDAY_PEAK );
-    errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
-  }
-  xxxxxxxxxx  */
 
   if ( IDAY_PEAK >= 0 ) 
     {  Tshift = -SEDFLUX->DAY[IDAY_PEAK]; }
@@ -2589,7 +2574,6 @@ void T0shiftPeak_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX, int vboseFlag) {
   for(iday=0; iday < NDAY; iday++ )
     { SEDFLUX->DAY[iday] += Tshift ;  }
   
-
   return ;
 
 } // end of T0shiftPeak_SEDMODEL
@@ -2764,6 +2748,84 @@ bool found_fluxerr_SEDMODEL(char *sedFile) {
   return(found);
 
 } // end found_fluxerr_SEDMODEL
+
+// ======================================
+void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX) {
+
+  // Creatd June 2022 by R.Kessler  
+  // Print range of Trest and LAMMIN for SEDFLUX.
+  // Also check if average flux at DAYMIN and DAYMAX is below 2% of peak;
+  // if edge fluxes are above 2%, give warning.     
+
+  int    NDAY   = SEDFLUX->NDAY;
+  int    NLAM   = SEDFLUX->NLAM;
+  double DAYMIN = SEDFLUX->DAYMIN;
+  double DAYMAX = SEDFLUX->DAYMAX;
+  double LAMMIN = SEDFLUX->LAMMIN;
+  double LAMMAX = SEDFLUX->LAMMAX;
+
+  int jflux, iday, ilam, iday_sparse;
+  int IDAY_PEAK=-9, IDAY_EDGE_MIN=0, IDAY_EDGE_MAX=NDAY-1;
+  double day, lam, dif, difmin, FLUXTMP ;
+
+  int    NDAY_SPARSE = 3;
+  int    IDAY_LIST[3];
+  double FLUXSUM_LIST[3]; // peak, minEdge, maxEdge
+  char fnam[] = "print_ranges_SEDMODEL";
+
+  // --------- BEGIN ----------
+
+  printf("\t Trest: %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n"
+         ,DAYMIN, DAYMAX, LAMMIN, LAMMAX);
+  fflush(stdout) ;
+
+  // assume peak is near DAY=0 and find IDAY_PEAK
+  difmin = 99999.0 ;
+  for(iday=0; iday < NDAY; iday++ ) {
+    day = SEDFLUX->DAY[iday];
+    if ( fabs(day) < difmin ) { difmin=fabs(day); IDAY_PEAK=iday; }
+  }
+
+  // get bolometric flux at edges and peak
+  
+  IDAY_LIST[0] = IDAY_PEAK;
+  IDAY_LIST[1] = IDAY_EDGE_MIN;
+  IDAY_LIST[2] = IDAY_EDGE_MAX;
+
+  for(iday_sparse=0; iday_sparse < NDAY_SPARSE; iday_sparse++ ) {
+    iday = IDAY_LIST[iday_sparse];
+    FLUXSUM_LIST[iday_sparse] = 0.0 ;
+
+    for(ilam=0; ilam < NLAM; ilam++ ) {
+      jflux      = NLAM*iday + ilam ;
+      FLUXTMP    = SEDFLUX->FLUX[jflux];
+      FLUXSUM_LIST[iday_sparse] += FLUXTMP ;
+    } // end ilam           
+
+  } // end iday_sparse
+
+  // - - - - - -
+  double EDGE_FLUX_RATIO_WARNING = 0.04 ;
+  double fluxratio_edge_min = FLUXSUM_LIST[1] / FLUXSUM_LIST[0];
+  double fluxratio_edge_max = FLUXSUM_LIST[2] / FLUXSUM_LIST[0];
+
+  if ( fluxratio_edge_min > EDGE_FLUX_RATIO_WARNING ) {
+    printf("\t WARNING: Flux(Trestmin)/Flux(peak) = %.3f -> "
+	   "beware of extrapolation\n",
+           fluxratio_edge_min);
+  }
+  if ( fluxratio_edge_max > EDGE_FLUX_RATIO_WARNING ) {
+    printf("\t WARNING: Flux(Trestmax)/Flux(peak) = %.3f -> "
+	   "beware of extrapolation\n",
+           fluxratio_edge_max);
+  }
+
+  
+  fflush(stdout) ;
+
+  return ;
+
+} // end  print_ranges_SEDMODEL
 
 // ======================================================
 void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {

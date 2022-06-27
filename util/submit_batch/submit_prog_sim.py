@@ -45,6 +45,14 @@
 #   leave SUBMIT.INFO outside SIMLOGS.tar, and create BACKUP_*.tar.gz files
 #   before SIMLOGS.tar (better organized) 
 #
+# May 3 2022: protect arg wildcards by adding quotes; see util.protect_wildcard
+#
+# May 14 2022: if RANSYSTPAR_RANSEED_SYST is set in genopt, sync the 
+#               ranseed_syst args among isplit.
+#
+# Jun 20 2022: for RESET_CIDOFF=2 (unique CID among all versions),
+#          cidran_max *= 1.1 to prevent hang-up for CIDRAN_MAX ~ 100 million.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -241,8 +249,10 @@ class Simulation(Program):
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
-                key_protect = util.protect_parentheses(key)
+                key_protect   = util.protect_parentheses(key)
                 value_protect = util.protect_parentheses(value)
+                value_protect = util.protect_wildcard(value_protect)
+
                 GENOPT_GLOBAL_STRING += f"{key_protect} {value_protect}  "
                 
                 SKIP_SIMnorm = \
@@ -305,6 +315,7 @@ class Simulation(Program):
                         # if key includes (), replace with \( \)
                         key2_protect = util.protect_parentheses(key2)
                         value2_protect = util.protect_parentheses(value2)
+                        value2_protect = util.protect_wildcard(value2_protect)
                         genopt = f"{key2_protect} {value2_protect}     "
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
@@ -922,7 +933,6 @@ class Simulation(Program):
             cidoff_list3d[iver][ifile][isplit] = cidoff
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
-            # xxx ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
                 cidadd       = int(ngentot*1.1)+1000   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
@@ -936,7 +946,10 @@ class Simulation(Program):
         # for unique CIDs everywhere, cidran_max must be the
         # same for all jobs
         if reset_cidoff == 2 :
+            cidran_safety  = int(0.1*cidran_max)
+            cidran_max    += cidran_safety # safety for very large CIDRAN
             cidran_max_list = [cidran_max] * n_genversion
+
 
         # store info
         self.config_prep['reset_cidoff']      = reset_cidoff
@@ -1616,12 +1629,16 @@ class Simulation(Program):
         if key not in INFILE_KEYS[iver][ifile] :
             arg_list.append(f"    {key} {CWD}")
 
+        # May 2022: check option to sync ransystpar random seeds
+        #   Note that genopt may be modified.
+        genopt = self.sync_ransystpar_ranseed_syst(genopt,isplit1)
+        #sys.exit(f"\n genopt= {genopt}")
+
         arg_list.append(f"{genopt}")         # user args by version
         arg_list.append(f"{genopt_global}")     # user global args
         if IS_CHANGE and n_include_files > 0:
             input_include_file = self.config_prep['include_list'][isplit]
             arg_list.append(f"INPUT_INCLUDE_FILE {input_include_file}")
-
 
         JOB_INFO['input_file']    = infile
         JOB_INFO['log_file']      = log_file
@@ -1645,6 +1662,33 @@ class Simulation(Program):
     def genversion_split_suffix(self,isplit,Nsec):
         suffix = f"{isplit:04d}_{Nsec}"
         return suffix
+
+    def sync_ransystpar_ranseed_syst(self,genopt,isplit1):
+
+        # if genopt contains "RANSYSTPAR_RANSEED_SYST <ranseed>",
+        # then replace ranseed with value that depends on isplit1
+        # so that all ISPLIT=1 have same seed, all ISPLIT=2 have same
+        # seed, etc ... Goal is to sync correlated systematics among
+        # samples; e.g., galactic extinction, cosmology params ...
+        # Note that argument genopt is modified.
+
+        key = "RANSYSTPAR_RANSEED_SYST"
+        genopt_out = genopt  
+        if key in genopt:
+            genopt_list   = genopt.split()
+            j             = genopt_list.index(key)
+            ranseed_orig  = int(genopt_list[j+1])
+            ranseed_split = ranseed_orig*7 + isplit1*41 
+
+            str_orig      = str(ranseed_orig)
+            str_split     = str(ranseed_split)
+            genopt_out    = genopt.replace(str_orig,str_split)
+            print(f"\t ransystpar_ranseed_syst -> {ranseed_split}" \
+                  f" for ISPLIT={isplit1}")
+            
+        return genopt_out
+        
+        # end sync_ransystpar_ranseed_syst
 
     def append_info_file(self,f):
 
@@ -2102,7 +2146,7 @@ class Simulation(Program):
 
         cmd     = f"{cd_dir}; {mv_FITS}; {ls_LIST}; {rm_gz} "
 
-        # gzip FITS files if not already gzipped. .xyz
+        # gzip FITS files if not already gzipped. 
         fits_list = glob.glob1(target_dir,"*.FITS")
         if len(fits_list) > 0 :  cmd += "; gzip *.FITS"
 

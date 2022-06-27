@@ -43,6 +43,8 @@
 
   Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
   Jun 2 2021: MXWORDFILE_PARSE_WORDS -> 2M (was 1 million)
+  Jun 15 2022: MXCHARWORD_PARSE_WORDS -> MXPATHLEN + 200 
+             (for long rows in FITRES or HOSTLIB)
 
 ********************************************************/
 
@@ -63,7 +65,8 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v11_04k"       
+// --------------------------------------------------
+#define  SNANA_VERSION_CURRENT  "v11_04l"        
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -283,6 +286,13 @@ typedef struct STRING_DICT_DEF {
 } STRING_DICT_DEF ;
 
 
+// define table info corresponding to hash storage
+struct {
+  int  NVAR, *IVAR_TABLE;
+  char   **VARNAME_LIST; // table var name vs. ivar
+  double **VAL_LIST;     // table value vs. ivar and isn
+} HASH_STORAGE;
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
@@ -322,7 +332,7 @@ struct {
 
 
 #define ADDBUF_PARSE_WORDS 10000
-#define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
+#define MXCHARWORD_PARSE_WORDS MXPATHLEN+200 // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700      // max words per line
 #define MXWORDFILE_PARSE_WORDS 2000000   // max words to parse in a file
@@ -556,14 +566,15 @@ void get_parse_word_int__(int *langFlag, int *iwd, int   *i_val);
 void get_parse_word_flt__(int *langFlag, int *iwd, float *f_val);
 void get_parse_word_dbl__(int *langFlag, int *iwd, double *d_val);
 
-int  match_cidlist_init(char *fileName, int *OPTMASK);
-int  match_cidlist_init__(char *fileName, int *OPTMASK);
-
-int  match_cidlist_init_legacy(char *fileName, int *OPTMASK);
-int  match_cidlist_init_legacy__(char *fileName, int *OPTMASK);
+int  match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store);
+int  match_cidlist_init__(char *fileName, int *OPTMASK, char *varList_store);
 
 int  match_cidlist_exec(char *cid);
 int  match_cidlist_exec__(char *cid);
+
+double  match_cidlist_parval(int isn_match, char *varName, int abort_flag);
+double  match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag);
+
 
 void   init_GENPOLY(GENPOLY_DEF *GENPOLY);
 void   parse_GENPOLY(char *stringPoly, char *varName,

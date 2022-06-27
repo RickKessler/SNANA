@@ -714,7 +714,9 @@ class Program:
         # end walltime_read_data
 
     def update_readme_stats(self, data_event_dict):
-
+        """Evaluate stats for readme of datafile. Has no impact on actual 
+        datafiles. 
+        """
         head_raw   = data_event_dict['head_raw']
         head_calc  = data_event_dict['head_calc']
         n_spectra  = data_event_dict['n_spectra']

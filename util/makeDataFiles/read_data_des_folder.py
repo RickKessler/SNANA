@@ -149,10 +149,10 @@ class data_des_folder(Program):
 
         if snid not in self.smp_master_list.cid.values:
             data_dict['select'] = False
-            #logging.info(f"Skipping SNID={snid}, not in SMP masterlist")
+            logging.debug(f"Skipping SNID={snid}, not in SMP masterlist")
             return data_dict
         else:
-            logging.info(f"Working on SNID={snid}, in SMP masterlist")
+            logging.debug(f"Working on SNID={snid}, in SMP masterlist")
         
         # MJD_trigger is a private variable, so move it to 
         # nominal SNANA variable. .xyz

@@ -864,7 +864,9 @@ class wFit(Program):
             else:
                 wa = 0
                 wa_sig = 0
-            
+                FoM = 0
+                Rho = 0
+
             # load table for mean and std err on mean (the table is not used here)
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
@@ -872,14 +874,11 @@ class wFit(Program):
                           'w':w, 'w_sig':w_sig, 
                           'omm':omm, 'omm_sig':omm_sig, 
                           'wa':wa, 'wa_sig':wa_sig,
+                          'FoM':FoM, 'Rho': Rho,
                           'covopt_label':covopt_label,
                           'wfitopt_label':wfitopt_label,
                           'nwarn' : nwarn  # R.Kessler Feb 23 2022
             }
-
-            if use_wa : 
-                local_dict['FoM'] = FoM
-                local_dict['Rho'] = Rho
 
             unique_key = dir_name + '_' + covnum + '_' + wfitnum 
             wfit_summary_table[unique_key] = local_dict

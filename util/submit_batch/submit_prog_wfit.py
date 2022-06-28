@@ -1089,9 +1089,12 @@ class wFit(Program):
         f = open(AVG_FILE,"w")
         nrow = 0
         
+        if use_wa: VARNAME_FOM = "<w_sig> <w_sig>_sig FoM FoM_sig"
+        else: VARNAME_FOM = "<w_sig> <w_sig>_sig"
+
         VARNAMES_STRING = \
                           f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig  "  \
-                          f"<omm> <omm>_sig  <w_sig> <w_sig>_sig FoM FoM_sig N_DIRs COVOPT WFITOPT"
+                          f"<omm> <omm>_sig {VARNAME_FOM} N_DIRs COVOPT WFITOPT"
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
         
         avg_comment_dict = {
@@ -1156,12 +1159,16 @@ class wFit(Program):
                     else:
                         wa_avg, wa_avg_std = 0.0, 0.0
                         FoM_avg, FoM_avg_std = 0.0, 0.0
+
                     str_nums    = f"{covnum} {wfitnum} "
                     str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                     str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                     str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
                     str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
-                    str_results += f"{FoM_avg:5.0f} {FoM_avg_std:5.0f}  "
+                    
+                    if use_wa:
+                        str_results += f"{FoM_avg:5.0f} {FoM_avg_std:5.0f}  "
+
                     str_misc    = f"{len(w_list)}"
                     str_labels  = f"{covopt_label:<10} {wfitopt_label}"
                     nrow +=1

@@ -9453,7 +9453,8 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
   //   restricted to order_legacy passed as argument.
   //
   // Dec 21 2021: increase char arrays from len=60 to 200
-  //
+  // Jun 27 2022: call init_GENPOLY(POLY)
+
   int  MEMD, nread, j, N=0;
   double *zpoly_legacy ;
   char first_word[200], cpoly[200] ;
@@ -9465,6 +9466,8 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
   printf(" xxx %s: WORDS = %s %s %s   order=%d \n",
 	 fnam, WORDS[0], WORDS[1], WORDS[2], order_legacy );
   */
+
+  init_GENPOLY(POLY);
 
   sscanf(WORDS[N], "%s", first_word); N++ ;
 

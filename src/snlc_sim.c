@@ -2343,7 +2343,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   //              key name can appear more than once; e.g., POWERLAW2.
   // Dec 22 2021: load README contents.
   // Jun 09 2022: read optional rate-scale for PISN; e.g, 0.3*PISN_PKL12
-  
+  // Jun 27 2022: do not abort if COSBPOLY overrides BPOLY and vice-versa
+
   bool  IS_NOMINAL = (strcmp(WHAT,"NOMINAL") == 0 ) ;
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
@@ -2352,6 +2353,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   int  MEMC = 100*sizeof(char);
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
   char KEYNAME[40], TMPNAME[60] ;
+  char *NAME = RATEPAR->NAME;
   char fnam[] = "parse_input_RATEPAR" ;
 
   // ------------ BEGIN ------------
@@ -2407,11 +2409,20 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
     N++; sscanf(WORDS[N], "%s", TMPNAME ); 
 
-    // abort on multiple rate models
-    if ( !IGNOREFILE(RATEPAR->NAME) ) { 
-      if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
+    // abort on multiple rate models;
+    // allow BPOLY(command line) to override COSBPOLY and vice-versa
+    if ( !IGNOREFILE(NAME) ) { 
+
+      bool SAME_MODEL =  strcmp(NAME,TMPNAME) == 0 ;
+      bool BOTH_BPOLY = 
+	(strstr(NAME,"BPOLY") != NULL) && (strstr(TMPNAME,"BPOLY") != NULL);
+
+      bool OVERRIDE   = (keySource == KEYSOURCE_ARG);
+      bool ABORT_MODEL = !SAME_MODEL && !(BOTH_BPOLY && OVERRIDE);
+      // xxx mark if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
+      if ( ABORT_MODEL ) {
 	sprintf(c1err,"cannot mix multiple rate models with %s", KEYNAME);
-	sprintf(c2err,"%s and %s (pick one)", RATEPAR->NAME, TMPNAME);
+	sprintf(c2err,"%s and %s (pick one)", NAME, TMPNAME);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
     }
@@ -2459,12 +2470,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->MODEL_PARLIST[1][0] = TMPVAL; // rate-scale
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_PISN) != NULL ) {
-
-      /* xxx mark delete Jun 9 2022 xxxx
-      RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_PISN ;
-      RATEPAR->NMODEL_ZRANGE = 1 ;
-      xxx end mark xxx */ 
-
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_PISN, &TMPVAL);
       sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_PISN); // strip off name only
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_PISN ;
@@ -2513,6 +2518,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 				&RATEPAR->MODEL_BPOLY );     
       N += N_MODELPAR ;
       // get max rate (vs. b) for weighting
+      RATEPAR->RATEMAX = 0.0 ;
       for(b=0.0; b < 90.0; b+=1.0 ) {
 	R = GALrate_model(l,b, RATEPAR);
 	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R; bmax=b; }
@@ -2525,6 +2531,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 				&RATEPAR->MODEL_BPOLY );
       N += N_MODELPAR ;
       // get max rate (vs. b) for weighting
+      RATEPAR->RATEMAX = 0.0 ;
       for(b=0.0; b < 90.0; b+=1.0 ) {
 	R = GALrate_model(l,b, RATEPAR);
 	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R; bmax=b; }

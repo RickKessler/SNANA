@@ -139,7 +139,7 @@
 #define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
-
+#define HOSTLIB_VARNAME_WEAKLENS_DMU  "WEAKLENS_DMU" // Kevin Wang June 2022
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
 // To save storage memory, SNMAGSHIFT is stored as 2 byte short int 
@@ -268,6 +268,7 @@ struct HOSTLIB_DEF {
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
   int IVAR_a_DLR;   // to measure DLR: e.g. a_IMAGE from sextractor
   int IVAR_b_DLR;   // to measure DLR
+  int IVAR_WEAKLENS_DMU;
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
   int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
@@ -536,7 +537,7 @@ struct SNHOSTGAL {
 
   // misc info
   double PEAKMJD ;
- 
+  double WEAKLENS_DMU;
 
   int    NNBR;    // number of nearby galaxies
   int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
@@ -669,6 +670,7 @@ void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
 double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
+void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;

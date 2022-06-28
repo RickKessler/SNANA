@@ -14300,6 +14300,7 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   //
   // Jan 5 2018: pass new arg zHEL
   // Feb 16 2022: don't allow ran1=0.0, otherwise dmuLens = NaN
+  // June 28 2022: Added option to use hostlib weak lens values
   //
 
   double lensDMU, ran1 ;
@@ -14317,11 +14318,23 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
     if ( ran1 == 0.0 ) { ran1 = 1.0E-8; } // Feb 2022
   }
 
+
+  bool USE_WEAKLENS_MAP = !IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE);
+  bool USE_WEAKLENS_HOSTLIB = HOSTLIB.IVAR_WEAKLENS_DMU > 0;
+  lensDMU = 0.0;
+  if ( USE_WEAKLENS_MAP ) {
+    lensDMU = gen_lensDMU(zCMB,ran1,DUMP_FLAG);
+  } 
+  else if ( USE_WEAKLENS_HOSTLIB ) {
+    lensDMU = SNHOSTGAL.WEAKLENS_DMU;
+  }
+
+  /* xxx Mark delete June 28 2022
   if ( IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE) ) 
     { lensDMU = 0.0 ; }
   else 
     { lensDMU = gen_lensDMU(zCMB,ran1,DUMP_FLAG);  }
-
+  */
 
   if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
     lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * getRan_Gauss(1) ;

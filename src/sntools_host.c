@@ -2397,6 +2397,7 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_NBR_LIST     = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
   HOSTLIB.IVAR_a_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_A_DLR, 0) ; 
   HOSTLIB.IVAR_b_DLR        = IVAR_HOSTLIB(HOSTLIB_VARNAME_B_DLR, 0) ; 
+  HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -5505,7 +5506,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   GEN_SNHOST_VPEC(IGAL);
 
   // check for weak lens DMU (June 2022)
-  // .xyz  GEN_SNHOST_WEAKLENS_DMU(IGAL);
+  GEN_SNHOST_WEAKLENS_DMU(IGAL);
   
   // check if redshift needs to be updated (Apr 8 2019)
   TRANSFER_SNHOST_REDSHIFT(IGAL);
@@ -5881,6 +5882,7 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.ZGEN              = -9.0 ;
   SNHOSTGAL.ZSPEC             = -9.0 ;
   SNHOSTGAL.PEAKMJD           = -9.0 ;
+  SNHOSTGAL.WEAKLENS_DMU      = 0.0 ;
   SNHOSTGAL.WGTMAP_WGT        = 0.0 ;
   SNHOSTGAL.WGTMAP_SNMAGSHIFT = 0.0 ;  // default is no SN mag shift
 
@@ -6490,6 +6492,20 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
   *ZPHOT_ERR = zerr_local;
 
 } // end GEN_SNHOST_ZPHOT_from_HOSTLIB
+
+void GEN_SNHOST_WEAKLENS_DMU(int IGAL) {
+  // Created June 28 2022 by Kevin Wang
+  // If WEAKLENS_DMU column in hostlib exists, store value in structure SNHOSTGAL.WEAKLENS_DMU
+  int  IVAR_WEAKLENS_DMU     = HOSTLIB.IVAR_WEAKLENS_DMU ;
+  char fnam[]        = "GEN_SNHOST_WEAKLENS_DMU" ;
+
+  // BEGIN
+  if (IVAR_WEAKLENS_DMU > 0) {
+    SNHOSTGAL.WEAKLENS_DMU  = get_VALUE_HOSTLIB(IVAR_WEAKLENS_DMU,IGAL);
+
+  }
+
+} // end GEN_SNHOST_WEAKLENS_DMU
 
 // =========================================
 void  GEN_SNHOST_VPEC(int IGAL) {

@@ -55,6 +55,7 @@ void  readme_docana_redshift(int *iline, char *pad);
 void  readme_docana_epoch(int *iline, char *pad); // MJD, Trest ...
 void  readme_docana_instr(int *iline, char *pad);
 void  readme_docana_hostlib(int *iline, char *pad);
+void  readme_docana_hostmatch(int *iline, char *pad);
 void  readme_docana_modelPar(int *iline, char *pad) ;
 void  readme_docana_rate(int *iline, char *pad) ;
 void  readme_docana_cutwin(int *iline, char *pad) ;

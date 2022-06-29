@@ -1301,6 +1301,15 @@ int NGENLC_WRITE ;           // number written
 int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
 int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
 
+// store stats for hostless and multi-hosts ; intended for README output
+// to quickly monitor these effects without analysis.
+struct {
+  int    NRANGE_REDSHIFT;
+  int    NGENLC_NO_HOST[10];    // vs. z-range
+  int    NGENLC_MULTI_HOST[10];
+  double REDSHIFT_RANGE[10][2];
+} WRITE_HOSTMATCH;  // Jun 29 2022
+
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
 int NGENFLUX_DRIVER;         // number of calls to GENFLUX_DRIVER
@@ -1858,6 +1867,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void update_accept_counters(void);
+void update_hostmatch_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model

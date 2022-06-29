@@ -2685,7 +2685,6 @@ void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
   char **str_list;
   char fnam[] = "parse_input_HOSTLIB_SNR_DETECT";
 
-  // .xyz
   // ---------- BEGIN -----------
 
   sprintf(INPUTS.HOSTLIB_SNR_DETECT_STRING,"%s", STRING);
@@ -26337,9 +26336,85 @@ void update_accept_counters(void) {
     GENLC.SUBSAMPLE_INDEX = -9 ;
   }
 
+  // Jun 29 2022: 
+  // For README output, update number of events with NHOST=0 and NHOST>1
+  if ( INPUTS.HOSTLIB_USE ) { update_hostmatch_counters(); }
+
   return ;
 
 } // end update_accept_counters
+
+
+// *******************************
+void update_hostmatch_counters(void) {
+
+  // Created Jun 29 2022
+  // Increment counters for host-less and multi-host events,
+  // in a few z-bins. This information is for README output
+  // to enable quick visual monitor of host-match stats.
+
+  int  iz, IZ, NBINz=3; // hard wired
+  double z, z0, z1, zMIN, zMAX, zRANGE, zBIN, zz ;
+  int LDMP = 0 ;
+  char fnam[] = "update_hostmatch_counters" ;
+
+  // ---------- BEGIN ------------
+
+  if ( NGENLC_WRITE == 1 ) {
+    // determine 3 redshift ranges to count host matches
+    zMIN   = INPUTS.GENRANGE_REDSHIFT[0] ;
+    zMAX   = INPUTS.GENRANGE_REDSHIFT[1] ;
+    zRANGE = zMAX - zMIN ;
+    zBIN   = zRANGE / (double)NBINz ;
+    WRITE_HOSTMATCH.NRANGE_REDSHIFT = NBINz ;
+    for(iz=0; iz < 3; iz++ ) {
+      zz = (double)iz;
+      z0 = zMIN + zBIN*zz ;
+      z1 = z0 + zBIN;
+      WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][0] = z0;
+      WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][1] = z1;
+
+      WRITE_HOSTMATCH.NGENLC_NO_HOST[iz]    = 0;
+      WRITE_HOSTMATCH.NGENLC_MULTI_HOST[iz] = 0;
+
+      if ( LDMP ) { 
+	printf(" xxx %s: monitor hostmatch for %.4f < z %.4f \n",
+	       fnam, z0, z1 ); fflush(stdout);
+      }
+    } // end iz loop       
+  } // end first-event init
+
+  // bail for normal single-host match
+  if ( SNHOSTGAL.NNBR == 1 ) { return; }
+
+  // find redshift bin "IZ" for this event
+  z  = GENLC.REDSHIFT_CMB;
+  IZ = -9 ;
+  for(iz=0; iz < WRITE_HOSTMATCH.NRANGE_REDSHIFT; iz++ ) {
+    z0 = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][0];
+    z1 = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][1];
+    if ( z>=z0 && z <= z1 ) { IZ = iz; }
+  }
+
+  if ( IZ < 0 ) {
+    sprintf(c1err,"Could not find redshift bin for hostmatch stats");
+    sprintf(c2err,"z=%f  and  GENRANGE_REDSHIFT = %f to %f \n",
+	    z, INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( SNHOSTGAL.NNBR == 0 ) 
+    { WRITE_HOSTMATCH.NGENLC_NO_HOST[IZ]++ ; 
+      printf(" xxx %s zero for IZ=%d\n", fnam , IZ) ; 
+    }
+
+  else if ( SNHOSTGAL.NNBR > 1 ) 
+    { WRITE_HOSTMATCH.NGENLC_MULTI_HOST[IZ]++ ; 
+      printf(" xxx %s 2 for IZ=%d\n", fnam, IZ ) ; }
+
+  return;
+
+} // end update_hostmatch_counters
 
 // ***************************************************
 void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {

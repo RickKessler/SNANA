@@ -21150,6 +21150,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new sim-input APPLY_DETECT_SINGLE
      + fix bug to allow COSBPOLY to override BPOLY and vice-versa
      + add GALNMATCH to simgen-dump
+     + write hostmatch fractions to README for Nmatch=0 and Nmatch=2
 
    genmag_SIMSED.c
      + fix bug reading MXDAY with NDAY_PAD to account for recent

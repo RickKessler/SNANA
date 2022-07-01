@@ -271,6 +271,7 @@ struct HOSTLIB_DEF {
   int IVAR_WEAKLENS_DMU;
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
   int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
+  double   MAGOBS_ERR_SCALE;        // set by HOSTLIB_SNR_SCALE key
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read

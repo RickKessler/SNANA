@@ -7208,6 +7208,8 @@ bool snr_detect_HOSTLIB(int IGAL) {
 
   // ------------ BEGIN ----------
 
+  set_MAGOBS_ERR_SCALE_HOSTLIB();
+
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
@@ -7217,6 +7219,7 @@ bool snr_detect_HOSTLIB(int IGAL) {
     if (( IVAR_MAG > 0 ) & (IVAR_MAGERR > 0)) {
         MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
         MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
+	MAG_ERR *= HOSTLIB.MAGOBS_ERR_SCALE;
 
 	if ( MAG_ERR > 0.0 ) {
 	  SNR  = (2.5/LNTEN) / MAG_ERR ;
@@ -7225,7 +7228,7 @@ bool snr_detect_HOSTLIB(int IGAL) {
 	  SNR = 0.0; 
 	}
 
-        MAG_LIST[NBAND_EXIST]      = MAG ;
+        MAG_LIST[NBAND_EXIST]      = MAG ; // not used
 	MAG_ERR_LIST[NBAND_EXIST]  = MAG_ERR ;
 	SNR_LIST[NBAND_EXIST]      = SNR ;
         NBAND_EXIST++;
@@ -7273,6 +7276,38 @@ bool snr_detect_HOSTLIB(int IGAL) {
   return detect ;
 
 } // end snr_detect_HOSTLIB
+
+
+// ================================================
+void set_MAGOBS_ERR_SCALE_HOSTLIB(void) {
+
+  // Jun 30 2022: check option to scale host-SNR  vs. MJD range in survey.
+  //  SNR_SCALE is based on PEAKMJD.
+  //  For a given lightcurve, SNANA sim does not 
+  //  account for host depth changing during survey.
+  
+  int  i, NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE ;
+  char fnam[] = "set_MAGOBS_ERR_SCALE_HOSTLIB" ;
+
+  // ------------ BEGIN ------------
+
+  HOSTLIB.MAGOBS_ERR_SCALE = 1.0;
+  if ( NMJD > 0 ) {
+    double MJDMIN, MJDMAX, SNR_SCALE ;
+    double PEAKMJD = SNHOSTGAL.PEAKMJD ;
+    for ( i=0; i < NMJD; i++ ) {
+      MJDMIN    = INPUTS.HOSTLIB_SNR_SCALE[i][0];
+      MJDMAX    = INPUTS.HOSTLIB_SNR_SCALE[i][1];
+      SNR_SCALE = INPUTS.HOSTLIB_SNR_SCALE[i][2];
+      if ( PEAKMJD > MJDMIN && PEAKMJD < MJDMAX ) {
+        INPUTS.HOSTLIB_NMJD_SNR_SCALE = 1.0 / SNR_SCALE ;
+      }
+    }
+  }
+
+  return;
+
+} // end  set_MAGOBS_ERR_SCALE_HOSTLIB
 
 // ==================================
 void GEN_SNHOST_DDLR(int i_nbr) {
@@ -7516,7 +7551,7 @@ void SORT_SNHOST_byDDLR(void) {
   // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
   // Jan 22 2022: set GENLC.CORRECT_HOSTMATCH=False for wrong host match
   // Jun 14 2022: protect host mag fluctuations from crazy MAG_ERR
-  // Jun 30 2022: implement HOSTLIB_SNR_SCALE with MAG_ERR_SCALE
+  // Jun 30 2022: implement HOSTLIB_SNR_SCALE with MAGOBS_ERR_SCALE
 
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
@@ -7558,26 +7593,6 @@ void SORT_SNHOST_byDDLR(void) {
     printf(" xxx %s: DMUCOR = %.4f(zSN=%.4f) - %.4f(zHOST=%.4f) = %.4f\n",
 	   fnam, GENLC.DLMU, GENLC.REDSHIFT_CMB, HOST_DLMU, zCMB, DMUCOR);  
     */
-  }
-
-
-  // Jun 30 2022: check option to scale host-SNR  vs. MJD range in survey.
-  //  SNR_SCALE is based on PEAKMJD.
-  //  For a given lightcurve, SNANA sim does not 
-  //  account for host depth changing during survey.
-  double MAG_ERR_SCALE = 1.0 ;
-  int    NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE ;
-  if ( NMJD > 0 ) {
-    double MJDMIN, MJDMAX, SNR_SCALE ;
-    double PEAKMJD = SNHOSTGAL.PEAKMJD ;
-    for ( i=0; i < NMJD; i++ ) {
-      MJDMIN    = INPUTS.HOSTLIB_SNR_SCALE[i][0];
-      MJDMAX    = INPUTS.HOSTLIB_SNR_SCALE[i][1];
-      SNR_SCALE = INPUTS.HOSTLIB_SNR_SCALE[i][2];
-      if ( PEAKMJD > MJDMIN && PEAKMJD < MJDMAX ) {
-	MAG_ERR_SCALE = 1.0 / SNR_SCALE ;
-      }
-    }
   }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;
@@ -7692,8 +7707,8 @@ void SORT_SNHOST_byDDLR(void) {
 
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
       if ( IVAR_ERR > 0 ) {
-      	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
-	MAG_ERR *= MAG_ERR_SCALE ; // June 30 2022
+      	MAG_ERR  = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
+	MAG_ERR *= HOSTLIB.MAGOBS_ERR_SCALE ; // June 30 2022
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
       }
 

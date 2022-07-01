@@ -2747,7 +2747,7 @@ void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
   // If there is no MJD range in (), set MJDRANGE = 20000, 80000
 
   int  imjd, NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE;
-  int  LDMP = 1;
+  int  LDMP = 0 ;
   double MJDMIN, MJDMAX, SNR_SCALE ;
   float  fMJD[2];
   char string_mjd_range[40];

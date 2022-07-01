@@ -7561,20 +7561,20 @@ void SORT_SNHOST_byDDLR(void) {
   }
 
 
-  // Jun 30 2022: check option to scale host-SNR  vs. MJD range in survey
-  //  SNR_SCALE is based on FIRST detection since that is most likely
-  //  when host is assigned. For a given lightcurve, SNANA sim does not 
+  // Jun 30 2022: check option to scale host-SNR  vs. MJD range in survey.
+  //  SNR_SCALE is based on PEAKMJD.
+  //  For a given lightcurve, SNANA sim does not 
   //  account for host depth changing during survey.
   double MAG_ERR_SCALE = 1.0 ;
   int    NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE ;
   if ( NMJD > 0 ) {
     double MJDMIN, MJDMAX, SNR_SCALE ;
-    double MJD_DETECT_FIRST = GENLC.MJD_DETECT_FIRST ;
+    double PEAKMJD = SNHOSTGAL.PEAKMJD ;
     for ( i=0; i < NMJD; i++ ) {
       MJDMIN    = INPUTS.HOSTLIB_SNR_SCALE[i][0];
       MJDMAX    = INPUTS.HOSTLIB_SNR_SCALE[i][1];
       SNR_SCALE = INPUTS.HOSTLIB_SNR_SCALE[i][2];
-      if ( MJD_DETECT_FIRST > MJDMIN && MJD_DETECT_FIRST < MJDMAX ) {
+      if ( PEAKMJD > MJDMIN && PEAKMJD < MJDMAX ) {
 	MAG_ERR_SCALE = 1.0 / SNR_SCALE ;
       }
     }

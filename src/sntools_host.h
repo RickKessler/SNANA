@@ -271,7 +271,6 @@ struct HOSTLIB_DEF {
   int IVAR_WEAKLENS_DMU;
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
   int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
-  double   MAGOBS_ERR_SCALE;        // set by HOSTLIB_SNR_SCALE key
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
   int IVAR_STORE[MXVAR_HOSTLIB]  ;  // store-ivar vs [ivarmap]
   int NFILT_MAGOBS;  // NFILT with host mag info read
@@ -539,6 +538,7 @@ struct SNHOSTGAL {
   // misc info
   double PEAKMJD ;
   double WEAKLENS_DMU;
+  double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
 
   int    NNBR;    // number of nearby galaxies
   int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
@@ -765,6 +765,7 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID);
 void   set_GALID_UNIQUE(int i);
 
 bool snr_detect_HOSTLIB(int IGAL);
+void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions
 void   read_specTable_HOSTLIB(void);

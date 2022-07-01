@@ -7219,7 +7219,7 @@ bool snr_detect_HOSTLIB(int IGAL) {
     if (( IVAR_MAG > 0 ) & (IVAR_MAGERR > 0)) {
         MAG      = get_VALUE_HOSTLIB(IVAR_MAG,   IGAL) ;  
         MAG_ERR  = get_VALUE_HOSTLIB(IVAR_MAGERR,IGAL) ;
-	MAG_ERR *= HOSTLIB.MAGOBS_ERR_SCALE;
+	MAG_ERR *= SNHOSTGAL.MAGOBS_ERR_SCALE;
 
 	if ( MAG_ERR > 0.0 ) {
 	  SNR  = (2.5/LNTEN) / MAG_ERR ;
@@ -7287,20 +7287,20 @@ void set_MAGOBS_ERR_SCALE_HOSTLIB(void) {
   //  account for host depth changing during survey.
   
   int  i, NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE ;
+  double MJDMIN=0.0, MJDMAX=0.0, SNR_SCALE=0.0,  PEAKMJD;
   char fnam[] = "set_MAGOBS_ERR_SCALE_HOSTLIB" ;
 
   // ------------ BEGIN ------------
 
-  HOSTLIB.MAGOBS_ERR_SCALE = 1.0;
+  SNHOSTGAL.MAGOBS_ERR_SCALE = 1.0;
   if ( NMJD > 0 ) {
-    double MJDMIN, MJDMAX, SNR_SCALE ;
-    double PEAKMJD = SNHOSTGAL.PEAKMJD ;
+    PEAKMJD = SNHOSTGAL.PEAKMJD ;
     for ( i=0; i < NMJD; i++ ) {
       MJDMIN    = INPUTS.HOSTLIB_SNR_SCALE[i][0];
       MJDMAX    = INPUTS.HOSTLIB_SNR_SCALE[i][1];
       SNR_SCALE = INPUTS.HOSTLIB_SNR_SCALE[i][2];
       if ( PEAKMJD > MJDMIN && PEAKMJD < MJDMAX ) {
-        INPUTS.HOSTLIB_NMJD_SNR_SCALE = 1.0 / SNR_SCALE ;
+        SNHOSTGAL.MAGOBS_ERR_SCALE = 1.0 / SNR_SCALE ;
       }
     }
   }
@@ -7708,7 +7708,7 @@ void SORT_SNHOST_byDDLR(void) {
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
       if ( IVAR_ERR > 0 ) {
       	MAG_ERR  = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
-	MAG_ERR *= HOSTLIB.MAGOBS_ERR_SCALE ; // June 30 2022
+	MAG_ERR *= SNHOSTGAL.MAGOBS_ERR_SCALE ; // June 30 2022
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
       }
 

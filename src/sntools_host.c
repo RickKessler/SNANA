@@ -7137,7 +7137,7 @@ void GEN_SNHOST_NBR(int IGAL) {
  
   // - - - - - - - - - - - - - 
   // Jun 2022 
-  // check SNR_DETECT for each NBR ... drop those which are not found
+  // check SNR_DETECT for each NBR ... drop NBR which are not found
 
  SNR_DETECT:
 
@@ -7516,6 +7516,7 @@ void SORT_SNHOST_byDDLR(void) {
   // Nov 17 2021: correct host mags by DMUCOR = MU(zSN) - MU(zGAL)
   // Jan 22 2022: set GENLC.CORRECT_HOSTMATCH=False for wrong host match
   // Jun 14 2022: protect host mag fluctuations from crazy MAG_ERR
+  // Jun 30 2022: implement HOSTLIB_SNR_SCALE with MAG_ERR_SCALE
 
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
@@ -7557,6 +7558,26 @@ void SORT_SNHOST_byDDLR(void) {
     printf(" xxx %s: DMUCOR = %.4f(zSN=%.4f) - %.4f(zHOST=%.4f) = %.4f\n",
 	   fnam, GENLC.DLMU, GENLC.REDSHIFT_CMB, HOST_DLMU, zCMB, DMUCOR);  
     */
+  }
+
+
+  // Jun 30 2022: check option to scale host-SNR  vs. MJD range in survey
+  //  SNR_SCALE is based on FIRST detection since that is most likely
+  //  when host is assigned. For a given lightcurve, SNANA sim does not 
+  //  account for host depth changing during survey.
+  double MAG_ERR_SCALE = 1.0 ;
+  int    NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE ;
+  if ( NMJD > 0 ) {
+    double MJDMIN, MJDMAX, SNR_SCALE ;
+    double MJD_DETECT_FIRST = GENLC.MJD_DETECT_FIRST ;
+    for ( i=0; i < NMJD; i++ ) {
+      MJDMIN    = INPUTS.HOSTLIB_SNR_SCALE[i][0];
+      MJDMAX    = INPUTS.HOSTLIB_SNR_SCALE[i][1];
+      SNR_SCALE = INPUTS.HOSTLIB_SNR_SCALE[i][2];
+      if ( MJD_DETECT_FIRST > MJDMIN && MJD_DETECT_FIRST < MJDMAX ) {
+	MAG_ERR_SCALE = 1.0 / SNR_SCALE ;
+      }
+    }
   }
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;
@@ -7672,6 +7693,7 @@ void SORT_SNHOST_byDDLR(void) {
       IVAR_ERR      = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
       if ( IVAR_ERR > 0 ) {
       	MAG_ERR       = get_VALUE_HOSTLIB(IVAR_ERR,IGAL) ;
+	MAG_ERR *= MAG_ERR_SCALE ; // June 30 2022
      	SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt_obs] = MAG_ERR ;
       }
 

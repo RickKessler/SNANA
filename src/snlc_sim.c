@@ -1056,6 +1056,9 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_NBAND_SNR_DETECT     = 0;
   for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_DETECT[i] = 0.0 ; }
 
+  INPUTS.HOSTLIB_NMJD_SNR_SCALE = 0;
+  for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_SCALE[i][0] = 0.0 ; }
+
   HOSTLIB_NBR_WRITE.SEPNBR_MAX = 10.0; // +HOSTNBR keeps neighbors within 10''
   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
@@ -2727,6 +2730,91 @@ void parse_input_HOSTLIB_SNR_DETECT(char *STRING) {
 
 } // end parse_input_HOSTLIB_SNR_DETECT
 
+
+// ===============================================
+void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
+
+  // Created Jun 29 2022
+  // Example:
+  //  WORDS[0] = HOSTLIB_SNR_SCALE(53100:53200)
+  //  WORDS[1] = .33
+  //
+  // Load 
+  //    INPUTS.HOSTLIB_SNR_SCALE[NMJD][0] = 53100
+  //    INPUTS.HOSTLIB_SNR_SCALE[NMJD][1] = 53200
+  //    INPUTS.HOSTLIB_SNR_SCALE[NMJD][2] = 0.33
+  //
+  // If there is no MJD range in (), set MJDRANGE = 20000, 80000
+
+  int  imjd, NMJD = INPUTS.HOSTLIB_NMJD_SNR_SCALE;
+  int  LDMP = 1;
+  double MJDMIN, MJDMAX, SNR_SCALE ;
+  float  fMJD[2];
+  char string_mjd_range[40];
+  char fnam[] = "parse_input_HOSTLIB_SNR_SCALE" ;
+
+  // ----------- BEGIN -----------
+
+  extractStringOpt(WORDS[0],string_mjd_range) ;
+
+  if ( strlen(string_mjd_range) == 0 ) {
+    MJDMIN = 20000.0; MJDMAX = 90000.0;
+  }
+  else {
+    split2floats(string_mjd_range, COLON, fMJD );
+    MJDMIN = (double)fMJD[0];
+    MJDMAX = (double)fMJD[1];
+  }
+
+  sscanf(WORDS[1], "%le", &SNR_SCALE);
+
+  // abort if MJD range overlaps previous range
+  bool OVP = false;
+  double MJDPAD = 0.01; // allow slop for float->double
+  double MJDMIN_OLD, MJDMAX_OLD;
+  for ( imjd = 0; imjd < NMJD; imjd++ ) {
+    MJDMIN_OLD = INPUTS.HOSTLIB_SNR_SCALE[imjd][0] + MJDPAD ;
+    MJDMAX_OLD = INPUTS.HOSTLIB_SNR_SCALE[imjd][1] - MJDPAD ;
+    if ( MJDMIN > MJDMIN_OLD && MJDMIN < MJDMAX_OLD ) 
+      { OVP = true; }
+    if ( MJDMAX > MJDMIN_OLD && MJDMAX < MJDMAX_OLD ) 
+      { OVP = true; }
+
+  }
+
+  if ( OVP ) {
+    print_preAbort_banner(fnam);
+    printf(" Previous MJD ranges for HOSTLIB_SNR_SCALE: \n");
+    for ( imjd = 0; imjd < NMJD; imjd++ ) {
+      MJDMIN_OLD = INPUTS.HOSTLIB_SNR_SCALE[imjd][0] ;
+      MJDMAX_OLD = INPUTS.HOSTLIB_SNR_SCALE[imjd][1] ;
+      printf("\t %.1f to %.1f \n", MJDMIN_OLD, MJDMAX_OLD );
+    }
+
+    sprintf(c1err,"Invalid MJD range %.1f to %.1f for HOSTLIB_SNR_SCALE.",
+	    MJDMIN, MJDMAX );
+    sprintf(c2err,"MJD ranges cannot overlap.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+  }
+
+  // - - - - -
+  if ( LDMP ) {
+    printf(" xxx %s: load SNR_SCALE=%.3f for %6.1f < MJD < %6.1f\n",
+	   fnam, SNR_SCALE, MJDMIN, MJDMAX ) ; fflush(stdout);
+  }
+  // - - - - -
+  INPUTS.HOSTLIB_SNR_SCALE[NMJD][0] = MJDMIN;
+  INPUTS.HOSTLIB_SNR_SCALE[NMJD][1] = MJDMAX;
+  INPUTS.HOSTLIB_SNR_SCALE[NMJD][2] = SNR_SCALE;
+  INPUTS.HOSTLIB_NMJD_SNR_SCALE++ ;
+
+  // .xyz
+
+  return;
+
+} // end  parse_input_HOSTLIB_SNR_SCALE
+
 // ===============================================
 void parse_input_GENZPHOT_FUEGEMAP(char *string) {
 
@@ -3347,6 +3435,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_SNR_DETECT", WORDS[0],keySource) ) {
     N++;  parse_input_HOSTLIB_SNR_DETECT(WORDS[N]);
+  }
+  else if ( strstr(WORDS[0],"HOSTLIB_SNR_SCALE") != NULL )  {
+    N++;  parse_input_HOSTLIB_SNR_SCALE(WORDS,keySource); // June 29 2022
   }
   else if ( keyMatchSim(1, "HOSTLIB_SBRADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SBRADIUS );
@@ -26404,13 +26495,10 @@ void update_hostmatch_counters(void) {
   }
 
   if ( SNHOSTGAL.NNBR == 0 ) 
-    { WRITE_HOSTMATCH.NGENLC_NO_HOST[IZ]++ ; 
-      printf(" xxx %s zero for IZ=%d\n", fnam , IZ) ; 
-    }
+    { WRITE_HOSTMATCH.NGENLC_NO_HOST[IZ]++ ;     }
 
   else if ( SNHOSTGAL.NNBR > 1 ) 
-    { WRITE_HOSTMATCH.NGENLC_MULTI_HOST[IZ]++ ; 
-      printf(" xxx %s 2 for IZ=%d\n", fnam, IZ ) ; }
+    { WRITE_HOSTMATCH.NGENLC_MULTI_HOST[IZ]++ ;  } 
 
   return;
 

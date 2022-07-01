@@ -502,6 +502,9 @@ struct INPUTS {
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
   float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
 
+  int    HOSTLIB_NMJD_SNR_SCALE;     // number of MJD ranges to scale host-SNR
+  float  HOSTLIB_SNR_SCALE[10][3];   //  up to 10 x { scale, MJDRange[2] }
+
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
 
   HOSTLIB_GENZPHOT_FUDGEMAP_DEF HOSTLIB_GENZPHOT_FUDGEMAP;
@@ -1751,6 +1754,7 @@ int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
 void   parse_input_HOSTLIB_SNR_DETECT(char *string);
+void   parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);

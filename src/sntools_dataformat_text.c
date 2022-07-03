@@ -411,8 +411,18 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   // strong lens info (July 20 2019)                                          
   if ( SNDATA.SIM_SL_FLAG ) {
     fprintf(fp,"\n");
-    fprintf(fp,"SIM_STRONGLENS_ID:        %d   \n", SNDATA.SIM_SL_IDLENS );
-    fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
+    fprintf(fp,"SIM_STRONGLENS_IDLENS:    %d   # library ID \n", 
+	    SNDATA.SIM_SL_IDLENS );
+
+    fprintf(fp,"SIM_STRONGLENS_GALID:     %lld  # HOSTLIB-GALID of lens \n", 
+	    SNDATA.SIM_SL_GALID );
+
+    fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", 
+	    SNDATA.SIM_SL_zLENS  );
+
+    fprintf(fp,"SIM_STRONGLENS_LOGMASS:   %.3f +_ %.3f\n", 
+	    SNDATA.SIM_SL_LOGMASS, SNDATA.SIM_SL_LOGMASS_ERR  );
+
     fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n",
 	    SNDATA.SIM_SL_TDELAY );
     fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
@@ -2398,7 +2408,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     else if ( strncmp(word0,"SIM_STRONGLENS",14) == 0 ) {
       sprintf(PREFIX, "SIM_STRONGLENS") ;
 
-      sprintf(KEY_TEST,"%s_ID:", PREFIX);
+      sprintf(KEY_TEST,"%s_IDLENS:", PREFIX);
       if ( strcmp(word0,KEY_TEST) == 0 ) 
 	{ SNDATA.SIM_SL_IDLENS = IVAL; }
 

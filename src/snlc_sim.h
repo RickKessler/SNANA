@@ -1268,9 +1268,10 @@ struct GENSL {
   int REPEAT_FLAG;     // T => repeat image
   int NIMG;            // number of images to process
   int IMGNUM;          // image-num being processed
-  int IDLENS;
+  int IDLENS;          // ID in lens library
+  long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
   int BLEND_FLAG;
-  double zSN, zLENS;
+  double zSN, zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read

@@ -547,7 +547,8 @@ void wr_snfitsio_init_head(void) {
 
     // strong lens info (Julu 2019)
     if ( SNDATA.SIM_SL_FLAG ) {
-      wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_ID"       , itype );
+      wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_IDLENS"   , itype );
+      wr_snfitsio_addCol( "1K",  "SIM_STRONGLENS_GALID"    , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_z"        , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_TDELAY"   , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MAGSHIFT" , itype );
@@ -2163,7 +2164,11 @@ void wr_snfitsio_update_head(void) {
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_ID", itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IDLENS", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.SIM_SL_GALID ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_GALID", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
@@ -3662,9 +3667,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     if ( SNDATA.SIM_SL_FLAG ) { // bug? not sure if this is set in readback
       char PREFIX_SL[] = "SIM_STRONGLENS" ;
 
-      sprintf(KEY, "%s_ID", PREFIX_SL);
+      sprintf(KEY, "%s_IDLENS", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_INT(isn, KEY, &SNDATA.SIM_SL_IDLENS ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY, "%s_GALID", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &D_OBJID,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      SNDATA.SIM_SL_GALID = (long long)D_OBJID;
+
       sprintf(KEY, "%s_z", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_zLENS ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;

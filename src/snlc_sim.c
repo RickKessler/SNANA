@@ -8046,7 +8046,8 @@ void init_simvar(void) {
   SIMLIB_OBS_GEN.PIXSIZE[0] = -9.0 ; // ?? why is this here
 
   // init strong lens struct.
-  GENSL.INIT_FLAG = GENSL.NIMG = GENSL.IDLENS = 0;
+  GENSL.REPEAT_FLAG  =  0 ; // July 1 2022 .xyz
+  GENSL.INIT_FLAG = GENSL.NIMG = GENSL.IDLENS = GENSL.GALID = 0;
   GENSL.IMGNUM = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
 
@@ -10847,9 +10848,17 @@ void gen_event_driver(int ilc) {
     // check for strong lens multiple images before reading SIMLIB
     // so that SIMLIB-MJDRANGE to read is based on all images
     if ( INPUTS_STRONGLENS.USE_FLAG ) {
-      gen_event_stronglens(ilc,1); 
-      if ( GENSL.REPEAT_FLAG ) { goto  LOAD_TOBS ; }
-    }
+      gen_event_stronglens(ilc,1);    // setup next lens
+      if ( GENSL.REPEAT_FLAG ) { 
+	gen_event_stronglens(ilc,2);   // get SN coords
+	goto  LOAD_TOBS ; 
+      }
+      else {
+	// read simlib below and select true SN & host propertoes
+	// on 1st lens image.
+      }
+    } // end SL flag
+
 
     // read entry from libray after generated PEAKMJD and redshift ;
     // see comment above.
@@ -10924,9 +10933,11 @@ void gen_event_driver(int ilc) {
     // option to randomly shift coords to avoid spatial overlap 
     gen_random_coord_shift();
 
-    // option to magnify SN and generate multiple LCs
-    gen_event_stronglens(ilc,2);
-
+    // called here on 1st SL image only; get SN coords and lens host
+    if ( INPUTS_STRONGLENS.USE_FLAG ) {
+      gen_event_stronglens(ilc,2); 
+      GEN_SNHOST_STRONGLENS();
+    }
   } 
 
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
@@ -11206,6 +11217,7 @@ void gen_event_stronglens(int ilc, int istage) {
   int    LDMP      = 0; // (ilc < 4) ; 
 
   double zLENS, zSN=-9.0, z1, hostpar[10];
+  double LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
@@ -11285,7 +11297,9 @@ void gen_event_stronglens(int ilc, int istage) {
     z1        = 1.0 + zSN;
 
     get_stronglens(zSN, hostpar, LDMP,  // <== inputs
-		   &IDLENS, &zLENS, &blend_flag, // <== returned
+		   &IDLENS, &zLENS, 
+		   &LOGMASS_LENS, &LOGMASS_ERR_LENS, // <== returned
+		   &blend_flag, // <== returned
 		   &GENSL.NIMG,         // <== returned
 		   GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
 		   GENSL.XIMG_LIST, GENSL.YIMG_LIST );
@@ -11293,6 +11307,8 @@ void gen_event_stronglens(int ilc, int istage) {
     GENSL.IDLENS       = IDLENS;
     GENSL.zSN          = zSN ;
     GENSL.zLENS        = zLENS;
+    GENSL.LOGMASS_LENS      = LOGMASS_LENS;
+    GENSL.LOGMASS_ERR_LENS  = LOGMASS_ERR_LENS;
     GENSL.BLEND_FLAG   = blend_flag ;
     GENSL.IMGNUM       = -1;
     if ( GENSL.NIMG == 0 ) 
@@ -11358,8 +11374,6 @@ void gen_event_stronglens(int ilc, int istage) {
   }
 
  DONE:
-
-
 
   // - - - - - - - - 
   if ( LDMP ) {
@@ -21440,10 +21454,13 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SL_FLAG = INPUTS_STRONGLENS.USE_FLAG;
   if ( SNDATA.SIM_SL_FLAG ) {
     int IMGNUM = GENSL.IMGNUM ;
-    SNDATA.SIM_SL_IDLENS    = GENSL.IDLENS;
-    SNDATA.SIM_SL_zLENS     = GENSL.zLENS;
-    SNDATA.SIM_SL_NIMG      = GENSL.NIMG ;
-    SNDATA.SIM_SL_IMGNUM    = GENSL.IMGNUM ;
+    SNDATA.SIM_SL_IDLENS      = GENSL.IDLENS;
+    SNDATA.SIM_SL_GALID       = GENSL.GALID;
+    SNDATA.SIM_SL_zLENS       = GENSL.zLENS;
+    SNDATA.SIM_SL_LOGMASS     = GENSL.LOGMASS_LENS;
+    SNDATA.SIM_SL_LOGMASS_ERR = GENSL.LOGMASS_ERR_LENS;
+    SNDATA.SIM_SL_NIMG        = GENSL.NIMG ;
+    SNDATA.SIM_SL_IMGNUM      = GENSL.IMGNUM ;
     if ( IMGNUM >= 0 ) {
       SNDATA.SIM_SL_TDELAY    = GENSL.TDELAY_LIST[IMGNUM] ;
       SNDATA.SIM_SL_MAGSHIFT  = GENSL.MAGSHIFT_LIST[IMGNUM] ;

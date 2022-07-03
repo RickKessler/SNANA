@@ -162,16 +162,6 @@ int OPTMASK_OPENFILE_HOSTLIB ;
 //for developers only
 bool REFAC_HOSTLIB;
 
-/* xxx mark delete Apr 24 2022 
-// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
-#define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
-#define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
-#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR  "LOGsSFR"
-#define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
-
-#define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
-xxxxxx end mark xxxxx */
-
 // Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
 // the other hostless values are -9 as before.
 #define HOSTLESS_PROPERTY_VALUE_LIST (float[]){ -9.0, -9.0, -99.0, -9.0 }
@@ -672,6 +662,8 @@ void   GEN_SNHOST_ZPHOT(int IGAL);
 double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
+void   GEN_SNHOST_STRONGLENS(void);
+
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;

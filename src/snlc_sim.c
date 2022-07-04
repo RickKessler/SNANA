@@ -8048,7 +8048,8 @@ void init_simvar(void) {
   // init strong lens struct.
   GENSL.REPEAT_FLAG  =  0 ; // July 1 2022 .xyz
   GENSL.INIT_FLAG = GENSL.NIMG = GENSL.IDLENS = GENSL.GALID = 0;
-  GENSL.IMGNUM = -1;
+  GENSL.NGENLC_LENS_TOT = 0 ;
+  GENSL.IMGNUM    = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
 
   SPECTROGRAPH_USEFLAG = 0; // Jan 2021
@@ -10850,11 +10851,12 @@ void gen_event_driver(int ilc) {
     if ( INPUTS_STRONGLENS.USE_FLAG ) {
       gen_event_stronglens(ilc,1);    // setup next lens
       if ( GENSL.REPEAT_FLAG ) { 
-	gen_event_stronglens(ilc,2);   // get SN coords
+	if ( GENLC.NEPOCH < NEPMIN ) { return ; }
+	gen_event_stronglens(ilc,2);   // get SN coords after 1st image
 	goto  LOAD_TOBS ; 
       }
       else {
-	// read simlib below and select true SN & host propertoes
+	// read simlib below and select true SN & host properties
 	// on 1st lens image.
       }
     } // end SL flag
@@ -10934,10 +10936,8 @@ void gen_event_driver(int ilc) {
     gen_random_coord_shift();
 
     // called here on 1st SL image only; get SN coords and lens host
-    if ( INPUTS_STRONGLENS.USE_FLAG ) {
-      gen_event_stronglens(ilc,2); 
-      GEN_SNHOST_STRONGLENS();
-    }
+    if ( INPUTS_STRONGLENS.USE_FLAG ) 
+      { gen_event_stronglens(ilc,2);  }
   } 
 
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
@@ -10950,16 +10950,18 @@ void gen_event_driver(int ilc) {
   }
   
   // --------------------------
-  if ( WRFLAG_CIDRAN > 0 ) {
-    CID = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF];
-    GENLC.CIDRAN = CID ;
+  if ( WRFLAG_CIDRAN > 0 ) { load_CIDRAN(); }
 
+  /* xxx mark delete Jul 3 2022 xxxxxxxx
+    CID = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF];
+    GENLC.CIDRAN = CID ; 
     if ( CID < 0 ) {
       sprintf(c1err,"Invalid CIDRAN=%d", CID);
       sprintf(c2err,"CID=%d CIDOFF=%d", GENLC.CID, INPUTS.CIDOFF);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
+  xxxxxxxx end mark xxxxxx */
 
   // ----------------------------------------------------------
   // misc. filter-dependent stuff:
@@ -11206,6 +11208,7 @@ void gen_event_stronglens(int ilc, int istage) {
   //
   //  istage=2 --> SIMLIB has been read (RA,DEC known)
   //
+  // July 3 2022: fix to work with CIDRAN; see call to load_CIDRAN()
 
   int    INIT_FLAG = GENSL.INIT_FLAG;
   int    NIMG      = GENSL.NIMG;
@@ -11216,13 +11219,12 @@ void gen_event_stronglens(int ilc, int istage) {
   double RAD       = RADIAN;
   int    LDMP      = 0; // (ilc < 4) ; 
 
-  double zLENS, zSN=-9.0, z1, hostpar[10];
-  double LOGMASS_LENS, LOGMASS_ERR_LENS;
+  double zSN=-9.0, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
   double cosDEC, ANGSEP_TRUE ;
-  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN, ep ;
+  int    NEXTLENS=0, img, NGEN_MIN, ep ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
@@ -11231,13 +11233,17 @@ void gen_event_stronglens(int ilc, int istage) {
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
 
+  /* xxxx mark delete July 3 2022 xxxxxxx
   if ( WRFLAG_CIDRAN ) {
     sprintf(c1err,"Cannot use CIDRAN option with strong lens model.");
     sprintf(c2err,"Remove %d from FORMAT_MASK", WRMASK_CIDRAN );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+  xxxxxxxx end mark xxxxxxxx */
+
 
   GENLC.CID = GENLC.CIDOFF + ilc ; 
+  if ( WRFLAG_CIDRAN > 0 ) { load_CIDRAN(); }
 
   // ------------------
   if ( INIT_FLAG == 0 ) {
@@ -11247,6 +11253,7 @@ void gen_event_stronglens(int ilc, int istage) {
     GENSL.XIMG_LIST     = (double*) malloc(MEMD);
     GENSL.YIMG_LIST     = (double*) malloc(MEMD);
     GENSL.INIT_FLAG     = 1;
+    INPUTS.NGEN -= 4;    // Jul 3 2022 - avoid going past original NGEN
   }
 
   if ( INPUTS.USE_SIMLIB_REDSHIFT ) {
@@ -11264,10 +11271,12 @@ void gen_event_stronglens(int ilc, int istage) {
   // -----------------------
   if ( istage == 2 ) {
     if ( NIMG == 0 ) { return; } // May 2020
-    if ( !GENSL.REPEAT_FLAG ) {
+
+    if ( IMGNUM == 0 ) {
       // store original coords on first image
       GENSL.RA_noSL    = GENLC.RA;
       GENSL.DEC_noSL   = GENLC.DEC ;
+      GENSL.NGENLC_LENS_TOT++ ;
     }
 
     XIMG          = GENSL.XIMG_LIST[IMGNUM] ;   // arcSec
@@ -11277,14 +11286,31 @@ void gen_event_stronglens(int ilc, int istage) {
     GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
 
     if ( fabs(GENLC.RA) > 400.0 || fabs(GENLC.DEC) > 400.0 ) {
+      print_preAbort_banner(fnam);
+      printf("  CID=%d  LIBID=%d \n",
+	     GENLC.CID,  GENLC.SIMLIB_ID);
+      printf("  IDLENS=%d  GALID(LENS)=%lld  \n",
+	     GENSL.IDLENS, GENSL.GALID);
+      printf("  RA_noSL=%f  DEC_noSL=%f \n",
+	     GENSL.RA_noSL, GENSL.DEC_noSL );
+      printf("  PEAKMJD=%.3f  IMGNUM=%d of %d  Tdelay=%.1f \n",
+	     GENLC.PEAKMJD, IMGNUM, NIMG, GENSL.TDELAY_LIST[IMGNUM] );
       sprintf(c1err,"Insane RA,DEC = %f, %f", GENLC.RA, GENLC.DEC);
-      sprintf(c2err,"IDLENS=%d, X,Yimg=%.2f,%.2f arcSec", 
-	      GENSL.IDLENS, XIMG, YIMG );
+      sprintf(c2err,"X,Yimg=%.2f,%.2f arcSec", XIMG, YIMG );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   
+    
+    // pick lens gal from HOSTLIB on 1st image
+    if ( IMGNUM == 0 )  
+      {  GEN_SNHOST_STRONGLENS(); } 
+
+    // compute DDLR for each lens LC
+    GEN_DDLR_STRONGLENS(IMGNUM);    
+
+
     goto DONE ;
-  }
+  } // end istage==2
 
 
   // istage=1
@@ -11297,20 +11323,18 @@ void gen_event_stronglens(int ilc, int istage) {
     z1        = 1.0 + zSN;
 
     get_stronglens(zSN, hostpar, LDMP,  // <== inputs
-		   &IDLENS, &zLENS, 
-		   &LOGMASS_LENS, &LOGMASS_ERR_LENS, // <== returned
-		   &blend_flag, // <== returned
-		   &GENSL.NIMG,         // <== returned
+		   &GENSL.IDLENS, &GENSL.zLENS, // <== returned with all below
+		   &GENSL.LOGMASS_LENS, 
+		   &GENSL.LOGMASS_ERR_LENS,
+		   &GENSL.BLEND_FLAG,     
+		   &GENSL.NIMG,           
 		   GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
 		   GENSL.XIMG_LIST, GENSL.YIMG_LIST );
     
-    GENSL.IDLENS       = IDLENS;
     GENSL.zSN          = zSN ;
-    GENSL.zLENS        = zLENS;
-    GENSL.LOGMASS_LENS      = LOGMASS_LENS;
-    GENSL.LOGMASS_ERR_LENS  = LOGMASS_ERR_LENS;
-    GENSL.BLEND_FLAG   = blend_flag ;
     GENSL.IMGNUM       = -1;
+    GENSL.RA_noSL      = GENLC.RA;  // Jul 2 2022
+    GENSL.DEC_noSL     = GENLC.DEC ;
     if ( GENSL.NIMG == 0 ) 
       { GENSL.IDLENS = -9; GENSL.zLENS = -9.0;   goto DONE ;  }
 
@@ -11336,7 +11360,6 @@ void gen_event_stronglens(int ilc, int istage) {
     NGEN_MIN = ilc + GENSL.NIMG - 1 ;
     if ( NGEN_MIN > INPUTS.NGEN && GENSL.INIT_FLAG != 777 ) 
       { INPUTS.NGEN = NGEN_MIN; GENSL.INIT_FLAG=777; }
-
   }
 
   //  - - - - - - - - - - - - - - - -
@@ -12434,7 +12457,7 @@ void genran_modelSmear(void) {
   int    ifilt ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot ;
-  //  char fnam[] = "genran_modelSmear" ;
+  char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------
 
@@ -19833,9 +19856,31 @@ void sort_CIDRAN(void) {
   free(CIDRAN_TMPLIST);
   free(INDEX_SORT);
 
+  return;
+
 } // end of sort_CIDRAN
 
+// ============================
+void load_CIDRAN(void) {
 
+  // Created Jul 3 2022
+
+  int CID;
+  char fnam[] = "load_CIDRAN" ;
+
+  // -------------- BEGIN ----------
+
+  CID = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF];
+  GENLC.CIDRAN = CID ;
+
+  if ( CID < 0 ) {
+    sprintf(c1err,"Invalid CIDRAN=%d", CID);
+    sprintf(c2err,"CID=%d CIDOFF=%d", GENLC.CID, INPUTS.CIDOFF);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
+} // end load_CIDRAN
 
 // *****************************************
 void checkpar_SIMSED(void) {
@@ -21162,11 +21207,15 @@ double zHEL_WRONGHOST(void) {
   // Set zHEL based on which wronghost model is used:
   //  Legacy model using map
   //  First-principls model using NBR_LIST column of HOSTLIB
-
+  //
+  // Jul 5 2022: allow Strong lens model for incorrect host match
+  //             
   bool WRONGHOST_MODEL_LEGACY  = (WRONGHOST.NLIST > 0); 
   bool WRONGHOST_MODEL_HOSTLIB = (HOSTLIB.IVAR_NBR_LIST > 0 );
+  bool WRONGHOST_MODEL_SL      = INPUTS_STRONGLENS.USE_FLAG ;
+
   double zHEL = -9.0 ;
-  char fnam[] = "setz_WRONGHOST";
+  char fnam[] = "zHEL_WRONGHOST";
 
   // -------------- BEGIN -------------
 
@@ -21176,6 +21225,9 @@ double zHEL_WRONGHOST(void) {
   else if ( WRONGHOST_MODEL_HOSTLIB ) {
     zHEL = SNHOSTGAL_DDLR_SORT[0].ZSPEC ; // 0 is closest DDLR match
   }
+  else if ( WRONGHOST_MODEL_SL ) {
+    zHEL = SNHOSTGAL_DDLR_SORT[0].ZSPEC ; // only DDLR match
+  }
   else {
     sprintf(c1err,"CORRECT_HOSTMATCH = %d ", GENLC.CORRECT_HOSTMATCH);
     sprintf(c2err,"but neither WRONGHOST model is set ???");
@@ -21184,7 +21236,7 @@ double zHEL_WRONGHOST(void) {
 
   return zHEL;
 
-} // end setz_WRONGHOST
+} // end zHEL_WRONGHOST
 
 // **********************************
 int gen_smearMag ( int epoch, int VBOSE) {

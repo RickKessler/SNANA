@@ -6523,13 +6523,15 @@ void GEN_SNHOST_STRONGLENS(void) {
 
   // ----------- BEGIN -----------
 
+  HOSTLIB.IGAL_STRONGLENS = -9 ;
+
   // bail if there is no logmass in the LENS library
   if ( LOGMASS_LENS < 2.0 ) { return; }
 
   // ABORT if there is no LOGMASS in the hostlib
   if ( IVAR_LOGMASS <= 0 ) { 
     sprintf(c1err,"IVAR_LOGMASS = %d", IVAR_LOGMASS );
-    sprintf(c2err,"Cannot find lens without LOGMASS in HOSTLIB");
+    sprintf(c2err,"Cannot pick lens-gal without LOGMASS in HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -6621,29 +6623,45 @@ void GEN_SNHOST_STRONGLENS(void) {
     printf(" xxx %s: zdif=%7.4f  LOGMASS_DIFF=%5.2f (%.2f sigma)\n",
 	   fnam, zdif, DIFF, XNSIG);
     fflush(stdout);
-
   }
 
+  //.xyz
+  HOSTLIB.IGAL_STRONGLENS = IGAL_LENS;
 
-  // ---------------------------------------------
-  // re-load neighbor (NBR) list with only the LENS galaxy.
+  return;
+
+} // end GEN_SNHOST_STRONGLENS
+
+// ===================================================
+void GEN_DDLR_STRONGLENS(int IMGNUM) {
+
+  // Created July 2022
+  // Evaluate SNSEP and DDLR as follows. 
+  // Re-load neighbor (NBR) list with only the LENS galaxy.
   // For simplicity, no other NBRs [yet], but maybe later
   // wil add true host as NBR depending on alignment of
   // lens and source galaxy.
 
-  int    i_nbr      = 0 ;
+  int    IGAL_LENS  = HOSTLIB.IGAL_STRONGLENS;
+  long long GALID   = get_GALID_HOSTLIB(IGAL_LENS);
   int    IVAR_RA    = HOSTLIB.IVAR_RA ;
   int    IVAR_DEC   = HOSTLIB.IVAR_DEC ;
+  int    i_nbr      = 0 ;
+
   int    IVAR ;
   double SNSEP, RA_LENS, DEC_LENS, RA_GAL_ORIG, DEC_GAL_ORIG ;
 
-  long long GALID  = get_GALID_HOSTLIB(IGAL_LENS);
+  char fnam[] = "GEN_DDLR_STRONGLENS" ;
+  
+  // ----------- BEGIN -----------
+
   GENSL.GALID = GALID;
 
   reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
   SNHOSTGAL.NNBR = 1; 
   SNHOSTGAL.IGAL_NBR_LIST[i_nbr] = IGAL_LENS;
   SNHOSTGAL.IMATCH_TRUE_UNSORT  = -9; // no true match
+  GENLC.CORRECT_HOSTMATCH       = false;
 
   SNHOSTGAL.RA_SN_DEG   = GENLC.RA ;  
   SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
@@ -6653,26 +6671,35 @@ void GEN_SNHOST_STRONGLENS(void) {
   RA_LENS  = GENSL.RA_noSL ;
   DEC_LENS = GENSL.DEC_noSL ;
 
+  SNHOSTGAL.RA_GAL_DEG  = RA_LENS;
+  SNHOSTGAL.DEC_GAL_DEG = DEC_LENS;
+
   // overwrite a few HOSTLIB variables so that IGAL_LENS is a
   // nearby (nbr) host of the SN.
   if ( IVAR_RA > 0 && IVAR_DEC > 0 ) {
+    // this part is tested
     RA_GAL_ORIG   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL_LENS] ;  
     DEC_GAL_ORIG  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_LENS] ; 
     HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL_LENS]  = RA_LENS;
     HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_LENS] = DEC_LENS;    
   }
   else {
+    /* xxx mark
+    // WARNING: this part is NOT tested
     RA_GAL_ORIG  = SNHOSTGAL.RA_GAL_DEG ;
     DEC_GAL_ORIG = SNHOSTGAL.DEC_GAL_DEG ;
     SNHOSTGAL.RA_GAL_DEG  = RA_LENS;
     SNHOSTGAL.DEC_GAL_DEG = DEC_LENS;
+    xxx */
   }
 
   // compute SNSEP and DDLR
   GEN_SNHOST_DDLR(i_nbr); 
   SORT_SNHOST_byDDLR();
+  GEN_SNHOST_ZPHOT(IGAL_LENS);
 
-  // restore LOGMASS, LOGSFR ... for galaxy lens
+  // restore LOGMASS, LOGSFR in HOSTLIB in case this IGAL
+  // is used for another event later.
   int ivar_property;
   for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++)
     { GEN_SNHOST_PROPERTY(ivar_property);  }
@@ -6683,16 +6710,14 @@ void GEN_SNHOST_STRONGLENS(void) {
     HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_LENS] = DEC_GAL_ORIG ;
   }
   else {
-    SNHOSTGAL.RA_GAL_DEG  = RA_GAL_ORIG;
-    SNHOSTGAL.DEC_GAL_DEG = DEC_GAL_ORIG;
+    // xxx    SNHOSTGAL.RA_GAL_DEG  = RA_GAL_ORIG;
+    //xxx    SNHOSTGAL.DEC_GAL_DEG = DEC_GAL_ORIG;
   }
  
 
-  //.xyz
-
   return;
 
-} // end GEN_SNHOST_STRONGLENS
+} // end GEN_DDLR_STRONGLENS
 
 
 // ===================================================
@@ -7815,7 +7840,8 @@ void SORT_SNHOST_byDDLR(void) {
     if ( DDLR < INPUTS.HOSTLIB_MAXDDLR ) { NNBR_DDLRCUT++ ; }
 
     RA_GAL = GENLC.RA;    DEC_GAL = GENLC.DEC;
-    if ( i == 0 ) { 
+    // xxx mark    if ( i == 0 ) { 
+    if ( unsort == SNHOSTGAL.IMATCH_TRUE_UNSORT ) {
       RA_GAL  += (SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG  ) ;
       DEC_GAL += (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) ;
     }
@@ -7824,7 +7850,6 @@ void SORT_SNHOST_byDDLR(void) {
     // Jun 17 2022: if true host fails SNR_DETECT cut, it won't be 
     //              in DDLR_SORT 
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
-    // xxx mark if ( unsort == 0 ) { // first unsorted element is true host
     if ( unsort == SNHOSTGAL.IMATCH_TRUE_UNSORT ) {
        SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; 
        SNHOSTGAL.IMATCH_TRUE_SORT = i;

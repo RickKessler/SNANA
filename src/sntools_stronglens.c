@@ -16,6 +16,8 @@
 
 #include "sntools.h"
 #include "sntools_stronglens.h"
+#include "sntools_host.h" 
+
 
 // ==========================================
 void init_stronglens(char *MODEL_FILE) {
@@ -407,8 +409,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   }
 
   if ( numLens==0 ) {
-    //errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
-    printf("WARNING: No lens in library matching source redshift %f\n", zSN);
+    // printf("WARNING: No lens in library matches zSRC= %f\n", zSN);
     return;
   }
 

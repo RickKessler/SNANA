@@ -307,7 +307,8 @@ struct HOSTLIB_DEF {
   double Aperture_cosTH[NTHBIN_GALMAG+1] ;
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
 
-  long long IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
+  int IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
+  int IGAL_STRONGLENS; // galaxy selected as strong lens
 
 } HOSTLIB ;
 
@@ -663,6 +664,7 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
 void   GEN_SNHOST_STRONGLENS(void);
+void   GEN_DDLR_STRONGLENS(int IMGNUM);
 
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 

@@ -1265,7 +1265,8 @@ struct GENLC {
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
-  int REPEAT_FLAG;     // T => repeat image
+  int REPEAT_FLAG ;     // T => repeat image
+  int NGENLC_LENS_TOT ; // total number of generated lenses
   int NIMG;            // number of images to process
   int IMGNUM;          // image-num being processed
   int IDLENS;          // ID in lens library
@@ -1944,6 +1945,7 @@ void   init_hostNoise(void) ;
 void   update_PARDEF_ZVAR(char *parName); // update PARDEF_ZVAR
 void   init_CIDRAN(void);
 void   sort_CIDRAN(void);
+void   load_CIDRAN(void);
 void   init_modelSmear(void);
 void   dump_modelSmearSigma(void);
 void   init_genSmear_filters(void);

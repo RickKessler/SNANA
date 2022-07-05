@@ -90,6 +90,10 @@ class data_lsst_tom_db(Program):
         #phot_raw['ZPFLUX']     = pkl_phot['ZP']
         #phot_raw['FIELD']      = [ FIELD_VOID ] * NOBS
 
+        # ROB TODO : need a PHOTFLAG , see:
+
+        #  /global/cfs/cdirs/lsst/www/DESC_TD_PUBLIC/ELASTICC/TRAINING_SAMPLES/A_FORMAT.TXT
+        
         # use filter string map to translate pkl filter names
         # to names for SNANA.
         #pkl_band_list = pkl_phot['Filter'] 

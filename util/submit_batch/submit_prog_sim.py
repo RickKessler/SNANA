@@ -53,6 +53,8 @@
 # Jun 20 2022: for RESET_CIDOFF=2 (unique CID among all versions),
 #          cidran_max *= 1.1 to prevent hang-up for CIDRAN_MAX ~ 100 million.
 #
+# Jul 05 2022: combine [VERSION].SL files, same as for [VERSION].DUMP files.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -1011,7 +1013,6 @@ class Simulation(Program):
         msgerr = []
 
         print(f"")
-        #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
         print(f"     GENVERSION        MODEL        CIDOFF(GENVERSION)")
         print(f"# -------------------------------------------------- ")
 
@@ -2093,9 +2094,11 @@ class Simulation(Program):
         logging.info(msg)
 
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
+        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL") # strong lens
 
-        # defin aux files for combined version
+        # define aux files for combined version
         dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
+        sl_file       = f"{target_dir}/{genversion_combine}.SL"
         readme_file   = f"{target_dir}/{genversion_combine}.README"
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
 
@@ -2103,9 +2106,6 @@ class Simulation(Program):
         # with aux files.
         if os.path.exists(target_dir) == False :
             os.mkdir(target_dir)
-
-            # create blank IGNORE file
-            # xxx mark delete with open (ignore_file,"w") as f :   pass
 
             # create blank README file
             with open (readme_file,"w") as f :
@@ -2118,6 +2118,11 @@ class Simulation(Program):
             if len(dump_split_list) > 0 :
                 dump_file_template = dump_split_list[0]
                 self.create_simgen_dump_file(dump_file_template,dump_file)
+                
+            # July 5 2022: repeat for strong lens (SL) file
+            if len(sl_split_list) > 0 :
+                sl_file_template = sl_split_list[0]
+                self.create_simgen_dump_file(sl_file_template,sl_file)
 
         # if there were failures, return
         if nfail > 0 : 

@@ -18,6 +18,20 @@
 #include "sntools_stronglens.h"
 #include "sntools_host.h" 
 
+double prob_stronglens(double z) {
+
+  // Created Jul 5 2022 by R.Kessler and J.Pierel
+  // Use Eq 31 (Fig 5) approx from https://arxiv.org/pdf/1907.06830.pdf 
+  //
+  double zcube        = z * z * z;
+  double z11          = pow(z,1.1) ;
+  double top          = 5.0E-4 * zcube;
+  double bottom_fac   = (1.0 + 0.41*z11);
+  double bottom       = pow(bottom_fac,2.7) ;
+  double prob         = top/bottom;
+  return prob ;
+
+} // end prob_stronglens
 
 // ==========================================
 void init_stronglens(char *MODEL_FILE) {
@@ -438,8 +452,8 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   for(img=0 ; img < NIMG_local; img++ ) {
     XIMG[img]   = (double)INPUTS_STRONGLENS.XIMG[random_lens_index][img]; 
     YIMG[img]   = (double)INPUTS_STRONGLENS.YIMG[random_lens_index][img]; 
-    MAG[img]     = (double)INPUTS_STRONGLENS.MAG[random_lens_index][img];     
-    DELAY[img] = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
+    MAG[img]    = (double)INPUTS_STRONGLENS.MAG[random_lens_index][img];     
+    DELAY[img]  = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
   
   // load return argument scalars  

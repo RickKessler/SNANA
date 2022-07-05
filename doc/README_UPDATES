@@ -21143,7 +21143,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    for the true host because mis-matched hosts are often in the
    same galaxy group/cluster as the true host.
  
-   sim: stronglens assigns host at zLENS and works with CIDRAN
+   sim: 
+     + stronglens assigns host at zLENS and works with CIDRAN
+     + stronglens automatically writes another auxiloar file [VERSION].SL
+         with information about each lens and each lensed LC.
 
          ***** MISCELLANEOUS(v11_04l) ***** 
 

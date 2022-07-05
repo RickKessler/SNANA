@@ -167,6 +167,7 @@ typedef struct {
   FILE *FP_README;  char  README[MXPATHLEN] ;
   FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
+  FILE *FP_SLDUMP;  char  SLDUMP[MXPATHLEN] ;
   FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -1075,7 +1076,8 @@ struct GENLC {
   int   CID ;           // internal data CID or 40000 + ilc
   int   CIDOFF ;       // CID offset depends on MJD range (random only)
   int   CIDRAN ;       // use this random CID (if INPUTS.CIDRAN > 0)
-  //  int   YEAR ;         // survey year simulated
+  int   CID_FINAL;     // CID or CIDRAN
+
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
@@ -1267,7 +1269,8 @@ struct GENSL {
   int INIT_FLAG ;
   int REPEAT_FLAG ;     // T => repeat image
   int NGENLC_LENS_TOT ; // total number of generated lenses
-  int NIMG;            // number of images to process
+  int NIMG_GEN;        // number of 'generated' images to process
+  int NIMG_ACC;        // number of 'accepted'  images passing trigger
   int IMGNUM;          // image-num being processed
   int IDLENS;          // ID in lens library
   long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
@@ -1278,6 +1281,7 @@ struct GENSL {
   double MJDMIN, MJDMAX;  // used for SIMLIB read
   double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
   double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  int *CID_LIST ;
 } GENSL ;
 
 
@@ -2027,13 +2031,15 @@ void test_zcmb_dLmag_invert(void);
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );
 void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void);
-int  doReject_SIMGEN_DUMP(char *rejectStage) ;
+bool doReject_SIMGEN_DUMP(char *rejectStage) ;
 
 // functions for instrinsic scatter (from R.Biswas, Jul 27, 2011)
 void ZERO_COVMAT_SCATTER(void);

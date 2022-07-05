@@ -47,4 +47,6 @@ void get_stronglens(double zSN, double *hostpar, int LDMP,
 		    int *blend_flag, int *NIMG,
 		    double *DELAY, double *MAG, double *XIMG, double *YIMG);
 
+double prob_stronglens(double z);
+
 // end:

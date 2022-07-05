@@ -37,7 +37,8 @@ import makeDataFiles_util as util
 import write_data_snana as snana
 
 try:
-    import write_data_lsst_alert as lsst_alert
+    # import write_data_lsst_alert as lsst_alert
+    from write_data_lsst_alert import LsstAlertWriter
 except ImportError:
     #util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
     #raise
@@ -588,6 +589,9 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
+        if args.outdir_lsst_alert is not None:
+            lsst_alert_writer = LsstAlertWriter( args, self.config_data )
+
         while nevent_subgroup >= 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
@@ -631,8 +635,7 @@ class Program:
                     snana.write_event_text_snana(args, self.config_data,
                                                  data_event_dict)
                 if args.outdir_lsst_alert is not None:
-                    lsst_alert.write_event_lsst_alert(args, self.config_data,
-                                                      data_event_dict)
+                    lsst_alert_writer.write_alerts_for_event( data_event_dict )
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1
@@ -671,7 +674,7 @@ class Program:
             if args.outdir_snana:
                 snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
-                lsst_alert.write_summary_lsst_alert(name, self.config_data)
+                lsst_alert_writer.finalize()
 
         # end read_data_driver
 

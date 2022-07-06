@@ -2099,11 +2099,19 @@ class Simulation(Program):
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
         sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL") # strong lens
 
+        merge_simgen_dump = len(dump_split_list)
+        merge_simgen_sl   = len(sl_split_list)
+
         # define aux files for combined version
         dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
         sl_file       = f"{target_dir}/{genversion_combine}.SL"
         readme_file   = f"{target_dir}/{genversion_combine}.README"
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
+
+        if merge_simgen_dump :
+            logging.info("\t Merge SIMGEN-DUMP files")
+        if merge_simgen_sl :
+            logging.info("\t Merge SIMGEN-SL files")
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
@@ -2118,12 +2126,13 @@ class Simulation(Program):
 
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
-            if len(dump_split_list) > 0 :
+
+            if merge_simgen_dump :
                 dump_file_template = dump_split_list[0]
                 self.create_simgen_dump_file(dump_file_template,dump_file)
                 
             # July 5 2022: repeat for strong lens (SL) file
-            if len(sl_split_list) > 0 :
+            if merge_simgen_sl > 0 :
                 sl_file_template = sl_split_list[0]
                 self.create_simgen_dump_file(sl_file_template,sl_file)
 
@@ -2163,6 +2172,11 @@ class Simulation(Program):
         # loop over TMP_*DUMP files and append combined DUMP file
         for dump_split_file in dump_split_list :
             self.append_merge_dump_file(dump_split_file,dump_file)
+
+        # repeat for strong lens dump (if they exist)
+        for sl_split_file in sl_split_list :
+            self.append_merge_dump_file(sl_split_file,sl_file)
+
 
         # end move_sim_data_files
 

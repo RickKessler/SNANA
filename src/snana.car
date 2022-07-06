@@ -1776,7 +1776,7 @@ c define namelist cuts
      &  ,cutwin_Tgapmax(2)       ! max Trest-gap within cutwin_TREST(2)
      &  ,cutwin_T0gapmax(2)      ! max Trest-gap near peak 
      &  ,cutwin_Tobsmin(2)  
-     &  ,cutwin_Tobsmax(2) 
+     &  ,cutwin_Tobsmax(2)
      &  ,cutwin_peakmjd(2)       ! cut on search peakMJD (for rates)
 c  
 c  Below are Epoch-dependent cuts
@@ -2272,7 +2272,7 @@ c
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR
      &   ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
-     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV  
+     &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
      &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
@@ -21490,10 +21490,10 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          IF ( PHOTPROB < 0.0 ) PHOTPROB = 1.0  ! undefined PHOTPROB passes cut
          SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = PHOTPROB 
 
-         SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  =   ! Nov 2019
+         SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  = 
      &       SNLC_FLUXCAL_ERRTEST(EPMIN)
 
-         SNEP_CUTVAR(CUTBIT_SIMPULL,imjd)  =   ! Mar 2021
+         SNEP_CUTVAR(CUTBIT_SIMPULL,imjd)  = 
      &       SIM_EPPULL(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 

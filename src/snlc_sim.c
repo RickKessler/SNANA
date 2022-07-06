@@ -31,11 +31,12 @@
 #include "MWgaldust.h"
 #include "sntools.h"
 #include "sntools_cosmology.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"
 #include "sntools_devel.h"
 #include "sntools_host.h"
 #include "sntools_weaklens.h"
-#include "sntools_stronglens.h"
+//#include "sntools_stronglens.h"
 #include "sntools_wronghost.h"
 #include "sntools_nonlinearity.h"
 #include "sntools_fluxErrModels.h"
@@ -7213,7 +7214,7 @@ void genmag_offsets(void) {
 
     if ( INPUTS_STRONGLENS.USE_FLAG )  { 
       IMGNUM = GENSL.IMGNUM; 
-      if ( IMGNUM>=0 ) { MAGOFF += GENSL.MAGSHIFT_LIST[IMGNUM];  }
+      if ( IMGNUM>=0 ) { MAGOFF += GENSL.LIBEVENT.MAGSHIFT_LIST[IMGNUM];  }
     }
 
     // ------
@@ -8052,7 +8053,7 @@ void init_simvar(void) {
 
   // init strong lens struct.
   GENSL.REPEAT_FLAG  =  0 ; // July 1 2022 
-  GENSL.INIT_FLAG = GENSL.NIMG_GEN = GENSL.IDLENS = GENSL.GALID = 0;
+  GENSL.INIT_FLAG = GENSL.NIMG_GEN  = GENSL.GALID = 0;
   GENSL.NGENLC_LENS_TOT = 0 ;
   GENSL.IMGNUM    = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
@@ -11259,13 +11260,8 @@ void gen_event_stronglens(int ilc, int istage) {
 
   // ------------------
   if ( INIT_FLAG == 0 ) {
-    GENSL.TDELAY_LIST   = (double*) malloc(MEMD);
-    GENSL.MAGNIF_LIST   = (double*) malloc(MEMD);
-    GENSL.MAGSHIFT_LIST = (double*) malloc(MEMD);
-    GENSL.XIMG_LIST     = (double*) malloc(MEMD);
-    GENSL.YIMG_LIST     = (double*) malloc(MEMD);
-    GENSL.CID_LIST      = (int   *) malloc(MEMI);
-    GENSL.INIT_FLAG     = 1;
+    GENSL.CID_LIST        = (int   *) malloc(MEMI);
+    GENSL.INIT_FLAG       = 1;
     INPUTS.NGEN -= 4;    // Jul 3 2022 - avoid going past original NGEN
   }
 
@@ -11292,8 +11288,8 @@ void gen_event_stronglens(int ilc, int istage) {
       GENSL.NGENLC_LENS_TOT++ ;
     }
 
-    XIMG          = GENSL.XIMG_LIST[IMGNUM] ;   // arcSec
-    YIMG          = GENSL.YIMG_LIST[IMGNUM] ;   // arcSec
+    XIMG          = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM] ;   // arcSec
+    YIMG          = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM] ;   // arcSec
     cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
     GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
     GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
@@ -11303,11 +11299,12 @@ void gen_event_stronglens(int ilc, int istage) {
       printf("  CID=%d  LIBID=%d \n",
 	     GENLC.CID,  GENLC.SIMLIB_ID);
       printf("  IDLENS=%d  GALID(LENS)=%lld  \n",
-	     GENSL.IDLENS, GENSL.GALID);
+	     GENSL.LIBEVENT.IDLENS, GENSL.GALID);
       printf("  RA_noSL=%f  DEC_noSL=%f \n",
 	     GENSL.RA_noSL, GENSL.DEC_noSL );
       printf("  PEAKMJD=%.3f  IMGNUM=%d of %d  Tdelay=%.1f \n",
-	     GENLC.PEAKMJD, IMGNUM, NIMG, GENSL.TDELAY_LIST[IMGNUM] );
+	     GENLC.PEAKMJD, IMGNUM, NIMG, 
+	     GENSL.LIBEVENT.DELAY_LIST[IMGNUM] );
       sprintf(c1err,"Insane RA,DEC = %f, %f", GENLC.RA, GENLC.DEC);
       sprintf(c2err,"X,Yimg=%.2f,%.2f arcSec", XIMG, YIMG );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -11336,33 +11333,37 @@ void gen_event_stronglens(int ilc, int istage) {
     z1        = 1.0 + zSN;
 
     for(img=0; img < MXIMG_STRONGLENS; img++ ) {
-      GENSL.TDELAY_LIST[img] = GENSL.MAGNIF_LIST[img] = 0.0 ;
-      GENSL.XIMG_LIST[img]   = GENSL.YIMG_LIST[img] = 0.0 ;
+      GENSL.LIBEVENT.DELAY_LIST[img] = GENSL.LIBEVENT.MAGNIF_LIST[img] = 0.0 ;
+      GENSL.LIBEVENT.XIMG_SRC_LIST[img]=GENSL.LIBEVENT.YIMG_SRC_LIST[img]=0.0 ;
+      GENSL.LIBEVENT.XGAL_SRC_LIST[img]=GENSL.LIBEVENT.YGAL_SRC_LIST[img]=0.0 ;
       GENSL.CID_LIST[img]    = -9;
     }    
 
     get_stronglens(zSN, hostpar, LDMP,  // <== inputs
-		   &GENSL.IDLENS, &GENSL.zLENS, // <== returned with all below
-		   &GENSL.LOGMASS_LENS, 
-		   &GENSL.LOGMASS_ERR_LENS,
-		   &GENSL.BLEND_FLAG,     
-		   &GENSL.NIMG_GEN,           
-		   GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
-		   GENSL.XIMG_LIST, GENSL.YIMG_LIST );
+		   &GENSL.LIBEVENT );   // <== returned
     
     GENSL.zSN          = zSN ;
     GENSL.IMGNUM       = -1;
     GENSL.RA_noSL      = GENLC.RA;  // Jul 2 2022
     GENSL.DEC_noSL     = GENLC.DEC ;
     GENSL.NIMG_ACC     = 0 ;
-    if ( GENSL.NIMG_GEN == 0 ) 
-      { GENSL.IDLENS = -9; GENSL.zLENS = -9.0;   goto DONE ;  }
+    GENSL.NIMG_GEN     = GENSL.LIBEVENT.NIMG ;
+
+
+    bool LOWZ_LENS = ( GENSL.LIBEVENT.zLENS < zMIN_STRONGLENS );
+    if ( LOWZ_LENS ) { GENSL.NIMG_GEN = GENSL.LIBEVENT.NIMG = 0 ; }
+
+    bool NO_LENS   = ( GENSL.NIMG_GEN == 0 );
+    if ( NO_LENS ) {
+      GENSL.LIBEVENT.IDLENS = -9;   GENSL.LIBEVENT.zLENS = -9.0;   
+      goto DONE ;  
+    }
 
     // get min and max delay for reading enough of the cadence
     tdelay_min = +1.0E9 ;
     tdelay_max = -1.0E9 ;
     for(img=0; img < GENSL.NIMG_GEN; img++ ) {
-      tdelay = GENSL.TDELAY_LIST[img];
+      tdelay = GENSL.LIBEVENT.DELAY_LIST[img];
       if ( tdelay < tdelay_min ) { tdelay_min = tdelay; }
       if ( tdelay > tdelay_max ) { tdelay_max = tdelay; }
     }
@@ -11385,7 +11386,7 @@ void gen_event_stronglens(int ilc, int istage) {
   //  - - - - - - - - - - - - - - - -
   // get peakmjd for this image
   GENSL.IMGNUM++ ;  IMGNUM = GENSL.IMGNUM; 
-  tdelay        = GENSL.TDELAY_LIST[IMGNUM];
+  tdelay        = GENSL.LIBEVENT.DELAY_LIST[IMGNUM];
   PEAKMJD       = GENSL.PEAKMJD_noSL + tdelay;
   GENLC.PEAKMJD = PEAKMJD ;
 
@@ -11396,9 +11397,9 @@ void gen_event_stronglens(int ilc, int istage) {
 
 
   // convert magnifation to magshift
-  magnif   = GENSL.MAGNIF_LIST[IMGNUM];
+  magnif   = GENSL.LIBEVENT.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
-  GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;
+  GENSL.LIBEVENT.MAGSHIFT_LIST[IMGNUM] = magshift ;
   GENLC.SL_MAGSHIFT = magshift; // for simgen-dump
 
   // restore same SN redshift 
@@ -11412,7 +11413,7 @@ void gen_event_stronglens(int ilc, int istage) {
   if ( PEAKMJD < 2.0E4 || PEAKMJD > 1.0E5 ) {
     sprintf(c1err,"Insane PEAKMJD = %f (IMGNUM=%d of %d) ", 
 	    PEAKMJD, IMGNUM, GENSL.NIMG_GEN );
-    sprintf(c2err,"IDLENS=%d, tdelay = %f ", GENSL.IDLENS, tdelay);
+    sprintf(c2err,"IDLENS=%d, tdelay = %f ", GENSL.LIBEVENT.IDLENS, tdelay);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -13005,7 +13006,8 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // - - - - - - - -  -
 
-  bool LAST_IMG   = (GENSL.IMGNUM == GENSL.NIMG_GEN-1) && GENSL.IDLENS>0 ;
+  bool LAST_IMG   = (GENSL.IMGNUM == GENSL.NIMG_GEN-1) && 
+    GENSL.LIBEVENT.IDLENS>0 ;
   bool ACCEPT     = ( GENSL.NIMG_ACC > 0 ) ;
   if ( OPT_DUMP == 2 && LAST_IMG  &&  ACCEPT ) {
     
@@ -13023,18 +13025,24 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    "%4d %10d %5.3f %5.3f %.0f "
 	    "%d %d "
 	    ,
-	    ROWNUM, GENSL.IDLENS, GENSL.zLENS, GENSL.zSN, GENLC.PEAKMJD,
+	    ROWNUM, GENSL.LIBEVENT.IDLENS, GENSL.LIBEVENT.zLENS, GENSL.zSN, GENLC.PEAKMJD,
 	    GENSL.NIMG_GEN, GENSL.NIMG_ACC
 	    );
 
-    for(img=0; img < MXIMG_DUMP; img++ ) 
-      { sprintf(CTMP,"%6.2f ", GENSL.TDELAY_LIST[img]); strcat(OUTLINE,CTMP); }
+    for(img=0; img < MXIMG_DUMP; img++ ) { 
+      sprintf(CTMP,"%6.2f ", GENSL.LIBEVENT.DELAY_LIST[img]); 
+	strcat(OUTLINE,CTMP); 
+      }
 
-    for(img=0; img < MXIMG_DUMP; img++ ) 
-      { sprintf(CTMP,"%5.3f ", GENSL.MAGNIF_LIST[img]); strcat(OUTLINE,CTMP); }
+    for(img=0; img < MXIMG_DUMP; img++ )  { 
+      sprintf(CTMP,"%5.3f ", GENSL.LIBEVENT.MAGNIF_LIST[img]); 
+      strcat(OUTLINE,CTMP); 
+    }
 
-    for(img=0; img < MXIMG_DUMP; img++ ) 
-      { sprintf(CTMP,"%d ", GENSL.CID_LIST[img]); strcat(OUTLINE,CTMP); }
+    for(img=0; img < MXIMG_DUMP; img++ )  { 
+      sprintf(CTMP,"%d ", GENSL.CID_LIST[img]); 
+      strcat(OUTLINE,CTMP); 
+    }
 
     //.xyz
     fprintf(fp,"%s\n", OUTLINE);
@@ -21647,18 +21655,18 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SL_FLAG = INPUTS_STRONGLENS.USE_FLAG;
   if ( SNDATA.SIM_SL_FLAG ) {
     int IMGNUM = GENSL.IMGNUM ;
-    SNDATA.SIM_SL_IDLENS      = GENSL.IDLENS;
+    SNDATA.SIM_SL_IDLENS      = GENSL.LIBEVENT.IDLENS;
     SNDATA.SIM_SL_GALID       = GENSL.GALID;
-    SNDATA.SIM_SL_zLENS       = GENSL.zLENS;
-    SNDATA.SIM_SL_LOGMASS     = GENSL.LOGMASS_LENS;
-    SNDATA.SIM_SL_LOGMASS_ERR = GENSL.LOGMASS_ERR_LENS;
+    SNDATA.SIM_SL_zLENS       = GENSL.LIBEVENT.zLENS;
+    SNDATA.SIM_SL_LOGMASS     = GENSL.LIBEVENT.LOGMASS;
+    SNDATA.SIM_SL_LOGMASS_ERR = GENSL.LIBEVENT.LOGMASS_ERR;
     SNDATA.SIM_SL_NIMG        = GENSL.NIMG_GEN ;
     SNDATA.SIM_SL_IMGNUM      = GENSL.IMGNUM ;
     if ( IMGNUM >= 0 ) {
-      SNDATA.SIM_SL_TDELAY    = GENSL.TDELAY_LIST[IMGNUM] ;
-      SNDATA.SIM_SL_MAGSHIFT  = GENSL.MAGSHIFT_LIST[IMGNUM] ;
-      SNDATA.SIM_SL_XIMG      = GENSL.XIMG_LIST[IMGNUM] ;
-      SNDATA.SIM_SL_YIMG      = GENSL.YIMG_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_TDELAY    = GENSL.LIBEVENT.DELAY_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_MAGSHIFT  = GENSL.LIBEVENT.MAGSHIFT_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_XIMG      = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_YIMG      = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM] ;
     }
     else {
       SNDATA.SIM_SL_TDELAY    = 0.0 ;

@@ -1264,6 +1264,22 @@ struct GENLC {
 } GENLC ;
 
 
+/* xxxx
+// define SL library contents for single event  
+typedef struct {
+  long long int IDLENS;
+  int    NIMG;
+  double zLENS, zSRC_MATCH ;
+  double LOGMASS, LOGMASS_ERR ;
+
+  // store lists of image-dependent quantities                                    
+  double XIMG_SRC_LIST[MXIMG_STRONGLENS], YIMG_SRC_LIST[MXIMG_STRONGLENS];
+  double XGAL_SRC_LIST[MXIMG_STRONGLENS], YGAL_SRC_LIST[MXIMG_STRONGLENS];
+  double DELAY_LIST[MXIMG_STRONGLENS];
+  double MAGNIF_LIST[MXIMG_STRONGLENS], MAGSHIFT_LIST[MXIMG_STRONGLENS] ;
+} EVENT_STRONGLENS_DEF ;
+xxxx */
+
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
@@ -1272,15 +1288,20 @@ struct GENSL {
   int NIMG_GEN;        // number of 'generated' images to process
   int NIMG_ACC;        // number of 'accepted'  images passing trigger
   int IMGNUM;          // image-num being processed
-  int IDLENS;          // ID in lens library
+
+  EVENT_STRONGLENS_DEF LIBEVENT;
+
+  //  int IDLENS;          // ID in lens library
   long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
-  int BLEND_FLAG;
-  double zSN, zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
+  //  int BLEND_FLAG;
+  double zSN;
+  // zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
-  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  //  double *XIMG_SRC_LIST, *YIMG_SRC_LIST;
+  //  double *XGAL_SRC_LIST, *YGAL_SRC_LIST;
+  //  double *TDELAY_LIST, *MAGNIF_LIST, *MAGSHIFT_LIST ;
   int *CID_LIST ;
 } GENSL ;
 

@@ -132,6 +132,7 @@
 #include "sntools.h"
 #include "sntools_cosmology.h"
 #include "sntools_trigger.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h" 
 #include "sntools_host.h"
 #include "sntools_output.h"
@@ -6513,15 +6514,22 @@ void GEN_SNHOST_STRONGLENS(void) {
 
   int    IVAR_ZTRUE        = HOSTLIB.IVAR_ZTRUE ;
   int    IVAR_LOGMASS      = HOSTLIB.IVAR_LOGMASS_TRUE ;
-  double LOGMASS_LENS      = GENSL.LOGMASS_LENS;
-  double LOGMASS_ERR_LENS  = GENSL.LOGMASS_ERR_LENS;
-  double *XIMG_LIST        = GENSL.XIMG_LIST ;
-  double *YIMG_LIST        = GENSL.YIMG_LIST ;
-  double zLENS             = GENSL.zLENS;
+  long long IDLENS         = GENSL.LIBEVENT.IDLENS;
+  double zLENS             = GENSL.LIBEVENT.zLENS;
+  double LOGMASS_LENS      = GENSL.LIBEVENT.LOGMASS;
+  double LOGMASS_ERR_LENS  = GENSL.LIBEVENT.LOGMASS_ERR;
+  double *XIMG_LIST        = GENSL.LIBEVENT.XIMG_SRC_LIST ;
+  double *YIMG_LIST        = GENSL.LIBEVENT.YIMG_SRC_LIST ;
+
+  double zSN = GENLC.REDSHIFT_CMB;
 
   char fnam[] = "GEN_SNHOST_STRONGLENS" ;
 
+
   // ----------- BEGIN -----------
+
+  // harder to match for very massive galaxies, so open NSIGMA match window
+  if ( LOGMASS_LENS > 11.0 ) { NSIGMA_LOGMASS_MATCH = 1.0; }
 
   HOSTLIB.IGAL_STRONGLENS = -9 ;
 
@@ -6540,11 +6548,13 @@ void GEN_SNHOST_STRONGLENS(void) {
   double LOGMASS_SQERR = LOGMASS_ERR_LENS * LOGMASS_ERR_LENS ;
 
   double LOGZDIF, LOGMASS, DIFF, DIFF_MIN=1.0E9 ;
-  double z, dztol, zdif, ARG, PROB_LOGMASS, XNSIG ;
-  bool   FOUND_LENS = false;
+  double z, zdif, ARG, PROB_LOGMASS, XNSIG ;
+  bool   FOUND_LENS = false, OK_ZTOL=true;
   int    NGAL_CHECK = 0, IGAL_LENS=-9 ;
   int    IZ_CEN, igal_start, igal, igal_shift=0, jsign ;
   int    LDMP = 0 ;
+  
+  double dztol = 2.0*eval_GENPOLY(zLENS, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
   
   // compute approx IZ index at zLENS
   LOGZDIF    = LOGZGEN - MINLOGZ_HOSTLIB;
@@ -6570,7 +6580,7 @@ void GEN_SNHOST_STRONGLENS(void) {
     fflush(stdout);
   }
   
-  while ( !FOUND_LENS ) {
+  while ( !FOUND_LENS && OK_ZTOL ) {
     igal    = igal_start + jsign * igal_shift;    
     z       = get_VALUE_HOSTLIB(IVAR_ZTRUE,   igal) ;
     LOGMASS = get_VALUE_HOSTLIB(IVAR_LOGMASS, igal) ;  
@@ -6579,34 +6589,45 @@ void GEN_SNHOST_STRONGLENS(void) {
 
     NGAL_CHECK++ ;
 
-    /* xxx ???
-    if ( DIFF < DIFF_MIN ) { DIFF_MIN=DIFF; IGAL_LENS=igal; }
-    ARG     = 0.5 * (DIFF*DIFF) / LOGMASS_SQERR ;
-    PROB_LOGMASS = exp(-ARG);
-    xxx */
-
     if ( LDMP ==2 ) {
       printf(" xxx igal=%d, jsign=%2d  z=%.4f  LOGMASS=%5.2f  NSIG=%.1f\n",
 	     igal, jsign, z, LOGMASS, XNSIG ); fflush(stdout);
       if ( igal_shift > 10 ) { debugexit(fnam); }
     }
 
-    if ( XNSIG < NSIGMA_LOGMASS_MATCH ) 
+    /* xxx mark delete
+    if ( XNSIG < NSIGMA_LOGMASS_MATCH && zLENS < zSN-0.05 ) 
       { IGAL_LENS=igal; FOUND_LENS=true; }
+    xxxxxx */
+
+    if ( DIFF < DIFF_MIN ) {
+      IGAL_LENS=igal ;  DIFF_MIN = DIFF; 
+      if ( XNSIG < NSIGMA_LOGMASS_MATCH ) { FOUND_LENS=true; }
+    }
 
     if ( jsign == -1 || igal_shift==0 ) { igal_shift += 1; }
     jsign *= -1 ;
+
+    OK_ZTOL = ( fabs(z-zLENS) < dztol );
   }
 
   // - - - - - 
-  // check redshift tolerance
-  dztol = eval_GENPOLY(zLENS, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
-  z     = get_VALUE_HOSTLIB(IVAR_ZTRUE,IGAL_LENS) ;  
-  zdif  = fabs(z-zLENS);
-  if ( zdif > dztol ) {
-    sprintf(c1err,"|z-zLENS| = %.4f exceeds tolerance of %.4f\n",
+  // check if galaxy lenz is found
+
+  if ( IGAL_LENS < 0 ) {
+    zdif  = fabs(z-zLENS);
+    long long GALID   = get_GALID_HOSTLIB(IGAL_LENS);
+    print_preAbort_banner(fnam);
+    printf("   IGAL_LENS = %d   GALID=%lld  zSN=%.3f\n", 
+	   IGAL_LENS, GALID, zSN  );
+    printf("   LOGMASS(HOSTLIB,LENS) = %.2f, %.2f+_%.2f\n", 
+	   LOGMASS, LOGMASS_LENS, LOGMASS_ERR_LENS );
+    printf("   igal_start=%d  igal_shift=%d \n", igal_start, igal_shift);
+    //    printf(" \n");
+    sprintf(c1err,"|z-zLENS| = %.4f exceeds tolerance of %.4f",
 	    zdif, dztol ); 
-    sprintf(c2err,"LENS(z,LOGMASS)=%.4f,%.2f", zLENS, LOGMASS_LENS);
+    sprintf(c2err,"LENS(ID, z, LOGMASS) = %lld  %.4f  %.2f ", 
+	    IDLENS, zLENS, LOGMASS_LENS);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

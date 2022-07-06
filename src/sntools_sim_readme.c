@@ -9,6 +9,7 @@
 
 #include "sntools.h"
 #include "sntools_cosmology.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"
 #include "sntools_host.h"
 #include "sntools_wronghost.h"

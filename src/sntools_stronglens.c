@@ -86,8 +86,10 @@ void init_stronglens(char *MODEL_FILE) {
   sprintf(INPUTS_STRONGLENS.VARNAME_NIMG,     "NIMG"  );
   sprintf(INPUTS_STRONGLENS.VARNAME_XIMG_SRC, "XIMG_SRC"  );
   sprintf(INPUTS_STRONGLENS.VARNAME_YIMG_SRC, "YIMG_SRC"  );
-  sprintf(INPUTS_STRONGLENS.VARNAME_MAGNIF,   "MAGNIF"  );
-  sprintf(INPUTS_STRONGLENS.VARNAME_DELAY,    "DELAY"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_XGAL_SRC, "XGAL_SRC"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_YGAL_SRC, "YGAL_SRC"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_MAGNIF,   "MAGNIF"    );
+  sprintf(INPUTS_STRONGLENS.VARNAME_DELAY,    "DELAY"     );
   
 
   INPUTS_STRONGLENS.ICOL_LENSID = -9;
@@ -98,6 +100,8 @@ void init_stronglens(char *MODEL_FILE) {
   INPUTS_STRONGLENS.ICOL_NIMG       = -9;
   INPUTS_STRONGLENS.ICOL_XIMG_SRC   = -9;
   INPUTS_STRONGLENS.ICOL_YIMG_SRC   = -9;
+  INPUTS_STRONGLENS.ICOL_XGAL_SRC   = -9;
+  INPUTS_STRONGLENS.ICOL_YGAL_SRC   = -9;
   INPUTS_STRONGLENS.ICOL_MAGNIF     = -9;
   INPUTS_STRONGLENS.ICOL_DELAY      = -9;
 
@@ -148,12 +152,20 @@ void init_stronglens(char *MODEL_FILE) {
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_NIMG) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_NIMG = k; }
 
+    // - - - -
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_XIMG_SRC) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_XIMG_SRC = k; }
 
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_YIMG_SRC) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_YIMG_SRC = k; }
 
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_XGAL_SRC) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_XGAL_SRC = k; }
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_YGAL_SRC) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_YGAL_SRC = k; }
+
+    // - - - 
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_MAGNIF) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_MAGNIF = k; }
 
@@ -179,6 +191,9 @@ void init_stronglens(char *MODEL_FILE) {
     { sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_XIMG_SRC); }
   else if( INPUTS_STRONGLENS.ICOL_YIMG_SRC < 0 )
     { sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_YIMG_SRC); }
+
+  // XGAL_SRC and YGAL_SEC are optional
+
   else if( INPUTS_STRONGLENS.ICOL_MAGNIF < 0 )
     { sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_MAGNIF); } 
   else if( INPUTS_STRONGLENS.ICOL_DELAY < 0 )
@@ -353,8 +368,10 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.LOGMASS_LENS      = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.LOGMASS_ERR_LENS  = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.NIMG              = (int  *) malloc(MEMI);
-  INPUTS_STRONGLENS.XIMG_SRC   = (float**)malloc(MEMFF); //RA Offset
-  INPUTS_STRONGLENS.YIMG_SRC   = (float**)malloc(MEMFF); //RA*cos(DEC) offset
+  INPUTS_STRONGLENS.XIMG_SRC   = (float**)malloc(MEMFF); 
+  INPUTS_STRONGLENS.YIMG_SRC   = (float**)malloc(MEMFF); 
+  INPUTS_STRONGLENS.XGAL_SRC   = (float**)malloc(MEMFF); 
+  INPUTS_STRONGLENS.YGAL_SRC   = (float**)malloc(MEMFF); 
   INPUTS_STRONGLENS.DELAY      = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.MAGNIF     = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.ZSRC       = (float*) malloc(MEMF);
@@ -364,6 +381,8 @@ void malloc_stronglens(int NLENS) {
   for(i=0; i < NLENS; i++ ) {
     INPUTS_STRONGLENS.XIMG_SRC[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.YIMG_SRC[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.XGAL_SRC[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.YGAL_SRC[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.DELAY[i]       = (float*)malloc(memf);
     INPUTS_STRONGLENS.MAGNIF[i]      = (float*)malloc(memf);
   }
@@ -392,8 +411,10 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  NIMG      Number of images
   //  DELAY      list of NIMG time delays (days)
   //  MAGNIF     list of NIMG magnifications 
-  //  XIMG        list of NIMG X separations (arcsec)
-  //  YIMG        list of NIMG Y separations (arcsec)
+  //  XIMG_SRC   list of NIMG XSRC-LENS separations (arcsec)
+  //  YIMG_SRC   list of NIMG YSRC-LENS separations (arcsec)
+  //  XGAL_SRC   list of NIMG XGAL-LENS separations  
+  //  YGAL_SRC   
   //
   // July 1 2022: pass new output args LOGMASS[_ERR]_LENS
   //
@@ -453,12 +474,20 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   // strip off image-dependent quantities, and recast to double
   for(img=0 ; img < NIMG_local; img++ ) {
+
     EVENT_SL->XIMG_SRC_LIST[img]   = 
       (double)INPUTS_STRONGLENS.XIMG_SRC[random_lens_index][img]; 
     EVENT_SL->YIMG_SRC_LIST[img]   = 
       (double)INPUTS_STRONGLENS.YIMG_SRC[random_lens_index][img]; 
+
+    EVENT_SL->XGAL_SRC_LIST[img]   = 
+      (double)INPUTS_STRONGLENS.XGAL_SRC[random_lens_index][img]; 
+    EVENT_SL->YGAL_SRC_LIST[img]   = 
+      (double)INPUTS_STRONGLENS.YGAL_SRC[random_lens_index][img]; 
+
     EVENT_SL->MAGNIF_LIST[img]        = 
-      (double)INPUTS_STRONGLENS.MAGNIF[random_lens_index][img];     
+      (double)INPUTS_STRONGLENS.MAGNIF[random_lens_index][img]; 
+
     EVENT_SL->DELAY_LIST[img]      = 
       (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
@@ -473,7 +502,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   DUMPFLAG = 0 ;
   if ( DUMPFLAG ) {
     printf(" xxx \n");
-    printf(" xxx ------ %s DUMP -------- \n", fnam );
+    printf(" xxx -------- %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
     printf(" xxx output IDLENS=%d at zLENS=%.3f and zSRC=%.3f \n", 
 	   IDLENS_local, zLENS_local, zSRC_local );

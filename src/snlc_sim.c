@@ -11343,7 +11343,7 @@ void gen_event_stronglens(int ilc, int istage) {
 		   &GENSL.LIBEVENT );   // <== returned
     
     GENSL.zSN          = zSN ;
-    GENSL.IMGNUM       = -1;
+    GENSL.IMGNUM       = -1 ;
     GENSL.RA_noSL      = GENLC.RA;  // Jul 2 2022
     GENSL.DEC_noSL     = GENLC.DEC ;
     GENSL.NIMG_ACC     = 0 ;

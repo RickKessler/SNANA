@@ -14,7 +14,8 @@ struct {
   float *LOGMASS_LENS, *LOGMASS_ERR_LENS;
   float *ZSRC; //source redshift
   int   *NIMG; // Number of images per lens
-  float **XIMG_SRC, **YIMG_SRC ; // X and Y offsets, arcsec
+  float **XIMG_SRC, **YIMG_SRC ; // X and Y offsets of SN, arcsec
+  float **XGAL_SRC, **YGAL_SRC ; // idem for host center
   float **DELAY ; // time delay of each image (days)
   float **MAGNIF; //magnification of each image
   
@@ -26,12 +27,16 @@ struct {
   char VARNAME_NIMG[40];
   char VARNAME_XIMG_SRC[40];
   char VARNAME_YIMG_SRC[40];
+  char VARNAME_XGAL_SRC[40];
+  char VARNAME_YGAL_SRC[40];
   char VARNAME_MAGNIF[40];
   char VARNAME_DELAY[40];
 
   int ICOL_LENSID, ICOL_ZSRC, ICOL_ZLENS;
   int ICOL_LOGMASS_LENS, ICOL_LOGMASS_ERR_LENS; // Jun 30 2022
-  int ICOL_NIMG, ICOL_XIMG_SRC, ICOL_YIMG_SRC;
+  int ICOL_NIMG;
+  int ICOL_XIMG_SRC, ICOL_YIMG_SRC;
+  int ICOL_XGAL_SRC, ICOL_YGAL_SRC;
   int ICOL_MAGNIF, ICOL_DELAY;
 
 } INPUTS_STRONGLENS;

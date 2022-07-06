@@ -120,6 +120,9 @@ RANSEED_MAX = 1000000000   # 1 billion
 
 KEY_NGENTOT    = "NGENTOT_LC"
 
+# define valid row keys for SIMGEN dump file
+ROWKEY_SIMGEN_DUMP_LIST = [ 'SN:', 'ROW:' ]
+
 NGENTOT_CHECK_ABORT = 300
 
 # - - - - - - - - - - - - - - - - - - -     -
@@ -2184,7 +2187,7 @@ class Simulation(Program):
             for line in f:
                 word_list = line.split()
                 if len(word_list) > 0 :
-                    if word_list[0] == 'SN:' :
+                    if word_list[0] in ROWKEY_SIMGEN_DUMP_LIST :
                         lines_SN.append(line)
 
 #         nline_SN = len(lines_SN)
@@ -2204,15 +2207,18 @@ class Simulation(Program):
         dump_comment_lines = []
         dump_varnames_line = ""
         nline_read           = 0
+
         with open (dump_file_template,"r") as f :
             for line in f:
                 if len(line.strip()) > 1 :
                     nline_read += 1
+                    first_word = line.split()[0]
+
                     if line[0] == '#' :
                         dump_comment_lines.append(line.rstrip("\n"))
                     if line.split()[0] == 'VARNAMES:' :
                         dump_varnames_line = line
-                    if line.split()[0] == 'SN:' :
+                    if first_word in ROWKEY_SIMGEN_DUMP_LIST :
                         break
 
         with open (dump_file,"w") as f :

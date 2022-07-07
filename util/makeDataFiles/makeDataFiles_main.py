@@ -55,11 +55,7 @@ from read_data_lsst_drp      import data_lsst_drp
 from read_data_sirah_folder  import data_sirah_folder
 from read_data_snana_folder  import data_snana_folder
 from read_data_ztf           import data_ztf_folder
-try:
-    # Put the import in a try just in case the import psycopg2 breaks somewhere other than NERSC --rknop
-    from read_data_lsst_tom_db   import data_lsst_tom_db
-except:
-    pass
+from read_data_lsst_tom      import data_lsst_tom_db
 
 # =====================================
 def get_args():
@@ -80,7 +76,7 @@ def get_args():
     msg = "Data source: ZTF folder"
     parser.add_argument("--ztf_folder", help=msg, type=str, default=None )
 
-    msg = "Data source: LSST TOM; format: 'postgres://user:password@host/database"
+    msg = "Data source: LSST TOM; format: 'username:password@url"
     parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
     msg = "Data source: SNANA sim-data folder (for testing)"

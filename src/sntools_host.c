@@ -7572,6 +7572,9 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   // among Sersic terms (Jan 2020)
   //
   // Nov 7 2020: Protect cosTH = 1 + tiny
+  // Jul 6 2022: abort if SNSEP>1000 arcsec; likely NBR_LIST problem.
+
+  double SNSEP_ABORT = 1000.0 ; 
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
@@ -7614,6 +7617,24 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   // compute SN-galaxy separation in arcsec.
 
   SNSEP = angSep(RA_GAL,DEC_GAL,  RA_SN,DEC_SN,  ASEC_PER_DEG);
+
+  if ( SNSEP > SNSEP_ABORT ) {
+    print_preAbort_banner(fnam);
+    long long GALID = get_GALID_HOSTLIB(IGAL);
+    char *NBR_LIST = HOSTLIB.NBR_ZSORTED[SNHOSTGAL.IGAL];
+
+    printf("   TRUE HOST INFO: IGAL=%d   GALID=%lld  NBR_LIST='%s' \n", 
+	   SNHOSTGAL.IGAL, SNHOSTGAL.GALID, NBR_LIST);
+    printf("   NBR INFO: i_nbr=%d  IGAL(nbr)=%d  GALID=%d\n", 
+	   i_nbr, IGAL, GALID);
+    printf("   Galaxy RA,DEC = %f , %f\n",  RA_GAL, DEC_GAL);
+    printf("   SN     RA,DEC = %f , %f \n", RA_SN,  DEC_SN);
+    sprintf(c1err,"Crazy SN-galaxy sep = %.1f arcsec for i_nbr=%d", 
+	    SNSEP, i_nbr);
+    sprintf(c2err,"Likely a problem with NBR_LIST");  //.xyz
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
 
   // For a & b, take weighted average among Sersic terms (Jan 2020).
   // This method is gut-feeling and not rigorous.

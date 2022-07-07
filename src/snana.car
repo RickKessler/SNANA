@@ -2089,6 +2089,7 @@ c
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! restore z=zCMB insteead of zHEL
+     &  ,RESTORE_MWEBV_ERR_BUG ! bug used MWEBV/6 if MWEBV_ERR < 0.001
 
 c LC plot info
 
@@ -2169,6 +2170,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , RESTORE_MWEBV_ERR_BUG
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2218,6 +2220,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
+     &    , RESTORE_MWEBV_ERR_BUG
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -4298,7 +4301,7 @@ c
 +CDE,SNLCINP.
 
       INTEGER OPT, igal, CID
-      REAL*8  DARRAY(10)
+      REAL*8  DARRAY(10), TMPCUT
       CHARACTER STRING*100, FNAM*14
       LOGICAL   USECID
 
@@ -4384,8 +4387,10 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
       SNLC_MWEBV = SNGL(DARRAY(1))
       SNLC_MWEBV_ERR = SNLC_MWEBV * sngl(XTMW_FRACERR)  ! default error
 
+      TMPCUT = 1.0E-12
+      IF ( RESTORE_MWEBV_ERR_BUG ) TMPCUT = 0.001
       CALL FETCH_SNDATA_WRAPPER("MWEBV_ERR", ONE, STRING, DARRAY, OPT)
-      IF ( DARRAY(1) .GE. 0.001 ) THEN
+      IF ( DARRAY(1) .GE. TMPCUT ) THEN 
          SNLC_MWEBV_ERR = SNGL(DARRAY(1))  ! override default error
       ENDIF
 
@@ -6046,6 +6051,7 @@ c default is to reject nothing (accept everything)
       RESTORE_DES3YR     = .FALSE.
       RESTORE_WRONG_VPEC = .FALSE.    ! Nov 3 2020
       RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
+      RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
@@ -7658,6 +7664,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('RESTORE_DES3YR',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_DES3YR
+
+         else if ( MATCH_NMLKEY('RESTORE_MWEBV_ERR_BUG',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) RESTORE_MWEBV_ERR_BUG
 
          else if ( MATCH_NMLKEY('RESTORE_WRONG_VPEC',
      &             1, iArg, ARGLIST) ) then 

@@ -8057,6 +8057,7 @@ void init_simvar(void) {
   GENSL.NGENLC_LENS_TOT = 0 ;
   GENSL.IMGNUM    = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
+  for(i=0; i < MXIMG_STRONGLENS; i++ ) { GENSL.NLENS_ACC[i]=0; }
 
   SPECTROGRAPH_USEFLAG = 0; // Jan 2021
 
@@ -12941,7 +12942,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( OPT_DUMP == 3 ) {
     free(SIMFILE_AUX->OUTLINE);
     fclose(SIMFILE_AUX->FP_DUMP);
-    printf("  %s\n", ptrFile );
+    printf("  %s\n", ptrFile ); fflush(stdout);
     return ;
   }
 
@@ -12988,7 +12989,8 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     fp = SIMFILE_AUX->FP_SLDUMP ;
 
     sprintf(VARLIST,
-	    "ROW IDLENS zLENS zSRC PEAKMJD NIMG_GEN NIMG_ACC  " );
+	    "ROW GENTYPE zSRC PEAKMJD "  // unlensed info
+	    "IDLENS zLENS NIMG_GEN NIMG_ACC  " ); // lens info
     for(ivar=0; ivar < 3; ivar++ ) {
       for(img=0; img < MXIMG_DUMP; img++ ) {
 	sprintf(CTMP,"%s_%d ", PREFIX_IMG_VARNAME[ivar], img); 
@@ -13020,12 +13022,15 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     int NGENTOT_LC = INPUTS.NGENTOT_LC ;
     ROWNUM = GENSL.NGENLC_LENS_TOT;
     if ( NJOBTOT > 0 ){ ROWNUM += NGENTOT_LC*(JOBID-1); }
+    GENSL.NLENS_ACC[GENSL.NIMG_ACC]++ ; // counter for end of job
 
     sprintf(OUTLINE,"ROW: "
-	    "%4d %10d %5.3f %5.3f %.0f "
+	    "%4d %2d %5.3f %0.f  "
+	    "%10lld %5.3f "
 	    "%d %d "
 	    ,
-	    ROWNUM, GENSL.LIBEVENT.IDLENS, GENSL.LIBEVENT.zLENS, GENSL.zSN, GENLC.PEAKMJD,
+	    ROWNUM, INPUTS.GENTYPE_SPEC, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD,
+	    GENSL.LIBEVENT.IDLENS, GENSL.LIBEVENT.zLENS,
 	    GENSL.NIMG_GEN, GENSL.NIMG_ACC
 	    );
 
@@ -13052,8 +13057,19 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // - - - - - - - -  -
   if ( OPT_DUMP == 3 ) {
+    fp = SIMFILE_AUX->FP_SLDUMP ;
+    int NLENS;
+    fprintf(fp,"\n");
+    fprintf(fp,"# NLENS_ACCn = number of lens systems with "
+	    "n light curves passing trigger.\n");
+    for(img=0; img<MXIMG_STRONGLENS; img++ ) {
+      NLENS = GENSL.NLENS_ACC[img] ;
+      if ( NLENS > 0 ) 
+	{ fprintf(fp,"#\t NLENS_ACC%d = %d\n", img, NLENS); }
+    }
+
     fclose(SIMFILE_AUX->FP_SLDUMP);
-    printf("  %s\n", ptrFile );
+    printf("  %s\n", ptrFile ); fflush(stdout);
     return ;
   }
 
@@ -22958,15 +22974,6 @@ void init_genmodel(void) {
 
   }
 
-  // - - - - - - - - - - - -
-  /* xxxx mark delerte xxxx
-  if ( LGEN_SNIA ) 
-    { GENLC.SIMTYPE  = INPUTS.SNTYPE_Ia_SPEC ; }
-
-  if ( INPUTS.GENTYPE_SPEC > 0 ) 
-    { GENLC.SIMTYPE  = INPUTS.GENTYPE_SPEC ; }
-  xxxxxxxx end mark xxxxxx */
-
   prep_dustFlags();
 
   malloc_GENFILT(); // Jan 28 2022
@@ -26986,19 +26993,17 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // check optional auxiliary files.
 
   // close out SIMGEN_DUMP file if it exists
-  if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) {
-    wr_SIMGEN_DUMP(3,SIMFILE_AUX);
-  }
+  if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) 
+    { wr_SIMGEN_DUMP(3,SIMFILE_AUX);  }
 
+  if ( INPUTS_STRONGLENS.USE_FLAG ) 
+    { wr_SIMGEN_SL_DUMP(3,SIMFILE_AUX); }
 
   // copy ZVARATION file to SIM/[VERSION]
   if ( USE_ZVAR_FILE ) {
     cp_zvariation(SIMFILE_AUX->ZVAR);  
     printf("  %s\n", SIMFILE_AUX->ZVAR);
   }
-
-  if ( INPUTS_STRONGLENS.USE_FLAG ) 
-    { printf("  %s\n", SIMFILE_AUX->SLDUMP); }
 
   // Aug 10 2020: in batch mode, write few stats to YAML formatted file
   if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 

@@ -21133,6 +21133,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        snana.exe and snlc_fit.exe now abort if both _HEAD.FITS and
        _HEAD.FITS.gz exist.
 
+    snana.car
+       Fixed bug reading MWEBV_ERR with OPT_MWEBV=1
+         https://github.com/RickKessler/SNANA/issues/959
+ 
          ***** USEFUL(v11_04l) ***** 
 
    new sim-input HOSTLIB_SNR_DETECT (see manual) to apply SNR cut

@@ -1264,22 +1264,6 @@ struct GENLC {
 } GENLC ;
 
 
-/* xxxx
-// define SL library contents for single event  
-typedef struct {
-  long long int IDLENS;
-  int    NIMG;
-  double zLENS, zSRC_MATCH ;
-  double LOGMASS, LOGMASS_ERR ;
-
-  // store lists of image-dependent quantities                                    
-  double XIMG_SRC_LIST[MXIMG_STRONGLENS], YIMG_SRC_LIST[MXIMG_STRONGLENS];
-  double XGAL_SRC_LIST[MXIMG_STRONGLENS], YGAL_SRC_LIST[MXIMG_STRONGLENS];
-  double DELAY_LIST[MXIMG_STRONGLENS];
-  double MAGNIF_LIST[MXIMG_STRONGLENS], MAGSHIFT_LIST[MXIMG_STRONGLENS] ;
-} EVENT_STRONGLENS_DEF ;
-xxxx */
-
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
@@ -1287,6 +1271,9 @@ struct GENSL {
   int NGENLC_LENS_TOT ; // total number of generated lenses
   int NIMG_GEN;        // number of 'generated' images to process
   int NIMG_ACC;        // number of 'accepted'  images passing trigger
+
+  int NLENS_ACC[MXIMG_STRONGLENS]; // for SL dump
+
   int IMGNUM;          // image-num being processed
 
   EVENT_STRONGLENS_DEF LIBEVENT;

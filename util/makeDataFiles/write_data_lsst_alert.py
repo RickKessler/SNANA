@@ -336,9 +336,10 @@ class LsstAlertWriter:
 
         # Figure out the first and last day to include forced photometry
         firstdetect_mjd = head_calc[ gpar.DATAKEY_MJD_DETECT_FIRST ]
+        lastdetect_mjd = head_calc[ gpar.DATAKEY_MJD_DETECT_LAST ]
         if self.args.nite_detect_range:
             force_start = firstdetect_mjd - 30
-            force_end = 1e32
+            force_end = lastdetect_mjd
         elif self.args.peakmjd_range:
             mjd_ref = head_calc[ GPAR.DATAKEY_PEAKMJD ]
             force_start = mjd_ref - 50
@@ -360,7 +361,14 @@ class LsstAlertWriter:
         # Go through all the events, building up prvForcedSources and
         # generating alerts as necessary
         # NOTE : Assuming here that mjd is coming in order!
-        # I hope that's right.
+        # I hope that's right.  (It seems to be.)
+        # tmpmjd = [ i for i in mjds ]
+        # tmpmjd.sort()
+        # tmpmjd = numpy.array( tmpmjd )
+        # if not numpy.all( mjds == tmpmjd ):
+        #     self.logger.warning( f"MJDS not sorted for diaObjectId = {diaObject.diaObjectid}" )
+        # else:
+        #     self.logger.info( f"MJDs are sorted for diaObjectId = {diaObject.diaObjectid}" )
         for obsnum in range( nobs ):
             diaSourceId = snid * self.max_alerts_per_obj + obsnum
             
@@ -375,15 +383,14 @@ class LsstAlertWriter:
             # Only write to the truth table if it's a forced source
             #  or it's detected; otherwise, it will never show
             #  up anywhere in any alert.
-            if ( ( diaForcedSource is not None ) or detects[ obsnum ]
-                 and
-                 ( self.truth_dict is not None ) ):
-                self.truth_dict['diaSourceId'].append( diaSourceId )
-                self.truth_dict['snid'].append( snid )
-                self.truth_dict['mjd'].append( mjds[obsnum] )
-                self.truth_dict['detect'].append( detects[obsnum] )
-                self.truth_dict['true_gentype'].append( true_gentype )
-                self.truth_dict['true_genmag'].append( true_genmags[obsnum] )
+            if self.truth_dict is not None:
+                if detects[obsnum] or ( diaForcedSource is not None ):
+                    self.truth_dict['diaSourceId'].append( diaSourceId )
+                    self.truth_dict['snid'].append( snid )
+                    self.truth_dict['mjd'].append( mjds[obsnum] )
+                    self.truth_dict['detect'].append( detects[obsnum] )
+                    self.truth_dict['true_gentype'].append( true_gentype )
+                    self.truth_dict['true_genmag'].append( true_genmags[obsnum] )
                 
             diaSource = None
             if detects[ obsnum ]:
@@ -454,7 +461,7 @@ class LsstAlertWriter:
         self.logger.info( f"Writing {len(self.truth_dict['diaSourceId'])} "
                           f"entries to truth table {outfile}" )
         with gzip.open( outfile, mode='wt' ) as ofp:
-            ofp.write(f"# SourceID, SNID, MJD, DETECT, "
+            ofp.write(f"SourceID, SNID, MJD, DETECT, "
                       f"TRUE_GENTYPE, TRUE_GENMAG\n")
             for obsnum in range(len(self.truth_dict['diaSourceId'])):
                 ofp.write( f"{self.truth_dict['diaSourceId'][obsnum]}, "

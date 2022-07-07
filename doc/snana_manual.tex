@@ -4427,16 +4427,59 @@ in the DLR computation:
        to compute DLR, but are not used to overlay a true SN location.
 %
    \item Use sim-input ``{\tt HOSTLIB\_SMEAR\_SERSIC: 1.0}'' which
-     is loosely interpreted as a FWMH (arcsec) for average PSF.
-     This parameter has no impact on placement of SN near galaxy,
-     but it affects the DLR calculation as with
-       \begin{eqnarray}
-         \absmear & \equiv & {\tt HOSTLIB\_SMEAR\_SERSIC}/2 \\
-         a & \to & \sqrt{a^2 + \absmear^2} \\
-         b & \to & \sqrt{b^2 + \absmear^2}
-       \end{eqnarray}
+     is loosely interpreted as FWMH (arcsec) for average PSF.
+     This parameter does not impact placement of SN near galaxy,
+     but it affects DLR; 
+     defining $\absmear\equiv${\tt HOSTLIB\_SMEAR\_SERSIC}/2,
+       \begin{equation}
+         a \to \sqrt{a^2 + \absmear^2} ~~~~~
+         b \to \sqrt{b^2 + \absmear^2}
+       \end{equation}
      where $a,b$ are the semimajor/minor half-light radii.
 \end{enumerate}
+
+% ---------------------------------------------
+\clearpage
+\subsubsection{Generating HOST-less Events}
+
+The following sim-input keys control the fraction of simulated
+events reported by {\tt HOSTGAL\_NMATCH=0}; i.e., ``host-less.''
+\begin{verbatim}
+  # keys that require Sersic profile in HOSTLIB
+   HOSTLIB_MAXDDLR:         4.0       # SEP/DLR
+   HOSTLIB_MXINTFLUX_SNPOS: 0.94      # default=0.99
+
+  # keys that require [band]_obs and [band]_obs_err in HOSTLIB
+   HOSTLIB_SNR_DETECT:  5    # or 5,5 -> 2 bands with SNR>5
+   HOSTLIB_SNR_SCALE:   0.5  # reduce by 2 -> impacts SNR_DETECT
+       or
+ # PEAKMJD-dependent SNR_SCALE
+   HOSTLIB_SNR_SCALE(53000:53365): 0.3
+   HOSTLIB_SNR_SCALE(53365:53720): 0.5
+   HOSTLIB_SNR_SCALE(53720:54050): 0.7
+\end{verbatim}
+%
+The first key ({\tt MAXDDLR}) defines host-less events based on
+the separation from the host. 
+Very broad profiles (e.g., de Vaucouleur with $n=4$) can lead
+to excessive host-less fractions from large {\tt DDLR}.
+To truncate the galaxy profile, {\tt MXINTFLUX\_SNPOS} removes
+the high-probability region at large radii.
+
+The last two keys simulate host-less events by excluding nearby galaxies
+which fail a user-defined SNR cut.
+Galaxy mags and uncertainties are required in the
+\hostlib\ for this feature. 
+In the example above, at least one band must satisfy SNR$>5$.
+
+A \hostlib\ is often based on the full depth of a survey,
+and is thus not appropriate for simulating samples before
+the end of the survey.
+For example, consider a \hostlib\ based on a 4-year co-add depth;
+to simulate a 1 year co-add depth, set {\tt SNR\_SCALE: 0.5}
+to reduce the galaxy SNR by a factor of $\sqrt{1/4}=1/2$.
+An optional PEAKMJD-dependent {\tt SNR\_SCALE} can be given
+by providing PEAKMJD-ranges as parenthetical arguments.
 
 % ------------------------------------
 \clearpage

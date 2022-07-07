@@ -9,6 +9,7 @@
 
 #include "sntools.h"
 #include "sntools_cosmology.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"
 #include "sntools_host.h"
 #include "sntools_wronghost.h"
@@ -390,7 +391,13 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
 	  pad, NGENLC_TOT, R_gen );
 
-  
+  if ( GENSL.NGENLC_LENS_TOT > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNGENLC_LENS_TOT:  %d  ", 
+	  pad, GENSL.NGENLC_LENS_TOT );
+
+  }
+
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
 	  pad, NGENLC_WRITE, R_write );

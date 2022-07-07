@@ -53,6 +53,8 @@
 # Jun 20 2022: for RESET_CIDOFF=2 (unique CID among all versions),
 #          cidran_max *= 1.1 to prevent hang-up for CIDRAN_MAX ~ 100 million.
 #
+# Jul 05 2022: combine [VERSION].SL files, same as for [VERSION].DUMP files.
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -117,6 +119,9 @@ FORMAT_FITS = "FITS"
 RANSEED_MAX = 1000000000   # 1 billion
 
 KEY_NGENTOT    = "NGENTOT_LC"
+
+# define valid row keys for SIMGEN dump file
+ROWKEY_SIMGEN_DUMP_LIST = [ 'SN:', 'ROW:' ]
 
 NGENTOT_CHECK_ABORT = 300
 
@@ -1011,7 +1016,6 @@ class Simulation(Program):
         msgerr = []
 
         print(f"")
-        #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
         print(f"     GENVERSION        MODEL        CIDOFF(GENVERSION)")
         print(f"# -------------------------------------------------- ")
 
@@ -2093,19 +2097,26 @@ class Simulation(Program):
         logging.info(msg)
 
         dump_split_list     = glob.glob(f"{from_dir}/TMP*.DUMP")
+        sl_split_list       = glob.glob(f"{from_dir}/TMP*.SL") # strong lens
 
-        # defin aux files for combined version
+        merge_simgen_dump = len(dump_split_list)
+        merge_simgen_sl   = len(sl_split_list)
+
+        # define aux files for combined version
         dump_file     = f"{target_dir}/{genversion_combine}.DUMP"
+        sl_file       = f"{target_dir}/{genversion_combine}.SL"
         readme_file   = f"{target_dir}/{genversion_combine}.README"
         list_file     = f"{target_dir}/{genversion_combine}.LIST"
+
+        if merge_simgen_dump :
+            logging.info("\t Merge SIMGEN-DUMP files")
+        if merge_simgen_sl :
+            logging.info("\t Merge SIMGEN-SL files")
 
         # if target dir does NOT exist, create target dir along
         # with aux files.
         if os.path.exists(target_dir) == False :
             os.mkdir(target_dir)
-
-            # create blank IGNORE file
-            # xxx mark delete with open (ignore_file,"w") as f :   pass
 
             # create blank README file
             with open (readme_file,"w") as f :
@@ -2115,9 +2126,15 @@ class Simulation(Program):
 
             # create combined DUMP file with VARNAMES & comments from
             # first DUMP file. Protect against job failure.
-            if len(dump_split_list) > 0 :
+
+            if merge_simgen_dump :
                 dump_file_template = dump_split_list[0]
                 self.create_simgen_dump_file(dump_file_template,dump_file)
+                
+            # July 5 2022: repeat for strong lens (SL) file
+            if merge_simgen_sl > 0 :
+                sl_file_template = sl_split_list[0]
+                self.create_simgen_dump_file(sl_file_template,sl_file)
 
         # if there were failures, return
         if nfail > 0 : 
@@ -2156,6 +2173,11 @@ class Simulation(Program):
         for dump_split_file in dump_split_list :
             self.append_merge_dump_file(dump_split_file,dump_file)
 
+        # repeat for strong lens dump (if they exist)
+        for sl_split_file in sl_split_list :
+            self.append_merge_dump_file(sl_split_file,sl_file)
+
+
         # end move_sim_data_files
 
 
@@ -2179,7 +2201,7 @@ class Simulation(Program):
             for line in f:
                 word_list = line.split()
                 if len(word_list) > 0 :
-                    if word_list[0] == 'SN:' :
+                    if word_list[0] in ROWKEY_SIMGEN_DUMP_LIST :
                         lines_SN.append(line)
 
 #         nline_SN = len(lines_SN)
@@ -2199,15 +2221,18 @@ class Simulation(Program):
         dump_comment_lines = []
         dump_varnames_line = ""
         nline_read           = 0
+
         with open (dump_file_template,"r") as f :
             for line in f:
                 if len(line.strip()) > 1 :
                     nline_read += 1
+                    first_word = line.split()[0]
+
                     if line[0] == '#' :
                         dump_comment_lines.append(line.rstrip("\n"))
                     if line.split()[0] == 'VARNAMES:' :
                         dump_varnames_line = line
-                    if line.split()[0] == 'SN:' :
+                    if first_word in ROWKEY_SIMGEN_DUMP_LIST :
                         break
 
         with open (dump_file,"w") as f :

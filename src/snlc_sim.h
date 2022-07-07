@@ -167,6 +167,7 @@ typedef struct {
   FILE *FP_README;  char  README[MXPATHLEN] ;
   FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
+  FILE *FP_SLDUMP;  char  SLDUMP[MXPATHLEN] ;
   FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -501,6 +502,9 @@ struct INPUTS {
   char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
   float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+
+  int    HOSTLIB_NMJD_SNR_SCALE;     // number of MJD ranges to scale host-SNR
+  float  HOSTLIB_SNR_SCALE[10][3];   //  up to 10 x { scale, MJDRange[2] }
 
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
 
@@ -1072,7 +1076,8 @@ struct GENLC {
   int   CID ;           // internal data CID or 40000 + ilc
   int   CIDOFF ;       // CID offset depends on MJD range (random only)
   int   CIDRAN ;       // use this random CID (if INPUTS.CIDRAN > 0)
-  //  int   YEAR ;         // survey year simulated
+  int   CID_FINAL;     // CID or CIDRAN
+
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
@@ -1259,20 +1264,45 @@ struct GENLC {
 } GENLC ;
 
 
+/* xxxx
+// define SL library contents for single event  
+typedef struct {
+  long long int IDLENS;
+  int    NIMG;
+  double zLENS, zSRC_MATCH ;
+  double LOGMASS, LOGMASS_ERR ;
+
+  // store lists of image-dependent quantities                                    
+  double XIMG_SRC_LIST[MXIMG_STRONGLENS], YIMG_SRC_LIST[MXIMG_STRONGLENS];
+  double XGAL_SRC_LIST[MXIMG_STRONGLENS], YGAL_SRC_LIST[MXIMG_STRONGLENS];
+  double DELAY_LIST[MXIMG_STRONGLENS];
+  double MAGNIF_LIST[MXIMG_STRONGLENS], MAGSHIFT_LIST[MXIMG_STRONGLENS] ;
+} EVENT_STRONGLENS_DEF ;
+xxxx */
+
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
-  int REPEAT_FLAG;     // T => repeat image
-  int NIMG;            // number of images to process
+  int REPEAT_FLAG ;     // T => repeat image
+  int NGENLC_LENS_TOT ; // total number of generated lenses
+  int NIMG_GEN;        // number of 'generated' images to process
+  int NIMG_ACC;        // number of 'accepted'  images passing trigger
   int IMGNUM;          // image-num being processed
-  int IDLENS;
-  int BLEND_FLAG;
-  double zSN, zLENS;
+
+  EVENT_STRONGLENS_DEF LIBEVENT;
+
+  //  int IDLENS;          // ID in lens library
+  long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
+  //  int BLEND_FLAG;
+  double zSN;
+  // zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
-  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  //  double *XIMG_SRC_LIST, *YIMG_SRC_LIST;
+  //  double *XGAL_SRC_LIST, *YGAL_SRC_LIST;
+  //  double *TDELAY_LIST, *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  int *CID_LIST ;
 } GENSL ;
 
 
@@ -1751,6 +1781,7 @@ int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
 void   parse_input_HOSTLIB_SNR_DETECT(char *string);
+void   parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);
@@ -1939,6 +1970,7 @@ void   init_hostNoise(void) ;
 void   update_PARDEF_ZVAR(char *parName); // update PARDEF_ZVAR
 void   init_CIDRAN(void);
 void   sort_CIDRAN(void);
+void   load_CIDRAN(void);
 void   init_modelSmear(void);
 void   dump_modelSmearSigma(void);
 void   init_genSmear_filters(void);
@@ -2020,13 +2052,15 @@ void test_zcmb_dLmag_invert(void);
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );
 void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void);
-int  doReject_SIMGEN_DUMP(char *rejectStage) ;
+bool doReject_SIMGEN_DUMP(char *rejectStage) ;
 
 // functions for instrinsic scatter (from R.Biswas, Jul 27, 2011)
 void ZERO_COVMAT_SCATTER(void);

@@ -33,6 +33,7 @@
 #include "sntools_cosmology.h" 
 #include "fitsio.h"
 #include "sntools_modelgrid.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"      // need the typedefs only
 
 #include "MWgaldust.h"

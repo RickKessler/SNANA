@@ -367,11 +367,11 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.ZLENS             = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.LOGMASS_LENS      = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.LOGMASS_ERR_LENS  = (float*) malloc(MEMF);
+  INPUTS_STRONGLENS.XGAL_SRC          = (float*) malloc(MEMF); 
+  INPUTS_STRONGLENS.YGAL_SRC          = (float*) malloc(MEMF); 
   INPUTS_STRONGLENS.NIMG              = (int  *) malloc(MEMI);
   INPUTS_STRONGLENS.XIMG_SRC   = (float**)malloc(MEMFF); 
   INPUTS_STRONGLENS.YIMG_SRC   = (float**)malloc(MEMFF); 
-  INPUTS_STRONGLENS.XGAL_SRC   = (float**)malloc(MEMFF); 
-  INPUTS_STRONGLENS.YGAL_SRC   = (float**)malloc(MEMFF); 
   INPUTS_STRONGLENS.DELAY      = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.MAGNIF     = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.ZSRC       = (float*) malloc(MEMF);
@@ -381,8 +381,6 @@ void malloc_stronglens(int NLENS) {
   for(i=0; i < NLENS; i++ ) {
     INPUTS_STRONGLENS.XIMG_SRC[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.YIMG_SRC[i]    = (float*)malloc(memf);
-    INPUTS_STRONGLENS.XGAL_SRC[i]    = (float*)malloc(memf);
-    INPUTS_STRONGLENS.YGAL_SRC[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.DELAY[i]       = (float*)malloc(memf);
     INPUTS_STRONGLENS.MAGNIF[i]      = (float*)malloc(memf);
   }
@@ -413,7 +411,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  MAGNIF     list of NIMG magnifications 
   //  XIMG_SRC   list of NIMG XSRC-LENS separations (arcsec)
   //  YIMG_SRC   list of NIMG YSRC-LENS separations (arcsec)
-  //  XGAL_SRC   list of NIMG XGAL-LENS separations  
+  //  XGAL_SRC   XGAL-LENS sep
   //  YGAL_SRC   
   //
   // July 1 2022: pass new output args LOGMASS[_ERR]_LENS
@@ -480,17 +478,17 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
     EVENT_SL->YIMG_SRC_LIST[img]   = 
       (double)INPUTS_STRONGLENS.YIMG_SRC[random_lens_index][img]; 
 
-    EVENT_SL->XGAL_SRC_LIST[img]   = 
-      (double)INPUTS_STRONGLENS.XGAL_SRC[random_lens_index][img]; 
-    EVENT_SL->YGAL_SRC_LIST[img]   = 
-      (double)INPUTS_STRONGLENS.YGAL_SRC[random_lens_index][img]; 
-
     EVENT_SL->MAGNIF_LIST[img]        = 
       (double)INPUTS_STRONGLENS.MAGNIF[random_lens_index][img]; 
 
     EVENT_SL->DELAY_LIST[img]      = 
       (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
+
+  EVENT_SL->XGAL_SRC   = 
+    (double)INPUTS_STRONGLENS.XGAL_SRC[random_lens_index]; 
+  EVENT_SL->YGAL_SRC   = 
+    (double)INPUTS_STRONGLENS.YGAL_SRC[random_lens_index]; 
   
   // load return argument scalars  
   EVENT_SL->IDLENS      = IDLENS_local ; 

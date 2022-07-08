@@ -528,17 +528,6 @@ void init_OPTIONAL_HOSTVAR(void) {
     init_OPTIONAL_HOSTVAR_PROPERTY(HOSTLIB.HOSTGAL_PROPERTY_IVAR[j].BASENAME, &NVAR);
     }
 
-  /* xxx Mark delete Febr 2022 after implementing more generic Host properties
-     else {  //legacy
-    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ; 
-    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE );
-    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
-    NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-    sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
-  }
-  xxx */
-
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_GALID2 );
 
@@ -2246,7 +2235,6 @@ void read_head_HOSTLIB(FILE *fp) {
 	      int   percentile, N_Q = HOSTLIB.NZPHOT_Q;
 	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
 	      sscanf(&c_var[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
-	      // xxx mark delete sprintf(VARNAME, "%s", c_var);
 
 	      // HOSTLIB ZPHOT_Qnn may not include pad zeros, but outpu
 	      // VARNAME must include pad zeros.
@@ -2580,13 +2568,6 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
     if ( strcmp(varName, BASENAME) == 0 ) { sprintf(varName,"%s_TRUE", BASENAME); }
     // printf ("xxxx 2  %s varName=%s \n",fnam, varName);
   }
-
-  /* xxx Mark delete on Febr 2022
-     else{
-    if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
-      { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
-      } 
-  xxx */
   
   if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
@@ -3124,7 +3105,6 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   // --------------------------------------------------
   int UPD = ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 );
-  // xxx mark delete  if ( UPD && NGAL_STORE > 0 ) {    
   if ( UPD && NGAL_STORE > HOSTLIB.NGAL_STORE_MALLOC ) {    
     HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
@@ -5721,7 +5701,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
   WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
-  // xxx mark  GALID_FORCE = INPUTS.HOSTLIB_GALID_FORCE ;
 
   if ( ISMODEL_SIMLIB  &&  SIMLIB_HEADER.GALID > 0 ) { 
     INPUTS.HOSTLIB_GALID_PRIORITY[0] = SIMLIB_HEADER.GALID;
@@ -6476,13 +6455,6 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
   IVAR_ZPHOT_ERR = HOSTLIB.IVAR_ZPHOT_ERR ;
   if ( IVAR_ZPHOT < 0 ) { return ; }
 
-  /* xxxx mark delete Jun 17 2022 xxxxxx
-  ZDIF = 0.0 ;
-  if ( GENLC.CORRECT_HOSTMATCH ) {
-    ZTRUE = SNHOSTGAL_DDLR_SORT[INBR].ZSPEC ; // ZTRUE from hostlib
-    ZDIF = ZGEN - ZTRUE ; 
-  }
-  xxxxxxxx end mark xxxxxxx */
 
   // always apply ZDIF shift based on true host because
   // mis-matched hosts may be in a group with very similar redshifts.
@@ -6506,9 +6478,9 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
 void GEN_SNHOST_STRONGLENS(void) {
 
   // Created July 1 2022
-  // Pick lens galaxy at zLENS redshift and overwrite observed 
-  // host galaxy with the lens galaxy, but keep the true host 
-  // galaxy info.
+  // Pick lens galaxy from HOSTLIB at redshift z = zLENS and 
+  // overwrite observed host galaxy with the lens galaxy.
+  // Keep the true host galaxy info for SIM_XXX variable output.
 
   double NSIGMA_LOGMASS_MATCH = 0.5; // require <0.5 sigma logmass match
 
@@ -6520,11 +6492,12 @@ void GEN_SNHOST_STRONGLENS(void) {
   double LOGMASS_ERR_LENS  = GENSL.LIBEVENT.LOGMASS_ERR;
   double *XIMG_LIST        = GENSL.LIBEVENT.XIMG_SRC_LIST ;
   double *YIMG_LIST        = GENSL.LIBEVENT.YIMG_SRC_LIST ;
+  double  XGAL_SRC         = GENSL.LIBEVENT.XGAL_SRC ;
+  double  YGAL_SRC         = GENSL.LIBEVENT.YGAL_SRC ;
 
   double zSN = GENLC.REDSHIFT_CMB;
 
   char fnam[] = "GEN_SNHOST_STRONGLENS" ;
-
 
   // ----------- BEGIN -----------
 
@@ -6595,10 +6568,6 @@ void GEN_SNHOST_STRONGLENS(void) {
       if ( igal_shift > 10 ) { debugexit(fnam); }
     }
 
-    /* xxx mark delete
-    if ( XNSIG < NSIGMA_LOGMASS_MATCH && zLENS < zSN-0.05 ) 
-      { IGAL_LENS=igal; FOUND_LENS=true; }
-    xxxxxx */
 
     if ( DIFF < DIFF_MIN ) {
       IGAL_LENS=igal ;  DIFF_MIN = DIFF; 
@@ -6649,6 +6618,20 @@ void GEN_SNHOST_STRONGLENS(void) {
   //.xyz
   HOSTLIB.IGAL_STRONGLENS = IGAL_LENS;
 
+
+  // determine absoluete LENS-gal coordinates
+  // (needed later to compute DDLR
+
+  double cosDEC    = GENSL.cosDEC ;
+
+  GENSL.RA_LENS = GENSL.RA_noSL +
+    ( SNHOSTGAL.RA_GAL_DEG - SNHOSTGAL.RA_SN_DEG ) + 
+    (XGAL_SRC/3600.0) / cosDEC;
+
+  GENSL.DEC_LENS = GENSL.DEC_noSL +
+    ( SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) + 
+    (YGAL_SRC/3600.0);
+
   return;
 
 } // end GEN_SNHOST_STRONGLENS
@@ -6667,6 +6650,10 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
   long long GALID   = get_GALID_HOSTLIB(IGAL_LENS);
   int    IVAR_RA    = HOSTLIB.IVAR_RA ;
   int    IVAR_DEC   = HOSTLIB.IVAR_DEC ;
+  double XIMG_SRC   = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM];
+  double YIMG_SRC   = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM];
+  double cosDEC     = GENSL.cosDEC;
+
   int    i_nbr      = 0 ;
 
   int    IVAR ;
@@ -6687,13 +6674,11 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
   SNHOSTGAL.RA_SN_DEG   = GENLC.RA ;  
   SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
 
-  // assign lens galaxy at original SN coordinate ... 
-  // maybe need simple model to move lens a little bit ?
-  RA_LENS  = GENSL.RA_noSL ;
-  DEC_LENS = GENSL.DEC_noSL ;
+  RA_LENS  = GENSL.RA_LENS ;
+  DEC_LENS = GENSL.DEC_LENS ;
 
-  SNHOSTGAL.RA_GAL_DEG  = RA_LENS;
-  SNHOSTGAL.DEC_GAL_DEG = DEC_LENS;
+  SNHOSTGAL.RA_GAL_DEG  = RA_LENS   + (XIMG_SRC/3600.0)/cosDEC;
+  SNHOSTGAL.DEC_GAL_DEG = DEC_LENS  + (YIMG_SRC/3600.0);
 
   // overwrite a few HOSTLIB variables so that IGAL_LENS is a
   // nearby (nbr) host of the SN.
@@ -6705,13 +6690,6 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
     HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_LENS] = DEC_LENS;    
   }
   else {
-    /* xxx mark
-    // WARNING: this part is NOT tested
-    RA_GAL_ORIG  = SNHOSTGAL.RA_GAL_DEG ;
-    DEC_GAL_ORIG = SNHOSTGAL.DEC_GAL_DEG ;
-    SNHOSTGAL.RA_GAL_DEG  = RA_LENS;
-    SNHOSTGAL.DEC_GAL_DEG = DEC_LENS;
-    xxx */
   }
 
   // compute SNSEP and DDLR
@@ -6731,8 +6709,7 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
     HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_LENS] = DEC_GAL_ORIG ;
   }
   else {
-    // xxx    SNHOSTGAL.RA_GAL_DEG  = RA_GAL_ORIG;
-    //xxx    SNHOSTGAL.DEC_GAL_DEG = DEC_GAL_ORIG;
+
   }
  
 
@@ -7141,8 +7118,9 @@ void GEN_SNHOST_POS(int IGAL) {
     //
     SNHOSTGAL.RA_SN_DEG   = GENLC.RA ; // SN coord already selected
     SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
+    COSDEC                = GENLC.cosDEC ;
+    //xxx mark delete     COSDEC  = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
 
-    COSDEC  = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
     DTMP    = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / COSDEC ;
     RA_GAL  = SNHOSTGAL.RA_SN_DEG  - DTMP ;
 
@@ -7156,14 +7134,6 @@ void GEN_SNHOST_POS(int IGAL) {
 
  SNSEP_CALC:
 
-  // compute SN-host separation in arcsec.
-  SNSEP = angSep(SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG,
-		 SNHOSTGAL.RA_SN_DEG,  SNHOSTGAL.DEC_SN_DEG,
-		 (double)3600.);
-
-  SNHOSTGAL.SNSEP = SNSEP ;
-  SNHOSTGAL.DDLR  = SNSEP / DLR ; // Feb 2019
-
   // check user sim-input option to change previously 
   // selected SN coord to SNHOST coord. 
   // Likely use is for input to Image sim where the
@@ -7176,6 +7146,15 @@ void GEN_SNHOST_POS(int IGAL) {
     // Note that return MWEBV is not used here.
     double MWEBV = gen_MWEBV(GENLC.RA, GENLC.DEC); 
   }
+
+  // compute SN-host separation in arcsec.
+  SNSEP = angSep(SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG,
+		 SNHOSTGAL.RA_SN_DEG,  SNHOSTGAL.DEC_SN_DEG,
+		 (double)3600.);
+
+  SNHOSTGAL.SNSEP = SNSEP ;
+  SNHOSTGAL.DDLR  = SNSEP / DLR ; // Feb 2019
+
 
   // debug mode for SIMLIB model. Use forward-modeled RA,DEC as if
   // they were read from SIMLIB header ... then compare reverse-computed
@@ -7824,6 +7803,11 @@ void SORT_SNHOST_byDDLR(void) {
   // Jan 22 2022: set GENLC.CORRECT_HOSTMATCH=False for wrong host match
   // Jun 14 2022: protect host mag fluctuations from crazy MAG_ERR
   // Jun 30 2022: implement HOSTLIB_SNR_SCALE with MAGOBS_ERR_SCALE
+  //
+  // Jul 08 2022: fix final galaxy coords and check SNSEP with 
+  //               check_SNDATA_HOSTGAL_SNSEP()
+  //
+
 
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
@@ -7836,12 +7820,17 @@ void SORT_SNHOST_byDDLR(void) {
   int  IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
   int  IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
   int  ORDER_SORT       = +1 ;     // increasing order
+
+  bool DOSHIFT_GALCOORDS = ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC );
+  double RAD = RADIAN;
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
   int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, q ,ivar, IVAR_Q;
   int  NNBR_DDLRCUT = 0 ;
-  double DDLR, SNSEP, MAG, MAG_ERR, RA_GAL, DEC_GAL, zq ;
+  double DDLR, SNSEP, MAG, MAG_ERR, zq;
+  double RA_GAL_HOSTLIB, DEC_GAL_HOSTLIB ;
+  double RA_SN, DEC_SN, RA_SHIFT, DEC_SHIFT, cosDEC_SN, cosDEC_GAL ;
   double DMUCOR = 0.0 ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
@@ -7869,6 +7858,8 @@ void SORT_SNHOST_byDDLR(void) {
 
   //  LDMP = ( INDEX_SORT[0] > 0 ) ;
 
+  RA_SN = GENLC.RA;   DEC_SN = GENLC.DEC;   cosDEC_SN  = GENLC.cosDEC ;
+
   if ( LDMP ) 
     { printf(" xxx ----------------------------- \n"); }
 
@@ -7880,13 +7871,6 @@ void SORT_SNHOST_byDDLR(void) {
     SNSEP  = SNHOSTGAL.SNSEP_NBR_LIST[unsort] ;
 
     if ( DDLR < INPUTS.HOSTLIB_MAXDDLR ) { NNBR_DDLRCUT++ ; }
-
-    RA_GAL = GENLC.RA;    DEC_GAL = GENLC.DEC;
-    // xxx mark    if ( i == 0 ) { 
-    if ( unsort == SNHOSTGAL.IMATCH_TRUE_UNSORT ) {
-      RA_GAL  += (SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG  ) ;
-      DEC_GAL += (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) ;
-    }
 
     // load logical for true host.
     // Jun 17 2022: if true host fails SNR_DETECT cut, it won't be 
@@ -7908,16 +7892,25 @@ void SORT_SNHOST_byDDLR(void) {
     // to determine final host coords near SN. This feature allows using
     // HOSTLIB with any set of coordinates, even coords well outside
     // SN fields. If SN->GAL option, then don't change galaxy position.
-    SNHOSTGAL_DDLR_SORT[i].RA  = RA_GAL;
-    SNHOSTGAL_DDLR_SORT[i].DEC = DEC_GAL ;
 
-    if ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC ) {
-	SNHOSTGAL_DDLR_SORT[i].RA += 
-	  ( get_VALUE_HOSTLIB(IVAR_RA,IGAL) - SNHOSTGAL.RA_SN_DEG );
-
-	SNHOSTGAL_DDLR_SORT[i].DEC += 
-	  ( get_VALUE_HOSTLIB(IVAR_DEC,IGAL) - SNHOSTGAL.DEC_SN_DEG );
+    if ( DOSHIFT_GALCOORDS ) {     
+      // move HOSTLIB galaxy near SN and preserve SN-host separation
+      RA_GAL_HOSTLIB  = get_VALUE_HOSTLIB(IVAR_RA,IGAL);
+      DEC_GAL_HOSTLIB = get_VALUE_HOSTLIB(IVAR_DEC,IGAL); 
+      cosDEC_GAL      = cos(RAD*DEC_GAL_HOSTLIB);
+      RA_SHIFT   = (RA_GAL_HOSTLIB  - SNHOSTGAL.RA_SN_DEG);
+      RA_SHIFT  *= (cosDEC_GAL/cosDEC_SN);
+      DEC_SHIFT  = (DEC_GAL_HOSTLIB - SNHOSTGAL.DEC_SN_DEG) ;
     }
+    else {     
+      RA_SHIFT  = SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG ;
+      DEC_SHIFT = SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ;
+    }
+
+    SNHOSTGAL_DDLR_SORT[i].RA  = RA_SN  + RA_SHIFT ;
+    SNHOSTGAL_DDLR_SORT[i].DEC = DEC_SN + DEC_SHIFT ;
+
+    // - - - - - 
 
     IVAR = HOSTLIB.IVAR_ZTRUE ;
     SNHOSTGAL_DDLR_SORT[i].ZSPEC = get_VALUE_HOSTLIB(IVAR,IGAL);
@@ -8787,7 +8780,7 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   int IVAR, USE1, USE2 ;
   int noABORT = 0 ;
   double PARVAL_OUT ;
-  //  char fnam[] = "modelPar_from_SNHOST" ;
+  char fnam[] = "modelPar_from_SNHOST" ;
 
   // ----------------- BEGIN ----------------
   

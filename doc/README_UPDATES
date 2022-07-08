@@ -21160,6 +21160,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug to allow COSBPOLY to override BPOLY and vice-versa
      + add GALNMATCH to simgen-dump
      + write hostmatch fractions to README for Nmatch=0 and Nmatch=2
+     + fix final galaxy coords in data files,
+          https://github.com/RickKessler/SNANA/issues/960
 
    genmag_SIMSED.c
      + fix bug reading MXDAY with NDAY_PAD to account for recent

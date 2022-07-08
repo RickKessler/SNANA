@@ -92,7 +92,8 @@
 #define PLANCK    6.6260755e-27     // Planck constant (erg s)
 #define hc        LIGHT_A * PLANCK
 #define PC_km     3.085678e13       // parsec (km)
-#define TWOPI     6.28318530718
+// #define TWOPI     6.28318530718
+#define TWOPI     2.0*3.141592653589793238462643383279
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA   4.0        // max snana redshift, Dec 26 2016

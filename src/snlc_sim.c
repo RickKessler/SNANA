@@ -638,8 +638,8 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  //INPUTS.RESTORE_WRONG_VPEC   = true ; // Oct 26, 2020 (keep wrong VPEC sign)
   INPUTS.RESTORE_WRONG_VPEC   = false ; // Nov 2, 2020 (fix VPEC sign)
+
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -11286,12 +11286,15 @@ void gen_event_stronglens(int ilc, int istage) {
       // store original coords on first image
       GENSL.RA_noSL    = GENLC.RA;
       GENSL.DEC_noSL   = GENLC.DEC ;
+
+      cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
+      GENSL.cosDEC  = cosDEC ;
       GENSL.NGENLC_LENS_TOT++ ;
     }
 
     XIMG          = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM] ;   // arcSec
     YIMG          = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM] ;   // arcSec
-    cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
+    cosDEC        = GENSL.cosDEC ;
     GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
     GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
 
@@ -11335,8 +11338,8 @@ void gen_event_stronglens(int ilc, int istage) {
 
     for(img=0; img < MXIMG_STRONGLENS; img++ ) {
       GENSL.LIBEVENT.DELAY_LIST[img] = GENSL.LIBEVENT.MAGNIF_LIST[img] = 0.0 ;
-      GENSL.LIBEVENT.XIMG_SRC_LIST[img]=GENSL.LIBEVENT.YIMG_SRC_LIST[img]=0.0 ;
-      GENSL.LIBEVENT.XGAL_SRC_LIST[img]=GENSL.LIBEVENT.YGAL_SRC_LIST[img]=0.0 ;
+      GENSL.LIBEVENT.XIMG_SRC_LIST[img] = 0.0 ;
+      GENSL.LIBEVENT.YIMG_SRC_LIST[img] = 0.0 ;
       GENSL.CID_LIST[img]    = -9;
     }    
 
@@ -17154,6 +17157,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   int NOBS_RAW    = SIMLIB_OBS_RAW.NOBS; // xxx SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int ISTORE,  OPTLINE, OBSRAW ;
+  double RAD = RADIAN;
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], TREST ;
   double z1       = 1.0 + GENLC.REDSHIFT_CMB ;
   bool IS_SPECTRO, BAD_MJD;
@@ -17173,6 +17177,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // transfer some SIMLIB_HEADER info to GENLC struct
   GENLC.RA         = SIMLIB_HEADER.RA ;
   GENLC.DEC        = SIMLIB_HEADER.DEC ;
+  GENLC.cosDEC     = cos(RAD*GENLC.DEC);
 
   if ( INPUTS.OPT_MWEBV == OPT_MWEBV_FILE ) 
     { GENLC.MWEBV = SIMLIB_HEADER.MWEBV ; }
@@ -21868,9 +21873,10 @@ void snlc_to_SNDATA(int FLAG) {
   }
   SNDATA.HOSTGAL_OBJID[0]   = SNHOSTGAL.GALID ;
   
-  
+  /* xxx mark delete of redundant call, July 8 2022 
   // set HOSTLIB variables
-  ifilt_obs=0 ;  hostgal_to_SNDATA(FLAG,ifilt_obs);
+  hostgal_to_SNDATA(FLAG,0);
+  xxxxxxxxxx end mark xxxxxxx */
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];  
@@ -22285,6 +22291,11 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
       SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
 
+
+      // do occasional consistency check between final coordinates
+      // and SN-host separation
+      if ( SNDATA.CID % 19 == 0 ) { check_SNDATA_HOSTGAL_SNSEP(m); }
+
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {
 	SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j][m] = 
 	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
@@ -22379,6 +22390,52 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   return ;
 
 } // end of hostgal_to_SNDATA
+
+
+// ************************************
+void check_SNDATA_HOSTGAL_SNSEP(int m) {
+
+  // Created July 8 2022
+  // For host-galaxy match m, re-compute SN-host separation using
+  // final coords that appear in the data file, and abort if this
+  // cross-check SNSEP does not match stored SNSEP. 
+  // Reason: SNSEP and DDLR are computed at the original galaxy
+  // coordinate, and then the galaxy coords are moved to be near
+  // the SN, leaving room for bugs in the coord shift.
+
+  double RA_GAL      = SNDATA.HOSTGAL_RA[m] ;
+  double DEC_GAL     = SNDATA.HOSTGAL_DEC[m] ;
+  double RA_SN       = GENLC.RA;   // not yet transfered to SNDATA.RA
+  double DEC_SN      = GENLC.DEC ;
+  double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
+  double SNSEP_check, SNSEP_dif ;
+  double SNSEP_tol   = 0.01; // abort if SNSEP dif is > tolerance in arcsec
+  
+  char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";
+
+  // ----------- BEGIN -----------
+
+  SNSEP_check = angSep(RA_SN,DEC_SN,  RA_GAL,DEC_GAL, (double)3600.0 ) ;
+  
+  SNSEP_dif = fabs(SNSEP_check-SNSEP_store);
+  if ( SNSEP_dif > SNSEP_tol ) {
+    print_preAbort_banner(fnam);
+    printf("   SNDATA.RA[DEC]         = %f %f \n", RA_SN,  DEC_SN);
+    printf("   SNDATA.HOSTGAL_RA[DEC] = %f %f \n", RA_GAL, DEC_GAL);
+    printf("   GAL-SN SEP [RA,DEC]    = %f %f \n",
+	   RA_GAL-RA_SN, DEC_GAL-DEC_SN);
+    printf("   SNSEP[store,check,dif] = %f %f %f \n",
+	   SNSEP_store, SNSEP_check, SNSEP_dif);
+
+    sprintf(c1err,"Failed SN-host separation check of %.4f arcsec",
+	    SNSEP_tol);
+    sprintf(c2err,"CID=%d m=%d", GENLC.CID, m);
+    //  xxx errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
+} // end check_SNDATA_HOSTGAL_SNSEP
 
 
 // **********************************

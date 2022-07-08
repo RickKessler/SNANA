@@ -7,6 +7,10 @@ import makeDataFiles_util  as    util
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
+ZP_ALERT = 31.4
+PHOTFLAG_DETECT = 4096
+PHOTFLAG_FIRST_DETECT = 2048
+
 # FILTERMAP_PKL2SNANA = {
 #     # CSV ->     SNANA
 #     'p48g'     : 'ZTF-g' ,
@@ -95,11 +99,11 @@ class data_lsst_tom_db(Program):
         if ( evt < self.diaobjectoffset ) or ( evt >= self.diaobjectoffset + len(self.diaobjectcache) ):
             # Have to read a new bactch
             offset = self.cache_size * int( evt / self.cache_size )
-            q = ( 'SELECT o."diaObjectId",o.ra,o."decl",o.mwebv,o.mwebv_err,t.zhelio,t.peakmjd '
+            q = ( 'SELECT o."diaObjectId",o.ra,o."decl",o.mwebv,o.mwebv_err,o.z_final,o.z_final_err '
                   'FROM elasticc_diaobject o '
-                  'INNER JOIN elasticc_diaobjecttruth t ON o."diaObjectId"=t."diaObject_id" '
                   'ORDER BY o."diaObjectId" '
                   'LIMIT %(limit)s offset %(offset)s' )
+                  # 'INNER JOIN elasticc_diaobjecttruth t ON o."diaObjectId"=t."diaObject_id" '
             subs = { 'limit': self.cache_size,
                      'offset': offset }
             rows = self.send_query( q, subs )
@@ -109,11 +113,11 @@ class data_lsst_tom_db(Program):
         diaobject = self.diaobjectcache[ evt - self.diaobjectoffset ]
 
         SNID = diaobject['diaObjectId']
-        zHEL = diaobject['zhelio']
-        zHEL_ERR = 0.001
+        zHEL = diaobject['z_final']
+        zHEL_ERR = diaobject['z_final_err']
         RA = diaobject['ra']
         DEC = diaobject['decl']
-        PEAKMJD = diaobject['peakmjd']
+        PEAKMJD = -9
         MW_EBV = diaobject['mwebv']
         MW_EBV_ERR = diaobject['mwebv_err']
         
@@ -132,6 +136,87 @@ class data_lsst_tom_db(Program):
         head_calc[DATAKEY_MWEBV_ERR]        = MW_EBV_ERR
         head_calc[DATAKEY_MJD_DETECT_FIRST] = 1e32
         head_calc[DATAKEY_MJD_DETECT_LAST]  = -1e32
+
+        # host quantities
+
+        for host in [1, 2]:
+            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err',
+                        'zspec', 'zspec_err', 'ellipticity',
+                        'snsep', 'sqradius' ]:
+                head_calc[ kw.upper() ] = diaobject[k kw ]
+            
+                    
+
+        
+        "hostgal2_dec": -999.0,                       "hostgal_dec": -40.63959503173828,                
+        "hostgal2_ellipticity": -9999.0,              "hostgal_ellipticity": 0.10289999842643738,       
+        "hostgal2_mag_Y": 999.0,                      "hostgal_mag_Y": 23.330915451049805,              
+        "hostgal2_mag_g": 999.0,                      "hostgal_mag_g": 25.822938919067383,              
+        "hostgal2_mag_i": 999.0,                      "hostgal_mag_i": 23.85170555114746,               
+        "hostgal2_mag_r": 999.0,                      "hostgal_mag_r": 24.700223922729492,              
+        "hostgal2_mag_u": 999.0,                      "hostgal_mag_u": 99.01888275146484,               
+        "hostgal2_mag_z": 999.0,                      "hostgal_mag_z": 23.573837280273438,              
+        "hostgal2_magerr_Y": 999.0                    "hostgal_magerr_Y": 0.04230000078678131,          
+        "hostgal2_magerr_g": 999.0,                   "hostgal_magerr_g": 0.07419999688863754,          
+        "hostgal2_magerr_i": 999.0,                   "hostgal_magerr_i": 0.01730000041425228,          
+        "hostgal2_magerr_r": 999.0,                   "hostgal_magerr_r": 0.024800000712275505,         
+        "hostgal2_magerr_u": 999.0,                   "hostgal_magerr_u": 9.0,                          
+        "hostgal2_magerr_z": 999.0,                   "hostgal_magerr_z": 0.023900000378489494,         
+        "hostgal2_ra": -999.0,                        "hostgal_ra": 56.612545013427734,                 
+        "hostgal2_snsep": -9.0,                       "hostgal_snsep": 0.2890150845050812,              
+        "hostgal2_sqradius": -9999.0,                 "hostgal_sqradius": 1.8099000453948975,           
+        "hostgal2_zphot": -9.0,                       "hostgal_zphot": 0.6039287447929382,              
+        "hostgal2_zphot_err": -9.0,                   "hostgal_zphot_err": 0.04343000054359436,         
+        "hostgal2_zphot_p50": null,                   "hostgal_zphot_p50": null,                        
+        "hostgal2_zphot_q000": -9.0,                  "hostgal_zphot_q000": 0.3422987461090088,         
+        "hostgal2_zphot_q010": -9.0,                  "hostgal_zphot_q010": 0.5626687407493591,         
+        "hostgal2_zphot_q020": -9.0,                  "hostgal_zphot_q020": 0.5768287181854248,         
+        "hostgal2_zphot_q030": -9.0,                  "hostgal_zphot_q030": 0.5870487689971924,         
+        "hostgal2_zphot_q040": -9.0,                  "hostgal_zphot_q040": 0.5957687497138977,         
+        "hostgal2_zphot_q050": -9.0,                  "hostgal_zphot_q050": 0.6039287447929382,         
+        "hostgal2_zphot_q060": -9.0,                  "hostgal_zphot_q060": 0.6120887398719788,         
+        "hostgal2_zphot_q070": -9.0,                  "hostgal_zphot_q070": 0.6208087205886841,         
+        "hostgal2_zphot_q080": -9.0,                  "hostgal_zphot_q080": 0.6310287117958069,         
+        "hostgal2_zphot_q090": -9.0,                  "hostgal_zphot_q090": 0.6451887488365173,         
+        "hostgal2_zphot_q100": -9.0,                  "hostgal_zphot_q100": 0.8655587434768677,         
+        "hostgal2_zspec": -9.0,                       "hostgal_zspec": -9.0,                            
+        "hostgal2_zspec_err": -9.0,                   "hostgal_zspec_err": -9.0,                        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
         
         # photometry
         # Photometry
@@ -146,13 +231,13 @@ class data_lsst_tom_db(Program):
         sources = { row['diaSourceId']: row  for row in rows }
 
         for key in sources:
-            sources[key]['PHOTFLAG'] = 4096
+            sources[key]['PHOTFLAG'] = PHOTFLAG_DETECT
             if sources[key]['midPointTai'] < head_calc[DATAKEY_MJD_DETECT_FIRST]:
                 head_calc[DATAKEY_MJD_DETECT_FIRST] = sources[key]['midPointTai']
             if sources[key]['midPointTai'] > head_calc[DATAKEY_MJD_DETECT_LAST]:
                 head_calc[DATAKEY_MJD_DETECT_LAST] = sources[key]['midPointTai']
 
-        sources[ list(sources.keys())[0] ]['PHOTFLAG'] = 6144
+        sources[ list(sources.keys())[0] ]['PHOTFLAG'] = PHOTFLAG_DETECT | PHOTFLAG_FIRST_DETECT
         
         rows = self.send_query( 'SELECT "diaForcedSourceId","midPointTai","psFlux","psFluxErr","filterName" '
                                 'FROM elasticc_diaforcedsource '
@@ -174,12 +259,14 @@ class data_lsst_tom_db(Program):
 
         phot_raw = self.init_phot_dict( len(keys) )
         phot_raw['NOBS'] = len(keys)
-        phot_raw['MJD'] = np.array( [ sources[key]['midPointTai'] for key in keys ], dtype=np.float )
-        phot_raw['ZPFLUX'] = np.array( [ 31.4 ] * len(keys), dtype=np.float )
+        phot_raw['MJD'] = np.array( [ sources[key]['midPointTai'] for key in keys ], dtype=np.float64 )
+        phot_raw['ZPFLUX'] = np.array( [ ZP_ALERT ] * len(keys), dtype=np.float )
         phot_raw['FIELD'] = [ 'WFD' ] * len(keys)
         phot_raw['BAND'] = [ sources[key]['filterName'][-1] for key in keys ]
-        phot_raw['FLUXCAL'] = np.array( [ sources[key]['psFlux'] for key in keys ], dtype=np.float )
-        phot_raw['FLUXCALERR'] = np.array( [ sources[key]['psFluxErr'] for key in keys ], dtype=np.float )
+        # Convert to SNANA units
+        fluxscale = np.power(10.0,(0.4*(SNANA_ZP - ZP_ALERT)))
+        phot_raw['FLUXCAL'] = np.array( [ sources[key]['psFlux']*fluxscale for key in keys ], dtype=np.float )
+        phot_raw['FLUXCALERR'] = np.array( [ sources[key]['psFluxErr']*fluxscale for key in keys ], dtype=np.float )
         phot_raw['PHOTFLAG'] = np.array( [ sources[key]['PHOTFLAG'] for key in keys ], dtype=np.int )
 
         # sys.stderr.write( f'Returning head_raw with {len(head_raw)} entries, '

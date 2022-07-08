@@ -308,6 +308,7 @@ struct HOSTLIB_DEF {
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
 
   int IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
+
   int IGAL_STRONGLENS; // galaxy selected as strong lens
 
 } HOSTLIB ;
@@ -545,11 +546,10 @@ struct SNHOSTGAL {
   double a_SNGALSEP_ASEC ;  // angle-coord along major axis
   double b_SNGALSEP_ASEC ;  // idem for minor axis
 
-  double RA_GAL_DEG ;       // Galaxy sky coord from library (DEG)
-  double DEC_GAL_DEG ;  
-  double RA_SN_DEG ;            // SN sky coord (DEG)
-  double DEC_SN_DEG ;   
-  double RA_SNGALSEP_ASEC ;     // SN-galaxy sep in RA, arcsec
+  double RA_GAL_DEG, DEC_GAL_DEG ; // Galaxy sky coord from HOSTLIB (DEG)
+  double RA_SN_DEG, DEC_SN_DEG ;  // SN coords (from SIMLIB)
+  double cosDEC_GAL, cosDEC_SN;
+  double RA_SNGALSEP_ASEC ;     // SN-galaxy sep in RA direction, arcsec
   double DEC_SNGALSEP_ASEC ;    // idem in DEC
   double SNSEP ;        // SN-gal sep, arcsec
   double DLR ;          // directional light radius

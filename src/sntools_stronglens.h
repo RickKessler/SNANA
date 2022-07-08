@@ -14,8 +14,8 @@ struct {
   float *LOGMASS_LENS, *LOGMASS_ERR_LENS;
   float *ZSRC; //source redshift
   int   *NIMG; // Number of images per lens
-  float **XIMG_SRC, **YIMG_SRC ; // X and Y offsets of SN, arcsec
-  float **XGAL_SRC, **YGAL_SRC ; // idem for host center
+  float **XIMG_SRC, **YIMG_SRC ; // list of X and Y offsets of SN, arcsec
+  float *XGAL_SRC, *YGAL_SRC ; // host-lens coord offset
   float **DELAY ; // time delay of each image (days)
   float **MAGNIF; //magnification of each image
   
@@ -46,10 +46,10 @@ typedef struct {
   int    NIMG; 
   double zLENS, zSRC_MATCH ;  
   double LOGMASS, LOGMASS_ERR ;
+  double XGAL_SRC, YGAL_SRC; 
 
   // store lists of image-dependent quantities 
   double XIMG_SRC_LIST[MXIMG_STRONGLENS], YIMG_SRC_LIST[MXIMG_STRONGLENS];  
-  double XGAL_SRC_LIST[MXIMG_STRONGLENS], YGAL_SRC_LIST[MXIMG_STRONGLENS]; 
   double DELAY_LIST[MXIMG_STRONGLENS];    
   double MAGNIF_LIST[MXIMG_STRONGLENS], MAGSHIFT_LIST[MXIMG_STRONGLENS] ;  
 } EVENT_STRONGLENS_DEF ;  

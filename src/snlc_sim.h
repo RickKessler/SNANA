@@ -953,7 +953,7 @@ struct GENLC {
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
-  double RA, DEC ;          // generated position
+  double RA, DEC, cosDEC ;          // generated position
   double random_shift_RA, random_shift_DEC;     // random coord shift
   double random_shift_RADIUS, random_shift_PHI;
   double GLON, GLAT;        // for LCLIB-galactic models
@@ -1264,22 +1264,6 @@ struct GENLC {
 } GENLC ;
 
 
-/* xxxx
-// define SL library contents for single event  
-typedef struct {
-  long long int IDLENS;
-  int    NIMG;
-  double zLENS, zSRC_MATCH ;
-  double LOGMASS, LOGMASS_ERR ;
-
-  // store lists of image-dependent quantities                                    
-  double XIMG_SRC_LIST[MXIMG_STRONGLENS], YIMG_SRC_LIST[MXIMG_STRONGLENS];
-  double XGAL_SRC_LIST[MXIMG_STRONGLENS], YGAL_SRC_LIST[MXIMG_STRONGLENS];
-  double DELAY_LIST[MXIMG_STRONGLENS];
-  double MAGNIF_LIST[MXIMG_STRONGLENS], MAGSHIFT_LIST[MXIMG_STRONGLENS] ;
-} EVENT_STRONGLENS_DEF ;
-xxxx */
-
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
@@ -1287,6 +1271,9 @@ struct GENSL {
   int NGENLC_LENS_TOT ; // total number of generated lenses
   int NIMG_GEN;        // number of 'generated' images to process
   int NIMG_ACC;        // number of 'accepted'  images passing trigger
+
+  int NLENS_ACC[MXIMG_STRONGLENS]; // for SL dump
+
   int IMGNUM;          // image-num being processed
 
   EVENT_STRONGLENS_DEF LIBEVENT;
@@ -1297,11 +1284,9 @@ struct GENSL {
   double zSN;
   // zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
-  double RA_noSL, DEC_noSL;
+  double RA_noSL, DEC_noSL, cosDEC ;
+  double RA_LENS, DEC_LENS;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  //  double *XIMG_SRC_LIST, *YIMG_SRC_LIST;
-  //  double *XGAL_SRC_LIST, *YGAL_SRC_LIST;
-  //  double *TDELAY_LIST, *MAGNIF_LIST, *MAGSHIFT_LIST ;
   int *CID_LIST ;
 } GENSL ;
 
@@ -2015,6 +2000,8 @@ void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
+void   check_SNDATA_HOSTGAL_SNSEP(int m);
+
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;
 
 void   sprintf_GENGAUSS(char *string, char *name,

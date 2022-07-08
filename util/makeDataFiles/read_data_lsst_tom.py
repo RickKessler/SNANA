@@ -99,11 +99,9 @@ class data_lsst_tom_db(Program):
         if ( evt < self.diaobjectoffset ) or ( evt >= self.diaobjectoffset + len(self.diaobjectcache) ):
             # Have to read a new bactch
             offset = self.cache_size * int( evt / self.cache_size )
-            q = ( 'SELECT o."diaObjectId",o.ra,o."decl",o.mwebv,o.mwebv_err,o.z_final,o.z_final_err '
-                  'FROM elasticc_diaobject o '
-                  'ORDER BY o."diaObjectId" '
-                  'LIMIT %(limit)s offset %(offset)s' )
-                  # 'INNER JOIN elasticc_diaobjecttruth t ON o."diaObjectId"=t."diaObject_id" '
+            q = ( 'SELECT * FROM elasticc_diaobject '
+                  'ORDER BY "diaObjectId" '
+                  'LIMIT %(limit)s OFFSET %(offset)s' )
             subs = { 'limit': self.cache_size,
                      'offset': offset }
             rows = self.send_query( q, subs )
@@ -137,89 +135,18 @@ class data_lsst_tom_db(Program):
         head_calc[DATAKEY_MJD_DETECT_FIRST] = 1e32
         head_calc[DATAKEY_MJD_DETECT_LAST]  = -1e32
 
-        # host quantities
-
-        for host in [1, 2]:
-            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err',
+        for host in ['', 2]:
+            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err', 'zphot_p50',
                         'zspec', 'zspec_err', 'ellipticity',
                         'snsep', 'sqradius' ]:
-                head_calc[ kw.upper() ] = diaobject[k kw ]
-            
-                    
+                head_calc[ f"HOSTGAL{host}_{kw.upper()}" ] = diaobject[ f"hostgal{host}_{kw}" ]
+            for band in [ 'u', 'g', 'r', 'i', 'z', 'Y' ]:
+                head_calc[ f"HOSTGAL{host}_MAG_${band}" ] = diaobject[ f"hostgal{host}_mag_${band}" ]
+                head_calc[ f"HOSTGAL{host}_MAGERR_${band}" ] = diaobject[ f"hostgal{host}_magerr_${band}" ]
+            for q in [ '000', '010', '020', '030', '040', '050',
+                       '060', '070', '080', '090', '100' ]:
+                head_calc[ f"HOSTGAL{host}_ZPHOT_Q{q}" ] = diaobject[ f"hostgal{host}_zphot_q{q}" ]
 
-        
-        "hostgal2_dec": -999.0,                       "hostgal_dec": -40.63959503173828,                
-        "hostgal2_ellipticity": -9999.0,              "hostgal_ellipticity": 0.10289999842643738,       
-        "hostgal2_mag_Y": 999.0,                      "hostgal_mag_Y": 23.330915451049805,              
-        "hostgal2_mag_g": 999.0,                      "hostgal_mag_g": 25.822938919067383,              
-        "hostgal2_mag_i": 999.0,                      "hostgal_mag_i": 23.85170555114746,               
-        "hostgal2_mag_r": 999.0,                      "hostgal_mag_r": 24.700223922729492,              
-        "hostgal2_mag_u": 999.0,                      "hostgal_mag_u": 99.01888275146484,               
-        "hostgal2_mag_z": 999.0,                      "hostgal_mag_z": 23.573837280273438,              
-        "hostgal2_magerr_Y": 999.0                    "hostgal_magerr_Y": 0.04230000078678131,          
-        "hostgal2_magerr_g": 999.0,                   "hostgal_magerr_g": 0.07419999688863754,          
-        "hostgal2_magerr_i": 999.0,                   "hostgal_magerr_i": 0.01730000041425228,          
-        "hostgal2_magerr_r": 999.0,                   "hostgal_magerr_r": 0.024800000712275505,         
-        "hostgal2_magerr_u": 999.0,                   "hostgal_magerr_u": 9.0,                          
-        "hostgal2_magerr_z": 999.0,                   "hostgal_magerr_z": 0.023900000378489494,         
-        "hostgal2_ra": -999.0,                        "hostgal_ra": 56.612545013427734,                 
-        "hostgal2_snsep": -9.0,                       "hostgal_snsep": 0.2890150845050812,              
-        "hostgal2_sqradius": -9999.0,                 "hostgal_sqradius": 1.8099000453948975,           
-        "hostgal2_zphot": -9.0,                       "hostgal_zphot": 0.6039287447929382,              
-        "hostgal2_zphot_err": -9.0,                   "hostgal_zphot_err": 0.04343000054359436,         
-        "hostgal2_zphot_p50": null,                   "hostgal_zphot_p50": null,                        
-        "hostgal2_zphot_q000": -9.0,                  "hostgal_zphot_q000": 0.3422987461090088,         
-        "hostgal2_zphot_q010": -9.0,                  "hostgal_zphot_q010": 0.5626687407493591,         
-        "hostgal2_zphot_q020": -9.0,                  "hostgal_zphot_q020": 0.5768287181854248,         
-        "hostgal2_zphot_q030": -9.0,                  "hostgal_zphot_q030": 0.5870487689971924,         
-        "hostgal2_zphot_q040": -9.0,                  "hostgal_zphot_q040": 0.5957687497138977,         
-        "hostgal2_zphot_q050": -9.0,                  "hostgal_zphot_q050": 0.6039287447929382,         
-        "hostgal2_zphot_q060": -9.0,                  "hostgal_zphot_q060": 0.6120887398719788,         
-        "hostgal2_zphot_q070": -9.0,                  "hostgal_zphot_q070": 0.6208087205886841,         
-        "hostgal2_zphot_q080": -9.0,                  "hostgal_zphot_q080": 0.6310287117958069,         
-        "hostgal2_zphot_q090": -9.0,                  "hostgal_zphot_q090": 0.6451887488365173,         
-        "hostgal2_zphot_q100": -9.0,                  "hostgal_zphot_q100": 0.8655587434768677,         
-        "hostgal2_zspec": -9.0,                       "hostgal_zspec": -9.0,                            
-        "hostgal2_zspec_err": -9.0,                   "hostgal_zspec_err": -9.0,                        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
-        # photometry
-        # Photometry
         # Even though all the sources also show up in ForcedSources, we have to
         #  query both tables to figure out how to set PHOTFLAG
 

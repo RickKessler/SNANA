@@ -148,10 +148,9 @@ class data_lsst_tom_db(Program):
         head_calc[ "HOSTGAL_NMATCH2" ] = nmatch # 0
         
         zphot_quants = [ 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ]
-        # head_calc['HOSTGAL_NZPHOT_Q'] = 11
-        # head_calc['HOSTGAL_PERCENTILE_ZPHOT_Q'] = ' '.join( [ str(q) for q in zphot_quants] )
-        # head_calc['HOSTGAL2_NZPHOT_Q'] = 11
-        # head_calc['HOSTGAL2_PERCENTILE_ZPHOT_Q'] = ' '.join( [ str(q) for q in zphot_quants] )
+        # photoz quantiles don't work at the moment; there needs to be
+        # header building outside of this routine before we'll be able
+        # to write these to the data file
         
         # Some of the code elewhere will crash on None values
         def none_is_neg9( val ):

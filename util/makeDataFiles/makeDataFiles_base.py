@@ -484,11 +484,11 @@ class Program:
         SNID = int(SNID_raw) if SNID_raw.isdigit() else SNID_raw
 
         var_dict = {
-            gpar.DATAKEY_SNID       : SNID,
-            gpar.DATAKEY_RA         : d_raw[gpar.DATAKEY_RA],
-            gpar.DATAKEY_DEC        : d_raw[gpar.DATAKEY_DEC],
-            gpar.DATAKEY_PEAKMJD    : d_calc[gpar.DATAKEY_PEAKMJD],
-            gpar.DATAKEY_MJD_DETECT : d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+            gpar.DATAKEY_SNID             : SNID,
+            gpar.DATAKEY_RA               : d_raw[gpar.DATAKEY_RA],
+            gpar.DATAKEY_DEC              : d_raw[gpar.DATAKEY_DEC],
+            gpar.DATAKEY_PEAKMJD          : d_calc[gpar.DATAKEY_PEAKMJD],
+            gpar.DATAKEY_MJD_DETECT_FIRST : d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
         }
         sel = util.select_subsample(args, var_dict)
 

@@ -135,17 +135,45 @@ class data_lsst_tom_db(Program):
         head_calc[DATAKEY_MJD_DETECT_FIRST] = 1e32
         head_calc[DATAKEY_MJD_DETECT_LAST]  = -1e32
 
+        # Host galaxy quantities in head_calc
+
+        if diaobject["hostgal_ra"] > 0:
+            if diaobject["hostgal2_ra"] > 0:
+                nmatch = 2
+            else:
+                nmatch = 1
+        else:
+            nmatch = 0
+        head_calc[ "HOSTGAL_NMATCH" ] = nmatch
+        head_calc[ "HOSTGAL_NMATCH2" ] = nmatch # 0
+        
+        zphot_quants = [ 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ]
+        # head_calc['HOSTGAL_NZPHOT_Q'] = 11
+        # head_calc['HOSTGAL_PERCENTILE_ZPHOT_Q'] = ' '.join( [ str(q) for q in zphot_quants] )
+        # head_calc['HOSTGAL2_NZPHOT_Q'] = 11
+        # head_calc['HOSTGAL2_PERCENTILE_ZPHOT_Q'] = ' '.join( [ str(q) for q in zphot_quants] )
+        
+        # Some of the code elewhere will crash on None values
+        def none_is_neg9( val ):
+            return -9 if val is None else val
+
+        kwtrans = { 'zphot': 'PHOTOZ',
+                    'zphot_err': 'PHOTOZ_ERR' }
         for host in ['', 2]:
-            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err', 'zphot_p50',
+            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err',
                         'zspec', 'zspec_err', 'ellipticity',
                         'snsep', 'sqradius' ]:
-                head_calc[ f"HOSTGAL{host}_{kw.upper()}" ] = diaobject[ f"hostgal{host}_{kw}" ]
+                hdrkw = kwtrans[kw] if kw in kwtrans else kw.upper()
+                val = none_is_neg9( diaobject[ f"hostgal{host}_{kw}" ] )
+                head_calc[ f"HOSTGAL{host}_{hdrkw}" ] = val
             for band in [ 'u', 'g', 'r', 'i', 'z', 'Y' ]:
-                head_calc[ f"HOSTGAL{host}_MAG_${band}" ] = diaobject[ f"hostgal{host}_mag_${band}" ]
-                head_calc[ f"HOSTGAL{host}_MAGERR_${band}" ] = diaobject[ f"hostgal{host}_magerr_${band}" ]
-            for q in [ '000', '010', '020', '030', '040', '050',
-                       '060', '070', '080', '090', '100' ]:
-                head_calc[ f"HOSTGAL{host}_ZPHOT_Q{q}" ] = diaobject[ f"hostgal{host}_zphot_q{q}" ]
+                val = none_is_neg9( diaobject[ f"hostgal{host}_mag_{band}" ] )
+                head_calc[ f"HOSTGAL{host}_MAG_{band}" ] = val
+                val = none_is_neg9( diaobject[ f"hostgal{host}_magerr_{band}" ] )
+                head_calc[ f"HOSTGAL{host}_MAGERR_{band}" ] = val
+            for q in zphot_quants:
+                val = none_is_neg9( diaobject[ f"hostgal{host}_zphot_q{q:03d}" ] )
+                head_calc[ f"HOSTGAL{host}_ZPHOT_Q{q:03d}" ] = val
 
         # Even though all the sources also show up in ForcedSources, we have to
         #  query both tables to figure out how to set PHOTFLAG

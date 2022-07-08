@@ -1,9 +1,15 @@
-import os, sys, glob, yaml, shutil, pickle
+import os, sys, glob, yaml, shutil, pickle, re
+import requests
+import json
 import logging  # , coloredlogs
 import numpy as np
 import makeDataFiles_util  as    util
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
+
+ZP_ALERT = 31.4
+PHOTFLAG_DETECT = 4096
+PHOTFLAG_FIRST_DETECT = 2048
 
 # FILTERMAP_PKL2SNANA = {
 #     # CSV ->     SNANA
@@ -20,19 +26,53 @@ class data_lsst_tom_db(Program):
         super().__init__(config_inputs, config_data)
 
     def init_read_data(self):
-
         args = self.config_inputs['args']  # command line args
-        db_connect_info = args.lsst_tom_db
+        match = re.search( "(.*):(.*)@(http.*)", args.lsst_tom_db )
+        if match is None:
+            errmsg = f"Failed to parse TOM connection string {args.lsst_tom_db}"
+            util.log_assert( False, errmsg )
+            raise ValueError( errmsg )
+        user = match.group(1)
+        password = match.group(2)
+        self.url = match.group(3)
 
-        msgerr = [ "LSST TOM db reading code isn't written yet, no connection actually made" ]
-        util.log_assert(False,msgerr)
-
-        # Figure out number of events
-        nevt = 1
-        self.config_inputs['nevt']      = nevt
+        self.rqs = requests.session()
+        self.rqs.get( f'{self.url}/accounts/login' )
+        res = self.rqs.post( f'{self.url}/accounts/login/',
+                             data={ "username": user,
+                                    "password": password,
+                                    "csrfmiddlewaretoken": self.rqs.cookies['csrftoken'] } )
+        if res.status_code != 200:
+            raise RuntimeError( f"Failed to log in; http status: {res.status_code}" )
+        if 'Please enter a correct' in res.text:
+            # ...hoping that the parsing is still accurate...
+            # import pdb; pdb.set_trace()
+            raise RuntimeError( "Failed to log in.  I think.  Put in a debug break and look at res.text" )
+        self.rqs.headers.update( { 'X-CSRFToken': self.rqs.cookies['csrftoken'] } )
+        
+        rows = self.send_query( 'SELECT COUNT("diaObjectId") AS count FROM elasticc_diaobject' )
+        self.config_inputs['nevt'] = int( rows[0]['count'] )
+        sys.stderr.write( f"Found {self.config_inputs['nevt']} events.\n" )
+        
+        self.cache_size = 100
+        self.diaobjectcache = []
+        self.diaobjectoffset = 0
 
         # end read_data_driver
 
+    def send_query( self, query, subs={} ):
+        res = self.rqs.post( f'{self.url}/db/runsqlquery/',
+                             json={ 'query': query, 'subdict': subs } )
+        if res.status_code != 200:
+            raise RuntimeError( f'Got status {res.status_code} from {self.url}/db/runsqlquery/' )
+        data = json.loads( res.text )
+        if ( 'status' not in data ) or ( data['status'] != 'ok' ):
+            if ( data['status'] == 'error' ) and ( 'error' in data ):
+                raise RuntimeError( f"Error response from server: {data['error']}" )
+            else:
+                raise RuntimeError( f'Got unexpected response from {self.url}/db/runsqlquery/' )
+        return data['rows']
+        
     def prep_read_data_subgroup(self, i_subgroup):
         # No subgroups defined yet
         nevt = self.config_inputs['nevt']
@@ -56,20 +96,32 @@ class data_lsst_tom_db(Program):
 
         varlist_obs = self.config_data['varlist_obs']
 
-        # xxx pkl_phot, plk_spec = pickle.load(open(PKL_FILE,'rb'))
-        # replace pkl read with astropy read ?
-        
-        SNID     = 'abc'   # pkl_phot.meta['NAME']
-        zHEL     = 0.0132  # pkl_phot.meta['zHEL']
-        zHEL_ERR = 0.001   # pkl_phot.meta['zHEL_ERR']            
-        RA       = 24.343453  # pkl_phot.meta['RA']
-        DEC      = 14.32234   # pkl_phot.meta['DEC']
-        PEAKMJD  = 56908.32   # pkl_phot.meta['fit_t0']
-        MW_EBV   = 0.023      # pkl_phot.meta['MW_EBV']
+        if ( evt < self.diaobjectoffset ) or ( evt >= self.diaobjectoffset + len(self.diaobjectcache) ):
+            # Have to read a new bactch
+            offset = self.cache_size * int( evt / self.cache_size )
+            q = ( 'SELECT * FROM elasticc_diaobject '
+                  'ORDER BY "diaObjectId" '
+                  'LIMIT %(limit)s OFFSET %(offset)s' )
+            subs = { 'limit': self.cache_size,
+                     'offset': offset }
+            rows = self.send_query( q, subs )
+            self.diaobjectoffset = offset
+            self.diaobjectcache = rows
 
+        diaobject = self.diaobjectcache[ evt - self.diaobjectoffset ]
+
+        SNID = diaobject['diaObjectId']
+        zHEL = diaobject['z_final']
+        zHEL_ERR = diaobject['z_final_err']
+        RA = diaobject['ra']
+        DEC = diaobject['decl']
+        PEAKMJD = -9
+        MW_EBV = diaobject['mwebv']
+        MW_EBV_ERR = diaobject['mwebv_err']
+        
         # init output dictionaries
         head_raw, head_calc, head_sim = util.reset_data_event_dict()
-        head_raw[DATAKEY_SNID]        = SNID
+        head_raw[DATAKEY_SNID]        = str(SNID)    # I think this needs to be str?
         head_raw[DATAKEY_RA]          = RA
         head_raw[DATAKEY_DEC]         = DEC
         head_raw[DATAKEY_zHEL]        = zHEL
@@ -77,44 +129,109 @@ class data_lsst_tom_db(Program):
         head_raw[DATAKEY_FIELD]       = FIELD_VOID
 
         # calc quantities
-        head_calc[DATAKEY_PEAKMJD]     = int(PEAKMJD)
-        head_calc[DATAKEY_MWEBV]       = MW_EBV
-        head_calc[DATAKEY_MWEBV_ERR]   = MW_EBV*0.16
+        head_calc[DATAKEY_PEAKMJD]          = int(PEAKMJD)
+        head_calc[DATAKEY_MWEBV]            = MW_EBV
+        head_calc[DATAKEY_MWEBV_ERR]        = MW_EBV_ERR
+        head_calc[DATAKEY_MJD_DETECT_FIRST] = 1e32
+        head_calc[DATAKEY_MJD_DETECT_LAST]  = -1e32
 
-        # copy photometry ...
-        NOBS = 22  # len(pkl_phot)
-        phot_raw = self.init_phot_dict(NOBS)
+        # Host galaxy quantities in head_calc
 
-        phot_raw['NOBS']       = NOBS
-        #phot_raw['MJD']        = pkl_phot['MJD']
-        #phot_raw['ZPFLUX']     = pkl_phot['ZP']
-        #phot_raw['FIELD']      = [ FIELD_VOID ] * NOBS
-
-        # use filter string map to translate pkl filter names
-        # to names for SNANA.
-        #pkl_band_list = pkl_phot['Filter'] 
-        #phot_raw['BAND'] = \
-        #    [FILTERMAP_PKL2SNANA[pkl_band] for pkl_band in pkl_band_list ]
-
-        # convert ZTF flux to FLUXCAL using ZP
-        #phot_Flux     = np.array(pkl_phot['Flux'].astype(np.float))
-        #phot_Fluxerr  = np.array(pkl_phot['Fluxerr'].astype(np.float))
-        #phot_ZP       = np.array(pkl_phot['ZP'])
-        #phot_scale    = np.power(10.0,(0.4*(SNANA_ZP-phot_ZP)))
-        #phot_raw['FLUXCAL']    = phot_Flux    * phot_scale
-        #phot_raw['FLUXCALERR'] = phot_Fluxerr * phot_scale
+        if diaobject["hostgal_ra"] > 0:
+            if diaobject["hostgal2_ra"] > 0:
+                nmatch = 2
+            else:
+                nmatch = 1
+        else:
+            nmatch = 0
+        head_calc[ "HOSTGAL_NMATCH" ] = nmatch
+        head_calc[ "HOSTGAL_NMATCH2" ] = nmatch # 0
         
-        #if evt == 0 :
-        #    print(f"\n xxx NOBS = {NOBS} \n{pkl_phot.meta}")
-                
-        # - - - - -
-        # load output dictionary
-        data_dict = {
-            'head_raw'  : head_raw,   # measured by ztf
-            'head_calc' : head_calc,  # computed 
-            'phot_raw'  : phot_raw   
+        zphot_quants = [ 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ]
+        # photoz quantiles don't work at the moment; there needs to be
+        # header building outside of this routine before we'll be able
+        # to write these to the data file
+        
+        # Some of the code elewhere will crash on None values
+        def none_is_neg9( val ):
+            return -9 if val is None else val
+
+        kwtrans = { 'zphot': 'PHOTOZ',
+                    'zphot_err': 'PHOTOZ_ERR' }
+        for host in ['', 2]:
+            for kw in [ 'ra', 'dec', 'zphot', 'zphot_err',
+                        'zspec', 'zspec_err', 'ellipticity',
+                        'snsep', 'sqradius' ]:
+                hdrkw = kwtrans[kw] if kw in kwtrans else kw.upper()
+                val = none_is_neg9( diaobject[ f"hostgal{host}_{kw}" ] )
+                head_calc[ f"HOSTGAL{host}_{hdrkw}" ] = val
+            for band in [ 'u', 'g', 'r', 'i', 'z', 'Y' ]:
+                val = none_is_neg9( diaobject[ f"hostgal{host}_mag_{band}" ] )
+                head_calc[ f"HOSTGAL{host}_MAG_{band}" ] = val
+                val = none_is_neg9( diaobject[ f"hostgal{host}_magerr_{band}" ] )
+                head_calc[ f"HOSTGAL{host}_MAGERR_{band}" ] = val
+            for q in zphot_quants:
+                val = none_is_neg9( diaobject[ f"hostgal{host}_zphot_q{q:03d}" ] )
+                head_calc[ f"HOSTGAL{host}_ZPHOT_Q{q:03d}" ] = val
+
+        # Even though all the sources also show up in ForcedSources, we have to
+        #  query both tables to figure out how to set PHOTFLAG
+
+        rows = self.send_query( 'SELECT "diaSourceId","midPointTai","psFlux","psFluxErr","filterName" '
+                                'FROM elasticc_diasource '
+                                'WHERE "diaObject_id"=%(snid)s '
+                                'ORDER BY "midPointTai"',
+                                { 'snid': SNID } )
+        sources = { row['diaSourceId']: row  for row in rows }
+
+        for key in sources:
+            sources[key]['PHOTFLAG'] = PHOTFLAG_DETECT
+            if sources[key]['midPointTai'] < head_calc[DATAKEY_MJD_DETECT_FIRST]:
+                head_calc[DATAKEY_MJD_DETECT_FIRST] = sources[key]['midPointTai']
+            if sources[key]['midPointTai'] > head_calc[DATAKEY_MJD_DETECT_LAST]:
+                head_calc[DATAKEY_MJD_DETECT_LAST] = sources[key]['midPointTai']
+
+        sources[ list(sources.keys())[0] ]['PHOTFLAG'] = PHOTFLAG_DETECT | PHOTFLAG_FIRST_DETECT
+        
+        rows = self.send_query( 'SELECT "diaForcedSourceId","midPointTai","psFlux","psFluxErr","filterName" '
+                                'FROM elasticc_diaforcedsource '
+                                'WHERE "diaObject_id"=%(snid)s '
+                                'ORDER BY "midPointTai" ', { 'snid': SNID } )
+        forcedsources = { row['diaForcedSourceId']: row  for row in rows }
+
+        # I know from how I (rknop) write the alerts that if
+        #  the diaForcedSourceId is the same as the diaSourceId,
+        #  then these are the same observation
+        forcedkeys = [ key for key in forcedsources if key not in sources ]
+        for key in forcedkeys:
+            sources[key] = forcedsources[key]
+            sources[key]['PHOTFLAG'] = 0
+
+        # Now that forced and unforced searches are merged, re-sort by midpointTai
+        keys = list( sources.keys() )
+        keys.sort( key=lambda key: sources[key]['midPointTai'] )
+
+        phot_raw = self.init_phot_dict( len(keys) )
+        phot_raw['NOBS'] = len(keys)
+        phot_raw['MJD'] = np.array( [ sources[key]['midPointTai'] for key in keys ], dtype=np.float64 )
+        phot_raw['ZPFLUX'] = np.array( [ ZP_ALERT ] * len(keys), dtype=np.float )
+        phot_raw['FIELD'] = [ 'WFD' ] * len(keys)
+        phot_raw['BAND'] = [ sources[key]['filterName'][-1] for key in keys ]
+        # Convert to SNANA units
+        fluxscale = np.power(10.0,(0.4*(SNANA_ZP - ZP_ALERT)))
+        phot_raw['FLUXCAL'] = np.array( [ sources[key]['psFlux']*fluxscale for key in keys ], dtype=np.float )
+        phot_raw['FLUXCALERR'] = np.array( [ sources[key]['psFluxErr']*fluxscale for key in keys ], dtype=np.float )
+        phot_raw['PHOTFLAG'] = np.array( [ sources[key]['PHOTFLAG'] for key in keys ], dtype=np.int )
+
+        # sys.stderr.write( f'Returning head_raw with {len(head_raw)} entries, '
+        #                   f'head_calc with {len(head_calc)} entries, and'
+        #                   f'phot_raw with {len(phot_raw)} entries; '
+        #                   f'phot_raw["NOBS"]={phot_raw["NOBS"]} and '
+        #                   f'len(phot_raw["MJD"]={len(phot_raw["MJD"])}\n' )
+        # import pdb; pdb.set_trace()
+        
+        return {
+            'head_raw': head_raw,
+            'head_calc': head_calc,
+            'phot_raw': phot_raw
         }
-        
-        return data_dict
-  
-        # end read_event

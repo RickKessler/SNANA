@@ -71,7 +71,8 @@ class LsstAlertWriter:
         """Create an object that can write LSST alerts
 
         args — passed command-line args
-        config_data — ...not actually used
+        config_data — Something outside is expecting a couple of fields (n_alert_write, n_event_write) 
+                       to be updated
         max_alerts_per_obj — Maximum alerts there will ever be for an object.  This is used to
                               generate unique SourceIDs, so make it big enough!  (Default 2000)
         print_every — Print status update to the console every time this many alerts are generated
@@ -425,12 +426,16 @@ class LsstAlertWriter:
                     fastavro.write.schemaless_writer( ofp, self.alert_schema, alert )
 
                 self.tot_n_alerts_written += 1
+                # Something outside needs the number of alerts
+                self.config_data[ 'n_alert_write' ] = self.tot_n_alerts_written
                 prvSources.append( diaSource )
 
             if diaForcedSource is not None:
                 prvForcedSources.append( diaForcedSource )
 
         self.tot_n_events_processed += 1
+        # Something outside needs the number of events
+        self.config_data[ 'n_event_write' ] = self.tot_n_events_processed
 
         # Log every so often
         

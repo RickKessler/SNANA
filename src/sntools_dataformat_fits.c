@@ -554,6 +554,7 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MAGSHIFT" , itype );
       wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_NIMG"     , itype );
       wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_IMGNUM"   , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MINSEP"   , itype );
     }
 
   } // SNFITSIO_SIMFLAG_SNANA
@@ -2189,6 +2190,10 @@ void wr_snfitsio_update_head(void) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IMGNUM", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MINSEP ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MINSEP", itype );
   }
 
 
@@ -3690,6 +3695,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
       sprintf(KEY, "%s_IMGNUM", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_INT(isn, KEY, &SNDATA.SIM_SL_IMGNUM ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      sprintf(KEY, "%s_MINSEP", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_MINSEP ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 

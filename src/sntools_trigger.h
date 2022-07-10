@@ -104,6 +104,9 @@ struct  {
   // e.g.,  0.3 -> 1 roughly night, 0.007 -> 10 minutes, or SDSS ugriz
   double TIME_SINGLE_DETECT ;  // days
 
+  // Number of PSF-sigmas to resolve nearby LCs for detections (e.g, SL images)
+  double NPSFSIGMA_MINSEP_DETECT; 
+
   // global peakmag shift for GRIDMAP lookup
   double MAGSHIFT_SPECEFF ; 
 
@@ -262,6 +265,8 @@ struct {
   double HOSTMAG[MXFILTINDX] ;
   double SBMAG[MXFILTINDX] ;
 
+  double SEP_NEAREST_SRC; // sep (arcsec) to nearest src (e.g., another SL)
+
   // obs-dependent quantities
   double MJD[MXOBS_TRIGGER];
   double MAG[MXOBS_TRIGGER];  // mag for each obs
@@ -272,6 +277,7 @@ struct {
   int    NPE_SAT[MXOBS_TRIGGER];   // Npe above sat (negative --> ok)
   int detectFlag[MXOBS_TRIGGER]; // detection flag for each obs (not trigger)
   double PHOTPROB[MXOBS_TRIGGER];  // Mar 13 2018
+  double PSFSIG[MXOBS_TRIGGER];    // PSF sigma, arcsec
   int    NEXPOSE[MXOBS_TRIGGER]; // Number of Exposures in CO-ADD. 08/06/2022 
 } SEARCHEFF_DATA ;
 

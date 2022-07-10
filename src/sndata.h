@@ -440,6 +440,7 @@ struct SNDATA {
   long long SIM_SL_GALID; // hostlib GALID matched to lens properties
   int    SIM_SL_NIMG;    // number of strong lens images
   int    SIM_SL_IMGNUM;  // image num [0 to NIMG-1]
+  double SIM_SL_MINSEP ; // separation from nearest image (Jul 2022)
   double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT;
   double SIM_SL_LOGMASS, SIM_SL_LOGMASS_ERR;
   double SIM_SL_XIMG, SIM_SL_YIMG ;

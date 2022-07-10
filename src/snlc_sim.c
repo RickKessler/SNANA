@@ -1135,6 +1135,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF = 0.0 ;
   INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
+  INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT = 2.0 ; // 2 sigma_PSF to resolve
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
@@ -1520,7 +1521,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   ISKEY_LENS = (strstr(WORDS[0],"WEAKLENS")    != NULL ||
 		strstr(WORDS[0],"STRONGLENS")  != NULL ||
-		strstr(WORDS[0],"LENSING")     != NULL );
+		strstr(WORDS[0],"LENSING")     != NULL ||
+		strstr(WORDS[0],"MINSEP_DETECT") != NULL       );
 
   ISKEY_RANSYSTPAR = (strstr(WORDS[0],"RANSYSTPAR") != NULL);
 
@@ -3527,6 +3529,9 @@ int parse_input_LENS(char **WORDS, int keySource) {
   if ( keyMatchSim(1, "STRONGLENS_FILE",  WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS.STRONGLENS_FILE );
+  }
+  else if ( keyMatchSim(1, "NPSFSIGMA_MINSEP_DETECT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT );
   }
   else if ( keyMatchSim(1, "WEAKLENS_PROBMAP_FILE  LENSING_PROBMAP_FILE",  
 			WORDS[0],keySource) ) {
@@ -11226,6 +11231,13 @@ void gen_event_stronglens(int ilc, int istage) {
   int    INIT_FLAG = GENSL.INIT_FLAG;
   int    NIMG      = GENSL.NIMG_GEN;
   int    IMGNUM    = GENSL.IMGNUM;
+
+
+  double *MAGNIF_LIST = GENSL.LIBEVENT.MAGNIF_LIST;
+  double *DELAY_LIST  = GENSL.LIBEVENT.DELAY_LIST;
+  double *XIMG_LIST   = GENSL.LIBEVENT.XIMG_SRC_LIST ;
+  double *YIMG_LIST   = GENSL.LIBEVENT.YIMG_SRC_LIST ;
+
   double TRESTMIN  = INPUTS.GENRANGE_TREST[0];
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
@@ -11237,8 +11249,8 @@ void gen_event_stronglens(int ilc, int istage) {
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
-  double cosDEC, ANGSEP_TRUE ;
-  int    NEXTLENS=0, img, NGEN_MIN, ep ;
+  double cosDEC, ANGSEP_TRUE, sqSep, sqSep_min, dx, dy ;
+  int    NEXTLENS=0, img, img2, NGEN_MIN, ep ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
@@ -11246,15 +11258,6 @@ void gen_event_stronglens(int ilc, int istage) {
   
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
-
-  /* xxxx mark delete July 3 2022 xxxxxxx
-  if ( WRFLAG_CIDRAN ) {
-    sprintf(c1err,"Cannot use CIDRAN option with strong lens model.");
-    sprintf(c2err,"Remove %d from FORMAT_MASK", WRMASK_CIDRAN );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  xxxxxxxx end mark xxxxxxxx */
-
 
   GENLC.CID = GENLC.CIDOFF + ilc ; 
   if ( WRFLAG_CIDRAN > 0 ) { load_CIDRAN(); }
@@ -11292,8 +11295,8 @@ void gen_event_stronglens(int ilc, int istage) {
       GENSL.NGENLC_LENS_TOT++ ;
     }
 
-    XIMG          = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM] ;   // arcSec
-    YIMG          = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM] ;   // arcSec
+    XIMG          = XIMG_LIST[IMGNUM] ;   // arcSec
+    YIMG          = YIMG_LIST[IMGNUM] ;   // arcSec
     cosDEC        = GENSL.cosDEC ;
     GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
     GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
@@ -11337,9 +11340,8 @@ void gen_event_stronglens(int ilc, int istage) {
     z1        = 1.0 + zSN;
 
     for(img=0; img < MXIMG_STRONGLENS; img++ ) {
-      GENSL.LIBEVENT.DELAY_LIST[img] = GENSL.LIBEVENT.MAGNIF_LIST[img] = 0.0 ;
-      GENSL.LIBEVENT.XIMG_SRC_LIST[img] = 0.0 ;
-      GENSL.LIBEVENT.YIMG_SRC_LIST[img] = 0.0 ;
+      MAGNIF_LIST[img] = DELAY_LIST[img] = 0.0;
+      XIMG_LIST[img]   = YIMG_LIST[img] = 0.0 ;
       GENSL.CID_LIST[img]    = -9;
     }    
 
@@ -11363,14 +11365,31 @@ void gen_event_stronglens(int ilc, int istage) {
       goto DONE ;  
     }
 
-    // get min and max delay for reading enough of the cadence
+    // get min and max delay for reading enough of the SIMLIB cadence.
+    // Also compute min separation
     tdelay_min = +1.0E9 ;
     tdelay_max = -1.0E9 ;
+    GENSL.MINSEP_ALL   = 100.0 ;
     for(img=0; img < GENSL.NIMG_GEN; img++ ) {
-      tdelay = GENSL.LIBEVENT.DELAY_LIST[img];
+
+      tdelay = DELAY_LIST[img];
       if ( tdelay < tdelay_min ) { tdelay_min = tdelay; }
       if ( tdelay > tdelay_max ) { tdelay_max = tdelay; }
+
+      // find min sep among OTHER lensed images.      
+      sqSep_min  =  100.0 ;
+      for(img2=0; img2 < GENSL.NIMG_GEN; img2++ ) {
+	if ( img == img2 ) { continue; }
+	dx = XIMG_LIST[img] - XIMG_LIST[img2];
+	dy = YIMG_LIST[img] - YIMG_LIST[img2];
+	sqSep = dx*dx + dy*dy;
+	if ( sqSep < sqSep_min ) { sqSep_min = sqSep; }
+      }
+      GENSL.MINSEP[img] = sqrt(sqSep_min);
+      if ( GENSL.MINSEP[img] < GENSL.MINSEP_ALL ) 
+	{ GENSL.MINSEP_ALL = GENSL.MINSEP[img]; }
     }
+
 
     // set MJD range to cover all time delays; used to read SIMLIB cadence
     PEAKMJD            = GENLC.PEAKMJD ; // without lens
@@ -12993,7 +13012,7 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     sprintf(VARLIST,
 	    "ROW GENTYPE zSRC PEAKMJD "  // unlensed info
-	    "IDLENS zLENS NIMG_GEN NIMG_ACC  " ); // lens info
+	    "IDLENS zLENS NIMG_GEN NIMG_ACC MINSEP " ); // lens info
     for(ivar=0; ivar < 3; ivar++ ) {
       for(img=0; img < MXIMG_DUMP; img++ ) {
 	sprintf(CTMP,"%s_%d ", PREFIX_IMG_VARNAME[ivar], img); 
@@ -13029,18 +13048,18 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     sprintf(OUTLINE,"ROW: "
 	    "%4d %2d %5.3f %0.f  "
-	    "%10lld %5.3f "
-	    "%d %d "
+	    "%10lld %5.3f  "
+	    "%d %d %.1f "
 	    ,
 	    ROWNUM, INPUTS.GENTYPE_SPEC, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD,
 	    GENSL.LIBEVENT.IDLENS, GENSL.LIBEVENT.zLENS,
-	    GENSL.NIMG_GEN, GENSL.NIMG_ACC
+	    GENSL.NIMG_GEN, GENSL.NIMG_ACC, GENSL.MINSEP_ALL
 	    );
 
     for(img=0; img < MXIMG_DUMP; img++ ) { 
       sprintf(CTMP,"%6.2f ", GENSL.LIBEVENT.DELAY_LIST[img]); 
-	strcat(OUTLINE,CTMP); 
-      }
+      strcat(OUTLINE,CTMP); 
+    }
 
     for(img=0; img < MXIMG_DUMP; img++ )  { 
       sprintf(CTMP,"%5.3f ", GENSL.LIBEVENT.MAGNIF_LIST[img]); 
@@ -21079,6 +21098,8 @@ void  LOAD_SEARCHEFF_DATA(void) {
   //
   // Feb 05 2021: load each overlap field and NFIELD_OVP
   // Jun 08 2022: Load NEXPOSE. 
+  // Jul 08 2022: load PSFSIG (PSF sigma, pixels)
+  //
 
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
@@ -21098,7 +21119,10 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.SIMLIB_ID  = GENLC.SIMLIB_ID;
   SEARCHEFF_DATA.MWEBV      = GENLC.MWEBV ;
 
-
+  SEARCHEFF_DATA.SEP_NEAREST_SRC = 9999.0;
+  if ( INPUTS_STRONGLENS.USE_FLAG ) {
+    SEARCHEFF_DATA.SEP_NEAREST_SRC = GENSL.MINSEP[GENSL.IMGNUM];
+  }
 
   // load field(s) and be careful about overlaps (e.g., X1+X3)
 
@@ -21138,7 +21162,12 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.FLUXERR[NOBS]   = flux_err ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
     SEARCHEFF_DATA.NEXPOSE[NOBS]   = GENLC.NEXPOSE[ep];
-    
+
+
+    double PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[ep]; 
+    double PSF     = SIMLIB_OBS_GEN.PSFSIG1[ep] ;
+    SEARCHEFF_DATA.PSFSIG[NOBS] = PSF * PIXSIZE ;
+
     oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;
     if ( oldRan < -0.001 ) 
       { SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] = getRan_Flat1(1);  NRANTMP++ ; }
@@ -21688,6 +21717,7 @@ void snlc_to_SNDATA(int FLAG) {
       SNDATA.SIM_SL_MAGSHIFT  = GENSL.LIBEVENT.MAGSHIFT_LIST[IMGNUM] ;
       SNDATA.SIM_SL_XIMG      = GENSL.LIBEVENT.XIMG_SRC_LIST[IMGNUM] ;
       SNDATA.SIM_SL_YIMG      = GENSL.LIBEVENT.YIMG_SRC_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_MINSEP    = GENSL.MINSEP[IMGNUM];
     }
     else {
       SNDATA.SIM_SL_TDELAY    = 0.0 ;

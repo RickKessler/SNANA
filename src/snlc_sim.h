@@ -762,6 +762,7 @@ struct INPUTS {
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
   char   STRONGLENS_FILE[MXPATHLEN] ;
+
   char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
   float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
   float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
@@ -1273,18 +1274,17 @@ struct GENSL {
   int NIMG_ACC;        // number of 'accepted'  images passing trigger
 
   int NLENS_ACC[MXIMG_STRONGLENS]; // for SL dump
+  double MINSEP[MXIMG_STRONGLENS]; // min sep to nearest other lensed LC
+  double MINSEP_ALL ; // min separation (arcsec) between all lensed events
 
   int IMGNUM;          // image-num being processed
 
   EVENT_STRONGLENS_DEF LIBEVENT;
 
-  //  int IDLENS;          // ID in lens library
   long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
-  //  int BLEND_FLAG;
   double zSN;
-  // zLENS, LOGMASS_LENS, LOGMASS_ERR_LENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
-  double RA_noSL, DEC_noSL, cosDEC ;
+  double RA_noSL, DEC_noSL, cosDEC;
   double RA_LENS, DEC_LENS;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
   int *CID_LIST ;

@@ -432,6 +432,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
     fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
     fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
+    fprintf(fp,"SIM_STRONGLENS_MINSEP:    %.3f  # arcsec \n", 
+	    SNDATA.SIM_SL_MINSEP  );
   }
 
   // - - - - - 

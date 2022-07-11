@@ -838,6 +838,8 @@ double slaDranrm ( double angle );
 double angSep( double RA1,double DEC1,
 	       double RA2,double DEC2, double  scale);
 
+double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2 );
+
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
 void   init_random_seed(int ISEED, int NSTREAM);

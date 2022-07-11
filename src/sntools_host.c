@@ -6615,12 +6615,11 @@ void GEN_SNHOST_STRONGLENS(void) {
     fflush(stdout);
   }
 
-  //.xyz
   HOSTLIB.IGAL_STRONGLENS = IGAL_LENS;
 
 
   // determine absoluete LENS-gal coordinates
-  // (needed later to compute DDLR
+  // (needed later to compute DDLR)
 
   double cosDEC    = GENSL.cosDEC ;
 

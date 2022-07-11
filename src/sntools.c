@@ -3478,7 +3478,6 @@ double GaussIntegral(double nsig1, double nsig2) {
 double angSep( double RA1,double DEC1, 
 	       double RA2,double DEC2, double  scale) {
 
-  // Copied from DIFFIMG on Nov 16 2015
   //
   // Oct 9, 2012 R. Kessler
   // for input coords of point 1 (RA1,DEC1) and point 2 (RA2,DEC2),
@@ -3490,23 +3489,77 @@ double angSep( double RA1,double DEC1,
 
   double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
   double RAD = RADIAN ;
+  double top, bot, arg, tmp;
+  double cosD1, cosD2, sinD1, sinD2, sinR1, sinR2;
+  double sinRDIF, cosRDIF, sin2RDIF, cos2RDIF ;
+  bool REFAC = false ;
 
+  char fnam[] = "angSep";
+
+  // ------------- BEGIN ------------------
+
+  if ( REFAC ) {
+    cosD1 = cos(RAD*DEC1);
+    cosD2 = cos(RAD*DEC2);
+    sinD1 = sin(RAD*DEC1);
+    sinD2 = sin(RAD*DEC2);
+    sinR1 = sin(RAD*RA1);
+    sinR2 = sin(RAD*RA2);
+    cosRDIF = cos(RAD*(RA2-RA1));
+    sinRDIF = sin(RAD*(RA2-RA1));
+    cos2RDIF = cosRDIF * cosRDIF;
+    sin2RDIF = sinRDIF * sinRDIF;
+
+    tmp = (cosD1*sinD2 - sinD1*cosD2*cosRDIF);
+    top = cosD2*cosD2 * sin2RDIF + tmp*tmp ;
+    bot = sinD1*sinD2 + cosD1*cosD2*cosRDIF ;
+    arg = sqrt(top)/bot ;
+    sep = atan(arg)/RAD ;
+
+    /*
+    double sep_legacy = angSep_legacy(RA1,DEC1,  RA2,DEC2);
+    double sep_dif    = 3600.0*fabs(sep-sep_legacy);
+    printf(" xxx %s: sepDif = 3600(%f - %f) = %f arcsec  [top=%le]\n",
+	   fnam, sep, sep_legacy, sep_dif, top ) ; fflush(stdout);
+    */
+
+  }
+  else {
+    sep = angSep_dotprod(RA1,DEC1,  RA2,DEC2);
+  }
+
+  return (sep * scale) ;
+
+} // end of angSep
+
+
+// =============================================
+double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
+  //
+  // Oct 9, 2012 R. Kessler
+  // for input coords of point 1 (RA1,DEC1) and point 2 (RA2,DEC2),
+  // return angular separation. Inputs are in degrees.
+  // Legacy calc using acos(dot product)
+
+  double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
+  double RAD = RADIAN ;
+  bool REFAC = true ;
   // ------------- BEGIN ------------------
 
   X1 = cos(RA1*RAD) * cos(DEC1*RAD);
   Y1 = sin(RA1*RAD) * cos(DEC1*RAD);
   Z1 = sin(DEC1*RAD);
-
+  
   X2 = cos(RA2*RAD) * cos(DEC2*RAD);
   Y2 = sin(RA2*RAD) * cos(DEC2*RAD);
   Z2 = sin(DEC2*RAD);
-
+  
   DOTPROD = (1.0-1.0E-35)*(X1*X2 + Y1*Y2 + Z1*Z2);
   sep = acos(DOTPROD)/RAD ; // angular sep, degrees
 
-  return (sep * scale) ;
+  return (sep) ;
 
-} // end of angSep
+} // end of angSep_dotprod
 
 
 // ==============================================================

@@ -1135,7 +1135,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF = 0.0 ;
   INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
-  INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT = 2.0 ; // 2 sigma_PSF to resolve
+  INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT = 0.0 ; // e.g., for SL
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
@@ -11293,13 +11293,19 @@ void gen_event_stronglens(int ilc, int istage) {
       cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
       GENSL.cosDEC  = cosDEC ;
       GENSL.NGENLC_LENS_TOT++ ;
+
+      // pick lens gal from HOSTLIB, and compute RA_LENS & DEC_LENS
+      GEN_SNHOST_STRONGLENS(); 
     }
 
     XIMG          = XIMG_LIST[IMGNUM] ;   // arcSec
     YIMG          = YIMG_LIST[IMGNUM] ;   // arcSec
     cosDEC        = GENSL.cosDEC ;
-    GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
-    GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
+    GENLC.RA      = GENSL.RA_LENS  + (XIMG/3600.0)/cosDEC ;
+    GENLC.DEC     = GENSL.DEC_LENS + (YIMG/3600.0) ;
+
+    // compute DDLR for this lens LC
+    GEN_DDLR_STRONGLENS(IMGNUM); 
 
     if ( fabs(GENLC.RA) > 400.0 || fabs(GENLC.DEC) > 400.0 ) {
       print_preAbort_banner(fnam);
@@ -11316,14 +11322,6 @@ void gen_event_stronglens(int ilc, int istage) {
       sprintf(c2err,"X,Yimg=%.2f,%.2f arcSec", XIMG, YIMG );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
-  
-    
-    // pick lens gal from HOSTLIB on 1st image
-    if ( IMGNUM == 0 )  
-      {  GEN_SNHOST_STRONGLENS(); } 
-
-    // compute DDLR for each lens LC
-    GEN_DDLR_STRONGLENS(IMGNUM);    
 
 
     goto DONE ;
@@ -22439,7 +22437,7 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   double DEC_SN      = GENLC.DEC ;
   double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
   double SNSEP_check, SNSEP_dif ;
-  double SNSEP_tol   = 0.01; // abort if SNSEP dif is > tolerance in arcsec
+  double SNSEP_tol   = 0.02; // abort if SNSEP dif is > tolerance in arcsec
   
   char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";
 

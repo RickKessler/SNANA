@@ -22437,7 +22437,7 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   double DEC_SN      = GENLC.DEC ;
   double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
   double SNSEP_check, SNSEP_dif ;
-  double SNSEP_tol   = 0.02; // abort if SNSEP dif is > tolerance in arcsec
+  double SNSEP_tol   = 0.1 ; // abort if SNSEP dif is > tolerance in arcsec
   
   char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";
 

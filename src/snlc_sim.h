@@ -412,7 +412,7 @@ struct INPUTS {
 
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply
-
+  
   bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
   bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
   bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
@@ -428,6 +428,7 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
+  bool DEBUG_SNSEP;  // temp flat to debug SNSEP
 
   bool RESTORE_DES3YR;          // restore DES3YR bugs
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR

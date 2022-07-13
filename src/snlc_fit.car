@@ -8119,9 +8119,9 @@ c continue below on 1st iteration only.
       INIBND(2,IPAR)  =  +70.0
 
       if ( USESIM_REDSHIFT ) THEN
-         SNLC_REDSHIFT = SIM_REDSHIFT_HELIO
-         SNLC_ZHELIO   = SIM_REDSHIFT_HELIO
-         SNLC_ZCMB     = SIM_REDSHIFT_CMB   ! Dec 15 2020
+         SNLC_REDSHIFT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
+         SNLC_ZHELIO   = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
+         SNLC_ZCMB     = SIM_REDSHIFT_CMB   + REDSHIFT_FINAL_SHIFT
 
 c  Jun 2021: set tiny z errors too
          SNLC_REDSHIFT_ERR = 1.0E-4
@@ -13595,7 +13595,7 @@ c or if 1st iteration is repeated.
 c - - - - - - -  -
 
       if ( LSIM_SNANA .and. USESIM_REDSHIFT ) then
-        REDSHIFT_FIT = SIM_REDSHIFT_HELIO
+        REDSHIFT_FIT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
       endif
 
 c xxxxxxxxxxxxxxxxxxxxx

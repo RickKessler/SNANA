@@ -1472,13 +1472,18 @@ class Program:
 
         output_dir          = self.config_prep['output_dir'] 
         args                = self.config_yaml['args']
+        submit_info_yaml    = self.config_prep['submit_info_yaml'] 
         input_file          = args.input_file
-
+        
         output_dir_base = os.path.basename(output_dir)
         input_file_base = os.path.basename(input_file.split('.')[0])
 
         merge_script   = "RUN_MERGE_" + input_file_base
         program_submit = sys.argv[0]  # $path/submit_batch_jobs
+
+        merge_mode = submit_info_yaml['MERGE_MODE']
+        if merge_mode == MERGE_MODE_BACKGROUND:
+            return
 
         logging.info(f"\n Create {merge_script} ")
         with open(merge_script,"wt") as s:

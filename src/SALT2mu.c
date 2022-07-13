@@ -1010,6 +1010,9 @@ with append_varname_missing,
  Apr 22 2022: default minos=0 (was 1) and sigint_step1=0.01 (was .05)
                --> faster fitting
 
+ Jul 13 2022: new function crazy_small_errors() triggers another BBC fit.
+                [this fix is on hold until it can be tested]
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1050,7 +1053,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
 #define FLAG_EXEC_STOP   1
 #define FLAG_EXEC_REPEAT 2
-
+int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MXVAR_OVERRIDE 10
 
 // Maximum number of bins
@@ -2258,7 +2261,7 @@ void  CPU_SUMMARY(void);
 int keep_cutmask(int errcode) ;
 
 int     prepNextFit(void);
-
+bool    crazy_small_errors(void);
 void    conflict_check(void);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
@@ -2495,14 +2498,15 @@ struct {
 
 int main(int argc,char* argv[ ]) {
 
-  int FLAG, N_EXEC=0;
+  int FLAG;
   char fnam[] = "main";
   // ------------------ BEGIN MAIN -----------------
 
   SALT2mu_DRIVER_INIT(argc,argv);
   
+  NCALL_SALT2mu_DRIVER_EXEC = 0;
  DRIVER_EXEC:
-  N_EXEC++ ;
+  NCALL_SALT2mu_DRIVER_EXEC++ ;
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
@@ -2759,6 +2763,16 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   exec_mnpout_mnerrs(); // Dec 12 2016
 
+  // July 13 2022: repeat entire BBC fit on pathological errors
+  //  [ replace 11111 -> 1 after testing ... lost test directory ?!?!?!]
+  if ( NCALL_SALT2mu_DRIVER_EXEC == 11111 ) {
+    if ( crazy_small_errors() ) { 
+      INPUTS.parval[IPAR_ALPHA0] += 1.0E-4;
+      INPUTS.parval[IPAR_BETA0]  += 1.0E-3;
+      return(FLAG_EXEC_REPEAT); 
+    }
+  }
+
   //The exact value of M0 shouldn't matter,
   //But take the average over bins (weighted by number of SN)
   FITRESULT.AVEMAG0 = avemag0_calc(1);  // call after PARVAL is loaded.
@@ -2782,6 +2796,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     { return(FLAG_EXEC_REPEAT); }
 
 #ifdef USE_SUBPROCESS
+  // Designed for use with population fitter
   if ( SUBPROCESS.USE ) {
     printf("%s CHI2_MIN = %.2f   <M0> = %.4f  NFIT_ITER=%d\n",
 	   KEYNAME_SUBPROCESS_STDOUT, FITRESULT.CHI2SUM_MIN,
@@ -2796,8 +2811,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 #endif
 
   CPU_SUMMARY();
-  
-  
+
   return(FLAG_EXEC_STOP);
 
 } // end SALT2mu_DRIVER_SUMMARY
@@ -2912,7 +2926,7 @@ void exec_mnpout_mnerrs(void) {
   int    ipar, iMN, iv ;
   int    LEN_VARNAME = 10 ;
   char text[100], format[80], cPARVAL[MXCHAR_VARNAME] ;
-  //  char fnam[] = "exec_mnpout_mnerrs" ;
+  char fnam[] = "exec_mnpout_mnerrs" ;
 
   // -------------- BEGIN ----------------
 
@@ -4123,7 +4137,39 @@ int prepNextFit(void) {
 
 } // end of prepNextFit
 
+// ******************************************
+bool crazy_small_errors(void) {
+  // Created July 2022
+  // Return TRUE if fitted distance errors are absurdly small,
+  // so that main program repeats the BBC fit process.  
+  // The super-tiny errors is a rare pathology that is likely due 
+  // to a kink in the chi2 function, and MINUIT's derivative 
+  // calculation goes wild.
 
+  bool crazy_error_flag= false;
+  bool ISFLOAT, ISM0;
+  double crazy_small_error = 1.0E-4;
+  double VAL, ERR;
+  int    n, n_crazy_small_error = 0;
+
+  // ----------- BEGIN -------------
+
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = n >= MXCOSPAR ; // it's z-binned M0
+    if ( !ISFLOAT ) { continue ; }
+
+    VAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] ;
+    ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+    if ( ERR < crazy_small_error ) { n_crazy_small_error++ ; }
+  }
+  
+  crazy_error_flag = ( n_crazy_small_error > 3 );
+
+  return crazy_error_flag ;
+ 
+} // end crazy_small_errors
 
 // ******************************************
 void printmsg_repeatFit(char *msg) {
@@ -15467,6 +15513,7 @@ void print_eventStats(int event_type) {
 } // end  print_eventStats
 
 
+
 // ==================================================
 void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
@@ -19238,7 +19285,6 @@ void write_yaml_info(char *fileName) {
     ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
     sprintf(tmpName, "%s", FITRESULT.PARNAME[n]);
     trim_blank_spaces(tmpName);       strcat(tmpName,":") ;
-    // if ( ERR < 0.0 ) { continue ; }
     
     fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
   }

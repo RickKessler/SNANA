@@ -21182,6 +21182,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0
         (fix is needed to process Pantheon HST sample)
 
+   snlc_fit.car
+     + inputs USESIM_REDSHIFT and REDSHIFT_FINAL_SHIFT work together
+       to allow forcing zTrue+shift in LCFIT.
+
    use -Wall in compilation and fix a lot of warnings
    for snana.car, snlc_fit.car, snlc_sim.c .
    There was one fix with 1-byte string declaration that

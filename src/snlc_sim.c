@@ -634,6 +634,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
+  INPUTS.DEBUG_SNSEP = false;
 
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
@@ -1590,6 +1591,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
+    if ( INPUTS.DEBUG_FLAG == 711 ) { INPUTS.DEBUG_SNSEP=true; }
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -22319,10 +22321,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
       SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
 
-
       // do occasional consistency check between final coordinates
       // and SN-host separation
-      if ( SNDATA.CID % 19 == 0 ) { check_SNDATA_HOSTGAL_SNSEP(m); }
+      if ( SNDATA.CID % 19 == 0 || INPUTS.DEBUG_SNSEP ) 
+	{ check_SNDATA_HOSTGAL_SNSEP(m); }
 
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) {
 	SNDATA.PTR_HOSTGAL_PROPERTY_TRUE[j][m] = 
@@ -22438,13 +22440,15 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
   double SNSEP_check, SNSEP_dif ;
   double SNSEP_tol   = 0.1 ; // abort if SNSEP dif is > tolerance in arcsec
+  if ( INPUTS.DEBUG_SNSEP ) { SNSEP_tol = 0.001; }
   
   char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";
+
 
   // ----------- BEGIN -----------
 
   SNSEP_check = angSep(RA_SN,DEC_SN,  RA_GAL,DEC_GAL, (double)3600.0 ) ;
-  
+
   SNSEP_dif = fabs(SNSEP_check-SNSEP_store);
   if ( SNSEP_dif > SNSEP_tol ) {
     print_preAbort_banner(fnam);
@@ -22458,8 +22462,11 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
     sprintf(c1err,"Failed SN-host separation check of %.4f arcsec",
 	    SNSEP_tol);
     sprintf(c2err,"CID=%d m=%d", GENLC.CID, m);
-    //  xxx errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+    if ( INPUTS.DEBUG_SNSEP ) 
+      { errmsg(SEV_WARN, 0, fnam, c1err, c2err ); }
+    else
+      { errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); }
   }
 
   return;

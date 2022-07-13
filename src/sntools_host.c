@@ -7893,13 +7893,15 @@ void SORT_SNHOST_byDDLR(void) {
     // SN fields. If SN->GAL option, then don't change galaxy position.
 
     if ( DOSHIFT_GALCOORDS ) {     
-      // move HOSTLIB galaxy near SN and preserve SN-host separation
+      // move HOSTLIB galaxy near SN and preserve SN-host separation.
+      // Use approx formulas here .. maybe someday will use full
+      // rotation matrix.
       RA_GAL_HOSTLIB  = get_VALUE_HOSTLIB(IVAR_RA,IGAL);
       DEC_GAL_HOSTLIB = get_VALUE_HOSTLIB(IVAR_DEC,IGAL); 
       cosDEC_GAL      = cos(RAD*DEC_GAL_HOSTLIB);
-      RA_SHIFT   = (RA_GAL_HOSTLIB  - SNHOSTGAL.RA_SN_DEG);
-      RA_SHIFT  *= (cosDEC_GAL/cosDEC_SN);
-      DEC_SHIFT  = (DEC_GAL_HOSTLIB - SNHOSTGAL.DEC_SN_DEG) ;
+      RA_SHIFT        = (RA_GAL_HOSTLIB  - SNHOSTGAL.RA_SN_DEG);
+      RA_SHIFT       *= (cosDEC_GAL/cosDEC_SN);
+      DEC_SHIFT       = (DEC_GAL_HOSTLIB - SNHOSTGAL.DEC_SN_DEG) ;
     }
     else {     
       RA_SHIFT  = SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG ;

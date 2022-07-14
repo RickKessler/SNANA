@@ -661,6 +661,18 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       if ( strcmp(key,KEY_TEST) == 0 ) 
 	{ copy_int(copyFlag, parVal, &SNDATA.SIM_SL_IMGNUM); }
 
+      sprintf(KEY_TEST,"%s_MINSEP", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_MINSEP); }
+
+      sprintf(KEY_TEST,"%s_LOGMASS", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_LOGMASS); }
+
+      sprintf(KEY_TEST,"%s_LOGMASS_ERR", PREFIX);
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_dbl(copyFlag, parVal, &SNDATA.SIM_SL_LOGMASS_ERR ); }
+
     }
     else {
       sprintf(c1err,"Unknown SIM key = %s", key);

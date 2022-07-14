@@ -1288,7 +1288,7 @@ struct GENSL {
   double RA_noSL, DEC_noSL, cosDEC;
   double RA_LENS, DEC_LENS;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  int *CID_LIST ;
+  int    CID_LIST[MXIMG_STRONGLENS] ;
 } GENSL ;
 
 

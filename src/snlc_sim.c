@@ -11258,7 +11258,6 @@ void gen_event_stronglens(int ilc, int istage) {
   // ------------- BEGIN ------------------
 
   
-  GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
 
   GENLC.CID = GENLC.CIDOFF + ilc ; 
@@ -11266,7 +11265,6 @@ void gen_event_stronglens(int ilc, int istage) {
 
   // ------------------
   if ( INIT_FLAG == 0 ) {
-    GENSL.CID_LIST        = (int   *) malloc(MEMI);
     GENSL.INIT_FLAG       = 1;
     INPUTS.NGEN -= 4;    // Jul 3 2022 - avoid going past original NGEN
   }
@@ -26709,7 +26707,7 @@ void update_accept_counters(void) {
   NGENSPEC_WRITE += GENSPEC.NMJD_PROC ; 
   
   if ( INPUTS_STRONGLENS.USE_FLAG ) { 
-    GENSL.CID_LIST[GENSL.NIMG_ACC] = GENLC.CID_FINAL ;
+    GENSL.CID_LIST[GENSL.IMGNUM] = GENLC.CID_FINAL ;
     GENSL.NIMG_ACC++; 
   }
 

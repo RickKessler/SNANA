@@ -8122,11 +8122,13 @@ c continue below on 1st iteration only.
          SNLC_REDSHIFT = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
          SNLC_ZHELIO   = SIM_REDSHIFT_HELIO + REDSHIFT_FINAL_SHIFT
          SNLC_ZCMB     = SIM_REDSHIFT_CMB   + REDSHIFT_FINAL_SHIFT
+         SNLC_ZHD      = SIM_REDSHIFT_CMB   + REDSHIFT_FINAL_SHIFT
 
 c  Jun 2021: set tiny z errors too
          SNLC_REDSHIFT_ERR = 1.0E-4
          SNLC_ZHELIO_ERR   = 1.0E-4
          SNLC_ZCMB_ERR     = 1.0E-4
+         SNLC_ZHD_ERR      = 1.0E-4
       endif
 
       ipar            =  IPAR_zPHOT

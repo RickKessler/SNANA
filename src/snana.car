@@ -8756,9 +8756,9 @@ c Jan 12 2021: check option to fix sign VPEC for older data
 
 c set flag for systematic zshift (Jun 2021)
       DOzSHIFT = 
-     &    ( REDSHIFT_FINAL_SHIFT > 0.0 ) .or.
-     &    ( HOSTGAL_SPECZ_SHIFT  > 0.0 ) .or.
-     &    ( HOSTGAL_PHOTOZ_SHIFT > 0.0 )
+     &    ( REDSHIFT_FINAL_SHIFT .NE. 0.0 ) .or.
+     &    ( HOSTGAL_SPECZ_SHIFT  .NE. 0.0 ) .or.
+     &    ( HOSTGAL_PHOTOZ_SHIFT .NE. 0.0 )
 
       RETURN
       END  ! end PROCSNNML
@@ -18313,9 +18313,9 @@ C -------------- BEGIN ----------------
 c bail if none of the zSHIFT options are used
       if ( .not. DOzSHIFT ) RETURN
 
-      LSHIFT_FINAL       = ( REDSHIFT_FINAL_SHIFT > 0.0 )
-      LSHIFT_HOST_SPECZ  = ( HOSTGAL_SPECZ_SHIFT  > 0.0 )
-      LSHIFT_HOST_PHOTOZ = ( HOSTGAL_PHOTOZ_SHIFT > 0.0 )
+      LSHIFT_FINAL       = ( REDSHIFT_FINAL_SHIFT .NE. 0.0 )
+      LSHIFT_HOST_SPECZ  = ( HOSTGAL_SPECZ_SHIFT  .NE. 0.0 )
+      LSHIFT_HOST_PHOTOZ = ( HOSTGAL_PHOTOZ_SHIFT .NE. 0.0 )
 
       zshift = -9.0
       IF ( LSHIFT_FINAL ) THEN

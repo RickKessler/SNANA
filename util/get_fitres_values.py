@@ -18,6 +18,7 @@
 
 import os, sys, argparse, gzip
 import plotext as plt
+import numpy as np
 import pandas as pd
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
@@ -259,7 +260,13 @@ def print_info(info_fitres):
 
     if plot == "hist":
         for var in var_list:
-            plt.hist(df[var].to_list(), label=var)
+            data = df[var]
+            q1 = data.quantile(0.25)
+            q3 = data.quantile(0.75)
+            iqr = q3 - q1
+            bin_width = (2 * iqr) / (len(data) ** (1 / 3))
+            bin_count = int(np.ceil((data.max() - data.min()) / bin_width))
+            plt.hist(df[var].to_list(), bins=bin_count, label=var)
         plt.show()
 
     if plot == "scatter":

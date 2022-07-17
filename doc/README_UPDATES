@@ -21102,7 +21102,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04l (  ) 
+         v11_04l (July 17, 2022) 
 
          ***** IMPORTANT(v11_04l) ***** 
 
@@ -21149,7 +21149,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
  
    sim: 
      + stronglens assigns host at zLENS and works with CIDRAN
-     + stronglens automatically writes another auxiloar file [VERSION].SL
+     + stronglens automatically writes auxillary file [VERSION].SL
          with information about each lens and each lensed LC.
 
          ***** MISCELLANEOUS(v11_04l) ***** 
@@ -21160,7 +21160,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix bug to allow COSBPOLY to override BPOLY and vice-versa
      + add GALNMATCH to simgen-dump
      + write hostmatch fractions to README for Nmatch=0 and Nmatch=2
-     + fix final galaxy coords in data files,
+     + fix shifting of final galaxy coords in output data files,
           https://github.com/RickKessler/SNANA/issues/960
 
    genmag_SIMSED.c

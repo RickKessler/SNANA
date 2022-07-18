@@ -25,6 +25,8 @@
 # Oct 30 2021: new ENV_REQUIRE key for any task.
 # Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
 # Apr 12 2022: check for docker image in sbatch-file; if there, use shifter
+# Jul 18 2022: check new CONFIG option "BATCH_SINGLE_NODE: True"
+#
 # ============================================
 
 #import argparse
@@ -211,6 +213,8 @@ class Program:
         maxjob        = BATCH_MAXJOB_DEFAULT
         walltime      = BATCH_WALLTIME_DEFAULT
         nthreads      = BATCH_NTHREADS_DEFAULT
+        batch_single_node = False
+
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
@@ -269,6 +273,10 @@ class Program:
         if 'BATCH_NTHREADS' in CONFIG :
             nthreads = CONFIG['BATCH_NTHREADS']
 
+        # option to run everything on one node
+        if 'BATCH_SINGLE_NODE' in CONFIG :
+            batch_single_node = CONFIG['BATCH_SINGLE_NODE']
+
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 
@@ -278,9 +286,9 @@ class Program:
         config_prep['walltime']    = walltime
         config_prep['maxjob']      = maxjob
         config_prep['nthreads']    = nthreads
-    
+        config_prep['batch_single_node'] = batch_single_node
         return
-
+        
     # end parse_batch_info
 
     def check_docker_image(self,sbatch_template):
@@ -339,6 +347,13 @@ class Program:
         # load output
         self.config_prep['command_docker']        = command_docker
         self.config_prep[ENV_SNANA_SETUP_COMMAND] = SNANA_SETUP_COMMAND
+
+
+        if command_docker is None :  
+            sh = 'sh'
+        else:
+            sh = f"{command_docker} sh"
+        self.config_prep['command_sh'] = sh
 
         return
         #end check_docker_image
@@ -457,10 +472,10 @@ class Program:
         n_core      = self.config_prep['n_core']
         submit_mode = self.config_prep['submit_mode']
         command_docker = self.config_prep['command_docker']
-
-        node_list   = self.config_prep['node_list']
-        program     = self.config_prep['program']
-        submit_iter = self.config_prep['submit_iter']
+        batch_single_node = self.config_prep['batch_single_node']
+        node_list      = self.config_prep['node_list']
+        program        = self.config_prep['program']
+        submit_iter    = self.config_prep['submit_iter']
 
         # for each cpu, store name of script and batch file
         command_file_list = []  # command file name, no path
@@ -571,8 +586,15 @@ class Program:
                 BATCH_FILE = f"{script_dir}/{batch_file}"
                 batch_file_list.append(batch_file)
                 BATCH_FILE_LIST.append(BATCH_FILE)
-                self.write_batch_file(batch_file, log_file,
-                                      command_file, job_name)
+                new_batch_file = True
+                if batch_single_node and icpu > 0: new_batch_file = False
+                if new_batch_file :
+                    self.write_batch_file(batch_file, log_file,
+                                          command_file, job_name)
+                if batch_single_node:
+                    batch_file0 = batch_file_list[0]
+                    last_job    = (icpu == n_core-1)
+                    self.append_batch_file(batch_file0, command_file, last_job)
 
         # store few thigs for later
         self.config_prep['cmdlog_file_list']  = cmdlog_file_list
@@ -693,9 +715,11 @@ class Program:
         BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
         script_dir       = self.config_prep['script_dir']
         command_docker   = self.config_prep['command_docker']
+        command_sh       = self.config_prep['command_sh']
         replace_memory   = self.config_prep['memory']
         replace_walltime = self.config_prep['walltime']
         replace_cpus_per_task = self.config_prep['nthreads'] # 08/apr/2022
+        batch_single_node = self.config_prep['batch_single_node']
 
         BATCH_FILE      = f"{script_dir}/{batch_file}"
 
@@ -706,11 +730,11 @@ class Program:
         replace_log_file   = log_file  
 
         use_docker = (command_docker is not None)
-
-        sh = 'sh'
-        if use_docker :  sh = f"{command_docker} sh"
-
-        replace_job_cmd = f"cd {script_dir} \n{sh} {command_file}"
+        
+        # xxxx replace_job_cmd=f"cd {script_dir} \n{command_sh} {command_file}"
+        replace_job_cmd  = f"cd {script_dir}"
+        if not batch_single_node:
+            replace_job_cmd += f"\n{command_sh} {command_file}"            
 
         # Jan 6 2021: add few more replace keys that can be modified
         # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
@@ -747,7 +771,27 @@ class Program:
         with open(BATCH_FILE,"w") as f:
             f.write("".join(batch_lines))
 
+        return
         # end write_batch_file
+
+    def append_batch_file(self, batch_file, command_file, last_job):
+        script_dir       = self.config_prep['script_dir']
+        command_sh       = self.config_prep['command_sh']
+        BATCH_FILE       = f"{script_dir}/{batch_file}"
+        ampsand          = '&'
+        # xxx put back after testing if last_job:  ampsand = '' 
+
+        with open(BATCH_FILE,"at") as f :
+            f.write(f"{command_sh} {command_file} {ampsand} \n")
+            
+            # on last job, wait for done file to exit script,
+            # otherwise remaining batch jobs/merge is killed.
+            if last_job:
+                f.write(f"\n# Wait for {DEFAULT_DONE_FILE}\n")
+                f.write(f"while [ ! -f {DEFAULT_DONE_FILE} ]; " \
+                        f"do sleep 10; done\n" )
+        return
+        #end append_batch_file
 
     def prep_JOB_INFO_merge(self,icpu,ijob,merge_force):
         # Return JOB_INFO dictionary of strings to run merge process.

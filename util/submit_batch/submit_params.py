@@ -197,6 +197,9 @@ CONFIG:
   # optional max walltime request (default is 24hr)
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
+  # option to force all jobs on single node
+  BATCH_SIGNLE_NODE: True
+
   # optional list of required ENVs (aborts if any ENV is not defined)
   ENV_REQUIRE: SNANA_LSST_SIM  LSST_STACK_VERSION
 

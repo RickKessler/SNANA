@@ -57,6 +57,9 @@
 #              (diagnostic only; not used in cosmology fit)
 #
 # May 2 2022 A.Mitra: check for unitary matrix and pos-definite.
+# Jul 19 2022 RK 
+#   + define INFO_YML_FILENAME as global
+#   + write ISDATA_REAL flag to HD header
 #
 # ===============================================
 
@@ -78,7 +81,8 @@ SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
 PREFIX_COVSYS  = "covsys"
-HD_FILENAME    = "hubble_diagram.txt"
+HD_FILENAME       = "hubble_diagram.txt"
+INFO_YML_FILENAME = "INFO.YML"
 
 VARNAME_CID          = "CID"  # for unbinned fitres files
 VARNAME_ROW          = "ROW"  # for binned M0DIF files
@@ -1102,7 +1106,12 @@ def write_HD_comments(f,wrflag_syserr):
         f.write(f"# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys " \
                 "(diagnostic)\n")
 
+    # write ISDATA flag as comment in HD 
+    ISDATA = config[KEYNAME_ISDATA]
+    f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
+            "# flag for cosmology fitter to choose blind option\n")
     f.write(f"#\n")
+
     return
     # end write_HD_comments
 
@@ -1156,8 +1165,8 @@ def write_summary_output(config, covariances, base):
 
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
 
-    logging.info("Write INFO.YML")
-    with open(out / "INFO.YML", "w") as f:
+    logging.info(f"Write {INFO_YML_FILENAME}")
+    with open(out / INFO_YML_FILENAME, "w") as f:
         yaml.safe_dump(info, f)
 
     # end write_summary_output

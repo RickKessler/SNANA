@@ -61,7 +61,6 @@
   optional footnote with "wfit" code name.
 
 
-
      HISTORY (RK=R.Kessler, AM=A.Mitra, ...)
    --------------------------------------------
    
@@ -143,8 +142,9 @@ struct INPUTS {
 
   // misc flags
   int fitsflag ;
-  int blind;  // blind cosmology results by adding sin(big number) 
-  int debug_flag ;
+  bool blind;  // blind cosmology results by adding sin(big number) 
+  int  blind_seed; // used to pick large random number for sin arg
+  int  debug_flag ;
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -544,6 +544,7 @@ void init_stuff(void) {
   // ------------ BEGIN -----------
 
   INPUTS.blind = INPUTS.fitsflag = INPUTS.debug_flag = 0;
+  INPUTS.blind_seed = 48901 ;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -647,6 +648,7 @@ void print_help(void) {
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
     "   -blind\tIf set, results are obscured with sin(large random) ",
+    "   -blind_seed\tSeed to pick large random numbers for sin arg ",
     "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
@@ -765,11 +767,14 @@ void parse_args(int argc, char **argv) {
 	INPUTS.zmax = atof(argv[++iarg]); 	
 
       } else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
-	INPUTS.blind=1;
+	INPUTS.blind = true ;
+
+      } else if (strcasecmp(argv[iarg]+1,"blind_seed")==0) { 
+	INPUTS.blind_seed = atoi(argv[++iarg]); 	
 	
       } else if (strcasecmp(argv[iarg]+1,"fitswrite")==0) {   
 	/* Output likelihoods as fits files & text files */
-	INPUTS.fitsflag=1; 
+	INPUTS.fitsflag = 1; 
 
       } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {   
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
@@ -3540,7 +3545,7 @@ void write_output_cospar(void) {
   int  use_marg  = INPUTS.use_marg;
   int  dofit_w0wa= INPUTS.dofit_w0wa ;
   int  format    = INPUTS.format_cospar;
-  int  blind     = INPUTS.blind ;
+  bool blind     = INPUTS.blind ;
   char *outFile  = INPUTS.outFile_cospar;
   double dt_fit  = (double)(t_end_fit  - t_start)/ 60.0 ;
 

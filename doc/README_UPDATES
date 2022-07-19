@@ -21201,4 +21201,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** MISCELLANEOUS(v11_04m) ***** 
 
+   submit_prog_base.py:
+     + implement new option "BATCH_SINGLE_NODE: True" to run all
+       jobs on a single node. First use is to write ELASTICC alerts
+       on Cori
+
+
 END: 

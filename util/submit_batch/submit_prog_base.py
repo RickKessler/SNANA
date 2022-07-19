@@ -1,6 +1,8 @@
 # ============================================
 # Created July 2020 by R.Kessler & S. Hinton
 #
+# TO DO (JULY 2022); for single node option, remove mem-per-cpu 
+#
 # Base class Program
 #
 #     HISTORY
@@ -276,6 +278,7 @@ class Program:
         # option to run everything on one node
         if 'BATCH_SINGLE_NODE' in CONFIG :
             batch_single_node = CONFIG['BATCH_SINGLE_NODE']
+            config_prep['batch_command']  += f" -n {n_core}"
 
         sys.stdout.flush()
 
@@ -584,11 +587,12 @@ class Program:
             if ( submit_mode == SUBMIT_MODE_BATCH ):
                 batch_file = f"{prefix}.BATCH"
                 BATCH_FILE = f"{script_dir}/{batch_file}"
-                batch_file_list.append(batch_file)
-                BATCH_FILE_LIST.append(BATCH_FILE)
                 new_batch_file = True
                 if batch_single_node and icpu > 0: new_batch_file = False
+
                 if new_batch_file :
+                    batch_file_list.append(batch_file)
+                    BATCH_FILE_LIST.append(BATCH_FILE)
                     self.write_batch_file(batch_file, log_file,
                                           command_file, job_name)
                 if batch_single_node:
@@ -763,13 +767,27 @@ class Program:
                 self.log_assert(False, msgerr)
             REPLACE_KEY_DICT['REPLACE_IMAGE_DOCKER'] = replace_image_docker
 
-        batch_lines = open(BATCH_TEMPLATE,'r').read()
-        for KEY,VALUE in REPLACE_KEY_DICT.items():
-            batch_lines = batch_lines.replace(KEY,str(VALUE))
+        # - - - - 
+        batch_line_list = open(BATCH_TEMPLATE,'r').readlines()
+        b = open(BATCH_FILE,"w")
+        for line in batch_line_list:
+            if batch_single_node and 'REPLACE_MEM' in line:
+                continue
+            for KEY,VALUE in REPLACE_KEY_DICT.items():
+                if KEY in line:
+                    line = line.replace(KEY,str(VALUE))
+            b.write(f"{line}")  # line includes \n
+        b.close()
 
+        # xxxxxxxxxxxxx mark delete Jul 18 2022 xxxxxxxxxxxx
+        #batch_lines = open(BATCH_TEMPLATE,'r').read()
+        #for KEY,VALUE in REPLACE_KEY_DICT.items():
+        #    batch_lines = batch_lines.replace(KEY,str(VALUE))
+        # 
         # write batch lines with REPLACE_XXX replaced
-        with open(BATCH_FILE,"w") as f:
-            f.write("".join(batch_lines))
+        #with open(BATCH_FILE,"w") as f:
+        #    f.write("".join(batch_lines))
+        # xxxxxxxxxxx
 
         return
         # end write_batch_file
@@ -786,10 +804,15 @@ class Program:
             
             # on last job, wait for done file to exit script,
             # otherwise remaining batch jobs/merge is killed.
-            if last_job:
-                f.write(f"\n# Wait for {DEFAULT_DONE_FILE}\n")
-                f.write(f"while [ ! -f {DEFAULT_DONE_FILE} ]; " \
-                        f"do sleep 10; done\n" )
+            if last_job :
+                output_dir  = self.config_prep['output_dir']
+                f.write(f"\n# \n") 
+                f.write(f"echo ' ' \n")
+                f.write(f"echo Wait for {DEFAULT_DONE_FILE} "
+                        f"file before exiting. \n")
+                done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
+                f.write(f"while [ ! -f {done_file} ] ; " \
+                        f"do sleep 60; done\n" )
         return
         #end append_batch_file
 
@@ -1074,7 +1097,11 @@ class Program:
             batch_command    = self.config_prep['batch_command'] 
             batch_file_list  = self.config_prep['batch_file_list']
             for batch_file in batch_file_list :
-                ret = subprocess.run( [ batch_command, batch_file], 
+                batch_command_list = batch_command.split()
+                batch_command_list.append(batch_file)
+
+                #ret = subprocess.run( [ batch_command, batch_file], 
+                ret = subprocess.run( batch_command_list, 
                                       cwd=script_dir,
                                       capture_output=True, text=True )
             self.fetch_slurm_pid_list()
@@ -1174,8 +1201,15 @@ class Program:
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
         job_name_list    = self.config_prep['job_name_list']
+        batch_single_node = self.config_prep['batch_single_node']
+
         msgerr = []
         if batch_command != 'sbatch' : return
+
+        # for single-node option, there is only one pid to check
+        if batch_single_node:
+            job_name0 = job_name_list[0]
+            job_name_list = [ job_name0 ]
 
         # prep squeue command with format: i=pid, j=jobname            
         cmd = f"squeue -u {USERNAME} -h -o '%i %j' "

@@ -14,12 +14,21 @@
 #
 # Nov 22 2021: fix to work with gzip files
 # Feb 07 2022: fix bug skipping comment lines before VARNAMES (see nrow_skip)
-# Jul 16 2022: [Patrick Armstrong] add generic function (mean, min, max, etc...) and command line plotting
-
+# Jul 16 2022: 
+#   [Patrick Armstrong] add generic function (mean, min, max, etc...) 
+#    and command line plotting
+# Jul 19 2022 RK 
+#     --filt replaced with --sel to avoid confusion with filters.
+#     Put plotext import under try to avoid abort if not installed.
+            
 import os, sys, argparse, gzip
-import plotext as plt
 import numpy as np
 import pandas as pd
+
+try:  
+    import plotext as plt
+except ImportError:
+    pass
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
 
@@ -39,8 +48,8 @@ def get_args():
     msg = "number of rows to fetch CIDs (no need to know CIDs)"
     parser.add_argument("--nrow", help=msg, type=int, default=0)
 
-    msg = "comma seperated list of filter functions to select CIDs. Functions are combined via 'or'. Can use <, >, or =="
-    parser.add_argument("--filt", help=msg, type=str, default=None)
+    msg = "comma seperated list of selection functions: combined via 'or'. Can use <, >, or =="
+    parser.add_argument("--sel", help=msg, type=str, default=None)
 
     msg = "comma separated list of variable names"
     parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
@@ -82,12 +91,12 @@ def parse_inputs(args):
     # - - - - - - -
     exist_cid_list = (args.cid   is not None) or \
                      (args.galid is not None) or \
-                     (args.filt  is not None) or \
+                     (args.sel   is not None) or \
                      (args.nrow > 0)
 
     exist_func = args.func is not None
     exist_plot = args.plot is not None
-    msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --filt arg"
+    msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --sel arg"
 
     exist_var_list = args.varname is not None
     msgerr_var     = "Must specify varnames using -v arg"
@@ -116,7 +125,7 @@ def parse_inputs(args):
     
     id_list = []
     func_list = []
-    filt_list = []
+    sel_list = []
     keyname_id = None
 
     if args.cid is not None :    
@@ -127,19 +136,19 @@ def parse_inputs(args):
         keyname_id = 'GALID'
     if args.func is not None :
         func_list = args.func.split(",")
-    if args.filt is not None :
-        for filt in args.filt.split(","):
-            if "<" in filt:
-                v, n = filt.split("<")
-                filt_list.append([v, "<", float(n)])
-            elif ">" in filt:
-                v, n = filt.split(">")
-                filt_list.append([v, ">", float(n)])
-            elif "==" in filt:
-                v, n = filt.split("==")
-                filt_list.append([v, "==", float(n)])
+    if args.sel is not None :
+        for sel in args.sel.split(","):
+            if "<" in sel:
+                v, n = sel.split("<")
+                sel_list.append([v, "<", float(n)])
+            elif ">" in sel:
+                v, n = sel.split(">")
+                sel_list.append([v, ">", float(n)])
+            elif "==" in sel:
+                v, n = sel.split("==")
+                sel_list.append([v, "==", float(n)])
             else:
-                raise ValueError(f"Accepted filter functions are <, >, and ==. None of these were not found in {filt}")
+                raise ValueError(f"Valid select functions are <, >, and ==. None of these were not found in {sel}")
 
     nrow       = args.nrow
 
@@ -151,7 +160,7 @@ def parse_inputs(args):
         'keyname_id'  : keyname_id,
         'func_list'   : func_list,
         'plot'        : args.plot,
-        'filt_list'   : filt_list
+        'sel_list'    : sel_list
     }
     return info_fitres
 
@@ -250,7 +259,7 @@ def print_info(info_fitres):
     keyname_id = info_fitres['keyname_id']
     func_list  = info_fitres['func_list']
     plot       = info_fitres['plot']
-    filt_list  = info_fitres['filt_list']
+    sel_list   = info_fitres['sel_list']
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
@@ -261,14 +270,14 @@ def print_info(info_fitres):
         #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
         id_list += id_rows
 
-    if len(filt_list) > 0:
-        for filt in filt_list:
-            if filt[1] == "<":
-                id_rows = df[df[filt[0]] < filt[2]][keyname_id].tolist()
-            elif filt[1] == ">":
-                id_rows = df[df[filt[0]] > filt[2]][keyname_id].tolist()
-            elif filt[1] == "==":
-                id_rows = df[df[filt[0]] == filt[2]][keyname_id].tolist()
+    if len(sel_list) > 0:
+        for sel in sel_list:
+            if sel[1] == "<":
+                id_rows = df[df[sel[0]] < sel[2]][keyname_id].tolist()
+            elif sel[1] == ">":
+                id_rows = df[df[sel[0]] > sel[2]][keyname_id].tolist()
+            elif sel[1] == "==":
+                id_rows = df[df[sel[0]] == sel[2]][keyname_id].tolist()
             id_list += id_rows
 
     id_list = list(set(id_list))

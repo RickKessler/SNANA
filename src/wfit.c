@@ -101,6 +101,11 @@
 
  May 19 2022 RK - check COV*COVINV if "-debug_flag 1000"
 
+ July 19 2022 RK
+   + new flags -blind_seed and -blind_auto
+   + -blind_auto reads ISDATA_REAL flag from HD file and sets
+     blinding on for real data, or off for sim data.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -136,13 +141,16 @@
 #define  VARLIST_DEFAULT_MUREF   "MUREF:D"
 #define  VARLIST_DEFAULT_NFIT    "NFIT:I"
 
+#define  KEYNAME_ISDATA_REAL     "ISDATA_REAL:"
+
 // ======== global structures ==========
 
 struct INPUTS {
 
   // misc flags
   int fitsflag ;
-  bool blind;  // blind cosmology results by adding sin(big number) 
+  bool blind;      // blind cosmology results by adding sin(big number) 
+  bool blind_auto; // automatically blind data and unblind sim
   int  blind_seed; // used to pick large random number for sin arg
   int  debug_flag ;
 
@@ -246,6 +254,7 @@ struct {
   double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
   int    *nfit_perbin;  
   double zmin, zmax;
+  bool   ISDATA_REAL; // Jul 2022
 } HD;
 
 
@@ -350,6 +359,7 @@ int  compare_double_reverse (const void *, const void *);
 void writemodel(char*, float, float, float);
 void printerror( int status);
 void read_fitres(char *inFile);
+void read_ISDATA_REAL(char *inFile);
 void malloc_HDarrays(int opt, int NSN);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
@@ -543,7 +553,7 @@ void init_stuff(void) {
 
   // ------------ BEGIN -----------
 
-  INPUTS.blind = INPUTS.fitsflag = INPUTS.debug_flag = 0;
+  INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
   INPUTS.blind_seed = 48901 ;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
@@ -648,6 +658,7 @@ void print_help(void) {
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
     "   -blind\tIf set, results are obscured with sin(large random) ",
+    "   -blind_auto\tBlind data, unblind sim; requires ISDATA_REAL in HD file",
     "   -blind_seed\tSeed to pick large random numbers for sin arg ",
     "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
@@ -768,6 +779,9 @@ void parse_args(int argc, char **argv) {
 
       } else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
 	INPUTS.blind = true ;
+
+      } else if (strcasecmp(argv[iarg]+1,"blind_auto")==0) { 
+	INPUTS.blind_auto = true ;
 
       } else if (strcasecmp(argv[iarg]+1,"blind_seed")==0) { 
 	INPUTS.blind_seed = atoi(argv[++iarg]); 	
@@ -1031,6 +1045,7 @@ void read_fitres(char *inFile) {
 
   // --------------- BEGIN --------------
 
+  if ( INPUTS.blind_auto ) { read_ISDATA_REAL(inFile); }
 
   TABLEFILE_INIT();
   NROW = SNTABLE_NEVT(inFile,TBNAME);
@@ -1143,6 +1158,66 @@ void read_fitres(char *inFile) {
 } // end read_fitres
 
 
+// ====================================
+void read_ISDATA_REAL(char *inFile) {
+  // Created July 19 2022 
+  // read comment-header lines to search for
+  //   # ISDATA_REAL: <val>
+  // If ISDATA_REAL is not found, abort 
+
+  FILE *fp;
+  int gzipFlag;
+  bool FOUND_KEY_ISDATA = false;
+  char locFile[MXPATHLEN];
+  char fnam[] = "read_ISDATA_REAL" ;
+
+  // ------------- BEGIN ------------
+
+  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+			  locFile, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open HD file") ;
+    sprintf(c2err,"%s", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  
+  char c_get[200];
+  while( (fscanf(fp, "%s", c_get)) != EOF) {
+    if ( strcmp(c_get,"VARNAMES:") == 0 ) { break; }
+
+    if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
+      fscanf(fp, "%d", &HD.ISDATA_REAL);  
+      FOUND_KEY_ISDATA = true;
+      break; 
+    }
+  } // end while
+
+  // - - - - 
+  if ( FOUND_KEY_ISDATA ) {
+    // adjust blind flag based on real or sim data
+    char ctype[40];
+    if ( HD.ISDATA_REAL ) 
+      { INPUTS.blind = true; sprintf(ctype,"blind REAL"); }
+    else
+      { INPUTS.blind = false; sprintf(ctype,"unblind SIM"); }
+    
+    printf("\t Found ISDATA_REAL = %d --> %s data\n", 
+	   HD.ISDATA_REAL, ctype);
+  }
+  else {
+    sprintf(c1err,"Could not find required ISDATA_REAL in HD file.") ;
+    sprintf(c2err,"Either add flag in HD or re-run create_cov stage." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+  }
+
+  fclose(fp);
+
+  return;
+
+} // end read_ISDATA_REAL
 
 // ==================================
 void read_mucov_sys(char *inFile){
@@ -2524,7 +2599,7 @@ void wfit_final(void) {
   
   // add unknown offset if blind option 
   if ( INPUTS.blind ) {
-    srand(48901);
+    srand(INPUTS.blind_seed);
     w0_ran     = floor(1e6*rand()/RAND_MAX);
     wa_ran     = floor(1e6*rand()/RAND_MAX);
     omm_ran    = floor(1e6*rand()/RAND_MAX);

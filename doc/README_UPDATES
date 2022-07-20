@@ -21206,5 +21206,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        jobs on a single node. First use is to write ELASTICC alerts
        on Cori
 
+   SALT2mu.c:
+     + write comment for each bit in opt_biascor
 
 END: 

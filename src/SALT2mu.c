@@ -1013,6 +1013,8 @@ with append_varname_missing,
  Jul 13 2022: new function crazy_small_errors() triggers another BBC fit.
                 [this fix is on hold until it can be tested]
 
+ July 20 2022: new function print_biascor_options()
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -2124,6 +2126,8 @@ int    match_fitParName(char *parName);
 void   prepare_biasCor(void);
 void   prepare_biasCor_zinterp(void) ;
 void   init_COVINT_biasCor(void);
+void   print_biascor_options(void); 
+void   print_biascor_comment(int MASK,char *COMMENT);
 void   prepare_CCprior(void);
 
 void   get_INTERPWGT_abg(double alpha,double beta,double gammadm, int DUMPFLAG,
@@ -9439,19 +9443,19 @@ void prepare_biasCor(void) {
   int  NBINg = 0; // is set below 
   int  OPTMASK        = INPUTS.opt_biasCor ;
 
-  int  EVENT_TYPE     = EVENT_TYPE_BIASCOR;
-  int  nfile_biasCor  = INPUTS.nfile_biasCor ;
-  bool  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
-  bool  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
-  bool  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
-  bool  DOCOR_MUCOVSCALE   = ( OPTMASK & MASK_BIASCOR_MUCOVSCALE);
-  bool  DOCOR_MUCOVADD   = ( OPTMASK & MASK_BIASCOR_MUCOVADD);
-  bool  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
-  bool  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
-  bool  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
-  bool  DOCOR_MU      = ( OPTMASK & MASK_BIASCOR_MU ) ;
+  int  EVENT_TYPE         = EVENT_TYPE_BIASCOR;
+  int  nfile_biasCor      = INPUTS.nfile_biasCor ;
+  bool  DOCOR_1DZAVG      = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
+  bool  DOCOR_1DZWGT      = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
+  bool  DOCOR_1D5DCUT     = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
+  bool  DOCOR_MUCOVSCALE  = ( OPTMASK & MASK_BIASCOR_MUCOVSCALE);
+  bool  DOCOR_MUCOVADD    = ( OPTMASK & MASK_BIASCOR_MUCOVADD);
+  bool  DOCOR_5D          = ( OPTMASK & MASK_BIASCOR_5D      );
+  bool  DOCOR_1D          = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
+  bool  IDEAL             = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
+  bool  DOCOR_MU          = ( OPTMASK & MASK_BIASCOR_MU ) ;
   bool  REQUIRE_VALID_BIASCOR = (OPTMASK & MASK_BIASCOR_noCUT) == 0 ;
-
+  char *STRING_PARLIST    = INFO_BIASCOR.STRING_PARLIST;
   char txt_biasCor[40], *name  ;
   
   bool USEDIM_GAMMADM, USEDIM_LOGMASS;
@@ -9484,6 +9488,8 @@ void prepare_biasCor(void) {
 
   print_banner(fnam);
 
+  print_biascor_options(); // print info for each bit, July 2022
+
   // read biasCor file
   read_simFile_biasCor();
 
@@ -9493,10 +9499,10 @@ void prepare_biasCor(void) {
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
 
-
+  // - - - - - - - - - -
   if ( DOCOR_5D ) {  
     NDIM_BIASCOR = 5;  
-    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b");
+    sprintf(STRING_PARLIST,"z,x1,c,a,b");
 
     // if there are 2 gammaDM bins, automatically add this dimension
     // to biasCor; if more than 5 bins, assume it's a continuous 
@@ -9506,21 +9512,15 @@ void prepare_biasCor(void) {
     NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
     USEDIM_GAMMADM = (NBINg > 1 && NBINg < 5);
     USEDIM_LOGMASS = (NBINm > 1 ) ;
+    if ( USEDIM_GAMMADM ) { NDIM_BIASCOR++ ; }
+    if ( USEDIM_LOGMASS ) { NDIM_BIASCOR++ ; }
 
-    if ( USEDIM_GAMMADM && !USEDIM_LOGMASS ) {
-      NDIM_BIASCOR = 6; 
-      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b,g");  
-    }
-
-    if ( !USEDIM_GAMMADM && USEDIM_LOGMASS ) {
-      NDIM_BIASCOR = 6; 
-      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b");  
-    }
-
-    if ( USEDIM_GAMMADM && USEDIM_LOGMASS ) {
-      NDIM_BIASCOR = 7; 
-      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
-    }
+    if ( USEDIM_GAMMADM && !USEDIM_LOGMASS ) 
+      { sprintf(STRING_PARLIST,"z,x1,c,a,b,g");  }
+    if ( !USEDIM_GAMMADM && USEDIM_LOGMASS ) 
+      { sprintf(STRING_PARLIST,"z,m,x1,c,a,b"); }
+    if ( USEDIM_GAMMADM && USEDIM_LOGMASS ) 
+      { sprintf(STRING_PARLIST,"z,m,x1,c,a,b,g"); }
 
     if ( DOCOR_MUCOVSCALE ) 
       { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR); }
@@ -9529,7 +9529,7 @@ void prepare_biasCor(void) {
   }
   else {
     NDIM_BIASCOR = 1; 
-    sprintf(INFO_BIASCOR.STRING_PARLIST,"z");
+    sprintf(STRING_PARLIST,"z");
     if ( DOCOR_1DZAVG )   
       { sprintf(txt_biasCor,"1D (WGT=1)") ; }
     else if ( DOCOR_1DZWGT ) 
@@ -9760,6 +9760,64 @@ void prepare_biasCor(void) {
 
 } // end prepare_biasCor
 
+
+// =====================================
+void print_biascor_options(void) {
+
+  int opt_biasCor = INPUTS.opt_biasCor;
+  char fnam[] = "print_biascor_options" ;
+
+  // -------- BEGIN ------
+
+  sprintf(BANNER,"%s for input opt_biascor=%d", fnam, opt_biasCor);
+  fprintf(FP_STDOUT,"\n\t%s\n", BANNER);
+
+  if ( opt_biasCor & MASK_BIASCOR_1DZAVG ) 
+    { print_biascor_comment(MASK_BIASCOR_1DZAVG,"Interp MUBIAS vs. z (1D), WGT=1"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_1DZWGT ) 
+    { print_biascor_comment(MASK_BIASCOR_1DZWGT,"Interp MUBIAS vs. z (1D), WGT=1/muerr^2"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_1DZAVG ) 
+    { print_biascor_comment(MASK_BIASCOR_1D5DCUT,"1DZWGT, but apply 5D cut (test)"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_5D ) 
+    { print_biascor_comment(MASK_BIASCOR_5D,"5D biasCor map"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_MUCOVSCALE ) 
+    { print_biascor_comment(MASK_BIASCOR_MUCOVSCALE,"MUCOVSCALE vs {z,c} "); }
+
+  if ( opt_biasCor & MASK_BIASCOR_SAMPLE ) 
+    { print_biascor_comment(MASK_BIASCOR_SAMPLE,"biasCor vs. IDSAMPLE"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_MU ) 
+    { print_biascor_comment(MASK_BIASCOR_MU,"Bias on MU instead of mB,x1,c"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_COVINT ) 
+    { print_biascor_comment(MASK_BIASCOR_COVINT,"biasCor-covint(3x3) x SCALE"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) 
+    { print_biascor_comment(MASK_BIASCOR_SIGINT_SAMPLE,"sigint(biasCor) vs. IDSAMPLE"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_noCUT ) 
+    { print_biascor_comment(MASK_BIASCOR_noCUT,"do NOT reject event if no biasCor"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_MAD ) 
+    { print_biascor_comment(MASK_BIASCOR_MAD,"median instead of rms in COV scale"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_MUCOVADD ) 
+    { print_biascor_comment(MASK_BIASCOR_MUCOVADD,"add COVINT in z,c,m bins (expect sigint=0)"); }
+
+  
+  fprintf(FP_STDOUT,"\n");
+  return;
+
+} // end print_biascor_options
+
+
+void print_biascor_comment(int MASK, char *COMMENT) {
+  fprintf(FP_STDOUT, "\t MASK=%6d -> %s \n", MASK, COMMENT); fflush(FP_STDOUT);
+} // end print_biascor_comment
 
 // =============================================
 void  read_simFile_biasCor(void) {

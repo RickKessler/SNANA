@@ -289,10 +289,8 @@ class LsstAlertWriter:
         nite = int( util.get_sunset_mjd( mjd, self.lsst_site_name,
                                          self.mjd_sunset_dict ) )
         outdir = pathlib.Path( self.outdir ) / f"{self.alert_day_name}{nite}"
-        if not outdir.is_dir():
-            if outdir.exists():
-                raise RuntimeError( f"{outdir} exists but is not a directory!" )
-            outdir.mkdir( mode=0o770, parents=True )
+        if not outdir.exists():
+            outdir.mkdir( mode=0o770, parents=True, exist_ok=True )
         return outdir
         
     def write_alerts_for_event( self, data_event_dict ):

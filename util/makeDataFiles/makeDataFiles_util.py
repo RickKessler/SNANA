@@ -22,7 +22,37 @@ except ImportError as e:
     pass
 from astropy.time import Time
 
-# =============================
+
+# ===============================================
+def create_output_folder(data_dir):
+
+    # Created July 20 2022
+    # Remove data_dir or data_dir.tar if they exist;
+    # then create data_dir. Note that data_dir includes full path.
+
+    tar_file       = f"{data_dir}.tar"
+    exist_folder   = os.path.exists(data_dir)
+    exist_tar_file = os.path.exists(tar_file)
+
+    if exist_folder :
+        cmd_rm = f"rm -r {data_dir}"
+        os.system(cmd_rm)
+
+    if exist_tar_file :
+        cmd_rm = f"rm -r {tar_file}"
+        os.system(cmd_rm)
+
+    # create folder  
+    folder = os.path.basename(data_dir)
+    logging.info(f"\t Create folder {folder}")
+    sys.stdout.flush()
+    os.mkdir(data_dir)
+
+    return
+
+    # end create_output_folder
+
+# ===============================================
 def extract_sim_readme_info(path_sim,key_list):
 
     # Created Mar 31 2022

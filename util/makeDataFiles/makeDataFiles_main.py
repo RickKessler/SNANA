@@ -89,6 +89,10 @@ def get_args():
     parser.add_argument("--outdir_snana",
                         help=msg, type=str, default=None )
 
+    msg = "output csv format: top-directory for data"
+    parser.add_argument("--outdir_csv",
+                        help=msg, type=str, default=None )
+
     # - - - - specialized args to create fake lsst alerts - - - - - -
     msg = "output LSST-ALERT format: top-directory for data"
     parser.add_argument("--outdir_lsst_alert",
@@ -149,6 +153,9 @@ def get_args():
 
     if args.outdir_snana:
         args.outdir_snana = os.path.expandvars(args.outdir_snana)
+
+    if args.outdir_csv:
+        args.outdir_csv = os.path.expandvars(args.outdir_csv)
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -218,6 +225,8 @@ def which_read_class(args):
             restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
         elif args.outdir_lsst_alert:
             outdir   = args.outdir_lsst_alert
+        elif args.outdir_csv :
+            outdir   = args.outdir_csv
 
     # - - - - - - - -
     if args.lsst_ap:
@@ -275,6 +284,9 @@ if __name__ == "__main__":
             snana.merge_snana_driver(args)
         elif args.outdir_lsst_alert:
             pass  #
+        elif args.outdir_csv :
+            pass
+
         sys.exit('Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;
@@ -282,13 +294,10 @@ if __name__ == "__main__":
     # and they will be translated to binary below.
     program.read_data_driver()
 
-    # translate TEXT -> BINARY; allow multiple output formats
+    # translate TEXT -> FITS; allow multiple output formats
     if args.outdir_snana is not None:
-        #program.convert2fits_snana()
         snana.convert2fits_snana(args, program.config_data)
 
-    #if args.outdir_XYZ is not None:
-    #    program.convert2XYZ()
 
     # final summary
     program.final_summary()

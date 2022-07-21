@@ -50,19 +50,20 @@ def write_event_text_snana(args, config_data, data_event_dict):
     exist_tar_file = os.path.exists(tar_file)
 
     if nevent == 0 :
+        util.create_output_folder(data_dir)
+
+        # xxxx mark delete Jul 20 2022 xxxxxxxxx
         # remove folder if it already exists
-        if exist_folder :
-            cmd_rm = f"rm -r {data_dir}"
-            os.system(cmd_rm)
-
-        if exist_tar_file :
-            cmd_rm = f"rm -r {tar_file}"
-            os.system(cmd_rm)
-
+        #if exist_folder :
+        #    cmd_rm = f"rm -r {data_dir}"
+        #    os.system(cmd_rm)
+        #if exist_tar_file :
+        #    cmd_rm = f"rm -r {tar_file}"
+        #    os.system(cmd_rm)
         # create folder
-        logging.info(f"\t Create folder {folder}")
-        sys.stdout.flush()
-        os.mkdir(data_dir)
+        #logging.info(f"\t Create folder {folder}")
+        #sys.stdout.flush()
+        #os.mkdir(data_dir)
 
     # - - - - -
     head_raw  = data_event_dict['head_raw']

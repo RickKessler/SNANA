@@ -34,7 +34,9 @@ from abc import abstractmethod
 
 import makeDataFiles_params as gpar
 import makeDataFiles_util as util
-import write_data_snana as snana
+import write_data_snana 
+
+from write_data_csv import csvWriter
 
 try:
     # import write_data_lsst_alert as lsst_alert
@@ -69,7 +71,8 @@ class Program:
         # create top-level outdir
         outdir_list = [
             args.outdir_snana,
-            args.outdir_lsst_alert
+            args.outdir_lsst_alert,
+            args.outdir_csv
         ]
 
         for outdir in outdir_list:
@@ -589,8 +592,11 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        if args.outdir_lsst_alert is not None:
+        if args.outdir_lsst_alert is not None:  # R.Knop, June 2022
             lsst_alert_writer = LsstAlertWriter( args, self.config_data )
+
+        if args.outdir_csv is not None:   # R.Kessler, July 2022
+            csv_writer = csvWriter( args, self.config_data )
 
         while nevent_subgroup >= 0:
 
@@ -631,11 +637,16 @@ class Program:
                 data_event_dict['data_unit_name'] = data_unit_name
                 data_event_dict['index_unit']     = index_unit
 
-                if args.outdir_snana is not None:
-                    snana.write_event_text_snana(args, self.config_data,
-                                                 data_event_dict)
-                if args.outdir_lsst_alert is not None:
+                if args.outdir_snana :
+                    write_data_snana.write_event_text_snana(args, self.config_data,
+                                                            data_event_dict)
+
+                elif args.outdir_lsst_alert :
                     lsst_alert_writer.write_alerts_for_event( data_event_dict )
+
+                elif args.outdir_csv :
+                    csv_writer.write_event_csv(data_event_dict)
+
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1
@@ -672,7 +683,7 @@ class Program:
             if nevent == 0 : continue
 
             if args.outdir_snana:
-                snana.write_aux_files_snana(name, args, self.config_data)
+                write_data_snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
                 lsst_alert_writer.finalize()
 

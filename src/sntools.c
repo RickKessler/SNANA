@@ -7474,11 +7474,13 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.SIM_SL_FLAG    = 0 ;
   SNDATA.SIMLIB_FILE[0] = 0 ;
   SNDATA.SIMLIB_MSKOPT  = 0 ;
-
+  
   SNDATA.APPLYFLAG_MWEBV = 0 ;
 
   SNDATA.SIM_BIASCOR_MASK = 0 ;
   
+  SNDATA.PHOTFLAG_DETECT  = 0 ; // July 2022
+
   for(ep=0; ep < MXEPOCH; ep++ ) {
    SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
    SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );

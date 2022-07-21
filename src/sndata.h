@@ -178,6 +178,8 @@ struct SNDATA {
   char  KCOR_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
 
+  int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection
+
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];
 

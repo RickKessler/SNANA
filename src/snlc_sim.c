@@ -21593,6 +21593,7 @@ void snlc_to_SNDATA(int FLAG) {
   // Dec 10 2018: load BYOSED info
   // Jul 20 2019: load strong lens info into SNDATA.SIM_SL_XXX
   // Feb 28 2021: load NEA
+  // Jul 21 2022: load PHOTFLAG_DETECT
   // ---------------------------------------
 
   int PHOTFLAG_DETECT  = INPUTS_SEARCHEFF.PHOTFLAG_DETECT;
@@ -21617,7 +21618,8 @@ void snlc_to_SNDATA(int FLAG) {
   sprintf(SNDATA.SUBSURVEY_LIST, "%s", SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST);
   sprintf(SNDATA.DATATYPE,       "%s", DATATYPE_SIM_SNANA);
 
-  SNDATA.SIMLIB_MSKOPT  = INPUTS.SIMLIB_MSKOPT ;
+  SNDATA.SIMLIB_MSKOPT   = INPUTS.SIMLIB_MSKOPT ;
+  SNDATA.PHOTFLAG_DETECT = PHOTFLAG_DETECT ; // Jul 2022 
   sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );
   sprintf(SNDATA.KCOR_FILE,      "%s", INPUTS.KCOR_FILE   );
 

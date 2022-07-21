@@ -808,6 +808,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
   int START_EVENT, END_EVENT, ISROW_T, ISROW_S ;
   int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
   int NWD, iwd, NLINE_READ, NLINE_SKIP, Nfread, NCHAR_ROW, istat ;
+  int NFAIL_ANGLEMATCH_b = 0;
   long int NCHAR_SKIP;
   bool  VALID_RADEC ;
   char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], *WD0, *WD1; 
@@ -965,6 +966,16 @@ void readNext_LCLIB(double *RA, double *DEC) {
 	LCLIB_INFO.NREPEAT = 1 ; // turn off this feature
 	START_EVENT = keep_ANGLEMATCH_LCLIB(GalLat,GalLong);
 	REJECT = (START_EVENT==0);
+
+	if ( REJECT ) { NFAIL_ANGLEMATCH_b++; }
+	if ( NFAIL_ANGLEMATCH_b > 10000 ) {
+	  sprintf(c1err,"Unable to find %.1f deg b-angle match "
+		  "for %d LCLIB entries.",
+		  LCLIB_EVENT.ANGLEMATCH_b, NFAIL_ANGLEMATCH_b);
+	  sprintf(c2err,"Sim b=%.2f deg\n", 
+		  GalLat );
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
       }
       
       else if ( strcmp(WD0,"END_EVENT:") == 0 ) {

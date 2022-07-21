@@ -63,6 +63,8 @@
     + always write HOSTGAL2 info, even for Galactics, so that data
        files have same keys.
 
+ Jul 21 2021: write PHOTFLAG_DETECT to global header
+
 **************************************************/
 
 #include "fitsio.h"
@@ -1013,18 +1015,6 @@ void wr_snfitsio_create(int itype ) {
   // create fits file of 'itype' (HEAD or PHOT or SPEC)
   // and write global header info.
   //
-  // Nov 24, 2012: add optional PRIVATE variable names
-  // Sep 19, 2013: write SIMOPT_MWCOLORLAW, SIMOPT_MWEBV
-  // Dec 07, 2013: write PRIVATE keys before checking SIMFLAG
-  //
-  // Feb 12, 2014: 
-  //  - write SNFITSIO_CODE_IVERSION
-  //  - write optional name of HOSTLIB_FILE
-  //  - write optional SIM_HOSTLIB key-names in header
-  //
-  // Dec 27 2015: SIMLIB -> SIMLIB_FILE and add SIMLIB_MSKOPT
-  //
-  // Aug 02 2016: new 'SPEC' option to write simulated spectra
   // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
   // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
@@ -1068,7 +1058,7 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
   //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
-  /* xxx
+  /* xxxxx
   if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
     { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
   else
@@ -1100,10 +1090,14 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
 		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
-  // July 21 2018
-  fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",
+  // misc flags
+  fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
 		  &SNDATA.APPLYFLAG_MWEBV,
 		  "1 -> Apply MWEBV cor to FLUXCAL", &istat );
+
+  fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
+		  &SNDATA.PHOTFLAG_DETECT,
+		  "PHOTFLAG mask for detection", &istat );
   
   // List of filters
   fits_update_key(fp, TSTRING, "FILTERS",

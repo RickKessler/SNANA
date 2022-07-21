@@ -685,7 +685,10 @@ class Program:
             if args.outdir_snana:
                 write_data_snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
-                lsst_alert_writer.finalize()
+                lsst_alert_writer.finalize() 
+
+            elif args.outdir_csv :
+                csv_writer.end_write(index_unit)
 
         # end read_data_driver
 

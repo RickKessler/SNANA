@@ -72,6 +72,10 @@ class csvWriter:
         # write header
         self.write_csv_header( self.fp_meta, self.mapvar_meta)
 
+        # init a few counters
+        self.nevt_write = 0
+        self.nobs_write = 0
+
         return
 
     # end __init__
@@ -90,6 +94,7 @@ class csvWriter:
 
         line_header = line_header[:-2]  # remove last comma
         fp.write(f"{line_header}\n")
+        fp.flush()
         return
 
         # end write_csv_header
@@ -155,8 +160,11 @@ class csvWriter:
 
         line = line[:-2] # remove last comma
         fp.write(f"{line}\n")
+        fp.flush()
+        self.nevt_write += 1
 
         return
+        # end append_metadata_csv
 
 # ====================================================
     def append_lightcurve_csv(self, fp, data_event_dict):
@@ -178,9 +186,28 @@ class csvWriter:
                 line_tmp += f"{value:{fmt}}, "
             line_tmp = line_tmp[:-2]  # remove last comma
             lines += f"{line_tmp}\n"
+            self.nobs_write += 1
 
         # write all photometry lines with one call
         fp.write(f"{lines}")
+        fp.flush()
 
         return
         # end append_lightcurve_csv
+
+    def end_write(self, index_unit):
+
+        # print stats and close csv files.
+        if index_unit == 1 :  # this index starts at 1, not 0
+            nevt = self.nevt_write
+            nobs = self.nobs_write        
+            logging.info(f"\n csv-write summary:")
+            logging.info(f"\t Finished writing {nevt} events to csv files.")
+            logging.info(f"\t Total number of observations: {nobs}")
+            self.fp_meta.close()
+
+        self.fp_lc_list[index_unit].close()
+        
+        return
+        # end of end_read_data
+

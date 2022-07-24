@@ -712,6 +712,9 @@ class READ_SNANA_FOLDER:
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
         self.snana_folder_dict['private_dict']    = {}
         self.snana_folder_dict['zphot_q_dict']    = {} # photo-z quantiles
+        
+        return
+        # end __init__
 
 
     def exec_read(self, ifile):
@@ -766,6 +769,18 @@ class READ_SNANA_FOLDER:
 
         head_names = table_dict['head_names']
         phot_names = table_dict['phot_names']
+
+        # check for PHOTFLAG_DETECT in header (after July 22 2022)
+        global_header  = self.snana_folder_dict['hdu_head'][0].header
+        key = gpar.DATAKEY_PHOTFLAG
+        if key in global_header:
+            photflag_detect_input = args.photflag_detect
+            photflag_detect_final = global_header[key]
+            self.args.photflag_detect = photflag_detect_final
+
+            msg = f"  photflag_detect(input) = {photflag_detect_input} " \
+                  f"--> {photflag_detect_final} from data header."
+            logging.info(f"{msg}")
 
         # check for true mag in PHOT table
         # e.g., fakes overlaid on images or sim

@@ -6,9 +6,9 @@
 # csv format may be useful for future public DRs.
 #
 # TO DO:
-#  - write detect flag (auto read from FITS header?)
+#  + write detect flag (auto read from FITS header?)
 #  - provide separate table of flux correction vs. MWEBV and band
-#  - flush csv files
+#  + flush csv files
 #  - sort each file by SNID
 
 import datetime, glob, yaml
@@ -31,6 +31,9 @@ class csvWriter:
         self.args = args           
         self.config_data = config_data
 
+        if args.merge :  return
+
+        # - - - - - - - - - - - - - - - -
         # create output folder
         outdir = args.outdir_csv
         util.create_output_folder(outdir)
@@ -42,25 +45,43 @@ class csvWriter:
 
         # store map between SNANA varname and output csv name
         self.mapvar_meta = {
-            gpar.DATAKEY_SNID            : ['snid',  '9'   ] ,
-            gpar.DATAKEY_NOBS            : ['nobs',  '3'   ] ,
-            gpar.DATAKEY_SNTYPE          : ['type',  '2d'  ] ,
-            gpar.DATAKEY_RA              : ['ra',    '.6f' ] ,
-            gpar.DATAKEY_DEC             : ['dec',   '.6f' ] ,
-            gpar.DATAKEY_MWEBV           : ['mwebv', '.3f' ] ,
-            gpar.HOSTKEY_SPECZ           : ['hostgal_zspec',      '.3f' ] ,
-            gpar.HOSTKEY_SPECZ_ERR       : ['hostgal_zspec_err',  '.3f' ] ,
-            gpar.HOSTKEY_PHOTOZ          : ['hostgal_zphot',      '.3f' ] ,
-            gpar.HOSTKEY_PHOTOZ_ERR      : ['hostgal_zphot_err',  '.3f' ] ,
-            gpar.HOSTKEY_SNSEP           : ['hostgal_snsep',      '.3f' ] 
+            gpar.DATAKEY_SNID            : ['snid',  '9', 
+                                            'SN identifier'] ,
+            gpar.DATAKEY_NOBS            : ['nobs',  '3',
+                                            'Nobs in lightcurve file' ] ,
+            gpar.DATAKEY_SNTYPE          : ['type',  '2d',
+                                            'spectroscopic type (integer)'] ,
+            gpar.DATAKEY_RA              : ['ra',    '.6f',
+                                            'Right Ascension (degrees)' ] ,
+            gpar.DATAKEY_DEC             : ['dec',   '.6f',
+                                            'Declination (degrees)' ] ,
+            gpar.DATAKEY_MWEBV           : ['mwebv', '.3f',
+                                            'Galactic E(B-V)' ] ,
+            gpar.HOSTKEY_SPECZ           : ['hostgal_zspec',      '.3f',
+                                            'host spec-redshift' ] ,
+            gpar.HOSTKEY_SPECZ_ERR       : ['hostgal_zspec_err',  '.3f',
+                                            'error on host spec-z' ] ,
+            gpar.HOSTKEY_PHOTOZ          : ['hostgal_zphot',      '.3f',
+                                            'host photo-z' ] ,
+            gpar.HOSTKEY_PHOTOZ_ERR      : ['hostgal_zphot_err',  '.3f',
+                                            'error on host photo-z' ] ,
+            gpar.HOSTKEY_SNSEP           : ['hostgal_snsep',      '.3f',
+                                            'host-SN sep, arcsec' ] 
         }
 
         self.mapvar_lc = {
-            gpar.DATAKEY_SNID  : [ 'snid',         '9'   ],
-            'MJD'              : [ 'mjd'  ,        '.4f' ],
-            'BAND'             : [ 'band' ,        '1'   ],
-            'FLUXCAL'          : [ 'fluxcal' ,     '11.4e' ],
-            'FLUXCALERR'       : [ 'fluxcal_err' , '10.4e' ]
+            gpar.DATAKEY_SNID         : [ 'snid',         '9',
+                                          'SN identifier' ],
+            gpar.DATAKEY_MJD          : [ 'mjd'  ,        '.4f',
+                                          'Modified Julien Date (days)' ],
+            gpar.DATAKEY_BAND         : [ 'band' ,        '1',
+                                          'single-char passband; e.g., r' ],
+            gpar.DATAKEY_PHOTFLAG     : [ 'detect',       '1',
+                                          '0=not detcted, 1=detected' ],
+            gpar.DATAKEY_FLUXCAL      : [ 'fluxcal' ,     '11.4e',
+                                          'calibrated flux with ZP=27.5' ],
+            gpar.DATAKEY_FLUXCALERR   : [ 'fluxcal_err' , '10.4e',
+                                          'uncertainty on fluxcal' ]
         }
 
         # there is only one metadata file, so create it now during init
@@ -73,12 +94,41 @@ class csvWriter:
         self.write_csv_header( self.fp_meta, self.mapvar_meta)
 
         # init a few counters
-        self.nevt_write = 0
-        self.nobs_write = 0
+        self.nevt_all_write   = 0
+        self.nevt_type_write  = 0
+        self.nobs_write       = 0
+        self.readme_file = f"{outdir}/DATA.README"
 
         return
 
     # end __init__
+
+    def append_readme_vardef_csv(self):
+
+        # append variable definitions to readme file
+        readme_file = self.readme_file
+
+        logging.info(f" Define variables in {readme_file}")
+
+        # write with yaml format
+        with open(readme_file,"at") as r:
+            
+            r.write("\nVARDEF_METADATA:\n")
+            for var_snana, var_csv in self.mapvar_meta.items() :
+                var     = var_csv[0] + ':'
+                comment = var_csv[2]
+                r.write(f"  {var:<20} {comment} \n")
+
+            r.write("\nVARDEF_LIGHTCURVE:\n")
+            for var_snana, var_csv in self.mapvar_lc.items() :
+                var     = var_csv[0] + ':'
+                comment = var_csv[2]
+                r.write(f"  {var:<20} {comment} \n")
+
+            r.write('\n')
+        return
+        # end append_readme_vardef_csv
+
 
 # =============================================
     def write_csv_header(self, fp, mapvar):
@@ -105,7 +155,7 @@ class csvWriter:
         # Inputs:
         #  data_event_dict: event dictionary
 
-        outdir = self.args.outdir_csv
+        outdir          = self.args.outdir_csv
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
         data_unit_nevent_list = self.config_data['data_unit_nevent_list']
@@ -161,8 +211,8 @@ class csvWriter:
         line = line[:-2] # remove last comma
         fp.write(f"{line}\n")
         fp.flush()
-        self.nevt_write += 1
-
+        self.nevt_all_write += 1
+        
         return
         # end append_metadata_csv
 
@@ -173,7 +223,8 @@ class csvWriter:
         phot_raw = data_event_dict['phot_raw']
         nobs     = phot_raw[gpar.DATAKEY_NOBS]
         snid     = head_raw[gpar.DATAKEY_SNID]
-        fmt_snid = self.mapvar_lc[gpar.DATAKEY_SNID][1]
+        fmt_snid        = self.mapvar_lc[gpar.DATAKEY_SNID][1]
+        photflag_detect = self.args.photflag_detect
 
         lines = ''
         for o in range(0,nobs):
@@ -183,6 +234,12 @@ class csvWriter:
 
                 value = phot_raw[var_snana][o]
                 fmt   = var_csv[1]
+
+                # replace photflag with detect = 0 or 1 flag
+                if var_snana == gpar.DATAKEY_PHOTFLAG:
+                    detect = (value & photflag_detect)/photflag_detect
+                    value  = int(detect) ;  fmt   = '1'
+
                 line_tmp += f"{value:{fmt}}, "
             line_tmp = line_tmp[:-2]  # remove last comma
             lines += f"{line_tmp}\n"
@@ -197,17 +254,40 @@ class csvWriter:
 
     def end_write(self, index_unit):
 
-        # print stats and close csv files.
-        if index_unit == 1 :  # this index starts at 1, not 0
-            nevt = self.nevt_write
-            nobs = self.nobs_write        
-            logging.info(f"\n csv-write summary:")
-            logging.info(f"\t Finished writing {nevt} events to csv files.")
-            logging.info(f"\t Total number of observations: {nobs}")
-            self.fp_meta.close()
-
+        # close file pointer for this data unit
         self.fp_lc_list[index_unit].close()
         
+        # continue only for 1st data unit
+        if index_unit != 1 :
+            return
+
+        # - - - - - - 
+        readme_stats_sum = self.config_data['readme_stats_sum']
+        readme_dict = {
+            'readme_file'  : self.readme_file,
+            'readme_stats' : readme_stats_sum,
+            'data_format'  : gpar.FORMAT_CSV,
+            'docana_flag'  : True
+        }
+        util.write_readme(self.args, readme_dict)
+
+        # append csv variable definitions
+        self.append_readme_vardef_csv()
+
+        nevt = self.nevt_all_write
+        nobs = self.nobs_write        
+        logging.info(f"\n csv-write summary:")
+        logging.info(f"\t Finished writing {nevt} events to csv files.")
+        logging.info(f"\t Total number of observations: {nobs}")
+        self.fp_meta.close()
+
         return
         # end of end_read_data
 
+# =======================================================
+    def merge_csv_driver(self):
+        outdir = self.args.outdir_csv
+            
+        print(f" xxx hello from merge. outdir = {outdir}")
+        return
+    # end merge_csv_driver

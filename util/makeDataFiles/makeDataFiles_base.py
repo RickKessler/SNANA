@@ -112,7 +112,7 @@ class Program:
         peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
         outdir_lsst_alert  = args.outdir_lsst_alert
-
+        outdir_csv         = args.outdir_csv
         n_season           = gpar.MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
@@ -120,6 +120,8 @@ class Program:
         if peakmjd_range is not None:
             n_season = 1
         if nite_detect_range is not None:
+            n_season = 1
+        if outdir_csv :
             n_season = 1
 
         unit_name_list   = []
@@ -148,6 +150,9 @@ class Program:
 
                 do_all_seasons = (isplit == 0 or isplit_select>0) and iseason==0
                 do_one_season  = (not outdir_lsst_alert)
+                if outdir_csv : 
+                    do_all_seasons = True
+                    do_one_season  = False
 
                 # define unit name for all seasons combined
                 if do_all_seasons:
@@ -177,11 +182,15 @@ class Program:
         self.config_data['data_unit_nevent_list']   = unit_nevent_list
         self.config_data['n_season']                = n_season
 
+        #print(f"\n xxx unit_name_list = \n{unit_name_list}")
+
         readme_stats_list = []
+        readme_stats_sum = util.init_readme_stats()
         for i in range(0, n_data_unit):
             readme_stats_list.append(util.init_readme_stats())
 
         self.config_data['readme_stats_list'] = readme_stats_list
+        self.config_data['readme_stats_sum']  = readme_stats_sum
         self.config_data['NEVT_SPECTRA']      = 0
         return
         # end init_data_unit
@@ -749,18 +758,26 @@ class Program:
             photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
 
         readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_sum   = self.config_data['readme_stats_sum']
 
-        readme_stats['NEVT_ALL'] += 1
+        key = 'NEVT_ALL'
+        readme_stats[key] += 1
+        readme_sum[key]   += 1
 
         if specz > 0.0:
-            readme_stats['NEVT_HOSTGAL_SPECZ'] += 1
+            key = 'NEVT_HOSTGAL_SPECZ'
+            readme_stats[key] += 1
+            readme_sum[key]   += 1
 
         if photoz > 0.0:
-            readme_stats['NEVT_HOSTGAL_PHOTOZ'] += 1
+            key = 'NEVT_HOSTGAL_PHOTOZ'
+            readme_stats[key] += 1
+            readme_sum[key] += 1
 
         if n_spectra > 0:
             key = 'NEVT_SPECTRA'
             readme_stats[key] += 1  # increment this data unit
+            readme_sum[key]   += 1  # increment this data unit
             self.config_data[key] += 1  # sum over all data units
 
         # end update_readme_stats

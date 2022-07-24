@@ -706,6 +706,9 @@ void set_user_defaults(void) {
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
   INPUTS.GENRANGE_DEC[0]  = -360.0  ;
   INPUTS.GENRANGE_DEC[1]  = +360.0  ;
+  INPUTS.GENRANGE_b[0]    = -360.0  ;
+  INPUTS.GENRANGE_b[1]    = +360.0  ;
+
   INPUTS.MXRADIUS_RANDOM_SHIFT = 0.0 ;
 
   INPUTS.SOLID_ANGLE =  0.0  ;
@@ -1846,6 +1849,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_DEC GENRANGE_DECL", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_DEC[1] );
+    README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
+  }
+
+  else if ( keyMatchSim(1,"GENRANGE_b GENRANGE_GLAT", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_b[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_b[1] );
     README_KEYPLUSARGS_load(20, 2, WORDS, keySource, &README_KEYS_SKY, fnam) ;
   }
 
@@ -20328,6 +20337,7 @@ int GENRANGE_CUT(void) {
   //              Abort if too many hosts aren't found.
   //
   // Aug 22 2018: skip REDSHIFT cut for LCLIB model.
+  // Jul 24 2022: check gal lat cut GENRANGE_b
 
   int LTRACE = 0; 
   int istat ;
@@ -20353,6 +20363,12 @@ int GENRANGE_CUT(void) {
   if(LTRACE) { printf(" xxx %s: 1 check DEC=%f \n", fnam, GENLC.DEC); }
   if ( GENLC.DEC < INPUTS.GENRANGE_DEC[0] )  { return istat; }
   if ( GENLC.DEC > INPUTS.GENRANGE_DEC[1] )  { return istat; }
+
+  
+  if(LTRACE) { printf(" xxx %s: 1b check GalLat=%f \n", fnam, GENLC.GLAT); }
+  if ( GENLC.GLAT < INPUTS.GENRANGE_b[0] )  { return istat; }
+  if ( GENLC.GLAT > INPUTS.GENRANGE_b[1] )  { return istat; }
+ 
 
   if ( INDEX_GENMODEL != MODEL_LCLIB ) {
     if(LTRACE) {printf(" xxx %s: 2 check zCMB=%f \n",

@@ -591,6 +591,7 @@ struct INPUTS {
 
   double GENRANGE_RA[2];        // RA range (deg) to generate
   double GENRANGE_DEC[2];       // idem for DEC
+  double GENRANGE_b[2];        // for Galactic events
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
 

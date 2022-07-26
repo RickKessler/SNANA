@@ -608,9 +608,14 @@ def get_fitopt_scales(lcfit_info, sys_scales):
 def get_cov_from_diff(df1, df2, scale):
     """ Returns both the covariance contribution and summary stats 
     (slope and mean abs diff) """
-    assert df1[VARNAME_MU].size == df2[VARNAME_MU].size, \
-        "Oh no, looks like you have a different number of bins/supernova " \
-        "for your systematic and this is not good."
+
+    len1 = df1[VARNAME_MU].size
+    len2 = df2[VARNAME_MU].size
+    errmsg =   f"Oh no, len1={len1} and len2={len2}; " \
+               f"looks like you have a different number of bins/supernova " \
+               f"for your systematic and this is not good."
+    assert len1 == len2, errmsg
+
 
     diff = scale * ((df1[VARNAME_MU] - df1[VARNAME_MUREF]) - \
                     (df2[VARNAME_MU] - df2[VARNAME_MUREF])).to_numpy()

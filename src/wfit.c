@@ -411,9 +411,9 @@ int  cidindex(char *cid);
 
 void WRITE_OUTPUT_DRIVER(void);
 void write_output_resid(int fitnum);
-void write_output_contour(void);
 void write_output_cospar(void);
-void write_output_fits(void);
+void write_output_fits_legacy(void);
+void write_output_chi2grid(void);
 
 void CPU_summary(void);
 
@@ -3558,18 +3558,15 @@ void test_codist() {
 // =================================
 void getname(char *basename, char *tempname, int nrun) {
 
-
    //get clean string name
    strcpy(tempname, basename);
 
    if ( nrun == 0 ) {
      // works for residfile
      // works for cosparfile
-     strcat(tempname, ".init");
-     
+     strcat(tempname, ".init");    
    } 
-
-
+   return ;
 } // end of getname
 
 // =================================
@@ -3603,7 +3600,9 @@ void WRITE_OUTPUT_DRIVER(void) {
  
   // write chi2 & prob maps to fits files;
   // not used for VERY long time ... beware.
-  if ( INPUTS.fitsflag ) { write_output_fits(); }
+  // xxx mark delete   if ( INPUTS.fitsflag ) { write_output_fits(); }
+
+  write_output_chi2grid();
 
   return;
 } // end WRITE_OUTPUT_DRIVER
@@ -3845,14 +3844,86 @@ void write_output_resid(int fitnum) {
 
 } // end write_output_resid
 
-// ********************************
-void write_output_contour(void) {
-  // ----------- BEGIN -------------
-  return ;
-} // end write_output_contour
 
 // =======================================
-void write_output_fits(void) {
+void write_output_chi2grid(void) {
+
+  // Created July 26 2022 by R.Kessler
+  // Write chi2grid vs. fit params to text file.
+  // E.g., for wCDM fit, the file output is
+  // VARNAMES: w OM  chi2_sn chi2_tot
+  //
+  // where chi2_tot includes prior.
+ 
+  char *outFile  = INPUTS.outFile_chi2grid;
+  bool float_w0  = (INPUTS.w0_steps  > 1);
+  bool float_wa  = (INPUTS.wa_steps  > 1);
+  bool float_omm = (INPUTS.omm_steps > 1);
+
+  FILE *fp;
+  char VARLIST[100];
+  char fnam[] = "write_output_chi2grid" ;
+
+  // ------------ BEGIN -------------
+
+  if ( IGNOREFILE(outFile) ) { return; }
+
+  printf("  Write chi2 grid to %s \n", outFile);
+  fp = fopen(outFile, "wt");
+  if (fp == NULL){
+    sprintf(c1err,"Could not open output chi2grid file:");
+    sprintf(c2err,"%s", outFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  VARLIST[0] = 0 ;
+  if ( float_w0  )  { strcat(VARLIST,"w0 "); }
+  if ( float_wa  )  { strcat(VARLIST,"wa "); }
+  if ( float_omm )  { strcat(VARLIST,"omm "); }
+  strcat(VARLIST,"  chi2_sn chi2_tot ");
+
+  fprintf(fp,"VARNAMES: ROW %s\n", VARLIST);
+
+  // - - - -
+  int i, kk, j, rownum=0;
+  double snchi, extchi, w0, wa, omm ;
+  char   line[100], cval[3][40];
+  for(i=0; i < INPUTS.w0_steps; i++){
+    for(kk=0; kk < INPUTS.wa_steps;kk++){
+      for(j=0; j < INPUTS.omm_steps; j++){
+	snchi =  WORKSPACE.snchi3d[j][kk][i]  - WORKSPACE.snchi_min;
+	extchi = WORKSPACE.extchi3d[j][kk][i] - WORKSPACE.extchi_min;
+
+	w0      = INPUTS.w0_min  + i  * INPUTS.w0_stepsize;
+	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;
+	omm     = INPUTS.omm_min + j  * INPUTS.omm_stepsize;
+
+	cval[0][0] = cval[1][0] = cval[2][0] = 0;
+	if ( float_w0  )  { sprintf(cval[0],"%.4f", w0); }
+	if ( float_wa  )  { sprintf(cval[1],"%.4f", wa); }
+	if ( float_omm )  { sprintf(cval[2],"%.4f", omm); }
+
+	rownum++ ;
+	sprintf(line,"ROW: %4d   "
+		"%s %s %s   %10.4le %10.4le", 
+		rownum, 
+		cval[0], cval[1], cval[2],
+		snchi, extchi );	
+	fprintf(fp,"%s\n", line);
+	if ( rownum % 10 == 0 ) { fflush(fp); }
+      }
+    }
+  }
+  
+  //.xyz
+
+  fclose(fp);
+
+  return;
+} // end write_output_chi2grid
+
+// =======================================
+void write_output_fits_legacy(void) {
 
   // Created Oct 2 2021
   // Write to fits files.
@@ -4008,7 +4079,7 @@ void write_output_fits(void) {
   fclose(FILEPTR_SN);
 
   return;
-} // end write_output_fits
+} // end write_output_fits_legacy
 
 
 // ==========================

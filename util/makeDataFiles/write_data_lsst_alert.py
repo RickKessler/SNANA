@@ -365,9 +365,9 @@ class LsstAlertWriter:
         # tmpmjd.sort()
         # tmpmjd = numpy.array( tmpmjd )
         # if not numpy.all( mjds == tmpmjd ):
-        #     self.logger.warning( f"MJDS not sorted for diaObjectId = {diaObject.diaObjectid}" )
+        #     self.logger.warning( f"MJDS not sorted for diaObjectId = {diaObject['diaObjectId']}" )
         # else:
-        #     self.logger.info( f"MJDs are sorted for diaObjectId = {diaObject.diaObjectid}" )
+        #     self.logger.info( f"MJDs are sorted for diaObjectId = {diaObject['diaObjectId']}" )
         for obsnum in range( nobs ):
             diaSourceId = snid * self.max_alerts_per_obj + obsnum
             
@@ -405,7 +405,7 @@ class LsstAlertWriter:
                 
                 # Require a 12-hour delay between detection and
                 # inclusion of forced photometry
-                if ( mjds[ obsnum ] - 12 > firstdetect_mjd ):
+                if ( mjds[ obsnum ] - 0.5 > firstdetect_mjd ):
                     alert['prvDiaForcedSources'] = prvForcedSources
 
                 daystr = f"mjd{mjds[obsnum]:.4f}"

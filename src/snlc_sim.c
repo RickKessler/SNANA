@@ -21913,7 +21913,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_TRESTMAX         = GENLC.TRESTMAX ;
 
   // set GALID here in case HOSTLIB_USE=0 in hostgal_to_SNDATA
-  if ( SNHOSTGAL.GALID > 0 ) { 
+  if ( SNHOSTGAL.GALID > 0 &&  !INPUTS.HOSTLIB_USE) { 
     SNDATA.HOSTGAL_NMATCH[0] = 1 ; 
     SNDATA.HOSTGAL_NMATCH[1] = 1 ; 
   }

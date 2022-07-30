@@ -7835,6 +7835,7 @@ void SORT_SNHOST_byDDLR(void) {
 
   // ------------- BEGIN ---------------
 
+  
   // sort by DDLR
   sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
 
@@ -7860,7 +7861,7 @@ void SORT_SNHOST_byDDLR(void) {
   RA_SN = GENLC.RA;   DEC_SN = GENLC.DEC;   cosDEC_SN  = GENLC.cosDEC ;
 
   if ( LDMP ) 
-    { printf(" xxx ----------------------------- \n"); }
+    { printf(" xxx ------------  CID=%d ----------------- \n", GENLC.CID); }
 
   // load info sorted by DDLR
   for(i=0; i < NNBR; i++ ) {

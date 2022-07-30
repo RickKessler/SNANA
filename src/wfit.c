@@ -106,6 +106,8 @@
    + -blind_auto reads ISDATA_REAL flag from HD file and sets
      blinding on for real data, or off for sim data.
 
+ July 26 2022 RK - implement outfile_chi2grid ... not well tested.
+
 *****************************************************************************/
 
 #include <stdlib.h>

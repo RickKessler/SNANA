@@ -158,7 +158,6 @@ int main(int argc, char **argv) {
     
     // init weak and strong lensing 
     init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
-    // xxx mark    init_stronglens(INPUTS.STRONGLENS_FILE);
   }
 
 
@@ -766,15 +765,6 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
   INPUTS.DOGEN_AV       = 0 ;
-
-  /* xxxxxxxx mark delete Mar 17 2022 xxxxxxxx
-  INPUTS.GENRANGE_AV[0] = 0.0 ;
-  INPUTS.GENRANGE_AV[1] = 0.0 ;
-  INPUTS.GENEXPTAU_AV   = 0.0 ;
-  INPUTS.GENGAUSIG_AV   = 0.0 ;
-  INPUTS.GENGAUPEAK_AV  = 0.0 ;
-  INPUTS.GENRATIO_AV0   = 0.0 ;
-  xxxxxxxxxx end mark xxxxxx */
 
   INPUTS.WV07_GENAV_FLAG    =  0;
   INPUTS.WV07_REWGT_EXPAV   = -9.0;
@@ -2436,7 +2426,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
       bool OVERRIDE   = (keySource == KEYSOURCE_ARG);
       bool ABORT_MODEL = !SAME_MODEL && !(BOTH_BPOLY && OVERRIDE);
-      // xxx mark if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
       if ( ABORT_MODEL ) {
 	sprintf(c1err,"cannot mix multiple rate models with %s", KEYNAME);
 	sprintf(c2err,"%s and %s (pick one)", NAME, TMPNAME);
@@ -4264,15 +4253,6 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   // - - - - -
 
   INPUTS.NVAR_SIMGEN_DUMP = NVAR; // load global
-
-  /* xxxx Mark delete Ferb 2022, check for alternate varnames
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;      
-    printf ("xxx %s 1 varName=%s\n", fnam, varName);
-    checkAlternateVarNames_HOSTLIB(varName);
-    printf ("xxx %s 2 varName=%s\n", fnam, varName);
-    } 
-    xxx */
 
  README_LOAD:
   if ( N > 0 ) {
@@ -6897,9 +6877,6 @@ void  prep_RANSYSTPAR(void) {
 
   if ( INPUTS.RANSYSTPAR.USE == 0 ) { return ; }
 
-  // DEBUG_FLAG=511 to use refactor code ... for now 
-  //xxx mark if(INPUTS.DEBUG_FLAG!=511) { prep_RANSYSTPAR_LEGACY(); return; }
-
   sprintf(BANNER,"%s: Prepare Random set of Systematic Errors", fnam );
   print_banner(BANNER);
 
@@ -6936,7 +6913,6 @@ void  prep_RANSYSTPAR(void) {
   if ( tmpSigma != 0.0 ) {
     NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.HOSTLIB_GENZPHOT_BIAS[0] = tmp;
-    // xxx mark delete May 21 2022    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
     printf("\t HOSTLIB_GENZPHOT_BIAS  = %f \n", tmp );
   }
 
@@ -7465,7 +7441,6 @@ void genperfect_override(void) {
   OVP = MASK & (1 <<  BITPERFECT_AV ) ;
   if ( OVP > 0 ) {
 
-    // xxxx mark    NVAR++ ;  dptr = &INPUTS.GENEXPTAU_AV ;
     NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.EXP_TAU ;
     sprintf(GENPERFECT.parnam[NVAR], "GENEXPTAU_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
@@ -7473,7 +7448,6 @@ void genperfect_override(void) {
     GENPERFECT.parval[NVAR][1] = *dptr ;
     GENPERFECT.partype[NVAR]   = 2 ;
 
-    // xxx mark    NVAR++ ;  dptr = &INPUTS.GENGAUSIG_AV ;
     NVAR++ ;  dptr = &INPUTS.GENPROFILE_AV.SIGMA ;
     sprintf(GENPERFECT.parnam[NVAR], "GENGAUSIG_AV" ) ;
     GENPERFECT.parval[NVAR][0] = *dptr ;
@@ -10975,17 +10949,6 @@ void gen_event_driver(int ilc) {
   // --------------------------
   if ( WRFLAG_CIDRAN > 0 ) { load_CIDRAN(); }
 
-  /* xxx mark delete Jul 3 2022 xxxxxxxx
-    CID = INPUTS.CIDRAN_LIST[GENLC.CID-INPUTS.CIDOFF];
-    GENLC.CIDRAN = CID ; 
-    if ( CID < 0 ) {
-      sprintf(c1err,"Invalid CIDRAN=%d", CID);
-      sprintf(c2err,"CID=%d CIDOFF=%d", GENLC.CID, INPUTS.CIDOFF);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-  }
-  xxxxxxxx end mark xxxxxx */
-
   // ----------------------------------------------------------
   // misc. filter-dependent stuff:
   // + tack on peakMJDs at very end of list.
@@ -12262,7 +12225,6 @@ double pick_gridval_SIMSED(int ipar, int ipar_model) {
   else { 
     // pick random sed from asymGauss params.
     GENGAUSS_SIMSED = &INPUTS.GENGAUSS_SIMSED[ipar];
-    // xxx mark  PARVAL_TMP = getRan_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
     PARVAL_TMP = getRan_GENGAUSS_ASYM(GENGAUSS_SIMSED);
     PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
   }
@@ -13078,7 +13040,6 @@ void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
       strcat(OUTLINE,CTMP); 
     }
 
-    //.xyz
     fprintf(fp,"%s\n", OUTLINE);
     fflush(fp);
   }
@@ -13243,14 +13204,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   sprintf(cptr,"CID");
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.CID_FINAL ;
 
-  /* xxxx mark delete Jul 5 2022 xxxxxx
-  if ( WRFLAG_CIDRAN == 0 )  
-    {  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.CID ;  }
-  else  
-    {  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.CIDRAN ; }
-  xxxxx end mark xxxxx */
   NVAR_SIMGEN_DUMP++ ;
-
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"LIBID");
@@ -14412,7 +14366,6 @@ void gen_redshift_LCLIB(void) {
 
   if ( INDEX_GENMODEL != MODEL_LCLIB ) { return ; }
 
-  // xxx mark delete May 2022  GENLC.TEMPLATE_INDEX  x= LCLIB_EVENT.ID ; 
   if ( ZCMB_TRUE <= 1.0E-9 ) { return; } // May 2022 
 
   if ( LDMP ) {
@@ -14645,13 +14598,6 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
     lensDMU = SNHOSTGAL.WEAKLENS_DMU;
   }
 
-  /* xxx Mark delete June 28 2022
-  if ( IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE) ) 
-    { lensDMU = 0.0 ; }
-  else 
-    { lensDMU = gen_lensDMU(zCMB,ran1,DUMP_FLAG);  }
-  */
-
   if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
     lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * getRan_Gauss(1) ;
   }
@@ -14782,7 +14728,6 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       z = zmin + dz * (double)(iz-1) ;
 
       if ( ISPOLY ) {
-	// xxx mark  wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
 	w = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
       }
       else {
@@ -15209,17 +15154,9 @@ double gen_AV(void) {
   if ( INPUTS.GENPROFILE_AV.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,&GENLC.GENPROFILE_AV);
 
-    /* xxxxxx mark delete Mar 17 2022 xxxxxx
-    GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENEXPTAU_AV 
-      + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");// legacy
-    xxxx */
     GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENPROFILE_AV.EXP_TAU
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_AV");
 
-    /* xxx mark delete xxx
-    GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENGAUSIG_AV
-      + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");// legacy
-    xxxx */
     GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENPROFILE_AV.SIGMA
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENSIG_AV");
 
@@ -15304,7 +15241,6 @@ double GENAV_WV07(void) {
   // pick random AV on defined interval
 
  PICKAV:
-  // xxx mark delete Mar 17 2022  AV = getRan_Flat(1,INPUTS.GENRANGE_AV);
   AV = getRan_Flat ( 1 , INPUTS.GENPROFILE_AV.RANGE );
 
   // compute relative wgt
@@ -16157,7 +16093,6 @@ int SIMLIB_read_templateNoise(char *FIELD, char *whatNoise, char **wdlist) {
   char varName[60] ;
 
   for(ifilt= 0 ; ifilt < NFILT; ifilt++ ) {
-    // xxx mark    readdouble(fp_SIMLIB, 1, &noise);
     sscanf(wdlist[ifilt], "%le", &noise ); NRD++ ;
     ifilt_obs = GENLC.IFILTMAP_SIMLIB[ifilt] ;
     ptrNoise[ifilt_obs] = noise ;
@@ -21790,12 +21725,6 @@ void snlc_to_SNDATA(int FLAG) {
     { SNDATA.FAKE  = FAKEFLAG_LCSIM ; }
 
   SNDATA.CID  = GENLC.CID_FINAL ; 
-  /* xxx mark delete 
-  if ( WRFLAG_CIDRAN == 0 ) 
-    { SNDATA.CID  = GENLC.CID ; }
-  else 
-    { SNDATA.CID  = GENLC.CIDRAN ; }
-  xxx */
 
   sprintf(SNDATA.CCID,      "%d", SNDATA.CID ) ;
   sprintf(SNDATA.IAUC_NAME, "%s", "NULL" );
@@ -21916,8 +21845,9 @@ void snlc_to_SNDATA(int FLAG) {
   if ( SNHOSTGAL.GALID > 0 &&  !INPUTS.HOSTLIB_USE) { 
     SNDATA.HOSTGAL_NMATCH[0] = 1 ; 
     SNDATA.HOSTGAL_NMATCH[1] = 1 ; 
+    SNDATA.HOSTGAL_OBJID[0]   = SNHOSTGAL.GALID ; 
   }
-  SNDATA.HOSTGAL_OBJID[0]   = SNHOSTGAL.GALID ;
+  // xxx mark delete Jul 30 2022 SNDATA.HOSTGAL_OBJID[0] = SNHOSTGAL.GALID ;
   
   /* xxx mark delete of redundant call, July 8 2022 
   // set HOSTLIB variables
@@ -22350,32 +22280,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 	SNDATA.PTR_HOSTGAL_PROPERTY_ERR[j][m]  = 
 	  SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
       }
-
-
-
-      /* xxx mark delete Mar 14 2022 xxxxxxx
-      j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGMASS);
-      SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
-      SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
-      SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
-
-      j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGSFR);
-      // printf("xxxxx %s j=%d for LOGSFR=%f\n",fnam,j,SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS);
-      SNDATA.HOSTGAL_LOGSFR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
-      SNDATA.HOSTGAL_LOGSFR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
-      SNDATA.HOSTGAL_LOGSFR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR ;
-
-      j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
-      SNDATA.HOSTGAL_LOGsSFR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
-      SNDATA.HOSTGAL_LOGsSFR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS;
-      SNDATA.HOSTGAL_LOGsSFR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
-      
-      j = getindex_HOSTGAL_PROPERTY(HOSTGAL_PROPERTY_BASENAME_COLOR);
-      SNDATA.HOSTGAL_COLOR_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
-      SNDATA.HOSTGAL_COLOR_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_OBS ;
-      SNDATA.HOSTGAL_COLOR_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].HOSTGAL_PROPERTY_VALUE[j].VAL_ERR;
-      xxxxxxxxx end mark xxxxxxxxxx */
-
 
 
       // Added for LSST but may be of more general use; Alex Gagliano 09/2021
@@ -27000,12 +26904,6 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 #endif
 
   CID = GENLC.CID_FINAL;
-  /* xxx mark delete  Jul 5 2022 xxxxx
-  if ( WRFLAG_CIDRAN == 0 ) 
-    { CID = GENLC.CID ; }
-  else
-    { CID = GENLC.CIDRAN ; }
-  xxxxxxxx end mark xxxxxxx */
 
   if ( CID > MXCID_SIM  ) {
     sprintf(c1err,"CID=%d exceeds MXCID_SIM=%d", CID, MXCID_SIM );
@@ -27161,13 +27059,6 @@ void screen_update(void) {
   // ---------- BEGIN --------------
 
   CID = GENLC.CID_FINAL;
-
-  /* xxx mark delete 
-  if ( !WRFLAG_CIDRAN  ) 
-    { CID = GENLC.CID ; }
-  else
-    { CID = GENLC.CIDRAN ; }
-  xxxxx */
   // - - - - -
 
   if ( INPUTS.NGEN_LC > 0 ) {
@@ -27697,7 +27588,6 @@ void SIMLIB_DUMP_DRIVER(void) {
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ; 
 
     NVAR = 11 ;
-    // xxxx mark    fprintf(fpdmp1,"NVAR: %d \n", NVAR );
     fprintf(fpdmp1,"VARNAMES: ROW "
 	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG MJD_DIF\n");
     fprintf(fpdmp1,"\n");

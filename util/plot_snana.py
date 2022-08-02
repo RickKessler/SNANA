@@ -306,7 +306,11 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                 figsize=(8, 8),
                 sharex=True,
             )
-            ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
+            try:
+                ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
+            except:
+                ax = [ax]
+                ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
             for j in range(min(len(uniq_tobs[m:]), 4)):
                 temp_sn = np.where(sn["tobs"] == uniq_tobs[m])[0]
                 if bin_size != 0:
@@ -460,7 +464,11 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
             nrows=min(len(all_bands), 4), ncols=1,
             figsize=(8, 8), sharex=sharedx
         )
-        ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
+        try:
+            ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
+        except:
+            ax = [ax]
+            ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
         fit_print = False
 
         for i in range(min(len(all_bands[j:]), 4)):

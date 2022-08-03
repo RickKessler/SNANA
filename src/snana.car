@@ -19673,7 +19673,6 @@ c - - - - - - - -
         WRITE(LUNOUT,10) 'SURVEY:      ',  SURVEY_NAME(1:LEN1)        
         WRITE(LUNOUT,10) 'FILTERS:     ',  SURVEY_FILTERS(1:LEN2)
 10      FORMAT(A, 1x, A)  ! KEY VAL
-c xxx mark delete .xyz    11      FORMAT('# ', A)
 
 20      FORMAT(A)
 24      FORMAT(T4,A)
@@ -24920,7 +24919,6 @@ cc      ENDIF
 c add SIM_gammaDM if not zero.
 c Sep 7 2021: always write SIM_gammaDM in case first value is 0
 c    followed by non0-zero values.
-cc xxx mark ITEXT = 0 ; if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
       VARLIST = 'SIM_gammaDM:F' // char(0) 
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST, 1,
      &                   LENBLOCK, LENLIST )
@@ -24936,14 +24934,17 @@ cc xxx mark ITEXT = 0 ; if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
 c add SIM_AV only if not already defined. 
 c This is for the SALT2 model with intinsic color (c) and 
 c external scatter (SIM_AV) from dust.
+c Aug 2 2022: perform test only for SALT2 model.
 
-      if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then
-        VARLIST = 'SIM_AV:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_AV,  VARLIST, 1,
+      if ( SIM_MODEL_INDEX .EQ. MODEL_SALT2 ) then
+        if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then
+          VARLIST = 'SIM_AV:F' // char(0)
+          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_AV,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
-        VARLIST = 'SIM_RV:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_RV,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+          VARLIST = 'SIM_RV:F' // char(0)
+          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_RV,  VARLIST, 1,
+     &                     LENBLOCK, LENLIST)
+        endif
       endif
 
 c  SIMSED model params; glue SIMSED_ prefix (Feb 2014)

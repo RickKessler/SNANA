@@ -688,6 +688,8 @@ void set_user_defaults(void) {
   INPUTS.CIDOFF     = 0;
   INPUTS.CIDRAN_MAX = 3000000 ;
   INPUTS.CIDRAN_MIN = 0 ;
+  INPUTS.NCIDRAN_SKIPLIST = 0 ;
+
   INPUTS.JOBID      = 0;         // for batch only
   INPUTS.NJOBTOT    = 0;         // for batch only
   INPUTS.NSUBSAMPLE_MARK = 0 ;
@@ -1485,13 +1487,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   bool ISKEY_INCLUDE, ISKEY_HOSTLIB, ISKEY_SIMLIB, ISKEY_RATE ;
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
-  bool ISKEY_RANSYSTPAR;
+  bool ISKEY_CID, ISKEY_RANSYSTPAR;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
   // ------------- BEGIN -----------
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
+
+  ISKEY_CID      = ( strstr(WORDS[0], "CID") != NULL ) ;
 
   ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
 		   strstr(WORDS[0],"NBR"     ) != NULL ||
@@ -1677,14 +1681,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "NSUBSAMPLE_MARK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NSUBSAMPLE_MARK );
   }
-  else if ( keyMatchSim(1, "CIDOFF",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDOFF );
-  }
-  else if ( keyMatchSim(1, "CIDRAN_MAX",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MAX );
-  }
-  else if ( keyMatchSim(1, "CIDRAN_MIN",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MIN );
+  else if ( ISKEY_CID ) {
+    N += parse_input_CID(WORDS,keySource);
   }
   else if ( keyMatchSim(1, "FORMAT_MASK",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.FORMAT_MASK );
@@ -4263,6 +4261,53 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
   return(N);
 
 } // end parse_input_SIMGEN_DUMP
+
+
+// =====================================================
+int  parse_input_CID(char **WORDS, int keySource ) {
+
+  // Created Aug 2022
+
+  int N=0;
+  int N_item, i, CIDRAN ;
+  char **tmp_item_list;
+  char fnam[] = "parse_input_CID" ;
+
+  // ------------- BEGIN --------------
+
+  if ( keyMatchSim(1, "CIDOFF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDOFF );
+  }
+  else if ( keyMatchSim(1, "CIDRAN_MAX",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MAX );
+  }
+  else if ( keyMatchSim(1, "CIDRAN_MIN",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MIN );
+  }
+
+  else if ( keyMatchSim(1, "CIDRAN_SKIPLIST",  WORDS[0],keySource) ) {
+    // parse comma-sep list of CIDRANs to avoid
+    N++ ;
+    parse_commaSepList("CIDRAN_SKIPLIST", WORDS[1], MXZRAN, 40,
+		       &N_item, &tmp_item_list ); // this is returned 
+    INPUTS.NCIDRAN_SKIPLIST  = N_item;
+    for(i=0; i < N_item; i++ ) {
+      sscanf(tmp_item_list[i], "%d", &CIDRAN);
+      INPUTS.CIDRAN_SKIPLIST[i] = CIDRAN;
+      printf("\t do NOT use CIDRAN = %d \n", CIDRAN); fflush(stdout);
+    }
+
+  }
+
+  // - - - - - - - 
+  if ( N > 0 ) {
+    README_KEYPLUSARGS_load(20, N, WORDS, keySource, 
+			    &README_KEYS_CID, fnam) ;
+  }
+
+  return(N);
+
+} // end parse_input_CID
 
 
 // =====================================================
@@ -19734,6 +19779,7 @@ void init_CIDRAN(void) {
   //   + abort if CIDOFF < CIDRAN_MIN
   //
   // Jun 20 2022: restrict NPICKRAN_ABORT to 1 million
+  // Aug 3 2022: skip CID on CIDRAN_SKIPLIST
 
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
@@ -19796,6 +19842,10 @@ void init_CIDRAN(void) {
   }
 
   exec_cidmask(0,CIDMAX); // allocate bit-mask memory to store all CIDs
+
+  // Aug 3 2022: load CIDRAN_SKIPLIST on used list
+  for(j=0; j < INPUTS.NCIDRAN_SKIPLIST; j++ ) 
+    { CIDRAN = INPUTS.CIDRAN_SKIPLIST[j]; exec_cidmask(1,CIDRAN); }
 
   // allocate memory for big CIDRAN_LIST and print mem usage
   // Beware that allocation could be as much as 400 MB,

@@ -20,6 +20,7 @@ typedef struct {
 
 README_KEYPLUSARGS_DEF README_KEYS_COSMO ;
 README_KEYPLUSARGS_DEF README_KEYS_GENMODEL ;
+README_KEYPLUSARGS_DEF README_KEYS_CID ;
 README_KEYPLUSARGS_DEF README_KEYS_SIMLIB ; 
 README_KEYPLUSARGS_DEF README_KEYS_HOSTLIB ; 
 README_KEYPLUSARGS_DEF README_KEYS_RATEMODEL ; 
@@ -41,6 +42,7 @@ README_KEYPLUSARGS_DEF README_KEYS_CUTWIN ;
 README_KEYPLUSARGS_DEF README_KEYS_COVMAT_SCATTER ;
 README_KEYPLUSARGS_DEF README_KEYS_SIMGEN_DUMP ;
 
+
 // -------- function prototypes -----------
 
 void  README_DOCANA_DRIVER(int iflag_readme);
@@ -51,6 +53,7 @@ void  README_DOCANA_OUTPUT_SUMMARY(int *iline);
 
 void  readme_docana_output(int *iline, char *pad); 
 void  readme_docana_genmodel(int *iline, char *pad);
+void  readme_docana_cid(int *iline, char *pad);
 void  readme_docana_redshift(int *iline, char *pad);
 void  readme_docana_epoch(int *iline, char *pad); // MJD, Trest ...
 void  readme_docana_instr(int *iline, char *pad);

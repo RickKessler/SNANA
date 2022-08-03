@@ -21218,5 +21218,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snlc_sim.c
      + fix refactor bug from July 7 that caused only first
        host match to be output to data files.
+     + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
+       random CID from taking these values
 
 END: 

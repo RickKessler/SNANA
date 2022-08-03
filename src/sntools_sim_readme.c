@@ -52,6 +52,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 
     README_KEYPLUSARGS_init(&README_KEYS_COSMO);
     README_KEYPLUSARGS_init(&README_KEYS_GENMODEL);
+    README_KEYPLUSARGS_init(&README_KEYS_CID);
     README_KEYPLUSARGS_init(&README_KEYS_SIMLIB);
     README_KEYPLUSARGS_init(&README_KEYS_HOSTLIB);
     README_KEYPLUSARGS_init(&README_KEYS_RATEMODEL);
@@ -1039,6 +1040,7 @@ void readme_docana_searcheff(int *iline, char *pad) {
 void readme_docana_output(int *iline, char *pad) {
 
   // Store GENVERSTION, FORMAT_MASK, etc ...
+  // Aug 2022: add CIDRAN_SKIPLIST
 
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
@@ -1087,6 +1089,11 @@ void readme_docana_output(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "CIDRAN_MAX:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
  
+  if ( INPUTS.NCIDRAN_SKIPLIST > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sCIDRAN_SKIPLIST:  %s", pad, INPUTS.CIDRAN_SKIPLIST);
+  }
+
   *iline = i;
   return;
 

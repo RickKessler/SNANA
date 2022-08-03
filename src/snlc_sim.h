@@ -477,6 +477,8 @@ struct INPUTS {
   int *CIDRAN_LIST ;        // for internal use to create random CID list
   int  CIDRAN_MAX ;         // max CID (used for random CID only)
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
+  int  CIDRAN_SKIPLIST[MXZRAN];  // do not use these user-input CIDRANs
+  int  NCIDRAN_SKIPLIST;
 
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
   int  NJOBTOT;     // idem, for submit_batch_jobs.py
@@ -1782,7 +1784,6 @@ void   parse_GENMAG_SMEAR_MODELNAME(void);
 int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
-// xxx mark void   parse_input_FIELDLIST(void);
 
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 			   RATEPAR_DEF *RATEPAR );
@@ -1804,6 +1805,7 @@ int    parse_input_SPECTRUM(char **WORDS, int keySource);
 void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );
+int    parse_input_CID(char **WORDS, int keySource );
 
 // xxx to do ...
 int    parse_input_MWEBV(char **WORDS, int keySource );

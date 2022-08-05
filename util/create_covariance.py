@@ -61,6 +61,8 @@
 #   + define INFO_YML_FILENAME as global
 #   + write ISDATA_REAL flag to HD header
 #
+# Aug 2022 P. Armstrong: create hubble_diagram for systematics
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -178,6 +180,9 @@ def get_args():
     msg = "Subtract MUERR(VPEC) from MUERR. Forces unbinned."
     parser.add_argument("-s", "--subtract_vpec", help=msg, 
                         action="store_true")
+
+    msg = "Produce a hubble diagram for every systematic"
+    parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
     # parse it
     args = parser.parse_args()
@@ -832,12 +837,15 @@ def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
     # end is_pos_def
 
-def write_standard_output(config, unbinned, covs, base):
+def write_standard_output(config, unbinned, covs, data, labels):
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
     # e.g., wfit, CosmoSIS, firecrown ...
     # Note that CosmoMC uses a more specialized output created
     # by write_cosmomc_output().
+
+    # P. Armstrong 05 Aug 2022
+    # Allow the option to create hubble_diagram.txt for each systematic as well
 
     logging.info("")
     logging.info("   OUTPUT  ")
@@ -845,16 +853,23 @@ def write_standard_output(config, unbinned, covs, base):
     outdir = Path(config["OUTDIR"])
     os.makedirs(outdir, exist_ok=True)
 
-    data_file = outdir / HD_FILENAME
 
     # Apr 30 2022: get array of muerr_sys(ALL) for output
     muerr_sys_list = get_muerr_sys(covs)
             
     # - - - -
-    if unbinned :
-        write_HD_unbinned(data_file, base, muerr_sys_list)
-    else:
-        write_HD_binned(data_file, base, muerr_sys_list)
+    # P. Armstrong 05 Aug 2022: Write HD for each label
+    for label in labels:
+        base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
+        # If creating HD for nominal, write to hubble_diagram.txt
+        if label == base_name:
+            data_file = outdir / HD_FILENAME
+        else:
+            data_file = outdir / f"{label}_{HD_FILENAME}"
+        if unbinned :
+            write_HD_unbinned(data_file, data[label], muerr_sys_list)
+        else:
+            write_HD_binned(data_file, data[label], muerr_sys_list)
 
     # Create covariance matrices and datasets
     opt_cov = 1  # tag rows and diagonal elements
@@ -1318,9 +1333,16 @@ def create_covariance(config, args):
 
     covariances = [get_cov_from_covopt(c, contributions, base, 
                                        config.get("CALIBRATORS")) for c in covopts]
-
+    
+    # P. Armstrong 05 Aug 2022
+    # Create hubble_diagram.txt for every systematic, not just nominal
+    if args.systematic_HD:
+        labels = list(data.keys())
+    # Only create hubble_diagram.txt for the nominal
+    else:
+        labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]
     # write standard output (9.22.2021)
-    write_standard_output(config, args.unbinned, covariances, base)
+    write_standard_output(config, args.unbinned, covariances, data, labels)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :

@@ -389,7 +389,8 @@ def get_hubble_diagrams(folder, args, config):
 
     if is_rebin : 
         label0 = label_list[0]
-        get_rebin_info(config,HD_list[label])
+        # xxx mark delete get_rebin_info(config,HD_list[label])
+        get_rebin_info(config,HD_list[label0])
         for label in label_list:
             print(f"   Rebin {label}")
             HD_list[label]['iHD'] = config['col_iHD']

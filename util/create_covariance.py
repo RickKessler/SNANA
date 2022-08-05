@@ -865,7 +865,7 @@ def write_standard_output(config, unbinned, covs, data, labels):
         if label == base_name:
             data_file = outdir / HD_FILENAME
         else:
-            data_file = outdir / "{label}_{HD_FILENAME}"
+            data_file = outdir / f"{label}_{HD_FILENAME}"
         if unbinned :
             write_HD_unbinned(data_file, data[label], muerr_sys_list)
         else:
@@ -1337,7 +1337,7 @@ def create_covariance(config, args):
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:
-        labels = keys(data)
+        labels = list(data.keys())
     # Only create hubble_diagram.txt for the nominal
     else:
         labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]

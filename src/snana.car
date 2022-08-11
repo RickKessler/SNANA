@@ -2082,6 +2082,7 @@ c
      &  ,LDMP_SNANA_VERSION  ! T => dump SNANA version and SNANA_DIR
      &  ,LDMP_AVWARP         ! dump GET_AVWARP8 (debug only)
      &  ,LDMP_KCORFUN        ! dump KCORFUN8 (debug only)
+     &  ,LDMP_SATURATE       ! dump saturated observations
      &  ,USESIM_SNIA         ! default True -> process simulated SNIa
      &  ,USESIM_SNCC         ! default True -> process simulated SNCC
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
@@ -2166,6 +2167,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
+     &    , LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
@@ -2215,7 +2217,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_SETPKMJD
      &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
-     &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
+     &    , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
@@ -6040,6 +6042,8 @@ c default is to reject nothing (accept everything)
       DEBUG_FLAG          =  0
       LDMP_SNFAIL         = .FALSE.
       LDMP_SNANA_VERSION  = .FALSE.
+      LDMP_SATURATE       = .FALSE.
+
       LSIM_SEARCH_SPEC    = .FALSE.
       LSIM_SEARCH_ZHOST   = .FALSE.
 
@@ -7641,6 +7645,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('LDMP_SNFAIL',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) LDMP_SNFAIL
+
+         else if ( MATCH_NMLKEY('LDMP_SATURATE',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LDMP_SATURATE
 
          else if ( MATCH_NMLKEY('USESIM_SNIA',
      &             1, iArg, ARGLIST) ) then 
@@ -11314,7 +11322,6 @@ c init HIDKCOR array to 0
 
       LDMP_KCORFUN = .FALSE.
       LDMP_AVWARP  = .FALSE.
-
 
       NERR_AVWARP = 0
 +SELF.
@@ -18354,6 +18361,8 @@ C Compute observer mag SNLC_MAG(ep) to reduce
 C data volume in files. Note that SNLC_MAGERR
 c is not set because it is not used.
 C 
+C Aug 2022: check LDMP_SATURATE
+c
       IMPLICIT NONE
 
       INTEGER ep  ! (I) epoch index
@@ -18364,7 +18373,8 @@ C
 +CDE,SNANAFIT.
 
       REAL FLUXCAL, FLUXCAL_ERR, MAG, ZP
-
+      INTEGER IFILT_OBS
+      CHARACTER CFILT*2
 C --------- BEGIN ------------
 
       Fluxcal      = SNLC_FLUXCAL(ep)
@@ -18372,6 +18382,15 @@ C --------- BEGIN ------------
 
       IF ( FLUXCAL_ERR > 0.99E8 ) THEN
         MAG = MAG_SATURATE
+        if ( LDMP_SATURATE ) then
+             IFILT_OBS = ISNLC_IFILT_OBS(ep)
+             cfilt     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+             write(6,20) SNLC_CCID(1:8), SNLC_ZHELIO,
+     &                   SNLC8_MJD(ep), CFILT(1:1), SIM_EPMAGOBS(ep)
+20           format(T2,'SATURATION: ', 
+     &          'CID=',A8, 2x, 'zHEL=',F6.4, 2x,
+     &          'MJD=',F9.3,'-',A, 2x, 'TrueMag=',F8.3 )  
+        endif
       ELSE IF ( FLUXCAL < 1.0E-9 ) THEN
         MAG = 128.0  ! negative flux
       ELSE 
@@ -18382,7 +18401,7 @@ C --------- BEGIN ------------
       SNLC_MAG(ep) = MAG
 
       RETURN
-      END
+      END    ! end SET_MAG
 
 
 C ===============================

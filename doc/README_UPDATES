@@ -21221,4 +21221,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
        random CID from taking these values
 
+   create_covariance.py
+     + fix index bug for rebin option (found by P.Armstrong)
+
+   snana.car
+     + new &SNLCINP LDMP_SATURATE to print 1-line summary for 
+       each saturated observation.
+
 END: 

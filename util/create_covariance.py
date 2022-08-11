@@ -186,7 +186,11 @@ def get_args():
 
     # parse it
     args = parser.parse_args()
-    if args.subtract_vpec: args.unbinned = True
+    if args.subtract_vpec:
+        args.unbinned = True
+
+    if (args.nbin_x1>0 or args.nbin_c>0): 
+        args.unbinned = False  # recommended by D.Brout, Aug 8 2022
 
     #if len(sys.argv) == 1:
     #    parser.print_help()

@@ -1986,6 +1986,7 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,TEXTFILE_PREFIX  ! prefix for ascii tables
      &  ,MARZFILE_OUT         ! write spectra to FITS file for input to MARZ
      &  ,SNTABLE_LIST     ! list of SNTABLEs to create
+     &  ,SNTABLE_VARNAME_ADD  ! add this varname to output tables
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
      &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
@@ -2116,6 +2117,7 @@ c Oct 2014: variables to check for multi-season transient activity
       REAL  
      &   SIM_PRESCALE        ! pre-scale applied only to SIM
      &  ,VPEC_ERR_OVERRIDE   ! override VPEC_ERR in data header (km/sec)
+     &  ,SNTABLE_VALUE_ADD   ! value for SNTABLE_VARNAME_ADD
 
 c variables to control estimate of PEAKMJD
       INTEGER
@@ -2158,6 +2160,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
+     &    , SNTABLE_VARNAME_ADD, SNTABLE_VALUE_ADD
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
@@ -2207,6 +2210,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
+     &    , SNTABLE_VARNAME_ADD, SNTABLE_VALUE_ADD
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
@@ -6125,6 +6129,9 @@ c set LTEST logicals to false.
       WRTABLEFILE_HOST_TEXT = .FALSE.    ! May 23 2019
       WRTABLEFILE_ERRCALC_TEXT = .FALSE. ! Oct 30 2019
 
+      SNTABLE_VARNAME_ADD = ''
+      SNTABLE_VALUE_ADD   = -9.0
+
 c ----------------------------------------
 c check command line arg for namelist file;
 c if not given on command line, then ask for it.
@@ -7537,6 +7544,11 @@ c LSNIGNORE
          else if ( MATCH_NMLKEY('SNTABLE_FILTER_REMAP',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) SNTABLE_FILTER_REMAP
+
+         else if ( MATCH_NMLKEY('SNTABLE_ADD',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) SNTABLE_VARNAME_ADD
+           READ(ARGLIST(2),*) SNTABLE_VALUE_ADD
 
          else if ( MATCH_NMLKEY('OPTSIM_LCWIDTH',
      &             1, iArg, ARGLIST) ) then 
@@ -23916,6 +23928,13 @@ c  termination so that parsing CCID with C code is easier.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
+c Aug 2022: check optional user-column; e.g., to tag magshift value
+      if ( SNTABLE_VARNAME_ADD .NE. '' ) then
+         LENV = INDEX(SNTABLE_VARNAME_ADD,' ') - 1
+         VARLIST = SNTABLE_VARNAME_ADD(1:LENV) // ':F' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNTABLE_VALUE_ADD, VARLIST,1,
+     &                    LENBLOCK, 20 )      
+      endif
 c to do: when combined low-z is ready change IDSURVEY -> IDSUBSURVEY,
 c but keep same name 'IDSURVEY'
       VARLIST = 'IDSURVEY:I' //  char(0)

@@ -12339,6 +12339,31 @@ should run in batch mode.
 \end{itemize}
 
 % --------------------------------------
+  \subsubsection{{\tt SNTABLE\_APPEND} }
+  \label{sss:sntable_append}
+% --------------------------------------
+
+An arbitrary column name and value can be added to output tables with
+command-line input
+\begin{verbatim}
+    snlc_fit.exe <myInputFile>  SNTABLE_APPEND MYVAR 0.03
+\end{verbatim}
+which will include {\tt MYVAR} column in all output tables with value 0.03.
+An example usage is measuring derivatives of SALT2 parameters w.r.t. 
+changing the $i$-band zeropoint using the followig FITOPT options
+in the {\tt CONFIG} yaml block,
+%
+\begin{verbatim}
+  FITOPT:
+  - MAGOBS_SHIFT_ZP 'i -0.03'   SNTABLE_APPEND ZP_i -0.03
+  - MAGOBS_SHIFT_ZP 'i -0.01'   SNTABLE_APPEND ZP_i -0.01
+  - MAGOBS_SHIFT_ZP 'i  0.01'   SNTABLE_APPEND ZP_i  0.01
+  - MAGOBS_SHIFT_ZP 'i  0.03'   SNTABLE_APPEND ZP_i  0.03
+\end{verbatim}
+By concatinating the output {\tt FITRES} files, it is easy to plot,
+for example, c vs. {\tt ZP\_i} for individual events.
+
+% --------------------------------------
 %  \clearpage
   \subsubsection{Combining Ascii ``Fitres'' Files: {\tt combine\_fitres.exe}}
   \label{sss:combine_fitres}

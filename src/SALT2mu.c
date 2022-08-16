@@ -88,6 +88,8 @@ zspec_errmax_idsample=0.002  ! default=0
    ! Thus if all events have OPT_PHOTOZ=2, user input
    ! zspec_errmax_idsample  defines zSpec IDSAMPLE
 
+zphot_shift=.01          ! z-shift for photo-z subset (data only)
+
 idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
 interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
@@ -932,7 +934,7 @@ with append_varname_missing,
    + fix few issues related to header_override
    + MXSTORE_DUPLICATE -> 200 (was 20)
 
- May 02 2021: new input zspec_maxerr_idsample
+ May 02 2021: new input zspec_errmax_idsample
  May 12 2021: move read_data_override call before set_CUTMASK call.
  May 24 2021: disable cuts with "CUTWIN NONE"
  May 25 2021: new debug_malloc=1 input
@@ -1684,6 +1686,7 @@ struct INPUTS {
   int    select_trueIa;      // T -> select only true SNIa, disable CC prior
   int    force_realdata ;    // T -> treat SIM like real data
   double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
+  double zphot_shift;       // z-shift for photo-z subset (data only)
 
   int interp_biascor_logmass;
   // ----------
@@ -5526,6 +5529,7 @@ void set_defaults(void) {
   sprintf(INPUTS.surveyList_noBiasCor, "NONE" );
   INPUTS.idsample_select[0] = 0 ;
   INPUTS.zspec_errmax_idsample = 0.0 ;
+  INPUTS.zphot_shift    = 0.0 ;
 
   INPUTS.select_trueIa  = 0;
   INPUTS.force_realdata = 0 ;
@@ -7703,9 +7707,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
+
   IS_SPECZ  = IS_SPECZ_TABLEVAR(ISN,TABLEVAR); 
   IS_PHOTOZ = !IS_SPECZ ;
   TABLEVAR->IS_PHOTOZ[ISN] = IS_PHOTOZ;
+
+  // Aug 16 2022: systematic zphot shift
+  if ( IS_DATA && IS_PHOTOZ && INPUTS.zphot_shift != 0.0 ) 
+    { TABLEVAR->zhd[ISN] += INPUTS.zphot_shift ;  }
 
   // - - - - - - - - - - - - - - - - - - - - - - 
   // IDSAMPLE is not ready for data yet,
@@ -16547,6 +16556,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"zspec_errmax_idsample=") ) 
     { sscanf(&item[22], "%le", &INPUTS.zspec_errmax_idsample );  return(1); } 
+
+  if ( uniqueOverlap(item,"zphot_shift=") ) 
+    { sscanf(&item[12], "%le", &INPUTS.zphot_shift);  return(1); } 
 
   if ( uniqueOverlap(item,"cid_select_file=") )  {  
     parse_commaSepList("CID_SELECT_FILE", &item[16], 6, MXCHAR_FILENAME, 

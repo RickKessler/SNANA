@@ -1981,117 +1981,117 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
 
       CHARACTER*(MXCHAR_FILENAME)  ! user input files
      &   NMLFILE          ! name of input namelist file
-     &  ,HFILE_OUT        ! output hbook filename
-     &  ,ROOTFILE_OUT     ! output filename for root
-     &  ,TEXTFILE_PREFIX  ! prefix for ascii tables
-     &  ,MARZFILE_OUT         ! write spectra to FITS file for input to MARZ
-     &  ,SNTABLE_LIST     ! list of SNTABLEs to create
-     &  ,SNTABLE_APPEND_VARNAME  ! add this varname to output tables
-     &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
-     &  ,KCOR_FILE            ! fits-formatted KCOR tables
-     &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
-     &  ,EPOCH_IGNORE_FILE    ! read this file with epochs to ignor
-     &  ,OUT_EPOCH_IGNORE_FILE ! write this file with discarded epochs
-     &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
-     &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
-     &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
-     &  ,USERTAGS_FILE        ! optional int user tag per SN
-     &  ,VPEC_FILE            ! pec. velocity corrections
-     &  ,SNCID_LIST_FILE      ! list of CID's to process
+     &  ,HFILE_OUT        ! I: output hbook filename for tables
+     &  ,ROOTFILE_OUT     ! I: output filename for root for tables
+     &  ,TEXTFILE_PREFIX  ! I: prefix for text file tables
+     &  ,MARZFILE_OUT     ! I: output FITS file for input to MARZ (spectra)
+     &  ,SNTABLE_LIST     ! I: list of SNTABLEs to create; e.g., 'SNANA FITRES'
+     &  ,SNTABLE_APPEND_VARNAME  ! I: add this varname to output tables
+     &  ,SNTABLE_FILTER_REMAP ! I: remap filters in tables
+     &  ,KCOR_FILE            ! I: fits-formatted KCOR/calib tables
+     &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! I: for kcors; e.g., '5100(gV) 6200(rV)'
+     &  ,EPOCH_IGNORE_FILE    ! I: user file with epochs to ignore
+     &  ,OUT_EPOCH_IGNORE_FILE ! I: write this file with discarded epochs
+     &  ,SNMJD_LIST_FILE      ! I: list of "CID MJD" to process
+     &  ,SNMJD_OUT_FILE       ! I: MJD_LIST out file
+     &  ,MNFIT_PKMJD_LOGFILE  ! I: separate log for PKMJD fits
+     &  ,USERTAGS_FILE        ! I: optional int user tag per SN
+     &  ,VPEC_FILE            ! obsolete? pec. velocity corrections
+     &  ,SNCID_LIST_FILE      ! I: list of CID's to process
      &  ,SIMLIB_OUT           ! legacy name
-     &  ,SIMLIB_OUTFILE       ! write simlib entry for each event
-     &  ,SIMLIB_ZPERR_LIST    ! 'abc .01 def .02 ghi .005'
-     &  ,NONLINEARITY_FILE    ! non-linearity map (Apr 2017)
+     &  ,SIMLIB_OUTFILE       ! I: write simlib entry for each event
+     &  ,SIMLIB_ZPERR_LIST    ! I: e.g., 'abc .01 def .02 ghi .005'
+     &  ,NONLINEARITY_FILE    ! I: non-linearity map 
 c
      &  ,FUDGE_HOSTNOISE_FILE  ! legacy: inflate error vs. hostSB (Mar 2015)
-     &  ,FLUXERRMODEL_FILE     ! DATA ONLY: err-fudge maps
-     &  ,SIM_FLUXERRMODEL_FILE ! idem, SIM only
-     &  ,MAGCOR_FILE           ! DATA ONLY: mag-cor for each CID-MJD-band
-     &  ,SIM_MAGCOR_FILE       ! idem, SIM only
+     &  ,FLUXERRMODEL_FILE     ! I: DATA ONLY: err-fudge maps
+     &  ,SIM_FLUXERRMODEL_FILE ! I: idem, SIM only
+     &  ,MAGCOR_FILE           ! I: DATA ONLY: mag-cor for each CID-MJD-band
+     &  ,SIM_MAGCOR_FILE       ! I: idem, SIM only
 
       CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
-     &    HEADER_OVERRIDE_FILE  ! allow comma-sep list
+     &    HEADER_OVERRIDE_FILE  ! I: comma-sep list of files with CID VAR
 
       CHARACTER  ! versions
-     &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! SN versions to read
-     &  ,VERSION_PHOTOMETRY_WILDCARD*(MXCHAR_FILENAME)  ! get list from glob
-     &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! TEXT -> FITS
-     &  ,VERSION_REFORMAT_TEXT*(MXCHAR_VERSION)   ! FITS -> TEXT
+     &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! I: SN versions to read
+     &  ,VERSION_PHOTOMETRY_WILDCARD*(MXCHAR_FILENAME) ! I: get list from glob
+     &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! I: reformat TEXT -> FITS
+     &  ,VERSION_REFORMAT_TEXT*(MXCHAR_VERSION)   ! I: reformat FITS -> TEXT
 
       CHARACTER ! paths
-     &   PRIVATE_DATA_PATH*(MXCHAR_PATH)    ! private data subdir 
-     &  ,FILTER_UPDATE_PATH*(MXCHAR_PATH)   ! SN-dependent filter response
+     &   PRIVATE_DATA_PATH*(MXCHAR_PATH)    ! I: private data subdir 
+     &  ,FILTER_UPDATE_PATH*(MXCHAR_PATH)   ! I: SN-dependent filter response
 
       CHARACTER  ! misc
-     &   REFORMAT_KEYS*(MXCHAR_FILENAME)  ! global reformat info
-     &  ,NONSURVEY_FILTERS*(MXFILT_ALL)   ! non-survey filters to add
-     &  ,SNRMAX_FILTERS*(MXFILT_ALL)      ! list of filters for SNRMAX cuts
-     &  ,FILTER_REPLACE*(MXFILT_ALL)      ! e.g., 'UGRIZ -> ugriz' 
-     &  ,FILTLIST_LAMSHIFT*(MXFILT_ALL)   ! list of lam-shifted filters
-     &  ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME)
-     &  ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME) ! cuts on SIM_XXX
-     &  ,EARLYLC_STRING*(MXCHAR_CUTNAME)  ! see manual
-     &  ,REQUIRE_EPOCHS_STRING*100  ! e.g., 'riz 10 7 20' ! uses CUTWIN_SNRMAX
-     &  ,DUMP_STRING*100             ! 'funName CID-list'
+     &   REFORMAT_KEYS*(MXCHAR_FILENAME)  !   global reformat info
+     &  ,NONSURVEY_FILTERS*(MXFILT_ALL)   ! I: non-survey filters to add
+     &  ,SNRMAX_FILTERS*(MXFILT_ALL)      ! I: list of filters for SNRMAX cuts
+     &  ,FILTER_REPLACE*(MXFILT_ALL)      ! I: e.g., 'UGRIZ -> ugriz' 
+     &  ,FILTLIST_LAMSHIFT*(MXFILT_ALL)   ! I: list of lam-shifted filters
+     &  ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME) ! I: cut on privat variables
+     &  ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME) ! I: cuts on SIM_XXX
+     &  ,EARLYLC_STRING*(MXCHAR_CUTNAME)       ! I: see manual
+     &  ,REQUIRE_EPOCHS_STRING*100  ! I: e.g., 'riz 10 7 20' uses CUTWIN_SNRMAX
+     &  ,DUMP_STRING*100            ! 'funName CID-list'
 
       INTEGER 
-     &   NFIT_ITERATION       ! (I) number of fit iterations
+     &   NFIT_ITERATION       ! I: number of fit iterations
      &  ,MINUIT_PRINT_LEVEL   ! -1 -> none
-     &  ,INTERP_OPT           ! (I)  interp option (see INTERP_XXX params)
+     &  ,INTERP_OPT           ! I:  interp option (see INTERP_XXX params)
      &  ,NLINE_ARGS       
-     &  ,OPT_YAML                ! T=> write YAML out even if not batch job
-     &  ,OPT_REFORMAT_TEXT       ! T=> re-write SNDATA files in text format
-     &  ,OPT_REFORMAT_FITS       ! T=> re-write  in FITSformat (data only)
-     &  ,OPT_REFORMAT_SALT2      ! T=> re-write SNDATA files in SALT2 format
-     &  ,OPTSIM_LCWIDTH          ! T=> option to compute LC width
-     &  ,DEBUG_FLAG               ! T=> for internal debug
-     &  ,JOBSPLIT(2)             ! process (1)-range of (2)=TOTAL
-     &  ,JOBSPLIT_EXTERNAL(2)    ! passed by submit_batch for text format 
-     &  ,MXLC_FIT                ! stop after this many fits passing all cuts
-     &  ,PHOTFLAG_DETECT         ! used to count NEPOCH_DETECT and TLIVE_DETECT
-     &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
-     &  ,FLUXERRMODEL_OPTMASK
-     &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
-     &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
-     &  ,REQUIRE_DOCANA
-     &  ,OPT_SNCID_LIST      ! 1=force all and ignore cuts; 2=use PKMJDINI
+     &  ,OPT_YAML             ! I: 1=> write YAML out even if not batch job
+     &  ,OPT_REFORMAT_TEXT    ! I: 1=> re-write SNDATA files in text format
+     &  ,OPT_REFORMAT_FITS    ! I: 1=> re-write  in FITSformat (data only)
+     &  ,OPT_REFORMAT_SALT2   ! I: 1=> re-write SNDATA files in SALT2 format
+     &  ,OPTSIM_LCWIDTH       ! I: 1=> option to compute LC width
+     &  ,DEBUG_FLAG           ! I: for internal debug
+     &  ,JOBSPLIT(2)          ! I: for batch; process (1)-range of (2)=TOTAL
+     &  ,JOBSPLIT_EXTERNAL(2) ! passed by submit_batch for text format 
+     &  ,MXLC_FIT             ! I: stop after this many fits passing all cuts
+     &  ,PHOTFLAG_DETECT      ! I: used to count NEPOCH_DETECT and TLIVE_DETECT
+     &  ,PHOTFLAG_TRIGGER     ! I: determine MJD(trigger) for survey
+     &  ,FLUXERRMODEL_OPTMASK ! I: see manual
+     &  ,OPT_SIMLIB_OUT       ! I: bit mask of SIMLIB_OUT options
+     &  ,SIMLIB_OUT_TMINFIX   ! I: choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
+     &  ,REQUIRE_DOCANA 
+     &  ,OPT_SNCID_LIST      ! I: 1=force all and ignore cuts; 2=use PKMJDINI
 
       LOGICAL 
-     &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
-     &  ,LSIM_SEARCH_ZHOST  ! (I) T => require simulated zHOST
-     &  ,LTEST_INTERP       ! (I) T => calls TEST_KCOR
-     &  ,LTEST_KCOR         ! (I) T => calls TEST_INTERP
-     &  ,LTEST_MAG          ! (I) T => test GET_MAGLC  and GET_MWXT
-     &  ,LTEST_U3BAND       ! (I) T => require exactly 3 bands that include U
+     &   LSIM_SEARCH_SPEC   ! I: T => require simulated SPEC-tag
+     &  ,LSIM_SEARCH_ZHOST  ! I: T => require simulated zHOST
+     &  ,LTEST_INTERP       ! I: T => calls TEST_KCOR
+     &  ,LTEST_KCOR         ! I: T => calls TEST_INTERP
+     &  ,LTEST_MAG          ! I: T => test GET_MAGLC  and GET_MWXT
+     &  ,LTEST_U3BAND       ! I: T => require exactly 3 bands that include U
      &  ,USE_LINE_ARGS(MXLINE_ARGS)
-     &  ,USE_SNHOST_ZPHOT    ! (I) T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
-     &  ,USE_HOSTGAL_PHOTOZ  ! (I) idem, but matches keyName in data files
+     &  ,USE_SNHOST_ZPHOT    ! I: T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
+     &  ,USE_HOSTGAL_PHOTOZ  ! I: idem, but matches keyName in data files
 c
-     &  ,ABORT_ON_NOEPOCHS   ! T=> abort if there are no epochs to fit
-     &  ,ABORT_ON_BADAVWARP  ! T=> abort if AVwarp cannot be determined
-     &  ,ABORT_ON_BADZ       ! T=> abort on bad z in GET_KCOR8
-     &  ,ABORT_ON_BADKCOR    ! T=> affects only the init stage (RDKCOR)
-     &  ,ABORT_ON_BADSURVEY  ! T=> abort if SURVEY changes
-     &  ,ABORT_ON_BADFILTER  ! T=> abort if fit band is not in SURVEY filters
-     &  ,ABORT_ON_MARGPDF0   ! T=> abort if marginalized pdf=0 everywhere
-     &  ,ABORT_ON_TRESTCUT   ! T=> abort if any Trest cut is set (for photoz)
-     &  ,ABORT_ON_DUPLCID    ! T=> abort on duplicate CID
-     &  ,ABORT_ON_DUPLMJD    ! T=> abort on repeat MJD+band (Jun 2017)
-     &  ,ABORT_ON_NOPKMJD    ! T=> abort if no PKMJDINI (see OPT_SETPKMJD)
-     &  ,USE_MINOS           ! T=> use MINOS instead of MINIMIZE
-     &  ,LDMP_SNFAIL         ! T => dump reason for each SN failure
-     &  ,LDMP_SNANA_VERSION  ! T => dump SNANA version and SNANA_DIR
-     &  ,LDMP_AVWARP         ! dump GET_AVWARP8 (debug only)
-     &  ,LDMP_KCORFUN        ! dump KCORFUN8 (debug only)
-     &  ,LDMP_SATURATE       ! dump saturated observations
-     &  ,USESIM_SNIA         ! default True -> process simulated SNIa
-     &  ,USESIM_SNCC         ! default True -> process simulated SNCC
-     &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
-     &  ,LPROB_TRUEFLUX      ! T=> compute F-Ftrue chi2 and PROB
-     &  ,RESTORE_DES3YR      ! restore code from DES3YR
-     &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
-     &  ,RESTORE_OVERRIDE_ZBUG ! restore z=zCMB insteead of zHEL
-     &  ,RESTORE_MWEBV_ERR_BUG ! bug used MWEBV/6 if MWEBV_ERR < 0.001
+     &  ,ABORT_ON_NOEPOCHS   ! I: T=> abort if there are no epochs to fit
+     &  ,ABORT_ON_BADAVWARP  ! I: T=> abort if AVwarp cannot be determined
+     &  ,ABORT_ON_BADZ       ! I: T=> abort on bad z in GET_KCOR8
+     &  ,ABORT_ON_BADKCOR    ! I: T=> affects only the init stage (RDKCOR)
+     &  ,ABORT_ON_BADSURVEY  ! I: T=> abort if SURVEY changes
+     &  ,ABORT_ON_BADFILTER  ! I: T=> abort if fit band is not in SURVEY filters
+     &  ,ABORT_ON_MARGPDF0   ! I: T=> abort if marginalized pdf=0 everywhere
+     &  ,ABORT_ON_TRESTCUT   ! I: T=> abort if any Trest cut is set (for photoz)
+     &  ,ABORT_ON_DUPLCID    ! I: T=> abort on duplicate CID
+     &  ,ABORT_ON_DUPLMJD    ! I: T=> abort on repeat MJD+band (Jun 2017)
+     &  ,ABORT_ON_NOPKMJD    ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
+     &  ,USE_MINOS           ! I: T=> use MINOS instead of MINIMIZE
+     &  ,LDMP_SNFAIL         ! I: T => dump reason for each SN failure
+     &  ,LDMP_SNANA_VERSION  ! I: T => dump SNANA version and SNANA_DIR
+     &  ,LDMP_AVWARP         ! I: dump GET_AVWARP8 (debug only)
+     &  ,LDMP_KCORFUN        ! I: dump KCORFUN8 (debug only)
+     &  ,LDMP_SATURATE       ! I: dump saturated observations
+     &  ,USESIM_SNIA         ! I: default True -> process simulated SNIa
+     &  ,USESIM_SNCC         ! I: default True -> process simulated SNCC
+     &  ,USESIM_TRUEFLUX     ! I: SNLC_FLUXCAL -> SIM_FLUXCAL 
+     &  ,LPROB_TRUEFLUX      ! I: T=> compute F-Ftrue chi2 and PROB
+     &  ,RESTORE_DES3YR      ! I: restore code from DES3YR
+     &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
+     &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
+     &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
 
 c LC plot info
 

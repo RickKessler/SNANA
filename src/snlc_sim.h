@@ -406,7 +406,7 @@ typedef struct {
 } HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
 
 // -------------------------------------
-// define user INPUTS
+// HELP_INPUTS_BEGIN SIM
 
 struct INPUTS {
 
@@ -650,15 +650,6 @@ struct INPUTS {
   int                       NHOST_TAKE_SPECTRUM ; // set internally
 
   char  STRETCH_TEMPLATE_FILE[200];
-
-  /* xxxxx mark delete Mar 17 2022 xxxxxxxxxx
-     [use struct in sntools_genExpHalfGauss.h]
-  double GENRANGE_AV[2];      // host extinction range
-  double GENEXPTAU_AV ;       // define exponential distribution of AV
-  double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
-  double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
-  double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
-  xxxxxxxxxxx end mark xxxxxxx */
 
   int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
@@ -935,6 +926,7 @@ struct INPUTS {
 
 } INPUTS ;
 
+// HELP_INPUTS_END
 
 // define GENLC structure
 struct GENLC {
@@ -1751,7 +1743,6 @@ double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 			char *cfiltList, int *ifiltList) ;
-// xxx mark void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 

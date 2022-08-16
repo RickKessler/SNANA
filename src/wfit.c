@@ -3893,8 +3893,8 @@ void write_output_chi2grid(void) {
   for(i=0; i < INPUTS.w0_steps; i++){
     for(kk=0; kk < INPUTS.wa_steps;kk++){
       for(j=0; j < INPUTS.omm_steps; j++){
-	snchi =  WORKSPACE.snchi3d[j][kk][i]  - WORKSPACE.snchi_min;
-	extchi = WORKSPACE.extchi3d[j][kk][i] - WORKSPACE.extchi_min;
+	snchi =  WORKSPACE.snchi3d[i][kk][j]  - WORKSPACE.snchi_min;
+	extchi = WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min;
 
 	w0      = INPUTS.w0_min  + i  * INPUTS.w0_stepsize;
 	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;

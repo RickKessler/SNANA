@@ -21202,6 +21202,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Sim writes PHOTFLAG_DETECT mask in global header of FITS file.
    Recommend adding this flag for real data too.
 
+   Implement new wfit option -outfile_chi2grid <fileName>, and also
+   integrate this feature into submit_batch_jobs to replace user file name
+   with standard name.
+
          ***** MISCELLANEOUS(v11_04m) ***** 
 
    submit_prog_base.py:

@@ -15,6 +15,25 @@ from   submit_params import *
 
 # =================================================
 
+def replace_arg(arg_list, key, arg_new):
+    # Created Aug 2022
+    # replace key argument in arg_list with arg_new
+    # Note that input arg_list is modified.
+
+    arg_list_new = []
+    for arg_line in arg_list:
+        wdlist = arg_line.split()
+        if key in wdlist:
+            j        = wdlist.index(key)
+            arg_orig = wdlist[j+1]
+            arg_line = arg_line.replace(arg_orig,arg_new)
+            #print(f" xxx orig={arg_orig} arg_line -> {arg_line}")
+
+        arg_list_new.append(arg_line)
+
+    return arg_list_new
+    # end replace_arg
+
 def combine_csv_files(wildcard, combined_file, remove_flag=False):
 
     # Created Nov 18 2021

@@ -10,6 +10,8 @@
 # Feb 23 2022 RK - allow WFITOPT or WFITOPTS key
 # Feb 24 2022 RK,A.Mitra: new COVOPTS key to select subset
 # Feb 26 2022 RK - minor refac for WFITAVG feature
+# Aug 16 2022 RK - if -outfile_chi2grid is passed, replace its arg
+#                  with a standard file name.
 #
 # =================================================================
 
@@ -318,6 +320,7 @@ class wFit(Program):
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
+        output_dir      = self.config_prep['output_dir']
         wfitopt_rows    = None
         key_found       = None
 
@@ -356,13 +359,23 @@ class wFit(Program):
         
         self.config_prep['wfitopt_global'] = wfitopt_global
 
+        # - - - - - 
         # check for wa in fit
-        use_wa = False
+        use_wa          = False
+        outdir_chi2grid = None
         tmp_list = wfitopt_arg_list + [ wfitopt_global ]
         for tmp in tmp_list:
-            if '-wa' in tmp : use_wa = True
+            if '-wa'               in tmp : 
+                use_wa = True
+            if '-outfile_chi2grid' in tmp : 
+                outdir_chi2grid = f"{output_dir}/CHI2GRID"
+                if not os.path.exists(outdir_chi2grid):
+                    os.mkdir(outdir_chi2grid)
 
         self.config_prep['use_wa'] = use_wa
+        self.config_prep['outdir_chi2grid'] = outdir_chi2grid
+
+        return
 
         # end wfit_prep_wfitopt_list
 
@@ -504,6 +517,7 @@ class wFit(Program):
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
         tmpcov_file = self.config_prep['covsys_file_list2d'][idir][icov]
+        outdir_chi2grid = self.config_prep['outdir_chi2grid']
 
         prefix = self.wfit_num_string(idir,icov,ifit)
 
@@ -512,10 +526,16 @@ class wFit(Program):
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
-        
+
+
         # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list =  [ arg_string ]
         if len(arg_global) > 0: arg_list.append(arg_global)
+
+        if outdir_chi2grid is not None :
+            outfile  = f"{outdir_chi2grid}/{prefix}_CHI2GRID.DAT"
+            arg_list = util.replace_arg(arg_list,"-outfile_chi2grid",outfile)
+            #print(f" xxx arg_list -> {arg_list}")
 
         # define covsys file from create_cov
         arg_list.append(f"-mucov_file {covsys_file}")

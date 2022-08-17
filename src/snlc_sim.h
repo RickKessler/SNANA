@@ -1825,6 +1825,7 @@ void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
+void   compute_mjd_explode(void);
 
 void   prep_simpath(void);
 int    get_NON1A_MODELFLAG(char *GENVERSION) ;

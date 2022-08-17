@@ -349,7 +349,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       // check day-shift for MJD_EXPLODE or PEAKMAG
       int OPTMASK_EXPLODE = INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE ;
       int OPTMASK_PEAKMAG = (SEDMODEL.OPTMASK & OPTMASK_T0SHIFT_PEAKMAG);
-      TEMP_SEDMODEL.TSHIFT = 0.0 ;
+      TEMP_SEDMODEL.TSHIFT   = 0.0 ;
+      TEMP_SEDMODEL.TEXPLODE = 999.0 ;
       if ( OPTMASK_EXPLODE >= 0 ) { 
 	T0shiftExplode_SEDMODEL(OPTMASK_EXPLODE, &TEMP_SEDMODEL, 1); 
       }
@@ -423,7 +424,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     fwrite(&REDSHIFT_SEDMODEL, IZSIZE, 1, fpbin2); 
 
     if ( BINARYFLAG_KCORFILENAME ) 
-      { fwrite(SIMSED_KCORFILE,  MXPATHLEN, 1, fpbin2 ); } // Apr 2011
+      { fwrite(SIMSED_KCORFILE,  MXPATHLEN, 1, fpbin2 ); }
 
     fwrite(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE,1,fpbin2);
     fclose(fpbin2);
@@ -686,11 +687,11 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
     }  // idim
   }
 
-  if ( NERR > 0 ) errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  if ( NERR > 0 ) { errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); }
 
 
   // ---------------------------------
-  // read name of kcor file form binary, and check for match
+  // read name of kcor file form binary, and check for match of full path
   if ( BINARYFLAG_KCORFILENAME ) {
     fread(kcorFile_tmp, MXPATHLEN, 1, fp );
     if ( strcmp(SIMSED_KCORFILE,kcorFile_tmp) != 0 ) {
@@ -1162,14 +1163,14 @@ void genmag_SIMSED(
 		  ,double mwebv     // (I) Galactic extinction: E(B-V)
 		  ,double z         // (I) Supernova redshift
 		  ,int    Nobs      // (I) number of epochs
-		  ,double *Tobs_list   // (I) list of obs times (since mB max) 
+		  ,double *Tobs_list   // (I) list of obs times (w.r.t. Tmax) 
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ,int *index_sed       // (O) SED index (if defined)
 		  ) {
 
 
-  /****
+  /**********************************
   Return observer frame mag in absolute filter index "ifilt_obs" 
   for input SIMSED parameters.
 

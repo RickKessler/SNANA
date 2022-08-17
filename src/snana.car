@@ -817,7 +817,7 @@ c
      &  ,SNLC8_MJD_TRIGGER   ! MJD of trigger bit (see PHOTFLAG_TRIGGER)
      &  ,SNLC8_FLUXCAL(MXEPOCH) ! to call functions requiring double
      &  ,SNLC8_FLUXCAL_ERRTOT(MXEPOCH)
-
+     
       REAL 
      &   SNLC_ZHELIO        ! redshift used for final analysis 
      &  ,SNLC_ZHELIO_ERR    ! error on above 
@@ -1072,7 +1072,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_SALT2mb
      &  ,SIM_COLORPAR, SIM_COLORLAW, SIM_AV, SIM_RV
      &  ,SIM_SHAPEPAR, SIM_SHAPELAW
-     &  ,SIM_PEAKMJD
+     &  ,SIM_PEAKMJD, SIM_MJD_EXPLODE
      &  ,SIM_EXPOSURE_TIME(MXFILT_OBS)  ! relative exposure time
      &  ,SIM_PEAKMAG(MXFILT_OBS)
      &  ,SIM_EPMAGOBS(MXEPOCH)      ! true epoch mag at each filter/epoch
@@ -1145,7 +1145,8 @@ c
      &  ,SIM_REDSHIFT_FLAG
      &  ,SIM_VPEC, SIM_DLMAG, SIM_LENSDMU, SIM_SALT2x0, SIM_SALT2mb
      &  ,SIM_COLORPAR, SIM_COLORLAW, SIM_AV, SIM_RV
-     &  ,SIM_SHAPEPAR, SIM_SHAPELAW, SIM_PEAKMJD, SIM_MWEBV,SIM_MWRV
+     &  ,SIM_SHAPEPAR, SIM_SHAPELAW, SIM_PEAKMJD, SIM_MJD_EXPLODE
+     &  ,SIM_MWEBV,SIM_MWRV
      &  ,SIM_EXPOSURE_TIME, SIM_TEMPLATE_INDEX, SIM_TEMPLATEMAG
      &  ,SIM_GENTYPE, SIMNAME_TYPE, SIM_LCWIDTH
      &  ,SIM_SEARCHEFF_MASK, SIM_LIBID, SIM_NGEN_LIBID
@@ -4885,6 +4886,10 @@ C ----------- BEGIN ----------
       CALL FETCH_SNDATA_WRAPPER("SIM_PEAKMJD",
      &    ONE, STRING, DARRAY, OPT)
       SIM_PEAKMJD = SNGL(DARRAY(1))
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_MJD_EXPLODE",
+     &    ONE, STRING, DARRAY, OPT)
+      SIM_MJD_EXPLODE = SNGL(DARRAY(1))
 
 c - - - - model params - - - - - 
 
@@ -23969,6 +23974,11 @@ c bit1 -> passed FIT cuts (i.e, valid fit + re-applied snana cuts)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
      &                   LENBLOCK, 20)
 
+      if ( PHOTFLAG_TRIGGER > 0 ) then
+         VARLIST = 'MJD_TRIGGER:D' // char(0)
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_MJD_TRIGGER, VARLIST,1,
+     &                   LENBLOCK, 20)           
+      endif
 c -------------------------------------------
 c ERRFLAG_FIT = -9 -> no fit, just SNANA job
 c ERRFLAG_FIT =  0 -> no fitting errors.
@@ -24933,6 +24943,17 @@ cc      ENDIF
       VARLIST = 'SIM_PKMJD:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
      &                   LENBLOCK, LENLIST)
+
+c xxx mark      VARLIST = 'SIM_PKMJD:F' // char(0)
+      VARLIST = 'SIM_PEAKMJD:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
+     &                   LENBLOCK, LENLIST)
+
+      if ( SIM_MJD_EXPLODE > 0.0 ) then
+        VARLIST = 'SIM_MJD_EXPLODE:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MJD_EXPLODE,  VARLIST, 1, 
+     &                     LENBLOCK, LENLIST)
+      endif
 
       LENTMP = INDEX(SIMNAME_SHAPEPAR,' ') - 1  ! x1, delta, dm15
       VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F' // char(0)

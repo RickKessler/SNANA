@@ -457,6 +457,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1D",  "SIM_DEC"            , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MWEBV"          , itype );
     wr_snfitsio_addCol( "1E",  "SIM_PEAKMJD"        , itype );
+    wr_snfitsio_addCol( "1E",  "SIM_MJD_EXPLODE"    , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"   , itype );      
   
     // always write SIM_AV,RV
@@ -2014,6 +2015,11 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_PEAKMJD", itype );
+
+  // SIM_MJD_EXPLODE
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MJD_EXPLODE ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_MJD_EXPLODE", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
@@ -3585,6 +3591,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_PEAKMJD", &SNDATA.SIM_PEAKMJD ,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_MJD_EXPLODE", &SNDATA.SIM_MJD_EXPLODE ,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
     j++; NRD = RD_SNFITSIO_FLT(isn,"SIM_MAGSMEAR_COH",&SNDATA.SIM_MAGSMEAR_COH,

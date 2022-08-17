@@ -314,6 +314,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_PEAKMJD:         %.3f    #  true PEAKMJD, days \n", 
 	  SNDATA.SIM_PEAKMJD ) ;
 
+  fprintf(fp, "SIM_MJD_EXPLODE:     %.3f    #  true MJD for explosion \n", 
+	  SNDATA.SIM_MJD_EXPLODE ) ;
+
 
   if ( SNDATA.SIM_DELTA != NULLFLOAT ) {
     fprintf(fp, "SIM_DELTA:         %.3f    # MLCS lumi-par \n", 
@@ -2331,6 +2334,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     else if ( strcmp(word0,"SIM_PEAKMJD:") == 0 ) {
       SNDATA.SIM_PEAKMJD = FVAL; 
+    }
+    else if ( strcmp(word0,"SIM_MJD_EXPLODE:") == 0 ) {
+      SNDATA.SIM_MJD_EXPLODE = FVAL; 
     }
     else if ( strcmp(word0,"SIM_TRESTMIN:") == 0 ) {
       SNDATA.SIM_TRESTMIN = FVAL;

@@ -21224,6 +21224,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        host match to be output to data files.
      + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
        random CID from taking these values
+     + compute and write SIM_MJD_EXPLODE ... works only for SIMSED model.
 
    create_covariance.py
      + fix index bug for rebin option (found by P.Armstrong)
@@ -21231,5 +21232,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    snana.car
      + new &SNLCINP LDMP_SATURATE to print 1-line summary for 
        each saturated observation.
-
+     + read SIM_MJD_EXPLODE and add to table if > 0
+   
 END: 

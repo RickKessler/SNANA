@@ -371,6 +371,7 @@ struct SNDATA {
   float SIM_LENSDMU ;  
   float SIM_RA, SIM_DEC ;      //  simulated RA and DEC
   float SIM_PEAKMJD ;          //  peak MJD in g-band
+  float SIM_MJD_EXPLODE;       //  MJD of explosion (see OPTMASK_T0SHIFT_EXPLODE)
   float SIM_AVTAU ;            //  
   float SIM_AV, SIM_RV ;       //  host extinction parameters
   float SIM_MWRV ;             //  MilkyWay RV

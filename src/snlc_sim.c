@@ -7225,7 +7225,7 @@ void genmag_offsets(void) {
 
   int epoch, ifilt_obs, IMGNUM ;
   double MAGOFF, genmag8 ;
-  //  char fnam[] = "genmag_offsets";
+  char fnam[] = "genmag_offsets";
 
   // ------------- begin -------------
 
@@ -21858,6 +21858,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_AVTAU        = GENLC.AVTAU ;
   SNDATA.SIM_MWEBV        = GENLC.MWEBV_SMEAR ; // use smeared MWEBV
   SNDATA.SIM_PEAKMJD      = GENLC.PEAKMJD ;
+  SNDATA.SIM_MJD_EXPLODE  = GENLC.MJD_EXPLODE;
 
   SNDATA.PIXSIZE          = SIMLIB_OBS_GEN.PIXSIZE[1];
   SNDATA.CCDNUM[0]        = SIMLIB_HEADER.CCDNUM ;
@@ -23720,8 +23721,10 @@ void GENMAG_DRIVER(void) {
 
   // Mar 2016: apply filter-dependent MAGOFF and load peakMag per band
   genmag_offsets();
- 
-  
+
+  // Aug 2022 : compute MJD_EXPLODE based on PEAKMJD and min day of SED model.
+  compute_mjd_explode();
+
   // estimate light-curve Width in each band (Aug 17 2017)
   compute_lightCurveWidths();
 
@@ -25087,6 +25090,33 @@ void set_GENFLUX_FLAGS(int epoch) {
   return ;
 
 } // end set_GENFLUX_FLAGS
+
+// **************************************
+void compute_mjd_explode(void) {
+
+  // Created Aug 2022 by R.Kessler
+  // Compute and load GENLC.MJD_EXPLODE
+
+  double PEAKMJD = GENLC.PEAKMJD;
+  double DAYMIN, DAYMAX;
+  int    ISED = GENLC.TEMPLATE_INDEX;
+  char fnam[] = "compute_mjd_explode";
+
+  // -------------- BEGIN -------------
+
+  GENLC.MJD_EXPLODE = -9.0 ;
+
+  if ( INDEX_GENMODEL == MODEL_SIMSED ) {
+    get_DAYRANGE_SEDMODEL(ISED, &DAYMIN, &DAYMAX); // return DAYMIN/MAX  
+    GENLC.MJD_EXPLODE = GENLC.PEAKMJD + DAYMIN;
+    //    printf(" xxx %s: CID=%d  ISED=%d  DAYMIN=%.2f \n",
+    //	   fnam, GENLC.CID, ISED, DAYMIN); fflush(stdout);
+  }
+
+  // .xyz
+  return;
+
+} // end compute_mjd_explode
 
 // **************************************
 void compute_lightCurveWidths(void) {

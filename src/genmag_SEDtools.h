@@ -93,7 +93,6 @@ typedef struct REDSHIFT_SEDMODEL_TYPE {
 
 struct REDSHIFT_SEDMODEL_TYPE   REDSHIFT_SEDMODEL ;
 
-
 int NLAMPOW_SEDMODEL ;      // highest lambda power of pre-computed integrals
 int IFILTMAP_SEDMODEL[100]; // translates absolute index to sparse index
 
@@ -206,7 +205,8 @@ typedef struct SEDMODEL_FLUX_DEF {
   double *FLUX ;      // template flux array
   double *FLUXERR ;   
 
-  double TSHIFT; // shift applied so that T=0 at peak (July 10 2018)
+  double TSHIFT;   // shift applied so that T=0 at peak (July 10 2018)
+  double TEXPLODE; // explosion time .w.r.t. peak (Aug 2022) ???
 
   // define fine-binned arrays so that linear interp
   // can be used in the integrations. The fine-bins
@@ -330,6 +330,8 @@ double get_magerr_SEDMODEL(int ISED, int ifilt_obs,
 
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );
+
+void get_DAYRANGE_SEDMODEL(int ISED, double *DAYMIN, double *DAYMAX);
 
 void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
 

@@ -24940,10 +24940,6 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LENSDMU,  VARLIST, 0,
      &                   LENBLOCK, LENLIST)
 
-      VARLIST = 'SIM_PKMJD:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
-     &                   LENBLOCK, LENLIST)
-
 c xxx mark      VARLIST = 'SIM_PKMJD:F' // char(0)
       VARLIST = 'SIM_PEAKMJD:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 

@@ -5307,7 +5307,6 @@ $\dFlamHost$ is scaled by $\scaleFlamHost$ such that
 \end{equation}
 %
 where $\dFlamPeak$ is the SN spectrum at peak brightness.
-% .xyz
 
 \medskip
 There are two methods to define the template exposure time.
@@ -6942,7 +6941,7 @@ Here are examples of available options for the sim-input file:
   # IDSURVEY-dependent randoms for systematics such as ZP and FilterWave.
   RANSYSTPAR_IDSURVEY: 15 # e.g, same shifts for Found and PS1
 \end{Verbatim}
-%  .xyz
+
 
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.
 A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
@@ -7737,6 +7736,18 @@ namelist prior options are given below.
 \end{itemize}
 
 
+% - - - - - 
+\subsubsection{Initial Values from Existing FITRES file}
+\label{sss:fitres_initial_values}
+
+For the {\tt SNCID\_LIST\_FILE} option (\S\ref{sss:select_SNID}),
+the file can contain one of two formats:
+1) list format with list of CIDs and nothing else, or 
+2) {\tt FITRES} (keyed) format that includes CID in first column.
+For the {\tt FITRES} format, the fit-par columns (PKMJD, x1, c, zHD)
+are automatically used as initial values to the fit.
+Using the uncertainties as a prior requires a code update.
+% .xyz
 
 % ------------------------------------
    \subsection{Selecting an Efficiency Map for a Fitting Prior}
@@ -8920,6 +8931,8 @@ All namelist variables discuss here are in {\tt \&SNLCINP}.
 
 % -------------------
 \subsubsection{Selecting/Ignoring SNID}
+\label{sss:select_SNID}
+
 By default all candidate IDs (CID) are processed.
 Here are some example on how to select a range
 of CIDs or a list of CIDs, and to ignore

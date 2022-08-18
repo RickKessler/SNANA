@@ -78,6 +78,11 @@ def create_outdir(model):
     print(f" Create {outdir}")
     os.mkdir(outdir)
 
+    # copy original SED.INFO file
+    sed_info_file = f"{model}/SED.INFO"
+    cmd = f"cp {sed_info_file} {outdir}"
+    os.system(cmd)
+
     return outdir
     # end create_outdir
 
@@ -90,7 +95,7 @@ def trim_sed(args,outdir,sed):
         sed_file_orig += '.gz'
 
     sed_file_out = f"{outdir}/{sed}.gz"
-    sout = gzip.open(sed_file_out,"wt")
+    sout = gzip.open(sed_file_out,"wt", compresslevel=6)
 
     with gzip.open(sed_file_orig,"rt") as sin:
         for line_orig in sin:            

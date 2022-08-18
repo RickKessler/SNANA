@@ -28491,6 +28491,7 @@ void DUMP_GENMAG_DRIVER(void) {
   //   + allow delta-function in Trest and/or shapePar
   //
   //
+  // Aug 17 2022: fix a few bugs requiring 1+z factor (zz8)
 
 #define MXSHAPEPAR 8
 
@@ -28517,10 +28518,8 @@ void DUMP_GENMAG_DRIVER(void) {
   int  epoch, ifilt_rest, ifilt_obs, ifilt, NROW ;
   int N, NSHAPEPAR, ishape, irank, colopt  ;
 
-  double 
-    mag8, *ptr_genmag8, MU8, ARG8, z8
-    ,magerr8, *ptr_generr8, Trest8
-      ;
+  double mag8, *ptr_genmag8, MU8, ARG8, z8, zz8 ;
+  double magerr8, *ptr_generr8, Trest8 ;
 
   FILE *FPDMP ;
   char dmpFile[200], cfilt[2] ;
@@ -28545,7 +28544,8 @@ void DUMP_GENMAG_DRIVER(void) {
   else
     { GENLC.REDSHIFT_CMB       = ZAT10PC ; }  // 10 pc
 
-  GENLC.REDSHIFT_HELIO = GENLC.REDSHIFT_CMB ; // ??
+  GENLC.REDSHIFT_HELIO = GENLC.REDSHIFT_CMB ;
+  zz8 = 1.0 + GENLC.REDSHIFT_CMB ;
 
   gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO,
 		  &GENLC.DLMU, &GENLC.LENSDMU);
@@ -28561,8 +28561,8 @@ void DUMP_GENMAG_DRIVER(void) {
   // set epoch-array to 1 day bins, unless delta-function is requested
   if ( Tmin == Tmax ) {
     GENLC.NEPOCH = 1 ;
-    GENLC.epoch_rest[1] = (double)INPUTS.GENRANGE_DMPTREST[0] ;
-    GENLC.epoch_obs[1]  = (double)INPUTS.GENRANGE_DMPTREST[0] ;
+    GENLC.epoch_rest[1] = (double)Tmin ;
+    GENLC.epoch_obs[1]  = (double)Tmin * zz8;
   }
   else {
     for ( epoch = (int)Tmin; epoch <= (int)Tmax; epoch++ ) {
@@ -28572,8 +28572,10 @@ void DUMP_GENMAG_DRIVER(void) {
 	sprintf(c2err,"(MXEPSIM = %d)", MXEPSIM);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }      
-      GENLC.epoch_rest[N] = (double)epoch;
-      GENLC.epoch_obs[N]  = (double)epoch;
+
+      Trest8 = (double)epoch ;
+      GENLC.epoch_rest[N] = Trest8;
+      GENLC.epoch_obs[N]  = Trest8*zz8;
     }
   }
 

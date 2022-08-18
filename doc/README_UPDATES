@@ -21206,6 +21206,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    integrate this feature into submit_batch_jobs to replace user file name
    with standard name.
 
+   New utility simsed_trim.py
+
          ***** MISCELLANEOUS(v11_04m) ***** 
 
    submit_prog_base.py:

@@ -6857,7 +6857,7 @@ int rd_sedFlux(
 
    OPTMASK += 1 --> read FLUXERR (4th column of SEDFILE)
    OPTMASK += 2 --> allow non-uniform DAY bins 
-
+   
    The return-arg lengths are
      - DAY_LIST has length NDAY
      - LAM_LIST has length NLAM and 
@@ -6903,12 +6903,9 @@ int rd_sedFlux(
   **********/
 
   FILE *fpsed;
-
   char txterr[20], line[200], lastLine[200] ;
-  //  char *ptrtok, s1[60], s2[60], s3[60], s4[60], tmpline[200] ;
   char *ptrStringVal[MXWORDLINE_FLUX], StringVal[MXWORDLINE_FLUX][40];
   char space[] = " ";
-  char fnam[]  = "rd_sedFlux" ;
 
   double day, lam, day_last, lam_last, lam_expect, flux, fluxerr, XN ;
   double daystep_last, daystep, daystep_dif ;
@@ -6920,6 +6917,8 @@ int rd_sedFlux(
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
   double LAMSTEP_TOL = 0.01;   // tolerance on LAMSTEP uniformity
+
+  char fnam[]  = "rd_sedFlux" ;
 
   // ------------- BEGIN -------------
 

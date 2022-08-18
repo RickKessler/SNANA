@@ -95,10 +95,13 @@ def trim_sed(args,outdir,sed):
     with gzip.open(sed_file_orig,"rt") as sin:
         for line_orig in sin:            
             line_new = line_orig.rstrip()
-            wdlist   = line_new.split()
-            day      = float(wdlist[0])
-            lam      = float(wdlist[1])
-            keep = apply_cutwin(args,day,lam)            
+            if line_new[0] == '#' :
+                keep = True
+            else:
+                wdlist   = line_new.split()
+                day      = float(wdlist[0])
+                lam      = float(wdlist[1])
+                keep = apply_cutwin(args,day,lam)            
             if keep: 
                 sout.write(f"{line_new}\n")
 

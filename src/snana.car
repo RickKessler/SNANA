@@ -3524,6 +3524,7 @@ c Shell to use getInfo_PHOTOMETRY_VERION() function to
 c get path to data, full name of list file and
 c full name of readme file. Also construct
 c SNDATA_PREFIX
+c
 
       IMPLICIT NONE
 
@@ -3535,13 +3536,13 @@ c SNDATA_PREFIX
       INTEGER LEN_VERS, istat, L1, L2, L3
       CHARACTER*(2*MXCHAR_FILENAME)
      &   VERSION, PATH, LIST_FILE, README_FILE
-      CHARACTER FIRST_WORD*60
+      CHARACTER FNAM*20, FIRST_WORD*60
 
       INTEGER   GETINFO_PHOTOMETRY_VERSION
       EXTERNAL  GETINFO_PHOTOMETRY_VERSION, CHECK_FILE_DOCANA
 
 C ----------------- BEGIN --------------
-
+      FNAM = "GETINFO_PHOTOMETRY"
 
       VERSION  = VERSION_PHOTOMETRY(ivers) 
       LEN_VERS = INDEX(VERSION,' ') - 1
@@ -3557,11 +3558,11 @@ C ----------------- BEGIN --------------
 
       L1 = INDEX(PATH,char(0)) - 1
       IF ( L1 > MXCHAR_PATH ) then
-         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
+         CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
          print*,' SNDATA_PATH = ', PATH(1:L1)
          write(c1err,61) 'SNDATA_PATH', L1, MXCHAR_PATH
          write(c2err,62)
-         CALL MADABORT('GETINFO_PHOTOMETRY', C1err, C2err)
+         CALL MADABORT(FNAM, C1err, C2err)
       ENDIF
       SNDATA_PATH = PATH(1:L1)           ! fill global
 
@@ -3573,23 +3574,23 @@ C ----------------- BEGIN --------------
 
       L2 = INDEX(LIST_FILE,char(0)) - 1
       IF ( L2 > MXCHAR_FILENAME ) then
-         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
+         CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
          print*,' LIST_FILE = ', LIST_FILE(1:L2)
 
          write(c1err,161) 'LIST_FILE', L2, MXCHAR_FILENAME
          write(c2err,62)
-         CALL MADABORT('GETINFO_PHOTOMETRY', C1err, C2err)
+         CALL MADABORT(FNAM, C1err, C2err)
       ENDIF
 
       SNLIST_FILE = LIST_FILE(1:L2)      ! fill global
 
       L3 = INDEX(README_FILE,char(0)) - 1
       IF ( L3 > MXCHAR_FILENAME ) then
-         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
+         CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
          print*,' README_FILE = ', README_FILE(1:L3)
          write(c1err,161) 'README_FILE', L3, MXCHAR_FILENAME
          write(c2err,62)
-         CALL MADABORT('GETINFO_PHOTOMETRY', C1err, C2err)
+         CALL MADABORT(FNAM, C1err, C2err)
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
@@ -6420,6 +6421,8 @@ C =======================================
 c Created Mar 2022 by R.Kessler
 c Check wildcard option to get photometry folders using glob.
 c Abort if too many versions.
+c
+c Aug 2022: set abort trap on VERSION string length
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -6430,7 +6433,7 @@ c Abort if too many versions.
       CHARACTER 
      &   FNAM*24
      &  ,cSTRING*(MXCHAR_FILENAME), cFILE*(MXCHAR_FILENAME)
-
+     &  ,VERSION*(2*MXCHAR_VERSION)
       INTEGER  IGNOREFILE, STORE_GLOB_FILE_LIST
       EXTERNAL IGNOREFILE, STORE_GLOB_FILE_LIST
       EXTERNAL GET_GLOB_FILE, RESET_GLOB_FILE_LIST
@@ -6472,11 +6475,26 @@ c           STOP ! xxx
       ENDIF
 
 c - - - - -
-c Count number of versions 
+c Count number of versions, and check string length
 
       i = 1
       DO WHILE ( VERSION_PHOTOMETRY(i) .NE. 'NULL' )           
         N_VERSION = i
+        VERSION = VERSION_PHOTOMETRY(i)
+        LENV = INDEX(VERSION,' ') - 1
+        IF ( LENV .LE. 0 .or. LENV .GE. MXCHAR_VERSION ) THEN
+           !.xyz
+          CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
+          print*,' VERSION = ', VERSION
+          print*,' LEN(VERSION) = ', LENV
+          print*,' Beware that MXCHAR_VERSION = ', MXCHAR_VERSION
+          C1ERR = 'Invalid string len for VERSION'
+          write(c2err,17) MXCHAR_VERSION
+17        format('VERSION is either blank, or exceeds ',I3,' chars')
+          CALL MADABORT(FNAM, C1err, C2err)
+        ENDIF
+
+
         if ( N_VERSION .GT. MXVERS ) then
           write(C1ERR,61) N_VERSION, MXVERS
 61        format('N_VERSION=',I3,' exceeds MXVERS=',I3)

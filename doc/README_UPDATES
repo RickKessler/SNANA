@@ -21235,5 +21235,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new &SNLCINP LDMP_SATURATE to print 1-line summary for 
        each saturated observation.
      + read SIM_MJD_EXPLODE and add to table if > 0
-   
+     + set abort trap on VERSION string length
+
 END: 

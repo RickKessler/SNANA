@@ -41,6 +41,10 @@
  Jun 29 2021: call coord_translate_LCLIB before anglematch cut
  Nov 15 2021: fix read_GLOBAL_HEADER_LCLIB bugs from refactor 
                 back on Jun 23 2021
+
+ Aug 19 2022: in ranPhase_PERIODIC_LCLIB, disable phase shift if day grid
+              is not uniform, and print warning message.
+
 *************************************************/
 
 #include "sntools.h"           // community tools
@@ -1309,7 +1313,7 @@ void ranPhase_PERIODIC_LCLIB(void) {
   // Aug 26 2018
   // Called for periodic events, apply random phase shift to light curve.
   // This prevents phase-locking Search & template epochs.
-  // 
+  // BEWARE: this works properly only if day grid is uniform.
 
 #define I2MAG_UNFILLED 6
 
@@ -1318,15 +1322,15 @@ void ranPhase_PERIODIC_LCLIB(void) {
   double PERIOD   = LCLIB_EVENT.DAYCOVER_S ;
   double RANPHASE = PERIOD * getRan_Flat1(1) ;
   int    ID       = LCLIB_EVENT.ID;
-
-  double DT ;
+  
+  double DT0, DAYSTEP, DAYSTEP_MIN = 999.0, DAYSTEP_MAX=0.0 ;
   int  NERR, ifilt, row, row_new, row_old, IROW_START = -9 ;
   int   *ROW_ORIG ;
   short int **I2MAGTMP, I2MAG, I2MAG_NEXT ;
   int  MEMI2 = sizeof(short int);
   int  DMPROW, DMPROW_LAST, LDMP = 0 ;
   char star[4], CLINE[100], CLINE_LAST[100] ;
-  //  char fnam[] = "ranPhase_PERIODIC_LCLIB" ;
+  char fnam[] = "ranPhase_PERIODIC_LCLIB" ;
 
   // ----------------- BEGIN ----------------
 
@@ -1343,11 +1347,31 @@ void ranPhase_PERIODIC_LCLIB(void) {
       I2MAGTMP[ifilt][row] = LCLIB_EVENT.I2MAG[ifilt][row] ; 
       LCLIB_EVENT.I2MAG[ifilt][row] = I2MAG_UNFILLED ;
     }   
-    DT = LCLIB_EVENT.DAY[row] - LCLIB_EVENT.DAY[0] ;
-    if ( DT > RANPHASE && IROW_START < 0 ) { IROW_START = row;  }
+    DT0 = LCLIB_EVENT.DAY[row] - LCLIB_EVENT.DAY[0] ;
+    if ( DT0 > RANPHASE && IROW_START < 0 ) { IROW_START = row;  }
+
+    if ( row > 0 ) {
+      DAYSTEP = LCLIB_EVENT.DAY[row] - LCLIB_EVENT.DAY[row-1]  ;
+      if ( DAYSTEP < DAYSTEP_MIN ) { DAYSTEP_MIN = DAYSTEP; }
+      if ( DAYSTEP > DAYSTEP_MAX ) { DAYSTEP_MAX = DAYSTEP; }     
+    }
+
   }
   if ( IROW_START >= NROW_S ) { IROW_START = NROW_S-1; }
  
+  // Aug 2022 turn off ranPhase if day grid is not uniform
+  if ( DAYSTEP_MAX - DAYSTEP_MIN > 0.01 ) {
+    RANPHASE = 0.0 ; IROW_START = 0 ;
+    
+    if ( LCLIB_EVENT.NEVENT_READ == 1 ) {
+      printf("\n WARNING in %s: \n", fnam);
+      printf("\t non-uniform DAYGRID -> turn off random phase\n" );
+      printf("\t DAYSTEP(MIN,MAX) = %.4f, %.4f \n", 
+	     DAYSTEP_MIN, DAYSTEP_MAX ); 
+      printf("\n");
+      fflush(stdout);
+    }
+  }
 
   // re-load I2MAGs with random phase offset.
   // It's a little tricky because last original epoch

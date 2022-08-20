@@ -3,6 +3,8 @@
 #  June 2019 J. Pierel
 #  Aug 2020 B. Sanchez
 #  Plotter tool for SNANA LCs and Spectra
+#
+# Aug 19 2022: R.Kessler - compute minFlux to handle Galactic transients
 
 from __future__ import print_function
 
@@ -577,7 +579,13 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
             else:
                 maxFlux = np.max(temp_sn["flux"])
 
-            ax[i].set_ylim((-0.1 * np.max(temp_sn["flux"]), 1.2 * maxFlux))
+            # xxx ax[i].set_ylim((-0.1*np.max(temp_sn["flux"]), 1.2*maxFlux))
+
+            # RK Aug 29 2022 : compute minFlux to handle Galactic events
+            minFlux = np.min(temp_sn["flux"])
+            if minFlux > -0.1: minFlux = -0.08*maxFlux
+            ax[i].set_ylim(( 1.2*minFlux, 1.2*maxFlux)) 
+
             if not noGrid:
                 ax[i].grid()
             j += 1

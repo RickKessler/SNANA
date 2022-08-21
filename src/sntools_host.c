@@ -7561,7 +7561,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   double ASEC_PER_DEG = 3600.0 ;
   double RA_SN    = SNHOSTGAL.RA_SN_DEG;  // deg
   double DEC_SN   = SNHOSTGAL.DEC_SN_DEG;
-  
+  bool   DO_NBR   = ( HOSTLIB.IVAR_NBR_LIST > 0 ) ;
+
   double RA_GAL, DEC_GAL, DLR, DDLR, WTOT ;
   double SNSEP, top, bottom, a_rot, a_half, b_half, w,a,b ;
   int    IGAL, NPROF, j ;
@@ -7598,13 +7599,18 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
   if ( SNSEP > SNSEP_ABORT ) {
     print_preAbort_banner(fnam);
-    long long GALID = get_GALID_HOSTLIB(IGAL);
-    char *NBR_LIST = HOSTLIB.NBR_ZSORTED[SNHOSTGAL.IGAL];
 
-    printf("   TRUE HOST INFO: IGAL=%d   GALID=%lld  NBR_LIST='%s' \n", 
-	   SNHOSTGAL.IGAL, SNHOSTGAL.GALID, NBR_LIST);
-    printf("   NBR INFO: i_nbr=%d  IGAL(nbr)=%d  GALID=%d\n", 
-	   i_nbr, IGAL, GALID);
+    printf("   TRUE HOST INFO: IGAL=%d   GALID=%lld \n", 
+	   SNHOSTGAL.IGAL, SNHOSTGAL.GALID );
+
+    if ( DO_NBR ) {
+      long long GALID = get_GALID_HOSTLIB(IGAL);    
+      char *NBR_LIST = HOSTLIB.NBR_ZSORTED[SNHOSTGAL.IGAL];
+      printf("   NBR INFO: i_nbr=%d  IGAL(nbr)=%d  GALID(nbr)=%lld \n",
+	     i_nbr, IGAL, GALID ); fflush(stdout);
+      printf("   NBR INFO: NBR_LIST = '%s' \n", NBR_LIST);
+    }
+
     printf("   Galaxy RA,DEC = %f , %f\n",  RA_GAL, DEC_GAL);
     printf("   SN     RA,DEC = %f , %f \n", RA_SN,  DEC_SN);
     sprintf(c1err,"Crazy SN-galaxy sep = %.1f arcsec for i_nbr=%d", 

@@ -21237,4 +21237,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + read SIM_MJD_EXPLODE and add to table if > 0
      + set abort trap on VERSION string length
 
+  get_fitres_values.py: fix bug counting lines before VARNAMES
+
 END: 

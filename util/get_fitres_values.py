@@ -20,6 +20,8 @@
 # Jul 19 2022 RK 
 #     --filt replaced with --sel to avoid confusion with filters.
 #     Put plotext import under try to avoid abort if not installed.
+#
+# Aug 21 2022 RK - fix bug counting lines before VARNAMES key
             
 import os, sys, argparse, gzip
 import numpy as np
@@ -200,15 +202,18 @@ def read_fitres_file(info_fitres):
             continue
 
         if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
-        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
+        # xxx if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
         if isrow_docana : 
             nrow_skip   += 1
             nrow_docana += 1
-            continue
+            #continue
+
+        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
 
         if wdlist[0] == 'VARNAMES:' : 
             keyname_id = wdlist[1]
-            print(f" Found keyname_id = {keyname_id}")
+            print(f" Found keyname_id = {keyname_id} " \
+                  f"after skipping {nrow_skip} rows")
             if nrow_docana > 0:
                 print(f"\t (skipped {nrow_docana} DOCANA rows)")
 

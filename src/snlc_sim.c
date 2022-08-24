@@ -9556,7 +9556,7 @@ void GENSPEC_TRUE(int imjd) {
 		       GENLC.REDSHIFT_HELIO,            // (I) helio redshift
 		       GENLC.DLMU,                      // (I) dist. mod.
 		       GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
-		       NHOSTPAR, VAL_HOSTPAR,
+		       NHOSTPAR, VAL_HOSTPAR,           // (I) 
 		       ptrGENFLUX,      // (O) fluxGen per bin 
 		       ptrGENMAG        // (O) magGen per bin
 		       );		

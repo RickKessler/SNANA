@@ -407,7 +407,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { NEWEVT_FLAG_TMP = NEWEVT_FLAG; }
     else
       { NEWEVT_FLAG_TMP = 0; }
-    printf("xxxxx %s Trest=%f Tobs=%f index=%d NOBS=%d\n",fnam,Trest,Tobs,o,NOBS);
+
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest,
 			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED,
 			pyFORMAT_STRING_HOSTPAR);
@@ -938,7 +938,6 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
 
-  printf("xxxx %s doing spectra for phase %f redshift %f\n",fnam,Tobs,zHEL);
 
 
   INTEG_zSED_PySEDMODEL(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0,

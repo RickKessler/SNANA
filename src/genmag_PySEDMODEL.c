@@ -938,8 +938,6 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
 
-
-
   INTEG_zSED_PySEDMODEL(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0,
 			RV_host, AV_host,
 			Event_PySEDMODEL.NLAM,

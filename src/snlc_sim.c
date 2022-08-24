@@ -9547,10 +9547,16 @@ void GENSPEC_TRUE(int imjd) {
   }
   else if ( IS_PySEDMODEL ) {
     
+    // python-based SED model: BYOSED, SNEMO, BAYESN
+    int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
+    double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
+    NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
+
     genSpec_PySEDMODEL(TOBS, 
 		       GENLC.REDSHIFT_HELIO,            // (I) helio redshift
 		       GENLC.DLMU,                      // (I) dist. mod.
 		       GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
+		       NHOSTPAR, VAL_HOSTPAR,
 		       ptrGENFLUX,      // (O) fluxGen per bin 
 		       ptrGENMAG        // (O) magGen per bin
 		       );		

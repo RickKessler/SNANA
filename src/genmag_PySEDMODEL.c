@@ -407,7 +407,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { NEWEVT_FLAG_TMP = NEWEVT_FLAG; }
     else
       { NEWEVT_FLAG_TMP = 0; }
-
+    printf("xxxxx %s Trest=%f Tobs=%f index=%d NOBS=%d\n",fnam,Trest,Tobs,o,NOBS);
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest,
 			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED,
 			pyFORMAT_STRING_HOSTPAR);
@@ -902,6 +902,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
 			double MWEBV,                   // (I) galactic
 			double RV_host, double AV_host, // (I) host
+			int NHOSTPAR, double *HOSTPAR_LIST, // (I) host			
 			double *GENFLUX_LIST,           // (O) fluxGen per bin
 			double *GENMAG_LIST ) {         // (O) magGen per bin
 
@@ -914,14 +915,31 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   double z1    = 1.0 + zHEL ;
   double x0    = pow(TEN,-0.4*MU);
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  int ilam, FLAG_ignore ;
-  double Finteg_ignore, FTMP, MAG, ZP, LAM ;
-  //  char fnam[] = "genSpec_PySEDMODEL" ;
+  int ilam, NLAM, FLAG_ignore ;
+  int    NEWEVT_FLAG = 0 ;
+  char   pyFORMAT_STRING_HOSTPAR[100] ;;
+  double Finteg_ignore, FTMP, MAG, ZP, LAM, Trest ;
+  double *SED  = Event_PySEDMODEL.SED ;
+  double *FLAM  = Event_PySEDMODEL.LAM;
+
+  char fnam[] = "genSpec_PySEDMODEL" ;
+
 
   // --------- BEGIN ------------
 
+  // get the spectrum
+  Trest = Tobs/z1;
+  fetchSED_PySEDMODEL(Event_PySEDMODEL.EXTERNAL_ID, NEWEVT_FLAG, Trest,
+		      MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, FLAM, SED,
+		      pyFORMAT_STRING_HOSTPAR);
+  Event_PySEDMODEL.NLAM = NLAM ;
+
+
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
+
+  printf("xxxx %s doing spectra for phase %f redshift %f\n",fnam,Tobs,zHEL);
+
 
   INTEG_zSED_PySEDMODEL(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0,
 			RV_host, AV_host,

@@ -3,7 +3,7 @@
 // Nov 11 2021: Add BayeSN
 
 // define pre-processor command to use python interface
-#define USE_PYTHONxxx              
+#define USE_PYTHONxxx
 
 
 // ===========================================
@@ -76,6 +76,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,
 // return spectrum for spectrograph
 void genSpec_PySEDMODEL(double Tobs, double z, double MU, double MWEBV,
 			double RV_host, double AV_host, // (I)
+			int NHOSTPAR, double *HOSTPAR_LIST,
 			double *GENFLUX_LIST,         // (O) fluxGen per bin
 			double *GENMAG_LIST );        // (O) magGen per bin
 

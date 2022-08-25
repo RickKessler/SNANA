@@ -349,18 +349,86 @@ with a missing reference, please contact the lead author
 and one of the \snana\ authors.
 
 % -------------------------------------------
+\clearpage
 \subsection{Community Code Contributions}
 \label{subsec:code_contributor}
 % -------------------------------------------
 
+First and most important, avoid the temptation to make quick-and-dirty
+fixes for your private use. Anything you need is likely to be useful
+for somebody else, so please work with \SNANA\ developers to integrate
+your updates into the public github repository.
+
 Before making code modifications, it is good practice to 
-inform the primary \snana\ developers.
-Before submitting a pull request, remember to perform
-a regression test using {\tt SNANA\_code\_tests.py}.
-For commonly used codes, minimize development time 
-to avoid possible conflicts from other changes.
-If significant development time is needed, use multiple
-``git pull/git push'' cycles to minimize conflicts.
+inform the primary \snana\ developers, but permission is not
+needed, especially for urgent fixes.
+The \snana\ code is stored on 
+  github\footnote{\url{https://github.com/RickKessler/SNANA}},
+and you need to become a collaborator to submit a pull request (PR).
+If it is not practical to become a code collaborator
+(e.g., one-line code fix),
+an update may be sent to \SNANA\ developers via e-mail.
+
+Before submitting a PR, it is important to perform
+a regression test using the command
+\begin{verbatim}
+    SNANA_code_tests.py --snana_dir <my_snana_dir>
+\end{verbatim}
+%
+This regression test has been setup on clusters at 
+Fermilab (des*.fnal.gov), U.Chicago (midway2 at RCC), and NERSC (Cori).
+Please contact \SNANA\ developers for help on setting up
+regression tests on other clusters. If you create a code update 
+on a private laptop or cluster, 
+an \SNANA\ developer can run the regression test for you.
+
+A few other requests for coding habits:
+\begin{itemize}
+   \itemsep0em 
+   \item post github issue.
+   \item clone or update \SNANA\ code before making changes.
+%
+   \item Verify that update/fix actaully works;
+          successful compilation is not adequate.
+%
+   \item Do not fall into this dangerous logic trap:
+         ``{\it I only changed one line of code, so no need to test it.}'' 
+         As a post-doc working on the KTeV experiment, I accepted this 
+         logic and installed a one-line code fix that 
+         crashed the entire experiment.
+%
+   \item annotate history section at top of file and/or function so 
+         that future code editors can easily notice who/when 
+         previous changes were made.
+         A very brief description is adequate.
+% 
+  \item annotate end of {\tt doc/README\_UPDATES} in the appropriate
+        category of {\tt IMPORTANT} (e.g., major bug-fix or new feature),
+        {\tt USEFUL} (new feature with limited scope), or
+        {\tt MISCELLANEOUS} (little interest to anyone
+          except the person posting issue).
+        While this document is redundant with github comments, 
+        searching key-words in this file has been
+        very useful to track histories.
+% 
+   \item for a significant new feature, consider updating \SNANA\ manual
+         (pdf you are reading now).
+%
+   \item To avoid conflicts that are difficult to resolve,
+         avoid editing code for long time periods without merging. 
+         Rather than waiting several weeks for all coding to finish,
+         send multiple PR's, each with small changes.
+         Make sure that your development does not
+         interfere with normal code usage; 
+         e.g., use {\tt DEBUG\_FLAG} or new input key to invoke
+         your new code.         
+%  
+   \item  after submitting PR, contact Kessler or Narayan to merge it
+          (free github usage does not include automated e-mail alert).
+%
+   \item for major bug-fixes or improvements, inform your
+         collaborators.
+\end{itemize}
 
 
 % ##########################################

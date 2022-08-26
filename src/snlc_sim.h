@@ -92,6 +92,7 @@
 #define  RATEMODELNAME_PISN        "PISN_PLK12"
 #define  RATEMODELNAME_TDE         "TDE"
 
+// in analysis outpout FITRES table, see SIM_ZFLAG
 #define  REDSHIFT_FLAG_NONE      0
 #define  REDSHIFT_FLAG_SNSPEC    1
 #define  REDSHIFT_FLAG_HOSTSPEC  2

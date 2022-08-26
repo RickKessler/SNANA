@@ -3522,7 +3522,7 @@ void applyCut_chi2max(void) {
   double chi2;
   bool FAILCUT;
   char mcom[60], *name ;
-  //  char fnam[] = "applyCut_chi2max" ;
+  char fnam[] = "applyCut_chi2max" ;
 
   // ----------- BEGIN ------------
 

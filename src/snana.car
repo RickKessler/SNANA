@@ -25075,7 +25075,6 @@ c SIM_HOSTLIB params
      &        VARLIST, 0,    LENBLOCK, LENLIST)
       ENDDO  
 
-
 c - - - - - optional LCWIDTH for simulated MAGOBS -----
       if ( OPTSIM_LCWIDTH > 0 ) then
         CALL TABLE_VARLIST_FILTERS('SIM_LCWIDTH','F', ADDCOL_FILTERS, 

@@ -6430,7 +6430,7 @@ The output data files include {\tt REDSHIFT\_FINAL},
 the best redshift to use for Hubble diagrams.
 However, the source of this best redshift can be
 from the SN, from a host-spectrum, from a host photo-$z$,
-or from a wrong host. And integer flag, {\tt SIM\_REDSHIFT\_FLAG},
+or from a wrong host. An integer flag, {\tt SIM\_REDSHIFT\_FLAG},
 is written to the data files, and the intepretations can be
 found with the following grep command:
 
@@ -6443,10 +6443,8 @@ found with the following grep command:
    #define  REDSHIFT_FLAG_WRONGHOST 4
 \end{verbatim}
 
-In the output tables (SNANA,FITRES), the flag is called {\tt SIM\_ZFLAG}.
-This flag is written to HBOOK and ROOT files; to extract into TEXT tables,
-use the {\tt APPEND\_TABLE\_TEXT} feature in {\tt split\_and\_fit}.
-
+In the output tables (SNANA,FITRES), this flag is called {\tt SIM\_ZFLAG};
+it is written to TEXT, ROOT, and HBOOK files.
 
 
 % ------------------------------------

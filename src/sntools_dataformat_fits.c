@@ -4111,6 +4111,17 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   if ( istat != 0 ) { SNDATA.SUBSURVEY_FLAG = 0 ; }
   istat = 0 ;
 
+
+  // xxxxxxxxx UGLY HACK xxxxxxxxxxxx
+  // Aug 26 2022 R.Kessler
+  // temp hack for DES because DIFFIMG data files mistakensly set
+  // SUBSURVEY_FLAG=1, and this messes up re-writing data files
+  // with header override. This hack can be removed when the nominal
+  // SMP & DIFFIMG data files have SUBSURVEY_FLAG=0 in global header.
+  if ( strcmp(SNDATA.SURVEY_NAME,"DES")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  // xxxxxxxxxxxx END HACK xxxxxxxxxxxx
+
+
   // read list of filters
   char filter_list[MXFILTINDX];
   sprintf(keyname, "%s", "FILTERS" );

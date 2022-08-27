@@ -20913,7 +20913,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_dataformat_fits.c
      + write/read SIM_MODEL_INDEX to global header so that rewriting
        FITS -> FITS can work.
-     + implement MSKOPT&256 -> suppress sim-truth from output.
+     + implement MSKOPT & 256 -> suppress sim-truth from output.
    
    wfit.c:
      + fix bug causing -bao_sim to be the same as -bao.
@@ -21238,5 +21238,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + set abort trap on VERSION string length
 
   get_fitres_values.py: fix bug counting lines before VARNAMES
+
+  sntools_dataformat_fits.c
+    + add hack for DES to force SUBSURVEY_FLAG=0
 
 END: 

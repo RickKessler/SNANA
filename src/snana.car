@@ -1558,20 +1558,22 @@ c The zeroth element is all bands together.
 c Nov 2016: define which variables can be over-written
 c           in user-input HEADER_OVERRIDE_FILE
 
+c xxxxxxx mark delete xxxxxxx
 c define hard-wired list of valid over-rides
-      CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
-      PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
-     &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
-     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
-     &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
-     &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
-     &   'REDSHIFT_CMB,REDSHIFT_CMB_ERR,'      //   ! Oct 27 2020
-     &   'REDSHIFT_HELIO,REDSHIFT_HELIO_ERR,'   //  ! Oct 27 2020
-     &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
-     &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
-     &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
-     &   'MWEBV,MWEBV_ERR,x1,c'   )
-      
+c      CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
+c      PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
+c     &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
+c     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
+c     &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
+c     &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
+c     &   'REDSHIFT_CMB,REDSHIFT_CMB_ERR,'      //   ! Oct 27 2020
+c     &   'REDSHIFT_HELIO,REDSHIFT_HELIO_ERR,'   //  ! Oct 27 2020
+c     &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
+c     &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
+c     &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
+c     &   'MWEBV,MWEBV_ERR,x1,c'   )
+c xxxxxxxxxx end mark xxxxxx
+     
       INTEGER MXVAR_HEADER_OVERRIDE
       PARAMETER ( MXVAR_HEADER_OVERRIDE = 10 )
 

@@ -13226,7 +13226,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Apr 28 2020: allow list of var names for SALT2c,x1,x0 (see strList_)
   // Jul 24 2020: for OPT_DUMP=0, do NOT quit
 
-  int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP ;
+  int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP, q ;
   char *cptr ;
   char fnam[] = "PREP_SIMGEN_DUMP";
 
@@ -13456,6 +13456,19 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   sprintf(cptr,"GALZPHOTERR") ;  // ZPHOT ERROR
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.ZPHOT_ERR ;
   NVAR_SIMGEN_DUMP++ ;
+
+  // Aug 2022: if forcing Gauss quantiles and ZPHOT_Q[nnn] are not
+  //   in the HOSTLIB, add these variables here for SIMGEN_DUMP
+  bool  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
+  if ( USE_QGAUSS && HOSTLIB.IVAR_ZPHOT_Q0 < 0 ) {
+    for (q=0; q < HOSTLIB.NZPHOT_Q; q++ ) {
+      cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+      sprintf(cptr,"ZPHOT_Q%3.3d", HOSTLIB.PERCENTILE_ZPHOT_Q[q] );
+      SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = 
+	&SNHOSTGAL_DDLR_SORT[0].ZPHOT_Q[q];
+      NVAR_SIMGEN_DUMP++ ;
+    }
+  }
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNSEP") ;   // host-SN separation, arcsec

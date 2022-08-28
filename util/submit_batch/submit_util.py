@@ -6,6 +6,8 @@
 # Mar 7 2022: use -x instead of -f to check for program ...
 #             hope to avoid running .exe during make.
 #
+# Aug 28 2022: wsig_hi -> wsig_up to match minimized wfit output (bug fix)
+#
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
@@ -71,6 +73,7 @@ def get_wfit_values(wfit_yaml):
     # Sep 28 2021: check for wa and its uncertainty
     # Oct 23 2021: check for Rho
     # Feb 22 2022: check for NWARNINGS
+    # Aug 28 2022: wsig_hi -> wsig_up (bug fix)
 
     key_list = [ 'w', 'w0' ]
     for key in key_list:
@@ -85,12 +88,12 @@ def get_wfit_values(wfit_yaml):
             w_sig = wfit_yaml[key]
             if key == 'wsig_lo' :
                 w_sig_lo = wfit_yaml['wsig_lo'] 
-                w_sig_hi = wfit_yaml['wsig_hi'] 
-                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+                w_sig_up = wfit_yaml['wsig_up'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_up)
             if key == 'w0sig_lo' :
                 w_sig_lo = wfit_yaml['w0sig_lo'] 
-                w_sig_hi = wfit_yaml['w0sig_hi'] 
-                w_sig    = 0.5*(w_sig_lo + w_sig_hi)
+                w_sig_up = wfit_yaml['w0sig_up'] 
+                w_sig    = 0.5*(w_sig_lo + w_sig_up)
 
 
     # - - - repeat for optoinal wa
@@ -107,8 +110,8 @@ def get_wfit_values(wfit_yaml):
             wa_sig = wfit_yaml[key]
             if key == 'wasig_lo' :
                 wa_sig_lo = wfit_yaml['wasig_lo'] 
-                wa_sig_hi = wfit_yaml['wasig_hi'] 
-                wa_sig    = 0.5*(wa_sig_lo + wa_sig_hi)
+                wa_sig_up = wfit_yaml['wasig_up'] 
+                wa_sig    = 0.5*(wa_sig_lo + wa_sig_up)
 
     # - - - OM - - - -
     key_list = [ 'omm', 'OM' ]

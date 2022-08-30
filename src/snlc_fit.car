@@ -545,65 +545,65 @@ c CHI2GRID_PRIOR is a grid storing chi2-values to add.
 c namelist input variables.
 
       CHARACTER 
-     &    FITMODEL_NAME*(MXCHAR_FILENAME)    ! path/model
-     &   ,FITCOVAR_FILE*(MXCHAR_FILENAME)    ! '' => default, 'SIM' => from sim
-     &   ,SIMEFF_FILE*(MXCHAR_FILENAME)     ! sim-eff file for PRIOR
+     &    FITMODEL_NAME*(MXCHAR_FILENAME)    ! I: path/model
+     &   ,FITCOVAR_FILE*(MXCHAR_FILENAME)    ! I: '' => default, 'SIM' => from sim
+     &   ,SIMEFF_FILE*(MXCHAR_FILENAME)      ! sim-eff file for PRIOR
      &   ,STRETCH_TEMPLATE_FILE*(MXCHAR_FILENAME)  ! template for stretch model
      &   ,SALT2_DICTFILE*(MXCHAR_FILENAME)    ! output for SALT2's HUBBLEFIT
-     &   ,FILTLIST_FIT*(MXFILT_ALL)    ! char list of filters to fit: 
-     &                            ! examples: 'gri' or 'g r i', etc ...
-     &   ,FILTLIST_DMPFCN*20      ! idem for CHI2FUN [FCN] dump
-     &   ,FILTLIST_DMPFUN*20      ! idem for USRFUN [flux-fun] dump
-     &   ,NEARFILT_IGNORE_REST*20 ! ignore these nearest rest-filters
-     &   ,FILTLAM_SHIFT*100       ! 'U 42.  B 22. etc ...'
-     &   ,FILTER_FITMAGDIF*4      ! fit magObs in this filter 2 ways for test
+     &   ,FILTLIST_FIT*(MXFILT_ALL)    ! I: char list of filters to fit: 
+     &                            ! I: examples: 'gri' or 'g r i', etc ...
+     &   ,FILTLIST_DMPFCN*20      ! I: idem for CHI2FUN [FCN] dump
+     &   ,FILTLIST_DMPFUN*20      ! I: idem for USRFUN [flux-fun] dump
+     &   ,NEARFILT_IGNORE_REST*20 ! I: ignore these nearest rest-filters
+     &   ,FILTLAM_SHIFT*100       ! I: 'U 42.  B 22. etc ...'
+     &   ,FILTER_FITMAGDIF*4      ! I: fit magObs in this filter 2 ways for test
 
       CHARACTER
-     &   FILTLIST_FITRESTMAG*12     ! fit for these restMag filters
+     &   FILTLIST_FITRESTMAG*12     ! I: fit for these restMag filters
       REAL 
-     &   LUMIFIX_FITRESTMAG       ! fix shape par to this value (legacy name)
-     &  ,SHAPEFIX_FITRESTMAG      ! same as above
-     &  ,COLORFIX_FITRESTMAG      ! fix color par to this value
-     &  ,LAMEXTRAP_FITRESTMAG     ! allow this much rest-frame extrapolation
-     &  ,DLAMTOL_FITRESTMAG       ! allow this lam-tolerance for closest bands
+     &   LUMIFIX_FITRESTMAG       ! I: fix shape par to this value (legacy name)
+     &  ,SHAPEFIX_FITRESTMAG      ! I: same as above
+     &  ,COLORFIX_FITRESTMAG      ! I: fix color par to this value
+     &  ,LAMEXTRAP_FITRESTMAG     ! I: allow this much rest-frame extrapolation
+     &  ,DLAMTOL_FITRESTMAG       ! I: allow this lam-tolerance for closest bands
 
       LOGICAL
-     &    DOFIT_FILT(0:MXFILT_ALL)
+     &    DOFIT_FILT(0:MXFILT_ALL)  
      &   ,LDMPFCN(0:MXFILT_ALL)
      &   ,LDMPFUN(MXFILT_ALL)
      &   ,LDMPFCN_PLOTCHI2(MXFILT_ALL)
      &   ,LDMPFUN_PLOTCHI2(MXFILT_ALL)
-     &   ,LFIXPAR_ALL       ! T=> fix all paramters; FITVAL = INIVAL
-     &   ,LFIXPAR_ADJUST    ! T=> leave params based on FITINI_ADJUST
-     &   ,LKCOR_STRETCH     ! T=> get Kcor from stretched template
-     &   ,LKCOR_AVWARP      ! T=> get Kcor from color-warped template
-     &   ,USE_MODEL_MAGERR  ! T=> use mag error from model
-     &   ,ENABLE_MAGSHIFT_SALT2  ! T=> enable magshifts from training
-     &   ,ENABLE_WAVESHIFT_SALT2 ! T=> enable magshifts from training
-     &   ,ALLOW_NEGFLUX_SALT2    ! T=> alow Flam < 0; otherwise force Flam=0
-     &   ,ADD_SALT2ERR_FROMz ! T=> add SALT2 param errors from zerr
-     &   ,USESIM_COLOR      ! T=> use simulated color (AV,c ...)
-     &   ,USESIM_AV         ! T => use sim. AV in fit (only if LSIM=T)
-     &   ,USESIM_RV
-     &   ,USESIM_LUMIPAR    ! T => use sim lumipar in fit (legacy name)
-     &   ,USESIM_SHAPE      ! T => use sim shape value in fit
-     &   ,USESIM_PEAKMJD    ! T => use sim peakMJD 
-     &   ,USESIM_DLMAG      ! T => use sim DLMAG
-     &   ,USESIM_REDSHIFT   ! T => use sim redshift in fit
-     &   ,USESIM_INIVAL     ! T => use sim params as initial values
-     &   ,MINOS_ERR_DLMAG   ! T=> require valid MINOS error for DLMAG
-     &   ,MINOS_ERR_REQALL0 ! T=> require all MINOS errors to be valid   
-     &   ,MINOS_ERR_REQALL1 ! T=> require all but 1 MINOS errors to be valid
-     &   ,MINOS_ERRMAX_BAD  ! T=> flag too-small errors (def=T)
-     &   ,UCOR_BXB          ! T=> correct U-band with BX-B
-     &   ,LTRACE            ! T=> debug tool to identify crashes
-     &   ,LPLOTCHI2         ! T=> plot chi2 vs. each fitpar & filter
-     &   ,DOCHI2_SIGMA      ! T=> add chi2 from model-error
-     &   ,CHECK_CRAZYFITERR ! T=> check for crazy fit errors (default)
+     &   ,LFIXPAR_ALL       ! I: T=> fix all paramters; FITVAL = INIVAL
+     &   ,LFIXPAR_ADJUST    ! I: T=> leave params based on FITINI_ADJUST
+     &   ,LKCOR_STRETCH     ! I: T=> get Kcor from stretched template
+     &   ,LKCOR_AVWARP      ! I: T=> get Kcor from color-warped template
+     &   ,USE_MODEL_MAGERR  ! I: T=> use mag error from model
+     &   ,ENABLE_MAGSHIFT_SALT2  ! I: T=> enable mag shifts from training
+     &   ,ENABLE_WAVESHIFT_SALT2 ! I: T=> enable wave shifts from training
+     &   ,ALLOW_NEGFLUX_SALT2    ! I: T=> alow Flam < 0; otherwise force Flam=0
+     &   ,ADD_SALT2ERR_FROMz     ! I: T=> add SALT2 param errors from zerr
+     &   ,USESIM_COLOR      ! I: T=> use simulated color (AV,c ...)
+     &   ,USESIM_AV         ! I: T => use sim. AV in fit (only if LSIM=T)
+     &   ,USESIM_RV         ! I: T => idem for RV
+     &   ,USESIM_LUMIPAR    ! I: T => use sim lumipar in fit (legacy name)
+     &   ,USESIM_SHAPE      ! I: T => use sim shape value in fit
+     &   ,USESIM_PEAKMJD    ! I: T => use sim peakMJD 
+     &   ,USESIM_DLMAG      ! I: T => use sim DLMAG
+     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
+     &   ,USESIM_INIVAL     ! I: T => use sim params as initial values
+     &   ,MINOS_ERR_DLMAG   ! I: T=> require valid MINOS error for DLMAG
+     &   ,MINOS_ERR_REQALL0 ! I: T=> require all MINOS errors to be valid   
+     &   ,MINOS_ERR_REQALL1 ! I: T=> require all but 1 MINOS errors to be valid
+     &   ,MINOS_ERRMAX_BAD  ! I: T=> flag too-small errors (def=T)
+     &   ,UCOR_BXB          ! I: T=> correct U-band with BX-B
+     &   ,LTRACE            ! I: T=> debug tool to identify crashes
+     &   ,LPLOTCHI2         ! I: T=> plot chi2 vs. each fitpar & filter
+     &   ,DOCHI2_SIGMA      ! I: T=> add chi2 from model-error
+     &   ,CHECK_CRAZYFITERR ! I: T=> check for crazy fit errors (default)
 
 c option to compute Zmax/Vmax for 1/Vmax method (Jun 2013)
-      CHARACTER MAGLIM_VMAX*60   ! e.g., 'r 21.5  i 22.0'
-      INTEGER   OPT_VMAX         ! integer mask of options
+      CHARACTER MAGLIM_VMAX*60   ! I: e.g., 'r 21.5  i 22.0'
+      INTEGER   OPT_VMAX         ! I: integer mask of options
 
 c Note that _REJECT refer to epochs after 1st fit iteration ;
 c these epochs are rejected before 2nd fit.
@@ -611,133 +611,133 @@ c FITWIN_XXX refer to cuts on final fit parameters, and are apply to SN.
 c Jun 2015: FITWIN_AV -> FITWIN_COLOR
 
       REAL 
-     &   RESTLAMBDA_FITRANGE(2)  ! rest-frame central lambda range (Angstroms)
-     &  ,UVLAM_EXTRAPFLUX      ! extrapolate SED model back to this lambda
-     &  ,DELCHI2_REJECT        ! reject epoch at 2nd iter if chi2 >
-     &  ,SIGNOISE_REJECT       ! reject epoch below this signal/noise
-     &  ,TREST_REJECT(2)       ! reject epoch at 2nd iter if fails Trest
-     &  ,MJD_REJECT(2)         ! reject epoch at 2nd iter that fail MJD cut
-     &  ,PEAKMJD_SANITY(2)     ! sanity check window on fit PEAKMJD
-     &  ,FITWIN_ZPULL(2)       ! cut-window for ZPULL
-     &  ,FITWIN_ZPHOT(2)       ! cut-windo on photoz (Dec 2014)
-     &  ,FITWIN_COLOR(2)       ! cut-window for COLOR/AV
-     &  ,FITWIN_SHAPE(2)       !  "         for SHAPE
-     &  ,FITWIN_PROB(2)        ! cut-window for chi2 prob
-     &  ,FITWIN_NOMARG_PROB(2) ! cut-window before marginalization
-     &  ,FITWIN_CHI2SIGMA(2)   ! cut on chi2-contribution from sigma-term
-     &  ,FITWIN_TREST(2)       ! cut on T - T0 (to replace TREST_REJECT)
-     &  ,FITWIN_MJD(2)         ! cut on absolute MJD range.
+     &   RESTLAMBDA_FITRANGE(2)  ! I: rest-frame central lambda range (Angstroms)
+     &  ,UVLAM_EXTRAPFLUX      ! I: extrapolate SED model back to this lambda
+     &  ,DELCHI2_REJECT        ! I: reject epoch at 2nd iter if chi2 >
+     &  ,SIGNOISE_REJECT       ! I: reject epoch below this signal/noise
+     &  ,TREST_REJECT(2)       ! I: reject epoch at 2nd iter if fails Trest
+     &  ,MJD_REJECT(2)         ! I: reject epoch at 2nd iter that fail MJD cut
+     &  ,PEAKMJD_SANITY(2)     ! I: sanity check window on fit PEAKMJD
+     &  ,FITWIN_ZPULL(2)       ! I: cut-window for ZPULL
+     &  ,FITWIN_ZPHOT(2)       ! I: cut-windo on photoz (Dec 2014)
+     &  ,FITWIN_COLOR(2)       ! I: cut-window for COLOR/AV
+     &  ,FITWIN_SHAPE(2)       ! I: "         for SHAPE
+     &  ,FITWIN_PROB(2)        ! I: cut-window for chi2 prob
+     &  ,FITWIN_NOMARG_PROB(2) ! I: cut-window before marginalization
+     &  ,FITWIN_CHI2SIGMA(2)   ! I: cut on chi2-contribution from sigma-term
+     &  ,FITWIN_TREST(2)       ! I: cut on T - T0 (to replace TREST_REJECT)
+     &  ,FITWIN_MJD(2)         ! I: cut on absolute MJD range.
 c
-     &  ,FITWIN_COV_OFFDIAG(2) ! global cut on offDiag fitted cov (9/2016)
-     &  ,FITWIN_PEAKMJD_ERR(2) ! cut on PEAKMJDerr (9/2016)
-     &  ,FITWIN_MB_ERR(2)      ! cut on mBerr  (9/2016)
-     &  ,FITWIN_SHAPE_ERR(2)   ! cut on x1err or delta_err (9/2016)
-     &  ,FITWIN_COLOR_ERR(2)   ! cut on cerr or AVerr (9/2016)
+     &  ,FITWIN_COV_OFFDIAG(2) ! I: global cut on offDiag fitted cov (9/2016)
+     &  ,FITWIN_PEAKMJD_ERR(2) ! I: cut on PEAKMJDerr (9/2016)
+     &  ,FITWIN_MB_ERR(2)      ! I: cut on mBerr  (9/2016)
+     &  ,FITWIN_SHAPE_ERR(2)   ! I: cut on x1err or delta_err (9/2016)
+     &  ,FITWIN_COLOR_ERR(2)   ! I: cut on cerr or AVerr (9/2016)
 c
-     &  ,FITWIN_PEAKMJD_ERRz1(2)! cut on PEAKMJDerr/(1+z), added Mar 2017
-     &  ,FITWIN_MB_ERRz1(2)     ! cut on NBerr/(1+z)
-     &  ,FITWIN_SHAPE_ERRz1(2)  ! cut on x1err/(1+z)
-     &  ,FITWIN_COLOR_ERRz1(2)  ! cut on cerr/(1+z)
+     &  ,FITWIN_PEAKMJD_ERRz1(2)! I: cut on PEAKMJDerr/(1+z), added Mar 2017
+     &  ,FITWIN_MB_ERRz1(2)     ! I: cut on NBerr/(1+z)
+     &  ,FITWIN_SHAPE_ERRz1(2)  ! I: cut on x1err/(1+z)
+     &  ,FITWIN_COLOR_ERRz1(2)  ! I: cut on cerr/(1+z)
 c
-     &  ,INISTP_PEAKMJD        ! initial step size for MJD  (days)   
-     &  ,INISTP_AV            ! initial step size for AV
+     &  ,INISTP_PEAKMJD       ! I: initial step size for MJD  (days)   
+     &  ,INISTP_AV            ! I: initial step size for AV
      &  ,INISTP_RV
-     &  ,INISTP_AVRV          ! non-zero => fit for AV/RV instead of RV
-     &  ,INISTP_COLOR         ! initiaql step for color param
-     &  ,INISTP_DLMAG         ! initial step for lumi-distance mu
-     &  ,INISTP_X0            ! initial step for SALT2 x0
-     &  ,INISTP_PHOTOZ        ! initial step for photo-redshift
-     &  ,INISTP_SHAPE       ! initial step for shape-par
-     &  ,INISTP_SHAPE2      ! initial step for 2nd shape-par
+     &  ,INISTP_AVRV          ! I: non-zero => fit for AV/RV instead of RV
+     &  ,INISTP_COLOR         ! I: initiaql step for color param
+     &  ,INISTP_DLMAG         ! I: initial step for lumi-distance mu
+     &  ,INISTP_X0            ! I: initial step for SALT2 x0
+     &  ,INISTP_PHOTOZ        ! I: initial step for photo-redshift
+     &  ,INISTP_SHAPE         ! I: initial step for shape-par
+     &  ,INISTP_SHAPE2        ! I: initial step for 2nd shape-par
 c
-     &  ,INIVAL_PEAKMJD       ! initial value for MJD  (days)   
-     &  ,INIVAL_PEAKMJD_SHIFT   ! shift INIVAL_PEAKMJD by this much
-     &  ,INIVAL_RV            ! initial value for RV
-     &  ,INIVAL_AV            ! initial value for AV
-     &  ,INIVAL_AVRV          ! 
-     &  ,INIVAL_COLOR
-     &  ,INIVAL_DLMAG         ! initial value lumi-distance m
-     &  ,INIVAL_X0            ! SALT2 parameter
-     &  ,INIVAL_PHOTOZ        ! initial value photo-redshift
-     &  ,INIVAL_SHAPE         ! initial value shape-par
-     &  ,INIVAL_SHAPE2        ! idem for 2nd shape-par
-     &  ,INIVAL_SHIFT_ERRFRAC ! after 1st iter, INIVAL += FITERR*ERRFRAC
-     &  ,FRACERRDIF_REPEATFIT ! repeat fit with MINOS if FRACERRDIF > thius
+     &  ,INIVAL_PEAKMJD       ! I: initial value for MJD  (days)   
+     &  ,INIVAL_PEAKMJD_SHIFT ! I: shift INIVAL_PEAKMJD by this much
+     &  ,INIVAL_RV            ! I: initial value for RV
+     &  ,INIVAL_AV            ! I: initial value for AV
+     &  ,INIVAL_AVRV          ! I:
+     &  ,INIVAL_COLOR         ! I: initial value for color
+     &  ,INIVAL_DLMAG         ! I: initial value lumi-distance m
+     &  ,INIVAL_X0            ! I: initial value for x0
+     &  ,INIVAL_PHOTOZ        ! I: initial value photo-redshift
+     &  ,INIVAL_SHAPE         ! I: initial value shape-par
+     &  ,INIVAL_SHAPE2        ! I: idem for 2nd shape-par
+     &  ,INIVAL_SHIFT_ERRFRAC ! I: after 1st iter, INIVAL += FITERR*ERRFRAC
+     &  ,FRACERRDIF_REPEATFIT ! I: repeat fit with MINOS if FRACERRDIF > thius
 c
-     &  ,INIVAL_GRIDSEARCH_DPEAKMJD(3)  ! min,max w.r.t. t0_approx, binsize
-     &  ,INIVAL_GRIDSEARCH_COLOR(3)  ! min,max,binsize
+     &  ,INIVAL_GRIDSEARCH_DPEAKMJD(3)  ! I: min,max w.r.t. t0_approx, binsize
+     &  ,INIVAL_GRIDSEARCH_COLOR(3)     ! I: min,max,binsize
 c
-     &  ,PRIOR_AVEXP(2)   ! 2 exp slopes for AV prior
-     &  ,PRIOR_AVWGT(2)   ! 2 exp wgts for AV prior
-     &  ,PRIOR_AVRES      ! gaussian resolution-smearing on exponential prior
-     &  ,PRIOR_MJDSIG     ! add chi2 = [(MJD - MJDINI)/MJDSIG]^2
-     &  ,PRIOR_SHAPE_RANGE(2)  ! min,max for FLAT SHAPE prior
-     &  ,PRIOR_SHAPE_SIGMA     ! sigma for guassian roll-off on FLAT prior
-     &  ,PRIOR_COLOR_RANGE(2)  ! min,max for FLAT SHAPE prior
-     &  ,PRIOR_COLOR_SIGMA     ! sigma for guassian roll-off on FLAT prior
-     &  ,PRIOR_LUMIPAR_RANGE(2)  ! idem, legacy variable
-     &  ,PRIOR_LUMIPAR_SIGMA     ! idem, legacy variable
-     &  ,PRIOR_DELTA_PROFILE(4)  ! DELTA-prior pars: sig(low,up) & min
+     &  ,PRIOR_AVEXP(2)   ! I: 2 exp slopes for AV prior
+     &  ,PRIOR_AVWGT(2)   ! I: 2 exp wgts for AV prior
+     &  ,PRIOR_AVRES      ! I: gaussian smearing on exponential prior
+     &  ,PRIOR_MJDSIG     ! I: add chi2 = [(MJD - MJDINI)/MJDSIG]^2
+     &  ,PRIOR_SHAPE_RANGE(2)  ! I: min,max for FLAT SHAPE prior
+     &  ,PRIOR_SHAPE_SIGMA     ! I: sigma for guassian roll-off on FLAT prior
+     &  ,PRIOR_COLOR_RANGE(2)  ! I: min,max for FLAT SHAPE prior
+     &  ,PRIOR_COLOR_SIGMA     ! I: sigma for guassian roll-off on FLAT prior
+     &  ,PRIOR_LUMIPAR_RANGE(2)  ! I: idem, legacy variable
+     &  ,PRIOR_LUMIPAR_SIGMA     ! I: idem, legacy variable
+     &  ,PRIOR_DELTA_PROFILE(4)  ! I: DELTA-prior pars: sig(low,up) & min
 c
-     &  ,FUDGE_COVAR      ! fudge normalized covariances (0=> no fudge)
-     &  ,SCALE_COVAR      ! scale entire covariance matrix by this factor
+     &  ,FUDGE_COVAR      ! I: fudge normalized covariances (0=> no fudge)
+     &  ,SCALE_COVAR      ! I: scale entire covariance matrix by this factor
      &  ,LANDOLT_COLOR_SHIFT(10)  ! shifts in color terms (if OPT_LANDOLT>0)
-     &  ,ZSCALE_SIMEFF     ! scale redshift for SIMEFF call.
-     &  ,TREST_PEAKRENORM(2)   ! Trest-range to renorm peakFlux for FPKRAT
-     &  ,TREST_DMPFUN(2)       ! Trest-range for FILTLIST_DMPFUN
-     &  ,SCALE_PLOTCHI2        ! for HFUNMIN
-     &  ,SALT2alpha            ! needed for constrained photoZ fit
-     &  ,SALT2beta         
-     &  ,LAMREST_MODEL_SMOOTH  ! smooth rest-model at filter-jump
+     &  ,ZSCALE_SIMEFF         ! scale redshift for SIMEFF call.
+     &  ,TREST_PEAKRENORM(2)   ! I: Trest-range to renorm peakFlux for FPKRAT
+     &  ,TREST_DMPFUN(2)       ! I: Trest-range for FILTLIST_DMPFUN
+     &  ,SCALE_PLOTCHI2        ! I: for HFUNMIN
+     &  ,SALT2alpha            ! I: needed for constrained photoZ fit
+     &  ,SALT2beta             ! I: idem
+     &  ,LAMREST_MODEL_SMOOTH  ! I: smooth rest-model at filter-jump
 
       INTEGER 
-     &   OPT_NEARFILT  ! 4=> 2nd closest filter from MLCS2k2
-     &  ,OPT_COVAR        ! legacy name for OPT_COVAR_FLUX
-     &  ,OPT_COVAR_FLUX   ! options for using flux-covariance matrix
-     &  ,OPT_COVAR_MWXTERR ! 1 => use MW error in cov matrix
-     &  ,OPT_XTMW_ERR      ! legacy variable: set to OPT_COVAR_MWXTERR
-     &  ,OPT_COVAR_LCFIT   ! option to fix non-invertible COV(mB,x1,c)
-     &  ,OPT_SNXT      ! SN extinction options (depends on model)
-     &  ,OPT_KCORERR   ! Kcor error option (2=>SJ)
-     &  ,OPT_LANDOLT   ! bit1 => convert Bessell -> Landolt
-     &  ,OPT_PRIOR     ! 1=use prior; 0=turn off all priors
-     &  ,OPT_PRIOR_AV  ! 1=> nominal (default), 0=> flat
-     &  ,OPT_PRIOR_SIMEFF ! internally set based on SIMEFF_FILE
-     &  ,OPT_SIMEFF    ! obsolete => ABORT if non-zero !!!
-     &  ,OPT_MNSTAT_COV ! 1-> repeat on bad value
-     &  ,SIMFIT_IDEAL_PRESCALE  ! pre-scale sample for including IDEAL fit
-     &  ,NGRID_PDF     ! number of grid-bins for each dimens of pdf
-     &  ,NSIGMA_PDF    ! compute PDF for +- NSIGMA_PDF
-     &  ,MAX_INTEGPDF  ! max # times to integrate PDFs
-     &  ,CONTOUR_LIST(4,20)  ! define contour plots: CID,IPAR1,IPAR2,NPT
-     &  ,OPT_SALT2FIT  ! fit 0=> fit x0;  1=> fit log10(x0); 2=> fit delta-mu
-     &  ,IPAR_PLOTCHI2 ! HFUNMIN only for this parameter
+     &   OPT_NEARFILT      ! I: 4=> 2nd closest filter from MLCS2k2
+     &  ,OPT_COVAR         ! I: legacy name for OPT_COVAR_FLUX
+     &  ,OPT_COVAR_FLUX    ! I: options for using flux-covariance matrix
+     &  ,OPT_COVAR_MWXTERR ! I: 1 => use MW error in cov matrix
+     &  ,OPT_XTMW_ERR      ! I: legacy variable: set to OPT_COVAR_MWXTERR
+     &  ,OPT_COVAR_LCFIT   ! I: option to fix non-invertible COV(mB,x1,c)
+     &  ,OPT_SNXT          ! I: SN extinction options (depends on model)
+     &  ,OPT_KCORERR       ! I: Kcor error option (2=>SJ)
+     &  ,OPT_LANDOLT       ! I: bit1 => convert Bessell -> Landolt
+     &  ,OPT_PRIOR         ! I: 1=use prior; 0=turn off all priors
+     &  ,OPT_PRIOR_AV      ! I: 1=> nominal (default), 0=> flat
+     &  ,OPT_PRIOR_SIMEFF  ! I: internally set based on SIMEFF_FILE
+     &  ,OPT_SIMEFF        ! I: obsolete => ABORT if non-zero !!!
+     &  ,OPT_MNSTAT_COV    ! I: 1-> repeat on bad value
+     &  ,SIMFIT_IDEAL_PRESCALE  ! I: pre-scale sample for including IDEAL fit
+     &  ,NGRID_PDF     ! I: number of grid-bins for each dimens of pdf
+     &  ,NSIGMA_PDF    ! I: compute PDF for +- NSIGMA_PDF
+     &  ,MAX_INTEGPDF  ! I: max # times to integrate PDFs
+     &  ,CONTOUR_LIST(4,20)  ! I: define contour plots: CID,IPAR1,IPAR2,NPT
+     &  ,OPT_SALT2FIT  ! I: fit 0=> fit x0;  1=> fit log10(x0); 2=> fit delta-mu
+     &  ,IPAR_PLOTCHI2 ! I: HFUNMIN only for this parameter
 
 C ----------------------
 c define all of the PHOTOZ options here in one place
 c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
 
       LOGICAL
-     &   DOFIT_PHOTOZ       ! T=> fit SN photo-redshift
-     &  ,SKIP_PHOTOZ_INIT   ! T=> skip initial parameter estimate
-     &  ,LDMP_PHOTOZ_DROPFILTER   ! T=> dump reason for dropped filter
+     &   DOFIT_PHOTOZ       ! I: T=> fit SN photo-redshift
+     &  ,SKIP_PHOTOZ_INIT   ! I: T=> skip initial parameter estimate
+     &  ,LDMP_PHOTOZ_DROPFILTER  ! I: T=> dump reason for dropped filter
 
       INTEGER 
-     &   OPT_PHOTOZ  ! bit 0 (1 ) => use host-galaxy ZPRIOR; 
-                     ! bit 1 (2 ) => use spectro Z-prior
-                     ! bit 2 (4 ) => use zPhot quantiles
-                     ! bit 4 (16) => cheat: start with Zspec and correct filt
-     &  ,ISCALE_COURSEBIN_PHOTOZ  ! scale number of course-grid bins for init
+     &   OPT_PHOTOZ  ! I: bit 0 (1 ) => use host-galaxy ZPRIOR; 
+                     ! I: bit 1 (2 ) => use spectro Z-prior
+                     ! I: bit 2 (4 ) => use zPhot quantiles
+                     ! I: bit 4 (16) => cheat: start with Zspec and correct filt
+     &  ,ISCALE_COURSEBIN_PHOTOZ  ! I: scale number of course-grid bins for init
      &  ,NEVAL_MCMC_PHOTOZ
 
       REAL
-     &   PHOTOZ_ITER1_LAMRANGE(2)  ! cut on obs-filter, ITER=1 only
-     &  ,PHOTOZ_BOUND(2)       ! MINUIT bound for photoz fit
-     &  ,PHOTODZ_REJECT        ! reject filters in photoZ fit (see code)
-     &  ,PHOTODZ1Z_REJECT      ! idem for dz/(1+z)     
-     &  ,PRIOR_ZERRSCALE       ! scale hostZ-error for prior in photoZ fits
-     &  ,PRIOR_MUERRSCALE      ! scale MU-error for prior in photoZ fits
-     &  ,SNMAGRMS_for_PHOTOZ   ! compute PHOTOZ error from SNMAGRMS
+     &   PHOTOZ_ITER1_LAMRANGE(2)  ! I: cut on obs-filter, ITER=1 only
+     &  ,PHOTOZ_BOUND(2)       ! I: MINUIT bound for photoz fit
+     &  ,PHOTODZ_REJECT        ! I: reject filters in photoZ fit (see code)
+     &  ,PHOTODZ1Z_REJECT      ! I: idem for dz/(1+z)     
+     &  ,PRIOR_ZERRSCALE       ! I: scale hostZ-error for prior in photoZ fits
+     &  ,PRIOR_MUERRSCALE      ! I: scale MU-error for prior in photoZ fits
+     &  ,SNMAGRMS_for_PHOTOZ   ! I: compute PHOTOZ error from SNMAGRMS
      &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
 
 c define varibales to fudge the data errors for particular
@@ -746,24 +746,24 @@ c globally replaces the model error, while FUDGE_FITERR_MAXFRAC
 c is added to chi2-error in the specified passbands and Trest range.
 
       INTEGER 
-     &   FUDGE_FITERR_MAXITER
+     &   FUDGE_FITERR_MAXITER     ! I: see manual
 
       REAL
-     &   FUDGE_FITERR_MAXFRAC      ! add fit-error = this fraction of maxflux
-     &  ,FUDGE_FITERR_TREST(4)     ! apply err-fudge to two TREST-ranges
-     &  ,FUDGE_FITERR_RESTLAM(4)   ! "      "        to RESTLAM range     
-     &  ,FUDGE_MAGERR_MODEL        ! fix model mag-error
-     &  ,FUDGEALL_MAXFRAC          ! MAXFRAC fudge for all epochs
-     &  ,FUDGEALL_ITER1_MAXFRAC    ! idem, but 1st iteration only
-     &  ,FUDGE_DATAERR_SCALE       ! re-scale all data  errors.
-     &  ,FUDGE_MODELERR_SCALE      ! re-scale all model errors.
+     &   FUDGE_FITERR_MAXFRAC      ! I: add fit-error = this fraction of maxflux
+     &  ,FUDGE_FITERR_TREST(4)     ! I: apply err-fudge to two TREST-ranges
+     &  ,FUDGE_FITERR_RESTLAM(4)   ! I: "      "        to RESTLAM range     
+     &  ,FUDGE_MAGERR_MODEL        ! I: fix model mag-error
+     &  ,FUDGEALL_MAXFRAC          ! I: MAXFRAC fudge for all epochs
+     &  ,FUDGEALL_ITER1_MAXFRAC    ! I: idem, but 1st iteration only
+     &  ,FUDGE_DATAERR_SCALE       ! I: re-scale all data  errors.
+     &  ,FUDGE_MODELERR_SCALE      ! I: re-scale all model errors.
 
       CHARACTER 
-     &   FUDGE_FITERR_PASSBANDS*(MXFILT_ALL) ! apply err-fudge to these bands
+     &   FUDGE_FITERR_PASSBANDS*(MXFILT_ALL) ! I: apply err-fudge to these bands
 
 c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
       CHARACTER 
-     &  FITWIN_TREST_FILTER*120    ! e.g., 'gr -10.0 50.0  iz 0 50' 
+     &  FITWIN_TREST_FILTER*120    ! I: e.g., 'gr -10.0 50.0  iz 0 50' 
       REAL 
      &  FITWIN_TREST_FILT(2,MXFILT_ALL)  ! Trest window for each filter
 
@@ -7991,14 +7991,6 @@ C ==========================================
 c
 c Init INIVAL_ and INISTP arrays.
 c
-c Nov 29 2013:  fix USESIM_PEAKMJD by setting
-c                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF 
-c               for ipar = IPAR_PEAKMJD.
-c
-c Dec 5 2013: remove ISN arg, and set SIMCHI2_CHEAT=0
-c
-c Aug 29 2017: check DOFIT_IDEAL
-c
 c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
 c Jun 04 2021: if USESIM_REDSHIFT, set z errors to 1.0E-4
 c
@@ -8045,11 +8037,12 @@ c init everything to BIDON value or to value of last iteration
            INIVAL(ipar)       =  -9.0
            INISTP(ipar)       =   0.0
         ELSE 
-           VALTMP = FITVAL(ipar,ITER_LAST)
-           ERRTMP =  FITERR(ipar,ITER_LAST) 
+           VALTMP       =  FITVAL(ipar,ITER_LAST)
+           ERRTMP       =  FITERR(ipar,ITER_LAST) 
            INIVAL(ipar) =  VALTMP + ERRTMP*INIVAL_SHIFT_ERRFRAC
            INISTP(ipar) =  ERRTMP
         ENDIF
+
       ENDDO
 
 
@@ -8342,8 +8335,7 @@ c    Note that fit floats all params
          INIVAL(IPAR_zPHOT)    = SIM_REDSHIFT_HELIO
       ENDIF
 c --------------------------------------------
-c store SIMVAL and check option to use sim values
-c in fit.
+c store SIMVAL and check option to use sim values in fit.
 
       IF ( LSIM_SNANA) THEN
          SIMVAL_STORE(IPAR_AV)    = SIM_COLORPAR
@@ -8378,14 +8370,15 @@ c now check if want to fix a parameter with the simulated value.
          enddo
       ENDIF  ! end LSIM_SNANA
 
+c --------------
 c set FITVAL on 1st interation since this array
 c is used in the ADJUST & FITINI_XXXX routines.
 c (exception for option that fixes parameters)
 
-        do ipar = 1, IPAR_MAX
-           FITVAL(ipar,iter) = INIVAL(ipar)
-           FITERR(ipar,iter) = INISTP(ipar)
-        enddo
+      do ipar = 1, IPAR_MAX
+         FITVAL(ipar,iter) = INIVAL(ipar)
+         FITERR(ipar,iter) = INISTP(ipar)
+      enddo
 
       RETURN
       END   ! end of FITINI_PARVAL
@@ -8552,7 +8545,7 @@ c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
         endif
       
-      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R. Chen Jun 2022 .xyz
+      ELSE IF ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 c        Print *, 'xxx Start of quantiles code'
         if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
             c1err = 'zPDF quantiles requested for photo-z fit'
@@ -9484,6 +9477,9 @@ C ==========================
 C Created Apr 29 2022 by R.Kessler
 c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
 c values to use as INIVAL when iter=1.
+c TO DO: If INISTP(ipar)=0 [fixed parameter value], 
+c  apply previous SALT2 fit value for all iterations.
+c .xyz
 
       IMPLICIT NONE
 
@@ -9506,10 +9502,10 @@ c values to use as INIVAL when iter=1.
 
 C ----------- BEGIN ----------
 
-      IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
-
       USE_FITPAR_LIST_FILE = BTEST(OPT_SNCID_LIST,1)
       IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
+
+      IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
 
 c construct list of params to check in SNCID_LIST file
 
@@ -10717,14 +10713,6 @@ c Priors initialized for:
 c  - AV     (exponential convoluted with Gaussian)
 c  - MJD    (gaussian)
 c  - photoZ (Gaussian -- added Dec 30, 2006)  
-c
-c Apr 25, 2009: pull LUMIPAR prior outside MLCS loop 
-c               to work for all models.
-c
-c Jul 27, 2009: check OPT_PRIOR after FITINI_PKMJDPRIOR is called
-c               If OPT_PRIOR=0, goto900 instead of return.
-c
-c Feb 02, 2013: replace HBOOK and HF1 with SNHIST_XXX utilities
 c
 c Apr 2 2018: call FITINI_FLATPRIOR for color
 c

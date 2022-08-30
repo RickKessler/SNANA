@@ -1821,7 +1821,6 @@ void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); 
-void   prep_RANSYSTPAR_LEGACY(void); 
 void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
@@ -1923,9 +1922,6 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 				double *GAURAN_T) ;
 void   GENSPEC_FLAM(int imjd);
 void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux );
-
-void   GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux,
-			       double GenFluxErr, double GenFluxErr_T );
 
 void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z,
@@ -2177,5 +2173,7 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) ;
 
 double gridval_SIMSED(int ipar,  int ibin);
 double nearest_gridval_SIMSED (int ipar, double lumipar );
+
+void print_sim_help(void);
 
 // ========== END OF FILE ============

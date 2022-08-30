@@ -354,7 +354,7 @@ int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
 
 // =========== function prototypes ================
 
-void print_help(void);
+void print_wfit_help(void);
 void init_stuff(void);
 void parse_args(int argc, char **argv) ;
 int  compare_double_reverse (const void *, const void *);
@@ -458,7 +458,7 @@ int main(int argc,char *argv[]){
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
 
   // Give help if no arguments
-  if (argc < 2) { print_help();  exit(0);  }
+  if (argc < 2) { print_wfit_help();  exit(0);  }
 
   // init variables
   init_stuff(); 
@@ -630,7 +630,7 @@ void init_stuff(void) {
 
 
 // ==================================
-void print_help(void) {
+void print_wfit_help(void) {
 
   // Created Oct 1 2021
   // [moved from main]
@@ -704,7 +704,7 @@ void print_help(void) {
 
   return;
 
-} // end print_help
+} // end print_wfit_help
 
 
 // ==================================

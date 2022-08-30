@@ -2099,14 +2099,14 @@ c
 c LC plot info
 
       INTEGER  
-     &  MXLC_PLOT      ! (I) max number of plots to make with SNLCPAK
-     & ,NCCID_PLOT     ! (I) size of SNCCID_PLOT array
+     &  MXLC_PLOT      ! I: max number of plots to make with SNLCPAK
+     & ,NCCID_PLOT     ! I: size of SNCCID_PLOT array
       CHARACTER 
-     &  SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! (I) string-list of CCIDs to plot
+     &  SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! I: string-list of CCIDs to plot
 
       REAL 
-     &   DTOBS_MODEL_PLOT  ! (I) binning (days) for overlaid best-fit model
-     &  ,zTOL_HELIO2CMB    ! (I) give warning if  zCMB and zHEL are off
+     &   DTOBS_MODEL_PLOT  ! I: binning (days) for overlaid best-fit model
+     &  ,zTOL_HELIO2CMB    ! I: give warning if  zCMB and zHEL are off
 
 c Oct 2014: variables to check for multi-season transient activity
 
@@ -2118,17 +2118,17 @@ c Oct 2014: variables to check for multi-season transient activity
      &  ,MULTISEASON_CHI2RED_ACTIVE    ! min chi2red for active season
 
       REAL  
-     &   SIM_PRESCALE        ! pre-scale applied only to SIM
-     &  ,VPEC_ERR_OVERRIDE   ! override VPEC_ERR in data header (km/sec)
-     &  ,SNTABLE_APPEND_VALUE   ! value for SNTABLE_APPEND_VARNAME
+     &   SIM_PRESCALE        ! I: pre-scale applied only to SIM
+     &  ,VPEC_ERR_OVERRIDE   ! I: override VPEC_ERR in data header (km/sec)
+     &  ,SNTABLE_APPEND_VALUE   ! I: value for SNTABLE_APPEND_VARNAME
 
 c variables to control estimate of PEAKMJD
       INTEGER
-     &   OPT_SETPKMJD            ! bit-mask options  to determined PKMJD
+     &   OPT_SETPKMJD            ! I: bit-mask options  to determined PKMJD
       REAL
-     &   SNRCUT_SETPKMJD         ! define SNR for Fmax in clump method
-     &  ,MJDWIN_SETPKMJD         ! MJD window for Fmax in clump method
-     &  ,SHIFT_SETPKMJD          ! shift initial PKMJD for systematic test
+     &   SNRCUT_SETPKMJD         ! I: define SNR for Fmax in clump method
+     &  ,MJDWIN_SETPKMJD         ! I: MJD window for Fmax in clump method
+     &  ,SHIFT_SETPKMJD          ! I: shift initial PKMJD for systematic test
 
 c define reference cosmological parameters (double precision!)
 c Aug 7, 2009: each parameter has dimension 2 for value & error

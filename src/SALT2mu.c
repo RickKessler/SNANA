@@ -121,9 +121,6 @@ varname_pIa=name of fitres param containing Prob_Ia
 force_pIa=forced value of Prob_Ia for every event
 force_pIa='perfect' --> pIa = 1 or 0 for true Ia or CC (sim only)
 
-maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for 
-                         this Ia-like subset
-
 # to force P(SNIa)=1 and P(CC)=0 for spectroscopic-confirmed subset,
 type_list_probcc0=1,2,11 
      (list of integer TYPE values in data header)
@@ -1005,7 +1002,7 @@ with append_varname_missing,
 
  Mar 25 2022:
     + fix bug and read input sigint_step1
-    + new input dchi2red_dsigint to specify slope so that fewer
+    + new input dchi2red_dsigsint to specify slope so that fewer
       fit-iterations are needed.
 
  Apr 18 2022: new input izbin_from_cid_file=1 (same as debug_flag=401)
@@ -1700,7 +1697,6 @@ struct INPUTS {
   double force_pIa;
   bool   perfect_pIa;       // internally set if force_pIa='perfect'
   int  typeIa_ccprior ;       // PCC=0 for this sntype
-  double maxProbCC_for_sigint;  // max P_CC/ProbIa to sum chi2_1a
 
   int    fitflag_sigmb ;  // flag to fit for sigMb that gives chi2/dof=1
   double redchi2_tol ;    // tolerance in red chi2 (was sig1tol)
@@ -1791,7 +1787,7 @@ struct INPUTS {
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
   int    uzsim ;     // flag to cheat and use simulated zCMB (default=F)
-  double nommag0 ;   // nominal SN magnitude
+  double M0 ;        // nominal SN magnitude without offset (-30)
   double H0 ;
 
   int    FLOAT_COSPAR ;    // internal: TRUE if any COSPAR is floated
@@ -1968,7 +1964,7 @@ struct {
   int NSNFIT_TRUECC;   // for sim, number of true CC
 
   double AVEMAG0 ; // average M0 among z bins
-  double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.nommag0 
+  double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.M0
 
   double M0DIF[MXz]; // M0-M0avg per z-bin
   double M0ERR[MXz]; // error on above
@@ -2031,6 +2027,7 @@ time_t t_start, t_end_init, t_start_fit, t_end_fit, t_read_biasCor[3] ;
 
 //Main function definitions
 
+void print_SALT2mu_HELP(void);
 void SALT2mu_DRIVER_INIT(int argc, char **argv);
 void SALT2mu_DRIVER_EXEC(void);
 int  SALT2mu_DRIVER_SUMMARY(void);
@@ -2509,6 +2506,9 @@ int main(int argc,char* argv[ ]) {
   char fnam[] = "main";
   // ------------------ BEGIN MAIN -----------------
 
+  // Give help if no arguments  
+  if (argc < 2) { print_SALT2mu_HELP();  exit(0); }
+
   SALT2mu_DRIVER_INIT(argc,argv);
   
   NCALL_SALT2mu_DRIVER_EXEC = 0;
@@ -2872,7 +2872,7 @@ void exec_mnparm(void) {
       { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
       
     //               val            step   min  max     boolean
-    set_fitPar( i, INPUTS.nommag0, 0.1,   M0min,M0max,  ISFLOAT ); 
+    set_fitPar( i, INPUTS.M0, 0.1,   M0min,M0max,  ISFLOAT ); 
     INPUTS.izpar[i] = iz ; 
       
     sprintf(text,"m0_%2.2d",iz);
@@ -5363,7 +5363,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11,
 
   MUZMAP->alpha = xval[IPAR_ALPHA0];
   MUZMAP->beta  = xval[IPAR_BETA0];
-  MUZMAP->M0    = INPUTS.nommag0 ;
+  MUZMAP->M0    = INPUTS.M0;
 
   cosPar[0] = xval[IPAR_OL] ;
   cosPar[1] = xval[IPAR_Ok] ;
@@ -5558,7 +5558,6 @@ void set_defaults(void) {
   sprintf(INPUTS.append_varname_missing,"PROB*");
   INPUTS.force_pIa      = -9.0;
   INPUTS.perfect_pIa    = false ;
-  INPUTS.maxProbCC_for_sigint = 0.2 ;
   INPUTS.typeIa_ccprior       = -9  ;
 
   INPUTS_PROBCC_ZERO.USE       = false ;
@@ -5674,9 +5673,9 @@ void set_defaults(void) {
   DOFIT_FLAG = FITFLAG_CHI2 ;
   INPUTS.zpolyflag = 0;
   //Default distance modulus parameters
-  INPUTS.H0      = 70.0;
-  INPUTS.nommag0 = M0_DEFAULT ;
-  INPUTS.uave    = 1;
+  INPUTS.H0         = 70.0;
+  INPUTS.M0         = M0_DEFAULT ;
+  INPUTS.uave       = 1;
 
   // Default parameters 
 
@@ -11452,7 +11451,7 @@ double muresid_biasCor(int ievt ) {
 
   bool DOBIAS_MU = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU     ) ;
 
-  M0     = INPUTS.nommag0 ;
+  M0     = INPUTS.M0 ;
 
   if ( DOBIAS_MU ) {
     // sim_alpha[beta] may not exist or make sense, so set
@@ -14650,7 +14649,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // print DMU distribution for first redshift bin
   MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
-  MUZMAP->M0    = INPUTS.nommag0 ;
+  MUZMAP->M0    = INPUTS.M0 ;
 
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
   MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
@@ -16402,9 +16401,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"nzbin_ccprior=")) 
     { sscanf(&item[14],"%i",&INPUTS.nzbin_ccprior); return(1); }
 
-  if ( uniqueOverlap(item,"maxprobcc_for_sigint=") )
-    { sscanf(&item[21],"%le", &INPUTS.maxProbCC_for_sigint); return(1); } 
-
   if ( uniqueOverlap(item,"varname_pIa=")  ) {
     s = INPUTS.varname_pIa ;
     sscanf(&item[12],"%s",s); remove_quote(s);  return(1);
@@ -16455,14 +16451,13 @@ int ppar(char* item) {
     return(1);
   }
 
-
-  if ( uniqueOverlap(item,"varname_gamma=") ) {
-    s=INPUTS.varname_gamma;  sscanf(&item[14],"%s",s); remove_quote(s); 
+  if ( uniqueOverlap(item,"varname_z=")) { 
+    s=INPUTS.varname_z ;  sscanf(&item[10],"%s",s); remove_quote(s); 
     return(1);
   }
 
-  if ( uniqueOverlap(item,"varname_z=")) { 
-    s=INPUTS.varname_z ;  sscanf(&item[10],"%s",s); remove_quote(s); 
+  if ( uniqueOverlap(item,"varname_gamma=") ) {
+    s=INPUTS.varname_gamma;  sscanf(&item[14],"%s",s); remove_quote(s); 
     return(1);
   }
 
@@ -16653,8 +16648,12 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"h0=")) 
     { sscanf(&item[3],"%lf",&INPUTS.H0); return(1); }
-  if ( uniqueOverlap(item,"mag0=")) 
-    { sscanf(&item[5],"%lf",&INPUTS.nommag0); return(1); }
+
+  if ( uniqueOverlap(item,"m0=")) 
+    { sscanf(&item[3],"%lf",&INPUTS.M0); return(1); }
+  if ( uniqueOverlap(item,"mag0="))  // legacy name
+    { sscanf(&item[5],"%lf",&INPUTS.M0); return(1); }
+
   if ( uniqueOverlap(item,"uave="))  
     { sscanf(&item[5],"%i", &INPUTS.uave); return(1); }
 
@@ -18217,7 +18216,7 @@ void prep_input_driver(void) {
   fprintf(FP_STDOUT, "logmass_min/max = %.3f/%.3f \n", 
 	 INPUTS.logmass_min, INPUTS.logmass_max);
   fprintf(FP_STDOUT, "H0=%f \n", INPUTS.H0);
-  fprintf(FP_STDOUT, "Nominal M0=%f \n", INPUTS.nommag0);
+  fprintf(FP_STDOUT, "Nominal M0=%f \n", INPUTS.M0);
   fprintf(FP_STDOUT, "zpecerr(override)   = %.5f \n", INPUTS.zpecerr );
   fprintf(FP_STDOUT, "dsigint/dz(lensing) = %.4f \n", INPUTS.lensing_zpar );
 
@@ -19823,7 +19822,7 @@ void write_fitres_driver(char* fileName) {
   if ( INPUTS.uave)
     { FITRESULT.SNMAG0 = FITRESULT.AVEMAG0; }
   else 
-    { FITRESULT.SNMAG0 = INPUTS.nommag0; }
+    { FITRESULT.SNMAG0 = INPUTS.M0; }
 
 
   fprintf(fout," \n");
@@ -20985,7 +20984,6 @@ double cosmodl(double zhel, double zhd, double *cosPar)
 } // end cosmodl
 
 
-
 double rombint(double f(double z, double *cosPar),
 	       double a, double b, double *cosPar, double tol) {
 
@@ -21268,6 +21266,319 @@ void lubksb(const double* a, const int n, const int ndim,
   }
   return;
 } /* lubksb */
+
+
+// ======================================
+void print_SALT2mu_HELP(void) {
+
+  static char *help[] = {
+
+    "",
+    "\t ***** SALT2mu (BBC) help menu *****",
+    "SALT2mu.exe <inputFile>   <keyopt1=arg1> <keyopt2=arg2> etc ...",
+    "",
+    "#   input file and command line key-options",
+    "",
+    "",
+    " - - - - -  Inputs - - - - - ",
+    "",
+    "datafile=<comma-sep list of fitres file names to analyze>",
+    "",
+    "datafile_override=<over1.dat,over2.dat,etc...>",
+    "   comma-sep list of data-overrides enbled for",
+    "   zHEL, VPEC, VPEC_ERR, HOST_LOGMASS",
+    "   if VPEC [VPEC_ERR] is changed, so is zhd [zhderr]",
+    "",
+    "nmax=100                 # fit first 100 events only",
+    "nmax=70(SDSS),200(PS1MD) # fit 70 SDSS and 200 PS1MD",
+    "nmax=300,200(PS1MD)      # fit 300 total, with 200 in PS1MD sub-sample",
+    "",
+    "cid_select_file=<file with CID accept-only list>",
+    "cid_reject_file=<file with CID reject list>",
+    "       (FITRES or unkeyed list format)",
+    "izbin_from_cid_file=1        # use izbin in cid_selecr_file",
+    "",
+    "zVARNAME=zPHOT  # use zPHOT for redshift instead of default zHD",
+    "varname_z=zPHOT # alternate key to define redshift variable",
+    "varname_gamma=HOST_LOGMASS # default name of variable to fit gamma=HR step",
+    "varname_gamma=HOST_LOGSFR  # use HOST_LOGSFR for HR step instead of LOGMASS",
+    "uzsim=1                    # cheat and use true zCMB for redshift",
+
+    "",
+    "prescale_simdata=<preScale>  # pre scale for sim data",
+    "prescale_simcc=<preScale>    # pre-scale only the simulated CC",
+    "prescale_simIa=<preScale>    # pre-scale only the simulated Ia",
+    "",
+    "iflag_duplicate=0   # 0=ignore, 1=abort, 2=merge with wgted avg",
+    "",
+    "NSPLITRAN=[NRAN] # number of independent sub-samples to run SALT2mu.",
+    "                 # separate output is created for each sub-sample.",
+    "JOBID_SPLITRAN=[JOBID] # do only this splitran job (in batch mode)",
+
+    " - - - - -  biasCor options - - - - - ",
+    "",
+    "simfile_biascor=<name>           # sim fitres file to compute bias map",
+    "simfile_biascor=name1,name2,etc  # idem with comma-sep list",
+    "",
+    "opt_biascor=<option>    # grep MASK_BIASCOR  SALT2mu.c | grep define",
+    "",
+    "snrmin_sigint_biascor=60   # SNRMIN to compute siginit_biascor",
+    "sigint_biascor=<sigint>    # set sigint_biascor instead of auto-compute",
+    "",
+    "prescale_biascor=<subset>,<preScale>  ! select <subset> from <prescale>",
+    "",
+    "fieldGroup_biascor='shallow,medium,deep'     #  for biasCor & CCprior",
+    "fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2' ",
+    "",
+    "surveygroup_biascor='CFA3+CSP,PS1MD'   # combine CFA3+CSP into one biasCor",
+    "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",
+    "surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' ",
+    "surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' ",
+    "surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data",
+    "",
+    "  # NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, ",
+    "  #       then each biasCor group  is automatically split into ",
+    "  #       [GROUPNAME]-zSPEC and [GROUPNAME]-zPHOT groups. ",
+    "  #       OPT_PHOTOZ is from &SNCLINP input SNTABLE_LIST='FITRES NOZPHOT'",
+    "",
+    " zspec_errmax_idsample=0.002  # defines zSpec subset in photometric sample",
+    "    # IS_SPECZ = OPT_PHOTOZ==0 || zhelerr < zspec_errmax_idsample",
+    "    # Thus if all events have OPT_PHOTOZ=2, BBC user input ",
+    "    # zspec_errmax_idsample defines zSpec IDSAMPLE"
+    "",
+    "idsample_select=2+3              # fit only IDSAMPLE = 2 and 3",
+    "surveylist_nobiascor='HST,LOWZ'  # no biasCor for these surveys",
+    "interp_biascor_logmass=0         # turn OFF logmass interpolation",
+    "",
+    "ndump_nobiascor=20      # dump for first 20 data events with no biasCor",
+    "dumpflag_nobiascor=20   # idem; legacy input variable ",
+    "",
+    "frac_warn_nobiascor=0.02 # print warning in output fitres file if nobiascor",
+    "                         # cut-loss exceeds frac (for each IDSAMPLE)",
+    "",
+    "cidlist_debug_biascor  ! comma-sep list to dump biasCor info",
+    "",
+    " - - - - -  CC Prior options for BEAMS - - - - - ",
+    "",
+    "simfile_ccprior=name   # sim fitres file to compute CC prior and",
+    "                       # flag to perform BEAMS-like fit",
+    "simfile_ccprior=same   # --> use same file(s) as simfile_bias",
+    "simfile_ccprior=name1,name2,etc  # comma-sep list",
+    "simfile_ccprior=H11    # --> no sim; use CC MU-z function from Hlozek 2011",
+    "BEWARE: CC prior does not work with 1D biasCor",
+    "",
+    "varname_pIa=name      # fitres column name containing pIa",
+    "force_pIa=forced      # force fixed pIa value for every event",
+    "force_pIa='perfect'   # force pIa = 1/0 for true Ia/CC (sim only)",
+    "",
+    "#  Several optoins to force P(SNIa)=1 and P(CC)=0 for ",
+    "#  spectroscopic-confirmed subset:",
+    "",
+    "type_list_probcc0=1,2,11   # e.g., force pIa=1 for types 1,2,11",
+    "                           # (integer TYPE values in data header)",
+    "idsurvey_list_probcc0=5,50,51,53  # force pIa=1 for these IDs in SURVEY.DEF",
+    "   or ",
+    "idsurvey_list_probcc0=CSP,JRK07,KAIT,CFA3  # list by SURVEY names",
+    "   or ",
+    "idsurvey_list_probcc0=CSP,JRK07,51,53      # mix SURVEY names and IDs",
+    "",
+    "    Note: 'grep Force <stdout>'  to verify forcing pIa=1 ",
+    "",
+    "# to allow for missing data columns in some input FITRES data files, ",
+    "# need to append -9 values in the FITRES output to avoid mis-aligned ",
+    "# output columns. Default will append varname_pIa and anything with ",
+    "# PROB_ prefix to allow for multiple classification probs in photometric ",
+    "# sample, while these are missing in the spec-sample.",
+    "append_varname_missing = 'PROB_*'        # default: wildcard for PROB_* ",
+    "append_varname_missing = 'PROB_TEST'     # append only this one varname",
+    "append_varname_missing = 'PROB_*,PIA_*'  #  wildcard for PROB_* or PIA_*",
+    "",
+    " - - - - -  Binning - - - - - ",
+    "",
+    "nzbin=20     # number of z bins to use (beware: some bins may be empty)",
+    "nlogzbin=20  # number of log-spaced z bins",
+    "zmin=0.01    # lower limit on redshift",
+    "zmax=0.9     # upper limit on redshift",
+    "",
+    //    [constrained by nzbin,zmin,zmax.  Default powzbin=0 --> uniform bins]
+    "powzbin=2.0     # binSize propto (1+z)^2 for all z-range (default=0).",
+    "powzbin=2.0,0.4 # binSize propto (1+z)^2 for nzbin/2 and z<0.4,",
+    "                #  then constant binsize for z>0.4.",
+    "",
+    "zbinuser=.01,0.012,0.1,0.2,0.3,0.4   # user-defined z-bins ",
+    "",
+    "min_per_zbin=1   # min number of SN in z-bin to keep z-bin (default=1)",
+    "",
+    "nzbin_ccprior=<number of redshift bins for CC prior>",
+    "",
+    " - - - - -  Selection cuts - - - - - ",
+    "",
+    "x1min=-3.0     # lower limit on x1",
+    "x1max=3.0      # upper limit on x1",
+    "cmin=-0.3      # lower limit on color",
+    "cmax=0.3       # upper limit on color",
+    "",
+    "logmass_min=-20   # min cut on logmass",
+    "logmass_max=20    # max cut on logmass",
+    "nbin_logmass=1    # number of logmass bins for BBC7D",
+    "",
+    "sntype=120          # select type=120",
+    "sntype=120,105,106  # select types 120,105,106",
+    "",
+    "CUTWIN  <VARNAME>  <MIN> <MAX>  # see examples below",
+    "CUTWIN  FITPROB  .01 1.0        # cut-window on FITPROB",
+    "CUTWIN  SNRMAX3   8  999999     # cut-window on SNRMAX3",
+    "CUTWIN(NOABORT)  SIM_x1  -2 2   # cut, but do not abort if missing SIM_x1",
+    "CUTWIN(DATAONLY)    LOGMASS  5 12 # cut on data only (not on biasCor)",
+    "CUTWIN(BIASCORONLY) LOGMASS  5 12 # cut on biasCor (not on data)",
+    "CUTWIN varname_pIa  0.9 1.0   # substitute argument of varname_pIa",
+    "CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut",
+    "CUTWIN NONE       #  command-line override to disable all cuts",
+    "                  # e.g., useful with cid_select_file",
+    "",
+    "fieldlist=X1,X2   # select X1 and X2 fields",
+    "fieldlist=X3      # select X3 field only",
+    "fieldlist=X       # select any field with X in name",
+    "",
+    "# chi2max-outlier cut is applied before fit, using initial values. ",
+    "# Beware that initial and final chi2 can differ, so allow slop in the cut.",
+    "# Cut applied to -2log10(ProbIa_BEAMS+ProbCC_BEAMS); see Eq 6 of BBC paper.",
+    "chi2max=16             # chi2max cut applied to all events",
+    "chi2max(FITWGT0)=16    # no cut; instead set fit wgt=0 with large MUERR",
+    "chi2max(DES,PS1)=12    # apply cut only to DES & PS1",
+    "chi2max(CSP)=10        # apply cut to CSP only",
+    "",
+    " - - - - -  Output - - - - - ",
+    "",
+    "prefix=<prefix for output FITRES files>", 
+    "",
+    "cutmask_write=-1  # write all events (include those failing cuts)",
+    "cutmask_write=0   # write only selected SN used in fit (default)",
+    "cutmask_write=64  # include SNe that fail CUTWIN ",
+    "",
+    "write_yaml=1 -> write yaml info output for batch script",
+    "write_csv=1  -> write M0DIF vs. z in csv format for CosmoMC input",
+    "",
+    " - - - - -  fit par initial values and float flags - - - - - ",
+    "",
+    "p1=alpha0        # initial value for alpha",
+    "p2=beta0         # initial value for beta",
+    "p3=alpha1        # alpha = alpha0 + z*alpha1 (default p3=0.0)",
+    "p4=beta1         # beta  = beta0  + z*beta1  (default p4=0.0)",
+    "p5=gamma0        # mag step across hostMass",
+    "p6=gamma1        # z-dependence, gamma = gamma0 + z*gamma1 (default p6=0)",
+    "p7=logmass_cen   # logmass split value",
+    "p8=logmass_tau   # logmass width of transition between step",
+    "p9=Omega_L       # Omega Lambda",
+    "p10=Omega_k      # Omega curvature",
+    "p11=w            # w_DE",
+    "p12=wa           # for w0waCDM model",
+    "p13=scalePCC     # if u13=1 (scale P_CC in BEAMS-like chi2)",
+    "p13=scalePIa     # if u13=2 (= A in Eq 4 of https://arxiv.org/abs/1111.5328)",
+    "p14=sigint       # if using CC prior in BEAMS; WARNING-> DOES NOT WORK !!!",
+    "p15=alphaHost    # dalpha/dlogMhost",
+    "p16=betaHost     # dbeta/dlogMhost",
+    "",
+    "#     if simfile_biascor=H11, use params 17-22",
+    "p17=H11mucc0     # Avg mures = mucc0 + mucc1*z + mucc2*z^2",
+    "p18=H11mucc1  ",
+    "p19=H11mucc2  ",
+    "p20=H11sigcc0    # mures sig = sigcc0 + sigcc1*z + sigcc2*z^2",
+    "p21=H11sigcc1  ",
+    "p22=H11sigcc2  ",
+    "",
+    "u1=1    #  0,1 --> fix/float  parameter 1", 
+    "u2=1    #  0,1 --> fix/float  parameter 2",
+    " ... ",
+    "u13=1   # 1 or 2 defines scalePCC above",
+    " ... ",
+    "u22=1   # 0,1 --> fix/float parameter 22",
+    "sigmb=0.11         # initial guess for sigint",
+    "",
+    "uM0=1   # 0 --> fix M0 params to INPUTS.mag0",
+    "        # 1 --> float M0 in each z bin (default)",
+    "        # 2 --> float M0 as knot with interpolation",
+    "",
+    "fixpar_all=1 # internally set all float logicals to false, even those set ",
+    "             # true in input file. (i.e., uM0=0, u1=0, u2=0, etc ...)",
+    "             # This option turns BBC into a distance calculator.",
+    "",
+    " - - - - -  misc fit params and options - - - - - ",
+    "",
+    "fitflag_sigmb=1  #  find sigmB giving chi2(Ia)/N = 1 (or sig1fit=1)",
+    "fitflag_sigmb=2  #  idem, with extra fit adding 2log(sigma)",
+    "redchi2_tol=0.02 #  tolerance on chi2/dof-1",
+    "M0=-30           #  nominal SN abs mag without offset (note ~ -30, not -19)",
+    "",
+    "sigint_fix=0.11           # fix sigint=0.11 for all data",
+    "sigint_fix=0.11,0.09,0.08 # comma-sep list of sigint_fix for each IDSAMPLE",
+    "",
+    "sigint_step1=0.01  # size of first sigint step to measure chi2/sigint slope",
+    "dchi2red_dsigint   # user-input slope instead of auto-compute (for speed)",
+    "",
+    " - - - - -  blinding params - - - - - ",
+    "",
+    "blindflag=0  # turn off blinding",
+    "blindflag=1  # add cos(10*z)  to MUDIF(z)",
+    "blindflag=2  # DEFAULT: apply random shift to ref OL,w0 (for data only)",
+    "blindflag=66 # 2+64: apply blindflag=2 option to sim & real data",
+    "",
+    "#  With default blindflag=2, user can set blinding parameters with",
+    "blindpar9=0.1,4522   #  OL -> OL + 0.1*cos(4522) ",
+    "blindpar11=0.1,207   #  w  ->  w + 0.1*cos(207) ",
+    "#     [defaults are 0.06,23434 for OL and 0.2,8432 for w]",
+    "",
+    " - - - - - scatter and pec-velocity options - - - - - ",
+    "",
+    "zpecerr=0  # error on vpec/c, to REPLACE original vpec/c, not add.",
+    "vpecerr=0  # error on vpec (km/sec), replaces orig vpec (zpecerr=vpecerr/c)",
+    "#   if zpecerr==0 --> compute zpecerr from biasCor RMS(SIM_VPEC)",
+    "",
+    "zwin_vpec_check=0.01,0.05 # compute RMS(HR) for 0.01<z<0.05 using zHD and",
+    "                          # again with vpec sign-flip; abort if sign-flip", 
+    "                          # RMS(HR) is smaller than no flip.",
+    "zwin_vpec_check=0,0 # disable check on sign-flip.",
+    "",
+    "lensing_zpar=0.055  # add  z*lensing_zpar to sigma_int",
+    "",
+    " - - - - - SUBPROCESS options (for population fitter)  - - - - - ",
+    "",
+    "nthread=<n>                  # use pthread for multiple cores on same node",
+    "SALT2mu.exe SUBPROCESS_HELP  # SUBPROCESS help menu",
+    "",
+    "",
+    " - - - - - catenate FITRES files with different columns - - - - - - ",
+    "# In this example, columns missing in any FITRES file are discarded",
+    "# except for PROB*; missing PROB* columns are appended with -9",
+    "SALT2mu.exe cat_only  \\",
+    "            datafile=<commaSepList> \\",
+    "            append_varname_missing='PROB*'  \\ ",
+    "            catfile_out=<cat_file_out>  ",
+    "",
+    "  or python utility",
+    "      sntable_cat.py -h  # uses SALT2mu.exe ",
+    "",
+    " - - - - - debug options  - - - - - ",
+    "",
+    "snid_mucovdump=5944   # after each fit iteration, full muCOV dump",
+    "debug_mucovscale=44   # print info for j1d=44 (mucovscale cell), and also",
+    "                      # write biasCor-fitres file with mucovScale info",
+    "restore_mucovscale_bug=1 # restore bug using undefined muCOVscale cells",
+
+    0
+  } ;
+
+  //.xyz
+  // uzsim, minos
+
+  int i;
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+
+  return;
+} // end print_SALT2mu_HELP
+
 
 
 #ifdef USE_SUBPROCESS

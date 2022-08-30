@@ -77,6 +77,8 @@ int main(int argc, char **argv) {
 
   // ------------- BEGIN --------------
 
+  if (argc < 2) { print_sim_help();  exit(0); }
+
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
   print_banner(BANNER);
 
@@ -10395,168 +10397,6 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 
 } // end GENSPEC_OBSFLUX_RANSMEAR
 
-
-// *********************************************
-void  GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux, 
-			      double GenFluxErr, double GenFluxErr_T ) {
-
-  // Use Gaussian lambea-resolution to smear flux(imjd,ilam)
-  // over nearby lambda bins.  In each lambda bin, use
-  // GenFluxErr to add Poisson noise.
-  // Inputs
-  //  + imjd         = sparse MJD index for spectra
-  //  + ilam         = wavelength index
-  //  + GenFlux      = flux
-  //  + GenFluxErr   = total flux error, including template noise
-  //  + GenFluxErr_T = template noise contribution
-  //
-  //
-  // Store smeared/observed flux in  arrays
-  //   + GENSPEC.OBSFLUX_LIST 
-  //   + GENSPEC.OBSFLUXERRSQ_LIST 
-  //
-  // Jan 17 2018: use ILIST_RANDOM_SPECTROGRAPH
-  // Oct 25 2019: fix bug setting GRAN_T if there is no template.
-  // Jun 01 2020: move NRAN abort outside loop with more info
-
-  int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
-  int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
-  int noTNOISE   = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
-  int noNOISE    = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
-
-  int NSTREAM      = GENRAN_INFO.NSTREAM ;
-  int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
-  int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; // mark obsolete, Jun 4 2020
-
-  double NSIGLAM, LAMAVG, LAMSIGMA, LAMBIN, LAMSIG0, LAMSIG1;
-  double GINT, SUM_GINT, GINT_SQRT, GRAN_S, GRAN_T ;
-  double tmp_GenFlux, tmp_GenFluxErr, tmp_GenFluxErr_S, tmp_GenFluxErr_T ;
-  double tmp_RanFlux_S, tmp_RanFlux_T, RANGauss_NOISE_TEMPLATE;
-  double GenFluxErr_S, OBSFLUX, OBSFLUXERR ;
-  int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN, LDMP=0 ;
-  char fnam[] = "GENSPEC_LAMSMEAR_LEGACY" ;
-
-  // ----------- BEGIN ---------------
-
-  NBLAM    = INPUTS_SPECTRO.NBIN_LAM ;
-
-  LAMAVG   = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
-  LAMSIGMA = INPUTS_SPECTRO.LAMSIGMA_LIST[ilam] ;
-  NSIGLAM  = INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA ;
-
-  if ( noNOISE > 0  ) { LAMSIGMA = 0.0 ; }
-
-  // get search error by subtracting template contribution
-  GenFluxErr_S = sqrt( GenFluxErr*GenFluxErr - GenFluxErr_T*GenFluxErr_T);
-
-  // for LAMBIN, avoid edge bin which can be artificially small
-  // leading to excessively large NBIN2.
-  ilam_tmp = ilam;  if ( ilam == NBLAM-1 ) { ilam_tmp = NBLAM-2; }
-  LAMBIN   = INPUTS_SPECTRO.LAMBIN_LIST[ilam_tmp] ;
-  NBIN2    = (int)(NSIGLAM*LAMSIGMA/LAMBIN + 0.5) ;  
-  SUM_GINT = 0.0 ; 
-  NRAN     = 0 ;
-
-  /*
-  if( ilam > NBLAM-6 && imjd==0 ) {
-    printf(" xxx %s: ilam=%d LAMAVG=%7.1f  NBIN2=%d \n",
-	   fnam, ilam, LAMAVG, NBIN2);
-  }
-  //xxxxxxx */
-
-  // loop over neighbor bins to smear flux over lambda bins
-  for(ilam2=ilam-NBIN2; ilam2 <= ilam+NBIN2; ilam2++ ) {
-    if ( ilam2 <  0     ) { continue ; }
-    if ( ilam2 >= NBLAM ) { continue ; }
-    
-    // don't bother loading extended lambda bins for lam-res
-    if ( INPUTS_SPECTRO.ISLAM_EXTEND_LIST[ilam2] ) { continue; }    
-
-    GINT = 1.0 ;
-    if ( LAMSIGMA > 0.0 ) {
-      LAMSIG0 = (INPUTS_SPECTRO.LAMMIN_LIST[ilam2]-LAMAVG)/LAMSIGMA ;
-      LAMSIG1 = (INPUTS_SPECTRO.LAMMAX_LIST[ilam2]-LAMAVG)/LAMSIGMA ;
-      GINT = GaussIntegral(LAMSIG0,LAMSIG1); 
-    }
-    else if ( ilam != ilam2 ) // LAMSIGMA=0; dump all flux in same bin
-      { GINT = 0.0 ; }
-
-    SUM_GINT += GINT ; // for debug only; should be 1 except near edges    
-    GINT_SQRT = sqrt(GINT);
-
-    // true flux in this lambda bin
-    tmp_GenFlux      = ( GINT*GenFlux ) ;
-    tmp_GenFluxErr   = GenFluxErr   * GINT_SQRT; // error scaled to flux-frac
-    tmp_GenFluxErr_S = GenFluxErr_S * GINT_SQRT; 
-    tmp_GenFluxErr_T = GenFluxErr_T * GINT_SQRT; 
-
-    if ( noNOISE > 0 ) 
-      { tmp_RanFlux_S = tmp_RanFlux_T = 0.0 ; }
-    else {
-
-      GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
-      if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) { 
-	if ( NSTREAM == 2 ) 
-	  { RANGauss_NOISE_TEMPLATE = unix_getRan_Gauss(ISTREAM_RAN); }
-	else
-	  { RANGauss_NOISE_TEMPLATE = getRan_Gauss(ILIST_RAN); }
-      }
-
-      if ( NSTREAM ==  2 ) 
-	{ GRAN_S = unix_getRan_Gauss(ISTREAM_RAN); }
-      else
-	{ GRAN_S = getRan_Gauss(ILIST_RAN); }
-
-      GRAN_T = RANGauss_NOISE_TEMPLATE ;
-
-      // random noise from search 
-      tmp_RanFlux_S = tmp_GenFluxErr_S * GRAN_S ;
-      if ( onlyTNOISE ) { tmp_RanFlux_S = 0.0 ; }
-      
-      // correlated random noise from template
-      tmp_RanFlux_T = tmp_GenFluxErr_T * GRAN_T ;
-      if ( noTNOISE ) { tmp_RanFlux_T = 0.0 ; }
-    }
-
-    
-    LDMP = (ilam > NBLAM-6 && imjd == -10 );
-    if ( LDMP ) {
-      printf(" xxx ilam=%3d(%d)  imjd=%d  noise(S,T) = %10.3le , %10.3le\n",
-	     ilam, ilam2, imjd, tmp_RanFlux_S, tmp_RanFlux_T );
-      //      printf(" xxx \t (%f, %f) \n", GenFluxErr, GenFluxErr_T  );
-    }
-    
-    // add noise to true flux
-    OBSFLUX    = tmp_GenFlux + tmp_RanFlux_S + tmp_RanFlux_T ;
-    OBSFLUXERR = tmp_GenFluxErr ; // naive obs-error is true error
-
-    // increment sum of obsFlux and sum of error-squared.
-
-    GENSPEC.OBSFLUX_LIST[imjd][ilam2]      += OBSFLUX ;  
-    GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam2] += (OBSFLUXERR*OBSFLUXERR) ;
-    GENSPEC.GENFLUX_LAMSMEAR_LIST[imjd][ilam2] += tmp_GenFlux ;
-
-    NRAN++ ;
-
-  } // end ilam2
-    
-  // - - - - - -
-  if ( NRAN >= MXLAMSMEAR_SPECTROGRAPH ) {
-    print_preAbort_banner(fnam);    
-    printf("\t NSIGLAM  = %f \n", NSIGLAM);
-    printf("\t LAMSIGMA = %f \n", LAMSIGMA );
-    printf("\t LAMBIN   = %f \n", LAMBIN);
-    printf("\t NBIN2    = %d \n", NBIN2 );
-    sprintf(c1err,"NLAMSMEAR = %d exceeds bound of %d",
-	    NRAN, MXLAMSMEAR_SPECTROGRAPH );
-    sprintf(c2err,"ilam=%d LAMAVG=%.2f", ilam, LAMAVG );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-
-  return ;
-
-} // end GENSPEC_LAMSMEAR_LEGACY
 
 // *************************************************
 void GENSPEC_FUDGES(int imjd) {
@@ -28909,202 +28749,44 @@ void test_igm(void) {
 
 } // end test_igm 
 
-// **************************************
-void  prep_RANSYSTPAR_LEGACY(void) {
+// =============================
+void print_sim_help(void) {
 
-  // Created Jun 2017
-  // Prepare optional systematic offsets using random numbers.
-  // This allows user to specify one set of Gaussian sigmas
-  // (using RANSYSTPAR_XXX params) and then changing RANSEED
-  // results in random set of systematic offsets.
-  //
-  // Do NOT try to sync randoms here; burn randoms only if required.
-  //
-  // Nov 9 2020: refactor filter-dependent RANSYSTPAR (see manual)
+  static char *help[] = {
+    "\t ***** snlc_sim help menu *****",
+    "snlc_sim.exe <inputFile>   <keyopt1=arg1> <keyopt2=arg2> etc ...",    
+    "",
+    "#  - - - - - Output data - - - - - ",
+    "",
+    "GENVERSION: <name>        #  name of output data folder",
+    "NGENTOT_LC:  <ngen>       #  number of events to generate",
+    "FORMAT_MASK: <mask>       #  += 2,32,16 -> TEXT, FITS, randomCID",
+    "GENTYPE:     <type>       # true integer type",
+    "SNTYPE: <IDspec> <IDphot> # reported SNTYPE for spec- and photmetric id",
+    "CIDOFF: <cidoff>          # CID offset",
+    "",
+    "#  - - - - - - Source model - - - - - - - ",
+    "",
+    "GENMODEL:  <model>                #  SN model name (manual Sec 9)",
+    "           # e.g., SALT2.[name]  SIMSED.[name]  NONIASED.[name] ... ",
+    "GENMAG_SMEAR_MODELNAME:  <model>  # SNIa intrinsic scatter model name",
+    "",
+    "# - - - - - - Instrumental inputs - - - - - ",
+    "",
+    "GENFILTERS: <filters>   # list of filter band; e.g, ugriz ",
+    "KCOR_FILE:    <name>    # file name of kcor/calibration file",
+    "SIMLIB_FILE:  <name>    # file name of cadence library",
+    "SMEARFLAG_FLUX:   <opt> # 1->add Poisson noise",
+    "SMEARFLAG_ZEROPT: <opt> # +=1->apply scatter, +=2->add to FLUXERRCAL",
+    0
+  };
 
-  int   ifilt, ifilt_obs, NSET=0; 
-  int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
-  int   ILIST_RAN=1;
-  float tmp, tmpSigma, *tmpRange, Range ;
-  float SIGSCALE_MIN = -1.0E-6, SIGSCALE_MAX = 0.2 ;
-  double gmin = -3.0, gmax=+3.0; // Gaussian clip params
-  char cfilt[2], *wildcard ;
-  char fnam[] = "prep_RANSYSTPAR_LEGACY" ;
+  int i;
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
 
-  // ---------- BEGIN -----------
-
-  if ( INPUTS.RANSYSTPAR.USE == 0 ) { return ; }
-
-  sprintf(BANNER,"%s: Prepare Random set of Systematic Errors", fnam );
-  print_banner(BANNER);
-
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  //   Start with variations that are synched among sub-samples
-  //   (e.g., among separate simulation for each survey)
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-  printf("\t* First Sync-Syst Random : %f \n", getRan_Flat1(ILIST_RAN) );
-
-  // Galactic extinction
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
-  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
-  if ( tmpSigma != 0.0 ) {   
-    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.MWEBV_SCALE = tmp;
-    printf("\t FUDGESCALE_MWEBV  = %.2f \n", tmp );
-  }
-
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ;
-  if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.RV_MWCOLORLAW += tmp ;
-    printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
-  }
+  return;
   
-  // host photo-z, R.Kessler May 2 2022
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_zPHOT_HOST;
-  if ( tmpSigma != 0.0 ) {
-    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.HOSTLIB_GENZPHOT_BIAS[0] = tmp;
-    INPUTS.USE_HOSTLIB_GENZPHOT = 1;
-    printf("\t HOSTLIB_GENZPHOT_BIAS  = %f \n", tmp );
-  }
+} // end print_sim_help
 
-
-  // Redshift P.Armstrong 2020
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
-  if ( tmpSigma != 0.0 ) {
-    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.GENBIAS_REDSHIFT = tmp ;
-    printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
-   }
-
-  // - - - - - 
-  // check wild card files
-  wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD; 
-  if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENMODEL_WILDCARD", INPUTS.GENMODEL); }
-
-  wildcard = INPUTS.RANSYSTPAR.GENPDF_FILE_WILDCARD;
-  if ( strlen(wildcard) > 0 ) 
-    { pick_RANSYSTFILE_WILDCARD(wildcard, "GENPDF_FILE_WILDCARD", INPUTS.GENPDF_FILE); }
-
-  // cosmology params (Aug 2019)
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
-  if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.OMEGA_MATTER += tmp ;
-    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
-  }
-
-  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER ;
-  if ( tmpRange[1] > tmpRange[0] ) { 
-    NSET++; Range = tmpRange[1] - tmpRange[0];
-    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
-    INPUTS.OMEGA_MATTER += tmp ;
-    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
-  }
-
-
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
-  if ( tmpSigma != 0.0 ) { 
-    NSET++; tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.w0_LAMBDA += tmp ;
-    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
-  }
-
-  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
-  if ( tmpRange[1] > tmpRange[0] ) { 
-    NSET++; Range = tmpRange[1] - tmpRange[0];
-    tmp = tmpRange[0] + Range * getRan_Flat1(ILIST_RAN);
-    INPUTS.w0_LAMBDA += tmp ;
-    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
-  }
-
-  printf("\t* Last  Sync-Syst Random : %f "
-	 "(should be same each survey)\n", getRan_Flat1(ILIST_RAN) );
-
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  //     Now the unsynched variations
-  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-  // need to unsync the randoms among surveys. Add 137*IDSURVEY
-  // to ISEED and then re-init the randoms with new SEED.
-
-  int IDUM      = GENLC.IDSURVEY ;
-  int ISEED_OLD = INPUTS.ISEED ;
-  int ISEED_NEW = ISEED_OLD + 137*IDUM ;
-  INPUTS.ISEED  = ISEED_NEW ;
-  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
-  printf("\t* ISEED = %d --> %d \n", ISEED_OLD, ISEED_NEW );
-
-  printf("\t* First Unsync-Syst Random : %f "
-	 "(should differ each survey)\n", getRan_Flat1(ILIST_RAN) );
-
-  // start with fluxerr fudging; SIGSCALE is sigma on fractional change
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
-  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
-  if ( tmpSigma != 0.0 ) {   
-    NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.FUDGESCALE_FLUXERR = tmp;
-    printf("\t FUDGESCALE_FLUXERR(true&measured) = %.3f \n", tmp );
-    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
-      { INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt] = tmp; }
-  }
-
-  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
-  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
-  if ( tmpSigma != 0.0 ) {   
-    NSET=1; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-    INPUTS.FUDGESCALE_FLUXERR2 = tmp;
-    printf("\t FUDGESCALE_FLUXERR2(measured) = %.3f \n", tmp );
-    for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
-      { INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt] = tmp; }
-  }
-
-  // ZP error
-  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
-    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
-    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt];
-    if ( tmpSigma != 0.0 ) {
-      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-      INPUTS.TMPOFF_ZP[ifilt]         = tmp;
-      INPUTS.GENMAG_OFF_ZP[ifilt_obs] = tmp ;
-      printf("\t ZPerr(%s) = %7.4f  (SIG=%.3f) \n", 
-	     cfilt, tmp, tmpSigma );
-    }
-  }
-
-  // LAMshift error
-  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
-    ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
-    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt];
-    if ( tmpSigma != 0 ) {
-      NSET++ ;  tmp = tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
-      INPUTS.FUDGESHIFT_LAM_FILTER[ifilt_obs] = tmp ;
-      INPUTS.TMPOFF_LAMFILT[ifilt]            = tmp ;
-      printf("\t LAMSHIFT(%s) = %6.2f A  (SIG=%.1f A)\n", 
-	     cfilt, tmp, tmpSigma );
-    }
-  }
-
-
-  printf("   %d Systematic Errors have been set. \n", NSET);
-
-  // - - - - - - - - - - - -
-  // check option to reset randoms with fixed random seed
-  // so that there are no stat fluctuations between
-  // GENVERSIONs with different systematics.
-  int RANSEED_GEN = INPUTS.RANSYSTPAR.RANSEED_GEN;
-  if ( RANSEED_GEN > 0 ) {
-    printf("   Re-init randoms with RANSEED = %d\n", RANSEED_GEN ) ;
-    init_random_seed(RANSEED_GEN, INPUTS.NSTREAM_RAN); 
-  }
-
-  printf("\n");
-
-  return ;
-
-} // end prep_RANSYSTPAR_LEGACY

@@ -9020,7 +9020,7 @@ a list of CIDs:
                                             ! separate CIDs by space or <CR>
 
    OPT_SNCID_LIST = 1    ! ignore SN cuts & process all CIDs in list 
-   OPT_SNCID_LIST = 2    ! use PKMJDINI from FITRES-list file
+   OPT_SNCID_LIST = 2    ! if FITRES format, use SALT2 params as initial values in LCFIT
    OPT_SNCID_LIST = 3    ! both of the above
 
    MXEVT_PROCESS = 20    ! stop processing after 20 events
@@ -9055,9 +9055,10 @@ forces all CIDs to be processed; example use is for systematics
 tests with small calibration shifts that could migrate events
 in and out of SNR cuts. Beware that while SN-select cuts are ignored,
 epoch-select cuts are still applied.
-The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses {\tt PKMJDINI} 
-from list-file, and does not re-compute it; code aborts if
-requested {\tt PKMJDINI} column does not exist.
+The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses SALT2 parameters as initial
+values for LC fit. If {\tt \&FITINP} namelist input {\tt INISTP\_COLOR=0}, 
+the SALT2 color parameter from the FITRES file is fixed for all fit iterations,
+and similarly for the other {\tt INISTP} inputs.   
 
 Finally, {\tt MXEVT\_PROCESS} stops processing after this many
 events, regardless of of how the other ``{\tt CID}'' inputs are set.

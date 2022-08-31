@@ -9477,8 +9477,8 @@ C ==========================
 C Created Apr 29 2022 by R.Kessler
 c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
 c values to use as INIVAL when iter=1.
-c TO DO: If INISTP(ipar)=0 [fixed parameter value], 
-c  apply previous SALT2 fit value for all iterations.
+c If INISTP(ipar)=0 [fixed parameter value], 
+c apply previous SALT2 fit value for all iterations.
 c .xyz
 
       IMPLICIT NONE
@@ -9495,7 +9495,7 @@ c .xyz
       LOGICAL USE_FITPAR_LIST_FILE
       REAL*8  DVAL
       CHARACTER cVAR*40
-      LOGICAL LDMP 
+      LOGICAL LDMP, FIRST_ITER, LSET
 
       REAL*8   MATCH_CIDLIST_PARVAL
       EXTERNAL MATCH_CIDLIST_PARVAL
@@ -9505,7 +9505,8 @@ C ----------- BEGIN ----------
       USE_FITPAR_LIST_FILE = BTEST(OPT_SNCID_LIST,1)
       IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
 
-      IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
+      FIRST_ITER = (ITER==1 .and. .not. LREPEAT_ITER) 
+c  xxx mark delete IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
 
 c construct list of params to check in SNCID_LIST file
 
@@ -9529,12 +9530,14 @@ c construct list of params to check in SNCID_LIST file
 
       LDMP = STDOUT_UPDATE 
 
-      DO i = 1, NPAR
+      DO 50 i = 1, NPAR
          IPAR = IPAR_LIST(i)
+         LSET = (FIRST_ITER .or. INISTP(IPAR)==0.)
+         IF (.not. LSET) GOTO 50
          LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
          cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
          if ( IPAR == IPAR_zPHOT ) cVAR = 'zHD' // char(0)
-
+         
          DVAL = 
      &     MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,40)
          if ( DVAL > -999.0 ) THEN
@@ -9545,8 +9548,7 @@ c construct list of params to check in SNCID_LIST file
      &             ' from list file: CID=',A12)
              endif
          ENDIF
-
-      ENDDO
+ 50   CONTINUE
 
       CALL FLUSH(6)
 

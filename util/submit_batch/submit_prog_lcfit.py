@@ -1454,11 +1454,12 @@ class LightCurveFit(Program):
                 nerr += 1
 
         # - - - - - 
-        msgerr = []
-        msgerr.append(f"Found {nerr} VARNAMES mis-matches " \
-                      f"among {n_list} split jobs.")
-        msgerr.append(f"Reference FITRES file is: {table_list[0]}")
-        self.log_assert(False,msgerr) 
+        if nerr > 0 :
+            msgerr = []
+            msgerr.append(f"Found {nerr} VARNAMES mis-matches " \
+                          f"among {n_list} split jobs.")
+            msgerr.append(f"Reference FITRES file is: {table_list[0]}")
+            self.log_assert(False,msgerr) 
 
         return
         # end check_table_varnames_TEXT

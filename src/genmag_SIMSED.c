@@ -1125,7 +1125,7 @@ void checkBinary_SIMSED(char *binaryFile) {
       printf("\n%s\n WARNING INFO: \n", line);
       printf(" %s: \n   %s\n",  ptrType, ptrFile);
       printf(" Stale binary file: \n   %s \n", binaryFile );
-      printf(" is %.3f days older than %s", tdif_day, ptrType );
+      printf(" created %.3f days before %s", tdif_day, ptrType );
 
       if ( ISBATCH_SIMSED ) {
 	sprintf(c1err,"Cannot remake binary file in batch mode.");

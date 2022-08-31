@@ -1313,6 +1313,7 @@ class Program:
 
         # if last merge call (-M), then must wait for all of the done
         # files since there will be no more chances to merge.
+        
         if MERGE_LAST : 
             self.merge_last_wait()
             if nomerge and not merge_background :

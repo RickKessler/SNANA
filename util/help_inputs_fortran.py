@@ -97,19 +97,23 @@ def print_inputs(args,config):
         n_line += 1
         if '+DECK' in line:
             break
-        if '+KEEP' in line:
-            block = line.split(',')[1].replace('.','')
-            #print(f" xxx found KEEP {block}")
+
         if KEY_INPUT in line:
-            tmp = line.split(KEY_INPUT)
+            tmp     = line.split(KEY_INPUT)
             varname = tmp[0]
-            varname = varname.replace('&','')
-            varname = varname.replace(',','')
             comment = tmp[1]
-            print(f" {varname} {comment}")
+
+            varname = varname.replace('&','') # remove continuation char
+            varname = varname.replace(',','') # remove comma
+            varname = varname.replace('!','') # remove comment dhar
+            varname = varname.split('*')[0]   # remove char array sizes
+            varname = varname.strip()         # remove spacces
+            print(f" {varname:<30} {comment}")
             n_input += 1
 
-    print(f"\n Found {n_input} input variables from {n_line} code lines")
+    code_file_base = os.path.basename(args.code_file)
+    print(f"\n Found {n_input} input variables in {code_file_base}   " \
+          f"[tagged with '{KEY_INPUT}'] ")
     return
     # end print_inputs
 

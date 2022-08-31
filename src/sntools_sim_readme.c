@@ -861,7 +861,7 @@ void readme_docana_redshift(int *iline, char *pad) {
 
   dval = (double)INPUTS.VPEC_ERR ;
   VERSION_INFO_load(&i, pad, "VPEC_ERR:", 
-		    "vpec scatter after correction (km/sec)",
+		    "vpec error after correction (km/sec)",
 		    lenkey, false, nval1, &dval, 0.0,9000.0, -1.0); 
 
   dval = (double)INPUTS.VEL_CMBAPEX ;

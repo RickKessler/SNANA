@@ -1445,12 +1445,11 @@ class LightCurveFit(Program):
                         break
 
         # - - - - - - - 
-
         n2_list = len(varnames_list)
         if n2_list != n_list:
             msgerr.append(f"Found {n2_list} VARNAMES keys, but expected {n_list}. ")
-            msgerr.append(f"table_list = \n\t{table_list}}")
-            msgerr.append(f"varnames_list = \n\t{varnames_list}}")
+            msgerr.append(f"table_list = \n\t{table_list}")
+            msgerr.append(f"varnames_list = \n\t{varnames_list}")
             self.log_assert(False,msgerr) 
             
         varnames_ref = varnames_list[0]

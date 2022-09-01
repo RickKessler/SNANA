@@ -21248,4 +21248,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   sntools_dataformat_fits.c
     + add hack for DES to force SUBSURVEY_FLAG=0
 
+  submit_prog_lcfit.py
+    + during merge, abort if any VARNAMES list does not match
+      among SPLIT jobs.
+
 END: 

@@ -1372,8 +1372,10 @@ class LightCurveFit(Program):
         if len(table_list) == 0 :
             return
 
-        # check that all of the VARNAMES lists are the same; else abort
-        ### .xyz debug later self.check_table_varnames_TEXT(table_list)
+        # for FITRES table, check that all of the VARNAMES lists 
+        # are the same; else abort
+        if table_name == SUFFIX_FITRES :
+            self.check_table_varnames_TEXT(table_list)
 
         # construct linux command to catenate TEXT files,
         # and then a special awk command to remove all VARNAMES
@@ -1424,7 +1426,8 @@ class LightCurveFit(Program):
         # Created Aug 31 2022
         # read VARNAMES list for each file in table_list,
         # and abort if any VARNAMES list differs from first table.
-        # .xyz
+        # Beware that this works only for key (FITRES) format;
+        # does not work for CSV formatted tables.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1432,22 +1435,29 @@ class LightCurveFit(Program):
         n_list = len(table_list)
         if n_list == 1 : return
 
-        KEY_VARNAMES = 'VARNAMES:'
+        KEY_VARNAMES   = 'VARNAMES:'
+        VARNAMES_EMPTY = 'EMPTY'  # for empty file where 0 events pass
+
         varnames_list = []
         for tb_file in table_list:
             tb_file_full = f"{script_dir}/{tb_file}"
             with open(tb_file_full,"rt") as t:
                 line_list = t.readlines()
-                for line in line_list:
-                    if KEY_VARNAMES in line:
-                        varnames = line.split(KEY_VARNAMES)[1]
-                        varnames_list.append(varnames)
-                        break
+                if len(line_list) == 0:
+                    # flag empty FITRES file to avoid false error
+                    varnames_list.append(VARNAMES_EMPTY)
+                else:
+                    for line in line_list:
+                        if KEY_VARNAMES in line:
+                            varnames = line.split(KEY_VARNAMES)[1]
+                            varnames_list.append(varnames)
+                            break
 
         # - - - - - - - 
         n2_list = len(varnames_list)
         if n2_list != n_list:
-            msgerr.append(f"Found {n2_list} VARNAMES keys, but expected {n_list}. ")
+            msgerr.append(f"Found {n2_list} VARNAMES keys, " \
+                          f"but expected {n_list}. ")
             msgerr.append(f"table_list = \n\t{table_list}")
             msgerr.append(f"varnames_list = \n\t{varnames_list}")
             self.log_assert(False,msgerr) 
@@ -1455,7 +1465,9 @@ class LightCurveFit(Program):
         varnames_ref = varnames_list[0]
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
-            if varnames != varnames_ref :
+            is_empty = (varnames == VARNAMES_EMPTY)
+            is_match = (varnames == varnames_ref)
+            if not (is_empty or is_match):
                 logging.info(f"ERROR: VARNAMES mis-match for {tb_file}")
                 nerr += 1
 

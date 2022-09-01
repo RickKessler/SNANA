@@ -1373,7 +1373,7 @@ class LightCurveFit(Program):
             return
 
         # check that all of the VARNAMES lists are the same; else abort
-        self.check_table_varnames_TEXT(table_list)
+        ### .xyz debug later self.check_table_varnames_TEXT(table_list)
 
         # construct linux command to catenate TEXT files,
         # and then a special awk command to remove all VARNAMES

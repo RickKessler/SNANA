@@ -139,6 +139,8 @@
      All previous args should still work; this update allows
      more variations of inputs.
 
+ Sep 1 2022: if no args, call print_combine_fitres_help()
+
 ******************************/
 
 #include <stdio.h>
@@ -159,7 +161,7 @@
 // Function Declarations
 // ================================
 
-
+void  print_combine_fitres_help(void);
 void  PARSE_ARGV(int argc, char **argv);
 bool  keyarg_match(char *arg, char *keyname_base);
 void  parse_FFILE(char *arg);
@@ -319,6 +321,9 @@ int main(int argc, char **argv) {
 
   // ----------------- BEGIN --------
 
+  // Give help if no arguments  
+  if (argc < 2) { print_combine_fitres_help();  exit(0); }
+
   sprintf(BANNER,"Begin execution of combine_fitres.exe \n" );
   print_banner(BANNER);
 
@@ -358,7 +363,82 @@ int main(int argc, char **argv) {
 } // end of main
 
 
-// ===============================
+// ======================================
+void  print_combine_fitres_help(void) {
+
+  // Creatd Sep 1 2022
+
+  static char *help[] = {
+
+    "",
+    "\t ***** combine_fitres.exe help menu *****",
+    "",
+    "# All arguments are input via command-line; there is no config file.",
+    "",
+    "# Usage:",
+    "      combine_fitres.exe <fitres1> <fitres2> ... ",
+    "",
+    "# Example: both fitres1 and fitres2 are FITRES (text) table files",
+    "# containing",
+    "   VARNAMES: CID zHD mB x1 c extra1  # fitres1",
+    "   VARNAMES: CID zHD mB x1 c extra2  # fitres2",
+    "# The output fitres file from above combine_fitres.exe command contains",
+    "   VARNAMES: CID zHD mB x1 c extra1 zHD_2 mB_2 x1_2 c_2 extra2",
+    "# where the  '_2' suffix indicates a duplicate variable in 2nd file.",
+    "# Since extra1 and extra2 are unique, there is no added suffix.",
+    "# If 3 fitres files are given, e.g, ",
+   "      combine_fitres.exe <fitres1> <fitres2> <fitres3> ",
+    "# the output file contains",
+    "   VARNAMES: CID zHD mB x1 c extra1 \\",
+    "             zHD_2 mB_2 x1_2 c_2 extra2 \\",
+    "             zHD_3 mB_3 x1_3 c_3 extra3",
+    "",
+    "The fitres1 file defines the list of CIDs in output file.",
+    "If fitres2 has additional CIDs that are not in fitres1,",
+    "these extra CIDs do not appear in the output fitres file.",
+    "If fitres1 has CIDs that are not in fitres2, they will appear",
+    "in output fitres file, and all of the fitres2 values are -888",
+    "(or arg of --nullval_float; see below)",
+    "",
+    "# - - - - - - Output files - - - - - -",  
+    "# The default output files are",
+    "      combine_fitres.text    ",
+    "      combine_fitres.root   (root tree) ",
+    "      combine_fitres.hbook  (hbook column-wise ntuple)",
+    "",
+    "# - - - - - - Misc options - - - - - -",
+    " --outprefix   <prefix>       # replace default combine_fitres prefix",
+    " --outfile_text <outfile>     # replace entire file name for text",
+    " --outfile_text <outfile.gz>  # produce gzipped output",
+    "",
+    "# output table file extensions:",
+    " -T or T  # .TEXT extension, and suppress ROOT and HBOOK output",
+    " -t or t  # .text extension, and suppress ROOT and HBOOK output",
+    " -R or R  # .ROOT extension ",
+    " -r or r  # .root extension ",
+    " -H or H  # .HBOK extension ",
+    " -h or h  # .hbook extension ",
+    " ",
+    " --mxrow <mxrow>        # output this number of rows (default=all)",
+    " --zcut <zmin> <zmax>   # zHD cut window",
+    "",
+    " --varnames zHD,c,x1,SIM_DLMAG  # select CID and these varnames",
+    "",
+    " --nullval_float -12345  # override default nullval of -888",
+    
+    0
+  };
+
+  int i;
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+
+  
+  return;
+} // end print_combine_fitres_help
+
+// ======================================
 void  init_misc(void) {
 
   int i;

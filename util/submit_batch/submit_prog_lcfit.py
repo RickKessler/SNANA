@@ -1428,7 +1428,7 @@ class LightCurveFit(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
-
+        msgerr           = []
         n_list = len(table_list)
         if n_list == 1 : return
 
@@ -1445,7 +1445,14 @@ class LightCurveFit(Program):
                         break
 
         # - - - - - - - 
-        
+
+        n2_list = len(varnames_list)
+        if n2_list != n_list:
+            msgerr.append(f"Found {n2_list} VARNAMES keys, but expected {n_list}. ")
+            msgerr.append(f"table_list = \n\t{table_list}}")
+            msgerr.append(f"varnames_list = \n\t{varnames_list}}")
+            self.log_assert(False,msgerr) 
+            
         varnames_ref = varnames_list[0]
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
@@ -1455,7 +1462,6 @@ class LightCurveFit(Program):
 
         # - - - - - 
         if nerr > 0 :
-            msgerr = []
             msgerr.append(f"Found {nerr} VARNAMES mis-matches " \
                           f"among {n_list} split jobs.")
             msgerr.append(f"Reference FITRES file is: {table_list[0]}")

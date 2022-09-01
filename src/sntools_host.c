@@ -2124,12 +2124,13 @@ void read_head_HOSTLIB(FILE *fp) {
   // Jun 09 2021: use match_varname_HOSTLIB to apply logic for
   //              case-sensitive matching.
   //
-
+  // Aug 31 2022: restore CHECK_DUPLICATE_COLUMNS=T
+  //
   int MXCHAR    = MXCHAR_LINE_HOSTLIB ;
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
-  bool CHECK_DUPLICATE_COLUMNS = false; // set True after GHOSTLIBS are fixed
+  bool CHECK_DUPLICATE_COLUMNS = true; 
   int  LEN_PREFIX_ZPHOT_Q = strlen(HOSTLIB_PREFIX_ZPHOT_Q);
 
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;

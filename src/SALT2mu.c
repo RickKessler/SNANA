@@ -9552,7 +9552,12 @@ void prepare_biasCor(void) {
   }
 
   if ( DOCOR_1D && DOCOR_5D ) {
-    sprintf(c1err,"Cannot do 1D and 5D biasCor.");
+    print_preAbort_banner(fnam);
+    printf("  opt_biascor = %d \n", OPTMASK);
+    printf("  DOCOR_1DZAVG=%d   DOCOR_1DZWGT=%d  DOCOR_1D5DCUT=%d \n",
+	   DOCOR_1DZAVG, DOCOR_1DZWGT, DOCOR_1D5DCUT);
+
+    sprintf(c1err,"Cannot do 1D and 5D biasCor (opt_biascor=%d).", OPTMASK);
     sprintf(c2err,"opt_biascor logic is messed up.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
@@ -9786,8 +9791,11 @@ void print_biascor_options(void) {
   if ( opt_biasCor & MASK_BIASCOR_1DZWGT ) 
     { print_biascor_comment(MASK_BIASCOR_1DZWGT,"Interp MUBIAS vs. z (1D), WGT=1/muerr^2"); }
 
-  if ( opt_biasCor & MASK_BIASCOR_1DZAVG ) 
-    { print_biascor_comment(MASK_BIASCOR_1D5DCUT,"1DZWGT, but apply 5D cut (test)"); }
+  if ( opt_biasCor & MASK_BIASCOR_1DZ ) 
+    { print_biascor_comment(MASK_BIASCOR_1DZ,"Interp MUBIAS vs. z (1D)"); }
+
+  if ( opt_biasCor & MASK_BIASCOR_1D5DCUT ) 
+    { print_biascor_comment(MASK_BIASCOR_1D5DCUT, "1DZWGT, but apply 5D cut (test)"); }
 
   if ( opt_biasCor & MASK_BIASCOR_5D ) 
     { print_biascor_comment(MASK_BIASCOR_5D,"5D biasCor map"); }
@@ -11100,7 +11108,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	     z, a, b, gDM);
       printf("\t ia,ib,ig = %d, %d, %d \n", ia, ib, ig);
       printf("\t istat_cov = %d \n", istat_cov);
-
+      printf("\t IDSAMPLE=%d (%s) \n",
+	     IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );
       for(ipar=0; ipar < NLCPAR; ipar++ ) { 
 	char *name = BIASCOR_NAME_LCFIT[ipar];
 	float val  = INFO_BIASCOR.TABLEVAR.fitpar[ipar][ievt]; 
@@ -14161,8 +14170,13 @@ void get_muBias(char *NAME,
 	  VAL = FITPARBIAS_ABGRID[ia][ib][ig].VAL[ipar];
 	  ERR = FITPARBIAS_ABGRID[ia][ib][ig].ERR[ipar];
 	  if ( VAL > 600.0 || isnan(ERR) ) {
-	    sprintf(c1err,"Undefined %s-bias = %.3f +- %.3f for CID=%s", 
-		    BIASCOR_NAME_LCFIT[ipar], VAL, ERR, NAME);
+	    int IDSAMPLE = BIASCORLIST->idsample ;
+	    print_preAbort_banner(fnam);
+	    printf(" BiasCor IDSAMPLE = %d (%s)\n",
+		   IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );
+	    printf(" BiasCor CID      = %s \n", NAME); // .xyz
+	    sprintf(c1err,"Undefined %s-bias = %.3f +- %.3f ", 
+		    BIASCOR_NAME_LCFIT[ipar], VAL, ERR);
 	    sprintf(c2err,"ia,ib,ig=%d,%d,%d  a,b,g=%.3f,%.2f,%.3f",
 		    ia, ib, ig, alpha, beta, gammadm );
 	    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
@@ -21569,7 +21583,6 @@ void print_SALT2mu_HELP(void) {
     0
   } ;
 
-  //.xyz
 
   int i;
   // ----------- BEGIN ------------                                            

@@ -21221,6 +21221,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    SALT2mu.c:
      + write comment to stdout for each bit in opt_biascor
+     + fix bugs printing opt_biascor mask bits/comments.
 
    makeDataFiles:
      + add output_csv option

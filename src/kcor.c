@@ -225,6 +225,8 @@ int main(int argc, char **argv) {
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_KCOR);
 
+  if (argc < 2) { print_kcor_help();  exit(0); }
+
   // get name of user input file
 
   if ( argc >= 2 ) {
@@ -282,6 +284,81 @@ int main(int argc, char **argv) {
 } // end of main
 
 
+// ***********************************
+void  print_kcor_help(void) {
+
+
+  static char *help[] = {
+
+    "",
+    "\t ***** kcor.exe help menu *****",
+    "",
+    "# Original kcor program was designed for mlcs2k2 that uses explicit",
+    "# k-corrections, but this code has evolved into storing filters ",
+    "# and calibration info (without K-corrections) for SALT2/3 models.",
+    "# Thus the code name 'kcor' is mis-leading since this is really a",
+    "# calibration-storage program.",
+    "# The program output is a fits-formatted file (see OUTDIR key below)",
+    "# that is the input argument for the KCOR_FILE key in both the ",
+    "# snlc_sim.exe and snlc_fit programs.",
+    "",
+    "# Usage:",
+    "   kcor.exe <InputFile>",
+    "",
+    "# InputFile keys: ",
+    "",
+    "SN_SED: <file>   # SN flux vs. lam and phase",
+    "",
+    "# Example filter system for DES:",
+    "MAGSYSTEM: AB        # AB, BD17, VEGA",
+    "FILTSYSTEM: COUNT    # COUNT or ENERGY",
+    "FILTPATH:   $SNDATA_ROOT/filters/DES/DES-SN3YR_DECam",
+    "SURVEY: DES             # must be defined in $SNDATA_ROOT/SURVEY.DEF",   
+    "FILTER:  DES-g   DECam_g.dat   0.0   # stringName  file  ZPoff",
+    "FILTER:  DES-r   DECam_r.dat   0.0  ",
+    "FILTER:  DES-i   DECam_i.dat   0.0  ",
+    "FILTER:  DES-z   DECam_z.dat   0.0  ",    
+    "#    (last char of stringName is used in snlc_sim and snlc_fit)",
+    "",
+    "# other magsystem options:",
+    "MAGSYSTEM: BD17      # define BD17 system",
+    "MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB",
+    "",
+    "# mutiple surveys can match a filter set; e.g., ",
+    "SURVEYS: FOUNDATION,PS1MD  ",
+    "",
+    "# optional ZPOFF file to override default ZPOFF.DAT, ",
+    "# or to adjust published mag-system offsets",
+    "ZPOFF_FILE: ZPOFF_UPDATED.DAT  ",
+    "#   (if no slash in file name, check FILTPATH)",
+    "",
+    "LAMBDA_RANGE: <lammin> <lammax>   # wave-range for filters and primary",
+    "OUTFILE:  <outFile>               # output fits file",
+    "#   (this outFile is input arg for KCOR_FILE in snlc_sim and snlc_fit)",
+    "",
+    "# To define K-corrections: ",
+    "KCOR:  <restFilter>  <obsFilter>   K_ro  # ",
+    "",
+    "REDSHIFT_RANGE: <zmin> <zmax>  # z-range to store kcor table ",
+    "REDSHIFT_BINSIZE: <binSize>    # z-bin size of kcor table",
+    "",
+    "# AV-warp params for k-corrs:"
+    "RV:         3.1       " ,
+    "AV_RANGE:   -6.0  6.0 " , 
+    "AV_BINSIZE:  0.5    # increase for faster kcor generation ",
+    "AV_OPTION:   2      # 2->proper integration over filter",
+    0
+  };
+
+  int i;
+
+  // ----------- BEGIN ------------                                            
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+  
+  return;
+
+} // end print_kcor_help
 
 // ******************************
 int rd_input(void) {

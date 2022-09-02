@@ -21279,8 +21279,7 @@ void print_SALT2mu_HELP(void) {
     "",
     "#   input file and command line key-options",
     "",
-    "",
-    " - - - - -  Inputs - - - - - ",
+    " - - - - -  Input data - - - - - ",
     "",
     "datafile=<comma-sep list of fitres file names to analyze>",
     "",
@@ -21505,6 +21504,7 @@ void print_SALT2mu_HELP(void) {
     "",
     " - - - - -  misc fit params and options - - - - - ",
     "",
+    "minos=0          #  1 --> MINUIT minos errors",
     "fitflag_sigmb=1  #  find sigmB giving chi2(Ia)/N = 1 (or sig1fit=1)",
     "fitflag_sigmb=2  #  idem, with extra fit adding 2log(sigma)",
     "redchi2_tol=0.02 #  tolerance on chi2/dof-1",
@@ -21528,10 +21528,11 @@ void print_SALT2mu_HELP(void) {
     "blindpar11=0.1,207   #  w  ->  w + 0.1*cos(207) ",
     "#     [defaults are 0.06,23434 for OL and 0.2,8432 for w]",
     "",
-    " - - - - - scatter and pec-velocity options - - - - - ",
+    "# - - - - - scatter and pec-velocity options - - - - - ",
     "",
     "zpecerr=0  # error on vpec/c, to REPLACE original vpec/c, not add.",
-    "vpecerr=0  # error on vpec (km/sec), replaces orig vpec (zpecerr=vpecerr/c)",
+    "vpecerr=0  # error on vpec (km/sec), ",
+    "           #  [replaces orig vpec (zpecerr=vpecerr/c)]",
     "#   if zpecerr==0 --> compute zpecerr from biasCor RMS(SIM_VPEC)",
     "",
     "zwin_vpec_check=0.01,0.05 # compute RMS(HR) for 0.01<z<0.05 using zHD and",
@@ -21541,13 +21542,13 @@ void print_SALT2mu_HELP(void) {
     "",
     "lensing_zpar=0.055  # add  z*lensing_zpar to sigma_int",
     "",
-    " - - - - - SUBPROCESS options (for population fitter)  - - - - - ",
+    "# - - - - - SUBPROCESS options (for population fitter)  - - - - - ",
     "",
     "nthread=<n>                  # use pthread for multiple cores on same node",
     "SALT2mu.exe SUBPROCESS_HELP  # SUBPROCESS help menu",
     "",
     "",
-    " - - - - - catenate FITRES files with different columns - - - - - - ",
+    "# - - - - - catenate FITRES files with different columns - - - - - - ",
     "# In this example, columns missing in any FITRES file are discarded",
     "# except for PROB*; missing PROB* columns are appended with -9",
     "SALT2mu.exe cat_only  \\",
@@ -21558,7 +21559,7 @@ void print_SALT2mu_HELP(void) {
     "  or python utility",
     "      sntable_cat.py -h  # uses SALT2mu.exe ",
     "",
-    " - - - - - debug options  - - - - - ",
+    "# - - - - - debug options  - - - - - ",
     "",
     "snid_mucovdump=5944   # after each fit iteration, full muCOV dump",
     "debug_mucovscale=44   # print info for j1d=44 (mucovscale cell), and also",
@@ -21569,7 +21570,6 @@ void print_SALT2mu_HELP(void) {
   } ;
 
   //.xyz
-  // uzsim, minos
 
   int i;
   // ----------- BEGIN ------------                                            
@@ -21577,6 +21577,7 @@ void print_SALT2mu_HELP(void) {
     { printf ("%s\n", help[i]); }
 
   return;
+
 } // end print_SALT2mu_HELP
 
 

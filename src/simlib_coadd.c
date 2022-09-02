@@ -55,66 +55,12 @@
     simlib_coadd <simlib_file>  AVG   (average fluxes)
     simlib_coadd <simlib_file>  SNLS  (add Vega zeropts)
 
-    simlib_coadd <simlib_file>  ASTIER06  (idem SNLS, but
-                                           use only Astier06 SN)
-
     simlib_coadd <simlib_file> SORT_BAND (sort by band before coadd) 
          # e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded.
 
   History
   ---------
 
-  Nov 15, 2007: add "ASTIER06" option to use exactly those
-                SN that were published. See new function
-                LOAD_LIBID_ASTIER06(). Note that 2 of the 71
-                published SN are missing from the SIMLIB.
- 
-  Feb 27, 2008: WARNING, use only for SNLS.
-                This code combines measurements in the same night
-                without checking filters ... works for SNLS because
-                their library is ordered by filter, but does NOT 
-                work for ESSENCE since their library has R & I
-                interlaced.  For now, the multiple ESSENCE exposures
-                [within same passband] is so rare that it's not
-                worth fixing this code yet ... but should do so in
-                the future.
- 
-
-  May 14, 2009: fixed above problem so that multiple filters within
-                the same night are processed OK. However, if your
-                library alternates  u, g, u, g ... then nothing
-                gets combined. Must have uu gg etc ... to combine
-                measurements.
-                
-  May 20, 2009: add TRACE option to trace seg-fault. 
-                Fix dumb bug in SIMLIB_compact; set obs=1 for initial cfilt.
-                Change default from AVG to SUM
-
-                MXMJD -> 4000 (was 2000)
-
-                SIMLIB_coadd:
-                 special fix for taking MJD average without roundoff error
-
-  May 28, 2009: 
-     - add option --TDIF <MAXTDIF_COMBINE> 
-     - add option --MINOBS <MINOBS_ACCEPT>
-     - add option MWEBV to compute MWEBV (if zero) from Schlagel maps
-
-     - add screen-dump comment to header in output simlib; 
-       includes exact command to created compact simlib
-
- Jun 8, 2009: define FIELDNAME as part of header
-
- Jan 07, 2011: increase crazy limit on SKYSIG from 400 to 1000;
-               this change is in simlib_tools.c (not here)
-               Also updated commentary above since it confused David.
-
- Aug 14, 2012: increase MXMJD and  MXLIBID  to 6000 (from 4000 and 5000).
-               Needed by Cinabro for LSST SIMLIBS.
-
- Aug 31, 2012: MXMJD -> 100,000 (for 10 year LSST simlibs)
-
- Aug 12, 2014: INPUTS.LIBID_MAX -> 100,000 (was 5,000)
 
  Jun 20 2017: 
     + define double MJD[MXMJD] and stop using float MJD
@@ -252,6 +198,7 @@ struct {
 
 // declare functions
 
+void  print_simlib_coadd_help(void);
 void  parse_args(int argc, char **argv);
 void  SIMLIB_open_read();
 void  SIMLIB_read(int *RDSTAT);
@@ -287,6 +234,8 @@ int main(int argc, char **argv) {
   char cfilt[2];
 
   // --------------- BEGIN --------
+
+  if (argc < 2) { print_simlib_coadd_help();  exit(0); }
 
   parse_args(argc, argv );
 
@@ -392,6 +341,50 @@ int main(int argc, char **argv) {
 
 }  // end of main
 
+
+// ********************************************
+void  print_simlib_coadd_help(void) {
+
+  // Created Sep 1 2022
+
+  static char *help[] = {
+
+    "",
+    "\t ***** simlib_coadd.exe help menu *****",
+    "",
+    "# Usage: ",
+    "    simlib_coadd <simlib_file> <optional args> ",
+    "#     (there is no config file)",
+    "",
+    "# Optional arguments: ",
+    "",
+    "MWEBV               # compute MWEBV from Schlagel maps",
+    "--TDIF <TDIF>       # coadd within TDIF, days (default=0.4)", 
+    "--MINOBS <MINOBS>  # reject LIBIDs with few than MINOBS (default=2)",
+    "",
+    "--MJD_MIN <MJD_MIN>      # select MJDs above MJD_MIN",
+    "--MJD_MAX <MJD_MAX>      # select MJDs below MJD_MAX",
+    "--LIBID_MAX <LIBID_MAX>    ",
+    "--LIBID_MIN <LIBID_MIN>    ",
+    "",
+    "MJD_DMP     # print MJDs to stdout",
+    "SUM         # compute ZP to add fluxes; default ",
+    "AVG         # compute ZP to average fluxes instead of add",
+    "SNLS        # original hack to add Vega zeropts for Astier06",
+    ""
+    "SORT_BAND   # sort by band before coadd",
+    "#   (e.g., g,r,i,g,r,i -> gg,rr,ii so that each band is coadded)",
+    0
+  };
+
+  int i;
+  // ---------- BEGIN ---------
+  for (i = 0; help[i] != 0; i++)
+    { printf ("%s\n", help[i]); }
+  
+  return;
+
+} // end print_simlib_coadd_help
 
 // ********************************************
 void  parse_args(int argc, char **argv) {
@@ -1133,9 +1126,9 @@ void SIMLIB_coadd(void) {
     PTR_INFO_OUTPUT[IPAR_ZPT0+1] /= XN ;
     
     if ( INPUTS.OPT_SNLS == 1 ) {
-      ZPTOFF = ZPTOFF_SNLS(cfilt);
+      ZPTOFF = ZPTOFF_SNLS(cfilt);           // hard-coded hack
       PTR_INFO_OUTPUT[IPAR_ZPT0+0] += ZPTOFF;
-      PTR_INFO_OUTPUT[IPAR_SKYSIG] *= 1.5 ;
+      PTR_INFO_OUTPUT[IPAR_SKYSIG] *= 1.5 ;  // special hack
     }
 
 

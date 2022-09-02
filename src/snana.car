@@ -17833,7 +17833,9 @@ c pick host photoZ
         SNHOST_ZPHOT_ERR(1) = Zhosterr
       endif
 
-      CALL SET_SNHOST_CONFUSION()
+      IF ( DEBUG_FLAG == 902 ) THEN
+         CALL SET_SNHOST_CONFUSION()
+      ENDIF
 
 c compute lumi-distance using "standard" cosmology
 c Useful as initial value for fits.

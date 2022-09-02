@@ -4498,16 +4498,12 @@ c i.e., do not depend on host-match.
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
 
-c xxxxxxxxxxxxx mark delete xxxxxx
-c         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NZPHOT_Q", 
+c xxx mark delete maybe; compute it instead (Sep 2 2022) xxxxxxx
+c         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
 c     &        ONE, STRING, DARRAY, OPT)
-c         SNHOST_NZPHOT_Q = INT(DARRAY(1))
-c xxxxxxxxxx end mark xxxxxxxxxxxxxxxxxxxxx
-
-         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
-     &        ONE, STRING, DARRAY, OPT)
-         SNHOST_CONFUSION = SNGL(DARRAY(1))
-         if(SNHOST_CONFUSION > -98.0) EXIST_SNHOST_CONFUSION = .TRUE.
+c         SNHOST_CONFUSION = SNGL(DARRAY(1))
+c         if(SNHOST_CONFUSION > -98.0) EXIST_SNHOST_CONFUSION = .TRUE.
+c xxxxxx end mark xxxx
 
          KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
          CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
@@ -5638,7 +5634,7 @@ C ------------------- BEGIN ---------------
 
 c - - - - - - - - - - - - - - - - - - 
 c Aug 2022: if there are no arguments, print help menu
-      IF ( NLINE_ARGS == 0 ) THEN  ! .xyz
+      IF ( NLINE_ARGS == 0 ) THEN 
 +SELF,IF=SNANA.
           CODE_FILENAME = 'snana.car'
 +SELF,IF=SNFIT.
@@ -17691,22 +17687,6 @@ c  * erase filter-epochs with bad photometry flag
 c
 c
 c
-c Nov 3 2014: evaluate ISNLC_CUTFLAG_PRIVATE 
-c
-c Mar 2015: after call to CHECK_EPOCH_IGNORE(EP), skip to 201 to 
-c           make sure bad epochs are not used for anything.
-c
-c Aug 11 2015: increment ISNLC_NMJD_INCLUDE 
-c
-c Feb 18, 2017: add epoch cut for CUTWIN_LAMOBS
-c
-c Jul 03, 2017: call COUNTFIELDS before epoch loop instead of after,
-c               so that duplicate-check marks correct FIELDLIST.
-c
-c Aug 29 2017: check logical USESIM_TRUEFLUX
-c
-c Nov 29 2017: apply MWEBV_SCALE and MWEBV_SHIFT here.
-c
 c Feb 12 2018: for USE_SNHOST_ZPHOT=T, convert host zphot to host zcmb
 c Feb 16 2018: compute SNHOST_SBMAG(ifilt)
 c Mar 18 2017: fill SNLC_DTOBS[_SAMEFILT] = time since last obs
@@ -17853,6 +17833,7 @@ c pick host photoZ
         SNHOST_ZPHOT_ERR(1) = Zhosterr
       endif
 
+      CALL SET_SNHOST_CONFUSION()
 
 c compute lumi-distance using "standard" cosmology
 c Useful as initial value for fits.
@@ -17863,6 +17844,7 @@ c Useful as initial value for fits.
       ELSE
          SNLC_DLMAG  = -9.0  ! undefined
       ENDIF
+
 
       do ifilt = 1, NFILTDEF_SURVEY   
          LSNRMAX(ifilt)       = .FALSE.
@@ -18119,6 +18101,8 @@ c check for trigger bit set by survey (5.2019)
           
 200   CONTINUE  ! NEWMJD
 
+c - - - - - -  -
+
       ISNLC_NFILT_SNRMAX    = NBAND_SNRMAX
       ISNLC_NFILT_SNRMAX2   = NBAND_SNRMAX2
 
@@ -18192,7 +18176,7 @@ c check for systematic shifts
       CALL SET_zSHIFT()
 
       RETURN
-      END
+      END  ! end SET_REDSHIFTS
 
 C =============================
 +DECK,SET_ZHELIO.
@@ -18382,6 +18366,50 @@ c bail if none of the zSHIFT options are used
 
       RETURN
       END     ! end SET_zSHIFT
+
+
+C ===============================
++DECK,SET_SNHOST_CONFUSION.
+      SUBROUTINE SET_SNHOST_CONFUSION()
+c 
+c Created Sep 2 2022
+c Compute HOST_CONFUSION based on Eq 3 in Gupta et al, 2016
+c
+
++CDE,SNDATCOM.
+
+      REAL*8   HC, DDLR_LIST(MXSNHOST)
+      INTEGER  igal
+      LOGICAL LDMP / .TRUE. /
+      EXTERNAL HOST_CONFUSION   ! see sntools.c
+      
+C ----------- BEGIN -------------
+
+c .xyz
+      SNHOST_CONFUSION = -9.0
+
+      if ( SNHOST_NMATCH .LE. 1 ) RETURN
+
+c convert single precions to double precision
+      DO igal = 1, SNHOST_NMATCH
+        DDLR_LIST(igal) = DBLE(SNHOST_DDLR(igal))
+      ENDDO
+      HC = HOST_CONFUSION(HOST_NMATCH,DDLR_LIST)
+
+      IF ( LDMP ) THEN
+         print*,' xxx ----------------------------------------- '
+         print*, ' xxx DUMP for SET_SNHOST_CONFUSION '
+         write(6,60) SNLC_CCID(1:12), DDLR_LIST(1), DDLR_LIST(2)
+60       format(' xxx CID=',A,'  DDLR=', 2F9.3 )
+         print*,' xxx HOST_CONFUSION = ', HC
+         print*,' xxx '
+ 	 CALL FLUSH(6)
+      ENDIF
+
+      SNHOST_CONFUSION = SNGL(HC)
+
+      RETURN
+      END   ! end SET_SNHOST_CONFUSION
 
 C ===============================
 +DECK,SET_MAG.

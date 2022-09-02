@@ -3514,6 +3514,9 @@ double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
 
 } // end host_confusion
 
+double host_confusion__(int *N_DDLR, double *DDLR_LIST_SORTED)
+{ return host_confusion(*N_DDLR, DDLR_LIST_SORTED); }
+
 // =============================================
 double angSep( double RA1,double DEC1, 
 	       double RA2,double DEC2, double  scale) {

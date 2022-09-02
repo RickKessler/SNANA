@@ -3474,6 +3474,46 @@ double GaussIntegral(double nsig1, double nsig2) {
 
 } // end GaussIntegral
 
+// =================================================
+double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
+  
+  // Created Sep 2 2022 by R.Kessler
+  // Function returns host confusion variable from Eq 3 in
+  // Gupta et al 2016: 
+  //   https://ui.adsabs.harvard.edu/abs/2016AJ....152..154G
+
+  double HC = -9.0 ;
+  double eps = 1.0E-5;
+  double preFac, tmp, top, bot;
+  double D1, D2, Di, Dj, sqi;
+  int i, j ;
+  // -------------- BEGIN -------------
+
+  if ( N_DDLR <=1 ) { return HC; }
+
+  D1 = DDLR_LIST_SORTED[0]; // D1 is Gupta notation; [0] is C index
+  D2 = DDLR_LIST_SORTED[1];
+  preFac = (D1*D1/D2 + eps) / (D2 - D1 + eps);
+
+  tmp = 0.0 ;
+  // do fortran-like loop from 1-N to mimic Eq 3
+  for(i=1; i <= N_DDLR-1; i++ ) {
+    sqi = (double)(i*i);
+    for(j=i+1; j <= N_DDLR; j++ ) {
+      Di   = DDLR_LIST_SORTED[i-1];
+      Dj   = DDLR_LIST_SORTED[j-1];
+      top  = (Di/Dj) + eps;
+      bot  = sqi * ( Dj - Di + eps);
+      tmp += ( top / bot );
+    }
+  }
+
+  HC = preFac * tmp;
+
+  return HC;
+
+} // end host_confusion
+
 // =============================================
 double angSep( double RA1,double DEC1, 
 	       double RA2,double DEC2, double  scale) {

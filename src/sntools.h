@@ -453,9 +453,6 @@ void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
 void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP,
 		      double *RanList_noCorr, double *RanList_corr);
 
-// xxx void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
-// xxx		  double *RanList_noCorr, double *RanList_corr);
-
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );
 void ABORT_SNANA_DUMP(void) ;
@@ -495,25 +492,6 @@ void print_KEYwarning(int ISEV, char *key_old, char *key_new);
 void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE);
 void set_exit_errcode__(int *ERRCODE);
-
-/* xxxxxxxx mark delete Dec 10 2021 xxxxxxxxx
-void copy_SNDATA_GLOBAL(int copyFlag, char *key,
-			int NVAL, char *stringVal, double *parVal);
-void copy_SNDATA_HEAD(int copyFlag, char *key,
-		      int NVAL, char *stringVal, double *parVal);
-void copy_SNDATA_OBS(int copyFlag, char *key,
-		     int NVAL,char *stringVal, double *parVal);
-int select_MJD_SNDATA(double *CUTWIN_MJD);
-
-void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
-
-void copy_int(int copyFlag, double *DVAL0, int    *IVAL1) ;
-void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
-void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
-void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
-void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
-//void copy_void(int copyFlag, double *DVAL0, void   *VAL1) ;
-xxxxxxxxxxxxxx end mark xxxxxxxxxxx */
 
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
@@ -602,19 +580,6 @@ double asinhinv(double mag, int ifilt);
 
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
-
-/* xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
-int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
-void  wr_HOSTGAL(FILE *fp);
-void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ;
-int  wr_filtband_int   ( FILE *fp, char *keyword,
-			 int NINT, int *iptr, char *comment, int opt );
-int  wr_filtband_float ( FILE *fp, char *keyword,
-			 int NFLOAT, float *fptr, char *comment, int idec );
-int  header_merge(FILE *fp, char *auxheader_file);
-int  sort_epochs_bymjd(void);
-int   WRSTAT ( int wrflag, float value ) ;
-xxxxxxxxxxxxxxxxxxxxx */
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -839,6 +804,8 @@ double angSep( double RA1,double DEC1,
 	       double RA2,double DEC2, double  scale);
 
 double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2 );
+
+double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED);
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan

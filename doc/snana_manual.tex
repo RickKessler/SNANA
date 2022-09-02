@@ -4721,9 +4721,69 @@ results in undefined {\tt REDSHIFT\_FINAL}$= -9 \pm -9$.
 
 
 % ---------------------------------------
-% \clearpage
+\clearpage
+\subsubsection{Connecting {\tt SIMGEN\_DUMP} to {\tt HOSTLIB} }
+\label{sss:dump_to_hostlib}
+% ---------------------------------------
+
+Consider this example in the sim-input file:
+\begin{verbatim}
+  GENVERSION: MYTEST
+  SIMGEN_DUMP: CID,ZCMB,ZHELIO,GALID,GALZTRUE,GALZPHOT,GALZPHOTERR,GALZDIF
+  etc ...
+\end{verbatim}
+%
+The simgen-dump file can be examined with command
+\begin{verbatim}
+  get_fitres_values.py \
+    -f $SNDATA_ROOT/SIM/MYTEST/MYTEST.DUMP \
+    -v ZCMB,ZHELIO,GALID,GALZTRUE,GALZPHOT,GALZPHOTERR,GALZDIF \
+    --nrow 1
+
+CID      ZCMB    ZHELIO   GALID  GALZTRUE  GALZPHOT  GALZPHOTERR   GALZDIF
+2    0.732063  0.733324  328788    0.7359  0.736324       0.0155 -0.002576
+\end{verbatim}
+
+The original {\tt HOSTLIB} information is extracted using the
+{\tt GALID}:
+\begin{verbatim}
+  get_fitres_values.py \
+   -f <HOSTLIB_FILE_NAME> \
+   -g 328788 -v ZTRUE,ZPHOT,ZPHOTERR
+        
+GALID    ZTRUE   ZPHOT  ZPHOTERR
+328788  0.7359  0.7389    0.0155
+\end{verbatim}
+Here a few comments on how these two sets of variables are related
+to each other:
+\begin{itemize}[noitemsep]
+  \item {\tt ZCMB} is randomly selected SN redshift (cmb frame) 
+           from rate model.
+%
+  \item {\tt ZHELIO} is the SN helio-redshift, transformed from {\tt ZCMB}.
+%
+  \item {\tt GALZTRUE} is the original true helio-redshift of the 
+            selected host with {\tt GALID=328788}.
+%
+  \item {\tt GALZTRUE(SIMGEN\_DUMP) = ZTRUE(HOSTLIB) = 0.7359}
+%
+  \item {\tt ZHELIO-GALZTRUE} $= 0.733324 - 0.7359 = -0.002576$
+      is the difference between the SN redshift and randomly selected 
+      host based on {\tt HOSTLIB\_DZTOL}; 
+      this difference is {\tt GALZDIF}.
+%
+  \item {\tt GALZPHOT(SIMGEN\_DUMP) - ZPHOT(HOSTLIB)}
+        $= 0.736324 - 0.7389 = -0.002576=$ {\tt GALZDIF}.
+%
+  \item  The original {\tt ZPHOT(HOSTLIB)} can be  computed as \\
+       {\tt ZPHOT(HOSTLIB) = GALZPHOT(SIMGEN\_DUMP) + GALZDIF(SIMGEN\_DUMP)}
+\end{itemize}
+
+
+% ---------------------------------------
+\clearpage
 \subsubsection{Miscellaneous}
-\label{sss:hostlob_misc}
+\label{sss:hostlib_misc}
 % ---------------------------------------
 
 \noindent {\bf HOSTLIB Variables for {\tt SIMGEN\_DUMP} file:} \\
@@ -11812,8 +11872,6 @@ default behavior, e.g.,
 \end{verbatim}
 The simulation C code does not parse these argument, but simply
 passes these arguments to the python init function.
-
-% .xyz
 
 
 % ##########################################

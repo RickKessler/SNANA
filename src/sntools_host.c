@@ -5544,6 +5544,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
 
+  bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
+
   int  IGAL_JUMP           = 20 ; // spped search for approx start range
   int  IGAL_RANGE_CONVERGE = 5;   // convergence for binary search
   int  NGAL_CHECK_ABORT    = 50;  // avoid infinite loop in binary search
@@ -5842,6 +5844,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.GALID      = GALID ;
   SNHOSTGAL.ZTRUE      = ZTRUE  ;  
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
+  if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; } // Sep 2 2022 bugfix
 
   if ( fabs(SNHOSTGAL.ZDIF) > dztol ) {
     print_preAbort_banner(fnam);
@@ -6443,8 +6446,11 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
   // Jan 31 2020: 
   //   + pass INBR (neighbor index) instead of IGAL
   //   + pass ZGEN instead of using GENLC.REDSHIFT_HELIO
-
-
+  //
+  // Sep 2 2022 : ZDIF -> 0 for DO_SN2GAL_Z option to use HOSTLIB redshift
+  //              instead of originally selected zHEL(SN).
+  //
+  bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
   int IVAR_ZPHOT, IVAR_ZPHOT_ERR ;
   double ZDIF, ZTRUE, zphot_local, zerr_local ;
   char fnam[] = "GEN_SNHOST_ZPHOT_from_HOSTLIB" ;
@@ -6459,8 +6465,13 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
 
   // always apply ZDIF shift based on true host because
   // mis-matched hosts may be in a group with very similar redshifts.
-  ZDIF = ZGEN - SNHOSTGAL.ZTRUE; 
 
+  if ( DO_SN2GAL_Z ) 
+    { ZDIF = 0.0 ; } // Sep 2 2022 bugfix for using hostlib z
+  else
+    { ZDIF = ZGEN - SNHOSTGAL.ZTRUE;  }
+
+  
   zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
   zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
 

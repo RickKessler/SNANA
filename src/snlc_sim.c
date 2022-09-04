@@ -1049,6 +1049,7 @@ void set_user_defaults(void) {
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
   INPUTS.HOSTLIB_MAXDDLR      = 4.0 ;   // cut on SN-host separation
+  INPUTS.HOSTLIB_MAXDDLR2     = 7.0 ;   // allow 2nd host with this cut
   INPUTS.HOSTLIB_SMEAR_SERSIC = 0.0 ;   // arcsec
 
   INPUTS.HOSTLIB_SNR_DETECT_STRING[0] = 0 ;
@@ -3430,6 +3431,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MAXDDLR2", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MAXDDLR2 );
   }
   else if ( keyMatchSim(1, "HOSTLIB_SMEAR_SERSIC", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_SMEAR_SERSIC );
@@ -11046,7 +11050,7 @@ void gen_random_coord_shift(void) {
   GENLC.DEC += shift_DEC;
  
   // now the host(s)
-  for(m=0; m < SNHOSTGAL.NNBR; m++ ) {
+  for(m=0; m < SNHOSTGAL.NNBR_ALL; m++ ) {
     SNHOSTGAL_DDLR_SORT[m].RA  += shift_RA ;
     SNHOSTGAL_DDLR_SORT[m].DEC += shift_DEC ;
   }
@@ -13269,7 +13273,12 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // host Z stuff
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALNMATCH") ;  // Jun 2022
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &SNHOSTGAL.NNBR ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &SNHOSTGAL.NNBR_DDLRCUT ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"GALNMATCH2") ;  
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &SNHOSTGAL.NNBR_DDLRCUT2 ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -21184,6 +21193,7 @@ void  setz_unconfirmed(void) {
   //    This doesn't fix any bug, but avoids wierd small-negative 
   //    ZCMB & ZHELIO that look like a bug.
   //
+  // Sep 2 2022: fix bug setting GENLC.REDSHIFT_FLAG for zPHOT and wrong host
 
   double RA        = GENLC.RA ;
   double DEC       = GENLC.DEC ;
@@ -21246,7 +21256,11 @@ void  setz_unconfirmed(void) {
     } 
     else {
       // use host zPHOT  here if it is defined
-      GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_HOSTPHOT ; 
+      if ( GENLC.CORRECT_HOSTMATCH ) 
+	{ GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_HOSTPHOT ; }
+      else
+	{ GENLC.REDSHIFT_FLAG        = REDSHIFT_FLAG_WRONGHOST ; } // 9/2022
+
       GENLC.REDSHIFT_HELIO_SMEAR = ZPHOT ;
       GENLC.REDSHIFT_SMEAR_ERR   = ZPHOT_ERR ;
       GENLC.REDSHIFT_CMB_SMEAR = zhelio_zcmb_translator(ZPHOT,RA,DEC,eq, +1);
@@ -22057,7 +22071,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   int    N_Q = HOSTLIB.NZPHOT_Q;
   int    IMATCH_TRUE_SORT = SNHOSTGAL.IMATCH_TRUE_SORT;
 
-  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, m, j, PCT ;
+  int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, NMATCH2, m, j, PCT ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   float  VAL_TRUE ;
   char  *name ;
@@ -22136,19 +22150,22 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   // - - - - - - - - - - - 
 
-  NMATCH = SNHOSTGAL.NNBR ;
-  if ( NMATCH > MXHOSTGAL ) { NMATCH = MXHOSTGAL; }
+  NMATCH  = SNHOSTGAL.NNBR_DDLRCUT ;
+  NMATCH2 = SNHOSTGAL.NNBR_DDLRCUT2 ;
+  if ( NMATCH  > MXHOSTGAL ) { NMATCH  = MXHOSTGAL; }
+  if ( NMATCH2 > MXHOSTGAL ) { NMATCH2 = MXHOSTGAL; }
 
   if ( ifilt_obs == 0 ) {
 
     // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
-    SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
+    SNDATA.HOSTGAL_NMATCH[0] = NMATCH;
+    SNDATA.HOSTGAL_NMATCH[1] = NMATCH2 ;
 
     // if there are no DDLR matches, then for each true property set the
     // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather
     // than -9999 for "not exist" -> so that analysis codes aren't fooled
     // into ignoring the property.
-    if ( NMATCH == 0 && IMATCH_TRUE_SORT >= 0 ) { 
+    if ( NMATCH2 == 0 && IMATCH_TRUE_SORT >= 0 ) { 
       m = 0 ;
       for(j=0; j < N_HOSTGAL_PROPERTY; j++ ) { 
 	VAL_TRUE = SNHOSTGAL_DDLR_SORT[IMATCH_TRUE_SORT].HOSTGAL_PROPERTY_VALUE[j].VAL_TRUE;
@@ -22159,7 +22176,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       }
     }   
 
-    for(m=0; m < NMATCH; m++ ) {
+    for(m=0; m < NMATCH2; m++ ) {
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
       SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
       SNDATA.HOSTGAL_PHOTOZ_ERR[m] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_ERR;
@@ -22221,7 +22238,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   } // end of ifilt_obs==0
   
 
-  for(m=0; m < NMATCH; m++ ) {
+  for(m=0; m < NMATCH2; m++ ) {
     SNDATA.HOSTGAL_MAG[m][ifilt] = 
       (float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;
     SNDATA.HOSTGAL_MAGERR[m][ifilt] =
@@ -26649,6 +26666,7 @@ void update_hostmatch_counters(void) {
       WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][0] = z0;
       WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][1] = z1;
 
+      WRITE_HOSTMATCH.NGENLC[iz]            = 0;
       WRITE_HOSTMATCH.NGENLC_NO_HOST[iz]    = 0;
       WRITE_HOSTMATCH.NGENLC_MULTI_HOST[iz] = 0;
 
@@ -26660,7 +26678,7 @@ void update_hostmatch_counters(void) {
   } // end first-event init
 
   // bail for normal single-host match
-  if ( SNHOSTGAL.NNBR == 1 ) { return; }
+  // xxx mark delete Sep 2 2022  if ( SNHOSTGAL.NNBR == 1 ) { return; }
 
   // find redshift bin "IZ" for this event
   z  = GENLC.REDSHIFT_CMB;
@@ -26678,10 +26696,12 @@ void update_hostmatch_counters(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  if ( SNHOSTGAL.NNBR == 0 ) 
+  WRITE_HOSTMATCH.NGENLC[IZ]++ ;
+
+  if ( SNHOSTGAL.NNBR_DDLRCUT == 0 ) 
     { WRITE_HOSTMATCH.NGENLC_NO_HOST[IZ]++ ;     }
 
-  else if ( SNHOSTGAL.NNBR > 1 ) 
+  else if ( SNHOSTGAL.NNBR_DDLRCUT2 > 1 ) 
     { WRITE_HOSTMATCH.NGENLC_MULTI_HOST[IZ]++ ;  } 
 
   return;

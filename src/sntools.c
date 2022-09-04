@@ -3487,6 +3487,8 @@ double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
   double preFac, tmp, top, bot;
   double D1, D2, Di, Dj, sqi;
   int i, j ;
+  char fnam[] = "host_confusion";
+
   // -------------- BEGIN -------------
 
   if ( N_DDLR <=1 ) { return HC; }
@@ -3508,7 +3510,7 @@ double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
     }
   }
 
-  HC = preFac * tmp;
+  HC = log10(preFac * tmp);
 
   return HC;
 

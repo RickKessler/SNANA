@@ -5484,7 +5484,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   GEN_SNHOST_NBR(IGAL);
     
   // determine DDLR and ordered list
-  for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
+  for(ilist=0; ilist < SNHOSTGAL.NNBR_ALL; ilist++ ) 
     { GEN_SNHOST_DDLR(ilist); }
 
   // sort by DDLR
@@ -6071,7 +6071,7 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   //     
   // Jan 31 2020: compute for all neighbors
 
-  int    NNBR  = SNHOSTGAL.NNBR;
+  int    NNBR  = SNHOSTGAL.NNBR_DDLRCUT2;
   double ZTRUE = SNHOSTGAL.ZTRUE ;
   double ZGEN  = SNHOSTGAL.ZGEN ;
   int j, inbr;
@@ -6676,8 +6676,8 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
 
   GENSL.GALID = GALID;
 
-  reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
-  SNHOSTGAL.NNBR = 1; 
+  reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR_ALL);
+  SNHOSTGAL.NNBR_ALL  = 1; 
   SNHOSTGAL.IGAL_NBR_LIST[i_nbr] = IGAL_LENS;
   SNHOSTGAL.IMATCH_TRUE_UNSORT  = -9; // no true match
   GENLC.CORRECT_HOSTMATCH       = false;
@@ -6784,7 +6784,7 @@ void GEN_SNHOST_LOGMASS(void) {
   // Alex Gagliano 10/12/21 Added if block to set LOGMASS_OBS = LOGMASS_TRUE
   // if LOGMASS_OBS and LOGMASS_ERR not in HOSTLIB
 
-  int  NNBR       = SNHOSTGAL.NNBR;
+  int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2;
   int  IVAR_TRUE  = HOSTLIB.IVAR_LOGMASS_TRUE ;
   int  IVAR_OBS   = HOSTLIB.IVAR_LOGMASS_OBS ;
   int  IVAR_ERR   = HOSTLIB.IVAR_LOGMASS_ERR ;
@@ -6837,7 +6837,7 @@ void GEN_SNHOST_PROPERTY(int ivar_property) {
   // If [property]_OBS is in the Hostlib, do nothing
   // [property] can be LOGMASS, LOGSFR, LOGsSFR, COLOR
 
-  int  NNBR       = SNHOSTGAL.NNBR;
+  int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2 ;
   int  IVAR_TRUE  = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_TRUE ;
   int  IVAR_OBS   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_OBS;
   int  IVAR_ERR   = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar_property].IVAR_ERR;
@@ -7301,9 +7301,9 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   // ---------------- BEGIN ----------------
 
-  reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
+  reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR_ALL);
 
-  SNHOSTGAL.NNBR = 1;   // true host sets default at 1
+  SNHOSTGAL.NNBR_ALL  = 1;   // true host sets default at 1
   SNHOSTGAL.IGAL_NBR_LIST[unsort_true] = IGAL;
   SNHOSTGAL.IMATCH_TRUE_UNSORT         = unsort_true ;
 
@@ -7373,8 +7373,8 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   } // end i loop over NNBR_READ
 
-  // - - - - - - - - - 
-  SNHOSTGAL.NNBR = NNBR_STORE ;
+  // - - - - - - - - - .xyz divide into NNBR and NNBR2
+  SNHOSTGAL.NNBR_ALL = NNBR_STORE ;
  
   // - - - - - - - - - - - - - 
   // Jun 2022 
@@ -7399,7 +7399,7 @@ void GEN_SNHOST_NBR(int IGAL) {
 	  { SNHOSTGAL.IMATCH_TRUE_UNSORT = -9 ; }	
       }
     }
-    SNHOSTGAL.NNBR = NNBR_DETECT ;
+    SNHOSTGAL.NNBR_ALL = NNBR_DETECT ;
   } // end check for host-galaxy detections
 
 
@@ -7501,7 +7501,7 @@ bool snr_detect_HOSTLIB(int IGAL) {
   }
 
   int i, LDMP = 0;
-  int NNBR_ORIG = SNHOSTGAL.NNBR;
+  int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
   if ( LDMP && NNBR_ORIG > 1 ) {
     long long GALID = get_GALID_HOSTLIB(IGAL);
     printf("XXX: ----------------------------------- \n");
@@ -7710,7 +7710,9 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 // ==============================
 void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
 
-  SNHOSTGAL.NNBR = 0;
+  SNHOSTGAL.NNBR_ALL = 0;
+  SNHOSTGAL.NNBR_DDLRCUT = SNHOSTGAL.NNBR_DDLRCUT2 = 0;
+
   int i, ifilt, q;
   for(i=0; i < MAXNBR; i++ ) {    
     SNHOSTGAL_DDLR_SORT[i].GALID = -9 ;
@@ -7825,12 +7827,11 @@ void SORT_SNHOST_byDDLR(void) {
   //               check_SNDATA_HOSTGAL_SNSEP()
   //
 
-
   int  MSKOPT           = INPUTS.HOSTLIB_MSKOPT ;
   bool LSN2GAL_Z        = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z) ;
   bool LSN2GAL_RADEC    = (MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
-  int  USE_QGAUSS      =  (MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS);
-  int  NNBR             = SNHOSTGAL.NNBR ;
+  int  USE_QGAUSS       =  (MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS);
+  int  NNBR_ALL         = SNHOSTGAL.NNBR_ALL ;
   int  IVAR_RA          = HOSTLIB.IVAR_RA;
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
@@ -7845,7 +7846,8 @@ void SORT_SNHOST_byDDLR(void) {
   int  INDEX_UNSORT[MXNBR_LIST];
   int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, q ,ivar, IVAR_Q;
   int  NNBR_DDLRCUT = 0 ;
-  double DDLR, SNSEP, MAG, MAG_ERR, zq;
+  int  NNBR_DDLRCUT2 = 0 ;
+  double DDLR, SNSEP, MAG, MAG_ERR, zq ;
   double RA_GAL_HOSTLIB, DEC_GAL_HOSTLIB ;
   double RA_SN, DEC_SN, RA_SHIFT, DEC_SHIFT, cosDEC_SN, cosDEC_GAL ;
   double DMUCOR = 0.0 ;
@@ -7855,7 +7857,7 @@ void SORT_SNHOST_byDDLR(void) {
 
   
   // sort by DDLR
-  sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
+  sortDouble( NNBR_ALL, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
 
   // check for SN-host distance-diff correction on host gal mags (Nov 2021)
   ifilt_obs = GENLC.IFILTMAP_OBS[0];
@@ -7882,13 +7884,14 @@ void SORT_SNHOST_byDDLR(void) {
     { printf(" xxx ------------  CID=%d ----------------- \n", GENLC.CID); }
 
   // load info sorted by DDLR
-  for(i=0; i < NNBR; i++ ) {
+  for(i=0; i < NNBR_ALL; i++ ) {
     unsort = INDEX_UNSORT[i];
     IGAL   = SNHOSTGAL.IGAL_NBR_LIST[unsort] ;
     DDLR   = SNHOSTGAL.DDLR_NBR_LIST[unsort] ;
     SNSEP  = SNHOSTGAL.SNSEP_NBR_LIST[unsort] ;
 
-    if ( DDLR < INPUTS.HOSTLIB_MAXDDLR ) { NNBR_DDLRCUT++ ; }
+    if ( DDLR < INPUTS.HOSTLIB_MAXDDLR  ) { NNBR_DDLRCUT++ ; }
+    if ( DDLR < INPUTS.HOSTLIB_MAXDDLR2 ) { NNBR_DDLRCUT2++ ; }
 
     // load logical for true host.
     // Jun 17 2022: if true host fails SNR_DETECT cut, it won't be 
@@ -8010,8 +8013,8 @@ void SORT_SNHOST_byDDLR(void) {
     }
 
     if ( LDMP ) { 
-      printf("\t xxx %s: i=%d unsort=%d  NNBR_DDLRCUT=%d \n",
-	     fnam, i, unsort, NNBR_DDLRCUT);
+      printf("\t xxx %s: i=%d unsort=%d  NNBR_DDLRCUT=%d/%d \n",
+	     fnam, i, unsort, NNBR_DDLRCUT, NNBR_DDLRCUT2);
       printf("\t xxx %s: DDLR=%6.2f  SEP=%8.1f\n",
 	     fnam,SNHOSTGAL_DDLR_SORT[i].DDLR, SNHOSTGAL_DDLR_SORT[i].SNSEP);
 	     // xxx DDLR, SNSEP ); 
@@ -8029,7 +8032,8 @@ void SORT_SNHOST_byDDLR(void) {
     { GENLC.CORRECT_HOSTMATCH = false; }
 
   // truncate list to those satisfying DDLR cut (Feb 2020)
-  SNHOSTGAL.NNBR = NNBR_DDLRCUT ;
+  SNHOSTGAL.NNBR_DDLRCUT  = NNBR_DDLRCUT ;
+  SNHOSTGAL.NNBR_DDLRCUT2 = NNBR_DDLRCUT2 ;
 
   return ;
 
@@ -8265,7 +8269,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   //
   // Jan 31 2020: refactor to load DDLR_SORT array for MAG.
 
-  int  NNBR       = SNHOSTGAL.NNBR ;
+  int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2 ;
 
   double 
      x_SN, y_SN
@@ -8744,7 +8748,7 @@ void LOAD_OUTVAR_HOSTLIB(int IGAL) {
   // These variables are user-defined by sim-input key
   // HOSTLIB_STOREVAR:  <var1>,<var2>,<var3>, ...
 
-  int NNBR = SNHOSTGAL.NNBR ; // includes true host
+  int NNBR = SNHOSTGAL.NNBR_DDLRCUT2 ; // includes true host
   int IGAL_NBR, i_NBR;
   int NVAR_OUT, ivar, IVAR_STORE ;
   double DVAL ;

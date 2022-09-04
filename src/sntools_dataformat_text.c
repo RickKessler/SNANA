@@ -516,7 +516,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
 
-  NGAL = SNDATA.HOSTGAL_NMATCH[0];
+  NGAL = SNDATA.HOSTGAL_NMATCH[1];
   if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
 
   fprintf(fp, "%s_NMATCH:      %d  \n",  

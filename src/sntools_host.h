@@ -532,7 +532,10 @@ struct SNHOSTGAL {
   double WEAKLENS_DMU;
   double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
 
-  int    NNBR;    // number of nearby galaxies
+  int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
+  int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
+  int    NNBR_ALL;      // all nbr in hostlib
+
   int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
   double DDLR_NBR_LIST[MXNBR_LIST];   // DDLR per NBR
   double SNSEP_NBR_LIST[MXNBR_LIST];

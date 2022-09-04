@@ -21234,6 +21234,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + compute and write SIM_MJD_EXPLODE ... works only for SIMSED model.
      + allow adding ZPHOT_Q[nnn] to SIMGEN_DUMP list for option to
          force Gauss quantiles
+     + fix bug setting SIM_REDSHIFT_FLAG for zPHOT events with wrong host.
 
    create_covariance.py
      + fix index bug for rebin option (found by P.Armstrong)
@@ -21243,7 +21244,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        each saturated observation.
      + read SIM_MJD_EXPLODE and add to table if > 0
      + set abort trap on VERSION string length
-     + compute SNHOST_CONFUSION
+     + compute SNHOST_CONFUSION (if "DEBUG_FLAG 902")
 
   get_fitres_values.py: fix bug counting lines before VARNAMES
 

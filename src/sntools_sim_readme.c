@@ -506,7 +506,8 @@ void readme_docana_hostmatch(int *iline, char *pad) {
   int i = *iline;
   int NBINz = WRITE_HOSTMATCH.NRANGE_REDSHIFT;
 
-  int  N0,N2, iz; 
+  int  N, N0,N2, iz; 
+  char str_n0_list[100], str_n2_list[100];
   char str_frac0_list[100], str_frac2_list[100], str_z_list[100];
   char str_z[20], str_tmp[20], *cptr ;
   double frac0, frac2, z0, z1;
@@ -515,15 +516,21 @@ void readme_docana_hostmatch(int *iline, char *pad) {
 
   // ------------ BEGIN ----------
 
+  str_n0_list[0] = str_n2_list[0] = 0 ;
   str_frac0_list[0] = str_frac2_list[0] = str_z_list[0] = 0 ;
 
   for(iz=0; iz < NBINz; iz++ ) {
+    N     = WRITE_HOSTMATCH.NGENLC[iz]; 
     N0    = WRITE_HOSTMATCH.NGENLC_NO_HOST[iz]; 
     N2    = WRITE_HOSTMATCH.NGENLC_MULTI_HOST[iz]; 
     z0    = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][0] ;
     z1    = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][1] ;
-    frac0 = (double)N0 / (double)NGENLC_WRITE ;
-    frac2 = (double)N2 / (double)NGENLC_WRITE ;
+
+    frac0 = frac2 = 0.0 ;
+    if ( N > 0 ) {
+      frac0 = (double)N0 / (double)N ;
+      frac2 = (double)N2 / (double)N ;
+    }
 
     /*
     printf(" xxx %s: N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
@@ -533,6 +540,12 @@ void readme_docana_hostmatch(int *iline, char *pad) {
     sprintf(str_z,  " %.2f-%.2f", z0, z1);
     catVarList_with_comma(str_z_list, str_z);   
 
+    sprintf(str_tmp," %3d", N0);
+    catVarList_with_comma(str_n0_list, str_tmp);
+    
+    sprintf(str_tmp," %3d", N2);
+    catVarList_with_comma(str_n2_list, str_tmp);
+
     sprintf(str_tmp," %.3f", frac0);
     catVarList_with_comma(str_frac0_list, str_tmp);
     
@@ -540,8 +553,21 @@ void readme_docana_hostmatch(int *iline, char *pad) {
     catVarList_with_comma(str_frac2_list, str_tmp);
   }
   
+  // - - - - - -
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"%sHOST_NMATCH_FRACTIONS: ", pad );
+  sprintf(cptr,"%sHOST_NMATCH:   # accepted", pad );
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 0 : [ %s ]  # z-ranges: %s", 
+	  pad, str_n0_list, str_z_list);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 2 : [ %s ] ", 
+	  pad, str_n2_list);
+
+  // - - - - - -
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sHOST_NMATCH_FRACTIONS:  # accepted ", pad );
   
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s- 0 : [ %s ]  # z-ranges: %s", 
@@ -550,6 +576,8 @@ void readme_docana_hostmatch(int *iline, char *pad) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s- 2 : [ %s ] ", 
 	  pad, str_frac2_list);
+
+  // - - - -
 
   *iline = i ;
   return ;

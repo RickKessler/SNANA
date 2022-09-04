@@ -502,6 +502,7 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
+  float  HOSTLIB_MAXDDLR2 ;            // keep 2nd host with DDLR < MAXDDLR2
   float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
   char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
@@ -1317,10 +1318,13 @@ int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
 // to quickly monitor these effects without analysis.
 struct {
   int    NRANGE_REDSHIFT;
-  int    NGENLC_NO_HOST[10];    // vs. z-range
-  int    NGENLC_MULTI_HOST[10];
+
+  int    NGENLC[10];            // Nevt vs. z-range
+  int    NGENLC_NO_HOST[10];    // host-less events vs. z-range
+  int    NGENLC_MULTI_HOST[10]; // NMATCH=2 vs. z-range
+
   double REDSHIFT_RANGE[10][2];
-} WRITE_HOSTMATCH;  // Jun 29 2022
+} WRITE_HOSTMATCH;  // Jun, 2022
 
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written

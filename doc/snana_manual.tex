@@ -5968,31 +5968,44 @@ command-line override, {\tt submit\_batch\_jobs}, or {\tt pippin}.
 \label{sss:vpec}
 
 There are two methods to simulate peculiar velocity.
-The first method is to define a Gaussian profile and Gaussian 
-correction in the sim-input file,
+The first method is to define a Gaussian sigma for
+the true profile and for the measured precision in 
+the sim-input file,
 \begin{verbatim}
-   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
-   VPEC_ERR:           150       # measured error on VPEC (default=0)
+   GENSIGMA_VPEC:   300    # true sigma(v_pec), km/sec  (default=0)
+   VPEC_ERR:        150    # error on measured/computed VPEC (default=0)
 \end{verbatim}
 
-A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
+A Gaussian-random peculiar velocity ($\vpec$) is defined by 
 {\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
   if somebody provides code to compute $\vpec$ based on
   RA, DEC, and $\zcmb$.}
 and corresponds to the true scatter.
-{\tt VPEC\_ERR} is the measured error on $\vpec$
-(see \S\ref{subsec:vpec}).
-{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
-With true peculiar-velocity value {\tt SIM\_VPEC}, 
-the {\tt VPEC} correction ($\vpec$) in the data file is
+{\tt VPEC\_ERR} is the error on a $\vpec$ estimate 
+(see \S\ref{subsec:vpec}) used for analysis.
+The true peculiar-velocity value is 
+\begin{verbatim} 
+    SIM_VPEC = GENSIGMA_VPEC * GaussRan
+\end{verbatim} 
+and the ``measured {\tt VPEC}'' reported in the data file is
 \begin{verbatim}
     VPEC =  SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
     VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
 \end{verbatim}
 %
-For high-z samples that do not have a VPEC correction,
+For high-z samples that do not privde a $\vpec$ estimate,
 set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
-apply no correction.
+skip the {\tt VPEC} estimation,
+
+The estimated {\tt VPEC} and {\tt VPEC\_ERR} are written to the 
+data files for analysis, but they are not used by the sim to modify 
+the reported redshift; this is analogous to providing 
+Galactic extinction {\tt MWEBV} without correcting the reported fluxes.
+The lightcurve fitting program ({\tt snlc\_fit.exe}) 
+outputs a Hubble diagram redshift {\tt zHD} that includes a
+{\tt VPEC} correction, and the uncertainty {\tt zHDERR} includes
+{\tt VPEC\_ERR}.
+
 
 The first method has the advantage of simplicitly, but does not
 account for large-scale correlations and bulk flows.
@@ -6002,17 +6015,18 @@ column from the {\tt HOSTLIB} if the 512-bit is set in
 The associated \unc\ can be defined in two ways:
 1) a separate {\tt VPEC\_ERR} column 
    defining a distinct \unc\ for each host, or 
-2) fixing the uncertainty with header key ``{\tt VPEC\_ERR: <vpecErr>}.''
+2) fixing the uncertainty with {\tt HOSTLIB} header key 
+``{\tt VPEC\_ERR: <vpecErr>}.''
 The output {\tt README} includes summary information as follows:
 \begin{verbatim}
-   HOSTLIB Opt:  Use VPEC (RMS=305  min/max=-3189/3350 km/sec)
+   !*!*!*! TO DO: fix this to account for README refactor *!*!*!*!
 \end{verbatim}
 
 
 Note that mixing the two methods is not allowed;
-e.g, the sim will abort if {\tt VPEC} is defined in the {\tt HOSTLIB} 
-while ``{\tt VPEC\_ERR:}'' is defined in the sim-input file.
-
+e.g, the sim will abort if the 512-bit is set for {\tt HOSTLIB\_MSKTOPT}
+while {\tt GENSIGMA\_VPEC} or {\tt VPEC\_ERR} 
+is defined in the sim-input file.
 
 % ------------------------------------
    \clearpage

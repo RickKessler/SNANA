@@ -2766,7 +2766,7 @@ bool found_fluxerr_SEDMODEL(char *sedFile) {
 } // end found_fluxerr_SEDMODEL
 
 // ======================================
-void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX) {
+void print_ranges_SEDMODEL(char *NAME, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   // Creatd June 2022 by R.Kessler  
   // Print range of Trest and LAMMIN for SEDFLUX.
@@ -2791,8 +2791,8 @@ void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   // --------- BEGIN ----------
 
-  printf("\t Trest: %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n"
-         ,DAYMIN, DAYMAX, LAMMIN, LAMMAX);
+  printf("    Trest(%s): %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n",
+         NAME, DAYMIN, DAYMAX, LAMMIN, LAMMAX);
   fflush(stdout) ;
 
   // assume peak is near DAY=0 and find IDAY_PEAK
@@ -2826,16 +2826,15 @@ void print_ranges_SEDMODEL(SEDMODEL_FLUX_DEF *SEDFLUX) {
   double fluxratio_edge_max = FLUXSUM_LIST[2] / FLUXSUM_LIST[0];
 
   if ( fluxratio_edge_min > EDGE_FLUX_RATIO_WARNING ) {
-    printf("\t WARNING: Flux(Trestmin)/Flux(peak) = %.3f -> "
+    printf("    WARNING(%s): Flux(Trestmin)/Flux(peak) = %.3f -> "
 	   "beware of extrapolation\n",
-           fluxratio_edge_min);
+           NAME, fluxratio_edge_min);
   }
   if ( fluxratio_edge_max > EDGE_FLUX_RATIO_WARNING ) {
-    printf("\t WARNING: Flux(Trestmax)/Flux(peak) = %.3f -> "
+    printf("    WARNING(%s): Flux(Trestmax)/Flux(peak) = %.3f -> "
 	   "beware of extrapolation\n",
-           fluxratio_edge_max);
+           NAME, fluxratio_edge_max);
   }
-
   
   fflush(stdout) ;
 

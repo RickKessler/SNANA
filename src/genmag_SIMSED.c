@@ -403,7 +403,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
 
-    print_ranges_SEDMODEL(&TEMP_SEDMODEL);
+    print_ranges_SEDMODEL("SED-BINARY", &TEMP_SEDMODEL);
 
   }    //  end loop over ised templates
 

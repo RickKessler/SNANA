@@ -5016,15 +5016,12 @@ c -----------------------------------------
 c Prior on photoZ
 
       IF ( DOFIT_PHOTOZ ) THEN
-
+        
         if ( btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
           ! get the probability at this redshift
-c          Print *, 'xxx Evaluating spline at ', ZSN
           PROBZ = eval_zPDF_spline(ZSN)
-c          Print *, 'xxx Probability is ', PROBZ
           if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
           CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
-c          Print *, 'xxx Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
@@ -5033,7 +5030,10 @@ c          Print *, 'xxx Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
             CHI2PRIOR(IPAR_zPHOT) = CHI2PRIOR(IPAR_zPHOT) + CHI2TMP
           endif
         endif
-
+        
+        if ( DEBUG_FLAG == 908 ) then
+           CALL DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
+        endif
         pull   = PRIOR_MUPULL(isn,ZSN,MU)
         CHI2PRIOR(IPAR_DLMAG) = CHI2PRIOR(IPAR_DLMAG) +
      &  CHI2_PRIOR(ipar_DLMAG,pull)
@@ -5082,6 +5082,48 @@ c sum all the pieces
          FCNCHI2_PRIOR = FCNCHI2_PRIOR + CHI2PRIOR(ipar) 
       ENDDO
 
+      RETURN
+      END
+
+C ==============================================
++DECK,DUMP_ZPHOT_PRIOR.
+      SUBROUTINE DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
+c --------------------
+c Created Sep 8, 2022
+c R. Chen
+c Debug photo-z prior information
+c --------------------
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNFITCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,SNLCINP. 
+      REAL*8 ZSN,PROBZ
+      REAL*8 CHI2PRIOR_ORIG,CHI2PRIOR_CALC,CHI2PRIOR_QUANTILE
+      REAL*8 pull,sig,CHI2_LOGSIG
+      REAL*8 PRIOR_ZPULL,CHI2_PRIOR
+      LOGICAL USE_Q
+c BEGIN
+      USE_Q = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+      sig = SNHOST_ZPHOT_ERR(1)
+      CHI2_LOGSIG = DLOG(2.0*3.14159*sig*sig)
+      CHI2_LOGSIG = 0      
+      CHI2PRIOR_CALC = ((ZSN - SNHOST_ZPHOT(1))/sig)**2 + CHI2_LOGSIG 
+      if (USE_Q) then
+        CHI2PRIOR_QUANTILE = -2.0*DLOG( PROBZ )
+        CHI2PRIOR_ORIG = -9
+      else
+        CHI2PRIOR_QUANTILE = -9
+        pull   = PRIOR_ZPULL(ZSN)
+        CHI2PRIOR_ORIG = CHI2_PRIOR(ipar_zPHOT,pull) + CHI2_LOGSIG
+      endif
+
+      write(6,40) ZSN,sig,PROBZ,CHI2PRIOR_ORIG,CHI2PRIOR_CALC,
+     & CHI2PRIOR_QUANTILE
+40    format(' z=',F5.3, 3x,'sigz=',F5.3, 3x,'PROBZ= ',F5.3,3x,
+     & 'CHI2zPRIOR[ORIG,CALC,Q] = ' , 3F10.4) 
+      CALL flush(6)
       RETURN
       END
 

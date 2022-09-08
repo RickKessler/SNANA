@@ -624,19 +624,18 @@ def plot_cmd(genversion, cid_list, nml, isdist, private, mjdperiod):
     else:
         private_path = ""
     genversion += private_path
-    
+
+    # 9.07/2022 - RK minor cleanup    
+    arg_sntable = " SNTABLE_LIST 'FITRES(text:key) SNANA(text:key)" \
+                  " LCPLOT(text:key) SPECPLOT(text:key)' "
+    arg_prefix  = " TEXTFILE_PREFIX OUT_TEMP_" + rand  
+    arg_version = " VERSION_PHOTOMETRY " + genversion
+    arg_period  = " "
+    if mjdperiod is not None: 
+        arg_period = " MJDPERIOD_PLOT " + str(mjdperiod)
+    log_file    = "OUT_TEMP_" + rand + ".LOG"
+
     if nml is not None:
-
-        # 9.07/2022 - RK minor cleanup
-        arg_sntable = " SNTABLE_LIST 'FITRES(text:key) SNANA(text:key)" \
-                      " LCPLOT(text:key) SPECPLOT(text:key)' "
-        arg_prefix  = " TEXTFILE_PREFIX OUT_TEMP_" + rand  
-        arg_version = " VERSION_PHOTOMETRY " + genversion
-        arg_period  = ""
-        if mjdperiod: 
-            arg_period = " MJDPERIOD " + mjdperiod
-
-        log_file    = "OUT_TEMP_" + rand + ".LOG"
 
         if cid_list is not None:
             cmd = (
@@ -679,6 +678,7 @@ def plot_cmd(genversion, cid_list, nml, isdist, private, mjdperiod):
             + " MXEVT_PROCESS 5 "
             + arg_sntable
             + arg_prefix
+            + arg_period 
             + " > " 
             + log_file
         )
@@ -691,6 +691,7 @@ def plot_cmd(genversion, cid_list, nml, isdist, private, mjdperiod):
             + " CUTWIN_CID 0 0 "
             + arg_sntable
             + arg_prefix
+            + arg_period 
             + " > " 
             + log_file
         )
@@ -933,13 +934,17 @@ def main():
         dest="plot_all2",
         default=False,
     )
+
+    # R.K. Sep 7 2022 - add mjdperiod input
     parser.add_argument(
-        "--mjdperiod",   # R.K. Sep 7 2022
+        "--mjdperiod",   
         help="LC: fold MJDs into one period (for periodic transients) ",
-        action="store_true",
+        action="store",
         dest="mjdperiod",
-        default=False,
+        type=float,
+        default=None
     )
+
     parser.add_argument(
         "--plotAll",
         help=SUPPRESS_HELP,
@@ -1112,7 +1117,7 @@ def main():
                 options.nml_filename,
                 options.dist,
                 options.private_path,
-                options.mjdperiod     # RK - Sep 2022
+                options.mjdperiod
             )
         else:
             (

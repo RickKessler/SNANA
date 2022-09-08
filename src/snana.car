@@ -22822,7 +22822,11 @@ c -----------------------------
 
 c Sep 7 2022: check option to fold LC within a single cylce.
           if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
-             VMJD(NOBS) = MOD(MJD-VMJD(1),MJDPERIOD_PLOT) + VMJD(1)
+             DT = MJD-VMJD(1)
+             VMJD(NOBS)  = MOD(DT,MJDPERIOD_PLOT) + VMJD(1)
+
+             DT = TOBS-VTOBS(1)
+             VTOBS(NOBS) = MOD(DT,MJDPERIOD_PLOT) + VTOBS(1)
           endif
 
           VFILTOBS(NOBS)  = IFILT_OBS

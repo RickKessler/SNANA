@@ -4869,23 +4869,6 @@ c
 c Created Apr 03, 2009 by R.Kessler
 c Evaluate prior-chi2 and return total prior-chi2.
 c
-c Jul 17, 2009: add RV as argument to SNLC_SIMEFF
-c
-c Jul 27, 2009: evaluate MJD-prior directory instead of
-c               using CHI2_PRIOR ; when OPT_PRIOR=0, still
-c               uses MJD prior to protect against crazy values.
-c
-c               When OPT_PRIOR=0, goto 888 (instead of return)
-c               to add up protective priors.
-c
-c Jul 28, 2009: add protection against MU < MUMIN(=10)
-c
-c Jul 25, 2011: call new get_SIMEFFMAP() and allow effic-prior
-c               to work on any model (not just MLCS)
-c
-c May 06, 2013: fix subtle bug checking for NaN ... skip ITER and ISN 
-c               because INIBND is not set for these parameters.
-c
 c Apr 3 2018: include color-prior chi2
 c
 c Jun 2022: check option to use zphot quantiles
@@ -4897,6 +4880,7 @@ c --------------
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
 +CDE,FILTCOM.
++CDE,SNLCINP.
 
 c function args
       REAL*8
@@ -5044,6 +5028,10 @@ c          Print *, 'xxx Chi2 is ', CHI2PRIOR(IPAR_zPHOT)
         else
           pull   = PRIOR_ZPULL(ZSN)
           CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+          if ( DEBUG_FLAG == 906 ) then
+            CHI2TMP = 2.0 * log(SNHOST_ZPHOT_ERR(1)) + 0.9189 ! + ln(sqrt(2pi))
+            CHI2PRIOR(IPAR_zPHOT) = CHI2PRIOR(IPAR_zPHOT) + CHI2TMP
+          endif
         endif
 
         pull   = PRIOR_MUPULL(isn,ZSN,MU)
@@ -11704,21 +11692,6 @@ c
 c Return chi2 penality for prior.
 c IPAR is the fitpar index;
 c FITPAR is the value to look up the prior.
-c
-c Use CERNLIB's POLINT  for polynomial interpolation 
-c with 3 nearest points in stored grid.
-c
-c Feb 24, 2007: use NGRID=3 if slope is nearly constant;
-c               else use NGRID = 5 on rapidly changing parts.
-c
-c Jun 1, 2008 RK: fix bug to prevent bin=0 and divide-by-zero
-c
-c Aug 17, 2009: if PARVAL is in FLATPRIOR_RANGE region,
-c               no need to interpolate. Also, do not allow
-c               interp to use point in FLATPRIOR region,
-c               otherwise we get a discontinuity.
-c
-c Sep 8, 2011: POLINT -> POLINT8 that uses REAL*8 args
 c
 c Apr 3 2018: NPINT=5 only for OPT_PRIOR_AV (not for SALT2c)
 c             This fixes subtle numerical problem with new color-prior.

@@ -36,7 +36,9 @@
 #                  hostgal_zphot[_err]
 #
 # Jun 15 2022 RK - add HOSTKEY_RA[DEC] to list
-
+#
+# Sep 6 2022 RKess: for the two gzip.open calls, change compresslevel=9 to 6.
+#
 
 import os, sys, copy, re, gzip, math, pathlib
 import datetime, logging
@@ -337,9 +339,11 @@ class LsstAlertWriter:
         firstdetect_mjd = head_calc[ gpar.DATAKEY_MJD_DETECT_FIRST ]
         lastdetect_mjd = head_calc[ gpar.DATAKEY_MJD_DETECT_LAST ]
         if self.args.nite_detect_range:
+            # for LSST alerts
             force_start = firstdetect_mjd - 30
             force_end = lastdetect_mjd
         elif self.args.peakmjd_range:
+            # for testing before NITE was defined 
             mjd_ref = head_calc[ GPAR.DATAKEY_PEAKMJD ]
             force_start = mjd_ref - 50
             force_end = mjd_ref + 100
@@ -357,10 +361,12 @@ class LsstAlertWriter:
         
         prvSources = []
         prvForcedSources = []
-        # Go through all the events, building up prvForcedSources and
-        # generating alerts as necessary
-        # NOTE : Assuming here that mjd is coming in order!
-        # I hope that's right.  (It seems to be.)
+        # Go through all the observations, building up prvForcedSources
+        # and generating alerts as necessary.
+        # NOTE : Assuming here that mjd is coming in order, which is
+        # correct for SNANA sims (even of SIMLIB is not MJD-ordered).
+        #
+        # xxxx mark delete Sep 5 2022 by R.Kessler ? xxxxx
         # tmpmjd = [ i for i in mjds ]
         # tmpmjd.sort()
         # tmpmjd = numpy.array( tmpmjd )
@@ -368,6 +374,8 @@ class LsstAlertWriter:
         #     self.logger.warning( f"MJDS not sorted for diaObjectId = {diaObject['diaObjectId']}" )
         # else:
         #     self.logger.info( f"MJDs are sorted for diaObjectId = {diaObject['diaObjectId']}" )
+        # xxxxxx end mark xxxxxxxxxxxxx
+
         for obsnum in range( nobs ):
             diaSourceId = snid * self.max_alerts_per_obj + obsnum
             
@@ -380,8 +388,8 @@ class LsstAlertWriter:
                 )
 
             # Only write to the truth table if it's a forced source
-            #  or it's detected; otherwise, it will never show
-            #  up anywhere in any alert.
+            # or it's detected; otherwise, it will never show
+            # up anywhere in any alert.
             if self.truth_dict is not None:
                 if detects[obsnum] or ( diaForcedSource is not None ):
                     self.truth_dict['diaSourceId'].append( diaSourceId )
@@ -414,7 +422,7 @@ class LsstAlertWriter:
 
                 if self.GZIP_ALERTS:
                     gz = ".gz"
-                    openfunc = lambda x: gzip.open( x, mode='wb', compresslevel=9 )
+                    openfunc = lambda x: gzip.open( x, mode='wb', compresslevel=6 )
                 else:
                     gz = ""
                     openfunc = lambda x: open( x, mode='wb' )
@@ -463,7 +471,7 @@ class LsstAlertWriter:
                     f"{self.truth_dict['outfile'].name}.gz" )
         self.logger.info( f"Writing {len(self.truth_dict['diaSourceId'])} "
                           f"entries to truth table {outfile}" )
-        with gzip.open( outfile, mode='wt' ) as ofp:
+        with gzip.open( outfile, mode='wt', compresslevel=6 ) as ofp:
             ofp.write(f"SourceID, SNID, MJD, DETECT, "
                       f"TRUE_GENTYPE, TRUE_GENMAG\n")
             for obsnum in range(len(self.truth_dict['diaSourceId'])):

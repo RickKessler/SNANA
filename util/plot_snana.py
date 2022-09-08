@@ -605,7 +605,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
     return (figs, fits)
 
 
-def plot_cmd(genversion, cid_list, nml, isdist, private):
+def plot_cmd(genversion, cid_list, nml, isdist, private, mjdperiod):
     plotter = "normal"
     if nml is not None:
         if os.path.splitext(nml)[1].upper() != ".NML":
@@ -626,70 +626,75 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
     genversion += private_path
     
     if nml is not None:
+
+        # 9.07/2022 - RK minor cleanup
+        arg_sntable = " SNTABLE_LIST 'FITRES(text:key) SNANA(text:key)" \
+                      " LCPLOT(text:key) SPECPLOT(text:key)' "
+        arg_prefix  = " TEXTFILE_PREFIX OUT_TEMP_" + rand  
+        arg_version = " VERSION_PHOTOMETRY " + genversion
+        arg_period  = ""
+        if mjdperiod: 
+            arg_period = " MJDPERIOD " + mjdperiod
+
+        log_file    = "OUT_TEMP_" + rand + ".LOG"
+
         if cid_list is not None:
             cmd = (
                 "snlc_fit.exe "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
+                + arg_version
                 + " SNCCID_LIST "
                 + cid_list
-                + " CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"
-                + rand
-                + "' > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + " CUTWIN_CID 0 0 "
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
         elif isdist:
             cmd = (
                 "snlc_fit.exe "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
-                + " SNTABLE_LIST "
-                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
-                + rand
-                + " > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + arg_version
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
         else:
             cmd = (
                 "snlc_fit.exe "
                 + nml
-                + " VERSION_PHOTOMETRY "
-                + genversion
-                + " MXEVT_PROCESS 5 SNTABLE_LIST "
-                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
-                + rand
-                + " > OUT_TEMP_"
-                + rand
-                + ".LOG"
+                + arg_version
+                + " MXEVT_PROCESS 5 "
+                + arg_sntable 
+                + arg_prefix
+                + " > " 
+                + log_file
             )
     elif cid_list is None:
         cmd = (
-            "snana.exe NOFILE VERSION_PHOTOMETRY "
-            + genversion
-            + " MXEVT_PROCESS 5 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)'"
-            + " TEXTFILE_PREFIX 'OUT_TEMP_"
-            + rand
-            + "' > OUT_TEMP_"
-            + rand
-            + ".LOG"
+            "snana.exe NOFILE "
+            + arg_version
+            + " MXEVT_PROCESS 5 "
+            + arg_sntable
+            + arg_prefix
+            + " > " 
+            + log_file
         )
     else:
         cmd = (
-            "snana.exe NOFILE VERSION_PHOTOMETRY "
-            + genversion
+            "snana.exe NOFILE "
+            + arg_version
             + " SNCCID_LIST "
             + cid_list
-            + " CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PRE\
-FIX 'OUT_TEMP_"
-            + rand
-                + "' > OUT_TEMP_"
-                + rand
-            + ".LOG"
+            + " CUTWIN_CID 0 0 "
+            + arg_sntable
+            + arg_prefix
+            + " > " 
+            + log_file
         )
+
     os.system(cmd)
     with open("OUT_TEMP_" + rand + ".LOG", "rb+") as f:
         content = f.read()
@@ -929,6 +934,13 @@ def main():
         default=False,
     )
     parser.add_argument(
+        "--mjdperiod",   # R.K. Sep 7 2022
+        help="LC: fold MJDs into one period (for periodic transients) ",
+        action="store_true",
+        dest="mjdperiod",
+        default=False,
+    )
+    parser.add_argument(
         "--plotAll",
         help=SUPPRESS_HELP,
         action="store_true",
@@ -1099,7 +1111,8 @@ def main():
                 options.CID,
                 options.nml_filename,
                 options.dist,
-                options.private_path
+                options.private_path,
+                options.mjdperiod     # RK - Sep 2022
             )
         else:
             (

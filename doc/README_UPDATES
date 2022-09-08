@@ -21250,6 +21250,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + read SIM_MJD_EXPLODE and add to table if > 0
      + set abort trap on VERSION string length
      + compute SNHOST_CONFUSION (if "DEBUG_FLAG 902")
+     + new MJDPERIOD_PLOT arg
 
   get_fitres_values.py: fix bug counting lines before VARNAMES
 
@@ -21263,5 +21264,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   genmag_NON1ASED.c
     + add call to print_ranges_SEDMODEL() to print warnings for
       Flux(Trestmin)/Flux(peak) > threshold.
+
+  plot_snana.py
+    + new --mjdperiod input arg
 
 END: 

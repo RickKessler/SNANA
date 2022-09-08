@@ -5,7 +5,9 @@
 #  Plotter tool for SNANA LCs and Spectra
 #
 # Aug 19 2022: R.Kessler - compute minFlux to handle Galactic transients
-
+# Sep 07 2022: R.Kessler - add input --mjdperiod for periodic transients
+#                          Also do a little cleanup for snana commands.
+#
 from __future__ import print_function
 
 import matplotlib as mpl

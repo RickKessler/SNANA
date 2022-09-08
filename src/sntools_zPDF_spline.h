@@ -2,8 +2,8 @@
 struct{
   gsl_interp_accel *acc;
   gsl_spline       *spline;
-  double zmin, zmax;
-} zPDF_spline ;
+  double zmin, zmax, dz; // dz used for derivative calculation
+} zCDF_spline ;
 
 
 void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list);

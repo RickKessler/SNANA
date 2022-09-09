@@ -22280,6 +22280,8 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   // Reason: SNSEP and DDLR are computed at the original galaxy
   // coordinate, and then the galaxy coords are moved to be near
   // the SN, leaving room for bugs in the coord shift.
+  //
+  // Sep 9 2022 increase SNSEP_tol to 0.15 (was 0.1)
 
   double RA_GAL      = SNDATA.HOSTGAL_RA[m] ;
   double DEC_GAL     = SNDATA.HOSTGAL_DEC[m] ;
@@ -22287,7 +22289,7 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   double DEC_SN      = GENLC.DEC ;
   double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
   double SNSEP_check, SNSEP_dif ;
-  double SNSEP_tol   = 0.1 ; // abort if SNSEP dif is > tolerance in arcsec
+  double SNSEP_tol   = 0.15 ; // abort if SNSEP dif is > tolerance in arcsec
   if ( INPUTS.DEBUG_SNSEP ) { SNSEP_tol = 0.001; }
   
   char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";

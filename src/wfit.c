@@ -3373,7 +3373,7 @@ double one_over_EofA(double a, Cosparam *cptr) {
 double EofZ(double z, Cosparam *cptr){
 
   // Oct 31 2021 R.Kessler
-  //  Implement omr (radiation) erm such that setting omr=0.0 reduce
+  //  Implement omr (radiation) term such that setting omr=0.0 reduce
   //  to previous code.
   //  omr includes photons+neutrinos for early-universe integrals.
   //  This is inaccurate at late times when neutrinos become non-relativistic,

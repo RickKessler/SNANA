@@ -17840,9 +17840,7 @@ c pick host photoZ
         SNHOST_ZPHOT_ERR(1) = Zhosterr
       endif
 
-c      IF ( DEBUG_FLAG == 902 ) THEN
        CALL SET_SNHOST_CONFUSION()
-c      ENDIF
 
 c compute lumi-distance using "standard" cosmology
 c Useful as initial value for fits.
@@ -18391,7 +18389,7 @@ c
 
       REAL*8   HC, DDLR_LIST(MXSNHOST)
       INTEGER  igal, NMATCH2
-      LOGICAL LDMP / .TRUE. /
+      LOGICAL LDMP / .FALSE. /
 
       REAL*8   HOST_CONFUSION
       EXTERNAL HOST_CONFUSION   ! see sntools.c

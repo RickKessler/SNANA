@@ -96,7 +96,7 @@
 #define TWOPI     2.0*3.141592653589793238462643383279
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
-#define ZMAX_SNANA   4.0        // max snana redshift, Dec 26 2016
+#define ZMAX_SNANA   10.0        // max snana redshift, Sept 9, 2022
 #define PSFMAX_SNANA 5.0        // max allowed PSF, FWHM, arcsec (Mar 2021)
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings

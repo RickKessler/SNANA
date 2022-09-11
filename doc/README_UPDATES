@@ -21193,19 +21193,19 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04m (  ) 
+         v11_04m (Sep 11, 2022) 
 
          ***** IMPORTANT(v11_04m) ***** 
 
-   Running codes without arguments results in printing help menu
-   for valid keys. Affects
+   Running a compiled code without arguments results in printing 
+   help menu to stdout for config-file valid keys:
       snlc_sim.exe, snana.exe, snlc_fit.exe, psnid.exe, SALT2mu,exe
       combine_fitres.exe 
 
    New sim-input HOSTLIB_MAXDDLR2 (default=7) so that host_confustion()
    computation has more information. Note that HOSTGAL_NMATCH will 
    sometimes be less than HOSTGAL_NMATCH2.
-   
+      
          ***** USEFUL(v11_04m) ***** 
 
    Sim writes PHOTFLAG_DETECT mask in global header of FITS file.
@@ -21215,21 +21215,20 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    integrate this feature into submit_batch_jobs to replace user file name
    with standard name.
 
-   New utility simsed_trim.py
+   New utility util/simsed_modify.py
 
          ***** MISCELLANEOUS(v11_04m) ***** 
 
    submit_prog_base.py:
-     + implement new option "BATCH_SINGLE_NODE: True" to run all
+     + implement new CONFIG option "BATCH_SINGLE_NODE: True" to run all
        jobs on a single node. First use is to write ELASTICC alerts
-       on Cori
+       on Cori.
 
    SALT2mu.c:
      + write comment to stdout for each bit in opt_biascor
-     + fix bugs printing opt_biascor mask bits/comments.
 
    makeDataFiles:
-     + add output_csv option
+     + add output_csv option ... not finished.
 
    snlc_sim.c
      + fix refactor bug from July 7 that caused only first
@@ -21237,6 +21236,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
        random CID from taking these values
      + compute and write SIM_MJD_EXPLODE ... works only for SIMSED model.
+       First use is simulating LVC skymap (for KN) that needs MJD_EXPLODE.
      + allow adding ZPHOT_Q[nnn] to SIMGEN_DUMP list for option to
          force Gauss quantiles
      + fix bug setting SIM_REDSHIFT_FLAG for zPHOT events with wrong host.
@@ -21245,17 +21245,19 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + fix index bug for rebin option (found by P.Armstrong)
 
    snana.car
-     + new &SNLCINP LDMP_SATURATE to print 1-line summary for 
+     + new &SNLCINP input LDMP_SATURATE to print one-line summary for 
        each saturated observation.
-     + read SIM_MJD_EXPLODE and add to table if > 0
+     + read SIM_MJD_EXPLODE and add to output SNANA/FITRES table if > 0
      + set abort trap on VERSION string length
-     + compute SNHOST_CONFUSION (if "DEBUG_FLAG 902")
-     + new MJDPERIOD_PLOT arg
+     + compute SNHOST_CONFUSION
+     + new MJDPERIOD_PLOT arg to fold all observations into one cycle;
+        affects LCPLOT table.
 
   get_fitres_values.py: fix bug counting lines before VARNAMES
 
   sntools_dataformat_fits.c
     + add hack for DES to force SUBSURVEY_FLAG=0
+       [due to mistake in DES-DIFFIMG data]
 
   submit_prog_lcfit.py
     + during merge, abort if any VARNAMES list does not match
@@ -21268,8 +21270,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
   plot_snana.py
     + new --mjdperiod input arg
     + new --mxevt input arg ;
-       default=0, but if there is no CID arg them mxevt -> 6
-
-  new scipt util/simsed_modify.py
+       default=0, but if there is no CID arg then mxevt -> 6
+    + remove -i 1-10 option since some CID names might have hyphen.
 
 END: 

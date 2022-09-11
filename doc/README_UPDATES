@@ -21267,5 +21267,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
   plot_snana.py
     + new --mjdperiod input arg
+    + new --mxevt input arg ;
+       default=0, but if there is no CID arg them mxevt -> 6
+
+  new scipt util/simsed_modify.py
 
 END: 

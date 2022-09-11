@@ -635,6 +635,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0; 
+  INPUTS.APPEND_SNID_SEDINDEX = 0;
   INPUTS.DEBUG_SNSEP = false;
 
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
@@ -1592,6 +1593,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
     if ( INPUTS.DEBUG_FLAG == 711 ) { INPUTS.DEBUG_SNSEP=true; }
+  }
+  else if ( keyMatchSim(1, "APPEND_SNID_SEDINDEX", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.APPEND_SNID_SEDINDEX) ; 
   }
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -21652,6 +21656,9 @@ void snlc_to_SNDATA(int FLAG) {
 
   sprintf(SNDATA.CCID,      "%d", SNDATA.CID ) ;
   sprintf(SNDATA.IAUC_NAME, "%s", "NULL" );
+
+  if ( INPUTS.APPEND_SNID_SEDINDEX ) 
+    { sprintf(SNDATA.CCID, "%d-%d", SNDATA.CID, GENLC.TEMPLATE_INDEX ); } 
 
   SNDATA.SUBSAMPLE_INDEX = GENLC.SUBSAMPLE_INDEX ;
 

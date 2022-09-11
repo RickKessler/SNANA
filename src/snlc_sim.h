@@ -429,12 +429,15 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
-  bool DEBUG_SNSEP;  // temp flat to debug SNSEP
+  bool APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
+
+  bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_DES3YR;          // restore DES3YR bugs
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
+
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)

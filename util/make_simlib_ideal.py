@@ -13,7 +13,15 @@ def make_simblib_ideal(survey='LSST', filters='ugrizY', zpt=35.,\
     nobs = len(mjds)*len(filters)
 
     with open(simlib_file, 'w') as outf:
-        outf.write(f'SURVEY: {survey}   FILTERS: {filters} \n')
+
+        outf.write(f'DOCUMENTATION: \n')
+        outf.write(f'  PURPOSE: ideal {survey} survey with ' \
+                   f' {mjd_step} day cadence \n')
+        outf.write(f'DOCUMENTATION_END: \n')
+        outf.write(f'\n')
+        outf.write(f'SURVEY: {survey}\n')
+        outf.write(f'FILTERS: {filters} \n')
+        outf.write(f'\n')
         outf.write('BEGIN LIBGEN\n\n')
         outf.write('LIBID: 1\n')
         outf.write(f'RA: 0.0   DECL: 0.0   NOBS: {nobs:d}   MWEBV: 0.0   PIXSIZE: 0.2\n\n')

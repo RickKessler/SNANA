@@ -6,9 +6,10 @@
 #
 # Jan 22 2022: add --diff_fitres option 
 # Apr 22 2022: for -d option, include 'MU' if it exists
+# Sep 12 2022: fix --extract_sim_input for sims run in batch mode
 # =========================
 
-import os, sys, argparse, subprocess, yaml
+import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
 import pandas as pd
 
 # ----------------
@@ -373,12 +374,25 @@ def get_README_contents(version):
     readme_file = f"{path_simdata}/{version}.README"
     misc_file = f"{path_simdata}/misc.tar.gz"
     if os.path.exists(misc_file):
-        pass
+        members = tarfile.open(misc_file).getmembers()
+        members_name = [m.name for m in members]
+#        print (f"len members {len(members)}, len members_name {len(members_name)}")
+        wildcard = f"*.README"
+        match_list = sorted(fnmatch.filter(members_name, wildcard))
+        for imodel in range(0,10):
+            key_model = f"MODEL{imodel}"
+            model_match = [match for match in match_list if key_model in match]
+            if len(model_match)==0: break
+            member = [m for m in members if m.name==model_match[0]][0]
+#            print (f"member {member.name}, model_match[0] {model_match[0]}")
+            with tarfile.open(misc_file).extractfile(member) as r:
+                docana_yaml = yaml.safe_load(r)
+                dict_yaml[f"{version}_{key_model}"] = docana_yaml
     else:
         # read README created by simulation
         with open(readme_file, 'rt') as r:
             docana_yaml = yaml.safe_load(r)
-        dict_yaml[version] = docana_yaml
+            dict_yaml[version] = docana_yaml
 
     return dict_yaml
 
@@ -420,7 +434,6 @@ def extract_sim_input_file(args):
     version_repeat = f"{version_orig}_REPEAT"
 
     sim_input_file = f"sim_input_{version_orig}.input"
-    print(f"\n Create sim-input file: {sim_input_file}")
 
     dict_yaml = get_README_contents(args.version)
     for model_name,sim_readme_yaml in dict_yaml.items():

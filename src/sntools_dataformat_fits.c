@@ -798,6 +798,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
+    wr_snfitsio_addCol( "1E",  "SCALE_HOST_CONTAM",  itype   ) ; 
   }
 
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
@@ -2527,6 +2528,10 @@ void  wr_snfitsio_update_spec(int imjd)  {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.LAMOBS_SNR_LIST[imjd][1] ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMAX_SNR", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] ;
+    wr_snfitsio_fillTable ( ptrColnum, "SCALE_HOST_CONTAM", itype );
   }
 
   // - - - - 

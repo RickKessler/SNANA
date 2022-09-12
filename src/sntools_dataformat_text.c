@@ -965,6 +965,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
   int  imjd, ilam ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
+  double SCALE;
 
   char VARLIST[200], tmpLine[200], cval[40] ;
   char fnam[] = "wr_dataformat_text_SNSPEC" ;
@@ -1005,10 +1006,17 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
     fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", 
 	    GENSPEC.MJD_LIST[imjd]);
-    if ( IS_HOST )
-      { fprintf(fp, "# HOST \n"); }
-    else
-      { fprintf(fp, "# Tobs = %8.3f \n", GENSPEC.TOBS_LIST[imjd] ); }
+    if ( IS_HOST )  { 
+      fprintf(fp, "# HOST \n"); 
+    }
+    else  { 
+      fprintf(fp, "# Tobs = %8.3f \n", GENSPEC.TOBS_LIST[imjd] );       
+    }
+
+    SCALE = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd];
+    if ( SCALE > 0.0 ) {
+      fprintf(fp,"SPECTRUM_SCALE_HOST_CONTAM: %.3f\n", SCALE);
+    }
 
     fprintf(fp,"SPECTRUM_TEXPOSE:  %9.1f            "
             "# seconds\n",

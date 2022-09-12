@@ -9684,12 +9684,13 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int ilam, ilam2, NOPT=0 ;
   bool   IS_HOST_ZEROFLUX = false;
   double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
-  double arg, MAGSHIFT, SCALE_FLAM_HOST=1.0 ;
+  double arg, MAGSHIFT, SCALE_FLAM_HOST_CONTAM = 1.0 ;
   double FSUM_PEAK, FSUM_HOST, LAMAVG, LAMMIN, LAMMAX, LAMBIN ;
   char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
 
   // ------------- BEGIN --------------
 
+  GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] = 0.0 ;
   if ( IS_HOST )           { return; }
   if ( HOSTFRAC < 1.0E-8 && HOSTSNFRAC < 1.0E-8 ) { return; }
 
@@ -9702,7 +9703,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   }
 
   if ( HOSTFRAC > .001 ) {
-    SCALE_FLAM_HOST = HOSTFRAC ; 
+    SCALE_FLAM_HOST_CONTAM = HOSTFRAC ; 
     NOPT++ ;
   }
 
@@ -9726,7 +9727,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
                 LAMAVG, ilam, HOSTSPEC.IDSPECDATA );
         sprintf(c2err,"Check SPECDATA.");
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-      }
+      } // end isnan abort trap
 
       LAMMIN      = INPUTS_SPECTRO.LAMMIN_LIST[ilam] ; 
       LAMMAX      = INPUTS_SPECTRO.LAMMAX_LIST[ilam] ;    
@@ -9751,7 +9752,7 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
 
     // HOSTSNFRAC \equiv (SCALE*FSUM_HOST/FSUM_PEAK)
     if ( !IS_HOST_ZEROFLUX ) 
-      { SCALE_FLAM_HOST = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ; }
+      { SCALE_FLAM_HOST_CONTAM = HOSTSNFRAC * FSUM_PEAK / FSUM_HOST ; }
 
     NOPT++ ;
   }
@@ -9763,10 +9764,12 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   }
 
   // - - - - - -
+  GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] = SCALE_FLAM_HOST_CONTAM; 
+
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
-    FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST);
+    FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
     
     GENSPEC.GENFLUX_LIST[imjd][ilam] = FLAM_TOT ;
 

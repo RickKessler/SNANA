@@ -21273,4 +21273,16 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        default=0, but if there is no CID arg then mxevt -> 6
     + remove -i 1-10 option since some CID names might have hyphen.
 
+
+# ======================================================================= 
+         v11_04n (  ) 
+
+         ***** IMPORTANT(v11_04n) ***** 
+
+         ***** USEFUL(v11_04n) ***** 
+
+         ***** MISCELLANEOUS(v11_04n) ***** 
+
+   for sim, write SCALE_HOST_CONTAM to spec output.
+   
 END: 

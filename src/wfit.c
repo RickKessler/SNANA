@@ -2601,9 +2601,14 @@ void wfit_final(void) {
   
   // add unknown offset if blind option 
   if ( INPUTS.blind ) {
+    int dofit_wcdm = INPUTS.dofit_wcdm ;
+    int dofit_lcdm = INPUTS.dofit_lcdm;
+    int dofit_w0wa = INPUTS.dofit_w0wa ;
     srand(INPUTS.blind_seed);
-    w0_ran     = floor(1e6*rand()/RAND_MAX);
-    wa_ran     = floor(1e6*rand()/RAND_MAX);
+    if (dofit_wcdm || dofit_w0wa)
+      { w0_ran     = floor(1e6*rand()/RAND_MAX);}
+    if (dofit_w0wa)
+      { wa_ran     = floor(1e6*rand()/RAND_MAX);}
     omm_ran    = floor(1e6*rand()/RAND_MAX);
     w0_final   += sin(w0_ran);
     wa_final   += sin(wa_ran);

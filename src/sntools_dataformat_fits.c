@@ -1070,7 +1070,8 @@ void wr_snfitsio_create(int itype ) {
   // Mar 08 2022:
   //  + write SIM_MODEL_INDEX to header  
   //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
-  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+  //  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
@@ -5064,7 +5065,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   // to prepare for reading arbitrary spectrum from 3rd table.
 
   bool LEGACY = (SNFITSIO_CODE_IVERSION < 20 );
-  int istat, itype, hdutype, icol, anynul, nmove=1;
+  int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
   char *ptrFile, keyName[40], comment[200] ;
@@ -5128,15 +5129,19 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
 		    RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
 
-  icol=7 ;
+
+  icol = 6;
+  if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
+
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
 		    RDSPEC_SNFITSIO_HEADER.NLAMBIN, &anynul, &istat ); 
 
-  icol=8 ;
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN, &anynul, &istat ); 
 
-  icol=9 ;
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX, &anynul, &istat ); 
 

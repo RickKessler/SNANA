@@ -21288,4 +21288,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_dataformat_fits.c
      + CODE_IVERSION -> 22 to read extra SCALE_HOST_CONTAM column.
 
+   wfit.c
+     + few minor tweaks to allow om<0 for SN-only fits.
+
 END: 

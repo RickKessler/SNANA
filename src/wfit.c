@@ -108,6 +108,9 @@
 
  July 26 2022 RK - implement outfile_chi2grid ... not well tested.
 
+ Swp 12 2022 RK - abort if ommin<0 and -cmb
+                  in EofZ, if arg < 0.01; arg=0.01 (to allow om<0)
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -432,7 +435,8 @@ double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
 
-#define EPS  1.0e-6
+#define EPS_CONVERGE_POSomm  1.0e-6
+#define EPS_CONVERGE_NEGomm  1.0e-3
 #define JMAX 20
 
 double simpint(double (*func)(double, Cosparam *), 
@@ -1405,10 +1409,9 @@ void set_priors(void) {
 
   // =========== BEGIN ============
   
-  if ( INPUTS.use_bao )   {
-    init_bao_prior(1); }
+  if ( INPUTS.use_bao )  { init_bao_prior(1); }
 
-  if ( INPUTS.use_cmb )   { init_cmb_prior(1); }
+  if ( INPUTS.use_cmb )  { init_cmb_prior(1); }
 
   // - - - - - - - - - - - -
   // Report priors to stdout
@@ -1505,6 +1508,14 @@ void init_cmb_prior(int OPT) {
     CMB_PRIOR.R = sqrt(OM) * rz ;
     sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f " ,
 	    CMB_PRIOR.R, CMB_PRIOR.sigR);
+  }
+
+  if ( INPUTS.omm_min < 0.0 ) {
+    sprintf(c1err,"Negative omm (ommin=%.3f) not allowed with CMB prior",
+	    INPUTS.omm_min);
+    sprintf(c2err,"Remove CMB prior or set omm_min >=0");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
   }
 
   return;
@@ -2132,6 +2143,7 @@ void wfit_marginalize(void) {
     for(kk=0; kk < INPUTS.wa_steps; kk++){
       for(j=0; j < INPUTS.omm_steps; j++){
 	Pt1mp       = WORKSPACE.extprob3d[i][kk][j] ;
+
 	WORKSPACE.w0_prob[i] += Pt1mp ;
 	if ( Pt1mp > P1max ) {
 	  P1max = Pt1mp ;
@@ -2264,8 +2276,8 @@ void wfit_uncertainty(void) {
     WORKSPACE.w0_sort[i] = WORKSPACE.w0_prob[i];  
   }
   WORKSPACE.w0_sig_marg = sqrt(sqdelta/WORKSPACE.w0_probsum);
-  printf("\t marg %s_sig estimate = %.4f\n", 
-	 varname_w, WORKSPACE.w0_sig_marg);
+  printf("\t marg %s_sig estimate = %.4f  (probsum=%le)\n", 
+	 varname_w, WORKSPACE.w0_sig_marg, WORKSPACE.w0_probsum);
     
 
   if ( INPUTS.dofit_w0wa ) {
@@ -2299,7 +2311,6 @@ void wfit_uncertainty(void) {
   double w0_sum, w0_sort_1sigma, wa_sum, wa_sort_1sigma;
   int iw0_mean, iwa_mean, memd=sizeof(double) ;
   // Find location of mean in the prob vector
-
 
   for (i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -2355,13 +2366,13 @@ void wfit_uncertainty(void) {
   // ERROR checking ... 
  
   if (w0_sort_1sigma < 0 ){
-    printf("ERROR: w0 grid doesn't enclose 68.3% of probability!\n");
+    printf("ERROR: w0 grid encloses %.4f prob <  0.683 !\n", w0_sum);
     exit(EXIT_ERRCODE_wfit);
   }
 
   if ( INPUTS.dofit_w0wa ){
     if (wa_sort_1sigma < 0 ){
-      printf("ERROR: wa grid doesn't enclose 68.3% of probability!\n");
+      printf("ERROR: wa grid encloses %.3f prob < 0.683 !\n", wa_sum);
       exit(EXIT_ERRCODE_wfit);
     }
   }
@@ -3386,13 +3397,14 @@ double EofZ(double z, Cosparam *cptr){
   //  is insignificant.
 
   double E;
-  double arg, argr, omm, omk, ome, w0, wa;
+  double arg, arg_omm, arg_ome, arg_omk, arg_r, omm, omk, ome, w0, wa;
   double z1       = 1.0 + z;
   double z1_pow2  = z1*z1;
   double z1_pow3  = z1_pow2 * z1;
   double z1_pow4;
   double omr      = 0.9E-4 ; // photon+neutrino, Oct 31 2021, RK
 
+  // ----------- BEGIN ----------
   omm = cptr->omm;
   ome = cptr->ome;
   omk = 1.0 - omm - ome;
@@ -3404,15 +3416,35 @@ double EofZ(double z, Cosparam *cptr){
     omm *= (1.0 - omr);
     ome *= (1.0 - omr);
     z1_pow4  = z1_pow2 * z1_pow2;
-    argr     = omr * z1_pow4;
+    arg_r     = omr * z1_pow4;
   }
 
-  arg = 
+  arg_omm = omm * z1_pow3 ;
+  arg_omk = omk * z1_pow2 ;
+  arg_ome = ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
+
+  arg = arg_omm + arg_omk + arg_ome ;
+  if ( omr > 0.0 )  { arg += arg_r; }
+
+  /* xxxxxxxxx mark delete Sep 12 2022 xxxxxx
     omm * z1_pow3 + 
     omk * z1_pow2 + 
     ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
+    // xxx mark delete Sep 12 2022  if(omr>0.0) { arg += (omr * z1_pow4); }
+  xxxxxxx end mark xxxxxxxx */
 
-  if ( omr > 0.0 )  { arg += (omr * z1_pow4); }
+
+  /* xxx
+  if ( arg < 0.0 ) 
+    { printf(" xxx z=%.3f, arg_omm=%.3f  arg_ome=%.3f  w0=%.3f\n", 
+	     z, arg_omm, arg_ome, w0) ; } // xxx REMOVE
+  xxx */
+
+  // protect arg in case of om < 0 (Sep 13 2022)
+  if ( arg < 0.01 ) { 
+    arg = 0.01; 
+    // printf(" xxx arg=%f\n", arg);
+  }
 
   E = sqrt(arg);
 
@@ -3448,20 +3480,32 @@ double simpint(double (*func)(double, Cosparam *), double x1,
 {
   int j;
   double s, st;
-  double ost=0.0, os=0.0;
+  double ost=0.0, os=0.0, s_list[50];
+  bool   is_converge, is_zero;
 
   for(j=1; j<=JMAX; j++){
     st = trapezoid(func,x1,x2,j,ost,vptr);
     s = (4.0*st-ost)/3.0;
-    if (j > 5)  		/* Avoid spurious early convergence */
-      if (fabs(s-os) < EPS*fabs(os) || (s==0.0 && os==0.0))  return s;
+    s_list[j] = s;
+    if (j > 5) { 		/* Avoid spurious early convergence */     
+      is_converge = (fabs(s-os) < EPS_CONVERGE_POSomm*fabs(os) ) ;
+      is_zero     = (s==0.0 && os==0.0);
+      if ( is_converge || is_zero )  { return s; }
+    }
     os = s;
     ost = st;
   }
 
-  /* If we got to here, the integral did not converge in JMAX iterations */
+  // If we got to here, the integral did not converge in JMAX iterations 
+  // e.g.,  simpint(one_over_EofZ, zero, z, cptr);
   printf("ERROR: simpint did not converge\n");
-  return 0.0;
+  double s_frac = fabs((s_list[j-1] - s_list[j-2])/s_list[j-1]);
+  printf("\t [range=%.3f,%.3f om=%.3f w=%.3f s_frac=%le] \n",
+	 x1, x2, vptr->omm, vptr->w0, s_frac);
+  fflush(stdout);
+  
+  // xxx mark delete Sep 13 2022  return 0.0; xxxxxxxxx
+  return s;
 }
 
 double trapint(double (*func)(double, Cosparam *), double x1, 
@@ -3470,11 +3514,15 @@ double trapint(double (*func)(double, Cosparam *), double x1,
 {
   int j;
   double s,olds=0.0;
+  bool   is_converge, is_zero;
 
   for(j=1; j<=JMAX; j++){
     s = trapezoid(func,x1,x2,j,olds,vptr);
-    if (j > 5)  		/* Avoid spurious early convergence */
-      if (fabs(s-olds) < EPS*fabs(olds) || (s==0.0 && olds==0.0))  return s;
+    if (j > 5) { 		/* Avoid spurious early convergence */
+      is_converge = fabs(s-olds) < EPS_CONVERGE_POSomm*fabs(olds) ;
+      is_zero     = (s==0.0 && olds==0.0);
+      if ( is_converge || is_zero )  { return s; }
+    }
     olds = s;
   }
 
@@ -3486,20 +3534,23 @@ double trapint(double (*func)(double, Cosparam *), double x1,
 
 double trapezoid(double (*func)(double, Cosparam *), double x1, double x2, 
 		 int n, double s, Cosparam *vptr)
-/* Based on NR 'trapzd'.  Here, s must be fed back in from previous 
-   iterations, rather than using a static variable as in the NR version. */
+// Based on NR 'trapzd'.  Here, s must be fed back in from previous 
+//   iterations, rather than using a static variable as in the NR version.
 {
   double x,tnm,sum,del;
   int it,j;
 
   if (n == 1) {
     return 0.5*(x2-x1)*( (*func)(x1,vptr) + (*func)(x2,vptr) );
-  } else {
-    for(it=1,j=1; j<n-1; j++) it <<= 1;
-    tnm = it;
+  } 
+  else {
+    for(it=1,j=1; j<n-1; j++) { it <<= 1; }
+    tnm = it; 
     del = (x2-x1)/tnm;
     x = x1+0.5*del;
-    for (sum=0.0,j=1; j<=it; j++,x+=del) sum += (*func)(x,vptr);
+    for (sum=0.0,j=1; j<=it; j++,x+=del) 
+      { sum += (*func)(x,vptr); }
+
     s = 0.5*(s+(x2-x1)*sum/tnm);
     return s;
   }

@@ -2373,7 +2373,13 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
   char fnam[] = "get_PARSE_WORD" ;
 
   // ----------- BEGIN ---------
+
   if ( iwd >= NWD ) {
+    print_preAbort_banner(fnam);
+    int i;
+    for(i=0; i < NWD; i++ ) 
+      { printf("\t word(%d) = '%s' \n", i, PARSE_WORDS.WDLIST[i]) ;}
+
     sprintf(c1err,"iwd=%d exceeds NWD_STORE=%d", iwd, NWD);
     sprintf(c2err,"Check FILENAME = '%s' ", PARSE_WORDS.FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -9086,12 +9092,14 @@ void check_file_docana(int optmask, char *fileName) {
   //
   // Input 
   //    optmask & 1 -> abort if no DOCANA; else give warning.
+  //
+  // Sep 14 2022: key[60] -> key[300] to avoid overwrite of memory
 
   int MSKOPT   = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
   bool REQUIRE = ( (optmask & 1) > 0 ) ;
   bool FOUND_DOCANA = false ;
   int  langFlag=0, iwd, NWD;
-  char key[60];
+  char key[300];
   char fnam[] = "check_file_docana";
   // ------------- BEGIN --------
 

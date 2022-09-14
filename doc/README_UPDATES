@@ -21291,4 +21291,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    wfit.c
      + few minor tweaks to allow om<0 for SN-only fits.
 
+   sntools.c
+     + fix evil bug in check_file_docana()
+
 END: 

@@ -18399,6 +18399,10 @@ C ----------- BEGIN -------------
       SNHOST_CONFUSION = -9.0
 
       NMATCH2 = SNHOST_NMATCH2
+
+c only the first MXSNHOST matches are stored
+      if ( NMATCH2 > MXSNHOST ) NMATCH2 = MXSNHOST 
+
       if ( NMATCH2 .LE. 1 ) RETURN
 
 c convert single precions to double precision

@@ -63,7 +63,9 @@
 #
 # Jun 10 2022: for deciding C-python interace, check $VERSION_LIBPYTHON
 #    instead of $SNANA_PYTHON_DIR. 
-# ---------------------------------------------------------------------
+#
+# Sep 15 2022: define EXTRA_FLAGS_CPLUS = -std=c++17 (for ROOT v6 at NERSC)
+# ------------------------------------------------------------------------
 
 SHELL = /bin/sh
 
@@ -94,10 +96,12 @@ GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
 ifeq ($(GCCVERSION10),0)
    EXTRA_FLAGS_FORTRAN  = $(EXTRA_FLAGS)
    EXTRA_FLAGS_C        = $(EXTRA_FLAGS)
+   EXTRA_FLAGS_CPLUS    = 
 else 
 # for gcc v10, allow argument-mismatch errors (9.2020)
    EXTRA_FLAGS_FORTRAN = $(EXTRA_FLAGS) -fallow-argument-mismatch -fcommon
    EXTRA_FLAGS_C       = $(EXTRA_FLAGS) -fcommon
+   EXTRA_FLAGS_CPLUS   = -std=c++17
 endif
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
@@ -161,7 +165,8 @@ ifeq ($(USE_ROOT),0)
    CPPLIB   = 
    SNTOOLS_ROOT = 
 else
-   CCoutput    = c++ 
+#   $(info EXTRA_FLAGS_CPLUS = $(EXTRA_FLAGS_CPLUS))
+   CCoutput    = c++ $(EXTRA_FLAGS_CPLUS)
    CPPLIB      = -lstdc++
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)

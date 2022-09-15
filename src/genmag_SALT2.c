@@ -3813,15 +3813,13 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   // Code is from Julien, with slight modifications for
   // SNANA compatibility.
   // 
-  // Mar 3, 2011: fix dumb bug causing crazy value at lam = LAM_MIN
-  
   // Sep 2020: use checkval_D to check values.
 
   double LAM_B, LAM_V, LAM_MIN, LAM_MAX, XN, params[10] ;
   int nparams, i  ;
   double constant = log(10.0)/2.5 ;
-  double alpha    = 1 ;
-  double val      = 0 ;
+  double alpha    = 1.0 ;
+  double val      = 0.0 ;
   double rl, rlmin, rlmax, tmp ;
   char fnam[] = "SALT2colorlaw1" ;
 
@@ -3838,7 +3836,7 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
 
   nparams = (int)XN ;        // number of parameters to follow
   for ( i=0; i < nparams; i++ ) {
-    tmp       = *(colorPar+5+i); 
+    tmp       = colorPar[5+i]; 
     params[i] = tmp;
     if ( fabs(tmp) > 10.0 ) {
       sprintf(c1err, "insane params[%d] = %f", i, tmp );

@@ -21294,4 +21294,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools.c
      + fix evil bug in check_file_docana()
 
+   Makefile:
+     + add -std=c++17 compile flag for root v6 (for Cori @ NERSC).
+
 END: 

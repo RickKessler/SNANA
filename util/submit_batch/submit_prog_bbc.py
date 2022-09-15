@@ -59,6 +59,9 @@
 #   + local sync_evt is no True/False instead of 1/0
 #   + use merge_force logic on FITOPT000 if sync_evt is set
 #
+# Aug 18 2022: change 4D loop order so that iver is inside instead of outside;
+#      --> ensures that FITOPT000 is always done first.
+#
 # - - - - - - - - - -
 
 
@@ -862,9 +865,10 @@ class BBC(Program):
 
         # 4D lists are for prep_JOB_INFO
         iver_list4=[]; ifit_list4=[]; imu_list4=[]; isplitran_list4=[]
-        for iver in range(0,n_version):
-            for ifit in range(0,n_fitopt):
-                for imu in range(0,n_muopt):
+        # xxx mark delete for iver in range(0,n_version):
+        for ifit in range(0,n_fitopt):
+            for imu in range(0,n_muopt):
+                for iver in range(0,n_version):
                     if not use_matrix2d[ifit][imu] : continue
                     for isplitran in range(0,n_splitran):
                         iver_list4.append(iver)

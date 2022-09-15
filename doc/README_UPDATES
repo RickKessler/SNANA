@@ -20913,7 +20913,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_dataformat_fits.c
      + write/read SIM_MODEL_INDEX to global header so that rewriting
        FITS -> FITS can work.
-     + implement MSKOPT&256 -> suppress sim-truth from output.
+     + implement MSKOPT & 256 -> suppress sim-truth from output.
    
    wfit.c:
      + fix bug causing -bao_sim to be the same as -bao.
@@ -21102,7 +21102,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04l (  ) 
+         v11_04l (July 17, 2022) 
 
          ***** IMPORTANT(v11_04l) ***** 
 
@@ -21133,6 +21133,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        snana.exe and snlc_fit.exe now abort if both _HEAD.FITS and
        _HEAD.FITS.gz exist.
 
+    snana.car
+       Fixed bug reading MWEBV_ERR with OPT_MWEBV=1
+         https://github.com/RickKessler/SNANA/issues/959
+ 
          ***** USEFUL(v11_04l) ***** 
 
    new sim-input HOSTLIB_SNR_DETECT (see manual) to apply SNR cut
@@ -21143,11 +21147,21 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    for the true host because mis-matched hosts are often in the
    same galaxy group/cluster as the true host.
  
+   sim: 
+     + stronglens assigns host at zLENS and works with CIDRAN
+     + stronglens automatically writes auxillary file [VERSION].SL
+         with information about each lens and each lensed LC.
+
          ***** MISCELLANEOUS(v11_04l) ***** 
 
    snlc_sim.c
      + avoid SIMGEN_DUMP conflict between SIMSED and HOSTLIB varnames.
      + new sim-input APPLY_DETECT_SINGLE
+     + fix bug to allow COSBPOLY to override BPOLY and vice-versa
+     + add GALNMATCH to simgen-dump
+     + write hostmatch fractions to README for Nmatch=0 and Nmatch=2
+     + fix shifting of final galaxy coords in output data files,
+          https://github.com/RickKessler/SNANA/issues/960
 
    genmag_SIMSED.c
      + fix bug reading MXDAY with NDAY_PAD to account for recent
@@ -21168,9 +21182,119 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + allow SNTYPE = -9 by changing ISNLC_TYPE -> 0
         (fix is needed to process Pantheon HST sample)
 
+   snlc_fit.car
+     + inputs USESIM_REDSHIFT and REDSHIFT_FINAL_SHIFT work together
+       to allow forcing zTrue+shift in LCFIT.
+
    use -Wall in compilation and fix a lot of warnings
    for snana.car, snlc_fit.car, snlc_sim.c .
    There was one fix with 1-byte string declaration that
    may have been harmful.
+
+
+# ======================================================================= 
+         v11_04m (Sep 11, 2022) 
+
+         ***** IMPORTANT(v11_04m) ***** 
+
+   Running a compiled code without arguments results in printing 
+   help menu to stdout for config-file valid keys:
+      snlc_sim.exe, snana.exe, snlc_fit.exe, psnid.exe, SALT2mu,exe
+      combine_fitres.exe 
+
+   New sim-input HOSTLIB_MAXDDLR2 (default=7) so that host_confustion()
+   computation has more information. Note that HOSTGAL_NMATCH will 
+   sometimes be less than HOSTGAL_NMATCH2.
+      
+         ***** USEFUL(v11_04m) ***** 
+
+   Sim writes PHOTFLAG_DETECT mask in global header of FITS file.
+   Recommend adding this flag for real data too.
+
+   Implement new wfit option -outfile_chi2grid <fileName>, and also
+   integrate this feature into submit_batch_jobs to replace user file name
+   with standard name.
+
+   New utility util/simsed_modify.py
+
+         ***** MISCELLANEOUS(v11_04m) ***** 
+
+   submit_prog_base.py:
+     + implement new CONFIG option "BATCH_SINGLE_NODE: True" to run all
+       jobs on a single node. First use is to write ELASTICC alerts
+       on Cori.
+
+   SALT2mu.c:
+     + write comment to stdout for each bit in opt_biascor
+
+   makeDataFiles:
+     + add output_csv option ... not finished.
+
+   snlc_sim.c
+     + fix refactor bug from July 7 that caused only first
+       host match to be output to data files.
+     + new sim-input CIDRAN_SKIPLIST (comma-sep list) to prevent
+       random CID from taking these values
+     + compute and write SIM_MJD_EXPLODE ... works only for SIMSED model.
+       First use is simulating LVC skymap (for KN) that needs MJD_EXPLODE.
+     + allow adding ZPHOT_Q[nnn] to SIMGEN_DUMP list for option to
+         force Gauss quantiles
+     + fix bug setting SIM_REDSHIFT_FLAG for zPHOT events with wrong host.
+     
+   create_covariance.py
+     + fix index bug for rebin option (found by P.Armstrong)
+
+   snana.car
+     + new &SNLCINP input LDMP_SATURATE to print one-line summary for 
+       each saturated observation.
+     + read SIM_MJD_EXPLODE and add to output SNANA/FITRES table if > 0
+     + set abort trap on VERSION string length
+     + compute SNHOST_CONFUSION
+     + new MJDPERIOD_PLOT arg to fold all observations into one cycle;
+        affects LCPLOT table.
+
+  get_fitres_values.py: fix bug counting lines before VARNAMES
+
+  sntools_dataformat_fits.c
+    + add hack for DES to force SUBSURVEY_FLAG=0
+       [due to mistake in DES-DIFFIMG data]
+
+  submit_prog_lcfit.py
+    + during merge, abort if any VARNAMES list does not match
+      among SPLIT jobs.
+
+  genmag_NON1ASED.c
+    + add call to print_ranges_SEDMODEL() to print warnings for
+      Flux(Trestmin)/Flux(peak) > threshold.
+
+  plot_snana.py
+    + new --mjdperiod input arg
+    + new --mxevt input arg ;
+       default=0, but if there is no CID arg then mxevt -> 6
+    + remove -i 1-10 option since some CID names might have hyphen.
+
+
+# ======================================================================= 
+         v11_04n (  ) 
+
+         ***** IMPORTANT(v11_04n) ***** 
+
+         ***** USEFUL(v11_04n) ***** 
+
+         ***** MISCELLANEOUS(v11_04n) ***** 
+
+   for sim, write SCALE_HOST_CONTAM to spec output.
+    
+   sntools_dataformat_fits.c
+     + CODE_IVERSION -> 22 to read extra SCALE_HOST_CONTAM column.
+
+   wfit.c
+     + few minor tweaks to allow om<0 for SN-only fits.
+
+   sntools.c
+     + fix evil bug in check_file_docana()
+
+   Makefile:
+     + add -std=c++17 compile flag for root v6 (for Cori @ NERSC).
 
 END: 

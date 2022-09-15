@@ -9,6 +9,7 @@
 
 #include "sntools.h"
 #include "sntools_cosmology.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"
 #include "sntools_host.h"
 #include "sntools_wronghost.h"
@@ -17,7 +18,6 @@
 #include "sntools_trigger.h" 
 #include "sntools_genPDF.h"
 #include "sntools_sim_readme.h"
-
 
 // *************************************************
 void README_DOCANA_DRIVER(int iflag_readme) {
@@ -52,6 +52,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
 
     README_KEYPLUSARGS_init(&README_KEYS_COSMO);
     README_KEYPLUSARGS_init(&README_KEYS_GENMODEL);
+    README_KEYPLUSARGS_init(&README_KEYS_CID);
     README_KEYPLUSARGS_init(&README_KEYS_SIMLIB);
     README_KEYPLUSARGS_init(&README_KEYS_HOSTLIB);
     README_KEYPLUSARGS_init(&README_KEYS_RATEMODEL);
@@ -349,6 +350,8 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST; // comma-sep list
   double XN, XNERR;
   double NGEN_PER_SEASON=0.0, NACC_PER_SEASON=0.0, NACCERR_PER_SEASON=0.0;
+  char fnam[] = "README_DOCANA_OUTPUT_SUMMARY" ;
+
   // ------------- BEGIN ------------
 
   readme_docana_comment(&i, "");
@@ -389,7 +392,13 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   sprintf(cptr,"%sNGENLC_TOT:        %d    # (%.f/sec)", 
 	  pad, NGENLC_TOT, R_gen );
 
-  
+  if ( GENSL.NGENLC_LENS_TOT > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sNGENLC_LENS_TOT:  %d  ", 
+	  pad, GENSL.NGENLC_LENS_TOT );
+
+  }
+
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENLC_WRITE:      %d    # (%.f/sec)", 
 	  pad, NGENLC_WRITE, R_write );
@@ -418,6 +427,7 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
 	      pad, skey, NTOT, NWR, comment);   
     }
   }
+
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%sNGENSPEC_WRITE:    %d  ", 
@@ -474,11 +484,104 @@ void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
   }
 
 
+  // - - - - -
+  // Jun 29 2022
+  // write fractions of host-less and multi-host events in redshift bins
+  if ( INPUTS.HOSTLIB_USE && NGENLC_WRITE > 0 )
+    { readme_docana_hostmatch(&i, pad); }
+
+
   *iline = i;
   return;
 
 } // end README_DOCANA_OUTPUT_SUMMARY
 
+
+// ========================================
+void readme_docana_hostmatch(int *iline, char *pad) {
+  
+  // Created Jun29 2022
+  // print host-nmatch fractions for nmatch=0 and nmatch=2
+
+  int i = *iline;
+  int NBINz = WRITE_HOSTMATCH.NRANGE_REDSHIFT;
+
+  int  N, N0,N2, iz; 
+  char str_n0_list[100], str_n2_list[100];
+  char str_frac0_list[100], str_frac2_list[100], str_z_list[100];
+  char str_z[20], str_tmp[20], *cptr ;
+  double frac0, frac2, z0, z1;
+
+  char fnam[] = "readme_docana_hostmatch" ;
+
+  // ------------ BEGIN ----------
+
+  str_n0_list[0] = str_n2_list[0] = 0 ;
+  str_frac0_list[0] = str_frac2_list[0] = str_z_list[0] = 0 ;
+
+  for(iz=0; iz < NBINz; iz++ ) {
+    N     = WRITE_HOSTMATCH.NGENLC[iz]; 
+    N0    = WRITE_HOSTMATCH.NGENLC_NO_HOST[iz]; 
+    N2    = WRITE_HOSTMATCH.NGENLC_MULTI_HOST[iz]; 
+    z0    = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][0] ;
+    z1    = WRITE_HOSTMATCH.REDSHIFT_RANGE[iz][1] ;
+
+    frac0 = frac2 = 0.0 ;
+    if ( N > 0 ) {
+      frac0 = (double)N0 / (double)N ;
+      frac2 = (double)N2 / (double)N ;
+    }
+
+    /*
+    printf(" xxx %s: N0=%d N2=%d N_WRITE=%d frac[0,2] = %f, %f \n",
+	   fnam, N0, N2, NGENLC_WRITE, frac0, frac2); fflush(stdout);
+    */
+
+    sprintf(str_z,  " %.2f-%.2f", z0, z1);
+    catVarList_with_comma(str_z_list, str_z);   
+
+    sprintf(str_tmp," %3d", N0);
+    catVarList_with_comma(str_n0_list, str_tmp);
+    
+    sprintf(str_tmp," %3d", N2);
+    catVarList_with_comma(str_n2_list, str_tmp);
+
+    sprintf(str_tmp," %.3f", frac0);
+    catVarList_with_comma(str_frac0_list, str_tmp);
+    
+    sprintf(str_tmp," %.3f", frac2);
+    catVarList_with_comma(str_frac2_list, str_tmp);
+  }
+  
+  // - - - - - -
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sHOST_NMATCH:   # accepted", pad );
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 0 : [ %s ]  # z-ranges: %s", 
+	  pad, str_n0_list, str_z_list);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 2 : [ %s ] ", 
+	  pad, str_n2_list);
+
+  // - - - - - -
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%sHOST_NMATCH_FRACTIONS:  # accepted ", pad );
+  
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 0 : [ %s ]  # z-ranges: %s", 
+	  pad, str_frac0_list, str_z_list);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s- 2 : [ %s ] ", 
+	  pad, str_frac2_list);
+
+  // - - - -
+
+  *iline = i ;
+  return ;
+} // end readme_docana_hostmatch
 
 // ========================================
 void onoff_readme_docana(int FLAG, char *onoff) {
@@ -786,7 +889,7 @@ void readme_docana_redshift(int *iline, char *pad) {
 
   dval = (double)INPUTS.VPEC_ERR ;
   VERSION_INFO_load(&i, pad, "VPEC_ERR:", 
-		    "vpec scatter after correction (km/sec)",
+		    "vpec error after correction (km/sec)",
 		    lenkey, false, nval1, &dval, 0.0,9000.0, -1.0); 
 
   dval = (double)INPUTS.VEL_CMBAPEX ;
@@ -965,6 +1068,7 @@ void readme_docana_searcheff(int *iline, char *pad) {
 void readme_docana_output(int *iline, char *pad) {
 
   // Store GENVERSTION, FORMAT_MASK, etc ...
+  // Aug 2022: add CIDRAN_SKIPLIST
 
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
@@ -1013,6 +1117,11 @@ void readme_docana_output(int *iline, char *pad) {
   VERSION_INFO_load(&i, pad, "CIDRAN_MAX:", noComment, 
 		    lenkey, true, nval1, &dval, 0.0,1.0E9, -1.0); 
  
+  if ( INPUTS.NCIDRAN_SKIPLIST > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%sCIDRAN_SKIPLIST:  %s", pad, INPUTS.CIDRAN_SKIPLIST);
+  }
+
   *iline = i;
   return;
 

@@ -14,9 +14,23 @@
 #
 # Nov 22 2021: fix to work with gzip files
 # Feb 07 2022: fix bug skipping comment lines before VARNAMES (see nrow_skip)
-
+# Jul 16 2022: 
+#   [Patrick Armstrong] add generic function (mean, min, max, etc...) 
+#    and command line plotting
+# Jul 19 2022 RK 
+#     --filt replaced with --sel to avoid confusion with filters.
+#     Put plotext import under try to avoid abort if not installed.
+#
+# Aug 21 2022 RK - fix bug counting lines before VARNAMES key
+            
 import os, sys, argparse, gzip
+import numpy as np
 import pandas as pd
+
+try:  
+    import plotext as plt
+except ImportError:
+    pass
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
 
@@ -36,8 +50,17 @@ def get_args():
     msg = "number of rows to fetch CIDs (no need to know CIDs)"
     parser.add_argument("--nrow", help=msg, type=int, default=0)
 
+    msg = "comma seperated list of selection functions: combined via 'or'. Can use <, >, or =="
+    parser.add_argument("--sel", help=msg, type=str, default=None)
+
     msg = "comma separated list of variable names"
     parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
+
+    msg = "comma seperated list of functions (mean, min, or max)"
+    parser.add_argument("--func", help=msg, type=str, default=None)
+
+    msg = "type of plot. Options include hist (histogram of each variable), and scatter (scatter plot, must specify 2 variables)"
+    parser.add_argument("--plot", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  parser.print_help(); sys.exit()
 
@@ -70,37 +93,76 @@ def parse_inputs(args):
     # - - - - - - -
     exist_cid_list = (args.cid   is not None) or \
                      (args.galid is not None) or \
+                     (args.sel   is not None) or \
                      (args.nrow > 0)
 
-    msgerr_cid     = "Must cid list using --cid or --nrow arg"
+    exist_func = args.func is not None
+    exist_plot = args.plot is not None
+    msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --sel arg"
+
     exist_var_list = args.varname is not None
     msgerr_var     = "Must specify varnames using -v arg"
 
     assert exist_ff,       msgerr_ff
-    assert exist_cid_list, msgerr_cid
+    assert exist_cid_list or exist_func or exist_plot, msgerr_cid
     assert exist_var_list, msgerr_var
-    
+
+    if exist_func:
+        # Check func is min, max, or mean
+        correct_func = True in [x in ['min', 'max', 'mean'] for x in args.func.split(",")]
+        msgerr_func = f"--func must be either min, mean, or max, not {args.func}"
+        assert correct_func, msgerr_func 
+
+    var_list   = args.varname.split(",")
+
+    if exist_plot:
+        # Check plot is hist or scatter 
+        correct_plot = args.plot in ['hist', 'scatter']
+        msgerr_plot = f"--plot must be either hist or scatter, not {args.plot}"
+        assert correct_plot, msgerr_plot
+
+        if args.plot == 'scatter':
+            assert len(var_list) == 2, f"Only 2 variables can be defined when creating a scatter plot, not {len(var_list)}"
+
     
     id_list = []
+    func_list = []
+    sel_list = []
     keyname_id = None
 
     if args.cid is not None :    
         id_list = args.cid.split(",")
         keyname_id = 'CID'
-    if args.galid is not None :    
+    elif args.galid is not None :    
         id_list = args.galid.split(",")
         keyname_id = 'GALID'
+    if args.func is not None :
+        func_list = args.func.split(",")
+    if args.sel is not None :
+        for sel in args.sel.split(","):
+            if "<" in sel:
+                v, n = sel.split("<")
+                sel_list.append([v, "<", float(n)])
+            elif ">" in sel:
+                v, n = sel.split(">")
+                sel_list.append([v, ">", float(n)])
+            elif "==" in sel:
+                v, n = sel.split("==")
+                sel_list.append([v, "==", float(n)])
+            else:
+                raise ValueError(f"Valid select functions are <, >, and ==. None of these were not found in {sel}")
 
     nrow       = args.nrow
-    var_list   = args.varname.split(",")
 
     info_fitres = {
         'fitres_file' : args.fitres_file,
         'id_list'     : id_list,
         'nrow'        : nrow,
         'var_list'    : var_list,
-        'keyname_id'  : keyname_id
-        
+        'keyname_id'  : keyname_id,
+        'func_list'   : func_list,
+        'plot'        : args.plot,
+        'sel_list'    : sel_list
     }
     return info_fitres
 
@@ -140,15 +202,18 @@ def read_fitres_file(info_fitres):
             continue
 
         if wdlist[0] == KEYLIST_DOCANA[0] : isrow_docana = True
-        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
+        # xxx if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
         if isrow_docana : 
             nrow_skip   += 1
             nrow_docana += 1
-            continue
+            #continue
+
+        if wdlist[0] == KEYLIST_DOCANA[1] : isrow_docana = False
 
         if wdlist[0] == 'VARNAMES:' : 
             keyname_id = wdlist[1]
-            print(f" Found keyname_id = {keyname_id}")
+            print(f" Found keyname_id = {keyname_id} " \
+                  f"after skipping {nrow_skip} rows")
             if nrow_docana > 0:
                 print(f"\t (skipped {nrow_docana} DOCANA rows)")
 
@@ -159,9 +224,16 @@ def read_fitres_file(info_fitres):
     # - - - - - - 
 
     var_list_local =  [ keyname_id ] + var_list
-    df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
-                      skiprows=nrow_skip,
-                      usecols=var_list_local)
+    if info_fitres['nrow'] > 0:
+        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+                          skiprows=nrow_skip,
+                          usecols=var_list_local,
+                          nrows = info_fitres['nrow'])
+    else:
+        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+                          skiprows=nrow_skip,
+                          usecols=var_list_local)
+
 
     df[keyname_id] = df[keyname_id].astype(str)
     df             = df.set_index(keyname_id, drop=False)
@@ -190,17 +262,64 @@ def print_info(info_fitres):
     nrow       = info_fitres['nrow']
     var_list   = info_fitres['var_list']
     keyname_id = info_fitres['keyname_id']
+    func_list  = info_fitres['func_list']
+    plot       = info_fitres['plot']
+    sel_list   = info_fitres['sel_list']
+
+    pd.set_option("display.max_columns", len(df.columns) + 1, 
+                  "display.width", 1000)
 
     # check option to use IDs from first 'nrow' rows
     if nrow > 0 :
         id_rows = df[keyname_id].head(nrow).tolist()
         #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
         id_list += id_rows
-        id_list = list(set(id_list))
 
-    pd.set_option("display.max_columns", len(df.columns) + 1, 
-                  "display.width", 1000)
-    print(df.loc[sorted(id_list), var_list].__repr__())
+    if len(sel_list) > 0:
+        for sel in sel_list:
+            if sel[1] == "<":
+                id_rows = df[df[sel[0]] < sel[2]][keyname_id].tolist()
+            elif sel[1] == ">":
+                id_rows = df[df[sel[0]] > sel[2]][keyname_id].tolist()
+            elif sel[1] == "==":
+                id_rows = df[df[sel[0]] == sel[2]][keyname_id].tolist()
+            id_list += id_rows
+
+    id_list = list(set(id_list))
+    # Only print if id_list defined either by cid or nrow
+    if len(id_list) > 0:
+        df = df.loc[sorted(id_list), var_list]
+        print(df.__repr__())
+    else:
+        df = df.loc[df[keyname_id].to_list(), var_list]
+
+    for func in func_list: 
+        if func == 'mean':
+            print("\n",df.mean().to_frame('Mean'),"\n")
+        if func == 'min':
+            print("\n",df.min().to_frame('Min'),"\n")
+        if func == 'max':
+            print("\n",df.max().to_frame('Max'),"\n")
+
+    if plot == "hist":
+        for var in var_list:
+            data = df[var]
+            q1 = data.quantile(0.25)
+            q3 = data.quantile(0.75)
+            iqr = q3 - q1
+            bin_width = (2 * iqr) / (len(data) ** (1 / 3))
+            bin_count = int(np.ceil((data.max() - data.min()) / bin_width))
+            plt.hist(df[var].to_list(), bins=bin_count, label=var)
+        plt.show()
+
+    if plot == "scatter":
+        x = df[var_list[0]].to_list()
+        y = df[var_list[1]].to_list()
+        plt.scatter(x, y)
+        plt.xlabel(var_list[0])
+        plt.ylabel(var_list[1])
+        plt.show()
+
     # end print_info
 
 # =============================================

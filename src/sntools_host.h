@@ -139,7 +139,7 @@
 #define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
-
+#define HOSTLIB_VARNAME_WEAKLENS_DMU  "WEAKLENS_DMU" // Kevin Wang June 2022
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap.
 // To save storage memory, SNMAGSHIFT is stored as 2 byte short int 
@@ -161,16 +161,6 @@ int OPTMASK_OPENFILE_HOSTLIB ;
 
 //for developers only
 bool REFAC_HOSTLIB;
-
-/* xxx mark delete Apr 24 2022 
-// define generic host properties e.g. LOGMASS, LOGsSFR, COLOR...
-#define HOSTGAL_PROPERTY_BASENAME_LOGMASS  "LOGMASS"
-#define HOSTGAL_PROPERTY_BASENAME_LOGSFR   "LOGSFR"
-#define HOSTGAL_PROPERTY_BASENAME_LOGsSFR  "LOGsSFR"
-#define HOSTGAL_PROPERTY_BASENAME_COLOR    "COLOR"
-
-#define HOSTGAL_PROPERTY_NAME_LIST HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_COLOR
-xxxxxx end mark xxxxx */
 
 // Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
 // the other hostless values are -9 as before.
@@ -268,6 +258,7 @@ struct HOSTLIB_DEF {
   int IVAR_n[MXSERSIC_HOSTLIB];   // Sersic index
   int IVAR_a_DLR;   // to measure DLR: e.g. a_IMAGE from sextractor
   int IVAR_b_DLR;   // to measure DLR
+  int IVAR_WEAKLENS_DMU;
   int IVAR_MAGOBS[MXFILTINDX] ;     // pointer to oberver-mags
   int IVAR_MAGOBS_ERR[MXFILTINDX] ; // pointer to obs-mag errs (Aug 6 2021)
   int IVAR_WGTMAP[MXVAR_HOSTLIB] ;  // wgtmap-ivar vs [ivar_STORE]
@@ -316,7 +307,9 @@ struct HOSTLIB_DEF {
   double Aperture_cosTH[NTHBIN_GALMAG+1] ;
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
 
-  long long IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
+  int IGAL_FORCE; // set if HOSTLIB_GALID_FORCE is set
+
+  int IGAL_STRONGLENS; // galaxy selected as strong lens
 
 } HOSTLIB ;
 
@@ -536,9 +529,13 @@ struct SNHOSTGAL {
 
   // misc info
   double PEAKMJD ;
- 
+  double WEAKLENS_DMU;
+  double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
 
-  int    NNBR;    // number of nearby galaxies
+  int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
+  int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
+  int    NNBR_ALL;      // all nbr in hostlib
+
   int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
   double DDLR_NBR_LIST[MXNBR_LIST];   // DDLR per NBR
   double SNSEP_NBR_LIST[MXNBR_LIST];
@@ -552,11 +549,10 @@ struct SNHOSTGAL {
   double a_SNGALSEP_ASEC ;  // angle-coord along major axis
   double b_SNGALSEP_ASEC ;  // idem for minor axis
 
-  double RA_GAL_DEG ;       // Galaxy sky coord from library (DEG)
-  double DEC_GAL_DEG ;  
-  double RA_SN_DEG ;            // SN sky coord (DEG)
-  double DEC_SN_DEG ;   
-  double RA_SNGALSEP_ASEC ;     // SN-galaxy sep in RA, arcsec
+  double RA_GAL_DEG, DEC_GAL_DEG ; // Galaxy sky coord from HOSTLIB (DEG)
+  double RA_SN_DEG, DEC_SN_DEG ;  // SN coords (from SIMLIB)
+  double cosDEC_GAL, cosDEC_SN;
+  double RA_SNGALSEP_ASEC ;     // SN-galaxy sep in RA direction, arcsec
   double DEC_SNGALSEP_ASEC ;    // idem in DEC
   double SNSEP ;        // SN-gal sep, arcsec
   double DLR ;          // directional light radius
@@ -669,6 +665,10 @@ void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
 double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
+void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
+void   GEN_SNHOST_STRONGLENS(void);
+void   GEN_DDLR_STRONGLENS(int IMGNUM);
+
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 void   GEN_SNHOST_PROPERTY(int ivar_property); 
 int    USEHOST_GALID(int IGAL) ;
@@ -762,6 +762,7 @@ double snmagshift_salt2gamma_HOSTLIB(int GALID);
 void   set_GALID_UNIQUE(int i);
 
 bool snr_detect_HOSTLIB(int IGAL);
+void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
 
 // SPECBASIS functions
 void   read_specTable_HOSTLIB(void);

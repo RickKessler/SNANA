@@ -27,6 +27,8 @@
 # Apr 04 2022: wait for merge_root.exe/merge_hbook.exe to exist in case
 #              SNANA build is in progress.
 #
+# Aug 31 2022 RK - set abort trap for VARNAMES mis-match among split jobs.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -507,7 +509,8 @@ class LightCurveFit(Program):
 
         output_dir        = self.config_prep['output_dir']
         CONFIG            = self.config_yaml['CONFIG']
-        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+        args              = self.config_yaml['args']
+        ignore_fitopt     = args.ignore_fitopt
 
         if ignore_fitopt: 
             # user option to ignore FITOPTs
@@ -521,7 +524,13 @@ class LightCurveFit(Program):
         # Check multiple key-options
         opt_sncid_list = 0
         for key in KEY_OPT_SNCID_LIST:
-            if key in CONFIG :  opt_sncid_list = CONFIG[key]
+            if key in CONFIG :  
+                opt_sncid_list = CONFIG[key]
+                if opt_sncid_list>0 and args.nomerge:
+                    msgerr = []
+                    msgerr.append(f"nomerge option does not work " \
+                                  f" with OPT_SNCID_LIST")
+                    self.log_assert(False,msgerr)
             
         # - - - - - -
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
@@ -1203,7 +1212,6 @@ class LightCurveFit(Program):
             'row_extra_list' : []
         }
         return row_list_dict, n_state_change
-        # xxx mark return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
 
@@ -1360,9 +1368,14 @@ class LightCurveFit(Program):
             table_wildcard += f(" {table_wildcard}") # double output
 
         # if no tables exist, bail out
-        table_list = glob.glob1(script_dir,table_wildcard)
+        table_list = sorted(glob.glob1(script_dir,table_wildcard))
         if len(table_list) == 0 :
             return
+
+        # for FITRES table, check that all of the VARNAMES lists 
+        # are the same; else abort
+        if table_name == SUFFIX_FITRES :
+            self.check_table_varnames_TEXT(table_list)
 
         # construct linux command to catenate TEXT files,
         # and then a special awk command to remove all VARNAMES
@@ -1405,7 +1418,68 @@ class LightCurveFit(Program):
             self.append_table_varlist(version_fitopt_dict)  # optional
             self.append_table_textfile(version_fitopt_dict)  # optional
 
+        return
         # end merge_table_TEXT
+
+    def check_table_varnames_TEXT(self,table_list):
+
+        # Created Aug 31 2022
+        # read VARNAMES list for each file in table_list,
+        # and abort if any VARNAMES list differs from first table.
+        # Beware that this works only for key (FITRES) format;
+        # does not work for CSV formatted tables.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        msgerr           = []
+        n_list = len(table_list)
+        if n_list == 1 : return
+
+        KEY_VARNAMES   = 'VARNAMES:'
+        VARNAMES_EMPTY = 'EMPTY'  # for empty file where 0 events pass
+
+        varnames_list = []
+        for tb_file in table_list:
+            tb_file_full = f"{script_dir}/{tb_file}"
+            with open(tb_file_full,"rt") as t:
+                line_list = t.readlines()
+                if len(line_list) == 0:
+                    # flag empty FITRES file to avoid false error
+                    varnames_list.append(VARNAMES_EMPTY)
+                else:
+                    for line in line_list:
+                        if KEY_VARNAMES in line:
+                            varnames = line.split(KEY_VARNAMES)[1]
+                            varnames_list.append(varnames)
+                            break
+
+        # - - - - - - - 
+        n2_list = len(varnames_list)
+        if n2_list != n_list:
+            msgerr.append(f"Found {n2_list} VARNAMES keys, " \
+                          f"but expected {n_list}. ")
+            msgerr.append(f"table_list = \n\t{table_list}")
+            msgerr.append(f"varnames_list = \n\t{varnames_list}")
+            self.log_assert(False,msgerr) 
+            
+        varnames_ref = varnames_list[0]
+        nerr = 0
+        for varnames,tb_file in zip(varnames_list, table_list):
+            is_empty = (varnames == VARNAMES_EMPTY)
+            is_match = (varnames == varnames_ref)
+            if not (is_empty or is_match):
+                logging.info(f"ERROR: VARNAMES mis-match for {tb_file}")
+                nerr += 1
+
+        # - - - - - 
+        if nerr > 0 :
+            msgerr.append(f"Found {nerr} VARNAMES mis-matches " \
+                          f"among {n_list} split jobs.")
+            msgerr.append(f"Reference FITRES file is: {table_list[0]}")
+            self.log_assert(False,msgerr) 
+
+        return
+        # end check_table_varnames_TEXT
 
     def append_table_varlist(self,version_fitopt_dict) :
 

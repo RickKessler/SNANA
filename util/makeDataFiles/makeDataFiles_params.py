@@ -29,6 +29,7 @@ DOCANA_KEY_END = "DOCUMENTATION_END"
 # =============================================================================
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
+FORMAT_CSV  = "CSV"
 
 # =============================================================================
 # User, hosts, passwords
@@ -71,9 +72,16 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 
 # -----------------------------------------------------------------------------
 # define list of variable names for each observation;
-VARNAMES_OBS = "MJD BAND FIELD PHOTFLAG  " \
-               "XPIX YPIX CCDNUM IMGNUM GAIN " \
-               "FLUXCAL FLUXCALERR PSF_SIG1 ZEROPT SKY_SIG"
+DATAKEY_MJD         = "MJD"
+DATAKEY_BAND        = "BAND"
+DATAKEY_PHOTFLAG    = "PHOTFLAG"
+DATAKEY_FLUXCAL     = "FLUXCAL"
+DATAKEY_FLUXCALERR  = "FLUXCALERR"
+
+VARNAMES_OBS = f"{DATAKEY_MJD} {DATAKEY_BAND} FIELD {DATAKEY_PHOTFLAG}  " \
+               f"XPIX YPIX CCDNUM IMGNUM GAIN " \
+               f"{DATAKEY_FLUXCAL} {DATAKEY_FLUXCALERR} " \
+               f" PSF_SIG1 ZEROPT SKY_SIG"
 
 VARNAMES_OBS_LIST = VARNAMES_OBS.split()
 

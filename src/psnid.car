@@ -79,58 +79,59 @@ c (translated from user-namelist string METHOD_NAME)
 
 +KEEP,PSNIDINP.
 
-      INTEGER   
-     &   NOBSMIN
-     &  ,OPT_ZPRIOR     ! 0,1,2 -> FLAT, ZSPEC, Zphot(host)
-     &  ,OPT_RATEPRIOR  ! use rate prior (RK - Sep 6 2013)
-     &  ,OPT_SIMCHEAT   ! 0 --> don't allow same PSNID template as in sim
-     &  ,MCMC_NSTEP     ! number of MCMC steps (set to <=0 to turn off)
-     &  ,NCOLOR, NDMU   ! number of color and delta-mu bins in grid search
-     &  ,NREJECT_OUTLIER  ! max number of outliers points to reject
+      INTEGER    
+     &   NOBSMIN        ! I: min NOBS to process
+     &  ,OPT_ZPRIOR     ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
+     &  ,OPT_RATEPRIOR  ! I: use rate prior (RK - Sep 6 2013)
+     &  ,OPT_SIMCHEAT   ! I: 0 --> don't allow same PSNID template as in sim
+     &  ,MCMC_NSTEP     ! I: number of MCMC steps (set to <=0 to turn off)
+     &  ,NCOLOR, NDMU   ! I: number of color and delta-mu bins in grid search
+     &  ,NREJECT_OUTLIER! I: max number of outliers points to reject
 
       CHARACTER 
-     &   METHOD_NAME*60                ! pick method name/acronym
-     &  ,FILTLIST_FIT*(MXFILT_ALL)     ! list of filters to fit
+     &   METHOD_NAME*60                ! I: pick method name/acronym
+     &  ,FILTLIST_FIT*(MXFILT_ALL)     ! I: list of filters to fit
      &  ,FILTLIST_PEAKMAG_STORE*(MXFILT_ALL) ! list of filters to store PKMAG
-     &  ,PRIVATE_TEMPLATES_PATH*(MXCHAR_PATH) !replace $SNDATA_ROOT/models/psnid
-     &  ,TEMPLATES_SNIA*(MXCHAR_FILENAME)  ! dir or FITS file with SNIa templates
-     &  ,TEMPLATES_NONIA*(MXCHAR_FILENAME)   ! idem for nonIa
-     &  ,TEMPLATES_NONIA_IGNORE*(MXCHAR_FILENAME) ! list of NONIA templates to ignore
-     &  ,TEMPLATES_NONIA_LIST*(MXCHAR_FILENAME)  ! select this list only
-     &  ,MODELNAME_MAGERR*60     ! name of mag-error model
+     &  ,PRIVATE_TEMPLATES_PATH*(MXCHAR_PATH) ! I: replace $SNDATA_ROOT/models/psnid
+     &  ,TEMPLATES_SNIA*(MXCHAR_FILENAME)  ! I: dir or FITS file with SNIa templates
+     &  ,TEMPLATES_NONIA*(MXCHAR_FILENAME) ! I: idem for nonIa
+     &  ,TEMPLATES_NONIA_IGNORE*(MXCHAR_FILENAME) ! I: list of NONIA templates to ignore
+     &  ,TEMPLATES_NONIA_LIST*(MXCHAR_FILENAME)  ! I: select this list only
+     &  ,MODELNAME_MAGERR*60     ! I: name of mag-error model
 
       REAL*8
      &   AV_TAU, AV_SMEAR, AV_PRIOR_STR   ! place-holder color-prior parameter
-     &  ,CUTWIN_ZERR(2)         ! redshift error (required for ZSPEC prior)
-     &  ,WGT_ZPRIOR             ! weight of redshift prior (default=1)
-     &  ,COLOR_MIN, COLOR_MAX   ! min and max color parameter in grid search
-     &  ,DMU_MIN, DMU_MAX       ! min and max delta-mu parameter in grid search
-     &  ,DMU_NON1A_MIN          ! idem, but only for NON1A
-     &  ,DMU_NON1A_MAX 
-     &  ,TEMPLERR_SCALE_SNIA, TEMPLERR_SCALE_NONIA   ! template error scale
-     &  ,PBAYES_IA_CUT
-     &  ,PBAYES_IBC_CUT
-     &  ,PBAYES_II_CUT     ! min bayes prob to type
-     &  ,PBAYES_PEC1A_CUT      ! Feb 2017
-     &  ,PBAYES_MODEL1_CUT
-     &  ,PBAYES_MODEL2_CUT
-     &  ,PBAYES_MODEL3_CUT
-     &  ,PBAYES_MODEL4_CUT
-     &  ,FITPROB_IA_CUT        ! min fitprob to type a Ia
-     &  ,FITPROB_IBC_CUT
-     &  ,FITPROB_II_CUT   
-     &  ,FITPROB_PEC1A_CUT    ! Feb 2017
-     &  ,FITPROB_MODEL1_CUT   ! Aug 2017
-     &  ,FITPROB_MODEL2_CUT   ! Aug 2017
-     &  ,FITPROB_MODEL3_CUT   ! Aug 2017
-     &  ,FITPROB_MODEL4_CUT   ! Aug 2017
-     &  ,ZRATEPRIOR_SNIA(3)   ! a1*(1+z)**a2, then flat for z>a3
-     &  ,ZRATEPRIOR_NONIA(3)  ! a1*(1+z)**a2, then flat for z>a3
-     &  ,CHISQMIN_OUTLIER     ! min chi2 for outlier rejection
-     &  ,MJDFIT_RANGE(2)      ! restrict fit to this MJD range
-     &  ,TMAX_START(MXITER_PSNID)     ! TMAX start for each iteration
-     &  ,TMAX_STOP(MXITER_PSNID)      ! TMAX end for each iteration
-     &  ,TMAX_STEP(MXITER_PSNID)      ! TMAX step for each iteration
+     &  ,CUTWIN_ZERR(2)         ! I: redshift error (required for ZSPEC prior)
+     &  ,WGT_ZPRIOR             ! I: weight of redshift prior (default=1)
+     &  ,COLOR_MIN, COLOR_MAX   ! I: min and max color parameter in grid search
+     &  ,DMU_MIN, DMU_MAX       ! I: min and max delta-mu par in grid search
+     &  ,DMU_NON1A_MIN          ! I: idem, but only for NON1A
+     &  ,DMU_NON1A_MAX          ! I: idem 
+     &  ,TEMPLERR_SCALE_SNIA    ! I: template error scale for SNIA
+     &  ,TEMPLERR_SCALE_NONIA   ! I: template error scale for NONIA
+     &  ,PBAYES_IA_CUT          ! I: cut on IA P_ayes
+     &  ,PBAYES_IBC_CUT         ! I: cut on IBC P_Bayes
+     &  ,PBAYES_II_CUT          ! I: idem for SII
+     &  ,PBAYES_PEC1A_CUT       ! I: idem for Peculiar SNIa
+     &  ,PBAYES_MODEL1_CUT      ! I: idem for MODEL1 (e.g., KN)
+     &  ,PBAYES_MODEL2_CUT      ! I:
+     &  ,PBAYES_MODEL3_CUT      ! I:
+     &  ,PBAYES_MODEL4_CUT      ! I:
+     &  ,FITPROB_IA_CUT         ! I: min fitprob to type a Ia
+     &  ,FITPROB_IBC_CUT        ! I: idem for IBC
+     &  ,FITPROB_II_CUT         ! I: idem for SNII
+     &  ,FITPROB_PEC1A_CUT      ! I: idem for Pec. SNIa
+     &  ,FITPROB_MODEL1_CUT     ! I: idem for MODEL1
+     &  ,FITPROB_MODEL2_CUT     ! I:
+     &  ,FITPROB_MODEL3_CUT     ! I:
+     &  ,FITPROB_MODEL4_CUT     ! I: idem for MODEL4 
+     &  ,ZRATEPRIOR_SNIA(3)     ! I: a1*(1+z)**a2, then flat for z>a3
+     &  ,ZRATEPRIOR_NONIA(3)    ! I: a1*(1+z)**a2, then flat for z>a3
+     &  ,CHISQMIN_OUTLIER       ! I: min chi2 for outlier rejection
+     &  ,MJDFIT_RANGE(2)        ! I: restrict fit to this MJD range
+     &  ,TMAX_START(MXITER_PSNID)   ! I: TMAX start for each iteration
+     &  ,TMAX_STOP(MXITER_PSNID)    ! I: TMAX end for each iteration
+     &  ,TMAX_STEP(MXITER_PSNID)    ! I: TMAX step for each iteration
 
       COMMON / PSNIDINP4 / 
      &   METHOD_NAME, NOBSMIN

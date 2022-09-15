@@ -24,6 +24,8 @@
  such as entire season and ALL data.
 
  Dec 20 2021: add --des_folder for SMP
+
+ Jul 05 2022: add --lsst-tom for reading alerts from LSST Tom --rknop
 """
 
 # ============================================
@@ -40,10 +42,12 @@ import yaml
 #from makeDataFiles_params import *
 import makeDataFiles_params as gpar
 import makeDataFiles_util   as util
-import write_data_snana     as snana
+import write_data_snana     as write_snana
+
+from write_data_csv import csvWriter
 
 try:
-    import write_data_lsst_alert as lsst_alert
+    import write_data_lsst_alert as write_lsst_alert
 except ImportError:
     pass
 
@@ -53,7 +57,7 @@ from read_data_lsst_drp      import data_lsst_drp
 from read_data_sirah_folder  import data_sirah_folder
 from read_data_snana_folder  import data_snana_folder
 from read_data_ztf           import data_ztf_folder
-
+from read_data_lsst_tom      import data_lsst_tom_db
 
 # =====================================
 def get_args():
@@ -74,6 +78,9 @@ def get_args():
     msg = "Data source: ZTF folder"
     parser.add_argument("--ztf_folder", help=msg, type=str, default=None )
 
+    msg = "Data source: LSST TOM; format: 'username:password@url"
+    parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
+
     msg = "Data source: SNANA sim-data folder (for testing)"
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
 
@@ -82,6 +89,10 @@ def get_args():
 
     msg = "output SNANA format: top-directory for data"
     parser.add_argument("--outdir_snana",
+                        help=msg, type=str, default=None )
+
+    msg = "output csv format: top-directory for data"
+    parser.add_argument("--outdir_csv",
                         help=msg, type=str, default=None )
 
     # - - - - specialized args to create fake lsst alerts - - - - - -
@@ -105,6 +116,9 @@ def get_args():
 
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
+
+    msg = "photflag mask for detections (default=4096)"
+    parser.add_argument("--photflag_detect", help=msg, type=int, default=4096)
 
     msg = "select isplitran (1-nsplitran): default=-1 -> all"
     parser.add_argument("--isplitran", help=msg, type=int, default=-1 )
@@ -145,6 +159,9 @@ def get_args():
     if args.outdir_snana:
         args.outdir_snana = os.path.expandvars(args.outdir_snana)
 
+    if args.outdir_csv:
+        args.outdir_csv = os.path.expandvars(args.outdir_csv)
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()
@@ -163,6 +180,7 @@ def restore_args_from_readme(args, readme_yaml):
     args.sirah_folder = None
     args.des_folder   = None
     args.ztf_folder   = None
+    args.lsst_tom_db  = None
     args.snana_folder = None
 
     key = 'SOURCE_LSST_AP'
@@ -185,6 +203,10 @@ def restore_args_from_readme(args, readme_yaml):
     if key in readme_yaml:
         args.ztf_folder = readme_yaml[key]
 
+    key = 'SOURCE_LSST_TOM'
+    if key in readme_yaml:
+        args.lsst_tom_db = readme_yaml[key]
+        
     key = 'SOURCE_SNANA_FOLDER'
     if key in readme_yaml:
         args.snana_folder = readme_yaml[key]
@@ -200,14 +222,20 @@ def which_read_class(args):
     # recover the user-input logicals
     if args.merge:
         # restore args for merge process.
+        readme_file = None
         if args.outdir_snana:
             outdir      = args.outdir_snana
             folder      = glob.glob1(outdir, f"[!_TEXT]*")[0]
             readme_file = f"{outdir}/{folder}/{folder}.README"
-            readme_yaml = util.read_yaml(readme_file)
-            restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
         elif args.outdir_lsst_alert:
             outdir   = args.outdir_lsst_alert
+        elif args.outdir_csv :
+            outdir   = args.outdir_csv
+            readme_file = f"{outdir}/DATA.README"
+
+        if readme_file is not None:
+            readme_yaml = util.read_yaml(readme_file)
+            restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
 
     # - - - - - - - -
     if args.lsst_ap:
@@ -225,10 +253,12 @@ def which_read_class(args):
     elif args.ztf_folder is not None:
         read_class = data_ztf_folder
         args.survey = "ZTF"
+    elif args.lsst_tom_db is not None:
+        read_class = data_lsst_tom_db
+        args.survey = "LSST"
     elif args.snana_folder is not None:
         read_class = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)
-        # xxx mark args.survey       = util.get_survey_snana(args.snana_folder)
         args.survey = util.get_survey_snana(snana_folder_base)
     else:
         sys.exit("\nERROR: Could not determine program_class")
@@ -259,9 +289,13 @@ if __name__ == "__main__":
     # figure out which output format
     if args.merge:
         if args.outdir_snana:
-            snana.merge_snana_driver(args)
+            write_snana.merge_snana_driver(args)
         elif args.outdir_lsst_alert:
-            pass  #
+            pass
+        elif args.outdir_csv :
+            csv_writer = csvWriter( args, program.config_data )
+            csv_writer.merge_csv_driver()
+
         sys.exit('Done with merge: exiting Main.')
 
     # read data and write each event to text-format data files;
@@ -269,13 +303,10 @@ if __name__ == "__main__":
     # and they will be translated to binary below.
     program.read_data_driver()
 
-    # translate TEXT -> BINARY; allow multiple output formats
+    # translate TEXT -> FITS; allow multiple output formats
     if args.outdir_snana is not None:
-        #program.convert2fits_snana()
-        snana.convert2fits_snana(args, program.config_data)
+        write_snana.convert2fits_snana(args, program.config_data)
 
-    #if args.outdir_XYZ is not None:
-    #    program.convert2XYZ()
 
     # final summary
     program.final_summary()

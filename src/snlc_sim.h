@@ -92,6 +92,7 @@
 #define  RATEMODELNAME_PISN        "PISN_PLK12"
 #define  RATEMODELNAME_TDE         "TDE"
 
+// in analysis outpout FITRES table, see SIM_ZFLAG
 #define  REDSHIFT_FLAG_NONE      0
 #define  REDSHIFT_FLAG_SNSPEC    1
 #define  REDSHIFT_FLAG_HOSTSPEC  2
@@ -167,6 +168,7 @@ typedef struct {
   FILE *FP_README;  char  README[MXPATHLEN] ;
   FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
+  FILE *FP_SLDUMP;  char  SLDUMP[MXPATHLEN] ;
   FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
@@ -405,13 +407,13 @@ typedef struct {
 } HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
 
 // -------------------------------------
-// define user INPUTS
+// HELP_INPUTS_BEGIN SIM
 
 struct INPUTS {
 
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply
-
+  
   bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
   bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
   bool README_DUMPFLAG;      // dump readme and stop (Feb 2022)
@@ -427,11 +429,15 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
+  bool APPEND_SNID_SEDINDEX ; // SNID -> SNID-TEMPLATE_INDEX (debug util)
+
+  bool DEBUG_SNSEP;  // temp flag to debug SNSEP
 
   bool RESTORE_DES3YR;          // restore DES3YR bugs
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
+
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
@@ -475,6 +481,8 @@ struct INPUTS {
   int *CIDRAN_LIST ;        // for internal use to create random CID list
   int  CIDRAN_MAX ;         // max CID (used for random CID only)
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
+  int  CIDRAN_SKIPLIST[MXZRAN];  // do not use these user-input CIDRANs
+  int  NCIDRAN_SKIPLIST;
 
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
   int  NJOBTOT;     // idem, for submit_batch_jobs.py
@@ -497,10 +505,14 @@ struct INPUTS {
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
   float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
+  float  HOSTLIB_MAXDDLR2 ;            // keep 2nd host with DDLR < MAXDDLR2
   float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
   char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
   float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+
+  int    HOSTLIB_NMJD_SNR_SCALE;     // number of MJD ranges to scale host-SNR
+  float  HOSTLIB_SNR_SCALE[10][3];   //  up to 10 x { scale, MJDRange[2] }
 
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
 
@@ -586,6 +598,7 @@ struct INPUTS {
 
   double GENRANGE_RA[2];        // RA range (deg) to generate
   double GENRANGE_DEC[2];       // idem for DEC
+  double GENRANGE_b[2];        // for Galactic events
   float SOLID_ANGLE;           // non-zero => overwrite default calc.
   float MXRADIUS_RANDOM_SHIFT; // random coord shift within MXRADIUS, deg
 
@@ -642,15 +655,6 @@ struct INPUTS {
   int                       NHOST_TAKE_SPECTRUM ; // set internally
 
   char  STRETCH_TEMPLATE_FILE[200];
-
-  /* xxxxx mark delete Mar 17 2022 xxxxxxxxxx
-     [use struct in sntools_genExpHalfGauss.h]
-  double GENRANGE_AV[2];      // host extinction range
-  double GENEXPTAU_AV ;       // define exponential distribution of AV
-  double GENGAUSIG_AV ;       // AV-sigma of Gaussian core
-  double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
-  double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
-  xxxxxxxxxxx end mark xxxxxxx */
 
   int    DOGEN_AV ;
   int    OPT_SNXT ;  // option for hostgal extinction
@@ -758,6 +762,7 @@ struct INPUTS {
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
   char   STRONGLENS_FILE[MXPATHLEN] ;
+
   char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
   float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
   float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
@@ -926,6 +931,7 @@ struct INPUTS {
 
 } INPUTS ;
 
+// HELP_INPUTS_END
 
 // define GENLC structure
 struct GENLC {
@@ -949,7 +955,7 @@ struct GENLC {
 
   RATEPAR_DEF *RATEPAR ; // selects RATEPAR or RATEPAR_PEC1A
 
-  double RA, DEC ;          // generated position
+  double RA, DEC, cosDEC ;          // generated position
   double random_shift_RA, random_shift_DEC;     // random coord shift
   double random_shift_RADIUS, random_shift_PHI;
   double GLON, GLAT;        // for LCLIB-galactic models
@@ -1072,7 +1078,8 @@ struct GENLC {
   int   CID ;           // internal data CID or 40000 + ilc
   int   CIDOFF ;       // CID offset depends on MJD range (random only)
   int   CIDRAN ;       // use this random CID (if INPUTS.CIDRAN > 0)
-  //  int   YEAR ;         // survey year simulated
+  int   CID_FINAL;     // CID or CIDRAN
+
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
@@ -1262,17 +1269,26 @@ struct GENLC {
 // strong lens structure (July 2019)
 struct GENSL {
   int INIT_FLAG ;
-  int REPEAT_FLAG;     // T => repeat image
-  int NIMG;            // number of images to process
+  int REPEAT_FLAG ;     // T => repeat image
+  int NGENLC_LENS_TOT ; // total number of generated lenses
+  int NIMG_GEN;        // number of 'generated' images to process
+  int NIMG_ACC;        // number of 'accepted'  images passing trigger
+
+  int NLENS_ACC[MXIMG_STRONGLENS]; // for SL dump
+  double MINSEP[MXIMG_STRONGLENS]; // min sep to nearest other lensed LC
+  double MINSEP_ALL ; // min separation (arcsec) between all lensed events
+
   int IMGNUM;          // image-num being processed
-  int IDLENS;
-  int BLEND_FLAG;
-  double zSN, zLENS;
+
+  EVENT_STRONGLENS_DEF LIBEVENT;
+
+  long long GALID;     // hostlib-GALID matched to lens (Jul 2022)
+  double zSN;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
-  double RA_noSL, DEC_noSL;
+  double RA_noSL, DEC_noSL, cosDEC;
+  double RA_LENS, DEC_LENS;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
-  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+  int    CID_LIST[MXIMG_STRONGLENS] ;
 } GENSL ;
 
 
@@ -1300,6 +1316,18 @@ int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
 int NGENLC_TOT_SUBSURVEY[MXIDSURVEY];
 int NGENLC_WRITE_SUBSURVEY[MXIDSURVEY];
+
+// store stats for hostless and multi-hosts ; intended for README output
+// to quickly monitor these effects without analysis.
+struct {
+  int    NRANGE_REDSHIFT;
+
+  int    NGENLC[10];            // Nevt vs. z-range
+  int    NGENLC_NO_HOST[10];    // host-less events vs. z-range
+  int    NGENLC_MULTI_HOST[10]; // NMATCH=2 vs. z-range
+
+  double REDSHIFT_RANGE[10][2];
+} WRITE_HOSTMATCH;  // Jun, 2022
 
 int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
@@ -1723,7 +1751,6 @@ double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 int    parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 			char *cfiltList, int *ifiltList) ;
-// xxx mark void   parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) ;
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 void   parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
 
@@ -1742,6 +1769,7 @@ int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 
 void   parse_input_GENPOP_ASYMGAUSS(void);
 void   parse_input_HOSTLIB_SNR_DETECT(char *string);
+void   parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_GENZPHOT_FUDGEMAP(char *string);
 void   parse_input_FIXMAG(char *string);
@@ -1755,7 +1783,6 @@ void   parse_GENMAG_SMEAR_MODELNAME(void);
 int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
-// xxx mark void   parse_input_FIELDLIST(void);
 
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 			   RATEPAR_DEF *RATEPAR );
@@ -1777,6 +1804,7 @@ int    parse_input_SPECTRUM(char **WORDS, int keySource);
 void   expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE);
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 int    parse_input_GENMAG_SMEARPAR_OVERRIDE(char **WORDS, int keySource );
+int    parse_input_CID(char **WORDS, int keySource );
 
 // xxx to do ...
 int    parse_input_MWEBV(char **WORDS, int keySource );
@@ -1800,11 +1828,11 @@ void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); 
-void   prep_RANSYSTPAR_LEGACY(void); 
 void   pick_RANSYSTFILE_WILDCARD(char *wildcard, char *keyName, char *randomFile);
 void   genmag_offsets(void) ;
 void   prioritize_genPDF_ASYMGAUSS(void);
 void   compute_lightCurveWidths(void);
+void   compute_mjd_explode(void);
 
 void   prep_simpath(void);
 int    get_NON1A_MODELFLAG(char *GENVERSION) ;
@@ -1858,6 +1886,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void update_accept_counters(void);
+void update_hostmatch_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
@@ -1901,9 +1930,6 @@ double GENSPEC_OBSFLUX_RANSMEAR(int imjd, double OBSFLUXERR, double ERRFRAC_T,
 void   GENSPEC_FLAM(int imjd);
 void   GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux );
 
-void   GENSPEC_LAMSMEAR_LEGACY(int imjd, int ilam, double GenFlux,
-			       double GenFluxErr, double GenFluxErr_T );
-
 void   GENSPEC_LAMOBS_RANGE(int INDX, double *LAMOBS_RANGE);
 double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 		       double *TOBS, double *TREST );
@@ -1929,6 +1955,7 @@ void   init_hostNoise(void) ;
 void   update_PARDEF_ZVAR(char *parName); // update PARDEF_ZVAR
 void   init_CIDRAN(void);
 void   sort_CIDRAN(void);
+void   load_CIDRAN(void);
 void   init_modelSmear(void);
 void   dump_modelSmearSigma(void);
 void   init_genSmear_filters(void);
@@ -1973,6 +2000,8 @@ void   dmp_event(int ilc);
 void   dmp_trace_main(char *string, int ilc);
 void   snlc_to_SNDATA(int FLAG) ;
 void   hostgal_to_SNDATA(int FLAG, int ifilt_obs);
+void   check_SNDATA_HOSTGAL_SNSEP(int m);
+
 void   MWEBVfluxCor_to_SNDATA(int epoch) ;
 
 void   sprintf_GENGAUSS(char *string, char *name,
@@ -2010,13 +2039,15 @@ void test_zcmb_dLmag_invert(void);
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_SL_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void rewrite_HOSTLIB_DRIVER(void);
 
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );
 void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void);
-int  doReject_SIMGEN_DUMP(char *rejectStage) ;
+bool doReject_SIMGEN_DUMP(char *rejectStage) ;
 
 // functions for instrinsic scatter (from R.Biswas, Jul 27, 2011)
 void ZERO_COVMAT_SCATTER(void);
@@ -2149,5 +2180,7 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) ;
 
 double gridval_SIMSED(int ipar,  int ibin);
 double nearest_gridval_SIMSED (int ipar, double lumipar );
+
+void print_sim_help(void);
 
 // ========== END OF FILE ============

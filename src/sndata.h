@@ -57,7 +57,7 @@
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
-
+#define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_DEFAULT 27.5
 
 #define WRITE_MASK_LCMERGE       2  // idem to write lcmerge data files.
@@ -177,6 +177,8 @@ struct SNDATA {
   char  SIMLIB_FILE[MXPATHLEN];        // name of simlib file
   char  KCOR_FILE[MXPATHLEN];
   char  SPEC_FILE[MXPATHLEN];
+
+  int   PHOTFLAG_DETECT; // mask in PHOTFLAG for detection
 
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];
@@ -369,6 +371,7 @@ struct SNDATA {
   float SIM_LENSDMU ;  
   float SIM_RA, SIM_DEC ;      //  simulated RA and DEC
   float SIM_PEAKMJD ;          //  peak MJD in g-band
+  float SIM_MJD_EXPLODE;       //  MJD of explosion (see OPTMASK_T0SHIFT_EXPLODE)
   float SIM_AVTAU ;            //  
   float SIM_AV, SIM_RV ;       //  host extinction parameters
   float SIM_MWRV ;             //  MilkyWay RV
@@ -436,10 +439,13 @@ struct SNDATA {
 
   // strong lens info (July 20 2019)
   int    SIM_SL_FLAG;    // strong lens flag
-  int    SIM_SL_IDLENS;  // lens ID
+  int    SIM_SL_IDLENS;  // lens ID in library
+  long long SIM_SL_GALID; // hostlib GALID matched to lens properties
   int    SIM_SL_NIMG;    // number of strong lens images
   int    SIM_SL_IMGNUM;  // image num [0 to NIMG-1]
+  double SIM_SL_MINSEP ; // separation from nearest image (Jul 2022)
   double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT;
+  double SIM_SL_LOGMASS, SIM_SL_LOGMASS_ERR;
   double SIM_SL_XIMG, SIM_SL_YIMG ;
 
   // simulation quantities for each epoch

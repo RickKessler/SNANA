@@ -34,10 +34,13 @@ from abc import abstractmethod
 
 import makeDataFiles_params as gpar
 import makeDataFiles_util as util
-import write_data_snana as snana
+import write_data_snana 
+
+from write_data_csv import csvWriter
 
 try:
-    import write_data_lsst_alert as lsst_alert
+    # import write_data_lsst_alert as lsst_alert
+    from write_data_lsst_alert import LsstAlertWriter
 except ImportError:
     #util.log_assert(False, ['NO LSST STACK. Have you set it up?'])
     #raise
@@ -68,7 +71,8 @@ class Program:
         # create top-level outdir
         outdir_list = [
             args.outdir_snana,
-            args.outdir_lsst_alert
+            args.outdir_lsst_alert,
+            args.outdir_csv
         ]
 
         for outdir in outdir_list:
@@ -108,7 +112,7 @@ class Program:
         peakmjd_range      = args.peakmjd_range
         nite_detect_range  = args.nite_detect_range
         outdir_lsst_alert  = args.outdir_lsst_alert
-
+        outdir_csv         = args.outdir_csv
         n_season           = gpar.MXSEASON
 
         # for MJD-related cuts, set n_season=1 so that there is
@@ -116,6 +120,8 @@ class Program:
         if peakmjd_range is not None:
             n_season = 1
         if nite_detect_range is not None:
+            n_season = 1
+        if outdir_csv :
             n_season = 1
 
         unit_name_list   = []
@@ -144,6 +150,9 @@ class Program:
 
                 do_all_seasons = (isplit == 0 or isplit_select>0) and iseason==0
                 do_one_season  = (not outdir_lsst_alert)
+                if outdir_csv : 
+                    do_all_seasons = True
+                    do_one_season  = False
 
                 # define unit name for all seasons combined
                 if do_all_seasons:
@@ -173,11 +182,15 @@ class Program:
         self.config_data['data_unit_nevent_list']   = unit_nevent_list
         self.config_data['n_season']                = n_season
 
+        #print(f"\n xxx unit_name_list = \n{unit_name_list}")
+
         readme_stats_list = []
+        readme_stats_sum = util.init_readme_stats()
         for i in range(0, n_data_unit):
             readme_stats_list.append(util.init_readme_stats())
 
         self.config_data['readme_stats_list'] = readme_stats_list
+        self.config_data['readme_stats_sum']  = readme_stats_sum
         self.config_data['NEVT_SPECTRA']      = 0
         return
         # end init_data_unit
@@ -484,11 +497,11 @@ class Program:
         SNID = int(SNID_raw) if SNID_raw.isdigit() else SNID_raw
 
         var_dict = {
-            gpar.DATAKEY_SNID       : SNID,
-            gpar.DATAKEY_RA         : d_raw[gpar.DATAKEY_RA],
-            gpar.DATAKEY_DEC        : d_raw[gpar.DATAKEY_DEC],
-            gpar.DATAKEY_PEAKMJD    : d_calc[gpar.DATAKEY_PEAKMJD],
-            gpar.DATAKEY_MJD_DETECT : d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+            gpar.DATAKEY_SNID             : SNID,
+            gpar.DATAKEY_RA               : d_raw[gpar.DATAKEY_RA],
+            gpar.DATAKEY_DEC              : d_raw[gpar.DATAKEY_DEC],
+            gpar.DATAKEY_PEAKMJD          : d_calc[gpar.DATAKEY_PEAKMJD],
+            gpar.DATAKEY_MJD_DETECT_FIRST : d_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
         }
         sel = util.select_subsample(args, var_dict)
 
@@ -588,6 +601,12 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
+        if args.outdir_lsst_alert is not None:  # R.Knop, June 2022
+            lsst_alert_writer = LsstAlertWriter( args, self.config_data )
+
+        if args.outdir_csv is not None:   # R.Kessler, July 2022
+            csv_writer = csvWriter( args, self.config_data )
+
         while nevent_subgroup >= 0:
 
             nevent_subgroup = self.prep_read_data_subgroup(i_subgroup)
@@ -627,12 +646,16 @@ class Program:
                 data_event_dict['data_unit_name'] = data_unit_name
                 data_event_dict['index_unit']     = index_unit
 
-                if args.outdir_snana is not None:
-                    snana.write_event_text_snana(args, self.config_data,
-                                                 data_event_dict)
-                if args.outdir_lsst_alert is not None:
-                    lsst_alert.write_event_lsst_alert(args, self.config_data,
-                                                      data_event_dict)
+                if args.outdir_snana :
+                    write_data_snana.write_event_text_snana(args, self.config_data,
+                                                            data_event_dict)
+
+                elif args.outdir_lsst_alert :
+                    lsst_alert_writer.write_alerts_for_event( data_event_dict )
+
+                elif args.outdir_csv :
+                    csv_writer.write_event_csv(data_event_dict)
+
                 # increment number of events for this data unit
 
                 self.config_data['data_unit_nevent_list'][index_unit] += 1
@@ -669,9 +692,12 @@ class Program:
             if nevent == 0 : continue
 
             if args.outdir_snana:
-                snana.write_aux_files_snana(name, args, self.config_data)
+                write_data_snana.write_aux_files_snana(name, args, self.config_data)
             elif args.outdir_lsst_alert:
-                lsst_alert.write_summary_lsst_alert(name, self.config_data)
+                lsst_alert_writer.finalize() 
+
+            elif args.outdir_csv :
+                csv_writer.end_write(index_unit)
 
         # end read_data_driver
 
@@ -732,18 +758,26 @@ class Program:
             photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
 
         readme_stats = self.config_data['readme_stats_list'][index_unit]
+        readme_sum   = self.config_data['readme_stats_sum']
 
-        readme_stats['NEVT_ALL'] += 1
+        key = 'NEVT_ALL'
+        readme_stats[key] += 1
+        readme_sum[key]   += 1
 
         if specz > 0.0:
-            readme_stats['NEVT_HOSTGAL_SPECZ'] += 1
+            key = 'NEVT_HOSTGAL_SPECZ'
+            readme_stats[key] += 1
+            readme_sum[key]   += 1
 
         if photoz > 0.0:
-            readme_stats['NEVT_HOSTGAL_PHOTOZ'] += 1
+            key = 'NEVT_HOSTGAL_PHOTOZ'
+            readme_stats[key] += 1
+            readme_sum[key] += 1
 
         if n_spectra > 0:
             key = 'NEVT_SPECTRA'
             readme_stats[key] += 1  # increment this data unit
+            readme_sum[key]   += 1  # increment this data unit
             self.config_data[key] += 1  # sum over all data units
 
         # end update_readme_stats

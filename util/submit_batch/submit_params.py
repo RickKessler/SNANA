@@ -197,6 +197,9 @@ CONFIG:
   # optional max walltime request (default is 24hr)
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
+  # option to force all jobs on single node
+  BATCH_SIGNLE_NODE: True
+
   # optional list of required ENVs (aborts if any ENV is not defined)
   ENV_REQUIRE: SNANA_LSST_SIM  LSST_STACK_VERSION
 
@@ -269,6 +272,7 @@ HELP_CONFIG_SIM =  f"""
 
   FORMAT_MASK: 48    # +32=FITS, +16=random CID (TEXT not allowed)
   RESET_CIDOFF: 2    # unique CID among all GENVERSIONs
+
   NGEN_UNIT:   0.5   # 0.5 x NGENTOT_LC computed from
   RANGE(z,PKMJD) \n\t\t\t and SOLID_ANGLE
     (if no NGEN_UNIT, use NGENTOT_LC from sim-input or from GENOPT)

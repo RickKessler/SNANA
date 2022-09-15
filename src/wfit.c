@@ -61,7 +61,6 @@
   optional footnote with "wfit" code name.
 
 
-
      HISTORY (RK=R.Kessler, AM=A.Mitra, ...)
    --------------------------------------------
    
@@ -102,6 +101,16 @@
 
  May 19 2022 RK - check COV*COVINV if "-debug_flag 1000"
 
+ July 19 2022 RK
+   + new flags -blind_seed and -blind_auto
+   + -blind_auto reads ISDATA_REAL flag from HD file and sets
+     blinding on for real data, or off for sim data.
+
+ July 26 2022 RK - implement outfile_chi2grid ... not well tested.
+
+ Swp 12 2022 RK - abort if ommin<0 and -cmb
+                  in EofZ, if arg < 0.01; arg=0.01 (to allow om<0)
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -137,14 +146,18 @@
 #define  VARLIST_DEFAULT_MUREF   "MUREF:D"
 #define  VARLIST_DEFAULT_NFIT    "NFIT:I"
 
+#define  KEYNAME_ISDATA_REAL     "ISDATA_REAL:"
+
 // ======== global structures ==========
 
 struct INPUTS {
 
   // misc flags
   int fitsflag ;
-  int blind;  // blind cosmology results by adding sin(big number) 
-  int debug_flag ;
+  bool blind;      // blind cosmology results by adding sin(big number) 
+  bool blind_auto; // automatically blind data and unblind sim
+  int  blind_seed; // used to pick large random number for sin arg
+  int  debug_flag ;
 
   int   speed_flag_chi2; // default = 1; set to 0 to disable
   bool  USE_SPEED_OFFDIAG; // internal: skip off-diag calc if chi2(diag)>threshold
@@ -246,6 +259,7 @@ struct {
   double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *logz, *z_sig ;
   int    *nfit_perbin;  
   double zmin, zmax;
+  bool   ISDATA_REAL; // Jul 2022
 } HD;
 
 
@@ -343,13 +357,14 @@ int INDEX_COVSN_INVMAP[MXSN];      // NCOVSN index vs. CIDLIST
 
 // =========== function prototypes ================
 
-void print_help(void);
+void print_wfit_help(void);
 void init_stuff(void);
 void parse_args(int argc, char **argv) ;
 int  compare_double_reverse (const void *, const void *);
 void writemodel(char*, float, float, float);
 void printerror( int status);
 void read_fitres(char *inFile);
+void read_ISDATA_REAL(char *inFile);
 void malloc_HDarrays(int opt, int NSN);
 void malloc_workspace(int opt);
 void parse_VARLIST(FILE *fp);
@@ -401,9 +416,9 @@ int  cidindex(char *cid);
 
 void WRITE_OUTPUT_DRIVER(void);
 void write_output_resid(int fitnum);
-void write_output_contour(void);
 void write_output_cospar(void);
-void write_output_fits(void);
+void write_output_fits_legacy(void);
+void write_output_chi2grid(void);
 
 void CPU_summary(void);
 
@@ -420,7 +435,8 @@ double Eainv_integral(double amin, double amax, Cosparam *cptr) ;
 
 // from simpint.h
 
-#define EPS  1.0e-6
+#define EPS_CONVERGE_POSomm  1.0e-6
+#define EPS_CONVERGE_NEGomm  1.0e-3
 #define JMAX 20
 
 double simpint(double (*func)(double, Cosparam *), 
@@ -446,7 +462,7 @@ int main(int argc,char *argv[]){
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
 
   // Give help if no arguments
-  if (argc < 2) { print_help();  exit(0);  }
+  if (argc < 2) { print_wfit_help();  exit(0);  }
 
   // init variables
   init_stuff(); 
@@ -543,7 +559,8 @@ void init_stuff(void) {
 
   // ------------ BEGIN -----------
 
-  INPUTS.blind = INPUTS.fitsflag = INPUTS.debug_flag = 0;
+  INPUTS.blind = INPUTS.blind_auto = INPUTS.fitsflag = INPUTS.debug_flag = 0;
+  INPUTS.blind_seed = 48901 ;
 
   INPUTS.speed_flag_chi2 = SPEED_FLAG_CHI2_DEFAULT ;
 
@@ -617,7 +634,7 @@ void init_stuff(void) {
 
 
 // ==================================
-void print_help(void) {
+void print_wfit_help(void) {
 
   // Created Oct 1 2021
   // [moved from main]
@@ -647,6 +664,8 @@ void print_help(void) {
     "   -zmin\tFit only data with z>zmin",
     "   -zmax\tFit only data with z<zmax",    
     "   -blind\tIf set, results are obscured with sin(large random) ",
+    "   -blind_auto\tBlind data, unblind sim; requires ISDATA_REAL in HD file",
+    "   -blind_seed\tSeed to pick large random numbers for sin arg ",
     "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
@@ -689,7 +708,7 @@ void print_help(void) {
 
   return;
 
-} // end print_help
+} // end print_wfit_help
 
 
 // ==================================
@@ -765,11 +784,17 @@ void parse_args(int argc, char **argv) {
 	INPUTS.zmax = atof(argv[++iarg]); 	
 
       } else if (strcasecmp(argv[iarg]+1,"blind")==0) { 
-	INPUTS.blind=1;
+	INPUTS.blind = true ;
+
+      } else if (strcasecmp(argv[iarg]+1,"blind_auto")==0) { 
+	INPUTS.blind_auto = true ;
+
+      } else if (strcasecmp(argv[iarg]+1,"blind_seed")==0) { 
+	INPUTS.blind_seed = atoi(argv[++iarg]); 	
 	
       } else if (strcasecmp(argv[iarg]+1,"fitswrite")==0) {   
 	/* Output likelihoods as fits files & text files */
-	INPUTS.fitsflag=1; 
+	INPUTS.fitsflag = 1; 
 
       } else if (strcasecmp(argv[iarg]+1,"mucov_file")==0) {   
   	strcpy(INPUTS.mucov_file,argv[++iarg]);
@@ -1026,6 +1051,7 @@ void read_fitres(char *inFile) {
 
   // --------------- BEGIN --------------
 
+  if ( INPUTS.blind_auto ) { read_ISDATA_REAL(inFile); }
 
   TABLEFILE_INIT();
   NROW = SNTABLE_NEVT(inFile,TBNAME);
@@ -1138,6 +1164,66 @@ void read_fitres(char *inFile) {
 } // end read_fitres
 
 
+// ====================================
+void read_ISDATA_REAL(char *inFile) {
+  // Created July 19 2022 
+  // read comment-header lines to search for
+  //   # ISDATA_REAL: <val>
+  // If ISDATA_REAL is not found, abort 
+
+  FILE *fp;
+  int gzipFlag;
+  bool FOUND_KEY_ISDATA = false;
+  char locFile[MXPATHLEN];
+  char fnam[] = "read_ISDATA_REAL" ;
+
+  // ------------- BEGIN ------------
+
+  int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
+  fp = snana_openTextFile(OPENMASK, "", inFile,
+			  locFile, &gzipFlag );
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open HD file") ;
+    sprintf(c2err,"%s", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  
+  char c_get[200];
+  while( (fscanf(fp, "%s", c_get)) != EOF) {
+    if ( strcmp(c_get,"VARNAMES:") == 0 ) { break; }
+
+    if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
+      fscanf(fp, "%d", &HD.ISDATA_REAL);  
+      FOUND_KEY_ISDATA = true;
+      break; 
+    }
+  } // end while
+
+  // - - - - 
+  if ( FOUND_KEY_ISDATA ) {
+    // adjust blind flag based on real or sim data
+    char ctype[40];
+    if ( HD.ISDATA_REAL ) 
+      { INPUTS.blind = true; sprintf(ctype,"blind REAL"); }
+    else
+      { INPUTS.blind = false; sprintf(ctype,"unblind SIM"); }
+    
+    printf("\t Found ISDATA_REAL = %d --> %s data\n", 
+	   HD.ISDATA_REAL, ctype);
+  }
+  else {
+    sprintf(c1err,"Could not find required ISDATA_REAL in HD file.") ;
+    sprintf(c2err,"Either add flag in HD or re-run create_cov stage." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+  }
+
+  fclose(fp);
+
+  return;
+
+} // end read_ISDATA_REAL
 
 // ==================================
 void read_mucov_sys(char *inFile){
@@ -1323,10 +1409,9 @@ void set_priors(void) {
 
   // =========== BEGIN ============
   
-  if ( INPUTS.use_bao )   {
-    init_bao_prior(1); }
+  if ( INPUTS.use_bao )  { init_bao_prior(1); }
 
-  if ( INPUTS.use_cmb )   { init_cmb_prior(1); }
+  if ( INPUTS.use_cmb )  { init_cmb_prior(1); }
 
   // - - - - - - - - - - - -
   // Report priors to stdout
@@ -1423,6 +1508,14 @@ void init_cmb_prior(int OPT) {
     CMB_PRIOR.R = sqrt(OM) * rz ;
     sprintf(comment, "CMB sim-prior:  R=%5.3f +- %5.3f " ,
 	    CMB_PRIOR.R, CMB_PRIOR.sigR);
+  }
+
+  if ( INPUTS.omm_min < 0.0 ) {
+    sprintf(c1err,"Negative omm (ommin=%.3f) not allowed with CMB prior",
+	    INPUTS.omm_min);
+    sprintf(c2err,"Remove CMB prior or set omm_min >=0");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
   }
 
   return;
@@ -2050,6 +2143,7 @@ void wfit_marginalize(void) {
     for(kk=0; kk < INPUTS.wa_steps; kk++){
       for(j=0; j < INPUTS.omm_steps; j++){
 	Pt1mp       = WORKSPACE.extprob3d[i][kk][j] ;
+
 	WORKSPACE.w0_prob[i] += Pt1mp ;
 	if ( Pt1mp > P1max ) {
 	  P1max = Pt1mp ;
@@ -2182,8 +2276,8 @@ void wfit_uncertainty(void) {
     WORKSPACE.w0_sort[i] = WORKSPACE.w0_prob[i];  
   }
   WORKSPACE.w0_sig_marg = sqrt(sqdelta/WORKSPACE.w0_probsum);
-  printf("\t marg %s_sig estimate = %.4f\n", 
-	 varname_w, WORKSPACE.w0_sig_marg);
+  printf("\t marg %s_sig estimate = %.4f  (probsum=%le)\n", 
+	 varname_w, WORKSPACE.w0_sig_marg, WORKSPACE.w0_probsum);
     
 
   if ( INPUTS.dofit_w0wa ) {
@@ -2217,7 +2311,6 @@ void wfit_uncertainty(void) {
   double w0_sum, w0_sort_1sigma, wa_sum, wa_sort_1sigma;
   int iw0_mean, iwa_mean, memd=sizeof(double) ;
   // Find location of mean in the prob vector
-
 
   for (i=0; i < INPUTS.w0_steps; i++){
     w0 = INPUTS.w0_min + i*INPUTS.w0_stepsize;
@@ -2273,13 +2366,13 @@ void wfit_uncertainty(void) {
   // ERROR checking ... 
  
   if (w0_sort_1sigma < 0 ){
-    printf("ERROR: w0 grid doesn't enclose 68.3% of probability!\n");
+    printf("ERROR: w0 grid encloses %.4f prob <  0.683 !\n", w0_sum);
     exit(EXIT_ERRCODE_wfit);
   }
 
   if ( INPUTS.dofit_w0wa ){
     if (wa_sort_1sigma < 0 ){
-      printf("ERROR: wa grid doesn't enclose 68.3% of probability!\n");
+      printf("ERROR: wa grid encloses %.3f prob < 0.683 !\n", wa_sum);
       exit(EXIT_ERRCODE_wfit);
     }
   }
@@ -2519,9 +2612,14 @@ void wfit_final(void) {
   
   // add unknown offset if blind option 
   if ( INPUTS.blind ) {
-    srand(48901);
-    w0_ran     = floor(1e6*rand()/RAND_MAX);
-    wa_ran     = floor(1e6*rand()/RAND_MAX);
+    int dofit_wcdm = INPUTS.dofit_wcdm ;
+    int dofit_lcdm = INPUTS.dofit_lcdm;
+    int dofit_w0wa = INPUTS.dofit_w0wa ;
+    srand(INPUTS.blind_seed);
+    if (dofit_wcdm || dofit_w0wa)
+      { w0_ran     = floor(1e6*rand()/RAND_MAX);}
+    if (dofit_w0wa)
+      { wa_ran     = floor(1e6*rand()/RAND_MAX);}
     omm_ran    = floor(1e6*rand()/RAND_MAX);
     w0_final   += sin(w0_ran);
     wa_final   += sin(wa_ran);
@@ -3291,7 +3389,7 @@ double one_over_EofA(double a, Cosparam *cptr) {
 double EofZ(double z, Cosparam *cptr){
 
   // Oct 31 2021 R.Kessler
-  //  Implement omr (radiation) erm such that setting omr=0.0 reduce
+  //  Implement omr (radiation) term such that setting omr=0.0 reduce
   //  to previous code.
   //  omr includes photons+neutrinos for early-universe integrals.
   //  This is inaccurate at late times when neutrinos become non-relativistic,
@@ -3299,13 +3397,14 @@ double EofZ(double z, Cosparam *cptr){
   //  is insignificant.
 
   double E;
-  double arg, argr, omm, omk, ome, w0, wa;
+  double arg, arg_omm, arg_ome, arg_omk, arg_r, omm, omk, ome, w0, wa;
   double z1       = 1.0 + z;
   double z1_pow2  = z1*z1;
   double z1_pow3  = z1_pow2 * z1;
   double z1_pow4;
   double omr      = 0.9E-4 ; // photon+neutrino, Oct 31 2021, RK
 
+  // ----------- BEGIN ----------
   omm = cptr->omm;
   ome = cptr->ome;
   omk = 1.0 - omm - ome;
@@ -3317,15 +3416,35 @@ double EofZ(double z, Cosparam *cptr){
     omm *= (1.0 - omr);
     ome *= (1.0 - omr);
     z1_pow4  = z1_pow2 * z1_pow2;
-    argr     = omr * z1_pow4;
+    arg_r     = omr * z1_pow4;
   }
 
-  arg = 
+  arg_omm = omm * z1_pow3 ;
+  arg_omk = omk * z1_pow2 ;
+  arg_ome = ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
+
+  arg = arg_omm + arg_omk + arg_ome ;
+  if ( omr > 0.0 )  { arg += arg_r; }
+
+  /* xxxxxxxxx mark delete Sep 12 2022 xxxxxx
     omm * z1_pow3 + 
     omk * z1_pow2 + 
     ome * pow(z1, 3.*(1+w0+wa))*exp(-3.0*wa*(z/z1)) ;
+    // xxx mark delete Sep 12 2022  if(omr>0.0) { arg += (omr * z1_pow4); }
+  xxxxxxx end mark xxxxxxxx */
 
-  if ( omr > 0.0 )  { arg += (omr * z1_pow4); }
+
+  /* xxx
+  if ( arg < 0.0 ) 
+    { printf(" xxx z=%.3f, arg_omm=%.3f  arg_ome=%.3f  w0=%.3f\n", 
+	     z, arg_omm, arg_ome, w0) ; } // xxx REMOVE
+  xxx */
+
+  // protect arg in case of om < 0 (Sep 13 2022)
+  if ( arg < 0.01 ) { 
+    arg = 0.01; 
+    // printf(" xxx arg=%f\n", arg);
+  }
 
   E = sqrt(arg);
 
@@ -3361,20 +3480,32 @@ double simpint(double (*func)(double, Cosparam *), double x1,
 {
   int j;
   double s, st;
-  double ost=0.0, os=0.0;
+  double ost=0.0, os=0.0, s_list[50];
+  bool   is_converge, is_zero;
 
   for(j=1; j<=JMAX; j++){
     st = trapezoid(func,x1,x2,j,ost,vptr);
     s = (4.0*st-ost)/3.0;
-    if (j > 5)  		/* Avoid spurious early convergence */
-      if (fabs(s-os) < EPS*fabs(os) || (s==0.0 && os==0.0))  return s;
+    s_list[j] = s;
+    if (j > 5) { 		/* Avoid spurious early convergence */     
+      is_converge = (fabs(s-os) < EPS_CONVERGE_POSomm*fabs(os) ) ;
+      is_zero     = (s==0.0 && os==0.0);
+      if ( is_converge || is_zero )  { return s; }
+    }
     os = s;
     ost = st;
   }
 
-  /* If we got to here, the integral did not converge in JMAX iterations */
+  // If we got to here, the integral did not converge in JMAX iterations 
+  // e.g.,  simpint(one_over_EofZ, zero, z, cptr);
   printf("ERROR: simpint did not converge\n");
-  return 0.0;
+  double s_frac = fabs((s_list[j-1] - s_list[j-2])/s_list[j-1]);
+  printf("\t [range=%.3f,%.3f om=%.3f w=%.3f s_frac=%le] \n",
+	 x1, x2, vptr->omm, vptr->w0, s_frac);
+  fflush(stdout);
+  
+  // xxx mark delete Sep 13 2022  return 0.0; xxxxxxxxx
+  return s;
 }
 
 double trapint(double (*func)(double, Cosparam *), double x1, 
@@ -3383,11 +3514,15 @@ double trapint(double (*func)(double, Cosparam *), double x1,
 {
   int j;
   double s,olds=0.0;
+  bool   is_converge, is_zero;
 
   for(j=1; j<=JMAX; j++){
     s = trapezoid(func,x1,x2,j,olds,vptr);
-    if (j > 5)  		/* Avoid spurious early convergence */
-      if (fabs(s-olds) < EPS*fabs(olds) || (s==0.0 && olds==0.0))  return s;
+    if (j > 5) { 		/* Avoid spurious early convergence */
+      is_converge = fabs(s-olds) < EPS_CONVERGE_POSomm*fabs(olds) ;
+      is_zero     = (s==0.0 && olds==0.0);
+      if ( is_converge || is_zero )  { return s; }
+    }
     olds = s;
   }
 
@@ -3399,20 +3534,23 @@ double trapint(double (*func)(double, Cosparam *), double x1,
 
 double trapezoid(double (*func)(double, Cosparam *), double x1, double x2, 
 		 int n, double s, Cosparam *vptr)
-/* Based on NR 'trapzd'.  Here, s must be fed back in from previous 
-   iterations, rather than using a static variable as in the NR version. */
+// Based on NR 'trapzd'.  Here, s must be fed back in from previous 
+//   iterations, rather than using a static variable as in the NR version.
 {
   double x,tnm,sum,del;
   int it,j;
 
   if (n == 1) {
     return 0.5*(x2-x1)*( (*func)(x1,vptr) + (*func)(x2,vptr) );
-  } else {
-    for(it=1,j=1; j<n-1; j++) it <<= 1;
-    tnm = it;
+  } 
+  else {
+    for(it=1,j=1; j<n-1; j++) { it <<= 1; }
+    tnm = it; 
     del = (x2-x1)/tnm;
     x = x1+0.5*del;
-    for (sum=0.0,j=1; j<=it; j++,x+=del) sum += (*func)(x,vptr);
+    for (sum=0.0,j=1; j<=it; j++,x+=del) 
+      { sum += (*func)(x,vptr); }
+
     s = 0.5*(s+(x2-x1)*sum/tnm);
     return s;
   }
@@ -3478,18 +3616,15 @@ void test_codist() {
 // =================================
 void getname(char *basename, char *tempname, int nrun) {
 
-
    //get clean string name
    strcpy(tempname, basename);
 
    if ( nrun == 0 ) {
      // works for residfile
      // works for cosparfile
-     strcat(tempname, ".init");
-     
+     strcat(tempname, ".init");    
    } 
-
-
+   return ;
 } // end of getname
 
 // =================================
@@ -3523,7 +3658,9 @@ void WRITE_OUTPUT_DRIVER(void) {
  
   // write chi2 & prob maps to fits files;
   // not used for VERY long time ... beware.
-  if ( INPUTS.fitsflag ) { write_output_fits(); }
+  // xxx mark delete   if ( INPUTS.fitsflag ) { write_output_fits(); }
+
+  write_output_chi2grid();
 
   return;
 } // end WRITE_OUTPUT_DRIVER
@@ -3540,7 +3677,7 @@ void write_output_cospar(void) {
   int  use_marg  = INPUTS.use_marg;
   int  dofit_w0wa= INPUTS.dofit_w0wa ;
   int  format    = INPUTS.format_cospar;
-  int  blind     = INPUTS.blind ;
+  bool blind     = INPUTS.blind ;
   char *outFile  = INPUTS.outFile_cospar;
   double dt_fit  = (double)(t_end_fit  - t_start)/ 60.0 ;
 
@@ -3765,14 +3902,86 @@ void write_output_resid(int fitnum) {
 
 } // end write_output_resid
 
-// ********************************
-void write_output_contour(void) {
-  // ----------- BEGIN -------------
-  return ;
-} // end write_output_contour
 
 // =======================================
-void write_output_fits(void) {
+void write_output_chi2grid(void) {
+
+  // Created July 26 2022 by R.Kessler
+  // Write chi2grid vs. fit params to text file.
+  // E.g., for wCDM fit, the file output is
+  // VARNAMES: w OM  chi2_sn chi2_tot
+  //
+  // where chi2_tot includes prior.
+ 
+  char *outFile  = INPUTS.outFile_chi2grid;
+  bool float_w0  = (INPUTS.w0_steps  > 1);
+  bool float_wa  = (INPUTS.wa_steps  > 1);
+  bool float_omm = (INPUTS.omm_steps > 1);
+
+  FILE *fp;
+  char VARLIST[100];
+  char fnam[] = "write_output_chi2grid" ;
+
+  // ------------ BEGIN -------------
+
+  if ( IGNOREFILE(outFile) ) { return; }
+
+  printf("  Write chi2 grid to %s \n", outFile);
+  fp = fopen(outFile, "wt");
+  if (fp == NULL){
+    sprintf(c1err,"Could not open output chi2grid file:");
+    sprintf(c2err,"%s", outFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  VARLIST[0] = 0 ;
+  if ( float_w0  )  { strcat(VARLIST,"w0 "); }
+  if ( float_wa  )  { strcat(VARLIST,"wa "); }
+  if ( float_omm )  { strcat(VARLIST,"omm "); }
+  strcat(VARLIST,"  chi2_sn chi2_tot ");
+
+  fprintf(fp,"VARNAMES: ROW %s\n", VARLIST);
+
+  // - - - -
+  int i, kk, j, rownum=0;
+  double snchi, extchi, w0, wa, omm ;
+  char   line[100], cval[3][40];
+  for(i=0; i < INPUTS.w0_steps; i++){
+    for(kk=0; kk < INPUTS.wa_steps;kk++){
+      for(j=0; j < INPUTS.omm_steps; j++){
+	snchi =  WORKSPACE.snchi3d[i][kk][j]  - WORKSPACE.snchi_min;
+	extchi = WORKSPACE.extchi3d[i][kk][j] - WORKSPACE.extchi_min;
+
+	w0      = INPUTS.w0_min  + i  * INPUTS.w0_stepsize;
+	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;
+	omm     = INPUTS.omm_min + j  * INPUTS.omm_stepsize;
+
+	cval[0][0] = cval[1][0] = cval[2][0] = 0;
+	if ( float_w0  )  { sprintf(cval[0],"%.4f", w0); }
+	if ( float_wa  )  { sprintf(cval[1],"%.4f", wa); }
+	if ( float_omm )  { sprintf(cval[2],"%.4f", omm); }
+
+	rownum++ ;
+	sprintf(line,"ROW: %4d   "
+		"%s %s %s   %10.4le %10.4le", 
+		rownum, 
+		cval[0], cval[1], cval[2],
+		snchi, extchi );	
+	fprintf(fp,"%s\n", line);
+	if ( rownum % 10 == 0 ) { fflush(fp); }
+      }
+    }
+  }
+  
+  //.xyz
+
+  fclose(fp);
+
+  return;
+} // end write_output_chi2grid
+
+// =======================================
+void write_output_fits_legacy(void) {
 
   // Created Oct 2 2021
   // Write to fits files.
@@ -3928,7 +4137,7 @@ void write_output_fits(void) {
   fclose(FILEPTR_SN);
 
   return;
-} // end write_output_fits
+} // end write_output_fits_legacy
 
 
 // ==========================

@@ -10,6 +10,8 @@
 # Feb 23 2022 RK - allow WFITOPT or WFITOPTS key
 # Feb 24 2022 RK,A.Mitra: new COVOPTS key to select subset
 # Feb 26 2022 RK - minor refac for WFITAVG feature
+# Aug 16 2022 RK - if -outfile_chi2grid is passed, replace its arg
+#                  with a standard file name.
 #
 # =================================================================
 
@@ -318,6 +320,7 @@ class wFit(Program):
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
+        output_dir      = self.config_prep['output_dir']
         wfitopt_rows    = None
         key_found       = None
 
@@ -356,13 +359,23 @@ class wFit(Program):
         
         self.config_prep['wfitopt_global'] = wfitopt_global
 
+        # - - - - - 
         # check for wa in fit
-        use_wa = False
+        use_wa          = False
+        outdir_chi2grid = None
         tmp_list = wfitopt_arg_list + [ wfitopt_global ]
         for tmp in tmp_list:
-            if '-wa' in tmp : use_wa = True
+            if '-wa'               in tmp : 
+                use_wa = True
+            if '-outfile_chi2grid' in tmp : 
+                outdir_chi2grid = f"{output_dir}/CHI2GRID"
+                if not os.path.exists(outdir_chi2grid):
+                    os.mkdir(outdir_chi2grid)
 
         self.config_prep['use_wa'] = use_wa
+        self.config_prep['outdir_chi2grid'] = outdir_chi2grid
+
+        return
 
         # end wfit_prep_wfitopt_list
 
@@ -504,6 +517,7 @@ class wFit(Program):
         arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
         arg_global  = self.config_prep['wfitopt_global']
         tmpcov_file = self.config_prep['covsys_file_list2d'][idir][icov]
+        outdir_chi2grid = self.config_prep['outdir_chi2grid']
 
         prefix = self.wfit_num_string(idir,icov,ifit)
 
@@ -512,10 +526,16 @@ class wFit(Program):
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
-        
+
+
         # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list =  [ arg_string ]
         if len(arg_global) > 0: arg_list.append(arg_global)
+
+        if outdir_chi2grid is not None :
+            outfile  = f"{outdir_chi2grid}/{prefix}_CHI2GRID.DAT"
+            arg_list = util.replace_arg(arg_list,"-outfile_chi2grid",outfile)
+            #print(f" xxx arg_list -> {arg_list}")
 
         # define covsys file from create_cov
         arg_list.append(f"-mucov_file {covsys_file}")
@@ -864,7 +884,9 @@ class wFit(Program):
             else:
                 wa = 0
                 wa_sig = 0
-            
+                FoM = 0
+                Rho = 0
+
             # load table for mean and std err on mean (the table is not used here)
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
@@ -872,6 +894,7 @@ class wFit(Program):
                           'w':w, 'w_sig':w_sig, 
                           'omm':omm, 'omm_sig':omm_sig, 
                           'wa':wa, 'wa_sig':wa_sig,
+                          'FoM':FoM, 'Rho': Rho,
                           'covopt_label':covopt_label,
                           'wfitopt_label':wfitopt_label,
                           'nwarn' : nwarn  # R.Kessler Feb 23 2022
@@ -1059,170 +1082,6 @@ class wFit(Program):
         return mean, std_of_mean
         # end compute_average
         
-    def make_wfitavg_summary_legacy(self): 
-        # xxx obsolete, see function make_wfitavg_summary()
-
-        CONFIG           = self.config_yaml['CONFIG']
-        output_dir       = self.config_prep['output_dir']
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR']
-        use_wa           = submit_info_yaml['USE_wa']
-        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
-        WFITOPT_LIST     = submit_info_yaml['WFITOPT_LIST']
-        wfit_summary_table  = self.config_prep['wfit_summary_table']
-
-        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
-        if KEYNAME_WFITAVG is None: return
-
-        # load lists of files needed to comput avgs
-        self.make_wfitavg_lists()
-        wfitavg_list  = self.config_prep['wfitavg_list']
-        
-        logging.info(f"\t Writing means summary to {WFIT_SUMMARY_AVG_FILE}")
-
-        AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
-        f = open(AVG_FILE,"w")
-        nrow = 0
-        VARNAMES_STRING = \
-            f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig   "  \
-            f"<omm> <omm>_sig N_DIRs COVOPT WFITOPT"
-        f.write(f"VARNAMES: {VARNAMES_STRING} \n")
-        
-        avg_comment_dict = {
-            WFIT_AVGTYPE_SINGLE : ' (mean and std err on fitted values)',
-            WFIT_AVGTYPE_DIFF   : ' (mean and std err on differences in fitted values)'
-        }
-
-        for wfitavg in wfitavg_list:
-            # compute averages for single set of sims
-            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_SINGLE: 
-                # use the first directory in the list to find the set of 
-                # unique covopts and unique wfitopts
-                dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath'][0]
-                unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
-                                                     for f in wfit_summary_table.keys()\
-                                                     if f[:-8]==dir_0])
-                unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
-                                                     for f in wfit_summary_table.keys()\
-                                                      if f[:-8]==dir_0])
-                f.write(f"#\n# Mean and std err on mean for option: " \
-                        f"{wfitavg} {avg_comment_dict[wfitavg_list[wfitavg]['avg_type']]}\n")
-
-                for covnum in unique_matching_covopts:
-                    for wfitnum in unique_matching_wfitopts:
-                        omm_list = []; w_list = []; wa_list = []
-                        omm_sig_list = []; w_sig_list = []; wa_sig_list = []
-                        for dir_ in wfitavg_list[wfitavg]['dirslist_fullpath']:
-                            unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
-                            omm_list.append(wfit_summary_table[unique_key]['omm'])
-                            omm_sig_list.append(wfit_summary_table[unique_key]['omm_sig'])
-                            w_list.append(wfit_summary_table[unique_key]['w'])
-                            w_sig_list.append(wfit_summary_table[unique_key]['w_sig'])
-                            wa_list.append(wfit_summary_table[unique_key]['wa'])
-                            wa_sig_list.append(wfit_summary_table[unique_key]['wa_sig'])
-                        covopt_label  = wfit_summary_table[unique_key]['covopt_label']
-                        wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
-
-                        ##compute mean and std err on mean
-                        print(f"\t Compute averages for '{wfitopt_label}' " \
-                              f"with COVOPT={covopt_label}")
-                        sys.stdout.flush()
-
-                        omm_avg, omm_avg_std = self.compute_average(omm_list)
-                        w_avg, w_avg_std     = self.compute_average(w_list)
-                        if use_wa:
-                            wa_avg, wa_avg_std = self.compute_average(wa_list)
-                        else:
-                            wa_avg, wa_avg_std = 0.0, 0.0
-
-                        str_nums    = f"{covnum} {wfitnum} "
-                        str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
-                        str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
-                        str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
-                        str_misc    = f"{len(w_list)}"
-                        str_labels  = f"{covopt_label:<10} {wfitopt_label}"
-                        nrow +=1
-                        f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
-                                f"{str_misc} {str_labels}\n")
-
-            # compute averages of differences on a pair of sets of sims                                                                           
-            if wfitavg_list[wfitavg]['avg_type'] == WFIT_AVGTYPE_DIFF :
-                # use the first directory in the list to find the set of 
-                #  unique covopts and unique wfitopts    
-                dir_0 = wfitavg_list[wfitavg]['dirslist_fullpath1'][0]
-                unique_matching_covopts = np.unique([f.replace(dir_0,'')[1:4] \
-                                                     for f in wfit_summary_table.keys()\
-                                                     if f[:-8]==dir_0])
-                unique_matching_wfitopts = np.unique([f.replace(dir_0,'')[5:] \
-                                                      for f in wfit_summary_table.keys()\
-                                                      if f[:-8]==dir_0])
-                f.write(f"#\n# Mean and std err on mean for {wfitavg} " \
-                        f"{avg_comment_dict[wfitavg_list[wfitavg]['avg_type']]}\n")
-                for covnum in unique_matching_covopts:
-                    for wfitnum in unique_matching_wfitopts:
-                        omm_difflist = []; w_difflist = []; wa_difflist = []
-                        omm_sig_difflist = []; w_sig_difflist = []; wa_sig_difflist = []
-                        for dir1_,dir2_ in zip(wfitavg_list[wfitavg]['dirslist_fullpath1'],
-                                               wfitavg_list[wfitavg]['dirslist_fullpath2']):
-                            unique_key1 = dir1_+'_%s_%s'%(covnum,wfitnum)
-                            unique_key2 = dir2_+'_%s_%s'%(covnum,wfitnum)
-
-                            omm_diff = wfit_summary_table[unique_key1]['omm'] - \
-                                       wfit_summary_table[unique_key2]['omm']
-                            omm_difflist.append(omm_diff) 
-
-                            omm_sig_diff = (wfit_summary_table[unique_key1]['omm_sig']**2 + \
-                                            wfit_summary_table[unique_key2]['omm_sig']**2)**0.5
-                            omm_sig_difflist.append(omm_sig_diff)
-
-                            w_diff = wfit_summary_table[unique_key1]['w'] - \
-                                     wfit_summary_table[unique_key2]['w']
-                            w_difflist.append(w_diff)
-
-                            w_sig_diff = (wfit_summary_table[unique_key1]['w_sig']**2 + \
-                                          wfit_summary_table[unique_key2]['w_sig']**2)**0.5 
-                            w_sig_difflist.append(w_sig_diff)
-
-                            wa_diff = wfit_summary_table[unique_key1]['wa'] - \
-                                      wfit_summary_table[unique_key2]['wa']
-                            wa_difflist.append(wa_diff)
-
-                            wa_sig_diff = (wfit_summary_table[unique_key1]['wa_sig']**2 + \
-                                           wfit_summary_table[unique_key2]['wa_sig']**2)**0.5 
-                            wa_sig_difflist.append(wa_sig_diff)
-
-                        covopt_label = wfit_summary_table[unique_key1]['covopt_label']
-                        wfitopt_label = wfit_summary_table[unique_key1]['wfitopt_label']
-                        
-                        ##compute mean and std err on mean
-                        print(f"\t Compute average diffs for '{wfitopt_label}' " \
-                              f"with COVOPT={covopt_label}")
-                        sys.stdout.flush()
-
-                        omm_avg, omm_avg_std = self.compute_average(omm_difflist)
-                        w_avg, w_avg_std     = self.compute_average(w_difflist)
-                        if use_wa:
-                            wa_avg, wa_avg_std = self.compute_average(wa_difflist)
-                        else:
-                            wa_avg, wa_avg_std = 0.0, 0.0
-
-                        str_nums    = f"{covnum} {wfitnum} "
-                        str_results = f"{w_avg:.5f} {w_avg_std:.5f} "
-                        if use_wa:
-                            str_results += f"{wa_avg:7.5f} {wa_avg_std:7.5f} "
-                        else:
-                            str_results += f"{wa_avg:7.1f} {wa_avg_std:7.1f}  "
-                        str_results += f"{omm_avg:7.4f} {omm_avg_std:7.4f}  "
-                        str_misc    = f"{len(w_difflist)}"
-                        str_labels  = f"{covopt_label:<10} {wfitopt_label}"
-                        nrow +=1
-                        f.write(f"ROW: {nrow:3d} {str_nums} {str_results}  " \
-                                f"{str_misc} {str_labels}\n")
-
-        f.close()
-
-    # end make_wfitavg_summary_legacy
-
     def make_wfitavg_summary(self):
 
         # Driver utility to compute means and std err on mean among directories
@@ -1249,9 +1108,13 @@ class wFit(Program):
         AVG_FILE    = f"{output_dir}/{WFIT_SUMMARY_AVG_FILE}"
         f = open(AVG_FILE,"w")
         nrow = 0
+        
+        if use_wa: VARNAME_FOM = "<w_sig> <w_sig>_sig FoM FoM_sig"
+        else: VARNAME_FOM = "<w_sig> <w_sig>_sig"
+
         VARNAMES_STRING = \
-            f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig   "  \
-            f"<omm> <omm>_sig N_DIRs COVOPT WFITOPT"
+                          f"ROW  iCOV iWFIT <w> <w>_sig   <wa> <wa>_sig  "  \
+                          f"<omm> <omm>_sig {VARNAME_FOM} N_DIRs COVOPT WFITOPT"
         f.write(f"VARNAMES: {VARNAMES_STRING} \n")
         
         avg_comment_dict = {
@@ -1274,26 +1137,33 @@ class wFit(Program):
 
             for covnum in unique_matching_covopts:
                 for wfitnum in unique_matching_wfitopts:
-                    omm_list = []; w_list = []; wa_list = []
+                    omm_list = []; w_list = []; wa_list = []; wsig_list = []; FoM_list = []
                     for dir_ in wfitavg_list[wfitavg]['dirslist_fullpath1']:
                         unique_key = dir_+'_%s_%s'%(covnum,wfitnum)
                         omm_list.append(wfit_summary_table[unique_key]['omm'])
                         w_list.append(wfit_summary_table[unique_key]['w'])
                         wa_list.append(wfit_summary_table[unique_key]['wa'])
+                        wsig_list.append(wfit_summary_table[unique_key]['w_sig'])
+                        FoM_list.append(wfit_summary_table[unique_key]['FoM'])
                     covopt_label  = wfit_summary_table[unique_key]['covopt_label']
                     wfitopt_label = wfit_summary_table[unique_key]['wfitopt_label']
 
                     if wfitavg_list[wfitavg]['dirslist_fullpath2'] is not None:
-                        omm_list2 = []; w_list2 = []; wa_list2 = []
+                        omm_list2 = []; w_list2 = []; wa_list2 = []; wsig_list2 = []; FoM_list2 = []
                         for dir2_ in wfitavg_list[wfitavg]['dirslist_fullpath2']:
                             unique_key = dir2_+'_%s_%s'%(covnum,wfitnum)
                             omm_list2.append(wfit_summary_table[unique_key]['omm'])
                             w_list2.append(wfit_summary_table[unique_key]['w'])
                             wa_list2.append(wfit_summary_table[unique_key]['wa'])
+                            wsig_list2.append(wfit_summary_table[unique_key]['w_sig'])
+                            FoM_list2.append(wfit_summary_table[unique_key]['FoM'])
                     else: # if theres no second set of dirs, it mean this is not a difference so just set x_list2 to zero 
-                        omm_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
-                        w_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
-                        wa_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
+                        zero_list2 = np.zeros(len(wfitavg_list[wfitavg]['dirslist_fullpath1']))
+                        omm_list2 = zero_list2
+                        w_list2 = zero_list2
+                        wa_list2 = zero_list2
+                        wsig_list2 = zero_list2
+                        FoM_list2 = zero_list2
                     
                     ##compute mean and std err on mean
                     print(f"\t Compute averages for '{wfitopt_label}' " \
@@ -1302,15 +1172,23 @@ class wFit(Program):
 
                     omm_avg, omm_avg_std = self.compute_average(np.array(omm_list)-np.array(omm_list2))
                     w_avg, w_avg_std     = self.compute_average(np.array(w_list)-np.array(w_list2))
+                    wsig_avg, wsig_avg_std = self.compute_average(np.array(wsig_list)-np.array(wsig_list2))
                     if use_wa:
                         wa_avg, wa_avg_std = self.compute_average(np.array(wa_list)-np.array(wa_list2))
+                        FoM_avg, FoM_avg_std = self.compute_average(np.array(FoM_list)-np.array(FoM_list2))
                     else:
                         wa_avg, wa_avg_std = 0.0, 0.0
+                        FoM_avg, FoM_avg_std = 0.0, 0.0
 
                     str_nums    = f"{covnum} {wfitnum} "
                     str_results = f"{w_avg:7.4f} {w_avg_std:7.4f} "
                     str_results += f"{wa_avg:7.4f} {wa_avg_std:7.4f} "
                     str_results += f"{omm_avg:7.3f} {omm_avg_std:7.3f}  "
+                    str_results += f"{wsig_avg:7.4f} {wsig_avg_std:7.4f}  "
+                    
+                    if use_wa:
+                        str_results += f"{FoM_avg:5.0f} {FoM_avg_std:5.0f}  "
+
                     str_misc    = f"{len(w_list)}"
                     str_labels  = f"{covopt_label:<10} {wfitopt_label}"
                     nrow +=1

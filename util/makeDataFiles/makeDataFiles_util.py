@@ -22,7 +22,37 @@ except ImportError as e:
     pass
 from astropy.time import Time
 
-# =============================
+
+# ===============================================
+def create_output_folder(data_dir):
+
+    # Created July 20 2022
+    # Remove data_dir or data_dir.tar if they exist;
+    # then create data_dir. Note that data_dir includes full path.
+
+    tar_file       = f"{data_dir}.tar"
+    exist_folder   = os.path.exists(data_dir)
+    exist_tar_file = os.path.exists(tar_file)
+
+    if exist_folder :
+        cmd_rm = f"rm -r {data_dir}"
+        os.system(cmd_rm)
+
+    if exist_tar_file :
+        cmd_rm = f"rm -r {tar_file}"
+        os.system(cmd_rm)
+
+    # create folder  
+    folder = os.path.basename(data_dir)
+    logging.info(f"\t Create folder {folder}")
+    sys.stdout.flush()
+    os.mkdir(data_dir)
+
+    return
+
+    # end create_output_folder
+
+# ===============================================
 def extract_sim_readme_info(path_sim,key_list):
 
     # Created Mar 31 2022
@@ -682,6 +712,9 @@ class READ_SNANA_FOLDER:
         self.snana_folder_dict['n_HEAD_file']     = n_HEAD_file
         self.snana_folder_dict['private_dict']    = {}
         self.snana_folder_dict['zphot_q_dict']    = {} # photo-z quantiles
+        
+        return
+        # end __init__
 
 
     def exec_read(self, ifile):
@@ -736,6 +769,18 @@ class READ_SNANA_FOLDER:
 
         head_names = table_dict['head_names']
         phot_names = table_dict['phot_names']
+
+        # check for PHOTFLAG_DETECT in header (after July 22 2022)
+        global_header  = self.snana_folder_dict['hdu_head'][0].header
+        key = gpar.DATAKEY_PHOTFLAG
+        if key in global_header:
+            photflag_detect_input = args.photflag_detect
+            photflag_detect_final = global_header[key]
+            self.args.photflag_detect = photflag_detect_final
+
+            msg = f"  photflag_detect(input) = {photflag_detect_input} " \
+                  f"--> {photflag_detect_final} from data header."
+            logging.info(f"{msg}")
 
         # check for true mag in PHOT table
         # e.g., fakes overlaid on images or sim

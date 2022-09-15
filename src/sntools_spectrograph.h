@@ -59,7 +59,6 @@ double  VALUES_SPECBIN[MXVALUES_SPECBIN];
 
 
 // ------ GENERATED SPECTRA ------                                                        
-
 struct {
   int    NMJD_TOT, NMJD_PROC ;
   int    NBLAM_TOT[MXSPEC];    // total number of wavelength bins
@@ -92,6 +91,7 @@ struct {
   double *GENFLUX_LAMSMEAR_LIST[MXSPEC]; // lam-smeared flux, no Poisson noise
   double *GENFLUX_PEAK ; // GENFLUX at PEAKMJD; needed for HOSTSNFRAC option
   double *GENMAG_PEAK ;  
+  double  SCALE_FLAM_HOST_CONTAM[MXSPEC]; // fraction of host spec included in SN spec
 
   // observed (noisy) flux vs [NMJD][ILAM] 
   double  *OBSFLUX_LIST[MXSPEC] ;     // obs flux with noise

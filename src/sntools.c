@@ -2373,7 +2373,13 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word) {
   char fnam[] = "get_PARSE_WORD" ;
 
   // ----------- BEGIN ---------
+
   if ( iwd >= NWD ) {
+    print_preAbort_banner(fnam);
+    int i;
+    for(i=0; i < NWD; i++ ) 
+      { printf("\t word(%d) = '%s' \n", i, PARSE_WORDS.WDLIST[i]) ;}
+
     sprintf(c1err,"iwd=%d exceeds NWD_STORE=%d", iwd, NWD);
     sprintf(c2err,"Check FILENAME = '%s' ", PARSE_WORDS.FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -3474,11 +3480,55 @@ double GaussIntegral(double nsig1, double nsig2) {
 
 } // end GaussIntegral
 
+// =================================================
+double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
+  
+  // Created Sep 2 2022 by R.Kessler
+  // Function returns host confusion variable from Eq 3 in
+  // Gupta et al 2016: 
+  //   https://ui.adsabs.harvard.edu/abs/2016AJ....152..154G
+
+  double HC = -9.0 ;
+  double eps = 1.0E-5;
+  double preFac, tmp, top, bot;
+  double D1, D2, Di, Dj, sqi;
+  int i, j ;
+  char fnam[] = "host_confusion";
+
+  // -------------- BEGIN -------------
+
+  if ( N_DDLR <=1 ) { return HC; }
+
+  D1 = DDLR_LIST_SORTED[0]; // D1 is Gupta notation; [0] is C index
+  D2 = DDLR_LIST_SORTED[1];
+  preFac = (D1*D1/D2 + eps) / (D2 - D1 + eps);
+
+  tmp = 0.0 ;
+  // do fortran-like loop from 1-N to mimic Eq 3
+  for(i=1; i <= N_DDLR-1; i++ ) {
+    sqi = (double)(i*i);
+    for(j=i+1; j <= N_DDLR; j++ ) {
+      Di   = DDLR_LIST_SORTED[i-1];
+      Dj   = DDLR_LIST_SORTED[j-1];
+      top  = (Di/Dj) + eps;
+      bot  = sqi * ( Dj - Di + eps);
+      tmp += ( top / bot );
+    }
+  }
+
+  HC = log10(preFac * tmp);
+
+  return HC;
+
+} // end host_confusion
+
+double host_confusion__(int *N_DDLR, double *DDLR_LIST_SORTED)
+{ return host_confusion(*N_DDLR, DDLR_LIST_SORTED); }
+
 // =============================================
 double angSep( double RA1,double DEC1, 
 	       double RA2,double DEC2, double  scale) {
 
-  // Copied from DIFFIMG on Nov 16 2015
   //
   // Oct 9, 2012 R. Kessler
   // for input coords of point 1 (RA1,DEC1) and point 2 (RA2,DEC2),
@@ -3490,23 +3540,77 @@ double angSep( double RA1,double DEC1,
 
   double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
   double RAD = RADIAN ;
+  double top, bot, arg, tmp;
+  double cosD1, cosD2, sinD1, sinD2, sinR1, sinR2;
+  double sinRDIF, cosRDIF, sin2RDIF, cos2RDIF ;
+  bool REFAC = false ;
 
+  char fnam[] = "angSep";
+
+  // ------------- BEGIN ------------------
+
+  if ( REFAC ) {
+    cosD1 = cos(RAD*DEC1);
+    cosD2 = cos(RAD*DEC2);
+    sinD1 = sin(RAD*DEC1);
+    sinD2 = sin(RAD*DEC2);
+    sinR1 = sin(RAD*RA1);
+    sinR2 = sin(RAD*RA2);
+    cosRDIF = cos(RAD*(RA2-RA1));
+    sinRDIF = sin(RAD*(RA2-RA1));
+    cos2RDIF = cosRDIF * cosRDIF;
+    sin2RDIF = sinRDIF * sinRDIF;
+
+    tmp = (cosD1*sinD2 - sinD1*cosD2*cosRDIF);
+    top = cosD2*cosD2 * sin2RDIF + tmp*tmp ;
+    bot = sinD1*sinD2 + cosD1*cosD2*cosRDIF ;
+    arg = sqrt(top)/bot ;
+    sep = atan(arg)/RAD ;
+
+    /*
+    double sep_legacy = angSep_legacy(RA1,DEC1,  RA2,DEC2);
+    double sep_dif    = 3600.0*fabs(sep-sep_legacy);
+    printf(" xxx %s: sepDif = 3600(%f - %f) = %f arcsec  [top=%le]\n",
+	   fnam, sep, sep_legacy, sep_dif, top ) ; fflush(stdout);
+    */
+
+  }
+  else {
+    sep = angSep_dotprod(RA1,DEC1,  RA2,DEC2);
+  }
+
+  return (sep * scale) ;
+
+} // end of angSep
+
+
+// =============================================
+double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
+  //
+  // Oct 9, 2012 R. Kessler
+  // for input coords of point 1 (RA1,DEC1) and point 2 (RA2,DEC2),
+  // return angular separation. Inputs are in degrees.
+  // Legacy calc using acos(dot product)
+
+  double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
+  double RAD = RADIAN ;
+  bool REFAC = true ;
   // ------------- BEGIN ------------------
 
   X1 = cos(RA1*RAD) * cos(DEC1*RAD);
   Y1 = sin(RA1*RAD) * cos(DEC1*RAD);
   Z1 = sin(DEC1*RAD);
-
+  
   X2 = cos(RA2*RAD) * cos(DEC2*RAD);
   Y2 = sin(RA2*RAD) * cos(DEC2*RAD);
   Z2 = sin(DEC2*RAD);
-
-  DOTPROD = (1.0-1.0E-15)*(X1*X2 + Y1*Y2 + Z1*Z2);
+  
+  DOTPROD = (1.0-1.0E-35)*(X1*X2 + Y1*Y2 + Z1*Z2);
   sep = acos(DOTPROD)/RAD ; // angular sep, degrees
 
-  return (sep * scale) ;
+  return (sep) ;
 
-} // end of angSep
+} // end of angSep_dotprod
 
 
 // ==============================================================
@@ -6804,7 +6908,7 @@ int rd_sedFlux(
 
    OPTMASK += 1 --> read FLUXERR (4th column of SEDFILE)
    OPTMASK += 2 --> allow non-uniform DAY bins 
-
+   
    The return-arg lengths are
      - DAY_LIST has length NDAY
      - LAM_LIST has length NLAM and 
@@ -6850,12 +6954,9 @@ int rd_sedFlux(
   **********/
 
   FILE *fpsed;
-
   char txterr[20], line[200], lastLine[200] ;
-  //  char *ptrtok, s1[60], s2[60], s3[60], s4[60], tmpline[200] ;
   char *ptrStringVal[MXWORDLINE_FLUX], StringVal[MXWORDLINE_FLUX][40];
   char space[] = " ";
-  char fnam[]  = "rd_sedFlux" ;
 
   double day, lam, day_last, lam_last, lam_expect, flux, fluxerr, XN ;
   double daystep_last, daystep, daystep_dif ;
@@ -6867,6 +6968,8 @@ int rd_sedFlux(
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
   double LAMSTEP_TOL = 0.01;   // tolerance on LAMSTEP uniformity
+
+  char fnam[]  = "rd_sedFlux" ;
 
   // ------------- BEGIN -------------
 
@@ -7421,11 +7524,13 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.SIM_SL_FLAG    = 0 ;
   SNDATA.SIMLIB_FILE[0] = 0 ;
   SNDATA.SIMLIB_MSKOPT  = 0 ;
-
+  
   SNDATA.APPLYFLAG_MWEBV = 0 ;
 
   SNDATA.SIM_BIASCOR_MASK = 0 ;
   
+  SNDATA.PHOTFLAG_DETECT  = 0 ; // July 2022
+
   for(ep=0; ep < MXEPOCH; ep++ ) {
    SNDATA.FILTCHAR[ep]  = (char*)malloc( 2  * sizeof(char) );
    SNDATA.FIELDNAME[ep] = (char*)malloc( 20 * sizeof(char) );
@@ -7567,6 +7672,7 @@ int init_SNDATA_EVENT(void) {
   SNDATA.SIM_RA       = NULLFLOAT ;
   SNDATA.SIM_DEC      = NULLFLOAT ;
   SNDATA.SIM_PEAKMJD  = NULLFLOAT ;
+  SNDATA.SIM_MJD_EXPLODE = NULLFLOAT ;
   SNDATA.SIM_AVTAU    = NULLFLOAT ;
   SNDATA.SIM_AV       = NULLFLOAT ;
   SNDATA.SIM_RV       = NULLFLOAT ;
@@ -8986,12 +9092,14 @@ void check_file_docana(int optmask, char *fileName) {
   //
   // Input 
   //    optmask & 1 -> abort if no DOCANA; else give warning.
+  //
+  // Sep 14 2022: key[60] -> key[300] to avoid overwrite of memory
 
   int MSKOPT   = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
   bool REQUIRE = ( (optmask & 1) > 0 ) ;
   bool FOUND_DOCANA = false ;
   int  langFlag=0, iwd, NWD;
-  char key[60];
+  char key[300];
   char fnam[] = "check_file_docana";
   // ------------- BEGIN --------
 
@@ -9453,7 +9561,8 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
   //   restricted to order_legacy passed as argument.
   //
   // Dec 21 2021: increase char arrays from len=60 to 200
-  //
+  // Jun 27 2022: call init_GENPOLY(POLY)
+
   int  MEMD, nread, j, N=0;
   double *zpoly_legacy ;
   char first_word[200], cpoly[200] ;
@@ -9465,6 +9574,8 @@ int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
   printf(" xxx %s: WORDS = %s %s %s   order=%d \n",
 	 fnam, WORDS[0], WORDS[1], WORDS[2], order_legacy );
   */
+
+  init_GENPOLY(POLY);
 
   sscanf(WORDS[N], "%s", first_word); N++ ;
 

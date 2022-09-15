@@ -6,9 +6,10 @@
 #
 # Jan 22 2022: add --diff_fitres option 
 # Apr 22 2022: for -d option, include 'MU' if it exists
+# Sep 12 2022: fix --extract_sim_input for sims run in batch mode
 # =========================
 
-import os, sys, argparse, subprocess, yaml
+import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
 import pandas as pd
 
 # ----------------
@@ -354,36 +355,51 @@ def translate_simgen_dump_file(args):
 
     # end translate_simgen_dump_file
 
-def extract_sim_input_file(args):
-
-    # read INPUT_KEYS from DOCUMENTATION in VERSION.README,
-    # and create a sim-input file. Modify the GENVERSION
-    # to be {version}_REPEAT to avoid clobbering orginal output.
-
-    version_orig   = args.version
-    version_repeat = f"{version_orig}_REPEAT"
-
-    sim_input_file = f"sim_input_{version_orig}.input"
-    print(f"\n Create sim-input file: {sim_input_file}")
-
+def get_README_contents(version):
+    # find README file(s)
+    # if sim was run interactivly, this(or these) should just be VERSION.README
+    # if sim was run with submit_batch, this(or these) should be in misc.tar.gz
+    
     # find directory with sim data using snana uti;
-    command  = f"{snana_program} GETINFO {version_orig}" 
+    command  = f"{snana_program} GETINFO {version}"
     ret = subprocess.run( [ command ], cwd=os.getcwd(),
                           shell=True, capture_output=True, text=True )
- 
+
     ret_list = (ret.stdout).split()
     j        = ret_list.index("SNDATA_PATH:")
     path_simdata = ret_list[j+1]
     print(f"\n Found sim data in : {path_simdata} ")
-    readme_file = f"{path_simdata}/{version_orig}.README"
 
-    # read README created by simulation
-    with open(readme_file, 'rt') as r:
-        docana_yaml = yaml.safe_load(r)
+    dict_yaml={}
+    readme_file = f"{path_simdata}/{version}.README"
+    misc_file = f"{path_simdata}/misc.tar.gz"
+    if os.path.exists(misc_file):
+        members = tarfile.open(misc_file).getmembers()
+        members_name = [m.name for m in members]
+#        print (f"len members {len(members)}, len members_name {len(members_name)}")
+        wildcard = f"*.README"
+        match_list = sorted(fnmatch.filter(members_name, wildcard))
+        for imodel in range(0,10):
+            key_model = f"MODEL{imodel}"
+            model_match = [match for match in match_list if key_model in match]
+            if len(model_match)==0: break
+            member = [m for m in members if m.name==model_match[0]][0]
+#            print (f"member {member.name}, model_match[0] {model_match[0]}")
+            with tarfile.open(misc_file).extractfile(member) as r:
+                docana_yaml = yaml.safe_load(r)
+                dict_yaml[f"{version}_{key_model}"] = docana_yaml
+    else:
+        # read README created by simulation
+        with open(readme_file, 'rt') as r:
+            docana_yaml = yaml.safe_load(r)
+            dict_yaml[version] = docana_yaml
 
+    return dict_yaml
+
+def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
     nkey_write = 0
     key = 'INPUT_KEYS'
-    DOCANA = docana_yaml['DOCUMENTATION']
+    DOCANA = sim_readme_yaml['DOCUMENTATION']
     if key in DOCANA:
         INPUT_KEYS = DOCANA[key]
     else:
@@ -405,8 +421,25 @@ def extract_sim_input_file(args):
             for val in val_list:
                 f.write(f"{key_plus_colon:<28}  {val}\n")
                 nkey_write += 1
+    print(f"\t Done writing {nkey_write} keys for {sim_input_file}")
+    return None
 
-    print(f"\t Done writing {nkey_write} keys.")
+def extract_sim_input_file(args):
+
+    # read INPUT_KEYS from DOCUMENTATION in VERSION.README,
+    # and create a sim-input file. Modify the GENVERSION
+    # to be {version}_REPEAT to avoid clobbering orginal output.
+
+    version_orig   = args.version
+    version_repeat = f"{version_orig}_REPEAT"
+
+    sim_input_file = f"sim_input_{version_orig}.input"
+
+    dict_yaml = get_README_contents(args.version)
+    for model_name,sim_readme_yaml in dict_yaml.items():
+        sim_input_file = f"sim_input_{model_name}.input"
+        print(f" Create sim-input file: {sim_input_file}")       
+        write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat)
 
     # end extract_sim_input_file
 

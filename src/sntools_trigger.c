@@ -1790,7 +1790,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   int FOUND_TRIGGER=0,  FOUND_DETECT_FIRST=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
-  double  PHOTPROB, CUTVAL ;
+  double  PHOTPROB, CUTVAL, SEP_NEAREST_SRC, PSFSIG, MINSEP_DETECT ;
   char CFILT[4];
   int LDMP  = (ID == -39 ); 
   char fnam[] = "gen_SEARCHEFF_PIPELINE";
@@ -1808,6 +1808,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   NMJD_DETECT = 0 ;
   TDIF_NEXT   = INPUTS_SEARCHEFF.TIME_SINGLE_DETECT ;
   NOBS        = SEARCHEFF_DATA.NOBS ;
+  SEP_NEAREST_SRC  = SEARCHEFF_DATA.SEP_NEAREST_SRC;
 
   if (LDMP ) {
     printf("\n xxx \n");
@@ -1852,6 +1853,15 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
     RAN      = SEARCHEFF_RANDOMS.FLAT_PIPELINE[obs] ;
     EFF      = GETEFF_PIPELINE_DETECT(obs); // compute effic
     DETECT_FLAG =  ( RAN < EFF ) ;
+
+    // Jul 2022 check resolving nearby source 
+    if ( SEP_NEAREST_SRC < 5.0 ) {
+      PSFSIG = SEARCHEFF_DATA.PSFSIG[obs]; // PSF sigma, arcsec
+      // if less than 1 sigma separation, disable detection
+      MINSEP_DETECT = INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT * PSFSIG ;
+      if ( SEP_NEAREST_SRC < MINSEP_DETECT ) { DETECT_FLAG = 0; }
+    }
+
     if ( DETECT_FLAG ) 
       { SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_SNR; }
 

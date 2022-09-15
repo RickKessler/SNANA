@@ -314,6 +314,9 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp, "SIM_PEAKMJD:         %.3f    #  true PEAKMJD, days \n", 
 	  SNDATA.SIM_PEAKMJD ) ;
 
+  fprintf(fp, "SIM_MJD_EXPLODE:     %.3f    #  true MJD for explosion \n", 
+	  SNDATA.SIM_MJD_EXPLODE ) ;
+
 
   if ( SNDATA.SIM_DELTA != NULLFLOAT ) {
     fprintf(fp, "SIM_DELTA:         %.3f    # MLCS lumi-par \n", 
@@ -411,8 +414,18 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   // strong lens info (July 20 2019)                                          
   if ( SNDATA.SIM_SL_FLAG ) {
     fprintf(fp,"\n");
-    fprintf(fp,"SIM_STRONGLENS_ID:        %d   \n", SNDATA.SIM_SL_IDLENS );
-    fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
+    fprintf(fp,"SIM_STRONGLENS_IDLENS:    %d   # library ID \n", 
+	    SNDATA.SIM_SL_IDLENS );
+
+    fprintf(fp,"SIM_STRONGLENS_GALID:     %lld  # HOSTLIB-GALID of lens \n", 
+	    SNDATA.SIM_SL_GALID );
+
+    fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", 
+	    SNDATA.SIM_SL_zLENS  );
+
+    fprintf(fp,"SIM_STRONGLENS_LOGMASS:   %.3f +_ %.3f\n", 
+	    SNDATA.SIM_SL_LOGMASS, SNDATA.SIM_SL_LOGMASS_ERR  );
+
     fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n",
 	    SNDATA.SIM_SL_TDELAY );
     fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
@@ -422,6 +435,8 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
     fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
     fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
+    fprintf(fp,"SIM_STRONGLENS_MINSEP:    %.3f  # arcsec \n", 
+	    SNDATA.SIM_SL_MINSEP  );
   }
 
   // - - - - - 
@@ -501,7 +516,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
 
-  NGAL = SNDATA.HOSTGAL_NMATCH[0];
+  NGAL = SNDATA.HOSTGAL_NMATCH[1];
   if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
 
   fprintf(fp, "%s_NMATCH:      %d  \n",  
@@ -582,19 +597,19 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
     }
-    if ( SNDATA.HOSTGAL_LOGSFR_OBS[igal] > -900. ) {
+    if ( SNDATA.HOSTGAL_LOGSFR_OBS[igal] > -9000. ) {
       fprintf(fp, "%s_%s:      %.3e +- %.3e  # SFR\n",
               PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR,
               SNDATA.HOSTGAL_LOGSFR_OBS[igal],
               SNDATA.HOSTGAL_LOGSFR_ERR[igal] );
     }
-    if ( SNDATA.HOSTGAL_LOGsSFR_OBS[igal] > -900. ) {
+    if ( SNDATA.HOSTGAL_LOGsSFR_OBS[igal] > -9000. ) {
       fprintf(fp, "%s_%s:     %.3e +- %.3e  # specific SFR\n",
 	      PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR,
 	      SNDATA.HOSTGAL_LOGsSFR_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGsSFR_ERR[igal] );
     }
-    if ( SNDATA.HOSTGAL_COLOR_OBS[igal] > -900. ) {
+    if ( SNDATA.HOSTGAL_COLOR_OBS[igal] > -9000. ) {
       fprintf(fp, "%s_%s:       %.3e +- %.3e  # COLOR (e.g. U-R)\n",
               PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR,
               SNDATA.HOSTGAL_COLOR_OBS[igal],
@@ -950,6 +965,7 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
   int  imjd, ilam ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
+  double SCALE;
 
   char VARLIST[200], tmpLine[200], cval[40] ;
   char fnam[] = "wr_dataformat_text_SNSPEC" ;
@@ -990,10 +1006,17 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
     fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", 
 	    GENSPEC.MJD_LIST[imjd]);
-    if ( IS_HOST )
-      { fprintf(fp, "# HOST \n"); }
-    else
-      { fprintf(fp, "# Tobs = %8.3f \n", GENSPEC.TOBS_LIST[imjd] ); }
+    if ( IS_HOST )  { 
+      fprintf(fp, "# HOST \n"); 
+    }
+    else  { 
+      fprintf(fp, "# Tobs = %8.3f \n", GENSPEC.TOBS_LIST[imjd] );       
+    }
+
+    SCALE = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd];
+    if ( SCALE > 0.0 ) {
+      fprintf(fp,"SPECTRUM_SCALE_HOST_CONTAM: %.3f\n", SCALE);
+    }
 
     fprintf(fp,"SPECTRUM_TEXPOSE:  %9.1f            "
             "# seconds\n",
@@ -2320,6 +2343,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     else if ( strcmp(word0,"SIM_PEAKMJD:") == 0 ) {
       SNDATA.SIM_PEAKMJD = FVAL; 
     }
+    else if ( strcmp(word0,"SIM_MJD_EXPLODE:") == 0 ) {
+      SNDATA.SIM_MJD_EXPLODE = FVAL; 
+    }
     else if ( strcmp(word0,"SIM_TRESTMIN:") == 0 ) {
       SNDATA.SIM_TRESTMIN = FVAL;
     }
@@ -2398,7 +2424,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     else if ( strncmp(word0,"SIM_STRONGLENS",14) == 0 ) {
       sprintf(PREFIX, "SIM_STRONGLENS") ;
 
-      sprintf(KEY_TEST,"%s_ID:", PREFIX);
+      sprintf(KEY_TEST,"%s_IDLENS:", PREFIX);
       if ( strcmp(word0,KEY_TEST) == 0 ) 
 	{ SNDATA.SIM_SL_IDLENS = IVAL; }
 

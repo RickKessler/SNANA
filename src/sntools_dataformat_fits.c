@@ -63,6 +63,8 @@
     + always write HOSTGAL2 info, even for Galactics, so that data
        files have same keys.
 
+ Jul 21 2021: write PHOTFLAG_DETECT to global header
+
 **************************************************/
 
 #include "fitsio.h"
@@ -455,6 +457,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1D",  "SIM_DEC"            , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MWEBV"          , itype );
     wr_snfitsio_addCol( "1E",  "SIM_PEAKMJD"        , itype );
+    wr_snfitsio_addCol( "1E",  "SIM_MJD_EXPLODE"    , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"   , itype );      
   
     // always write SIM_AV,RV
@@ -547,12 +550,16 @@ void wr_snfitsio_init_head(void) {
 
     // strong lens info (Julu 2019)
     if ( SNDATA.SIM_SL_FLAG ) {
-      wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_ID"       , itype );
+      wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_IDLENS"   , itype );
+      wr_snfitsio_addCol( "1K",  "SIM_STRONGLENS_GALID"    , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_z"        , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_TDELAY"   , itype );
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MAGSHIFT" , itype );
       wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_NIMG"     , itype );
       wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_IMGNUM"   , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MINSEP"   , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_LOGMASS"    , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_LOGMASS_ERR", itype );
     }
 
   } // SNFITSIO_SIMFLAG_SNANA
@@ -791,6 +798,7 @@ void wr_snfitsio_init_spec(void) {
     wr_snfitsio_addCol( "1E",  "SNR_COMPUTE", itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMIN_SNR",  itype   ) ; 
     wr_snfitsio_addCol( "1E",  "LAMMAX_SNR",  itype   ) ; 
+    wr_snfitsio_addCol( "1E",  "SCALE_HOST_CONTAM",  itype   ) ; 
   }
 
   wr_snfitsio_addCol( "1I",  "NBIN_LAM",    itype   ) ; 
@@ -1009,18 +1017,6 @@ void wr_snfitsio_create(int itype ) {
   // create fits file of 'itype' (HEAD or PHOT or SPEC)
   // and write global header info.
   //
-  // Nov 24, 2012: add optional PRIVATE variable names
-  // Sep 19, 2013: write SIMOPT_MWCOLORLAW, SIMOPT_MWEBV
-  // Dec 07, 2013: write PRIVATE keys before checking SIMFLAG
-  //
-  // Feb 12, 2014: 
-  //  - write SNFITSIO_CODE_IVERSION
-  //  - write optional name of HOSTLIB_FILE
-  //  - write optional SIM_HOSTLIB key-names in header
-  //
-  // Dec 27 2015: SIMLIB -> SIMLIB_FILE and add SIMLIB_MSKOPT
-  //
-  // Aug 02 2016: new 'SPEC' option to write simulated spectra
   // Jun 16 2017: write NSUBSAMPLE_MARK for simulation
   // Dec 26 2018: increment SNFITSIO_CODE_IVERSION for SIMSED ipar
   // Jul 13 2021: write KCOR_FILE in header using fits_write_key_longstr
@@ -1064,7 +1060,7 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 9; // Feb  8 2019: more HOSTGAL stuff
   //  SNFITSIO_CODE_IVERSION = 10 ;//Sep 10 2020: PySEDMODEL
 
-  /* xxx
+  /* xxxxx
   if ( SNFITSIO_SPECTRA_FLAG_LEGACY ) 
     { SNFITSIO_CODE_IVERSION = 11 ; } // Oct 13 2021: add IMGNUM to phot table
   else
@@ -1074,7 +1070,8 @@ void wr_snfitsio_create(int itype ) {
   // Mar 08 2022:
   //  + write SIM_MODEL_INDEX to header  
   //  + enable writing sim without truth (see OPT_REFORMAT_FITS in manual)
-  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+  //  SNFITSIO_CODE_IVERSION = 21; // Mar 08 2022
+  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
 		  "Internal SNFTSIO code version", &istat );
@@ -1096,10 +1093,14 @@ void wr_snfitsio_create(int itype ) {
   fits_update_key(fp, TINT, "SUBSURVEY_FLAG",
 		  &SNDATA.SUBSURVEY_FLAG, "SUBSURVEY_FLAG", &istat );
 
-  // July 21 2018
-  fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",
+  // misc flags
+  fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
 		  &SNDATA.APPLYFLAG_MWEBV,
 		  "1 -> Apply MWEBV cor to FLUXCAL", &istat );
+
+  fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
+		  &SNDATA.PHOTFLAG_DETECT,
+		  "PHOTFLAG mask for detection", &istat );
   
   // List of filters
   fits_update_key(fp, TSTRING, "FILTERS",
@@ -2017,6 +2018,11 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_PEAKMJD", itype );
 
+  // SIM_MJD_EXPLODE
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MJD_EXPLODE ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_MJD_EXPLODE", itype );
+
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGSMEAR_COH", itype );
@@ -2163,7 +2169,11 @@ void wr_snfitsio_update_head(void) {
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_ID", itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IDLENS", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.SIM_SL_GALID ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_GALID", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
@@ -2184,6 +2194,18 @@ void wr_snfitsio_update_head(void) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IMGNUM", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MINSEP ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MINSEP", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_LOGMASS ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_LOGMASS", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_LOGMASS_ERR ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_LOGMASS_ERR", itype );
   }
 
 
@@ -2507,6 +2529,10 @@ void  wr_snfitsio_update_spec(int imjd)  {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.LAMOBS_SNR_LIST[imjd][1] ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMAX_SNR", itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] ;
+    wr_snfitsio_fillTable ( ptrColnum, "SCALE_HOST_CONTAM", itype );
   }
 
   // - - - - 
@@ -3573,6 +3599,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_PEAKMJD", &SNDATA.SIM_PEAKMJD ,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_MJD_EXPLODE", &SNDATA.SIM_MJD_EXPLODE ,
+			       &SNFITSIO_READINDX_HEAD[j] ) ;
+
     j++; NRD = RD_SNFITSIO_FLT(isn,"SIM_MAGSMEAR_COH",&SNDATA.SIM_MAGSMEAR_COH,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
 
@@ -3662,9 +3691,15 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     if ( SNDATA.SIM_SL_FLAG ) { // bug? not sure if this is set in readback
       char PREFIX_SL[] = "SIM_STRONGLENS" ;
 
-      sprintf(KEY, "%s_ID", PREFIX_SL);
+      sprintf(KEY, "%s_IDLENS", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_INT(isn, KEY, &SNDATA.SIM_SL_IDLENS ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY, "%s_GALID", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &D_OBJID,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      SNDATA.SIM_SL_GALID = (long long)D_OBJID;
+
       sprintf(KEY, "%s_z", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_zLENS ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3680,6 +3715,17 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       sprintf(KEY, "%s_IMGNUM", PREFIX_SL);
       j++; NRD = RD_SNFITSIO_INT(isn, KEY, &SNDATA.SIM_SL_IMGNUM ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      sprintf(KEY, "%s_MINSEP", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_MINSEP ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY, "%s_LOGMASS", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_LOGMASS ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+      sprintf(KEY, "%s_LOGMASS_ERR", PREFIX_SL);
+      j++; NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.SIM_SL_LOGMASS_ERR ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
     }
 
 
@@ -4070,6 +4116,17 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 		&SNDATA.SUBSURVEY_FLAG, comment, &istat );
   if ( istat != 0 ) { SNDATA.SUBSURVEY_FLAG = 0 ; }
   istat = 0 ;
+
+
+  // xxxxxxxxx UGLY HACK xxxxxxxxxxxx
+  // Aug 26 2022 R.Kessler
+  // temp hack for DES because DIFFIMG data files mistakensly set
+  // SUBSURVEY_FLAG=1, and this messes up re-writing data files
+  // with header override. This hack can be removed when the nominal
+  // SMP & DIFFIMG data files have SUBSURVEY_FLAG=0 in global header.
+  if ( strcmp(SNDATA.SURVEY_NAME,"DES")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  // xxxxxxxxxxxx END HACK xxxxxxxxxxxx
+
 
   // read list of filters
   char filter_list[MXFILTINDX];
@@ -5008,7 +5065,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   // to prepare for reading arbitrary spectrum from 3rd table.
 
   bool LEGACY = (SNFITSIO_CODE_IVERSION < 20 );
-  int istat, itype, hdutype, icol, anynul, nmove=1;
+  int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
   char *ptrFile, keyName[40], comment[200] ;
@@ -5072,15 +5129,19 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
 		    RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
 
-  icol=7 ;
+
+  icol = 6;
+  if ( SNFITSIO_CODE_IVERSION >= 22 ) { icol = 7 ; }
+
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
 		    RDSPEC_SNFITSIO_HEADER.NLAMBIN, &anynul, &istat ); 
 
-  icol=8 ;
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN, &anynul, &istat ); 
 
-  icol=9 ;
+  icol++ ;
   fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX, &anynul, &istat ); 
 

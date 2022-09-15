@@ -381,6 +381,7 @@ struct STRFITS {
 //
 // =====================================================
 
+void  print_kcor_help(void);
 int   rd_input(void) ;
 void  check_valid_survey_names(char *SURVEYS);
 void  get_NZBIN(void);

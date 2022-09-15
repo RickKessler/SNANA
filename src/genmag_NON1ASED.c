@@ -33,6 +33,7 @@
 #include "sntools_cosmology.h" 
 #include "fitsio.h"
 #include "sntools_modelgrid.h"
+#include "sntools_stronglens.h"
 #include "snlc_sim.h"      // need the typedefs only
 
 #include "MWgaldust.h"
@@ -60,13 +61,15 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   // Feb 06, 2020: 
   //   + for GENGRID option, call found_fluxerr_SEDMODEL()
   //     to check for FLUXERR column in SED file.
+  // 
+  // Sep 5 2022: call print_ranges_SEDMODEL() to see Trest coverage warnings 
 
   double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int   DO_GENGRID = ( INP_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
   int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
-  //  char fnam[] = "init_genmag_NON1ASED"  ;
+  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
@@ -156,6 +159,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
     ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs ;
     init_flux_SEDMODEL(ifilt_obs,ISED_NON1A);
   }  
+
+  print_ranges_SEDMODEL(sedcomment, &TEMP_SEDMODEL); // Sep 5 2022     
 
   init_flux_SEDMODEL(0,0); // flag to print SED-summary
 

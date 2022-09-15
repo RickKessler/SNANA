@@ -95,7 +95,7 @@ VARNAMES_FMT_LIST = VARNAMES_FMT.split()
 # define values for undefined variables
 # value set to VAL_ABORT will trigger abort because it is required.
 VAL_ABORT     = 666
-VAL_NULL      = -9
+VAL_NULL      = -999
 VAL_NULL_LIST = [ -9, -99, -999, 999 ] # any of these is treated as no value
 VAL_UNDEFINED_LIST = [
     VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG

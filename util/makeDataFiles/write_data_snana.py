@@ -153,12 +153,15 @@ def write_header_snana(f, data_head):
 
         # skip keys with NULL value, except for private keys and 
         # keys with REDSHIFT ... must always write REDSHIFT.
-        skip = False
-        force_write = is_redshift or is_private
-        if not force_write:
-            skip = val in gpar.VAL_NULL_LIST
-
-        if skip: continue
+        #skip = False
+        # force_write = is_redshift or is_private
+        #if not force_write:
+        #if skip: continue
+        
+        # standardize null value in ouput 
+        # fixes issue with HOST properties (LOGMASS)
+        if val in gpar.VAL_NULL_LIST:
+            val = gpar.VAL_NULL 
 
         # write blank line before host info (for visual aid)
         if is_hostgal:

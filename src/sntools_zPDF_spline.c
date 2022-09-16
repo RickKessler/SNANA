@@ -57,9 +57,12 @@ double eval_zPDF_spline(double z) {
         z0=z1=z;
         if (z+dz < zCDF_spline.zmax) {z1 = z+dz;}
         if (z-dz > zCDF_spline.zmin) {z0 = z-dz;}
-  	cdf0 = gsl_spline_eval(zCDF_spline.spline, z0, zCDF_spline.acc);
-        cdf1 = gsl_spline_eval(zCDF_spline.spline, z1, zCDF_spline.acc);
-        pdf = (cdf1-cdf0)/(z1-z0);
+  	//cdf0 = gsl_spline_eval(zCDF_spline.spline, z0, zCDF_spline.acc);
+        //cdf1 = gsl_spline_eval(zCDF_spline.spline, z1, zCDF_spline.acc);
+        //pdf = (cdf1-cdf0)/(z1-z0);
+        //printf("Difference PDF value is %lf \n",pdf);
+        pdf = gsl_spline_eval_deriv(zCDF_spline.spline, z, zCDF_spline.acc);
+        //printf("Derivative PDF value is %lf \n", pdf);
   }
   return pdf;
 } // END OF eval_zPDF_spline

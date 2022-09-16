@@ -1119,7 +1119,7 @@ void readme_docana_output(int *iline, char *pad) {
  
   if ( INPUTS.NCIDRAN_SKIPLIST > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"%sCIDRAN_SKIPLIST:  %s", pad, INPUTS.CIDRAN_SKIPLIST);
+    sprintf(cptr,"%sCIDRAN_SKIPLIST:  %s", pad, INPUTS.CIDRAN_SKIPLIST_STRING);
   }
 
   *iline = i;

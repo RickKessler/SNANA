@@ -692,7 +692,7 @@ void set_user_defaults(void) {
   INPUTS.CIDRAN_MAX = 3000000 ;
   INPUTS.CIDRAN_MIN = 0 ;
   INPUTS.NCIDRAN_SKIPLIST = 0 ;
-
+  
   INPUTS.JOBID      = 0;         // for batch only
   INPUTS.NJOBTOT    = 0;         // for batch only
   INPUTS.NSUBSAMPLE_MARK = 0 ;
@@ -4298,6 +4298,7 @@ int  parse_input_CID(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "CIDRAN_SKIPLIST",  WORDS[0],keySource) ) {
     // parse comma-sep list of CIDRANs to avoid
     N++ ;
+    sprintf(INPUTS.CIDRAN_SKIPLIST_STRING,"%s", WORDS[1]);
     parse_commaSepList("CIDRAN_SKIPLIST", WORDS[1], MXZRAN, 40,
 		       &N_item, &tmp_item_list ); // this is returned 
     INPUTS.NCIDRAN_SKIPLIST  = N_item;

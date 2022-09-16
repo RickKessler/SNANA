@@ -483,6 +483,7 @@ struct INPUTS {
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
   int  CIDRAN_SKIPLIST[MXZRAN];  // do not use these user-input CIDRANs
   int  NCIDRAN_SKIPLIST;
+  char CIDRAN_SKIPLIST_STRING[200]; // for writing to readme
 
   int  JOBID;       // command-line only (for batch) to compute SIMLIB_IDSTART
   int  NJOBTOT;     // idem, for submit_batch_jobs.py

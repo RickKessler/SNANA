@@ -1937,7 +1937,7 @@ double GENSPEC_PICKMJD(int OPT, int INDX, double z,
 void   GENSPEC_FUDGES(int imjd);
 void GENSPEC_VERIFY_PEAKMAG(int ifilt_obs, double *GENFLUX_LIST) ;
 
-void   genmodel(int ifilt_obs, int inear);   // generate model-mags
+void   genmodel(int ifilt_obs, int inear, int ncall);   // generate model-mags
 void   genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,
 		     double z, double *epoch, double *genmag, double *generr);
 

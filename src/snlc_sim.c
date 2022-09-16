@@ -23575,7 +23575,7 @@ void GENMAG_DRIVER(void) {
   //
   // Aut 17 2017: call get_lightCurveWidth
 
-  int ifilt, ifilt_obs, DOFILT ;
+  int ifilt, ifilt_obs, DOFILT, ncall_genmodel=0 ;
   char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
@@ -23589,12 +23589,13 @@ void GENMAG_DRIVER(void) {
     DOFILT = GENLC.DOFILT[ifilt_obs] ;
 
     if ( DOFILT == 0 ) { continue ; }
-    
-    genmodel(ifilt_obs,1); 
+    ncall_genmodel++ ;
+
+    genmodel(ifilt_obs, 1, ncall_genmodel ); 
 
     if ( GENFRAME_OPT == GENFRAME_REST ) {
-      genmodel(ifilt_obs,2);      // 2nd nearest filter
-      genmodel(ifilt_obs,3);      // 3rd nearest filter
+      genmodel(ifilt_obs, 2, ncall_genmodel);    // 2nd nearest filter
+      genmodel(ifilt_obs, 3, ncall_genmodel);    // 3rd nearest filter
     } 
   } // ifilt
  
@@ -25078,6 +25079,7 @@ void compute_lightCurveWidths(void) {
 void genmodel(
 	      int ifilt_obs  // observer filter index 
 	      ,int inear      // 1=>nearest rest-filter; 2=2nd nearest
+	      ,int ncall     // ncall=1 -> first call per event
 	      ) {
 
   /*********
@@ -25097,7 +25099,7 @@ void genmodel(
     z, zz, mu, stretch[2], delta, dm15, av, RV, AV, tmpdif
     ,errtmp, mwebv, Tep, Tshift, dummy
     ,Tmodel[MXEPSIM], TGRID[MXEPSIM]    
-    ,*ptr_genmag, *ptr_generr, *ptr_epoch
+    ,*ptr_genmag, *ptr_generr, *ptr_epoch, *ptr_template 
     ;
 
   char  model[40], cfilt_obs[2], cfilt_rest[2]    ;
@@ -25156,7 +25158,7 @@ void genmodel(
       // close to filt1 as the 2nd closest filter.
 
       tmpdif  = GENLC.LAMDIF_REST3[ifilt_obs] - GENLC.LAMDIF_REST2[ifilt_obs];
-      if ( tmpdif > 300.0 ) return ;  // beware hard-wired cut in Angstroms
+      if ( tmpdif > 300.0 ) {return;}  // beware hard-wired cut in Angstroms
 
       if ( tmpdif < 0.0 ) {
 	sprintf(c1err,"GENLC.LAMDIF_REST(2,3)[ifilt_obs=%d] = %6.0f,%6.0f"
@@ -25183,6 +25185,7 @@ void genmodel(
     ptr_generr   = &GENFILT.generr_obs[ifilt_obs][1];    
   } 
 
+  ptr_template = &GENLC.genmag_obs_template[ifilt_obs];
 
   // - - - - - - 
   // Aug 20, 2008
@@ -25368,6 +25371,13 @@ void genmodel(
     double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
     NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
 
+    // Sep 2022: optional sed prep for all MJDs on first call
+    if ( ncall == 1 ) {
+      prepEvent_PySEDMODEL(GENLC.CID, GENLC.REDSHIFT_CMB,
+			   NHOSTPAR, VAL_HOSTPAR, 
+			   GENLC.NEPOCH, &GENLC.epoch_obs[1] );
+    }
+
     genmag_PySEDMODEL(
 		      GENLC.CID
 		      ,GENLC.REDSHIFT_HELIO  // (I) heliocentric redshift 
@@ -25380,6 +25390,7 @@ void genmodel(
 		      ,NEPFILT             // (I) number of epochs
 		      ,ptr_epoch           // (I) rest-frame time (days)
 		      ,ptr_genmag        // (O) mag vs. Tobs
+		      ,ptr_template      // (O) template mag for band
 		      ,ptr_generr        // (O) ideal rest mag-errs
 		      );		  
     
@@ -25461,7 +25472,6 @@ void genmodel(
     set_TobsRange_LCLIB(GENLC.epoch_obs_range);
 
     sprintf(GENLC.SNTYPE_NAME, "%s", LCLIB_INFO.NAME_MODEL ); 
-    double *ptr_template = &GENLC.genmag_obs_template[ifilt_obs];
     double LAMAVG        = INPUTS.LAMAVG_OBS[ifilt_obs];
     double TobsPeak ;
 
@@ -28587,10 +28597,11 @@ void DUMP_GENMAG_DRIVER(void) {
 	GENLC.SALT2x0 = -9.0;
       }
 
-      genmodel(ifilt_obs, 1);
+      int ncall = 1;
+      genmodel(ifilt_obs, 1, ncall);
       if ( GENFRAME_OPT == GENFRAME_REST ) {
-	genmodel(ifilt_obs,2);      // 2nd nearest filter
-	genmodel(ifilt_obs,3);      // 3rd nearest filter
+	genmodel(ifilt_obs,2,ncall);      // 2nd nearest filter
+	genmodel(ifilt_obs,3,ncall);      // 3rd nearest filter
 	genmag_boost();
       } 
 

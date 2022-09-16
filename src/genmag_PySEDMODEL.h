@@ -15,8 +15,9 @@
 
 #define MODEL_NAME_BYOSED   "BYOSED"
 #define MODEL_NAME_SNEMO    "SNEMO"
-#define MODEL_NAME_BAYESN    "BAYESN"
-#define NCHOICE_PySEDMODEL  3
+#define MODEL_NAME_BAYESN   "BAYESN"
+#define MODEL_NAME_AGN      "AGN"
+#define NCHOICE_PySEDMODEL  4
 
 #define OPTMASK_ALLOW_C_ONLY 4096 // allow running C-code without python
 
@@ -39,6 +40,7 @@ struct {
   int NLAM;           // number of bins in SED
   double *LAM, *SED;  // SED
   int EXTERNAL_ID, LAST_EXTERNAL_ID ;
+  double Tobs_template; 
 
   int    NPAR ;
   char   **PARNAME;    // par names set during init stage
@@ -55,10 +57,15 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION,
 
 void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME);
 
+void prepEvent_PySEDMODEL(int CID, double zCMB, 
+			  int NHOSTPAR, double *HOSTPAR_LIST,
+                          int NOBS_ALL, double *TOBS_LIST);
+
 void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		       int IFILT, int NOBS, double *TOBS_list,
-		       double *MAGOBS_list, double *MAGERR_list );
+		       double *MAGOBS_list, double *MAG_TEMPLATE,
+		       double *MAGERR_list );
 
 int  fetchParNames_PySEDMODEL(char **parNameList);
 void fetchParVal_PySEDMODEL(double *parVal);

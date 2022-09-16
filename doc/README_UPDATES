@@ -21297,4 +21297,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Makefile:
      + add -std=c++17 compile flag for root v6 (for Cori @ NERSC).
 
+   genmag_PySEDMODL:
+     call new function  prepEvent_PySEDMODEL() to enable 
+     preparing all SEDs for event, rather than by band.
+
 END: 

@@ -43,6 +43,11 @@
   Aug 24 2022 D.Jones: fix genSpec to produce spectrum at requested phase,
                        and not only at peak.
 
+  Sep 16 2022 RK
+   + start new function prepEvent_PySEDMODEL() to receive list of
+     all Tobs before calling fetch functions.
+   + prep MODEL_NAME_AGN; python code to be added later.
+
  *****************************************/
 
 #include  <stdio.h>
@@ -81,9 +86,10 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
 
   // generic utility to store all possible PySEDMODEL names.
   // Used by sim, parsing, etc ...
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO  ); N++ ;
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BAYESN ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
 
   if ( N != NCHOICE_PySEDMODEL ) {
     sprintf(c1err,"Expected %d PySEDMODEL choices");
@@ -301,11 +307,82 @@ void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
   return;
 } // end get_MODEL_NAME
 
+
+// =========================================================
+void prepEvent_PySEDMODEL(int CID, double zCMB, 
+			  int NHOSTPAR, double *HOSTPAR_LIST,
+			  int NOBS, double *TOBS_LIST ) {
+
+  // Created Sep 2022 by R.Kessler
+  // Interface to prepare seds for all epochs (over all bands),
+  // instead of genmag_PySEDMODEL that is called for each band.
+  // Note that genmag_PySEDMODEL is still called the same way,
+  // so this function is an option for preparing all SEDs for
+  // the event rather than by band.
+  //
+  // Initial use is for AGN where model must always go forward in time,
+  // and thus cannot processed by band.
+  //
+  // Inputs:
+  //   CID  integer id for event
+  //   zCMB  : CMB redshift (to allow for z-dependent model)
+  //  NHOSTPAR:      number of host params
+  //  HOSTPAR_LIST:  host property values
+  //  NOBS:          total number of observations, all bands
+  //  TOBS_LIST:     observer-frame times w.r.t. PEAKMJD
+  //
+
+  char *MODEL_NAME   = INPUTS_PySEDMODEL.MODEL_NAME ;
+  int MEMD           = (NOBS+10) * sizeof(double);
+  int MEMI           = (NOBS+10) * sizeof(int);
+  double *Trest_list = (double*)malloc(MEMD);
+  int    *INDEX_SORT = (int*)   malloc(MEMI);
+  double z1      = 1.0 + zCMB;
+  double z1inv   = 1.0/z1;
+  double Tobs_template ;
+  int o, o_sort, NOBS_STORE=0;
+  char fnam[] = "prepEvent_PySEDMODEL";
+
+  // ------------- BEGIN ------------
+
+  // sort TOBS_LIST in increasing order
+  int ORDER_SORT = +1; // ==> increasing
+  sortDouble(NOBS, TOBS_LIST, ORDER_SORT, INDEX_SORT );
+
+  // for recurring model (e.g., AGN), pick arbitrary 
+  // DIA template time 1 year earlier
+  bool RECUR = ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 );
+  if ( RECUR ) {
+    Tobs_template = TOBS_LIST[0] - 365.0 ;
+    Trest_list[NOBS_STORE] = Tobs_template * z1inv ;
+    NOBS_STORE++ ;
+  }
+  else {
+    Tobs_template = -1.0E8; // not used
+  }
+
+  for(o=0; o < NOBS; o++ )  { 
+    o_sort = INDEX_SORT[o] ;
+    Trest_list[NOBS_STORE] = TOBS_LIST[o_sort] * z1inv ; 
+    NOBS_STORE++ ;
+  }
+
+  Event_PySEDMODEL.Tobs_template = Tobs_template ;
+
+  // call python here ...
+
+
+  free(Trest_list);
+  return;
+
+} // end prepEvent_PySEDMODEL
+
 // =========================================================
 void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		       int IFILT_OBS, int NOBS, double *TOBS_list,
-		       double *MAGOBS_list, double *MAGERR_list ) {
+		       double *MAGOBS_list, double *MAG_TEMPLATE,
+		       double *MAGERR_list ) {
 
   // Created Sep 2018
   //
@@ -322,11 +399,16 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //
   // Outputs"
   //   MAGOBS_list   : list of true mags
+  //   MAG_TEMPLATE  : mag of template (for DIA)
   //   MAGERR_list   : list of mag errors (place-holder, in case)
   //
   // Feb 20 2021 RK
   //   + fix bug that was preventing call to fetchParVal_PySEDMODEL()
+  // 
+  // Sep 16 2022 RK - compute new output *MAG_TEMPLATE arg to handle AGN
+  //
 
+  int   MXLAM      = MXLAM_PySEDMODEL;
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
 
@@ -335,6 +417,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   double z1    = 1.0 + zHEL ;
   double *LAM  = Event_PySEDMODEL.LAM;
   double *SED  = Event_PySEDMODEL.SED ;
+  bool DO_TEMPLATE = Event_PySEDMODEL.Tobs_template > -1.0E7 ;
 
   int  ifilt  = IFILTMAP_SEDMODEL[IFILT_OBS] ; // sparse filter index
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
@@ -356,7 +439,9 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   // ------------ BEGIN -----------
 
-  for(o=0; o < NOBS; o++ ) { MAGOBS_list[o] = 99.0 ; }
+  // init output args
+  *MAG_TEMPLATE = 99.0; 
+  for(o=0; o < NOBS; o++ )  { MAGOBS_list[o] = 99.0 ; }
 
   // check of this is a new event, or same event
   // with different epoch
@@ -403,8 +488,16 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, MWEBV);
   fill_TABLE_HOSTXT_SEDMODEL(RV_host, AV_host, zHEL);   // July 2016
 
-  for(o=0; o < NOBS; o++ ) {
-    Tobs  = TOBS_list[o];
+  int NOBS_LOCAL = NOBS;
+  if ( DO_TEMPLATE ) { NOBS_LOCAL++ ; }
+
+  for(o=0; o < NOBS_LOCAL; o++ ) {
+
+    if ( o < NOBS ) 
+      { Tobs = TOBS_list[o]; }
+    else
+      { Tobs =  Event_PySEDMODEL.Tobs_template; }
+
     Trest = Tobs/z1;
     if (o == 0 )
       { NEWEVT_FLAG_TMP = NEWEVT_FLAG; }
@@ -412,7 +505,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { NEWEVT_FLAG_TMP = 0; }
 
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest,
-			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED,
+			MXLAM, HOSTPAR_LIST, &NLAM, LAM, SED,
 			pyFORMAT_STRING_HOSTPAR);
     Event_PySEDMODEL.NLAM = NLAM ;
 
@@ -430,8 +523,14 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
     else if ( FLAG_Finteg == (int)MAG_UNDEFINED )
       { magobs = MAG_UNDEFINED ; }
 
-    MAGOBS_list[o] = magobs;  // load output array
-    MAGERR_list[o] = 0.01;    // not used
+    if ( o < NOBS ) {
+      MAGOBS_list[o] = magobs;  // load output array
+      MAGERR_list[o] = 0.01;    // not used
+    }
+    else {
+      *MAG_TEMPLATE = magobs ;
+    }
+
   }
 
   // for NEW EVENT, store SED parameters so that sim can
@@ -627,8 +726,8 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
   PyTuple_SetItem(pargs,4,pargs2);
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
-  pLAM  = PyEval_CallObject(plammeth, NULL);
-  pFLUX   = PyEval_CallObject(pmeth, pargs);
+  pLAM   = PyEval_CallObject(plammeth, NULL);
+  pFLUX  = PyEval_CallObject(pmeth, pargs);
 
   Py_DECREF(pmeth);
   Py_DECREF(plammeth);

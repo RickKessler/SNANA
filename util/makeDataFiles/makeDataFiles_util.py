@@ -1,7 +1,8 @@
 # Generic Utilities for makeDataFiles.
 #
 # Mar 30 2022: add extract_sim_readme_info(...)
-
+# Sep 16 2022: in extract_sim_readme_info, only store str type
+#
 import os, sys, glob, math, yaml, tarfile
 import logging, shutil, subprocess
 
@@ -113,7 +114,9 @@ def extract_sim_readme_info(path_sim,key_list):
         except:
             line = line_tmp
 
-        line_list.append(line)
+        # only store strings; ignore garbage that chokes safe_load below.
+        if isinstance(line,str) :            
+            line_list.append(line)
 
     # - - - - - - - - -
     if found_misc:

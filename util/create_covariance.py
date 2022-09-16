@@ -1147,6 +1147,7 @@ def write_covariance(path, cov, opt_cov):
     covdet         = np.linalg.det(cov)
     nrow           = cov.shape[0]
 
+    logging.info("")
     logging.info(f"Write cov to {path}")
 
     # RK - write diagnostic to check if anything changes
@@ -1415,6 +1416,10 @@ if __name__ == "__main__":
     try:
         setup_logging()
         logging.info("# ========== BEGIN create_covariance ===============")
+
+        command = " ".join(sys.argv)
+        logging.info(f"# Command: {command}")
+
         args   = get_args()
         config = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...

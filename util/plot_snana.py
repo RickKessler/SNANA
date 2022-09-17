@@ -11,6 +11,8 @@
 # Sep 9 2022: R.Kessler - new input --mxevt <mxevt> to plot the
 #                          first mxevt events. (remove 1-10 feature)
 #
+# Sep 17 2022 R.Kessler - new input --mjdshift
+#
 from __future__ import print_function
 
 import matplotlib as mpl
@@ -610,7 +612,8 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
     return (figs, fits)
 
 
-def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, mjdperiod):
+def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, 
+             mjdperiod, mjdshift):
     plotter = "normal"
     if nml is not None:
         if os.path.splitext(nml)[1].upper() != ".NML":
@@ -630,7 +633,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, mjdperiod):
         private_path = ""
     genversion += private_path
 
-    # 9.07/2022 - RK minor cleanup    
+    # 9.07/2022 - RK define args in one place
     arg_sntable   = " SNTABLE_LIST 'FITRES(text:key) SNANA(text:key)" \
                     " LCPLOT(text:key) SPECPLOT(text:key)' "
     arg_prefix    = " TEXTFILE_PREFIX OUT_TEMP_" + rand  
@@ -652,9 +655,11 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, mjdperiod):
         arg_mxevt  = " "
 
     if mjdperiod is not None: 
-        arg_period = " MJDPERIOD_PLOT " + str(mjdperiod)
+        arg_mjdperiod = " MJDPERIOD_PLOT " + str(mjdperiod)
     else:
-        arg_period  = " "
+        arg_mjdperiod  = " "
+
+    arg_mjdshift = " MJDSHIFT_PLOT " + str(mjdshift)
 
     log_file    = "OUT_TEMP_" + rand + ".LOG"
 
@@ -704,7 +709,8 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, mjdperiod):
             + arg_mxlc_plot
             + arg_sntable
             + arg_prefix
-            + arg_period 
+            + arg_mjdperiod 
+            + arg_mjdshift
             + " > " 
             + log_file
         )
@@ -717,7 +723,8 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private, mjdperiod):
             + arg_mxlc_plot
             + arg_sntable
             + arg_prefix
-            + arg_period 
+            + arg_mjdperiod
+            + arg_mjdshift 
             + " > " 
             + log_file
         )
@@ -971,6 +978,16 @@ def main():
         default=None
     )
 
+    # R.K. Sep 17 2022 - add mjdshift input
+    parser.add_argument(
+        "--mjdshift",   
+        help="shift MJDs ",
+        action="store",
+        dest="mjdshift",
+        type=float,
+        default=0.0
+    )
+
     parser.add_argument(
         "--plotAll",
         help=SUPPRESS_HELP,
@@ -1165,7 +1182,8 @@ def main():
                 options.nml_filename,
                 options.dist,
                 options.private_path,
-                options.mjdperiod
+                options.mjdperiod,
+                options.mjdshift
             )
         else:
             (

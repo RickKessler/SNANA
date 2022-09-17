@@ -2103,7 +2103,9 @@ c LC plot info
      & ,NCCID_PLOT     ! I: size of SNCCID_PLOT array
       CHARACTER 
      &  SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! I: string-list of CCIDs to plot
-      REAL MJDPERIOD_PLOT  ! I: fold LC onto this period (periodic transients)
+      REAL 
+     &   MJDPERIOD_PLOT  ! I: fold LC onto this period (periodic transients)
+     &  ,MJDSHIFT_PLOT   ! I: shift MJD for LC plot output
 
       REAL 
      &   DTOBS_MODEL_PLOT  ! I: binning (days) for overlaid best-fit model
@@ -2192,7 +2194,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , PRIVATE_CUTWIN_STRING, SIMVAR_CUTWIN_STRING
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
-     &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, MJDPERIOD_PLOT
+     &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT
+     &    , MJDPERIOD_PLOT, MJDSHIFT_PLOT
      &    , DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
@@ -2240,7 +2243,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER
      &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
      &    , USE_MWCOR
-     &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, MJDPERIOD_PLOT
+     &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT
+     &    , MJDPERIOD_PLOT, MJDSHIFT_PLOT
      &    , DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
@@ -6064,6 +6068,7 @@ c default is to reject nothing (accept everything)
       NCCID_PLOT       = 0
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
       MJDPERIOD_PLOT   = 0.0
+      MJDSHIFT_PLOT    = 0.0 
 
       OPT_SETPKMJD      = 0
       SNRCUT_SETPKMJD   =  5.0  ! only for FLUXMAX2 option (Fmax-clump)
@@ -7611,6 +7616,10 @@ c LSNIGNORE
          else if ( MATCH_NMLKEY('MJDPERIOD_PLOT',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) MJDPERIOD_PLOT
+
+         else if ( MATCH_NMLKEY('MJDSHIFT_PLOT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MJDSHIFT_PLOT
 
          else if ( MATCH_NMLKEY('DTOBS_MODEL_PLOT',
      &             1, iArg, ARGLIST) ) then 
@@ -22815,14 +22824,14 @@ c -----------------------------
             CALL MADABORT('SNLCPLOT(SNANA)', C1ERR, C2ERR)
           ENDIF
 
-          VMJD(NOBS)      = MJD  
+          VMJD(NOBS)      = MJD + MJDSHIFT_PLOT
           VTOBS(NOBS)     = TOBS
           VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
           VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
           VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
           VSIMFLUX(NOBS) = SIM_EPFLUXCAL(ep)   ! Jan 2020
 
-c Sep 7 2022: check option to fold LC within a single cylce.
+c Sep 7 2022: check options to fold LC within a single cylce.
           if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
              DT = MJD-VMJD(1)
              VMJD(NOBS)  = MOD(DT,MJDPERIOD_PLOT) + VMJD(1)

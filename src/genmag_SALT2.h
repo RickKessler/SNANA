@@ -11,7 +11,7 @@
 // wavelengths used for color correction
 
 #define U_WAVELENGTH  3500.
-#define B_WAVELENGTH  4302.57  // from SALT2 code; 80 A smaller than mine?
+#define B_WAVELENGTH  4302.57  // from SALT2 code
 #define V_WAVELENGTH  5428.55  // idem
 #define R_WAVELENGTH  6500.
 

@@ -35,6 +35,10 @@ mpl.use('Agg')
 BANDS = ["u", "b", "g", "v", "r", "i", "z", "y", "j", "h", "k"]
 __band_order__ = np.append(BANDS, [x.upper() for x in BANDS])
 
+CODE_NAME_SNANA = "snana.exe"
+CODE_NAME_LCFIT = "snlc_fit.exe"
+
+# ============================================
 
 def read_spec(cid, base_name):
     """Function that reads the spectra of a single object
@@ -667,7 +671,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private,
 
         if cid_list is not None:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
                 + arg_version
                 + arg_cid_list
@@ -679,7 +683,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private,
             )
         elif isdist:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
                 + arg_version
                 + arg_mxevt
@@ -691,7 +695,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private,
             )
         else:
             cmd = (
-                "snlc_fit.exe "
+                f"{CODE_NAME_LCFIT} "
                 + nml
                 + arg_version
                 + arg_mxevt
@@ -703,7 +707,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private,
             )
     elif cid_list is None:
         cmd = (
-            "snana.exe NOFILE "
+            f"{CODE_NAME_SNANA} NOFILE "
             + arg_version
             + arg_mxevt
             + arg_mxlc_plot
@@ -716,7 +720,7 @@ def plot_cmd(genversion, cid_list, mxevt, nml, isdist, private,
         )
     else:
         cmd = (
-            "snana.exe NOFILE "
+            f"{CODE_NAME_SNANA} NOFILE "
             + arg_version
             + arg_cid_list
             + arg_mxevt

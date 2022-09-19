@@ -56,17 +56,11 @@ class gensed_SNEMO:
 			return
 		
 				
-		def fetchSED_NLAM(self):
-			"""
-			Returns the length of the wavelength vector
-			"""
-			return self.wavelen
-
 		def fetchSED_LAM(self):
 			"""
 			Returns the wavelength vector
 			"""
-			return list(self.wave)
+			return np.asarray(self.wave)
 		
 		def fetchSED_SNEMO(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
 			"""

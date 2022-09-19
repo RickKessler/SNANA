@@ -273,18 +273,11 @@ class gensed_BAYESN:
         # end loop over parameters
 
 
-    def fetchSED_NLAM(self):
-        """
-        Returns the length of the wavelength vector
-        """
-        return self.wavelen
-
-
     def fetchSED_LAM(self):
         """
         Returns the wavelength vector
         """
-        return list(self.wave)
+        return np.asarray(self.wave)
 
 
     def fetchSED_BAYESN(self, trest, maxlam=5000, external_id=1, new_event=1, hostpars=''):
@@ -379,7 +372,7 @@ class gensed_BAYESN:
         flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
-        return list(flux)
+        return np.asarray(flux)
 
 
     def setParVals_BAYESN(self, **kwargs):

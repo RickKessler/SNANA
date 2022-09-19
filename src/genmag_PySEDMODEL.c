@@ -585,7 +585,7 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   //xx					 "fetchParNames_BYOSED");
 
   pNames  = PyEval_CallObject(parnamesmeth, NULL);
-  if (PySequence_Check(pNames) != 0) {
+  if (PySequence_Check(pNames) != 1) {
     sprintf(c1err,"%s is expected to return a sequence of str, for example a list", pyfun_tmp);
     sprintf(c2err,"but it is %s instead", PyUnicode_AsUTF8(PyObject_Type(pNames)));
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
@@ -690,10 +690,10 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   *NLAM_SED = 0 ; // init output
 
 #ifdef USE_PYTHON
-  PyObject *pmeth, *pargs, *pargs2, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
+  PyObject *pmeth, *pargs, *pargs2, *pLAM, *pFLUX, *plammeth;
+  Py_buffer viewLAM = {NULL, NULL};
+  Py_buffer viewFLUX = {NULL, NULL};
   int NLAM, ilam, ihost;
-  PyListObject *arrLAM, *arrFLUX;
-  PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
 
   // python declarations here
@@ -704,52 +704,74 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   // xxx			  "fetchSED_BYOSED"); //
 
   plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
-  pnlammeth = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_NLAM");
 
   pargs = PyTuple_New(5);
   pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
   PyTuple_SetItem(pargs,0,PyFloat_FromDouble(Trest));
-  PyTuple_SetItem(pargs,1,PyFloat_FromDouble(MXLAM));
-  PyTuple_SetItem(pargs,2,PyFloat_FromDouble(EXTERNAL_ID));
-  PyTuple_SetItem(pargs,3,PyFloat_FromDouble(NEWEVT_FLAG));
+  PyTuple_SetItem(pargs,1,PyLong_FromLong(MXLAM));
+  PyTuple_SetItem(pargs,2,PyLong_FromLong(EXTERNAL_ID));
+  PyTuple_SetItem(pargs,3,PyLong_FromLong(NEWEVT_FLAG));
 
   for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
 
   PyTuple_SetItem(pargs,4,pargs2);
-  pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM   = PyEval_CallObject(plammeth, NULL);
   pFLUX  = PyEval_CallObject(pmeth, pargs);
 
   Py_DECREF(pmeth);
   Py_DECREF(plammeth);
-  Py_DECREF(pnlammeth);
 
-  NLAM = PyFloat_AsDouble(pNLAM);
-  Py_DECREF(pNLAM);
 
-  arrLAM  = (PyListObject *)(pLAM);
-  arrFLUX = (PyListObject *)(pFLUX);
-  for(ilam=0; ilam < NLAM; ilam++ ) {
-    // interpolate flux to Trest
-    pylamitem  = PyList_GetItem(arrLAM,ilam);
-    pyfluxitem = PyList_GetItem(arrFLUX,ilam);
-
-    LAM_SED[ilam]  = PyFloat_AsDouble(pylamitem);
-    FLUX_SED[ilam] = PyFloat_AsDouble(pyfluxitem);
+  if (PyObject_CheckBuffer(pLAM) != 1) {
+    sprintf(c1err,"fetchSED_LAM must return numpy array");
+    sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pLAM))));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+  if (PyObject_CheckBuffer(pFLUX) != 1) {
+    sprintf(c1err,"%s must return numpy array",pyfun_tmp);
+    sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pFLUX))));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  };
+
+  if (PyObject_GetBuffer(pLAM, &viewLAM, PyBUF_FULL_RO) != 0) {
+    handle_python_exception(fnam, "setting buffer from pLAM");
+  }
+  if (PyObject_GetBuffer(pFLUX, &viewFLUX, PyBUF_FULL_RO) != 0) {
+    handle_python_exception(fnam, "setting buffer from pFLUX");
+  }
+
+  if (viewLAM.itemsize != sizeof(double)) {
+    sprintf(c1err,"fetchSED_LAM must return numpy array with np.float64 dtype");
+    sprintf(c2err,"itemsize of returned dtype is %d",viewLAM.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if (viewFLUX.itemsize != sizeof(double)) {
+    sprintf(c1err,"%s must return numpy array with np.float64 dtype",pyfun_tmp);
+    sprintf(c2err,"itemsize of returned dtype is %d",viewFLUX.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  NLAM = viewLAM.len / viewLAM.itemsize;
+  if (NLAM != viewFLUX.len / viewFLUX.itemsize) {
+    sprintf(c1err,"size of array returned by fetchSED_LAM doesn't equal to one returned by %s",pyfun_tmp);
+    sprintf(c2err,"NLAM = %d, NFLUX = %d",viewLAM.len / viewLAM.itemsize, viewFLUX.len / viewFLUX.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  PyBuffer_ToContiguous(LAM_SED, &viewLAM, viewLAM.len, 'C');
+  PyBuffer_ToContiguous(FLUX_SED, &viewFLUX, viewFLUX.len, 'C');
 
   *NLAM_SED = NLAM;
 
+  PyBuffer_Release(&viewLAM);
+  PyBuffer_Release(&viewFLUX);
   Py_DECREF(pLAM);
   Py_DECREF(pFLUX);
-  Py_DECREF(arrLAM);
-  //Py_DECREF(arrFLUX);
   Py_DECREF(pargs);
   Py_DECREF(pargs2);
-  //Py_DECREF(pylamitem);
-  //Py_DECREF(pyfluxitem);
 
 #endif
 

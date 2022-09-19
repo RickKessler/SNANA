@@ -244,11 +244,8 @@ class gensed_BYOSED:
 			return(sn_dict,host_dict)
 		
 				
-		def fetchSED_NLAM(self):
-				return self.wavelen
-
 		def fetchSED_LAM(self):
-				return list(self.wave)
+				return np.asarray(self.wave)
 		
 
 		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
@@ -264,7 +261,7 @@ class gensed_BYOSED:
 
 				self.sn_id=external_id
 				if not newSN and np.round(trest,6) in self.phase_data.keys():
-					return copy(self.phase_data[np.round(trest,6)])
+					return np.asarray(copy(self.phase_data[np.round(trest,6)]))
 
 				fluxsmear=np.array(self.sedInterp(trest,self.wave).flatten())
 				orig_fluxsmear=copy(fluxsmear)
@@ -370,7 +367,7 @@ class gensed_BYOSED:
 				fluxsmear*=self.brightness_correct_Ia()
 
 			self.phase_data[np.round(trest,6)]=list(fluxsmear)
-			return list(fluxsmear)
+			return np.asarray(fluxsmear)
 			
 		def brightness_correct_Ia(self):
 			if 'COLOR' in self.sn_effects.keys():

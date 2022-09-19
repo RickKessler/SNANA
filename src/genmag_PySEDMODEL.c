@@ -79,6 +79,24 @@ PyObject *geninit_PySEDMODEL ;
 
 // ===============================================
 
+#ifdef USE_PYTHON
+void handle_python_exception(char *fnam, const char *desc) {
+  // Exit with an error message for Python exceptions
+  print_preAbort_banner(fnam);
+  if (PyErr_Occurred() == NULL) {
+    return ;
+  }
+  PyErr_Print();
+  sprintf(c1err,"Python raised an uncaught exception");
+  sprintf(c2err,"while %s", desc);
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+}
+#endif
+
+// ===============================================
+
+// ===============================================
+
 void load_PySEDMODEL_CHOICE_LIST(void) {
 
   int N=0;
@@ -218,10 +236,16 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
   int nResult3 = PyRun_SimpleStringFlags("import optparse",NULL);
   int nResult4 = PyRun_SimpleStringFlags("import configparser",NULL);
+  if ((nResult1 != 0) || (nResult2 != 0) || (nResult3 != 0) || (nResult4 != 0)) {
+    sprintf(c1err,"Could not import numpy, os, optparse or configparser");
+    sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   // xxxx  genmod = PyImport_ImportModule("genmag_BYOSED");
   printf("DEBUG", PyFUN_NAME, "\n");
   genmod = PyImport_ImportModule(PyFUN_NAME);
+  handle_python_exception(fnam, "tried to import pySED model");
 
   if (genmod == NULL) {
     sprintf(c1err,"Could not import module %s", PyFUN_NAME);
@@ -232,17 +256,15 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   // xxxx  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED");
   genclass = PyObject_GetAttrString(genmod, PyFUN_NAME);
   if (genclass == NULL) {
-    sprintf(c1err,"Could not import PyObject_GetAttrString class");
+    sprintf(c1err,"Could not find %s class",PyFUN_NAME);
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   pargs  = Py_BuildValue("(siss)",PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR);
-  geninit_PySEDMODEL = PyEval_CallObject(genclass, pargs);
+  geninit_PySEDMODEL = PyObject_CallObject(genclass, pargs);
   if (geninit_PySEDMODEL == NULL) {
-    sprintf(c1err,"Could not run PyEval_CallObject module");
-    sprintf(c2err,"2nd message ??");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    handle_python_exception(fnam, "tried to construct pySED model class");
   }
 
   Py_DECREF(genmod);
@@ -568,7 +590,7 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   char pyfun_tmp[80];
   int NPAR = 0 ;
-  //  char fnam[] = "fetchParNames_PySEDMODEL" ;
+  char fnam[] = "fetchParNames_PySEDMODEL" ;
 
 #ifdef USE_PYTHON
   // python declarations here
@@ -581,18 +603,26 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   sprintf(pyfun_tmp, "fetchParNames_%s", MODEL_NAME);
 
   parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  handle_python_exception(fnam, "getting fetchParNames method");
   //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   //xx					 "fetchParNames_BYOSED");
 
-  pNames  = PyEval_CallObject(parnamesmeth, NULL);
+  pNames  = PyObject_CallObject(parnamesmeth, NULL);
+  handle_python_exception(fnam, "fetching paramweter names");
   if (PySequence_Check(pNames) != 1) {
     sprintf(c1err,"%s is expected to return a sequence of str, for example a list", pyfun_tmp);
     sprintf(c2err,"but it is %s instead", PyUnicode_AsUTF8(PyObject_Type(pNames)));
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
   NPAR = PySequence_Length(pNames);
+  if (NPAR == -1) {
+    handle_python_exception(fnam, "getting parameter sequence length");
+  }
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pnamesitem = PySequence_GetItem(pNames,ipar);
+    if (pnamesitem == NULL) {
+      handle_python_exception(fnam, "getting parameter from fetched object");
+    }
     sprintf(parNameList[ipar],PyUnicode_AsUTF8(pnamesitem));
     Py_DECREF(pnamesitem);
   }

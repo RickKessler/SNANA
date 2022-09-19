@@ -402,13 +402,6 @@ class gensed_BAYESN:
         return list(self.parameter_names)
 
 
-    def fetchNParNames_BAYESN(self):
-        """
-        Returns the number of model parameters
-        """
-        return len(self.parameter_names)
-
-
     def fetchParVals_BAYESN_4SNANA(self,varname):
         """
         Returns the value of parameter 'varname'

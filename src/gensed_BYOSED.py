@@ -387,9 +387,6 @@ class gensed_BYOSED:
 		def fetchParNames_BYOSED(self):
 				return list(np.append(self.warp_effects,['lum']))
 
-		def fetchNParNames_BYOSED(self):
-				return len(self.warp_effects)+1
-
 		def fetchParVals_BYOSED_4SNANA(self,varname):
 				if varname=='lum':
 					return self.x0*(10**(-0.4*self.magsmear))

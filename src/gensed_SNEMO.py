@@ -115,12 +115,6 @@ class gensed_SNEMO:
 			"""
 			return list(self.parameter_names)
 
-		def fetchNParNames_SNEMO(self):
-			"""
-			Returns the number of model parameters
-			"""
-			return len(self.self.parameter_names)
-
 		def fetchParVals_SNEMO_4SNANA(self,varname):
 			"""
 			Returns the value of parameter 'varname'

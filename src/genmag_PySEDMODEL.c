@@ -574,8 +574,7 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   // python declarations here
 
   int ipar;
-  PyObject *parnamesmeth,*pNames,*pNPARmeth,*pNPAR,*pnamesitem;
-  PyListObject *arrNames;
+  PyObject *parnamesmeth,*pNames,*pnamesitem;
   printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
 
@@ -585,27 +584,21 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   //xx					 "fetchParNames_BYOSED");
 
-  sprintf(pyfun_tmp, "fetchNParNames_%s", MODEL_NAME );
-
-  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
-  // xxx  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			      "fetchNParNames_BYOSED");
-
   pNames  = PyEval_CallObject(parnamesmeth, NULL);
-  pNPAR  = PyEval_CallObject(pNPARmeth, NULL);
-
-  NPAR = PyLong_AsLong(pNPAR);
-  arrNames = (PyListObject *)(pNames);
+  if (PySequence_Check(pNames) != 0) {
+    sprintf(c1err,"%s is expected to return a sequence of str, for example a list", pyfun_tmp);
+    sprintf(c2err,"but it is %s instead", PyUnicode_AsUTF8(PyObject_Type(pNames)));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  NPAR = PySequence_Length(pNames);
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pnamesitem = PyList_GetItem(arrNames,ipar);
+    pnamesitem = PySequence_GetItem(pNames,ipar);
     sprintf(parNameList[ipar],PyUnicode_AsUTF8(pnamesitem));
+    Py_DECREF(pnamesitem);
   }
 
-  Py_DECREF(arrNames);
   Py_DECREF(pNames);
   Py_DECREF(parnamesmeth);
-  Py_DECREF(pNPARmeth);
-  Py_DECREF(pNPAR);
 
 #endif
 

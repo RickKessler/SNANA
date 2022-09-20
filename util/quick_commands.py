@@ -412,7 +412,7 @@ def write_sim_input_file(sim_input_file, sim_readme_yaml, version_repeat):
             val_out = val_orig
             if key == "GENVERSION" : val_out = version_repeat
 
-            # check for key list with multiple entries .xyz
+            # check for key list with multiple entries 
             if isinstance(val_out,list):
                 val_list = val_out  # val_out is already a list
             else:
@@ -451,6 +451,14 @@ def analyze_diff_fitres(args):
     # local variables with names of fitres files
     ff_ref  = os.path.expandvars(args.diff_fitres[0])
     ff_test = os.path.expandvars(args.diff_fitres[1])
+
+    if not os.path.exists(ff_ref):
+        msgerr = f"Could not find REF-input fitres file: \n\t{ff_res}"
+        assert False, msgerr
+
+    if not os.path.exists(ff_test):
+        msgerr = f"Could not find TEST-input fitres file: \n\t {ff_test}"
+        assert False, msgerr
 
     print(f"\n Analyze statistical differences between")
     print(f"\t REF  fitres file: {ff_ref}")

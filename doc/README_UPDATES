@@ -21284,8 +21284,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
          ***** MISCELLANEOUS(v11_04n) ***** 
 
    sim:
-     write SCALE_HOST_CONTAM to spec output.
-     Always write cosmology parameters to README YAML
+     + write SCALE_HOST_CONTAM to spec output.
+     + Always write cosmology parameters to README YAML
+     + for HOSTSNFRAC integral, require both F_HOST and F_PEAK>0
 
    sntools_dataformat_fits.c
      + CODE_IVERSION -> 22 to read extra SCALE_HOST_CONTAM column.

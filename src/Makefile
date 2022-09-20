@@ -1,6 +1,12 @@
 # $Source: /cvs/sdss/snana/src/Makefile,v $
 # $Revision: 1.500 $    Last Modified: $Date: 2019/05/02 20:24:47 $
 #
+# TO DO (Sep 2022):
+#     You can define C macro variables via -D gcc flag, 
+#     for example -D USE_PYTHON -D MY_VARIABLE=206265. 
+#      In Makefile you can add it to pre-processor flags, e.g. CPPFLAGS 
+#
+#
 #  R.Kessler 
 #
 #  HISTORY 

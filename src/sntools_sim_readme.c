@@ -607,6 +607,8 @@ void readme_docana_comment(int *iline, char *comment) {
 void readme_docana_genmodel(int *iline, char *pad) {
   
   // store GENMODEL, intrinsic scatter model etc ...
+  // Sep 19 2022: force writing cosmology parameter keys
+
   int i = *iline;
   char *cptr, noComment[]="" ;
   int nval1=1, nval2=2, lenkey=24, o ;  
@@ -639,10 +641,28 @@ void readme_docana_genmodel(int *iline, char *pad) {
   readme_docana_load_list(&i, pad, &README_KEYS_GENMAG_OFF);
   readme_docana_load_list(&i, pad, &README_KEYS_GENMAG_SMEAR);
 
+  // - - - - - - -
+  readme_docana_comment(&i, "Cosmology inputs");
+  dval = (double)INPUTS.OMEGA_MATTER ;
+  VERSION_INFO_load(&i, pad, "OMEGA_MATTER:", noComment,
+		    lenkey, false, nval1, &dval, 0.0, 2.0, -9.0);
+  dval = (double)INPUTS.OMEGA_LAMBDA ;
+  VERSION_INFO_load(&i, pad, "OMEGA_LAMBDA:", noComment,
+		    lenkey, false, nval1, &dval, 0.0, 2.0, -9.0);
+  dval = (double)INPUTS.w0_LAMBDA ;
+  VERSION_INFO_load(&i, pad, "w0_LAMBDA:", noComment,
+		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+  dval = (double)INPUTS.wa_LAMBDA ;
+  VERSION_INFO_load(&i, pad, "wa_LAMBDA:", noComment,
+		    lenkey, false, nval1, &dval, -3.0, 3.0, -9.0);
+
   // - - - - 
-  if ( README_KEYS_COSMO.NKEY>0 || README_KEYS_LENS.NKEY > 0 ) {
-    readme_docana_comment(&i, "Cosmology inputs");
+  // check extra cosmology keys
+  if ( README_KEYS_COSMO.NKEY > 0 ) {
     readme_docana_load_list(&i, pad, &README_KEYS_COSMO);
+  }
+
+  if ( README_KEYS_LENS.NKEY > 0 ) {
     readme_docana_load_list(&i, pad, &README_KEYS_LENS);
   }
 

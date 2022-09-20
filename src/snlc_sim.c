@@ -706,6 +706,27 @@ void set_user_defaults(void) {
   INPUTS.MUSHIFT       =   0.0 ;
   INPUTS.HzFUN_FILE[0] = 0 ;
 
+  /****** xxxx mark delete Sep 19 2022 xxxxxxxx
+  // always load cosmology keys as if they had been read so that they
+  // show up in the README yaml
+  int NPAR_COSMO = 4;
+  char COSMO_KEY_LIST[4][20] = {"OMEGA_MATTER", "OMEGA_LAMBDA", 
+				"w0_LAMBDA", "wa_LAMBDA"};
+  double COSMO_VAL_LIST[4] = { INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA,
+			       INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA };
+  char *WORDS[2];
+  WORDS[0] = (char*) malloc(60);
+  WORDS[1] = (char*) malloc(60);
+  for(i=0; i < NPAR_COSMO; i++ ) {
+    sprintf(WORDS[0], "%s",   COSMO_KEY_LIST[i] );       
+    sprintf(WORDS[1], "%.4f", COSMO_VAL_LIST[i] ); 
+    README_KEYPLUSARGS_load(20, 1, WORDS, KEYSOURCE_FILE, 
+			    &README_KEYS_COSMO, fnam);
+  }
+  xxxxxxxxx end mark xxxxxxxx */
+
+
+  // - - - - - - -
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
   INPUTS.GENRANGE_DEC[0]  = -360.0  ;
@@ -2163,19 +2184,19 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   //  - - - - - cosmology params - - - - - - 
   else if ( keyMatchSim(1, "OMEGA_MATTER", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_MATTER );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
+    // xxx   README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
+    // xxx    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
+    // xxx README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam);
   }
   else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
-    README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
+    // xxxx README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_COSMO, fnam) ;
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );

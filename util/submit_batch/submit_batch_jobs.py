@@ -29,6 +29,7 @@ from   submit_prog_sim    import Simulation
 try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
     from   submit_prog_lcfit  import LightCurveFit
 except Exception as e:
+    print(f" WARNING: could not import LightCurveFit")
     pass
 
 from   submit_prog_bbc    import BBC

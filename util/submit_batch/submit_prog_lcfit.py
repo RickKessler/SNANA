@@ -1466,7 +1466,8 @@ class LightCurveFit(Program):
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
             is_empty = (varnames == VARNAMES_EMPTY)
-            is_match = (varnames == varnames_ref)
+            is_match = self.match_varnames_list(varnames_ref, varnames)
+            # xxx mark delete Sep 20 2022 is_match = (varnames == varnames_ref)
             if not (is_empty or is_match):
                 logging.info(f"ERROR: VARNAMES mis-match for {tb_file}")
                 nerr += 1
@@ -1480,6 +1481,39 @@ class LightCurveFit(Program):
 
         return
         # end check_table_varnames_TEXT
+
+    def match_varnames_list(self,varnames_0, varnames_1):
+        # Created Sep 2022 
+        # Returns True of the two sets of varnames has the same length
+        # and all elements match except those with SIMNULL in the name.
+        # For example, a mix of SNIa-SALT2 + SNCC sim will have SIM_SALT2c
+        # in the SALT2 fitres file, and SIMNULL2 (or SIM_AV) in the SNCC
+        # fitres file. These don't match, but this particular mis-match 
+        # should not cause a problem.
+
+        is_match = True
+        KEYSTR_SKIP_LIST = [ "SIMNULL", "SIM_SALT2", "SIM_AV", "SIM_RV" ]
+
+        len0 = len(varnames_0)
+        len1 = len(varnames_1)
+        if len0 != len1: return False
+
+        for vname_0, vname_1 in zip(varnames_0,varnames_1):
+
+            # check for keys to skip because they differ for SNIa-SALT2
+            # and non-SNIA
+            skip = False
+            for key_skip in KEYSTR_SKIP_LIST:
+                if key_skip in vname_0: skip = True
+                if key_skip in vname_1: skip = True
+            if skip : 
+                continue
+
+            if vname_0 != vname_1 :
+                is_match = False
+
+        return is_match
+        # end match_varnames_list
 
     def append_table_varlist(self,version_fitopt_dict) :
 

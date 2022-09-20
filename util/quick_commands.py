@@ -453,7 +453,7 @@ def analyze_diff_fitres(args):
     ff_test = os.path.expandvars(args.diff_fitres[1])
 
     if not os.path.exists(ff_ref):
-        msgerr = f"Could not find REF-input fitres file: \n\t{ff_res}"
+        msgerr = f"Could not find REF-input fitres file: \n\t {ff_ref}"
         assert False, msgerr
 
     if not os.path.exists(ff_test):
@@ -466,6 +466,13 @@ def analyze_diff_fitres(args):
     print(f"\t Definition: dif_X = X(TEST) - X(REF)")
     sys.stdout.flush()
 
+    fitres_combine_file = "combine_fitres.text"
+
+    # remove pre-existing combine-fitres file to avoid confusion
+    # if new file fails to be created.
+    if os.path.exists(fitres_combine_file):
+        os.remove(fitres_combine_file)
+
     cmd = f"{combine_fitres_program} "
     cmd += f"{ff_ref} {ff_test} "
     cmd += f"t "    # only text output; no HBOOK or ROOT
@@ -473,7 +480,6 @@ def analyze_diff_fitres(args):
     ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
                           shell=True, capture_output=True, text=True )
 
-    fitres_combine_file = "combine_fitres.text"
     if not os.path.exists(fitres_combine_file):
         msgerr = f"Could not find combined fitres file: {fitres_combine_file}"
         assert False, msgerr

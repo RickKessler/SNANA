@@ -1462,11 +1462,14 @@ class LightCurveFit(Program):
             msgerr.append(f"varnames_list = \n\t{varnames_list}")
             self.log_assert(False,msgerr) 
             
-        varnames_ref = varnames_list[0]
+        varnames_ref = varnames_list[0] # this is a comma-sep string
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
             is_empty = (varnames == VARNAMES_EMPTY)
-            is_match = self.match_varnames_list(varnames_ref, varnames)
+            if is_empty:
+                is_match = True
+            else:
+                is_match = self.match_varnames_list(varnames_ref, varnames)
             # xxx mark delete Sep 20 2022 is_match = (varnames == varnames_ref)
             if not (is_empty or is_match):
                 logging.info(f"ERROR: VARNAMES mis-match for {tb_file}")
@@ -1494,11 +1497,17 @@ class LightCurveFit(Program):
         is_match = True
         KEYSTR_SKIP_LIST = [ "SIMNULL", "SIM_SALT2", "SIM_AV", "SIM_RV" ]
 
-        len0 = len(varnames_0)
-        len1 = len(varnames_1)
-        if len0 != len1: return False
+        vname_list_0 = varnames_0.split()
+        vname_list_1 = varnames_1.split()
+        len0 = len(vname_list_0)
+        len1 = len(vname_list_1)
+        if len0 != len1: 
+            logging.info(f" VARNAME Match ERROR: len0={len0} len1={len1}")
+            logging.info(f" VARNAME list0 = {vname_list_0}")
+            logging.info(f" VARNAME list1 = {vname_list_1}")
+            return False
 
-        for vname_0, vname_1 in zip(varnames_0,varnames_1):
+        for vname_0, vname_1 in zip(vname_list_0, vname_list_1):
 
             # check for keys to skip because they differ for SNIa-SALT2
             # and non-SNIA
@@ -1510,6 +1519,8 @@ class LightCurveFit(Program):
                 continue
 
             if vname_0 != vname_1 :
+                logging.info(f" VARNAME Match ERROR: {vname_0} != {vname_1}")
+            
                 is_match = False
 
         return is_match

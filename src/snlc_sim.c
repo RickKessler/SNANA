@@ -9695,6 +9695,8 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   // Check option to add host contamination
   // Feb 26 2021: check for HOST/SN fraction: HOSTSNFRAC
   // Jun 07 2021: fix IMJD_HOST
+  // Sep 20 2022: for HOSTSNFRAC integration, require both 
+  //               FLAM_HOST>0 and FLAM_PEAK>0
 
   int    IS_HOST    = GENSPEC.IS_HOST[imjd];
   double HOSTFRAC   = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
@@ -9734,6 +9736,9 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     for(ilam=0; ilam < NBLAM; ilam++ ) {
       FLAM_PEAK   = GENSPEC.GENFLUX_PEAK[ilam];
       FLAM_HOST   = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
+
+      if ( FLAM_PEAK == 0.0 ) { continue; }  // Sep 20 2022
+      if ( FLAM_HOST == 0.0 ) { continue; }
 
       if ( isnan(FLAM_HOST) ) {
         print_preAbort_banner(fnam);

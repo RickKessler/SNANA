@@ -4978,6 +4978,13 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     sscanf( strValues[0] , "%f", &ptrLam[0] );  // load LAMRANGE
     sscanf( strValues[1] , "%f", &ptrLam[1] ); 
 
+    if ( ptrLam[1] < ptrLam[0] ) { 
+      sprintf(c1err, "Invalid SNR_LAMOBS args: %s : %s",
+	      strValues[0], strValues[1] );
+      sprintf(c2err,"CID=%d  LIBID = %d", GENLC.CID, SIMLIB_HEADER.LIBID);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+
   }  
 
   // - - - - - -
@@ -9705,6 +9712,10 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   int    NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   bool   ALLOW_HOST_ZEROFLUX = true; // for host
 
+  int  INDX        = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
+  double LAMMIN_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[0];
+  double LAMMAX_SPEC    = INPUTS.TAKE_SPECTRUM[INDX].SNR_LAMRANGE[1];
+
   int ilam, ilam2, NOPT=0 ;
   bool   IS_HOST_ZEROFLUX = false;
   double FLAM_PEAK, FLAM_HOST, FLAM_TOT, FLAM_SN ;
@@ -9734,6 +9745,11 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
   if ( HOSTSNFRAC > 0.001 ) {
     FSUM_PEAK = FSUM_HOST = 0.0 ;
     for(ilam=0; ilam < NBLAM; ilam++ ) {
+      LAMAVG      = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
+
+      // if ( LAMAVG < LAMMIN_SPEC ) { continue; } // ?? .xyz
+      // if ( LAMAVG > LAMMAX_SPEC ) { continue; }
+
       FLAM_PEAK   = GENSPEC.GENFLUX_PEAK[ilam];
       FLAM_HOST   = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
 
@@ -9749,7 +9765,6 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
                    ilam2, GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam2], LAMAVG );
           }
         }
-        LAMAVG      = INPUTS_SPECTRO.LAMAVG_LIST[ilam] ;
         sprintf(c1err,"FLAM_HOST=NaN at LAM=%.1f A (ilam=%d), IDSPEC=%d",
                 LAMAVG, ilam, HOSTSPEC.IDSPECDATA );
         sprintf(c2err,"Check SPECDATA.");

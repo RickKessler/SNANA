@@ -844,6 +844,10 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   //   + bug fix : multiply spectral flux by x0 (broadband fluxes were OK)
   //   + add FLAG_Finteg output arg.
   //
+  // Sep 21 2022: fix awful bug fom Dec 2020:
+  //    use GENSMEAR.MAGSMEAR_LIST[ilamobs] instead of 
+  //    undefined/obsolsete magSmear[ilamobs]
+  //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -866,7 +870,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   double LAMOBS, LAMSED, LAMSED_MIN, LAMSED_MAX;
   double LAMSED_STEP, LAMSPEC_STEP, LAMRATIO ;
   double TMPLAM[3], TMPSED[3];
-  double lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL];
+  double lam[MXBIN_LAMFILT_SEDMODEL]; 
   double Fbin_forFlux, Fbin_forSpec, FTMP, arg, FSMEAR ;
   double Finteg_filter=0.0, Finteg_spec=0.0 ;
 
@@ -959,7 +963,8 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
 
       // check option to smear flux with intrinsic scatter (Apr 11 2019)
       if ( ISTAT_SMEAR ) {
-	arg     =  -0.4*magSmear[ilamobs] ;
+	// xxx mark delete arg     =  -0.4*magSmear[ilamobs] ;
+	arg     = -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs];
 	FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	FTMP   *=  FSMEAR;                // adjust flux for smearing
       }

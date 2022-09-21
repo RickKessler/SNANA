@@ -1471,6 +1471,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   if ( SQ_T >= 0.0 )
     {  *ERRFRAC_T = sqrt(SQ_T)/FluxErr ; } 
   
+  if ( isnan(SNR) ) { LDMP = 99; }
+
   if ( LDMP ) {
     print_preAbort_banner(fnam);
     printf(" xxx ILAM=%d LAM=%f \n", ILAM, INPUTS_SPECTRO.LAMAVG_LIST[ILAM] );
@@ -1491,6 +1493,12 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
     printf(" xxx SNR = %f / %f = %f \n", Flux, FluxErr,SNR);
     printf(" xxx \n");
 
+    if ( LDMP == 99 ) {
+      sprintf(c1err,"SNR is NaN");
+      sprintf(c2err,"Check preAbort dump above.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+
+    }
 
     fflush(stdout);
   }

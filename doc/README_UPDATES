@@ -21301,8 +21301,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + add -std=c++17 compile flag for root v6 (for Cori @ NERSC).
 
    genmag_PySEDMODL:
-     call new function  prepEvent_PySEDMODEL() to enable 
-     preparing all SEDs for event, rather than by band.
+     + call new function  prepEvent_PySEDMODEL() to enable 
+       preparing all SEDs for event, rather than by band.
+     + fix awful bug using genSmear
 
    submit_prog_lcfit.py:
      see https://github.com/RickKessler/SNANA/issues/1010

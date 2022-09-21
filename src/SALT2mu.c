@@ -1113,9 +1113,10 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 
 #define MUDIFERR_EMPTY 999.0   // if no events in bin, set error to 999
 #define MUDIFERR_ZERO  666.0   // if MUDIFFERR=0, set to 666
+
 int NWARN_MUDIFERR_ZERO ;
 int NWARN_MUDIFERR_EMPTY ;
-
+int NWARN_CRAZYERR[4];
 
 FILE *FP_STDOUT ;  // direct stdout to screen (stdout) or log file
 char PATH_SNDATA_ROOT[MXPATHLEN];
@@ -1885,8 +1886,8 @@ struct {
   
   double ZPOLY_COVMAT[3][3];   // z-dependent scatter matrix
 
-  int NZBIN_TOT[MXz]; // total number before cuts
-  int NZBIN_FIT[MXz]; // number after cuts
+  int NEVT_zTOT[MXz]; // total number events before cuts
+  int NEVT_zFIT[MXz]; // number of events after cuts
 
   int NFITPAR_ALL ; // fixed + floated
   int NFITPAR_FLOAT ;
@@ -2770,14 +2771,17 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   exec_mnpout_mnerrs(); // Dec 12 2016
 
-  // July 13 2022: repeat entire BBC fit on pathological errors
-  //  [ replace 11111 -> 1 after testing ... lost test directory ?!?!?!]
-  if ( NCALL_SALT2mu_DRIVER_EXEC == 11111 ) {
-    if ( crazy_small_errors() ) { 
-      INPUTS.parval[IPAR_ALPHA0] += 1.0E-4;
-      INPUTS.parval[IPAR_BETA0]  += 1.0E-3;
-      return(FLAG_EXEC_REPEAT); 
-    }
+  // Sep 13 2022: 
+  //  if M0 errors are crazy small, repeat fit, but only one repeat
+  bool IS_CRAZYERR = crazy_small_errors();
+  if ( IS_CRAZYERR &&  NCALL_SALT2mu_DRIVER_EXEC == 1 ) {
+    double delta_alpha = 0.001;
+    double delta_beta  = 0.01;
+    INPUTS.parval[IPAR_ALPHA0] += delta_alpha ;
+    INPUTS.parval[IPAR_BETA0]  += delta_beta  ;
+    printf("\t Repeat BBC fit with initial alpha += %.5f and beta += %.5f\n",
+	   delta_alpha, delta_beta); fflush(stdout);
+    return(FLAG_EXEC_REPEAT); 
   }
 
   //The exact value of M0 shouldn't matter,
@@ -3244,8 +3248,8 @@ void setup_zbins_fit(void) {
   
   // init counters
   for (nz=0; nz < nzbin; nz++)  {
-    FITINP.NZBIN_TOT[nz] = 0;
-    FITINP.NZBIN_FIT[nz] = 0;
+    FITINP.NEVT_zTOT[nz] = 0;
+    FITINP.NEVT_zFIT[nz] = 0;
   }
   
   //Put data into bins and count bin population
@@ -3273,9 +3277,9 @@ void setup_zbins_fit(void) {
     if (izbin<0 || izbin >= nzbin)  
       {  setbit_CUTMASK(n, CUTBIT_z, &INFO_DATA.TABLEVAR);  }
 
-    FITINP.NZBIN_TOT[izbin]++ ;
+    FITINP.NEVT_zTOT[izbin]++ ;
     CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[n];
-    if ( CUTMASK == 0 ) { FITINP.NZBIN_FIT[izbin]++ ; }
+    if ( CUTMASK == 0 ) { FITINP.NEVT_zFIT[izbin]++ ; }
 
   } // end loop over NSNCUTS
   
@@ -3284,7 +3288,7 @@ void setup_zbins_fit(void) {
 
   for (nz=0; nz < nzbin; ++nz) {
 
-    if ( FITINP.NZBIN_FIT[nz] >= INPUTS.min_per_zbin ) { 
+    if ( FITINP.NEVT_zFIT[nz] >= INPUTS.min_per_zbin ) { 
       FITINP.ISFLOAT_z[nz] = 1 ;  // logical flag
       NZFLOAT++ ; 
     }
@@ -3295,7 +3299,7 @@ void setup_zbins_fit(void) {
     fprintf(FP_STDOUT, " z=%8.5f - %8.5f  NZBIN(TOT,CUTS)=%6d,%6d   "
 	    "ISFLOAT=%i\n",
 	   INPUTS.BININFO_z.lo[nz], INPUTS.BININFO_z.hi[nz],
-	   FITINP.NZBIN_TOT[nz], FITINP.NZBIN_FIT[nz], 
+	   FITINP.NEVT_zTOT[nz], FITINP.NEVT_zFIT[nz], 
 	   FITINP.ISFLOAT_z[nz]);
   }
 
@@ -4155,24 +4159,54 @@ bool crazy_small_errors(void) {
 
   bool crazy_error_flag= false;
   bool ISFLOAT, ISM0;
-  double crazy_small_error = 1.0E-4;
-  double VAL, ERR;
-  int    n, n_crazy_small_error = 0;
+  double sigint_ref = 0.100; // M0 error should be at least sigint/sqrt(N)
+  double crazy_small_error = 1.0E-4;  
+  double VAL, ERR, ERRMIN_COMPUTE, XN, z;
+  int    n, iz, NEVT, n_crazy_small_error = 0;
 
+  double ERRMIN_FRAC_CRAZY = 0.5;  // crazy err of ERR/ERRMIN < this value
+  int    N_CRAZYERR_SETFLAG = 3;
+
+  char fnam[] = "crazy_small_errors";
   // ----------- BEGIN -------------
+
+  sprintf(BANNER,"Check for Crazy-small Fit Errors" );
+  fprint_banner(FP_STDOUT,BANNER);   
+
 
   for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
 
     ISFLOAT = FITINP.ISFLOAT[n] ;
     ISM0    = n >= MXCOSPAR ; // it's z-binned M0
-    if ( !ISFLOAT ) { continue ; }
+    if ( !ISM0 ) { continue ; }
 
-    VAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] ;
-    ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
-    if ( ERR < crazy_small_error ) { n_crazy_small_error++ ; }
+    // now we have Mudif in a redshift bin
+    iz    = INPUTS.izpar[n] ;
+    z     = FITRESULT.zM0[iz];
+    NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin .xyz
+    XN    = (double)NEVT;
+    if ( XN < 1.0 ) { XN = 1.0; }
+    ERRMIN_COMPUTE = sigint_ref / sqrt(XN);
+    ERR            = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+
+    
+    if ( ERR < ERRMIN_COMPUTE * ERRMIN_FRAC_CRAZY ) { 
+      printf(" CrazyERR WARNING: iz=%d  z=%.3f "
+	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f \n", 
+	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE); 
+      fflush(stdout);
+      n_crazy_small_error++ ; 
+    }
   }
   
-  crazy_error_flag = ( n_crazy_small_error > 3 );
+  crazy_error_flag = ( n_crazy_small_error >= N_CRAZYERR_SETFLAG );
+
+  // load global for each DRIVER_EXEC iteration
+  NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC] = n_crazy_small_error; 
+
+  printf("\t Found %d crazy M0 fit-errors. \n\n", n_crazy_small_error);
+
+  fflush(stdout);
 
   return crazy_error_flag ;
  
@@ -16186,10 +16220,18 @@ void override_parFile(int argc, char **argv) {
 
 
     if ( !strncmp(item,"CUTWIN",6) ) {  // allow CUTWIN(option)
+      bool IS_NONE = ( strcmp(argv[i+1],"NONE")==0 ) ;
       // glue together 4 contiguous words into one string
-      sprintf(tmpLine,"%s %s %s %s", argv[i],argv[i+1],argv[i+2],argv[i+3] ) ;
+      if ( IS_NONE ) {
+	sprintf(tmpLine,"%s %s", argv[i],argv[i+1] ) ;
+	i += 1;
+      }
+      else {
+	sprintf(tmpLine,"%s %s %s %s", 
+		argv[i],argv[i+1],argv[i+2],argv[i+3] ) ;
+	i += 3 ; 
+      }
       found = ppar(tmpLine);
-      i += 3 ; // Jan 2018 bug fix
     }
     else {
       found = ppar(item);
@@ -19247,6 +19289,7 @@ void write_yaml_info(char *fileName) {
   // Jun 7 2021: write subprocess iteration
   // Sep 18 2021: write stats_bySAMPLE
   // Oct 06 2021: write ISDATA_REAL
+  // Sep 21 2022: write NWARN_CRAZYERR
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -19290,6 +19333,9 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"ABORT_IF_ZERO:");
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_PASS );
+
+  sprintf(KEY,"NWARN_CRAZYERR:");
+  fprintf(fp,"%-22.22s %d\n", KEY, NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC]);
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
@@ -19490,7 +19536,7 @@ void  write_M0_fitres(char *fileName) {
     VAL   = FITRESULT.M0DIF[iz];
     ERR   = FITRESULT.M0ERR[iz];	
 
-    NFIT = FITINP.NZBIN_FIT[iz] ;
+    NFIT = FITINP.NEVT_zFIT[iz] ;
 
     fprintf(fp, "ROW:     "
 	    "%2d  %7.5f %7.5f %7.5f  "
@@ -19804,7 +19850,7 @@ void write_fitres_driver(char* fileName) {
       sprintf(tmpName,"%s-<M0avg>", FITRESULT.PARNAME[n] );
       sprintf(ztxt,"(%5.3f < z < %5.3f, N=%d)", 
 	      INPUTS.BININFO_z.lo[iz], INPUTS.BININFO_z.hi[iz],
-	      FITINP.NZBIN_FIT[iz] ) ;
+	      FITINP.NEVT_zFIT[iz] ) ;
     }
     else {
       VAL += BLIND_OFFSET(n); // offset cosmo params besides M0
@@ -20118,10 +20164,24 @@ void write_NWARN(FILE *fp, int FLAG) {
     fflush(fp);
   }
 
-
   if ( NWARN_MUDIFERR_ZERO > 0 ) {
     fprintf(fp,"# WARNING(SEVERE): %d z bins have MUDIFFERR = 0 --> %.0f\n", 
 	    NWARN_MUDIFERR_ZERO, MUDIFERR_ZERO );
+    fflush(fp);
+  }
+
+  // xxx NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC]
+  int N_EXEC = NCALL_SALT2mu_DRIVER_EXEC;
+  if ( NWARN_CRAZYERR[1] > 0 && N_EXEC > 1 ) {
+    fprintf(fp,"# WARNING(MINOR): %d fit M0ERR had crazy values --> "
+	    "fit repeated.\n", 	NWARN_CRAZYERR[1] );
+    fflush(fp);
+  }
+
+  // give severe warning if last iteration has crazy errors
+  if ( NWARN_CRAZYERR[N_EXEC] > 0 ) {
+    fprintf(fp,"# WARNING(SEVERE): %d fitted M0ERR have crazy values "
+	    "after final fit. \n", NWARN_CRAZYERR[N_EXEC] );
     fflush(fp);
   }
 
@@ -20614,7 +20674,7 @@ double avemag0_calc(int opt_dump) {
 
     if ( FITINP.ISFLOAT_z[iz] == 0 ) { continue ; }
 
-    nzfit    = FITINP.NZBIN_FIT[iz] ;  // number of SN fitted in this z bin
+    nzfit    = FITINP.NEVT_zFIT[iz] ;  // number of SN fitted in this z bin
     d_nzfit  = (double)nzfit ;
     mag0     = FITRESULT.PARVAL[isplit][IOFF_MAG0+iz] ;
 

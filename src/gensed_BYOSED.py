@@ -18,6 +18,8 @@ from scipy.stats import rv_continuous,gaussian_kde,norm as normal
 from copy import copy
 import pickle
 
+from gensed_base import gensed_base
+
 if not hasattr(sys, 'argv'):
 		sys.argv  = ['']
 
@@ -37,7 +39,7 @@ def print_err():
 	raise RuntimeError
 
 
-class gensed_BYOSED:
+class gensed_BYOSED(gensed_base):
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 			# TODO: write a print statement that warns if
 			# HOST_PARAM_NAMES is a variable that the code
@@ -99,7 +101,7 @@ class gensed_BYOSED:
 
 				self.warp_effects=self.fetchParNames_CONFIG(config)
 
-				self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
+				self.sn_effects,self.host_effects=self.fetchWarp(config)
 
 				phase,wave,flux = np.loadtxt(_append_path(self.PATH_VERSION,self.options.sed_file),unpack=True)
 
@@ -159,7 +161,7 @@ class gensed_BYOSED:
 				
 				
 		
-		def fetchWarp_BYOSED(self,config):
+		def fetchWarp(self,config):
 			#read in warp effect data
 
 			sn_dict=dict([])
@@ -245,10 +247,10 @@ class gensed_BYOSED:
 		
 				
 		def fetchSED_LAM(self):
-				return np.asarray(self.wave)
+				return self.wave
 		
 
-		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
+		def fetchSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
 			try:
 				if len(self.wave)>maxlam:
 					raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
@@ -261,7 +263,7 @@ class gensed_BYOSED:
 
 				self.sn_id=external_id
 				if not newSN and np.round(trest,6) in self.phase_data.keys():
-					return np.asarray(copy(self.phase_data[np.round(trest,6)]))
+					return copy(self.phase_data[np.round(trest,6)])
 
 				fluxsmear=np.array(self.sedInterp(trest,self.wave).flatten())
 				orig_fluxsmear=copy(fluxsmear)
@@ -367,7 +369,7 @@ class gensed_BYOSED:
 				fluxsmear*=self.brightness_correct_Ia()
 
 			self.phase_data[np.round(trest,6)]=list(fluxsmear)
-			return np.asarray(fluxsmear)
+			return fluxsmear
 			
 		def brightness_correct_Ia(self):
 			if 'COLOR' in self.sn_effects.keys():
@@ -381,10 +383,10 @@ class gensed_BYOSED:
 			return(10**(-.4*(self.beta*c-self.alpha*s)))
 
 		
-		def fetchParNames_BYOSED(self):
+		def fetchParNames(self):
 				return list(np.append(self.warp_effects,['lum']))
 
-		def fetchParVals_BYOSED_4SNANA(self,varname):
+		def fetchParVals(self,varname):
 				if varname=='lum':
 					return self.x0*(10**(-0.4*self.magsmear))
 				if varname in self.sn_effects.keys():
@@ -398,13 +400,7 @@ class gensed_BYOSED:
 						return self.host_effects[varname].warp_parameter
 					else:
 						return self.host_effects[varname].scale_parameter
-					
 
-		def fetchParVals_BYOSED(self,varname):
-				if varname in self.sn_effects.keys():
-					return self.sn_effects[varname].warp_parameter
-				else:
-					return self.host_effects[varname].warp_parameter
 		def fetchParNames_CONFIG(self,config):
 				if 'FLAGS' in config.sections():
 						return([k.upper() for k in list(config['FLAGS'].keys()) if config['FLAGS'][k]=='True'])
@@ -720,8 +716,8 @@ def main():
 
 		mySED=gensed_BYOSED('$SNDATA_ROOT/models/BYOSED/BYOSED.P21/',2,'','REDSHIFT,AGE,ZCMB,METALLICITY,HOSTMASS')
 		mySED.sn_id=1
-		print(np.sum(mySED.fetchSED_BYOSED(0,5000,0,0,[.1,1,1,.5,11])))
-		print(np.sum(mySED.fetchSED_BYOSED(-5,5000,0,1,[.1,1,1,.5,9])))
+		print(np.sum(mySED.fetchSED(0,5000,0,0,[.1,1,1,.5,11])))
+		print(np.sum(mySED.fetchSED(-5,5000,0,1,[.1,1,1,.5,9])))
 
 if __name__=='__main__':
 		main()

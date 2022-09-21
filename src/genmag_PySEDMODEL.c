@@ -145,11 +145,11 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   //
 
 #ifdef USE_PYTHON
-  PyObject *genmod, *genclass, *pargs;
+  PyObject *genmod, *genclass, *genmod_base, *gensed_base, *pargs;
 #endif
 
   char *PyMODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyFUN_NAME   = INPUTS_PySEDMODEL.PyFUN_NAME ;
+  char *PyCLASS_NAME   = INPUTS_PySEDMODEL.PyCLASS_NAME ;
   int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
@@ -162,7 +162,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   print_banner(BANNER);
 
   sprintf(PyMODEL_NAME, "%s",      MODEL_NAME);
-  sprintf(PyFUN_NAME, "gensed_%s", PyMODEL_NAME) ;
+  sprintf(PyCLASS_NAME, "gensed_%s", PyMODEL_NAME) ;
 
   printf("   %s PATH    = '%s' \n",  PyMODEL_NAME, PATH_VERSION);
   printf("   %s OPTMASK = %d \n",    PyMODEL_NAME, OPTMASK );
@@ -242,22 +242,38 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // xxxx  genmod = PyImport_ImportModule("genmag_BYOSED");
-  printf("DEBUG", PyFUN_NAME, "\n");
-  genmod = PyImport_ImportModule(PyFUN_NAME);
+  printf("DEBUG", PyCLASS_NAME, "\n");
+  genmod_base = PyImport_ImportModule("gensed_base");
+  if (genmod_base == NULL) {
+    handle_python_exception(fnam, "tried to import gensed_base");
+  }
+  gensed_base = PyObject_GetAttrString(genmod_base, "gensed_base");
+  if (gensed_base == NULL) {
+    sprintf(c1err,"Could not find gensed_base class in gensed_base module");
+    sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  genmod = PyImport_ImportModule(PyCLASS_NAME);
   handle_python_exception(fnam, "tried to import pySED model");
 
   if (genmod == NULL) {
-    sprintf(c1err,"Could not import module %s", PyFUN_NAME);
+    sprintf(c1err,"Could not import module %s", PyCLASS_NAME);
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   // xxxx  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED");
-  genclass = PyObject_GetAttrString(genmod, PyFUN_NAME);
+  genclass = PyObject_GetAttrString(genmod, PyCLASS_NAME);
   if (genclass == NULL) {
-    sprintf(c1err,"Could not find %s class",PyFUN_NAME);
+    sprintf(c1err,"Could not find %s class",PyCLASS_NAME);
     sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  if (PyObject_IsSubclass(genclass, gensed_base) != 1) {
+    handle_python_exception(fnam, "checking model class is a subclass of gensed_base.gensed_base");
+    sprintf(c1err,"%s is not a subclass of gensed_base.gensed_base",PyCLASS_NAME);
+    sprintf(c2err,"Please check SNANA/src/gensed_base.py and inherit gensed_base from your model");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -432,7 +448,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   int   MXLAM      = MXLAM_PySEDMODEL;
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
+  char *PyCLASS_NAME = INPUTS_PySEDMODEL.PyCLASS_NAME ;
 
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
@@ -588,7 +604,6 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   // Called once during init stage.
 
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char pyfun_tmp[80];
   int NPAR = 0 ;
   char fnam[] = "fetchParNames_PySEDMODEL" ;
 
@@ -600,9 +615,7 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
 
-  sprintf(pyfun_tmp, "fetchParNames_%s", MODEL_NAME);
-
-  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParNames");
   handle_python_exception(fnam, "getting fetchParNames method");
   //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   //xx					 "fetchParNames_BYOSED");
@@ -610,7 +623,7 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   pNames  = PyObject_CallObject(parnamesmeth, NULL);
   handle_python_exception(fnam, "fetching paramweter names");
   if (PySequence_Check(pNames) != 1) {
-    sprintf(c1err,"%s is expected to return a sequence of str, for example a list", pyfun_tmp);
+    sprintf(c1err,"fetchParNames is expected to return a sequence of str, for example a list");
     sprintf(c2err,"but it is %s instead", PyUnicode_AsUTF8(PyObject_Type(pNames)));
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -651,7 +664,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 #endif
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   double val;
-  char **parNameList, pyfun_tmp[60] ;
+  char **parNameList ;
   int NPAR, ipar;
   char fnam[] = "fetchParVal_PySEDMODEL" ;
 
@@ -662,8 +675,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   // David: need python function to return these values.
 #ifdef USE_PYTHON
 
-  sprintf(pyfun_tmp, "fetchParVals_%s_4SNANA", MODEL_NAME );
-  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParVals");
   // xxx  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   // xxx			       "fetchParVals_BYOSED_4SNANA");
 
@@ -712,7 +724,6 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   //
 
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char pyfun_tmp[60];
   char fnam[] = "fetchSED_PySEDMODEL" ;
 
   // ------------ BEGIN -----------
@@ -727,13 +738,8 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   //int numpy_initialized =  init_numpy();
 
   // python declarations here
-  sprintf(pyfun_tmp, "fetchSED_%s", MODEL_NAME );
-  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
-
-  // xxx  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			  "fetchSED_BYOSED"); //
-
-  plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
+  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "_fetchSED");
+  plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "_fetchSED_LAM");
 
   pargs = PyTuple_New(5);
   pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
@@ -755,12 +761,12 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
 
   if (PyObject_CheckBuffer(pLAM) != 1) {
-    sprintf(c1err,"fetchSED_LAM must return numpy array");
+    sprintf(c1err,"_fetchSED_LAM must return numpy array");
     sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pLAM))));
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
   if (PyObject_CheckBuffer(pFLUX) != 1) {
-    sprintf(c1err,"%s must return numpy array",pyfun_tmp);
+    sprintf(c1err,"_fetchSED must return numpy array");
     sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pFLUX))));
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   };
@@ -773,20 +779,20 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   }
 
   if (viewLAM.itemsize != sizeof(double)) {
-    sprintf(c1err,"fetchSED_LAM must return numpy array with np.float64 dtype");
+    sprintf(c1err,"_fetchSED_LAM must return numpy array with np.float64 dtype");
     sprintf(c2err,"itemsize of returned dtype is %d",viewLAM.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   if (viewFLUX.itemsize != sizeof(double)) {
-    sprintf(c1err,"%s must return numpy array with np.float64 dtype",pyfun_tmp);
+    sprintf(c1err,"_fetchSED must return numpy array with np.float64 dtype");
     sprintf(c2err,"itemsize of returned dtype is %d",viewFLUX.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   NLAM = viewLAM.len / viewLAM.itemsize;
   if (NLAM != viewFLUX.len / viewFLUX.itemsize) {
-    sprintf(c1err,"size of array returned by fetchSED_LAM doesn't equal to one returned by %s",pyfun_tmp);
+    sprintf(c1err,"size of array returned by _fetchSED_LAM doesn't equal to one returned by _fetchSED");
     sprintf(c2err,"NLAM = %d, NFLUX = %d",viewLAM.len / viewLAM.itemsize, viewFLUX.len / viewFLUX.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }

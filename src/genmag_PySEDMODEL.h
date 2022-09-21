@@ -31,7 +31,7 @@ struct {
 
   // stuff determined from inputs above
   char  MODEL_NAME[40] ; // e.g., BYOSED, SNEMO ....
-  char  PyFUN_NAME[60] ; // e.g., genmag_BYOSED
+  char  PyCLASS_NAME[60] ; // e.g., genmag_BYOSED
 
 } INPUTS_PySEDMODEL ;
 

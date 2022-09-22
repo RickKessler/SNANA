@@ -21312,5 +21312,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_prog_lcfit.py:
      see https://github.com/RickKessler/SNANA/issues/1010
 
-   sntools_
+   sntools_dataformat_text.c
+     + check NLAM for reading spectra
+
 END: 

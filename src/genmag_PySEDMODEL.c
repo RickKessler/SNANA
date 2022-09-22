@@ -79,6 +79,24 @@ PyObject *geninit_PySEDMODEL ;
 
 // ===============================================
 
+#ifdef USE_PYTHON
+void handle_python_exception(char *fnam, const char *desc) {
+  // Exit with an error message for Python exceptions
+  print_preAbort_banner(fnam);
+  if (PyErr_Occurred() == NULL) {
+    return ;
+  }
+  PyErr_Print();
+  sprintf(c1err,"Python raised an uncaught exception");
+  sprintf(c2err,"while %s", desc);
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+}
+#endif
+
+// ===============================================
+
+// ===============================================
+
 void load_PySEDMODEL_CHOICE_LIST(void) {
 
   int N=0;
@@ -127,11 +145,11 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   //
 
 #ifdef USE_PYTHON
-  PyObject *genmod, *genclass, *pargs;
+  PyObject *genmod, *genclass, *genmod_base, *gensed_base, *pargs;
 #endif
 
   char *PyMODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyFUN_NAME   = INPUTS_PySEDMODEL.PyFUN_NAME ;
+  char *PyCLASS_NAME   = INPUTS_PySEDMODEL.PyCLASS_NAME ;
   int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
@@ -144,7 +162,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   print_banner(BANNER);
 
   sprintf(PyMODEL_NAME, "%s",      MODEL_NAME);
-  sprintf(PyFUN_NAME, "gensed_%s", PyMODEL_NAME) ;
+  sprintf(PyCLASS_NAME, "gensed_%s", PyMODEL_NAME) ;
 
   printf("   %s PATH    = '%s' \n",  PyMODEL_NAME, PATH_VERSION);
   printf("   %s OPTMASK = %d \n",    PyMODEL_NAME, OPTMASK );
@@ -218,31 +236,51 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
   int nResult3 = PyRun_SimpleStringFlags("import optparse",NULL);
   int nResult4 = PyRun_SimpleStringFlags("import configparser",NULL);
+  if ((nResult1 != 0) || (nResult2 != 0) || (nResult3 != 0) || (nResult4 != 0)) {
+    sprintf(c1err,"Could not import numpy, os, optparse or configparser");
+    sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
-  // xxxx  genmod = PyImport_ImportModule("genmag_BYOSED");
-  printf("DEBUG", PyFUN_NAME, "\n");
-  genmod = PyImport_ImportModule(PyFUN_NAME);
+  printf("DEBUG", PyCLASS_NAME, "\n");
+  genmod_base = PyImport_ImportModule("gensed_base");
+  if (genmod_base == NULL) {
+    handle_python_exception(fnam, "tried to import gensed_base");
+  }
+  gensed_base = PyObject_GetAttrString(genmod_base, "gensed_base");
+  if (gensed_base == NULL) {
+    sprintf(c1err,"Could not find gensed_base class in gensed_base module");
+    sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  genmod = PyImport_ImportModule(PyCLASS_NAME);
+  handle_python_exception(fnam, "tried to import pySED model");
 
   if (genmod == NULL) {
-    sprintf(c1err,"Could not import module %s", PyFUN_NAME);
+    sprintf(c1err,"Could not import module %s", PyCLASS_NAME);
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   // xxxx  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED");
-  genclass = PyObject_GetAttrString(genmod, PyFUN_NAME);
+  genclass = PyObject_GetAttrString(genmod, PyCLASS_NAME);
   if (genclass == NULL) {
-    sprintf(c1err,"Could not import PyObject_GetAttrString class");
+    sprintf(c1err,"Could not find %s class",PyCLASS_NAME);
     sprintf(c2err,"2nd message ??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  if (PyObject_IsSubclass(genclass, gensed_base) != 1) {
+    handle_python_exception(fnam, "checking model class is a subclass of gensed_base.gensed_base");
+    sprintf(c1err,"%s is not a subclass of gensed_base.gensed_base",PyCLASS_NAME);
+    sprintf(c2err,"Please check SNANA/src/gensed_base.py and inherit gensed_base from your model");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   pargs  = Py_BuildValue("(siss)",PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR);
-  geninit_PySEDMODEL = PyEval_CallObject(genclass, pargs);
+  geninit_PySEDMODEL = PyObject_CallObject(genclass, pargs);
   if (geninit_PySEDMODEL == NULL) {
-    sprintf(c1err,"Could not run PyEval_CallObject module");
-    sprintf(c2err,"2nd message ??");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    handle_python_exception(fnam, "tried to construct pySED model class");
   }
 
   Py_DECREF(genmod);
@@ -410,7 +448,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   int   MXLAM      = MXLAM_PySEDMODEL;
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
+  char *PyCLASS_NAME = INPUTS_PySEDMODEL.PyCLASS_NAME ;
 
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
@@ -566,46 +604,44 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   // Called once during init stage.
 
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char pyfun_tmp[80];
   int NPAR = 0 ;
-  //  char fnam[] = "fetchParNames_PySEDMODEL" ;
+  char fnam[] = "fetchParNames_PySEDMODEL" ;
 
 #ifdef USE_PYTHON
   // python declarations here
 
   int ipar;
-  PyObject *parnamesmeth,*pNames,*pNPARmeth,*pNPAR,*pnamesitem;
-  PyListObject *arrNames;
+  PyObject *parnamesmeth,*pNames,*pnamesitem;
   printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
 
-  sprintf(pyfun_tmp, "fetchParNames_%s", MODEL_NAME);
-
-  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParNames");
+  handle_python_exception(fnam, "getting fetchParNames method");
   //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   //xx					 "fetchParNames_BYOSED");
 
-  sprintf(pyfun_tmp, "fetchNParNames_%s", MODEL_NAME );
-
-  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
-  // xxx  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			      "fetchNParNames_BYOSED");
-
-  pNames  = PyEval_CallObject(parnamesmeth, NULL);
-  pNPAR  = PyEval_CallObject(pNPARmeth, NULL);
-
-  NPAR = PyLong_AsLong(pNPAR);
-  arrNames = (PyListObject *)(pNames);
+  pNames  = PyObject_CallObject(parnamesmeth, NULL);
+  handle_python_exception(fnam, "fetching paramweter names");
+  if (PySequence_Check(pNames) != 1) {
+    sprintf(c1err,"fetchParNames is expected to return a sequence of str, for example a list");
+    sprintf(c2err,"but it is %s instead", PyUnicode_AsUTF8(PyObject_Type(pNames)));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  NPAR = PySequence_Length(pNames);
+  if (NPAR == -1) {
+    handle_python_exception(fnam, "getting parameter sequence length");
+  }
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pnamesitem = PyList_GetItem(arrNames,ipar);
+    pnamesitem = PySequence_GetItem(pNames,ipar);
+    if (pnamesitem == NULL) {
+      handle_python_exception(fnam, "getting parameter from fetched object");
+    }
     sprintf(parNameList[ipar],PyUnicode_AsUTF8(pnamesitem));
+    Py_DECREF(pnamesitem);
   }
 
-  Py_DECREF(arrNames);
   Py_DECREF(pNames);
   Py_DECREF(parnamesmeth);
-  Py_DECREF(pNPARmeth);
-  Py_DECREF(pNPAR);
 
 #endif
 
@@ -628,7 +664,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 #endif
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   double val;
-  char **parNameList, pyfun_tmp[60] ;
+  char **parNameList ;
   int NPAR, ipar;
   char fnam[] = "fetchParVal_PySEDMODEL" ;
 
@@ -639,8 +675,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   // David: need python function to return these values.
 #ifdef USE_PYTHON
 
-  sprintf(pyfun_tmp, "fetchParVals_%s_4SNANA", MODEL_NAME );
-  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParVals");
   // xxx  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
   // xxx			       "fetchParVals_BYOSED_4SNANA");
 
@@ -689,7 +724,6 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   //
 
   char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char pyfun_tmp[60];
   char fnam[] = "fetchSED_PySEDMODEL" ;
 
   // ------------ BEGIN -----------
@@ -697,66 +731,83 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   *NLAM_SED = 0 ; // init output
 
 #ifdef USE_PYTHON
-  PyObject *pmeth, *pargs, *pargs2, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
+  PyObject *pmeth, *pargs, *pargs2, *pLAM, *pFLUX, *plammeth;
+  Py_buffer viewLAM = {NULL, NULL};
+  Py_buffer viewFLUX = {NULL, NULL};
   int NLAM, ilam, ihost;
-  PyListObject *arrLAM, *arrFLUX;
-  PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
 
   // python declarations here
-  sprintf(pyfun_tmp, "fetchSED_%s", MODEL_NAME );
-  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
-
-  // xxx  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			  "fetchSED_BYOSED"); //
-
-  plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
-  pnlammeth = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_NLAM");
+  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "_fetchSED");
+  plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "_fetchSED_LAM");
 
   pargs = PyTuple_New(5);
   pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
   PyTuple_SetItem(pargs,0,PyFloat_FromDouble(Trest));
-  PyTuple_SetItem(pargs,1,PyFloat_FromDouble(MXLAM));
-  PyTuple_SetItem(pargs,2,PyFloat_FromDouble(EXTERNAL_ID));
-  PyTuple_SetItem(pargs,3,PyFloat_FromDouble(NEWEVT_FLAG));
+  PyTuple_SetItem(pargs,1,PyLong_FromLong(MXLAM));
+  PyTuple_SetItem(pargs,2,PyLong_FromLong(EXTERNAL_ID));
+  PyTuple_SetItem(pargs,3,PyLong_FromLong(NEWEVT_FLAG));
 
   for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
 
   PyTuple_SetItem(pargs,4,pargs2);
-  pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM   = PyEval_CallObject(plammeth, NULL);
   pFLUX  = PyEval_CallObject(pmeth, pargs);
 
   Py_DECREF(pmeth);
   Py_DECREF(plammeth);
-  Py_DECREF(pnlammeth);
 
-  NLAM = PyFloat_AsDouble(pNLAM);
-  Py_DECREF(pNLAM);
 
-  arrLAM  = (PyListObject *)(pLAM);
-  arrFLUX = (PyListObject *)(pFLUX);
-  for(ilam=0; ilam < NLAM; ilam++ ) {
-    // interpolate flux to Trest
-    pylamitem  = PyList_GetItem(arrLAM,ilam);
-    pyfluxitem = PyList_GetItem(arrFLUX,ilam);
-
-    LAM_SED[ilam]  = PyFloat_AsDouble(pylamitem);
-    FLUX_SED[ilam] = PyFloat_AsDouble(pyfluxitem);
+  if (PyObject_CheckBuffer(pLAM) != 1) {
+    sprintf(c1err,"_fetchSED_LAM must return numpy array");
+    sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pLAM))));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+  if (PyObject_CheckBuffer(pFLUX) != 1) {
+    sprintf(c1err,"_fetchSED must return numpy array");
+    sprintf(c2err,"type of return value is %s",PyUnicode_AsUTF8(PyObject_Str(PyObject_Type(pFLUX))));
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  };
+
+  if (PyObject_GetBuffer(pLAM, &viewLAM, PyBUF_FULL_RO) != 0) {
+    handle_python_exception(fnam, "setting buffer from pLAM");
+  }
+  if (PyObject_GetBuffer(pFLUX, &viewFLUX, PyBUF_FULL_RO) != 0) {
+    handle_python_exception(fnam, "setting buffer from pFLUX");
+  }
+
+  if (viewLAM.itemsize != sizeof(double)) {
+    sprintf(c1err,"_fetchSED_LAM must return numpy array with np.float64 dtype");
+    sprintf(c2err,"itemsize of returned dtype is %d",viewLAM.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  if (viewFLUX.itemsize != sizeof(double)) {
+    sprintf(c1err,"_fetchSED must return numpy array with np.float64 dtype");
+    sprintf(c2err,"itemsize of returned dtype is %d",viewFLUX.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  NLAM = viewLAM.len / viewLAM.itemsize;
+  if (NLAM != viewFLUX.len / viewFLUX.itemsize) {
+    sprintf(c1err,"size of array returned by _fetchSED_LAM doesn't equal to one returned by _fetchSED");
+    sprintf(c2err,"NLAM = %d, NFLUX = %d",viewLAM.len / viewLAM.itemsize, viewFLUX.len / viewFLUX.itemsize);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  PyBuffer_ToContiguous(LAM_SED, &viewLAM, viewLAM.len, 'C');
+  PyBuffer_ToContiguous(FLUX_SED, &viewFLUX, viewFLUX.len, 'C');
 
   *NLAM_SED = NLAM;
 
+  PyBuffer_Release(&viewLAM);
+  PyBuffer_Release(&viewFLUX);
   Py_DECREF(pLAM);
   Py_DECREF(pFLUX);
-  Py_DECREF(arrLAM);
-  //Py_DECREF(arrFLUX);
   Py_DECREF(pargs);
   Py_DECREF(pargs2);
-  //Py_DECREF(pylamitem);
-  //Py_DECREF(pyfluxitem);
 
 #endif
 

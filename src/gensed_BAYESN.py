@@ -15,6 +15,8 @@ import scipy.stats as st
 from scipy.interpolate import RegularGridInterpolator
 import matplotlib.pyplot as plt
 
+from gensed_base import gensed_base
+
 
 mask_bit_locations = {'verbose':1,'dump':2}
 DEFAULT_BAYESN_MODEL='M20'
@@ -33,7 +35,7 @@ def print_err():
   raise RuntimeError
 
 
-class gensed_BAYESN:
+class gensed_BAYESN(gensed_base):
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
         try:
@@ -234,7 +236,7 @@ class gensed_BAYESN:
 
                     elif distrib_name == 'PEAK':
                         # we have only a peak - just set this as a scalar
-                        self.setParVals_BAYESN(param=float(val))
+                        self.setParVals(param=float(val))
             else:
                 # if we have more than one parameter specified
                 # then we are specifying a Gaussian of some sort
@@ -257,7 +259,7 @@ class gensed_BAYESN:
                 # if peak is specified and sigma is not, we've either got a range and checked
                 # or we've not got a range and whatever - it's still a valid fixed value
                 if sigma is None and peak is not None:
-                    self.setParVals_BAYESN(param=float(peak))
+                    self.setParVals(param=float(peak))
 
                 if peak is not None and sigma is not None:
                     if llim is not None and ulim is not None:
@@ -273,21 +275,14 @@ class gensed_BAYESN:
         # end loop over parameters
 
 
-    def fetchSED_NLAM(self):
-        """
-        Returns the length of the wavelength vector
-        """
-        return self.wavelen
-
-
     def fetchSED_LAM(self):
         """
         Returns the wavelength vector
         """
-        return list(self.wave)
+        return self.wave
 
 
-    def fetchSED_BAYESN(self, trest, maxlam=5000, external_id=1, new_event=1, hostpars=''):
+    def fetchSED(self, trest, maxlam=5000, external_id=1, new_event=1, hostpars=''):
         """
         Returns the flux at every wavelength, for a given phase.
 
@@ -332,7 +327,7 @@ class gensed_BAYESN:
             if self.verbose:
                 print(useful_pars, 'set')
 
-            self.setParVals_BAYESN(**useful_pars)
+            self.setParVals(**useful_pars)
 
 
         #ST: Three lines originally from GSN
@@ -379,10 +374,10 @@ class gensed_BAYESN:
         flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
-        return list(flux)
+        return flux
 
 
-    def setParVals_BAYESN(self, **kwargs):
+    def setParVals(self, **kwargs):
         """
         Sets the values of parameter names
         """
@@ -395,21 +390,14 @@ class gensed_BAYESN:
         self.parameter_values.update(kwargs)
 
 
-    def fetchParNames_BAYESN(self):
+    def fetchParNames(self):
         """
         Returns the names of model parameters
         """
         return list(self.parameter_names)
 
 
-    def fetchNParNames_BAYESN(self):
-        """
-        Returns the number of model parameters
-        """
-        return len(self.parameter_names)
-
-
-    def fetchParVals_BAYESN_4SNANA(self,varname):
+    def fetchParVals(self,varname):
         """
         Returns the value of parameter 'varname'
 
@@ -560,16 +548,16 @@ def main():
 
     fig = plt.figure(figsize=(10, 5))
     ax1 = fig.add_subplot(111)
-    mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
-    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'g-')
 
-    mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
-    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0.  , TMAX=0.)
+    flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'r-')
 
-    mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
-    flux = mySED.fetchSED_BAYESN(0, new_event=2)
+    mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0.5 , TMAX=0.)
+    flux = mySED.fetchSED(0, new_event=2)
     ax1.plot(mySED.wave, np.array(flux), 'b-')
 
     ax1.plot(mySED.wave, np.array(flux))
@@ -580,16 +568,16 @@ def main():
     ind = (mySED.wave >= 3000) & (mySED.wave <= 7000)
     for trest in np.linspace(-10, 40, 20):
 
-        mySED.setParVals_BAYESN(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
-        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        mySED.setParVals(THETA1=-1.7, AV=0. , RV=3.1 , DELTAM=0. ,  TMAX=0.)
+        flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'b-')
 
-        mySED.setParVals_BAYESN(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
-        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        mySED.setParVals(THETA1=0., AV=0.1 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'g-')
 
-        mySED.setParVals_BAYESN(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
-        flux = mySED.fetchSED_BAYESN(trest, new_event=2)
+        mySED.setParVals(THETA1=2., AV=0.3 , RV=3.1 , DELTAM=0. , TMAX=0.)
+        flux = mySED.fetchSED(trest, new_event=2)
         ax2.plot(mySED.wave[ind], np.array(flux)[ind]/np.array(flux)[ind].max() + trest, 'r-')
     fig2.savefig('phase_sequence.png')
 

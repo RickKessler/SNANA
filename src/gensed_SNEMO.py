@@ -2,6 +2,8 @@ import sys
 import os
 import yaml
 
+from gensed_base import gensed_base
+
 mask_bit_locations = {'verbose':1,'dump':2}
 
 def print_err():
@@ -16,7 +18,7 @@ def print_err():
 	raise RuntimeError
 
 
-class gensed_SNEMO:
+class gensed_SNEMO(gensed_base):
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 			try:
 				self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
@@ -56,19 +58,13 @@ class gensed_SNEMO:
 			return
 		
 				
-		def fetchSED_NLAM(self):
-			"""
-			Returns the length of the wavelength vector
-			"""
-			return self.wavelen
-
 		def fetchSED_LAM(self):
 			"""
 			Returns the wavelength vector
 			"""
-			return list(self.wave)
+			return self.wave
 		
-		def fetchSED_SNEMO(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
+		def fetchSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
 			"""
 			Returns the flux at every wavelength, for a given phase.
 			
@@ -109,19 +105,13 @@ class gensed_SNEMO:
 			
 
 		
-		def fetchParNames_SNEMO(self):
+		def fetchParNames(self):
 			"""
 			Returns the names of model parameters
 			"""
 			return list(self.parameter_names)
 
-		def fetchNParNames_SNEMO(self):
-			"""
-			Returns the number of model parameters
-			"""
-			return len(self.self.parameter_names)
-
-		def fetchParVals_SNEMO_4SNANA(self,varname):
+		def fetchParVals(self,varname):
 			"""
 			Returns the value of parameter 'varname'
 			

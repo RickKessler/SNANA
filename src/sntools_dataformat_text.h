@@ -100,6 +100,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd);
 bool parse_SNTEXTIO_HEAD_legacy(int *iwd);
 bool parse_SNTEXTIO_OBS(int *iwd);
 bool parse_SNTEXTIO_SPEC(int *iwd);
+void check_nblam_sntextio_spec(void);
 
 void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
 			      float *PTR_VAL, float *PTR_ERR) ;

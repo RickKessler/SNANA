@@ -535,7 +535,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
 
-    // SNDATA.SIM_HOSTLIB_GALID .xyz
+    // SNDATA.SIM_HOSTLIB_GALID 
     ctmp[0] = 0;
     if ( igal==0 && IS_SIM &&
 	 SNDATA.SIM_HOSTLIB_GALID != SNDATA.HOSTGAL_OBJID[igal] )
@@ -1157,7 +1157,8 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
   //   VERSION : name of data version = folder name
 
   int  istat, NFILE = 0;
-  int  LDMP   = (MSKOPT & 8)> 0;
+  int  LDMP     = (MSKOPT & 8) > 0 ;
+
   char fnam[] = "RD_SNTEXTIO_PREP" ;
 
   // ------------- BEGIN ------------
@@ -1168,7 +1169,7 @@ int RD_SNTEXTIO_PREP(int MSKOPT, char *PATH, char *VERSION) {
 
   FORMAT_SNDATA_READ = FORMAT_SNDATA_TEXT; 
 
-  if ( (MSKOPT & 256) > 0 ) { 
+  if ( (MSKOPT & 1024) > 0 ) { 
     DEBUG_FLAG_SNTEXTIO = true; 
     printf("\t set DEBUG flag for RD_SNTEXTIO \n"); fflush(stdout);
   }
@@ -1861,6 +1862,9 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
       SNTEXTIO_FILE_INFO.IPTR_READ = iwd;
       iwd++ ;  
     }
+
+    check_nblam_sntextio_spec();
+
   }     // end LRD_SPEC
 
 
@@ -2848,6 +2852,8 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
   // Created Feb 17 2021
   // Look for SPECTRUM keys, and load GENSPEC struct (part of reading)
+  // Sep 21 2022 RK - abort if actual number of SPEC keys does not match
+  //                  NBLAM
 
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;
@@ -2909,6 +2915,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
     init_GENSPEC_EVENT(ISPEC,NBLAM);    // malloc GENSPEC arrays vs. ilam
     GENSPEC.NBLAM_VALID[ISPEC] = NBLAM ;
     GENSPEC.NBLAM_TOT[ISPEC]   = NBLAM ;
+    GENSPEC.NBLAM_READ[ISPEC]  = 0; // this counter should reach NBLAM
   }
 
   else if ( strcmp(word0,"SPEC:") == 0 ) {
@@ -2918,6 +2925,8 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
 
     ilam = SNTEXTIO_FILE_INFO.NLAM_READ ; // ilam starts at 0
     SNTEXTIO_FILE_INFO.NLAM_READ++ ;
+
+    GENSPEC.NBLAM_READ[ISPEC]++ ;
 
     str = SNTEXTIO_FILE_INFO.STRING_LIST[IVARSPEC_SNTEXTIO.LAMMIN] ;
     sscanf(str, "%le", &GENSPEC.LAMMIN_LIST[ISPEC][ilam]) ;
@@ -2943,9 +2952,51 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   }
 
 
+
   *iwd_file = iwd;
   return true ;
 
 } // end parse_SNTEXTIO_SPEC
 
+
+// ==============================================
+void check_nblam_sntextio_spec(void) {
+
+  // Created Sep 22 2022 by R.Kessler
+  // Check that SPECTRUM_NLAM arg matches actual number of
+  // wave bins; abort on mis-match.
+
+  int NSPEC = SNTEXTIO_FILE_INFO.NSPEC_READ ;
+  int ispec,NBLAM_EXPECT, NBLAM_READ, NERR=0;
+  char fnam[] = "check_nblam_sntextio_spec" ;
+
+  // ------------ BEGIN ------------
+
+  for(ispec=0; ispec < NSPEC; ispec++ ) {
+    NBLAM_EXPECT = GENSPEC.NBLAM_TOT[ispec]; 
+    NBLAM_READ   = GENSPEC.NBLAM_READ[ispec]; 
+
+    if ( NBLAM_EXPECT != NBLAM_READ ) { // .xyz
+
+      if ( NERR == 0 ) 	{ print_preAbort_banner(fnam); }
+
+      printf("ERROR: 'SPECTRUM_NLAM: %d' does not match NBLAM_READ=%d "
+	     "ID=%d CID=%s\n",
+	     NBLAM_EXPECT, NBLAM_READ, GENSPEC.ID_LIST[ispec], SNDATA.CCID);
+      fflush(stdout);
+      NERR++ ;
+    }
+  } // end ispec loop
+  
+  // abort here if there are any errors above.
+
+  if ( NERR > 0 && !DEBUG_FLAG_SNTEXTIO ) {
+    sprintf(c1err,"Found %d NLAM mis-matches among %d spectra",
+	    NERR, NSPEC);
+    sprintf(c2err,"CID = %s", SNDATA.CCID);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+} // end check_nblam_sntextio_spec
 

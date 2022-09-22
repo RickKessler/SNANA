@@ -3428,6 +3428,7 @@ c read global info and store in SNDATA struct in sndata.h
          NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,
      &                    LEN_PATH, LEN_VERS )
       ELSE
+         IF ( DEBUG_FLAG == 1024 ) OPTRD = OPTRD + 1024 ! generic DUMP
          if ( LRDFLAG_GLOBAL .or. IVERS > 1 ) then
             NSN_VERS = RD_SNTEXTIO_PREP(OPTRD, cPATH, cVERSION, 
      &              LEN_PATH, LEN_VERS)

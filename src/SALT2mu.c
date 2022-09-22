@@ -4173,7 +4173,7 @@ bool crazy_M0_errors(void) {
   char fnam[] = "crazy_M0_errors";
   // ----------- BEGIN -------------
 
-  sprintf(BANNER,"Check for Crazy-small Fit Errors" );
+  sprintf(BANNER,"Check for Crazy Fitted M0 Errors" );
   fprint_banner(FP_STDOUT,BANNER);   
 
 

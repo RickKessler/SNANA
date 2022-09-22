@@ -21279,8 +21279,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04n) ***** 
 
-   SALT2mu:  auto-detect crazy-small fitted errors and repeat BBC fit;
-         see https://github.com/RickKessler/SNANA/issues/955
+   SALT2mu:  auto-detect crazy-small or crazy-big fitted M0 errors 
+             and repeat BBC fit;
+               see https://github.com/RickKessler/SNANA/issues/955
 
          ***** USEFUL(v11_04n) ***** 
 

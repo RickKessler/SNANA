@@ -1009,10 +1009,13 @@ with append_varname_missing,
  Apr 22 2022: default minos=0 (was 1) and sigint_step1=0.01 (was .05)
                --> faster fitting
 
- Jul 13 2022: new function crazy_small_errors() triggers another BBC fit.
+ Jul 13 2022: new function crazy_M0_errors() triggers another BBC fit.
                 [this fix is on hold until it can be tested]
 
  July 20 2022: new function print_biascor_options()
+
+ Sep 21 2022: finally implement crazy_M0_errors() to trigger repeat fit;
+              write NWARN_CRAZYERR to yaml output.
 
  ******************************************************/
 
@@ -2266,7 +2269,7 @@ void  CPU_SUMMARY(void);
 int keep_cutmask(int errcode) ;
 
 int     prepNextFit(void);
-bool    crazy_small_errors(void);
+bool    crazy_M0_errors(void);
 void    conflict_check(void);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
@@ -2773,7 +2776,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   // Sep 13 2022: 
   //  if M0 errors are crazy small, repeat fit, but only one repeat
-  bool IS_CRAZYERR = crazy_small_errors();
+  bool IS_CRAZYERR = crazy_M0_errors();
   if ( IS_CRAZYERR &&  NCALL_SALT2mu_DRIVER_EXEC == 1 ) {
     double delta_alpha = 0.001;
     double delta_beta  = 0.01;
@@ -4149,7 +4152,7 @@ int prepNextFit(void) {
 } // end of prepNextFit
 
 // ******************************************
-bool crazy_small_errors(void) {
+bool crazy_M0_errors(void) {
   // Created July 2022
   // Return TRUE if fitted distance errors are absurdly small,
   // so that main program repeats the BBC fit process.  
@@ -4160,14 +4163,14 @@ bool crazy_small_errors(void) {
   bool crazy_error_flag= false;
   bool ISFLOAT, ISM0;
   double sigint_ref = 0.100; // M0 error should be at least sigint/sqrt(N)
-  double crazy_small_error = 1.0E-4;  
   double VAL, ERR, ERRMIN_COMPUTE, XN, z;
-  int    n, iz, NEVT, n_crazy_small_error = 0;
+  int    n, iz, NEVT, n_crazy_M0_error = 0;
 
+  double ERRMAX_CRAZY      = 4.0;
   double ERRMIN_FRAC_CRAZY = 0.5;  // crazy err of ERR/ERRMIN < this value
   int    N_CRAZYERR_SETFLAG = 3;
-
-  char fnam[] = "crazy_small_errors";
+  
+  char fnam[] = "crazy_M0_errors";
   // ----------- BEGIN -------------
 
   sprintf(BANNER,"Check for Crazy-small Fit Errors" );
@@ -4195,22 +4198,30 @@ bool crazy_small_errors(void) {
 	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f \n", 
 	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE); 
       fflush(stdout);
-      n_crazy_small_error++ ; 
+      n_crazy_M0_error++ ; 
+    }
+
+    if ( ERR > ERRMAX_CRAZY ) {
+      printf(" CrazyERR WARNING: iz=%d  z=%.3f "
+	     "M0ERR=%.5f ERRMAX_CRAZY=%.1f  NEVT=%d\n", 
+	     iz, z, ERR, ERRMAX_CRAZY, NEVT); 
+      fflush(stdout);
+      n_crazy_M0_error++ ; 
     }
   }
   
-  crazy_error_flag = ( n_crazy_small_error >= N_CRAZYERR_SETFLAG );
+  crazy_error_flag = ( n_crazy_M0_error >= N_CRAZYERR_SETFLAG );
 
   // load global for each DRIVER_EXEC iteration
-  NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC] = n_crazy_small_error; 
+  NWARN_CRAZYERR[NCALL_SALT2mu_DRIVER_EXEC] = n_crazy_M0_error; 
 
-  printf("\t Found %d crazy M0 fit-errors. \n\n", n_crazy_small_error);
+  printf("\t Found %d crazy M0 fit-errors. \n\n", n_crazy_M0_error);
 
   fflush(stdout);
 
   return crazy_error_flag ;
  
-} // end crazy_small_errors
+} // end crazy_M0_errors
 
 // ******************************************
 void printmsg_repeatFit(char *msg) {

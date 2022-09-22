@@ -2,6 +2,9 @@ import numpy as np
 from astropy import constants
 from astropy.cosmology import Planck18
 
+from gensed_base import gensed_base
+
+
 M_sun = constants.M_sun.cgs.value
 c = constants.c.cgs.value
 
@@ -81,18 +84,12 @@ class AGN:
                       + C * (Mi + 23) + D * np.log10(M_BH / (1e9 * M_sun)))
 
 
-class gensed_BAYESN:
+class gensed_AGN(gensed_base):
     def __init__(self, PATH_VERSION, OPTMASK, ARGLIST, HOST_PARAM_NAMES):
         self.agn = None
         self.rng = np.random.default_rng(0)
         self.wavelen = 100
         self.wave = np.logspace(np.log10(100e-8), np.log10(20000e-8), self.wavelen)
-
-    def fetchSED_NLAM(self):
-        """
-        Returns the length of the wavelength vector
-        """
-        return self.wavelen
 
     def fetchSED_LAM(self):
         """
@@ -102,7 +99,7 @@ class gensed_BAYESN:
         # print('wave:',wave_aa)
         return wave_aa.tolist()
 
-    def fetchSED_BAYESN(self, trest, maxlam=5000, external_id=1, new_event=1, hostparams=''):
+    def fetchSED(self, trest, maxlam=5000, external_id=1, new_event=1, hostparams=''):
         if new_event:
             self.agn = AGN(t0=trest, Mi=-23, M_BH=1e9 * M_sun, lam=self.wave, rng=self.rng)
         else:
@@ -110,12 +107,9 @@ class gensed_BAYESN:
         Flambda = self.agn.Fnu * c / self.wave ** 2 * 1e-8
         return Flambda.tolist()
 
-    def fetchParNames_BAYESN(self):
+    def fetchParNames(self):
         return []
 
-    def fetchNParNames_BAYESN(self):
-        return 0
-
-    def fetchParVals_BAYESN_4SNANA(self, varname):
+    def fetchParVals(self, varname):
         return 'SNANA'
 

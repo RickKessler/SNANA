@@ -10,6 +10,7 @@
      gensed_BYOSED.py : Build Your Own SED  (J.Pierel)
      gensed_SNEMO.py  : SNFactory model (Ben Rose)
      gensed_BAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
+     gensed_AGN.py : AGN model (Qifeng Cheng, Konstantin Malanchev)
 
   Initial motivation is to build underlying "true" SED model to
   test SNIa model training. However, this function could in

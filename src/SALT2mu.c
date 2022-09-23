@@ -1017,6 +1017,8 @@ with append_varname_missing,
  Sep 21 2022: finally implement crazy_M0_errors() to trigger repeat fit;
               write NWARN_CRAZYERR to yaml output.
 
+ Sep 23 2022: abort if MUCOVADD and sigmB > 0.05 since.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -4140,8 +4142,10 @@ int prepNextFit(void) {
 	    redchi2, FITRESULT.PARNAME[IPAR_COVINT_PARAM],
 	    FITINP.COVINT_PARAM_FIX,  FITRESULT.NCALL_FCN );
      */
-    sprintf(msg,"last a,b,redchi2=%.3f,%.2f,%.3f --> next %s=%.3f", 
-	    FITRESULT.ALPHA, FITRESULT.BETA, redchi2, 
+    sprintf(msg,"last a/b/sigint/redchi2=%.3f/%.2f/%.3f/%.3f --> "
+	    "next %s=%.3f", 
+	    FITRESULT.ALPHA, FITRESULT.BETA, 
+	    FITINP.COVINT_PARAM_LAST, redchi2, 
 	    FITRESULT.PARNAME[IPAR_COVINT_PARAM],
 	    FITINP.COVINT_PARAM_FIX );
     printmsg_repeatFit(msg);
@@ -4186,7 +4190,7 @@ bool crazy_M0_errors(void) {
     // now we have Mudif in a redshift bin
     iz    = INPUTS.izpar[n] ;
     z     = FITRESULT.zM0[iz];
-    NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin .xyz
+    NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin
     XN    = (double)NEVT;
     if ( XN < 1.0 ) { XN = 1.0; }
     ERRMIN_COMPUTE = sigint_ref / sqrt(XN);
@@ -4637,10 +4641,14 @@ void *MNCHI2FUN(void *thread) {
     muBiasErr = 0.0 ; 
 
     APPLY_COVADD = ( DO_COVADD && muCOVadd > 0.0  );
+
+    if ( INPUTS.debug_flag == 922 )  // RK .xyz
+      { APPLY_COVADD = ( DO_COVADD && muCOVadd > 9990.0  ); }
                  
     bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&2)>0;
     if (restore_mucovadd_bug){
-      APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );}
+      APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
+    }
     
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
@@ -5668,7 +5676,7 @@ void set_defaults(void) {
   INPUTS.nzbin_ccprior = 0 ; // 0-> use default z-bin size of 0.1
 
   // global scatter matrix
-  INPUTS.sigmB  = 0.00 ; // -> 0 on 4/23/2012 by RK
+  INPUTS.sigmB  = 0.00 ; 
   INPUTS.sigx1  = 0.00 ;
   INPUTS.sigc   = 0.00 ;
   INPUTS.xi01   = 0.0  ;
@@ -10336,7 +10344,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   MEMCOV  = NCELL   * sizeof(float) ;
   INFO_BIASCOR.FITPARBIAS[IDSAMPLE] = (FITPARBIAS_DEF*) malloc ( MEMBIAS);
   INFO_BIASCOR.MUCOVSCALE[IDSAMPLE] = (float *        ) malloc ( MEMCOV );
-  INFO_BIASCOR.MUCOVADD[IDSAMPLE] = (float *        ) malloc ( MEMCOV );
+  INFO_BIASCOR.MUCOVADD[IDSAMPLE]   = (float *        ) malloc ( MEMCOV );
 
   fflush(FP_STDOUT);
   return ;
@@ -11301,7 +11309,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
       }
       sigInt =
-	sigint_muresid_list(N, CELL_MUCOVADD->MURES[i1d],
+	sigint_muresid_list(N, 
+			    CELL_MUCOVADD->MURES[i1d],
 			    CELL_MUCOVADD->MUCOV[i1d], OPTMASK, callfun );
       if (sigInt == 0.) { sigInt = 1.0e-12;}
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
@@ -14219,7 +14228,7 @@ void get_muBias(char *NAME,
 	    print_preAbort_banner(fnam);
 	    printf(" BiasCor IDSAMPLE = %d (%s)\n",
 		   IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );
-	    printf(" BiasCor CID      = %s \n", NAME); // .xyz
+	    printf(" BiasCor CID      = %s \n", NAME); 
 	    sprintf(c1err,"Undefined %s-bias = %.3f +- %.3f ", 
 		    BIASCOR_NAME_LCFIT[ipar], VAL, ERR);
 	    sprintf(c2err,"ia,ib,ig=%d,%d,%d  a,b,g=%.3f,%.2f,%.3f",
@@ -18174,6 +18183,7 @@ void prep_input_driver(void) {
 
   int ICUTWIN_VARNAME_PIA = INFO_DATA.TABLEVAR.ICUTWIN_VARNAME_PIA;
   char *varname_pIa       = INPUTS.varname_pIa ;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int i, icut;
   int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
@@ -18250,6 +18260,13 @@ void prep_input_driver(void) {
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
   FITINP.DCHI2RED_DSIGINT   = INPUTS.dchi2red_dsigint; // Mar 25 2022
   INPUTS.covint_param_step1 = INPUTS.sigint_step1 ; // default COVINT param
+
+  if ( DO_COVADD && INPUTS.sigmB > 0.05 ) {
+    sprintf(c1err,"initial sigmB (or sig1) = %.3f is too large for MUCOVADD",
+	    INPUTS.sigmB);
+    sprintf(c2err,"Expect final sigmB near zero --> reduce sigmB (or sig1)");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
 
   // Oct 9 2018: for sigInt(IDSAMPLE), vary global COV scale instead
   //             of varying sigInt.

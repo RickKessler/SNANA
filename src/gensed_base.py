@@ -10,6 +10,25 @@ class gensed_base(ABC):
     def __init__(self, PATH_VERSION: str, OPTMASK: int, ARGLIST: str, HOST_PARAM_NAMES: str):
         pass
 
+    def prepEvent(self, trest: np.ndarray, external_id: int, hostpars: Tuple[float]) -> None:
+        """
+        Prepare model before self.fetchSED(new_event=1) is called
+
+        This method is made non-abstract intentionally, it is optional to
+        implement and required only for models (e.g. AGN) which need to
+        prepare SEDs for all Trest in advance
+
+        Parameters
+        ----------
+        trest : ndarray[float64]
+            The rest frame phases at which to calculate the flux. It is sorted
+            in the ascending order
+        external_id : int
+             ID for event
+        hostpars : tuple[float]
+             Host parameters corresponded to HOST_PARAM_NAMES
+        """
+        pass
 
     @abstractmethod
     def fetchSED_LAM(self) -> npt.ArrayLike:
@@ -36,9 +55,9 @@ class gensed_base(ABC):
              vector is longer than this number (default is arbitrary),
              program should abort
         external_id : int
-             ID for SN
+             ID for event
         new_event : int
-             1 if new event, 0 if same SN
+             1 if new event, 0 if same event
         hostpars : tuple[float]
              Host parameters corresponded to HOST_PARAM_NAMES
 

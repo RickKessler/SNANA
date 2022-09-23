@@ -25422,7 +25422,7 @@ void genmodel(
 
     // Sep 2022: optional sed prep for all MJDs on first call
     if ( ncall == 1 ) {
-      prepEvent_PySEDMODEL(GENLC.CID, GENLC.REDSHIFT_CMB,
+      prepEvent_PySEDMODEL(GENLC.CID, GENLC.REDSHIFT_HELIO,
 			   NHOSTPAR, VAL_HOSTPAR, 
 			   GENLC.NEPOCH, &GENLC.epoch_obs[1] );
     }

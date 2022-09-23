@@ -82,10 +82,10 @@ PyObject *geninit_PySEDMODEL ;
 #ifdef USE_PYTHON
 void handle_python_exception(char *fnam, const char *desc) {
   // Exit with an error message for Python exceptions
-  print_preAbort_banner(fnam);
   if (PyErr_Occurred() == NULL) {
     return ;
   }
+  print_preAbort_banner(fnam);
   PyErr_Print();
   sprintf(c1err,"Python raised an uncaught exception");
   sprintf(c2err,"while %s", desc);
@@ -751,10 +751,12 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
-
   PyTuple_SetItem(pargs,4,pargs2);
+  
   pLAM   = PyEval_CallObject(plammeth, NULL);
+  handle_python_exception(fnam, "calling _fetchSED_LAM method");
   pFLUX  = PyEval_CallObject(pmeth, pargs);
+  handle_python_exception(fnam, "calling _fetchSED method");
 
   Py_DECREF(pmeth);
   Py_DECREF(plammeth);

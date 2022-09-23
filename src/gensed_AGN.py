@@ -85,11 +85,29 @@ class AGN:
 
 
 class gensed_AGN(gensed_base):
+    # round input rest time by 10**_trest_digits days
+    _trest_digits = 8
+
     def __init__(self, PATH_VERSION, OPTMASK, ARGLIST, HOST_PARAM_NAMES):
         self.agn = None
+        self.trest = None
+        self.sed = None
         self.rng = np.random.default_rng(0)
         self.wavelen = 100
         self.wave = np.logspace(np.log10(100e-8), np.log10(20000e-8), self.wavelen)
+
+    def _get_Flambda(self):
+        return self.agn.Fnu * c / self.wave ** 2 * 1e-8
+
+    def prepEvent(self, trest, external_id, hostparams):
+        # trest is sorted
+        self.trest = np.round(trest, self._trest_digits)
+        self.agn = AGN(t0=self.trest[0], Mi=-23, M_BH=1e9 * M_sun, lam=self.wave, rng=self.rng)
+        self.sed = {self.trest[0]: self._get_Flambda()}
+        # TODO: consider a case of repeated t, we usually have several t = 0
+        for t in self.trest[1:]:
+            self.agn.step(t)
+            self.sed[t] = self._get_Flambda()
 
     def fetchSED_LAM(self):
         """
@@ -97,15 +115,11 @@ class gensed_AGN(gensed_base):
         """
         wave_aa = self.wave * 1e8
         # print('wave:',wave_aa)
-        return wave_aa.tolist()
+        return wave_aa
 
-    def fetchSED(self, trest, maxlam=5000, external_id=1, new_event=1, hostparams=''):
-        if new_event:
-            self.agn = AGN(t0=trest, Mi=-23, M_BH=1e9 * M_sun, lam=self.wave, rng=self.rng)
-        else:
-            self.agn.step(trest)
-        Flambda = self.agn.Fnu * c / self.wave ** 2 * 1e-8
-        return Flambda.tolist()
+    def fetchSED(self, trest, maxlam, external_id, new_event, hostparams):
+        trest = round(trest, self._trest_digits)
+        return self.sed[trest]
 
     def fetchParNames(self):
         return []

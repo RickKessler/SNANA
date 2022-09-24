@@ -10,6 +10,7 @@
      gensed_BYOSED.py : Build Your Own SED  (J.Pierel)
      gensed_SNEMO.py  : SNFactory model (Ben Rose)
      gensed_BAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
+     gensed_AGN.py : AGN model (Qifeng Cheng, Konstantin Malanchev)
 
   Initial motivation is to build underlying "true" SED model to
   test SNIa model training. However, this function could in
@@ -68,6 +69,8 @@
 #include  <Python.h>
 //#include <numpy/arrayobject.h>
 //#include <numpy/ndarrayobject.h>
+PyObject *numpy_empty, *numpy_double; // numpy.empty, numpy.double
+
 PyObject *geninit_PySEDMODEL ;
 
 //int init_numpy(){
@@ -242,6 +245,13 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  // Get numpy empty, we will reuse it
+  PyObject *numpy = PyImport_ImportModule("numpy");
+  numpy_empty = PyObject_GetAttrString(numpy, "empty");
+  numpy_double = PyObject_GetAttrString(numpy, "double");
+  handle_python_exception(fnam, "importing numpy and getting numpy.empty & numpy.double");
+  Py_DECREF(numpy);
+
   printf("DEBUG", PyCLASS_NAME, "\n");
   genmod_base = PyImport_ImportModule("gensed_base");
   if (genmod_base == NULL) {
@@ -347,10 +357,9 @@ void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
 
 
 // =========================================================
-void prepEvent_PySEDMODEL(int CID, double zCMB, 
+void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
 			  int NHOSTPAR, double *HOSTPAR_LIST,
 			  int NOBS, double *TOBS_LIST ) {
-
   // Created Sep 2022 by R.Kessler
   // Interface to prepare seds for all epochs (over all bands),
   // instead of genmag_PySEDMODEL that is called for each band.
@@ -362,55 +371,91 @@ void prepEvent_PySEDMODEL(int CID, double zCMB,
   // and thus cannot processed by band.
   //
   // Inputs:
-  //   CID  integer id for event
-  //   zCMB  : CMB redshift (to allow for z-dependent model)
+  //   EXTERNAL_ID  :  SNID passed from main program
+  //   zHEL  : heliocentric redshift (to allow for z-dependent model)
   //  NHOSTPAR:      number of host params
   //  HOSTPAR_LIST:  host property values
   //  NOBS:          total number of observations, all bands
   //  TOBS_LIST:     observer-frame times w.r.t. PEAKMJD
   //
 
+  #ifdef USE_PYTHON
+  
   char *MODEL_NAME   = INPUTS_PySEDMODEL.MODEL_NAME ;
-  int MEMD           = (NOBS+10) * sizeof(double);
   int MEMI           = (NOBS+10) * sizeof(int);
-  double *Trest_list = (double*)malloc(MEMD);
   int    *INDEX_SORT = (int*)   malloc(MEMI);
-  double z1      = 1.0 + zCMB;
+  double *arrTrest;
+  double z1      = 1.0 + zHEL;
   double z1inv   = 1.0/z1;
-  double Tobs_template ;
-  int o, o_sort, NOBS_STORE=0;
+  double Tobs_template;
+  int o, o_sort, i, ihost, NOBS_STORE;
   char fnam[] = "prepEvent_PySEDMODEL";
+  
+  PyObject *pHOSTPARS, *pTrest, *prepmeth;
+  Py_buffer bufTrest = {NULL, NULL};
 
   // ------------- BEGIN ------------
 
+
   // sort TOBS_LIST in increasing order
   int ORDER_SORT = +1; // ==> increasing
-  sortDouble(NOBS, TOBS_LIST, ORDER_SORT, INDEX_SORT );
+  sortDouble(NOBS, TOBS_LIST, ORDER_SORT, INDEX_SORT);
 
-  // for recurring model (e.g., AGN), pick arbitrary 
-  // DIA template time 1 year earlier
+  // for recurring models (e.g., AGN), we need one extra DIA tempalte
   bool RECUR = ( strcmp(MODEL_NAME,MODEL_NAME_AGN) == 0 );
+  
   if ( RECUR ) {
-    Tobs_template = TOBS_LIST[0] - 365.0 ;
-    Trest_list[NOBS_STORE] = Tobs_template * z1inv ;
-    NOBS_STORE++ ;
-  }
-  else {
+    o_sort = INDEX_SORT[0];
+    Tobs_template = TOBS_LIST[o_sort] - 365.0 ; // arbitrary value of one year
+    NOBS_STORE = NOBS + 1;
+  } else {
     Tobs_template = -1.0E8; // not used
+    NOBS_STORE = NOBS;
   }
-
-  for(o=0; o < NOBS; o++ )  { 
-    o_sort = INDEX_SORT[o] ;
-    Trest_list[NOBS_STORE] = TOBS_LIST[o_sort] * z1inv ; 
-    NOBS_STORE++ ;
-  }
-
   Event_PySEDMODEL.Tobs_template = Tobs_template ;
 
-  // call python here ...
+  // Creating an empty numpy array to handle Trest
+  // It would be more clear to use numpy C-API, but we wouldn't introduce numpy
+  // as a build dependency.
+  pTrest = PyObject_CallFunction(numpy_empty, "(iO)", NOBS_STORE, numpy_double);
+  handle_python_exception(fnam, "creating ndarray for trest");
+  if (PyObject_GetBuffer(pTrest, &bufTrest, PyBUF_CONTIG) != 0) {
+    sprintf(c1err,"pTrest must be a contiguous numpy array");
+    sprintf(c2err,"??");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  arrTrest = (double*) bufTrest.buf;
 
+  if ( RECUR ) {
+    arrTrest[0] = Tobs_template * z1inv;
+  }
+  for(o=0; o < NOBS; o++ )  { 
+    o_sort = INDEX_SORT[o];
+    i = o + (int) RECUR;
+    arrTrest[i] = TOBS_LIST[o_sort] * z1inv ;
+  }
 
-  free(Trest_list);
+  // Give Python model Trest array so it is prepared
+  // for fetching Trest in an arbitrary order
+  prepmeth = PyObject_GetAttrString(geninit_PySEDMODEL, "prepEvent");
+  handle_python_exception(fnam, "getting prepEvent method");
+  
+  pHOSTPARS = PyTuple_New(NHOSTPAR);
+  for(ihost=0; ihost < NHOSTPAR; ihost++ ){
+    PyTuple_SetItem(pHOSTPARS,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
+  }
+
+  PyObject_CallFunction(prepmeth, "(OiO)", pTrest, EXTERNAL_ID, pHOSTPARS);
+  handle_python_exception(fnam, "calling prepEvent");
+
+  PyBuffer_Release(&bufTrest);
+  Py_DECREF(pHOSTPARS);
+  Py_DECREF(pTrest);
+  Py_DECREF(prepmeth);
+
+  free(INDEX_SORT);
+
+  #endif
   return;
 
 } // end prepEvent_PySEDMODEL
@@ -453,6 +498,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
   double z1    = 1.0 + zHEL ;
+  double z1inv   = 1.0/z1;
   double *LAM  = Event_PySEDMODEL.LAM;
   double *SED  = Event_PySEDMODEL.SED ;
   bool DO_TEMPLATE = Event_PySEDMODEL.Tobs_template > -1.0E7 ;
@@ -467,7 +513,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ;
-  char   pyFORMAT_STRING_HOSTPAR[100] ;;
   char fnam[] = "genmag_PySEDMODEL" ;
 
    #ifdef USE_PYTHON
@@ -501,18 +546,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
     fflush(stdout);
   }
 
-  // construct hostpar string to pass to python
-  sprintf(pyFORMAT_STRING_HOSTPAR,"diii[" );
-  for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
-    strcat(pyFORMAT_STRING_HOSTPAR,"d");
-    if ( ipar < NHOSTPAR-1 )
-      { strcat(pyFORMAT_STRING_HOSTPAR,","); }
-    else
-      { strcat(pyFORMAT_STRING_HOSTPAR,"]"); }
-  }
-  //  printf(" xxx pySTRING_HOSTPAR = '%s' \n", pyFORMAT_STRING_HOSTPAR );
-
-
   /*
   printf(" xxx ------------------------------------ \n" ) ;
   printf(" xxx %s: process z=%.3f MU=%.3f RV=%3.1f IFILT_OBS=%d(%s) \n",
@@ -536,15 +569,14 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
     else
       { Tobs =  Event_PySEDMODEL.Tobs_template; }
 
-    Trest = Tobs/z1;
+    Trest = Tobs * z1inv;
     if (o == 0 )
       { NEWEVT_FLAG_TMP = NEWEVT_FLAG; }
     else
       { NEWEVT_FLAG_TMP = 0; }
 
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest,
-			MXLAM, HOSTPAR_LIST, &NLAM, LAM, SED,
-			pyFORMAT_STRING_HOSTPAR);
+			MXLAM, HOSTPAR_LIST, &NLAM, LAM, SED);
     Event_PySEDMODEL.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
@@ -705,8 +737,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 // =================================================
 void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
 			 double *HOSTPAR_LIST, int *NLAM_SED,
-			 double *LAM_SED, double *FLUX_SED,
-			 char *pyFORMAT_STRING_HOSTPAR) {
+			 double *LAM_SED, double *FLUX_SED) {
 
   // return rest-frame SED to calling function;
   // Inputs:
@@ -732,8 +763,8 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
 #ifdef USE_PYTHON
   PyObject *pmeth, *pargs, *pargs2, *pLAM, *pFLUX, *plammeth;
-  Py_buffer viewLAM = {NULL, NULL};
-  Py_buffer viewFLUX = {NULL, NULL};
+  Py_buffer bufLAM = {NULL, NULL};
+  Py_buffer bufFLUX = {NULL, NULL};
   int NLAM, ilam, ihost;
   //int numpy_initialized =  init_numpy();
 
@@ -773,39 +804,39 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   };
 
-  if (PyObject_GetBuffer(pLAM, &viewLAM, PyBUF_FULL_RO) != 0) {
+  if (PyObject_GetBuffer(pLAM, &bufLAM, PyBUF_FULL_RO) != 0) {
     handle_python_exception(fnam, "setting buffer from pLAM");
   }
-  if (PyObject_GetBuffer(pFLUX, &viewFLUX, PyBUF_FULL_RO) != 0) {
+  if (PyObject_GetBuffer(pFLUX, &bufFLUX, PyBUF_FULL_RO) != 0) {
     handle_python_exception(fnam, "setting buffer from pFLUX");
   }
 
-  if (viewLAM.itemsize != sizeof(double)) {
+  if (bufLAM.itemsize != sizeof(double)) {
     sprintf(c1err,"_fetchSED_LAM must return numpy array with np.float64 dtype");
-    sprintf(c2err,"itemsize of returned dtype is %d",viewLAM.itemsize);
+    sprintf(c2err,"itemsize of returned dtype is %d",bufLAM.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  if (viewFLUX.itemsize != sizeof(double)) {
+  if (bufFLUX.itemsize != sizeof(double)) {
     sprintf(c1err,"_fetchSED must return numpy array with np.float64 dtype");
-    sprintf(c2err,"itemsize of returned dtype is %d",viewFLUX.itemsize);
+    sprintf(c2err,"itemsize of returned dtype is %d",bufFLUX.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  NLAM = viewLAM.len / viewLAM.itemsize;
-  if (NLAM != viewFLUX.len / viewFLUX.itemsize) {
+  NLAM = bufLAM.len / bufLAM.itemsize;
+  if (NLAM != bufFLUX.len / bufFLUX.itemsize) {
     sprintf(c1err,"size of array returned by _fetchSED_LAM doesn't equal to one returned by _fetchSED");
-    sprintf(c2err,"NLAM = %d, NFLUX = %d",viewLAM.len / viewLAM.itemsize, viewFLUX.len / viewFLUX.itemsize);
+    sprintf(c2err,"NLAM = %d, NFLUX = %d",bufLAM.len / bufLAM.itemsize, bufFLUX.len / bufFLUX.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  PyBuffer_ToContiguous(LAM_SED, &viewLAM, viewLAM.len, 'C');
-  PyBuffer_ToContiguous(FLUX_SED, &viewFLUX, viewFLUX.len, 'C');
+  PyBuffer_ToContiguous(LAM_SED, &bufLAM, bufLAM.len, 'C');
+  PyBuffer_ToContiguous(FLUX_SED, &bufFLUX, bufFLUX.len, 'C');
 
   *NLAM_SED = NLAM;
 
-  PyBuffer_Release(&viewLAM);
-  PyBuffer_Release(&viewFLUX);
+  PyBuffer_Release(&bufLAM);
+  PyBuffer_Release(&bufFLUX);
   Py_DECREF(pLAM);
   Py_DECREF(pFLUX);
   Py_DECREF(pargs);
@@ -1077,7 +1108,6 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   int ilam, NLAM, FLAG_ignore ;
   int    NEWEVT_FLAG = 0 ;
-  char   pyFORMAT_STRING_HOSTPAR[100] ;;
   double Finteg_ignore, FTMP, MAG, ZP, LAM, Trest ;
   double *SED   = Event_PySEDMODEL.SED ;
   double *FLAM  = Event_PySEDMODEL.LAM;
@@ -1090,8 +1120,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   // get the spectrum
   Trest = Tobs/z1;
   fetchSED_PySEDMODEL(Event_PySEDMODEL.EXTERNAL_ID, NEWEVT_FLAG, Trest,
-		      MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, FLAM, SED,
-		      pyFORMAT_STRING_HOSTPAR);
+		      MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, FLAM, SED);
   Event_PySEDMODEL.NLAM = NLAM ;
 
 

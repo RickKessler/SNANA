@@ -57,7 +57,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION,
 
 void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME);
 
-void prepEvent_PySEDMODEL(int CID, double zCMB, 
+void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zCMB, 
 			  int NHOSTPAR, double *HOSTPAR_LIST,
                           int NOBS_ALL, double *TOBS_LIST);
 
@@ -71,8 +71,7 @@ int  fetchParNames_PySEDMODEL(char **parNameList);
 void fetchParVal_PySEDMODEL(double *parVal);
 void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs,
 			 int MXLAM, double *HOSTPAR_LIST, int *NLAM,
-			 double *LAM, double *FLUX,
-			 char *pyFORMAT_STRING_HOSTPAR);
+			 double *LAM, double *FLUX);
 
 void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,
 			   double zHEL, double x0,

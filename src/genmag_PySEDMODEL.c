@@ -455,7 +455,11 @@ void prepEvent_PySEDMODEL(int EXTERNAL_ID, double zHEL,
 
   free(INDEX_SORT);
 
+  #else
+  // We don't need to do a template for SALT2
+  Event_PySEDMODEL.Tobs_template = -1.0E8;
   #endif
+
   return;
 
 } // end prepEvent_PySEDMODEL

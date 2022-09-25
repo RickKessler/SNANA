@@ -21279,9 +21279,16 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** IMPORTANT(v11_04n) ***** 
 
-   SALT2mu:  auto-detect crazy-small or crazy-big fitted M0 errors 
-             and repeat BBC fit;
-               see https://github.com/RickKessler/SNANA/issues/955
+   SALT2mu:  
+     + auto-detect crazy-small or crazy-big fitted M0 errors 
+       and repeat BBC fit;
+            see https://github.com/RickKessler/SNANA/issues/955
+
+     + abort if MUCOVADD and sigmB>0.05
+         see https://github.com/RickKessler/SNANA/issues/1009
+
+   Add gensed_AGN.py as part of PySEDMODEL, and major refac of 
+   PySEDMODEL to be more robust (by K.Malanchev)
 
          ***** USEFUL(v11_04n) ***** 
 

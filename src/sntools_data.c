@@ -1249,6 +1249,7 @@ void rd_override_append(void) {
 
       if ( strstr(varName,"HOSTGAL") != NULL ) {
 	SNDATA.HOSTGAL_NMATCH[0] = 1;
+	SNDATA.HOSTGAL_NMATCH[1] = 1;  // fixed bug, 9.23.2022
       }
 
     }  // end exist varname in header overrid

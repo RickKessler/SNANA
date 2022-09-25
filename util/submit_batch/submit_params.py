@@ -4,6 +4,7 @@
 #  Constant parameters & names for submit script.
 #  Giant HELP_CONFIG per task are at the bottom.
 #
+#  Default memory -> 4GB (was 2GB)
 #
 # ==============================================
 
@@ -61,7 +62,7 @@ MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-BATCH_MEM_DEFAULT      = "2000"      # default memory request is 2GB
+BATCH_MEM_DEFAULT      = "4GB"       # default memory is 4GB (9.24.2022) ( was 2GB)
 BATCH_WALLTIME_DEFAULT = '24:00:00'  # default wall time is 24hr
 BATCH_MAXJOB_DEFAULT   = 500         # max number of jobs allowed in queue
 BATCH_NTHREADS_DEFAULT = 1           # number of threads per job 08/apr/2022
@@ -192,7 +193,7 @@ CONFIG:
   NODELIST: [node1] [node2] ...  # for ssh
 
   # optional memory request (default is 2 GB)
-  BATCH_MEM: 4000     # 4GB (e.g., extra mem for big SIMSED models)
+  BATCH_MEM: 8GB     # e.g., extra mem for big SIMSED models
 
   # optional max walltime request (default is 24hr)
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time

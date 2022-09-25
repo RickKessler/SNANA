@@ -15849,6 +15849,7 @@ c ------------- BEGIN -------------
 c init a few SNHOST arrays
 
       SNHOST_NMATCH            =  0
+      SNHOST_NMATCH2           =  0
       SNHOST_CONFUSION         = -9.0
       do igal = 1, MXSNHOST 
          SNHOST_FLAG(igal)        = 0

@@ -2719,6 +2719,9 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
       dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.MAGERR, ep);
       SNDATA.MAG_ERR[ep] = (float)dval ;  
+
+      if ( SNDATA.MAG[ep] < 0.0 ) 
+	{ IVAROBS_SNTEXTIO.MAG = IVAROBS_SNTEXTIO.MAGERR = -9; }
     }
 
     if ( IVAROBS_SNTEXTIO.PHOTFLAG >= 0 ) {

@@ -18401,6 +18401,7 @@ c
       REAL*8   HC, DDLR_LIST(MXSNHOST)
       INTEGER  igal, NMATCH2
       LOGICAL LDMP / .FALSE. /
+      character cCID*40
 
       REAL*8   HOST_CONFUSION
       EXTERNAL HOST_CONFUSION   ! see sntools.c
@@ -18420,7 +18421,8 @@ c convert single precions to double precision
       DO igal = 1, NMATCH2
         DDLR_LIST(igal) = DBLE(SNHOST_DDLR(igal))
       ENDDO
-      HC = HOST_CONFUSION(NMATCH2,DDLR_LIST)
+      cCID = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
+      HC = HOST_CONFUSION(cCID,NMATCH2,DDLR_LIST,40)
 
       IF ( LDMP ) THEN
          print*,' xxx ----------------------------------------- '

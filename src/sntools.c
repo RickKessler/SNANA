@@ -3481,7 +3481,7 @@ double GaussIntegral(double nsig1, double nsig2) {
 } // end GaussIntegral
 
 // =================================================
-double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
+double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED) {
   
   // Created Sep 2 2022 by R.Kessler
   // Function returns host confusion variable from Eq 3 in
@@ -3501,6 +3501,13 @@ double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
 
   D1 = DDLR_LIST_SORTED[0]; // D1 is Gupta notation; [0] is C index
   D2 = DDLR_LIST_SORTED[1];
+  if ( D2<=1.0E-6 ) {
+    HC = +9.0 ;
+    printf ("WARNING: D2=%le for CID=%s, set HC=%.2f\n",D2,CID,HC);
+    fflush(stdout);
+    return HC; 
+  } // protect against data error
+
   preFac = (D1*D1/D2 + eps) / (D2 - D1 + eps);
 
   tmp = 0.0 ;
@@ -3515,15 +3522,16 @@ double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED) {
       tmp += ( top / bot );
     }
   }
-
+  printf("xxx %s preFac=%f, tmp=%f\n",fnam,preFac,tmp);
+  printf("xxx %s D1=%f, D2=%f, N_DDLR=%i\n",fnam,D1,D2,N_DDLR);
   HC = log10(preFac * tmp);
-
+  
   return HC;
 
 } // end host_confusion
 
-double host_confusion__(int *N_DDLR, double *DDLR_LIST_SORTED)
-{ return host_confusion(*N_DDLR, DDLR_LIST_SORTED); }
+double host_confusion__(char *CID, int *N_DDLR, double *DDLR_LIST_SORTED)
+{ return host_confusion(CID, *N_DDLR, DDLR_LIST_SORTED); }
 
 // =============================================
 double angSep( double RA1,double DEC1, 

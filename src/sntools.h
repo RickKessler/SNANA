@@ -806,8 +806,8 @@ double angSep( double RA1,double DEC1,
 
 double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2 );
 
-double host_confusion(int N_DDLR, double *DDLR_LIST_SORTED);
-double host_confusion__(int *N_DDLR, double *DDLR_LIST_SORTED);
+double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED);
+double host_confusion__(char *CID, int *N_DDLR, double *DDLR_LIST_SORTED);
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan

@@ -631,19 +631,24 @@ def get_file_lists_wildcard(search_dir, search_wildcard):
 
 def nrow_table_TEXT(table_file, row_key):
     # For input TEXT file, return number rows with 'row_key'
-    nrow        = 0
-    cmd_grep    = f"grep '{row_key}' {table_file} | wc "
-    result_line = subprocess.check_output(cmd_grep,shell=True).rstrip()
-    result_line = result_line.decode('utf-8')
-    nrow        = int(result_line.split()[0])
+    # and number of nan (NaN).
+    #
+    # Sep 26 2022: also check for number of nan.
 
-    # check for NaN (Sep 26 2022)
+    # xxxxxxxxxx mark delete Sep 26 2022 xxxxxxxxxxxxxxxxx
+    #cmd_grep    = f"grep '{row_key}' {table_file} | wc "
+    #result_line = subprocess.check_output(cmd_grep,shell=True).rstrip()
+    #result_line = result_line.decode('utf-8')
+    #nrow        = int(result_line.split()[0])
+    # xxxxxxxxxxxxxxxxxxxxxxx
+
     with open(table_file,"rt") as f:
         lines  = f.read()
+        n_row  = lines.count(row_key)
         n_nan  = lines.count("nan") 
         n_nan += lines.count("NaN")
 
-    return nrow, n_nan
+    return n_row, n_nan
 
     # end nrow_table_TEXT   
 

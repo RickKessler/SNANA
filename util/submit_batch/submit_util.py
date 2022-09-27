@@ -7,6 +7,7 @@
 #             hope to avoid running .exe during make.
 #
 # Aug 28 2022: wsig_hi -> wsig_up to match minimized wfit output (bug fix)
+# Sep 26 2022: in nrow_table_TEXT(), check for nan
 #
 # ==============================================
 
@@ -635,8 +636,16 @@ def nrow_table_TEXT(table_file, row_key):
     result_line = subprocess.check_output(cmd_grep,shell=True).rstrip()
     result_line = result_line.decode('utf-8')
     nrow        = int(result_line.split()[0])
-    return nrow
-    # end nrow_table_TEXT                                                         
+
+    # check for NaN (Sep 26 2022)
+    with open(table_file,"rt") as f:
+        lines  = f.read()
+        n_nan  = lines.count("nan") 
+        n_nan += lines.count("NaN")
+
+    return nrow, n_nan
+
+    # end nrow_table_TEXT   
 
 def extract_arg(key):
     # If key is of the form  KEY(ARG), function returns ARG.

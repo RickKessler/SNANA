@@ -1407,7 +1407,11 @@ class LightCurveFit(Program):
 
         if table_name == SUFFIX_FITRES :
             OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
-            nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
+            nevt_find, n_nan = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
+            if n_nan > 0:
+                msgerr = [f"found {n_nan} nan in {OUT_TABLE_FILE}"]
+                self.log_assert(False,msgerr) 
+
             self.nevt_table_check(nevt_expect, nevt_find, out_table_file,
                                   cmd_all)
             self.config_prep['merge_table_file_list'][itable] = out_table_file
@@ -1601,7 +1605,12 @@ class LightCurveFit(Program):
 
         # finally, make sure that the number of rows still matches nevt_expect
         OUT_TABLE_FILE = f"{script_dir}/{text_table_file}"
-        nevt_find = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
+        nevt_find, n_nan = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
+
+        if n_nan > 0 :
+            msgerr = [f"found {n_nan} nan in {OUT_TABLE_FILE}"]
+            self.log_assert(False,msgerr) 
+
         self.nevt_table_check(nevt_expect, nevt_find, text_table_file,
                               cmd_append )
                   
@@ -1642,7 +1651,7 @@ class LightCurveFit(Program):
 
         # finally, make sure that the number of rows still matches nevt_expect
         ORIG_FILE = f"{script_dir}/{orig_file}"
-        nevt_find = util.nrow_table_TEXT(ORIG_FILE,"SN:")
+        nevt_find, n_nan = util.nrow_table_TEXT(ORIG_FILE,"SN:")
         self.nevt_table_check(nevt_expect, nevt_find, orig_file, cmd)
 
         #sys.exit('\n xxx DEBUG DIE xxxx ')

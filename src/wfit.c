@@ -108,8 +108,10 @@
 
  July 26 2022 RK - implement outfile_chi2grid ... not well tested.
 
- Swp 12 2022 RK - abort if ommin<0 and -cmb
+ Sep 12 2022 RK - abort if ommin<0 and -cmb
                   in EofZ, if arg < 0.01; arg=0.01 (to allow om<0)
+
+ Sep 27 2022 RK - write rho_wom
 
 *****************************************************************************/
 
@@ -2695,7 +2697,7 @@ void wfit_FoM(void) {
   double extchi_min = WORKSPACE.extchi_min;
   int i, kk, j;
   double extchi, extchi_dif, chi_approx, snchi_tmp, extchi_tmp, muoff_tmp;;
-  double sig_product, rho;
+  double sig_product, rho_w0wa, rho_w0omm;
   Cosparam cpar;
   char fnam[] = "wfit_FoM" ;
   // --------------BEGIN --------------
@@ -2715,17 +2717,24 @@ void wfit_FoM(void) {
   sig_product = (WORKSPACE.w0_sig_marg * WORKSPACE.wa_sig_marg);
 
 
-  rho = WORKSPACE.rho_w0wa;
-  if(fabs(rho)>=1.){
-    sprintf(c1err,"Invalid Rho = %f \n",rho);
+  rho_w0omm = WORKSPACE.rho_w0omm;
+  rho_w0wa  = WORKSPACE.rho_w0wa;
+
+  if( fabs(rho_w0wa) > 1. ){
+    sprintf(c1err,"Invalid rho_w0wa = %f \n",rho_w0wa);
     sprintf(c2err,"Check Covariance Calculation ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-}
+  }
+  if( fabs(rho_w0omm) > 1. ){
+    sprintf(c1err,"Invalid rho_w0omm = %f \n",rho_w0omm);
+    sprintf(c2err,"Check Covariance Calculation ");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
-  sig_product *= sqrt(1.0- rho*rho);
+  sig_product *= sqrt(1.0- rho_w0wa*rho_w0wa);
 
   
-  if (sig_product > 0. ) 
+  if ( sig_product > 0. ) 
     { WORKSPACE.FoM_final = 1.0/sig_product; }
   else 
     { WORKSPACE.FoM_final = -9.0; }
@@ -3673,6 +3682,8 @@ void write_output_cospar(void) {
   //
   // format_cospar = 1 : legacy csv format
   // format_cospar = 2 : YAML format
+  //
+  // Sep 27 2022: write rho_wom
 
   int  use_marg  = INPUTS.use_marg;
   int  dofit_w0wa= INPUTS.dofit_w0wa ;
@@ -3762,18 +3773,21 @@ void write_output_cospar(void) {
     NVAR++ ;
   }
 
+  sprintf(VARNAMES_LIST[NVAR],"rho_%s%s", varname_w, varname_omm);
+  sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0omm ) ;
+  NVAR++;
+
   if ( dofit_w0wa ) {
+    // xxx mark delete Sep 27 2022: sprintf(VARNAMES_LIST[NVAR],"Rho" );
+    sprintf(VARNAMES_LIST[NVAR],"rho_%s%s", varname_w,varname_wa );
+    sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0wa ) ;
+    NVAR++;
+
     sprintf(VARNAMES_LIST[NVAR],"FoM" );
     sprintf(VALUES_LIST[NVAR], "%5.1f",  WORKSPACE.FoM_final ) ;
     NVAR++ ;
 
-    sprintf(VARNAMES_LIST[NVAR],"Rho" );
-    sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0wa ) ;
-    NVAR++;
   }
-
-
-
 
   sprintf(VARNAMES_LIST[NVAR],"chi2" );
   sprintf(VALUES_LIST[NVAR], "%.1f",  WORKSPACE.chi2_final ) ;

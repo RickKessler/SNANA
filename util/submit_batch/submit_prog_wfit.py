@@ -855,14 +855,15 @@ class wFit(Program):
             wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
 
-            w       = wfit_values_dict['w']  
-            w_sig   = wfit_values_dict['w_sig']
-            omm     = wfit_values_dict['omm']  
-            omm_sig = wfit_values_dict['omm_sig']
-            chi2    = wfit_values_dict['chi2'] 
-            sigint  = wfit_values_dict['sigint']
-            blind   = wfit_values_dict['blind']
-            nwarn   = wfit_values_dict['nwarn']
+            w        = wfit_values_dict['w']  
+            w_sig    = wfit_values_dict['w_sig']
+            omm      = wfit_values_dict['omm']  
+            omm_sig  = wfit_values_dict['omm_sig']
+            rho_womm = wfit_values_dict['rho_womm']
+            chi2     = wfit_values_dict['chi2'] 
+            sigint   = wfit_values_dict['sigint']
+            blind    = wfit_values_dict['blind']
+            nwarn    = wfit_values_dict['nwarn']
             if nwarn > 0 : nrow_warn += 1
 
             # extract user labels for cov and wfit
@@ -880,21 +881,26 @@ class wFit(Program):
                 wa      = wfit_values_dict['wa']    
                 wa_sig  = wfit_values_dict['wa_sig']
                 FoM     = wfit_values_dict['FoM']
-                Rho     = wfit_values_dict['Rho']
+                if 'Rho' in wfit_values_dict:
+                    rho_w0wa = wfit_values_dict['Rho']  # legacy name
+                else:
+                    rho_w0wa = wfit_values_dict['rho_w0wa']  # 9.27.2022      
             else:
-                wa = 0
-                wa_sig = 0
-                FoM = 0
-                Rho = 0
+                wa       = 0
+                wa_sig   = 0
+                FoM      = 0
+                rho_w0wa = 0
 
-            # load table for mean and std err on mean (the table is not used here)
+            # load table for mean and std err on mean (table not used here)
             local_dict = {'dirnum': dirnum, 
                           'covnum': covnum, 
                           'wfitnum': wfitnum, 
                           'w':w, 'w_sig':w_sig, 
                           'omm':omm, 'omm_sig':omm_sig, 
-                          'wa':wa, 'wa_sig':wa_sig,
-                          'FoM':FoM, 'Rho': Rho,
+                          'wa':wa, 'wa_sig': wa_sig,
+                          'rho_w0omm' : rho_womm,
+                          'rho_w0wa'  : rho_w0wa,
+                          'FoM':FoM, 
                           'covopt_label':covopt_label,
                           'wfitopt_label':wfitopt_label,
                           'nwarn' : nwarn  # R.Kessler Feb 23 2022
@@ -914,11 +920,12 @@ class wFit(Program):
             if use_wa : 
                 str_results  = f"{w:.5f} {w_sig:.5f} "
                 str_results += f"{wa:7.5f} {wa_sig:7.5f} "
-                str_results += f"{FoM:5.1f} {Rho:6.3f} "
+                str_results += f"{FoM:5.1f} {rho_w0wa:6.3f} "
                 str_results += f"{omm:.3f} {omm_sig:.3f}  "
             else:
                 str_results  = f"{w:.6f} {w_sig:.6f}  "
                 str_results += f"{omm:.5f} {omm_sig:.5f}  "
+                str_results += f"{rho_womm:6.3f} "
 
             str_misc    = f"{chi2:6.1f} {blind} {nwarn} "
             str_labels  = f"{covopt_label:<10} {wfitopt_label}"
@@ -947,10 +954,14 @@ class wFit(Program):
         use_wa           = submit_info_yaml['USE_wa']
 
         varnames_w  = "w w_sig"
-        if use_wa: varnames_w = "w0 w0_sig wa wa_sig FoM Rho"
+        varnames_om = "omm omm_sig rho_womm"
+        if use_wa: 
+            varnames_w  = "w0 w0_sig wa wa_sig FoM rho_w0wa"
+            varnames_om = "omm omm_sig"
+
         VARNAMES_STRING = \
             f"ROW  iDIR iCOV iWFIT {varnames_w} "  \
-            f"omm omm_sig  chi2 blind nwarn COVOPT WFITOPT"
+            f"{varnames_om} chi2 blind nwarn COVOPT WFITOPT"
 
         w_ran   = int(wfit_values_dict['w_ran']) 
         wa_ran  = int(wfit_values_dict['wa_ran'])

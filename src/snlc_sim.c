@@ -22362,11 +22362,11 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   SNSEP_dif = fabs(SNSEP_check-SNSEP_store);
   if ( SNSEP_dif > SNSEP_tol ) {
     print_preAbort_banner(fnam);
-    printf("   SNDATA.RA[DEC]         = %f %f \n", RA_SN,  DEC_SN);
-    printf("   SNDATA.HOSTGAL_RA[DEC] = %f %f \n", RA_GAL, DEC_GAL);
-    printf("   GAL-SN SEP [RA,DEC]    = %f %f \n",
+    printf("   SNDATA.RA[DEC]         = %f %f deg \n", RA_SN,  DEC_SN);
+    printf("   SNDATA.HOSTGAL_RA[DEC] = %f %f deg \n", RA_GAL, DEC_GAL);
+    printf("   GAL-SN SEP [RA,DEC]    = %f %f deg \n",
 	   RA_GAL-RA_SN, DEC_GAL-DEC_SN);
-    printf("   SNSEP[store,check,dif] = %f %f %f \n",
+    printf("   SNSEP[store,check,dif] = %f %f %f arcSec\n",
 	   SNSEP_store, SNSEP_check, SNSEP_dif);
 
     sprintf(c1err,"Failed SN-host separation check of %.4f arcsec",

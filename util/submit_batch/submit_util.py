@@ -134,12 +134,19 @@ def get_wfit_values(wfit_yaml):
         if  key in wfit_yaml:
             FoM  = wfit_yaml[key]  
 
-    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
-    key_list = [ 'Rho' ]
-    Rho       = 0.0
+    # - - - repeat for reduced cov Rho(womm) - Sep 2022
+    key_list = [ 'rho_wOM', 'rho_womm' ]
+    rho_womm = 0.0
     for key in key_list:
         if  key in wfit_yaml:
-            Rho  = wfit_yaml[key]  
+            rho_womm = wfit_yaml[key]  
+
+    # - - - repeat for reduced cov Rho(w0wa) - Oct 23 2021
+    key_list = [ 'Rho', 'rho_w0wa' ]
+    rho_w0wa = 0.0
+    for key in key_list:
+        if  key in wfit_yaml:
+            rho_w0wa = wfit_yaml[key]  
 
     # - - - misc - - - - 
     chi2    = wfit_yaml['chi2'] 
@@ -191,7 +198,9 @@ def get_wfit_values(wfit_yaml):
         'wa_sig'   : wa_sig,
         'wa_ran'   : wa_ran,
         'FoM'      : FoM,
-        'Rho'      : Rho
+        'rho_womm' : rho_womm,
+        'rho_w0wa' : rho_w0wa,
+        'PAD'  : 0
     }
 
     return wfit_values_dict

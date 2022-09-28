@@ -6493,6 +6493,10 @@ void GEN_SNHOST_STRONGLENS(void) {
   // Pick lens galaxy from HOSTLIB at redshift z = zLENS and 
   // overwrite observed host galaxy with the lens galaxy.
   // Keep the true host galaxy info for SIM_XXX variable output.
+  //
+  // Sep 28 2022: if logmass is not specified, pick first host
+  //              to satisfy dztol without checking logmass.
+  //
 
   double NSIGMA_LOGMASS_MATCH = 0.5; // require <0.5 sigma logmass match
 
@@ -6506,9 +6510,9 @@ void GEN_SNHOST_STRONGLENS(void) {
   double *YIMG_LIST        = GENSL.LIBEVENT.YIMG_SRC_LIST ;
   double  XGAL_SRC         = GENSL.LIBEVENT.XGAL_SRC ;
   double  YGAL_SRC         = GENSL.LIBEVENT.YGAL_SRC ;
-
   double zSN = GENLC.REDSHIFT_CMB;
 
+  double IS_LOGMASS_LENS;
   char fnam[] = "GEN_SNHOST_STRONGLENS" ;
 
   // ----------- BEGIN -----------
@@ -6518,11 +6522,15 @@ void GEN_SNHOST_STRONGLENS(void) {
 
   HOSTLIB.IGAL_STRONGLENS = -9 ;
 
+  IS_LOGMASS_LENS = ( LOGMASS_LENS > 2.0 );
+
+  /* xxx mark delete Sep 28 2022 xxxxxxx
   // bail if there is no logmass in the LENS library
   if ( LOGMASS_LENS < 2.0 ) { return; }
+  xxxxxxxxx  */
 
   // ABORT if there is no LOGMASS in the hostlib
-  if ( IVAR_LOGMASS <= 0 ) { 
+  if ( IS_LOGMASS_LENS && IVAR_LOGMASS <= 0 ) { 
     sprintf(c1err,"IVAR_LOGMASS = %d", IVAR_LOGMASS );
     sprintf(c2err,"Cannot pick lens-gal without LOGMASS in HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -6556,7 +6564,7 @@ void GEN_SNHOST_STRONGLENS(void) {
   // we find suitable LOGMASS
 
   if ( LDMP == 2 ) {
-    printf(" xxx ---------------------------------- \n");
+    printf(" xxx ---------------------------------------------- \n");
     printf(" xxx %s: zLENS=%.3f   LOGMASS_LENS = %.2f \n",
 	   fnam, zLENS, LOGMASS_LENS); 
     printf(" xxx %s: IVAR_[ZTRUE,LOGMASS] = %d, %d \n",
@@ -6566,24 +6574,30 @@ void GEN_SNHOST_STRONGLENS(void) {
   }
   
   while ( !FOUND_LENS && OK_ZTOL ) {
-    igal    = igal_start + jsign * igal_shift;    
-    z       = get_VALUE_HOSTLIB(IVAR_ZTRUE,   igal) ;
-    LOGMASS = get_VALUE_HOSTLIB(IVAR_LOGMASS, igal) ;  
-    DIFF    = fabs(LOGMASS - LOGMASS_LENS) ;
-    XNSIG   = DIFF/LOGMASS_ERR_LENS;
-
     NGAL_CHECK++ ;
 
-    if ( LDMP ==2 ) {
-      printf(" xxx igal=%d, jsign=%2d  z=%.4f  LOGMASS=%5.2f  NSIG=%.1f\n",
-	     igal, jsign, z, LOGMASS, XNSIG ); fflush(stdout);
-      if ( igal_shift > 10 ) { debugexit(fnam); }
+    igal    = igal_start + jsign * igal_shift;    
+    z       = get_VALUE_HOSTLIB(IVAR_ZTRUE,   igal) ;
+
+    if ( IS_LOGMASS_LENS ) {
+      LOGMASS = get_VALUE_HOSTLIB(IVAR_LOGMASS, igal) ;  
+      DIFF    = fabs(LOGMASS - LOGMASS_LENS) ;
+      XNSIG   = DIFF/LOGMASS_ERR_LENS;
+
+      if ( LDMP == 2 ) {
+	printf(" xxx igal=%d, jsign=%2d  z=%.4f  LOGMASS=%5.2f  NSIG=%.1f\n",
+	       igal, jsign, z, LOGMASS, XNSIG ); fflush(stdout);
+	if ( igal_shift > 10 ) { debugexit(fnam); }
+      }
+
+      if ( DIFF < DIFF_MIN ) {
+	IGAL_LENS=igal ;  DIFF_MIN = DIFF; 
+	if ( XNSIG < NSIGMA_LOGMASS_MATCH ) { FOUND_LENS=true; }
+      }
     }
-
-
-    if ( DIFF < DIFF_MIN ) {
-      IGAL_LENS=igal ;  DIFF_MIN = DIFF; 
-      if ( XNSIG < NSIGMA_LOGMASS_MATCH ) { FOUND_LENS=true; }
+    else {
+      IGAL_LENS  = igal ;
+      FOUND_LENS = true ;
     }
 
     if ( jsign == -1 || igal_shift==0 ) { igal_shift += 1; }

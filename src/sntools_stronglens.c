@@ -206,6 +206,12 @@ void init_stronglens(char *MODEL_FILE) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);
   }
  
+  if ( INPUTS_STRONGLENS.ICOL_LOGMASS_LENS < 0 ) {
+    printf("\t WARNING: LOGMASS_LENS not in SL library \n");
+    fflush(stdout);
+  }
+
+
   i=0; // represents the library entry
 
   while( fgets(cline, MXCHAR_LINE, fp)  != NULL ){

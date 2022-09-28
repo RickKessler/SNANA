@@ -22350,12 +22350,13 @@ void check_SNDATA_HOSTGAL_SNSEP(int m) {
   double SNSEP_store = SNDATA.HOSTGAL_SNSEP[m];
   double SNSEP_check, SNSEP_dif ;
   double SNSEP_tol   = 0.15 ; // abort if SNSEP dif is > tolerance in arcsec
-  if ( INPUTS.DEBUG_SNSEP ) { SNSEP_tol = 0.001; }
+  if ( INPUTS.DEBUG_SNSEP ) { SNSEP_tol = 0.90; }
   
   char fnam[] = "check_SNDATA_HOSTGAL_SNSEP";
 
-
   // ----------- BEGIN -----------
+
+  if ( SERSIC_PROFILE.NPROF == 0 ) { return; } // Sep 28 2022
 
   SNSEP_check = angSep(RA_SN,DEC_SN,  RA_GAL,DEC_GAL, (double)3600.0 ) ;
 

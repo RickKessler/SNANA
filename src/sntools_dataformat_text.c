@@ -864,10 +864,10 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
     sprintf(cval,"%s ", SNDATA.FIELDNAME[ep]);
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL[ep] ); 
+    sprintf(cval, "%12.5le ",  SNDATA.FLUXCAL[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
-    sprintf(cval, "%10.3le ",  SNDATA.FLUXCAL_ERRTOT[ep] ); 
+    sprintf(cval, "%11.4le ",  SNDATA.FLUXCAL_ERRTOT[ep] ); 
     NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
 
     if ( WRFLAG_MAG ) { 

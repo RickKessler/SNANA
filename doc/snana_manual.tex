@@ -13315,7 +13315,9 @@ assumptions and the $S/N$ from the data.
 
 
 If there are no meta-data, the default {\tt ZPERR} is 0.01, 
-which imposes an SNR ceiling of 100 in the simulation. 
+which imposes a true and/or reported SNR ceiling of 100 in the simulation
+(for {\tt ZPERR} usage, see {\tt SMEARFLAG\_ZEROPT} input in
+  \S\ref{sssec:simlib_options})
 Arbitrary {\tt ZPERR} values can be input via 
 {\tt \&SNLCINP} as shown in the following example:
 %

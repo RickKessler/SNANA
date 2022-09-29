@@ -63,6 +63,8 @@
 #
 # Aug 2022 P. Armstrong: create hubble_diagram for systematics
 #
+# Sep 28 2022 RK - new optional inputs --sys_scale_file and --sys_scale_global
+#
 # ===============================================
 
 import os, argparse, logging, shutil
@@ -162,6 +164,15 @@ def get_args():
     msg = "use only this muopt number"
     parser.add_argument("-m", "--muopt", help=msg, 
                         nargs='?', type=int, default=-1 ) 
+
+    msg = f"override {KEYNAME_SYS_SCALE_FILE} in the input file"
+    parser.add_argument("--sys_scale_file", help=msg, 
+                        nargs='?', type=str, default=None ) 
+
+    # xxx not yet ...
+    #msg = "scale all systematics by this factor"
+    #parser.add_argument("--sys_scale_global", help=msg, 
+    #                    nargs='?', type=float, default=1.0 ) 
     
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
@@ -192,11 +203,8 @@ def get_args():
     if (args.nbin_x1>0 or args.nbin_c>0): 
         args.unbinned = False  # recommended by D.Brout, Aug 8 2022
 
-    #if len(sys.argv) == 1:
-    #    parser.print_help()
-    #    sys.exit()
-
-    if args.HELP : print_help_menu()
+    if args.HELP : 
+        print_help_menu()
 
     return args
     # end get_args
@@ -215,7 +223,7 @@ VERSION:    <subDir under INPUT_DIR>
 
 #  [CosmoMC-label]  [FITOPT-label, MUOPT-label]
 COVOPTS:
-- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst (for JLA method only)
+- '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst 
 - '[PS1CAL] [+PS1CAL,=DEFAULT]'  # PS1CAL syst only MUOPT=0
 - '[ALLCAL] [+CAL,=DEFAULT]'     # All syst with 'CAL' in name, MUOPT=0
 - '[SALT2]  [+SALT2,=DEFAULT]'   # SALT2 syst only, MUOPT=0
@@ -227,6 +235,12 @@ MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   SCATTER_C11: 1.0
 
 OUTDIR:  <name of output directory>
+
+# Some of the above keys have command line overrides (-h for options):
+  create_covariance.py <configFile> \\
+     -i INPUT_DIR \\
+     -v VERSION   \\
+     --sys_scale_file SYS_SCALE_FILE \\
 
 # specialized keys for CosmoMC
 COSMOMC_TEMPLATES_PATH: <out path of ini files for Cosmomc>
@@ -398,7 +412,6 @@ def get_hubble_diagrams(folder, args, config):
 
     if is_rebin : 
         label0 = label_list[0]
-        # xxx mark delete get_rebin_info(config,HD_list[label])
         get_rebin_info(config,HD_list[label0])
         for label in label_list:
             print(f"   Rebin {label}")
@@ -544,7 +557,6 @@ def rebin_hubble_diagram(config, HD_unbinned):
     # - - - - -
     OM_ref = 0.30  # .xyz should read OM_ref from BBC output
     zcalc_grid, mucalc_grid = get_HDcalc(OM_ref)
-    # .xyz
 
     for i in range(0,nbin_HD):
         binmask       = (col_iHD == i)
@@ -736,40 +748,81 @@ def apply_filter(string, pattern):
 
 
 def get_cov_from_covopt(covopt, contributions, base, calibrators):
-    # Covopts will come in looking like "[cal] [+cal,=DEFAULT]"
-    # We have to parse this. Eventually can make this structured and 
-    # move away from legacy, but dont want to make too many people 
-    # change how they are doing things in one go
 
-    # split covopt into two terms so that extra pad spaces 
-    # doesn't break findall command (RK May 14 2021)  
-    tmp0 = covopt.split()[0]
-    tmp1 = covopt.split()[1]
-    label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
-    fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
+    # Parse covopts (from input config file) that look like 
+    #        "[cal] [+cal,=DEFAULT]"
+    #
+    # Split covopt into two terms so that extra pad spaces don't
+    # break findall command (RK May 14 2021)
+    #
+    # .xyz 9.29.2022 RK - optional 3rd arg with sys scale ?
+    # .xyz        "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
+
+    
+    covopt_list = covopt.split() # break into two terms
+    tmp0 = covopt_list[0]
+    tmp1 = covopt_list[1]
+
+    bracket_content0 = re.findall(r"\[(.*)\]",      tmp0)[0]
+    bracket_content1 = re.findall(r"\[(.*)\]",      tmp1)[0]
+    bracket_content1_list = bracket_content1.split(',')
+
+    print(f" xxx -------------------------- ")
+    print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
+
+    # xxxxxxxx mark delete Sep 29 2022 RK xxxxxxxxx
+    #label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
+    #fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
+    #print(f" xxx orig  fitopt_filter = '{fitopt_filter}' " \
+    #      f" muopt_filter = '{muopt_filter}'")
+    # xxxxxxxxx end mark xxxxxxxx
+
+    #  Sep 29 2022 RK - refactor parsing to allow 2 or 3 comma-sep
+    #  items in 2nd bracket.
+
+    label         = bracket_content0
+    fitopt_filter = bracket_content1_list[0]
+    muopt_filter  = bracket_content1_list[1]
+    sys_scale     = 1.0
+    if len(bracket_content1_list) > 2 :  # sys_scale (3rd item) is optional
+        tmp = bracket_content1_list[2].split('=')
+        sys_scale = float(tmp[1])
+
+    msg_content1 =  \
+        f"COV({label}): FITOPT/MUOPT filters = " \
+        f"'{fitopt_filter}' / {muopt_filter} | " \
+        f" sys_scale={sys_scale}"
+
+    print(f" xxx refac {msg_content1}")
 
     fitopt_filter = fitopt_filter.strip()
     muopt_filter  = muopt_filter.strip()
-    logging.debug(f"Computing COV({label}) with FITOPT filter " \
-                  f"'{fitopt_filter}' and MUOPT filter '{muopt_filter}'")
+    logging.debug(f"Compute {msg_content1}")
 
     final_cov = None
 
-    if calibrators:
+    if calibrators: # .xyz what is this ?
         mask_calib = base.reset_index()["CID"].isin(calibrators)
 
     for key, cov in contributions.items():
+
         fitopt_label, muopt_label = key.split("|")
 
-        if apply_filter(fitopt_label, fitopt_filter) and \
-           apply_filter(muopt_label, muopt_filter):
+        apply_fitopt = apply_filter(fitopt_label, fitopt_filter)
+        apply_muopt  = apply_filter(muopt_label,  muopt_filter)
+        apply_vpec   = apply_filter(fitopt_label, "+VPEC") or \
+                       apply_filter(muopt_label,  "+VPEC")
+        apply_zshift = apply_filter(fitopt_label, "+ZSHIFT") or \
+                       apply_filter(muopt_label,  "+ZSHIFT")
+
+        if apply_fitopt and apply_muopt :
             if final_cov is None:
                 final_cov = cov.copy()*0
             if True:
-                # If we have calibrators and this is VPEC term, filter out calib
-                if calibrators and (apply_filter(fitopt_label, "+VPEC") or apply_filter(muopt_label, "+VPEC") or \
-                                    apply_filter(fitopt_label, "+ZSHIFT") or apply_filter(muopt_label, "+ZSHIFT")):
-                    print(f'FITOPT {fitopt_label} MUOPT {muopt_label} ignored for calibrators...')
+                # If calibrators and  VPEC term, filter out calib
+                if calibrators and (apply_vpec or apply_zshift):
+                    print(f"FITOPT {fitopt_label} MUOPT {muopt_label} " \
+                          f"ignored for calibrators...")
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0
@@ -777,8 +830,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                 else:
                     final_cov += cov
 
-    assert final_cov is not None, f"No systematics matched COVOPT {label} with " \
-        f"FITOPT filter '{fitopt_filter}' and MUOPT filter '{muopt_filter}'!"
+    assert final_cov is not None,  f"No syst matches {msg_content1} " 
 
     # Validate that the final_cov is invertible
     try:
@@ -810,13 +862,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         cond = np.linalg.cond(effective_cov)
         assert cond < 1 / epsilon, "Cov matrix is ill-conditioned and cannot be inverted"
         logging.info(f"Covar condition for COVOPT {label} is {cond:.3f}")
-
-        # May 2 2022 R.Kessler - mark delete here to save time re-inverting.
-        # Finally, re-invert the precision matrix and ensure its within 
-        # tolerance of the original covariance
-        # xxx mark delete cov2 = np.linalg.inv(precision)
-        # xxx mark delete assert np.all(np.isclose(effective_cov, cov2)), 
-        # xxx mark delete "Double inversion does not give original covariance, matrix is unstable"
 
     except np.linalg.LinAlgError as ex:
         logging.exception(f"Unable to invert covariance matrix for COVOPT {label}")
@@ -1288,9 +1333,9 @@ def create_covariance(config, args):
     # read optional sys scales 
     if KEYNAME_SYS_SCALE_FILE in config:
         sys_scale_file  = Path(config[KEYNAME_SYS_SCALE_FILE])
-        sys_scale     = read_yaml(sys_scale_file)
+        sys_scale       = read_yaml(sys_scale_file)
     else:
-        sys_scale = {0: (None,1.0) }
+        sys_scale = { 0: (None,1.0) }
 
     fitopt_scales = get_fitopt_scales(submit_info, sys_scale)
 
@@ -1321,8 +1366,10 @@ def create_covariance(config, args):
     # Load in all the hubble diagrams
     logging.info(f"Read Hubble diagrams for version = {version}")
     data = get_hubble_diagrams(data_dir, args, config)
+
     # Filter data to remove rows with infinite error
     data, base = remove_nans(data)
+
     # Now that we have the data, figure out how each much each
     # FITOPT/MUOPT pair contributes to cov
     contributions, summary = get_contributions(data, fitopt_scales,
@@ -1336,8 +1383,9 @@ def create_covariance(config, args):
     # Add covopt to compute everything
     covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
 
-    covariances = [get_cov_from_covopt(c, contributions, base, 
-                                       config.get("CALIBRATORS")) for c in covopts]
+    covariances = \
+        [ get_cov_from_covopt(c, contributions, base, 
+                              config.get("CALIBRATORS")) for c in covopts]
     
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
@@ -1346,7 +1394,8 @@ def create_covariance(config, args):
     # Only create hubble_diagram.txt for the nominal
     else:
         labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]
-    # write standard output (9.22.2021)
+
+    # write standard output for cov(s) and hubble diagram (9.22.2021)
     write_standard_output(config, args.unbinned, covariances, data, labels)
 
     # write specialized output for cosmoMC sampler
@@ -1354,10 +1403,6 @@ def create_covariance(config, args):
         write_cosmomc_output(config, args, covariances, base)
 
     write_summary_output(config, covariances, base)
-
-    # xxxxx mark delete Sep 2021 R.K
-    #  write_debug_output(config, covariances, base, summary)
-    # xxxxxxxxxx
 
     # end create_covariance
 
@@ -1400,6 +1445,11 @@ def prep_config(config,args):
     if args.outdir is not None :
         config["OUTDIR"] = args.outdir
         logging.info(f"OPTION: override OUTDIR with {args.outdir}")        
+
+    if args.sys_scale_file is not None :
+        config[KEYNAME_SYS_SCALE_FILE] = args.sys_scale_file
+        logging.info(f"OPTION: override {KEYNAME_SYS_SCALE_FILE} with " \
+                     f"{args.sys_scale_file}")
 
     if args.version is not None:
         config["VERSION"] = args.version

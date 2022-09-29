@@ -59,7 +59,7 @@ def get_data_dir(args):
     args.version    = version
     args.path_data  = path_data
 
-    print(f" Data path: {path_data}")
+    print(f" Data path: \n   {path_data}")
 
     return path_data, version
     # end get_data_dir
@@ -111,7 +111,7 @@ def get_filter_dict(kcor_file):
     if not os.path.exists(kcor_file):
         sys.exit(f"\n ERROR: cannot find kcor_file = \n\t {kcor_file}")
 
-    print(f" Read filter names from \n\t {kcor_file}")
+    print(f" Read filter names from \n   {kcor_file}")
 
     with open(kcor_file,"rt") as f:
         contents     = f.readlines()
@@ -178,7 +178,7 @@ def update_data_file(data_file, args):
             vpec_orig   = float(wdlist[j+1])
             vpec_new    = -1.0 * vpec_orig
             wdlist[j+1] = str(vpec_new)
-            line        = " ".join(wdlist) + '\n'
+            line        = "  ".join(wdlist) + '\n'
 
         if DO_UPD_FILT :
             if wdlist[0] == DATAKEY_VARLIST:
@@ -191,7 +191,7 @@ def update_data_file(data_file, args):
                     fullname  = filter_dict[band_orig]
                     # each filter name uses max string length for column align
                     wdlist[iwd_band] = f"{fullname:<{maxlen}}"
-                    line        = " ".join(wdlist) + '\n'
+                    line   = "  ".join(wdlist) + '\n'
 
         contents_new.append(line)
 

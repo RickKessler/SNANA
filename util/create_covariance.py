@@ -763,12 +763,12 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     tmp0 = covopt_list[0]
     tmp1 = covopt_list[1]
 
-    bracket_content0 = re.findall(r"\[(.*)\]",      tmp0)[0]
-    bracket_content1 = re.findall(r"\[(.*)\]",      tmp1)[0]
+    bracket_content0 = re.findall(r"\[(.*)\]",  tmp0)[0]
+    bracket_content1 = re.findall(r"\[(.*)\]",  tmp1)[0]
     bracket_content1_list = bracket_content1.split(',')
 
-    print(f" xxx -------------------------- ")
-    print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
+    #print(f" xxx -------------------------- ")
+    #print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
 
     # xxxxxxxx mark delete Sep 29 2022 RK xxxxxxxxx
     #label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
@@ -779,7 +779,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     #  Sep 29 2022 RK - refactor parsing to allow 2 or 3 comma-sep
     #  items in 2nd bracket.
-
     label         = bracket_content0
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
@@ -788,12 +787,13 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
         tmp = bracket_content1_list[2].split('=')
         sys_scale = float(tmp[1])
 
+    # generic message-content for debug or error
     msg_content1 =  \
         f"COV({label}): FITOPT/MUOPT filters = " \
         f"'{fitopt_filter}' / {muopt_filter} | " \
         f" sys_scale={sys_scale}"
 
-    print(f" xxx refac {msg_content1}")
+    # xxx mark delete  print(f" xxx refac {msg_content1}")
 
     fitopt_filter = fitopt_filter.strip()
     muopt_filter  = muopt_filter.strip()
@@ -828,7 +828,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                     cov2[:, mask_calib] = 0
                     final_cov += cov2
                 else:
-                    final_cov += cov
+                    final_cov += cov  # apply sys_scale here ??? .xyz
 
     assert final_cov is not None,  f"No syst matches {msg_content1} " 
 

@@ -15,6 +15,7 @@
 # Dec 04 2021: new input --merge_background
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # Apr 08 2022: add --merge_force arg for sync_evt option
+# Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
 #
 # - - - - - - - - - -
 
@@ -33,6 +34,7 @@ except Exception as e:
     pass
 
 from   submit_prog_bbc    import BBC
+from   submit_prog_covmat import create_covmat
 from   submit_prog_wfit   import wFit
 from   submit_train_SALT2 import train_SALT2
 from   submit_train_SALT3 import train_SALT3
@@ -195,6 +197,9 @@ def which_program_class(config):
 
     elif "MAKEDATAFILE_SOURCE" in CONFIG:
         program_class = MakeDataFiles
+
+    elif "INPUT_COVMAT_FILE" in CONFIG:  # create_covariance, Sep 30 2022
+        program_class = create_covmat
 
     else :
         sys.exit("\nERROR: Could not determine program_class")

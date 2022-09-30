@@ -4177,6 +4177,8 @@ bool crazy_M0_errors(void) {
   char fnam[] = "crazy_M0_errors";
   // ----------- BEGIN -------------
 
+  if ( SUBPROCESS.USE ) { return crazy_error_flag; }
+
   sprintf(BANNER,"Check for Crazy Fitted M0 Errors" );
   fprint_banner(FP_STDOUT,BANNER);   
 

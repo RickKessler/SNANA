@@ -1206,7 +1206,7 @@ class BBC(Program):
             muopt_rows = []
 
         # - - - - - -
-        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, None)
+        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, 1, None)
 
         n_muopt          = muopt_dict['n_jobopt']
         muopt_arg_list   = muopt_dict['jobopt_arg_list']

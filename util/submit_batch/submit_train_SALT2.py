@@ -204,7 +204,7 @@ class train_SALT2(Program):
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
-                                              TRAINOPT_STRING, 
+                                              TRAINOPT_STRING, 1, 
                                               KEY_SHIFTLIST_FILE )
 
         n_trainopt          = trainopt_dict['n_jobopt']

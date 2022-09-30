@@ -533,7 +533,7 @@ class LightCurveFit(Program):
                     self.log_assert(False,msgerr)
             
         # - - - - - -
-        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
 
         fitopt_arg_list   = fitopt_dict['jobopt_arg_list']
         fitopt_num_list   = fitopt_dict['jobopt_num_list']

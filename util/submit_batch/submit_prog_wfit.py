@@ -335,7 +335,7 @@ class wFit(Program):
             msgerr.append(f"One of these keys must be in {input_file}")
             self.log_assert(False, msgerr)
 
-        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key_found, None)
+        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key_found, 0, None)
 
         n_wfitopt          = wfitopt_dict['n_jobopt']
         wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']

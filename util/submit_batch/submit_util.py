@@ -207,7 +207,7 @@ def get_wfit_values(wfit_yaml):
 
     # end get_wfit_values
 
-def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
+def prep_jobopt_list(config_rows, string_jobopt, start_jobopt, key_arg_file):
 
     # Created Jan 23 2021
     # Generic utility to strip args from config_rows and return
@@ -219,24 +219,33 @@ def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
     # Inputs:
     #   config_rows = CONFIG[string_jobopt] passed from user input file
     #   string_jobopt = 'FITOPT' or'MUOPT'or 'TRAINOPT' ...
+    #   start_jobit   = 0 or 1 (latter if there is default job=0)
     #   key_arg_file = optional key for file name containing args
+    #
+    # Sep 30 2022: add start_jobopt arg 
 
     jobopt_dict = {} # init output dictionary
-    n_jobopt          = 1
-    jobopt_ARG_list   = [ '' ] # original user arg
-    jobopt_arg_list   = [ '' ] # expanded args used by script
-    jobopt_num_list   = [ f"{string_jobopt}000" ] 
-    jobopt_label_list = [ None ]
-    jobopt_file_list  = [ None ]   
+    n_jobopt          = start_jobopt
     use_arg_file      = False
 
-    if 'WFIT' in string_jobopt :  # no default 000 job for wfit 
-        n_jobopt = 0
+    if start_jobopt == 1:
+        jobopt_ARG_list   = [ '' ] # original user arg
+        jobopt_arg_list   = [ '' ] # expanded args used by script
+        jobopt_num_list   = [ f"{string_jobopt}000" ] 
+        jobopt_label_list = [ None ]
+        jobopt_file_list  = [ None ]   
+    elif start_jobopt == 0:
         jobopt_ARG_list = [] 
         jobopt_arg_list = []
         jobopt_num_list = []
         jobopt_label_list = []
         jobopt_file_list  = []
+    else:
+        msgerr = []
+        msgerr.append(f"Invalie start_jobopt={start_jobopt} arg")
+        msgerr.append(f"in util.prep_jobopt_list")
+        log_assert(False,msgerr)
+
 
     for jobopt_raw in config_rows :    # might include label
         num = f"{string_jobopt}{n_jobopt:03d}"

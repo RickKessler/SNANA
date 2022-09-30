@@ -667,6 +667,11 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   if (NPAR == -1) {
     handle_python_exception(fnam, "getting parameter sequence length");
   }
+  if (NPAR > MXPAR_PySEDMODEL) {
+    sprintf(c1err,"fetchParNames returned too long sequence of parameters");
+    sprintf(c2err,"%d is fetched, %d is the maximum allowed value", NPAR, MXPAR_PySEDMODEL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pnamesitem = PySequence_GetItem(pNames,ipar);
     if (pnamesitem == NULL) {
@@ -712,12 +717,11 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 #ifdef USE_PYTHON
 
   parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParVals");
-  // xxx  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			       "fetchParVals_BYOSED_4SNANA");
+  handle_python_exception(fnam, "getting fetchParVals attribute of the class");
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pargs  = Py_BuildValue("(s)",parNameList[ipar]);
-    pParVal  = PyEval_CallObject(parvalmeth, pargs);
+    pParVal  = PyObject_CallFunction(parvalmeth, "(s)", parNameList[ipar]);
+    handle_python_exception(fnam, "fetching a parameter value");
     val = PyFloat_AsDouble(pParVal);
     parVal[ipar] = val;
     // printf("   PARVAL    = '%d' \n",  val);

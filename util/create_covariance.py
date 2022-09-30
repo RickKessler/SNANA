@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #
+# Compute syst covariance matrices
+#
 # Jun 2017: Original script written by D.Scolnic for Pantheon
 #
 # Oct 2020: Re-written by S.Hinton for Pippin compatibility,
@@ -66,6 +68,8 @@
 # Sep 28 2022 RK - 
 #   + new optional inputs --sys_scale_file 
 #   + read optional 3rd arg to scale errors in COVOPTS
+# Sep 30 2022 RK
+#   + optional --yaml_file arg to communicate with sumbit_batch_jobs
 #
 # ===============================================
 
@@ -197,6 +201,10 @@ def get_args():
     msg = "Produce a hubble diagram for every systematic"
     parser.add_argument("--systematic_HD", help=msg, action="store_true")
 
+    msg = "output yaml file (for submit_batch_jobs)"
+    parser.add_argument("--yaml_file", help=msg, 
+                        nargs='?', type=str, default=None )
+
     # parse it
     args = parser.parse_args()
     if args.subtract_vpec:
@@ -204,6 +212,10 @@ def get_args():
 
     if (args.nbin_x1>0 or args.nbin_c>0): 
         args.unbinned = False  # recommended by D.Brout, Aug 8 2022
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
 
     if args.HELP : 
         print_help_menu()
@@ -1233,7 +1245,10 @@ def write_covariance(path, cov, opt_cov):
     # end write_covariance
 
 def write_summary_output(config, covariances, base):
-    out = Path(config["OUTDIR"])
+
+    # write list of COVOPTs to be picked up by cosmology fitting progam
+
+    out  = Path(config["OUTDIR"])
     info = {}
     cov_info = {}
     for i, (label, cov) in enumerate(covariances):
@@ -1410,6 +1425,10 @@ def create_covariance(config, args):
 
     write_summary_output(config, covariances, base)
 
+    # Sep 30 2022 RK - submit_batch_jobs needs output yaml to communicate
+    if args.yaml_file is not None:
+        write_yaml(args, len(covariances) )
+
     # end create_covariance
 
 def prep_config(config,args):
@@ -1467,6 +1486,14 @@ def prep_config(config,args):
         
     # end prep_config
 
+def write_yaml(args, n_cov):
+    with open(args.yaml_file,"wt") as y:
+        y.write(f"N_COVMAT:       {n_cov}\n")
+        y.write(f"ABORT_IF_ZERO:  {n_cov}    # same as N_COVMAT\n")
+
+    return
+    # end write_yaml
+
 # ===================================================
 if __name__ == "__main__":
     try:
@@ -1480,6 +1507,7 @@ if __name__ == "__main__":
         config = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
         create_covariance(config, args)
+
     except Exception as e:
         logging.exception(e)
         raise e

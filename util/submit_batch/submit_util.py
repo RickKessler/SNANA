@@ -274,12 +274,26 @@ def prep_jobopt_list(config_rows, string_jobopt, start_jobopt, key_arg_file):
         'jobopt_label_list' : jobopt_label_list ,
         'jobopt_file_list'  : jobopt_file_list ,
         'n_jobopt'          : n_jobopt,
-        'use_arg_file'      : use_arg_file
+        'use_arg_file'      : use_arg_file,
+        'jobopt_key'        : string_jobopt  # e.g. 'FITOPT', 'MUOPT' etc 
     }
 
     return jobopt_dict
 
     # end prep_jobopt_list
+
+def require_jobopt_labels(jobopt_dict):
+    # abort if any label is None
+    msgerr = []
+    label_list = jobopt_dict['jobopt_label_list']
+    arg_list   = jobopt_dict['jobopt_arg_list']
+    key        = jobopt_dict['jobopt_key']
+
+    for label, arg in zip(label_list, arg_list) :
+        if label is None:
+            msgerr.append(f"Missing label for arg = {arg}")
+            msgerr.append(f"Each {key} must have /LABEL/ ")
+            log_assert(False,msgerr)
 
 def read_arg_file(ARG, KEY_ARG_FILE):
 

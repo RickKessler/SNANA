@@ -63,7 +63,9 @@
 #
 # Aug 2022 P. Armstrong: create hubble_diagram for systematics
 #
-# Sep 28 2022 RK - new optional inputs --sys_scale_file and --sys_scale_global
+# Sep 28 2022 RK - 
+#   + new optional inputs --sys_scale_file 
+#   + read optional 3rd arg to scale errors in COVOPTS
 #
 # ===============================================
 
@@ -229,6 +231,8 @@ COVOPTS:
 - '[SALT2]  [+SALT2,=DEFAULT]'   # SALT2 syst only, MUOPT=0
 - '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
+- '[SCAT]   [=DEFAULT,+SCAT,1.2] # same, but systErr *= 2, and cov*= 1.2^2
+- '[ALL]    [,,1.4]              # scale ALL syst err by 1.4, cov*= 1.4^2
 
 MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   CLAS_SNIRF:  1.0
@@ -782,16 +786,16 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     label         = bracket_content0
     fitopt_filter = bracket_content1_list[0]
     muopt_filter  = bracket_content1_list[1]
-    sys_scale     = 1.0
-    if len(bracket_content1_list) > 2 :  # sys_scale (3rd item) is optional
-        tmp = bracket_content1_list[2].split('=')
-        sys_scale = float(tmp[1])
-
+    covopt_scale     = 1.0
+    if len(bracket_content1_list) > 2 :  # err_scale (3rd item) is optional
+        sig_scale    = float(bracket_content1_list[2])
+        covopt_scale = sig_scale * sig_scale
+        
     # generic message-content for debug or error
     msg_content1 =  \
         f"COV({label}): FITOPT/MUOPT filters = " \
         f"'{fitopt_filter}' / {muopt_filter} | " \
-        f" sys_scale={sys_scale}"
+        f" covopt_scale={covopt_scale}"
 
     # xxx mark delete  print(f" xxx refac {msg_content1}")
 
@@ -801,7 +805,7 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
 
     final_cov = None
 
-    if calibrators: # .xyz what is this ?
+    if calibrators: # Cepheid calibrators don't have z-syst
         mask_calib = base.reset_index()["CID"].isin(calibrators)
 
     for key, cov in contributions.items():
@@ -826,9 +830,11 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
                     cov2 = cov.copy()
                     cov2[mask_calib, :] = 0
                     cov2[:, mask_calib] = 0
-                    final_cov += cov2
+                    # xxx mark delete final_cov += cov2
+                    final_cov += cov2 * covopt_scale
                 else:
-                    final_cov += cov  # apply sys_scale here ??? .xyz
+                    # xxx mark delete final_cov += cov
+                    final_cov += cov * covopt_scale
 
     assert final_cov is not None,  f"No syst matches {msg_content1} " 
 

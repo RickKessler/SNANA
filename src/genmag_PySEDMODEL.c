@@ -667,6 +667,11 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   if (NPAR == -1) {
     handle_python_exception(fnam, "getting parameter sequence length");
   }
+  if (NPAR > MXPAR_PySEDMODEL) {
+    sprintf(c1err,"fetchParNames returned too long sequence of parameters");
+    sprintf(c2err,"%d is fetched, %d is the maximum allowed value", NPAR, MXPAR_PySEDMODEL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pnamesitem = PySequence_GetItem(pNames,ipar);
     if (pnamesitem == NULL) {

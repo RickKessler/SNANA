@@ -1,4 +1,5 @@
 // Created Sep 2018
+// Sep 30 2022: MXPAR_PySEDMODEL -> 100 (was 20) for BAYESN
 // Nov 20 2020: MXPAR_PySEDMODEL -> 20 (was 10) for SNEMO
 // Nov 11 2021: Add BayeSN
 
@@ -10,7 +11,7 @@
 // global variables
 
 #define MXLAM_PySEDMODEL  10000  // max wave bins to define SED
-#define MXPAR_PySEDMODEL     20  // max number of params to describe SED
+#define MXPAR_PySEDMODEL     100  // max number of params to describe SED
 #define MXHOSTPAR_PySEDMODEL 20  // max number of items in NAMES_HOSTPAR
 
 #define MODEL_NAME_BYOSED   "BYOSED"

@@ -12,11 +12,19 @@ from submit_params    import *
 from submit_prog_base import Program
 
 # keys in config file
-KEY_BBC_OUTDIR = 'BBC_OUTDIR'
-KEY_COVMATOPT  = 'COVMATOPT'
+KEY_BBC_OUTDIR     = 'BBC_OUTDIR'
+KEY_COVMATOPT      = 'COVMATOPT'
+KEY_VERSION_SUBSET = 'VERSION_SUBSET'
 
 # keys in native input file
 KEY_SYS_SCALE_FILE = 'SYS_SCALE_FILE'
+
+# define columns for MERGE.LOG;  column 0 is always for STATE
+COLNUM_COVMAT_MERGE_COVMATOPT    = 1
+COLNUM_COVMAT_MERGE_BBCDIR       = 2
+COLNUM_COVMAT_MERGE_SUBDIR       = 3
+COLNUM_COVMAT_MERGE_NCOV         = 4 
+COLNUM_COVMAT_MERGE_CPU          = 5
 
 # - - - - - - - - - - - - - - - - - - -  -
 class create_covmat(Program):
@@ -90,6 +98,11 @@ class create_covmat(Program):
         CONFIG          = self.config_yaml['CONFIG']
         bbc_outdir_rows = CONFIG[KEY_BBC_OUTDIR]
 
+        if KEY_VERSION_SUBSET in CONFIG:
+            version_subset = CONFIG[KEY_VERSION_SUBSET]
+        else:
+            version_subset = []
+
         bbc_outdir_dict = \
             util.prep_jobopt_list(bbc_outdir_rows, KEY_BBC_OUTDIR, 0, None)
         
@@ -115,7 +128,13 @@ class create_covmat(Program):
             bbc_subdir_list = []
             for row in merge_yaml['MERGE']:
                 version = row[COLNUM_BBC_MERGE_VERSION]
-                if version not in bbc_subdir_list:
+                if version in bbc_subdir_list: continue
+                keep = True
+                if len(version_subset) > 0:
+                    keep = False
+                    for subset in version_subset:
+                        if subset in version: keep = True
+                if keep: 
                     bbc_subdir_list.append(version)
 
             bbc_subdir_list2.append(bbc_subdir_list)
@@ -191,18 +210,18 @@ class create_covmat(Program):
         n_bbc_outdir = len(bbc_outdir_list)
         n_arg_covmat = len(arg_list)
 
-        idir_list3 = [];  isubdir_list3 = [];   icovmat_list3 = []
+        icovmat_list3 = []; idir_list3 = [];  isubdir_list3 = [];   
         n_job_tot = 0
 
-        for idir in range(0,n_bbc_outdir):
-            bbc_subdir_list = bbc_subdir_list2[idir]
-            n_bbc_subdir    = len(bbc_subdir_list)
-            for sdir in range(0,n_bbc_subdir):
-                for icovmat in range(0,n_arg_covmat):
+        for icovmat in range(0,n_arg_covmat):
+            for idir in range(0,n_bbc_outdir):
+                bbc_subdir_list = bbc_subdir_list2[idir]
+                n_bbc_subdir    = len(bbc_subdir_list)
+                for sdir in range(0,n_bbc_subdir):
                     n_job_tot += 1
+                    icovmat_list3.append(icovmat)
                     idir_list3.append(idir)
                     isubdir_list3.append(sdir)
-                    icovmat_list3.append(icovmat)
                     
         # - - - - - -
         print(f"  Prep index lists for {n_job_tot} COVMAT jobs")
@@ -211,9 +230,9 @@ class create_covmat(Program):
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
 
+        self.config_prep['icovmat_list3']  = icovmat_list3
         self.config_prep['idir_list3']     = idir_list3
         self.config_prep['isubdir_list3']  = isubdir_list3
-        self.config_prep['icovmat_list3']  = icovmat_list3
 
  
         return
@@ -229,19 +248,19 @@ class create_covmat(Program):
         bbc_subdir_list2   = bbc_outdir_dict['subdir_list2'] 
         arg_list           = covmatopt_dict['jobopt_arg_list']
 
+        icovmat_list3 = self.config_prep['icovmat_list3']
         idir_list3    = self.config_prep['idir_list3'] 
         isubdir_list3 = self.config_prep['isubdir_list3']
-        icovmat_list3 = self.config_prep['icovmat_list3']
         
         n_job_cpu   = 0
         n_job_local = 0
         
-        for idir,isubdir,icovmat in \
-            zip(idir_list3,isubdir_list3,icovmat_list3):
+        for icovmat,idir,isubdir in \
+            zip(icovmat_list3,idir_list3,isubdir_list3):
 
             n_job_local += 1
-            index_dict = { 'idir':idir, 'isubdir':isubdir, 
-                           'icovmat':icovmat, 'icpu':icpu }
+            index_dict = { 'icovmat':icovmat, 'idir':idir, 'isubdir':isubdir, 
+                           'icpu':icpu }
 
             if ( (n_job_local-1) % n_core ) != icpu : continue
 
@@ -258,9 +277,9 @@ class create_covmat(Program):
 
     def prep_JOB_INFO_covmat(self,index_dict):
 
+        icovmat = index_dict['icovmat']
         idir    = index_dict['idir']
         isubdir = index_dict['isubdir']
-        icovmat = index_dict['icovmat']
 
         kill_on_fail = self.config_yaml['args'].kill_on_fail
         program      = self.config_prep['program']
@@ -283,6 +302,7 @@ class create_covmat(Program):
         prefix        = f"COVMAT_{job_label}"
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
+        yaml_file     = f"{prefix}.YAML"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
 
         covmat_outdir = f"{output_dir}/{job_label}"
@@ -292,6 +312,7 @@ class create_covmat(Program):
         arg_list.append(f"--input_dir {bbc_outdir}")
         arg_list.append(f"--version   {bbc_subdir}")
         arg_list.append(f"--outdir    {covmat_outdir}")
+        arg_list.append(f"--yaml_file {yaml_file}")
         arg_list.append(arg_string)
 
         JOB_INFO = {}
@@ -306,5 +327,102 @@ class create_covmat(Program):
   
         return JOB_INFO
 
+    def append_info_file(self,f):
+        CONFIG             = self.config_yaml['CONFIG']
 
-        # .xyz END
+        f.write(f"\n# covmat info\n")
+
+        f.write(f"{KEY_BBC_OUTDIR}: \n")
+        for row in CONFIG[KEY_BBC_OUTDIR] :
+            f.write(f"- {row} \n")
+
+        f.write("\n")
+
+        f.write(f"{KEY_COVMATOPT}: \n")
+        for row in CONFIG[KEY_COVMATOPT] :
+            f.write(f"- {row} \n")
+
+        return
+        # end append_info_file
+
+    def create_merge_table(self,f):
+
+        # create merge table with NDOF=0; later this table
+        # gets updated as jobs finish.
+        icovmat_list3   = self.config_prep['icovmat_list3']
+        idir_list3      = self.config_prep['idir_list3']
+        isubdir_list3   = self.config_prep['isubdir_list3'] 
+
+        bbc_outdir_dict    = self.config_prep['bbc_outdir_dict']
+        covmatopt_dict     = self.config_prep['covmatopt_dict'] 
+        
+        bbc_label_list   = bbc_outdir_dict['jobopt_label_list']
+        bbc_subdir_list2 = bbc_outdir_dict['subdir_list2']
+        covmatopt_label_list = covmatopt_dict['jobopt_label_list']
+
+        # create only MERGE table ... no need for SPLIT table
+        header_line_merge = \
+                f" STATE  BBCDIR  SUBDIR  COVMATOPT  NCOV  CPU "
+
+        INFO_MERGE = { 
+            'primary_key' : TABLE_MERGE, 
+            'header_line' : header_line_merge,
+            'row_list'    : []   
+        }
+
+        STATE = SUBMIT_STATE_WAIT # all start in WAIT state
+
+        for icovmat,idir,isubdir in \
+            zip(icovmat_list3,idir_list3,isubdir_list3):
+
+            covmatopt_label  = covmatopt_label_list[icovmat]
+            bbc_label        = bbc_label_list[idir]
+            bbc_subdir       = bbc_subdir_list2[idir][isubdir]
+
+            # ROW here is fragile in case columns are changed
+            ROW_MERGE = []
+            ROW_MERGE.append(STATE)
+            ROW_MERGE.append(covmatopt_label)
+            ROW_MERGE.append(bbc_label)
+            ROW_MERGE.append(bbc_subdir)
+            ROW_MERGE.append(0)       # N_COVMAT
+            ROW_MERGE.append(0.0)     # CPU
+            INFO_MERGE['row_list'].append(ROW_MERGE)  
+
+        # - - - - -
+        util.write_merge_file(f, INFO_MERGE, [] ) 
+
+        return
+        # end create_merge_table
+
+    def merge_config_prep(self,output_dir):
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+ 
+
+    def merge_update_state(self, MERGE_INFO_CONTENTS):
+
+        # read MERGE.LOG, check LOG & DONE files.
+        # Return update row list MERGE tables.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+
+        COLNUM_STATE     = COLNUM_MERGE_STATE
+        COLNUM_COVMATOPT = COLNUM_COVMAT_MERGE_COVMATOPT
+        COLNUM_BBCDIR    = COLNUM_COVMAT_MERGE_BBCDIR
+        COLNUM_SUBDIR    = COLNUM_COVMAT_MERGE_SUBDIR
+        COLNUM_NCOV      = COLNUM_COVMAT_MERGE_NCOV
+        COLNUM_CPU       = COLNUM_COVMAT_MERGE_CPU
+        NROW_DUMP   = 0
+
+        key_ncov, key_ncov_sum, key_ncov_list = \
+                self.keynames_for_job_stats('N_COVMAT')
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                self.keynames_for_job_stats('CPU_MINUTES')
+
+        return
+    # end merge_update_state
+
+    # .xyz END

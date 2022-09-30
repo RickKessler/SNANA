@@ -73,7 +73,7 @@
 #
 # ===============================================
 
-import os, argparse, logging, shutil
+import os, argparse, logging, shutil, time
 import re, yaml, sys, gzip, math
 import numpy  as np
 import pandas as pd
@@ -1487,23 +1487,32 @@ def prep_config(config,args):
     # end prep_config
 
 def write_yaml(args, n_cov):
+
+    start_time = args.start_time
+    end_time   = time.time()
+    cpu_min    = (end_time - start_time)/60.0
+
     with open(args.yaml_file,"wt") as y:
         y.write(f"N_COVMAT:       {n_cov}\n")
         y.write(f"ABORT_IF_ZERO:  {n_cov}    # same as N_COVMAT\n")
+        y.write(f"CPU_MINUTES:    {cpu_min:.3f} \n")
 
     return
     # end write_yaml
 
 # ===================================================
 if __name__ == "__main__":
+
+
     try:
         setup_logging()
         logging.info("# ========== BEGIN create_covariance ===============")
 
         command = " ".join(sys.argv)
         logging.info(f"# Command: {command}")
-
+        
         args   = get_args()
+        args.start_time = time.time()
         config = read_yaml(args.input_file)
         prep_config(config,args)  # expand vars, set defaults, etc ...
         create_covariance(config, args)

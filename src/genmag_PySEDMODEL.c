@@ -712,12 +712,11 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 #ifdef USE_PYTHON
 
   parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchParVals");
-  // xxx  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL,
-  // xxx			       "fetchParVals_BYOSED_4SNANA");
+  handle_python_exception(fnam, "getting fetchParVals attribute of the class");
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pargs  = Py_BuildValue("(s)",parNameList[ipar]);
-    pParVal  = PyEval_CallObject(parvalmeth, pargs);
+    pParVal  = PyObject_CallFunction(parvalmeth, "(s)", parNameList[ipar]);
+    handle_python_exception(fnam, "fetching a parameter value");
     val = PyFloat_AsDouble(pParVal);
     parVal[ipar] = val;
     // printf("   PARVAL    = '%d' \n",  val);

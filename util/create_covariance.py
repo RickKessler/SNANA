@@ -235,7 +235,9 @@ VERSION:    <subDir under INPUT_DIR>
 {KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales>
   [allows legacy key SYSFILE: ]
 
-#  [CosmoMC-label]  [FITOPT-label, MUOPT-label]
+# Define extra cov matrices using covsys options:
+#  [COVOPT-label]  [FITOPT-label,MUOPT-label,errSystScale]
+#   and no pad spaces allowed inside []
 COVOPTS:
 - '[NOSYS]  [=DEFAULT,=DEFAULT]' # no syst 
 - '[PS1CAL] [+PS1CAL,=DEFAULT]'  # PS1CAL syst only MUOPT=0
@@ -243,8 +245,10 @@ COVOPTS:
 - '[SALT2]  [+SALT2,=DEFAULT]'   # SALT2 syst only, MUOPT=0
 - '[NOCAL]  [-CAL,=DEFAULT]'     # all syst except for calib, MUOPT=0
 - '[SCAT]   [=DEFAULT,+SCAT]     # FITOPT=0, MUOPTs with SCAT in label
-- '[SCAT]   [=DEFAULT,+SCAT,1.2] # same, but systErr *= 2, and cov*= 1.2^2
-- '[ALL]    [,,1.4]              # scale ALL syst err by 1.4, cov*= 1.4^2
+
+# optional 3rd arg scales syst error
+- '[SCAT]   [=DEFAULT,+SCAT,1.2] # errSys *= 2, and covSys*= 1.2^2
+- '[ALL]    [,,1.4]              # scale ALL errSys by 1.4, covSys*= 1.4^2
 
 MUOPT_SCALES:  # replace scales in {KEYNAME_SYS_SCALE_FILE}
   CLAS_SNIRF:  1.0

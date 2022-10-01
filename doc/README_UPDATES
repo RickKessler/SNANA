@@ -21290,6 +21290,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Add gensed_AGN.py as part of PySEDMODEL, and major refac of 
    PySEDMODEL to be more robust (by K.Malanchev)
 
+   Add COVMAT class to submit_batch_jobs to run create_covariance.py.
+   See new code submit_prog_covmat.py.
+
          ***** USEFUL(v11_04n) ***** 
 
          ***** MISCELLANEOUS(v11_04n) ***** 
@@ -21309,6 +21312,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_prog_wfit.py
      + write rho_omm to WFIT_SUMMARY.FITRES for wOM model
          (AVG file is not updated)
+     + add and test merge_reset() [standard method in base class]
 
    sntools.c
      + fix evil bug in check_file_docana()

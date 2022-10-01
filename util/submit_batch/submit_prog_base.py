@@ -1345,7 +1345,6 @@ class Program:
         # check for changes in state for SPLIT and MERGE tables.
         # function returns updated set of SPLIT and MERGE table rows.
 
-        # xxxrow_list_split, row_list_merge, n_change = \
         row_list_dict, n_change = \
             self.merge_update_state(MERGE_INFO_CONTENTS)
 
@@ -1353,7 +1352,8 @@ class Program:
         row_merge_list = row_list_dict['row_merge_list'] # required
         row_extra_list = row_list_dict['row_extra_list'] # optional
         
-        if not MERGE_LAST:  self.force_merge_failure(submit_info_yaml)
+        if not MERGE_LAST: 
+            self.force_merge_failure(submit_info_yaml)
 
         use_split = len(row_split_list) > 0
         use_merge = len(row_merge_list) > 0
@@ -2244,7 +2244,7 @@ class Program:
                 
                     # fix format for CPU
                     if 'CPU' in key :
-                        cpu_sum = f"{job_stats[key_sum]:.1f}"
+                        cpu_sum = f"{job_stats[key_sum]:.2f}"
                         job_stats[key_sum] = float(cpu_sum)
 
         # - - - - - - - - - - - - - - - - - - - - a

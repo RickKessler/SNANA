@@ -118,6 +118,7 @@ FAIL_INDEX_ABORT    = 1
 FAIL_INDEX_ZERO     = 2
 FAIL_INDEX_UNKNOWN  = 3
 CMD_wildcard        = "CPU*.CMD"  # need to read all CMD files
+JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 
 # strings for DONE files
 STRING_SUCCESS = "SUCCESS"
@@ -261,7 +262,7 @@ ignored; therefore it is safe to always include an opt_translate argument.
 
 
 HELP_CONFIG_SIM =  f"""
-  ***** HELP/MENU for Simulation YAML Input *****
+  ***** HELP/MENU for Simulation CONFIG-yaml Input *****
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
@@ -341,7 +342,7 @@ GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
 
 
 HELP_CONFIG_LCFIT = f"""
-   ***** HELP/MENU for LightCurveFit YAML Input *****
+   ***** HELP/MENU for LightCurveFit CONFIG-yaml Input *****
 
     All YAML input must go above &SNLCINP nameList block.
 
@@ -435,7 +436,7 @@ HELP_CONFIG_LCFIT = f"""
 """
 
 HELP_CONFIG_WFIT = f"""
-   ***** HELP/MENU for wfit YAML Input *****
+   ***** HELP/MENU for wfit CONFIG-yaml Input *****
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
@@ -491,7 +492,7 @@ HELP_CONFIG_WFIT = f"""
 """
 
 HELP_CONFIG_BBC = f"""
-    ***** HELP/MENU for BBC YAML Input *****
+    ***** HELP/MENU for BBC  CONFIG-yaml  Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
   # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_BBC}
@@ -596,6 +597,44 @@ HELP_CONFIG_BBC = f"""
 
 """
 
+HELP_CONFIG_COVMAT = f"""
+    ***** HELP/MENU for COVMAT CONFIG-yaml Input *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  # optional switch from using default $SNANA_DIR/bin/{PROGRAM_NAME_COVMAT}
+  JOBNAME: $MY_PATH/{PROGRAM_NAME_COVMAT}
+
+  # input file for {PROGRAM_NAME_COVMAT}
+  INPUT_COVMAT_FILE:   CREATE_COVMAT_TEMPLATE.INPUT
+
+  # define BBC outdirs; these override INPUT_DIR in the above input file.
+  # Labels are required and are part of outdir folder names; submit_batch_jobs
+  # aborts if a label is missing.
+  BBC_OUTDIR:  
+  - /5YR_IaCC/   $PIPPIN_OUTPUT/MYJOBS/6_BIASCOR/5YR_IaCC/output
+  - /5YR_OnlyIa/ $PIPPIN_OUTPUT/MYJOBS/6_BIASCOR/5YR_OnlyIa/output
+
+  # repeat job with these COVMATOPT options. While LCFIT and BBC have default 
+  # FITOPT000, there is no default here and thus an option with no arguments is 
+  # default. Each option must have label to use in outdir folder name; 
+  # submit_batch_jobs aborts if label is missing.
+  COVMATOPT:
+  - /BINNED/                  # default with no args, but must have label
+  - /UNBIN/      --unbinned
+  - /REBIN_2x4/  --nbin_x1 2 --nbin_c 4
+  - /REBIN_4x8/  --nbin_x1 4 --nbin_c 8
+
+  # To test with fewer jobs, this optional key selects strings to match the
+  # version-subdir names. In this example, 11 version-subdirs are selected;
+  # 0003 and 0030-0039.
+  VERSION_SUBSET:
+  - OUTPUT_BBCFIT-0003  # select one version-subdir
+  - OUTPUT_BBCFIT-003   # select OUTPUT_BBCFIT-0030 thru OUTPUT_BBCFIT-0039
+
+  # direct all output here
+  OUTDIR: 7_CREATE_COV
+
+"""
 
 HELP_CONFIG_TRAIN_SALT2 = f"""
     ***** HELP/MENU for TRAIN_SALT2 YAML Input *****
@@ -836,6 +875,7 @@ HELP_MENU = {
     'SIM'         : HELP_CONFIG_SIM,
     'LCFIT'       : HELP_CONFIG_LCFIT,
     'BBC'         : HELP_CONFIG_BBC,
+    'COVMAT'      : HELP_CONFIG_COVMAT,
     'WFIT'        : HELP_CONFIG_WFIT,
     'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
     'TRAIN_SALT3' : HELP_CONFIG_TRAIN_SALT3,

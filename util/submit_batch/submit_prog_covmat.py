@@ -1,6 +1,10 @@
 # Created Sep 30 2022 by R.Kessler
 #
-# Read output of BBC and run create_covariance.
+# Read output of BBC and run create_covariance.py on a 3D grid of
+#  BBC_OUTDIR x BBC_SUBDIR x COVMATOPT
+#
+# Typically N BBC_SUBDIRs reflect N independent sim samples.
+#
 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
@@ -23,8 +27,10 @@ KEY_SYS_SCALE_FILE = 'SYS_SCALE_FILE'
 COLNUM_COVMAT_MERGE_COVMATOPT    = 1
 COLNUM_COVMAT_MERGE_BBCDIR       = 2
 COLNUM_COVMAT_MERGE_SUBDIR       = 3
-COLNUM_COVMAT_MERGE_NCOV         = 4 
+COLNUM_COVMAT_MERGE_NCOVMAT      = 4 
 COLNUM_COVMAT_MERGE_CPU          = 5
+
+PREFIX_JOB_FILES = 'COVMAT'  # for LOG, DONE, YAML 
 
 # - - - - - - - - - - - - - - - - - - -  -
 class create_covmat(Program):
@@ -265,12 +271,12 @@ class create_covmat(Program):
             if ( (n_job_local-1) % n_core ) != icpu : continue
 
             n_job_cpu += 1
-            job_info_wfit   = self.prep_JOB_INFO_covmat(index_dict)
-            util.write_job_info(f, job_info_wfit, icpu)
+            job_info_covmat   = self.prep_JOB_INFO_covmat(index_dict)
+            util.write_job_info(f, job_info_covmat, icpu)
 
-            #job_info_merge = \
-            #    self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
-            #util.write_jobmerge_info(f, job_info_merge, icpu)
+            job_info_merge = \
+                self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
+            util.write_jobmerge_info(f, job_info_merge, icpu)
 
         return n_job_cpu
         # end write_command_file
@@ -299,7 +305,7 @@ class create_covmat(Program):
 
         job_label = f"{arg_label}_{bbc_outdir_label}_{bbc_subdir}"
 
-        prefix        = f"COVMAT_{job_label}"
+        prefix        = f"{PREFIX_JOB_FILES}_{job_label}"
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         yaml_file     = f"{prefix}.YAML"
@@ -307,7 +313,7 @@ class create_covmat(Program):
 
         covmat_outdir = f"{output_dir}/{job_label}"
 
-        # start with user-defined args from WFITOPT[_GLOBAL] key
+        # define command-line arguments
         arg_list = []
         arg_list.append(f"--input_dir {bbc_outdir}")
         arg_list.append(f"--version   {bbc_subdir}")
@@ -327,10 +333,13 @@ class create_covmat(Program):
   
         return JOB_INFO
 
+
     def append_info_file(self,f):
         CONFIG             = self.config_yaml['CONFIG']
 
         f.write(f"\n# covmat info\n")
+
+        f.write(f"JOBFILE_WILDCARD:  '{PREFIX_JOB_FILES}*' \n\n")
 
         f.write(f"{KEY_BBC_OUTDIR}: \n")
         for row in CONFIG[KEY_BBC_OUTDIR] :
@@ -362,7 +371,7 @@ class create_covmat(Program):
 
         # create only MERGE table ... no need for SPLIT table
         header_line_merge = \
-                f" STATE  BBCDIR  SUBDIR  COVMATOPT  NCOV  CPU "
+                f" STATE  BBCDIR  SUBDIR  COVMATOPT  NCOVMAT  CPU "
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 
@@ -413,7 +422,7 @@ class create_covmat(Program):
         COLNUM_COVMATOPT = COLNUM_COVMAT_MERGE_COVMATOPT
         COLNUM_BBCDIR    = COLNUM_COVMAT_MERGE_BBCDIR
         COLNUM_SUBDIR    = COLNUM_COVMAT_MERGE_SUBDIR
-        COLNUM_NCOV      = COLNUM_COVMAT_MERGE_NCOV
+        COLNUM_NCOVMAT   = COLNUM_COVMAT_MERGE_NCOVMAT
         COLNUM_CPU       = COLNUM_COVMAT_MERGE_CPU
         NROW_DUMP   = 0
 
@@ -422,7 +431,118 @@ class create_covmat(Program):
         key_cpu, key_cpu_sum, key_cpu_list = \
                 self.keynames_for_job_stats('CPU_MINUTES')
 
-        return
-    # end merge_update_state
+        key_list = [ key_ncov, key_cpu ] 
+
+        row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
+
+        # init outputs of function
+        n_state_change     = 0
+        row_list_merge_new = []
+
+        nrow_check = 0
+        for row in row_list_merge :
+            row_list_merge_new.append(row) # default output is same as input
+            nrow_check += 1
+            irow        = nrow_check - 1 # row index
+
+           # strip off row info
+            STATE       = row[COLNUM_STATE]
+            prefix      = self.covmat_prefix(row) 
+            search_wildcard = f"{PREFIX_JOB_FILES}_{prefix}*"
+
+            # check if DONE or FAIL ; i.e., if Finished
+            Finished = (STATE == SUBMIT_STATE_DONE) or \
+                       (STATE == SUBMIT_STATE_FAIL)
+
+            if not Finished :
+                NEW_STATE = STATE
+
+                # get list of LOG, DONE, and YAML files 
+                log_list, done_list, yaml_list = \
+                    util.get_file_lists_wildcard(script_dir,search_wildcard)
+
+                # careful to sum only the files that are NOT None
+                NLOG   = sum(x is not None for x in log_list)  
+                NDONE  = sum(x is not None for x in done_list)  
+                NYAML  = sum(x is not None for x in yaml_list)  
+
+                if NLOG > 0:
+                    NEW_STATE = SUBMIT_STATE_RUN
+                if NDONE == n_job_split :
+                    NEW_STATE = SUBMIT_STATE_DONE
+     
+                    covmat_stats = self.get_job_stats(script_dir,
+                                                      log_list, 
+                                                      yaml_list, 
+                                                      key_list)
+                    
+                    # check for failures in snlc_fit jobs.
+                    nfail = covmat_stats['nfail']
+                    if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
+                 
+                    row[COLNUM_STATE]     = NEW_STATE
+                    row[COLNUM_NCOVMAT]   = covmat_stats[key_ncov_sum]
+                    row[COLNUM_CPU]       = covmat_stats[key_cpu_sum]
+                    
+                    row_list_merge_new[irow] = row  # update new row
+                    n_state_change += 1             # assume nevt changes
+
+        # - - - - - -  -
+        # The first return arg (row_split) is null since there is 
+        # no need for a SPLIT table
+
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+        return row_list_dict, n_state_change
+        # end merge_update_state
+
+    def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        row     = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
+        # end merge_job_wrapup
+
+    def merge_cleanup_final(self):
+
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        script_subdir    = SUBDIR_SCRIPTS_COVMAT
+
+        logging.info(f"  covmat cleanup: compress {JOB_SUFFIX_TAR_LIST}")
+        for suffix in JOB_SUFFIX_TAR_LIST :
+            wildcard = (f"{PREFIX_JOB_FILES}*.{suffix}") 
+            util.compress_files(+1, script_dir, wildcard, suffix, "" )
+
+        logging.info("")
+
+        self.merge_cleanup_script_dir()
+
+        # end merge_cleanup_final
+
+    def covmat_prefix(self,row):
+        # parse input row passed from MERGE.LOG and construct
+        # prefix for output files
+        covmatopt  = row[COLNUM_COVMAT_MERGE_COVMATOPT]  
+        bbcdir     = row[COLNUM_COVMAT_MERGE_BBCDIR] 
+        subdir     = row[COLNUM_COVMAT_MERGE_SUBDIR]
+        prefix     = f"{covmatopt}_{bbcdir}_{subdir}"
+        return prefix
+
+        # end covmat_prefix
+
+    def get_misc_merge_info(self):
+        # return misc info lines to write into MERGE.LOG file  
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+ 
+        return []
+        # end get_misc_merge_info
+
+    def get_merge_COLNUM_CPU(self):
+        return COLNUM_COVMAT_MERGE_CPU
 
     # .xyz END

@@ -92,7 +92,6 @@ COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
 COLNUM_BBC_MERGE_SPLITRAN     = 7
 
 # list used in wrapup, cleanup, and merge_reset
-JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
 
 # hard-wire output subDir name if there is 1-and-only-1 version

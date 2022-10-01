@@ -779,16 +779,6 @@ class Program:
             b.write(f"{line}")  # line includes \n
         b.close()
 
-        # xxxxxxxxxxxxx mark delete Jul 18 2022 xxxxxxxxxxxx
-        #batch_lines = open(BATCH_TEMPLATE,'r').read()
-        #for KEY,VALUE in REPLACE_KEY_DICT.items():
-        #    batch_lines = batch_lines.replace(KEY,str(VALUE))
-        # 
-        # write batch lines with REPLACE_XXX replaced
-        #with open(BATCH_FILE,"w") as f:
-        #    f.write("".join(batch_lines))
-        # xxxxxxxxxxx
-
         return
         # end write_batch_file
 
@@ -1910,7 +1900,6 @@ class Program:
         fail_no_output   = (nevt <  0)  # no output
         fail_zero_evt    = (nevt == 0)  # zero events 
         found_fail       = (fail_no_output or fail_zero_evt)
-        # xxx mark create           = (isplit <= MXSPLIT_FAIL_REPEAT )
         create           = True   # Mar 26 2021
 
         if found_fail :

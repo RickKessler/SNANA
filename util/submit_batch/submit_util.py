@@ -535,7 +535,7 @@ def compress_files(flag, dir_name, wildcard, name_backup, wildcard_keep ):
     #  wildcard_keep -> do NOT remove these files
     #
 
-    tar_file   = f"BACKUP_{name_backup}.tar"
+    tar_file   = f"{BACKUP_PREFIX}_{name_backup}.tar"
     targz_file = f"{tar_file}.gz"
     cddir      = f"cd {dir_name}"
 
@@ -582,7 +582,6 @@ def compress_subdir(flag,dir_name):
     # Initial use is for cleanup_job_files(flag=1) and 
     # merge_reset(flag=-1)
 
-
     topdir_name = os.path.dirname(dir_name)
     subdir_name = os.path.basename(dir_name)
 
@@ -607,8 +606,30 @@ def compress_subdir(flag,dir_name):
             cmd_all    = f"{cddir} ; {cmd_unpack}; {cmd_rmgz} "
             os.system(cmd_all)
 
+    return
     # end compress_subdir
 
+def untar_script_dir(script_dir):
+
+    # Created Oct 1 2022
+    # Untar script dir, then untar each BACKUP*.tar.gz file
+
+    script_base = os.path.basename(script_dir)
+    logging.info(f" Untar {script_base} :")
+    compress_subdir(-1, script_dir )
+
+    wildcard = f"{BACKUP_PREFIX}*.tar.gz"
+    targz_list = sorted(glob.glob1(script_dir,wildcard))
+    for targz_file in targz_list:
+        logging.info(f"\t Untar {targz_file}")
+        cmd_unpack = f"tar -xzf {targz_file}"
+        cmd_rm     = f"rm {targz_file}"
+        cmd_all    = f"cd {script_dir} ; {cmd_unpack} ; {cmd_rm} "        
+        os.system(cmd_all)
+
+    return
+    # end untar_script_dir
+ 
 def get_file_lists_wildcard(search_dir, search_wildcard):
 
     # for input search_wildcard, search for the following file lists:

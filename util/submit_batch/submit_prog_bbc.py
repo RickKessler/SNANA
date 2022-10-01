@@ -62,8 +62,9 @@
 # Aug 18 2022: change 4D loop order so that iver is inside instead of outside;
 #      --> ensures that FITOPT000 is always done first.
 #
-# - - - - - - - - - -
-
+# Oct 01 2022 RK - minor refactor for merge_reset()
+#
+# ================================================================
 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
@@ -864,7 +865,6 @@ class BBC(Program):
 
         # 4D lists are for prep_JOB_INFO
         iver_list4=[]; ifit_list4=[]; imu_list4=[]; isplitran_list4=[]
-        # xxx mark delete for iver in range(0,n_version):
         for ifit in range(0,n_fitopt):
             for imu in range(0,n_muopt):
                 for iver in range(0,n_version):
@@ -1623,8 +1623,6 @@ class BBC(Program):
         f.write("VERSION_OUT_LIST:\n")
         for v in vout_list :   f.write(f"  - {v}\n")
 
-        # writing output FITOPTs is tricky, so use special function
-        # xxx mark delete self.append_fitopt_info_file(f)
 
         # - - - - - -
         f.write("\n")
@@ -2650,7 +2648,6 @@ class BBC(Program):
 
         # unpack things in merge_cleanup_final, but in reverse order
 
-        output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
@@ -2666,17 +2663,23 @@ class BBC(Program):
         util.merge_table_reset(MERGE_LOG_PATHFILE, TABLE_MERGE,  \
                                COLNUM_MERGE_STATE, colnum_zero_list)
 
-        logging.info(f"  {fnam}: uncompress {script_subdir}/")
-        util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
+        # xxx unpack_script_dir(scrippt_dir, jobfile_wildcard)
+        util.untar_script_dir(script_dir)
 
-        logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
-        for suffix in JOB_SUFFIX_TAR_LIST :
-            wildcard = f"{jobfile_wildcard}*.{suffix}"
-            util.compress_files(-1, script_dir, wildcard, suffix, "" )
+        # xxxxxxxxx mark delete Oct 1 2022 xxxxxx
+        #logging.info(f"  {fnam}: uncompress {script_subdir}/")
+        #util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
 
-        logging.info(f"  {fnam}: uncompress CPU* files")
-        util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
+        #logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
+        #for suffix in JOB_SUFFIX_TAR_LIST :
+        #    wildcard = f"{jobfile_wildcard}*.{suffix}"
+        #    util.compress_files(-1, script_dir, wildcard, suffix, "" )
 
+        #logging.info(f"  {fnam}: uncompress CPU* files")
+        #util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
+        # xxxxxxxxx end mark xxxxxxxx
+
+        # - - - - - - - - - 
         logging.info(f"  {fnam}: restore {SUFFIX_MOVE_LIST} to {script_subdir}")
         for vout in vout_list : 
             vout_dir = f"{output_dir}/{vout}"

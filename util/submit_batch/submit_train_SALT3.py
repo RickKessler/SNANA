@@ -394,11 +394,6 @@ class train_SALT3(Program):
         start_file = f"{prefix}.START"
         yaml_file  = f"{prefix}.YAML"
 
-        # xxxx mark delete 
-        #for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
-        #    arg_list.append(f"{key} {input_file}")
-        # xxxx
-
         arg_list.append(f"--configfile {config_file}")
         arg_list.append(f"--outputdir {outdir_model}")
         arg_list.append(f"--yamloutputfile {yaml_file}")
@@ -580,9 +575,8 @@ class train_SALT3(Program):
             'row_merge_list' : row_list_merge_new,
             'row_extra_list' : []
         }
-        return row_list_dict, n_state_change
-        # xxx mark return [], row_list_merge_new, n_state_change
 
+        return row_list_dict, n_state_change
         # end merge_update_state
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):

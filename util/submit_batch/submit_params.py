@@ -138,6 +138,7 @@ ENV_SNANA_IMAGE_DOCKER      = "SNANA_IMAGE_DOCKER"
 # lok file for merge process
 BUSY_FILE_PREFIX = "BUSY_MERGE_CPU"
 BUSY_FILE_SUFFIX = "LOCK"
+BACKUP_PREFIX    = "BACKUP"
 
 # define processing states
 COLNUM_MERGE_STATE = 0  # first colmun of any MERGE table must be STATE

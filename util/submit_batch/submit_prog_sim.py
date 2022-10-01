@@ -1466,9 +1466,6 @@ class Simulation(Program):
         n_job_split    = self.config_prep['n_job_split']
         n_core         = self.config_prep['n_core']
 
-        # open CMD file for this icpu
-        # xxx mark delete  f = open(COMMAND_FILE, 'a') 
-
         n_job_cpu    = 0     # number of jobs for this CPU
         iver_list    = self.config_prep['iver_list']
         ifile_list   = self.config_prep['ifile_list']
@@ -1506,8 +1503,6 @@ class Simulation(Program):
 
         # store TMP version strings needed later in MERGE.LOG file
         self.config_prep['TMP_genversion_list2d'] = TMP_list2d
-
-        # xxx mark delete xxx  f.close()
 
         if n_job_local != n_job_tot :
             msgerr = []
@@ -2060,10 +2055,8 @@ class Simulation(Program):
             'row_merge_list' : row_merge_new,
             'row_extra_list' : []
         }
+
         return row_list_dict, n_state_change
-
-        # xxx mark return row_split_new, row_merge_new, n_state_change
-
         # end merge_update_state
 
     def move_sim_data_files(self,genversion_split, genversion_combine, nfail):
@@ -2448,7 +2441,7 @@ class Simulation(Program):
 
         # combine all of the BACKUP*.tar.gz files into one tar file
         tar_file   = "SIMLOGS.tar"
-        tar_list   = "BACKUP_*.tar.gz"
+        tar_list   = "{BACKUP_PREFIX}_*.tar.gz"
         cd_log     = f"cd {simlog_dir}"
         cmd_tar    = f"tar -cf {tar_file} {tar_list}"
         cmd_rm     = f"rm -rf {tar_list}"
@@ -2482,7 +2475,6 @@ class Simulation(Program):
         if ngen_unit > 0 : tar_list += "SIMnorm* "
 
         tar_list += f"{SIMGEN_INPUT_LISTFILE} "
-        # xxx mark tar_list += f"{SUBMIT_INFO_FILE} "
 
         if KEEP_EVERY_MERGELOG :
             tar_list += f"{MERGE_LOG_FILE}_* "

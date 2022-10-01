@@ -466,7 +466,6 @@ class train_SALT2(Program):
         for line in line_list_inp:
             line_list_out.append(line) # default new line = old line
 
-            # xxx mark if line[0] == '#' : continue
             if util.is_comment_line(line) : continue
 
             word_list = (line.rstrip("\n")).split()
@@ -614,7 +613,6 @@ class train_SALT2(Program):
             line_list_out.append(line) # default new line = old line
 
             if util.is_comment_line(line) : continue
-            # xxxx mark if line[0] == '#' : continue
 
             word_list = (line.rstrip("\n")).split()
             if len(word_list) < 2 : continue
@@ -706,9 +704,6 @@ class train_SALT2(Program):
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
-
-        # open CMD file for this icpu  
-        # xxxx mark delete f = open(COMMAND_FILE, 'a')
 
         for itrain in range(0,n_trainopt):
             n_job_local += 1
@@ -1068,9 +1063,8 @@ class train_SALT2(Program):
             'row_merge_list' : row_list_merge_new,
             'row_extra_list' : []
         }
-        return row_list_dict, n_state_change
-        # xxx mark return [], row_list_merge_new, n_state_change
 
+        return row_list_dict, n_state_change
         # end merge_update_state
 
     def get_train_status(self,trainopt):

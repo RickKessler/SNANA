@@ -12,6 +12,7 @@
 # Feb 26 2022 RK - minor refac for WFITAVG feature
 # Aug 16 2022 RK - if -outfile_chi2grid is passed, replace its arg
 #                  with a standard file name.
+# Oct 02 2022 RK - add and test merge_reset() util [standard method]
 #
 # =================================================================
 
@@ -95,7 +96,6 @@ class wFit(Program):
         self.wfit_prep_index_lists()
 
         # prepare WFITAVG: mean and std err on mean
-        # xxx mark self.wfit_prep_mean_stderrmean()
         self.wfit_prep_wfitavg()
 
         # copy input file to outdir
@@ -627,7 +627,6 @@ class wFit(Program):
             f.write(f"  COVOPTS({diropt_num}): \n")
             for icov in range(0,n_covopt):
                 covopt_num  = self.wfit_num_string(-1,icov,-1) 
-                # xxx mark delete covopt      = COVOPTS[icov]
                 covindx     = COVOPTS_keys[icov]  # original index
                 covopt      = COVOPTS[covindx]
                 f.write(f"    {covopt_num}: {covopt} \n")
@@ -787,8 +786,6 @@ class wFit(Program):
             'row_extra_list' : []
         }
         return row_list_dict, n_state_change
-
-        # xxx mark delete return [], row_list_merge_new, n_state_change
 
         # end merge_update_state
 
@@ -986,6 +983,29 @@ class wFit(Program):
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column
 
+    def merge_reset(self,output_dir):
+
+        # unpack things in merge_cleanup_final, but in reverse order
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        script_subdir    = SUBDIR_SCRIPTS_WFIT
+        fnam = "merge_reset"
+
+        logging.info(f"   {fnam}: reset STATE and NEVT in {MERGE_LOG_FILE}")
+        MERGE_LOG_PATHFILE = f"{output_dir}/{MERGE_LOG_FILE}"
+        colnum_zero_list = [ COLNUM_WFIT_MERGE_NDOF ]
+        util.merge_table_reset(MERGE_LOG_PATHFILE, TABLE_MERGE,  \
+                               COLNUM_MERGE_STATE, colnum_zero_list)
+
+        util.untar_script_dir(script_dir)
+
+        # xxx logging.info(f"  {fnam}: uncompress {script_subdir}/")
+        # xxx util.compress_subdir(-1, f"{output_dir}/{script_subdir}" )
+
+        return
+        # end merge_reset
+
     def get_keyname_wfit(self, KEYNAME_LIST):
 
         # for list of possible key names in KEYNAME_LIST,
@@ -998,50 +1018,6 @@ class wFit(Program):
                 keyname = key
         return keyname
         # end get_keyname_wfit
-
-    def make_wfitavg_lists_legacy(self):
-        # XXXX Maybe obsolete
-        CONFIG           = self.config_yaml['CONFIG']
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        INPDIR_LIST      = submit_info_yaml['INPDIR_LIST']
-
-        inpdirs_full_paths = [INPDIR_LIST[k] \
-                            for k in INPDIR_LIST.keys() if k.startswith('DIROPT')]
-
-        KEYNAME_WFITAVG = self.get_keyname_wfit(KEYNAME_WFITAVG_LIST)
-
-        wfitavg_list = {}
-        for wfitavg in CONFIG[KEYNAME_WFITAVG]:
-            wfitavg_dirs = wfitavg.replace(' ','').split('-')
-            if len(wfitavg_dirs)==1: 
-                wildcard = wfitavg_dirs[0]
-                dirslist_fullpath = [f for f in inpdirs_full_paths if wildcard in f]
-                wfitavg_list[wfitavg] = {
-                    'avg_type' : WFIT_AVGTYPE_SINGLE,
-                    'wildcard' : wildcard,
-                    'dirslist_fullpath' : dirslist_fullpath
-                }
-
-            if len(wfitavg_dirs)==2: 
-                # check first that dirs match                                                                                                             
-                wildcard1 = wfitavg_dirs[0]
-                wildcard2 = wfitavg_dirs[1]
-                dirslist_fullpath1 = \
-                    [f for f in inpdirs_full_paths if wildcard1 in f]
-                dirslist_fullpath2 = \
-                    [f for f in inpdirs_full_paths if wildcard2 in f]
-
-                wfitavg_list[wfitavg] = {
-                    'avg_type'  : WFIT_AVGTYPE_DIFF, 
-                    'wildcard1' : wildcard1,
-                    'wildcard2' : wildcard2,
-                    'dirslist_fullpath1': dirslist_fullpath1,
-                    'dirslist_fullpath2': dirslist_fullpath2
-                }
-        self.config_prep['wfitavg_list'] = wfitavg_list
-
-        # end make_wfitavg_lists_legacy
-
 
     def make_wfitavg_lists(self):
 

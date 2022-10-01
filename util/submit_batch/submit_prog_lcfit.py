@@ -794,9 +794,6 @@ class LightCurveFit(Program):
         n_core           = self.config_prep['n_core']
         n_job_cpu        = 0
 
-        # open CMD file for this icpu
-        # xxx mark delete f = open(COMMAND_FILE, 'a') 
-
         n_job_local = 0 ;   n_job_real=0 
 
         for iver,iopt,isplit in zip(iver_list,iopt_list,isplit_list):
@@ -1474,7 +1471,7 @@ class LightCurveFit(Program):
                 is_match = True
             else:
                 is_match = self.match_varnames_list(varnames_ref, varnames)
-            # xxx mark delete Sep 20 2022 is_match = (varnames == varnames_ref)
+
             if not (is_empty or is_match):
                 logging.info(f"ERROR: VARNAMES mis-match for {tb_file}")
                 nerr += 1
@@ -1691,7 +1688,6 @@ class LightCurveFit(Program):
             f_list += f" XXX_FORCE_CORRUPT.{suffix}"
 
         cmd_merge       = f"{program_merge} {f_list} {out_table_file} "
-        # xxx mark cmd             = f"{cmd_merge} > {log_table_file}  "
         cmd             = f"{cmd_merge} &> {log_table_file}  "
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
@@ -1950,12 +1946,16 @@ class LightCurveFit(Program):
         util.compress_subdir(-1, script_dir)
 
         # untar and unzip file inside SUBDIR_SCRIPTS_LCFIT
-        backup_list = glob.glob1(script_dir, "BACKUP*")
-        if len(backup_list) > 0 :
-            cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
-            cmd_all   = f"cd {script_dir}; {cmd_unzip} ; rm BACKUP*.gz ; "\
-                        f"cd {CWD}"
-            os.system(cmd_all)
+        util.untar_script_dir(script_dir)
+
+        # xxxxxx mark delete Oct 1 2022 xxxxxx
+        #backup_list = glob.glob1(script_dir, "{BACKUP_PREFIX}*")
+        #if len(backup_list) > 0 :
+        #    cmd_unzip = f"cat BACKUP*.tar.gz | tar xzf - -i "
+        #    cmd_all   = f"cd {script_dir}; {cmd_unzip} ; rm BACKUP*.gz ; "\
+        #                f"cd {CWD}"
+        #    os.system(cmd_all)
+        # xxxx end mark xxxxx
 
         # remove lingering temp files in SPLIT_JOBS_LCFIT.
         # Also remove MERGE.LOG_{Nsec} backups, and DONE file

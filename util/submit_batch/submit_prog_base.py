@@ -580,7 +580,9 @@ class Program:
                 else:
                     n_core_with_jobs += 1
 
-                f.write(f"\ntouch {DONE_FILE}\n")     # Dec 2021
+                # create CPU*DONE file to make clear that all tasks
+                # for this core have run
+                f.write(f"\ntouch {DONE_FILE}\n") 
 
             # - - - - - 
             # write extra batch file for batch mode

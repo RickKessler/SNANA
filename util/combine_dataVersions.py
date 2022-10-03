@@ -64,7 +64,7 @@
 #
 # ====================================
 
-import os, sys
+import os, sys, argparse
 import numpy as np
 import time, string, getpass, yaml, gzip, glob
 import subprocess, shutil, logging, datetime
@@ -107,6 +107,54 @@ if os.path.exists(PROGRAM_UPDATE_DATA_FILES):
 OUTDIR_TEMP = "TEMP_DATA_FILES" # write updated data files with VPEC here
 
 # ========== BEGIN ===========
+
+
+def get_args():
+
+    parser = argparse.ArgumentParser()
+
+    msg = "HELP menu for config options"
+    parser.add_argument("-H", "--HELP", help=msg, action="store_true")
+
+    msg = "name of the input yml config file"
+    parser.add_argument("input_file", help=msg,
+                        nargs="?", default=None)    
+
+    args = parser.parse_args()
+
+    if args.HELP : 
+        print_help_menu()
+
+    return args
+    # end get_args
+
+def print_help_menu():
+
+    help_menu = f"""
+
+# Define config file inputs
+   PRIVATE_DATA_PATH:  <path>   # optional path to data
+   KCOR_PATH:          <path>   # optional path to kcor files
+   SURVEY_OUT:  <name of combined survey>  # required
+   VPEC_FILE:   <name file file with VPEC & VPEC_ERR>
+   MAGSYSTEM_FINAL:    <system>  # needed if there are multiple systems
+   CHANGE_FILTER_CHAR: False     # optional preserve filter char names
+
+   VERSION:  <ver1>  <kcor_inFile1>
+   VERSION:  <ver2>  <kcor_inFile2>
+     etc ...
+
+# The following outputs are created:
+    <SURVEY_OUT>_TEXT/       ! combined data directory, TEXT format
+    <SURVEY_OUT>_FITS/       ! combined data directory, FITS format
+    kcor_<SURVEY_OUT>.fits   ! combined kcor file
+    <SURVEY_OUT>.SIMLIB      ! combined SIMLIB file
+
+    """
+
+    sys.exit(f"\n{help_menu}")
+    return
+    # end print_help_menu
 
 def parseLines(Lines,key,narg,vbose):
     # Lines is input array of lines in file
@@ -1027,17 +1075,14 @@ def printSummary(versionInfo):
 
 if __name__ == "__main__":
 
-# parse input argument(s)
-    if ( len(sys.argv) < 2 ):
-        sys.exit("Must give INFILE arguent\n-->ABORT")
-    else:
-        INFILE = sys.argv[1]
-        print(f"Input file: {INFILE}")
+    # parse input argument(s)
+    args   = get_args() 
 
+    print(f" Input file: {args.input_file}")
     print(f" SNDATA_ROOT = {SNDATA_ROOT}")
     sys.stdout.flush() 
 
-    versionInfo = VERSION_INFO(INFILE)
+    versionInfo = VERSION_INFO(args.input_file)
     input_config = versionInfo.input_config
 
     # ----------------------------------------

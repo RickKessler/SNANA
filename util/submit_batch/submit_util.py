@@ -302,6 +302,8 @@ def read_arg_file(ARG, KEY_ARG_FILE):
     # Motivation is that user can build long list of arguments
     # (e.g., random calib variations for training)
     # and store each set of args in a separate file.
+    #
+    # Oct 4 2022: protect arg_file with expandvars
 
     arg      = ARG   # init return arg to input ARG
     arg_file = None  # init return arg_file
@@ -314,7 +316,7 @@ def read_arg_file(ARG, KEY_ARG_FILE):
     arg_list = ARG.split()
 
     if arg_list[0] == KEY_ARG_FILE :
-        arg_file = arg_list[1]
+        arg_file = os.path.expandvars(arg_list[1])
         with open(arg_file,"rt") as f:
             for line in f:
                 if is_comment_line(line) : continue

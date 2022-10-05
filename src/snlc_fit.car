@@ -8592,9 +8592,10 @@ c          Print *, 'xxx Calling init_zPDF_spline'
           CALL init_zPDF_spline(SNHOST_NZPHOT_Q,
      &                          ZPHOT_PROB, ZPHOT_Q)
 c          Print *, 'xxx Spline initialized successfully' 
-          INIVAL(ipar) = Zhost
+c     initialize at Q50
+          INIVAL(ipar) = SNHOST_ZPHOT_Q(1,6)
           LZDONE       = .TRUE.
-          CZTMP        = 'Zhost'
+          CZTMP        = 'ZPHOT_Q50'
       ENDIF
 
 c check cheat option (4/30/2012)

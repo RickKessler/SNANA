@@ -5,7 +5,9 @@
 # Jul 09 2021: 
 #   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
 #   to record extra surveys in SALT2.INFO file.      
-
+#
+# Oct 6 2022; copy argument of loggingconfig
+#
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
@@ -53,7 +55,8 @@ KEY_SNANA_SALT3_INFO = "SNANA_SALT3_INFO"
 # create list of config keys whose argument is a file that
 # gets copied to script_dir
 SECTION_FILE_COPY  = 'iodata'
-KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist' ]
+KEY_LIST_FILE_COPY = [ 'trainingconfig', 'tmaxlist', 'snparlist', 
+                       'loggingconfig' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS

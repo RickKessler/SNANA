@@ -27,17 +27,6 @@ c
 c   HISTORY
 c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 c
-c
-c Sep 12, 2014: RK - add legacy LTUP_RESIDUAL so that split_and_fit
-c                    can set it to FALSE when turning of legacy vars.
-c
-c Feb 09 2015 - RK - allow using $SNDATA_ROOT in PRIVATE_TEMPLATES_PATH
-c
-c Aug 2015: USRXXX -> PSNIDXXX and add PSNIDXXX calls in snana.car
-c                     Frees up the USRXXX functions for the user.
-c
-c Mar 10 2017: new &PSNIDINP input OPT_SIMCHEAT = 1 (default).
-c
 c Aug 28 2017: add params for MODEL1, MODEL2, MODEL3, MODEL4
 c              (in addition to II,Ibc,PEC1A).
 c

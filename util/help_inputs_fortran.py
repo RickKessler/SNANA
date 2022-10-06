@@ -15,7 +15,8 @@ COMMENT_CHAR_C       = '//'
 COMMENT_CHAR_FORTRAN = '!'
 COMMENT_CHAR_PYTHON  = '#'
 
-KEY_INPUT = "I:"
+KEY_INPUT    = "I:"
+KEY_NAMELIST = "NAMELIST"
 
 SNANA_DIR = os.environ['SNANA_DIR']
 
@@ -93,10 +94,22 @@ def print_inputs(args,config):
     comment_char = config['comment_char']
     n_line = 0 
     n_input = 0
+    varname_list = []
+
     for line in contents:
         n_line += 1
         if '+DECK' in line:
-            break
+            break  # stop at first subroutine
+
+        IS_NML       = KEY_NAMELIST in line and '/' in line
+        HAS_VARNAMES = len(varname_list) > 0
+ 
+        if IS_NML and HAS_VARNAMES:
+            NML_NAME = line.split('/')[1].strip()
+            print(f"\n# Contents of &{NML_NAME} namelist:")
+            for varname in varname_list:
+                print(f"{varname}")
+            varname_list = []
 
         if KEY_INPUT in line:
             tmp     = line.split(KEY_INPUT)
@@ -107,10 +120,12 @@ def print_inputs(args,config):
             varname = varname.replace(',','') # remove comma
             varname = varname.replace('!','') # remove comment dhar
             varname = varname.split('*')[0]   # remove char array sizes
-            varname = varname.strip()         # remove spacces
-            print(f" {varname:<30} {comment}")
+            varname = varname.strip()         # remove spaces
+            msg  = f" {varname:<30} {comment}"
+            varname_list.append(msg) # store varname msg util NAMELIST is found
             n_input += 1
 
+        
     code_file_base = os.path.basename(args.code_file)
     print(f"\n Found {n_input} input variables in {code_file_base}   " \
           f"[tagged with '{KEY_INPUT}'] ")

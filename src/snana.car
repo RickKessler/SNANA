@@ -1981,7 +1981,7 @@ c
 c define general input to program: 
 c SN flux version, hbook files, cut-windows, etc ...
 c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
-
+c
       CHARACTER*(MXCHAR_FILENAME)  ! user input files
      &   NMLFILE          ! name of input namelist file
      &  ,HFILE_OUT        ! I: output hbook filename for tables
@@ -5631,8 +5631,8 @@ c Aug 2020: of no args, call function to print help menu
 +CDE,SNLCINP.
       INTEGER i, LL, istat
       CHARACTER ARG1*(MXCHAR_ARG), ARG2*(MXCHAR_ARG)
-      CHARACTER FNAM*20, COMMAND*2000, CMD_HELP*100, CODE_FILENAME*40
-
+      CHARACTER FNAM*20, COMMAND*2000, CODE_FILENAME*40
+      CHARACTER CMD_HELP*100, CMD_SNANA_HELP*100
 C ------------------- BEGIN ---------------
 
       FNAM = 'PARSE_SNANA_ARGS'
@@ -5642,16 +5642,23 @@ C ------------------- BEGIN ---------------
 c - - - - - - - - - - - - - - - - - - 
 c Aug 2022: if there are no arguments, print help menu
       IF ( NLINE_ARGS == 0 ) THEN 
+
+c  always print help for &SNLCINP base code inputs
+         CMD_SNANA_HELP = 'help_inputs_fortran.py ' // 'snana.car'
+         CALL SYSTEM(CMD_SNANA_HELP)
+
 +SELF,IF=SNANA.
-          CODE_FILENAME = 'snana.car'
+          CODE_FILENAME = ''
 +SELF,IF=SNFIT.
           CODE_FILENAME = 'snlc_fit.car'
 +SELF,IF=PSNID.
           CODE_FILENAME = 'psnid.car'
 +SELF.
 
-         CMD_HELP = 'help_inputs_fortran.py ' // CODE_FILENAME
-         CALL SYSTEM(CMD_HELP)
+	 if ( CODE_FILENAME .NE. '' )  then
+            CMD_HELP = 'help_inputs_fortran.py ' // CODE_FILENAME
+            CALL SYSTEM(CMD_HELP)
+         endif
          STOP
       ENDIF
 c - - - - - - - - - - - - - - - - - - 

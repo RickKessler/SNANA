@@ -29,6 +29,8 @@
        that are not read on input -> avoids clutter for older data sets.
     + set new globals FORMAT_SNDATA_[READ,WRITE]
 
+ Sep 29 2022 RK - write extra digit of precision for FLUXCAL and FLUXCALERR
+
 *************************************************/
 
 #include  "sntools.h"

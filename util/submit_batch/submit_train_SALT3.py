@@ -6,7 +6,8 @@
 #   new keys 'SURVEY_LIST_SAMEMAGSYS and 'SURVEY_LIST_SAMEFILTER'  
 #   to record extra surveys in SALT2.INFO file.      
 #
-# Oct 6 2022; copy argument of loggingconfig
+# Oct 6 2022; copy argument of loggingconfig to script_dir, 
+#             and also copy master input file
 #
 
 import  os, sys, shutil, yaml, configparser, glob
@@ -116,7 +117,8 @@ class train_SALT3(Program):
         input_master_file = self.config_yaml['args'].input_file 
         CONFIG            = self.config_yaml['CONFIG']
         
-        input_file_list = []  # init input files for trainsalt
+        # start list of all input files for trainsalt
+        input_file_list = [ input_master_file ]  
         msgerr = []
 
         if KEY_CONFIG_FILE not in CONFIG:

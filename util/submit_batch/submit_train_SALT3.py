@@ -118,7 +118,7 @@ class train_SALT3(Program):
         CONFIG            = self.config_yaml['CONFIG']
         
         # start list of all input files for trainsalt
-        input_file_list = [ input_master_file ]  
+        input_file_list = [ ]  
         msgerr = []
 
         if KEY_CONFIG_FILE not in CONFIG:
@@ -330,10 +330,14 @@ class train_SALT3(Program):
         # have full path ... to avoid clobbering same input tile names
         # in different directories
 
+        input_master_file = self.config_yaml['args'].input_file
+
         input_file_list = self.config_prep['input_file_list']
         script_dir      = self.config_prep['script_dir']
 
-        for input_file in input_file_list:
+        local_list = [ input_master_file ] + input_file_list
+
+        for input_file in local_list:
             if '/' not in input_file:
                 print(f"\t Copy input file: {input_file}")
                 os.system(f"cp {input_file} {script_dir}/")

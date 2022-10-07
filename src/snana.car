@@ -67,6 +67,7 @@ c
      &  ,MODEL_MLCS2k2
      &  ,MODEL_SNOOPY
      &  ,MODEL_SALT2, MODEL_SALT3
+     &  ,MODEL_BAYESN
      &  ,MODEL_SIMSED
      &  ,MODEL_BYOSED
      &  ,MODEL_SNEMO
@@ -267,6 +268,7 @@ c
      &  ,MODEL_SNOOPY     = 4
      &  ,MODEL_SALT2      = 6
      &  ,MODEL_SALT3      = 9 ! May 31 2019
+     &  ,MODEL_BAYESN     = 13 ! Oct 7 2022: GN
      &  ,MODEL_SIMSED     = 7
      &  ,MODEL_BYOSED     = 8 
      &  ,MODEL_SNEMO      = 9

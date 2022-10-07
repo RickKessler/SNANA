@@ -141,9 +141,6 @@ class train_SALT3(Program):
                 input_file_list.append(input_file)
 
         for input_file in input_file_list:
-            if 'logging' in input_file: 
-                continue # hack for optional loggingconfig arg
-
             if not os.path.exists(input_file):
                 msgerr.append(f"Input file {input_file}")
                 msgerr.append(f"does not exist.")

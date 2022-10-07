@@ -970,7 +970,7 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 
 $(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_SEDtools.c
 	(cd $(OBJ); \
-	$(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/genmag_BAYESN.c )
+	$(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
 
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \

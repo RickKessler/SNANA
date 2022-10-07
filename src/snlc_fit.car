@@ -1445,6 +1445,24 @@ c note that mB is computed from fitpars, and does not float in fit
 
          CALL SEDMODEL_INI(0,IERR)
 
+      ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+
+         LOBS_FITMODEL  = .TRUE.
+         LREST_FITMODEL = .FALSE.
+         LSED_FITMODEL  = .TRUE.
+
+         PARNAME_STORE(IPAR_COLOR)  = 'AV'
+         ERRMAX_BAD(IPAR_COLOR)     = 0.001
+
+         PARNAME_STORE(IPAR_SHAPE)  = 'THETA1'
+         ERRMAX_BAD(IPAR_SHAPE)     =  0.001
+
+         PARNAME_STORE(IPAR_DLMAG)         = 'DLMAG' 
+c We might have to review the above later - GN 
+         ERRMAX_BAD(IPAR_DLMAG)        = 0.0
+
+         CALL SEDMODEL_INI(0,IERR)
+
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
          LOBS_FITMODEL  = .TRUE.
@@ -3163,6 +3181,7 @@ c functions
      &  ,INIT_FILTER_SEDMODEL
      &  ,INIT_GENMAG_SALT2
      &  ,INIT_GENMAG_SIMSED
+     &  ,INIT_GENMAG_BAYESN
 
       EXTERNAL
      &   RESET_SEDMODEL
@@ -3170,6 +3189,7 @@ c functions
      &  ,INIT_FILTER_SEDMODEL
      &  ,INIT_GENMAG_SALT2
      &  ,INIT_GENMAG_SIMSED
+     &  ,INIT_GENMAG_BAYESN
      &  ,init_redshift_sedmodel
      &  ,init_mwxt_sedmodel
      &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL
@@ -3286,6 +3306,25 @@ c turn on covariance model by default,
 c unless user specifically sets OPT_COVAR=0
         IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
         if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
+
+c BAYESN BLOCK
+      ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
+
+        OPTMASK = 0
+c        IF ( REQUIRE_DOCANA > 0 )           OPTMASK = OPTMASK + 2
+c        IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
+c        IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
+c        IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
+        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
+
+        ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, BLANK, OPTMASK, 
+     &            LEN_NAME, 40 )
+
+c turn on covariance model by default, 
+c unless user specifically sets OPT_COVAR=0
+        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+        if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
+
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -6365,6 +6404,7 @@ c first  hard-wird generic name for each model
       FITMODEL_LIST(MODEL_mlcs2k2)  = 'mlcs2k2'
       FITMODEL_LIST(MODEL_SALT2)    = 'SALT2'
       FITMODEL_LIST(MODEL_SALT3)    = 'SALT3'
+      FITMODEL_LIST(MODEL_BAYESN)   = 'BAYESN'
       FITMODEL_LIST(MODEL_snoopy)   = 'snoopy'
       FITMODEL_LIST(MODEL_SIMSED)   = 'SIMSED'
 
@@ -6391,6 +6431,9 @@ c  Note that C function return termination string
       LEN_VERS = INDEX(C_VERSION, char(0) ) - 1
       FITMODEL_PATH    = C_PATH(1:LEN_PATH)
       FITMODEL_VERSION = C_VERSION(1:LEN_VERS)
+
+      PRINT *,'XXX PATH= ',FITMODEL_PATH
+      PRINT *,'XXX VERSION= ',FITMODEL_VERSION
 
 c now get FITMODEL_INDEX ....
 

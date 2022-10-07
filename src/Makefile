@@ -94,7 +94,7 @@ CC   = gcc
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -
-#EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+# EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
@@ -296,6 +296,7 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_stretch2.o \
 	$(OBJ)/genmag_mlcs2k2.o \
 	$(OBJ)/genmag_SALT2.o	\
+	$(OBJ)/genmag_BAYESN.o	\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/genmag_SIMSED.o	\
@@ -966,6 +967,10 @@ $(OBJ)/genmag_SEDtools.o : $(SRC)/genmag_SEDtools.c  $(SRC)/genmag_SEDtools.c
 $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/genmag_SALT2.c )
+
+$(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_SEDtools.c
+	(cd $(OBJ); \
+	$(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/genmag_BAYESN.c )
 
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \

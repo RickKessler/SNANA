@@ -91,6 +91,9 @@ def get_args():
     msg = "CID list to make table of redshifts and vpec"
     parser.add_argument("--cidlist_ztable", help=msg, type=str, default="")
 
+    msg = "Name of covariance matrix to display for debug"
+    parser.add_argument("--cov_file", help=msg, type=str, default="")
+    
     msg = "get info for photometry version"
     parser.add_argument("--get_info_phot", help=msg, action="store_true")
 
@@ -535,6 +538,26 @@ def analyze_diff_fitres(args):
     return
     # end analyze_diff_fitres
 
+
+#rewrite_cov_file
+def rewrite_cov_file(args):
+    cov_file = os.path.expandvars(args.cov_file)
+    # TO DO LIST
+    # 1. CHECK for gzip extension
+    # 2. Rewrite cov with row,column labels
+    # 3. Add "Start row" for readibility 0.20043.  # (0,2)  START_ROW
+    # 4. Add Diagonal" for readibility : 0.23243.  # (2,2)  DIAGONAL
+    
+    cov_basename  = os.path.basename(cov_file) 
+    out_cov_file  = f"DISPLAY_{cov_basename}"
+    print(f"rewrite cov_matrix to {out_cov_file}")
+    return
+    # end rewrite_cov_file
+
+
+   
+
+
 def print_HELP():
     see_me = (f" !!! ************************************************ !!!")
     print(f"\n{see_me}\n{see_me}\n{see_me}")
@@ -570,9 +593,12 @@ if __name__ == "__main__":
     if args.cidlist_ztable :
         make_ztable(args)
 
-    if args.get_info_phot :
-        get_info_photometry(args)
+    if args.cov_file :
+        rewrite_cov_file(args)
 
+    if args.get_info_phot :
+        get_info_photometry(args)    
+        
     if args.get_info_code :
         get_info_code(args)
 

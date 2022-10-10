@@ -9,6 +9,7 @@
 # Oct 6 2022; copy argument of loggingconfig to script_dir, 
 #             and also copy master input file
 #
+# Oct 10 2022: fix indentation bug in merge_update_state().
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, coloredlogs
@@ -507,6 +508,8 @@ class train_SALT3(Program):
 
         # read MERGE.LOG, check LOG & DONE files.
         # Return update row list MERGE tables.
+        # Oct 10 2022: fix indentation bug under 'if NDONE == n_job_split'
+        #               --> fixes phony failures.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
@@ -566,17 +569,20 @@ class train_SALT3(Program):
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
 
-                job_stats = self.get_job_stats(script_dir, 
-                                               log_list, yaml_list, key_list)
+                    job_stats = self.get_job_stats(script_dir, 
+                                                   log_list, 
+                                                   yaml_list, 
+                                                   key_list)
 
-                row[COLNUM_STATE]     = NEW_STATE
-                row[COLNUM_NLC]       = job_stats[key_nlc_sum]
-                row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
-                row[COLNUM_CPU]       = job_stats[key_cpu_sum]
+                    row[COLNUM_STATE]     = NEW_STATE
+                    row[COLNUM_NLC]       = job_stats[key_nlc_sum]
+                    row[COLNUM_NSPEC]     = job_stats[key_nspec_sum]
+                    row[COLNUM_CPU]       = job_stats[key_cpu_sum]
 
-                row_list_merge_new[irow] = row  # update new row
-                n_state_change += 1             
-
+                    row_list_merge_new[irow] = row  # update new row
+                    n_state_change += 1             
+                
+        # - - - - - 
         # first return arg (row_split) is null since there is 
         # no need for a SPLIT table
         row_list_dict = {

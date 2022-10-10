@@ -2006,7 +2006,8 @@ class Program:
         n_job_fail_list[0] += 1
         n_job_fail          = n_job_fail_list[0]
         msg = f"    *** FAIL {n_job_fail:3d} for " \
-              f"{job_log_file}   found_zero={found_zero}"
+              f"{job_log_file}   FAIL_MODE={FAIL_MODE}  " \
+              f"found_zero={found_zero}"
         logging.info(msg)
 
         # - - - - - - - - - - - - - - -
@@ -2263,7 +2264,7 @@ class Program:
         # loop again over split jobs and check for failures.
         for isplit in range(0,n_split):
             log_file   = log_file_list[isplit]
-            aiz        = aiz_list[isplit]
+            aiz        = aiz_list[isplit]            
             found_fail =  self.check_for_failure(log_file, aiz, isplit+1)
             if found_fail : job_stats['nfail'] += 1
 

@@ -71,6 +71,8 @@
 # Sep 30 2022 RK
 #   + optional --yaml_file arg to communicate with sumbit_batch_jobs
 #
+# Oct 10 2022 A.Mitra and R.K.
+#   + New input arguments --label_cov_rows with default = False.
 # ===============================================
 
 import os, argparse, logging, shutil, time
@@ -180,6 +182,10 @@ def get_args():
     #parser.add_argument("--sys_scale_global", help=msg, 
     #                    nargs='?', type=float, default=1.0 ) 
     
+    msg = "Add labels in covariance matrix output (visual debug)"                                                                                      
+    parser.add_argument("--label_cov_rows", help=msg,                                                                                                      
+                        nargs='?', type=bool, default=False )
+
     msg = "Use each SN instead of BBC binning"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
@@ -908,7 +914,7 @@ def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
     # end is_pos_def
 
-def write_standard_output(config, unbinned, covs, data, labels):
+def write_standard_output(config, args, covs, data, labels):
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
     # e.g., wfit, CosmoSIS, firecrown ...
@@ -920,7 +926,8 @@ def write_standard_output(config, unbinned, covs, data, labels):
 
     logging.info("")
     logging.info("   OUTPUT  ")
-
+    unbinned = args.unbinned
+    label_cov_rows = args.label_cov_rows
     outdir = Path(config["OUTDIR"])
     os.makedirs(outdir, exist_ok=True)
 
@@ -943,13 +950,14 @@ def write_standard_output(config, unbinned, covs, data, labels):
             write_HD_binned(data_file, data[label], muerr_sys_list)
 
     # Create covariance matrices and datasets
-    opt_cov = 1  # tag rows and diagonal elements
+    opt_cov = 0  
+    if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
         base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
         base_file  += '.gz'  # force gzip file, Apr 22 2022
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
-
+        
     return
 
     # end write_standard_output
@@ -1209,6 +1217,7 @@ def write_HD_comments(f,wrflag_syserr):
 
 def write_covariance(path, cov, opt_cov):
 
+    
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
     covdet         = np.linalg.det(cov)
@@ -1421,7 +1430,7 @@ def create_covariance(config, args):
         labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
-    write_standard_output(config, args.unbinned, covariances, data, labels)
+    write_standard_output(config, args, covariances, data, labels)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :

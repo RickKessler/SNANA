@@ -85,7 +85,7 @@ struct SALT2_ERRMAP {
 
 #define CALIB_SALT2_MAGSHIFT  1
 #define CALIB_SALT2_WAVESHIFT 2
-#define MXSHIFT_CALIB_SALT2 100
+#define MXSHIFT_CALIB_SALT2 500
 typedef struct {
   int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
   char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
@@ -271,7 +271,7 @@ double magerrFudge_SALT2(double magerr,
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
 void  init_calib_shift_SALT2train(void) ;
-bool  match_SALT2train_legacy(char *survey_calib, char *band_calib, int ifilt) ;
+
 bool  match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) ;
 int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
 			    double **transREF) ;

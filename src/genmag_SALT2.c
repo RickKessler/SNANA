@@ -1105,7 +1105,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys
   // Nov 12, 2020: pass OPTMASK instead of REQUIRE_DOCANA
   // Aug 05, 2021: read last char for BAND
-
+  // Oct 10, 2022: abort of NSHIFT_CALIB exceeds bount
   char
      infoFile[MXPATHLEN]
     ,c_get[60]
@@ -1116,7 +1116,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
        ;
 
   bool   REQUIRE_DOCANA, DISABLE_MAGSHIFT, DISABLE_WAVESHIFT;
-  double *errtmp, *ptrpar;
+  double *errtmp, *ptrpar, SHIFT_CALIB;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT, LEN ;
   FILE  *fp ;
@@ -1275,19 +1275,33 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
     if ( WHICH > 0 ) {
       NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;
-      INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
-      readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
 
-      // e.g., if band is SDSS-r, just strip off last character 'r' and preserve full filter string
-      readchar(fp, ctmp );  LEN = strlen(ctmp) ;
-      sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND, "%c", ctmp[LEN-1] );
-      sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].FILTER_STRING, "%s", ctmp );
+      if ( NSHIFT < MXSHIFT_CALIB_SALT2 ) {
+	INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
+	readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
 
-      readdouble(fp, 1, &INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SHIFT );
+	// e.g., if band is SDSS-r, just strip off last 
+	// character 'r' and preserve full filter string
+	readchar(fp, ctmp );  LEN = strlen(ctmp) ;
+	readdouble(fp, 1, &SHIFT_CALIB );
+
+	sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND, "%c", ctmp[LEN-1] );
+	sprintf(INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].FILTER_STRING,"%s",ctmp);
+	INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SHIFT = SHIFT_CALIB;
+      }
       INPUT_SALT2_INFO.NSHIFT_CALIB++ ;
     }
 
   } // end while
+
+  // check array bount (Oct 2022)
+  NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;  
+  if ( NSHIFT >= MXSHIFT_CALIB_SALT2 ) {
+    sprintf(c1err,"NSHIFT_CALIB=%d exceeds bound of %d",
+	    NSHIFT, MXSHIFT_CALIB_SALT2);
+    sprintf(c2err,"Check %s file", SALT2_INFO_FILE );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
 
 
   // transfer filter-lambda range to SEDMODEL struct
@@ -1388,7 +1402,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   char KEY_SHIFT[4][12] = { "", "MAGSHIFT", "WAVESHIFT", "" } ;
   for(i=0; i < NSHIFT; i++ ) {
     WHICH = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
-    printf("\t Apply %s=%7.4f for SURVEY=%s, FILTER=%s\n",
+    printf("\t Read %s=%9.4f for SURVEY=%s, FILTER=%s\n",
 	   KEY_SHIFT[WHICH],
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT,
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING,
@@ -1926,7 +1940,7 @@ void init_calib_shift_SALT2train(void) {
   set_FILTERSTRING(FILTERSTRING);
 
   for(i=0; i < NSHIFT_TOT; i++ ) {
-    which                = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
+    which               = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
     survey_calib_string = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING ;
     band_calib          = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
     filter_calib        = INPUT_SALT2_INFO.SHIFT_CALIB[i].FILTER_STRING;
@@ -1949,13 +1963,9 @@ void init_calib_shift_SALT2train(void) {
       
       for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
       
-	if ( DEBUG_SALT2 ) {
-	  MATCH  = match_SALT2train_legacy(survey_calib,band_calib,ifilt);
-	}
-	else {
-	  MATCH  = match_SALT2train(survey_calib, filter_calib, ifilt);
-	}
+	MATCH  = match_SALT2train(survey_calib, filter_calib, ifilt);
 	if ( !MATCH ) { continue; }
+
 	// store current filter trans in separate array so that
 	// original array can be modified.
 	NLAM = copy_filter_trans_SALT2(ifilt, &lam, &trans, &transREF);
@@ -1982,7 +1992,7 @@ void init_calib_shift_SALT2train(void) {
   } // end i loop over NSHIFT
 
 
-  printf("\t --> Apply %d of %d calibration shifts.\n",
+  printf("\t --> Apply %d of %d calibration shifts.\n\n",
 	 NSHIFT_APPLY, NSHIFT_TOT );  fflush(stdout);
 
   if ( NSHIFT_APPLY > 0 ) {  filtdump_SEDMODEL(); }
@@ -2020,82 +2030,18 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 
 
 // ========================================
-bool match_SALT2train_legacy(char *survey_calib, char *band_calib, int ifilt) {
-
-  // Created Nov 10 2020
-  // return true if input "icalib" calibration shift matches ifilt.
-  // NOTE:
-  //     *_calib refers to calibration in the trainings
-  //     *_filter refers to what is currently used in the LC fit
-  // INPUTS:
-  //     survey_calib = survey used in the training
-  //     band_calib = band used in the trainining  
-  //     ifilt = sparse filter of current filter for LC fit
-
-  char *survey_filt  = FILTER_SEDMODEL[ifilt].survey ; // survey associated with current filter used in LC fit
-  char *filter_name  = FILTER_SEDMODEL[ifilt].name ;  // FULL name of current filter used in LC fit
-  char  band_filt[2] ;  // band of current filter
-  int   j_band, j_slash ;
-  bool  MATCH_SURVEY, MATCH_BAND ;
-  int   LDMP = 0 ;
-  char fnam[] = "match_SALT2train_legacy";
-
-  // ---------- BEGIN ----------
-
-  /*
-  printf(" xxx %s: survey[calib,filt] = [ %s, %s ] \n",
-	 fnam, survey_calib, survey_filt); fflush(stdout);
-  */
-
-  MATCH_SURVEY = ( strcmp(survey_calib,survey_filt) == 0 ) ;
-  if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }
-
-  // get band_filt from filter_name.
-  // E.g., filter_name = CFA3K-B/q -> band_filt = B (not q)
-  j_band       = strlen(filter_name) - 1 ;
-  j_slash      = index_charString("/", filter_name) ;
-  if ( j_slash > 0 ) { j_band = j_slash - 1; }
-  sprintf(band_filt, "%c", filter_name[j_band] );
-
-  // matching band requires:
-  // 1) survey name is part of full filter name (FRAGILE ALERT !!!)
-  // 2) band_calib is last character, or last char before slash
-  MATCH_BAND = 
-    ( strstr(filter_name,survey_filt) != NULL ) && 
-    ( strcmp(band_filt,band_calib) == 0 ) ;
-
-  if ( LDMP ) {
-    printf(" xxx ----------------------------------------- \n");
-    printf(" xxx %s: survey_calib=%s, band_calib=%s \n",
-	   fnam, survey_calib, band_calib );
-
-    printf(" xxx %s: ifilt=%d  survey_filt=%s  filter=%s \n",
-	   fnam, ifilt, survey_filt, filter_name );
-
-    printf(" xxx %s: j_[band,slash]=%d,%d  MATCH_BAND=%d \n",
-	   fnam, j_band, j_slash, MATCH_BAND);
-    fflush(stdout);
-  }
-
-  bool MATCH = MATCH_SURVEY && MATCH_BAND ;
-  return MATCH ;
-
-} // end match_SALT2train_legacy
-
-
-// ========================================
 bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
 
   // Created Febr 17 2022
   // return true if input calibration shift matches ifilt.
-  // NOTE:
-  //     *_calib refers to calibration in the trainings
-  //     *_genmag refers to what is currently used in sim or LC fit
   //
   // INPUTS:
   //     survey_calib = survey used in the training
-  //     band_calib = band used in the trainining  
+  //     filter_calib = filter used in the training  
   //     ifilt = sparse filter of current filter for LC fit
+  //
+  // Oct 10 2022: fix subtle bug and treat survey_genmag as a 
+  //              comma-sep list.
   //
 
   char *survey_genmag  = FILTER_SEDMODEL[ifilt].survey ;
@@ -2113,7 +2059,20 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
 	 fnam, survey_calib, survey_genmag); fflush(stdout);
   */
 
-  MATCH_SURVEY = ( strcmp(survey_calib,survey_genmag) == 0 ) ;
+  int n_survey_genmag=0, i_srvy;
+  char **survey_genmag_list, *s;   
+  parse_commaSepList(fnam, survey_genmag, 10, 100,
+                     &n_survey_genmag, &survey_genmag_list );
+  MATCH_SURVEY = false;
+  for(i_srvy=0; i_srvy < n_survey_genmag; i_srvy++ ) {
+    s = survey_genmag_list[i_srvy] ;
+    if ( strcmp(survey_calib,s) == 0 ) { MATCH_SURVEY = true; }
+    free(survey_genmag_list[i_srvy]);
+  }
+  free(survey_genmag_list);
+
+  // xxx mark  MATCH_SURVEY = ( strcmp(survey_calib,survey_genmag) == 0 ) ;
+
   if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }
 
   // get original filter string "base" from filter_genmag.

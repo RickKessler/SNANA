@@ -661,7 +661,7 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # for a random calibration offset in every band.
   # PATH_INPUT_CALIB key specifies a different calibration directory.
 
-  TRAINOPT:
+  TRAINOPT: # survey  band shift
   - MAGSHIFT  SDSS  g 0.01
   - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
   - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01

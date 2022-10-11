@@ -21329,7 +21329,15 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_prog_lcfit.py:
      see https://github.com/RickKessler/SNANA/issues/1010
 
+   submit_train_SALT3.py
+      + fix indentation bug that caused phony FAIL_REPEAT jobs.
+
    sntools_dataformat_text.c
      + check NLAM for reading spectra
+
+   genmag_SALT2.c[h]
+     + fix few bugs related to MAGSHIFT and WAVESHIFT keys in
+       SALT2.INFO file; 
+        https://github.com/RickKessler/SNANA/issues/1033
 
 END: 

@@ -6432,9 +6432,6 @@ c  Note that C function return termination string
       FITMODEL_PATH    = C_PATH(1:LEN_PATH)
       FITMODEL_VERSION = C_VERSION(1:LEN_VERS)
 
-      PRINT *,'XXX PATH= ',FITMODEL_PATH
-      PRINT *,'XXX VERSION= ',FITMODEL_VERSION
-
 c now get FITMODEL_INDEX ....
 
       DO 20  j = 1, MXMODEL_INDEX 

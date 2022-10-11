@@ -21295,6 +21295,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
          ***** USEFUL(v11_04n) ***** 
 
+   Fix old refactor bug reading SIM_HOSTLIB_PARVAL (TEXT and FITS format)
+
          ***** MISCELLANEOUS(v11_04n) ***** 
 
    sim:
@@ -21343,4 +21345,5 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    combine_dataVersions.py:
      + replace output kcor_ prefix with calib_ prefix.
 
+  
 END: 

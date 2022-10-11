@@ -544,11 +544,21 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       { copy_lli(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_GALID) ; }  
 
     else if ( strncmp(key,"SIM_HOSTLIB",11) == 0 ) {
+      igal = 0 ;
+      for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+	if ( strcmp(key,SNDATA.SIM_HOSTLIB_KEYWORD[ipar]) == 0 ) {
+	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]); 
+	}
+      }
+
+      /* xxxxxxxx mark delete Oct 11 2022 xxxxxxx
       for(igal=0; igal < MXHOSTGAL; igal++ ) {
       	for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
-		copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
+	  copy_flt(copyFlag, parVal, &SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal]) ; 
         }
       }
+      xxxxxxxx end mark xxxxxxx */
+
     }
     else if ( strcmp(key,"SIM_DLMU") == 0 ) 
       { copy_flt(copyFlag, parVal, &SNDATA.SIM_DLMU) ; }  

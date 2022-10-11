@@ -3030,6 +3030,7 @@ int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 // ========================================================
 int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
+  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
 
   // For input global *parName, return *parString.
   //
@@ -3209,7 +3210,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
 
 
-  // check optional SIMSED_HOSTLIB[ipar] 
+  // check optional SIM_HOSTLIB[ipar] 
   if ( SNDATA.NPAR_SIM_HOSTLIB > 0 ) {
     for ( ipar = 0; ipar <  SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
       sprintf(key,"SIM_HOSTLIB_PAR%2.2d", ipar);
@@ -3231,6 +3232,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   sprintf(parString,"%s", tmpString);
   return(SUCCESS) ;
 
+  // xxxxxxxxx MARK OBSOLETE OCT 11 2022 xxxxxxxxx
 
 } // end of RD_SNFITSIO_GLOBAL
 
@@ -3581,6 +3583,14 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_DBL(isn, "SIM_HOSTLIB_GALID", &D_OBJID,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;
     SNDATA.SIM_HOSTLIB_GALID = (long long)D_OBJID ;
+
+    // Oct 11 2022 - read SIM_HOSTLIB_PARVAL (forgot in previous refac)
+    for ( ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, SNDATA.SIM_HOSTLIB_KEYWORD[ipar], 
+				 &SNDATA.SIM_HOSTLIB_PARVAL[ipar][0] ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;	
+    }
+
 
     j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_DLMU", &SNDATA.SIM_DLMU ,
 			       &SNFITSIO_READINDX_HEAD[j] ) ;

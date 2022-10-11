@@ -1,21 +1,28 @@
 import numpy as np
-from astropy import constants
+from astropy import constants, units
 from astropy.cosmology import Planck18
+from scipy import integrate
 
 from gensed_base import gensed_base
 
-
 M_sun = constants.M_sun.cgs.value
 c = constants.c.cgs.value
+pc = (1 * units.pc).to_value(units.cm)
+G = constants.G.cgs.value
+sigma_sb = constants.sigma_sb.cgs.value
+h = constants.h.cgs.value
+k_B = constants.k_B.cgs.value
 
 
 class AGN:
-    def __init__(self, t0: float, Mi: float, M_BH: float, lam: np.ndarray, rng):  # constructor
+    def __init__(self, t0: float, Mi: float, M_BH: float, lam: np.ndarray, edd_ratio: float, rng): # constructor
         self.lam = np.asarray(lam)
         self.t0 = t0
         self.rng = np.random.default_rng(rng)
 
-        self.Fnu_average = self.find_Fnu_average(self.lam, M_BH, None)
+        self.ME_dot = self.find_ME_dot(M_BH)
+        self.MBH_dot = self.find_MBH_dot(self.ME_dot, M_BH, edd_ratio)
+        self.Fnu_average = self.find_Fnu_average_standard_disk(self.MBH_dot, self.lam, M_BH)
 
         self.tau = self.find_tau_v(self.lam, Mi, M_BH)
         self.sf_inf = self.find_sf_inf(self.lam, Mi, M_BH)
@@ -55,6 +62,46 @@ class AGN:
         Fnu_ave = np.full_like(lam, F_av)
         return Fnu_ave
         # return 1e-29 * (lam / 5000e-8)**(-1/3)
+
+    @staticmethod
+    def find_ME_dot(M_BH):
+    #return in g/s
+        return 1.4e18*M_BH/M_sun
+
+    @staticmethod
+    def find_MBH_dot(ME_dot, M_BH, eddington_ratio):
+        return ME_dot * eddington_ratio
+    # don't need yita?
+
+    @staticmethod
+    def T_0(M, Mdot, r_in):
+        return (2 ** (3 / 4) * (3 / 7) ** (7 / 4) * (G * M * Mdot / (np.pi * sigma_sb * r_in ** 3)) ** (1 / 4))
+
+    @staticmethod
+    def r_0(r_in):
+        return ((7 / 6) ** 2 * r_in)
+
+    @staticmethod
+    def x_fun(nu, T0, r, r0):
+        return (h * nu / (k_B * T0) * (r / r0) ** (3 / 4))
+
+    def find_flux_standard_disk(self, Mdot, nu, rin, rout, i, d, M):
+        T0 = self.T_0(M, Mdot, rin)
+        r0 = self.r_0(rin)
+        xin = self.x_fun(nu, T0, rin, r0)
+        xout = self.x_fun(nu, T0, rout, r0)
+        fun_integr = lambda x: (x ** (5 / 3)) / (np.exp(x) - 1)
+    #     integ, inte_err = integrate.quad(fun_integr, xin, xout)
+        integ, inte_err = integrate.quad(fun_integr, 0, np.inf)
+
+        return ((16 * np.pi) / (3 * d ** 2) * np.cos(i) * (k_B * T0 / h) ** (8 / 3) * h * (nu ** (1 / 3)) / (c ** 2) * (
+                    r0 ** 2) * integ)
+
+    def find_Fnu_average_standard_disk(self, MBH_dot, lam, M_BH):
+
+        flux_av = self.find_flux_standard_disk(MBH_dot, c/lam, rin=1, rout=1, i=0, d=10 * pc, M=M_BH) # do we need i, d?
+        return flux_av
+
 
     @staticmethod
     def find_tau_v(lam, Mi=-23, M_BH=1e9 * M_sun):
@@ -102,7 +149,7 @@ class gensed_AGN(gensed_base):
     def prepEvent(self, trest, external_id, hostparams):
         # trest is sorted
         self.trest = np.round(trest, self._trest_digits)
-        self.agn = AGN(t0=self.trest[0], Mi=-23, M_BH=1e9 * M_sun, lam=self.wave, rng=self.rng)
+        self.agn = AGN(t0=self.trest[0], Mi=-23, M_BH=1e9 * M_sun, lam=self.wave, edd_ratio=0.1, rng=self.rng)
         self.sed = {self.trest[0]: self._get_Flambda()}
         # TODO: consider a case of repeated t, we usually have several t = 0
         for t in self.trest[1:]:
@@ -126,4 +173,3 @@ class gensed_AGN(gensed_base):
 
     def fetchParVals(self, varname):
         return 'SNANA'
-

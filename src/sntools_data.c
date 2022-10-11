@@ -95,6 +95,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   //
   // Apr 24 2021: add SIM_BIASCOR_MASK
   // Oct 08 2021: add SIM_MODEL_INDEX
+  // Oct 11 2022: fix bug reading SIM_HOSTLIB params
 
   bool ISKEY_PRIVATE = ( strstr (key,"PRIVATE")   != NULL ) ;
   bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
@@ -218,9 +219,16 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       { copy_int(copyFlag, parVal, &SNDATA.NPAR_SIM_HOSTLIB ); }
 
     else if ( strncmp(key,"SIM_HOSTLIB_PAR",15) == 0 ) {
+
+      sscanf(&key[15], "%d", &ipar);
+      copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
+
+      /* xxxxxxx mark delete Oct 11 2022 xxxxxxxxxxxxxx
       for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
 	copy_str(copyFlag, stringVal, SNDATA.SIM_HOSTLIB_KEYWORD[ipar]);
       }
+      xxxxxxxxxxx end mark xxxxxx */
+
     }
     else if ( strcmp(key,"SIM_SL_FLAG") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_SL_FLAG ); }

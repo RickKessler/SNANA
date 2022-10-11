@@ -25143,7 +25143,7 @@ c SIM_HOSTLIB params
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIM_HOSTLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
          CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
-     &        VARLIST, 0,    LENBLOCK, LENLIST)
+     &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
       ENDDO  
 
 c - - - - - optional LCWIDTH for simulated MAGOBS -----

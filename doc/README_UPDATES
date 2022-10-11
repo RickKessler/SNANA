@@ -21340,4 +21340,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
        SALT2.INFO file; 
         https://github.com/RickKessler/SNANA/issues/1033
 
+   combine_dataVersions.py:
+     + replace output kcor_ prefix with calib_ prefix.
+
 END: 

@@ -28950,6 +28950,9 @@ void print_sim_help(void) {
     "SIMGEN_DUMP: <NVAR> <VAR_1> <VAR_2> ... <VAR_N>  # space sep with NVAR",
     "       or ",
     "SIMGEN_DUMP: <VAR_1>,<VAR_2>,,,,<VAR_N>          # comma-sep without NVAR",
+    "",
+    "# - - - - - - - - Random Systematic Errors - - - - - - - ",
+    "# See manual Sec 4.42 Applying Systematic Errors (RANSYSTPAR)",
     0
   };
 

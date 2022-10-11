@@ -62,6 +62,9 @@
 #    + addd new KCOR_PATH arg
 #    + all comment lines in [VERSION].LIST
 #
+# Oct 11 2022 RK - change kcor_ prefix to calib_ prefix, but leave synmbolic
+#                  to kcor_xxx.fits .
+#
 # ====================================
 
 import os, sys, argparse
@@ -376,6 +379,19 @@ def write_kcor_inputFile(versionInfo, kcorInfo_list):
                         f"{filter_file}  {filter_zpoff} \n")
 
     f.close()
+
+    # - - - - - -  
+    # Oct 11 2022
+    # Temporary(?): create symbolic link with kcor prefix  ... 
+    # until all the kcor_xxx.fits are replaced with calib_xxx.fits in
+    # sim-input and fit-input file
+
+    kcor_link = versionInfo.kcor_outFile.replace("calib","kcor")
+    cmd_link = f"ln -s {versionInfo.kcor_outFile} {kcor_link}"
+    print(f"  Create sym link: \n\t {cmd_link}")
+    os.system(cmd_link)
+
+    return
     # end write_kcor_inputFile
 
 def get_survey(PRIVATE_DATA_PATH,VERSION):
@@ -471,9 +487,16 @@ class VERSION_INFO:
         self.AUXFILE_LIST       = SOUT + '_TEXT.LIST'
 
         
-        self.kcor_inFile  = 'kcor_' + SOUT + '.input'
-        self.kcor_outFile = 'kcor_' + SOUT + '.fits'
-        self.kcor_logFile = 'kcor_' + SOUT + '.log'
+        # xxxx mark delete Oct 11 2022 
+        #self.kcor_inFile  = 'kcor_' + SOUT + '.input'
+        #self.kcor_outFile = 'kcor_' + SOUT + '.fits'
+        #self.kcor_logFile = 'kcor_' + SOUT + '.log'
+        # xxxxxxxxx
+
+        # Oct 1 2022 RK - use more sensible prefix
+        self.kcor_inFile  = 'calib_' + SOUT + '.input'
+        self.kcor_outFile = 'calib_' + SOUT + '.fits'
+        self.kcor_logFile = 'calib_' + SOUT + '.log'
         self.simlibFile   = SOUT + '.SIMLIB'    
         
         # define strings of old and new filter char;

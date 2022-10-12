@@ -1806,8 +1806,6 @@ class Simulation(Program):
             MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] )
 
-        #printf(" xxx force crash with C-like printf xxx \n")
-
         # end create_merge_table
 
     def genversion_expand_list(self,genversion_list,ranseed_key,n_job_split):

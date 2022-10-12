@@ -126,6 +126,8 @@ def get_args():
     parser.add_argument("--force_crash_merge", help=msg, action="store_true")
     msg = (f"DEBUG MODE: force abort in merge ")
     parser.add_argument("--force_abort_merge", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: force garbage argument for this job id") # not implemented yet ...
+    parser.add_argument("--jobid_force_bad_arg", help=msg, type=int, default=None )
 
     msg = (f"DEBUG MODE: run codes from private snana_dir ")
     parser.add_argument("--snana_dir", help=msg, type=str, default=None )

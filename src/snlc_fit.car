@@ -5689,16 +5689,21 @@ c from other filters used for Landolt color trans.
           GOTO 501  ! skip K-corrections and other rest-frame stuff
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
-	       MSKBAYESN = 0
-               PARLIST_SN(1) = 0 ! This should be DLMAG FIXME
-               PARLIST_SN(2) = SHAPE(1)
-               PARLIST_SN(3) = 0 ! This should be AV FIXME
-	           PARLIST_SN(4) = 0 ! This should be RV FIXME
-               CALL genmag_BAYESN( MSKBAYESN, ifilt_obs
+
+          MSKBAYESN = 0
+          PARLIST_SN(1) = DIST      ! distance modulus
+          PARLIST_SN(2) = SHAPE(1)  ! THETA
+          PARLIST_SN(3) = AVHOST    ! host extiction
+          PARLIST_SN(4) = RVHOST    ! RV for host
+
+          CALL genmag_BAYESN( MSKBAYESN, ifilt_obs
      &          , PARLIST_SN, MWEBV_MODEL
      &          , ZSN, Nepoch, Tobs
      &          , MAG_OBS_TMP(ifilt_obs)       ! return arg
      &          , MAGERR_OBS_TMP(ifilt_obs)  ) ! return arg 
+
+          GOTO 501  ! skip K-corrections and other rest-frame stuff
+
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
 c translate fit-params into SALT2 language

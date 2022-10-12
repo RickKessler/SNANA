@@ -561,64 +561,6 @@ class LightCurveFit(Program):
 
         # end fit_prep_FITOPT
 
-
-    def fit_prep_FITOPT_OBSOLETE(self) :
-
-        # read/store list of FITOPT options, along with 'fitnums'
-        # FITOPT000, FITOPT001, etc ... These fitnums are used 
-        # to create file names.
-        # If there is a lable in /LABEL/, strip it out and store it
-        # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
-
-        output_dir        = self.config_prep['output_dir']
-        CONFIG            = self.config_yaml['CONFIG']
-        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
-        KEYLIST           = [ 'FITOPT' ]    # key under CONFIG
-        fitopt_arg_list   = [ '' ]  # FITOPT000 is always blank
-
-        #    **** OBSOLETE ****
-        if not ignore_fitopt: 
-            fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
-        n_fitopt          = len(fitopt_arg_list)
-        fitopt_num_list   = [ '' ] * n_fitopt
-        fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
-        link_FITOPT000_list = []
-
-        #    **** OBSOLETE ****
-
-        # prepare fitnum FITOPT[nnn]
-        for i in range(0,n_fitopt):
-            fitopt_num_list[i] = f"{FITOPT_STRING}{i:03d}"
-
-            # extract optional label
-            if i > 0 :
-                label,arg_list = \
-                    util.separate_label_from_arg(fitopt_arg_list[i])
-                fitopt_label_list[i] = label
-                fitopt_arg_list[i]   = arg_list
-
-            # update list for symbolic links to FITOPT000 [DEFAULT]
-            if self.is_sym_link(fitopt_arg_list[i]) :
-                link_FITOPT000_list.append(fitopt_num_list[i])
-
-
-        #    **** OBSOLETE ****
-
-        logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
-        logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
-
-        self.config_prep['n_fitopt']            = n_fitopt
-        self.config_prep['fitopt_num_list']     = fitopt_num_list
-        self.config_prep['fitopt_arg_list']     = fitopt_arg_list
-        self.config_prep['fitopt_label_list']   = fitopt_label_list
-        self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
-        self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
-
-        self.write_legacy_FITOPT_README()
-
-        # end fit_prep_FITOPT_OBSOLETE
-
-
     def fit_prep_index_lists(self):
 
         # Construct 1D sparse lists of                   
@@ -978,34 +920,6 @@ class LightCurveFit(Program):
 
         return sym_link_list
         # end get_sym_link_list
-
-    def write_legacy_FITOPT_README(self):
-
-        # although SUBMIT_INFO contains the FITOPT info in YAML format,
-        # here the legacy FITOPT.README file is also created for 
-        # back-compatibility with dowstream scripts.
-
-        output_dir        = self.config_prep['output_dir']
-        n_fitopt          = self.config_prep['n_fitopt']
-        fitopt_arg_list   = self.config_prep['fitopt_arg_list']
-        fitopt_num_list   = self.config_prep['fitopt_num_list']
-        fitopt_label_list = self.config_prep['fitopt_label_list']
-
-        legacy_readme_file = f"{output_dir}/FITOPT.README"
-        with open(legacy_readme_file,"w") as f:
-            f.write(f"Legacy file for back-compatibility; " \
-                    f"please switch to using {SUBMIT_INFO_FILE}\n")
-            for i in range(0,n_fitopt):
-                num   = fitopt_num_list[i]    # FITOPnnn
-                label = fitopt_label_list[i]  # optional input
-                if label == 'None' :
-                    legacy_label = ''
-                else:
-                    legacy_label = f"[{label}]"
-                arg   = fitopt_arg_list[i]
-                f.write(f"{FITOPT_STRING}: {num[6:]} {legacy_label} {arg} \n")
-
-        # end write_legacy_FITOPT_README
 
 
     def append_info_file(self,f):

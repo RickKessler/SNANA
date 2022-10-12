@@ -21345,5 +21345,6 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    combine_dataVersions.py:
      + replace output kcor_ prefix with calib_ prefix.
 
-  
+   Begin genmag_BAYESN.c[h] and start integration into snlc_fit.car.
+
 END: 

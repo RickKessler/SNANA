@@ -7,11 +7,17 @@
 # Jan 22 2022: add --diff_fitres option 
 # Apr 22 2022: for -d option, include 'MU' if it exists
 # Sep 12 2022: fix --extract_sim_input for sims run in batch mode
+# Oct 13 2022: add : --cov_file option. Rewrites diagonal and
+#                    begining of row positions and indices in comments
+#              A. Mitra
+#
+#
 # =========================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
 import pandas as pd
-
+import numpy as np
+import gzip
 # ----------------
 snana_program          = "snana.exe"
 combine_fitres_program = "combine_fitres.exe"
@@ -541,17 +547,49 @@ def analyze_diff_fitres(args):
 
 #rewrite_cov_file
 def rewrite_cov_file(args):
+    # UPDATES :
+    # 13 Oct 2022
+    # 1. Rewrite cov with row,column labels
+    # 2. Add "Start row" for readibility 0.20043.  # (0,2)  START_ROW
+    # 3. Add Diagonal" for readibility : 0.23243.  # (2,2)  DIAGONAL
+    # A. Mitra
+
+    X=[];comment_1 = []; comment_2=[];
+    com_row = 'START ROW';com_d = ' DIAGONAL'; com_null=' '
+    cc = 0;index_elements = [];
     cov_file = os.path.expandvars(args.cov_file)
-    # TO DO LIST
-    # 1. CHECK for gzip extension
-    # 2. Rewrite cov with row,column labels
-    # 3. Add "Start row" for readibility 0.20043.  # (0,2)  START_ROW
-    # 4. Add Diagonal" for readibility : 0.23243.  # (2,2)  DIAGONAL
-    
+    data = args.cov_file
     cov_basename  = os.path.basename(cov_file) 
     out_cov_file  = f"DISPLAY_{cov_basename}"
+    print("PATH = %s"%(cov_file))
     print(f"rewrite cov_matrix to {out_cov_file}")
-    return
+    c = pd.read_csv(data,compression='gzip',sep='\s+',comment="#")
+    c0 = np.array(c); 
+    shape = int(np.sqrt(np.shape(c)[0]))
+    c1 = np.reshape(c0,(-1,shape));
+    D = np.diag(c1);
+    for i in np.ndindex(c1.shape):
+        tmp = "#"+ str(i)
+        X.append(tmp)
+        index_elements.append((c1[i],i))
+        if(cc%shape == 0):
+            comment_1.append(com_row)
+        else :
+            comment_1.append(com_null)
+        if (D.__contains__(c1[i])==True):     
+            comment_2.append(com_d)
+        else :
+            comment_2.append(com_null)
+            cc+=1
+    X = pd.DataFrame(X) ; X.columns = (["Index"]);
+    comment_1= pd.DataFrame(comment_1) ; comment_1.columns = (["Comments"]);
+    comment_2= pd.DataFrame(comment_2) ; comment_2.columns = (["Comments"]);
+    comments = comment_1+comment_2; 
+    cov_m = pd.concat([pd.DataFrame(c),X],axis=1)
+    cov_m = pd.concat([cov_m,comments],axis=1)
+    #print(cov_m)
+    cov_m.to_csv(cov_basename,sep='\t',encoding='utf-8', header=True,index=False,compression='gzip')
+    return cov_m
     # end rewrite_cov_file
 
 

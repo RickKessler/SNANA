@@ -73,6 +73,10 @@
 #
 # Oct 10 2022 A.Mitra and R.K.
 #   + New input arguments --label_cov_rows with default = False.
+#
+# Oct 13 2022 RK 
+#   + for INFO.YAML, add HD file name and name of each covsys file.
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time
@@ -92,7 +96,7 @@ from astropy.cosmology import FlatLambdaCDM
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
-PREFIX_COVSYS  = "covsys"
+PREFIX_COVSYS     = "covsys"
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
@@ -914,7 +918,8 @@ def is_pos_def(x):
     return np.all(np.linalg.eigvals(x) > 0)
     # end is_pos_def
 
-def write_standard_output(config, args, covs, data, labels):
+def write_standard_output(config, args, covs, data, label_list):
+
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
     # e.g., wfit, CosmoSIS, firecrown ...
@@ -922,45 +927,58 @@ def write_standard_output(config, args, covs, data, labels):
     # by write_cosmomc_output().
 
     # P. Armstrong 05 Aug 2022
-    # Allow the option to create hubble_diagram.txt for each systematic as well
+    # Add option to create hubble_diagram.txt for each systematic as well
 
     logging.info("")
     logging.info("   OUTPUT  ")
-    unbinned = args.unbinned
+    unbinned       = args.unbinned
     label_cov_rows = args.label_cov_rows
-    outdir = Path(config["OUTDIR"])
+    outdir         = Path(config["OUTDIR"])
     os.makedirs(outdir, exist_ok=True)
-
 
     # Apr 30 2022: get array of muerr_sys(ALL) for output
     muerr_sys_list = get_muerr_sys(covs)
             
     # - - - -
     # P. Armstrong 05 Aug 2022: Write HD for each label
-    for label in labels:
+    for label in label_list:
         base_name = get_name_from_fitopt_muopt(f_REF, m_REF)
+
         # If creating HD for nominal, write to hubble_diagram.txt
         if label == base_name:
             data_file = outdir / HD_FILENAME
         else:
             data_file = outdir / f"{label}_{HD_FILENAME}"
+
         if unbinned :
             write_HD_unbinned(data_file, data[label], muerr_sys_list)
         else:
             write_HD_binned(data_file, data[label], muerr_sys_list)
 
-    # Create covariance matrices and datasets
+    
+    # write covariance matrices and datasets
     opt_cov = 0  
     if label_cov_rows: opt_cov+=1
     for i, (label, cov) in enumerate(covs):
-        base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
-        base_file  += '.gz'  # force gzip file, Apr 22 2022
+
+        # xxx mark delete Oct 2022
+        #base_file   = f"{PREFIX_COVSYS}_{i:03d}.txt" 
+        #base_file  += '.gz'  # force gzip file, Apr 22 2022
+
+        base_file   = get_covsys_filename(i)
         covsys_file = outdir / base_file
         write_covariance(covsys_file, cov, opt_cov)
         
     return
 
     # end write_standard_output
+
+def get_covsys_filename(i):
+    # Created Oct 13 2022 by R.Kessler: 
+    # return name of covsys file for systematic index i
+    covsys_file   = f"{PREFIX_COVSYS}_{i:03d}.txt.gz"
+    return covsys_file
+    # end get_covsys_filename
 
 def get_muerr_sys(covs):
 
@@ -1259,13 +1277,22 @@ def write_covariance(path, cov, opt_cov):
 
 def write_summary_output(config, covariances, base):
 
-    # write list of COVOPTs to be picked up by cosmology fitting progam
+    # write information to INFO.YAML that is intended to be 
+    # picked up by cosmology fitting progam. Info includes
+    # each covsys label & file, name of hubble diagram file.
+    # and ISDATA_REAL flag.
 
     out  = Path(config["OUTDIR"])
-    info = {}
+    info = {} # init dictionary to dump to info file
+
+    info['HD'] = HD_FILENAME
+
     cov_info = {}
     for i, (label, cov) in enumerate(covariances):
-        cov_info[i] = label
+        covsys_file = get_covsys_filename(i)
+        cov_info[i] = f"{label:<20} {covsys_file}"
+        # xxx mark delete oct 13 2022 cov_info[i] = label
+
     info["COVOPTS"] = cov_info
 
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
@@ -1424,13 +1451,13 @@ def create_covariance(config, args):
     # P. Armstrong 05 Aug 2022
     # Create hubble_diagram.txt for every systematic, not just nominal
     if args.systematic_HD:
-        labels = list(data.keys())
+        label_list = list(data.keys())
     # Only create hubble_diagram.txt for the nominal
     else:
-        labels = [get_name_from_fitopt_muopt(f_REF, m_REF)]
+        label_list = [get_name_from_fitopt_muopt(f_REF, m_REF)]
 
     # write standard output for cov(s) and hubble diagram (9.22.2021)
-    write_standard_output(config, args, covariances, data, labels)
+    write_standard_output(config, args, covariances, data, label_list)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :

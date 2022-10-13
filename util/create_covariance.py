@@ -76,6 +76,8 @@
 #
 # Oct 13 2022 RK 
 #   + for INFO.YAML, add HD file name and name of each covsys file.
+#   + change cov format from 12.8f to 12.6e to get 7 digits of 
+#     precision instead of only 3 digits using 12.8f
 #
 # ===============================================
 
@@ -1234,7 +1236,6 @@ def write_HD_comments(f,wrflag_syserr):
     # end write_HD_comments
 
 def write_covariance(path, cov, opt_cov):
-
     
     add_labels     = (opt_cov == 1) # label some elements for human readability
     file_base      = os.path.basename(path)
@@ -1269,7 +1270,8 @@ def write_covariance(path, cov, opt_cov):
         if add_labels:            
             if colnum == 0 or colnum == rownum : 
                 label = f"# ({rownum},{colnum})"
-        f.write(f"{c:12.8f}  {label}\n")
+        f.write(f"{c:13.6e}  {label}\n")
+        # xxx mark delete f.write(f"{c:12.8f}  {label}\n")
 
     f.close()
 

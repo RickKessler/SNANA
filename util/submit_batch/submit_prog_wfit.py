@@ -14,6 +14,11 @@
 #                  with a standard file name.
 # Oct 02 2022 RK - add and test merge_reset() util [standard method]
 #
+# Oct 13 2022 RK
+#   + refactor to read covsys file names and HD filename from INFO.YML;
+#     allows more flexibility in file names.
+#     See new method read_hd_info_file
+#
 # =================================================================
 
 import os, sys, shutil, yaml, glob
@@ -29,10 +34,8 @@ from submit_prog_base import Program
 PREFIX_wfit   = "wfit"
 
 # define names of files produced by create_covariance.py
-PREFIX_covsys     = "covsys"
-HD_FILENAME       = "hubble_diagram.txt"
-COV_INFO_FILENAME = "INFO.YML"        # contains ISREAL_DATA flag
-KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
+# xxx makr delete PREFIX_covsys     = "covsys"
+
 
 # define columns for MERGE.LOG;  column 0 is always for STATE
 COLNUM_WFIT_MERGE_DIROPT       = 1
@@ -41,7 +44,7 @@ COLNUM_WFIT_MERGE_WFITOPT      = 3
 COLNUM_WFIT_MERGE_NDOF         = 4 
 COLNUM_WFIT_MERGE_CPU          = 5
 
-# define key names
+# define CONFIG key names
 KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
@@ -140,13 +143,13 @@ class wFit(Program):
             inpdir_list += tmp_list
 
         # - - - - -
-        wildcard           = f"{PREFIX_covsys}*"
         isdata_list        = []
+        hd_file_list       = []
         covsys_file_list2d = [] # file list per inpdir
-        covindx_list2d     = [] # cov index list per inpdir (Feb 24 2022)
+        covsys_num_list2d  = [] # cov index list per inpdir
         covinfo_list       = [] # list of yaml info per inpdir
 
-        covsys_select_list = None # Select All cov by default
+        covsys_select_list = None  # Select All cov by default
         for key in KEYNAME_COVOPT_LIST:
             if key in CONFIG:
                 covsys_select_list = CONFIG[key].split()
@@ -158,48 +161,26 @@ class wFit(Program):
                 msgerr.append(f"  {inpdir}")       
                 self.log_assert(False, msgerr)            
 
-            isdata, yaml_info = self.read_isdata(inpdir)
-            isdata_list.append(isdata)
-                
-            # scoop up covsys_[nnn].txt files
-            # beware of cov indices. 'covindx' is the original index,
-            # and 'icov' is a sparse index used later.
-            covsys_file_list  = sorted(glob.glob1(inpdir,wildcard))
+            yaml_info, dict_info = \
+                self.read_hd_info_file(inpdir,covsys_select_list)
+
+            hd_file           = dict_info['hd_file'] 
+            covsys_file_list  = dict_info['covsys_file_list']
+            covsys_num_list   = dict_info['covsys_num_list']
             n_covsys          = len(covsys_file_list)
-            covindx_list      = list(range(n_covsys))  # 0,1,2 ... 
+            isdata            = dict_info['isdata']   
 
-            # - - - - - - -
-            # check user subset of COV option to process (Feb 2022)
-            if covsys_select_list is not None :
-                COVOPT_DICT              = yaml_info["COVOPTS"].copy()
-                yaml_info_select         = yaml_info.copy()
-                covsys_file_list_select  = []
-                covindx_list_select      = []
-                for covindx_tmp, covsys_file_tmp in \
-                    zip(COVOPT_DICT, covsys_file_list):
-                    covsys_name_tmp = COVOPT_DICT[covindx_tmp]
-
-                    if covsys_name_tmp in covsys_select_list:
-                        covsys_file_list_select.append(covsys_file_tmp)
-                        covindx_list_select.append(covindx_tmp)
-                    else:
-                        yaml_info_select["COVOPTS"].pop(covindx_tmp)
-
-                # update lists to include only the user-requsted subset
-                covsys_file_list = covsys_file_list_select
-                covindx_list     = covindx_list_select
-                yaml_info        = yaml_info_select
-        
+            hd_file_list.append(hd_file)
             covsys_file_list2d.append(covsys_file_list)
-            covindx_list2d.append(covindx_list)
+            covsys_num_list2d.append(covsys_num_list)
+            isdata_list.append(isdata)
             covinfo_list.append(yaml_info)
-            n_covsys = len(covsys_file_list)
 
             #print(f" xxx {covsys_file_list}")
             #print(f" xxx yaml info = {yaml_info}")
 
             print(f" Found {inpdir} \n" \
-                  f" \t with {n_covsys} {PREFIX_covsys} files and " \
+                  f" \t with {n_covsys} covsys files and " \
                   f"ISDATA_REAL={isdata} ")
 
 
@@ -209,8 +190,10 @@ class wFit(Program):
         #self.config_prep['inpdir_list_orig']  = inpdir_list_orig
         self.config_prep['inpdir_list']        = inpdir_list
         self.config_prep['n_inpdir']           = len(inpdir_list)
+
+        self.config_prep['hd_file_list']       = hd_file_list
         self.config_prep['covsys_file_list2d'] = covsys_file_list2d
-        self.config_prep['covindx_list2d']     = covindx_list2d
+        self.config_prep['covsys_num_list2d']  = covsys_num_list2d
         self.config_prep['isdata_list']        = isdata_list
         self.config_prep['covinfo_list']       = covinfo_list
 
@@ -221,9 +204,10 @@ class wFit(Program):
         # end wfit_prep_input_list
 
     def wfit_prep_wfitavg(self):
-        # parse WFITAVG
-        # Only error checking at this point, no computation
-        # The execution is done at the MERGE stage.
+
+        # parse WFITAVG key in CONFIG block.
+        # Only do error checking at this point, no computation.
+        # The avg calculations are done at the MERGE stage.
 
         CONFIG      = self.config_yaml['CONFIG']
         inpdir_list = self.config_prep['inpdir_list']
@@ -253,7 +237,8 @@ class wFit(Program):
                 text_wildcard = f"wildcards {wildcard1} and {wildcard2}"
 
                 if suffixes1 == suffixes2:
-                    print(f"Found matching number/names of dirs for {text_wildcard}")
+                    print(f"Found matching number/names of dirs for " \
+                          f"{text_wildcard}")
                 else:
                     msgerr = []
                     len1 = len(suffixes1) ; len2=len(suffixes2)
@@ -264,6 +249,10 @@ class wFit(Program):
                     msgerr.append(f"  {suffixes2}")
                     self.log_assert(False, msgerr)
 
+        # - - - - - 
+        return
+        # end  wfit_prep_wfitavg
+
     def wfit_error_check_input_list(self):
 
         # loop over each inpdir and abort on problems such as
@@ -271,19 +260,21 @@ class wFit(Program):
         # Print all ERRORS before aborting.
 
         #inpdir_list_orig = self.config_prep['inpdir_list_orig']
-        inpdir_list      = self.config_prep['inpdir_list'] 
+        inpdir_list        = self.config_prep['inpdir_list'] 
+        hd_file_list       = self.config_prep['hd_file_list']
         covsys_file_list2d = self.config_prep['covsys_file_list2d']
         nerr = 0
         msgerr = []
 
-        for inpdir, covsys_file_list in \
-            zip(inpdir_list, covsys_file_list2d):
+        for inpdir, hd_base, covsys_file_list in \
+            zip(inpdir_list, hd_file_list, covsys_file_list2d):
 
-            hd_file    = f"{inpdir}/{HD_FILENAME}"
+            # xxx mark delete hd_file    = f"{inpdir}/{HD_FILENAME}"
+            hd_file    = f"{inpdir}/{hd_base}"
             n_covsys   = len(covsys_file_list)
             if n_covsys == 0 :            
                 nerr += 1
-                msgerr.append(f"ERROR: cannot find {PREFIX_covsys}* files in")
+                msgerr.append(f"ERROR: cannot find covsys files in")
                 msgerr.append(f"   {inpdir}")  
 
             if not os.path.exists(hd_file):
@@ -299,20 +290,112 @@ class wFit(Program):
 
         # end wfit_error_check_input_list
 
-    def read_isdata(self,inpdir):
+    def read_hd_info_file(self, inpdir, covsys_select_list):
 
-        yaml_file = f"{inpdir}/{COV_INFO_FILENAME}"
-        yaml_info = util.extract_yaml(yaml_file, None, None )
-        isdata    = False  # arbitrary default in dase key is missing
-
-        key = KEYNAME_ISDATA
-        if key in yaml_info:
-            isdata = (yaml_info[KEYNAME_ISDATA] > 0)
-
-        return isdata, yaml_info
-
-        # end read_isdata 
+        # Ceated Oct 13 2022 by RK
+        # Read Hubble-diagram (HD) info file created by create_covariance.py.
+        # Translate yaml contents into a more practical dictionary.
+        #
+        # Inputs:
+        #  inpdir: directory containing INFO.YML
+        #  covsys_select_list: list of covsys labels to select for 
+        #       separate wfit task;
+        #       e.g., covsys_select_list = [ 'ALL', 'ZP' ]
+        #       If covsys_select_list is None, then each covsys is used.
+        #
+        # Output dictionary includes
+        #  + base name of HD file
+        #  + isdata flag (True for real data, False for sim)
+        #  + list of covsys num-indices
+        #  + list of covsys labels
+        #  + list of covsys base file names
+        #  
         
+        # define yaml keys written by create_covariance.py
+        INFO_FILENAME          = "INFO.YML" # read this from inpdir
+
+        INFO_KEYNAME_HD        = "HD"
+        INFO_KEYNAME_COVOPTS   = "COVOPTS"
+        INFO_KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
+        HD_BASENAME_LEGACY     = "hubble_diagram.txt" 
+
+        yaml_file = f"{inpdir}/{INFO_FILENAME}"
+        yaml_info = util.extract_yaml(yaml_file, None, None )
+
+        # - - - - - -
+        # load separate info dictionary to store info in more convenient way
+
+        
+        key     = INFO_KEYNAME_HD
+        if key in yaml_info:
+            hd_file = yaml_info[key]  # refac read from INFO file
+        else:
+            hd_file = HD_BASENAME_LEGACY  # legacy hard wite
+    
+
+        key     = INFO_KEYNAME_ISDATA
+        if key in yaml_info:
+            isdata = (yaml_info[key] > 0)
+        else:
+            isdata  = False  # default in dase key is missing
+            
+        # - - - -
+        COVOPTS = yaml_info[INFO_KEYNAME_COVOPTS]
+        covsys_num_list   = []
+        covsys_label_list = []
+        covsys_file_list  = []
+
+        for covnum, covinfo in COVOPTS.items():
+            covinfo_split = covinfo.split()
+
+            covsys_label  = covinfo_split[0]
+            if len(covinfo_split) > 1:
+                covsys_file = covinfo_split[1] # refactored
+            else:
+                covsys_file = f"covsys_{covnum:03d}.txt.gz"  # legacy hard wire
+
+            covsys_num_list.append(covnum)
+            covsys_label_list.append(covsys_label)
+            covsys_file_list.append(covsys_file)
+
+        # - - - - -
+        # check optional subset of covsys options to store
+        if covsys_select_list is not None :
+            COVOPTS_DICT             = yaml_info["COVOPTS"].copy()
+            yaml_info_select         = yaml_info.copy()
+            covsys_file_list_select  = []
+            covsys_num_list_select   = []
+            for covsys_num_tmp, covsys_file_tmp in \
+                zip(COVOPTS_DICT, covsys_file_list):
+                covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp]
+
+                if covsys_name_tmp in covsys_select_list:
+                    covsys_file_list_select.append(covsys_file_tmp)
+                    covsys_num_list_select.append(covsys_num_tmp)
+                else:
+                    yaml_info_select["COVOPTS"].pop(covsys_num_tmp)
+
+            # update lists to include only the user-requsted subset
+            covsys_file_list = covsys_file_list_select
+            covsys_num_list  = covsys_num_list_select
+            yaml_info        = yaml_info_select
+
+        # - - - - - - - - - - 
+        # store dictionary
+        dict_info = {
+            'hd_file'           : hd_file,
+            'covsys_num_list'   : covsys_num_list,
+            'covsys_label_list' : covsys_label_list,
+            'covsys_file_list'  : covsys_file_list,
+            'isdata'            : isdata            
+        }
+        
+        #print(f"\n xxx dict_info = \n{dict_info}\n")
+
+        return yaml_info, dict_info
+        # end read_hd_info_file
+
+
     def wfit_prep_wfitopt_list(self):
 
         msgerr = []
@@ -433,7 +516,7 @@ class wFit(Program):
         CONFIG             = self.config_yaml['CONFIG']
         inpdir_list        = self.config_prep['inpdir_list']  
         covsys_file_list2d = self.config_prep['covsys_file_list2d']
-        covindx_list2d     = self.config_prep['covindx_list2d']
+        covsys_num_list2d  = self.config_prep['covsys_num_list2d']
         wfitopt_list       = self.config_prep['wfitopt_arg_list']
 
         n_inpdir         = self.config_prep['n_inpdir']
@@ -510,17 +593,18 @@ class wFit(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
 
-        inpdir      = self.config_prep['inpdir_list'][idir]
-        arg_blind   = self.config_prep['arg_blind_list'][idir]
-        arg_string  = self.config_prep['wfitopt_arg_list'][ifit]
-        arg_global  = self.config_prep['wfitopt_global']
-        tmpcov_file = self.config_prep['covsys_file_list2d'][idir][icov]
+        inpdir       = self.config_prep['inpdir_list'][idir]
+        arg_blind    = self.config_prep['arg_blind_list'][idir]
+        arg_string   = self.config_prep['wfitopt_arg_list'][ifit]
+        arg_global   = self.config_prep['wfitopt_global']
+        cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
+        hd_basename  = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid = self.config_prep['outdir_chi2grid']
 
         prefix = self.wfit_num_string(idir,icov,ifit)
 
-        covsys_file   = f"{inpdir}/{tmpcov_file}"
-        hd_file       = f"{inpdir}/{HD_FILENAME}"
+        covsys_file   = f"{inpdir}/{cov_basename}"
+        hd_file       = f"{inpdir}/{hd_basename}"
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"

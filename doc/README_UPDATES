@@ -21293,6 +21293,11 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Add COVMAT class to submit_batch_jobs to run create_covariance.py.
    See new code submit_prog_covmat.py.
 
+   create_covariance.py: 
+     + change output format from 12.8f to 12.6e to get 7 digits of 
+        precision instead of 3 digits with 12.8f.
+     + in INFO.YML, write HD file name and covsys file names
+
          ***** USEFUL(v11_04n) ***** 
 
    Fix old refactor bug reading SIM_HOSTLIB_PARVAL (TEXT and FITS format)
@@ -21315,6 +21320,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
      + write rho_omm to WFIT_SUMMARY.FITRES for wOM model
          (AVG file is not updated)
      + add and test merge_reset() [standard method in base class]
+     + minor refac to read HD file name and covsys file names from INFO.YML
 
    sntools.c
      + fix evil bug in check_file_docana()

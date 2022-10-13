@@ -544,55 +544,67 @@ def analyze_diff_fitres(args):
     return
     # end analyze_diff_fitres
 
-
-#rewrite_cov_file
 def rewrite_cov_file(args):
-    # UPDATES :
-    # 13 Oct 2022
+
+    # Created 13 Oct 2022 by A.Mitra
     # 1. Rewrite cov with row,column labels
     # 2. Add "Start row" for readibility 0.20043.  # (0,2)  START_ROW
     # 3. Add Diagonal" for readibility : 0.23243.  # (2,2)  DIAGONAL
-    # A. Mitra
+
+    cov_file = os.path.expandvars(args.cov_file)
+    data     = args.cov_file
 
     X=[];comment_1 = []; comment_2=[];
-    com_row = 'START ROW';com_d = ' DIAGONAL'; com_null=' '
+    com_row = 'START ROW';  com_d = ' DIAGONAL'; com_null=' '
     cc = 0;index_elements = [];
-    cov_file = os.path.expandvars(args.cov_file)
-    data = args.cov_file
+
     cov_basename  = os.path.basename(cov_file) 
     out_cov_file  = f"DISPLAY_{cov_basename}"
-    print("PATH = %s"%(cov_file))
-    print(f"rewrite cov_matrix to {out_cov_file}")
-    c = pd.read_csv(data,compression='gzip',sep='\s+',comment="#")
-    c0 = np.array(c); 
+    print(f"Input cov matrix file: {cov_file}")
+    print(f"rewrite cov matrix to: {out_cov_file}")
+
+    c     = pd.read_csv(data,compression='gzip',sep='\s+',comment="#")
+    c0    = np.array(c); 
     shape = int(np.sqrt(np.shape(c)[0]))
-    c1 = np.reshape(c0,(-1,shape));
-    D = np.diag(c1);
+    c1    = np.reshape(c0,(-1,shape));
+    D     = np.diag(c1);
+
     for i in np.ndindex(c1.shape):
-        tmp = "#"+ str(i)
+        tmp = "#" + str(i)
         X.append(tmp)
         index_elements.append((c1[i],i))
+
         if(cc%shape == 0):
             comment_1.append(com_row)
         else :
             comment_1.append(com_null)
+
         if (D.__contains__(c1[i])==True):     
             comment_2.append(com_d)
         else :
             comment_2.append(com_null)
-            cc+=1
-    X = pd.DataFrame(X) ; X.columns = (["Index"]);
-    comment_1= pd.DataFrame(comment_1) ; comment_1.columns = (["Comments"]);
-    comment_2= pd.DataFrame(comment_2) ; comment_2.columns = (["Comments"]);
-    comments = comment_1+comment_2; 
-    cov_m = pd.concat([pd.DataFrame(c),X],axis=1)
-    cov_m = pd.concat([cov_m,comments],axis=1)
+            cc += 1
+
+    X = pd.DataFrame(X) 
+    X.columns = (["Index"])
+
+    comment_1= pd.DataFrame(comment_1) 
+    comment_1.columns = (["Comments"])
+
+    comment_2= pd.DataFrame(comment_2) 
+    comment_2.columns = (["Comments"])
+
+    comments = comment_1 + comment_2
+
+    cov_m = pd.concat([pd.DataFrame(c),X], axis=1)
+    cov_m = pd.concat([cov_m,comments],    axis=1)
     #print(cov_m)
-    cov_m.to_csv(cov_basename,sep='\t',encoding='utf-8', header=True,index=False,compression='gzip')
-    return cov_m
+
+    cov_m.to_csv(out_cov_file, sep='\t', encoding='utf-8',
+                 header=True, index=False, compression='gzip')
+
+    return 
     # end rewrite_cov_file
-
-
    
 
 

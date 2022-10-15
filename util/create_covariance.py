@@ -77,7 +77,7 @@
 # Oct 13 2022 RK 
 #   + for INFO.YAML, add HD file name and name of each covsys file.
 #   + change cov format from 12.8f to 12.6e to get 7 digits of 
-#     precision instead of only 3 digits using 12.8f
+#     precision instead of only 3 or 4 digits using 12.8f
 #
 # ===============================================
 

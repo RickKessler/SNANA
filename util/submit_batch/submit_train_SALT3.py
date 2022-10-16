@@ -180,11 +180,13 @@ class train_SALT3(Program):
 
         # start with global settings
         key = TRAINOPT_GLOBAL_STRING
-        if key in CONFIG:  trainopt_global = CONFIG[key]
+        if key in CONFIG:  
+            trainopt_global = CONFIG[key]
 
         # next, TRAINOPT per job
         key      = TRAINOPT_STRING
-        if key in CONFIG :  trainopt_rows = CONFIG[key]
+        if key in CONFIG :  
+            trainopt_rows = CONFIG[key]
 
         # - - - - - 
         trainopt_dict = util.prep_jobopt_list(trainopt_rows, 

@@ -29,6 +29,9 @@
 #
 # Aug 31 2022 RK - set abort trap for VARNAMES mis-match among split jobs.
 #
+# Oct 15 2022 RK - set varnames_ref to be first non-EMPTY varnames in
+#                  case first varnames is empty.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -1377,7 +1380,14 @@ class LightCurveFit(Program):
             msgerr.append(f"varnames_list = \n\t{varnames_list}")
             self.log_assert(False,msgerr) 
             
-        varnames_ref = varnames_list[0] # this is a comma-sep string
+        # find varnames_ref to be first varnames that isn't empty
+        varnames_ref = None
+        for varnames in varnames_list:
+            if varnames != VARNAMES_EMPTY:
+                varnames_ref = varnames
+                break
+
+        # xxx mark varnames_ref = varnames_list[0] # this is a comma-sep string
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
             is_empty = (varnames == VARNAMES_EMPTY)

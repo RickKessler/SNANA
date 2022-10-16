@@ -152,7 +152,8 @@ def find_my_folders(path,user,s):
         s.write(f"{str_line}\n")
         s.flush()
 
-    print(f"\t n_folder={n_folder}  size={size_GB:.2f} GB    {str_scratch}")
+        print(f"\t n_folder={n_folder}  size={size_GB:.2f} GB  " \
+              f"  {str_scratch}")
 
 
     return folder_bydate_list

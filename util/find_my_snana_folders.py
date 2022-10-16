@@ -142,14 +142,15 @@ def find_my_folders(path,user,s):
     if n_folder > 0: n_folder -= 1 # do not count blank line
 
     # check if string 'scratch' is in path name
-    path_expand = os.path.expandvars(path)
-    str_scratch = ''
-    if 'scratch' in path_expand:   str_scratch = 'scratch'
+    if n_folder > 0:
+        path_expand = os.path.expandvars(path)
+        str_scratch = ''
+        if 'scratch' in path_expand:   str_scratch = 'scratch'
         
-    str_line = (f"  - {path:<30} {n_folder:5d}   {size_GB:8.2f}   " \
-                f"{str_scratch}")
-    s.write(f"{str_line}\n")
-    s.flush()
+        str_line = (f"  - {path:<30} {n_folder:5d}   {size_GB:8.2f}   " \
+                    f"{str_scratch}")
+        s.write(f"{str_line}\n")
+        s.flush()
 
     print(f"\t n_folder={n_folder}  size={size_GB:.2f} GB    {str_scratch}")
 

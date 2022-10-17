@@ -21275,7 +21275,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # ======================================================================= 
-         v11_04n (  ) 
+         v11_04n (Oct 17 2022) 
 
          ***** IMPORTANT(v11_04n) ***** 
 
@@ -21296,7 +21296,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    create_covariance.py: 
      + change output format from 12.8f to 12.6e to get 7 digits of 
         precision instead of 3 digits with 12.8f.
-     + in INFO.YML, write HD file name and covsys file names
+     + in output INFO.YML, write HD file name and covsys file names
 
          ***** USEFUL(v11_04n) ***** 
 

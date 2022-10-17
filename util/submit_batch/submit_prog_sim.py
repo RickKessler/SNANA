@@ -2438,8 +2438,8 @@ class Simulation(Program):
             util.compress_files(+1, simlog_dir, "SIMnorm*",  "SIMnorm",  "" ) 
 
         # combine all of the BACKUP*.tar.gz files into one tar file
-        tar_file   = "SIMLOGS.tar"
-        tar_list   = "{BACKUP_PREFIX}_*.tar.gz"
+        tar_file   = f"SIMLOGS.tar"
+        tar_list   = f"{BACKUP_PREFIX}_*.tar.gz"
         cd_log     = f"cd {simlog_dir}"
         cmd_tar    = f"tar -cf {tar_file} {tar_list}"
         cmd_rm     = f"rm -rf {tar_list}"

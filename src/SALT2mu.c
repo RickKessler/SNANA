@@ -20791,6 +20791,7 @@ void muerr_renorm(void) {
   //
   // May 25 2021: write to FP_STDOUT
   // Nov 22 2021: include missing factor of 1/sqrt(pia)
+  // Oct 17 2022: avoid pia=0 for WGT computation
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
   int MEMD       = NSN_DATA * sizeof(double);
@@ -20832,6 +20833,7 @@ void muerr_renorm(void) {
     mures      = INFO_DATA.mures[isn] ;
     pcc        = INFO_DATA.probcc_beams[isn];
     pia        = 1.0 - pcc;
+    if ( pia < pia_min ) { pia = pia_min; } // avoid WGT=0, Oct 2022
 
     WGT             = pia / (muerr*muerr) ;
     SUM_WGT[iz]    += WGT;

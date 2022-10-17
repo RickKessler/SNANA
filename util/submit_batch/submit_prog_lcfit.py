@@ -29,8 +29,10 @@
 #
 # Aug 31 2022 RK - set abort trap for VARNAMES mis-match among split jobs.
 #
-# Oct 15 2022 RK - set varnames_ref to be first non-EMPTY varnames in
-#                  case first varnames is empty.
+# Oct 15 2022 RK
+#   +  set varnames_ref to be first non-EMPTY varnames in
+#          case first varnames is empty.
+#   + replace remove_locf_messages.pl with remove_locf_messages.py
 #
 # - - - - - - - - - -
 
@@ -1623,7 +1625,8 @@ class LightCurveFit(Program):
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :
             cmd_clean_log = \
-                f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
+                f"{cddir} ; remove_locf_messages.py {log_table_file} -q"
+                # xxx mark f"{cddir} ; remove_locf_messages.pl {log_table_file} QUIET"
             os.system(cmd_clean_log)
 
         # ?? check log file for success message ??

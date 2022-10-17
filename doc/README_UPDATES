@@ -21353,4 +21353,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    Begin genmag_BAYESN.c[h] and start integration into snlc_fit.car.
 
+   perl cleanup:
+    + Translate remove_locf_messages.pl to remove_locf_messages.py
+    + rm wait_for_files.pl NEARNBR_pipeline.pl
+
 END: 

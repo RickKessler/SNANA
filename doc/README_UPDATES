@@ -21355,6 +21355,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    perl cleanup:
     + Translate remove_locf_messages.pl to remove_locf_messages.py
+    + Translate startSNANAversion.pl to startSNANAversion.py
     + rm wait_for_files.pl NEARNBR_pipeline.pl translate_SALT2dictFile.pl
 
 END: 

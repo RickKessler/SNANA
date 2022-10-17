@@ -325,7 +325,7 @@ class wFit(Program):
         # - - - - - -
         # load separate info dictionary to store info in more convenient way
 
-        
+        # get name of Hubble diagram file
         key     = INFO_KEYNAME_HD
         if key in yaml_info:
             hd_file = yaml_info[key]  # refac read from INFO file
@@ -333,6 +333,7 @@ class wFit(Program):
             hd_file = HD_BASENAME_LEGACY  # legacy hard wite
     
 
+        # read flag indicating real data
         key     = INFO_KEYNAME_ISDATA
         if key in yaml_info:
             isdata = (yaml_info[key] > 0)
@@ -712,8 +713,9 @@ class wFit(Program):
             for icov in range(0,n_covopt):
                 covopt_num  = self.wfit_num_string(-1,icov,-1) 
                 covindx     = COVOPTS_keys[icov]  # original index
-                covopt      = COVOPTS[covindx]
-                f.write(f"    {covopt_num}: {covopt} \n")
+                covopt      = COVOPTS[covindx]    # label  covFile
+                covopt_label = covopt.split()[0]  # just the label
+                f.write(f"    {covopt_num}: {covopt_label} \n")
 
         f.write("\n")
         f.write(f"{KEYNAME_BLIND_DATA}:  {blind_data}\n")

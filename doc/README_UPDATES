@@ -21369,4 +21369,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
         ***** MISCELLANEOUS(v11_04o) ***** 
 
+   update_data_files.py: 
+     + add option to remove filter bands
+
 END: 

@@ -2450,52 +2450,6 @@ class Simulation(Program):
 
     # end merge_cleanup_final
 
-    def merge_cleanup_final_legacy(self) :
-
-        # Called after all tasks have complete (see -M arg);
-        # tar & gzip most of the contents of SIMLOGS;
-        # leave the following files outside tar file so that 
-        # they are always visible:
-        #    MERGE.LOG  SUBMIT.INFO  ALL.DONE
-        # Everything that gets tarred is also removed; therefore
-        # specify each item in tar_list and be careful wild cards.
-
-        submit_info_yaml   = self.config_prep['submit_info_yaml']
-        ngen_unit          = submit_info_yaml['NGEN_UNIT']
-        simlog_dir         = submit_info_yaml['SIMLOG_DIR']
-        
-        msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
-        logging.info(msg)
-
-        tar_list  = ""
-        tar_list += "TMP_* "
-        tar_list += "CPU* "
-        if ngen_unit > 0 : tar_list += "SIMnorm* "
-
-        tar_list += f"{SIMGEN_INPUT_LISTFILE} "
-
-        if KEEP_EVERY_MERGELOG :
-            tar_list += f"{MERGE_LOG_FILE}_* "
-
-        # read list of sim-input files fom list file
-        list_file = f"{simlog_dir}/{SIMGEN_INPUT_LISTFILE}"
-        with open(list_file,"r") as f:
-            for infile in f.read().split():
-                infile.strip("\n")
-                tar_list += f"{infile} "
-     
-        tar_file   = "SIMLOGS.tar"
-        cd_log     = f"cd {simlog_dir}"
-        cmd_tar    = f"tar -cf {tar_file} {tar_list}"
-        cmd_gzip   = f"gzip {tar_file}"
-        cmd_rm     = f"rm -rf {tar_list} {tar_file}"
-        CMD        = f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} "
-        os.system(CMD)
-
-        return
-
-    # end merge_cleanup_final_legacy
-
     def get_misc_merge_info(self):
         # return misc info lines to write into MERGE.LOG file.
         # Each info line must be of the form

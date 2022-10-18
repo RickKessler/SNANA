@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python 
 #
 # Created Oct 2020 [replace old perl script update_data_files.pl
 #
@@ -9,9 +9,9 @@
 # Sep 29 2022 RK - add new optoins
 #   --kcor_file option to replace filtchar with full filt name.
 #   --rename option for substrings in file names
-#
+# Oct 18 2022 RK  add --filters_remove option
 
-import os, sys, argparse, shutil, gzip
+import os, sys, argparse, shutil, gzip, re
 
 SNDATA_ROOT        = os.environ['SNDATA_ROOT']
 DATAKEY_VPEC       = "VPEC:"
@@ -35,6 +35,9 @@ def get_args():
 
     msg = "file name substring to rename; e.g, SWFIT,SOUSA"
     parser.add_argument("-r", "--rename", help=msg, type=str, default=None)
+
+    msg = "list of filters to remove; e.g., XW"
+    parser.add_argument("--filters_remove", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  
         parser.print_help(); sys.exit()
@@ -99,10 +102,11 @@ def make_outdir(path_data):
     # end make_outdir
 
 def get_filter_dict(kcor_file):
+
     # if kcor file contains row with
     #    FILTER: Bessell-U  Bessell_u.DAT
     # then store
-    #  filter_dict['U'] = 'Bessell-U'
+    #    filter_dict['U'] = 'Bessell-U'
     #
 
     filter_dict = {}
@@ -142,6 +146,7 @@ def update_data_file(data_file, args):
     outdir          = args.version
     path_data       = args.path_data
     filter_dict     = args.filter_dict
+    filters_remove  = args.filters_remove
     DO_MINUS_VPEC   = args.MINUS_VPEC
     DO_UPD_FILT     = filter_dict is not None
     
@@ -168,10 +173,32 @@ def update_data_file(data_file, args):
         nline += 1
         line   = line_orig.decode('utf-8')
         wdlist = line.split()
-        
+
         if len(wdlist) < 2:
             contents_new.append(line)
             continue
+
+        ISKEY_FILTERS = (wdlist[0] == DATAKEY_FILTERS)
+        ISKEY_VARLIST = (wdlist[0] == DATAKEY_VARLIST)
+        ISKEY_OBS     = (wdlist[0] == DATAKEY_OBS )
+
+        if ISKEY_FILTERS and filters_remove :
+            f_remove_list = list(filters_remove)            
+            filters_orig  = wdlist[1]
+            filters_new   = re.sub("|".join(f_remove_list), "", filters_orig)
+            line = line.replace(filters_orig,filters_new)
+
+        if ISKEY_VARLIST:
+            iwd_band = wdlist.index('BAND')
+
+        if ISKEY_OBS:
+            band_orig = wdlist[iwd_band]
+        else:
+            band_orig = "?"
+
+        if filters_remove:
+            if band_orig[-1] in filters_remove:
+                continue
 
         if DO_MINUS_VPEC and DATAKEY_VPEC in wdlist :
             j           = wdlist.index(DATAKEY_VPEC)
@@ -180,18 +207,13 @@ def update_data_file(data_file, args):
             wdlist[j+1] = str(vpec_new)
             line        = "  ".join(wdlist) + '\n'
 
-        if DO_UPD_FILT :
-            if wdlist[0] == DATAKEY_VARLIST:
-                iwd_band = wdlist.index('BAND')
-            if wdlist[0] == DATAKEY_OBS:
-                band_orig = wdlist[iwd_band]
-                if len(band_orig) == 1:
-                    filter_dict[f"nobs_{band_orig}"] += 1
-                    maxlen    = filter_dict['maxlen'] 
-                    fullname  = filter_dict[band_orig]
-                    # each filter name uses max string length for column align
-                    wdlist[iwd_band] = f"{fullname:<{maxlen}}"
-                    line   = "  ".join(wdlist) + '\n'
+        if DO_UPD_FILT and ISKEY_OBS and len(band_orig) == 1:
+            filter_dict[f"nobs_{band_orig}"] += 1
+            maxlen    = filter_dict['maxlen'] 
+            fullname  = filter_dict[band_orig]
+            # each filter name uses max string length for column align
+            wdlist[iwd_band] = f"{fullname:<{maxlen}}"
+            line   = "  ".join(wdlist) + '\n'
 
         contents_new.append(line)
 

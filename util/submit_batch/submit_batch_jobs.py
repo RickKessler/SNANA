@@ -186,8 +186,11 @@ def which_program_class(config):
         program_class = BBC          # Beams with Bias Corr (KS17)
 
     elif "WFITOPT" in CONFIG :
-        program_class = cosmofit    # wfit, firecrown ...
+        program_class = cosmofit    # wfit ...
 
+    elif "FCOPT" in CONFIG :
+        program_class = cosmofit    # firecrown/Cosmosis ...   
+        
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy
 

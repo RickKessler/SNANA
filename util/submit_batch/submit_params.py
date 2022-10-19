@@ -33,7 +33,7 @@ SHELL            = os.environ['SHELL']
 PROGRAM_TYPE_SIM    = "SIM"    # simulation
 PROGRAM_TYPE_LCFIT  = "FIT"    # light curve fit (e.g., SALT2, PSNID, ...)
 PROGRAM_TYPE_BBC    = "BBC"    # BEAMS with bias corrections
-PROGRAM_TYPT_WFIT   = "WFIT"   # fast cosmology fitter
+PROGRAM_TYPE_COSMOFIT   = "COSMOFIT"   # cosmology fitter
 
 # default program names ... can be changed by user
 PROGRAM_NAME_SIM     =  "snlc_sim.exe"
@@ -41,6 +41,7 @@ PROGRAM_NAME_LCFIT   =  "snlc_fit.exe"
 PROGRAM_NAME_BBC     =  "SALT2mu.exe"
 PROGRAM_NAME_COVMAT  =  "create_covariance.py"
 PROGRAM_NAME_WFIT    =  "wfit.exe"
+PROGRAM_NAME_FIRECROWN    =  None  
 PROGRAM_NAME_MKDATA  =  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
@@ -52,7 +53,8 @@ SUBDIR_SCRIPTS_SIM    = ""
 SUBDIR_SCRIPTS_LCFIT  = "SPLIT_JOBS_LCFIT"
 SUBDIR_SCRIPTS_BBC    = "SCRIPTS_BBCFIT"
 SUBDIR_SCRIPTS_COVMAT = "SCRIPTS_COVMAT"
-SUBDIR_SCRIPTS_WFIT   = "SCRIPTS_WFIT"
+SUBDIR_SCRIPTS_WFIT   = "SCRIPTS_WFIT" # XXX Delete this
+SUBDIR_SCRIPTS_COSMOFIT   = "SCRIPTS_COSMOFIT"
 SUBDIR_SCRIPTS_TRAIN  = "SCRIPTS_TRAIN"
 SUBDIR_SCRIPTS_MKDATA = "SCRIPTS_MKDATA"
 
@@ -437,7 +439,7 @@ HELP_CONFIG_LCFIT = f"""
 """
 
 HELP_CONFIG_COSMOFIT = f"""
-   ***** HELP/MENU for wfit CONFIG-yaml Input *****
+   ***** HELP/MENU for wfit or Firecrown CONFIG-yaml Input *****
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""

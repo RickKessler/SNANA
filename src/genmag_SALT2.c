@@ -999,6 +999,7 @@ void read_SALT2colorDisp(void) {
   //   + start ERRMAP at ilam index=0 (not 1)
   //   + call check_lamRange_SALT2errmap(imap);
   //
+  // Oct 18 2022 RK - abort if all colorDisp values are zero
 
   int imap, NLAM, ilam, MXBIN ;
   char tmpFile[MXPATHLEN];
@@ -1014,6 +1015,8 @@ void read_SALT2colorDisp(void) {
   ;
 
   int i;
+
+  char fnam[] = "read_SALT2colorDisp";
 
   // ---------- BEGIN ------------
 
@@ -1045,6 +1048,17 @@ void read_SALT2colorDisp(void) {
   printf("\n  Read color-dispersion vs. lambda from %s \n",
 	 SALT2_ERRMAP_FILES[imap] );
 
+
+  bool found_nonzero=false;
+  for (ilam=0; ilam < NLAM; ilam++ ) {
+    if ( SALT2_ERRMAP[imap].VALUE[ilam] > 1.0E-12 ) { found_nonzero=true; } 
+  }
+  
+  if ( !found_nonzero ) {
+    sprintf(c1err,"All colorDisp elements are zero ");
+    sprintf(c2err,"Check training options." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   // if nothing was read, then assume we have the older
   // Guy07 model and use polynominal parametrization

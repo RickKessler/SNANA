@@ -33,7 +33,8 @@ from submit_prog_base import Program
 
 # ------------------------------------------------
 # xxx mark delete PREFIX_wfit   = "wfit"
-
+COSMOFIT_CODE_WFIT = 'WFIT'
+COSMOFIT_CODE_FIRECROWN = 'FIRECROWN'
 
 # define columns for MERGE.LOG;  column 0 is always for STATE
 COLNUM_WFIT_MERGE_DIROPT       = 1
@@ -60,14 +61,27 @@ WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
 # - - - - - - - - - - - - - - - - - - -  -
 class cosmofit(Program):
     def __init__(self, config_yaml):
-
+        CONFIG     = config_yaml['CONFIG']
         config_prep = {}
-        config_prep['program'] = PROGRAM_NAME_WFIT
+        if 'WFITOPT' in CONFIG:
+            config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_WFIT
+            config_prep['program'] = PROGRAM_NAME_WFIT
+        elif 'FCOPT' in CONFIG :
+            config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_FIRECROWN
+            config_prep['program'] = PROGRAM_NAME_FIRECROWN
+        else :
+            msgerr=[]
+            msgerr.append(f"Cannot determine program name")
+            msgerr.append(f"Expecting WFITOPT or FCOPT in CONFIG block")
+            log_assert(False,msgerr)            
         super().__init__(config_yaml, config_prep)
+        return
 
+        
     def set_output_dir_name(self):
         CONFIG     = self.config_yaml['CONFIG']
         input_file = self.config_yaml['args'].input_file  # for msgerr
+        COSMOFIT_CODE = self.config_prep['COSMOFIT_CODE']
         msgerr     = []
         if 'OUTDIR' in CONFIG :
             output_dir_name = os.path.expandvars(CONFIG['OUTDIR'])
@@ -75,11 +89,14 @@ class cosmofit(Program):
             msgerr.append(f"OUTDIR key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
             log_assert(False,msgerr)
-
-        return output_dir_name,SUBDIR_SCRIPTS_WFIT
-
+            
+        return output_dir_name,SUBDIR_SCRIPTS_COSMOFIT
+       
+    
     def submit_prepare_driver(self):
 
+        # Continue Firecrown development here.
+        
         print("")
 
         # store input directories, and covsys_*

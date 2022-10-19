@@ -36,7 +36,7 @@ def get_args():
     msg = "file name substring to rename; e.g, SWFIT,SOUSA"
     parser.add_argument("-r", "--rename", help=msg, type=str, default=None)
 
-    msg = "list of filters to remove; e.g., XW"
+    msg = "list of filters to remove; e.g., XNW"
     parser.add_argument("--filters_remove", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  

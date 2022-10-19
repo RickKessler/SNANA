@@ -1045,6 +1045,7 @@ void read_SALT2colorDisp(void) {
   printf("\n  Read color-dispersion vs. lambda from %s \n",
 	 SALT2_ERRMAP_FILES[imap] );
 
+
   // if nothing was read, then assume we have the older
   // Guy07 model and use polynominal parametrization
   // to hard-wire the color disp.

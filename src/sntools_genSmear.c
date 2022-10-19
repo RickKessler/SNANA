@@ -1567,8 +1567,8 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
     if ( lam >= MAXLAM ) { continue ; }
     xxxxxxxxx end mark xxxxxxxx */
 
-    if ( lam <= MINLAM+0.0001 ) { continue ; }
-    if ( lam >= MAXLAM-0.0001 ) { continue ; }
+    if ( lam <= (MINLAM+0.001) ) { continue ; }
+    if ( lam >= (MAXLAM-0.001) ) { continue ; }
 
     INODE = INODE_LAMBDA(lam, GENSMEAR_SALT2.NNODE, GENSMEAR_SALT2.LAM_NODE);
     if ( INODE < 0 || INODE >= GENSMEAR_SALT2.NNODE ) {      

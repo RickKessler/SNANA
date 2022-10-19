@@ -19,7 +19,8 @@
 #     allows more flexibility in file names.
 #     See new method read_hd_info_file
 #
-# =================================================================
+# Oct 1 82022 RK - change class name from wFit to cosmofit (more general name)
+# ====================================================================
 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
@@ -31,10 +32,7 @@ from submit_params    import *
 from submit_prog_base import Program
 
 # ------------------------------------------------
-PREFIX_wfit   = "wfit"
-
-# define names of files produced by create_covariance.py
-# xxx makr delete PREFIX_covsys     = "covsys"
+# xxx mark delete PREFIX_wfit   = "wfit"
 
 
 # define columns for MERGE.LOG;  column 0 is always for STATE
@@ -49,7 +47,6 @@ KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
-# xxx mark delete KEYNAME_MEAN_STDERRMEAN    = "WEIGHT_AVG"
 KEYNAME_WFITAVG_LIST  = [ "WFITAVG", "WEIGHT_AVG" ]
 
 BLIND_DATA_DEFAULT = True
@@ -61,7 +58,7 @@ WFIT_AVGTYPE_SINGLE   = "AVG_SINGLE"
 WFIT_AVGTYPE_DIFF     = "AVG_DIFF"
 
 # - - - - - - - - - - - - - - - - - - -  -
-class wFit(Program):
+class cosmofit(Program):
     def __init__(self, config_yaml):
 
         config_prep = {}
@@ -269,7 +266,6 @@ class wFit(Program):
         for inpdir, hd_base, covsys_file_list in \
             zip(inpdir_list, hd_file_list, covsys_file_list2d):
 
-            # xxx mark delete hd_file    = f"{inpdir}/{HD_FILENAME}"
             hd_file    = f"{inpdir}/{hd_base}"
             n_covsys   = len(covsys_file_list)
             if n_covsys == 0 :            

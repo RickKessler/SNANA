@@ -16,7 +16,7 @@
 # Feb 02 2022: add --faster arg to prescale by 100 (e.g., for WFD sim)
 # Apr 08 2022: add --merge_force arg for sync_evt option
 # Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
-#
+# Oct 18 2022: rename wfit class to cosmifit (more general name)
 # - - - - - - - - - -
 
 #import os
@@ -33,11 +33,11 @@ except Exception as e:
     print(f" WARNING: could not import LightCurveFit")
     pass
 
-from   submit_prog_bbc    import BBC
-from   submit_prog_covmat import create_covmat
-from   submit_prog_wfit   import wFit
-from   submit_train_SALT2 import train_SALT2
-from   submit_train_SALT3 import train_SALT3
+from   submit_prog_bbc      import BBC
+from   submit_prog_covmat   import create_covmat
+from   submit_prog_cosmofit import cosmofit
+from   submit_train_SALT2   import train_SALT2
+from   submit_train_SALT3   import train_SALT3
 from   submit_makeDataFiles import MakeDataFiles
 from   argparse import Namespace
 
@@ -47,7 +47,7 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
-                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "WFIT",
+                        choices = ["SIM", "LCFIT", "BBC", "COVMAT", "COSMOFIT",
                                    "TRAIN_SALT2", "TRAIN_SALT3",
                                    "TRANSLATE", "MERGE", "AIZ" ])
     msg = "name of input file"
@@ -186,7 +186,7 @@ def which_program_class(config):
         program_class = BBC          # Beams with Bias Corr (KS17)
 
     elif "WFITOPT" in CONFIG :
-        program_class = wFit         # fast cosmology fitter "wfit"
+        program_class = cosmofit    # wfit, firecrown ...
 
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy

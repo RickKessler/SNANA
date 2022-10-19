@@ -100,20 +100,20 @@ class cosmofit(Program):
         print("")
 
         # store input directories, and covsys_*
-        self.wfit_prep_input_list()
+        self.cosmofit_prep_input_list()
 
         # store wfit options under WFITOPT key
-        self.wfit_prep_wfitopt_list()
+        self.cosmofit_prep_wfitopt_list()
 
         # prepare blind flag for each inpdir based on data or sim
-        self.wfit_prep_blind()
+        self.cosmofit_prep_blind()
 
         # prepare index list for inpdir/covsys/wfitopt to simplify
         # 3D loops
-        self.wfit_prep_index_lists()
+        self.cosmofit_prep_index_lists()
 
         # prepare WFITAVG: mean and std err on mean
-        self.wfit_prep_wfitavg()
+        self.cosmofit_prep_wfitavg()
 
         # copy input file to outdir
         input_file    = self.config_yaml['args'].input_file
@@ -122,7 +122,7 @@ class cosmofit(Program):
 
         # end submit_prepare_driver
 
-    def wfit_prep_input_list(self):
+    def cosmofit_prep_input_list(self):
 
         # store user list of input directories (INPDIR key),
         # where each inpdir is an output of create_covariance.py.
@@ -215,9 +215,9 @@ class cosmofit(Program):
 
         #print(f" isdata_list = {isdata_list}")
 
-        # end wfit_prep_input_list
+        # end cosmofit_prep_input_list
 
-    def wfit_prep_wfitavg(self):
+    def cosmofit_prep_wfitavg(self):
 
         # parse WFITAVG key in CONFIG block.
         # Only do error checking at this point, no computation.
@@ -265,7 +265,7 @@ class cosmofit(Program):
 
         # - - - - - 
         return
-        # end  wfit_prep_wfitavg
+        # end  cosmofit_prep_wfitavg
 
     def wfit_error_check_input_list(self):
 
@@ -410,7 +410,7 @@ class cosmofit(Program):
         # end read_hd_info_file
 
 
-    def wfit_prep_wfitopt_list(self):
+    def cosmofit_prep_wfitopt_list(self):
 
         msgerr = []
         input_file      = self.config_yaml['args'].input_file 
@@ -472,9 +472,9 @@ class cosmofit(Program):
 
         return
 
-        # end wfit_prep_wfitopt_list
+        # end cosmofit_prep_wfitopt_list
 
-    def wfit_prep_blind(self):
+    def cosmofit_prep_blind(self):
 
         CONFIG   = self.config_yaml['CONFIG']
 
@@ -522,9 +522,9 @@ class cosmofit(Program):
 
         self.config_prep['arg_blind_list'] = arg_blind_list
 
-        # end wfit_prep_blind
+        # end cosmofit_prep_blind
 
-    def wfit_prep_index_lists(self):
+    def cosmofit_prep_index_lists(self):
 
         # prepare internal index lists for efficient looping
         CONFIG             = self.config_yaml['CONFIG']
@@ -559,7 +559,7 @@ class cosmofit(Program):
         self.config_prep['icov_list3']  = icov_list3
         self.config_prep['ifit_list3']  = ifit_list3
 
-        # end wfit_prep_index_lists
+        # end cosmofit_prep_index_lists
 
     def write_command_file(self, icpu, f):
 
@@ -677,7 +677,7 @@ class cosmofit(Program):
         return string
         # end wfit_num_string
 
-    def wfit_prefix(self,row):
+    def cosmofit_prefix(self,row):
         # parse input row passed from MERGE.LOG and construct
         # prefix for output files
         dirnum  = row[COLNUM_WFIT_MERGE_DIROPT]  # e.g, DIROPT00003
@@ -686,7 +686,7 @@ class cosmofit(Program):
         prefix = f"{dirnum}_{covnum}_{wfitnum}"
         return prefix
 
-        # end wfit_prefix
+        # end cosmofit_prefix
 
     def append_info_file(self,f):
         # append info to SUBMIT.INFO file
@@ -835,7 +835,7 @@ class cosmofit(Program):
 
            # strip off row info
             STATE       = row[COLNUM_STATE]
-            prefix      = self.wfit_prefix(row) 
+            prefix      = self.cosmofit_prefix(row) 
             search_wildcard = f"{prefix}*"
 
             # check if DONE or FAIL ; i.e., if Finished
@@ -943,7 +943,7 @@ class cosmofit(Program):
             dirnum     = row[COLNUM_WFIT_MERGE_DIROPT][-5:] # e.g., DIROPT00000
             covnum     = row[COLNUM_WFIT_MERGE_COVOPT][-3:] # e.g., COVOPT001
             wfitnum    = row[COLNUM_WFIT_MERGE_WFITOPT][-3:] # idem
-            prefix     = self.wfit_prefix(row)
+            prefix     = self.cosmofit_prefix(row)
             YAML_FILE  = f"{script_dir}/{prefix}.YAML"
 
             wfit_yaml        = util.extract_yaml(YAML_FILE, None, None )

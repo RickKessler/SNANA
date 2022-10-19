@@ -43,7 +43,7 @@
      Sanchez  2021 (2111.06858)  cosmology result for LSST-DC2-SNIa analysis
      Brout    2022 (2202.04077)  Pantheon+ systematics
      Dai      2022 (in prep)     SALT3 training syst
-     Mitra    2022 (in prep)     SNIa cosmology with photo-z/PLASTICC
+     Mitra    2022 (2210.07560)  SNIa cosmology with photo-z/PLASTICC
      
   In Sep/Oct 2021, R.Kessler and A.Mitra made a few major updates:
     + completely refactor/overhaul code for easier & proper maintainance.

@@ -4193,8 +4193,10 @@ bool crazy_M0_errors(void) {
     iz    = INPUTS.izpar[n] ;
     z     = FITRESULT.zM0[iz];
     NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin
+    if ( NEVT < 3 ) { continue; } 
+
     XN    = (double)NEVT;
-    if ( XN < 1.0 ) { XN = 1.0; }
+    // xxx mark delete  if ( XN < 1.0 ) { XN = 1.0; }
     ERRMIN_COMPUTE = sigint_ref / sqrt(XN);
     ERR            = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
 

@@ -1,3 +1,11 @@
+##
+# Firecrown To do list :
+# 1. '-blind' flag
+# 2. Remove reliance on firecrown DIR, for .ini files
+# 3. Find files in firecrown input and copy them to SCRIPT_DIR
+#    cosmofit_prep_copy_input_files
+##
+
 # Created Oct 4 2021 by R.Kessler
 # Point to directory created by "create_covariance.py"
 # and run wfit on hubble_diagram with all covsys_* files
@@ -44,11 +52,14 @@ COLNUM_WFIT_MERGE_NDOF         = 4
 COLNUM_WFIT_MERGE_CPU          = 5
 
 # define CONFIG key names
-KEYNAME_WFITOPT_LIST  = [ "WFITOPT", "WFITOPTS" ] # allow either key
+KEYNAME_FITOPT_LIST  = {COSMOFIT_CODE_WFIT :      ["WFITOPT","WFITOPTS" ],
+                        COSMOFIT_CODE_FIRECROWN : ["FCOPT",  "FCOPTS"]}      # allow either key
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
 KEYNAME_WFITAVG_LIST  = [ "WFITAVG", "WEIGHT_AVG" ]
+ARG_BLIND             = {COSMOFIT_CODE_WFIT : '-blind',
+                         COSMOFIT_CODE_FIRECROWN : ' '}# Works for wfit but not for firecrown 
 
 BLIND_DATA_DEFAULT = True
 BLIND_SIM_DEFAULT  = False
@@ -101,13 +112,14 @@ class cosmofit(Program):
 
         # store input directories, and covsys_*
         self.cosmofit_prep_input_list()
-
+        
         # store wfit options under WFITOPT key
-        self.cosmofit_prep_wfitopt_list()
+        self.cosmofit_prep_fitopt_list()
 
+        
         # prepare blind flag for each inpdir based on data or sim
         self.cosmofit_prep_blind()
-
+        
         # prepare index list for inpdir/covsys/wfitopt to simplify
         # 3D loops
         self.cosmofit_prep_index_lists()
@@ -116,9 +128,7 @@ class cosmofit(Program):
         self.cosmofit_prep_wfitavg()
 
         # copy input file to outdir
-        input_file    = self.config_yaml['args'].input_file
-        script_dir    = self.config_prep['script_dir']
-        shutil.copy(input_file,script_dir)
+        self.cosmofit_prep_copy_input_files()
 
         # end submit_prepare_driver
 
@@ -267,6 +277,34 @@ class cosmofit(Program):
         return
         # end  cosmofit_prep_wfitavg
 
+    def cosmofit_prep_copy_input_files(self):
+        
+        # copy input file to outdir                                                                                                                      
+        CONFIG      = self.config_yaml['CONFIG']
+        COSMOFIT_CODE = self.config_prep['COSMOFIT_CODE']
+        
+        input_file    = self.config_yaml['args'].input_file # CONFIG file                                                                                   
+        script_dir    = self.config_prep['script_dir']                                                                                                      
+        copy_file_list= []
+        copy_file_list.append(input_file)
+        #shutil.copy(input_file,script_dir)                                                                                                                    
+        if COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN :
+            fc_input_file = CONFIG["FIRECROWN_INPUT_FILE"]
+            # read additional input files inside of fc_input_file
+            copy_file_list.append(fc_input_file)
+
+        for f in copy_file_list:
+            logging.info(f"\t Copy  {f} ")
+            if not os.path.exists(f):
+                msgerr = []
+                msgerr.append(f"Could not find input file {f}")
+                self.log_assert(False, msgerr)
+
+            shutil.copy(f,script_dir)        
+        return
+
+        # end cosmofit_prep_copy_input_files
+        
     def wfit_error_check_input_list(self):
 
         # loop over each inpdir and abort on problems such as
@@ -410,23 +448,26 @@ class cosmofit(Program):
         # end read_hd_info_file
 
 
-    def cosmofit_prep_wfitopt_list(self):
+    def cosmofit_prep_fitopt_list(self):
 
         msgerr = []
+        COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
         input_file      = self.config_yaml['args'].input_file 
         CONFIG          = self.config_yaml['CONFIG']
         output_dir      = self.config_prep['output_dir']
         wfitopt_rows    = None
         key_found       = None
 
-        for key in KEYNAME_WFITOPT_LIST:
+        KEYNAME_LIST    = KEYNAME_FITOPT_LIST[COSMOFIT_CODE] 
+        
+        for key in KEYNAME_LIST:
             if key in CONFIG:
                 wfitopt_rows = CONFIG[key]
                 key_found    = key
 
         if wfitopt_rows is None:
             msgerr.append(f"Missing required CONFIG key ")
-            msgerr.append(f"   {KEYNAME_WFITOPT_LIST} ")
+            msgerr.append(f"   {KEYNAME_LIST} ")
             msgerr.append(f"One of these keys must be in {input_file}")
             self.log_assert(False, msgerr)
 
@@ -447,7 +488,7 @@ class cosmofit(Program):
 
         # check for global wfitopt
         wfitopt_global = ""
-        for key_base in KEYNAME_WFITOPT_LIST:
+        for key_base in KEYNAME_LIST:
             key   = f"{key_base}_GLOBAL"            
             if key in CONFIG :
                 wfitopt_global = CONFIG[key]
@@ -472,12 +513,13 @@ class cosmofit(Program):
 
         return
 
-        # end cosmofit_prep_wfitopt_list
+        # end cosmofit_prep_fitopt_list
 
     def cosmofit_prep_blind(self):
 
         CONFIG   = self.config_yaml['CONFIG']
-
+        COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
+        
         # if no user-override for blind optoin, set CONFIG to default
 
         # check user override for data
@@ -515,7 +557,7 @@ class cosmofit(Program):
         arg_blind_list   = [] # set to either "-blind" or ""
         for inpdir,isdata in zip(inpdir_list,isdata_list):
             issim = not isdata
-            arg_blind = "-blind"
+            arg_blind = ARG_BLIND[COSMOFIT_CODE]
             if isdata and not blind_data : arg_blind = ""
             if issim  and not blind_sim  : arg_blind = ""
             arg_blind_list.append(arg_blind)
@@ -561,8 +603,9 @@ class cosmofit(Program):
 
         # end cosmofit_prep_index_lists
 
+        
     def write_command_file(self, icpu, f):
-
+        # Firecrown continue XYZ
         input_file         = self.config_yaml['args'].input_file 
         inpdir_list        = self.config_prep['inpdir_list']  
         covsys_file_list2d = self.config_prep['covsys_file_list2d']

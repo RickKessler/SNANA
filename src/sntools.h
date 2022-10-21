@@ -152,8 +152,9 @@
 #define MODEL_SIMSED   7  // set of SED sequences (e.g., sim-explosion models)
 #define MODEL_BYOSED   8  // build-your-own SED model
 #define MODEL_SNEMO    9  // SNEMO from SNFactory (Sep 2020)
-#define MODEL_BAYESN    13  // BayeSN (Nov 2021)
-#define MODEL_AGN       14  // AGN (Sep 2022)
+#define MODEL_BAYESN    13  // C-code BayeSN (Oct 2022)
+#define MODEL_PYBAYESN  14  // Python BayeSN (Nov 2021)
+#define MODEL_AGN       15  // AGN (Sep 2022)
 #define MODEL_NON1ASED   10  // obs-frame NONIA from SED
 #define MODEL_NON1AGRID  11  // obs-frame NONIA from mag-grid (Mar 2016)
 #define MODEL_LCLIB      12  // light curve library (July 2017)

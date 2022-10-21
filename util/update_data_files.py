@@ -44,6 +44,10 @@ def get_args():
 
     args = parser.parse_args()
 
+    args.rename_list = []
+    if args.rename:
+        args.rename_list = args.rename.split(',')
+
     return args
 
     # end get_args
@@ -80,6 +84,22 @@ def get_list_data(path_data):
     #print(f" xxx {list_data_files} ")
     return list_data_files
     # end get_list_data
+    
+def update_list_file(path_data , rename_list):
+
+    # use linux sed to modify file names in [VERSION].LIST file
+
+    version   = os.path.basename(path_data)
+    LIST_FILE = (f"{path_data}/{version}.LIST")
+
+    substr_orig = rename_list[0]
+    subtrs_new  = rename_list[1]
+
+    cmd = f"sed -i 's//{substr_orig}//{subtrs_new}//g' {LIST_FILE}"
+    os.system(cmd)
+
+    return
+    # end update_list_file
 
 def make_outdir(path_data):
     # strip version from path_data
@@ -223,8 +243,9 @@ def update_data_file(data_file, args):
         out_file = DATA_FILE_OUT
     else:
         # make string substituion in output file name
-        tmp = args.rename.split(',')
-        out_file = DATA_FILE_OUT.replace(tmp[0],tmp[1])
+        substr_orig = args.rename_list[0]
+        subtrs_new  = args.rename_list[1]
+        out_file = DATA_FILE_OUT.replace(substr_orig,subtrs_new)
 
     with gzip.open(out_file, "wt") as o :
         o.write("".join(contents_new))
@@ -272,6 +293,10 @@ if __name__ == "__main__":
     for data_file in list_data_files :
         update_data_file(data_file, args)
         nupd += 1
+
+    # if file names are modified, modify names in [VERSION].LIST file
+    if args.rename:
+        update_list_file(path_data,args.rename_list)
 
     print(f"\n Done modifying {nupd} of {n_data_file} " \
           f"data files under {version}\n")

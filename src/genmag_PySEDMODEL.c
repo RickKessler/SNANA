@@ -9,7 +9,7 @@
   Each PySEDMODEL is associated with a separate gensed_[model].py :
      gensed_BYOSED.py : Build Your Own SED  (J.Pierel)
      gensed_SNEMO.py  : SNFactory model (Ben Rose)
-     gensed_BAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
+     gensed_PYBAYESN.py : BayeSN model (Gautham Narayan, Stephen Thorp, Kaisey Mandel)
      gensed_AGN.py : AGN model (Qifeng Cheng, Konstantin Malanchev)
 
   Initial motivation is to build underlying "true" SED model to
@@ -109,7 +109,7 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
   // Used by sim, parsing, etc ...
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED ); N++ ;
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO  ); N++ ;
-  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BAYESN ); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_PYBAYESN ); N++ ;
   sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_AGN    ); N++ ;
 
   if ( N != NCHOICE_PySEDMODEL ) {

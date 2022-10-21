@@ -19,13 +19,13 @@ from gensed_base import gensed_base
 
 
 mask_bit_locations = {'verbose':1,'dump':2}
-DEFAULT_BAYESN_MODEL='M20'
-ALLOWED_BAYESN_MODEL=['M20', 'T21']
-ALLOWED_BAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
+DEFAULT_PYBAYESN_MODEL='M20'
+ALLOWED_PYBAYESN_MODEL=['M20', 'T21']
+ALLOWED_PYBAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
 ALLOWED_SNANA_DISTRIBUTION_KEYS=['PEAK','SIGMA','RANGE']
 PRODUCTS_DIR = os.getenv('SNDATA_ROOT')
-BAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
-BAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
+PYBAYESN_MODEL_DIR = os.path.join(PRODUCTS_DIR, 'models', 'bayesn')
+PYBAYESN_MODEL_COMPONENTS = ['l_knots', 'L_Sigma_epsilon', 'M0_sigma0_RV_tauA', 'tau_knots', 'W0', 'W1']
 #ST: Computes a stupid nuisance factor
 GAMMA = np.log(10)/2.5
 
@@ -35,7 +35,7 @@ def print_err():
   raise RuntimeError
 
 
-class gensed_BAYESN(gensed_base):
+class gensed_PYBAYESN(gensed_base):
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
         try:
@@ -75,7 +75,7 @@ class gensed_BAYESN(gensed_base):
             self.parameter_values = {key:0. for key in self.parameter_names}
             self.parameter_values['RV'] = 3.1 # make sure Rv has a sane default
 
-            ### SETUP THE BAYESN PARAMETER DISTRIBUTIONS
+            ### SETUP THE PYBAYESN PARAMETER DISTRIBUTIONS
             ### THESE WILL BE SAMPLED TO UPDATE parameter_values AS NEEDED
             self.parse_bayesn_param_keys()
             self.setup_bayesn_param_distributions()
@@ -83,18 +83,18 @@ class gensed_BAYESN(gensed_base):
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             print('Python Error :',e)
-            print('gensed_BAYESN.py, line number: %i'%exc_tb.tb_lineno)
+            print('gensed_PYBAYESN.py, line number: %i'%exc_tb.tb_lineno)
             print_err()
 
         # load the bayesn model files
-        BAYESN_MODEL = self.params_file_contents.get('BAYESN_MODEL', DEFAULT_BAYESN_MODEL)
-        if BAYESN_MODEL not in ALLOWED_BAYESN_MODEL:
-            print(f'gensed_BAYESN.py: INVALID BAYESN_MODEL {BAYESN_MODEL} - must be one of {ALLOWED_BAYESN_MODEL}')
+        PYBAYESN_MODEL = self.params_file_contents.get('BAYESN_MODEL', DEFAULT_PYBAYESN_MODEL)
+        if PYBAYESN_MODEL not in ALLOWED_PYBAYESN_MODEL:
+            print(f'gensed_PYBAYESN.py: INVALID PYBAYESN_MODEL {PYBAYESN_MODEL} - must be one of {ALLOWED_PYBAYESN_MODEL}')
             print_err()
 
-        bayesn_model_dir = os.path.join(BAYESN_MODEL_DIR, f'BAYESN.{BAYESN_MODEL}')
+        bayesn_model_dir = os.path.join(PYBAYESN_MODEL_DIR, f'BAYESN.{PYBAYESN_MODEL}')
         self._bayesn_components = {comp:np.genfromtxt(os.path.join(bayesn_model_dir,\
-                                    f'{comp}.txt')) for comp in BAYESN_MODEL_COMPONENTS}
+                                    f'{comp}.txt')) for comp in PYBAYESN_MODEL_COMPONENTS}
 
         self._nepsilon = len(self._bayesn_components["L_Sigma_epsilon"])
 
@@ -165,9 +165,9 @@ class gensed_BAYESN(gensed_base):
                 raise RuntimeError(message)
 
             # next, the parameters have to be valid BAYESN params
-            if paramname not in ALLOWED_BAYESN_PARAMS:
+            if paramname not in ALLOWED_PYBAYESN_PARAMS:
                 message = f'Do not recognize key {key} in ARGLIST.\n'
-                message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_BAYESN_PARAMS}.'
+                message += f'Keys must specify a BayeSN light curve parameter f{ALLOWED_PYBAYESN_PARAMS}.'
                 raise RuntimeError(message)
 
             # we need to keep a track of which distribution parameters are set
@@ -544,7 +544,7 @@ def spline_coeffs_irr(x_int, x, invkd, allow_extrap=True):
 
 
 def main():
-    mySED=gensed_BAYESN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
+    mySED=gensed_PYBAYESN('$SNDATA_ROOT/models/bayesn/BAYESN.M20',2,[],'z,AGE,ZCMB,METALLICITY')
 
     fig = plt.figure(figsize=(10, 5))
     ax1 = fig.add_subplot(111)

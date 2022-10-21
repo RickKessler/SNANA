@@ -968,7 +968,7 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/genmag_SALT2.c )
 
-$(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_SEDtools.c
+$(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_BAYESN.c
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
 

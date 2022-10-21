@@ -16,7 +16,7 @@
 // GN - I think we will likely need these - copied from bayesn
 int init_genmag_bayesn__( char *version, int *optmask) {
   int istat;
-  istat = init_genmag_bayesn ( version, *optmask) ;
+  istat = init_genmag_BAYESN ( version, *optmask) ;
   return istat;
 }
 
@@ -33,8 +33,9 @@ int init_genmag_bayesn__( char *version, int *optmask) {
 //  get_LAMRANGE_bayesn(lammin,lammax);
 // }
 
-int init_genmag_bayesn(char *version, int optmask){
-    printf("Hello from fortran hell");
+int init_genmag_BAYESN(char *version, int optmask){
+    char fnam[] = "init_genmag_BAYESN";
+    printf("XXXX %s Hello from fortran hell\n", fnam);
 	return 0;
 }
 
@@ -49,10 +50,18 @@ void genmag_BAYESN(
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
+    int o;
+    double mag;
 	char fnam[] = "genmag_BAYESN";
 
 
 	//BEGIN
+    for (o = 0; o < Nobs; o++) {
+        mag = Tobs_list[o] + 20.0;
+        magobs_list[o] = mag;
+        magerr_list[o] = 0.1;
+    }
+
 	return;
 } //End of genmag_BAYESN
  

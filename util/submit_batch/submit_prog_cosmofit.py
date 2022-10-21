@@ -4,6 +4,7 @@
 # 2. Remove reliance on firecrown DIR, for .ini files
 # 3. Find files in firecrown input and copy them to SCRIPT_DIR
 #    cosmofit_prep_copy_input_files
+# 4. Option to produce YAML file for cimmunication with sbatch
 ##
 
 # Created Oct 4 2021 by R.Kessler
@@ -606,6 +607,7 @@ class cosmofit(Program):
         
     def write_command_file(self, icpu, f):
         # Firecrown continue XYZ
+        COSMOFIT_CODE   = self.config_prep['COSMOFIT_CODE']
         input_file         = self.config_yaml['args'].input_file 
         inpdir_list        = self.config_prep['inpdir_list']  
         covsys_file_list2d = self.config_prep['covsys_file_list2d']
@@ -628,9 +630,14 @@ class cosmofit(Program):
             if ( (n_job_local-1) % n_core ) != icpu : continue
 
             n_job_cpu += 1
-            job_info_wfit   = self.prep_JOB_INFO_wfit(index_dict)
-            util.write_job_info(f, job_info_wfit, icpu)
+            if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:
+                job_info_cosmofit   = self.prep_JOB_INFO_wfit(index_dict)
+            elif COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN:
+                job_info_cosmofit   = self.prep_JOB_INFO_firecrown(index_dict)
 
+            util.write_job_info(f, job_info_cosmofit, icpu)
+
+            
             job_info_merge = \
                 self.prep_JOB_INFO_merge(icpu,n_job_local,False) 
             util.write_jobmerge_info(f, job_info_merge, icpu)
@@ -699,6 +706,69 @@ class cosmofit(Program):
 
         # end prep_JOB_INFO_wfit
 
+    def prep_JOB_INFO_firecrown(self,index_dict):
+
+        idir = index_dict['idir']
+        ifit = index_dict['ifit']
+        icov = index_dict['icov']
+
+        kill_on_fail = self.config_yaml['args'].kill_on_fail
+        program      = self.config_prep['program']
+        output_dir   = self.config_prep['output_dir']
+        script_dir   = self.config_prep['script_dir']
+
+        inpdir       = self.config_prep['inpdir_list'][idir]
+        arg_blind    = self.config_prep['arg_blind_list'][idir]
+        arg_string   = self.config_prep['wfitopt_arg_list'][ifit]
+        arg_global   = self.config_prep['wfitopt_global']
+        cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
+        hd_basename  = self.config_prep['hd_file_list'][idir]
+
+        prefix = self.wfit_num_string(idir,icov,ifit)
+
+        covsys_file   = f"{inpdir}/{cov_basename}"
+        hd_file       = f"{inpdir}/{hd_basename}"
+        log_file      = f"{prefix}.LOG" 
+        done_file     = f"{prefix}.DONE"
+        all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
+
+        arg_list = []
+
+        # Start with HD and cov matrix
+        arg_list.append(f"{inpdir} ")        
+        arg_list.append(f"{hd_basename} ")
+        arg_list.append(f"{cov_basename} ")
+        #print('*****arg_list = ',f"arg_list")#, arg_list[1], arg_list[2])
+        # start with user-defined args from WFITOPT[_GLOBAL] key
+        arg_list.append(arg_string)
+        if len(arg_global) > 0: arg_list.append(arg_global)
+
+
+        # tack on blind arg
+        arg_list.append(arg_blind)
+
+        
+        # define output YAML file to be parsed by submit-merge process
+        #arg_list.append(f"-cospar_yaml {prefix}.YAML")
+        # XYZ Need something analogous for Firecrown
+
+        JOB_INFO = {}
+        JOB_INFO['program']       = program
+        JOB_INFO['input_file']    = ""
+        JOB_INFO['job_dir']       = script_dir
+        JOB_INFO['log_file']      = f"{log_file}"
+        JOB_INFO['done_file']     = f"{done_file}"
+        JOB_INFO['all_done_file'] = f"{all_done_file}"
+        JOB_INFO['kill_on_fail']  = kill_on_fail
+        JOB_INFO['arg_list']      = arg_list
+  
+        return JOB_INFO
+
+        # end prep_JOB_INFO_firecrown
+
+        
+
+        
     def wfit_num_string(self,idir,icov,ifit):
 
         if idir >= 0 and icov < 0 and ifit < 0:

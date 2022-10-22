@@ -788,6 +788,7 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SHAPEPAR, zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DELTA,    zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DM15,     zero ); 
+  init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_THETA,    zero ); 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH,  zero ); 
 
   INPUTS.DOGEN_AV       = 0 ;
@@ -1994,6 +1995,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( strstr(WORDS[0],"DM15") != NULL ) {
     N += parse_input_GENGAUSS("DM15", WORDS, keySource,
 			      &INPUTS.GENGAUSS_DM15 );  
+  }
+  else if ( strstr(WORDS[0],"THETA") != NULL ) {
+    N += parse_input_GENGAUSS("THETA", WORDS, keySource,
+			      &INPUTS.GENGAUSS_THETA );  
   }
   else if ( strstr(WORDS[0],"STRETCH") != NULL ) {
     N += parse_input_GENGAUSS("STRETCH", WORDS, keySource,
@@ -5949,6 +5954,7 @@ void prep_user_input(void) {
     sprintf(GENLC.SHAPEPAR_GENNAME, "THETA");
     sprintf(GENLC.COLORPAR_NAME,    "AV"      );
     GENLC.ptr_SHAPEPAR = &GENLC.THETA ;
+    copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_THETA, &INPUTS.GENGAUSS_SHAPEPAR );
   }
 
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
@@ -8213,10 +8219,9 @@ void  set_GENMODEL_NAME(void) {
 
   sprintf(GENMODEL_NAME[MODEL_SNEMO][0],   "%s", "SNEMO"   ); // pyModel
 
-  sprintf(GENMODEL_NAME[MODEL_BAYESN][0],  "%s", "BAYESN"   ); // C-code BayeSN
-  sprintf(GENMODEL_NAME[MODEL_PYBAYESN][0],  "%s", "PyBAYESN"   ); // pyModel
-  sprintf(GENMODEL_NAME[MODEL_PYBAYESN][1],  "%s", "PYBAYESN"   ); // pyModel
-  sprintf(GENMODEL_NAME[MODEL_PYBAYESN][2],  "%s", "BAYESN"   ); // pyModel
+  sprintf(GENMODEL_NAME[MODEL_BAYESN][0],   "%s", "BAYESN"   ); // C-code BayeSN
+  sprintf(GENMODEL_NAME[MODEL_PYBAYESN][0], "%s", "PyBAYESN"   ); // pyModel
+  sprintf(GENMODEL_NAME[MODEL_PYBAYESN][1], "%s", "PYBAYESN"   ); // pyModel
 
   sprintf(GENMODEL_NAME[MODEL_AGN][0],  "%s", "AGN"   ); // pyModel
 
@@ -23233,7 +23238,9 @@ void check_model_default(int index_model ) {
   char  model[40],suffix[20], defaultFile[MXPATHLEN], defaultPath[MXPATHLEN] ;
   char  model_lc[40] = { "  " } ;    
   char  fnam[] = "check_model_default"  ;
-  printf("XXX %s INDEX_MODEL = %d, IS_PySEDMODEL = %d\n", fnam, index_model, IS_PySEDMODEL);
+
+  // printf("XXX %s INDEX_MODEL = %d, IS_PySEDMODEL = %d\n", 
+  // fnam, index_model, IS_PySEDMODEL);
 
 
   // ----------------- BEGIN ---------------

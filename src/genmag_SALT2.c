@@ -1049,9 +1049,13 @@ void read_SALT2colorDisp(void) {
 	 SALT2_ERRMAP_FILES[imap] );
 
 
-  bool found_nonzero=false;
+  // check that all cDisp values are non-zero, and set ceiling.
+  bool found_nonzero = false;
   for (ilam=0; ilam < NLAM; ilam++ ) {
-    if ( SALT2_ERRMAP[imap].VALUE[ilam] > 1.0E-12 ) { found_nonzero=true; } 
+    cDisp = SALT2_ERRMAP[imap].VALUE[ilam];
+    if ( cDisp > INPUT_SALT2_INFO.COLOR_DISP_MAX ) 
+      { SALT2_ERRMAP[imap].VALUE[ilam] = INPUT_SALT2_INFO.COLOR_DISP_MAX; }
+    if ( cDisp > 1.0E-12 ) { found_nonzero=true; } 
   }
   
   if ( !found_nonzero ) {
@@ -1184,7 +1188,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT= 1 ; // 1=>ON (July 2020)
   INPUT_SALT2_INFO.COLORLAW_VERSION   = IVER = 0;
   INPUT_SALT2_INFO.NCOLORLAW_PARAMS   = 4;
-  INPUT_SALT2_INFO.COLOR_OFFSET       = 0.0 ;
+  INPUT_SALT2_INFO.COLOR_DISP_MAX     = 5.0 ;
   INPUT_SALT2_INFO.MAG_OFFSET         = 0.0 ;
 
   ptrpar = INPUT_SALT2_INFO.COLORLAW_PARAMS ;
@@ -1244,6 +1248,9 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
     }
     if ( strcmp(c_get, "COLOR_OFFSET:") == 0 ) {
       readdouble(fp, 1, &INPUT_SALT2_INFO.COLOR_OFFSET );
+    }
+    if ( strcmp(c_get, "COLOR_DISP_MAX:") == 0 ) {
+      readdouble(fp, 1, &INPUT_SALT2_INFO.COLOR_DISP_MAX );
     }
 
     if ( strcmp(c_get, "MAG_OFFSET:") == 0 ) {
@@ -1335,6 +1342,9 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   printf("\t COLOR OFFSET:  %6.3f mag  \n", 
 	 INPUT_SALT2_INFO.COLOR_OFFSET ); 
+
+  printf("\t COLOR DISP_MAX:  %5.1f mag  \n", 
+	 INPUT_SALT2_INFO.COLOR_DISP_MAX ); 
 
   // dump colorlaw parameters based on version
   printf("\t COLORLAW PARAMS:  \n" );

@@ -21372,4 +21372,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    update_data_files.py: 
      + add option to remove filter bands
 
+   Continue development of genmag_BAYESN.c[h]
+
+   Split BAYESN models into PYBAYESN (python) and BAYESN (C-code)
+
 END: 

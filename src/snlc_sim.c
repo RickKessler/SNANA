@@ -5941,6 +5941,16 @@ void prep_user_input(void) {
     copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2x1, &INPUTS.GENGAUSS_SHAPEPAR );
 
   }
+  else if ( INDEX_GENMODEL == MODEL_BAYESN ) {
+
+    GENFRAME_OPT   = GENFRAME_OBS ;
+    sprintf(GENLC.DISTANCE_NAME,    "DLMAG"     );
+    sprintf(GENLC.SHAPEPAR_NAME,    "THETA"     );
+    sprintf(GENLC.SHAPEPAR_GENNAME, "THETA");
+    sprintf(GENLC.COLORPAR_NAME,    "AV"      );
+    GENLC.ptr_SHAPEPAR = &GENLC.THETA ;
+  }
+
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
    
     // allow only COH model for intrinsic scatter
@@ -22856,6 +22866,28 @@ void init_genmodel(void) {
     // set flag to generate intrinsic smear vs. wavelength
     // (inside genmag_SALT2).
     IFLAG_GENSMEAR = IFLAG_GENSMEAR_LAM ;
+  }
+
+  else if ( INDEX_GENMODEL == MODEL_BAYESN ) {
+
+    // init generic part of any SEDMODEL (filter & primary ref)
+    init_genSEDMODEL();
+
+    // model-specific init
+    OPTMASK = INPUTS.GENMODEL_MSKOPT;
+
+    istat = init_genmag_BAYESN(GENMODEL, OPTMASK) ;
+    get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
+
+    if ( istat != 0 ) {
+      sprintf(c1err,"init_genmag_BAYESN failed.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, "" );
+    }
+
+    // set flag to generate intrinsic smear vs. wavelength
+    // (inside genmag_SALT2).
+    // IFLAG_GENSMEAR = IFLAG_GENSMEAR_LAM ; ???
+
   }
 
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {

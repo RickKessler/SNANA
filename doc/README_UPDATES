@@ -21376,4 +21376,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    Split BAYESN models into PYBAYESN (python) and BAYESN (C-code)
 
+   sntools_genSmear.c / genmag_SALT2.c
+     + read and apply COLOR_DISP_MAX from SALT2.INFO file
+
 END: 

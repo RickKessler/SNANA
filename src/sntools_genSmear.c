@@ -1088,6 +1088,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
+  double COLOR_DISP_MAX = 5.0;
   double zmin = GENRANGE_REDSHIFT[0];
   char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
@@ -1136,12 +1137,12 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read SIGMA_INT from SALT2.INFO file
   
   if ( SIGCOH < -8.1 )  {  
-    //    GENSMEAR_SALT2.SIGCOH = read_genSmear_SALT2sigcoh(versionSALT2); 
-    read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM); 
+    read_genSmear_SALT2INFO(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM,
+			    &COLOR_DISP_MAX); 
   }
   else if ( SIGCOH >= 0.0 ) {
-    //xxx  GENSMEAR_SALT2.SIGCOH = SIGCOH ; 
-    read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM);     
+    read_genSmear_SALT2INFO(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM,
+			    &COLOR_DISP_MAX); 
   }
   else {
     // do nothing because user input includes
@@ -1159,7 +1160,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 	  versionSALT2, SALT2_ERRMAP_FILES[INDEX_ERRMAP_COLORDISP]);
   xxx */
 
-  read_genSmear_SALT2disp(dispFile) ;
+  read_genSmear_SALT2disp(dispFile, COLOR_DISP_MAX) ;
 
   // ----
 
@@ -1299,15 +1300,14 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
 
 // ********************************************
-void read_genSmear_SALT2sigcoh(char *versionSALT2, 
-			       GRIDMAP1D *SIGCOH_LAM) {  // <== returned
+void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM,     
+			     double  *COLOR_DISP_MAX) 
+{ 
 
-  // read SIGMA_INT key from SALT2.INFO file, and return value
-  // as function output.
-  // Input *versionSALT2 is the name of the SALT2 version,
+  // Minor refactor Oct 21 2022 to read and return COLOR_DISP_MAX.
+  // Read SALT2[3].INFO file for information needed for genSmear.
+  // Input *versionSALT2 is the name of the SALT2/SALT3 version,
   // including full path
-  //
-  // May 30 2018: refactor to fill struct SIGCOH_LAM (sigcoh vs. lam)
   //
   // Fix INFO_FILE to work with SALT2 or SALT3
 
@@ -1339,6 +1339,9 @@ void read_genSmear_SALT2sigcoh(char *versionSALT2,
       readchar(fp, keyArg); 
       parse_SIGCOH_SALT2(keyName,keyArg, SIGCOH_LAM);
     }
+
+    if ( strcmp(c_get,"COLOR_DISP_MAX:") == 0 ) 
+      { readdouble(fp, 1, COLOR_DISP_MAX); }
   }
 
   fclose(fp);
@@ -1450,7 +1453,7 @@ void  parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG,
 
 
 // ************************************
-void read_genSmear_SALT2disp(char *smearFile) {
+void read_genSmear_SALT2disp(char *smearFile, double COLOR_DISP_MAX ) {
 
   // Created May 1 2014
   // read dispersion vs. wavelength from file.
@@ -1459,10 +1462,11 @@ void read_genSmear_SALT2disp(char *smearFile) {
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
   // Aug 28 2019: fill GENSMEAR_SALT2.MINLAM[MAXLAM]
   // Sep 03 2019: GENSMEAR_SALT2.LAM[SIGMA] arrays start at 0, not 1
+  // Oct 21 2022: apply COLOR_DISP_MAX passed as new arg
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
-  int NLAM,  GZIPFLAG ;
+  int  ilam, NLAM,  GZIPFLAG ;
 
   // -------------- BEGIN ----------------
 
@@ -1493,6 +1497,13 @@ void read_genSmear_SALT2disp(char *smearFile) {
   GENSMEAR_SALT2.NLAM   = NLAM;  
   GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
   GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM-1];
+
+  // Oct 2022: put a cap on color smear, to avoid crazy mags in far UV
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    if ( GENSMEAR_SALT2.SIGMA[ilam] > COLOR_DISP_MAX ) 
+      { GENSMEAR_SALT2.SIGMA[ilam] = COLOR_DISP_MAX ; }
+  }
+
 
   if ( NLAM >= MXLAM_GENSMEAR_SALT2 ) {
     sprintf(c1err,"G10 NLAM=%d exceeds array bound of %d",

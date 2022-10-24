@@ -131,6 +131,9 @@ class cosmofit(Program):
         # copy input file to outdir
         self.cosmofit_prep_copy_input_files()
 
+        # prepare output directories
+        self.cosmofit_prep_outdirs()
+        
         # end submit_prepare_driver
 
     def cosmofit_prep_input_list(self):
@@ -305,6 +308,37 @@ class cosmofit(Program):
         return
 
         # end cosmofit_prep_copy_input_files
+
+
+    def cosmofit_prep_outdirs(self):
+        # XYZ
+        COSMOFIT_CODE = self.config_prep['COSMOFIT_CODE']
+        output_dir   = self.config_prep['output_dir']
+        idir_list3 = self.config_prep['idir_list3']
+        icov_list3 = self.config_prep['icov_list3']
+        ifit_list3 = self.config_prep['ifit_list3']
+
+        use_outdir = False
+        if COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN :
+            use_outdir = True
+                
+        outdir_list3 = []
+        
+        for idir,icov,ifit in zip(idir_list3,icov_list3,ifit_list3):
+            subdir = self.wfit_num_string(idir,icov,ifit)
+            outdir_name = f"{output_dir}/{subdir}"
+            outdir_list3.append(outdir_name)
+            if use_outdir :
+                os.mkdir(outdir_name)
+          
+        self.config_prep["outdir_list3"] = outdir_list3
+
+            
+
+        
+        return
+        # end cosmofit_prep_outdirs
+
         
     def wfit_error_check_input_list(self):
 
@@ -342,6 +376,8 @@ class cosmofit(Program):
 
         # end wfit_error_check_input_list
 
+
+        
     def read_hd_info_file(self, inpdir, covsys_select_list):
 
         # Ceated Oct 13 2022 by RK
@@ -617,15 +653,16 @@ class cosmofit(Program):
         idir_list3 = self.config_prep['idir_list3'] 
         icov_list3 = self.config_prep['icov_list3']
         ifit_list3 = self.config_prep['ifit_list3']
+        outdir_list3 = self.config_prep['outdir_list3']
         
         n_job_cpu   = 0
         n_job_local = 0
 
-        for idir,icov,ifit in zip(idir_list3,icov_list3,ifit_list3):
+        for idir,icov,ifit,outdir in zip(idir_list3,icov_list3,ifit_list3,outdir_list3):
 
             n_job_local += 1
             index_dict = \
-                { 'idir':idir, 'ifit':ifit, 'icov':icov, 'icpu':icpu }
+                { 'idir':idir, 'ifit':ifit, 'icov':icov, 'icpu':icpu, 'outdir':outdir }
 
             if ( (n_job_local-1) % n_core ) != icpu : continue
 
@@ -711,10 +748,11 @@ class cosmofit(Program):
         idir = index_dict['idir']
         ifit = index_dict['ifit']
         icov = index_dict['icov']
-
+        outdir = index_dict['outdir'] # Job specific outdir
+        
         kill_on_fail = self.config_yaml['args'].kill_on_fail
         program      = self.config_prep['program']
-        output_dir   = self.config_prep['output_dir']
+        output_dir   = self.config_prep['output_dir'] # Global out dir for all tasks
         script_dir   = self.config_prep['script_dir']
 
         inpdir       = self.config_prep['inpdir_list'][idir]
@@ -738,6 +776,7 @@ class cosmofit(Program):
         arg_list.append(f"{inpdir} ")        
         arg_list.append(f"{hd_basename} ")
         arg_list.append(f"{cov_basename} ")
+        arg_list.append(f"--outdir {outdir} ")
         #print('*****arg_list = ',f"arg_list")#, arg_list[1], arg_list[2])
         # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list.append(arg_string)

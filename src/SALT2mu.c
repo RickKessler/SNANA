@@ -6,626 +6,15 @@ Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
 2.  Output a file of bias-corrected distances for cosmological fits
 
-==USAGE 
+For help, run code with no arguments
+  SALT2mu.exe
+  SALT2mu.exe | more
+  SALT2mu.exe | grep -i pec
+  etc ...
 
- To dump a list of all valid keys and then quit,
-    ./SALT2mu.exe KEY_DUMP
-
-./SALT2mu.exe  <parameter input file>
-    file=file.fitres bins=10 zmin=0.02 zmax=1.02 u0=1 u1=1 u2=0 u3=0
-    prefix=SALT2mu sigmB=0.0 sigx1=0.0 sigc=.1  p9=.73 
-
-The 'datafile=' argument (or file=) is required, and it is usually the 
-FITRES table output from snlc_fit.exe of submit_batch_jobs.sh.
-
-Additional arguments below are optional:
-
-file=<comma-sep list of fitres file names to analyze>
-datafile=<same as file=>
-
-datafile_override=over1.dat,over2.dat,etc... ! comma-sep list of data-overrides
-     ! enabled for zHEL, VPEC, VPEC_ERR, HOST_LOGMASS
-     ! if VPEC [VPEC_ERR] is changed, so is zhd [zhderr]
-
-minos=1  ! default; minos errors
-minos=0  ! switch to MIGRAD (should be faster)
-     
-nmax=100                 ! fit first 100 events only
-nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
-nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
-
-cid_select_file=<file with CID 'accept-only' list  
-      (FITRES or unkeyed list format)>
-cid_reject_file=<file with CID reject list 
-      (FITRES or unkeyed format)>
-
-izbin_from_cid_file=1 ! use izbin in cid_selecr_file
-
-uzsim=1                  ! cheat and use true zCMB for redshift
-
-sigint_fix=0.11            ! fix sigint=0.11 for all data
-sigint_fix=0.11,0.09,0.08  ! comma-sep list of sigint_fix for each IDSAMPLE
-
-maxerr_abort_c=0      ! for USESIM_c=T,  increase this to epsilon>0
-maxerr_abort_x1=0     ! for USESIM_x1=T, increase this to epsilon>0
-maxerr_abort_x0=0
-
- - - - - -  biasCor options - - - - - 
-simfile_biascor=name    ! sim fitres file to compute bias mape
-simfile_biascor=name1,name2,etc   ! idem with comma-sep list
-
-opt_biascor=<option>    ! grep MASK_BIASCOR  SALT2mu.c | grep define
-opt_biascor=112    ! as in BBC paper
-
-opt_biascor=368    ! idem, but use SigmaInt(m0,x1,c)=S3x3 from biasCor
-                   ! Use S3x3 * SCALE, where SCALE is varied for chi2/dof=1.
-                   ! Note that SCALE is sort'of the analog of sigint.
-
-opt_biascor=240   ! +=128 to correct mu instead of correcting mB,x1,c
-
-opt_biascor=1136  ! +1024 -> if no valid biasCor, keep event with bias=0
-                  !   (default is to discard events with no biasCor)
-
-sigint_biascor=<sigmb_bias>   ! instead of auto-computed sigint_biascor
-snrmin_sigint_biascor         ! SNRMIN to compute siginit_biascor 
-prescale_biascor=<subset>,<preScale>  ! select <subset> from <prescale>
-
-fieldGroup_biascor='shallow,medium,deep'             ! for biasCor & CCprior
-fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'
-
-surveygroup_biascor='CFA3+CSP,PS1MD'   ! combine CFA3+CSP into one biasCor
-surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' 
-surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' 
-surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' 
-surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data
-
-  NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, 
-        then each biasCor group  is automatically split into 
-        [GROUPNAME]-zSPEC and [GROUPNAME]-zPHOT groups. 
-        OPT_PHOTOZ is from &SNCLINP input SNTABLE_LIST='FITRES NOZPHOT'
-zspec_errmax_idsample=0.002  ! default=0
-   ! IS_SPECZ = OPT_PHOTOZ==0 || zhelerr < zspec_errmax_idsample
-   ! Thus if all events have OPT_PHOTOZ=2, user input
-   ! zspec_errmax_idsample  defines zSpec IDSAMPLE
-
-zphot_shift=.01          ! z-shift for photo-z subset (data only)
-
-idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
-surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
-interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
-
-select_trueIa=1          ! select only true SNIa, disable CC prior
-force_realdata=1         ! treat sim like real data
-
-ndump_nobiascor=20       ! dump for first 20 data events with no biasCor
-dumpflag_nobiascor=20;   ! idem; legacy input variable
-
-frac_warn_nobiascor=0.02  ! print warning in output fitres file if nobiascor
-                  ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
-
-cidlist_debug_biascor  ! comma-sep list to dump biasCor info
-
-To check sample stats for each surveyGroup and fieldGroup,
-   grep IDSAMPLE  <stdout_file>
-
- - - - - -  CCprior options - - - - -  
-simfile_ccprior=name    ! sim fitres file to compute CC prior and
-                        !  flag to to a BEAMS-like fit
-simfile_ccprior=same  --> use same file(s) as simfile_bias
-simfile_ccprior=name1,name2,etc  ! comma-sep list
-simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
-  BEWARE: must use 5D biasCor with simfile_ccprior option;
-          1D biasCor + ccprior --> abort.
-
-varname_pIa=name of fitres param containing Prob_Ia
-force_pIa=forced value of Prob_Ia for every event
-force_pIa='perfect' --> pIa = 1 or 0 for true Ia or CC (sim only)
-
-# to force P(SNIa)=1 and P(CC)=0 for spectroscopic-confirmed subset,
-type_list_probcc0=1,2,11 
-     (list of integer TYPE values in data header)
-idsurvey_list_probcc0=5,50,51,53 
-       or
-idsurvey_list_probcc0=CSP,JRK07,KAIT,CFA3
-       or
-idsurvey_list_probcc0=CSP,JRK07,51,53
-   (list of survey names and/or integers from SURVEY.DEF file)
-
-    grep Force <stdout>  # to verify parsing
-
-# to allow for missing data columns in some input files, need to append 
-# a value of -9 in the FITRES output to avoid mis-aligned output columns.
-# Default will append varname_pIa and anything with PROB_ prefix to allow 
-# for multiple classification probs in photometric sample, while missing
-# in the spec-sample.
-append_varname_missing = 'PROB_*'         ! default: wildcard for PROB_* 
-append_varname_missing = 'PROB_NOTSOGOOD' ! only this one varname
-append_varname_missing = 'PROB_*,PIA_*'   ! wildcard for PROB_* or PIA_*
-# note that varname_pIa is automatically included, even 
-# if not specified in this key. 
-
-- - - - - -  binning - - - - - -
-nzbin    = number of z bins to use (beware: some bins may be empty)
-nlogzbin = number of log-spaced z bins (Jun 21 2018)
-zmin  = lower limit on redshift (e.g., 0.02)
-zmax  = upper limit on redshift (e.g., 1.00)
-powzbin: zbinSize(fit+output) \propto (1+z)^powzbin 
-   [constrained by nzbin,zmin,zmax.  Default powzbin=0 --> uniform bins]
-powzbin=2.0     --> binSize propto (1+z)^2 for all redshift range.
-powzbin=2.0,0.4 --> binSize propto (1+z)^2 for nzbin/2 and z<0.4, then
-                    constant binsize for z>0.4. Allows small bins at low-z,
-                    without too-big bins at high-z.
-
-zbinuser=.01,0.012,0.1,0.2,0.3,0.4   # user-defined z-bins 
- 
-min_per_zbin =  min number of SN in z-bin to keep z-bin (default=1)
-
-nzbin_ccprior = number of redshift bins for CC prior
-
-x1min = lower limit on x1 (-6.0)
-x1max = upper limit on x1 (+6.0)
-cmin  = lower limit on color (-6.0)
-cmax  = upper limit on color (+6.0)
-
-logmass_min = min cut on logmass (-20)
-logmass_max = max  cut on logmass (+20)
-nbin_logmass = number of logmass bins for BBC7D
-
-sntype = list of types to select. Examples are
-    sntype=120
-    sntype=120,105
-    sntype=120,105,106  ! comma-separated, no blank spaces
-    sntype=-1           ! -> all types used
-
-CUTWIN  <VARNAME>  <MIN> <MAX>
-CUTWIN  FITPROB  .01 1.0
-CUTWIN  SNRMAX3   8  999999
-CUTWIN(NOABORT)  SIM_x1  -2 2       ! do not abort if SIM_x1 isn't there
-CUTWIN(DATAONLY)    LOGMASS  5 12   ! cut on data only (not on biasCor)
-CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
-CUTWIN varname_pIa  0.9 1.0   ! substitute argument of varname_pIa, and 
-                              ! easy to change varname_pIa on command line
-
-CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut
-
-CUTWIN NONE  ! command-line override to disable all cuts;
-             ! e.g., useful with cid_select_file
-
-#select field(s) for data and biasCor with
-fieldlist=X1,X2   # X1 and X2
-fieldlist=X3      # X3 only
-fieldlist=X       # any field with X in name
-
-chi2max=16             # default cut to all events
-chi2max(FITWGT0)=16    # no cut; instead set fit wgt=0 with large MUERR
-chi2max(DES,PS1)=12    # apply cut only to DES & PS1
-chi2max(CSP)=10        # apply cut to CSP
-     = chi2-outlier cut applied before fit, using initial values. Beware 
-       that initial and final chi2 can differ, so allow slop in the cut.
-  Cut applied to -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper.
-  Note that multiple chi2max inputs are allowed. In the avove example, 
-  chi2max=12 is applied to DES & PS1 events; chi2max=10 is applied to CSP; 
-  chi2max=16 is for all other surveys (e.g., SDSS, other lowz, etc...)
-
-
-cutmask_write=[allowed errcode mask to write output fitres]
-cutmask_write=-1  -> write everything
-cutmask_write=0   -> write only selected SN used in fit (default)
-cutmask_write=64  -> include SNe that fail CUTWIN 
-cutmask_write=-9  -> write comments only with fit results; no SN lines
-
-write_yaml=1 -> write yaml info output for batch script
-write_csv=1  -> write M0DIF vs. z in csv format for CosmoMC input
-
-sigmB= intrinsic magnitude error (mB)
-sigx1= intrinsic stretch error (x1)
-sigc= intrinsic color error (x3 a.k.a. c) 
-xi01= reduced covariance between mB and x1
-xi0c= reduced cov between mB and c
-xi1c= reduced cov between x1 and c
-
-ZPOLY_sigmB= [IDSURVEY] [a0] [a1] [a2] [a3]
-    -> sigmB = a0 + a1*z + a2*(z^2) + a3*(z^3) for this IDSURVEY
-ZPOLY_sigx1=  idem 
-ZPOLY_sigc=   idem
-ZPOLY_xi01=   idem
-ZPOLY_xi0c=   idem
-ZPOLY_xi1c=   idem
-
-zVARNAME=zPHOT  ! use photo-z (zPHOT and ZPHOTERR); covariances not used
-   or
-varname_z=zPHOT
-
-varname_gamma='HOST_LOGMASS' ! default name of variable to fit gamma=HR step
-varname_gamma='sSFR'
-
-p1 = alpha0 (0.13)
-p2 = beta0  (3.2)
-p3 = alpha1 (0.0)  # alpha = alpha0 + z*alpha1
-p4 = beta1  (0.0)  # beta  = beta0  + z*beta1
-
-p5 = gamma0 (0.0)        # mag step across hostMass
-p6 = gamma1 (0.0)        # z-dependence, gamma = gamma0 + z*gamma1.
-p7 = logmass_cen (10.0)  # SN magOff = gamma*(FermiFun-0.5)
-                         #  where FermiFun = 1/{ 1 + exp[-(m-m_cen)/tau] }
-p8 = logmass_tau (0.01)  #  and m=logmass, m_cen=logmass_cen, tau=logmass_tau
-
-p9  = Omega_L (0.73)
-p10 = Omega_k (0.0)
-p11 = w (-1.0)
-p12 = wa (0.0)
-p13 = scalePCC  if u13=1 (scale P_CC in BEAMS-like chi2)
-p13 = scalePIa  if u13=2 (= A in Eq 4 of https://arxiv.org/abs/1111.5328)
-p14 = sigint   (if using CC prior in BEAMS) DOES NOT WORK !!!
-p15 = alphaHost (dalpha/dlogMhost)
-p16 = betaHost  (dbeta/dlogMhost)
-
-# if simfile_biascor=H11, use params 17-22
-# see u-options below to pick subset of float params
-p17 = H11mucc0
-p18 = H11mucc1
-p19 = H11mucc2
-p20 = H11sigcc0
-p21 = H11sigcc1  (added July 9 2018)
-p22 = H11sigcc2  (added July 9 2018)
-
-u1 = 1  --> if true, vary parameter 1 (1=True)
-u2 = 1  --> if true, vary parameter 2 (1=True)
-u3 = 1  --> if true, vary parameter 3 (1=True)
-.
-.
-u13 = 1 or 2 (see p13 comments above)
-u15=1 --> alphaHost = dalpha/dlogmass
-u16=1 --> betaHost  = dbeta /dlogmass
-u15=2 --> alphaHost = alpha shift about logmass_cen
-u16=2 --> betaHost  = beta  shift about logmass_cen
-
-u1 = 3 --> float alpha, but force 1 biasCor bin
-u2 = 3 --> float beta,  but force 1 biasCor bin
-u5 = 3 --> float gamma, but force 1 biasCor bin
-
-# if H11 is set and none of the u[nn] are set, then all of them
-# will be used as default H11 option
-u17=1 --> float H11mucc0
-u18=1 --> float H11mucc1
-u19=1 --> float H11mucc2
-u20=1 --> float H11sigcc0
-u21=1 --> float H11sigcc1
-u22=1 --> float H11sigcc2
-
-uM0= 0 to fix M0 params to INPUTS.mag0
-   = 1 to float fixed M0 in each bin (default)
-   = 2 to float M0 as knot with interpolation
-
-fixpar_all=1 --> internally set all float logicals to false, even if
-                 they are set true in the input file.
-                  (i.e., uM0=0, u1=0, u2=0, etc ...)
-                This option turns BBC into a distance calculator.
-
-blindflag=0  --> turn off blinding
-blindflag=1  --> add cos(10*z)  to MUDIF(z)
-blindflag=2  --> DEFAULT: apply random shift to ref OL,w0 (for data only)
-blindflag=66 --> 2+64: apply blindflag=2 option to sim & real data
-
-With default blindflag=1, user can set blinding parameters with
-  blindpar9=.1,4522   --> OL -> OL + 0.1*cos(4522)  
-  blindpar11=.1,207   --> w  ->  w + 0.1*cos(207) 
-  [defaults are 0.06,23434 for OL and 0.2,8432 for w]
-
-h0 = hubble parameter (for cosmological distances)
-nommag0 = nominal magnitude 
-uave = use average magnitude from cosmology (not nommag0)
-
-zpecerr = error on vpec/c, to REPLACE original vpec/c, not add.
-vpecerr = error on peculiar velocity (km/sec), replaces orig vpec.
-           zpecerr = vpecerr/c
-pecv = LEGACY key for zpecerr [should switch to zpecerr]
-if zpecerr==0 then compute zpecerr from biasCor RMS(SIM_VPEC)
-
-zwin_vpec_check=0.01,0.05 [default] -> compute RMS(HR) for 0.01<z<0.05 
-     using zHD and again with vpec sign-flip; 
-     abort if sign-flip RMS(HR) is smaller than no flip.
-zwin_vpec_check=0,0 -> disable check on sign-flip.
-
-
-lensing_zpar --> add  "z*lensing_zpar" to sigma_int
-
-fitflag_sigmb or sig1fit = 1 -->  find sigmB giving chi2/N = 1
-fitflag_sigmb or sig1fit = 2 -->  idem, with extra fit adding 2log(sigma)
-redchi2_tol   or sig1tol = tolerance (0.02) on chi2/dof-1
-
-prescale_simdata=<preScale>  # pre scale for sim data
-prescale_simcc=<preScale>    # pre-scale only the simulated CC
-prescale_simIa=<preScale>    # pre-scale only the simulated Ia
-nthread=<n>                  # use pthread for multiple cores on same node
-
-NSPLITRAN=[NRAN] = number of independent sub-samples to run SALT2mu.
-                  A separate fitres file is created for each sub-sample.
-JOBID_SPLITRAN=[JOBID] 
-   --> do only this splitran job, JOBID=1,2 ... NSPLITRAN
-   --> write summary file if JOBID > NSPLITRAN
-
-iflag_duplicate=1  # 0=ignore, 1=abort, 2=merge
-
-snid_mucovdump='5944'  # after each fit iteration, full muCOV dump 
-
-debug_mucovscale=44  # print info for j1d=44 (mucovscale cell), and also
-                    # write biasCor-fitres file with mucovScale info
-
-Default output files (can change names with "prefix" argument)
-  SALT2mu.log
-  SALT2mu.fitres
-  SALT2mu.aux
-
-utility to catenate FITRES files with different columns:
-If PROB is in a subset of files, can force keeping PROB column
-with append_varname_missing,
-  SALT2mu.exe cat_only \
-              datafile=<commaSepList> \
-              append_varname_missing='PROB*' \  # keep PROB columuns
-              catfile_out={cat_file_out} 
-
- restore_mucovscale_bug=1 -> restore bug of keeping cells where muCOVscale
-                             is not defined.
 
 ==============HISTORY========================
-
-  8 April 2009 Original version
-  
-  Jan 24, 2013 RK
-    Fix bug in avemag0_calc(void) ; affected fits in which
-    z-bins with too few SN are skipped.
-
-
-  Feb 21 2013 RK - fix to compile with c++.  Inlcude prototype
-                   for each minuit command.
-
-  Apr 27, 2013: 
-     in ppar, skip lines with a colon since these keys
-     (e.g. ,"OUTDIR:") are used by a master script.
-
-     In chi2 loop (fcn), skip SN that fail cut if cutmask_write=0
-     --> much faster when cutting lots of SN.
-
-  Apr 30, 2013 RK - allow CUTWIN option to work on x1ERR and cERR;
-                    see rawdata_malloc().
-
-  Jun 3, 2013 RK - if z <= 1.0E-8 then skip calculations and set
-                   MU-related variables to -999. Avoids NaN/inf
-                   when z=0.
-
-  Aug 27, 2013 RK
-      - replace fitresCCID_init() with generic fitresVar_init().
-        Corresponds with fitres-updates in sntools.c.
-        rawdata.sn_name -> rawdata.name[isn], so no more need
-        for ptrtok to split the string to extract ccid names.
-
- Jan 18 2014 RK - replace local NOVAR_ABORT with fitresVar_ABORT()
-                  that is part of sntools.o.
-
- Feb 7 2014: RK - use new feature of fitresVar_init(..) by passing
-                  multiple strings; e.g., "z Z zSPEC" Simplifies
-                  logic of testing for different redshift names.
-
- Feb 9 2014: fix subtle z-bin coutning issue in setup_zbins().
-
- Apr 29 2014: MXSNTYPE -> 20 (was 10)
-
- May 7 2014: fix command-line override to work with 
-                CUTWIN <VARNAME> <min> <max>
-
- May 27 2014: double fitsc() -> void fitsc() since nothing was returned.
-
- Sep 14 ,2014: replace one access to SNTOOLS_FITRES with call to
-               SNTABLE_GET_VARINFO(ivar, varName, &ICAST).
-
- Oct 27 2014: use refactored table-read functions
-              The reading and fitting works for ascii,hbook,root
-              input file formats. However, the output ascii file
-              works only if the input is also ascii ... will take
-              more work to make the output work for any input
-              format.
-
- Dec 08 2014: new input zVARNAME to specify zVARNAME=zPHOT
-
- Jan 07, 2015: set sig1flag=0 so that NSPLITRAN>1 works
-
- Mar 7 2015: refactor sig1 params and flags.
-                INPUTS.sig1fit -> fitflag_sigmb
-                INPUTS.sig1tol -> redchi2_tol
-             New option with fitflag_sigmb=2 --> do additional fit-iter
-             with chi2 += 2log(sigma).
-
- Dec 9  2015: new input key prescale_simcc
- Dec 21 2015: write muerr_nosigmB to output file (muerr without sigint)
-
-
- Jan 19 2016: begin major upgrade to incorporate 
-      + muBias(Ia) vs. redshift from simulation
-      + CC prior from simulation
-      + modify CHI2(Ia) -> log(P_BEAMS)
-          [similar to Hlokez 2011, but Gaussian CC prior 
-           replaced with sim map]
-        See new keys simfile_mubias and simfile_ccprior
-
-      + remove global omega_[klm], wde and wa ;
-        pass cosPar[4] so that cosmo params can be floated.
-        Previously cosmo params were fixed and were not floated
-        even if the corresponding u# = 1.
-
- Feb 17 2016: 
-   + NCPAR -> 15 (was 12) and got BEAMS-like formalism sort-of working.
-   + add blindflag user-input, and function BLINDED to control output
-   + implement CCprior in fcn function; see simdata_CCprior.USE
-     See new sim-input keys  
-         simfile_bias=FITOPT000_SIM.FITRES
-         simfile_ccprior=same
-         varname_p1a=NN_FRAC_CELL
-
-  April 8 2016: switch biasCor from 2D to 3D(z,x1,c)
-
-  Apri 16 2016: 
-    if MUDIF & MUDIFERR columns are in fitres file, then fit to
-    MU = MU(REF) + MUDIF where MU(REF) is computed from -wref
-    and -omref. Default wref=-1.0 and omref=0.30 .
-
-    Fix bug writing VARANAMES to output fitres file.
-    READTABLE_POINTERS got overwritten reading biasCor file.
-
- April 26 2016: switch biasCor from 3D to 5D (z,x1,c,alpha,beta).
-
- May 8 2016: 
-    + add wrapper "update_covMatrix" around code to fix cov matrices
-      that have bad eigenvalues. Allows using this fix on biasCor sim 
-      as well as on data.
-    + remove legacy fitres variable SIMZ (check only SIM_ZCMB)
- 
-           
- May 25 2016: muerr_nosiginit -> muerr_raw (no corrections)
- May 30 2016: read zHD[ERR] instead of z[ERR] (z=zHELIO)
-
- Jun 07 2016: new input typeIa_ccprior --> P_CC=0 for this SNTYPE.
-
- Jun 20 2016: use ENVreplace to allow ENV in any input file name.
-
- Jul 21 2016
-   + do biasCor for each IDSAMPLE
-   + prefix=NONE by default --> no fitres output
-   + cutmask_write=-9 --> do NOT write SN lines to output fitres file.
-
- Aug 7 2016:
-   + flag biasCor SNIa with  SIM_NONIA_INDEX=0  instead of SIM_TYPE_INDEX=1.
-     The latter (SIM_TYPE_INDEX) can have other values; e.g., =120 for SDSS.
-
- Aug 22 2016: call new utiloty remove_quote() to remove quotes from
-              string inputs.  file='bla.txt' now works the same as
-              file=bla.txt
-
- Aug 23 2016: 
-   + major re-factor so that  CELLINFO_XXX -> CELLINFO_XX[IDSAMPLE],
-     allowing different biasCor binning for each SAMPLE.
-   + allow binning options in () for surveygroup_biascor key.
-
- Sep 05 2016: add input  host_logmass_split. NOT TESTED YET.
-
- Sep 9 2016: new input keys:
-      zpecerr     vpecerr (km/sec)    lensing_zpar
-      Legacy key 'pecv = zpecerr' is still allowed.
-
- Sep 18 2016:
-   + fix zinterp to apply vs. sample
-   + fix bug counting chi2/dof.
-
- Sep 22 2016: add input option   min_per_zbin (default=5)
- Sep 25 2016: fix a few stupid parsing bugs for lensing_zpar and blindflag
- Sep 26 2016: add input snrmin_sigint_biascor (default=60)
-
- Sep 29 2016: 
-   + p5=gamma -> gamma0  and  p6=zeta -> gamma1 ;
-     gamma = gamma0 + z*gamma1 = magDiff across host mass
-   + p7 -> logmass_cen, p8 -> logmass_tau
-   + CUTWIN(NOABORT) BLABLA min max
-       --> do not abort if variable BLABLA does not exist.
-   + remove input host_logmass_split; it is now fitPar p7 = logmass_cen
-
- Oct 8 2016:
-   + MAXBIN_BIASCOR_1D -> 100,000 (was 50,000) to allow 4x4 axb grid
-   + small fix in setup_BININFO_biasCor() to allow for TEXT truncation
-     in SALT2 values.
-
- Nov 18 2016: set a few isnan traps, and set min(biasErr)=1.0E-12
-             to avoid crash with WGT=1/ERR^2 = 1/0^2.
-
- Nov 22 2016: change error to MINOS error (avg of err+ and err-),
-              instead of parab errors. With low-stat samples,              errors seemed too small.
-
- Nov 26 2016: 
-   Replace maxProbcc cut with weighted chi2_1a and weighted nfitsn1a
-   so that sigma_int no longer depends on arbitrary Prob_cc cut.
-
- Dec 2 2016:
-   + allow SPLITRAN to work with fitflag_simmb>0
- Dec 11 2016
-   + refactor with new function exec_mnpout_mnerrs();
-     needed to include SIGINT as part of SPLITRAN summary.
-
- jan 2 2017:
-   to avoid Mac confict with SIGINT, refactor with name changes.
    
- Mar 1 2017:
-   write blinding info to M0DIF file; see new func write_blindFlag_message
-
- Mar 12 2017: 
-   + count NPASS vs. stage in biasMapSelect; print stats if no
-     events pass cuts.
-
- April 17 2017: ABORT if command-line item is not recognized.
- April 18 2017: new input dumpflag_nobiascor=1
- April 28 2017: MXa & MXb -> 2 (was 5) 
-
- May 11 2017: fix few benign bugs found by valgrind.
-
- Jun 22 2017: 
-   + fix NVAR bug in writing M0DIF file
-   + skip all events with ERRMASK>0; fixes problem with
-     too few events in last z-bin (ERRMASK=4)
-   + MAXBIN_z->50 (was 30)
-   + MAXBIN_BIASCOR_FITPAR->50 (was 40)
-   + optional 2nd argument for powzbin
-   + new parameter MAXPAR_MINUIT 80
-
- Jun 26 2017: fix some awful z-index bugs that showed up when
-              there are empty z-bins.
-
- Jun 27 2017: REFACTOR z-indices
-    + all arrays go from 0 to nbin_z-1. No more fortran-like arrays
-      to accomodate mnparm starting at index=1.
-      ipar=MXCOSPAR is the first M0(z)
-    + pass all z-bins to minuit; fix M0 values for empty bins
-       instead of suppressing them --> 
-       avoid ugly sparse 'izuse' indices.
-
- Jul 5 2017: move read_SURVEY & get_IDSURVEY into sntools.c[h]
-
- July 16 2017: 
-   + add nmax arg 
-   + MINEVT_PER_ZBIN_DEFAULT -> 1 (was 5). See min_per_zbin arg to change.
-
- Aug 9 2017
-   + new blindpar=2 (default) feature to blind cosmology offsets.
-     See above description for new keys: 
-         blindflag, blindpar9, blindpar11
-
- Aug 18 2017:
-    if ( zpecerr==0 )then read SIM_VPEC from biasCor and compute vpecerr 
-    from its RMS. If zpecerr>0 then do NOT read SIM_VPEC ... allows
-    back-compatibility and user override.
-
- Sep 10 2017:
-   +  MAXPAR_MINUIT-> 110 (was 80)
-   +  fix dimension for BININFO_DEF; use MXz instead of MXpar
- 
- Sep 13 2017:
-   + fix to work if host mag-step (p5) is fixed to non-zero value,
-     but not floated. See INPUTS.USE_GAMMA0
-
- Sep 25 2017:
-   + for zinterp method, reject zDATA outside biasCor range,
-     instead of aborting. Print reject stats for eachIDSAMPLE.
-
- Nov 22 2017: 
-   + for fixed cosmo params, speed fitting by replacing  cosmodl 
-     calculation with z-binned lookup. See prep_cosmodl_lookup().
-
-  Nov 30 2017: 
-    in prep_init(), add sanity checks related to USE_GAMMA0
-
-  Dec 2 2017: works with gzipped FITRES files.
-
-  Dec 21 2017: try to reduce init time with
-    + makeSparseList_biasCor
-    + replace pow(x,2.0) with x*x 
-     
   Jan 8 2018: 
     + read optional VPEC, VPEC_ERR, ZHEL, ZHELERR and SIM_VPEC from 
       data files. If they don't exist, make sure to explicitly set
@@ -2850,22 +2239,26 @@ void exec_mnparm(void) {
   // Oct 22 2019: beware that mnparm_ prints blinded params.
 
   int i, iz, iMN, iMN_tmp, len, ierflag=0, icondn, ISFLOAT ;
-  int nzbin = INPUTS.nzbin ;
+  int  nzbin  = INPUTS.nzbin ;
+  bool REPEAT = ( FITINP.NFITPAR_FLOAT > 0 );
+
   double M0min, M0max;
   const int null=0;
   char text[100];
-  //  char fnam[] = "exec_mnparm" ;
+  char fnam[] = "exec_mnparm" ;
 
   // -------------- BEGIN --------------
 
   //Setup cosmology parameters for Minuit
-  for (i=0; i<MXCOSPAR; i++ )    {
-    iMN = i + 1;  // MINUIT fortral-line index
-    len = strlen(FITPARNAMES_DEFAULT[i]);
-    mnparm_(&iMN, FITPARNAMES_DEFAULT[i], 
-	    &INPUTS.parval[i], &INPUTS.parstep[i],
-	    &INPUTS.parbndmin[i], &INPUTS.parbndmax[i], &ierflag, len);
-    sprintf(FITRESULT.PARNAME[i],"%s", FITPARNAMES_DEFAULT[i] );
+  if ( !REPEAT ) {
+    for (i=0; i<MXCOSPAR; i++ )    {
+      iMN = i + 1;  // MINUIT fortral-line index
+      len = strlen(FITPARNAMES_DEFAULT[i]);
+      mnparm_(&iMN, FITPARNAMES_DEFAULT[i], 
+	      &INPUTS.parval[i], &INPUTS.parstep[i],
+	      &INPUTS.parbndmin[i], &INPUTS.parbndmax[i], &ierflag, len);
+      sprintf(FITRESULT.PARNAME[i],"%s", FITPARNAMES_DEFAULT[i] );
+    }
   }
 
   //Setup M0(z) paramters for Minuit
@@ -2892,6 +2285,8 @@ void exec_mnparm(void) {
     sprintf(FITRESULT.PARNAME[i],"%s", text );
   }
   
+  if ( REPEAT ) { return ; } // Oct 28 2022
+
   FITINP.NFITPAR_ALL   = MXCOSPAR + nzbin ;
   FITINP.NFITPAR_FLOAT = 0 ;
   
@@ -3513,6 +2908,8 @@ void applyCut_chi2max(void) {
   // Jul 08 2021: if setbit_CUTMASK is called, call setup_zbins_fit()
   //              to check for z-bin dropouts and update NFIT(z)
   //
+  // Oct 28 2022: fix to work for any INPUTS.H0 by adjusting INPUTS.M0 accordingly
+  //
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
 
@@ -3536,12 +2933,37 @@ void applyCut_chi2max(void) {
   // ----------- BEGIN ------------
 
   if ( iflag_chi2max == 0 ) { return; }
-  // xxxx  if ( chi2max > 0.99E9 ) { return; }
 
+  // call same chi2-function used for minimization
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
   mncomd_(fcn, mcom, &icondn, &null, len); 
   fflush(FP_STDOUT);
 
+  // first loop over data to determine data-theory offset ...
+  // this is sort'of like analytic marginalization over H0
+  double sum_mures = 0.0, sum_wgt=0.0, wgt, mures, muerr, muoff ;
+  for (n=0; n< NSN_DATA; ++n)  {
+    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
+    if ( cutmask ) { continue; }
+    mures = INFO_DATA.mures[n];
+    muerr = INFO_DATA.muerr[n];
+    wgt   = 1.0/(muerr*muerr);
+    sum_wgt   += wgt;
+    sum_mures += (mures*wgt);
+  }
+
+  double M0_SAVE = INPUTS.M0;
+  muoff          = sum_mures / sum_wgt;
+  INPUTS.M0     += muoff;
+  //    printf(" xxx %s: myoff = %.3f   M0=%.2f -> %.2f \n", 
+  // fnam, muoff, M0_SAVE, INPUTS.M0 ); 
+  exec_mnparm(); 
+  mncomd_(fcn, mcom, &icondn, &null, len); 
+  fflush(FP_STDOUT);
+
+
+  // - - - - - -
+  // check chi2 for each event and apply cut
   for (n=0; n< NSN_DATA; ++n)  {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
     if ( cutmask ) { continue; }
@@ -3583,6 +3005,7 @@ void applyCut_chi2max(void) {
 
 
   if ( NREJ > 0 ) { 
+    printf("\t chi2max cut rejects %d events \n", NREJ);
     printf("\n Setup z-bins again after chi2max cut: \n");
     fflush(stdout);
     setup_zbins_fit(); 
@@ -4253,7 +3676,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
   pthread_t thread[MXTHREAD];
   thread_chi2sums_def  thread_chi2sums[MXTHREAD];
-  char fnam[] = "fnam";
+  char fnam[] = "fcn";
 
   // ----------- BEGIN ----------------
 
@@ -4645,9 +4068,6 @@ void *MNCHI2FUN(void *thread) {
     muBiasErr = 0.0 ; 
 
     APPLY_COVADD = ( DO_COVADD && muCOVadd > 0.0  );
-
-    if ( INPUTS.debug_flag == 922 )  // RK .xyz
-      { APPLY_COVADD = ( DO_COVADD && muCOVadd > 9990.0  ); }
                  
     bool restore_mucovadd_bug =(INPUTS.restore_mucovadd_bug&2)>0;
     if (restore_mucovadd_bug){
@@ -4934,7 +4354,9 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  M0      = M0_DEFAULT ;
+  // xxx mark delete Oct 28 2022   M0  = M0_DEFAULT ;
+  M0      = INPUTS.M0 ;
+
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
   zdata   = INFO_DATA.TABLEVAR.zhd[n];
   ptr_zM0 = INFO_BIASCOR.zM0 ;
@@ -5777,7 +5199,8 @@ void set_defaults(void) {
   set_fitPar( 21,  0.0,  0.05, -9.0,  9.0,  0 ); // H11sig1
   set_fitPar( 22,  0.0,  0.05, -9.0,  9.0,  0 ); // H11sig2
 
-  for(ipar=0; ipar < MAXPAR; ipar++ )  {  INPUTS.izpar[ipar] = -99; }
+  for(ipar=0; ipar < MAXPAR; ipar++ )  {  INPUTS.izpar[ipar] = -99;   }
+  FITINP.NFITPAR_FLOAT = 0 ;
 
   // ======== misc ======
   INPUTS.NDUMPLOG = 1000 ;
@@ -7726,9 +7149,9 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
 
     // if cosmo params are fixed, then store mumodel for each event.
-    if ( INPUTS.FLOAT_COSPAR == 0 ) {
-      dl = cosmodl_forFit(zhd,zhd,INPUTS.COSPAR);  // legacy
-      // dl = cosmodl_forFit(zhel,zhd,INPUTS.COSPAR); // fixed
+    if ( INPUTS.FLOAT_COSPAR == 0 ) { 
+      dl = cosmodl_forFit(zhd,zhd,INPUTS.COSPAR);     // approx zhd  = zhel
+      // dl = cosmodl_forFit(zhel,zhd,INPUTS.COSPAR); // exact if we have zhel
       TABLEVAR->mumodel[ISN] = (float)(5.0*log10(dl) + 25.0);
     }
 

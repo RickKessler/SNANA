@@ -91,12 +91,10 @@ void genmag_BAYESN(
 
 
 	//BEGIN
-    printf("XXX %s Nobs=%d\n", fnam, Nobs);
     for (o = 0; o < Nobs; o++) {
         mag = Tobs_list[o] + 20.0;
         magobs_list[o] = mag;
         magerr_list[o] = 0.1;
-        printf("XXX %s o=%d tobs=%f mag=%f\n", fnam, o, Tobs_list[o], mag);
     }
 
 	return;

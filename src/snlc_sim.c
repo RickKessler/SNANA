@@ -8267,7 +8267,6 @@ void  init_GENLC(void) {
   char fnam[] = "init_GENLC" ;
 
   // -------------- BEGIN ---------------
-
   GENLC.ACCEPTFLAG_LAST  = GENLC.ACCEPTFLAG ;
   GENLC.ACCEPTFLAG       = 0 ;
   GENLC.ACCEPTFLAG_FORCE = 0 ;
@@ -8400,7 +8399,6 @@ void  init_GENLC(void) {
     GENLC.IEPOCH_SNRMAX[ifilt_obs]   = -9 ;
   
     GENLC.genmag_obs_template[ifilt_obs] = 99.0 ; // zero flux in template
-
     if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
       { GENLC.SIMLIB_USEFILT_ENTRY[ifilt_obs] = 1 ; }
     else
@@ -11684,7 +11682,6 @@ void gen_filtmap(int ilc) {
   char fnam[] = "gen_filtmap" ;
 
   // ------------- BEGIN ----------
-
   z   = GENLC.REDSHIFT_HELIO ;
   if ( INDEX_GENMODEL == MODEL_LCLIB ) { z = 0.0; }
   z4  = (float)z;
@@ -11713,11 +11710,11 @@ void gen_filtmap(int ilc) {
       continue ;
     }
 
-
     // check if this filter is valid for SALT2/SIMSED model in observer-frame.
     if ( INDEX_GENMODEL == MODEL_SALT2  || 
 	 INDEX_GENMODEL == MODEL_SIMSED	||
-	 INDEX_GENMODEL == MODEL_NON1ASED   // 9.24.2017
+	 INDEX_GENMODEL == MODEL_BAYESN ||
+	 INDEX_GENMODEL == MODEL_NON1ASED  // 9.24.2017
 	 ) {
       istat = IFILTSTAT_SEDMODEL(ifilt_obs, z) ; 
       if ( istat == 0 ) {
@@ -23679,7 +23676,6 @@ void GENMAG_DRIVER(void) {
   char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
-
   genran_modelSmear(); // randoms for intrinsic scatter
 
   // this loop is to generate ideal mag in each filter.
@@ -23687,7 +23683,6 @@ void GENMAG_DRIVER(void) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
 
     DOFILT = GENLC.DOFILT[ifilt_obs] ;
-
     if ( DOFILT == 0 ) { continue ; }
     ncall_genmodel++ ;
 
@@ -25206,7 +25201,6 @@ void genmodel(
   char fnam[] = "genmodel" ;
 
   // -------- BEGIN ---------
- 
   // create temp structure with epoch-list for this filter
   NEPFILT = NEPFILT_GENLC(1,ifilt_obs);
 
@@ -25317,7 +25311,6 @@ void genmodel(
   // -------------------------------------------
   // -------------------------------------------
   // -------------------------------------------
-
   if (  INDEX_GENMODEL  == MODEL_STRETCH ) {
 
     // this model can generate rest or observer frame
@@ -25426,6 +25419,22 @@ void genmodel(
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
 
+  }
+
+  else if ( INDEX_GENMODEL  == MODEL_BAYESN ) {
+
+    double parList_SN[4]   = { 0., 0., 0., 0. } ;
+    genmag_BAYESN (
+		  OPTMASK         // (I) bit-mask options
+		  ,ifilt_obs      // (I) obs filter index 
+		  ,parList_SN     // (I) SN params: x0, x1, x1forERR, c
+		  ,mwebv          // (I) Galactic E(B-V)
+		  ,z            // (I) redshift, and z used for error
+		  ,NEPFILT        // (I) number of epochs
+		  ,ptr_epoch         // (I) obs-frame time (days)
+		  ,ptr_genmag        // (O) mag vs. Tobs
+		  ,ptr_generr        // (O) mag-errs
+		  ) ;    
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {

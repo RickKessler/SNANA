@@ -7,6 +7,7 @@
 #include "fitsio.h"
 #include "sntools.h"
 #include  "genmag_BAYESN.h"
+#include "genmag_SEDtools.h"
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
 
@@ -34,7 +35,41 @@ int init_genmag_bayesn__( char *version, int *optmask) {
 // }
 
 int init_genmag_BAYESN(char *version, int optmask){
+
+
+    double Trange[2], Lrange[2];
+    int  ised;
+    int  retval = 0   ;
+    int  ABORT_on_LAMRANGE_ERROR = 0;
+    int  ABORT_on_BADVALUE_ERROR = 1;
+    //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
+
     char fnam[] = "init_genmag_BAYESN";
+    // -------------- BEGIN --------------
+
+    // extrac OPTMASK options
+
+
+    sprintf(BANNER, "%s : Initialize %s", fnam, version );
+    print_banner(BANNER);
+ 
+
+    if ( NFILT_SEDMODEL == 0 ) {
+      sprintf(c1err,"No filters defined ?!?!?!? " );
+      sprintf(c2err,"Need to call init_filter_SEDMODEL");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    //ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_BAYESN_ABORT_LAMRANGE ) ;
+    
+    filtdump_SEDMODEL();
+    
+    // ============================
+    // set extreme ranges to read anything
+    Trange[0] = -10. ;
+    Trange[1] = 40. ;
+    //Lrange[0] = LAMMIN_SEDMODEL ;
+    //Lrange[1] = LAMMAX_SEDMODEL ;
     printf("XXXX %s Hello from fortran hell\n", fnam);
 	return 0;
 }

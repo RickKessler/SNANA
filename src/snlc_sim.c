@@ -5829,6 +5829,7 @@ void prep_user_input(void) {
   // set INPUTS.GENSOURCE
 
   sprintf(vtmp, "%s", INPUTS.GENSOURCE);
+  printf("XXX %s vtmp=%s, INPUTS.GENSOURCE=%s, GENRANDOM=%d, GENGRID=%d\n", fnam, vtmp, INPUTS.GENSOURCE, IFLAG_GENRANDOM, IFLAG_GENGRID);
   if ( strcmp(vtmp,"RANDOM") == 0 ) 
     { GENLC.IFLAG_GENSOURCE = IFLAG_GENRANDOM ; }
   else if ( strcmp(vtmp,"GRID") == 0 ) 
@@ -6402,6 +6403,7 @@ void prep_user_input(void) {
     { INPUTS.WRITE_MASK += WRITE_MASK_SIM_MODELPAR; }
 
   // abort if no valid format is given
+  printf("XXX %s HERE!!\n", fnam);
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM  && 
        DOCHECK_FORMAT_MASK  ) {
 
@@ -8267,7 +8269,7 @@ void  init_GENLC(void) {
   char fnam[] = "init_GENLC" ;
 
   // -------------- BEGIN ---------------
-
+  printf("XXX %s\n", fnam);
   GENLC.ACCEPTFLAG_LAST  = GENLC.ACCEPTFLAG ;
   GENLC.ACCEPTFLAG       = 0 ;
   GENLC.ACCEPTFLAG_FORCE = 0 ;
@@ -8400,7 +8402,6 @@ void  init_GENLC(void) {
     GENLC.IEPOCH_SNRMAX[ifilt_obs]   = -9 ;
   
     GENLC.genmag_obs_template[ifilt_obs] = 99.0 ; // zero flux in template
-
     if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
       { GENLC.SIMLIB_USEFILT_ENTRY[ifilt_obs] = 1 ; }
     else
@@ -11684,7 +11685,6 @@ void gen_filtmap(int ilc) {
   char fnam[] = "gen_filtmap" ;
 
   // ------------- BEGIN ----------
-
   z   = GENLC.REDSHIFT_HELIO ;
   if ( INDEX_GENMODEL == MODEL_LCLIB ) { z = 0.0; }
   z4  = (float)z;
@@ -11698,6 +11698,7 @@ void gen_filtmap(int ilc) {
 
     // skip this filter if it is not in this SIMLIB entry.
     if ( GENLC.SIMLIB_USEFILT_ENTRY[ifilt_obs] == 0  ) {
+      printf("XXX %s FAILING\n", fnam);
       GENLC.DOFILT[ifilt_obs] = 0; 
       NDOFILT_ZERO++ ;
       continue ;
@@ -11713,11 +11714,12 @@ void gen_filtmap(int ilc) {
       continue ;
     }
 
-
+    printf("XXX %s INDEX_GENMODEL=%d\n", fnam, INDEX_GENMODEL);
     // check if this filter is valid for SALT2/SIMSED model in observer-frame.
     if ( INDEX_GENMODEL == MODEL_SALT2  || 
 	 INDEX_GENMODEL == MODEL_SIMSED	||
-	 INDEX_GENMODEL == MODEL_NON1ASED   // 9.24.2017
+	 INDEX_GENMODEL == MODEL_BAYESN ||
+	 INDEX_GENMODEL == MODEL_NON1ASED  // 9.24.2017
 	 ) {
       istat = IFILTSTAT_SEDMODEL(ifilt_obs, z) ; 
       if ( istat == 0 ) {
@@ -23679,7 +23681,7 @@ void GENMAG_DRIVER(void) {
   char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
-
+  printf("XXX %s HELLO\n", fnam);
   genran_modelSmear(); // randoms for intrinsic scatter
 
   // this loop is to generate ideal mag in each filter.
@@ -23687,7 +23689,7 @@ void GENMAG_DRIVER(void) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
 
     DOFILT = GENLC.DOFILT[ifilt_obs] ;
-
+    printf("XXX %s ifilt_obs=%d DOFILT=%d\n", fnam, ifilt_obs, DOFILT);
     if ( DOFILT == 0 ) { continue ; }
     ncall_genmodel++ ;
 
@@ -25206,7 +25208,7 @@ void genmodel(
   char fnam[] = "genmodel" ;
 
   // -------- BEGIN ---------
- 
+  printf("0: XXX %s INDEX_GENMODEL=%d\n", fnam, INDEX_GENMODEL);
   // create temp structure with epoch-list for this filter
   NEPFILT = NEPFILT_GENLC(1,ifilt_obs);
 
@@ -25317,7 +25319,7 @@ void genmodel(
   // -------------------------------------------
   // -------------------------------------------
   // -------------------------------------------
-
+  printf("1: XXX %s INDEX_GENMODEL=%d\n", fnam, INDEX_GENMODEL);
   if (  INDEX_GENMODEL  == MODEL_STRETCH ) {
 
     // this model can generate rest or observer frame
@@ -25426,6 +25428,23 @@ void genmodel(
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    
 
+  }
+
+  else if ( INDEX_GENMODEL  == MODEL_BAYESN ) {
+
+    double parList_SN[4]   = { 0., 0., 0., 0. } ;
+    printf("XXX %s CALLING GENMAG_BAYESN\n", fnam);
+    genmag_BAYESN (
+		  OPTMASK         // (I) bit-mask options
+		  ,ifilt_obs      // (I) obs filter index 
+		  ,parList_SN     // (I) SN params: x0, x1, x1forERR, c
+		  ,mwebv          // (I) Galactic E(B-V)
+		  ,z            // (I) redshift, and z used for error
+		  ,NEPFILT        // (I) number of epochs
+		  ,ptr_epoch         // (I) obs-frame time (days)
+		  ,ptr_genmag        // (O) mag vs. Tobs
+		  ,ptr_generr        // (O) mag-errs
+		  ) ;    
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {

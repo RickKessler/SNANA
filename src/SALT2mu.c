@@ -2912,10 +2912,14 @@ void applyCut_chi2max(void) {
   //
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
-
   int  IFLAG_APPLY    = DOFLAG_CUTWIN_APPLY ;
   int  IFLAG_FITWGT0  = DOFLAG_CUTWIN_FITWGT0 ;
   int  IFLAG_GLOBAL   = 4 ;
+
+  // Oct 29 2022: H0marg is invoked with debub_flag for testing, but
+  //   goal is to soon set DO_H0marg=True by default.
+  bool   DO_H0marg   = (INPUTS.debug_flag == 1031);
+  double M0_ORIG     = INPUTS.M0;
   //   int  IFLAG_SURVEY   = 8 ;
 
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
@@ -2939,27 +2943,36 @@ void applyCut_chi2max(void) {
   mncomd_(fcn, mcom, &icondn, &null, len); 
   fflush(FP_STDOUT);
 
-  // first loop over data to determine data-theory offset ...
-  // this is sort'of like analytic marginalization over H0
-  double sum_mures = 0.0, sum_wgt=0.0, wgt, mures, muerr, muoff ;
-  for (n=0; n< NSN_DATA; ++n)  {
-    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
-    if ( cutmask ) { continue; }
-    mures = INFO_DATA.mures[n];
-    muerr = INFO_DATA.muerr[n];
-    wgt   = 1.0/(muerr*muerr);
-    sum_wgt   += wgt;
-    sum_mures += (mures*wgt);
-  }
+  if ( DO_H0marg ) {
+    // first loop over data to determine data-theory offset ...
+    // this is sort'of like analytic marginalization over H0
+    double sum_mures = 0.0, sum_wgt=0.0, wgt, mures, muerr, muoff ;
+    double pia, pcc;
+    for (n=0; n< NSN_DATA; ++n)  {
+      cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
+      if ( cutmask ) { continue; }
+      mures = INFO_DATA.mures[n];
+      muerr = INFO_DATA.muerr[n];
 
-  double M0_SAVE = INPUTS.M0;
-  muoff          = sum_mures / sum_wgt;
-  INPUTS.M0     += muoff;
-  //    printf(" xxx %s: myoff = %.3f   M0=%.2f -> %.2f \n", 
-  // fnam, muoff, M0_SAVE, INPUTS.M0 ); 
-  exec_mnparm(); 
-  mncomd_(fcn, mcom, &icondn, &null, len); 
-  fflush(FP_STDOUT);
+      pcc        = INFO_DATA.probcc_beams[n];
+      pia        = 1.0 - pcc;
+      if ( pia < 1,0E-6 ) { pia = 1,0E-6; } 
+      muerr /= sqrt(pia);
+
+      wgt   = 1.0/(muerr*muerr);
+      sum_wgt   += wgt;
+      sum_mures += (mures*wgt);
+    }
+    
+    muoff        = sum_mures / sum_wgt;
+    INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
+    //    printf(" xxx %s: M0 = %.3f -> %.3f  (for H0 marg)\n", 
+    //	   fnam, M0_ORIG, INPUTS.M0 ); 
+    exec_mnparm(); 
+    mncomd_(fcn, mcom, &icondn, &null, len); 
+    fflush(FP_STDOUT);
+
+  } // end DO_H0marg
 
 
   // - - - - - -

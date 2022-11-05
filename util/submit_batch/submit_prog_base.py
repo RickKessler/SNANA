@@ -315,6 +315,7 @@ class Program:
         # ENV_HOST into the docker command to launch jobs.
         # For example NERSC machines define ENV_HOST:  $NERSC_HOST = Cori,
         # and they user shifter to launch jobs.
+        # Beware that shifter -> Podman at some point on Perlmutter
         docker_command_dict = {
             #  ENV_HOST      docker-command
             'NERSC_HOST'  : 'shifter' ,

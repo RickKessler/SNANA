@@ -36,7 +36,6 @@ int init_genmag_bayesn__( char *version, int *optmask) {
 
 int init_genmag_BAYESN(char *version, int optmask){
 
-
     double Trange[2], Lrange[2];
     int  ised;
     int  retval = 0   ;
@@ -63,17 +62,20 @@ int init_genmag_BAYESN(char *version, int optmask){
     //ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_BAYESN_ABORT_LAMRANGE ) ;
     
     filtdump_SEDMODEL();
-    
-    // ============================
-    // set extreme ranges to read anything
-    Trange[0] = -10. ;
-    Trange[1] = 40. ;
-    //Lrange[0] = LAMMIN_SEDMODEL ;
-    //Lrange[1] = LAMMAX_SEDMODEL ;
-    printf("XXXX %s Hello from fortran hell\n", fnam);
-	return 0;
-}
 
+    // Hack wavelength ranges (R.Kessler) ... these should be read from model   
+    SEDMODEL.LAMMIN_ALL =  2000.0 ;  // rest-frame SED range                    
+    SEDMODEL.LAMMAX_ALL = 15000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  3000.0 ; // central wavelength of band     
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 14000.0 ;
+    
+
+    printf("XXXX %s Hello from fortran hell\n", fnam);
+    return 0;
+
+} // end init_genmag_BAYESN
+
+// =====================================================
 void genmag_BAYESN(
 		  int OPTMASK     // (I) bit-mask of options (LSB=0)
 		  ,int ifilt_obs  // (I) absolute filter index
@@ -87,17 +89,18 @@ void genmag_BAYESN(
 		  ) {
     int o;
     double mag;
-	char fnam[] = "genmag_BAYESN";
+    char fnam[] = "genmag_BAYESN";
 
-
-	//BEGIN
+    //BEGIN
+    double zdum = 2.5*log10(1.0+z);
     for (o = 0; o < Nobs; o++) {
-        mag = Tobs_list[o] + 20.0;
-        magobs_list[o] = mag;
-        magerr_list[o] = 0.1;
+      mag   = fabs(Tobs_list[o]) + 20.0 + zdum ;
+      magobs_list[o] = mag;
+      magerr_list[o] = 0.1;
     }
 
-	return;
+    return;
+
 } //End of genmag_BAYESN
  
 void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,

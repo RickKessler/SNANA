@@ -3020,13 +3020,15 @@ int rd_primary ( int INDX, char *subdir ) {
    Nov 10 2021: replace FILTER_LAMBDA_MAX -> STORE_LAMBDA_MAX
                 to store primary SED out to max of filter or spectrograph.
 
+   Nov 8 2022: skip comment lines in SED-primary file
+
   ****************/
 
    FILE  *fp;
    double lambda, flam, fnu, fcount, LAMMIN_READ, LAMMAX_READ  ;
    int  ilam, NBIN, ibin, gzipFlag;
    char SNPATH[MXCHAR_FILENAME], fullName[MXCHAR_FILENAME];
-   char *refName, *sedFile;
+   char *refName, *sedFile, line[200];
    char fnam[] = "rd_primary" ;
 
    /* --------------------- BEGIN -------------------------- */
@@ -3071,7 +3073,13 @@ int rd_primary ( int INDX, char *subdir ) {
    LAMMAX_READ = 0;
    int NRAW=0;
 
-   while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
+   while( fgets(line, 200, fp)  != NULL ) {
+
+     if ( commentchar(line) ) { continue; }
+     sscanf(line, "%le %le", &lambda, &flam );
+
+
+     // xxx mark   while( (fscanf(fp, "%le %le", &lambda, &flam )) != EOF) {
 
      if ( lambda < STORE_LAMBDA_MAX + 20. ) {
 
@@ -3091,7 +3099,7 @@ int rd_primary ( int INDX, char *subdir ) {
    }   /* end while */
 
    if ( NRAW >= MXLAM_PRIMARY ) { 
-     sprintf(c1err,"NBIN(%s)=%d exceeds bound of MXPRIARY=%d",
+     sprintf(c1err,"NBIN(%s)=%d exceeds bound of MXPRIMARY=%d",
 	     refName, NRAW, MXLAM_PRIMARY );
      sprintf(c2err,"check %s", sedFile);
      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 

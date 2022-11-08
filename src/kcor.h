@@ -26,7 +26,7 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define VERSION_KCOR 4    // internal version
 #define MXFILTDEF   100    // max number of defined filters 
 #define MXLAM_SN    4000  // max number of lambda bins 
-#define MXLAM_PRIMARY  5000  // max number of lambda bins 
+#define MXLAM_PRIMARY  5000  // max number of lambda bins
 #define MXLAM_FILT  5000  // max number of lambda bins for filters
 #define MXEP        150   // 110
 #define MXREDSHIFT  80    // max number of redshift bins 

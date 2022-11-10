@@ -87,9 +87,9 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   int gzipFlag,  NDIM, NFUN, i, NWD=0 ;
   int NMAP=0, NVAR=0, NITEM=0, ivar, IDMAP=0;
   bool IGNORE_MAP ;
-  int  MXWORD_LINE = 20;
-  int  MXCHAR_LINE = 600;
-  int  MEMC_LINE   = MXCHAR_LINE * sizeof(char);
+  int  MXWD_TMPLINE = 20;
+  int  MXCHAR_TMPLINE = 800;
+  int  MEMC_TMPLINE   = MXCHAR_TMPLINE * sizeof(char);
 
   char c_get[200], fileName_full[MXPATHLEN];
   char *LINE, *TMPLINE ;
@@ -115,12 +115,12 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
   init_GENGAUSS_ASYM(&gengauss_SALT2BETA, 0.0 );
-  ptr_ITEMLIST = (char**)malloc( MXWORD_LINE*sizeof(char*));
-  for(i=0; i<MXWORD_LINE; i++) 
+  ptr_ITEMLIST = (char**)malloc( MXWD_TMPLINE*sizeof(char*));
+  for(i=0; i<MXWD_TMPLINE; i++) 
     { ptr_ITEMLIST[i] = (char*)malloc(80*sizeof(char)); }
 
-  LINE    = (char*) malloc(MEMC_LINE);     // allow for long comments
-  TMPLINE = (char*) malloc(MEMC_LINE+100); 
+  LINE    = (char*) malloc(MEMC_TMPLINE);     // allow for long comments
+  TMPLINE = (char*) malloc(MEMC_TMPLINE+100); 
 
 #ifndef USE_SUBPROCESS
   if ( HOSTLIB_WGTMAP.N_SNVAR > 0 ) {
@@ -181,7 +181,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     if ( commentchar(c_get) ) { continue; }
 
     sprintf(TMPLINE,"%s %s", c_get, LINE);
-    splitString(TMPLINE, " ", MXWORD_LINE,  // inputs             
+    splitString(TMPLINE, " ", MXWD_TMPLINE,  // inputs             
 		&NITEM, ptr_ITEMLIST );     // outputs
 
     IS_VARNAMES = (strcmp(c_get,"VARNAMES:") == 0 );
@@ -302,7 +302,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 #endif
 
   // free memory
-  for(i=0; i<MXWORD_LINE; i++)   { free(ptr_ITEMLIST[i]); }
+  for(i=0; i<MXWD_TMPLINE; i++)   { free(ptr_ITEMLIST[i]); }
   free(ptr_ITEMLIST);
   free(LINE); free(TMPLINE);
 

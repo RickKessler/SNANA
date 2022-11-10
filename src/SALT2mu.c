@@ -2916,9 +2916,7 @@ void applyCut_chi2max(void) {
   int  IFLAG_FITWGT0  = DOFLAG_CUTWIN_FITWGT0 ;
   int  IFLAG_GLOBAL   = 4 ;
 
-  // Oct 29 2022: H0marg is invoked with debub_flag for testing, but
-  //   goal is to soon set DO_H0marg=True by default.
-  bool   DO_H0marg   = (INPUTS.debug_flag == 1031);
+  bool   DO_H0marg   = true; // (INPUTS.debug_flag == 1031);
   double M0_ORIG     = INPUTS.M0;
   //   int  IFLAG_SURVEY   = 8 ;
 

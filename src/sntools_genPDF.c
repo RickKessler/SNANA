@@ -80,15 +80,19 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //   Jun 24 2021 Dillon - including alpha beta asym gauss
   //   Aug 10 2021 Brodie and Rick fixed bug setting NVAR properly
   //   Nov  4 2021 RK - check OPTMASK_GENPDF_KEYSOURCE_ARG
-  //
+  //   Nov 10 2022 RK - skip parsing comment lines
   // -----------
 
   FILE *fp;
   int gzipFlag,  NDIM, NFUN, i, NWD=0 ;
   int NMAP=0, NVAR=0, NITEM=0, ivar, IDMAP=0;
   bool IGNORE_MAP ;
+  int  MXWORD_LINE = 20;
+  int  MXCHAR_LINE = 600;
+  int  MEMC_LINE   = MXCHAR_LINE * sizeof(char);
+
   char c_get[200], fileName_full[MXPATHLEN];
-  char LINE[200], TMPLINE[200] ;
+  char *LINE, *TMPLINE ;
   char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
   char fnam[]     = "init_genPDF";
@@ -111,8 +115,12 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // init optional asymGauss params for SALT2alpha and beta
   init_GENGAUSS_ASYM(&gengauss_SALT2ALPHA, 0.0 );
   init_GENGAUSS_ASYM(&gengauss_SALT2BETA, 0.0 );
-  ptr_ITEMLIST = (char**)malloc( 50*sizeof(char*));
-  for(i=0; i<50; i++) { ptr_ITEMLIST[i] = (char*)malloc(40*sizeof(char)); }
+  ptr_ITEMLIST = (char**)malloc( MXWORD_LINE*sizeof(char*));
+  for(i=0; i<MXWORD_LINE; i++) 
+    { ptr_ITEMLIST[i] = (char*)malloc(80*sizeof(char)); }
+
+  LINE    = (char*) malloc(MEMC_LINE);     // allow for long comments
+  TMPLINE = (char*) malloc(MEMC_LINE+100); 
 
 #ifndef USE_SUBPROCESS
   if ( HOSTLIB_WGTMAP.N_SNVAR > 0 ) {
@@ -169,9 +177,12 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     // check for asymmetric gaussian for alpha,beta
     //if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
     fgets(LINE,200,fp);
+
+    if ( commentchar(c_get) ) { continue; }
+
     sprintf(TMPLINE,"%s %s", c_get, LINE);
-    splitString(TMPLINE, " ", 200,          // inputs             
-		&NITEM, ptr_ITEMLIST );  // outputs
+    splitString(TMPLINE, " ", MXWORD_LINE,  // inputs             
+		&NITEM, ptr_ITEMLIST );     // outputs
 
     IS_VARNAMES = (strcmp(c_get,"VARNAMES:") == 0 );
     IS_SALT2    = (strstr(c_get,"SALT2")     != NULL );
@@ -289,6 +300,11 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     }
   }
 #endif
+
+  // free memory
+  for(i=0; i<MXWORD_LINE; i++)   { free(ptr_ITEMLIST[i]); }
+  free(ptr_ITEMLIST);
+  free(LINE); free(TMPLINE);
 
   //  debugexit(fnam);
   return;

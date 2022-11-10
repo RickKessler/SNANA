@@ -79,6 +79,11 @@
 #   + change cov format from 12.8f to 12.6e to get 7 digits of 
 #     precision instead of only 3 or 4 digits using 12.8f
 #
+# Nov 9 2022 RK
+#   + replace zCMB with zHD in hubble_diagram.txt
+#   + for unbinned, write correct zHEL (no vpec correction)
+#   + write zHD and zHEL comments at top of hubble_diagram.txt
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time
@@ -115,9 +120,11 @@ VARNAME_MUERR        = "MUERR"
 VARNAME_MUERR_VPEC   = "MUERR_VPEC"
 VARNAME_MUERR_RENORM = "MUERR_RENORM"
 VARNAME_MUERR_SYS    = "MUERR_SYS"
+VARNAME_zHD          = "zHD"
+VARNAME_zHEL         = "zHEL"
 
 VARNAME_iz     = "IZBIN"
-VARNAME_z      = "z"  # note that zHD is internally renamed z
+# xxx mark delete VARNAME_z      = "z"  # note that zHD is internally renamed z
 VARNAME_x1     = "x1"
 VARNAME_c      = "c"
 
@@ -352,8 +359,9 @@ def load_hubble_diagram(hd_file, args, config):
     # --> ensure direct subtraction comparison
     if "CID" in df.columns:
         df["CID"] = df["CID"].astype(str)
-        df = df.sort_values(["zHD", "CID"])
-        df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
+        df = df.sort_values([ "CID"])
+        df = df.rename(columns={"MUMODEL": VARNAME_MUREF})
+        # xxx mark df = df.rename(columns={"zHD": VARNAME_z, "MUMODEL": VARNAME_MUREF})
         if args.subtract_vpec:
             msgerr = f"Cannot subtract VPEC because MUERR_VPEC " \
                      f"doesn't exist in {hd_file}"
@@ -373,9 +381,13 @@ def load_hubble_diagram(hd_file, args, config):
                          df['IDSURVEY'].astype(str)
         df = df.set_index("CIDindex")
 
-    elif VARNAME_z in df.columns:
+    elif 'z' in df.columns:  # for M0DIF file that has z instead of zHD
         # should not need z-sorting here for M0DIF, but what the heck
-        df = df.sort_values(VARNAME_z)
+        df = df.rename(columns={"z": VARNAME_zHD})  # Nov 9 2022
+        df = df.sort_values(VARNAME_zHD)
+    elif VARNAME_zHD in df.columns:
+        df = df.sort_values(VARNAME_zHD) # sort, but likely not needed
+        pass
 
     # - - - -  -
     
@@ -499,8 +511,8 @@ def get_rebin_info(config,HD):
 
     epsilon = 1.0E-6
 
-    zmin  = HD[VARNAME_z].min()   - epsilon 
-    zmax  = HD[VARNAME_z].max()   + epsilon 
+    zmin  = HD[VARNAME_zHD].min() - epsilon 
+    zmax  = HD[VARNAME_zHD].max() + epsilon 
     x1min = HD[VARNAME_x1].min()  - epsilon 
     x1max = HD[VARNAME_x1].max()  + epsilon
     cmin  = HD[VARNAME_c].min()   - epsilon
@@ -569,7 +581,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
     col_iHD      = HD_unbinned['iHD']
     col_c        = HD_unbinned[VARNAME_c]
-    col_z        = HD_unbinned[VARNAME_z]
+    col_z        = HD_unbinned[VARNAME_zHD]
     col_mures    = HD_unbinned[VARNAME_MURES]
     col_mudif    = HD_unbinned[VARNAME_M0DIF]
     col_muref    = HD_unbinned[VARNAME_MUREF]
@@ -577,7 +589,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
     col_muerr    = HD_unbinned[VARNAME_MUERR]
     col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
     HD_rebin_dict = { VARNAME_ROW: [], 
-                      VARNAME_z: [], VARNAME_MU: [] , VARNAME_MUERR: [],
+                      VARNAME_zHD: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }
 
     wgt0      = 1.0/(col_muerr*col_muerr)
@@ -613,7 +625,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
         #      f"{mu_wgtavg:7.4f} +_ {muerr_wgtavg:7.4f}")
 
         HD_rebin_dict[VARNAME_ROW].append(row_name)
-        HD_rebin_dict[VARNAME_z].append(z_invert)
+        HD_rebin_dict[VARNAME_zHD].append(z_invert)
         HD_rebin_dict[VARNAME_MU].append(mu_wgtavg)
         HD_rebin_dict[VARNAME_MUERR].append(muerr_wgtavg)
         HD_rebin_dict[VARNAME_MUREF].append(muref_wgtavg)
@@ -681,7 +693,8 @@ def get_cov_from_diff(df1, df2, scale):
     weights = 1 / np.sqrt(0.003**2 + df1[VARNAME_MUERR].to_numpy()**2 \
                           + df2[VARNAME_MUERR].to_numpy()**2)
     mask = np.isfinite(weights)
-    reg.fit(df1.loc[mask, [VARNAME_z]], diff[mask], 
+
+    reg.fit(df1.loc[mask, [VARNAME_zHD]], diff[mask], 
             sample_weight=weights[mask])
     coef = reg.coef_[0]
 
@@ -1085,14 +1098,15 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 
     if not cosmomc_format:
         if unbinned:
-            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_zHD, 
+                       VARNAME_MU, VARNAME_MUERR]
         else:
-            varlist = [VARNAME_z, VARNAME_MU, VARNAME_MUERR]
+            varlist = [VARNAME_zHD, VARNAME_MU, VARNAME_MUERR]
 
         base[varlist].to_csv(path, sep=" ", index=False, float_format="%.5f")
         return
 
-    zs   = base[VARNAME_z].to_numpy()
+    zs   = base[VARNAME_zHD].to_numpy()
     mu   = base[VARNAME_MU].to_numpy()
     mbs  = -19.36 + mu
     mbes = base[VARNAME_MUERR].to_numpy()
@@ -1119,16 +1133,20 @@ def write_HD_binned(path, base, muerr_sys_list):
 
     #if "CID" in df.columns:
 
+    unbinned = False
+
     logging.info(f"Write binned HD to {path}")
 
     wrflag_nevt   = (VARNAME_NEVT_BIN in base)
     wrflag_syserr = (muerr_sys_list is not None)
 
     keyname_row = f"{VARNAME_ROW}:"
-    varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+    # xxx mark varlist = f"{VARNAME_ROW} zCMB zHEL {VARNAME_MU} {VARNAME_MUERR}"
+    varlist = f"{VARNAME_ROW} {VARNAME_zHD} {VARNAME_zHEL} " \
+              f"{VARNAME_MU} {VARNAME_MUERR}"
 
     name_list   = base[VARNAME_ROW].to_numpy()
-    z_list      = base[VARNAME_z].to_numpy()
+    zHD_list    = base[VARNAME_zHD].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
 
@@ -1145,10 +1163,10 @@ def write_HD_binned(path, base, muerr_sys_list):
         syserr_list = muerr_list # anything to allow zip loop
 
     with open(path, "w") as f:
-        write_HD_comments(f,wrflag_syserr)
+        write_HD_comments(f, unbinned, wrflag_syserr)
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
-            zip(name_list, z_list, mu_list, muerr_list, 
+            zip(name_list, zHD_list, mu_list, muerr_list, 
                 nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
             if wrflag_nevt: val_list += f" {nevt} "
@@ -1167,6 +1185,7 @@ def write_HD_unbinned(path, base, muerr_sys_list):
 
     #if "CID" in df.columns:
 
+    unbinned = True
     logging.info(f"Write unbinned HD to {path}")
     
     #print(f"\n xxx base=\n{base} \n")
@@ -1175,12 +1194,14 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     keyname_row = "SN:"
 
     varlist = f"{varname_row} {VARNAME_IDSURVEY} " \
-              f"zCMB zHEL " \
+              f"{VARNAME_zHD} {VARNAME_zHEL} " \
               f"{VARNAME_MU} {VARNAME_MUERR}"
+              # xxx mark delete Nov 9 2022 f"zCMB zHEL " \
 
     name_list   = base[VARNAME_CID].to_numpy()
     idsurv_list = base[VARNAME_IDSURVEY].to_numpy()
-    z_list      = base[VARNAME_z].to_numpy()
+    zHD_list    = base[VARNAME_zHD].to_numpy()
+    zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
 
@@ -1202,13 +1223,13 @@ def write_HD_unbinned(path, base, muerr_sys_list):
 
     # - - - - - - -
     with open(path, "w") as f:
-        write_HD_comments(f,found_muerr_sys)
+        write_HD_comments(f, unbinned, found_muerr_sys)
         f.write(f"VARNAMES: {varlist}\n")
-        for (name, idsurv, z, mu, muerr, muerr2, syserr) in \
-            zip(name_list, idsurv_list, z_list, 
+        for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr) in \
+            zip(name_list, idsurv_list, zHD_list, zHEL_list,
                 mu_list, muerr_list, muerr2_list, syserr_list ):
             val_list = f"{name:<10} {idsurv:3d} " \
-                       f"{z:6.5f} {z:6.5f} " \
+                       f"{zHD:6.5f} {zHEL:6.5f} " \
                        f"{mu:8.5f} {muerr:8.5f}"
             if found_muerr_vpec: val_list += f" {muerr2:8.5f}"
             if found_muerr_sys:  val_list += f" {syserr:8.5f}"
@@ -1217,7 +1238,16 @@ def write_HD_unbinned(path, base, muerr_sys_list):
     return
     # end write_HD_unbinned
 
-def write_HD_comments(f,wrflag_syserr):
+def write_HD_comments(f, unbinned, wrflag_syserr):
+
+    f.write(f"# zHD       = redshift in CMB frame with VPEC correction\n")
+
+    if unbinned:
+        txt_zHEL = "helio redshift (beware: no VPEC corr)"
+    else:
+        txt_zHEL = "zHD"
+    f.write(f"# zHEL      = {txt_zHEL} \n")
+
     f.write(f"# MU        = distance modulus corrected for bias and " \
             "contamination\n")
     f.write(f"# MUERR     = stat-uncertainty on MU \n")
@@ -1308,7 +1338,7 @@ def write_summary_output(config, covariances, base):
 def write_correlation(path, label, base_cov, diag, base):
     logging.debug(f"\tWrite out cov for COVOPT {label}")
 
-    zs = base[VARNAME_z].round(decimals=5)
+    zs = base[VARNAME_zHD].round(decimals=5)
     cov = diag + base_cov
 
     diag = np.sqrt(np.diag(cov))

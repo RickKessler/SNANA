@@ -21379,4 +21379,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    sntools_genSmear.c / genmag_SALT2.c
      + read and apply COLOR_DISP_MAX from SALT2.INFO file
 
+   kcor.c : allow comment lines in sed primary file
+
+   SALT2mu.c and create_covariance.py:
+     + write consistent redshift name as zHD; see github issue 1052.
+
 END: 

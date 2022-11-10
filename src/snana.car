@@ -17221,7 +17221,7 @@ c             Davis 2012 [https://arxiv.org/pdf/1012.2912.pdf]
          ZPECERR  = ( SNLC_VPEC_ERR / SNGL(CLIGHT) )
 
          if ( RESTORE_WRONG_VPEC ) then
-c    use incorrect VPEC convention
+c    use incorrect VPEC convention ... to be deleted someday
             SNLC_ZHD = (1.0+SNLC_ZCMB) * (1.0+ZPEC) - 1.0  ! Jan 2018;
          else
 c    use correct VPEC convention

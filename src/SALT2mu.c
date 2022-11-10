@@ -18913,6 +18913,8 @@ void  write_M0_fitres(char *fileName) {
   // Apr 22 2022: write %.5f format for distances/error instead of %.4f
   //               (for high-precision consistency tests)
   //
+  // Nov 9 2022: rename z -> zHD, zMIN[MAX] -> zHDMIN[MAX], 
+
   int iz, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
   char *tmpName, strval_OL[80], strval_w0[80];
@@ -18980,8 +18982,15 @@ void  write_M0_fitres(char *fileName) {
   int NVAR=8 ;
   fprintf(fp,"NVAR:  %d \n", NVAR);
 #endif
+
+  /* xxx mark delete Nov 9 2022 xxxxxxxx
   fprintf(fp,"VARNAMES: ROW  zMIN     zMAX     z        "
 	  "MUDIF  MUDIFERR   MUREF  NFIT \n");
+  xxxxxxx end mark xxxx */
+
+  fprintf(fp,"VARNAMES: ROW  zHDMIN zHDMAX   zHD        "
+	  "MUDIF  MUDIFERR   MUREF  NFIT \n");
+
   irow = 0 ;
 
   for(iz=0; iz < INPUTS.nzbin; iz++ ) {

@@ -1076,10 +1076,6 @@ void read_fitres(char *inFile) {
 
   IVAR_MUERR = SNTABLE_READPREP_VARDEF(STRING_MUERR,
                                        HD.mu_sig, NROW, VBOSE) ;
-  /* xxx mark delete
-  IVAR_MUERR = SNTABLE_READPREP_VARDEF("MUERR:D DLMAGERR:D MUDIFERR:D", 
-				       HD.mu_sig, NROW, VBOSE) ;
-  */
   
   IVAR_MUREF = SNTABLE_READPREP_VARDEF(VARLIST_DEFAULT_MUREF,
 				       HD.mu_ref, NROW, VBOSE);

@@ -157,7 +157,13 @@ def run_create_cov(infile_list, outdir_list, INPUTS):
         print(f" Create cov with {infile}  -> {outdir}")
         sys.stdout.flush()
 
-        cmd_list = [ CREATE_COV_JOB_NAME, infile ]
+        if INPUTS.snana_dir :
+            jobname = f"{INPUTS.snana_dir}/util/{CREATE_COV_JOB_NAME}"
+        else:
+            jobname = CREATE_COV_JOB_NAME
+
+        #cmd_list = [ CREATE_COV_JOB_NAME, infile ]
+        cmd_list = [ jobname, infile ]
         ret = subprocess.run( cmd_list, 
                               cwd=SNANA_TESTS_DIR,
                               capture_output=True, text=True )

@@ -7101,11 +7101,6 @@ void GEN_SNHOST_POS(int IGAL) {
   a = reduced_R * (DLR * cphi) ;   // bug fix, Nov 15 2019
   b = reduced_R * (DLR * sphi) ;
 
-  if ( INPUTS.RESTORE_HOSTLIB_BUGS == true ) { // Nov 15 2019
-    a = reduced_R * (a_half * cphi) ;  // restore bug
-    b = reduced_R * (b_half * sphi) ;  // idem
-  }
-
   SNHOSTGAL.a_SNGALSEP_ASEC  =  a ;
   SNHOSTGAL.b_SNGALSEP_ASEC  =  b ;
   SNHOSTGAL.phi              =  phi ;
@@ -7241,6 +7236,9 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   //  
   // Method 0 is optimal if there is an analytic form for the
   // integral. Here we go with method 2.
+  //
+  // Nov 11 2022: minor refactor to clarify usage of INPUTS.HOSTLIB_FIXRAN_PHI
+  //
 
   double asq    = a*a;
   double bsq    = b*b;
@@ -7255,12 +7253,19 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
 
   // check option to fix angle
   fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
+  if ( fixran > -1.0E-9 )  { 
+    SNHOSTGAL.FlatRan1_phi = fixran ; 
+    *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; 
+    return; 
+  }
+
+  /* xxx mark obsolete Nov 11 2022 xxx
   if ( fixran > -1.0E-9 ) 
     { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
 
   if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
     { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
-
+    xxxxxxxx  */
 
   if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
   

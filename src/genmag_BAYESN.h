@@ -18,3 +18,37 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *mwebv, double *z, int *Nobs,
 	       	double *Tobs_list, double *magobs_list,
 	       	double *magerr_list);
+
+#define MAX_KNOTS_BAYESN 20 //max number of knots for BayeSN
+
+
+struct {
+   int    n_lam_knots;
+   int    n_tau_knots;
+
+   // variables read from BayeSN model director
+   // scalars
+   double M0;
+   double sigma0;
+   double RV;
+   double tauA;
+
+   // vectors
+   double lam_knots[MAX_KNOTS_BAYESN];
+   double tau_knots[MAX_KNOTS_BAYESN];
+
+   // matrices
+   double **L_Sigma_epsilon;
+   double **W0; 
+   double **W1; 
+
+   // for the base SED - typically Hsiao
+   SEDMODEL_FLUX_DEF S0; 
+
+   // computed quantities
+   double **KD_tau;
+   double **KD_lam;
+   double **J_lam;
+   double **J_tau;
+
+} BAYESN_MODEL_INFO;

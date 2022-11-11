@@ -6,8 +6,8 @@
 
 #include "fitsio.h"
 #include "sntools.h"
-#include  "genmag_BAYESN.h"
 #include "genmag_SEDtools.h"
+#include  "genmag_BAYESN.h"
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
 
@@ -36,7 +36,6 @@ int init_genmag_bayesn__( char *version, int *optmask) {
 
 int init_genmag_BAYESN(char *version, int optmask){
 
-    double Trange[2], Lrange[2];
     int  ised;
     int  retval = 0   ;
     int  ABORT_on_LAMRANGE_ERROR = 0;
@@ -52,6 +51,22 @@ int init_genmag_BAYESN(char *version, int optmask){
     sprintf(BANNER, "%s : Initialize %s", fnam, version );
     print_banner(BANNER);
  
+    // HACK HACK HACK 
+    BAYESN_MODEL_INFO.n_lam_knots = 20;
+    malloc_double2D(1, 20, 20, &BAYESN_MODEL_INFO.W0 ); 
+    char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
+    int istat;
+    SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
+    malloc_SEDFLUX_SEDMODEL(S0,0,0,0);
+    double Trange[2] = {-20.0, 90.0};
+    double Lrange[2] = {1500.0, 16000.0};
+    
+    istat = rd_sedFlux(SED_filepath, "blah test rd_sedFlux", Trange, Lrange
+	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
+	       ,&S0->NDAY, S0->DAY, &S0->DAYSTEP
+	       ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
+	       ,S0->FLUX,  S0->FLUXERR );
+    printf("XXX istat %d\n", istat);
 
     if ( NFILT_SEDMODEL == 0 ) {
       sprintf(c1err,"No filters defined ?!?!?!? " );
@@ -70,6 +85,7 @@ int init_genmag_BAYESN(char *version, int optmask){
     SEDMODEL.RESTLAMMAX_FILTERCEN = 14000.0 ;
     
     printf("XXXX %s Hello from fortran hell\n", fnam);
+    debugexit(fnam);
 
     return 0;
 

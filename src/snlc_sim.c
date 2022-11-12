@@ -3491,7 +3491,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_FIXSERSIC", WORDS[0],keySource) ) {
     for(j=0; j < 4; j++ ) {
-      N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
+      N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[j] ); 
       if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
     }
   }

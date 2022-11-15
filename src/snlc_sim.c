@@ -1336,6 +1336,11 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.NWARP_TAKE_SPECTRUM = 0 ;
   INPUTS.NHOST_TAKE_SPECTRUM = 0 ;
 
+  int i;
+  for ( i=0; i < MXSPECTRA ; i++ ) {
+    init_GENPOLY(&INPUTS.TAKE_SPECTRUM[i].GENLAMPOLY_WARP);
+  }
+
 } // end set_user_defaults_SPECTROGRAPH
 
 // *******************************************
@@ -10103,7 +10108,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   // Jun 19 2017: 
   // use computed TEXPOSE to update ZPT and SKYSIG for SYNTHETIC filters.
 
-  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 ) { return ; }
+  // xxx mark  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 ) { return ; }
+  if ( INPUTS_SPECTRO.NSYN_FILTER == 0 ) { return ; }
   
   // first find SIMLIB epoch matching this MJD
   int ep, ifilt, ifilt_obs;
@@ -10115,7 +10121,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
     if ( SIMLIB_OBS_GEN.INDX_TAKE_SPECTRUM[ep] != INDX ) { continue ; }
 
     ifilt_obs  = SIMLIB_OBS_GEN.IFILT_OBS[ep] ;
-    ifilt      = GENLC.IFILTINV_SPECTROGRAPH[ifilt_obs] ; 
+    // xxx mark ifilt      = GENLC.IFILTINV_SPECTROGRAPH[ifilt_obs] ; 
+    ifilt      = INPUTS_SPECTRO.SYN_IFILTINV_LIST[ifilt_obs] ; 
     if ( ifilt_obs < 0 ) { continue ; }
 
     ISTORE_SIMLIB_GEN = ep ;
@@ -12539,7 +12546,7 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 
   char cmd[MXPATHLEN], cfilt[4] ;
   char filtFile[MXPATHLEN], filtName[40], surveyName[80]  ;
-  double  magprim8, lam8[MXLAMSIM], TransSN8[MXLAMSIM], TransREF8[MXLAMSIM];  
+  double  magprim, lam[MXLAMSIM], TransSN[MXLAMSIM], TransREF[MXLAMSIM];  
   int  ifilt, ifilt_obs, NLAM, ilam, MASKFRAME, isys ;
   FILE *fp_filt ;
   char  fnam[] = "wr_SIMGEN_FILTERS" ;
@@ -12567,7 +12574,7 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 
     sprintf(filtName,"NULL");
     sprintf(surveyName,"NULL");
-    magprim8 = lam8[0] = TransSN8[0] = TransREF8[0] = 0.0 ; 
+    magprim = lam[0] = TransSN[0] = TransREF[0] = 0.0 ; 
     NLAM = 0 ;
 
     // note that both the SN and REF trans are returned,
@@ -12575,11 +12582,11 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
       get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
-		      &magprim8, &NLAM, lam8, TransSN8, TransREF8, 80, 40 );
+		      &magprim, &NLAM, lam, TransSN, TransREF, 80, 40 );
     }
     else {
       get_kcor_filterTrans(MASKFRAME, ifilt_obs, surveyName, filtName,
-			   &magprim8, &NLAM, lam8, TransSN8, TransREF8);
+			   &magprim, &NLAM, lam, TransSN, TransREF);
     }
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
@@ -12587,9 +12594,8 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
    
     fp_filt = fopen(filtFile, "wt") ;
 
-    for ( ilam=0; ilam < NLAM; ilam++ ) {
-      fprintf(fp_filt,"%7.1f  %.6f \n", lam8[ilam], TransSN8[ilam] );
-    }
+    for ( ilam=0; ilam < NLAM; ilam++ ) 
+      { fprintf(fp_filt,"%7.1f  %.6f \n", lam[ilam], TransSN[ilam] );  }
 
     fclose(fp_filt);
 
@@ -16865,7 +16871,8 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
 
   int NOBS       = SIMLIB_OBS_RAW.NOBS ;
   int NOBS_SPEC  = SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
-  int NFILT_SPEC = GENLC.NFILTDEF_SPECTROGRAPH  ; // Numb of synthetic filters
+  int NFILT_SPEC = INPUTS_SPECTRO.NSYN_FILTER  ; // Nsynthetic filters
+  // xxx mark  int NFILT_SPEC = GENLC.NFILTDEF_SPECTROGRAPH  ; // 
   int ifilt, ispec, OBSRAW, ISTORE, NOBS_ADD, APP ;
   double MJD, TEXPOSE, PIXSIZE ;
   char *FIELD, *TEL ;
@@ -16970,7 +16977,8 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
 
   int i, OPT, ifilt, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST, IS_TREST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
-  int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  // all spectroscopic filters
+  int NFILT = INPUTS_SPECTRO.NSYN_FILTER ;  
+  // xxx mark  int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  
 
   float Trest_min, Trest_max, Trest_pad ;
   double EPOCH[2], MJD_REF;
@@ -17389,7 +17397,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       SIMLIB_OBS_RAW.INDX_TAKE_SPECTRUM[OBSRAW] ;
 
     // - --  store correlated template info ... - - - -                       
-    IFLAG_SYNFILT  = GENLC.IFLAG_SYNFILT_SPECTROGRAPH[IFILT_OBS] ;
+    // xxx  IFLAG_SYNFILT  = GENLC.IFLAG_SYNFILT_SPECTROGRAPH[IFILT_OBS] ;
+    IFLAG_SYNFILT  = INPUTS_SPECTRO.IS_SYN_FILTER[IFILT_OBS] ;
     IFLAG_TEMPLATE = SIMLIB_TEMPLATE.USEFLAG ;
 
     // check template noise for synthetic filters from spectrograph           
@@ -17547,17 +17556,20 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
   }
 
   // bail if no synthetic filters.
-  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 )
+  // xxx mark  if ( GENLC.NFILTDEF_SPECTROGRAPH == 0 )
+  if ( INPUTS_SPECTRO.NSYN_FILTER == 0 ) 
     { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = 0;  return ; }
 
-  ifilt_obs = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
+  // xxx mark ifilt_obs = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
+  ifilt_obs = INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt];
   sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] ) ;
 
   // negative TEXPOSE is for outside TREST range of SN model
   if ( TEXPOSE_S < 0.0 ) 
     { SIMLIB_OBS_RAW.IFILT_OBS[ISTORE] = ifilt_obs;  return ; }
 
-  if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] == 0 ) {
+  // xxx mark  if ( GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] == 0 ) {
+  if ( !INPUTS_SPECTRO.IS_SYN_FILTER[ifilt_obs] ) {
     sprintf(c1err,"Invalid %s-filter is not a SYN-FILTER ?", cfilt );  
     sprintf(c2err,"Check SYN-FILTERs in kcor input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
@@ -17622,7 +17634,8 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
   double LAMMAX  = INPUTS_SPECTRO.SYN_FILTERLIST_LAMMAX[ifilt] ;
   double MJD     = SIMLIB_OBS_RAW.MJD[OBSRAW]; // for debug
   double PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[OBSRAW]; 
-  int ifilt_obs  = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
+  // xxx mark  int ifilt_obs  = GENLC.IFILTDEF_SPECTROGRAPH[ifilt] ;
+  int ifilt_obs  = INPUTS_SPECTRO.SYN_IFILTDEF_LIST[ifilt];
   int NBT        = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   int IFLAG_TEMPLATE = ( TEXPOSE_T > 0.01 ) ;
   int UNIT_IS_ARCSEC = 
@@ -23144,6 +23157,14 @@ void init_genSEDMODEL(void) {
 		     genSEDMODEL.lam, genSEDMODEL.primaryFlux );
   }
 
+  /* xxxx
+  int ilam = 322;
+  printf(" xxx %s: (%s) ilam=%d/%d lam=%.1f flux=%le \n",
+	 fnam, GENLC.primary, ilam, NLAM,
+	 genSEDMODEL.lam[ilam], genSEDMODEL.primaryFlux[ilam] ); 
+  fflush(stdout);
+   xxxxxx */
+
   init_primary_SEDMODEL( GENLC.primary, NLAM, 
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux );
 
@@ -23235,6 +23256,13 @@ void init_genSEDMODEL(void) {
 			   genSEDMODEL.TransREF // (O) idem
 			   );
     }
+
+    /* xxxxx
+    int ilam=44;
+    printf(" xxx %s: ifilt_obs=%d ilam=44 lam=%.1f Trans=%.4f \n",
+	   fnam, ifilt_obs, ilam, 
+	   genSEDMODEL.lam[ilam], genSEDMODEL.TransSN[ilam] );
+	   xxxxx */
 
     if ( NLAM > MXLAMSIM ) {
       sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] );
@@ -23441,7 +23469,7 @@ void init_kcor_legacy(char *kcorFile) {
   // misc. inits
   for ( ifilt=0; ifilt<MXFILTINDX; ifilt++ ) { 
     NAVWARP_OVERFLOW[ifilt] = 0; 
-    GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt] = 0 ;
+    // xxx mark delete GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt] = 0 ;
   }
 
   if ( ISMODEL_SIMLIB ) { return ; } // 11.22.2019
@@ -23480,42 +23508,24 @@ void init_kcor_legacy(char *kcorFile) {
       rdxtpar_(xtDir, strlen(xtDir) );      
     }
 
-
-
   } // end rest-frame
 
 
-  // check for optional spectrograph information (July 2016)
-  sprintf(copt,"SPECTROGRAPH") ;
-  int NF = get_filtmap__(copt, tmpoff_kcor, strlen(copt) );
-  GENLC.NFILTDEF_SPECTROGRAPH = NF ;
-  GENLC.FILTERLIST_SPECTROGRAPH[0] = 0 ;
-  for(ifilt=0; ifilt < NF; ifilt++ ) {
-    ifilt_obs = (int)tmpoff_kcor[ifilt] ;
-    GENLC.IFILTDEF_SPECTROGRAPH[ifilt]     = ifilt_obs ;
-    GENLC.IFILTINV_SPECTROGRAPH[ifilt_obs] = ifilt ;
-    GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt_obs] = 1 ;
-    sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
-    strcat(GENLC.FILTERLIST_SPECTROGRAPH,cfilt);
-  }
-
-  // check for optional SPECTROGRPH info
+  // - - - - - - -
+  // check for optional spectrograph information 
   read_spectrograph_fits(kcorFile) ;
 
   if ( SPECTROGRAPH_USEFLAG ) {
-
     dump_INPUTS_SPECTRO(4,"");
-
     extend_spectrograph_lambins();
-
-    printf("   Found %d synthetic spectrograph filters (%s) \n",
-	   GENLC.NFILTDEF_SPECTROGRAPH, GENLC.FILTERLIST_SPECTROGRAPH );
-    fflush(stdout);
   }
+
 
   return ;
 
 } // end of init_kcor_legacy
+
+
 
 // ********************************** 
 void init_kcor_refactor(void) {
@@ -23536,10 +23546,16 @@ void init_kcor_refactor(void) {
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
     { MAGOBS_SHIFT[ifilt] = MAGREST_SHIFT[ifilt] = 0.0 ; }
 
-  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS,
+  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, INPUTS.GENFILTERS,
 		   MAGREST_SHIFT, MAGOBS_SHIFT );
 
-  // xxx mark delete  set_zpoff__(); // xxx REMOVE THIS
+
+  // check for spectrograph information (for sim only)
+  read_spectrograph_fits(INPUTS.KCOR_FILE) ;
+  if ( SPECTROGRAPH_USEFLAG ) {
+    //    dump_INPUTS_SPECTRO(4,"");
+    extend_spectrograph_lambins();
+  }
 
   NFILTDEF = KCOR_INFO.FILTERMAP_OBS.NFILTDEF;
 
@@ -23553,8 +23569,6 @@ void init_kcor_refactor(void) {
       // in kcor file(
       ZPOFF     = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_FILE[ifilt];
       INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += ZPOFF ;
-      printf(" xxx %s: ZPOFF = %4f for ifilt_obs=%d \n", 
-	     fnam, INPUTS.GENMAG_OFF_ZP[ifilt_obs], ifilt_obs);
     }
     
     NBIN = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM[ifilt];

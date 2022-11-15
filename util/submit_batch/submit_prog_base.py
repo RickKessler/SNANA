@@ -28,6 +28,7 @@
 # Dec 08 2021: write wall time and CPU sum in hours (no option for minutes)
 # Apr 12 2022: check for docker image in sbatch-file; if there, use shifter
 # Jul 18 2022: check new CONFIG option "BATCH_SINGLE_NODE: True"
+# Nov 15 2022: call merge_driver_exit() to write merge-process time
 #
 # ============================================
 
@@ -1256,22 +1257,27 @@ class Program:
         # The key function is 'merge_update_state', which figures
         # out which jobs have changed state, and also takes 
         # appropriate action such as moving and removing files.
-
+        #
+        # Nov 15 2022: add timer information
+        #
         # - - - - - -
         # collect time/date info to clearly mark updates in
         # CPU*.LOG file(s)
+
+        t_merge_start = time.time()
+
         Nsec     = seconds_since_midnight  # current Nsec, not from submit info
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam     = "merge_driver"
 
-        args         = self.config_yaml['args']
-        MERGE_LAST   = args.MERGE_LAST
+        args             = self.config_yaml['args']
+        MERGE_LAST       = args.MERGE_LAST
         nomerge          = args.nomerge
         merge_background = args.merge_background
-        cpunum       = args.cpunum[0]
-        check_abort  = args.check_abort 
-        verbose_flag = not check_abort
+        cpunum           = args.cpunum[0]
+        check_abort      = args.check_abort 
+        verbose_flag     = not check_abort
 
         if verbose_flag :
             logging.info(f"\n")
@@ -1314,7 +1320,7 @@ class Program:
                 exit(0)
 
         # set busy lock file to prevent a simultaneous  merge task
-        self.set_merge_busy_lock(+1)
+        self.set_merge_busy_lock(+1,t_merge_start)
 
         # read status from MERGE file. There is one comment line above
         # each table to provide a human-readable header. The remaining
@@ -1454,9 +1460,39 @@ class Program:
                          f"Bye Bye" )
 
         # remove busy lock file
-        self.set_merge_busy_lock(-1)
-        
+        self.set_merge_busy_lock(-1,t_merge_start)
+    
+        self.merge_driver_exit(t_merge_start,False)
+        return
         # end merge_driver
+
+    def merge_driver_exit(self, t_merge_start, exit_flag):
+
+        # Created Nov 15 2022
+        # Write exit statement with timing info to enable 
+        # checking unusually long merge time.
+        #
+        # Inputs:
+        #   t_merge_start : time merge process started
+        #   exit_flag     : if True, cal exit(0)
+        #
+
+        fnam = 'merge_driver_exit'
+        t_merge_end = time.time()
+        t_merge     = t_merge_end - t_merge_start
+        if exit_flag :
+            action = 'skipped'
+        else:
+            action = 'completed'
+
+        msg = f"{action} merge process after {t_merge:.2f} sec"
+        logging.info(f"# {fnam}: {msg}")
+
+        if exit_flag:  
+            exit(0)
+
+        return
+        # end merge_graceful_exit
 
     def merge_reset_driver(self):
 
@@ -1486,6 +1522,8 @@ class Program:
         sys.exit(f"\n Done with merge_reset. " \
                  f"Try merge again with -M option.")
 
+        return
+
         # end merge_reset_driver
 
     def force_merge_failure(self,submit_info_yaml):
@@ -1504,6 +1542,8 @@ class Program:
             msgerr.append(f" Force ABORT in merge process;")
             msgerr.append(f" see --force_abort_merge argument")
             util.log_assert(False,msgerr)
+
+        return
 
         # end force_merge_failure
 
@@ -1532,6 +1572,8 @@ class Program:
             logging.info(f"\t Wait for {busy_list} to clear")
             time.sleep(5)
             n_busy,busy_list = self.get_busy_list()
+
+        return
 
         # end merge_last_wait
 
@@ -1606,9 +1648,13 @@ class Program:
 
         # merge_cleanup_script_dir
 
-    def set_merge_busy_lock(self,flag):
-        # flag > 0 --> create BUSY LOCK file
-        # flag < 0 --> remove it
+    def set_merge_busy_lock(self,flag, t_merge_start):
+
+        # Inputs:
+        #   flag > 0 --> create BUSY LOCK file
+        #   flag < 0 --> remove it
+        #
+        #   t_merge_start : used to print process time upon exit
 
         Nsec  = seconds_since_midnight  # current Nsec, not from submit info
         t_msg = f"T_midnight={Nsec}"
@@ -1634,8 +1680,10 @@ class Program:
             # check for other busy files to avoid conflict
             if merge_normal and n_busy > 0 :
                 msg = f"\n# {fnam}: Found existing " \
-                      f"{busy_list[0]} --> exit merge process."
-                sys.exit(msg)  
+                      f"{busy_list[0]} --> skip merge process."
+                logging.info(msg)
+                self.merge_driver_exit(t_merge_start, True)
+                # xxx mark sys.exit(msg)  
             else: 
                 if merge_force :
                     while n_busy > 0:
@@ -1659,8 +1707,10 @@ class Program:
                     cmd_rm = f"rm {BUSY_FILE}"
                     os.system(cmd_rm)
                     msg = f"\n# {fnam}: Found simultaneous " \
-                          f"{busy_list[0]} --> exit merge process."
-                    sys.exit(msg)  
+                          f"{busy_list[0]} --> skip merge process."
+                    logging.info(msg)
+                    self.merge_driver_exit(t_merge_start, True)
+                    # xxx mark sys.exit(msg)  
 
         elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
             if verbose_flag:

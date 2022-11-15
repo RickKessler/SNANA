@@ -152,10 +152,12 @@ struct KCOR_INFO {
   float *MWXT_TABLE1D_F ;
   float *FLUX_SNSED_F;      // use float to save memory
 
+  /* xxx mark delete Nov 15 2022 xxxx
   char SPECTROGRAPH_INSTRUMENT[60];
   char SPECTROGRAPH_FILTERLIST[MXFILT_KCOR];
   int  NFILTDEF_SPECTROGRAPH ;
   int  IFILTDEF_SPECTROGRAPH[MXFILT_KCOR] ;
+  xxxx */
 
   // misc init info
   int NCALL_READ ;

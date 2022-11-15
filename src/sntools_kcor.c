@@ -333,30 +333,6 @@ void read_kcor_head(void) {
   KCOR_INFO.zRANGE_LOOKUP[0] = KCOR_INFO.BININFO_z.RANGE[0] ;
   KCOR_INFO.zRANGE_LOOKUP[1] = KCOR_INFO.BININFO_z.RANGE[1] ;
 
-  // read optional spectrograph information
-  int istat1=0, istat2=0, NFSPEC ;
-  sprintf(KEYWORD, "SPECTROGRAPH_INSTRUMENT");
-  SPTR = KCOR_INFO.SPECTROGRAPH_INSTRUMENT ;
-  fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat1 );
-  if ( istat1 == 0 ) { 
-    printf("\t\t Read SPECTROGRAPH INSTRUMENT = %s \n", SPTR); 
-
-    sprintf(KEYWORD, "SPECTROGRAPH_FILTERLIST");
-    SPTR = KCOR_INFO.SPECTROGRAPH_FILTERLIST ;
-    fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat2 );
-    
-    if ( istat2 == 0 ) {
-      NFSPEC = strlen(KCOR_INFO.SPECTROGRAPH_FILTERLIST);
-      KCOR_INFO.NFILTDEF_SPECTROGRAPH =  NFSPEC ;
-      for(i=0; i < NFSPEC; i++ ) {
-	sprintf(cfilt,"%c", KCOR_INFO.SPECTROGRAPH_FILTERLIST[i] );
-	IFILTDEF = INTFILTER(cfilt) ;
-	KCOR_INFO.IFILTDEF_SPECTROGRAPH[i] = IFILTDEF ; 
-      }
-
-    } // end istat2
-  } // end istat1 
-
   return ;
 
 } // end read_kcor_head
@@ -837,10 +813,12 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
     for(ifilt=0; ifilt < NF; ifilt++ ) {
       IFILTDEF = MAP->IFILTDEF[ifilt];
       sprintf(cfilt1, "%c", FILTERSTRING[IFILTDEF] );
+
+      /*
       printf("\t xxx IFILTDEF[%2d,%s] = %2d  (%s)  PRIM_MAG=%.3f NBL=%d\n",
 	     ifilt, cfilt1, IFILTDEF, MAP->FILTER_NAME[ifilt],
 	     MAP->PRIMARY_MAG[ifilt], MAP->NBIN_LAM[ifilt]  ); 
-      fflush(stdout);
+	     fflush(stdout); */
     }
     return ;
   }
@@ -1341,33 +1319,34 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
   int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
   int  IFILTDEF        = INTFILTER(NAME);
+  bool IS_SURVEY_FILTER = KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF];
   int  ifilt ;
   char *NAME_REST, *NAME_OBS ;
-  //  char fnam[] = "filter_match_kcor" ;
+  char fnam[] = "filter_match_kcor" ;
 
   // ---------- BEGIN -----------
 
   *IFILT_REST = *IFILT_OBS = -9;
 
-
+  // check if rest-frame filter
   for(ifilt=0; ifilt < NFILTDEF_REST; ifilt++ ) {
     NAME_REST = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt];
     if ( strcmp(NAME,NAME_REST) == 0 )  { *IFILT_REST = IFILTDEF ; }
   }
 
 
+  //  printf(" xxx %s: %-10.10s  IFILTDEF=%2d  IS_SURVEY_FILTER=%d \n",
+  //	 fnam, NAME, IFILTDEF, IS_SURVEY_FILTER );
+
   // continue only if this obs-frame filter is a survey filter
-  if ( !KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF] ) { return; }
+  if ( !IS_SURVEY_FILTER ) { return; }
 
-  // if this is not a rest-frame filter, then it MUST
-  // be an obs-frame filter.  
-
+  // if not a rest-frame filter, then it MUST  be an obs-frame filter.  
+  // (e..g, explicit or from spectrograph)
   if ( *IFILT_REST < 0 ) {  *IFILT_OBS = IFILTDEF; return ;    }
 
 
-  // this is a rest-frame filter, but check if this is also 
-  // an obs-frame filter
-
+  // check if obs-frame filter
   for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
     NAME_OBS  = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt] ;
     if ( strcmp(NAME_OBS,NAME) == 0 ) { *IFILT_OBS = IFILTDEF ; }
@@ -1448,7 +1427,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
   int OPT_FRAME = MAP->OPT_FRAME ;
   int MEMF  = NBL * sizeof(float);
-  int ilam, ifilt ;
+  int ilam, ifilt, ilam_min, ilam_max ;
   double LAM, TRANS, MEAN, SQRMS, LAMMIN=1.1E5, LAMMAX=0.0 ;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
   //  char fnam[] = "loadFilterTrans_kcor" ;
@@ -1463,35 +1442,45 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   MAP->LAM[ifilt]      = (float*)malloc(MEMF);
   MAP->TRANS[ifilt]    = (float*)malloc(MEMF);
   
+  // determine min and max ilam that contains Trans>0 
+  ilam_min = 9999999;  ilam_max = -9;
   for(ilam=0; ilam < NBL; ilam++ ) {
+    TRANS = (double)ARRAY_TRANS[ilam];
+    if ( TRANS > 1.0E-6  ) {
+      if ( ilam_min > 99999 ) { ilam_min = ilam; }
+      ilam_max = ilam;
+    }
+  }
+  // add extra edge bin with zero transmission
+  if ( ilam_min > 0     ) { ilam_min-- ; }
+  if ( ilam_max < NBL-1 ) { ilam_max++ ; }
 
+  // - - - - - 
+  int NBL_STORE = 0 ;
+  for(ilam=ilam_min; ilam <= ilam_max; ilam++ ) {
     LAM   = (double)ARRAY_LAM[ilam];
     TRANS = (double)ARRAY_TRANS[ilam];
-    if ( TRANS > TMAX ) { TMAX = TRANS; }
 
     SUM0 += TRANS;
     SUM1 += (TRANS * LAM);
     SUM2 += (TRANS * LAM * LAM);
 
-    MAP->LAM[ifilt][ilam]   = (float)LAM ;
-    MAP->TRANS[ifilt][ilam] = (float)TRANS ;
+    MAP->LAM[ifilt][NBL_STORE]   = (float)LAM ;
+    MAP->TRANS[ifilt][NBL_STORE] = (float)TRANS ;
 
-    if ( TRANS > 1.0E-6  ) {
-      if ( LAMMIN > 1.0E5 ) { LAMMIN = LAM; }
-      LAMMAX = LAM;
-    }
+    NBL_STORE++ ;
   } // end ilam
 
   MEAN  = SUM1/SUM0;
   SQRMS = SUM2/SUM0 - MEAN*MEAN;
 
   // load extra info about transmission function
-  MAP->NBIN_LAM[ifilt]  = NBL  ;
+  MAP->NBIN_LAM[ifilt]  = NBL_STORE  ;
   MAP->TRANS_MAX[ifilt] = TMAX;    // max trans
   MAP->LAMMEAN[ifilt]   = MEAN ;   // mean wavelength
   MAP->LAMRMS[ifilt]    = sqrt(SQRMS) ; // RMS wavelength
-  MAP->LAMRANGE[ifilt][0] = LAMMIN ;
-  MAP->LAMRANGE[ifilt][1] = LAMMAX ;
+  MAP->LAMRANGE[ifilt][0] = MAP->LAM[ifilt][0] ;
+  MAP->LAMRANGE[ifilt][1] = MAP->LAM[ifilt][NBL_STORE-1] ;
 
   MAP->LAMRANGE_KCOR[ifilt][0] = -9.0 ; // compute later for rest-frame
   MAP->LAMRANGE_KCOR[ifilt][1] = -9.0 ;
@@ -1549,10 +1538,10 @@ void read_kcor_primarysed(void) {
 
   
   NAME = KCOR_INFO.PRIMARY_NAME[KINDX];
-  printf("\t\t Primary Reference: %s\n", NAME);
+  // xxx mark  printf("\t\t Primary Reference: %s\n", NAME);
 
   int       MEMF = NBL * sizeof(float); 
-  int       ICOL ;
+  int       ICOL_LAM, ICOL_FLUX ;
   long long FIRSTROW=1, FIRSTELEM=1;
   float  *ptr_f;
 
@@ -1562,44 +1551,19 @@ void read_kcor_primarysed(void) {
   KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX = (float*) malloc(MEMF);
 
   // read wavelength array (should be same as array for SN SED)
-  ICOL=1;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM ;
-  fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
+  ICOL_LAM=1;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM ;
+  fits_read_col_flt(FP, ICOL_LAM, FIRSTROW, FIRSTELEM, NBL,
 		    NULL_1E, ptr_f, &anynul, &istat );
   sprintf(c1err,"read lam array for primary = '%s'", NAME);
   snfitsio_errorCheck(c1err, istat);
 
   // read primary flux array
-  ICOL=1+KINDX;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX ;
-  fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
+  ICOL_FLUX= ICOL_LAM + 1 + KINDX;  
+  ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX ;
+  fits_read_col_flt(FP, ICOL_FLUX, FIRSTROW, FIRSTELEM, NBL,
 		    NULL_1E, ptr_f, &anynul, &istat );
   sprintf(c1err,"read flux array for primary = '%s'", NAME);
   snfitsio_errorCheck(c1err, istat);
-
-  // 
-  /*   
-c read lambda array.
-       ICOL      = 1
-       CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
-     &       NLAMBIN_PRIMARY, nullf_rdkcor, 
-     &       PRIMARY_LAM,                   ! return arg
-     &       anyf_rdkcor, istat)            ! return arg
-
-      ERRMSG = 'LAMBDA-' // PRIMARY_NAME(1:LP)
-      CALL RDKCOR_ABORT(FNAM, ERRMSG, ISTAT) ! error check
-
-c read flux array
-
-       ICOL      = 1 + IPRIM_REF_RDKCOR
-       CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
-     &       NLAMBIN_PRIMARY, nullf_rdkcor, 
-     &       PRIMARY_FLUX,                   ! return arg
-     &       anyf_rdkcor, istat)            ! return arg
-
-      ERRMSG = 'FLUX-' // PRIMARY_NAME(1:LP)
-      CALL RDKCOR_ABORT(FNAM, ERRMSG, ISTAT) ! error check
-
-   */
-
 
   return ;
 
@@ -1610,6 +1574,8 @@ void read_kcor_summary(void)  {
 
   int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  KINDX           = KCOR_INFO.FILTERMAP_OBS.PRIMARY_KINDX[0];
+
   int  ifilt, ifiltdef, k;
   double lamavg, lamrms, *lamrange, prim_mag, prim_zpoff;
   char *NAME;
@@ -1620,9 +1586,10 @@ void read_kcor_summary(void)  {
 
   // ------------- BEGIN ------------
 
-  print_banner(fnam);
+  printf("\n   %s \n", fnam); fflush(stdout);
+  // xxx  print_banner(fnam);
   
-  printf("  Primary Spectrum: %s \n", KCOR_INFO.PRIMARY_NAME[0]);
+  printf("\t  Primary Spectrum: %s \n", KCOR_INFO.PRIMARY_NAME[KINDX]);
 
 
   printf("\n  FILTER SUMMARY (RDKCOR) : \n");
@@ -1927,20 +1894,24 @@ void get_kcor_primary(char *primary_name, int *nblam,
   // Created Nov 2022
   // Return information about primary reference.
  
-  int  NBIN_LAM = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM_PRIMARY ;
-  int  ilam;
+  int  ilam, kindx;
   char fnam[] = "get_kcor_primary" ;
+  KCOR_FILTERMAP_DEF *FILTERMAP_OBS = &KCOR_INFO.FILTERMAP_OBS ;
+  int  NBIN_LAM = FILTERMAP_OBS->NBIN_LAM_PRIMARY ;
 
   // ----------- BEGIN ----------
 
-  sprintf(primary_name, "%s", KCOR_INFO.PRIMARY_NAME[0]);
+
+  // make sure to get primary for OBS filters (not rest-frame filters)
+  kindx = FILTERMAP_OBS->PRIMARY_KINDX[0];
+  sprintf(primary_name, "%s", KCOR_INFO.PRIMARY_NAME[kindx]);
 
   *nblam = NBIN_LAM ;
 
   for(ilam=0; ilam < NBIN_LAM; ilam++ ) {
-    lam[ilam]  = (double)KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM[ilam];
-    flux[ilam] = (double)KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX[ilam];
-  }
+    lam[ilam]  = (double)FILTERMAP_OBS->PRIMARY_LAM[ilam];
+    flux[ilam] = (double)FILTERMAP_OBS->PRIMARY_FLUX[ilam];
+  } // end ilam loop
 
   return;
 } // end get_kcor_primary
@@ -1970,11 +1941,12 @@ void get_kcor_filterTrans(int MASKFRAME, int ifiltdef, char *surveyName,
   sprintf(surveyName,"%s", FILTERMAP->SURVEY_NAME[ifilt] );
   sprintf(filterName,"%s", FILTERMAP->FILTER_NAME[ifilt] );
   *magprim   = FILTERMAP->PRIMARY_MAG[ifilt];
-  *nblam     = FILTERMAP->NBIN_LAM_PRIMARY ;
+  *nblam     = FILTERMAP->NBIN_LAM[ifilt] ;
 
-  
+  /*
   printf(" xxx %s: survey=%s  filter=%s  nblam=%d magprim=%.3f\n",
 	 fnam, surveyName, filterName, *nblam, *magprim); fflush(stdout);
+  */
 
   for(ilam=0; ilam < *nblam; ilam++ ) {
     lam[ilam]      = FILTERMAP->LAM[ifilt][ilam];

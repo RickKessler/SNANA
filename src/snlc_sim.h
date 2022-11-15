@@ -1051,11 +1051,13 @@ struct GENLC {
   int IFILTMAP_REST2[MXFILTINDX]; // 2nd near rest-filt index vs. sparse index
   int IFILTMAP_REST3[MXFILTINDX]; // 3rd nearest
 
+  /* xxx mark delete Nov 15 2022 
   int  NFILTDEF_SPECTROGRAPH ;
   int  IFILTDEF_SPECTROGRAPH[MXFILTINDX];     // vs. sparse synth spectro bands
   int  IFILTINV_SPECTROGRAPH[MXFILTINDX];     // vs. absolute ifilt_obs
   char FILTERLIST_SPECTROGRAPH[MXFILTINDX] ;  // idem
   int  IFLAG_SYNFILT_SPECTROGRAPH[MXFILTINDX] ;  // vs. ifilt_obs
+  xxxx */
 
   double LAMDIF_REST1[MXFILTINDX];
   double LAMDIF_REST2[MXFILTINDX];

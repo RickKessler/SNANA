@@ -34,6 +34,9 @@
 #          case first varnames is empty.
 #   + replace remove_locf_messages.pl with remove_locf_messages.py
 #
+# Nov 15 2022 RK  implement NMAX_STATE_CHANGE = 10 to help distribute
+#                 merge tasks among more cores.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -75,6 +78,8 @@ COLNUM_FIT_MERGE_NEVT_ALL        = 3  # NEVT0
 COLNUM_FIT_MERGE_NEVT_SNANA_CUTS = 4  # NEVT1
 COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS = 5  # NEVT2
 COLNUM_FIT_MERGE_CPU             = 6
+
+NMAX_STATE_CHANGE = 10  # max number of state changes per merge task (Nov 15 2022)
 
 # hard-code option to validate each version; later pass as CONFIG arg
 # 1->weak check on README file, 2->strong check, run snana.exe job
@@ -1039,9 +1044,10 @@ class LightCurveFit(Program):
         # n_state_change is always set > 0 if in RUN state,
         # even if there is not STATE change.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR']
-        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+        MERGE_LAST          = self.config_yaml['args'].MERGE_LAST
+        submit_info_yaml    = self.config_prep['submit_info_yaml']
+        script_dir          = submit_info_yaml['SCRIPT_DIR']
+        n_job_split         = submit_info_yaml['N_JOB_SPLIT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         COLNUM_STATE   = COLNUM_FIT_MERGE_STATE 
         COLNUM_VERS    = COLNUM_FIT_MERGE_VERSION 
@@ -1067,6 +1073,9 @@ class LightCurveFit(Program):
         n_state_change     = 0
         row_list_merge_new = []
 
+        if MERGE_LAST: 
+            NMAX_STATE_CHANGE = 9999999 # let everthing merge on last core
+
         #  - - - - -
         irow = 0
         for row in row_list_merge :
@@ -1082,7 +1091,7 @@ class LightCurveFit(Program):
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)
 
-            if not Finished :
+            if not Finished  and n_state_change < NMAX_STATE_CHANGE :
                 NEW_STATE = STATE
 
                 # get list of LOG, DONE, and YAML files 

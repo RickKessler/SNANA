@@ -11115,22 +11115,11 @@ c Init some SN variables.
 c Called once at beginning of program.
 c See INIT_SNLC to initilaize each SN.
 c
-c Nov 6, 2006: define SNANA_DIR and read ZPOFF from default file.
-c
-c Dec 16, 2006: update 2006 ranges and add MJDRANGE
-c
-c Oct 6, 2009:  fix dumb bugs caught with fcheck-bounds
-c    HIDKCOR -> HIDMAG
-c    IFILTDEF_IGNORE_REST(i) -> IFILTDEF_IGNORE_REST(ifilt)
-c
-c Mar 29, 2010: init &SNLCINP namelist char-string ZPOFF_FILE
-c
 c Feb 19 2014: abort if SNDATA_ROOT is not defined.
 c Jan 16 2019: init EXIT_ERRCODE
 c ---------------------------------------------------
  
       IMPLICIT NONE
-
 
 c include everything except the memory hogging SNLCCOM
 
@@ -32348,14 +32337,6 @@ C ======================================================
 c Nov 2010: load filter trans & lambda bins  into global array.
 c           Use OBS or REST arrays based on input OPT argument.
 c
-c Dec 31, 2010: ilam_max++ and ilam_min--  to include one
-c               zero-trans bin on each side of the trans function
-c               may be needed for interpolation at the min/max region.
-c
-c Nov 15, 2011: compute and store MEAN and RMS so that we can get
-c               rid of the ill-defined 'FUNCTION HSTATI' in CERNLIB.
-c
-c July 2016: also store min & max lambda
 c
 c Jan 16 2017: check NLAM_LOAD against array bound BEFORE ilam loop.
 

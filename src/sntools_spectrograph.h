@@ -47,6 +47,10 @@ struct {
   double **ZP, **SQSIGSKY ; // per spectro & expTime bin
 
   // syn-filter info from kcor-iput file; filled when reading kcor file
+  int    NSYN_FILTER;
+  int    SYN_IFILTDEF_LIST[MXFILTINDX];
+  int    SYN_IFILTINV_LIST[MXFILTINDX]; // map ifiltdef -> sparse ifilt
+  bool   IS_SYN_FILTER[MXFILTINDX];     // vs. ifiltdef
   char   SYN_FILTERLIST_BAND[MXFILTINDX] ;
   char   SYN_FILTERLIST_NAME[MXFILTINDX][20] ;
   double SYN_FILTERLIST_LAMMIN[MXFILTINDX] ;

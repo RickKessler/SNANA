@@ -8287,6 +8287,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   // Nov 25 2019: protect dm for GALFRAC=0
   //
   // Jan 31 2020: refactor to load DDLR_SORT array for MAG.
+  // Nov 15 2022: float lam[abc] -> double lam[abc]
 
   int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2 ;
 
@@ -8302,8 +8303,9 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
     ,RVMW = 3.1
     ;
-
-  float lamavg4, lamrms4, lammin4, lammax4  ;
+  
+  // xxx mark delete  float lamavg4, lamrms4, lammin4, lammax4  ;
+  double lamavg, lamrms, lammin, lammax ;
   int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame  ;
   char cfilt[2];
   char fnam[] = "GEN_SNHOST_GALMAG" ;
@@ -8320,8 +8322,8 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs   = GENLC.IFILTMAP_OBS[ifilt];
     get_filtlam__(&opt_frame, &ifilt_obs, 
-		  &lamavg4, &lamrms4, &lammin4, &lammax4 );
-    LAMOBS_AVG = (double)lamavg4 ;
+		  &lamavg, &lamrms, &lammin, &lammax );
+    LAMOBS_AVG = lamavg ;
     MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
 
     // compute & store galaxy mag if they are defined

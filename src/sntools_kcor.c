@@ -3,7 +3,7 @@
   Translate fortran kcor-read utilities into C
 
   Test/debug with 
-    snlc_sim.exe <inFile> DEBUG_FLAG 555
+    snlc_sim.exe <inFile> USE_KCOR_REFACTOR 1
 
   NOT READY !!
 
@@ -62,18 +62,22 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
   // pass dump flags
   int DO_DUMP = KCOR_VERBOSE_FLAG ;
   if ( DO_DUMP ) {
-    addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_REST);
-    addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_OBS );
+    char BLANK[] = "";
+    addFilter_kcor(777, BLANK, &KCOR_INFO.FILTERMAP_REST);
+    addFilter_kcor(777, BLANK, &KCOR_INFO.FILTERMAP_OBS );
     printf("\n\n");
   }
 
   read_kcor_primarysed();
-  //   CALL RDKCOR_SUMMARY(KCORFILE,IERR)
+
+  read_kcor_summary();
 
 
   int istat = 0 ;
   fits_close_file(KCOR_INFO.FP, &istat); 
-  //  debugexit(fnam);
+
+  printf("\n %s: Done \n", fnam);
+  fflush(stdout);
 
   return ;
 
@@ -121,7 +125,7 @@ void read_kcor_init(void) {
     KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
   }
 
-  KCOR_VERBOSE_FLAG = 1 ;
+  KCOR_VERBOSE_FLAG = 0 ;
 
   addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_REST); // zero map
   addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_OBS ); // zero map
@@ -222,12 +226,14 @@ void read_kcor_head(void) {
   for(i=0; i < KCOR_INFO.NFILTDEF; i++ ) {
     sprintf(KEYWORD,"FILT%3.3d", i+1);
     KCOR_INFO.FILTER_NAME[i] = (char*)malloc(MEMC);
+    KCOR_INFO.SURVEY_NAME[i] = (char*)malloc(MEMC);
     SPTR=KCOR_INFO.FILTER_NAME[i];
     fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat);
 
     sprintf(c1err,"can't read %s", KEYWORD);
     snfitsio_errorCheck(c1err, istat);
-    // printf("\t\t Read %-*s  = '%s' \n", NUMPRINT, KEYWORD, SPTR );
+    //    printf("\t\t Read %-*s  = '%s'  comment=%s\n", 
+    //	   NUMPRINT, KEYWORD, SPTR, comment );
 
     if ( SPTR[0] == '*' ) { KCOR_INFO.ISLAMSHIFT[i] = true; }
 
@@ -240,6 +246,13 @@ void read_kcor_head(void) {
     // mark survey filters
     if ( strchr(KCOR_INFO.FILTERS_SURVEY,cfilt[0]) != NULL )  
       { KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF] = true;  }
+
+    // Nov 2022 
+    // comment has the form "name: SURVEY=[SURVEY]"
+    // so strip off SURVEY name per filter and store it.
+    char *eq    = strchr(comment, '=');
+    int  ind_eq = (int)(eq - comment);
+    sprintf(KCOR_INFO.SURVEY_NAME[i], "%s", &comment[ind_eq+1]);
 
   }  // end NFILTDEF loop
 
@@ -487,6 +500,7 @@ void read_kcor_zpoff(void) {
 		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
   snfitsio_errorCheck("Read PRIMARY_ZPOFF", istat);
 
+  
   // read optional ZPOFF from ZPOFF.DAT file in filter subDir.
   // This is typoically a post-publication hack to get mags
   // back on the desired system.
@@ -503,6 +517,7 @@ void read_kcor_zpoff(void) {
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
       iprim = KCOR_INFO.PRIMARY_INDX[ifilt];
+
       printf(" xxx %-14s %6s(%d)  %6.3f  %7.4f  %7.4f \n",
 	     KCOR_INFO.FILTER_NAME[ifilt],
 	     KCOR_INFO.PRIMARY_NAME[iprim], KCOR_INFO.PRIMARY_INDX[ifilt],
@@ -771,17 +786,20 @@ int ISBXFILT_KCOR(char *cfilt) {
 } // end ISBXFILT_KCOR
 
 // ===========================================
-void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
+void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
 
   // ifiltdev = 0     --> zero map, return
   // ifiltdef = 777   --> dump map
   // ifiltdef = 1 - N --> load map
   //
-  // NAME = full name of filter
+  // Inputs:
+  //    ifiltdef : absolute filter index
+  //    NAME     : full name of filter
+  //    MAP      : structure to malloc/load
 
   int OPT_FRAME = MAP->OPT_FRAME; // indicates REST or OBS
   int ifilt, NF;
-  char cfilt1[2] ;
+  char cfilt1[2], *SURVEY_NAME ;
   char fnam[] = "addFilter_kcor" ;
 
   // --------- BEGIN -----------
@@ -796,6 +814,8 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
       MAP->IFILTDEF_INV[ifilt]   = -9 ;
       MAP->FILTER_NAME[ifilt]    = (char*)malloc(40*sizeof(char) ) ;
       MAP->FILTER_NAME[ifilt][0] = 0;
+      MAP->SURVEY_NAME[ifilt]    = (char*)malloc(80*sizeof(char) ) ;
+      MAP->SURVEY_NAME[ifilt][0] = 0;
       MAP->NDEFINE[ifilt] = 0 ;
       MAP->PRIMARY_MAG[ifilt]   = 99.0 ;
       MAP->PRIMARY_ZPOFF_SYN[ifilt]  =  0.0 ;  // required
@@ -834,8 +854,17 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   MAP->IFILTDEF_INV[ifiltdef] = NF;
   MAP->IFILTDEF[NF]           = ifiltdef;
   strcat(MAP->FILTERSTRING,cfilt1);
-  sprintf(MAP->FILTER_NAME[NF], "%s", NAME);
+  sprintf(MAP->FILTER_NAME[NF], "%s", FILTER_NAME);
 
+
+  // find FILTER_NAME in KCOR_INFO and store assocated SURVEY_NAME
+  for (ifilt=0; ifilt < KCOR_INFO.NFILTDEF; ifilt++ ) {
+    if ( strcmp(FILTER_NAME,KCOR_INFO.FILTER_NAME[ifilt]) == 0 ) {
+      SURVEY_NAME = KCOR_INFO.SURVEY_NAME[ifilt] ;
+      sprintf(MAP->SURVEY_NAME[NF],"%s", SURVEY_NAME);
+    }
+  }
+  
   MAP->NFILTDEF++ ;
 
 
@@ -847,7 +876,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
 
   if ( kfilt < 0 ) {
     sprintf(c1err,"Could not find kfilt for ifiltdef=%d (%s)", 
-	    ifiltdef, NAME);
+	    ifiltdef, FILTER_NAME);
     sprintf(c2err,"Probably a code bug.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -973,8 +1002,7 @@ void init_kcor_indices(void) {
   int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
   int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
-  //  int  NFILTDEF_SURVEY = KCOR_INFO.NFILTDEF_SURVEY ;
-  //  char fnam[] = "init_kcor_indices";
+    char fnam[] = "init_kcor_indices";
 
   // -------------- BEGIN ----------------
 
@@ -1216,7 +1244,7 @@ void read_kcor_filters(void) {
   int MASK, IFILTDEF, IFILT_REST, IFILT_OBS ;
   long long FIRSTROW=1, FIRSTELEM=1 ;
   char FILTERLIST_READ[MXFILTINDX], *FILTER_NAME, FILTER_BAND[2];
-  
+  char *SURVEY_NAME ;
   char FRAME_REST[] = "REST" ;
   char FRAME_OBS[]  = "OBS" ;
   char fnam[] = "read_kcor_filters" ;
@@ -1246,6 +1274,7 @@ void read_kcor_filters(void) {
     MASK        = KCOR_INFO.MASK_FRAME_FILTER[ifilt] ;
     IFILTDEF    = KCOR_INFO.IFILTDEF[ifilt] ;
     FILTER_NAME = KCOR_INFO.FILTER_NAME[ifilt] ;
+    SURVEY_NAME = KCOR_INFO.SURVEY_NAME[ifilt] ;
     sprintf(FILTER_BAND, "%c", FILTERSTRING[IFILTDEF] );
     strcat(FILTERLIST_READ,FILTER_BAND);
 
@@ -1420,7 +1449,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   int OPT_FRAME = MAP->OPT_FRAME ;
   int MEMF  = NBL * sizeof(float);
   int ilam, ifilt ;
-  double LAM, TRANS, MEAN, SQRMS;
+  double LAM, TRANS, MEAN, SQRMS, LAMMIN=1.1E5, LAMMAX=0.0 ;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
   //  char fnam[] = "loadFilterTrans_kcor" ;
 
@@ -1447,6 +1476,10 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
     MAP->LAM[ifilt][ilam]   = (float)LAM ;
     MAP->TRANS[ifilt][ilam] = (float)TRANS ;
 
+    if ( TRANS > 1.0E-6  ) {
+      if ( LAMMIN > 1.0E5 ) { LAMMIN = LAM; }
+      LAMMAX = LAM;
+    }
   } // end ilam
 
   MEAN  = SUM1/SUM0;
@@ -1457,14 +1490,20 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   MAP->TRANS_MAX[ifilt] = TMAX;    // max trans
   MAP->LAMMEAN[ifilt]   = MEAN ;   // mean wavelength
   MAP->LAMRMS[ifilt]    = sqrt(SQRMS) ; // RMS wavelength
+  MAP->LAMRANGE[ifilt][0] = LAMMIN ;
+  MAP->LAMRANGE[ifilt][1] = LAMMAX ;
 
+  MAP->LAMRANGE_KCOR[ifilt][0] = -9.0 ; // compute later for rest-frame
+  MAP->LAMRANGE_KCOR[ifilt][1] = -9.0 ;
   
+  /* xxx
   printf(" xxx C: IFILTDEF=%2d  PRIMARY(MAG,ZPOFF) = %.3f, %.3f  (NBL=%d)\n",
 	 IFILTDEF, MAP->PRIMARY_MAG[ifilt], 
 	 MAP->PRIMARY_ZPOFF_SYN[ifilt], NBL );
+  xxx */
+
   fflush(stdout);
   
-
   return ;
 
 } // end loadFilterTrans_kcor
@@ -1566,7 +1605,413 @@ c read flux array
 
 } // end read_kcor_primarysed
 
+// ====================================
+void read_kcor_summary(void)  {
+
+  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  ifilt, ifiltdef, k;
+  double lamavg, lamrms, *lamrange, prim_mag, prim_zpoff;
+  char *NAME;
+  char dashLine[]  = 
+    "----------------------------------------------------------------------" ;
+  
+  char fnam[] = "read_kcor_summary" ;
+
+  // ------------- BEGIN ------------
+
+  print_banner(fnam);
+  
+  printf("  Primary Spectrum: %s \n", KCOR_INFO.PRIMARY_NAME[0]);
 
 
+  printf("\n  FILTER SUMMARY (RDKCOR) : \n");
+  printf("   internal                   LAM  LAM   rest-lam      primary\n");
+  printf("  index name                  AVG  RMS   kcor range    mag   ZP\n");
+  printf(" %s \n", dashLine);
+
+  // print filters in the same order as in the KCOR file,
+  // rather than in the order they appear in the FILTDEF_STRING .
+
+  /* xxx ?  
+  char fmt[] = 
+    "  %3d %-20.20s %6d %4d "
+    "%5d-%5d "
+    "%7.3f %7.3f\n" ;
+  xxx */
+
+  
+  for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
+    ifiltdef = KCOR_INFO.FILTERMAP_OBS.IFILTDEF[ifilt]; 
+    NAME     = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt] ;
+    lamavg   = KCOR_INFO.FILTERMAP_OBS.LAMMEAN[ifilt]; 
+    lamrms   = KCOR_INFO.FILTERMAP_OBS.LAMRMS[ifilt];     
+    prim_mag   = KCOR_INFO.FILTERMAP_OBS.PRIMARY_MAG[ifilt];
+    prim_zpoff = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_SYN[ifilt];
+
+    printf("  %3d %-20.20s %6d %4d %5d-%5d %7.3f %7.3f\n",
+	   ifiltdef, NAME, (int)(lamavg+0.5), (int)(lamrms+0.5),
+	   0,0,  prim_mag, prim_zpoff);
+    fflush(stdout);
+  }
 
 
+  // - - - - 
+  if ( NFILTDEF_REST > 0 )     { printf("\n"); }
+
+
+  for(ifilt=0; ifilt < NFILTDEF_REST; ifilt++ ) {
+    ifiltdef = KCOR_INFO.FILTERMAP_REST.IFILTDEF[ifilt]; 
+    NAME     = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt] ;
+    lamavg   = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt]; 
+    lamrms   = KCOR_INFO.FILTERMAP_REST.LAMRMS[ifilt];     
+
+    prim_mag   = KCOR_INFO.FILTERMAP_REST.PRIMARY_MAG[ifilt];
+    prim_zpoff = KCOR_INFO.FILTERMAP_REST.PRIMARY_ZPOFF_SYN[ifilt];
+
+    set_lamrest_range_KCOR(ifiltdef);
+    lamrange = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];     
+
+    printf("  %3d %-20.20s %6d %4d %5d-%5d %7.3f %7.3f\n",
+	   ifiltdef, NAME, (int)(lamavg+0.5), (int)(lamrms+0.5),
+	   (int)(lamrange[0]+0.5), (int)(lamrange[1]+0.5),  
+	   prim_mag, prim_zpoff);
+    fflush(stdout);
+  }
+
+
+  printf("\t NFILTDEF[SURVEY,REST] = %d %d \n",
+	 NFILTDEF_OBS, NFILTDEF_REST);
+
+
+  // - - - - - KCORs - - - - -
+  int NKCOR = KCOR_INFO.NKCOR_STORE ;
+  int ifiltdef_o, ifiltdef_r, ifilt_o, ifilt_r;
+  char *name_o, *name_r;
+  if ( NKCOR == 0 ) { return; }
+  printf("\n KCOR SUMMARY (%d tables)\n", NKCOR);
+  for(k=0; k < NKCOR; k++ ) {
+    ifiltdef_o = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][k] ;
+    ifiltdef_r = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][k] ;
+    ifilt_o    = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifiltdef_o];
+    ifilt_r    = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_r];
+    name_o     = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt_o];
+    name_r     = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt_r];
+    printf("     %3d Found %s table    (%d -> %d : %s -> %s)\n",
+	   k, KCOR_INFO.STRING_KCORSYM[k], ifiltdef_r, ifiltdef_o,
+	   name_r, name_o);
+  }
+
+  fflush(stdout);
+  return;
+
+} // end read_kcor_summary
+
+
+// =====================================
+void set_lamrest_range_KCOR(int ifiltdef) {
+
+  // Nov 2022
+  // Translate fortran subroutine SET_LAMREST_RANGE here,
+  // but leave out user-override feature based on SNLCINP
+  // input OVERRIDE_RESTLAM_BOUNDARY ... may add this later.
+  //
+  // Load LAMRANGE_KCOR[ifilt] for each rest-frame filter;
+  // used to pick rest-frame band for KCOR.
+
+  int  ifilt            = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef];
+  int  NFILTDEF_REST    = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  char *FILTERSTRING    = KCOR_INFO.FILTERMAP_REST.FILTERSTRING ;
+  double *LAMRANGE_KCOR = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];
+  double *LAMRANGE      = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt]; 
+  double lamavg         = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt];
+
+  int  ifilt_tmp, ifiltdef_tmp, ifiltdef_near[2], j ;
+  double lamavg_tmp, lamdif, lamdif_near[2];
+  char fnam[] = "set_lamrest_range_KCOR" ;
+  int LDMP = ( ifiltdef == -12 ) ; // 11=U, 12=B
+
+  // ------------ BEGIN -------------
+
+  // if rest-frame bands are Bessell UBVRI, use hard-wired boundaries
+  // for mlcs2k2.
+  if ( strncmp(FILTERSTRING, "UBVRI", 5) == 0 ) {
+    set_lamrest_range_UBVRI(ifiltdef);
+    return;
+  }
+
+  // find nearest rest-frame filter
+  lamdif_near[0] = 99999. ;
+  lamdif_near[1] = 99999. ;
+  ifiltdef_near[0] = -9;
+  ifiltdef_near[1] = -9;
+
+  for ( ifilt_tmp=0; ifilt_tmp < NFILTDEF_REST; ifilt_tmp++ ) {
+    ifiltdef_tmp = KCOR_INFO.FILTERMAP_REST.IFILTDEF[ifilt_tmp];
+    if ( ifiltdef_tmp == ifiltdef ) { continue; }
+    if ( ifiltdef_tmp == IFILTDEF_BESS_BX ) { continue; }
+
+    lamavg_tmp = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt_tmp];
+    lamdif     = fabs(lamavg_tmp - lamavg);
+
+    if ( lamavg_tmp < lamavg && lamdif < lamdif_near[0] ) {
+      lamdif_near[0]   = lamdif;
+      ifiltdef_near[0] = ifiltdef_tmp ;
+    }
+
+    if ( lamavg_tmp > lamavg && lamdif < lamdif_near[1] ) {
+      lamdif_near[1]   = lamdif;
+      ifiltdef_near[1] = ifiltdef_tmp;
+    }
+
+  } // end ifilt_tmp loop
+
+  // - - - -
+  // set extreme bound if there is no nbr filter
+  if ( ifiltdef_near[0] < 0 ) {
+    LAMRANGE_KCOR[0] = LAMRANGE[0] / 2.0 ;
+  }
+  if ( ifiltdef_near[1] < 0 ) {
+    LAMRANGE_KCOR[1] = LAMRANGE[1] + 1000.0 ;
+  }
+
+  // - - - - - - -
+  // if voisin filter has smaller LAMAVG,
+  // then look for where transmissions are the same
+  int iminmax, ifiltdef_nbr, ifilt_nbr, nbin_ovp, ilam, ilam_nbr;
+  double lamavg_nbr, lamovp, lamovp_avg;
+  double transmax, transmax_nbr, transdif_min=99999.9 ;
+  double trans, trans_nbr, transdif, trans_ovp, lam, lam_nbr ;
+  int nbin, nbin_nbr;
+  bool VALID;
+
+  for(iminmax=0; iminmax < 2; iminmax++ ) {
+
+    ifiltdef_nbr = ifiltdef_near[iminmax];
+    if ( ifiltdef_nbr < 0 ) { continue; }
+
+    //    printf(" xxx %s: iminmax=%d  filtdef=%d  ifiltdef_nbr=%d \n",
+    //	   fnam, iminmax ,ifiltdef, ifiltdef_nbr);
+
+    ifilt_nbr   = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_nbr];
+    if ( ifilt_nbr < 0 ) { continue; }
+
+    lamavg_nbr  = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt_nbr];
+    if ( lamavg_nbr == lamavg ) { continue; }
+
+    lamovp       = LAMRANGE[iminmax];
+    transmax     = KCOR_INFO.FILTERMAP_REST.TRANS_MAX[ifilt];
+    transmax_nbr = KCOR_INFO.FILTERMAP_REST.TRANS_MAX[ifilt_nbr];
+
+    nbin     = KCOR_INFO.FILTERMAP_REST.NBIN_LAM[ifilt];
+    nbin_nbr = KCOR_INFO.FILTERMAP_REST.NBIN_LAM[ifilt_nbr];
+    
+    transdif_min = 9999.0 ;
+    trans_ovp    = -9.0 ;
+    nbin_ovp     = 0 ;
+
+    for(ilam=0; ilam < nbin; ilam++ ) {
+      trans = KCOR_INFO.FILTERMAP_REST.TRANS[ifilt][ilam];
+      trans /= transmax; 
+      if ( trans < 1.0E-10 ) { continue; }
+
+      for(ilam_nbr=0; ilam_nbr < nbin_nbr; ilam_nbr++ ) {
+	trans_nbr = KCOR_INFO.FILTERMAP_REST.TRANS[ifilt_nbr][ilam_nbr];
+	trans_nbr /= transmax_nbr ;
+	if ( trans_nbr < 1.0E-10 ) { continue; }
+
+	lam     = KCOR_INFO.FILTERMAP_REST.LAM[ifilt][ilam];
+	lam_nbr = KCOR_INFO.FILTERMAP_REST.LAM[ifilt_nbr][ilam_nbr];
+	if ( fabs(lam-lam_nbr) > 1.0 ) { continue; }
+
+	transdif = fabs(trans - trans_nbr);       
+	if ( transdif < transdif_min ) {
+	  transdif_min = transdif ;
+	  trans_ovp    = trans_nbr;
+	  lamovp       = lam;
+	  nbin_ovp++ ;
+
+	  if ( LDMP ) {
+	    printf(" zzz transdif = %f - %f = %f  lam=%.1f/%1.f "
+		   "(ilam=%d/%d)\n",
+		   trans, trans_nbr, transdif, lam, lam_nbr, ilam, ilam_nbr);
+	  }
+
+	}
+
+      } // end ilam_nbr
+    } // end ilam 
+
+    if ( LDMP ) {
+      printf(" xxx ------------- iminmax=%d ------------- \n", iminmax);
+      printf(" xxx %s: ifiltdef=%d  transdif_min=%.3f at trans=%.5f (%d)\n",
+	     fnam, ifiltdef, transdif_min, trans_ovp, nbin_ovp);
+      printf(" xxx %s: lamavg=%.1f  lamavg_nbr=%.1f  lamovp=%.1f\n",
+	     fnam, lamavg, lamavg_nbr, lamovp );
+    }
+
+    // if LAMOVP is unphysical, take average of filter and nbr
+    lamovp_avg = 0.5 * (lamavg + lamavg_nbr);
+
+    VALID = lamovp >= lamavg_nbr  && lamovp <= lamavg ;
+    if ( iminmax==0 && !VALID ) { lamovp = lamovp_avg;  }
+
+    VALID = lamovp <= lamavg_nbr  && lamovp >= lamavg ;
+    if ( iminmax == 1 && !VALID ) { lamovp = lamovp_avg; }
+
+    // if the wavelength ranges do not overlap, take average
+    if ( nbin_ovp == 0 ) { lamovp = lamovp_avg; }
+
+    // finally, load wavelength edge in global
+    LAMRANGE_KCOR[iminmax] = lamovp;
+
+  } // end iminmax
+
+  // - - - - -
+
+  return;
+
+} // end set_lamrest_range_KCOR
+
+void set_lamrest_range_UBVRI(int ifiltdef) {
+
+  int  ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef];
+  double *LAMRANGE_KCOR = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];
+  char fnam[] = "set_lamrest_range_UBVRI";
+
+  // ----------- BEGIN ----------
+
+  
+  if ( ifiltdef == INTFILTER("U") ) {
+    LAMRANGE_KCOR[0] = 1000.0 ;
+    LAMRANGE_KCOR[1] = 3900.0 ;
+  }
+  else if ( ifiltdef == INTFILTER("B") ) {
+    LAMRANGE_KCOR[0] = 3900.0 ;
+    LAMRANGE_KCOR[1] = 4850.0 ;
+  }
+  else if ( ifiltdef == INTFILTER("X") ) {
+    LAMRANGE_KCOR[0] = 3615.0 ;
+    LAMRANGE_KCOR[1] = 5595.0 ;
+  }
+  else if ( ifiltdef == INTFILTER("V") ) {
+    LAMRANGE_KCOR[0] = 4850.0 ;
+    LAMRANGE_KCOR[1] = 5850.0 ;
+  }
+  else if ( ifiltdef == INTFILTER("R") ) {
+    LAMRANGE_KCOR[0] = 5850.0 ;
+    LAMRANGE_KCOR[1] = 7050.0 ;
+  }
+  else if ( ifiltdef == INTFILTER("I") ) {
+    LAMRANGE_KCOR[0] = 7050.0 ;
+
+    int  ifiltdef_Y = INTFILTER("Y");
+    int  ifilt_Y    = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_Y];
+    if ( ifilt_Y > 0 ) {
+      LAMRANGE_KCOR[1] = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt_Y][1];
+    }
+    else {
+      LAMRANGE_KCOR[1] = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt][1];
+    }
+  }
+
+  return;
+
+} // end set_lamrest_range_UBVRI
+
+
+// =====================================================
+void get_kcor_primary(char *primary_name, int *nblam,
+                      double *lam, double *flux) {
+
+  // Created Nov 2022
+  // Return information about primary reference.
+ 
+  int  NBIN_LAM = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM_PRIMARY ;
+  int  ilam;
+  char fnam[] = "get_kcor_primary" ;
+
+  // ----------- BEGIN ----------
+
+  sprintf(primary_name, "%s", KCOR_INFO.PRIMARY_NAME[0]);
+
+  *nblam = NBIN_LAM ;
+
+  for(ilam=0; ilam < NBIN_LAM; ilam++ ) {
+    lam[ilam]  = (double)KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM[ilam];
+    flux[ilam] = (double)KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX[ilam];
+  }
+
+  return;
+} // end get_kcor_primary
+
+
+void get_kcor_filterTrans(int MASKFRAME, int ifiltdef, char *surveyName,
+                          char *filterName,
+                          double *magprim, int *nblam, double *lam,
+                          double *transSN, double *transREF) {
+
+  // Created Nov 2022
+  // Return information about filter "ifiltdef" and MASKFRAME = OBS or REST.
+  
+  KCOR_FILTERMAP_DEF *FILTERMAP;
+  int ifilt, ilam ;
+  char fnam[] = "get_kcor_filterTrans" ;
+
+  // ------------- BEGIN --------------
+
+  if ( MASKFRAME == MASK_FRAME_OBS ) 
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
+  else
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+
+  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+
+  sprintf(surveyName,"%s", FILTERMAP->SURVEY_NAME[ifilt] );
+  sprintf(filterName,"%s", FILTERMAP->FILTER_NAME[ifilt] );
+  *magprim   = FILTERMAP->PRIMARY_MAG[ifilt];
+  *nblam     = FILTERMAP->NBIN_LAM_PRIMARY ;
+
+  
+  printf(" xxx %s: survey=%s  filter=%s  nblam=%d magprim=%.3f\n",
+	 fnam, surveyName, filterName, *nblam, *magprim); fflush(stdout);
+
+  for(ilam=0; ilam < *nblam; ilam++ ) {
+    lam[ilam]      = FILTERMAP->LAM[ifilt][ilam];
+    transSN[ilam]  = FILTERMAP->TRANS[ifilt][ilam];
+    transREF[ilam] = FILTERMAP->TRANS[ifilt][ilam];
+  }
+
+  // TO-DO: check filter-update for SNLS that has filterTrans per SN
+
+  //.xyz
+  return;
+
+} // end of get_kcor_filterTrans
+
+
+// ===========================================================
+void get_kcor_filtlam_stats(int MASKFRAME, int ifiltdef,
+			    double *lamavg, double *lamrms,
+			    double *lammin, double *lammax) {
+
+  int  ifilt;
+  KCOR_FILTERMAP_DEF *FILTERMAP;
+  char fnam[] = "get_kcor_filtlam_stats" ;
+
+  // ----------- BEGIN ----------
+
+  if ( MASKFRAME == MASK_FRAME_OBS ) 
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
+  else
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+
+  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+
+  *lamavg = FILTERMAP->LAMMEAN[ifilt];
+  *lamrms = FILTERMAP->LAMRMS[ifilt];
+  *lammin = FILTERMAP->LAMRANGE[ifilt][0];
+  *lammax = FILTERMAP->LAMRANGE[ifilt][1];
+
+  return;
+} // end get_kcor_filtlam_stats

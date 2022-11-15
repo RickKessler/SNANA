@@ -5715,7 +5715,7 @@ void prep_user_input(void) {
 
   // ---------- BEGIN ----------
 
-  if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
+  if ( INPUTS.USE_KCOR_REFACTOR )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
@@ -12542,8 +12542,7 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   double  magprim8, lam8[MXLAMSIM], TransSN8[MXLAMSIM], TransREF8[MXLAMSIM];  
   int  ifilt, ifilt_obs, NLAM, ilam, MASKFRAME, isys ;
   FILE *fp_filt ;
-
-  //  char  fnam[] = "wr_SIMGEN_FILTERS" ;
+  char  fnam[] = "wr_SIMGEN_FILTERS" ;
 
   // ---------- BEGIN ------------
 
@@ -12574,8 +12573,14 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     // note that both the SN and REF trans are returned,
     // but for simulations they are always the same.
 
-    get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
-		    &magprim8, &NLAM, lam8, TransSN8, TransREF8, 80, 40 );
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+      get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
+		      &magprim8, &NLAM, lam8, TransSN8, TransREF8, 80, 40 );
+    }
+    else {
+      get_kcor_filterTrans(MASKFRAME, ifilt_obs, surveyName, filtName,
+			   &magprim8, &NLAM, lam8, TransSN8, TransREF8);
+    }
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
     sprintf(filtFile,"%s/%s.dat", PATH_FILTERS, cfilt );
@@ -20468,6 +20473,7 @@ int gen_cutwin(void) {
   // May 2018: check SATURATION  cuts
   // Jun 22 2018: fux bug initializing SNRMAX_FILT[icut][ifilt]
   // Aug 19 2018: apply HOST_ZPHOT cut
+  // Nov 15 2022: float -> double
 
   int 
     NEP, ep, i, icut, ifilt, ifilt_obs 
@@ -20475,7 +20481,8 @@ int gen_cutwin(void) {
     ,NTLIST, USE_TGAP, USE_T0GAP, LDMP, opt_frame, MEM
     ;
 
-  float 
+  // xxx mark  float 
+  double 
     SNR, trueSNR
     ,SNRMAX_FILT[MXCUTWIN_SNRMAX][MXFILTINDX] 
     ,SNRMAX_TMP[MXFILTINDX] 
@@ -20496,6 +20503,7 @@ int gen_cutwin(void) {
 
   // ------------ BEGIN -------------
 
+
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return SUCCESS; }
 
   // bail if no cuts and no dump are specified:
@@ -20509,7 +20517,7 @@ int gen_cutwin(void) {
 
   // if we get here, calcualte CUT-WINDOW variables.
   
-  LDMP = ( GENLC.CID == -991 ) ;
+  LDMP = ( GENLC.CID == -50005 ) ;
 
   if ( LDMP ) {
     printf("\n xxx ----------------------------------------------- \n");
@@ -20530,15 +20538,16 @@ int gen_cutwin(void) {
   // so make sure the MEM size can handle all filters.
   MEM=NEP; if (NEP < MXFILTINDX) { MEM=MXFILTINDX+1; }
 
-  TLIST      = malloc( MEM * sizeof(float) ) ;
+  TLIST      = malloc( MEM * sizeof(double) ) ;
   INDEX_SORT = malloc( MEM * sizeof(int)   ) ;
 
   for ( ifilt_obs=0; ifilt_obs < MXFILTINDX; ifilt_obs++ ) {
+
     SNRMAX_TMP[ifilt_obs]           = -9.0 ;
     GENLC.SNRMAX_FILT[ifilt_obs]    = -9.0 ;  
     GENLC.SNRMAX_SORTED[ifilt_obs]  = -9.0 ;  
     GENLC.SNRMAX_TRUE[ifilt_obs]    = -9.0 ;  
-    for ( icut=0; icut <= MXCUTWIN_SNRMAX; icut++ )
+    for ( icut=0; icut < MXCUTWIN_SNRMAX; icut++ )
       { SNRMAX_FILT[icut][ifilt_obs] = -9.0 ; }
   }
   GENLC.TIME_ABOVE_SNRMIN = 0.0 ;
@@ -20548,7 +20557,16 @@ int gen_cutwin(void) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     opt_frame = GENFRAME_OBS;
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
-    get_filtlam__(&opt_frame, &ifilt_obs,  &lamobs,&lamrms,&lammin,&lammax);
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+      // original/legacy fortran
+      get_filtlam__(&opt_frame, &ifilt_obs,
+		    &lamobs,&lamrms,&lammin,&lammax);
+    }
+    else {
+      // refactored
+      get_kcor_filtlam_stats(opt_frame, ifilt_obs,
+			     &lamobs, &lamrms, &lammin, &lammax);
+    }
     lamrest[ifilt_obs] = lamobs / z1 ;
   }
 
@@ -20583,7 +20601,7 @@ int gen_cutwin(void) {
 
   for ( ep = 1; ep <= NEP ; ep++ ) {
 
-    Trest  = (float)GENLC.epoch_rest[ep] ;
+    Trest  = GENLC.epoch_rest[ep] ;
     MJD    = GENLC.MJD[ep];
     MJDDIF = MJD - MJD_last ;
 
@@ -20665,7 +20683,7 @@ int gen_cutwin(void) {
     if ( SNR > INPUTS.CUTWIN_EPOCHS_SNRMIN &&
 	 strstr(INPUTS.CUTWIN_EPOCHS_FILTERS,cfilt)!=NULL  ) {
       if ( MJD_SNRMIN_FIRST < 0.01 ) { MJD_SNRMIN_FIRST = MJD; }
-      MJD_SNRMIN_LAST = MJD ;
+      MJD_SNRMIN_LAST = MJD ;  
     }
 
     MJD_last = MJD;
@@ -20708,7 +20726,8 @@ int gen_cutwin(void) {
 
 
   ORDER_SORT = -1; // decreasing order
-  sortFloat( NTMP, &SNRMAX_TMP[1], ORDER_SORT, &INDEX_SORT[1] );
+  // xxx  sortFloat( NTMP, &SNRMAX_TMP[1], ORDER_SORT, &INDEX_SORT[1] );
+  sortDouble( NTMP, &SNRMAX_TMP[1], ORDER_SORT, &INDEX_SORT[1] );
 
   for ( ifilt = 1; ifilt <= NTMP ; ifilt++ ) {
     isort = INDEX_SORT[ifilt] + 1 ; // fortran-line index
@@ -20764,10 +20783,11 @@ int gen_cutwin(void) {
     // INDEX_SORT is returned from CERNLIB function sortzv_
 
     ORDER_SORT = +1; // increasing order
-    sortFloat(NTLIST, &TLIST[1], ORDER_SORT, &INDEX_SORT[1] );
+    // xxx mark sortFloat(NTLIST, &TLIST[1], ORDER_SORT, &INDEX_SORT[1] );
+    sortDouble(NTLIST, &TLIST[1], ORDER_SORT, &INDEX_SORT[1] );
 
     Tlast = -999999. ;
-
+   
 
     for ( i=1; i<= NTLIST; i++ ) {
 
@@ -23087,7 +23107,6 @@ void init_genSEDMODEL(void) {
   // --------------------
   char  fnam[] = "init_genSEDMODEL" ;
   char   filtName[40], surveyName[80], cfilt[2]    ;
-  //  char  *survey = GENLC.SURVEY_NAME ;
 
   int 
     ifilt, ifilt_obs
@@ -23113,9 +23132,17 @@ void init_genSEDMODEL(void) {
 
   // -----------
   sprintf(GENLC.primary,"%s", "NULL");
-  get_primary__(GENLC.primary, &NLAM, 
-		genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
-  //		strlen(GENLC.primary) );
+
+  if ( INPUTS.USE_KCOR_LEGACY ) {
+    // legacy fortran get
+    get_primary__(GENLC.primary, &NLAM, 
+		  genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
+  }
+  else {
+    // refactored C get
+    get_kcor_primary(GENLC.primary, &NLAM, 
+		     genSEDMODEL.lam, genSEDMODEL.primaryFlux );
+  }
 
   init_primary_SEDMODEL( GENLC.primary, NLAM, 
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux );
@@ -23184,16 +23211,30 @@ void init_genSEDMODEL(void) {
     sprintf(filtName,"NULL") ;
     sprintf(surveyName,"NULL") ;
 
-    get_filttrans__(&MASKFRAME[ifilt],     // (I) obs/rest-frame mask
-		    &ifilt_obs,            // (I) absolute filter index
-		    surveyName,            // (I) name(s) of survey (11.2020)
-		    filtName,              // (O) full name of filter
-		    &magprim,              // (O) mag of primary ref 
-		    &NLAM,                 // (O) Number of lambda bins
-		    genSEDMODEL.lam,       // (O) lambda array 
-		    genSEDMODEL.TransSN,   // (O) filter trans 
-		    genSEDMODEL.TransREF,  // (O) idem
-		    80,40 ); 
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+      get_filttrans__(&MASKFRAME[ifilt],     // (I) obs/rest-frame mask
+		      &ifilt_obs,            // (I) absolute filter index
+		      surveyName,            // (I) name(s) of survey (11.2020)
+		      filtName,              // (O) full name of filter
+		      &magprim,              // (O) mag of primary ref 
+		      &NLAM,                 // (O) Number of lambda bins
+		      genSEDMODEL.lam,       // (O) lambda array 
+		      genSEDMODEL.TransSN,   // (O) filter trans 
+		      genSEDMODEL.TransREF,  // (O) idem
+		      80,40 ); 
+    }
+    else {
+      get_kcor_filterTrans(MASKFRAME[ifilt],  // (I) obs/rest-frame mask
+			   ifilt_obs,         // (I) absolute filter index
+			   surveyName,        // (I) name(s) of survey
+			   filtName,          // (O) full name of filter
+			   &magprim,          // (O) mag of primary ref 
+			   &NLAM,             // (O) Number of lambda bins
+			   genSEDMODEL.lam,     // (O) lambda array 
+			   genSEDMODEL.TransSN, // (O) filter trans 
+			   genSEDMODEL.TransREF // (O) idem
+			   );
+    }
 
     if ( NLAM > MXLAMSIM ) {
       sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] );
@@ -23376,12 +23417,24 @@ void init_kcor_legacy(char *kcorFile) {
 
     // get mean and RMS of filter-wavelength 
     OPT = GENFRAME_OBS ;
-    get_filtlam__(&OPT, &ifilt_obs
-		  ,&INPUTS.LAMAVG_OBS[ifilt_obs]
-		  ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-		  ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
-		  ,&INPUTS.LAMMAX_OBS[ifilt_obs]   
-		  );
+
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+      // legacy fortran
+      get_filtlam__(&OPT, &ifilt_obs
+		    ,&INPUTS.LAMAVG_OBS[ifilt_obs]
+		    ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
+		    ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
+		    ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
+    }
+    else {
+      // refactored C
+      get_kcor_filtlam_stats(OPT, ifilt_obs
+			     ,&INPUTS.LAMAVG_OBS[ifilt_obs]
+			     ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
+			     ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
+			     ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
+      }
+
   }  // end ifilt loop
 
 
@@ -23486,6 +23539,7 @@ void init_kcor_refactor(void) {
   READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS,
 		   MAGREST_SHIFT, MAGOBS_SHIFT );
 
+  // xxx mark delete  set_zpoff__(); // xxx REMOVE THIS
 
   NFILTDEF = KCOR_INFO.FILTERMAP_OBS.NFILTDEF;
 
@@ -23499,6 +23553,8 @@ void init_kcor_refactor(void) {
       // in kcor file(
       ZPOFF     = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_FILE[ifilt];
       INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += ZPOFF ;
+      printf(" xxx %s: ZPOFF = %4f for ifilt_obs=%d \n", 
+	     fnam, INPUTS.GENMAG_OFF_ZP[ifilt_obs], ifilt_obs);
     }
     
     NBIN = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM[ifilt];
@@ -23511,7 +23567,7 @@ void init_kcor_refactor(void) {
 
   }
 
-  debugexit(fnam);
+  //  debugexit(fnam);
 
   return ;
 
@@ -25807,7 +25863,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   //           Also call new functino get_genSmear(...)
   //
   // Jun 14 2016: load GENLC.MAGSMEAR_COH at end of function
-  //
+  // Nov 15 2022: float -> double for lam[xyz]
 
   int
     iep, opt_frame, ifilt_local
@@ -25822,7 +25878,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     ,Tep, Tpeak, Trest, lamrest, Z1, parList[10]
     ;
 
-  float lamavg4, lamrms4, lammin4, lammax4 ;
+  // xxx mark delete float lamavg4, lamrms4, lammin4, lammax4 ;
+  double lamavg, lamrms, lammin, lammax ;
   bool  USE_SMEARSIG = false;
   char cfilt[2];
   char fnam[] = "genmodelSmear" ;
@@ -25929,9 +25986,18 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     if ( USE_GENSMEAR_MODEL ) {
       // convert mean lambda of filter in obs frame to rest frame
       opt_frame = GENFRAME_OBS ;
-      get_filtlam__(&opt_frame, &ifilt_obs, 
-		    &lamavg4, &lamrms4, &lammin4, &lammax4 );
-      lamrest = (double)lamavg4 / ( 1.0 + z );   
+      if ( INPUTS.USE_KCOR_LEGACY ) {
+	// legacy fortran
+	get_filtlam__(&opt_frame, &ifilt_obs, 
+		      &lamavg, &lamrms, &lammin, &lammax );
+      }
+      else {
+	// refectoreed C
+	get_kcor_filtlam_stats(opt_frame, ifilt_obs, 
+			       &lamavg, &lamrms, &lammin, &lammax );
+      }
+
+      lamrest = (double)lamavg / ( 1.0 + z );   
       
       parList[0] = Trest;
       parList[1] = GENLC.SALT2x1;

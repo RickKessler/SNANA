@@ -25395,7 +25395,7 @@ C --------------- BEGIN --------------
       CALL FLUSH(6)            
 
 c set zeropoints
-      CALL SET_ZPOFF
+      CALL SET_ZPOFF()
 
       RETURN
       END  ! end RDKCOR
@@ -25990,6 +25990,7 @@ c find IPRIM index
      &    NFILTDEF_RDKCOR, nullf_rdkcor, 
      &    ZPOFF_PRIMARY_RDKCOR, anyf_rdkcor, istat)  ! return args
       CALL RDKCOR_ABORT(FNAM, 'ZPOFF_PRIMARY', ISTAT)
+
 
 
       CALL FTGCVe(LUN, ICOL_FILTER_ZPTOFF, firstrow, firstelem, 
@@ -26845,7 +26846,7 @@ c read flux array
 
 
 C ============================
-+DECK,RDKSUMM.
++DECK,RDKCOR_SUMM.
       SUBROUTINE RDKCOR_SUMMARY
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -32312,14 +32313,15 @@ c Return filter info; this is for C code to get info
 c from fortran commmon block.
 c 
 c July 2016: add arguments lammin, lammax
+c Nov 15 2022: REAL -> REAL*8 for output args
 
       IMPLICIT NONE
 
       INTEGER IFILT        ! (I) absolute filter index
       INTEGER OPT_FRAME    ! (I) 1=rest, 2=obs
 
-      REAL LAMAVG, LAMRMS  ! (O) info to return
-      REAL LAMMIN, LAMMAX  ! (O) added July 2016
+      REAL*8 LAMAVG, LAMRMS  ! (O) info to return
+      REAL*8 LAMMIN, LAMMAX  ! (O) added July 2016
 
 +CDE,SNPAR.
 +CDE,FILTCOM.

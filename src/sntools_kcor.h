@@ -66,6 +66,7 @@ typedef struct {
   int  NFILT_DUPLICATE;           // number of bands with duplicates
   char FILTERSTRING[MXFILT_KCOR]; // list of single-char bands
   char *FILTER_NAME[MXFILT_KCOR]; // full name of each filter, vs. sparse indx
+  char *SURVEY_NAME[MXFILT_KCOR];
 
   double PRIMARY_MAG[MXFILT_KCOR];
   double PRIMARY_ZPOFF_SYN[MXFILT_KCOR]; // from synthetic vs. native
@@ -79,6 +80,10 @@ typedef struct {
   double TRANS_MAX[MXFILT_KCOR];
   double LAMMEAN[MXFILT_KCOR], LAMRMS[MXFILT_KCOR];
   float *LAM[MXFILT_KCOR], *TRANS[MXFILT_KCOR];
+  double LAMRANGE[MXFILT_KCOR][2]; // range of TRANS > 0
+
+  // define rest-frame LAMRANGE for kcor lookup
+  double LAMRANGE_KCOR[MXFILT_KCOR][2]; 
 
 } KCOR_FILTERMAP_DEF ;
 
@@ -109,6 +114,7 @@ struct KCOR_INFO {
 
   int   NFILTDEF;
   char *FILTER_NAME[MXFILT_KCOR] ;
+  char *SURVEY_NAME[MXFILT_KCOR];
   int   IFILTDEF[MXFILT_KCOR] ; 
   int   MASK_FRAME_FILTER[MXFILT_KCOR]; // bits 0,1 --> rest, obs
   int   MASK_EXIST_BXFILT; // logical for BX existing for rest/obs frame
@@ -177,6 +183,8 @@ void read_kcor_primarysed(void);
 void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 		       KCOR_BININFO_DEF *BININFO) ;
 
+void read_kcor_summary(void);
+
 void parse_KCOR_STRING(char *STRING, 
 		       char *strKcor, char *cfilt_rest, char *cfilt_obs);
 int  ISBXFILT_KCOR(char *cfilt);
@@ -189,5 +197,20 @@ void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME );
 void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
 			  float *ARRAY_LAM, float *ARRAY_TRANS,
 			  KCOR_FILTERMAP_DEF *MAP);
+
+void set_lamrest_range_KCOR(int ifilt);
+void set_lamrest_range_UBVRI(int ifilt);
+
+void get_kcor_primary(char *primary_name, int *NBLAM, 
+		      double *lam, double *flux);
+
+void get_kcor_filterTrans(int MASKFRAME, int ifilt_obs, char *surveyName, 
+			  char *filterName,
+			  double *magprim, int *nblam, double *lam, 
+			  double *transSN, double *transREF);
+
+void get_kcor_filtlam_stats(int opt_frame, int ifilt_obs,  
+			    double *lamavg, double *lamrms,
+			    double *lammin, double *lammax);
 // end
 

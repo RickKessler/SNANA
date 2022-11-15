@@ -1006,6 +1006,7 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c \
+	$(SRC)/sntools_kcor.c \
 	$(SRC)/sntools_modelgrid_gen.c \
 	$(SRC)/sntools_data.c 	\
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \

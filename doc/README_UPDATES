@@ -21384,4 +21384,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c and create_covariance.py:
      + write consistent redshift name as zHD; see github issue 1052.
 
+   sntools_kcor.c[h]
+     + after 3 year break, continue translating fortran KCOR functions to C.
+
 END: 

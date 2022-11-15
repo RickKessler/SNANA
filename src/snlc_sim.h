@@ -778,10 +778,10 @@ struct INPUTS {
   char  GENFILTERS[MXFILTINDX];        // 'gri', 'grizY', etc ...
   int   NFILTDEF_OBS;
   int   IFILTMAP_OBS[MXFILTINDX];     // converts ifilt to ifilt_obs
-  float LAMAVG_OBS[MXFILTINDX];
-  float LAMRMS_OBS[MXFILTINDX];
-  float LAMMIN_OBS[MXFILTINDX];
-  float LAMMAX_OBS[MXFILTINDX];
+  double LAMAVG_OBS[MXFILTINDX];
+  double LAMRMS_OBS[MXFILTINDX];
+  double LAMMIN_OBS[MXFILTINDX];
+  double LAMMAX_OBS[MXFILTINDX];
 
   int   GENRANGE_DMPEVENT[2];  //dump events in this evt # range
   float GENRANGE_DMPTREST[2];  //dump rest-mags for this Trest-range
@@ -2063,6 +2063,7 @@ void INIT_FUDGE_SNRMAX(void);
 extern void init_snvar__(int *IERR);
 
 extern void rdkcor_(char *kcorFile, int *IERR, int len);
+extern void set_zpoff__(void);
 
 extern double get_maglc8__(int *ifilt, double *t8, double *z8, double *av8);
 
@@ -2077,8 +2078,8 @@ extern double get_avwarp8__(double *t8, double *z8,
 			    int *ifilt_1, int *ifilt_2, int *istat );
 
 extern void get_filtlam__(int *opt_frame, int *ifilt,
-			  float *lamavg, float *lamrms,
-			  float *lammin, float *lammax ) ;
+			  double *lamavg, double *lamrms,
+			  double *lammin, double *lammax ) ;
 
 extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 

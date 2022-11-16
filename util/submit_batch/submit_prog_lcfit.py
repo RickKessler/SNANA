@@ -1080,6 +1080,9 @@ class LightCurveFit(Program):
 
         #  - - - - -
         irow = 0
+        version_last  = "bla"
+        Finished_last = False
+ 
         for row in row_list_merge :
             row_list_merge_new.append(row) # default output is same as input
 
@@ -1093,7 +1096,15 @@ class LightCurveFit(Program):
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)
 
-            if not Finished  and n_state_change < nmax_state_change :
+            do_check_state = (not Finished  and n_state_change < nmax_state_change)
+
+            # avoid checking FITOPT files that have no chance when last
+            # FITOPT didn't finish. Make sure to check again when version updates.
+            if version == version_last and not Finished_last and not MERGE_LAST:
+                do_check_state = False
+
+            # - - - - - - - - - - - -  -
+            if do_check_state :
                 NEW_STATE = STATE
 
                 # get list of LOG, DONE, and YAML files 
@@ -1130,7 +1141,10 @@ class LightCurveFit(Program):
                     n_state_change += 1             # assume nevt changes
 
             irow += 1
+            version_last  = version
+            Finished_last = Finished
 
+        # - - - - - - - 
         # first return arg (row_split) is null since there is 
         # no need for a SPLIT table
         row_list_dict = {
@@ -1226,7 +1240,6 @@ class LightCurveFit(Program):
         n_job_split  = submit_info_yaml['N_JOB_SPLIT']
         n_job_link   = submit_info_yaml['N_JOB_LINK']
         do_compress = n_job_split > 3  and n_job_link == 0
-        #do_compress = False   # doesn't work with merge_last ):
 
         if do_compress :
             suffix_tar_list = self.get_suffix_tar_list_lcfit()

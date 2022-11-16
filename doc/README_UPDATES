@@ -21390,4 +21390,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Remove GENLC.*SPECTROGRAPH* from snlc_sim.h[c], and define everything
    we need in INPUTS_SPECTRO struct in sntools_spectrograph.h.
 
+   submit_batch: LCFIT class has on-the-fly compression to reduce file count;
+      see https://github.com/RickKessler/SNANA/issues/1054
+
 END: 

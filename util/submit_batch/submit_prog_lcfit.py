@@ -1073,8 +1073,10 @@ class LightCurveFit(Program):
         n_state_change     = 0
         row_list_merge_new = []
 
-        if MERGE_LAST: 
-            NMAX_STATE_CHANGE = 9999999 # let everthing merge on last core
+        if MERGE_LAST:
+            nmax_state_change = 9999999
+        else:
+            nmax_state_change = NMAX_STATE_CHANGE
 
         #  - - - - -
         irow = 0
@@ -1091,7 +1093,7 @@ class LightCurveFit(Program):
             Finished = (STATE == SUBMIT_STATE_DONE) or \
                        (STATE == SUBMIT_STATE_FAIL)
 
-            if not Finished  and n_state_change < NMAX_STATE_CHANGE :
+            if not Finished  and n_state_change < nmax_state_change :
                 NEW_STATE = STATE
 
                 # get list of LOG, DONE, and YAML files 
@@ -1218,12 +1220,45 @@ class LightCurveFit(Program):
         # move MERGE files, and remove 'MERGE_' prefix
         self.move_merge_table_files(version_fitopt_dict)
 
+        # Nov 15 2022
+        # compress this version_fitopt here to reduce file count for big jobs.
+        
+        n_job_split  = submit_info_yaml['N_JOB_SPLIT']
+        n_job_link   = submit_info_yaml['N_JOB_LINK']
+        do_compress = n_job_split > 3  and n_job_link == 0
+        #do_compress = False   # doesn't work with merge_last ):
+
+        if do_compress :
+            suffix_tar_list = self.get_suffix_tar_list_lcfit()
+            logging.info(f"  Compress {version_fitopt} for {suffix_tar_list}")
+            for suffix in suffix_tar_list :
+                wildcard = f"{version_fitopt}*SPLIT*.{suffix}"
+                tar_file = f"{version_fitopt}_SPLITALL_{suffix}.tar"
+                util.compress_files(+1, script_dir, wildcard, tar_file, "" )    
+ 
         logging.info("")
 
         if irow == 33333:
             sys.exit(f"\n\t xxxxx DEBUG DIE from fit wrapup ... xxxx ")
 
+        return
+
         # end merge_job_wrapup 
+
+    def get_suffix_tar_list_lcfit(self):
+
+        submit_info_yaml      = self.config_prep['submit_info_yaml']
+        use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
+
+        suffix_tar_list = JOB_SUFFIX_TAR_LIST.copy()
+        for itable in range(0,NTABLE_FORMAT):
+            use    = use_table_format[itable]
+            suffix = TABLE_SUFFIX_LIST[itable]
+            if use:
+                suffix_tar_list.append(suffix)
+
+        return suffix_tar_list
+        # end get_suffix_tar_list_lcfit
 
     def create_sym_link_tables(self, version, fitopt_num):
 
@@ -1816,19 +1851,14 @@ class LightCurveFit(Program):
             logging.info(f" FIT cleanup: all merged tables exist.")
 
         # if we get here, table-merging seems to have worked so tar and zip
+        # use *SPLIT*[suffix] so that it works on *SPLIT*.[suffix]
+        # and also on *SPLIT_[suffix].tar
 
-        logging.info(f" FIT cleanup: tar up files under {subdir}/")
-        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG", "" )
-        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML", "" )
-        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE", "" )
-
-        for itable in range(0,NTABLE_FORMAT):
-            use    = use_table_format[itable]
-            suffix = TABLE_SUFFIX_LIST[itable]
-            if use :
-                wildcard = f"*SPLIT*.{suffix}"
-                util.compress_files(+1, script_dir, wildcard, suffix, "" )
-                # ?? at some point, should delete these since merged table is there ??
+        suffix_tar_list = self.get_suffix_tar_list_lcfit()
+        logging.info(f" LCFIT cleanup: tar {suffix_tar_list} under {subdir}/")
+        for suffix in suffix_tar_list :
+            wildcard = f"*SPLIT*{suffix}*"
+            util.compress_files(+1, script_dir, wildcard,  suffix, "" )    
 
         logging.info(f" FIT cleanup: gzip merged tables.")
         cmd_gzip = f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null"

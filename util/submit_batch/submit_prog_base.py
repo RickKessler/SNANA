@@ -1479,7 +1479,12 @@ class Program:
 
         fnam = 'merge_driver_exit'
         t_merge_end = time.time()
-        t_merge     = t_merge_end - t_merge_start
+        
+        if t_merge_start is None:
+            t_merge = 0
+        else:
+            t_merge     = t_merge_end - t_merge_start
+
         if exit_flag :
             action = 'skipped'
         else:
@@ -1555,15 +1560,40 @@ class Program:
         #  + all DONE files to exist
         #  + no BUSY files from other merge process
         # 
+        # Nov 15 2022:
+        #  Adjust logic to count DONE files and DONE files contained
+        #  in already-compressed tar files.
 
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
         n_job_tot        = submit_info_yaml['N_JOB_TOT']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
         n_done_tot       = submit_info_yaml['N_DONE_TOT']
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR'] 
-        done_wildcard    = f"{jobfile_wildcard}.DONE"
-        util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
+        done_file_wildcard    = f"{jobfile_wildcard}.DONE"
+        done_tar_wildcard     = f"{jobfile_wildcard}DONE.tar.gz"
 
+        #util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
+        wait_for_all_done = True
+        ntry = 0
+        while wait_for_all_done :
+            done_file_list  = glob.glob1(script_dir, done_file_wildcard)
+            done_tar_list   = glob.glob1(script_dir, done_tar_wildcard)
+            n_done_file     = len(done_file_list)
+            n_done_tar      = len(done_tar_list) * n_job_split
+            n_done          = n_done_file + n_done_tar
+            ntry += 1
+            if n_done < n_done_tot :
+                if ntry > 1: time.sleep(20)
+                time_now        = datetime.datetime.now()
+                tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+                msg = f"\t Found {n_done} of {n_done_tot} files ({tstr})"
+                logging.info(msg)
+            else:
+                wait_for_all_done = False
+
+            
+        # - - - - - - - - - -  -
         time.sleep(1)
 
         # sleep until there are no more busy files.
@@ -2349,8 +2379,9 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
-            self.set_merge_busy_lock(-1)  # remove busy file Apr 24 2021
+            self.set_merge_busy_lock(-1, None)  # remove busy file Apr 24 2021
             util.log_assert(condition, msgerr)        
-            
+            return
+
 # ======= END OF FILE =========
 

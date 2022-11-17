@@ -714,6 +714,7 @@ typedef struct {
   int    IVAR_ZPRIOR;
   int    IVAR_SNTYPE, IVAR_SIM_GAMMADM;
   int    IVAR_pIa[MXFILE_DATA]; // track this variable for each file 
+  bool   REQUIRE_pIa;           // logical depends on event type
 
   int    NSN_PER_SURVEY[MXIDSURVEY] ;
   float  zMIN_PER_SURVEY[MXIDSURVEY] ;
@@ -1464,6 +1465,8 @@ int  reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 void copy_CUTWIN(int icut0,int icut1);
+int  icut_CUTWIN(char *varName) ;
+
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item, int wrflag);
@@ -5700,9 +5703,9 @@ void read_data_override(void) {
   int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
   int IVAR_OVER_zCMB = -9, IVAR_OVER_LOGMASS = -9 ;
   int NSN_CHANGE[MXVAR_OVERRIDE];
-  int nfile_over   = INPUTS.nfile_data_override;
-  int IVAR_GAMMA   = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
-  int debug_malloc = INPUTS.debug_malloc ;
+  int nfile_over     = INPUTS.nfile_data_override;
+  int ICUTWIN_GAMMA  = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
+  int debug_malloc   = INPUTS.debug_malloc ;
   int ifile_data, ifile_over, NROW;
   int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
   char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
@@ -5940,9 +5943,9 @@ void read_data_override(void) {
 	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
-	else if ( ivar_over == IVAR_OVER_LOGMASS && IVAR_GAMMA >= 0 ) {
+	else if ( ivar_over == IVAR_OVER_LOGMASS && ICUTWIN_GAMMA >= 0 ) {
 	  double logmass = dval;
-	  INFO_DATA.TABLEVAR.CUTVAL[IVAR_GAMMA][isn] = logmass ;
+	  INFO_DATA.TABLEVAR.CUTVAL[ICUTWIN_GAMMA][isn] = logmass ;
 	}
 
 	// apply override AFTER checking zhd[err] overrides
@@ -6202,11 +6205,14 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   // Functions returns memory allocated in Mega-bytes
   //
   // Jun 30 2021: fix bug summing memory from malloc_float3D; see f_MEM
+  // Nov 17 2022: check REQUIRE_pIa to allocate pIa memory
+  //     (for biasCor and CCprior, read pIa only if cutwin(pIa) is defined)
 
-  int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
-  int IS_DATA    = (EVENT_TYPE == EVENT_TYPE_DATA);
-  //int IS_BIASCOR = (EVENT_TYPE == EVENT_TYPE_BIASCOR);
-  //  int IS_CCPRIOR = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
+  int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
+  bool IS_DATA      = (EVENT_TYPE == EVENT_TYPE_DATA);
+  bool IS_BIASCOR   = (EVENT_TYPE == EVENT_TYPE_BIASCOR);
+  bool IS_CCPRIOR   = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
+  bool REQUIRE_pIa  = TABLEVAR->REQUIRE_pIa;
 
   int MEMF    = LEN_MALLOC  * sizeof(float);
   int MEMI    = LEN_MALLOC  * sizeof(int);
@@ -6296,7 +6302,9 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
-    TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF; 
+
+    if ( REQUIRE_pIa ) 
+      { TABLEVAR->pIa  = (float *) malloc(MEMF); MEMTOT+=MEMF; } 
 
     MEMTOT += malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME_LOGMASS);
 
@@ -6398,7 +6406,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     for (i=0; i < NLCPAR_LOCAL ; i++ )
       { free(TABLEVAR->SIM_FITPAR[i]); }
 
-    free(TABLEVAR->pIa);
+    if ( REQUIRE_pIa ) { free(TABLEVAR->pIa); }
+
     if ( IS_DATA ) {
       free(TABLEVAR->mumodel);
     }
@@ -6629,10 +6638,12 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  Jun 16 2021: read explicit logmass rather than thru CUTWIN
   //  Mar 02 2022: read zPRIOR[ERR]
 
-  int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
-  int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
-  int IS_BIASCOR = ( EVENT_TYPE == EVENT_TYPE_BIASCOR);
-  //  int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR);
+  int  EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
+  bool IS_DATA      = ( EVENT_TYPE == EVENT_TYPE_DATA);
+  bool IS_BIASCOR   = ( EVENT_TYPE == EVENT_TYPE_BIASCOR);
+  bool IS_CCPRIOR   = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR);
+  bool REQUIRE_pIa  = TABLEVAR->REQUIRE_pIa ;
+  char *varname_pIa = INPUTS.varname_pIa ;
 
   int VBOSE = 1 ;  // verbose, but no abort on missing variable
   bool FIRSTFILE = ( ISTART == 0 ) ;
@@ -6831,18 +6842,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->COV_x1c[ISTART], 
 			  LEN, VBOSE );
 
-  char *varname_pIa = INPUTS.varname_pIa ;
-  bool APPLYCUT_pIa = INPUTS.APPLYCUT_pIa ;
-  bool read_pIa ;
-
-  if ( INPUTS.debug_flag == 1116 )
-    { read_pIa = ( strlen(varname_pIa) > 0 && (IS_DATA || APPLYCUT_pIa) ); }
-  else
-    { read_pIa = ( strlen(varname_pIa) > 0 ); }
-
-  if ( read_pIa ) {
+  // read pIa variable only if needed.
+  if ( REQUIRE_pIa ) {
     sprintf(vartmp,"%s:F", varname_pIa);
-    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART],
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
 				   LEN, VBOSE );
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
   }
@@ -7007,14 +7010,13 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   bool IS_DATA     = (EVENT_TYPE == EVENT_TYPE_DATA);
   bool IS_BIASCOR  = (EVENT_TYPE == EVENT_TYPE_BIASCOR);
   bool IS_SIM      = TABLEVAR->IS_SIM ; // data are sim
+  bool REQUIRE_pIa = TABLEVAR->REQUIRE_pIa;
 
   //  int IS_CCPRIOR  = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
   bool IDEAL       = (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool FIRST_EVENT = (ISN == 0) ;
   //  bool LAST_EVENT  = (ISN == TABLEVAR->NSN_ALL-1 );
   char *STRTYPE   = STRING_EVENT_TYPE[EVENT_TYPE];  
-
-  int IVAR_GAMMA   = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
 
   bool  DO_BIASCOR_SAMPLE = (INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE);
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
@@ -7189,7 +7191,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
 
 
-    if ( INPUTS.force_pIa >= 0.0 ) 
+    if ( INPUTS.force_pIa >= 0.0 && REQUIRE_pIa ) 
       { TABLEVAR->pIa[ISN] = INPUTS.force_pIa; } 
 
     if ( INPUTS.perfect_pIa )  {
@@ -7211,7 +7213,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   } // end IS_DATA
 
   // check option to force pIa = 1 for spec confirmed SNIa
-  if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
+  if ( force_probcc0(SNTYPE,IDSURVEY) && REQUIRE_pIa) 
+    { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
 
   IS_SPECZ  = IS_SPECZ_TABLEVAR(ISN,TABLEVAR); 
@@ -7474,17 +7477,16 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   //   Clarify error message for undefined pIa; 
   //   give explicit idsurvey and names.
   //
-  // Nov 16 2022: check APPLYCUT_pIa for USE_pIa
+  // Nov 16 2022: check REQUIRE_pIa
 
   char *INPFILE     = TABLEVAR->INPUT_FILE[ifile];
   int   FIRST_EVENT = TABLEVAR->EVENT_RANGE[ifile][0];
   int   LAST_EVENT  = TABLEVAR->EVENT_RANGE[ifile][1];
   int   IVAR_pIa    = TABLEVAR->IVAR_pIa[ifile];
+  bool  REQUIRE_pIa = TABLEVAR->REQUIRE_pIa ;
   char *varname_pIa = INPUTS.varname_pIa ;
   bool USE_PROBCC_ZERO = (INPUTS_PROBCC_ZERO.nidsurvey > 0 );
   int debug_malloc  = INPUTS.debug_malloc ;
-  bool IS_DATA      = (TABLEVAR->EVENT_TYPE == EVENT_TYPE_DATA);
-  bool APPLYCUT_pIa = INPUTS.APPLYCUT_pIa;
 
   char *survey, survey_missing_list[200];
   int evt, sntype, idsurvey, NFORCE, NOTFORCE ;
@@ -7503,9 +7505,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) 
     { NIDSURVEY_NOTFORCE[idsurvey] = 0 ; }
 
-  USE_pIa = ( strlen(varname_pIa) > 0 && ( IS_DATA || APPLYCUT_pIa) );
-
-  if ( USE_pIa ) {
+  if ( REQUIRE_pIa ) {
 
     // variable for probIa is defined.
     // default is that no events have forced pIa
@@ -9361,7 +9361,7 @@ void  read_simFile_biasCor(void) {
   int NROW, ISTART, IFILETYPE, ifile, LEN_MALLOC ;   
   int NEVT[MXFILE_BIASCOR], NEVT_TOT, NVAR_ORIG ;
   char *simFile ;
-  //  char fnam[] = "read_simFile_biasCor" ;
+  char fnam[] = "read_simFile_biasCor" ;
 
   // --------------- BEGIN ---------------
 
@@ -15940,7 +15940,7 @@ int ppar(char* item) {
     { sscanf(&item[14],"%i",&INPUTS.nzbin_ccprior); return(1); }
 
   if ( uniqueOverlap(item,"varname_pIa=")  ) {
-    s = INPUTS.varname_pIa ;
+    s = INPUTS.varname_pIa ; 
     sscanf(&item[12],"%s",s); remove_quote(s);  return(1);
   }
 
@@ -17301,6 +17301,27 @@ int usesim_CUTWIN(char *varName) {
 }
 
 
+int icut_CUTWIN(char *varName) {
+
+  // Created Nov 2022
+  // for input *varName, return icut index in INPUTS.CUTWIN_NAME array.
+  // Return -9 if there is no CUTWIN for *varName.
+
+  int  i, icut = -9;
+  char *tmpName;
+  char fnam[] = "icut_CUTWIN";
+
+  // ---------- BEGIN -----------
+
+  for(i=0; i < INPUTS.NCUTWIN; i++ ) {
+    tmpName = INPUTS.CUTWIN_NAME[i] ;
+    if ( strcmp(tmpName,varName) == 0 ) { icut = i ; }
+  }
+
+  return icut;
+
+} // end icut_CUTWIN
+
 // **************************************************
 void parse_FIELDLIST(char *item) {
 
@@ -17643,9 +17664,9 @@ void prep_input_driver(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
-  int ICUTWIN_VARNAME_PIA = INFO_DATA.TABLEVAR.ICUTWIN_VARNAME_PIA;
-  char *varname_pIa       = INPUTS.varname_pIa ;
-  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  char *varname_pIa  = INPUTS.varname_pIa ;
+  bool EXIST_pIa     = ( strlen(varname_pIa) > 0) ;
+  bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int i, icut;
   int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
@@ -17917,10 +17938,10 @@ void prep_input_driver(void) {
   }
 
   // check if there is a CUTWIN on pIa .xyz
-  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
-    char *tmpName = INPUTS.CUTWIN_NAME[icut] ;
-    if ( strcmp(tmpName,varname_pIa) == 0 ) { INPUTS.APPLYCUT_pIa=true; }
-  }
+  INPUTS.APPLYCUT_pIa = ( icut_CUTWIN(varname_pIa) >= 0 );
+  INFO_DATA.TABLEVAR.REQUIRE_pIa    = EXIST_pIa ;
+  INFO_BIASCOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
+  INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
 
   // prepare stuff related to gamma = HR step
   prep_input_gamma();
@@ -17971,6 +17992,7 @@ void prep_input_driver(void) {
   INFO_DATA.TABLEVAR.EVENT_TYPE    = EVENT_TYPE_DATA ;
   INFO_BIASCOR.TABLEVAR.EVENT_TYPE = EVENT_TYPE_BIASCOR ;
   INFO_CCPRIOR.TABLEVAR.EVENT_TYPE = EVENT_TYPE_CCPRIOR ;
+
 
   // Sep 2020: thread checks
   int nthread = INPUTS.nthread ;
@@ -18234,13 +18256,17 @@ void  prep_input_gamma(void) {
   // if not, then add it to ensure that varname_gamma is read
   // from data file.
   // Oct 29 2020: also replace varname_pIa with actual name
-  int icut, FOUND_GAMMA=0;
-  int NCUTWIN = INPUTS.NCUTWIN ;
-  char *tmpName;
+
+  int  icut;
+  bool FOUND_GAMMA = ( icut_CUTWIN(varname_gamma) >= 0 );
+
+  /* xxx mark delete Nov 17 2022 xxxxxxx
   for(icut=0; icut < NCUTWIN; icut++ ) {
     tmpName = INPUTS.CUTWIN_NAME[icut] ;
     if ( strcmp(tmpName,varname_gamma) == 0 ) { FOUND_GAMMA=1; }
   }
+  xxxxxxx end mark xxxxx*/
+
   if ( LDMP ) {
     if ( FOUND_GAMMA ) 
       { printf("\t %s already on CUTWIN list. \n", varname_gamma ); }
@@ -18248,7 +18274,7 @@ void  prep_input_gamma(void) {
       { printf("\t Append %s to CUTWIN list. \n", varname_gamma ); }
   }
 
-  if ( FOUND_GAMMA == 0 ) {
+  if ( !FOUND_GAMMA ) {
     INPUTS.NCUTWIN++ ;
     icut = INPUTS.NCUTWIN - 1;
     sprintf(INPUTS.CUTWIN_NAME[icut],"%s", varname_gamma);       

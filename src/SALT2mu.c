@@ -408,6 +408,9 @@ For help, run code with no arguments
 
  Sep 23 2022: abort if MUCOVADD and sigmB > 0.05 since.
 
+ Nov 16 2022: allow missing varname_pIa in biasCor/ccprior unless
+              there is a CUTWIN on pIa.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1131,6 +1134,7 @@ struct INPUTS {
   bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor
   bool   LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
   bool   LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
+  bool   APPLYCUT_pIa ;
 
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
@@ -5239,6 +5243,7 @@ void set_defaults(void) {
   INPUTS.USE_GAMMA0  = 0 ;
 
   INPUTS.LCUTWIN_DISABLE = false;
+  INPUTS.APPLYCUT_pIa    = false;
   init_CUTMASK();
 
 #ifdef USE_SUBPROCESS
@@ -6827,11 +6832,22 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 			  LEN, VBOSE );
 
   char *varname_pIa = INPUTS.varname_pIa ;
-  if ( strlen(varname_pIa) > 0 ) {
+  bool APPLYCUT_pIa = INPUTS.APPLYCUT_pIa ;
+  bool read_pIa ;
+
+  if ( INPUTS.debug_flag == 1116 )
+    { read_pIa = ( strlen(varname_pIa) > 0 && (IS_DATA || APPLYCUT_pIa) ); }
+  else
+    { read_pIa = ( strlen(varname_pIa) > 0 ); }
+
+  if ( read_pIa ) {
     sprintf(vartmp,"%s:F", varname_pIa);
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART],
 				   LEN, VBOSE );
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
+  }
+  else {
+    TABLEVAR->IVAR_pIa[IFILE] = -9; // flag that pIa is not read
   }
 
   char *varname_gamma = INPUTS.varname_gamma ;
@@ -7455,7 +7471,10 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   // if a subset of samples have extra columns from APPEND_FITRES.
   //
   // Oct 20 2020:
-  //   Clarify error message for undefined pIa; give explicit idsurvey and names.
+  //   Clarify error message for undefined pIa; 
+  //   give explicit idsurvey and names.
+  //
+  // Nov 16 2022: check APPLYCUT_pIa for USE_pIa
 
   char *INPFILE     = TABLEVAR->INPUT_FILE[ifile];
   int   FIRST_EVENT = TABLEVAR->EVENT_RANGE[ifile][0];
@@ -7463,10 +7482,13 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   int   IVAR_pIa    = TABLEVAR->IVAR_pIa[ifile];
   char *varname_pIa = INPUTS.varname_pIa ;
   bool USE_PROBCC_ZERO = (INPUTS_PROBCC_ZERO.nidsurvey > 0 );
-  int debug_malloc = INPUTS.debug_malloc ;
+  int debug_malloc  = INPUTS.debug_malloc ;
+  bool IS_DATA      = (TABLEVAR->EVENT_TYPE == EVENT_TYPE_DATA);
+  bool APPLYCUT_pIa = INPUTS.APPLYCUT_pIa;
 
   char *survey, survey_missing_list[200];
   int evt, sntype, idsurvey, NFORCE, NOTFORCE ;
+  bool USE_pIa ;
   int NIDSURVEY_NOTFORCE[MXIDSURVEY];
   char fnam[] = "store_input_varnames" ;
 
@@ -7481,7 +7503,9 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) 
     { NIDSURVEY_NOTFORCE[idsurvey] = 0 ; }
 
-  if ( strlen(varname_pIa) > 0 ) {
+  USE_pIa = ( strlen(varname_pIa) > 0 && ( IS_DATA || APPLYCUT_pIa) );
+
+  if ( USE_pIa ) {
 
     // variable for probIa is defined.
     // default is that no events have forced pIa
@@ -17804,8 +17828,6 @@ void prep_input_driver(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
   
-
-
   // if CCprior is not set then make sure to fix scalePCC and sigint
   if ( !USE_CCPRIOR  ) {
     if ( strlen(varname_pIa) > 0 ) {
@@ -17892,6 +17914,12 @@ void prep_input_driver(void) {
 	    INPUTS.zmin,INPUTS.zmax);
     sprintf(c2err,"Check inputs zmin and zmax");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
+  }
+
+  // check if there is a CUTWIN on pIa .xyz
+  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
+    char *tmpName = INPUTS.CUTWIN_NAME[icut] ;
+    if ( strcmp(tmpName,varname_pIa) == 0 ) { INPUTS.APPLYCUT_pIa=true; }
   }
 
   // prepare stuff related to gamma = HR step

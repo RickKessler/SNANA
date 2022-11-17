@@ -1182,10 +1182,8 @@ def get_survey_info(yaml_path):
     elif len(yaml_tar_list) > 0 :
         # read first file in 1st tar file
         tar_file = yaml_tar_list[0]
-        logging.info(f"\n xxx tar_file = {tar_file}\n")
         members  = tarfile.open(tar_file).getmembers()
         members_name = [m.name for m in members]
-        logging.info(f"\n\t xxx members_name = {members_name}\n\n ")
         member0      = members_name[0]
         with tarfile.open(tar_file).extractfile(member0) as r:
             yaml_info = yaml.safe_load(r)

@@ -1282,7 +1282,9 @@ class Program:
         if verbose_flag :
             logging.info(f"\n")
             logging.info(f"# =========================================== ")
-            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")
+            logging.info(f"# {fnam}: Begin at {tstr} ({Nsec})")            
+            if MERGE_LAST:
+                logging.info(f"# {fnam}: MERGE_LAST = {MERGE_LAST}")
 
         # need to re-compute output_dir to find submit info file
         output_dir,script_subdir = self.set_output_dir_name()
@@ -1582,17 +1584,20 @@ class Program:
             n_done_file     = len(done_file_list)
             n_done_tar      = len(done_tar_list) * n_job_split
             n_done          = n_done_file + n_done_tar
-            ntry += 1
-            if n_done < n_done_tot :
-                if ntry > 1: time.sleep(20)
-                time_now        = datetime.datetime.now()
-                tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
-                msg = f"\t Found {n_done} of {n_done_tot} files ({tstr})"
-                logging.info(msg)
-            else:
-                wait_for_all_done = False
+            time_now        = datetime.datetime.now()
+            tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+            msg = f"\t Found {n_done} of {n_done_tot} DONE files ({tstr})"
+            logging.info(msg)
 
-            
+            ntry += 1
+            if n_done != n_done_tot :
+                if ntry > 1: time.sleep(20)
+            else:
+                msg = f"\t    ({n_done_file} from DONE files, " \
+                      f"{n_done_tar} from tar files)"
+                logging.info(msg)
+                wait_for_all_done = False
+                
         # - - - - - - - - - -  -
         time.sleep(1)
 
@@ -1603,6 +1608,7 @@ class Program:
             time.sleep(5)
             n_busy,busy_list = self.get_busy_list()
 
+        logging.info("")
         return
 
         # end merge_last_wait

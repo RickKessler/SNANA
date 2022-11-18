@@ -3179,8 +3179,8 @@ c functions
      &  ,init_redshift_sedmodel
      &  ,init_mwxt_sedmodel
      &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL 
-     &  ,GET_KCOR_PRIMARY       ! refac
-     &  ,GET_KCOR_FILTERTRANS   ! refac
+     &  ,GET_CALIB_PRIMARY       ! refac
+     &  ,GET_CALIB_FILTERTRANS   ! refac
 
 C ------------------- BEGIN ---------------
 
@@ -3198,7 +3198,7 @@ c init primary spectrum
          ISTAT = INIT_PRIMARY_SEDMODEL(tmpname(1:LEN1)//char(0),
      &                    NLAM,LAM,VALa,LEN1)
       ELSE
-         CALL GET_KCOR_PRIMARY(tmpname, NLAM, LAM, VALa, 20)
+         CALL GET_CALIB_PRIMARY(tmpname, NLAM, LAM, VALa, 20)
          ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
       ENDIF
 
@@ -3262,7 +3262,7 @@ c VALa = transSN, VALb = transREF8
          else
              ! refactored C code
             OPT_FRAME = OPT_FILTOBS - 1 ! fortran -> C
-            CALL GET_KCOR_FILTERTRANS(OPT_FRAME, ifilt_obs,     ! (I)
+            CALL GET_CALIB_FILTERTRANS(OPT_FRAME, ifilt_obs,     ! (I)
      &           SURVEY_NAME_FILTER, CFILT, MAGPRIM,            ! (O)
      &           NLAM, LAM, VALa, VALb,                         ! (O)
      &           40, 40 )       

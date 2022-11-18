@@ -320,7 +320,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_dataformat_text.o	\
 	$(OBJ)/sntools_data.o 			\
 	$(OBJ)/sntools_modelgrid_read.o \
-	$(OBJ)/sntools_kcor.o \
+	$(OBJ)/sntools_calib.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/minuit.o		\
@@ -653,7 +653,7 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o $(OBJ_SNTOOLS_DATA)
 	$(LIB)/libsnana.a  	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/sntools_kcor.o 	\
+	$(OBJ)/sntools_calib.o 	\
 	$(OBJ_SNTOOLS_DATA) 	\
 	$(LCFITSIO)  $(LGSL) 	\
 	$(LCERN)  $(LROOT) -lm $(CPPLIB)
@@ -806,9 +806,9 @@ $(OBJ)/sntools_data.o : $(SRC)/sntools_data.c $(SRC)/sntools_data.h $(SRC)/sndat
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_data.c )
 
 # ---------
-$(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
+$(OBJ)/sntools_calib.o : $(SRC)/sntools_calib.c $(SRC)/sntools_calib.h $(SRC)/sndata.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_calib.c )
 
 $(OBJ)/sntools_modelgrid_gen.o : $(SRC)/sntools_modelgrid_gen.c $(SRC)/sntools_modelgrid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
@@ -1006,7 +1006,7 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c \
-	$(SRC)/sntools_kcor.c \
+	$(SRC)/sntools_calib.c \
 	$(SRC)/sntools_modelgrid_gen.c \
 	$(SRC)/sntools_data.c 	\
 	$(SRC)/sntools_dataformat_fits.c $(SRC)/sntools_dataformat_text.c \

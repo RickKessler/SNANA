@@ -44,7 +44,7 @@
 #include "sntools_genSmear.h"
 #include "sntools_dataformat_fits.h"
 #include "sntools_dataformat_text.h"
-#include "sntools_kcor.h"
+#include "sntools_calib.h"
 #include "sntools_trigger.h" 
 #include "sntools_modelgrid.h"
 #include "sntools_spectrograph.h"
@@ -12587,8 +12587,8 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     }
     else {
       OPT_FRAME = GENFRAME_OBS - 1 ;  
-      get_kcor_filterTrans(OPT_FRAME, ifilt_obs, surveyName, filtName,
-			   &magprim, &NLAM, lam, TransSN, TransREF);
+      get_calib_filterTrans(OPT_FRAME, ifilt_obs, surveyName, filtName,
+			    &magprim, &NLAM, lam, TransSN, TransREF);
     }
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
@@ -20580,8 +20580,8 @@ int gen_cutwin(void) {
     else {
       // refactored
       opt_frame = OPT_FRAME_OBS;
-      get_kcor_filtlam_stats(opt_frame, ifilt_obs,
-			     &lamobs, &lamrms, &lammin, &lammax);
+      get_calib_filtlam_stats(opt_frame, ifilt_obs,
+			      &lamobs, &lamrms, &lammin, &lammax);
     }
     lamrest[ifilt_obs] = lamobs / z1 ;
   }
@@ -23156,8 +23156,8 @@ void init_genSEDMODEL(void) {
   }
   else {
     // refactored C get
-    get_kcor_primary(GENLC.primary, &NLAM, 
-		     genSEDMODEL.lam, genSEDMODEL.primaryFlux );
+    get_calib_primary(GENLC.primary, &NLAM, 
+		      genSEDMODEL.lam, genSEDMODEL.primaryFlux );
   }
 
   /* xxxx
@@ -23251,16 +23251,16 @@ void init_genSEDMODEL(void) {
 		      80,40 ); 
     }
     else {
-      get_kcor_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
-			   ifilt_obs,         // (I) absolute filter index
-			   surveyName,        // (I) name(s) of survey
-			   filtName,          // (O) full name of filter
-			   &magprim,          // (O) mag of primary ref 
-			   &NLAM,             // (O) Number of lambda bins
-			   genSEDMODEL.lam,     // (O) lambda array 
-			   genSEDMODEL.TransSN, // (O) filter trans 
-			   genSEDMODEL.TransREF // (O) idem
-			   ); 
+      get_calib_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
+			    ifilt_obs,         // (I) absolute filter index
+			    surveyName,        // (I) name(s) of survey
+			    filtName,          // (O) full name of filter
+			    &magprim,          // (O) mag of primary ref 
+			    &NLAM,             // (O) Number of lambda bins
+			    genSEDMODEL.lam,     // (O) lambda array 
+			    genSEDMODEL.TransSN, // (O) filter trans 
+			    genSEDMODEL.TransREF // (O) idem
+			    ); 
     }
 
     /* xxxxx
@@ -23463,12 +23463,12 @@ void init_kcor_legacy(char *kcorFile) {
     else {
       // refactored C
       OPT = OPT_FRAME_OBS ;
-      get_kcor_filtlam_stats(OPT, ifilt_obs
-			     ,&INPUTS.LAMAVG_OBS[ifilt_obs]
+      get_calib_filtlam_stats(OPT, ifilt_obs
+			      ,&INPUTS.LAMAVG_OBS[ifilt_obs]
 			     ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-			     ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
-			     ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
-      }
+			      ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
+			      ,&INPUTS.LAMMAX_OBS[ifilt_obs]   );
+    }
 
   }  // end ifilt loop
 
@@ -23549,12 +23549,12 @@ void init_kcor_refactor(void) {
 
   // ------------ BEGIN -------------
 
-  KCOR_INFO.NCALL_READ = 0 ;
+  CALIB_INFO.NCALL_READ = 0 ;
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
     { MAGOBS_SHIFT[ifilt] = MAGREST_SHIFT[ifilt] = 0.0 ; }
 
-  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, INPUTS.GENFILTERS,
-		   MAGREST_SHIFT, MAGOBS_SHIFT );
+  READ_CALIB_DRIVER(INPUTS.KCOR_FILE, INPUTS.GENFILTERS,
+		    MAGREST_SHIFT, MAGOBS_SHIFT );
 
   // check for spectrograph information (for sim only)
   read_spectrograph_fits(INPUTS.KCOR_FILE) ;
@@ -23563,27 +23563,27 @@ void init_kcor_refactor(void) {
     extend_spectrograph_lambins();
   }
 
-  NFILTDEF = KCOR_INFO.FILTERMAP_OBS.NFILTDEF;
+  NFILTDEF = CALIB_INFO.FILTERCAL_OBS.NFILTDEF;
 
   for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
-    ifilt_obs = KCOR_INFO.FILTERMAP_OBS.IFILTDEF[ifilt];
+    ifilt_obs = CALIB_INFO.FILTERCAL_OBS.IFILTDEF[ifilt];
 
     if ( !ISMODEL_FIXMAG ) {
       // ZPOFF.DAT means filter system isn't right; here we simulate
       // incorrect mag system so that data and sim are corrected the
       // same way with offsets in ZPOFF.DAT file (which are stored
       // in kcor file(
-      ZPOFF     = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_FILE[ifilt];
+      ZPOFF     = CALIB_INFO.FILTERCAL_OBS.PRIMARY_ZPOFF_FILE[ifilt];
       INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += ZPOFF ;
     }
     
-    NBIN = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM[ifilt];
-    INPUTS.LAMAVG_OBS[ifilt_obs] = KCOR_INFO.FILTERMAP_OBS.LAMMEAN[ifilt];
-    INPUTS.LAMRMS_OBS[ifilt_obs] = KCOR_INFO.FILTERMAP_OBS.LAMRMS[ifilt];
+    NBIN = CALIB_INFO.FILTERCAL_OBS.NBIN_LAM[ifilt];
+    INPUTS.LAMAVG_OBS[ifilt_obs] = CALIB_INFO.FILTERCAL_OBS.LAMMEAN[ifilt];
+    INPUTS.LAMRMS_OBS[ifilt_obs] = CALIB_INFO.FILTERCAL_OBS.LAMRMS[ifilt];
     INPUTS.LAMMIN_OBS[ifilt_obs] = 
-      (double)KCOR_INFO.FILTERMAP_OBS.LAM[ifilt][0];
+      (double)CALIB_INFO.FILTERCAL_OBS.LAM[ifilt][0];
     INPUTS.LAMMAX_OBS[ifilt_obs] = 
-      (double)KCOR_INFO.FILTERMAP_OBS.LAM[ifilt][NBIN-1];
+      (double)CALIB_INFO.FILTERCAL_OBS.LAM[ifilt][NBIN-1];
 
   }
 
@@ -26014,8 +26014,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       else {
 	// refectoreed C
 	opt_frame = OPT_FRAME_OBS ;
-	get_kcor_filtlam_stats(opt_frame, ifilt_obs, 
-			       &lamavg, &lamrms, &lammin, &lammax );
+	get_calib_filtlam_stats(opt_frame, ifilt_obs, 
+				&lamavg, &lamrms, &lammin, &lammax );
       }
 
       lamrest = (double)lamavg / ( 1.0 + z );   

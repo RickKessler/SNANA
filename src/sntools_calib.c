@@ -5,6 +5,16 @@
   Test/debug with 
     snlc_sim.exe <inFile> USE_KCOR_REFACTOR 1
 
+  November 2022:
+  The original "kcor" notation referred to the kcor.exe program that
+  produced a table of K-corrections for MLCS. Later, filter and calib
+  info was added to the k-cor table storage, and with the invention
+  of SALT2, kcor tables no longer contained K-corrections.
+
+  Here the generic "kcor" notation has been replaced with "calib",
+  except when referring to explicit K-cor information.
+
+
   NOT READY !!
 
 ***************************************************/
@@ -13,19 +23,19 @@
 #include "sntools.h"
 #include "sntools_data.h"
 #include "sntools_dataformat_fits.h"
-#include "sntools_kcor.h" 
+#include "sntools_calib.h" 
 #include "sntools_spectrograph.h"
 #include "MWgaldust.h"
 
 
 // ======================================
-void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
+void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
 		      double *MAGREST_SHIFT_PRIMARY,
                       double *MAGOBS_SHIFT_PRIMARY ) {
 
   int ifilt;
   char BANNER[100];
-  char fnam[] = "READ_KCOR_DRIVER" ;
+  char fnam[] = "READ_CALIB_DRIVER" ;
 
   // ----------- BEGIN ---------------
 
@@ -34,69 +44,69 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
 
   // - - - - - - - 
   // store passed info in global struct
-  sprintf(KCOR_INFO.FILENAME, "%s", kcorFile) ;
-  sprintf(KCOR_INFO.FILTERS_SURVEY, "%s", FILTERS_SURVEY);
-  KCOR_INFO.NFILTDEF_SURVEY = strlen(FILTERS_SURVEY);
-  for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
-    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifilt] = MAGREST_SHIFT_PRIMARY[ifilt];
-    KCOR_INFO.MAGOBS_SHIFT_PRIMARY[ifilt]  = MAGOBS_SHIFT_PRIMARY[ifilt];
+  sprintf(CALIB_INFO.FILENAME, "%s", kcorFile) ;
+  sprintf(CALIB_INFO.FILTERS_SURVEY, "%s", FILTERS_SURVEY);
+  CALIB_INFO.NFILTDEF_SURVEY = strlen(FILTERS_SURVEY);
+  for(ifilt=0; ifilt < MXFILT_CALIB; ifilt++ ) {
+    CALIB_INFO.MAGREST_SHIFT_PRIMARY[ifilt] = MAGREST_SHIFT_PRIMARY[ifilt];
+    CALIB_INFO.MAGOBS_SHIFT_PRIMARY[ifilt]  = MAGOBS_SHIFT_PRIMARY[ifilt];
   }
 
   // - - - - - - 
-  read_kcor_init();
+  read_calib_init();
 
-  read_kcor_open();
+  read_calib_open();
 
-  read_kcor_head();
+  read_calib_head();
 
-  read_kcor_zpoff();
+  read_calib_zpoff();
 
-  read_kcor_snsed();
+  read_calib_snsed();
 
   read_kcor_tables();
 
-  read_kcor_mags();
+  read_calib_mags();
 
-  read_kcor_filters();
+  read_calib_filters();
 
   // pass dump flags
   int DO_DUMP = KCOR_VERBOSE_FLAG ;
   if ( DO_DUMP ) {
     char BLANK[] = "";
-    addFilter_kcor(777, BLANK, &KCOR_INFO.FILTERMAP_REST);
-    addFilter_kcor(777, BLANK, &KCOR_INFO.FILTERMAP_OBS );
+    addFilter_kcor(777, BLANK, &CALIB_INFO.FILTERCAL_REST);
+    addFilter_kcor(777, BLANK, &CALIB_INFO.FILTERCAL_OBS );
     printf("\n\n");
   }
 
-  read_kcor_primarysed();
+  read_calib_primarysed();
 
-  read_kcor_summary();
+  print_calib_summary();
 
 
   int istat = 0 ;
-  fits_close_file(KCOR_INFO.FP, &istat); 
+  fits_close_file(CALIB_INFO.FP, &istat); 
 
   printf("\n %s: Done \n", fnam);
   fflush(stdout);
 
   return ;
 
-} // end READ_KCOR_DRIVER
+} // end READ_CALIB_DRIVER
 
-void read_kcor_driver__(char *kcorFile, char *FILTERS_SURVEY,
+void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY,
                         double *MAGREST_SHIFT_PRIMARY,
                         double *MAGOBS_SHIFT_PRIMARY ) {
-  READ_KCOR_DRIVER(kcorFile, FILTERS_SURVEY, 
+  READ_CALIB_DRIVER(kcorFile, FILTERS_SURVEY, 
 		   MAGREST_SHIFT_PRIMARY, MAGOBS_SHIFT_PRIMARY );
-} // end read_kcor_driver__
+} // end read_calib_driver__
 
 // ===============================
-void read_kcor_init(void) {
+void read_calib_init(void) {
 
   int i, i2;
-  char *kcorFile = KCOR_INFO.FILENAME;
+  char *kcorFile = CALIB_INFO.FILENAME;
   char BLANK[] = "";
-  char fnam[] = "read_kcor_init" ;
+  char fnam[] = "read_calib_init" ;
 
   // ------------ BEGIN ------------
 
@@ -106,68 +116,68 @@ void read_kcor_init(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
-  KCOR_INFO.NCALL_READ++ ;
-  KCOR_INFO.NKCOR             = 0 ;
-  KCOR_INFO.NKCOR_STORE       = 0 ;
-  KCOR_INFO.NFILTDEF          = 0 ;
-  KCOR_INFO.NPRIMARY          = 0 ;
-  KCOR_INFO.NFLAMSHIFT        = 0 ;
-  KCOR_INFO.RVMW              = RV_MWDUST ;
-  KCOR_INFO.OPT_MWCOLORLAW    = OPT_MWCOLORLAW_ODON94 ;
-  KCOR_INFO.STANDALONE        = false ;
-  KCOR_INFO.MASK_EXIST_BXFILT = 0 ;
+  CALIB_INFO.NCALL_READ++ ;
+  CALIB_INFO.NKCOR             = 0 ;
+  CALIB_INFO.NKCOR_STORE       = 0 ;
+  CALIB_INFO.NFILTDEF          = 0 ;
+  CALIB_INFO.NPRIMARY          = 0 ;
+  CALIB_INFO.NFLAMSHIFT        = 0 ;
+  CALIB_INFO.RVMW              = RV_MWDUST ;
+  CALIB_INFO.OPT_MWCOLORLAW    = OPT_MWCOLORLAW_ODON94 ;
+  CALIB_INFO.STANDALONE        = false ;
+  CALIB_INFO.MASK_EXIST_BXFILT = 0 ;
 
-  for(i=0; i < MXFILT_KCOR; i++ ) {
-    KCOR_INFO.IFILTDEF[i]   = -9 ;
-    KCOR_INFO.ISLAMSHIFT[i] = false;
-    KCOR_INFO.MASK_FRAME_FILTER[i] = 0 ;
-    KCOR_INFO.IS_SURVEY_FILTER[i]  = false ;
+  for(i=0; i < MXFILT_CALIB; i++ ) {
+    CALIB_INFO.IFILTDEF[i]   = -9 ;
+    CALIB_INFO.ISLAMSHIFT[i] = false;
+    CALIB_INFO.MASK_FRAME_FILTER[i] = 0 ;
+    CALIB_INFO.IS_SURVEY_FILTER[i]  = false ;
 
-    for(i2=0; i2 < MXFILT_KCOR; i2++ ) 
-      { KCOR_INFO.EXIST_KCOR[i][i2] = false ; }
+    for(i2=0; i2 < MXFILT_CALIB; i2++ ) 
+      { CALIB_INFO.EXIST_KCOR[i][i2] = false ; }
   }
 
   for(i=0; i < MXTABLE_KCOR; i++ ) {
-    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i] = -9; 
-    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
+    CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i] = -9; 
+    CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
   }
 
   KCOR_VERBOSE_FLAG = 0 ;
 
-  addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_REST); // zero map
-  addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_OBS ); // zero map
-  KCOR_INFO.FILTERMAP_REST.OPT_FRAME = OPT_FRAME_REST ;
-  KCOR_INFO.FILTERMAP_OBS.OPT_FRAME  = OPT_FRAME_OBS  ;
+  addFilter_kcor(0, BLANK, &CALIB_INFO.FILTERCAL_REST); // zero map
+  addFilter_kcor(0, BLANK, &CALIB_INFO.FILTERCAL_OBS ); // zero map
+  CALIB_INFO.FILTERCAL_REST.OPT_FRAME = OPT_FRAME_REST ;
+  CALIB_INFO.FILTERCAL_OBS.OPT_FRAME  = OPT_FRAME_OBS  ;
 
   IFILTDEF_BESS_BX = INTFILTER("X");
  
   return ;
 
-} // end read_kcor_init
+} // end read_calib_init
 
 
 // ===============================
-void  read_kcor_open(void) {
+void  read_calib_open(void) {
 
   int istat=0;
   char kcorFile[MXPATHLEN] ;
-  char fnam[] = "read_kcor_open" ;
+  char fnam[] = "read_calib_open" ;
 
   // -------- BEGIN --------
 
-  sprintf(kcorFile, "%s", KCOR_INFO.FILENAME);
-  fits_open_file(&KCOR_INFO.FP, kcorFile, READONLY, &istat);
+  sprintf(kcorFile, "%s", CALIB_INFO.FILENAME);
+  fits_open_file(&CALIB_INFO.FP, kcorFile, READONLY, &istat);
 
   // if kcorFile doesn't exist, try reading from SNDATA_ROOT
   if ( istat != 0 ) {
     istat = 0;
     sprintf(kcorFile,"%s/kcor/%s", 
-	    getenv("SNDATA_ROOT"), KCOR_INFO.FILENAME);
-    fits_open_file(&KCOR_INFO.FP, kcorFile, READONLY, &istat);
+	    getenv("SNDATA_ROOT"), CALIB_INFO.FILENAME);
+    fits_open_file(&CALIB_INFO.FP, kcorFile, READONLY, &istat);
   }
 
   if ( istat != 0 ) {					       
-    sprintf(c1err,"Could not open %s", KCOR_INFO.FILENAME );  
+    sprintf(c1err,"Could not open %s", CALIB_INFO.FILENAME );  
     sprintf(c2err,"Check local dir and $SNDATA_ROOT/kcor");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -176,15 +186,15 @@ void  read_kcor_open(void) {
 
   return ;
 
-} // end read_kcor_open
+} // end read_calib_open
 
 
 // =============================
-void read_kcor_head(void) {
+void read_calib_head(void) {
 
   // Read FITS header keys
 
-  fitsfile *FP = KCOR_INFO.FP;
+  fitsfile *FP = CALIB_INFO.FP;
   int istat = 0, i, IFILTDEF, len ;
   char KEYWORD[40], comment[100], tmpStr[100], cfilt[2] ;
   int  NUMPRINT =  14;
@@ -192,31 +202,31 @@ void read_kcor_head(void) {
   //  int  memc     =  8*sizeof(char); // for malloc
 
   int *IPTR; double *DPTR; char *SPTR;
-  char fnam[] = "read_kcor_head" ;
+  char fnam[] = "read_calib_head" ;
 
   // --------- BEGIN ---------- 
   printf("   %s \n", fnam); fflush(stdout);
 
-  sprintf(KEYWORD,"VERSION");  IPTR = &KCOR_INFO.VERSION;
+  sprintf(KEYWORD,"VERSION");  IPTR = &CALIB_INFO.VERSION;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read VERSION", istat);
   printf("\t\t Read %-*s  = %d  (kcor.exe version) \n", 
 	 NUMPRINT, KEYWORD, *IPTR);
 
-  sprintf(KEYWORD,"NPRIM");  IPTR = &KCOR_INFO.NPRIMARY;
+  sprintf(KEYWORD,"NPRIM");  IPTR = &CALIB_INFO.NPRIMARY;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NPRIM", istat);
   printf("\t\t Read %-*s  = %d  primary refs \n", 
 	 NUMPRINT, KEYWORD, *IPTR );
 
   // read name of each primary
-  for(i=0; i < KCOR_INFO.NPRIMARY; i++ ) {
+  for(i=0; i < CALIB_INFO.NPRIMARY; i++ ) {
     sprintf(KEYWORD,"PRIM%3.3d", i+1); 
     fits_read_key(FP, TSTRING, KEYWORD, tmpStr, comment, &istat);
     // extract first word 
     SPTR = strtok(tmpStr," "); 
-    KCOR_INFO.PRIMARY_NAME[i] = (char*)malloc(MEMC);
-    sprintf(KCOR_INFO.PRIMARY_NAME[i],"%s",SPTR);
+    CALIB_INFO.PRIMARY_NAME[i] = (char*)malloc(MEMC);
+    sprintf(CALIB_INFO.PRIMARY_NAME[i],"%s",SPTR);
 
     sprintf(c1err,"can't read %s", KEYWORD);
     snfitsio_errorCheck(c1err, istat);
@@ -224,17 +234,17 @@ void read_kcor_head(void) {
   }
 
   // read NFILTERS
-  sprintf(KEYWORD,"NFILTERS");  IPTR = &KCOR_INFO.NFILTDEF;
+  sprintf(KEYWORD,"NFILTERS");  IPTR = &CALIB_INFO.NFILTDEF;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NFILTERS", istat);
   printf("\t\t Read %-*s  = %d  filters \n", NUMPRINT, KEYWORD, *IPTR );
   
   // read name of each filter
-  for(i=0; i < KCOR_INFO.NFILTDEF; i++ ) {
+  for(i=0; i < CALIB_INFO.NFILTDEF; i++ ) {
     sprintf(KEYWORD,"FILT%3.3d", i+1);
-    KCOR_INFO.FILTER_NAME[i] = (char*)malloc(MEMC);
-    KCOR_INFO.SURVEY_NAME[i] = (char*)malloc(MEMC);
-    SPTR=KCOR_INFO.FILTER_NAME[i];
+    CALIB_INFO.FILTER_NAME[i] = (char*)malloc(MEMC);
+    CALIB_INFO.SURVEY_NAME[i] = (char*)malloc(MEMC);
+    SPTR=CALIB_INFO.FILTER_NAME[i];
     fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat);
 
     sprintf(c1err,"can't read %s", KEYWORD);
@@ -242,37 +252,37 @@ void read_kcor_head(void) {
     //    printf("\t\t Read %-*s  = '%s'  comment=%s\n", 
     //	   NUMPRINT, KEYWORD, SPTR, comment );
 
-    if ( SPTR[0] == '*' ) { KCOR_INFO.ISLAMSHIFT[i] = true; }
+    if ( SPTR[0] == '*' ) { CALIB_INFO.ISLAMSHIFT[i] = true; }
 
     // store absolute filter index 
-    len = strlen(KCOR_INFO.FILTER_NAME[i]);
-    sprintf(cfilt, "%c", KCOR_INFO.FILTER_NAME[i][len-1] ) ;
+    len = strlen(CALIB_INFO.FILTER_NAME[i]);
+    sprintf(cfilt, "%c", CALIB_INFO.FILTER_NAME[i][len-1] ) ;
     IFILTDEF = INTFILTER(cfilt) ;
-    KCOR_INFO.IFILTDEF[i] = IFILTDEF ;
+    CALIB_INFO.IFILTDEF[i] = IFILTDEF ;
 	    
     // mark survey filters
-    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cfilt[0]) != NULL )  
-      { KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF] = true;  }
+    if ( strchr(CALIB_INFO.FILTERS_SURVEY,cfilt[0]) != NULL )  
+      { CALIB_INFO.IS_SURVEY_FILTER[IFILTDEF] = true;  }
 
     // Nov 2022 
     // comment has the form "name: SURVEY=[SURVEY]"
     // so strip off SURVEY name per filter and store it.
     char *eq    = strchr(comment, '=');
     int  ind_eq = (int)(eq - comment);
-    sprintf(KCOR_INFO.SURVEY_NAME[i], "%s", &comment[ind_eq+1]);
+    sprintf(CALIB_INFO.SURVEY_NAME[i], "%s", &comment[ind_eq+1]);
 
   }  // end NFILTDEF loop
 
-  int NFLAMSHIFT = KCOR_INFO.NFLAMSHIFT ;
-  int NFILTDEF   = KCOR_INFO.NFILTDEF ;
+  int NFLAMSHIFT = CALIB_INFO.NFLAMSHIFT ;
+  int NFILTDEF   = CALIB_INFO.NFILTDEF ;
 
   // - - - - - - 
 
   // check lam-shifted filters
   if ( NFLAMSHIFT > 0 ) {
     if ( NFLAMSHIFT == NFILTDEF/2 ) {
-      KCOR_INFO.ISLAMSHIFT[NFILTDEF] = true;
-      NFILTDEF = KCOR_INFO.NFILTDEF  = NFLAMSHIFT;
+      CALIB_INFO.ISLAMSHIFT[NFILTDEF] = true;
+      NFILTDEF = CALIB_INFO.NFILTDEF  = NFLAMSHIFT;
     }
     else {
       sprintf(c1err,"NFLAMSHIFT=%d != (NFILTDEF/2 =%d/2",
@@ -286,25 +296,25 @@ void read_kcor_head(void) {
   // read optional Galactic RV and color law used to warp spectra for k-corr.
   // Note that there is no abort on missing key.
 
-  sprintf(KEYWORD,"RV");  DPTR = &KCOR_INFO.RVMW ;
+  sprintf(KEYWORD,"RV");  DPTR = &CALIB_INFO.RVMW ;
   fits_read_key(FP, TDOUBLE, KEYWORD, DPTR, comment, &istat);
   if ( istat == 0 ) 
     { printf("\t\t Read %-*s  = %4.2f \n",   NUMPRINT, KEYWORD, *DPTR ); }
   istat = 0 ;
 
-  sprintf(KEYWORD,"OPT_MWCOLORLAW");  IPTR = &KCOR_INFO.OPT_MWCOLORLAW ;
+  sprintf(KEYWORD,"OPT_MWCOLORLAW");  IPTR = &CALIB_INFO.OPT_MWCOLORLAW ;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   if ( istat == 0 ) 
     { printf("\t\t Read %-*s  = %d \n",   NUMPRINT, KEYWORD, *IPTR ); }
   istat = 0 ;
   
   // read number of KCOR tables
-  sprintf(KEYWORD,"NKCOR");  IPTR = &KCOR_INFO.NKCOR ;
+  sprintf(KEYWORD,"NKCOR");  IPTR = &CALIB_INFO.NKCOR ;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NKCOR", istat);
   printf("\t\t Read %-*s  = %d  K-COR tables \n", NUMPRINT, KEYWORD, *IPTR );
   
-  int NKCOR = KCOR_INFO.NKCOR;
+  int NKCOR = CALIB_INFO.NKCOR;
   if ( NKCOR > MXTABLE_KCOR ) {
     sprintf(c1err,"NKCOR=%d exceeds bound of MXTABLE_KCOR=%d",
 	    NKCOR, MXTABLE_KCOR );
@@ -315,8 +325,8 @@ void read_kcor_head(void) {
   // kcor strings that define rest- and obs-frame bands
   for(i=0; i < NKCOR; i++ ) {
     sprintf(KEYWORD,"KCOR%3.3d", i+1);
-    KCOR_INFO.STRING_KCORLINE[i] = (char*)malloc(MEMC);
-    SPTR = KCOR_INFO.STRING_KCORLINE[i];
+    CALIB_INFO.STRING_KCORLINE[i] = (char*)malloc(MEMC);
+    SPTR = CALIB_INFO.STRING_KCORLINE[i];
     fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat);
 
     sprintf(c1err,"can't read %s", KEYWORD);
@@ -328,21 +338,21 @@ void read_kcor_head(void) {
   // - - - - - - - 
   // read bin info 
 
-  read_kcor_binInfo("wavelength", "L"  , MXLAMBIN_FILT,
-		    &KCOR_INFO.BININFO_LAM ); 
+  read_kcor_binInfo("wavelength", "L"  , MXLAMBIN_FILT_CALIB,
+		    &CALIB_INFO.BININFO_LAM ); 
   read_kcor_binInfo("epoch",      "T"  , MXTBIN_KCOR,
-		    &KCOR_INFO.BININFO_T ); 
+		    &CALIB_INFO.BININFO_T ); 
   read_kcor_binInfo("redshift",   "Z"  , MXZBIN_KCOR,
-		    &KCOR_INFO.BININFO_z ); 
+		    &CALIB_INFO.BININFO_z ); 
   read_kcor_binInfo("AV",         "AV" , MXAVBIN_KCOR,
-		    &KCOR_INFO.BININFO_AV ); 
+		    &CALIB_INFO.BININFO_AV ); 
 
-  KCOR_INFO.zRANGE_LOOKUP[0] = KCOR_INFO.BININFO_z.RANGE[0] ;
-  KCOR_INFO.zRANGE_LOOKUP[1] = KCOR_INFO.BININFO_z.RANGE[1] ;
+  CALIB_INFO.zRANGE_LOOKUP[0] = CALIB_INFO.BININFO_z.RANGE[0] ;
+  CALIB_INFO.zRANGE_LOOKUP[1] = CALIB_INFO.BININFO_z.RANGE[1] ;
 
   return ;
 
-} // end read_kcor_head
+} // end read_calib_head
 
 
 // ==================================================
@@ -357,7 +367,7 @@ void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
   //
   // Abort if number of bins exceeds MXBIN
 
-  fitsfile *FP = KCOR_INFO.FP;
+  fitsfile *FP = CALIB_INFO.FP;
   int istat = 0, i, NBIN ;
   char KEYWORD[20], comment[100];
   int *IPTR; double *DPTR;
@@ -415,18 +425,18 @@ void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 } // end read_kcor_binInfo
 
 // =============================
-void read_kcor_zpoff(void) {
+void read_calib_zpoff(void) {
 
   // read filter-dependent info:
   // PrimaryName  PrimaryMag  ZPTOFF(prim)  ZPTOFF(filt)
 
-  fitsfile *FP = KCOR_INFO.FP ;
-  int  NFILTDEF = KCOR_INFO.NFILTDEF ;
-  int  NPRIMARY = KCOR_INFO.NPRIMARY ; 
+  fitsfile *FP = CALIB_INFO.FP ;
+  int  NFILTDEF = CALIB_INFO.NFILTDEF ;
+  int  NPRIMARY = CALIB_INFO.NPRIMARY ; 
 
   int  hdutype, istat=0, ifilt, anynul, iprim, iprim_store ;
   char **NAME_PRIM, *tmpName ;
-  char fnam[] = "read_kcor_zpoff" ;
+  char fnam[] = "read_calib_zpoff" ;
 
   //  int ICOL_FILTER_NAME        = 1 ;
   int ICOL_PRIMARY_NAME       = 2 ;
@@ -456,7 +466,7 @@ void read_kcor_zpoff(void) {
     // find IPRIM index
     iprim_store = -9;
     for(iprim=0; iprim < NPRIMARY; iprim++ ) {
-      tmpName = KCOR_INFO.PRIMARY_NAME[iprim] ;
+      tmpName = CALIB_INFO.PRIMARY_NAME[iprim] ;
       if ( strcmp(NAME_PRIM[0],tmpName) == 0 ) { iprim_store = iprim; }      
     }
 
@@ -466,7 +476,7 @@ void read_kcor_zpoff(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
     }
 
-    KCOR_INFO.PRIMARY_INDX[ifilt] = iprim_store ;   
+    CALIB_INFO.PRIMARY_INDX[ifilt] = iprim_store ;   
   } // end ifilt
 
 
@@ -476,11 +486,11 @@ void read_kcor_zpoff(void) {
   // passed from optional ZPOFF.DAT file in $SNDATA_ROOT/filters.
 
   fits_read_col_dbl(FP, ICOL_PRIMARY_MAG, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, KCOR_INFO.PRIMARY_MAG, &anynul, &istat )  ;      
+		    NULL_1D, CALIB_INFO.PRIMARY_MAG, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read PRIMARY_MAG", istat);
 
   fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_SYN, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
+		    NULL_1D, CALIB_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
   snfitsio_errorCheck("Read PRIMARY_ZPOFF", istat);
 
   
@@ -488,7 +498,7 @@ void read_kcor_zpoff(void) {
   // This is typoically a post-publication hack to get mags
   // back on the desired system.
   fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_FILE, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF_FILE, &anynul, &istat );  
+		    NULL_1D, CALIB_INFO.PRIMARY_ZPOFF_FILE, &anynul, &istat );  
   snfitsio_errorCheck("Read PRIMARY_ZPOFF_FILE", istat);
 
   if ( KCOR_VERBOSE_FLAG  ) {
@@ -499,14 +509,14 @@ void read_kcor_zpoff(void) {
     printf(" xxx ----------------------------------------------------- \n");
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
-      iprim = KCOR_INFO.PRIMARY_INDX[ifilt];
+      iprim = CALIB_INFO.PRIMARY_INDX[ifilt];
 
       printf(" xxx %-14s %6s(%d)  %6.3f  %7.4f  %7.4f \n",
-	     KCOR_INFO.FILTER_NAME[ifilt],
-	     KCOR_INFO.PRIMARY_NAME[iprim], KCOR_INFO.PRIMARY_INDX[ifilt],
-	     KCOR_INFO.PRIMARY_MAG[ifilt],
-	     KCOR_INFO.PRIMARY_ZPOFF_SYN[ifilt],
-	     KCOR_INFO.PRIMARY_ZPOFF_FILE[ifilt] );
+	     CALIB_INFO.FILTER_NAME[ifilt],
+	     CALIB_INFO.PRIMARY_NAME[iprim], CALIB_INFO.PRIMARY_INDX[ifilt],
+	     CALIB_INFO.PRIMARY_MAG[ifilt],
+	     CALIB_INFO.PRIMARY_ZPOFF_SYN[ifilt],
+	     CALIB_INFO.PRIMARY_ZPOFF_FILE[ifilt] );
 	     
     }
     printf("\n");
@@ -514,34 +524,34 @@ void read_kcor_zpoff(void) {
 
   return ;
 
-} // end read_kcor_zpoff
+} // end read_calib_zpoff
 
 // =============================
-void read_kcor_snsed(void) {
+void read_calib_snsed(void) {
 
-  fitsfile *FP  = KCOR_INFO.FP ;
-  int  NBL      = KCOR_INFO.BININFO_LAM.NBIN;
-  int  NBT      = KCOR_INFO.BININFO_T.NBIN;
+  fitsfile *FP  = CALIB_INFO.FP ;
+  int  NBL      = CALIB_INFO.BININFO_LAM.NBIN;
+  int  NBT      = CALIB_INFO.BININFO_T.NBIN;
   long NROW     = NBL * NBT ;
   int  MEMF     = NROW*sizeof(float);
   long FIRSTROW = 1, FIRSTELEM=1 ;
   int  ICOL=1, istat=0, hdutype, anynul ;
-  char fnam[] = "read_kcor_snsed" ;
+  char fnam[] = "read_calib_snsed" ;
   // --------- BEGIN ----------
   printf("   %s \n", fnam); fflush(stdout);
 
-  KCOR_INFO.FLUX_SNSED_F = (float*) malloc(MEMF);
+  CALIB_INFO.FLUX_SNSED_F = (float*) malloc(MEMF);
 
   fits_movrel_hdu(FP, 1, &hdutype, &istat);
   snfitsio_errorCheck("Cannot move to SNSED table", istat);
 
   fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1E, KCOR_INFO.FLUX_SNSED_F, &anynul, &istat )  ;      
+		    NULL_1E, CALIB_INFO.FLUX_SNSED_F, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read FLUX_SNSED", istat);
 
   return ;
 
-} // end read_kcor_snsed
+} // end read_calib_snsed
 
 // =============================
 void read_kcor_tables(void) {
@@ -550,9 +560,9 @@ void read_kcor_tables(void) {
   // If there are no K-cor tables, then any SURVEY filter
   // is defined as an OBS filter. 
 
-  fitsfile *FP      = KCOR_INFO.FP ;
-  int NKCOR         = KCOR_INFO.NKCOR;
-  int NFILTDEF_KCOR = KCOR_INFO.NFILTDEF;
+  fitsfile *FP      = CALIB_INFO.FP ;
+  int NKCOR         = CALIB_INFO.NKCOR;
+  int NFILTDEF_KCOR = CALIB_INFO.NFILTDEF;
 
   int NKCOR_STORE = 0 ;
   int k, i, i2, icol, hdutype, istat=0, anynul, ifilt_rest, ifilt_obs, len ;
@@ -572,9 +582,9 @@ void read_kcor_tables(void) {
 
   for(k=0; k < NKCOR; k++ ) {
 
-    KCOR_INFO.STRING_KCORSYM[k] = (char*)malloc(8*sizeof(char) ); 
-    STRING_KLINE = KCOR_INFO.STRING_KCORLINE[k] ;
-    STRING_KSYM  = KCOR_INFO.STRING_KCORSYM[k] ; // e.g., K_xy
+    CALIB_INFO.STRING_KCORSYM[k] = (char*)malloc(8*sizeof(char) ); 
+    STRING_KLINE = CALIB_INFO.STRING_KCORLINE[k] ;
+    STRING_KSYM  = CALIB_INFO.STRING_KCORSYM[k] ; // e.g., K_xy
 
     parse_KCOR_STRING(STRING_KLINE, STRING_KSYM, cfilt_rest, cfilt_obs);
     ifilt_rest = INTFILTER(cfilt_rest);
@@ -586,29 +596,29 @@ void read_kcor_tables(void) {
     len = strlen(cfilt_rest); sprintf(cband_rest,"%c", cfilt_rest[len-1]);
     len = strlen(cfilt_obs ); sprintf(cband_obs, "%c", cfilt_obs[len-1]);
     
-    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cband_obs[0]) == NULL )  
+    if ( strchr(CALIB_INFO.FILTERS_SURVEY,cband_obs[0]) == NULL )  
       { continue; }
 
-    KCOR_INFO.EXIST_KCOR[ifilt_rest][ifilt_obs] = true ;
+    CALIB_INFO.EXIST_KCOR[ifilt_rest][ifilt_obs] = true ;
     
     // set mask for rest frame and/or observer frame
     for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
-      IFILTDEF    = KCOR_INFO.IFILTDEF[ifilt];
-      FILTER_NAME = KCOR_INFO.FILTER_NAME[ifilt];
+      IFILTDEF    = CALIB_INFO.IFILTDEF[ifilt];
+      FILTER_NAME = CALIB_INFO.FILTER_NAME[ifilt];
 
       if ( strcmp(FILTER_NAME,cfilt_rest) == 0 )
-	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ; }
+	{ CALIB_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ; }
 
       if ( strcmp(FILTER_NAME,cfilt_obs) == 0 )
-	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_OBS ; }
+	{ CALIB_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_OBS ; }
 
     } // end ifilt
 
     LBX0 = ISBXFILT_KCOR(cfilt_rest);
-    if ( LBX0 ) { KCOR_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_REST; }
+    if ( LBX0 ) { CALIB_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_REST; }
 
     LBX1 = ISBXFILT_KCOR(cfilt_obs);
-    if ( LBX1 ) { KCOR_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_OBS; }
+    if ( LBX1 ) { CALIB_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_OBS; }
 
 
     /* can't remember purpose of STANDALONE mode ... fix later 
@@ -630,32 +640,32 @@ void read_kcor_tables(void) {
     }
 
     // define new filter only if not already defined.
-    addFilter_kcor(ifilt_rest, cfilt_rest, &KCOR_INFO.FILTERMAP_REST);
-    addFilter_kcor(ifilt_obs,  cfilt_obs,  &KCOR_INFO.FILTERMAP_OBS );
+    addFilter_kcor(ifilt_rest, cfilt_rest, &CALIB_INFO.FILTERCAL_REST);
+    addFilter_kcor(ifilt_obs,  cfilt_obs,  &CALIB_INFO.FILTERCAL_OBS );
 
     // ??? if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) { continue; }   
 
-    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][NKCOR_STORE] = ifilt_rest; 
-    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][NKCOR_STORE]  = ifilt_obs ;
-    KCOR_INFO.k_index[NKCOR_STORE] = k;
+    CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][NKCOR_STORE] = ifilt_rest; 
+    CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][NKCOR_STORE]  = ifilt_obs ;
+    CALIB_INFO.k_index[NKCOR_STORE] = k;
     NKCOR_STORE++; 
-    KCOR_INFO.NKCOR_STORE = NKCOR_STORE ;
+    CALIB_INFO.NKCOR_STORE = NKCOR_STORE ;
 
   } // end k loop over KCOR tables
 
 
   // sanity check on number of rest,obs filters
-  int NFILT_REST = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int NFILT_OBS  = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
-  if ( NFILT_REST >= MXFILT_REST_KCOR ) {
+  int NFILT_REST = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  int NFILT_OBS  = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
+  if ( NFILT_REST >= MXFILT_REST_CALIB ) {
     sprintf(c1err,"NFILT_REST = %d exceeds bound of %d.",
-	    NFILT_REST, MXFILT_REST_KCOR);
+	    NFILT_REST, MXFILT_REST_CALIB);
     sprintf(c2err,"Check kcor input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  if ( NFILT_OBS >= MXFILT_OBS_KCOR ) {
+  if ( NFILT_OBS >= MXFILT_OBS_CALIB ) {
     sprintf(c1err,"NFILT_OBS = %d exceeds bound of %d.",
-	    NFILT_OBS, MXFILT_OBS_KCOR);
+	    NFILT_OBS, MXFILT_OBS_CALIB);
     sprintf(c2err,"Check kcor input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -671,12 +681,12 @@ void read_kcor_tables(void) {
 
 
   for(ifilt=0; ifilt < NFILTDEF_KCOR ; ifilt++ ) {
-    FILTER_NAME  = KCOR_INFO.FILTER_NAME[ifilt];
-    IFILTDEF = KCOR_INFO.IFILTDEF[ifilt];
+    FILTER_NAME  = CALIB_INFO.FILTER_NAME[ifilt];
+    IFILTDEF = CALIB_INFO.IFILTDEF[ifilt];
     if( ISBXFILT_KCOR(FILTER_NAME) ) {  // ensure 'BX', not BLABLA-X 
-      KCOR_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
-      KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
-      addFilter_kcor(IFILTDEF, FILTER_NAME, &KCOR_INFO.FILTERMAP_REST);
+      CALIB_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
+      CALIB_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
+      addFilter_kcor(IFILTDEF, FILTER_NAME, &CALIB_INFO.FILTERCAL_REST);
     }
   }
 
@@ -698,31 +708,31 @@ c            based on user input to &SNLCINP
 
   // read the actual KCOR table(s)
   long FIRSTROW = 1, FIRSTELEM=1 ;
-  int NBINTOT = KCOR_INFO.MAPINFO_KCOR.NBINTOT;
-  int NBT     = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_T];
-  int NBz     = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_z];
-  int NBAV    = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_AV];
+  int NBINTOT = CALIB_INFO.MAPINFO_KCOR.NBINTOT;
+  int NBT     = CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_T];
+  int NBz     = CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_z];
+  int NBAV    = CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_AV];
   int NROW    = NBT * NBz * NBAV;
 
   int ifilto, ifiltr, IBKCOR[NKDIM_KCOR], IBIN_FIRST, IBIN_LAST;;
   double KCOR_SHIFT;
 
   int MEMF    = NBINTOT * sizeof(float);
-  KCOR_INFO.KCORTABLE1D_F = (float*) malloc(MEMF);
-  for(k=0; k < NBINTOT; k++ ) { KCOR_INFO.KCORTABLE1D_F[k] = 9999.9; }
+  CALIB_INFO.KCORTABLE1D_F = (float*) malloc(MEMF);
+  for(k=0; k < NBINTOT; k++ ) { CALIB_INFO.KCORTABLE1D_F[k] = 9999.9; }
 
   // loop over kcor tables
   for(i=0; i < NKCOR_STORE; i++ ) {
-    ifilt_obs  = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i];
-    ifilt_rest = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i];
-    k          = KCOR_INFO.k_index[i]; // original index in FITS file
+    ifilt_obs  = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i];
+    ifilt_rest = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i];
+    k          = CALIB_INFO.k_index[i]; // original index in FITS file
     icol       = k + 4; // skip T,z,AV columns
-    STRING_KLINE = KCOR_INFO.STRING_KCORLINE[k] ; 
-    STRING_KSYM  = KCOR_INFO.STRING_KCORSYM[k] ; 
+    STRING_KLINE = CALIB_INFO.STRING_KCORLINE[k] ; 
+    STRING_KSYM  = CALIB_INFO.STRING_KCORSYM[k] ; 
     
     //     get sparse filter indices
-    ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifilt_obs]; 
-    ifiltr = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifilt_rest];
+    ifilto = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifilt_obs]; 
+    ifiltr = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifilt_rest];
 
     if ( ifilto < 0 ) {
       sprintf(c1err, "Unknown sparse index for ifilt_obs=%d", ifilt_obs);
@@ -744,17 +754,17 @@ c            based on user input to &SNLCINP
     IBIN_LAST   = IBIN_FIRST + NROW - 1 ;
 
     fits_read_col_flt(FP, icol, FIRSTROW, FIRSTELEM, NROW,
-		      NULL_1E, &KCOR_INFO.KCORTABLE1D_F[IBIN_FIRST], 
+		      NULL_1E, &CALIB_INFO.KCORTABLE1D_F[IBIN_FIRST], 
 		      &anynul, &istat )  ;      
     snfitsio_errorCheck("Read KCOR TABLE", istat);
 
     // apply user-defined parimary mag shifts  (e.g., systematic tests)
     KCOR_SHIFT = 
-      KCOR_INFO.MAGOBS_SHIFT_PRIMARY[ifilt_obs] -
-      KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifilt_rest] ;
+      CALIB_INFO.MAGOBS_SHIFT_PRIMARY[ifilt_obs] -
+      CALIB_INFO.MAGREST_SHIFT_PRIMARY[ifilt_rest] ;
 
     for(i2=IBIN_FIRST; i2 <= IBIN_LAST; i2++ ) 
-      { KCOR_INFO.KCORTABLE1D_F[i2] += (float)KCOR_SHIFT;  }
+      { CALIB_INFO.KCORTABLE1D_F[i2] += (float)KCOR_SHIFT;  }
 
   } // end i-loop to NKCOR_STORE
 
@@ -770,7 +780,7 @@ int ISBXFILT_KCOR(char *cfilt) {
 } // end ISBXFILT_KCOR
 
 // ===========================================
-void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
+void addFilter_kcor(int ifiltdef, char *FILTER_NAME, FILTERCAL_DEF *MAP){
 
   // ifiltdev = 0     --> zero map, return
   // ifiltdef = 777   --> dump map
@@ -793,7 +803,7 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
     MAP->NFILTDEF = 0;
     MAP->FILTERSTRING[0] =  0 ; 
     MAP->NFILT_DUPLICATE =  0 ;
-    for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
+    for(ifilt=0; ifilt < MXFILT_CALIB; ifilt++ ) {
       MAP->IFILTDEF[ifilt]       = -9 ; 
       MAP->IFILTDEF_INV[ifilt]   = -9 ;
       MAP->FILTER_NAME[ifilt]    = (char*)malloc(40*sizeof(char) ) ;
@@ -843,10 +853,10 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
   sprintf(MAP->FILTER_NAME[NF], "%s", FILTER_NAME);
 
 
-  // find FILTER_NAME in KCOR_INFO and store assocated SURVEY_NAME
-  for (ifilt=0; ifilt < KCOR_INFO.NFILTDEF; ifilt++ ) {
-    if ( strcmp(FILTER_NAME,KCOR_INFO.FILTER_NAME[ifilt]) == 0 ) {
-      SURVEY_NAME = KCOR_INFO.SURVEY_NAME[ifilt] ;
+  // find FILTER_NAME in CALIB_INFO and store assocated SURVEY_NAME
+  for (ifilt=0; ifilt < CALIB_INFO.NFILTDEF; ifilt++ ) {
+    if ( strcmp(FILTER_NAME,CALIB_INFO.FILTER_NAME[ifilt]) == 0 ) {
+      SURVEY_NAME = CALIB_INFO.SURVEY_NAME[ifilt] ;
       sprintf(MAP->SURVEY_NAME[NF],"%s", SURVEY_NAME);
     }
   }
@@ -855,15 +865,15 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
 
 
   // find original filter index from header to get primary mag & zpoff
-  int k, kfilt=-9, NFILTDEF_KCOR = KCOR_INFO.NFILTDEF ;
+  int k, kfilt=-9, NFILTDEF_KCOR = CALIB_INFO.NFILTDEF ;
   int  MASK_FRAME;
   bool MATCH_FRAME, MATCH_FILTER;
   char *NAME;
   for(k=0; k < NFILTDEF_KCOR; k++ ) {
-    MATCH_FILTER = ( KCOR_INFO.IFILTDEF[k] == ifiltdef );
+    MATCH_FILTER = ( CALIB_INFO.IFILTDEF[k] == ifiltdef );
     if ( !MATCH_FILTER ) { continue; }
     
-    MASK_FRAME   = KCOR_INFO.MASK_FRAME_FILTER[k] ; // rest or obs
+    MASK_FRAME   = CALIB_INFO.MASK_FRAME_FILTER[k] ; // rest or obs
     MATCH_FRAME  = ( MASK_FRAME & (1<<OPT_FRAME) ) > 0 ; 
 
     /* xxx
@@ -882,22 +892,22 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
   }
 
   // store index of primary to read later
-  MAP->PRIMARY_KINDX[NF] = KCOR_INFO.PRIMARY_INDX[kfilt] ;
+  MAP->PRIMARY_KINDX[NF] = CALIB_INFO.PRIMARY_INDX[kfilt] ;
 
   double *ptr_SHIFT;
   if ( OPT_FRAME == OPT_FRAME_REST ) 
-    { ptr_SHIFT = KCOR_INFO.MAGREST_SHIFT_PRIMARY; }
+    { ptr_SHIFT = CALIB_INFO.MAGREST_SHIFT_PRIMARY; }
   else
-    { ptr_SHIFT = KCOR_INFO.MAGOBS_SHIFT_PRIMARY; }
+    { ptr_SHIFT = CALIB_INFO.MAGOBS_SHIFT_PRIMARY; }
 
   MAP->PRIMARY_MAG[NF]  = 
-    KCOR_INFO.PRIMARY_MAG[kfilt] + ptr_SHIFT[ifiltdef] ;
+    CALIB_INFO.PRIMARY_MAG[kfilt] + ptr_SHIFT[ifiltdef] ;
 
   MAP->PRIMARY_ZPOFF_SYN[NF] = 
-    KCOR_INFO.PRIMARY_ZPOFF_SYN[kfilt] + ptr_SHIFT[ifiltdef] ;
+    CALIB_INFO.PRIMARY_ZPOFF_SYN[kfilt] + ptr_SHIFT[ifiltdef] ;
 
   MAP->PRIMARY_ZPOFF_FILE[NF] = 
-    KCOR_INFO.PRIMARY_ZPOFF_FILE[kfilt];
+    CALIB_INFO.PRIMARY_ZPOFF_FILE[kfilt];
 
   return ;
 
@@ -997,53 +1007,53 @@ void init_kcor_indices(void) {
   // prepares index-mappings from the multi-dimensional
   // space to the 1-d space.
 
-  int  NBIN_T          = KCOR_INFO.BININFO_T.NBIN ;
-  int  NBIN_z          = KCOR_INFO.BININFO_z.NBIN ;
-  int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
-  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  NBIN_T          = CALIB_INFO.BININFO_T.NBIN ;
+  int  NBIN_z          = CALIB_INFO.BININFO_z.NBIN ;
+  int  NBIN_AV         = CALIB_INFO.BININFO_AV.NBIN ;
+  int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
     char fnam[] = "init_kcor_indices";
 
   // -------------- BEGIN ----------------
 
-  if ( KCOR_INFO.NKCOR_STORE == 0 ) { return; }
+  if ( CALIB_INFO.NKCOR_STORE == 0 ) { return; }
  
-  sprintf(KCOR_INFO.MAPINFO_KCOR.NAME, "KCOR");
-  KCOR_INFO.MAPINFO_KCOR.IDMAP             = IDMAP_KCOR_TABLE ;
-  KCOR_INFO.MAPINFO_KCOR.NDIM              = NKDIM_KCOR;
-  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_T]      = NBIN_T ;
-  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_z]      = NBIN_z ;
-  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_AV]     = NBIN_AV ;
-  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTr] = NFILTDEF_REST ;
-  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTo] = NFILTDEF_OBS ;
-  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_KCOR);
+  sprintf(CALIB_INFO.MAPINFO_KCOR.NAME, "KCOR");
+  CALIB_INFO.MAPINFO_KCOR.IDMAP             = IDMAP_KCOR_TABLE ;
+  CALIB_INFO.MAPINFO_KCOR.NDIM              = NKDIM_KCOR;
+  CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_T]      = NBIN_T ;
+  CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_z]      = NBIN_z ;
+  CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_AV]     = NBIN_AV ;
+  CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTr] = NFILTDEF_REST ;
+  CALIB_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTo] = NFILTDEF_OBS ;
+  get_MAPINFO_KCOR("NBINTOT", &CALIB_INFO.MAPINFO_KCOR);
 
-  sprintf(KCOR_INFO.MAPINFO_AVWARP.NAME, "AVWARP");
-  KCOR_INFO.MAPINFO_AVWARP.IDMAP             = IDMAP_KCOR_AVWARP ;
-  KCOR_INFO.MAPINFO_AVWARP.NDIM              = N4DIM_KCOR;
-  KCOR_INFO.MAPINFO_AVWARP.NBIN[0]           = NBIN_T ;
-  KCOR_INFO.MAPINFO_AVWARP.NBIN[1]           = MXCBIN_AVWARP ;
-  KCOR_INFO.MAPINFO_AVWARP.NBIN[2]           = NFILTDEF_REST ;
-  KCOR_INFO.MAPINFO_AVWARP.NBIN[3]           = NFILTDEF_REST ;
-  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_AVWARP);
+  sprintf(CALIB_INFO.MAPINFO_AVWARP.NAME, "AVWARP");
+  CALIB_INFO.MAPINFO_AVWARP.IDMAP             = IDMAP_KCOR_AVWARP ;
+  CALIB_INFO.MAPINFO_AVWARP.NDIM              = N4DIM_KCOR;
+  CALIB_INFO.MAPINFO_AVWARP.NBIN[0]           = NBIN_T ;
+  CALIB_INFO.MAPINFO_AVWARP.NBIN[1]           = MXCBIN_AVWARP ;
+  CALIB_INFO.MAPINFO_AVWARP.NBIN[2]           = NFILTDEF_REST ;
+  CALIB_INFO.MAPINFO_AVWARP.NBIN[3]           = NFILTDEF_REST ;
+  get_MAPINFO_KCOR("NBINTOT", &CALIB_INFO.MAPINFO_AVWARP);
 
-  sprintf(KCOR_INFO.MAPINFO_LCMAG.NAME, "LCMAG");
-  KCOR_INFO.MAPINFO_LCMAG.IDMAP             = IDMAP_KCOR_LCMAG ;
-  KCOR_INFO.MAPINFO_LCMAG.NDIM              = N4DIM_KCOR;
-  KCOR_INFO.MAPINFO_LCMAG.NBIN[0]           = NBIN_T ;
-  KCOR_INFO.MAPINFO_LCMAG.NBIN[1]           = NBIN_z ;
-  KCOR_INFO.MAPINFO_LCMAG.NBIN[2]           = NBIN_AV ;
-  KCOR_INFO.MAPINFO_LCMAG.NBIN[3]           = NFILTDEF_REST ;
-  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_LCMAG);
+  sprintf(CALIB_INFO.MAPINFO_LCMAG.NAME, "LCMAG");
+  CALIB_INFO.MAPINFO_LCMAG.IDMAP             = IDMAP_KCOR_LCMAG ;
+  CALIB_INFO.MAPINFO_LCMAG.NDIM              = N4DIM_KCOR;
+  CALIB_INFO.MAPINFO_LCMAG.NBIN[0]           = NBIN_T ;
+  CALIB_INFO.MAPINFO_LCMAG.NBIN[1]           = NBIN_z ;
+  CALIB_INFO.MAPINFO_LCMAG.NBIN[2]           = NBIN_AV ;
+  CALIB_INFO.MAPINFO_LCMAG.NBIN[3]           = NFILTDEF_REST ;
+  get_MAPINFO_KCOR("NBINTOT", &CALIB_INFO.MAPINFO_LCMAG);
   
-  sprintf(KCOR_INFO.MAPINFO_MWXT.NAME, "MWXT");
-  KCOR_INFO.MAPINFO_MWXT.IDMAP             = IDMAP_KCOR_MWXT ;
-  KCOR_INFO.MAPINFO_MWXT.NDIM              = N4DIM_KCOR;
-  KCOR_INFO.MAPINFO_MWXT.NBIN[0]           = NBIN_T ;
-  KCOR_INFO.MAPINFO_MWXT.NBIN[1]           = NBIN_z ;
-  KCOR_INFO.MAPINFO_MWXT.NBIN[2]           = NBIN_AV ;
-  KCOR_INFO.MAPINFO_MWXT.NBIN[3]           = NFILTDEF_OBS ;
-  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_MWXT);
+  sprintf(CALIB_INFO.MAPINFO_MWXT.NAME, "MWXT");
+  CALIB_INFO.MAPINFO_MWXT.IDMAP             = IDMAP_KCOR_MWXT ;
+  CALIB_INFO.MAPINFO_MWXT.NDIM              = N4DIM_KCOR;
+  CALIB_INFO.MAPINFO_MWXT.NBIN[0]           = NBIN_T ;
+  CALIB_INFO.MAPINFO_MWXT.NBIN[1]           = NBIN_z ;
+  CALIB_INFO.MAPINFO_MWXT.NBIN[2]           = NBIN_AV ;
+  CALIB_INFO.MAPINFO_MWXT.NBIN[3]           = NFILTDEF_OBS ;
+  get_MAPINFO_KCOR("NBINTOT", &CALIB_INFO.MAPINFO_MWXT);
   
   // clear map IDs since RDKCOR can be called multiple times.
   clear_1DINDEX(IDMAP_KCOR_TABLE);
@@ -1052,10 +1062,10 @@ void init_kcor_indices(void) {
   clear_1DINDEX(IDMAP_KCOR_MWXT);
 
   // init multi-dimensional index maps
-  init_1DINDEX(IDMAP_KCOR_TABLE,  NKDIM_KCOR, KCOR_INFO.MAPINFO_KCOR.NBIN);
-  init_1DINDEX(IDMAP_KCOR_AVWARP, N4DIM_KCOR, KCOR_INFO.MAPINFO_AVWARP.NBIN);
-  init_1DINDEX(IDMAP_KCOR_LCMAG,  N4DIM_KCOR, KCOR_INFO.MAPINFO_LCMAG.NBIN);
-  init_1DINDEX(IDMAP_KCOR_MWXT,   N4DIM_KCOR, KCOR_INFO.MAPINFO_MWXT.NBIN);
+  init_1DINDEX(IDMAP_KCOR_TABLE,  NKDIM_KCOR, CALIB_INFO.MAPINFO_KCOR.NBIN);
+  init_1DINDEX(IDMAP_KCOR_AVWARP, N4DIM_KCOR, CALIB_INFO.MAPINFO_AVWARP.NBIN);
+  init_1DINDEX(IDMAP_KCOR_LCMAG,  N4DIM_KCOR, CALIB_INFO.MAPINFO_LCMAG.NBIN);
+  init_1DINDEX(IDMAP_KCOR_MWXT,   N4DIM_KCOR, CALIB_INFO.MAPINFO_MWXT.NBIN);
 
   return ;
 
@@ -1090,7 +1100,7 @@ void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO) {
 
 
 // =============================
-void read_kcor_mags(void) {
+void read_calib_mags(void) {
 
 
   // Read LCMAG table for each rest-filter,
@@ -1102,21 +1112,21 @@ void read_kcor_mags(void) {
   //
   // Store info only for filters that are used in a K-cor.
 
-  fitsfile *FP         = KCOR_INFO.FP ;
-  int  NBIN_T          = KCOR_INFO.BININFO_T.NBIN ;
-  int  NBIN_z          = KCOR_INFO.BININFO_z.NBIN ;
-  int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
-  int  NFILTDEF_KCOR   = KCOR_INFO.NFILTDEF;
-  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  fitsfile *FP         = CALIB_INFO.FP ;
+  int  NBIN_T          = CALIB_INFO.BININFO_T.NBIN ;
+  int  NBIN_z          = CALIB_INFO.BININFO_z.NBIN ;
+  int  NBIN_AV         = CALIB_INFO.BININFO_AV.NBIN ;
+  int  NFILTDEF_KCOR   = CALIB_INFO.NFILTDEF;
+  int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
 
   int  NBINTOT_LCMAG   = NBIN_T * NBIN_z * NBIN_AV * NFILTDEF_REST;
   int  MEMF_LCMAG      = NBINTOT_LCMAG * sizeof(float);
-  KCOR_INFO.LCMAG_TABLE1D_F = (float*)malloc(MEMF_LCMAG);
+  CALIB_INFO.LCMAG_TABLE1D_F = (float*)malloc(MEMF_LCMAG);
 
   int  NBINTOT_MWXT    = NBIN_T * NBIN_z * NBIN_AV * NFILTDEF_OBS;
   int  MEMF_MWXT       = NBINTOT_MWXT * sizeof(float);
-  KCOR_INFO.MWXT_TABLE1D_F = (float*)malloc(MEMF_MWXT);
+  CALIB_INFO.MWXT_TABLE1D_F = (float*)malloc(MEMF_MWXT);
 
   int istat=0, hdutype, anynul, ifilt, ifiltr, ifilto, IFILTDEF ;
   int MASK, ISREST, ISOBS, ICOL_LCMAG, ICOL_MWXT;
@@ -1124,7 +1134,7 @@ void read_kcor_mags(void) {
   int IBIN_FIRST, IBIN_LAST, ibin, LBX;
   long long FIRSTROW=1, FIRSTELEM=1, NROW;
   char *CFILT ;
-  char fnam[] = "read_kcor_mags" ;
+  char fnam[] = "read_calib_mags" ;
 
   // --------- BEGIN ----------
   printf("   %s \n", fnam); fflush(stdout);
@@ -1132,7 +1142,7 @@ void read_kcor_mags(void) {
   fits_movrel_hdu(FP, 1, &hdutype, &istat);
   snfitsio_errorCheck("Cannot move to MAG table", istat);
 
-  if ( KCOR_INFO.NKCOR_STORE == 0 ) { return; }
+  if ( CALIB_INFO.NKCOR_STORE == 0 ) { return; }
 
   NROW = NBIN_T * NBIN_z * NBIN_AV;
   for(ibin=0; ibin < N4DIM_KCOR; ibin++ ) 
@@ -1140,24 +1150,24 @@ void read_kcor_mags(void) {
 
   for (ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
-    MASK   = KCOR_INFO.MASK_FRAME_FILTER[ifilt] ;
+    MASK   = CALIB_INFO.MASK_FRAME_FILTER[ifilt] ;
     ISREST = ( MASK & MASK_FRAME_REST);
     ISOBS  = ( MASK & MASK_FRAME_OBS);
 
     /*
     printf("\t xxx %s: ifilt=%d MASK=%d for '%s' \n",
-	   fnam, ifilt, MASK, KCOR_INFO.FILTER_NAME[ifilt] );
+	   fnam, ifilt, MASK, CALIB_INFO.FILTER_NAME[ifilt] );
     */
 
     if ( ! ( ISREST || ISOBS ) )  { continue ; }
 
-    IFILTDEF = KCOR_INFO.IFILTDEF[ifilt] ;
-    CFILT    = KCOR_INFO.FILTER_NAME[ifilt];
+    IFILTDEF = CALIB_INFO.IFILTDEF[ifilt] ;
+    CFILT    = CALIB_INFO.FILTER_NAME[ifilt];
     ICOL_LCMAG   = 4 + ifilt;  // skip T,z,AV columns
     ICOL_MWXT    = ICOL_LCMAG + NFILTDEF_KCOR ;
 
     if ( ISREST ) {
-      ifiltr = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
+      ifiltr = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[IFILTDEF];
       IBLCMAG[KDIM_IFILTr] = ifiltr ;
       IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_LCMAG, N4DIM_KCOR, IBLCMAG) ;
       IBIN_LAST  = IBIN_FIRST + NROW - 1;
@@ -1171,15 +1181,15 @@ void read_kcor_mags(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_LCMAG, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, &KCOR_INFO.LCMAG_TABLE1D_F[IBIN_FIRST], 
+			NULL_1E, &CALIB_INFO.LCMAG_TABLE1D_F[IBIN_FIRST], 
 			&anynul, &istat );
       sprintf(c1err,"read LCMAG(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
 
       // apply user mag-shifts
       for(ibin=IBIN_FIRST; ibin<=IBIN_LAST; ibin++ ) {
-	KCOR_INFO.LCMAG_TABLE1D_F[ibin] += 
-	  ( KCOR_INFO.MAGREST_SHIFT_PRIMARY[IFILTDEF] - 19.6);	  
+	CALIB_INFO.LCMAG_TABLE1D_F[ibin] += 
+	  ( CALIB_INFO.MAGREST_SHIFT_PRIMARY[IFILTDEF] - 19.6);	  
       }
     } // end ISREST
     
@@ -1187,7 +1197,7 @@ void read_kcor_mags(void) {
     LBX = ISBXFILT_KCOR(CFILT) ;
 
     if ( ISOBS  && !LBX ) {
-      ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF];
+      ifilto = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[IFILTDEF];
       IBMWXT[KDIM_IFILTr] = ifilto ; // note index here is 3, not 4
       IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_MWXT, N4DIM_KCOR, IBMWXT) ;
       IBIN_LAST  = IBIN_FIRST + NROW - 1;
@@ -1201,7 +1211,7 @@ void read_kcor_mags(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_MWXT, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, &KCOR_INFO.MWXT_TABLE1D_F[IBIN_FIRST],
+			NULL_1E, &CALIB_INFO.MWXT_TABLE1D_F[IBIN_FIRST],
 			&anynul, &istat );
       sprintf(c1err,"read MWXT-slope(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
@@ -1214,31 +1224,31 @@ void read_kcor_mags(void) {
   /*xxxxxx dump entire table to compare with original fortran
   for(ibin=0; ibin < NBINTOT_LCMAG; ibin++ ) {
     printf(" CHECK LCMAG_TABLE1D[%6d] = %8.4f\n", 
-	   ibin+1, KCOR_INFO.LCMAG_TABLE1D_F[ibin]); fflush(stdout);
+	   ibin+1, CALIB_INFO.LCMAG_TABLE1D_F[ibin]); fflush(stdout);
   }
 
   for(ibin=0; ibin < NBINTOT_MWXT; ibin++ ) {
     printf(" CHECK MWXT_TABLE1D[%6d] = %8.4f\n", 
-	   ibin+1, KCOR_INFO.MWXT_TABLE1D_F[ibin]); fflush(stdout);
+	   ibin+1, CALIB_INFO.MWXT_TABLE1D_F[ibin]); fflush(stdout);
   }
   xxxxxxxx */
 
   return ;
 
-} // end read_kcor_mags
+} // end read_calib_mags
 
 // =============================
-void read_kcor_filters(void) {
+void read_calib_filters(void) {
 
-  fitsfile *FP          = KCOR_INFO.FP ;
-  int    NFILTDEF_KCOR  = KCOR_INFO.NFILTDEF;
-  int    NBL            = KCOR_INFO.BININFO_LAM.NBIN;
+  fitsfile *FP          = CALIB_INFO.FP ;
+  int    NFILTDEF_KCOR  = CALIB_INFO.NFILTDEF;
+  int    NBL            = CALIB_INFO.BININFO_LAM.NBIN;
   int    MEMF           = NBL * sizeof(float);
   float *ARRAY_LAM      = (float*)malloc(MEMF);
   float *ARRAY_TRANS    = (float*)malloc(MEMF);
 
-  //  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  //  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  //  int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  //  int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
 
   int istat=0, hdutype, anynul, ICOL, NMATCH_OBS, ifilt ;
   int MASK, IFILTDEF, IFILT_REST, IFILT_OBS ;
@@ -1247,7 +1257,7 @@ void read_kcor_filters(void) {
   char *SURVEY_NAME ;
   char FRAME_REST[] = "REST" ;
   char FRAME_OBS[]  = "OBS" ;
-  char fnam[] = "read_kcor_filters" ;
+  char fnam[] = "read_calib_filters" ;
 
   // --------- BEGIN ----------
 
@@ -1271,9 +1281,9 @@ void read_kcor_filters(void) {
   for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
     ICOL        = 2 + ifilt;
-    IFILTDEF    = KCOR_INFO.IFILTDEF[ifilt] ;
-    FILTER_NAME = KCOR_INFO.FILTER_NAME[ifilt] ;
-    SURVEY_NAME = KCOR_INFO.SURVEY_NAME[ifilt] ;
+    IFILTDEF    = CALIB_INFO.IFILTDEF[ifilt] ;
+    FILTER_NAME = CALIB_INFO.FILTER_NAME[ifilt] ;
+    SURVEY_NAME = CALIB_INFO.SURVEY_NAME[ifilt] ;
     sprintf(FILTER_BAND, "%c", FILTERSTRING[IFILTDEF] );
     strcat(FILTERLIST_READ,FILTER_BAND);
 
@@ -1291,19 +1301,19 @@ void read_kcor_filters(void) {
     */
 
     if ( IFILT_REST > 0 ) {
-      KCOR_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_REST;
+      CALIB_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_REST;
       check_duplicate_filter(FRAME_REST, IFILT_REST, FILTER_NAME );
       loadFilterTrans_kcor(IFILT_REST, NBL, ARRAY_LAM, ARRAY_TRANS,
-			   &KCOR_INFO.FILTERMAP_REST );	     
+			   &CALIB_INFO.FILTERCAL_REST );	     
     } // end IFILT_REST
 
     if ( IFILT_OBS > 0 ) {
       NMATCH_OBS++ ;
-      KCOR_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_OBS;
-      addFilter_kcor(IFILT_OBS, FILTER_NAME, &KCOR_INFO.FILTERMAP_OBS) ;
+      CALIB_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_OBS;
+      addFilter_kcor(IFILT_OBS, FILTER_NAME, &CALIB_INFO.FILTERCAL_OBS) ;
       check_duplicate_filter(FRAME_OBS, IFILT_OBS, FILTER_NAME );
       loadFilterTrans_kcor(IFILT_OBS, NBL, ARRAY_LAM, ARRAY_TRANS,
-			   &KCOR_INFO.FILTERMAP_OBS );	
+			   &CALIB_INFO.FILTERCAL_OBS );	
 
       // SHIFT_FILTTRANS function obsolete since lam shifts are in fit code
       // ?? FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = ZPOFF_SNPHOT_RDKCOR(ifilt)
@@ -1315,8 +1325,8 @@ void read_kcor_filters(void) {
   if ( NMATCH_OBS == 0 ) {
     print_preAbort_banner(fnam);
     printf("\t Obs filters in kcor file: '%s' \n", 
-	   KCOR_INFO.FILTERMAP_OBS.FILTERSTRING );
-    printf("\t SURVEY_FILTERS: '%s' \n", KCOR_INFO.FILTERS_SURVEY);
+	   CALIB_INFO.FILTERCAL_OBS.FILTERSTRING );
+    printf("\t SURVEY_FILTERS: '%s' \n", CALIB_INFO.FILTERS_SURVEY);
 
     sprintf(c1err, "Observer filters do not match any SURVEY_FILTERS.");
     sprintf(c2err, "see PRE-ABORT dump above.");
@@ -1328,7 +1338,7 @@ void read_kcor_filters(void) {
   check_duplicate_filter(0, -1, 0 );
 
   return ;
-} // end read_kcor_filters
+} // end read_calib_filters
 
 // =============================
 void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
@@ -1339,10 +1349,10 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
   // full filter-name, not just the last character.
   //
 
-  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
   int  IFILTDEF        = INTFILTER(NAME);
-  bool IS_SURVEY_FILTER = KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF];
+  bool IS_SURVEY_FILTER = CALIB_INFO.IS_SURVEY_FILTER[IFILTDEF];
   int  ifilt ;
   char *NAME_REST, *NAME_OBS ;
   char fnam[] = "filter_match_kcor" ;
@@ -1353,7 +1363,7 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
 
   // check if rest-frame filter
   for(ifilt=0; ifilt < NFILTDEF_REST; ifilt++ ) {
-    NAME_REST = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt];
+    NAME_REST = CALIB_INFO.FILTERCAL_REST.FILTER_NAME[ifilt];
     if ( strcmp(NAME,NAME_REST) == 0 )  { *IFILT_REST = IFILTDEF ; }
   }
 
@@ -1371,7 +1381,7 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
 
   // check if obs-frame filter
   for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
-    NAME_OBS  = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt] ;
+    NAME_OBS  = CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt] ;
     if ( strcmp(NAME_OBS,NAME) == 0 ) { *IFILT_OBS = IFILTDEF ; }
   }
 
@@ -1394,15 +1404,15 @@ void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME ) {
 
   if ( IFILTDEF > 0 ) {
     if ( strcmp(FRAME,"REST") == 0 )  { 
-      KCOR_INFO.FILTERMAP_REST.NDEFINE[IFILTDEF]++ ;
-      NDEFINE = KCOR_INFO.FILTERMAP_REST.NDEFINE[IFILTDEF];  
-      if ( NDEFINE == 2 ) { KCOR_INFO.FILTERMAP_REST.NFILT_DUPLICATE++; }
+      CALIB_INFO.FILTERCAL_REST.NDEFINE[IFILTDEF]++ ;
+      NDEFINE = CALIB_INFO.FILTERCAL_REST.NDEFINE[IFILTDEF];  
+      if ( NDEFINE == 2 ) { CALIB_INFO.FILTERCAL_REST.NFILT_DUPLICATE++; }
 
     }
     else if ( strcmp(FRAME,"OBS") == 0 ) { 
-      KCOR_INFO.FILTERMAP_OBS.NDEFINE[IFILTDEF]++ ;
-      NDEFINE = KCOR_INFO.FILTERMAP_OBS.NDEFINE[IFILTDEF]; 
-      if ( NDEFINE == 2 ) { KCOR_INFO.FILTERMAP_OBS.NFILT_DUPLICATE++; }
+      CALIB_INFO.FILTERCAL_OBS.NDEFINE[IFILTDEF]++ ;
+      NDEFINE = CALIB_INFO.FILTERCAL_OBS.NDEFINE[IFILTDEF]; 
+      if ( NDEFINE == 2 ) { CALIB_INFO.FILTERCAL_OBS.NFILT_DUPLICATE++; }
     }
   
     // give warning on duplicate, but do not abort (yet).
@@ -1415,8 +1425,8 @@ void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME ) {
   }   
   else if ( IFILTDEF < 0 ) {
     // check final summary  
-    int NDUP_REST = KCOR_INFO.FILTERMAP_REST.NFILT_DUPLICATE ;
-    int NDUP_OBS  = KCOR_INFO.FILTERMAP_OBS.NFILT_DUPLICATE ;
+    int NDUP_REST = CALIB_INFO.FILTERCAL_REST.NFILT_DUPLICATE ;
+    int NDUP_OBS  = CALIB_INFO.FILTERCAL_OBS.NFILT_DUPLICATE ;
     if ( NDUP_REST > 0 || NDUP_OBS > 0 ) {
       sprintf(c1err,"%d/%d duplicate REST/OBS filters", 
 	      NDUP_REST, NDUP_OBS);
@@ -1434,7 +1444,7 @@ void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME ) {
 // ======================================================
 void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
 			  float *ARRAY_LAM, float *ARRAY_TRANS,
-			  KCOR_FILTERMAP_DEF *MAP) {
+			  FILTERCAL_DEF *MAP) {
 
   //
   // store filter trans info in MAP structure.
@@ -1458,9 +1468,9 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   // ---------------- BEGIN ---------------
 
   if ( OPT_FRAME == OPT_FRAME_REST ) 
-    { ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF]; }
+    { ifilt = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[IFILTDEF]; }
   else
-    { ifilt = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF]; }
+    { ifilt = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[IFILTDEF]; }
 
   MAP->LAM[ifilt]      = (float*)malloc(MEMF);
   MAP->TRANS[ifilt]    = (float*)malloc(MEMF);
@@ -1521,15 +1531,15 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 } // end loadFilterTrans_kcor
 
 // =====================================
-void read_kcor_primarysed(void) {
+void read_calib_primarysed(void) {
 
-  fitsfile *FP          = KCOR_INFO.FP ;
-  int  NFILTDEF_OBS     = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
-  int  NBL              = KCOR_INFO.BININFO_LAM.NBIN; // from SED
+  fitsfile *FP          = CALIB_INFO.FP ;
+  int  NFILTDEF_OBS     = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
+  int  NBL              = CALIB_INFO.BININFO_LAM.NBIN; // from SED
   int istat=0, hdutype, anynul, ifilt;
   int KINDX=-9, KINDX_FIRST=-9, KINDX_2ND=-9, NERR_PRIM=0 ;
   char *NAME ;
-  char fnam[] = "read_kcor_primarysed" ;
+  char fnam[] = "read_calib_primarysed" ;
 
   // --------- BEGIN ----------
 
@@ -1539,7 +1549,7 @@ void read_kcor_primarysed(void) {
   snfitsio_errorCheck("Cannot move to PRIMARYSED table", istat);
 
   for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
-    KINDX = KCOR_INFO.FILTERMAP_OBS.PRIMARY_KINDX[ifilt];
+    KINDX = CALIB_INFO.FILTERCAL_OBS.PRIMARY_KINDX[ifilt];
     if ( KINDX_FIRST < 0 ) { KINDX_FIRST = KINDX; }
     if ( KINDX != KINDX_FIRST ) { NERR_PRIM++ ; KINDX_2ND=KINDX; } 
   }
@@ -1552,15 +1562,15 @@ void read_kcor_primarysed(void) {
 
   if ( NERR_PRIM > 0 ) {
     print_preAbort_banner(fnam);
-    printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_FIRST] );
-    printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_2ND] );
+    printf("   Found Primary %s\n", CALIB_INFO.PRIMARY_NAME[KINDX_FIRST] );
+    printf("   Found Primary %s\n", CALIB_INFO.PRIMARY_NAME[KINDX_2ND] );
     sprintf(c1err, "More than one PRIMARY ref not allowed");
     sprintf(c2err, "Check kcor file and above list of primary refs.");
     errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
   }
 
   
-  NAME = KCOR_INFO.PRIMARY_NAME[KINDX];
+  NAME = CALIB_INFO.PRIMARY_NAME[KINDX];
   // xxx mark  printf("\t\t Primary Reference: %s\n", NAME);
 
   int       MEMF = NBL * sizeof(float); 
@@ -1569,12 +1579,12 @@ void read_kcor_primarysed(void) {
   float  *ptr_f;
 
   // read lambda array
-  KCOR_INFO.FILTERMAP_OBS.NBIN_LAM_PRIMARY = NBL;
-  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM  = (float*) malloc(MEMF);
-  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX = (float*) malloc(MEMF);
+  CALIB_INFO.FILTERCAL_OBS.NBIN_LAM_PRIMARY = NBL;
+  CALIB_INFO.FILTERCAL_OBS.PRIMARY_LAM  = (float*) malloc(MEMF);
+  CALIB_INFO.FILTERCAL_OBS.PRIMARY_FLUX = (float*) malloc(MEMF);
 
   // read wavelength array (should be same as array for SN SED)
-  ICOL_LAM=1;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM ;
+  ICOL_LAM=1;    ptr_f =  CALIB_INFO.FILTERCAL_OBS.PRIMARY_LAM ;
   fits_read_col_flt(FP, ICOL_LAM, FIRSTROW, FIRSTELEM, NBL,
 		    NULL_1E, ptr_f, &anynul, &istat );
   sprintf(c1err,"read lam array for primary = '%s'", NAME);
@@ -1582,7 +1592,7 @@ void read_kcor_primarysed(void) {
 
   // read primary flux array
   ICOL_FLUX= ICOL_LAM + 1 + KINDX;  
-  ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX ;
+  ptr_f =  CALIB_INFO.FILTERCAL_OBS.PRIMARY_FLUX ;
   fits_read_col_flt(FP, ICOL_FLUX, FIRSTROW, FIRSTELEM, NBL,
 		    NULL_1E, ptr_f, &anynul, &istat );
   sprintf(c1err,"read flux array for primary = '%s'", NAME);
@@ -1590,14 +1600,14 @@ void read_kcor_primarysed(void) {
 
   return ;
 
-} // end read_kcor_primarysed
+} // end read_calib_primarysed
 
 // ====================================
-void read_kcor_summary(void)  {
+void print_calib_summary(void)  {
 
-  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
-  int  KINDX           = KCOR_INFO.FILTERMAP_OBS.PRIMARY_KINDX[0];
+  int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
+  int  KINDX           = CALIB_INFO.FILTERCAL_OBS.PRIMARY_KINDX[0];
 
   int  ifilt, ifiltdef, k;
   double lamavg, lamrms, *lamrange, prim_mag, prim_zpoff;
@@ -1605,14 +1615,14 @@ void read_kcor_summary(void)  {
   char dashLine[]  = 
     "----------------------------------------------------------------------" ;
   
-  char fnam[] = "read_kcor_summary" ;
+  char fnam[] = "print_calib_summary" ;
 
   // ------------- BEGIN ------------
 
   printf("\n   %s \n", fnam); fflush(stdout);
   // xxx  print_banner(fnam);
   
-  printf("\t  Primary Spectrum: %s \n", KCOR_INFO.PRIMARY_NAME[KINDX]);
+  printf("\t  Primary Spectrum: %s \n", CALIB_INFO.PRIMARY_NAME[KINDX]);
 
 
   printf("\n  FILTER SUMMARY (RDKCOR) : \n");
@@ -1632,12 +1642,12 @@ void read_kcor_summary(void)  {
 
   
   for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
-    ifiltdef = KCOR_INFO.FILTERMAP_OBS.IFILTDEF[ifilt]; 
-    NAME     = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt] ;
-    lamavg   = KCOR_INFO.FILTERMAP_OBS.LAMMEAN[ifilt]; 
-    lamrms   = KCOR_INFO.FILTERMAP_OBS.LAMRMS[ifilt];     
-    prim_mag   = KCOR_INFO.FILTERMAP_OBS.PRIMARY_MAG[ifilt];
-    prim_zpoff = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_SYN[ifilt];
+    ifiltdef = CALIB_INFO.FILTERCAL_OBS.IFILTDEF[ifilt]; 
+    NAME     = CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt] ;
+    lamavg   = CALIB_INFO.FILTERCAL_OBS.LAMMEAN[ifilt]; 
+    lamrms   = CALIB_INFO.FILTERCAL_OBS.LAMRMS[ifilt];     
+    prim_mag   = CALIB_INFO.FILTERCAL_OBS.PRIMARY_MAG[ifilt];
+    prim_zpoff = CALIB_INFO.FILTERCAL_OBS.PRIMARY_ZPOFF_SYN[ifilt];
 
     printf("  %3d %-20.20s %6d %4d %5d-%5d %7.3f %7.3f\n",
 	   ifiltdef, NAME, (int)(lamavg+0.5), (int)(lamrms+0.5),
@@ -1651,16 +1661,16 @@ void read_kcor_summary(void)  {
 
 
   for(ifilt=0; ifilt < NFILTDEF_REST; ifilt++ ) {
-    ifiltdef = KCOR_INFO.FILTERMAP_REST.IFILTDEF[ifilt]; 
-    NAME     = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt] ;
-    lamavg   = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt]; 
-    lamrms   = KCOR_INFO.FILTERMAP_REST.LAMRMS[ifilt];     
+    ifiltdef = CALIB_INFO.FILTERCAL_REST.IFILTDEF[ifilt]; 
+    NAME     = CALIB_INFO.FILTERCAL_REST.FILTER_NAME[ifilt] ;
+    lamavg   = CALIB_INFO.FILTERCAL_REST.LAMMEAN[ifilt]; 
+    lamrms   = CALIB_INFO.FILTERCAL_REST.LAMRMS[ifilt];     
 
-    prim_mag   = KCOR_INFO.FILTERMAP_REST.PRIMARY_MAG[ifilt];
-    prim_zpoff = KCOR_INFO.FILTERMAP_REST.PRIMARY_ZPOFF_SYN[ifilt];
+    prim_mag   = CALIB_INFO.FILTERCAL_REST.PRIMARY_MAG[ifilt];
+    prim_zpoff = CALIB_INFO.FILTERCAL_REST.PRIMARY_ZPOFF_SYN[ifilt];
 
     set_lamrest_range_KCOR(ifiltdef);
-    lamrange = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];     
+    lamrange = CALIB_INFO.FILTERCAL_REST.LAMRANGE_KCOR[ifilt];     
 
     printf("  %3d %-20.20s %6d %4d %5d-%5d %7.3f %7.3f\n",
 	   ifiltdef, NAME, (int)(lamavg+0.5), (int)(lamrms+0.5),
@@ -1675,27 +1685,27 @@ void read_kcor_summary(void)  {
 
 
   // - - - - - KCORs - - - - -
-  int NKCOR = KCOR_INFO.NKCOR_STORE ;
+  int NKCOR = CALIB_INFO.NKCOR_STORE ;
   int ifiltdef_o, ifiltdef_r, ifilt_o, ifilt_r;
   char *name_o, *name_r;
   if ( NKCOR == 0 ) { return; }
   printf("\n KCOR SUMMARY (%d tables)\n", NKCOR);
   for(k=0; k < NKCOR; k++ ) {
-    ifiltdef_o = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][k] ;
-    ifiltdef_r = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][k] ;
-    ifilt_o    = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifiltdef_o];
-    ifilt_r    = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_r];
-    name_o     = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt_o];
-    name_r     = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt_r];
+    ifiltdef_o = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][k] ;
+    ifiltdef_r = CALIB_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][k] ;
+    ifilt_o    = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifiltdef_o];
+    ifilt_r    = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_r];
+    name_o     = CALIB_INFO.FILTERCAL_OBS.FILTER_NAME[ifilt_o];
+    name_r     = CALIB_INFO.FILTERCAL_REST.FILTER_NAME[ifilt_r];
     printf("     %3d Found %s table    (%d -> %d : %s -> %s)\n",
-	   k, KCOR_INFO.STRING_KCORSYM[k], ifiltdef_r, ifiltdef_o,
+	   k, CALIB_INFO.STRING_KCORSYM[k], ifiltdef_r, ifiltdef_o,
 	   name_r, name_o);
   }
 
   fflush(stdout);
   return;
 
-} // end read_kcor_summary
+} // end print_calib_summary
 
 
 // =====================================
@@ -1709,12 +1719,12 @@ void set_lamrest_range_KCOR(int ifiltdef) {
   // Load LAMRANGE_KCOR[ifilt] for each rest-frame filter;
   // used to pick rest-frame band for KCOR.
 
-  int  ifilt            = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef];
-  int  NFILTDEF_REST    = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  char *FILTERSTRING    = KCOR_INFO.FILTERMAP_REST.FILTERSTRING ;
-  double *LAMRANGE_KCOR = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];
-  double *LAMRANGE      = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt]; 
-  double lamavg         = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt];
+  int  ifilt            = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef];
+  int  NFILTDEF_REST    = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  char *FILTERSTRING    = CALIB_INFO.FILTERCAL_REST.FILTERSTRING ;
+  double *LAMRANGE_KCOR = CALIB_INFO.FILTERCAL_REST.LAMRANGE_KCOR[ifilt];
+  double *LAMRANGE      = CALIB_INFO.FILTERCAL_REST.LAMRANGE[ifilt]; 
+  double lamavg         = CALIB_INFO.FILTERCAL_REST.LAMMEAN[ifilt];
 
   int  ifilt_tmp, ifiltdef_tmp, ifiltdef_near[2], j ;
   double lamavg_tmp, lamdif, lamdif_near[2];
@@ -1737,11 +1747,11 @@ void set_lamrest_range_KCOR(int ifiltdef) {
   ifiltdef_near[1] = -9;
 
   for ( ifilt_tmp=0; ifilt_tmp < NFILTDEF_REST; ifilt_tmp++ ) {
-    ifiltdef_tmp = KCOR_INFO.FILTERMAP_REST.IFILTDEF[ifilt_tmp];
+    ifiltdef_tmp = CALIB_INFO.FILTERCAL_REST.IFILTDEF[ifilt_tmp];
     if ( ifiltdef_tmp == ifiltdef ) { continue; }
     if ( ifiltdef_tmp == IFILTDEF_BESS_BX ) { continue; }
 
-    lamavg_tmp = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt_tmp];
+    lamavg_tmp = CALIB_INFO.FILTERCAL_REST.LAMMEAN[ifilt_tmp];
     lamdif     = fabs(lamavg_tmp - lamavg);
 
     if ( lamavg_tmp < lamavg && lamdif < lamdif_near[0] ) {
@@ -1783,35 +1793,35 @@ void set_lamrest_range_KCOR(int ifiltdef) {
     //    printf(" xxx %s: iminmax=%d  filtdef=%d  ifiltdef_nbr=%d \n",
     //	   fnam, iminmax ,ifiltdef, ifiltdef_nbr);
 
-    ifilt_nbr   = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_nbr];
+    ifilt_nbr   = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_nbr];
     if ( ifilt_nbr < 0 ) { continue; }
 
-    lamavg_nbr  = KCOR_INFO.FILTERMAP_REST.LAMMEAN[ifilt_nbr];
+    lamavg_nbr  = CALIB_INFO.FILTERCAL_REST.LAMMEAN[ifilt_nbr];
     if ( lamavg_nbr == lamavg ) { continue; }
 
     lamovp       = LAMRANGE[iminmax];
-    transmax     = KCOR_INFO.FILTERMAP_REST.TRANS_MAX[ifilt];
-    transmax_nbr = KCOR_INFO.FILTERMAP_REST.TRANS_MAX[ifilt_nbr];
+    transmax     = CALIB_INFO.FILTERCAL_REST.TRANS_MAX[ifilt];
+    transmax_nbr = CALIB_INFO.FILTERCAL_REST.TRANS_MAX[ifilt_nbr];
 
-    nbin     = KCOR_INFO.FILTERMAP_REST.NBIN_LAM[ifilt];
-    nbin_nbr = KCOR_INFO.FILTERMAP_REST.NBIN_LAM[ifilt_nbr];
+    nbin     = CALIB_INFO.FILTERCAL_REST.NBIN_LAM[ifilt];
+    nbin_nbr = CALIB_INFO.FILTERCAL_REST.NBIN_LAM[ifilt_nbr];
     
     transdif_min = 9999.0 ;
     trans_ovp    = -9.0 ;
     nbin_ovp     = 0 ;
 
     for(ilam=0; ilam < nbin; ilam++ ) {
-      trans = KCOR_INFO.FILTERMAP_REST.TRANS[ifilt][ilam];
+      trans = CALIB_INFO.FILTERCAL_REST.TRANS[ifilt][ilam];
       trans /= transmax; 
       if ( trans < 1.0E-10 ) { continue; }
 
       for(ilam_nbr=0; ilam_nbr < nbin_nbr; ilam_nbr++ ) {
-	trans_nbr = KCOR_INFO.FILTERMAP_REST.TRANS[ifilt_nbr][ilam_nbr];
+	trans_nbr = CALIB_INFO.FILTERCAL_REST.TRANS[ifilt_nbr][ilam_nbr];
 	trans_nbr /= transmax_nbr ;
 	if ( trans_nbr < 1.0E-10 ) { continue; }
 
-	lam     = KCOR_INFO.FILTERMAP_REST.LAM[ifilt][ilam];
-	lam_nbr = KCOR_INFO.FILTERMAP_REST.LAM[ifilt_nbr][ilam_nbr];
+	lam     = CALIB_INFO.FILTERCAL_REST.LAM[ifilt][ilam];
+	lam_nbr = CALIB_INFO.FILTERCAL_REST.LAM[ifilt_nbr][ilam_nbr];
 	if ( fabs(lam-lam_nbr) > 1.0 ) { continue; }
 
 	transdif = fabs(trans - trans_nbr);       
@@ -1865,8 +1875,8 @@ void set_lamrest_range_KCOR(int ifiltdef) {
 
 void set_lamrest_range_UBVRI(int ifiltdef) {
 
-  int  ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef];
-  double *LAMRANGE_KCOR = KCOR_INFO.FILTERMAP_REST.LAMRANGE_KCOR[ifilt];
+  int  ifilt = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef];
+  double *LAMRANGE_KCOR = CALIB_INFO.FILTERCAL_REST.LAMRANGE_KCOR[ifilt];
   char fnam[] = "set_lamrest_range_UBVRI";
 
   // ----------- BEGIN ----------
@@ -1896,12 +1906,12 @@ void set_lamrest_range_UBVRI(int ifiltdef) {
     LAMRANGE_KCOR[0] = 7050.0 ;
 
     int  ifiltdef_Y = INTFILTER("Y");
-    int  ifilt_Y    = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifiltdef_Y];
+    int  ifilt_Y    = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_Y];
     if ( ifilt_Y > 0 ) {
-      LAMRANGE_KCOR[1] = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt_Y][1];
+      LAMRANGE_KCOR[1] = CALIB_INFO.FILTERCAL_REST.LAMRANGE[ifilt_Y][1];
     }
     else {
-      LAMRANGE_KCOR[1] = KCOR_INFO.FILTERMAP_REST.LAMRANGE[ifilt][1];
+      LAMRANGE_KCOR[1] = CALIB_INFO.FILTERCAL_REST.LAMRANGE[ifilt][1];
     }
   }
 
@@ -1911,52 +1921,52 @@ void set_lamrest_range_UBVRI(int ifiltdef) {
 
 
 // =====================================================
-void get_kcor_primary(char *primary_name, int *nblam,
+void get_calib_primary(char *primary_name, int *nblam,
                       double *lam, double *flux) {
 
   // Created Nov 2022
   // Return information about primary reference.
  
   int  ilam, kindx;
-  char fnam[] = "get_kcor_primary" ;
-  KCOR_FILTERMAP_DEF *FILTERMAP_OBS = &KCOR_INFO.FILTERMAP_OBS ;
-  int  NBIN_LAM = FILTERMAP_OBS->NBIN_LAM_PRIMARY ;
+  char fnam[] = "get_calib_primary" ;
+  FILTERCAL_DEF *FILTERCAL_OBS = &CALIB_INFO.FILTERCAL_OBS ;
+  int  NBIN_LAM = FILTERCAL_OBS->NBIN_LAM_PRIMARY ;
 
   // ----------- BEGIN ----------
 
 
   // make sure to get primary for OBS filters (not rest-frame filters)
-  kindx = FILTERMAP_OBS->PRIMARY_KINDX[0];
-  sprintf(primary_name, "%s", KCOR_INFO.PRIMARY_NAME[kindx]);
+  kindx = FILTERCAL_OBS->PRIMARY_KINDX[0];
+  sprintf(primary_name, "%s", CALIB_INFO.PRIMARY_NAME[kindx]);
 
   *nblam = NBIN_LAM ;
 
   for(ilam=0; ilam < NBIN_LAM; ilam++ ) {
-    lam[ilam]  = (double)FILTERMAP_OBS->PRIMARY_LAM[ilam];
-    flux[ilam] = (double)FILTERMAP_OBS->PRIMARY_FLUX[ilam];
+    lam[ilam]  = (double)FILTERCAL_OBS->PRIMARY_LAM[ilam];
+    flux[ilam] = (double)FILTERCAL_OBS->PRIMARY_FLUX[ilam];
   } // end ilam loop
 
   return;
-} // end get_kcor_primary
+} // end get_calib_primary
 
-void get_kcor_primary__(char *primary_name, int *NBLAM,
+void get_calib_primary__(char *primary_name, int *NBLAM,
                         double *lam, double *flux) {
-  get_kcor_primary(primary_name, NBLAM, lam, flux);
+  get_calib_primary(primary_name, NBLAM, lam, flux);
 } 
 
 
 
-void get_KCOR_FILTERMAP(int OPT_FRAME, char *fnam, KCOR_FILTERMAP_DEF *MAP) {
+void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP) {
 
   // !!! xxx works locally, but returned MAP is corrupt xxx !!!
   //
-  // for input OPT_FRAME, return pointer to KCOR_FILTERMAP_DEF struct.
+  // for input OPT_FRAME, return pointer to FILTERCAL_DEF struct.
   // Note that fnam argument is used for abort message.
   if ( OPT_FRAME == OPT_FRAME_OBS ) { 
-    MAP = &KCOR_INFO.FILTERMAP_OBS ;
+    MAP = &CALIB_INFO.FILTERCAL_OBS ;
   }
   else if ( OPT_FRAME == OPT_FRAME_REST ) {
-    MAP = &KCOR_INFO.FILTERMAP_REST ; 
+    MAP = &CALIB_INFO.FILTERCAL_REST ; 
   }
   else {
     sprintf(c1err,"Invalid OPT_FRAME = %d", OPT_FRAME);
@@ -1965,11 +1975,11 @@ void get_KCOR_FILTERMAP(int OPT_FRAME, char *fnam, KCOR_FILTERMAP_DEF *MAP) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
-} // end get_KCOR_FILTERMAP
+} // end get_KCOR_FILTERCAL
 
 
 // =====================================================
-void get_kcor_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
+void get_calib_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
                           char *filterName, double *magprim,
 			  int *nblam, double *lam,
                           double *transSN, double *transREF) {
@@ -1978,19 +1988,19 @@ void get_kcor_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
   // Return information about filter "ifiltdef" for
   // OPT_FRAME = 0(REST) or 1(OBS)
   
-  KCOR_FILTERMAP_DEF *FILTERMAP;
+  FILTERCAL_DEF *FILTERCAL;
   int ifilt, ilam ;
-  char fnam[] = "get_kcor_filterTrans" ;
+  char fnam[] = "get_calib_filterTrans" ;
 
   // ------------- BEGIN --------------
   
-  // xxx returns corrupt FILTERMAP??? get_KCOR_FILTERMAP(OPT_FRAME, fnam, &FILTERMAP );
+  // xxx returns corrupt FILTERCAL??? get_KCOR_FILTERCAL(OPT_FRAME, fnam, &FILTERCAL );
 
   if ( OPT_FRAME == OPT_FRAME_OBS ) { 
-    FILTERMAP = &KCOR_INFO.FILTERMAP_OBS ;
+    FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
   }
   else if ( OPT_FRAME == OPT_FRAME_REST ) {
-    FILTERMAP = &KCOR_INFO.FILTERMAP_REST ; 
+    FILTERCAL = &CALIB_INFO.FILTERCAL_REST ; 
   }
   else {
     sprintf(c1err,"Invalid OPT_FRAME = %d", OPT_FRAME);
@@ -1999,23 +2009,23 @@ void get_kcor_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
 
-  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+  ifilt      = FILTERCAL->IFILTDEF_INV[ifiltdef];    
 
-  sprintf(surveyName,"%s", FILTERMAP->SURVEY_NAME[ifilt] );
-  sprintf(filterName,"%s", FILTERMAP->FILTER_NAME[ifilt] );
+  sprintf(surveyName,"%s", FILTERCAL->SURVEY_NAME[ifilt] );
+  sprintf(filterName,"%s", FILTERCAL->FILTER_NAME[ifilt] );
 
-  *magprim   = FILTERMAP->PRIMARY_MAG[ifilt];
+  *magprim   = FILTERCAL->PRIMARY_MAG[ifilt];
 
   /*
   printf(" xxx %s: survey=%s  filter=%s  nblam=%d magprim=%.3f\n",
 	 fnam, surveyName, filterName, *nblam, *magprim); fflush(stdout);
   */
 
-  *nblam     = FILTERMAP->NBIN_LAM[ifilt] ;
+  *nblam     = FILTERCAL->NBIN_LAM[ifilt] ;
   for(ilam=0; ilam < *nblam; ilam++ ) {
-    lam[ilam]      = FILTERMAP->LAM[ifilt][ilam];
-    transSN[ilam]  = FILTERMAP->TRANS[ifilt][ilam];
-    transREF[ilam] = FILTERMAP->TRANS[ifilt][ilam];
+    lam[ilam]      = FILTERCAL->LAM[ifilt][ilam];
+    transSN[ilam]  = FILTERCAL->TRANS[ifilt][ilam];
+    transREF[ilam] = FILTERCAL->TRANS[ifilt][ilam];
   }
 
   // TO-DO: check filter-update for SNLS that has filterTrans per SN
@@ -2023,95 +2033,95 @@ void get_kcor_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
 
   return;
 
-} // end of get_kcor_filterTrans
+} // end of get_calib_filterTrans
 
-void get_kcor_filtertrans__(int *OPT_FRAME, int *ifilt_obs, char *surveyName,
+void get_calib_filtertrans__(int *OPT_FRAME, int *ifilt_obs, char *surveyName,
                             char *filterName,
                             double *magprim, int *nblam, double *lam,
                             double *transSN, double *transREF) {
-  get_kcor_filterTrans(*OPT_FRAME, *ifilt_obs, surveyName, filterName,
+  get_calib_filterTrans(*OPT_FRAME, *ifilt_obs, surveyName, filterName,
 		       magprim, nblam, lam, transSN, transREF);
 }
 
 // ===========================================================
-void get_kcor_filtlam_stats(int OPT_FRAME, int ifiltdef,
+void get_calib_filtlam_stats(int OPT_FRAME, int ifiltdef,
 			    double *lamavg, double *lamrms,
 			    double *lammin, double *lammax) {
 
   int  ifilt;
-  KCOR_FILTERMAP_DEF *FILTERMAP;
-  char fnam[] = "get_kcor_filtlam_stats" ;
+  FILTERCAL_DEF *FILTERCAL;
+  char fnam[] = "get_calib_filtlam_stats" ;
 
   // ----------- BEGIN ----------
 
   if ( OPT_FRAME == OPT_FRAME_OBS ) 
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_OBS; }
   else if ( OPT_FRAME == OPT_FRAME_REST ) 
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_REST; }
 
-  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+  ifilt      = FILTERCAL->IFILTDEF_INV[ifiltdef];    
 
-  *lamavg = FILTERMAP->LAMMEAN[ifilt];
-  *lamrms = FILTERMAP->LAMRMS[ifilt];
-  *lammin = FILTERMAP->LAMRANGE[ifilt][0];
-  *lammax = FILTERMAP->LAMRANGE[ifilt][1];
+  *lamavg = FILTERCAL->LAMMEAN[ifilt];
+  *lamrms = FILTERCAL->LAMRMS[ifilt];
+  *lammin = FILTERCAL->LAMRANGE[ifilt][0];
+  *lammax = FILTERCAL->LAMRANGE[ifilt][1];
 
   return;
-} // end get_kcor_filtlam_stats
+} // end get_calib_filtlam_stats
 
-void get_kcor_filtlam_stats__(int *OPT_FRAME, int *ifiltdef,
+void get_calib_filtlam_stats__(int *OPT_FRAME, int *ifiltdef,
 			      double *lamavg, double *lamrms,
 			      double *lammin, double *lammax) {
-  get_kcor_filtlam_stats(*OPT_FRAME, *ifiltdef,
+  get_calib_filtlam_stats(*OPT_FRAME, *ifiltdef,
 			 lamavg, lamrms, lammin, lammax);
 
 }
 
 // ==========================================================
-void get_kcor_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+void get_calib_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 			   int *IFILTDEF_INVMAP) {
 
   // return list of IFILTDEF filter indices vs. sparse index (ifilt)
   // and inverse map.
 
   int  ifilt, ifiltdef ;
-  KCOR_FILTERMAP_DEF *FILTERMAP;
-  char fnam[] = "get_kcor_filtindex_map" ;
+  FILTERCAL_DEF *FILTERCAL;
+  char fnam[] = "get_calib_filtindex_map" ;
 
   // ---------- BEGIN ------------
 
   if ( OPT_FRAME == OPT_FRAME_OBS ) 
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_OBS; }
   else if ( OPT_FRAME == OPT_FRAME_REST ) 
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_REST; }
 
-  //  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+  //  ifilt      = FILTERCAL->IFILTDEF_INV[ifiltdef];    
 
-  *NFILTDEF = FILTERMAP->NFILTDEF ;
+  *NFILTDEF = FILTERCAL->NFILTDEF ;
   for(ifilt=0; ifilt < *NFILTDEF; ifilt++ ) {
-    ifiltdef  = FILTERMAP->IFILTDEF[ifilt];  
+    ifiltdef  = FILTERCAL->IFILTDEF[ifilt];  
     IFILTDEF_MAP[ifilt]       = ifiltdef ;
     IFILTDEF_INVMAP[ifiltdef] = ifilt;
   }
 
   return;
 
-} // end get_kcor_filtindex_map
+} // end get_calib_filtindex_map
 
-void get_kcor_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+void get_calib_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 			      int *IFILTDEF_INVMAP) {
-  get_kcor_filtindex_map(*OPT_FRAME, NFILTDEF, IFILTDEF_MAP, IFILTDEF_INVMAP);
+  get_calib_filtindex_map(*OPT_FRAME, NFILTDEF, IFILTDEF_MAP, IFILTDEF_INVMAP);
 } 
 
 
-double get_kcor_zpoff_file(int ifiltdef) {
+double get_calib_zpoff_file(int ifiltdef) {
   // Return ZPOFF read from ZPOFF.DAT file in filter directory
-  int    ifilt = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifiltdef];
-  double zpoff = KCOR_INFO.PRIMARY_ZPOFF_FILE[ifilt] ;
+  int    ifilt = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[ifiltdef];
+  double zpoff = CALIB_INFO.PRIMARY_ZPOFF_FILE[ifilt] ;
   return zpoff;
-} // end get_kcor_zpoff_file
+} // end get_calib_zpoff_file
 
-double get_kcor_zpoff_file__(int *ifiltdef)
-{ return get_kcor_zpoff_file(*ifiltdef); }
+double get_calib_zpoff_file__(int *ifiltdef)
+{ return get_calib_zpoff_file(*ifiltdef); }
 
 // === END ===

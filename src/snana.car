@@ -3088,9 +3088,9 @@ c init cut-names now that we have the filter names
 
 c read kcor/calib file
       IF ( USE_KCOR_LEGACY ) THEN
-         CALL READ_KCOR_WRAPPER_LEGACY(IERR)
+         CALL READ_CALIB_WRAPPER_LEGACY(IERR)
       ELSE
-         CALL READ_KCOR_WRAPPER(IERR)
+         CALL READ_CALIB_WRAPPER(IERR)
       ENDIF
         IF ( IERR .NE. 0 ) GOTO 666 
 
@@ -3328,8 +3328,8 @@ c xxxxxxxxx
       END  ! end PREP_VERSION_SUBFOLDER
 
 C ===========================================
-+DECK,RDKCOR_WRAP_LEGACY.
-      SUBROUTINE READ_KCOR_WRAPPER_LEGACY(IERR)
++DECK,RDCAL_WRAP_LEGACY.
+      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
 c
 c Ceated Nov 2022
 c Wrapper subroutine to check if kcor/calib file is defined,
@@ -3363,12 +3363,12 @@ c check for option to update filter trans for each SN
 +SELF.
 
       RETURN
-      END  ! end READ_KCOR_WRAPPER_LEGACY
+      END  ! end READ_CALIB_WRAPPER_LEGACY
 
 
 C ===========================================
-+DECK,READ_KCOR_WRAPPER.
-      SUBROUTINE READ_KCOR_WRAPPER(IERR)
++DECK,READ_CALIB_WRAPPER.
+      SUBROUTINE READ_CALIB_WRAPPER(IERR)
 c
 c Ceated Nov 2022
 c Wrapper subroutine to check if kcor/calib file is defined,
@@ -3392,13 +3392,13 @@ c [uses refactored C code]
      &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF
 
 c external C codes
-      REAL*8 GET_KCOR_ZPOFF_FILE
+      REAL*8 GET_CALIB_ZPOFF_FILE
       EXTERNAL 
      &    FLOAT2DOUBLE       
-     &   ,READ_KCOR_DRIVER
-     &   ,GET_KCOR_FILTINDEX_MAP
-     &   ,GET_KCOR_FILTLAM_STATS
-     &   ,GET_KCOR_ZPOFF_FILE
+     &   ,READ_CALIB_DRIVER
+     &   ,GET_CALIB_FILTINDEX_MAP
+     &   ,GET_CALIB_FILTLAM_STATS
+     &   ,GET_CALIB_ZPOFF_FILE
 
 c ---------- BEGIN ---------
    
@@ -3429,12 +3429,12 @@ c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 c read kcor file and store information (C code)
 
-      CALL READ_KCOR_DRIVER(cKCOR_FILE, cFILTERS, 
+      CALL READ_CALIB_DRIVER(cKCOR_FILE, cFILTERS, 
      &           D_MAGREST_SHIFT_PRIM, D_MAGOBS_SHIFT_PRIM)
 
 c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-c      print*,' xxx DEBUG STOP from READ_KCOR_WRAPPER xxx ' ; STOP  
+c      print*,' xxx DEBUG STOP from READ_CALIB_WRAPPER xxx ' ; STOP  
 
 c check for option to update filter trans for each SN
       CALL FILTER_UPDATE_INIT(IERR)
@@ -3444,14 +3444,14 @@ c load filter information from C struct to fortran common blocks
 
 c OBS frame map is already loaded; get rest-frame map
       OPT_FRAME = OPT_FILTREST - 1
-      CALL GET_KCOR_FILTINDEX_MAP(OPT_FRAME, NFILTDEF_REST,   
+      CALL GET_CALIB_FILTINDEX_MAP(OPT_FRAME, NFILTDEF_REST,   
      &        IFILTDEF_MAP_REST, IFILTDEF_INVMAP_REST)
            
 c fetch wavelength stats per band: AVG, RMS, MIN, MAX         
       OPT_FRAME = OPT_FILTOBS - 1
       DO ifilt = 1, NFILTDEF_SURVEY
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         CALL GET_KCOR_FILTLAM_STATS(OPT_FRAME, IFILT_OBS,
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_OBS,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
          FILTOBS_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
          FILTOBS_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
@@ -3459,14 +3459,14 @@ c fetch wavelength stats per band: AVG, RMS, MIN, MAX
          FILTOBS_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
 
 c       fetch ZPOFF from ZPOFF.DAT file in filter dir
-         ZPOFF = GET_KCOR_ZPOFF_FILE(ifilt_obs) 
+         ZPOFF = GET_CALIB_ZPOFF_FILE(ifilt_obs) 
          FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = sngl(ZPOFF)
       ENDDO
 
       OPT_FRAME = OPT_FILTREST - 1
       DO ifilt = 1, NFILTDEF_REST
          ifilt_rest = IFILTDEF_MAP_REST(ifilt)
-         CALL GET_KCOR_FILTLAM_STATS(OPT_FRAME, IFILT_REST,
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_REST,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
          FILTREST_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
          FILTREST_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
@@ -3479,7 +3479,7 @@ c       fetch ZPOFF from ZPOFF.DAT file in filter dir
 +SELF.
 
       RETURN
-      END  ! end READ_KCOR_WRAPPER
+      END  ! end READ_CALIB_WRAPPER
 
 
 C ==========================================

@@ -1,3 +1,4 @@
+#include "gsl/gsl_linalg.h"
 
 int init_genmag_BAYESN(char *version, int optmask);
 int init_genmag_bayesn__( char *version, int *optmask);
@@ -21,6 +22,8 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 
 #define MAX_KNOTS_BAYESN 20 //max number of knots for BayeSN
 
+gsl_matrix *invKD_irr(int Nk, double *xk);
+gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
 
 struct {
    int    n_lam_knots;

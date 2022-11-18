@@ -4,6 +4,8 @@
 
 ********************************************/
 
+#include "math.h"
+#include "gsl/gsl_linalg.h"
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
@@ -126,4 +128,102 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	genmag_BAYESN(*OPTMASK, *ifilt_obs, parlist_SN, *mwebv, *z,
 		       	*Nobs, Tobs_list, magobs_list, magerr_list);
 	return;
+}
+
+gsl_matrix *invKD_irr(int Nk, double *xk) {
+	//FIXME I'm pretty sure this whole thing could be done better by using 
+	//the GSL tridiagonal solver. This is just a direct port of my python.
+
+	gsl_matrix * K = gsl_matrix_alloc(Nk-2, Nk-2);
+	gsl_matrix * D = gsl_matrix_alloc(Nk-2, Nk);
+	gsl_matrix * M = gsl_matrix_alloc(Nk, Nk);
+
+	gsl_matrix_set_zero(K);
+	gsl_matrix_set_zero(D);
+	gsl_matrix_set_zero(M);
+
+	gsl_matrix_set(K, 0, 0, (xk[2] - xk[0])/3.0);
+	gsl_matrix_set(K, 0, 1, (xk[2] - xk[1])/6.0);
+	gsl_matrix_set(K, Nk-3, Nk-4, (xk[Nk-2] - xk[Nk-3])/6.0);
+	gsl_matrix_set(K, Nk-3, Nk-3, (xk[Nk-1] - xk[Nk-3])/3.0);
+
+	int j, r;
+	for (j=2; j<Nk-2; j++) {
+		r = j - 1;
+		gsl_matrix_set(K, r, r-1, (xk[j] - xk[j-1])/6.0);
+		gsl_matrix_set(K, r, r, (xk[j+1] - xk[j-1])/3.0);
+		gsl_matrix_set(K, r, r+1, (xk[j+1] - xk[j])/6.0);
+	}
+	for (j=1; j<Nk-1; j++) {
+		r = j - 1;
+		gsl_matrix_set(D, r, r, 1.0/(xk[j] - xk[j-1]));
+		gsl_matrix_set(D, r, r+1, -1.0/(xk[j+1] - xk[j]) - 1.0/(xk[j] - xk[j-1]));
+		gsl_matrix_set(D, r, r+2, 1.0/(xk[j+1] - xk[j]));
+	}
+
+	int c, s;
+
+	gsl_permutation * p = gsl_permutation_alloc(Nk-2);
+	gsl_linalg_LU_decomp(K, p, &s);
+
+	for (c=0; c<Nk; c++) {
+		//Solve for 1st to (Nk-2)th elements of cth column of M
+		gsl_vector_view d = gsl_matrix_column(D, c);
+		gsl_vector_view m = gsl_matrix_subcolumn(M, c, 1, Nk-2);
+		gsl_linalg_LU_solve(K, p, &d.vector, &m.vector);
+	}
+
+	return M;
+}
+
+gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD) {
+	gsl_matrix * J = gsl_matrix_alloc(N, Nk);
+	gsl_matrix_set_zero(J);
+
+	int i, j, q;
+	double h, a, b, c, d, f;
+	for (i=0; i<N; i++) {
+		if (x[i] > xk[Nk-1]) {
+			h = xk[Nk-1] - xk[Nk-2];
+			a = (xk[Nk-1] - x[i])/h;
+			b = 1.0 - a;
+			f = (x[i] - xk[Nk-1])*h/6.0;
+
+			gsl_matrix_set(J, i, Nk-2, a);
+			gsl_matrix_set(J, i, Nk-1, b);
+			//FIXME I can probably do this by accessing a row and modifying
+			for (j=0; j<Nk; j++) {
+				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) + f*gsl_matrix_get(invKD, Nk-2, j));
+			}
+		}
+		else if (x[i] < xk[0]) {
+			h = xk[1] - xk[0];
+			b = (x[i] - xk[0])/h;
+			a = 1.0 - b;
+			f = (x[i] - xk[0])*h/6.0;
+
+			gsl_matrix_set(J, i, 0, a);
+			gsl_matrix_set(J, i, 1, b);
+			for (j=0; j<Nk; j++) {
+				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) - f*gsl_matrix_get(invKD, 1, j));
+			}
+		}
+		else {
+			q = 0;
+			while (q < Nk && xk[q+1] <= x[i]) { q++; }
+			h = xk[q+1] - xk[q];
+			a = (xk[q+1] - x[i])/h;
+			b = 1.0 - a;
+			c = ((pow(a, 3) - a)/6.0)*h*h;
+			d = ((pow(b, 3) - b)/6.0)*h*h;
+
+			gsl_matrix_set(J, i, q, a);
+			gsl_matrix_set(J, i, q+1, b);
+			for (j=0; j<Nk; j++) {
+				gsl_matrix_set(J, i, j, gsl_matrix_get(J, i, j) + c*gsl_matrix_get(invKD, q, j) + d*gsl_matrix_get(invKD, q+1, j));
+			}
+		}
+	}
+
+	return J;
 }

@@ -172,6 +172,12 @@
 // Oct 22 2015: add 27 special chars to hack an IFU
 #define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx &"
 
+// [moved from sntools_kcor.h on Nov 17 2022]
+#define MASK_FRAME_REST 1
+#define MASK_FRAME_OBS  2
+#define OPT_FRAME_REST  0   // bit or index
+#define OPT_FRAME_OBS   1   // idem
+
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
 #define PARNAME_EBV "EBV"
@@ -857,6 +863,7 @@ void sortLong(int NSORT, long long *ARRAY, int ORDER,
 	     int *INDEX_SORT) ;
 void reverse_INDEX_SORT(int NSORT, int *INDEX_SORT) ;
 
+void float2double(int N, float *flist, double *dlist);
 
 // mangled fortran functions
 void sortdouble_(int *NSORT, double *ARRAY, int *ORDER,
@@ -865,6 +872,7 @@ void sortfloat_(int *NSORT, float *ARRAY, int *ORDER,
 		int *INDEX_SORT);
 void sortint_(int *NSORT, int *ARRAY, int *ORDER,
 	      int *INDEX_SORT);
+void float2double_(int *N, float *flist, double *dlist);
 
 // invert matrix to replace CERNLIB functions
 void invertMatrix (int  N, int  n, double *Matrix ) ;

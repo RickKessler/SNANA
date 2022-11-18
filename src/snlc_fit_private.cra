@@ -35,17 +35,12 @@ c Nov 12, 2009: patch in only SNMAIN and use the library for the rest.
 c               This allows debugging snana routines here without
 c               patchy conflicts.
 c
-c Aug 1, 2011: patchy flag KCOR -> R4KCOR
-c
-c Oct  9, 2012: few minor bug-fixes
-c Oct 13, 2012: add new example MYFUN called for each fitted filter.
-c Dec 05, 2012: add dummy USRINI2
 c ---------------------------------------------
 
 +NAMES,8,6000,48000.
 +USE,LINUX.
 +USE,SNFIT.
-+USE,R4KCOR.
++USE,KCOR.
 
 c Patch in the main program and SNANA common blocks
 

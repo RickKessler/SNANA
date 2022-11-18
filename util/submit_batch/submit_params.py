@@ -137,6 +137,9 @@ CONFIG_KEYNAME_ENV_REQUIRE  = "ENV_REQUIRE"  # name of key with required ENV
 ENV_SNANA_SETUP_COMMAND     = "SNANA_SETUP_COMMAND"
 ENV_SNANA_IMAGE_DOCKER      = "SNANA_IMAGE_DOCKER"
 
+CONFIG_KEYLIST_SNANA_LOGIN_SETUP = \
+        [ 'SNANA_LOGIN_SETUP', 'SNANA_SSHLOGIN_SETUP' ]
+
 # lok file for merge process
 BUSY_FILE_PREFIX = "BUSY_MERGE_CPU"
 BUSY_FILE_SUFFIX = "LOCK"
@@ -207,10 +210,13 @@ CONFIG:
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
   # option to force all jobs on single node
-  BATCH_SIGNLE_NODE: True
+  BATCH_SINGLE_NODE: True
 
   # optional list of required ENVs (aborts if any ENV is not defined)
   ENV_REQUIRE: SNANA_LSST_SIM  LSST_STACK_VERSION
+
+  # snana setup for SSH-login (not for batch)
+  SNANA_SSHLOGIN_SETUP: <SNANA setup command>
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere

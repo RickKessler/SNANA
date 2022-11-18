@@ -17,11 +17,12 @@
 #define MXAVBIN_KCOR  100
 #define MXCBIN_AVWARP 100  // max color index for AVWARP table
 
+/* xxx mark delete Nov 17 2022 xxxxxx
 #define MASK_FRAME_REST 1
 #define MASK_FRAME_OBS  2
-
 #define OPT_FRAME_REST 0
 #define OPT_FRAME_OBS  1
+xxxxxxxx end mark xxxxxx */
 
 #define KDIM_T        0
 #define KDIM_z        1  
@@ -171,7 +172,12 @@ struct KCOR_INFO {
 
 void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY, 
 		      double *MAGREST_SHIFT_PRIMARY, 
-		      double *MAGPBS_SHIFT_PRIMARY );
+		      double *MAGOBS_SHIFT_PRIMARY );
+
+void read_kcor_driver__(char *kcorFile, char *FILTERS_SURVEY,
+			double *MAGREST_SHIFT_PRIMARY,
+			double *MAGOBS_SHIFT_PRIMARY );
+
 void read_kcor_init(void);
 void read_kcor_open(void);
 void read_kcor_head(void);
@@ -203,16 +209,37 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 void set_lamrest_range_KCOR(int ifilt);
 void set_lamrest_range_UBVRI(int ifilt);
 
+void get_KCOR_FILTERMAP(int OPT_FRAME, char *fnam, KCOR_FILTERMAP_DEF *MAP );
+
 void get_kcor_primary(char *primary_name, int *NBLAM, 
 		      double *lam, double *flux);
+void get_kcor_primary__(char *primary_name, int *NBLAM, 
+			double *lam, double *flux);
 
-void get_kcor_filterTrans(int MASKFRAME, int ifilt_obs, char *surveyName, 
-			  char *filterName,
-			  double *magprim, int *nblam, double *lam, 
+void get_kcor_filterTrans(int OPT_FRAME, int ifilt_obs, char *surveyName, 
+			  char *filterName, double *magprim, 
+			  int *nblam, double *lam, 
 			  double *transSN, double *transREF);
+void get_kcor_filtertrans__(int *OPT_FRAME, int *ifilt_obs, char *surveyName, 
+			    char *filterName, double *magprim,
+			    int *nblam, double *lam, 
+			    double *transSN, double *transREF);
 
 void get_kcor_filtlam_stats(int opt_frame, int ifilt_obs,  
 			    double *lamavg, double *lamrms,
 			    double *lammin, double *lammax);
+
+void get_kcor_filtlam_stats__(int *opt_frame, int *ifilt_obs,  
+			      double *lamavg, double *lamrms,
+			      double *lammin, double *lammax);
+
+void get_kcor_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+			    int *IFILTDEF_INVMAP);
+void get_kcor_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+			      int *IFILTDEF_INVMAP);
+
+double get_kcor_zpoff_file(int ifiltdef);
+double get_kcor_zpoff_file__(int *ifiltdef);
+
 // end
 

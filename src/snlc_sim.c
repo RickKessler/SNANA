@@ -12547,7 +12547,7 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   char cmd[MXPATHLEN], cfilt[4] ;
   char filtFile[MXPATHLEN], filtName[40], surveyName[80]  ;
   double  magprim, lam[MXLAMSIM], TransSN[MXLAMSIM], TransREF[MXLAMSIM];  
-  int  ifilt, ifilt_obs, NLAM, ilam, MASKFRAME, isys ;
+  int  ifilt, ifilt_obs, NLAM, ilam, OPT_FRAME, isys ;
   FILE *fp_filt ;
   char  fnam[] = "wr_SIMGEN_FILTERS" ;
 
@@ -12567,7 +12567,6 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   printf("    mkdir %s\n", PATH_FILTERS );
   fflush(stdout);
 
-  MASKFRAME = GENFRAME_OBS ;
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
@@ -12581,11 +12580,14 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     // but for simulations they are always the same.
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
-      get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
-		      &magprim, &NLAM, lam, TransSN, TransREF, 80, 40 );
+      OPT_FRAME = GENFRAME_OBS ;
+      get_filttrans_legacy__(&OPT_FRAME, &ifilt_obs, surveyName, filtName,
+			     &magprim, &NLAM, lam, TransSN, TransREF, 
+			     80, 40 );
     }
     else {
-      get_kcor_filterTrans(MASKFRAME, ifilt_obs, surveyName, filtName,
+      OPT_FRAME = GENFRAME_OBS - 1 ;  
+      get_kcor_filterTrans(OPT_FRAME, ifilt_obs, surveyName, filtName,
 			   &magprim, &NLAM, lam, TransSN, TransREF);
     }
 
@@ -20568,15 +20570,16 @@ int gen_cutwin(void) {
 
   // get lamrest for each observer filter
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-    opt_frame = GENFRAME_OBS;
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
     if ( INPUTS.USE_KCOR_LEGACY ) {
       // original/legacy fortran
+      opt_frame = OPT_FRAME_OBS + 1;
       get_filtlam__(&opt_frame, &ifilt_obs,
 		    &lamobs,&lamrms,&lammin,&lammax);
     }
     else {
       // refactored
+      opt_frame = OPT_FRAME_OBS;
       get_kcor_filtlam_stats(opt_frame, ifilt_obs,
 			     &lamobs, &lamrms, &lammin, &lammax);
     }
@@ -23127,7 +23130,7 @@ void init_genSEDMODEL(void) {
     ,DONEFILT[MXFILTINDX]
     ,IFILTLOCAL[MXFILTINDX]
     ,IFILTOBS_extra[MXFILTINDX]
-    ,MASKFRAME[MXFILTINDX]      
+    ,OPT_FRAME[MXFILTINDX]      
     ;
   
   double  lamshift, magprim, zmin, zmax, dz, z1min, z1max,logzdif  ;
@@ -23148,8 +23151,8 @@ void init_genSEDMODEL(void) {
 
   if ( INPUTS.USE_KCOR_LEGACY ) {
     // legacy fortran get
-    get_primary__(GENLC.primary, &NLAM, 
-		  genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
+    get_primary_legacy__(GENLC.primary, &NLAM, 
+			 genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
   }
   else {
     // refactored C get
@@ -23194,7 +23197,7 @@ void init_genSEDMODEL(void) {
   for ( ifilt = 0; ifilt < MXFILTINDX; ifilt++ ) {
     DONEFILT[ifilt]   = 0 ;
     IFILTLOCAL[ifilt] = 0 ;
-    MASKFRAME[ifilt]  = GENFRAME_OBS ;
+    OPT_FRAME[ifilt]  = OPT_FRAME_OBS ;
     if ( ifilt < NFILT ) 
       { IFILTLOCAL[ifilt] = INPUTS.IFILTMAP_OBS[ifilt]; }
   }
@@ -23206,10 +23209,12 @@ void init_genSEDMODEL(void) {
 
   printf("\n");
 
+  // Nov 2022 beware: this extra-filter feature will become obsolete
+  // with refactored kcor code; only affects VCR-scatter model.
   for(ifilt=0; ifilt < NFILT_extra ; ifilt++ ) {
     ifilt_obs           = IFILTOBS_extra[ifilt] ;
     IFILTLOCAL[NFILT]   = ifilt_obs ;
-    MASKFRAME[NFILT]    = GENFRAME_OBS + GENFRAME_REST ; // check both
+    OPT_FRAME[NFILT]    = GENFRAME_OBS + GENFRAME_REST ; // check both
     NFILT++ ;
     sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] ); 
     printf("  %s : add %s filter needed by %s \n", 
@@ -23233,7 +23238,8 @@ void init_genSEDMODEL(void) {
     sprintf(surveyName,"NULL") ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
-      get_filttrans__(&MASKFRAME[ifilt],     // (I) obs/rest-frame mask
+      OPT_FRAME[ifilt]++ ; // add 1 for fortran index
+      get_filttrans_legacy__(&OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
 		      &ifilt_obs,            // (I) absolute filter index
 		      surveyName,            // (I) name(s) of survey (11.2020)
 		      filtName,              // (O) full name of filter
@@ -23245,7 +23251,7 @@ void init_genSEDMODEL(void) {
 		      80,40 ); 
     }
     else {
-      get_kcor_filterTrans(MASKFRAME[ifilt],  // (I) obs/rest-frame mask
+      get_kcor_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
 			   ifilt_obs,         // (I) absolute filter index
 			   surveyName,        // (I) name(s) of survey
 			   filtName,          // (O) full name of filter
@@ -23254,7 +23260,7 @@ void init_genSEDMODEL(void) {
 			   genSEDMODEL.lam,     // (O) lambda array 
 			   genSEDMODEL.TransSN, // (O) filter trans 
 			   genSEDMODEL.TransREF // (O) idem
-			   );
+			   ); 
     }
 
     /* xxxxx
@@ -23444,10 +23450,10 @@ void init_kcor_legacy(char *kcorFile) {
       { INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += tmpoff_kcor[ifilt];  }
 
     // get mean and RMS of filter-wavelength 
-    OPT = GENFRAME_OBS ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
       // legacy fortran
+      OPT = OPT_FRAME_OBS + 1;
       get_filtlam__(&OPT, &ifilt_obs
 		    ,&INPUTS.LAMAVG_OBS[ifilt_obs]
 		    ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
@@ -23456,6 +23462,7 @@ void init_kcor_legacy(char *kcorFile) {
     }
     else {
       // refactored C
+      OPT = OPT_FRAME_OBS ;
       get_kcor_filtlam_stats(OPT, ifilt_obs
 			     ,&INPUTS.LAMAVG_OBS[ifilt_obs]
 			     ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
@@ -23548,7 +23555,6 @@ void init_kcor_refactor(void) {
 
   READ_KCOR_DRIVER(INPUTS.KCOR_FILE, INPUTS.GENFILTERS,
 		   MAGREST_SHIFT, MAGOBS_SHIFT );
-
 
   // check for spectrograph information (for sim only)
   read_spectrograph_fits(INPUTS.KCOR_FILE) ;
@@ -25999,14 +26005,15 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     // the two cannot both be set.
     if ( USE_GENSMEAR_MODEL ) {
       // convert mean lambda of filter in obs frame to rest frame
-      opt_frame = GENFRAME_OBS ;
       if ( INPUTS.USE_KCOR_LEGACY ) {
 	// legacy fortran
+	opt_frame = OPT_FRAME_OBS + 1 ;
 	get_filtlam__(&opt_frame, &ifilt_obs, 
 		      &lamavg, &lamrms, &lammin, &lammax );
       }
       else {
 	// refectoreed C
+	opt_frame = OPT_FRAME_OBS ;
 	get_kcor_filtlam_stats(opt_frame, ifilt_obs, 
 			       &lamavg, &lamrms, &lammin, &lammax );
       }

@@ -83,6 +83,13 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
 
 } // end READ_KCOR_DRIVER
 
+void read_kcor_driver__(char *kcorFile, char *FILTERS_SURVEY,
+                        double *MAGREST_SHIFT_PRIMARY,
+                        double *MAGOBS_SHIFT_PRIMARY ) {
+  READ_KCOR_DRIVER(kcorFile, FILTERS_SURVEY, 
+		   MAGREST_SHIFT_PRIMARY, MAGOBS_SHIFT_PRIMARY );
+} // end read_kcor_driver__
+
 // ===============================
 void read_kcor_init(void) {
 
@@ -666,10 +673,11 @@ void read_kcor_tables(void) {
   for(ifilt=0; ifilt < NFILTDEF_KCOR ; ifilt++ ) {
     FILTER_NAME  = KCOR_INFO.FILTER_NAME[ifilt];
     IFILTDEF = KCOR_INFO.IFILTDEF[ifilt];
-    if(!ISBXFILT_KCOR(FILTER_NAME)) { continue; } // ensure 'BX', not BLABLA-X 
-    addFilter_kcor(IFILTDEF, FILTER_NAME, &KCOR_INFO.FILTERMAP_REST);
-    KCOR_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
-    KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
+    if( ISBXFILT_KCOR(FILTER_NAME) ) {  // ensure 'BX', not BLABLA-X 
+      KCOR_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
+      KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
+      addFilter_kcor(IFILTDEF, FILTER_NAME, &KCOR_INFO.FILTERMAP_REST);
+    }
   }
 
 
@@ -848,8 +856,22 @@ void addFilter_kcor(int ifiltdef, char *FILTER_NAME, KCOR_FILTERMAP_DEF *MAP){
 
   // find original filter index from header to get primary mag & zpoff
   int k, kfilt=-9, NFILTDEF_KCOR = KCOR_INFO.NFILTDEF ;
+  int  MASK_FRAME;
+  bool MATCH_FRAME, MATCH_FILTER;
+  char *NAME;
   for(k=0; k < NFILTDEF_KCOR; k++ ) {
-    if ( KCOR_INFO.IFILTDEF[k] == ifiltdef ) { kfilt = k; }
+    MATCH_FILTER = ( KCOR_INFO.IFILTDEF[k] == ifiltdef );
+    if ( !MATCH_FILTER ) { continue; }
+    
+    MASK_FRAME   = KCOR_INFO.MASK_FRAME_FILTER[k] ; // rest or obs
+    MATCH_FRAME  = ( MASK_FRAME & (1<<OPT_FRAME) ) > 0 ; 
+
+    /* xxx
+    printf(" xxx %s: k=%2d ifiltdef=%2d(%s) " 
+	   "MASK_FRAME=%2d OPT_FR=%d  MATCH(FRAME,FILT)=%d,%d \n",
+	   fnam, k, ifiltdef, cfilt1, MASK_FRAME, OPT_FRAME,
+	   MATCH_FRAME, MATCH_FILTER); xxx */
+    if ( MATCH_FILTER && MATCH_FRAME )  { kfilt = k; }
   }
 
   if ( kfilt < 0 ) {
@@ -1249,7 +1271,6 @@ void read_kcor_filters(void) {
   for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
     ICOL        = 2 + ifilt;
-    MASK        = KCOR_INFO.MASK_FRAME_FILTER[ifilt] ;
     IFILTDEF    = KCOR_INFO.IFILTDEF[ifilt] ;
     FILTER_NAME = KCOR_INFO.FILTER_NAME[ifilt] ;
     SURVEY_NAME = KCOR_INFO.SURVEY_NAME[ifilt] ;
@@ -1270,6 +1291,7 @@ void read_kcor_filters(void) {
     */
 
     if ( IFILT_REST > 0 ) {
+      KCOR_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_REST;
       check_duplicate_filter(FRAME_REST, IFILT_REST, FILTER_NAME );
       loadFilterTrans_kcor(IFILT_REST, NBL, ARRAY_LAM, ARRAY_TRANS,
 			   &KCOR_INFO.FILTERMAP_REST );	     
@@ -1277,6 +1299,7 @@ void read_kcor_filters(void) {
 
     if ( IFILT_OBS > 0 ) {
       NMATCH_OBS++ ;
+      KCOR_INFO.MASK_FRAME_FILTER[ifilt] = MASK_FRAME_OBS;
       addFilter_kcor(IFILT_OBS, FILTER_NAME, &KCOR_INFO.FILTERMAP_OBS) ;
       check_duplicate_filter(FRAME_OBS, IFILT_OBS, FILTER_NAME );
       loadFilterTrans_kcor(IFILT_OBS, NBL, ARRAY_LAM, ARRAY_TRANS,
@@ -1430,7 +1453,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   int ilam, ifilt, ilam_min, ilam_max ;
   double LAM, TRANS, MEAN, SQRMS, LAMMIN=1.1E5, LAMMAX=0.0 ;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
-  //  char fnam[] = "loadFilterTrans_kcor" ;
+  char fnam[] = "loadFilterTrans_kcor" ;
 
   // ---------------- BEGIN ---------------
 
@@ -1916,38 +1939,79 @@ void get_kcor_primary(char *primary_name, int *nblam,
   return;
 } // end get_kcor_primary
 
+void get_kcor_primary__(char *primary_name, int *NBLAM,
+                        double *lam, double *flux) {
+  get_kcor_primary(primary_name, NBLAM, lam, flux);
+} 
 
-void get_kcor_filterTrans(int MASKFRAME, int ifiltdef, char *surveyName,
-                          char *filterName,
-                          double *magprim, int *nblam, double *lam,
+
+
+void get_KCOR_FILTERMAP(int OPT_FRAME, char *fnam, KCOR_FILTERMAP_DEF *MAP) {
+
+  // !!! xxx works locally, but returned MAP is corrupt xxx !!!
+  //
+  // for input OPT_FRAME, return pointer to KCOR_FILTERMAP_DEF struct.
+  // Note that fnam argument is used for abort message.
+  if ( OPT_FRAME == OPT_FRAME_OBS ) { 
+    MAP = &KCOR_INFO.FILTERMAP_OBS ;
+  }
+  else if ( OPT_FRAME == OPT_FRAME_REST ) {
+    MAP = &KCOR_INFO.FILTERMAP_REST ; 
+  }
+  else {
+    sprintf(c1err,"Invalid OPT_FRAME = %d", OPT_FRAME);
+    sprintf(c2err,"Must be either OPT_FRAME_REST=%d or OPT_FRAME_OBS=%d",
+	    OPT_FRAME_REST, OPT_FRAME_OBS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+} // end get_KCOR_FILTERMAP
+
+
+// =====================================================
+void get_kcor_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
+                          char *filterName, double *magprim,
+			  int *nblam, double *lam,
                           double *transSN, double *transREF) {
 
   // Created Nov 2022
-  // Return information about filter "ifiltdef" and MASKFRAME = OBS or REST.
+  // Return information about filter "ifiltdef" for
+  // OPT_FRAME = 0(REST) or 1(OBS)
   
   KCOR_FILTERMAP_DEF *FILTERMAP;
   int ifilt, ilam ;
   char fnam[] = "get_kcor_filterTrans" ;
 
   // ------------- BEGIN --------------
+  
+  // xxx returns corrupt FILTERMAP??? get_KCOR_FILTERMAP(OPT_FRAME, fnam, &FILTERMAP );
 
-  if ( MASKFRAME == MASK_FRAME_OBS ) 
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
-  else
-    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+  if ( OPT_FRAME == OPT_FRAME_OBS ) { 
+    FILTERMAP = &KCOR_INFO.FILTERMAP_OBS ;
+  }
+  else if ( OPT_FRAME == OPT_FRAME_REST ) {
+    FILTERMAP = &KCOR_INFO.FILTERMAP_REST ; 
+  }
+  else {
+    sprintf(c1err,"Invalid OPT_FRAME = %d", OPT_FRAME);
+    sprintf(c2err,"Must be either OPT_FRAME_REST=%d or OPT_FRAME_OBS=%d",
+	    OPT_FRAME_REST, OPT_FRAME_OBS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
 
   ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
 
   sprintf(surveyName,"%s", FILTERMAP->SURVEY_NAME[ifilt] );
   sprintf(filterName,"%s", FILTERMAP->FILTER_NAME[ifilt] );
+
   *magprim   = FILTERMAP->PRIMARY_MAG[ifilt];
-  *nblam     = FILTERMAP->NBIN_LAM[ifilt] ;
 
   /*
   printf(" xxx %s: survey=%s  filter=%s  nblam=%d magprim=%.3f\n",
 	 fnam, surveyName, filterName, *nblam, *magprim); fflush(stdout);
   */
 
+  *nblam     = FILTERMAP->NBIN_LAM[ifilt] ;
   for(ilam=0; ilam < *nblam; ilam++ ) {
     lam[ilam]      = FILTERMAP->LAM[ifilt][ilam];
     transSN[ilam]  = FILTERMAP->TRANS[ifilt][ilam];
@@ -1955,15 +2019,22 @@ void get_kcor_filterTrans(int MASKFRAME, int ifiltdef, char *surveyName,
   }
 
   // TO-DO: check filter-update for SNLS that has filterTrans per SN
-
   //.xyz
+
   return;
 
 } // end of get_kcor_filterTrans
 
+void get_kcor_filtertrans__(int *OPT_FRAME, int *ifilt_obs, char *surveyName,
+                            char *filterName,
+                            double *magprim, int *nblam, double *lam,
+                            double *transSN, double *transREF) {
+  get_kcor_filterTrans(*OPT_FRAME, *ifilt_obs, surveyName, filterName,
+		       magprim, nblam, lam, transSN, transREF);
+}
 
 // ===========================================================
-void get_kcor_filtlam_stats(int MASKFRAME, int ifiltdef,
+void get_kcor_filtlam_stats(int OPT_FRAME, int ifiltdef,
 			    double *lamavg, double *lamrms,
 			    double *lammin, double *lammax) {
 
@@ -1973,9 +2044,9 @@ void get_kcor_filtlam_stats(int MASKFRAME, int ifiltdef,
 
   // ----------- BEGIN ----------
 
-  if ( MASKFRAME == MASK_FRAME_OBS ) 
+  if ( OPT_FRAME == OPT_FRAME_OBS ) 
     { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
-  else
+  else if ( OPT_FRAME == OPT_FRAME_REST ) 
     { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
 
   ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
@@ -1987,3 +2058,60 @@ void get_kcor_filtlam_stats(int MASKFRAME, int ifiltdef,
 
   return;
 } // end get_kcor_filtlam_stats
+
+void get_kcor_filtlam_stats__(int *OPT_FRAME, int *ifiltdef,
+			      double *lamavg, double *lamrms,
+			      double *lammin, double *lammax) {
+  get_kcor_filtlam_stats(*OPT_FRAME, *ifiltdef,
+			 lamavg, lamrms, lammin, lammax);
+
+}
+
+// ==========================================================
+void get_kcor_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+			   int *IFILTDEF_INVMAP) {
+
+  // return list of IFILTDEF filter indices vs. sparse index (ifilt)
+  // and inverse map.
+
+  int  ifilt, ifiltdef ;
+  KCOR_FILTERMAP_DEF *FILTERMAP;
+  char fnam[] = "get_kcor_filtindex_map" ;
+
+  // ---------- BEGIN ------------
+
+  if ( OPT_FRAME == OPT_FRAME_OBS ) 
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_OBS; }
+  else if ( OPT_FRAME == OPT_FRAME_REST ) 
+    { FILTERMAP = &KCOR_INFO.FILTERMAP_REST; }
+
+  //  ifilt      = FILTERMAP->IFILTDEF_INV[ifiltdef];    
+
+  *NFILTDEF = FILTERMAP->NFILTDEF ;
+  for(ifilt=0; ifilt < *NFILTDEF; ifilt++ ) {
+    ifiltdef  = FILTERMAP->IFILTDEF[ifilt];  
+    IFILTDEF_MAP[ifilt]       = ifiltdef ;
+    IFILTDEF_INVMAP[ifiltdef] = ifilt;
+  }
+
+  return;
+
+} // end get_kcor_filtindex_map
+
+void get_kcor_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
+			      int *IFILTDEF_INVMAP) {
+  get_kcor_filtindex_map(*OPT_FRAME, NFILTDEF, IFILTDEF_MAP, IFILTDEF_INVMAP);
+} 
+
+
+double get_kcor_zpoff_file(int ifiltdef) {
+  // Return ZPOFF read from ZPOFF.DAT file in filter directory
+  int    ifilt = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifiltdef];
+  double zpoff = KCOR_INFO.PRIMARY_ZPOFF_FILE[ifilt] ;
+  return zpoff;
+} // end get_kcor_zpoff_file
+
+double get_kcor_zpoff_file__(int *ifiltdef)
+{ return get_kcor_zpoff_file(*ifiltdef); }
+
+// === END ===

@@ -1566,8 +1566,8 @@ struct SIMLIB_FLUXERR_COR {
 
 
 int GENFRAME_OPT;        // one of below, based on model option
-#define GENFRAME_REST 1  // => generate in rest frame; then boost
-#define GENFRAME_OBS  2  // => generate directly in obs frame
+#define GENFRAME_REST MASK_FRAME_REST  // => generate in rest frame; then boost
+#define GENFRAME_OBS  MASK_FRAME_OBS   // => generate directly in obs frame
 #define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
 #define GENFRAME_MJD  4  // => used by TAKE_SPECTRUM for MJD option
 
@@ -2098,11 +2098,11 @@ extern int filtindx_(char *cfilt, int len);
 extern int get_filtmap__ ( char *copt, float *filtmap, int len );
 
 
-extern void get_filttrans__(int *maskFrame, int *ifilt,
-			    char *survey_name, char *filter_name,
-			    double *magPrim, int *NLAM, double *lam,
-			    double *TransSN, double *TransREF,
-			    int len1, int len2);
+extern void get_filttrans_legacy__(int *maskFrame, int *ifilt,
+				   char *survey_name, char *filter_name,
+				   double *magPrim, int *NLAM, double *lam,
+				   double *TransSN, double *TransREF,
+				   int len1, int len2);
 
 extern void set_survey__ ( char *name, int *NFILTDEF, int *IFILTDEF,
 			   float *LAMSHIFT, int len  );
@@ -2113,8 +2113,8 @@ extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest,
 			  double *mag_rest, double *lamdif,
 			  double *Trest, double *Z, double *AVwarp ) ;
 
-extern void  get_primary__(char *primary, int *NLAM,
-			   double *lam, double *primFlux, int len);
+extern void  get_primary_legacy__(char *primary, int *NLAM,
+				  double *lam, double *primFlux, int len);
 
 // -----------------------------
 //   genmag_xxx functions

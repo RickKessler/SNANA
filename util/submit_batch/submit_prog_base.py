@@ -1107,10 +1107,11 @@ class Program:
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
             CONFIG            = self.config_yaml['CONFIG']
-            if 'SNANA_LOGIN_SETUP' in CONFIG:
-                login_setup = f"{CONFIG['SNANA_LOGIN_SETUP']}"
-            else:
-                login_setup = ""
+            
+            login_setup = ''
+            for key in CONFIG_KEYLIST_SNANA_LOGIN_SETUP :
+                if key in CONFIG:
+                    login_setup = f"{CONFIG[key]}"
 
             logging.info(f"  login_setup (for ssh):  {login_setup} ")
             qq = '"'
@@ -1128,7 +1129,7 @@ class Program:
                                        stderr = subprocess.PIPE)
 
         # check to launch background merge process (Dec 2021)
-        if args.merge_background:
+        if args.merge_background :
             self.launch_merge_background()
 
         return

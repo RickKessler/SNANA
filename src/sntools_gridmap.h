@@ -28,6 +28,8 @@ typedef struct GRIDMAP1D {
 
 
 #define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior 
+#define IDGRIDMAP_KCOR_MAG              11  // rest-frame mags for K-cor
+#define IDGRIDMAP_KCOR_VAL              12  // K-cor values
 #define IDGRIDMAP_HOSTLIB_WGTMAP        20  // HOSTLIB weight map 
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap 
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap 

@@ -1219,6 +1219,7 @@ c define functions
      &   INIT_GENMAG_STRETCH2
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
+     &  ,FILL_KCOR_AVWARPTABLE  
 
       REAL*8  GET_FLUX_FITFUN
       INTEGER FILTINDX
@@ -1399,7 +1400,11 @@ c set rest-frame filter ranges.
       IF (   FITMODEL_INDEX .EQ. MODEL_STRETCH
      &  .or. FITMODEL_INDEX .EQ. MODEL_STRETCH2 ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE() 
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
 
          RESTLAMBDA_MODEL(1) = 3000.0
          RESTLAMBDA_MODEL(2) = 9500.0        
@@ -1476,7 +1481,11 @@ c We might have to review the above later - GN
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE()
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
 
          PARNAME_STORE(IPAR_SHAPE)  = 'DELTA'
          ERRMAX_BAD(IPAR_SHAPE) = 0.02
@@ -1500,7 +1509,12 @@ c depends on which IR filters are used.
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE()
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
+
 
          CALL GET_LAMRANGE_snoopy(LAMRANGE8(1),LAMRANGE8(2))
          RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
@@ -6609,7 +6623,6 @@ c local args
 
 c function
       REAL*8  USRFUN, DLMAG8_REF, GET_RV8, GET_DIST8
-      INTEGER NEAREST_IFILT_OBS
 
 C -------------- BEGIN ----------------
 

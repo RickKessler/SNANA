@@ -7213,7 +7213,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   } // end IS_DATA
 
   // check option to force pIa = 1 for spec confirmed SNIa
-  if ( force_probcc0(SNTYPE,IDSURVEY) && REQUIRE_pIa) 
+  if ( force_probcc0(SNTYPE,IDSURVEY) && REQUIRE_pIa ) 
     { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
 
@@ -17665,12 +17665,12 @@ void prep_input_driver(void) {
   // May 9 2019: check INPUTS.fixpar_all
 
   char *varname_pIa  = INPUTS.varname_pIa ;
-  bool EXIST_pIa     = ( strlen(varname_pIa) > 0) ;
   bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
 
   int i, icut;
   int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
   int  OPTMASK;
+  bool EXIST_pIa ;
   char usage[10];
   char fnam[] = "prep_input_driver";
 
@@ -17939,6 +17939,7 @@ void prep_input_driver(void) {
 
   // check if there is a CUTWIN on pIa .xyz
   INPUTS.APPLYCUT_pIa = ( icut_CUTWIN(varname_pIa) >= 0 );
+  EXIST_pIa           = ( strlen(varname_pIa) > 0) ;
   INFO_DATA.TABLEVAR.REQUIRE_pIa    = EXIST_pIa ;
   INFO_BIASCOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
   INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
@@ -18032,6 +18033,9 @@ void  prep_input_trueIa(void) {
   INPUTS_PROBCC_ZERO.nidsurvey = 0 ;  
 
   INPUTS.varname_pIa[0]        = 0;
+  INFO_DATA.TABLEVAR.REQUIRE_pIa     = false ;
+  INFO_BIASCOR.TABLEVAR.REQUIRE_pIa  = false;
+  INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa  = false;
   for(ifile=0; ifile < NFILE; ifile++ ) 
     { INFO_DATA.TABLEVAR.IVAR_pIa[ifile] = -9;  }
 

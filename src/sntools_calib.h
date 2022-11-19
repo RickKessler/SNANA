@@ -30,8 +30,17 @@
 #define IDMAP_KCOR_LCMAG   17
 #define IDMAP_KCOR_MWXT    18
 
+#define KCOR_CRAZYVAL 6.0 
+
 int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
+
+
+struct {
+  bool USE_AVWARPTABLE;  // speed up AVwarp calculation
+  bool DUMP_AVWARP, DUMP_MAG, DUMP_KCOR; // stdout dumps
+} CALIB_OPTIONS ;
+
 
 typedef struct {
   char VARNAME[40];
@@ -125,6 +134,7 @@ struct CALIB_INFO {
   int   k_index[MXTABLE_KCOR];
 
   bool  ISLAMSHIFT[MXFILT_CALIB] ;
+
   double RVMW;
   int    OPT_MWCOLORLAW ;
   
@@ -132,6 +142,7 @@ struct CALIB_INFO {
   KCOR_BININFO_DEF BININFO_T;
   KCOR_BININFO_DEF BININFO_z;
   KCOR_BININFO_DEF BININFO_AV ;
+  KCOR_BININFO_DEF BININFO_C ;  // observed color (not SALT2c)
 
   KCOR_MAPINFO_DEF MAPINFO_KCOR ;
   KCOR_MAPINFO_DEF MAPINFO_AVWARP ;
@@ -140,6 +151,7 @@ struct CALIB_INFO {
 
   double zRANGE_LOOKUP[2] ;
 
+  int NBIN_KCOR_TABLE, NBIN_LCMAG_TABLE, NBIN_AVWARP_TABLE, NBIN_MWXT_TABLE;
   float *KCORTABLE1D_F;     // use float to save memory
   float *LCMAG_TABLE1D_F ;
   float *AVWARP_TABLE1D_F ;
@@ -150,10 +162,18 @@ struct CALIB_INFO {
   int NCALL_READ ;
   bool STANDALONE;
 
-
 } CALIB_INFO ;
 
 
+double **TEMP_KCOR_ARRAY;
+
+struct {
+  struct GRIDMAP GRIDMAP_LCMAG;
+  struct GRIDMAP GRIDMAP_KCOR;
+} KCOR_TABLE ;
+
+
+  // ============================== 
 // declare functions
 
 void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, 
@@ -164,15 +184,17 @@ void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY,
 			double *MAGREST_SHIFT_PRIMARY,
 			double *MAGOBS_SHIFT_PRIMARY );
 
+void init_calib_options(void);
+
 void read_calib_init(void);
 void read_calib_open(void);
 void read_calib_head(void);
 void read_calib_zpoff(void);
 void read_calib_snsed(void);
-void read_calib_mags(void);
 void read_calib_filters(void);
 void read_calib_primarysed(void);
 
+void read_kcor_mags(void);
 void read_kcor_tables(void);
 void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 		       KCOR_BININFO_DEF *BININFO) ;
@@ -227,5 +249,24 @@ void get_calib_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 double get_calib_zpoff_file(int ifiltdef);
 double get_calib_zpoff_file__(int *ifiltdef);
 
-// end
+// K-cor functions for MLCS, snoopy ...
+
+void PREPARE_KCOR_TABLES(void);
+void prepare_kcor_tables__(void);
+
+void fill_kcor_AVwarptable(void);
+void fill_kcor_avwarptable__(void);
+
+double get_kcor_value(int IFILT_OBS, int *IFILT_REST_LIST, 
+		      double *MAG_REST_LIST, double *LAMDIF_LIST,
+		      double Trest, double z, double *AVwarp);
+
+double get_kcor_value__(int *IFILT_OBS, int *IFILT_REST_LIST, 
+			     double *MAG_REST_LIST, double *LAMDIF_LIST,
+			     double *Trest, double *z, double *AVwarp);
+
+double get_kcor_AVwarp(double Trest, double z, int ifiltdef_a, int ifiltdef_b,
+		       double mag_g, double mag_b, int *istat);
+
+// END
 

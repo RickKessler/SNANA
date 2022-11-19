@@ -29456,7 +29456,7 @@ C ------------------- BEGIN -----------------
       
 c check for correction for different RV or color law
 c Correction is computed at central wavelenth of filter;
-c thus be careful of RV - RVMW_RDKCOR is large,
+c thus be careful if RV - RVMW_RDKCOR is large,
 c or if the color law is very different.
 
       RVDIF  = RV - RVMW_RDKCOR
@@ -29754,22 +29754,6 @@ c
 c 
 c Use GET_MAGLC8 to get interpolated magnitudes.
 c
-c May 13, 2006: re-do using binary search for AV_BEST
-c                [much quicker and more accurate]
-c 
-c May 23, 2009 RSK: add ISTAT output arg to indicate when
-c                   mni/max boundary is reached.
-c
-c Aug 14, 2009: add NERR_AVWARP  counter and abort after 100
-c               => avoids infinite error loop
-c
-c Oct 12, 2009: use AVWARPTABLE if USE_AVWARPTABLE=T => much faster.
-c
-c Jul 21, 2011: switch from R4AVWARPTABLE(4 dimensions) to using
-c               AVWARP_TABLE1D(IBIN)
-c
-c Dec 30, 2012: define AVRANGE_LOCAL to debug new FITS convention
-c               where min,max are equivalent to HBOOK bin-centers.
 c
 c Aug 4 2019: IBINS starts at 0, not 1.
 c
@@ -30187,42 +30171,10 @@ C Interpolates the K-corrections array using CERNLIB-modified funciton
 c DFINT.  Note that if asked for rest and observer filter combination 
 c that is not known, then it returns 0.0
 C
-C Mar 2, 2006  R.Kessler 
-C    stop printing warnings after MXWARN warnings
-C    per fit. Use redshift8 to determine when new
-C    fit starts.
-C
-C
-C Dec 9, 2006 RSK: check Zrange_KCOR_LU instead of Zrange_KCOR;
-C                  allows user to extend valid range and use
-C                  extrapolations (i.e., for PHOTOZ fits)
-C
-C May 18, 2008 RSK: use sparse filter indices in KCORTABLE
-C
-C Aug 27, 2009 : check option INTERP_ZSMOOTH to smooth along Z.
-C                Recommended for photoZ fits to avoid notches
-C                in the chi2. To prepare for ZSMOOTH option,
-C                change ordering from [Z,T,AV] -> [T,AV,Z]
-C
 C     ZSMOOTH principle is to interp for nominal Z-bins,
 C     and with Z-bins shifted by 1; then take average.
 C     This avoids kink at bin-center.
 C
-C Jan 18, 2010: comment out warnings for AV outside lookup range.
-c Sep 09, 2010: replace +CDE,SNDATCOM. with specific keeps
-c
-c Sep 08, 2011: POLINT -> REAL*8 POLINT8
-c
-c Dec 29, 2012: use new EXIST_KCOR logical array to test that KCOR
-c               table exists. Replaces HIDMAG that works only for
-c               hbook tables; EXIST_KCOR works for HBOOK and FITS.
-c
-c Dec 30, 2012: 
-c    use new min,max convention consistent with FITS format;
-c    min,max correspond to HBOOK bin centers.
-c    However, to avoid subtle changes w.r.t. previous versions,
-c    allow half-bin extension on AV8 (AV-warp parameter);
-c    See check on LIMIT.
 c
 c Aug 4 2019: IBKCOR stars at 0, not 1
 C-----------------------
@@ -30560,7 +30512,6 @@ C Load the table
          NBIN  = NBIN  + 1
          NBINZ = NBINZ + 1
 
-
          KCOR8  = DBLE(R4KCORTABLE1D(KBIN))
 
          F(NBIN)   = KCOR8
@@ -30603,7 +30554,7 @@ c now smoothly interpolate KCOR vs. redsfhit
       IFILT_OBS_LAST = IFILT_OBS
 
       RETURN
-      END
+      END   ! end GET_KCOR8
 
 C =========================================
 +DECK,KCORERR8.
@@ -30904,7 +30855,6 @@ c be used only for color-differences.
 c
 c June 19, 2008: allow mags up to 50 (instead of 35)
 c                to allow for HST.
-c
 c
 c Aug 27, 2009: increase CRAZY mag limit from 50 to 60 to
 c               allow for wierd Kasen models.

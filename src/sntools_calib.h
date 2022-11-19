@@ -254,6 +254,8 @@ double get_calib_zpoff_file__(int *ifiltdef);
 void PREPARE_KCOR_TABLES(void);
 void prepare_kcor_tables__(void);
 
+void test_GRIDMAP_LCMAG(void) ;
+
 void fill_kcor_AVwarptable(void);
 void fill_kcor_avwarptable__(void);
 

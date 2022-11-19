@@ -1219,6 +1219,7 @@ c define functions
      &   INIT_GENMAG_STRETCH2
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
+     &  ,FILL_KCOR_AVWARPTABLE  
 
       REAL*8  GET_FLUX_FITFUN
       INTEGER FILTINDX
@@ -1399,7 +1400,11 @@ c set rest-frame filter ranges.
       IF (   FITMODEL_INDEX .EQ. MODEL_STRETCH
      &  .or. FITMODEL_INDEX .EQ. MODEL_STRETCH2 ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE() 
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
 
          RESTLAMBDA_MODEL(1) = 3000.0
          RESTLAMBDA_MODEL(2) = 9500.0        
@@ -1476,7 +1481,11 @@ c We might have to review the above later - GN
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE()
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
 
          PARNAME_STORE(IPAR_SHAPE)  = 'DELTA'
          ERRMAX_BAD(IPAR_SHAPE) = 0.02
@@ -1500,7 +1509,12 @@ c depends on which IR filters are used.
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-         CALL FILL_AVWARPTABLE
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FILL_AVWARPTABLE()
+         ELSE
+            CALL FILL_KCOR_AVWARPTABLE() 
+         ENDIF
+
 
          CALL GET_LAMRANGE_snoopy(LAMRANGE8(1),LAMRANGE8(2))
          RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
@@ -2023,7 +2037,7 @@ c set USE_FILT based on user-request, existence,
 c and valid rest-frame filter.
 
          USE_FILT(ifilt_obs) = 
-     &      LFITFUN_FILT(ifilt_obs,Z8TEST)
+     &      LFITFUN_FILT(ifilt_obs,Z8TEST) ! .xyz
 
          NOMATCH  = 
      &     USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs) 
@@ -3113,22 +3127,9 @@ c
 c
 c  IFLAG = 0 => called before any SN have been fitted (init stage)
 c  IFLAG > 0 => called just before fitting each SN
+c
+c    HISTORY
 c 
-c Jan 19, 2011: for DOFIT_PHOTOZ, extend ZMAX the same way
-c               as in FITINI_PHOTOZ.
-c
-c
-c Mar 28, 2011: protect Zmax from unset CUTWIN_REDSHIFT(2) = 1E9
-c
-c Mar 13, 2012: pass OPT=1 to get_LAMRANGE_SEDMODEL
-c
-c May 26, 2012: remove check on LKCOR_BXDEF
-c
-c Aug 28, 2012: set OPT_COVAR=1 as default for SALT2 model
-c
-c Jan 17, 2013: for OPT_FILTER_UPDATE>0, allow init when IFLAG=0
-c               because we need the RESTLAM range 
-c
 c Jun 24 2018: pass NONE argument to INIT_GENMAG_SALT2
 c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
@@ -3153,7 +3154,7 @@ c local var
 +CDE,SNLCINP.
 
       INTEGER 
-     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY
+     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY, OPT_FRAME
      &  ,LEN1, LEN2, LEN_NAME, ISTAT, NLAM, OPTMASK
      &  ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
@@ -3165,9 +3166,8 @@ c local var
      &  ,ZMIN, ZMAX, LOGZDIF, RVMW
 
       CHARACTER 
-     &   tmpname*20
+     &   tmpname*40
      &  ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)
-c     &  ,SURVEY_NAME_LOCAL*(MXCHAR_SURVEY)
      &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
@@ -3192,31 +3192,30 @@ c functions
      &  ,INIT_GENMAG_BAYESN
      &  ,init_redshift_sedmodel
      &  ,init_mwxt_sedmodel
-     &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL
+     &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL 
+     &  ,GET_CALIB_PRIMARY       ! refac
+     &  ,GET_CALIB_FILTERTRANS   ! refac
 
 C ------------------- BEGIN ---------------
 
       IERR = 0
       LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
 
-c xxxxxxxx mark delete xxxxxxx
-c Nov 11 2020: get SURVEY name, or SUBSURVEY name
-c      IF ( SUBSURVEY_NAME .EQ. '' ) THEN
-c        SURVEY_NAME_LOCAL = SURVEY_NAME
-c      ELSE
-c        SURVEY_NAME_LOCAL = SUBSURVEY_NAME
-c      ENDIF
-c      LEN_SURVEY = INDEX(SURVEY_NAME_LOCAL,  ' ') - 1
-c xxxxxxxxx end mark xxxxxxxxxxxx
-
 c reset SEDMODEL to init and/or erase previous instance
       ISTAT = RESET_SEDMODEL()
 
 c init primary spectrum
 
-      CALL GET_PRIMARY(tmpname, NLAM, LAM, VALa)
-      LEN1 = INDEX(tmpname,' ' ) - 1
-      ISTAT = INIT_PRIMARY_SEDMODEL(tmpname,NLAM,LAM,VALa,LEN1)
+      IF ( USE_KCOR_LEGACY ) THEN
+         CALL GET_PRIMARY_LEGACY(tmpname, NLAM, LAM, VALa)
+         LEN1 = INDEX(tmpname,' ' ) - 1
+         ISTAT = INIT_PRIMARY_SEDMODEL(tmpname(1:LEN1)//char(0),
+     &                    NLAM,LAM,VALa,LEN1)
+      ELSE
+         CALL GET_CALIB_PRIMARY(tmpname, NLAM, LAM, VALa, 20)
+         ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
+      ENDIF
+
 
       RVMW = DBLE(RV_MWCOLORLAW)
       CALL init_MWXT_SEDMODEL( OPT_MWCOLORLAW, RVMW ) ;
@@ -3262,15 +3261,44 @@ c now init each filter.
 c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
 
-         CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, SURVEY_NAME_FILTER,
-     &            CFILT, MAGPRIM, NLAM, lam, VALa, VALb)
+         if ( USE_KCOR_LEGACY ) then
+             ! original fortran subroutine
+           CALL GET_FILTTRANS_LEGACY(OPT_FILTOBS, ifilt_obs, 
+     &          SURVEY_NAME_FILTER, CFILT, MAGPRIM, NLAM, lam,
+     &          VALa, VALb)  ! <== returned transSN and transREF
+           LEN1  = INDEX(cfilt//' ',' ' ) - 2
+           LEN2  = INDEX(SURVEY_NAME_FILTER//' ',' ') - 2
+           ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
+     &                SURVEY_NAME_FILTER,
+     &                MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
+     &                LEN1+5, LEN2+5 )
 
-         LEN1  = INDEX(cfilt,' ' ) - 1
-         LEN2  = INDEX(SURVEY_NAME_FILTER,' ') - 1
-         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
-     &              SURVEY_NAME_FILTER,
+         else
+             ! refactored C code
+            OPT_FRAME = OPT_FILTOBS - 1 ! fortran -> C
+            CALL GET_CALIB_FILTERTRANS(OPT_FRAME, ifilt_obs,     ! (I)
+     &           SURVEY_NAME_FILTER, CFILT, MAGPRIM,            ! (O)
+     &           NLAM, LAM, VALa, VALb,                         ! (O)
+     &           40, 40 )       
+            LEN1  = INDEX(cfilt,char(0)) - 1
+            LEN2  = INDEX(SURVEY_NAME_FILTER,char(0)) 
+            ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, 
+     &              cfilt, SURVEY_NAME_FILTER(1:LEN2),
      &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
      &              LEN1, LEN2 )
+
+         endif 
+
+c xxxxxxxxxx mark delete xxxxxxxxxxxxx
+c      print*,' xxx ------------------------------------------'
+c      print*,' xxx ifilt_obs, NLAM=', ifilt_obs, NLAM
+c      print*,' xxx LEN(cfilt, survey) = ', LEN1, LEN2
+c      print*,' xxx CFILT, SURVEY_NAME_FILTER, MAGPRIM = ',
+c     &             CFILT(1:LEN1), '   ', SURVEY_NAME_FILTER(1:LEN2), 
+c     &                sngl(MAGPRIM)
+c      print*,' xxx LAM,Trans = ', 
+c     &     sngl(LAM(30)), sngl(VALa(30)), sngl(VALb(30))
+c xxxxxxxx end mark xxxxxx
 
       CALL FLUSH(6)
 
@@ -3278,7 +3306,7 @@ c VALa = transSN, VALb = transREF8
 
 
       IF ( IFLAG .EQ. 0 ) THEN        
-         OPT_FILTER_UPDATE      = OPT_FILTER_UPDATE_SAVE
+         OPT_FILTER_UPDATE  = OPT_FILTER_UPDATE_SAVE
       ENDIF
 
       CALL set_UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM_EXTRAPFLUX)
@@ -3307,15 +3335,12 @@ c unless user specifically sets OPT_COVAR=0
         IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
         if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
 
-c BAYESN BLOCK
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
+c              BAYESN BLOCK created Nov 2022
         OPTMASK = 0
-c        IF ( REQUIRE_DOCANA > 0 )           OPTMASK = OPTMASK + 2
-c        IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
-c        IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
-c        IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
-        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024 ! PantheonPlus arxiv number includes 04077
+c        IF ( REQUIRE_DOCANA > 0 )          OPTMASK = OPTMASK + 2
+c        IF ( DEBUG_FLAG==-4077 ) OPTMASK = OPTMASK + 1024
 
         ISTAT = INIT_GENMAG_BAYESN( TMP_FITMODEL, BLANK, OPTMASK, 
      &            LEN_NAME, 40 )
@@ -6168,7 +6193,7 @@ c Now check dump for observer-frame model
         cfilt = filtdef_string(ifilt_obs:ifilt_obs)
         write(6,754) cfilt, Flux, MAG_ERR
 754     format(T5,'Observer Flux(',A1,') = ', 
-     &             G12.3, 3x,'MAG_ERR=', F5.2 )
+     &             G14.5, 3x,'MAG_ERR=', F8.5 )
 
         CALL FLUSH(6)
 
@@ -6189,7 +6214,10 @@ c Now check dump for observer-frame model
      &     ' (Landolt)'
 
         ELSE
-            print*,'      MAG_OBS(',cfilt,') = ',MAG_OBS
+            write(6,812) cfilt(1:1), MAG_OBS, Trest, ITER
+812         format(T5,'MAG_OBS(', A, ')=', F9.4,' at Trest=',F7.2, 2x,
+     &            'ITER=',I1)
+cc xxx           print*,'      MAG_OBS(',cfilt,') = ',MAG_OBS
             print*,'      MAG_REST = ', MAG_REST(IFILT_OBS) 
             print*,'      MAG_XTAV = ', MAG_XTAV_REST(ifilt_obs)
         ENDIF
@@ -6595,7 +6623,6 @@ c local args
 
 c function
       REAL*8  USRFUN, DLMAG8_REF, GET_RV8, GET_DIST8
-      INTEGER NEAREST_IFILT_OBS
 
 C -------------- BEGIN ----------------
 
@@ -9566,7 +9593,6 @@ c If &SNLCINP SNCID_LIST_FILE is set, check for previous SALT2 fit
 c values to use as INIVAL when iter=1.
 c If INISTP(ipar)=0 [fixed parameter value], 
 c apply previous SALT2 fit value for all iterations.
-c .xyz
 
       IMPLICIT NONE
 
@@ -16809,21 +16835,6 @@ c Return T if this filter should be included in fit.
 c
 c ZTEST > 0 => make z-dependent tests
 c ZTEST < 0 => skip z-dependent tests
-c 
-c
-c May 20, 2008: use sparse 'ifilt' index for EXIST_FILT
-c May 04, 2009: test RESTLAMBDA_MODEL
-c Aug 07, 2009: add ZTEST arg to separate z-dependent & z-independent tests;
-c               Needed for PHOTOZ fits
-c
-c Aug 12, 2009: test PHOTOZ_DROPFILTER for photoz fits only
-c
-c Nov 26, 2012: RESTLAMBDA_MODEL -> RESTLAMBDA_USEFIT
-c
-c Jul 19, 2013: 
-c   modify logic for no epocs; see NOEPOCH and ISSURVEY
-c   Note that NONSURVEY_FILTERS are kept if redshift is valid
-c   to allow getting fitted model for NONSURVEY_FILTERS.
 c
 c ---------------------
 
@@ -16890,7 +16901,6 @@ c does this observer filter transform to a valid rest-frame filter
           if ( ifilt_rest .LE. 0. ) RETURN
         ENDIF
       ENDIF
-
 
 c all is OK.
 

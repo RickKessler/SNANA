@@ -778,10 +778,10 @@ struct INPUTS {
   char  GENFILTERS[MXFILTINDX];        // 'gri', 'grizY', etc ...
   int   NFILTDEF_OBS;
   int   IFILTMAP_OBS[MXFILTINDX];     // converts ifilt to ifilt_obs
-  float LAMAVG_OBS[MXFILTINDX];
-  float LAMRMS_OBS[MXFILTINDX];
-  float LAMMIN_OBS[MXFILTINDX];
-  float LAMMAX_OBS[MXFILTINDX];
+  double LAMAVG_OBS[MXFILTINDX];
+  double LAMRMS_OBS[MXFILTINDX];
+  double LAMMIN_OBS[MXFILTINDX];
+  double LAMMAX_OBS[MXFILTINDX];
 
   int   GENRANGE_DMPEVENT[2];  //dump events in this evt # range
   float GENRANGE_DMPTREST[2];  //dump rest-mags for this Trest-range
@@ -1051,11 +1051,13 @@ struct GENLC {
   int IFILTMAP_REST2[MXFILTINDX]; // 2nd near rest-filt index vs. sparse index
   int IFILTMAP_REST3[MXFILTINDX]; // 3rd nearest
 
+  /* xxx mark delete Nov 15 2022 
   int  NFILTDEF_SPECTROGRAPH ;
   int  IFILTDEF_SPECTROGRAPH[MXFILTINDX];     // vs. sparse synth spectro bands
   int  IFILTINV_SPECTROGRAPH[MXFILTINDX];     // vs. absolute ifilt_obs
   char FILTERLIST_SPECTROGRAPH[MXFILTINDX] ;  // idem
   int  IFLAG_SYNFILT_SPECTROGRAPH[MXFILTINDX] ;  // vs. ifilt_obs
+  xxxx */
 
   double LAMDIF_REST1[MXFILTINDX];
   double LAMDIF_REST2[MXFILTINDX];
@@ -1564,8 +1566,8 @@ struct SIMLIB_FLUXERR_COR {
 
 
 int GENFRAME_OPT;        // one of below, based on model option
-#define GENFRAME_REST 1  // => generate in rest frame; then boost
-#define GENFRAME_OBS  2  // => generate directly in obs frame
+#define GENFRAME_REST MASK_FRAME_REST  // => generate in rest frame; then boost
+#define GENFRAME_OBS  MASK_FRAME_OBS   // => generate directly in obs frame
 #define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
 #define GENFRAME_MJD  4  // => used by TAKE_SPECTRUM for MJD option
 
@@ -2063,6 +2065,7 @@ void INIT_FUDGE_SNRMAX(void);
 extern void init_snvar__(int *IERR);
 
 extern void rdkcor_(char *kcorFile, int *IERR, int len);
+extern void set_zpoff__(void);
 
 extern double get_maglc8__(int *ifilt, double *t8, double *z8, double *av8);
 
@@ -2077,8 +2080,8 @@ extern double get_avwarp8__(double *t8, double *z8,
 			    int *ifilt_1, int *ifilt_2, int *istat );
 
 extern void get_filtlam__(int *opt_frame, int *ifilt,
-			  float *lamavg, float *lamrms,
-			  float *lammin, float *lammax ) ;
+			  double *lamavg, double *lamrms,
+			  double *lammin, double *lammax ) ;
 
 extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 
@@ -2095,11 +2098,11 @@ extern int filtindx_(char *cfilt, int len);
 extern int get_filtmap__ ( char *copt, float *filtmap, int len );
 
 
-extern void get_filttrans__(int *maskFrame, int *ifilt,
-			    char *survey_name, char *filter_name,
-			    double *magPrim, int *NLAM, double *lam,
-			    double *TransSN, double *TransREF,
-			    int len1, int len2);
+extern void get_filttrans_legacy__(int *maskFrame, int *ifilt,
+				   char *survey_name, char *filter_name,
+				   double *magPrim, int *NLAM, double *lam,
+				   double *TransSN, double *TransREF,
+				   int len1, int len2);
 
 extern void set_survey__ ( char *name, int *NFILTDEF, int *IFILTDEF,
 			   float *LAMSHIFT, int len  );
@@ -2110,8 +2113,8 @@ extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest,
 			  double *mag_rest, double *lamdif,
 			  double *Trest, double *Z, double *AVwarp ) ;
 
-extern void  get_primary__(char *primary, int *NLAM,
-			   double *lam, double *primFlux, int len);
+extern void  get_primary_legacy__(char *primary, int *NLAM,
+				  double *lam, double *primFlux, int len);
 
 // -----------------------------
 //   genmag_xxx functions

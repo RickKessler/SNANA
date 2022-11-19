@@ -389,7 +389,7 @@ c Sep 9, 2010: Pulled out of SNDATACOM
 +CDE,CTRLCOM.
 +CDE,SNLCCOM. 
 +CDE,SNCUTS.
-+CDE,KCORCOM,IF=R4KCOR,I2KCOR.
++CDE,KCORCOM,IF=KCOR.
 +CDE,SNHOSTCOM.
 cc +CDE,PARSECOM.
 +CDE,SNSIMCOM.
@@ -1216,7 +1216,7 @@ c   VALUE   = 44.4
       COMMON / PRIVATECOM8 / PRIVATE_VALUE, PRIVATE_CUTWIN
     
 +KEEP,KCORCOM.
-+CDE,KTABLECM,IF=R4KCOR,I2KCOR.
++CDE,KTABLECM,IF=KCOR.
 
       INTEGER 
      &    LUNKCOR, MXKCOR
@@ -1389,15 +1389,11 @@ c
 c
      &  ,NULLF_RDKCOR,NULLI_RDKCOR,NULLS_RDKCOR,ANYF_RDKCOR
 
-+KEEP,KTABLECM,IF=R4KCOR.
++KEEP,KTABLECM,IF=KCOR.
       REAL*4  R4KCORTABLE1D(MXTABLE1D_KCOR)
       COMMON / R4KCORCOM / R4KCORTABLE1D
 +SELF.
 
-+KEEP,KTABLECM,IF=I2KCOR.
-      INTEGER*2  I2KCORTABLE1D(MXTABLE1D_KCOR)
-      COMMON / I2KCORCOM / I2KCORTABLE1D
-+SELF.
 
 
 +KEEP,SNHOSTCOM.
@@ -1554,35 +1550,6 @@ c The zeroth element is all bands together.
 
       COMMON /  TRUECHI2COM / 
      &   NDOF_TRUEFLUX, CHI2_TRUEFLUX, PROB_TRUEFLUX
-
-+KEEP,OVRIDECOM.
-
-c Nov 2016: define which variables can be over-written
-c           in user-input HEADER_OVERRIDE_FILE
-
-c xxxxxxx mark delete xxxxxxx
-c define hard-wired list of valid over-rides
-c      CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
-c      PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
-c     &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
-c     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
-c     &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
-c     &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
-c     &   'REDSHIFT_CMB,REDSHIFT_CMB_ERR,'      //   ! Oct 27 2020
-c     &   'REDSHIFT_HELIO,REDSHIFT_HELIO_ERR,'   //  ! Oct 27 2020
-c     &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
-c     &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
-c     &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
-c     &   'MWEBV,MWEBV_ERR,x1,c'   )
-c xxxxxxxxxx end mark xxxxxx
-     
-      INTEGER MXVAR_HEADER_OVERRIDE
-      PARAMETER ( MXVAR_HEADER_OVERRIDE = 10 )
-
-      INTEGER NVAR_HEADER_OVERRIDE  ! also a flag to use this option
-      CHARACTER VARLIST_HEADER_OVERRIDE(MXVAR_HEADER_OVERRIDE)*40
-      COMMON / OVRIDECOM / 
-     &     NVAR_HEADER_OVERRIDE, VARLIST_HEADER_OVERRIDE
 
 +KEEP,SNCUTS.
 
@@ -2097,6 +2064,8 @@ c
      &  ,RESTORE_WRONG_VPEC  ! I: restore incorrect VPEC sign correction
      &  ,RESTORE_OVERRIDE_ZBUG ! I: restore z=zCMB insteead of zHEL
      &  ,RESTORE_MWEBV_ERR_BUG ! I: bug used MWEBV/6 if MWEBV_ERR < 0.001
+     &  ,USE_KCOR_REFACTOR     ! I: use refactored KCOR C-code
+     &  ,USE_KCOR_LEGACY
 
 c LC plot info
 
@@ -2183,7 +2152,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG
+     &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2236,7 +2205,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX
      &    , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG
-     &    , RESTORE_MWEBV_ERR_BUG
+     &    , RESTORE_MWEBV_ERR_BUG, USE_KCOR_REFACTOR, USE_KCOR_LEGACY
      &    , REQUIRE_DOCANA
      &    , LPROB_TRUEFLUX
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -3011,7 +2980,7 @@ C =================================================
 +USE,P=*DATA_IO,T=EXE.
 +USE,P=*SNUTIL,T=EXE.
 +USE,P=*SNTABLE,T=EXE.
-+USE,P=*CALIB,T=EXE,IF=R4KCOR,I2KCOR.
++USE,P=*CALIB,T=EXE,IF=KCOR.
 +USE,P=*FITPKMJD,T=EXE.
 +USE,P=*SPLINE,T=EXE.
 
@@ -3032,7 +3001,6 @@ c
 +CDE,SNANAFIT.
 
       INTEGER   IERR, IVERS, NFIT_PER_SN
-      LOGICAL   LKCOR      
 
 c funtions
 
@@ -3118,25 +3086,13 @@ c init cut-names now that we have the filter names
       CALL INIT_CUTNAMES(IERR)
         IF ( IERR .NE. 0 ) GOTO 666 
 
-c always read K correction tables if KCOR_FILE is given;
-c Only SNANA job allows NULL kcor file
-
-      LKCOR = .TRUE.
-+SELF,IF=SNANA,PSNID.
-      IF ( KCOR_FILE .EQ. 'NULL' ) LKCOR = .FALSE.
-+SELF.
-
-
-+SELF,IF=R4KCOR,I2KCOR.
-      IF ( LKCOR ) THEN 
-        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
-        CALL RDKCOR ( KCOR_FILE, IERR )
-        IF ( IERR .NE. 0 ) GOTO 666 
+c read kcor/calib file
+      IF ( USE_KCOR_LEGACY ) THEN
+         CALL READ_CALIB_WRAPPER_LEGACY(IERR)
+      ELSE
+         CALL READ_CALIB_WRAPPER(IERR)
       ENDIF
-
-c check for option to update filter trans for each SN
-      CALL FILTER_UPDATE_INIT(IERR)
-+SELF.
+        IF ( IERR .NE. 0 ) GOTO 666 
 
 c option to create SIMLIB from data (call after RDKCOR, Feb 2017)
       CALL MAKE_SIMLIB_FILE(1)
@@ -3249,8 +3205,6 @@ c abort-end here
       CALL EXIT(0)
 
       END  ! end MAIN program
-
-
 
 C ==========================================
 
@@ -3372,6 +3326,161 @@ c xxxxxxxxx
 
       RETURN
       END  ! end PREP_VERSION_SUBFOLDER
+
+C ===========================================
++DECK,RDCAL_WRAP_LEGACY.
+      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
+c
+c Ceated Nov 2022
+c Wrapper subroutine to check if kcor/calib file is defined,
+c and to call read-kcor function with appropriate args.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IERR  ! (O) return non-zero on error
+      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
+
+      INTEGER LENF
+      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
+
+c ---------- BEGIN ---------
+   
+      IERR = 0 
+
+      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+
++SELF,IF=KCOR.
+      IF ( USE_KCOR ) THEN 
+        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
+        CALL RDKCOR(KCOR_FILE,IERR) 
+      ENDIF
+
+c check for option to update filter trans for each SN
+      CALL FILTER_UPDATE_INIT(IERR)
++SELF.
+
+      RETURN
+      END  ! end READ_CALIB_WRAPPER_LEGACY
+
+
+C ===========================================
++DECK,READ_CALIB_WRAPPER.
+      SUBROUTINE READ_CALIB_WRAPPER(IERR)
+c
+c Ceated Nov 2022
+c Wrapper subroutine to check if kcor/calib file is defined,
+c and to call read-kcor function with appropriate args.
+c [uses refactored C code]
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IERR  ! (O) return non-zero on error
+      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
+
+      INTEGER LENF, OPT_FRAME, IFILT, IFILT_OBS, IFILT_REST
+      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
+
+      REAL*8 
+     &   D_MAGOBS_SHIFT_PRIM(MXFILT_ALL)
+     &  ,D_MAGREST_SHIFT_PRIM(MXFILT_ALL)
+     &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF
+
+c external C codes
+      REAL*8 GET_CALIB_ZPOFF_FILE
+      EXTERNAL 
+     &    FLOAT2DOUBLE       
+     &   ,READ_CALIB_DRIVER
+     &   ,GET_CALIB_FILTINDEX_MAP
+     &   ,GET_CALIB_FILTLAM_STATS
+     &   ,GET_CALIB_ZPOFF_FILE
+
+c ---------- BEGIN ---------
+   
+      IERR = 0 
+
+      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+
+      if ( .NOT. USE_KCOR ) RETURN
+
++SELF,IF=KCOR.
+
+c prep arguments ...
+
+      CALL ENVreplace(KCOR_FILE)  ! Mar 2016
+
+      LENF = INDEX(KCOR_FILE,' ') - 1
+      cKCOR_FILE = KCOR_FILE(1:LENF) // char(0)
+      cFILTERS   = SURVEY_FILTERS(1:NFILTDEF_SURVEY) // char(0)
+
+c convert primary mag-shifts from sngl to double precision
+      CALL FLOAT2DOUBLE(MXFILT_ALL, MAGREST_SHIFT_PRIMARY_FILT,
+     &           D_MAGREST_SHIFT_PRIM )  ! <== returned
+      CALL FLOAT2DOUBLE(MXFILT_ALL, MAGOBS_SHIFT_PRIMARY_FILT,
+     &           D_MAGOBS_SHIFT_PRIM )  ! <== returned
+
+
+c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+c read kcor file and store information (C code)
+
+      CALL READ_CALIB_DRIVER(cKCOR_FILE, cFILTERS, 
+     &           D_MAGREST_SHIFT_PRIM, D_MAGOBS_SHIFT_PRIM)
+
+c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+c      print*,' xxx DEBUG STOP from READ_CALIB_WRAPPER xxx ' ; STOP  
+
+c check for option to update filter trans for each SN
+      CALL FILTER_UPDATE_INIT(IERR)
+
+c - - - - - - -  - -
+c load filter information from C struct to fortran common blocks
+
+c OBS frame map is already loaded; get rest-frame map
+      OPT_FRAME = OPT_FILTREST - 1
+      CALL GET_CALIB_FILTINDEX_MAP(OPT_FRAME, NFILTDEF_REST,   
+     &        IFILTDEF_MAP_REST, IFILTDEF_INVMAP_REST)
+           
+c fetch wavelength stats per band: AVG, RMS, MIN, MAX         
+      OPT_FRAME = OPT_FILTOBS - 1
+      DO ifilt = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_OBS,
+     &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
+         FILTOBS_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
+         FILTOBS_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
+         FILTOBS_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
+         FILTOBS_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+
+c       fetch ZPOFF from ZPOFF.DAT file in filter dir
+         ZPOFF = GET_CALIB_ZPOFF_FILE(ifilt_obs) 
+         FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = sngl(ZPOFF)
+      ENDDO
+
+      OPT_FRAME = OPT_FILTREST - 1
+      DO ifilt = 1, NFILTDEF_REST
+         ifilt_rest = IFILTDEF_MAP_REST(ifilt)
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_REST,
+     &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
+         FILTREST_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
+         FILTREST_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
+         FILTREST_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
+         FILTREST_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+      ENDDO
+
+      CALL SET_ZPOFF()
+
++SELF.
+
+      RETURN
+      END  ! end READ_CALIB_WRAPPER
+
 
 C ==========================================
 +DECK,EXEC_READ_DATA.
@@ -5962,7 +6071,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       EPOCH_IGNORE_FILE = 'DEFAULT' 
       OUT_EPOCH_IGNORE_FILE = ''
 
-      KCOR_FILE   = 'NULL'
+      KCOR_FILE    = 'NULL'
       OVERRIDE_RESTLAM_BOUNDARY = ''
 
       hfile_out         = ' '
@@ -6104,6 +6213,9 @@ c default is to reject nothing (accept everything)
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
+      USE_KCOR_REFACTOR = .FALSE.
+      USE_KCOR_LEGACY   = .TRUE.
+
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
       USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
@@ -6202,9 +6314,10 @@ c read the nml
 
 400   CONTINUE
 
-c check for namelist over-rides from command line.
-     
+c check for namelist over-rides from command line.    
       CALL SNLCINP_OVERRIDE()  ! refact with MATCH_NMLKEY (Enable 8.19.2020)
+
+      USE_KCOR_LEGACY = .NOT. USE_KCOR_REFACTOR
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
@@ -6440,13 +6553,14 @@ c Aug 2022: set abort trap on VERSION string length
 +CDE,SNANAFIT.
 +CDE,SNLCINP.
 
-      INTEGER i, index_C, LENV, LENF, JSLASH, IGNORE, NVERS, langFlag
+      INTEGER i, index_C, LENV, LENF, JSLASH,  NVERS, langFlag
       CHARACTER 
      &   FNAM*24
      &  ,cSTRING*(MXCHAR_FILENAME), cFILE*(MXCHAR_FILENAME)
      &  ,VERSION*(2*MXCHAR_VERSION)
-      INTEGER  IGNOREFILE, STORE_GLOB_FILE_LIST
-      EXTERNAL IGNOREFILE, STORE_GLOB_FILE_LIST
+      LOGICAL  IGNOREFILE_fortran, IGNORE
+      INTEGER  STORE_GLOB_FILE_LIST
+      EXTERNAL STORE_GLOB_FILE_LIST
       EXTERNAL GET_GLOB_FILE, RESET_GLOB_FILE_LIST
 
 c ---------- BEGIN -------------
@@ -6454,13 +6568,18 @@ c ---------- BEGIN -------------
       FNAM = 'PREP_VERSION_PHOTOMETRY'
 
 c check for wild card; e.g., 
-c  VERSION_PHOTOMETRY_WILDCARD = '$SNDATA_ROOT/SIM/ELASTICC_*'
 
       CALL ENVreplace(VERSION_PHOTOMETRY_WILDCARD)
       LENV    = INDEX(VERSION_PHOTOMETRY_WILDCARD,' ') - 1
-      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
-      IGNORE  = IGNOREFILE(cSTRING,LENV)
-      IF ( IGNORE == 0 ) THEN
+
+c xxxxx mark delete xxx
+c xx      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
+c xx      IGNORE  = IGNOREFILE(cSTRING,LENV)
+c xxxxxxxxxxx
+
+      IGNORE  = IGNOREFILE_fortran(VERSION_PHOTOMETRY_WILDCARD)
+
+      IF ( .NOT. IGNORE ) THEN
          print*,' '
          print*,' Use glob to find data folders for'
          print*,'     ', VERSION_PHOTOMETRY_WILDCARD(1:LENV)
@@ -7742,6 +7861,9 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
 
+         else if ( MATCH_NMLKEY('USE_KCOR_REFACTOR',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USE_KCOR_REFACTOR
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -11115,22 +11237,11 @@ c Init some SN variables.
 c Called once at beginning of program.
 c See INIT_SNLC to initilaize each SN.
 c
-c Nov 6, 2006: define SNANA_DIR and read ZPOFF from default file.
-c
-c Dec 16, 2006: update 2006 ranges and add MJDRANGE
-c
-c Oct 6, 2009:  fix dumb bugs caught with fcheck-bounds
-c    HIDKCOR -> HIDMAG
-c    IFILTDEF_IGNORE_REST(i) -> IFILTDEF_IGNORE_REST(ifilt)
-c
-c Mar 29, 2010: init &SNLCINP namelist char-string ZPOFF_FILE
-c
 c Feb 19 2014: abort if SNDATA_ROOT is not defined.
 c Jan 16 2019: init EXIT_ERRCODE
 c ---------------------------------------------------
  
       IMPLICIT NONE
-
 
 c include everything except the memory hogging SNLCCOM
 
@@ -11139,7 +11250,7 @@ c include everything except the memory hogging SNLCCOM
 +CDE,CTRLCOM.
 +CDE,SNCUTS.
 +CDE,SNLCINP.
-+CDE,KCORCOM,IF=R4KCOR,I2KCOR.
++CDE,KCORCOM,IF=KCOR.
 +CDE,SNHOSTCOM.
 c +CDE,PARSECOM.
 +CDE,SNSIMCOM.
@@ -11366,7 +11477,7 @@ c - - - - -
 
 c init HIDKCOR array to 0
 
-+SELF,IF=R4KCOR,I2KCOR.
++SELF,IF=KCOR.
 
       NCALL_RDKCOR = 0
       RESTKCOR_FILTERS = ''
@@ -12683,7 +12794,7 @@ c           These extra filters must be defined in the kcor/calib file,
 c           otherwise RDKCOR will abort.
 c Jun 1 2013:
 c  Only add NONSURVEY filter if it's NOT already defined. For example, 
-c  consider SDSS ugrizUGRIZ, but the simulations are done only with UGRIZ.  
+c  consider SDSS ugrizUGRIZ, but the simulations are done only with ugriz.  
 c  Thus we can define NONSURVEY_FILTERS ='UGRIZ' which are added to the 
 c  simulation list to avoid a KCOR-abort, but for data these NONSURVEY_FILTERS
 c  are ignored since they are already defined.
@@ -17481,7 +17592,7 @@ c Feb 6 2020: fudge errors here before SNRMAX is computed
 
 c test filter mean only if KCOR file is read.
            LLAM = .TRUE.
-+SELF,IF=R4KCOR,I2KCOR.
++SELF,IF=KCOR.
           LZ = ( Z > 0 .and. Z < 998 )
           IF ( NCALL_RDKCOR > 0  .and. LZ ) THEN
             LAMOBS = FILTOBS_LAMAVG(ifilt_obs) 
@@ -18764,7 +18875,6 @@ c - - - - - -
 
 C ---------------- BEGIN --------------
 
-cc       if ( INFILE .EQ. ''  ) RETURN
       if ( IGNOREFILE_fortran(INFILE) ) RETURN  ! Apr 7 2022
 
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
@@ -19254,7 +19364,6 @@ c +CDE,SNANAFIT.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
 +CDE,SPECCOM.
-+CDE,OVRIDECOM.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
@@ -19462,6 +19571,8 @@ cc          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
       ENDIF
 
 c - - - - - - - - - - 
+C xxxxx mark delete Nov 17 2022 xxxxxxxx
++SELF,IF=XYZDELETE.
 c May 31 2020:  if header-override file is set, check for SALT2 fit params
       IF ( NVAR_HEADER_OVERRIDE > 0 ) THEN
         CCID = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
@@ -19473,6 +19584,8 @@ c May 31 2020:  if header-override file is set, check for SALT2 fit params
      &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
         if ( ISTAT == 0 ) write(LUNOUT,"('SALT2c:  ',F7.4)" ) DVAL
       ENDIF
++SELF.
+c xxxxxxx end mark xxxxxxxxxxxxxxxx
 
 
 c - - - - -
@@ -25395,7 +25508,7 @@ C --------------- BEGIN --------------
       CALL FLUSH(6)            
 
 c set zeropoints
-      CALL SET_ZPOFF
+      CALL SET_ZPOFF()
 
       RETURN
       END  ! end RDKCOR
@@ -25499,8 +25612,8 @@ C ------------------ BEGIN ----------------
       FNAM = 'RDKCOR_FITS'
 
       print*,' ' 
-      print*,' ============================================= '
-      print*,' RDKCOR_FITS: Read Calib/Kcor tables.'
+      print*,' ================================================ '
+      print*,' RDKCOR_FITS: Read Calib/Kcor tables (legacy fortran).'
       CALL FLUSH(6)
 
       LVERBOSE_RDKCOR = .FALSE.
@@ -25990,6 +26103,7 @@ c find IPRIM index
      &    NFILTDEF_RDKCOR, nullf_rdkcor, 
      &    ZPOFF_PRIMARY_RDKCOR, anyf_rdkcor, istat)  ! return args
       CALL RDKCOR_ABORT(FNAM, 'ZPOFF_PRIMARY', ISTAT)
+
 
 
       CALL FTGCVe(LUN, ICOL_FILTER_ZPTOFF, firstrow, firstelem, 
@@ -26845,7 +26959,7 @@ c read flux array
 
 
 C ============================
-+DECK,RDKSUMM.
++DECK,RDKCOR_SUMM.
       SUBROUTINE RDKCOR_SUMMARY
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -26992,12 +27106,7 @@ c print rest-frame summary info.
 c ---------------------------
 c print summary of fraction of table bins used and total memory
 
-+SELF,IF=R4KCOR. 
       KCORSIZE = 4.0E-6 * float(MXTABLE1D_KCOR)  ! R*4 size in MB
-+SELF,IF=I2KCOR.
-      KCORSIZE = 2.0E-6 * float(MXTABLE1D_KCOR)  ! I*2 size in MB
-+SELF.
-
 
       print*,'  '
 
@@ -29347,7 +29456,7 @@ C ------------------- BEGIN -----------------
       
 c check for correction for different RV or color law
 c Correction is computed at central wavelenth of filter;
-c thus be careful of RV - RVMW_RDKCOR is large,
+c thus be careful if RV - RVMW_RDKCOR is large,
 c or if the color law is very different.
 
       RVDIF  = RV - RVMW_RDKCOR
@@ -29645,22 +29754,6 @@ c
 c 
 c Use GET_MAGLC8 to get interpolated magnitudes.
 c
-c May 13, 2006: re-do using binary search for AV_BEST
-c                [much quicker and more accurate]
-c 
-c May 23, 2009 RSK: add ISTAT output arg to indicate when
-c                   mni/max boundary is reached.
-c
-c Aug 14, 2009: add NERR_AVWARP  counter and abort after 100
-c               => avoids infinite error loop
-c
-c Oct 12, 2009: use AVWARPTABLE if USE_AVWARPTABLE=T => much faster.
-c
-c Jul 21, 2011: switch from R4AVWARPTABLE(4 dimensions) to using
-c               AVWARP_TABLE1D(IBIN)
-c
-c Dec 30, 2012: define AVRANGE_LOCAL to debug new FITS convention
-c               where min,max are equivalent to HBOOK bin-centers.
 c
 c Aug 4 2019: IBINS starts at 0, not 1.
 c
@@ -30078,43 +30171,10 @@ C Interpolates the K-corrections array using CERNLIB-modified funciton
 c DFINT.  Note that if asked for rest and observer filter combination 
 c that is not known, then it returns 0.0
 C
-C Mar 2, 2006  R.Kessler 
-C    stop printing warnings after MXWARN warnings
-C    per fit. Use redshift8 to determine when new
-C    fit starts.
-C
-C Nov 6, 2006 RSK: use I2KCORTABLE / KCORPACK
-C
-C Dec 9, 2006 RSK: check Zrange_KCOR_LU instead of Zrange_KCOR;
-C                  allows user to extend valid range and use
-C                  extrapolations (i.e., for PHOTOZ fits)
-C
-C May 18, 2008 RSK: use sparse filter indices in KCORTABLE
-C
-C Aug 27, 2009 : check option INTERP_ZSMOOTH to smooth along Z.
-C                Recommended for photoZ fits to avoid notches
-C                in the chi2. To prepare for ZSMOOTH option,
-C                change ordering from [Z,T,AV] -> [T,AV,Z]
-C
 C     ZSMOOTH principle is to interp for nominal Z-bins,
 C     and with Z-bins shifted by 1; then take average.
 C     This avoids kink at bin-center.
 C
-C Jan 18, 2010: comment out warnings for AV outside lookup range.
-c Sep 09, 2010: replace +CDE,SNDATCOM. with specific keeps
-c
-c Sep 08, 2011: POLINT -> REAL*8 POLINT8
-c
-c Dec 29, 2012: use new EXIST_KCOR logical array to test that KCOR
-c               table exists. Replaces HIDMAG that works only for
-c               hbook tables; EXIST_KCOR works for HBOOK and FITS.
-c
-c Dec 30, 2012: 
-c    use new min,max convention consistent with FITS format;
-c    min,max correspond to HBOOK bin centers.
-c    However, to avoid subtle changes w.r.t. previous versions,
-c    allow half-bin extension on AV8 (AV-warp parameter);
-c    See check on LIMIT.
 c
 c Aug 4 2019: IBKCOR stars at 0, not 1
 C-----------------------
@@ -30185,10 +30245,6 @@ c
      &  ,ITCEN, IAVCEN, IZCEN, IZCENb
      &  ,MINBIN, MAXBIN
      &  ,KBIN, IBKCOR(NKDIM)
-
-+SELF,IF=I2KCOR.
-     &  INTEGER I2KCOR, I2KCORb
-+SELF.
 
 c POLINT args
 c      REAL*4  Z4
@@ -30456,24 +30512,15 @@ C Load the table
          NBIN  = NBIN  + 1
          NBINZ = NBINZ + 1
 
-+SELF,IF=I2KCOR.
-         I2KCOR = I2KCORTABLE1D(KBIN)
-         KCOR8  = DBLE(I2KCOR)/KCORPACK
-+SELF,IF=R4KCOR.
          KCOR8  = DBLE(R4KCORTABLE1D(KBIN))
-+SELF.
+
          F(NBIN)   = KCOR8
 
          if ( ZSMOOTH )then
              IBKCOR(KDIM_Z) = IZCENb-IBZCEN+IZ-1   ! <== note IZCENb
              KBIN = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
              IBKCOR(KDIM_Z) = IZCEN-IBZCEN+IZ-1  ! reset with IZCEN
-+SELF,IF=I2KCOR.
-             I2KCORb = I2KCORTABLE1D(KBIN)
-             KCOR8b  = DBLE(I2KCORb)/KCORPACK
-+SELF,IF=R4KCOR.
              KCOR8b  = DBLE(R4KCORTABLE1D(KBIN))
-+SELF.
              FZ(NBINZ,IZ)  = KCOR8
              FZb(NBINZ,IZ) = KCOR8b
          endif
@@ -30507,7 +30554,7 @@ c now smoothly interpolate KCOR vs. redsfhit
       IFILT_OBS_LAST = IFILT_OBS
 
       RETURN
-      END
+      END   ! end GET_KCOR8
 
 C =========================================
 +DECK,KCORERR8.
@@ -30808,7 +30855,6 @@ c be used only for color-differences.
 c
 c June 19, 2008: allow mags up to 50 (instead of 35)
 c                to allow for HST.
-c
 c
 c Aug 27, 2009: increase CRAZY mag limit from 50 to 60 to
 c               allow for wierd Kasen models.
@@ -31785,7 +31831,7 @@ c update ZP-shift for each filter (i.e., add to user-shift)
       CALL DMP_ZPOFF
 
       RETURN
-      END
+      END  ! end FILTER_UPDATE_ZPOFF
 
 C ================================================
 +DECK,GTFUPDDIR.
@@ -32312,14 +32358,15 @@ c Return filter info; this is for C code to get info
 c from fortran commmon block.
 c 
 c July 2016: add arguments lammin, lammax
+c Nov 15 2022: REAL -> REAL*8 for output args
 
       IMPLICIT NONE
 
       INTEGER IFILT        ! (I) absolute filter index
       INTEGER OPT_FRAME    ! (I) 1=rest, 2=obs
 
-      REAL LAMAVG, LAMRMS  ! (O) info to return
-      REAL LAMMIN, LAMMAX  ! (O) added July 2016
+      REAL*8 LAMAVG, LAMRMS  ! (O) info to return
+      REAL*8 LAMMIN, LAMMAX  ! (O) added July 2016
 
 +CDE,SNPAR.
 +CDE,FILTCOM.
@@ -32346,14 +32393,6 @@ C ======================================================
 c Nov 2010: load filter trans & lambda bins  into global array.
 c           Use OBS or REST arrays based on input OPT argument.
 c
-c Dec 31, 2010: ilam_max++ and ilam_min--  to include one
-c               zero-trans bin on each side of the trans function
-c               may be needed for interpolation at the min/max region.
-c
-c Nov 15, 2011: compute and store MEAN and RMS so that we can get
-c               rid of the ill-defined 'FUNCTION HSTATI' in CERNLIB.
-c
-c July 2016: also store min & max lambda
 c
 c Jan 16 2017: check NLAM_LOAD against array bound BEFORE ilam loop.
 
@@ -32576,8 +32615,8 @@ c loop over each bin and transfer lam-shifted trans
 
 
 C ======================================================
-+DECK,GET_FILTTRANS.
-      SUBROUTINE GET_FILTTRANS ( MASKFRAME, ifilt, srvy_name,
++DECK,GET_FILTTRANS_LEGACY.
+      SUBROUTINE GET_FILTTRANS_LEGACY ( MASKFRAME, ifilt, srvy_name,
      &                           filter_name, magPrim, 
      &                           NLAM, lam, transSN, transREF  )
 c
@@ -32640,7 +32679,7 @@ c local variables.
       character fnam*16
 c ---------------- BEGIN -------------
 
-      FNAM = 'GET_FILTTRANS'
+      FNAM = 'GET_FILTTRANS_LEGACY'
       LDBUG = (IFILT .EQ. -99)
      
       LOBS_CHECK  = BTEST( MASKFRAME, OPT_FILTOBS  - 1 )
@@ -32712,8 +32751,8 @@ c --- check special option for filter-update for each SN
 
 
 C ===========================
-+DECK,GET_PRIMARY.
-      SUBROUTINE GET_PRIMARY ( NAME,  NLAM, lam, flux  )
++DECK,GET_PRIMARY_LEGACY.
+      SUBROUTINE GET_PRIMARY_LEGACY ( NAME,  NLAM, lam, flux  )
 c
 c Created May 4, 2009 by R.Kessler
 c Return NAME of primary ref and its 
@@ -32903,6 +32942,8 @@ c Created Jul 17, 2011
 c Dump zeropoint offsets to screen.
 c
 c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
+c Nov 2022: separate filter loop over OBS and REST frame so that it works
+c           for both legacy and refac kcor.
 c
 c -------------------------
       IMPLICIT NONE
@@ -32915,18 +32956,35 @@ c -------------------------
 +CDE,KCORCOM.
 
       REAL      ZPOFF_TOT
-      INTEGER   ifilt_obs, ifilt_tmp
+      INTEGER   ifilt_obs, ifilt
       character CFILT*2
 
 C ------------------ BEGIN ------------
 
       print*,' '
-
-         write(6,20) 'KCOR file'  ! Dec 7 2019 (pull out of IF block)
-
+      write(6,20) 'KCOR file' 
 20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
-c xxx 21    format(T5,'Zeropoint offsets (ZPOFF) from : ' /, T8, A)
 
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
+         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
+         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+         write(6,801) cfilt(1:1), ZPOFF_TOT          
+100   CONTINUE
+
+      DO 200 ifilt = 1, NFILTDEF_REST
+         ifilt_obs = IFILTDEF_MAP_REST(ifilt)     
+         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 200
+         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+         write(6,801) cfilt(1:1), ZPOFF_TOT          
+200   CONTINUE
+
+801       format(T10,'Will apply net MAGOBS_SHIFT_ZP(',A,') = ', F7.4 )
+
++SELF,IF=XXXDELETE.
+c xxxxxxxxxx mark delete Nov 18 2022 xxxxxxxxx
       DO 200 ifilt_tmp = 1, NFILTOBS_RDKCOR
         ifilt_obs = IFILTOBS_RDKCOR(ifilt_tmp)     
 
@@ -32936,9 +32994,10 @@ c xxx 21    format(T5,'Zeropoint offsets (ZPOFF) from : ' /, T8, A)
 
           ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
           write(6,801) cfilt(1:1), ZPOFF_TOT
-801       format(T10,'Will apply net MAGOBS_SHIFT_ZP(',A,') = ', F7.4 )
 
 200   CONTINUE
+c xxxxxxxxxx end mark xxxxxxxxxxx
++SELF.
 
       CALL FLUSH(6)
 

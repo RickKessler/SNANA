@@ -21384,4 +21384,13 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    SALT2mu.c and create_covariance.py:
      + write consistent redshift name as zHD; see github issue 1052.
 
+   sntools_kcor.c[h]
+     + after 3 year break, continue translating fortran KCOR functions to C.
+
+   Remove GENLC.*SPECTROGRAPH* from snlc_sim.h[c], and define everything
+   we need in INPUTS_SPECTRO struct in sntools_spectrograph.h.
+
+   submit_batch: LCFIT class has on-the-fly compression to reduce file count;
+      see https://github.com/RickKessler/SNANA/issues/1054
+
 END: 

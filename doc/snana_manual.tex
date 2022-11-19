@@ -4127,6 +4127,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_MXINTFLUX_SNPOS: .97       # default=0.99
    HOSTLIB_SNR_DETECT:   xxx          # default=0 SNR>xxx (see below)
    HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
+   HOSTLIB_MAXDDLR2:     xxx          # default=7 (for HOST_CONFUSION calculation)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
@@ -13416,6 +13417,7 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGE_ZPTERR: 0.03             # add .03 ZPTERR to all epochs and bands
   FUDGE_ZPTERR_FILTER: g   .01   # add .01 ZPTERR to g-band 
   FUDGE_ZPTERR_FILTER: riz .02   # add .02 ZPTERR to riz bands
+  FUDGE_ZPTERR_FILTER: r,i,z  0.02,0.01,0.005 
 
 # 7. shift filter wavelength 
   FUDGESHIFT_LAM: 10.0                              # add 10 A to all bands

@@ -12,7 +12,7 @@
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath
-import logging, coloredlogs, subprocess
+import logging, coloredlogs, subprocess, tarfile
 import pandas as pd
 from   submit_params import *
 
@@ -534,10 +534,15 @@ def compress_files(flag, dir_name, wildcard, name_backup, wildcard_keep ):
     #  dir_name -> cd to this directory
     #  wildcard -> include these files in tar file
     #  name_backup -> tar file name is BACKUP_{name_backup}.tar
+    #        if name_backup has .tar extension, the use this name with BACKUP prefix.
     #  wildcard_keep -> do NOT remove these files
     #
 
-    tar_file   = f"{BACKUP_PREFIX}_{name_backup}.tar"
+    if '.tar' in name_backup:
+        tar_file   = name_backup
+    else:
+        tar_file   = f"{BACKUP_PREFIX}_{name_backup}.tar"
+
     targz_file = f"{tar_file}.gz"
     cddir      = f"cd {dir_name}"
 
@@ -1160,17 +1165,32 @@ def get_YAML_key_values(YAML_BLOCK, KEYLIST):
 def get_survey_info(yaml_path):
     # Read SURVEY (string) and IDSURVEY (int) from YAML file,
     # and return these quantities.
-    # If yaml_path is a directory, read first file in glob list;
-    # if yaml_path is a file, read this particular file.
+    # if yaml_path is a file, read this particular file;
+    # If yaml_path is a directory, read first file in glob list
+    # or read first file in first tar file.
+
+    yaml_file_list = glob.glob(f"{yaml_path}/*.YAML")
+    yaml_tar_list  = glob.glob(f"{yaml_path}/*YAML.tar.gz")
 
     if  os.path.isfile(yaml_path) :
         yaml_file = yaml_path
-    else :
-        # it's a directory
-        yaml_list = glob.glob(f"{yaml_path}/*.YAML")
-        yaml_file = yaml_list[0]
+        yaml_info = extract_yaml(yaml_file, None, None )    
+    elif len(yaml_file_list) > 0 :
+        # pick first file in directory
+        yaml_file = yaml_file_list[0]
+        yaml_info = extract_yaml(yaml_file, None, None )    
+    elif len(yaml_tar_list) > 0 :
+        # read first file in 1st tar file
+        tar_file = yaml_tar_list[0]
+        members  = tarfile.open(tar_file).getmembers()
+        members_name = [m.name for m in members]
+        member0      = members_name[0]
+        with tarfile.open(tar_file).extractfile(member0) as r:
+            yaml_info = yaml.safe_load(r)
+    else:
+        pass  # err message ?
 
-    yaml_info = extract_yaml(yaml_file, None, None )    
+
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 

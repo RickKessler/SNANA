@@ -4312,6 +4312,15 @@ void reverse_INDEX_SORT(int NSORT, int *INDEX_SORT) {
     
 }  // end of revserse_INDEX_SORT
 
+
+void float2double(int N, float *flist, double *dlist) {
+  int i;
+  for(i=0; i < N; i++ ) { dlist[i] = (double)flist[i]; }
+} 
+void float2double_(int *N, float *flist, double *dlist) 
+{ float2double(*N, flist, dlist); }
+
+
 // ======================================================
 void print_KEYwarning(int ISEV, char *key_old, char *key_new) {
 

@@ -7101,11 +7101,6 @@ void GEN_SNHOST_POS(int IGAL) {
   a = reduced_R * (DLR * cphi) ;   // bug fix, Nov 15 2019
   b = reduced_R * (DLR * sphi) ;
 
-  if ( INPUTS.RESTORE_HOSTLIB_BUGS == true ) { // Nov 15 2019
-    a = reduced_R * (a_half * cphi) ;  // restore bug
-    b = reduced_R * (b_half * sphi) ;  // idem
-  }
-
   SNHOSTGAL.a_SNGALSEP_ASEC  =  a ;
   SNHOSTGAL.b_SNGALSEP_ASEC  =  b ;
   SNHOSTGAL.phi              =  phi ;
@@ -7241,6 +7236,9 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   //  
   // Method 0 is optimal if there is an analytic form for the
   // integral. Here we go with method 2.
+  //
+  // Nov 11 2022: minor refactor to clarify usage of INPUTS.HOSTLIB_FIXRAN_PHI
+  //
 
   double asq    = a*a;
   double bsq    = b*b;
@@ -7255,12 +7253,19 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
 
   // check option to fix angle
   fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
+  if ( fixran > -1.0E-9 )  { 
+    SNHOSTGAL.FlatRan1_phi = fixran ; 
+    *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; 
+    return; 
+  }
+
+  /* xxx mark obsolete Nov 11 2022 xxx
   if ( fixran > -1.0E-9 ) 
     { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
 
   if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
     { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
-
+    xxxxxxxx  */
 
   if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
   
@@ -8282,6 +8287,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   // Nov 25 2019: protect dm for GALFRAC=0
   //
   // Jan 31 2020: refactor to load DDLR_SORT array for MAG.
+  // Nov 15 2022: float lam[abc] -> double lam[abc]
 
   int  NNBR       = SNHOSTGAL.NNBR_DDLRCUT2 ;
 
@@ -8297,8 +8303,9 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
     ,RVMW = 3.1
     ;
-
-  float lamavg4, lamrms4, lammin4, lammax4  ;
+  
+  // xxx mark delete  float lamavg4, lamrms4, lammin4, lammax4  ;
+  double lamavg, lamrms, lammin, lammax ;
   int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame  ;
   char cfilt[2];
   char fnam[] = "GEN_SNHOST_GALMAG" ;
@@ -8315,8 +8322,8 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs   = GENLC.IFILTMAP_OBS[ifilt];
     get_filtlam__(&opt_frame, &ifilt_obs, 
-		  &lamavg4, &lamrms4, &lammin4, &lammax4 );
-    LAMOBS_AVG = (double)lamavg4 ;
+		  &lamavg, &lamrms, &lammin, &lammax );
+    LAMOBS_AVG = lamavg ;
     MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
 
     // compute & store galaxy mag if they are defined

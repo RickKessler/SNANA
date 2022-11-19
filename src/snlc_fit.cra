@@ -10,7 +10,7 @@ c -----------------------------------------------------
 +NAMES,8,6000,48000.
 +USE,LINUX.
 +USE,SNFIT.
-+USE,R4KCOR.
++USE,KCOR.
 +USE,MINUIT.
 
 

@@ -4,7 +4,7 @@ C
 
 
 +USE,LINUX.
-+USE,R4KCOR.
++USE,KCOR.
 
 +USE,P=*SNCOM.
 cc +USE,P=*CALIB,T=EXE.   ! for debugging

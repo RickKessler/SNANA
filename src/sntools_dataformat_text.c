@@ -1677,8 +1677,8 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
   // ---------- BEGIN -------
 
   IVARSPEC_SNTEXTIO.LAMMIN = IVARSPEC_SNTEXTIO.LAMMAX = -9;
-  IVARSPEC_SNTEXTIO.LAMAVG = -9;
-  IVARSPEC_SNTEXTIO.LAMMIN = IVARSPEC_SNTEXTIO.FLAMERR = -9;
+  IVARSPEC_SNTEXTIO.LAMAVG = -9 ;
+  IVARSPEC_SNTEXTIO.FLAM   = IVARSPEC_SNTEXTIO.FLAMERR = -9;
   IVARSPEC_SNTEXTIO.SIM_GENFLAM = IVARSPEC_SNTEXTIO.SIM_GENMAG = -9;
 
   NVAR = SNTEXTIO_FILE_INFO.NVARSPEC ;
@@ -1706,7 +1706,7 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
       { IVARSPEC_SNTEXTIO.LAMMAX = ivar;  }
 
     else if ( strcmp(varName,"FLAM") == 0 ) 
-      { IVARSPEC_SNTEXTIO.FLAM = ivar; }
+      { IVARSPEC_SNTEXTIO.FLAM = ivar;   }
 
     else if ( strcmp(varName,"FLAMERR") == 0 ) 
       { IVARSPEC_SNTEXTIO.FLAMERR = ivar; }

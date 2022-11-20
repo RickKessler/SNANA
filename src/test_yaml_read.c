@@ -28,6 +28,8 @@ int main(void)
   double M0    = -19.0;
   double SIGMA0=   0.1;
   double TAUA  =   0.4;
+  double *LAM_KNOTS;
+  double *TAU_KNOTS;
 
   // we need something to store the current scalar
   double this_scalar = 0.0;
@@ -98,19 +100,7 @@ int main(void)
             break;
         }
 
-
-        if (strcmp(event.data.scalar.value, "W0")==0)
-        {
-            datatype = 3;
-            break;
-        }
-
-        if (strcmp(event.data.scalar.value, "RV")==0)
-        {
-            datatype = 1;
-            bayesn_var_dptr = &RV;
-            break;
-        }
+        // next we'll define how to handle the scalars
         if (strcmp(event.data.scalar.value, "M0")==0)
         {
             datatype = 1;
@@ -123,10 +113,45 @@ int main(void)
             bayesn_var_dptr = &SIGMA0;
             break;
         }
+        if (strcmp(event.data.scalar.value, "RV")==0)
+        {
+            datatype = 1;
+            bayesn_var_dptr = &RV;
+            break;
+        }
         if (strcmp(event.data.scalar.value, "TAUA")==0)
         {
             datatype = 1;
             bayesn_var_dptr = &TAUA;
+            break;
+        }
+
+        // next we'll define the vectors
+        if (strcmp(event.data.scalar.value, "L_KNOTS")==0)
+        {
+            datatype = 2;
+            LAM_KNOTS = malloc(sizeof(double)*(int)N_LAM);
+            for(int i=0; i<(int)N_LAM; i++)
+            {
+                LAM_KNOTS[i] = 0.0;
+            }
+            bayesn_var_dptr = &LAM_KNOTS[col];
+            break;
+        }
+        if (strcmp(event.data.scalar.value, "TAU_KNOTS")==0)
+        {
+            datatype = 2;
+            TAU_KNOTS = malloc(sizeof(double)*(int)N_TAU);
+            for(int i=0; i<(int)N_TAU; i++)
+            {
+                TAU_KNOTS[i] = 0.0;
+            }
+            bayesn_var_dptr = &TAU_KNOTS[col];
+            break;
+        }
+        if (strcmp(event.data.scalar.value, "W0")==0)
+        {
+            datatype = 3;
             break;
         }
 
@@ -146,6 +171,8 @@ int main(void)
             }
             else
             {
+                *(bayesn_var_dptr + col) = this_scalar;
+                this_scalar = 0.0;
                 col = col + 1;
             }
             break;
@@ -193,10 +220,19 @@ int main(void)
   yaml_event_delete(&event);
   /* END new code */
 
- printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
+  printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
             (int)N_LAM, (int)N_TAU, (int)N_SIG, 
             M0, SIGMA0, RV, TAUA);
-
+  for(int i=0; i<(int)N_LAM; i++)
+  {
+    printf("%f ",LAM_KNOTS[i]);
+  }
+  printf("\n");
+  for(int i=0; i<(int)N_TAU; i++)
+  {
+    printf("%f ",TAU_KNOTS[i]);
+  }
+  printf("\n");
 
   /* Cleanup */
   yaml_parser_delete(&parser);

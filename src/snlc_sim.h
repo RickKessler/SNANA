@@ -411,8 +411,8 @@ typedef struct {
 
 struct INPUTS {
 
-  int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
-  int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply
+  int USE_KCOR_REFACTOR; // 1-> run both legacy and new; 2-> new only 
+  int USE_KCOR_LEGACY;   // use legacy fortran code to read & apply
   
   bool DASHBOARD_DUMPFLAG ;  // dump all input maps and libraries
   bool KEYNAME_DUMPFLAG;     // dump input key names and quit (broken!!)
@@ -1905,6 +1905,7 @@ int    gen_TRIGGER_PEAKMAG_SPEC(void); // call GENMAG_DRIVER for peak only
 int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
 void   GENMAG_DRIVER(void);    // driver to generate true mags
+void   DUMP_GENMAG_DRIVER(void);
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
 void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
 void   set_GENFLUX_FLAGS(int ep);
@@ -2023,7 +2024,6 @@ void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 int  GENRANGE_CUT(void);
 int  GENMAG_CUT(void);
 
-void DUMP_GENMAG_DRIVER(void);
 
 void DASHBOARD_DRIVER(void);
 void SIMLIB_DUMP_DRIVER(void);
@@ -2034,12 +2034,6 @@ void update_SIMLIB_DUMP_AVGALL(int OPT);
 
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
-
-void test_fortran(void);
-void test_igm(void);
-void test_ran(void);
-void test_PARSE_WORDS(void);
-void test_zcmb_dLmag_invert(void);
 
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);

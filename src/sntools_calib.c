@@ -2172,7 +2172,7 @@ void PREPARE_KCOR_TABLES(void) {
   char MAPNAME_LCMAG[] = "LCMAG" ;
   char MAPNAME_KCOR[]  = "KCOR" ;
 
-  int  iav, iz, it, ifiltr, J1D=0, NBIN_TOT, NDIM_INP, NDIM_FUN ;
+  int  iav, iz, it, ifiltr, J1D=0, NBIN_TOT, NBIN_CHECK, NDIM_INP, NDIM_FUN ;
   float fmem = 0.0 ;
   char fnam[] = "PREPARE_KCOR_TABLES" ;
 
@@ -2181,30 +2181,33 @@ void PREPARE_KCOR_TABLES(void) {
   printf("\n %s\n", fnam );
 
   // start with LCMAG
-  NBIN_TOT  = NBIN_AV * NBIN_z * NBIN_T * NFILTDEF_REST;
+  NBIN_TOT  = NBIN_T * NBIN_z * NBIN_AV * NFILTDEF_REST;
   NDIM_INP  = 4; 
   NDIM_FUN  = 1;
   fmem     += malloc_double2D(+1, NDIM_INP+NDIM_FUN, NBIN_TOT, &TEMP_KCOR_ARRAY);
-  printf("\t Allocate %.2f MB of temp %s memory \n", fmem, MAPNAME_LCMAG );
+  printf("\t Allocate %.1f MB of temp %s memory \n", fmem, MAPNAME_LCMAG );
   fflush(stdout);
 
-  int NPT_MAG[4] = { NBIN_AV, NBIN_z, NBIN_T, NFILTDEF_REST } ;
-  init_1DINDEX(IDGRIDMAP_KCOR_MAG, NDIM_INP, NPT_MAG );
+  NBIN_CHECK = 0 ;
+  for(ifiltr=0; ifiltr < NFILTDEF_REST; ifiltr++ ) {
+    for(iav=0; iav < NBIN_AV; iav++ ) {
+      for(iz=0; iz < NBIN_z; iz++ ) {
+	for(it=0; it < NBIN_T; it++ ) {
+	  int ibins_tmp[4] = { it, iz, iav, ifiltr } ;
+	  J1D = get_1DINDEX(IDMAP_KCOR_LCMAG, NDIM_INP, ibins_tmp);
 
-  J1D = 0 ;
-  for(iav=0; iav < NBIN_AV; iav++ ) {
-    for(iz=0; iz < NBIN_z; iz++ ) {
-      for(it=0; it < NBIN_T; it++ ) {
-	for(ifiltr=0; ifiltr < NFILTDEF_REST; ifiltr++ ) {
+	  /* xxx
+	  if ( J1D < 200 ) {
+	    printf(" xxx %s: J1D=%3d  BIN_CHECK=%3d  (of %d)\n",
+		   fnam, J1D, NBIN_CHECK, NBIN_TOT);
+		   } xxxx */
 
-	  // .xyz check of J1D matches get_1dindex ...
-
-	  TEMP_KCOR_ARRAY[0][J1D]  = CALIB_INFO.BININFO_AV.GRIDVAL[iav] ;
-	  TEMP_KCOR_ARRAY[1][J1D]  = CALIB_INFO.BININFO_z.GRIDVAL[iav] ;
-	  TEMP_KCOR_ARRAY[2][J1D]  = CALIB_INFO.BININFO_T.GRIDVAL[iav] ;
+	  TEMP_KCOR_ARRAY[0][J1D]  = CALIB_INFO.BININFO_T.GRIDVAL[it] ;
+	  TEMP_KCOR_ARRAY[1][J1D]  = CALIB_INFO.BININFO_z.GRIDVAL[iz] ;
+	  TEMP_KCOR_ARRAY[2][J1D]  = CALIB_INFO.BININFO_AV.GRIDVAL[iav] ;
 	  TEMP_KCOR_ARRAY[3][J1D]  = (double)ifiltr;
 	  TEMP_KCOR_ARRAY[4][J1D]  = (double)CALIB_INFO.LCMAG_TABLE1D_F[J1D];
-	  J1D++ ;
+	  NBIN_CHECK++ ;
 	}
       }
     }
@@ -2215,11 +2218,51 @@ void PREPARE_KCOR_TABLES(void) {
 		      OPT_EXTRAP, TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
 		      &KCOR_TABLE.GRIDMAP_LCMAG); // <== returned
  
+  test_GRIDMAP_LCMAG();
+
+  // free TEMP_KCOR_ARRAY
+  malloc_double2D(-1, NDIM_INP+NDIM_FUN, NBIN_TOT, &TEMP_KCOR_ARRAY);
+
+  // - - - - - - - - - - 
+  //
+
+
   debugexit(fnam);
 
   return;
 
 } // end PREPARE_KCOR_TABLES
+
+
+void test_GRIDMAP_LCMAG(void) {
+
+  double T=0.0, z=ZAT10PC, AV=0.0, xfilt_r, MAG ;
+  int  ifilt_r, istat;
+  int  NFILTDEF_REST    = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+  char *name_r ;
+  char fnam[] = "test_GRIDMAP_LCMAG" ;
+
+  // ------------ BEGIN -----------
+  
+  printf("\n");
+  printf(" xxx -------------------------------------------- \n");
+  printf(" xxx %s: \n",fnam);
+  printf("\n  Trest     AV       Filter       MAG \n");
+  for(ifilt_r=0; ifilt_r < NFILTDEF_REST; ifilt_r++ ) {
+    xfilt_r = (double)ifilt_r ;
+    name_r   = CALIB_INFO.FILTERCAL_REST.FILTER_NAME[ifilt_r];
+    for ( AV=-1.0; AV < 3.0; AV+=1.0 ) {
+      double VALUES[4] = { T, z, AV, xfilt_r } ;      
+      istat = interp_GRIDMAP(&KCOR_TABLE.GRIDMAP_LCMAG, VALUES, &MAG);
+      printf("  %6.1f  %6.3f  %12s  %6.3f \n",
+	     T, AV, name_r, MAG); fflush(stdout);
+    }
+  }
+
+  return;
+
+} // end test_GRIDMAP_LCMAG
+
 
 void prepare_kcor_tables__(void)  { PREPARE_KCOR_TABLES(); }
 

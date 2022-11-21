@@ -29095,15 +29095,6 @@ c RANK_WANT = 1 => returns closest filter;
 c RANK_WANT = 2 => returns 2nd closest filter
 c RANK_WANT = 3 => returns 3rd closest filter
 c
-c Nov 13, 2010: allow ifilt argument to be either obs or rest;
-c               see OPT bits.
-c
-c Nov 15, 2010: change RETURN to "GOTO 900" and abort if 
-c               NEAREST_IFILT has not been set.
-c
-c Apr 27, 2011: if bit 4 (OPT+=8) is set, then do NOT abort if 
-c               filter is not found ==> return -9
-c
 c -----------------------------
 
       IMPLICIT NONE
@@ -31278,7 +31269,7 @@ c local var
 
       REAL*8 mag8_a, mag8_b, T8, z8, AVWARP8
 
-      CHARACTER cfilt1*1, cfilt2*1, cfilt3*1, cfilt_nbr*1
+      CHARACTER cfilt1*1, cfilt2*1, cfilt3*1, cfilt_nbr*1, FNAM*20
 
 c functions
       REAL*8 GET_AVWARP8
@@ -31287,6 +31278,8 @@ c functions
       EXTERNAL GET_1DINDEX
 
 C -------------- BEGIN --------------
+
+      FNAM = 'FILL_AVWARPTABLE'
 
       IF ( NFIT_ITERATION .LE. 0 .and. .NOT. LTEST_KCOR ) RETURN
 
@@ -31381,21 +31374,6 @@ c (because it's 2 filters away)
          IBINS(4) = ifilt_nbr-1
          IBIN     = GET_1DINDEX(IDMAP_AVWARP,N4DIM,IBINS)+1
          AVWARP_TABLE1D(IBIN) = SNGL(AVWARP8)
-
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx DEBUG Dec 30 2012
-         if ( ifilt1_rest    .eq. -11 .and. 
-     &        ifilt_nbr_rest .EQ. -12 .and.
-     &        abs(Trest + 4.0) < 1.0 ) then
-c IBIN=59063
-c          if ( LDMP_AVWARP ) then
-
-            write(6,222) IBIN, Trest, c, AVWARP8
-222         format('AVWARP: IBIN=',I7, 2x, 'Trest=',F6.2,2x,
-     &            'c=',F6.3,2x,'AVwarp=',F8.4 )
-
-            call flush(6)
-         endif
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         
 c now flip the color and filters
 

@@ -6,6 +6,40 @@
 //#include "genmag_SEDtools.h"
 //#include "genmag_BAYESN.h"
 
+
+
+float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
+  // Created Jun 11 2019
+  // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
+  float f_MEMTOT = 0.0 ;
+  long long MEMTOT=0, i1 ;
+  int MEM1 = LEN1 * sizeof(double *); 
+  int MEM2 = LEN2 * sizeof(double);
+  // ----------- BEGIN -------------
+
+  if ( opt > 0 ) {
+
+    double *mem = malloc(LEN1 * LEN2 * sizeof(double));
+    double **new = malloc(LEN1 * sizeof(double*)); 
+    MEMTOT += MEM1;
+    new[0] = mem;
+    for(i1=1; i1< LEN1; i1++ ) {
+      new[i1] = new[i1-1] + LEN2;
+      MEMTOT += MEM2;
+    }
+    array2D[0] = new;
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
+    free(array2D[i1]) ;    
+  }
+  return(f_MEMTOT);
+}
+
+
 int main(void)
 {
   FILE *fh = fopen("/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML", "r");
@@ -17,6 +51,7 @@ int main(void)
                     // in principle we can support strings and other types
   int col=0;
   int row=0;
+  int rowsize = 0;
   // default init for the sizes is negative to deliberately force an error
   // we should populate these values from the YAML file
   // they are also doubles because it is easier to assume everything is a double when parsing
@@ -30,6 +65,9 @@ int main(void)
   double TAUA  =   0.4;
   double *LAM_KNOTS;
   double *TAU_KNOTS;
+  double **L_SIGMA_EPSILON;
+  double **W0;
+  double **W1;
 
   // we need something to store the current scalar
   double this_scalar = 0.0;
@@ -149,16 +187,44 @@ int main(void)
             bayesn_var_dptr = &TAU_KNOTS[col];
             break;
         }
+
+        // finally parse the 2D matrices
         if (strcmp(event.data.scalar.value, "W0")==0)
         {
             datatype = 3;
+            rowsize = (int) N_TAU;
+            malloc_double2D(1, (int) N_LAM, (int) N_TAU, &W0);
+
+            row = 0;
+            col = 0;
+            bayesn_var_dptr = &W0[row][col];
+            break;
+        }
+        if (strcmp(event.data.scalar.value, "W1")==0)
+        {
+            datatype = 3;
+            rowsize = (int) N_TAU;
+            malloc_double2D(1, (int) N_LAM, (int) N_TAU, &W1);
+            row = 0;
+            col = 0;
+            bayesn_var_dptr = &W1[row][col];
+            break;
+        }
+        if (strcmp(event.data.scalar.value, "L_SIGMA_EPSILON")==0)
+        {
+            datatype = 3;
+            rowsize = (int) N_SIG;
+            malloc_double2D(1, (int) N_SIG, (int) N_SIG, &L_SIGMA_EPSILON);
+            row = 0;
+            col = 0;
+            bayesn_var_dptr = &L_SIGMA_EPSILON[row][col];
             break;
         }
 
         if (datatype !=0 )
         {
             this_scalar = atof(event.data.scalar.value);
-             printf("Got scalar (value %f) %d %d\n", this_scalar, row, col); 
+            //printf("Got scalar (value %f) %d %d\n", this_scalar, row, col); 
 
             // if we read a scalar we're done with one read
             if (datatype == 1)
@@ -171,7 +237,14 @@ int main(void)
             }
             else
             {
-                *(bayesn_var_dptr + col) = this_scalar;
+                if (datatype == 2)
+                {
+                    *(bayesn_var_dptr + col) = this_scalar;
+                }
+                else
+                {
+                    *(bayesn_var_dptr + row*rowsize + col) = this_scalar;
+                }
                 this_scalar = 0.0;
                 col = col + 1;
             }
@@ -203,6 +276,7 @@ int main(void)
             {
                 row = 0;
                 datatype = 0;
+                rowsize = 0;
                 double this_scalar = 0.0;
                 bayesn_var_dptr = &this_scalar;
             }
@@ -223,18 +297,59 @@ int main(void)
   printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
             (int)N_LAM, (int)N_TAU, (int)N_SIG, 
             M0, SIGMA0, RV, TAUA);
+  printf("LAM_KNOTS:\n");
   for(int i=0; i<(int)N_LAM; i++)
   {
     printf("%f ",LAM_KNOTS[i]);
   }
   printf("\n");
+  printf("TAU_KNOTS:\n");
   for(int i=0; i<(int)N_TAU; i++)
   {
     printf("%f ",TAU_KNOTS[i]);
   }
   printf("\n");
+  
+  printf("W0:\n");
+  rowsize=(int) N_TAU;
+  for(int i=0; i<(int)N_LAM; i++)
+  {
+    for(int j=0; j<(int)N_TAU; j++)
+    {
+        printf("(%d %d) %.2f",i,j, W0[i][j]);
+    }
+    printf("\n");
+  }
+  printf("I HATE THIS\n");
+
+  printf("W1:\n");
+  rowsize=(int) N_TAU;
+  for(int i=0; i<(int)N_LAM; i++)
+  {
+    for(int j=0; j<(int)N_TAU; j++)
+    {
+        printf("(%d %d) %.2f",i,j, W1[i][j]);
+    }
+    printf("\n");
+  }
+  printf("I STILL HATE THIS\n");
+
+  printf("L_SIGMA_EPSILON:\n");
+  rowsize=(int) N_SIG;
+  for(int i=0; i<(int)N_SIG; i++)
+  {
+    for(int j=0; j<(int)N_SIG; j++)
+    {
+        printf("(%d %d) %.2f",i,j, L_SIGMA_EPSILON[i][j]);
+    }
+    printf("\n");
+  }
+  printf("DONT SEGFAULT\n");
 
   /* Cleanup */
+  /* Cleanup */
+  yaml_event_delete(&event);
+  yaml_event_delete(&last_event);
   yaml_parser_delete(&parser);
   fclose(fh);
   return 0;

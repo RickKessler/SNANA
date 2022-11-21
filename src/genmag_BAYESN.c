@@ -173,6 +173,9 @@ gsl_matrix *invKD_irr(int Nk, double *xk) {
 		gsl_linalg_LU_solve(K, p, &d.vector, &m.vector);
 	}
 
+    gsl_matrix_free(K);
+    gsl_matrix_free(D);
+
 	return M;
 }
 

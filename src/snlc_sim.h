@@ -2056,12 +2056,16 @@ int  GEN_COVMAT_SCATTER ( double * scatter, double *randoms );
 
 void INIT_FUDGE_SNRMAX(void);
 
+
+// kcor functions
 extern void init_snvar__(int *IERR);
 
 extern void rdkcor_(char *kcorFile, int *IERR, int len);
 extern void set_zpoff__(void);
 
 extern double get_maglc8__(int *ifilt, double *t8, double *z8, double *av8);
+extern double get_mag8__(int *ifilt, double *t8, double *z8, double *av8, 
+			 double *mwebv8);
 
 extern double get_mwxt8__(int *ifilt, double *t8, double *z8, double *av8,
 			  double *mwebv8, double *RV, int *OPT_COLORLAW );

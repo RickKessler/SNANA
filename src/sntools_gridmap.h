@@ -17,7 +17,10 @@ typedef struct GRIDMAP {
   int    *INVMAP;      // covert multi-D indices into 1D index
   int  NROW;          // number or rows read from file 
   int  OPT_EXTRAP;   // 1=>snap outside values to edge 
-  char VARLIST[80]; // comma-sep list of variables (optional to fill)   
+  char VARLIST[80];  // comma-sep list of variables (optional to fill)   
+
+  float MEMORY; // alloated memory, MB
+
 } GRIDMAP ;
 
 
@@ -28,17 +31,18 @@ typedef struct GRIDMAP1D {
 
 
 #define IDGRIDMAP_SIMEFFMAP              8  // for MLCS-AV prior 
-#define IDGRIDMAP_KCOR_MAG              11  // rest-frame mags for K-cor
-#define IDGRIDMAP_KCOR_VAL              12  // K-cor values
 #define IDGRIDMAP_HOSTLIB_WGTMAP        20  // HOSTLIB weight map 
+#define IDGRIDMAP_KCOR_LCMAG            21  // rest-frame mags for K-cor
+#define IDGRIDMAP_KCOR_MWXT             22
+#define IDGRIDMAP_KCOR_VAL              23  // K-cor values
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap 
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap 
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap 
-#define IDGRIDMAP_GENPDF                60  // Jun 2020          
+#define IDGRIDMAP_GENPDF                60  // populations
 #define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap 
 
 
-// ------ index mapping                                                         
+// ------ index mapping        
 void clear_1DINDEX(int ID);
 void  init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM );
 int    get_1DINDEX(int ID, int NDIM, int *indx );

@@ -138,11 +138,11 @@ struct CALIB_INFO {
   double RVMW;
   int    OPT_MWCOLORLAW ;
   
-  KCOR_BININFO_DEF BININFO_LAM;
-  KCOR_BININFO_DEF BININFO_T;
-  KCOR_BININFO_DEF BININFO_z;
-  KCOR_BININFO_DEF BININFO_AV ;
-  KCOR_BININFO_DEF BININFO_C ;  // observed color (not SALT2c)
+  KCOR_BININFO_DEF BININFO_LAM;  // ??
+  KCOR_BININFO_DEF BININFO_T;    // Trest
+  KCOR_BININFO_DEF BININFO_z;    //
+  KCOR_BININFO_DEF BININFO_AV ;  // AVwarp param to match model color to data
+  KCOR_BININFO_DEF BININFO_C ;   // observed color (not SALT2c)
 
   KCOR_MAPINFO_DEF MAPINFO_KCOR ;
   KCOR_MAPINFO_DEF MAPINFO_AVWARP ;
@@ -169,6 +169,7 @@ double **TEMP_KCOR_ARRAY;
 
 struct {
   struct GRIDMAP GRIDMAP_LCMAG;
+  struct GRIDMAP GRIDMAP_MWXT;
   struct GRIDMAP GRIDMAP_KCOR;
 } KCOR_TABLE ;
 
@@ -198,6 +199,7 @@ void read_kcor_mags(void);
 void read_kcor_tables(void);
 void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 		       KCOR_BININFO_DEF *BININFO) ;
+void fill_kcor_binInfo_C(void);
 
 void print_calib_summary(void);
 
@@ -216,8 +218,6 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
 void set_lamrest_range_KCOR(int ifilt);
 void set_lamrest_range_UBVRI(int ifilt);
-
-void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP );
 
 void get_calib_primary(char *primary_name, int *NBLAM, 
 		      double *lam, double *flux);
@@ -254,11 +254,16 @@ double get_calib_zpoff_file__(int *ifiltdef);
 void PREPARE_KCOR_TABLES(void);
 void prepare_kcor_tables__(void);
 
-void test_GRIDMAP_LCMAG(void) ;
 
 void fill_kcor_AVwarptable(void);
 void fill_kcor_avwarptable__(void);
 
+int nearest_ifiltdef_rest( int opt, int ifiltdef, int rank, double z, char *callFun,
+			   double *lamdif_min );
+int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, char *callFun,
+			    double *lamdif_min );
+
+// ?? void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP );
 double get_kcor_value(int IFILT_OBS, int *IFILT_REST_LIST, 
 		      double *MAG_REST_LIST, double *LAMDIF_LIST,
 		      double Trest, double z, double *AVwarp);
@@ -269,6 +274,10 @@ double get_kcor_value__(int *IFILT_OBS, int *IFILT_REST_LIST,
 
 double get_kcor_AVwarp(double Trest, double z, int ifiltdef_a, int ifiltdef_b,
 		       double mag_g, double mag_b, int *istat);
+
+double get_kcor_LCMAG(int ifiltdef_rest, double Trest, double z, double AVwarp);
+double get_kcor_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
+		     double MWEBV, double RV, int OPT_MWCOLORLAW);
 
 // END
 

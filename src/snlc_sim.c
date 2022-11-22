@@ -63,6 +63,7 @@
 
 // include C code
 #include "SNcadenceFoM.c"
+#include "sntools_sim_testfuns.c"
 
 #define MODELGRID_GEN
 #define TWO_RANDONE_STREAMS
@@ -194,6 +195,9 @@ int main(int argc, char **argv) {
   // initialize calib/kcor
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
+
+  if ( INPUTS.USE_KCOR_REFACTOR > 0 )
+    { test_kcor_utils(); }
 
   // - - - - -
   // init option to generate populations from PDF
@@ -23587,6 +23591,7 @@ void init_kcor_refactor(void) {
 
   }
 
+
   //  debugexit(fnam);
 
   return ;
@@ -28849,7 +28854,6 @@ void DUMP_GENMAG_DRIVER(void) {
 }  // end of DUMP_GENMAG_DRIVER
 
 
-#include "sntools_sim_testfuns.c"
 
 // =============================
 void print_sim_help(void) {

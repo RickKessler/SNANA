@@ -267,7 +267,8 @@ int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, char 
 			    double *lamdif_min );
 
 // ?? void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP );
-double GET_KCOR_DRIVER(int IFILT_OBS, int *IFILT_REST_LIST, 
+
+double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST, 
 		      double *MAG_REST_LIST, double *LAMDIF_LIST,
 		      double Trest, double z, double *AVwarp);
 
@@ -280,11 +281,12 @@ double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double A
 double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
 		     double MWEBV, double RV, int OPT_MWCOLORLAW);
 
-double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b, double mag_a,double mag_b,
-		       double Trest, int *istat);
+double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b, 
+			      double mag_a,double mag_b,
+			      double Trest, int *istat);
 
-double eval_kcor_table_value(int ifiltdef_rest, int ifiltdef_obs, double Trest, 
-		      double z, double AVwarp);
+double eval_kcor_table_KCOR(int ifiltdef_rest, int ifiltdef_obs, double Trest, 
+			    double z, double AVwarp);
 
 // END
 

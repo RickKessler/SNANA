@@ -2825,7 +2825,7 @@ int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, char 
 }
 
 
-double GET_KCOR_DRIVER(int IFILT_OBS, int *IFILT_REST_LIST,
+double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
 		       double *MAG_REST_LIST, double *LAMDIF_LIST,
 		       double Trest, double z, double *AVwarp) {
 
@@ -2846,15 +2846,23 @@ double GET_KCOR_DRIVER(int IFILT_OBS, int *IFILT_REST_LIST,
   //   AVwarp:      parameter used to warp SN SED for k-correction
   //
 
-  double kcor_value = -999.0 ;
-  double kcor12, kcor13, ddlam, wsum, w12, w13, lamdif12, lamdif13;
+  double kcor_value ;
   double DDLAM_MAX = 200.0 ; // max LAMDIF to take Kcor wgt avg
+  double z0 = ZAT10PC ;
+  double KCOR01, KCOR12;
+  int    istat;
   bool   NOAVWARP_FLAG ;
 
+  FILTERCAL_DEF *FILTERCAL_OBS  = &CALIB_INFO.FILTERCAL_OBS;
+  FILTERCAL_DEF *FILTERCAL_REST = &CALIB_INFO.FILTERCAL_REST;
+
+  int LDMP = 0 ;
   char fnam[] = "GET_KCOR_DRIVER" ;
 
   // --------------- BEGIN --------------
 
+  // init output values
+  kcor_value = -999.0 ;
   AVwarp[0] = AVwarp[1] = AVwarp[2] = -999.0 ;
 
   //  check for sane arguments
@@ -2866,6 +2874,60 @@ double GET_KCOR_DRIVER(int IFILT_OBS, int *IFILT_REST_LIST,
 
   NOAVWARP_FLAG = (LAMDIF_LIST[0] ==  -7.0); // is there a better way ?
 
+  AVwarp[1] = eval_kcor_table_AVWARP(IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[1],
+				     MAG_REST_LIST[0],  MAG_REST_LIST[1],
+				     Trest, &istat );
+				     
+  if ( NOAVWARP_FLAG )  { AVwarp[1] = 0.0 ; }
+
+  KCOR01= eval_kcor_table_KCOR(IFILTDEF_REST_LIST[0], IFILTDEF_OBS,   
+			       Trest, z, AVwarp[1] )  ;
+
+  if ( LDMP ) {
+    int  ifilt_o = FILTERCAL_OBS->IFILTDEF_INV[IFILTDEF_OBS];
+    char *name_o = FILTERCAL_OBS->FILTER_NAME[ifilt_o];
+
+    printf(" xxx ---------------------------------------- ");
+    printf(" xxx %s DEBUG DUMP: \n", fnam);
+    printf(" xxx Trest=%.2f   z=%.4f   IFILTDEF_OBS=%d(%s) \n", 
+	   Trest, z, IFILTDEF_OBS, name_o);
+    printf(" xxx KCOR12  = %f \n", KCOR01 );
+    printf(" xxx IFILTDEF_REST = %d %d %d \n", 
+	   IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[1], IFILTDEF_REST_LIST[2]);
+    printf(" xxx MAG_REST   = %.3f %.3f %.3f \n",
+	   MAG_REST_LIST[0], MAG_REST_LIST[1], MAG_REST_LIST[2] );
+    printf(" xxx AVwarp     = %f \n", AVwarp[1] );
+  }
+
+  kcor_value = KCOR01;
+
+  if ( IFILTDEF_REST_LIST[2] <= 0 ) { return kcor_value; }
+
+  // --------------------------------------------------
+
+  // check if 3rd filter is on other side of central filter
+  // Example 1: central filter = B, then U & V are valid 2nd and 3rd filters.
+  // Example 2: central filter = U, then B is valid 2nd filter, but V
+  //           is NOT a valid 3rd filter to use for K-corrections
+  //
+  // In short, filter-lambda order must be 2-0-1 or 1-0-2
+
+  double wsum, w12, w13, lamdif01, lamdif02, ddlam ;
+  int    ifilt0_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[0]];
+  int    ifilt1_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[1]];
+  int    ifilt2_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[2]];
+  double lamavg0  = FILTERCAL_REST->LAMMEAN[ifilt0_r];
+  double lamavg1  = FILTERCAL_REST->LAMMEAN[ifilt1_r];
+  double lamavg2  = FILTERCAL_REST->LAMMEAN[ifilt2_r];
+  
+  // return if two remaining filters are both redder (bluer) than central filter.
+  lamdif01 = lamavg1 - lamavg0 ;
+  lamdif02 = lamavg0 - lamavg2;
+  if ( lamdif01/lamdif02 < 0.0 ) { return kcor_value; }
+
+  ddlam = LAMDIF_LIST[2] - LAMDIF_LIST[1];  // always postive
+
+  
   return kcor_value;
 
 } // end GET_KCOR_DRIVER
@@ -3012,8 +3074,8 @@ double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b,
 
 
 // =====================================================================
-double eval_kcor_table_value(int ifiltdef_rest, int ifiltdef_obs, double Trest,
-		      double z,double AVwarp) {
+double eval_kcor_table_KCOR(int ifiltdef_rest, int ifiltdef_obs, double Trest,
+			    double z,double AVwarp) {
 
 
   int ifilt_r = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_rest];
@@ -3022,7 +3084,7 @@ double eval_kcor_table_value(int ifiltdef_rest, int ifiltdef_obs, double Trest,
 
   double KCOR = 0.0 ; // kcor value return-arg
   double GRIDVAL_LIST[10];
-  char fnam[] = "eval_kcor_table_value" ;
+  char fnam[] = "eval_kcor_table_KCOR" ;
 
   // ------------- BEGIN ---------------
   
@@ -3036,6 +3098,6 @@ double eval_kcor_table_value(int ifiltdef_rest, int ifiltdef_obs, double Trest,
 
   return KCOR;
 
-} // end eval_kcor_table_value
+} // end eval_kcor_table_KCOR
 
 // ===== END =====

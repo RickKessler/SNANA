@@ -63,7 +63,7 @@
 
 // include C code
 #include "SNcadenceFoM.c"
-#include "sntools_sim_testfuns.c"
+#include "sim_unit_tests.c"
 
 #define MODELGRID_GEN
 #define TWO_RANDONE_STREAMS

@@ -1219,7 +1219,6 @@ c define functions
      &   INIT_GENMAG_STRETCH2
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
-     &  ,FILL_KCOR_AVWARPTABLE  
 
       REAL*8  GET_FLUX_FITFUN
       INTEGER FILTINDX
@@ -1402,8 +1401,6 @@ c set rest-frame filter ranges.
 
          IF ( USE_KCOR_LEGACY ) THEN
             CALL FILL_AVWARPTABLE() 
-         ELSE
-            CALL FILL_KCOR_AVWARPTABLE() 
          ENDIF
 
          RESTLAMBDA_MODEL(1) = 3000.0
@@ -1483,8 +1480,6 @@ c We might have to review the above later - GN
 
          IF ( USE_KCOR_LEGACY ) THEN
             CALL FILL_AVWARPTABLE()
-         ELSE
-            CALL FILL_KCOR_AVWARPTABLE() 
          ENDIF
 
          PARNAME_STORE(IPAR_SHAPE)  = 'DELTA'
@@ -1511,8 +1506,6 @@ c depends on which IR filters are used.
 
          IF ( USE_KCOR_LEGACY ) THEN
             CALL FILL_AVWARPTABLE()
-         ELSE
-            CALL FILL_KCOR_AVWARPTABLE() 
          ENDIF
 
 

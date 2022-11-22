@@ -1014,7 +1014,7 @@ $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
 	$(SRC)/sntools_genPDF.c $(SRC)/sntools_wronghost.c \
 	$(SRC)/sntools_genSmear.c $(SRC)/sntools_devel.c \
 	$(SRC)/SNcadenceFoM.c  \
-	$(SRC)/sntools_sim_testfuns.c \
+	$(SRC)/sim_unit_tests.c \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 

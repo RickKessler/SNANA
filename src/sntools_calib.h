@@ -24,6 +24,7 @@
 #define KDIM_IFILTo   4
 #define NKDIM_KCOR    5
 #define N4DIM_KCOR    4
+#define OPT_EXTRAP_KCOR 1  // extrap option for GRIDMAP utli
 
 #define IDMAP_KCOR_TABLE   15
 #define IDMAP_KCOR_AVWARP  16
@@ -34,7 +35,7 @@
 
 int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
-
+int NERR_KCOR_AVWARP;
 
 struct {
   bool USE_AVWARPTABLE;  // speed up AVwarp calculation
@@ -170,6 +171,7 @@ double **TEMP_KCOR_ARRAY;
 struct {
   struct GRIDMAP GRIDMAP_LCMAG;
   struct GRIDMAP GRIDMAP_MWXT;
+  struct GRIDMAP GRIDMAP_AVWARP ;
   struct GRIDMAP GRIDMAP_KCOR;
 } KCOR_TABLE ;
 
@@ -253,10 +255,11 @@ double get_calib_zpoff_file__(int *ifiltdef);
 
 void PREPARE_KCOR_TABLES(void);
 void prepare_kcor_tables__(void);
-
-
-void fill_kcor_AVwarptable(void);
-void fill_kcor_avwarptable__(void);
+void prepare_kcor_table_LCMAG(void);
+void prepare_kcor_table_MWXT(void);
+void prepare_kcor_table_AVWARP(void);
+double fit_AVWARP(int ifiltdef_a, int ifiltdef_b, double T, double C);
+void prepare_kcor_table_KCOR(void);
 
 int nearest_ifiltdef_rest( int opt, int ifiltdef, int rank, double z, char *callFun,
 			   double *lamdif_min );
@@ -264,20 +267,24 @@ int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, char 
 			    double *lamdif_min );
 
 // ?? void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP );
-double get_kcor_value(int IFILT_OBS, int *IFILT_REST_LIST, 
+double GET_KCOR_DRIVER(int IFILT_OBS, int *IFILT_REST_LIST, 
 		      double *MAG_REST_LIST, double *LAMDIF_LIST,
 		      double Trest, double z, double *AVwarp);
 
-double get_kcor_value__(int *IFILT_OBS, int *IFILT_REST_LIST, 
-			     double *MAG_REST_LIST, double *LAMDIF_LIST,
-			     double *Trest, double *z, double *AVwarp);
+double get_kcor_driver__(int *IFILT_OBS, int *IFILT_REST_LIST, 
+			 double *MAG_REST_LIST, double *LAMDIF_LIST,
+			 double *Trest, double *z, double *AVwarp);
 
-double get_kcor_AVwarp(double Trest, double z, int ifiltdef_a, int ifiltdef_b,
-		       double mag_g, double mag_b, int *istat);
+double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double AVwarp);
 
-double get_kcor_LCMAG(int ifiltdef_rest, double Trest, double z, double AVwarp);
-double get_kcor_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
+double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
 		     double MWEBV, double RV, int OPT_MWCOLORLAW);
+
+double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b, double mag_a,double mag_b,
+		       double Trest, int *istat);
+
+double eval_kcor_table_value(int ifiltdef_rest, int ifiltdef_obs, double Trest, 
+		      double z, double AVwarp);
 
 // END
 

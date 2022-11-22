@@ -20,14 +20,13 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *Tobs_list, double *magobs_list,
 	       	double *magerr_list);
 
-#define MAX_KNOTS_BAYESN 20 //max number of knots for BayeSN
-
 gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);
 
 struct {
    int    n_lam_knots;
    int    n_tau_knots;
+   int    n_sig_knots;
 
    // variables read from BayeSN model director
    // scalars
@@ -37,8 +36,8 @@ struct {
    double tauA;
 
    // vectors
-   double lam_knots[MAX_KNOTS_BAYESN];
-   double tau_knots[MAX_KNOTS_BAYESN];
+   double *lam_knots;
+   double *tau_knots;
 
    // matrices
    double **L_Sigma_epsilon;

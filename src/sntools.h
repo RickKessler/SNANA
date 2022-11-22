@@ -916,6 +916,7 @@ void reset_glob_file_list__(void);
 
 void  print_debug_malloc(int opt, char *comment);
 float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D );
+float malloc_double2D_contiguous(int opt, int LEN1, int LEN2, double ***array2D );
 float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
                       double ****array3D );
 float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,

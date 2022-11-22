@@ -10,6 +10,7 @@
 #include "sntools.h"
 #include "genmag_SEDtools.h"
 #include  "genmag_BAYESN.h"
+#include "yaml.h"
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
 
@@ -52,23 +53,293 @@ int init_genmag_BAYESN(char *version, int optmask){
 
     sprintf(BANNER, "%s : Initialize %s", fnam, version );
     print_banner(BANNER);
- 
+
+
+    // HACK HACK HACK
+    FILE *fh = fopen("/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML", "r");
+
+    // declare YAML parser and event instances
+    yaml_parser_t parser;
+    yaml_event_t  event;  
+    yaml_event_t last_event;
+
+    // this is just a variable to specify the kind of data we are currently 
+    // reading from the YAML file 
+    int datatype = 0; // 0: we don't know 1: scalar 2: vector 3: matrix
+                      // in principle we can support strings and other types
+    // if we are reading a matrix from the YAML file, we need to keep track of row/col
+    int col=0;
+    int row=0;
+    int rowsize = 0; // and rowsize 
+                     //
+    // default init for the sizes is negative to deliberately force an error
+    // if we don't populate from the YAML
+    // note that they are read as double because it is easier to assume 
+    // that everything in the YAML is a float and just fix it later
+    double N_LAM =  -1.0;
+    double N_TAU =  -1.0;
+    double N_SIG =  -1.0;
+    
+    // we need something to store the current scalar value from the YAML file
+    double this_scalar = 0.0;
+    // and something to point to the current BayeSN variable being populated
+    // this only works if datatype is in 1-3 (assumed double)
+    double *bayesn_var_dptr = &this_scalar;
+
+    /* Initialize parser */
+    if(!yaml_parser_initialize(&parser))
+      fputs("Failed to initialize parser!\n", stderr);
+    if(fh == NULL)
+      fputs("Failed to open file!\n", stderr);
+
+    /* Set input file */
+    yaml_parser_set_input_file(&parser, fh);
+    
+    /* Start parsing the input file */
+    do {
+      // everything action (open/read etc) is an event
+      if (!yaml_parser_parse(&parser, &event)) {
+         printf("Parser error %d\n", parser.error);
+         exit(EXIT_FAILURE);
+      }
+    
+      // We check what kind of event we get 
+      switch(event.type)
+      {
+      // blank line
+      case YAML_NO_EVENT: puts("No event!"); break;
+      case YAML_STREAM_START_EVENT: puts("Reading BayeSN YAML file"); break;
+      case YAML_STREAM_END_EVENT:   puts("Done loading from BayeSN YAML file");   break;
+    
+      /* Block delimeters - I don't actually need to do anything with these events */
+      /*
+      case YAML_DOCUMENT_START_EVENT: puts("<b>Start Document</b>"); break;
+      case YAML_DOCUMENT_END_EVENT:   puts("<b>End Document</b>");   break;
+      case YAML_MAPPING_START_EVENT:  puts("<b>Start Mapping</b>");  break;
+      case YAML_MAPPING_END_EVENT:    puts("<b>End Mapping</b>");    break;
+      case YAML_ALIAS_EVENT:  
+          printf("Got alias (anchor %s)\n", event.data.alias.anchor); 
+          break;
+      */
+    
+      // the events we care about are all "Scalar" events
+      // even if the data being read is a vector or a matrix, it is parsed element-by-element
+      case YAML_SCALAR_EVENT: 
+          // we have to decide how to handle each event 
+          // we need to require three events to define the sizes of the rest of the arrays
+          // these HAVE to be the first three events in the YAML file
+          // but within those three, they can be in any order
+          if (strcmp(event.data.scalar.value, "N_LAM")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &N_LAM;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "N_TAU")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &N_TAU;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "N_SIG")==0)
+          {
+              datatype = 1; 
+              bayesn_var_dptr = &N_SIG;
+              break;
+          }
+    
+          // next we'll define how to handle the scalars
+          if (strcmp(event.data.scalar.value, "M0")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.M0;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "SIGMA0")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.sigma0;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "RV")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.RV;
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "TAUA")==0)
+          {
+              datatype = 1;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.tauA;
+              break;
+          }
+    
+          // next we'll define the vectors
+          if (strcmp(event.data.scalar.value, "L_KNOTS")==0)
+          {
+              datatype = 2;
+              BAYESN_MODEL_INFO.lam_knots = malloc(sizeof(double)*(int)N_LAM);
+              for(int i=0; i<(int)N_LAM; i++)
+              {
+                  BAYESN_MODEL_INFO.lam_knots[i] = 0.0;
+              }
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.lam_knots[col];
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "TAU_KNOTS")==0)
+          {
+              datatype = 2;
+              BAYESN_MODEL_INFO.tau_knots = malloc(sizeof(double)*(int)N_TAU);
+              for(int i=0; i<(int)N_TAU; i++)
+              {
+                  BAYESN_MODEL_INFO.tau_knots[i] = 0.0;
+              }
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.tau_knots[col];
+              break;
+          }
+    
+          // finally parse the 2D matrices
+          if (strcmp(event.data.scalar.value, "W0")==0)
+          {
+              datatype = 3;
+              rowsize = (int) N_TAU;
+              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &BAYESN_MODEL_INFO.W0);
+    
+              row = 0;
+              col = 0;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.W0[row][col];
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "W1")==0)
+          {
+              datatype = 3;
+              rowsize = (int) N_TAU;
+              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &BAYESN_MODEL_INFO.W1);
+              row = 0;
+              col = 0;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.W1[row][col];
+              break;
+          }
+          if (strcmp(event.data.scalar.value, "L_SIGMA_EPSILON")==0)
+          {
+              datatype = 3;
+              rowsize = (int) N_SIG;
+              malloc_double2D_contiguous(1, (int) N_SIG, (int) N_SIG, &BAYESN_MODEL_INFO.L_Sigma_epsilon);
+              row = 0;
+              col = 0;
+              bayesn_var_dptr = &BAYESN_MODEL_INFO.L_Sigma_epsilon[row][col];
+              break;
+          }
+    
+          if (datatype !=0 )
+          {
+              this_scalar = atof(event.data.scalar.value);
+              //printf("Got scalar (value %f) %d %d\n", this_scalar, row, col); 
+    
+              // if we read a scalar we're done with one read
+              if (datatype == 1)
+              { 
+                  // update the value of the variable that the pointer points to 
+                  *bayesn_var_dptr = this_scalar;
+                  datatype = 0; 
+                  double this_scalar = 0.0;
+                  bayesn_var_dptr = &this_scalar;
+              }
+              else
+              {
+                  if (datatype == 2)
+                  {
+                      *(bayesn_var_dptr + col) = this_scalar;
+                  }
+                  else
+                  {
+                      *(bayesn_var_dptr + row*rowsize + col) = this_scalar;
+                  }
+                  this_scalar = 0.0;
+                  col = col + 1;
+              }
+              break;
+          }
+      case YAML_SEQUENCE_START_EVENT: 
+          // looks like you get a start sequence for either scalars or arrays
+          // but you only get an end sequence for arrays
+          // you can also get nested start sequences 
+          break;
+      
+      case YAML_SEQUENCE_END_EVENT:   
+          if (datatype == 2)
+          {
+              // if we have a vector, the first end sequence tells us we are done 
+              col = 0;
+              datatype = 0;
+              double this_scalar = 0.0;
+              bayesn_var_dptr = &this_scalar;
+          }
+          if (datatype == 3)
+          {
+              // if we have a matrix, each row ends with an end sequence
+              // so move to the next row 
+              row = row + 1;
+              col = 0;
+              // after the last row we finally get two end sequences
+              if (last_event.type == YAML_SEQUENCE_END_EVENT)
+              {
+                  row = 0;
+                  datatype = 0;
+                  rowsize = 0;
+                  double this_scalar = 0.0;
+                  bayesn_var_dptr = &this_scalar;
+              }
+          }
+          break;
+      }
+      // store the last event because we need to know when we have two end-sequence events in a row
+      // to know when we are done reading a matrix
+      last_event = event;
+    
+      if(event.type != YAML_STREAM_END_EVENT)
+        yaml_event_delete(&event);
+    } while(event.type != YAML_STREAM_END_EVENT);
+    /* END new code */
+
+    /* Cleanup */
+    yaml_event_delete(&event);
+    yaml_event_delete(&last_event);
+    yaml_parser_delete(&parser);
+    fclose(fh);
+
     // HACK HACK HACK 
-    BAYESN_MODEL_INFO.n_lam_knots = 20;
-    malloc_double2D(1, 20, 20, &BAYESN_MODEL_INFO.W0 ); 
+    // in principle we should just set this at read from YAML
+    // but it's easier to read from YAML as double and fix here
+    BAYESN_MODEL_INFO.n_lam_knots = (int) N_LAM;
+    BAYESN_MODEL_INFO.n_tau_knots = (int) N_TAU;
+    BAYESN_MODEL_INFO.n_sig_knots = (int) N_SIG;
+
+    printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
+            BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.n_sig_knots, 
+            BAYESN_MODEL_INFO.M0, BAYESN_MODEL_INFO.sigma0, BAYESN_MODEL_INFO.RV, BAYESN_MODEL_INFO.tauA);
+    printf("LAM_KNOTS:\n");
+    for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
+    {
+      printf("%f ",BAYESN_MODEL_INFO.lam_knots[i]);
+    }
+    printf("\n");
+
+
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
     int istat;
     SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
     malloc_SEDFLUX_SEDMODEL(S0,0,0,0);
-    double Trange[2] = {-20.0, 90.0};
-    double Lrange[2] = {1500.0, 16000.0};
+    double Trange[2] = {BAYESN_MODEL_INFO.tau_knots[0], 
+                        BAYESN_MODEL_INFO.tau_knots[BAYESN_MODEL_INFO.n_tau_knots-1]};
+    double Lrange[2] = {BAYESN_MODEL_INFO.lam_knots[0], 
+                        BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
     
     istat = rd_sedFlux(SED_filepath, "blah test rd_sedFlux", Trange, Lrange
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
 	       ,&S0->NDAY, S0->DAY, &S0->DAYSTEP
 	       ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
 	       ,S0->FLUX,  S0->FLUXERR );
-    printf("XXX istat %d\n", istat);
 
     if ( NFILT_SEDMODEL == 0 ) {
       sprintf(c1err,"No filters defined ?!?!?!? " );
@@ -86,7 +357,6 @@ int init_genmag_BAYESN(char *version, int optmask){
     SEDMODEL.RESTLAMMIN_FILTERCEN =  3000.0 ; // rest-frame central wavelength range
     SEDMODEL.RESTLAMMAX_FILTERCEN = 14000.0 ;
     
-    printf("XXXX %s Hello from fortran hell\n", fnam);
     debugexit(fnam);
 
     return 0;

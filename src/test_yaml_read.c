@@ -347,7 +347,6 @@ int main(void)
   printf("DONT SEGFAULT\n");
 
   /* Cleanup */
-  /* Cleanup */
   yaml_event_delete(&event);
   yaml_event_delete(&last_event);
   yaml_parser_delete(&parser);

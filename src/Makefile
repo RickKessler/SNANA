@@ -970,7 +970,7 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 
 $(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_BAYESN.c
 	(cd $(OBJ); \
-	$(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
+	$(CC)  -lyaml $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
 
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \
@@ -1023,7 +1023,7 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
 	$(OBJ_SIM)	  	\
 	$(LIB)/libsnana.a  	\
 	$(LCFITSIO) $(LGSL)  	\
-	$(LPY)  $(LCERN) $(LROOT)  -lm  $(CPPLIB)
+	$(LPY)  $(LCERN) $(LROOT)  -lm -lyaml  $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
 # -------------------------------------------------

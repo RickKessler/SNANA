@@ -2849,7 +2849,7 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
   double kcor_value ;
   double DDLAM_MAX = 200.0 ; // max LAMDIF to take Kcor wgt avg
   double z0 = ZAT10PC ;
-  double KCOR01, KCOR12;
+  double KCOR01, KCOR02;
   int    istat;
   bool   NOAVWARP_FLAG ;
 
@@ -2891,7 +2891,7 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
     printf(" xxx %s DEBUG DUMP: \n", fnam);
     printf(" xxx Trest=%.2f   z=%.4f   IFILTDEF_OBS=%d(%s) \n", 
 	   Trest, z, IFILTDEF_OBS, name_o);
-    printf(" xxx KCOR12  = %f \n", KCOR01 );
+    printf(" xxx KCOR01  = %f \n", KCOR01 );
     printf(" xxx IFILTDEF_REST = %d %d %d \n", 
 	   IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[1], IFILTDEF_REST_LIST[2]);
     printf(" xxx MAG_REST   = %.3f %.3f %.3f \n",
@@ -2911,8 +2911,9 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
   //           is NOT a valid 3rd filter to use for K-corrections
   //
   // In short, filter-lambda order must be 2-0-1 or 1-0-2
+  // Code below takes weighted avg of two K-cors.
 
-  double wsum, w12, w13, lamdif01, lamdif02, ddlam ;
+  double wsum, w01, w02, w12, lamdif01, lamdif02, ddlam ;
   int    ifilt0_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[0]];
   int    ifilt1_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[1]];
   int    ifilt2_r = FILTERCAL_REST->IFILTDEF_INV[IFILTDEF_REST_LIST[2]];
@@ -2926,7 +2927,22 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
   if ( lamdif01/lamdif02 < 0.0 ) { return kcor_value; }
 
   ddlam = LAMDIF_LIST[2] - LAMDIF_LIST[1];  // always postive
+  w01   = smooth_stepfun(ddlam,DDLAM_MAX);
+  w02   = 1.0 - w01 ;
+  wsum = w01 + w02;
 
+  if ( w02 < 1.0E-9 ) { return kcor_value; }
+
+  // if we get here, then take wgt avg of K-corrections
+  AVwarp[2] = eval_kcor_table_AVWARP(IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[2],
+				     MAG_REST_LIST[0],  MAG_REST_LIST[2],
+				     Trest, &istat );  
+  if ( NOAVWARP_FLAG ) { AVwarp[2] = 0.0; }
+
+  KCOR02= eval_kcor_table_KCOR(IFILTDEF_REST_LIST[0], IFILTDEF_OBS,   
+			       Trest, z, AVwarp[2] )  ;
+
+  kcor_value  = (KCOR01*w01 + KCOR02*w02)/wsum ;
   
   return kcor_value;
 
@@ -2941,7 +2957,7 @@ double get_kcor_driver__(int *IFILT_OBS, int *IFILT_REST_LIST,
   return kcor_value ;
 }
 
-
+// ============================================================================
 
 double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double AVwarp) {
 

@@ -1330,6 +1330,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   int l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
   int t, NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
+  int NERR = 0;
   double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY, SNR0, SNR1;
   bool   ISLAM_EXTEND ;
 
@@ -1337,7 +1338,7 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
 
   t=0;
   printf("\n DUMP SPECTROGRAPH TABLE: %s\n", comment);
-  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d] SIGSKY[%d] "
+  printf("  lamBin   LAMAVG  LAMBIN  LAMSIG   ZP[%d]     SIGSKY[%d] "
 	 "Extended\n", t, t);
 
   for(l=0; l < NBL; l++ ) {
@@ -1352,10 +1353,10 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
     VARSKY = INPUTS_SPECTRO.SQSIGSKY[l][t] ;
 
     if ( VARSKY > 0.0 ) { SIGSKY = sqrt(VARSKY); }
-    else                { SIGSKY = VARSKY; }
+    else                { SIGSKY = -sqrt(fabs(VARSKY)) ; }
 
     printf(" %6d  %9.2f  %6.2f  %4.1f  " 
-	   "%6.1f   %7.2f    %d\n",
+	   "%8.3f   %10.3e    %d\n",
 	   l, LAMAVG, LAMBIN, LAMSIG, 
 	   ZP, SIGSKY, ISLAM_EXTEND );
   }

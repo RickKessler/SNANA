@@ -445,6 +445,9 @@ struct {
 //
 // ##############################################################
 
+
+double smooth_stepfun(double sep, double sepmax);
+
 void write_epoch_list_init(char *outFile);
 void write_epoch_list_addvar(char *varName, double *CUTWIN, char *CUTMODE);
 void write_epoch_list_exec(char *CID,double MJD,char *BAND, double *VALUES);

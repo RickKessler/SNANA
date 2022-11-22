@@ -17,6 +17,7 @@ void test_kcor_table_mwxt(void);
 void test_kcor_table_avwarp(void);
 void test_kcor_table_kcor(void);
 void test_kcor_nearfilt_rest(void);
+void test_GET_KCOR_DRIVER(void);
 
 void test_fortran(void);
 void test_igm(void);
@@ -43,6 +44,7 @@ void test_kcor_utils(void) {
 
   test_kcor_table_avwarp();
   test_kcor_table_kcor();
+  test_GET_KCOR_DRIVER();
 
   //.xyz
   debugexit(fnam);
@@ -339,6 +341,13 @@ void test_kcor_table_kcor(void) {
 
   return;
 } // end test_kcor_table_kcor
+
+
+
+void test_GET_KCOR_DRIVER(void) {
+
+
+} // end test_GET_KCOR_DRIVER
 
 // =================================
 void test_fortran(void) {

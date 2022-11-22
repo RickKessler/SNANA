@@ -29,6 +29,42 @@
 **********************************************************
 **********************************************************/
 
+double smooth_stepfun(double sep, double sepmax) {
+
+  // Translated from fortran, Nov 2022
+  //
+  // Define smooth function that goes from 0 to 1 between
+  // -SEPMAX and SEPMAX, and returns 0.5 at SEP=0.
+  // Return value of function at SEP.
+  // Function is atan.
+  //
+  // Example with sepmax = 1.0:
+  //  sep    stepfun
+  //  -0.8  0.00839108
+  //  -0.3  0.0754808
+  //  -0.1  0.233063
+  //   0.0  0.5
+  //   0.1  0.766937
+  //   0.3  0.924519
+  //   0.8  0.991609
+  //
+  double tau, stepfun = 0.5;
+  char fnam[] = "smooth_stepfun" ;
+
+  // --------------- BEGIN -------------
+  
+  if ( sep > sepmax ) 
+    { stepfun = 1.0 ; }
+  else if ( sep < -sepmax ) 
+    { stepfun = 0.0; }
+  else {
+    tau = 0.1 * sepmax;
+    stepfun  = 0.5 * (1. + atan(sep/tau)/atan(sepmax/tau) ) ;
+  }
+
+  return stepfun ;
+
+} // end smooth_stepfun
 
 // =====================================
 int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {

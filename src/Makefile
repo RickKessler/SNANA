@@ -127,7 +127,7 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
-ifndef BAYESN_YAML
+ifndef YAML_DIR
 	LYAML = 
 	USE_BAYESN = 0
 else

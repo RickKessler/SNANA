@@ -334,7 +334,7 @@ void read_BAYESN_inputs(char *filename)
 
 #ifndef USE_BAYESN
       sprintf(c1err,"genmag_BAYESN.o compiled without libyaml." );
-      sprintf(c2err,"Install libyaml, set env USE_BAYESN to a non-null string, make clean; make; try again.");
+      sprintf(c2err,"Install libyaml, set env YAML_DIR to a non-null string, make clean; make; try again.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 #endif
 }

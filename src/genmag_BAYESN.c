@@ -14,8 +14,6 @@
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
 
-
-
 // ============ MANGLED FORTRAN FUNCTIONS =============
 // GN - I think we will likely need these - copied from bayesn
 int init_genmag_bayesn__( char *version, int *optmask) {
@@ -23,7 +21,6 @@ int init_genmag_bayesn__( char *version, int *optmask) {
   istat = init_genmag_BAYESN ( version, *optmask) ;
   return istat;
 }
-
 
 /* int genmag_bayesn__(int *ifilt, double *stretch, int *nobs, 
 		  double *Trest, double *rest_mags, double *rest_magerrs ) {
@@ -37,16 +34,14 @@ int init_genmag_bayesn__( char *version, int *optmask) {
 //  get_LAMRANGE_bayesn(lammin,lammax);
 // }
 
-int init_genmag_BAYESN(char *version, int optmask){
 
-    int  ised;
-    int  retval = 0   ;
-    int  ABORT_on_LAMRANGE_ERROR = 0;
-    int  ABORT_on_BADVALUE_ERROR = 1;
-    //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
+void read_BAYESN_inputs(char *filename)
+{
+    char fnam[] = "read_BAYESN_inputs";
 
-    // HACK HACK HACK
-    FILE *fh = fopen("/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML", "r");
+    // -------------- BEGIN -------------
+#ifdef USE_BAYESN
+    FILE *fh = fopen(filename, "r");
 
     // declare YAML parser and event instances
     yaml_parser_t parser;
@@ -80,13 +75,8 @@ int init_genmag_BAYESN(char *version, int optmask){
     // this only works if datatype is in 1-3 (assumed double)
     double *bayesn_var_dptr = &this_scalar;
 
-    char fnam[] = "init_genmag_BAYESN";
 
-    // -------------- BEGIN --------------
-
-    // extrac OPTMASK options
-
-    sprintf(BANNER, "%s : Initialize %s", fnam, version );
+    sprintf(BANNER, "%s : Begin reading BAYESN model components from %s", fnam, filename);
     print_banner(BANNER);
 
     /* Initialize parser */
@@ -324,7 +314,7 @@ int init_genmag_BAYESN(char *version, int optmask){
     BAYESN_MODEL_INFO.L_Sigma_epsilon = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_sig_knots, 
                                                          BAYESN_MODEL_INFO.n_sig_knots);
 
-
+    // finally initalize the GSL matrices 
     for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
     {
         for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
@@ -340,33 +330,32 @@ int init_genmag_BAYESN(char *version, int optmask){
             gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[i][j]);
         }
     }
+#endif
 
-    // GN - This block just prints the model components 
-    // Possibly useful for debugging 
-    // 
-    //printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
-    //        BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.n_sig_knots, 
-    //        BAYESN_MODEL_INFO.M0, BAYESN_MODEL_INFO.sigma0, BAYESN_MODEL_INFO.RV, BAYESN_MODEL_INFO.tauA);
-    //printf("LAM_KNOTS:\n");
-    //for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
-    //{
-    //printf("%f ",BAYESN_MODEL_INFO.lam_knots[i]);
-    //}
-    //printf("\n");
-    //printf("W0:\n");
-    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.W0, "%.3f");
-    //printf("\n");
-    //printf("W1:\n");
-    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.W1, "%.3f");
-    //printf("\n");
-    //printf("L_Sigma_epsilon:\n");
-    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.L_Sigma_epsilon, "%.3f");
-    //printf("\n");
+#ifndef USE_BAYESN
+      sprintf(c1err,"USE_BAYESN flag set but you don't have libyaml" );
+      sprintf(c2err,"Install libyaml.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+#endif
+}
 
-    BAYESN_MODEL_INFO.KD_lam  = invKD_irr(BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.lam_knots);
-    BAYESN_MODEL_INFO.KD_tau  = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.tau_knots);
-    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.KD_lam, "%.6e");
+int init_genmag_BAYESN(char *version, int optmask){
 
+    int  ised;
+    int  retval = 0   ;
+    int  ABORT_on_LAMRANGE_ERROR = 0;
+    int  ABORT_on_BADVALUE_ERROR = 1;
+    //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
+    //
+    char fnam[] = "init_genmag_BAYESN";
+
+    // -------------- BEGIN --------------
+
+    // extrac OPTMASK options
+
+    // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
+    char *filename = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML";
+    read_BAYESN_inputs(filename);
 
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
     int istat;

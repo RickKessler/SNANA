@@ -579,7 +579,7 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm  $(CPPLIB)
+	$(LCERN)  $(LROOT) -lm -lyaml $(CPPLIB)
 	(cd $(OBJ); rm snlc_fit.o )
 
 # -------------------------------------------------

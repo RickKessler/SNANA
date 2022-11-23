@@ -116,6 +116,7 @@ endif
 # compile default storage options for both ROOT and HBOOK ....
 USE_ROOT   = 1
 USE_HBOOK  = 1
+USE_BAYESN = 1
 
 # ... unless the product is not installed.
 ifndef CERN_DIR
@@ -126,6 +127,13 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
+ifndef BAYESN_YAML
+	LYAML = 
+	USE_BAYESN = 0
+else
+	LYAML = -lyaml
+	USE_BAYESN = 1
+endif 
 
 # ------------------------------------------
 # default lib-subdir name is just 'lib'.
@@ -579,7 +587,7 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm -lyaml $(CPPLIB)
+	$(LCERN)  $(LROOT) -lm $(LYAML) $(CPPLIB)
 	(cd $(OBJ); rm snlc_fit.o )
 
 # -------------------------------------------------
@@ -970,7 +978,7 @@ $(OBJ)/genmag_SALT2.o : $(SRC)/genmag_SALT2.c  $(SRC)/genmag_SEDtools.c
 
 $(OBJ)/genmag_BAYESN.o : $(SRC)/genmag_BAYESN.c  $(SRC)/genmag_BAYESN.c
 	(cd $(OBJ); \
-	$(CC)  -lyaml $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
+	$(CC) $(LYAML) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_BAYESN.c )
 
 $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \
@@ -1023,7 +1031,7 @@ $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
 	$(OBJ_SIM)	  	\
 	$(LIB)/libsnana.a  	\
 	$(LCFITSIO) $(LGSL)  	\
-	$(LPY)  $(LCERN) $(LROOT)  -lm -lyaml  $(CPPLIB)
+	$(LPY)  $(LCERN) $(LROOT)  -lm $(LYAML) $(CPPLIB)
 	(cd $(OBJ); rm snlc_sim.o)
 
 # -------------------------------------------------

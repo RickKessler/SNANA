@@ -40,17 +40,24 @@ struct {
    double *tau_knots;
 
    // matrices
-   double **L_Sigma_epsilon;
-   double **W0; 
-   double **W1; 
+   gsl_matrix *L_Sigma_epsilon;
+   gsl_matrix *W0;
+   gsl_matrix *W1;
+
+   //double **L_Sigma_epsilon;
+   //double **W0; 
+   //double **W1; 
 
    // for the base SED - typically Hsiao
    SEDMODEL_FLUX_DEF S0; 
 
    // computed quantities
-   double **KD_tau;
-   double **KD_lam;
-   double **J_lam;
-   double **J_tau;
+   gsl_matrix *KD_tau;
+   gsl_matrix *KD_lam;
+   gsl_matrix *J_lam;
+
+   //double **KD_tau;
+   //double **KD_lam;
+   //double **J_lam;
 
 } BAYESN_MODEL_INFO;

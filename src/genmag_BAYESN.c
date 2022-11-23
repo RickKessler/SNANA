@@ -45,16 +45,6 @@ int init_genmag_BAYESN(char *version, int optmask){
     int  ABORT_on_BADVALUE_ERROR = 1;
     //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
 
-    char fnam[] = "init_genmag_BAYESN";
-    // -------------- BEGIN --------------
-
-    // extrac OPTMASK options
-
-
-    sprintf(BANNER, "%s : Initialize %s", fnam, version );
-    print_banner(BANNER);
-
-
     // HACK HACK HACK
     FILE *fh = fopen("/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML", "r");
 
@@ -79,12 +69,25 @@ int init_genmag_BAYESN(char *version, int optmask){
     double N_LAM =  -1.0;
     double N_TAU =  -1.0;
     double N_SIG =  -1.0;
+
+    double **L_Sigma_epsilon;
+    double **W0;
+    double **W1;
     
     // we need something to store the current scalar value from the YAML file
     double this_scalar = 0.0;
     // and something to point to the current BayeSN variable being populated
     // this only works if datatype is in 1-3 (assumed double)
     double *bayesn_var_dptr = &this_scalar;
+
+    char fnam[] = "init_genmag_BAYESN";
+
+    // -------------- BEGIN --------------
+
+    // extrac OPTMASK options
+
+    sprintf(BANNER, "%s : Initialize %s", fnam, version );
+    print_banner(BANNER);
 
     /* Initialize parser */
     if(!yaml_parser_initialize(&parser))
@@ -203,31 +206,31 @@ int init_genmag_BAYESN(char *version, int optmask){
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &BAYESN_MODEL_INFO.W0);
+              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &W0);
     
               row = 0;
               col = 0;
-              bayesn_var_dptr = &BAYESN_MODEL_INFO.W0[row][col];
+              bayesn_var_dptr = &W0[row][col];
               break;
           }
           if (strcmp(event.data.scalar.value, "W1")==0)
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &BAYESN_MODEL_INFO.W1);
+              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &W1);
               row = 0;
               col = 0;
-              bayesn_var_dptr = &BAYESN_MODEL_INFO.W1[row][col];
+              bayesn_var_dptr = &W1[row][col];
               break;
           }
           if (strcmp(event.data.scalar.value, "L_SIGMA_EPSILON")==0)
           {
               datatype = 3;
               rowsize = (int) N_SIG;
-              malloc_double2D_contiguous(1, (int) N_SIG, (int) N_SIG, &BAYESN_MODEL_INFO.L_Sigma_epsilon);
+              malloc_double2D_contiguous(1, (int) N_SIG, (int) N_SIG, &L_Sigma_epsilon);
               row = 0;
               col = 0;
-              bayesn_var_dptr = &BAYESN_MODEL_INFO.L_Sigma_epsilon[row][col];
+              bayesn_var_dptr = &L_Sigma_epsilon[row][col];
               break;
           }
     
@@ -247,14 +250,14 @@ int init_genmag_BAYESN(char *version, int optmask){
               }
               else
               {
-                  if (datatype == 2)
-                  {
-                      *(bayesn_var_dptr + col) = this_scalar;
-                  }
-                  else
-                  {
-                      *(bayesn_var_dptr + row*rowsize + col) = this_scalar;
-                  }
+                  //if (datatype == 2)
+                  //{
+                  //    *(bayesn_var_dptr + col) = this_scalar;
+                  //}
+                  //else
+                  //{
+                  *(bayesn_var_dptr + row*rowsize + col) = this_scalar;
+                  //}
                   this_scalar = 0.0;
                   col = col + 1;
               }
@@ -314,16 +317,55 @@ int init_genmag_BAYESN(char *version, int optmask){
     BAYESN_MODEL_INFO.n_lam_knots = (int) N_LAM;
     BAYESN_MODEL_INFO.n_tau_knots = (int) N_TAU;
     BAYESN_MODEL_INFO.n_sig_knots = (int) N_SIG;
+    BAYESN_MODEL_INFO.W0 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, 
+                                            BAYESN_MODEL_INFO.n_tau_knots);
+    BAYESN_MODEL_INFO.W1 = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots, 
+                                            BAYESN_MODEL_INFO.n_tau_knots);
+    BAYESN_MODEL_INFO.L_Sigma_epsilon = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_sig_knots, 
+                                                         BAYESN_MODEL_INFO.n_sig_knots);
 
-    printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
-            BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.n_sig_knots, 
-            BAYESN_MODEL_INFO.M0, BAYESN_MODEL_INFO.sigma0, BAYESN_MODEL_INFO.RV, BAYESN_MODEL_INFO.tauA);
-    printf("LAM_KNOTS:\n");
+
     for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
     {
-      printf("%f ",BAYESN_MODEL_INFO.lam_knots[i]);
+        for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
+        {
+            gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[i][j]);
+            gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[i][j]);
+        }
     }
-    printf("\n");
+    for(int i=0; i< BAYESN_MODEL_INFO.n_sig_knots; i++)
+    {
+        for(int j=0; j< BAYESN_MODEL_INFO.n_sig_knots; j++)
+        {
+            gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[i][j]);
+        }
+    }
+
+    // GN - This block just prints the model components 
+    // Possibly useful for debugging 
+    // 
+    //printf("Vars NLAM %d NTAU %d NSIG %d M0 %f SIGMA0 %f RV %f TAUA %f\n",
+    //        BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.n_sig_knots, 
+    //        BAYESN_MODEL_INFO.M0, BAYESN_MODEL_INFO.sigma0, BAYESN_MODEL_INFO.RV, BAYESN_MODEL_INFO.tauA);
+    //printf("LAM_KNOTS:\n");
+    //for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
+    //{
+    //printf("%f ",BAYESN_MODEL_INFO.lam_knots[i]);
+    //}
+    //printf("\n");
+    //printf("W0:\n");
+    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.W0, "%.3f");
+    //printf("\n");
+    //printf("W1:\n");
+    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.W1, "%.3f");
+    //printf("\n");
+    //printf("L_Sigma_epsilon:\n");
+    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.L_Sigma_epsilon, "%.3f");
+    //printf("\n");
+
+    BAYESN_MODEL_INFO.KD_lam  = invKD_irr(BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.lam_knots);
+    BAYESN_MODEL_INFO.KD_tau  = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots, BAYESN_MODEL_INFO.tau_knots);
+    //gsl_matrix_fprintf(stdout, BAYESN_MODEL_INFO.KD_lam, "%.6e");
 
 
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";

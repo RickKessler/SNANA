@@ -346,6 +346,58 @@ void test_kcor_table_kcor(void) {
 
 void test_GET_KCOR_DRIVER(void) {
 
+  int IFILTDEF_OBS = INTFILTER("r");
+  int IFILTDEF_REST_LIST[6];
+  double Trest = -3.3 ;
+  double z     = 0.20 ;
+  double z0    = ZAT10PC ;
+  int OPT_NEAREST   = MASK_FRAME_OBS + 8;
+
+  double lamdif_min, LAMDIF[6], LAMAVG[6], MAG_REST_LIST[6], AVWARP_LIST[6] ;
+  double kcor, lamavg, AVwarp = 0.1 ;
+  int inear, ifiltdef_rest, ifilt_r;
+  char *TEXT ;
+  char fnam[] = "test_GET_KCOR_DRIVER" ;
+
+  // ------------- BEGIN ----------
+
+  printf("\n xxx %s: \n", fnam);
+
+  for(inear=0; inear <3; inear++ ) {
+    int rank = inear + 1;
+    ifiltdef_rest =
+      nearest_ifiltdef_rest(OPT_NEAREST, IFILTDEF_OBS, rank, z,
+			    fnam, &lamdif_min );    
+    IFILTDEF_REST_LIST[inear] = ifiltdef_rest ;
+    MAG_REST_LIST[inear] = eval_kcor_table_LCMAG(ifiltdef_rest, Trest, z0, AVwarp) ;
+
+    ifilt_r = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef_rest];
+    lamavg  = CALIB_INFO.FILTERCAL_REST.LAMMEAN[ifilt_r];
+    LAMAVG[inear] = lamavg;
+    LAMDIF[inear] = lamavg - LAMAVG[0];
+
+    printf("  inear=%d  ifiltdef_rest=%d  MAG=%.2f LAMAVG=%.1f LAMDIF=%.1f \n",
+	   inear, ifiltdef_rest, MAG_REST_LIST[inear], lamavg, LAMDIF[inear]);
+    fflush(stdout);
+
+  }
+
+  
+  if ( INPUTS.USE_KCOR_REFACTOR == 2 ) {
+    TEXT = TEST_REFAC;
+    kcor = GET_KCOR_DRIVER(IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
+			   LAMDIF, Trest, z, AVWARP_LIST );
+  }
+  else {
+    kcor = kcorfun8_(&IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
+		     LAMDIF, &Trest, &z, AVWARP_LIST );
+    TEXT = TEST_LEGACY;
+  }
+
+  printf("  %s  kcor=%.4f  AVwarp=%.4f \n",	
+	 TEXT, kcor, AVWARP_LIST[1] );
+
+  return ;
 
 } // end test_GET_KCOR_DRIVER
 

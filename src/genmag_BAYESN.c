@@ -10,7 +10,13 @@
 #include "sntools.h"
 #include "genmag_SEDtools.h"
 #include  "genmag_BAYESN.h"
+
+
+#ifdef USE_BAYESN
 #include "yaml.h"
+#endif
+
+
 // #include "sntools_modelgrid.h" 
 // #include "sntools_genSmear.h" // Aug 30 2019
 

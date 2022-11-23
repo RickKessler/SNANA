@@ -9,13 +9,13 @@
   The original "kcor" notation refers to the kcor.exe program that
   produces K-correction tables for MLCS & snoopy. Later in SNANA 
   development, filter and primary-ref info was added to the k-cor 
-  table storage. When SALT2 become dominant for SN light curve fitting, 
+  table storage. When SALT2 became dominant for SN light curve fitting, 
   kcor tables no longer contained K-corrections, and thus the generic 
-  "kcor" name is obsolete.
+  "kcor" name has been misleading and obsolete.
 
-  Here the generic "kcor" notation has been replaced with "calib".
-  The kcor symbol should appear only when referring to actual
-  K-corrections.
+  In this refactored code (fortran translated to C) the generic "kcor" 
+  notation has been replaced with "calib". The kcor symbol appears only 
+  when referring to actual K-corrections.
 
   To use this utility,
     READ_CALIB_DRIVER(...)  // read fits file and perform init
@@ -31,8 +31,6 @@
   The maps are prepared in a set of "prepare_kcor_table_XXX" functions, 
   and they are evaluated in a set of "eval_kcor_table_XXX functions. 
 
-  NOT READY !!
-
 ***************************************************/
 
 #include "fitsio.h"
@@ -45,7 +43,7 @@
 
 
 // ======================================
-void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
+void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, bool USE_KCOR,
 		      double *MAGREST_SHIFT_PRIMARY,
                       double *MAGOBS_SHIFT_PRIMARY ) {
 
@@ -104,10 +102,15 @@ void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
   int istat = 0 ;
   fits_close_file(CALIB_INFO.FP, &istat); 
 
-  
+  if ( CALIB_INFO.NKCOR == 0 && USE_KCOR ) {
+    sprintf(c1err,"USE_KCOR=True, but found no K-corr tables");
+    sprintf(c2err,"Check SN model and kcor/calib file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
   // prep kcor tables here, but later should call this function
   // from code that uses relevant model.
-  if ( CALIB_INFO.NKCOR > 0 ) { PREPARE_KCOR_TABLES(); }
+  if ( USE_KCOR ) { PREPARE_KCOR_TABLES(); }
 
   printf("\n %s: Done \n", fnam);
   fflush(stdout);
@@ -116,10 +119,10 @@ void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
 
 } // end READ_CALIB_DRIVER
 
-void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY,
+void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY, bool *USE_KCOR,
                         double *MAGREST_SHIFT_PRIMARY,
                         double *MAGOBS_SHIFT_PRIMARY ) {
-  READ_CALIB_DRIVER(kcorFile, FILTERS_SURVEY, 
+  READ_CALIB_DRIVER(kcorFile, FILTERS_SURVEY, *USE_KCOR,
 		   MAGREST_SHIFT_PRIMARY, MAGOBS_SHIFT_PRIMARY );
 } // end read_calib_driver__
 

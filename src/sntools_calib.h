@@ -179,11 +179,11 @@ struct {
   // ============================== 
 // declare functions
 
-void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, 
+void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, bool USE_KCOR,
 		       double *MAGREST_SHIFT_PRIMARY, 
 		       double *MAGOBS_SHIFT_PRIMARY );
 
-void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY,
+void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY, bool *USE_KCOR,
 			double *MAGREST_SHIFT_PRIMARY,
 			double *MAGOBS_SHIFT_PRIMARY );
 

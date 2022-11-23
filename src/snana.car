@@ -3381,7 +3381,7 @@ c [uses refactored C code]
 +CDE,FILTCOM.
 
       INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
+      LOGICAL  IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
 
       INTEGER LENF, OPT_FRAME, IFILT, IFILT_OBS, IFILT_REST
       CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
@@ -3404,11 +3404,13 @@ c ---------- BEGIN ---------
    
       IERR = 0 
 
-      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+      EXIST_KCOR_FILE = .NOT. IGNOREFILE_fortran(KCOR_FILE)
 
-      if ( .NOT. USE_KCOR ) RETURN
+      if ( .NOT. EXIST_KCOR_FILE ) RETURN
 
 +SELF,IF=KCOR.
+
+      USE_KCOR = .true. ! how to check fit model that is in snlc_fit.car?
 
 c prep arguments ...
 
@@ -3429,7 +3431,7 @@ c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 c read kcor file and store information (C code)
 
-      CALL READ_CALIB_DRIVER(cKCOR_FILE, cFILTERS, 
+      CALL READ_CALIB_DRIVER(cKCOR_FILE, cFILTERS, USE_KCOR,
      &           D_MAGREST_SHIFT_PRIM, D_MAGOBS_SHIFT_PRIM)
 
 c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -31085,15 +31087,6 @@ c rest frame of the host galaxy.
 c AV and RV are the extinction parameters of
 c the host galaxy.
 c
-c
-c Aug 8, 2009: allow RV down to -10 (instead of 0) to allow
-c              analytic continutation when AV/RV is floated
-c
-c Aug 30, 2010: OPT_SNXT_CCM89 is now an exact calculation for any RV.
-c               Interpolate XTHOST arrary on grid of 1/RV.
-c               Previous version did exact calc, but only for the RV
-c               value used to make the K-cor tables.
-c               Now it works for any RV.
 c ------------------------------
       IMPLICIT NONE
 
@@ -36365,7 +36358,7 @@ c ------------------------
       REAL*8 XT8(2)
 
 c function
-      REAL*8 GET_KCOR8, GET_AVWARP8, GET_MAGLC8, GET_SNXT8
+      REAL*8 GET_KCOR8, GET_AVWARP8, GET_MAGLC8
       INTEGER FILTINDX
 
 C ------------ BEGIN --------------  

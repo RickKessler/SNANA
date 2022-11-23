@@ -12349,7 +12349,6 @@ C -------------- BEGIN -------------
 
       IF ( OPT .EQ. OPT_SNXT_CCM89 ) THEN
 
-cc         print*,'  Will use exact CCM89 law with AV = XTMAG(5495 A)'
          CALL INIT_XTHOST(OPT)
 
       ELSE IF ( OPT .EQ. OPT_SNXT_SJPAR ) THEN

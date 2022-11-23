@@ -9916,6 +9916,41 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
   return(f_MEMTOT);
 }
 
+
+float malloc_double2D_contiguous(int opt, int LEN1, int LEN2, double ***array2D ) {
+  // GN - Nov 22 - modified version of malloc_double2D that ensures the entire 2D array is 
+  // contiguous - the other version ensures that each row is contiguous but different rows 
+  // are not contigous with each other
+  float f_MEMTOT = 0.0 ;
+  long long MEMTOT=0, i1 ;
+  int MEM1 = LEN1 * sizeof(double *); 
+  int MEM2 = LEN2 * sizeof(double);
+  // ----------- BEGIN -------------
+
+  if ( opt > 0 ) {
+    // create 1D array of the total required length
+    double *mem = malloc(LEN1 * LEN2 * sizeof(double));
+    // create array of of double pointers 
+    double **new = malloc(LEN1 * sizeof(double*)); 
+    MEMTOT += MEM1;
+    new[0] = mem; // point first double ptr to 1D array
+    for(i1=1; i1< LEN1; i1++ ) {
+      new[i1] = new[i1-1] + LEN2; // fix subsequent rows to be contiguous 
+      MEMTOT += MEM2;
+    }
+    array2D[0] = new; //finally point array2D to this 
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    // I think it's possible to just free(array2D) now 
+    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
+    free(array2D[i1]) ;    
+  }
+  return(f_MEMTOT);
+}
+
+
 float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3, 
 		      double ****array3D ) {
   // Created Jun 11 2019

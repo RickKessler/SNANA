@@ -416,6 +416,7 @@ void genmag_BAYESN(
     int ifilt = 0;
 
     double *lam_filt;
+    double *trans_filt;
     double *lam_model;
 
     double mag;
@@ -436,7 +437,9 @@ void genmag_BAYESN(
     checkLamRange_SEDMODEL(ifilt,z,fnam);
 
     // get the filter wavelengths
-    lam_filt  = FILTER_SEDMODEL[ifilt].lam;
+    int nlam_filter = FILTER_SEDMODEL[ifilt].NLAM;
+    lam_filt   = FILTER_SEDMODEL[ifilt].lam;
+    trans_filt = FILTER_SEDMODEL[ifilt].transSN;
 
     // get the hsiao wavelengths
     int nlam_model = BAYESN_MODEL_INFO.S0.NLAM;
@@ -452,6 +455,18 @@ void genmag_BAYESN(
     while (z1*lam_model[j] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
         j--;
     }
+    int this_nlam = j - i + 1;
+    double *this_lam   = malloc(sizeof(double)*this_nlam);
+    double *this_trans = malloc(sizeof(double)*this_nlam);
+    printf("Interpolating %s\n",cfilt);
+    for(int q=i; q<j; q++)
+    {
+        this_lam[q-i]   = lam_model[q]*z1;
+        this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, lam_filt, trans_filt, "DIE");
+        printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
+    }
+
+
 
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model

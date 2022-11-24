@@ -63,6 +63,8 @@
 #      --> ensures that FITOPT000 is always done first.
 #
 # Oct 01 2022 RK - minor refactor for merge_reset()
+# 
+# Nov 13 2022 RK - fix subtle bugs so that NSPLITRAN works with event-sync.
 #
 # ================================================================
 
@@ -1401,6 +1403,7 @@ class BBC(Program):
         ifit      = index_dict['ifit']
         imu       = index_dict['imu'] 
         isplitran = index_dict['isplitran'] 
+        n_splitran   = self.config_prep['n_splitran']
 
         #print(f" xxx iver={iver}, ifit={ifit}, imu={imu} ", \
             #flush=True)
@@ -1415,10 +1418,10 @@ class BBC(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
         version      = self.config_prep['version_out_list'][iver]
+
         fitopt_num   = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
         muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
         muopt_arg    = self.config_prep['muopt_arg_list'][imu]
-        n_splitran   = self.config_prep['n_splitran']
         USE_SPLITRAN = n_splitran > 1
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
@@ -1479,6 +1482,7 @@ class BBC(Program):
             skip_sync   = FITOPT_STRING_NOREJECT in label
             wait_file   = None
             select_file = None
+            version_out = version + self.suffix_splitran(n_splitran,isplitran)
 
             # check logic for each iterations. 
             if skip_sync : 
@@ -1488,7 +1492,7 @@ class BBC(Program):
                 # process events from FITOPT000_MUOPT000
                 row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-                ff_file     = f"../{version}/{prefix_final}.{SUFFIX_FITRES}"
+                ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
                 wait_file   = f"{ff_file}.gz"
                 select_file = ff_file
 
@@ -1497,7 +1501,7 @@ class BBC(Program):
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
                 # xxx?? f" {STRING_SUCCESS}" # require SUCCESS in file
-                select_file  = f"{outdir_iter1}/{version}/{BBC_ACCEPT_SUMMARY_FILE}"
+                select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :
                 JOB_INFO['wait_file'] = wait_file
@@ -1870,6 +1874,7 @@ class BBC(Program):
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
+
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
@@ -1887,8 +1892,19 @@ class BBC(Program):
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
 
-        for vout in vout_list :
+        # for reject/accept summarys, read versions in MERGE.LOG so
+        # that it works for NSPLITRAN 
+        MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
+        MERGE_INFO_CONTENTS,comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            vout    = row[COLNUM_BBC_MERGE_VERSION]
             self.make_reject_summary(vout)
+
+        # xxxxxx mark delete Nov 23 2022 xxxxxx
+        #for vout in vout_list : 
+        #    self.make_reject_summary(vout)
+        # xxxxxxxxx
 
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
@@ -1912,9 +1928,12 @@ class BBC(Program):
         # only events that pass in all FITOPT and MUOPTs.
         #
         # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
+        # Nov 23 2022: continue with n_splitran>1
 
-        n_splitran    = self.config_prep['n_splitran']
-        if n_splitran > 1 : return
+        # xxx mark delete xxx
+        # n_splitran    = self.config_prep['n_splitran']
+        # if n_splitran > 1 : return
+        # xxxxxxxxxxxxxxxx
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = f"{output_dir}/{vout}"
@@ -2464,7 +2483,7 @@ class BBC(Program):
             version_base = version[0:len_base]
             sys.stdout.flush()
 
-            # get indices for summary file
+            # get original indices for summary file
             iver = vout_list.index(version_base)
             ifit = f"{fitopt_num[6:]}"
             imu  = f"{muopt_num[5:]}"

@@ -347,30 +347,19 @@ int init_genmag_BAYESN(char *version, int optmask){
     int  ABORT_on_LAMRANGE_ERROR = 0;
     int  ABORT_on_BADVALUE_ERROR = 1;
     //char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
-    //
     char fnam[] = "init_genmag_BAYESN";
 
     // -------------- BEGIN --------------
 
     // extrac OPTMASK options
+    // GN - there is one of these further below but unsure yet how RK wants us to use these
 
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
+    // HACK HACK HACK
     char *filename = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML";
     read_BAYESN_inputs(filename);
 
-    /*
-    // some code to print the W0/W1 matrices and make sure they are read correctly
-    for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
-    {
-        for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
-        {
-            printf("(%d %d) %+.3f ",i, j, gsl_matrix_get(BAYESN_MODEL_INFO.W1, i, j));
-        }
-        printf("\n");
-    }
-    printf("\n");
-    */
-
+    // HACK HACK HACK 
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
     int istat;
     SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
@@ -380,7 +369,7 @@ int init_genmag_BAYESN(char *version, int optmask){
     double Lrange[2] = {BAYESN_MODEL_INFO.lam_knots[0], 
                         BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1]};
     
-    istat = rd_sedFlux(SED_filepath, "blah test rd_sedFlux", Trange, Lrange
+    istat = rd_sedFlux(SED_filepath, "Hsiao Template", Trange, Lrange
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0
 	       ,&S0->NDAY, S0->DAY, &S0->DAYSTEP
 	       ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
@@ -393,19 +382,15 @@ int init_genmag_BAYESN(char *version, int optmask){
     }
 
     //ABORT_on_LAMRANGE_ERROR = ( OPTMASK & OPTMASK_BAYESN_ABORT_LAMRANGE ) ;
-    
     filtdump_SEDMODEL();
 
-    // Hack wavelength ranges (R.Kessler) ... these should be read from model   
-    SEDMODEL.LAMMIN_ALL =  2000.0 ;  // rest-frame SED range                    
-    SEDMODEL.LAMMAX_ALL = 15000.0 ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  3000.0 ; // rest-frame central wavelength range
-    SEDMODEL.RESTLAMMAX_FILTERCEN = 14000.0 ;
-    
-    debugexit(fnam);
+    SEDMODEL.LAMMIN_ALL = BAYESN_MODEL_INFO.lam_knots[0] ;  // rest-frame SED range
+    SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1000.0 ; // rest-frame central wavelength range
+    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1000.0 ;
 
+    //debugexit(fnam);
     return 0;
-
 } // end init_genmag_BAYESN
 
 // =====================================================
@@ -420,13 +405,64 @@ void genmag_BAYESN(
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
-    int o;
+
+    
+    double DLMAG = parList_SN[0];
+    double THETA = parList_SN[1];
+    double AV    = parList_SN[2];
+    double RV    = parList_SN[3];
+    double z1, meanlam_obs,  meanlam_rest, ZP; 
+    char *cfilt;
+    int ifilt = 0;
+
+    double *lam_filt;
+    double *lam_model;
+
     double mag;
     char fnam[] = "genmag_BAYESN";
+    printf("HERE START %s\n", fnam);
 
     // ------- BEGIN -----------
+    // translate absolute filter index into sparse index
+    ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
+    z1    = 1. + z ;
+
+    // filter info for this "ifilt"
+    meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
+    ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+    cfilt        = FILTER_SEDMODEL[ifilt].name ;
+    meanlam_rest = meanlam_obs/z1 ;
+    // make sure filter-lambda range is valid
+    checkLamRange_SEDMODEL(ifilt,z,fnam);
+
+    // get the filter wavelengths
+    lam_filt  = FILTER_SEDMODEL[ifilt].lam;
+
+    // get the hsiao wavelengths
+    int nlam_model = BAYESN_MODEL_INFO.S0.NLAM;
+    lam_model      = BAYESN_MODEL_INFO.S0.LAM;
+
+    // project the model into the observer frame 
+    // get the rest-frame model wavelengths that overlap with the filter 
+    int i = 0;
+    while (z1*lam_model[i] <= lam_filt[0]) {
+        i++;
+    }
+    int j = nlam_model - 1;
+    while (z1*lam_model[j] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
+        j--;
+    }
+
+    // interpolate the filter wavelengths on to the model in the observer frame
+    // usually this is OK because the filters are more coarsely defined than the model
+    // that may not be the case with future surveys and we should revisit
+
+
+    //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);
+    //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
+
     double zdum = 2.5*log10(1.0+z);
-    for (o = 0; o < Nobs; o++) {
+    for (int o = 0; o < Nobs; o++) {
       mag   = fabs(.2*Tobs_list[o]) + 20.0 + zdum ;
       magobs_list[o] = mag;
       magerr_list[o] = 0.1;

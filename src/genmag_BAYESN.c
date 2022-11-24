@@ -71,9 +71,9 @@ void read_BAYESN_inputs(char *filename)
     double N_TAU =  -1.0;
     double N_SIG =  -1.0;
 
-    double **L_Sigma_epsilon;
-    double **W0;
-    double **W1;
+    double *L_Sigma_epsilon;
+    double *W0;
+    double *W1;
     
     // we need something to store the current scalar value from the YAML file
     double this_scalar = 0.0;
@@ -202,31 +202,30 @@ void read_BAYESN_inputs(char *filename)
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &W0);
-    
+              W0 = malloc(sizeof(double)*(int)N_LAM*(int)N_TAU);
               row = 0;
               col = 0;
-              bayesn_var_dptr = &W0[row][col];
+              bayesn_var_dptr = &W0[col];
               break;
           }
           if (strcmp(event.data.scalar.value, "W1")==0)
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              malloc_double2D_contiguous(1, (int) N_LAM, (int) N_TAU, &W1);
+              W1 = malloc(sizeof(double)*(int)N_LAM*(int)N_TAU);
               row = 0;
               col = 0;
-              bayesn_var_dptr = &W1[row][col];
+              bayesn_var_dptr = &W1[col];
               break;
           }
           if (strcmp(event.data.scalar.value, "L_SIGMA_EPSILON")==0)
           {
               datatype = 3;
               rowsize = (int) N_SIG;
-              malloc_double2D_contiguous(1, (int) N_SIG, (int) N_SIG, &L_Sigma_epsilon);
+              L_Sigma_epsilon = malloc(sizeof(double)*(int)N_SIG*(int)N_SIG);
               row = 0;
               col = 0;
-              bayesn_var_dptr = &L_Sigma_epsilon[row][col];
+              bayesn_var_dptr = &L_Sigma_epsilon[col];
               break;
           }
     
@@ -246,14 +245,7 @@ void read_BAYESN_inputs(char *filename)
               }
               else
               {
-                  //if (datatype == 2)
-                  //{
-                  //    *(bayesn_var_dptr + col) = this_scalar;
-                  //}
-                  //else
-                  //{
                   *(bayesn_var_dptr + row*rowsize + col) = this_scalar;
-                  //}
                   this_scalar = 0.0;
                   col = col + 1;
               }
@@ -307,7 +299,6 @@ void read_BAYESN_inputs(char *filename)
     yaml_parser_delete(&parser);
     fclose(fh);
 
-    // HACK HACK HACK 
     // in principle we should just set this at read from YAML
     // but it's easier to read from YAML as double and fix here
     BAYESN_MODEL_INFO.n_lam_knots = (int) N_LAM;
@@ -321,19 +312,23 @@ void read_BAYESN_inputs(char *filename)
                                                          BAYESN_MODEL_INFO.n_sig_knots);
 
     // finally initalize the GSL matrices 
+    int k = 0;
     for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
     {
         for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
         {
-            gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[i][j]);
-            gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[i][j]);
+            k = i*BAYESN_MODEL_INFO.n_tau_knots + j;
+            gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[k]);
+            gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[k]);
         }
     }
     for(int i=0; i< BAYESN_MODEL_INFO.n_sig_knots; i++)
     {
         for(int j=0; j< BAYESN_MODEL_INFO.n_sig_knots; j++)
         {
-            gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[i][j]);
+
+            k = i*BAYESN_MODEL_INFO.n_sig_knots + j;
+            gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[k]);
         }
     }
 #endif
@@ -362,6 +357,19 @@ int init_genmag_BAYESN(char *version, int optmask){
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     char *filename = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML";
     read_BAYESN_inputs(filename);
+
+    /*
+    // some code to print the W0/W1 matrices and make sure they are read correctly
+    for(int i=0; i< BAYESN_MODEL_INFO.n_lam_knots; i++)
+    {
+        for(int j=0; j< BAYESN_MODEL_INFO.n_tau_knots; j++)
+        {
+            printf("(%d %d) %+.3f ",i, j, gsl_matrix_get(BAYESN_MODEL_INFO.W1, i, j));
+        }
+        printf("\n");
+    }
+    printf("\n");
+    */
 
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
     int istat;

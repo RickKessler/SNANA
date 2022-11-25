@@ -455,6 +455,10 @@ void genmag_BAYESN(
     while (z1*lam_model[j] >= lam_filt[FILTER_SEDMODEL[ifilt].NLAM-1]) {
         j--;
     }
+
+    // interpolate the filter wavelengths on to the model in the observer frame
+    // usually this is OK because the filters are more coarsely defined than the model
+    // that may not be the case with future surveys and we should revisit
     int this_nlam = j - i + 1;
     double *this_lam   = malloc(sizeof(double)*this_nlam);
     double *this_trans = malloc(sizeof(double)*this_nlam);
@@ -467,10 +471,6 @@ void genmag_BAYESN(
     }
 
 
-
-    // interpolate the filter wavelengths on to the model in the observer frame
-    // usually this is OK because the filters are more coarsely defined than the model
-    // that may not be the case with future surveys and we should revisit
 
 
     //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);

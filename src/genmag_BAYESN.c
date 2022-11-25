@@ -6,6 +6,7 @@
 
 #include "math.h"
 #include "gsl/gsl_linalg.h"
+#include "gsl/gsl_cblas.h"
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
@@ -389,6 +390,15 @@ int init_genmag_BAYESN(char *version, int optmask){
     SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1000.0 ; // rest-frame central wavelength range
     SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1000.0 ;
 
+    //compute the inverse KD matrices and J_lam (SHOULD THIS BE DONE HERE??)
+    BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots,
+            BAYESN_MODEL_INFO.tau_knots);
+    BAYESN_MODEL_INFO.KD_lam = invKD_irr(BAYESN_MODEL_INFO.n_lam_knots,
+            BAYESN_MODEL_INFO.lam_knots);
+    BAYESN_MODEL_INFO.J_lam = spline_coeffs_irr(BAYESN_MODEL_INFO.S0.NLAM,
+            BAYESN_MODEL_INFO.n_lam_knots, BAYESN_MODEL_INFO.S0.LAM,
+            BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
+
     //debugexit(fnam);
     return 0;
 } // end init_genmag_BAYESN
@@ -414,6 +424,17 @@ void genmag_BAYESN(
     double z1, meanlam_obs,  meanlam_rest, ZP; 
     char *cfilt;
     int ifilt = 0;
+
+    //SHOULD I BE DECLARING THESE HERE??
+    //ALSO (FIXME) I SHOULD REMEMBER TO FREE THESE AT THE END
+    gsl_matrix * J_tau; // for time interpolation
+    gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
+            BAYESN_MODEL_INFO.n_tau_knots); // for W0 + THETA*W1
+    gsl_matrix * WJ_tau = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
+            Nobs); //to store matrix product W * J_tau
+    gsl_vector_view j_lam; //to store a row of J_lam
+    gsl_vector * jWJ = gsl_vector_alloc(Nobs); //to store
+                                                       //j_lam * W * J_tau
 
     double *lam_filt;
     double *trans_filt;
@@ -456,6 +477,21 @@ void genmag_BAYESN(
         j--;
     }
 
+    // compute the matrix for time interpolation
+    J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
+            Tobs_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+
+    // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
+    // also, this seems utterly unhinged as a way of computing this
+    gsl_matrix_set_zero(W);
+    gsl_matrix_add(W, BAYESN_MODEL_INFO.W1);
+    gsl_matrix_scale(W, THETA);
+    gsl_matrix_add(W, BAYESN_MODEL_INFO.W0);
+
+    // compute W * J_tau^T
+    gsl_matrix_set_zero(WJ_tau);
+    gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, W, J_tau, 0.0, WJ_tau);
+
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
@@ -468,6 +504,14 @@ void genmag_BAYESN(
         this_lam[q-i]   = lam_model[q]*z1;
         this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, lam_filt, trans_filt, "DIE");
         printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
+
+        // super weird computation
+        // this finds a vector of length Nobs, giving the SED at the
+        // current wavelength for all observations
+        // basically j_lam * W * J_tau^T
+        gsl_vector_set_zero(jWJ);
+        j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
+        gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
     }
 
 

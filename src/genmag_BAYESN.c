@@ -498,6 +498,8 @@ void genmag_BAYESN(
     int this_nlam = j - i + 1;
     double *this_lam   = malloc(sizeof(double)*this_nlam);
     double *this_trans = malloc(sizeof(double)*this_nlam);
+    double A_lam_MW, A_lam_host; //To store MW and host dust law evaluated at current wl
+    for (int o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
     printf("Interpolating %s\n",cfilt);
     for(int q=i; q<j; q++)
     {
@@ -512,6 +514,13 @@ void genmag_BAYESN(
         gsl_vector_set_zero(jWJ);
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
+
+        A_lam_MW = 0; //MW extinction at this_lam[q-i]
+        A_lam_host = 0; //Host extinction at lam_model[q];
+                        
+        for (int o = 0; o < Nobs; o++) {
+            magobs_list[o] += 0.0; //Increment mag with contribution from this wl
+        }
     }
 
 
@@ -623,7 +632,7 @@ gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *
 		}
 		else {
 			q = 0;
-			while (q < Nk && xk[q+1] <= x[i]) { q++; }
+			while (q < Nk-2 && xk[q+1] <= x[i]) { q++; }
 			h = xk[q+1] - xk[q];
 			a = (xk[q+1] - x[i])/h;
 			b = 1.0 - a;

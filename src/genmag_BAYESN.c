@@ -465,6 +465,7 @@ void genmag_BAYESN(
     // get the hsiao wavelengths
     int nlam_model = BAYESN_MODEL_INFO.S0.NLAM;
     lam_model      = BAYESN_MODEL_INFO.S0.LAM;
+    double d_lam   = lam_model[1] - lam_model[0];
 
     // project the model into the observer frame 
     // get the rest-frame model wavelengths that overlap with the filter 
@@ -498,14 +499,15 @@ void genmag_BAYESN(
     int this_nlam = j - i + 1;
     double *this_lam   = malloc(sizeof(double)*this_nlam);
     double *this_trans = malloc(sizeof(double)*this_nlam);
-    double A_lam_MW, A_lam_host; //To store MW and host dust law evaluated at current wl
+    double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
+    double eW, S0_lam; //To store other SED  bits
     for (int o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
     printf("Interpolating %s\n",cfilt);
     for(int q=i; q<j; q++)
     {
         this_lam[q-i]   = lam_model[q]*z1;
         this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, lam_filt, trans_filt, "DIE");
-        printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
+        //printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
 
         // super weird computation
         // this finds a vector of length Nobs, giving the SED at the
@@ -515,25 +517,36 @@ void genmag_BAYESN(
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
 
-        A_lam_MW = 0; //MW extinction at this_lam[q-i]
-        A_lam_host = 0; //Host extinction at lam_model[q];
+        eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
+        eA_lam_host = 1.0; //Host extinction at lam_model[q];
+        printf("THETA = %.3f\n", THETA);
                         
         for (int o = 0; o < Nobs; o++) {
-            magobs_list[o] += 0.0; //Increment mag with contribution from this wl
+            eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
+            // Seek the first Hsiao timestep above the current obs time
+            int q_hsiao = 0;
+            while (BAYESN_MODEL_INFO.S0.DAY[q_hsiao] <= Tobs_list[o]) { q_hsiao++; }
+            double t1 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao];
+            double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
+            double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
+            double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
+            S0_lam = (f0*(t1 - Tobs_list[o]) + f1*(Tobs_list[o] - t0))/(t1 - t0);
+            magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
+            if (o == 0) {
+                printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
+            }
         }
     }
-
-
-
 
     //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);
     //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
 
     double zdum = 2.5*log10(1.0+z);
     for (int o = 0; o < Nobs; o++) {
-      mag   = fabs(.2*Tobs_list[o]) + 20.0 + zdum ;
-      magobs_list[o] = mag;
+      printf("Tobs = %.3f; fobs = %.3f\n", Tobs_list[o], magobs_list[o]);
+      magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG -2.5*log10(magobs_list[o]) + ZP;
       magerr_list[o] = 0.1;
+      printf("Tobs = %.3f; Mobs = %.3f\n", Tobs_list[o], magobs_list[o]);
     }
 
     return;

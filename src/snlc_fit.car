@@ -1219,6 +1219,7 @@ c define functions
      &   INIT_GENMAG_STRETCH2
      &  ,INIT_GENMAG_MLCS2k2
      &  ,INIT_GENMAG_SNOOPY
+     &  ,INIT_GENMAG_EXTINCTION
 
       REAL*8  GET_FLUX_FITFUN
       INTEGER FILTINDX
@@ -1334,7 +1335,7 @@ c set default cut-windows to be wide open
       ENDDO  ! end ipar loop
 c ------------
 
-      CALL LANDOLT_PREP
+      CALL LANDOLT_PREP()
 
 c Parse filter lambda-shifts; 
 c OPT=0 to NOT error-check filter because Bessell-B 
@@ -1689,14 +1690,19 @@ c initialize priors
 
 c rest-frame init
       IF ( LREST_FITMODEL ) THEN
-         IF( NKCOR_STORE .EQ. 0 ) THEN
+
+         IF( USE_KCOR_LEGACY .and. NKCOR_STORE .EQ. 0 ) THEN
            c1err = 'Cannot fit rest-frame model ' 
      &          // FITMODEL_NAME(1:40)
            c2err = 'with no K-cor tables. Check KCOR_FILE.'
            CALL MADABORT("FITPAR_INI", c1err, c2err)
          ENDIF
 
-         CALL FITINI_XTPAR(OPT_SNXT) ! initialize host-galaxy extinction 
+         IF ( USE_KCOR_LEGACY ) THEN
+            CALL FITINI_XTPAR(OPT_SNXT) ! initialize host-galaxy extinction 
+         ELSE
+            CALL INIT_GENMAG_EXTINCTION(OPT_SNXT)
+         ENDIF
       ENDIF
 
 c -------------------------------------------
@@ -1880,7 +1886,7 @@ c local var
 c functions
      
       LOGICAL LFITFUN_FILT, FIRST_ITERATION
-      INTEGER NEAREST_IFILT_REST
+      INTEGER NEAREST_IFILTDEF_WRAPPER
 
       REAL*8   USRFUN
       EXTERNAL USRFUN
@@ -2068,7 +2074,7 @@ c print message if observer-filter is dropped or added on 2nd iteration
             if ( LREST_FITMODEL ) then
               OPT = OPT_FILTOBS
               IFILT_REST_MAP(ifilt) = 
-     &         NEAREST_IFILT_REST(OPT,ifilt_obs, 1, Z4, LMIN4)
+     &         NEAREST_IFILTDEF_WRAPPER(OPT,ifilt_obs, 1, Z4, LMIN4)
             endif
 
          endif
@@ -2395,9 +2401,6 @@ c ----- BELOW IS LAST ITERATION -------
 
 c check for special variable computation for SIMSED models;
       CALL SIMSED_RECON()
-
-c if not photo-z fit, increase color error to account for z-error.
-cc xxx mark delete      CALL ADD_FITPARERR_FROMz()
 
 c ------------------------------------------------------
 c compute SIMCHI2 on last iteration 
@@ -3078,12 +3081,6 @@ c three (filters, TMIN, TMAX)
         CALL get_PARSE_WORD_fortran(iwd+2, CWD, LEN) 
         read(CWD,*) TMAX
 
-c xxxxxxx mark delete xxxxxxxxxxxxxxxxxxx
-c        CFILT = fileword_list(iwd+0)        
-c        read(fileword_list(iwd+1),*) TMIN
-c        read(fileword_list(iwd+2),*) TMAX
-c xxxxxxxxxxxxxxxxxxxxxxxx
-
         NFILT = INDEX(CFILT,' ') - 1 
         do ifilt = 1, NFILT 
            cfilt1 = CFILT(ifilt:ifilt)
@@ -3186,7 +3183,7 @@ c functions
      &  ,init_redshift_sedmodel
      &  ,init_mwxt_sedmodel
      &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL 
-     &  ,GET_CALIB_PRIMARY       ! refac
+     &  ,GET_CALIB_PRIMARY_SED   ! refac
      &  ,GET_CALIB_FILTERTRANS   ! refac
 
 C ------------------- BEGIN ---------------
@@ -3205,7 +3202,7 @@ c init primary spectrum
          ISTAT = INIT_PRIMARY_SEDMODEL(tmpname(1:LEN1)//char(0),
      &                    NLAM,LAM,VALa,LEN1)
       ELSE
-         CALL GET_CALIB_PRIMARY(tmpname, NLAM, LAM, VALa, 20)
+         CALL GET_CALIB_PRIMARY_SED(tmpname, NLAM, LAM, VALa, 20)
          ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
       ENDIF
 
@@ -3281,17 +3278,6 @@ c VALa = transSN, VALb = transREF8
      &              LEN1, LEN2 )
 
          endif 
-
-c xxxxxxxxxx mark delete xxxxxxxxxxxxx
-c      print*,' xxx ------------------------------------------'
-c      print*,' xxx ifilt_obs, NLAM=', ifilt_obs, NLAM
-c      print*,' xxx LEN(cfilt, survey) = ', LEN1, LEN2
-c      print*,' xxx CFILT, SURVEY_NAME_FILTER, MAGPRIM = ',
-c     &             CFILT(1:LEN1), '   ', SURVEY_NAME_FILTER(1:LEN2), 
-c     &                sngl(MAGPRIM)
-c      print*,' xxx LAM,Trans = ', 
-c     &     sngl(LAM(30)), sngl(VALa(30)), sngl(VALb(30))
-c xxxxxxxx end mark xxxxxx
 
       CALL FLUSH(6)
 
@@ -3422,8 +3408,6 @@ c is defined by the model in the rest frame.
          if ( .NOT. USED ) GOTO 100
 
          LAMREST = FILTOBS_LAMAVG(ifilt_obs)/Z1SIM
-c xxx mark delete         LAM1    = LAMREST .GE. RESTLAMBDA_MODEL(1)
-c xxx mark delete         LAM2    = LAMREST .LE. RESTLAMBDA_MODEL(2)
          LAM1    = LAMREST .GE. RESTLAMBDA_FITRANGE(1)
          LAM2    = LAMREST .LE. RESTLAMBDA_FITRANGE(2)
 
@@ -5327,10 +5311,10 @@ c local args
      &  ,KCOR_NOAVWARP(MXFILT_ALL)
      &  ,AVWARP_TMP(MXFILT_ALL)
      &  ,MAG_OBS_TMP(MXFILT_ALL)
-     &  ,MAG_TMP1, MAG_TMP2
+     &  ,MAG_TMP1, MAG_TMP2, MWXT_TMP
      &  ,SQMAGERR, MAGERR_KCOR
      &  ,MAG_COR, MAG_PEAK, MAG_OBS
-     &  ,FLUX, ARG, MJD
+     &  ,FLUX, ARG, MJD, XT
      &  ,STR1, STR2, DELTA, DM15
      &  ,BX_synth, B_synth
      &  ,SALT2x0, SALT2x1, xx1, SALT2c, zz, RVDUM, AVDUM
@@ -5378,10 +5362,9 @@ c KCORFUN8 args
      &   ,LDMP, NEEDU,  DOKCOR13, LCRAZYMAG, DOMBSALT2
      &   ,ABORT_ON_DMP
 
-
 c functions
       INTEGER 
-     &   NEAREST_IFILT_REST
+     &   NEAREST_IFILTDEF_WRAPPER
      &  ,GENMAG_STRETCH2
      &  ,GENMAG_MLCS2K2
      &  ,GENMAG_SNOOPY
@@ -5394,8 +5377,14 @@ c     &  ,FILTINDX
      &   GET_MAGLC8
      &  ,GET_MWXT8     ! get MW extinct
      &  ,GET_SNXT8     ! get hostgal extinct
+     &  ,genmag_extinction
      &  ,GET_AVWARP8   ! get AV needed to warp SN SED
-     &  ,GET_KCORERR8  ! get Kcor error
+     &  ,GET_KCORERR_LEGACY  ! get Kcor error
+     &  ,eval_kcor_table_AVWARP  ! C code
+     &  ,eval_kcor_table_LCMAG   ! C code
+     &  ,eval_kcor_table_MWXT   ! C code
+     &  ,GET_KCOR_DRIVER        ! C code
+     &  ,GET_KCORERR            ! C code
      &  ,GALextinct    ! returns approx MW extinction
      &  ,KCORFUN8
      &  ,DLMAG8_REF
@@ -5467,12 +5456,11 @@ c Note that IFILT_REST1[2] are absolute (NOT sparse) filter indices.
       Z4  = sngl(ZSN)
 
       ifilt_rest1 = 
-     &  NEAREST_IFILT_REST( opt, ifilt_obs, 1, Z4, LAMDIF4(1))
+     &  NEAREST_IFILTDEF_WRAPPER( opt, ifilt_obs, 1, Z4, LAMDIF4(1))
       ifilt_rest2 = 
-     &  NEAREST_IFILT_REST( opt, ifilt_obs, 2, Z4, LAMDIF4(2))
+     &  NEAREST_IFILTDEF_WRAPPER( opt, ifilt_obs, 2, Z4, LAMDIF4(2))
       ifilt_rest3 = 
-     &  NEAREST_IFILT_REST( opt, ifilt_obs, 3, Z4, LAMDIF4(3))
-
+     &  NEAREST_IFILTDEF_WRAPPER( opt, ifilt_obs, 3, Z4, LAMDIF4(3))
 
 c check if KCOR13 (based on warping other neighbor) should be 
 c wgt-averaged with nominal KCOR12.
@@ -5484,15 +5472,21 @@ c First that order is 3-1-2  or  2-1-3.
      &               - FILTREST_LAMAVG(ifilt_rest3) )
       DOKCOR13 = (LAMDIF12/LAMDIF13) .GT. 0.0
 
+c xxxxxxxxxxxxxxxxxxxx mark delete xxxxxxxxxxx
+c      print*,' xxx ------------------ '
+c      write(6,3333) ifilt_rest1, ifilt_rest2, ifilt_rest3,
+c     &      LAMDIF12, LAMDIF13
+c3333  format(' xxx ifilt_rest[1,2,3]=',3I3, 2x,'LAMDIF[12,13]=',2F9.1)
+c      call flush(6)
+c xxxxxxxxxxxxxxxxxxxx
+
 c update rest-frame map for photoZ fit (if IFILT is defined)
 
       if ( DOFIT_PHOTOZ ) then
           ifilt = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-
           if ( ifilt .GT. 0 ) then
             IFILT_REST_MAP(ifilt) = ifilt_rest1  
           endif
-
       endif
 
 c check option for rest-frame mags only with no K-correction
@@ -5519,6 +5513,13 @@ c check option for rest-frame mags only with no K-correction
       ELSE
         ifilt_rest3 = -9
       ENDIF
+
+c xxxxxxxxxxxxxxxxxx mark delete xxxxxxxxx
+c      print*,' xxx DOKCOR13, NEEDU = ', DOKCOR13, NEEDU
+c      print*,' xxx NFILT_FITMAP_REST = ', NFILT_FITMAP_REST
+c      print*,' xxx IFILT_FITMAP_REST = ', IFILT_FITMAP_REST(1:3)
+c      call flush(6)
+c xxxxxxxxxxxxxxxxxxxx
 
 c expand filter ranges if Landolt option is set.
 
@@ -5559,8 +5560,6 @@ c -------------------------------------------
 c get MAG_REST1 = magnitude in rest frame for closest filter
 c     MAG_REST1 = mag in rest-frame for 2nd closest filter (for color)
 c Use "genmag_xxx" function that are used in simulation.
-
-c xxx mark delete 500   CONTINUE
 
       IF ( FITMODEL_INDEX .EQ. MODEL_STRETCH ) THEN
 
@@ -5615,6 +5614,13 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
      &            , MAG_REST(ifilt_rest)       ! (O)
      &            , MAGERR_REST(ifilt_rest) )  ! (O)
 
+c xxxxxxxxxxxxxxxxx mark delete xxxxxxxxxxxx
+c             write(6,4444) ifilt_tmp, DELTA, Trest,
+c     &             ifilt_rest, MAG_REST(ifilt_rest)
+c4444         format(' xxx mlcs2k2: ifiltdef=',I2, 2x,'DELTA=',F5.2,
+c     &           2x,'Trest=',F6.2, 2x, 'm_rest(',I2,')=',F8.3 )
+c             call flush(6)
+c xxxxxxxxxxxx
           enddo
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
@@ -5749,8 +5755,13 @@ c check option for rest-frame mag only
 c Include host extinction to get rest-frame colors.
 
       IF ( ISREST ) THEN
-        MAG_XTAV_REST(ifilt_obs) = 
-     &  GET_SNXT8(OPT_SNXT, ifilt_obs, Trest, AVHOST, RVHOST)
+
+        IF ( USE_KCOR_LEGACY ) THEN
+           XT = GET_SNXT8(OPT_SNXT,ifilt_obs,Trest,AVHOST,RVHOST)
+        ELSE
+           XT = genmag_extinction(ifilt_obs, Trest, RVHOST, AVHOST)
+        ENDIF 
+        MAG_XTAV_REST(ifilt_obs) = XT
 
         MAG_OBS_TMP(ifilt_obs) = 
      &  MAG_REST(IFILT_OBS) + MAG_XTAV_REST(ifilt_obs)
@@ -5775,7 +5786,6 @@ c smooth the errors
 
       ENDIF
 
-
 c set temp arrays MAG_BESSELL and MAG_LANDOLT
 
       DO ifilt      = 1, NFILT_FITMAP_REST
@@ -5798,13 +5808,24 @@ c Store BX-B in the memory slot for Landolt-BX.
 
          if ( NEEDU ) then
 
-           AVWARP = GET_AVWARP8(Trest, Z0
+           IF ( USE_KCOR_LEGACY ) THEN
+             AVWARP = GET_AVWARP8(Trest, Z0
      &             ,MAG_LANDOLT_REST(ifilt_rest1)
      &             ,MAG_LANDOLT_REST(ifilt_rest2)
      &             ,IFILT_REST1, IFILT_REST2, ISTAT )
+             BX_synth = GET_MAGLC8(ifilt_bess_BX, Trest, Z0, AVwarp)
+             B_synth  = GET_MAGLC8(ifilt_bess_B , Trest, Z0, AVwarp)
+           ELSE
+              AVWARP = EVAL_KCOR_TABLE_AVWARP(IFILT_REST1, IFILT_REST2,
+     &              MAG_LANDOLT_REST(ifilt_rest1), 
+     &              MAG_LANDOLT_REST(ifilt_rest2),
+     &              Trest, ISTAT)
+              BX_synth = EVAL_KCOR_TABLE_LCMAG(ifilt_bess_BX, Trest, 
+     &                     Z0, AVwarp)
+              B_synth  = EVAL_KCOR_TABLE_LCMAG(ifilt_bess_B, Trest, 
+     &                     Z0, AVwarp)
+           ENDIF
 
-           BX_synth = GET_MAGLC8(ifilt_bess_BX, Trest, Z0, AVwarp)
-           B_synth  = GET_MAGLC8(ifilt_bess_B , Trest, Z0, AVwarp)
            MAG_LANDOLT_REST(IFILT_BESS_BX) = BX_synth - B_synth
 
          endif
@@ -5841,8 +5862,14 @@ c apply host extinction for rest-frame models.
          IFILT_REST = IFILT_FITMAP_REST(ifilt)
 
         IF ( LSNXTAV ) THEN
-           MAG_XTAV_REST(ifilt_rest) = 
-     &     GET_SNXT8(OPT_SNXT, ifilt_rest, Trest, AVHOST, RVHOST)
+
+           IF ( USE_KCOR_LEGACY ) THEN
+              XT = GET_SNXT8(OPT_SNXT,ifilt_rest,Trest,AVHOST,RVHOST)
+           ELSE
+              XT = genmag_extinction(ifilt_rest, Trest, RVHOST, AVHOST)
+           ENDIF
+
+           MAG_XTAV_REST(ifilt_rest) = XT
 
            MAG_REST(ifilt_rest) = 
      &     MAG_REST(ifilt_rest) + MAG_XTAV_REST(ifilt_rest)
@@ -5874,7 +5901,8 @@ c get closest rest-frame filters for this observer "ifilt2_obs"
         OPT = OPT_FILTOBS
         DO inear = 1, 3
           ifilt_rest_tmp(inear) = 
-     &    NEAREST_IFILT_REST(opt,ifilt2_obs,inear,Z4,LAMDIF4(inear))
+     &    NEAREST_IFILTDEF_WRAPPER(opt,ifilt2_obs,
+     &                        inear,Z4,LAMDIF4(inear) )
 
 c load KCORFUN8 args   
           ifilt_tmp                 = ifilt_rest_tmp(inear)
@@ -5883,24 +5911,40 @@ c load KCORFUN8 args
           LAMDIF_KCORFUN(inear)     = DBLE( LAMDIF4(inear) )
         ENDDO
 
-        KCOR_TMP(ifilt2_obs) = KCORFUN8 ( ifilt2_obs
-     &     ,IFILT_REST_KCORFUN, MAG_REST_KCORFUN
-     &     ,LAMDIF_KCORFUN, Trest, ZSN
-     &     ,AVWARP_KCORFUN    ! (O)
-     &        )
+        IF ( USE_KCOR_LEGACY ) THEN
+          KCOR_TMP(ifilt2_obs) = 
+     &      KCORFUN8 ( ifilt2_obs, IFILT_REST_KCORFUN, MAG_REST_KCORFUN
+     &     ,LAMDIF_KCORFUN, Trest, ZSN, AVWARP_KCORFUN )
+        ELSE
+          KCOR_TMP(ifilt2_obs) =
+     &    GET_KCOR_DRIVER(ifilt2_obs, IFILT_REST_KCORFUN, 
+     &            MAG_REST_KCORFUN,
+     &            LAMDIF_KCORFUN, Trest, ZSN, AVWARP_KCORFUN )
+        ENDIF
 
 c save AVwarp
         AVwarp                 = AVwarp_KCORFUN(2)
         AVwarp_tmp(ifilt2_obs) = AVwarp  ! save in case of dump
 
-        KCORERR_TMP(ifilt2_obs) = GET_KCORERR8 ( OPT_KCORERR,
-     &        ifilt2_obs, ZSN ) 
+        if ( USE_KCOR_LEGACY ) then
+            KCORERR_TMP(ifilt2_obs) = 
+     &      GET_KCORERR_LEGACY ( OPT_KCORERR, ifilt2_obs, ZSN ) 
+        else
+          ! refactored C code
+            KCORERR_TMP(ifilt2_obs) = 
+     &      GET_KCORERR ( OPT_KCORERR, ifilt2_obs, ZSN ) 
+        endif
 
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
-           MAG_XTMW_OBS(ifilt2_obs) =
-     &      GET_MWXT8(ifilt2_obs, Trest, ZSN, AVWARP, 
-     &                MWEBV, RVMW, OPT_MWCOLORLAW )
+           if ( USE_KCOR_LEGACY ) then
+              MWXT_TMP = GET_MWXT8(ifilt2_obs, Trest, ZSN, 
+     &                AVWARP, MWEBV, RVMW, OPT_MWCOLORLAW )
+           else
+              MWXT_TMP = EVAL_KCOR_TABLE_MWXT(ifilt2_obs, Trest, ZSN,
+     &                    AVWARP, MWEBV, RVMW, OPT_MWCOLORLAW )
+           endif
+           MAG_XTMW_OBS(ifilt2_obs) = MWXT_TMP
         endif
 
 c Add up all the pieces for observer mag prediction.
@@ -5943,7 +5987,7 @@ c determine model error as contribution from model and K-corr.
 
 c -------------------------------------
 
-501   CONTINUE  ! come here when observer mag is calculated
+501   CONTINUE  ! come here when observer mag is calculate
 
 c -------------------------------------------------
 c if observer-frame is Bessell, and Landolt option is set,
@@ -6109,8 +6153,8 @@ c unextincted mag in rest frame
      &  ,filtdef_string(ifilt_rest1:ifilt_rest1)
      &  ,MAG_REST(ifilt_rest1)
 
-703     FORMAT(T10,'Mrest(',A,')=',F7.2,'(',I2.2,')',  2x,
-     &            'XMrest(',A,')=',F7.2 )
+703     FORMAT(T10,'Mrest(',A,')=',F8.3,'(',I2.2,')',  2x,
+     &            'XMrest(',A,')=',F8.3 )
 
 c write rest color, AVwarp and Kcor
 
@@ -6131,7 +6175,7 @@ c write observer mag and flux
          write(6,706) filtdef_string(ifilt_obs:ifilt_obs),
      &                MAG_OBS, MAG_XTMW, FLUX
 706      format(T10,'m_obs(',A,')=',F8.3, 2x, 'm(XTMW)=',F6.3,  
-     &              2x, 'Flux=',G12.3 )
+     &              2x, 'Flux=',G14.5 )
 
 c now write single line with CID keyword ;
 c grep "CID" > bla creates easy-to-read column-formatted file 
@@ -7170,8 +7214,7 @@ c        to Saurabh's lookup (use this option for sync-tests only)
       OPT_NEARFILT   = OPT_FILTOBS  ! obsolete : Feb 3 2012
 
 c set option for Kcor errors; use SJ option (=2) as default
-
-      OPT_KCORERR = 2
+      OPT_KCORERR = OPT_KCORERR_SJ
 
 c scale covariance matrix.
       SCALE_COVAR    = 1.0  ! default scale is 1 => nominal matrix
@@ -7381,7 +7424,6 @@ c first, allow user to set integer option or logical flag.
       if ( DOFIT_PHOTOZ .and. OPT_PHOTOZ .LE. 0 ) then
    ! use host-galaxy prior by default.
    ! But note PRIOR_ZERRSCALE=1000 by default
-        ! xxx mark delete  OPT_PHOTOZ = 1
          OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) 
       endif
 
@@ -8554,6 +8596,7 @@ C --------------- BEGIN -----------------
 
       LPRINT = STDOUT_UPDATE
 
+
       IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
          c2err = 'not allowed with photo-z fits'
@@ -8584,7 +8627,6 @@ c reset photoz step, unless this is a 2-band 'FITRESTMAG' fit (Nov 28, 2014)
 
       INIBND(1,ipar)  =  ZMIN
       INIBND(2,ipar)  =  ZMAX
-
 
 c Mar 27 2018:  
 c  on last fit iteration, move INIVAL by a small amount;
@@ -8869,6 +8911,8 @@ c loop over redshift, color, stretch to estimate INIVAL
       ENDIF
       NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1
       ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
+
+      print*,' xxx ZMIN/MAX NZBIN = ', ZMIN, ZMAX, NZBIN
 
       CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
      &                 NCBIN,CBIN,CMIN,CMAX)  ! output
@@ -9386,7 +9430,6 @@ c     D. Jones color grid search
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       if ( .not. DO_PEAKMJD ) GOTO 444
-c xxx mark delet Aug 7 2021  IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
       COLOR   = COLOR_MIN
@@ -9612,7 +9655,6 @@ C ----------- BEGIN ----------
       IF ( .NOT. USE_FITPAR_LIST_FILE ) RETURN
 
       FIRST_ITER = (ITER==1 .and. .not. LREPEAT_ITER) 
-c  xxx mark delete IF ( ITER > 1 .or. LREPEAT_ITER ) RETURN
 
 c construct list of params to check in SNCID_LIST file
 
@@ -9837,7 +9879,6 @@ c since they are case-insensitive.
 
         NFADD = NFADD + 1
         ipar = NPLOTPAR + i + NFADD*NFILTOBS_TABLE
-cc xxx mark delete         PARNAME_STORE(ipar) = 'prob_' // cfilt_obs
         PARNAME_STORE(ipar) = 'FITPROB_' // cfilt_obs
 
 555   CONTINUE
@@ -9951,7 +9992,7 @@ c local var
       REAL Z, LAMDIF_MIN
 
 c function
-      INTEGER NEAREST_IFILT_REST
+      INTEGER NEAREST_IFILTDEF_WRAPPER
 
 C -------------- BEGIN -------------
 
@@ -9964,9 +10005,11 @@ C -------------- BEGIN -------------
         if ( .NOT. USE_FILT(ifilt_obs) ) goto 700
 
         ifilt_rest1 = 
-     &    NEAREST_IFILT_REST( OPT_FILTOBS, ifilt_obs, 1,Z, LAMDIF_MIN)
+     &    NEAREST_IFILTDEF_WRAPPER( OPT_FILTOBS, ifilt_obs, 
+     &             1,Z, LAMDIF_MIN)
         ifilt_rest2 = 
-     &    NEAREST_IFILT_REST( OPT_FILTOBS, ifilt_obs, 2,Z, LAMDIF_MIN)
+     &    NEAREST_IFILTDEF_WRAPPER( OPT_FILTOBS, ifilt_obs, 
+     &             2,Z, LAMDIF_MIN)
 
         write(6,701)
      &    SNLC_CCID(1:ISNLC_LENCCID)
@@ -10415,7 +10458,7 @@ c local var
       character cfilt*1
 
 c functions
-      INTEGER NEAREST_IFILT_REST
+      INTEGER NEAREST_IFILTDEF_WRAPPER
       LOGICAL MJDSELECT
       REAL*4 GET_FUDGE_FITERR_MAXFRAC 
 
@@ -10496,7 +10539,6 @@ c immediately skip epochs that fail cuts, or epochs whose
 c flux-error is negative
 
         IF ( .not. MJDSELECT(imjd,0) ) GOTO 101
-cc mark delete May 2016        if ( fluxerr_data .LE.  0.0  ) goto 102
 
 c check if this epoch is rejected
         REJECT   = I4EP_ALL(ep,IEP_REJECT)
@@ -10569,8 +10611,8 @@ c Also subtract index offsets
         IF ( LREST_FITMODEL ) THEN
           OPT = OPT_FILTOBS
 
-          IF1 = NEAREST_IFILT_REST(OPT, ifilt_obs, 1, Z, LAMDIF_MIN) 
-          IF2 = NEAREST_IFILT_REST(OPT, ifilt_obs, 2, Z, LAMDIF_MIN)
+          IF1 = NEAREST_IFILTDEF_WRAPPER(OPT,ifilt_obs,1,Z,LAMDIF_MIN) 
+          IF2 = NEAREST_IFILTDEF_WRAPPER(OPT,ifilt_obs,2,Z,LAMDIF_MIN)
           
           I4EP_ALL(ep,IEP_IFILT_REST1) = IF1
           I4EP_ALL(ep,IEP_IFILT_REST2) = IF2
@@ -12269,11 +12311,6 @@ c IPAR_SIMEFF array for faster lookups.
          IPAR_SIMEFF(IVAR) = -9
          call get_PARSE_WORD_fortran(ivar, name, L1 )
 
-c xxxxxxxx mark delete xxxxxxxxxxx
-c         name      = fileword_list(ivar)
-c         L1        = index(name,' ') - 1
-c xxxxxxxxxxxxxxxxxxxxxxxxx
-
 c check all of the fit parameter names
          DO 201 ipar = 1, IPAR_MAX  ! loop over fit-parameters
             L2 = INDEX(PARNAME_STORE(ipar),' ') -1 
@@ -12316,6 +12353,12 @@ c check other variables that are not in the fit-par list
 C ================================================
 +DECK,FINI_XTPAR.
       SUBROUTINE FITINI_XTPAR(OPT)
+c
+c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+c
+c  NOVEMBER 2022: delete this function after installing KCOR REFAC
+c
+c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 c
 c Nov 16, 2006
 c
@@ -12386,7 +12429,7 @@ C -------------- BEGIN -------------
 22    format(' (RV=',F4.2,')' )
 
       RETURN
-      END
+      END       ! end FITINI_XTPAR
 
 C ===================================================
 +DECK,FITANA_CUTS.
@@ -15085,13 +15128,6 @@ cc            print*,'          x0 = ' , LCVAL_STORE(IPAR_DLMAG)
 c ------------------------------
 c compute volume out to zmax
 
-c xxxxxxxxxxx mark delete Oct 16 2020 xxxx
-c      H0     = H0_REF(1) * 1.0E6 * Parsec  ! km/s/Mpc
-c      OM     = OMAT_REF(1)
-c      OL     = OLAM_REF(1)
-c      w0     = W0_REF(1)
-c xxxxxxxxx end mark xxxxxx
-
       OPTWGT    = 0  ! do NOT weight by redshift
       COSPAR(1) = H0_REF(1)
       COSPAR(2) = OMAT_REF(1)
@@ -15913,7 +15949,11 @@ c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
 c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
-      CALL RDKCOR(KCOR_FILE,IERR)
+      IF ( USE_KCOR_LEGACY ) THEN
+          CALL READ_CALIB_WRAPPER_LEGACY(IERR)
+      ELSE
+          CALL READ_CALIB_WRAPPER(IERR)
+      ENDIF
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
 
@@ -16174,7 +16214,6 @@ c new default, Mar 28 2020
 
 c check if IFILTOBS_BRACKET(1:2) are valid
          L_USE = USE_ALLFILT(IF1) .and. USE_ALLFILT(IF2)
-c xxx mark del L_BRACKET = (NBRA .EQ. 2) .and. L_USE
          L_BRACKET = (NBRA >= 2) .and. L_USE
 
          if ( L_BRACKET ) goto 444
@@ -16539,7 +16578,6 @@ C ----------- BEGIN -----------
 
       IF ( NFILTDEF_FITRESTMAG .LE. 0       ) RETURN
       IF ( ITER .LE. NFIT_ITERATION_ALLFILT ) RETURN
-ccc mark for deletion      IF ( ITER .EQ. NFIT_ITERATION  ) RETURN
 
       ITERLAST_2BAND = ITERLAST_FITRESTMAG(NFILTDEF_FITRESTMAG)
       IF ( ITER > ITERLAST_2BAND ) RETURN
@@ -16852,7 +16890,7 @@ c local
       LOGICAL DOTEST_NONZ, ISSURVEY, NOEPOCHS
 
 c function
-      INTEGER NEAREST_IFILT_REST
+      INTEGER NEAREST_IFILTDEF_WRAPPER
 
 C --------------- BEGIN ----------------
 
@@ -16889,7 +16927,8 @@ c does this observer filter transform to a valid rest-frame filter
         IF ( LREST_FITMODEL ) THEN
           Z4  = SNGL(ZTEST) 
           OPT = OPT_FILTOBS
-          ifilt_rest = NEAREST_IFILT_REST(OPT,ifilt_obs,1,Z4,LMIN4)
+          ifilt_rest = NEAREST_IFILTDEF_WRAPPER(OPT,ifilt_obs,
+     &                       1, Z4, LMIN4 )
           if ( ifilt_rest .LE. 0. ) RETURN
         ENDIF
       ENDIF
@@ -16902,8 +16941,8 @@ c all is OK.
       END
 
 C =======================================
-+DECK,LNDLT_PREP.
-      SUBROUTINE LANDOLT_PREP
++DECK,LANDOLT_PREP.
+      SUBROUTINE LANDOLT_PREP()
 c
 c Created Feb 10, 2012
 c
@@ -16918,21 +16957,24 @@ c ------------------------
 
       IMPLICIT NONE
 
-+CDE,SNDATCOM.  from snana.car
-+CDE,SNANAFIT.  from snana.car
++CDE,SNDATCOM. 
++CDE,SNANAFIT. 
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 +CDE,SNLCINP.
 
       INTEGER ISTAT, IFILT, i
-      CHARACTER CTMP*8
+      CHARACTER CTMP*8, FNAM*16
       LOGICAL   FORCE, LBX
+      REAL MAG_PRIMARY
 
 c function
       INTEGER  LANDOLT_INI
       EXTERNAL LANDOLT_INI
 
 C -------------- BEGIN -------------------------
+
+      FNAM = 'LANDOLT_PREP'
 
 c check for Marriner's "LANDOLT" option
 c OPT_LANDOLT bits (lsb=0):
@@ -16943,11 +16985,11 @@ c   bit2 : idem but in Vega system
          USE_LANDOLT_REST = .FALSE.
          USE_LANDOLT_OBS  = .FALSE.
 
-
       IF ( UCOR_BXB .and. OPT_LANDOLT .EQ. 0 ) THEN
          USE_LANDOLT_REST = .TRUE.  ! color terms =0; but U -> U+BX-B
+         MAG_PRIMARY = FILTREST_MAG_PRIMARY(IFILT_BESS_U)
          istat = landolt_ini( OPT_LANDOLT, 
-     &       FILTREST_MAG_PRIMARY(IFILT_BESS_U), LANDOLT_COLOR_SHIFT )
+     &                        MAG_PRIMARY, LANDOLT_COLOR_SHIFT )
 
          CALL LANDOLT_SNMAG_CHECK(0, 0.0, 0.0)  ! Trest, AV
       ENDIF  ! end of OPT_LANDOLT option
@@ -16964,20 +17006,33 @@ c ----------------------------------------------
           write(c1err,670) OPT_LANDOLT
 670       format('OPT_LANDOLT=',I3,' is invalid for SIM.')
           c2err = 'Must set OPT_LANDOLT = 0 in &FITINP '
-          CALL MADABORT("LANDOLT_PREP", c1err, c2err )
+          CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
 
 c -----------------------------------------------
 c if BX filter is not a survey filter, 
 c then add it to the SURVEY_FILTERS list and call RDKCOR again.
 
+
       LBX = IFILTDEF_INVMAP_SURVEY(ifilt_BESS_BX) .GT. 0   
+
       IF ( USE_LANDOLT_OBS .and. .NOT. LBX ) THEN
+         print*,' '
+         print*,'    Add observer-frame X band to SURVEY filters ' //
+     &               'for Landolt option'
+         print*,' '
+         call flush(6)
+         SURVEY_FILTERS  = SURVEY_FILTERS(1:NFILTDEF_SURVEY) // 'X'
          NFILTDEF_SURVEY = NFILTDEF_SURVEY + 1
          i = NFILTDEF_SURVEY 
          IFILTDEF_MAP_SURVEY(i) = IFILT_BESS_BX
          IFILTDEF_INVMAP_SURVEY(ifilt_BESS_BX) = i
-         CALL RDKCOR(KCOR_FILE,ISTAT)
+
+         if ( USE_KCOR_LEGACY ) then
+             CALL READ_CALIB_WRAPPER_LEGACY(ISTAT)
+         else
+             CALL READ_CALIB_WRAPPER(ISTAT)
+         endif
 
          CALL CDTOPDIR_OUTPUT  ! back to topdir (to be safe)
 
@@ -16991,15 +17046,19 @@ c make sure that BX filters is defined
       IF ( USE_LANDOLT_OBS ) THEN
         IFILT = IFILTDEF_INVMAP_SURVEY(ifilt_BESS_BX)
         IF ( .NOT. EXIST_BXFILT_OBS .or. IFILT .LE. 0 ) THEN
+            print*,' xxx IFILT, EXIST_BXFILT_OBS = ', 
+     &            IFILT, EXIST_BXFILT_OBS
           write(c1err,677) OPT_LANDOLT, 'OBS'
-          CALL MADABORT("LANDOLT_PREP", c1err, c2err )
+          CALL MADABORT(FNAM, c1err, c2err )
         ENDIF 
       ENDIF
       IF ( USE_LANDOLT_REST ) THEN
          IFILT = IFILTDEF_INVMAP_REST(ifilt_BESS_BX)
          IF ( .not. EXIST_BXFILT_REST .or. IFILT .LE. 0) THEN
             write(c1err,677) OPT_LANDOLT, 'REST'
-            CALL MADABORT("LANDOLT_PREP", c1err, c2err )
+            print*,' xxx IFILT, EXIST_BXFILT_REST = ', 
+     &            IFILT, EXIST_BXFILT_REST
+            CALL MADABORT(FNAM, c1err, c2err )
          ENDIF 
       ENDIF
 
@@ -17057,6 +17116,7 @@ c -----------------------------------------
 +CDE,SNANAFIT.  from snana.car
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
++CDE,SNLCINP.  ! USE_KCOR_LEGACY is here
 
       INTEGER OPT             ! () 0=>SN, 1=Vega, 2=BD17
       REAL    Trest, AVwarp   ! (I) test params
@@ -17071,7 +17131,7 @@ c local var
      &  ,MAG8_SYNBESS(MXFILT_ALL)  ! synthetic Bessell
      &  ,MAG8_LAND(MXFILT_ALL)     
      &  ,MAG8_INVERT(MXFILT_ALL)
-     &  ,MAG8_BX, MAG8_B
+     &  ,MAG8_BX, MAG8_B, MAG8_TMP
 
       character cflt*1
 
@@ -17079,7 +17139,7 @@ c local var
       REAL VEGA_MAG_LANDOLT(MXFILT_ALL)
 
 c functions
-      REAL*8 GET_MAGLC8
+      REAL*8 GET_MAGLC8, EVAL_KCOR_TABLE_LCMAG
       INTEGER LANDOLT_CONVERT
 
 C --------------- BEGIN ---------------
@@ -17115,8 +17175,13 @@ c hard-wire primary mags from John Marriner.
         AV8 = DBLE(AVwarp)
         Z8  = Zat10pc
         DO ifilt = IFILT_BESS_U, IFILT_BESS_BX
-          MAG8_SYNBESS(ifilt) = GET_MAGLC8(ifilt,T8,Z8,AV8) 
-     &                        - PEAKMAG_AT_10pc
+
+          IF ( USE_KCOR_LEGACY ) THEN 
+             MAG8_TMP = GET_MAGLC8(ifilt,T8,Z8,AV8)
+          ELSE
+             MAG8_TMP = EVAL_KCOR_TABLE_LCMAG(ifilt,T8,Z8,AV8)
+          ENDIF
+          MAG8_SYNBESS(ifilt) = MAG8_TMP - PEAKMAG_AT_10pc
         ENDDO
       ELSE IF ( OPT .EQ. 1 ) then
         print*,'  Check VEGA mags. ' 
@@ -17150,8 +17215,14 @@ c hard-wire primary mags from John Marriner.
 
 c now invert to get back Bessell from Landolt.
 
-      MAG8_BX = GET_MAGLC8(ifilt_BESS_BX,T8,Z8,AV8)
-      MAG8_B  = GET_MAGLC8(ifilt_BESS_B, T8,Z8,AV8)
+      IF ( USE_KCOR_LEGACY ) THEN
+         MAG8_BX = GET_MAGLC8(ifilt_BESS_BX,T8,Z8,AV8)
+         MAG8_B  = GET_MAGLC8(ifilt_BESS_B, T8,Z8,AV8)
+      ELSE
+         MAG8_BX = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_BX,T8,Z8,AV8)
+         MAG8_B  = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_B, T8,Z8,AV8)
+      ENDIF
+
       MAG8_LAND(IFILT_BESS_BX) = MAG8_BX - MAG8_B
 
 400   CONTINUE
@@ -17427,7 +17498,6 @@ C ------------- BEGIN ------------
 179     format(T5,'FIT-ERROR fudge = ', F6.2,' * max(Flux)', 3x,
      &    'for all epochs and fit-iterations.' )
        USE_FUDGE_FITERR = .TRUE.
-c xxx mark delete Mar 1 2017       RETURN
       ENDIF
 
       IF ( FUDGEALL_ITER1_MAXFRAC .GT. 0.0 ) THEN
@@ -17829,8 +17899,6 @@ c open output file.
         print*,' '
 
         WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
-cc xxx mark delete         WRITE(LUNINTERP,401) NVAR_OUT
-cc xxx 401     FORMAT('NVAR: ', I2)
         WRITE(LUNINTERP,402)
 402     FORMAT('VARNAMES: CID BAND MJD_INTERP MAG MAGERR '
      &                   'FLUX FLUXERR TOBS TREST' )
@@ -18104,7 +18172,7 @@ c  local args
 
 c functions
       REAL*8 USRFUN
-      INTEGER NEAREST_IFILT_REST
+      INTEGER NEAREST_IFILTDEF_WRAPPER
 
 c -------------- BEGIN ------------
 
@@ -18134,8 +18202,10 @@ c18    format(T3,'REST UBVRI mags: ', 5F8.4 )
       DO ifilt_obs = 1,10
 
          OPT = OPT_FILTOBS
-         ifilt_rest1 = NEAREST_IFILT_REST(opt,ifilt_obs,1,Z4,LMIN4)
-         ifilt_rest2 = NEAREST_IFILT_REST(opt,ifilt_obs,2,Z4,LMIN4)
+         ifilt_rest1 = NEAREST_IFILTDEF_WRAPPER(opt,ifilt_obs,
+     &                      1, Z4, LMIN4 )
+         ifilt_rest2 = NEAREST_IFILTDEF_WRAPPER(opt,ifilt_obs,
+     &                      2, Z4, LMIN4 )
 
          FLUX8 = 
      &     USRFUN ( NFIT_ITERATION, ifilt_obs, Z8, T8
@@ -18811,9 +18881,6 @@ c check for additional IDEAL fit with FLUX = TRUEFLUX
           LENNAME = INDEX(VARNAME,' ') - 1
 
           IF ( SKIPTABLE_FITPAR(VARNAME) ) GOTO 381
-
-c xxx mark delete  IF ( VARNAME(1:5) .EQ. 'BIDON'    ) GOTO 381
-c xxx          IF ( VARNAME(1:8) .EQ. 'REDSHIFT' ) GOTO 381
 
           VARLIST = VARNAME(1:LENNAME)// '_IDEAL:F'   ! include cast
           LENLIST = INDEX(VARLIST,' ') - 1

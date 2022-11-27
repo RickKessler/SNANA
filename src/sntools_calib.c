@@ -21,6 +21,7 @@
     READ_CALIB_DRIVER(...)  // read fits file and perform init
     get_calib_XXX(...)      // fetch utils for primary, filter-trans, etc ...
     GET_KCOR_DRIVER(...)    // return K-correction value
+    GET_KCORERR(..)
 
   The implementation of K-correction uses four multi-dimensional maps
   for speed: 1) LCMAG, 2) MWXT, 3) AVWARP, 4)KCOR. Maps 1,2,4 are read
@@ -58,6 +59,7 @@ void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, bool USE_KCOR,
 
   init_calib_options();
 
+  printf("\t FILTERS_SURVEY = %s \n", FILTERS_SURVEY); fflush(stdout);
 
   // - - - - - - - 
   // store passed info in global struct
@@ -102,15 +104,18 @@ void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, bool USE_KCOR,
   int istat = 0 ;
   fits_close_file(CALIB_INFO.FP, &istat); 
 
+
+  /* xxxxxx snlc_fit call is before we know which SNIa model is used.
   if ( CALIB_INFO.NKCOR == 0 && USE_KCOR ) {
     sprintf(c1err,"USE_KCOR=True, but found no K-corr tables");
     sprintf(c2err,"Check SN model and kcor/calib file");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
   }
+  xxxx */
 
   // prep kcor tables here, but later should call this function
   // from code that uses relevant model.
-  if ( USE_KCOR ) { PREPARE_KCOR_TABLES(); }
+  if ( USE_KCOR && CALIB_INFO.NKCOR>0 ) { PREPARE_KCOR_TABLES(); }
 
   printf("\n %s: Done \n", fnam);
   fflush(stdout);
@@ -309,7 +314,13 @@ void read_calib_head(void) {
     // so strip off SURVEY name per filter and store it.
     char *eq    = strchr(comment, '=');
     int  ind_eq = (int)(eq - comment);
-    sprintf(CALIB_INFO.SURVEY_NAME[i], "%s", &comment[ind_eq+1]);
+    if ( ind_eq >=0 && ind_eq < 20 ) { 
+      sprintf(CALIB_INFO.SURVEY_NAME[i], "%s", &comment[ind_eq+1]);
+    }
+    else {
+      // allow older kcor/calib files before SURVEY key was required
+      sprintf(CALIB_INFO.SURVEY_NAME[i], "UNDEFINED" );
+    }
 
   }  // end NFILTDEF loop
 
@@ -396,6 +407,15 @@ void read_calib_head(void) {
   return ;
 
 } // end read_calib_head
+
+
+void get_kcor_zrange(double *zmin, double *zmax, double *zbin) {
+  *zmin = CALIB_INFO.BININFO_z.RANGE[0];
+  *zmax = CALIB_INFO.BININFO_z.RANGE[1];
+  *zbin = CALIB_INFO.BININFO_z.BINSIZE;
+}
+void get_kcor_zrange__(double *zmin, double *zmax, double *zbin) 
+{ get_kcor_zrange(zmin,zmax,zbin); }
 
 
 // ==================================================
@@ -694,7 +714,6 @@ void read_kcor_tables(void) {
     LBX1 = ISBXFILT_KCOR(cfilt_obs);
     if ( LBX1 ) { CALIB_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_OBS; }
 
-
     /* can't remember purpose of STANDALONE mode ... fix later 
          IF ( RDKCOR_STANDALONE .and. 
      &         IFILTDEF_INVMAP_SURVEY(ifilt_obs) .LE. 0 ) THEN
@@ -752,7 +771,6 @@ void read_kcor_tables(void) {
   // Landolt option in fitting program without having to explicitly
   // define a K-correction wit the X filter.
   // Beware to set BX before INIT_KCOR_INDICES !!!
-
 
   for(ifilt=0; ifilt < NFILTDEF_KCOR ; ifilt++ ) {
     FILTER_NAME  = CALIB_INFO.FILTER_NAME[ifilt];
@@ -851,6 +869,18 @@ int ISBXFILT_KCOR(char *cfilt) {
   if ( strstr(cfilt,"BX") != NULL ) { return(1); }
   return(0);
 } // end ISBXFILT_KCOR
+
+void EXIST_CALIB_BXFILT(bool *exist_rest, bool *exist_obs) {
+  // Return exist_rest=T if BX exists as rest-frame filter;
+  // Return exist_obs =T if BX exists as obs-frame filter.
+  int MASK = CALIB_INFO.MASK_EXIST_BXFILT ;
+  *exist_rest = ( (MASK & MASK_FRAME_REST) > 0 ) ;
+  *exist_obs  = ( (MASK & MASK_FRAME_OBS ) > 0 ) ;
+}
+
+void exist_calib_bxfilt__(bool *exist_rest, bool *exist_obs)
+{ EXIST_CALIB_BXFILT(exist_rest,exist_obs); }
+
 
 // ===========================================
 void addFilter_kcor(int ifiltdef, char *FILTER_NAME, FILTERCAL_DEF *MAP){
@@ -1009,6 +1039,7 @@ void parse_KCOR_STRING(char *STRING,
   strKcor[0] = cfilt_rest[0] = cfilt_obs[0] = 0;
 
   NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, STRING);
+  printf(" xxx %s: STR='%s' \n", fnam, STRING);
 
   for(iwd=0; iwd < NWD-1; iwd++ ) {
 
@@ -1045,6 +1076,17 @@ void parse_KCOR_STRING(char *STRING,
 
   cband_rest[0] = strKcor[2]; // rest-frame band char
   cband_obs[0]  = strKcor[3]; // obs-frame band char
+
+  // xxxxxxxxxxxxx hack Nov 25 2022 xxxxxxx
+  // hack fix to preserve regressoin test for ESSENCE (RI).
+  // This old kcor file from 2009 wrote K_R4 instead of K_R5 symbol;
+  // the legacy code worked since it ignored the K_R4 symbol and
+  // explicity read the rest and obs filter names; however, this
+  // this refactored code aborts on inconsistency. This hack avoids
+  // regression test abort.
+  if ( cband_obs[0] == '4' && strcmp(cfilt_obs,"CTIO4m-5")==0 ) 
+    { cband_obs[0] = '5' ; }
+  // xxxxxxxxxxx end hack xxxxxxxxxxx
 
   len = strlen(cfilt_rest);
   if ( cband_rest[0] != cfilt_rest[len-1] ) {
@@ -1085,7 +1127,7 @@ void init_kcor_indices(void) {
   int  NBIN_AV         = CALIB_INFO.BININFO_AV.NBIN ;
   int  NFILTDEF_REST   = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
-    char fnam[] = "init_kcor_indices";
+  char fnam[] = "init_kcor_indices";
 
   // -------------- BEGIN ----------------
 
@@ -1368,7 +1410,7 @@ void read_calib_filters(void) {
     // match filter name to get absolute filter indices IFILT_REST & IFILT_OBS
     filter_match_kcor(FILTER_NAME, &IFILT_REST, &IFILT_OBS);
 
-    /*
+    /*    
     printf(" xxx C: %s -> IFILT[REST,OBS] = %d, %d \n",
 	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout);
     */
@@ -1526,13 +1568,14 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   //
   // Inputs:
   //   IFILTDEF     : absolute filter index
-  //   NBL          : number of lambda bins
+  //   NBL          : number of SNSED lambda bins
   //   ARRAY_LAM    : lambda array to store
   //   ARRAY_TRANS  : transmmission array to store
   //
 
   int OPT_FRAME = MAP->OPT_FRAME ;
   int MEMF  = NBL * sizeof(float);
+  int MEMI  = NBL * sizeof(int);
   int ilam, ifilt, ilam_min, ilam_max ;
   double LAM, TRANS, MEAN, SQRMS, LAMMIN=1.1E5, LAMMAX=0.0 ;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
@@ -1547,7 +1590,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
   MAP->LAM[ifilt]      = (float*)malloc(MEMF);
   MAP->TRANS[ifilt]    = (float*)malloc(MEMF);
-  
+  MAP->ILAM_SED[ifilt] = (int  *)malloc(MEMI);
   // determine min and max ilam that contains Trans>0 
   ilam_min = 9999999;  ilam_max = -9;
   for(ilam=0; ilam < NBL; ilam++ ) {
@@ -1563,7 +1606,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
   // - - - - - 
   int NBL_STORE = 0 ;
-  for(ilam=ilam_min; ilam <= ilam_max; ilam++ ) {
+  for(ilam=ilam_min; ilam <= ilam_max; ilam++ ) { // SED lam bins
     LAM   = (double)ARRAY_LAM[ilam];
     TRANS = (double)ARRAY_TRANS[ilam];
 
@@ -1573,6 +1616,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
     MAP->LAM[ifilt][NBL_STORE]   = (float)LAM ;
     MAP->TRANS[ifilt][NBL_STORE] = (float)TRANS ;
+    MAP->ILAM_SED[ifilt][NBL_STORE]  = ilam ;
 
     NBL_STORE++ ;
   } // end ilam
@@ -1994,16 +2038,16 @@ void set_lamrest_range_UBVRI(int ifiltdef) {
 
 
 // =====================================================
-void get_calib_primary(char *primary_name, int *nblam,
-                      double *lam, double *flux) {
+void get_calib_primary_sed(char *primary_name, int *nblam,
+			   double *lam, double *flux) {
 
   // Created Nov 2022
   // Return information about primary reference.
  
   int  ilam, kindx;
-  char fnam[] = "get_calib_primary" ;
   FILTERCAL_DEF *FILTERCAL_OBS = &CALIB_INFO.FILTERCAL_OBS ;
   int  NBIN_LAM = FILTERCAL_OBS->NBIN_LAM_PRIMARY ;
+  char fnam[] = "get_calib_primary_sed" ;
 
   // ----------- BEGIN ----------
 
@@ -2020,15 +2064,45 @@ void get_calib_primary(char *primary_name, int *nblam,
   } // end ilam loop
 
   return;
-} // end get_calib_primary
+} // end get_calib_primary_sed
 
-void get_calib_primary__(char *primary_name, int *NBLAM,
-                        double *lam, double *flux) {
-  get_calib_primary(primary_name, NBLAM, lam, flux);
+void get_calib_primary_sed__(char *primary_name, int *NBLAM,
+			     double *lam, double *flux) {
+  get_calib_primary_sed(primary_name, NBLAM, lam, flux);
 } 
 
 
+// ======================================================
+double get_calib_primary_mag(int OPT, int ifiltdef) {
 
+  // Return primary mag for inputs:
+  //  OPT = OPT_FRAME_REST or OPT_FRAME_OBS
+  //  ifiltdef = absolute filter index
+
+  FILTERCAL_DEF *FILTERCAL ;
+  int    ifilt ;
+  double mag = 0.0 ;
+  char fnam[] = "get_calib_primary_mag";
+
+  // ------------ BEGIN -----------
+
+  if ( OPT == OPT_FRAME_REST )
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_REST; }
+  else if ( OPT == OPT_FRAME_OBS )
+    { FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ; }
+  
+  ifilt = FILTERCAL->IFILTDEF_INV[ifiltdef];
+  mag   = FILTERCAL->PRIMARY_MAG[ifilt];
+
+  return mag;
+
+} // end get_calib_primary_mag
+
+double get_calib_primary_mag__(int *OPT, int *ifiltdef)
+{ return get_calib_primary_mag(*OPT,*ifiltdef); }
+
+
+// =============================
 void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP) {
 
   // !!! xxx works locally, but returned MAP is corrupt xxx !!!
@@ -2083,6 +2157,12 @@ void get_calib_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
   }
 
   ifilt      = FILTERCAL->IFILTDEF_INV[ifiltdef];    
+  if ( ifilt < 0 ) { 
+    sprintf(c1err,"No sparse ifilt index for ifiltdef=%d(%c)", 
+	    ifiltdef, FILTERSTRING[ifiltdef] );
+    sprintf(c2err,"OPT_FRAME=%d SURVEY=%s", OPT_FRAME, surveyName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   sprintf(surveyName,"%s", FILTERCAL->SURVEY_NAME[ifilt] );
   sprintf(filterName,"%s", FILTERCAL->FILTER_NAME[ifilt] );
@@ -2265,11 +2345,11 @@ void prepare_kcor_table_LCMAG(void) {
   }
 
   init_interp_GRIDMAP(IDGRIDMAP_KCOR_LCMAG, MAPNAME, 
-		      NBIN_TOT, NDIM_INP, NDIM_FUN,
-		      OPT_EXTRAP_KCOR, TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
+		      NBIN_TOT, NDIM_INP, NDIM_FUN, OPT_EXTRAP_KCOR, 
+		      TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
 		      &KCOR_TABLE.GRIDMAP_LCMAG); // <== returned
 
-  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory fpr %s\n", 
+  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory for %s\n", 
 	 KCOR_TABLE.GRIDMAP_LCMAG.MEMORY, temp_mem, MAPNAME);
   fflush(stdout);
  
@@ -2324,7 +2404,7 @@ void prepare_kcor_table_MWXT(void) {
 		      OPT_EXTRAP_KCOR, TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
 		      &KCOR_TABLE.GRIDMAP_MWXT); // <== returned
 
-  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory fpr %s\n", 
+  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory for %s\n", 
 	 KCOR_TABLE.GRIDMAP_MWXT.MEMORY, temp_mem, MAPNAME );
   fflush(stdout);
   
@@ -2388,11 +2468,11 @@ void prepare_kcor_table_AVWARP(void) {
 
 
   init_interp_GRIDMAP(IDGRIDMAP_KCOR_AVWARP, MAPNAME, 
-		      NBIN_TOT, NDIM_INP, NDIM_FUN,
-		      OPT_EXTRAP_KCOR, TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
+		      NBIN_TOT, NDIM_INP, NDIM_FUN, OPT_EXTRAP_KCOR, 
+		      TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
 		      &KCOR_TABLE.GRIDMAP_AVWARP); // <== returned
 
-  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory fpr %s\n", 
+  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory for %s\n", 
 	 KCOR_TABLE.GRIDMAP_AVWARP.MEMORY, temp_mem, MAPNAME );
   fflush(stdout);
   
@@ -2402,6 +2482,7 @@ void prepare_kcor_table_AVWARP(void) {
   return;
 
 } // end prepare_kcor_table_AVWARP
+
 
 double fit_AVWARP(int ifiltdef_a, int ifiltdef_b, double T, double C) {
 
@@ -2431,7 +2512,7 @@ double fit_AVWARP(int ifiltdef_a, int ifiltdef_b, double T, double C) {
   double av_bin  = CALIB_INFO.BININFO_AV.BINSIZE ;
   double z       = ZAT10PC ;
   double dif_av, dif_color=99.0 , dav_dcolor ;
-  double AVwarp = -9999.0 ;
+  double AVwarp = AVwarp_UNDEFINED ;
 
 #define MXITER_FIT_AVWARP 20  
   double AV_LIST[MXITER_FIT_AVWARP], AVDIF_LIST[MXITER_FIT_AVWARP];
@@ -2439,16 +2520,38 @@ double fit_AVWARP(int ifiltdef_a, int ifiltdef_b, double T, double C) {
 
   double lc_mag_a, lc_mag_b, lc_color_best, lc_color_min, lc_color_max;
   double av_min_dump, av_max_dump, AVRANGE_LOCAL[2];
+  double lamavg_min, lamavg_max, lamavg;
 
-  int  iter = 0, i ;
+  int  iter = 0, i, ifilt, ifiltdef ;
   int  LDMP = 0;
   char fnam[] = "fit_AVWARP";
 
   // --------------- BEGIN ------------
 
   // return immediately on nonsense
-  if ( ifiltdef_a == ifiltdef_b         ) { return AVwarp; }
-  if ( fabs(lamavg_a-lamavg_b) > 2000.0 ) { return AVwarp; }
+  if ( ifiltdef_a == ifiltdef_b ) { return AVwarp; }
+
+  // return if any other band is between a and b
+  if ( lamavg_a < lamavg_b ) 
+    { lamavg_min = lamavg_a; lamavg_max = lamavg_b; }
+  else
+    { lamavg_min = lamavg_b; lamavg_max = lamavg_a; }
+
+  for(ifilt=0; ifilt < NFILTDEF_REST ; ifilt++ ) {   
+    if ( ifilt == ifilt_a ) { continue; }
+    if ( ifilt == ifilt_b ) { continue; }
+    lamavg   = FILTERCAL_REST->LAMMEAN[ifilt] ;
+    ifiltdef = FILTERCAL_REST->IFILTDEF[ifilt] ;
+    if ( ifiltdef == IFILTDEF_BESS_BX ) { continue ; }
+    if ( lamavg > lamavg_min && lamavg < lamavg_max ) { return AVwarp; }
+
+      /* xxx
+      if ( fabs(T) < 0.01 && fabs(C) < 0.01 ) {
+	printf(" xxx %s skip ifiltdef_[a,b]=%d,%d  (found %d)\n",
+	       fnam, ifiltdef_a, ifiltdef_b, ifiltdef ) ;
+	       } **/
+  }
+
   if ( T < -19.0 ) { return 0.0 ; }
 
   if ( LDMP == -666 ) {
@@ -2631,7 +2734,7 @@ void prepare_kcor_table_KCOR(void) {
 		      OPT_EXTRAP_KCOR, TEMP_KCOR_ARRAY, &TEMP_KCOR_ARRAY[NDIM_INP],
 		      &KCOR_TABLE.GRIDMAP_KCOR); // <== returned
 
-  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory fpr %s\n", 
+  printf("\t Allocate %.1f/%.1f MB of GRIDMAP/temp memory for %s\n", 
 	 KCOR_TABLE.GRIDMAP_KCOR.MEMORY, temp_mem, MAPNAME );
   fflush(stdout);
   
@@ -2822,9 +2925,10 @@ int nearest_ifiltdef_rest(int OPT, int IFILTDEF, int RANK_WANT, double z,
 } // end nearest_ifiltdef_rest
 
 
-int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, char *callFun,
-                            double *lamdif_min ) {
-  return nearest_ifiltdef_rest(*opt,*ifiltdef,*rank,*z, callFun, lamdif_min);
+int nearest_ifiltdef_rest__(int *opt, int *ifiltdef, int *rank, double *z, 
+			    char *callFun, double *lamdif_min ) {
+  return nearest_ifiltdef_rest(*opt,*ifiltdef,*rank, *z, 
+			       callFun, lamdif_min);
 }
 
 
@@ -2852,7 +2956,7 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
   double kcor_value ;
   double DDLAM_MAX = 200.0 ; // max LAMDIF to take Kcor wgt avg
   double z0 = ZAT10PC ;
-  double KCOR01, KCOR02;
+  double KCOR01, KCOR02, C;
   int    istat;
   bool   NOAVWARP_FLAG ;
 
@@ -2880,7 +2984,15 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
   AVwarp[1] = eval_kcor_table_AVWARP(IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[1],
 				     MAG_REST_LIST[0],  MAG_REST_LIST[1],
 				     Trest, &istat );
-				     
+				
+  if ( fabs(AVwarp[1]) > 10.0 ) { 
+    C = MAG_REST_LIST[0] - MAG_REST_LIST[1] ;
+    sprintf(c1err,"Crazy AVwarp[1] = %.2f", AVwarp[1]);
+    sprintf(c2err,"IFILTDEF_REST_LIST[0,1] = %d,%d  Trest=%.1f C=%.3f",
+	    IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[1], Trest, C);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
   if ( NOAVWARP_FLAG )  { AVwarp[1] = 0.0 ; }
 
   KCOR01= eval_kcor_table_KCOR(IFILTDEF_REST_LIST[0], IFILTDEF_OBS,   
@@ -2942,6 +3054,14 @@ double GET_KCOR_DRIVER(int IFILTDEF_OBS, int *IFILTDEF_REST_LIST,
 				     Trest, &istat );  
   if ( NOAVWARP_FLAG ) { AVwarp[2] = 0.0; }
 
+  if ( fabs(AVwarp[2]) > 10.0 ) { 
+    C = MAG_REST_LIST[0] - MAG_REST_LIST[2] ;
+    sprintf(c1err,"Crazy AVwarp[2] = %.2f", AVwarp[2]);
+    sprintf(c2err,"IFILTDEF_REST_LIST[0,2] = %d,%d  Trest=%.1f C=%.3f",
+	    IFILTDEF_REST_LIST[0], IFILTDEF_REST_LIST[2], Trest, C);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
   KCOR02= eval_kcor_table_KCOR(IFILTDEF_REST_LIST[0], IFILTDEF_OBS,   
 			       Trest, z, AVwarp[2] )  ;
 
@@ -2959,6 +3079,66 @@ double get_kcor_driver__(int *IFILT_OBS, int *IFILT_REST_LIST,
 				      LAMDIF_LIST, *Trest, *z, AVwarp);
   return kcor_value ;
 }
+
+
+// ==============================================
+double GET_KCORERR(int OPT, int IFILTDEF_OBS, double z) {
+
+  // return K-corr uncertainty (from S.Jha, circa 2007)
+  int    ifilt   = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[IFILTDEF_OBS];
+  double lamavg  = CALIB_INFO.FILTERCAL_OBS.LAMMEAN[ifilt];
+  
+  double kcorerr = 0.0, lamz, zz, sqerrsum, arg, nsig, sqkcorerr_floor, err ; 
+  double ERRPAR_LAM0 = 3000.0 ;
+  double ERRPAR_SIG  = 200.0 ;
+  double ERRPAR_MAX  = 0.35 ;
+
+  char fnam[] = "GET_KCORERR" ;
+
+  // -------------- BEGIN -------------
+
+  sqerrsum = 0.0 ;
+  zz       = 1.0 + z;
+  lamz     = lamavg/zz ;	 
+  sqkcorerr_floor = 0.01 * 0.01 ;
+
+  if ( OPT == OPT_KCORERR_ORIG ) {
+    sqerrsum = sqkcorerr_floor ;
+    err = 0.0 ;
+    if ( lamz < 3500.0 ) {
+      err = 6.0E-4 * (3500.0 - lamz);  // add error in UV
+    }
+  }
+  else if ( OPT == OPT_KCORERR_SMOOTH ) {
+
+    if ( lamz < ERRPAR_LAM0 ) {
+      err  = ERRPAR_MAX ;
+    }
+    else {
+      // half-Gaussian drop-off to preserve continuity of
+      // both the function and derivative      
+      nsig = (lamz - ERRPAR_LAM0)/ERRPAR_SIG ;
+      arg  = 0.5*( nsig*nsig );
+      err  = ERRPAR_MAX * exp(-arg) ;
+    }
+  }
+  else {
+    sprintf(c1err,"Invalid OPT=%d (IFILTDEF_OBS=%d, z=%.3f)", 
+	    OPT, IFILTDEF_OBS, z );
+    sprintf(c2err,"Valid OPTs are %d(orig) and %d(smooth)",
+	    OPT_KCORERR_ORIG, OPT_KCORERR_SMOOTH);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+  sqerrsum += (err*err);
+  kcorerr = sqrt(sqerrsum);
+
+  return kcorerr ;
+
+} // end GET_KCORERR
+
+double get_kcorerr__(int *OPT, int *IFILTDEF_OBS, double *z)
+{ return GET_KCORERR(*OPT, *IFILTDEF_OBS, *z); }
 
 // ============================================================================
 
@@ -2996,6 +3176,10 @@ double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double A
 
 } // end eval_kcor_table_LCMAG
 
+double eval_kcor_table_lcmag__(int *ifiltdef_rest, double *Trest,
+                               double *z, double *AVwarp) {
+  return eval_kcor_table_LCMAG(*ifiltdef_rest, *Trest, *z, *AVwarp);
+}
 
 double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
                      double MWEBV, double RV, int OPT_MWCOLORLAW) {
@@ -3035,6 +3219,13 @@ double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVw
   return MWXT ;
 } // end eval_kcor_table_MWXT
 
+
+double eval_kcor_table_mwxt__(int *ifiltdef_obs, double *Trest,
+                              double *z, double *AVwarp,
+                              double *MWEBV, double *RV, int *OPT_MWCOLORLAW) {
+  return eval_kcor_table_MWXT(*ifiltdef_obs, *Trest, *z, *AVwarp, 
+			      *MWEBV, *RV, *OPT_MWCOLORLAW);
+}
 
 // ==========================================================
 double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b, 
@@ -3090,6 +3281,12 @@ double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b,
 
 } // end eval_kcor_table_AVwarp
 
+double eval_kcor_table_avwarp__(int *ifiltdef_a, int *ifiltdef_b,
+                                double *mag_a,double *mag_b,
+                                double *Trest, int *istat) {
+  return eval_kcor_table_AVWARP(*ifiltdef_a, *ifiltdef_b, *mag_a, *mag_b,
+				*Trest, istat);
+}
 
 
 // =====================================================================

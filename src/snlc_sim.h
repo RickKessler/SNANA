@@ -1582,8 +1582,10 @@ bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 #define  IFLAG_GENRANDOM   1
 #define  IFLAG_GENGRID     4
 
+/* xxxx mark delete Nov 23 2022 xxx
 #define OPT_SNXT_CCM89  1  // use exact CCM89 model to apply host extinc
 #define OPT_SNXT_SJPAR  2  // use Saurabh alpha,beta,zeta paramitrization
+xxxxx */
 
 #define CUTBIT_TRESTMAX     0   // (1)
 #define CUTBIT_TRESTMIN     1   // (2)

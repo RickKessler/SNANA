@@ -32,6 +32,11 @@
 #define IDMAP_KCOR_MWXT    18
 
 #define KCOR_CRAZYVAL 6.0 
+#define AVwarp_UNDEFINED  99999.0 
+
+#define OPT_KCORERR_SMOOTH  1  // to avoid kinks 
+#define OPT_KCORERR_ORIG    2
+
 
 int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
@@ -84,6 +89,7 @@ typedef struct {
   double TRANS_MAX[MXFILT_CALIB];
   double LAMMEAN[MXFILT_CALIB], LAMRMS[MXFILT_CALIB];
   float *LAM[MXFILT_CALIB], *TRANS[MXFILT_CALIB];
+  int   *ILAM_SED[MXFILT_CALIB];
   double LAMRANGE[MXFILT_CALIB][2]; // range of TRANS > 0
 
   // define rest-frame LAMRANGE for kcor lookup
@@ -139,7 +145,7 @@ struct CALIB_INFO {
   double RVMW;
   int    OPT_MWCOLORLAW ;
   
-  KCOR_BININFO_DEF BININFO_LAM;  // ??
+  KCOR_BININFO_DEF BININFO_LAM;  // for SNSED
   KCOR_BININFO_DEF BININFO_T;    // Trest
   KCOR_BININFO_DEF BININFO_z;    //
   KCOR_BININFO_DEF BININFO_AV ;  // AVwarp param to match model color to data
@@ -208,6 +214,9 @@ void print_calib_summary(void);
 void parse_KCOR_STRING(char *STRING, 
 		       char *strKcor, char *cfilt_rest, char *cfilt_obs);
 int  ISBXFILT_KCOR(char *cfilt);
+void EXIST_CALIB_BXFILT(bool *exist_rest, bool *exist_obs);
+void exist_calib_bxfilt__(bool *exist_rest, bool *exist_obs);
+
 void addFilter_kcor(int ifiltdef, char *NAME, FILTERCAL_DEF *MAP);
 void init_kcor_indices(void);
 void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO); 
@@ -221,10 +230,13 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 void set_lamrest_range_KCOR(int ifilt);
 void set_lamrest_range_UBVRI(int ifilt);
 
-void get_calib_primary(char *primary_name, int *NBLAM, 
-		      double *lam, double *flux);
-void get_calib_primary__(char *primary_name, int *NBLAM, 
-			double *lam, double *flux);
+void get_calib_primary_sed(char *primary_name, int *NBLAM, 
+			   double *lam, double *flux);
+void get_calib_primary_sed__(char *primary_name, int *NBLAM, 
+			     double *lam, double *flux);
+
+double get_calib_primary_mag(int OPT, int ifiltdef);
+double get_calib_primary_mag__(int *OPT, int *ifiltdef);
 
 void get_calib_filterTrans(int OPT_FRAME, int ifilt_obs, char *surveyName, 
 			  char *filterName, double *magprim, 
@@ -276,17 +288,34 @@ double get_kcor_driver__(int *IFILT_OBS, int *IFILT_REST_LIST,
 			 double *MAG_REST_LIST, double *LAMDIF_LIST,
 			 double *Trest, double *z, double *AVwarp);
 
-double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double AVwarp);
+double GET_KCORERR(int OPT, int IFILTDEF_OBS, double z);
+double get_kcorerr__(int *OPT, int *IFILTDEF_OBS, double *z);
 
-double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVwarp,
-		     double MWEBV, double RV, int OPT_MWCOLORLAW);
+double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, 
+			     double z, double AVwarp);
+double eval_kcor_table_lcmag__(int *ifiltdef_rest, double *Trest, 
+			       double *z, double *AVwarp);
+
+double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, 
+			    double z, double AVwarp,
+			    double MWEBV, double RV, int OPT_MWCOLORLAW);
+double eval_kcor_table_mwxt__(int *ifiltdef_obs, double *Trest, 
+			      double *z, double *AVwarp,
+			      double *MWEBV, double *RV, int *OPT_MWCOLORLAW);
 
 double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b, 
 			      double mag_a,double mag_b,
 			      double Trest, int *istat);
+double eval_kcor_table_avwarp__(int *ifiltdef_a, int *ifiltdef_b, 
+				double *mag_a,double *mag_b,
+				double *Trest, int *istat);
 
 double eval_kcor_table_KCOR(int ifiltdef_rest, int ifiltdef_obs, double Trest, 
 			    double z, double AVwarp);
+
+void get_kcor_zrange(double *zmin, double *zmax, double *zbin);
+void get_kcor_zrange__(double *zmin, double *zmax, double *zbin);
+
 
 // END
 

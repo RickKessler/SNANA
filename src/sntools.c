@@ -8474,26 +8474,15 @@ int Landolt_ini(
   //              to allow for filter-adjustment tests that
   //              have larger color-transformations
 
-  int ifilt, k ;
-
+  int   ifilt, k ;
   float kval, kerr,  magtmp ;
-
-  char 
-    fnam[] = "Landolt_ini" 
-    ,c_get[40]
-    ,c_tmp[60]
-    ,c_k[6]
-    ,kfile[40]
-    ,kfile_full[120]
-    ;
-
+  char c_get[40], c_tmp[60], c_k[6], kfile[40], kfile_full[120]  ;
   FILE *fp;
+  char fnam[] = "Landolt_ini" ;
 
   // --------- BEGIN -------------
 
-
   print_banner("INIT  BESSELL <=> LANDOLT  TRANSFORMATIONS" );
-
 
   // init color terms to crazy value.
 
@@ -8506,18 +8495,18 @@ int Landolt_ini(
 
   printf("   UBVRI,BX offsets: ");
   for ( ifilt=0; ifilt < NFILT_LANDOLT; ifilt++ ) {
-    magtmp = *(mag + ifilt) ;
+    magtmp  = mag[ifilt] ;
     LANDOLT_MAGPRIMARY[ifilt] = (double)magtmp ;
     printf(" %7.3f", magtmp );
   }
-  printf("\n\n");
+  printf("\n\n"); fflush(stdout);
 
   if ( opt == 0 ) 
-    goto PRINT_COLOR_TERMS ;
+    { goto PRINT_COLOR_TERMS ; }
   else if ( opt < 4 ) 
-    sprintf(kfile, "LANDOLT_COLOR_TERMS_BD17.DAT" );
+    { sprintf(kfile, "LANDOLT_COLOR_TERMS_BD17.DAT" ); }
   else
-    sprintf(kfile, "LANDOLT_COLOR_TERMS_VEGA.DAT" );
+    { sprintf(kfile, "LANDOLT_COLOR_TERMS_VEGA.DAT" ); }
 
 
   // read color terms from file
@@ -9908,8 +9897,10 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
     return(f_MEMTOT);
   } 
   else {  
-    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
-    free(array2D[i1]) ;    
+    for(i1=0; i1 < LEN1; i1++ ) 
+      { free((*array2D)[i1]); }
+    free(*array2D) ;    
+    // xxxxx mark delete   free(array2D[i1]) ;
   }
 
 

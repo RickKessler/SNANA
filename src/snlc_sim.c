@@ -633,6 +633,9 @@ void set_user_defaults(void) {
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
 
+  //  INPUTS.USE_KCOR_REFACTOR = 2 ; // xxx REMOVE
+  //  INPUTS.USE_KCOR_LEGACY   = 0 ; // xxx REMOVE
+
   INPUTS.DASHBOARD_DUMPFLAG = false ;
   INPUTS.README_DUMPFLAG    = false ;
 
@@ -11753,19 +11756,6 @@ void gen_filtmap(int ilc) {
 	}
       }
 
-
-      /* xxxxxxxxxx mark delete Nov 23 2022 xxxxxxxxx
-      irank = 1;
-      ifilt_rest1 =
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      irank = 2;
-      ifilt_rest2 = 
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      irank = 3;
-      ifilt_rest3 = 
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      xxxxxxxxxx end mark xxxxxx */
-
       GENLC.IFILTMAP_REST1[ifilt_obs] = ifilt_rest[1] ;
       GENLC.IFILTMAP_REST2[ifilt_obs] = ifilt_rest[2] ;
       GENLC.IFILTMAP_REST3[ifilt_obs] = ifilt_rest[3] ;
@@ -22517,15 +22507,23 @@ void genmag_boost(void) {
     ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs];     
        
     // start with nearest filter; then 2nd nearest; then 3rd nearest
-    x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
-    x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
-    x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+      x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
+      x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
+      x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+    }
+    else {
+      // refactored code
+      x[1] = genmag_extinction(ifilt_rest1, Trest, RV, AV);
+      x[2] = genmag_extinction(ifilt_rest2, Trest, RV, AV);
+      x[3] = genmag_extinction(ifilt_rest3, Trest, RV, AV);
+    }
 
-    if ( epoch < 10 ) {
+    if ( epoch < -44444 ) {
       printf(" xxx %s: epoch=%d ifilt_rest=%d,%d,%d AV=%f RV=%f \n",
 	     fnam, epoch, ifilt_rest1, ifilt_rest2, ifilt_rest3, AV, RV);
-      printf(" xxx %s: x= %f %f %f \n",
-	     fnam, x[1], x[2], x[3] );  //.xyz
+      printf(" xxx %s: epoch=%d x= %f %f %f \n",
+	     fnam, epoch, x[1], x[2], x[3] );  //.xyz
     }
 
     GENLC.genmag_rest[epoch]  += x[1] ;    
@@ -23197,8 +23195,8 @@ void init_genSEDMODEL(void) {
   }
   else {
     // refactored C get
-    get_calib_primary(GENLC.primary, &NLAM, 
-		      genSEDMODEL.lam, genSEDMODEL.primaryFlux );
+    get_calib_primary_sed(GENLC.primary, &NLAM, 
+			  genSEDMODEL.lam, genSEDMODEL.primaryFlux );
   }
 
   /* xxxx
@@ -23652,17 +23650,9 @@ void init_kcor_refactor(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    if ( INPUTS.OPT_SNXT  == OPT_SNXT_CCM89 ) {
-      init_xthost__(&INPUTS.OPT_SNXT);
-    }
-    else if ( INPUTS.OPT_SNXT  == OPT_SNXT_SJPAR ) {
-      print_banner("Init HOST-GALAXY Extinction Parameters");
-      char xtDir[MXPATHLEN];
-      sprintf(xtDir, "%s ", INPUTS.MODELPATH); // leave blank space for fortran
-      rdxtpar_(xtDir, strlen(xtDir) );      
-    }
+    init_genmag_extinction(INPUTS.OPT_SNXT);
 
-    debugexit(fnam);
+    //    debugexit(fnam);
 
   } // end rest-frame
 
@@ -28845,7 +28835,7 @@ void DUMP_GENMAG_DRIVER(void) {
 	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
 	ifilt_rest = GENLC.IFILTMAP_REST1[ifilt_obs] ;
 	
-	irank = 2;  
+	irank = 2;
 	GENLC.IFILTMAP_REST2[ifilt_obs] = 
 	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
 	

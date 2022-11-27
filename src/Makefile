@@ -71,6 +71,9 @@
 #    instead of $SNANA_PYTHON_DIR. 
 #
 # Sep 15 2022: define EXTRA_FLAGS_CPLUS = -std=c++17 (for ROOT v6 at NERSC)
+# Nov 22 2022: add USE_BAYESN flag to use libyaml
+# Nov 23 2022: add genmag_extinction
+#
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -308,7 +311,8 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/genmag_SIMSED.o	\
-	$(OBJ)/genmag_SEDtools.o
+	$(OBJ)/genmag_SEDtools.o \
+	$(OBJ)/genmag_extinction.o
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
@@ -1007,6 +1011,10 @@ $(OBJ)/genmag_NON1AGRID.o : $(SRC)/genmag_NON1AGRID.c  $(SRC)/sntools.h
 $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_LCLIB.c )
+
+$(OBJ)/genmag_extinction.o : $(SRC)/genmag_extinction.c  $(SRC)/sntools.h $(SRC)/sntools_calib.c
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_extinction.c )
 
 # -------------------------------------------------
 # Generic Lightcurve simulator 

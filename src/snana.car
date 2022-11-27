@@ -1647,7 +1647,7 @@ c MJD-dependent cuts below
      &  ,CUTBIT_SIMPULL      = CUTBIT_MJD_MARKER + 10 ! Mar 2021
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_SIMPULL
-     &  ,NCUTBIT             = CUTBIT_OFFSET 
+     &  ,NCUTBIT             = CUTBIT_OFFSET  
      &      )
 
 c Define cut-masks with 64-BIT integers
@@ -1893,7 +1893,6 @@ c
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
 
       COMMON / BYTEMASKCOM / MJDMASK
-ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
 
       EQUIVALENCE 
      &    ( cutwin_var(1,cutbit_cid),       cutwin_cid )
@@ -2999,6 +2998,7 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
++CDE,FILTCOM.
 
       INTEGER   IERR, IVERS, NFIT_PER_SN
 
@@ -3381,24 +3381,29 @@ c [uses refactored C code]
 +CDE,FILTCOM.
 
       INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL  IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
+      LOGICAL IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
 
-      INTEGER LENF, OPT_FRAME, IFILT, IFILT_OBS, IFILT_REST
+      INTEGER LENF, OPT_FRAME, IFILT, IFILTDEF_OBS, IFILTDEF_REST
       CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
 
       REAL*8 
      &   D_MAGOBS_SHIFT_PRIM(MXFILT_ALL)
      &  ,D_MAGREST_SHIFT_PRIM(MXFILT_ALL)
-     &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF
+     &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF, MAG_PRIM
+     &  ,ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR
 
 c external C codes
-      REAL*8 GET_CALIB_ZPOFF_FILE
-      EXTERNAL 
+      REAL*8  GET_CALIB_ZPOFF_FILE, GET_CALIB_PRIMARY_MAG
+
+      EXTERNAL
      &    FLOAT2DOUBLE       
      &   ,READ_CALIB_DRIVER
      &   ,GET_CALIB_FILTINDEX_MAP
      &   ,GET_CALIB_FILTLAM_STATS
      &   ,GET_CALIB_ZPOFF_FILE
+     &   ,GET_CALIB_PRIMARY_MAG
+     &   ,EXIST_CALIB_BXFILT
+     &   ,GET_KCOR_ZRANGE
 
 c ---------- BEGIN ---------
    
@@ -3408,9 +3413,12 @@ c ---------- BEGIN ---------
 
       if ( .NOT. EXIST_KCOR_FILE ) RETURN
 
-+SELF,IF=KCOR.
+      USE_KCOR = .false.
++SELF,IF=SNFIT.
+      USE_KCOR = .true.
++SELF.
 
-      USE_KCOR = .true. ! how to check fit model that is in snlc_fit.car?
++SELF,IF=KCOR.
 
 c prep arguments ...
 
@@ -3436,8 +3444,6 @@ c read kcor file and store information (C code)
 
 c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-c      print*,' xxx DEBUG STOP from READ_CALIB_WRAPPER xxx ' ; STOP  
-
 c check for option to update filter trans for each SN
       CALL FILTER_UPDATE_INIT(IERR)
 
@@ -3452,32 +3458,60 @@ c OBS frame map is already loaded; get rest-frame map
 c fetch wavelength stats per band: AVG, RMS, MIN, MAX         
       OPT_FRAME = OPT_FILTOBS - 1
       DO ifilt = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_OBS,
+         ifiltdef_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         LFILTDEF_OBS(ifiltdef_obs) = .TRUE.
+
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILTDEF_OBS,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
-         FILTOBS_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
-         FILTOBS_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
-         FILTOBS_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
-         FILTOBS_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+         FILTOBS_LAMAVG(ifiltdef_obs)     = sngl(LAMAVG)
+         FILTOBS_LAMRMS(ifiltdef_obs)     = sngl(LAMRMS)
+         FILTOBS_LAMRANGE(1,ifiltdef_obs) = sngl(LAMMIN)
+         FILTOBS_LAMRANGE(2,ifiltdef_obs) = sngl(LAMMAX)
+
+c     store primary mags
+         MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_OBS)
+         FILTOBS_MAG_PRIMARY(IFILTDEF_OBS) = MAG_PRIM
 
 c       fetch ZPOFF from ZPOFF.DAT file in filter dir
-         ZPOFF = GET_CALIB_ZPOFF_FILE(ifilt_obs) 
-         FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = sngl(ZPOFF)
+         ZPOFF = GET_CALIB_ZPOFF_FILE(ifiltdef_obs) 
+         FILTOBS_ZPOFF_SNPHOT(ifiltdef_obs) = sngl(ZPOFF)
       ENDDO
 
       OPT_FRAME = OPT_FILTREST - 1
       DO ifilt = 1, NFILTDEF_REST
-         ifilt_rest = IFILTDEF_MAP_REST(ifilt)
-         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_REST,
+         ifiltdef_rest = IFILTDEF_MAP_REST(ifilt)
+         LFILTDEF_REST(ifiltdef_rest) = .TRUE.
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILTDEF_REST,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
-         FILTREST_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
-         FILTREST_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
-         FILTREST_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
-         FILTREST_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+         FILTREST_LAMAVG(ifiltdef_rest)     = sngl(LAMAVG)
+         FILTREST_LAMRMS(ifiltdef_rest)     = sngl(LAMRMS)
+         FILTREST_LAMRANGE(1,ifiltdef_rest) = sngl(LAMMIN)
+         FILTREST_LAMRANGE(2,ifiltdef_rest) = sngl(LAMMAX)
+
+c     store primary mags
+         MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_REST)
+         FILTREST_MAG_PRIMARY(IFILTDEF_REST) = MAG_PRIM
       ENDDO
+
+c misc tasks to store info
 
       CALL SET_ZPOFF()
 
+c check if BX filter is defined for OBS and REST fram
+      CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
+cc      print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
+
+c set zrange_KCOR to protect photo-z fits that use K-corrections
+      ZRANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
+      ZRANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
+      ZBINSIZE_KCOR  = 0.0
+
+      CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
+      IF ( ZMAX_KCOR > .1 ) THEN
+          ZRANGE_KCOR(1) = ZMIN_KCOR
+          ZRANGE_KCOR(2) = ZMAX_KCOR
+	  ZBINSIZE_KCOR  = ZBIN_KCOR
+      ENDIF
 +SELF.
 
       RETURN
@@ -4211,7 +4245,6 @@ c
 C -------------- BEGIN ---------------
 
       OPT_LOCAL = OPT
-cc      OPT_LOCAL = OPT + OPTMASK_SNDATA_DUMP  ! xxx remove
 
       CALL FETCH_SNDATA_WRAPPER("SIMSED_NPAR",ONE,DUM,DARRAY,OPT_LOCAL)
       NPAR_SIMSED = int(DARRAY(1))
@@ -4541,10 +4574,6 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)     
 
-c      print*,' '
-c      print*,' xxx DEBUG STOP xxx '
-c      STOP   ! xxx REMOVE
-
       RETURN
       END   ! end RDHEAD_DRIVER
 
@@ -4619,13 +4648,6 @@ c i.e., do not depend on host-match.
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
 
-c xxx mark delete maybe; compute it instead (Sep 2 2022) xxxxxxx
-c         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
-c     &        ONE, STRING, DARRAY, OPT)
-c         SNHOST_CONFUSION = SNGL(DARRAY(1))
-c         if(SNHOST_CONFUSION > -98.0) EXIST_SNHOST_CONFUSION = .TRUE.
-c xxxxxx end mark xxxx
-
          KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
          CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
          DO ifilt = 1, NFILTDEF_READ
@@ -4653,7 +4675,6 @@ c - - - - - - - -
 
       KEY    = PREFIX(1:LENPRE)//'_OBJID'
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-c xxx mark      SNHOST_OBJID(igal)  = DINT(DARRAY(1))
       SNHOST_OBJID(igal)  = INT8(DARRAY(1))
       DSNHOST_OBJID(igal) = DARRAY(1)
 
@@ -5435,10 +5456,6 @@ c wave-dependent arrays
      &        SIM_FLAM_SPECTRUM, OPT)
       ENDIF
 
-c      print*,' '
-c      print*,' xxx DEBUG STOP xxx '
-c      STOP   ! xxx REMOVE
-
       RETURN
       END     ! end RDSPEC_DRIVER
 
@@ -5700,7 +5717,6 @@ c check the full name 'PRIVATE($VARNAME)'
 C END_DATA_IO
 
 C ==========================================
-
 +PATCH,*SNUTIL.
 
 +DECK,PROCESS_DATA.
@@ -6216,7 +6232,7 @@ c default is to reject nothing (accept everything)
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_KCOR_REFACTOR = .FALSE.
-      USE_KCOR_LEGACY   = .TRUE.
+cc       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
@@ -6573,11 +6589,6 @@ c check for wild card; e.g.,
 
       CALL ENVreplace(VERSION_PHOTOMETRY_WILDCARD)
       LENV    = INDEX(VERSION_PHOTOMETRY_WILDCARD,' ') - 1
-
-c xxxxx mark delete xxx
-c xx      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
-c xx      IGNORE  = IGNOREFILE(cSTRING,LENV)
-c xxxxxxxxxxx
 
       IGNORE  = IGNOREFILE_fortran(VERSION_PHOTOMETRY_WILDCARD)
 
@@ -8644,7 +8655,6 @@ c ----------------------
 c local var
       INTEGER  i, LL, ilast, iuse
       CHARACTER INPUT_ARG*(MXCHAR_ARG)
-c xxx mark delete      CHARACTER ARG*(MXCHAR_ARG)
       CHARACTER ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL   MATCH_NMLKEY
 
@@ -13447,11 +13457,6 @@ c May 2021: check for PHOTFLAGs to reject epochs
 
       EPOCH_IGNORE_LASTFILE = LOCAL_FILENAME
       call FLUSH(6)
-
-c xxxxx mark delete May 13 2021 
-c      print*,' '
-c      RETURN
-c xxxxxxxxxxxxx
 
 C -------------------------------------------
 8000  CONTINUE
@@ -18661,25 +18666,6 @@ c ------------ BEGIN ----------------
      &     + SNLC_FLUXCAL_OFF(ifilt)               ! offset in data file
      &     + FUDGE_FLUXCAL_OFFSET_FILT(IFILT_OBS)  ! user-nml offset
 
-+SELF,IF=XXXREM.
-c xxxxxxxxxx mark delete Mar 9 2020 xxxxxxxxxxxxxxxx
-      SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
-      ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
-      ERR1  = ERR_ORIG * SCALE
-      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
-      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
-      ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
-
-      SQERR1     = ERR1  * ERR1
-      SQERR2a    = ERR2a * ERR2a
-      IF ( ERR2a .LT. 0.0 ) SQERR2a = -SQERR2a
-      SQERR2b    = ERR2b * ERR2b   ! * AREA  ! sum in quad over pixels
-      SQERR3     = ERR3  * ERR3
-      SQERRHOST  = 0.0 
-      SQERRMAP   = 0.0 
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-+SELF. 
-
 c get C function arguments
       cBAND        = cfilt(1:1) // char(0)
       LL           = INDEX(SNLC_FIELD(ep), ' ') - 1
@@ -18830,7 +18816,6 @@ c check GET_NONLIN option in sntools_nonlinearity.c
         endif
 
       ! sum noise over pixels in effective background area
-cc xx mark delete AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio) !pixels
         FLUXADU = FLUXCAL * 10.0**(0.4*ZPDIF)
 
         Fpe_source = FLUXADU * GAIN
@@ -19572,23 +19557,7 @@ cc          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST(1:LENF) ! includes overlaps
       ENDIF
 
-c - - - - - - - - - - 
-C xxxxx mark delete Nov 17 2022 xxxxxxxx
-+SELF,IF=XYZDELETE.
-c May 31 2020:  if header-override file is set, check for SALT2 fit params
-      IF ( NVAR_HEADER_OVERRIDE > 0 ) THEN
-        CCID = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
-        CALL SNTABLE_AUTOSTORE_READ(CCID, "x1"//char(0), 
-     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
-        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2x1: ',F7.4)" ) DVAL
-
-        CALL SNTABLE_AUTOSTORE_READ(CCID, "c"//char(0), 
-     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
-        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2c:  ',F7.4)" ) DVAL
-      ENDIF
-+SELF.
-c xxxxxxx end mark xxxxxxxxxxxxxxxx
-
+c - - - - - - - - - -
 
 c - - - - -
       CALL SET_SIMLIB_TEMPLATE_INFO()  ! Feb 5 2020
@@ -21111,7 +21080,6 @@ c list failed bits for epoch-dependent cuts only
 30         format(T5,'NEWMJD ',I2,1x,'(MJD=',F9.3,')',2x,
      &         'Failed CUTBIT ', I3, ' : ', A  )
 
-cc xxx mark delete      if ( ibit.EQ. CUTBIT_IDTEL ) NOTEL = .TRUE.
         endif
 
       ENDDO
@@ -22583,7 +22551,6 @@ c plot smooth best-fit ANYFUN function in 2-day bins.
 
       TMIN = -40.0
       TMAX = 140.0
-c xxx mark delete Jun 2022   NBT  = int(TMAX-TMIN) / DTOBS_MODEL_PLOT
       NBT  = int( (TMAX-TMIN) / DTOBS_MODEL_PLOT )
       DT   = (TMAX - TMIN) / float(NBT)
       NOBS = 0
@@ -22786,6 +22753,7 @@ c check if this MJD was already flagged as duplicate
 
       RETURN
       END     
+
 
 C =======================
 +PATCH,*SNTABLE.
@@ -24373,12 +24341,6 @@ c --- error calculated from PSF+SKY+ZP, as the simulation would do
       VARNAME = 'FLUXCAL_ERRCALC(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRCALC,
      &      VARNAME, 0, LENB,LENV)
- 
-c xxxxxxx mark delete Nov 30 2020 xxxxxxxxx
-c      VARNAME = 'FLUXCAL_HOSTERRCALC(NOBS):F' // char(0) 
-c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_HOSTERRCALC,
-c     &      VARNAME, 0, LENB,LENV)
-c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - - - - - - 
 
@@ -24391,7 +24353,6 @@ c - - - - - - - - - - - - - - - -
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPCHI2FLUX,
      &        VARNAME, 0, LENB,LENV)
 
-c xxx mark          VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0) 
          VARNAME = 'MAGOBS_SIM(NOBS):F' // char(0) 
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPMAGOBS,
      &        VARNAME, 0, LENB,LENV)
@@ -24695,7 +24656,6 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LENSDMU,  VARLIST, 0,
      &                   LENBLOCK, LENLIST)
 
-c xxx mark      VARLIST = 'SIM_PKMJD:F' // char(0)
       VARLIST = 'SIM_PEAKMJD:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
      &                   LENBLOCK, LENLIST)
@@ -24862,7 +24822,6 @@ C ------------ BEGIN ------------
         CNAME    = 'CIDPTR' // char(0)
         LENNAME  = INDEX(CNAME,' ') - 1
         TEXTFMT  = ' ' // char(0)  ! never make a text table 
-cc xxx mark CALL SNTABLE_CREATE(ID, CNAME, LENNAME, TEXTFMT, 1 )  ! C fun
         CALL SNTABLE_CREATE(ID, CNAME, TEXTFMT, LENNAME, 1 )  ! C function
 
         CBLOCK = 'IPLOT' // char(0)
@@ -25226,7 +25185,6 @@ c fill table.
 
             write(cz,41) z
  41         format('z=',F5.3)
-cc xxx mark            SIM_HOSTLIB_GALID = 9876 ! xzxx
             if ( SIM_HOSTLIB_GALID > 0 ) then
                write(cGALID,44) SIM_HOSTLIB_GALID
  44            format('GALID=', I9.9 )
@@ -26210,7 +26168,7 @@ c Aug 4 2019: IBKCOR starts at 0 (not 1) for C function get_1DINDEX
      &  ,IBIN_FIRST, IBIN_LAST, ibin, NBIN_TOT
      &  ,LENr, LENo, LEN
 
-      LOGICAL LBX, LTMP 
+      LOGICAL LTMP, LBX
 
       REAL    R4CRAZY
 
@@ -26278,7 +26236,9 @@ c find rdkcor filter index and set mask for REST or OBS
 
 102      CONTINUE
 
+
 c check if this is a BX filter (global logicals are set)         
+c We don't need local LBX, but ISBXFILT sets global logicals
          LBX = ISBXFILT(ifilt_obs,  cfilt_obs,  'OBS')
          LBX = ISBXFILT(ifilt_rest, cfilt_rest, 'REST')
 
@@ -26304,9 +26264,6 @@ c define new rest-filter only if not already defined.
 c if obs filter is not part of the survey, just skip it;
 c allows defining filter sub-sets of a survey without having 
 c to change the Kcor file.
-
-c xxx this line does nothing since IFILT isn't set
-c xxx mark delete Oct 29 2019  IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
 
           if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) goto 100
 
@@ -26420,14 +26377,6 @@ c apply user mag-shifts
          ENDDO 
 
 200   CONTINUE
-
-c xxxxxxxxxxxx
-c      DO ibin = 1, NBIN_TOT
-c        write(6,690) ibin-1, R4KCORTABLE1D(ibin) 
-c690     format(' xxx KCORTABLE1D(',I7,') = ', F10.5 );   call flush(6)
-c      ENDDO
-c xxxxxxxxx
-
 
       RETURN
       END
@@ -29075,6 +29024,52 @@ ccc ZZ bug  &  NEAREST_IFILT_REST(OPT_FRAME,ifilt_obs_tmp,irank,ZZ,LAMDIF)
       END
 
 C ===========================================
++DECK,NEAREST_IFILTDED_WRAPPER.
+      INTEGER FUNCTION NEAREST_IFILTDEF_WRAPPER( 
+     &   OPT          ! (I) option; see below
+     &  ,ifiltdef     ! (I) observer filter index
+     &  ,rank_want    ! (I) 1=nearest, 2=2nd nearest, 3=3rd nearest
+     &  ,Z            ! (I) redshift
+     &  ,LAMDIF_MIN   ! (O) min lam-distance (A) 
+     &    )
+
+c
+c Created Nov 2022
+c Temporary wrapper to select either LEGACY/fortran function,
+c or REFACTORED/C function. This function should be removed
+c after the transistion to refactored code.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,SNLCINP.
+
+      INTEGER OPT, IFILTDEF, RANK_WANT
+      REAL    z,  LAMDIF_MIN
+      REAL*8  z8, LAMDIF_MIN8
+
+      CHARACTER FNAM*32
+      INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
+      INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
+C ------------- BEGIN -------------
+
+      IF ( USE_KCOR_LEGACY ) THEN
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILT_REST(OPT,IFILTDEF,RANK_WANT,z,LAMDIF_MIN)
+      ELSE
+         z8 = DBLE(z)  
+         FNAM = 'NEAREST_IFILTDEF_WRAPPER' // char(0)
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILTDEF_REST(OPT, IFILTDEF,RANK_WANT,
+     &                         z8, FNAM, LAMDIF_MIN8, 32)
+         LAMDIF_MIN = SNGL(LAMDIF_MIN8)
+      ENDIF
+
+      RETURN
+      END     ! end NEAREST_IFILTDEF_WRAPPER
+
+C ===========================================
 +DECK,NEAREST_IFILT_REST.
       INTEGER FUNCTION NEAREST_IFILT_REST( 
      &   OPT          ! (I) option; see below
@@ -30550,8 +30545,8 @@ c now smoothly interpolate KCOR vs. redsfhit
       END   ! end GET_KCOR8
 
 C =========================================
-+DECK,KCORERR8.
-      DOUBLE PRECISION FUNCTION GET_KCORERR8 ( 
++DECK,KCORERR_LEGACY.
+      DOUBLE PRECISION FUNCTION GET_KCORERR_LEGACY ( 
      &    OPT          ! (I) option
      &   ,ifilt_obs    ! (I) filter index, observer frame
      &   ,redshift8    ! (I) SN redshift
@@ -30578,11 +30573,10 @@ c -------------------------------------
 c function args
 
       integer 
-     &   OPT
-     &  ,ifilt_obs   ! (I) idem observer frame
+     &   OPT         ! (I) option
+     &  ,ifilt_obs   ! (I) observer frame filter index
 
       real*8 redshift8
-
 
 c local var
 
@@ -30602,12 +30596,11 @@ c Below 3280 A, the smoothed error is larger than the linear-kink error
      &    ERRPAR_LAM0 = 3000.  ! Angstrom
      &   ,ERRPAR_SIG  = 200.   ! idem
      &   ,ERRPAR_MAX  = .35    ! max error at ERRPAR_LAM0
-     
      &      )
 
 C --------------- BEGIN ---------------
 
-      GET_KCORERR8 = 0.0
+      GET_KCORERR_LEGACY = 0.0
       SQERRSUM     = 0.0
 
       ZZ   = sngl(1.0 + redshift8)
@@ -30643,7 +30636,7 @@ c    if reff lt 3500 then addsig += 0.6d * ((3500d - reff)/1000d)
       ENDIF
 
       
-      GET_KCORERR8 = SQRT ( SQERRSUM )
+      GET_KCORERR_LEGACY = SQRT ( SQERRSUM )
   
       RETURN     
       END
@@ -31748,7 +31741,6 @@ c  Finally, update ZP offsets for all filters.
 
       IF ( LUPD ) THEN
         CALL FILTER_UPDATE_ZPOFF()
-c xxx mark del Jun 2022  CALL FILTER_UPDATE_ZPOFF(FILTER_UPDATE_DIR)
       ENDIF
 
 c later add stuff for K-corrections ... 
@@ -32954,22 +32946,6 @@ C ------------------ BEGIN ------------
 
 801       format(T10,'Will apply net MAGOBS_SHIFT_ZP(',A,') = ', F7.4 )
 
-+SELF,IF=XXXDELETE.
-c xxxxxxxxxx mark delete Nov 18 2022 xxxxxxxxx
-      DO 200 ifilt_tmp = 1, NFILTOBS_RDKCOR
-        ifilt_obs = IFILTOBS_RDKCOR(ifilt_tmp)     
-
-          if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 200
-
-          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-
-          ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-          write(6,801) cfilt(1:1), ZPOFF_TOT
-
-200   CONTINUE
-c xxxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
-
       CALL FLUSH(6)
 
       RETURN
@@ -33080,7 +33056,7 @@ C
         JND(NND) = IND
         IN = NND
       ENDIF
-c xxx mark delete   51  CONTINUE
+
       IF (IN.GT.INMAX) THEN
         print*,' '
         print*,' IN2DEX Warning: IND =',IND
@@ -35055,9 +35031,6 @@ c function
 C ---------------- BEGIN ----------------
 
       if ( OPT_SETPKMJD <= 0 ) RETURN
-
-c Jan 4 2021: bail if option is set to use PKMJDINI from SNCID_LIST_FILE
-c xxx mark obsolete  if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
 
       FNAM = 'SET_PEAKMJD'
       CCID = SNLC_CCID
@@ -37341,7 +37314,6 @@ c check for namelist over-rides from command line.
 
       IF ( LMCMC ) THEN
         ISEED = 12345
-cc xxx mark delete Jun 2020  CALL randominit(ISEED)  ! init randoms via C 
       ENDIF
 
 C #################################################   

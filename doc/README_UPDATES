@@ -21393,4 +21393,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    submit_batch: LCFIT class has on-the-fly compression to reduce file count;
       see https://github.com/RickKessler/SNANA/issues/1054
 
+   new genmag_extinction.c[h] to compute host gal extinction vs.
+   { RVinv, Trest, ifilt_rest}; part of refactor where fortran
+   utils are translated to C code.
+
+
 END: 

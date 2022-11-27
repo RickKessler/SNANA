@@ -18,8 +18,6 @@
 #include "genmag_mlcs2k2.h"
 #include "genmag_SALT2.h"
 #include "genmag_BAYESN.h"
-
-// #include <gsl/gsl_rng.h>
-// #include <gsl/gsl_randist.h>
+#include "genmag_extinction.h"
 
 // END

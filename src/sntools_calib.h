@@ -75,6 +75,7 @@ typedef struct {
   int  NFILT_DUPLICATE;           // number of bands with duplicates
   char FILTERSTRING[MXFILT_CALIB]; // list of single-char bands
   char *FILTER_NAME[MXFILT_CALIB]; // full name of each filter, vs. sparse indx
+  char BAND_NAME[MXFILT_CALIB][2]; // single-char band name vs. sparse index
   char *SURVEY_NAME[MXFILT_CALIB];
 
   double PRIMARY_MAG[MXFILT_CALIB];
@@ -82,13 +83,13 @@ typedef struct {
   double PRIMARY_ZPOFF_FILE[MXFILT_CALIB]; // from ZPOFF.DAT file
   int    PRIMARY_KINDX[MXFILT_CALIB];  // index to CALIB_INFO.PRIMARY_XXX[]
   int    NBIN_LAM_PRIMARY ;
-  float *PRIMARY_LAM, *PRIMARY_FLUX;
+  double *PRIMARY_LAM, *PRIMARY_FLUX;
 
-  // below is filled by loadFilterTrans_kcor
+  // below is filled by loadFilterTrans_calib
   int    NBIN_LAM[MXFILT_CALIB];
   double TRANS_MAX[MXFILT_CALIB];
   double LAMMEAN[MXFILT_CALIB], LAMRMS[MXFILT_CALIB];
-  float *LAM[MXFILT_CALIB], *TRANS[MXFILT_CALIB];
+  double *LAM[MXFILT_CALIB], *TRANS[MXFILT_CALIB];
   int   *ILAM_SED[MXFILT_CALIB];
   double LAMRANGE[MXFILT_CALIB][2]; // range of TRANS > 0
 
@@ -124,6 +125,7 @@ struct CALIB_INFO {
 
   int   NFILTDEF;
   char *FILTER_NAME[MXFILT_CALIB] ;
+  char  BAND_NAME[MXFILT_CALIB][2];
   char *SURVEY_NAME[MXFILT_CALIB];
   int   IFILTDEF[MXFILT_CALIB] ; 
   int   MASK_FRAME_FILTER[MXFILT_CALIB]; // bits 0,1 --> rest, obs
@@ -163,7 +165,7 @@ struct CALIB_INFO {
   float *LCMAG_TABLE1D_F ;
   float *AVWARP_TABLE1D_F ;
   float *MWXT_TABLE1D_F ;
-  float *FLUX_SNSED_F;      // use float to save memory
+  float *FLUX_SNSED_F;  
 
   // misc init info
   int NCALL_READ ;
@@ -221,11 +223,12 @@ void addFilter_kcor(int ifiltdef, char *NAME, FILTERCAL_DEF *MAP);
 void init_kcor_indices(void);
 void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO); 
 void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS);
-void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME );
+void check_duplicate_filter(int OPT_FRAME, int IFILTDEF, char *FILTER_NAME );
 
-void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
-			  float *ARRAY_LAM, float *ARRAY_TRANS,
-			  FILTERCAL_DEF *MAP);
+void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL, 
+			   double *ARRAY_LAM, double *ARRAY_TRANS);
+void load_filtertrans_calib__(int *OPT_FRAME, int *IFILTDEF, int *NBL, 
+			     double *ARRAY_LAM, double *ARRAY_TRANS);
 
 void set_lamrest_range_KCOR(int ifilt);
 void set_lamrest_range_UBVRI(int ifilt);
@@ -238,14 +241,19 @@ void get_calib_primary_sed__(char *primary_name, int *NBLAM,
 double get_calib_primary_mag(int OPT, int ifiltdef);
 double get_calib_primary_mag__(int *OPT, int *ifiltdef);
 
-void get_calib_filterTrans(int OPT_FRAME, int ifilt_obs, char *surveyName, 
+void get_calib_filterTrans(int OPT_FRAME, int ifiltdef_obs, char *surveyName, 
 			  char *filterName, double *magprim, 
 			  int *nblam, double *lam, 
 			  double *transSN, double *transREF);
-void get_calib_filtertrans__(int *OPT_FRAME, int *ifilt_obs, char *surveyName, 
+void get_calib_filtertrans__(int *OPT_FRAME, int *ifiltdef_obs, char *surveyName, 
 			    char *filterName, double *magprim,
 			    int *nblam, double *lam, 
 			    double *transSN, double *transREF);
+
+void get_calib_filterLam(int OPT_FRAME, int ifiltdef_obs, 
+			 int *nblam, double *lam ) ;
+void get_calib_filterlam__(int *OPT_FRAME, int *ifilt_obs, 
+			   int *nblam, double *lam ) ;
 
 void get_calib_filtlam_stats(int opt_frame, int ifilt_obs,  
 			    double *lamavg, double *lamrms,
@@ -260,8 +268,10 @@ void get_calib_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 void get_calib_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 			      int *IFILTDEF_INVMAP);
 
-double get_calib_zpoff_file(int ifiltdef);
-double get_calib_zpoff_file__(int *ifiltdef);
+double get_calib_zpoff_file(int OPT_FRAME, int ifiltdef);
+double get_calib_zpoff_file__(int *OPT_FRAME, int *ifiltdef);
+
+void abort_calib_frame(int OPT_FRAME, char *callFun) ;
 
 // K-cor functions for MLCS, snoopy ...
 

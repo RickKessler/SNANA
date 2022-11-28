@@ -1903,7 +1903,7 @@ C ---------- BEGIN -------------
 
       if ( FIRST_ITER ) NEXT_ITER = .FALSE.
 
-      IF ( FIRST_ITER .and. OPT_FILTER_UPDATE .GT. 0 ) THEN
+      IF ( FIRST_ITER .and. OPT_FILTER_UPDATE > 0 ) THEN
 
         IF ( LSED_FITMODEL ) CALL SEDMODEL_INI(1,IERR)
 
@@ -3270,13 +3270,13 @@ c VALa = transSN, VALb = transREF8
      &           SURVEY_NAME_FILTER, CFILT, MAGPRIM,            ! (O)
      &           NLAM, LAM, VALa, VALb,                         ! (O)
      &           40, 40 )       
-            LEN1  = INDEX(cfilt,char(0)) - 1
+
+            LEN1  = INDEX(cfilt,char(0))
             LEN2  = INDEX(SURVEY_NAME_FILTER,char(0)) 
-            ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, 
-     &              cfilt, SURVEY_NAME_FILTER(1:LEN2),
+            ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
+     &              SURVEY_NAME_FILTER,
      &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
      &              LEN1, LEN2 )
-
          endif 
 
       CALL FLUSH(6)
@@ -6107,14 +6107,14 @@ c write fit parameters
         print*,' - - -  - - - - - - - - - - - - - - - - - - - - -'
         write(6,701) DIST, AVHOST, CPAR(1:LPAR), SHAPE(1), MJD, ZSN
 
-701     format(T2,'USRFUN: MU=',F6.2, 2x,'AV=',F6.3,2x,
-     &              A,'=',F6.3, 2x, 'MJD=',F9.3, 2x,'Z=',F7.5 )
+701     format(T2,'USRFUN: MU=',F7.3, 2x,'AV=',F7.4,2x,
+     &              A,'=',F7.4, 2x, 'MJD=',F9.3, 2x,'Z=',F7.5 )
 
         cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
         ctmp2 = filtdef_string(ifilt_rest1:ifilt_rest1) 
         write(6,702) cfilt, Tobs, ctmp2, Trest    
-702     format(T10, 'Tobs(',A1,')=',F7.2,2x, 
-     &        'Trest(',A1,')=',F7.2  )
+702     format(T10, 'Tobs(',A1,')=',F8.3,2x, 
+     &        'Trest(',A1,')=',F8.3  )
 
         CALL FLUSH(6)
 
@@ -6153,8 +6153,8 @@ c unextincted mag in rest frame
      &  ,filtdef_string(ifilt_rest1:ifilt_rest1)
      &  ,MAG_REST(ifilt_rest1)
 
-703     FORMAT(T10,'Mrest(',A,')=',F8.3,'(',I2.2,')',  2x,
-     &            'XMrest(',A,')=',F8.3 )
+703     FORMAT(T10,'Mrest(',A,')=',F9.4,'(',I2.2,')',  2x,
+     &            'XMrest(',A,')=',F9.4 )
 
 c write rest color, AVwarp and Kcor
 
@@ -6167,15 +6167,15 @@ c write rest color, AVwarp and Kcor
      &     ,filtdef_string(ifilt_obs:ifilt_obs)
      &     ,MAG_KCOR(1), MAG_KCOR(2)
 
-704      format(T10,'Xcol(',A,'-',A,')=', F6.3, 2x,'AVwarp=',F6.3,
-     &           2x,'K_',A,A,'=',F6.3,'+-',F6.3 )
+704      format(T10,'Xcol(',A,'-',A,')=', F7.4, 2x,'AVwarp=',F7.4,
+     &           2x,'K_',A,A,'=',F7.4,'+-',F7.4 )
 
 c write observer mag and flux
 
          write(6,706) filtdef_string(ifilt_obs:ifilt_obs),
      &                MAG_OBS, MAG_XTMW, FLUX
-706      format(T10,'m_obs(',A,')=',F8.3, 2x, 'm(XTMW)=',F6.3,  
-     &              2x, 'Flux=',G14.5 )
+706      format(T10,'m_obs(',A,')=',F8.4, 2x, 'm(XTMW)=',F7.4,  
+     &              2x, 'Flux=',G14.6 )
 
 c now write single line with CID keyword ;
 c grep "CID" > bla creates easy-to-read column-formatted file 
@@ -13992,7 +13992,7 @@ c print no more than 6 filters to avoid a messsy output
      &     CCID(1:KK)
      &    ,LCVAL_STORE(IPAR_MB)
      &    ,LCERR_STORE(IPAR_MB)
-21      format(T4,'SALT2 mB(',A,') = ', F8.3, ' +- ', F6.3 )
+21      format(T4,'SALT2 mB(',A,') = ', F9.4, ' +- ', F7.4 )
       endif
 
 c write Trest fit range relative to PEAKMJD(fit)

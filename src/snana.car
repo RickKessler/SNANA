@@ -3473,7 +3473,7 @@ c     store primary mags
          FILTOBS_MAG_PRIMARY(IFILTDEF_OBS) = MAG_PRIM
 
 c       fetch ZPOFF from ZPOFF.DAT file in filter dir
-         ZPOFF = GET_CALIB_ZPOFF_FILE(ifiltdef_obs) 
+         ZPOFF = GET_CALIB_ZPOFF_FILE(OPT_FRAME,ifiltdef_obs) 
          FILTOBS_ZPOFF_SNPHOT(ifiltdef_obs) = sngl(ZPOFF)
       ENDDO
 
@@ -6232,7 +6232,7 @@ c default is to reject nothing (accept everything)
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_KCOR_REFACTOR = .FALSE.
-cc       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
+       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
@@ -31658,16 +31658,6 @@ C =======================================
       SUBROUTINE FILTER_UPDATE_DRIVER()
 c
 c Nov 8, 2010 R.Kessler
-c Driver routine to udpate filter transmission for currenet SN.
-c 
-c May 2012: get filter-udpate directory outside the IFILT loop
-c           by calling GET_FILTER_UDPATE_DIR(SNLC_CCID).
-c
-c
-c Jan 17, 2013: skip filters with no obs; those with
-c               ISNLC_NEPOCH_FILT(ifilt) .LE. 0 
-c        
-c Jan 31, 2013: print message that filter trans is updated
 c
 c --------------
 
@@ -31710,18 +31700,17 @@ c update filter transmissions based on option
 
       DO 10 IFILT = 1, NFILTDEF_SURVEY
 
-
         if ( ISNLC_NEPOCH_FILT(ifilt) .LE. 0 ) GOTO 10
 
         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE ! July 2015
+        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE
 
         ISBX      = ISBXFILT(ifilt_obs,'', 'OBS' )
    
         LSAME = (OPT .EQ. OPT_FILTUPD_SAMEFILT)  .or. ISBX
 
-
         if ( LSAME  ) then
+            ! fancy way to use same filter response for each SN
            CALL FILTER_UPDATE_SAMEFILT(ifilt)
         else if ( LUPD ) then
            CALL FILTER_UPDATE_EACHSN(ifilt) 
@@ -31850,7 +31839,7 @@ c search 2nd map for CCID match to get IMAP1
       END
 
 C ================================================
-+DECK,FUPD1.
++DECK,FUPD_EACHSN.
       SUBROUTINE FILTER_UPDATE_EACHSN(ifilt)
 
 c Nov 8, 2010
@@ -31860,12 +31849,7 @@ c binning as in KCOR file. Updated lambda binning
 c can be different since it gets interpolated to the 
 c original grid.
 c
-c Apr 3, 2011 RK
-c  - replace LAMINTERP with INTERP_1DFUN
-c
-c Jul 16, 2011 RK
-c   - move SAMEFILT option to FILTER_UPDATE_SAMEFILT
-c     and rename this function from _READ to _EACHSN
+c Nov 2022: refactor to use new & old kcor/calib code.
 c
 
       IMPLICIT NONE
@@ -31885,8 +31869,8 @@ c local var
 
       INTEGER 
      &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
-     &  ,LPSN, LPREF, LSSN, LSREF, NLAM, ilam, NLAM_UPD
-     &  ,istat, MXLAM, OPT_INTERP
+     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
+     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME
 
       CHARACTER 
      &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
@@ -31902,9 +31886,12 @@ c local var
      &   LAM
      &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
      &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
-     &  ,Trans_upd, Trans_orig
+     &  ,Trans_upd
+     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
+     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
+     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
 
-      LOGICAL  LEXIST_SN, LEXIST_REF, UPDDUMP
+      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
 
 c define utilities from sntools.c
       INTEGER  RD2COLUMNFILE 
@@ -31912,18 +31899,33 @@ c define utilities from sntools.c
   
       REAL*8   INTERP_1DFUN
       EXTERNAL INTERP_1DFUN
+      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
 
 C ---------------- BEGIN --------------
 
-      UPDDUMP = .FALSE.  ! internal dump logical
+      UPD_DUMP = .FALSE.  ! internal dump logical
 
       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
       cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
-      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
+c xxx mark      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
       LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
       CCID      = SNLC_CCID(1:LCC)
 
-      if (UPDDUMP) then
+      IF ( USE_KCOR_LEGACY ) THEN
+        NLAM_STORE = NLAMBIN_FILTOBS(ifilt_obs)
+        DO ilam = 1, NLAM_STORE
+           FLAM_STORE(ilam) = 
+     &           DBLE( FILTOBS_LAMBDA(ilam,IFILT_OBS) )
+        ENDDO
+      ELSE
+        ! refac C code
+        OPT_FRAME = OPT_FILTOBS - 1
+        CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
+     &                      NLAM_STORE, FLAM_STORE)
+      ENDIF
+
+c - - - - - 
+      if (UPD_DUMP) then
         print*,' '
         print*, 'XXXXXX ----------------------------------------- '
         print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
@@ -31936,7 +31938,6 @@ C ---------------- BEGIN --------------
       comment = CCID(1:LCC) // '-filter-update' // char(0)
       LCOM    = INDEX(comment,' ') - 1
 
-
 c     get string lengths for file name
 
       LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
@@ -31948,7 +31949,7 @@ c     get string lengths for file name
       L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
       LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
 
-c constuct full filename of SN and REF-transmission files.
+c construct full filename of SN and REF-transmission files.
 
       TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
      &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
@@ -31963,12 +31964,11 @@ c constuct full filename of SN and REF-transmission files.
      &          // '/' // TMPFILE(1:LTMPF) 
 
 
-      if (UPDDUMP) then
-
+      if ( UPD_DUMP ) then
         print*, '++++ UPDATING FILTER ' 
      &          ,'IFILT = ', ifilt_obs,' '
      &         , cfilt(1:1), ' with NLAM '
-     &         , NLAM , ' for SN ', CCID
+     &         , NLAM_STORE , ' for SN ', CCID
         call flush(6)
        end if
 
@@ -31978,43 +31978,40 @@ c FILTFILE_REF  and FILTFILE_SN exist
 
 c     check if FILTFILE_REF exists?
 
-
       istat=1
       LL = INDEX(FILTFILE_REF,' ') - 1
       TMPFILE =FILTFILE_REF(1:LL)
       OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &       IOSTAT=istat)
-      CLOSE( UNIT = LUNTMP)      
+     &      IOSTAT=istat)
+      CLOSE( UNIT = LUNTMP) 
 
       if (istat .EQ. 0) then
-
-       LEXIST_REF = .true.
-
-       MXLAM   = MXLAMBIN_FILT
-       TMPFILE = FILTFILE_REF(1:LL) // char(0)
-       istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &          ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
+         LEXIST_REF = .true.
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_REF(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
 
       else 
-        LEXIST_REF = .false.
+          LEXIST_REF = .false.
       endif 
 
-      if (UPDDUMP) then 
+      if (UPD_DUMP) then 
         print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
         call flush(6)
       end if
 
-
+c - - - - - -
 c    now interpolate to the original grid
 c    for files which exist
 
-
-      if (LEXIST_REF) then      
-
-      DO 20 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            Trans_orig = FILTOBS_TRANS(ilam,IFILT_OBS) ! for debug only
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0
+      IF ( LEXIST_REF ) THEN
+        DO 20 ilam = 1, NLAM_STORE
+c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+ 
+            LAM = FLAM_STORE(ilam)
+            FTRANSREF_STORE(ilam) = 0.0 
 
             if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
             if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
@@ -32022,16 +32019,19 @@ c    for files which exist
             Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
      &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd)
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSREF_STORE(ilam)  = Trans_upd
 
-20    CONTINUE  ! ILAM loop over original lambda binning
-        if (UPDDUMP) then
+20      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
           print*, "REF interp done"
           call flush(6)
         end if 
-      end if 
+
+      ENDIF  ! end LEXIST_REF
 
 
+c ------------------------------------
 c     FILTFILE_SN exists?
 
       istat=1
@@ -32041,26 +32041,29 @@ c     FILTFILE_SN exists?
      &  IOSTAT=istat)
      
       if (istat.EQ.0) then
-       LEXIST_SN = .true.
-c     readsnfile
-      MXLAM   = MXLAMBIN_FILT
-      TMPFILE = FILTFILE_SN(1:LL) // char(0)
-      istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &          ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
-
+         LEXIST_SN = .true.
+c        readsnfile
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_SN(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
       else 
-       LEXIST_SN = .false.
+         LEXIST_SN = .false.
       endif 
-      CLOSE( UNIT = LUNTMP)        
 
+      CLOSE( UNIT = LUNTMP) 
+
+c - - - - - - - 
 c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
 
-      if (LEXIST_SN) then
-cc      print*, ' Interpolate SN file', NLAM 
-      DO 70 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            Trans_orig = FILTOBS_TRANS(ilam,IFILT_OBS) ! for debug only
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0
+      IF (LEXIST_SN) THEN
+cc      print*, ' Interpolate SN file', NLAM_STORE
+        DO 70 ilam = 1, NLAM_STORE
+c xxx mark      LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+
+            LAM = FLAM_STORE(ilam)
+            FTRANSSN_STORE(ilam) = 0.0 
 
             if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
             if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
@@ -32068,14 +32071,15 @@ cc      print*, ' Interpolate SN file', NLAM
             Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
      &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd)
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSSN_STORE(ilam) = Trans_upd
 
-70    CONTINUE  ! ILAM loop over original lambda binning
-        if (UPDDUMP) then
-          print*, 'SN Interp done for', NLAM, CCID
+70      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, 'SN Interp done for', NLAM_STORE, CCID
           call flush(6)
         end if
-      end if 
+      ENDIF
 
 
 c    If neither file exists, abort program
@@ -32096,54 +32100,53 @@ c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
 c                             IF REF file does not exist, SN trans undef
 c                             but should have been aborted above
 
-      if (.NOT.(LEXIST_SN)) then 
-      DO 170 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
-     &       = FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) 
+      if (.NOT. LEXIST_SN ) then 
+        DO 170 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
+     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
 
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 170
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 170
-
-170    CONTINUE  ! ILAM loop over original lambda binning
+            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
+170     CONTINUE  ! ILAM loop over original lambda binning
       end if
 
 
+c - - - - - - - - -
 c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
 c                             IF SN file does not exist, Ref trans undef
 c                             but should have been aborted above
-      if (.NOT. (LEXIST_REF)) then
-      DO 270 ilam = 1, NLAM
+      IF (.NOT. LEXIST_REF ) THEN
+        DO 270 ilam = 1, NLAM_STORE
             LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) 
-     &       = FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
+     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
 
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 270
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 270
+            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
+270      CONTINUE  ! ILAM loop over original lambda binning
+      ENDIF
 
-270    CONTINUE  ! ILAM loop over original lambda binning
-      end if
+      if ( USE_KCOR_REFACTOR ) then
+         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+     &         FLAM_STORE, FTRANSSN_STORE )
+      endif
 
 c -----------------------------
-      if(UPDDUMP) then 
-        print*, '%%%% ', NLAM
-        if (mod(NLAM,2).EQ.0) then
-           ilam = NLAM/2
+      if ( UPD_DUMP ) then 
+        print*, '%%%% ', NLAM_STORE
+        if (mod(NLAM_STORE,2).EQ.0) then
+           ilam = NLAM_STORE/2
         else
-         ilam = (NLAM+1)/2
+         ilam = (NLAM_STORE+1)/2
         end if
         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
-        print*, 'xxxxx',LAM 
-     &        , FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS)
-     &        , FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)
-     &        , FILTOBS_TRANS (ilam, IFILT_OBS) 
- 
+        print*, 'xxxxx', NLAM_STORE 
+     &        , sngl(FTRANSSN_STORE(ilam))
+     &        , sngl(FTRANSREF_STORE(ilam))
 
         print*, 'xxxx SN =' , CCID
         print*, 'xxxx LEXIST_REF =', LEXIST_REF
-        print*, 'xxxx LEXIST_SN =', LEXIST_SN
-        print*, 'xxxx FILE_REF =', FILTFILE_REF
-        print*, 'xxxx FILE_SN =', FILTFILE_SN
+        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
+        print*, 'xxxx FILE_REF   =', FILTFILE_REF
+        print*, 'xxxx FILE_SN    =', FILTFILE_SN
 
         print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
         call flush(6)
@@ -32151,7 +32154,8 @@ c -----------------------------
 
 
       RETURN
-      END
+      END   ! end FILTER_UPDATE_EACHSN
+
 
 C =======================================
 +DECK,IMAP2FUPD.
@@ -32206,7 +32210,7 @@ c if we get here then abort.
       END
 
 C ================================================
-+DECK,FUPD3.
++DECK,FUPD_SAME.
       SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
       IMPLICIT NONE
 +CDE,SNPAR.
@@ -32239,7 +32243,7 @@ C ------------ BEGIN -------------
 100   CONTINUE
 
       RETURN
-      END
+      END   ! end FILTER_UPDATE_SAMEFILT
 
 C =============================
 +DECK,GET_FILTMAP.
@@ -32707,10 +32711,10 @@ c --- check special option for filter-update for each SN
            TRANSREF(i) = FILTOBS_TRANSREF_UPD(i,ifilt)
         ENDIF
 
- 200  CONTINUE  ! end lambda loop
+ 200  CONTINUE    ! end lambda loop
 
       RETURN
-      END
+      END  ! end GET_FILTTRANS_LEGACY
 
 
 C ===========================
@@ -32907,7 +32911,7 @@ c
 c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
 c Nov 2022: separate filter loop over OBS and REST frame so that it works
 c           for both legacy and refac kcor.
-c
+c     
 c -------------------------
       IMPLICIT NONE
 
@@ -32919,7 +32923,7 @@ c -------------------------
 +CDE,KCORCOM.
 
       REAL      ZPOFF_TOT
-      INTEGER   ifilt_obs, ifilt
+      INTEGER   ifilt_obs, ifilt_rest, ifilt
       character CFILT*2
 
 C ------------------ BEGIN ------------
@@ -32933,18 +32937,19 @@ C ------------------ BEGIN ------------
          if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
          ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-         write(6,801) cfilt(1:1), ZPOFF_TOT          
+         write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT   
 100   CONTINUE
 
       DO 200 ifilt = 1, NFILTDEF_REST
-         ifilt_obs = IFILTDEF_MAP_REST(ifilt)     
-         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 200
-         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-         write(6,801) cfilt(1:1), ZPOFF_TOT          
+         ifilt_rest = IFILTDEF_MAP_REST(ifilt)     
+         if ( ifilt_rest .EQ. IFILT_BESS_BX ) goto 200
+         cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
+         ZPOFF_TOT = MAGREST_SHIFT_ZP_FILT(ifilt_rest) 
+         write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT 
 200   CONTINUE
 
-801       format(T10,'Will apply net MAGOBS_SHIFT_ZP(',A,') = ', F7.4 )
+801     format(T10,'Will apply net ', 
+     &     A,'_SHIFT_ZP(',A,') = ', F7.4 )
 
       CALL FLUSH(6)
 

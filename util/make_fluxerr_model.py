@@ -14,6 +14,9 @@
 # Aug 12 2021: if too few fakes to compute cor, take value from 
 #              nearest bin.
 #
+# Nov 28 2022: fix bug computing nrow_per_filter in make_fluxerr_model_map()
+#               (divide by NFIELD_GROUP)
+#
 # ========================
 
 import os, sys, argparse, glob, yaml, math
@@ -703,6 +706,9 @@ def parse_map_bins(config):
         valmax_list.append(valmax)
         bin_edge_list.append(bins)
 
+    print(f"    Store total of {NBIN1D} 1D bins")
+    sys.stdout.flush()
+
     # make list for header without FIELD or IFILTOBS 
     varname_header_list = varname_list.copy() 
     if COLNAME_IFIELD in varname_header_list:
@@ -844,7 +850,9 @@ def make_fluxerr_model_map(ISTAGE,config):
     errscale_dict = \
         { 'bin1d':[], 'n_fake':[], 'n_sim':[], 'cor_fake':[], 'cor_sim':[] }
     nrow = 0
-    if nfilters > 0 : nrow_per_filter = int(NBIN1D/IFILTOBS_MAX)
+    if nfilters > 0 : 
+        NFIELD_GROUP    = config.input_yaml['NFIELD_GROUP']
+        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/NFIELD_GROUP)
     
     for BIN1D in range(0,NBIN1D):
 

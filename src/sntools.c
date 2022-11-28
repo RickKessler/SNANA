@@ -8580,8 +8580,6 @@ int Landolt_ini(
 }  // end 
 
 
-
-
 /**********************************************
   SALT-II color correction formula
 **********************************************/
@@ -8609,7 +8607,6 @@ int Landolt_convert(int opt, double *mag_in, double *mag_out) {
 
          (but note that reported U is (UX - BX + B)_synth
 
-
   ******/
 
   int ifilt;
@@ -8629,85 +8626,78 @@ int Landolt_convert(int opt, double *mag_in, double *mag_out) {
   // ------------ BEGIN ----------------
 
   // init *mag_out
-  for ( ifilt=0; ifilt < NFILT_LANDOLT ; ifilt++ ) {
-    *(mag_out+ifilt) = -99.0 ; 
-  }
+  for ( ifilt=0; ifilt < NFILT_LANDOLT ; ifilt++ ) 
+    { mag_out[ifilt] = -99.0 ;  }
 
-
-  k0 = LANDOLT_COLOR_VALUE[0];
-  k1 = LANDOLT_COLOR_VALUE[1];
-  k2 = LANDOLT_COLOR_VALUE[2];
-  k3 = LANDOLT_COLOR_VALUE[3];
-  k4 = LANDOLT_COLOR_VALUE[4];
+  k0 = LANDOLT_COLOR_VALUE[0] ;
+  k1 = LANDOLT_COLOR_VALUE[1] ;
+  k2 = LANDOLT_COLOR_VALUE[2] ;
+  k3 = LANDOLT_COLOR_VALUE[3] ;
+  k4 = LANDOLT_COLOR_VALUE[4] ;
 
   // apply magdif array
 
   if ( opt > 0 ) {  // convert Bessell -> Landolt
-
-
-    del    = *(mag_in+off_B)       - *(mag_in+off_V);
+    del    = mag_in[off_B]  - mag_in[off_V];
     delref = LANDOLT_MAGPRIMARY[off_B] - LANDOLT_MAGPRIMARY[off_V] ;
     DEL_V  = k0*(del-delref);
     DEL_BV = k1 * (del-delref);
 
-    del     = *(mag_in+off_U)       - *(mag_in+off_BX);
+    del     = mag_in[off_U]  - mag_in[off_BX];
     delref  = LANDOLT_MAGPRIMARY[off_U] - LANDOLT_MAGPRIMARY[off_BX] ;
     DEL_UBX = k2 * (del-delref);
 
-    del     = *(mag_in+off_V)       - *(mag_in+off_R);
+    del     = mag_in[off_V]  - mag_in[off_R];
     delref  = LANDOLT_MAGPRIMARY[off_V] - LANDOLT_MAGPRIMARY[off_R] ;
     DEL_VR  = k3 * (del-delref);
 
-    del     = *(mag_in+off_R)       - *(mag_in+off_I);
+    del     = mag_in[off_R]    - mag_in[off_I];
     delref  = LANDOLT_MAGPRIMARY[off_R] - LANDOLT_MAGPRIMARY[off_I] ;
     DEL_RI  = k4 * (del-delref);
 
-    *(mag_out + off_V) = *(mag_in + off_V) + DEL_V ;
-    *(mag_out + off_B) = *(mag_in + off_B) + DEL_V + DEL_BV ;
-    *(mag_out + off_R) = *(mag_in + off_R) + DEL_V - DEL_VR ;
-    *(mag_out + off_I) = *(mag_in + off_I) + DEL_V - DEL_VR - DEL_RI ;
+    mag_out[off_V] = mag_in[off_V] + DEL_V ;
+    mag_out[off_B] = mag_in[off_B] + DEL_V + DEL_BV ;
+    mag_out[off_R] = mag_in[off_R] + DEL_V - DEL_VR ;
+    mag_out[off_I] = mag_in[off_I] + DEL_V - DEL_VR - DEL_RI ;
 
-    *(mag_out + off_U) = *(mag_in+off_U) - *(mag_in+off_BX) + *(mag_in+off_B)
-     + DEL_V + DEL_BV + DEL_UBX ;
-
+    mag_out[off_U] = mag_in[off_U] - mag_in[off_BX] + mag_in[off_B]
+				  + DEL_V + DEL_BV + DEL_UBX ;
   } 
 
   else if ( opt < 0 ) {  // convert Landolt -> Bessell
 
-    del    = *(mag_in+off_B)       - *(mag_in+off_V) ;
+    del    = mag_in[off_B]       - mag_in[off_V] ;
     delref = LANDOLT_MAGPRIMARY[off_B] - LANDOLT_MAGPRIMARY[off_V] ;
     DEL_BV = (del + k1*delref) / ( 1. + k1 ) ;  // (B-V)_Bess
     DEL_V  = k0 * (delref - DEL_BV );  // V_Bess - V_Land
 
-    del    = *(mag_in+off_V)       - *(mag_in+off_R) ;
+    del    = mag_in[off_V]  - mag_in[off_R] ;
     delref = LANDOLT_MAGPRIMARY[off_V] - LANDOLT_MAGPRIMARY[off_R] ;
     DEL_VR = (del + k3*delref) / ( 1. + k3 ) ;  // (V-R)_Bess
 
-    del    = *(mag_in+off_R)       - *(mag_in+off_I) ;
+    del    = mag_in[off_R]    - mag_in[off_I] ;
     delref = LANDOLT_MAGPRIMARY[off_R] - LANDOLT_MAGPRIMARY[off_I] ;
     DEL_RI = (del + k4*delref) / ( 1. + k4 ) ;  // (R-I)_Bess
 
-    del    = *(mag_in+off_U)       - *(mag_in+off_B) ;
+    del    = mag_in[off_U]   - mag_in[off_B] ;
     delref = LANDOLT_MAGPRIMARY[off_U] - LANDOLT_MAGPRIMARY[off_B] ;
     DEL_UBX = (del + k2*delref) / ( 1. + k2 );   // (UX-BX)_Bess
 
-
     Vout = *(mag_in  + off_V) + DEL_V ;
-    *(mag_out+off_V) = Vout ;
-    *(mag_out+off_B) = Vout + DEL_BV ;
-    *(mag_out+off_R) = Vout - DEL_VR ;
-    *(mag_out+off_I) = *(mag_out+off_R) - DEL_RI ;
+    mag_out[off_V] = Vout ;
+    mag_out[off_B] = Vout + DEL_BV ;
+    mag_out[off_R] = Vout - DEL_VR ;
+    mag_out[off_I] = mag_out[off_R] - DEL_RI ;
 
-    Utmp = DEL_UBX + *(mag_out+off_B) ;  // reported U = UX-BX+B
+    Utmp = DEL_UBX + mag_out[off_B] ;  // reported U = UX-BX+B
 
     // to get synthetic U, add synthetic BX-B
 
-    DEL_BXB = *(mag_in+off_BX) ;
-    *(mag_out+off_U) = Utmp + DEL_BXB ;
+    DEL_BXB = mag_in[off_BX] ;
+    mag_out[off_U] = Utmp + DEL_BXB ;
 
     // BX = (BX-B)_in + B_out
-    *(mag_out+off_BX) = DEL_BXB + *(mag_out+off_B);
-
+    mag_out[off_BX] = DEL_BXB + mag_out[off_B];
   }
 
   return SUCCESS ; // add Aug 7 2014 to avoid compile warning.

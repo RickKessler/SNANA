@@ -6232,7 +6232,7 @@ c default is to reject nothing (accept everything)
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_KCOR_REFACTOR = .FALSE.
-cc       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
+c       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.

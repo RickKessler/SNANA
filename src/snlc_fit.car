@@ -5955,6 +5955,14 @@ c Add up all the pieces for observer mag prediction.
      &     + DIST                        ! MU = 5*log10(10pc/DL)
      &     + MAG_XTMW_OBS(ifilt2_obs)    ! MilkyWay extinction
 
+c xxxxxxxxxx mark delete Nov 28 2022 xxxxxx
+c       write(6,6543) ifilt2_obs, MAG_BESSELL_REST(ifilt_rest_tmp(1)),
+c     &        KCOR_TMP(ifilt2_obs), DIST, MAG_XTMW_OBS(ifilt2_obs)
+c6543   format(' xxx ifilt2_obs=',I2, 2x, 'm_REST=',F7.3, 2x,
+c     &         'kcor=',F7.3, 2x, 'D=',F7.3, 2x, 'mMW=',F7.3 )
+c        call flush(6)
+c xxxxxxxxxxxxxxxx end mark xxxxxxxxxxx
+
 c check for option to subtract MWgalaxy extinction from model
 c just like for the data.
 
@@ -6003,8 +6011,8 @@ c => input argument for LANDOLOT_CONVERT below.
 
          LCRAZYMAG = .FALSE.
          DO  ifilt2  = 1, NFILTDEF_SURVEY
-           ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)                      
-           if ( ifilt2_obs .GT. 0 ) then
+           ifilt2_obs = IFILTDEF_MAP_SURVEY(ifilt2)   
+           if ( ifilt2_obs > 0 ) then
              MAG_TMP2 = MAG_OBS_TMP(ifilt2_obs)
              MAG_BESSELL_OBS(ifilt2_obs) = MAG_TMP2
              if ( MAG_TMP2 .GT. 40.0 ) LCRAZYMAG = .TRUE.
@@ -6018,6 +6026,15 @@ c => input argument for LANDOLOT_CONVERT below.
      &              ,MAG_OBS_TMP(IFILT_BESS_U)      ! output Landolt UBVRI
      &                  )
          endif
+
+c xxxxxxxx mark delete xxxxxxxxx
+c         print*,' xxx opt = ', opt
+c         print*,' xxx U(BESS) = ',
+c     &       MAG_BESSELL_OBS(IFILT_BESS_U:16)
+c         print*,' xxx U(LAND) = ',
+c     &       MAG_OBS_TMP(IFILT_BESS_U:16) 
+c         call flush(6); STOP
+c xxxxxxxxxxxxxx end mark xxxxxx
 
 c abort if Landolt correction makes more than 3 mag change.
 c Check only if SHAPE and COLOR have sane values,
@@ -11365,20 +11382,7 @@ c can be looked up via interpolation in CHI2_PRIOR function.
 c
 c Works for DELTA, PHOTOZ and RV
 c
-c Dec 3, 2007: smooth out the delta prior
-c
-c Apr 25, 2009: use general PRIOR_LUMIPAR_RANGE[SIGMA],
-c               and define DO_DELTA_PROFILE for mlcs-specific prior.
-c
-c Jul 18, 2009: change RV lower bound from 1 to 0.5
-c               Fix AVRV prior-range depending on if AV prior
-c               is flat, or forbids AV<0.
-c
-c Aug 17, 2009: set FLATPRIOR_RANGE and FLATPRIOR_BINRANGE to be
-c               avoid discontinuity in CHI2_PRIOR.
-c
-c Apr 2 2018: check PRIOR_COLOR_RANGE
-c
+c Apr  2 2018: check PRIOR_COLOR_RANGE
 c Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
 c 
 c ------------------------
@@ -11478,6 +11482,7 @@ c -------------------------------------
       CALL PRBANNER(global_banner(1:68))
       print*,' '
       print*, '  ', comment_prior
+      CALL FLUSH(6)
 
 c define range as defined range +- 10 sigmas.
 

@@ -21361,9 +21361,20 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # =============================================================
-        v11_04o ([tag-date]) 
+        v11_04o (Nov 28 2022) 
 
         ***** IMPORTANT(v11_04o) ***** 
+
+   Finished refactor of reading/implementing kcor/calib files 
+   from snlc_sim & snlc_fit; see sntools_calib.c[h]. 
+   Refactor flags still OFF by default. Follow progress on 
+   https://github.com/RickKessler/SNANA/issues/1059
+
+   SALT2mu.c and create_covariance.py:
+     + write consistent redshift name as zHD; see github issue 1052.
+
+   sntools_genSmear.c / genmag_SALT2.c
+     + read and apply COLOR_DISP_MAX from SALT3.INFO file
 
         ***** USEFUL(v11_04o) ***** 
 
@@ -21376,13 +21387,7 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
    Split BAYESN models into PYBAYESN (python) and BAYESN (C-code)
 
-   sntools_genSmear.c / genmag_SALT2.c
-     + read and apply COLOR_DISP_MAX from SALT2.INFO file
-
    kcor.c : allow comment lines in sed primary file
-
-   SALT2mu.c and create_covariance.py:
-     + write consistent redshift name as zHD; see github issue 1052.
 
    sntools_kcor.c[h]
      + after 3 year break, continue translating fortran KCOR functions to C.
@@ -21396,6 +21401,5 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    new genmag_extinction.c[h] to compute host gal extinction vs.
    { RVinv, Trest, ifilt_rest}; part of refactor where fortran
    utils are translated to C code.
-
 
 END: 

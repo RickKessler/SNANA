@@ -1311,10 +1311,10 @@ void read_kcor_mags(void) {
       }
     } // end ISREST
     
-    // now get MWXT cor for obs-frame filters.
-    LBX = ISBXFILT_KCOR(CFILT) ;
+    // now get MWXT correction for obs-frame filters.
+    // xxx ???  LBX = ISBXFILT_KCOR(CFILT) && RDKCOR_STANDALONE(?)
 
-    if ( ISOBS  && !LBX ) {
+    if ( ISOBS ) {            // ??? && !LBX ) {
       ifilto = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[IFILTDEF];
       IBMWXT[KDIM_IFILTr] = ifilto ; // note index here is 3, not 4
       IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_MWXT, N4DIM_KCOR, IBMWXT) ;
@@ -2454,6 +2454,9 @@ void prepare_kcor_table_LCMAG(void) {
 
 void prepare_kcor_table_MWXT(void) {
 
+  // Prepare Milky-way extinction for each obs-frame band.
+  // Used to correct K-corrections.
+
   FILTERCAL_DEF *FILTERCAL_OBS  = &CALIB_INFO.FILTERCAL_OBS ; 
   int  NFILTDEF_OBS     = FILTERCAL_OBS->NFILTDEF ;
   int  NBIN_T           = CALIB_INFO.BININFO_T.NBIN;
@@ -2462,6 +2465,7 @@ void prepare_kcor_table_MWXT(void) {
   
   int  J1D, NBIN_TOT, NDIM_INP, NDIM_FUN, ifilt_o, ifiltdef_o, iav, iz, it ;
   float temp_mem;
+  double MWXT ;
   char MAPNAME[] = "MWXT" ;
   char fnam[] = "prepare_kcor_table_MWXT";
 
@@ -2479,12 +2483,13 @@ void prepare_kcor_table_MWXT(void) {
       for(iz=0; iz < NBIN_z; iz++ ) {
 	for(it=0; it < NBIN_T; it++ ) {
 	  int ibins_tmp[4] = { it, iz, iav, ifilt_o } ;
-	  J1D = get_1DINDEX(IDMAP_KCOR_MWXT, NDIM_INP, ibins_tmp);
+	  J1D  = get_1DINDEX(IDMAP_KCOR_MWXT, NDIM_INP, ibins_tmp);
+	  MWXT = (double)CALIB_INFO.MWXT_TABLE1D_F[J1D];
 	  TEMP_KCOR_ARRAY[0][J1D]  = CALIB_INFO.BININFO_T.GRIDVAL[it] ;
 	  TEMP_KCOR_ARRAY[1][J1D]  = CALIB_INFO.BININFO_z.GRIDVAL[iz] ;
 	  TEMP_KCOR_ARRAY[2][J1D]  = CALIB_INFO.BININFO_AV.GRIDVAL[iav] ;
 	  TEMP_KCOR_ARRAY[3][J1D]  = (double)ifilt_o;
-	  TEMP_KCOR_ARRAY[4][J1D]  = (double)CALIB_INFO.MWXT_TABLE1D_F[J1D];
+	  TEMP_KCOR_ARRAY[4][J1D]  = MWXT ;
 	}
       }
     }

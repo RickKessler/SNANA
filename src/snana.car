@@ -2979,7 +2979,8 @@ C =================================================
 +USE,P=*DATA_IO,T=EXE.
 +USE,P=*SNUTIL,T=EXE.
 +USE,P=*SNTABLE,T=EXE.
-+USE,P=*CALIB,T=EXE,IF=KCOR.
++USE,P=*CALIB,T=EXE.
++USE,P=*CALIB_LEGACY,T=EXE,IF=KCOR.
 +USE,P=*FITPKMJD,T=EXE.
 +USE,P=*SPLINE,T=EXE.
 
@@ -25415,6 +25416,13 @@ c check for option to modify MWEBV;
 
 C =======================
 +PATCH,*CALIB.
+C =======================
+
+
+
+
+C =======================
++PATCH,*CALIB_LEGACY.
 C =======================
 
 +DECK,RDKCOR.

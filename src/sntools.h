@@ -70,6 +70,10 @@
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
+// Nov 28 2022 include: flag to include calls to legacy fortran code.
+//    This flag is to isolate code for future removal.
+#define USE_LEGACY_KCOR      
+
 #define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile

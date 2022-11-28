@@ -92,8 +92,10 @@ int main(int argc, char **argv) {
   init_commandLine_simargs(argc, argv);
 
   // init fortran variables
+#ifdef USE_KCOR_LEGACY
   istat = 0;
   init_snvar__(&istat); 
+#endif
 
   // one-time init of sim-variables
   init_simvar();
@@ -193,7 +195,10 @@ int main(int argc, char **argv) {
   DASHBOARD_DRIVER();
 
   // initialize calib/kcor
+#ifdef USE_KCOR_LEGACY
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
+#endif
+
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
   //   if ( INPUTS.USE_KCOR_REFACTOR > 0 )    { test_kcor_utils(); }
@@ -5727,6 +5732,12 @@ void prep_user_input(void) {
   // ---------- BEGIN ----------
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
+
+#ifdef USE_KCOR_LEGACY
+  if ( INPUTS.USE_KCOR_LEGACY ) {
+
+  }
+#endif
 
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
@@ -11743,11 +11754,13 @@ void gen_filtmap(int ilc) {
     if ( GENFRAME_OPT  == GENFRAME_REST  ) {
 
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
 	for(irank=1; irank <=3; irank++ ) {
 	  ifilt_rest[irank] =
 	    nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4[irank]);
 	  lamdif[irank] = (double)lamdif4[irank] ;
 	}
+#endif
       }
       else {
 	for(irank=1; irank <=3; irank++ ) {
@@ -12588,10 +12601,11 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     // but for simulations they are always the same.
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
       OPT_FRAME = GENFRAME_OBS ;
       get_filttrans_legacy__(&OPT_FRAME, &ifilt_obs, surveyName, filtName,
-			     &magprim, &NLAM, lam, TransSN, TransREF, 
-			     80, 40 );
+			     &magprim, &NLAM, lam, TransSN, TransREF, 80, 40 );
+#endif
     }
     else {
       OPT_FRAME = GENFRAME_OBS - 1 ;  
@@ -20580,10 +20594,12 @@ int gen_cutwin(void) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
       // original/legacy fortran
       opt_frame = OPT_FRAME_OBS + 1;
       get_filtlam__(&opt_frame, &ifilt_obs,
 		    &lamobs,&lamrms,&lammin,&lammax);
+#endif
     }
     else {
       // refactored
@@ -22508,9 +22524,11 @@ void genmag_boost(void) {
        
     // start with nearest filter; then 2nd nearest; then 3rd nearest
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
       x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
       x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
       x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+#endif
     }
     else {
       // refactored code
@@ -22716,7 +22734,9 @@ void genmag_MWXT_fromKcor(void) {
 
     AVwarp  = GENLC.AVwarp8[epoch] ;
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
       MWXT = get_mwxt8__(&ifilt_obs,&Trest,&z,&AVwarp,&mwebv, &RV, &OPT);
+#endif
     }
     else {
       // refactored
@@ -23189,9 +23209,11 @@ void init_genSEDMODEL(void) {
   sprintf(GENLC.primary,"%s", "NULL");
 
   if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
     // legacy fortran get
     get_primary_legacy__(GENLC.primary, &NLAM, 
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
+#endif
   }
   else {
     // refactored C get
@@ -23277,6 +23299,7 @@ void init_genSEDMODEL(void) {
     sprintf(surveyName,"NULL") ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
       OPT_FRAME[ifilt]++ ; // add 1 for fortran index
       get_filttrans_legacy__(&OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
 		      &ifilt_obs,            // (I) absolute filter index
@@ -23288,6 +23311,7 @@ void init_genSEDMODEL(void) {
 		      genSEDMODEL.TransSN,   // (O) filter trans 
 		      genSEDMODEL.TransREF,  // (O) idem
 		      80,40 ); 
+#endif
     }
     else {
       get_calib_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
@@ -23414,6 +23438,7 @@ void check_model_default(int index_model ) {
 } // end of check_model_default
 
 // ******************************
+#ifdef USE_KCOR_LEGACY
 void init_kcor_legacy(char *kcorFile) {
 
   /********
@@ -23569,7 +23594,7 @@ void init_kcor_legacy(char *kcorFile) {
   return ;
 
 } // end of init_kcor_legacy
-
+#endif
 
 
 // ********************************** 
@@ -26075,10 +26100,12 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     if ( USE_GENSMEAR_MODEL ) {
       // convert mean lambda of filter in obs frame to rest frame
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
 	// legacy fortran
 	opt_frame = OPT_FRAME_OBS + 1 ;
 	get_filtlam__(&opt_frame, &ifilt_obs, 
 		      &lamavg, &lamrms, &lammin, &lammax );
+#endif
       }
       else {
 	// refectoreed C
@@ -28815,6 +28842,7 @@ void DUMP_GENMAG_DRIVER(void) {
       z4 = (float)GENLC.REDSHIFT_HELIO ;
 
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_LEGACY
 	irank = 1;  
 	GENLC.IFILTMAP_REST1[ifilt_obs] = 
 	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
@@ -28827,6 +28855,7 @@ void DUMP_GENMAG_DRIVER(void) {
 	irank = 3;  
 	GENLC.IFILTMAP_REST3[ifilt_obs] = 
 	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
+#endif
       }
       else {
 	// refactored

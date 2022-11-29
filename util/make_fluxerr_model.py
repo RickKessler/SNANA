@@ -58,8 +58,8 @@ IFILTOBS_MAX = 80
 ISTAGE_MAKEMAP = 5
 
 # list of reduced flux correlations to try in sim 
-#REDCOV_LIST = [ 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 ]
-REDCOV_LIST = [ 0.0, 0.4  ]
+REDCOV_LIST = [ 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 ]
+#REDCOV_LIST = [ 0.0, 0.4  ]
 
 # to evaluate REDDOV, take data-sim chi2 by band and compare
 # histograms of PROB(chi2,Ndof); here are the PROB limits to compare:

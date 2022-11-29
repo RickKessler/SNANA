@@ -73,6 +73,7 @@
 # Sep 15 2022: define EXTRA_FLAGS_CPLUS = -std=c++17 (for ROOT v6 at NERSC)
 # Nov 22 2022: add USE_BAYESN flag to use libyaml
 # Nov 23 2022: add genmag_extinction
+# Nov 29 2022: remove kcordump
 #
 # ------------------------------------------------------------------------
 
@@ -263,7 +264,6 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/snlc_fit.exe		\
 	$(BIN)/psnid.exe		\
 	$(BIN)/kcor.exe			\
-	$(BIN)/kcordump.exe		\
 	$(BIN)/nearnbr_maxFoM.exe	\
 	$(BIN)/nearnbr_apply.exe	\
 	$(BIN)/wfit.exe			\
@@ -649,32 +649,7 @@ $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntoo
 	(cd $(OBJ); rm kcor.o )
 
 # -------------------------------------------------
-# kcordump program
-
-$(OBJ)/kcordump.o :  kcordump.f
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) $(IGSL) $(SRC)/kcordump.f)
-
-kcordump.f : kcordump.cra  kcordump.cra 
-	ln -s $(SRC)/snana.car snana.lnk
-	$(UTIL)/ypatchy.pl - $@ kcordump.cra .go
-	rm snana.lnk
-
-$(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o $(OBJ_SNTOOLS_DATA)
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/kcordump.o 	\
-	$(LIB)/libsnana.a  	\
-	$(OBJ)/sntools.o 	\
-	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/sntools_calib.o 	\
-	$(OBJ_SNTOOLS_DATA) 	\
-	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm $(CPPLIB)
-	(cd $(OBJ); rm kcordump.o)
-
-#	$(OBJ)/sntools_dataformat_fits.o \
-#	$(OBJ)/sntools_dataformat_text.o \
-#	$(OBJ)/sntools_data.o \
-#	$(OBJ)/sntools_output.o \
+# kcordump program (removed Nov 29 2022)
 
 # -------------------------------------------------
 # combine_fitres (C-version with no array limits)

@@ -8321,8 +8321,18 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   AV        = RVMW * GENLC.MWEBV_SMEAR ;
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs   = GENLC.IFILTMAP_OBS[ifilt];
-    get_filtlam__(&opt_frame, &ifilt_obs, 
-		  &lamavg, &lamrms, &lammin, &lammax );
+
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
+      get_filtlam__(&opt_frame, &ifilt_obs, 
+		    &lamavg, &lamrms, &lammin, &lammax );
+#endif
+    }
+    else {
+      get_calib_filtlam_stats(OPT_FRAME_OBS, ifilt_obs,  
+			      &lamavg, &lamrms, &lammin, &lammax);
+    }
+
     LAMOBS_AVG = lamavg ;
     MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
 

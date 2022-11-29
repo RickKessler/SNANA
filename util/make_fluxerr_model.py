@@ -124,6 +124,38 @@ FLUXERRMAP_BINS:
   - SBMAG   8  20   28     # nbin min max (histogram bins)
   - PSF     3  1.0  4.0    # idem
 
+
+
+# ==========================================================
+# what to do with the output (argument of OUTDIR in config file)
+#  [see snana manual section 4.14.1 FLUXERRMODEL Tables]
+
+These are the three output files to use/examine:
+   FLUXERRMODEL_SIM.DAT  FLUXERRMODEL_FAKE.DAT  REDCOV.SUMMARY
+
+1. In the simulation, add input
+   FLUXERRMODEL_FILE:  $PATH/FLUXERRMODEL_SIM.DAT
+
+2. If real data errors have not been inflated for SBMAG, 
+   add this input
+   &SNLCINP
+      FLUXERRMODEL_FILE = '$PATH/FLUXERRMODEL_FAKE.DAT'
+
+  Beware that LCFIT implements FLUXERRMODEL_FILE only for real data;
+  it is ignored for sims because sim errors should already be inflated.
+  This auto-ignore feature allow using the same LCFIT input file for
+  data and sim.
+
+3. The final step is to select reduced correlations from REDCOV.SUMMARY.
+   See snana manual section  4.14.2 Modeling Flux Correlations.
+   This feature describes correlations of the EXCESS SCATTER among 
+   observations of the same event. The Poisson fluctuations are
+   independent.
+   Visually examing REDCOV.SUMMARY and select rho-value (reduced correlation)
+   that roughly minimizes reduced chi2 between fake-data and sim.
+   Following the manual syntax, manually enter the REDCOV key(s) in either 
+   the sim-input or FLUXERRMODEL_FILE.
+
 """
 
 # ==================================

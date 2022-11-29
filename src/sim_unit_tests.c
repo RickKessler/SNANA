@@ -82,8 +82,10 @@ void test_kcor_table_lcmag(void) {
 	text = TEST_REFAC ;
       }
       else {
+#ifdef USE_KCOR_FORTRAN
 	MAG   = get_maglc8__(&ifiltdef_r, &Trest, &z, &AVwarp );
 	text  = TEST_LEGACY ;
+#endif
       }
       printf("  %6.1f  %6.3f  %12s  %7.4f  %d  (%s)\n",
              Trest, AVwarp, filtName_r, MAG, istat, text );
@@ -131,9 +133,11 @@ void test_kcor_table_mwxt(void) {
 	text = TEST_REFAC ;
       }
       else {
+#ifdef USE_KCOR_FORTRAN
 	MWXT  = get_mwxt8__(&ifiltdef_o, &Trest, &z, &AVwarp, 
 			    &MWEBV, &RV, &OPT_MWCOLORLAW );
 	text  = TEST_LEGACY ;
+#endif
       }
       printf("  %6.1f  %6.3f  %12s  %7.4f  %d  (%s)\n",
              Trest, AVwarp, filtName_o, MWXT, istat, text ); 
@@ -182,11 +186,13 @@ void test_kcor_nearfilt_rest(void) {
 					      fnam, &lamdif_min );
       }
       else {
+#ifdef USE_KCOR_FORTRAN
 	float zf = (float)z ;
 	float  lamdif_min_f ;
-	ifiltdef_rest = nearest_ifilt_rest__(&OPT_LEGACY, &ifiltdef, &irank, &zf, 
-					     &lamdif_min_f);
+	ifiltdef_rest = nearest_ifilt_rest__(&OPT_LEGACY, &ifiltdef, &irank, 
+					     &zf, &lamdif_min_f);
 	lamdif_min = (double)lamdif_min_f ;
+#endif
       }
 
       ifilt_r = FILTERCAL_REST->IFILTDEF_INV[ifiltdef_rest];
@@ -264,9 +270,11 @@ void test_kcor_table_avwarp(void) {
       TEXT = TEST_REFAC;
     }
     else {  
+#ifdef USE_KCOR_FORTRAN
       AVWARP = get_avwarp8__(&Trest, &z, &mag_a, &mag_b, 
 			     &ifiltdef_a, &ifiltdef_b, &istat);
       TEXT = TEST_LEGACY ;
+#endif
     }
 
     printf("  %2d:%-10s  %2d:%-10s  %7.3f, %8.4f  %2d (%s)\n",
@@ -327,8 +335,10 @@ void test_kcor_table_kcor(void) {
       TEXT = TEST_REFAC ;
     }
     else {
+#ifdef USE_KCOR_FORTRAN
       kcor = get_kcor8__(&ifiltdef_r, &ifiltdef_o, &T, &z, &AV);
       TEXT = TEST_LEGACY ;
+#endif
     }
 
     sprintf(kcor_sym, "K_%c%c", name_r[len_r-1], name_o[len_o-1] );
@@ -389,9 +399,11 @@ void test_GET_KCOR_DRIVER(void) {
 			   LAMDIF, Trest, z, AVWARP_LIST );
   }
   else {
+#ifdef USE_KCOR_FORTRAN
     kcor = kcorfun8_(&IFILTDEF_OBS, IFILTDEF_REST_LIST, MAG_REST_LIST,
 		     LAMDIF, &Trest, &z, AVWARP_LIST );
     TEXT = TEST_LEGACY;
+#endif
   }
 
   printf("  %s  kcor=%.4f  AVwarp=%.4f \n",	
@@ -402,6 +414,7 @@ void test_GET_KCOR_DRIVER(void) {
 } // end test_GET_KCOR_DRIVER
 
 // =================================
+#ifdef USE_KCOR_FORTRAN
 void test_fortran(void) {
 
   char kcorFile[80] = "  " ;
@@ -432,10 +445,10 @@ void test_fortran(void) {
 	   z8, t8, av8, ifilt_rest, ifilt_obs, kcor8 );
   }
 
-
   exit(1);
   
 }  // end of test_fortran
+#endif
 
 // ******************************
 void test_zcmb_dLmag_invert(void) {

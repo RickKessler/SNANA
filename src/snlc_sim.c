@@ -5733,9 +5733,11 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
-#ifdef USE_KCOR_FORTRAN
+#ifndef USE_KCOR_FORTRAN
   if ( INPUTS.USE_KCOR_LEGACY ) {
-
+    sprintf(c1err,"Cannot use legacy/fortran KCOR code because");
+    sprintf(c2err,"#define USE_KCOR_FORTRAN is not set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 #endif
 

@@ -21412,4 +21412,10 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
         ***** MISCELLANEOUS(v11_04p) ***** 
 
+  To test code without legacy/fortran kcor code:
+   - remove "+USE,KCOR" from snana.cra and snlc_fit.cra
+   - disable USE_KCOR_FORTRAN flag in sntools.h
+   - set USE_KCOR_REFACTOR=T in snana.car
+   - set USE_KCOR_REFACTOR=2 in snlc_sim.c
+
 END: 

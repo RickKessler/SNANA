@@ -2486,8 +2486,6 @@ c
      &  ,PRIMARY_FLUX(MXLAMBIN_PRIM)       ! primary spec for obs filters
      &  ,PRIMARY_LAM(MXLAMBIN_PRIM)   
 
-cc      REAL Zrange_KCOR(2), Zrange_KCOR_LU(2)  ! moved from KCORCOM, Nov 28 2022
-
 c for remap
       INTEGER NFILT_REPLACE, IFILTOBS_REPLACE(MXFILT_ALL) 
       
@@ -2524,7 +2522,6 @@ c
      &   ,PRIMARY_FLUX, PRIMARY_LAM, NLAMBIN_PRIMARY, PRIMARY_NAME
 c
      &   ,NFILT_REPLACE, IFILTOBS_REPLACE
-cc     &   ,Zrange_KCOR, Zrange_KCOR_LU
 
       COMMON / FILTCOM8 / IFILT_OBS_EVAL_MASK
 
@@ -3092,7 +3089,9 @@ c init cut-names now that we have the filter names
 
 c read kcor/calib file
       IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
          CALL READ_CALIB_WRAPPER_LEGACY(IERR)
++SELF.
       ELSE
          CALL READ_CALIB_WRAPPER(IERR)
       ENDIF
@@ -3331,44 +3330,6 @@ c xxxxxxxxx
       RETURN
       END  ! end PREP_VERSION_SUBFOLDER
 
-C ===========================================
-+DECK,RDCAL_WRAP_LEGACY.
-      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
-c
-c Ceated Nov 2022
-c Wrapper subroutine to check if kcor/calib file is defined,
-c and to call read-kcor function with appropriate args.
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
-
-      INTEGER LENF
-      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
-
-c ---------- BEGIN ---------
-   
-      IERR = 0 
-
-      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
-
-+SELF,IF=KCOR.
-      IF ( USE_KCOR ) THEN 
-        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
-        CALL RDKCOR(KCOR_FILE,IERR) 
-      ENDIF
-
-c check for option to update filter trans for each SN
-      CALL FILTER_UPDATE_INIT(IERR)
-+SELF.
-
-      RETURN
-      END  ! end READ_CALIB_WRAPPER_LEGACY
-
 
 C ===========================================
 +DECK,READ_CALIB_WRAPPER.
@@ -3394,7 +3355,6 @@ c [uses refactored C code]
      &   D_MAGOBS_SHIFT_PRIM(MXFILT_ALL)
      &  ,D_MAGREST_SHIFT_PRIM(MXFILT_ALL)
      &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF, MAG_PRIM
-     &  ,ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR
 
 c external C codes
       REAL*8  GET_CALIB_ZPOFF_FILE, GET_CALIB_PRIMARY_MAG
@@ -3509,17 +3469,19 @@ c check if BX filter is defined for OBS and REST fram
       CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
 cc      print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
 
+c xxxxxxxxxx mark delete Nov 29 2022 xxxxxxxx
 c set zrange_KCOR to protect photo-z fits that use K-corrections
-      ZRANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
-      ZRANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
-      ZBINSIZE_KCOR  = 0.0
+c      ZRANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
+c      ZRANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
+c      ZBINSIZE_KCOR  = 0.0
+c      CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
+c      IF ( ZMAX_KCOR > .1 ) THEN
+c          ZRANGE_KCOR(1) = ZMIN_KCOR
+c          ZRANGE_KCOR(2) = ZMAX_KCOR
+c	  ZBINSIZE_KCOR  = ZBIN_KCOR
+c      ENDIF
+c xxxxxxxxxx end mark xxxxxx
 
-      CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
-      IF ( ZMAX_KCOR > .1 ) THEN
-          ZRANGE_KCOR(1) = ZMIN_KCOR
-          ZRANGE_KCOR(2) = ZMAX_KCOR
-	  ZBINSIZE_KCOR  = ZBIN_KCOR
-      ENDIF
 +SELF.
 
       RETURN
@@ -6240,7 +6202,7 @@ c default is to reject nothing (accept everything)
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
       USE_KCOR_REFACTOR = .FALSE.
-c       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
+cc       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
@@ -25435,13 +25397,953 @@ C =======================
 +PATCH,*CALIB.
 C =======================
 
+C ===========================================
++DECK,NEAREST_IFILTDED_WRAPPER.
+      INTEGER FUNCTION NEAREST_IFILTDEF_WRAPPER( 
+     &   OPT          ! (I) option; see below
+     &  ,ifiltdef     ! (I) observer filter index
+     &  ,rank_want    ! (I) 1=nearest, 2=2nd nearest, 3=3rd nearest
+     &  ,Z            ! (I) redshift
+     &  ,LAMDIF_MIN   ! (O) min lam-distance (A) 
+     &    )
 
+c
+c Created Nov 2022
+c Temporary wrapper to select either LEGACY/fortran function,
+c or REFACTORED/C function. This function should be removed
+c after the transistion to refactored code.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,SNLCINP.
+
+      INTEGER OPT, IFILTDEF, RANK_WANT
+      REAL    z,  LAMDIF_MIN
+      REAL*8  z8, LAMDIF_MIN8
+
+      CHARACTER FNAM*32
+      INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
+      INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
+C ------------- BEGIN -------------
+
+      IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILT_REST(OPT,IFILTDEF,RANK_WANT,z,LAMDIF_MIN)
++SELF.
+      ELSE
+         z8 = DBLE(z)  
+         FNAM = 'NEAREST_IFILTDEF_WRAPPER' // char(0)
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILTDEF_REST(OPT, IFILTDEF,RANK_WANT,
+     &                         z8, FNAM, LAMDIF_MIN8, 32)
+         LAMDIF_MIN = SNGL(LAMDIF_MIN8)
+      ENDIF
+
+      RETURN
+      END     ! end NEAREST_IFILTDEF_WRAPPER
+
+
+C =======================================
++DECK,FUPDDRIV.
+      SUBROUTINE FILTER_UPDATE_DRIVER()
+c
+c Nov 8, 2010 R.Kessler
+c
+c --------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+c local var
+
+      INTEGER IFILT, IFILT_OBS, OPT
+      LOGICAL LSAME, LUPD, ISBX
+      CHARACTER C1ERR*80, C2err*80
+
+c function
+      LOGICAL ISBXFILT
+C ------------- BEGIN ----------
+
+      OPT = OPT_FILTER_UPDATE
+      IF ( OPT .LE. 0 ) RETURN
+
+      write(6,20) SNLC_CCID(1:ISNLC_LENCCID)
+ 20   format(T5,'***** UPDATE FILTER TRANSMISSION FOR CID = ', 
+     &       A, ' ***** ')
+
+
+      LUPD = ( OPT .EQ. OPT_FILTUPD_EACHSN ) .or.
+     &       ( OPT .EQ. OPT_FILTUPD_MAP    )
+
+c determine path with filter update; set global FILTER_UPDATE_DIR
+c Make sure to do this outside the IFILT loop to avoid redundant
+c loops through the maps.
+      IF ( LUPD ) CALL GET_FILTER_UDPATE_DIR(SNLC_CCID)
+
+c -----------------------------------------
+c update filter transmissions based on option
+
+      DO 10 IFILT = 1, NFILTDEF_SURVEY
+
+        if ( ISNLC_NEPOCH_FILT(ifilt) .LE. 0 ) GOTO 10
+
+        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE
+
+        ISBX      = ISBXFILT(ifilt_obs,'', 'OBS' )
+   
+        LSAME = (OPT .EQ. OPT_FILTUPD_SAMEFILT)  .or. ISBX
+
+        if ( LSAME  ) then
+            ! fancy way to use same filter response for each SN
+           CALL FILTER_UPDATE_SAMEFILT(ifilt)
+        else if ( LUPD ) then
+           CALL FILTER_UPDATE_EACHSN(ifilt) 
+
+        else
+           write(c1err,60) OPT
+60         format('Invalid  OPT_FILTER_UPDATE = ', I3 )
+           c2err = 'Check OPT_FILTUPD_*  parameters in snana.car'
+           CALL MADABORT("FILTER_UPDATE_DRIVER", C1ERR, C2ERR)
+        endif
+
+ 10   CONTINUE
+      
+
+c ----------------------------------------------------
+c  Finally, update ZP offsets for all filters.
+
+      IF ( LUPD ) THEN
+        CALL FILTER_UPDATE_ZPOFF()
+      ENDIF
+
+c later add stuff for K-corrections ... 
+
+      RETURN
+      END
+
+C ====================================
++DECK,FUPDZP.
+      SUBROUTINE FILTER_UPDATE_ZPOFF()
+
+c Created July 2011
+c Update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) based on the
+c zeropoint (AB) offsets in text-file $FDIR/ZPOFF.DAT .
+c If this ZPOFF.DAT file does not exist, then just set 
+c the offsets to the user offsets.
+c
+c -------------
+
+      IMPLICIT NONE
+
+
+c local args
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c+CDE,PARSECOM.
+
+      INTEGER IFILT, IFILT_OBS
+      REAL ZPOFF_UPD(MXFILT_ALL)
+
+C --------------- BEGIN -------------
+
+       DO ifilt  = 1, NFILTDEF_SURVEY
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+          ZPOFF_UPD(ifilt_obs) = 0.0
+       ENDDO
+
+c update ZP-shift for each filter (i.e., add to user-shift)
+      DO ifilt  = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
+     &   MAGOBS_SHIFT_ZP_USER(ifilt_obs) + ZPOFF_UPD(ifilt_obs)
+      ENDDO
+
+      CALL DMP_ZPOFF
+
+      RETURN
+      END  ! end FILTER_UPDATE_ZPOFF
+
+C ================================================
++DECK,GTFUPDDIR.
+      SUBROUTINE GET_FILTER_UDPATE_DIR(CCID)
+
+c Created May 18, 2012
+c Find and load global  FILTER_UPDATE_DIR for this CCID.
+c Used for filter-update option.
+
+      IMPLICIT NONE
+
+      CHARACTER CCID*(*)  ! (I) SN name
+
+c local var
+
++CDE,SNPAR.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER LPDIR, LSDIR, LPATH, LCC, LMAP, IMAP1, IMAP2
+      CHARACTER MAPDIR*100
+c functions
+      INTEGER IMAP2_FUPDMATCH
+
+C -------------------- BEGIN --------------
+
+      LCC   = INDEX(CCID,' ') - 1
+      LPDIR = INDEX(PREFIX_UPD_FILTDIR,' ') -1 
+      LSDIR = INDEX(SUFFIX_UPD_FILTDIR,' ') -1 
+      LPATH = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
+
+
+      if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_EACHSN ) then
+         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
+     &        // PREFIX_UPD_FILTDIR(1:LPDIR)
+     &        // CCID(1:LCC)
+     &        // SUFFIX_UPD_FILTDIR(1:LSDIR)
+
+      else if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_MAP ) then
+
+c search 2nd map for CCID match to get IMAP1
+         
+         IMAP2   = IMAP2_FUPDMATCH(CCID) 
+         IMAP1   = MAP2_FILTER_UPDATE_PTRMAP1(IMAP2)
+         MAPDIR  = MAP1_FILTER_UPDATE_SUBDIR(IMAP1)
+         LMAP    = INDEX(MAPDIR,' ') - 1
+         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
+     &             // MAPDIR(1:LMAP)   
+
+      endif
+
+      RETURN
+      END
+
+C ================================================
++DECK,FUPD_EACHSN.
+      SUBROUTINE FILTER_UPDATE_EACHSN(ifilt)
+
+c Nov 8, 2010
+c Read/update filter response for this sparse 'ifilt'
+c Store in FILTOBS_TRANS_UPD array using same lambda 
+c binning as in KCOR file. Updated lambda binning 
+c can be different since it gets interpolated to the 
+c original grid.
+c
+c Nov 2022: refactor to use new & old kcor/calib code.
+c
+
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c +CDE,PARSECOM.
+
+c subroutine args
+      INTEGER IFILT     ! (I) sparse indices
+
+c local var
+
+      INTEGER 
+     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
+     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
+     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME
+
+      CHARACTER 
+     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
+     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
+     &  ,TMPFILE*(MXCHAR_FILENAME)
+     &  ,CCID*(MXCHAR_CCID)
+     &  ,cfilt*1
+     &  ,c1err*80
+     &  ,c2err*80
+     &  ,comment*40 
+
+      REAL*8
+     &   LAM
+     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
+     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
+     &  ,Trans_upd
+     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
+     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
+     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
+
+      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
+
+c define utilities from sntools.c
+      INTEGER  RD2COLUMNFILE 
+      EXTERNAL RD2COLUMNFILE 
+  
+      REAL*8   INTERP_1DFUN
+      EXTERNAL INTERP_1DFUN
+      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
+
+C ---------------- BEGIN --------------
+
+      UPD_DUMP = .FALSE.  ! internal dump logical
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
+c xxx mark      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
+      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
+      CCID      = SNLC_CCID(1:LCC)
+
+      IF ( USE_KCOR_LEGACY ) THEN
+        NLAM_STORE = NLAMBIN_FILTOBS(ifilt_obs)
+        DO ilam = 1, NLAM_STORE
+           FLAM_STORE(ilam) = 
+     &           DBLE( FILTOBS_LAMBDA(ilam,IFILT_OBS) )
+        ENDDO
+      ELSE
+        ! refac C code
+        OPT_FRAME = OPT_FILTOBS - 1
+        CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
+     &                      NLAM_STORE, FLAM_STORE)
+      ENDIF
+
+c - - - - - 
+      if (UPD_DUMP) then
+        print*,' '
+        print*, 'XXXXXX ----------------------------------------- '
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
+     &       CCID(1:LCC),'-', cfilt
+        call flush(6)
+      end if 
+
+      OPT_INTERP = 1   ! 1=linear;  2=quadratic
+
+      comment = CCID(1:LCC) // '-filter-update' // char(0)
+      LCOM    = INDEX(comment,' ') - 1
+
+c     get string lengths for file name
+
+      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
+      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
+
+      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
+      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
+
+      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
+      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
+
+c construct full filename of SN and REF-transmission files.
+
+      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
+     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
+     &                 // '/' // TMPFILE(1:LTMPF) 
+
+      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
+     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
+     &          // '/' // TMPFILE(1:LTMPF) 
+
+
+      if ( UPD_DUMP ) then
+        print*, '++++ UPDATING FILTER ' 
+     &          ,'IFILT = ', ifilt_obs,' '
+     &         , cfilt(1:1), ' with NLAM '
+     &         , NLAM_STORE , ' for SN ', CCID
+        call flush(6)
+       end if
+
+
+c Use IOSTAT option to figure out which of the files
+c FILTFILE_REF  and FILTFILE_SN exist
+
+c     check if FILTFILE_REF exists?
+
+      istat=1
+      LL = INDEX(FILTFILE_REF,' ') - 1
+      TMPFILE =FILTFILE_REF(1:LL)
+      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
+     &      IOSTAT=istat)
+      CLOSE( UNIT = LUNTMP) 
+
+      if (istat .EQ. 0) then
+         LEXIST_REF = .true.
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_REF(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
+
+      else 
+          LEXIST_REF = .false.
+      endif 
+
+      if (UPD_DUMP) then 
+        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
+        call flush(6)
+      end if
+
+c - - - - - -
+c    now interpolate to the original grid
+c    for files which exist
+
+      IF ( LEXIST_REF ) THEN
+        DO 20 ilam = 1, NLAM_STORE
+c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+ 
+            LAM = FLAM_STORE(ilam)
+            FTRANSREF_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
+ 
+            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
+     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
+
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSREF_STORE(ilam)  = Trans_upd
+
+20      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, "REF interp done"
+          call flush(6)
+        end if 
+
+      ENDIF  ! end LEXIST_REF
+
+
+c ------------------------------------
+c     FILTFILE_SN exists?
+
+      istat=1
+      LL = INDEX(FILTFILE_SN,' ') - 1
+      TMPFILE =FILTFILE_SN(1:LL)
+      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
+     &  IOSTAT=istat)
+     
+      if (istat.EQ.0) then
+         LEXIST_SN = .true.
+c        readsnfile
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_SN(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
+      else 
+         LEXIST_SN = .false.
+      endif 
+
+      CLOSE( UNIT = LUNTMP) 
+
+c - - - - - - - 
+c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
+
+      IF (LEXIST_SN) THEN
+cc      print*, ' Interpolate SN file', NLAM_STORE
+        DO 70 ilam = 1, NLAM_STORE
+c xxx mark      LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+
+            LAM = FLAM_STORE(ilam)
+            FTRANSSN_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
+ 
+            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
+     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
+
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSSN_STORE(ilam) = Trans_upd
+
+70      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, 'SN Interp done for', NLAM_STORE, CCID
+          call flush(6)
+        end if
+      ENDIF
+
+
+c    If neither file exists, abort program
+
+
+      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
+        c1err = 'Could not update filter-trans for CID = ' 
+     &       // CCID(1:LCC) // '-' // cfilt
+        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
+        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
+      endif
+
+c     IF either SN or REF file does not exist, copy the other 
+c     file for the transmission functions
+
+
+c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
+c                             IF REF file does not exist, SN trans undef
+c                             but should have been aborted above
+
+      if (.NOT. LEXIST_SN ) then 
+        DO 170 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
+     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
+
+            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
+170     CONTINUE  ! ILAM loop over original lambda binning
+      end if
+
+
+c - - - - - - - - -
+c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
+c                             IF SN file does not exist, Ref trans undef
+c                             but should have been aborted above
+      IF (.NOT. LEXIST_REF ) THEN
+        DO 270 ilam = 1, NLAM_STORE
+            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
+     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
+
+            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
+270      CONTINUE  ! ILAM loop over original lambda binning
+      ENDIF
+
+      if ( USE_KCOR_REFACTOR ) then
+         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+     &         FLAM_STORE, FTRANSSN_STORE )
+      endif
+
+c -----------------------------
+      if ( UPD_DUMP ) then 
+        print*, '%%%% ', NLAM_STORE
+        if (mod(NLAM_STORE,2).EQ.0) then
+           ilam = NLAM_STORE/2
+        else
+         ilam = (NLAM_STORE+1)/2
+        end if
+        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
+        print*, 'xxxxx', NLAM_STORE 
+     &        , sngl(FTRANSSN_STORE(ilam))
+     &        , sngl(FTRANSREF_STORE(ilam))
+
+        print*, 'xxxx SN =' , CCID
+        print*, 'xxxx LEXIST_REF =', LEXIST_REF
+        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
+        print*, 'xxxx FILE_REF   =', FILTFILE_REF
+        print*, 'xxxx FILE_SN    =', FILTFILE_SN
+
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
+        call flush(6)
+      endif
+
+
+      RETURN
+      END   ! end FILTER_UPDATE_EACHSN
+
+
+C =======================================
++DECK,IMAP2FUPD.
+      INTEGER FUNCTION IMAP2_FUPDMATCH(CCID)
+
+c Created May 19, 2012
+c Search array IMAP2_FILTER_UPDATE_CCID(imap2)
+c to find CCID match; return IMAP2 = index of array.
+c Used to match CCID to sparse index associated
+c with the filter-subdir.
+
+      IMPLICIT NONE
+      CHARACTER CCID*(*)  ! (I) SN name to match
+
+c local  var
+
++CDE,SNPAR.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IMAP2, L0, L1
+      CHARACTER CCID_TMP*(MXCHAR_CCID), C1ERR*72, C2ERR*72
+
+C ---------------- BEGIN ------------------
+
+      IMAP2_FUPDMATCH = -9
+      L0 = INDEX(CCID,' ') - 1
+
+      DO 100 IMAP2 = 1, NMAP2_FILTER_UPDATE
+
+         CCID_TMP  = MAP2_FILTER_UPDATE_CCID(IMAP2)
+         L1 = INDEX(CCID_TMP // ' ',' ') - 1
+
+         IF ( L0 .NE. L1 ) GOTO 100
+         IF ( CCID(1:L0) .NE. CCID_TMP(1:L1) ) GOTO 100
+
+c if we get here then return
+         IMAP2_FUPDMATCH = IMAP2
+         RETURN
+
+100   CONTINUE
+
+
+c if we get here then abort.
+      write(c1err,61) CCID(1:8)
+61    format('Could not find MAP2_FILTER_UPDATE match for CID=',A)
+      c2err = 'Check FILTER.INFO file.'
+      CALL MADABORT('IMAP2_FUPDMATCH', c1err, c2err )
+
+
+      RETURN
+      END
+
+C ================================================
++DECK,FUPD_SAME.
+      SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c +CDE,PARSECOM.
+
+      INTEGER ifilt  ! (I) sparse SN & filter index
+
+c local variables
+
+      INTEGER ilam, NLAM, ifilt_obs
+
+C ------------ BEGIN -------------
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
+
+      DO 100 ilam = 1, NLAM
+
+          FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 
+     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
+
+          FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 
+     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
+100   CONTINUE
+
+      RETURN
+      END   ! end FILTER_UPDATE_SAMEFILT
+
+C ==========================================
++DECK,SETZPOFF.
+      SUBROUTINE SET_ZPOFF()
+c
+c Created July 17, 2011 by R.Kessler
+c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+c for each filter. Update based on FILTOBS_ZPOFF_SNPHOT(ifilt_obs) 
+c that is read either from the KCOR file or from the ZPOFF_FILE.
+c
+c Feb 22, 2012:
+c  Use MAGOBS_SHIFT_ZP_USER(ifilt_obs)  so that final
+c  SHIFT_ZP is OK even if RDKCOR is called multiple times.
+c -------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,SNFILECOM.  SNDATA_ROOT is here
++CDE,KCORCOM.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILT_OBS
+
+C ------------- BEGIN -----------
+
+c update ZP-shift for each filter (i.e., add to user-shift)
+      DO ifilt  = 1, NFILTDEF_SURVEY
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+          MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
+     &    MAGOBS_SHIFT_ZP_USER(ifilt_obs) +
+     &    FILTOBS_ZPOFF_SNPHOT(ifilt_obs)
+      ENDDO
+
+c check for lambda-dependent MAGOBS_SHIFT (Sep 30, 2015)
+      CALL MAGOBS_SHIFT_UPDATE()
+
+c dump ZPOFF values vs. filter
+      CALL DMP_ZPOFF 
+
+      RETURN
+      END  ! end of SET_ZPOFF
+
+C ==========================================
++DECK,DMP_ZPOFF.
+      SUBROUTINE DMP_ZPOFF
+
+c --------------------------
+c Created Jul 17, 2011
+c Dump zeropoint offsets to screen.
+c
+c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
+c Nov 2022: separate filter loop over OBS and REST frame so that it works
+c           for both legacy and refac kcor.
+c     
+c -------------------------
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,KCORCOM.
+
+      REAL      ZPOFF_TOT
+      INTEGER   ifilt_obs, ifilt_rest, ifilt
+      character CFILT*2
+
+C ------------------ BEGIN ------------
+
+      print*,' '
+      write(6,20) 'KCOR file' 
+20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
+         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
+         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+         write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT   
+100   CONTINUE
+
+      DO 200 ifilt = 1, NFILTDEF_REST
+         ifilt_rest = IFILTDEF_MAP_REST(ifilt)     
+         if ( ifilt_rest .EQ. IFILT_BESS_BX ) goto 200
+         cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
+         ZPOFF_TOT = MAGREST_SHIFT_ZP_FILT(ifilt_rest) 
+         write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT 
+200   CONTINUE
+
+801     format(T10,'Will apply net ', 
+     &     A,'_SHIFT_ZP(',A,') = ', F7.4 )
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of DMP_ZPOFF
+
+
+C ======================================
++DECK,FILTBTEST.
+      LOGICAL FUNCTION FILTBTEST(MSK8,ibit)
+c Mar 29, 2011
+C Return true if 1 <= IBIT < 90 is set in MSK8.
+c Note that LSB=1 (not 0)
+c
+
+      INTEGER   IBIT    ! (I) bit to set 
+      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
+
+      INTEGER IBIT2
+      INTEGER MXBIT
+      PARAMETER ( MXBIT =  60 )
+
+      LOGICAL LTMP
+C ------------ BEGIN ------------
+
+      if ( IBIT .LE. MXBIT ) then
+        LTMP = BTEST(MSK8(1),IBIT-1)
+      else if ( IBIT .LT. 2*MXBIT ) then
+        IBIT2  = IBIT-MXBIT
+        LTMP   = BTEST(MSK8(2),IBIT2-1)
+      endif
+      FILTBTEST = LTMP
+      RETURN
+      END
+
+C ======================================
++DECK,FILTBSET.
+      SUBROUTINE FILTBSET(MSK8,ibit)
+c Mar 29, 2011
+C set bit IBIT(1 to 2*MXBIT) for long int MSK8.
+c Note that the input argument is also the output
+c with IBIT set.
+
+      INTEGER   IBIT    ! (I) bit to set 
+      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
+
+      INTEGER IBIT2
+      INTEGER MXBIT
+      PARAMETER ( MXBIT =  60 )
+
+C ------------ BEGIN ------------
+
+      if ( IBIT .LE. MXBIT ) then
+        MSK8(1) = IBSET(MSK8(1),IBIT-1)
+      else if ( IBIT .LT. 2*MXBIT ) then
+        IBIT2   = IBIT-MXBIT
+        MSK8(2) = IBSET(MSK8(2),IBIT2-1)
+      endif
+
+      RETURN
+      END
+
+C =======================================
++DECK,MAGOBS_SHIFT_UPDATE.
+      SUBROUTINE MAGOBS_SHIFT_UPDATE()
+
+c Created Sep 20 2015
+c Loop over filters and apply optional shift-vs-lambda
+c for ZP and PRIMARY mag. Allows coherent mag-shifts
+c with just a few parameters instead of giving a mag
+c shift for each band.
+c See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
+c
+      IMPLICIT NONE
+
+c local 
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILTDEF
+
+      REAL MAGOBS_SHIFT_USRFUN  ! function
+C --------------- BEGIN -----------
+
+      DO ifilt = 1, NFILTDEF_SURVEY
+         IFILTDEF = IFILTDEF_MAP_SURVEY(ifilt)
+
+         magobs_shift_zp_filt(ifiltdef) = 
+     &   magobs_shift_zp_filt(ifiltdef) +
+     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'ZP') ! Sep 2015
+
+         magobs_shift_primary_filt(ifiltdef) = 
+     &   magobs_shift_primary_filt(ifiltdef) +
+     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'PRIMARY') ! Sep 2015
+      ENDDO
+
+      RETURN
+      END  ! end of MAGOBS_SHIFT_UPDATE
+
+C =======================================
++DECK,MAGOBS_SHIFT_USRFUN.
+      REAL FUNCTION MAGOBS_SHIFT_USRFUN(IFILTDEF, WHAT )
+
+c Created Sep 30 2015
+c Compute shift for what='ZP' or what='PRIMARY' for this IFILTDEF.
+c Use SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS to 
+c determine polynomial function of wavelength. This allows computing
+c correlated systematics among filters using a function of wavelength
+c so that you don't have to enter a shift for each band separately.
+c
+c BEWARE: POLYNOMIAL FUNCTION OF LAMBDA IN MICRONS (NOT ANGSTROMS) 
+c
+c ----------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER    IFILTDEF   ! (I) absolute filter index
+      CHARACTER  WHAT*(*)   ! (I) 'ZP' or 'PRIMARY'
+
+c local var
+
+      REAL LAM_um, SQLAM_um, COEF(0:2)
+      CHARACTER FNAM*20
+
+c ------------------- BEGIN ----------------
+
+      FNAM = 'MAGOBS_SHIFT_USRFUN'
+      MAGOBS_SHIFT_USRFUN = 0.0 
+
+      IF ( WHAT(1:2) .EQ. 'ZP' ) THEN
+         COEF(0) = MAGOBS_SHIFT_ZP_PARAMS(1)
+         COEF(1) = MAGOBS_SHIFT_ZP_PARAMS(2)
+         COEF(2) = MAGOBS_SHIFT_ZP_PARAMS(3)
+      ELSE IF ( WHAT(1:7) .EQ. 'PRIMARY' ) THEN
+         COEF(0) = MAGOBS_SHIFT_PRIMARY_PARAMS(1) 
+         COEF(1) = MAGOBS_SHIFT_PRIMARY_PARAMS(2)
+         COEF(2) = MAGOBS_SHIFT_PRIMARY_PARAMS(3)
+      ELSE
+         C1ERR = 'Invalid WHAT=' // WHAT
+         C2ERR = 'for MAGOBS_SHIFT_XXX'
+         CALL  MADABORT(FNAM, C1ERR, C2ERR)
+      ENDIF
+      
+      LAM_um   = FILTOBS_LAMAVG(ifiltdef)/1.0E4
+      SQLAM_um = LAM_um * LAM_um
+
+      MAGOBS_SHIFT_USRFUN =
+     &      COEF(0)
+     &    + COEF(1) * LAM_um
+     &    + COEF(2) * SQLAM_um
+
+c xxxxxxxxxxxxxxxxx
+c      write(6,66) WHAT(1:2), MAGOBS_SHIFT_USRFUN, IFILTDEF, LAM_um
+c66    format(' xxx ', A2, ' = ', F7.4,' for IFILTDEF=',I3, 
+c     &      3x,'LAM=',F7.3,' um')
+c      CALL FLUSH(6)
+c xxxxxxxxxxxxxxxxx
+
+      RETURN
+      END  ! end of MAGOBS_SHIFT_USRFUN
 
 
 C =======================
 +PATCH,*CALIB_LEGACY.
 C =======================
 
+C ===========================================
++DECK,RDCAL_WRAP_LEGACY.
+      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
+c
+c Ceated Nov 2022
+c Wrapper subroutine to check if kcor/calib file is defined,
+c and to call read-kcor function with appropriate args.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IERR  ! (O) return non-zero on error
+      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
+
+      INTEGER LENF
+      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
+
+c ---------- BEGIN ---------
+   
+      IERR = 0 
+
+      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+
++SELF,IF=KCOR.
+      IF ( USE_KCOR ) THEN 
+        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
+        CALL RDKCOR(KCOR_FILE,IERR) 
+      ENDIF
+
+c check for option to update filter trans for each SN
+      CALL FILTER_UPDATE_INIT(IERR)
++SELF.
+
+      RETURN
+      END  ! end READ_CALIB_WRAPPER_LEGACY
+
+C ===============================================
 +DECK,RDKCOR.
       SUBROUTINE RDKCOR( KCORFILE, IERR)
 
@@ -28780,157 +29682,6 @@ c check option to include buggy lambda ranges.
       RETURN
       END
 
-C ==========================================
-+DECK,SETZPOFF.
-      SUBROUTINE SET_ZPOFF()
-c
-c Created July 17, 2011 by R.Kessler
-c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-c for each filter. Update based on FILTOBS_ZPOFF_SNPHOT(ifilt_obs) 
-c that is read either from the KCOR file or from the ZPOFF_FILE.
-c
-c Feb 22, 2012:
-c  Use MAGOBS_SHIFT_ZP_USER(ifilt_obs)  so that final
-c  SHIFT_ZP is OK even if RDKCOR is called multiple times.
-c -------------
-
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,SNFILECOM.  SNDATA_ROOT is here
-+CDE,KCORCOM.
-+CDE,FILTCOM.
-
-      INTEGER IFILT, IFILT_OBS
-
-C ------------- BEGIN -----------
-
-c update ZP-shift for each filter (i.e., add to user-shift)
-      DO ifilt  = 1, NFILTDEF_SURVEY
-          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
-     &    MAGOBS_SHIFT_ZP_USER(ifilt_obs) +
-     &    FILTOBS_ZPOFF_SNPHOT(ifilt_obs)
-      ENDDO
-
-c check for lambda-dependent MAGOBS_SHIFT (Sep 30, 2015)
-      CALL MAGOBS_SHIFT_UPDATE()
-
-c dump ZPOFF values vs. filter
-      CALL DMP_ZPOFF 
-
-      RETURN
-      END  ! end of SET_ZPOFF
-
-C =======================================
-+DECK,MAGOBS_SHIFT_UPDATE.
-      SUBROUTINE MAGOBS_SHIFT_UPDATE()
-
-c Created Sep 20 2015
-c Loop over filters and apply optional shift-vs-lambda
-c for ZP and PRIMARY mag. Allows coherent mag-shifts
-c with just a few parameters instead of giving a mag
-c shift for each band.
-c See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
-c
-      IMPLICIT NONE
-
-c local 
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER IFILT, IFILTDEF
-
-      REAL MAGOBS_SHIFT_USRFUN  ! function
-C --------------- BEGIN -----------
-
-      DO ifilt = 1, NFILTDEF_SURVEY
-         IFILTDEF = IFILTDEF_MAP_SURVEY(ifilt)
-
-         magobs_shift_zp_filt(ifiltdef) = 
-     &   magobs_shift_zp_filt(ifiltdef) +
-     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'ZP') ! Sep 2015
-
-         magobs_shift_primary_filt(ifiltdef) = 
-     &   magobs_shift_primary_filt(ifiltdef) +
-     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'PRIMARY') ! Sep 2015
-      ENDDO
-
-      RETURN
-      END  ! end of MAGOBS_SHIFT_UPDATE
-
-C =======================================
-+DECK,MAGOBS_SHIFT_USRFUN.
-      REAL FUNCTION MAGOBS_SHIFT_USRFUN(IFILTDEF, WHAT )
-
-c Created Sep 30 2015
-c Compute shift for what='ZP' or what='PRIMARY' for this IFILTDEF.
-c Use SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS to 
-c determine polynomial function of wavelength. This allows computing
-c correlated systematics among filters using a function of wavelength
-c so that you don't have to enter a shift for each band separately.
-c
-c BEWARE: POLYNOMIAL FUNCTION OF LAMBDA IN MICRONS (NOT ANGSTROMS) 
-c
-c ----------
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER    IFILTDEF   ! (I) absolute filter index
-      CHARACTER  WHAT*(*)   ! (I) 'ZP' or 'PRIMARY'
-
-c local var
-
-      REAL LAM_um, SQLAM_um, COEF(0:2)
-      CHARACTER FNAM*20
-
-c ------------------- BEGIN ----------------
-
-      FNAM = 'MAGOBS_SHIFT_USRFUN'
-      MAGOBS_SHIFT_USRFUN = 0.0 
-
-      IF ( WHAT(1:2) .EQ. 'ZP' ) THEN
-         COEF(0) = MAGOBS_SHIFT_ZP_PARAMS(1)
-         COEF(1) = MAGOBS_SHIFT_ZP_PARAMS(2)
-         COEF(2) = MAGOBS_SHIFT_ZP_PARAMS(3)
-      ELSE IF ( WHAT(1:7) .EQ. 'PRIMARY' ) THEN
-         COEF(0) = MAGOBS_SHIFT_PRIMARY_PARAMS(1) 
-         COEF(1) = MAGOBS_SHIFT_PRIMARY_PARAMS(2)
-         COEF(2) = MAGOBS_SHIFT_PRIMARY_PARAMS(3)
-      ELSE
-         C1ERR = 'Invalid WHAT=' // WHAT
-         C2ERR = 'for MAGOBS_SHIFT_XXX'
-         CALL  MADABORT(FNAM, C1ERR, C2ERR)
-      ENDIF
-      
-      LAM_um   = FILTOBS_LAMAVG(ifiltdef)/1.0E4
-      SQLAM_um = LAM_um * LAM_um
-
-      MAGOBS_SHIFT_USRFUN =
-     &      COEF(0)
-     &    + COEF(1) * LAM_um
-     &    + COEF(2) * SQLAM_um
-
-c xxxxxxxxxxxxxxxxx
-c      write(6,66) WHAT(1:2), MAGOBS_SHIFT_USRFUN, IFILTDEF, LAM_um
-c66    format(' xxx ', A2, ' = ', F7.4,' for IFILTDEF=',I3, 
-c     &      3x,'LAM=',F7.3,' um')
-c      CALL FLUSH(6)
-c xxxxxxxxxxxxxxxxx
-
-      RETURN
-      END  ! end of MAGOBS_SHIFT_USRFUN
-
-
 
 C ======================
 +DECK,CHKDUPFILT.
@@ -29048,51 +29799,6 @@ ccc ZZ bug  &  NEAREST_IFILT_REST(OPT_FRAME,ifilt_obs_tmp,irank,ZZ,LAMDIF)
       RETURN
       END
 
-C ===========================================
-+DECK,NEAREST_IFILTDED_WRAPPER.
-      INTEGER FUNCTION NEAREST_IFILTDEF_WRAPPER( 
-     &   OPT          ! (I) option; see below
-     &  ,ifiltdef     ! (I) observer filter index
-     &  ,rank_want    ! (I) 1=nearest, 2=2nd nearest, 3=3rd nearest
-     &  ,Z            ! (I) redshift
-     &  ,LAMDIF_MIN   ! (O) min lam-distance (A) 
-     &    )
-
-c
-c Created Nov 2022
-c Temporary wrapper to select either LEGACY/fortran function,
-c or REFACTORED/C function. This function should be removed
-c after the transistion to refactored code.
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNANAFIT.
-+CDE,FILTCOM.
-+CDE,SNLCINP.
-
-      INTEGER OPT, IFILTDEF, RANK_WANT
-      REAL    z,  LAMDIF_MIN
-      REAL*8  z8, LAMDIF_MIN8
-
-      CHARACTER FNAM*32
-      INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
-      INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
-C ------------- BEGIN -------------
-
-      IF ( USE_KCOR_LEGACY ) THEN
-         NEAREST_IFILTDEF_WRAPPER = 
-     &   NEAREST_IFILT_REST(OPT,IFILTDEF,RANK_WANT,z,LAMDIF_MIN)
-      ELSE
-         z8 = DBLE(z)  
-         FNAM = 'NEAREST_IFILTDEF_WRAPPER' // char(0)
-         NEAREST_IFILTDEF_WRAPPER = 
-     &   NEAREST_IFILTDEF_REST(OPT, IFILTDEF,RANK_WANT,
-     &                         z8, FNAM, LAMDIF_MIN8, 32)
-         LAMDIF_MIN = SNGL(LAMDIF_MIN8)
-      ENDIF
-
-      RETURN
-      END     ! end NEAREST_IFILTDEF_WRAPPER
 
 C ===========================================
 +DECK,NEAREST_IFILT_REST.
@@ -31678,597 +32384,7 @@ c print comment about filename syntax
 
       RETURN
       END
-C =======================================
-+DECK,FUPDDRIV.
-      SUBROUTINE FILTER_UPDATE_DRIVER()
-c
-c Nov 8, 2010 R.Kessler
-c
-c --------------
 
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-c local var
-
-      INTEGER IFILT, IFILT_OBS, OPT
-      LOGICAL LSAME, LUPD, ISBX
-      CHARACTER C1ERR*80, C2err*80
-
-c function
-      LOGICAL ISBXFILT
-C ------------- BEGIN ----------
-
-      OPT = OPT_FILTER_UPDATE
-      IF ( OPT .LE. 0 ) RETURN
-
-      write(6,20) SNLC_CCID(1:ISNLC_LENCCID)
- 20   format(T5,'***** UPDATE FILTER TRANSMISSION FOR CID = ', 
-     &       A, ' ***** ')
-
-
-      LUPD = ( OPT .EQ. OPT_FILTUPD_EACHSN ) .or.
-     &       ( OPT .EQ. OPT_FILTUPD_MAP    )
-
-c determine path with filter update; set global FILTER_UPDATE_DIR
-c Make sure to do this outside the IFILT loop to avoid redundant
-c loops through the maps.
-      IF ( LUPD ) CALL GET_FILTER_UDPATE_DIR(SNLC_CCID)
-
-c -----------------------------------------
-c update filter transmissions based on option
-
-      DO 10 IFILT = 1, NFILTDEF_SURVEY
-
-        if ( ISNLC_NEPOCH_FILT(ifilt) .LE. 0 ) GOTO 10
-
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE
-
-        ISBX      = ISBXFILT(ifilt_obs,'', 'OBS' )
-   
-        LSAME = (OPT .EQ. OPT_FILTUPD_SAMEFILT)  .or. ISBX
-
-        if ( LSAME  ) then
-            ! fancy way to use same filter response for each SN
-           CALL FILTER_UPDATE_SAMEFILT(ifilt)
-        else if ( LUPD ) then
-           CALL FILTER_UPDATE_EACHSN(ifilt) 
-
-        else
-           write(c1err,60) OPT
-60         format('Invalid  OPT_FILTER_UPDATE = ', I3 )
-           c2err = 'Check OPT_FILTUPD_*  parameters in snana.car'
-           CALL MADABORT("FILTER_UPDATE_DRIVER", C1ERR, C2ERR)
-        endif
-
- 10   CONTINUE
-      
-
-c ----------------------------------------------------
-c  Finally, update ZP offsets for all filters.
-
-      IF ( LUPD ) THEN
-        CALL FILTER_UPDATE_ZPOFF()
-      ENDIF
-
-c later add stuff for K-corrections ... 
-
-      RETURN
-      END
-
-C ====================================
-+DECK,FUPDZP.
-      SUBROUTINE FILTER_UPDATE_ZPOFF()
-
-c Created July 2011
-c Update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) based on the
-c zeropoint (AB) offsets in text-file $FDIR/ZPOFF.DAT .
-c If this ZPOFF.DAT file does not exist, then just set 
-c the offsets to the user offsets.
-c
-c -------------
-
-      IMPLICIT NONE
-
-
-c local args
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c+CDE,PARSECOM.
-
-      INTEGER IFILT, IFILT_OBS
-      REAL ZPOFF_UPD(MXFILT_ALL)
-
-C --------------- BEGIN -------------
-
-       DO ifilt  = 1, NFILTDEF_SURVEY
-          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ZPOFF_UPD(ifilt_obs) = 0.0
-       ENDDO
-
-c update ZP-shift for each filter (i.e., add to user-shift)
-      DO ifilt  = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
-     &   MAGOBS_SHIFT_ZP_USER(ifilt_obs) + ZPOFF_UPD(ifilt_obs)
-      ENDDO
-
-      CALL DMP_ZPOFF
-
-      RETURN
-      END  ! end FILTER_UPDATE_ZPOFF
-
-C ================================================
-+DECK,GTFUPDDIR.
-      SUBROUTINE GET_FILTER_UDPATE_DIR(CCID)
-
-c Created May 18, 2012
-c Find and load global  FILTER_UPDATE_DIR for this CCID.
-c Used for filter-update option.
-
-      IMPLICIT NONE
-
-      CHARACTER CCID*(*)  ! (I) SN name
-
-c local var
-
-+CDE,SNPAR.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER LPDIR, LSDIR, LPATH, LCC, LMAP, IMAP1, IMAP2
-      CHARACTER MAPDIR*100
-c functions
-      INTEGER IMAP2_FUPDMATCH
-
-C -------------------- BEGIN --------------
-
-      LCC   = INDEX(CCID,' ') - 1
-      LPDIR = INDEX(PREFIX_UPD_FILTDIR,' ') -1 
-      LSDIR = INDEX(SUFFIX_UPD_FILTDIR,' ') -1 
-      LPATH = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
-
-
-      if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_EACHSN ) then
-         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
-     &        // PREFIX_UPD_FILTDIR(1:LPDIR)
-     &        // CCID(1:LCC)
-     &        // SUFFIX_UPD_FILTDIR(1:LSDIR)
-
-      else if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_MAP ) then
-
-c search 2nd map for CCID match to get IMAP1
-         
-         IMAP2   = IMAP2_FUPDMATCH(CCID) 
-         IMAP1   = MAP2_FILTER_UPDATE_PTRMAP1(IMAP2)
-         MAPDIR  = MAP1_FILTER_UPDATE_SUBDIR(IMAP1)
-         LMAP    = INDEX(MAPDIR,' ') - 1
-         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
-     &             // MAPDIR(1:LMAP)   
-
-      endif
-
-      RETURN
-      END
-
-C ================================================
-+DECK,FUPD_EACHSN.
-      SUBROUTINE FILTER_UPDATE_EACHSN(ifilt)
-
-c Nov 8, 2010
-c Read/update filter response for this sparse 'ifilt'
-c Store in FILTOBS_TRANS_UPD array using same lambda 
-c binning as in KCOR file. Updated lambda binning 
-c can be different since it gets interpolated to the 
-c original grid.
-c
-c Nov 2022: refactor to use new & old kcor/calib code.
-c
-
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c +CDE,PARSECOM.
-
-c subroutine args
-      INTEGER IFILT     ! (I) sparse indices
-
-c local var
-
-      INTEGER 
-     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
-     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
-     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME
-
-      CHARACTER 
-     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
-     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
-     &  ,TMPFILE*(MXCHAR_FILENAME)
-     &  ,CCID*(MXCHAR_CCID)
-     &  ,cfilt*1
-     &  ,c1err*80
-     &  ,c2err*80
-     &  ,comment*40 
-
-      REAL*8
-     &   LAM
-     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
-     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
-     &  ,Trans_upd
-     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
-     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
-     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
-
-      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
-
-c define utilities from sntools.c
-      INTEGER  RD2COLUMNFILE 
-      EXTERNAL RD2COLUMNFILE 
-  
-      REAL*8   INTERP_1DFUN
-      EXTERNAL INTERP_1DFUN
-      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
-
-C ---------------- BEGIN --------------
-
-      UPD_DUMP = .FALSE.  ! internal dump logical
-
-      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
-c xxx mark      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
-      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
-      CCID      = SNLC_CCID(1:LCC)
-
-      IF ( USE_KCOR_LEGACY ) THEN
-        NLAM_STORE = NLAMBIN_FILTOBS(ifilt_obs)
-        DO ilam = 1, NLAM_STORE
-           FLAM_STORE(ilam) = 
-     &           DBLE( FILTOBS_LAMBDA(ilam,IFILT_OBS) )
-        ENDDO
-      ELSE
-        ! refac C code
-        OPT_FRAME = OPT_FILTOBS - 1
-        CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
-     &                      NLAM_STORE, FLAM_STORE)
-      ENDIF
-
-c - - - - - 
-      if (UPD_DUMP) then
-        print*,' '
-        print*, 'XXXXXX ----------------------------------------- '
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
-     &       CCID(1:LCC),'-', cfilt
-        call flush(6)
-      end if 
-
-      OPT_INTERP = 1   ! 1=linear;  2=quadratic
-
-      comment = CCID(1:LCC) // '-filter-update' // char(0)
-      LCOM    = INDEX(comment,' ') - 1
-
-c     get string lengths for file name
-
-      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
-      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
-
-      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
-      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
-
-      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
-      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
-
-c construct full filename of SN and REF-transmission files.
-
-      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
-     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
-     &                 // '/' // TMPFILE(1:LTMPF) 
-
-      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
-     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
-     &          // '/' // TMPFILE(1:LTMPF) 
-
-
-      if ( UPD_DUMP ) then
-        print*, '++++ UPDATING FILTER ' 
-     &          ,'IFILT = ', ifilt_obs,' '
-     &         , cfilt(1:1), ' with NLAM '
-     &         , NLAM_STORE , ' for SN ', CCID
-        call flush(6)
-       end if
-
-
-c Use IOSTAT option to figure out which of the files
-c FILTFILE_REF  and FILTFILE_SN exist
-
-c     check if FILTFILE_REF exists?
-
-      istat=1
-      LL = INDEX(FILTFILE_REF,' ') - 1
-      TMPFILE =FILTFILE_REF(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &      IOSTAT=istat)
-      CLOSE( UNIT = LUNTMP) 
-
-      if (istat .EQ. 0) then
-         LEXIST_REF = .true.
-         MXLAM   = MXLAMBIN_FILT
-         TMPFILE = FILTFILE_REF(1:LL) // char(0)
-         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
-
-      else 
-          LEXIST_REF = .false.
-      endif 
-
-      if (UPD_DUMP) then 
-        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
-        call flush(6)
-      end if
-
-c - - - - - -
-c    now interpolate to the original grid
-c    for files which exist
-
-      IF ( LEXIST_REF ) THEN
-        DO 20 ilam = 1, NLAM_STORE
-c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
- 
-            LAM = FLAM_STORE(ilam)
-            FTRANSREF_STORE(ilam) = 0.0 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
- 
-            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
-     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
-
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
-            FTRANSREF_STORE(ilam)  = Trans_upd
-
-20      CONTINUE  ! ILAM loop over original lambda binning
-        if (UPD_DUMP) then
-          print*, "REF interp done"
-          call flush(6)
-        end if 
-
-      ENDIF  ! end LEXIST_REF
-
-
-c ------------------------------------
-c     FILTFILE_SN exists?
-
-      istat=1
-      LL = INDEX(FILTFILE_SN,' ') - 1
-      TMPFILE =FILTFILE_SN(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &  IOSTAT=istat)
-     
-      if (istat.EQ.0) then
-         LEXIST_SN = .true.
-c        readsnfile
-         MXLAM   = MXLAMBIN_FILT
-         TMPFILE = FILTFILE_SN(1:LL) // char(0)
-         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &            ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
-      else 
-         LEXIST_SN = .false.
-      endif 
-
-      CLOSE( UNIT = LUNTMP) 
-
-c - - - - - - - 
-c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
-
-      IF (LEXIST_SN) THEN
-cc      print*, ' Interpolate SN file', NLAM_STORE
-        DO 70 ilam = 1, NLAM_STORE
-c xxx mark      LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
-
-            LAM = FLAM_STORE(ilam)
-            FTRANSSN_STORE(ilam) = 0.0 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
- 
-            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
-     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
-
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
-            FTRANSSN_STORE(ilam) = Trans_upd
-
-70      CONTINUE  ! ILAM loop over original lambda binning
-        if (UPD_DUMP) then
-          print*, 'SN Interp done for', NLAM_STORE, CCID
-          call flush(6)
-        end if
-      ENDIF
-
-
-c    If neither file exists, abort program
-
-
-      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
-        c1err = 'Could not update filter-trans for CID = ' 
-     &       // CCID(1:LCC) // '-' // cfilt
-        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
-        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
-      endif
-
-c     IF either SN or REF file does not exist, copy the other 
-c     file for the transmission functions
-
-
-c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
-c                             IF REF file does not exist, SN trans undef
-c                             but should have been aborted above
-
-      if (.NOT. LEXIST_SN ) then 
-        DO 170 ilam = 1, NLAM_STORE
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
-     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
-
-            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
-170     CONTINUE  ! ILAM loop over original lambda binning
-      end if
-
-
-c - - - - - - - - -
-c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
-c                             IF SN file does not exist, Ref trans undef
-c                             but should have been aborted above
-      IF (.NOT. LEXIST_REF ) THEN
-        DO 270 ilam = 1, NLAM_STORE
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
-     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
-
-            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
-270      CONTINUE  ! ILAM loop over original lambda binning
-      ENDIF
-
-      if ( USE_KCOR_REFACTOR ) then
-         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
-     &         FLAM_STORE, FTRANSSN_STORE )
-      endif
-
-c -----------------------------
-      if ( UPD_DUMP ) then 
-        print*, '%%%% ', NLAM_STORE
-        if (mod(NLAM_STORE,2).EQ.0) then
-           ilam = NLAM_STORE/2
-        else
-         ilam = (NLAM_STORE+1)/2
-        end if
-        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
-        print*, 'xxxxx', NLAM_STORE 
-     &        , sngl(FTRANSSN_STORE(ilam))
-     &        , sngl(FTRANSREF_STORE(ilam))
-
-        print*, 'xxxx SN =' , CCID
-        print*, 'xxxx LEXIST_REF =', LEXIST_REF
-        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
-        print*, 'xxxx FILE_REF   =', FILTFILE_REF
-        print*, 'xxxx FILE_SN    =', FILTFILE_SN
-
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
-        call flush(6)
-      endif
-
-
-      RETURN
-      END   ! end FILTER_UPDATE_EACHSN
-
-
-C =======================================
-+DECK,IMAP2FUPD.
-      INTEGER FUNCTION IMAP2_FUPDMATCH(CCID)
-
-c Created May 19, 2012
-c Search array IMAP2_FILTER_UPDATE_CCID(imap2)
-c to find CCID match; return IMAP2 = index of array.
-c Used to match CCID to sparse index associated
-c with the filter-subdir.
-
-      IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I) SN name to match
-
-c local  var
-
-+CDE,SNPAR.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IMAP2, L0, L1
-      CHARACTER CCID_TMP*(MXCHAR_CCID), C1ERR*72, C2ERR*72
-
-C ---------------- BEGIN ------------------
-
-      IMAP2_FUPDMATCH = -9
-      L0 = INDEX(CCID,' ') - 1
-
-      DO 100 IMAP2 = 1, NMAP2_FILTER_UPDATE
-
-         CCID_TMP  = MAP2_FILTER_UPDATE_CCID(IMAP2)
-         L1 = INDEX(CCID_TMP // ' ',' ') - 1
-
-         IF ( L0 .NE. L1 ) GOTO 100
-         IF ( CCID(1:L0) .NE. CCID_TMP(1:L1) ) GOTO 100
-
-c if we get here then return
-         IMAP2_FUPDMATCH = IMAP2
-         RETURN
-
-100   CONTINUE
-
-
-c if we get here then abort.
-      write(c1err,61) CCID(1:8)
-61    format('Could not find MAP2_FILTER_UPDATE match for CID=',A)
-      c2err = 'Check FILTER.INFO file.'
-      CALL MADABORT('IMAP2_FUPDMATCH', c1err, c2err )
-
-
-      RETURN
-      END
-
-C ================================================
-+DECK,FUPD_SAME.
-      SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c +CDE,PARSECOM.
-
-      INTEGER ifilt  ! (I) sparse SN & filter index
-
-c local variables
-
-      INTEGER ilam, NLAM, ifilt_obs
-
-C ------------ BEGIN -------------
-
-      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
-
-      DO 100 ilam = 1, NLAM
-
-          FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 
-     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
-
-          FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 
-     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
-100   CONTINUE
-
-      RETURN
-      END   ! end FILTER_UPDATE_SAMEFILT
 
 C =============================
 +DECK,GET_FILTMAP.
@@ -32789,61 +32905,6 @@ c so divide by DLAM to get flux per A.
       END
 
 
-C ======================================
-+DECK,FILTBTEST.
-      LOGICAL FUNCTION FILTBTEST(MSK8,ibit)
-c Mar 29, 2011
-C Return true if 1 <= IBIT < 90 is set in MSK8.
-c Note that LSB=1 (not 0)
-c
-
-      INTEGER   IBIT    ! (I) bit to set 
-      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
-
-      INTEGER IBIT2
-      INTEGER MXBIT
-      PARAMETER ( MXBIT =  60 )
-
-      LOGICAL LTMP
-C ------------ BEGIN ------------
-
-      if ( IBIT .LE. MXBIT ) then
-        LTMP = BTEST(MSK8(1),IBIT-1)
-      else if ( IBIT .LT. 2*MXBIT ) then
-        IBIT2  = IBIT-MXBIT
-        LTMP   = BTEST(MSK8(2),IBIT2-1)
-      endif
-      FILTBTEST = LTMP
-      RETURN
-      END
-
-C ======================================
-+DECK,FILTBSET.
-      SUBROUTINE FILTBSET(MSK8,ibit)
-c Mar 29, 2011
-C set bit IBIT(1 to 2*MXBIT) for long int MSK8.
-c Note that the input argument is also the output
-c with IBIT set.
-
-      INTEGER   IBIT    ! (I) bit to set 
-      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
-
-      INTEGER IBIT2
-      INTEGER MXBIT
-      PARAMETER ( MXBIT =  60 )
-
-C ------------ BEGIN ------------
-
-      if ( IBIT .LE. MXBIT ) then
-        MSK8(1) = IBSET(MSK8(1),IBIT-1)
-      else if ( IBIT .LT. 2*MXBIT ) then
-        IBIT2   = IBIT-MXBIT
-        MSK8(2) = IBSET(MSK8(2),IBIT2-1)
-      endif
-
-      RETURN
-      END
-
 
 C ==========================================
 +DECK,CHECK_MAGSHIFTS.
@@ -32925,61 +32986,6 @@ c rest-frame ZP shift
       RETURN
       END
 
-C ==========================================
-+DECK,DMP_ZPOFF.
-      SUBROUTINE DMP_ZPOFF
-
-c --------------------------
-c Created Jul 17, 2011
-c Dump zeropoint offsets to screen.
-c
-c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
-c Nov 2022: separate filter loop over OBS and REST frame so that it works
-c           for both legacy and refac kcor.
-c     
-c -------------------------
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,KCORCOM.
-
-      REAL      ZPOFF_TOT
-      INTEGER   ifilt_obs, ifilt_rest, ifilt
-      character CFILT*2
-
-C ------------------ BEGIN ------------
-
-      print*,' '
-      write(6,20) 'KCOR file' 
-20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
-
-      DO 100 ifilt = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
-         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
-         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-         write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT   
-100   CONTINUE
-
-      DO 200 ifilt = 1, NFILTDEF_REST
-         ifilt_rest = IFILTDEF_MAP_REST(ifilt)     
-         if ( ifilt_rest .EQ. IFILT_BESS_BX ) goto 200
-         cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
-         ZPOFF_TOT = MAGREST_SHIFT_ZP_FILT(ifilt_rest) 
-         write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT 
-200   CONTINUE
-
-801     format(T10,'Will apply net ', 
-     &     A,'_SHIFT_ZP(',A,') = ', F7.4 )
-
-      CALL FLUSH(6)
-
-      RETURN
-      END  ! end of DMP_ZPOFF
 
 C =======================
 +PATCH,*SPLINE.

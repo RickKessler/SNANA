@@ -2063,6 +2063,15 @@ void set_lamrest_range_UBVRI(int ifiltdef) {
 } // end set_lamrest_range_UBVRI
 
 
+
+void get_calib_nfiltdef(int *nfiltdef_obs, int *nfiltdef_rest) {
+  *nfiltdef_obs  = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
+  *nfiltdef_rest = CALIB_INFO.FILTERCAL_REST.NFILTDEF ;
+}
+
+void get_calib_nfiltdef__(int *nfiltdef_obs, int *nfiltdef_rest) 
+{ get_calib_nfiltdef(nfiltdef_obs,nfiltdef_rest); }
+
 // =====================================================
 void get_calib_primary_sed(char *primary_name, int *nblam,
 			   double *lam, double *flux) {

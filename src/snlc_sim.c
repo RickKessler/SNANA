@@ -22580,8 +22580,10 @@ void genmag_boost(void) {
     mag[3]  = GENLC.genmag_rest3[epoch] ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       kcor = kcorfun8_(&ifilt_obs, &ifilt_rest_tmp[1], 
 		       &mag[1], &lamdif[1],  &Trest, &z, &AVwarp[1] );
+#endif
     }
     else {
       // refactored

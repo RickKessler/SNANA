@@ -16,6 +16,7 @@
 #
 # Nov 28 2022: fix bug computing nrow_per_filter in make_fluxerr_model_map()
 #               (divide by NFIELD_GROUP)
+#              At stage07, rename DESfakes to {survey}_fakes
 #
 # ========================
 
@@ -1373,7 +1374,6 @@ def apply_id_1d(row, map_bin_dict):
 def create_nml_redcov(ISTAGE,config):
 
     # create nml file to analyze for reduced cov with SNANA table.
-    # Default is DC2 data; use command line override for sims.
 
     prefix = stage_prefix(ISTAGE)
 
@@ -1424,9 +1424,10 @@ def redcov_simgen_plus_snana(ISTAGE,config,rho):
     # + simulate with reduced cov "rho" using sim-input file from STAGE02.
     # + Run SNANA job using nml file created in previous stage
 
+    survey       = config.survey
     prefix       = stage_prefix(ISTAGE)
     Jrho         = int(100*rho)  # used for file names
-    GENVERSION   = f"{prefix}_DC2fakes_REDCOV{Jrho:03d}"
+    GENVERSION   = f"{prefix}_{survey}_fakes_REDCOV{Jrho:03d}"
 
     print(f"{prefix}: generate and process sim with rho = {rho}")
     sys.stdout.flush()

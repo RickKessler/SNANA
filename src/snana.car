@@ -1264,9 +1264,7 @@ c
      &  ,NBIN_MWXT(NKDIM)
 
       REAL 
-     &   Zrange_Kcor(2)    ! min,max redshift in KCOR table
-     &  ,Zrange_Kcor_LU(2) ! min,max redshift for lookup
-     &  ,Trange_Kcor(2)  ! min,max rest-epoch (days) in KCOR table
+     &   Trange_Kcor(2)  ! min,max rest-epoch (days) in KCOR table
      &  ,AVrange_Kcor(2) ! min,max AV
      &  ,ZBINSIZE_KCOR   ! redshift binsize
      &  ,TBINSIZE_KCOR   ! epoch bin size (days)
@@ -1279,6 +1277,7 @@ c
      &  ,Lrange_SNSED(2), LBINSIZE_SNSED
      &  ,Trange_SNSED(2), TBINSIZE_SNSED
      &  ,FLUX_SNSED(MXLAMBIN_SNSED*MXTBIN_KCOR)
+     &  ,Zrange_KCOR(2), Zrange_KCOR_LU(2) 
 
       REAL*4  
      &   AVWARP_TABLE1D(MXTABLE1D_AVWARP)
@@ -1306,12 +1305,13 @@ c
      &      ,NBIN_LCMAG,  NBINTOT_LCMAG
      &      ,NBIN_MWXT,   NBINTOT_MWXT
      &      ,NZBIN_KCOR,    NTBIN_KCOR,    NAVBIN_KCOR
-     &      ,Zrange_KCOR,   Trange_KCOR,   AVrange_KCOR
+     &      ,Trange_KCOR,   AVrange_KCOR
      &      ,ZBINSIZE_KCOR, TBINSIZE_KCOR, AVbinsize_KCOR
      &      ,CBINSIZE_AVWARP, IAV0, IZ0
+     &      ,Zrange_KCOR, Zrange_KCOR_LU
      &      ,GRIDVAL_Z, GRIDVAL_T, GRIDVAL_AV, GRIDVAL_C
      &      ,HIDKCOR, HIDMAG
-     &      ,Zrange_KCOR_LU, RESTKCOR_FILTERS
+     &      ,RESTKCOR_FILTERS
      &      ,USE_AVWARPTABLE, LRDZPOFF, NERR_AVWARP
      &      ,NLbin_SNSED, Lrange_SNSED, LBINSIZE_SNSED
      &      ,NTbin_SNSED, Trange_SNSED, TBINSIZE_SNSED
@@ -2429,6 +2429,7 @@ c Each set goes 1 - NFILTDEF_[SURVEY,REST]
       INTEGER
      &   NFILTDEF_SURVEY          ! no. survey (obs) filters
      &  ,NFILTDEF_READ            ! no. filters to read (excludes BX)
+     &  ,NFILTDEF_OBS        ! actual NFILTDEF from kcor file; should = NFILTDEF_SURVEY
      &  ,IFILTDEF_MAP_SURVEY(MXFILT_OBS)  ! IFILT_OBS vs. sparse filter index
      &  ,IFILTDEF_INVMAP_SURVEY(MXFILT_ALL) ! sparse index vs. IFILT_OBS
 c
@@ -2459,7 +2460,7 @@ c
      &  ,NLAMBIN_FILTREST(MXFILT_ALL)  ! number of bins per transmission curve
      &  ,NLAMBIN_PRIMARY               ! lambda bins for primary spec
 
-
+      
       REAL 
      &   FILTOBS_TRANS(MXLAMBIN_FILT,MXFILT_ALL)   ! filter transmissions
      &  ,FILTOBS_TRANSMAX(MXFILT_ALL)              ! max trans
@@ -2485,6 +2486,7 @@ c
      &  ,PRIMARY_FLUX(MXLAMBIN_PRIM)       ! primary spec for obs filters
      &  ,PRIMARY_LAM(MXLAMBIN_PRIM)   
 
+cc      REAL Zrange_KCOR(2), Zrange_KCOR_LU(2)  ! moved from KCORCOM, Nov 28 2022
 
 c for remap
       INTEGER NFILT_REPLACE, IFILTOBS_REPLACE(MXFILT_ALL) 
@@ -2496,7 +2498,7 @@ c for remap
      &   ,IFILT_BESS_R, IFILT_BESS_I, IFILT_BESS_BX
      &   ,IFILT_Y, IFILT_J, IFILT_H, IFILT_K
 c
-     &   ,NFILTDEF_SURVEY,        NFILTDEF_REST, NFILTDEF_READ
+     &   ,NFILTDEF_SURVEY,  NFILTDEF_OBS, NFILTDEF_REST, NFILTDEF_READ
      &   ,FREEZE_SURVEY_FILTERS 
      &   ,EXIST_BXFILT_OBS,       EXIST_BXFILT_REST
      &   ,IFILTDEF_MAP_SURVEY,    IFILTDEF_MAP_REST
@@ -2522,6 +2524,7 @@ c
      &   ,PRIMARY_FLUX, PRIMARY_LAM, NLAMBIN_PRIMARY, PRIMARY_NAME
 c
      &   ,NFILT_REPLACE, IFILTOBS_REPLACE
+cc     &   ,Zrange_KCOR, Zrange_KCOR_LU
 
       COMMON / FILTCOM8 / IFILT_OBS_EVAL_MASK
 
@@ -3403,6 +3406,7 @@ c external C codes
      &   ,GET_CALIB_FILTLAM_STATS
      &   ,GET_CALIB_ZPOFF_FILE
      &   ,GET_CALIB_PRIMARY_MAG
+     &   ,GET_CALIB_NFILTDEF
      &   ,EXIST_CALIB_BXFILT
      &   ,GET_KCOR_ZRANGE
 
@@ -3497,6 +3501,9 @@ c     store primary mags
 c misc tasks to store info
 
       CALL SET_ZPOFF()
+
+c store number of obs-frame and rest-frame filters
+      CALL GET_CALIB_NFILTDEF(NFILTDEF_OBS,NFILTDEF_REST)
 
 c check if BX filter is defined for OBS and REST fram
       CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
@@ -19358,7 +19365,7 @@ c +CDE,SNANAFIT.
       REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
-      INTEGER LENcMAG, ISTAT, LENF
+      INTEGER LENcMAG, ISTAT, LENF, NFILTDEF_TMP
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
       CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
@@ -19381,17 +19388,27 @@ c check option to write SIM_MAGOBS  only for true flux > 0
      &    BTEST(OPT_SIMLIB_OUT,1) .and. (.not.IS_REAL_DATA)
       WR_SIM_MAGOBS = WRALL_SIM_MAGOBS .or.  WRSET_SIM_MAGOBS
 
+      IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
+         NFILTDEF_TMP = NFILTDEF_RDKCOR
++SELF.
+      ELSE
+         NFILTDEF_TMP = NFILTDEF_OBS
+      ENDIF
+
 c -------------------------------------------
 
       IF ( OPT_FLAG == 1 ) THEN
-
+       
 +SELF,IF=SNANA.
-        if ( NFILTDEF_RDKCOR == 0 ) then
-           C1ERR = 'NFILTDEF_RDKCOR=0 --> no defined filters'
+
+        if ( NFILTDEF_TMP == 0 ) then
+           C1ERR = 'NFILTDEF_OBS=0 --> no defined obs-frame filters'
            C2ERR = 'Check &SNLCINP input KCOR_FILE'
            CALL MADABORT(FNAM, c1err, c2err)
         endif
 +SELF.
+
 
 +SELF,IF=SNFIT,PSNID.
       C1ERR = 'Cannot use SIMLIB_OUT option with snlc_fit or psnid.'

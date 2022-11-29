@@ -233,6 +233,9 @@ void load_filtertrans_calib__(int *OPT_FRAME, int *IFILTDEF, int *NBL,
 void set_lamrest_range_KCOR(int ifilt);
 void set_lamrest_range_UBVRI(int ifilt);
 
+void get_calib_nfiltdef(int *nfiltdef_obs, int *nfiltdef_rest);
+void get_calib_nfiltdef__(int *nfiltdef_obs, int *nfiltdef_rest);
+
 void get_calib_primary_sed(char *primary_name, int *NBLAM, 
 			   double *lam, double *flux);
 void get_calib_primary_sed__(char *primary_name, int *NBLAM, 

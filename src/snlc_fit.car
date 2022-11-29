@@ -1567,11 +1567,10 @@ c abort if more than 3 model filters are not defined.
 c This is bit arbitrary, but it allows ignoring some 
 c model-wavelength ranges such as the IR.
 
-      IF ( NF > 30 ) THEN
+      IF ( NF > 3 ) THEN  ! 30 -> 3 Nov 28 2022 .xyz
          write(C1ERR,651) NF, CFILT_UNDEFINED(1:NF)
 651      format(I3,' undefined rest-frame model filters (',A,')' )
-         c2err = 'Defined rest-frame K-cor filters: ' //
-     &               RESTKCOR_FILTERS(1:NFILTDEF_REST)
+         c2err = 'Check KCOR/CALIB input file for rest-frame filters'
          CALL MADABORT("FITPAR_INI", c1err, c2err )
       ENDIF
 c -----------
@@ -12355,6 +12354,7 @@ c check other variables that are not in the fit-par list
       END     ! end of INIT_PRIOR_SIMEFF
 
 
++SELF,IF=KCOR.
 C ================================================
 +DECK,FINI_XTPAR.
       SUBROUTINE FITINI_XTPAR(OPT)
@@ -12435,6 +12435,7 @@ C -------------- BEGIN -------------
 
       RETURN
       END       ! end FITINI_XTPAR
++SELF.
 
 C ===================================================
 +DECK,FITANA_CUTS.

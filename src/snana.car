@@ -845,6 +845,7 @@ c
      &  ,SNLC_SNRMAX_FILT(0:MXFILT_OBS)   ! max S/N per filter/SN
      &  ,SNLC_SNRMAX_SORT(MXFILT_OBS)     ! 1st, 2nd ... SNRMAX by filt
      &  ,SNLC_FLUXCALMAX(MXFILT_OBS)    ! max flux per filter/SN
+     &  ,SNLC_FLUXCALMAX_ERR(MXFILT_OBS)  ! uncertainty on above
      &  ,SNLC_SNANAFIT_PEAKMJD     ! SNANA-estimate of PEAKKMJD
      &  ,SNLC_SNANAFIT_PEAKMJD_FITPAR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
@@ -936,7 +937,8 @@ c
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
      &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
      &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
-     &    ,SNLC_FLUXCALMAX, SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
+     &    ,SNLC_FLUXCALMAX, SNLC_FLUXCALMAX_ERR
+     &    ,SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
      &    ,SNLC_GAIN, SNLC_RDNOISE
      &    ,SNLC_MWXT_MAG, SNLC_MWXT_FLUXFRAC, SNLC_MWXT_MAGERR
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
@@ -990,6 +992,7 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)
      &   ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)
      &   ,ADDCOL_FLUXCALMAX(MXFILT_ALL)
+     &   ,ADDCOL_FLUXCALMAX_ERR(MXFILT_ALL)
      &   ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)
      &   ,ADDCOL_SNRMAX(MXFILT_ALL)
      &   ,ADDCOL_XTMW(MXFILT_ALL)
@@ -1002,7 +1005,8 @@ c pointer for calls to SNTABLE_ADDCOL.
       COMMON / ADDCOL_FILTERCOM /
      &   ADDCOL_FILTERS, ADDCOL_SNHOST_MAGOBS
      &  ,ADDCOL_SNHOST_SBFLUXCAL, ADDCOL_SNHOST_SBMAG
-     &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
+     &  ,ADDCOL_FLUXCALMAX, ADDCOL_FLUXCALMAX_ERR
+     &  ,ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
      &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
      &  ,ADDCOL_PROB_TRUEFLUX, ADDCOL_NDOF_TRUEFLUX
 
@@ -15530,6 +15534,7 @@ c --------
          ISNLC_NEPOCH_PRESN(ifilt)   =  -9
          EXIST_FILT(ifilt)          = .FALSE.
          SNLC_FLUXCALMAX(ifilt)     = -9.
+         SNLC_FLUXCALMAX_ERR(ifilt) = -9.
          SNLC_MWXT_MAG(ifilt)       = 0.0
          SNLC_MWXT_MAGERR(ifilt)    = 0.0
          SNLC_MWXT_FLUXFRAC(ifilt)  = 0.0
@@ -17346,6 +17351,7 @@ c  * SNLC_SNRMAX_FILT(ifilt)
 c  * SNLC_SNRMAX_SORT(rank)
 c  * SNLC_SNRMAX_IFILTDEF(ifilt)
 c  * SNLC_FLUXCALMAX(ifilt)
+c  * SNLC_FLUXCALMAX_ERR(ifilt)  ! Nov 2022
 c
 c  * correct SNLC_MAG and FLUXCAL for AB mag-offsets
 c
@@ -17712,8 +17718,10 @@ c set use-flag for this epoch
      &            MAX ( SNLC_SNRMAX_FILT(ifilt), Xnsig )
           endif
 
-          SNLC_FLUXCALMAX(ifilt) =
-     &         MAX ( SNLC_FLUXCALMAX(ifilt), Fluxcal )
+          if ( Fluxcal > SNLC_FLUXCALMAX(ifilt) ) then
+             SNLC_FLUXCALMAX(ifilt)     = Fluxcal
+             SNLC_FLUXCALMAX_ERR(ifilt) = Fluxcal_err
+          endif
 
           EXIST_FILT(ifilt) = .TRUE.
           ISNLC_NEPOCH_USE  = ISNLC_NEPOCH_USE + 1
@@ -19198,6 +19206,7 @@ C -------- BEGIN -------
             SNLC_SNRMAX_FILT(ifilt)   = -9.
             SNLC_SNRMAX_SORT(ifilt)   = -9.
             SNLC_FLUXCALMAX(ifilt)    = -9.
+            SNLC_FLUXCALMAX_ERR(ifilt)  = -9.
 
           ENDIF
 
@@ -23949,9 +23958,17 @@ c - - - - time above threshold for REQUIRE_EPOCHS - - - - - -
       ENDIF
 
 c - - - - - max flux per band (May 2016) - - - - - - - - -
+
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_FLUXCALMAX,
+     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+
+c ... and the uncertainty (Nov 2022)
+
+        CALL TABLE_VARLIST_FILTERS('FLUXCALMAX_ERR','F',ADDCOL_FILTERS, 
+     &           VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_FLUXCALMAX_ERR,
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
 c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - - 
@@ -24972,7 +24989,8 @@ C ------------- BEGIN --------------
       DO IFILT_REMAP = 1, NFILT_REMAP_TABLE
            ADDCOL_SNRMAX(IFILT_REMAP)     = -9.0
            ADDCOL_XTMW(IFILT_REMAP)       = -9.0
-           ADDCOL_FLUXCALMAX(IFILT_REMAP) = -9.0
+           ADDCOL_FLUXCALMAX(IFILT_REMAP)        = -9.0
+           ADDCOL_FLUXCALMAX_ERR(IFILT_REMAP)     = -9.0
            ADDCOL_PROB_TRUEFLUX(IFILT_REMAP)      = -9.0
            ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP)      =  0
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
@@ -24989,6 +25007,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNRMAX(ifilt)           = SNLC_SNRMAX_FILT(ifilt)
            ADDCOL_XTMW(ifilt)             = SNLC_MWXT_FLUXFRAC(ifilt)
            ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX(ifilt)
+           ADDCOL_FLUXCALMAX_ERR(ifilt)   = SNLC_FLUXCALMAX_ERR(ifilt)
            ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
            ADDCOL_NDOF_TRUEFLUX(ifilt)    = NDOF_TRUEFLUX(ifilt)
            ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
@@ -24997,6 +25016,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_SBFLUXCAL(ifilt) = SNHOST_SBFLUXCAL(ifilt) 
            ADDCOL_SNHOST_SBMAG(ifilt)     = SNHOST_SBMAG(ifilt) 
          ELSE 
+             ! DO_REMAP
            CALL FILTER_REMAP_FETCH(IFILTOBS,  ! (I)
      &           IFILTOBS_REMAP,IFILT_REMAP)  ! (O)
 
@@ -25028,7 +25048,7 @@ c check that each band is mapped.
 
            VAL_OLD = ADDCOL_FLUXCALMAX(IFILT_REMAP)
            VAL_NEW = SNLC_FLUXCALMAX(ifilt)
-           ADDCOL_SNRMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
+           ADDCOL_FLUXCALMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
 
            VAL_OLD = ADDCOL_CHI2_FITPKMJD(IFILT_REMAP)
            VAL_NEW = CHI2_FITPKMJD(ifilt)

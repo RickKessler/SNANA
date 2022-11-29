@@ -788,4 +788,9 @@ void   rewrite_HOSTLIB_plusAppend(char *append_file);
 
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
+// copy from sntools_calib.h
+void get_calib_filtlam_stats(int opt_frame, int ifilt_obs,  
+			     double *lamavg, double *lamrms,
+			     double *lammin, double *lammax);
+
 // END

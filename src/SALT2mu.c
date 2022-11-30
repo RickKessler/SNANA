@@ -2050,6 +2050,9 @@ void SALT2mu_DRIVER_EXEC(void) {
   // -------------- BEGIN ---------------
   t_start_fit = time(NULL);
 
+  sprintf(BANNER,"%s NCALL=%d", fnam, NCALL_SALT2mu_DRIVER_EXEC);
+  fprint_banner(FP_STDOUT,BANNER);
+
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
     { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
   else
@@ -2942,6 +2945,9 @@ void applyCut_chi2max(void) {
   // ----------- BEGIN ------------
 
   if ( iflag_chi2max == 0 ) { return; }
+  if ( NCALL_SALT2mu_DRIVER_EXEC > 1 ) { return; }
+
+  printf("\n   Begin %s\n", fnam); fflush(stdout);
 
   // call same chi2-function used for minimization
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
@@ -2973,6 +2979,9 @@ void applyCut_chi2max(void) {
     INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
     //    printf(" xxx %s: M0 = %.3f -> %.3f  (for H0 marg)\n", 
     //	   fnam, M0_ORIG, INPUTS.M0 ); 
+    printf("\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
+    fflush(stdout);
+
     exec_mnparm(); 
     mncomd_(fcn, mcom, &icondn, &null, len); 
     fflush(FP_STDOUT);
@@ -3632,7 +3641,8 @@ bool crazy_M0_errors(void) {
 
     // now we have Mudif in a redshift bin
     iz    = INPUTS.izpar[n] ;
-    z     = FITRESULT.zM0[iz];
+    // zxx mark dleete  z = FITRESULT.zM0[iz]; // not yet computed
+    z     = INPUTS.BININFO_z.avg[iz];
     NEVT  = FITINP.NEVT_zFIT[iz] ;  // NEVT in this z-bin
     if ( NEVT < 3 ) { continue; } 
 

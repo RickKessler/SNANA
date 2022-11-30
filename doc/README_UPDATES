@@ -21408,6 +21408,8 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
         ***** IMPORTANT(v11_04p) ***** 
 
+   make_fluxerr_model.py: bug fixes and misc updates
+
         ***** USEFUL(v11_04p) ***** 
 
         ***** MISCELLANEOUS(v11_04p) ***** 

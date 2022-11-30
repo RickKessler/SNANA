@@ -16326,6 +16326,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Nov 18 2021: check iscomment() after removing newline to fix subtle
   //    bug in which blank line at top of SIMLIB causes infinite loop.
   //
+  // Nov 29 2022: fix bug setting FIELD per epoch with overlaps.
+  //              See field and FIELD_LIST.
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
@@ -16341,8 +16343,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
   char WDLIST[MXWDLIST_SIMLIB][200], *ptrWDLIST[MXWDLIST_SIMLIB];
-  char *FIELD = SIMLIB_HEADER.FIELD;
-  char *TEL   = SIMLIB_HEADER.TELESCOPE ;
+  char *FIELD_LIST = SIMLIB_HEADER.FIELD; // plus-separated list of fields
+  char field[40];                         // field per epoch
+  char *TEL        = SIMLIB_HEADER.TELESCOPE ;
   char sepKey[] = " ";
   char fnam[] = "SIMLIB_readNextCadence_TEXT" ;
 
@@ -16427,7 +16430,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = ID ; 
 	sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
 	USEFLAG_LIBID = ACCEPT_FLAG ;
-	NFIELD = 0 ;
+	NFIELD = 0 ;  sprintf(field,"%s", FIELD_NONAME);
 	iwd++ ; continue ;
       }
 
@@ -16446,18 +16449,17 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
       else if ( strcmp(wd0,"FIELD:") == 0  )  { 
 
-	char tmp_field[40];
-	sscanf(wd1, "%s", tmp_field ); 
+	sscanf(wd1, "%s", field ); 
 
-	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
+	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", field);
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
 	if ( NFIELD == 1 ) 
-	  { sprintf(FIELD, "%s", tmp_field) ; }
+	  { sprintf(FIELD_LIST, "%s", field) ; }
 	else
-	  { strcat(FIELD,"+"); strcat(FIELD,tmp_field); }
+	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
 	
-	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
+	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD_LIST) &&
 		       (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
@@ -16509,11 +16511,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       if ( ISKEY_TEMPLATE && iwd==0 ) {
 	int iwd_start = iwd;
 	if ( strcmp(wd0,"TEMPLATE_SKYSIG:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"SKYSIG", &ptrWDLIST[1] ); } 
+	  { iwd += SIMLIB_read_templateNoise(field,"SKYSIG", &ptrWDLIST[1] ); }
 	else if ( strcmp(wd0,"TEMPLATE_CCDSIG:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"CCDSIG", &ptrWDLIST[1] ); } 
+	  { iwd += SIMLIB_read_templateNoise(field,"CCDSIG", &ptrWDLIST[1] ); }
 	else if ( strcmp(wd0,"TEMPLATE_ZPT:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"ZPT", &ptrWDLIST[1] ); }    
+	  { iwd += SIMLIB_read_templateNoise(field,"ZPT", &ptrWDLIST[1] ); } 
 
 	// read spectrograph exposure time for template
 	OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
@@ -16602,7 +16604,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	// update few header items for each epoch since
 	// these item can be changed at any epoch.
-	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
@@ -16634,7 +16636,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;
 	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] = TEXPOSE_S ;      
 	SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
-	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 
 	ISTORE++ ;
 
@@ -24379,7 +24381,11 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 		     NPAR_FLUXERRMAP_REQUIRE, ERRPARLIST,  // (I)
 		     &FLUXCALERR_TRUE, &FLUXCALERR_DATA) ; // (O)
     
-    SCALE   = FLUXCALERR_TRUE/FLUXCALERR_in ;  SQSCALE = SCALE*SCALE ;
+    SCALE   = FLUXCALERR_TRUE/FLUXCALERR_in ; 
+    if ( SCALE == 1.00 ) 
+      { SCALE = 1.001; } // avoid error "matrix not pos def" (Nov 2022)
+
+    SQSCALE = SCALE*SCALE ;
 
     // don't modify true SQSIG(S); instead, add extra error to FUDGE term.
     SQSIG_TMP    = SQSIG_TRUE[TYPE_FLUXNOISE_S] ; 

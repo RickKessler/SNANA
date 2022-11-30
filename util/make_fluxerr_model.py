@@ -160,13 +160,20 @@ These are the three output files to use/examine:
 3. The final step is to select reduced correlations from REDCOV.SUMMARY.
    See snana manual section  4.14.2 Modeling Flux Correlations.
    This feature describes correlations of the EXCESS SCATTER among 
-   observations of the same event. The Poisson fluctuations are
-   independent.
-   Visually examing REDCOV.SUMMARY and select rho-value (reduced correlation)
+   observations of the same event. The simulated Poisson fluctuations
+   are independent for each epoch.
+   Visually examine REDCOV.SUMMARY and select rho-value (reduced correlation)
    that roughly minimizes reduced chi2 between fake-data and sim.
-   Following the manual syntax, manually enter the REDCOV key(s) in either 
-   the sim-input or FLUXERRMODEL_FILE.
+   Follow the SNANA-manual syntax and enter the REDCOV key(s) in one
+   two ways. Using an example of DES (griz bands) and .4 reduced correlation,
+      REDCOV: g:0.4,r:0.4,i:0.4,z:0.4  [in FLUXERRMODEL_FILE]
+         or
+      FLUXERRMODEL_REDCOV: g:0.4,r:0.4,i:0.4,z:0.4  [in sim-input file]
 
+   The above syntax applies the correlation within each passband,
+   but zero correlation between passbands. For FIELD-depenent REDCOV,
+   see syntax in manuual. 
+   
 """
 
 # ==================================

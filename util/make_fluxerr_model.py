@@ -55,7 +55,9 @@ COLNAME_IFIELD   = "IFIELD"
 
 IFILTOBS_MAX = 80
 
-ISTAGE_MAKEMAP = 5
+ISTAGE_MAKEMAP    =  5  # fragile alert
+ISTAGE_FLUXTABLE  = -9
+ISTAGE_REDCOV     = -9
 
 # list of reduced flux correlations to try in sim 
 REDCOV_LIST = [ 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 ]
@@ -171,8 +173,8 @@ These are the three output files to use/examine:
       FLUXERRMODEL_REDCOV: g:0.4,r:0.4,i:0.4,z:0.4  [in sim-input file]
 
    The above syntax applies the correlation within each passband,
-   but zero correlation between passbands. For FIELD-depenent REDCOV,
-   see syntax in manuual. 
+   but zero correlation between passbands. For FIELD-dependent REDCOV,
+   see syntax in SNANA manual. 
    
 """
 
@@ -647,11 +649,13 @@ def simgen_nocorr(ISTAGE,config):
     return
     # end simgen_nocorr
 
-def make_outlier_table(ISTAGE,config,what):
+def make_flux_table(ISTAGE,config,what):
 
     # run snana.exe with OUTLIER(nsig:0) to create flux table
     # for all observations.
     # Input what = FAKE or SIM
+
+    global ISTAGE_FLUXTABLE; ISTAGE_FLUXTABLE = ISTAGE
 
     OUTDIR = config.input_yaml['OUTDIR']
     prefix = stage_prefix(ISTAGE)
@@ -703,7 +707,7 @@ def make_outlier_table(ISTAGE,config,what):
 
     return table_file 
 
-    # end make_outlier_table
+    # end make_flux_table
 
 def parse_map_bins(config):
 
@@ -1198,6 +1202,7 @@ def write_map_global_header(f, what, config):
     map_bin_dict      = config.map_bin_dict
     NDIM              = map_bin_dict['NDIM']
     varname_list      = map_bin_dict['varname_list']
+    band_list         = map_bin_dict['band_list']  
 
     nrow_fake = config.nrow_fake
     nrow_sim  = config.nrow_sim
@@ -1244,6 +1249,23 @@ def write_map_global_header(f, what, config):
         f.write(f"DEFINE_FIELDGROUP: {field_name}  {snana_field_list}\n")
 
     f.flush()
+    # - - - - -
+    # write REDCOV keys with rho=9 to force sim-abort
+    if what == STRING_SIM:
+        f.write(f"\n")
+        f.write(f"# WARNING: \n")
+        f.write(f"# Manually change rho=9 to prevent sim-abort, " \
+                f"or remove REDCOV key(s). \n");
+        f.write(f"# For more info:  make_fluxerr_model.py -H \n")
+        arg_REDCOV_list = [] ; rho = 9
+        for band in band_list:
+            arg_REDCOV_list.append(f"{band}:{rho}")
+        arg_REDCOV = ','.join(arg_REDCOV_list)
+        for field_name in FIELD_GROUP_NAMES :
+            key   = f"REDCOV({field_name}):"
+            f.write(f"{key:<20} {arg_REDCOV}\n");
+
+        f.flush()
     # end write_map_define_fields
 
 def write_map_header(f, ifield, ifiltobs, config):
@@ -1481,6 +1503,8 @@ def redcov_simgen_plus_snana(ISTAGE,config,rho):
     # + simulate with reduced cov "rho" using sim-input file from STAGE02.
     # + Run SNANA job using nml file created in previous stage
 
+    global ISTAGE_REDCOV; ISTAGE_REDCOV = ISTAGE
+
     survey       = config.survey
     prefix       = stage_prefix(ISTAGE)
     Jrho         = int(100*rho)  # used for file names
@@ -1507,7 +1531,8 @@ def redcov_simgen_plus_snana(ISTAGE,config,rho):
     cmd  = f"cd {OUTDIR}; {JOBNAME_SIM} {sim_input_file} "
     cmd += f"GENVERSION {GENVERSION} "
     cmd += f"FLUXERRMODEL_FILE {FLUXERRMODEL_FILENAME_SIM} "
-    if rho > 0.0 :  cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
+    # xxx mark if rho > 0.0 :  cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
+    cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
     cmd += f" > {log_file_sim}"
 
     print(f"\t Generage {GENVERSION}")
@@ -1733,6 +1758,38 @@ def create_redcov_summary_file(ISTAGE,config):
 
     # end create_redcov_summary_file
 
+def compress_output(ISTAGE,config):
+    OUTDIR       = config.input_yaml['OUTDIR']
+    cdout = f"cd {OUTDIR}"
+
+    prefix     = stage_prefix(ISTAGE)
+    print(f"{prefix}: compress output")
+    sys.stdout.flush()
+
+    # gzip SIMLIB and TEXT files
+    cmd_gzip = f"{cdout} ; gzip STAGE*.SIMLIB STAGE*.TEXT STAGE*.LOG"
+    #print(f"\t xxx cmd_gzip = {cmd_gzip}")
+    os.system(cmd_gzip)
+
+    # tar output for a few stages with lots of files
+
+    ISTAGE_TAR_LIST = [ ISTAGE_FLUXTABLE, ISTAGE_REDCOV ]
+    WILDCARD_LIST   = [ '*fluxTable*',  '*REDCOV*' ]
+
+    for istage, w in zip(ISTAGE_TAR_LIST, WILDCARD_LIST):
+        prefix_istage = f"STAGE{istage:02d}"
+        print(f"\t xxx prefix_istage= {prefix_istage}")
+        wildcard      = f"{prefix_istage}{w}"
+        tar_file      = f"{prefix_istage}.tar"
+        print(f"\t Create {tar_file}")
+        cmd_tar = f"{cdout}; tar -cf {tar_file} {wildcard} ; rm {wildcard}"
+        print(f"\t xxx cmd_tar = {cmd_tar}")
+        os.system(cmd_tar)
+        sys.stdout.flush()
+
+    return
+    # end compress_output
+    
 # =====================================
 #
 #      MAIN
@@ -1780,8 +1837,8 @@ if __name__ == "__main__":
     # run snana on fakes and sim; create OUTLIER table with nsig>=0
     # to catch all flux observations
     ISTAGE += 1
-    config.flux_table_fake = make_outlier_table(ISTAGE,config,STRING_FAKE)
-    config.flux_table_sim  = make_outlier_table(ISTAGE,config,STRING_SIM)
+    config.flux_table_fake = make_flux_table(ISTAGE,config,STRING_FAKE)
+    config.flux_table_sim  = make_flux_table(ISTAGE,config,STRING_SIM)
 
     # create fluxerrmodel map files
     ISTAGE += 1
@@ -1813,5 +1870,9 @@ if __name__ == "__main__":
         for rho, prefix_sim in zip(REDCOV_LIST,prefix_sim_list):        
             redcov_analyze(ISTAGE,config, ifield, rho, prefix_sim, f_summary)
         
+    # compress asome of the output files with gzip or tar
+    ISTAGE += 1
+    compress_output(ISTAGE,config)
+
 # === END ===
 

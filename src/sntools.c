@@ -3558,8 +3558,8 @@ double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED) {
       tmp += ( top / bot );
     }
   }
-  printf("xxx %s preFac=%f, tmp=%f\n",fnam,preFac,tmp);
-  printf("xxx %s D1=%f, D2=%f, N_DDLR=%i\n",fnam,D1,D2,N_DDLR);
+  //  printf("xxx %s preFac=%f, tmp=%f\n",fnam,preFac,tmp);
+  //  printf("xxx %s D1=%f, D2=%f, N_DDLR=%i\n",fnam,D1,D2,N_DDLR);
   HC = log10(preFac * tmp);
   
   return HC;

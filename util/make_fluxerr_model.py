@@ -1769,6 +1769,8 @@ def compress_output(ISTAGE,config):
     # gzip SIMLIB and TEXT files
     cmd_gzip = f"{cdout} ; gzip STAGE*.SIMLIB STAGE*.TEXT STAGE*.LOG"
     #print(f"\t xxx cmd_gzip = {cmd_gzip}")
+    print(f"\t gzip SIMLIB TEXT and LOG files ... ")
+    sys.stdout.flush()
     os.system(cmd_gzip)
 
     # tar output for a few stages with lots of files
@@ -1778,14 +1780,13 @@ def compress_output(ISTAGE,config):
 
     for istage, w in zip(ISTAGE_TAR_LIST, WILDCARD_LIST):
         prefix_istage = f"STAGE{istage:02d}"
-        print(f"\t xxx prefix_istage= {prefix_istage}")
         wildcard      = f"{prefix_istage}{w}"
         tar_file      = f"{prefix_istage}.tar"
         print(f"\t Create {tar_file}")
-        cmd_tar = f"{cdout}; tar -cf {tar_file} {wildcard} ; rm {wildcard}"
-        print(f"\t xxx cmd_tar = {cmd_tar}")
-        os.system(cmd_tar)
         sys.stdout.flush()
+        cmd_tar = f"{cdout}; tar -cf {tar_file} {wildcard} ; rm {wildcard}"
+        #print(f"\t xxx cmd_tar = {cmd_tar}")
+        os.system(cmd_tar)
 
     return
     # end compress_output

@@ -229,7 +229,12 @@ def arg_cidlist(cidlist):
 
 def get_info_photometry(args):
 
-    command  = f"{snana_program} GETINFO {args.version}"
+    command  = f"{snana_program} GETINFO {args.version} "
+
+    # To do: fix GETINFO to work with PRIVATE_DATA_PATH
+    #if args.path:
+    #    command += f"PRIVATE_DATA_PATH {args.path} "
+
     exec_command(command,args,9)
 
     # end get_info_photometry

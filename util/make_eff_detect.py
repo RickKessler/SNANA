@@ -36,6 +36,10 @@ TABLE_NAME    = "OUTLIER"
 
 STRING_FIELDS = "FIELDS"
 
+COLNAME_IFILTOBS = "IFILTOBS"
+COLNAME_BAND     = "BAND"
+COLNAME_IFIELD   = "IFIELD"
+
 NMLKEY_DATA_PATH   = 'PRIVATE_DATA_PATH'
 NMLKEY_VERSION     = 'VERSION_PHOTOMETRY'
 NMLKEY_KCOR_FILE   = 'KCOR_FILE'
@@ -299,7 +303,9 @@ def make_flux_table(ISTAGE,config):
 
 def read_table(ISTAGE, config):
 
-    OUTDIR     = config.input_yaml['OUTDIR']
+    input_yaml = config.input_yaml
+
+    OUTDIR     = input_yaml['OUTDIR']
     prefix     = stage_prefix(ISTAGE)
     table_file = config.table_file    
 
@@ -308,11 +314,38 @@ def read_table(ISTAGE, config):
 
     table_file_path = f"{OUTDIR}/{table_file}.gz"
     df = pd.read_csv(table_file_path, comment="#", delim_whitespace=True)
+
+    # assign integer IDFIELD = 0, 1, 2, ... NFIELD_GROUP-1 to each row         
+    NFIELD_GROUP = input_yaml['NFIELD_GROUP']
+    if NFIELD_GROUP > 0 :
+        FIELD_LISTS = input_yaml['FIELD_GROUP_LISTS']
+        print(f"   Add {COLNAME_IFIELD} column to table ...")
+        df[COLNAME_IFIELD] = \
+            df.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+
     print(f"\n xxx df = \n{df} \n")
 
     return df
     # end read_table
 
+def get_IFIELD(FIELD,config):
+
+    # return IFIELD index for this FIELD string input..
+    # Input FIELD_LISTS is a list of lists; e..g,
+    # [ ['X3','C3'] , ['S1', 'S2', 'X1', 'X2'] ]
+    #
+    # Note that overlap fields (e.g., S1+S2) will return -9
+
+    input_yaml     = config.input_yaml
+    FIELD_LISTS    = input_yaml['FIELD_GROUP_LISTS']
+
+    ifield = 0
+    for field_list in FIELD_LISTS:
+        if FIELD in field_list: return ifield
+        ifield += 1
+
+    return -9
+    # end get_IFIELD
 
 def effsnr_binned(ISTAGE, config):
 

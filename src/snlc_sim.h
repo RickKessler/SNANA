@@ -1540,7 +1540,7 @@ struct {
 } SIMLIB_LIST_forSORT ;
 
 
-#define ALLFIELDS  "ALLFIELDS"
+
 struct SIMLIB_TEMPLATE {
 
   int    USEFLAG ;      // logical to use correlated template noise

@@ -3387,7 +3387,6 @@ c ---------- BEGIN ---------
       USE_KCOR = .true.
 +SELF.
 
-+SELF,IF=KCOR.
 
 c prep arguments ...
 
@@ -3472,21 +3471,6 @@ c store number of obs-frame and rest-frame filters
 c check if BX filter is defined for OBS and REST fram
       CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
 cc      print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
-
-c xxxxxxxxxx mark delete Nov 29 2022 xxxxxxxx
-c set zrange_KCOR to protect photo-z fits that use K-corrections
-c      ZRANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
-c      ZRANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
-c      ZBINSIZE_KCOR  = 0.0
-c      CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
-c      IF ( ZMAX_KCOR > .1 ) THEN
-c          ZRANGE_KCOR(1) = ZMIN_KCOR
-c          ZRANGE_KCOR(2) = ZMAX_KCOR
-c	  ZBINSIZE_KCOR  = ZBIN_KCOR
-c      ENDIF
-c xxxxxxxxxx end mark xxxxxx
-
-+SELF.
 
       RETURN
       END  ! end READ_CALIB_WRAPPER
@@ -26321,6 +26305,409 @@ c xxxxxxxxxxxxxxxxx
       END  ! end of MAGOBS_SHIFT_USRFUN
 
 
+C =======================================
++DECK,FUPDINI.
+      SUBROUTINE FILTER_UPDATE_INIT(IERR)
+c
+c If FILTER_UPDATE_PATH is defined, read FILTER.INFO
+c file for instructions on updating the filters for
+c each SN.
+c
+c Jun 15 2016:  CALL ENVreplace(FILTER_UPDATE_PATH)
+c
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,SNFILECOM.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IERR
+
+c local var
+
+      INTEGER 
+     &   LEN_UPDPATH, LEN_FULLPATH, L1, LEN_ROOT
+     &  ,iwd, NWD, IERROPEN, ifilt, LWD0, LWD1
+
+      character 
+     &   FILTINFO_FILE*(MXCHAR_FILENAME)
+     &  ,NAME_forC*(MXCHAR_FILENAME)
+     &  ,cwd*60, cwd_next*60, msg*100
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C --------------- BEGIN -------------
+
+      IERR = 0
+
+      OPT_FILTER_UPDATE    = 0
+      DO ifilt=1, MXFILT_ALL
+        DOFLAG_FILTER_UPDATE(ifilt) = 0
+      ENDDO
+
+      PREFIX_UPD_TRANSSN  = ' '     
+      PREFIX_UPD_TRANSREF = ' '
+      PREFIX_UPD_FILTDIR  = ' '
+      SUFFIX_UPD_TRANSSN  = ' '
+      SUFFIX_UPD_TRANSREF = ' ' 
+      SUFFIX_UPD_FILTDIR  = ' '
+      FILTINFO_UPD_SN     = .FALSE.
+      FILTINFO_UPD_REF    = .FALSE.
+
+      IF ( FILTER_UPDATE_PATH .EQ. ' ' ) RETURN
+
+      CALL ENVreplace(FILTER_UPDATE_PATH)
+
+      msg = 
+     &   "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
+      CALL PRBANNER(msg(1:60))
+
+c -------------------------------------------------------
+c first try $SNDATA_ROOT/filters/[FILTER_UPDATE_PATH]/
+c if not there, then try absolute path.
+
+      LEN_UPDPATH  = INDEX(FILTER_UPDATE_PATH,' ' ) -  1
+      LEN_ROOT     = INDEX(SNDATA_ROOT,' ') - 1
+
+      FILTER_UPDATE_TOPDIR = SNDATA_ROOT(1:LEN_ROOT) 
+     &    // '/filters/' // FILTER_UPDATE_PATH(1:LEN_UPDPATH)
+      LEN_FULLPATH  = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
+
+
+c check if/where FILTER.INFO exists ...
+      FILTINFO_FILE = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH) 
+     &                 // '/FILTER.INFO'
+      OPEN(UNIT=LUNTMP, FILE = FILTINFO_FILE,
+     &     IOSTAT = IERROPEN, STATUS='OLD')
+      IF ( IERROPEN .EQ. 0 ) THEN
+        CLOSE(UNIT = LUNTMP)
+      ELSE
+c try absolute path
+        LEN_FULLPATH = LEN_UPDPATH
+        FILTER_UPDATE_TOPDIR  = FILTER_UPDATE_PATH
+        FILTINFO_FILE = FILTER_UPDATE_PATH(1:LEN_UPDPATH)
+     &           // '/FILTER.INFO'
+      ENDIF
+
+      L1 = INDEX(FILTINFO_FILE,' ') - 1
+      print*,' Update Filter Response for each SN from : '
+      print*,' ', FILTINFO_FILE(1:L1)
+
+      NAME_forC = FILTINFO_FILE(1:L1)//char(0)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
+
+
+c parse enough to know which type of FILTER.INFO file we have;
+c set global  OPT_FILTER_UPDATE and call PARSE1_XXX or PARSE2_XXX
+c to do the appropriate parsing.
+
+      DO 10 iwd = 1, min(1000,NWD)
+
+          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0 )
+          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1 )
+
+          if ( cwd .EQ. ' ' ) goto 10
+
+          if ( CWD .EQ. 'FILTER_SUBDIR:' ) THEN
+             CALL PARSE1_FILTER_INFO(NWD)
+             OPT_FILTER_UPDATE  = OPT_FILTUPD_EACHSN
+             RETURN
+          ENDIF
+
+          if ( CWD .EQ. 'FILTER_PATH:' ) THEN
+             CALL PARSE2_FILTER_INFO(NWD)
+             OPT_FILTER_UPDATE  = OPT_FILTUPD_MAP
+             RETURN
+          ENDIF
+
+10    CONTINUE
+
+
+c if we get here then abort.
+
+      c1err = 'Cannot parse FILTER.INFO file'
+      c2err = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH)
+      CALL MADABORT("FILTER_UPDATE_INIT", c1err, c2err)
+
+      RETURN
+      END  ! end FILTER_UPDATE_INIT
+
+C ======================================
++DECK,PRS1FUPD.
+      SUBROUTINE PARSE1_FILTER_INFO(NWD)
+
+c parse FILTER.INFO file that has a different filter set
+c for each SN.
+
+      IMPLICIT NONE
+
+      INTEGER NWD ! (I) number of words in file
++CDE,SNPAR.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IWD, istar, LEN
+
+      character 
+     &   FILTER_SUBDIR*(MXCHAR_PATH)
+     &  ,cwd*(MXCHAR_FILEWORD)
+     &  ,cwd_next*(MXCHAR_FILEWORD)
+     &  ,copt*(MXCHAR_FILEWORD)
+     &  ,c1err*80, c2err*80
+
+      LOGICAL LDUMP 
+
+C ----------- BEGIN ----------
+
+      DO 10 iwd = 1, NWD-1
+
+          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN)
+          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN)
+
+          if ( cwd .EQ. ' ' ) goto 10
+
+          if ( cwd .EQ. 'FILTER_SUBDIR:' ) then
+            FILTER_SUBDIR = cwd_next
+            istar = Index(FILTER_SUBDIR,'{SNID}')
+            PREFIX_UPD_FILTDIR = FILTER_SUBDIR(1:istar-1)
+            SUFFIX_UPD_FILTDIR = FILTER_SUBDIR(istar+6:99)
+          endif
+
+          if ( cwd .EQ. 'FILETRANS_SN:' ) then
+            CALL SET_FILTINFO_UPD("SN", cwd_next)
+          endif
+          if ( cwd .EQ. 'FILETRANS_REF:' ) then
+            CALL SET_FILTINFO_UPD("REF", cwd_next)
+          endif
+
+          if ( cwd(1:7) .EQ. 'OPTION:' ) then
+             copt = cwd_next
+             if ( copt(1:7) .EQ. 'DEFAULT' ) then
+
+             else if ( copt(1:8) .EQ. 'SAMEFILT' ) then
+               OPT_FILTER_UPDATE  = OPT_FILTUPD_SAMEFILT
+             else
+               C1ERR = 'Invalid FilterFile.INFO OPTION: ' // copt(1:20)
+               C2ERR = 'Valid options: DEFAULT SAMEFILT '
+               CALL MADABORT("FILTER_UPDATE_INIT", C1ERR, C2ERR )
+             endif
+          endif
+
+10    CONTINUE
+
+      LDUMP = .false.
+      if ( LDUMP ) then
+          print*, ' xxxxxx FILTER_SUBDIR= ', FILTER_SUBDIR(1:20)
+          print*, ' xxxxxx   PREFIX_UPD_FILTDIR =',
+     &                       PREFIX_UPD_FILTDIR(1:20) 
+          print*, ' xxxxxx   SUFFIX_UPD_FILTDIR =',
+     &                       SUFFIX_UPD_FILTDIR(1:20) 
+      endif
+
+      RETURN
+      END
+
+C ======================================
++DECK,PRS2FUPD.
+      SUBROUTINE PARSE2_FILTER_INFO(NWD)
+
+c Created July 16, 2011 by R.Kessler
+c parse FILTER.INFO file that has a defined set of filters
+c such as one set per SDSS-CCD column.
+c IMAP is a sparse index 1-NMAP
+c INDX is the absolute filter-path index in the FILTER.INFO file.
+c
+c Load MAP1_FILTER_UPDATE (subdir vs. index) and 
+c MAP2_FILTER_UPDATE (index vs. CCID)
+c
+c ------------------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
+c+CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER NWD  ! (I) number of words to check
+
+      INTEGER 
+     &   IWD, INDX, LEN
+     &  ,IMAP1, IMAP1_STORE, NMAP1, NMAP2
+
+      character
+     &   cwd0*(MXCHAR_FILEWORD)
+     &  ,cwd1*(MXCHAR_FILEWORD)
+     &  ,cwd2*(MXCHAR_FILEWORD)
+     &  ,ccid*(MXCHAR_CCID)
+     &  ,c1err*80, c2err*80
+
+C ---------------- BEGIN -------------
+
+      NMAP1_FILTER_UPDATE = 0
+      NMAP2_FILTER_UPDATE = 0
+
+      NMAP1 = 0
+      NMAP2 = 0
+
+      DO 10 iwd = 1, NWD-2
+
+          call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN)
+          call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN)
+          call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN)
+
+          if ( cwd0 .EQ. ' ' ) goto 10
+
+
+          if ( cwd0 .EQ. 'FILTER_PATH:' ) then
+             read(cwd1,*) INDX
+
+             NMAP1 = NMAP1 + 1
+             NMAP1_FILTER_UPDATE = NMAP1
+
+             if ( NMAP1 .GT. MXMAP1_FILTER_UPDATE ) then
+               write(c1err,1660) NMAP1, MXMAP1_FILTER_UPDATE
+1660           format('NMAP=',I3,
+     &           ' exceeds bound of MXMAP1_FILTER_UPDATE=',I3)
+               c2err = 'Increase bound or reduce NMAP'
+               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
+             endif
+             MAP1_FILTER_UPDATE_INDX(NMAP1)    = INDX
+             MAP1_FILTER_UPDATE_SUBDIR(NMAP1)  = CWD2
+          endif
+
+          if ( cwd0 .EQ. 'FILETRANS_SN:' ) then
+            CALL SET_FILTINFO_UPD('SN', cwd1)
+          endif
+          if ( cwd0 .EQ. 'FILETRANS_REF:' ) then
+            CALL SET_FILTINFO_UPD('REF', cwd1)
+          endif
+
+
+
+          if ( cwd0 .EQ. 'SN:' ) then
+             CCID = cwd1(1:MXCHAR_CCID)
+             read(cwd2,*) INDX
+
+c translate INDX to sparse IMAP1
+             IMAP1_STORE = -9
+             DO imap1 = 1, NMAP1_FILTER_UPDATE
+                if ( MAP1_FILTER_UPDATE_INDX(imap1) .EQ. INDX) then
+                   imap1_store = imap1
+                endif
+             END DO
+
+             if ( IMAP1_STORE .LE. 0 ) then
+               write(c1err,670) INDX, CCID
+               c2err = 'Check FILTER.INFO file.'
+670            format('Undefined INDX=',I8,'   for  CID = ',A8)
+               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
+             endif
+
+c update 2nd map
+             NMAP2 = NMAP2 + 1
+             NMAP2_FILTER_UPDATE = NMAP2
+
+             if ( NMAP2 .GT. MXSNLC_FILTUPD ) then
+                write(c1err,661) MXSNLC_FILTUPD
+661             format('MAP2 size exceeds bound of MXSNLC_FILTUPD=',I6)
+                c2err = 'Check FILTER.INFO file.'
+                CALL MADABORT("PARSE2_FILTER_INFO", C1ERR, C2ERR)
+             endif
+             
+             MAP2_FILTER_UPDATE_CCID(NMAP2)    = CCID
+             MAP2_FILTER_UPDATE_PTRMAP1(NMAP2) = IMAP1_STORE
+
+          endif  !   'SN:' key
+
+
+10    CONTINUE
+
+c ---------------------------------------------------------
+
+      write(6,60) NMAP1_FILTER_UPDATE
+60    format(T4,'Found ',I2,' filter sets to use for updates.')
+
+      write(6,61) NMAP2_FILTER_UPDATE
+61    format(T4,'Filter update map stored for ',I6,' SNe.' )
+
+      print*,' -------------------------------------------------- '
+
+      RETURN
+      END
+
+C =================================
++DECK,SETFUPD.
+      SUBROUTINE SET_FILTINFO_UPD(KEY,STRING)
+c
+c Created Jul 16, 2011
+c
+c Parse STRING for asterisk, and store PREFIX and SUFFIX
+c before/after the asterisk. Used later to determine the
+c name of the filter transmission  file where the  asterisk
+c is replaced with the filter-character.
+c
+c Jul 5 2013: string-length fixes to avoid segfault in debug mode.
+c             See use of LKEY and LSTR.
+c
+c ---------
+
+      IMPLICIT  NONE
+
+c input arguments
+      CHARACTER KEY*(*)     ! (I) 'SN' or 'REF'
+      CHARACTER STRING*(*)  ! (I) string to define filter filename
+ 
+c local variables
+
++CDE,SNPAR.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+  
+      INTEGER istar, LSTR, LKEY
+      LOGICAL LDUMP 
+C ------------ BEGIN -------------
+ 
+      LSTR = INDEX(STRING,' ' ) - 1
+      LKEY = INDEX(KEY//' ',   ' ' ) - 1
+
+      istar = Index(STRING,'*')
+
+      IF ( KEY(1:LKEY) .EQ. 'REF' ) THEN
+          PREFIX_UPD_TRANSREF = STRING(1:istar-1)
+          SUFFIX_UPD_TRANSREF = STRING(istar+1:LSTR)
+          FILTINFO_UPD_REF = .TRUE. 
+
+      ELSE IF ( KEY(1:LKEY) .EQ. 'SN' ) THEN
+          PREFIX_UPD_TRANSSN = STRING(1:istar-1)
+          SUFFIX_UPD_TRANSSN = STRING(istar+1:LSTR)
+          FILTINFO_UPD_SN = .TRUE. 
+
+      ELSE
+
+      ENDIF
+
+c print comment about filename syntax
+
+      LDUMP = .TRUE.
+      IF ( LDUMP ) THEN
+         write(6,20) KEY, STRING(1:LSTR)
+20       format(T4,'Filter-Trans filenames(', A, ') : ''',A, 
+     &          '''  with * => filter' )
+      ENDIF
+
+      RETURN
+      END  ! end  SET_FILTINFO_UPD
+
+
 C =======================
 +PATCH,*CALIB_LEGACY.
 C =======================
@@ -30338,139 +30725,6 @@ c init multi-dimensional index maps
       RETURN
       END
 
-C =======================================
-+DECK,FUPDINI.
-      SUBROUTINE FILTER_UPDATE_INIT(IERR)
-c
-c If FILTER_UPDATE_PATH is defined, read FILTER.INFO
-c file for instructions on updating the filters for
-c each SN.
-c
-c Jun 15 2016:  CALL ENVreplace(FILTER_UPDATE_PATH)
-c
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,SNFILECOM.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IERR
-
-c local var
-
-      INTEGER 
-     &   LEN_UPDPATH, LEN_FULLPATH, L1, LEN_ROOT
-     &  ,iwd, NWD, IERROPEN, ifilt, LWD0, LWD1
-
-      character 
-     &   FILTINFO_FILE*(MXCHAR_FILENAME)
-     &  ,NAME_forC*(MXCHAR_FILENAME)
-     &  ,cwd*60, cwd_next*60, msg*100
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-
-C --------------- BEGIN -------------
-
-      IERR = 0
-
-      OPT_FILTER_UPDATE    = 0
-      DO ifilt=1, MXFILT_ALL
-        DOFLAG_FILTER_UPDATE(ifilt) = 0
-      ENDDO
-
-      PREFIX_UPD_TRANSSN  = ' '     
-      PREFIX_UPD_TRANSREF = ' '
-      PREFIX_UPD_FILTDIR  = ' '
-      SUFFIX_UPD_TRANSSN  = ' '
-      SUFFIX_UPD_TRANSREF = ' ' 
-      SUFFIX_UPD_FILTDIR  = ' '
-      FILTINFO_UPD_SN     = .FALSE.
-      FILTINFO_UPD_REF    = .FALSE.
-
-      IF ( FILTER_UPDATE_PATH .EQ. ' ' ) RETURN
-
-      CALL ENVreplace(FILTER_UPDATE_PATH)
-
-      msg = 
-     &   "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
-      CALL PRBANNER(msg(1:60))
-
-c -------------------------------------------------------
-c first try $SNDATA_ROOT/filters/[FILTER_UPDATE_PATH]/
-c if not there, then try absolute path.
-
-      LEN_UPDPATH  = INDEX(FILTER_UPDATE_PATH,' ' ) -  1
-      LEN_ROOT     = INDEX(SNDATA_ROOT,' ') - 1
-
-      FILTER_UPDATE_TOPDIR = SNDATA_ROOT(1:LEN_ROOT) 
-     &    // '/filters/' // FILTER_UPDATE_PATH(1:LEN_UPDPATH)
-      LEN_FULLPATH  = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
-
-
-c check if/where FILTER.INFO exists ...
-      FILTINFO_FILE = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH) 
-     &                 // '/FILTER.INFO'
-      OPEN(UNIT=LUNTMP, FILE = FILTINFO_FILE,
-     &     IOSTAT = IERROPEN, STATUS='OLD')
-      IF ( IERROPEN .EQ. 0 ) THEN
-        CLOSE(UNIT = LUNTMP)
-      ELSE
-c try absolute path
-        LEN_FULLPATH = LEN_UPDPATH
-        FILTER_UPDATE_TOPDIR  = FILTER_UPDATE_PATH
-        FILTINFO_FILE = FILTER_UPDATE_PATH(1:LEN_UPDPATH)
-     &           // '/FILTER.INFO'
-      ENDIF
-
-      L1 = INDEX(FILTINFO_FILE,' ') - 1
-      print*,' Update Filter Response for each SN from : '
-      print*,' ', FILTINFO_FILE(1:L1)
-
-      NAME_forC = FILTINFO_FILE(1:L1)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
-
-
-c parse enough to know which type of FILTER.INFO file we have;
-c set global  OPT_FILTER_UPDATE and call PARSE1_XXX or PARSE2_XXX
-c to do the appropriate parsing.
-
-      DO 10 iwd = 1, min(1000,NWD)
-
-          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0 )
-          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1 )
-
-          if ( cwd .EQ. ' ' ) goto 10
-
-          if ( CWD .EQ. 'FILTER_SUBDIR:' ) THEN
-             CALL PARSE1_FILTER_INFO(NWD)
-             OPT_FILTER_UPDATE  = OPT_FILTUPD_EACHSN
-             RETURN
-          ENDIF
-
-          if ( CWD .EQ. 'FILTER_PATH:' ) THEN
-             CALL PARSE2_FILTER_INFO(NWD)
-             OPT_FILTER_UPDATE  = OPT_FILTUPD_MAP
-             RETURN
-          ENDIF
-
-10    CONTINUE
-
-
-c if we get here then abort.
-
-      c1err = 'Cannot parse FILTER.INFO file'
-      c2err = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH)
-      CALL MADABORT("FILTER_UPDATE_INIT", c1err, c2err)
-
-      RETURN
-      END
-
 
 C =========================================
 +DECK,GET_AVWARP8.
@@ -32132,275 +32386,6 @@ c now flip the color and filters
 101   CONTINUE
 
       USE_AVWARPTABLE = .TRUE.
-
-      RETURN
-      END
-
-C ======================================
-+DECK,PRS1FUPD.
-      SUBROUTINE PARSE1_FILTER_INFO(NWD)
-
-c parse FILTER.INFO file that has a different filter set
-c for each SN.
-
-      IMPLICIT NONE
-
-      INTEGER NWD ! (I) number of words in file
-+CDE,SNPAR.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IWD, istar, LEN
-
-      character 
-     &   FILTER_SUBDIR*(MXCHAR_PATH)
-     &  ,cwd*(MXCHAR_FILEWORD)
-     &  ,cwd_next*(MXCHAR_FILEWORD)
-     &  ,copt*(MXCHAR_FILEWORD)
-     &  ,c1err*80, c2err*80
-
-      LOGICAL LDUMP 
-
-C ----------- BEGIN ----------
-
-      DO 10 iwd = 1, NWD-1
-
-          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN)
-          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN)
-
-          if ( cwd .EQ. ' ' ) goto 10
-
-          if ( cwd .EQ. 'FILTER_SUBDIR:' ) then
-            FILTER_SUBDIR = cwd_next
-            istar = Index(FILTER_SUBDIR,'{SNID}')
-            PREFIX_UPD_FILTDIR = FILTER_SUBDIR(1:istar-1)
-            SUFFIX_UPD_FILTDIR = FILTER_SUBDIR(istar+6:99)
-          endif
-
-          if ( cwd .EQ. 'FILETRANS_SN:' ) then
-            CALL SET_FILTINFO_UPD("SN", cwd_next)
-          endif
-          if ( cwd .EQ. 'FILETRANS_REF:' ) then
-            CALL SET_FILTINFO_UPD("REF", cwd_next)
-          endif
-
-          if ( cwd(1:7) .EQ. 'OPTION:' ) then
-             copt = cwd_next
-             if ( copt(1:7) .EQ. 'DEFAULT' ) then
-
-             else if ( copt(1:8) .EQ. 'SAMEFILT' ) then
-               OPT_FILTER_UPDATE  = OPT_FILTUPD_SAMEFILT
-             else
-               C1ERR = 'Invalid FilterFile.INFO OPTION: ' // copt(1:20)
-               C2ERR = 'Valid options: DEFAULT SAMEFILT '
-               CALL MADABORT("FILTER_UPDATE_INIT", C1ERR, C2ERR )
-             endif
-          endif
-
-10    CONTINUE
-
-      LDUMP = .false.
-      if ( LDUMP ) then
-          print*, ' xxxxxx FILTER_SUBDIR= ', FILTER_SUBDIR(1:20)
-          print*, ' xxxxxx   PREFIX_UPD_FILTDIR =',
-     &                       PREFIX_UPD_FILTDIR(1:20) 
-          print*, ' xxxxxx   SUFFIX_UPD_FILTDIR =',
-     &                       SUFFIX_UPD_FILTDIR(1:20) 
-      endif
-
-      RETURN
-      END
-
-C ======================================
-+DECK,PRS2FUPD.
-      SUBROUTINE PARSE2_FILTER_INFO(NWD)
-
-c Created July 16, 2011 by R.Kessler
-c parse FILTER.INFO file that has a defined set of filters
-c such as one set per SDSS-CCD column.
-c IMAP is a sparse index 1-NMAP
-c INDX is the absolute filter-path index in the FILTER.INFO file.
-c
-c Load MAP1_FILTER_UPDATE (subdir vs. index) and 
-c MAP2_FILTER_UPDATE (index vs. CCID)
-c
-c ------------------------
-
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-c+CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER NWD  ! (I) number of words to check
-
-      INTEGER 
-     &   IWD, INDX, LEN
-     &  ,IMAP1, IMAP1_STORE, NMAP1, NMAP2
-
-      character
-     &   cwd0*(MXCHAR_FILEWORD)
-     &  ,cwd1*(MXCHAR_FILEWORD)
-     &  ,cwd2*(MXCHAR_FILEWORD)
-     &  ,ccid*(MXCHAR_CCID)
-     &  ,c1err*80, c2err*80
-
-C ---------------- BEGIN -------------
-
-      NMAP1_FILTER_UPDATE = 0
-      NMAP2_FILTER_UPDATE = 0
-
-      NMAP1 = 0
-      NMAP2 = 0
-
-      DO 10 iwd = 1, NWD-2
-
-          call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN)
-          call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN)
-          call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN)
-
-          if ( cwd0 .EQ. ' ' ) goto 10
-
-
-          if ( cwd0 .EQ. 'FILTER_PATH:' ) then
-             read(cwd1,*) INDX
-
-             NMAP1 = NMAP1 + 1
-             NMAP1_FILTER_UPDATE = NMAP1
-
-             if ( NMAP1 .GT. MXMAP1_FILTER_UPDATE ) then
-               write(c1err,1660) NMAP1, MXMAP1_FILTER_UPDATE
-1660           format('NMAP=',I3,
-     &           ' exceeds bound of MXMAP1_FILTER_UPDATE=',I3)
-               c2err = 'Increase bound or reduce NMAP'
-               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
-             endif
-             MAP1_FILTER_UPDATE_INDX(NMAP1)    = INDX
-             MAP1_FILTER_UPDATE_SUBDIR(NMAP1)  = CWD2
-          endif
-
-          if ( cwd0 .EQ. 'FILETRANS_SN:' ) then
-            CALL SET_FILTINFO_UPD('SN', cwd1)
-          endif
-          if ( cwd0 .EQ. 'FILETRANS_REF:' ) then
-            CALL SET_FILTINFO_UPD('REF', cwd1)
-          endif
-
-
-
-          if ( cwd0 .EQ. 'SN:' ) then
-             CCID = cwd1(1:MXCHAR_CCID)
-             read(cwd2,*) INDX
-
-c translate INDX to sparse IMAP1
-             IMAP1_STORE = -9
-             DO imap1 = 1, NMAP1_FILTER_UPDATE
-                if ( MAP1_FILTER_UPDATE_INDX(imap1) .EQ. INDX) then
-                   imap1_store = imap1
-                endif
-             END DO
-
-             if ( IMAP1_STORE .LE. 0 ) then
-               write(c1err,670) INDX, CCID
-               c2err = 'Check FILTER.INFO file.'
-670            format('Undefined INDX=',I8,'   for  CID = ',A8)
-               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
-             endif
-
-c update 2nd map
-             NMAP2 = NMAP2 + 1
-             NMAP2_FILTER_UPDATE = NMAP2
-
-             if ( NMAP2 .GT. MXSNLC_FILTUPD ) then
-                write(c1err,661) MXSNLC_FILTUPD
-661             format('MAP2 size exceeds bound of MXSNLC_FILTUPD=',I6)
-                c2err = 'Check FILTER.INFO file.'
-                CALL MADABORT("PARSE2_FILTER_INFO", C1ERR, C2ERR)
-             endif
-             
-             MAP2_FILTER_UPDATE_CCID(NMAP2)    = CCID
-             MAP2_FILTER_UPDATE_PTRMAP1(NMAP2) = IMAP1_STORE
-
-          endif  !   'SN:' key
-
-
-10    CONTINUE
-
-c ---------------------------------------------------------
-
-      write(6,60) NMAP1_FILTER_UPDATE
-60    format(T4,'Found ',I2,' filter sets to use for updates.')
-
-      write(6,61) NMAP2_FILTER_UPDATE
-61    format(T4,'Filter update map stored for ',I6,' SNe.' )
-
-      print*,' -------------------------------------------------- '
-
-      RETURN
-      END
-
-C =================================
-+DECK,SETFUPD.
-      SUBROUTINE SET_FILTINFO_UPD(KEY,STRING)
-c
-c Created Jul 16, 2011
-c
-c Parse STRING for asterisk, and store PREFIX and SUFFIX
-c before/after the asterisk. Used later to determine the
-c name of the filter transmission  file where the  asterisk
-c is replaced with the filter-character.
-c
-c Jul 5 2013: string-length fixes to avoid segfault in debug mode.
-c             See use of LKEY and LSTR.
-c
-c ---------
-
-      IMPLICIT  NONE
-
-c input arguments
-      CHARACTER KEY*(*)     ! (I) 'SN' or 'REF'
-      CHARACTER STRING*(*)  ! (I) string to define filter filename
- 
-c local variables
-
-+CDE,SNPAR.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-  
-      INTEGER istar, LSTR, LKEY
-      LOGICAL LDUMP 
-C ------------ BEGIN -------------
- 
-      LSTR = INDEX(STRING,' ' ) - 1
-      LKEY = INDEX(KEY//' ',   ' ' ) - 1
-
-      istar = Index(STRING,'*')
-
-      IF ( KEY(1:LKEY) .EQ. 'REF' ) THEN
-          PREFIX_UPD_TRANSREF = STRING(1:istar-1)
-          SUFFIX_UPD_TRANSREF = STRING(istar+1:LSTR)
-          FILTINFO_UPD_REF = .TRUE. 
-
-      ELSE IF ( KEY(1:LKEY) .EQ. 'SN' ) THEN
-          PREFIX_UPD_TRANSSN = STRING(1:istar-1)
-          SUFFIX_UPD_TRANSSN = STRING(istar+1:LSTR)
-          FILTINFO_UPD_SN = .TRUE. 
-
-      ELSE
-
-      ENDIF
-
-c print comment about filename syntax
-
-      LDUMP = .TRUE.
-      IF ( LDUMP ) THEN
-         write(6,20) KEY, STRING(1:LSTR)
-20       format(T4,'Filter-Trans filenames(', A, ') : ''',A, 
-     &          '''  with * => filter' )
-      ENDIF
 
       RETURN
       END

@@ -358,13 +358,15 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
   // Created Mar 7 2018
   // Code moved from init_SEARCHEFF_PIPELINE as part of refactor,
   // to allow reading PHOTPROB map in future upgrades.
+  // Function returns 1 if map is found; 0 otherwise
   //
+  // Nov 30 2022: read FIELD key
   //
 
   double VAL, EFF;
   int  IREAD, imap, NBIN ;
-  char cfilt[MXFILTINDX] ;
-  //  char fnam[] = "readMap_SEARCHEFF_DETECT";
+  char ctmp[MXFILTINDX] ;
+  char fnam[] = "readMap_SEARCHEFF_DETECT";
 
   // ------------ BEGIN -------------
 
@@ -391,11 +393,17 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
       imap = malloc_NEXTMAP_SEARCHEFF_DETECT(); 
       MAPVERSION_SEARCHEFF_DETECT = 1 ;
     }
-    readchar(fp,cfilt);
-    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", cfilt);
+    readchar(fp,ctmp);
+    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", ctmp);
     return(1);
   }
   
+  if ( strcmp(key,"FIELD:")==0 ) {           // Nov 30 2022
+    imap = INPUTS_SEARCHEFF.NMAP_DETECT-1 ; 
+    readchar(fp,ctmp);
+    sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%s", ctmp);
+    return(1);    
+  }
 
   IREAD = 0;
   if ( strcmp(key,"SNR:") == 0 ) 
@@ -434,6 +442,9 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   MEMD  = MXROW_SEARCHEFF_DETECT * sizeof(double);
   SEARCHEFF_DETECT[imap].VAL = (double*)malloc(MEMD);
   SEARCHEFF_DETECT[imap].EFF = (double*)malloc(MEMD);
+  SEARCHEFF_DETECT[imap].FILTERLIST[0] = 0 ;
+  sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%s", ALL);
+
   return(imap);
 } // end malloc_NEXTMAP_SEARCHEFF_DETECT
 
@@ -487,8 +498,8 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
     SEARCHEFF_PHOTPROB[imap].REQUIRE_DETECTION = 0 ;
     SEARCHEFF_PHOTPROB[imap].CUTVAL         = -999.0 ;
     SEARCHEFF_PHOTPROB[imap].REDUCED_CORR      = 0 ;
-    sprintf( SEARCHEFF_PHOTPROB[imap].FIELDLIST, "ALL") ;
-    sprintf( SEARCHEFF_PHOTPROB[imap].FILTERLIST,"ALL") ;
+    sprintf( SEARCHEFF_PHOTPROB[imap].FIELDLIST,  "%s", ALL) ;
+    sprintf( SEARCHEFF_PHOTPROB[imap].FILTERLIST, "%s", ALL) ;
 
     if ( imap == 0 ) {
       sprintf(VARDEF_SEARCHEFF_PHOTPROB[IVARABS_PHOTPROB_SNR],     "SNR"   );
@@ -1061,7 +1072,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
     SEARCHEFF_SPEC[imap].IVAR_PEAKMJD   = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_DTPEAK    = -9 ;
     SEARCHEFF_SPEC[imap].IVAR_SALT2mB   = -9 ;
-    sprintf(SEARCHEFF_SPEC[imap].FIELDLIST, "ALL" ); // default is all fields
+    sprintf(SEARCHEFF_SPEC[imap].FIELDLIST, "%s", ALL ); // default is all fields
 
     for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_SPEC; ivar++ ) {
       SEARCHEFF_SPEC[imap].IVARTYPE[ivar]              = -9 ;
@@ -1119,7 +1130,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   printf("   Reading spectroscopic efficiency from \n\t %s\n", 
 	 ptrFile_final );
 
-  NVAR = NROW = NMAP = 0;   sprintf(FIELDLIST,"ALL");
+  NVAR = NROW = NMAP = 0;   sprintf(FIELDLIST,"%s", ALL);
 
   sprintf(c2err,"%s", "Check spec-eff file above");
 
@@ -1372,7 +1383,7 @@ void read_zHOST_FILE(FILE *fp) {
     ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar]; 
   }
   NMAP = NVAR = 0;    
-  sprintf(FIELDLIST,"ALL");
+  sprintf(FIELDLIST,"%s", ALL);
   PEAKMJD_RANGE[0] = 10000.0;
   PEAKMJD_RANGE[1] = 90000.0;
 
@@ -1571,7 +1582,7 @@ void read_zHOST_FILE_LEGACY(FILE *fp) {
 
       // if FIELDLIST not given, then associate ALL fields with map
       if ( NMAP==0 && strcmp(ptrField,"NONE")==0 ) 
-	{ sprintf(ptrField,"ALL"); NMAP++ ; }
+	{ sprintf(ptrField,"%s", ALL); NMAP++ ; }
 
       imap = NMAP-1 ; 
       if ( NMAP < MXMAP_SEARCHEFF_zHOST ) {
@@ -2028,24 +2039,20 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   //             which don't have efficiency maps, whild gri do.
   // Feb 15 2022: add more info for isnan abort.
   // Jun 15 2022: check opt for single-exposure detections instead of coadd
+  // Nov 30 2022: check for FIELD dependence
 
   int NMAP                = INPUTS_SEARCHEFF.NMAP_DETECT ;
   int APPLY_DETECT_SINGLE = INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE ;
 
-  double
-    MAG, SNR, MJD, EFF, FIX_EFF, XNEXPOSE
-    ,EFF_atmax, EFF_atmin, VAL_atmax, VAL_atmin, VAL
-    ,ZERO = 0.0
-    ,ONE  = 1.0
-    ;
+  double MAG, SNR, MJD, EFF, FIX_EFF, XNEXPOSE;
+  double EFF_atmax, EFF_atmin, VAL_atmax, VAL_atmin, VAL ;
+  double ZERO = 0.0, ONE  = 1.0 ;
 
-  int 
-    CID, ifilt_obs, NPE_SAT
-    ,OPT_INTERP  = 1   // 1=linear;  2=quadratic
-    ,NBIN_EFF, imap, IMAP, NMAP_FOUND=0
-    ;
+  int CID, ifilt_obs, NPE_SAT, NBIN_EFF, imap, IMAP, NMAP_FOUND=0;
+  int OPT_INTERP  = 1;   // 1=linear;  2=quadratic
+  bool MATCH_FILTER, MATCH_FIELD;
 
-  char cfilt[4];
+  char cfilt[4], *field_map, *filt_map;
   char fnam[] ="GETEFF_PIPELINE_DETECT" ;
 
   // ---------- BEGIN ---------
@@ -2056,11 +2063,20 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
   EFF       = 0.0 ;
 
-  // find map corresponding to filter
+  // find map corresponding to filter and [optional] FIELD
   ifilt_obs = SEARCHEFF_DATA.IFILTOBS[obs] ;  IMAP=-9;
   sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+
   for(imap=0; imap < NMAP; imap++ ) {
-    if ( strstr(SEARCHEFF_DETECT[imap].FILTERLIST,cfilt) != NULL ) 
+    field_map     = SEARCHEFF_DETECT[imap].FIELDLIST;
+    filt_map      = SEARCHEFF_DETECT[imap].FILTERLIST ;
+    MATCH_FILTER  = ( strstr(filt_map,cfilt) != NULL );
+    if ( strlen(field_map) > 0 ) 
+      { MATCH_FIELD   = MATCH_SEARCHEFF_FIELD(field_map); }
+    else
+      { MATCH_FIELD = true; }
+
+    if ( MATCH_FILTER && MATCH_FIELD ) 	
       {  IMAP = imap;   NMAP_FOUND++; }
   }
 
@@ -2204,7 +2220,7 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
 
     MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_TMP); // Feb 2021
 
-    if ( strcmp(FILT_TMP,"ALL")==0 )       { MATCH_FILT=1; }
+    if ( strcmp(FILT_TMP,ALL) ==0 )        { MATCH_FILT=1; }
     if ( strstr(FILT_TMP,FILT ) != NULL  ) { MATCH_FILT=1; }
 
     if ( MATCH_FIELD && MATCH_FILT ) { IMAP = imap;  NMATCH++ ; }
@@ -2726,15 +2742,16 @@ double interp_SEARCHEFF_zHOST(void) {
 } // end of interp_SEARCHEFF_zHOST
 
 
+// ===============================================
 bool MATCH_SEARCHEFF_FIELD(char *field_map) {
 
   // Created Feb 5 2021
-  // Return true of SEARCHEFF_DATA.FIELDLIST_OVP matches field_map.
+  // Return true iff SEARCHEFF_DATA.FIELDLIST_OVP matches field_map.
   // 
   // Ideally all overlap fields are checked, but this causes
   // downstream abort if an event overlaps two FIELDS.
   // Here we only check first field loaded in FIELDLIST_OVP;
-  // maybe somebody we'll have an algorithm for choosing
+  // maybe somebody will have an algorithm for choosing
   // among multiple FIELD-dependent maps.
   //
   // Previous logic had checked last overlap field (since each
@@ -2745,9 +2762,10 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
   int  NFIELD_OVP = SEARCHEFF_DATA.NFIELD_OVP;
   int  i;
   char *field_data;
+
   // ---------- BEGIN ----------
 
-  if ( strcmp(field_map,"ALL")      == 0    ) { return true ; }
+  if ( strcmp(field_map,ALL)      == 0    ) { return true ; }
 
   // xxx  for(i=0; i < NFIELD_OVP; i++ ) { // maybe someday ??
 

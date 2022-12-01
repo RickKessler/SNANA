@@ -141,6 +141,7 @@ int    MAPVERSION_SEARCHEFF_DETECT ; // allows legacy or new map style
 struct SEARCHEFF_PIPELINE {
   char   MAPNAME[40] ;
   int    NBIN ;
+  char   FIELDLIST[60] ;  // Nov 2022
   char   FILTERLIST[MXFILTINDX] ;
   double *VAL, *EFF ;
   int    NLINE_README;

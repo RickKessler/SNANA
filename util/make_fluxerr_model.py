@@ -7,7 +7,9 @@
 #  + create SIMLIB from fakes overlaid on images
 #  + run simulation using SIMLIB to have same epochs and mags as fakes
 #  + create tables with every observation
-#  + make fluxError maps
+#  + write fluxError maps to file 
+#     (argument of FLUXERRMODEL_FILE for snlc_sim and snlc_fit)
+#
 #
 # Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<50
 #             (initial use is LSST-DC2)

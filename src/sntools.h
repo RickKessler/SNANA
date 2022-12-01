@@ -108,6 +108,8 @@
 #define PLUS       "+"
 #define STAR       "*"
 #define DOT        "."
+#define ALL        "ALL"
+#define ALLFIELDS  "ALLFIELDS"
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)

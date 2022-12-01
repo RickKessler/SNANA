@@ -34,11 +34,13 @@ HOSTNAME      = os.uname()[1].split('.')[0]
 # and use this feature with Nsig >=0 to get everything.
 TABLE_NAME    = "OUTLIER"
 
-STRING_FIELDS = "FIELDS"
+STRING_FIELDS = "FIELDS"  # key in config file
 
+# column names in OUTLIER/flux table
 COLNAME_IFILTOBS = "IFILTOBS"
 COLNAME_BAND     = "BAND"
 COLNAME_IFIELD   = "IFIELD"
+
 
 NMLKEY_DATA_PATH   = 'PRIVATE_DATA_PATH'
 NMLKEY_VERSION     = 'VERSION_PHOTOMETRY'

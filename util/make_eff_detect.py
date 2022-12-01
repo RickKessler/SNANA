@@ -474,7 +474,7 @@ def open_mapfile(ISTAGE, config):
   USAGE_KEY:  SEARCHEFF_PIPELINE_EFF_FILE
   USAGE_CODE: snlc_sim.exe
   NOTES:
-      - SCRIPTNAME: {__name__}
+      - SCRIPTNAME: {__file__}
   VERSIONS:
       - DATE: {dt.date.today()}
       - CREATED_BY:  {USERNAME}
@@ -482,12 +482,8 @@ def open_mapfile(ISTAGE, config):
 DOCUMENTATION_END: \n\n"""
     
     config.ptr_mapfile.write(effdocumentation)
-    
-    config.ptr_mapfile.write(f"# EFF vs SNR for {config.survey}\n")
+    # config.ptr_mapfile.write(f"# EFF vs SNR for {config.survey}\n")
     config.ptr_mapfile.write(f"PHOTFLAG_DETECT: {photflag}\n")
-    
-    
-    
     #TODO: add some more details (user machine date)
     
     return 

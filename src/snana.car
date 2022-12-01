@@ -23012,8 +23012,11 @@ c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
-     &                   LENBLOCK, 20 )
+
+c xxxx mark delete ... looks like ROWNUM was accidentally duplicated
+c      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
+c     &                   LENBLOCK, 20 )
+c xxxxxxxxx end mark xxxxxxx
 
       VARLIST = 'FIELD:C*12' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,

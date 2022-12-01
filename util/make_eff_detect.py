@@ -19,6 +19,7 @@ import numpy as np
 from   argparse import Namespace
 import pandas as pd
 
+from scipy.optimize import curve_fit
 # --------------------------------
 # define a few handy globals
 
@@ -40,7 +41,8 @@ STRING_FIELDS = "FIELDS"  # key in config file
 COLNAME_IFILTOBS = "IFILTOBS"
 COLNAME_BAND     = "BAND"
 COLNAME_IFIELD   = "IFIELD"
-
+COLNAME_SNR_CALC = 'SNR_CALC'
+COLNAME_DETECT   = 'DETECT'
 
 NMLKEY_DATA_PATH   = 'PRIVATE_DATA_PATH'
 NMLKEY_VERSION     = 'VERSION_PHOTOMETRY'
@@ -253,7 +255,6 @@ def run_snana_job(config, nml_file, args_command_line):
     os.system(cmd)
     # end run_snana_job         
 
-
 def make_flux_table(ISTAGE,config):
 
     # run snana.exe with OUTLIER(nsig:0) to create flux table
@@ -308,6 +309,7 @@ def read_table(ISTAGE, config):
     input_yaml = config.input_yaml
 
     OUTDIR     = input_yaml['OUTDIR']
+    PHOTFLAG_DETECT = input_yaml['PHOTFLAG_DETECT']
     prefix     = stage_prefix(ISTAGE)
     table_file = config.table_file    
 
@@ -324,9 +326,16 @@ def read_table(ISTAGE, config):
         print(f"   Add {COLNAME_IFIELD} column to table ...")
         df[COLNAME_IFIELD] = \
             df.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+    
+    df[COLNAME_SNR_CALC] = df['FLUXCAL_TRUE']/df['FLUXCAL_ERR_CALC']
+    df[COLNAME_DETECT] = df.PHOTFLAG & PHOTFLAG_DETECT > 0
 
-    print(f"\n xxx df = \n{df} \n")
-
+    #print(f"\n xxx df = \n{df} \n")
+    #print(f"\n xxx df = \n{df.columns} \n")
+    #print(f"\n xxx df = \n{df[df.DETECT]} \n")
+    #TODO: abort if we have some nans
+    #print(f"\n xxx df = \n{np.sum(df.SNR_CALC.isna())} \n")  # CHECK NANs 
+    
     return df
     # end read_table
 
@@ -349,38 +358,117 @@ def get_IFIELD(FIELD,config):
     return -9
     # end get_IFIELD
 
-def effsnr_binned(ISTAGE, config):
+def fsigmoid(x, a, b):
+    return 1.0 / (1.0 + np.exp(-a*(x-b)))
+
+def effsnr_binned(ISTAGE, config, ifield, band):
 
     prefix     = stage_prefix(ISTAGE)
-    print(f"{prefix}: compute EFF(detect) in  SNR_calc bins");
+    #print(f"{prefix}: compute EFF(detect) in SNR_calc bins");
+
+    df = config.df_table
+    
+    snrmin = config.input_yaml['SNR_BINS_MIN']
+    snrmax = config.input_yaml['SNR_BINS_MAX']
+    snrstp = config.input_yaml['SNR_BINS_STEP']
+    
+    bins = np.arange(snrmin, snrmax+snrstp, snrstp)
+    center = bins[:-1] + snrstp/2.
+
+    counts, _ = np.histogram(df[COLNAME_SNR_CALC], bins=bins)
+    counts_detect, _ = np.histogram(
+        df[df[COLNAME_DETECT]==True][COLNAME_SNR_CALC], bins=bins
+    )
+    eff = counts_detect/counts
+    
+    # padding for empty bins.
+    eff[np.where(counts==0.)] = 0.
+    
+    # calculate error of bin counts
+    eff_err = np.sqrt(eff*(1-eff)/counts)
+    eff_err[np.where(counts==0.)] = 1
+    eff_err[np.where(eff_err==0)] = 0.01
+    
     sys.stdout.flush()
 
-    effsnr_binned_dict = {}
-
+    effsnr_binned_dict = {
+        'counts': counts,
+        'eff': eff,
+        'eff_err': eff_err,
+        'snrcalc_bincenter': center
+    }
+    
     return effsnr_binned_dict
     # end effsnr_binned
 
-def effsnr_fit(ISTAGE, config):
+def effsnr_fit(ISTAGE, config, effsnr_dict):
 
     prefix   = stage_prefix(ISTAGE)
-    print(f"{prefix}: fit sigmoid to smooth EFF(detect) vs SNR_calc");
+    #print(f"{prefix}: fit sigmoid to smooth EFF(detect) vs SNR_calc");
     sys.stdout.flush()
 
-    effsnr_fit_dict = {}
+    eff = effsnr_dict['eff']
+    eff_err = effsnr_dict['eff_err']
+    bincenter = effsnr_dict['snrcalc_bincenter']
 
+    (a_fit, b_fit), fitted_cov = curve_fit(
+        fsigmoid, bincenter, eff, sigma=eff_err, 
+        method='dogbox'
+        )
+    snr_at_half = np.round(b_fit, 3)
+
+    effsnr_fit_dict = {
+        'eff_smooth': fsigmoid(bincenter, a_fit, b_fit),
+        'bincenter' : bincenter,
+        'snr_at_half': snr_at_half,
+    }
     return effsnr_fit_dict
 
     # end effsnr_fit
 
-def write_map(ISTAGE, config):
+def write_map(ISTAGE, config, ifield, band, effsnr_smooth_dict):
     
-    map_file = f"SEARCHEFF_PIPELINE_EFF_{config.survey}.DAT"
-
+    ptr = config.ptr_mapfile
     prefix   = stage_prefix(ISTAGE)
-    print(f"{prefix}: write map to {map_file}")
+    print(f"{prefix}: write map to {config.map_file_name}")
     sys.stdout.flush()
-
+    field_names = config.input_yaml['FIELD_GROUP_NAMES'][ifield]
+    field_group = config.input_yaml['FIELD_GROUP_LISTS'][ifield]
+    map_name = f"EFF_DETECT_SNR_{band}_{field_names}"
+    ptr.write("\n")
+    ptr.write(f"MAPNAME_DETECT: {map_name}\n")
+    ptr.write(f"FILTER: {band}\n")
+    ptr.write(f"FIELD: {'+'.join(field_group)}\n")
+    
+    eff_smooth = effsnr_smooth_dict['eff_smooth']
+    bincenter = effsnr_smooth_dict['bincenter']
+    for snr, eff in zip(bincenter, eff_smooth):
+        ptr.write(f"SNR: {snr:7.3f} {eff:8.4f}\n")
+    ptr.write(f"SNR: {100:7.3f} {1:8.4f}\n")
+    ptr.write("ENDMAP:\n")
+    # snr_at_half = effsnr_smooth_dict['snr_at_half']
+    
+    
     # end write_map
+
+def open_mapfile(ISTAGE, config):
+    """Open the file to write the map
+    """
+    photflag = config.input_yaml['PHOTFLAG_DETECT']
+    
+    outdir = config.input_yaml['OUTDIR']
+    map_file = f"{outdir}/SEARCHEFF_PIPELINE_EFF_{config.survey}.DAT"
+    config.map_file_name = map_file
+
+    print(f"Creating the mapfile at {map_file}")
+    config.ptr_mapfile = open(map_file, mode='wt')
+    config.ptr_mapfile.write(f"# EFF vs SNR for {config.survey}\n")
+    config.ptr_mapfile.write(f"PHOTFLAG_DETECT: {photflag}\n")
+    
+    
+    #TODO: add some more details (user machine date)
+    
+    return 
 
 # =====================================
 #
@@ -400,18 +488,19 @@ if __name__ == "__main__":
 
     # run snana job to extract name of SURVEY from fake data
     config.survey, config.filters = get_survey_info(config)
-
+    config.filter_list = list(config.filters)
+    
     ISTAGE = 0
     print()
 
     # - - - - - - - - - - - 
     ISTAGE += 1
-    prep_outdir(ISTAGE,config)
+    prep_outdir(ISTAGE, config)
 
     # run snana on fakes (or sim); create OUTLIER table with nsig>=0
     # to include all flux observations
     ISTAGE += 1
-    config.table_file = make_flux_table(ISTAGE,config)
+    config.table_file = make_flux_table(ISTAGE, config)
 
     # =================================
     #  xxxxxxx BELOW IS FOR BRUNO
@@ -422,19 +511,23 @@ if __name__ == "__main__":
     config.df_table = read_table(ISTAGE, config)
 
     # xxxxxx need strategy to loop over FIELD group and band xxxxxx
-    
-    # construct Efficiency in SNR_calc bins
-    ISTAGE += 1    
-    config.effsnr_binned_dict = effsnr_binned(ISTAGE, config)
-
-    # smooth eff-vs-SNR with fit to sigmoid
-    ISTAGE += 1    
-    config.effsnr_smooth_dict = effsnr_fit(ISTAGE, config)
-
-    # finally, write the map for the simulation
     ISTAGE += 1
-    write_map(ISTAGE, config)
+    nfield_group = config.input_yaml['NFIELD_GROUP']
+    field_names = config.input_yaml['FIELD_GROUP_NAMES']
+    open_mapfile(ISTAGE, config)
+    
+    for ifield in range(0, nfield_group):
+        for band in config.filter_list:
+            print(f"Processing {band} bandpass, {field_names[ifield]} field")
+              
+            # construct Efficiency in SNR_calc bins
+            effsnr_binned_dict = effsnr_binned(ISTAGE, config, ifield, band)
+            
+            # smooth eff-vs-SNR with fit to sigmoid
+            effsnr_smooth_dict = effsnr_fit(ISTAGE, config, effsnr_binned_dict)
 
+            # print(effsnr_binned_dict['eff'] - effsnr_smooth_dict['eff_smooth'])
+
+            # finally, write the map for the simulation
+            write_map(ISTAGE, config, ifield, band, effsnr_smooth_dict)
     # END:
-
-

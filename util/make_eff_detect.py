@@ -365,11 +365,14 @@ def effsnr_binned(ISTAGE, config, ifield, band):
 
     prefix     = stage_prefix(ISTAGE)
     #print(f"{prefix}: compute EFF(detect) in SNR_calc bins");
-                
-    mask_band = config.df_table.BAND.isin([band])
-    mask_ifield = config.df_table.IFIELD.isin([ifield])
-    
-    df = config.df_table[mask_band & mask_ifield].copy()
+
+    if ifield is None or band is None:
+        df = config.df_table.copy()
+    else:
+        mask_band = config.df_table.BAND.isin([band])
+        mask_ifield = config.df_table.IFIELD.isin([ifield])
+        
+        df = config.df_table[mask_band & mask_ifield].copy()
     
     snrmin = config.input_yaml['SNR_BINS_MIN']
     snrmax = config.input_yaml['SNR_BINS_MAX']
@@ -533,8 +536,14 @@ if __name__ == "__main__":
     ISTAGE += 1
     nfield_group = config.input_yaml['NFIELD_GROUP']
     field_names = config.input_yaml['FIELD_GROUP_NAMES']
-    open_mapfile(ISTAGE, config)
     
+    # Build reference curves for all bands+fields. Only for plotting 
+    # Not used for map
+    print("Build references curves using all data for plotting only")
+    config.effsnr_ref_binned_dict = effsnr_binned(ISTAGE, config, None, None)
+    config.effsnr_ref_smooth_dict = effsnr_fit(ISTAGE, config, config.effsnr_ref_binned_dict)    
+    
+    open_mapfile(ISTAGE, config)
     for ifield in range(0, nfield_group):
         for band in config.filter_list:
             print(f"Processing {band} bandpass, {field_names[ifield]} field")
@@ -545,11 +554,9 @@ if __name__ == "__main__":
             # smooth eff-vs-SNR with fit to sigmoid
             effsnr_smooth_dict = effsnr_fit(ISTAGE, config, effsnr_binned_dict)
 
-            # print(effsnr_binned_dict['eff'] - effsnr_smooth_dict['eff_smooth'])
-
             # finally, write the map for the simulation
             write_map(ISTAGE, config, ifield, band, effsnr_smooth_dict)
-            
+
     print(f'\n EFF SNR {config.map_file_name} written')
 
     # END:

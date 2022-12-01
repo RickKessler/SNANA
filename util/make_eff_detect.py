@@ -303,10 +303,12 @@ def read_table(ISTAGE, config):
     prefix     = stage_prefix(ISTAGE)
     table_file = config.table_file    
 
-    print(f"{prefix}: read {table_file} and apply cuts")
+    print(f"{prefix}: read {table_file} ")
     sys.stdout.flush()
 
-    df = {}
+    table_file_path = f"{OUTDIR}/{table_file}.gz"
+    df = pd.read_csv(table_file_path, comment="#", delim_whitespace=True)
+    print(f"\n xxx df = \n{df} \n")
 
     return df
     # end read_table
@@ -384,6 +386,8 @@ if __name__ == "__main__":
     ISTAGE += 1    
     config.df_table = read_table(ISTAGE, config)
 
+    # xxxxxx need strategy to loop over FIELD group and band xxxxxx
+    
     # construct Efficiency in SNR_calc bins
     ISTAGE += 1    
     config.effsnr_binned_dict = effsnr_binned(ISTAGE, config)

@@ -435,7 +435,7 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   // Created March 2018
   // malloc next map, and return imap index.
   int imap, MEMD ;
-  //  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;
+  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;
   // ------------- BEGIN -------------
   INPUTS_SEARCHEFF.NMAP_DETECT++ ; 
   imap  = INPUTS_SEARCHEFF.NMAP_DETECT-1;
@@ -712,14 +712,11 @@ void check_SEARCHEFF_DETECT(int imap) {
   int NBIN    = SEARCHEFF_DETECT[imap].NBIN ;
   char *cfilt = SEARCHEFF_DETECT[imap].FILTERLIST ;
 
-  int ibin, i, IBIN_HALF, IBIN_ONE ;
+  int     ibin, i, IBIN_HALF, IBIN_ONE ;
   double  VAL, VAL_LAST, EFF, EFFDIF, EFFDIF_ONE, EFFDIF_HALF ;
 
-  char 
-    *ptr_effname 
-    ,cline[MXPATHLEN]
-    ,fnam[] = "check_SEARCHEFF_DETECT" 
-    ;
+  char  *ptr_effname, *MAPNAME, cline[MXPATHLEN] ;
+  char fnam[] = "check_SEARCHEFF_DETECT" ;
 
   // ------------ BEGIN -------------
 
@@ -743,12 +740,9 @@ void check_SEARCHEFF_DETECT(int imap) {
   IBIN_HALF  = IBIN_ONE = 0;
 
   for ( ibin=0; ibin < NBIN; ibin++ ) {
-    //  for ( ibin=1; ibin <= NBIN; ibin++ ) {
 
     VAL =  SEARCHEFF_DETECT[imap].VAL[ibin] ;
     EFF =  SEARCHEFF_DETECT[imap].EFF[ibin] ;
-
-    //    printf(" xxx bin=%d  VAL=%f  EFF=%f \n", ibin, VAL, EFF);
 
     // keep track of bin in which efficiency is closest to 1 or .5
     EFFDIF = fabs(1.0-EFF) ;
@@ -757,14 +751,17 @@ void check_SEARCHEFF_DETECT(int imap) {
       
     EFFDIF = fabs(0.5-EFF) ;
     if ( EFFDIF < EFFDIF_HALF ) 
-      { EFFDIF_HALF = EFFDIF ; IBIN_HALF = ibin ; }    
+      { EFFDIF_HALF = EFFDIF ; IBIN_HALF = ibin ; 
+	// printf(" xxx imap=%d  bin=%d  VAL=%.3f  EFF=%.4f  EFFDIF=%f \n", 
+	//   imap, ibin, VAL, EFF, EFFDIF ); fflush(stdout);
+      }    
 
   } // NBIN 
 
   // ------
+
+  /* xxxxxxx mark delete Dec 1 2022 xxxxxxxxx
   // print VAL (SNR or MAG) when eff is closest to  1.
-  
-  //      printf(" xxx IBIN[ONE,HALF] = %d  %d \n", IBIN_ONE, IBIN_HALF);
   VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_ONE];
   EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_ONE];
   sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
@@ -774,16 +771,18 @@ void check_SEARCHEFF_DETECT(int imap) {
   i = SEARCHEFF_DETECT[imap].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
   SEARCHEFF_DETECT[imap].NLINE_README++ ;
+  xxxxxxxx end mark xxxxxxx */
 
   // ------
   // print VAL (SNR or MAG) when eff is closest to  0.5
 
-  VAL = SEARCHEFF_DETECT[imap].VAL[IBIN_HALF];
-  EFF = SEARCHEFF_DETECT[imap].EFF[IBIN_HALF];
-  sprintf(cline, "\t Epoch SEARCH_EFF(%s) = %5.2f at %s = %5.2f ", 
-	  cfilt, EFF, ptr_effname, VAL );
+  VAL     = SEARCHEFF_DETECT[imap].VAL[IBIN_HALF];
+  EFF     = SEARCHEFF_DETECT[imap].EFF[IBIN_HALF];
+  MAPNAME = SEARCHEFF_DETECT[imap].MAPNAME;
+  sprintf(cline, "\t EFF_DETECT(%s) = %5.3f at %s = %5.2f (%s)", 
+	  cfilt, EFF, ptr_effname, VAL, MAPNAME );
 
-  printf("%s", cline);
+  printf("%s\n", cline); fflush(stdout);
   i = SEARCHEFF_DETECT[imap].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
   SEARCHEFF_DETECT[imap].NLINE_README++ ;
@@ -882,17 +881,19 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : "); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
-  printf("%s", cline);
+  printf("%s\n", cline);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
 
   sprintf(cline, "\t %s", ptrFile_final ); 
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
-  printf("%s", cline);
+  printf("%s\n", cline); 
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
   
+  fflush(stdout);
+
   NMJD = 0;
   sprintf(surveykey, "%s:", survey);
   while( (fscanf(fp, "%s", c_get )) != EOF) {
@@ -949,16 +950,17 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
   sprintf(c1err, "\t Logic: %d MJDs require filters=%s ", NMJD, logic);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
-  printf("%s", c1err);
+  printf("%s\n", c1err);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
-  sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days",
+  sprintf(c1err, "\t Trigger epoch contains all obs within %.3f days",
 	  INPUTS_SEARCHEFF.TIME_SINGLE_DETECT);
   i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
-  printf("%s", c1err);
+  printf("%s\n", c1err);
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
+  fflush(stdout);
   len = strlen(logic);
 
   for ( i=0; i<len; i++ ) {

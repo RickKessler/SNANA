@@ -18584,6 +18584,8 @@ c
 c Mar 9 2020: 
 c   fix awful bug where previous FLUXCAL was used to apply
 c   FUDGE_MAG_ERROR. Note RESTORE_DES3YR restores bug.
+c
+c Dec 2 2022: add string-length args to get_FLUXERRMODEL call.
 c   
 c ------------
 
@@ -18700,7 +18702,7 @@ c  grep IPAR_FLUXERRMAP sntools_fluxErrModels.h
         NPAR = NPAR+1;  PARLIST(NPAR) = GALMAG
         NPAR = NPAR+1;  PARLIST(NPAR) = SNSEP
         CALL  get_FLUXERRMODEL(OPT,ERR1,cBAND,cFIELD,NPAR, PARLIST,
-     &            ERR_SIM, ERR_DATA )  ! <== return ERR_SIM, ERR_DATA
+     &            ERR_SIM, ERR_DATA, 2,30 )  ! <== return ERR_SIM, ERR_DATA
 
         SQERRMAP = (ERR_DATA*ERR_DATA) - SQERR1 ! note: can be negative
       ENDIF
@@ -23012,11 +23014,6 @@ c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
-
-c xxxx mark delete ... looks like ROWNUM was accidentally duplicated
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
-c     &                   LENBLOCK, 20 )
-c xxxxxxxxx end mark xxxxxxx
 
       VARLIST = 'FIELD:C*12' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,

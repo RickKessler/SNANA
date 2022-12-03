@@ -21469,4 +21469,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 ==> TEST: ZPHOT-1032 = 0.11697 +/- 0.1390E-01(P)
 
 
-END:
+
+# =============================================================
+        v11_05b ([tag-date]) 
+
+        ***** IMPORTANT(v11_05b) ***** 
+
+        ***** USEFUL(v11_05b) ***** 
+
+        ***** MISCELLANEOUS(v11_05b) ***** 
+
+END: 

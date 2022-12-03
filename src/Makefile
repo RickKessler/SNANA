@@ -243,7 +243,8 @@ else
 endif
 endif
 
-GIT_VERSION := "$(shell git describe --dirty --always --tags)"
+#GIT_VERSION := "$(shell git describe --dirty --always --tags)"
+GIT_VERSION := "$(shell git describe --always --tags)"
 SNCFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
 
 # ===========================

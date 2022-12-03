@@ -1908,6 +1908,8 @@ int main(int argc,char* argv[ ]) {
   char fnam[] = "main";
   // ------------------ BEGIN MAIN -----------------
 
+  print_full_command(stdout,argc,argv);
+
   // Give help if no arguments  
   if (argc < 2) { print_SALT2mu_HELP();  exit(0); }
 
@@ -1946,6 +1948,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // ------------ BEGIN -----------
 
   FP_STDOUT = stdout;
+
   PIFAC  = 1.0/sqrt(TWOPI);
   LOGTEN = log(10.0) ;
 
@@ -1961,7 +1964,6 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   fprintf(FP_STDOUT, "\n\t Start program %s \n\n", argv[0]) ;
   fflush(FP_STDOUT);
-  print_full_command(FP_STDOUT,argc,argv);
 
   // read SURVEY.DEF file and store each survey name vs. IDSURVEY
   read_SURVEYDEF(); 

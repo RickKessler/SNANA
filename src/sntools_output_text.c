@@ -718,8 +718,8 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     }
     fflush(FP);
     
-    fprintf(FP, "# SNANA_VERSION : %s \n", SNANA_VERSION) ;
-    fprintf(FP, "# TABLE NAME: %s \n", TBNAME);
+    fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
+    fprintf(FP, "# TABLE NAME:    %s \n", TBNAME);
     fprintf(FP, "# \n" );
 #ifdef TEXTFILE_NVAR
     fprintf(FP, "NVAR: %d \n", NVAR ); 

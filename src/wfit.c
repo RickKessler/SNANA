@@ -459,6 +459,8 @@ int main(int argc,char *argv[]){
 
   // ----------------- BEGIN MAIN ----------------
 
+  print_full_command(stdout, argc, argv);
+
   t_start = time(NULL);
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
@@ -723,10 +725,11 @@ void parse_args(int argc, char **argv) {
 
   // ------------ BEGIN ------------
 
-  // Aug 15 2020: print full command 
-  printf(" Full command: \n   ");
+
+  /* xxx mark delete 
   for(iarg=0; iarg < argc; iarg++ ) { printf(" %s", argv[iarg] );  }
   printf("\n\n"); fflush(stdout);
+  xxx  end mark */
 
   strcpy(INPUTS.infile,argv[1]); // positional arg is HD
 

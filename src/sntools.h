@@ -66,7 +66,9 @@
 #include "sntools_genExpHalfGauss.h"
 
 // --------------------------------------------------
-#define  SNANA_VERSION_CURRENT  "v11_04p"   
+//#define  SNANA_VERSION_CURRENT  "v11_04p"   
+#define  SNANA_VERSION_CURRENT  GIT_SNANA_VERSION  // Dec 2 2022
+
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 

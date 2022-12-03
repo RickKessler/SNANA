@@ -74,6 +74,7 @@
 # Nov 22 2022: add USE_BAYESN flag to use libyaml
 # Nov 23 2022: add genmag_extinction
 # Nov 29 2022: remove kcordump
+# Dec 02 2022: append CFLAGS with snana-git version
 #
 # ------------------------------------------------------------------------
 
@@ -214,8 +215,6 @@ else
   LPY = -L$(CONDA_PREFIX)/lib -ldl  -lutil -Wl,-rpath,$(CONDA_PREFIX)/lib -lpython$(VERSION_LIBPYTHON)
 endif
 
-
-
 # --------------------------------------------
 # set compile flags.
 ifeq ($(BITNESS),i686)
@@ -243,6 +242,11 @@ else
    SNLDFLAGS =
 endif
 endif
+
+GIT_VERSION := "$(shell git describe --dirty --always --tags)"
+SNCFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
+
+# ===========================
 
 UTIL = ../util
 BIN  = ../bin

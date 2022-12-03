@@ -2749,8 +2749,14 @@ int getRan_Poisson(double mean){
 
 } // end getRan_Poisson
 
-void get_SNANA_VERSION(char *snana_version) // pass global declaration
-{ sprintf(snana_version, "%s", SNANA_VERSION_CURRENT); } 
+void get_SNANA_VERSION(char *snana_version) { 
+
+  if ( strlen(SNANA_VERSION_CURRENT) > 0 ) 
+    { sprintf(snana_version, "%s", SNANA_VERSION_CURRENT);  }
+  else
+    { sprintf(snana_version,"NOT_FROM_GITHUB"); }
+} 
+
 void get_snana_version__(char *snana_version) 
 {  get_SNANA_VERSION(snana_version); }
 
@@ -9789,12 +9795,21 @@ void readchar(FILE *fp, char *clist)
 // ******************************************************
 void print_full_command(FILE *fp, int argc, char** argv) {
 
+  // print full command and also print snana version
+  // that includes github tag+commit info
+
   int i;
+  char snana_version[60];
+
+  
   fprintf(fp,"\n Full command: ");
-  for ( i=0; i < argc; i++ ) {
-    fprintf(fp,"%s ", argv[i] );
-  }
-  fprintf(fp,"\n\n"); fflush(fp);
+  for ( i=0; i < argc; i++ ) {  fprintf(fp,"%s ", argv[i] );  }
+  fprintf(fp, "\n\n");
+
+  get_SNANA_VERSION(snana_version);
+  fprintf(fp," SNANA_VERSION: %s\n", snana_version);
+
+  fprintf(fp,"\n\n");  fflush(fp);
 }
 
 // ************************************************

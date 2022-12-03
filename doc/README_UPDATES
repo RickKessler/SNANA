@@ -21408,7 +21408,12 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
         ***** IMPORTANT(v11_04p) ***** 
 
-   make_fluxerr_model.py: bug fixes and misc updates
+   C and fortran codes write snana_version that includes tag+commit
+   (see https://github.com/RickKessler/SNANA/issues/1067)
+   Similar python code modification will be done next SNANA version.
+
+   Set USE_KCOR_REFACTOR flags = True in snlc_sim.c and snana.car
+    [see below for list of regression test changes]
 
         ***** USEFUL(v11_04p) ***** 
 
@@ -21419,10 +21424,50 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
       Was writing header FIELD list (e.g., C2+C3) for each epoch
       instead of just writing the field for each epoch.
 
+  make_fluxerr_model.py: bug fixes and misc updates
+
   To test code without legacy/fortran kcor code:
    - remove "+USE,KCOR" from snana.cra and snlc_fit.cra
    - disable USE_KCOR_FORTRAN flag in sntools.h
    - set USE_KCOR_REFACTOR=T in snana.car
    - set USE_KCOR_REFACTOR=2 in snlc_sim.c
+   
+  Regression test changes with USE_KCOR_REFACTOR:
 
-END: 
+TASK034_SIMFIT_MLCS_SDSS                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-50015 = 40.611 +/- 0.1521
+	 ==> TEST: DLMAG-50015 = 40.614 +/- 0.1517
+TASK035_SIMFIT_MLCS_DES                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-70018 = 40.829 +/- 0.6371E-01(m)
+	 ==> TEST: DLMAG-70018 = 40.829 +/- 0.6370E-01(m)
+TASK041_SIMFIT_NON1ASED_DES             :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-21 = 38.096 +/- 0.8289E-01(P)
+	 ==> TEST: DLMAG-21 = 38.097 +/- 0.8286E-01(P)
+TASK064_LCFIT_MLCS_SDSS2                :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-1112 = 40.924 +/- 0.1413
+	 ==> TEST: DLMAG-1112 = 40.924 +/- 0.1348
+TASK066_LCFIT_MLCS_SNLS                 :  mis-match (REF != TEST)
+	 ==> REF:  DLMAG-03D1ew = 43.631 +/- 0.2658
+	 ==> TEST: DLMAG-03D1ew = 43.630 +/- 0.2647
+TASK072_LCFIT_SALT2_SNLS3               :  mis-match (REF != TEST)
+	 ==> REF:  x0-03D1aw = 0.85396E-05 +/- 0.2361E-06(P)
+	 ==> TEST: x0-03D1aw = 0.85375E-05 +/- 0.2370E-06(P)
+TASK077_ZPHOT_SDSSa_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.87284E-01 +/- 0.1156E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.87284E-01 +/- 0.1245E-01(P)
+TASK078_ZPHOT_SDSSb_SALT2_noHOST_5PAR   :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1285 = 0.28235 +/- 0.1326E-01(P)
+	 ==> TEST: ZPHOT-1285 = 0.28235 +/- 0.1357E-01(P)
+TASK079_ZPHOT_SDSS_MLCS_noHOST_4PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11226 +/- 0.6223E-02(m)
+	 ==> TEST: ZPHOT-1032 = 0.11195 +/- 0.6075E-02(m)
+TASK080_ZPHOT_SDSS_MLCS_noHOST_5PAR     :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.77033E-01 +/- 0.2115E-01(m)
+	 ==> TEST: ZPHOT-1032 = 0.77063E-01 +/- 0.2082E-01(m)
+TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
+	 ==> REF:  ZPHOT-1032 = 0.11881 +/- 0.1313E-01(P)
+	 ==> TEST: ZPHOT-1032 = 0.11697 +/- 0.1390E-01(P)
+
+
+
+END:

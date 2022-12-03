@@ -78,6 +78,8 @@ int main(int argc, char **argv) {
 
   // ------------- BEGIN --------------
 
+  print_full_command(stdout, argc, argv);
+
   if (argc < 2) { print_sim_help();  exit(0); }
 
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
@@ -443,7 +445,7 @@ void init_commandLine_simargs(int argc, char **argv) {
 
   ENVreplace("init", fnam, 1);
 
-  printf("   Full command: ");
+  // xxx mark  printf("   Full command: ");
 
   if ( argc >= 2 ) {
     sprintf(inFile, "%s", argv[1] );
@@ -461,13 +463,12 @@ void init_commandLine_simargs(int argc, char **argv) {
       ARGV_LIST[i] = (char*) malloc( LENARG*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
-      printf("%s ", argv[i]);
+      // xxx mark delete printf("%s ", argv[i]);
     }
     USE_ARGV_LIST[0] = 1;  // program name
     USE_ARGV_LIST[1] = 1;  // input file
   }
-  else
-    { sprintf(inFile, "snlc_sim.input" ); } // default name
+
 
   printf("\n\n"); fflush(stdout);
 
@@ -635,11 +636,14 @@ void set_user_defaults(void) {
   char fnam[] = "set_user_defaults" ;
   // --------------- BEGIN ---------------
 
+  /* xxx mark delete 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
+  xxxxxx */
 
-  //  INPUTS.USE_KCOR_REFACTOR = 2 ; // xxx REMOVE
-  //  INPUTS.USE_KCOR_LEGACY   = 0 ; // xxx REMOVE
+  // permanently turn on refactor, Dec 2 2022
+  INPUTS.USE_KCOR_REFACTOR = 2 ; 
+  INPUTS.USE_KCOR_LEGACY   = 0 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
   INPUTS.README_DUMPFLAG    = false ;

@@ -449,8 +449,8 @@ c
 
 
       CHARACTER
-     &    SNANA_VERSION*12
-     &   ,SNANA_VERSION_DATA*12   ! SNANA version used create FITS data
+     &    SNANA_VERSION*60        ! e.g., v11_04h-[commit-id]
+     &   ,SNANA_VERSION_DATA*60   ! SNANA version used create FITS data
      &   ,REFORMAT_VERSION*(MXCHAR_VERSION)
      &   ,DATATYPE*12  ! e..g, 'DATA', 'FAKE', 'SNANA_SIM'
 
@@ -3835,7 +3835,8 @@ c     &     + OPTMASK_SNDATA_DUMP
       CALL FETCH_SNDATA_WRAPPER("SNANA_VERSION", 
      &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
       ISCORRECT_SIGN_VPEC = 
-     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
+     &      correct_sign_vpec_data(SNANA_VERSION_DATA//char(0))
+cc xxx mark     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)
@@ -5712,19 +5713,28 @@ c
 c May 2019: check option to call DUMP_SNANA_VERSION
 c Dec 2020: abort on ARG string length too long.
 c Aug 2020: of no args, call function to print help menu
+c Dec 2022: get SNANA_VERSION here to print it after full command
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      INTEGER i, LL, istat
+      INTEGER i, LL, LL_SNANA, istat
       CHARACTER ARG1*(MXCHAR_ARG), ARG2*(MXCHAR_ARG)
       CHARACTER FNAM*20, COMMAND*2000, CODE_FILENAME*40
       CHARACTER CMD_HELP*100, CMD_SNANA_HELP*100
+
+      EXTERNAL GET_SNANA_VERSION
+
 C ------------------- BEGIN ---------------
 
       FNAM = 'PARSE_SNANA_ARGS'
 
       NLINE_ARGS = IARGC()  ! intrinsic fortran function
+
+c get SNANA version from C function
+      call GET_SNANA_VERSION(SNANA_VERSION,40)
+      LL_SNANA = index(SNANA_VERSION, char(0) ) - 1
+      SNANA_VERSION(LL_SNANA+1:LL_SNANA+2) = ' '
 
 c - - - - - - - - - - - - - - - - - - 
 c Aug 2022: if there are no arguments, print help menu
@@ -5788,7 +5798,9 @@ c    snana.exe --snana_version
      &     ARG1 .EQ. '--snana_version'  ) THEN
          CALL DUMP_SNANA_VERSION()
       ELSE
-         print*,' Full command: ', COMMAND(1:LL)
+         print*,' Full command:  ', COMMAND(1:LL)
+         print*,' '
+         print*,' SNANA_VERSION: ', SNANA_VERSION(1:LL_SNANA)
          print*,' '
 
       ENDIF
@@ -6189,8 +6201,8 @@ c default is to reject nothing (accept everything)
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      USE_KCOR_REFACTOR = .FALSE.
-cc       USE_KCOR_REFACTOR = .TRUE. ! xxx REMOVE
+c xxx mark delete      USE_KCOR_REFACTOR = .FALSE.
+      USE_KCOR_REFACTOR = .TRUE.   ! permanently set, Dec 2 2022
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
@@ -6882,10 +6894,12 @@ c Oct 23, 2014: store global comments
 
       LENC = 72
 
-      COMMENT_forC = 'VERSION_SNANA      = ' //  VER_SNANA_forC 
-      CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+c xxxxxxxxxx mark delete Dec 2 2022 since SNANA_VERSION is already written
+c      COMMENT_forC = 'VERSION_SNANA      = ' //  VER_SNANA_forC 
+c      CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+c xxxxxxx end mark xxxxxxxxxxx
 
-      COMMENT_forC = 'VERSION_PHOTOMETRY = ' //  VER_PHOT_forC(1:40)
+      COMMENT_forC = 'VERSION_PHOTOMETRY:  ' //  VER_PHOT_forC(1:40)
       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
 
 c ----------------------------------------
@@ -11253,12 +11267,6 @@ C ---------------- BEGIN ------------
 +SELF.
       CALL SET_EXIT_ERRCODE(EXIT_ERRCODE) ! for C function aborts
 
-
-c get SNANA version from C function
-      call GET_SNANA_VERSION(SNANA_VERSION,LL)
-      LL_SNANA = index(SNANA_VERSION, char(0) ) - 1
-      SNANA_VERSION(LL_SNANA+1:LL_SNANA+3) = '   '
-
       IDSURVEY = -9 ;  IDSUBSURVEY=-9
       NCALL_SNANA_DRIVER  = 0 
  
@@ -11403,8 +11411,7 @@ c - - - - -
       ENDIF
 
       SNANA_DIR = ENVtemp(1:LL)
-      print*,'  SNANA_DIR = ', SNANA_DIR(1:LL), 
-     &   '    (', SNANA_VERSION(1:LL_SNANA),')'
+      print*,'  SNANA_DIR = ', SNANA_DIR(1:LL)
 
 
       N_SNFILE      = 0

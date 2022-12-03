@@ -2765,9 +2765,21 @@ float get_SNANA_VERSION_FLOAT(char *snana_version) {
   // Oct 26 2020
   // Convert *snana_version string to float.
   // e.g. *snana_version = v10_78c -> return 10.78
-  double dval0 = atof(&snana_version[1]) ;
-  double dval1 = atof(&snana_version[4]) ;
+  // e.g. *snana_version = v11_04b-3-dstewtf -> return 11.04
+  //
+  // Dec 2022: remove commit part of string: dash and anything after            
+
+  char snana_version_local[60];
+  char *e        = strchr(snana_version, '-');
+  int index_dash = (int)(e - snana_version);
+
+  sprintf(snana_version_local, "%s", snana_version);
+  if ( index_dash > 0 ) { snana_version_local[index_dash] = 0 ;}
+
+  double dval0 = atof(&snana_version_local[1]) ;
+  double dval1 = atof(&snana_version_local[4]) ;
   float  fval = (float)(dval0 + dval1/100.0) ;
+
   return(fval);
 } // end get_SNANA_VERSION_FLOAT
 

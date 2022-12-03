@@ -29,6 +29,7 @@
 # Apr 12 2022: check for docker image in sbatch-file; if there, use shifter
 # Jul 18 2022: check new CONFIG option "BATCH_SINGLE_NODE: True"
 # Nov 15 2022: call merge_driver_exit() to write merge-process time
+# Dec 02 2022: write SNANA_VERSION to SUBMIT.INFO file
 #
 # ============================================
 
@@ -981,6 +982,9 @@ class Program:
         f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
         f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
         f.write(f"FORCE_ABORT_MERGE:   {force_abort_merge}\n")
+
+        snana_version = util.get_snana_version()
+        f.write(f"SNANA_VERSION:    {snana_version}\n")
   
         # append program-specific information
         f.write("\n")

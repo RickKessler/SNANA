@@ -18,6 +18,17 @@ from   submit_params import *
 
 # =================================================
 
+def get_snana_version():
+
+    # fetch snana version that includes tag + commit;
+    # e.g., v11_05-4-gd033611.
+    # Use same git command as in Makefile for C code
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout
+    return snana_version
+    
 def replace_arg(arg_list, key, arg_new):
     # Created Aug 2022
     # replace key argument in arg_list with arg_new

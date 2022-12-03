@@ -2790,8 +2790,10 @@ float get_snana_version_float__(char *snana_version)
 bool correct_sign_vpec_data(char *snana_version_data) {
 
   // Jan 2021: if SNANA_VERSION key is not known, assume vpec sign is correct
-  if ( strcmp(snana_version_data,"UNKNOWN") == 0 ) { return true; }
+  // Dec 2022: return True on blank string
 
+  if ( strcmp(snana_version_data,"UNKNOWN") == 0 ) { return true; }
+  if ( strlen(snana_version_data)           == 0 ) { return true; }
 
   float version_f = get_SNANA_VERSION_FLOAT(snana_version_data);
   if ( version_f < 11.02 )

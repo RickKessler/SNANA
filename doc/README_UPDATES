@@ -21404,9 +21404,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
 
 
 # =============================================================
-        v11_04p ([tag-date]) 
+        v11_05 (Dec 2 2022) 
 
-        ***** IMPORTANT(v11_04p) ***** 
+        ***** IMPORTANT(v11_05) ***** 
 
    C and fortran codes write snana_version that includes tag+commit
    (see https://github.com/RickKessler/SNANA/issues/1067)
@@ -21415,9 +21415,9 @@ To do: set CHECK_DUPLICATE_COLUMNS=T after GHOSTLIBs are fixed.
    Set USE_KCOR_REFACTOR flags = True in snlc_sim.c and snana.car
     [see below for list of regression test changes]
 
-        ***** USEFUL(v11_04p) ***** 
+        ***** USEFUL(v11_05) ***** 
 
-        ***** MISCELLANEOUS(v11_04p) ***** 
+        ***** MISCELLANEOUS(v11_05) ***** 
 
   snlc_sim.c
     + fix bug setting FIELD per epoch when there are overlaps.
@@ -21467,7 +21467,6 @@ TASK080_ZPHOT_SDSS_MLCS_noHOST_5PAR     :  mis-match (REF != TEST)
 TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 	 ==> REF:  ZPHOT-1032 = 0.11881 +/- 0.1313E-01(P)
 	 ==> TEST: ZPHOT-1032 = 0.11697 +/- 0.1390E-01(P)
-
 
 
 END:

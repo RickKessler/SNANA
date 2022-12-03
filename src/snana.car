@@ -3834,9 +3834,9 @@ c     &     + OPTMASK_SNDATA_DUMP
 
       CALL FETCH_SNDATA_WRAPPER("SNANA_VERSION", 
      &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
+
       ISCORRECT_SIGN_VPEC = 
-     &      correct_sign_vpec_data(SNANA_VERSION_DATA//char(0))
-cc xxx mark     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
+     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)

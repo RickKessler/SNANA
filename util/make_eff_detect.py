@@ -18,6 +18,7 @@ import os, sys, argparse, glob, yaml, math
 import numpy as np
 from   argparse import Namespace
 import pandas as pd
+import datetime as dt
 
 from scipy.optimize import curve_fit
 # --------------------------------
@@ -26,7 +27,6 @@ from scipy.optimize import curve_fit
 JOBNAME_SNANA = "snana.exe"
 
 USERNAME      = os.environ['USER']
-USERNAME4     = os.environ['USER'][0:4]
 HOSTNAME      = os.uname()[1].split('.')[0]
 
 
@@ -366,7 +366,13 @@ def effsnr_binned(ISTAGE, config, ifield, band):
     prefix     = stage_prefix(ISTAGE)
     #print(f"{prefix}: compute EFF(detect) in SNR_calc bins");
 
-    df = config.df_table
+    if ifield is None or band is None:
+        df = config.df_table.copy()
+    else:
+        mask_band = config.df_table.BAND.isin([band])
+        mask_ifield = config.df_table.IFIELD.isin([ifield])
+        
+        df = config.df_table[mask_band & mask_ifield].copy()
     
     snrmin = config.input_yaml['SNR_BINS_MIN']
     snrmax = config.input_yaml['SNR_BINS_MAX']
@@ -462,10 +468,22 @@ def open_mapfile(ISTAGE, config):
 
     print(f"Creating the mapfile at {map_file}")
     config.ptr_mapfile = open(map_file, mode='wt')
-    config.ptr_mapfile.write(f"# EFF vs SNR for {config.survey}\n")
+    effdocumentation = f"""DOCUMENTATION:
+  PURPOSE: Search Efficiency vs SNR Curve for {config.survey} simulation
+  INTENT:  Nominal
+  USAGE_KEY:  SEARCHEFF_PIPELINE_EFF_FILE
+  USAGE_CODE: snlc_sim.exe
+  NOTES:
+      - SCRIPTNAME: {__file__}
+  VERSIONS:
+      - DATE: {dt.date.today()}
+      - CREATED_BY:  {USERNAME}
+      - HOST_MACHINE: {HOSTNAME}
+DOCUMENTATION_END: \n\n"""
+    
+    config.ptr_mapfile.write(effdocumentation)
+    # config.ptr_mapfile.write(f"# EFF vs SNR for {config.survey}\n")
     config.ptr_mapfile.write(f"PHOTFLAG_DETECT: {photflag}\n")
-    
-    
     #TODO: add some more details (user machine date)
     
     return 
@@ -514,20 +532,27 @@ if __name__ == "__main__":
     ISTAGE += 1
     nfield_group = config.input_yaml['NFIELD_GROUP']
     field_names = config.input_yaml['FIELD_GROUP_NAMES']
-    open_mapfile(ISTAGE, config)
     
+    # Build reference curves for all bands+fields. Only for plotting 
+    # Not used for map
+    print("Build references curves using all data for plotting only")
+    config.effsnr_ref_binned_dict = effsnr_binned(ISTAGE, config, None, None)
+    config.effsnr_ref_smooth_dict = effsnr_fit(ISTAGE, config, config.effsnr_ref_binned_dict)    
+    
+    open_mapfile(ISTAGE, config)
     for ifield in range(0, nfield_group):
         for band in config.filter_list:
             print(f"Processing {band} bandpass, {field_names[ifield]} field")
-              
+            
             # construct Efficiency in SNR_calc bins
             effsnr_binned_dict = effsnr_binned(ISTAGE, config, ifield, band)
             
             # smooth eff-vs-SNR with fit to sigmoid
             effsnr_smooth_dict = effsnr_fit(ISTAGE, config, effsnr_binned_dict)
 
-            # print(effsnr_binned_dict['eff'] - effsnr_smooth_dict['eff_smooth'])
-
             # finally, write the map for the simulation
             write_map(ISTAGE, config, ifield, band, effsnr_smooth_dict)
+
+    print(f'\n EFF SNR {config.map_file_name} written')
+
     # END:

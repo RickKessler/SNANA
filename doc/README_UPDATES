@@ -21480,7 +21480,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         ***** MISCELLANEOUS(v11_05b) ***** 
 
     snana.car/snlc_fit.car
-     + few trivial updates to remove most of the compilation
-       warnings with gcc version 10.
+     + call cast-specfic SNTABLE_ADDCOL_[int,flt,dbl,str] 
+       to avoid warnings with gcc version 10.
 
+      
+    
 END: 

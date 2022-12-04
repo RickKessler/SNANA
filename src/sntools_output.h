@@ -436,10 +436,28 @@ extern"C" {
   void sntable_fill__(int *TableID ) ;
 
 
-  void SNTABLE_ADDCOL  (int  TableID, char *BLOCK, void * PTRVAR, 
-			char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL(int  TableID, char *BLOCK, void *PTRVAR, 
+		      char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_int(int  TableID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_flt(int  TableID, char *BLOCK, float *F_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_dbl(int  TableID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+  void SNTABLE_ADDCOL_str(int  TableID, char *BLOCK, char *S_PTRVAR, 
+			  char *VARLIST, int USE4TEXT );
+
   void sntable_addcol__(int *TableID, char *BLOCK, void* PTRVAR, 
 			char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_int__(int *TableID, char *BLOCK, int *I_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_flt__(int *TableID, char *BLOCK, float *F_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_dbl__(int *TableID, char *BLOCK, double *D_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+  void sntable_addcol_str__(int *TableID, char *BLOCK, char *S_PTRVAR, 
+			    char *VARLIST, int *USE4TEXT );
+
 
   void parse_ADDCOL_VARLIST(char *VARLIST,
 			    SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF); 

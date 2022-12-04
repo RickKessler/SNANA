@@ -23007,7 +23007,12 @@ c +CDE,FILTCOM.
       LOGICAL LTMP, ADDCOL_SETPKMJD
       CHARACTER varlist*100, CTMP*60, CBLOCK*40
       CHARACTER FNAM*22, CFILT*2
-      EXTERNAL  SNTABLE_ADDCOL
+      EXTERNAL  
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 c ------------ BEGIN ----------
 
@@ -23025,121 +23030,121 @@ c  for CCID, use special variable SNLC_CCID_forC that has char(0)
 c  termination so that parsing CCID with C code is easier.
 
       VARLIST = 'CCID:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c ROWNUM is easy identifier for CID-MJD-BAND-CCDNUM;
 c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'FIELD:C*12' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MJD:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'BAND:C*4' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_BAND, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, OUTLIER_BAND, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'IFILTOBS:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c---
       VARLIST = 'IXPIX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IXPIX, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IXPIX, VARLIST,1,
      &                   LENBLOCK, 20 )
       VARLIST = 'IYPIX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IYPIX, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IYPIX, VARLIST,1,
      &                   LENBLOCK, 20 )
       VARLIST = 'AREAFRAC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_AREAFRAC, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_AREAFRAC, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'PHOTFLAG:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PHOTFLAG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_PHOTFLAG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_DATA:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_DATA, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_DATA, 
      &           VARLIST, 1, LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_ERR_DATA:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_DATA, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_DATA, 
      &        VARLIST, 1, LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_ERR_CALC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK,OUTLIER_FLUXCAL_ERR_CALC,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK,OUTLIER_FLUXCAL_ERR_CALC,
      &            VARLIST, 1, LENBLOCK, 20 )
 
       if ( ISJOB_SNANA ) then
          ! outlier w.r.t. true sim/fake flux (SIM_MAGOBS column in data file)
          VARLIST = 'FLUXCAL_TRUE:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_TRUE, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_TRUE, 
      &        VARLIST, 1, LENBLOCK, 20 )
       else
          ! outlier w.r.t. LC fit
          VARLIST = 'FLUXCAL_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_FIT, 
      &        VARLIST, 1, LENBLOCK, 20 )
 
          VARLIST = 'FLUXCAL_ERR_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_FIT, 
      &         VARLIST, 1, LENBLOCK, 20 )
 
          VARLIST = 'FLUXCAL_ERRTOT_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERRTOT_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERRTOT_FIT, 
      &         VARLIST, 1, LENBLOCK, 20 )
       endif
 
       VARLIST = 'NSIG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'LOGSNR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_LOGSNR, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_LOGSNR, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'SBMAG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SBMAG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_SBMAG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c - - - -
       VARLIST = 'ZP:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'PSF:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PSF, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_PSF, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'SKYSIG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 +SELF,IF=SNFIT.
       VARLIST = 'z:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_z, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_z, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'TREST:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_TREST, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_TREST, VARLIST,1,
      &                   LENBLOCK, 20 )
-
 
 +SELF.
       RETURN
       END   ! end INIT_TABLE_OUTLIERVAR
 
++SELF,IF=DELETE.
 c =======================================
 +DECK,SNTABLE_ADDCOL_C.
       SUBROUTINE SNTABLE_ADDCOL_C(ID,CBLOCK,CPTR,VARLIST,USE4TEXT)
@@ -23221,6 +23226,7 @@ c --------- BEGIN --------
      &                   LENBLOCK, LENVAR )
       RETURN
       END
++SELF.
 
 C =============================
 +DECK,LOAD_OUTLIER_VAR.
@@ -23612,7 +23618,12 @@ c local var
       LOGICAL LTMP, ADDCOL_SETPKMJD
       CHARACTER varlist*1000, CTMP*60, CBLOCK*40
       CHARACTER FNAM*20, VARNAME*40, CFILT*2
-      EXTERNAL  SNTABLE_ADDCOL
+      EXTERNAL  
+     &   SNTABLE_ADDCOL
+     &  ,SNTABLE_ADDCOL_int
+     &  ,SNTABLE_ADDCOL_flt
+     &  ,SNTABLE_ADDCOL_dbl
+     &  ,SNTABLE_ADDCOL_str
 
 C ---------------- BEGIN ------------
 
@@ -23638,46 +23649,46 @@ c check filter list for filter-dependent columns (Feb 2017)
 c - - - - - - ID variables - - - - - - 
 
       VARLIST = 'CID:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CID, VARLIST,0, 
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNLC_CID, VARLIST,0, 
      &                   LENBLOCK, 20 )
 
 c  for CCID, use special variable SNLC_CCID_forC that has char(0)
 c  termination so that parsing CCID with C code is easier.
 
       VARLIST = 'CCID:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c Aug 2022: check optional user-column; e.g., to tag magshift value
       if ( SNTABLE_APPEND_VARNAME .NE. '' ) then
          LENV = INDEX(SNTABLE_APPEND_VARNAME,' ') - 1
          VARLIST = SNTABLE_APPEND_VARNAME(1:LENV) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK,SNTABLE_APPEND_VALUE,VARLIST,1,
-     &                    LENBLOCK, 20 )      
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK,SNTABLE_APPEND_VALUE,
+     &              VARLIST,1,      LENBLOCK, 20 )      
       endif
 c to do: when combined low-z is ready change IDSURVEY -> IDSUBSURVEY,
 c but keep same name 'IDSURVEY'
       VARLIST = 'IDSURVEY:I' //  char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, IDSUBSURVEY, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, IDSUBSURVEY, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'TYPE:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_TYPE, VARLIST,1, 
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_TYPE, VARLIST,1, 
      &                   LENBLOCK, 20 )
 
       VARLIST = 'NFIELD_OVP:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NFIELD_OVP, VARLIST, 0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFIELD_OVP, 
+     &               VARLIST, 0,    LENBLOCK, 20 )
 
       VARLIST = 'FIELD:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c Feb 15 2018: remove condition on CCDNUM 
       ITEXT = 0 ;     IF(NCCDNUM_LIST>0) ITEXT = 1  
       VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_CCDNUM(1), VARLIST,ITEXT,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_CCDNUM(1), 
+     &            VARLIST,ITEXT,       LENBLOCK, 20 )
 
 c -------------------------------------------
 c CUTFLAG_SNANA is a mask as follows:
@@ -23686,13 +23697,13 @@ c bit0 -> passed SNANA cuts
 c bit1 -> passed FIT cuts (i.e, valid fit + re-applied snana cuts)
       
       VARLIST = 'CUTFLAG_SNANA:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
      &                   LENBLOCK, 20)
 
       if ( PHOTFLAG_TRIGGER > 0 ) then
          VARLIST = 'MJD_TRIGGER:D' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_MJD_TRIGGER, VARLIST,1,
-     &                   LENBLOCK, 20)           
+         CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, 
+     &            VARLIST,1,    LENBLOCK, 20)           
       endif
 c -------------------------------------------
 c ERRFLAG_FIT = -9 -> no fit, just SNANA job
@@ -23704,99 +23715,99 @@ c ERRFLAG_FIT >  0 -> fit failed, see ERRFLAG codes in fitting program.
       ITEXT=1
 +SELF.
       VARLIST = 'ERRFLAG_FIT:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ERRFLAG_FIT, VARLIST,ITEXT,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ERRFLAG_FIT, 
+     &              VARLIST,ITEXT,   LENBLOCK, 20 )
 
 c --------------------------------------------
       IF ( N_USERTAGS .GT. 0) then
         VARLIST = 'USERTAG:I'  // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, USERTAG, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, USERTAG, VARLIST,1,
      &                   LENBLOCK, 20)
       endif
 
       VARLIST = 'RA:D,DEC:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_RA, VARLIST,0,
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_RA, VARLIST,0,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'AREAFRAC_AVG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_AREAFRAC_AVG, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_AREAFRAC_AVG, 
+     &              VARLIST,0,  LENBLOCK, 20 )
 
 c -- NEPOCH ( Aug 2013)
  
       VARLIST = 'NEPOCH:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_STORE, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_STORE, 
+     &               VARLIST,0,  LENBLOCK, 20 )
 
       VARLIST = 'NEPOCH_BADPHOT:I' // char(0)      ! added Jun 2016
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEPOCH_BADPHOT, VARLIST, 0,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEPOCH_BADPHOT, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 
 c Mar 2018: add info about PHOTPROB
       VARLIST = 'NEPOCH_PHOTPROB:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_PHOTPROB, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_PHOTPROB, 
+     &            VARLIST,0,  LENBLOCK, 20 )
 
       VARLIST = 'PHOTPROB_MIN:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_PHOTPROB_MIN, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_PHOTPROB_MIN, 
+     &                VARLIST,0,   LENBLOCK, 20 )
 
 c Sep 2018: add optonal info about detections
 c Nov 2020: write to TEXT file 
       IF ( PHOTFLAG_DETECT > 0 ) THEN
          VARLIST = 'NEPOCH_DETECT:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_DETECT,VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_DETECT,
+     &                VARLIST,1, LENBLOCK, 20 )
          VARLIST = 'TLIVE_DETECT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TLIVE_DETECT, VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TLIVE_DETECT, 
+     &              VARLIST,1,   LENBLOCK, 20 )
       ENDIF
 
 
       IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
          VARLIST = 'NEPOCH_OUTLIER:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_PEREVT,VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_PEREVT,
+     &            VARLIST,1,   LENBLOCK, 20 )
       ENDIF
 c - - - - -  redshift - - - - - 
 
       VARLIST = 'zHEL:F,zHELERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHELIO, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZHELIO, VARLIST, 1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zCMB:F,zCMBERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZCMB, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZCMB, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zHD:F,zHDERR:F' // char(0)  ! Hubble diagram redshift
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zFLAG:I' // char(0)  ! z-quality flag (May 2020)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 c z = zCMB for spec z, but for photo-z fit z & zERR are the original
 c data redshifts to allow plotting zHD-z resids
       VARLIST = 'z:F,zERR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0, 
      &                   LENBLOCK, 20)
 
 c tack on VPEC
       VARLIST = 'VPEC:F,VPECERR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_VPEC, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_VPEC, VARLIST, 1,
      &                       LENBLOCK, 20 )
 
 c - - - - -  Galactic extinction - - - -  -
 c Feb 6 2020: write MWEBV to TEXT (but not the error)
 
       VARLIST = 'MWEBV:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_MWEBV, VARLIST, 1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MWEBVERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 0, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_MWEBV, VARLIST, 0, 
      &                   LENBLOCK, 20 )
 
 c - - - - - - HOST GALAXY - - - - 
@@ -23804,11 +23815,11 @@ c - - - - - - HOST GALAXY - - - -
       if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
 
       VARLIST =  'HOST_NMATCH:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH, 
+     &              VARLIST,ITEXT,   LENBLOCK, 20 )
       VARLIST =  'HOST_NMATCH2:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH2, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH2, 
+     &              VARLIST,ITEXT,    LENBLOCK, 20 )
 
 c      VARLIST =  'HOST_OBJID:L' // char(0)
 c      CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID, VARLIST,0, 
@@ -23820,83 +23831,83 @@ c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
 
       VARLIST =  'HOST_OBJID:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
+     &             VARLIST,ITEXT,     LENBLOCK, 20 )
 
       VARLIST =  'HOST_ZPHOT:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  'HOST_ZPHOTERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT_ERR, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(1), 
+     &               VARLIST,ITEXT,    LENBLOCK, 40 )
 
       VARLIST =  'HOST_ZSPEC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  'HOST_ZSPECERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC_ERR, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(1), 
+     &              VARLIST,ITEXT,  LENBLOCK, 40 )
 
       VARLIST = 'HOST_RA:D'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_RA, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
       VARLIST = 'HOST_DEC:D'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_DEC, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(1), 
+     &          VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = 'HOST_ANGSEP:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(1), 
+     &         VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = 'HOST_DDLR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
 
       VARLIST = 'HOST_CONFUSION:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_CONFUSION, 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
 
 c always write LOGMASS and SFR
       IF ( EXIST_SNHOST_LOGMASS ) THEN
         VARLIST =  'HOST_LOGMASS:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(1), 
+     &          VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(1), 
+     &          VARLIST, 1,     LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGSFR ) THEN
         VARLIST =  'HOST_LOGSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(1), 
+     &            VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(1), 
+     &            VARLIST, 1,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGsSFR ) THEN
         VARLIST =  'HOST_LOGsSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(1), 
+     &            VARLIST, 1,   LENBLOCK, 40 )
         VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(1), 
+     &           VARLIST, 1,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_COLOR ) THEN
         VARLIST =  'HOST_COLOR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(1), 
+     &             VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_COLOR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(1), 
+     &           VARLIST, 1,     LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
@@ -23911,67 +23922,42 @@ c on the template image.
 c        HOST_SB -> HOST_SBFLUXCAL
         CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('HOST_SBMAG','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
       ENDIF
 
-+SELF,IF=BUGGY.
-c Apr 2021: EXIST_SNHOST_ANGSEP is sometimes T/F on first event,
-c           so merging ROOT/HBOOK files can fail.
-c
-c Feb 2019: a few things for existing ANGSEP
-      IF ( EXIST_SNHOST_ANGSEP ) THEN 
-
-c         VARLIST = 'HOST2_OBJID:L'  // char(0)
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID(2), VARLIST,0,
-c     &     LENBLOCK_L, 20 )
-
-         VARLIST = 'HOST2_OBJID:D'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID(2), VARLIST,0,
-     &     LENBLOCK, 20 )
-
-         VARLIST = 'HOST2_ANGSEP:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP(2), VARLIST,0,
-     &     LENBLOCK, 20 )
-
-         VARLIST = 'HOST2_DDLR:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR(2), VARLIST,0,
-     &       LENBLOCK, 20 )
-      ENDIF
-+SELF.
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 1                       ! default is no TEXT output ...
       VARLIST = 'PKMJDINI:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )
 
 c - - - - time above threshold for REQUIRE_EPOCHS - - - - - - 
 
       IF( NFILT_REQEP > 0 ) THEN
         VARLIST = 'NDAYS_ABOVE_SNRMIN:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP, 
-     &                    VARLIST, 1, 
-     &                    LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP, 
+     &                    VARLIST, 1,       LENBLOCK, 40 )
       ENDIF
 
 c - - - - - max flux per band (May 2016) - - - - - - - - -
 
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_FLUXCALMAX,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
 c ... and the uncertainty (Nov 2022)
 
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX_ERR','F',ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_FLUXCALMAX_ERR,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX_ERR(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
 c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - - 
@@ -23983,7 +23969,7 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
             CALL TABLE_VARLIST_FILTERS(VARNAME(1:LENV),'F',
      &           SURVEY_FILTERS, VARLIST, LENLIST)
             
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, 
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, 
      &           SNLC_SNANAFIT_PEAKMJD_FITPAR(1,ipar),
      &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
          ENDDO
@@ -23998,11 +23984,11 @@ c  PKMJD per filter
             IF( IFILTOBS_REPLACE(IFILT_OBS) .NE. IFILT_OBS) GOTO 222
 
             VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
      &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
             
             VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
      &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
 
  222     CONTINUE
@@ -24011,14 +23997,14 @@ c --------------------------
 c      fit chi2 per filter
           CALL TABLE_VARLIST_FILTERS('FIT_CHI2','F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST )
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_CHI2_FITPKMJD,
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_CHI2_FITPKMJD(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
 c --------------------------
 c      fit NDOF per filter
           CALL TABLE_VARLIST_FILTERS('FIT_NDOF','I', SURVEY_FILTERS,
      &           VARLIST, LENLIST)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, NDOF_FITPKMJD(1),
+          CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NDOF_FITPKMJD(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
       ENDIF  ! end of SETPKMJD if-block
@@ -24028,37 +24014,37 @@ c - - - - - -
 
 c global PROB_TRUEFLUX for all bands combined
         VARNAME   = 'PROB_TRUEFLUX:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, PROB_TRUEFLUX(0),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PROB_TRUEFLUX(0),
      &        VARNAME(1:20), 1, LENBLOCK, 20)
 
 c ... and for each individual band
         CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX(1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('NDOF_TRUEFLUX','I', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX(1),
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
       ENDIF
 
 c - - - - -  min and max MJD (Aug 5 2013)
       VARLIST = 'MJDMIN:D,MJDMAX:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_MJDMIN, VARLIST, 0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJDMIN, 
+     &                VARLIST, 0,   LENBLOCK, 20 )
 
 c - - - -  multi-season variability - - - -
       IF( MULTISEASON_OPTMASK > 0 ) THEN
 
 c Aug 15 2018: include NTOT and NLC in output and TEXT output
         VARLIST = 'NSEASON_TOT:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
      &                   LENBLOCK, 40 )
 
         VARLIST = 'NSEASON_ACTIVE:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
      &                   LENBLOCK, 40 )
 
         VARLIST = 'MULTISEASON_CHI2RED_1:F,' //
@@ -24067,8 +24053,8 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_CHI2RED_4:F,' //
      &            'MULTISEASON_CHI2RED_5:F'  //
      &          char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_CHI2RED, VARLIST,0, 
-     &                   LENBLOCK, 160 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_CHI2RED(1), 
+     &               VARLIST,0,     LENBLOCK, 160 )
 
         VARLIST = 'MULTISEASON_AVGFLUX_1:F,' //
      &            'MULTISEASON_AVGFLUX_2:F,' //
@@ -24076,8 +24062,8 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_AVGFLUX_4:F,' //
      &            'MULTISEASON_AVGFLUX_5:F' //
      &          char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_AVGFLUX, VARLIST,0, 
-     &                   LENBLOCK, 160 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_AVGFLUX(1), 
+     &              VARLIST,0,       LENBLOCK, 160 )
       ENDIF
 
 c ------------------------------------
@@ -24088,33 +24074,33 @@ c ------------------------------------
 c snana variables with no fitting.
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TRESTMIN, VARLIST, 0, 
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TRESTMIN, 
+     &               VARLIST, 0,     LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TOBSMIN, VARLIST, 0,
-     &                   LENBLOCK,  40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TOBSMIN, 
+     &               VARLIST, 0,    LENBLOCK,  40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TGAPMAX, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TGAPMAX, 
+     &                VARLIST, 0,   LENBLOCK, 40 )
 
          VARLIST =  
      &      'NFILT_Tmin:I,NFILT_Tmax:I,NFILT_Trest2:I' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK,ISNLC_NFILT_TRESTMIN,VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK,ISNLC_NFILT_TRESTMIN,
+     &              VARLIST,0,     LENBLOCK, 40 )
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NFILT_SNRMAX,VARLIST,0, 
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFILT_SNRMAX,
+     &                VARLIST,0,    LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SNRMAX_SORT(1),VARLIST,0,
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
+     &                VARLIST,0,   LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SNRMAX_SORT(1),VARLIST,1,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
+     &               VARLIST,1,    LENBLOCK, 40 )
 
 c ----------
 c Below are SNANA variables for which the FIT analog is not
@@ -24122,12 +24108,12 @@ c available here -> book FIT-analogs in snlc_fit.car
 
          CALL TABLE_VARLIST_FILTERS('SNRMAX', 'F', ADDCOL_FILTERS,
      &                    VARLIST, LENLIST )
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNRMAX(1), 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNRMAX(1), 
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
          CALL TABLE_VARLIST_FILTERS('XTMW', 'F', ADDCOL_FILTERS, 
      &                    VARLIST, LENLIST )
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_XTMW(1),
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_XTMW(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
       ELSE
@@ -24135,33 +24121,33 @@ c available here -> book FIT-analogs in snlc_fit.car
 c variables re-evaluated after fit
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TRESTMIN_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TRESTMIN_FIT, 
+     &                 VARLIST, 0,  LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TOBSMIN_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TOBSMIN_FIT, 
+     &                  VARLIST, 0, LENBLOCK, 40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TGAPMAX_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TGAPMAX_FIT, 
+     &                 VARLIST, 0,  LENBLOCK, 40 )
 
          VARLIST = 'NFILT_Tmin:I,NFILT_Tmax:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NFILT_TRESTMIN_FIT,VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_TRESTMIN_FIT,
+     &                VARLIST,0,   LENBLOCK, 40 )
 
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NFILT_SNRMAX_FIT, VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_SNRMAX_FIT, 
+     &                 VARLIST,0,  LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNRMAX_SORT_FIT(1), VARLIST,0, 
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
+     &                VARLIST,0,    LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNRMAX_SORT_FIT(1), VARLIST,1,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
+     &                 VARLIST,1,  LENBLOCK, 40 )
 
       ENDIF
 
@@ -24175,15 +24161,15 @@ c - - - - - -  nearest nbr (Apr 2014) - - - - -
 
       IF ( LTMP ) THEN
          VARLIST = 'NN_ITYPE:I' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_ITYPE, VARLIST,1, 
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_ITYPE, VARLIST,1, 
      &                   LENBLOCK, 20 )
 
          VARLIST = 'NN_NCELL:I' // char(0)   ! with training cuts (no NN)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_NCELL, VARLIST,0,
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_NCELL, VARLIST,0,
      &                   LENBLOCK, 20 )
 
          VARLIST = 'NN_PROB_IA:F' // char(0)  ! Bayesian prob with NN cut
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
      &                   LENBLOCK, 20) 
 
       ENDIF
@@ -24209,8 +24195,8 @@ c glue together variables in comma-separate VARLIST
         LENLIST = INDEX(VARLIST,' ') - 1
         VARLIST = VARLIST(1:LENLIST) // char(0)
 
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, PRIVATE_VALUE(1), VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+        CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PRIVATE_VALUE(1), 
+     &                VARLIST, 0,   LENBLOCK, LENLIST)
       ENDIF     ! end of NPAR_PRIVATE if-block
 
 c --- Sep 23 2017: user variables --------
@@ -24219,7 +24205,7 @@ c --- Sep 23 2017: user variables --------
           VARLIST = TABLEVARNAME_USER(ivar)
           LENLIST = INDEX(VARLIST,' ') - 1
           VARLIST = VARLIST(1:LENLIST) // ':F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, TABLEVALUE_USER(1), 
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TABLEVALUE_USER(1), 
      &               VARLIST, 1, LENBLOCK, LENLIST+2)           
         ENDDO
       ENDIF
@@ -24264,7 +24250,12 @@ c local var
       CHARACTER CBLK*40, CNOBS*14, VARNAME*40
       LOGICAL  IGNORE
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
       LOGICAL  IGNOREFILE_fortran
 
 C --------------- BEGIN -------------
@@ -24280,87 +24271,87 @@ C --------------- BEGIN -------------
       write(CNOBS,15) MXOBS_SNTABLE
 15    format('NOBS[',I4.4,']' )  ! no spaces or commas in string
       VARNAME = CNOBS(1:12)  // char(0)  ! Nobs used in fit + NREJECT
-      CALL SNTABLE_ADDCOL(ID, CBLK, ISNLC_NEWMJD_STORE,
+      CALL SNTABLE_ADDCOL_int(ID, CBLK, ISNLC_NEWMJD_STORE,
      &     VARNAME, 0, LENB, LENV)
 
       VARNAME = 'USEFLAG(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_SNRECON_USE(1),
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_SNRECON_USE(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'PHOTFLAG(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_PHOTFLAG(1),
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_PHOTFLAG(1),
      &      VARNAME, 0, LENB,LENV)
 
-      VARNAME = 'PHOTPROB(NOBS):R' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_PHOTPROB(1),
+      VARNAME = 'PHOTPROB(NOBS):F' // char(0)  
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_PHOTPROB(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'IFILTOBS(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_IFILT_OBS(1),
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_IFILT_OBS(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'MJD(NOBS):D' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC8_MJD(1),
+      CALL SNTABLE_ADDCOL_dbl(ID,CBLK, SNLC8_MJD(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'FLUXCAL_DATA(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'FLUXCAL_DATA_ERR(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRTOT(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL_ERRTOT(1),
      &      VARNAME, 0, LENB,LENV)
 
 c -- observing conditions
 
       VARNAME = 'ZP(NOBS):F' // char(0)    ! match FITRES+RESID table
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_ZEROPT(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'ZP_ERR(NOBS):F' // char(0)    ! match FITRES+RESIDS table
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT_ERR(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_ZEROPT_ERR(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'PSF(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_PSF_SIG1(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_PSF_SIG1(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'SKYSIG(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_SKYSIG(1),
      &      VARNAME, 0, LENB,LENV)
       VARNAME = 'SKYSIG_T(NOBS):F' // char(0)    ! Nov 30 2020
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG_T(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_SKYSIG_T(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'GAIN(NOBS):F' // char(0)    ! Nov 30 2020
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_GAIN(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_GAIN(1),
      &      VARNAME, 0, LENB,LENV)
 
 c --- error calculated from PSF+SKY+ZP, as the simulation would do
 
       VARNAME = 'FLUXCAL_ERRCALC(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRCALC(1),
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL_ERRCALC(1),
      &      VARNAME, 0, LENB,LENV)
 
 c - - - - - - - - - - - - - - - - 
 
       IF ( ISJOB_SIM ) THEN
          VARNAME = 'FLUXCAL_SIM(NOBS):F' // char(0)   ! match FITRES+RESIDS
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL(1),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPFLUXCAL(1),
      &        VARNAME, 0, LENB,LENV)
 
          VARNAME = 'CHI2FLUX_SIM(NOBS):F' // char(0)  ! match FITRES+RESIDS
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPCHI2FLUX(1),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPCHI2FLUX(1),
      &        VARNAME, 0, LENB,LENV)
 
          VARNAME = 'MAGOBS_SIM(NOBS):F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPMAGOBS(1),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPMAGOBS(1),
      &        VARNAME, 0, LENB,LENV)
       ENDIF
 
       IF ( LSIM_SNANA ) THEN
          VARNAME = 'SIM_FLUXCAL_HOSTERR(NOBS):F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL_HOSTERR(1),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPFLUXCAL_HOSTERR(1),
      &        VARNAME, 0, LENB,LENV)
       ENDIF
 
@@ -24369,8 +24360,8 @@ c include SNR_MAG[mag] if it exists.
       IGNORE  = ( IGNOREFILE_fortran(SIMNAME_SNRMON) ) 
       IF ( LSIM_SNANA .and. (.not.IGNORE)  ) THEN
          VARNAME = SIMNAME_SNRMON(1:LENTMP)// '(NOBS):F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPSNRMON(1),
-     &        VARNAME, 0, LENB,LENV)         
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPSNRMON(1),
+     &        VARNAME, 0, LENB,LENV)
       ENDIF
 
       RETURN
@@ -24402,7 +24393,12 @@ c local var
       LOGICAL IGNORE
       CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 C --------------- BEGIN -------------
 
@@ -24419,11 +24415,11 @@ C --------------- BEGIN -------------
       write(CNOBS,15) MXEP_MODELGRID
 15    format('NEP_MODEL[',I4.4,']' )  ! no spaces or commas in string
       VARNAME = CNOBS(1:15)  // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLK, NEP_SIM_MODELGRID,
+      CALL SNTABLE_ADDCOL_int(ID, CBLK, NEP_SIM_MODELGRID,
      &     VARNAME, 0, LENB, LENV)
 
       VARNAME = 'EPOCH_MODEL(NEP_MODEL):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SIM_MODELGRID_TOBS,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_MODELGRID_TOBS(1),
      &      VARNAME, 0, LENB,LENV)
 
       DO ifilt = 1, NFILTDEF_SURVEY
@@ -24431,7 +24427,8 @@ C --------------- BEGIN -------------
           cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
           VARNAME   = 'MAGOBS_MODEL_' // cfilt(1:1) // 
      &                    '(NEP_MODEL):F' // char(0)
-          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_MODELGRID_MAGOBS(1,ifilt),
+          CALL SNTABLE_ADDCOL_flt(ID,CBLK, 
+     &          SIM_MODELGRID_MAGOBS(1,ifilt),
      &          VARNAME, 0, LENB,LENV )
       ENDDO
 
@@ -24571,7 +24568,12 @@ c local var
      &  , VARLIST*400, CBLOCK*40
       INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, LENM, ITEXT
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 C ---------------- BEGIN ---------------
 
@@ -24590,116 +24592,118 @@ C ---------------- BEGIN ---------------
 
       IF ( SIM_SUBSAMPLE_INDEX >= 0 ) THEN
         VARLIST = 'SIM_SUBSAMPLE_INDEX:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID,CBLOCK,SIM_SUBSAMPLE_INDEX,VARLIST, 0,
-     &                     LENBLOCK, LENLIST)   ! added Jun 16 2017
+        CALL SNTABLE_ADDCOL_int(ID,CBLOCK,SIM_SUBSAMPLE_INDEX,
+     &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
-     &                   LENBLOCK, LENLIST)
+c xxxxxxx mark delete Dec 2022 xxxxxx
+c      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
+c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
+c     &                   LENBLOCK, LENLIST)
+c xxxxxxxxx end mark xxxxxxx
 
       VARLIST = 'SIM_TEMPLATE_INDEX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_TEMPLATE_INDEX,VARLIST,1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_TEMPLATE_INDEX,
+     &               VARLIST,1,    LENBLOCK, LENLIST)
 
 c Mar 22 2016: always output SIM_LIBID
 cc      IF ( BTEST(SIMLIB_MSKOPT,1) ) THEN
         VARLIST = 'SIM_LIBID:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LIBID,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)   ! added Dec 2015
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_LIBID,  VARLIST, 1,
+     &                   LENBLOCK, LENLIST) 
         VARLIST = 'SIM_NGEN_LIBID:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_NGEN_LIBID,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)   ! added Dec 2015
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_NGEN_LIBID,  VARLIST, 1,
+     &                   LENBLOCK, LENLIST) 
 cc      ENDIF
 
       VARLIST = 'SIM_NOBS_UNDEFINED:I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_NOBS_UNDEFINED,VARLIST,0,
-     &                   LENBLOCK, LENLIST)   ! added Mar 22 2017
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_NOBS_UNDEFINED,
+     &            VARLIST,0,       LENBLOCK, LENLIST)  
 
       VARLIST = 'SIM_SEARCHEFF_MASK:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SEARCHEFF_MASK, VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_SEARCHEFF_MASK, 
+     &               VARLIST, 0,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_MAGSMEAR_COH:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MAGSMEAR_COH,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MAGSMEAR_COH,  
+     &             VARLIST, 0,      LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_MWEBV:F' // char(0)  ! added Nov 26 2016
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MWEBV,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MWEBV,  
+     &                VARLIST, 0,   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZCMB:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_CMB,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_CMB,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZHELIO:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_HELIO,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_HELIO, 
+     &                VARLIST, 0,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZHOST:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_HOST,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_HOST,  
+     &             VARLIST, 0,      LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZFLAG:I' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_FLAG,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_REDSHIFT_FLAG,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_VPEC:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_VPEC,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_VPEC,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_DLMAG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_DLMAG,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_DLMAG,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_LENSDMU:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LENSDMU,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_LENSDMU,  
+     &               VARLIST, 0,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_PEAKMJD:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_PEAKMJD,  
+     &               VARLIST, 1,     LENBLOCK, LENLIST)
 
       if ( SIM_MJD_EXPLODE > 0.0 ) then
         VARLIST = 'SIM_MJD_EXPLODE:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MJD_EXPLODE,  VARLIST, 1, 
-     &                     LENBLOCK, LENLIST)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MJD_EXPLODE,  
+     &                VARLIST, 1,    LENBLOCK, LENLIST)
       endif
 
       LENTMP = INDEX(SIMNAME_SHAPEPAR,' ') - 1  ! x1, delta, dm15
-      VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SHAPEPAR,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F'   // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SHAPEPAR,
+     &               VARLIST, 1,     LENBLOCK, LENLIST)  
 
       LENTMP = INDEX(SIMNAME_COLORPAR,' ') - 1  ! c, AV
       VARLIST = SIMNAME_COLORPAR(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORPAR,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_COLORPAR,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       LENTMP = INDEX(SIMNAME_SHAPELAW,' ') - 1   ! SIM_alpha
       VARLIST = SIMNAME_SHAPELAW(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SHAPELAW,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SHAPELAW,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       LENTMP = INDEX(SIMNAME_COLORLAW,' ') - 1   ! SIM_beta
       VARLIST = SIMNAME_COLORLAW(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_COLORLAW,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
 c add SIM_gammaDM if not zero.
 c Sep 7 2021: always write SIM_gammaDM in case first value is 0
 c    followed by non0-zero values.
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST, 1,
-     &                   LENBLOCK, LENLIST )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2gammaDM,
+     &                VARLIST, 1,   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2x0,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_mB:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2mb,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2mb,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
 c add SIM_AV only if not already defined. 
 c This is for the SALT2 model with intinsic color (c) and 
@@ -24709,11 +24713,11 @@ c Aug 2 2022: perform test only for SALT2 model.
       if ( SIM_MODEL_INDEX .EQ. MODEL_SALT2 ) then
         if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then
           VARLIST = 'SIM_AV:F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_AV,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_AV,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
           VARLIST = 'SIM_RV:F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_RV,  VARLIST, 1,
-     &                     LENBLOCK, LENLIST)
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_RV,  
+     &                VARLIST, 1,     LENBLOCK, LENLIST)
         endif
       endif
 
@@ -24724,7 +24728,7 @@ c  Apr 28 2015: set DOTEXT flag to 1
          CTMP    = SIMSED_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIMSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIMSED_PARVAL(ipar),
      &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
@@ -24736,7 +24740,7 @@ c PySEDMODEL model params (BYOSED, SNEMO, ...)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = PySEDMODEL_NAME(1:LENM) // '_' 
      &             // CTMP(1:LENTMP) // ':F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
      &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
@@ -24744,15 +24748,15 @@ c Feb 2018: LCLIB model params
       IF ( SIM_MODEL_INDEX == MODEL_LCLIB ) THEN        
         CALL TABLE_VARLIST_FILTERS('SIM_TEMPLATEMAG','F',ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_TEMPLATEMAG,
+        CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIM_TEMPLATEMAG(1),
      &          VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
         DO IPAR    = 1, NPAR_LCLIB
            CTMP    = LCLIB_PARNAME(ipar)
            LENTMP  = INDEX(CTMP,' ') - 1
            VARLIST = 'LCLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
-           CALL SNTABLE_ADDCOL(ID,CBLOCK, LCLIB_PARVAL(ipar),VARLIST,1,
-     &          LENBLOCK, LENLIST)
+           CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, LCLIB_PARVAL(ipar),
+     &            VARLIST,1,   LENBLOCK, LENLIST)
         ENDDO
       ENDIF
 
@@ -24761,14 +24765,14 @@ c SIM_HOSTLIB params
       ITEXT = 0
       if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
       VARLIST = 'SIM_HOSTLIB_GALID' // ':D' // char(0) ! Feb 2020
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, DSIM_HOSTLIB_GALID,
+         CALL SNTABLE_ADDCOL_dbl(ID,CBLOCK, DSIM_HOSTLIB_GALID,
      &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
 
       DO IPAR    = 1, NPAR_SIM_HOSTLIB
          CTMP    = SIM_HOSTLIB_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIM_HOSTLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
      &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
       ENDDO  
 
@@ -24776,7 +24780,7 @@ c - - - - - optional LCWIDTH for simulated MAGOBS -----
       if ( OPTSIM_LCWIDTH > 0 ) then
         CALL TABLE_VARLIST_FILTERS('SIM_LCWIDTH','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LCWIDTH,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_LCWIDTH(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       endif
 
@@ -24813,6 +24817,7 @@ c ----------------------------------------------------
       COMMON / IPLOTCOM / CID, IPLOT 
 c function
       INTEGER IPLOT_JOBSPLIT
+      EXTERNAL SNTABLE_ADDCOL, SNTABLE_ADDCOL_int
 
 C ------------ BEGIN ------------
 
@@ -24828,7 +24833,8 @@ C ------------ BEGIN ------------
         LENBLOCK = INDEX(CBLOCK,' ') - 1
         LENLIST  = LEN(VARLIST)       
         VARLIST = 'CID:I,IPLOT:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID,CBLOCK,CID,VARLIST,0, LENBLOCK,LENLIST)
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CID,
+     &        VARLIST, 0, LENBLOCK,LENLIST)
 
         RETURN
       ENDIF

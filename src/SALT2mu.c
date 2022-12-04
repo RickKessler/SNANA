@@ -2185,6 +2185,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     double delta_beta  = 0.01;
     INPUTS.parval[IPAR_ALPHA0] += delta_alpha ;
     INPUTS.parval[IPAR_BETA0]  += delta_beta  ;
+    FITINP.NFITPAR_FLOAT = 0 ;
     printf("\t Repeat BBC fit with initial alpha += %.5f and beta += %.5f\n",
 	   delta_alpha, delta_beta); fflush(stdout);
     return(FLAG_EXEC_REPEAT); 
@@ -5210,7 +5211,7 @@ void set_defaults(void) {
   set_fitPar(  5,  0.0,  0.01,  g0,   g1,    0 ); // gamma0
   set_fitPar(  6,  0.0,  0.01, -2.00, 2.00,  0 ); // gamma1
   set_fitPar(  7, 10.0,  0.10,  9.00,11.00,  0 ); // logmass_cen
-  set_fitPar(  8,  0.02, 0.01,  0.001,1.00,  0 ); // logmass_tau
+  set_fitPar(  8,  0.02, 0.01,  8.0E-4,1.00,  0 ); // logmass_tau
   set_fitPar(  9,  0.73, 0.05,  0.00, 2.00,  0 ); // Omega_Lam
   set_fitPar( 10,  0.0,  0.05, -2.00, 5.00,  0 ); // Omega_k
   set_fitPar( 11, -1.0,  0.1,  -3.00, 1.00,  0 ); // w0

@@ -9869,6 +9869,8 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
 
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
+    if ( FLAM_SN < 1.0E-30 ) { FLAM_SN = 1.0E-30; } 
+
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
     FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
     

@@ -18953,8 +18953,14 @@ void write_yaml_info(char *fileName) {
     trim_blank_spaces(tmpName);       strcat(tmpName,":") ;
     
     fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
+    fflush(fp);
   }
 
+
+  if ( INFO_CCPRIOR.USE ) {
+    double contam_data = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A;
+    fprintf(fp,"  - CONTAM_DATA:  %.4f \n", contam_data);
+  }
 
   fclose(fp);
 

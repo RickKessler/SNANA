@@ -674,6 +674,9 @@ def get_name_from_fitopt_muopt(f, m):
 def get_fitopt_scales(lcfit_info, sys_scales):
     """ Returns a dict mapping FITOPT numbers to (label, scale) """
     fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+
+    if fitopt_list is None: return None
+
     result = {}
     for number, _, label, _ in fitopt_list:
         if label != "DEFAULT" and label is not None:

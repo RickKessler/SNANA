@@ -2187,6 +2187,9 @@ class BBC(Program):
         fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
         fitres_list       = []
         NOREJECT_list     = []
+        
+        if FITOPT_OUT_LIST is None: 
+            FITOPT_OUT_LIST = []   # Dec 2022
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]

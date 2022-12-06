@@ -194,7 +194,8 @@ class create_covmat(Program):
 
         if KEY_SYS_SCALE_FILE in input_covmat_yaml:
             sys_scale_file = input_covmat_yaml[KEY_SYS_SCALE_FILE]
-            shutil.copy(sys_scale_file, script_dir)
+            if isinstance(sys_scale_file,str):
+                shutil.copy(sys_scale_file, script_dir)
         
         return
         # end prep_covmat_copyFiles

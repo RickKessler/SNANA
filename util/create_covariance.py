@@ -84,6 +84,8 @@
 #   + for unbinned, write correct zHEL (no vpec correction)
 #   + write zHD and zHEL comments at top of hubble_diagram.txt
 #
+# Dec 7 2022 RK - fix bug in prep_config(); affects pippin integration
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time
@@ -1505,35 +1507,10 @@ def create_covariance(config, args):
 
 def prep_config(config,args):
 
-    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
-                  'COSMOMC_TEMPLATES_PATH' ]
-    
-    # 9.22.2021 RK - check legacy keys
-    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
-                        'SYSFILE' ]
-    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
-                        'SYS_SCALE_FILE' ]
+    # Dec 7 2022: fix bug setting override args at start of method instead 
+    #   of at the end.
 
-    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
-        if key_legacy in config:
-            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
-            logging.info(msg)
-            config[key_update] = config[key_legacy] 
-
-    for path in path_list:
-        if path in config:
-            config[path] = os.path.expandvars(config[path]) ;   
-
-    # check special/legacy features for cosmoMC/JLA
-    config['use_cosmomc'] = False
-    if 'COSMOMC_TEMPLATES_PATH' in config: 
-        config['use_cosmomc'] = True
-
-    # WARNING: later add option to read from input file
-    #sys.exit(f" xxx nbin(x1,c) = {args.nbin_x1} {args.nbin_c} ")
-    config['nbin_x1'] = args.nbin_x1
-    config['nbin_c']  = args.nbin_c
-
+    # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :
         config["INPUT_DIR"] = args.input_dir
@@ -1555,6 +1532,35 @@ def prep_config(config,args):
     if args.muopt >= 0 :
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
+
+    # - - -  - -    
+
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+                        'SYSFILE' ]
+    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
+                        'SYS_SCALE_FILE' ]
+
+    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
+        if key_legacy in config:
+            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
+            logging.info(msg)
+            config[key_update] = config[key_legacy] 
+
+    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
+                  'COSMOMC_TEMPLATES_PATH' ]
+    for path in path_list:
+        if path in config:
+            config[path] = os.path.expandvars(config[path]) ;   
+
+    # check special/legacy features for cosmoMC/JLA
+    config['use_cosmomc'] = False
+    if 'COSMOMC_TEMPLATES_PATH' in config: 
+        config['use_cosmomc'] = True
+
+    # WARNING: later add option to read from input file
+    config['nbin_x1'] = args.nbin_x1
+    config['nbin_c']  = args.nbin_c
+
         
     # end prep_config
 

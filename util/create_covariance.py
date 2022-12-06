@@ -829,16 +829,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     bracket_content1 = re.findall(r"\[(.*)\]",  tmp1)[0]
     bracket_content1_list = bracket_content1.split(',')
 
-    #print(f" xxx -------------------------- ")
-    #print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
-
-    # xxxxxxxx mark delete Sep 29 2022 RK xxxxxxxxx
-    #label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
-    #fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
-    #print(f" xxx orig  fitopt_filter = '{fitopt_filter}' " \
-    #      f" muopt_filter = '{muopt_filter}'")
-    # xxxxxxxxx end mark xxxxxxxx
-
     #  Sep 29 2022 RK - refactor parsing to allow 2 or 3 comma-sep
     #  items in 2nd bracket.
     label         = bracket_content0

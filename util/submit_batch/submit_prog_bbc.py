@@ -269,6 +269,14 @@ class BBC(Program):
             self.bbc_prep_noINPDIR()
             return
 
+        # check BBC option to disable sync_evt from 2_LCFIT stage
+        preserve_sync_evt = True
+        for key in KEYLIST_SYNC_EVT:
+            if key in CONFIG:
+                if CONFIG[key] == 0 : 
+                    preserve_sync_evt = False
+                    logging.info(f"\t DISABLE SYNC-EVENT flag passed from 2_LCFIT")
+
         # - - - - - 
         for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
@@ -338,7 +346,9 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key] > 0
                     KEY_SYNC_EVT   = key
 
-            if devel_flag == -20: sync_evt = False # disable event sync
+            # xxx if devel_flag == -20: sync_evt = False # disable event sync
+            if not preserve_sync_evt :
+                sync_evt = False 
 
             # - - - 
             n_fitopt       = len(fitopt_table)

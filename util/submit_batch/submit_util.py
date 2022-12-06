@@ -26,7 +26,7 @@ def get_snana_version():
     cmd = f"cd {SNANA_DIR};  git describe --always --tags"
     ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
                       shell=True, capture_output=True, text=True )
-    snana_version = ret.stdout
+    snana_version = ret.stdout.replace('\n','')
     return snana_version
     
 def replace_arg(arg_list, key, arg_new):

@@ -18958,8 +18958,10 @@ void write_yaml_info(char *fileName) {
 
 
   if ( INFO_CCPRIOR.USE ) {
-    double contam_data = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A;
-    fprintf(fp,"  - CONTAM_DATA:  %.4f \n", contam_data);
+    VAL = FITRESULT.NSNFIT_CC/FITRESULT.NSNFIT_1A;
+    ERR = 0.0 ;
+    fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", "CONTAM_DATA:", VAL, ERR ) ;
+    // xxx fprintf(fp,"  - CONTAM_DATA:  %.4f  0.000 \n", contam_data);
   }
 
   fclose(fp);

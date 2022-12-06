@@ -21483,6 +21483,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + call cast-specfic SNTABLE_ADDCOL_[int,flt,dbl,str] 
        to avoid warnings with gcc version 10.
 
-      
+    create_covariance.py
+      + fix bug in prep_config
+      + write SNANA_VERSION to INFO.YML file  
     
 END: 

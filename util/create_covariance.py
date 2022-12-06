@@ -84,11 +84,13 @@
 #   + for unbinned, write correct zHEL (no vpec correction)
 #   + write zHD and zHEL comments at top of hubble_diagram.txt
 #
-# Dec 7 2022 RK - fix bug in prep_config(); affects pippin integration
+# Dec 7 2022 RK 
+#   + fix bug in prep_config(); affects pippin integration
+#   + write SNANA_VERSION to INFO.YML file
 #
 # ===============================================
 
-import os, argparse, logging, shutil, time
+import os, argparse, logging, shutil, time, subprocess
 import re, yaml, sys, gzip, math
 import numpy  as np
 import pandas as pd
@@ -297,6 +299,16 @@ COSMOMC_DATASET_FILE: <out file with cosmomc instructions>
 
     # end print_help_menu
 
+def get_snana_version():
+    # fetch snana version that includes tag + commit;
+    # e.g., v11_05-4-gd033611.
+    # Use same git command as in Makefile for C code
+    SNANA_DIR        = os.environ['SNANA_DIR']
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout.replace('\n','')
+    return snana_version
 
 def check_isdata_real(hd_file):
 
@@ -1330,6 +1342,9 @@ def write_summary_output(config, covariances, base):
     info["COVOPTS"] = cov_info
 
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
+
+    SNANA_VERSION = get_snana_version()
+    info['SNANA_VERSION'] = SNANA_VERSION
 
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:

@@ -21487,4 +21487,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix bug in prep_config
       + write SNANA_VERSION to INFO.YML file  
     
+    SALT2mu.c
+      + refactor selection for sntype_select and idsample_select           
+         add idsurvey_select input  
+
 END: 

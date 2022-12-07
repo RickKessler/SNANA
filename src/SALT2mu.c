@@ -411,6 +411,9 @@ For help, run code with no arguments
  Nov 16 2022: allow missing varname_pIa in biasCor/ccprior unless
               there is a CUTWIN on pIa.
 
+ Dec 7 2022: refactor selection for sntype_select and idsample_select
+             add idsurvey_select input
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -592,10 +595,11 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_NMAXCUT   18    //  NMAX-sample cut
 #define CUTBIT_DUPL      19    //  duplicate 
 #define CUTBIT_IDSAMPLE  20    //  IDSAMPLE
-#define CUTBIT_CHI2      21    //  chi2 outlier (data only)
-#define CUTBIT_CID       22    //  for specifying a list of cids to process
-#define CUTBIT_FIELD     23    //  see fieldlist= input
-#define MXCUTBIT         25  
+#define CUTBIT_IDSURVEY  21    //  IDSURVEY from SURVEY.DEF file
+#define CUTBIT_CHI2      22    //  chi2 outlier (data only)
+#define CUTBIT_CID       23    //  for specifying a list of cids to process
+#define CUTBIT_FIELD     24    //  see fieldlist= input
+#define MXCUTBIT         26  
 
 #define DOFLAG_CUTWIN_IGNORE  0 // do not apply CUTWIN
 #define DOFLAG_CUTWIN_APPLY   1 // apply CUTWIN
@@ -1020,6 +1024,17 @@ struct {
 } INPUTS_PROBCC_ZERO ;
 
 
+
+// Dec 2022: define struct to hold list of integer values to select
+#define MXID_SELECT 100 
+typedef struct {
+  char SELECT_STRING[60] ; // e.g., 2+3+4 or 2,3,4
+  char KEYNAME[60];         // name of input key; e.g, 'idsample_select'
+  char VARNAME_TABLE[60];   // column varname in FITRES table
+  int  NID ;
+  int  IDLIST[MXID_SELECT];	    
+} SELECT_LIST_DEF ;
+
 #define MXVARNAME_MISSING 10
 struct {
   int    ndef ; 
@@ -1029,6 +1044,8 @@ struct {
 
 #define ORDER_ZPOLY_COVMAT 3   // 3rd order polynom for intrinsic scatter cov.
 #define MXSURVEY_ZPOLY_COVMAT 10 
+
+
 
 struct INPUTS {
 
@@ -1079,7 +1096,6 @@ struct INPUTS {
   int  surveyGroup_biasCor_abortFlag; // 1-> abort on missing survey
 
   char surveyList_noBiasCor[200]; // list of surveys fit, but skip biasCor
-  char idsample_select[40];       // e.g., '0+3'
   int    select_trueIa;      // T -> select only true SNIa, disable CC prior
   int    force_realdata ;    // T -> treat SIM like real data
   double zspec_errmax_idsample; // used to create [SAMPLE]-zSPEC IDSAMPLE
@@ -1138,9 +1154,17 @@ struct INPUTS {
   bool   LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
   bool   APPLYCUT_pIa ;
 
+  // integer values to select
+  SELECT_LIST_DEF IDSAMPLE_SELECT;
+  SELECT_LIST_DEF IDSURVEY_SELECT;
+  SELECT_LIST_DEF SNTYPE_SELECT;
+
+  // xxxx Dec 2022 : mark obsolete ... to delete soon 
+  char idsample_select[40];       // e.g., '0+3'
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
+  // xxxxxxx end mark xxxxxxxxxx
 
   // CID select or reject for data only (data can be real or sim)
   int   ncidFile_data;  // number of cid-select files in comma-sep list
@@ -1221,9 +1245,9 @@ struct INPUTS {
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   char cidlist_debug_biascor[100];
 
-  bool LEGACY_NBINc;
-  bool LEGACY_IZBIN;
-  // set internal LEGACY and REFAC flags for development
+
+  // set internal LEGACY and REFAC flags for development 
+  bool LEGACY_SELECT, REFAC_SELECT; // debug_flag=1207
 
 } INPUTS ;
 
@@ -1468,8 +1492,12 @@ int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 void copy_CUTWIN(int icut0,int icut1);
 int  icut_CUTWIN(char *varName) ;
 
+void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT);
+bool select_IDLIST(int ID, SELECT_LIST_DEF *SELECT);
+
 void parse_sntype(char *item);
-void parse_IDSAMPLE_SELECT(char *item);
+void parse_IDSAMPLE_SELECT(char *item); // mark obsolete
+void prep_IDSAMPLE_SELECT(SELECT_LIST_DEF *SELECT);
 
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item, int wrflag);
@@ -5089,15 +5117,6 @@ void set_defaults(void) {
   INPUTS.cmin  = -0.3; 
   INPUTS.cmax  = +0.3;
 
-  INPUTS.LEGACY_NBINc = false ;
-  if ( INPUTS.LEGACY_NBINc ) {
-    printf("\n xxx %s: BEWARE LEGACY_NBINc = True !! \n\n", fnam );
-    INPUTS.x1min = -6.0;
-    INPUTS.x1max = +6.0;
-    INPUTS.cmin  = -0.6; 
-    INPUTS.cmax  = +0.6;    
-  }
-
   INPUTS.logmass_min  = -20.0 ;
   INPUTS.logmass_max  = +20.0 ;
   INPUTS.nbin_logmass =  1 ; 
@@ -5109,8 +5128,14 @@ void set_defaults(void) {
 
   INPUTS.cutmask_write = 0;  // default -> write events used in fit
 
+  INPUTS.IDSAMPLE_SELECT.NID = 0;
+  INPUTS.IDSURVEY_SELECT.NID = 0;
+  INPUTS.SNTYPE_SELECT.NID = 0;
+
+  // xxxxxx mark delete Dec 7 2022 xxxx
   INPUTS.Nsntype = 0 ;
   sprintf(INPUTS.sntypeString,"NULL");
+  // xxxxxx end mark xxxxx
 
   INPUTS.nmaxString[0]   = 0 ;
 
@@ -5272,6 +5297,9 @@ void set_defaults(void) {
   SUBPROCESS.NEVT_SIM_PRESCALE     = -9; 
 #endif
 
+  INPUTS.LEGACY_SELECT = false;
+  INPUTS.REFAC_SELECT  = true;
+
   return ;
 
 }   // end of set_defaults
@@ -5314,6 +5342,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_DUPL],      "DUPLICATE" );
   sprintf(CUTSTRING_LIST[CUTBIT_NMAXCUT],   "NMAXCUT" );
   sprintf(CUTSTRING_LIST[CUTBIT_IDSAMPLE],  "IDSAMPLE" );
+  sprintf(CUTSTRING_LIST[CUTBIT_IDSURVEY],  "IDSURVEY" );
   sprintf(CUTSTRING_LIST[CUTBIT_CHI2],      "CHI2" );
   sprintf(CUTSTRING_LIST[CUTBIT_CID],       "CID"  );
 
@@ -5470,7 +5499,6 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   cmin=INPUTS.cmin; cmax=INPUTS.cmax;
   cbin=(cmax-cmin)/(double)NBINc;
 
-  if ( INPUTS.LEGACY_NBINc ) { NBINc=3; cmin = -0.3; cmax=0.3; cbin=0.2; }
 
   // Jun 11 2021: include logmass bins.
   NBINm = CELLINFO_BIASCOR[IDSAMPLE].BININFO_m.nbin ;
@@ -7897,8 +7925,8 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[i].NSN[EVENT_TYPE_DATA]     = 0 ; 
     SAMPLE_BIASCOR[i].NSN[EVENT_TYPE_BIASCOR]  = 0 ; 
     SAMPLE_BIASCOR[i].NSN[EVENT_TYPE_CCPRIOR]  = 0 ; 
-    SAMPLE_BIASCOR[i].DOFLAG_SELECT  = 1 ; // default -> select sample
-    SAMPLE_BIASCOR[i].DOFLAG_BIASCOR = 1 ; // default -> do Bias cor
+    SAMPLE_BIASCOR[i].DOFLAG_SELECT  = 1 ; // default -> select all samples
+    SAMPLE_BIASCOR[i].DOFLAG_BIASCOR = 1 ; // default -> do all Bias cor
     SAMPLE_BIASCOR[i].IFLAG_ORIGIN   = 0 ;
     SAMPLE_BIASCOR[i].zMIN_DATA = +999. ;
     SAMPLE_BIASCOR[i].zMAX_DATA = -999. ;
@@ -8080,7 +8108,10 @@ void prepare_IDSAMPLE_biasCor(void) {
   sort_IDSAMPLE_biasCor();
 
   // check for user-specified IDSAMPLEs to select ...AFTER sorting.
-  parse_IDSAMPLE_SELECT(INPUTS.idsample_select); 
+  if ( INPUTS.LEGACY_SELECT ) 
+    {  parse_IDSAMPLE_SELECT(INPUTS.idsample_select); }
+  else
+    {  prep_IDSAMPLE_SELECT(&INPUTS.IDSAMPLE_SELECT); }
 
   // ------- prepare z-bins for each sample -------------
   // default for each sample is user-input z-bins (zmin,zmax,nzbin)
@@ -8099,7 +8130,6 @@ void prepare_IDSAMPLE_biasCor(void) {
   return ;
 
 } // end prepare_IDSAMPLE_biasCor
-
 
 
 
@@ -15152,8 +15182,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //  int  LDMP = 0;
   int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
-  int  sntype, FOUND, SIM_NONIA_INDEX, idsample, idsurvey, IZBIN ;
-  bool BADERR=false, BADCOV=false ;
+  int  sntype, SIM_NONIA_INDEX, idsample, idsurvey, IZBIN ;
+  bool BADERR=false, BADCOV=false, sel ;
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
@@ -15265,21 +15295,44 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
 
 
-  if ( TABLEVAR->IVAR_SNTYPE > 0 && INPUTS.Nsntype > 0 ) {
-    FOUND = 0 ;
-    for ( icut=0; icut < INPUTS.Nsntype; icut++ ) {
-      if ( sntype == INPUTS.sntype[icut] ) { FOUND = 1; }
+  //  printf(" xxx %s: LEGACY=%d \n", fnam, INPUTS.LEGACY_SELECT);
+  if ( INPUTS.LEGACY_SELECT ) {
+    if ( TABLEVAR->IVAR_SNTYPE > 0 && INPUTS.Nsntype > 0 ) {
+      sel = false ;
+      for ( icut=0; icut < INPUTS.Nsntype; icut++ ) {
+	if ( sntype == INPUTS.sntype[icut] ) { sel = true; }
+      }
+      if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
     }
-    if ( FOUND==0 ) { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
+
+    // xxx mark delete int CUT_IDSAMPLE=0;
+    if ( idsample >= 0 ) {
+      if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { 
+	//  xxx mark    CUT_IDSAMPLE = 1;
+	setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); 
+      }
+    }
+  
+  }
+  else {
+    // refac
+    sel = select_IDLIST(sntype, &INPUTS.SNTYPE_SELECT) ;
+    if ( !sel ) 
+      { setbit_CUTMASK(isn, CUTBIT_sntype, TABLEVAR); }
+
+    sel = select_IDLIST(idsurvey, &INPUTS.IDSURVEY_SELECT) ;
+    if ( !sel )
+      { setbit_CUTMASK(isn, CUTBIT_IDSURVEY, TABLEVAR); }
+    
+    if ( idsample >=0 ) {
+      sel = select_IDLIST(idsample, &INPUTS.IDSAMPLE_SELECT);
+      if ( !sel ) 
+	{ setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
+    }
   }
 
-   
-  int CUT_IDSAMPLE=0;
-  if ( idsample >= 0 ) {
-    if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { CUT_IDSAMPLE = 1;}
-  }
-  if ( CUT_IDSAMPLE ) { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
-  
+
+     
   // - - - - - - - - - - - - - - - - - - - - - - -  -
   // check cuts specific to event_type
 
@@ -15430,17 +15483,6 @@ int selectCID_data(char *cid, int IDSURVEY, int *IZBIN){
   MATCH     = (isn_match >= 0);
   if ( INFO_DATA.USE_IZBIN_from_CIDFILE && MATCH ) {
     *IZBIN = match_cidlist_parval(isn_match, VARNAME_IZBIN, 1);
-
-    if ( INPUTS.LEGACY_IZBIN ) {
-      int IZBIN_old = INFO_DATA.IZBIN_from_CIDFILE[isn_match];
-      if ( IZBIN_old != *IZBIN ) {
-	sprintf(c1err,"IZBIN(old,new) = %d, %d for CID=%s",
-		IZBIN_old, *IZBIN, cid);
-	sprintf(c2err,"something wrong with new IZBIN");
-	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-      }
-    } // end LEGACY_IZBIN
-
   }
 
   /* xxx
@@ -16095,8 +16137,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"fieldlist=") ) 
     { parse_FIELDLIST(&item[10]); return(1); } 
 
-  if ( uniqueOverlap(item,"idsample_select=") ) 
-    { sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
 
   if ( uniqueOverlap(item,"select_trueIa=") ) 
     { sscanf(&item[14], "%d", &INPUTS.select_trueIa );  return(1); } 
@@ -16125,8 +16165,43 @@ int ppar(char* item) {
     INPUTS.acceptFlag_cidFile_data = -1; return(1); 
   }
 
-  if ( uniqueOverlap(item,"sntype=") )  
-    { parse_sntype(&item[7]); return(1); }
+
+  if ( INPUTS.LEGACY_SELECT ) {
+    if ( uniqueOverlap(item,"sntype=") ) 
+      { parse_sntype(&item[7]);   return(1); }
+
+    if ( uniqueOverlap(item,"idsample_select=") ) 
+      { sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
+
+    // legacy code has no idsurvey_select
+
+  }
+
+  if ( INPUTS.REFAC_SELECT ) {
+    if ( uniqueOverlap(item,"sntype=") ) {    // allow old name
+      parse_select_IDLIST("sntype", &item[7], 
+			  &INPUTS.SNTYPE_SELECT) ; 
+    }
+
+    if ( uniqueOverlap(item,"sntype_select=") ) { 
+      parse_select_IDLIST("sntype_select", &item[14], 
+			  &INPUTS.SNTYPE_SELECT) ; 
+      return(1);
+    }
+    
+    if ( uniqueOverlap(item,"idsurvey_select=") )  { 
+      parse_select_IDLIST("idsurvey_select", &item[16], 
+			  &INPUTS.IDSURVEY_SELECT) ;
+      return(1);
+    }
+
+    if ( uniqueOverlap(item,"idsample_select=") )  { 
+      parse_select_IDLIST("idsample_select", &item[16], 
+			  &INPUTS.IDSAMPLE_SELECT) ;
+      return(1);
+    }
+  } // end REFAC
+
 
   if ( uniqueOverlap(item,"nmax=") ) {
     s = INPUTS.nmaxString ;
@@ -16299,7 +16374,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
-    if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
+    // xxx mark if ( INPUTS.debug_flag==401 ) { INPUTS.izbin_from_cidFile=1; } 
+    prep_debug_flag();
     return(1); 
   }
 
@@ -16437,7 +16513,6 @@ void parse_cidFile_data(int OPT, char *fileName) {
   char fnam[] = "parse_cidFile_data" ;
 
   int use_izbin = INPUTS.izbin_from_cidFile ;
-  INPUTS.LEGACY_IZBIN = false;
 
   // ------------- BEGIN ------------
 
@@ -16451,24 +16526,6 @@ void parse_cidFile_data(int OPT, char *fileName) {
     IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
     if ( IVAR_IZBIN >=0 ) { INFO_DATA.USE_IZBIN_from_CIDFILE = true; }
   }
-
-  // xxxx prepare to delete LEGACY_IZBIN ...
-  if ( INPUTS.LEGACY_IZBIN && use_izbin ) {
-    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN);
-    if ( IVAR_IZBIN >= 0 ) { 
-      INFO_DATA.IZBIN_from_CIDFILE = (int*) malloc( ncid * sizeof(int) ) ;
-      INFO_DATA.USE_IZBIN_from_CIDFILE = true;
-      IFILE = NFILE_AUTOSTORE-1;
-      for(ifile=0; ifile < NFILE_AUTOSTORE-1; ifile++ ) 
-	{ ISNOFF += SNTABLE_AUTOSTORE[ifile].NROW; }
-      for ( isn=0; isn < ncid; isn++ ) {
-	DVAL = SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR_IZBIN][isn];
-	IZBIN = (int)DVAL ;
-	INFO_DATA.IZBIN_from_CIDFILE[ISNOFF+isn] = IZBIN ;
-      }    
-    } // end IVAR_IZBIN>0
-  } // end use_izbin
-  // xxxx end prep delete  xxxxxxxxxxxxxxx
 
 
   // - - - - - - - - 
@@ -16555,42 +16612,7 @@ void prep_input_nmax(char *item) {
 
 } // end prep_input_nmax
 
-// **************************************************
-void parse_sntype (char *item) {
 
-  // May 23, 2012
-  // parse comma-separated list of types and load
-  // INPUTS.Nsntype and INPUTS.sntype[i].
-  // Input file example :
-  //   sntype= 120,105,104  ! no blank spaces
-
-  char *ptrtok, local_item[100] ;
-  int  ITYPE, N;
-  //  char fnam[] = "parse_sntype" ;
-
-  // --------------- BEGIN ---------------
-
-  sprintf(INPUTS.sntypeString, "%s", item);
-  sprintf(local_item,          "%s", item);
-
-  INPUTS.Nsntype = 0 ;
-
-  N = 0;
-  ptrtok = strtok(local_item,",");
-  while ( ptrtok != NULL  ) {
-    sscanf(ptrtok,"%d", &ITYPE);
-    INPUTS.sntype[N]   = ITYPE ;
-
-    if ( ITYPE == -1 ) { return ; } // flag to process all types.
-
-    N++ ;  
-    ptrtok = strtok(NULL, ",");
-  }
-
-
-  INPUTS.Nsntype = N ;
-  
-} // end of parse_sntype
 
 // **************************************************
 void parse_powzbin(char *item) {
@@ -16824,6 +16846,45 @@ void parse_prescale_biascor (char *item, int wrflag) {
 
 } // end of parse_prescale_biascor
 
+
+// **************************************************
+void parse_sntype (char *item) {
+
+  // May 23, 2012
+  // parse comma-separated list of types and load
+  // INPUTS.Nsntype and INPUTS.sntype[i].
+  // Input file example :
+  //   sntype= 120,105,104  ! no blank spaces
+
+  char *ptrtok, local_item[100] ;
+  int  ITYPE, N;
+  char fnam[] = "parse_sntype" ;
+
+  // --------------- BEGIN ---------------
+
+  sprintf(INPUTS.sntypeString, "%s", item);
+  sprintf(local_item,          "%s", item);
+
+  INPUTS.Nsntype = 0 ;
+
+  N = 0;
+  ptrtok = strtok(local_item,",");
+  while ( ptrtok != NULL  ) {
+    sscanf(ptrtok,"%d", &ITYPE);
+    INPUTS.sntype[N]   = ITYPE ;
+
+    if ( ITYPE == -1 ) { return ; } // flag to process all types.
+
+    N++ ;  
+    ptrtok = strtok(NULL, ",");
+  }
+
+
+  INPUTS.Nsntype = N ;
+  
+} // end of parse_sntype
+
+
 // **************************************************
 void parse_IDSAMPLE_SELECT(char *item) {
 
@@ -16865,12 +16926,147 @@ void parse_IDSAMPLE_SELECT(char *item) {
     SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 1; 
   }
 
-  fprintf(FP_STDOUT, " Will select %d IDSAMPLEs : %s \n",  NTMP,  itemLocal);
+  fprintf(FP_STDOUT, "\t -> select %d IDSAMPLEs : %s \n",  NTMP,  itemLocal);
   fflush(FP_STDOUT);
 
   return ;
 
 } // end parse_IDSAMPLE_SELECT
+
+
+// **************************************************
+void prep_IDSAMPLE_SELECT(SELECT_LIST_DEF *SELECT) {
+
+  // Created Dec 2022
+  // Init a few things for selecting on IDSAMPLE
+  //
+
+  int  NID = SELECT->NID ;
+  int  i, ID ; 
+  char fnam[] = "prep_IDSAMPLE_SELECT" ;
+
+  // --------- BEGIN -----------
+
+  if ( SELECT->NID == 0 ) { return; }
+
+  // reset all DOFLAGs to zero
+  for(ID=0; ID < MXNUM_SAMPLE; ID++ )  { 
+    SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 0; 
+    SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 0; 
+  }
+
+  for(i=0; i < NID; i++ ) {
+    ID = SELECT->IDLIST[i];
+    SAMPLE_BIASCOR[ID].DOFLAG_SELECT  = 1; 
+    SAMPLE_BIASCOR[ID].DOFLAG_BIASCOR = 1; 
+  }
+
+
+  return ;
+
+} // end parse_IDSAMPLE_SELECT
+
+
+
+// ================================================
+bool select_IDLIST(int ID, SELECT_LIST_DEF *SELECT) {
+  int i, NID=SELECT->NID ;
+  if ( NID == 0 ) { return true; } // no list -> select all
+  for (i=0; i < NID; i++ ) {
+    if ( ID == SELECT->IDLIST[i] ) { return true; }
+  }
+  return false;
+}  // end select_IDLIST
+
+
+// ====================================================
+void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
+
+  // Ceated Dec 2022 by R.Kessler
+  // Generic parsing of integer-valued select-lists of the form, e.g,
+  //    idsample_select=2,3,4
+  //    sntype_select=120,119
+  //    idsurvey_select=61,62
+  //
+  // Allow plus or comma separators, e.g., both of these work
+  //    idsample_select=2+3+4 
+  //    idsample_select=2,3,4
+  //
+  // Inputs:
+  //   *KEY     is the key name for input; e.g, idsample_select
+  //   *ITEM    is argument of KEY  e.g., '2+3+4'
+  //
+  // Output:
+  //   SELECT  : structure to load with information
+  //
+  // [parse_IDSAMPLE_select and parse_sntype should become obsolete]
+  //
+  // --------------- BEGIN -------------
+
+  int  NTMP, i, ID, IDLIST[MXID_SELECT], ITYPE, NSEP=0 ; 
+  char itemLocal[60],  *ptrID[MXID_SELECT], strID[MXID_SELECT][4] ;
+  char sep[4], *VARNAME ;
+  char fnam[] = "parse_select_IDLIST" ;
+
+  // --------- BEGIN -----------
+
+  if ( strlen(ITEM) == 0 ) { return; }
+
+  sprintf(itemLocal, "%s", ITEM );
+  for(i=0; i < MXID_SELECT; i++ ) { ptrID[i] = strID[i]; }
+
+  // check which separator is used
+  if ( strchr(itemLocal,',') != NULL ) 
+    { sprintf(sep,"%s", COMMA ); NSEP++ ; }
+
+  if ( strchr(itemLocal,'+') != NULL ) 
+    { sprintf(sep,"%s", PLUS ); NSEP++ ; }
+
+  if ( NSEP > 1 ) {
+    sprintf(c1err,"Cannot mix plus and comma separators");
+    sprintf(c2err,"check input key %s=%s", KEY, ITEM);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  // --- split the string ----
+  splitString(itemLocal, sep, MXID_SELECT,      // inputs
+	      &NTMP, ptrID );                   // outputs
+
+
+  // load output SELECT structure
+  SELECT->NID = NTMP;
+  VARNAME = SELECT->VARNAME_TABLE ;    // filled below
+  sprintf(SELECT->KEYNAME,"%s", KEY);
+  for(i=0; i < NTMP; i++ )  {  
+    sscanf(ptrID[i], "%d", &ID);  
+    IDLIST[i] = ID;         // local  
+    SELECT->IDLIST[i] = ID; // return arg
+    printf(" xxx %s: load IDLIST[%d] = %d \n", fnam, i, ID);
+  }
+
+  // - - - - -
+  // load values based on key name
+  if ( strstr(KEY,"idsample") != NULL ) {
+    sprintf(VARNAME,"IDSAMPLE");   
+  }
+  else if ( strstr(KEY,"idsurvey") != NULL ) {
+    sprintf(VARNAME,"IDSURVEY");   
+  }
+  else if ( strstr(KEY,"sntype") != NULL ) {
+    sprintf(VARNAME,"TYPE");   
+  }
+  else {
+    sprintf(c1err,"Invalid KEY = '%s'", KEY );
+    sprintf(c2err,"Key arg is %s", ITEM);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  fprintf(FP_STDOUT, "\t -> select %d %s values : %s \n",  
+	  NTMP,  VARNAME, itemLocal);
+  fflush(FP_STDOUT);
+
+  return;
+} // end parse_select_IDLIST
 
 
 // **************************************************
@@ -17693,8 +17889,6 @@ void prep_input_driver(void) {
 
   // ------------ BEGIN -----------
 
-  prep_debug_flag();
-
   if ( INPUTS.cat_only ) { prep_input_varname_missing(); return; }
 
   // check option to select only true SNIA and ignore CC prior
@@ -17787,11 +17981,12 @@ void prep_input_driver(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);   
   }
 
-  if (INPUTS.Nsntype <= 0 ) 
-    { fprintf(FP_STDOUT, "SN selection type=ALL\n"); }
-  else 
-    { fprintf(FP_STDOUT, "SN selection sntype= %s\n", INPUTS.sntypeString); }
-
+  if ( INPUTS.LEGACY_SELECT ) {
+    if (INPUTS.Nsntype <= 0 ) 
+      { fprintf(FP_STDOUT, "SN selection type=ALL\n"); }
+    else 
+      { fprintf(FP_STDOUT, "SN selection sntype= %s\n", INPUTS.sntypeString); }
+  }
 
   fprintf(FP_STDOUT, "x1min/x1max = %.3f / %.3f \n", 
 	  INPUTS.x1min, INPUTS.x1max);
@@ -18071,12 +18266,15 @@ void prep_debug_flag(void) {
   //   debug_flag > 0 -> test unreleased refactor
   //   debug_flag < 0 -> switch back to legacy code 
 
+  char fnam[] = "prep_debug_flag";
+
   if ( INPUTS.restore_mucovscale_bug ) {
     printf("\n RESTORE mucovscale bug \n");
     fflush(stdout);
   }
   if ( INPUTS.restore_mucovadd_bug ) {
-    printf("\n RESTORE mucovadd bug (set to %d)\n", INPUTS.restore_mucovadd_bug);
+    printf("\n RESTORE mucovadd bug (set to %d)\n", 
+	   INPUTS.restore_mucovadd_bug);
     fflush(stdout);
   }
   
@@ -18084,7 +18282,14 @@ void prep_debug_flag(void) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag);
     fflush(stdout);
   }
+
+  // - - - - - -
+  if ( INPUTS.debug_flag == -1207 )  { INPUTS.REFAC_SELECT = false; }
+  INPUTS.LEGACY_SELECT = !INPUTS.REFAC_SELECT;
+
   fflush(FP_STDOUT);
+
+  return ;
 
 }  // end prep_debug_flag
 
@@ -20980,6 +21185,7 @@ void print_SALT2mu_HELP(void) {
     "    # zspec_errmax_idsample defines zSpec IDSAMPLE"
     "",
     "idsample_select=2+3              # fit only IDSAMPLE = 2 and 3",
+    "idsample_select=2,3              # same as above",
     "surveylist_nobiascor='HST,LOWZ'  # no biasCor for these surveys",
     "interp_biascor_logmass=0         # turn OFF logmass interpolation",
     "",
@@ -21055,8 +21261,13 @@ void print_SALT2mu_HELP(void) {
     "logmass_max=20    # max cut on logmass",
     "nbin_logmass=1    # number of logmass bins for BBC7D",
     "",
-    "sntype=120          # select type=120",
-    "sntype=120,105,106  # select types 120,105,106",
+    "sntype_select=120          # select type=120",
+    "sntype_select=120,105,106  # select types 120,105,106",
+    "sntype_select=120+105+106  # same as abvove",
+    "",
+    "idsurvey_select=10         # select IDSURVYE=10 (DES)",
+    "idsurvey_select=10,150     # select IDSURVEY=10 and 150 (DES, FOUND)",
+    "idsurvey_select=10+150     # same as abvove",
     "",
     "CUTWIN  <VARNAME>  <MIN> <MAX>  # see examples below",
     "CUTWIN  FITPROB  .01 1.0        # cut-window on FITPROB",

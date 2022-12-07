@@ -721,7 +721,8 @@ typedef struct {
   float  zMAX_PER_SURVEY[MXIDSURVEY] ;
 
   // quantities determined from table var
-  float  *CUTVAL[MXCUTWIN];  // used only to make cuts.
+  float     *CUTVAL[MXCUTWIN];  // used only to make cuts.
+
   short int *IZBIN, *IDSAMPLE;
   int       *CUTMASK, *IMUCOV ;
   float     *mumodel;
@@ -1468,10 +1469,11 @@ void copy_CUTWIN(int icut0,int icut1);
 int  icut_CUTWIN(char *varName) ;
 
 void parse_sntype(char *item);
+void parse_IDSAMPLE_SELECT(char *item);
+
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item, int wrflag);
 void parse_powzbin(char *item) ;
-void parse_IDSAMPLE_SELECT(char *item);
 void parse_sigint_fix(char *item);
 void parse_blindpar(char *item) ;
 void parse_chi2max(char *item);
@@ -6885,6 +6887,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     cutname = INPUTS.CUTWIN_NAME[icut]; 
     RDFLAG  = INPUTS.LCUTWIN_RDFLAG[icut] ;
     sprintf(vartmp, "%s:F", cutname );
+    if ( strcmp(cutname,"IDSURVEY")==0 ) {sprintf(vartmp,"%s:S",cutname );}
+
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
 
     if ( RDFLAG ) {

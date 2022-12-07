@@ -4134,7 +4134,9 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // SUBSURVEY_FLAG=1, and this messes up re-writing data files
   // with header override. This hack can be removed when the nominal
   // SMP & DIFFIMG data files have SUBSURVEY_FLAG=0 in global header.
-  if ( strcmp(SNDATA.SURVEY_NAME,"DES")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  // Dec 7 2022 - same hack for LSST (DC2)
+  if ( strcmp(SNDATA.SURVEY_NAME,"DES" )==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
+  if ( strcmp(SNDATA.SURVEY_NAME,"LSST")==0 ) { SNDATA.SUBSURVEY_FLAG=0; }
   // xxxxxxxxxxxx END HACK xxxxxxxxxxxx
 
 

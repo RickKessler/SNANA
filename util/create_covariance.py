@@ -87,7 +87,7 @@
 # Dec 7 2022 RK 
 #   + fix bug in prep_config(); affects pippin integration
 #   + write SNANA_VERSION to INFO.YML file
-#
+#   + new --nosys arg
 # ===============================================
 
 import os, argparse, logging, shutil, time, subprocess
@@ -193,6 +193,9 @@ def get_args():
     msg = f"override {KEYNAME_SYS_SCALE_FILE} in the input file"
     parser.add_argument("--sys_scale_file", help=msg, 
                         nargs='?', type=str, default=None ) 
+
+    msg = f"no systematics (stat only)"
+    parser.add_argument("--nosys", help=msg, action="store_true")
 
     # xxx not yet ...
     #msg = "scale all systematics by this factor"
@@ -1484,7 +1487,12 @@ def create_covariance(config, args):
     logging.info(f"Compute covariance for COVOPTS")
 
     # Add covopt to compute everything
-    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
+    if args.nosys:
+        covopts_default = ["[=DEFAULT] [,=DEFAULT]"] # Dec 2022 
+    else:
+        covopts_default = ["[ALL] [,]"]
+
+    covopts = covopts_default + config.get("COVOPTS",[])  
 
     covariances = \
         [ get_cov_from_covopt(c, contributions, base, 

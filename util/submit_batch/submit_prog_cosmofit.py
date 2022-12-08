@@ -1,5 +1,4 @@
-##
-# Firecrown To do list :
+### Firecrown To do list :
 # 1. '-blind' flag
 # 2. Remove reliance on firecrown DIR, for .ini files
 # 3. Find files in firecrown input and copy them to SCRIPT_DIR
@@ -55,6 +54,8 @@ COLNUM_WFIT_MERGE_CPU          = 5
 # define CONFIG key names
 KEYNAME_FITOPT_LIST  = {COSMOFIT_CODE_WFIT :      ["WFITOPT","WFITOPTS" ],
                         COSMOFIT_CODE_FIRECROWN : ["FCOPT",  "FCOPTS"]}      # allow either key
+START_OPT_DICT        = {COSMOFIT_CODE_WFIT :0,
+                         COSMOFIT_CODE_FIRECROWN :1}    
 KEYNAME_COVOPT_LIST   = ["COVOPT", "COVOPTS"] 
 KEYNAME_BLIND_DATA    = "BLIND_DATA"
 KEYNAME_BLIND_SIM     = "BLIND_SIM"
@@ -75,16 +76,20 @@ class cosmofit(Program):
     def __init__(self, config_yaml):
         CONFIG     = config_yaml['CONFIG']
         config_prep = {}
-        if 'WFITOPT' in CONFIG:
+        key_require_wfit = 'WFITOPT'
+        key_require_firecrown = 'FIRECROWN_INPUT_FILE'
+        if key_require_wfit in CONFIG:
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_WFIT
             config_prep['program'] = PROGRAM_NAME_WFIT
-        elif 'FIRECROWN_INPUT_FILE' in CONFIG :
+        elif key_require_firecrown in CONFIG :
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_FIRECROWN
             config_prep['program'] = PROGRAM_NAME_FIRECROWN
         else :
             msgerr=[]
             msgerr.append(f"Cannot determine program name")
-            msgerr.append(f"Expecting WFITOPT or FCOPT in CONFIG block")
+            msgerr.append(f"Expecting one of the following in CONFIG block:")
+            msgerr.append(f"\t {key_require_wfit} for wfit")
+            msgerr.append(f"\t {key_require_firecrown} for firecrown")
             self.log_assert(False,msgerr)            
         super().__init__(config_yaml, config_prep)
         return
@@ -293,7 +298,7 @@ class cosmofit(Program):
         copy_file_list.append(input_file)
         #shutil.copy(input_file,script_dir)                                                                                                                    
         if COSMOFIT_CODE == COSMOFIT_CODE_FIRECROWN :
-            fc_input_file = CONFIG["FIRECROWN_INPUT_FILE"]
+            fc_input_file = os.path.expandvars(CONFIG["FIRECROWN_INPUT_FILE"])
             # read additional input files inside of fc_input_file
             copy_file_list.append(fc_input_file)
 
@@ -311,7 +316,6 @@ class cosmofit(Program):
 
 
     def cosmofit_prep_outdirs(self):
-        # XYZ
         COSMOFIT_CODE = self.config_prep['COSMOFIT_CODE']
         output_dir   = self.config_prep['output_dir']
         idir_list3 = self.config_prep['idir_list3']
@@ -493,30 +497,35 @@ class cosmofit(Program):
         CONFIG          = self.config_yaml['CONFIG']
         output_dir      = self.config_prep['output_dir']
         wfitopt_rows    = None
-        key_found       = None
 
-        KEYNAME_LIST    = KEYNAME_FITOPT_LIST[COSMOFIT_CODE] 
         
-        for key in KEYNAME_LIST:
-            if key in CONFIG:
-                wfitopt_rows = CONFIG[key]
-                key_found    = key
+        KEYNAME_LIST    = KEYNAME_FITOPT_LIST[COSMOFIT_CODE] 
+        KEYNAME_DEFAULT = KEYNAME_LIST[0]
 
-        if wfitopt_rows is None:
-            msgerr.append(f"Missing required CONFIG key ")
-            msgerr.append(f"   {KEYNAME_LIST} ")
-            msgerr.append(f"One of these keys must be in {input_file}")
-            self.log_assert(False, msgerr)
-
-        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, key_found, 0, None)
-
+        # XYZ       
+        wfitopt_rows   = util.get_YAML_key_values(CONFIG,KEYNAME_LIST)
+        #print(f"XXX wfitopt_rows = {wfitopt_rows}")
+        # Only wfit requires 'WFITOPT' key because there
+        # is no input file for wfit
+        # For firecrown there is an input file and
+        # threfore FCOPT is optional (Just like FITOPT or SIM or LCFIT) 
+        if COSMOFIT_CODE == COSMOFIT_CODE_WFIT:        
+            if wfitopt_rows is None:
+                msgerr.append(f"Missing required CONFIG key ")
+                msgerr.append(f"   {KEYNAME_LIST} ")
+                msgerr.append(f"One of these keys must be in {input_file}")
+                self.log_assert(False, msgerr)
+                
+        START_OPT = START_OPT_DICT[COSMOFIT_CODE]
+        wfitopt_dict = util.prep_jobopt_list(wfitopt_rows, KEYNAME_DEFAULT, START_OPT, None)
+        #sys.exit(f"XXX wfitopt_dic = {wfitopt_dict}")
         n_wfitopt          = wfitopt_dict['n_jobopt']
         wfitopt_arg_list   = wfitopt_dict['jobopt_arg_list']
         wfitopt_num_list   = wfitopt_dict['jobopt_num_list']
         wfitopt_label_list = wfitopt_dict['jobopt_label_list']
 
         logging.info(f"\n Store {n_wfitopt} wfit options from " \
-                     f"{key_found} keys" )
+                     f"{KEYNAME_DEFAULT} keys" )
 
         self.config_prep['n_wfitopt']          = n_wfitopt
         self.config_prep['wfitopt_arg_list']   = wfitopt_arg_list
@@ -761,7 +770,8 @@ class cosmofit(Program):
         arg_global   = self.config_prep['wfitopt_global']
         cov_basename = self.config_prep['covsys_file_list2d'][idir][icov]
         hd_basename  = self.config_prep['hd_file_list'][idir]
-
+        input_file   = self.config_yaml['CONFIG']["FIRECROWN_INPUT_FILE"]
+        
         prefix = self.wfit_num_string(idir,icov,ifit)
 
         covsys_file   = f"{inpdir}/{cov_basename}"
@@ -776,6 +786,7 @@ class cosmofit(Program):
         arg_list.append(f"{inpdir} ")        
         arg_list.append(f"{hd_basename} ")
         arg_list.append(f"{cov_basename} ")
+        arg_list.append(f"{input_file} ")
         arg_list.append(f"--outdir {outdir} ")
         #print('*****arg_list = ',f"arg_list")#, arg_list[1], arg_list[2])
         # start with user-defined args from WFITOPT[_GLOBAL] key

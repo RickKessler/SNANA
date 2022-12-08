@@ -21490,5 +21490,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     SALT2mu.c
       + refactor selection for sntype_select and idsample_select           
          add idsurvey_select input  
+      + found a rare fit that had crazy-small M0-errors for both
+        fit attempts. Rather than changing alpha,beta shifts for
+        2nd fit, fixed subtle logic in prepNextFit so that it won't
+        force STOP_TOL=False on repeated fit.
 
 END: 

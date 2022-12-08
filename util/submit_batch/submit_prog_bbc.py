@@ -1903,13 +1903,19 @@ class BBC(Program):
             self.make_splitran_summary()
 
         # for reject/accept summarys, read versions in MERGE.LOG so
-        # that it works for NSPLITRAN 
+        # that it works for NSPLITRAN. 
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        # loop over every row in MERGE.LOG, but process each
+        # data version only once, regardless of how many FITOPT/MUOPT.
+        vout_proc_list = []
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             vout    = row[COLNUM_BBC_MERGE_VERSION]
-            self.make_reject_summary(vout)
+            if vout not in vout_proc_list:
+                self.make_reject_summary(vout)
+                vout_proc_list.append(vout)
 
         # xxxxxx mark delete Nov 23 2022 xxxxxx
         #for vout in vout_list : 

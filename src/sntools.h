@@ -185,6 +185,8 @@
 #define MASK_FRAME_OBS  2
 #define OPT_FRAME_REST  0   // bit or index
 #define OPT_FRAME_OBS   1   // idem
+#define STRING_FRAME_OBS   "OBS"
+#define STRING_FRAME_REST  "REST"
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 

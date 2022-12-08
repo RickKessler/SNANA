@@ -528,7 +528,7 @@ class LightCurveFit(Program):
         else:
             # default: read FITOPT info
             KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
-            fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
+            fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
 
         # check for OPT_SNCID_LIST ... just store it here for later
         # Check multiple key-options

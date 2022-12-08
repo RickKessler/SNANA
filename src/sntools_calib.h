@@ -41,6 +41,7 @@
 int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
 int NERR_KCOR_AVWARP;
+char STRING_FRAME_CALIB[2][20];
 
 struct {
   bool USE_AVWARPTABLE;  // speed up AVwarp calculation

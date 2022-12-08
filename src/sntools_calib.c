@@ -142,6 +142,9 @@ void init_calib_options(void) {
   CALIB_OPTIONS.DUMP_KCOR   = false;
   CALIB_OPTIONS.USE_AVWARPTABLE = false;
 
+  sprintf(STRING_FRAME_CALIB[OPT_FRAME_REST],"%s", STRING_FRAME_REST);
+  sprintf(STRING_FRAME_CALIB[OPT_FRAME_OBS], "%s", STRING_FRAME_OBS );
+
   return;
 } // end init_calib_options
 
@@ -283,6 +286,8 @@ void read_calib_head(void) {
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NFILTERS", istat);
   printf("\t\t Read %-*s  = %d  filters \n", NUMPRINT, KEYWORD, *IPTR );
+  
+  int NFILTDEF_REJECT = 0 ; // reject filters with * for lamshift
   
   // read name of each filter
   for(i=0; i < CALIB_INFO.NFILTDEF; i++ ) {
@@ -1398,6 +1403,10 @@ void read_calib_filters(void) {
   FILTERLIST_READ[0] = 0 ;
 
   for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
+
+    // avoid obsolete "*filter_name" with wave shifts;
+    // wave shifts should be done with snlc_fit progam
+    if ( CALIB_INFO.ISLAMSHIFT[ifilt] ) { continue; }
 
     ICOL        = 2 + ifilt;
     IFILTDEF    = CALIB_INFO.IFILTDEF[ifilt] ;

@@ -78,14 +78,14 @@ class cosmofit(Program):
         if 'WFITOPT' in CONFIG:
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_WFIT
             config_prep['program'] = PROGRAM_NAME_WFIT
-        elif 'FCOPT' in CONFIG :
+        elif 'FIRECROWN_INPUT_FILE' in CONFIG :
             config_prep['COSMOFIT_CODE'] = COSMOFIT_CODE_FIRECROWN
             config_prep['program'] = PROGRAM_NAME_FIRECROWN
         else :
             msgerr=[]
             msgerr.append(f"Cannot determine program name")
             msgerr.append(f"Expecting WFITOPT or FCOPT in CONFIG block")
-            log_assert(False,msgerr)            
+            self.log_assert(False,msgerr)            
         super().__init__(config_yaml, config_prep)
         return
 
@@ -100,7 +100,7 @@ class cosmofit(Program):
         else:
             msgerr.append(f"OUTDIR key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
-            log_assert(False,msgerr)
+            self.log_assert(False,msgerr)
             
         return output_dir_name,SUBDIR_SCRIPTS_COSMOFIT
        

@@ -188,7 +188,7 @@ def which_program_class(config):
     elif "WFITOPT" in CONFIG :
         program_class = cosmofit    # wfit ...
 
-    elif "FCOPT" in CONFIG :
+    elif "FIRECROWN_INPUT_FILE" in CONFIG :
         program_class = cosmofit    # firecrown/Cosmosis ...   
         
     elif "PATH_INPUT_TRAIN" in CONFIG :

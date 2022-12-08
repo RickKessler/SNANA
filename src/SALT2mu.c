@@ -3547,6 +3547,7 @@ int prepNextFit(void) {
   // Sep 7 2019: STOP if INPUTS.fixpar_all is set.
   // Sep 3 2021: REPEAT fit msg incldues alpha,beta,redchi2.
   // Feb 22 2022: fix bug to recalc_dataCov if sigint=0
+  // Dec 07 2022: require NCALL_SALT2mu_DRIVER_EXEC=1 to force STOP_TOL=0
 
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
@@ -3581,7 +3582,8 @@ int prepNextFit(void) {
   STOP_COVFIX = ( strlen(INPUTS.sigint_fix) > 0);
 
   // for CC prior, require at least 2 iterations
-  if ( USE_CCPRIOR > 0 && NFIT_ITER == 0 ) { STOP_TOL = 0 ; }
+  if ( USE_CCPRIOR > 0 && NFIT_ITER == 0 && NCALL_SALT2mu_DRIVER_EXEC==1 ) 
+    { STOP_TOL = 0 ; }
 
   /*
   printf(" xxxx ------------------------------------- \n");

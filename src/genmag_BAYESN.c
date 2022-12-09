@@ -499,17 +499,19 @@ void genmag_BAYESN(
     // interpolate the filter wavelengths on to the model in the observer frame
     // usually this is OK because the filters are more coarsely defined than the model
     // that may not be the case with future surveys and we should revisit
-    int this_nlam = j - i + 1;
+    int    this_nlam = j - i + 1;
+    int    o, q;
     double *this_lam   = malloc(sizeof(double)*this_nlam);
     double *this_trans = malloc(sizeof(double)*this_nlam);
     double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
     double eW, S0_lam; //To store other SED  bits
-    for (int o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
+    for (o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
     //printf("Interpolating %s\n",cfilt);
-    for(int q=i; q<j; q++)
-    {
+    for(q=i; q<j; q++)
+      {
         this_lam[q-i]   = lam_model[q]*z1;
-        this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, lam_filt, trans_filt, "DIE");
+        this_trans[q-i] = interp_1DFUN(2, this_lam[q-i], nlam_filter, 
+				       lam_filt, trans_filt, "DIE");
         //printf("%.2f     %.3e\n",this_lam[q-i], this_trans[q-i]);
 
         // super weird computation
@@ -524,7 +526,7 @@ void genmag_BAYESN(
         eA_lam_host = 1.0; //Host extinction at lam_model[q];
         //printf("THETA = %.3f\n", THETA);
                         
-        for (int o = 0; o < Nobs; o++) {
+        for (o = 0; o < Nobs; o++) {
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
             // Seek the first Hsiao timestep above the current obs time
             int q_hsiao = 0;
@@ -545,9 +547,11 @@ void genmag_BAYESN(
     //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
 
     double zdum = 2.5*log10(1.0+z);
-    for (int o = 0; o < Nobs; o++) {
+    for (o = 0; o < Nobs; o++) {
       //printf("Tobs = %.3f; fobs = %.3f\n", Tobs_list[o], magobs_list[o]);
-      magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG -2.5*log10(magobs_list[o]) + ZP;
+      magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG 
+	-2.5*log10(magobs_list[o]) + ZP;
+
       magerr_list[o] = 0.1;
       //printf("Tobs = %.3f; Mobs = %.3f\n", Tobs_list[o], magobs_list[o]);
     }

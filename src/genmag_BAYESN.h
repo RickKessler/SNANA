@@ -1,7 +1,7 @@
 #include "gsl/gsl_linalg.h"
 
 // define pre-processor command to use python interface
-#define USE_BAYESN       
+#define USE_BAYESNxxx       
 
 int init_genmag_BAYESN(char *MODEL_VERSION, int optmask);
 int init_genmag_bayesn__( char *version, int *optmask);

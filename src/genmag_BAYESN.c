@@ -341,7 +341,7 @@ void read_BAYESN_inputs(char *filename)
 #endif
 }
 
-int init_genmag_BAYESN(char *version, int optmask){
+int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
     int  ised;
     int  retval = 0   ;
@@ -357,8 +357,11 @@ int init_genmag_BAYESN(char *version, int optmask){
 
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     // HACK HACK HACK
-    char *filename = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/models/bayesn/BAYESN.M20/BAYESN.YAML";
-    read_BAYESN_inputs(filename);
+    char version[60];
+    extract_MODELNAME(MODEL_VERSION, BAYESN_MODELPATH, version);
+    char yaml_file[MXPATHLEN];
+    sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
+    read_BAYESN_inputs(yaml_file);
 
     // HACK HACK HACK 
     char SED_filepath[] = "/global/cfs/cdirs/lsst/groups/TD/SN/SNANA/SNDATA_ROOT/snsed/Hsiao07.dat";
@@ -442,7 +445,7 @@ void genmag_BAYESN(
 
     double mag;
     char fnam[] = "genmag_BAYESN";
-    printf("HERE START %s\n", fnam);
+    //printf("HERE START %s\n", fnam);
 
     // ------- BEGIN -----------
     // translate absolute filter index into sparse index
@@ -502,7 +505,7 @@ void genmag_BAYESN(
     double eA_lam_MW, eA_lam_host; //To store MW and host dust law evaluated at current wl
     double eW, S0_lam; //To store other SED  bits
     for (int o = 0; o < Nobs; o++) { magobs_list[o] = 0.0; } //Set magnitudes to 0
-    printf("Interpolating %s\n",cfilt);
+    //printf("Interpolating %s\n",cfilt);
     for(int q=i; q<j; q++)
     {
         this_lam[q-i]   = lam_model[q]*z1;
@@ -519,7 +522,7 @@ void genmag_BAYESN(
 
         eA_lam_MW = 1.0; //MW extinction at this_lam[q-i]
         eA_lam_host = 1.0; //Host extinction at lam_model[q];
-        printf("THETA = %.3f\n", THETA);
+        //printf("THETA = %.3f\n", THETA);
                         
         for (int o = 0; o < Nobs; o++) {
             eW = pow(10.0, -0.4*gsl_vector_get(jWJ, o));
@@ -533,7 +536,7 @@ void genmag_BAYESN(
             S0_lam = (f0*(t1 - Tobs_list[o]) + f1*(Tobs_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
-                printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
+                //printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
         }
     }
@@ -543,10 +546,10 @@ void genmag_BAYESN(
 
     double zdum = 2.5*log10(1.0+z);
     for (int o = 0; o < Nobs; o++) {
-      printf("Tobs = %.3f; fobs = %.3f\n", Tobs_list[o], magobs_list[o]);
+      //printf("Tobs = %.3f; fobs = %.3f\n", Tobs_list[o], magobs_list[o]);
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + DLMAG -2.5*log10(magobs_list[o]) + ZP;
       magerr_list[o] = 0.1;
-      printf("Tobs = %.3f; Mobs = %.3f\n", Tobs_list[o], magobs_list[o]);
+      //printf("Tobs = %.3f; Mobs = %.3f\n", Tobs_list[o], magobs_list[o]);
     }
 
     return;

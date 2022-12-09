@@ -110,7 +110,7 @@ int   index_sparse_FLUXERRMAP(int NMAP, char *MAPNAME);
 int   IVARLIST_FLUXERRMAP(char *varName) ;
 void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) ;
 void  parse_REDCOV_FLUXERRMODEL(char *STRING) ;
-void  load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) ;
+int   load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) ;
 void  printSummary_FLUXERRMODEL(void);
 // xxx delete void  malloc_ROWDATA_FLUXERRMAP(int OPT, int NVAR);
 

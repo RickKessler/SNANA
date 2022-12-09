@@ -449,8 +449,8 @@ c
 
 
       CHARACTER
-     &    SNANA_VERSION*12
-     &   ,SNANA_VERSION_DATA*12   ! SNANA version used create FITS data
+     &    SNANA_VERSION*60        ! e.g., v11_04h-[commit-id]
+     &   ,SNANA_VERSION_DATA*60   ! SNANA version used create FITS data
      &   ,REFORMAT_VERSION*(MXCHAR_VERSION)
      &   ,DATATYPE*12  ! e..g, 'DATA', 'FAKE', 'SNANA_SIM'
 
@@ -845,6 +845,7 @@ c
      &  ,SNLC_SNRMAX_FILT(0:MXFILT_OBS)   ! max S/N per filter/SN
      &  ,SNLC_SNRMAX_SORT(MXFILT_OBS)     ! 1st, 2nd ... SNRMAX by filt
      &  ,SNLC_FLUXCALMAX(MXFILT_OBS)    ! max flux per filter/SN
+     &  ,SNLC_FLUXCALMAX_ERR(MXFILT_OBS)  ! uncertainty on above
      &  ,SNLC_SNANAFIT_PEAKMJD     ! SNANA-estimate of PEAKKMJD
      &  ,SNLC_SNANAFIT_PEAKMJD_FITPAR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
@@ -936,7 +937,8 @@ c
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
      &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
      &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
-     &    ,SNLC_FLUXCALMAX, SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
+     &    ,SNLC_FLUXCALMAX, SNLC_FLUXCALMAX_ERR
+     &    ,SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
      &    ,SNLC_GAIN, SNLC_RDNOISE
      &    ,SNLC_MWXT_MAG, SNLC_MWXT_FLUXFRAC, SNLC_MWXT_MAGERR
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
@@ -990,6 +992,7 @@ c pointer for calls to SNTABLE_ADDCOL.
      &   ,ADDCOL_SNHOST_SBFLUXCAL(MXFILT_ALL)
      &   ,ADDCOL_SNHOST_SBMAG(MXFILT_ALL)
      &   ,ADDCOL_FLUXCALMAX(MXFILT_ALL)
+     &   ,ADDCOL_FLUXCALMAX_ERR(MXFILT_ALL)
      &   ,ADDCOL_CHI2_FITPKMJD(MXFILT_ALL)
      &   ,ADDCOL_SNRMAX(MXFILT_ALL)
      &   ,ADDCOL_XTMW(MXFILT_ALL)
@@ -1002,7 +1005,8 @@ c pointer for calls to SNTABLE_ADDCOL.
       COMMON / ADDCOL_FILTERCOM /
      &   ADDCOL_FILTERS, ADDCOL_SNHOST_MAGOBS
      &  ,ADDCOL_SNHOST_SBFLUXCAL, ADDCOL_SNHOST_SBMAG
-     &  ,ADDCOL_FLUXCALMAX, ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
+     &  ,ADDCOL_FLUXCALMAX, ADDCOL_FLUXCALMAX_ERR
+     &  ,ADDCOL_CHI2_FITPKMJD, ADDCOL_NDOF_FITPKMJD
      &  ,ADDCOL_SNRMAX, ADDCOL_XTMW
      &  ,ADDCOL_PROB_TRUEFLUX, ADDCOL_NDOF_TRUEFLUX
 
@@ -1264,9 +1268,7 @@ c
      &  ,NBIN_MWXT(NKDIM)
 
       REAL 
-     &   Zrange_Kcor(2)    ! min,max redshift in KCOR table
-     &  ,Zrange_Kcor_LU(2) ! min,max redshift for lookup
-     &  ,Trange_Kcor(2)  ! min,max rest-epoch (days) in KCOR table
+     &   Trange_Kcor(2)  ! min,max rest-epoch (days) in KCOR table
      &  ,AVrange_Kcor(2) ! min,max AV
      &  ,ZBINSIZE_KCOR   ! redshift binsize
      &  ,TBINSIZE_KCOR   ! epoch bin size (days)
@@ -1279,6 +1281,7 @@ c
      &  ,Lrange_SNSED(2), LBINSIZE_SNSED
      &  ,Trange_SNSED(2), TBINSIZE_SNSED
      &  ,FLUX_SNSED(MXLAMBIN_SNSED*MXTBIN_KCOR)
+     &  ,Zrange_KCOR(2), Zrange_KCOR_LU(2) 
 
       REAL*4  
      &   AVWARP_TABLE1D(MXTABLE1D_AVWARP)
@@ -1306,12 +1309,13 @@ c
      &      ,NBIN_LCMAG,  NBINTOT_LCMAG
      &      ,NBIN_MWXT,   NBINTOT_MWXT
      &      ,NZBIN_KCOR,    NTBIN_KCOR,    NAVBIN_KCOR
-     &      ,Zrange_KCOR,   Trange_KCOR,   AVrange_KCOR
+     &      ,Trange_KCOR,   AVrange_KCOR
      &      ,ZBINSIZE_KCOR, TBINSIZE_KCOR, AVbinsize_KCOR
      &      ,CBINSIZE_AVWARP, IAV0, IZ0
+     &      ,Zrange_KCOR, Zrange_KCOR_LU
      &      ,GRIDVAL_Z, GRIDVAL_T, GRIDVAL_AV, GRIDVAL_C
      &      ,HIDKCOR, HIDMAG
-     &      ,Zrange_KCOR_LU, RESTKCOR_FILTERS
+     &      ,RESTKCOR_FILTERS
      &      ,USE_AVWARPTABLE, LRDZPOFF, NERR_AVWARP
      &      ,NLbin_SNSED, Lrange_SNSED, LBINSIZE_SNSED
      &      ,NTbin_SNSED, Trange_SNSED, TBINSIZE_SNSED
@@ -1647,7 +1651,7 @@ c MJD-dependent cuts below
      &  ,CUTBIT_SIMPULL      = CUTBIT_MJD_MARKER + 10 ! Mar 2021
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_SIMPULL
-     &  ,NCUTBIT             = CUTBIT_OFFSET 
+     &  ,NCUTBIT             = CUTBIT_OFFSET  
      &      )
 
 c Define cut-masks with 64-BIT integers
@@ -1893,7 +1897,6 @@ c
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
 
       COMMON / BYTEMASKCOM / MJDMASK
-ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
 
       EQUIVALENCE 
      &    ( cutwin_var(1,cutbit_cid),       cutwin_cid )
@@ -2430,6 +2433,7 @@ c Each set goes 1 - NFILTDEF_[SURVEY,REST]
       INTEGER
      &   NFILTDEF_SURVEY          ! no. survey (obs) filters
      &  ,NFILTDEF_READ            ! no. filters to read (excludes BX)
+     &  ,NFILTDEF_OBS        ! actual NFILTDEF from kcor file; should = NFILTDEF_SURVEY
      &  ,IFILTDEF_MAP_SURVEY(MXFILT_OBS)  ! IFILT_OBS vs. sparse filter index
      &  ,IFILTDEF_INVMAP_SURVEY(MXFILT_ALL) ! sparse index vs. IFILT_OBS
 c
@@ -2460,7 +2464,7 @@ c
      &  ,NLAMBIN_FILTREST(MXFILT_ALL)  ! number of bins per transmission curve
      &  ,NLAMBIN_PRIMARY               ! lambda bins for primary spec
 
-
+      
       REAL 
      &   FILTOBS_TRANS(MXLAMBIN_FILT,MXFILT_ALL)   ! filter transmissions
      &  ,FILTOBS_TRANSMAX(MXFILT_ALL)              ! max trans
@@ -2486,7 +2490,6 @@ c
      &  ,PRIMARY_FLUX(MXLAMBIN_PRIM)       ! primary spec for obs filters
      &  ,PRIMARY_LAM(MXLAMBIN_PRIM)   
 
-
 c for remap
       INTEGER NFILT_REPLACE, IFILTOBS_REPLACE(MXFILT_ALL) 
       
@@ -2497,7 +2500,7 @@ c for remap
      &   ,IFILT_BESS_R, IFILT_BESS_I, IFILT_BESS_BX
      &   ,IFILT_Y, IFILT_J, IFILT_H, IFILT_K
 c
-     &   ,NFILTDEF_SURVEY,        NFILTDEF_REST, NFILTDEF_READ
+     &   ,NFILTDEF_SURVEY,  NFILTDEF_OBS, NFILTDEF_REST, NFILTDEF_READ
      &   ,FREEZE_SURVEY_FILTERS 
      &   ,EXIST_BXFILT_OBS,       EXIST_BXFILT_REST
      &   ,IFILTDEF_MAP_SURVEY,    IFILTDEF_MAP_REST
@@ -2980,7 +2983,8 @@ C =================================================
 +USE,P=*DATA_IO,T=EXE.
 +USE,P=*SNUTIL,T=EXE.
 +USE,P=*SNTABLE,T=EXE.
-+USE,P=*CALIB,T=EXE,IF=KCOR.
++USE,P=*CALIB,T=EXE.
++USE,P=*CALIB_LEGACY,T=EXE,IF=KCOR.
 +USE,P=*FITPKMJD,T=EXE.
 +USE,P=*SPLINE,T=EXE.
 
@@ -2999,6 +3003,7 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
++CDE,FILTCOM.
 
       INTEGER   IERR, IVERS, NFIT_PER_SN
 
@@ -3088,7 +3093,9 @@ c init cut-names now that we have the filter names
 
 c read kcor/calib file
       IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
          CALL READ_CALIB_WRAPPER_LEGACY(IERR)
++SELF.
       ELSE
          CALL READ_CALIB_WRAPPER(IERR)
       ENDIF
@@ -3327,44 +3334,6 @@ c xxxxxxxxx
       RETURN
       END  ! end PREP_VERSION_SUBFOLDER
 
-C ===========================================
-+DECK,RDCAL_WRAP_LEGACY.
-      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
-c
-c Ceated Nov 2022
-c Wrapper subroutine to check if kcor/calib file is defined,
-c and to call read-kcor function with appropriate args.
-
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
-
-      INTEGER LENF
-      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
-
-c ---------- BEGIN ---------
-   
-      IERR = 0 
-
-      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
-
-+SELF,IF=KCOR.
-      IF ( USE_KCOR ) THEN 
-        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
-        CALL RDKCOR(KCOR_FILE,IERR) 
-      ENDIF
-
-c check for option to update filter trans for each SN
-      CALL FILTER_UPDATE_INIT(IERR)
-+SELF.
-
-      RETURN
-      END  ! end READ_CALIB_WRAPPER_LEGACY
-
 
 C ===========================================
 +DECK,READ_CALIB_WRAPPER.
@@ -3381,24 +3350,29 @@ c [uses refactored C code]
 +CDE,FILTCOM.
 
       INTEGER IERR  ! (O) return non-zero on error
-      LOGICAL  IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
+      LOGICAL IGNOREFILE_fortran, EXIST_KCOR_FILE, USE_KCOR 
 
-      INTEGER LENF, OPT_FRAME, IFILT, IFILT_OBS, IFILT_REST
+      INTEGER LENF, OPT_FRAME, IFILT, IFILTDEF_OBS, IFILTDEF_REST
       CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
 
       REAL*8 
      &   D_MAGOBS_SHIFT_PRIM(MXFILT_ALL)
      &  ,D_MAGREST_SHIFT_PRIM(MXFILT_ALL)
-     &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF
+     &  ,LAMAVG, LAMRMS, LAMMIN, LAMMAX, ZPOFF, MAG_PRIM
 
 c external C codes
-      REAL*8 GET_CALIB_ZPOFF_FILE
-      EXTERNAL 
+      REAL*8  GET_CALIB_ZPOFF_FILE, GET_CALIB_PRIMARY_MAG
+
+      EXTERNAL
      &    FLOAT2DOUBLE       
      &   ,READ_CALIB_DRIVER
      &   ,GET_CALIB_FILTINDEX_MAP
      &   ,GET_CALIB_FILTLAM_STATS
      &   ,GET_CALIB_ZPOFF_FILE
+     &   ,GET_CALIB_PRIMARY_MAG
+     &   ,GET_CALIB_NFILTDEF
+     &   ,EXIST_CALIB_BXFILT
+     &   ,GET_KCOR_ZRANGE
 
 c ---------- BEGIN ---------
    
@@ -3408,9 +3382,11 @@ c ---------- BEGIN ---------
 
       if ( .NOT. EXIST_KCOR_FILE ) RETURN
 
-+SELF,IF=KCOR.
+      USE_KCOR = .false.
++SELF,IF=SNFIT.
+      USE_KCOR = .true.
++SELF.
 
-      USE_KCOR = .true. ! how to check fit model that is in snlc_fit.car?
 
 c prep arguments ...
 
@@ -3436,8 +3412,6 @@ c read kcor file and store information (C code)
 
 c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-c      print*,' xxx DEBUG STOP from READ_CALIB_WRAPPER xxx ' ; STOP  
-
 c check for option to update filter trans for each SN
       CALL FILTER_UPDATE_INIT(IERR)
 
@@ -3452,33 +3426,51 @@ c OBS frame map is already loaded; get rest-frame map
 c fetch wavelength stats per band: AVG, RMS, MIN, MAX         
       OPT_FRAME = OPT_FILTOBS - 1
       DO ifilt = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_OBS,
+         ifiltdef_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         LFILTDEF_OBS(ifiltdef_obs) = .TRUE.
+
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILTDEF_OBS,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
-         FILTOBS_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
-         FILTOBS_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
-         FILTOBS_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
-         FILTOBS_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+         FILTOBS_LAMAVG(ifiltdef_obs)     = sngl(LAMAVG)
+         FILTOBS_LAMRMS(ifiltdef_obs)     = sngl(LAMRMS)
+         FILTOBS_LAMRANGE(1,ifiltdef_obs) = sngl(LAMMIN)
+         FILTOBS_LAMRANGE(2,ifiltdef_obs) = sngl(LAMMAX)
+
+c     store primary mags
+         MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_OBS)
+         FILTOBS_MAG_PRIMARY(IFILTDEF_OBS) = MAG_PRIM
 
 c       fetch ZPOFF from ZPOFF.DAT file in filter dir
-         ZPOFF = GET_CALIB_ZPOFF_FILE(ifilt_obs) 
-         FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = sngl(ZPOFF)
+         ZPOFF = GET_CALIB_ZPOFF_FILE(OPT_FRAME,ifiltdef_obs) 
+         FILTOBS_ZPOFF_SNPHOT(ifiltdef_obs) = sngl(ZPOFF)
       ENDDO
 
       OPT_FRAME = OPT_FILTREST - 1
       DO ifilt = 1, NFILTDEF_REST
-         ifilt_rest = IFILTDEF_MAP_REST(ifilt)
-         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILT_REST,
+         ifiltdef_rest = IFILTDEF_MAP_REST(ifilt)
+         LFILTDEF_REST(ifiltdef_rest) = .TRUE.
+         CALL GET_CALIB_FILTLAM_STATS(OPT_FRAME, IFILTDEF_REST,
      &       LAMAVG, LAMRMS, LAMMIN, LAMMAX)
-         FILTREST_LAMAVG(ifilt_obs)     = sngl(LAMAVG)
-         FILTREST_LAMRMS(ifilt_obs)     = sngl(LAMRMS)
-         FILTREST_LAMRANGE(1,ifilt_obs) = sngl(LAMMIN)
-         FILTREST_LAMRANGE(2,ifilt_obs) = sngl(LAMMAX)
+         FILTREST_LAMAVG(ifiltdef_rest)     = sngl(LAMAVG)
+         FILTREST_LAMRMS(ifiltdef_rest)     = sngl(LAMRMS)
+         FILTREST_LAMRANGE(1,ifiltdef_rest) = sngl(LAMMIN)
+         FILTREST_LAMRANGE(2,ifiltdef_rest) = sngl(LAMMAX)
+
+c     store primary mags
+         MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_REST)
+         FILTREST_MAG_PRIMARY(IFILTDEF_REST) = MAG_PRIM
       ENDDO
+
+c misc tasks to store info
 
       CALL SET_ZPOFF()
 
-+SELF.
+c store number of obs-frame and rest-frame filters
+      CALL GET_CALIB_NFILTDEF(NFILTDEF_OBS,NFILTDEF_REST)
+
+c check if BX filter is defined for OBS and REST fram
+      CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
+cc      print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
 
       RETURN
       END  ! end READ_CALIB_WRAPPER
@@ -3814,7 +3806,8 @@ c SURVEY, FILTERS, etc ...
 c
 c Apr 24 2021: read SIM_BIASCOR_MASK
 c Oct 08 2021: read SIM_MODEL_INDEX
-c 
+c Dec 02 2022: fix subtle (harmless?) bug setting ISCORRECT_SIGN_VPEC
+c
       IMPLICIT NONE
 
 c local var
@@ -3826,8 +3819,9 @@ c local var
 +CDE,SPECCOM.
 
       REAL*8    DARRAY(MXEPOCH)
-      INTEGER   OPT
+      INTEGER   OPT, LEN
       CHARACTER STRING*100
+      LOGICAL   ISCORRECT_BUG, ISCORRECT_FIX
 
       LOGICAL   correct_sign_vpec_data
       EXTERNAL  correct_sign_vpec_data
@@ -3840,10 +3834,21 @@ c     &     + OPTMASK_SNDATA_DUMP
      &   "RDGLOBAL: FETCH GLOBAL SURVEY INFO from HEADER"
       CALL PRBANNER(global_banner(1:60) )
 
+      SNANA_VERSION_DATA = ''
       CALL FETCH_SNDATA_WRAPPER("SNANA_VERSION", 
      &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
+      LEN = INDEX(SNANA_VERSION_DATA,' ') - 1
+
       ISCORRECT_SIGN_VPEC = 
-     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
+     &      correct_sign_vpec_data(SNANA_VERSION_DATA(1:LEN)//char(0))
+
+c xxxxxx mark delete xxx
+c      ISCORRECT_BUG =
+c     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
+c       print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA(1:20)
+c       print*,' xxx ISCORRECT[BUG,FIX] = ', 
+c     &  ISCORRECT_BUG, ISCORRECT_SIGN_VPEC
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       CALL FETCH_SNDATA_WRAPPER("SURVEY", ONE, 
      &        SURVEY_NAME, DARRAY, OPT)
@@ -4211,7 +4216,6 @@ c
 C -------------- BEGIN ---------------
 
       OPT_LOCAL = OPT
-cc      OPT_LOCAL = OPT + OPTMASK_SNDATA_DUMP  ! xxx remove
 
       CALL FETCH_SNDATA_WRAPPER("SIMSED_NPAR",ONE,DUM,DARRAY,OPT_LOCAL)
       NPAR_SIMSED = int(DARRAY(1))
@@ -4541,10 +4545,6 @@ c - - - - - - - - - - - - - - - - - - - - - - - - - -
 
       IF ( LSIM_SNANA ) CALL RDHEAD_SIM_SNANA(OPT)     
 
-c      print*,' '
-c      print*,' xxx DEBUG STOP xxx '
-c      STOP   ! xxx REMOVE
-
       RETURN
       END   ! end RDHEAD_DRIVER
 
@@ -4619,13 +4619,6 @@ c i.e., do not depend on host-match.
      &        ONE, STRING, DARRAY, OPT)
          SNHOST_NMATCH2 = INT(DARRAY(1))
 
-c xxx mark delete maybe; compute it instead (Sep 2 2022) xxxxxxx
-c         CALL FETCH_SNDATA_WRAPPER("HOSTGAL_CONFUSION", 
-c     &        ONE, STRING, DARRAY, OPT)
-c         SNHOST_CONFUSION = SNGL(DARRAY(1))
-c         if(SNHOST_CONFUSION > -98.0) EXIST_SNHOST_CONFUSION = .TRUE.
-c xxxxxx end mark xxxx
-
          KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
          CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
          DO ifilt = 1, NFILTDEF_READ
@@ -4653,7 +4646,6 @@ c - - - - - - - -
 
       KEY    = PREFIX(1:LENPRE)//'_OBJID'
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-c xxx mark      SNHOST_OBJID(igal)  = DINT(DARRAY(1))
       SNHOST_OBJID(igal)  = INT8(DARRAY(1))
       DSNHOST_OBJID(igal) = DARRAY(1)
 
@@ -5435,10 +5427,6 @@ c wave-dependent arrays
      &        SIM_FLAM_SPECTRUM, OPT)
       ENDIF
 
-c      print*,' '
-c      print*,' xxx DEBUG STOP xxx '
-c      STOP   ! xxx REMOVE
-
       RETURN
       END     ! end RDSPEC_DRIVER
 
@@ -5700,7 +5688,6 @@ c check the full name 'PRIVATE($VARNAME)'
 C END_DATA_IO
 
 C ==========================================
-
 +PATCH,*SNUTIL.
 
 +DECK,PROCESS_DATA.
@@ -5738,19 +5725,28 @@ c
 c May 2019: check option to call DUMP_SNANA_VERSION
 c Dec 2020: abort on ARG string length too long.
 c Aug 2020: of no args, call function to print help menu
+c Dec 2022: get SNANA_VERSION here to print it after full command
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      INTEGER i, LL, istat
+      INTEGER i, LL, LL_SNANA, istat
       CHARACTER ARG1*(MXCHAR_ARG), ARG2*(MXCHAR_ARG)
       CHARACTER FNAM*20, COMMAND*2000, CODE_FILENAME*40
       CHARACTER CMD_HELP*100, CMD_SNANA_HELP*100
+
+      EXTERNAL GET_SNANA_VERSION
+
 C ------------------- BEGIN ---------------
 
       FNAM = 'PARSE_SNANA_ARGS'
 
       NLINE_ARGS = IARGC()  ! intrinsic fortran function
+
+c get SNANA version from C function
+      call GET_SNANA_VERSION(SNANA_VERSION,40)
+      LL_SNANA = index(SNANA_VERSION, char(0) ) - 1
+      SNANA_VERSION(LL_SNANA+1:LL_SNANA+2) = ' '
 
 c - - - - - - - - - - - - - - - - - - 
 c Aug 2022: if there are no arguments, print help menu
@@ -5814,7 +5810,9 @@ c    snana.exe --snana_version
      &     ARG1 .EQ. '--snana_version'  ) THEN
          CALL DUMP_SNANA_VERSION()
       ELSE
-         print*,' Full command: ', COMMAND(1:LL)
+         print*,' Full command:  ', COMMAND(1:LL)
+         print*,' '
+         print*,' SNANA_VERSION: ', SNANA_VERSION(1:LL_SNANA)
          print*,' '
 
       ENDIF
@@ -6215,8 +6213,8 @@ c default is to reject nothing (accept everything)
       RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
       REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
-      USE_KCOR_REFACTOR = .FALSE.
-      USE_KCOR_LEGACY   = .TRUE.
+c xxx mark delete      USE_KCOR_REFACTOR = .FALSE.
+      USE_KCOR_REFACTOR = .TRUE.   ! permanently set, Dec 2 2022
 
       USE_HOSTGAL_PHOTOZ = .FALSE.
       USE_SNHOST_ZPHOT   = .FALSE.
@@ -6574,11 +6572,6 @@ c check for wild card; e.g.,
       CALL ENVreplace(VERSION_PHOTOMETRY_WILDCARD)
       LENV    = INDEX(VERSION_PHOTOMETRY_WILDCARD,' ') - 1
 
-c xxxxx mark delete xxx
-c xx      cSTRING = VERSION_PHOTOMETRY_WILDCARD(1:LENV)//char(0)
-c xx      IGNORE  = IGNOREFILE(cSTRING,LENV)
-c xxxxxxxxxxx
-
       IGNORE  = IGNOREFILE_fortran(VERSION_PHOTOMETRY_WILDCARD)
 
       IF ( .NOT. IGNORE ) THEN
@@ -6913,10 +6906,12 @@ c Oct 23, 2014: store global comments
 
       LENC = 72
 
-      COMMENT_forC = 'VERSION_SNANA      = ' //  VER_SNANA_forC 
-      CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+c xxxxxxxxxx mark delete Dec 2 2022 since SNANA_VERSION is already written
+c      COMMENT_forC = 'VERSION_SNANA      = ' //  VER_SNANA_forC 
+c      CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+c xxxxxxx end mark xxxxxxxxxxx
 
-      COMMENT_forC = 'VERSION_PHOTOMETRY = ' //  VER_PHOT_forC(1:40)
+      COMMENT_forC = 'VERSION_PHOTOMETRY:  ' //  VER_PHOT_forC(1:40)
       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
 
 c ----------------------------------------
@@ -8644,7 +8639,6 @@ c ----------------------
 c local var
       INTEGER  i, LL, ilast, iuse
       CHARACTER INPUT_ARG*(MXCHAR_ARG)
-c xxx mark delete      CHARACTER ARG*(MXCHAR_ARG)
       CHARACTER ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL   MATCH_NMLKEY
 
@@ -11285,12 +11279,6 @@ C ---------------- BEGIN ------------
 +SELF.
       CALL SET_EXIT_ERRCODE(EXIT_ERRCODE) ! for C function aborts
 
-
-c get SNANA version from C function
-      call GET_SNANA_VERSION(SNANA_VERSION,LL)
-      LL_SNANA = index(SNANA_VERSION, char(0) ) - 1
-      SNANA_VERSION(LL_SNANA+1:LL_SNANA+3) = '   '
-
       IDSURVEY = -9 ;  IDSUBSURVEY=-9
       NCALL_SNANA_DRIVER  = 0 
  
@@ -11435,8 +11423,7 @@ c - - - - -
       ENDIF
 
       SNANA_DIR = ENVtemp(1:LL)
-      print*,'  SNANA_DIR = ', SNANA_DIR(1:LL), 
-     &   '    (', SNANA_VERSION(1:LL_SNANA),')'
+      print*,'  SNANA_DIR = ', SNANA_DIR(1:LL)
 
 
       N_SNFILE      = 0
@@ -13447,11 +13434,6 @@ c May 2021: check for PHOTFLAGs to reject epochs
 
       EPOCH_IGNORE_LASTFILE = LOCAL_FILENAME
       call FLUSH(6)
-
-c xxxxx mark delete May 13 2021 
-c      print*,' '
-c      RETURN
-c xxxxxxxxxxxxx
 
 C -------------------------------------------
 8000  CONTINUE
@@ -15555,6 +15537,7 @@ c --------
          ISNLC_NEPOCH_PRESN(ifilt)   =  -9
          EXIST_FILT(ifilt)          = .FALSE.
          SNLC_FLUXCALMAX(ifilt)     = -9.
+         SNLC_FLUXCALMAX_ERR(ifilt) = -9.
          SNLC_MWXT_MAG(ifilt)       = 0.0
          SNLC_MWXT_MAGERR(ifilt)    = 0.0
          SNLC_MWXT_FLUXFRAC(ifilt)  = 0.0
@@ -17371,6 +17354,7 @@ c  * SNLC_SNRMAX_FILT(ifilt)
 c  * SNLC_SNRMAX_SORT(rank)
 c  * SNLC_SNRMAX_IFILTDEF(ifilt)
 c  * SNLC_FLUXCALMAX(ifilt)
+c  * SNLC_FLUXCALMAX_ERR(ifilt)  ! Nov 2022
 c
 c  * correct SNLC_MAG and FLUXCAL for AB mag-offsets
 c
@@ -17737,8 +17721,10 @@ c set use-flag for this epoch
      &            MAX ( SNLC_SNRMAX_FILT(ifilt), Xnsig )
           endif
 
-          SNLC_FLUXCALMAX(ifilt) =
-     &         MAX ( SNLC_FLUXCALMAX(ifilt), Fluxcal )
+          if ( Fluxcal > SNLC_FLUXCALMAX(ifilt) ) then
+             SNLC_FLUXCALMAX(ifilt)     = Fluxcal
+             SNLC_FLUXCALMAX_ERR(ifilt) = Fluxcal_err
+          endif
 
           EXIST_FILT(ifilt) = .TRUE.
           ISNLC_NEPOCH_USE  = ISNLC_NEPOCH_USE + 1
@@ -18617,6 +18603,8 @@ c
 c Mar 9 2020: 
 c   fix awful bug where previous FLUXCAL was used to apply
 c   FUDGE_MAG_ERROR. Note RESTORE_DES3YR restores bug.
+c
+c Dec 2 2022: add string-length args to get_FLUXERRMODEL call.
 c   
 c ------------
 
@@ -18660,25 +18648,6 @@ c ------------ BEGIN ----------------
       SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) 
      &     + SNLC_FLUXCAL_OFF(ifilt)               ! offset in data file
      &     + FUDGE_FLUXCAL_OFFSET_FILT(IFILT_OBS)  ! user-nml offset
-
-+SELF,IF=XXXREM.
-c xxxxxxxxxx mark delete Mar 9 2020 xxxxxxxxxxxxxxxx
-      SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
-      ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
-      ERR1  = ERR_ORIG * SCALE
-      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
-      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
-      ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
-
-      SQERR1     = ERR1  * ERR1
-      SQERR2a    = ERR2a * ERR2a
-      IF ( ERR2a .LT. 0.0 ) SQERR2a = -SQERR2a
-      SQERR2b    = ERR2b * ERR2b   ! * AREA  ! sum in quad over pixels
-      SQERR3     = ERR3  * ERR3
-      SQERRHOST  = 0.0 
-      SQERRMAP   = 0.0 
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-+SELF. 
 
 c get C function arguments
       cBAND        = cfilt(1:1) // char(0)
@@ -18752,7 +18721,7 @@ c  grep IPAR_FLUXERRMAP sntools_fluxErrModels.h
         NPAR = NPAR+1;  PARLIST(NPAR) = GALMAG
         NPAR = NPAR+1;  PARLIST(NPAR) = SNSEP
         CALL  get_FLUXERRMODEL(OPT,ERR1,cBAND,cFIELD,NPAR, PARLIST,
-     &            ERR_SIM, ERR_DATA )  ! <== return ERR_SIM, ERR_DATA
+     &            ERR_SIM, ERR_DATA, 2,30 )  ! <== return ERR_SIM, ERR_DATA
 
         SQERRMAP = (ERR_DATA*ERR_DATA) - SQERR1 ! note: can be negative
       ENDIF
@@ -18830,7 +18799,6 @@ c check GET_NONLIN option in sntools_nonlinearity.c
         endif
 
       ! sum noise over pixels in effective background area
-cc xx mark delete AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio) !pixels
         FLUXADU = FLUXCAL * 10.0**(0.4*ZPDIF)
 
         Fpe_source = FLUXADU * GAIN
@@ -19243,6 +19211,7 @@ C -------- BEGIN -------
             SNLC_SNRMAX_FILT(ifilt)   = -9.
             SNLC_SNRMAX_SORT(ifilt)   = -9.
             SNLC_FLUXCALMAX(ifilt)    = -9.
+            SNLC_FLUXCALMAX_ERR(ifilt)  = -9.
 
           ENDIF
 
@@ -19372,7 +19341,7 @@ c +CDE,SNANAFIT.
       REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
-      INTEGER LENcMAG, ISTAT, LENF
+      INTEGER LENcMAG, ISTAT, LENF, NFILTDEF_TMP
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
       CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
@@ -19395,17 +19364,27 @@ c check option to write SIM_MAGOBS  only for true flux > 0
      &    BTEST(OPT_SIMLIB_OUT,1) .and. (.not.IS_REAL_DATA)
       WR_SIM_MAGOBS = WRALL_SIM_MAGOBS .or.  WRSET_SIM_MAGOBS
 
+      IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
+         NFILTDEF_TMP = NFILTDEF_RDKCOR
++SELF.
+      ELSE
+         NFILTDEF_TMP = NFILTDEF_OBS
+      ENDIF
+
 c -------------------------------------------
 
       IF ( OPT_FLAG == 1 ) THEN
-
+       
 +SELF,IF=SNANA.
-        if ( NFILTDEF_RDKCOR == 0 ) then
-           C1ERR = 'NFILTDEF_RDKCOR=0 --> no defined filters'
+
+        if ( NFILTDEF_TMP == 0 ) then
+           C1ERR = 'NFILTDEF_OBS=0 --> no defined obs-frame filters'
            C2ERR = 'Check &SNLCINP input KCOR_FILE'
            CALL MADABORT(FNAM, c1err, c2err)
         endif
 +SELF.
+
 
 +SELF,IF=SNFIT,PSNID.
       C1ERR = 'Cannot use SIMLIB_OUT option with snlc_fit or psnid.'
@@ -19572,23 +19551,7 @@ cc          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST(1:LENF) ! includes overlaps
       ENDIF
 
-c - - - - - - - - - - 
-C xxxxx mark delete Nov 17 2022 xxxxxxxx
-+SELF,IF=XYZDELETE.
-c May 31 2020:  if header-override file is set, check for SALT2 fit params
-      IF ( NVAR_HEADER_OVERRIDE > 0 ) THEN
-        CCID = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
-        CALL SNTABLE_AUTOSTORE_READ(CCID, "x1"//char(0), 
-     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
-        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2x1: ',F7.4)" ) DVAL
-
-        CALL SNTABLE_AUTOSTORE_READ(CCID, "c"//char(0), 
-     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
-        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2c:  ',F7.4)" ) DVAL
-      ENDIF
-+SELF.
-c xxxxxxx end mark xxxxxxxxxxxxxxxx
-
+c - - - - - - - - - -
 
 c - - - - -
       CALL SET_SIMLIB_TEMPLATE_INFO()  ! Feb 5 2020
@@ -21111,7 +21074,6 @@ c list failed bits for epoch-dependent cuts only
 30         format(T5,'NEWMJD ',I2,1x,'(MJD=',F9.3,')',2x,
      &         'Failed CUTBIT ', I3, ' : ', A  )
 
-cc xxx mark delete      if ( ibit.EQ. CUTBIT_IDTEL ) NOTEL = .TRUE.
         endif
 
       ENDDO
@@ -22583,7 +22545,6 @@ c plot smooth best-fit ANYFUN function in 2-day bins.
 
       TMIN = -40.0
       TMAX = 140.0
-c xxx mark delete Jun 2022   NBT  = int(TMAX-TMIN) / DTOBS_MODEL_PLOT
       NBT  = int( (TMAX-TMIN) / DTOBS_MODEL_PLOT )
       DT   = (TMAX - TMIN) / float(NBT)
       NOBS = 0
@@ -22786,6 +22747,7 @@ c check if this MJD was already flagged as duplicate
 
       RETURN
       END     
+
 
 C =======================
 +PATCH,*SNTABLE.
@@ -23045,7 +23007,12 @@ c +CDE,FILTCOM.
       LOGICAL LTMP, ADDCOL_SETPKMJD
       CHARACTER varlist*100, CTMP*60, CBLOCK*40
       CHARACTER FNAM*22, CFILT*2
-      EXTERNAL  SNTABLE_ADDCOL
+      EXTERNAL  
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 c ------------ BEGIN ----------
 
@@ -23063,123 +23030,121 @@ c  for CCID, use special variable SNLC_CCID_forC that has char(0)
 c  termination so that parsing CCID with C code is easier.
 
       VARLIST = 'CCID:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c ROWNUM is easy identifier for CID-MJD-BAND-CCDNUM;
 c e.g., pass ROWNUM to script that fetches stamps.
       VARLIST = 'ROWNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
-     &                   LENBLOCK, 20 )
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'FIELD:C*12' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MJD:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'BAND:C*4' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_BAND, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, OUTLIER_BAND, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'IFILTOBS:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IFILTOBS, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_CCDNUM, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c---
       VARLIST = 'IXPIX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IXPIX, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IXPIX, VARLIST,1,
      &                   LENBLOCK, 20 )
       VARLIST = 'IYPIX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_IYPIX, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_IYPIX, VARLIST,1,
      &                   LENBLOCK, 20 )
       VARLIST = 'AREAFRAC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_AREAFRAC, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_AREAFRAC, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'PHOTFLAG:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PHOTFLAG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OUTLIER_PHOTFLAG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_DATA:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_DATA, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_DATA, 
      &           VARLIST, 1, LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_ERR_DATA:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_DATA, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_DATA, 
      &        VARLIST, 1, LENBLOCK, 20 )
 
       VARLIST = 'FLUXCAL_ERR_CALC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK,OUTLIER_FLUXCAL_ERR_CALC,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK,OUTLIER_FLUXCAL_ERR_CALC,
      &            VARLIST, 1, LENBLOCK, 20 )
 
       if ( ISJOB_SNANA ) then
          ! outlier w.r.t. true sim/fake flux (SIM_MAGOBS column in data file)
          VARLIST = 'FLUXCAL_TRUE:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_TRUE, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_TRUE, 
      &        VARLIST, 1, LENBLOCK, 20 )
       else
          ! outlier w.r.t. LC fit
          VARLIST = 'FLUXCAL_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_FIT, 
      &        VARLIST, 1, LENBLOCK, 20 )
 
          VARLIST = 'FLUXCAL_ERR_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERR_FIT, 
      &         VARLIST, 1, LENBLOCK, 20 )
 
          VARLIST = 'FLUXCAL_ERRTOT_FIT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_FLUXCAL_ERRTOT_FIT, 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_FLUXCAL_ERRTOT_FIT, 
      &         VARLIST, 1, LENBLOCK, 20 )
       endif
 
       VARLIST = 'NSIG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_NSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'LOGSNR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_LOGSNR, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_LOGSNR, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'SBMAG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SBMAG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_SBMAG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c - - - -
       VARLIST = 'ZP:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_ZP, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'PSF:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_PSF, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_PSF, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'SKYSIG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_SKYSIG, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 +SELF,IF=SNFIT.
       VARLIST = 'z:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_z, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_z, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'TREST:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, OUTLIER_TREST, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, OUTLIER_TREST, VARLIST,1,
      &                   LENBLOCK, 20 )
-
 
 +SELF.
       RETURN
       END   ! end INIT_TABLE_OUTLIERVAR
 
++SELF,IF=DELETE.
 c =======================================
 +DECK,SNTABLE_ADDCOL_C.
       SUBROUTINE SNTABLE_ADDCOL_C(ID,CBLOCK,CPTR,VARLIST,USE4TEXT)
@@ -23261,6 +23226,7 @@ c --------- BEGIN --------
      &                   LENBLOCK, LENVAR )
       RETURN
       END
++SELF.
 
 C =============================
 +DECK,LOAD_OUTLIER_VAR.
@@ -23652,7 +23618,12 @@ c local var
       LOGICAL LTMP, ADDCOL_SETPKMJD
       CHARACTER varlist*1000, CTMP*60, CBLOCK*40
       CHARACTER FNAM*20, VARNAME*40, CFILT*2
-      EXTERNAL  SNTABLE_ADDCOL
+      EXTERNAL  
+     &   SNTABLE_ADDCOL
+     &  ,SNTABLE_ADDCOL_int
+     &  ,SNTABLE_ADDCOL_flt
+     &  ,SNTABLE_ADDCOL_dbl
+     &  ,SNTABLE_ADDCOL_str
 
 C ---------------- BEGIN ------------
 
@@ -23678,46 +23649,46 @@ c check filter list for filter-dependent columns (Feb 2017)
 c - - - - - - ID variables - - - - - - 
 
       VARLIST = 'CID:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CID, VARLIST,0, 
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNLC_CID, VARLIST,0, 
      &                   LENBLOCK, 20 )
 
 c  for CCID, use special variable SNLC_CCID_forC that has char(0)
 c  termination so that parsing CCID with C code is easier.
 
       VARLIST = 'CCID:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CCID, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c Aug 2022: check optional user-column; e.g., to tag magshift value
       if ( SNTABLE_APPEND_VARNAME .NE. '' ) then
          LENV = INDEX(SNTABLE_APPEND_VARNAME,' ') - 1
          VARLIST = SNTABLE_APPEND_VARNAME(1:LENV) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK,SNTABLE_APPEND_VALUE,VARLIST,1,
-     &                    LENBLOCK, 20 )      
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK,SNTABLE_APPEND_VALUE,
+     &              VARLIST,1,      LENBLOCK, 20 )      
       endif
 c to do: when combined low-z is ready change IDSURVEY -> IDSUBSURVEY,
 c but keep same name 'IDSURVEY'
       VARLIST = 'IDSURVEY:I' //  char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, IDSUBSURVEY, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, IDSUBSURVEY, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'TYPE:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_TYPE, VARLIST,1, 
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_TYPE, VARLIST,1, 
      &                   LENBLOCK, 20 )
 
       VARLIST = 'NFIELD_OVP:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NFIELD_OVP, VARLIST, 0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFIELD_OVP, 
+     &               VARLIST, 0,    LENBLOCK, 20 )
 
       VARLIST = 'FIELD:C*20' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1,
+      CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1,
      &                   LENBLOCK, 20 )
 
 c Feb 15 2018: remove condition on CCDNUM 
       ITEXT = 0 ;     IF(NCCDNUM_LIST>0) ITEXT = 1  
       VARLIST = 'CCDNUM:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_CCDNUM(1), VARLIST,ITEXT,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_CCDNUM(1), 
+     &            VARLIST,ITEXT,       LENBLOCK, 20 )
 
 c -------------------------------------------
 c CUTFLAG_SNANA is a mask as follows:
@@ -23726,13 +23697,13 @@ c bit0 -> passed SNANA cuts
 c bit1 -> passed FIT cuts (i.e, valid fit + re-applied snana cuts)
       
       VARLIST = 'CUTFLAG_SNANA:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CUTFLAG_SNANA, VARLIST,1,
      &                   LENBLOCK, 20)
 
       if ( PHOTFLAG_TRIGGER > 0 ) then
          VARLIST = 'MJD_TRIGGER:D' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_MJD_TRIGGER, VARLIST,1,
-     &                   LENBLOCK, 20)           
+         CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, 
+     &            VARLIST,1,    LENBLOCK, 20)           
       endif
 c -------------------------------------------
 c ERRFLAG_FIT = -9 -> no fit, just SNANA job
@@ -23744,99 +23715,99 @@ c ERRFLAG_FIT >  0 -> fit failed, see ERRFLAG codes in fitting program.
       ITEXT=1
 +SELF.
       VARLIST = 'ERRFLAG_FIT:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ERRFLAG_FIT, VARLIST,ITEXT,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ERRFLAG_FIT, 
+     &              VARLIST,ITEXT,   LENBLOCK, 20 )
 
 c --------------------------------------------
       IF ( N_USERTAGS .GT. 0) then
         VARLIST = 'USERTAG:I'  // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, USERTAG, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, USERTAG, VARLIST,1,
      &                   LENBLOCK, 20)
       endif
 
       VARLIST = 'RA:D,DEC:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_RA, VARLIST,0,
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_RA, VARLIST,0,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'AREAFRAC_AVG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_AREAFRAC_AVG, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_AREAFRAC_AVG, 
+     &              VARLIST,0,  LENBLOCK, 20 )
 
 c -- NEPOCH ( Aug 2013)
  
       VARLIST = 'NEPOCH:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_STORE, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_STORE, 
+     &               VARLIST,0,  LENBLOCK, 20 )
 
       VARLIST = 'NEPOCH_BADPHOT:I' // char(0)      ! added Jun 2016
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, NEPOCH_BADPHOT, VARLIST, 0,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEPOCH_BADPHOT, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 
 c Mar 2018: add info about PHOTPROB
       VARLIST = 'NEPOCH_PHOTPROB:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_PHOTPROB, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_PHOTPROB, 
+     &            VARLIST,0,  LENBLOCK, 20 )
 
       VARLIST = 'PHOTPROB_MIN:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_PHOTPROB_MIN, VARLIST,0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_PHOTPROB_MIN, 
+     &                VARLIST,0,   LENBLOCK, 20 )
 
 c Sep 2018: add optonal info about detections
 c Nov 2020: write to TEXT file 
       IF ( PHOTFLAG_DETECT > 0 ) THEN
          VARLIST = 'NEPOCH_DETECT:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_DETECT,VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NEPOCH_DETECT,
+     &                VARLIST,1, LENBLOCK, 20 )
          VARLIST = 'TLIVE_DETECT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TLIVE_DETECT, VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TLIVE_DETECT, 
+     &              VARLIST,1,   LENBLOCK, 20 )
       ENDIF
 
 
       IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
          VARLIST = 'NEPOCH_OUTLIER:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NEP_OUTLIER_PEREVT,VARLIST,1,
-     &        LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_PEREVT,
+     &            VARLIST,1,   LENBLOCK, 20 )
       ENDIF
 c - - - - -  redshift - - - - - 
 
       VARLIST = 'zHEL:F,zHELERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHELIO, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZHELIO, VARLIST, 1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zCMB:F,zCMBERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZCMB, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZCMB, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zHD:F,zHDERR:F' // char(0)  ! Hubble diagram redshift
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'zFLAG:I' // char(0)  ! z-quality flag (May 2020)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 c z = zCMB for spec z, but for photo-z fit z & zERR are the original
 c data redshifts to allow plotting zHD-z resids
       VARLIST = 'z:F,zERR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0, 
      &                   LENBLOCK, 20)
 
 c tack on VPEC
       VARLIST = 'VPEC:F,VPECERR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_VPEC, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_VPEC, VARLIST, 1,
      &                       LENBLOCK, 20 )
 
 c - - - - -  Galactic extinction - - - -  -
 c Feb 6 2020: write MWEBV to TEXT (but not the error)
 
       VARLIST = 'MWEBV:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 1,
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_MWEBV, VARLIST, 1,
      &                   LENBLOCK, 20 )
 
       VARLIST = 'MWEBVERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 0, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_MWEBV, VARLIST, 0, 
      &                   LENBLOCK, 20 )
 
 c - - - - - - HOST GALAXY - - - - 
@@ -23844,11 +23815,11 @@ c - - - - - - HOST GALAXY - - - -
       if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
 
       VARLIST =  'HOST_NMATCH:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH, 
+     &              VARLIST,ITEXT,   LENBLOCK, 20 )
       VARLIST =  'HOST_NMATCH2:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH2, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_NMATCH2, 
+     &              VARLIST,ITEXT,    LENBLOCK, 20 )
 
 c      VARLIST =  'HOST_OBJID:L' // char(0)
 c      CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID, VARLIST,0, 
@@ -23860,83 +23831,83 @@ c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
 
       VARLIST =  'HOST_OBJID:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(1), 
+     &             VARLIST,ITEXT,     LENBLOCK, 20 )
 
       VARLIST =  'HOST_ZPHOT:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  'HOST_ZPHOTERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT_ERR, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(1), 
+     &               VARLIST,ITEXT,    LENBLOCK, 40 )
 
       VARLIST =  'HOST_ZSPEC:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC(1), 
+     &             VARLIST,ITEXT,    LENBLOCK, 40 )
       VARLIST =  'HOST_ZSPECERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC_ERR, VARLIST,ITEXT, 
-     &     LENBLOCK, 40 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZSPEC_ERR(1), 
+     &              VARLIST,ITEXT,  LENBLOCK, 40 )
 
       VARLIST = 'HOST_RA:D'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_RA, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_RA(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
       VARLIST = 'HOST_DEC:D'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_DEC, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNHOST8_DEC(1), 
+     &          VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = 'HOST_ANGSEP:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ANGSEP(1), 
+     &         VARLIST,ITEXT,   LENBLOCK, 20 )
 
       VARLIST = 'HOST_DDLR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_DDLR(1), 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
 
       VARLIST = 'HOST_CONFUSION:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,ITEXT, 
-     &     LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_CONFUSION, 
+     &          VARLIST,ITEXT,    LENBLOCK, 20 )
 
 c always write LOGMASS and SFR
       IF ( EXIST_SNHOST_LOGMASS ) THEN
         VARLIST =  'HOST_LOGMASS:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS(1), 
+     &          VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGMASS_ERR(1), 
+     &          VARLIST, 1,     LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGSFR ) THEN
         VARLIST =  'HOST_LOGSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR(1), 
+     &            VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_LOGSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGSFR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGSFR_ERR(1), 
+     &            VARLIST, 1,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_LOGsSFR ) THEN
         VARLIST =  'HOST_LOGsSFR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR(1), 
+     &            VARLIST, 1,   LENBLOCK, 40 )
         VARLIST =  'HOST_LOGsSFR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGsSFR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_LOGsSFR_ERR(1), 
+     &           VARLIST, 1,    LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_COLOR ) THEN
         VARLIST =  'HOST_COLOR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR(1), 
+     &             VARLIST, 1,    LENBLOCK, 40 )
         VARLIST =  'HOST_COLOR_ERR:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_COLOR_ERR, VARLIST, 1,
-     &         LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_COLOR_ERR(1), 
+     &           VARLIST, 1,     LENBLOCK, 40 )
       ENDIF
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags
         CALL TABLE_VARLIST_FILTERS('HOST_MAG', 'F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_MAGOBS(1,1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
@@ -23951,59 +23922,42 @@ c on the template image.
 c        HOST_SB -> HOST_SBFLUXCAL
         CALL TABLE_VARLIST_FILTERS('HOST_SBFLUXCAL','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBFLUXCAL(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('HOST_SBMAG','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNHOST_SBMAG(1),
      &      VARLIST(1:LENLIST)//char(0), itext, LENBLOCK, LENLIST)
       ENDIF
 
-+SELF,IF=BUGGY.
-c Apr 2021: EXIST_SNHOST_ANGSEP is sometimes T/F on first event,
-c           so merging ROOT/HBOOK files can fail.
-c
-c Feb 2019: a few things for existing ANGSEP
-      IF ( EXIST_SNHOST_ANGSEP ) THEN 
-
-c         VARLIST = 'HOST2_OBJID:L'  // char(0)
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID(2), VARLIST,0,
-c     &     LENBLOCK_L, 20 )
-
-         VARLIST = 'HOST2_OBJID:D'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID(2), VARLIST,0,
-     &     LENBLOCK, 20 )
-
-         VARLIST = 'HOST2_ANGSEP:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP(2), VARLIST,0,
-     &     LENBLOCK, 20 )
-
-         VARLIST = 'HOST2_DDLR:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR(2), VARLIST,0,
-     &       LENBLOCK, 20 )
-      ENDIF
-+SELF.
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 1                       ! default is no TEXT output ...
       VARLIST = 'PKMJDINI:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )
 
 c - - - - time above threshold for REQUIRE_EPOCHS - - - - - - 
 
       IF( NFILT_REQEP > 0 ) THEN
         VARLIST = 'NDAYS_ABOVE_SNRMIN:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP, 
-     &                    VARLIST, 1, 
-     &                    LENBLOCK, 40 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP, 
+     &                    VARLIST, 1,       LENBLOCK, 40 )
       ENDIF
 
 c - - - - - max flux per band (May 2016) - - - - - - - - -
+
         CALL TABLE_VARLIST_FILTERS('FLUXCALMAX','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_FLUXCALMAX,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX(1),
+     &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
+
+c ... and the uncertainty (Nov 2022)
+
+        CALL TABLE_VARLIST_FILTERS('FLUXCALMAX_ERR','F',ADDCOL_FILTERS, 
+     &           VARLIST, LENLIST)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_FLUXCALMAX_ERR(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
 c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - - 
@@ -24015,7 +23969,7 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
             CALL TABLE_VARLIST_FILTERS(VARNAME(1:LENV),'F',
      &           SURVEY_FILTERS, VARLIST, LENLIST)
             
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, 
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, 
      &           SNLC_SNANAFIT_PEAKMJD_FITPAR(1,ipar),
      &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
          ENDDO
@@ -24030,11 +23984,11 @@ c  PKMJD per filter
             IF( IFILTOBS_REPLACE(IFILT_OBS) .NE. IFILT_OBS) GOTO 222
 
             VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
      &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
             
             VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
-            CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
+            CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
      &           VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
 
  222     CONTINUE
@@ -24043,14 +23997,14 @@ c --------------------------
 c      fit chi2 per filter
           CALL TABLE_VARLIST_FILTERS('FIT_CHI2','F', ADDCOL_FILTERS,
      &           VARLIST, LENLIST )
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_CHI2_FITPKMJD,
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_CHI2_FITPKMJD(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
 c --------------------------
 c      fit NDOF per filter
           CALL TABLE_VARLIST_FILTERS('FIT_NDOF','I', SURVEY_FILTERS,
      &           VARLIST, LENLIST)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, NDOF_FITPKMJD,
+          CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NDOF_FITPKMJD(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
       ENDIF  ! end of SETPKMJD if-block
@@ -24060,37 +24014,37 @@ c - - - - - -
 
 c global PROB_TRUEFLUX for all bands combined
         VARNAME   = 'PROB_TRUEFLUX:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, PROB_TRUEFLUX(0),
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, PROB_TRUEFLUX(0),
      &        VARNAME(1:20), 1, LENBLOCK, 20)
 
 c ... and for each individual band
         CALL TABLE_VARLIST_FILTERS('PROB_TRUEFLUX','F', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_PROB_TRUEFLUX(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
         CALL TABLE_VARLIST_FILTERS('NDOF_TRUEFLUX','I', ADDCOL_FILTERS,
      &         VARLIST, LENLIST )
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ADDCOL_NDOF_TRUEFLUX(1),
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
       ENDIF
 
 c - - - - -  min and max MJD (Aug 5 2013)
       VARLIST = 'MJDMIN:D,MJDMAX:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_MJDMIN, VARLIST, 0,
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJDMIN, 
+     &                VARLIST, 0,   LENBLOCK, 20 )
 
 c - - - -  multi-season variability - - - -
       IF( MULTISEASON_OPTMASK > 0 ) THEN
 
 c Aug 15 2018: include NTOT and NLC in output and TEXT output
         VARLIST = 'NSEASON_TOT:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
      &                   LENBLOCK, 40 )
 
         VARLIST = 'NSEASON_ACTIVE:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
      &                   LENBLOCK, 40 )
 
         VARLIST = 'MULTISEASON_CHI2RED_1:F,' //
@@ -24099,8 +24053,8 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_CHI2RED_4:F,' //
      &            'MULTISEASON_CHI2RED_5:F'  //
      &          char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_CHI2RED, VARLIST,0, 
-     &                   LENBLOCK, 160 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_CHI2RED(1), 
+     &               VARLIST,0,     LENBLOCK, 160 )
 
         VARLIST = 'MULTISEASON_AVGFLUX_1:F,' //
      &            'MULTISEASON_AVGFLUX_2:F,' //
@@ -24108,8 +24062,8 @@ c Aug 15 2018: include NTOT and NLC in output and TEXT output
      &            'MULTISEASON_AVGFLUX_4:F,' //
      &            'MULTISEASON_AVGFLUX_5:F' //
      &          char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_AVGFLUX, VARLIST,0, 
-     &                   LENBLOCK, 160 )
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, MULTISEASON_AVGFLUX(1), 
+     &              VARLIST,0,       LENBLOCK, 160 )
       ENDIF
 
 c ------------------------------------
@@ -24120,33 +24074,33 @@ c ------------------------------------
 c snana variables with no fitting.
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TRESTMIN, VARLIST, 0, 
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TRESTMIN, 
+     &               VARLIST, 0,     LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TOBSMIN, VARLIST, 0,
-     &                   LENBLOCK,  40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TOBSMIN, 
+     &               VARLIST, 0,    LENBLOCK,  40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TGAPMAX, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_TGAPMAX, 
+     &                VARLIST, 0,   LENBLOCK, 40 )
 
          VARLIST =  
      &      'NFILT_Tmin:I,NFILT_Tmax:I,NFILT_Trest2:I' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK,ISNLC_NFILT_TRESTMIN,VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK,ISNLC_NFILT_TRESTMIN,
+     &              VARLIST,0,     LENBLOCK, 40 )
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NFILT_SNRMAX,VARLIST,0, 
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFILT_SNRMAX,
+     &                VARLIST,0,    LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SNRMAX_SORT(1),VARLIST,0,
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
+     &                VARLIST,0,   LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SNRMAX_SORT(1),VARLIST,1,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SNRMAX_SORT(1),
+     &               VARLIST,1,    LENBLOCK, 40 )
 
 c ----------
 c Below are SNANA variables for which the FIT analog is not
@@ -24154,12 +24108,12 @@ c available here -> book FIT-analogs in snlc_fit.car
 
          CALL TABLE_VARLIST_FILTERS('SNRMAX', 'F', ADDCOL_FILTERS,
      &                    VARLIST, LENLIST )
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_SNRMAX(1), 
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_SNRMAX(1), 
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
          CALL TABLE_VARLIST_FILTERS('XTMW', 'F', ADDCOL_FILTERS, 
      &                    VARLIST, LENLIST )
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ADDCOL_XTMW(1),
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, ADDCOL_XTMW(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
       ELSE
@@ -24167,33 +24121,33 @@ c available here -> book FIT-analogs in snlc_fit.car
 c variables re-evaluated after fit
 
          VARLIST = 'TrestMIN:F,TrestMAX:F,TrestRange:F'  // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TRESTMIN_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TRESTMIN_FIT, 
+     &                 VARLIST, 0,  LENBLOCK, 40 )
 
          VARLIST = 'TobsMIN:F,TobsMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TOBSMIN_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TOBSMIN_FIT, 
+     &                  VARLIST, 0, LENBLOCK, 40 )
 
          VARLIST = 'TGAPMAX:F,T0GAPMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, TGAPMAX_FIT, VARLIST, 0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TGAPMAX_FIT, 
+     &                 VARLIST, 0,  LENBLOCK, 40 )
 
          VARLIST = 'NFILT_Tmin:I,NFILT_Tmax:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NFILT_TRESTMIN_FIT,VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_TRESTMIN_FIT,
+     &                VARLIST,0,   LENBLOCK, 40 )
 
 
          VARLIST = 'NFILT_SNRMAX:I,NFILT_SNRMAX2:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NFILT_SNRMAX_FIT, VARLIST,0,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NFILT_SNRMAX_FIT, 
+     &                 VARLIST,0,  LENBLOCK, 40 )
 
          VARLIST = 'SNRMAX:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNRMAX_SORT_FIT(1), VARLIST,0, 
-     &                   LENBLOCK, 20 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
+     &                VARLIST,0,    LENBLOCK, 20 )
 
          VARLIST = 'SNRMAX1:F,SNRMAX2:F,SNRMAX3:F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNRMAX_SORT_FIT(1), VARLIST,1,
-     &                   LENBLOCK, 40 )
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNRMAX_SORT_FIT(1), 
+     &                 VARLIST,1,  LENBLOCK, 40 )
 
       ENDIF
 
@@ -24207,15 +24161,15 @@ c - - - - - -  nearest nbr (Apr 2014) - - - - -
 
       IF ( LTMP ) THEN
          VARLIST = 'NN_ITYPE:I' // char(0) 
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_ITYPE, VARLIST,1, 
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_ITYPE, VARLIST,1, 
      &                   LENBLOCK, 20 )
 
          VARLIST = 'NN_NCELL:I' // char(0)   ! with training cuts (no NN)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_NCELL, VARLIST,0,
+         CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NN_NCELL, VARLIST,0,
      &                   LENBLOCK, 20 )
 
          VARLIST = 'NN_PROB_IA:F' // char(0)  ! Bayesian prob with NN cut
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
+         CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
      &                   LENBLOCK, 20) 
 
       ENDIF
@@ -24241,8 +24195,8 @@ c glue together variables in comma-separate VARLIST
         LENLIST = INDEX(VARLIST,' ') - 1
         VARLIST = VARLIST(1:LENLIST) // char(0)
 
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, PRIVATE_VALUE(1), VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+        CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PRIVATE_VALUE(1), 
+     &                VARLIST, 0,   LENBLOCK, LENLIST)
       ENDIF     ! end of NPAR_PRIVATE if-block
 
 c --- Sep 23 2017: user variables --------
@@ -24251,7 +24205,7 @@ c --- Sep 23 2017: user variables --------
           VARLIST = TABLEVARNAME_USER(ivar)
           LENLIST = INDEX(VARLIST,' ') - 1
           VARLIST = VARLIST(1:LENLIST) // ':F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, TABLEVALUE_USER(1), 
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TABLEVALUE_USER(1), 
      &               VARLIST, 1, LENBLOCK, LENLIST+2)           
         ENDDO
       ENDIF
@@ -24296,7 +24250,12 @@ c local var
       CHARACTER CBLK*40, CNOBS*14, VARNAME*40
       LOGICAL  IGNORE
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
       LOGICAL  IGNOREFILE_fortran
 
 C --------------- BEGIN -------------
@@ -24312,94 +24271,87 @@ C --------------- BEGIN -------------
       write(CNOBS,15) MXOBS_SNTABLE
 15    format('NOBS[',I4.4,']' )  ! no spaces or commas in string
       VARNAME = CNOBS(1:12)  // char(0)  ! Nobs used in fit + NREJECT
-      CALL SNTABLE_ADDCOL(ID, CBLK, ISNLC_NEWMJD_STORE,
+      CALL SNTABLE_ADDCOL_int(ID, CBLK, ISNLC_NEWMJD_STORE,
      &     VARNAME, 0, LENB, LENV)
 
       VARNAME = 'USEFLAG(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_SNRECON_USE,
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_SNRECON_USE(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'PHOTFLAG(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_PHOTFLAG,
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_PHOTFLAG(1),
      &      VARNAME, 0, LENB,LENV)
 
-      VARNAME = 'PHOTPROB(NOBS):R' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_PHOTPROB,
+      VARNAME = 'PHOTPROB(NOBS):F' // char(0)  
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_PHOTPROB(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'IFILTOBS(NOBS):I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, ISNLC_IFILT_OBS,
+      CALL SNTABLE_ADDCOL_int(ID,CBLK, ISNLC_IFILT_OBS(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'MJD(NOBS):D' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC8_MJD,
+      CALL SNTABLE_ADDCOL_dbl(ID,CBLK, SNLC8_MJD(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'FLUXCAL_DATA(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'FLUXCAL_DATA_ERR(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRTOT,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL_ERRTOT(1),
      &      VARNAME, 0, LENB,LENV)
 
 c -- observing conditions
 
       VARNAME = 'ZP(NOBS):F' // char(0)    ! match FITRES+RESID table
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_ZEROPT(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'ZP_ERR(NOBS):F' // char(0)    ! match FITRES+RESIDS table
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT_ERR,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_ZEROPT_ERR(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'PSF(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_PSF_SIG1,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_PSF_SIG1(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'SKYSIG(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_SKYSIG(1),
      &      VARNAME, 0, LENB,LENV)
       VARNAME = 'SKYSIG_T(NOBS):F' // char(0)    ! Nov 30 2020
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG_T,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_SKYSIG_T(1),
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'GAIN(NOBS):F' // char(0)    ! Nov 30 2020
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_GAIN,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_GAIN(1),
      &      VARNAME, 0, LENB,LENV)
 
 c --- error calculated from PSF+SKY+ZP, as the simulation would do
 
       VARNAME = 'FLUXCAL_ERRCALC(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRCALC,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SNLC_FLUXCAL_ERRCALC(1),
      &      VARNAME, 0, LENB,LENV)
- 
-c xxxxxxx mark delete Nov 30 2020 xxxxxxxxx
-c      VARNAME = 'FLUXCAL_HOSTERRCALC(NOBS):F' // char(0) 
-c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_HOSTERRCALC,
-c     &      VARNAME, 0, LENB,LENV)
-c xxxxxxxxxxxxxxx
 
 c - - - - - - - - - - - - - - - - 
 
       IF ( ISJOB_SIM ) THEN
          VARNAME = 'FLUXCAL_SIM(NOBS):F' // char(0)   ! match FITRES+RESIDS
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL,
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPFLUXCAL(1),
      &        VARNAME, 0, LENB,LENV)
 
          VARNAME = 'CHI2FLUX_SIM(NOBS):F' // char(0)  ! match FITRES+RESIDS
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPCHI2FLUX,
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPCHI2FLUX(1),
      &        VARNAME, 0, LENB,LENV)
 
-c xxx mark          VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0) 
          VARNAME = 'MAGOBS_SIM(NOBS):F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPMAGOBS,
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPMAGOBS(1),
      &        VARNAME, 0, LENB,LENV)
       ENDIF
 
       IF ( LSIM_SNANA ) THEN
          VARNAME = 'SIM_FLUXCAL_HOSTERR(NOBS):F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL_HOSTERR,
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPFLUXCAL_HOSTERR(1),
      &        VARNAME, 0, LENB,LENV)
       ENDIF
 
@@ -24408,8 +24360,8 @@ c include SNR_MAG[mag] if it exists.
       IGNORE  = ( IGNOREFILE_fortran(SIMNAME_SNRMON) ) 
       IF ( LSIM_SNANA .and. (.not.IGNORE)  ) THEN
          VARNAME = SIMNAME_SNRMON(1:LENTMP)// '(NOBS):F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPSNRMON,
-     &        VARNAME, 0, LENB,LENV)         
+         CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_EPSNRMON(1),
+     &        VARNAME, 0, LENB,LENV)
       ENDIF
 
       RETURN
@@ -24441,7 +24393,12 @@ c local var
       LOGICAL IGNORE
       CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 C --------------- BEGIN -------------
 
@@ -24458,11 +24415,11 @@ C --------------- BEGIN -------------
       write(CNOBS,15) MXEP_MODELGRID
 15    format('NEP_MODEL[',I4.4,']' )  ! no spaces or commas in string
       VARNAME = CNOBS(1:15)  // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLK, NEP_SIM_MODELGRID,
+      CALL SNTABLE_ADDCOL_int(ID, CBLK, NEP_SIM_MODELGRID,
      &     VARNAME, 0, LENB, LENV)
 
       VARNAME = 'EPOCH_MODEL(NEP_MODEL):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SIM_MODELGRID_TOBS,
+      CALL SNTABLE_ADDCOL_flt(ID,CBLK, SIM_MODELGRID_TOBS(1),
      &      VARNAME, 0, LENB,LENV)
 
       DO ifilt = 1, NFILTDEF_SURVEY
@@ -24470,7 +24427,8 @@ C --------------- BEGIN -------------
           cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
           VARNAME   = 'MAGOBS_MODEL_' // cfilt(1:1) // 
      &                    '(NEP_MODEL):F' // char(0)
-          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_MODELGRID_MAGOBS(1,ifilt),
+          CALL SNTABLE_ADDCOL_flt(ID,CBLK, 
+     &          SIM_MODELGRID_MAGOBS(1,ifilt),
      &          VARNAME, 0, LENB,LENV )
       ENDDO
 
@@ -24610,7 +24568,12 @@ c local var
      &  , VARLIST*400, CBLOCK*40
       INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, LENM, ITEXT
 
-      EXTERNAL SNTABLE_ADDCOL
+      EXTERNAL 
+     &    SNTABLE_ADDCOL
+     &   ,SNTABLE_ADDCOL_int
+     &   ,SNTABLE_ADDCOL_flt
+     &   ,SNTABLE_ADDCOL_dbl
+     &   ,SNTABLE_ADDCOL_str
 
 C ---------------- BEGIN ---------------
 
@@ -24629,117 +24592,118 @@ C ---------------- BEGIN ---------------
 
       IF ( SIM_SUBSAMPLE_INDEX >= 0 ) THEN
         VARLIST = 'SIM_SUBSAMPLE_INDEX:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID,CBLOCK,SIM_SUBSAMPLE_INDEX,VARLIST, 0,
-     &                     LENBLOCK, LENLIST)   ! added Jun 16 2017
+        CALL SNTABLE_ADDCOL_int(ID,CBLOCK,SIM_SUBSAMPLE_INDEX,
+     &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
-     &                   LENBLOCK, LENLIST)
+c xxxxxxx mark delete Dec 2022 xxxxxx
+c      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
+c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
+c     &                   LENBLOCK, LENLIST)
+c xxxxxxxxx end mark xxxxxxx
 
       VARLIST = 'SIM_TEMPLATE_INDEX:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_TEMPLATE_INDEX,VARLIST,1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_TEMPLATE_INDEX,
+     &               VARLIST,1,    LENBLOCK, LENLIST)
 
 c Mar 22 2016: always output SIM_LIBID
 cc      IF ( BTEST(SIMLIB_MSKOPT,1) ) THEN
         VARLIST = 'SIM_LIBID:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LIBID,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)   ! added Dec 2015
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_LIBID,  VARLIST, 1,
+     &                   LENBLOCK, LENLIST) 
         VARLIST = 'SIM_NGEN_LIBID:I' // char(0)  
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_NGEN_LIBID,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)   ! added Dec 2015
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_NGEN_LIBID,  VARLIST, 1,
+     &                   LENBLOCK, LENLIST) 
 cc      ENDIF
 
       VARLIST = 'SIM_NOBS_UNDEFINED:I' // char(0)  
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_NOBS_UNDEFINED,VARLIST,0,
-     &                   LENBLOCK, LENLIST)   ! added Mar 22 2017
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_NOBS_UNDEFINED,
+     &            VARLIST,0,       LENBLOCK, LENLIST)  
 
       VARLIST = 'SIM_SEARCHEFF_MASK:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SEARCHEFF_MASK, VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_SEARCHEFF_MASK, 
+     &               VARLIST, 0,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_MAGSMEAR_COH:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MAGSMEAR_COH,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MAGSMEAR_COH,  
+     &             VARLIST, 0,      LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_MWEBV:F' // char(0)  ! added Nov 26 2016
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MWEBV,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MWEBV,  
+     &                VARLIST, 0,   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZCMB:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_CMB,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_CMB,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZHELIO:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_HELIO,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_HELIO, 
+     &                VARLIST, 0,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZHOST:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_HOST,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_REDSHIFT_HOST,  
+     &             VARLIST, 0,      LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_ZFLAG:I' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_REDSHIFT_FLAG,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_REDSHIFT_FLAG,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_VPEC:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_VPEC,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_VPEC,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_DLMAG:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_DLMAG,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_DLMAG,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_LENSDMU:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LENSDMU,  VARLIST, 0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_LENSDMU,  
+     &               VARLIST, 0,    LENBLOCK, LENLIST)
 
-c xxx mark      VARLIST = 'SIM_PKMJD:F' // char(0)
       VARLIST = 'SIM_PEAKMJD:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_PEAKMJD,  VARLIST, 1, 
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_PEAKMJD,  
+     &               VARLIST, 1,     LENBLOCK, LENLIST)
 
       if ( SIM_MJD_EXPLODE > 0.0 ) then
         VARLIST = 'SIM_MJD_EXPLODE:F' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_MJD_EXPLODE,  VARLIST, 1, 
-     &                     LENBLOCK, LENLIST)
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_MJD_EXPLODE,  
+     &                VARLIST, 1,    LENBLOCK, LENLIST)
       endif
 
       LENTMP = INDEX(SIMNAME_SHAPEPAR,' ') - 1  ! x1, delta, dm15
-      VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SHAPEPAR,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      VARLIST = SIMNAME_SHAPEPAR(1:LENTMP) // ':F'   // char(0)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SHAPEPAR,
+     &               VARLIST, 1,     LENBLOCK, LENLIST)  
 
       LENTMP = INDEX(SIMNAME_COLORPAR,' ') - 1  ! c, AV
       VARLIST = SIMNAME_COLORPAR(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORPAR,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_COLORPAR,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       LENTMP = INDEX(SIMNAME_SHAPELAW,' ') - 1   ! SIM_alpha
       VARLIST = SIMNAME_SHAPELAW(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SHAPELAW,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SHAPELAW,  
+     &              VARLIST, 1,     LENBLOCK, LENLIST)
 
       LENTMP = INDEX(SIMNAME_COLORLAW,' ') - 1   ! SIM_beta
       VARLIST = SIMNAME_COLORLAW(1:LENTMP) // ':F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_COLORLAW,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
 c add SIM_gammaDM if not zero.
 c Sep 7 2021: always write SIM_gammaDM in case first value is 0
 c    followed by non0-zero values.
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST, 1,
-     &                   LENBLOCK, LENLIST )
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2gammaDM,
+     &                VARLIST, 1,   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2x0,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_mB:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2mb,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_SALT2mb,  
+     &                VARLIST, 1,   LENBLOCK, LENLIST)
 
 c add SIM_AV only if not already defined. 
 c This is for the SALT2 model with intinsic color (c) and 
@@ -24749,11 +24713,11 @@ c Aug 2 2022: perform test only for SALT2 model.
       if ( SIM_MODEL_INDEX .EQ. MODEL_SALT2 ) then
         if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then
           VARLIST = 'SIM_AV:F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_AV,  VARLIST, 1,
-     &                   LENBLOCK, LENLIST)
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_AV,  
+     &               VARLIST, 1,    LENBLOCK, LENLIST)
           VARLIST = 'SIM_RV:F' // char(0)
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_RV,  VARLIST, 1,
-     &                     LENBLOCK, LENLIST)
+          CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_RV,  
+     &                VARLIST, 1,     LENBLOCK, LENLIST)
         endif
       endif
 
@@ -24764,7 +24728,7 @@ c  Apr 28 2015: set DOTEXT flag to 1
          CTMP    = SIMSED_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIMSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIMSED_PARVAL(ipar),
      &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
@@ -24776,7 +24740,7 @@ c PySEDMODEL model params (BYOSED, SNEMO, ...)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = PySEDMODEL_NAME(1:LENM) // '_' 
      &             // CTMP(1:LENTMP) // ':F' // char(0) 
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
      &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
@@ -24784,15 +24748,15 @@ c Feb 2018: LCLIB model params
       IF ( SIM_MODEL_INDEX == MODEL_LCLIB ) THEN        
         CALL TABLE_VARLIST_FILTERS('SIM_TEMPLATEMAG','F',ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_TEMPLATEMAG,
+        CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIM_TEMPLATEMAG(1),
      &          VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
 
         DO IPAR    = 1, NPAR_LCLIB
            CTMP    = LCLIB_PARNAME(ipar)
            LENTMP  = INDEX(CTMP,' ') - 1
            VARLIST = 'LCLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
-           CALL SNTABLE_ADDCOL(ID,CBLOCK, LCLIB_PARVAL(ipar),VARLIST,1,
-     &          LENBLOCK, LENLIST)
+           CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, LCLIB_PARVAL(ipar),
+     &            VARLIST,1,   LENBLOCK, LENLIST)
         ENDDO
       ENDIF
 
@@ -24801,14 +24765,14 @@ c SIM_HOSTLIB params
       ITEXT = 0
       if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
       VARLIST = 'SIM_HOSTLIB_GALID' // ':D' // char(0) ! Feb 2020
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, DSIM_HOSTLIB_GALID,
+         CALL SNTABLE_ADDCOL_dbl(ID,CBLOCK, DSIM_HOSTLIB_GALID,
      &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
 
       DO IPAR    = 1, NPAR_SIM_HOSTLIB
          CTMP    = SIM_HOSTLIB_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIM_HOSTLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
+         CALL SNTABLE_ADDCOL_flt(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
      &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
       ENDDO  
 
@@ -24816,7 +24780,7 @@ c - - - - - optional LCWIDTH for simulated MAGOBS -----
       if ( OPTSIM_LCWIDTH > 0 ) then
         CALL TABLE_VARLIST_FILTERS('SIM_LCWIDTH','F', ADDCOL_FILTERS, 
      &           VARLIST, LENLIST)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_LCWIDTH,
+        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SIM_LCWIDTH(1),
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       endif
 
@@ -24853,6 +24817,7 @@ c ----------------------------------------------------
       COMMON / IPLOTCOM / CID, IPLOT 
 c function
       INTEGER IPLOT_JOBSPLIT
+      EXTERNAL SNTABLE_ADDCOL, SNTABLE_ADDCOL_int
 
 C ------------ BEGIN ------------
 
@@ -24862,14 +24827,14 @@ C ------------ BEGIN ------------
         CNAME    = 'CIDPTR' // char(0)
         LENNAME  = INDEX(CNAME,' ') - 1
         TEXTFMT  = ' ' // char(0)  ! never make a text table 
-cc xxx mark CALL SNTABLE_CREATE(ID, CNAME, LENNAME, TEXTFMT, 1 )  ! C fun
         CALL SNTABLE_CREATE(ID, CNAME, TEXTFMT, LENNAME, 1 )  ! C function
 
         CBLOCK = 'IPLOT' // char(0)
         LENBLOCK = INDEX(CBLOCK,' ') - 1
         LENLIST  = LEN(VARLIST)       
         VARLIST = 'CID:I,IPLOT:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID,CBLOCK,CID,VARLIST,0, LENBLOCK,LENLIST)
+        CALL SNTABLE_ADDCOL_int(ID, CBLOCK, CID,
+     &        VARLIST, 0, LENBLOCK,LENLIST)
 
         RETURN
       ENDIF
@@ -25033,7 +24998,8 @@ C ------------- BEGIN --------------
       DO IFILT_REMAP = 1, NFILT_REMAP_TABLE
            ADDCOL_SNRMAX(IFILT_REMAP)     = -9.0
            ADDCOL_XTMW(IFILT_REMAP)       = -9.0
-           ADDCOL_FLUXCALMAX(IFILT_REMAP) = -9.0
+           ADDCOL_FLUXCALMAX(IFILT_REMAP)        = -9.0
+           ADDCOL_FLUXCALMAX_ERR(IFILT_REMAP)     = -9.0
            ADDCOL_PROB_TRUEFLUX(IFILT_REMAP)      = -9.0
            ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP)      =  0
            ADDCOL_SNHOST_MAGOBS(IFILT_REMAP,1)    = -9.0 
@@ -25050,6 +25016,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNRMAX(ifilt)           = SNLC_SNRMAX_FILT(ifilt)
            ADDCOL_XTMW(ifilt)             = SNLC_MWXT_FLUXFRAC(ifilt)
            ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX(ifilt)
+           ADDCOL_FLUXCALMAX_ERR(ifilt)   = SNLC_FLUXCALMAX_ERR(ifilt)
            ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
            ADDCOL_NDOF_TRUEFLUX(ifilt)    = NDOF_TRUEFLUX(ifilt)
            ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
@@ -25058,6 +25025,7 @@ C ------------- BEGIN --------------
            ADDCOL_SNHOST_SBFLUXCAL(ifilt) = SNHOST_SBFLUXCAL(ifilt) 
            ADDCOL_SNHOST_SBMAG(ifilt)     = SNHOST_SBMAG(ifilt) 
          ELSE 
+             ! DO_REMAP
            CALL FILTER_REMAP_FETCH(IFILTOBS,  ! (I)
      &           IFILTOBS_REMAP,IFILT_REMAP)  ! (O)
 
@@ -25089,7 +25057,7 @@ c check that each band is mapped.
 
            VAL_OLD = ADDCOL_FLUXCALMAX(IFILT_REMAP)
            VAL_NEW = SNLC_FLUXCALMAX(ifilt)
-           ADDCOL_SNRMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
+           ADDCOL_FLUXCALMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
 
            VAL_OLD = ADDCOL_CHI2_FITPKMJD(IFILT_REMAP)
            VAL_NEW = CHI2_FITPKMJD(ifilt)
@@ -25226,7 +25194,6 @@ c fill table.
 
             write(cz,41) z
  41         format('z=',F5.3)
-cc xxx mark            SIM_HOSTLIB_GALID = 9876 ! xzxx
             if ( SIM_HOSTLIB_GALID > 0 ) then
                write(cGALID,44) SIM_HOSTLIB_GALID
  44            format('GALID=', I9.9 )
@@ -25459,6 +25426,1356 @@ C =======================
 +PATCH,*CALIB.
 C =======================
 
+C ===========================================
++DECK,NEAREST_IFILTDED_WRAPPER.
+      INTEGER FUNCTION NEAREST_IFILTDEF_WRAPPER( 
+     &   OPT          ! (I) option; see below
+     &  ,ifiltdef     ! (I) observer filter index
+     &  ,rank_want    ! (I) 1=nearest, 2=2nd nearest, 3=3rd nearest
+     &  ,Z            ! (I) redshift
+     &  ,LAMDIF_MIN   ! (O) min lam-distance (A) 
+     &    )
+
+c
+c Created Nov 2022
+c Temporary wrapper to select either LEGACY/fortran function,
+c or REFACTORED/C function. This function should be removed
+c after the transistion to refactored code.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,FILTCOM.
++CDE,SNLCINP.
+
+      INTEGER OPT, IFILTDEF, RANK_WANT
+      REAL    z,  LAMDIF_MIN
+      REAL*8  z8, LAMDIF_MIN8
+
+      CHARACTER FNAM*32
+      INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
+      INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
+C ------------- BEGIN -------------
+
+      IF ( USE_KCOR_LEGACY ) THEN
++SELF,IF=KCOR.
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILT_REST(OPT,IFILTDEF,RANK_WANT,z,LAMDIF_MIN)
++SELF.
+      ELSE
+         z8 = DBLE(z)  
+         FNAM = 'NEAREST_IFILTDEF_WRAPPER' // char(0)
+         NEAREST_IFILTDEF_WRAPPER = 
+     &   NEAREST_IFILTDEF_REST(OPT, IFILTDEF,RANK_WANT,
+     &                         z8, FNAM, LAMDIF_MIN8, 32)
+         LAMDIF_MIN = SNGL(LAMDIF_MIN8)
+      ENDIF
+
+      RETURN
+      END     ! end NEAREST_IFILTDEF_WRAPPER
+
+
+C =======================================
++DECK,FUPDDRIV.
+      SUBROUTINE FILTER_UPDATE_DRIVER()
+c
+c Nov 8, 2010 R.Kessler
+c
+c --------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+c local var
+
+      INTEGER IFILT, IFILT_OBS, OPT
+      LOGICAL LSAME, LUPD, ISBX
+      CHARACTER C1ERR*80, C2err*80
+
+c function
+      LOGICAL ISBXFILT
+C ------------- BEGIN ----------
+
+      OPT = OPT_FILTER_UPDATE
+      IF ( OPT .LE. 0 ) RETURN
+
+      write(6,20) SNLC_CCID(1:ISNLC_LENCCID)
+ 20   format(T5,'***** UPDATE FILTER TRANSMISSION FOR CID = ', 
+     &       A, ' ***** ')
+
+
+      LUPD = ( OPT .EQ. OPT_FILTUPD_EACHSN ) .or.
+     &       ( OPT .EQ. OPT_FILTUPD_MAP    )
+
+c determine path with filter update; set global FILTER_UPDATE_DIR
+c Make sure to do this outside the IFILT loop to avoid redundant
+c loops through the maps.
+      IF ( LUPD ) CALL GET_FILTER_UDPATE_DIR(SNLC_CCID)
+
+c -----------------------------------------
+c update filter transmissions based on option
+
+      DO 10 IFILT = 1, NFILTDEF_SURVEY
+
+        if ( ISNLC_NEPOCH_FILT(ifilt) .LE. 0 ) GOTO 10
+
+        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE
+
+        ISBX      = ISBXFILT(ifilt_obs,'', 'OBS' )
+   
+        LSAME = (OPT .EQ. OPT_FILTUPD_SAMEFILT)  .or. ISBX
+
+        if ( LSAME  ) then
+            ! fancy way to use same filter response for each SN
+           CALL FILTER_UPDATE_SAMEFILT(ifilt)
+        else if ( LUPD ) then
+           CALL FILTER_UPDATE_EACHSN(ifilt) 
+
+        else
+           write(c1err,60) OPT
+60         format('Invalid  OPT_FILTER_UPDATE = ', I3 )
+           c2err = 'Check OPT_FILTUPD_*  parameters in snana.car'
+           CALL MADABORT("FILTER_UPDATE_DRIVER", C1ERR, C2ERR)
+        endif
+
+ 10   CONTINUE
+      
+
+c ----------------------------------------------------
+c  Finally, update ZP offsets for all filters.
+
+      IF ( LUPD ) THEN
+        CALL FILTER_UPDATE_ZPOFF()
+      ENDIF
+
+c later add stuff for K-corrections ... 
+
+      RETURN
+      END
+
+C ====================================
++DECK,FUPDZP.
+      SUBROUTINE FILTER_UPDATE_ZPOFF()
+
+c Created July 2011
+c Update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) based on the
+c zeropoint (AB) offsets in text-file $FDIR/ZPOFF.DAT .
+c If this ZPOFF.DAT file does not exist, then just set 
+c the offsets to the user offsets.
+c
+c -------------
+
+      IMPLICIT NONE
+
+
+c local args
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c+CDE,PARSECOM.
+
+      INTEGER IFILT, IFILT_OBS
+      REAL ZPOFF_UPD(MXFILT_ALL)
+
+C --------------- BEGIN -------------
+
+       DO ifilt  = 1, NFILTDEF_SURVEY
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+          ZPOFF_UPD(ifilt_obs) = 0.0
+       ENDDO
+
+c update ZP-shift for each filter (i.e., add to user-shift)
+      DO ifilt  = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
+     &   MAGOBS_SHIFT_ZP_USER(ifilt_obs) + ZPOFF_UPD(ifilt_obs)
+      ENDDO
+
+      CALL DMP_ZPOFF
+
+      RETURN
+      END  ! end FILTER_UPDATE_ZPOFF
+
+C ================================================
++DECK,GTFUPDDIR.
+      SUBROUTINE GET_FILTER_UDPATE_DIR(CCID)
+
+c Created May 18, 2012
+c Find and load global  FILTER_UPDATE_DIR for this CCID.
+c Used for filter-update option.
+
+      IMPLICIT NONE
+
+      CHARACTER CCID*(*)  ! (I) SN name
+
+c local var
+
++CDE,SNPAR.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER LPDIR, LSDIR, LPATH, LCC, LMAP, IMAP1, IMAP2
+      CHARACTER MAPDIR*100
+c functions
+      INTEGER IMAP2_FUPDMATCH
+
+C -------------------- BEGIN --------------
+
+      LCC   = INDEX(CCID,' ') - 1
+      LPDIR = INDEX(PREFIX_UPD_FILTDIR,' ') -1 
+      LSDIR = INDEX(SUFFIX_UPD_FILTDIR,' ') -1 
+      LPATH = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
+
+
+      if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_EACHSN ) then
+         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
+     &        // PREFIX_UPD_FILTDIR(1:LPDIR)
+     &        // CCID(1:LCC)
+     &        // SUFFIX_UPD_FILTDIR(1:LSDIR)
+
+      else if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_MAP ) then
+
+c search 2nd map for CCID match to get IMAP1
+         
+         IMAP2   = IMAP2_FUPDMATCH(CCID) 
+         IMAP1   = MAP2_FILTER_UPDATE_PTRMAP1(IMAP2)
+         MAPDIR  = MAP1_FILTER_UPDATE_SUBDIR(IMAP1)
+         LMAP    = INDEX(MAPDIR,' ') - 1
+         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
+     &             // MAPDIR(1:LMAP)   
+
+      endif
+
+      RETURN
+      END
+
+C ================================================
++DECK,FUPD_EACHSN.
+      SUBROUTINE FILTER_UPDATE_EACHSN(ifilt)
+
+c Nov 8, 2010
+c Read/update filter response for this sparse 'ifilt'
+c Store in FILTOBS_TRANS_UPD array using same lambda 
+c binning as in KCOR file. Updated lambda binning 
+c can be different since it gets interpolated to the 
+c original grid.
+c
+c Nov 2022: refactor to use new & old kcor/calib code.
+c
+
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c +CDE,PARSECOM.
+
+c subroutine args
+      INTEGER IFILT     ! (I) sparse indices
+
+c local var
+
+      INTEGER 
+     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
+     &  ,LPSN, LPREF, LSSN, LSREF, ilam, NLAM_UPD, NLAM_STORE
+     &  ,istat, MXLAM, OPT_INTERP, OPT_FRAME
+
+      CHARACTER 
+     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
+     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
+     &  ,TMPFILE*(MXCHAR_FILENAME)
+     &  ,CCID*(MXCHAR_CCID)
+     &  ,cfilt*1
+     &  ,c1err*80
+     &  ,c2err*80
+     &  ,comment*40 
+
+      REAL*8
+     &   LAM
+     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
+     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
+     &  ,Trans_upd
+     &  ,FLAM_STORE(MXLAMBIN_FILT) ! store trans on this lam array
+     &  ,FTRANSSN_STORE(MXLAMBIN_FILT)
+     &  ,FTRANSREF_STORE(MXLAMBIN_FILT)
+
+      LOGICAL  LEXIST_SN, LEXIST_REF, UPD_DUMP
+
+c define utilities from sntools.c
+      INTEGER  RD2COLUMNFILE 
+      EXTERNAL RD2COLUMNFILE 
+  
+      REAL*8   INTERP_1DFUN
+      EXTERNAL INTERP_1DFUN
+      EXTERNAL LOAD_FILTERTRANS_CALIB, GET_CALIB_FILTERLAM
+
+C ---------------- BEGIN --------------
+
+      UPD_DUMP = .FALSE.  ! internal dump logical
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
+c xxx mark      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
+      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
+      CCID      = SNLC_CCID(1:LCC)
+
+      IF ( USE_KCOR_LEGACY ) THEN
+        NLAM_STORE = NLAMBIN_FILTOBS(ifilt_obs)
+        DO ilam = 1, NLAM_STORE
+           FLAM_STORE(ilam) = 
+     &           DBLE( FILTOBS_LAMBDA(ilam,IFILT_OBS) )
+        ENDDO
+      ELSE
+        ! refac C code
+        OPT_FRAME = OPT_FILTOBS - 1
+        CALL  GET_CALIB_FILTERLAM(OPT_FRAME, IFILT_OBS, 
+     &                      NLAM_STORE, FLAM_STORE)
+      ENDIF
+
+c - - - - - 
+      if (UPD_DUMP) then
+        print*,' '
+        print*, 'XXXXXX ----------------------------------------- '
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
+     &       CCID(1:LCC),'-', cfilt
+        call flush(6)
+      end if 
+
+      OPT_INTERP = 1   ! 1=linear;  2=quadratic
+
+      comment = CCID(1:LCC) // '-filter-update' // char(0)
+      LCOM    = INDEX(comment,' ') - 1
+
+c     get string lengths for file name
+
+      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
+      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
+
+      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
+      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
+
+      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
+      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
+
+c construct full filename of SN and REF-transmission files.
+
+      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
+     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
+     &                 // '/' // TMPFILE(1:LTMPF) 
+
+      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
+     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
+      LTMPF = INDEX(TMPFILE,' ') - 1
+      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
+     &          // '/' // TMPFILE(1:LTMPF) 
+
+
+      if ( UPD_DUMP ) then
+        print*, '++++ UPDATING FILTER ' 
+     &          ,'IFILT = ', ifilt_obs,' '
+     &         , cfilt(1:1), ' with NLAM '
+     &         , NLAM_STORE , ' for SN ', CCID
+        call flush(6)
+       end if
+
+
+c Use IOSTAT option to figure out which of the files
+c FILTFILE_REF  and FILTFILE_SN exist
+
+c     check if FILTFILE_REF exists?
+
+      istat=1
+      LL = INDEX(FILTFILE_REF,' ') - 1
+      TMPFILE =FILTFILE_REF(1:LL)
+      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
+     &      IOSTAT=istat)
+      CLOSE( UNIT = LUNTMP) 
+
+      if (istat .EQ. 0) then
+         LEXIST_REF = .true.
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_REF(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
+
+      else 
+          LEXIST_REF = .false.
+      endif 
+
+      if (UPD_DUMP) then 
+        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
+        call flush(6)
+      end if
+
+c - - - - - -
+c    now interpolate to the original grid
+c    for files which exist
+
+      IF ( LEXIST_REF ) THEN
+        DO 20 ilam = 1, NLAM_STORE
+c xxx mark         LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark
+ 
+            LAM = FLAM_STORE(ilam)
+            FTRANSREF_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
+ 
+            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
+     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
+
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSREF_STORE(ilam)  = Trans_upd
+
+20      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, "REF interp done"
+          call flush(6)
+        end if 
+
+      ENDIF  ! end LEXIST_REF
+
+
+c ------------------------------------
+c     FILTFILE_SN exists?
+
+      istat=1
+      LL = INDEX(FILTFILE_SN,' ') - 1
+      TMPFILE =FILTFILE_SN(1:LL)
+      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
+     &  IOSTAT=istat)
+     
+      if (istat.EQ.0) then
+         LEXIST_SN = .true.
+c        readsnfile
+         MXLAM   = MXLAMBIN_FILT
+         TMPFILE = FILTFILE_SN(1:LL) // char(0)
+         istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
+     &            ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
+      else 
+         LEXIST_SN = .false.
+      endif 
+
+      CLOSE( UNIT = LUNTMP) 
+
+c - - - - - - - 
+c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
+
+      IF (LEXIST_SN) THEN
+cc      print*, ' Interpolate SN file', NLAM_STORE
+        DO 70 ilam = 1, NLAM_STORE
+c xxx mark      LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0 ! xxx mark later
+
+            LAM = FLAM_STORE(ilam)
+            FTRANSSN_STORE(ilam) = 0.0 
+
+            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
+            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
+ 
+            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
+     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
+
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd) ! xxx mark
+            FTRANSSN_STORE(ilam) = Trans_upd
+
+70      CONTINUE  ! ILAM loop over original lambda binning
+        if (UPD_DUMP) then
+          print*, 'SN Interp done for', NLAM_STORE, CCID
+          call flush(6)
+        end if
+      ENDIF
+
+
+c    If neither file exists, abort program
+
+
+      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
+        c1err = 'Could not update filter-trans for CID = ' 
+     &       // CCID(1:LCC) // '-' // cfilt
+        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
+        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
+      endif
+
+c     IF either SN or REF file does not exist, copy the other 
+c     file for the transmission functions
+
+
+c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
+c                             IF REF file does not exist, SN trans undef
+c                             but should have been aborted above
+
+      if (.NOT. LEXIST_SN ) then 
+        DO 170 ilam = 1, NLAM_STORE
+            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) =  ! xxx mark
+     &      FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)   ! xxx mark
+
+            FTRANSSN_STORE(ilam) = FTRANSREF_STORE(ilam)
+170     CONTINUE  ! ILAM loop over original lambda binning
+      end if
+
+
+c - - - - - - - - -
+c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
+c                             IF SN file does not exist, Ref trans undef
+c                             but should have been aborted above
+      IF (.NOT. LEXIST_REF ) THEN
+        DO 270 ilam = 1, NLAM_STORE
+            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
+            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) =
+     &      FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
+
+            FTRANSREF_STORE(ilam) = FTRANSSN_STORE(ilam)
+270      CONTINUE  ! ILAM loop over original lambda binning
+      ENDIF
+
+      if ( USE_KCOR_REFACTOR ) then
+         CALL LOAD_FILTERTRANS_CALIB(OPT_FRAME, IFILT_OBS, NLAM_STORE,
+     &         FLAM_STORE, FTRANSSN_STORE )
+      endif
+
+c -----------------------------
+      if ( UPD_DUMP ) then 
+        print*, '%%%% ', NLAM_STORE
+        if (mod(NLAM_STORE,2).EQ.0) then
+           ilam = NLAM_STORE/2
+        else
+         ilam = (NLAM_STORE+1)/2
+        end if
+        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
+        print*, 'xxxxx', NLAM_STORE 
+     &        , sngl(FTRANSSN_STORE(ilam))
+     &        , sngl(FTRANSREF_STORE(ilam))
+
+        print*, 'xxxx SN =' , CCID
+        print*, 'xxxx LEXIST_REF =', LEXIST_REF
+        print*, 'xxxx LEXIST_SN  =', LEXIST_SN
+        print*, 'xxxx FILE_REF   =', FILTFILE_REF
+        print*, 'xxxx FILE_SN    =', FILTFILE_SN
+
+        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
+        call flush(6)
+      endif
+
+
+      RETURN
+      END   ! end FILTER_UPDATE_EACHSN
+
+
+C =======================================
++DECK,IMAP2FUPD.
+      INTEGER FUNCTION IMAP2_FUPDMATCH(CCID)
+
+c Created May 19, 2012
+c Search array IMAP2_FILTER_UPDATE_CCID(imap2)
+c to find CCID match; return IMAP2 = index of array.
+c Used to match CCID to sparse index associated
+c with the filter-subdir.
+
+      IMPLICIT NONE
+      CHARACTER CCID*(*)  ! (I) SN name to match
+
+c local  var
+
++CDE,SNPAR.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IMAP2, L0, L1
+      CHARACTER CCID_TMP*(MXCHAR_CCID), C1ERR*72, C2ERR*72
+
+C ---------------- BEGIN ------------------
+
+      IMAP2_FUPDMATCH = -9
+      L0 = INDEX(CCID,' ') - 1
+
+      DO 100 IMAP2 = 1, NMAP2_FILTER_UPDATE
+
+         CCID_TMP  = MAP2_FILTER_UPDATE_CCID(IMAP2)
+         L1 = INDEX(CCID_TMP // ' ',' ') - 1
+
+         IF ( L0 .NE. L1 ) GOTO 100
+         IF ( CCID(1:L0) .NE. CCID_TMP(1:L1) ) GOTO 100
+
+c if we get here then return
+         IMAP2_FUPDMATCH = IMAP2
+         RETURN
+
+100   CONTINUE
+
+
+c if we get here then abort.
+      write(c1err,61) CCID(1:8)
+61    format('Could not find MAP2_FILTER_UPDATE match for CID=',A)
+      c2err = 'Check FILTER.INFO file.'
+      CALL MADABORT('IMAP2_FUPDMATCH', c1err, c2err )
+
+
+      RETURN
+      END
+
+C ================================================
++DECK,FUPD_SAME.
+      SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNLCCOM. 
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+c +CDE,PARSECOM.
+
+      INTEGER ifilt  ! (I) sparse SN & filter index
+
+c local variables
+
+      INTEGER ilam, NLAM, ifilt_obs
+
+C ------------ BEGIN -------------
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
+
+      DO 100 ilam = 1, NLAM
+
+          FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 
+     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
+
+          FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 
+     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
+100   CONTINUE
+
+      RETURN
+      END   ! end FILTER_UPDATE_SAMEFILT
+
+C ==========================================
++DECK,SETZPOFF.
+      SUBROUTINE SET_ZPOFF()
+c
+c Created July 17, 2011 by R.Kessler
+c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+c for each filter. Update based on FILTOBS_ZPOFF_SNPHOT(ifilt_obs) 
+c that is read either from the KCOR file or from the ZPOFF_FILE.
+c
+c Feb 22, 2012:
+c  Use MAGOBS_SHIFT_ZP_USER(ifilt_obs)  so that final
+c  SHIFT_ZP is OK even if RDKCOR is called multiple times.
+c -------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,SNFILECOM.  SNDATA_ROOT is here
++CDE,KCORCOM.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILT_OBS
+
+C ------------- BEGIN -----------
+
+c update ZP-shift for each filter (i.e., add to user-shift)
+      DO ifilt  = 1, NFILTDEF_SURVEY
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+          MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
+     &    MAGOBS_SHIFT_ZP_USER(ifilt_obs) +
+     &    FILTOBS_ZPOFF_SNPHOT(ifilt_obs)
+      ENDDO
+
+c check for lambda-dependent MAGOBS_SHIFT (Sep 30, 2015)
+      CALL MAGOBS_SHIFT_UPDATE()
+
+c dump ZPOFF values vs. filter
+      CALL DMP_ZPOFF 
+
+      RETURN
+      END  ! end of SET_ZPOFF
+
+C ==========================================
++DECK,DMP_ZPOFF.
+      SUBROUTINE DMP_ZPOFF
+
+c --------------------------
+c Created Jul 17, 2011
+c Dump zeropoint offsets to screen.
+c
+c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
+c Nov 2022: separate filter loop over OBS and REST frame so that it works
+c           for both legacy and refac kcor.
+c     
+c -------------------------
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,KCORCOM.
+
+      REAL      ZPOFF_TOT
+      INTEGER   ifilt_obs, ifilt_rest, ifilt
+      character CFILT*2
+
+C ------------------ BEGIN ------------
+
+      print*,' '
+      write(6,20) 'KCOR file' 
+20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
+         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
+         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
+         write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT   
+100   CONTINUE
+
+      DO 200 ifilt = 1, NFILTDEF_REST
+         ifilt_rest = IFILTDEF_MAP_REST(ifilt)     
+         if ( ifilt_rest .EQ. IFILT_BESS_BX ) goto 200
+         cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
+         ZPOFF_TOT = MAGREST_SHIFT_ZP_FILT(ifilt_rest) 
+         write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT 
+200   CONTINUE
+
+801     format(T10,'Will apply net ', 
+     &     A,'_SHIFT_ZP(',A,') = ', F7.4 )
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of DMP_ZPOFF
+
+
+C ======================================
++DECK,FILTBTEST.
+      LOGICAL FUNCTION FILTBTEST(MSK8,ibit)
+c Mar 29, 2011
+C Return true if 1 <= IBIT < 90 is set in MSK8.
+c Note that LSB=1 (not 0)
+c
+
+      INTEGER   IBIT    ! (I) bit to set 
+      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
+
+      INTEGER IBIT2
+      INTEGER MXBIT
+      PARAMETER ( MXBIT =  60 )
+
+      LOGICAL LTMP
+C ------------ BEGIN ------------
+
+      if ( IBIT .LE. MXBIT ) then
+        LTMP = BTEST(MSK8(1),IBIT-1)
+      else if ( IBIT .LT. 2*MXBIT ) then
+        IBIT2  = IBIT-MXBIT
+        LTMP   = BTEST(MSK8(2),IBIT2-1)
+      endif
+      FILTBTEST = LTMP
+      RETURN
+      END
+
+C ======================================
++DECK,FILTBSET.
+      SUBROUTINE FILTBSET(MSK8,ibit)
+c Mar 29, 2011
+C set bit IBIT(1 to 2*MXBIT) for long int MSK8.
+c Note that the input argument is also the output
+c with IBIT set.
+
+      INTEGER   IBIT    ! (I) bit to set 
+      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
+
+      INTEGER IBIT2
+      INTEGER MXBIT
+      PARAMETER ( MXBIT =  60 )
+
+C ------------ BEGIN ------------
+
+      if ( IBIT .LE. MXBIT ) then
+        MSK8(1) = IBSET(MSK8(1),IBIT-1)
+      else if ( IBIT .LT. 2*MXBIT ) then
+        IBIT2   = IBIT-MXBIT
+        MSK8(2) = IBSET(MSK8(2),IBIT2-1)
+      endif
+
+      RETURN
+      END
+
+C =======================================
++DECK,MAGOBS_SHIFT_UPDATE.
+      SUBROUTINE MAGOBS_SHIFT_UPDATE()
+
+c Created Sep 20 2015
+c Loop over filters and apply optional shift-vs-lambda
+c for ZP and PRIMARY mag. Allows coherent mag-shifts
+c with just a few parameters instead of giving a mag
+c shift for each band.
+c See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
+c
+      IMPLICIT NONE
+
+c local 
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILTDEF
+
+      REAL MAGOBS_SHIFT_USRFUN  ! function
+C --------------- BEGIN -----------
+
+      DO ifilt = 1, NFILTDEF_SURVEY
+         IFILTDEF = IFILTDEF_MAP_SURVEY(ifilt)
+
+         magobs_shift_zp_filt(ifiltdef) = 
+     &   magobs_shift_zp_filt(ifiltdef) +
+     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'ZP') ! Sep 2015
+
+         magobs_shift_primary_filt(ifiltdef) = 
+     &   magobs_shift_primary_filt(ifiltdef) +
+     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'PRIMARY') ! Sep 2015
+      ENDDO
+
+      RETURN
+      END  ! end of MAGOBS_SHIFT_UPDATE
+
+C =======================================
++DECK,MAGOBS_SHIFT_USRFUN.
+      REAL FUNCTION MAGOBS_SHIFT_USRFUN(IFILTDEF, WHAT )
+
+c Created Sep 30 2015
+c Compute shift for what='ZP' or what='PRIMARY' for this IFILTDEF.
+c Use SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS to 
+c determine polynomial function of wavelength. This allows computing
+c correlated systematics among filters using a function of wavelength
+c so that you don't have to enter a shift for each band separately.
+c
+c BEWARE: POLYNOMIAL FUNCTION OF LAMBDA IN MICRONS (NOT ANGSTROMS) 
+c
+c ----------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER    IFILTDEF   ! (I) absolute filter index
+      CHARACTER  WHAT*(*)   ! (I) 'ZP' or 'PRIMARY'
+
+c local var
+
+      REAL LAM_um, SQLAM_um, COEF(0:2)
+      CHARACTER FNAM*20
+
+c ------------------- BEGIN ----------------
+
+      FNAM = 'MAGOBS_SHIFT_USRFUN'
+      MAGOBS_SHIFT_USRFUN = 0.0 
+
+      IF ( WHAT(1:2) .EQ. 'ZP' ) THEN
+         COEF(0) = MAGOBS_SHIFT_ZP_PARAMS(1)
+         COEF(1) = MAGOBS_SHIFT_ZP_PARAMS(2)
+         COEF(2) = MAGOBS_SHIFT_ZP_PARAMS(3)
+      ELSE IF ( WHAT(1:7) .EQ. 'PRIMARY' ) THEN
+         COEF(0) = MAGOBS_SHIFT_PRIMARY_PARAMS(1) 
+         COEF(1) = MAGOBS_SHIFT_PRIMARY_PARAMS(2)
+         COEF(2) = MAGOBS_SHIFT_PRIMARY_PARAMS(3)
+      ELSE
+         C1ERR = 'Invalid WHAT=' // WHAT
+         C2ERR = 'for MAGOBS_SHIFT_XXX'
+         CALL  MADABORT(FNAM, C1ERR, C2ERR)
+      ENDIF
+      
+      LAM_um   = FILTOBS_LAMAVG(ifiltdef)/1.0E4
+      SQLAM_um = LAM_um * LAM_um
+
+      MAGOBS_SHIFT_USRFUN =
+     &      COEF(0)
+     &    + COEF(1) * LAM_um
+     &    + COEF(2) * SQLAM_um
+
+c xxxxxxxxxxxxxxxxx
+c      write(6,66) WHAT(1:2), MAGOBS_SHIFT_USRFUN, IFILTDEF, LAM_um
+c66    format(' xxx ', A2, ' = ', F7.4,' for IFILTDEF=',I3, 
+c     &      3x,'LAM=',F7.3,' um')
+c      CALL FLUSH(6)
+c xxxxxxxxxxxxxxxxx
+
+      RETURN
+      END  ! end of MAGOBS_SHIFT_USRFUN
+
+
+C =======================================
++DECK,FUPDINI.
+      SUBROUTINE FILTER_UPDATE_INIT(IERR)
+c
+c If FILTER_UPDATE_PATH is defined, read FILTER.INFO
+c file for instructions on updating the filters for
+c each SN.
+c
+c Jun 15 2016:  CALL ENVreplace(FILTER_UPDATE_PATH)
+c
+      IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,CTRLCOM.
++CDE,SNCUTS.
++CDE,SNLCINP.
++CDE,SNFILECOM.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IERR
+
+c local var
+
+      INTEGER 
+     &   LEN_UPDPATH, LEN_FULLPATH, L1, LEN_ROOT
+     &  ,iwd, NWD, IERROPEN, ifilt, LWD0, LWD1
+
+      character 
+     &   FILTINFO_FILE*(MXCHAR_FILENAME)
+     &  ,NAME_forC*(MXCHAR_FILENAME)
+     &  ,cwd*60, cwd_next*60, msg*100
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C --------------- BEGIN -------------
+
+      IERR = 0
+
+      OPT_FILTER_UPDATE    = 0
+      DO ifilt=1, MXFILT_ALL
+        DOFLAG_FILTER_UPDATE(ifilt) = 0
+      ENDDO
+
+      PREFIX_UPD_TRANSSN  = ' '     
+      PREFIX_UPD_TRANSREF = ' '
+      PREFIX_UPD_FILTDIR  = ' '
+      SUFFIX_UPD_TRANSSN  = ' '
+      SUFFIX_UPD_TRANSREF = ' ' 
+      SUFFIX_UPD_FILTDIR  = ' '
+      FILTINFO_UPD_SN     = .FALSE.
+      FILTINFO_UPD_REF    = .FALSE.
+
+      IF ( FILTER_UPDATE_PATH .EQ. ' ' ) RETURN
+
+      CALL ENVreplace(FILTER_UPDATE_PATH)
+
+      msg = 
+     &   "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
+      CALL PRBANNER(msg(1:60))
+
+c -------------------------------------------------------
+c first try $SNDATA_ROOT/filters/[FILTER_UPDATE_PATH]/
+c if not there, then try absolute path.
+
+      LEN_UPDPATH  = INDEX(FILTER_UPDATE_PATH,' ' ) -  1
+      LEN_ROOT     = INDEX(SNDATA_ROOT,' ') - 1
+
+      FILTER_UPDATE_TOPDIR = SNDATA_ROOT(1:LEN_ROOT) 
+     &    // '/filters/' // FILTER_UPDATE_PATH(1:LEN_UPDPATH)
+      LEN_FULLPATH  = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
+
+
+c check if/where FILTER.INFO exists ...
+      FILTINFO_FILE = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH) 
+     &                 // '/FILTER.INFO'
+      OPEN(UNIT=LUNTMP, FILE = FILTINFO_FILE,
+     &     IOSTAT = IERROPEN, STATUS='OLD')
+      IF ( IERROPEN .EQ. 0 ) THEN
+        CLOSE(UNIT = LUNTMP)
+      ELSE
+c try absolute path
+        LEN_FULLPATH = LEN_UPDPATH
+        FILTER_UPDATE_TOPDIR  = FILTER_UPDATE_PATH
+        FILTINFO_FILE = FILTER_UPDATE_PATH(1:LEN_UPDPATH)
+     &           // '/FILTER.INFO'
+      ENDIF
+
+      L1 = INDEX(FILTINFO_FILE,' ') - 1
+      print*,' Update Filter Response for each SN from : '
+      print*,' ', FILTINFO_FILE(1:L1)
+
+      NAME_forC = FILTINFO_FILE(1:L1)//char(0)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
+
+
+c parse enough to know which type of FILTER.INFO file we have;
+c set global  OPT_FILTER_UPDATE and call PARSE1_XXX or PARSE2_XXX
+c to do the appropriate parsing.
+
+      DO 10 iwd = 1, min(1000,NWD)
+
+          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0 )
+          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1 )
+
+          if ( cwd .EQ. ' ' ) goto 10
+
+          if ( CWD .EQ. 'FILTER_SUBDIR:' ) THEN
+             CALL PARSE1_FILTER_INFO(NWD)
+             OPT_FILTER_UPDATE  = OPT_FILTUPD_EACHSN
+             RETURN
+          ENDIF
+
+          if ( CWD .EQ. 'FILTER_PATH:' ) THEN
+             CALL PARSE2_FILTER_INFO(NWD)
+             OPT_FILTER_UPDATE  = OPT_FILTUPD_MAP
+             RETURN
+          ENDIF
+
+10    CONTINUE
+
+
+c if we get here then abort.
+
+      c1err = 'Cannot parse FILTER.INFO file'
+      c2err = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH)
+      CALL MADABORT("FILTER_UPDATE_INIT", c1err, c2err)
+
+      RETURN
+      END  ! end FILTER_UPDATE_INIT
+
+C ======================================
++DECK,PRS1FUPD.
+      SUBROUTINE PARSE1_FILTER_INFO(NWD)
+
+c parse FILTER.INFO file that has a different filter set
+c for each SN.
+
+      IMPLICIT NONE
+
+      INTEGER NWD ! (I) number of words in file
++CDE,SNPAR.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER IWD, istar, LEN
+
+      character 
+     &   FILTER_SUBDIR*(MXCHAR_PATH)
+     &  ,cwd*(MXCHAR_FILEWORD)
+     &  ,cwd_next*(MXCHAR_FILEWORD)
+     &  ,copt*(MXCHAR_FILEWORD)
+     &  ,c1err*80, c2err*80
+
+      LOGICAL LDUMP 
+
+C ----------- BEGIN ----------
+
+      DO 10 iwd = 1, NWD-1
+
+          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN)
+          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN)
+
+          if ( cwd .EQ. ' ' ) goto 10
+
+          if ( cwd .EQ. 'FILTER_SUBDIR:' ) then
+            FILTER_SUBDIR = cwd_next
+            istar = Index(FILTER_SUBDIR,'{SNID}')
+            PREFIX_UPD_FILTDIR = FILTER_SUBDIR(1:istar-1)
+            SUFFIX_UPD_FILTDIR = FILTER_SUBDIR(istar+6:99)
+          endif
+
+          if ( cwd .EQ. 'FILETRANS_SN:' ) then
+            CALL SET_FILTINFO_UPD("SN", cwd_next)
+          endif
+          if ( cwd .EQ. 'FILETRANS_REF:' ) then
+            CALL SET_FILTINFO_UPD("REF", cwd_next)
+          endif
+
+          if ( cwd(1:7) .EQ. 'OPTION:' ) then
+             copt = cwd_next
+             if ( copt(1:7) .EQ. 'DEFAULT' ) then
+
+             else if ( copt(1:8) .EQ. 'SAMEFILT' ) then
+               OPT_FILTER_UPDATE  = OPT_FILTUPD_SAMEFILT
+             else
+               C1ERR = 'Invalid FilterFile.INFO OPTION: ' // copt(1:20)
+               C2ERR = 'Valid options: DEFAULT SAMEFILT '
+               CALL MADABORT("FILTER_UPDATE_INIT", C1ERR, C2ERR )
+             endif
+          endif
+
+10    CONTINUE
+
+      LDUMP = .false.
+      if ( LDUMP ) then
+          print*, ' xxxxxx FILTER_SUBDIR= ', FILTER_SUBDIR(1:20)
+          print*, ' xxxxxx   PREFIX_UPD_FILTDIR =',
+     &                       PREFIX_UPD_FILTDIR(1:20) 
+          print*, ' xxxxxx   SUFFIX_UPD_FILTDIR =',
+     &                       SUFFIX_UPD_FILTDIR(1:20) 
+      endif
+
+      RETURN
+      END
+
+C ======================================
++DECK,PRS2FUPD.
+      SUBROUTINE PARSE2_FILTER_INFO(NWD)
+
+c Created July 16, 2011 by R.Kessler
+c parse FILTER.INFO file that has a defined set of filters
+c such as one set per SDSS-CCD column.
+c IMAP is a sparse index 1-NMAP
+c INDX is the absolute filter-path index in the FILTER.INFO file.
+c
+c Load MAP1_FILTER_UPDATE (subdir vs. index) and 
+c MAP2_FILTER_UPDATE (index vs. CCID)
+c
+c ------------------------
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
+c+CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+
+      INTEGER NWD  ! (I) number of words to check
+
+      INTEGER 
+     &   IWD, INDX, LEN
+     &  ,IMAP1, IMAP1_STORE, NMAP1, NMAP2
+
+      character
+     &   cwd0*(MXCHAR_FILEWORD)
+     &  ,cwd1*(MXCHAR_FILEWORD)
+     &  ,cwd2*(MXCHAR_FILEWORD)
+     &  ,ccid*(MXCHAR_CCID)
+     &  ,c1err*80, c2err*80
+
+C ---------------- BEGIN -------------
+
+      NMAP1_FILTER_UPDATE = 0
+      NMAP2_FILTER_UPDATE = 0
+
+      NMAP1 = 0
+      NMAP2 = 0
+
+      DO 10 iwd = 1, NWD-2
+
+          call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN)
+          call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN)
+          call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN)
+
+          if ( cwd0 .EQ. ' ' ) goto 10
+
+
+          if ( cwd0 .EQ. 'FILTER_PATH:' ) then
+             read(cwd1,*) INDX
+
+             NMAP1 = NMAP1 + 1
+             NMAP1_FILTER_UPDATE = NMAP1
+
+             if ( NMAP1 .GT. MXMAP1_FILTER_UPDATE ) then
+               write(c1err,1660) NMAP1, MXMAP1_FILTER_UPDATE
+1660           format('NMAP=',I3,
+     &           ' exceeds bound of MXMAP1_FILTER_UPDATE=',I3)
+               c2err = 'Increase bound or reduce NMAP'
+               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
+             endif
+             MAP1_FILTER_UPDATE_INDX(NMAP1)    = INDX
+             MAP1_FILTER_UPDATE_SUBDIR(NMAP1)  = CWD2
+          endif
+
+          if ( cwd0 .EQ. 'FILETRANS_SN:' ) then
+            CALL SET_FILTINFO_UPD('SN', cwd1)
+          endif
+          if ( cwd0 .EQ. 'FILETRANS_REF:' ) then
+            CALL SET_FILTINFO_UPD('REF', cwd1)
+          endif
+
+
+
+          if ( cwd0 .EQ. 'SN:' ) then
+             CCID = cwd1(1:MXCHAR_CCID)
+             read(cwd2,*) INDX
+
+c translate INDX to sparse IMAP1
+             IMAP1_STORE = -9
+             DO imap1 = 1, NMAP1_FILTER_UPDATE
+                if ( MAP1_FILTER_UPDATE_INDX(imap1) .EQ. INDX) then
+                   imap1_store = imap1
+                endif
+             END DO
+
+             if ( IMAP1_STORE .LE. 0 ) then
+               write(c1err,670) INDX, CCID
+               c2err = 'Check FILTER.INFO file.'
+670            format('Undefined INDX=',I8,'   for  CID = ',A8)
+               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
+             endif
+
+c update 2nd map
+             NMAP2 = NMAP2 + 1
+             NMAP2_FILTER_UPDATE = NMAP2
+
+             if ( NMAP2 .GT. MXSNLC_FILTUPD ) then
+                write(c1err,661) MXSNLC_FILTUPD
+661             format('MAP2 size exceeds bound of MXSNLC_FILTUPD=',I6)
+                c2err = 'Check FILTER.INFO file.'
+                CALL MADABORT("PARSE2_FILTER_INFO", C1ERR, C2ERR)
+             endif
+             
+             MAP2_FILTER_UPDATE_CCID(NMAP2)    = CCID
+             MAP2_FILTER_UPDATE_PTRMAP1(NMAP2) = IMAP1_STORE
+
+          endif  !   'SN:' key
+
+
+10    CONTINUE
+
+c ---------------------------------------------------------
+
+      write(6,60) NMAP1_FILTER_UPDATE
+60    format(T4,'Found ',I2,' filter sets to use for updates.')
+
+      write(6,61) NMAP2_FILTER_UPDATE
+61    format(T4,'Filter update map stored for ',I6,' SNe.' )
+
+      print*,' -------------------------------------------------- '
+
+      RETURN
+      END
+
+C =================================
++DECK,SETFUPD.
+      SUBROUTINE SET_FILTINFO_UPD(KEY,STRING)
+c
+c Created Jul 16, 2011
+c
+c Parse STRING for asterisk, and store PREFIX and SUFFIX
+c before/after the asterisk. Used later to determine the
+c name of the filter transmission  file where the  asterisk
+c is replaced with the filter-character.
+c
+c Jul 5 2013: string-length fixes to avoid segfault in debug mode.
+c             See use of LKEY and LSTR.
+c
+c ---------
+
+      IMPLICIT  NONE
+
+c input arguments
+      CHARACTER KEY*(*)     ! (I) 'SN' or 'REF'
+      CHARACTER STRING*(*)  ! (I) string to define filter filename
+ 
+c local variables
+
++CDE,SNPAR.
+c +CDE,PARSECOM.
++CDE,FILTCOM.
++CDE,FILTUPDCM.
+  
+      INTEGER istar, LSTR, LKEY
+      LOGICAL LDUMP 
+C ------------ BEGIN -------------
+ 
+      LSTR = INDEX(STRING,' ' ) - 1
+      LKEY = INDEX(KEY//' ',   ' ' ) - 1
+
+      istar = Index(STRING,'*')
+
+      IF ( KEY(1:LKEY) .EQ. 'REF' ) THEN
+          PREFIX_UPD_TRANSREF = STRING(1:istar-1)
+          SUFFIX_UPD_TRANSREF = STRING(istar+1:LSTR)
+          FILTINFO_UPD_REF = .TRUE. 
+
+      ELSE IF ( KEY(1:LKEY) .EQ. 'SN' ) THEN
+          PREFIX_UPD_TRANSSN = STRING(1:istar-1)
+          SUFFIX_UPD_TRANSSN = STRING(istar+1:LSTR)
+          FILTINFO_UPD_SN = .TRUE. 
+
+      ELSE
+
+      ENDIF
+
+c print comment about filename syntax
+
+      LDUMP = .TRUE.
+      IF ( LDUMP ) THEN
+         write(6,20) KEY, STRING(1:LSTR)
+20       format(T4,'Filter-Trans filenames(', A, ') : ''',A, 
+     &          '''  with * => filter' )
+      ENDIF
+
+      RETURN
+      END  ! end  SET_FILTINFO_UPD
+
+
+C =======================
++PATCH,*CALIB_LEGACY.
+C =======================
+
+C ===========================================
++DECK,RDCAL_WRAP_LEGACY.
+      SUBROUTINE READ_CALIB_WRAPPER_LEGACY(IERR)
+c
+c Ceated Nov 2022
+c Wrapper subroutine to check if kcor/calib file is defined,
+c and to call read-kcor function with appropriate args.
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IERR  ! (O) return non-zero on error
+      LOGICAL  IGNOREFILE_fortran, USE_KCOR 
+
+      INTEGER LENF
+      CHARACTER*(MXCHAR_FILENAME) cKCOR_FILE, cFILTERS
+
+c ---------- BEGIN ---------
+   
+      IERR = 0 
+
+      USE_KCOR = .NOT. IGNOREFILE_fortran(KCOR_FILE)
+
++SELF,IF=KCOR.
+      IF ( USE_KCOR ) THEN 
+        CALL ENVreplace(KCOR_FILE)  ! Mar 2016
+        CALL RDKCOR(KCOR_FILE,IERR) 
+      ENDIF
+
+c check for option to update filter trans for each SN
+      CALL FILTER_UPDATE_INIT(IERR)
++SELF.
+
+      RETURN
+      END  ! end READ_CALIB_WRAPPER_LEGACY
+
+C ===============================================
 +DECK,RDKCOR.
       SUBROUTINE RDKCOR( KCORFILE, IERR)
 
@@ -26210,7 +27527,7 @@ c Aug 4 2019: IBKCOR starts at 0 (not 1) for C function get_1DINDEX
      &  ,IBIN_FIRST, IBIN_LAST, ibin, NBIN_TOT
      &  ,LENr, LENo, LEN
 
-      LOGICAL LBX, LTMP 
+      LOGICAL LTMP, LBX
 
       REAL    R4CRAZY
 
@@ -26278,7 +27595,9 @@ c find rdkcor filter index and set mask for REST or OBS
 
 102      CONTINUE
 
+
 c check if this is a BX filter (global logicals are set)         
+c We don't need local LBX, but ISBXFILT sets global logicals
          LBX = ISBXFILT(ifilt_obs,  cfilt_obs,  'OBS')
          LBX = ISBXFILT(ifilt_rest, cfilt_rest, 'REST')
 
@@ -26304,9 +27623,6 @@ c define new rest-filter only if not already defined.
 c if obs filter is not part of the survey, just skip it;
 c allows defining filter sub-sets of a survey without having 
 c to change the Kcor file.
-
-c xxx this line does nothing since IFILT isn't set
-c xxx mark delete Oct 29 2019  IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
 
           if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) goto 100
 
@@ -26420,14 +27736,6 @@ c apply user mag-shifts
          ENDDO 
 
 200   CONTINUE
-
-c xxxxxxxxxxxx
-c      DO ibin = 1, NBIN_TOT
-c        write(6,690) ibin-1, R4KCORTABLE1D(ibin) 
-c690     format(' xxx KCORTABLE1D(',I7,') = ', F10.5 );   call flush(6)
-c      ENDDO
-c xxxxxxxxx
-
 
       RETURN
       END
@@ -28806,157 +30114,6 @@ c check option to include buggy lambda ranges.
       RETURN
       END
 
-C ==========================================
-+DECK,SETZPOFF.
-      SUBROUTINE SET_ZPOFF()
-c
-c Created July 17, 2011 by R.Kessler
-c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-c for each filter. Update based on FILTOBS_ZPOFF_SNPHOT(ifilt_obs) 
-c that is read either from the KCOR file or from the ZPOFF_FILE.
-c
-c Feb 22, 2012:
-c  Use MAGOBS_SHIFT_ZP_USER(ifilt_obs)  so that final
-c  SHIFT_ZP is OK even if RDKCOR is called multiple times.
-c -------------
-
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,SNFILECOM.  SNDATA_ROOT is here
-+CDE,KCORCOM.
-+CDE,FILTCOM.
-
-      INTEGER IFILT, IFILT_OBS
-
-C ------------- BEGIN -----------
-
-c update ZP-shift for each filter (i.e., add to user-shift)
-      DO ifilt  = 1, NFILTDEF_SURVEY
-          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
-     &    MAGOBS_SHIFT_ZP_USER(ifilt_obs) +
-     &    FILTOBS_ZPOFF_SNPHOT(ifilt_obs)
-      ENDDO
-
-c check for lambda-dependent MAGOBS_SHIFT (Sep 30, 2015)
-      CALL MAGOBS_SHIFT_UPDATE()
-
-c dump ZPOFF values vs. filter
-      CALL DMP_ZPOFF 
-
-      RETURN
-      END  ! end of SET_ZPOFF
-
-C =======================================
-+DECK,MAGOBS_SHIFT_UPDATE.
-      SUBROUTINE MAGOBS_SHIFT_UPDATE()
-
-c Created Sep 20 2015
-c Loop over filters and apply optional shift-vs-lambda
-c for ZP and PRIMARY mag. Allows coherent mag-shifts
-c with just a few parameters instead of giving a mag
-c shift for each band.
-c See &SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS(3)
-c
-      IMPLICIT NONE
-
-c local 
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER IFILT, IFILTDEF
-
-      REAL MAGOBS_SHIFT_USRFUN  ! function
-C --------------- BEGIN -----------
-
-      DO ifilt = 1, NFILTDEF_SURVEY
-         IFILTDEF = IFILTDEF_MAP_SURVEY(ifilt)
-
-         magobs_shift_zp_filt(ifiltdef) = 
-     &   magobs_shift_zp_filt(ifiltdef) +
-     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'ZP') ! Sep 2015
-
-         magobs_shift_primary_filt(ifiltdef) = 
-     &   magobs_shift_primary_filt(ifiltdef) +
-     &          MAGOBS_SHIFT_USRFUN(ifiltdef, 'PRIMARY') ! Sep 2015
-      ENDDO
-
-      RETURN
-      END  ! end of MAGOBS_SHIFT_UPDATE
-
-C =======================================
-+DECK,MAGOBS_SHIFT_USRFUN.
-      REAL FUNCTION MAGOBS_SHIFT_USRFUN(IFILTDEF, WHAT )
-
-c Created Sep 30 2015
-c Compute shift for what='ZP' or what='PRIMARY' for this IFILTDEF.
-c Use SNLCINP parameters MAGOBS_SHIFT_[ZP,PRIMARY]_PARAMS to 
-c determine polynomial function of wavelength. This allows computing
-c correlated systematics among filters using a function of wavelength
-c so that you don't have to enter a shift for each band separately.
-c
-c BEWARE: POLYNOMIAL FUNCTION OF LAMBDA IN MICRONS (NOT ANGSTROMS) 
-c
-c ----------
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER    IFILTDEF   ! (I) absolute filter index
-      CHARACTER  WHAT*(*)   ! (I) 'ZP' or 'PRIMARY'
-
-c local var
-
-      REAL LAM_um, SQLAM_um, COEF(0:2)
-      CHARACTER FNAM*20
-
-c ------------------- BEGIN ----------------
-
-      FNAM = 'MAGOBS_SHIFT_USRFUN'
-      MAGOBS_SHIFT_USRFUN = 0.0 
-
-      IF ( WHAT(1:2) .EQ. 'ZP' ) THEN
-         COEF(0) = MAGOBS_SHIFT_ZP_PARAMS(1)
-         COEF(1) = MAGOBS_SHIFT_ZP_PARAMS(2)
-         COEF(2) = MAGOBS_SHIFT_ZP_PARAMS(3)
-      ELSE IF ( WHAT(1:7) .EQ. 'PRIMARY' ) THEN
-         COEF(0) = MAGOBS_SHIFT_PRIMARY_PARAMS(1) 
-         COEF(1) = MAGOBS_SHIFT_PRIMARY_PARAMS(2)
-         COEF(2) = MAGOBS_SHIFT_PRIMARY_PARAMS(3)
-      ELSE
-         C1ERR = 'Invalid WHAT=' // WHAT
-         C2ERR = 'for MAGOBS_SHIFT_XXX'
-         CALL  MADABORT(FNAM, C1ERR, C2ERR)
-      ENDIF
-      
-      LAM_um   = FILTOBS_LAMAVG(ifiltdef)/1.0E4
-      SQLAM_um = LAM_um * LAM_um
-
-      MAGOBS_SHIFT_USRFUN =
-     &      COEF(0)
-     &    + COEF(1) * LAM_um
-     &    + COEF(2) * SQLAM_um
-
-c xxxxxxxxxxxxxxxxx
-c      write(6,66) WHAT(1:2), MAGOBS_SHIFT_USRFUN, IFILTDEF, LAM_um
-c66    format(' xxx ', A2, ' = ', F7.4,' for IFILTDEF=',I3, 
-c     &      3x,'LAM=',F7.3,' um')
-c      CALL FLUSH(6)
-c xxxxxxxxxxxxxxxxx
-
-      RETURN
-      END  ! end of MAGOBS_SHIFT_USRFUN
-
-
 
 C ======================
 +DECK,CHKDUPFILT.
@@ -29073,6 +30230,7 @@ ccc ZZ bug  &  NEAREST_IFILT_REST(OPT_FRAME,ifilt_obs_tmp,irank,ZZ,LAMDIF)
 
       RETURN
       END
+
 
 C ===========================================
 +DECK,NEAREST_IFILT_REST.
@@ -29588,139 +30746,6 @@ c init multi-dimensional index maps
       CALL INIT_1DINDEX(IDMAP_AVWARP, N4DIM, NBIN_AVWARP)
       CALL INIT_1DINDEX(IDMAP_LCMAG,  N4DIM, NBIN_LCMAG)
       CALL INIT_1DINDEX(IDMAP_MWXT,   N4DIM, NBIN_MWXT)
-
-      RETURN
-      END
-
-C =======================================
-+DECK,FUPDINI.
-      SUBROUTINE FILTER_UPDATE_INIT(IERR)
-c
-c If FILTER_UPDATE_PATH is defined, read FILTER.INFO
-c file for instructions on updating the filters for
-c each SN.
-c
-c Jun 15 2016:  CALL ENVreplace(FILTER_UPDATE_PATH)
-c
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,SNFILECOM.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IERR
-
-c local var
-
-      INTEGER 
-     &   LEN_UPDPATH, LEN_FULLPATH, L1, LEN_ROOT
-     &  ,iwd, NWD, IERROPEN, ifilt, LWD0, LWD1
-
-      character 
-     &   FILTINFO_FILE*(MXCHAR_FILENAME)
-     &  ,NAME_forC*(MXCHAR_FILENAME)
-     &  ,cwd*60, cwd_next*60, msg*100
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-
-C --------------- BEGIN -------------
-
-      IERR = 0
-
-      OPT_FILTER_UPDATE    = 0
-      DO ifilt=1, MXFILT_ALL
-        DOFLAG_FILTER_UPDATE(ifilt) = 0
-      ENDDO
-
-      PREFIX_UPD_TRANSSN  = ' '     
-      PREFIX_UPD_TRANSREF = ' '
-      PREFIX_UPD_FILTDIR  = ' '
-      SUFFIX_UPD_TRANSSN  = ' '
-      SUFFIX_UPD_TRANSREF = ' ' 
-      SUFFIX_UPD_FILTDIR  = ' '
-      FILTINFO_UPD_SN     = .FALSE.
-      FILTINFO_UPD_REF    = .FALSE.
-
-      IF ( FILTER_UPDATE_PATH .EQ. ' ' ) RETURN
-
-      CALL ENVreplace(FILTER_UPDATE_PATH)
-
-      msg = 
-     &   "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
-      CALL PRBANNER(msg(1:60))
-
-c -------------------------------------------------------
-c first try $SNDATA_ROOT/filters/[FILTER_UPDATE_PATH]/
-c if not there, then try absolute path.
-
-      LEN_UPDPATH  = INDEX(FILTER_UPDATE_PATH,' ' ) -  1
-      LEN_ROOT     = INDEX(SNDATA_ROOT,' ') - 1
-
-      FILTER_UPDATE_TOPDIR = SNDATA_ROOT(1:LEN_ROOT) 
-     &    // '/filters/' // FILTER_UPDATE_PATH(1:LEN_UPDPATH)
-      LEN_FULLPATH  = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
-
-
-c check if/where FILTER.INFO exists ...
-      FILTINFO_FILE = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH) 
-     &                 // '/FILTER.INFO'
-      OPEN(UNIT=LUNTMP, FILE = FILTINFO_FILE,
-     &     IOSTAT = IERROPEN, STATUS='OLD')
-      IF ( IERROPEN .EQ. 0 ) THEN
-        CLOSE(UNIT = LUNTMP)
-      ELSE
-c try absolute path
-        LEN_FULLPATH = LEN_UPDPATH
-        FILTER_UPDATE_TOPDIR  = FILTER_UPDATE_PATH
-        FILTINFO_FILE = FILTER_UPDATE_PATH(1:LEN_UPDPATH)
-     &           // '/FILTER.INFO'
-      ENDIF
-
-      L1 = INDEX(FILTINFO_FILE,' ') - 1
-      print*,' Update Filter Response for each SN from : '
-      print*,' ', FILTINFO_FILE(1:L1)
-
-      NAME_forC = FILTINFO_FILE(1:L1)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
-
-
-c parse enough to know which type of FILTER.INFO file we have;
-c set global  OPT_FILTER_UPDATE and call PARSE1_XXX or PARSE2_XXX
-c to do the appropriate parsing.
-
-      DO 10 iwd = 1, min(1000,NWD)
-
-          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0 )
-          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1 )
-
-          if ( cwd .EQ. ' ' ) goto 10
-
-          if ( CWD .EQ. 'FILTER_SUBDIR:' ) THEN
-             CALL PARSE1_FILTER_INFO(NWD)
-             OPT_FILTER_UPDATE  = OPT_FILTUPD_EACHSN
-             RETURN
-          ENDIF
-
-          if ( CWD .EQ. 'FILTER_PATH:' ) THEN
-             CALL PARSE2_FILTER_INFO(NWD)
-             OPT_FILTER_UPDATE  = OPT_FILTUPD_MAP
-             RETURN
-          ENDIF
-
-10    CONTINUE
-
-
-c if we get here then abort.
-
-      c1err = 'Cannot parse FILTER.INFO file'
-      c2err = FILTER_UPDATE_TOPDIR(1:LEN_FULLPATH)
-      CALL MADABORT("FILTER_UPDATE_INIT", c1err, c2err)
 
       RETURN
       END
@@ -30550,8 +31575,8 @@ c now smoothly interpolate KCOR vs. redsfhit
       END   ! end GET_KCOR8
 
 C =========================================
-+DECK,KCORERR8.
-      DOUBLE PRECISION FUNCTION GET_KCORERR8 ( 
++DECK,KCORERR_LEGACY.
+      DOUBLE PRECISION FUNCTION GET_KCORERR_LEGACY ( 
      &    OPT          ! (I) option
      &   ,ifilt_obs    ! (I) filter index, observer frame
      &   ,redshift8    ! (I) SN redshift
@@ -30578,11 +31603,10 @@ c -------------------------------------
 c function args
 
       integer 
-     &   OPT
-     &  ,ifilt_obs   ! (I) idem observer frame
+     &   OPT         ! (I) option
+     &  ,ifilt_obs   ! (I) observer frame filter index
 
       real*8 redshift8
-
 
 c local var
 
@@ -30602,12 +31626,11 @@ c Below 3280 A, the smoothed error is larger than the linear-kink error
      &    ERRPAR_LAM0 = 3000.  ! Angstrom
      &   ,ERRPAR_SIG  = 200.   ! idem
      &   ,ERRPAR_MAX  = .35    ! max error at ERRPAR_LAM0
-     
      &      )
 
 C --------------- BEGIN ---------------
 
-      GET_KCORERR8 = 0.0
+      GET_KCORERR_LEGACY = 0.0
       SQERRSUM     = 0.0
 
       ZZ   = sngl(1.0 + redshift8)
@@ -30643,7 +31666,7 @@ c    if reff lt 3500 then addsig += 0.6d * ((3500d - reff)/1000d)
       ENDIF
 
       
-      GET_KCORERR8 = SQRT ( SQERRSUM )
+      GET_KCORERR_LEGACY = SQRT ( SQERRSUM )
   
       RETURN     
       END
@@ -31392,862 +32415,6 @@ c now flip the color and filters
       RETURN
       END
 
-C ======================================
-+DECK,PRS1FUPD.
-      SUBROUTINE PARSE1_FILTER_INFO(NWD)
-
-c parse FILTER.INFO file that has a different filter set
-c for each SN.
-
-      IMPLICIT NONE
-
-      INTEGER NWD ! (I) number of words in file
-+CDE,SNPAR.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IWD, istar, LEN
-
-      character 
-     &   FILTER_SUBDIR*(MXCHAR_PATH)
-     &  ,cwd*(MXCHAR_FILEWORD)
-     &  ,cwd_next*(MXCHAR_FILEWORD)
-     &  ,copt*(MXCHAR_FILEWORD)
-     &  ,c1err*80, c2err*80
-
-      LOGICAL LDUMP 
-
-C ----------- BEGIN ----------
-
-      DO 10 iwd = 1, NWD-1
-
-          CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN)
-          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN)
-
-          if ( cwd .EQ. ' ' ) goto 10
-
-          if ( cwd .EQ. 'FILTER_SUBDIR:' ) then
-            FILTER_SUBDIR = cwd_next
-            istar = Index(FILTER_SUBDIR,'{SNID}')
-            PREFIX_UPD_FILTDIR = FILTER_SUBDIR(1:istar-1)
-            SUFFIX_UPD_FILTDIR = FILTER_SUBDIR(istar+6:99)
-          endif
-
-          if ( cwd .EQ. 'FILETRANS_SN:' ) then
-            CALL SET_FILTINFO_UPD("SN", cwd_next)
-          endif
-          if ( cwd .EQ. 'FILETRANS_REF:' ) then
-            CALL SET_FILTINFO_UPD("REF", cwd_next)
-          endif
-
-          if ( cwd(1:7) .EQ. 'OPTION:' ) then
-             copt = cwd_next
-             if ( copt(1:7) .EQ. 'DEFAULT' ) then
-
-             else if ( copt(1:8) .EQ. 'SAMEFILT' ) then
-               OPT_FILTER_UPDATE  = OPT_FILTUPD_SAMEFILT
-             else
-               C1ERR = 'Invalid FilterFile.INFO OPTION: ' // copt(1:20)
-               C2ERR = 'Valid options: DEFAULT SAMEFILT '
-               CALL MADABORT("FILTER_UPDATE_INIT", C1ERR, C2ERR )
-             endif
-          endif
-
-10    CONTINUE
-
-      LDUMP = .false.
-      if ( LDUMP ) then
-          print*, ' xxxxxx FILTER_SUBDIR= ', FILTER_SUBDIR(1:20)
-          print*, ' xxxxxx   PREFIX_UPD_FILTDIR =',
-     &                       PREFIX_UPD_FILTDIR(1:20) 
-          print*, ' xxxxxx   SUFFIX_UPD_FILTDIR =',
-     &                       SUFFIX_UPD_FILTDIR(1:20) 
-      endif
-
-      RETURN
-      END
-
-C ======================================
-+DECK,PRS2FUPD.
-      SUBROUTINE PARSE2_FILTER_INFO(NWD)
-
-c Created July 16, 2011 by R.Kessler
-c parse FILTER.INFO file that has a defined set of filters
-c such as one set per SDSS-CCD column.
-c IMAP is a sparse index 1-NMAP
-c INDX is the absolute filter-path index in the FILTER.INFO file.
-c
-c Load MAP1_FILTER_UPDATE (subdir vs. index) and 
-c MAP2_FILTER_UPDATE (index vs. CCID)
-c
-c ------------------------
-
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-c+CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER NWD  ! (I) number of words to check
-
-      INTEGER 
-     &   IWD, INDX, LEN
-     &  ,IMAP1, IMAP1_STORE, NMAP1, NMAP2
-
-      character
-     &   cwd0*(MXCHAR_FILEWORD)
-     &  ,cwd1*(MXCHAR_FILEWORD)
-     &  ,cwd2*(MXCHAR_FILEWORD)
-     &  ,ccid*(MXCHAR_CCID)
-     &  ,c1err*80, c2err*80
-
-C ---------------- BEGIN -------------
-
-      NMAP1_FILTER_UPDATE = 0
-      NMAP2_FILTER_UPDATE = 0
-
-      NMAP1 = 0
-      NMAP2 = 0
-
-      DO 10 iwd = 1, NWD-2
-
-          call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN)
-          call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN)
-          call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN)
-
-          if ( cwd0 .EQ. ' ' ) goto 10
-
-
-          if ( cwd0 .EQ. 'FILTER_PATH:' ) then
-             read(cwd1,*) INDX
-
-             NMAP1 = NMAP1 + 1
-             NMAP1_FILTER_UPDATE = NMAP1
-
-             if ( NMAP1 .GT. MXMAP1_FILTER_UPDATE ) then
-               write(c1err,1660) NMAP1, MXMAP1_FILTER_UPDATE
-1660           format('NMAP=',I3,
-     &           ' exceeds bound of MXMAP1_FILTER_UPDATE=',I3)
-               c2err = 'Increase bound or reduce NMAP'
-               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
-             endif
-             MAP1_FILTER_UPDATE_INDX(NMAP1)    = INDX
-             MAP1_FILTER_UPDATE_SUBDIR(NMAP1)  = CWD2
-          endif
-
-          if ( cwd0 .EQ. 'FILETRANS_SN:' ) then
-            CALL SET_FILTINFO_UPD('SN', cwd1)
-          endif
-          if ( cwd0 .EQ. 'FILETRANS_REF:' ) then
-            CALL SET_FILTINFO_UPD('REF', cwd1)
-          endif
-
-
-
-          if ( cwd0 .EQ. 'SN:' ) then
-             CCID = cwd1(1:MXCHAR_CCID)
-             read(cwd2,*) INDX
-
-c translate INDX to sparse IMAP1
-             IMAP1_STORE = -9
-             DO imap1 = 1, NMAP1_FILTER_UPDATE
-                if ( MAP1_FILTER_UPDATE_INDX(imap1) .EQ. INDX) then
-                   imap1_store = imap1
-                endif
-             END DO
-
-             if ( IMAP1_STORE .LE. 0 ) then
-               write(c1err,670) INDX, CCID
-               c2err = 'Check FILTER.INFO file.'
-670            format('Undefined INDX=',I8,'   for  CID = ',A8)
-               CALL MADABORT('PARSE2_FILTER_INFO', C1ERR, C2ERR)
-             endif
-
-c update 2nd map
-             NMAP2 = NMAP2 + 1
-             NMAP2_FILTER_UPDATE = NMAP2
-
-             if ( NMAP2 .GT. MXSNLC_FILTUPD ) then
-                write(c1err,661) MXSNLC_FILTUPD
-661             format('MAP2 size exceeds bound of MXSNLC_FILTUPD=',I6)
-                c2err = 'Check FILTER.INFO file.'
-                CALL MADABORT("PARSE2_FILTER_INFO", C1ERR, C2ERR)
-             endif
-             
-             MAP2_FILTER_UPDATE_CCID(NMAP2)    = CCID
-             MAP2_FILTER_UPDATE_PTRMAP1(NMAP2) = IMAP1_STORE
-
-          endif  !   'SN:' key
-
-
-10    CONTINUE
-
-c ---------------------------------------------------------
-
-      write(6,60) NMAP1_FILTER_UPDATE
-60    format(T4,'Found ',I2,' filter sets to use for updates.')
-
-      write(6,61) NMAP2_FILTER_UPDATE
-61    format(T4,'Filter update map stored for ',I6,' SNe.' )
-
-      print*,' -------------------------------------------------- '
-
-      RETURN
-      END
-
-C =================================
-+DECK,SETFUPD.
-      SUBROUTINE SET_FILTINFO_UPD(KEY,STRING)
-c
-c Created Jul 16, 2011
-c
-c Parse STRING for asterisk, and store PREFIX and SUFFIX
-c before/after the asterisk. Used later to determine the
-c name of the filter transmission  file where the  asterisk
-c is replaced with the filter-character.
-c
-c Jul 5 2013: string-length fixes to avoid segfault in debug mode.
-c             See use of LKEY and LSTR.
-c
-c ---------
-
-      IMPLICIT  NONE
-
-c input arguments
-      CHARACTER KEY*(*)     ! (I) 'SN' or 'REF'
-      CHARACTER STRING*(*)  ! (I) string to define filter filename
- 
-c local variables
-
-+CDE,SNPAR.
-c +CDE,PARSECOM.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-  
-      INTEGER istar, LSTR, LKEY
-      LOGICAL LDUMP 
-C ------------ BEGIN -------------
- 
-      LSTR = INDEX(STRING,' ' ) - 1
-      LKEY = INDEX(KEY//' ',   ' ' ) - 1
-
-      istar = Index(STRING,'*')
-
-      IF ( KEY(1:LKEY) .EQ. 'REF' ) THEN
-          PREFIX_UPD_TRANSREF = STRING(1:istar-1)
-          SUFFIX_UPD_TRANSREF = STRING(istar+1:LSTR)
-          FILTINFO_UPD_REF = .TRUE. 
-
-      ELSE IF ( KEY(1:LKEY) .EQ. 'SN' ) THEN
-          PREFIX_UPD_TRANSSN = STRING(1:istar-1)
-          SUFFIX_UPD_TRANSSN = STRING(istar+1:LSTR)
-          FILTINFO_UPD_SN = .TRUE. 
-
-      ELSE
-
-      ENDIF
-
-c print comment about filename syntax
-
-      LDUMP = .TRUE.
-      IF ( LDUMP ) THEN
-         write(6,20) KEY, STRING(1:LSTR)
-20       format(T4,'Filter-Trans filenames(', A, ') : ''',A, 
-     &          '''  with * => filter' )
-      ENDIF
-
-      RETURN
-      END
-C =======================================
-+DECK,FUPDDRIV.
-      SUBROUTINE FILTER_UPDATE_DRIVER()
-c
-c Nov 8, 2010 R.Kessler
-c Driver routine to udpate filter transmission for currenet SN.
-c 
-c May 2012: get filter-udpate directory outside the IFILT loop
-c           by calling GET_FILTER_UDPATE_DIR(SNLC_CCID).
-c
-c
-c Jan 17, 2013: skip filters with no obs; those with
-c               ISNLC_NEPOCH_FILT(ifilt) .LE. 0 
-c        
-c Jan 31, 2013: print message that filter trans is updated
-c
-c --------------
-
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-c local var
-
-      INTEGER IFILT, IFILT_OBS, OPT
-      LOGICAL LSAME, LUPD, ISBX
-      CHARACTER C1ERR*80, C2err*80
-
-c function
-      LOGICAL ISBXFILT
-C ------------- BEGIN ----------
-
-      OPT = OPT_FILTER_UPDATE
-      IF ( OPT .LE. 0 ) RETURN
-
-      write(6,20) SNLC_CCID(1:ISNLC_LENCCID)
- 20   format(T5,'***** UPDATE FILTER TRANSMISSION FOR CID = ', 
-     &       A, ' ***** ')
-
-
-      LUPD = ( OPT .EQ. OPT_FILTUPD_EACHSN ) .or.
-     &       ( OPT .EQ. OPT_FILTUPD_MAP    )
-
-c determine path with filter update; set global FILTER_UPDATE_DIR
-c Make sure to do this outside the IFILT loop to avoid redundant
-c loops through the maps.
-      IF ( LUPD ) CALL GET_FILTER_UDPATE_DIR(SNLC_CCID)
-
-c -----------------------------------------
-c update filter transmissions based on option
-
-      DO 10 IFILT = 1, NFILTDEF_SURVEY
-
-
-        if ( ISNLC_NEPOCH_FILT(ifilt) .LE. 0 ) GOTO 10
-
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        DOFLAG_FILTER_UPDATE(ifilt_obs) = OPT_FILTER_UPDATE ! July 2015
-
-        ISBX      = ISBXFILT(ifilt_obs,'', 'OBS' )
-   
-        LSAME = (OPT .EQ. OPT_FILTUPD_SAMEFILT)  .or. ISBX
-
-
-        if ( LSAME  ) then
-           CALL FILTER_UPDATE_SAMEFILT(ifilt)
-        else if ( LUPD ) then
-           CALL FILTER_UPDATE_EACHSN(ifilt) 
-
-        else
-           write(c1err,60) OPT
-60         format('Invalid  OPT_FILTER_UPDATE = ', I3 )
-           c2err = 'Check OPT_FILTUPD_*  parameters in snana.car'
-           CALL MADABORT("FILTER_UPDATE_DRIVER", C1ERR, C2ERR)
-        endif
-
- 10   CONTINUE
-      
-
-c ----------------------------------------------------
-c  Finally, update ZP offsets for all filters.
-
-      IF ( LUPD ) THEN
-        CALL FILTER_UPDATE_ZPOFF()
-c xxx mark del Jun 2022  CALL FILTER_UPDATE_ZPOFF(FILTER_UPDATE_DIR)
-      ENDIF
-
-c later add stuff for K-corrections ... 
-
-      RETURN
-      END
-
-C ====================================
-+DECK,FUPDZP.
-      SUBROUTINE FILTER_UPDATE_ZPOFF()
-
-c Created July 2011
-c Update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) based on the
-c zeropoint (AB) offsets in text-file $FDIR/ZPOFF.DAT .
-c If this ZPOFF.DAT file does not exist, then just set 
-c the offsets to the user offsets.
-c
-c -------------
-
-      IMPLICIT NONE
-
-
-c local args
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c+CDE,PARSECOM.
-
-      INTEGER IFILT, IFILT_OBS
-      REAL ZPOFF_UPD(MXFILT_ALL)
-
-C --------------- BEGIN -------------
-
-       DO ifilt  = 1, NFILTDEF_SURVEY
-          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ZPOFF_UPD(ifilt_obs) = 0.0
-       ENDDO
-
-c update ZP-shift for each filter (i.e., add to user-shift)
-      DO ifilt  = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         MAGOBS_SHIFT_ZP_FILT(ifilt_obs) = 
-     &   MAGOBS_SHIFT_ZP_USER(ifilt_obs) + ZPOFF_UPD(ifilt_obs)
-      ENDDO
-
-      CALL DMP_ZPOFF
-
-      RETURN
-      END  ! end FILTER_UPDATE_ZPOFF
-
-C ================================================
-+DECK,GTFUPDDIR.
-      SUBROUTINE GET_FILTER_UDPATE_DIR(CCID)
-
-c Created May 18, 2012
-c Find and load global  FILTER_UPDATE_DIR for this CCID.
-c Used for filter-update option.
-
-      IMPLICIT NONE
-
-      CHARACTER CCID*(*)  ! (I) SN name
-
-c local var
-
-+CDE,SNPAR.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER LPDIR, LSDIR, LPATH, LCC, LMAP, IMAP1, IMAP2
-      CHARACTER MAPDIR*100
-c functions
-      INTEGER IMAP2_FUPDMATCH
-
-C -------------------- BEGIN --------------
-
-      LCC   = INDEX(CCID,' ') - 1
-      LPDIR = INDEX(PREFIX_UPD_FILTDIR,' ') -1 
-      LSDIR = INDEX(SUFFIX_UPD_FILTDIR,' ') -1 
-      LPATH = INDEX(FILTER_UPDATE_TOPDIR,' ') - 1
-
-
-      if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_EACHSN ) then
-         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
-     &        // PREFIX_UPD_FILTDIR(1:LPDIR)
-     &        // CCID(1:LCC)
-     &        // SUFFIX_UPD_FILTDIR(1:LSDIR)
-
-      else if ( OPT_FILTER_UPDATE .EQ. OPT_FILTUPD_MAP ) then
-
-c search 2nd map for CCID match to get IMAP1
-         
-         IMAP2   = IMAP2_FUPDMATCH(CCID) 
-         IMAP1   = MAP2_FILTER_UPDATE_PTRMAP1(IMAP2)
-         MAPDIR  = MAP1_FILTER_UPDATE_SUBDIR(IMAP1)
-         LMAP    = INDEX(MAPDIR,' ') - 1
-         FILTER_UPDATE_DIR = FILTER_UPDATE_TOPDIR(1:LPATH) // '/' 
-     &             // MAPDIR(1:LMAP)   
-
-      endif
-
-      RETURN
-      END
-
-C ================================================
-+DECK,FUPD1.
-      SUBROUTINE FILTER_UPDATE_EACHSN(ifilt)
-
-c Nov 8, 2010
-c Read/update filter response for this sparse 'ifilt'
-c Store in FILTOBS_TRANS_UPD array using same lambda 
-c binning as in KCOR file. Updated lambda binning 
-c can be different since it gets interpolated to the 
-c original grid.
-c
-c Apr 3, 2011 RK
-c  - replace LAMINTERP with INTERP_1DFUN
-c
-c Jul 16, 2011 RK
-c   - move SAMEFILT option to FILTER_UPDATE_SAMEFILT
-c     and rename this function from _READ to _EACHSN
-c
-
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c +CDE,PARSECOM.
-
-c subroutine args
-      INTEGER IFILT     ! (I) sparse indices
-
-c local var
-
-      INTEGER 
-     &   IFILT_OBS, L0, LCC, LL, LDIR, LTMPF, LCOM
-     &  ,LPSN, LPREF, LSSN, LSREF, NLAM, ilam, NLAM_UPD
-     &  ,istat, MXLAM, OPT_INTERP
-
-      CHARACTER 
-     &   FILTFILE_SN*(MXCHAR_FILENAME)   ! SN tranmission vs. lambda
-     &  ,FILTFILE_REF*(MXCHAR_FILENAME)  ! idem for primary ref
-     &  ,TMPFILE*(MXCHAR_FILENAME)
-     &  ,CCID*(MXCHAR_CCID)
-     &  ,cfilt*1
-     &  ,c1err*80
-     &  ,c2err*80
-     &  ,comment*40 
-
-      REAL*8
-     &   LAM
-     &  ,FLAM_UPD(MXLAMBIN_FILT)    ! temp lambda array
-     &  ,FTRANS_UPD(MXLAMBIN_FILT)  ! temp filterTrans array
-     &  ,Trans_upd, Trans_orig
-
-      LOGICAL  LEXIST_SN, LEXIST_REF, UPDDUMP
-
-c define utilities from sntools.c
-      INTEGER  RD2COLUMNFILE 
-      EXTERNAL RD2COLUMNFILE 
-  
-      REAL*8   INTERP_1DFUN
-      EXTERNAL INTERP_1DFUN
-
-C ---------------- BEGIN --------------
-
-      UPDDUMP = .FALSE.  ! internal dump logical
-
-      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-      cfilt     = filtdef_string(ifilt_obs:ifilt_obs)   
-      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
-      LCC       = INDEX(SNLC_CCID, ' '     ) - 1 
-      CCID      = SNLC_CCID(1:LCC)
-
-      if (UPDDUMP) then
-        print*,' '
-        print*, 'XXXXXX ----------------------------------------- '
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP start for ', 
-     &       CCID(1:LCC),'-', cfilt
-        call flush(6)
-      end if 
-
-      OPT_INTERP = 1   ! 1=linear;  2=quadratic
-
-      comment = CCID(1:LCC) // '-filter-update' // char(0)
-      LCOM    = INDEX(comment,' ') - 1
-
-
-c     get string lengths for file name
-
-      LPSN  = INDEX(PREFIX_UPD_TRANSSN,' ') -1 
-      LSSN  = INDEX(SUFFIX_UPD_TRANSSN,' ') -1 
-
-      LPREF = INDEX(PREFIX_UPD_TRANSREF,' ') -1 
-      LSREF = INDEX(SUFFIX_UPD_TRANSREF,' ') -1 
-
-      L0    = INDEX(FILTER_UPDATE_PATH, ' ' ) - 1
-      LDIR = INDEX(FILTER_UPDATE_DIR,' ') - 1
-
-c constuct full filename of SN and REF-transmission files.
-
-      TMPFILE = PREFIX_UPD_TRANSSN(1:LPSN)   
-     &           // cfilt // SUFFIX_UPD_TRANSSN(1:LSSN)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_SN = FILTER_UPDATE_DIR(1:LDIR)  
-     &                 // '/' // TMPFILE(1:LTMPF) 
-
-      TMPFILE = PREFIX_UPD_TRANSREF(1:LPREF)   
-     &          // cfilt // SUFFIX_UPD_TRANSREF(1:LSREF)
-      LTMPF = INDEX(TMPFILE,' ') - 1
-      FILTFILE_REF = FILTER_UPDATE_DIR(1:LDIR)  
-     &          // '/' // TMPFILE(1:LTMPF) 
-
-
-      if (UPDDUMP) then
-
-        print*, '++++ UPDATING FILTER ' 
-     &          ,'IFILT = ', ifilt_obs,' '
-     &         , cfilt(1:1), ' with NLAM '
-     &         , NLAM , ' for SN ', CCID
-        call flush(6)
-       end if
-
-
-c Use IOSTAT option to figure out which of the files
-c FILTFILE_REF  and FILTFILE_SN exist
-
-c     check if FILTFILE_REF exists?
-
-
-      istat=1
-      LL = INDEX(FILTFILE_REF,' ') - 1
-      TMPFILE =FILTFILE_REF(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &       IOSTAT=istat)
-      CLOSE( UNIT = LUNTMP)      
-
-      if (istat .EQ. 0) then
-
-       LEXIST_REF = .true.
-
-       MXLAM   = MXLAMBIN_FILT
-       TMPFILE = FILTFILE_REF(1:LL) // char(0)
-       istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &          ,FLAM_UPD, FTRANS_UPD, LL)  ! (out)
-
-      else 
-        LEXIST_REF = .false.
-      endif 
-
-      if (UPDDUMP) then 
-        print*, '  LEXIST_REF = ', LEXIST_REF,' for ', CCID
-        call flush(6)
-      end if
-
-
-c    now interpolate to the original grid
-c    for files which exist
-
-
-      if (LEXIST_REF) then      
-
-      DO 20 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            Trans_orig = FILTOBS_TRANS(ilam,IFILT_OBS) ! for debug only
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 0.0
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 20
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 20
- 
-            Trans_upd = interp_1dfun(OPT_INTERP, LAM, 
-     &                  NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM)
-
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = sngl(Trans_upd)
-
-20    CONTINUE  ! ILAM loop over original lambda binning
-        if (UPDDUMP) then
-          print*, "REF interp done"
-          call flush(6)
-        end if 
-      end if 
-
-
-c     FILTFILE_SN exists?
-
-      istat=1
-      LL = INDEX(FILTFILE_SN,' ') - 1
-      TMPFILE =FILTFILE_SN(1:LL)
-      OPEN(UNIT=LUNTMP, FILE=TMPFILE, STATUS='OLD',
-     &  IOSTAT=istat)
-     
-      if (istat.EQ.0) then
-       LEXIST_SN = .true.
-c     readsnfile
-      MXLAM   = MXLAMBIN_FILT
-      TMPFILE = FILTFILE_SN(1:LL) // char(0)
-      istat   = rd2columnFile (TMPFILE, MXLAM, NLAM_UPD 
-     &          ,FLAM_UPD, FTRANS_UPD,LL)  ! (out)
-
-      else 
-       LEXIST_SN = .false.
-      endif 
-      CLOSE( UNIT = LUNTMP)        
-
-c   INTERPOLATE to get FILTOBS_TRANSSN_UPD
-
-      if (LEXIST_SN) then
-cc      print*, ' Interpolate SN file', NLAM 
-      DO 70 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            Trans_orig = FILTOBS_TRANS(ilam,IFILT_OBS) ! for debug only
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 0.0
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 70
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 70
- 
-            Trans_upd = interp_1DFUN(OPT_INTERP, LAM, 
-     &             NLAM_UPD, FLAM_UPD, FTRANS_UPD, comment, LCOM )
-
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = sngl(Trans_upd)
-
-70    CONTINUE  ! ILAM loop over original lambda binning
-        if (UPDDUMP) then
-          print*, 'SN Interp done for', NLAM, CCID
-          call flush(6)
-        end if
-      end if 
-
-
-c    If neither file exists, abort program
-
-
-      if (.NOT.( LEXIST_REF .OR. LEXIST_SN) ) then        
-        c1err = 'Could not update filter-trans for CID = ' 
-     &       // CCID(1:LCC) // '-' // cfilt
-        c2err = 'FILTDIR=' // FILTER_UPDATE_DIR(1:LDIR)
-        CALL MADABORT('FILTER_UPDATE_EACHSN', c1err, c2err )
-      endif
-
-c     IF either SN or REF file does not exist, copy the other 
-c     file for the transmission functions
-
-
-c     SN File does not exist. IF REF file exists, SN trans= Ref Trans
-c                             IF REF file does not exist, SN trans undef
-c                             but should have been aborted above
-
-      if (.NOT.(LEXIST_SN)) then 
-      DO 170 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
-     &       = FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 170
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 170
-
-170    CONTINUE  ! ILAM loop over original lambda binning
-      end if
-
-
-c     REF File does not exist. IF SN file exists, Ref trans= SN Trans
-c                             IF SN file does not exist, Ref trans undef
-c                             but should have been aborted above
-      if (.NOT. (LEXIST_REF)) then
-      DO 270 ilam = 1, NLAM
-            LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS) 
-            FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) 
-     &       = FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) 
-
-            if ( LAM .LT. FLAM_UPD(1)        ) GOTO 270
-            if ( LAM .GT. FLAM_UPD(NLAM_UPD) ) GOTO 270
-
-270    CONTINUE  ! ILAM loop over original lambda binning
-      end if
-
-c -----------------------------
-      if(UPDDUMP) then 
-        print*, '%%%% ', NLAM
-        if (mod(NLAM,2).EQ.0) then
-           ilam = NLAM/2
-        else
-         ilam = (NLAM+1)/2
-        end if
-        LAM  = FILTOBS_LAMBDA(ilam,IFILT_OBS)
-        print*, 'xxxxx',LAM 
-     &        , FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS)
-     &        , FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS)
-     &        , FILTOBS_TRANS (ilam, IFILT_OBS) 
- 
-
-        print*, 'xxxx SN =' , CCID
-        print*, 'xxxx LEXIST_REF =', LEXIST_REF
-        print*, 'xxxx LEXIST_SN =', LEXIST_SN
-        print*, 'xxxx FILE_REF =', FILTFILE_REF
-        print*, 'xxxx FILE_SN =', FILTFILE_SN
-
-        print*, 'XXXXXX FILTER_UPDATE_EACHSN  DUMP end for ', CCID
-        call flush(6)
-      endif
-
-
-      RETURN
-      END
-
-C =======================================
-+DECK,IMAP2FUPD.
-      INTEGER FUNCTION IMAP2_FUPDMATCH(CCID)
-
-c Created May 19, 2012
-c Search array IMAP2_FILTER_UPDATE_CCID(imap2)
-c to find CCID match; return IMAP2 = index of array.
-c Used to match CCID to sparse index associated
-c with the filter-subdir.
-
-      IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I) SN name to match
-
-c local  var
-
-+CDE,SNPAR.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-
-      INTEGER IMAP2, L0, L1
-      CHARACTER CCID_TMP*(MXCHAR_CCID), C1ERR*72, C2ERR*72
-
-C ---------------- BEGIN ------------------
-
-      IMAP2_FUPDMATCH = -9
-      L0 = INDEX(CCID,' ') - 1
-
-      DO 100 IMAP2 = 1, NMAP2_FILTER_UPDATE
-
-         CCID_TMP  = MAP2_FILTER_UPDATE_CCID(IMAP2)
-         L1 = INDEX(CCID_TMP // ' ',' ') - 1
-
-         IF ( L0 .NE. L1 ) GOTO 100
-         IF ( CCID(1:L0) .NE. CCID_TMP(1:L1) ) GOTO 100
-
-c if we get here then return
-         IMAP2_FUPDMATCH = IMAP2
-         RETURN
-
-100   CONTINUE
-
-
-c if we get here then abort.
-      write(c1err,61) CCID(1:8)
-61    format('Could not find MAP2_FILTER_UPDATE match for CID=',A)
-      c2err = 'Check FILTER.INFO file.'
-      CALL MADABORT('IMAP2_FUPDMATCH', c1err, c2err )
-
-
-      RETURN
-      END
-
-C ================================================
-+DECK,FUPD3.
-      SUBROUTINE FILTER_UPDATE_SAMEFILT(ifilt)
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNLCCOM. 
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,FILTUPDCM.
-c +CDE,PARSECOM.
-
-      INTEGER ifilt  ! (I) sparse SN & filter index
-
-c local variables
-
-      INTEGER ilam, NLAM, ifilt_obs
-
-C ------------ BEGIN -------------
-
-      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-      NLAM      = NLAMBIN_FILTOBS(ifilt_obs)
-
-      DO 100 ilam = 1, NLAM
-
-          FILTOBS_TRANSSN_UPD(ilam,IFILT_OBS) = 
-     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
-
-          FILTOBS_TRANSREF_UPD(ilam,IFILT_OBS) = 
-     &    FILTOBS_TRANS(ilam,IFILT_OBS) 
-100   CONTINUE
-
-      RETURN
-      END
 
 C =============================
 +DECK,GET_FILTMAP.
@@ -32715,10 +32882,10 @@ c --- check special option for filter-update for each SN
            TRANSREF(i) = FILTOBS_TRANSREF_UPD(i,ifilt)
         ENDIF
 
- 200  CONTINUE  ! end lambda loop
+ 200  CONTINUE    ! end lambda loop
 
       RETURN
-      END
+      END  ! end GET_FILTTRANS_LEGACY
 
 
 C ===========================
@@ -32767,61 +32934,6 @@ c so divide by DLAM to get flux per A.
       RETURN
       END
 
-
-C ======================================
-+DECK,FILTBTEST.
-      LOGICAL FUNCTION FILTBTEST(MSK8,ibit)
-c Mar 29, 2011
-C Return true if 1 <= IBIT < 90 is set in MSK8.
-c Note that LSB=1 (not 0)
-c
-
-      INTEGER   IBIT    ! (I) bit to set 
-      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
-
-      INTEGER IBIT2
-      INTEGER MXBIT
-      PARAMETER ( MXBIT =  60 )
-
-      LOGICAL LTMP
-C ------------ BEGIN ------------
-
-      if ( IBIT .LE. MXBIT ) then
-        LTMP = BTEST(MSK8(1),IBIT-1)
-      else if ( IBIT .LT. 2*MXBIT ) then
-        IBIT2  = IBIT-MXBIT
-        LTMP   = BTEST(MSK8(2),IBIT2-1)
-      endif
-      FILTBTEST = LTMP
-      RETURN
-      END
-
-C ======================================
-+DECK,FILTBSET.
-      SUBROUTINE FILTBSET(MSK8,ibit)
-c Mar 29, 2011
-C set bit IBIT(1 to 2*MXBIT) for long int MSK8.
-c Note that the input argument is also the output
-c with IBIT set.
-
-      INTEGER   IBIT    ! (I) bit to set 
-      INTEGER*8 MSK8(2) ! (I/O) 8-byte mask to set
-
-      INTEGER IBIT2
-      INTEGER MXBIT
-      PARAMETER ( MXBIT =  60 )
-
-C ------------ BEGIN ------------
-
-      if ( IBIT .LE. MXBIT ) then
-        MSK8(1) = IBSET(MSK8(1),IBIT-1)
-      else if ( IBIT .LT. 2*MXBIT ) then
-        IBIT2   = IBIT-MXBIT
-        MSK8(2) = IBSET(MSK8(2),IBIT2-1)
-      endif
-
-      RETURN
-      END
 
 
 C ==========================================
@@ -32904,76 +33016,6 @@ c rest-frame ZP shift
       RETURN
       END
 
-C ==========================================
-+DECK,DMP_ZPOFF.
-      SUBROUTINE DMP_ZPOFF
-
-c --------------------------
-c Created Jul 17, 2011
-c Dump zeropoint offsets to screen.
-c
-c Feb 2016: dump only obs-filters in kcor file; ingore un-defined filters.
-c Nov 2022: separate filter loop over OBS and REST frame so that it works
-c           for both legacy and refac kcor.
-c
-c -------------------------
-      IMPLICIT NONE
-
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-+CDE,SNCUTS.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,KCORCOM.
-
-      REAL      ZPOFF_TOT
-      INTEGER   ifilt_obs, ifilt
-      character CFILT*2
-
-C ------------------ BEGIN ------------
-
-      print*,' '
-      write(6,20) 'KCOR file' 
-20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
-
-      DO 100 ifilt = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)     
-         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
-         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-         write(6,801) cfilt(1:1), ZPOFF_TOT          
-100   CONTINUE
-
-      DO 200 ifilt = 1, NFILTDEF_REST
-         ifilt_obs = IFILTDEF_MAP_REST(ifilt)     
-         if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 200
-         cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-         ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-         write(6,801) cfilt(1:1), ZPOFF_TOT          
-200   CONTINUE
-
-801       format(T10,'Will apply net MAGOBS_SHIFT_ZP(',A,') = ', F7.4 )
-
-+SELF,IF=XXXDELETE.
-c xxxxxxxxxx mark delete Nov 18 2022 xxxxxxxxx
-      DO 200 ifilt_tmp = 1, NFILTOBS_RDKCOR
-        ifilt_obs = IFILTOBS_RDKCOR(ifilt_tmp)     
-
-          if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 200
-
-          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-
-          ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
-          write(6,801) cfilt(1:1), ZPOFF_TOT
-
-200   CONTINUE
-c xxxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
-
-      CALL FLUSH(6)
-
-      RETURN
-      END  ! end of DMP_ZPOFF
 
 C =======================
 +PATCH,*SPLINE.
@@ -33080,7 +33122,7 @@ C
         JND(NND) = IND
         IN = NND
       ENDIF
-c xxx mark delete   51  CONTINUE
+
       IF (IN.GT.INMAX) THEN
         print*,' '
         print*,' IN2DEX Warning: IND =',IND
@@ -35055,9 +35097,6 @@ c function
 C ---------------- BEGIN ----------------
 
       if ( OPT_SETPKMJD <= 0 ) RETURN
-
-c Jan 4 2021: bail if option is set to use PKMJDINI from SNCID_LIST_FILE
-c xxx mark obsolete  if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
 
       FNAM = 'SET_PEAKMJD'
       CCID = SNLC_CCID
@@ -37341,7 +37380,6 @@ c check for namelist over-rides from command line.
 
       IF ( LMCMC ) THEN
         ISEED = 12345
-cc xxx mark delete Jun 2020  CALL randominit(ISEED)  ! init randoms via C 
       ENDIF
 
 C #################################################   

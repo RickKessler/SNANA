@@ -3600,7 +3600,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   Trest = Tobs/(1.0+z);
   if ( Trest < SALT2_TABLE.DAYMIN+0.1 ) { return ; }
   if ( Trest > SALT2_TABLE.DAYMAX-0.1 ) { return ; }
-	
+      
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
 		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;

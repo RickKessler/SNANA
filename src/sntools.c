@@ -2749,8 +2749,14 @@ int getRan_Poisson(double mean){
 
 } // end getRan_Poisson
 
-void get_SNANA_VERSION(char *snana_version) // pass global declaration
-{ sprintf(snana_version, "%s", SNANA_VERSION_CURRENT); } 
+void get_SNANA_VERSION(char *snana_version) { 
+
+  if ( strlen(SNANA_VERSION_CURRENT) > 0 ) 
+    { sprintf(snana_version, "%s", SNANA_VERSION_CURRENT);  }
+  else
+    { sprintf(snana_version,"NOT_FROM_GITHUB"); }
+} 
+
 void get_snana_version__(char *snana_version) 
 {  get_SNANA_VERSION(snana_version); }
 
@@ -2759,9 +2765,21 @@ float get_SNANA_VERSION_FLOAT(char *snana_version) {
   // Oct 26 2020
   // Convert *snana_version string to float.
   // e.g. *snana_version = v10_78c -> return 10.78
-  double dval0 = atof(&snana_version[1]) ;
-  double dval1 = atof(&snana_version[4]) ;
+  // e.g. *snana_version = v11_04b-3-dstewtf -> return 11.04
+  //
+  // Dec 2022: remove commit part of string: dash and anything after            
+
+  char snana_version_local[60];
+  char *e        = strchr(snana_version, '-');
+  int index_dash = (int)(e - snana_version);
+
+  sprintf(snana_version_local, "%s", snana_version);
+  if ( index_dash > 0 ) { snana_version_local[index_dash] = 0 ;}
+
+  double dval0 = atof(&snana_version_local[1]) ;
+  double dval1 = atof(&snana_version_local[4]) ;
   float  fval = (float)(dval0 + dval1/100.0) ;
+
   return(fval);
 } // end get_SNANA_VERSION_FLOAT
 
@@ -2772,8 +2790,10 @@ float get_snana_version_float__(char *snana_version)
 bool correct_sign_vpec_data(char *snana_version_data) {
 
   // Jan 2021: if SNANA_VERSION key is not known, assume vpec sign is correct
-  if ( strcmp(snana_version_data,"UNKNOWN") == 0 ) { return true; }
+  // Dec 2022: return True on blank string
 
+  if ( strcmp(snana_version_data,"UNKNOWN") == 0 ) { return true; }
+  if ( strlen(snana_version_data)           == 0 ) { return true; }
 
   float version_f = get_SNANA_VERSION_FLOAT(snana_version_data);
   if ( version_f < 11.02 )
@@ -3558,8 +3578,8 @@ double host_confusion(char *CID, int N_DDLR, double *DDLR_LIST_SORTED) {
       tmp += ( top / bot );
     }
   }
-  printf("xxx %s preFac=%f, tmp=%f\n",fnam,preFac,tmp);
-  printf("xxx %s D1=%f, D2=%f, N_DDLR=%i\n",fnam,D1,D2,N_DDLR);
+  //  printf("xxx %s preFac=%f, tmp=%f\n",fnam,preFac,tmp);
+  //  printf("xxx %s D1=%f, D2=%f, N_DDLR=%i\n",fnam,D1,D2,N_DDLR);
   HC = log10(preFac * tmp);
   
   return HC;
@@ -8474,26 +8494,15 @@ int Landolt_ini(
   //              to allow for filter-adjustment tests that
   //              have larger color-transformations
 
-  int ifilt, k ;
-
+  int   ifilt, k ;
   float kval, kerr,  magtmp ;
-
-  char 
-    fnam[] = "Landolt_ini" 
-    ,c_get[40]
-    ,c_tmp[60]
-    ,c_k[6]
-    ,kfile[40]
-    ,kfile_full[120]
-    ;
-
+  char c_get[40], c_tmp[60], c_k[6], kfile[40], kfile_full[120]  ;
   FILE *fp;
+  char fnam[] = "Landolt_ini" ;
 
   // --------- BEGIN -------------
 
-
   print_banner("INIT  BESSELL <=> LANDOLT  TRANSFORMATIONS" );
-
 
   // init color terms to crazy value.
 
@@ -8506,18 +8515,18 @@ int Landolt_ini(
 
   printf("   UBVRI,BX offsets: ");
   for ( ifilt=0; ifilt < NFILT_LANDOLT; ifilt++ ) {
-    magtmp = *(mag + ifilt) ;
+    magtmp  = mag[ifilt] ;
     LANDOLT_MAGPRIMARY[ifilt] = (double)magtmp ;
     printf(" %7.3f", magtmp );
   }
-  printf("\n\n");
+  printf("\n\n"); fflush(stdout);
 
   if ( opt == 0 ) 
-    goto PRINT_COLOR_TERMS ;
+    { goto PRINT_COLOR_TERMS ; }
   else if ( opt < 4 ) 
-    sprintf(kfile, "LANDOLT_COLOR_TERMS_BD17.DAT" );
+    { sprintf(kfile, "LANDOLT_COLOR_TERMS_BD17.DAT" ); }
   else
-    sprintf(kfile, "LANDOLT_COLOR_TERMS_VEGA.DAT" );
+    { sprintf(kfile, "LANDOLT_COLOR_TERMS_VEGA.DAT" ); }
 
 
   // read color terms from file
@@ -8591,8 +8600,6 @@ int Landolt_ini(
 }  // end 
 
 
-
-
 /**********************************************
   SALT-II color correction formula
 **********************************************/
@@ -8620,7 +8627,6 @@ int Landolt_convert(int opt, double *mag_in, double *mag_out) {
 
          (but note that reported U is (UX - BX + B)_synth
 
-
   ******/
 
   int ifilt;
@@ -8640,85 +8646,78 @@ int Landolt_convert(int opt, double *mag_in, double *mag_out) {
   // ------------ BEGIN ----------------
 
   // init *mag_out
-  for ( ifilt=0; ifilt < NFILT_LANDOLT ; ifilt++ ) {
-    *(mag_out+ifilt) = -99.0 ; 
-  }
+  for ( ifilt=0; ifilt < NFILT_LANDOLT ; ifilt++ ) 
+    { mag_out[ifilt] = -99.0 ;  }
 
-
-  k0 = LANDOLT_COLOR_VALUE[0];
-  k1 = LANDOLT_COLOR_VALUE[1];
-  k2 = LANDOLT_COLOR_VALUE[2];
-  k3 = LANDOLT_COLOR_VALUE[3];
-  k4 = LANDOLT_COLOR_VALUE[4];
+  k0 = LANDOLT_COLOR_VALUE[0] ;
+  k1 = LANDOLT_COLOR_VALUE[1] ;
+  k2 = LANDOLT_COLOR_VALUE[2] ;
+  k3 = LANDOLT_COLOR_VALUE[3] ;
+  k4 = LANDOLT_COLOR_VALUE[4] ;
 
   // apply magdif array
 
   if ( opt > 0 ) {  // convert Bessell -> Landolt
-
-
-    del    = *(mag_in+off_B)       - *(mag_in+off_V);
+    del    = mag_in[off_B]  - mag_in[off_V];
     delref = LANDOLT_MAGPRIMARY[off_B] - LANDOLT_MAGPRIMARY[off_V] ;
     DEL_V  = k0*(del-delref);
     DEL_BV = k1 * (del-delref);
 
-    del     = *(mag_in+off_U)       - *(mag_in+off_BX);
+    del     = mag_in[off_U]  - mag_in[off_BX];
     delref  = LANDOLT_MAGPRIMARY[off_U] - LANDOLT_MAGPRIMARY[off_BX] ;
     DEL_UBX = k2 * (del-delref);
 
-    del     = *(mag_in+off_V)       - *(mag_in+off_R);
+    del     = mag_in[off_V]  - mag_in[off_R];
     delref  = LANDOLT_MAGPRIMARY[off_V] - LANDOLT_MAGPRIMARY[off_R] ;
     DEL_VR  = k3 * (del-delref);
 
-    del     = *(mag_in+off_R)       - *(mag_in+off_I);
+    del     = mag_in[off_R]    - mag_in[off_I];
     delref  = LANDOLT_MAGPRIMARY[off_R] - LANDOLT_MAGPRIMARY[off_I] ;
     DEL_RI  = k4 * (del-delref);
 
-    *(mag_out + off_V) = *(mag_in + off_V) + DEL_V ;
-    *(mag_out + off_B) = *(mag_in + off_B) + DEL_V + DEL_BV ;
-    *(mag_out + off_R) = *(mag_in + off_R) + DEL_V - DEL_VR ;
-    *(mag_out + off_I) = *(mag_in + off_I) + DEL_V - DEL_VR - DEL_RI ;
+    mag_out[off_V] = mag_in[off_V] + DEL_V ;
+    mag_out[off_B] = mag_in[off_B] + DEL_V + DEL_BV ;
+    mag_out[off_R] = mag_in[off_R] + DEL_V - DEL_VR ;
+    mag_out[off_I] = mag_in[off_I] + DEL_V - DEL_VR - DEL_RI ;
 
-    *(mag_out + off_U) = *(mag_in+off_U) - *(mag_in+off_BX) + *(mag_in+off_B)
-     + DEL_V + DEL_BV + DEL_UBX ;
-
+    mag_out[off_U] = mag_in[off_U] - mag_in[off_BX] + mag_in[off_B]
+				  + DEL_V + DEL_BV + DEL_UBX ;
   } 
 
   else if ( opt < 0 ) {  // convert Landolt -> Bessell
 
-    del    = *(mag_in+off_B)       - *(mag_in+off_V) ;
+    del    = mag_in[off_B]       - mag_in[off_V] ;
     delref = LANDOLT_MAGPRIMARY[off_B] - LANDOLT_MAGPRIMARY[off_V] ;
     DEL_BV = (del + k1*delref) / ( 1. + k1 ) ;  // (B-V)_Bess
     DEL_V  = k0 * (delref - DEL_BV );  // V_Bess - V_Land
 
-    del    = *(mag_in+off_V)       - *(mag_in+off_R) ;
+    del    = mag_in[off_V]  - mag_in[off_R] ;
     delref = LANDOLT_MAGPRIMARY[off_V] - LANDOLT_MAGPRIMARY[off_R] ;
     DEL_VR = (del + k3*delref) / ( 1. + k3 ) ;  // (V-R)_Bess
 
-    del    = *(mag_in+off_R)       - *(mag_in+off_I) ;
+    del    = mag_in[off_R]    - mag_in[off_I] ;
     delref = LANDOLT_MAGPRIMARY[off_R] - LANDOLT_MAGPRIMARY[off_I] ;
     DEL_RI = (del + k4*delref) / ( 1. + k4 ) ;  // (R-I)_Bess
 
-    del    = *(mag_in+off_U)       - *(mag_in+off_B) ;
+    del    = mag_in[off_U]   - mag_in[off_B] ;
     delref = LANDOLT_MAGPRIMARY[off_U] - LANDOLT_MAGPRIMARY[off_B] ;
     DEL_UBX = (del + k2*delref) / ( 1. + k2 );   // (UX-BX)_Bess
 
-
     Vout = *(mag_in  + off_V) + DEL_V ;
-    *(mag_out+off_V) = Vout ;
-    *(mag_out+off_B) = Vout + DEL_BV ;
-    *(mag_out+off_R) = Vout - DEL_VR ;
-    *(mag_out+off_I) = *(mag_out+off_R) - DEL_RI ;
+    mag_out[off_V] = Vout ;
+    mag_out[off_B] = Vout + DEL_BV ;
+    mag_out[off_R] = Vout - DEL_VR ;
+    mag_out[off_I] = mag_out[off_R] - DEL_RI ;
 
-    Utmp = DEL_UBX + *(mag_out+off_B) ;  // reported U = UX-BX+B
+    Utmp = DEL_UBX + mag_out[off_B] ;  // reported U = UX-BX+B
 
     // to get synthetic U, add synthetic BX-B
 
-    DEL_BXB = *(mag_in+off_BX) ;
-    *(mag_out+off_U) = Utmp + DEL_BXB ;
+    DEL_BXB = mag_in[off_BX] ;
+    mag_out[off_U] = Utmp + DEL_BXB ;
 
     // BX = (BX-B)_in + B_out
-    *(mag_out+off_BX) = DEL_BXB + *(mag_out+off_B);
-
+    mag_out[off_BX] = DEL_BXB + mag_out[off_B];
   }
 
   return SUCCESS ; // add Aug 7 2014 to avoid compile warning.
@@ -9810,12 +9809,21 @@ void readchar(FILE *fp, char *clist)
 // ******************************************************
 void print_full_command(FILE *fp, int argc, char** argv) {
 
+  // print full command and also print snana version
+  // that includes github tag+commit info
+
   int i;
+  char snana_version[60];
+
+  
   fprintf(fp,"\n Full command: ");
-  for ( i=0; i < argc; i++ ) {
-    fprintf(fp,"%s ", argv[i] );
-  }
-  fprintf(fp,"\n\n"); fflush(fp);
+  for ( i=0; i < argc; i++ ) {  fprintf(fp,"%s ", argv[i] );  }
+  fprintf(fp, "\n\n");
+
+  get_SNANA_VERSION(snana_version);
+  fprintf(fp," SNANA_VERSION: %s\n", snana_version);
+
+  fprintf(fp,"\n\n");  fflush(fp);
 }
 
 // ************************************************
@@ -9908,8 +9916,10 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
     return(f_MEMTOT);
   } 
   else {  
-    for(i1=0; i1 < LEN1; i1++ ) { free((*array2D)[i1]); }
-    free(array2D[i1]) ;    
+    for(i1=0; i1 < LEN1; i1++ ) 
+      { free((*array2D)[i1]); }
+    free(*array2D) ;    
+    // xxxxx mark delete   free(array2D[i1]) ;
   }
 
 

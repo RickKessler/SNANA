@@ -36,6 +36,7 @@ typedef struct GRIDMAP1D {
 #define IDGRIDMAP_KCOR_MWXT             22
 #define IDGRIDMAP_KCOR_AVWARP           23
 #define IDGRIDMAP_KCOR_VAL              24  // K-cor values
+#define IDGRIDMAP_XTMAG                 25  // host-gal extinction map
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap 
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap 
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap 

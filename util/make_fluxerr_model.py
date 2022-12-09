@@ -7,12 +7,21 @@
 #  + create SIMLIB from fakes overlaid on images
 #  + run simulation using SIMLIB to have same epochs and mags as fakes
 #  + create tables with every observation
-#  + make fluxError maps
+#  + write fluxError maps to file 
+#     (argument of FLUXERRMODEL_FILE for snlc_sim and snlc_fit)
+#
 #
 # Aug 11 2021: if SBMAG-dependence is set, keep epochs with SBMAG<50
 #             (initial use is LSST-DC2)
 # Aug 12 2021: if too few fakes to compute cor, take value from 
 #              nearest bin.
+#
+# Nov 28 2022: 
+#   + fix bug computing nrow_per_filter in make_fluxerr_model_map()
+#               (divide by NFIELD_GROUP)
+#   + At stage07, rename DESfakes to {survey}_fakes
+#   + analyze REDCOV by field group
+#     [beware this could be buggy if there are no FIELD groups]
 #
 # ========================
 
@@ -48,10 +57,19 @@ COLNAME_IFIELD   = "IFIELD"
 
 IFILTOBS_MAX = 80
 
-ISTAGE_MAKEMAP = 5
+ISTAGE_MAKEMAP    =  5  # fragile alert
+ISTAGE_FLUXTABLE  = -9
+ISTAGE_REDCOV     = -9
 
 # list of reduced flux correlations to try in sim 
 REDCOV_LIST = [ 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 ]
+#REDCOV_LIST = [ 0.0, 0.4  ]
+
+# to evaluate REDDOV, take data-sim chi2 by band and compare
+# histograms of PROB(chi2,Ndof); here are the PROB limits to compare:
+PROB_TRUEFLUX_MIN  = 0.05
+PROB_TRUEFLUX_MAX  = 1.0
+PROB_TRUEFLUX_NBIN = 10
 
 NMLKEY_DATA_PATH   = 'PRIVATE_DATA_PATH'
 NMLKEY_VERSION     = 'VERSION_PHOTOMETRY'
@@ -72,6 +90,7 @@ NMLKEY_LIST = [NMLKEY_DATA_PATH, NMLKEY_VERSION, NMLKEY_KCOR_FILE,
 
 KEY_ALLBANDS        = "ALL"
 VARNAME_PROB_PREFIX = "PROB_TRUEFLUX"  # varname in SNANA table
+VARNAME_FIELD       = "FIELD"
 
 TABLE_SUFFIX_SNANA   = "SNANA.TEXT"
 TABLE_SUFFIX_OUTLIER = "OUTLIER.TEXT"
@@ -120,6 +139,45 @@ FLUXERRMAP_BINS:
   - SBMAG   8  20   28     # nbin min max (histogram bins)
   - PSF     3  1.0  4.0    # idem
 
+
+
+# ==========================================================
+# what to do with the output (argument of OUTDIR in config file)
+#  [see snana manual section 4.14.1 FLUXERRMODEL Tables]
+
+These are the three output files to use/examine:
+   FLUXERRMODEL_SIM.DAT  FLUXERRMODEL_FAKE.DAT  REDCOV.SUMMARY
+
+1. In the simulation, add input
+   FLUXERRMODEL_FILE:  $PATH/FLUXERRMODEL_SIM.DAT
+
+2. If real data errors have not been inflated for SBMAG, 
+   add this input
+   &SNLCINP
+      FLUXERRMODEL_FILE = '$PATH/FLUXERRMODEL_FAKE.DAT'
+
+  Beware that LCFIT implements FLUXERRMODEL_FILE only for real data;
+  it is ignored for sims because sim errors should already be inflated.
+  This auto-ignore feature allow using the same LCFIT input file for
+  data and sim.
+
+3. The final step is to select reduced correlations from REDCOV.SUMMARY.
+   See snana manual section  4.14.2 Modeling Flux Correlations.
+   This feature describes correlations of the EXCESS SCATTER among 
+   observations of the same event. The simulated Poisson fluctuations
+   are independent for each epoch.
+   Visually examine REDCOV.SUMMARY and select rho-value (reduced correlation)
+   that roughly minimizes reduced chi2 between fake-data and sim.
+   Follow the SNANA-manual syntax and enter the REDCOV key(s) in one
+   two ways. Using an example of DES (griz bands) and .4 reduced correlation,
+      REDCOV: g:0.4,r:0.4,i:0.4,z:0.4  [in FLUXERRMODEL_FILE]
+         or
+      FLUXERRMODEL_REDCOV: g:0.4,r:0.4,i:0.4,z:0.4  [in sim-input file]
+
+   The above syntax applies the correlation within each passband,
+   but zero correlation between passbands. For FIELD-dependent REDCOV,
+   see syntax in SNANA manual. 
+   
 """
 
 # ==================================
@@ -593,11 +651,13 @@ def simgen_nocorr(ISTAGE,config):
     return
     # end simgen_nocorr
 
-def make_outlier_table(ISTAGE,config,what):
+def make_flux_table(ISTAGE,config,what):
 
     # run snana.exe with OUTLIER(nsig:0) to create flux table
     # for all observations.
     # Input what = FAKE or SIM
+
+    global ISTAGE_FLUXTABLE; ISTAGE_FLUXTABLE = ISTAGE
 
     OUTDIR = config.input_yaml['OUTDIR']
     prefix = stage_prefix(ISTAGE)
@@ -649,7 +709,7 @@ def make_outlier_table(ISTAGE,config,what):
 
     return table_file 
 
-    # end make_outlier_table
+    # end make_flux_table
 
 def parse_map_bins(config):
 
@@ -702,6 +762,9 @@ def parse_map_bins(config):
         valmin_list.append(valmin)
         valmax_list.append(valmax)
         bin_edge_list.append(bins)
+
+    print(f"    Store total of {NBIN1D} 1D bins")
+    sys.stdout.flush()
 
     # make list for header without FIELD or IFILTOBS 
     varname_header_list = varname_list.copy() 
@@ -844,7 +907,9 @@ def make_fluxerr_model_map(ISTAGE,config):
     errscale_dict = \
         { 'bin1d':[], 'n_fake':[], 'n_sim':[], 'cor_fake':[], 'cor_sim':[] }
     nrow = 0
-    if nfilters > 0 : nrow_per_filter = int(NBIN1D/IFILTOBS_MAX)
+    if nfilters > 0 : 
+        NFIELD_GROUP    = config.input_yaml['NFIELD_GROUP']
+        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/NFIELD_GROUP)
     
     for BIN1D in range(0,NBIN1D):
 
@@ -1018,10 +1083,12 @@ def  modify_tables(df_fake, df_sim, config):
         FIELD_LISTS = input_yaml['FIELD_GROUP_LISTS']
         print(f"   Add {COLNAME_IFIELD} column to tables ...")
         df_fake[COLNAME_IFIELD] = \
-            df_fake.apply(lambda row: apply_field(row,FIELD_LISTS), axis=1)
+            df_fake.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+           #df_fake.apply(lambda row: apply_field(row,FIELD_LISTS), axis=1)
 
         df_sim[COLNAME_IFIELD] = \
-            df_sim.apply(lambda row: apply_field(row,FIELD_LISTS), axis=1)
+            df_sim.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+            #df_sim.apply(lambda row: apply_field(row,FIELD_LISTS), axis=1)
         
     #sys.exit(f"\n xxx BYE BYE df_fake=\n{df_fake}\n")
 
@@ -1137,6 +1204,7 @@ def write_map_global_header(f, what, config):
     map_bin_dict      = config.map_bin_dict
     NDIM              = map_bin_dict['NDIM']
     varname_list      = map_bin_dict['varname_list']
+    band_list         = map_bin_dict['band_list']  
 
     nrow_fake = config.nrow_fake
     nrow_sim  = config.nrow_sim
@@ -1174,6 +1242,7 @@ def write_map_global_header(f, what, config):
   - map-create command =  {sys.argv[0]} {sys.argv[1]} 
   - created by user={USERNAME} on HOST={HOSTNAME}  
     """)
+
     f.write(f"\nDOCUMENTATION_END:\n")
     f.write(f"\n\n")
 
@@ -1182,6 +1251,23 @@ def write_map_global_header(f, what, config):
         f.write(f"DEFINE_FIELDGROUP: {field_name}  {snana_field_list}\n")
 
     f.flush()
+    # - - - - -
+    # write REDCOV keys with rho=9 to force sim-abort
+    if what == STRING_SIM:
+        f.write(f"\n")
+        f.write(f"# WARNING: \n")
+        f.write(f"# Manually change rho=9 to prevent sim-abort, " \
+                f"or remove REDCOV key(s). \n");
+        f.write(f"# For more info:  make_fluxerr_model.py -H \n")
+        arg_REDCOV_list = [] ; rho = 9
+        for band in band_list:
+            arg_REDCOV_list.append(f"{band}:{rho}")
+        arg_REDCOV = ','.join(arg_REDCOV_list)
+        for field_name in FIELD_GROUP_NAMES :
+            key   = f"REDCOV({field_name}):"
+            f.write(f"{key:<20} {arg_REDCOV}\n");
+
+        f.flush()
     # end write_map_define_fields
 
 def write_map_header(f, ifield, ifiltobs, config):
@@ -1197,6 +1283,8 @@ def write_map_header(f, ifield, ifiltobs, config):
 
     if ifield >=0 : 
         field_arg = FIELD_GROUP_NAMES[ifield]
+    else:
+        pass  # ???
 
     if ifiltobs < 0 :
         band_arg = ''.join(band_list)
@@ -1304,25 +1392,27 @@ def get_filter_list(df, map_bin_dict):
     return
     # end get_filter_list
 
+def get_IFIELD(FIELD,config):
 
-def apply_field(row,FIELD_LISTS):
-
-    # return IFIELD index for this row.
+    # return IFIELD index for this FIELD string input..
     # Input FIELD_LISTS is a list of lists; e..g,
     # [ ['X3','C3'] , ['S1', 'S2', 'X1', 'X2'] ]
+    #
+    # Note that overlap fields (e.g., S1+S2) will return -9
 
-    FIELD = row['FIELD']
+    input_yaml     = config.input_yaml
+    FIELD_LISTS    = input_yaml['FIELD_GROUP_LISTS']
+
     ifield = 0
     for field_list in FIELD_LISTS:
         if FIELD in field_list: return ifield
         ifield += 1
 
     # if we get here, abort
-    sys.exit(f"\n ERROR: FIELD={FIELD} is not in \n\t {FIELD_LISTS}. " \
-             f"\n\t See FIELDS arg in input file.")
+    #sys.exit(f"\n ERROR: FIELD={FIELD} is not in \n\t {FIELD_LISTS}. " \
+    #         f"\n\t See FIELDS arg in input file.")
 
-    return ifield
-    # end apply_field
+    return -9
 
 def apply_id_1d(row, map_bin_dict):
 
@@ -1365,7 +1455,6 @@ def apply_id_1d(row, map_bin_dict):
 def create_nml_redcov(ISTAGE,config):
 
     # create nml file to analyze for reduced cov with SNANA table.
-    # Default is DC2 data; use command line override for sims.
 
     prefix = stage_prefix(ISTAGE)
 
@@ -1416,9 +1505,12 @@ def redcov_simgen_plus_snana(ISTAGE,config,rho):
     # + simulate with reduced cov "rho" using sim-input file from STAGE02.
     # + Run SNANA job using nml file created in previous stage
 
+    global ISTAGE_REDCOV; ISTAGE_REDCOV = ISTAGE
+
+    survey       = config.survey
     prefix       = stage_prefix(ISTAGE)
     Jrho         = int(100*rho)  # used for file names
-    GENVERSION   = f"{prefix}_DC2fakes_REDCOV{Jrho:03d}"
+    GENVERSION   = f"{prefix}_{survey}_fakes_REDCOV{Jrho:03d}"
 
     print(f"{prefix}: generate and process sim with rho = {rho}")
     sys.stdout.flush()
@@ -1441,7 +1533,8 @@ def redcov_simgen_plus_snana(ISTAGE,config,rho):
     cmd  = f"cd {OUTDIR}; {JOBNAME_SIM} {sim_input_file} "
     cmd += f"GENVERSION {GENVERSION} "
     cmd += f"FLUXERRMODEL_FILE {FLUXERRMODEL_FILENAME_SIM} "
-    if rho > 0.0 :  cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
+    # xxx mark if rho > 0.0 :  cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
+    cmd += f"FLUXERRMODEL_REDCOV {simarg_redcov}"
     cmd += f" > {log_file_sim}"
 
     print(f"\t Generage {GENVERSION}")
@@ -1492,11 +1585,19 @@ def prep_simarg_redcov(config,rho):
     return simarg_redcov
     # end prep_simarg_redcov
 
-def redcov_analyze(ISTAGE,config, rho, prefix_sim, f_summary ):
+def redcov_analyze(ISTAGE,config, ifield, rho, prefix_sim, f_summary ):
     
     # + Analyze SNANA tables (data & sim) and compute FoM
     # + Update summary table using passed pointer f_summary
-
+    #
+    # Inputs:
+    #   ISTAGE     : pipeline stage number (for stdout comments)
+    #   config     : input config contents
+    #   rho        : reduced correlation (0-1)
+    #   prefix_sim : prefix to use for sim files
+    #   ifield     : field index to select
+    #   f_summary  : file pointer to write summary
+    
     prefix       = stage_prefix(ISTAGE)
     print(f"{prefix}: Compute FoM per band for rho = {rho}")
     sys.stdout.flush()
@@ -1504,40 +1605,47 @@ def redcov_analyze(ISTAGE,config, rho, prefix_sim, f_summary ):
         print(f"\t Already done --> SKIP")
         return
     
-    OUTDIR           = config.input_yaml['OUTDIR']
-    nml_file         = config.nml_file_redcov
-    filters          = config.filters
-    filter_list      = list(filters)
+    OUTDIR            = config.input_yaml['OUTDIR']
+    FIELD             = config.input_yaml['FIELD_GROUP_NAMES'][ifield]
+    nml_file          = config.nml_file_redcov
+    filters           = config.filters
+    filter_list       = list(filters)
     filter_list.append(KEY_ALLBANDS)
 
     prefix_data      = nml_file.split('.')[0]
     table_file_data  = f"{prefix_data}.{TABLE_SUFFIX_SNANA}"
     table_file_sim   = f"{prefix_sim}.{TABLE_SUFFIX_SNANA}"
+
+
     print(f"\t Compare data to {prefix_sim}")
 
     # fom_list is FoM per band
-    chi2red_list = compute_chi2red(config, table_file_data, table_file_sim )
+    chi2red_list, n_data_list, n_sim_list = \
+            compute_chi2red(config, ifield, table_file_data, table_file_sim )
 
     # update summay file
     chi2red_sum = 0.0
-    for band,chi2red in zip(filter_list,chi2red_list):
+    for band, chi2red, n_data, n_sim in \
+        zip(filter_list, chi2red_list, n_data_list, n_sim_list):
 
         if band == KEY_ALLBANDS: 
             comment = '# include ALL bands for chi2red'
         else:
             chi2red_sum += chi2red
-            comment  = ''
+            comment  = '#'
 
-        f_summary.write(f"  - {band:<3} {rho:4.2f}  {chi2red:7.2f}" \
+        comment += f"  [N(fake,sim) = {n_data},{n_sim}]"
+
+        f_summary.write(f"  - {FIELD}  {band:<3} {rho:4.2f}  {chi2red:7.2f}"\
                         f"   {comment}\n")
 
     # - - - - 
-    f_summary.write(f"  - SUM {rho:4.2f}  {chi2red_sum:7.2f} " \
+    f_summary.write(f"  - {FIELD}  SUM {rho:4.2f}  {chi2red_sum:7.2f} " \
                     f"  # sum of chi2red over bands\n\n")
 
     # end redcov_analyze
 
-def compute_chi2red(config, table_file_data, table_file_sim):
+def compute_chi2red(config, ifield, table_file_data, table_file_sim):
 
     # compute chi2red(data/sim) for each band;
     # return chi2red_list vs. band.
@@ -1547,24 +1655,38 @@ def compute_chi2red(config, table_file_data, table_file_sim):
     filter_list    = list(filters)
     filter_list.append(KEY_ALLBANDS)
     chi2red_list   = []
+    n_data_list    = []
+    n_sim_list     = []
 
     TABLE_FILE_DATA = f"{OUTDIR}/{table_file_data}"
     TABLE_FILE_SIM  = f"{OUTDIR}/{table_file_sim}"
     df_data = pd.read_csv(TABLE_FILE_DATA, comment="#", delim_whitespace=True)
     df_sim  = pd.read_csv(TABLE_FILE_SIM,  comment="#", delim_whitespace=True)
 
+    # - - - - -
+    # add ifield column and apply ifield cut (Nov 2022)
+    df_data[COLNAME_IFIELD] = \
+        df_data.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+    df_sim[COLNAME_IFIELD] = \
+        df_sim.apply(lambda row: get_IFIELD(row['FIELD'],config), axis=1)
+
+    df_data = df_data.loc[ df_data[COLNAME_IFIELD] == ifield ]
+    df_sim  = df_sim.loc[  df_sim[COLNAME_IFIELD]  == ifield ]
+
+    # - - - - - 
     nrow_data = len(df_data)
     nrow_sim  = len(df_sim)
 
-    prob_min  = 0.10
-    prob_max  = 1.00
-    nbin_prob = 9   # number of histogram bins
+    prob_min  = PROB_TRUEFLUX_MIN
+    prob_max  = PROB_TRUEFLUX_MAX
+    nbin_prob = PROB_TRUEFLUX_NBIN
     prob_bins = np.linspace(prob_min, prob_max, nbin_prob+1)
 
+  
     print(f"\t nrow(data,sim) = {nrow_data} , {nrow_sim} ")
     dump_flag = False
-    if dump_flag : print(" xxx ----------------------------------- ")
 
+    if dump_flag : print(" xxx ----------------------------------- ")
     
     for band in filter_list:
 
@@ -1589,9 +1711,13 @@ def compute_chi2red(config, table_file_data, table_file_sim):
         bin_sim_raw    = np.bincount(prob_sim_binned)[1:]
         sim_scale      = np.sum(bin_data)/np.sum(bin_sim_raw)
 
+        n_data = sum(bin_data)
+        n_sim  = sum(bin_sim_raw)
+
         if dump_flag:
-            print(f" xxx {band}: bin_data = {bin_data}")
-            print(f" xxx {band}: bin_sim  = {bin_sim_raw} x {sim_scale:.3f}")
+            print(f" xxx {band}: bin_data = {bin_data}   n={n_data}")
+            print(f" xxx {band}: bin_sim  = {bin_sim_raw} x {sim_scale:.3f}"\
+                  f"    n={n_sim}")
             sys.stdout.flush()
 
         # compute chi2 (there must be a better way; this is awful ?!?!?)
@@ -1609,8 +1735,10 @@ def compute_chi2red(config, table_file_data, table_file_sim):
             sys.stdout.flush()
 
         chi2red_list.append(chi2red)
+        n_data_list.append(n_data)
+        n_sim_list.append(n_sim)
 
-    return chi2red_list
+    return chi2red_list, n_data_list, n_sim_list
 
     # end compute_chi2red
 
@@ -1622,11 +1750,49 @@ def create_redcov_summary_file(ISTAGE,config):
     print(f"{prefix}: Open {REDCOV_SUMMARY_FILE}")
 
     f_summary    = open(summary_file,"wt")
-    f_summary.write("# Data/sim chi2red vs. Reduced Flux Correlation \n\n")
-    f_summary.write("REDCOV:   # band  rho  chi2red(data/sim)\n")
+    f_summary.write("# Data/sim chi2red vs. Reduced Flux Correlation \n")
+    f_summary.write("# Based on histogram of PROB_TRUEFLUX_[band] = " \
+                    f" PROB( sum(F_i-Ftrue_i)^2/sig_i^2, Nobs) \n")
+
+    f_summary.write("\n")
+    f_summary.write("REDCOV:   # field  band  rho  chi2red(data/sim)\n")
     return f_summary
+
     # end create_redcov_summary_file
 
+def compress_output(ISTAGE,config):
+    OUTDIR       = config.input_yaml['OUTDIR']
+    cdout = f"cd {OUTDIR}"
+
+    prefix     = stage_prefix(ISTAGE)
+    print(f"{prefix}: compress output")
+    sys.stdout.flush()
+
+    # gzip SIMLIB and TEXT files
+    cmd_gzip = f"{cdout} ; gzip STAGE*.SIMLIB STAGE*.TEXT STAGE*.LOG"
+    #print(f"\t xxx cmd_gzip = {cmd_gzip}")
+    print(f"\t gzip SIMLIB TEXT and LOG files ... ")
+    sys.stdout.flush()
+    os.system(cmd_gzip)
+
+    # tar output for a few stages with lots of files
+
+    ISTAGE_TAR_LIST = [ ISTAGE_FLUXTABLE, ISTAGE_REDCOV ]
+    WILDCARD_LIST   = [ '*fluxTable*',  '*REDCOV*' ]
+
+    for istage, w in zip(ISTAGE_TAR_LIST, WILDCARD_LIST):
+        prefix_istage = f"STAGE{istage:02d}"
+        wildcard      = f"{prefix_istage}{w}"
+        tar_file      = f"{prefix_istage}.tar"
+        print(f"\t Create {tar_file}")
+        sys.stdout.flush()
+        cmd_tar = f"{cdout}; tar -cf {tar_file} {wildcard} ; rm {wildcard}"
+        #print(f"\t xxx cmd_tar = {cmd_tar}")
+        os.system(cmd_tar)
+
+    return
+    # end compress_output
+    
 # =====================================
 #
 #      MAIN
@@ -1674,8 +1840,8 @@ if __name__ == "__main__":
     # run snana on fakes and sim; create OUTLIER table with nsig>=0
     # to catch all flux observations
     ISTAGE += 1
-    config.flux_table_fake = make_outlier_table(ISTAGE,config,STRING_FAKE)
-    config.flux_table_sim  = make_outlier_table(ISTAGE,config,STRING_SIM)
+    config.flux_table_fake = make_flux_table(ISTAGE,config,STRING_FAKE)
+    config.flux_table_sim  = make_flux_table(ISTAGE,config,STRING_SIM)
 
     # create fluxerrmodel map files
     ISTAGE += 1
@@ -1702,8 +1868,14 @@ if __name__ == "__main__":
 
     ISTAGE += 1
     f_summary = create_redcov_summary_file(ISTAGE,config)
-    for rho,prefix_sim in zip(REDCOV_LIST,prefix_sim_list):
-        redcov_analyze(ISTAGE,config, rho, prefix_sim, f_summary)
+    NFIELD_GROUP    = config.input_yaml['NFIELD_GROUP']
+    for ifield in range(0,NFIELD_GROUP):
+        for rho, prefix_sim in zip(REDCOV_LIST,prefix_sim_list):        
+            redcov_analyze(ISTAGE,config, ifield, rho, prefix_sim, f_summary)
         
+    # compress asome of the output files with gzip or tar
+    ISTAGE += 1
+    compress_output(ISTAGE,config)
+
 # === END ===
 

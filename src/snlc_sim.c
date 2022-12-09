@@ -78,6 +78,8 @@ int main(int argc, char **argv) {
 
   // ------------- BEGIN --------------
 
+  print_full_command(stdout, argc, argv);
+
   if (argc < 2) { print_sim_help();  exit(0); }
 
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
@@ -92,8 +94,10 @@ int main(int argc, char **argv) {
   init_commandLine_simargs(argc, argv);
 
   // init fortran variables
+#ifdef USE_KCOR_FORTRAN
   istat = 0;
   init_snvar__(&istat); 
+#endif
 
   // one-time init of sim-variables
   init_simvar();
@@ -193,7 +197,10 @@ int main(int argc, char **argv) {
   DASHBOARD_DRIVER();
 
   // initialize calib/kcor
+#ifdef USE_KCOR_FORTRAN
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
+#endif
+
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
   //   if ( INPUTS.USE_KCOR_REFACTOR > 0 )    { test_kcor_utils(); }
@@ -438,7 +445,7 @@ void init_commandLine_simargs(int argc, char **argv) {
 
   ENVreplace("init", fnam, 1);
 
-  printf("   Full command: ");
+  // xxx mark  printf("   Full command: ");
 
   if ( argc >= 2 ) {
     sprintf(inFile, "%s", argv[1] );
@@ -456,13 +463,12 @@ void init_commandLine_simargs(int argc, char **argv) {
       ARGV_LIST[i] = (char*) malloc( LENARG*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
-      printf("%s ", argv[i]);
+      // xxx mark delete printf("%s ", argv[i]);
     }
     USE_ARGV_LIST[0] = 1;  // program name
     USE_ARGV_LIST[1] = 1;  // input file
   }
-  else
-    { sprintf(inFile, "snlc_sim.input" ); } // default name
+
 
   printf("\n\n"); fflush(stdout);
 
@@ -630,8 +636,14 @@ void set_user_defaults(void) {
   char fnam[] = "set_user_defaults" ;
   // --------------- BEGIN ---------------
 
+  /* xxx mark delete 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
+  xxxxxx */
+
+  // permanently turn on refactor, Dec 2 2022
+  INPUTS.USE_KCOR_REFACTOR = 2 ; 
+  INPUTS.USE_KCOR_LEGACY   = 0 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
   INPUTS.README_DUMPFLAG    = false ;
@@ -5725,6 +5737,14 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
+#ifndef USE_KCOR_FORTRAN
+  if ( INPUTS.USE_KCOR_LEGACY ) {
+    sprintf(c1err,"Cannot use legacy/fortran KCOR code because");
+    sprintf(c2err,"#define USE_KCOR_FORTRAN is not set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+#endif
+
   // replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
@@ -9849,6 +9869,8 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
 
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
+    if ( FLAM_SN < 1.0E-30 ) { FLAM_SN = 1.0E-30; } 
+
     FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
     FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
     
@@ -11740,11 +11762,13 @@ void gen_filtmap(int ilc) {
     if ( GENFRAME_OPT  == GENFRAME_REST  ) {
 
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
 	for(irank=1; irank <=3; irank++ ) {
 	  ifilt_rest[irank] =
 	    nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4[irank]);
 	  lamdif[irank] = (double)lamdif4[irank] ;
 	}
+#endif
       }
       else {
 	for(irank=1; irank <=3; irank++ ) {
@@ -11752,19 +11776,6 @@ void gen_filtmap(int ilc) {
 	    nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, &lamdif[irank]);
 	}
       }
-
-
-      /* xxxxxxxxxx mark delete Nov 23 2022 xxxxxxxxx
-      irank = 1;
-      ifilt_rest1 =
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      irank = 2;
-      ifilt_rest2 = 
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      irank = 3;
-      ifilt_rest3 = 
-	nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4,&lamdif4[irank]);
-      xxxxxxxxxx end mark xxxxxx */
 
       GENLC.IFILTMAP_REST1[ifilt_obs] = ifilt_rest[1] ;
       GENLC.IFILTMAP_REST2[ifilt_obs] = ifilt_rest[2] ;
@@ -12598,10 +12609,11 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     // but for simulations they are always the same.
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       OPT_FRAME = GENFRAME_OBS ;
       get_filttrans_legacy__(&OPT_FRAME, &ifilt_obs, surveyName, filtName,
-			     &magprim, &NLAM, lam, TransSN, TransREF, 
-			     80, 40 );
+			     &magprim, &NLAM, lam, TransSN, TransREF, 80, 40 );
+#endif
     }
     else {
       OPT_FRAME = GENFRAME_OBS - 1 ;  
@@ -16320,6 +16332,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Nov 18 2021: check iscomment() after removing newline to fix subtle
   //    bug in which blank line at top of SIMLIB causes infinite loop.
   //
+  // Nov 29 2022: fix bug setting FIELD per epoch with overlaps.
+  //              See field and FIELD_LIST.
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 
@@ -16335,8 +16349,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char wd0[200], wd1[200], ctmp[80], *BAND, cline[400], *pos ;
   char WDLIST[MXWDLIST_SIMLIB][200], *ptrWDLIST[MXWDLIST_SIMLIB];
-  char *FIELD = SIMLIB_HEADER.FIELD;
-  char *TEL   = SIMLIB_HEADER.TELESCOPE ;
+  char *FIELD_LIST = SIMLIB_HEADER.FIELD; // plus-separated list of fields
+  char field[40];                         // field per epoch
+  char *TEL        = SIMLIB_HEADER.TELESCOPE ;
   char sepKey[] = " ";
   char fnam[] = "SIMLIB_readNextCadence_TEXT" ;
 
@@ -16421,7 +16436,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = ID ; 
 	sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
 	USEFLAG_LIBID = ACCEPT_FLAG ;
-	NFIELD = 0 ;
+	NFIELD = 0 ;  sprintf(field,"%s", FIELD_NONAME);
 	iwd++ ; continue ;
       }
 
@@ -16440,18 +16455,17 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
       else if ( strcmp(wd0,"FIELD:") == 0  )  { 
 
-	char tmp_field[40];
-	sscanf(wd1, "%s", tmp_field ); 
+	sscanf(wd1, "%s", field ); 
 
-	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
+	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", field);
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
 	if ( NFIELD == 1 ) 
-	  { sprintf(FIELD, "%s", tmp_field) ; }
+	  { sprintf(FIELD_LIST, "%s", field) ; }
 	else
-	  { strcat(FIELD,"+"); strcat(FIELD,tmp_field); }
+	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
 	
-	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
+	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD_LIST) &&
 		       (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
@@ -16503,11 +16517,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       if ( ISKEY_TEMPLATE && iwd==0 ) {
 	int iwd_start = iwd;
 	if ( strcmp(wd0,"TEMPLATE_SKYSIG:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"SKYSIG", &ptrWDLIST[1] ); } 
+	  { iwd += SIMLIB_read_templateNoise(field,"SKYSIG", &ptrWDLIST[1] ); }
 	else if ( strcmp(wd0,"TEMPLATE_CCDSIG:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"CCDSIG", &ptrWDLIST[1] ); } 
+	  { iwd += SIMLIB_read_templateNoise(field,"CCDSIG", &ptrWDLIST[1] ); }
 	else if ( strcmp(wd0,"TEMPLATE_ZPT:") == 0 )
-	  { iwd += SIMLIB_read_templateNoise(FIELD,"ZPT", &ptrWDLIST[1] ); }    
+	  { iwd += SIMLIB_read_templateNoise(field,"ZPT", &ptrWDLIST[1] ); } 
 
 	// read spectrograph exposure time for template
 	OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
@@ -16596,7 +16610,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	// update few header items for each epoch since
 	// these item can be changed at any epoch.
-	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 	sprintf(SIMLIB_OBS_RAW.TELESCOPE[ISTORE], "%s", TEL);
 	PIXSIZE = SIMLIB_HEADER.PIXSIZE ;
 	SIMLIB_OBS_RAW.PIXSIZE[ISTORE] = PIXSIZE ;
@@ -16628,7 +16642,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;
 	SIMLIB_OBS_RAW.TEXPOSE_SPECTROGRAPH[ISTORE] = TEXPOSE_S ;      
 	SIMLIB_OBS_RAW.BAND[ISTORE][0] = 0 ;
-	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", FIELD );
+	sprintf(SIMLIB_OBS_RAW.FIELDNAME[ISTORE], "%s", field );
 
 	ISTORE++ ;
 
@@ -20590,10 +20604,12 @@ int gen_cutwin(void) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];    
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       // original/legacy fortran
       opt_frame = OPT_FRAME_OBS + 1;
       get_filtlam__(&opt_frame, &ifilt_obs,
 		    &lamobs,&lamrms,&lammin,&lammax);
+#endif
     }
     else {
       // refactored
@@ -22517,15 +22533,25 @@ void genmag_boost(void) {
     ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs];     
        
     // start with nearest filter; then 2nd nearest; then 3rd nearest
-    x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
-    x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
-    x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
+      x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
+      x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );   
+      x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+#endif
+    }
+    else {
+      // refactored code
+      x[1] = genmag_extinction(ifilt_rest1, Trest, RV, AV);
+      x[2] = genmag_extinction(ifilt_rest2, Trest, RV, AV);
+      x[3] = genmag_extinction(ifilt_rest3, Trest, RV, AV);
+    }
 
-    if ( epoch < 10 ) {
+    if ( epoch < -44444 ) {
       printf(" xxx %s: epoch=%d ifilt_rest=%d,%d,%d AV=%f RV=%f \n",
 	     fnam, epoch, ifilt_rest1, ifilt_rest2, ifilt_rest3, AV, RV);
-      printf(" xxx %s: x= %f %f %f \n",
-	     fnam, x[1], x[2], x[3] );  //.xyz
+      printf(" xxx %s: epoch=%d x= %f %f %f \n",
+	     fnam, epoch, x[1], x[2], x[3] );  //.xyz
     }
 
     GENLC.genmag_rest[epoch]  += x[1] ;    
@@ -22564,8 +22590,10 @@ void genmag_boost(void) {
     mag[3]  = GENLC.genmag_rest3[epoch] ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       kcor = kcorfun8_(&ifilt_obs, &ifilt_rest_tmp[1], 
 		       &mag[1], &lamdif[1],  &Trest, &z, &AVwarp[1] );
+#endif
     }
     else {
       // refactored
@@ -22718,7 +22746,9 @@ void genmag_MWXT_fromKcor(void) {
 
     AVwarp  = GENLC.AVwarp8[epoch] ;
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       MWXT = get_mwxt8__(&ifilt_obs,&Trest,&z,&AVwarp,&mwebv, &RV, &OPT);
+#endif
     }
     else {
       // refactored
@@ -23191,14 +23221,16 @@ void init_genSEDMODEL(void) {
   sprintf(GENLC.primary,"%s", "NULL");
 
   if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
     // legacy fortran get
     get_primary_legacy__(GENLC.primary, &NLAM, 
 			 genSEDMODEL.lam, genSEDMODEL.primaryFlux, LEN) ;
+#endif
   }
   else {
     // refactored C get
-    get_calib_primary(GENLC.primary, &NLAM, 
-		      genSEDMODEL.lam, genSEDMODEL.primaryFlux );
+    get_calib_primary_sed(GENLC.primary, &NLAM, 
+			  genSEDMODEL.lam, genSEDMODEL.primaryFlux );
   }
 
   /* xxxx
@@ -23279,6 +23311,7 @@ void init_genSEDMODEL(void) {
     sprintf(surveyName,"NULL") ;
 
     if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
       OPT_FRAME[ifilt]++ ; // add 1 for fortran index
       get_filttrans_legacy__(&OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
 		      &ifilt_obs,            // (I) absolute filter index
@@ -23290,6 +23323,7 @@ void init_genSEDMODEL(void) {
 		      genSEDMODEL.TransSN,   // (O) filter trans 
 		      genSEDMODEL.TransREF,  // (O) idem
 		      80,40 ); 
+#endif
     }
     else {
       get_calib_filterTrans(OPT_FRAME[ifilt],  // (I) obs/rest-frame mask
@@ -23416,6 +23450,7 @@ void check_model_default(int index_model ) {
 } // end of check_model_default
 
 // ******************************
+#ifdef USE_KCOR_FORTRAN
 void init_kcor_legacy(char *kcorFile) {
 
   /********
@@ -23571,7 +23606,7 @@ void init_kcor_legacy(char *kcorFile) {
   return ;
 
 } // end of init_kcor_legacy
-
+#endif
 
 
 // ********************************** 
@@ -23652,17 +23687,9 @@ void init_kcor_refactor(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    if ( INPUTS.OPT_SNXT  == OPT_SNXT_CCM89 ) {
-      init_xthost__(&INPUTS.OPT_SNXT);
-    }
-    else if ( INPUTS.OPT_SNXT  == OPT_SNXT_SJPAR ) {
-      print_banner("Init HOST-GALAXY Extinction Parameters");
-      char xtDir[MXPATHLEN];
-      sprintf(xtDir, "%s ", INPUTS.MODELPATH); // leave blank space for fortran
-      rdxtpar_(xtDir, strlen(xtDir) );      
-    }
+    init_genmag_extinction(INPUTS.OPT_SNXT);
 
-    debugexit(fnam);
+    //    debugexit(fnam);
 
   } // end rest-frame
 
@@ -24360,7 +24387,11 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 		     NPAR_FLUXERRMAP_REQUIRE, ERRPARLIST,  // (I)
 		     &FLUXCALERR_TRUE, &FLUXCALERR_DATA) ; // (O)
     
-    SCALE   = FLUXCALERR_TRUE/FLUXCALERR_in ;  SQSCALE = SCALE*SCALE ;
+    SCALE   = FLUXCALERR_TRUE/FLUXCALERR_in ; 
+    if ( SCALE == 1.00 ) 
+      { SCALE = 1.001; } // avoid error "matrix not pos def" (Nov 2022)
+
+    SQSCALE = SCALE*SCALE ;
 
     // don't modify true SQSIG(S); instead, add extra error to FUDGE term.
     SQSIG_TMP    = SQSIG_TRUE[TYPE_FLUXNOISE_S] ; 
@@ -26085,10 +26116,12 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     if ( USE_GENSMEAR_MODEL ) {
       // convert mean lambda of filter in obs frame to rest frame
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
 	// legacy fortran
 	opt_frame = OPT_FRAME_OBS + 1 ;
 	get_filtlam__(&opt_frame, &ifilt_obs, 
 		      &lamavg, &lamrms, &lammin, &lammax );
+#endif
       }
       else {
 	// refectoreed C
@@ -28825,6 +28858,7 @@ void DUMP_GENMAG_DRIVER(void) {
       z4 = (float)GENLC.REDSHIFT_HELIO ;
 
       if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
 	irank = 1;  
 	GENLC.IFILTMAP_REST1[ifilt_obs] = 
 	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
@@ -28837,6 +28871,7 @@ void DUMP_GENMAG_DRIVER(void) {
 	irank = 3;  
 	GENLC.IFILTMAP_REST3[ifilt_obs] = 
 	  nearest_ifilt_rest__(&colopt, &ifilt_obs, &irank, &z4, &lamdif4 );
+#endif
       }
       else {
 	// refactored
@@ -28845,7 +28880,7 @@ void DUMP_GENMAG_DRIVER(void) {
 	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
 	ifilt_rest = GENLC.IFILTMAP_REST1[ifilt_obs] ;
 	
-	irank = 2;  
+	irank = 2;
 	GENLC.IFILTMAP_REST2[ifilt_obs] = 
 	  nearest_ifiltdef_rest(colopt, ifilt_obs, irank, z, fnam, lamdif );
 	

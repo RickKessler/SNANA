@@ -731,6 +731,17 @@ void  solve_spectrograph(void) {
 	check[iref] = fabs(SNR[iref]/SNR_check[iref]-1.0) ;
       }
 
+      if ( isinf(ZP) ) {
+	sprintf(c1err,"inf ZP for LAMAVG=%.3f", LAMAVG);
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( isinf(SQSIGSKY) ) {
+	sprintf(c1err,"inf SQSIGSKY for LAMAVG=%.3f", LAMAVG );
+	sprintf(c2err,"Check spectrograph table");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
       if ( check[0] > 0.001  ||  check[1] > 0.001 ) {
 	print_preAbort_banner(fnam);
 	printf("   SNR0(input/check) = %f/%f = %f \n",

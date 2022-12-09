@@ -84,9 +84,13 @@
 #   + for unbinned, write correct zHEL (no vpec correction)
 #   + write zHD and zHEL comments at top of hubble_diagram.txt
 #
+# Dec 7 2022 RK 
+#   + fix bug in prep_config(); affects pippin integration
+#   + write SNANA_VERSION to INFO.YML file
+#   + new --nosys arg
 # ===============================================
 
-import os, argparse, logging, shutil, time
+import os, argparse, logging, shutil, time, subprocess
 import re, yaml, sys, gzip, math
 import numpy  as np
 import pandas as pd
@@ -189,6 +193,9 @@ def get_args():
     msg = f"override {KEYNAME_SYS_SCALE_FILE} in the input file"
     parser.add_argument("--sys_scale_file", help=msg, 
                         nargs='?', type=str, default=None ) 
+
+    msg = f"no systematics (stat only)"
+    parser.add_argument("--nosys", help=msg, action="store_true")
 
     # xxx not yet ...
     #msg = "scale all systematics by this factor"
@@ -295,6 +302,16 @@ COSMOMC_DATASET_FILE: <out file with cosmomc instructions>
 
     # end print_help_menu
 
+def get_snana_version():
+    # fetch snana version that includes tag + commit;
+    # e.g., v11_05-4-gd033611.
+    # Use same git command as in Makefile for C code
+    SNANA_DIR        = os.environ['SNANA_DIR']
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout.replace('\n','')
+    return snana_version
 
 def check_isdata_real(hd_file):
 
@@ -660,6 +677,9 @@ def get_name_from_fitopt_muopt(f, m):
 def get_fitopt_scales(lcfit_info, sys_scales):
     """ Returns a dict mapping FITOPT numbers to (label, scale) """
     fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
+
+    if fitopt_list is None: return None
+
     result = {}
     for number, _, label, _ in fitopt_list:
         if label != "DEFAULT" and label is not None:
@@ -811,16 +831,6 @@ def get_cov_from_covopt(covopt, contributions, base, calibrators):
     bracket_content0 = re.findall(r"\[(.*)\]",  tmp0)[0]
     bracket_content1 = re.findall(r"\[(.*)\]",  tmp1)[0]
     bracket_content1_list = bracket_content1.split(',')
-
-    #print(f" xxx -------------------------- ")
-    #print(f" xxx bracket_content = {bracket_content0} | {bracket_content1}") 
-
-    # xxxxxxxx mark delete Sep 29 2022 RK xxxxxxxxx
-    #label                       = re.findall(r"\[(.*)\]",      tmp0)[0]
-    #fitopt_filter, muopt_filter = re.findall(r"\[(.*),(.*)\]", tmp1)[0]
-    #print(f" xxx orig  fitopt_filter = '{fitopt_filter}' " \
-    #      f" muopt_filter = '{muopt_filter}'")
-    # xxxxxxxxx end mark xxxxxxxx
 
     #  Sep 29 2022 RK - refactor parsing to allow 2 or 3 comma-sep
     #  items in 2nd bracket.
@@ -1329,6 +1339,9 @@ def write_summary_output(config, covariances, base):
 
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]
 
+    SNANA_VERSION = get_snana_version()
+    info['SNANA_VERSION'] = SNANA_VERSION
+
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
         yaml.safe_dump(info, f)
@@ -1474,7 +1487,12 @@ def create_covariance(config, args):
     logging.info(f"Compute covariance for COVOPTS")
 
     # Add covopt to compute everything
-    covopts = ["[ALL] [,]"] + config.get("COVOPTS",[])  
+    if args.nosys:
+        covopts_default = ["[=DEFAULT] [,=DEFAULT]"] # Dec 2022 
+    else:
+        covopts_default = ["[ALL] [,]"]
+
+    covopts = covopts_default + config.get("COVOPTS",[])  
 
     covariances = \
         [ get_cov_from_covopt(c, contributions, base, 
@@ -1505,35 +1523,10 @@ def create_covariance(config, args):
 
 def prep_config(config,args):
 
-    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
-                  'COSMOMC_TEMPLATES_PATH' ]
-    
-    # 9.22.2021 RK - check legacy keys
-    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
-                        'SYSFILE' ]
-    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
-                        'SYS_SCALE_FILE' ]
+    # Dec 7 2022: fix bug setting override args at start of method instead 
+    #   of at the end.
 
-    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
-        if key_legacy in config:
-            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
-            logging.info(msg)
-            config[key_update] = config[key_legacy] 
-
-    for path in path_list:
-        if path in config:
-            config[path] = os.path.expandvars(config[path]) ;   
-
-    # check special/legacy features for cosmoMC/JLA
-    config['use_cosmomc'] = False
-    if 'COSMOMC_TEMPLATES_PATH' in config: 
-        config['use_cosmomc'] = True
-
-    # WARNING: later add option to read from input file
-    #sys.exit(f" xxx nbin(x1,c) = {args.nbin_x1} {args.nbin_c} ")
-    config['nbin_x1'] = args.nbin_x1
-    config['nbin_c']  = args.nbin_c
-
+    # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :
         config["INPUT_DIR"] = args.input_dir
@@ -1555,6 +1548,35 @@ def prep_config(config,args):
     if args.muopt >= 0 :
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
         logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
+
+    # - - -  - -    
+
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+                        'SYSFILE' ]
+    key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
+                        'SYS_SCALE_FILE' ]
+
+    for key_legacy,key_update in zip(key_legacy_list,key_update_list):
+        if key_legacy in config:
+            msg = f"Replace legacy key '{key_legacy}' with {key_update}"
+            logging.info(msg)
+            config[key_update] = config[key_legacy] 
+
+    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
+                  'COSMOMC_TEMPLATES_PATH' ]
+    for path in path_list:
+        if path in config:
+            config[path] = os.path.expandvars(config[path]) ;   
+
+    # check special/legacy features for cosmoMC/JLA
+    config['use_cosmomc'] = False
+    if 'COSMOMC_TEMPLATES_PATH' in config: 
+        config['use_cosmomc'] = True
+
+    # WARNING: later add option to read from input file
+    config['nbin_x1'] = args.nbin_x1
+    config['nbin_c']  = args.nbin_c
+
         
     # end prep_config
 

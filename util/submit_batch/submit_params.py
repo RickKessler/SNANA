@@ -602,6 +602,8 @@ HELP_CONFIG_BBC = f"""
  # feature with Pippin, put "FLAG_USE_SAME_EVENTS: 1" in the FITOPT.yml
  # file (same file where systematic variations are defined).
 
+ FLAG_USE_SAME_EVENTS: 0  # disable sync-event flag passed from 2_LCFIT stage
+
 #END_YAML
 
 """

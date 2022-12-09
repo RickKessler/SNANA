@@ -758,12 +758,50 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
     { SNTABLE_ADDCOL_TEXT(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 #endif
 
-
+  return;
 } // end of SNTABLE_ADDCOL
 
+
+// Dec 2022:
+// These cast-specific STABLE_ADDCOL_[cast] function below are tehcnically
+// not necessary, but they avoid fortran compilation warnings with gcc v10.
+
+void SNTABLE_ADDCOL_int(int IDTABLE, char *BLOCK, int *I_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, I_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_flt(int IDTABLE, char *BLOCK, float *F_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, F_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_dbl(int IDTABLE, char *BLOCK, double *D_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, D_PTRVAR, VARLIST, USE4TEXT ); }
+
+void SNTABLE_ADDCOL_str(int IDTABLE, char *BLOCK, char *S_PTRVAR, 
+			char *VARLIST, int USE4TEXT ) 
+{ SNTABLE_ADDCOL(IDTABLE, BLOCK, S_PTRVAR, VARLIST, USE4TEXT ); }
+
+// - - - 
 void sntable_addcol__(int *ID, char *BLOCK, void* PTRVAR, 
 		      char *VARLIST, int *USE4TEXT) {
   SNTABLE_ADDCOL(*ID, BLOCK, PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_int__(int *ID, char *BLOCK, int *I_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL_int(*ID, BLOCK, I_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_flt__(int *ID, char *BLOCK, float *F_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, F_PTRVAR, VARLIST, *USE4TEXT );
+}
+void sntable_addcol_dbl__(int *ID, char *BLOCK, double *D_PTRVAR, 
+			  char *VARLIST, int *USE4TEXT) { 
+  SNTABLE_ADDCOL(*ID, BLOCK, D_PTRVAR, VARLIST, *USE4TEXT ); 
+} 
+void sntable_addcol_str__(int *ID, char *BLOCK, char *S_PTRVAR, 
+		      char *VARLIST, int *USE4TEXT) {
+  SNTABLE_ADDCOL(*ID, BLOCK, S_PTRVAR, VARLIST, *USE4TEXT );
 }
 
 // =====================================

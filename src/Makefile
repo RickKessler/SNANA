@@ -71,6 +71,11 @@
 #    instead of $SNANA_PYTHON_DIR. 
 #
 # Sep 15 2022: define EXTRA_FLAGS_CPLUS = -std=c++17 (for ROOT v6 at NERSC)
+# Nov 22 2022: add USE_BAYESN flag to use libyaml
+# Nov 23 2022: add genmag_extinction
+# Nov 29 2022: remove kcordump
+# Dec 02 2022: append CFLAGS with snana-git version
+#
 # ------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -210,8 +215,6 @@ else
   LPY = -L$(CONDA_PREFIX)/lib -ldl  -lutil -Wl,-rpath,$(CONDA_PREFIX)/lib -lpython$(VERSION_LIBPYTHON)
 endif
 
-
-
 # --------------------------------------------
 # set compile flags.
 ifeq ($(BITNESS),i686)
@@ -240,6 +243,12 @@ else
 endif
 endif
 
+#GIT_VERSION := "$(shell git describe --dirty --always --tags)"
+GIT_VERSION := "$(shell git describe --always --tags)"
+SNCFLAGS += -DGIT_SNANA_VERSION=\"$(GIT_VERSION)\"
+
+# ===========================
+
 UTIL = ../util
 BIN  = ../bin
 OBJ  = ../obj
@@ -260,7 +269,6 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/snlc_fit.exe		\
 	$(BIN)/psnid.exe		\
 	$(BIN)/kcor.exe			\
-	$(BIN)/kcordump.exe		\
 	$(BIN)/nearnbr_maxFoM.exe	\
 	$(BIN)/nearnbr_apply.exe	\
 	$(BIN)/wfit.exe			\
@@ -308,7 +316,8 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/genmag_SIMSED.o	\
-	$(OBJ)/genmag_SEDtools.o
+	$(OBJ)/genmag_SEDtools.o \
+	$(OBJ)/genmag_extinction.o
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
@@ -645,32 +654,7 @@ $(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntoo
 	(cd $(OBJ); rm kcor.o )
 
 # -------------------------------------------------
-# kcordump program
-
-$(OBJ)/kcordump.o :  kcordump.f
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) $(IGSL) $(SRC)/kcordump.f)
-
-kcordump.f : kcordump.cra  kcordump.cra 
-	ln -s $(SRC)/snana.car snana.lnk
-	$(UTIL)/ypatchy.pl - $@ kcordump.cra .go
-	rm snana.lnk
-
-$(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o $(OBJ_SNTOOLS_DATA)
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/kcordump.o 	\
-	$(LIB)/libsnana.a  	\
-	$(OBJ)/sntools.o 	\
-	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/sntools_calib.o 	\
-	$(OBJ_SNTOOLS_DATA) 	\
-	$(LCFITSIO)  $(LGSL) 	\
-	$(LCERN)  $(LROOT) -lm $(CPPLIB)
-	(cd $(OBJ); rm kcordump.o)
-
-#	$(OBJ)/sntools_dataformat_fits.o \
-#	$(OBJ)/sntools_dataformat_text.o \
-#	$(OBJ)/sntools_data.o \
-#	$(OBJ)/sntools_output.o \
+# kcordump program (removed Nov 29 2022)
 
 # -------------------------------------------------
 # combine_fitres (C-version with no array limits)
@@ -1007,6 +991,10 @@ $(OBJ)/genmag_NON1AGRID.o : $(SRC)/genmag_NON1AGRID.c  $(SRC)/sntools.h
 $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_LCLIB.c )
+
+$(OBJ)/genmag_extinction.o : $(SRC)/genmag_extinction.c  $(SRC)/sntools.h $(SRC)/sntools_calib.c
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL)  $(SRC)/genmag_extinction.c )
 
 # -------------------------------------------------
 # Generic Lightcurve simulator 

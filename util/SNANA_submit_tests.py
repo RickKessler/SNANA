@@ -162,7 +162,6 @@ def run_create_cov(infile_list, outdir_list, INPUTS):
         else:
             jobname = CREATE_COV_JOB_NAME
 
-        #cmd_list = [ CREATE_COV_JOB_NAME, infile ]
         cmd_list = [ jobname, infile ]
         ret = subprocess.run( cmd_list, 
                               cwd=SNANA_TESTS_DIR,
@@ -196,6 +195,7 @@ def run_submit(infile_list, outdir_list, INPUTS):
         
         check_file_exists(merge_file)
         check_file_exists(info_file)
+        time.sleep(3)
 
     # - - - - - - - 
     # wait for done files

@@ -18,6 +18,17 @@ from   submit_params import *
 
 # =================================================
 
+def get_snana_version():
+
+    # fetch snana version that includes tag + commit;
+    # e.g., v11_05-4-gd033611.
+    # Use same git command as in Makefile for C code
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout.replace('\n','')
+    return snana_version
+    
 def replace_arg(arg_list, key, arg_new):
     # Created Aug 2022
     # replace key argument in arg_list with arg_new
@@ -694,19 +705,14 @@ def nrow_table_TEXT(table_file, row_key):
     # and number of nan (NaN).
     #
     # Sep 26 2022: also check for number of nan.
-
-    # xxxxxxxxxx mark delete Sep 26 2022 xxxxxxxxxxxxxxxxx
-    #cmd_grep    = f"grep '{row_key}' {table_file} | wc "
-    #result_line = subprocess.check_output(cmd_grep,shell=True).rstrip()
-    #result_line = result_line.decode('utf-8')
-    #nrow        = int(result_line.split()[0])
-    # xxxxxxxxxxxxxxxxxxxxxxx
+    # Nov 28 2022: add pad spaces to search ' nan ' instead of "nan"
+    #              to avoid false nan for words like "snana"
 
     with open(table_file,"rt") as f:
         lines  = f.read()
         n_row  = lines.count(row_key)
-        n_nan  = lines.count("nan") 
-        n_nan += lines.count("NaN")
+        n_nan  = lines.count(" nan ")  
+        n_nan += lines.count(" NaN ")
 
     return n_row, n_nan
 

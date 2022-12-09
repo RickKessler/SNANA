@@ -66,9 +66,15 @@
 #include "sntools_genExpHalfGauss.h"
 
 // --------------------------------------------------
-#define  SNANA_VERSION_CURRENT  "v11_04o"   
+//#define  SNANA_VERSION_CURRENT  "v11_04p"   
+#define  SNANA_VERSION_CURRENT  GIT_SNANA_VERSION  // Dec 2 2022
+
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
+
+// Nov 28 2022 include: flag to include calls to legacy fortran code.
+//    This flag is to isolate code for future removal.
+#define USE_KCOR_FORTRAN
 
 #define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
@@ -104,6 +110,8 @@
 #define PLUS       "+"
 #define STAR       "*"
 #define DOT        "."
+#define ALL        "ALL"
+#define ALLFIELDS  "ALLFIELDS"
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (galactic coords !!!)
@@ -177,6 +185,8 @@
 #define MASK_FRAME_OBS  2
 #define OPT_FRAME_REST  0   // bit or index
 #define OPT_FRAME_OBS   1   // idem
+#define STRING_FRAME_OBS   "OBS"
+#define STRING_FRAME_REST  "REST"
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 

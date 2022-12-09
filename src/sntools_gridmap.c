@@ -265,7 +265,7 @@ void malloc_GRIDMAP(int OPT, GRIDMAP *gridmap, int NFUN, int NDIM, int MAPSIZE){
       gridmap->FUNVAL[ifun] = (double *)malloc(MEMD);      
     }
 
-    sprintf(string,"allocate %.1f MB", 	MEMORY);
+    sprintf(string,"allocate %.1f MB for %d bins", MEMORY, MAPSIZE);
     gridmap->MEMORY = MEMORY ;
   }
   else {

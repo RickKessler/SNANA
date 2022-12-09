@@ -9,7 +9,7 @@
 # Sep 12 2022: fix --extract_sim_input for sims run in batch mode
 # Oct 13 2022: add : --cov_file option. Rewrites diagonal and
 #                    begining of row positions and indices in comments
-#              A. Mitra
+#                       A. Mitra
 #
 #
 # =========================
@@ -229,7 +229,13 @@ def arg_cidlist(cidlist):
 
 def get_info_photometry(args):
 
-    command  = f"{snana_program} GETINFO {args.version}"
+    # if private_data_path is set, then glue it back to version
+    if args.path :
+        version = f"{args.path}/{args.version}"
+    else:
+        version = args.version 
+
+    command  = f"{snana_program} GETINFO {version} "
     exec_command(command,args,9)
 
     # end get_info_photometry

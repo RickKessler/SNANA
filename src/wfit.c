@@ -112,6 +112,7 @@
                   in EofZ, if arg < 0.01; arg=0.01 (to allow om<0)
 
  Sep 27 2022 RK - write rho_wom
+ Dec 6 2022 RK - remove obsolete fitswrite option
 
 *****************************************************************************/
 
@@ -459,6 +460,8 @@ int main(int argc,char *argv[]){
 
   // ----------------- BEGIN MAIN ----------------
 
+  print_full_command(stdout, argc, argv);
+
   t_start = time(NULL);
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
@@ -668,7 +671,6 @@ void print_wfit_help(void) {
     "   -blind\tIf set, results are obscured with sin(large random) ",
     "   -blind_auto\tBlind data, unblind sim; requires ISDATA_REAL in HD file",
     "   -blind_seed\tSeed to pick large random numbers for sin arg ",
-    "   -fitswrite\tWrite 2D likelihoods to output fits file.",
     "   -mucov_file\tfile with COV_syst e.g., from create_covariance",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -mucovar\t\t [Legacy key for previous]",
@@ -723,10 +725,11 @@ void parse_args(int argc, char **argv) {
 
   // ------------ BEGIN ------------
 
-  // Aug 15 2020: print full command 
-  printf(" Full command: \n   ");
+
+  /* xxx mark delete 
   for(iarg=0; iarg < argc; iarg++ ) { printf(" %s", argv[iarg] );  }
   printf("\n\n"); fflush(stdout);
+  xxx  end mark */
 
   strcpy(INPUTS.infile,argv[1]); // positional arg is HD
 

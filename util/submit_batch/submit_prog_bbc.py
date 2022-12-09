@@ -269,6 +269,14 @@ class BBC(Program):
             self.bbc_prep_noINPDIR()
             return
 
+        # check BBC option to disable sync_evt from 2_LCFIT stage
+        preserve_sync_evt = True
+        for key in KEYLIST_SYNC_EVT:
+            if key in CONFIG:
+                if CONFIG[key] == 0 : 
+                    preserve_sync_evt = False
+                    logging.info(f"\t DISABLE SYNC-EVENT flag passed from 2_LCFIT")
+
         # - - - - - 
         for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
@@ -338,7 +346,9 @@ class BBC(Program):
                     sync_evt       = fit_info_yaml[key] > 0
                     KEY_SYNC_EVT   = key
 
-            if devel_flag == -20: sync_evt = False # disable event sync
+            # xxx if devel_flag == -20: sync_evt = False # disable event sync
+            if not preserve_sync_evt :
+                sync_evt = False 
 
             # - - - 
             n_fitopt       = len(fitopt_table)
@@ -1893,13 +1903,19 @@ class BBC(Program):
             self.make_splitran_summary()
 
         # for reject/accept summarys, read versions in MERGE.LOG so
-        # that it works for NSPLITRAN 
+        # that it works for NSPLITRAN. 
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        # loop over every row in MERGE.LOG, but process each
+        # data version only once, regardless of how many FITOPT/MUOPT.
+        vout_proc_list = []
         for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
             vout    = row[COLNUM_BBC_MERGE_VERSION]
-            self.make_reject_summary(vout)
+            if vout not in vout_proc_list:
+                self.make_reject_summary(vout)
+                vout_proc_list.append(vout)
 
         # xxxxxx mark delete Nov 23 2022 xxxxxx
         #for vout in vout_list : 
@@ -2187,6 +2203,9 @@ class BBC(Program):
         fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
         fitres_list       = []
         NOREJECT_list     = []
+        
+        if FITOPT_OUT_LIST is None: 
+            FITOPT_OUT_LIST = []   # Dec 2022
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]

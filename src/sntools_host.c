@@ -7644,6 +7644,12 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
     printf("   Galaxy RA,DEC = %f , %f\n",  RA_GAL, DEC_GAL);
     printf("   SN     RA,DEC = %f , %f \n", RA_SN,  DEC_SN);
+    
+    if ( i_nbr > 1 ) {
+      printf("  i_nbr=0: SNSEP=%.3f   DDLR=%.3f \n",
+	     SNHOSTGAL.SNSEP_NBR_LIST[0], SNHOSTGAL.DDLR_NBR_LIST[0]);
+    }
+
     sprintf(c1err,"Crazy SN-galaxy sep = %.1f arcsec for i_nbr=%d", 
 	    SNSEP, i_nbr);
     sprintf(c2err,"Likely a problem with NBR_LIST");  //.xyz
@@ -8321,8 +8327,18 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   AV        = RVMW * GENLC.MWEBV_SMEAR ;
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs   = GENLC.IFILTMAP_OBS[ifilt];
-    get_filtlam__(&opt_frame, &ifilt_obs, 
-		  &lamavg, &lamrms, &lammin, &lammax );
+
+    if ( INPUTS.USE_KCOR_LEGACY ) {
+#ifdef USE_KCOR_FORTRAN
+      get_filtlam__(&opt_frame, &ifilt_obs, 
+		    &lamavg, &lamrms, &lammin, &lammax );
+#endif
+    }
+    else {
+      get_calib_filtlam_stats(OPT_FRAME_OBS, ifilt_obs,  
+			      &lamavg, &lamrms, &lammin, &lammax);
+    }
+
     LAMOBS_AVG = lamavg ;
     MWXT[ifilt_obs] = GALextinct ( RVMW, AV, LAMOBS_AVG, 94 );
 

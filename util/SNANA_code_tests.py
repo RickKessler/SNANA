@@ -688,6 +688,7 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
 
     # run the job using os.system    
     print(' Process %s_%s ' % (PREFIX,TASK) )
+    sys.stdout.flush()
 #    sys.stdout.flush()
     TESTJOB       = CONTENTS_TASK["TESTJOB"]
     TESTJOB_ARGS  = CONTENTS_TASK["TESTJOB_ARGS"]
@@ -799,6 +800,8 @@ def make_logdir(INPUTS):
 
     # - - - - - - - - - - - - - - - - - 
     print(f" Create log-dir = \n\t {LOGDIR} \n")
+    sys.stdout.flush()
+
     if os.path.exists(LOGDIR) :
         shutil.rmtree(LOGDIR)
 
@@ -867,6 +870,7 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         if INPUTS.nosubmit is False :
             cmd = f"{cmd_ssh}  \"{SNANA_SETUP}; {cmd_cd} ; {cmd_job}\" & "
             print(f" Launch tasks for CPU {cpunum:3d}")
+            sys.stdout.flush()
             os.system(cmd)
 
     return
@@ -939,6 +943,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         if INPUTS.nosubmit :
             print(f" Skip {BATCH_SUBMIT_COMMAND} {batch_runfile}")
+            sys.stdout.flush()
         else:
             os.system(cmd_submit)
 
@@ -952,7 +957,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 def submitTasks_driver(INPUTS, LIST_FILE_INFO):
 
     print('\n Prepare to Submit tasks ')
-
+    sys.stdout.flush()
     SCRIPTNAME     = INPUTS.SCRIPTNAME
     DOCOMPARE_ONLY = INPUTS.compare_only
     REFTEST        = INPUTS.REFTEST
@@ -1088,7 +1093,7 @@ def make_tarfiles(LOGDIR):
     NLIST = len(tarfile_list)
 
     print(' Create tar file backups. ' )
-
+    sys.stdout.flush()
     for i in range(0,NLIST):
         filespec  = filespec_list[i]
         tarfile   = tarfile_list[i]
@@ -1118,6 +1123,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
         f.write(f"HOST: {HOSTNAME}    # monitor task runs here\n")
 
     print(f"\n Begin monitor of {NTASK} {REFTEST} tasks")
+    sys.stdout.flush()
 
     NDONE = 0
     while ( NDONE < NTASK ) :
@@ -1227,6 +1233,7 @@ if __name__ == "__main__":
         monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF) 
 
     print('\n ALL DONE.') 
+    sys.stdout.flush()
 
 # ====== END =====
         

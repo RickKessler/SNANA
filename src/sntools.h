@@ -74,7 +74,7 @@
 
 // Nov 28 2022 include: flag to include calls to legacy fortran code.
 //    This flag is to isolate code for future removal.
-#define USE_KCOR_FORTRAN
+//#define USE_KCOR_FORTRAN
 
 #define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"

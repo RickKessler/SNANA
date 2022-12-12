@@ -1143,18 +1143,18 @@ struct INPUTS {
   char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
   double CUTWIN_RANGE[MXCUTWIN][2];
 
+  bool  LCUTWIN_RDFLAG[MXCUTWIN] ;     // T=> read, 0=> use existing var
+  bool  LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // T=> abort if var does not exist
+  bool  LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
+  bool  LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor only
+  bool  LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
+  bool  LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
+  bool  APPLY_CUTWIN_pIa ;
+
   int    NFIELD ;
   char   *FIELDLIST[MXFIELD_OVERLAP] ;
 
-  bool   LCUTWIN_RDFLAG[MXCUTWIN] ; // T=> read, 0=> use existing var
-  bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // T=> abort if var does not exist
-  bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
-  bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor
-  bool   LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
-  bool   LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
-  bool   APPLYCUT_pIa ;
-
-  // integer values to select
+  // integer value lists to select:
   SELECT_LIST_DEF IDSAMPLE_SELECT;
   SELECT_LIST_DEF IDSURVEY_SELECT;
   SELECT_LIST_DEF SNTYPE_SELECT;
@@ -5287,8 +5287,8 @@ void set_defaults(void) {
   sprintf(INPUTS.varname_gamma,VARNAME_LOGMASS);
   INPUTS.USE_GAMMA0  = 0 ;
 
-  INPUTS.LCUTWIN_DISABLE = false;
-  INPUTS.APPLYCUT_pIa    = false;
+  INPUTS.LCUTWIN_DISABLE  = false;
+  INPUTS.APPLY_CUTWIN_pIa = false;
   init_CUTMASK();
 
 #ifdef USE_SUBPROCESS
@@ -18152,11 +18152,11 @@ void prep_input_driver(void) {
   }
 
   // check if there is a CUTWIN on pIa .xyz
-  INPUTS.APPLYCUT_pIa = ( icut_CUTWIN(varname_pIa) >= 0 );
-  EXIST_pIa           = ( strlen(varname_pIa) > 0) ;
+  INPUTS.APPLY_CUTWIN_pIa = ( icut_CUTWIN(varname_pIa) >= 0 );
+  EXIST_pIa               = ( strlen(varname_pIa) > 0) ;
   INFO_DATA.TABLEVAR.REQUIRE_pIa    = EXIST_pIa ;
-  INFO_BIASCOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
-  INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLYCUT_pIa ;
+  INFO_BIASCOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLY_CUTWIN_pIa ;
+  INFO_CCPRIOR.TABLEVAR.REQUIRE_pIa = EXIST_pIa && INPUTS.APPLY_CUTWIN_pIa ;
 
   // prepare stuff related to gamma = HR step
   prep_input_gamma();

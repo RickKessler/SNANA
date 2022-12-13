@@ -21495,6 +21495,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         2nd fit, fixed subtle logic in prepNextFit so that it won't
         force STOP_TOL=False on repeated fit.
 
+      + new sim-input keys CUTWIN_IDSAMPLE and CUTWIN_SURVEY (see HELP menu);
+        refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
+        real data.
+
+
     Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
          snana.cra:c+USE,KCOR.
          snlc_fit.cra:c+USE,KCOR.

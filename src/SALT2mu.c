@@ -414,6 +414,11 @@ For help, run code with no arguments
  Dec 7 2022: refactor selection for sntype_select and idsample_select
              add idsurvey_select input
 
+ Dec 13 2022;
+   new sim-input keys CUTWIN_IDSAMPLE and CUTWIN_SURVEY (see HELP menu);
+   refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
+   real data.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1149,6 +1154,10 @@ struct INPUTS {
   bool  LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor only
   bool  LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
   bool  LCUTWIN_DISABLE;          // only if "CUTWIN NONE" command
+  int   CUTWIN_NIDSAMPLE[MXCUTWIN];
+  int   CUTWIN_NIDSURVEY[MXCUTWIN];
+  int   CUTWIN_IDSAMPLE_LIST[MXCUTWIN][20];
+  char  CUTWIN_IDSURVEY_LIST[MXCUTWIN][20];
   bool  APPLY_CUTWIN_pIa ;
 
   int    NFIELD ;
@@ -1248,6 +1257,7 @@ struct INPUTS {
 
   // set internal LEGACY and REFAC flags for development 
   bool LEGACY_SELECT, REFAC_SELECT; // debug_flag=1207
+  bool LEGACY_PREPARE_IDSAMPLE, REFAC_PREPARE_IDSAMPLE; // debug_flag=1213
 
 } INPUTS ;
 
@@ -1486,11 +1496,14 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
 void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
-int  reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
+int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
+		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 void copy_CUTWIN(int icut0,int icut1);
 int  icut_CUTWIN(char *varName) ;
+bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut);
+bool APPLY_CUTWIN_IDSURVEY(int ID, int icut);
 
 void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT);
 bool select_IDLIST(int ID, SELECT_LIST_DEF *SELECT);
@@ -2034,7 +2047,8 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   setup_BININFO_redshift();
 
   // prepare mapindex for each IDSURVEY & FIELD --> for biasCor
-  prepare_IDSAMPLE_biasCor();
+  if ( INPUTS.LEGACY_PREPARE_IDSAMPLE )
+    {   prepare_IDSAMPLE_biasCor(); }
 
   // check option for SPLITRAN summary
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) { return ; }
@@ -5302,6 +5316,9 @@ void set_defaults(void) {
   INPUTS.LEGACY_SELECT = false;
   INPUTS.REFAC_SELECT  = true;
 
+  INPUTS.LEGACY_PREPARE_IDSAMPLE = false ;
+  INPUTS.REFAC_PREPARE_IDSAMPLE  = true;
+
   return ;
 
 }   // end of set_defaults
@@ -5372,6 +5389,10 @@ void read_data(void) {
   // Created Jun 4 2019: Refactored data-read.
   // 
   // May 12 2021: call read_data_override here before set_CUTMASK is called.
+  //
+  // Dec 13 2022: call prepare_IDSAMPLE_biasCor() here before applying
+  //              cuts so that IDSAMPLE-dependent cuts can be applied.
+  //
 
   int  NFILE = INPUTS.nfile_data;
   //  int  EVENT_TYPE = EVENT_TYPE_DATA;
@@ -5435,6 +5456,9 @@ void read_data(void) {
 
   // Nov 2020: e.g., replace VPEC, HOST_LOGMASS, etc ..
   read_data_override(); 
+
+  if ( INPUTS.REFAC_PREPARE_IDSAMPLE ) 
+    { prepare_IDSAMPLE_biasCor(); } // Dec 13 2022
 
   // apply cuts after data override
   int NPASS=0;
@@ -6582,7 +6606,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
     sprintf(CUTNAME, "%s", varname_pIa) ;
   }
 
-  // IDSURVEY and SNTYPE are int ??
+  // IDSURVEY, IDSAMPLE, SNTYPE are different because they are lists
 
   else {
     print_debug_malloc(+1*debug_malloc,fnam);
@@ -7946,7 +7970,6 @@ void prepare_IDSAMPLE_biasCor(void) {
     SURVEY_INFO.SURVEYFLAG[i] = 0 ; 
     NIDSURVEY[i]=0;  // to set DUMPFLAG
   }
-
 
   // --------------------------------------
   // check option to compute global biasCor for surveys lumped together
@@ -15232,7 +15255,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // check CUTWIN options; reject_CUTWIN returns 
   // 0->accepted, 1->rejected, 2->dweight with large MUERR
 
-  REJECT = reject_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
+  REJECT = reject_CUTWIN(event_type, idsample, idsurvey, 
+			 DOFLAG_CUTWIN, cutvar_local);
+
   if ( REJECT == DOFLAG_CUTWIN_APPLY ) 
     { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
 
@@ -15326,6 +15351,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if ( !sel )
       { setbit_CUTMASK(isn, CUTBIT_IDSURVEY, TABLEVAR); }
     
+    // beware that idsample is not yet set here for real data; 
+    // the idsample data cut is applied implicitly because 
+    // valid-biasCor fails for rejected IDSAMPLE(s).
     if ( idsample >=0 ) {
       sel = select_IDLIST(idsample, &INPUTS.IDSAMPLE_SELECT);
       if ( !sel ) 
@@ -15343,7 +15371,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     REJECT = prescale_reject_simData(SIM_NONIA_INDEX);
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
-
 
     // djb we only want to apply the cid list for the data                 
     ACCEPT = selectCID_data(name, idsurvey, &IZBIN);
@@ -17043,7 +17070,7 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
     sscanf(ptrID[i], "%d", &ID);  
     IDLIST[i] = ID;         // local  
     SELECT->IDLIST[i] = ID; // return arg
-    printf(" xxx %s: load IDLIST[%d] = %d \n", fnam, i, ID);
+    //    printf(" xxx %s: load IDLIST[%d] = %d \n", fnam, i, ID);
   }
 
   // - - - - -
@@ -17186,7 +17213,7 @@ void parse_CUTWIN(char *line_CUTWIN) {
   char  item_list[4][60], line_local[200], string[60], KEY[60] ;
   char  *item, *ptrtok, *cutwinOpt, **cutwinOpt_list ;
 
-  int   ICUT, i, opt, nread, NOPT ;
+  int   ICUT, i, opt, nread, NOPT, ID, NID ;
   char  fnam[] = "parse_CUTWIN" ;
 
   // ---------- BEGIN ------------
@@ -17201,6 +17228,9 @@ void parse_CUTWIN(char *line_CUTWIN) {
   INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
   INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
+
+  INPUTS.CUTWIN_NIDSURVEY[ICUT]   = 0;
+  INPUTS.CUTWIN_NIDSAMPLE[ICUT]   = 0;
 
   // - - - - - -  -
   // strip each line_CUTWIN item into item_list, and check for missing items
@@ -17230,11 +17260,14 @@ void parse_CUTWIN(char *line_CUTWIN) {
   INPUTS.NCUTWIN++ ;
 
   // - - - - - 
+  bool IS_CUTWIN_IDSAMPLE=false, IS_CUTWIN_SURVEY=false;
+
   for ( i=0; i < NITEM ; i++ ) {
 
     item = item_list[i];
 
     if ( i == 0 ) {
+      
       // check for option in CUTWIN(string)
       sscanf ( item, "%s", KEY ); 
       extractStringOpt(KEY, string); // return string
@@ -17248,6 +17281,10 @@ void parse_CUTWIN(char *line_CUTWIN) {
       
       //      printf(" xxx %s: string='%s' -> NOPT=%d \n",
       //	     fnam, string, NOPT); fflush(stdout);
+
+      // Dec 2022: check if CUTWIN_IDSAMPLE or CUTWIN_SURVEY key
+      IS_CUTWIN_IDSAMPLE = ( strstr(KEY,"CUTWIN_IDSAMPLE") != NULL );
+      IS_CUTWIN_SURVEY   = ( strstr(KEY,"CUTWIN_SURVEY"  ) != NULL );
 
       for ( opt=0; opt < NOPT; opt++ ) {
 	cutwinOpt = cutwinOpt_list[opt];
@@ -17264,6 +17301,18 @@ void parse_CUTWIN(char *line_CUTWIN) {
 	else if ( strcmp(cutwinOpt,STRING_FITWGT0) == 0 ) 
 	  { INPUTS.LCUTWIN_FITWGT0[ICUT] = true ; } 
       
+	else if ( IS_CUTWIN_IDSAMPLE ) {
+	  sscanf(cutwinOpt, "%d", &ID);
+	  NID = INPUTS.CUTWIN_NIDSAMPLE[ICUT];
+	  INPUTS.CUTWIN_IDSAMPLE_LIST[ICUT][NID] = ID;
+	  INPUTS.CUTWIN_NIDSAMPLE[ICUT]++ ;
+	}
+	else if ( IS_CUTWIN_SURVEY ) {
+	  ID  = get_IDSURVEY(cutwinOpt);
+	  NID = INPUTS.CUTWIN_NIDSURVEY[ICUT];
+	  INPUTS.CUTWIN_IDSURVEY_LIST[ICUT][NID] = ID;
+	  INPUTS.CUTWIN_NIDSURVEY[ICUT]++ ;
+	}
 	else {
 	  sprintf(c1err,"Invalid CUTWIN option: '%s'", cutwinOpt);
 	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
@@ -17332,7 +17381,12 @@ void copy_CUTWIN(int icut0,int icut1) {
   // Copy CUTWIN contents from icut0 to icut1.
   // Used to enable command line CUTWIN overrides with relaxed cut
   // compared to CUTWIN in the input file.
+  //
+  // Dec 13 2022
+  //   + fix icut1 -> icut0 bug in several places
+  //   + add NIDSAMPLE and NIDSURVEY
 
+  int i;
   char fnam[] = "copy_CUTWIN" ;
 
   // ---------- BEGIN ---------
@@ -17342,15 +17396,29 @@ void copy_CUTWIN(int icut0,int icut1) {
   INPUTS.CUTWIN_RANGE[icut1][1] = INPUTS.CUTWIN_RANGE[icut0][1];
 
   INPUTS.LCUTWIN_ABORTFLAG[icut1]   = INPUTS.LCUTWIN_ABORTFLAG[icut0] ;
-  INPUTS.LCUTWIN_DATAONLY[icut1]    = INPUTS.LCUTWIN_DATAONLY[icut1] ;
-  INPUTS.LCUTWIN_BIASCORONLY[icut1] = INPUTS.LCUTWIN_BIASCORONLY[icut1] ;
-  INPUTS.LCUTWIN_FITWGT0[icut1]     = INPUTS.LCUTWIN_FITWGT0[icut1] ;
+  INPUTS.LCUTWIN_DATAONLY[icut1]    = INPUTS.LCUTWIN_DATAONLY[icut0] ;
+  INPUTS.LCUTWIN_BIASCORONLY[icut1] = INPUTS.LCUTWIN_BIASCORONLY[icut0] ;
+  INPUTS.LCUTWIN_FITWGT0[icut1]     = INPUTS.LCUTWIN_FITWGT0[icut0] ;
+
+  INPUTS.CUTWIN_NIDSAMPLE[icut1]   = INPUTS.CUTWIN_NIDSAMPLE[icut0] ;
+  INPUTS.CUTWIN_NIDSURVEY[icut1]   = INPUTS.CUTWIN_NIDSURVEY[icut0] ;
+  
+  for(i=0; i < INPUTS.CUTWIN_NIDSAMPLE[icut0]; i++ )  { 
+    INPUTS.CUTWIN_IDSAMPLE_LIST[icut1][i] = 
+      INPUTS.CUTWIN_IDSAMPLE_LIST[icut0][i] ;
+  }
+
+  for(i=0; i < INPUTS.CUTWIN_NIDSURVEY[icut0]; i++ )  { 
+    INPUTS.CUTWIN_IDSURVEY_LIST[icut1][i] = 
+      INPUTS.CUTWIN_IDSURVEY_LIST[icut0][i] ; 
+  }
 
   return;
 } // end copy_CUTWIN
 
 // **************************************************
-int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
+int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY, 
+		  int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 
   // Created Jan 2016 [major refactor Jan 2021]
   //
@@ -17361,22 +17429,26 @@ int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
   // Input EVENT_TYPE specifies DATA or BIASCOR
   //
   // Input array *DOFLAG_CUTWIN are instructions :
-  //  DOFLAG_CUTINW[icut] = 0 -> do not apply cut (ignore)
-  //  DOFLAG_CUTINW[icut] = 1 -> apply explicit cut
-  //  DOFLAG_CUTINW[icut] = 2 -> no cut, but deweight with MUERR->large val
+  //  DOFLAG_CUTWIN[icut] = 0 -> do not apply cut (ignore)
+  //  DOFLAG_CUTWIN[icut] = 1 -> apply explicit cut
+  //  DOFLAG_CUTWIN[icut] = 2 -> no cut, but deweight with MUERR->large val
   //
   // CUTVAL_LIST is array of values to apply CUTWIN
   //
   // Jan 22 2021: 
   //   rename apply_CUTWIN -> reject_CUTWIN, and return reject flag
   //   with similar meaning as DOFLAG_CUTWIN.
-  
+  //
+  // Dec 13 2022: check dependence on IDSAMPLE/IDSURVEY.
+  //
+
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( EVENT_TYPE == EVENT_TYPE_BIASCOR );
   int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR );
 
   int LDMP = 0 ; // (OPT==666);
-  int icut, reject, DOFLAG ;
+  int icut, reject, DOFLAG; 
+  bool  APPLY_IDSURVEY, APPLY_IDSAMPLE, PASS_CUTWIN ;
   double CUTVAL, *CUTWIN ;
   char *NAME;
   char fnam[] = "reject_CUTWIN" ;
@@ -17392,6 +17464,12 @@ int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
    
     DOFLAG = DOFLAG_CUTWIN[icut] ;
     if ( DOFLAG == DOFLAG_CUTWIN_IGNORE ) { continue; }
+
+    // Dec 2022: check option to apply cut for specific survey or idsample
+    APPLY_IDSAMPLE = APPLY_CUTWIN_IDSAMPLE(IDSAMPLE,icut);
+    APPLY_IDSURVEY = APPLY_CUTWIN_IDSURVEY(IDSURVEY,icut);
+    if ( !APPLY_IDSAMPLE ) { continue; }
+    if ( !APPLY_IDSURVEY ) { continue; }
 
     // if not data (i.e.,  biasCor & CCprior), DOFLAG must be
     // "APPLY". The FITWGT0 feature works only for data.
@@ -17410,7 +17488,9 @@ int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
     if( (IS_BIASCOR || IS_CCPRIOR) && !usesim_CUTWIN(NAME)  ) 
       { continue ; }
 
-    if ( CUTVAL < CUTWIN[0] || CUTVAL > CUTWIN[1] ) { 
+    PASS_CUTWIN = CUTVAL >= CUTWIN[0] &&  CUTVAL <= CUTWIN[1] ;
+      
+    if ( !PASS_CUTWIN ) {
       // be careful here; once reject is set to DOFLAG_CUTWIN_APPLY,
       // the reject flag cannot be changed (e.g, to DOFLAG_CUTWIN_FITWGT0)
       if ( reject != DOFLAG_CUTWIN_APPLY )  {  reject = DOFLAG ; }
@@ -17427,6 +17507,36 @@ int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 
 
 } // end reject_CUTWIN
+
+
+// =======================================================
+bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut) {
+  int i, NID = INPUTS.CUTWIN_NIDSAMPLE[icut];
+  bool APPLY = true;
+
+  if ( NID > 0 ) { 
+    APPLY = false;
+    for(i=0; i < NID; i++ ) {
+      if ( ID == INPUTS.CUTWIN_IDSAMPLE_LIST[icut][i] ) { APPLY=true; }
+    }
+  }
+  return APPLY;
+
+} // end APPLY_CUTWIN_IDSAMPLE
+
+
+bool APPLY_CUTWIN_IDSURVEY(int ID, int icut) {
+  int i, NID = INPUTS.CUTWIN_NIDSURVEY[icut];
+  bool APPLY = true;
+
+  if ( NID > 0 ) {
+    APPLY = false;
+    for(i=0; i < NID; i++ ) {
+      if ( ID == INPUTS.CUTWIN_IDSURVEY_LIST[icut][i] ) { APPLY=true; }
+    }
+  }
+  return APPLY;
+}
 
 // **************************************************
 int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
@@ -18151,7 +18261,7 @@ void prep_input_driver(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
-  // check if there is a CUTWIN on pIa .xyz
+  // check if there is a CUTWIN on pIa 
   INPUTS.APPLY_CUTWIN_pIa = ( icut_CUTWIN(varname_pIa) >= 0 );
   EXIST_pIa               = ( strlen(varname_pIa) > 0) ;
   INFO_DATA.TABLEVAR.REQUIRE_pIa    = EXIST_pIa ;
@@ -18288,6 +18398,9 @@ void prep_debug_flag(void) {
   // - - - - - -
   if ( INPUTS.debug_flag == -1207 )  { INPUTS.REFAC_SELECT = false; }
   INPUTS.LEGACY_SELECT = !INPUTS.REFAC_SELECT;
+
+  if ( INPUTS.debug_flag == -1213 ) { INPUTS.REFAC_PREPARE_IDSAMPLE=false; }
+  INPUTS.LEGACY_PREPARE_IDSAMPLE = !INPUTS.REFAC_PREPARE_IDSAMPLE ;
 
   fflush(FP_STDOUT);
 
@@ -21274,13 +21387,15 @@ void print_SALT2mu_HELP(void) {
     "CUTWIN  <VARNAME>  <MIN> <MAX>  # see examples below",
     "CUTWIN  FITPROB  .01 1.0        # cut-window on FITPROB",
     "CUTWIN  SNRMAX3   8  999999     # cut-window on SNRMAX3",
-    "CUTWIN(NOABORT)  SIM_x1  -2 2   # cut, but do not abort if missing SIM_x1",
+    "CUTWIN(NOABORT)  SIM_x1  -2 2   # cut, but don't abort if missing SIM_x1",
     "CUTWIN(DATAONLY)    LOGMASS  5 12 # cut on data only (not on biasCor)",
     "CUTWIN(BIASCORONLY) LOGMASS  5 12 # cut on biasCor (not on data)",
     "CUTWIN varname_pIa  0.9 1.0   # substitute argument of varname_pIa",
     "CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut",
     "CUTWIN NONE       #  command-line override to disable all cuts",
     "                  # e.g., useful with cid_select_file",
+    "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .3  # apply cut to IDSAMPLE 1,3 & 4",
+    "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .3  # apply cut to these surveys",
     "",
     "fieldlist=X1,X2   # select X1 and X2 fields",
     "fieldlist=X3      # select X3 field only",

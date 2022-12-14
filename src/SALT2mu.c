@@ -707,8 +707,8 @@ typedef struct {
   bool   *IS_PHOTOZ;
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
 
-  // SIM_xxx read from table file
-  short int *SIM_NONIA_INDEX ;
+  // SIM_[PROPERTY] read from table file
+  short int *SIM_NONIA_INDEX, *SIM_ZFLAG ;
   float *SIM_ALPHA, *SIM_BETA, *SIM_GAMMADM;
   float *SIM_X0, *SIM_FITPAR[NLCPAR+1]; 
   float *SIM_ZCMB, *SIM_VPEC, *SIM_MU;
@@ -21394,8 +21394,8 @@ void print_SALT2mu_HELP(void) {
     "CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut",
     "CUTWIN NONE       #  command-line override to disable all cuts",
     "                  # e.g., useful with cid_select_file",
-    "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .3  # apply cut to IDSAMPLE 1,3 & 4",
-    "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .3  # apply cut to these surveys",
+    "CUTWIN_IDSAMPLE(0,3,4):   zHD .01 .03  # apply cut only to IDSAMPLE 0,3 & 4",
+    "CUTWIN_SURVEY(CFA3,CFA4): zHD .01 .03  # apply cut only to CFA3 & CFA4 surveys",
     "",
     "fieldlist=X1,X2   # select X1 and X2 fields",
     "fieldlist=X3      # select X3 field only",

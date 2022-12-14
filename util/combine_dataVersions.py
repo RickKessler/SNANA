@@ -65,6 +65,10 @@
 # Oct 11 2022 RK - change kcor_ prefix to calib_ prefix, but leave synmbolic
 #                  to kcor_xxx.fits .
 #
+# Dec 14 2022 RK - 
+#   because Pantheon+ includes full filter names (instad of single-char band),
+#   add new method append_filter_names to replace filter
+#
 # ====================================
 
 import os, sys, argparse
@@ -703,13 +707,14 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # read FILTER string from first data file
     FILTERSTRING_OLD = parseLines(fileContents, 'FILTERS:', 1, 0)
     SURVEY           = parseLines(fileContents, 'SURVEY:',  1, 0)
-    VARLIST          = parseLines(fileContents, 'VARLIST:', 1, 0) # ??
+    VARLIST          = parseLines(fileContents, 'VARLIST:', 5, 0)
+    IVAR_BAND        = VARLIST.index('BAND')
 
     # get full filter lists from kcor file
     FILTERLIST_OLD = kcorInfo.FILTER_CHARLIST_OLD     # only this version
     FILTERLIST_NEW = kcorInfo.FILTER_CHARLIST_NEW     # only this version
     FILTERLIST_ALL = versionInfo.FILTER_CHARLIST_NEW  # all filters
-    FILTER_NEWNAME = kcorInfo.FILTER_NEWNAME
+    FILTERLIST_NEWNAME = kcorInfo.FILTER_NEWNAME
 
     print(f"\t {FILTERLIST_OLD} -> {FILTERLIST_NEW} " )
     sys.stdout.flush() 
@@ -729,25 +734,27 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     OLD2 = FILTERLIST_OLD    # from kcor file
     NEW  = FILTERLIST_NEW    # new kcor list
     ALL  = FILTERLIST_ALL    # all filters from all files
-    # xxx mark sedAdd = "-e 's/%s/%s  # %s -> %s/g' " % (OLD,ALL,OLD2,NEW) 
+
     sedAdd  = f"-e 's/{OLD}/{ALL}  # {OLD2} -> {NEW}/g' " 
     sedcmd += sedAdd
+
 
     # Replace each single-char band with new full filter name
     # Add '??' before each band to avoid removing new band
     # that matches an old band. Then remove ?? separately.
+    REFAC_BAND_REPLACE = True
+    if not REFAC_BAND_REPLACE:
+        # old style band replace works for single-char but not with full string
+        for old, new, newname in \
+            zip(FILTERLIST_OLD, FILTERLIST_NEW, FILTERLIST_NEWNAME):
+            filter_newname = newname.replace("/","\/") # new full name
+            sedAdd = f"-e 's/ {old} /  ??{filter_newname}  /g' "
+            sedcmd += sedAdd
+        # remove the temporary '?s?'
+        sedcmd += "-e 's/??//g' "
 
-    for old, new, newname in \
-        zip(FILTERLIST_OLD, FILTERLIST_NEW, FILTER_NEWNAME):
-        filter_newname = newname.replace("/","\/") # new full name
-        sedAdd = f"-e 's/ {old} /  ??{filter_newname}  /g' "
-        sedcmd += sedAdd
-        
-    #sys.exit("\n xxx DEBUG STOP xxx \n")
+    #sys.exit("\n xxx DEBUG DIE xxx \n")
 
-    # remove the temporary '?s?'
-    sedcmd += "-e 's/??//g' "
-    
     # check for keys to remove
     input_config = versionInfo.input_config
     KEYLIST_REMOVE = input_config[KEYNAME_KEYLIST_REMOVE].split()
@@ -774,6 +781,10 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
             SEDCMD = f"{sedcmd} {FIN} > {FOUT}"
                     
         os.system(SEDCMD)
+        if REFAC_BAND_REPLACE:
+            append_filter_names(FOUT, IVAR_BAND,
+                                FILTERLIST_OLD, FILTERLIST_NEWNAME)
+
         PTR_NEWLIST.write(f"{infile_base}\n")
         nfile += 1
 
@@ -837,6 +848,46 @@ def write_readme(versionInfo, kcorInfo_list):
 
     return
     # end write_readme
+
+def append_filter_names(file_name, IVAR_BAND,
+                        FILTERLIST_OLDCHAR, FILTERLIST_NEWNAME):
+
+    # Created Dec 14 2022 by R.Kessler
+    # open file data file and append filter names;
+    # e.g., 
+    #  u      -> CSP-u/a
+    #  CSP-u -> CSP-u/a
+    #
+    # Cannot use sed to replace because the original filter name
+    # can be any string before the character; e.g., CFA41-V or CFA4p1-V
+    #
+    # Inputs:
+    #   file_name : name of data file to alter filter names
+    #   FILTERLIST_OLDCHAR: list of original char strings
+    #   FILTERLIST_NEWNAME: list of new filter names (full string)
+
+    with open(file_name,"rt") as f:
+        fileContents = f.readlines()
+
+    # re-write file and clobber original file
+    with open(file_name,"wt") as f:
+        for line in fileContents:
+            line_out = line
+            wdlist   = line.split()                
+            if len(wdlist) > 5 :
+                if wdlist[0] == 'OBS:' :
+                    filter_orig = wdlist[IVAR_BAND+1]
+                    band_orig   = filter_orig[-1]
+                    j = FILTERLIST_OLDCHAR.index(band_orig)
+                    filter_new = FILTERLIST_NEWNAME[j]
+                    line_out = line_out.replace(filter_orig,filter_new)
+            f.write(f"{line_out}")
+
+    #sys.exit(f"\n xxx DEBUG DIE xxx \n")
+
+    return
+
+    # end append_filter_names
 
 def merge_duplicates(versionInfo):
 

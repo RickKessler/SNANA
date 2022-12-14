@@ -21499,6 +21499,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
         real data.
 
+    combine_dataVersions.py:
+       + fix to handle full filter names in pantheon+
 
     Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
          snana.cra:c+USE,KCOR.

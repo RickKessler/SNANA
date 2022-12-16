@@ -390,8 +390,11 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
     SEDMODEL.LAMMIN_ALL = BAYESN_MODEL_INFO.lam_knots[0] ;  // rest-frame SED range
     SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1000.0 ; // rest-frame central wavelength range
-    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1200.0 ; // rest-frame central wavelength range
+    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1200.0 ;
+    printf("LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n", SEDMODEL.RESTLAMMIN_FILTERCEN
+            , SEDMODEL.RESTLAMMAX_FILTERCEN);
+    printf("LIMITS OF SED WAVELENGTH: %.1f, %.1f\n", SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
 
     //compute the inverse KD matrices and J_lam (SHOULD THIS BE DONE HERE??)
     BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots,
@@ -403,6 +406,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
             BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
 
     //debugexit(fnam);
+    fflush(stdout);
     return 0;
 } // end init_genmag_BAYESN
 
@@ -419,6 +423,11 @@ void genmag_BAYESN(
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
 
+    bool dumpsed = false;
+    FILE * sedfile;
+    if (dumpsed) {
+        sedfile = fopen("sed_dump.txt", "w");
+    }
     
     double DLMAG = parList_SN[0];
     double THETA = parList_SN[1];
@@ -429,7 +438,6 @@ void genmag_BAYESN(
     int ifilt = 0;
 
     //SHOULD I BE DECLARING THESE HERE??
-    //ALSO (FIXME) I SHOULD REMEMBER TO FREE THESE AT THE END
     gsl_matrix * J_tau; // for time interpolation
     gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             BAYESN_MODEL_INFO.n_tau_knots); // for W0 + THETA*W1
@@ -538,11 +546,20 @@ void genmag_BAYESN(
             S0_lam = (f0*(t1 - Tobs_list[o]) + f1*(Tobs_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
+                //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
                 //printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
         }
     }
 
+    if (dumpsed) {
+        fclose(sedfile);
+    }
+
+    gsl_matrix_free(J_tau);
+    gsl_matrix_free(W);
+    gsl_matrix_free(WJ_tau);
+    gsl_vector_free(jWJ);
     //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);
     //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
 
@@ -567,6 +584,10 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	genmag_BAYESN(*OPTMASK, *ifilt_obs, parlist_SN, *mwebv, *z,
 		       	*Nobs, Tobs_list, magobs_list, magerr_list);
 	return;
+}
+
+void dump_SED_element(FILE * file, double wave, double value) {
+   fprintf(file, "%.2f %e", wave, value);
 }
 
 gsl_matrix *invKD_irr(int Nk, double *xk) {

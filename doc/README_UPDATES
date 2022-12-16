@@ -21495,4 +21495,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         2nd fit, fixed subtle logic in prepNextFit so that it won't
         force STOP_TOL=False on repeated fit.
 
+      + new sim-input keys CUTWIN_IDSAMPLE and CUTWIN_SURVEY (see HELP menu);
+        refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
+        real data.
+
+    combine_dataVersions.py:
+       + fix to handle full filter names in pantheon+
+
+    Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
+         snana.cra:c+USE,KCOR.
+         snlc_fit.cra:c+USE,KCOR.
+         snlc_fit_private.cra:c+USE,KCOR.
+         sntools.h: //#define USE_KCOR_FORTRAN
+    The old fortran code is still there, but not included in the compilation.
+
 END: 

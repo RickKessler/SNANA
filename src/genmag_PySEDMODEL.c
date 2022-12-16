@@ -233,7 +233,8 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
 
 #ifdef USE_PYTHON
-  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );
+  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
+
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
@@ -252,7 +253,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   handle_python_exception(fnam, "importing numpy and getting numpy.empty & numpy.double");
   Py_DECREF(numpy);
 
-  printf("DEBUG", PyCLASS_NAME, "\n");
+  // xxx mark delete  printf("DEBUG", PyCLASS_NAME, "\n");
   genmod_base = PyImport_ImportModule("gensed_base");
   if (genmod_base == NULL) {
     handle_python_exception(fnam, "tried to import gensed_base");
@@ -298,6 +299,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   Py_DECREF(pargs);
 
   printf("\t Finished %s python-init from C code \n", PyMODEL_NAME );
+  fflush(stdout);
 #endif
 
   // -----------------------------------------------------
@@ -322,6 +324,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
   // - - - -
   printf("\n\t Done with %s \n", fnam);
+  fflush(stdout);
 
   return ;
 

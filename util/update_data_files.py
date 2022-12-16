@@ -10,15 +10,18 @@
 #   --kcor_file option to replace filtchar with full filt name.
 #   --rename option for substrings in file names
 # Oct 18 2022 RK  add --filters_remove option
+# Dec 15 2022 RK add --sntype input
 
 import os, sys, argparse, shutil, gzip, re
 
 SNDATA_ROOT        = os.environ['SNDATA_ROOT']
 DATAKEY_VPEC       = "VPEC:"
 DATAKEY_FILTERS    = "FILTERS:"
+DATAKEY_SNTYPE     = "SNTYPE:"
 DATAKEY_VARLIST    = "VARLIST:"
 DATAKEY_NOBS       = "NOBS:"
 DATAKEY_OBS        = "OBS:"
+
 
 # =====================================
 def get_args():
@@ -39,6 +42,10 @@ def get_args():
 
     msg = "list of filters to remove; e.g., XNW"
     parser.add_argument("--filters_remove", help=msg, type=str, default=None)
+
+    msg = "force this SNTYPE override value " \
+          "(beware: does not add missing SNTYPE key)"
+    parser.add_argument("--sntype", help=msg, type=str, default=None)
 
     if len(sys.argv) == 1:  
         parser.print_help(); sys.exit()
@@ -178,6 +185,7 @@ def update_data_file(data_file, args):
     path_data       = args.path_data  # path to original data
     filter_dict     = args.filter_dict
     filters_remove  = args.filters_remove
+    sntype_force    = args.sntype
     DO_MINUS_VPEC   = args.MINUS_VPEC
     DO_UPD_FILT     = filter_dict is not None
     
@@ -212,9 +220,15 @@ def update_data_file(data_file, args):
             continue
 
         ISKEY_FILTERS = (wdlist[0] == DATAKEY_FILTERS)
+        ISKEY_SNTYPE  = (wdlist[0] == DATAKEY_SNTYPE )
+
         ISKEY_VARLIST = (wdlist[0] == DATAKEY_VARLIST)
         ISKEY_OBS     = (wdlist[0] == DATAKEY_OBS )
         ISKEY_NOBS    = (wdlist[0] == DATAKEY_NOBS )
+
+        if ISKEY_SNTYPE and sntype_force :
+            sntype_orig = wdlist[1]
+            line = line.replace(sntype_orig,sntype_force)
 
         if ISKEY_FILTERS and filters_remove :
             f_remove_list = list(filters_remove)            

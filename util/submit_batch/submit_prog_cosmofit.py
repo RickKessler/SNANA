@@ -114,7 +114,7 @@ class cosmofit(Program):
 
         # Continue Firecrown development here.
         
-        print("")
+        logging.info("")
 
         # store input directories, and covsys_*
         self.cosmofit_prep_input_list()
@@ -212,10 +212,9 @@ class cosmofit(Program):
             #print(f" xxx {covsys_file_list}")
             #print(f" xxx yaml info = {yaml_info}")
 
-            print(f" Found {inpdir} \n" \
-                  f" \t with {n_covsys} covsys files and " \
-                  f"ISDATA_REAL={isdata} ")
-
+            logging.info(f" Found {inpdir} \n" \
+                         f" \t with {n_covsys} covsys files and " \
+                         f"ISDATA_REAL={isdata} ")
 
         #sys.exit(f"\n xxx inpdir_list = \n{inpdir_list} \n")
         #print(f" xxx covsys_list = {covsys_list} ")
@@ -270,16 +269,21 @@ class cosmofit(Program):
                 text_wildcard = f"wildcards {wildcard1} and {wildcard2}"
 
                 if suffixes1 == suffixes2:
-                    print(f"Found matching number/names of dirs for " \
-                          f"{text_wildcard}")
+                    logging.info(f"Found matching number/names of dirs for " \
+                                 f"{text_wildcard}")
                 else:
                     msgerr = []
                     len1 = len(suffixes1) ; len2=len(suffixes2)
                     msgerr.append(f"Mis-match for {text_wildcard}.")
                     msgerr.append(f"Found {len1} dirs for wildcard={wildcard1}")
-                    msgerr.append(f"  {suffixes1}")
                     msgerr.append(f"Found {len2} dirs for wildcard={wildcard2}")
-                    msgerr.append(f"  {suffixes2}")
+                    msgerr.append(f"First few suffixes1: ")
+                    for i in range(0,3):
+                        msgerr.append(f"\t {suffixes1[i]}")
+                    msgerr.append(f"First few suffixes2: ")
+                    for i in range(0,3):
+                        msgerr.append(f"\t {suffixes2[i]}")
+
                     self.log_assert(False, msgerr)
 
         # - - - - - 
@@ -502,9 +506,8 @@ class cosmofit(Program):
         KEYNAME_LIST    = KEYNAME_FITOPT_LIST[COSMOFIT_CODE] 
         KEYNAME_DEFAULT = KEYNAME_LIST[0]
 
-        # XYZ       
         wfitopt_rows   = util.get_YAML_key_values(CONFIG,KEYNAME_LIST)
-        #print(f"XXX wfitopt_rows = {wfitopt_rows}")
+
         # Only wfit requires 'WFITOPT' key because there
         # is no input file for wfit
         # For firecrown there is an input file and
@@ -788,7 +791,7 @@ class cosmofit(Program):
         arg_list.append(f"{cov_basename} ")
         arg_list.append(f"{input_file} ")
         arg_list.append(f"--outdir {outdir} ")
-        #print('*****arg_list = ',f"arg_list")#, arg_list[1], arg_list[2])
+
         # start with user-defined args from WFITOPT[_GLOBAL] key
         arg_list.append(arg_string)
         if len(arg_global) > 0: arg_list.append(arg_global)
@@ -1413,9 +1416,8 @@ class cosmofit(Program):
                         FoM_list2 = zero_list2
                     
                     ##compute mean and std err on mean
-                    print(f"\t Compute averages for '{wfitopt_label}' " \
-                          f"with COVOPT={covopt_label}")
-                    sys.stdout.flush()
+                    logging.info(f"\t Compute averages for '{wfitopt_label}' " \
+                                 f"with COVOPT={covopt_label}")
 
                     omm_avg, omm_avg_std = self.compute_average(np.array(omm_list)-np.array(omm_list2))
                     w_avg, w_avg_std     = self.compute_average(np.array(w_list)-np.array(w_list2))

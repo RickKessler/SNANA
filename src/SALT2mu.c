@@ -15,154 +15,6 @@ For help, run code with no arguments
 
 ==============HISTORY========================
    
-  Jan 8 2018: 
-    + read optional VPEC, VPEC_ERR, ZHEL, ZHELERR and SIM_VPEC from 
-      data files. If they don't exist, make sure to explicitly set
-       values = 0.
-    + zpecerr replaces vpec/c in data files by adding 
-        [zpecerr^2 - (vpec/c)^2] to zerr^2.
-      See new function zerr_adjust().
-    + sigma_z -> vpec*(1+z)  [Eq A1 in Davis 2012]
-    + for clarity, rename z -> zhd and zerr -> zhderr
-    - Beware that D_L still uses incorrect (1+zHD) prefactor.
-
-  Jan 25 2018:
-    + remove obsolete vpec_biasCor()
-    + new global flag SKIPZCUT_BIASCOR so that z-cut is suppressed
-      when selecting SNR>60 events needed to compute sigma_int.
-
-  Jan 26 2018: 
-    + lots of refactor to prepare COVMAT[idsample,z,a,b]
-    + remove obsolete input  COVMAT_SCALE
-
-  Feb 23 2018:
-    + add protection against LOGMASS_TAU=0. See IPAR_LOGMASS_TAU=8
-
-  Mar 01 2018: write M0DIF to fitres output so that one can
-               verify  MURES = MU - (MUMODEL+M0DIF)
-
-  Mar 21 2018: 
-    + read optional opt_photoz flag; if set, automatically
-      split data & biasCor samples into zSPEC and zPHOT.
-
-  Apr 2 2018:
-    + add two optional fit parameters:
-        p15 = dAlpha/dlog(Mhost)
-        p16 = dBetaa/dlog(Mhost)
-
-  May 1 2018:  few changes in zerr_adjust().
-
-  Jun 10 2018
-    + new inputs maxerr_abort_[x0,x1,c] = 0 by default.
-      For fits with USESIM_[x0,x1,c]=T, the fit-errors are zero;
-      setting maxerr_abort_[x] < 0 will allow fit to proceed.
-
-  Jun 19 2018
-    + abort if any pIa value is < 0 or > 1
-    + new input snid_mucovdump='name' to dump full muCOV calculation.
-    + fix some H11 bugs from previous refactor
-    + new input option for log-spaced z bins:   nlogzbin=20
-
-  July 5 2018
-    + new input sigint_fix (see usage above) to specify sigma_int
-      for each IDSAMPLE.
-
-  July 9 2018
-    + for H11 option, sigCC -> 2nd order poly(z) instead of constant.
-    + u17-u22 options to pick subset of H11 parameters
-    + fix awful bug in prob_CCprior_H11
-
-  July 31 2018:
-    + for CC prior, read either obsolete SIM_NONIA_INDEX, 
-      or new SIM_TEMPLATE_INDEX.
-
-  Oct 8 2018: 
-    + add option (opt_biascor += 512) to compute sigint(biasCor)
-      for each IDSAMPLE. SIGINT_ABGRID now has 3rd dimension
-      [MXNUM_IDSAMPLE]
-
-  Oct 9 2018:
-    + for user sigint_fix option (sigint per IDSAMPLE), iterate with
-      COV-scale to ensure chi2/dof=1.       
-
-  Oct 23 2018:
-    + new input   varname_gamma=HOST_LOGMASS  controls which variable
-      is used to fit gamma = HR step.
-    + new option   CUTWIN(DATAONLY) LOGMASS 5 15  will apply cut
-      only to data and not to bias Cor sim, nor to CC-prior sim.
-
-  Feb 5 2019:
-   + minor refactor of ICC_FITCLASS_XXX: UNKNOWN -> OTHER, CC -> TOT
-
-  Apr 29 2019:
-   + for NSPLITRAN option, write summary to [prefix]_SPLITRAN_summary.out,
-     and use KEY format.
-
-  May 02 2019: remove TABLEFILE_CLOSE() calls since READ_EXEC closes.
-
-  May 07 2019:
-   + fix to work when all parameters are fixed;
-     If uM0=0, then set M0 fit bound to be -30 +- 0.001 so that
-     MINUIT still runs as usual. Might fix later so that fit is
-     skipped when there are no fit params.
-   + new fixpar_all option to use SALT2mu as MU-calculator
-
- May 20 2019: 
-   + refactor biasCor to read comma-separated list of simFile_biasCor 
-   + same for CCprior.
-
- May 29 2019:
-   + new input JOBID_SPLITRAN to process only 1 of the NSPLITRAN jobs.
-     The summary file is created if JOBID_SPLITRAN > NSPLITRAN
-   + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
-     and bug-fix in setup_zbins_fit().
-
- Jun 3 2019:
-   + major refactor to apply cuts more uniformly for data,biasCor,CCprior.
-     See new functions set_CUTMASK() and setbit_CUTMASK().
-     Found and fixed a few inconsistencies:
-       CCprior : was missing cuts on bad LC fit errors and bad COV.
-       BiasCor : for sigma_int calc, global z-cut was removed.
-
- Jun 22 2019: fix bug using varname_pIa as CUTWIN
- Jul 08 2019: remove USECODE_LEGACY pre-proc flag.
- Jul 18 2019: remove legacy code and USE_REFACOR 
- Jul 19 2019: new chi2max input; see function applyCut_chi2()
- Jul 26 2019: new input zbinuser
-
- August 2019: implement 7D biasCor based on gammaDM and LOGMASS
- 
- Sep 4 2019: finally remove INPUTS.LEGACY_BUGS[READFILE]
-
- Sep 25-26: 
-    + write contamination info to fitres output. See new functions
-      _contam_CCprior
-
- Sep 29 2019: u13=2 --> scalePCC is switched to scalePIa as in Eq 4 of H11.
-                (https://arxiv.org/abs/1111.5328)
-
- Oct 13 2019:
-   +  new option force_pIa=xx.yy
-   +  in write_MUERR_INCLUDE(), include hash for comment line so that
-      it's easier to parse with python.
-   +  if MUDIFERR=0, write MUDIFERR_ZERO = 666. Also write
-      WARNING lines in FITRES and M0DIF files (for MUDIFERR=0)
-   + fix bug implementing cutmask_write
-   + if cutmask_write!=0, add WARNING message to FITRES file.
-
- Oct 18 2019:
-   + add user input keys for logmass_min, logmass_max, nbin_logmass
-     Used only for 7D correction.
- Oct 22 2019: bix blinding options.
- Oct 24 2019: 
-    + scalePCC bound -> 15 (was 5)
-    + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
-
- Nov 14 2019: MAXBIN_BIASCOR_1D -> 500k (was 200k)
- Dec 11 2019: 
-     + fix few bugs so that 1D5DCUT option works
-       (i.e., apply 1D biasCor, but require 5D biasCor exists)
-     + abort if length(varname_gamma) > MXCHAR_VARNAME =  60
 
  Jan 6 2020:
    +  use print_preAbort_banner(fnam)
@@ -1507,6 +1359,7 @@ bool APPLY_CUTWIN_IDSURVEY(int ID, int icut);
 
 void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT);
 bool select_IDLIST(int ID, SELECT_LIST_DEF *SELECT);
+bool select_FIELD(char *field); // return True if field passes cuts
 
 void parse_sntype(char *item);
 void parse_IDSAMPLE_SELECT(char *item); // mark obsolete
@@ -7916,13 +7769,18 @@ void prepare_IDSAMPLE_biasCor(void) {
   // May 29 2020: 
   //   + fix bug for ALL surveys lumped together; set all IDSAMPLE=0
   //
+  // Dec 16 2022:
+  //   A week ago, prepare_IDSMAPLE_biasCor was moved to befoe
+  //   applying cuts and therefore FIELD cut is not applied.
+  //   Below, select_FIELD is used to apply field cut for 
+  //   determining IDSAMPLE.
 
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
 
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
-  bool IS_SPECZ, IS_PHOTOZ ;
+  bool IS_SPECZ, IS_PHOTOZ, SELECT_FIELD ;
   double zhd ;
   char FIELD_TMP[MXCHAR_CCID],  FIELDGROUP[100],  *FIELDDEF=NULL;
   char SURVEYGROUP[100], SURVEYDEF[MXCHAR_CCID], zGROUP[20];
@@ -7946,7 +7804,6 @@ void prepare_IDSAMPLE_biasCor(void) {
   sprintf(BANNER,"Begin %s", fnam);
   fprint_banner(FP_STDOUT,BANNER);
 
-      
   for(i=0; i < MXNUM_SAMPLE; i++ ) { 
     SAMPLE_BIASCOR[i].NSN[EVENT_TYPE_DATA]     = 0 ; 
     SAMPLE_BIASCOR[i].NSN[EVENT_TYPE_BIASCOR]  = 0 ; 
@@ -8018,9 +7875,16 @@ void prepare_IDSAMPLE_biasCor(void) {
     NAME_SN    = INFO_DATA.TABLEVAR.name[isn];
     zhd        = INFO_DATA.TABLEVAR.zhd[isn];
 
-    if(USE_FIELDGROUP) { FIELDDEF = INFO_DATA.TABLEVAR.field[isn]; }
-
-    if ( CUTMASK ) { continue ; }
+    if( USE_FIELDGROUP) { 
+      FIELDDEF     = INFO_DATA.TABLEVAR.field[isn]; 
+      SELECT_FIELD = select_FIELD(FIELDDEF);
+    }
+    else {
+      SELECT_FIELD = true;
+    }
+    
+    if ( !SELECT_FIELD ) { continue ; } 
+    if ( CUTMASK )       { continue ; } // obsolete since cuts are later
 
     if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
       sprintf(c1err,"Invalid IDSURVEY=%d for SNID=%s", IDSURVEY, NAME_SN);
@@ -8505,7 +8369,6 @@ void sort_IDSAMPLE_biasCor(void) {
   SAMPLE_BIASCOR_TEMP = 
     (SAMPLE_INFO_DEF*) malloc ( NSAMPLE * sizeof(SAMPLE_INFO_DEF));
   
-
   // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
   //           and some events are not.
   //   e..g, if DES and DES(C3+X3) are defined, ABORT.
@@ -8520,6 +8383,13 @@ void sort_IDSAMPLE_biasCor(void) {
       ISGRP0 = !IGNOREFILE(f0);      ISGRP2 = !IGNOREFILE(f2);
 
       if ( !ISGRP0 && ISGRP2 && SMATCH ) {
+	print_preAbort_banner(fnam);
+	printf("  ID[0,2] = %d %d \n", ID, ID2);
+	printf("  NAME_FIELDGROUP[0,2]  = %s  %s \n", f0, f2);
+	printf("  NAME_SURVEYGROUP[0,2] = %s  %s \n", s0, s2);
+	printf("  ISGRP0=%d  ISGRP2=%d SMATCH=%d \n",
+	       ISGRP0, ISGRP2, SMATCH);
+
 	sprintf(c1err,"Found %s events NOT in FIELDGROUP", s0);
         sprintf(c2err,"Define all fields in fieldgroup_biascor key.");
         errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -15195,12 +15065,12 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //
   // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
   // May 28 2021: fix COV cut bug; cut on cov(mB,X) instead of cov(x0,X)
-  //
+  // Dec 16 2022: use select_FIELD(field) to apply fieldlist cut
+
   int  event_type = TABLEVAR->EVENT_TYPE;
   bool IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   bool IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
   bool IS_CCPRIOR = ( event_type == EVENT_TYPE_CCPRIOR );
-  int NFIELD = INPUTS.NFIELD ;
 
   bool  LCUTWIN_DISABLE   = IS_DATA && INPUTS.LCUTWIN_DISABLE ;
 
@@ -15212,7 +15082,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   double cutvar_local[MXCUTWIN];
   double z, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
-  char   *name ;
+  char   *name, *field ;
   char fnam[]=  "set_CUTMASK";
 
   // ---------- BEGIN ---------
@@ -15267,7 +15137,16 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
 
   // -----------------
-  // check CUTFIELD (May 2020)
+  // check fieldlist cut. Beware that FIELD column is read/stored
+  // only if field is used as cut or biasCor group.
+  if ( INPUTS.NFIELD > 0 ) {
+    field     =  TABLEVAR->field[isn];  
+    sel = select_FIELD(field);
+    if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); } 
+  }
+
+  /* xxxxxxxx mark delete Dec 16 2022 RK xxxxxxxxxxx
+  int NFIELD = INPUTS.NFIELD ;
   if ( NFIELD > 0 ) {
     bool MATCH = false;
     char *tmpField, *field = TABLEVAR->field[isn];  
@@ -15277,6 +15156,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     }
     if ( !MATCH ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); }
   }
+  xxxxxxxxxxx end mark xxxxxxxxx */
 
   // -----------------------------------------
   // apply legacy cuts 
@@ -17097,6 +16977,31 @@ void parse_select_IDLIST(char *KEY, char *ITEM, SELECT_LIST_DEF *SELECT) {
   return;
 } // end parse_select_IDLIST
 
+
+// ===============================================
+bool select_FIELD(char *field) {
+
+  // Created Dec 16 2022
+  // Return True of input *field satsifies cut from user input fieldlist.
+
+  int  icut, NFIELD = INPUTS.NFIELD ;
+  bool select = true;
+  char *tmpField;
+  char fnam[] = "select_FIELD" ;
+
+  // ------------ BEGIN -------------
+
+  if ( NFIELD > 0 ) {
+    select = false;
+    for(icut=0; icut < NFIELD; icut++ ) {
+      tmpField = INPUTS.FIELDLIST[icut] ;
+      if ( strstr(field,tmpField) != NULL )  { select = true; }
+    }
+  }
+
+  return select ;
+
+} // end select_FIELD
 
 // **************************************************
 void parse_sigint_fix(char *item) {

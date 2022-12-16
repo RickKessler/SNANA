@@ -5390,8 +5390,8 @@ c arrays are loaded later with ISPEC > 0.
             NBLAM = NLAMBIN_SPECTRUM(I)
 
             if ( NBLAM > MXLAM_SPECTRUM .or. NBLAM < 0 ) then
-               write(c1err,'(A,I3)') 'Invalid NLAMBIN = ', NBLAM
-               write(c2err,'(A,I3)') 'MXLAM_SPECTRUM=',MXLAM_SPECTRUM
+               write(c1err,'(A,I8)') 'Invalid NLAMBIN = ', NBLAM
+               write(c2err,'(A,I8)') 'MXLAM_SPECTRUM=',MXLAM_SPECTRUM
                CALL MADABORT(FNAM, c1err,c2err)
             endif
 

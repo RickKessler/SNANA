@@ -253,7 +253,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
 
 #ifdef USE_PYTHON
-  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
+  printf("\n\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
 
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);

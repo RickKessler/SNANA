@@ -22864,15 +22864,6 @@ void init_genmodel(void) {
   History:
 
 
- Feb 13, 2012: 
-    make calls to get_LAMRANGE_[model] to fill  GENLC.RESTLAM_MODEL[2].
-    Init GENLC.RESTLAM_MODEL to be wide open before calling get_LAMRANGE_XXX.
-
- Apr 7, 2012: set IFLAG_GENSMEAR
-
- Jul 20 2018: for LCLIB model, set GENRANGE_PEAKMJD= start of season,
-              and GENRANGE_TREST = 0 to MJDLAST
-
  Nov 23 2020: pass SURVEY arg to init_genmag_SALT2.
 
  Feb 21 2022: minor refactor to set LGEN_SNIA and GENLC.SIMTYPE
@@ -23043,6 +23034,8 @@ void init_genmodel(void) {
 
     init_genmag_PySEDMODEL(INPUTS.GENMODEL, INPUTS.MODELPATH, 
 			   OPTMASK, ARGLIST_PySEDMODEL, NAMES_HOSTPAR);
+
+    get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {

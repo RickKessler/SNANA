@@ -22915,7 +22915,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
       for(IVAR=0; IVAR < NVAR; IVAR++ ) {
 	//.xyz
 	varname = OUTPUT_TABLE->BININFO[IVAR].varName ;
-	printf("\t %s = %f (bin=%d)\n", 
+	fprintf(FP_STDOUT, "\t %s = %f (bin=%d)\n", 
 	       varname, DVAL_PER_VAR[IVAR], ibin_per_var[IVAR]);
 	fflush(stdout);
       }

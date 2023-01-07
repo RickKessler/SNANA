@@ -22637,36 +22637,6 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  /* xxx mark delete xxxxxx
-  // below, check for standard SALT2mu table variables
-  else if ( strcmp(VARNAME,"x1") == 0  ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
-  else if ( strcmp(VARNAME,"c") == 0  ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_c];   }
-
-  else if ( strcmp(VARNAME,"zhd") == 0     || 
-	    strcmp(VARNAME,"zHD") == 0  ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.zhd ; }
-
-  else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ||
-	    strcmp(VARNAME,"LOGMASS") == 0   ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.host_logmass;  }
-  else if ( strcmp(VARNAME,"HOST_LOGSFR") == 0  ||
-	    strcmp(VARNAME,"LOGSFR") == 0   ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.host_logsfr;  }
-  else if ( strcmp(VARNAME,"HOST_LOGsSFR") == 0  ||
-	    strcmp(VARNAME,"LOGsSFR") == 0   ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.host_logssfr;  }
-  else if ( strcmp(VARNAME,"HOST_COLOR") == 0  ||
-	    strcmp(VARNAME,"COLOR") == 0   ) 
-    { PTRVAL = INFO_DATA.TABLEVAR.host_color;  }
-
-  else {
-    sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
-    sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-  }
-  xxxxxx end mark xxxxx */
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
@@ -22772,7 +22742,7 @@ void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
 
   sprintf(VARNAMES,"ROW ");
 
-  for(ivar=0; ivar < NVAR; ivar++ ) {
+  for(ivar=0; ivar < NVAR; ivar++ )  {
     BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[ivar];
     sprintf(varName,"ibin_%s ", BININFO->varName);
     strcat(VARNAMES,varName);
@@ -22910,10 +22880,11 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   double WGT        = 1.0/(muerr*muerr);
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
   int   NEVT, IBIN1D, IVAR, OPT_BININFO=0;
-  float FVAL;        double DVAL ;
+  float FVAL;        double DVAL, DVAL_PER_VAR[MXVAR_TABLE_SUBPROCESS] ;
   BININFO_DEF *BININFO ;
   bool  VALID = true;
   int   LPRINT_MALLOC = 0 ;
+  char *varname;
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
 
   // ---------- BEGIN -----------
@@ -22924,6 +22895,7 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
     // get data value for this variable and ISN event number  
     FVAL = OUTPUT_TABLE->PTRVAL[IVAR][ISN] ;
     DVAL = (double)FVAL ;   
+    DVAL_PER_VAR[IVAR] = DVAL ;
 
     // convert data value to table index
     ibin_per_var[IVAR] = IBINFUN(DVAL, BININFO, OPT_BININFO, fnam );	
@@ -22938,6 +22910,15 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
     if ( ISDATA_REAL ) { 
       fprintf(FP_STDOUT,"%s: REJECT SNID=%s -> outside table bin range\n",
 	      fnam, name);
+
+      // Jan 2023: print value of each variable
+      for(IVAR=0; IVAR < NVAR; IVAR++ ) {
+	//.xyz
+	varname = OUTPUT_TABLE->BININFO[IVAR].varName ;
+	printf("\t %s = %f (bin=%d)\n", 
+	       varname, DVAL_PER_VAR[IVAR], ibin_per_var[IVAR]);
+	fflush(stdout);
+      }
     }
     return; 
   }

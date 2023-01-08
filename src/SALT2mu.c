@@ -5328,6 +5328,11 @@ void read_data(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
+  // xxxxxxxxxxxxx
+  printf(" xxx %s: host_color = %f  %f ... \n",
+	 fnam, INFO_DATA.TABLEVAR.host_color[0], INFO_DATA.TABLEVAR.host_color[1]);
+  fflush(stdout);
+  // xxxxxxxxxxxxxxx
 
   return;
 
@@ -22591,14 +22596,16 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   int IVAR_TABLE = SUBPROCESS_IVAR_TABLE(VARNAME);
   int ivar, NVAR_VALID=0 ;
   bool MATCH     = false;
+  int  ivar_match = -9;
 
   // define space separated list of valid varnames for output table
+  // Note that host property name is allowed to be HOST_[PROPERTY] or [PROPERTY]
   char VARNAME_VALID_LIST[] = "x1 c zHD "				\
     "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGMASS " " HOSTGAL_PROPERTY_BASENAME_LOGMASS " "\
     "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGSFR  " " HOSTGAL_PROPERTY_BASENAME_LOGSFR  " "\
     "HOST_"HOSTGAL_PROPERTY_BASENAME_LOGsSFR " " HOSTGAL_PROPERTY_BASENAME_LOGsSFR " "\
     "HOST_"HOSTGAL_PROPERTY_BASENAME_COLOR   " " HOSTGAL_PROPERTY_BASENAME_COLOR   " "\
-      ; 
+    ; 
 
   // define list of pointers corresponding to VARNAME_VALID_LIST
   float *PTRVAL_VALID_LIST[] = {
@@ -22623,9 +22630,10 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     for(ivar=0; ivar < NVAR_VALID; ivar++ ) {
       get_PARSE_WORD(0, ivar, VARNAME_VALID_TMP);
       if ( strcmp(VARNAME,VARNAME_VALID_TMP) == 0  ) 
-	{ PTRVAL = PTRVAL_VALID_LIST[ivar];  MATCH=true; }
+	{ PTRVAL = PTRVAL_VALID_LIST[ivar];  MATCH=true; ivar_match=ivar; }
     } 
   }
+
 
   // - - - - - -
   if ( !MATCH ) {
@@ -22637,6 +22645,11 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
+  // xxxxxxxxxxxx 
+  printf(" xxx %s: ITAB=%d VARNAME=%s IVAR=%d ivar_match=%d  PTRVAL=%f, %f ... \n",
+	 fnam, ITABLE, VARNAME, IVAR, ivar_match, PTRVAL[0], PTRVAL[1] ) ;
+  fflush(stdout); //.xyz
+  // xxxxxxxxxxxxxx
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
@@ -22878,13 +22891,14 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   double mures      = INFO_DATA.mures[ISN] ;
   double muerr      = INFO_DATA.muerr[ISN] ;
   double WGT        = 1.0/(muerr*muerr);
+  int    IDSURVEY   = INFO_DATA.TABLEVAR.IDSURVEY[ISN]; 
   int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int   NEVT, IBIN1D, IVAR, OPT_BININFO=0;
+  int   NEVT, IBIN1D, IVAR, OPT_BININFO=0 ;
   float FVAL;        double DVAL, DVAL_PER_VAR[MXVAR_TABLE_SUBPROCESS] ;
   BININFO_DEF *BININFO ;
   bool  VALID = true;
   int   LPRINT_MALLOC = 0 ;
-  char *varname;
+  char *varName;
   char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
 
   // ---------- BEGIN -----------
@@ -22908,15 +22922,15 @@ void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
   
   if ( !VALID ) { 
     if ( ISDATA_REAL ) { 
-      fprintf(FP_STDOUT,"%s: REJECT SNID=%s -> outside table bin range\n",
-	      fnam, name);
+      fprintf(FP_STDOUT,"%s: REJECT SNID=%s [IDSURVEY=%d] -> "
+	      "outside table bin range\n",
+	      fnam, name, IDSURVEY );
 
       // Jan 2023: print value of each variable
       for(IVAR=0; IVAR < NVAR; IVAR++ ) {
-	//.xyz
-	varname = OUTPUT_TABLE->BININFO[IVAR].varName ;
-	fprintf(FP_STDOUT, "\t %s = %f (bin=%d)\n", 
-	       varname, DVAL_PER_VAR[IVAR], ibin_per_var[IVAR]);
+	varName  = OUTPUT_TABLE->BININFO[IVAR].varName ;
+	fprintf(FP_STDOUT, "\t %s = %f  [tableBin=%d]\n", 
+		varName, DVAL_PER_VAR[IVAR],  ibin_per_var[IVAR]);
 	fflush(stdout);
       }
     }

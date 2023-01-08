@@ -24556,7 +24556,11 @@ c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
 c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
 c Dec 28, 2020: write SIM_gammaDM to TEXT file if non-zero
-
+c Dec     2022: remove SIM_TYPE_INDEX
+c Jan  8  2023: restore SIM_TYPE_INDEX (forgot why it was removed)
+c                add SIM_GENTYPE (same as SIM_TYPE_INDEX)
+c
+c
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
@@ -24599,11 +24603,12 @@ C ---------------- BEGIN ---------------
      &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-c xxxxxxx mark delete Dec 2022 xxxxxx
-c      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
-c     &                   LENBLOCK, LENLIST)
-c xxxxxxxxx end mark xxxxxxx
+      VARLIST = 'SIM_TYPE_INDEX:I' //char(0) 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
+     &                   LENBLOCK, LENLIST)
+      VARLIST = 'SIM_GENTYPE:I' //char(0) 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! new name, Jan 2023
+     &                   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_TEMPLATE_INDEX:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_TEMPLATE_INDEX,

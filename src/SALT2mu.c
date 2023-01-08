@@ -5328,12 +5328,6 @@ void read_data(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
   }
 
-  // xxxxxxxxxxxxx
-  printf(" xxx %s: host_color = %f  %f ... \n",
-	 fnam, INFO_DATA.TABLEVAR.host_color[0], INFO_DATA.TABLEVAR.host_color[1]);
-  fflush(stdout);
-  // xxxxxxxxxxxxxxx
-
   return;
 
 } // end read_data 
@@ -21666,6 +21660,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   // duplicate colummns are read.
   //
   // Apr 18 2022: set better abort trap for NVAR_ALL
+  // Jan 8 2023: bugfix: call malloc_TABLEVAR_HOST() only for IFILE==0
 
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
@@ -21702,7 +21697,9 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
     // if varname appears, read it
     if ( MATCH ) {
-      MEM = malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME);
+      if ( IFILE == 0 ) 
+	{ MEM = malloc_TABLEVAR_HOST(LEN_MALLOC,TABLEVAR,VARNAME); }
+
       ivar = SNTABLE_READPREP_HOST(VARNAME, ISTART, LEN, TABLEVAR);
       if ( ivar < 0 ) {
 	sprintf(c1err,"Output table includes VARNAME=%s", VARNAME);
@@ -21716,7 +21713,6 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   } // end ivar loop over HOST_xxx columns
 
   if ( TABLEVAR->IS_DATA ) { return; } // return on REAL data
-
 
 
   // - - - - - - - - - 
@@ -22645,11 +22641,11 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  // xxxxxxxxxxxx 
+  /* xxxxxxxxxxxx 
   printf(" xxx %s: ITAB=%d VARNAME=%s IVAR=%d ivar_match=%d  PTRVAL=%f, %f ... \n",
 	 fnam, ITABLE, VARNAME, IVAR, ivar_match, PTRVAL[0], PTRVAL[1] ) ;
   fflush(stdout); //.xyz
-  // xxxxxxxxxxxxxx
+  xxxxxxxxxxxxxx */
 
   SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 

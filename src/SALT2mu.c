@@ -12891,8 +12891,6 @@ int get_muCOVcorr(char *cid,
   else
     { IMMIN = IMMAX = IM; }  // do NOT interp logmass dimension
 
-  printf("xxx %s IM=%d IMMIN=%d IMMAX=%d \n",fnam, IM, IMMIN, IMMAX);
-
   USEBIN_CENTER = false;
   if ( INPUTS.restore_mucovscale_bug ) { USEBIN_CENTER = true; }
 

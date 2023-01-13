@@ -5341,6 +5341,7 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   // Used later for adjusting muErr based on RMS from sim.
   // Input opt not used,.
   // Sep 14 2021: malloc USE element
+  // Jan 12 2023: changed hard-coded logmass binning values to use inputs.logmass_min and inputs.logmass_max
 
   int debug_malloc = INPUTS.debug_malloc ;
   bool DO_MAD      = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
@@ -5385,7 +5386,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
   else  { 
     // start with 2 logmass bins for devel; later decide on either
     // biasCor logmass bins, or hard-wired bins such as for color
-    NBINm = 2; mmin=5.0; mmax=15.0; mbin=5.0 ;  // refactor
+    // xxx mark delete    NBINm = 2; mmin=5.0; mmax=15.0; mbin=5.0 ;  // refactor
+    NBINm = 2; mmin=INPUTS.logmass_min; mmax=INPUTS.logmass_max; mbin=(mmax-mmin)/(double)NBINm ;
   }
 
   // - - - - 
@@ -9257,7 +9259,7 @@ void print_biascor_options(void) {
     { print_biascor_comment(MASK_BIASCOR_5D,"5D biasCor map"); }
 
   if ( opt_biasCor & MASK_BIASCOR_MUCOVSCALE ) 
-    { print_biascor_comment(MASK_BIASCOR_MUCOVSCALE,"MUCOVSCALE vs {z,c} "); }
+    { print_biascor_comment(MASK_BIASCOR_MUCOVSCALE,"MUCOVSCALE vs {z,c,m} "); }
 
   if ( opt_biasCor & MASK_BIASCOR_SAMPLE ) 
     { print_biascor_comment(MASK_BIASCOR_SAMPLE,"biasCor vs. IDSAMPLE"); }
@@ -10174,7 +10176,7 @@ int J1D_biasCor(int ievt, char *msg ) {
   if ( im  < 0 || im  >= NBINm  ) { return J1D; }
   if ( ix1 < 0 || ix1 >= NBINx1 ) { return J1D; }
   if ( ic  < 0 || ic  >= NBINc  ) { return J1D; }
-  
+
   J1D = CELLINFO_BIASCOR[idsample].MAPCELL[ia][ib][ig][iz][im][ix1][ic] ;
 
   if ( J1D >= MAXBIN_BIASCOR_1D || J1D < 0 ) 
@@ -12888,6 +12890,8 @@ int get_muCOVcorr(char *cid,
     { IMMIN = IM-1; IMMAX = IM+1;}
   else
     { IMMIN = IMMAX = IM; }  // do NOT interp logmass dimension
+
+  printf("xxx %s IM=%d IMMIN=%d IMMAX=%d \n",fnam, IM, IMMIN, IMMAX);
 
   USEBIN_CENTER = false;
   if ( INPUTS.restore_mucovscale_bug ) { USEBIN_CENTER = true; }

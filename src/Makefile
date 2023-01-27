@@ -74,7 +74,7 @@
 # Nov 22 2022: add USE_BAYESN flag to use libyaml
 # Nov 23 2022: add genmag_extinction
 # Nov 29 2022: remove kcordump
-# Dec 02 2022: append CFLAGS with snana-git version
+# Dec 02 2022: append CFLAGS with snana git version
 #
 # ------------------------------------------------------------------------
 

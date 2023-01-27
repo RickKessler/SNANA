@@ -1717,107 +1717,110 @@ c define namelist cuts
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
 
+c# -----------  SN-dependent cut-window  ! I: --------------------------------
       REAL
      &   snlc_cutvar(NCUTBIT_SNLC)
      &  ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)
      &  ,cutwin_var(2,NCUTBIT)   
      &  ,cutwin_cid(2)           ! candidate id
-     &  ,cutwin_sntype(2)        ! Mar 2022
-     &  ,cutwin_redshift(2)
-     &  ,cutwin_redshift_err(2)
-     &  ,cutwin_ra(2)
-     &  ,cutwin_dec(2)
-     &  ,cutwin_hostsep(2)      ! cut on host-SN sep, arcsec
-     &  ,cutwin_sbflux_filt(2,MXFILT_SNRMAX)
-     &  ,cutwin_Nepoch(2)       ! 
+     &  ,cutwin_sntype(2)        ! 
+     &  ,cutwin_redshift(2)      ! I: redshift cut
+     &  ,cutwin_redshift_err(2)  ! I: cut on redshift uncertainty
+     &  ,cutwin_ra(2)            ! I: cut on RA
+     &  ,cutwin_dec(2)           ! I: cut on DEC
+     &  ,cutwin_hostsep(2)       ! I: cut on host-SN sep, arcsec
+     &  ,cutwin_sbflux_filt(2,MXFILT_SNRMAX) 
+     &  ,cutwin_Nepoch(2)        ! I: cut on Nepoch 
      &  ,cutwin_snrmax_filt(2,MXFILT_SNRMAX)   ! filled from SNCUT_SNRMAX
-     &  ,cutwin_snrmax(2)       ! global SNRMAX cut
-     &  ,cutwin_snrmax2(2)       ! 2nd global SNRMAX cut
-     &  ,cutwin_nfield(2)        ! number of fields (usually 1)
-     &  ,cutwin_mwebv(2)         ! Galactic extinction
+     &  ,cutwin_snrmax(2)        ! I: global SNRMAX cut
+     &  ,cutwin_snrmax2(2)       ! I: 2nd global SNRMAX cut (different band)
+     &  ,cutwin_nfield(2)        ! I: number of fields (usually 1)
+     &  ,cutwin_mwebv(2)         ! I: Galactic extinction
      &  ,cutwin_nseason_active(2) 
      &  ,cutwin_cutflag_reqep(2)       ! for internal use only
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
-     &  ,cutwin_nfilt_snrmax(2)  ! Nfilt passing global SNRMAX cut
-     &  ,cutwin_nfilt_snrmax2(2) ! Nfilt passing 2nd-best SNRMAX
-     &  ,cutwin_nfilt_trestmin(2)! Nfilt passing Trestmin cut
-     &  ,cutwin_nfilt_trestmax(2)! Nfilt passing Trestmax cut
-     &  ,cutwin_nfilt_trest2(2)  ! Nfilt passinng Trest2 cut
-     &  ,cutwin_nband_thresh(2)  ! number of ugriz bands above $band_THRESH
-     &  ,cutwin_Trestmin(2)      ! window for earliest epoch, rest frame days
-     &  ,cutwin_Trestmax(2)      ! window for latest epoch, rest frame day
-     &  ,cutwin_TrestRange(2)    ! window on Trestmax - Trestmin
-     &  ,cutwin_Trest2(2)        ! window for CUTWIN_NFILT_TREST2
-     &  ,cutwin_Tgapmax(2)       ! max Trest-gap within cutwin_TREST(2)
-     &  ,cutwin_T0gapmax(2)      ! max Trest-gap near peak 
-     &  ,cutwin_Tobsmin(2)  
-     &  ,cutwin_Tobsmax(2)
-     &  ,cutwin_peakmjd(2)       ! cut on search peakMJD (for rates)
+     &  ,cutwin_nfilt_snrmax(2)  ! I: Nfilt passing global SNRMAX cut
+     &  ,cutwin_nfilt_snrmax2(2) ! I: Nfilt passing 2nd-best SNRMAX
+     &  ,cutwin_nfilt_trestmin(2)! I: Nfilt passing Trestmin cut
+     &  ,cutwin_nfilt_trestmax(2)! I: Nfilt passing Trestmax cut
+     &  ,cutwin_nfilt_trest2(2)  ! I: Nfilt passinng Trest2 cut
+     &  ,cutwin_nband_thresh(2)  ! I: number of bands above $band_THRESH
+     &  ,cutwin_Trestmin(2)      ! I: cut on earliest epoch, rest frame days
+     &  ,cutwin_Trestmax(2)      ! I: cut on  latest epoch, rest frame day
+     &  ,cutwin_TrestRange(2)    ! I: cut on Trestmax - Trestmin
+     &  ,cutwin_Trest2(2)        ! I: cut on CUTWIN_NFILT_TREST2
+     &  ,cutwin_Tgapmax(2)       ! I: max Trest-gap within cutwin_TREST(2)
+     &  ,cutwin_T0gapmax(2)      ! I: max Trest-gap near peak 
+     &  ,cutwin_Tobsmin(2)       ! I: cut on min Tobs
+     &  ,cutwin_Tobsmax(2)       ! I: cut on max Tobs
+     &  ,cutwin_peakmjd(2)       ! I: cut on search peakMJD
 c  
 c  Below are Epoch-dependent cuts
-
-     &  ,cutwin_psf(2)           ! PSF cut, FWHM, ARCSEC
-     &  ,cutwin_zp(2)            ! ZEROPT cut, ADU or NPE
-     &  ,cutwin_zpADU(2)         ! ZEROPT cut, ADU
-     &  ,cutwin_zpNPE(2)         ! ZEROPT cut, NPE
-     &  ,cutwin_ZPERR(2)         ! ZPERR cut
-     &  ,cutwin_photprob(2)
-     &  ,cutwin_errtest(2)       ! cut on ERRCALC/ERRTRUE
-     &  ,cutwin_simpull(2)       ! cut on (F-Ftrue)/sigmaF (mar 2021)
-     &  ,cutwin_Trest_trueflux(2) ! Trest range requiring valid true flux
-     &  ,cutwin_Trest_trueflux2(2) ! cut on logical flag
-     &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
-     &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
-     &  ,cutwin_MJD(2)           ! MJD window
-     &  ,CUTWIN_MJD_EXCLUDE(2)          ! MJD window to exclude
-     &  ,CUTWIN_MJD_INCLUDE(2)          ! require  MJD in this window
+c# -----------  epoch-dependent cut windows  ! I: --------------------------------
+     &  ,cutwin_psf(2)           ! I: PSF cut, FWHM, ARCSEC
+     &  ,cutwin_zp(2)            ! I: ZEROPT cut, ADU or NPE
+     &  ,cutwin_zpADU(2)         ! I: ZEROPT cut, ADU
+     &  ,cutwin_zpNPE(2)         ! I: ZEROPT cut, NPE
+     &  ,cutwin_ZPERR(2)         ! I: ZPERR cut
+     &  ,cutwin_photprob(2)      ! I: cut on PHOTPROP (e.g., real/bogus)
+     &  ,cutwin_errtest(2)       ! I: cut on ERRCALC/ERRTRUE
+     &  ,cutwin_simpull(2)       ! I: cut on (F-Ftrue)/sigmaF
+     &  ,cutwin_Trest_trueflux(2) ! I: Trest range requiring valid true flux
+     &  ,cutwin_Trest_trueflux2(2)! I: cut on logical flag
+     &  ,cutwin_Trest(2)         ! I: cut on all epochs, rest frame days
+     &  ,cutwin_Tobs(2)          ! I: cut on all epochs, obs-frame days
+     &  ,cutwin_MJD(2)           ! I: cut on MJD range
+     &  ,CUTWIN_MJD_EXCLUDE(2)   ! I: MJD window to exclude
+     &  ,CUTWIN_MJD_INCLUDE(2)   ! I: require 1 or more MJD in this window
      &  ,CUTWIN_NMJD_INCLUDE(2)         ! for internal use only
-     &  ,cutwin_SEARCHEFF_MASK(2) ! for SIM only
+     &  ,cutwin_SEARCHEFF_MASK(2)       ! for SIM only
      &  ,cutwin_snrmin_filt(2,MXFILT_OBS) ! filled from EPCUT_SNRMIN
-     &  ,cutwin_restlam(2)                ! cut on <LAMREST>, no cutBit
-     &  ,cutwin_lamrest(2)                ! same as above
-     &  ,cutwin_lamobs(2)                 ! cut on <LAMOBS>, no cutBit
-     &  ,cutwin_snr_nodetect(2)    ! SNR cut for non-detections (Sep 2020)
+     &  ,cutwin_restlam(2)                ! I: cut on <LAMREST>, no cutBit
+     &  ,cutwin_lamrest(2)                ! I: same as above
+     &  ,cutwin_lamobs(2)                 ! I: cut on <LAMOBS>, no cutBit
+     &  ,cutwin_snr_nodetect(2)    ! I: SNR cut for non-detections
 c
 c define character strings to specify cuts and filters
 c 'SNCUT' specifies cut on each SN
 c 'EPCUT' specifies selection cut on each epoch
 
+  ! I:# --------------------------------
       CHARACTER*(MXCHAR_CUTNAME)
-     &  SNCUT_SNRMAX  ! max SNR required in each passband
-                      ! example: 'u 10.  g 5.0  r 5.0  i 5.0  z -10.'
+     &  SNCUT_SNRMAX  ! I: max SNR required in each passband
+                      ! I: example: 'u 10.  g 5.0  r 5.0  i 5.0  z -10.'
 c
-     & ,EPCUT_SNRMIN  ! min SNR accepted for each epoch/filter
-                      ! example: 'u 20000.  g -4.  r -4.  i -4.  z 20000.'
+     & ,EPCUT_SNRMIN  ! I: min SNR accepted for each epoch/filter
+                      ! I: example: 'u 20000.  g -4.  r -4.  i -4.  z 20000.'
 c
-     & ,EPCUT_SKYSIG  ! max SKY noise accepted each epoch/filter
-                      ! example: 'u 20.  g 50.  r 80.  i 120.  z 200.'
+     & ,EPCUT_SKYSIG  ! I: max SKY noise accepted each epoch/filter
+                      ! I: example: 'u 20.  g 50.  r 80.  i 120.  z 200.'
 c
      & ,EPCUT_PSFSIG  ! max PSF (arcsec) accepted each epoch/filter
                       ! example: 'u 1.8  g 1.5  r 1.6  i 1.8  z 2.0'
 c
-     & ,SNCUT_HOST_SBFLUX ! require min surface brightness,
-                          ! example 'r 1000.' -> SBFLUX > 1000
+     & ,SNCUT_HOST_SBFLUX ! I: require min surface brightness,
+                          ! I: example 'r 1000.' -> SBFLUX > 1000
 
+      ! I:# --------------------------------
 c ----------
 c systematic tests for calibration:
 c 'U 01 B -0.01' => shift U & B mags of primary
 
-     &  ,MAGOBS_SHIFT_PRIMARY  ! shift primary mags  (for syst test)
-     &  ,MAGOBS_SHIFT_ZP       ! shift zero points (e.g.,AB off for SDSS)
-     &  ,MAGREST_SHIFT_PRIMARY ! idem for rest-frame mags 
-     &  ,MAGREST_SHIFT_ZP      ! idem for rest-frame filters
-     &  ,FILTER_LAMSHIFT       ! e.g., 'r -2.4  i 6.2'  ! in Angstroms
+     &  ,MAGOBS_SHIFT_PRIMARY  ! I: shift primary mags  (for syst test)
+     &  ,MAGOBS_SHIFT_ZP       ! I: shift zero points (e.g.,AB off for SDSS)
+     &  ,MAGREST_SHIFT_PRIMARY ! I: idem for rest-frame mags 
+     &  ,MAGREST_SHIFT_ZP      ! I: idem for rest-frame ZP
+     &  ,FILTER_LAMSHIFT       ! I: e.g., 'r -2.4  i 6.2'  ! in Angstroms
 c -------
 c Fluxcal fudges for systematic tests (fudge photometry offsets and errors)
 c Note that error is added in quadrature; ERROR<0 is subtracted in quadrature.
-     &  ,FUDGE_FLUXCAL_OFFSET
-     &  ,FUDGE_FLUXCAL_ERROR   ! fudge net FLUXCAL error in each band
-     &  ,FUDGE_FLUXCAL_ERRPIX  ! per-pixel error --> FLUXCAL error propto PSF
-     &  ,FUDGE_MAG_ERROR       ! Oct 2013: add stat error per band
-     &  ,FUDGE_MAG_COVERR      ! Feb 2015: add covariant error per band
-     &  ,FUDGE_FLUXERR_SCALE   ! Feb 2020: scale error in each band
+     &  ,FUDGE_FLUXCAL_OFFSET  ! I: shift all FLUXCAL
+     &  ,FUDGE_FLUXCAL_ERROR   ! I: fudge net FLUXCAL error in each band
+     &  ,FUDGE_FLUXCAL_ERRPIX  ! I: per-pixel error --> FLUXCAL error propto PSF
+     &  ,FUDGE_MAG_ERROR       ! I: add stat error per band
+     &  ,FUDGE_MAG_COVERR      ! I: add covariant error per band
+     &  ,FUDGE_FLUXERR_SCALE   ! I: scale error in each band
 
       REAL
      &   MAGOBS_SHIFT_PRIMARY_FILT(MXFILT_ALL) ! shift mag of primary ref
@@ -1837,24 +1840,24 @@ c
      &  ,FUDGE_FLUXERR_SCALE_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_ERROR_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_COVERR_FILT(MXFILT_ALL)
-     &  ,MWEBV_SCALE        ! scale MW extinc for syst test
-     &  ,MWEBV_SHIFT        ! shift MW extinc
-     &  ,MWEBV_FORCE        ! force specific MWEBV value (Feb 2020)
+     &  ,MWEBV_SCALE        ! I: scale MW extinc for syst test
+     &  ,MWEBV_SHIFT        ! I: shift MW extinc
+     &  ,MWEBV_FORCE        ! I: force specific MWEBV value (Feb 2020)
 
       REAL 
-     &   RV_MWCOLORLAW   ! (I) RV for Galactic extinction 
+     &   RV_MWCOLORLAW   ! I: RV for Galactic extinction 
 
       INTEGER 
-     &   OPT_MWCOLORLAW    ! (I) MW color law opt (89, 94, 99 ...)
-     &  ,OPT_MWEBV         ! (I) option to modify SFD maps
+     &   OPT_MWCOLORLAW    ! I: MW color law opt (89, 94, 99 ...)
+     &  ,OPT_MWEBV         ! I: option to modify SFD maps
 
       LOGICAL 
-     &   USE_MWCOR          ! (I) T=> correct data flux for MW extinc;
-                            !     F=> leave data, correct fit model for MW.
+     &   USE_MWCOR          ! I:  T=> correct data flux for MW extinc;
+                            ! I:  F=> leave data, correct fit model for MW.
       REAL 
-     &   REDSHIFT_FINAL_SHIFT     ! artificial shift
-     &  ,HOSTGAL_PHOTOZ_SHIFT     ! apply only when zFINAL = HOST_ZPHOT
-     &  ,HOSTGAL_SPECZ_SHIFT      ! apply only when zFINAL = HOST_ZPHOT
+     &   REDSHIFT_FINAL_SHIFT     ! I: artificial z-shift
+     &  ,HOSTGAL_PHOTOZ_SHIFT     ! I: apply only when zFINAL = HOST_ZPHOT
+     &  ,HOSTGAL_SPECZ_SHIFT      ! I: apply only when zFINAL = HOST_ZPHOT
      &  ,FLUXERRCALC_ZPTERR 
 
       COMMON / SNCUTCOM / CUTMASK8_SN, CUTMASK8_MJD
@@ -5390,8 +5393,8 @@ c arrays are loaded later with ISPEC > 0.
             NBLAM = NLAMBIN_SPECTRUM(I)
 
             if ( NBLAM > MXLAM_SPECTRUM .or. NBLAM < 0 ) then
-               write(c1err,'(A,I3)') 'Invalid NLAMBIN = ', NBLAM
-               write(c2err,'(A,I3)') 'MXLAM_SPECTRUM=',MXLAM_SPECTRUM
+               write(c1err,'(A,I8)') 'Invalid NLAMBIN = ', NBLAM
+               write(c2err,'(A,I8)') 'MXLAM_SPECTRUM=',MXLAM_SPECTRUM
                CALL MADABORT(FNAM, c1err,c2err)
             endif
 
@@ -24553,7 +24556,10 @@ c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
 c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
 c Dec 28, 2020: write SIM_gammaDM to TEXT file if non-zero
-
+c Dec     2022: remove SIM_TYPE_INDEX
+c Jan  8  2023: restore SIM_TYPE_INDEX (forgot why it was removed)
+c
+c
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
       CHARACTER BLOCK*(*)   ! (I) name of BLOCK (optional)
@@ -24596,11 +24602,9 @@ C ---------------- BEGIN ---------------
      &                VARLIST, 0,     LENBLOCK, LENLIST)  
       ENDIF
 
-c xxxxxxx mark delete Dec 2022 xxxxxx
-c      VARLIST = 'SIM_TYPE_INDEX:I' //char(0)  ! June 9, 2013
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
-c     &                   LENBLOCK, LENLIST)
-c xxxxxxxxx end mark xxxxxxx
+      VARLIST = 'SIM_TYPE_INDEX:I' //char(0) 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_GENTYPE,  VARLIST, 1,  ! legacy name
+     &                   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_TEMPLATE_INDEX:I' // char(0)
       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SIM_TEMPLATE_INDEX,

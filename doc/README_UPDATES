@@ -21499,8 +21499,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         refactor to call prepare_IDSAMPLE_biasCor before applying cuts to 
         real data.
 
+      + fix SUBPROCESS bug reading multiple data files with host info;
+         malloc host var only on IFILE==0
+
     combine_dataVersions.py:
        + fix to handle full filter names in pantheon+
+
+    update_data_files.py: 
+      + add --sntype input ; needed to force SNTYPE=1 for Pantheon+
+        since many data files had SNTYPE=0
 
     Exclude fortran-KCOR code by commenting out pre-proc flags (Dec 12 2022)
          snana.cra:c+USE,KCOR.

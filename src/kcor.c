@@ -2915,12 +2915,13 @@ void  hardWire_snsed_bins(void) {
   // and primary lambda bins are defined by the SN SED bins.
   // This allows NOT defining an SN spectral time series via
   // the SN_SED key.
+  // Jan 2023: HARDWIRE_LAMBIN -> 10 (was 20)
 
   int  ilam, iday, NLAM,  NDAY ;
   double lamBin, dayBin, tmpRange, xi  ;
   char fnam[] = "hardWire_snsed_bins" ;
 
-#define HARDWIRE_LAMBIN 20.0 // Angstroms
+#define HARDWIRE_LAMBIN 10.0 // Angstroms
 #define HARDWIRE_DAYBIN  1.0 // days
 
   // ------------- BEGIN --------------

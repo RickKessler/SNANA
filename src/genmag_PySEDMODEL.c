@@ -202,6 +202,26 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   // print summary of filter info
   filtdump_SEDMODEL();
 
+  // Dec 2022: set SED and filtercen limits; here they are hard wired, 
+  //  but we should really call a python method to return the values  
+  // start with generi default ...
+  SEDMODEL.RESTLAMMIN_FILTERCEN =  2000.0 ;
+  SEDMODEL.RESTLAMMAX_FILTERCEN = 20000.0 ;
+  SEDMODEL.LAMMIN_ALL           =  1000.0 ;
+  SEDMODEL.LAMMAX_ALL           = 25000.0 ;
+  if ( strcmp(MODEL_NAME,MODEL_NAME_PYBAYESN) == 0 ) {
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  4000.0 ;
+    SEDMODEL.RESTLAMMAX_FILTERCEN = 16000.0 ;
+  }
+  printf("\n\t Hard-wired wavelength ranges: \n");
+  printf("\t   FILTERCEN: %.1f to %.1f \n", 
+	 SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
+  printf("\t   SED: %.1f to %.1f \n", 
+	 SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
+  fflush(stdout);
+
+
+
   // init a few C struct items
   Event_PySEDMODEL.LAST_EXTERNAL_ID = -9;
   Event_PySEDMODEL.LAM  = (double*) malloc( MXLAM_PySEDMODEL*MEMD ) ;
@@ -233,7 +253,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 
 
 #ifdef USE_PYTHON
-  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
+  printf("\n\t Begin %s python-init from C code ... \n", PyMODEL_NAME );   fflush(stdout);
 
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);

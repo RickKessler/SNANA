@@ -114,6 +114,8 @@
  Sep 27 2022 RK - write rho_wom
  Dec 6 2022 RK - remove obsolete fitswrite option
 
+ Jan 31 2022 RK - enable -outfile_resid feature 
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -223,6 +225,7 @@ struct  {
 
   double   *snprob,     *extprob,      *snchi,      *extchi ;
   double ***snprob3d, ***extprob3d,  ***snchi3d,  ***extchi3d;
+  double *mu_dif;
 
   int    Ndof, Ndof_prior, Ndof_data;
   double sig_chi2min_naive; // sqrt(2*Ndof)
@@ -418,9 +421,8 @@ void set_HzFUN_for_wfit(double H0, double OM, double OE, double w0, double wa,
 int  cidindex(char *cid);
 
 void WRITE_OUTPUT_DRIVER(void);
-void write_output_resid(int fitnum);
+void write_output_resid(void);
 void write_output_cospar(void);
-void write_output_fits_legacy(void);
 void write_output_chi2grid(void);
 
 void CPU_summary(void);
@@ -946,6 +948,7 @@ void  malloc_workspace(int opt) {
   int i, kk, j;
   float f_mem;
   char fnam[] = "malloc_workspace" ;
+
   // ------------ BEGIN ------------
 
   if ( opt > 0 ) {
@@ -2989,17 +2992,6 @@ void get_chi2wOM (
 	Bsum    += sqmusiginv*(dmu0+dmu1); // Eq. A.11 of Goliath 2001  
 	Csum    += (2.0*sqmusiginv);       // Eq. A.12 of Goliath 2001
 	chi_hat += (2.0*chi_tmp);
-
-	/* xxxx
-	Bsum    += (sqmusiginv * dmu0) ;   // Eq. A.11 of Goliath 2001  
-	Csum    += sqmusiginv ;          // Eq. A.12 of Goliath 2001
-	chi_hat += chi_tmp ;
-
-	Bsum    += (sqmusiginv * dmu1) ;
-	Csum    += sqmusiginv ;
-	chi_hat += chi_tmp ; 
-	xxxx */
-
 	n_count++ ;
 
       } // end k1
@@ -3662,7 +3654,7 @@ void WRITE_OUTPUT_DRIVER(void) {
   write_output_cospar();
 
   // Print residuals (not used for long time; beware)
-  write_output_resid(INPUTS.fitnumber);
+  write_output_resid();
  
   // write chi2 & prob maps to fits files;
   // not used for VERY long time ... beware.
@@ -3870,44 +3862,54 @@ void write_output_cospar(void) {
 
 
 // ********************************
-void write_output_resid(int fitnum) {
+void write_output_resid(void) {
+
+  // Jan 31 2023 R.Kessler
+  // resurrect to write MU-resids and chi2 per SN
 
   Cosparam cpar;
   FILE *fpresid;
-  char *tempfilename1 = (char*) malloc(MEMC_FILENAME);
-  char *residfile     = (char*) malloc(MEMC_FILENAME);
+  char *outFile = INPUTS.outFile_resid ;
   char fnam[] = "write_output_resid" ;
 
   // ----------- BEGIN -------------
 
-  if ( IGNOREFILE(INPUTS.outFile_resid) ) { return; }
+  if ( IGNOREFILE(outFile) ) { return; }
 
-  getname(INPUTS.outFile_resid, tempfilename1, fitnum);
-  strcpy(residfile, tempfilename1);
+  printf("  Write chi2 and MU-residuals to %s  \n", outFile);
+  fpresid = fopen(outFile, "wt");
+          
+  cpar.omm = WORKSPACE.omm_final ;
+  cpar.ome = 1.0 - cpar.omm ;
+  cpar.w0  = WORKSPACE.w0_final ;
+  cpar.wa  = WORKSPACE.wa_final ;
 
-  printf("Write MU-residuals to %s  \n",
-	 residfile );
-  fpresid=fopen(residfile, "w");
-      
-  if (fpresid == NULL) {
-    printf("ERROR: couldn't open %s\n",residfile);
-    exit(EXIT_ERRCODE_wfit);
-  }
-    
   int i;
-  double rz, ld_cos, mu_cos, mu_dif, sqmusig_tmp, musig_tmp;
+  char   *cid ;
+  double z, rz, ld_cos, mu_cos, mu_dif, mu_sig, chi2;
   double H0 = H0_SALT2;
-  fprintf(fpresid,"z, mu_dif,  mu_sig,  tel_id,  CID \n"); // csv format
+
+  fprintf(fpresid,"# mu_res = mu - mu(bestFit model)\n");
+  fprintf(fpresid,"# chi2_diag = mu_res^2 / mu_sig^2 \n");
+  fprintf(fpresid,"\n");
+
+  fprintf(fpresid,"VARNAMES: " 
+	  "CID   z   mu_res  mu_sig  chi2_diag\n");
+
   for (i=0; i<HD.NSN; i++){
-    rz     = codist( HD.z[i], &cpar) ;
-    ld_cos = ( 1.0 + HD.z[i]) *  rz * c_light / H0;
-    mu_cos =  5.*log10(ld_cos) + 25. ;
-    mu_dif =  mu_cos - HD.mu[i];
-    sqmusig_tmp  =  HD.mu_sqsig[i] + INPUTS.sqsnrms ;
-    musig_tmp    = sqrt(sqmusig_tmp);
-	
-    fprintf(fpresid,"%7.4f %7.4f %7.4f  %6s \n",
-	    HD.z[i], mu_dif, musig_tmp, HD.cid[i]);
+    cid    = HD.cid[i] ;
+    z      = HD.z[i] ;
+    rz           =  codist( z, &cpar) ;
+    mu_cos       =  get_mu_cos(z, rz) ; // best fit model mu
+    mu_dif       =  HD.mu[i] - mu_cos;  // muresid
+    mu_sig       =  HD.mu_sig[i];
+    chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
+
+    fprintf(fpresid,"SN: "
+	    "%8s %7.4f %7.4f %7.4f %7.3f\n", 
+	    cid, z, mu_dif, mu_sig, chi2 );
+    fflush(fpresid);
+
   }
   fclose(fpresid);
 
@@ -3992,165 +3994,6 @@ void write_output_chi2grid(void) {
 
   return;
 } // end write_output_chi2grid
-
-// =======================================
-void write_output_fits_legacy(void) {
-
-  // Created Oct 2 2021
-  // Write to fits files.
-  // Ancient code moved out of main.
-
-  FILE *FILEPTR_TOT, *FILEPTR_SN ;
-  fitsfile *fptr;
-  char *snfitsname  = (char*) malloc(MEMC_FILENAME);
-  char *ommfitsname = (char*) malloc(MEMC_FILENAME);
-  char *snfitsstr   = (char*) malloc(MEMC_FILENAME);
-  char *ommfitsstr  = (char*) malloc(MEMC_FILENAME);
-  char *cosparfile  = (char*) malloc(MEMC_FILENAME);
-  char *residfile   = (char*) malloc(MEMC_FILENAME);
-  char *chi2gridfile= (char*) malloc(MEMC_FILENAME);
-  char *chi2gridfile_SN = (char*) malloc(MEMC_FILENAME);
-  char *tempfilename1   = (char*) malloc(MEMC_FILENAME);
-  char *tempfilename2   = (char*) malloc(MEMC_FILENAME);
-
-  long naxis=2;
-  long fpixel[2], nelements, naxes[2];
-  int status, i, kk, j ;
-
-  // ----------- BEGIN -----------
-
-  naxes[0] = INPUTS.omm_steps;
-  naxes[1] = INPUTS.w0_steps;
-  status = 0;
-  nelements = naxes[0] * naxes[1];    /* number of pixels to write */
-  fpixel[0]=1;			/* first pixel to write */
-  fpixel[1]=1;
-      
-  int writechi=0; // ??
-  if (writechi) {
-    /* subtract off minchi from each, use prob arrays for storage */
-    for(i=0; i < INPUTS.w0_steps; i++){
-      for(kk=0; kk < INPUTS.wa_steps;kk++){
-	for(j=0; j < INPUTS.omm_steps; j++){
-	  WORKSPACE.snprob3d[j][kk][i] = 
-	    WORKSPACE.snchi3d[j][kk][i] - WORKSPACE.snchi_min;
-	  WORKSPACE.extprob3d[j][kk][i] = 
-	    WORKSPACE.extchi3d[j][kk][i] - WORKSPACE.extchi_min;
-	}
-      }
-    }
-      
-    strcpy(snfitsname,INPUTS.infile);
-    strcat(snfitsname,"_snchi.fits");
-
-    getname(snfitsname, tempfilename1, INPUTS.fitnumber);
-
-    strcpy(ommfitsname,INPUTS.infile);
-    strcat(ommfitsname,"_extchi.fits");
-
-    getname(ommfitsname, tempfilename2, INPUTS.fitnumber);
-
-    printf("writing out chi2 distributions:\n");
-    printf("  SNe only:      %s\n",tempfilename1);
-    printf("  SNe + Omega_m: %s\n",tempfilename2);
-
-  } else {
-    /* just write out probabilities */
-    strcpy(snfitsname,INPUTS.infile);
-    strcat(snfitsname,"_snprob.fits");
-
-    getname(snfitsname, tempfilename1, INPUTS.fitnumber);
-    
-    strcpy(ommfitsname,INPUTS.infile);
-    strcat(ommfitsname,"_extprob.fits");
-    
-    getname(ommfitsname, tempfilename2, INPUTS.fitnumber);
-    
-    printf("writing out prob distributions:\n");
-    printf("  SNe only:      %s\n",tempfilename1);
-    printf("  SNe + Omega_m: %s\n",tempfilename2);
-  }
-
-  // - - - -
-  /* prepend with "!" so cfitsio clobbers old files */
-  sprintf(snfitsstr,"!%s",tempfilename1);
-  sprintf(ommfitsstr,"!%s",tempfilename2);
-    
-  /* Write out SN-only distribution */
-  if (fits_create_file(&fptr, snfitsstr, &status))  
-    { printerror( status ); }
-
-  if (fits_create_img(fptr, FLOAT_IMG, naxis, naxes, &status)) 
-    { printerror( status ); }
-
-  if (fits_write_pix(fptr, TDOUBLE, fpixel, nelements, 
-		     WORKSPACE.snprob, &status))
-    { printerror( status ); }
-
-  if ( fits_close_file(fptr, &status))                /* close the file */
-    { printerror( status ); }           
-    
-  /* Write out SN+Omega_m distribution */
-  if (fits_create_file(&fptr, ommfitsstr, &status))  
-    { printerror( status ); }
-
-  if (fits_create_img(fptr, FLOAT_IMG, naxis, naxes, &status))
-    { printerror( status ); }
-
-  if (fits_write_pix(fptr, TDOUBLE, fpixel, nelements, 
-		     WORKSPACE.extprob, &status))
-    { printerror( status ); }
-
-  if ( fits_close_file(fptr, &status) )                /* close the file */
-    { printerror( status ); }           
-
-  // 6/10/2008 RK write chi2 to text file (like Andy's)
-  
-  if ( strlen(INPUTS.outFile_chi2grid) == 0 ) {
-    sprintf(INPUTS.outFile_chi2grid,"%s", INPUTS.infile);
-  }
-  strcpy(chi2gridfile, INPUTS.outFile_chi2grid); 
-  strcat(chi2gridfile,".chi2grid");
-  sprintf(chi2gridfile_SN,"%s_SN", chi2gridfile);
-      
-  getname(chi2gridfile,    tempfilename1, INPUTS.fitnumber);
-  getname(chi2gridfile_SN, tempfilename2, INPUTS.fitnumber);
-      
-  printf("\n");
-  printf("\t CHI2GRID(total)   dump to: '%s' \n", tempfilename1 );
-  printf("\t CHI2GRID(SN-only) dump to: '%s' \n", tempfilename2 );
-  printf("\t CHI2GRID format : i_OM  i_w  OM  w  chi2 \n" );
-
-  int irow=0; char CVARDEF[100];
-  double w0, omm, chi2tot, chi2sn ;
-  FILEPTR_TOT = fopen(tempfilename1, "wt");
-  FILEPTR_SN  = fopen(tempfilename2, "wt");
-
-  sprintf(CVARDEF,"NVAR: 6 \nVARNAMES: ROW iM iw OM w chi2\n");
-  fprintf(FILEPTR_TOT,"%s", CVARDEF);
-  fprintf(FILEPTR_SN, "%s", CVARDEF);
-
-  for(i=0; i < INPUTS.w0_steps; i++){
-    for(j=0; j < INPUTS.omm_steps; j++){
-      w0      = INPUTS.w0_min  + i*INPUTS.w0_stepsize;
-      omm     = INPUTS.omm_min + j*INPUTS.omm_stepsize;
-      chi2tot = WORKSPACE.extchi[i*INPUTS.omm_steps+j] ;
-      chi2sn  = WORKSPACE.snchi[i*INPUTS.omm_steps+j] ;
-
-      irow++ ;
-      fprintf( FILEPTR_TOT, "ROW: %5d  %5d %5d  %8.4f  %8.4f  %14.6f \n",
-	       irow, j, i, omm, w0, chi2tot  );
-
-      fprintf( FILEPTR_SN, "ROW: %5d  %5d %5d  %8.4f  %8.4f  %14.6f \n",
-	       irow, j, i, omm, w0, chi2sn  );
-      
-    }
-  }
-  fclose(FILEPTR_TOT);
-  fclose(FILEPTR_SN);
-
-  return;
-} // end write_output_fits_legacy
 
 
 // ==========================

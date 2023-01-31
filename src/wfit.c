@@ -114,7 +114,9 @@
  Sep 27 2022 RK - write rho_wom
  Dec 6 2022 RK - remove obsolete fitswrite option
 
- Jan 31 2022 RK - enable -outfile_resid feature 
+ Jan 31 2023 RK 
+    - enable -outfile_resid feature 
+    - in write_output_chi2grid, add blind offsets
 
 *****************************************************************************/
 
@@ -3927,7 +3929,9 @@ void write_output_chi2grid(void) {
   // VARNAMES: w OM  chi2_sn chi2_tot
   //
   // where chi2_tot includes prior.
- 
+  //
+  // Jan 31 2023: add blind offsets
+  //
   char *outFile  = INPUTS.outFile_chi2grid;
   bool float_w0  = (INPUTS.w0_steps  > 1);
   bool float_wa  = (INPUTS.wa_steps  > 1);
@@ -3970,6 +3974,12 @@ void write_output_chi2grid(void) {
 	w0      = INPUTS.w0_min  + i  * INPUTS.w0_stepsize;
 	wa      = INPUTS.wa_min  + kk * INPUTS.wa_stepsize ;
 	omm     = INPUTS.omm_min + j  * INPUTS.omm_stepsize;
+
+	if ( INPUTS.blind ) {
+	  w0  += WORKSPACE.w0_ran ;
+	  wa  += WORKSPACE.wa_ran ;
+	  omm += WORKSPACE.omm_ran ;
+	}
 
 	cval[0][0] = cval[1][0] = cval[2][0] = 0;
 	if ( float_w0  )  { sprintf(cval[0],"%.4f", w0); }

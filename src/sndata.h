@@ -405,9 +405,10 @@ struct SNDATA {
   float SIM_TRESTMAX ;
 
   // luminosity params
-  float SIM_STRETCH ; 
-  float SIM_DELTA ;    
-  float SIM_DM15 ;    
+  float SIM_STRETCH ;  // for history lesson
+  float SIM_DELTA ;    // for mlcs
+  float SIM_DM15 ;     // for Snoopy
+  float SIM_THETA ;    // for BayeSN
   float SIM_SALT2alpha ;
   float SIM_SALT2beta ;
   float SIM_SALT2gammaDM;    //  mag shift from host-SN correlations

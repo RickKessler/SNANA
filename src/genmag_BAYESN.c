@@ -358,6 +358,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     // HACK HACK HACK
     char version[60];
+    printf("XXXX %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
     extract_MODELNAME(MODEL_VERSION, BAYESN_MODELPATH, version);
     char yaml_file[MXPATHLEN];
     sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
@@ -424,6 +425,8 @@ void genmag_BAYESN(
 		  ) {
 
     bool dumpsed = false;
+    bool enable_scatter = false;
+
     FILE * sedfile;
     if (dumpsed) {
         sedfile = fopen("sed_dump.txt", "w");
@@ -444,8 +447,7 @@ void genmag_BAYESN(
     gsl_matrix * WJ_tau = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             Nobs); //to store matrix product W * J_tau
     gsl_vector_view j_lam; //to store a row of J_lam
-    gsl_vector * jWJ = gsl_vector_alloc(Nobs); //to store
-                                                       //j_lam * W * J_tau
+    gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
 
     double *lam_filt;
     double *trans_filt;
@@ -526,6 +528,10 @@ void genmag_BAYESN(
         // this finds a vector of length Nobs, giving the SED at the
         // current wavelength for all observations
         // basically j_lam * W * J_tau^T
+        //
+        // GN - 20230203 - Why the setting jWJ to zero here - we set it earlier
+        // See enable_scatter
+        //
         gsl_vector_set_zero(jWJ);
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);

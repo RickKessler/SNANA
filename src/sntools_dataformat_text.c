@@ -328,6 +328,12 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp, "SIM_DM15:          %.3f    # DM15 lumi-par \n",
 	    SNDATA.SIM_DM15 ) ;
   }
+  /*
+  if ( SNDATA.SIM_THETA1 != NULLFLOAT ) {
+    fprintf(fp, "SIM_THETA1:         %.3f    # BayeSN lumi-par \n", 
+	    SNDATA.SIM_THETA1) ;
+  }
+  */
 
   if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
     fprintf(fp, "SIM_SALT2alpha:      %.3f \n", SNDATA.SIM_SALT2alpha ) ;

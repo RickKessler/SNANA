@@ -1236,6 +1236,8 @@ void read_mucov_sys(char *inFile){
 
   // Created October 2021 by A.Mitra and R.Kessler
   // Read option Cov_syst matrix, and invert it.
+  //
+  // Cov is not modified for z cut, so abort on zcut.
 
 #define MXSPLIT_mucov 20
 
@@ -1262,6 +1264,12 @@ void read_mucov_sys(char *inFile){
 
   printf("\n# ======================================= \n");
   printf("  Process MUCOV systematic file  \n"); 
+
+  if ( INPUTS.zmin > 0.000001 || INPUTS.zmax < 8.99 ) {
+    sprintf(c1err,"zmim/zmax cut is not yet applied to cov_sys matrix.") ;
+    sprintf(c2err,"Either remove z cut or fix code.", inFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
@@ -1717,9 +1725,12 @@ void set_stepsizes(void) {
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_omm, varname_omm, 
 	 INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
+
+  /* xxx mark delete Feb 2023 xxxxxx
   printf("  h_min:  %6.2f   h_max:  %6.2f  %5i steps of size %8.5f\n",
 	 INPUTS.h_min,  INPUTS.h_max,  INPUTS.h_steps,  INPUTS.h_stepsize);
-  
+  xxxxxxxx end mark xxxxxxxx */
+
   printf("   ------------------------------------\n");
 
   fflush(stdout);
@@ -3896,9 +3907,9 @@ void write_output_resid(void) {
   fprintf(fpresid,"\n");
 
   fprintf(fpresid,"VARNAMES: " 
-	  "CID   z   mu_res  mu_sig  chi2_diag\n");
+	  "CID   zHD  mu_model  mu_res  mu_sig  chi2_diag\n");
 
-  for (i=0; i<HD.NSN; i++){
+  for (i=0; i<HD.NSN; i++) {
     cid    = HD.cid[i] ;
     z      = HD.z[i] ;
     rz           =  codist( z, &cpar) ;
@@ -3908,8 +3919,8 @@ void write_output_resid(void) {
     chi2         =  (mu_dif*mu_dif) / ( mu_sig*mu_sig );
 
     fprintf(fpresid,"SN: "
-	    "%8s %7.4f %7.4f %7.4f %7.3f\n", 
-	    cid, z, mu_dif, mu_sig, chi2 );
+	    "%-12s %7.4f %7.4f  %7.4f %7.4f %7.3f\n", 
+	    cid, z, mu_cos, mu_dif, mu_sig, chi2 );
     fflush(fpresid);
 
   }

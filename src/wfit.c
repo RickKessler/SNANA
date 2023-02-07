@@ -118,6 +118,10 @@
     - enable -outfile_resid feature 
     - in write_output_chi2grid, add blind offsets
 
+ Feb 6 2023 - fix sntools_output.c to select 1st varname on list
+              instead of last. E.g., for 'zHD zCMB', use zHD instead of
+              zCMB.
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -1027,6 +1031,7 @@ void  malloc_HDarrays(int opt, int NSN) {
     HD.logz        = (double *)calloc(NSN,sizeof(double));
     HD.z_sig       = (double *)calloc(NSN,sizeof(double));
     HD.nfit_perbin = (int*) calloc(NSN,sizeof(int));
+    //    HD.index_passcuts = (int*) calloc(NSN,sizeof(int));
   }
   else {
     free(HD.pass_cut);
@@ -1038,6 +1043,7 @@ void  malloc_HDarrays(int opt, int NSN) {
     free(HD.logz); 
     free(HD.z_sig); 
     free(HD.nfit_perbin); 
+    //    free(HD.index_passcuts); 
     for(i=0; i < NSN; i++ ) { free(HD.cid[i]); } 
     free(HD.cid);
   }
@@ -1140,7 +1146,9 @@ void read_fitres(char *inFile) {
       (ztmp <= INPUTS.zmax) &&
       (NFIT > 1) ;
     
-    HD.pass_cut[irow] = false;
+    HD.pass_cut[irow]       = false;
+    //    HD.index_passcuts[irow] = -9;
+
     if ( PASSCUTS ) {
       HD.pass_cut[irow]  = true;
       sprintf(HD.cid[NROW2], "%s", HD.cid[irow] );
@@ -1150,6 +1158,9 @@ void read_fitres(char *inFile) {
       HD.logz[NROW2]     = log10(ztmp); // Apr 22 2022
       HD.z_sig[NROW2]    = HD.z_sig[irow];
       HD.mu_sqsig[NROW2] = HD.mu_sig[irow]*HD.mu_sig[irow];
+
+      //      HD.index_passcuts[irow] = NROW2
+
       if ( ztmp < HD.zmin ) { HD.zmin = ztmp; }
       if ( ztmp > HD.zmax ) { HD.zmax = ztmp; }
 
@@ -1236,8 +1247,7 @@ void read_mucov_sys(char *inFile){
 
   // Created October 2021 by A.Mitra and R.Kessler
   // Read option Cov_syst matrix, and invert it.
-  //
-  // Cov is not modified for z cut, so abort on zcut.
+ 
 
 #define MXSPLIT_mucov 20
 
@@ -1265,11 +1275,13 @@ void read_mucov_sys(char *inFile){
   printf("\n# ======================================= \n");
   printf("  Process MUCOV systematic file  \n"); 
 
+  /* xxx mark delete Feb 2023 xxxxxxxxx
   if ( INPUTS.zmin > 0.000001 || INPUTS.zmax < 8.99 ) {
     sprintf(c1err,"zmim/zmax cut is not yet applied to cov_sys matrix.") ;
     sprintf(c2err,"Either remove z cut or fix code.", inFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+  xxxxxxxxx */
 
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;

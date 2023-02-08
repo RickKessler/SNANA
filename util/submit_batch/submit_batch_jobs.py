@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Created July 2020 by R.Kessler & S. Hinton
+# Created July 2020 by R.Kessler & S. Hinton  
 #
 # Oct 29 2020: add SALT2train framework
 # Nov 24 2020: add --ncore arg
@@ -17,6 +17,7 @@
 # Apr 08 2022: add --merge_force arg for sync_evt option
 # Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
 # Oct 18 2022: rename wfit class to cosmifit (more general name)
+#
 # - - - - - - - - - -
 
 #import os

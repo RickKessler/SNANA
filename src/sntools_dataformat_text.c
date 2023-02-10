@@ -31,6 +31,7 @@
 
  Sep 29 2022 RK - write extra digit of precision for FLUXCAL and FLUXCALERR
 
+ Feb 03 2023: read/write SIM_THETA for BayeSN model                             
 *************************************************/
 
 #include  "sntools.h"
@@ -328,12 +329,10 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     fprintf(fp, "SIM_DM15:          %.3f    # DM15 lumi-par \n",
 	    SNDATA.SIM_DM15 ) ;
   }
-  /*
-  if ( SNDATA.SIM_THETA1 != NULLFLOAT ) {
-    fprintf(fp, "SIM_THETA1:         %.3f    # BayeSN lumi-par \n", 
-	    SNDATA.SIM_THETA1) ;
+  if ( SNDATA.SIM_THETA != NULLFLOAT ) {
+    fprintf(fp, "SIM_THETA:        %.3f    # BayeSN lumi-par\n",
+	    SNDATA.SIM_THETA ) ;
   }
-  */
 
   if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
     fprintf(fp, "SIM_SALT2alpha:      %.3f \n", SNDATA.SIM_SALT2alpha ) ;
@@ -2403,6 +2402,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     }
     else if ( strcmp(word0,"SIM_STRETCH:") == 0 ) {
       SNDATA.SIM_STRETCH = FVAL;
+    }
+    else if ( strcmp(word0,"SIM_THETA:") == 0 ) {
+      SNDATA.SIM_THETA = FVAL;
     }
     else if ( strncmp(word0,"SIMSED",6) == 0 ) {
       for(ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) { 

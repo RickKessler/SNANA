@@ -65,6 +65,8 @@
 
  Jul 21 2021: write PHOTFLAG_DETECT to global header
 
+ Feb 03 2023: read/write SIM_THETA for BayeSN model
+
 **************************************************/
 
 #include "fitsio.h"
@@ -478,6 +480,9 @@ void wr_snfitsio_init_head(void) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
       wr_snfitsio_addCol( "1E", "SIM_STRETCH"       , itype );
+    }
+    if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+      wr_snfitsio_addCol( "1E", "SIM_THETA"       , itype );
     }
 
     
@@ -2082,6 +2087,12 @@ void wr_snfitsio_update_head(void) {
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRETCH", itype );
   }
 
+  if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_THETA ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_THETA", itype );
+  }
+
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_NON1ASED ||
        SNDATA.SIM_MODEL_INDEX  == MODEL_NON1AGRID ) {
@@ -3648,6 +3659,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_STRETCH", &SNDATA.SIM_STRETCH ,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+    if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, "SIM_THETA", &SNDATA.SIM_THETA ,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
     }
   

@@ -68,7 +68,7 @@ MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-BATCH_MEM_DEFAULT      = "4GB"       # default memory is 4GB (9.24.2022) ( was 2GB)
+BATCH_MEM_DEFAULT      = "4GB"       # default mem is 4GB (9.24.2022) 
 BATCH_WALLTIME_DEFAULT = '24:00:00'  # default wall time is 24hr
 BATCH_MAXJOB_DEFAULT   = 500         # max number of jobs allowed in queue
 BATCH_NTHREADS_DEFAULT = 1           # number of threads per job 08/apr/2022

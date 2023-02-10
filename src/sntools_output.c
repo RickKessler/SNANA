@@ -1184,8 +1184,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   // Define and store pointer to read entire table column.
   // Check each element of *VARLIST to allow for ambiguous names;
   // e.g., VARLIST = 'z Z zcmb'.
-  // If multiple names are given, only one is allowed to exist,
-  // otherwise code aborts.
+  // If multiple names are given, select first one on the list.
   //
   // This function is just a shell to examine VARLIST, find the
   // defined VARNAME, and call sntable_readprep_vardef1() with the 
@@ -1198,7 +1197,10 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   //   - optMask: bit0 -> print for each var, bit1 -> abort on missing var
   //
   // Function returns absolute IVAR index.
-
+  //
+  // Feb 6 2023 RK - for multuple VARLIST names, select 1st on list 
+  //                 instead of last.
+  //
   int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND, FLAG_VBOSE, FLAG_ABORT ;
   char VARLIST_LOCAL[MXCHAR_VARLIST], VARLIST_FOUND[MXCHAR_VARLIST];
   char VARNAME_withCast[MXCHAR_VARNAME]; 
@@ -1220,7 +1222,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
     sprintf(VARNAME_withCast,"%s", ptrtok);
-    istat=sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
+    istat = sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
 				     VARNAME_noCast );
 
     NVAR_TOT++ ;
@@ -1228,7 +1230,9 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
       ISTAT = istat ;  
       sprintf(VARLIST_FOUND, "%s %s", VARLIST_FOUND, VARNAME_withCast);
       NVAR_FOUND++ ; 
+      break; // Feb 2023
     }
+    
     ptrtok = strtok(NULL," " );
   }
 

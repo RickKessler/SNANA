@@ -10560,11 +10560,11 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     // compute error with intrinsic scatter
     // 2.10.2023: include vpec uncertainties in muerr computation
+    USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; 
+
     if ( INPUTS.restore_muzerr_bug )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
-    else
-      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; } // Including also VPEC uncertainties!
- 
+
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {

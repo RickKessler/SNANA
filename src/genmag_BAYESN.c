@@ -462,6 +462,14 @@ void genmag_BAYESN(
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
 
+
+    // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
+    double *Trest_list   = malloc(sizeof(double)*Nobs);
+    for(int i=0;i<Nobs;i++)
+    {
+        Trest_list[i] = Tobs_list[i]/z1;
+    }
+
     // filter info for this "ifilt"
     meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
     ZP           = FILTER_SEDMODEL[ifilt].ZP ;
@@ -493,7 +501,19 @@ void genmag_BAYESN(
 
     // compute the matrix for time interpolation
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
-            Tobs_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+            Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+
+
+
+    printf("XXX Tobs_list\n");
+    for(int i=0;i<Nobs;i++)
+    {
+        printf("%.4f\n", Tobs_list[i]);
+    }
+
+
+    printf("XXX J_tau\n");
+    gsl_matrix_fprintf(stdout, J_tau, "%.2f");
 
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
     // also, this seems utterly unhinged as a way of computing this
@@ -549,7 +569,8 @@ void genmag_BAYESN(
             double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
             double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
-            S0_lam = (f0*(t1 - Tobs_list[o]) + f1*(Tobs_list[o] - t0))/(t1 - t0);
+            // HACK HACK HACK throw Trest at this instead or Tobs
+            S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
                 //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);

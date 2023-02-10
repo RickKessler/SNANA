@@ -1100,7 +1100,7 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
   int restore_mucovadd_bug ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
-  int restore_muzerr_bug ; //     previous error calculation only included USEMASK = USEMASK_BIASCOR_COVTOT  without VPEC uncertainties (+ USEMASK_BIASCOR_ZMUERR)
+  int restore_muzerr_bug ; // biasCor muerr calc excludes vpec err
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
@@ -21447,7 +21447,7 @@ void print_SALT2mu_HELP(void) {
     "debug_mucovscale=44   # print info for j1d=44 (mucovscale cell), and also",
     "                      # write biasCor-fitres file with mucovScale info",
     "restore_mucovscale_bug=1 # restore bug using undefined muCOVscale cells",
-
+    "restore_muzerr_bug=1     # restore bug excluding vpec err in biasCor",
     0
   } ;
 

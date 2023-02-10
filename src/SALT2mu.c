@@ -1100,6 +1100,7 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
   int restore_mucovadd_bug ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
+  int restore_muzerr_bug ; //     previous error calculation only included USEMASK = USEMASK_BIASCOR_COVTOT  without VPEC uncertainties (+ USEMASK_BIASCOR_ZMUERR)
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
@@ -3522,7 +3523,7 @@ bool crazy_M0_errors(void) {
   double VAL, ERR, ERRMIN_COMPUTE, XN, z;
   int    n, iz, NEVT, n_crazy_M0_error = 0;
 
-  double ERRMAX_CRAZY      = 4.0;
+  double ERRMAX_CRAZY      = 1.5;  // changed to 1.5 by M.Vincenzi on 2/10/2023
   double ERRMIN_FRAC_CRAZY = 0.5;  // crazy err of ERR/ERRMIN < this value
   int    N_CRAZYERR_SETFLAG = 3;
   
@@ -5139,6 +5140,7 @@ void set_defaults(void) {
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_mucovscale_bug = 0 ;
   INPUTS.restore_mucovadd_bug = 0 ;
+  INPUTS.restore_muzerr_bug = 0 ;
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
   INPUTS.cidlist_debug_biascor[0] = 0 ;
@@ -10556,8 +10558,13 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif  -=  muBias ;  
     muDifsq =  muDif*muDif ;
 
-    // compute error with intrinsic scatter 
-    USEMASK = USEMASK_BIASCOR_COVTOT;
+    // compute error with intrinsic scatter
+    // 2.10.2023: include vpec uncertainties in muerr computation
+    if ( INPUTS.restore_muzerr_bug )
+      { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
+    else
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; } // Including also VPEC uncertainties!
+ 
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov) ; 
 
     if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
@@ -16281,6 +16288,8 @@ int ppar(char* item) {
     { sscanf(&item[23],"%d", &INPUTS.restore_mucovscale_bug); return(1); }
   if ( uniqueOverlap(item,"restore_mucovadd_bug="))
     { sscanf(&item[21],"%d", &INPUTS.restore_mucovadd_bug); return(1); }
+  if ( uniqueOverlap(item,"restore_muzerr_bug="))
+    { sscanf(&item[24],"%d", &INPUTS.restore_muzerr_bug); return(1); }
 
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag); 
@@ -18293,6 +18302,11 @@ void prep_debug_flag(void) {
   if ( INPUTS.restore_mucovadd_bug ) {
     printf("\n RESTORE mucovadd bug (set to %d)\n", 
 	   INPUTS.restore_mucovadd_bug);
+    fflush(stdout);
+  }
+  if ( INPUTS.restore_muzerr_bug ) {
+    printf("\n RESTORE muzerr bug (set to %d)\n", 
+	   INPUTS.restore_muzerr_bug);
     fflush(stdout);
   }
   

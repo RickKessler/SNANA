@@ -40,7 +40,7 @@ class gensed_PYBAYESN(gensed_base):
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
             self.dump = OPTMASK & (1 << mask_bit_locations['dump'])>0
-            self.disable_scatter = True #OPTMASK & (1 << mask_bit_locations['disable_scatter'])>0 
+            self.disable_scatter = True #OPTMASK & (1 << mask_bit_locations['disable_scatter'])>0
             print("PYBAYESN DISABLE SCATTER:", self.disable_scatter)
             sys.stdout.flush()
             self.PATH_VERSION = os.path.expandvars(PATH_VERSION)
@@ -324,11 +324,13 @@ class gensed_PYBAYESN(gensed_base):
 
             if self.disable_scatter:
                 epsilon_vec = np.zeros(len(self._bayesn_components["L_Sigma_epsilon"])) #FOR DEBUG ONLY
+                deltam = 0.
             else:
                 eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
                 epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
             for i in range(self._nepsilon):
                 useful_pars[f'EPSILON{i:02d}'] = epsilon_vec[i]
+                useful_pars['DELTAM'] = deltam
             if self.verbose:
                 print(useful_pars, 'set')
 
@@ -348,6 +350,9 @@ class gensed_PYBAYESN(gensed_base):
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
+
+        print("J_tau matrix")
+        print(trest, J_t)
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package

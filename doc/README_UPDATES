@@ -21471,7 +21471,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
 
 # =============================================================
-        v11_05b ([tag-date]) 
+        v11_05b (Feb 13 2023) 
 
         ***** IMPORTANT(v11_05b) ***** 
 
@@ -21525,5 +21525,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     The old fortran code is still there, but not included in the compilation.
 
     sntools_dataformat_*: read/write SIM_THETA for BayeSN model.
+
+
+# =============================================================
+        v11_05c ([tag-date]) 
+
+        ***** IMPORTANT(v11_05c) ***** 
+
+        ***** USEFUL(v11_05c) ***** 
+
+        ***** MISCELLANEOUS(v11_05c) ***** 
+
+   sntools.c:
+     - subtle fix in get_SNANA_VERSION_FLOAT() to handle new tag
+       that has no dashes.
 
 END: 

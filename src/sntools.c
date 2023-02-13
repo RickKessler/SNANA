@@ -2767,14 +2767,20 @@ float get_SNANA_VERSION_FLOAT(char *snana_version) {
   // e.g. *snana_version = v10_78c -> return 10.78
   // e.g. *snana_version = v11_04b-3-dstewtf -> return 11.04
   //
-  // Dec 2022: remove commit part of string: dash and anything after            
+  // Dec 2022: remove commit part of string: dash and anything after
+  // Feb 2023: use more explicit found_dash logic for strings that 
+  //            don't have dash (e.g., new tag)
 
   char snana_version_local[60];
-  char *e        = strchr(snana_version, '-');
-  int index_dash = (int)(e - snana_version);
+  char *e          = strchr(snana_version, '-');
+  bool found_dash  = ( e != NULL ) ;
 
   sprintf(snana_version_local, "%s", snana_version);
-  if ( index_dash > 0 ) { snana_version_local[index_dash] = 0 ;}
+
+  if ( found_dash ) {
+    int index_dash = (int)(e - snana_version);
+    snana_version_local[index_dash] = 0 ;
+  }
 
   double dval0 = atof(&snana_version_local[1]) ;
   double dval1 = atof(&snana_version_local[4]) ;

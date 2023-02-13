@@ -1,7 +1,7 @@
 #include "gsl/gsl_linalg.h"
 
 // define pre-processor command to use python interface
-#define USE_BAYESNxxx       
+#define USE_BAYESN        
 
 int init_genmag_BAYESN(char *MODEL_VERSION, int optmask);
 int init_genmag_bayesn__( char *version, int *optmask);
@@ -23,6 +23,8 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	       	double *mwebv, double *z, int *Nobs,
 	       	double *Tobs_list, double *magobs_list,
 	       	double *magerr_list);
+
+void dump_SED_element(FILE * file, double wave, double value);
 
 gsl_matrix *invKD_irr(int Nk, double *xk);
 gsl_matrix *spline_coeffs_irr(int N, int Nk, double *x, double *xk, gsl_matrix *invKD);

@@ -358,6 +358,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
     // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
     // HACK HACK HACK
     char version[60];
+    printf("XXXX %s MODEL_VERSION=%s", fnam, MODEL_VERSION);
     extract_MODELNAME(MODEL_VERSION, BAYESN_MODELPATH, version);
     char yaml_file[MXPATHLEN];
     sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
@@ -390,8 +391,11 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
 
     SEDMODEL.LAMMIN_ALL = BAYESN_MODEL_INFO.lam_knots[0] ;  // rest-frame SED range
     SEDMODEL.LAMMAX_ALL = BAYESN_MODEL_INFO.lam_knots[BAYESN_MODEL_INFO.n_lam_knots-1] ;
-    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1000.0 ; // rest-frame central wavelength range
-    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1000.0 ;
+    SEDMODEL.RESTLAMMIN_FILTERCEN =  SEDMODEL.LAMMIN_ALL + 1200.0 ; // rest-frame central wavelength range
+    SEDMODEL.RESTLAMMAX_FILTERCEN =  SEDMODEL.LAMMAX_ALL - 1200.0 ;
+    printf("LIMITS OF FILTER CENTRAL WAVELENGTH: %.1f, %.1f\n", SEDMODEL.RESTLAMMIN_FILTERCEN
+            , SEDMODEL.RESTLAMMAX_FILTERCEN);
+    printf("LIMITS OF SED WAVELENGTH: %.1f, %.1f\n", SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL);
 
     //compute the inverse KD matrices and J_lam (SHOULD THIS BE DONE HERE??)
     BAYESN_MODEL_INFO.KD_tau = invKD_irr(BAYESN_MODEL_INFO.n_tau_knots,
@@ -403,6 +407,7 @@ int init_genmag_BAYESN(char *MODEL_VERSION, int optmask){
             BAYESN_MODEL_INFO.lam_knots, BAYESN_MODEL_INFO.KD_lam);
 
     //debugexit(fnam);
+    fflush(stdout);
     return 0;
 } // end init_genmag_BAYESN
 
@@ -419,6 +424,13 @@ void genmag_BAYESN(
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
 
+    bool dumpsed = false;
+    bool enable_scatter = false;
+
+    FILE * sedfile;
+    if (dumpsed) {
+        sedfile = fopen("sed_dump.txt", "w");
+    }
     
     double DLMAG = parList_SN[0];
     double THETA = parList_SN[1];
@@ -429,15 +441,13 @@ void genmag_BAYESN(
     int ifilt = 0;
 
     //SHOULD I BE DECLARING THESE HERE??
-    //ALSO (FIXME) I SHOULD REMEMBER TO FREE THESE AT THE END
     gsl_matrix * J_tau; // for time interpolation
     gsl_matrix * W = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             BAYESN_MODEL_INFO.n_tau_knots); // for W0 + THETA*W1
     gsl_matrix * WJ_tau = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_lam_knots,
             Nobs); //to store matrix product W * J_tau
     gsl_vector_view j_lam; //to store a row of J_lam
-    gsl_vector * jWJ = gsl_vector_alloc(Nobs); //to store
-                                                       //j_lam * W * J_tau
+    gsl_vector * jWJ = gsl_vector_alloc(Nobs); 
 
     double *lam_filt;
     double *trans_filt;
@@ -451,6 +461,14 @@ void genmag_BAYESN(
     // translate absolute filter index into sparse index
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
     z1    = 1. + z ;
+
+
+    // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
+    double *Trest_list   = malloc(sizeof(double)*Nobs);
+    for(int i=0;i<Nobs;i++)
+    {
+        Trest_list[i] = Tobs_list[i]/z1;
+    }
 
     // filter info for this "ifilt"
     meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
@@ -483,7 +501,19 @@ void genmag_BAYESN(
 
     // compute the matrix for time interpolation
     J_tau = spline_coeffs_irr(Nobs, BAYESN_MODEL_INFO.n_tau_knots,
-            Tobs_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+            Trest_list, BAYESN_MODEL_INFO.tau_knots, BAYESN_MODEL_INFO.KD_tau);
+
+
+
+    printf("XXX Tobs_list\n");
+    for(int i=0;i<Nobs;i++)
+    {
+        printf("%.4f\n", Tobs_list[i]);
+    }
+
+
+    printf("XXX J_tau\n");
+    gsl_matrix_fprintf(stdout, J_tau, "%.2f");
 
     // compute W0 + theta*W1 (SHOULD THIS BE DONE HERE??)
     // also, this seems utterly unhinged as a way of computing this
@@ -518,6 +548,10 @@ void genmag_BAYESN(
         // this finds a vector of length Nobs, giving the SED at the
         // current wavelength for all observations
         // basically j_lam * W * J_tau^T
+        //
+        // GN - 20230203 - Why the setting jWJ to zero here - we set it earlier
+        // See enable_scatter
+        //
         gsl_vector_set_zero(jWJ);
         j_lam = gsl_matrix_row(BAYESN_MODEL_INFO.J_lam, q);
         gsl_blas_dgemv(CblasTrans, 1.0, WJ_tau, &j_lam.vector, 0.0, jWJ);
@@ -535,14 +569,24 @@ void genmag_BAYESN(
             double t0 = BAYESN_MODEL_INFO.S0.DAY[q_hsiao-1];
             double f1 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*q_hsiao + q];
             double f0 = BAYESN_MODEL_INFO.S0.FLUX[nlam_model*(q_hsiao-1) + q];
-            S0_lam = (f0*(t1 - Tobs_list[o]) + f1*(Tobs_list[o] - t0))/(t1 - t0);
+            // HACK HACK HACK throw Trest at this instead or Tobs
+            S0_lam = (f0*(t1 - Trest_list[o]) + f1*(Trest_list[o] - t0))/(t1 - t0);
             magobs_list[o] += this_trans[q-i]*this_lam[q-i]*d_lam*eA_lam_MW*eA_lam_host*eW*S0_lam; //Increment flux with contribution from this wl
             if (o == 0) {
+                //dump_sed_element(sedfile, lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
                 //printf("%.3f, %e\n", lam_model[q], eA_lam_MW*eA_lam_host*eW*S0_lam);
             }
         }
     }
 
+    if (dumpsed) {
+        fclose(sedfile);
+    }
+
+    gsl_matrix_free(J_tau);
+    gsl_matrix_free(W);
+    gsl_matrix_free(WJ_tau);
+    gsl_vector_free(jWJ);
     //printf("XXXX %s %d %d what have we done??\n", fnam, i, j);
     //printf("XXXX %s %.1f %.1f what have we done??\n", cfilt, lam_model[i], lam_model[j]);
 
@@ -567,6 +611,10 @@ void genmag_bayesn__(int *OPTMASK, int *ifilt_obs, double *parlist_SN,
 	genmag_BAYESN(*OPTMASK, *ifilt_obs, parlist_SN, *mwebv, *z,
 		       	*Nobs, Tobs_list, magobs_list, magerr_list);
 	return;
+}
+
+void dump_SED_element(FILE * file, double wave, double value) {
+   fprintf(file, "%.2f %e", wave, value);
 }
 
 gsl_matrix *invKD_irr(int Nk, double *xk) {

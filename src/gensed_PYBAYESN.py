@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from gensed_base import gensed_base
 
 
-mask_bit_locations = {'verbose':1,'dump':2}
+mask_bit_locations = {'verbose':1, 'dump':2, 'disable_scatter':3}
 DEFAULT_PYBAYESN_MODEL='M20'
 ALLOWED_PYBAYESN_MODEL=['M20', 'T21']
 ALLOWED_PYBAYESN_PARAMS=['THETA1','DELTAM'] # I suppose we could allow EPSILON as well...
@@ -37,12 +37,14 @@ def print_err():
 
 class gensed_PYBAYESN(gensed_base):
     def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
-
         try:
             self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
-            self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
             self.dump = OPTMASK & (1 << mask_bit_locations['dump'])>0
+            self.disable_scatter = True #OPTMASK & (1 << mask_bit_locations['disable_scatter'])>0
+            print("PYBAYESN DISABLE SCATTER:", self.disable_scatter)
+            sys.stdout.flush()
             self.PATH_VERSION = os.path.expandvars(PATH_VERSION)
+            self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
 
             # check if a param file exists
             self.paramfile = None
@@ -320,10 +322,15 @@ class gensed_PYBAYESN(gensed_base):
             for param, distrib in self.bayesn_distribs.items():
                 useful_pars[param] = distrib.rvs()
 
-            eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
-            epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
+            if self.disable_scatter:
+                epsilon_vec = np.zeros(len(self._bayesn_components["L_Sigma_epsilon"])) #FOR DEBUG ONLY
+                deltam = 0.
+            else:
+                eta = np.random.normal(0, 1, len(self._bayesn_components["L_Sigma_epsilon"]))
+                epsilon_vec = np.dot(self._bayesn_components["L_Sigma_epsilon"], eta)
             for i in range(self._nepsilon):
                 useful_pars[f'EPSILON{i:02d}'] = epsilon_vec[i]
+                useful_pars['DELTAM'] = deltam
             if self.verbose:
                 print(useful_pars, 'set')
 
@@ -343,6 +350,9 @@ class gensed_PYBAYESN(gensed_base):
         #    Assumes that `trest` is a float, and `self.wave` is a 1D
         #    list or numpy array of rest frame wavelengths
         J_t =  spline_coeffs_irr([trest], self._bayesn_components["tau_knots"], self.KD_t).T
+
+        print("J_tau matrix")
+        print(trest, J_t)
 
         #ST: Computes host extinction
         #    This assumes we can use the Kyle Barbary extinction.py package
@@ -371,7 +381,11 @@ class gensed_PYBAYESN(gensed_base):
         S_tilde = flux*np.exp(-GAMMA*(JWJ + R_host))
 
         #ST: Applies the constant (in time and wavelength) factors
-        flux = np.exp(-GAMMA*(self.M0 + self.parameter_values["DELTAM"]))*S_tilde
+        if self.disable_scatter:
+            DELTAM = 0 #FOR DEBUG ONLY
+        else:
+            DELTAM = self.parameter_values["DELTAM"]
+        flux = np.exp(-GAMMA*(self.M0 + DELTAM))*S_tilde
 
         ########## ORIGINAL RETURN STATEMENT FROM GSN ##########
         return flux

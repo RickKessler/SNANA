@@ -21475,6 +21475,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** IMPORTANT(v11_05b) ***** 
 
+    SALT2mu: fix nasty bug where vpec error was ignored in 
+             determining sigma_int for biasCor.
+
+    wfit: for redshift varname list (zHD zCMB), use first item instead
+          of last. This affects jobs running on BBC output because both
+          zHD and zCMB exist (should use zHD). No problems for output
+          of create_covariance that only write zhd.
+
         ***** USEFUL(v11_05b) ***** 
 
         ***** MISCELLANEOUS(v11_05b) ***** 
@@ -21485,7 +21493,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     create_covariance.py
       + fix bug in prep_config
-      + write SNANA_VERSION to INFO.YML file  
+      + write SNANA_VERSION to INFO.YML file 
     
     SALT2mu.c
       + refactor selection for sntype_select and idsample_select           
@@ -21515,5 +21523,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          snlc_fit_private.cra:c+USE,KCOR.
          sntools.h: //#define USE_KCOR_FORTRAN
     The old fortran code is still there, but not included in the compilation.
+
+    sntools_dataformat_*: read/write SIM_THETA for BayeSN model.
 
 END: 

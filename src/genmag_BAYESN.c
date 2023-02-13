@@ -438,7 +438,7 @@ void genmag_BAYESN(
     double RV    = parList_SN[3];
     double z1, meanlam_obs,  meanlam_rest, ZP; 
     char *cfilt;
-    int ifilt = 0;
+    int ifilt = 0, i;
 
     //SHOULD I BE DECLARING THESE HERE??
     gsl_matrix * J_tau; // for time interpolation
@@ -465,7 +465,7 @@ void genmag_BAYESN(
 
     // HACK HACK HACK - GN - why do the bloody phases not match by 1/1+z??? 20230210
     double *Trest_list   = malloc(sizeof(double)*Nobs);
-    for(int i=0;i<Nobs;i++)
+    for(i=0;i<Nobs;i++)
     {
         Trest_list[i] = Tobs_list[i]/z1;
     }
@@ -490,7 +490,7 @@ void genmag_BAYESN(
 
     // project the model into the observer frame 
     // get the rest-frame model wavelengths that overlap with the filter 
-    int i = 0;
+    i = 0;
     while (z1*lam_model[i] <= lam_filt[0]) {
         i++;
     }
@@ -506,7 +506,7 @@ void genmag_BAYESN(
 
 
     printf("XXX Tobs_list\n");
-    for(int i=0;i<Nobs;i++)
+    for(i=0;i<Nobs;i++)
     {
         printf("%.4f\n", Tobs_list[i]);
     }

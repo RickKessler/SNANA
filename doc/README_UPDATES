@@ -21540,4 +21540,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      - subtle fix in get_SNANA_VERSION_FLOAT() to handle new tag
        that has no dashes.
 
+   snlc_sim, sntools_cosmology:
+     add typedef ANISOTROPY_INFO to pass these model params to dLmag.
+
+     To do: combine HzFUN_INFO and ANISOTROPY_INFO into a single
+     EXOTIC_MODEL_INFO struct so that we can easily add more model
+     params without adding a new typedef in many places.
+
 END: 

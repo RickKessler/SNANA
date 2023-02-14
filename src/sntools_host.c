@@ -7892,6 +7892,7 @@ void SORT_SNHOST_byDDLR(void) {
     zHEL = SNHOSTGAL.ZTRUE; 
     zCMB = zhelio_zcmb_translator(zHEL, GENLC.RA, GENLC.DEC, "eq",+1);
     gen_distanceMag(zCMB, zHEL,
+		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
 		    &HOST_DLMU, &LENSDMU ); // <== returned
     DMUCOR = GENLC.DLMU - HOST_DLMU ; // ignore LENSDMU that cancels
 
@@ -8214,6 +8215,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
+		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
   }
 
@@ -8229,6 +8231,7 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
       { zHEL = zCMB; }
 
     gen_distanceMag(zCMB, zHEL, 
+		    GENLC.GLON, GENLC.GLAT, // xxx check this more carefully
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
   }

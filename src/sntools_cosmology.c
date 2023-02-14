@@ -520,11 +520,14 @@ double Hzfun_interp(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
 } // end Hzfun_interp
 
 // ******************************************
-double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO) {
+double dLmag ( double zCMB, double zHEL, 
+	       HzFUN_INFO_DEF *HzFUN_INFO, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ) {
 	       	       
   // returns luminosity distance in mags:
   //   dLmag = 5 * log10(DL/10pc)
   //
+  // Feb 2023: pass ANISOTROPY_INFO to enable anistropy models
+
   double rz, dl, arg, mu, zero=0.0 ;
   // ----------- BEGIN -----------
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
@@ -532,6 +535,13 @@ double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO) {
   dl     = ( 1.0 + zHEL ) * rz ;
   arg    = dl / (10.0 * PC_km);
   mu     = 5.0 * log10( arg );
+
+  if ( ANISOTROPY_INFO->USE_FLAG ) {
+    double GLON = ANISOTROPY_INFO->GLON;
+    double GLAT = ANISOTROPY_INFO->GLAT;
+    // xxx for S. Sah to complete
+  }
+
   return mu ;
 }  // end of dLmag
 
@@ -545,6 +555,8 @@ double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
   //
   double mu;
   HzFUN_INFO_DEF HzFUN_INFO ;
+  ANISOTROPY_INFO_DEF ANISOTROPY_INFO;
+
   // ----------- BEGIN -----------
 
   HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_H0] = *H0 ;
@@ -554,7 +566,8 @@ double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
   HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_wa] = *wa ;
   HzFUN_INFO.USE_MAP = false ;
 
-  mu = dLmag(*zCMB, *zHEL, &HzFUN_INFO);
+  ANISOTROPY_INFO.USE_FLAG = false;
+  mu = dLmag(*zCMB, *zHEL, &HzFUN_INFO, &ANISOTROPY_INFO );
 
   /* xxx
   printf(" xxx dlmag_fortc: z=%.3f/%.3f,  H0=%.2f OM,OL=%.3f,%.3f \n",
@@ -567,7 +580,8 @@ double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
 }  // end of dlmag_fort__
 
 
-double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO) {
+double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO, 
+			  ANISOTROPY_INFO_DEF *ANISOTROPY_INFO) {
 
   // Created Jan 4 2018
   // for input distance modulus (MU), solve for zCMB.
@@ -587,7 +601,7 @@ double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO) {
   zCMB = zCMB_start ;
   DMU = 9999.0 ;
   while ( DMU > DMU_CONVERGE ) {
-    mutmp  = dLmag(zCMB, zCMB, HzFUN_INFO); // MU for trial zCMB
+    mutmp  = dLmag(zCMB, zCMB, HzFUN_INFO, ANISOTROPY_INFO ); // MU for trial zCMB
     dmu    = mutmp - MU ;             // error on mu
     DMU    = fabs(dmu);
     zCMB  *= exp(-dmu/2.0); 

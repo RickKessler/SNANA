@@ -596,6 +596,7 @@ struct INPUTS {
   double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020)
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
   HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
+  ANISOTROPY_INFO_DEF ANISOTROPY_INFO ;
 
   double GENRANGE_RA[2];        // RA range (deg) to generate
   double GENRANGE_DEC[2];       // idem for DEC
@@ -1875,8 +1876,9 @@ double gen_peakmjd_smear(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
-double gen_dLmag (double zCMB, double zHEL );
-void   gen_distanceMag(double zCMB, double zHEL, double *MU, double *lensDMU);
+double gen_dLmag (double zCMB, double zHEL, double GLON, double GLAT );
+void   gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
+		       double *MU, double *lensDMU);
 
 double genz_hubble(double zmin, double zmax, RATEPAR_DEF *RATEPAR );
 

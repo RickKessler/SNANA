@@ -4954,7 +4954,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
   // mu
   MCMC_REDSHIFT = old_z;
   //  mu       = dl(2);
-  mu    = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+  mu    = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
   mu = mu + old_dmu;
   mcmc_nmu_grid = 1001;
   //  mcmc_mu_bin   = 0.005;
@@ -5170,7 +5170,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
       MCMC_REDSHIFT = new_z;
       //      mu       = dl(2);  // distance modulus
 
-      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
 
       //      printf("%8.4f  %13.5e\n",MCMC_REDSHIFT, mu);
 
@@ -5194,7 +5194,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
 
       MCMC_REDSHIFT = old_z;
 
-      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO);
+      mu  = dLmag(old_z, old_z, &PSNID_INPUTS.HzFUN_INFO, &PSNID_INPUTS.ANISOTROPY_INFO);
 
       // output old parameter values
       /*

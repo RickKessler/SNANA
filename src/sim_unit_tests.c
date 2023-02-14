@@ -457,7 +457,7 @@ void test_zcmb_dLmag_invert(void) {
   double MU, zCMB=0.0 ;
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
-    zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO);
+    zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
   }
   debugexit(fnam);
   return ;

@@ -26,6 +26,21 @@ typedef struct {
 } HzFUN_INFO_DEF ;
 
 
+// hard-wired params from 1808.04597 (Colin et al 2023)
+#define ANISOTROPY_MODEL_qm  -0.157
+#define ANISOTROPY_MODEL_qd  -8.03
+#define ANISOTROPY_MODEL_S    0.0262
+#define ANISOTROPY_MODEL_J0  -0.489
+#define ANISOTROPY_MODEL_S0   -999.0 // tbd
+
+typedef struct {
+  // Created Feb 2023 by A.Sha and R.Kessler
+  bool   USE_FLAG ;
+  double qm, qd, S, J0, S0; 
+  double GLON, GLAT; 
+
+} ANISOTROPY_INFO_DEF ;
+
 // ========= function prototypes =========
 
 void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName, 
@@ -48,12 +63,14 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO);
 double Hzfun ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
 double Hzfun_wCDM ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
 double Hzfun_interp ( double z, HzFUN_INFO_DEF *HzFUN_INFO); 
-double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO); 
+double dLmag ( double zCMB, double zHEL, 
+	       HzFUN_INFO_DEF *HzFUN_INFO, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO  ); 
 
 double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
                      double *OM, double *OL, double *w0, double *wa);
 
-double zcmb_dLmag_invert(double MU, HzFUN_INFO_DEF *HzFUN_INFO); 
+double zcmb_dLmag_invert(double MU, HzFUN_INFO_DEF *HzFUN_INFO, 
+			 ANISOTROPY_INFO_DEF *ANISOTROPY_INFO); 
 
 double zhelio_zcmb_translator(double z_input, double RA, double DECL, 
 			      char *coordSys, int OPT ) ;

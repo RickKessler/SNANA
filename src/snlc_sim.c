@@ -721,25 +721,12 @@ void set_user_defaults(void) {
   INPUTS.MUSHIFT       =   0.0 ;
   INPUTS.HzFUN_FILE[0] = 0 ;
 
-  /****** xxxx mark delete Sep 19 2022 xxxxxxxx
-  // always load cosmology keys as if they had been read so that they
-  // show up in the README yaml
-  int NPAR_COSMO = 4;
-  char COSMO_KEY_LIST[4][20] = {"OMEGA_MATTER", "OMEGA_LAMBDA", 
-				"w0_LAMBDA", "wa_LAMBDA"};
-  double COSMO_VAL_LIST[4] = { INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA,
-			       INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA };
-  char *WORDS[2];
-  WORDS[0] = (char*) malloc(60);
-  WORDS[1] = (char*) malloc(60);
-  for(i=0; i < NPAR_COSMO; i++ ) {
-    sprintf(WORDS[0], "%s",   COSMO_KEY_LIST[i] );       
-    sprintf(WORDS[1], "%.4f", COSMO_VAL_LIST[i] ); 
-    README_KEYPLUSARGS_load(20, 1, WORDS, KEYSOURCE_FILE, 
-			    &README_KEYS_COSMO, fnam);
-  }
-  xxxxxxxxx end mark xxxxxxxx */
-
+  INPUTS.ANISOTROPY_INFO.USE_FLAG = false ;
+  INPUTS.ANISOTROPY_INFO.qm       = ANISOTROPY_MODEL_qm ;
+  INPUTS.ANISOTROPY_INFO.qd       = ANISOTROPY_MODEL_qd ;
+  INPUTS.ANISOTROPY_INFO.S        = ANISOTROPY_MODEL_S ;
+  INPUTS.ANISOTROPY_INFO.J0       = ANISOTROPY_MODEL_J0 ;
+  INPUTS.ANISOTROPY_INFO.S0       = ANISOTROPY_MODEL_S0 ;
 
   // - - - - - - -
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
@@ -10880,6 +10867,7 @@ void gen_event_driver(int ilc) {
 
     gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
 		     GENLC.REDSHIFT_HELIO,          // input 
+		     GENLC.GLON, GENLC.GLAT,        // input
 		     &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
 
     // - - - - -   Tricky MWEBV LOGIC (Spaghetti alert) - - - - - - -
@@ -14446,6 +14434,7 @@ void gen_redshift_LCLIB(void) {
   // MU-vs-ZCMB in the output.
   gen_distanceMag( GENLC.REDSHIFT_CMB,            // input
 		   GENLC.REDSHIFT_HELIO,          // input 
+		   GENLC.GLON, GENLC.GLAT,        // input
 		   &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
 
   /* xxxxxxxxx
@@ -14598,7 +14587,8 @@ void gen_zsmear(double zerr) {
 
 
 // =====================================================
-void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
+void gen_distanceMag(double zCMB, double zHEL, double GLON, double GLAT,
+		     double *MU, double *LENSDMU) {
 
   // Created Apr 2017
   // for input CMB redshift zCMB, returns
@@ -14613,7 +14603,8 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   // Feb 16 2022: don't allow ran1=0.0, otherwise dmuLens = NaN
   // June 28 2022: Added option to use hostlib weak lens values
   //
-
+  // Feb 14 2023: A.Sah and RK: pass galactic coords to enable anistropy models
+  //
   double lensDMU, ran1 ;
   int DUMP_FLAG = (GENLC.CID == -9999);
   char fnam[] = "gen_distanceMag" ;
@@ -14647,7 +14638,7 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   lensDMU *= INPUTS.WEAKLENS_DMUSCALE ; // user-scale
 
   // load return args
-  *MU      = gen_dLmag(zCMB,zHEL);
+  *MU      = gen_dLmag(zCMB,zHEL, GLON, GLAT);
   *LENSDMU = lensDMU ;
 
   return;
@@ -14655,14 +14646,20 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
 } // end gen_distanceMag
 
 // ********************************
-double gen_dLmag(double zCMB, double zHEL ) {
+double gen_dLmag(double zCMB, double zHEL, double GLON, double GLAT ) {
 
   // Returns lumi-distance mag with input cosmology
   // Note that INPUTS.H0 ~ 70 km/s/Mpc, and H0 -> ~2E-18
 
   double mu ;
   if ( zCMB <= 1.0E-10 ) { return 0.0 ; }  // avoid inf, May 2013
-  mu = dLmag (zCMB, zHEL, &INPUTS.HzFUN_INFO);
+
+  if ( INPUTS.ANISOTROPY_INFO.USE_FLAG ) {
+    INPUTS.ANISOTROPY_INFO.GLON = GLON;
+    INPUTS.ANISOTROPY_INFO.GLAT = GLAT;
+  }
+
+  mu = dLmag (zCMB, zHEL, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
 
   return(mu) ;
 
@@ -18564,7 +18561,7 @@ void parse_SIMLIB_GENRANGES(char **WDLIST ) {
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     sscanf(WDLIST[1], "%le", &dist);
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
-    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO); // returns zCMB
+    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
@@ -18759,6 +18756,7 @@ int regen_SIMLIB_GENRANGES(void) {
     if ( tmpVal > INPUTS.GENRANGE_REDSHIFT[1] ) { return(REJECT); }
     GENLC.REDSHIFT_CMB     = tmpVal ;
     gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_CMB, // to fix later
+		    GENLC.GLON, GENLC.GLAT,
 		    &GENLC.DLMU, &GENLC.LENSDMU);
   }
 
@@ -28761,6 +28759,7 @@ void DUMP_GENMAG_DRIVER(void) {
   zz = 1.0 + GENLC.REDSHIFT_CMB ;
 
   gen_distanceMag(GENLC.REDSHIFT_CMB, GENLC.REDSHIFT_HELIO,
+		  GENLC.GLON, GENLC.GLAT,
 		  &GENLC.DLMU, &GENLC.LENSDMU);
 
   GENLC.AV             =  0.0 ;

@@ -2653,6 +2653,30 @@ void parse_GENPOLY(char *stringPoly, char *varName,
 
 } // end parse_GENPOLY
 
+void print_GENPOLY(GENPOLY_DEF *GENPOLY) {
+
+  int ORDER = GENPOLY->ORDER;
+  int o;
+  double DVAL0, DVAL1;
+  char fnam[] = "print_GENPOLY" ;
+
+  // -------- BEGIN --------
+
+  printf(" %s: %s defined with ORDER=%d polynominal (input string=%s) \n",
+	 fnam, GENPOLY->VARNAME, ORDER, GENPOLY->STRING);
+  fflush(stdout);
+
+  /* xxxx  
+  printf("\t NORDER = %d \n", ORDER );
+  for(o=0; o <= ORDER; o++ ) {
+      DVAL0 = GENPOLY->COEFF_RANGE[o][0];
+      DVAL1 = GENPOLY->COEFF_RANGE[o][1];
+      fflush(stdout);
+      }
+  xxxxxxx */
+
+} // end print_GENPOLY
+
 void copy_GENPOLY(GENPOLY_DEF *GENPOLY_IN, GENPOLY_DEF *GENPOLY_OUT) {
 
   // Created April 5 2021

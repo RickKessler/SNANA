@@ -1078,8 +1078,9 @@ struct INPUTS {
 
   int    FLOAT_COSPAR ;    // internal: TRUE if any COSPAR is floated
   double COSPAR[NCOSPAR];  // OL, Ok, w0, wa: input to dlcosmo
+  GENPOLY_DEF GENPOLY_MUREF;  // test BBC with muref = zpoly instead of LCDM
 
-  int zpolyflag;   // z-dependent cov matrix JLM AUG 15 2012
+  int zpolyflag;   // z-dependent cov matrix JLM AUG 15 2012 (obsolete?)
 
   int  NDUMPLOG; // number of SN to dump to flog file
 
@@ -1097,6 +1098,7 @@ struct INPUTS {
 
   int nthread ; // number of threads (default = 0 -> no threads)
 
+
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int restore_mucovscale_bug ; // Sep 14 2021 allow restoring bug
   int restore_mucovadd_bug ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022   
@@ -1107,10 +1109,9 @@ struct INPUTS {
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   char cidlist_debug_biascor[100];
 
-
+  
   // set internal LEGACY and REFAC flags for development 
   bool LEGACY_SELECT, REFAC_SELECT; // debug_flag=1207
-  bool LEGACY_PREPARE_IDSAMPLE, REFAC_PREPARE_IDSAMPLE; // debug_flag=1213
 
 } INPUTS ;
 
@@ -1900,9 +1901,6 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // setup BBC redshift bins.
   setup_BININFO_redshift();
 
-  // prepare mapindex for each IDSURVEY & FIELD --> for biasCor
-  if ( INPUTS.LEGACY_PREPARE_IDSAMPLE )
-    {   prepare_IDSAMPLE_biasCor(); }
 
   // check option for SPLITRAN summary
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) { return ; }
@@ -2173,12 +2171,15 @@ void exec_mnparm(void) {
   }
 
   //Setup M0(z) paramters for Minuit
+
+  M0min=-35.0;  M0max=-25.0;
+  if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 )  { M0min=-40.0;  M0max=-20.0; }
+
   for (iz=0; iz<nzbin; iz++ )    {
 
     i   = iz + MXCOSPAR ;
     iMN = i + 1 ;
 
-    M0min=-35.0;  M0max=-25.0;
     ISFLOAT = FITINP.ISFLOAT_z[iz] ;
 
     if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ) 
@@ -5160,6 +5161,8 @@ void set_defaults(void) {
   INPUTS.APPLY_CUTWIN_pIa = false;
   init_CUTMASK();
 
+  init_GENPOLY(&INPUTS.GENPOLY_MUREF);
+
 #ifdef USE_SUBPROCESS
   SUBPROCESS.USE         = false ;
   SUBPROCESS.ITER        = -9;
@@ -5170,9 +5173,6 @@ void set_defaults(void) {
 
   INPUTS.LEGACY_SELECT = false;
   INPUTS.REFAC_SELECT  = true;
-
-  INPUTS.LEGACY_PREPARE_IDSAMPLE = false ;
-  INPUTS.REFAC_PREPARE_IDSAMPLE  = true;
 
   return ;
 
@@ -5311,9 +5311,8 @@ void read_data(void) {
 
   // Nov 2020: e.g., replace VPEC, HOST_LOGMASS, etc ..
   read_data_override(); 
-
-  if ( INPUTS.REFAC_PREPARE_IDSAMPLE ) 
-    { prepare_IDSAMPLE_biasCor(); } // Dec 13 2022
+  
+  prepare_IDSAMPLE_biasCor(); 
 
   // apply cuts after data override
   int NPASS=0;
@@ -16164,6 +16163,14 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"betaHost=")) 
     { sscanf(&item[9],"%lf",&INPUTS.parval[16]); return(1); }
 
+  // Feb 2023: read option to use polynomial(z) for muref instead of LCDM
+  // computed from OM,w
+  if ( uniqueOverlap(item,"muref_zpoly=")) {
+    sscanf(&item[12],"%s", tmpString); 
+    parse_GENPOLY(tmpString, "MUREF(z)", &INPUTS.GENPOLY_MUREF, fnam );
+    return(1);
+  }
+
   // ---
 
   // read initial step sizes for parameters in fit
@@ -18199,12 +18206,17 @@ void prep_input_driver(void) {
 
   // - - - - -
   prep_input_load_COSPAR();
-
+  
   INPUTS.FLOAT_COSPAR=0;
   if ( INPUTS.ipar[IPAR_OL] ) { INPUTS.FLOAT_COSPAR=1; }
   if ( INPUTS.ipar[IPAR_Ok] ) { INPUTS.FLOAT_COSPAR=1; }
   if ( INPUTS.ipar[IPAR_w0] ) { INPUTS.FLOAT_COSPAR=1; }
   if ( INPUTS.ipar[IPAR_wa] ) { INPUTS.FLOAT_COSPAR=1; }
+
+  if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 ) {
+    print_GENPOLY(&INPUTS.GENPOLY_MUREF);
+  }
+
 
   prep_input_nmax(INPUTS.nmaxString);
 
@@ -18318,9 +18330,6 @@ void prep_debug_flag(void) {
   // - - - - - -
   if ( INPUTS.debug_flag == -1207 )  { INPUTS.REFAC_SELECT = false; }
   INPUTS.LEGACY_SELECT = !INPUTS.REFAC_SELECT;
-
-  if ( INPUTS.debug_flag == -1213 ) { INPUTS.REFAC_PREPARE_IDSAMPLE=false; }
-  INPUTS.LEGACY_PREPARE_IDSAMPLE = !INPUTS.REFAC_PREPARE_IDSAMPLE ;
 
   fflush(FP_STDOUT);
 
@@ -20828,10 +20837,20 @@ double cosmodl(double zhel, double zhd, double *cosPar)
   const double  tol  = 1.e-6;
   double dflat, distance, H0inv ;
   double omega_k, OK, dl  ;
-  //  char fnam[] = "cosmodl" ;
+  char fnam[] = "cosmodl" ;
 
   // ------------- BEGIN --------------
 
+  // Feb 2023: check zpoly instead of LCDM.
+  // For conceptual testing only; not for real analysis.
+  if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 ) {
+    double muref = eval_GENPOLY(zhd, &INPUTS.GENPOLY_MUREF, fnam); 
+    double arg = (0.2*muref-5.0);
+    dl         = pow(10.0,arg);
+    return (dl);
+  }
+
+  // - - - - - - - -
   //  omega_l = cosPar[0];  // not used
   omega_k = cosPar[1];
   //  wde     = cosPar[2]; // not used

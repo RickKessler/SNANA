@@ -21547,4 +21547,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      EXOTIC_MODEL_INFO struct so that we can easily add more model
      params without adding a new typedef in many places.
 
+  SALT2mu.c:
+    + new input muref_zpoly to replace LCDM mu-function with
+      polynominal function of z. For testing only.
+
 END: 

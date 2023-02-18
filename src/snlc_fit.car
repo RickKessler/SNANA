@@ -1399,11 +1399,6 @@ c set rest-frame filter ranges.
       IF (   FITMODEL_INDEX .EQ. MODEL_STRETCH
      &  .or. FITMODEL_INDEX .EQ. MODEL_STRETCH2 ) THEN
 
-+SELF,IF=KCOR.
-         IF ( USE_KCOR_LEGACY ) THEN
-            CALL FILL_AVWARPTABLE() 
-         ENDIF
-+SELF.
 
          RESTLAMBDA_MODEL(1) = 3000.0
          RESTLAMBDA_MODEL(2) = 9500.0        
@@ -1480,12 +1475,6 @@ c We might have to review the above later - GN
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) THEN
 
-+SELF,IF=KCOR.
-         IF ( USE_KCOR_LEGACY ) THEN
-            CALL FILL_AVWARPTABLE()
-         ENDIF
-+SELF.
-
          PARNAME_STORE(IPAR_SHAPE)  = 'DELTA'
          ERRMAX_BAD(IPAR_SHAPE) = 0.02
 
@@ -1508,11 +1497,6 @@ c depends on which IR filters are used.
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-+SELF,IF=KCOR.
-         IF ( USE_KCOR_LEGACY ) THEN
-            CALL FILL_AVWARPTABLE()
-         ENDIF
-+SELF.
 
          CALL GET_LAMRANGE_snoopy(LAMRANGE8(1),LAMRANGE8(2))
          RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
@@ -1693,23 +1677,7 @@ c initialize priors
 
 c rest-frame init
       IF ( LREST_FITMODEL ) THEN
-
-+SELF,IF=KCOR.
-         IF( USE_KCOR_LEGACY .and. NKCOR_STORE .EQ. 0 ) THEN
-           c1err = 'Cannot fit rest-frame model ' 
-     &          // FITMODEL_NAME(1:40)
-           c2err = 'with no K-cor tables. Check KCOR_FILE.'
-           CALL MADABORT("FITPAR_INI", c1err, c2err)
-         ENDIF
-+SELF.
-
-         IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-            CALL FITINI_XTPAR(OPT_SNXT) ! initialize host-galaxy extinction 
-+SELF.
-         ELSE
-            CALL INIT_GENMAG_EXTINCTION(OPT_SNXT)
-         ENDIF
+         CALL INIT_GENMAG_EXTINCTION(OPT_SNXT)
       ENDIF
 
 c -------------------------------------------
@@ -3203,17 +3171,8 @@ c reset SEDMODEL to init and/or erase previous instance
 
 c init primary spectrum
 
-      IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-         CALL GET_PRIMARY_LEGACY(tmpname, NLAM, LAM, VALa)
-         LEN1 = INDEX(tmpname,' ' ) - 1
-         ISTAT = INIT_PRIMARY_SEDMODEL(tmpname(1:LEN1)//char(0),
-     &                    NLAM,LAM,VALa,LEN1)
-+SELF.
-      ELSE
-         CALL GET_CALIB_PRIMARY_SED(tmpname, NLAM, LAM, VALa, 20)
-         ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
-      ENDIF
+      CALL GET_CALIB_PRIMARY_SED(tmpname, NLAM, LAM, VALa, 20)
+      ISTAT = INIT_PRIMARY_SEDMODEL(tmpname, NLAM,LAM,VALa,LEN1)
 
 
       RVMW = DBLE(RV_MWCOLORLAW)
@@ -3231,13 +3190,7 @@ c to avoid lots of uncecessary CPU time.
         zmax    = min(zmax,3.0)   ! avoid crazy Zmax = E4
 
         if ( DOFIT_PHOTOZ ) then
-          IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-             ZMAX = Zrange_KCOR(2) + 4.0 * Zbinsize_KCOR     
-+SELF.
-          ELSE
-             ZMAX = PHOTOZ_RANGE_KCOR(2)
-          ENDIF
+          ZMAX = PHOTOZ_RANGE_KCOR(2)
           ZMAX = min ( ZMAX, PHOTOZ_BOUND(2) )
         endif
 
@@ -3266,34 +3219,19 @@ c now init each filter.
 c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
 
-         if ( USE_KCOR_LEGACY ) then
-+SELF,IF=KCOR.
-             ! original fortran subroutine
-           CALL GET_FILTTRANS_LEGACY(OPT_FILTOBS, ifilt_obs, 
-     &          SURVEY_NAME_FILTER, CFILT, MAGPRIM, NLAM, lam,
-     &          VALa, VALb)  ! <== returned transSN and transREF
-           LEN1  = INDEX(cfilt//' ',' ' ) - 2
-           LEN2  = INDEX(SURVEY_NAME_FILTER//' ',' ') - 2
-           ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
-     &                SURVEY_NAME_FILTER,
-     &                MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
-     &                LEN1+5, LEN2+5 )
-+SELF.
-         else
              ! refactored C code
-            OPT_FRAME = OPT_FILTOBS - 1 ! fortran -> C
-            CALL GET_CALIB_FILTERTRANS(OPT_FRAME, ifilt_obs,     ! (I)
+         OPT_FRAME = OPT_FILTOBS - 1 ! fortran -> C
+         CALL GET_CALIB_FILTERTRANS(OPT_FRAME, ifilt_obs,     ! (I)
      &           SURVEY_NAME_FILTER, CFILT, MAGPRIM,            ! (O)
      &           NLAM, LAM, VALa, VALb,                         ! (O)
      &           40, 40 )       
 
-            LEN1  = INDEX(cfilt,char(0))
-            LEN2  = INDEX(SURVEY_NAME_FILTER,char(0)) 
-            ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
+         LEN1  = INDEX(cfilt,char(0))
+         LEN2  = INDEX(SURVEY_NAME_FILTER,char(0)) 
+         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
      &              SURVEY_NAME_FILTER,
      &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
      &              LEN1, LEN2 )
-         endif 
 
       CALL FLUSH(6)
 
@@ -5775,13 +5713,7 @@ c Include host extinction to get rest-frame colors.
 
       IF ( ISREST ) THEN
 
-        IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-           XT = GET_SNXT8(OPT_SNXT,ifilt_obs,Trest,AVHOST,RVHOST)
-+SELF.
-        ELSE
-           XT = genmag_extinction(ifilt_obs, Trest, RVHOST, AVHOST)
-        ENDIF 
+        XT = genmag_extinction(ifilt_obs, Trest, RVHOST, AVHOST)
         MAG_XTAV_REST(ifilt_obs) = XT
 
         MAG_OBS_TMP(ifilt_obs) = 
@@ -5829,16 +5761,6 @@ c Store BX-B in the memory slot for Landolt-BX.
 
          if ( NEEDU ) then
 
-           IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-             AVWARP = GET_AVWARP8(Trest, Z0
-     &             ,MAG_LANDOLT_REST(ifilt_rest1)
-     &             ,MAG_LANDOLT_REST(ifilt_rest2)
-     &             ,IFILT_REST1, IFILT_REST2, ISTAT )
-             BX_synth = GET_MAGLC8(ifilt_bess_BX, Trest, Z0, AVwarp)
-             B_synth  = GET_MAGLC8(ifilt_bess_B , Trest, Z0, AVwarp)
-+SELF.
-           ELSE
               AVWARP = EVAL_KCOR_TABLE_AVWARP(IFILT_REST1, IFILT_REST2,
      &              MAG_LANDOLT_REST(ifilt_rest1), 
      &              MAG_LANDOLT_REST(ifilt_rest2),
@@ -5847,7 +5769,6 @@ c Store BX-B in the memory slot for Landolt-BX.
      &                     Z0, AVwarp)
               B_synth  = EVAL_KCOR_TABLE_LCMAG(ifilt_bess_B, Trest, 
      &                     Z0, AVwarp)
-           ENDIF
 
            MAG_LANDOLT_REST(IFILT_BESS_BX) = BX_synth - B_synth
 
@@ -5886,13 +5807,7 @@ c apply host extinction for rest-frame models.
 
         IF ( LSNXTAV ) THEN
 
-           IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-              XT = GET_SNXT8(OPT_SNXT,ifilt_rest,Trest,AVHOST,RVHOST)
-+SELF.
-           ELSE
-              XT = genmag_extinction(ifilt_rest, Trest, RVHOST, AVHOST)
-           ENDIF
+           XT = genmag_extinction(ifilt_rest, Trest, RVHOST, AVHOST)
 
            MAG_XTAV_REST(ifilt_rest) = XT
 
@@ -5936,45 +5851,23 @@ c load KCORFUN8 args
           LAMDIF_KCORFUN(inear)     = DBLE( LAMDIF4(inear) )
         ENDDO
 
-        IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-          KCOR_TMP(ifilt2_obs) = 
-     &      KCORFUN8 ( ifilt2_obs, IFILT_REST_KCORFUN, MAG_REST_KCORFUN
-     &     ,LAMDIF_KCORFUN, Trest, ZSN, AVWARP_KCORFUN )
-+SELF.
-        ELSE
           KCOR_TMP(ifilt2_obs) =
      &    GET_KCOR_DRIVER(ifilt2_obs, IFILT_REST_KCORFUN, 
      &            MAG_REST_KCORFUN,
      &            LAMDIF_KCORFUN, Trest, ZSN, AVWARP_KCORFUN )
-        ENDIF
 
 c save AVwarp
         AVwarp                 = AVwarp_KCORFUN(2)
         AVwarp_tmp(ifilt2_obs) = AVwarp  ! save in case of dump
 
-        if ( USE_KCOR_LEGACY ) then
-+SELF,IF=KCOR.
-            KCORERR_TMP(ifilt2_obs) = 
-     &      GET_KCORERR_LEGACY ( OPT_KCORERR, ifilt2_obs, ZSN ) 
-+SELF.
-        else
           ! refactored C code
-            KCORERR_TMP(ifilt2_obs) = 
+        KCORERR_TMP(ifilt2_obs) = 
      &      GET_KCORERR ( OPT_KCORERR, ifilt2_obs, ZSN ) 
-        endif
 
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
-           if ( USE_KCOR_LEGACY ) then
-+SELF,IF=KCOR.
-              MWXT_TMP = GET_MWXT8(ifilt2_obs, Trest, ZSN, 
-     &                AVWARP, MWEBV, RVMW, OPT_MWCOLORLAW )
-+SELF.
-           else
-              MWXT_TMP = EVAL_KCOR_TABLE_MWXT(ifilt2_obs, Trest, ZSN,
+           MWXT_TMP = EVAL_KCOR_TABLE_MWXT(ifilt2_obs, Trest, ZSN,
      &                    AVWARP, MWEBV, RVMW, OPT_MWCOLORLAW )
-           endif
            MAG_XTMW_OBS(ifilt2_obs) = MWXT_TMP
         endif
 
@@ -8663,13 +8556,7 @@ c set global MINUIT bound each time since it may
 c get over-written in FITINI_PARVAL
 
       ZMIN = PHOTOZ_BOUND(1)
-      IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-         ZMAX = Zrange_KCOR(2) + 4.0 * Zbinsize_KCOR    
-+SELF.
-      ELSE
-         ZMAX = PHOTOZ_RANGE_KCOR(2)
-      ENDIF
+      ZMAX = PHOTOZ_RANGE_KCOR(2)
       ZMAX = min ( ZMAX, PHOTOZ_BOUND(2) )
 
 c reset photoz step, unless this is a 2-band 'FITRESTMAG' fit (Nov 28, 2014)
@@ -8713,13 +8600,6 @@ c continue processing only on 1st fit iteration,
 
 c --------------------------------------------
 
-+SELF,IF=KCOR.
-      IF ( USE_KCOR_LEGACY ) THEN
-c    set default KCOR look up range to extend beyond KCOR table
-        Zrange_KCOR_LU(1) = Zrange_KCOR(1) 
-        Zrange_KCOR_LU(2) = Zrange_KCOR(2) * 1.8
-      ENDIF
-+SELF.
 
 c ----------------------------------------
 c set initial value and step size.
@@ -11508,15 +11388,8 @@ C -------------- BEGIN ---------------
             SIGMA    = 0.1
           endif
       ELSE IF ( IS_zPHOT ) THEN
-          IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-            RANGE(1) = Zrange_KCOR_LU(1)
-            RANGE(2) = Zrange_KCOR_LU(2)
-+SELF.
-          ELSE
             RANGE(1) = PHOTOZ_RANGE_KCOR(1)
             RANGE(2) = PHOTOZ_RANGE_KCOR(2)
-          ENDIF
           SIGMA    = 0.2
       ELSE
           RETURN
@@ -12202,14 +12075,7 @@ c protect against error=0
       if ( LPULL ) then
          Zpull = (ZSN - zPRIOR )/ (zPRIOR_err*PRIOR_ZERRSCALE)
       else
-         if ( USE_KCOR_LEGACY ) then
-+SELF,IF=KCOR.
-            Zdif = ZSN - Zrange_KCOR(2) 
-+SELF.
-         else
-            Zdif = ZSN - PHOTOZ_RANGE_KCOR(2) 
-         endif
-
+         Zdif = ZSN - PHOTOZ_RANGE_KCOR(2) 
          Zsig = 0.2
          if ( Zdif > 0.0 ) then
             Zpull = Zdif / Zsig  ! prior is beyond Zrange_KCOR
@@ -12409,90 +12275,6 @@ c check other variables that are not in the fit-par list
 
       RETURN
       END     ! end of INIT_PRIOR_SIMEFF
-
-
-+SELF,IF=KCOR.
-C ================================================
-+DECK,FINI_XTPAR.
-      SUBROUTINE FITINI_XTPAR(OPT)
-c
-c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-c
-c  NOVEMBER 2022: delete this function after installing KCOR REFAC
-c
-c @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-c
-c Nov 16, 2006
-c
-c Initalize host-gal extinction parameters based
-c on namelist option OPT_SNXT
-c
-c Sep 15, 2008: print Extinction/AV for each filter.
-c
-      IMPLICIT NONE
-cc +CDE,SNPAR.
-+CDE,SNDATCOM.
-+CDE,SNFITCOM.
-+CDE,XTCOM.
-+CDE,FILTCOM.
-
-      INTEGER OPT  ! (I) option flag
-
-c local var
-      INTEGER ifilt, ifilt_Rest
-
-c GET_SNXT8 args
-      REAL*8  AV8, RV8, T8, XT8(MXFILT_ALL)
-
-c functions
-      INTEGER FILTINDX
-      REAL*8  GET_SNXT8  
-
-C -------------- BEGIN -------------
-
-      CALL PRBANNER("FITINI_XTPAR: INIT HOST-GALAXY EXTINCTION")
-
-      IF ( OPT .EQ. OPT_SNXT_CCM89 ) THEN
-
-         CALL INIT_XTHOST(OPT)
-
-      ELSE IF ( OPT .EQ. OPT_SNXT_SJPAR ) THEN
-
-         print*,'  Will use approx XTMAG = ',
-     &             'zeta(t) * [ alpha + beta/RV ] * AV '
-
-         CALL RDXTPAR(FITMODEL_PATH)
-
-      ELSE
-         print*,' '
-         print*,' FITINI_XTPAR ERROR: '
-         print*,'   Unknown option OPT = ', OPT
-         print*,'  ***** ABORT ***** '
-         print*,' '
-      ENDIF
-
-
-      AV8 = 1.0
-      T8  = 0.0 
-      RV8 = INIVAL_RV
-
-      write(6,20) RESTKCOR_FILTERS(1:NFILTDEF_REST)
-
-      DO ifilt = 1, NFILTDEF_REST
-         ifilt_rest = IFILTDEF_MAP_REST(ifilt)
-         XT8(ifilt_rest) = GET_SNXT8(OPT, ifilt_rest, T8, AV8, RV8)
-         write(6,21) XT8(ifilt_rest)
-      ENDDO
-
-      write(6,22) RV8
-
-20    format(T5,'Peak XTMAG/AV(', A, ')=', $ )
-21    format(F6.3, $)
-22    format(' (RV=',F4.2,')' )
-
-      RETURN
-      END       ! end FITINI_XTPAR
-+SELF.
 
 C ===================================================
 +DECK,FITANA_CUTS.
@@ -14079,29 +13861,6 @@ c write Trest fit range relative to exact SIM_PEAKMJD
 
 c write  rest-frame peakmags
 
-+SELF,IF=KCOR.
-c put this back for refactored kcor code; redefine RESTKCOR_FILTERS
-      IF ( LREST_FITMODEL ) THEN
-
-        write(6,777) 'REST-PEAKMAGS',
-     &    RESTKCOR_FILTERS(1:NFILTDEF_REST)
-        
-        do i = 1, NFILTDEF_REST 
-          write(6,778) 
-     &    PEAKMAG_REST_MODEL(IFILTDEF_MAP_REST(i))
-        enddo
-        print*,' '
-
-        write(6,777) 'REST-PEAKERRS',
-     &    RESTKCOR_FILTERS(1:NFILTDEF_REST)
-        do i = 1, NFILTDEF_REST 
-           write(6,778) 
-     &     PEAKMAG_REST_MODEL_ERR(IFILTDEF_MAP_REST(i))
-        enddo
-        print*,' '
-
-      ENDIF
-+SELF.
 
 777   format(T4, A, '(',A,') : ',  $)
 778   format(F6.2, $ )
@@ -16015,13 +15774,7 @@ c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
 c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
-      IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-          CALL READ_CALIB_WRAPPER_LEGACY(IERR)
-+SELF.
-      ELSE
-          CALL READ_CALIB_WRAPPER(IERR)
-      ENDIF
+      CALL READ_CALIB_WRAPPER(IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
 
@@ -17096,13 +16849,7 @@ c then add it to the SURVEY_FILTERS list and call RDKCOR again.
          IFILTDEF_MAP_SURVEY(i) = IFILT_BESS_BX
          IFILTDEF_INVMAP_SURVEY(ifilt_BESS_BX) = i
 
-         if ( USE_KCOR_LEGACY ) then
-+SELF,IF=KCOR.
-             CALL READ_CALIB_WRAPPER_LEGACY(ISTAT)
-+SELF.
-         else
-             CALL READ_CALIB_WRAPPER(ISTAT)
-         endif
+         CALL READ_CALIB_WRAPPER(ISTAT)
 
          CALL CDTOPDIR_OUTPUT  ! back to topdir (to be safe)
 
@@ -17245,14 +16992,7 @@ c hard-wire primary mags from John Marriner.
         AV8 = DBLE(AVwarp)
         Z8  = Zat10pc
         DO ifilt = IFILT_BESS_U, IFILT_BESS_BX
-
-          IF ( USE_KCOR_LEGACY ) THEN 
-+SELF,IF=KCOR.
-             MAG8_TMP = GET_MAGLC8(ifilt,T8,Z8,AV8)
-+SELF.
-          ELSE
-             MAG8_TMP = EVAL_KCOR_TABLE_LCMAG(ifilt,T8,Z8,AV8)
-          ENDIF
+          MAG8_TMP = EVAL_KCOR_TABLE_LCMAG(ifilt,T8,Z8,AV8)
           MAG8_SYNBESS(ifilt) = MAG8_TMP - PEAKMAG_AT_10pc
         ENDDO
       ELSE IF ( OPT .EQ. 1 ) then
@@ -17287,15 +17027,8 @@ c hard-wire primary mags from John Marriner.
 
 c now invert to get back Bessell from Landolt.
 
-      IF ( USE_KCOR_LEGACY ) THEN
-+SELF,IF=KCOR.
-         MAG8_BX = GET_MAGLC8(ifilt_BESS_BX,T8,Z8,AV8)
-         MAG8_B  = GET_MAGLC8(ifilt_BESS_B, T8,Z8,AV8)
-+SELF.
-      ELSE
-         MAG8_BX = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_BX,T8,Z8,AV8)
-         MAG8_B  = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_B, T8,Z8,AV8)
-      ENDIF
+      MAG8_BX = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_BX,T8,Z8,AV8)
+      MAG8_B  = EVAL_KCOR_TABLE_LCMAG(ifilt_BESS_B, T8,Z8,AV8)
 
       MAG8_LAND(IFILT_BESS_BX) = MAG8_BX - MAG8_B
 

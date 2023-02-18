@@ -2173,7 +2173,11 @@ void exec_mnparm(void) {
   //Setup M0(z) paramters for Minuit
 
   M0min=-35.0;  M0max=-25.0;
-  if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 )  { M0min=-40.0;  M0max=-20.0; }
+
+  if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 )  
+    { M0min=-40.0;  M0max=-20.0; }
+  if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ) 
+    { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
 
   for (iz=0; iz<nzbin; iz++ )    {
 
@@ -2181,9 +2185,6 @@ void exec_mnparm(void) {
     iMN = i + 1 ;
 
     ISFLOAT = FITINP.ISFLOAT_z[iz] ;
-
-    if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ) 
-      { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
       
     //               val            step   min  max     boolean
     set_fitPar( i, INPUTS.M0, 0.1,   M0min,M0max,  ISFLOAT ); 
@@ -18215,6 +18216,13 @@ void prep_input_driver(void) {
 
   if ( INPUTS.GENPOLY_MUREF.ORDER >= 0 ) {
     print_GENPOLY(&INPUTS.GENPOLY_MUREF);
+    printf("\t set uM0=2 to interpolate between redshift bins.\n");
+    printf("\t disable chi2max cut.\n");
+    printf("\n"); fflush(stdout);
+
+    INPUTS.uM0 = 2;
+    INPUTS.iflag_chi2max = 0;
+    // .xyz
   }
 
 

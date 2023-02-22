@@ -21551,6 +21551,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + new input muref_zpoly to replace LCDM mu-function with
       polynominal function of z. For testing only.
 
+  sntools_host.*
+    + increase ZMAX_HOSTLIB = ZMAX_SNANA
+
   Remove all legacy KCOR code from snana.car and snlc_fit.car
 
 

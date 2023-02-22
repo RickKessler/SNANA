@@ -2802,6 +2802,15 @@ void read_gal_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
+  if ( HOSTLIB.ZMAX > ZMAX_HOSTLIB ) {
+    print_preAbort_banner(fnam);
+    sprintf(c1err,"Actual HOSTLIB zMAX=%.3f exceeds ZMAX_HOSTLIB=%.3f",
+	    HOSTLIB.ZMAX, ZMAX_HOSTLIB );
+    sprintf(c2err,"Either increase ZMAX_HOSTLIB or truncation HOSTLIB z-range.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
        
   // abort on NAN
   int NERR_NAN = HOSTLIB.NERR_NAN ;

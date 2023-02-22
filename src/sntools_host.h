@@ -2,27 +2,6 @@
   June, 2011  R.Kessler
   Separate snhost.h from the snhost.c file
 
-  Feb 5 2015: int GALID -> long long GALID
-       
-  Aug 18 2015
-    New struct HOSTLIB_ZPHOTEFF
-
-  Sep 28 2015:  increase array bounds for WFIRST studies:
-     NMAGPSF_HOSTLIB -> 8 (was 5)
-     MXVAR_HOSTLIB   -> 200 (was 100)
-
- Feb 21 2016:  MINLOGZ_HOSTLIB -> -2.3 (was -2.0)
-
- May 22 2017: NMAGPSF_HOSTLIB->9 (was 8)
-
- Dec 30 2017: MALLOCSIZE_HOSTLIB -> 40000 (was 10000)
-
- Jan 15 2018:  MINLOGZ_HOSTLIB -> -2.523 (was -2.3)
-
- May 10 2018:  extend max z from 3.16 to 4.0
-    NZPTR_HOSTLIB -> 320 (was 280)
-    MAXLOGZ_HOSTLIB -> 0.6 (was 0.3)
-
  Feb 4 2019: add DLR and d_DLR
 
  Sep 19 2019:
@@ -44,6 +23,9 @@
              100 zPHOT quantiles
 
  May 5 2022: MXCHAR_LINE_HOSTLIB->900
+
+ Feb 21 2023: increase ZMAX_HOSTLIB to be same as ZMAX_SNANA
+
 
 ==================================================== */
 
@@ -97,9 +79,12 @@
 // hard wire logarithmic z-bins
 #define DZPTR_HOSTLIB      0.01   // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
-#define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+#define MAXLOGZ_HOSTLIB    log10(ZMAX_SNANA)     // Feb 21 2023
+// xxx mark delete #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 #define ZMIN_HOSTLIB       pow(10.0,MINLOGZ_HOSTLIB)
+#define ZMAX_HOSTLIB       pow(10.0,MAXLOGZ_HOSTLIB)
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute

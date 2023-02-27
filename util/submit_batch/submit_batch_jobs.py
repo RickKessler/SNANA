@@ -17,6 +17,7 @@
 # Apr 08 2022: add --merge_force arg for sync_evt option
 # Sep 30 2022: begin new create_covmat class (stat+syst covar matrix) 
 # Oct 18 2022: rename wfit class to cosmifit (more general name)
+# Feb 27 2023: undo hack that allowed missing f90nml for makeDataFiles
 #
 # - - - - - - - - - -
 
@@ -27,12 +28,15 @@ import submit_translate as tr
 
 from   submit_params      import *
 from   submit_prog_sim    import Simulation
+from   submit_prog_lcfit  import LightCurveFit
 
-try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
-    from   submit_prog_lcfit  import LightCurveFit
-except Exception as e:
-    print(f" WARNING: could not import LightCurveFit")
-    pass
+# xxxxxxxx mark delete Feb 27 2023 xxxxxxxxx
+#try:  # hack allows missing f90nml for makeDataFiles env (Oct 2021)
+#    from   submit_prog_lcfit  import LightCurveFit
+#except Exception as e:
+#    print(f" WARNING: could not import LightCurveFit")
+#    pass
+# xxxxxxxxxxxxxx
 
 from   submit_prog_bbc      import BBC
 from   submit_prog_covmat   import create_covmat

@@ -11,6 +11,9 @@
 #                    begining of row positions and indices in comments
 #                       A. Mitra
 #
+# Mar 02 2023: if output version name exceeds MXCHAR_VERSION=72, 
+#              truncate output version name to fit in max allowed string len
+#              for snana.exe.
 #
 # =========================
 
@@ -18,11 +21,14 @@ import os, sys, argparse, subprocess, yaml, tarfile, fnmatch
 import pandas as pd
 import numpy as np
 import gzip
+
 # ----------------
 snana_program          = "snana.exe"
 combine_fitres_program = "combine_fitres.exe"
 
 LOG_FILE = "quick_command.log"
+MXCHAR_VERSION = 72 # should match same parameter in snana.car
+
 
 HELP_COMMANDS = f"""
 # translate TEXT format (from $SNDATA_ROOT/lcmerge) to FITS format
@@ -169,9 +175,9 @@ def make_ztable(args):
 def extract_text_format(args):
 
     vin     = args.version
-    vout    = f"{vin}_TEXT"
+    vout    = create_vout_string(vin,"TEXT")
     cidlist = args.cidlist_text
-
+                
     rmdir_check(vout)
         
     print(f"\n Create new data folder: {vout}")
@@ -181,6 +187,27 @@ def extract_text_format(args):
     command += arg_cidlist(cidlist)
     exec_command(command,args,0)
     # end extract_text_format
+
+def create_vout_string(vin,suffix):
+    # Created Mar 2 2023
+    # Default is that vout = [vin]_[suffix] ;
+    # however, if vout exceeds MXCHAR_VERSION length, then
+    # truncate chars from vin so that vout strlen < MXCHAR_VERSION
+
+    vout = f"{vin}_{suffix}"
+    len_vout = len(vout)
+    if len_vout > MXCHAR_VERSION:
+        nchar_remove = len_vout - MXCHAR_VERSION + 1
+        vout_orig    = vout
+        vin_truncate = vin[:-nchar_remove]
+        vout         = f"{vin_truncate}_{suffix}" 
+        print(f"\n WARNING:")
+        print(f" len({vout_orig}) = {len_vout} \n" \
+              f"\t exceeds MXCHAR_VERSION={MXCHAR_VERSION}")
+        print(f" Truncate vout -> \n\t {vout}\n")
+
+    return vout
+    # end create_vout_string
 
 def make_simlib(args):
 

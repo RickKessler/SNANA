@@ -89,75 +89,6 @@
   HISTORY
   ~~~~~~~~~~
 
- Feb 11, 2013:
-   use "#ifndef CERNLIB" to abort if using hbook format or
-   legacy key OUTFILE_GRID_HIS. This is to warn users when
-   CERNLIB flag is turned off (at some later time; not now).
-
-   Call new function set_kcorFile_format() (from kcor_ini)
-   to set format flags and to immediately abort of hbook
-   format is requested when CERNLIB flag is turned off.
-   This is to avoid waiting for the entire program to run
-   before giving a warning at the end.
-
-   In short, commenting out "#define CERNLIB" will do the following:
-   -> ABORT if  OUTFILE_GRID_HIS key is used
-   -> ABORT if  .his or .HIS extension is given to OUTFILE argument.
-
-
-  Feb 13 2013:
-    Fix bug with sizeof(pointer) in malloc_ini().
-    Bug found by Brandon P. on 64 bit machine.
-
-  Feb 19,2013: remove CERNLIB flag.
-
-  Feb 20, 2014: 
-   - remove FT_snsed
-   - fix a few compile bugs found with c++, 
-      abs -> fabs in a few places.
-
-  Mar 13 2014:
-    set PRIMARYSED[iprim].USE for SEDs that are used by
-    a filter system to avoid reading SEDs that are defined 
-    but not used. Hopefully fixes a bug found by Emille.
-
- May 26 2014: fix 666 in SN synthetic mag dump (found by Y.Kim)
-              See dlam in rd_filter() function.
-
- Nov 16 2014: new command-line arg FILTER_LAMSHIFT g 5 r 8 i 4 etc ...
-              The LAMSHIFT values can be entered via comman-line only.
-              See new functino parse_FILTER_LAMSHIFT.
-
- Apr 20 2015: allow command-line override for primary ; see new
-              function primary_override(). See udpate usage examples
-              above.
-
- Jul 2 2016: 
-   + add ENVreplace() calls to allow for ENVs in path or fileName.
-   + update IFU logic to read lambda range of spectrograph.
-     See get_FILTERtrans_spectrograph().
-
- May 2017:
-   new input option
-      DUPLICATE_LAMSHIFT_GLOBAL: 10
-   To prepare duplicate set of filters with 10 A shift.
-   Allows running filter-shift systematics with just one
-   kcor file. Each duplicate flter name has an asterisk
-   in front so that analysis code reading kcor-fits file
-   knows which filters are duplicates with lambda shift.
-
- Jun 1 2017:
-    new function parse_MAGREF() to parse mathematical function
-    with + and - signs: e.g.,   
-      FILTER: DES-g   20130322_g.dat   0.014-0.020
-    will result in AB mag of -0.006
-
-
- July 12 2017:
-    call ENVreplace for each primary SED to allow using ENV
-    in full file name.
-
- July 18 2018: call ENVreplace for SN_SED
 
  Feb 2019: 
    new OOB key to specify out-of-band transmission.
@@ -204,6 +135,8 @@
    For spectrograph, extend stored wavelength range of SEDs to that
    of spectraograph. See new function set_store_lambda_range().
    Goal is to enable simulated spectra to go beyond wave range of filters.
+
+ Mar 2 2023: abort on invalide filter char; see call to INTFILTER()
 
 ****************************************************/
 
@@ -252,6 +185,8 @@ int main(int argc, char **argv) {
   printf(" SNANA_DIR   = %s \n", getenv("SNANA_DIR") );
   printf(" SNDATA_ROOT = %s \n", PATH_SNDATA_ROOT );
   
+  set_FILTERSTRING(FILTERSTRING); // Mar 2023
+
   // -----------------------------------------
 
   // read survey name <-> integer map (Nov 2020)
@@ -1043,17 +978,28 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
   //
   // Motivation: allows easier adjusting ref mags in kcor-input file.
   //
+  // Mar 2 2023: abort if FILTNAME is not valid
 
-  int LENTXT = strlen(TXT_MAGREF);
-  int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR ;
+  int LENTXT  = strlen(TXT_MAGREF);
+  int LENFILT = strlen(FILTNAME);
+  int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR, IFILTDEF ;
   double MAGREF_LOCAL, TMPNUM, XSIGN ;
   char   c1[2], cnum[40] ;
-  //  char fnam[] = "parse_MAGREF" ;
+  char fnam[] = "parse_MAGREF" ;
 
   // ------------- BEGIN ---------------
 
   MAGREF_LOCAL = 0.0 ;
   XSIGN = +1.0 ;  cnum[0] = 0;
+
+  //  Mar 2023: check for valid filter char at end of FILTNAME
+  IFILTDEF = INTFILTER(FILTNAME);
+  if ( IFILTDEF <= 0 ) {
+    sprintf(c1err, "last filter char of '%s' is invalid", FILTNAME);
+    sprintf(c2err, "Check valid chars with "
+	    "'grep FILTERSTRING_DEFAULT sntools.h'");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   for(i=0; i < LENTXT; i++ ) {
     sprintf(c1,"%c", TXT_MAGREF[i] );
@@ -3022,6 +2968,7 @@ int rd_primary ( int INDX, char *subdir ) {
                 to store primary SED out to max of filter or spectrograph.
 
    Nov 8 2022: skip comment lines in SED-primary file
+
 
   ****************/
 

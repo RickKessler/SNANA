@@ -136,7 +136,7 @@ c
      &  ,MXVAR_TERSE   = 30       ! max number of text-data  columms
      &  ,MXBIT_PHOTFLAG = 30      ! max number of PHOTFLAG bits
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
-     &  ,MXFILT_OBS  = 62    ! max number of used observer filters
+     &  ,MXFILT_OBS  = 80    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
      &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
@@ -2219,10 +2219,10 @@ c original FILTDEF characters so that we can still use older Kcor files.
 c
       CHARACTER FILTDEF_STRING*100
       PARAMETER (FILTDEF_STRING = 
-     &  'ugrizYJHK UBVRIXy0123456789 abcdef ' //  !  32
-     &  'ACDEFGLMNOPQSTWZ ' //                    ! +16
-     &  'hjklmnopqstvwx '   //                    ! +14 = 62
-     &  '&'                             ! +1(autoSynFilter for spectrograph)
+     &  "ugrizYJHK UBVRIXy0123456789 abcdef " //  !  32
+     &  "ACDEFGLMNOPQSTWZ " //                    ! +16
+     &  "hjklmnopqstvwx "   //                    ! +14 = 62
+     &  "~!@#$%^&*()-_=+[]{}<>,|;`'"
      &         )
 
       CHARACTER

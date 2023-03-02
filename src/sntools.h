@@ -178,7 +178,7 @@
 
 // keep this in sync with the fortran FILTDEF_STRING
 // Oct 22 2015: add 27 special chars to hack an IFU
-#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx &"
+#define FILTERSTRING_DEFAULT  " ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx ~!@#$%^&*()-_=+[]{}<>,|;`'"
 
 // [moved from sntools_kcor.h on Nov 17 2022]
 #define MASK_FRAME_REST 1

@@ -90,9 +90,12 @@ TOPDIR_DATA = SNDATA_ROOT + '/lcmerge'
 SUBDIR_DUPLICATES = "DUPLICATES"
 
 # define list of new characters for combined data
-FILTER_CHARLIST = 'abcdefghijklmnopqrstuvwxyz' + \
-                  'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + \
-                  '0123456789'
+FILTER_CHARLIST = "abcdefghijklmnopqrstuvwxyz" + \
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + \
+                  "0123456789" + \
+                  "~!@#$%^&*()-_=+[]{}<>,|;`'"  # Mar 2023
+
+NMAX_FILTER_CHARLIST = len(FILTER_CHARLIST);
 
 # keys read from input file
 KEYNAME_VERSION        = "VERSION_LIST"     # for input data versions
@@ -201,6 +204,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
 
     # - - - - - 
     s = -1 
+
     for survey, filter_list, repeat_filt, repeat_survey in \
         zip(kcorInfo.SURVEY_LIST,
             kcorInfo.FILTER_LIST, 
@@ -225,7 +229,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
                 continue
 
             if new :
-                if CHANGE_FILTER_CHAR:
+                if CHANGE_FILTER_CHAR and N < NMAX_FILTER_CHARLIST:
                     filter_newChar = FILTER_CHARLIST[N]  # new char for filter
                 else:
                     filter_newChar = filter_oldChar
@@ -254,7 +258,7 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
         # - - - - - - - - 
         # if NEW filter list isn't set, search previous kcorInfo lists
         if len(kcorInfo.FILTER_CHARLIST_NEW) == 0:
-            OLD = kcorInfo.FILTER_CHARLIST_OLD  # OLD means original name            
+            OLD = kcorInfo.FILTER_CHARLIST_OLD  # OLD means original name 
             for kk in range(0,k):
                 old_kk = kcorInfo_list[kk].FILTER_CHARLIST_OLD
                 if old_kk == OLD :
@@ -270,6 +274,13 @@ def change_filterChar(versionInfo, kcorInfo_list, k ):
         
         print(f"    {survey:<28.28} bands: {tmp}   (new={new})")        
         sys.stdout.flush() 
+
+    # - - - - - - - -
+    NFTOT = versionInfo.NFILTER_TOT
+    if NFTOT >= NMAX_FILTER_CHARLIST :
+        msg = f"\nFATAL ERROR: NFILTER={NFTOT} exceeds \n" \
+              f"\t NMAX_FILTER_CHARLIST = {NMAX_FILTER_CHARLIST}"
+        sys.exit(msg)
 
     #sys.exit("\n xxx DEBUG EXIT xxx \n")
     return
@@ -303,6 +314,8 @@ def write_kcor_inputFile(versionInfo, kcorInfo_list):
     # check all kcor files for primary(s)
     USE_BD17 = False ; USE_AB = False
     n_prim = 0
+    Lmin = 9999999.0
+    Lmax = 0.0
     for kcorInfo in kcorInfo_list :
         if ( len(kcorInfo.BD17_SED) > 0 and  not USE_BD17 ) :
             f.write(f"BD17_SED:     {kcorInfo.BD17_SED}\n")
@@ -314,10 +327,13 @@ def write_kcor_inputFile(versionInfo, kcorInfo_list):
             USE_AB = True
             n_prim += 1
 
+        L0 = float(kcorInfo.LAMRANGE[0])
+        L1 = float(kcorInfo.LAMRANGE[1])
+        if Lmin > L0 : Lmin = L0
+        if Lmax < L1 : Lmax = L1
+
     # - - - - -
-    L0 = kcorInfo_list[0].LAMRANGE[0]
-    L1 = kcorInfo_list[0].LAMRANGE[1] 
-    f.write(f"LAMBDA_RANGE: {L0} {L1} \n" )
+    f.write(f"LAMBDA_RANGE: {Lmin} {Lmax} \n" )
 
     
     # - - - - -
@@ -489,13 +505,6 @@ class VERSION_INFO:
         self.AUXFILE_README     = SOUT + '_TEXT.README'
         self.AUXFILE_IGNORE     = SOUT + '_TEXT.IGNORE'
         self.AUXFILE_LIST       = SOUT + '_TEXT.LIST'
-
-        
-        # xxxx mark delete Oct 11 2022 
-        #self.kcor_inFile  = 'kcor_' + SOUT + '.input'
-        #self.kcor_outFile = 'kcor_' + SOUT + '.fits'
-        #self.kcor_logFile = 'kcor_' + SOUT + '.log'
-        # xxxxxxxxx
 
         # Oct 1 2022 RK - use more sensible prefix
         self.kcor_inFile  = 'calib_' + SOUT + '.input'

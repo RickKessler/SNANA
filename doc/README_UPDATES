@@ -21534,9 +21534,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
         ***** USEFUL(v11_05c) ***** 
  
-    Add these goofy filters ~!@#$%^&*()-_=+[]{}<>,|";`
-    to handle most of Pantheon+ with combine_dataVersions.py
-
         ***** MISCELLANEOUS(v11_05c) ***** 
 
    sntools.c:

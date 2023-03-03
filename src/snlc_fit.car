@@ -8850,8 +8850,6 @@ c loop over redshift, color, stretch to estimate INIVAL
       NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1
       ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
 
-      print*,' xxx ZMIN/MAX NZBIN = ', ZMIN, ZMAX, NZBIN
-
       CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
      &                 NCBIN,CBIN,CMIN,CMAX)  ! output
       CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER, 

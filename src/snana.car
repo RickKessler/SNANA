@@ -136,7 +136,7 @@ c
      &  ,MXVAR_TERSE   = 30       ! max number of text-data  columms
      &  ,MXBIT_PHOTFLAG = 30      ! max number of PHOTFLAG bits
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
-     &  ,MXFILT_OBS  = 80    ! max number of used observer filters
+     &  ,MXFILT_OBS  = 90    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
      &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
@@ -2221,8 +2221,8 @@ c
       PARAMETER (FILTDEF_STRING = 
      &  "ugrizYJHK UBVRIXy0123456789 abcdef " //  !  32
      &  "ACDEFGLMNOPQSTWZ " //                    ! +16
-     &  "hjklmnopqstvwx "   //                    ! +14 = 62
-     &  "~!@#$%^&*()-_=+[]{}<>,|;`'"
+     &  "hjklmnopqstvwx "                         ! +14 = 62
+cc     &  "~!@#$%^&*()-_=+[]{}<>,|;`'"  ! doesn't work for m0obs_[band] in tables 
      &         )
 
       CHARACTER
@@ -2256,7 +2256,7 @@ c Each set goes 1 - NFILTDEF_[SURVEY,REST]
      &   NFILTDEF_SURVEY          ! no. survey (obs) filters
      &  ,NFILTDEF_READ            ! no. filters to read (excludes BX)
      &  ,NFILTDEF_OBS        ! actual NFILTDEF from kcor file; should = NFILTDEF_SURVEY
-     &  ,IFILTDEF_MAP_SURVEY(MXFILT_OBS)  ! IFILT_OBS vs. sparse filter index
+     &  ,IFILTDEF_MAP_SURVEY(MXFILT_OBS)     ! IFILT_OBS vs. sparse filter index
      &  ,IFILTDEF_INVMAP_SURVEY(MXFILT_ALL) ! sparse index vs. IFILT_OBS
 c
      &  ,NFILTDEF_REST                 ! no. rest-filts defined in Kcor file
@@ -2446,7 +2446,7 @@ c define arrays used in fit.
 
       PARAMETER ( 
      &   MXFITPAR    =  12    ! max number of fit parameters
-     &  ,MXFITSTORE  =  500   ! max number of storage params 
+     &  ,MXFITSTORE  =  800   ! max number of storage params 
      &     )
 
       INTEGER 

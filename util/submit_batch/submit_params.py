@@ -661,15 +661,17 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # input Instrument and MagSys (aka SALTPATH)
   PATH_INPUT_CALIB: [path]
 
-  # TRAINOPT args specify calibration systematics per band or group of bands.
-  # An independent training is done for each TRAINOPT argument.
+  # The nominal training with salt-input files is output as TRAINOPT000.
+  # For additional trainings with variations (e.g, calibration shifts,
+  # training options), use the TRAINOPT key as illustrated by the example
+  # below that produces TRAINOPT001 thru TRAINOPT007.  Remove TRAINOPT key
+  # to produce only TRAINOP000.
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
   # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
   # for a random calibration offset in every band.
-  # PATH_INPUT_CALIB key specifies a different calibration directory.
 
   TRAINOPT: # survey  band shift
   - MAGSHIFT  SDSS  g 0.01
@@ -709,15 +711,17 @@ HELP_CONFIG_TRAIN_SALT3 = f"""
   TRAINOPT_GLOBAL: --resume_from_outputdir $SNTRAIN_ROOT/SALT3/SALT3.K21
 
 
-  # TRAINOPT args specify calibration systematics per band or group of bands.
-  # An independent training is done for each TRAINOPT argument.
+  # The nominal training with salt-input files is output as TRAINOPT000.
+  # For additional trainings with variations (e.g, calibration shifts, 
+  # training options), use the TRAINOPT key as illustrated by the example
+  # below that produces TRAINOPT001 thru TRAINOPT006.  Remove TRAINOPT key 
+  # to produce only TRAINOP000.                          
   # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
   # keys; <CR> are stripped so that contents can be distributed among
   # multiple lines for human readability. The explicit MAGSHIFT and
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
-  # for a random calibration offset in every band.
-  # PATH_INPUT_CALIB key specifies a different calibration directory.
+  # for a random/correlated calibration offset in every band.
 
   TRAINOPT:
   - MAGSHIFT  SDSS  g 0.01

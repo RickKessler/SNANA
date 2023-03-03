@@ -6,6 +6,8 @@
 #
 #  Default memory -> 4GB (was 2GB)
 #
+#  Mar 3 2023: improve -H TRAIN_SALT2/3
+#
 # ==============================================
 
 import os

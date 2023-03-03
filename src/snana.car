@@ -136,7 +136,7 @@ c
      &  ,MXVAR_TERSE   = 30       ! max number of text-data  columms
      &  ,MXBIT_PHOTFLAG = 30      ! max number of PHOTFLAG bits
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
-     &  ,MXFILT_OBS  = 90    ! max number of used observer filters
+     &  ,MXFILT_OBS  = 80    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
      &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
